@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StandaloneRendererPrivate.h"
+#include "StandaloneRenderer.h"
+#include "Misc/CommandLine.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Styling/CoreStyle.h"
+#include "StandaloneRendererLog.h"
 
 #if PLATFORM_WINDOWS
 #include "Windows/D3D/SlateD3DRenderer.h"
 #endif
 
+#include "Rendering/SlateRenderer.h"
 #include "OpenGL/SlateOpenGLRenderer.h"
 
 DEFINE_LOG_CATEGORY(LogStandaloneRenderer);

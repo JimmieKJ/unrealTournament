@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
 #include "BoolKeyArea.h"
-#include "SBoolCurveKeyEditor.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "CurveKeyEditors/SBoolCurveKeyEditor.h"
 
 
 /* IKeyArea interface
@@ -20,14 +20,11 @@ TSharedRef<SWidget> FBoolKeyArea::CreateKeyEditor(ISequencer* Sequencer)
 		.Sequencer(Sequencer)
 		.OwningSection(OwningSection)
 		.Curve(&Curve)
-		.OnValueChanged(this, &FBoolKeyArea::OnValueChanged)
-		.IntermediateValue_Lambda([this] {
-			return IntermediateValue;
-		});
+		.ExternalValue(ExternalValue);
 };
 
-void FBoolKeyArea::OnValueChanged(bool InValue)
+bool FBoolKeyArea::ConvertCurveValueToIntegralType(int32 CurveValue) const
 {
-	ClearIntermediateValue();
+	return CurveValue != 0;
 }
 

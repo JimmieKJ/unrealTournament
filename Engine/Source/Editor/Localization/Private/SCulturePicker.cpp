@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationPrivatePCH.h"
 #include "SCulturePicker.h"
-#include "STableRow.h"
-#include "SSearchBox.h"
+#include "Internationalization/Culture.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "CulturePicker"
 

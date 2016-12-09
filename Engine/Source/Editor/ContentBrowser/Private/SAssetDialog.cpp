@@ -1,7 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ContentBrowserPCH.h"
 #include "SAssetDialog.h"
+#include "Misc/MessageDialog.h"
+#include "Widgets/SBoxPanel.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "EditorStyleSet.h"
+#include "AssetRegistryModule.h"
+#include "ContentBrowserSingleton.h"
+#include "ContentBrowserUtils.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 

@@ -1,21 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "WidgetComponent.h"
-#include "HittestGrid.h"
-#if !UE_SERVER
-	#include "ISlateRHIRendererModule.h"
-	#include "ISlate3DRenderer.h"
-#endif // !UE_SERVER
+#include "Components/WidgetComponent.h"
+#include "PrimitiveViewRelevance.h"
+#include "PrimitiveSceneProxy.h"
+#include "UObject/ConstructorHelpers.h"
+#include "EngineGlobals.h"
+#include "MaterialShared.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Engine/Engine.h"
+#include "Widgets/SWindow.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Input/HittestGrid.h"
+#include "SceneManagement.h"
 #include "DynamicMeshBuilder.h"
-#include "Scalability.h"
-#include "WidgetLayoutLibrary.h"
+#include "PhysicsEngine/BoxElem.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "SGameLayerManager.h"
+#include "Slate/SGameLayerManager.h"
 #include "Slate/WidgetRenderer.h"
 #include "Slate/SWorldWidgetScreenLayer.h"
-#include "Widgets/LayerManager/STooltipPresenter.h"
-#include "Widgets/Layout/SPopup.h"
 
 DECLARE_CYCLE_STAT(TEXT("3DHitTesting"), STAT_Slate3DHitTesting, STATGROUP_Slate);
 
@@ -105,7 +108,6 @@ public:
 		, MaterialInstance( InComponent->GetMaterialInstance() )
 		, BodySetup( InComponent->GetBodySetup() )
 		, BlendMode( InComponent->GetBlendMode() )
-		, bUseLegacyRotation( InComponent->IsUsingLegacyRotation() )
 	{
 		bWillEverBeLit = false;
 
@@ -158,20 +160,10 @@ public:
 
 					if ( VisibilityMap & ( 1 << ViewIndex ) )
 					{
-						if( bUseLegacyRotation )
-						{
-							VertexIndices[0] = MeshBuilder.AddVertex(FVector(U, V, 0), FVector2D(0, 0), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
-							VertexIndices[1] = MeshBuilder.AddVertex(FVector(U, VL, 0), FVector2D(0, 1), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
-							VertexIndices[2] = MeshBuilder.AddVertex(FVector(UL, VL, 0), FVector2D(1, 1), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
-							VertexIndices[3] = MeshBuilder.AddVertex(FVector(UL, V, 0), FVector2D(1, 0), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
-						}
-						else
-						{
-							VertexIndices[0] = MeshBuilder.AddVertex(-FVector(0, U, V), FVector2D(0, 0), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
-							VertexIndices[1] = MeshBuilder.AddVertex(-FVector(0, U, VL), FVector2D(0, 1), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
-							VertexIndices[2] = MeshBuilder.AddVertex(-FVector(0, UL, VL), FVector2D(1, 1), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
-							VertexIndices[3] = MeshBuilder.AddVertex(-FVector(0, UL, V), FVector2D(1, 0), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
-						}
+						VertexIndices[0] = MeshBuilder.AddVertex(-FVector(0, U, V), FVector2D(0, 0), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
+						VertexIndices[1] = MeshBuilder.AddVertex(-FVector(0, U, VL), FVector2D(0, 1), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
+						VertexIndices[2] = MeshBuilder.AddVertex(-FVector(0, UL, VL), FVector2D(1, 1), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
+						VertexIndices[3] = MeshBuilder.AddVertex(-FVector(0, UL, V), FVector2D(1, 0), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
 
 						MeshBuilder.AddTriangle(VertexIndices[0], VertexIndices[1], VertexIndices[2]);
 						MeshBuilder.AddTriangle(VertexIndices[0], VertexIndices[2], VertexIndices[3]);
@@ -249,7 +241,7 @@ public:
 
 		MaterialRelevance.SetPrimitiveViewRelevance(Result);
 
-		Result.bDrawRelevance = IsShown(View) && bVisible;
+		Result.bDrawRelevance = IsShown(View) && bVisible && View->Family->EngineShowFlags.WidgetComponents;
 		Result.bDynamicRelevance = true;
 		Result.bShadowRelevance = IsShadowCast(View);
 		Result.bEditorPrimitiveRelevance = false;
@@ -270,6 +262,11 @@ public:
 		Origin = GetLocalToWorld().GetOrigin();
 	}
 
+	virtual bool CanBeOccluded() const override
+	{
+		return !MaterialRelevance.bDisableDepthTest;
+	}
+
 	virtual uint32 GetMemoryFootprint(void) const override { return(sizeof(*this) + GetAllocatedSize()); }
 
 	uint32 GetAllocatedSize(void) const { return( FPrimitiveSceneProxy::GetAllocatedSize() ); }
@@ -283,7 +280,6 @@ private:
 	FMaterialRelevance MaterialRelevance;
 	UBodySetup* BodySetup;
 	EWidgetBlendMode BlendMode;
-	bool bUseLegacyRotation;
 };
 
 
@@ -303,9 +299,7 @@ UWidgetComponent::UWidgetComponent( const FObjectInitializer& PCIP )
 	, TintColorAndOpacity( FLinearColor::White )
 	, OpacityFromTexture( 1.0f )
 	, BlendMode( EWidgetBlendMode::Masked )
-	, bIsOpaque_DEPRECATED( false )
 	, bIsTwoSided( false )
-	, ParabolaDistortion( 0 )
 	, TickWhenOffscreen( false )
 	, SharedLayerName(TEXT("WidgetComponentScreenLayer"))
 	, LayerZOrder(-100)
@@ -339,15 +333,10 @@ UWidgetComponent::UWidgetComponent( const FObjectInitializer& PCIP )
 	//bGenerateOverlapEvents = false;
 	bUseEditorCompositing = false;
 
-	bUseLegacyRotation = false;
-
 	Space = EWidgetSpace::World;
 	Pivot = FVector2D(0.5, 0.5);
 
 	bAddedToScreen = false;
-
-	// We want this because we want EndPlay to be called!
-	bWantsBeginPlay = true;
 }
 
 void UWidgetComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -388,25 +377,19 @@ FBoxSphereBounds UWidgetComponent::CalcBounds(const FTransform & LocalToWorld) c
 {
 	if ( Space != EWidgetSpace::Screen )
 	{
-		if( bUseLegacyRotation )
-		{
-			const FVector Origin = FVector(
-			( DrawSize.X * 0.5f ) - ( DrawSize.X * Pivot.X ),
-			( DrawSize.Y * 0.5f ) - ( DrawSize.Y * Pivot.Y ), .5f);
-			const FVector BoxExtent = FVector(DrawSize.X / 2.0f, DrawSize.Y / 2.0f, 1.0f);
-
-			return FBoxSphereBounds(Origin, BoxExtent, DrawSize.Size() / 2.0f).TransformBy(LocalToWorld);
-		}
-		else
-		{
-			const FVector Origin = FVector(.5f,
+		const FVector Origin = FVector(.5f,
 			-( DrawSize.X * 0.5f ) + ( DrawSize.X * Pivot.X ),
 			-( DrawSize.Y * 0.5f ) + ( DrawSize.Y * Pivot.Y ));
 
-			const FVector BoxExtent = FVector(1.f, DrawSize.X / 2.0f, DrawSize.Y / 2.0f);
+		const FVector BoxExtent = FVector(1.f, DrawSize.X / 2.0f, DrawSize.Y / 2.0f);
 
-			return FBoxSphereBounds(Origin, BoxExtent, DrawSize.Size() / 2.0f).TransformBy(LocalToWorld);
-		}
+		FBoxSphereBounds NewBounds(Origin, BoxExtent, DrawSize.Size() / 2.0f);
+		NewBounds = NewBounds.TransformBy(LocalToWorld);
+
+		NewBounds.BoxExtent *= BoundsScale;
+		NewBounds.SphereRadius *= BoundsScale;
+
+		return NewBounds;
 	}
 	else
 	{
@@ -424,16 +407,7 @@ FCollisionShape UWidgetComponent::GetCollisionShape(float Inflation) const
 {
 	if ( Space != EWidgetSpace::Screen )
 	{
-		FVector BoxHalfExtent;
-
-		if( bUseLegacyRotation )
-		{
-			BoxHalfExtent = ( FVector(DrawSize.X * 0.5f, DrawSize.Y * 0.5f, 0.01f) * ComponentToWorld.GetScale3D() ) + Inflation;
-		}
-		else
-		{
-			BoxHalfExtent = ( FVector(0.01f, DrawSize.X * 0.5f, DrawSize.Y * 0.5f) * ComponentToWorld.GetScale3D() ) + Inflation;
-		}
+		FVector BoxHalfExtent = ( FVector(0.01f, DrawSize.X * 0.5f, DrawSize.Y * 0.5f) * ComponentToWorld.GetScale3D() ) + Inflation;
 
 		if ( Inflation < 0.0f )
 		{
@@ -528,7 +502,7 @@ void UWidgetComponent::UnregisterWindow()
 	}
 }
 
-void UWidgetComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+void UWidgetComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
@@ -634,7 +608,8 @@ void UWidgetComponent::DrawWidgetToRenderTarget(float DeltaTime)
 		return;
 	}
 
-	if ( DrawSize.X == 0 || DrawSize.Y == 0 )
+	const int32 MaxAllowedDrawSize = GetMax2DTextureDimension();
+	if ( DrawSize.X <= 0 || DrawSize.Y <= 0 || DrawSize.X > MaxAllowedDrawSize || DrawSize.Y > MaxAllowedDrawSize )
 	{
 		return;
 	}
@@ -966,7 +941,10 @@ void UWidgetComponent::UpdateRenderTarget(FIntPoint DesiredRenderTargetSize)
 
 			RenderTarget->InitCustomFormat(DesiredRenderTargetSize.X, DesiredRenderTargetSize.Y, PF_B8G8R8A8, false);
 
-			MaterialInstance->SetTextureParameterValue("SlateUI", RenderTarget);
+			if ( MaterialInstance )
+			{
+				MaterialInstance->SetTextureParameterValue("SlateUI", RenderTarget);
+			}
 		}
 		else
 		{
@@ -995,17 +973,9 @@ void UWidgetComponent::UpdateRenderTarget(FIntPoint DesiredRenderTargetSize)
 	if ( RenderTarget )
 	{
 		// If the clear color of the render target changed, update the BackColor of the material to match
-		if ( bClearColorChanged )
+		if ( bClearColorChanged && MaterialInstance )
 		{
 			MaterialInstance->SetVectorParameterValue("BackColor", RenderTarget->ClearColor);
-		}
-
-		static FName ParabolaDistortionName(TEXT("ParabolaDistortion"));
-
-		float CurrentParabolaValue;
-		if ( MaterialInstance->GetScalarParameterValue(ParabolaDistortionName, CurrentParabolaValue) && CurrentParabolaValue != ParabolaDistortion )
-		{
-			MaterialInstance->SetScalarParameterValue(ParabolaDistortionName, ParabolaDistortion);
 		}
 
 		if ( bWidgetRenderStateDirty )
@@ -1019,7 +989,7 @@ void UWidgetComponent::UpdateBodySetup( bool bDrawSizeChanged )
 {
 	if (Space == EWidgetSpace::Screen)
 	{
-		// We do not have a bodysetup in screen space
+		// We do not have a body setup in screen space
 		BodySetup = nullptr;
 	}
 	else if ( !BodySetup || bDrawSizeChanged )
@@ -1030,27 +1000,13 @@ void UWidgetComponent::UpdateBodySetup( bool bDrawSizeChanged )
 
 		FKBoxElem* BoxElem = BodySetup->AggGeom.BoxElems.GetData();
 
-		FVector Origin;
-		if( bUseLegacyRotation )
-		{
-			Origin = FVector(
-				( DrawSize.X * 0.5f ) - ( DrawSize.X * Pivot.X ),
-				( DrawSize.Y * 0.5f ) - ( DrawSize.Y * Pivot.Y ), .5f);
-
-			BoxElem->X = DrawSize.X;
-			BoxElem->Y = DrawSize.Y;
-			BoxElem->Z = 0.01f;
-		}
-		else
-		{
-			Origin = FVector(.5f,
-				-( DrawSize.X * 0.5f ) + ( DrawSize.X * Pivot.X ),
-				-( DrawSize.Y * 0.5f ) + ( DrawSize.Y * Pivot.Y ));
+		FVector Origin = FVector(.5f,
+			-( DrawSize.X * 0.5f ) + ( DrawSize.X * Pivot.X ),
+			-( DrawSize.Y * 0.5f ) + ( DrawSize.Y * Pivot.Y ));
 			
-			BoxElem->X = 0.01f;
-			BoxElem->Y = DrawSize.X;
-			BoxElem->Z = DrawSize.Y;
-		}
+		BoxElem->X = 0.01f;
+		BoxElem->Y = DrawSize.X;
+		BoxElem->Z = DrawSize.Y;
 
 		BoxElem->SetTransform(FTransform::Identity);
 		BoxElem->Center = Origin;
@@ -1063,14 +1019,7 @@ void UWidgetComponent::GetLocalHitLocation(FVector WorldHitLocation, FVector2D& 
 	FVector ComponentHitLocation = ComponentToWorld.InverseTransformPosition(WorldHitLocation);
 
 	// Convert the 3D position of component space, into the 2D equivalent
-	if ( bUseLegacyRotation )
-	{
-		OutLocalWidgetHitLocation = FVector2D(ComponentHitLocation.X, ComponentHitLocation.Y);
-	}
-	else
-	{
-		OutLocalWidgetHitLocation = FVector2D(-ComponentHitLocation.Y, -ComponentHitLocation.Z);
-	}
+	OutLocalWidgetHitLocation = FVector2D(-ComponentHitLocation.Y, -ComponentHitLocation.Z);
 
 	// Offset the position by the pivot to get the position in widget space.
 	OutLocalWidgetHitLocation.X += CurrentDrawSize.X * Pivot.X;
@@ -1078,7 +1027,6 @@ void UWidgetComponent::GetLocalHitLocation(FVector WorldHitLocation, FVector2D& 
 
 	// Apply the parabola distortion
 	FVector2D NormalizedLocation = OutLocalWidgetHitLocation / CurrentDrawSize;
-	NormalizedLocation.Y += ParabolaDistortion * ( -2.0f * NormalizedLocation.Y + 1.0f ) * NormalizedLocation.X * ( NormalizedLocation.X - 1.0f );
 
 	OutLocalWidgetHitLocation.Y = CurrentDrawSize.Y * NormalizedLocation.Y;
 }
@@ -1217,27 +1165,6 @@ TSharedPtr< SWindow > UWidgetComponent::GetVirtualWindow() const
 void UWidgetComponent::PostLoad()
 {
 	Super::PostLoad();
-
-	if ( GetLinkerUE4Version() < VER_UE4_ADD_PIVOT_TO_WIDGET_COMPONENT )
-	{
-		Pivot = FVector2D(0, 0);
-	}
-
-	if ( GetLinkerUE4Version() < VER_UE4_ADD_BLEND_MODE_TO_WIDGET_COMPONENT )
-	{
-		BlendMode = bIsOpaque_DEPRECATED ? EWidgetBlendMode::Opaque : EWidgetBlendMode::Transparent;
-	}
-
-	if( GetLinkerUE4Version() < VER_UE4_FIXED_DEFAULT_ORIENTATION_OF_WIDGET_COMPONENT )
-	{	
-		// This indicates the value does not differ from the default.  In some rare cases this could cause incorrect rotation for anyone who directly set a value of 0,0,0 for rotation
-		// However due to delta serialization we have no way to know if this value is actually different from the default so assume it is not.
-		if( RelativeRotation == FRotator::ZeroRotator )
-		{
-			RelativeRotation = FRotator(0.f, 0.f, 90.f);
-		}
-		bUseLegacyRotation = true;
-	}
 }
 
 UMaterialInterface* UWidgetComponent::GetMaterial(int32 MaterialIndex) const

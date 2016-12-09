@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/Array.h"
 
 /**
  * Growable compressed buffer. Usage is to append frequently but only request and therefore decompress

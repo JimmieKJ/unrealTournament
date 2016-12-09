@@ -2,9 +2,17 @@
 
 #pragma once
 
-#include "PropertyEditing.h"
-#include "PropertyCustomizationHelpers.h"
-#include "BehaviorDecoratorDetails.h"
+#include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Layout/Visibility.h"
+#include "IDetailCustomization.h"
+#include "DetailCustomizations/BehaviorDecoratorDetails.h"
+
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class SWidget;
+class UBlackboardData;
 
 class FBlackboardDecoratorDetails : public FBehaviorDecoratorDetails
 {

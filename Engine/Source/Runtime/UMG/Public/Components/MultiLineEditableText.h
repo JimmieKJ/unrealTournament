@@ -2,8 +2,15 @@
 
 #pragma once
 
-#include "TextWidgetTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SWidget.h"
+#include "Components/TextWidgetTypes.h"
 #include "MultiLineEditableText.generated.h"
+
+class SMultiLineEditableText;
 
 /**
  * Editable text box widget

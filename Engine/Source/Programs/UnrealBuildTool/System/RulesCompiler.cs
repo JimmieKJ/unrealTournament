@@ -139,11 +139,6 @@ namespace UnrealBuildTool
 			CPlusPlus,
 
 			/// <summary>
-			/// CLR module (mixed C++ and C++/CLI)
-			/// </summary>
-			CPlusPlusCLR,
-
-			/// <summary>
 			/// External (third-party)
 			/// </summary>
 			External,
@@ -198,7 +193,12 @@ namespace UnrealBuildTool
 			/// <summary>
 			/// Shared PCHs are OK!
 			/// </summary>
-			UseSharedPCHs
+			UseSharedPCHs,
+
+			/// <summary>
+			/// Shared PCHs may be used if an explicit private PCH is not set through PrivatePCHHeaderFile. In either case, none of the source files manually include a module PCH, and should include a matching header instead.
+			/// </summary>
+			UseExplicitOrSharedPCHs,
 		}
 
 		/// <summary>
@@ -249,10 +249,15 @@ namespace UnrealBuildTool
 		public CodeOptimization OptimizeCode = CodeOptimization.Default;
 
 		/// <summary>
+		/// Explicit private PCH for this module. Implies that this module will not use a shared PCH.
+		/// </summary>
+		public string PrivatePCHHeaderFile;
+
+		/// <summary>
 		/// Header file name for a shared PCH provided by this module.  Must be a valid relative path to a public C++ header file.
 		/// This should only be set for header files that are included by a significant number of other C++ modules.
 		/// </summary>
-		public string SharedPCHHeaderFile = String.Empty;
+		public string SharedPCHHeaderFile;
 
 		/// <summary>
 		/// Precompiled header usage for this module
@@ -611,12 +616,6 @@ namespace UnrealBuildTool
 		public bool bUsesSlate = true;
 
 		/// <summary>
-		/// Hack for legacy game styling isses.  No new project should ever set this to true
-		/// Whether the project uses the Slate editor style in game.  
-		/// </summary>
-		public bool bUsesSlateEditorStyle = false;
-
-		/// <summary>
 		/// Forces linking against the static CRT. This is not supported across the engine due to the need for allocator implementations to be shared (for example), and TPS 
 		/// libraries to be consistent with each other, but can be used for utility programs.
 		/// </summary>
@@ -909,303 +908,6 @@ namespace UnrealBuildTool
 		[Obsolete("GetModulesToPrecompile() is deprecated in the 4.11 release. The -precompile option to UBT now automatically compiles all engine modules compatible with the current target.")]
 		public virtual void GetModulesToPrecompile(TargetInfo Target, List<string> ModuleNames)
 		{
-		}
-
-		/// <summary>
-		/// Return true if this target should always be built with the base editor. Usually programs like shadercompilerworker.
-		/// </summary>
-		/// <returns>true if this target should always be built with the base editor.</returns>
-		public virtual bool GUBP_AlwaysBuildWithBaseEditor()
-		{
-			return false;
-		}
-		/// <summary>
-		/// Return true if this target should always be built with the tools. Usually programs like unrealpak.
-		/// <param name="SeparateNode">If this is set to true, the program will get its own node</param>
-		/// </summary>
-		/// <returns>true if this target should always be built with the base editor.</returns>
-		[Obsolete]
-		public virtual bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode)
-		{
-			bInternalToolOnly = false;
-			SeparateNode = false;
-			return false;
-		}
-		/// <summary>
-		/// Return true if this target should always be built with the tools. Usually programs like unrealpak.
-		/// <param name="SeparateNode">If this is set to true, the program will get its own node</param>
-		/// </summary>
-		/// <returns>true if this target should always be built with the base editor.</returns>        
-		public virtual bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
-		{
-			bInternalToolOnly = false;
-			SeparateNode = false;
-			CrossCompile = false;
-			return false;
-		}
-		/// <summary>
-		/// Return a list of platforms to build a tool for
-		/// </summary>
-		/// <returns>a list of platforms to build a tool for</returns>
-		public virtual List<UnrealTargetPlatform> GUBP_ToolPlatforms(UnrealTargetPlatform InHostPlatform)
-		{
-			return new List<UnrealTargetPlatform> { InHostPlatform };
-		}
-		/// <summary>
-		/// Return a list of configs to build a tool for
-		/// </summary>
-		/// <returns>a list of configs to build a tool for</returns>
-		public virtual List<UnrealTargetConfiguration> GUBP_ToolConfigs(UnrealTargetPlatform InHostPlatform)
-		{
-			return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Development };
-		}
-		/// <summary>
-		/// Return true if target should include a NonUnity test
-		/// </summary>
-		/// <returns>true if this target should include a NonUnity test
-		public virtual bool GUBP_IncludeNonUnityToolTest()
-		{
-			return false;
-		}
-		/// <summary>
-		/// Return true if this target should use a platform specific pass
-		/// </summary>
-		/// <returns>true if this target should use a platform specific pass
-		public virtual bool GUBP_NeedsPlatformSpecificDLLs()
-		{
-			return false;
-		}
-
-		///<summary>
-		///Returns true if XP monolithics are required for a game
-		/// </summary>
-		/// <returns>true if this target needs to be compiled for Windows XP</returns>
-		public virtual bool GUBP_BuildWindowsXPMonolithics()
-		{
-			return false;
-		}
-
-		/// <summary>
-		/// Return a list of target platforms for the monolithic
-		/// </summary>
-		/// <returns>a list of target platforms for the monolithic</returns>        
-		public virtual List<UnrealTargetPlatform> GUBP_GetPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
-		{
-			List<UnrealTargetPlatform> Result = new List<UnrealTargetPlatform> { HostPlatform };
-			// hack to set up the templates without adding anything to their .targets.cs files
-			if (!String.IsNullOrEmpty(TargetName) && TargetName.StartsWith("TP_"))
-			{
-				if (HostPlatform == UnrealTargetPlatform.Win64)
-				{
-					Result.Add(UnrealTargetPlatform.IOS);
-					Result.Add(UnrealTargetPlatform.TVOS);
-					Result.Add(UnrealTargetPlatform.Android);
-				}
-				else if (HostPlatform == UnrealTargetPlatform.Mac)
-				{
-					Result.Add(UnrealTargetPlatform.IOS);
-					Result.Add(UnrealTargetPlatform.TVOS);
-				}
-			}
-			return Result;
-		}
-		/// <summary>
-		/// Return a list of target platforms for the monolithic without cook
-		/// </summary>
-		/// <returns>a list of target platforms for the monolithic without cook</returns>        
-		public virtual List<UnrealTargetPlatform> GUBP_GetBuildOnlyPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
-		{
-			List<UnrealTargetPlatform> Result = new List<UnrealTargetPlatform> { };
-			return Result;
-		}
-		/// <summary>
-		/// Return a list of configs for target platforms for the monolithic
-		/// </summary>
-		/// <returns>a list of configs for a target platforms for the monolithic</returns>        
-		public virtual List<UnrealTargetConfiguration> GUBP_GetConfigs_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform Platform)
-		{
-			return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Development };
-		}
-		/// <summary>
-		/// Return a list of configs which are precompiled for the given target platform
-		/// </summary>
-		/// <returns>a list of configs for a target platforms for the monolithic</returns>        
-		public virtual List<UnrealTargetConfiguration> GUBP_GetConfigsForPrecompiledBuilds_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform Platform)
-		{
-			return new List<UnrealTargetConfiguration>();
-		}
-		/// <summary>
-		/// Return a list of configs for target platforms for formal builds
-		/// </summary>
-		/// <returns>a list of configs for a target platforms for the monolithic</returns>        
-		[Obsolete]
-		public virtual List<UnrealTargetConfiguration> GUBP_GetConfigsForFormalBuilds_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform Platform)
-		{
-			return new List<UnrealTargetConfiguration>();
-		}
-
-		public class GUBPFormalBuild
-		{
-			public UnrealTargetPlatform TargetPlatform = UnrealTargetPlatform.Unknown;
-			public UnrealTargetConfiguration TargetConfig = UnrealTargetConfiguration.Unknown;
-			public bool bTest = false;
-			public bool bBeforeTrigger = false;
-			public GUBPFormalBuild(UnrealTargetPlatform InTargetPlatform, UnrealTargetConfiguration InTargetConfig, bool bInTest = false, bool bInBeforeTrigger = false)
-			{
-				TargetPlatform = InTargetPlatform;
-				TargetConfig = InTargetConfig;
-				bTest = bInTest;
-				bBeforeTrigger = bInBeforeTrigger;
-			}
-		}
-		/// <summary>
-		/// Return a list of formal builds
-		/// </summary>
-		/// <returns>a list of formal builds</returns>        
-		public virtual List<GUBPFormalBuild> GUBP_GetConfigsForFormalBuilds_MonolithicOnly(UnrealTargetPlatform HostPlatform)
-		{
-			return new List<GUBPFormalBuild>();
-		}
-
-
-		/// <summary>
-		/// Return true if this target should be included in a promotion and indicate shared or not
-		/// </summary>
-		/// <returns>if this target should be included in a promotion.</returns>
-		public class GUBPProjectOptions
-		{
-			public bool bIsPromotable = false;
-			public bool bBuildAnyway = false;
-			public bool bSeparateGamePromotion = false;
-			public bool bTestWithShared = false;
-			public bool bIsMassive = false;
-			public bool bCustomWorkflowForPromotion = false;
-			public bool bIsNonCode = false;
-			public bool bPromoteEditorOnly = true;
-			public string GroupName = null;
-		}
-		public virtual GUBPProjectOptions GUBP_IncludeProjectInPromotedBuild_EditorTypeOnly(UnrealTargetPlatform HostPlatform)
-		{
-			GUBPProjectOptions Result = new GUBPProjectOptions();
-			// hack to set up the templates without adding anything to their .targets.cs files
-			// tweaked to include FP_ folders too - which are temporary
-			if (!String.IsNullOrEmpty(TargetName) && (TargetName.StartsWith("TP_") || TargetName.StartsWith("FP_")))
-			{
-				Result.bTestWithShared = true;
-				Result.GroupName = "Templates";
-			}
-			return Result;
-		}
-		/// <summary>
-		/// Return a list of the non-code projects to test
-		/// </summary>
-		/// <returns>a list of the non-code projects to build cook and test</returns>
-		public virtual Dictionary<string, List<UnrealTargetPlatform>> GUBP_NonCodeProjects_BaseEditorTypeOnly(UnrealTargetPlatform HostPlatform)
-		{
-			return new Dictionary<string, List<UnrealTargetPlatform>>();
-		}
-		/// <summary>
-		/// Return a list of the non-code projects to make formal builds for
-		/// </summary>
-		/// <returns>a list of the non-code projects to build cook and test</returns>
-		[Obsolete]
-		public virtual Dictionary<string, List<KeyValuePair<UnrealTargetPlatform, UnrealTargetConfiguration>>> GUBP_NonCodeFormalBuilds_BaseEditorTypeOnly()
-		{
-			return new Dictionary<string, List<KeyValuePair<UnrealTargetPlatform, UnrealTargetConfiguration>>>();
-		}
-		/// <summary>
-		/// Return a list of the non-code projects to make formal builds for
-		/// </summary>
-		/// <returns>a list of the non-code projects to build cook and test</returns>
-		public virtual Dictionary<string, List<GUBPFormalBuild>> GUBP_GetNonCodeFormalBuilds_BaseEditorTypeOnly()
-		{
-			return new Dictionary<string, List<GUBPFormalBuild>>();
-		}
-
-		/// <summary>
-		/// Return a list of "test name", "UAT command" pairs for testing the editor
-		/// </summary>
-		public virtual Dictionary<string, string> GUBP_GetEditorTests_EditorTypeOnly(UnrealTargetPlatform HostPlatform)
-		{
-			string MacOption = HostPlatform == UnrealTargetPlatform.Mac ? " -Mac" : "";
-			Dictionary<string, string> Result = new Dictionary<string, string>();
-			Result.Add("EditorTest", "BuildCookRun -run -editortest -unattended -nullrhi -NoP4" + MacOption);
-			Result.Add("GameTest", "BuildCookRun -run -unattended -nullrhi -NoP4" + MacOption);
-			Result.Add("EditorAutomationTest", "BuildCookRun -run -editortest -RunAutomationTests -unattended -nullrhi -NoP4" + MacOption);
-			Result.Add("GameAutomationTest", "BuildCookRun -run -RunAutomationTests -unattended -nullrhi -NoP4" + MacOption);
-			return Result;
-		}
-		/// <summary>
-		/// Allow the platform to setup emails for the GUBP for folks that care about node failures relating to this platform
-		/// Obsolete. Included to avoid breaking existing projects.
-		/// </summary>
-		/// <param name="Branch">p4 root of the branch we are running</param>
-		[Obsolete]
-		public virtual string GUBP_GetGameFailureEMails_EditorTypeOnly(string Branch)
-		{
-			return "";
-		}
-		/// <summary>
-		/// Allow the Game to set up emails for Promotable and Promotion
-		/// Obsolete. Included to avoid breaking existing projects.
-		/// </summary>
-		[Obsolete]
-		public virtual string GUBP_GetPromotionEMails_EditorTypeOnly(string Branch)
-		{
-			return "";
-		}
-
-		/// <summary>
-		/// Return a list of "test name", "UAT command" pairs for testing a monolithic
-		/// </summary>
-		public virtual Dictionary<string, string> GUBP_GetGameTests_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform AltHostPlatform, UnrealTargetPlatform Platform)
-		{
-			Dictionary<string, string> Result = new Dictionary<string, string>();
-			if ((Platform == HostPlatform || Platform == AltHostPlatform) && Type == TargetType.Game)  // for now, we will only run these for the dev config of the host platform
-			{
-				Result.Add("CookedGameTest", "BuildCookRun -run -skipcook -stage -pak -deploy -unattended -nullrhi -NoP4 -platform=" + Platform.ToString());
-				Result.Add("CookedGameAutomationTest", "BuildCookRun -run -skipcook -stage -pak -deploy -RunAutomationTests -unattended -nullrhi -NoP4 -platform=" + Platform.ToString());
-			}
-			return Result;
-		}
-		/// <summary>
-		/// Return a list of "test name", "UAT command" pairs for testing a monolithic
-		/// </summary>
-		public virtual Dictionary<string, string> GUBP_GetClientServerTests_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform AltHostPlatform, UnrealTargetPlatform ServerPlatform, UnrealTargetPlatform ClientPlatform)
-		{
-			Dictionary<string, string> Result = new Dictionary<string, string>();
-#if false // needs work
-            if ((ServerPlatform == HostPlatform || ServerPlatform == AltHostPlatform) &&
-                (ClientPlatform == HostPlatform || ClientPlatform == AltHostPlatform) && 
-                Type == TargetType.Game)  // for now, we will only run these for the dev config of the host platform and only the game executable, not sure how to deal with a client only executable
-            {
-                Result.Add("CookedNetTest", "BuildCookRun -run -skipcook -stage -pak -deploy -unattended -server -nullrhi -NoP4  -addcmdline=\"-nosteam\" -platform=" + ClientPlatform.ToString() + " -serverplatform=" + ServerPlatform.ToString());
-            }
-#endif
-			return Result;
-		}
-		/// <summary>
-		/// Return additional parameters to cook commandlet
-		/// </summary>
-		public virtual string GUBP_AdditionalCookParameters(UnrealTargetPlatform HostPlatform, string Platform)
-		{
-			return "";
-		}
-
-		/// <summary>
-		/// Return additional parameters to package commandlet
-		/// </summary>
-		public virtual string GUBP_AdditionalPackageParameters(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform Platform)
-		{
-			return "";
-		}
-
-		/// <summary>
-		/// Allow Cook Platform Override from a target file
-		/// </summary>
-		public virtual string GUBP_AlternateCookPlatform(UnrealTargetPlatform HostPlatform, string Platform)
-		{
-			return "";
 		}
 
 		/// <summary>
@@ -1930,8 +1632,11 @@ namespace UnrealBuildTool
 				List<FileReference> TargetFiles = new List<FileReference>(FindAllRulesFiles(ProjectSourceDirectory, RulesFileType.Target));
 
 				// Find all the project plugins
-				IReadOnlyList<PluginInfo> ProjectPlugins = Plugins.ReadProjectPlugins(ProjectFileName.Directory);
-				Dictionary<FileReference, PluginInfo> ModuleFileToPluginInfo = new Dictionary<FileReference, PluginInfo>();
+				List<PluginInfo> ProjectPlugins = new List<PluginInfo>(Plugins.ReadProjectPlugins(ProjectFileName.Directory));
+                ProjectDescriptor Project = ProjectDescriptor.FromFile(ProjectFileName.FullName);
+                // Add the project's additional plugin directories plugins too
+                ProjectPlugins.AddRange(Plugins.ReadAdditionalPlugins(Project.AdditionalPluginDirectories));
+                Dictionary<FileReference, PluginInfo> ModuleFileToPluginInfo = new Dictionary<FileReference, PluginInfo>();
 				FindModuleRulesForPlugins(ProjectPlugins, ModuleFiles, ModuleFileToPluginInfo);
 
 				// Add the games project's intermediate source folder

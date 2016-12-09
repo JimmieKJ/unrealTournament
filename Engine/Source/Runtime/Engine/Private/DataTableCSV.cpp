@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "DataTableCSV.h"
-#include "CsvParser.h"
+#include "UObject/UnrealType.h"
 #include "Engine/DataTable.h"
+#include "Serialization/Csv/CsvParser.h"
 #include "Engine/UserDefinedStruct.h"
 
 #if WITH_EDITOR
@@ -163,7 +163,7 @@ bool FDataTableImporterCSV::ReadTable()
 		}
 
 		// Allocate data to store information, using UScriptStruct to know its size
-		uint8* RowData = (uint8*)FMemory::Malloc(DataTable->RowStruct->PropertiesSize);
+		uint8* RowData = (uint8*)FMemory::Malloc(DataTable->RowStruct->GetStructureSize());
 		DataTable->RowStruct->InitializeStruct(RowData);
 		// And be sure to call DestroyScriptStruct later
 

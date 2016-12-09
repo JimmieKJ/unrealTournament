@@ -2,8 +2,16 @@
 
  
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Sound/SoundNode.h"
 #include "SoundNodeRandom.generated.h"
+
+class FAudioDevice;
+struct FActiveSound;
+struct FSoundParseParameters;
+struct FWaveInstance;
 
 /** 
  * Selects sounds from a random set

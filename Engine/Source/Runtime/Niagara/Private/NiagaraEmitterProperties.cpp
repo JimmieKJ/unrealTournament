@@ -1,9 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "NiagaraPrivate.h"
 #include "NiagaraEmitterProperties.h"
-#include "NiagaraScriptSourceBase.h"
 
 void FNiagaraEmitterScriptProperties::Init(UNiagaraEmitterProperties* EmitterProps)
 {

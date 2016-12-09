@@ -10,10 +10,15 @@
 //				Copyright (C) Microsoft. All rights reserved.
 //-----------------------------------------------------------------------------
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "LightPropagationVolume.h"
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
+#include "RHIStaticStates.h"
+#include "GlobalShader.h"
+#include "SceneRendering.h"
+#include "LightPropagationVolume.h"
 
 // ----------------------------------------------------------------------------
 

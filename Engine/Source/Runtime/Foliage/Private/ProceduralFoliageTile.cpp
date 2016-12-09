@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FoliagePrivate.h"
 #include "ProceduralFoliageTile.h"
+#include "Engine/EngineTypes.h"
+#include "CollisionQueryParams.h"
 #include "ProceduralFoliageSpawner.h"
-#include "ProceduralFoliageBroadphase.h"
-#include "InstancedFoliageActor.h"
 
 #define LOCTEXT_NAMESPACE "ProceduralFoliage"
 
@@ -518,16 +517,16 @@ void UProceduralFoliageTile::Empty()
 	PendingRemovals.Empty();
 }
 
-SIZE_T UProceduralFoliageTile::GetResourceSize(EResourceSizeMode::Type Mode)
+void UProceduralFoliageTile::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	SIZE_T TotalSize = 0;
+	Super::GetResourceSizeEx(CumulativeResourceSize);
+
 	for (FProceduralFoliageInstance* Inst : InstancesSet)
 	{
-		TotalSize += sizeof(FProceduralFoliageInstance);
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(FProceduralFoliageInstance));
 	}
 	
 	//@TODO: account for broadphase
-	return TotalSize;
 }
 
 

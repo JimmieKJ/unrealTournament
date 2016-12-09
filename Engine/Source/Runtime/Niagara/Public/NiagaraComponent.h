@@ -2,12 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "NiagaraCommon.h"
+#include "PrimitiveViewRelevance.h"
+#include "PrimitiveSceneProxy.h"
+#include "Components/PrimitiveComponent.h"
 
 #include "NiagaraComponent.generated.h"
 
-class UNiagaraEffect;
+class FMeshElementCollector;
 class FNiagaraEffectInstance;
+class NiagaraEffectRenderer;
+class UNiagaraEffect;
 
 /**
 * UNiagaraComponent is the primitive component for a Niagara effect.

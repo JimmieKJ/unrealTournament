@@ -1,31 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "GameplayDebugger/GameplayDebuggerCategory_EQS.h"
+#include "GameFramework/PlayerController.h"
+#include "CanvasItem.h"
+#include "Engine/Canvas.h"
 
 #include "EnvironmentQuery/EnvQueryManager.h"
 #include "EnvironmentQuery/EQSRenderingComponent.h"
-#include "GameplayDebuggerCategory_EQS.h"
-#include "Engine/Canvas.h"
 #include "DrawDebugHelpers.h"
 
 #if WITH_GAMEPLAY_DEBUGGER
 
-static TAutoConsoleVariable<int32> CVarEQSDetailsOnHUD(
-	TEXT("ai.debug.EQSOnHUD"),
-	0,
-	TEXT("Enable or disable EQS details table on screen.\n")
-	TEXT(" 0: Disable details\n")
-	TEXT(" 1: Enable details (default)"),
-	ECVF_Cheat);
-
 FGameplayDebuggerCategory_EQS::FGameplayDebuggerCategory_EQS()
 {
 	MaxQueries = 5;
-	MaxItemTableRows = 20;
+	MaxItemTableRows = 10;
 	ShownQueryIndex = 0;
 	CollectDataInterval = 2.0f;
 
-	BindKeyPress(TEXT("Multiply"), this, &FGameplayDebuggerCategory_EQS::CycleShownQueries);
+	const FGameplayDebuggerInputHandlerConfig CycleConfig(TEXT("CycleQueries"), TEXT("Multiply"));
+	const FGameplayDebuggerInputHandlerConfig DetailsConfig(TEXT("ToggleDetails"), TEXT("Divide"));
+
+	BindKeyPress(CycleConfig, this, &FGameplayDebuggerCategory_EQS::CycleShownQueries);
+	BindKeyPress(DetailsConfig, this, &FGameplayDebuggerCategory_EQS::ToggleDetailView);
 
 #if USE_EQS_DEBUGGER
 	SetDataPackReplication<FRepData>(&DataPack);
@@ -79,7 +76,8 @@ void FGameplayDebuggerCategory_EQS::CollectData(APlayerController* OwnerPC, AAct
 		if (QueryInstance)
 		{
 			EQSDebug::FQueryData DebugItem;
-			UEnvQueryDebugHelpers::QueryToDebugData(*QueryInstance, DebugItem);
+			UEnvQueryDebugHelpers::QueryToDebugData(*QueryInstance, DebugItem, MAX_int32);
+			DebugItem.Timestamp = AuthQueryData[Idx].Timestamp;
 
 			DataPack.QueryDebugData.Add(DebugItem);
 		}
@@ -99,17 +97,24 @@ void FGameplayDebuggerCategory_EQS::OnDataPackReplicated(int32 DataPackId)
 #endif
 }
 
-FDebugRenderSceneProxy* FGameplayDebuggerCategory_EQS::CreateSceneProxy(const UPrimitiveComponent* InComponent)
+FDebugRenderSceneProxy* FGameplayDebuggerCategory_EQS::CreateDebugSceneProxy(const UPrimitiveComponent* InComponent, FDebugDrawDelegateHelper*& OutDelegateHelper)
 {
 #if USE_EQS_DEBUGGER
-	if (DataPack.QueryDebugData.IsValidIndex(ShownQueryIndex))
+	if (DataPack.QueryDebugData.IsValidIndex(ShownQueryIndex) && (DataPack.QueryDebugData[ShownQueryIndex].SolidSpheres.Num() > 0 || DataPack.QueryDebugData[ShownQueryIndex].Texts.Num() > 0) && InComponent)
 	{
 		const EQSDebug::FQueryData& QueryData = DataPack.QueryDebugData[ShownQueryIndex];
 		const FString ViewFlagName = GetSceneProxyViewFlag();
-		return new FEQSSceneProxy(InComponent, ViewFlagName, QueryData.SolidSpheres, QueryData.Texts);
+		FEQSSceneProxy* EQSSceneProxy = new FEQSSceneProxy(*InComponent, ViewFlagName, QueryData.SolidSpheres, QueryData.Texts);
+
+		auto* OutDelegateHelper2 = new FEQSRenderingDebugDrawDelegateHelper();
+		OutDelegateHelper2->InitDelegateHelper(EQSSceneProxy);
+		OutDelegateHelper = OutDelegateHelper2;
+
+		return EQSSceneProxy;
 	}
 #endif // USE_EQS_DEBUGGER
 
+	OutDelegateHelper = nullptr;
 	return nullptr;
 }
 
@@ -118,7 +123,7 @@ void FGameplayDebuggerCategory_EQS::DrawData(APlayerController* OwnerPC, FGamepl
 #if USE_EQS_DEBUGGER
 
 	const FString HeaderDesc = (DataPack.QueryDebugData.Num() > 1) ?
-		FString::Printf(TEXT("Queries: {yellow}%d{white}, press {yellow}[*]{white} to cycle through"), DataPack.QueryDebugData.Num()) :
+		FString::Printf(TEXT("Queries: {yellow}%d{white}, press {yellow}[%s]{white} to cycle through"), DataPack.QueryDebugData.Num(), *GetInputHandlerDescription(0)) :
 		FString::Printf(TEXT("Queries: {yellow}%d"), DataPack.QueryDebugData.Num());
 
 	CanvasContext.Print(HeaderDesc);
@@ -127,14 +132,14 @@ void FGameplayDebuggerCategory_EQS::DrawData(APlayerController* OwnerPC, FGamepl
 		return;
 	}
 
-	FString QueryDesc(TEXT("\t"));
 	for (int32 Idx = 0; Idx < DataPack.QueryDebugData.Num(); Idx++)
 	{
-		QueryDesc += (Idx == ShownQueryIndex) ? TEXT("[{green}") : TEXT("[");
-		QueryDesc += DataPack.QueryDebugData[Idx].Name;
-		QueryDesc += (Idx == ShownQueryIndex) ? TEXT("{white}] ") : TEXT("] ");
+		const EQSDebug::FQueryData& QueryData = DataPack.QueryDebugData[Idx];
+
+		CanvasContext.Printf(TEXT("{%s}[%d] %s"), 
+			(Idx == ShownQueryIndex) ? *FGameplayDebuggerCanvasStrings::ColorNameEnabled : *FGameplayDebuggerCanvasStrings::ColorNameDisabled,
+			QueryData.Id, *QueryData.Name);
 	}
-	CanvasContext.Print(QueryDesc);
 
 	if (DataPack.QueryDebugData.IsValidIndex(ShownQueryIndex))
 	{
@@ -142,21 +147,18 @@ void FGameplayDebuggerCategory_EQS::DrawData(APlayerController* OwnerPC, FGamepl
 
 		CanvasContext.MoveToNewLine();
 		CanvasContext.Printf(TEXT("Timestamp: {yellow}%.3f (~ %.2fs ago)"), ShownQueryData.Timestamp, OwnerPC->GetWorld()->TimeSince(ShownQueryData.Timestamp));
-		CanvasContext.Printf(TEXT("Id: {yellow}%d"), ShownQueryData.Id);
-
+		
 		FString OptionsDesc(TEXT("Options: "));
 		for (int32 Idx = 0; Idx < ShownQueryData.Options.Num(); Idx++)
 		{
-			QueryDesc += (Idx == ShownQueryData.UsedOption) ? TEXT("[{green}") : TEXT("[");
-			QueryDesc += ShownQueryData.Options[Idx];
-			QueryDesc += (Idx == ShownQueryData.UsedOption) ? TEXT("{white}] ") : TEXT("] ");
+			OptionsDesc += (Idx == ShownQueryData.UsedOption) ? TEXT("[{green}") : TEXT("[");
+			OptionsDesc += ShownQueryData.Options[Idx];
+			OptionsDesc += (Idx == ShownQueryData.UsedOption) ? TEXT("{white}] ") : TEXT("] ");
 		}
 		CanvasContext.Print(OptionsDesc);
 
-		DrawLookedAtItem(ShownQueryData, OwnerPC, CanvasContext);
-
-		CanvasContext.MoveToNewLine();
-		DrawDetailedItemTable(ShownQueryData, CanvasContext);
+		const int32 DebugItemIdx = DrawLookedAtItem(ShownQueryData, OwnerPC, CanvasContext);
+		DrawDetailedItemTable(ShownQueryData, DebugItemIdx, CanvasContext);
 	}
 #else // USE_EQS_DEBUGGER
 	CanvasContext.Print(FColor::Red, TEXT("Unable to gather EQS debug data, use build with USE_EQS_DEBUGGER enabled."));
@@ -164,24 +166,19 @@ void FGameplayDebuggerCategory_EQS::DrawData(APlayerController* OwnerPC, FGamepl
 }
 
 #if USE_EQS_DEBUGGER
-void FGameplayDebuggerCategory_EQS::DrawLookedAtItem(const EQSDebug::FQueryData& QueryData, APlayerController* OwnerPC, FGameplayDebuggerCanvasContext& CanvasContext) const
+int32 FGameplayDebuggerCategory_EQS::DrawLookedAtItem(const EQSDebug::FQueryData& QueryData, APlayerController* OwnerPC, FGameplayDebuggerCanvasContext& CanvasContext) const
 {
-	FVector CameraLocation;
-	FVector CameraDirection;
-	if (!OwnerPC->GetSpectatorPawn())
+	if (CanvasContext.Canvas == nullptr)
 	{
-		FRotator CameraRotation;
-		OwnerPC->GetPlayerViewPoint(CameraLocation, CameraRotation);
-		CameraDirection = CameraRotation.Vector();
+		return INDEX_NONE;
 	}
-	else
-	{
-		CameraDirection = CanvasContext.Canvas->SceneView->GetViewDirection();
-		CameraLocation = CanvasContext.Canvas->SceneView->ViewMatrices.ViewOrigin;
-	}
+
+	const FVector CameraLocation = CanvasContext.Canvas->SceneView->ViewMatrices.GetViewOrigin();
+	const FVector CameraDirection = CanvasContext.Canvas->SceneView->GetViewDirection();
 
 	int32 BestItemIndex = INDEX_NONE;
 	float BestScore = -FLT_MAX;
+
 	for (int32 Idx = 0; Idx < QueryData.RenderDebugHelpers.Num(); Idx++)
 	{
 		const EQSDebug::FDebugHelper& ItemInfo = QueryData.RenderDebugHelpers[Idx];
@@ -202,27 +199,35 @@ void FGameplayDebuggerCategory_EQS::DrawLookedAtItem(const EQSDebug::FQueryData&
 
 	if (BestItemIndex != INDEX_NONE)
 	{
-		DrawDebugSphere(OwnerPC->GetWorld(), QueryData.RenderDebugHelpers[BestItemIndex].Location, QueryData.RenderDebugHelpers[BestItemIndex].Radius, 8, FColor::Red);
+		const EQSDebug::FDebugHelper& DebugHelper = QueryData.RenderDebugHelpers[BestItemIndex];
+		DrawDebugSphere(OwnerPC->GetWorld(), DebugHelper.Location, DebugHelper.Radius, 8, FColor::Red);
+		DrawDebugCone(OwnerPC->GetWorld(), DebugHelper.Location, FVector(0, 0, 1), 100.0f, 0.1f, 0.1f, 8, FColor::Red);
 
-		FString ItemDesc;
-
-		const int32 FailedTestIndex = QueryData.RenderDebugHelpers[BestItemIndex].FailedTestIndex;
+		const int32 FailedTestIndex = DebugHelper.FailedTestIndex;
 		if (FailedTestIndex != INDEX_NONE)
 		{
-			ItemDesc = FString::Printf(TEXT("{red}Selected item:%d failed test[%d]: {yellow}%s {LightBlue}(%s)\n{white}'%s' with score: %3.3f"),
-				BestItemIndex, FailedTestIndex,
+			const float BackgroundPadding = 1.0f;
+			FCanvasTileItem DescTileItem(FVector2D(0, 0), GWhiteTexture, FVector2D(CanvasContext.Canvas->SizeX, (CanvasContext.GetLineHeight() * 2) + (BackgroundPadding * 2)), FLinearColor(0, 0, 0, 0.6f));
+			DescTileItem.BlendMode = SE_BLEND_Translucent;
+			CanvasContext.DrawItem(DescTileItem, 0, CanvasContext.CursorY - BackgroundPadding);
+
+			CanvasContext.Printf(FColor::Red, TEXT("Selected item (#%d, %s) failed test [%d]: {yellow}%s {LightBlue}(%s)"),
+				BestItemIndex,
+				QueryData.Items.IsValidIndex(BestItemIndex) ? *QueryData.Items[BestItemIndex].Desc : TEXT("INVALID"),
+				FailedTestIndex,
 				*QueryData.Tests[FailedTestIndex].ShortName,
-				*QueryData.Tests[FailedTestIndex].Detailed,
-				*QueryData.RenderDebugHelpers[BestItemIndex].AdditionalInformation,
-				QueryData.RenderDebugHelpers[BestItemIndex].FailedScore);
+				*QueryData.Tests[FailedTestIndex].Detailed);
+
+			CanvasContext.Printf(TEXT("\t'%s' with score: %3.3f"), *DebugHelper.AdditionalInformation, DebugHelper.FailedScore);
 		}
 		else
 		{
-			ItemDesc = FString::Printf(TEXT("Selected item:{yellow}%d"), BestItemIndex);
+			CanvasContext.Printf(TEXT("Selected item: {yellow}%d"), BestItemIndex);
+			CanvasContext.MoveToNewLine();
 		}
-
-		CanvasContext.Print(ItemDesc);
 	}
+
+	return BestItemIndex;
 }
 
 namespace FEQSDebugTable
@@ -233,104 +238,216 @@ namespace FEQSDebugTable
 	const float TestScoreWidth = 100.0f;
 }
 
-void FGameplayDebuggerCategory_EQS::DrawDetailedItemTable(const EQSDebug::FQueryData& QueryData, FGameplayDebuggerCanvasContext& CanvasContext) const
+void FGameplayDebuggerCategory_EQS::DrawDetailedItemTable(const EQSDebug::FQueryData& QueryData, int32 LookedAtItemIndex, FGameplayDebuggerCanvasContext& CanvasContext) const
 {
-	const int32 EnableTableView = CVarEQSDetailsOnHUD.GetValueOnGameThread();
-	CanvasContext.Printf(TEXT("Detailed table view: {%s}%s{white}, use '{green}ai.debug.EQSOnHUD %d{white}' to toggle"),
-		EnableTableView ? TEXT("green") : TEXT("red"),
-		EnableTableView ? TEXT("active") : TEXT("disabled"),
-		EnableTableView ? 0 : 1);
+	CanvasContext.Printf(TEXT("Detailed table view: {%s}%s{white}, press {yellow}[%s]{white} to toggle"),
+		bShowDetails ? *FGameplayDebuggerCanvasStrings::ColorNameEnabled : *FGameplayDebuggerCanvasStrings::ColorNameDisabled,
+		bShowDetails ? TEXT("active") : TEXT("disabled"),
+		*GetInputHandlerDescription(1));
 
-	if (EnableTableView && QueryData.NumValidItems > 0)
+	if (!bShowDetails)
 	{
-		FCanvasTileItem TileItem(FVector2D(0, 0), GWhiteTexture, FVector2D(CanvasContext.Canvas->SizeX, FEQSDebugTable::RowHeight), FLinearColor::Black);
-		FLinearColor ColorOdd(0, 0, 0, 0.6f);
-		FLinearColor ColorEven(0, 0, 0.4f, 0.4f);
-		TileItem.BlendMode = SE_BLEND_Translucent;
+		return;
+	}
 
-		// table header
-		CanvasContext.CursorY += FEQSDebugTable::RowHeight;
-		const float HeaderY = CanvasContext.CursorY + 3.0f;
+	const float BackgroundPadding = 5.0f;
+	FCanvasTileItem TileItem(FVector2D(0, 0), GWhiteTexture, FVector2D(CanvasContext.Canvas->SizeX, FEQSDebugTable::RowHeight), FLinearColor::Black);
+	FLinearColor ColorOdd(0, 0, 0, 0.6f);
+	FLinearColor ColorEven(0, 0, 0.4f, 0.4f);
+	FLinearColor ColorHighlighted(0.2f, 0.2f, 0, 0.4f);
+	TileItem.BlendMode = SE_BLEND_Translucent;
+
+	const int32 MaxShownItems = FMath::Min(MaxItemTableRows, QueryData.Items.Num());
+	if (!MaxShownItems)
+	{
+		CanvasContext.CursorY += BackgroundPadding;
 		TileItem.SetColor(ColorOdd);
 		CanvasContext.DrawItem(TileItem, 0, CanvasContext.CursorY);
+		CanvasContext.CursorY += 3.0f;
 
-		float HeaderX = CanvasContext.CursorX;
-		CanvasContext.PrintfAt(HeaderX, HeaderY, FColor::Yellow, TEXT("Num items: %d"), QueryData.NumValidItems);
-		HeaderX += FEQSDebugTable::ItemDescriptionWidth;
+		CanvasContext.Printf(FColor::Yellow, TEXT("Num items: %d"), QueryData.NumValidItems);
+		return;
+	}
 
-		CanvasContext.PrintAt(HeaderX, HeaderY, FColor::White, TEXT("Score"));
-		HeaderX += FEQSDebugTable::ItemScoreWidth;
+	// find shown items
+	TArray<int32> ShownItems;
+	for (int32 ItemIdx = 0; ItemIdx < MaxShownItems; ItemIdx++)
+	{
+		ShownItems.Add(ItemIdx);
+	}
 
-		for (int32 Idx = 0; Idx < QueryData.Tests.Num(); Idx++)
+	if (LookedAtItemIndex != INDEX_NONE)
+	{
+		for (int32 ItemIdx = 0; ItemIdx < QueryData.Items.Num(); ItemIdx++)
+		{
+			if (QueryData.Items[ItemIdx].ItemIdx == LookedAtItemIndex)
+			{
+				if (ItemIdx >= MaxShownItems)
+				{
+					ShownItems[MaxShownItems - 1] = ItemIdx;
+				}
+
+				break;
+			}
+		}
+	}
+
+	// find relevant tests (at least one item with non zero score)
+	TArray<uint8> TestRelevancy;
+	int32 NumRelevantTests = 0;
+
+	for (int32 TestIdx = 0; TestIdx < QueryData.Tests.Num(); TestIdx++)
+	{
+		TestRelevancy.Add(0);
+		for (int32 ItemIdx = 0; ItemIdx < MaxShownItems; ItemIdx++)
+		{
+			const EQSDebug::FItemData& ItemData = QueryData.Items[ShownItems[ItemIdx]];
+			const float TestScore = ItemData.TestValues.IsValidIndex(TestIdx) ? ItemData.TestScores[TestIdx] : 0.0f;
+
+			const bool bIsRelevant = (TestScore != 0.0f);
+			if (bIsRelevant)
+			{
+				NumRelevantTests++;
+				TestRelevancy[TestIdx] = 1;
+				break;
+			}
+		}
+	}
+
+	// find max not normalized score, add up values for first item
+	float MaxScoreNotNormalized = 0.0f;
+	for (int32 TestIdx = 0; TestIdx < QueryData.Tests.Num(); TestIdx++)
+	{
+		const EQSDebug::FItemData& ItemData = QueryData.Items[0];
+		const float TestScore = ItemData.TestValues.IsValidIndex(TestIdx) ? ItemData.TestScores[TestIdx] : 0.0f;
+		MaxScoreNotNormalized += TestScore;
+	}
+
+	// table header
+	CanvasContext.CursorY += BackgroundPadding;
+	const float HeaderY = CanvasContext.CursorY + 3.0f;
+	TileItem.SetColor(ColorOdd);
+	CanvasContext.DrawItem(TileItem, 0, CanvasContext.CursorY);
+
+	float HeaderX = CanvasContext.CursorX;
+	CanvasContext.PrintfAt(HeaderX, HeaderY, FColor::Yellow, TEXT("Num items: %d"), QueryData.NumValidItems);
+	HeaderX += FEQSDebugTable::ItemDescriptionWidth;
+
+	CanvasContext.PrintAt(HeaderX, HeaderY, FColor::White, TEXT("Score"));
+	HeaderX += FEQSDebugTable::ItemScoreWidth;
+
+	for (int32 Idx = 0; Idx < QueryData.Tests.Num(); Idx++)
+	{
+		if (TestRelevancy[Idx])
 		{
 			CanvasContext.PrintfAt(HeaderX, HeaderY, FColor::White, TEXT("Test %d"), Idx);
 			HeaderX += FEQSDebugTable::TestScoreWidth;
 		}
+	}
 
+	CanvasContext.CursorY += FEQSDebugTable::RowHeight;
+
+	// item rows
+	for (int32 Idx = 0; Idx < MaxShownItems; Idx++)
+	{
+		const int32 ItemIdx = ShownItems[Idx];
+		const bool bIsHighlighted = QueryData.Items[ItemIdx].ItemIdx == LookedAtItemIndex;
+
+		TileItem.SetColor(bIsHighlighted ? ColorHighlighted : ((Idx % 2) ? ColorOdd : ColorEven));
+		CanvasContext.DrawItem(TileItem, 0, CanvasContext.CursorY);
+
+		DrawDetailedItemRow(QueryData.Items[ShownItems[Idx]], TestRelevancy, MaxScoreNotNormalized, CanvasContext);
 		CanvasContext.CursorY += FEQSDebugTable::RowHeight;
+	}
 
-		// item rows
-		const int32 MaxShownItems = FMath::Min(MaxItemTableRows, QueryData.Items.Num());
-		for (int32 Idx = 0; Idx < MaxShownItems; Idx++)
-		{
-			TileItem.SetColor((Idx % 2) ? ColorOdd : ColorEven);
-			CanvasContext.DrawItem(TileItem, 0, CanvasContext.CursorY);
+	// test description
+	FCanvasTileItem DescTileItem(FVector2D(0, 0), GWhiteTexture, FVector2D(CanvasContext.Canvas->SizeX, (CanvasContext.GetLineHeight() * (NumRelevantTests + 1)) + (2 * BackgroundPadding)), FLinearColor(0, 0, 0, 0.2f));
+	DescTileItem.BlendMode = SE_BLEND_Translucent;
+	CanvasContext.DrawItem(DescTileItem, 0, CanvasContext.CursorY);
+	CanvasContext.CursorY += BackgroundPadding;
 
-			DrawDetailedItemRow(QueryData.Items[Idx], CanvasContext);
-			CanvasContext.CursorY += FEQSDebugTable::RowHeight;
-		}
-
-		// test description
-		CanvasContext.Print(TEXT("All tests from used option:"));
+	if (NumRelevantTests)
+	{
+		CanvasContext.Print(TEXT("Relevant tests from used option:"));
 		for (int32 Idx = 0; Idx < QueryData.Tests.Num(); Idx++)
 		{
-			CanvasContext.Printf(TEXT("Test %d = {yellow}%s {LightBlue}(%s)"), Idx, *QueryData.Tests[Idx].ShortName, *QueryData.Tests[Idx].Detailed);
+			if (TestRelevancy[Idx])
+			{
+				CanvasContext.Printf(TEXT("Test %d = {yellow}%s {LightBlue}(%s)"), Idx, *QueryData.Tests[Idx].ShortName, *QueryData.Tests[Idx].Detailed);
+			}
 		}
+	}
+	else
+	{
+		CanvasContext.Print(TEXT("No relevant tests in used option."));
 	}
 }
 
-void FGameplayDebuggerCategory_EQS::DrawDetailedItemRow(const EQSDebug::FItemData& ItemData, FGameplayDebuggerCanvasContext& CanvasContext) const
+void FGameplayDebuggerCategory_EQS::DrawDetailedItemRow(const EQSDebug::FItemData& ItemData, const TArray<uint8>& TestRelevancy, float MaxScore, FGameplayDebuggerCanvasContext& CanvasContext) const
 {
 	const float PosY = CanvasContext.CursorY + 1.0f;
 	float PosX = CanvasContext.CursorX;
 
-	CanvasContext.PrintAt(PosX, PosY, FColor::White, ItemData.Desc);
+	FString ItemDesc = ItemData.Desc;
+	float DescSizeX = 0.0f;
+	float DescSizeY = 0.0f;
+	CanvasContext.MeasureString(ItemData.Desc, DescSizeX, DescSizeY);
+
+	for (int32 DescIdx = ItemData.Desc.Len() - 1; (DescIdx > 0) && (DescSizeX > FEQSDebugTable::ItemDescriptionWidth); DescIdx--)
+	{
+		ItemDesc = ItemData.Desc.Left(DescIdx) + TEXT("...");
+		CanvasContext.MeasureString(ItemDesc, DescSizeX, DescSizeY);
+	}
+
+	CanvasContext.PrintAt(PosX, PosY, FColor::White, ItemDesc);
 	PosX += FEQSDebugTable::ItemDescriptionWidth;
 
-	CanvasContext.PrintfAt(PosX, PosY, FColor::Yellow, TEXT("%.2f"), ItemData.TotalScore);
-	PosX += FEQSDebugTable::ItemScoreWidth;
+	const int32 NumTests = ItemData.TestScores.Num();
+	float TotalScoreNotNormalized = 0.0f;
+	for (int32 Idx = 0; Idx < NumTests; Idx++)
+	{
+		if (TestRelevancy[Idx])
+		{
+			TotalScoreNotNormalized += ItemData.TestScores[Idx];
+		}
+	}
 
 	FCanvasTileItem ActiveTileItem(FVector2D(0, PosY + 15.0f), GWhiteTexture, FVector2D(0, 2.0f), FLinearColor::Yellow);
 	FCanvasTileItem BackTileItem(FVector2D(0, PosY + 15.0f), GWhiteTexture, FVector2D(0, 2.0f), FLinearColor(0.1f, 0.1f, 0.1f));
-	const float BarWidth = 80.0f;
+	const float BarWidth = FEQSDebugTable::ItemScoreWidth - 2.0f;
 
-	const int32 NumTests = ItemData.TestScores.Num();
+	const float Pct = (MaxScore > KINDA_SMALL_NUMBER) ? (TotalScoreNotNormalized / MaxScore) : 0.0f;
+	ActiveTileItem.Position.X = PosX;
+	ActiveTileItem.Size.X = BarWidth * Pct;
+	BackTileItem.Position.X = PosX + ActiveTileItem.Size.X;
+	BackTileItem.Size.X = FMath::Max(BarWidth * (1.0f - Pct), 0.0f);
 
-	float TotalWeightedScore = 0.0f;
+	CanvasContext.DrawItem(ActiveTileItem, ActiveTileItem.Position.X, ActiveTileItem.Position.Y);
+	CanvasContext.DrawItem(BackTileItem, BackTileItem.Position.X, BackTileItem.Position.Y);
+
+	CanvasContext.PrintfAt(PosX, PosY, FColor::Yellow, TEXT("%.2f"), TotalScoreNotNormalized);
+	PosX += FEQSDebugTable::ItemScoreWidth;
+
+	const FString RelevantScoreColor = TEXT("green");
+	const FString IgnoredScoreColor = FColor(0, 96, 0).ToString();
+	const FString RelevantValueColor = FColor(192, 192, 192).ToString();
+	const FString IgnoredValueColor = FColor(96, 96, 96).ToString();
+
 	for (int32 Idx = 0; Idx < NumTests; Idx++)
 	{
-		TotalWeightedScore += ItemData.TestScores[Idx];
-	}
+		if (TestRelevancy[Idx])
+		{
+			const float ScoreW = ItemData.TestScores[Idx];
+			const float ScoreN = ItemData.TestValues[Idx];
+			const bool bIsIgnoredValue = FMath::IsNearlyZero(ScoreW);
+			const FString DescScoreN = (ScoreN == UEnvQueryTypes::SkippedItemValue) ? TEXT("SKIP") : FString::Printf(TEXT("%.2f"), ScoreN);
 
-	for (int32 Idx = 0; Idx < NumTests; Idx++)
-	{
-		const float ScoreW = ItemData.TestScores[Idx];
-		const float ScoreN = ItemData.TestValues[Idx];
-		FString DescScoreW = FString::Printf(TEXT("%.2f"), ScoreW);
-		FString DescScoreN = (ScoreN == UEnvQueryTypes::SkippedItemValue) ? TEXT("SKIP") : FString::Printf(TEXT("%.2f"), ScoreN);
-		FString TestDesc = DescScoreW + FString(" {LightBlue}") + DescScoreN;
+			CanvasContext.PrintfAt(PosX, PosY, TEXT("{%s}%.2f {%s}%s"),
+				bIsIgnoredValue ? *IgnoredScoreColor : *RelevantScoreColor, ScoreW,
+				bIsIgnoredValue ? *IgnoredValueColor : *RelevantValueColor, *DescScoreN);
 
-		float Pct = (TotalWeightedScore > KINDA_SMALL_NUMBER) ? (ScoreW / TotalWeightedScore) : 0.0f;
-		ActiveTileItem.Position.X = PosX;
-		ActiveTileItem.Size.X = BarWidth * Pct;
-		BackTileItem.Position.X = PosX + ActiveTileItem.Size.X;
-		BackTileItem.Size.X = FMath::Max(BarWidth * (1.0f - Pct), 0.0f);
-
-		CanvasContext.DrawItem(ActiveTileItem, ActiveTileItem.Position.X, ActiveTileItem.Position.Y);
-		CanvasContext.DrawItem(BackTileItem, BackTileItem.Position.X, BackTileItem.Position.Y);
-
-		CanvasContext.PrintAt(PosX, PosY, FColor::Green, TestDesc);
-		PosX += FEQSDebugTable::TestScoreWidth;
+			PosX += FEQSDebugTable::TestScoreWidth;
+		}
 	}
 }
 #endif // USE_EQS_DEBUGGER
@@ -341,6 +458,11 @@ void FGameplayDebuggerCategory_EQS::CycleShownQueries()
 	ShownQueryIndex = (DataPack.QueryDebugData.Num() > 0) ? ((ShownQueryIndex + 1) % DataPack.QueryDebugData.Num()) : 0;
 #endif // USE_EQS_DEBUGGER
 	MarkRenderStateDirty();
+}
+
+void FGameplayDebuggerCategory_EQS::ToggleDetailView()
+{
+	bShowDetails = !bShowDetails;
 }
 
 #endif // ENABLE_GAMEPLAY_DEBUGGER

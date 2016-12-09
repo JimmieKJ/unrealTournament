@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Interfaces/OnlineNotificationTransportInterface.h"
 #include "OnlineSubsystemPackage.h"
-#include "OnlineSubsystemTypes.h"
+
+struct FOnlineNotification;
 
 //forward declare
 typedef TSharedPtr<class IOnlineNotificationTransport, ESPMode::ThreadSafe> IOnlineNotificationTransportPtr;

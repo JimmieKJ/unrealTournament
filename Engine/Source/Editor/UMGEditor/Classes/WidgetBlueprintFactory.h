@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "Factories/Factory.h"
+#include "Engine/Blueprint.h"
 #include "WidgetBlueprintFactory.generated.h"
 
 UCLASS(HideCategories=Object, MinimalAPI)

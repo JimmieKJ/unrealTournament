@@ -1,14 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorCombo.h"
+#include "IDocumentation.h"
 
-#include "PropertyNode.h"
 #include "PropertyEditorHelpers.h"
-#include "PropertyEditor.h"
-#include "SPropertyComboBox.h"
-#include "SPropertyEditorCombo.h"
+#include "UserInterface/PropertyEditor/SPropertyComboBox.h"
 
-#include "PropertyHandle.h"
 
 #define LOCTEXT_NAMESPACE "PropertyEditor"
 
@@ -51,6 +48,7 @@ bool SPropertyEditorCombo::Supports( const TSharedRef< class FPropertyEditor >& 
 	int32 ArrayIndex = PropertyNode->GetArrayIndex();
 
 	if(	((Property->IsA(UByteProperty::StaticClass()) && Cast<const UByteProperty>(Property)->Enum)
+		||	Property->IsA(UEnumProperty::StaticClass())
 		||	(Property->IsA(UNameProperty::StaticClass()) && Property->GetFName() == NAME_InitialState)
 		||	(Property->IsA(UStrProperty::StaticClass()) && Property->HasMetaData(TEXT("Enum")))
 		)
@@ -75,26 +73,47 @@ void SPropertyEditorCombo::Construct( const FArguments& InArgs, const TSharedRef
 	TArray<TSharedPtr<SToolTip>> RichToolTips;
 
 	// For enums, look for rich tooltip information
-	if(PropertyEditor.IsValid() && PropertyEditor->GetProperty())
+	if(PropertyEditor.IsValid())
 	{
-		if(UEnum* Enum = CastChecked<UByteProperty>(PropertyEditor->GetProperty())->Enum)
+		if(const UProperty* Property = PropertyEditor->GetProperty())
 		{
-			// Get enum doc link (not just GetDocumentationLink as that is the documentation for the struct we're in, not the enum documentation)
-			FString DocLink = PropertyEditorHelpers::GetEnumDocumentationLink(PropertyEditor->GetProperty());
+			UEnum* Enum = nullptr;
 			
-			for(int32 EnumIdx = 0; EnumIdx < Enum->NumEnums() - 1; ++EnumIdx)
+			if(const UByteProperty* ByteProperty = Cast<UByteProperty>(Property))
 			{
-				FString Excerpt = Enum->GetEnumName(EnumIdx);
+				Enum = ByteProperty->Enum;
+			}
+			else if (const UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+			{
+				Enum = EnumProperty->GetEnum();
+			}
 
-				bool bShouldBeHidden = Enum->HasMetaData(TEXT("Hidden"), EnumIdx) || Enum->HasMetaData(TEXT("Spacer"), EnumIdx);
-				if(!bShouldBeHidden)
+			if(Enum)
+			{
+				TArray<FName> AllowedPropertyEnums = PropertyEditorHelpers::GetValidEnumsFromPropertyOverride(Property, Enum);
+
+				// Get enum doc link (not just GetDocumentationLink as that is the documentation for the struct we're in, not the enum documentation)
+				FString DocLink = PropertyEditorHelpers::GetEnumDocumentationLink(Property);
+			
+				for(int32 EnumIdx = 0; EnumIdx < Enum->NumEnums() - 1; ++EnumIdx)
 				{
-					RichToolTips.Add(IDocumentation::Get()->CreateToolTip(Enum->GetToolTipText(EnumIdx), nullptr, DocLink, Excerpt));
+					FString Excerpt = Enum->GetEnumName(EnumIdx);
+
+					bool bShouldBeHidden = Enum->HasMetaData(TEXT("Hidden"), EnumIdx) || Enum->HasMetaData(TEXT("Spacer"), EnumIdx);
+					if( !bShouldBeHidden && AllowedPropertyEnums.Num() != 0 )
+					{
+						bShouldBeHidden = AllowedPropertyEnums.Find(Enum->GetEnum(EnumIdx)) == INDEX_NONE;
+					}
+
+					if(!bShouldBeHidden)
+					{
+						RichToolTips.Add(IDocumentation::Get()->CreateToolTip(Enum->GetToolTipText(EnumIdx), nullptr, DocLink, Excerpt));
+					}
 				}
 			}
 		}
 	}
-	
+
 	SAssignNew(ComboBox, SPropertyComboBox)
 		.Font( InArgs._Font )
 		.RichToolTipList( RichToolTips )
@@ -116,10 +135,9 @@ void SPropertyEditorCombo::Construct( const FArguments& InArgs, const TSharedRef
 FString SPropertyEditorCombo::GetDisplayValueAsString() const
 {
 	const UProperty* Property = PropertyEditor->GetProperty();
-	const UByteProperty* ByteProperty = Cast<const UByteProperty>( Property );
-	const bool bStringEnumProperty = Property && Property->IsA(UStrProperty::StaticClass()) && Property->HasMetaData(TEXT("Enum"));	
+	const bool bStringEnumProperty = Cast<UStrProperty>(Property) && Property->HasMetaData(TEXT("Enum"));
 
-	if ( !(ByteProperty || bStringEnumProperty) )
+	if ( !Cast<UByteProperty>(Property) && !Cast<UEnumProperty>(Property) && !bStringEnumProperty )
 	{
 		UObject* ObjectValue = NULL;
 		FPropertyAccess::Result Result = PropertyEditor->GetPropertyHandle()->GetValue( ObjectValue );
@@ -166,7 +184,15 @@ void SPropertyEditorCombo::SendToObjects( const FString& NewValue )
 		// currently only enum properties can use alternate display values; this 
 		// might change, so assert here so that if support is expanded to other 
 		// property types without updating this block of code, we'll catch it quickly
-		UEnum* Enum = CastChecked<UByteProperty>(Property)->Enum;
+		UEnum* Enum = nullptr;
+		if (UByteProperty* ByteProperty = Cast<UByteProperty>(Property))
+		{
+			Enum = ByteProperty->Enum;
+		}
+		else if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+		{
+			Enum = EnumProperty->GetEnum();
+		}
 		check(Enum != nullptr);
 
 		const int32 Index = FindEnumValueIndex(Enum, NewValue);

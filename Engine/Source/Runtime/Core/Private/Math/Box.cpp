@@ -4,7 +4,10 @@
 	Box.cpp: Implements the FBox class.
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "Math/Box.h"
+#include "Math/Vector4.h"
+#include "Math/VectorRegister.h"
+#include "Math/Transform.h"
 
 
 /* FBox structors

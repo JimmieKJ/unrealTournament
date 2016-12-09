@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#if !UE_BUILD_SHIPPING
+#include "CoreMinimal.h"
 #include "Misc/CoreMisc.h"
+#include "AISystem.h"
+#if !UE_BUILD_SHIPPING
 #include "BehaviorTree/BehaviorTreeManager.h"
 
 struct FAISystemExec : public FSelfRegisteringExec

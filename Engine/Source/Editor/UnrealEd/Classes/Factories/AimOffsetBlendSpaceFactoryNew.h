@@ -5,6 +5,10 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/BlendSpaceFactoryNew.h"
 #include "AimOffsetBlendSpaceFactoryNew.generated.h"
 
 UCLASS(hidecategories=Object, MinimalAPI)

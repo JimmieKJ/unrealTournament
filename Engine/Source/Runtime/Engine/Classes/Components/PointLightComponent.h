@@ -2,8 +2,14 @@
 
 
 #pragma once
-#include "LightComponent.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "Components/LightComponent.h"
 #include "PointLightComponent.generated.h"
+
+class FLightSceneProxy;
 
 /**
  * A light component which emits light from a single point equally in all directions.

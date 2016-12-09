@@ -5,7 +5,19 @@
 	that handles creating files in a manifest from the chunks that make it.
 =============================================================================*/
 
-#include "BuildPatchServicesPrivatePCH.h"
+#include "BuildPatchFileConstructor.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/ScopeLock.h"
+#include "Interfaces/IBuildInstaller.h"
+#include "BuildPatchError.h"
+#include "BuildPatchChunkCache.h"
+#include "BuildPatchUtil.h"
+#include "BuildPatchAnalytics.h"
+#include "BuildPatchServicesPrivate.h"
 
 using namespace BuildPatchConstants;
 
@@ -110,31 +122,31 @@ public:
 
 /* FBuildPatchFileConstructor implementation
  *****************************************************************************/
-FBuildPatchFileConstructor::FBuildPatchFileConstructor( FBuildPatchAppManifestPtr InInstalledManifest, FBuildPatchAppManifestRef InBuildManifest, const FString& InInstallDirectory, const FString& InStageDirectory, const TArray< FString >& InConstructList, FBuildPatchProgress* InBuildProgress )
-	: Thread( NULL )
-	, bIsRunning( false )
-	, bIsInited( false )
-	, bInitFailed( false )
-	, bIsDownloadStarted( false )
+FBuildPatchFileConstructor::FBuildPatchFileConstructor(FBuildPatchAppManifestPtr InInstalledManifest, FBuildPatchAppManifestRef InBuildManifest, const FString& InInstallDirectory, const FString& InStageDirectory, const TSet<FString>& InConstructList, FBuildPatchProgress* InBuildProgress)
+	: Thread(NULL)
+	, bIsRunning(false)
+	, bIsInited(false)
+	, bInitFailed(false)
+	, bIsDownloadStarted(false)
 	, ThreadLock()
-	, InstalledManifest( InInstalledManifest )
-	, BuildManifest( InBuildManifest )
-	, BuildProgress( InBuildProgress )
-	, InstallDirectory( InInstallDirectory )
-	, StagingDirectory( InStageDirectory )
-	, TotalJobSize( 0 )
-	, ByteProcessed( 0 )
-	, FilesToConstruct( InConstructList )
+	, InstalledManifest(InInstalledManifest)
+	, BuildManifest(InBuildManifest)
+	, BuildProgress(InBuildProgress)
+	, InstallDirectory(InInstallDirectory)
+	, StagingDirectory(InStageDirectory)
+	, TotalJobSize(0)
+	, ByteProcessed(0)
+	, FilesToConstruct(InConstructList.Array())
 {
 	// Init progress
-	BuildProgress->SetStateProgress( EBuildPatchProgress::Installing, 0.0f );
+	BuildProgress->SetStateProgress(EBuildPatchState::Installing, 0.0f);
 	// Count initial job size
-	for( auto ConstructIt = InConstructList.CreateConstIterator(); ConstructIt; ++ConstructIt )
+	for (auto ConstructIt = InConstructList.CreateConstIterator(); ConstructIt; ++ConstructIt)
 	{
-		TotalJobSize += InBuildManifest->GetFileSize( *ConstructIt );
+		TotalJobSize += InBuildManifest->GetFileSize(*ConstructIt);
 	}
 	// Start thread!
-	const TCHAR* ThreadName = TEXT( "FileConstructorThread" );
+	const TCHAR* ThreadName = TEXT("FileConstructorThread");
 	Thread = FRunnableThread::Create(this, ThreadName);
 }
 
@@ -193,7 +205,7 @@ uint32 FBuildPatchFileConstructor::Run()
 	ResumeData.SaveOut();
 
 	// Start resume progress at zero or one
-	BuildProgress->SetStateProgress( EBuildPatchProgress::Resuming, ResumeData.bHasResumeData ? 0.0f : 1.0f );
+	BuildProgress->SetStateProgress( EBuildPatchState::Resuming, ResumeData.bHasResumeData ? 0.0f : 1.0f );
 
 	// While we have files to construct, run
 	FString FileToConstruct;
@@ -237,7 +249,7 @@ uint32 FBuildPatchFileConstructor::Run()
 		BuildProgress->WaitWhilePaused();
 	}
 
-	BuildProgress->SetStateProgress(EBuildPatchProgress::Resuming, 1.0f);
+	BuildProgress->SetStateProgress(EBuildPatchState::Resuming, 1.0f);
 
 	// Set constructed files
 	ThreadLock.Lock();
@@ -260,13 +272,6 @@ bool FBuildPatchFileConstructor::IsComplete()
 {
 	FScopeLock Lock( &ThreadLock );
 	return ( !bIsRunning && bIsInited ) || bInitFailed;
-}
-
-void FBuildPatchFileConstructor::GetFilesConstructed( TArray< FString >& ConstructedFiles )
-{
-	FScopeLock Lock( &ThreadLock );
-	ConstructedFiles.Empty();
-	ConstructedFiles.Append( FilesConstructed );
 }
 
 void FBuildPatchFileConstructor::AddFileDataToInventory( const FGuid& FileGuid, const FString& Filename )
@@ -331,7 +336,7 @@ void FBuildPatchFileConstructor::CountBytesProcessed( const int64& ByteCount )
 	ByteProcessed += ByteCount;
 	const double Total = TotalJobSize;
 	const double Current = ByteProcessed;
-	BuildProgress->SetStateProgress( EBuildPatchProgress::Installing, Current / Total );
+	BuildProgress->SetStateProgress( EBuildPatchState::Installing, Current / Total );
 }
 
 bool FBuildPatchFileConstructor::GetFileToConstruct(FString& Filename)
@@ -437,7 +442,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 		if( bSuccess )
 		{
 			// Whenever we start writing again, there's no more resuming to be done
-			BuildProgress->SetStateProgress( EBuildPatchProgress::Resuming, 1.0f );
+			BuildProgress->SetStateProgress( EBuildPatchState::Resuming, 1.0f );
 
 			// Seek to file write position
 			NewFile->Seek( StartPosition );
@@ -468,7 +473,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 						FBuildPatchAnalytics::RecordConstructionError(Filename, INDEX_NONE, TEXT("Missing Chunk"));
 						UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Failed %s due to chunk %s"), *Filename, *ChunkPart.Guid.ToString());
 					}
-					FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::InitializationError, ConstructionErrorCodes::MissingChunkData);
+					FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::FileConstructionFail, ConstructionErrorCodes::MissingChunkData);
 				}
 			}
 
@@ -493,7 +498,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 					if (FBuildPatchInstallError::HasFatalError() == false)
 					{
 						FBuildPatchAnalytics::RecordConstructionError(Filename, INDEX_NONE, TEXT("Not Enough Disk Space"));
-						UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Out of disk space. Avail:%u, Needed:%u, File:%s"), DriveSpace, RequiredSpace, *Filename);
+						UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Out of disk space. Avail:%llu bytes, Needed:%llu bytes, File:%s"), DriveSpace, RequiredSpace, *Filename);
 					}
 					// Always set
 					FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::OutOfDiskSpace, DiskSpaceErrorCodes::DuringInstallation);

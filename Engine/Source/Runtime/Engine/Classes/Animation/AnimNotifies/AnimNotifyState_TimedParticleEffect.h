@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
 #include "AnimNotifyState_TimedParticleEffect.generated.h"
+
+class UParticleSystem;
+class USkeletalMeshComponent;
 
 // Timed Particle Effect Notify
 // Allows a looping particle effect to be played in an animation that will activate

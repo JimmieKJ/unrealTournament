@@ -2,8 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/Location/ParticleModuleLocation.h"
 #include "ParticleModuleLocationWorldOffset.generated.h"
+
+struct FParticleEmitterInstance;
 
 UCLASS(editinlinenew, meta=(DisplayName = "World Offset"))
 class ENGINE_API UParticleModuleLocationWorldOffset : public UParticleModuleLocation

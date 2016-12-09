@@ -2,25 +2,36 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "Engine/EngineTypes.h"
+#include "GameFramework/Actor.h"
 #include "PhysicsEngine/BodyInstance.h"
-#include "AI/Navigation/NavigationTypes.h"
+#include "Async/AsyncWork.h"
 #include "Engine/Texture.h"
 #include "LandscapeProxy.generated.h"
 
-class ULandscapeInfo;
-class ULandscapeComponent;
-class ULandscapeSplinesComponent;
-class ULandscapeGrassType;
-class UHierarchicalInstancedStaticMeshComponent;
-class ULandscapeHeightfieldCollisionComponent;
-class UMaterialInstanceConstant;
-class ULandscapeMaterialInstanceConstant;
-class ALandscapeProxy;
 class ALandscape;
-class ALandscapeStreamingProxy;
-struct FLandscapeInfoLayerSettings;
+class ALandscapeProxy;
+class UHierarchicalInstancedStaticMeshComponent;
+class ULandscapeComponent;
+class ULandscapeGrassType;
+class ULandscapeHeightfieldCollisionComponent;
+class ULandscapeInfo;
+class ULandscapeLayerInfoObject;
+class ULandscapeMaterialInstanceConstant;
+class ULandscapeSplinesComponent;
+class UMaterialInstanceConstant;
+class UMaterialInterface;
+class UPhysicalMaterial;
+class USplineComponent;
+class UTexture2D;
 struct FAsyncGrassBuilder;
+struct FLandscapeInfoLayerSettings;
 struct FRawMesh;
+enum class ENavDataGatheringMode : uint8;
 
 /** Structure storing channel usage for weightmap textures */
 USTRUCT()
@@ -66,15 +77,16 @@ struct FLandscapeEditorLayerSettings
 	{
 	}
 
-	FLandscapeEditorLayerSettings(ULandscapeLayerInfoObject* InLayerInfo, const FString& InFilePath = FString())
+	explicit FLandscapeEditorLayerSettings(ULandscapeLayerInfoObject* InLayerInfo, const FString& InFilePath = FString())
 		: LayerInfoObj(InLayerInfo)
 		, ReimportLayerFilePath(InFilePath)
 	{
 	}
 
-	bool operator==(const FLandscapeEditorLayerSettings& rhs) const
+	// To allow FindByKey etc
+	bool operator==(const ULandscapeLayerInfoObject* LayerInfo) const
 	{
-		return LayerInfoObj == rhs.LayerInfoObj;
+		return LayerInfoObj == LayerInfo;
 	}
 #endif // WITH_EDITORONLY_DATA
 };
@@ -301,7 +313,7 @@ public:
 	~FAsyncGrassTask();
 };
 
-UCLASS(Abstract, MinimalAPI, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Lighting, Rendering, "Utilities|Transformation"))
+UCLASS(Abstract, MinimalAPI, NotBlueprintable, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Lighting, Rendering, "Utilities|Transformation"))
 class ALandscapeProxy : public AActor
 {
 	GENERATED_BODY()
@@ -649,9 +661,13 @@ public:
 	/** Remove all XYOffset values */
 	LANDSCAPE_API void RemoveXYOffsets();
 
+	/** Update the material instances for all the landscape components */
+	LANDSCAPE_API void UpdateAllComponentMaterialInstances();
 
+	/** Create a thumbnail material for a given layer */
 	LANDSCAPE_API static ULandscapeMaterialInstanceConstant* GetLayerThumbnailMIC(UMaterialInterface* LandscapeMaterial, FName LayerName, UTexture2D* ThumbnailWeightmap, UTexture2D* ThumbnailHeightmap, ALandscapeProxy* Proxy);
 
+	/** Import the given Height/Weight data into this landscape */
 	LANDSCAPE_API void Import(FGuid Guid, int32 MinX, int32 MinY, int32 MaxX, int32 MaxY, int32 NumSubsections, int32 SubsectionSizeQuads,
 							const uint16* HeightData, const TCHAR* HeightmapFileName,
 							const TArray<FLandscapeImportLayerInfo>& ImportLayerInfos, ELandscapeImportAlphamapType ImportLayerType);

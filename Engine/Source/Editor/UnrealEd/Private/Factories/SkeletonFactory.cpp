@@ -4,9 +4,18 @@
 	SkeletonFactory.cpp: Factory for Skeletons
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "Factories/SkeletonFactory.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EditorStyleSet.h"
+#include "Animation/Skeleton.h"
+#include "Engine/SkeletalMesh.h"
+#include "Editor.h"
 
-#include "AssetData.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "SkeletonFactory"

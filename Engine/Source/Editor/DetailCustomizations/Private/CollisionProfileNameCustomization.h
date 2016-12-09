@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+#include "Widgets/Input/SComboBox.h"
 
-class SNameComboBox;
-
+class IDetailGroup;
 
 /**
  * Customizes a CollisionProfileName property to use a dropdown

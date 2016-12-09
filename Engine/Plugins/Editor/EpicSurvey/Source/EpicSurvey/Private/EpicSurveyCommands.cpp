@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EpicSurveyPrivatePCH.h"
 #include "EpicSurveyCommands.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "EpicSurvey"
 

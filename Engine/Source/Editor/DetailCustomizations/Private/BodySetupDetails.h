@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
 #include "BodyInstanceCustomization.h"
+
+class IDetailLayoutBuilder;
 
 class FBodySetupDetails : public IDetailCustomization
 {

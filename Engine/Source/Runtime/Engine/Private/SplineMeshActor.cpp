@@ -4,12 +4,14 @@
 	SplineMeshActor.cpp: Spline mesh actor class implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "MapErrors.h"
 #include "Engine/SplineMeshActor.h"
 #include "Components/SplineMeshComponent.h"
+#include "Engine/CollisionProfile.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "Misc/MapErrors.h"
+#include "Engine/StaticMesh.h"
 
 #define LOCTEXT_NAMESPACE "SplineMeshActor"
 
@@ -47,9 +49,9 @@ bool ASplineMeshActor::GetReferencedContentObjects(TArray<UObject*>& Objects) co
 	Super::GetReferencedContentObjects(Objects);
 
 	check(SplineMeshComponent != nullptr);
-	if (SplineMeshComponent->StaticMesh != nullptr)
+	if (SplineMeshComponent->GetStaticMesh() != nullptr)
 	{
-		Objects.Add(SplineMeshComponent->StaticMesh);
+		Objects.Add(SplineMeshComponent->GetStaticMesh());
 	}
 	return true;
 }
@@ -60,7 +62,7 @@ void ASplineMeshActor::CheckForErrors()
 
 	FMessageLog MapCheck("MapCheck");
 
-	if (SplineMeshComponent->StaticMesh == NULL)
+	if (SplineMeshComponent->GetStaticMesh() == nullptr)
 	{
 		MapCheck.Warning()
 			->AddToken(FUObjectToken::Create(this))

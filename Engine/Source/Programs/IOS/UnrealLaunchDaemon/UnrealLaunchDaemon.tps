@@ -5,23 +5,11 @@
   <Date>2016-06-16T14:00:18.2736214-04:00</Date>
   <Function />
   <Justification />
-  <Platforms>
-    <Platform>iOS</Platform>
-  </Platforms>
-  <Products>
-    <Product>UDK4</Product>
-    <Product>UE4</Product>
-  </Products>
-  <TpsType>Source Code</TpsType>
-  <Eula>See Zombie UE4 iOS Development and Support Agreement in Contraxx</Eula>
+  <Eula>Custom agreement between Epic/Zombie, see Zombie UE4 iOS Development and Support Agreement in Contraxx</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
   <LicenseFolder>None</LicenseFolder>
 </TpsData>

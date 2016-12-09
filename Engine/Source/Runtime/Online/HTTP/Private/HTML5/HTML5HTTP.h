@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
+
 /**
 * HTML5 implementation of an Http request
 */

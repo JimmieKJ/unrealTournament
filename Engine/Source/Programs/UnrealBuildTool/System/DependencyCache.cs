@@ -409,20 +409,21 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Gets the dependency cache path and filename for the specified target.
 		/// </summary>
-		/// <param name="Target">Current build target</param>
+		/// <param name="ProjectFile">The project directory</param>
+		/// <param name="TargetName">Name of the target being compiled</param>
 		/// <returns>Cache Path</returns>
-		public static FileReference GetDependencyCachePathForTarget(UEBuildTarget Target)
+		public static FileReference GetDependencyCachePathForTarget(FileReference ProjectFile, string TargetName)
 		{
 			DirectoryReference PlatformIntermediatePath;
-			if (Target.ProjectFile != null)
+			if (ProjectFile != null)
 			{
-				PlatformIntermediatePath = DirectoryReference.Combine(Target.ProjectFile.Directory, BuildConfiguration.PlatformIntermediateFolder);
+				PlatformIntermediatePath = DirectoryReference.Combine(ProjectFile.Directory, BuildConfiguration.PlatformIntermediateFolder);
 			}
 			else
 			{
 				PlatformIntermediatePath = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, BuildConfiguration.PlatformIntermediateFolder);
 			}
-			return FileReference.Combine(PlatformIntermediatePath, Target.GetTargetName(), "DependencyCache.bin");
+			return FileReference.Combine(PlatformIntermediatePath, TargetName, "DependencyCache.bin");
 		}
 	}
 }

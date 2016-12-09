@@ -2,11 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
-class FSlateElementBatch;
-class FSlateShaderResource;
-struct FSlateVertex;
-
+class FSlateFontServices;
 
 /**
  * Abstract base class for Slate rendering policies.

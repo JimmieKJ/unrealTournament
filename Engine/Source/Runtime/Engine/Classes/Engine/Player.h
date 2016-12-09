@@ -5,7 +5,13 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "Player.generated.h"
+
+class APlayerController;
 
 UCLASS(MinimalAPI, transient, config=Engine)
 class UPlayer : public UObject, public FExec

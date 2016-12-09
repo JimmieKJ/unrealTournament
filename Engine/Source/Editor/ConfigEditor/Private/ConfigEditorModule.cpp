@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "ConfigEditorPCH.h"
 #include "ConfigEditorModule.h"
+#include "UObject/UnrealType.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "SConfigEditor.h"
 
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 DEFINE_LOG_CATEGORY_STATIC(ConfigEditor, Log, All);
 

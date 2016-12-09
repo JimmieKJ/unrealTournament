@@ -2,11 +2,14 @@
 
 #pragma once
 
-#include "Curves/IntegralCurve.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
-#include "IKeyframeSection.h"
+#include "Curves/IntegralCurve.h"
+#include "Sections/IKeyframeSection.h"
 #include "MovieSceneActorReferenceSection.generated.h"
-
 
 /**
  * A single actor reference point section
@@ -25,14 +28,15 @@ public:
 	 *
 	 * @param Position	The position in time within the movie scene
 	 */
-	FGuid Eval(float Position) const;
+	MOVIESCENETRACKS_API FGuid Eval(float Position) const;
 
 	// IKeyframeSection interface.
 
-	void AddKey(float Time, const FGuid& Value, EMovieSceneKeyInterpolation KeyInterpolation);
-	bool NewKeyIsNewData(float Time, const FGuid& Value) const;
-	bool HasKeys(const FGuid& Value) const;
-	void SetDefault(const FGuid& Value);
+	virtual void AddKey(float Time, const FGuid& Value, EMovieSceneKeyInterpolation KeyInterpolation) override;
+	virtual bool NewKeyIsNewData(float Time, const FGuid& Value) const override;
+	virtual bool HasKeys(const FGuid& Value) const override;
+	virtual void SetDefault(const FGuid& Value) override;
+	virtual void ClearDefaults() override;
 
 	/**
 	 * @return The integral curve on this section
@@ -42,7 +46,13 @@ public:
 		return ActorGuidIndexCurve;
 	}
 
+	const FIntegralCurve& GetActorReferenceCurve() const { return ActorGuidIndexCurve; }
+
+	const TArray<FGuid>& GetActorGuids() const { return ActorGuids; }
+
 public:
+
+	MOVIESCENETRACKS_API FKeyHandle AddKey(float Time, const FGuid& Value);
 
 	//~ UMovieSceneSection interface
 

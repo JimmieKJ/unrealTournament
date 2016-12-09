@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "PhysicsEngine/PhysicsHandleComponent.h"
+#include "EngineDefines.h"
+#include "PhysxUserData.h"
+#include "Components/PrimitiveComponent.h"
 #include "PhysicsPublic.h"
 #if WITH_PHYSX
-	#include "PhysXSupport.h"
+	#include "PhysXPublic.h"
 #endif // WITH_PHYSX
 
 UPhysicsHandleComponent::UPhysicsHandleComponent(const FObjectInitializer& ObjectInitializer)
@@ -133,7 +135,7 @@ void UPhysicsHandleComponent::GrabComponentImp(UPrimitiveComponent* InComponent,
 		{
 			// Create kinematic actor we are going to create joint with. This will be moved around with calls to SetLocation/SetRotation.
 			PxRigidDynamic* KinActor = Scene->getPhysics().createRigidDynamic(KinPose);
-			KinActor->setRigidDynamicFlag(PxRigidDynamicFlag::eKINEMATIC, true);
+			KinActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
 			KinActor->setMass(1.0f);
 			KinActor->setMassSpaceInertiaTensor(PxVec3(1.0f, 1.0f, 1.0f));
 
@@ -147,7 +149,7 @@ void UPhysicsHandleComponent::GrabComponentImp(UPrimitiveComponent* InComponent,
 			KinActorData = KinActor;
 
 			// Create the joint
-			PxD6Joint* NewJoint = PxD6JointCreate(Scene->getPhysics(), KinActor, PxTransform::createIdentity(), Actor, GrabbedActorPose.transformInv(KinPose));
+			PxD6Joint* NewJoint = PxD6JointCreate(Scene->getPhysics(), KinActor, PxTransform(PxIdentity), Actor, GrabbedActorPose.transformInv(KinPose));
 
 			if (!NewJoint)
 			{
@@ -194,13 +196,13 @@ void UPhysicsHandleComponent::GrabComponentImp(UPrimitiveComponent* InComponent,
 void UPhysicsHandleComponent::UpdateDriveSettings()
 {
 #if WITH_PHYSX
-	if (HandleData != nullptr)
+	if(HandleData != nullptr)
 	{
 		if (bSoftLinearConstraint)
 		{
-			HandleData->setDrive(PxD6Drive::eX, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
-			HandleData->setDrive(PxD6Drive::eY, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
-			HandleData->setDrive(PxD6Drive::eZ, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+		HandleData->setDrive(PxD6Drive::eX, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+		HandleData->setDrive(PxD6Drive::eY, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+		HandleData->setDrive(PxD6Drive::eZ, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
 		}
 
 		if (bSoftAngularConstraint && bRotationConstrained)
@@ -240,6 +242,8 @@ void UPhysicsHandleComponent::ReleaseComponent()
 		}
 
 		bRotationConstrained = false;
+
+		GrabbedComponent->WakeRigidBody(GrabbedBoneName);
 
 		GrabbedComponent = NULL;
 		GrabbedBoneName = NAME_None;
@@ -324,12 +328,12 @@ void UPhysicsHandleComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 
 	if (bInterpolateTarget)
 	{
-		const float Alpha = FMath::Clamp(DeltaTime * InterpolationSpeed, 0.f, 1.f);
-		FTransform C = CurrentTransform;
-		FTransform T = TargetTransform;
-		C.NormalizeRotation();
-		T.NormalizeRotation();
-		CurrentTransform.Blend(C, T, Alpha);
+	const float Alpha = FMath::Clamp(DeltaTime * InterpolationSpeed, 0.f, 1.f);
+	FTransform C = CurrentTransform;
+	FTransform T = TargetTransform;
+	C.NormalizeRotation();
+	T.NormalizeRotation();
+	CurrentTransform.Blend(C, T, Alpha);
 	}
 	else
 	{

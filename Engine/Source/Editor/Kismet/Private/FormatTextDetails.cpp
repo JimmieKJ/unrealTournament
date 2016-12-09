@@ -1,8 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "FormatTextDetails.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "UObject/Package.h"
+#include "EditorStyleSet.h"
+#include "PropertyHandle.h"
+#include "IDetailChildrenBuilder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "K2Node_FormatText.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "IDetailsView.h"
 
 #include "PropertyCustomizationHelpers.h"
 

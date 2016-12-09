@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
 #include "BoneControllers/AnimNode_BoneDrivenController.h"
 
-#include "AnimInstanceProxy.h"
+#include "Curves/CurveFloat.h"
+#include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////
 // FAnimNode_BoneDrivenController
@@ -185,10 +185,10 @@ void FAnimNode_BoneDrivenController::EvaluateComponentSpaceInternal(FComponentSp
 	{
 		//	Morph target and Material parameter curves
 		USkeleton* Skeleton = Context.AnimInstanceProxy->GetSkeleton();
-		FSmartNameMapping::UID NameUID = Skeleton->GetUIDByName(USkeleton::AnimCurveMappingName, ParameterName);
-		if (NameUID != FSmartNameMapping::MaxUID)
+		SmartName::UID_Type NameUID = Skeleton->GetUIDByName(USkeleton::AnimCurveMappingName, ParameterName);
+		if (NameUID != SmartName::MaxUID)
 		{
-			Context.Curve.Set(NameUID, FinalDriverValue, (DestinationMode == EDrivenDestinationMode::MorphTarget) ? EAnimCurveFlags::ACF_DriveMorphTarget : EAnimCurveFlags::ACF_DriveMaterial);
+			Context.Curve.Set(NameUID, FinalDriverValue);
 		}
 	}
 }

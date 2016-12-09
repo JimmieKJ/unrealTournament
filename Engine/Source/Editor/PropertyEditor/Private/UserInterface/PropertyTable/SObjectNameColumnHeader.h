@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SColumnHeader.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "UserInterface/PropertyTable/SColumnHeader.h"
 #include "IPropertyTableCell.h"
-#include "IPropertyTableCellPresenter.h"
-#include "IPropertyTableUtilities.h"
-#include "ObjectNameTableCellPresenter.h"
+#include "UserInterface/PropertyTable/SPropertyTableCell.h"
+#include "UserInterface/PropertyTable/ObjectNameTableCellPresenter.h"
 
 class SObjectNameColumnHeader : public SColumnHeader
 {

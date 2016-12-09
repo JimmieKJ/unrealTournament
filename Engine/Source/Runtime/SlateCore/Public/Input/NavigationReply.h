@@ -2,11 +2,13 @@
 
 #pragma once
 
-#include "SlateEnums.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 
 #include "NavigationReply.generated.h"
 
 class SWidget;
+enum class EUINavigation : uint8;
 
 UENUM(BlueprintType)
 enum class EUINavigationRule : uint8

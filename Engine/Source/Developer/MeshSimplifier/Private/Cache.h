@@ -58,9 +58,9 @@ template< typename T, uint32 Size >
 FORCEINLINE void TCacheDirect<T, Size>::Remove( uint32 Key )
 {
 	uint32 Index = Key & ( Size - 1 );
-	if( Keys[index] == Key )
+	if( Keys[ Index ] == Key )
 	{
-		Keys[index] = ~0u;
+		Keys[ Index ] = ~0u;
 	}
 }
 

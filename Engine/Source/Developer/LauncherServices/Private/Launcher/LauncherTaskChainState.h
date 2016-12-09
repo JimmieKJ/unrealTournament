@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Interfaces/ILauncherProfile.h"
 
 /**
  * Structure for passing launcher task chain state data.

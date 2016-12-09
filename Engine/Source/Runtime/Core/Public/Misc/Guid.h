@@ -2,10 +2,10 @@
 
 #pragma once
 
-
-class UObject;
-class FOutputDevice;
-
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Misc/Crc.h"
+#include "Containers/UnrealString.h"
 
 /**
  * Enumerates known GUID formats.

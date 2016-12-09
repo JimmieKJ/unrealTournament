@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Styling/SlateStyle.h"
+
+class ISlateStyle;
+
 class FGameMenuBuilderStyle
 {
 public:

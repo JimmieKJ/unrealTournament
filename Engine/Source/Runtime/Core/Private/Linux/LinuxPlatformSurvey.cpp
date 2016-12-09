@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Linux/LinuxPlatformSurvey.h"
+#include "Math/UnrealMathUtility.h"
+#include "HAL/UnrealMemory.h"
 
-#include "UnrealString.h"
 #include "SynthBenchmark.h"
 
 bool FLinuxPlatformSurvey::GetSurveyResults(FHardwareSurveyResults& OutResults, bool bWait)

@@ -2,16 +2,22 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Math/Vector2D.h"
+#include "Templates/SharedPointer.h"
+#include "Delegates/Delegate.h"
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericWindowDefinition.h"
+#include "GenericPlatform/GenericWindow.h"
 
-
-class FGenericWindow;
+class FSlateApplication;
+class IAnalyticsProvider;
 class ICursor;
+class IInputInterface;
 class ITextInputMethodSystem;
 class IForceFeedbackSystem;
-class IInputInterface;
-class IAnalyticsProvider;
-
 
 /**
 * Enumerates available modifier keys for input gestures.
@@ -304,6 +310,9 @@ struct FPlatformRect
 	int32 Top;
 	int32 Right;
 	int32 Bottom;
+
+	FPlatformRect() {}
+	FPlatformRect(int32 InLeft, int32 InTop, int32 InRight, int32 InBottom) : Left(InLeft), Top(InTop), Right(InRight), Bottom(InBottom) {}
 };
 
 
@@ -316,6 +325,8 @@ struct FMonitorInfo
 	FString ID;
 	int32 NativeWidth;
 	int32 NativeHeight;
+	FPlatformRect DisplayRect;
+	FPlatformRect WorkArea;
 	bool bIsPrimary;
 };
 

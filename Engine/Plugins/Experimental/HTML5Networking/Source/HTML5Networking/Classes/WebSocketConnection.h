@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Engine/NetConnection.h"
 #include "WebSocketConnection.generated.h"
 
 
@@ -19,11 +20,17 @@ class HTML5NETWORKING_API UWebSocketConnection : public UNetConnection
 	virtual void LowLevelSend(void* Data, int32 CountBytes, int32 CountBits) override;
 	FString LowLevelGetRemoteAddress(bool bAppendPort = false) override;
 	FString LowLevelDescribe() override;
+	virtual int32 GetAddrAsInt(void) override;
+	virtual int32 GetAddrPort(void) override;
+	virtual FString RemoteAddressToString() override;
 	virtual void Tick();
 	virtual void FinishDestroy();
+	virtual void ReceivedRawPacket(void* Data,int32 Count);
 	//~ End NetConnection Interface
 
 
 	void SetWebSocket(FWebSocket* InWebSocket);
 	FWebSocket* GetWebSocket();
+
+	bool bChallengeHandshake = false;
 };

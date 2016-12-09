@@ -4,7 +4,10 @@
 	HTML5Process.cpp: HTML5 implementations of Process functions
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "HTML5/HTML5PlatformProcess.h"
+#include "Misc/CoreStats.h"
+#include "Misc/App.h"
+#include "Misc/SingleThreadEvent.h"
 
 const TCHAR* FHTML5PlatformProcess::ComputerName()
 {

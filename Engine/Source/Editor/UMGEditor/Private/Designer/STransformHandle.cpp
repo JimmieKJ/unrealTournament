@@ -1,12 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
+#include "Designer/STransformHandle.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+
+#if WITH_EDITOR
+	#include "EditorStyleSet.h"
+#endif // WITH_EDITOR
+#include "Slate/WidgetTransform.h"
+#include "Components/Widget.h"
+#include "Components/CanvasPanelSlot.h"
+
+#include "WidgetReference.h"
 #include "IUMGDesigner.h"
 #include "ObjectEditorUtils.h"
-#include "STransformHandle.h"
-#include "WidgetReference.h"
-#include "Widget.h"
-#include "Components/PanelSlot.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "UMG"

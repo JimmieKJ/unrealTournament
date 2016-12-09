@@ -1,0 +1,121 @@
+diff --git browser/browser_plugin/browser_plugin_guest.cc browser/browser_plugin/browser_plugin_guest.cc
+index 33262a8..5da1220 100644
+--- browser/browser_plugin/browser_plugin_guest.cc
++++ browser/browser_plugin/browser_plugin_guest.cc
+@@ -27,7 +27,7 @@
+ #include "content/browser/renderer_host/render_widget_host_impl.h"
+ #include "content/browser/renderer_host/render_widget_host_view_base.h"
+ #include "content/browser/web_contents/web_contents_impl.h"
+-#include "content/browser/web_contents/web_contents_view_guest.h"
++#include "content/browser/web_contents/web_contents_view.h"
+ #include "content/common/browser_plugin/browser_plugin_constants.h"
+ #include "content/common/browser_plugin/browser_plugin_messages.h"
+ #include "content/common/content_constants_internal.h"
+@@ -294,20 +294,19 @@ void BrowserPluginGuest::InitInternal(
+   guest_window_rect_ = params.view_rect;
+ 
+   if (owner_web_contents_ != owner_web_contents) {
+-    WebContentsViewGuest* new_view = nullptr;
++    WebContentsView* new_view = nullptr;
+     if (!BrowserPluginGuestMode::UseCrossProcessFramesForGuests()) {
+-      new_view =
+-          static_cast<WebContentsViewGuest*>(GetWebContents()->GetView());
++      new_view = GetWebContents()->GetView();
+     }
+ 
+     if (owner_web_contents_ && new_view)
+-      new_view->OnGuestDetached(owner_web_contents_->GetView());
++      delegate_->OnGuestDetached(new_view, owner_web_contents_->GetView());
+ 
+     // Once a BrowserPluginGuest has an embedder WebContents, it's considered to
+     // be attached.
+     owner_web_contents_ = owner_web_contents;
+     if (new_view)
+-      new_view->OnGuestAttached(owner_web_contents_->GetView());
++      delegate_->OnGuestAttached(new_view, owner_web_contents_->GetView());
+   }
+ 
+   RendererPreferences* renderer_prefs =
+@@ -791,11 +790,10 @@ void BrowserPluginGuest::OnWillAttachComplete(
+     static_cast<RenderViewHostImpl*>(GetWebContents()->GetRenderViewHost())
+         ->GetWidget()
+         ->Init();
+-    WebContentsViewGuest* web_contents_view =
+-        static_cast<WebContentsViewGuest*>(GetWebContents()->GetView());
+     if (!web_contents()->GetRenderViewHost()->GetWidget()->GetView()) {
+-      web_contents_view->CreateViewForWidget(
+-          web_contents()->GetRenderViewHost()->GetWidget(), true);
++      delegate_->CreateViewForWidget(
++          GetWebContents()->GetView(),
++          web_contents()->GetRenderViewHost()->GetWidget());
+     }
+   }
+ 
+diff --git public/browser/browser_plugin_guest_delegate.cc public/browser/browser_plugin_guest_delegate.cc
+index bfa19e4..d788495 100644
+--- public/browser/browser_plugin_guest_delegate.cc
++++ public/browser/browser_plugin_guest_delegate.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "content/public/browser/browser_plugin_guest_delegate.h"
+ 
++#include "content/browser/web_contents/web_contents_view_guest.h"
++
+ namespace content {
+ 
+ bool BrowserPluginGuestDelegate::CanRunInDetachedState() const {
+@@ -32,4 +34,23 @@ bool BrowserPluginGuestDelegate::HandleStopFindingForEmbedder(
+   return false;
+ }
+ 
++void BrowserPluginGuestDelegate::OnGuestAttached(
++    content::WebContentsView* guest_view,
++    content::WebContentsView* parent_view) {
++  static_cast<WebContentsViewGuest*>(guest_view)->OnGuestAttached(parent_view);
++}
++
++void BrowserPluginGuestDelegate::OnGuestDetached(
++    content::WebContentsView* guest_view,
++    content::WebContentsView* parent_view) {
++  static_cast<WebContentsViewGuest*>(guest_view)->OnGuestAttached(parent_view);
++}
++
++void BrowserPluginGuestDelegate::CreateViewForWidget(
++    content::WebContentsView* guest_view,
++    content::RenderWidgetHost* render_widget_host) {
++  static_cast<WebContentsViewGuest*>(guest_view)->CreateViewForWidget(
++      render_widget_host, true);
++}
++
+ }  // namespace content
+diff --git public/browser/browser_plugin_guest_delegate.h public/browser/browser_plugin_guest_delegate.h
+index 4dd1a4c..b299190 100644
+--- public/browser/browser_plugin_guest_delegate.h
++++ public/browser/browser_plugin_guest_delegate.h
+@@ -21,6 +21,8 @@ class Size;
+ namespace content {
+ 
+ class GuestHost;
++class RenderWidgetHost;
++class WebContentsView;
+ 
+ // Objects implement this interface to get notified about changes in the guest
+ // WebContents and to provide necessary functionality.
+@@ -87,6 +89,17 @@ class CONTENT_EXPORT BrowserPluginGuestDelegate {
+   // content module.
+   virtual void SetGuestHost(GuestHost* guest_host) {}
+ 
++  // Called when a guest is attached or detached.
++  virtual void OnGuestAttached(content::WebContentsView* guest_view,
++                               content::WebContentsView* parent_view);
++  virtual void OnGuestDetached(content::WebContentsView* guest_view,
++                               content::WebContentsView* parent_view);
++
++  // Called to create the view for the widget.
++  virtual void CreateViewForWidget(
++      content::WebContentsView* guest_view,
++      content::RenderWidgetHost* render_widget_host);
++
+   // Sets the position of the context menu for the guest contents. The value
+   // reported from the guest renderer should be ignored. The reported value
+   // fromt he guest renderer is incorrect in situations where BrowserPlugin is

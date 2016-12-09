@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "AnimNodeBase.h"
-#include "InputScaleBias.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimNodeBase.h"
+#include "Animation/InputScaleBias.h"
 #include "AnimNode_ApplyMeshSpaceAdditive.generated.h"
 
 USTRUCT()

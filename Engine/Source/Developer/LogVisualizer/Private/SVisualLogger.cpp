@@ -1,20 +1,39 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
-#include "SDockTab.h"
+#include "SVisualLogger.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Modules/ModuleManager.h"
+#include "Async/Future.h"
+#include "Async/Async.h"
+#include "EngineGlobals.h"
+#include "Debug/DebugDrawService.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/Engine.h"
+#include "EngineUtils.h"
 #include "VisualLogger/VisualLogger.h"
+#include "LogVisualizerSettings.h"
+#include "LogVisualizerSessionSettings.h"
+#include "VisualLoggerDatabase.h"
+#include "LogVisualizerStyle.h"
+#include "VisualLoggerCommands.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "LogVisualizerPrivate.h"
+#include "SVisualLoggerToolbar.h"
+#include "SVisualLoggerFilters.h"
+#include "SVisualLoggerView.h"
+#include "SVisualLoggerLogsList.h"
+#include "SVisualLoggerStatusView.h"
+#include "VisualLoggerTimeSliderController.h"
 #include "VisualLoggerRenderingActor.h"
 #include "VisualLoggerCanvasRenderer.h"
 #include "DesktopPlatformModule.h"
-#include "MainFrame.h"
 #include "VisualLoggerCameraController.h"
+#include "Framework/Application/SlateApplication.h"
 #if WITH_EDITOR
-#	include "Editor/UnrealEd/Public/EditorComponents.h"
-#	include "Editor/UnrealEd/Public/EditorReimportHandler.h"
-#	include "Editor/UnrealEd/Public/TexAlignTools.h"
-#	include "Editor/UnrealEd/Public/TickableEditorObject.h"
-#	include "Editor/UnrealEd/Public/Editor.h"
-#	include "Editor/UnrealEd/Public/EditorViewportClient.h"
+#include "Editor/EditorEngine.h"
+#include "Editor.h"
 #endif
 #include "ISettingsModule.h"
 
@@ -545,19 +564,10 @@ void SVisualLogger::HandleLoadCommandExecute()
 	bool bOpened = false;
 	if (DesktopPlatform)
 	{
-		void* ParentWindowWindowHandle = NULL;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if (MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid())
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		const FString DefaultBrowsePath = FString::Printf(TEXT("%slogs/"), *FPaths::GameSavedDir());
 
 		bOpened = DesktopPlatform->OpenFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(AsShared()),
 			LOCTEXT("OpenProjectBrowseTitle", "Open Project").ToString(),
 			DefaultBrowsePath,
 			TEXT(""),
@@ -629,18 +639,9 @@ void SVisualLogger::HandleSaveCommand(bool bSaveAllData)
 		bool bSaved = false;
 		if (DesktopPlatform)
 		{
-			void* ParentWindowWindowHandle = NULL;
-
-			IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-			const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-			if (MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid())
-			{
-				ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-			}
-
 			const FString DefaultBrowsePath = FString::Printf(TEXT("%slogs/"), *FPaths::GameSavedDir());
 			bSaved = DesktopPlatform->SaveFileDialog(
-				ParentWindowWindowHandle,
+				FSlateApplication::Get().FindBestParentWindowHandleForDialogs(AsShared()),
 				LOCTEXT("NewProjectBrowseTitle", "Choose a project location").ToString(),
 				DefaultBrowsePath,
 				TEXT(""),

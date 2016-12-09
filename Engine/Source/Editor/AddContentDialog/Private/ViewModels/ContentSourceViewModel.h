@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "IContentSource.h"
+#include "ViewModels/CategoryViewModel.h"
+
 /** A view model for displaying and interacting with an IContentSource in the FAddContentDialog. */
 class FContentSourceViewModel : public TSharedFromThis<FContentSourceViewModel>
 {

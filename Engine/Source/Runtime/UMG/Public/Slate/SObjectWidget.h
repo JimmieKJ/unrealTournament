@@ -2,7 +2,24 @@
 
 #pragma once
 
-#include "UserWidget.h"
+#include "CoreMinimal.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+#include "Input/NavigationReply.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "UObject/GCObject.h"
+#include "Blueprint/UserWidget.h"
+#include "Widgets/SCompoundWidget.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+class FWeakWidgetPath;
+class FWidgetPath;
+class UDragDropOperation;
+
+template< typename ObjectType > class TAttribute;
 
 /**
  * The SObjectWidget allows UMG to insert an SWidget into the hierarchy that manages the lifetime of the

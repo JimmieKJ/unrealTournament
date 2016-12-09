@@ -2,10 +2,13 @@
 
 #pragma once
 
-#include "ShapeElem.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "PhysicsEngine/ShapeElem.h"
 #include "ConvexElem.generated.h"
 
 struct FDynamicMeshVertex;
+struct FKBoxElem;
 
 namespace physx
 {
@@ -24,11 +27,11 @@ struct FKConvexElem : public FKShapeElem
 
 	/** Bounding box of this convex hull. */
 	UPROPERTY()
-		FBox ElemBox;
+	FBox ElemBox;
 
 	/** Transform of this element */
 	UPROPERTY()
-		FTransform Transform;
+	FTransform Transform;
 
 	/** Convex mesh for this body, created from cooked data in CreatePhysicsMeshes */
 	physx::PxConvexMesh*   ConvexMesh;
@@ -43,6 +46,23 @@ struct FKConvexElem : public FKShapeElem
 		, ConvexMesh(NULL)
 		, ConvexMeshNegX(NULL)
 	{}
+
+	FKConvexElem(const FKConvexElem& Other)
+		: ConvexMesh(nullptr)
+		, ConvexMeshNegX(nullptr)
+	{
+		CloneElem(Other);
+	}
+
+	const FKConvexElem& operator=(const FKConvexElem& Other)
+	{
+		ensureMsgf(ConvexMesh == nullptr, TEXT("We are leaking memory. Why are we calling the assignment operator on an element that has already allocated resources?"));
+		ensureMsgf(ConvexMeshNegX == nullptr, TEXT("We are leaking memory. Why are we calling the assignment operator on an element that has already allocated resources?"));
+		ConvexMesh = nullptr;
+		ConvexMeshNegX = nullptr;
+		CloneElem(Other);
+		return *this;
+	}
 
 	DEPRECATED(4.8, "Please call DrawElemWire which takes in a Scale parameter")
 	ENGINE_API void	DrawElemWire(class FPrimitiveDrawInterface* PDI, const FTransform& ElemTM, const FColor Color) const;
@@ -66,6 +86,12 @@ struct FKConvexElem : public FKShapeElem
 	/** Utility for creating a convex hull from a set of planes. Will reset current state of this elem. */
 	ENGINE_API bool HullFromPlanes(const TArray<FPlane>& InPlanes, const TArray<FVector>& SnapVerts);
 
+	/** Utility for setting this convex element to match a supplied box element. Also copies transform. */
+	ENGINE_API void ConvexFromBoxElem(const FKBoxElem& InBox);
+
+	/** Apply current element transform to verts, and reset transform to identity */
+	ENGINE_API void BakeTransformToVerts();
+
 	/** Returns the volume of this element */
 	float GetVolume(const FVector& Scale) const;
 
@@ -85,4 +111,14 @@ struct FKConvexElem : public FKShapeElem
 	ENGINE_API void ScaleElem(FVector DeltaSize, float MinSize);
 
 	ENGINE_API static EAggCollisionShape::Type StaticShapeType;
+
+private:
+	/** Helper function to safely copy instances of this shape*/
+	void CloneElem(const FKConvexElem& Other)
+	{
+		Super::CloneElem(Other);
+		VertexData = Other.VertexData;
+		ElemBox = Other.ElemBox;
+		Transform = Other.Transform;
+	}
 };

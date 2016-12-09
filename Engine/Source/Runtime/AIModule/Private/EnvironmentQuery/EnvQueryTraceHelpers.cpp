@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "EnvQueryTraceHelpers.h"
+#include "EnvironmentQuery/EnvQueryTraceHelpers.h"
+#include "AI/Navigation/NavigationData.h"
 
+PRAGMA_DISABLE_OPTIMIZATION
 
 template<>
 void FEQSHelpers::FBatchTrace::DoSingleSourceMultiDestinations<EEnvTraceShape::Line>(const FVector& Source, TArray<FNavLocation>& Points)
@@ -22,7 +23,6 @@ void FEQSHelpers::FBatchTrace::DoSingleSourceMultiDestinations<EEnvTraceShape::L
 	}
 }
 
-
 template<>
 void FEQSHelpers::FBatchTrace::DoSingleSourceMultiDestinations<EEnvTraceShape::Box>(const FVector& Source, TArray<FNavLocation>& Points)
 {
@@ -40,7 +40,6 @@ void FEQSHelpers::FBatchTrace::DoSingleSourceMultiDestinations<EEnvTraceShape::B
 		}
 	}
 }
-
 
 template<>
 void FEQSHelpers::FBatchTrace::DoSingleSourceMultiDestinations<EEnvTraceShape::Sphere>(const FVector& Source, TArray<FNavLocation>& Points)
@@ -60,7 +59,6 @@ void FEQSHelpers::FBatchTrace::DoSingleSourceMultiDestinations<EEnvTraceShape::S
 	}
 }
 
-
 template<>
 void FEQSHelpers::FBatchTrace::DoSingleSourceMultiDestinations<EEnvTraceShape::Capsule>(const FVector& Source, TArray<FNavLocation>& Points)
 {
@@ -79,6 +77,81 @@ void FEQSHelpers::FBatchTrace::DoSingleSourceMultiDestinations<EEnvTraceShape::C
 	}
 }
 
+template<>
+void FEQSHelpers::FBatchTrace::DoMultiSourceMultiDestinations2D<EEnvTraceShape::Line>(const TArray<FRayStartEnd>& Rays, TArray<FNavLocation>& OutPoints)
+{
+	FVector HitPos(FVector::ZeroVector);
+
+	for (int32 RayIndex = 0; RayIndex < Rays.Num(); ++RayIndex)
+	{
+		const FVector StartLocation = Rays[RayIndex].RayStart;
+		// adjusted end to make this a 2D trace
+		FVector EndLocation = Rays[RayIndex].RayEnd;
+		EndLocation.Z = StartLocation.Z;
+		const bool bHit = RunLineTrace(StartLocation, Rays[RayIndex].RayEnd, HitPos);
+		if (bHit || TraceMode != ETraceMode::Discard)
+		{
+			OutPoints.Add(FNavLocation(bHit ? HitPos : EndLocation));
+		}
+	}
+}
+
+template<>
+void FEQSHelpers::FBatchTrace::DoMultiSourceMultiDestinations2D<EEnvTraceShape::Box>(const TArray<FRayStartEnd>& Rays, TArray<FNavLocation>& OutPoints)
+{
+	FVector HitPos(FVector::ZeroVector);
+
+	for (int32 RayIndex = 0; RayIndex < Rays.Num(); ++RayIndex)
+	{
+		const FVector StartLocation = Rays[RayIndex].RayStart;
+		// adjusted end to make this a 2D trace
+		FVector EndLocation = Rays[RayIndex].RayEnd;
+		EndLocation.Z = StartLocation.Z;
+		const bool bHit = RunBoxTrace(StartLocation, Rays[RayIndex].RayEnd, HitPos);
+		if (bHit || TraceMode != ETraceMode::Discard)
+		{
+			OutPoints.Add(FNavLocation(bHit ? HitPos : EndLocation));
+		}
+	}
+}
+
+template<>
+void FEQSHelpers::FBatchTrace::DoMultiSourceMultiDestinations2D<EEnvTraceShape::Sphere>(const TArray<FRayStartEnd>& Rays, TArray<FNavLocation>& OutPoints)
+{
+	FVector HitPos(FVector::ZeroVector);
+
+	for (int32 RayIndex = 0; RayIndex < Rays.Num(); ++RayIndex)
+	{
+		const FVector StartLocation = Rays[RayIndex].RayStart;
+		// adjusted end to make this a 2D trace
+		FVector EndLocation = Rays[RayIndex].RayEnd;
+		EndLocation.Z = StartLocation.Z;
+		const bool bHit = RunSphereTrace(StartLocation, Rays[RayIndex].RayEnd, HitPos);
+		if (bHit || TraceMode != ETraceMode::Discard)
+		{
+			OutPoints.Add(FNavLocation(bHit ? HitPos : EndLocation));
+		}
+	}
+}
+
+template<>
+void FEQSHelpers::FBatchTrace::DoMultiSourceMultiDestinations2D<EEnvTraceShape::Capsule>(const TArray<FRayStartEnd>& Rays, TArray<FNavLocation>& OutPoints)
+{
+	FVector HitPos(FVector::ZeroVector);
+
+	for (int32 RayIndex = 0; RayIndex < Rays.Num(); ++RayIndex)
+	{
+		const FVector StartLocation = Rays[RayIndex].RayStart;
+		// adjusted end to make this a 2D trace
+		FVector EndLocation = Rays[RayIndex].RayEnd;
+		EndLocation.Z = StartLocation.Z;
+		const bool bHit = RunCapsuleTrace(StartLocation, Rays[RayIndex].RayEnd, HitPos);
+		if (bHit || TraceMode != ETraceMode::Discard)
+		{
+			OutPoints.Add(FNavLocation(bHit ? HitPos : EndLocation));
+		}
+	}
+}
 
 template<>
 void FEQSHelpers::FBatchTrace::DoProject<EEnvTraceShape::Line>(TArray<FNavLocation>& Points, float StartOffsetZ, float EndOffsetZ, float HitOffsetZ)
@@ -104,7 +177,6 @@ void FEQSHelpers::FBatchTrace::DoProject<EEnvTraceShape::Line>(TArray<FNavLocati
 	}
 }
 
-
 template<>
 void FEQSHelpers::FBatchTrace::DoProject<EEnvTraceShape::Box>(TArray<FNavLocation>& Points, float StartOffsetZ, float EndOffsetZ, float HitOffsetZ)
 {
@@ -127,7 +199,6 @@ void FEQSHelpers::FBatchTrace::DoProject<EEnvTraceShape::Box>(TArray<FNavLocatio
 		}
 	}
 }
-
 
 template<>
 void FEQSHelpers::FBatchTrace::DoProject<EEnvTraceShape::Sphere>(TArray<FNavLocation>& Points, float StartOffsetZ, float EndOffsetZ, float HitOffsetZ)
@@ -152,7 +223,6 @@ void FEQSHelpers::FBatchTrace::DoProject<EEnvTraceShape::Sphere>(TArray<FNavLoca
 	}
 }
 
-
 template<>
 void FEQSHelpers::FBatchTrace::DoProject<EEnvTraceShape::Capsule>(TArray<FNavLocation>& Points, float StartOffsetZ, float EndOffsetZ, float HitOffsetZ)
 {
@@ -176,8 +246,82 @@ void FEQSHelpers::FBatchTrace::DoProject<EEnvTraceShape::Capsule>(TArray<FNavLoc
 	}
 }
 
+void FEQSHelpers::RunRaycastsOnNavHitOnlyWalls(const ANavigationData& NavData, const UObject& Querier, const FEnvTraceData& TraceData, const FVector& SourcePt, TArray<FNavLocation>& Points, const TArray<AActor*>& IgnoredActors, const ETraceMode TraceMode)
+{
+	FSharedConstNavQueryFilter NavigationFilter = UNavigationQueryFilter::GetQueryFilter(NavData, &Querier, TraceData.NavigationFilter);
 
-void FEQSHelpers::RunNavRaycasts(const ANavigationData& NavData, const UObject& Querier, const FEnvTraceData& TraceData, const FVector& SourcePt, TArray<FNavLocation>& Points, ETraceMode TraceMode /*= ETraceMode::Keep*/)
+	TArray<FNavigationRaycastWork> RaycastWorkload;
+	RaycastWorkload.Reserve(Points.Num());
+
+	for (const auto& ItemLocation : Points)
+	{
+		RaycastWorkload.Add(FNavigationRaycastWork(SourcePt, ItemLocation.Location));
+	}
+
+	NavData.BatchRaycast(RaycastWorkload, NavigationFilter);
+
+	// now we accept all the traces that didn't hit anything
+	// while for the ones that did we make another, geometry pass
+	// to tell if the navmesh trace hit a wall or a ledge
+	// @todo handle "keep" here
+	Points.Reset();
+	TArray<FRayStartEnd> GeometryTraceCandidates;
+	for (int32 ResultIndex = 0; ResultIndex < RaycastWorkload.Num(); ResultIndex++)
+	{
+		if (RaycastWorkload[ResultIndex].bDidHit)
+		{
+			if (GeometryTraceCandidates.GetSlack() == 0)
+			{
+				// reserve lazily
+				GeometryTraceCandidates.Reserve(RaycastWorkload.Num());
+			}
+			GeometryTraceCandidates.Add(FRayStartEnd(RaycastWorkload[ResultIndex].HitLocation.Location, RaycastWorkload[ResultIndex].RayEnd));
+		}
+		else
+		{
+			Points.Add(RaycastWorkload[ResultIndex].HitLocation);
+		}
+	}
+
+	if (GeometryTraceCandidates.Num() > 0)
+	{
+		check(NavData.GetWorld());
+
+		ECollisionChannel TraceCollisionChannel = UEngineTypes::ConvertToCollisionChannel(TraceData.TraceChannel);
+		FVector TraceExtent(TraceData.ExtentX, TraceData.ExtentY, TraceData.ExtentZ);
+
+		FCollisionQueryParams TraceParams(TEXT("EnvQueryTrace"), TraceData.bTraceComplex);
+		TraceParams.bTraceAsyncScene = true;
+		TraceParams.AddIgnoredActors(IgnoredActors);
+
+		FBatchTrace TraceHelper(NavData.GetWorld(), TraceCollisionChannel, TraceParams, TraceExtent, TraceMode);
+		FVector HitPos(FVector::ZeroVector);
+
+		switch (TraceData.TraceShape)
+		{
+		case EEnvTraceShape::Line:
+			TraceHelper.DoMultiSourceMultiDestinations2D<EEnvTraceShape::Line>(GeometryTraceCandidates, Points);
+			break;
+
+		case EEnvTraceShape::Sphere:
+			TraceHelper.DoMultiSourceMultiDestinations2D<EEnvTraceShape::Sphere>(GeometryTraceCandidates, Points);
+			break;
+
+		case EEnvTraceShape::Capsule:
+			TraceHelper.DoMultiSourceMultiDestinations2D<EEnvTraceShape::Capsule>(GeometryTraceCandidates, Points);
+			break;
+
+		case EEnvTraceShape::Box:
+			TraceHelper.DoMultiSourceMultiDestinations2D<EEnvTraceShape::Box>(GeometryTraceCandidates, Points);
+			break;
+
+		default:
+			break;
+		}
+	}
+}
+
+void FEQSHelpers::RunNavRaycasts(const ANavigationData& NavData, const UObject& Querier, const FEnvTraceData& TraceData, const FVector& SourcePt, TArray<FNavLocation>& Points, const ETraceMode TraceMode /*= ETraceMode::Keep*/)
 {
 	FSharedConstNavQueryFilter NavigationFilter = UNavigationQueryFilter::GetQueryFilter(NavData, &Querier, TraceData.NavigationFilter);
 
@@ -208,8 +352,7 @@ void FEQSHelpers::RunNavRaycasts(const ANavigationData& NavData, const UObject& 
 	}
 }
 
-
-void FEQSHelpers::RunNavProjection(const ANavigationData& NavData, const UObject& Querier, const FEnvTraceData& TraceData, TArray<FNavLocation>& Points, ETraceMode TraceMode /*= ETraceMode::Discard*/)
+void FEQSHelpers::RunNavProjection(const ANavigationData& NavData, const UObject& Querier, const FEnvTraceData& TraceData, TArray<FNavLocation>& Points, const ETraceMode TraceMode /*= ETraceMode::Discard*/)
 {
 	FSharedConstNavQueryFilter NavigationFilter = UNavigationQueryFilter::GetQueryFilter(NavData, &Querier, TraceData.NavigationFilter);
 	TArray<FNavigationProjectionWork> Workload;
@@ -248,8 +391,7 @@ void FEQSHelpers::RunNavProjection(const ANavigationData& NavData, const UObject
 	}
 }
 
-
-void FEQSHelpers::RunPhysRaycasts(UWorld* World, const FEnvTraceData& TraceData, const FVector& SourcePt, TArray<FNavLocation>& Points, const TArray<AActor*>& IgnoredActors, ETraceMode TraceMode)
+void FEQSHelpers::RunPhysRaycasts(UWorld* World, const FEnvTraceData& TraceData, const FVector& SourcePt, TArray<FNavLocation>& Points, const TArray<AActor*>& IgnoredActors, const ETraceMode TraceMode)
 {
 	ECollisionChannel TraceCollisionChannel = UEngineTypes::ConvertToCollisionChannel(TraceData.TraceChannel);
 	FVector TraceExtent(TraceData.ExtentX, TraceData.ExtentY, TraceData.ExtentZ);
@@ -283,8 +425,7 @@ void FEQSHelpers::RunPhysRaycasts(UWorld* World, const FEnvTraceData& TraceData,
 	}
 }
 
-
-void FEQSHelpers::RunPhysProjection(UWorld* World, const FEnvTraceData& TraceData, TArray<FNavLocation>& Points, ETraceMode TraceMode)
+void FEQSHelpers::RunPhysProjection(UWorld* World, const FEnvTraceData& TraceData, TArray<FNavLocation>& Points, const ETraceMode TraceMode)
 {
 	ECollisionChannel TraceCollisionChannel = UEngineTypes::ConvertToCollisionChannel(TraceData.TraceChannel);
 	FVector TraceExtent(TraceData.ExtentX, TraceData.ExtentY, TraceData.ExtentZ);
@@ -353,6 +494,9 @@ void FEQSHelpers::RunPhysProjection(UWorld* World, const FEnvTraceData& TraceDat
 	TraceHits.Append(BatchOb.TraceHits);
 }
 
+//----------------------------------------------------------------------//
+// DEPRECATED
+//----------------------------------------------------------------------//
 void FEQSHelpers::RunNavRaycasts(const ANavigationData& NavData, const FEnvTraceData& TraceData, const FVector& SourcePt, TArray<FNavLocation>& Points, ETraceMode TraceMode)
 {
 	RunNavRaycasts(NavData, NavData, TraceData, SourcePt, Points, TraceMode);
@@ -362,3 +506,5 @@ void FEQSHelpers::RunNavProjection(const ANavigationData& NavData, const FEnvTra
 {
 	RunNavProjection(NavData, NavData, TraceData, Points, TraceMode);
 }
+
+PRAGMA_ENABLE_OPTIMIZATION

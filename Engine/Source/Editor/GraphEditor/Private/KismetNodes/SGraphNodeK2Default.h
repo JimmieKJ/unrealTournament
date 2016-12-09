@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SGraphNodeK2Base.h"
+
+class UK2Node;
+
 class SGraphNodeK2Default : public SGraphNodeK2Base
 {
 public:

@@ -2,7 +2,7 @@
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Configuration Condition=" '$(Configuration)' == '' ">Development</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{A002361E-37F9-4124-AF82-CF0D393CB928}</ProjectGuid>
     <OutputType>Library</OutputType>
@@ -66,6 +66,7 @@
     <Compile Include="Badge.cs" />
     <Compile Include="BuildGraph.cs" />
     <Compile Include="Graph.cs" />
+    <Compile Include="LockFile.cs" />
     <Compile Include="Node.cs" />
     <Compile Include="Report.cs" />
     <Compile Include="Task.cs" />
@@ -74,8 +75,11 @@
     <Compile Include="Condition.cs" />
     <Compile Include="Schema.cs" />
     <Compile Include="Script.cs" />
+    <Compile Include="Tasks\AgeStoreTask.cs" />
     <Compile Include="Tasks\CommandletTask.cs" />
     <Compile Include="Tasks\CsCompileTask.cs" />
+    <Compile Include="Tasks\MoveTask.cs" />
+    <Compile Include="Tasks\SymStoreTask.cs" />
     <Compile Include="Tasks\TagReceiptTask.cs" />
     <Compile Include="Tasks\PakFileTask.cs" />
     <Compile Include="Tasks\RenameTask.cs" />

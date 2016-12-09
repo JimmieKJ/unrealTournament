@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -20,6 +20,8 @@
 
 #include "include/cef_web_plugin.h"
 #include "include/capi/cef_web_plugin_capi.h"
+#include "include/cef_browser.h"
+#include "include/capi/cef_browser_capi.h"
 #include "libcef_dll/ctocpp/ctocpp.h"
 
 // Wrap a C structure with a C++ class.
@@ -28,14 +30,11 @@ class CefWebPluginInfoVisitorCToCpp
     : public CefCToCpp<CefWebPluginInfoVisitorCToCpp, CefWebPluginInfoVisitor,
         cef_web_plugin_info_visitor_t> {
  public:
-  explicit CefWebPluginInfoVisitorCToCpp(cef_web_plugin_info_visitor_t* str)
-      : CefCToCpp<CefWebPluginInfoVisitorCToCpp, CefWebPluginInfoVisitor,
-          cef_web_plugin_info_visitor_t>(str) {}
+  CefWebPluginInfoVisitorCToCpp();
 
-  // CefWebPluginInfoVisitor methods
+  // CefWebPluginInfoVisitor methods.
   bool Visit(CefRefPtr<CefWebPluginInfo> info, int count, int total) override;
 };
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_WEB_PLUGIN_INFO_VISITOR_CTOCPP_H_
-

@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IMessageContext.h"
 #include "IMessageBridge.h"
 #include "IMessageBus.h"
-#include "IMessageContext.h"
 #include "IMessageTransport.h"
 #include "IMessagingModule.h"
 
@@ -29,7 +30,7 @@ public:
 	 *
 	 * @param InBus The message bus to attach the bridge to.
 	 */
-	FMessageBridgeBuilder( const IMessageBusRef& Bus )
+	FMessageBridgeBuilder(const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& Bus)
 		: Address(FMessageAddress::NewAddress())
 		, BusPtr(Bus)
 		, Disabled(false)
@@ -56,7 +57,7 @@ public:
 	 * @param InTransport The transport technology to use.
 	 * @return This instance (for method chaining).
 	 */
-	FMessageBridgeBuilder& UsingTransport( const IMessageTransportRef& InTransport )
+	FMessageBridgeBuilder& UsingTransport(const TSharedRef<IMessageTransport, ESPMode::ThreadSafe>& InTransport)
 	{
 		Transport = InTransport;
 
@@ -71,7 +72,7 @@ public:
 	 * @param InAddress The address to set.
 	 * @return This instance (for method chaining).
 	 */
-	FMessageBridgeBuilder& WithAddress( const FMessageAddress& InAddress )
+	FMessageBridgeBuilder& WithAddress(const FMessageAddress& InAddress)
 	{
 		Address = InAddress;
 
@@ -85,13 +86,13 @@ public:
 	 *
 	 * @return A new message bridge, or nullptr if it couldn't be built.
 	 */
-	IMessageBridgePtr Build()
+	TSharedPtr<IMessageBridge, ESPMode::ThreadSafe> Build()
 	{
-		IMessageBridgePtr Bridge;
+		TSharedPtr<IMessageBridge, ESPMode::ThreadSafe> Bridge;
 
 		check(Transport.IsValid());
 
-		IMessageBusPtr Bus = BusPtr.Pin();
+		auto Bus = BusPtr.Pin();
 
 		if (Bus.IsValid())
 		{
@@ -118,7 +119,7 @@ public:
 	 *
 	 * @return A new message bridge, or nullptr if it couldn't be built.
 	 */
-	operator IMessageBridgePtr()
+	operator TSharedPtr<IMessageBridge, ESPMode::ThreadSafe>()
 	{
 		return Build();
 	}
@@ -129,11 +130,11 @@ private:
 	FMessageAddress Address;
 
 	/** Holds a weak pointer to the message bus to attach to. */
-	IMessageBusWeakPtr BusPtr;
+	TWeakPtr<IMessageBus, ESPMode::ThreadSafe> BusPtr;
 
 	/** Holds a flag indicating whether the bridge should be disabled. */
 	bool Disabled;
 
 	/** Holds a reference to the message transport technology. */
-	IMessageTransportPtr Transport;
+	TSharedPtr<IMessageTransport, ESPMode::ThreadSafe> Transport;
 };

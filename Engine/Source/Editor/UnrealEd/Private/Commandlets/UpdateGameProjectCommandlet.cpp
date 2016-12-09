@@ -1,10 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
+#include "Commandlets/UpdateGameProjectCommandlet.h"
+#include "Misc/Paths.h"
+#include "Misc/EngineVersion.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
 #include "GameProjectGenerationModule.h"
-#include "IProjectManager.h"
+#include "Interfaces/IProjectManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUpdateGameProjectCommandlet, Log, All);
 

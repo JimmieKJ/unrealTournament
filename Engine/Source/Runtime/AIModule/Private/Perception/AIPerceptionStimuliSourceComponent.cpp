@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Perception/AIPerceptionStimuliSourceComponent.h"
+#include "Perception/AIPerceptionSystem.h"
 
 UAIPerceptionStimuliSourceComponent::UAIPerceptionStimuliSourceComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

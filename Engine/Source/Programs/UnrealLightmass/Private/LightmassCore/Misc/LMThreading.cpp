@@ -4,10 +4,11 @@
 	LMThreading.cpp: Threading/process functionality
 =============================================================================*/
 
-#include "LightmassPCH.h"
+#include "LMThreading.h"
 #include "LMCore.h"
 
 #if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 #endif // PLATFORM_WINDOWS
 

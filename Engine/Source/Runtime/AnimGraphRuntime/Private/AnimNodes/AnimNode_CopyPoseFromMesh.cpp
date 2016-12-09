@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
 #include "AnimNodes/AnimNode_CopyPoseFromMesh.h"
 #include "Animation/AnimInstanceProxy.h"
 
@@ -40,7 +39,9 @@ void FAnimNode_CopyPoseFromMesh::Evaluate(FPoseContext& Output)
 	FCompactPose& OutPose = Output.Pose;
 	OutPose.ResetToRefPose();
 
-	if (CurrentlyUsedSourceMeshComponent.IsValid() && CurrentlyUsedSourceMeshComponent.Get()->SkeletalMesh)
+	USkeletalMeshComponent* CurrentMeshComponent = CurrentlyUsedSourceMeshComponent.IsValid()? CurrentlyUsedSourceMeshComponent.Get() : nullptr;
+
+	if (CurrentMeshComponent && CurrentMeshComponent->SkeletalMesh && CurrentMeshComponent->IsRegistered())
 	{
 		const FBoneContainer& RequiredBones = OutPose.GetBoneContainer();
 		for(FCompactPoseBoneIndex PoseBoneIndex : OutPose.ForEachBoneIndex())
@@ -51,18 +52,18 @@ void FAnimNode_CopyPoseFromMesh::Evaluate(FPoseContext& Output)
 			if(Value && *Value!=INDEX_NONE)
 			{
 				const int32 SourceBoneIndex = *Value;
-				const int32 ParentIndex = CurrentlyUsedSourceMeshComponent.Get()->SkeletalMesh->RefSkeleton.GetParentIndex(SourceBoneIndex);
+				const int32 ParentIndex = CurrentMeshComponent->SkeletalMesh->RefSkeleton.GetParentIndex(SourceBoneIndex);
 				const FCompactPoseBoneIndex MyParentIndex = RequiredBones.GetParentBoneIndex(PoseBoneIndex);
 				// only apply if I also have parent, otherwise, it should apply the space bases
 				if (ParentIndex != INDEX_NONE && MyParentIndex != INDEX_NONE)
 				{
-					const FTransform& ParentTransform = CurrentlyUsedSourceMeshComponent.Get()->GetComponentSpaceTransforms()[ParentIndex];
-					const FTransform& ChildTransform = CurrentlyUsedSourceMeshComponent.Get()->GetComponentSpaceTransforms()[SourceBoneIndex];
+					const FTransform& ParentTransform = CurrentMeshComponent->GetComponentSpaceTransforms()[ParentIndex];
+					const FTransform& ChildTransform = CurrentMeshComponent->GetComponentSpaceTransforms()[SourceBoneIndex];
 					OutPose[PoseBoneIndex] = ChildTransform.GetRelativeTransform(ParentTransform);
 				}
 				else
 				{
-					OutPose[PoseBoneIndex] = CurrentlyUsedSourceMeshComponent.Get()->GetComponentSpaceTransforms()[SourceBoneIndex];
+					OutPose[PoseBoneIndex] = CurrentMeshComponent->GetComponentSpaceTransforms()[SourceBoneIndex];
 				}
 			}
 		}

@@ -1,17 +1,34 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MainFramePrivatePCH.h"
-
-#include "../../WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "GlobalEditorCommonCommands.h"
-#include "Editor/UnrealEd/Public/Features/EditorFeatures.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
-#include "SourceCodeNavigation.h"
+#include "Menus/MainMenu.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "DesktopPlatformModule.h"
+#include "ISourceControlModule.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "MainFrameTranslationEditorMenu.h"
-#include "Editor/DeviceProfileEditor/Public/DeviceProfileEditorModule.h"
+#include "Toolkits/GlobalEditorCommonCommands.h"
+#include "SourceCodeNavigation.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "EditorStyleSet.h"
+#include "EditorStyleSettings.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "UnrealEdGlobals.h"
+#include "Frame/MainFrameActions.h"
+#include "Menus/PackageProjectMenu.h"
+#include "Menus/RecentProjectsMenu.h"
+#include "Menus/SettingsMenu.h"
+#include "Menus/MainFrameTranslationEditorMenu.h"
+
+#include "WorkspaceMenuStructure.h"
+#include "WorkspaceMenuStructureModule.h"
+#include "Features/EditorFeatures.h"
+#include "Features/IModularFeatures.h"
 #include "UndoHistoryModule.h"
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "ToolboxModule.h"
 
 
@@ -267,6 +284,7 @@ void FMainMenu::FillHelpMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FExte
 {
 	MenuBuilder.BeginSection("HelpOnline", NSLOCTEXT("MainHelpMenu", "Online", "Online"));
 	{
+		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitSupportWebSite);
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitForums);
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitSearchForAnswersPage);
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitWiki);

@@ -4,15 +4,20 @@
 	DistanceFieldSurfaceCacheLighting.cpp
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "UniformBuffer.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "RHI.h"
+#include "RenderResource.h"
 #include "ShaderParameters.h"
+#include "RendererInterface.h"
+#include "Shader.h"
+#include "SceneUtils.h"
+#include "GlobalShader.h"
+#include "DeferredShadingRenderer.h"
+#include "ScenePrivate.h"
 #include "DistanceFieldLightingShared.h"
 #include "DistanceFieldSurfaceCacheLighting.h"
-#include "DistanceFieldGlobalIllumination.h"
-#include "RHICommandList.h"
-#include "SceneUtils.h"
 
 float GAOMaxObjectBoundingRadius = 50000;
 FAutoConsoleVariableRef CVarAOMaxObjectBoundingRadius(

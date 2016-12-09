@@ -1,7 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SessionFrontendPrivatePCH.h"
-#include "SDockTab.h"
+#include "Widgets/SSessionFrontend.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Docking/WorkspaceItem.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "Interfaces/ITargetDeviceServicesModule.h"
+#include "Interfaces/IAutomationControllerModule.h"
+#include "Interfaces/IAutomationWindowModule.h"
+#include "Interfaces/IScreenShotToolsModule.h"
+#include "Interfaces/IScreenShotComparisonModule.h"
+#include "ISessionServicesModule.h"
+#include "IProfilerModule.h"
+#include "Widgets/Browser/SSessionBrowser.h"
+#include "Widgets/Console/SSessionConsole.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
 
 

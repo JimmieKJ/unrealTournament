@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/World.h"
 #include "PhysicsCollisionHandler.generated.h"
 
 struct FCollisionNotifyInfo;
+struct FRigidBodyCollisionInfo;
 
 UCLASS(hidecategories=(Object), Blueprintable)
 class ENGINE_API UPhysicsCollisionHandler : public UObject

@@ -3,9 +3,10 @@
 /*=============================================================================
  =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "StaticMeshResources.h"
 #include "GeomTools.h"
+#include "EngineDefines.h"
+#include "RawIndexBuffer.h"
+#include "StaticMeshResources.h"
 #include "Engine/Polys.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGeomTools, Log, All);

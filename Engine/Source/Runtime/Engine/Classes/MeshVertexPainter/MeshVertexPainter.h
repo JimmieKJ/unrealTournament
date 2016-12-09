@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+
+class UStaticMeshComponent;
+
 UENUM()
 enum class EVertexPaintAxis : uint8
 {

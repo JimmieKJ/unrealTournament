@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /**
  * Encapsulates a map from objects to their direct inners, used by UExporter::ExportObjectInner when exporting objects.
  * Should be recreated before new objects are created within objects that are to be exported!

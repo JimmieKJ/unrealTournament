@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+#include "PropertyEditorDelegates.h"
 #include "PropertyEditorModule.h"
 #include "PropertyHandle.h"
 #include "DetailWidgetRow.h"

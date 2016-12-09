@@ -13,11 +13,11 @@ which can be configured via defines for various temporal AA passes.
 	#define AA_AABB 1
 #endif
 
-// 0 = Anti-alias the alpha channel also (not getting used currently). 
-// 1 = Use alpha channel to improve quality (required for primary AA).
+// 0 = Input doesn't have or need the alpha channel. Don't AA or preserve the alpha. Potentially use alpha channel of the output to improve quality.
 //     Leverages dead code removal to work in RGB instead of RGBA.
+// 1 = Anti-alias the alpha channel also. 
 #ifndef AA_ALPHA
-	#define AA_ALPHA 1
+	#define AA_ALPHA 0
 #endif
 
 // Cross distance in pixels used in depth search X pattern.
@@ -25,21 +25,6 @@ which can be configured via defines for various temporal AA passes.
 // 2 = Is required for standard temporal AA pass.
 #ifndef AA_CROSS
 	#define AA_CROSS 2
-#endif
-	
-// 1 = Render in blue, with green = diff between frames, red = alpha channel.
-// 0 = Non-debug.
-#ifndef AA_DEBUG
-	#define AA_DEBUG 0
-#endif
-
-// 2 = Dilate in cross pattern by 2 pixels in distance (this can be larger than 2 if required).
-// 1 = Dilate history alpha using maximum of neighborhood.
-//     This increases thin edge quality in motion.
-//     This is only valid for AA_ALPHA == 1
-// 0 = Turn off.
-#ifndef AA_DILATE
-	#define AA_DILATE AA_ALPHA
 #endif
 
 // 1 = Use dynamic motion.
@@ -58,12 +43,6 @@ which can be configured via defines for various temporal AA passes.
 // non-zero = Use 1/LERP fixed lerp value (used for reflections).
 #ifndef AA_LERP
 	#define AA_LERP 0
-#endif
-
-// 1 = Use extra lowpass filter for quality bump.
-// 0 = Don't use.
-#ifndef AA_LOWPASS
-	#define AA_LOWPASS 1
 #endif
 
 // 1 = Use higher quality round clamp.
@@ -93,19 +72,9 @@ which can be configured via defines for various temporal AA passes.
 	#define AA_YCOCG 0
 #endif
 
-// Use green as luma.
-#ifndef AA_GREEN_AS_LUMA
-	#define AA_GREEN_AS_LUMA AA_YCOCG
-#endif
-
 // Bicubic filter history
 #ifndef AA_BICUBIC
 	#define AA_BICUBIC 0
-#endif
-
-// Special adjustments for DOF.
-#ifndef AA_DOF
-	#define AA_DOF 0
 #endif
 
 // Tone map to kill fireflies
@@ -221,7 +190,6 @@ which can be configured via defines for various temporal AA passes.
 	BackN = (BackN * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5) * PostprocessInput0Size.zw;
 
 
-
 	// FILTER PIXEL (RESAMPLE TO REMOVE JITTER OFFSET) AND GET NEIGHBORHOOD
     // --------------------------------------------------------------------
 	// 012
@@ -268,7 +236,6 @@ which can be configured via defines for various temporal AA passes.
 			// Unfiltered.
 			float4 Filtered = Neighbor4;
 		#endif
-		float4 FilteredLow = Filtered;
 #if 1
 		// Neighborhood seems to only need the "+" pattern.
 		float4 NeighborMin = min(min(min(Neighbor1, Neighbor3), min(Neighbor4, Neighbor5)), Neighbor7);
@@ -296,27 +263,17 @@ which can be configured via defines for various temporal AA passes.
 		float4 Neighbor6 = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV, 0, int2(-1,  1));
 		float4 Neighbor7 = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV, 0, int2( 0,  1));
 		float4 Neighbor8 = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV, 0, int2( 1,  1));
-		#if AA_GREEN_AS_LUMA
-			Neighbor0.rgb *= HdrWeightG(Neighbor0.rgb, InExposureScale);
-			Neighbor1.rgb *= HdrWeightG(Neighbor1.rgb, InExposureScale);
-			Neighbor2.rgb *= HdrWeightG(Neighbor2.rgb, InExposureScale);
-			Neighbor3.rgb *= HdrWeightG(Neighbor3.rgb, InExposureScale);
-			Neighbor4.rgb *= HdrWeightG(Neighbor4.rgb, InExposureScale);
-			Neighbor5.rgb *= HdrWeightG(Neighbor5.rgb, InExposureScale);
-			Neighbor6.rgb *= HdrWeightG(Neighbor6.rgb, InExposureScale);
-			Neighbor7.rgb *= HdrWeightG(Neighbor7.rgb, InExposureScale);
-			Neighbor8.rgb *= HdrWeightG(Neighbor8.rgb, InExposureScale);
-		#else
-			Neighbor0.rgb *= HdrWeight4(Neighbor0.rgb, InExposureScale);
-			Neighbor1.rgb *= HdrWeight4(Neighbor1.rgb, InExposureScale);
-			Neighbor2.rgb *= HdrWeight4(Neighbor2.rgb, InExposureScale);
-			Neighbor3.rgb *= HdrWeight4(Neighbor3.rgb, InExposureScale);
-			Neighbor4.rgb *= HdrWeight4(Neighbor4.rgb, InExposureScale);
-			Neighbor5.rgb *= HdrWeight4(Neighbor5.rgb, InExposureScale);
-			Neighbor6.rgb *= HdrWeight4(Neighbor6.rgb, InExposureScale);
-			Neighbor7.rgb *= HdrWeight4(Neighbor7.rgb, InExposureScale);
-			Neighbor8.rgb *= HdrWeight4(Neighbor8.rgb, InExposureScale);
-		#endif
+
+		Neighbor0.rgb *= HdrWeight4(Neighbor0.rgb, InExposureScale);
+		Neighbor1.rgb *= HdrWeight4(Neighbor1.rgb, InExposureScale);
+		Neighbor2.rgb *= HdrWeight4(Neighbor2.rgb, InExposureScale);
+		Neighbor3.rgb *= HdrWeight4(Neighbor3.rgb, InExposureScale);
+		Neighbor4.rgb *= HdrWeight4(Neighbor4.rgb, InExposureScale);
+		Neighbor5.rgb *= HdrWeight4(Neighbor5.rgb, InExposureScale);
+		Neighbor6.rgb *= HdrWeight4(Neighbor6.rgb, InExposureScale);
+		Neighbor7.rgb *= HdrWeight4(Neighbor7.rgb, InExposureScale);
+		Neighbor8.rgb *= HdrWeight4(Neighbor8.rgb, InExposureScale);
+
 		#if AA_FILTERED
 			float4 Filtered = 
 				Neighbor0 * SampleWeights[0] +
@@ -328,20 +285,6 @@ which can be configured via defines for various temporal AA passes.
 				Neighbor6 * SampleWeights[6] +
 				Neighbor7 * SampleWeights[7] +
 				Neighbor8 * SampleWeights[8];
-			#if AA_LOWPASS
-				float4 FilteredLow = 
-					Neighbor0 * LowpassWeights[0] +
-					Neighbor1 * LowpassWeights[1] +
-					Neighbor2 * LowpassWeights[2] +
-					Neighbor3 * LowpassWeights[3] +
-					Neighbor4 * LowpassWeights[4] +
-					Neighbor5 * LowpassWeights[5] +
-					Neighbor6 * LowpassWeights[6] +
-					Neighbor7 * LowpassWeights[7] +
-					Neighbor8 * LowpassWeights[8];
-			#else
-				float4 FilteredLow = Filtered;
-			#endif
 			#if AA_BORDER
 				// Use unfiltered for 1 pixel border.
 				float2 TestPos = abs(ScreenPos);
@@ -351,14 +294,13 @@ which can be configured via defines for various temporal AA passes.
 				if(FilteredOffScreen) 
 				{
 					Filtered = Neighbor4;
-					FilteredLow = Neighbor4;
 				}
 			#endif
 		#else
 			// Unfiltered.
 			float4 Filtered = Neighbor4;
-			float4 FilteredLow = Neighbor4;
 		#endif
+
 		#if AA_ROUND
 			float4 NeighborMin2 = min(min(Neighbor0, Neighbor2), min(Neighbor6, Neighbor8));		
 			float4 NeighborMax2 = max(max(Neighbor0, Neighbor2), max(Neighbor6, Neighbor8));		
@@ -396,64 +338,34 @@ which can be configured via defines for various temporal AA passes.
 	// FETCH HISTORY
 	// -------------
 	#if AA_BICUBIC
-		float2 Weight[3];
-		float2 Sample[3];
-		Bicubic2DCatmullRom( BackN.xy, PostprocessInput1Size.xy, Sample, Weight );
-
-		OutColor  = PostprocessInput1.SampleLevel( PostprocessInput1Sampler, float2( Sample[0].x, Sample[0].y ), 0 ) * Weight[0].x * Weight[0].y;
-		OutColor += PostprocessInput1.SampleLevel( PostprocessInput1Sampler, float2( Sample[1].x, Sample[0].y ), 0 ) * Weight[1].x * Weight[0].y;
-		OutColor += PostprocessInput1.SampleLevel( PostprocessInput1Sampler, float2( Sample[2].x, Sample[0].y ), 0 ) * Weight[2].x * Weight[0].y;
-
-		OutColor += PostprocessInput1.SampleLevel( PostprocessInput1Sampler, float2( Sample[0].x, Sample[1].y ), 0 ) * Weight[0].x * Weight[1].y;
-		OutColor += PostprocessInput1.SampleLevel( PostprocessInput1Sampler, float2( Sample[1].x, Sample[1].y ), 0 ) * Weight[1].x * Weight[1].y;
-		OutColor += PostprocessInput1.SampleLevel( PostprocessInput1Sampler, float2( Sample[2].x, Sample[1].y ), 0 ) * Weight[2].x * Weight[1].y;
-
-		OutColor += PostprocessInput1.SampleLevel( PostprocessInput1Sampler, float2( Sample[0].x, Sample[2].y ), 0 ) * Weight[0].x * Weight[2].y;
-		OutColor += PostprocessInput1.SampleLevel( PostprocessInput1Sampler, float2( Sample[1].x, Sample[2].y ), 0 ) * Weight[1].x * Weight[2].y;
-		OutColor += PostprocessInput1.SampleLevel( PostprocessInput1Sampler, float2( Sample[2].x, Sample[2].y ), 0 ) * Weight[2].x * Weight[2].y;
+		OutColor = Texture2DSampleBicubic( PostprocessInput1, PostprocessInput1Sampler, BackN.xy, PostprocessInput1Size.xy );
 	#else
 		OutColor = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, BackN.xy, 0);
 	#endif
 
-	#if AA_DYNAMIC_ANTIGHOST && AA_DYNAMIC && !AA_ALPHA && !AA_DOF
-		bool Dynamic1 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0, int2( 0, -1)).x > 0;
-		bool Dynamic3 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0, int2(-1,  0)).x > 0;
-		bool Dynamic4 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0).x > 0;
-		bool Dynamic5 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0, int2( 1,  0)).x > 0;
-		bool Dynamic7 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0, int2( 0,  1)).x > 0;
-
-		bool Dynamic = DynamicN || Dynamic1 || Dynamic3 || Dynamic4 || Dynamic5 || Dynamic7;
-		if( !Dynamic && OutColor.a > 0 )
-		{
-			OutColor = Filtered;
-		}
-	#endif
-
-	#if AA_DEBUG
-		Neighbor4.rg = float2(0.0, 0.0);
-		NeighborMin.rg = float2(0.0, 0.0);
-		NeighborMax.rg = float2(0.0, 0.0);
-		Filtered.rg = float2(0.0, 0.0);
-		FilteredLow.rg = float2(0.0, 0.0);
-		float DebugDiffCurrent = Filtered.b;
-	#endif
 	#if AA_YCOCG
 		OutColor.rgb = RGBToYCoCg(OutColor.rgb);
 		#if AA_TONE
 			OutColor.xyz *= HdrWeightY(OutColor.x, InExposureScale);
 		#endif
 	#else
-		#if AA_GREEN_AS_LUMA
-			OutColor.rgb *= HdrWeightG(OutColor.rgb, InExposureScale);
-		#else
-			OutColor.rgb *= HdrWeight4(OutColor.rgb, InExposureScale);
-		#endif
-	#endif
-	#if AA_DEBUG
-		OutColor.rg = float2(0.0, 0.0);
-		float DebugDiffPrior = OutColor.b;
+		OutColor.rgb *= HdrWeight4(OutColor.rgb, InExposureScale);
 	#endif
 
+	#if AA_DYNAMIC_ANTIGHOST && AA_DYNAMIC && !AA_ALPHA
+		bool Dynamic1 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0, int2( 0, -1)).x > 0;
+		bool Dynamic3 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0, int2(-1,  0)).x > 0;
+		bool Dynamic4 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0).x > 0;
+		bool Dynamic5 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0, int2( 1,  0)).x > 0;
+		bool Dynamic7 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0, int2( 0,  1)).x > 0;
+
+		bool Dynamic = Dynamic1 || Dynamic3 || Dynamic4 || Dynamic5 || Dynamic7;
+		if( !Dynamic && OutColor.a > 0 )
+		{
+			OutColor = Filtered;
+			OutColor.a = 0;
+		}
+	#endif
 
 	// FIND LUMA OF CLAMPED HISTORY
 	// ----------------------------
@@ -463,40 +375,30 @@ which can be configured via defines for various temporal AA passes.
 		float LumaMax = NeighborMax.x;
 		float LumaHistory = OutColor.x;
 	#else
-		#if AA_GREEN_AS_LUMA
-			float LumaMin = NeighborMin.g;
-			float LumaMax = NeighborMax.g;
-			float LumaHistory = OutColor.g;
-		#else
-			float LumaMin = Luma4(NeighborMin.rgb);
-			float LumaMax = Luma4(NeighborMax.rgb);
-			float LumaHistory = Luma4(OutColor.rgb);
-		#endif
+		float LumaMin = Luma4(NeighborMin.rgb);
+		float LumaMax = Luma4(NeighborMax.rgb);
+		float LumaHistory = Luma4(OutColor.rgb);
 	#endif
 	float LumaContrast = LumaMax - LumaMin;
 	#if AA_CLAMP
 		#if AA_YCOCG
 			OutColor.rgb = clamp(OutColor.rgb, NeighborMin.rgb, NeighborMax.rgb);
-			#if (AA_ALPHA == 0)
+			#if AA_ALPHA
 				OutColor.a = clamp(OutColor.a, NeighborMin.a, NeighborMax.a);
 			#endif
 		#else
 			#if AA_AABB
 				// Clamp history, this uses color AABB intersection for tighter fit.
-				// Clamping works with the low pass (if available) to reduce flicker.
-				float ClampBlend = HistoryClamp(OutColor.rgb, FilteredLow.rgb, NeighborMin.rgb, NeighborMax.rgb);
+				float ClampBlend = HistoryClamp(OutColor.rgb, Filtered.rgb, NeighborMin.rgb, NeighborMax.rgb);
 				#if AA_ALPHA
-					OutColor.rgb = lerp(OutColor.rgb, FilteredLow.rgb, ClampBlend);
+					OutColor.rgba = lerp(OutColor.rgba, Filtered.rgba, ClampBlend);
 				#else
-					OutColor.rgba = lerp(OutColor.rgba, FilteredLow.rgba, ClampBlend);
+					OutColor.rgb = lerp(OutColor.rgb, Filtered.rgb, ClampBlend);
 				#endif
 			#else
 				OutColor = clamp(OutColor, NeighborMin, NeighborMax);
 			#endif
 		#endif
-	#endif
-	#if AA_DEBUG
-		OutColor.rg = float2(0.0, 0.0);
 	#endif
 
 	// ADD BACK IN ALIASING TO SHARPEN
@@ -505,8 +407,8 @@ which can be configured via defines for various temporal AA passes.
 		// Blend in non-filtered based on the amount of sub-pixel motion.
 		float AddAliasing = saturate(HistoryBlur) * 0.5;
 		float LumaContrastFactor = 32.0;
-		#if AA_GREEN_AS_LUMA || AA_YCOCG
-			// GREEN_AS_LUMA is 1/4 as bright.
+		#if AA_YCOCG
+			// 1/4 as bright.
 			LumaContrastFactor *= 4.0;
 		#endif
 		AddAliasing = saturate(AddAliasing + rcp(1.0 + LumaContrast * LumaContrastFactor));
@@ -515,11 +417,7 @@ which can be configured via defines for various temporal AA passes.
 	#if AA_YCOCG
 		float LumaFiltered = Filtered.x;
 	#else
-		#if AA_GREEN_AS_LUMA
-			float LumaFiltered = Filtered.g;
-		#else
-			float LumaFiltered = Luma4(Filtered.rgb);
-		#endif
+		float LumaFiltered = Luma4(Filtered.rgb);
 	#endif
 		
 	// COMPUTE BLEND AMOUNT 
@@ -550,7 +448,7 @@ which can be configured via defines for various temporal AA passes.
 	if(OffScreen) 
 	{
 		OutColor = Filtered;
-		#if AA_ALPHA
+		#if !AA_ALPHA
 			OutColor.a = 0.0;
 		#endif
 		#if AA_LERP
@@ -562,15 +460,15 @@ which can be configured via defines for various temporal AA passes.
 	// -------------------------------------------------
 	#if (AA_LERP == 0)
 		#if AA_ALPHA
+			OutColor = lerp(OutColor, Filtered, BlendFinal);
+			#if AA_FORCE_ALPHA_CLAMP
+				OutColor.a = clamp(OutColor.a, NeighborMin.a, NeighborMax.a);
+			#endif
+		#else
 			// Blend in linear to hit luma target.
 			OutColor.rgb = lerp(OutColor.rgb, Filtered.rgb, BlendFinal);
 			#if RESPONSIVE
 				OutColor.a = max(OutColor.a, 1.0/2.0);
-			#endif
-		#else
-			OutColor = lerp(OutColor, Filtered, BlendFinal);
-			#if AA_FORCE_ALPHA_CLAMP
-				OutColor.a = clamp(OutColor.a, NeighborMin.a, NeighborMax.a);
 			#endif
 		#endif
 	#else
@@ -583,48 +481,31 @@ which can be configured via defines for various temporal AA passes.
 		OutColor.rgb = YCoCgToRGB(OutColor.rgb);
 	#else
 		// Convert back into linear.
-		#if AA_GREEN_AS_LUMA
-			OutColor.rgb *= HdrWeightInvG(OutColor.rgb, InExposureScale);
-		#else
-			OutColor.rgb *= HdrWeightInv4(OutColor.rgb, InExposureScale);
-		#endif
+		OutColor.rgb *= HdrWeightInv4(OutColor.rgb, InExposureScale);
 	#endif
 	#if AA_NAN
 		// Transform NaNs to black, transform negative colors to black.
 		OutColor.rgb = -min(-OutColor.rgb, 0.0);
 	#endif
-	#if AA_DYNAMIC_ANTIGHOST && AA_DYNAMIC && !AA_ALPHA && !AA_DOF
-		OutColor.a = DynamicN ? 1 : 0;
-	#endif
-	#if AA_DEBUG
-		OutColor.g = abs(DebugDiffPrior - DebugDiffCurrent);
-		OutColor.r = OutColor.a;
-	#endif
-
-	#if 0
-		// Test velocity scaling
-		OutColor.r *= VelocityScaling.x*.5+.5;
-		OutColor.g *= (1 - VelocityScaling.x)*.5+.5;
-		OutColor.b *= .5;
+	#if AA_DYNAMIC_ANTIGHOST && AA_DYNAMIC && !AA_ALPHA
+		OutColor.a = Dynamic4 ? 1 : 0;
+	#elif !AA_ALPHA
+		// Zero out to remove any prior computation of alpha
+		OutColor.a = 0;
 	#endif
 
 #undef AA_AABB
 #undef AA_ALPHA
 #undef AA_CROSS
-#undef AA_DEBUG 
-#undef AA_DILATE
 #undef AA_DYNAMIC
 #undef AA_FILTERED
 #undef AA_LERP
-#undef AA_LOWPASS
 #undef AA_ROUND
 #undef AA_NAN
 #undef AA_BORDER
 #undef AA_FORCE_ALPHA_CLAMP
-#undef AA_GREEN_AS_LUMA
 #undef AA_YCOCG
 #undef AA_BICUBIC
-#undef AA_DOF
 #undef AA_TONE
 #undef AA_CLAMP
 #undef AA_DYNAMIC_ANTIGHOST

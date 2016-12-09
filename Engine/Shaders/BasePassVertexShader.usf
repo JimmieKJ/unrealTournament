@@ -11,6 +11,11 @@
 float SkipOutputVelocity;
 #endif
 
+#if TRANSLUCENCY_PERVERTEX_FORWARD_SHADING
+#include "ReflectionEnvironmentShared.usf"
+#include "ForwardLightingCommon.usf"
+#endif
+
 /** Entry point for the base pass vertex shader. */
 void Main(
 	FVertexFactoryInput Input,
@@ -38,6 +43,7 @@ void Main(
 		ViewportIndex = EyeIndex;
 	#endif
 #else
+	uint EyeIndex = 0;
 	ResolvedView = ResolveView();
 #endif
 
@@ -114,7 +120,7 @@ void Main(
 	#endif
 #endif
 
-#if TRANSLUCENCY_LIGHTING_VOLUMETRIC_PERVERTEX_DIRECTIONAL || TRANSLUCENCY_LIGHTING_VOLUMETRIC_PERVERTEX_NONDIRECTIONAL
+#if TRANSLUCENCY_PERVERTEX_LIGHTING_VOLUME
 	float4 VolumeLighting;
 	float3 InterpolatedLighting = 0;
 
@@ -137,6 +143,15 @@ void Main(
 		Output.BasePassInterpolants.AmbientLightingVector = GetAmbientLightingVectorFromTranslucentLightingVolume(InnerVolumeUVs, OuterVolumeUVs, FinalLerpFactor).xyz;
 
 	#endif
+#elif TRANSLUCENCY_PERVERTEX_FORWARD_SHADING
+
+	float3 WorldPositionForVertexLighting = VertexFactoryGetPositionForVertexLighting(Input, VFIntermediates, WorldPosition.xyz);
+	float4 VertexLightingClipSpacePosition = mul(WorldPositionForVertexLighting, ResolvedView.TranslatedWorldToClip);
+	float2 SvPosition = (VertexLightingClipSpacePosition.xy / VertexLightingClipSpacePosition.w * float2(.5f, -.5f) + .5f) * ResolvedView.ViewSizeAndInvSize.xy;
+	uint GridIndex = ComputeLightGridCellIndex((uint2)SvPosition, VertexLightingClipSpacePosition.w, EyeIndex);
+	float3 AbsoluteWorldPosition = WorldPositionForVertexLighting - ResolvedView.PreViewTranslation.xyz;
+	Output.BasePassInterpolants.VertexDiffuseLighting = GetForwardDirectLightingForVertexLighting(GridIndex, AbsoluteWorldPosition, VertexParameters.TangentToWorld[2], EyeIndex);
+
 #endif
 
 

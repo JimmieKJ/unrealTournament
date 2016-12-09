@@ -1,10 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
 #include "BlueprintConnectionDrawingPolicy.h"
-#include "Editor/UnrealEd/Public/Kismet2/KismetDebugUtilities.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
+#include "Misc/App.h"
+#include "Engine/Blueprint.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "EdGraphSchema_K2.h"
 #include "K2Node_Knot.h"
+#include "K2Node_MacroInstance.h"
+#include "Kismet2/KismetDebugUtilities.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "BlueprintEditorSettings.h"
 
 /////////////////////////////////////////////////////

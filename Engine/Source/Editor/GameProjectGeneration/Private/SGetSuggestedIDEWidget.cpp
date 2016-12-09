@@ -1,15 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GameProjectGenerationPrivatePCH.h"
+#include "SGetSuggestedIDEWidget.h"
+#include "HAL/PlatformProcess.h"
+#include "Widgets/Input/SButton.h"
 #include "SourceCodeNavigation.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "SHyperlink.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Widgets/Input/SHyperlink.h"
 #include "EngineAnalytics.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 
 #define LOCTEXT_NAMESPACE "GameProjectGeneration"
+
+TSharedPtr<SNotificationItem> SGetSuggestedIDEWidget::IDEDownloadNotification;
 
 void SGetSuggestedIDEWidget::Construct(const FArguments& InArgs)
 {
@@ -79,7 +83,7 @@ FReply SGetSuggestedIDEWidget::OnInstallIDEClicked()
 		}
 		IDEDownloadNotification->SetCompletionState(SNotificationItem::ECompletionState::CS_Pending);
 
-		FSourceCodeNavigation::DownloadAndInstallSuggestedIDE(FOnIDEInstallerDownloadComplete::CreateSP(this, &SGetSuggestedIDEWidget::OnIDEInstallerDownloadComplete));
+		FSourceCodeNavigation::DownloadAndInstallSuggestedIDE(FOnIDEInstallerDownloadComplete::CreateStatic(&SGetSuggestedIDEWidget::OnIDEInstallerDownloadComplete));
 
 		if (FEngineAnalytics::IsAvailable())
 		{
@@ -106,6 +110,7 @@ void SGetSuggestedIDEWidget::OnIDEInstallerDownloadComplete(bool bWasSuccessful)
 		}
 
 		IDEDownloadNotification->ExpireAndFadeout();
+		IDEDownloadNotification = nullptr;
 	}
 }
 

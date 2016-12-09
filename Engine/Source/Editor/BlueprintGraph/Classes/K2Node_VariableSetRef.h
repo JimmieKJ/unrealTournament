@@ -2,9 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_VariableSetRef.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
 
 UCLASS(MinimalAPI)
 class UK2Node_VariableSetRef : public UK2Node

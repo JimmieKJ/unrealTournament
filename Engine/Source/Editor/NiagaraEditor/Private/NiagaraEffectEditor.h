@@ -1,13 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "INiagaraEffectEditor.h"
-#include "Toolkits/AssetEditorToolkit.h"
 
-#include "SNiagaraEffectEditorViewport.h"
-#include "SNiagaraEffectEditorWidget.h"
+#include "CoreMinimal.h"
+#include "Misc/NotifyHook.h"
+#include "Input/Reply.h"
+#include "UObject/GCObject.h"
+#include "Toolkits/IToolkitHost.h"
+#include "INiagaraEffectEditor.h"
+
+#include "ISequencer.h"
+#include "ISequencerTrackEditor.h"
 #include "NiagaraSequencer.h"
 
+class FNiagaraEffectInstance;
+class SNiagaraEffectEditorViewport;
+class SNiagaraEffectEditorWidget;
+class SNiagaraTimeline;
+class UNiagaraEffect;
 class UNiagaraSequence;
 
 /** Viewer/editor for a NiagaraEffect
@@ -16,6 +26,7 @@ class FNiagaraEffectEditor : public INiagaraEffectEditor, public FNotifyHook, pu
 {
 
 public:
+	FNiagaraEffectEditor();
 
 	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
 	virtual void UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;

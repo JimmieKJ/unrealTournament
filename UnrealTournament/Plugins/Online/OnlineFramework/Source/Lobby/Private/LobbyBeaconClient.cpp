@@ -14,7 +14,8 @@ ALobbyBeaconClient::ALobbyBeaconClient(const FObjectInitializer& ObjectInitializ
 	Super(ObjectInitializer),
 	LobbyState(nullptr),
 	PlayerState(nullptr),
-	bLoggedIn(false)
+	bLoggedIn(false),
+	bLobbyJoinAcked(false)
 {
 	bOnlyRelevantToOwner = true;
 }
@@ -124,6 +125,7 @@ void ALobbyBeaconClient::JoiningServer()
 	if (bLoggedIn)
 	{
 		UE_LOG(LogBeacon, Log, TEXT("JoiningServer %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
+		bLobbyJoinAcked = false;
 		ServerNotifyJoiningServer();
 	}
 	else
@@ -152,7 +154,7 @@ void ALobbyBeaconClient::LoginLocalPlayers()
 	UWorld* World = GetWorld();
 	for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
-		APlayerController* PC = (*Iterator);
+		APlayerController* PC = Iterator->Get();
 		if (PC && PC->PlayerState && PC->PlayerState->UniqueId.IsValid())
 		{
 			ULocalPlayer* LP = Cast<ULocalPlayer>(PC->Player);
@@ -264,6 +266,7 @@ void ALobbyBeaconClient::AckJoiningServer()
 void ALobbyBeaconClient::ClientAckJoiningServer_Implementation()
 {
 	UE_LOG(LogBeacon, Log, TEXT("ClientAckJoiningServer %s Id: %s LoggedIn: %d"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"), bLoggedIn);
+	bLobbyJoinAcked = true;
 	OnJoiningGameAck().ExecuteIfBound();
 }
 

@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "PaperSprite.h"
 #include "ComponentAssetBroker.h"
-#include "PhysicsEngine/BodySetup.h"
 #include "PaperSpriteComponent.h"
+#include "PhysicsEngine/BodySetup.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperSpriteAssetBroker
@@ -27,7 +29,7 @@ public:
 			{
 				RenderComponent->SetSprite(Sprite);
 
-				if (Sprite->BodySetup != nullptr)
+				if (Sprite != nullptr && Sprite->BodySetup != nullptr)
 				{
 					RenderComponent->BodyInstance.CopyBodyInstancePropertiesFrom(&(Sprite->BodySetup->DefaultInstance));
 				}

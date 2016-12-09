@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ReferenceViewerPrivatePCH.h"
-#include "AssetThumbnail.h"
-#include "AssetRegistryModule.h"
+#include "EdGraphNode_Reference.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "EdGraph/EdGraphPin.h"
+#include "HAL/PlatformFilemanager.h"
 
 #define LOCTEXT_NAMESPACE "ReferenceViewer"
 
@@ -14,26 +15,42 @@ UEdGraphNode_Reference::UEdGraphNode_Reference(const FObjectInitializer& ObjectI
 {
 	DependencyPin = NULL;
 	ReferencerPin = NULL;
+	bIsCollapsed = false;
+	bIsPackage = false;
+	bUsesThumbnail = false;
 }
 
-void UEdGraphNode_Reference::SetupReferenceNode(const FIntPoint& NodeLoc, const TArray<FName>& NewPackageNames, const FAssetData& InAssetData)
+void UEdGraphNode_Reference::SetupReferenceNode(const FIntPoint& NodeLoc, const TArray<FAssetIdentifier>& NewIdentifiers, const FAssetData& InAssetData)
 {
-	check(NewPackageNames.Num() > 0);
+	check(NewIdentifiers.Num() > 0);
 
 	NodePosX = NodeLoc.X;
 	NodePosY = NodeLoc.Y;
 
-	PackageNames = NewPackageNames;
-	FString ShortPackageName = FPackageName::GetLongPackageAssetName(NewPackageNames[0].ToString());
-	if ( NewPackageNames.Num() == 1 )
+	Identifiers = NewIdentifiers;
+	const FAssetIdentifier& First = NewIdentifiers[0];
+	FString ShortPackageName = FPackageName::GetLongPackageAssetName(First.PackageName.ToString());
+
+	bIsCollapsed = false;
+	bIsPackage = true;
+	if (NewIdentifiers[0].IsValue())
 	{
-		NodeComment = NewPackageNames[0].ToString();
+		ShortPackageName = FString::Printf(TEXT("%s::%s"), *First.ObjectName.ToString(), *First.ValueName.ToString());
+		bIsPackage = false;
+	}
+
+	if (NewIdentifiers.Num() == 1 )
+	{
+		if (bIsPackage)
+		{
+			NodeComment = First.PackageName.ToString();
+		}
 		NodeTitle = FText::FromString(ShortPackageName);
 	}
 	else
 	{
-		NodeComment = FText::Format(LOCTEXT("ReferenceNodeMultiplePackagesTitle", "{0} nodes"), FText::AsNumber(NewPackageNames.Num())).ToString();
-		NodeTitle = FText::Format(LOCTEXT("ReferenceNodeMultiplePackagesComment", "{0} and {1} others"), FText::FromString(ShortPackageName), FText::AsNumber(NewPackageNames.Num() - 1));
+		NodeComment = FText::Format(LOCTEXT("ReferenceNodeMultiplePackagesTitle", "{0} nodes"), FText::AsNumber(NewIdentifiers.Num())).ToString();
+		NodeTitle = FText::Format(LOCTEXT("ReferenceNodeMultiplePackagesComment", "{0} and {1} others"), FText::FromString(ShortPackageName), FText::AsNumber(NewIdentifiers.Num() - 1));
 	}
 	
 	CacheAssetData(InAssetData);
@@ -45,7 +62,9 @@ void UEdGraphNode_Reference::SetReferenceNodeCollapsed(const FIntPoint& NodeLoc,
 	NodePosX = NodeLoc.X;
 	NodePosY = NodeLoc.Y;
 
-	PackageNames.Empty();
+	Identifiers.Empty();
+	bIsCollapsed = true;
+	bUsesThumbnail = false;
 	NodeComment = FText::Format(LOCTEXT("ReferenceNodeCollapsedMessage", "{0} other nodes"), FText::AsNumber(InNumReferencesExceedingMax)).ToString();
 
 	NodeTitle = LOCTEXT("ReferenceNodeCollapsedTitle", "Collapsed nodes");
@@ -65,19 +84,30 @@ void UEdGraphNode_Reference::AddReferencer(UEdGraphNode_Reference* ReferencerNod
 	}
 }
 
-FName UEdGraphNode_Reference::GetPackageName() const
+FAssetIdentifier UEdGraphNode_Reference::GetIdentifier() const
 {
-	if ( PackageNames.Num() > 0 )
+	if (Identifiers.Num() > 0)
 	{
-		return PackageNames[0];
+		return Identifiers[0];
 	}
-	
-	return NAME_None;
+
+	return FAssetIdentifier();
+}
+
+void UEdGraphNode_Reference::GetAllIdentifiers(TArray<FAssetIdentifier>& OutIdentifiers) const
+{
+	OutIdentifiers.Append(Identifiers);
 }
 
 void UEdGraphNode_Reference::GetAllPackageNames(TArray<FName>& OutPackageNames) const
 {
-	OutPackageNames.Append(PackageNames);
+	for (const FAssetIdentifier& AssetId : Identifiers)
+	{
+		if (AssetId.PackageName.IsValid() && !AssetId.IsValue())
+		{
+			OutPackageNames.AddUnique(AssetId.PackageName);
+		}
+	}
 }
 
 UEdGraph_ReferenceViewer* UEdGraphNode_Reference::GetReferenceViewerGraph() const
@@ -88,6 +118,36 @@ UEdGraph_ReferenceViewer* UEdGraphNode_Reference::GetReferenceViewerGraph() cons
 FText UEdGraphNode_Reference::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	return NodeTitle;
+}
+
+FLinearColor UEdGraphNode_Reference::GetNodeTitleColor() const
+{
+	if (bIsPackage)
+	{
+		return FLinearColor(0.4f, 0.62f, 1.0f);
+	}
+	else if (bIsCollapsed)
+	{
+		return FLinearColor(0.55f, 0.55f, 0.55f);
+	}
+	else 
+	{
+		return FLinearColor(0.0f, 0.55f, 0.62f);
+	}
+}
+
+FText UEdGraphNode_Reference::GetTooltipText() const
+{
+	FString TooltipString;
+	for (const FAssetIdentifier& AssetId : Identifiers)
+	{
+		if (!TooltipString.IsEmpty())
+		{
+			TooltipString.Append(TEXT("\n"));
+		}
+		TooltipString.Append(AssetId.ToString());
+	}
+	return FText::FromString(TooltipString);
 }
 
 void UEdGraphNode_Reference::AllocateDefaultPins()
@@ -101,9 +161,9 @@ void UEdGraphNode_Reference::AllocateDefaultPins()
 
 UObject* UEdGraphNode_Reference::GetJumpTargetForDoubleClick() const
 {
-	if ( PackageNames.Num() > 0 )
+	if (Identifiers.Num() > 0 )
 	{
-		GetReferenceGraph()->SetGraphRoot(PackageNames, FIntPoint(NodePosX, NodePosY));
+		GetReferenceGraph()->SetGraphRoot(Identifiers, FIntPoint(NodePosX, NodePosY));
 		GetReferenceGraph()->RebuildGraph();
 	}
 	return NULL;
@@ -121,7 +181,7 @@ UEdGraphPin* UEdGraphNode_Reference::GetReferencerPin()
 
 void UEdGraphNode_Reference::CacheAssetData(const FAssetData& AssetData)
 {
-	if ( AssetData.IsValid() )
+	if ( AssetData.IsValid() && IsPackage() )
 	{
 		bUsesThumbnail = true;
 		CachedAssetData = AssetData;
@@ -131,9 +191,9 @@ void UEdGraphNode_Reference::CacheAssetData(const FAssetData& AssetData)
 		CachedAssetData = FAssetData();
 		bUsesThumbnail = false;
 
-		if ( PackageNames.Num() == 1 )
+		if (Identifiers.Num() == 1 )
 		{
-			const FString PackageNameStr = PackageNames[0].ToString();
+			const FString PackageNameStr = Identifiers[0].PackageName.ToString();
 			if ( FPackageName::IsValidLongPackageName(PackageNameStr, true) )
 			{
 				if ( PackageNameStr.StartsWith(TEXT("/Script")) )
@@ -168,4 +228,15 @@ bool UEdGraphNode_Reference::UsesThumbnail() const
 {
 	return bUsesThumbnail;
 }
+
+bool UEdGraphNode_Reference::IsPackage() const
+{
+	return bIsPackage;
+}
+
+bool UEdGraphNode_Reference::IsCollapsed() const
+{
+	return bIsCollapsed;
+}
+
 #undef LOCTEXT_NAMESPACE

@@ -2,8 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/ParticleModule.h"
 #include "ParticleModuleAccelerationBase.generated.h"
+
+class UParticleEmitter;
 
 UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Acceleration"), abstract)
 class UParticleModuleAccelerationBase : public UParticleModule

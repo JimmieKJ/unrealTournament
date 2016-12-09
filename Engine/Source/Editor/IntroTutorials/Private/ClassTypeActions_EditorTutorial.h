@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
 #include "ClassTypeActions_Base.h"
+
+class FAssetData;
 
 class FClassTypeActions_EditorTutorial : public FClassTypeActions_Base
 {

@@ -7,9 +7,18 @@
  *
  */
 
-#include "AnimTypes.h"
-#include "AnimSequenceBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Animation/AnimTypes.h"
+#include "Animation/AnimationAsset.h"
+#include "Animation/AnimCurveTypes.h"
+#include "Animation/AnimSequenceBase.h"
 #include "AnimSequence.generated.h"
+
+struct FAnimCompressContext;
+struct FCompactPose;
 
 typedef TArray<FTransform> FTransformArrayA2;
 
@@ -331,9 +340,10 @@ class ENGINE_API UAnimSequence : public UAnimSequenceBase
 	GENERATED_UCLASS_BODY()
 
 	/** Number of raw frames in this sequence (not used by engine - just for informational purposes). */
-	UPROPERTY(AssetRegistrySearchable)
+	UPROPERTY(AssetRegistrySearchable, meta=(DisplayName = "Number of Keys"))
 	int32 NumFrames;
 
+protected:
 	/**
 	 * In the future, maybe keeping RawAnimSequenceTrack + TrackMap as one would be good idea to avoid inconsistent array size
 	 * TrackToSkeletonMapTable(i) should contains  track mapping data for RawAnimationData(i). 
@@ -374,7 +384,11 @@ class ENGINE_API UAnimSequence : public UAnimSequenceBase
 	* This is used by remove linear key that has to rebuild to full transform in order to compress
 	*/
 	TArray<struct FRawAnimSequenceTrack> TemporaryAdditiveBaseAnimationData;
+#endif
 
+public:
+
+#if WITH_EDITORONLY_DATA
 	/**
 	 * The compression scheme that was most recently used to compress this animation.
 	 * May be NULL.
@@ -543,7 +557,7 @@ public:
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 #endif // WITH_EDITOR
 	virtual void BeginDestroy() override;
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	//~ End UObject Interface
 
@@ -551,7 +565,7 @@ public:
 	virtual bool IsValidAdditive() const override;
 	virtual TArray<FName>* GetUniqueMarkerNames() { return &UniqueMarkerNames; }
 #if WITH_EDITOR
-	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) override;
+	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets, bool bRecursive = true) override;
 	virtual void ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap) override;
 	virtual int32 GetNumberOfFrames() const override { return NumFrames; }
 #endif
@@ -604,6 +618,23 @@ public:
 	* @param	bForceUseRawData	Override other settings and force raw data pose extraction
 	*/
 	void GetBonePose(FCompactPose& OutPose, FBlendedCurve& OutCurve, const FAnimExtractContext& ExtractionContext, bool bForceUseRawData=false) const;
+
+	const TArray<FRawAnimSequenceTrack>& GetRawAnimationData() const { return RawAnimationData; }
+
+#if WITH_EDITORONLY_DATA
+	bool  HasSourceRawData() const { return SourceRawAnimationData.Num() > 0; }
+	const TArray<FName>& GetAnimationTrackNames() const { return AnimationTrackNames; }
+	const TArray<FRawAnimSequenceTrack>& GetAdditiveBaseAnimationData() const { return TemporaryAdditiveBaseAnimationData; }
+	void  UpdateCompressedTrackMapFromRaw() { CompressedTrackToSkeletonMapTable = TrackToSkeletonMapTable; }
+	
+	// Adds a new track (if no track of the supplied name is found) to the raw animation data, optionally setting it to TrackData.
+	int32 AddNewRawTrack(FName TrackName, FRawAnimSequenceTrack* TrackData = nullptr);
+#endif
+
+	const TArray<FTrackToSkeletonMap>& GetRawTrackToSkeletonMapTable() const { return TrackToSkeletonMapTable; }
+	const TArray<FTrackToSkeletonMap>& GetCompressedTrackToSkeletonMapTable() const { return CompressedTrackToSkeletonMapTable; }
+
+	FRawAnimSequenceTrack& GetRawAnimationTrack(int32 TrackIndex) { return RawAnimationData[TrackIndex]; }
 
 private:
 	/** 
@@ -804,7 +835,7 @@ public:
 	/**
 	* Return true if compressed data is out of date / missing and so animation needs to use raw data
 	*/
-	bool DoesNeedRecompress() const { return GetSkeleton() && bUseRawDataOnly; }
+	bool DoesNeedRecompress() const { return GetSkeleton() && (bUseRawDataOnly || (GetSkeletonVirtualBoneGuid() != GetSkeleton()->GetVirtualBoneGuid())); }
 
 	/**
 	 * Create Animation Sequence from Reference Pose of the Mesh
@@ -865,6 +896,7 @@ public:
 	
 	virtual float GetFirstMatchingPosFromMarkerSyncPos(const FMarkerSyncAnimPosition& InMarkerSyncGroupPosition) const override;
 	virtual float GetNextMatchingPosFromMarkerSyncPos(const FMarkerSyncAnimPosition& InMarkerSyncGroupPosition, const float& StartingPosition) const override;
+	virtual float GetPrevMatchingPosFromMarkerSyncPos(const FMarkerSyncAnimPosition& InMarkerSyncGroupPosition, const float& StartingPosition) const override;
 
 	// to support anim sequence base to all montages
 	virtual void EnableRootMotionSettingFromMontage(bool bInEnableRootMotion, const ERootMotionRootLock::Type InRootMotionRootLock) override;
@@ -883,6 +915,9 @@ public:
 	// Is this animation valid for baking into additive
 	bool CanBakeAdditive() const;
 
+	// Bakes out track data for the skeletons virtual bones into the raw data
+	void BakeOutVirtualBoneTracks();
+
 	// Bakes out the additive version of this animation into the raw data.
 	void BakeOutAdditiveIntoRawData();
 
@@ -898,6 +933,9 @@ public:
 	// Should we be always using our raw data (i.e is our compressed data stale)
 	bool OnlyUseRawData() const { return bUseRawDataOnly; }
 	void SetUseRawDataOnly(bool bInUseRawDataOnly) { bUseRawDataOnly = bInUseRawDataOnly; }
+
+	// Return this animations guid for the raw data
+	FGuid GetRawDataGuid() const { return RawDataGuid; }
 #endif
 
 private:
@@ -965,7 +1003,54 @@ public:
 	bool bCompressionInProgress;
 
 	friend class UAnimationAsset;
+	friend struct FScopedAnimSequenceRawDataCache;
 };
 
+struct FScopedAnimSequenceRawDataCache
+{
+	UAnimSequence* SrcAnim;
+	TArray<FRawAnimSequenceTrack> RawAnimationData;
+	TArray<FRawAnimSequenceTrack> TemporaryAdditiveBaseAnimationData;
+	TArray<FName> AnimationTrackNames;
+	TArray<FTrackToSkeletonMap> TrackToSkeletonMapTable;
+	FRawCurveTracks RawCurveData;
+	bool bWasEmpty;
+
+	FScopedAnimSequenceRawDataCache() : SrcAnim(nullptr), bWasEmpty(false) {}
+	~FScopedAnimSequenceRawDataCache()
+	{
+		if (SrcAnim)
+		{
+			RestoreTo(SrcAnim);
+		}
+	}
+
+	void InitFrom(UAnimSequence* Src)
+	{
+#if WITH_EDITORONLY_DATA
+		check(!SrcAnim);
+		SrcAnim = Src;
+		RawAnimationData = Src->RawAnimationData;
+		TemporaryAdditiveBaseAnimationData = Src->TemporaryAdditiveBaseAnimationData;
+		bWasEmpty = RawAnimationData.Num() == 0;
+		AnimationTrackNames = Src->AnimationTrackNames;
+		TrackToSkeletonMapTable = Src->TrackToSkeletonMapTable;
+		RawCurveData = Src->RawCurveData;
+#endif
+	}
+
+	void RestoreTo(UAnimSequence* Src)
+	{
+#if WITH_EDITORONLY_DATA
+		Src->RawAnimationData = MoveTemp(RawAnimationData);
+		Src->TemporaryAdditiveBaseAnimationData = MoveTemp(TemporaryAdditiveBaseAnimationData);
+		check(bWasEmpty || Src->RawAnimationData.Num() > 0);
+		Src->AnimationTrackNames = MoveTemp(AnimationTrackNames);
+		Src->TrackToSkeletonMapTable = MoveTemp(TrackToSkeletonMapTable);
+		Src->RawCurveData = RawCurveData;
+#endif
+	}
+
+};
 
 

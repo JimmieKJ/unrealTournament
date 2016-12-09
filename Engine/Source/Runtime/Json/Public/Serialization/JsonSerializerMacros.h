@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Policies/PrettyJsonPrintPolicy.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
+#include "Serialization/JsonTypes.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+
 /**
  * Macros used to generate a serialization function for a class derived from FJsonSerializable
  */
@@ -94,6 +101,8 @@
 			Serializer.WriteIdentifierPrefix(TEXT(JsonName)); \
 			JsonSerializableObject.Serialize(Serializer, true); \
 		}
+
+struct FJsonSerializerBase;
 
 /** Array of string data */
 typedef TArray<FString> FJsonSerializableArray;

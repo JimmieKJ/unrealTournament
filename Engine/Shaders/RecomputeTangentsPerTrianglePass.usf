@@ -17,6 +17,8 @@ struct FVertexData
 	float2 UV;
 	// 0..1, used for weighting the triangle contributions
 	float Angle;
+	// Original sign from the original tangent basis, as some meshes have left handed triangles in them
+	float OriginalOrientation;
 };
 
 // can be optimized
@@ -47,6 +49,10 @@ FVertexData GetVertex(uint VertexIndex)
 		Ret.Position.x = GPUSkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 0];
 		Ret.Position.y = GPUSkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 1];
 		Ret.Position.z = GPUSkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 2];
+
+		// Read the original sign as the tangent spaced might be flipped
+		uint W = asuint(GPUSkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z]) & 0xff000000;
+		Ret.OriginalOrientation = (W == 0) ? 1 : -1;
 	}
 
 	{
@@ -149,6 +155,8 @@ void MainCS(
 			TangentX = normalize(UnnormalizedTangentX);
 
 			Orientation = (cp > 0) ? 1 : -1;
+			// Multiply by additional flip if the triangle had it's tangent space inverted
+			Orientation *= Corner[0].OriginalOrientation;
 		}
 
 /* disabled for now (for performance) but if needed we can enable it later

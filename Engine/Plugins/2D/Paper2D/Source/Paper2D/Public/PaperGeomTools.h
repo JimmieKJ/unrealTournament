@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 class PAPER2D_API PaperGeomTools
 {
 public:

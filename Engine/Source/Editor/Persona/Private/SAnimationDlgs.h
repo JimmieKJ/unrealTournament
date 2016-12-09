@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+
 class SImportPathDialog: public SWindow
 {
 public:
@@ -29,7 +34,7 @@ public:
 protected:
 	void OnPathChange(const FString& NewPath);
 	FReply OnButtonClick(EAppReturnType::Type ButtonID);
-
+	bool IsOkButtonEnabled() const;
 	EAppReturnType::Type UserResponse;
 	FText AssetPath;
 	FText AssetName;

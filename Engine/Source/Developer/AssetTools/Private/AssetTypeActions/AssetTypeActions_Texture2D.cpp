@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
+#include "AssetTypeActions/AssetTypeActions_Texture2D.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Misc/PackageName.h"
+#include "EditorStyleSet.h"
+#include "Factories/SlateBrushAssetFactory.h"
 #include "Slate/SlateBrushAsset.h"
+#include "AssetTools.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"

@@ -1,14 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StatsViewerPrivatePCH.h"
 #include "ActorArrayHyperlinkColumn.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/SBoxPanel.h"
+#include "EditorStyleSet.h"
+#include "GameFramework/Actor.h"
 #include "StatsCellPresenter.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/PropertyPath.h"
-#include "Editor/PropertyEditor/Public/IPropertyTableCell.h"
-#include "Editor/PropertyEditor/Public/PropertyHandle.h"
+#include "Editor.h"
+#include "PropertyHandle.h"
+#include "IPropertyTable.h"
+#include "IPropertyTableCell.h"
 #include "ScopedTransaction.h"
-#include "SHyperlink.h"
+#include "Widgets/Input/SHyperlink.h"
 
 #define LOCTEXT_NAMESPACE "Editor.StatsViewer"
 

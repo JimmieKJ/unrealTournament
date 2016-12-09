@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "OnlineSubsystemOculus.h"
 #include "OnlineIdentityInterface.h"
 #include "OnlineSubsystemOculusTypes.h"
 #include "OVR_Platform.h"

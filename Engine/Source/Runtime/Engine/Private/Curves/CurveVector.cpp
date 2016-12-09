@@ -4,7 +4,6 @@
 	CurveVector.cpp
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Curves/CurveVector.h"
 
 

@@ -7,9 +7,11 @@
 
 #pragma once
 
-#if WITH_EDITOR
-#include "ComponentEditorUtils.h"
-#endif
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Object.h"
+#include "Components/ActorComponent.h"
 
 #include "Selection.generated.h"
 
@@ -328,9 +330,6 @@ public:
 	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
 	virtual bool Modify( bool bAlwaysMarkDirty=true) override;
-#if WITH_EDITOR
-		virtual void PostEditUndo() override;
-#endif
 	//~ End UObject Interface
 
 

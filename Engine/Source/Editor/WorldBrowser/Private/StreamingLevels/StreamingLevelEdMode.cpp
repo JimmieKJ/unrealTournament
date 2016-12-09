@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WorldBrowserPrivatePCH.h"
-#include "StreamingLevelEdMode.h"
+#include "StreamingLevels/StreamingLevelEdMode.h"
 #include "Engine/LevelStreaming.h"
-#include "GameFramework/WorldSettings.h"
+#include "EditorViewportClient.h"
+#include "Materials/Material.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "LevelUtils.h"
+#include "ActorEditorUtils.h"
+#include "GameFramework/WorldSettings.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 

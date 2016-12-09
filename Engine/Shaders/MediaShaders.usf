@@ -88,21 +88,38 @@ void AYUVConvertPS(
 }
 
 
+// shader to convret a Windows Bitmap texture
+void BMPConvertPS(
+	float4 InPosition : SV_POSITION,
+	float2 InUV : TEXCOORD0,
+	out float4 OutColor : SV_Target0)
+{
+	InUV.y = 1.0f - InUV.y;
+	float2 ScaledUV = InUV * BMPConvertUB.UVScale;
+	OutColor = BMPConvertUB.BMPTexture.Sample(BMPConvertUB.BMPSampler, ScaledUV);
+}
+
+
 // shader to convert a NV12 texture to RGBA
 void NV12ConvertPS(
 	float4 InPosition : SV_POSITION,
 	float2 InUV : TEXCOORD0,
 	out float4 OutColor : SV_Target0)
 {
+	float2 ScaledUV = InUV * NV12ConvertUB.UVScale;
+
 	float3 YUV;
-	YUV.x = NV12ConvertUB.NV12Texture.Sample(NV12ConvertUB.NV12Sampler, float2(InUV.x, InUV.y / 3.0f * 2.0f)).x;
+	YUV.x = NV12ConvertUB.NV12Texture.Sample(NV12ConvertUB.NV12SamplerB, ScaledUV).x;
 
-	uint UVOffs = uint(InUV.x * NV12ConvertUB.Width / 2.0f) * 2;
-	float UPos = (float(UVOffs) + 0.5f) / NV12ConvertUB.Width;
-	float VPos = (float(UVOffs) + 1.5f) / NV12ConvertUB.Width;
+	ScaledUV.y *= 0.5f;
+	ScaledUV.y += 2.0f / 3.0f;
 
-	YUV.y = NV12ConvertUB.NV12Texture.Sample(NV12ConvertUB.NV12Sampler, float2(UPos, (InUV.y + 2.0f) / 3.0f)).x;
-	YUV.z = NV12ConvertUB.NV12Texture.Sample(NV12ConvertUB.NV12Sampler, float2(VPos, (InUV.y + 2.0f) / 3.0f)).x;
+	uint UVOffs = uint(InUV.x * NV12ConvertUB.OutputWidth / 2.0f) * 2;
+	float UPos = (float(UVOffs * NV12ConvertUB.UVScale.x) + 0.5f) / NV12ConvertUB.OutputWidth;
+	float VPos = (float(UVOffs * NV12ConvertUB.UVScale.x) + 1.5f) / NV12ConvertUB.OutputWidth;
+
+	YUV.y = NV12ConvertUB.NV12Texture.Sample(NV12ConvertUB.NV12SamplerP, float2(UPos, ScaledUV.y)).x;
+	YUV.z = NV12ConvertUB.NV12Texture.Sample(NV12ConvertUB.NV12SamplerP, float2(VPos, ScaledUV.y)).x;
 
 	OutColor.xyz = YuvToRgb(YUV, YUV_TO_RGB_MSDN);
 	OutColor.w = 1.0f;
@@ -115,18 +132,35 @@ void NV21ConvertPS(
 	float2 InUV : TEXCOORD0,
 	out float4 OutColor : SV_Target0)
 {
+	float2 ScaledUV = InUV * NV21ConvertUB.UVScale;
+
 	float3 YUV;
-	YUV.x = NV12ConvertUB.NV12Texture.Sample(NV12ConvertUB.NV12Sampler, float2(InUV.x, InUV.y / 3.0f * 2.0f)).x;
+	YUV.x = NV21ConvertUB.NV21Texture.Sample(NV21ConvertUB.NV21SamplerB, ScaledUV).x;
 
-	uint VUPos = uint(InUV.x * NV12ConvertUB.Width / 2.0f) * 2;
-	float UPos = (float(VUPos) + 1.5f) / NV12ConvertUB.Width;
-	float VPos = (float(VUPos) + 0.5f) / NV12ConvertUB.Width;
+	ScaledUV.y *= 0.5f;
+	ScaledUV.y += 2.0f / 3.0f;
 
-	YUV.y = NV12ConvertUB.NV12Texture.Sample(NV12ConvertUB.NV12Sampler, float2(UPos, (InUV.y + 2.0f) / 3.0f)).x;
-	YUV.z = NV12ConvertUB.NV12Texture.Sample(NV12ConvertUB.NV12Sampler, float2(VPos, (InUV.y + 2.0f) / 3.0f)).x;
+	uint UVOffs = uint(ScaledUV.x * NV21ConvertUB.OutputWidth / 2.0f) * 2;
+	float UPos = (float(UVOffs * NV21ConvertUB.UVScale.x) + 1.5f) / NV21ConvertUB.OutputWidth;
+	float VPos = (float(UVOffs * NV21ConvertUB.UVScale.x) + 0.5f) / NV21ConvertUB.OutputWidth;
+
+	YUV.y = NV21ConvertUB.NV21Texture.Sample(NV21ConvertUB.NV21SamplerP, float2(UPos, ScaledUV.y)).x;
+	YUV.z = NV21ConvertUB.NV21Texture.Sample(NV21ConvertUB.NV21SamplerP, float2(VPos, ScaledUV.y)).x;
 
 	OutColor.xyz = YuvToRgb(YUV, YUV_TO_RGB_MSDN);
 	OutColor.w = 1.0f;
+}
+
+
+// shader to resize an RGB texture
+void RGBConvertPS(
+	float4 InPosition : SV_POSITION,
+	float2 InUV : TEXCOORD0,
+	out float4 OutColor : SV_Target0)
+{
+	float2 ScaledUV = InUV * RGBConvertUB.UVScale;
+	float4 RGB = RGBConvertUB.RGBTexture.Sample(RGBConvertUB.RGBSampler, ScaledUV);
+	OutColor.xyz = sRGBToLinear(RGB);
 }
 
 
@@ -151,10 +185,14 @@ void UYVYConvertPS(
 	float2 InUV : TEXCOORD0,
 	out float4 OutColor : SV_Target0)
 {
-	float4 UYVY = UYVYConvertUB.UYVYTexture.Sample(UYVYConvertUB.UYVYSampler, float2(InUV.x, InUV.y));
+	float4 UYVYB = UYVYConvertUB.UYVYTexture.Sample(UYVYConvertUB.UYVYSamplerB, float2(InUV.x, InUV.y));
+	float4 UYVYP = UYVYConvertUB.UYVYTexture.Sample(UYVYConvertUB.UYVYSamplerP, float2(InUV.x, InUV.y));
 
-	uint Pos = InUV.x * UYVYConvertUB.Width;
-	float3 YUV = (Pos % 2 == 0) ? UYVY.yxz : UYVY.wxz;
+	float Pos = 2.0f * InUV.x * UYVYConvertUB.Width;
+	float3 YUV;
+
+	YUV.x = (floor(Pos % 2.0f) == 0) ? UYVYP.y : UYVYP.w;
+	YUV.yz = UYVYB.zx;
 
 	OutColor.xyz = YuvToRgb(YUV, YUV_TO_RGB_MSDN);
 	OutColor.w = 1.0f;
@@ -183,10 +221,14 @@ void YUY2ConvertPS(
 	float2 InUV : TEXCOORD0,
 	out float4 OutColor : SV_Target0)
 {
-	float4 YUY2 = YUY2ConvertUB.YUY2Texture.Sample(YUY2ConvertUB.YUY2Sampler, float2(InUV.x, InUV.y));
+	float2 ScaledUV = InUV * YUY2ConvertUB.UVScale;
 
-	uint Pos = InUV.x * YUY2ConvertUB.Width;
-	float3 YUV = (Pos % 2 == 0) ? YUY2.xyw : YUY2.zyw;
+	float3 YUV;
+	YUV.yz = YUY2ConvertUB.YUY2Texture.Sample(YUY2ConvertUB.YUY2SamplerB, ScaledUV).yw;
+
+	float4 YUY2P = YUY2ConvertUB.YUY2Texture.Sample(YUY2ConvertUB.YUY2SamplerP, ScaledUV);
+	float Pos = InUV.x * YUY2ConvertUB.OutputWidth;
+	YUV.x = (floor(Pos % 2.0f) == 0) ? YUY2P.z : YUY2P.x;
 
 	OutColor.xyz = YuvToRgb(YUV, YUV_TO_RGB_MSDN);
 	OutColor.w = 1.0f;
@@ -199,10 +241,14 @@ void YVYUConvertPS(
 	float2 InUV : TEXCOORD0,
 	out float4 OutColor : SV_Target0)
 {
-	float4 YVYU = YVYUConvertUB.YVYUTexture.Sample(YVYUConvertUB.YVYUSampler, float2(InUV.x, InUV.y));
+	float4 YVYUB = YVYUConvertUB.YVYUTexture.Sample(YVYUConvertUB.YVYUSamplerB, float2(InUV.x, InUV.y));
+	float4 YVYUP = YVYUConvertUB.YVYUTexture.Sample(YVYUConvertUB.YVYUSamplerP, float2(InUV.x, InUV.y));
 
-	uint Pos = InUV.x * YVYUConvertUB.Width;
-	float3 YUV = (Pos % 2 == 0) ? YVYU.xwy : YVYU.zwy;
+	float Pos = 2.0f * InUV.x * YVYUConvertUB.Width;
+	float3 YUV;
+
+	YUV.x = (floor(Pos % 2.0f) == 0) ? YVYUP.z : YVYUP.x;
+	YUV.yz = YVYUB.wy;
 
 	OutColor.xyz = YuvToRgb(YUV, YUV_TO_RGB_MSDN);
 	OutColor.w = 1.0f;

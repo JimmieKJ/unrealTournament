@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Utility functions for dealing with localized package names */
 struct COREUOBJECT_API FPackageLocalizationUtil
 {

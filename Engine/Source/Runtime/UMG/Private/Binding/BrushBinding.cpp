@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "WidgetBlueprintLibrary.h"
-#include "BrushBinding.h"
+#include "Binding/BrushBinding.h"
+#include "Engine/Texture2D.h"
+#include "Brushes/SlateNoResource.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

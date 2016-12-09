@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "IpNetDriver.h"
 #include "UnitTestNetDriver.generated.h"
 
+class Error;
+class FNetworkNotify;
 
 /**
  * A net driver for supporting unit test net connections

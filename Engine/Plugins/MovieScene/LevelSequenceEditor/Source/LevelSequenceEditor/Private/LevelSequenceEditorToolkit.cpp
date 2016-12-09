@@ -1,39 +1,53 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelSequenceEditorPCH.h"
-#include "Toolkits/IToolkitHost.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Editor/LevelEditor/Public/ILevelViewport.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructure.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
+#include "LevelSequenceEditorToolkit.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "UObject/UnrealType.h"
+#include "GameFramework/Actor.h"
+#include "EngineGlobals.h"
+#include "AssetData.h"
+#include "Components/PrimitiveComponent.h"
+#include "Editor.h"
+#include "Containers/ArrayBuilder.h"
+#include "Modules/ModuleManager.h"
+#include "KeyParams.h"
+#include "MovieSceneSequence.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "Engine/Selection.h"
+#include "LevelSequenceEditorModule.h"
+#include "Misc/LevelSequenceEditorSettings.h"
+#include "Misc/LevelSequenceEditorSpawnRegister.h"
+#include "Misc/LevelSequenceEditorHelpers.h"
+#include "LevelEditor.h"
+#include "LevelEditorViewport.h"
 #include "CineCameraActor.h"
-#include "SlateIconFinder.h"
+#include "Styling/SlateIconFinder.h"
+#include "KeyPropertyParams.h"
 #include "ISequencer.h"
 #include "ISequencerModule.h"
+#include "LevelSequencePlayer.h"
 #include "LevelSequenceActor.h"
-#include "MovieScene.h"
-#include "MovieSceneBinding.h"
-#include "MovieSceneCameraCutSection.h"
-#include "MovieSceneCameraCutTrack.h"
-#include "MovieSceneCinematicShotTrack.h"
-#include "MovieSceneMaterialTrack.h"
-#include "MovieScenePropertyTrack.h"
+#include "Sections/MovieSceneCameraCutSection.h"
+#include "Tracks/MovieSceneCameraCutTrack.h"
+#include "Sections/MovieSceneSubSection.h"
+#include "Tracks/MovieSceneSubTrack.h"
+#include "Tracks/MovieSceneCinematicShotTrack.h"
+#include "Tracks/MovieSceneMaterialTrack.h"
+#include "Tracks/MovieScenePropertyTrack.h"
 #include "MovieSceneToolsProjectSettings.h"
-#include "MovieSceneSequenceInstance.h"
 #include "MovieSceneToolHelpers.h"
 #include "ScopedTransaction.h"
 #include "SceneOutlinerModule.h"
 #include "SceneOutlinerPublicTypes.h"
-#include "SDockTab.h"
-#include "LevelSequencePlayer.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "SequencerSettings.h"
-#include "SequencerSpawnRegister.h"
 #include "MovieSceneCaptureDialogModule.h"
+#include "MovieScene.h"
 
 // @todo sequencer: hack: setting defaults for transform tracks
-#include "MovieScene3DTransformSection.h"
-#include "MovieScene3DTransformTrack.h"
-
+#include "Sections/MovieScene3DTransformSection.h"
+#include "Tracks/MovieScene3DTransformTrack.h"
 
 #define LOCTEXT_NAMESPACE "LevelSequenceEditor"
 
@@ -132,7 +146,8 @@ FLevelSequenceEditorToolkit::FLevelSequenceEditorToolkitOpened& FLevelSequenceEd
  *****************************************************************************/
 
 FLevelSequenceEditorToolkit::FLevelSequenceEditorToolkit(const TSharedRef<ISlateStyle>& InStyle)
-	: Style(InStyle)
+	: LevelSequence(nullptr)
+	, Style(InStyle)
 {
 	// register sequencer menu extenders
 	ISequencerModule& SequencerModule = FModuleManager::Get().LoadModuleChecked<ISequencerModule>("Sequencer");
@@ -194,7 +209,7 @@ void FLevelSequenceEditorToolkit::Initialize(const EToolkitMode::Type Mode, cons
 
 	FAssetEditorToolkit::InitAssetEditor(Mode, InitToolkitHost, SequencerDefs::SequencerAppIdentifier, StandaloneDefaultLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, LevelSequence);
 
-	TSharedRef<FLevelSequenceEditorSpawnRegister> SpawnRegister = MakeShareable(new TSequencerSpawnRegister<FLevelSequenceEditorSpawnRegister>);
+	TSharedRef<FLevelSequenceEditorSpawnRegister> SpawnRegister = MakeShareable(new FLevelSequenceEditorSpawnRegister);
 
 	// initialize sequencer
 	FSequencerInitParams SequencerInitParams;
@@ -400,7 +415,7 @@ void FLevelSequenceEditorToolkit::AddDefaultTracksForActor(AActor& Actor, const 
 					}
 
 					// @todo sequencer: hack: setting defaults for transform tracks
-					if (NewTrack->IsA(UMovieScene3DTransformTrack::StaticClass()))
+					if (NewTrack->IsA(UMovieScene3DTransformTrack::StaticClass()) && Sequencer->GetAutoSetTrackDefaults())
 					{
 						auto TransformSection = Cast<UMovieScene3DTransformSection>(NewSection);
 
@@ -544,14 +559,7 @@ void FLevelSequenceEditorToolkit::AddDefaultTracksForActor(AActor& Actor, const 
 			}
 
 			// key property
-			FKeyPropertyParams KeyPropertyParams(TArrayBuilder<UObject*>().Add(PropertyOwner), PropertyPath);
-			{
-				KeyPropertyParams.KeyParams.bCreateTrackIfMissing = true;
-				KeyPropertyParams.KeyParams.bCreateHandleIfMissing = true;
-				KeyPropertyParams.KeyParams.bCreateKeyIfUnchanged = false;
-				KeyPropertyParams.KeyParams.bCreateKeyIfEmpty = false;
-				KeyPropertyParams.KeyParams.bCreateKeyOnlyWhenAutoKeying = false;
-			}
+			FKeyPropertyParams KeyPropertyParams(TArrayBuilder<UObject*>().Add(PropertyOwner), PropertyPath, ESequencerKeyMode::ManualKey);
 
 			Sequencer->KeyProperty(KeyPropertyParams);
 
@@ -690,7 +698,32 @@ void FLevelSequenceEditorToolkit::AddShot(UMovieSceneCinematicShotTrack* ShotTra
 
 	// Focus on the new shot
 	GetSequencer()->UpdateRuntimeInstances();
+	GetSequencer()->ForceEvaluate();
 	GetSequencer()->FocusSequenceInstance(*ShotSubSection);
+
+	const ULevelSequenceMasterSequenceSettings* MasterSequenceSettings = GetDefault<ULevelSequenceMasterSequenceSettings>();
+	const UMovieSceneToolsProjectSettings* ProjectSettings = GetDefault<UMovieSceneToolsProjectSettings>();
+
+	// Create any subshots
+	if (MasterSequenceSettings->SubSequenceNames.Num())
+	{
+		UMovieSceneSubTrack* SubTrack = Cast<UMovieSceneSubTrack>(ShotSequence->GetMovieScene()->FindMasterTrack(UMovieSceneSubTrack::StaticClass()));
+		if (!SubTrack)
+		{
+			SubTrack = Cast<UMovieSceneSubTrack>(ShotSequence->GetMovieScene()->AddMasterTrack(UMovieSceneSubTrack::StaticClass()));
+		}
+	
+		int32 RowIndex = 0;
+		for (auto SubSequenceName : MasterSequenceSettings->SubSequenceNames)
+		{
+			FString SubSequenceAssetName = ShotAssetName + ProjectSettings->SubSequenceSeparator + SubSequenceName.ToString();
+			UObject* SubSequenceAsset = LevelSequenceEditorHelpers::CreateLevelSequenceAsset(SubSequenceAssetName, ShotPackagePath);
+			UMovieSceneSequence* SubSequence = Cast<UMovieSceneSequence>(SubSequenceAsset);
+			UMovieSceneSubSection* SubSection = SubTrack->AddSequence(SubSequence, ShotStartTime, ShotEndTime-ShotStartTime);
+			SubSection->SetRowIndex(RowIndex++);
+			SubSection->SetStartTime(ShotStartTime);
+		}
+	}
 
 	// Create a camera cut track with a camera if it doesn't already exist
 	UMovieSceneTrack* CameraCutTrack = ShotSequence->GetMovieScene()->GetCameraCutTrack();

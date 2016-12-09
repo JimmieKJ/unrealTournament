@@ -4,17 +4,18 @@
 	OpenGLDrv.cpp: Unreal OpenGL RHI library implementation.
 =============================================================================*/
 
+#include "OpenGLDrv.h"
+#include "Modules/ModuleManager.h"
+#include "EngineGlobals.h"
+#include "StaticBoundShaderState.h"
+#include "RHIStaticStates.h"
+#include "Engine/Engine.h"
 #include "OpenGLDrvPrivate.h"
 
 IMPLEMENT_MODULE(FOpenGLDynamicRHIModule, OpenGLDrv);
 
-#include "ShaderParameterUtils.h"
-#include "RHIStaticStates.h"
+#include "Shader.h"
 #include "OneColorShader.h"
-
-#if !UE_BUILD_SHIPPING
-#include "STaskGraph.h"
-#endif
 
 /** OpenGL Logging. */
 DEFINE_LOG_CATEGORY(LogOpenGL);
@@ -446,6 +447,7 @@ GLint FOpenGLBase::MaxPixelUniformComponents = -1;
 GLint FOpenGLBase::MaxGeometryUniformComponents = -1;
 GLint FOpenGLBase::MaxHullUniformComponents = -1;
 GLint FOpenGLBase::MaxDomainUniformComponents = -1;
+bool  FOpenGLBase::bSupportsClipControl = false;
 bool  FOpenGLBase::bSupportsASTC = false;
 bool  FOpenGLBase::bSupportsCopyImage = false;
 bool  FOpenGLBase::bSupportsSeamlessCubemap = false;
@@ -501,21 +503,39 @@ void FOpenGLBase::ProcessExtensions( const FString& ExtensionsString )
 
 	bSupportsDrawBuffersBlend = ExtensionsString.Contains(TEXT("GL_ARB_draw_buffers_blend"));
 
-#if PLATFORM_WINDOWS || PLATFORM_LINUX
+#if PLATFORM_IOS
+	GRHIVendorId = 0x1010;
+#else
 	FString VendorName( ANSI_TO_TCHAR((const ANSICHAR*)glGetString(GL_VENDOR) ) );
 	if (VendorName.Contains(TEXT("ATI ")))
 	{
-		bAmdWorkaround = true;
 		GRHIVendorId = 0x1002;
+#if PLATFORM_WINDOWS || PLATFORM_LINUX
+		bAmdWorkaround = true;
+#endif
 	}
 	else if (VendorName.Contains(TEXT("Intel ")))
 	{
-		bAmdWorkaround = true;
 		GRHIVendorId = 0x8086;
+#if PLATFORM_WINDOWS || PLATFORM_LINUX
+		bAmdWorkaround = true;
+#endif
 	}
 	else if (VendorName.Contains(TEXT("NVIDIA ")))
 	{
 		GRHIVendorId = 0x10DE;
+	}
+	else if (VendorName.Contains(TEXT("ImgTec")))
+	{
+		GRHIVendorId = 0x1010;
+	}
+	else if (VendorName.Contains(TEXT("ARM")))
+	{
+		GRHIVendorId = 0x13B5;
+	}
+	else if (VendorName.Contains(TEXT("Qualcomm")))
+	{
+		GRHIVendorId = 0x5143;
 	}
 #endif
 
@@ -556,6 +576,21 @@ void GetExtensionsString( FString& ExtensionsString)
 	}
 }
 
+namespace OpenGLConsoleVariables
+{
+#if PLATFORM_WINDOWS || PLATFORM_LINUX
+	int32 bUseGlClipControlIfAvailable = 1;
+#else
+	int32 bUseGlClipControlIfAvailable = 0;
+#endif
+	static FAutoConsoleVariableRef CVarUseGlClipControlIfAvailable(
+		TEXT("OpenGL.UseGlClipControlIfAvailable"),
+		bUseGlClipControlIfAvailable,
+		TEXT("If true, the engine trys to use glClipControl if the driver supports it."),
+		ECVF_RenderThreadSafe | ECVF_ReadOnly
+	);
+}
+
 void InitDefaultGLContextState(void)
 {
 	// NOTE: This function can be called before capabilities setup, so extensions need to be checked directly
@@ -577,4 +612,12 @@ void InitDefaultGLContextState(void)
 	{
 		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 	}
+
+#if PLATFORM_WINDOWS || PLATFORM_LINUX
+	if (OpenGLConsoleVariables::bUseGlClipControlIfAvailable && ExtensionsString.Contains(TEXT("GL_ARB_clip_control")))
+	{
+		FOpenGL::EnableSupportsClipControl();
+		glClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
+	}
+#endif
 }

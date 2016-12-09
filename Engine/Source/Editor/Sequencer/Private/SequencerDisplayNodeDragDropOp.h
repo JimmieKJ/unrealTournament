@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "DecoratedDragDropOp.h"
-
-class FSequencerDisplayNode;
+#include "CoreMinimal.h"
+#include "Input/DragAndDrop.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
 
 /** A decorated drag drop operation object for dragging sequencer display nodes. */
 class FSequencerDisplayNodeDragDropOp : public FDecoratedDragDropOp

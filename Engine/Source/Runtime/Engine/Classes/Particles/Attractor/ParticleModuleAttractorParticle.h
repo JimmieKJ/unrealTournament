@@ -2,8 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionFloat.h"
 #include "Particles/Attractor/ParticleModuleAttractorBase.h"
 #include "ParticleModuleAttractorParticle.generated.h"
+
+class UParticleModuleTypeDataBase;
+struct FParticleEmitterInstance;
 
 UENUM()
 enum EAttractorParticleSelectionMethod

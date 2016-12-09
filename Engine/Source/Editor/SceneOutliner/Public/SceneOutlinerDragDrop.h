@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "SceneOutlinerFwd.h"
-#include "ActorDragDropGraphEdOp.h"
+#include "Layout/Visibility.h"
+#include "Input/DragAndDrop.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
+#include "DragAndDrop/ActorDragDropGraphEdOp.h"
 
 namespace SceneOutliner
 {

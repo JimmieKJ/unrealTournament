@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "VectorVM.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
 #include "VectorVMPrivate.h"
-#include "CurveVector.h"
-#include "ModuleManager.h"
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, VectorVM);
 

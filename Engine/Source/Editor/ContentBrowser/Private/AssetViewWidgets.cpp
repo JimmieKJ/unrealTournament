@@ -1,20 +1,35 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "ContentBrowserPCH.h"
-#include "ISourceControlModule.h"
-#include "AssetThumbnail.h"
-#include "AssetViewTypes.h"
 #include "AssetViewWidgets.h"
-#include "SThumbnailEditModeTools.h"
-#include "AssetSourceFilenameCache.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/SOverlay.h"
+#include "Engine/GameViewportClient.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Materials/Material.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+#include "EditorFramework/AssetImportData.h"
+#include "Engine/Texture2D.h"
+#include "ARFilter.h"
+#include "AssetRegistryModule.h"
+#include "IAssetTools.h"
+#include "AssetToolsModule.h"
+#include "CollectionManagerTypes.h"
+#include "ICollectionManager.h"
 #include "CollectionManagerModule.h"
+#include "AssetViewTypes.h"
+#include "SThumbnailEditModeTools.h"
+#include "AutoReimport/AssetSourceFilenameCache.h"
 #include "CollectionViewUtils.h"
 #include "DragAndDrop/AssetDragDropOp.h"
 #include "DragAndDrop/AssetPathDragDropOp.h"
 #include "DragDropHandler.h"
-#include "BreakIterator.h"
-#include "SInlineEditableTextBlock.h"
+#include "Internationalization/BreakIterator.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Misc/EngineBuildSettings.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -662,7 +677,14 @@ TSharedRef<SWidget> SAssetViewItem::CreateToolTipWidget() const
 			TSharedRef<SVerticalBox> InfoBox = SNew(SVerticalBox);
 
 			// Add Path
-			AddToToolTipInfoBox( InfoBox, LOCTEXT("TileViewTooltipPath", "Path"), FText::FromName(AssetData.PackagePath), false );
+			AddToToolTipInfoBox( InfoBox, LOCTEXT("TileViewTooltipPath", "Path"), FText::FromName(AssetData.PackagePath), false);
+
+			int32 PackageNameLengthForCooking = ContentBrowserUtils::GetPackageLengthForCooking(AssetData.PackageName.ToString(), FEngineBuildSettings::IsInternalBuild());
+
+			AddToToolTipInfoBox( InfoBox, LOCTEXT("TileViewTooltipPathLengthForCookingKey", "Cooking Filepath Length"), FText::Format(LOCTEXT("TileViewTooltipPathLengthForCookingValue", "{0} / {1}"), 
+								 FText::AsNumber(PackageNameLengthForCooking), FText::AsNumber(ContentBrowserUtils::MaxCookPathLen)), PackageNameLengthForCooking > ContentBrowserUtils::MaxCookPathLen ? true : false);
+
+			
 			
 			// Add Collections
 			{
@@ -1021,9 +1043,19 @@ void SAssetViewItem::CacheToolTipTags()
 
 					const bool bImportant = (Metadata != nullptr && !Metadata->ImportantValue.IsEmpty() && Metadata->ImportantValue == KeyValue.Value);
 
+					// The string value might be localizable text, so we need to stringify it for display
+					FString ValueString = KeyValue.Value;
+					if (FTextStringHelper::IsComplexText(*ValueString))
+					{
+						FText TmpText;
+						if (FTextStringHelper::ReadFromString(*ValueString, TmpText))
+						{
+							ValueString = TmpText.ToString();
+						}
+					}
+
 					// Since all we have at this point is a string, we can't be very smart here.
 					// We need to strip some noise off class paths in some cases, but can't load the asset to inspect its UPROPERTYs manually due to performance concerns.
-					FString ValueString = KeyValue.Value;
 					const TCHAR StringToRemove[] = TEXT("Class'/Script/");
 					if (ValueString.StartsWith(StringToRemove) && ValueString.EndsWith(TEXT("'")))
 					{
@@ -1038,12 +1070,25 @@ void SAssetViewItem::CacheToolTipTags()
 					{
 						DisplayName = Field->GetDisplayNameText();
 
-						// Strip off enum prefixes if they exist
-						if (UByteProperty* ByteProperty = Cast<UByteProperty>(Field))
+						UProperty* Prop = nullptr;
+						UEnum* Enum = nullptr;
+						if (UByteProperty* ByteProp = Cast<UByteProperty>(Field))
 						{
-							if (ByteProperty->Enum)
+							Prop = ByteProp;
+							Enum = ByteProp->Enum;
+						}
+						else if (UEnumProperty* EnumProp = Cast<UEnumProperty>(Field))
+						{
+							Prop = EnumProp;
+							Enum = EnumProp->GetEnum();
+						}
+
+						// Strip off enum prefixes if they exist
+						if (Prop)
+						{
+							if (Enum)
 							{
-								const FString EnumPrefix = ByteProperty->Enum->GenerateEnumPrefix();
+								const FString EnumPrefix = Enum->GenerateEnumPrefix();
 								if (EnumPrefix.Len() && ValueString.StartsWith(EnumPrefix))
 								{
 									ValueString = ValueString.RightChop(EnumPrefix.Len() + 1);	// +1 to skip over the underscore

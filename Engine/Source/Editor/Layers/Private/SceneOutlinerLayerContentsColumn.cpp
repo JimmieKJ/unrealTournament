@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "LayersPrivatePCH.h"
-#include "SceneOutliner.h"
+#include "SceneOutlinerLayerContentsColumn.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "SceneOutlinerLayerContentsColumn"
 

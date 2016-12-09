@@ -25,6 +25,11 @@ namespace UnrealBuildTool.Rules
 					"Slate",
 				}
 			);
+
+			if (UEBuildConfiguration.bBuildEditor == true)
+			{
+				PrivateDependencyModuleNames.Add("UnrealEd");
+			}
 		}
 	}
 }

@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/ConfigCacheIni.h"
 #include "NiagaraEffect.h"
-#include "NiagaraEditorModule.h"
 #include "NiagaraEffectFactoryNew.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEffectFactory"

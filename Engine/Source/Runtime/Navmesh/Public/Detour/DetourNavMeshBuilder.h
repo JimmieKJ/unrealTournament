@@ -22,7 +22,8 @@
 #ifndef DETOURNAVMESHBUILDER_H
 #define DETOURNAVMESHBUILDER_H
 
-#include "DetourAlloc.h"
+#include "CoreMinimal.h"
+#include "Detour/DetourAlloc.h"
 
 struct dtOffMeshLinkCreateParams
 {

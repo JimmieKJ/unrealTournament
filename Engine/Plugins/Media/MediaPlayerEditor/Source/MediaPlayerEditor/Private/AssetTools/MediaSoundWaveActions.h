@@ -2,8 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "AssetTypeActions_Base.h"
-
 
 /**
  * Implements an action for UMediaSoundWave assets.

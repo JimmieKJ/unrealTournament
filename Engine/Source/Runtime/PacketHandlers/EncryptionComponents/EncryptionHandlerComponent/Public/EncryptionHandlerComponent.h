@@ -2,9 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "PacketHandler.h"
 #include "ModuleManager.h"
-#include "Core.h"
 
 /** Encryption Handler Component Module Interface */
 class FEncryptionHandlerComponentModuleInterface : public FPacketHandlerComponentModuleInterface

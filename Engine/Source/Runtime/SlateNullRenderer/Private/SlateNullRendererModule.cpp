@@ -1,6 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateNullRendererPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Textures/SlateShaderResource.h"
+#include "Textures/TextureAtlas.h"
+#include "Rendering/ShaderResourceManager.h"
+#include "Fonts/FontTypes.h"
+#include "Fonts/FontCache.h"
+#include "Rendering/DrawElements.h"
+#include "Rendering/SlateRenderer.h"
+#include "TextureResource.h"
+#include "Interfaces/ISlateNullRendererModule.h"
+#include "SlateNullRenderer.h"
 
 class FSlateNullShaderResourceManager : public ISlateAtlasProvider, public FSlateShaderResourceManager
 {

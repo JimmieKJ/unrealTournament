@@ -2,8 +2,24 @@
 
 #pragma once
 
-struct FParentClassItem;
+#include "CoreMinimal.h"
+#include "AddToProjectConfig.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "GameProjectUtils.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Input/SComboBox.h"
+
 class IClassViewerFilter;
+class SClassViewer;
+class SEditableTextBox;
+class SWizard;
+struct FParentClassItem;
 
 enum class EClassDomain : uint8 { Blueprint, Native };
 

@@ -1,9 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "MovieSceneMarginTrack.h"
-#include "MarginTrackEditor.h"
-#include "MovieSceneMarginSection.h"
+#include "Animation/MarginTrackEditor.h"
 #include "PropertySection.h"
 #include "ISectionLayoutBuilder.h"
 #include "FloatCurveKeyArea.h"
@@ -20,47 +17,63 @@ class FMarginPropertySection
 {
 public:
 
-	FMarginPropertySection( UMovieSceneSection& InSectionObject, const FText& SectionName )
-		: FPropertySection(InSectionObject, SectionName) {}
+	FMarginPropertySection(ISequencer* InSequencer, FGuid InObjectBinding, FName InPropertyName, const FString& InPropertyPath, UMovieSceneSection& InSectionObject, const FText& SectionName)
+		: FPropertySection(InSequencer, InObjectBinding, InPropertyName, InPropertyPath, InSectionObject, SectionName)
+	{
+	}
 
 	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override
 	{
 		UMovieSceneMarginSection* MarginSection = Cast<UMovieSceneMarginSection>(&SectionObject);
 
-		LeftKeyArea = MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetLeftCurve(), MarginSection));
-		TopKeyArea = MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetTopCurve(), MarginSection));
-		RightKeyArea = MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetRightCurve(), MarginSection));
-		BottomKeyArea = MakeShareable(new FFloatCurveKeyArea( &MarginSection->GetBottomCurve(), MarginSection));
+		TAttribute<TOptional<float>> MarginLeftExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FMarginPropertySection::GetMarginLeftValue));
+		TSharedRef<FFloatCurveKeyArea> LeftKeyArea = MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetLeftCurve(), MarginLeftExternalValue, MarginSection));
 
-		LayoutBuilder.AddKeyArea("Left", NSLOCTEXT("FMarginPropertySection", "MarginLeft", "Left"), LeftKeyArea.ToSharedRef());
-		LayoutBuilder.AddKeyArea("Top", NSLOCTEXT("FMarginPropertySection", "MarginTop", "Top"), TopKeyArea.ToSharedRef());
-		LayoutBuilder.AddKeyArea("Right", NSLOCTEXT("FMarginPropertySection", "MarginRight", "Right"), RightKeyArea.ToSharedRef());
-		LayoutBuilder.AddKeyArea("Bottom", NSLOCTEXT("FMarginPropertySection", "MarginBottom", "Bottom"), BottomKeyArea.ToSharedRef());
+		TAttribute<TOptional<float>> MarginTopExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FMarginPropertySection::GetMarginTopValue));
+		TSharedRef<FFloatCurveKeyArea> TopKeyArea = MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetTopCurve(), MarginTopExternalValue, MarginSection));
+
+		TAttribute<TOptional<float>> MarginRightExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FMarginPropertySection::GetMarginRightValue));
+		TSharedRef<FFloatCurveKeyArea> RightKeyArea = MakeShareable(new FFloatCurveKeyArea(&MarginSection->GetRightCurve(), MarginRightExternalValue, MarginSection));
+
+		TAttribute<TOptional<float>> MarginBottomExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FMarginPropertySection::GetMarginBottomValue));
+		TSharedRef<FFloatCurveKeyArea> BottomKeyArea = MakeShareable(new FFloatCurveKeyArea( &MarginSection->GetBottomCurve(), MarginBottomExternalValue, MarginSection));
+
+		LayoutBuilder.AddKeyArea("Left", NSLOCTEXT("FMarginPropertySection", "MarginLeft", "Left"), LeftKeyArea);
+		LayoutBuilder.AddKeyArea("Top", NSLOCTEXT("FMarginPropertySection", "MarginTop", "Top"), TopKeyArea);
+		LayoutBuilder.AddKeyArea("Right", NSLOCTEXT("FMarginPropertySection", "MarginRight", "Right"), RightKeyArea);
+		LayoutBuilder.AddKeyArea("Bottom", NSLOCTEXT("FMarginPropertySection", "MarginBottom", "Bottom"), BottomKeyArea);
 	}
 
-	virtual void SetIntermediateValue( FPropertyChangedParams PropertyChangedParams ) override
-	{
-		FMargin Margin = PropertyChangedParams.GetPropertyValue<FMargin>();
-		LeftKeyArea->SetIntermediateValue( Margin.Left );
-		TopKeyArea->SetIntermediateValue( Margin.Top );
-		RightKeyArea->SetIntermediateValue( Margin.Right );
-		BottomKeyArea->SetIntermediateValue( Margin.Bottom );
-	}
-
-
-	virtual void ClearIntermediateValue() override
-	{
-		LeftKeyArea->ClearIntermediateValue();
-		TopKeyArea->ClearIntermediateValue();
-		RightKeyArea->ClearIntermediateValue();
-		BottomKeyArea->ClearIntermediateValue();
-	}
 
 private:
-	mutable TSharedPtr<FFloatCurveKeyArea> LeftKeyArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> TopKeyArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> RightKeyArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> BottomKeyArea;
+
+	TOptional<float> GetMarginLeftValue() const
+	{
+		TOptional<FMargin> Margin = GetPropertyValue<FMargin>();
+		return Margin.IsSet() ? TOptional<float>(Margin.GetValue().Left) : TOptional<float>();
+	}
+
+	TOptional<float> GetMarginTopValue() const
+	{
+		TOptional<FMargin> Margin = GetPropertyValue<FMargin>();
+		return Margin.IsSet() ? TOptional<float>(Margin.GetValue().Top) : TOptional<float>();
+	}
+
+	TOptional<float> GetMarginRightValue() const
+	{
+		TOptional<FMargin> Margin = GetPropertyValue<FMargin>();
+		return Margin.IsSet() ? TOptional<float>(Margin.GetValue().Right) : TOptional<float>();
+	}
+
+	TOptional<float> GetMarginBottomValue() const
+	{
+		TOptional<FMargin> Margin = GetPropertyValue<FMargin>();
+		return Margin.IsSet() ? TOptional<float>(Margin.GetValue().Bottom) : TOptional<float>();
+	}
 };
 
 
@@ -70,12 +83,11 @@ TSharedRef<ISequencerTrackEditor> FMarginTrackEditor::CreateTrackEditor( TShared
 }
 
 
-TSharedRef<FPropertySection> FMarginTrackEditor::MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
+TSharedRef<ISequencerSection> FMarginTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding )
 {
-	check( SupportsType( SectionObject.GetOuter()->GetClass() ) );
-
-	UClass* SectionClass = SectionObject.GetOuter()->GetClass();
-	return MakeShareable(new FMarginPropertySection(SectionObject, Track.GetDisplayName()));
+	UMovieScenePropertyTrack* PropertyTrack = Cast<UMovieScenePropertyTrack>(&Track);
+	checkf(PropertyTrack != nullptr, TEXT("Incompatible track in FMarginTrackEditor"));
+	return MakeShareable(new FMarginPropertySection(GetSequencer().Get(), ObjectBinding, PropertyTrack->GetPropertyName(), PropertyTrack->GetPropertyPath(), SectionObject, Track.GetDisplayName()));
 }
 
 

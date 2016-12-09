@@ -2,10 +2,16 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphPin.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_Switch.h"
 #include "NodeDependingOnEnumInterface.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_SwitchEnum.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
 
 UCLASS(MinimalAPI)
 class UK2Node_SwitchEnum : public UK2Node_Switch, public INodeDependingOnEnumInterface

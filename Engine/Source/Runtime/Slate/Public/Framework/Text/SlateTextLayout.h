@@ -1,6 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/TextLayout.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Children.h"
+
+class FArrangedChildren;
+class FPaintArgs;
+class FSlateWindowElementList;
+
 class SLATE_API FSlateTextLayout : public FTextLayout
 {
 public:

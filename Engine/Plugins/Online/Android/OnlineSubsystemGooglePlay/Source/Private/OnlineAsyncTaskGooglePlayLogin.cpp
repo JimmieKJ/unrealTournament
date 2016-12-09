@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemGooglePlayPrivatePCH.h"
 #include "OnlineAsyncTaskGooglePlayLogin.h"
+#include "OnlineSubsystemGooglePlay.h"
 
 #include "gpg/builder.h"
 #include "gpg/debug.h"

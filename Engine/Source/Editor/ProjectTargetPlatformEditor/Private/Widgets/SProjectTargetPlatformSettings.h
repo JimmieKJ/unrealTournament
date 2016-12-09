@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Interfaces/IProjectTargetPlatformEditorModule.h"
+
+struct FSlateBrush;
+enum class ECheckBoxState : uint8;
+
 class SProjectTargetPlatformSettings : public SCompoundWidget
 {
 public:

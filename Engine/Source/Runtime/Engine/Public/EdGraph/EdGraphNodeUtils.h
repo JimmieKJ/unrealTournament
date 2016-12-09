@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "EdGraph/EdGraphNode.h" // for ENodeTitleType
+#include "CoreMinimal.h"
 #include "EdGraph/EdGraphSchema.h"
+#include "Misc/ConfigCacheIni.h"
 
 /*******************************************************************************
  * FNodeTextCache

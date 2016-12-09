@@ -1,17 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LaunchPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/CommandLine.h"
+#include "Misc/App.h"
+#include "Misc/OutputDeviceError.h"
+#include "LaunchEngineLoop.h"
 #include "PhysicsPublic.h"
-#include "ExceptionHandling.h"
-#include "ModuleManager.h"
-#include "LoadTimeTracker.h"
+#include "HAL/ExceptionHandling.h"
+#include "Modules/ModuleManager.h"
+#include "ProfilingDebugging/LoadTimeTracker.h"
+#include "Stats/StatsMisc.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/ScopedSlowTask.h"
+#if WITH_EDITOR
+	#include "UnrealEdGlobals.h"
+#endif
+#if PLATFORM_WINDOWS
+	#include "WindowsHWrapper.h"
+#endif
 
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, Launch);
-
-#if UE_EDITOR && IS_MONOLITHIC
-PER_MODULE_BOILERPLATE
-#endif
 
 #if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX
 

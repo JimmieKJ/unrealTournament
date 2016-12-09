@@ -4,19 +4,13 @@
 	Audio.cpp: Unreal base audio.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Sound/AmbientSound.h"
+#include "Components/AudioComponent.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "Misc/MapErrors.h"
 #include "Sound/SoundBase.h"
-#include "Sound/SoundCue.h"
-#include "Sound/SoundNodeMixer.h"
-#include "Sound/SoundNodeRandom.h"
-#include "Sound/SoundNodeLooping.h"
-#include "Sound/SoundNodeDelay.h"
-#include "Sound/SoundNodeWavePlayer.h"
-#include "Sound/SoundNodeModulator.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "MapErrors.h"
 
 #define LOCTEXT_NAMESPACE "AmbientSound"
 

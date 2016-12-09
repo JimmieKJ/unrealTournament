@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BoneContainer.h"
+#include "BonePose.h"
+#include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "AnimNode_CopyBoneDelta.generated.h"
+
+class USkeletalMeshComponent;
 
 UENUM()
 enum class CopyBoneDeltaMode : uint8

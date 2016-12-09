@@ -2,13 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetThumbnail.h"
+#include "IDetailTreeNode.h"
+#include "PropertyNode.h"
 #include "IDetailsView.h"
 
 class FNotifyHook;
-class IDetailTreeNode;
-class IPropertyUtilities;
-class FPropertyNode;
-class FObjectPropertyNode;
+class IDetailPropertyExtensionHandler;
+class IDetailRootObjectCustomization;
 
 class IDetailsViewPrivate : public IDetailsView
 {

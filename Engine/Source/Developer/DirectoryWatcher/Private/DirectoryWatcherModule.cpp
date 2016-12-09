@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DirectoryWatcherPrivatePCH.h"
-#include "ModuleInterface.h"
 #include "DirectoryWatcherModule.h"
-#include "ModuleManager.h"
+#include "DirectoryWatcherPrivate.h"
+#include "Modules/ModuleManager.h"
 
 IMPLEMENT_MODULE( FDirectoryWatcherModule, DirectoryWatcher );
 DEFINE_LOG_CATEGORY(LogDirectoryWatcher);

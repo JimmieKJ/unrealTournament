@@ -2,8 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionFloat.h"
 #include "Particles/Camera/ParticleModuleCameraBase.h"
 #include "ParticleModuleCameraOffset.generated.h"
+
+class UParticleModuleTypeDataBase;
+struct FParticleEmitterInstance;
 
 /**
  *	The update method for the offset

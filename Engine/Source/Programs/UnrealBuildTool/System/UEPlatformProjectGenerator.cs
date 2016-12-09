@@ -137,8 +137,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
+		/// <param name="ProjectFileFormat">The visual studio project file format being generated</param>
 		/// <returns>bool    true if native VisualStudio support (or custom VSI) is available</returns>
-		public virtual bool HasVisualStudioSupport(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
+		public virtual bool HasVisualStudioSupport(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFileFormat ProjectFileFormat)
 		{
 			// By default, we assume this is true
 			return true;
@@ -162,7 +163,7 @@ namespace UnrealBuildTool
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
 		/// <returns>string    The custom configuration section for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetVisualStudioPreDefaultString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFile InProjectFile)
+		public virtual string GetVisualStudioPreDefaultString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 		{
 			return "";
 		}
@@ -172,8 +173,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
+		/// <param name="InProjectFileFormat">The visual studio project file format being generated</param>
 		/// <returns>string    The custom configuration section for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetVisualStudioPlatformToolsetString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFile InProjectFile)
+		public virtual string GetVisualStudioPlatformToolsetString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFileFormat InProjectFileFormat)
 		{
 			return "";
 		}
@@ -182,8 +184,9 @@ namespace UnrealBuildTool
 		/// Return any custom property group lines
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="InProjectFileFormat">The visual studio project file format being generated</param>
 		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetAdditionalVisualStudioPropertyGroups(UnrealTargetPlatform InPlatform)
+		public virtual string GetAdditionalVisualStudioPropertyGroups(UnrealTargetPlatform InPlatform, VCProjectFileFormat InProjectFileFormat)
 		{
 			return "";
 		}
@@ -192,8 +195,9 @@ namespace UnrealBuildTool
 		/// Return any custom property group lines
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="InProjectFileFormat">The visual studio project file format being generated</param>
 		/// <returns>string    The platform configuration type.  Defaults to "Makefile" unless overridden</returns>
-		public virtual string GetVisualStudioPlatformConfigurationType(UnrealTargetPlatform InPlatform)
+		public virtual string GetVisualStudioPlatformConfigurationType(UnrealTargetPlatform InPlatform, VCProjectFileFormat InProjectFileFormat)
 		{
 			return "Makefile";
 		}
@@ -204,8 +208,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="TargetType">  The type of target (game or program)</param>
+		/// <param name="InProjectFileFormat">The visual studio project file format being generated</param>
 		/// <returns>string    The custom path lines for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetVisualStudioPathsEntries(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, TargetRules.TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath)
+		public virtual string GetVisualStudioPathsEntries(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, TargetRules.TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath, VCProjectFileFormat InProjectFileFormat)
 		{
 			// NOTE: We are intentionally overriding defaults for these paths with empty strings.  We never want Visual Studio's
 			//       defaults for these fields to be propagated, since they are version-sensitive paths that may not reflect
@@ -224,11 +229,22 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Return any custom property import lines
+		/// Return any custom property settings. These will be included right after Global properties to make values available to all other imports.
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetAdditionalVisualStudioImportSettings(UnrealTargetPlatform InPlatform)
+		public virtual string GetVisualStudioGlobalProperties(UnrealTargetPlatform InPlatform)
+		{
+			return "";
+		}
+
+		/// <summary>
+		/// Return any custom target overrides. These will be included last in the project file so they have the opportunity to override any existing settings.
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="InProjectFileFormat">The visual studio project file format being generated</param>
+		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
+		public virtual string GetVisualStudioTargetOverrides(UnrealTargetPlatform InPlatform, VCProjectFileFormat InProjectFileFormat)
 		{
 			return "";
 		}
@@ -238,8 +254,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="TargetType">  The type of target (game or program)</param>
+		/// <param name="InProjectFileFormat">The visual studio project file format being generated</param>
 		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetVisualStudioLayoutDirSection(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, string InConditionString, TargetRules.TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath)
+		public virtual string GetVisualStudioLayoutDirSection(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, string InConditionString, TargetRules.TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath, VCProjectFileFormat InProjectFileFormat)
 		{
 			return "";
 		}
@@ -248,8 +265,9 @@ namespace UnrealBuildTool
 		/// Get the output manifest section, if required
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="InProjectFileFormat">The visual studio project file format being generated</param>
 		/// <returns>string    The output manifest section for the project file; Empty string if it doesn't require one</returns>
-		public virtual string GetVisualStudioOutputManifestSection(UnrealTargetPlatform InPlatform, TargetRules.TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath)
+		public virtual string GetVisualStudioOutputManifestSection(UnrealTargetPlatform InPlatform, TargetRules.TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, VCProjectFileFormat InProjectFileFormat)
 		{
 			return "";
 		}

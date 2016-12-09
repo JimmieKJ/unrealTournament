@@ -1,58 +1,40 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneEventSection.h"
+#include "Sections/MovieSceneEventSection.h"
+#include "EngineGlobals.h"
+#include "IMovieScenePlayer.h"
+
+#include "Curves/KeyFrameAlgorithms.h"
 
 
 /* UMovieSceneSection structors
  *****************************************************************************/
 
 UMovieSceneEventSection::UMovieSceneEventSection()
+#if WITH_EDITORONLY_DATA
+	: CurveInterface(TCurveInterface<FEventPayload, float>(&EventData.KeyTimes, &EventData.KeyValues, &EventData.KeyHandles))
+#else
+	: CurveInterface(TCurveInterface<FEventPayload, float>(&EventData.KeyTimes, &EventData.KeyValues))
+#endif
 {
 	SetIsInfinite(true);
 }
 
-
-/* UMovieSceneSection overrides
- *****************************************************************************/
-
-void UMovieSceneEventSection::AddKey(float Time, const FName& EventName, FKeyParams KeyParams)
+void UMovieSceneEventSection::PostLoad()
 {
-	if (TryModify())
+	for (FNameCurveKey EventKey : Events_DEPRECATED.GetKeys())
 	{
-		Events.UpdateOrAddKey(Time, EventName);
+		EventData.KeyTimes.Add(EventKey.Time);
+		EventData.KeyValues.Add(FEventPayload(EventKey.Value));
 	}
+
+	if (Events_DEPRECATED.GetKeys().Num())
+	{
+		MarkAsChanged();
+	}
+
+	Super::PostLoad();
 }
-
-
-void UMovieSceneEventSection::TriggerEvents(float Position, float LastPosition,  IMovieScenePlayer& Player)
-{
-	const TArray<FNameCurveKey>& Keys = Events.GetKeys();
-
-	if (Position >= LastPosition)
-	{
-		for (const auto& Key : Keys)
-		{
-			if ((Key.Time >= LastPosition) && (Key.Time <= Position))
-			{
-				TriggerEvent(Key.Value, Position, Player);
-			}
-		}
-	}
-	else
-	{
-		for (int32 KeyIndex = Keys.Num() - 1; KeyIndex >= 0; --KeyIndex)
-		{
-			const auto& Key = Keys[KeyIndex];
-
-			if ((Key.Time >= Position) && (Key.Time <= LastPosition))
-			{
-				TriggerEvent(Key.Value, Position, Player);
-			}		
-		}
-	}
-}
-
 
 /* UMovieSceneSection overrides
  *****************************************************************************/
@@ -61,18 +43,17 @@ void UMovieSceneEventSection::DilateSection(float DilationFactor, float Origin, 
 {
 	Super::DilateSection(DilationFactor, Origin, KeyHandles);
 
-	Events.ScaleCurve(Origin, DilationFactor, KeyHandles);
+	KeyFrameAlgorithms::Scale(CurveInterface.GetValue(), Origin, DilationFactor, KeyHandles);
 }
 
 
 void UMovieSceneEventSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles, TRange<float> TimeRange) const
 {
-	for (auto It(Events.GetKeyHandleIterator()); It; ++It)
+	for (auto It(CurveInterface->IterateKeys()); It; ++It)
 	{
-		float Time = Events.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
+		if (TimeRange.Contains(*It))
 		{
-			KeyHandles.Add(It.Key());
+			KeyHandles.Add(It.GetKeyHandle());
 		}
 	}
 }
@@ -82,68 +63,17 @@ void UMovieSceneEventSection::MoveSection(float DeltaPosition, TSet<FKeyHandle>&
 {
 	Super::MoveSection(DeltaPosition, KeyHandles);
 
-	Events.ShiftCurve(DeltaPosition, KeyHandles);
+	KeyFrameAlgorithms::Translate(CurveInterface.GetValue(), DeltaPosition, KeyHandles);
 }
 
 
 TOptional<float> UMovieSceneEventSection::GetKeyTime( FKeyHandle KeyHandle ) const
 {
-	if ( Events.IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( Events.GetKeyTime( KeyHandle ) );
-	}
-	return TOptional<float>();
+	return CurveInterface->GetKeyTime(KeyHandle);
 }
 
 
 void UMovieSceneEventSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
 {
-	if ( Events.IsKeyHandleValid( KeyHandle ) )
-	{
-		Events.SetKeyTime( KeyHandle, Time );
-	}
-}
-
-
-/* UMovieSceneSection overrides
- *****************************************************************************/
-
-void UMovieSceneEventSection::TriggerEvent(const FName& Event, float Position, IMovieScenePlayer& Player)
-{
-	for (UObject* EventContextObject : Player.GetEventContexts())
-	{
-		UFunction* EventFunction = EventContextObject->FindFunction(Event);
-
-		if (EventFunction == nullptr)
-		{
-			// @todo sequencer: gmp: add external log category for MovieScene
-			//UE_LOG(LogMovieScene, Log, TEXT("UMovieSceneEventSection::TriggerEvent: Unable to find function '%s'"), *Event.ToString());
-		}
-		else if (EventFunction->NumParms != 0)
-		{
-			// @todo sequencer: gmp: add external log category for MovieScene
-			//UE_LOG(LogMovieScene, Log, TEXT("UMovieSceneEventSection::TriggerEvent: Function '%s' does not have zero parameters."), *Event.ToString());
-		}
-		else
-		{
-			EventContextObject->ProcessEvent(EventFunction, nullptr);
-		}
-	}
-
-#if !UE_BUILD_SHIPPING
-	if (Event == NAME_PerformanceCapture)
-	{
-		FString PackageName = GetOutermost()->GetName();
-		
-		FString LevelSequenceName;
-		FString FolderName;
-		PackageName.Split(TEXT("/"), &FolderName, &LevelSequenceName, ESearchCase::CaseSensitive, ESearchDir::FromEnd);
-
-		UWorld* PlaybackContext = Cast<UWorld>(Player.GetPlaybackContext());
-
-		FString MapName = PlaybackContext->GetName();
-
-		GEngine->PerformanceCapture(PlaybackContext, MapName, LevelSequenceName, Position);
-	}
-#endif	// UE_BUILD_SHIPPING
+	CurveInterface->SetKeyTime(KeyHandle, Time);
 }

@@ -2,13 +2,14 @@
 
 #pragma once
 
-#include "PropertyEditing.h"
-#include "PropertyCustomizationHelpers.h"
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
 
 #include "Settings/EditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "FEditorLoadingSavingSettingsCustomization"
-
 
 /**
  * Implements a details view customization for UGameMapsSettingsCustomization objects.

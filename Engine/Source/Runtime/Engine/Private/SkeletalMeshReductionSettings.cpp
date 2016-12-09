@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Engine/SkeletalMeshReductionSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSkeletalMeshReductionSettings, Warning, All)
 
-#include "Developer/MeshUtilities/Public/MeshUtilities.h"
 
 USkeletalMeshReductionSettings::USkeletalMeshReductionSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

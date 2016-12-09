@@ -2,10 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 class ISessionInfo;
 struct FSessionLogMessage;
-
 
 /**
  * Interface for game instances.
@@ -108,7 +108,7 @@ public:
 	/**
 	 * Check whether the current user is authorized to interact with this instance.
 	 *
-	 * @return true if the uesr is authorized, false otherwise.
+	 * @return true if the user is authorized, false otherwise.
 	 */
 	virtual bool IsAuthorized() const = 0;
 
@@ -144,10 +144,3 @@ public:
 	/** Virtual destructor. */
 	virtual ~ISessionInstanceInfo() { }
 };
-
-
-/** Type definition for shared pointers to instances of IGameInstanceInfo. */
-typedef TSharedPtr<ISessionInstanceInfo> ISessionInstanceInfoPtr;
-
-/** Type definition for shared references to instances of IGameInstanceInfo. */
-typedef TSharedRef<ISessionInstanceInfo> ISessionInstanceInfoRef;

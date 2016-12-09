@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashReportClientApp.h"
-
 #include "CrashReportAnalytics.h"
-#include "EngineBuildSettings.h"
+#include "Misc/Guid.h"
+
 #include "AnalyticsET.h"
 #include "IAnalyticsProviderET.h"
 
@@ -49,7 +48,7 @@ void FCrashReportAnalytics::Initialize()
 		Analytics = FAnalyticsET::Get().CreateAnalyticsProvider(Config);
 		if( Analytics.IsValid() )
 		{
-			Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
+			Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetLoginId(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
 			Analytics->StartSession();
 		}
 	}

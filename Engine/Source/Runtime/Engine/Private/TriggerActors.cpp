@@ -4,11 +4,13 @@
 	TriggerActors.cpp: Trigger implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "GameFramework/Actor.h"
+#include "Components/BillboardComponent.h"
 #include "Engine/TriggerBox.h"
 #include "Engine/TriggerCapsule.h"
 #include "Engine/TriggerSphere.h"
-#include "Net/UnrealNetwork.h"
 #include "Components/BoxComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/CapsuleComponent.h"

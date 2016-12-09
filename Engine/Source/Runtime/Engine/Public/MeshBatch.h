@@ -2,10 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UniformBuffer.h"
+#include "HitProxies.h"
 #include "MaterialShared.h"
+#include "Engine/Scene.h"
 #include "PrimitiveUniformShaderParameters.h"
 
 class FLightCacheInterface;
+
 /**
  * A batch mesh element definition.
  */

@@ -6,6 +6,12 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "UObject/ObjectMacros.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Containers/Queue.h"
 #include "Sound/SoundWave.h"
 #include "SoundWaveProcedural.generated.h"
 
@@ -51,7 +57,7 @@ public:
 	//~ Begin UObject Interface. 
 	virtual void Serialize( FArchive& Ar ) override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	//~ End UObject Interface. 
 
 	//~ Begin USoundWave Interface.

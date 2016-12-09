@@ -7,6 +7,7 @@
 #include "Net/UnrealNetwork.h"
 #include "BlueprintContextLibrary.h"
 #include "PartyContext.h"
+#include "Misc/NetworkVersion.h"
 
 #if WITH_SOCIAL
 #include "Social.h"

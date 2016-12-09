@@ -1,21 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "SGraphPreviewer.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "NodeFactory.h"
-#include "SGraphNode.h"
 #include "SGraphNode_BehaviorTree.h"
-#include "SGraphPin.h"
-#include "ScopedTransaction.h"
+#include "Types/SlateStructs.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/SToolTip.h"
+#include "BehaviorTree/BTNode.h"
+#include "BehaviorTreeGraph.h"
+#include "BehaviorTreeGraphNode.h"
+#include "BehaviorTreeGraphNode_Composite.h"
+#include "BehaviorTreeGraphNode_CompositeDecorator.h"
+#include "BehaviorTreeGraphNode_Decorator.h"
+#include "BehaviorTreeGraphNode_Root.h"
+#include "BehaviorTreeGraphNode_Service.h"
+#include "BehaviorTreeGraphNode_Task.h"
+#include "Editor.h"
+#include "BehaviorTreeDebugger.h"
+#include "GraphEditorSettings.h"
+#include "SGraphPanel.h"
+#include "SCommentBubble.h"
+#include "SGraphPreviewer.h"
+#include "NodeFactory.h"
 #include "BehaviorTreeColors.h"
-#include "BehaviorTree/BTDecorator.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
 #include "IDocumentation.h"
-#include "SInlineEditableTextBlock.h"
-#include "SCommentBubble.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "SLevelOfDetailBranchNode.h"
 
 #define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
@@ -237,11 +249,13 @@ FSlateColor SGraphNode_BehaviorTree::GetBackgroundColor() const
 	}
 	else if (BTGraph_Decorator || Cast<UBehaviorTreeGraphNode_CompositeDecorator>(GraphNode))
 	{
+		check(BTGraphNode);
 		NodeColor = bIsActiveForDebugger ? BehaviorTreeColors::Debugger::ActiveDecorator : 
 			BTGraphNode->bRootLevel ? BehaviorTreeColors::NodeBody::InjectedSubNode : BehaviorTreeColors::NodeBody::Decorator;
 	}
 	else if (Cast<UBehaviorTreeGraphNode_Task>(GraphNode))
 	{
+		check(BTGraphNode);
 		const bool bIsSpecialTask = Cast<UBTTask_RunBehavior>(BTGraphNode->NodeInstance) != NULL;
 		NodeColor = bIsSpecialTask ? BehaviorTreeColors::NodeBody::TaskSpecial : BehaviorTreeColors::NodeBody::Task;
 	}

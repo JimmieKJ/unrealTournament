@@ -4,13 +4,15 @@
 	Brush.cpp: Brush Actor implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Engine/Brush.h"
+#include "EngineGlobals.h"
 #include "Engine/Polys.h"
-#include "Net/UnrealNetwork.h"
+#include "Engine/Engine.h"
 #include "Model.h"
+#include "Materials/Material.h"
 #include "Engine/BrushBuilder.h"
-#include "ActorEditorUtils.h"
 #include "Components/BrushComponent.h"
+#include "ActorEditorUtils.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -23,6 +25,9 @@ TArray< TWeakObjectPtr< ULevel > > ABrush::LevelsToRebuild;
 
 /** Whether BSP regeneration should be suppressed or not */
 bool ABrush::bSuppressBSPRegeneration = false;
+
+// Debug purposes only; an attempt to catch the cause of UE-36265
+const TCHAR* ABrush::GGeometryRebuildCause = nullptr;
 #endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogBrush, Log, All);
@@ -90,8 +95,13 @@ void ABrush::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 
 	if (!bSuppressBSPRegeneration && IsStaticBrush() && PropertyChangedEvent.ChangeType != EPropertyChangeType::Interactive && GUndo)
 	{
-		// BSP can only be rebuilt during a transaction
-		GEditor->RebuildAlteredBSP();
+		// Don't rebuild BSP if only the actor label has changed
+		static const FName ActorLabelName("ActorLabel");
+		if (!PropertyChangedEvent.Property || PropertyChangedEvent.Property->GetFName() != ActorLabelName)
+		{
+			// BSP can only be rebuilt during a transaction
+			GEditor->RebuildAlteredBSP();
+		}
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -195,21 +205,20 @@ void ABrush::PostLoad()
 #if WITH_EDITOR
 		// Fix up any broken poly normals.
 		// They have not been getting fixed up after vertex editing since at least UE2!
-		if(0)
+		for(FPoly& Poly : Brush->Polys->Element)
 		{
-			for(FPoly& Poly : Brush->Polys->Element)
+			FVector Normal = Poly.Normal;
+			if(!Poly.CalcNormal())
 			{
-				FVector Normal = Poly.Normal;
-				if(!Poly.CalcNormal())
+				if(!Poly.Normal.Equals(Normal))
 				{
-					if(!Poly.Normal.Equals(Normal))
+					UE_LOG(LogBrush, Log, TEXT("%s had invalid poly normals which have been fixed. Resave the level '%s' to remove this warning."), *Brush->GetName(), *GetLevel()->GetOuter()->GetName());
+					if(IsStaticBrush())
 					{
-						UE_LOG(LogBrush, Warning, TEXT("%s had invalid poly normals which have been fixed. Resave the level to remove this warning."), *Brush->GetName());
-						if(IsStaticBrush())
-						{
-							// Flag BSP as needing rebuild
-							SetNeedRebuild(GetLevel());
-						}
+						UE_LOG(LogBrush, Log, TEXT("%s had invalid poly normals which have been fixed. Resave the level '%s' to remove this warning."), *Brush->GetName(), *GetLevel()->GetOuter()->GetName());
+
+						// Flag BSP as needing rebuild
+						SetNeedRebuild(GetLevel());
 					}
 				}
 			}

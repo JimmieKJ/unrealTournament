@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "GameplayTasksComponent.h"
 #include "Tasks/AITask_MoveTo.h"
+#include "UObject/Package.h"
+#include "TimerManager.h"
+#include "AISystem.h"
+#include "AIController.h"
+#include "VisualLogger/VisualLogger.h"
+#include "AIResources.h"
+#include "GameplayTasksComponent.h"
 
 UAITask_MoveTo::UAITask_MoveTo(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

@@ -7,6 +7,7 @@
 #ifndef __VIEWPORTS_H__
 #define __VIEWPORTS_H__
 
+#include "CoreMinimal.h"
 
 namespace EditorViewportDefs
 {

@@ -7,11 +7,13 @@
 #pragma once
 
 // Dependencies.
-#include "Core.h"
+
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "RHIDefinitions.h"
 #include "RHI.h"
 #include "GPUProfiler.h"
-#include "ShaderCore.h"
-#include "Engine.h"
+#include "RenderResource.h"
 
 //TODO: Move these to OpenGLDrvPrivate.h
 #if PLATFORM_WINDOWS
@@ -19,7 +21,7 @@
 #elif PLATFORM_MAC
 #include "Mac/OpenGLMac.h"
 #elif PLATFORM_LINUX
-#include "Linux/OpenGLLinux.h"
+#include "Runtime/OpenGLDrv/Private/Linux/OpenGLLinux.h"
 #elif PLATFORM_IOS
 #include "IOS/IOSOpenGL.h"
 #elif PLATFORM_ANDROIDESDEFERRED
@@ -38,9 +40,14 @@
 // OpenGL RHI public headers.
 #include "OpenGLUtil.h"
 #include "OpenGLState.h"
-#include "OpenGLResources.h"
 
 #define FOpenGLCachedUniformBuffer_Invalid 0xFFFFFFFF
+
+class FOpenGLDynamicRHI;
+class FResourceBulkDataInterface;
+struct Rect;
+
+template<class T> struct TOpenGLResourceTraits;
 
 // This class has multiple inheritance but really FGPUTiming is a static class
 class FOpenGLBufferedGPUTiming : public FRenderResource, public FGPUTiming
@@ -391,6 +398,7 @@ public:
 	virtual void RHISetStreamOutTargets(uint32 NumTargets,const FVertexBufferRHIParamRef* VertexBuffers,const uint32* Offsets) final override;
 	virtual void RHIDiscardRenderTargets(bool Depth,bool Stencil,uint32 ColorBitMask) final override;
 	virtual void RHIBlockUntilGPUIdle() final override;
+	virtual void RHISubmitCommandsAndFlushGPU() final override;
 	virtual bool RHIGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool bIgnoreRefreshRate) final override;
 	virtual void RHIGetSupportedResolution(uint32& Width, uint32& Height) final override;
 	virtual void RHIVirtualTextureSetFirstMipInMemory(FTexture2DRHIParamRef Texture, uint32 FirstMip) final override;
@@ -472,8 +480,18 @@ public:
 	virtual void RHIEndDrawPrimitiveUP() final override;
 	virtual void RHIBeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData) final override;
 	virtual void RHIEndDrawIndexedPrimitiveUP() final override;
-	virtual void RHIClear(bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) final override;
-	virtual void RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) final override;
+	virtual void RHIClearColorTexture(FTextureRHIParamRef Texture, const FLinearColor& Color, FIntRect ExcludeRect) final override
+	{
+		RHIClear(true, Color, false, 0, false, 0, ExcludeRect);
+	}
+	virtual void RHIClearDepthStencilTexture(FTextureRHIParamRef Texture, EClearDepthStencil ClearDepthStencil, float Depth, uint32 Stencil, FIntRect ExcludeRect) final override
+	{
+		RHIClear(false, FLinearColor::Black, ClearDepthStencil != EClearDepthStencil::Stencil, Depth, ClearDepthStencil != EClearDepthStencil::Depth, Stencil, ExcludeRect);
+	}
+	virtual void RHIClearColorTextures(int32 NumTextures, FTextureRHIParamRef* Textures, const FLinearColor* ColorArray, FIntRect ExcludeRect) final override
+	{
+		RHIClearMRT(true, NumTextures, ColorArray, false, 0, false, 0, ExcludeRect);
+	}
 	virtual void RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth) final override;
 	virtual void RHIPushEvent(const TCHAR* Name, FColor Color) final override;
 	virtual void RHIPopEvent() final override;
@@ -645,6 +663,9 @@ private:
 	void SetupTexturesForDraw( FOpenGLContextState& ContextState, const StateType ShaderState, int32 MaxTexturesNeeded);
 
 	void SetupUAVsForDraw(FOpenGLContextState& ContextState, const TRefCountPtr<FOpenGLComputeShader> &ComputeShader, int32 MaxUAVsNeeded);
+
+	void RHIClear(bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect);
+	void RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect);
 
 public:
 	/** Remember what RHI user wants set on a specific OpenGL texture stage, translating from Stage and TextureIndex for stage pair. */

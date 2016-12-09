@@ -3,6 +3,9 @@
 #pragma once
 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/ActorComponent.h"
 #include "PhysicsHandleComponent.generated.h"
 
 namespace physx

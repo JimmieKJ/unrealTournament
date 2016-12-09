@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SlateTextLayout.h"
-#include "SlateTextRun.h"
-#include "SlatePasswordRun.h"
+#include "Framework/Text/SlateTextLayout.h"
+#include "Rendering/DrawElements.h"
+#include "Fonts/FontCache.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Text/ILayoutBlock.h"
+#include "Framework/Text/ISlateRun.h"
+#include "Framework/Text/ISlateRunRenderer.h"
+#include "Framework/Text/ISlateLineHighlighter.h"
+#include "Framework/Text/SlateTextRun.h"
+#include "Framework/Text/SlatePasswordRun.h"
 
 TSharedRef< FSlateTextLayout > FSlateTextLayout::Create(FTextBlockStyle InDefaultTextStyle)
 {

@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
 #include "MaterialShared.h"
 #include "Materials/MaterialExpressionScreenPosition.h"
 #include "Materials/MaterialExpressionSpeedTree.h"
@@ -13,6 +15,17 @@
 #include "Materials/MaterialExpressionWorldPosition.h"
 #include "Materials/MaterialExpressionTextureProperty.h"
 #include "Materials/MaterialExpressionViewProperty.h"
+
+class Error;
+class UMaterialParameterCollection;
+class UTexture;
+
+enum EMaterialForceCastFlags
+{
+	MFCF_ForceCast		= 1<<0,	// Used by caller functions as a helper
+	MFCF_ExactMatch		= 1<<2, // If flag set skips the cast on an exact match, else skips on a compatible match
+	MFCF_ReplicateValue	= 1<<3	// Replicates a Float1 value when up-casting, else appends zero
+};
 
 /** 
  * The interface used to translate material expressions into executable code. 
@@ -24,6 +37,16 @@ public:
 	// sets internal state CurrentShaderFrequency 
 	// @param OverrideShaderFrequency SF_NumFrequencies to not override
 	virtual void SetMaterialProperty(EMaterialProperty InProperty, EShaderFrequency OverrideShaderFrequency = SF_NumFrequencies, bool bUsePreviousFrameTime = false) = 0;
+	
+	/** Pushes a material attriubtes property onto the stack. Called as we begin compiling a property through a MaterialAttributes pin. */
+	virtual void PushMaterialAttribute(const FGuid& InAttributeID) = 0;
+	/** Pops a MaterialAttributes property off the stack. Called as we finish compiling a property through a MaterialAttributes pin. */
+	virtual FGuid PopMaterialAttribute() = 0;
+	/** Gets the current top of the MaterialAttributes property stack. */
+	virtual const FGuid GetMaterialAttribute() = 0;
+	/** Sets the bottom MaterialAttributes property of the stack. */
+	virtual void SetBaseMaterialAttribute(const FGuid& InAttributeID) = 0;
+
 	// gets value stored by SetMaterialProperty()
 	virtual EShaderFrequency GetCurrentShaderFrequency() const = 0;
 	//
@@ -45,7 +68,7 @@ public:
 	 * This will truncate a type (float4 -> float3) but not add components (float2 -> float3), however a float1 can be cast to any float type by replication. 
 	 */
 	virtual int32 ValidCast(int32 Code,EMaterialValueType DestType) = 0;
-	virtual int32 ForceCast(int32 Code,EMaterialValueType DestType,bool bExactMatch=false,bool bReplicateValue=false) = 0;
+	virtual int32 ForceCast(int32 Code,EMaterialValueType DestType,uint32 ForceCastFlags = 0) = 0;
 
 	/** Pushes a function onto the compiler's function stack, which indicates that compilation is entering a function. */
 	virtual void PushFunction(const FMaterialFunctionCompileState& FunctionState) = 0;
@@ -64,15 +87,27 @@ public:
 
 	virtual	int32 ViewProperty(EMaterialExposedViewProperty Property, bool InvProperty = false) = 0;
 
+	virtual int32 PreviousFrameSwitch(int32 CurrentX, int32 PrevX) = 0;
 	virtual int32 GameTime(bool bPeriodic, float Period) = 0;
 	virtual int32 RealTime(bool bPeriodic, float Period) = 0;
 	virtual int32 PeriodicHint(int32 PeriodicCode) { return PeriodicCode; }
 
 	virtual int32 Sine(int32 X) = 0;
 	virtual int32 Cosine(int32 X) = 0;
+	virtual int32 Tangent(int32 X) = 0;
+	virtual int32 Arcsine(int32 X) = 0;
+	virtual int32 ArcsineFast(int32 X) = 0;
+	virtual int32 Arccosine(int32 X) = 0;
+	virtual int32 ArccosineFast(int32 X) = 0;
+	virtual int32 Arctangent(int32 X) = 0;
+	virtual int32 ArctangentFast(int32 X) = 0;
+	virtual int32 Arctangent2(int32 Y, int32 X) = 0;
+	virtual int32 Arctangent2Fast(int32 Y, int32 X) = 0;
 
 	virtual int32 Floor(int32 X) = 0;
 	virtual int32 Ceil(int32 X) = 0;
+	virtual int32 Round(int32 X) = 0;
+	virtual int32 Truncate(int32 X) = 0;
 	virtual int32 Frac(int32 X) = 0;
 	virtual int32 Fmod(int32 A, int32 B) = 0;
 	virtual int32 Abs(int32 X) = 0;
@@ -149,6 +184,9 @@ public:
 
 	virtual int32 VertexColor() = 0;
 
+	virtual int32 PreSkinnedPosition() = 0;
+	virtual int32 PreSkinnedNormal() = 0;
+
 #if WITH_EDITOR
 	virtual int32 MaterialBakingWorldPosition() = 0;
 #endif
@@ -200,6 +238,7 @@ public:
 	virtual int32 PerInstanceFadeAmount() = 0;
 	virtual int32 AntialiasedTextureMask(int32 Tex, int32 UV, float Threshold, uint8 Channel) = 0;
 	virtual int32 Noise(int32 Position, float Scale, int32 Quality, uint8 NoiseFunction, bool bTurbulence, int32 Levels, float OutputMin, float OutputMax, float LevelScale, int32 FilterWidth, bool bTiling, uint32 RepeatSize) = 0;
+	virtual int32 VectorNoise(int32 Position, int32 Quality, uint8 NoiseFunction, bool bTiling, uint32 RepeatSize) = 0;
 	virtual int32 BlackBody( int32 Temp ) = 0;
 	virtual int32 DistanceToNearestSurface(int32 PositionArg) = 0;
 	virtual int32 DistanceFieldGradient(int32 PositionArg) = 0;
@@ -232,6 +271,10 @@ public:
 
 	virtual EMaterialShadingModel GetMaterialShadingModel() const { return Compiler->GetMaterialShadingModel();  }
 	virtual void SetMaterialProperty(EMaterialProperty InProperty, EShaderFrequency OverrideShaderFrequency, bool bUsePreviousFrameTime) override { Compiler->SetMaterialProperty(InProperty, OverrideShaderFrequency, bUsePreviousFrameTime); }
+	virtual void PushMaterialAttribute(const FGuid& InAttributeID) override { Compiler->PushMaterialAttribute(InAttributeID); }
+	virtual FGuid PopMaterialAttribute() override { return Compiler->PopMaterialAttribute(); }
+	virtual const FGuid GetMaterialAttribute() override { return Compiler->GetMaterialAttribute(); }
+	virtual void SetBaseMaterialAttribute(const FGuid& InAttributeID) override { Compiler->SetBaseMaterialAttribute(InAttributeID); }
 	virtual EShaderFrequency GetCurrentShaderFrequency() const override { return Compiler->GetCurrentShaderFrequency(); }
 	virtual int32 Error(const TCHAR* Text) override { return Compiler->Error(Text); }
 
@@ -244,8 +287,8 @@ public:
 	virtual EMaterialQualityLevel::Type GetQualityLevel() override { return Compiler->GetQualityLevel(); }
 	virtual ERHIFeatureLevel::Type GetFeatureLevel() override { return Compiler->GetFeatureLevel(); }
 	virtual int32 ValidCast(int32 Code,EMaterialValueType DestType) override { return Compiler->ValidCast(Code, DestType); }
-	virtual int32 ForceCast(int32 Code,EMaterialValueType DestType,bool bExactMatch=false,bool bReplicateValue=false) override
-	{ return Compiler->ForceCast(Code,DestType,bExactMatch,bReplicateValue); }
+	virtual int32 ForceCast(int32 Code,EMaterialValueType DestType,uint32 ForceCastFlags = 0) override
+	{ return Compiler->ForceCast(Code,DestType,ForceCastFlags); }
 
 	virtual int32 AccessCollectionParameter(UMaterialParameterCollection* ParameterCollection, int32 ParameterIndex, int32 ComponentIndex) override { return Compiler->AccessCollectionParameter(ParameterCollection, ParameterIndex, ComponentIndex); }
 	virtual int32 VectorParameter(FName ParameterName,const FLinearColor& DefaultValue) override { return Compiler->VectorParameter(ParameterName,DefaultValue); }
@@ -258,6 +301,7 @@ public:
 	
 	virtual	int32 ViewProperty(EMaterialExposedViewProperty Property, bool InvProperty) override { return Compiler->ViewProperty(Property, InvProperty); }
 
+	virtual int32 PreviousFrameSwitch(int32 CurrentX, int32 PrevX) { return Compiler->PreviousFrameSwitch(CurrentX, PrevX); }
 	virtual int32 GameTime(bool bPeriodic, float Period) override { return Compiler->GameTime(bPeriodic, Period); }
 	virtual int32 RealTime(bool bPeriodic, float Period) override { return Compiler->RealTime(bPeriodic, Period); }
 
@@ -265,9 +309,20 @@ public:
 
 	virtual int32 Sine(int32 X) override { return Compiler->Sine(X); }
 	virtual int32 Cosine(int32 X) override { return Compiler->Cosine(X); }
+	virtual int32 Tangent(int32 X) override { return Compiler->Tangent(X); }
+	virtual int32 Arcsine(int32 X) override { return Compiler->Arcsine(X); }
+	virtual int32 ArcsineFast(int32 X) override { return Compiler->ArcsineFast(X); }
+	virtual int32 Arccosine(int32 X) override { return Compiler->Arccosine(X); }
+	virtual int32 ArccosineFast(int32 X) override { return Compiler->ArccosineFast(X); }
+	virtual int32 Arctangent(int32 X) override { return Compiler->Arctangent(X); }
+	virtual int32 ArctangentFast(int32 X) override { return Compiler->ArctangentFast(X); }
+	virtual int32 Arctangent2(int32 Y, int32 X) override { return Compiler->Arctangent2(Y, X); }
+	virtual int32 Arctangent2Fast(int32 Y, int32 X) override { return Compiler->Arctangent2Fast(Y, X); }
 
 	virtual int32 Floor(int32 X) override { return Compiler->Floor(X); }
 	virtual int32 Ceil(int32 X) override { return Compiler->Ceil(X); }
+	virtual int32 Round(int32 X) override { return Compiler->Round(X); }
+	virtual int32 Truncate(int32 X) override { return Compiler->Truncate(X); }
 	virtual int32 Frac(int32 X) override { return Compiler->Frac(X); }
 	virtual int32 Fmod(int32 A, int32 B) override { return Compiler->Fmod(A,B); }
 	virtual int32 Abs(int32 X) override { return Compiler->Abs(X); }
@@ -321,6 +376,9 @@ public:
 	virtual int32 StaticTerrainLayerWeight(FName ParameterName,int32 Default) override { return Compiler->StaticTerrainLayerWeight(ParameterName,Default); }
 
 	virtual int32 VertexColor() override { return Compiler->VertexColor(); }
+	
+	virtual int32 PreSkinnedPosition() override { return Compiler->PreSkinnedPosition(); }
+	virtual int32 PreSkinnedNormal() override { return Compiler->PreSkinnedNormal(); }
 
 	virtual int32 Add(int32 A,int32 B) override { return Compiler->Add(A,B); }
 	virtual int32 Sub(int32 A,int32 B) override { return Compiler->Sub(A,B); }
@@ -376,9 +434,13 @@ public:
 	{
 		return Compiler->AntialiasedTextureMask(Tex, UV, Threshold, Channel);
 	}
-	virtual int32 Noise(int32 Position, float Scale, int32 Quality, uint8 NoiseFunction, bool bTurbulence, int32 Levels, float OutputMin, float OutputMax, float LevelScale, int32 FilterWidth, bool bTiling, uint32 RepeatSize) override
+	virtual int32 Noise(int32 Position, float Scale, int32 Quality, uint8 NoiseFunction, bool bTurbulence, int32 Levels, float OutputMin, float OutputMax, float LevelScale, int32 FilterWidth, bool bTiling, uint32 TileSize) override
 	{
-		return Compiler->Noise(Position, Scale, Quality, NoiseFunction, bTurbulence, Levels, OutputMin, OutputMax, LevelScale, FilterWidth, bTiling, RepeatSize);
+		return Compiler->Noise(Position, Scale, Quality, NoiseFunction, bTurbulence, Levels, OutputMin, OutputMax, LevelScale, FilterWidth, bTiling, TileSize);
+	}
+	virtual int32 VectorNoise(int32 Position, int32 Quality, uint8 NoiseFunction, bool bTiling, uint32 TileSize) override
+	{
+		return Compiler->VectorNoise(Position, Quality, NoiseFunction, bTiling, TileSize);
 	}
 	virtual int32 BlackBody( int32 Temp ) override { return Compiler->BlackBody(Temp); }
 	virtual int32 DistanceToNearestSurface(int32 PositionArg) override { return Compiler->DistanceToNearestSurface(PositionArg); }
@@ -423,4 +485,26 @@ public:
 protected:
 		
 	FMaterialCompiler* Compiler;
+};
+
+// Helper class to handle MaterialAttribute changes on the compiler stack
+class FScopedMaterialCompilerAttribute
+{
+public:
+	FScopedMaterialCompilerAttribute(FMaterialCompiler* InCompiler, const FGuid& InAttributeID)
+	: Compiler(InCompiler)
+	, AttributeID(InAttributeID)
+	{
+		check(Compiler);
+		Compiler->PushMaterialAttribute(AttributeID);
+	}
+
+	~FScopedMaterialCompilerAttribute()
+	{
+		verify(AttributeID == Compiler->PopMaterialAttribute());
+	}
+
+private:
+	FMaterialCompiler*	Compiler;
+	FGuid				AttributeID;
 };

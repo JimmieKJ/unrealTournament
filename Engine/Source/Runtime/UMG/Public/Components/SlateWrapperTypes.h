@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Attribute.h"
+#include "Input/Reply.h"
+#include "Widgets/Input/IVirtualKeyboardEntry.h"
 #include "SlateWrapperTypes.generated.h"
 
 

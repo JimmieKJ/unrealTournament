@@ -2,23 +2,29 @@
 
 #pragma once
 
-#include "Persona.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "BlueprintEditor.h"
 #include "IDetailsView.h"
 #include "EditorObjectsTracker.h"
+
+class UAnimationAsset;
+class UAnimBlueprint;
 
 class SAnimBlueprintParentPlayerList : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SAnimBlueprintParentPlayerList)
-		: _Persona()
-		{}
-	SLATE_ARGUMENT(TWeakPtr<FPersona>, Persona)
-		SLATE_END_ARGS()
+	{}
 
-		SAnimBlueprintParentPlayerList();
+	SLATE_END_ARGS()
+
+	SAnimBlueprintParentPlayerList();
 	~SAnimBlueprintParentPlayerList();
 
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, const TSharedRef<FBlueprintEditor>& InBlueprintEditor, FSimpleMulticastDelegate& InOnPostUndo);
 
 private:
 
@@ -37,9 +43,6 @@ private:
 	void OnHierarchyOverrideChanged(FGuid NodeGuid, UAnimationAsset* NewAsset);
 
 	void RefreshDetailView();
-
-	// Persona instance we're currently in
-	TWeakPtr<FPersona> PersonaPtr;
 
 	// Object tracker to maintain single instance of editor objects
 	FEditorObjectTracker ObjectTracker;

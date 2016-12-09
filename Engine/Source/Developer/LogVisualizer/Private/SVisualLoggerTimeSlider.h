@@ -2,7 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "ITimeSlider.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+
 class SVisualLoggerTimeSlider : public ITimeSlider
 {
 public:

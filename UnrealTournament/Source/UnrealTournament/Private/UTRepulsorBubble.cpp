@@ -133,7 +133,7 @@ void AUTRepulsorBubble::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 	}
 	else if (CollisionComp != NULL)
 	{
-		OtherComp->SweepComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), CollisionComp->GetCollisionShape(), CollisionComp->bTraceComplexOnMove);
+		OtherComp->SweepComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FQuat::Identity, CollisionComp->GetCollisionShape(), CollisionComp->bTraceComplexOnMove);
 	}
 	else
 	{

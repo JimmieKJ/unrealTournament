@@ -1,9 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "STextBlock.h"
-#include "IMenu.h"
-#include "PopupMethodReply.h"
+
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/PopupMethodReply.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Margin.h"
+#include "Layout/Children.h"
+#include "Widgets/SPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/Application/IMenu.h"
+
+class FArrangedChildren;
+class FPaintArgs;
+class FSlateWindowElementList;
+class SWindow;
 
 /** Notification when popup is opened/closed. */
 DECLARE_DELEGATE_OneParam(FOnIsOpenChanged, bool)
@@ -26,6 +39,7 @@ public:
 public:
 	SLATE_BEGIN_ARGS( SMenuAnchor )
 		: _Content()
+		, _Padding(FMargin(0.f))
 		, _MenuContent( SNew(STextBlock) .Text( NSLOCTEXT("SMenuAnchor", "NoMenuContent", "No Menu Content Assigned; use .MenuContent") ) )
 		, _OnGetMenuContent()
 		, _Placement( MenuPlacement_BelowAnchor )
@@ -36,6 +50,8 @@ public:
 		{}
 		
 		SLATE_DEFAULT_SLOT( FArguments, Content )
+
+		SLATE_ARGUMENT( FMargin, Padding )
 		
 		SLATE_ARGUMENT( TSharedPtr<SWidget>, MenuContent )
 
@@ -97,6 +113,7 @@ public:
 	// IMenuHost interface
 	virtual TSharedPtr<SWindow> GetMenuWindow() const override;
 	virtual void OnMenuDismissed() override;
+	virtual bool UsingApplicationMenuStack() const override;
 	// End of IMenuHost interface
 
 	static void DismissAllApplicationMenus();
@@ -104,6 +121,7 @@ public:
 protected:
 	// SWidget interface
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+	virtual bool ComputeVolatility() const override;
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
 	virtual FVector2D ComputeDesiredSize(float) const override;
 	virtual FChildren* GetChildren() override;

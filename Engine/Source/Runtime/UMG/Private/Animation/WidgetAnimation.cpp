@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Animation/WidgetAnimation.h"
+#include "UObject/Package.h"
+#include "Components/Visual.h"
+#include "Blueprint/UserWidget.h"
 #include "MovieScene.h"
-#include "WidgetAnimation.h"
-#include "WidgetTree.h"
+#include "Components/PanelSlot.h"
 
 
 #define LOCTEXT_NAMESPACE "UWidgetAnimation"
@@ -15,7 +17,9 @@
 UWidgetAnimation::UWidgetAnimation(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, MovieScene(nullptr)
-{ }
+{
+	bParentContextsAreSignificant = false;
+}
 
 
 /* UWidgetAnimation interface
@@ -53,61 +57,17 @@ float UWidgetAnimation::GetEndTime() const
 }
 
 
-void UWidgetAnimation::Initialize(UUserWidget* InPreviewWidget)
-{
-	PreviewWidget = InPreviewWidget;
-
-	// clear object maps
-	PreviewObjectToIds.Empty();
-	IdToPreviewObjects.Empty();
-	IdToSlotContentPreviewObjects.Empty();
-	SlotContentPreviewObjectToIds.Empty();
-
-	if (PreviewWidget == nullptr)
-	{
-		return;
-	}
-
-	// populate object maps
-	UWidgetTree* WidgetTree = PreviewWidget->WidgetTree;
-
-	for (const FWidgetAnimationBinding& Binding : AnimationBindings)
-	{
-		UObject* FoundObject = Binding.FindRuntimeObject(*WidgetTree, *InPreviewWidget);
-
-		if (FoundObject == nullptr)
-		{
-			continue;
-		}
-
-		UPanelSlot* FoundSlot = Cast<UPanelSlot>(FoundObject);
-
-		if (FoundSlot == nullptr)
-		{
-			IdToPreviewObjects.Add(Binding.AnimationGuid, FoundObject);
-			PreviewObjectToIds.Add(FoundObject, Binding.AnimationGuid);
-		}
-		else
-		{
-			IdToSlotContentPreviewObjects.Add(Binding.AnimationGuid, FoundSlot->Content);
-			SlotContentPreviewObjectToIds.Add(FoundSlot->Content, Binding.AnimationGuid);
-		}
-	}
-}
-
-
 /* UMovieSceneAnimation overrides
  *****************************************************************************/
 
 
 void UWidgetAnimation::BindPossessableObject(const FGuid& ObjectId, UObject& PossessedObject, UObject* Context)
 {
-	// If it's the Root Widget
-	if (&PossessedObject == PreviewWidget.Get())
-	{
-		PreviewObjectToIds.Add(&PossessedObject, ObjectId);
-		IdToPreviewObjects.Add(ObjectId, &PossessedObject);
+	UUserWidget* PreviewWidget = CastChecked<UUserWidget>(Context);
 
+	// If it's the Root Widget
+	if (&PossessedObject == PreviewWidget)
+	{
 		FWidgetAnimationBinding NewBinding;
 		{
 			NewBinding.AnimationGuid = ObjectId;
@@ -123,9 +83,6 @@ void UWidgetAnimation::BindPossessableObject(const FGuid& ObjectId, UObject& Pos
 
 	if ((PossessedSlot != nullptr) && (PossessedSlot->Content != nullptr))
 	{
-		SlotContentPreviewObjectToIds.Add(PossessedSlot->Content, ObjectId);
-		IdToSlotContentPreviewObjects.Add(ObjectId, PossessedSlot->Content);
-
 		// Save the name of the widget containing the slots. This is the object
 		// to look up that contains the slot itself (the thing we are animating).
 		FWidgetAnimationBinding NewBinding;
@@ -140,9 +97,6 @@ void UWidgetAnimation::BindPossessableObject(const FGuid& ObjectId, UObject& Pos
 	}
 	else if (PossessedSlot == nullptr)
 	{
-		PreviewObjectToIds.Add(&PossessedObject, ObjectId);
-		IdToPreviewObjects.Add(ObjectId, &PossessedObject);
-
 		FWidgetAnimationBinding NewBinding;
 		{
 			NewBinding.AnimationGuid = ObjectId;
@@ -155,9 +109,11 @@ void UWidgetAnimation::BindPossessableObject(const FGuid& ObjectId, UObject& Pos
 }
 
 
-bool UWidgetAnimation::CanPossessObject(UObject& Object) const
+bool UWidgetAnimation::CanPossessObject(UObject& Object, UObject* InPlaybackContext) const
 {
-	if (&Object == PreviewWidget.Get())
+	UUserWidget* PreviewWidget = CastChecked<UUserWidget>(InPlaybackContext);
+
+	if (&Object == PreviewWidget)
 	{
 		return true;
 	}
@@ -170,45 +126,24 @@ bool UWidgetAnimation::CanPossessObject(UObject& Object) const
 		return false;
 	}
 
-	return (Object.IsA<UVisual>() && Object.IsIn(PreviewWidget.Get()));
+	return (Object.IsA<UVisual>() && Object.IsIn(PreviewWidget));
 }
 
-
-UObject* UWidgetAnimation::FindPossessableObject(const FGuid& ObjectId, UObject* Context) const
+void UWidgetAnimation::LocateBoundObjects(const FGuid& ObjectId, UObject* Context, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const
 {
-	TWeakObjectPtr<UObject> PreviewObject = IdToPreviewObjects.FindRef(ObjectId);
-
-	if (PreviewObject.IsValid())
-	{
-		return PreviewObject.Get();
-	}
-
-	TWeakObjectPtr<UObject> SlotContentPreviewObject = IdToSlotContentPreviewObjects.FindRef(ObjectId);
-
-	if (SlotContentPreviewObject.IsValid())
-	{
-		UWidget* Widget = Cast<UWidget>(SlotContentPreviewObject.Get());
-		if ( Widget != nullptr )
-		{
-			return Widget->Slot;
+	const FWidgetAnimationBinding* Binding = AnimationBindings.FindByPredicate(
+		[ObjectId](const FWidgetAnimationBinding& In){
+			return In.AnimationGuid == ObjectId;
 		}
-	}
+	);
 
-	return nullptr;
-}
+	UUserWidget* PreviewWidget = CastChecked<UUserWidget>(Context);
+	UObject* FoundObject = Binding ? Binding->FindRuntimeObject(*PreviewWidget->WidgetTree, *PreviewWidget) : nullptr;
 
-
-FGuid UWidgetAnimation::FindPossessableObjectId(UObject& Object) const
-{
-	UPanelSlot* Slot = Cast<UPanelSlot>(&Object);
-
-	if (Slot != nullptr)
+	if (FoundObject)
 	{
-		// slot guids are tracked by their content.
-		return SlotContentPreviewObjectToIds.FindRef(Slot->Content);
+		OutObjects.Add(FoundObject);
 	}
-
-	return PreviewObjectToIds.FindRef(&Object);
 }
 
 
@@ -233,35 +168,8 @@ UObject* UWidgetAnimation::GetParentObject(UObject* Object) const
 	return nullptr;
 }
 
-
 void UWidgetAnimation::UnbindPossessableObjects(const FGuid& ObjectId)
 {
-	// unbind widgets
-	TArray<TWeakObjectPtr<UObject>> PreviewObjects;
-	{
-		IdToPreviewObjects.MultiFind(ObjectId, PreviewObjects);
-
-		for (TWeakObjectPtr<UObject>& PreviewObject : PreviewObjects)
-		{
-			PreviewObjectToIds.Remove(PreviewObject);
-		}
-
-		IdToPreviewObjects.Remove(ObjectId);
-	}
-
-	// unbind slots
-	TArray<TWeakObjectPtr<UObject>> SlotContentPreviewObjects;
-	{
-		IdToSlotContentPreviewObjects.MultiFind(ObjectId, SlotContentPreviewObjects);
-
-		for (TWeakObjectPtr<UObject>& SlotContentPreviewObject : SlotContentPreviewObjects)
-		{
-			SlotContentPreviewObjectToIds.Remove(SlotContentPreviewObject);
-		}
-
-		IdToSlotContentPreviewObjects.Remove(ObjectId);
-	}
-
 	// mark dirty
 	Modify();
 
@@ -269,39 +177,6 @@ void UWidgetAnimation::UnbindPossessableObjects(const FGuid& ObjectId)
 	AnimationBindings.RemoveAll([&](const FWidgetAnimationBinding& Binding) {
 		return Binding.AnimationGuid == ObjectId;
 	});
-}
-
-void UWidgetAnimation::ReplacePossessableObject(const FGuid& OldId, const FGuid& NewId, UObject& OldObject, UObject& NewObject)
-{
-	TArray<TWeakObjectPtr<UObject>> PreviewObjects;
-	{
-		IdToPreviewObjects.MultiFind(OldId, PreviewObjects);
-
-		for (TWeakObjectPtr<UObject>& PreviewObject : PreviewObjects)
-		{
-			PreviewObjectToIds.Remove(PreviewObject);
-			PreviewObjectToIds.Add(&NewObject, NewId);
-		}
-
-		IdToPreviewObjects.Remove(OldId);
-		IdToPreviewObjects.Add(NewId, &NewObject);
-	}
-
-	// slots
-	FGuid SlotContentId = SlotContentPreviewObjectToIds.FindRef(&OldObject);
-	TArray<TWeakObjectPtr<UObject>> SlotContentPreviewObjects;
-	{
-		IdToSlotContentPreviewObjects.MultiFind(SlotContentId, SlotContentPreviewObjects);
-		
-		for (TWeakObjectPtr<UObject>& SlotContentPreviewObject : SlotContentPreviewObjects)
-		{
-			SlotContentPreviewObjectToIds.Remove(SlotContentPreviewObject);
-			SlotContentPreviewObjectToIds.Add(&NewObject, SlotContentId);
-		}
-
-		IdToSlotContentPreviewObjects.Remove(SlotContentId);
-		IdToSlotContentPreviewObjects.Add(SlotContentId, &NewObject);
-	}
 }
 
 

@@ -2,112 +2,127 @@
 
 #pragma once
 
-/*-----------------------------------------------------------------------------
-	Enumerators
------------------------------------------------------------------------------*/
+#include "CoreMinimal.h"
+#include "Containers/LockFreeList.h"
+#include "Misc/Guid.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "ProfilerCommon.h"
+#include "ProfilerSample.h"
+#include "ProfilerDataSource.h"
+#include "ISessionInstanceInfo.h"
+#include "Containers/Ticker.h"
+#include "IProfilerServiceManager.h"
+#include "Stats/StatsData.h"
+#include "ProfilerStream.h"
 
-/** Enumerates profiler session type. */
-namespace EProfilerSessionTypes
+class FFPSAnalyzer;
+class FProfilerGroup;
+class IDataProvider;
+
+/**
+ * Enumerates profiler session type.
+ */
+enum class EProfilerSessionTypes
 {
-	enum Type
-	{
-		/** Based on the live connection. */
-		Live,
-		LiveRaw,
+	/** Based on the live connection. */
+	Live,
+	LiveRaw,
 
-		/** Based on the regular stats file. */
-		StatsFile,
+	/** Based on the regular stats file. */
+	StatsFile,
 
-		/** Based on the raw stats file. */
-		StatsFileRaw,
+	/** Based on the raw stats file. */
+	StatsFileRaw,
 
-		Combined,
-		Summary,
+	Combined,
+	Summary,
 
-		/** Invalid enum type, may be used as a number of enumerations. */
-		InvalidOrMax,
-
+	/** Invalid enum type, may be used as a number of enumerations. */
+	InvalidOrMax,
+};
 
 
-	};
-
+namespace ProfilerSessionTypes
+{
 	/**
 	 * Returns the string representation of the specified EProfilerSessionType value.
 	 *
-	 * @param ProfilerSessionType - The value to get the string for.
-	 *
+	 * @param ProfilerSessionType The value to get the string for.
 	 * @return A string value.
 	 */
-	inline FString ToString( EProfilerSessionTypes::Type ProfilerSessionType )
+	inline FString ToString(EProfilerSessionTypes ProfilerSessionType)
 	{
 		// @TODO: Localize
-		switch( ProfilerSessionType )
+		switch(ProfilerSessionType)
 		{
-			case Live: return FString("Live");
-			case StatsFile: return FString("Offline");
-
-			default: return FString("InvalidOrMax");
+		case EProfilerSessionTypes::Live:
+			return FString("Live");
+		case EProfilerSessionTypes::StatsFile:
+			return FString("Offline");
+		default:
+			return FString("InvalidOrMax");
 		}
 	}
 }
 
-/** Enumerates loading a capture file progress states. */
-namespace ELoadingProgressStates
+
+/**
+ * Enumerates loading a capture file progress states.
+ */
+enum class ELoadingProgressStates
 {
-	enum Type
-	{
-		Started,
-		InProgress,
-		Loaded,
-		Failed,
-		Cancelled, 
+	Started,
+	InProgress,
+	Loaded,
+	Failed,
+	Cancelled, 
 
-		/** Invalid enum type, may be used as a number of enumerations. */
-		InvalidOrMax,
-	};
-}
+	/** Invalid enum type, may be used as a number of enumerations. */
+	InvalidOrMax,
+};
 
-namespace EProfilerNotificationTypes
+
+enum class EProfilerNotificationTypes
 {
-	enum Type
-	{
-		LoadingOfflineCapture,
-		SendingServiceSideCapture,
-	};
-}
+	LoadingOfflineCapture,
+	SendingServiceSideCapture,
+};
 
-/*-----------------------------------------------------------------------------
-	Declarations
------------------------------------------------------------------------------*/
 
-/**	Contains information about stat like name, ID and type, and information about the owning stat group. */
-class FProfilerStat : public FNoncopyable
+class FProfilerGroup;
+
+
+/**
+ * Contains information about stat like name, ID and type, and information about the owning stat group.
+ */
+class FProfilerStat
+	: public FNoncopyable
 {
 	friend class FProfilerStatMetaData;
 
 public:
+
 	/**
 	 * Default constructor.
 	 *
-	 * @param InID		- the unique ID for this stat
-	 *
+	 * @param InID The unique ID for this stat
 	 */
-	FProfilerStat( const uint32 InStatID = 0 );
+	FProfilerStat(const uint32 InStatID = 0);
 
 protected:
+
 	/**
 	 * Sets the new description for this stat.
 	 *
-	 * @param InName	- the name of this stat
-	 * @param InGroupID - the pointer to the group that this stat belongs to
-	 * @param InType	- the type of this stat
-	 *
+	 * @param InName The name of this stat
+	 * @param InGroupID The pointer to the group that this stat belongs to
+	 * @param InType The type of this stat
 	 */
-	void Initialize( const FString& InName, FProfilerGroup* InOwningGroupPtr, const EStatType InType )	
+	void Initialize(const FString& InName, FProfilerGroup* InOwningGroupPtr, const EStatType InType)	
 	{
 		// Skip leading spaces in the name of the stat.
 		int32 Index = 0;
-		while( FChar::IsWhitespace( InName[Index] ) )
+		while(FChar::IsWhitespace(InName[Index]))
 		{
 			Index++;
 		}
@@ -121,11 +136,11 @@ protected:
 	/**
 	 * @return a profiler sample type from the specified generic stat type
 	 */
-	static const EProfilerSampleTypes::Type ConvertStatTypeToProfilerSampleType( const EStatType StatType )
+	static const EProfilerSampleTypes::Type ConvertStatTypeToProfilerSampleType(const EStatType StatType)
 	{
 		EProfilerSampleTypes::Type ProfilerUnit = EProfilerSampleTypes::InvalidOrMax;
 
-		switch( StatType )
+		switch(StatType)
 		{	
 		case STATTYPE_MemoryCounter:
 			{
@@ -173,7 +188,7 @@ public:
 	 */
 	const FProfilerGroup& OwningGroup() const
 	{
-		check( _OwningGroupPtr != NULL );
+		check(_OwningGroupPtr != NULL);
 		return *_OwningGroupPtr;
 	}
 
@@ -225,7 +240,9 @@ protected:
 	/**	Default profiler stat, used for uninitialized stats. */
 	static FProfilerStat Default;
 };
+
 template <> struct TIsPODType<FProfilerStat> { enum { Value = true }; };
+
 
 /**
  *	Contains information about stat group and stats associated with the specified stat group.
@@ -235,33 +252,32 @@ class FProfilerGroup : public FNoncopyable
 	friend class FProfilerStatMetaData;
 
 public:
-	/**
-	 * Default constructor.
-	 */
+
+	/** Default constructor. */
 	FProfilerGroup()
-		: _Name( TEXT("(Group-Default)") )
-		, _ID( 0 )
+		: _Name(TEXT("(Group-Default)"))
+		, _ID(0)
 	{}
 
 protected:
 	/**
 	 * Initialization constructor.
 	 *
-	 * @param InID	- the unique ID for this stat group
+	 * @param InID The unique ID for this stat group
 	 *
 	 */
-	FProfilerGroup( const uint32 InID )
-		: _Name( *FString::Printf( TEXT("(Group-%04u)"), InID ) )
-		, _ID( InID )
+	FProfilerGroup(const uint32 InID)
+		: _Name(*FString::Printf(TEXT("(Group-%04u)"), InID))
+		, _ID(InID)
 	{}
 
 	/**
 	 * Sets the new name for this stat group.
 	 *
-	 * @param InName - the name of this stat group 
+	 * @param InName The name of this stat group 
 	 *
 	 */
-	void Initialize( const FString& InName )
+	void Initialize(const FString& InName)
 	{
 		_Name = *InName;
 	}
@@ -269,12 +285,12 @@ protected:
 	/**
 	 * Adds a stat to this group.
 	 *
-	 * @param ProfilerStat - a pointer to the existing stat object
+	 * @param ProfilerStat Pointer to the existing stat object
 	 * 
 	 */
-	void AddStat( FProfilerStat* ProfilerStat )
+	void AddStat(FProfilerStat* ProfilerStat)
 	{
-		OwnedStats.Add( ProfilerStat );
+		OwnedStats.Add(ProfilerStat);
 	}
 
 public:
@@ -344,8 +360,8 @@ class FProfilerStatMetaData : public FNoncopyable, public TSharedFromThis<FProfi
 protected:
 	/** Constructor. */
 	FProfilerStatMetaData()
-		: SecondsPerCycle( FPlatformTime::GetSecondsPerCycle() )
-		, GameThreadID( 0 )
+		: SecondsPerCycle(FPlatformTime::GetSecondsPerCycle())
+		, GameThreadID(0)
 	{}
 
 public:
@@ -353,13 +369,13 @@ public:
 	~FProfilerStatMetaData()
 	{
 		// Delete all allocated descriptions.
-		for( auto It = StatDescriptions.CreateConstIterator(); It; ++It )
+		for(auto It = StatDescriptions.CreateConstIterator(); It; ++It)
 		{
 			delete It.Value();
 		}
 		StatDescriptions.Empty();
 
-		for( auto It = GroupDescriptions.CreateConstIterator(); It; ++It )
+		for(auto It = GroupDescriptions.CreateConstIterator(); It; ++It)
 		{
 			delete It.Value();
 		}
@@ -375,13 +391,13 @@ public:
 
 		MemorySize += sizeof(*this);
 		MemorySize += StatDescriptions.GetAllocatedSize();
-		for( auto It = StatDescriptions.CreateConstIterator(); It; ++It )
+		for(auto It = StatDescriptions.CreateConstIterator(); It; ++It)
 		{
 			MemorySize += It.Value()->GetMemoryUsage();
 		}
 
 		MemorySize += GroupDescriptions.GetAllocatedSize();
-		for( auto It = GroupDescriptions.CreateConstIterator(); It; ++It )
+		for(auto It = GroupDescriptions.CreateConstIterator(); It; ++It)
 		{
 			MemorySize += It.Value()->GetMemoryUsage();
 		}
@@ -395,17 +411,16 @@ protected:
 	/**
 	 * Updates this instance of stat metadata.
 	 *
-	 * @param StatMetaData - the stat metadata received from the connected profiler client
-	 *
+	 * @param StatMetaData The stat metadata received from the connected profiler client
 	 */
-	void Update( const FStatMetaData& ClientStatMetaData );
+	void Update(const FStatMetaData& ClientStatMetaData);
 
 public:
 	/**
 	 *	Updates this stats metadata based on the stats thread state.
 	 *	This is a temporary solution to make it working with current implementation of FProfilerSample.
 	 */
-	void UpdateFromStatsState( const FStatsThreadState& StatsThreadStats );
+	void UpdateFromStatsState(const FStatsThreadState& StatsThreadStats);
 
 private:
 
@@ -413,82 +428,80 @@ private:
 	 * Initialized the specified stat group.
 	 * If specified stat group doesn't exist, adds it to the list of stat group descriptions.
 	 *
-	 * @param GroupID	- the ID of the stat group that needs to be initialized
-	 * @param GroupName	- the name of the stat group that needs to be initialized
-	 *
+	 * @param GroupID The ID of the stat group that needs to be initialized
+	 * @param GroupName The name of the stat group that needs to be initialized
 	 */
-	void InitializeGroup( const uint32 GroupID, const FString& GroupName ) 
+	void InitializeGroup(const uint32 GroupID, const FString& GroupName) 
 	{
-		FProfilerGroup* GroupPtr = GroupDescriptions.FindRef( GroupID );
-		if( !GroupPtr )
+		FProfilerGroup* GroupPtr = GroupDescriptions.FindRef(GroupID);
+		if(!GroupPtr)
 		{
-			GroupPtr = GroupDescriptions.Add( GroupID, new FProfilerGroup( GroupID ) );
+			GroupPtr = GroupDescriptions.Add(GroupID, new FProfilerGroup(GroupID));
 		}
-		GroupPtr->Initialize( GroupName );
+		GroupPtr->Initialize(GroupName);
 	}
 
 	/**
 	 * Initialized the specified stat.
 	 *
-	 * @param StatID	- the id of the stat that needs to be initialized
-	 * @param GroupID	- the id of the stat group that will be assigned to the specified stat
-	 * @param StatName  - the name of the stat that needs to be initialized
-	 * @param InType	- the type of the stat that needs to be initialized
-	 * @param StatName	- the unique stat name
-	 *
+	 * @param StatID The id of the stat that needs to be initialized
+	 * @param GroupID The id of the stat group that will be assigned to the specified stat
+	 * @param StatName The name of the stat that needs to be initialized
+	 * @param InType The type of the stat that needs to be initialized
+	 * @param StatName The unique stat name
 	 */
-	void InitializeStat( const uint32 StatID, const uint32 GroupID, const FString& StatName, const EStatType InType, FName StatFName = NAME_None )	
+	void InitializeStat(const uint32 StatID, const uint32 GroupID, const FString& StatName, const EStatType InType, FName StatFName = NAME_None)	
 	{
-		FProfilerStat* StatPtr = StatDescriptions.FindRef( StatID );
-		if( !StatPtr )
+		FProfilerStat* StatPtr = StatDescriptions.FindRef(StatID);
+		if(!StatPtr)
 		{
-			StatPtr = StatDescriptions.Add( StatID, new FProfilerStat( StatID ) );
+			StatPtr = StatDescriptions.Add(StatID, new FProfilerStat(StatID));
 
-			if( StatFName != NAME_None )
+			if(StatFName != NAME_None)
 			{
-				StatFNameDescriptions.Add( StatFName, StatPtr );
+				StatFNameDescriptions.Add(StatFName, StatPtr);
 			}
 
-			FProfilerGroup* GroupPtr = GroupDescriptions.FindRef( GroupID );
+			FProfilerGroup* GroupPtr = GroupDescriptions.FindRef(GroupID);
 
-			StatPtr->Initialize( StatName, GroupPtr, InType );
+			StatPtr->Initialize(StatName, GroupPtr, InType);
 
 			static const FName NAME_Threads(TEXT("Threads"));
-			if( StatFName == NAME_None && GroupPtr->Name() == NAME_Threads )
+			if(StatFName == NAME_None && GroupPtr->Name() == NAME_Threads)
 			{
 				// Check if this stat is a thread stat.
-				const uint32 ThreadID = FStatsUtils::ParseThreadID( StatPtr->Name().ToString() );
-				if( ThreadID != 0 )
+				const uint32 ThreadID = FStatsUtils::ParseThreadID(StatPtr->Name().ToString());
+				if(ThreadID != 0)
 				{
-					const FString* ThreadDesc = GetThreadDescriptions().Find( ThreadID );
-					if( ThreadDesc )
+					const FString* ThreadDesc = GetThreadDescriptions().Find(ThreadID);
+					if(ThreadDesc)
 					{
 						// Replace the stat name with a thread name.
-						const FString UniqueThreadName = FString::Printf( TEXT( "%s [0x%x]" ), **ThreadDesc, ThreadID );
+						const FString UniqueThreadName = FString::Printf(TEXT("%s [0x%x]"), **ThreadDesc, ThreadID);
 						StatPtr->_Name = *UniqueThreadName;
-						ThreadIDtoStatID.Add( ThreadID, StatID );
+						ThreadIDtoStatID.Add(ThreadID, StatID);
 
 						// Game thread is always NAME_GameThread
-						if( **ThreadDesc == FName( NAME_GameThread ) )
+						if(**ThreadDesc == FName(NAME_GameThread))
 						{
 							GameThreadID = ThreadID;
 						}
 						// Rendering thread may be "Rendering thread" or NAME_RenderThread with an index
-						else if( ThreadDesc->Contains( FName( NAME_RenderThread ).GetPlainNameString() ) )
+						else if(ThreadDesc->Contains(FName(NAME_RenderThread).GetPlainNameString()))
 						{
-							RenderThreadIDs.AddUnique( ThreadID );
+							RenderThreadIDs.AddUnique(ThreadID);
 						}
-						else if( ThreadDesc->Contains( TEXT( "RenderingThread" ) ) )
+						else if(ThreadDesc->Contains(TEXT("RenderingThread")))
 						{
-							RenderThreadIDs.AddUnique( ThreadID );
+							RenderThreadIDs.AddUnique(ThreadID);
 						}
 					}			
 				}
 			}
 
-			if( GroupPtr != FProfilerGroup::GetDefaultPtr() )
+			if(GroupPtr != FProfilerGroup::GetDefaultPtr())
 			{
-				GroupPtr->AddStat( StatPtr );
+				GroupPtr->AddStat(StatPtr);
 			}
 		}
 	}
@@ -497,17 +510,17 @@ public:
 	/**
 	 * @return a reference to the stat description specified by the stat ID
 	 */
-	const FProfilerStat& GetStatByID( const uint32 StatID ) const
+	const FProfilerStat& GetStatByID(const uint32 StatID) const
 	{
-		return *StatDescriptions.FindChecked( StatID );
+		return *StatDescriptions.FindChecked(StatID);
 	}
 
 	/**
 	* @return a reference to the stat description specified by the unique stat name.
 	*/
-	const FProfilerStat& GetStatByFName( FName StatName ) const
+	const FProfilerStat& GetStatByFName(FName StatName) const
 	{
-		return *StatFNameDescriptions.FindChecked( StatName );
+		return *StatFNameDescriptions.FindChecked(StatName);
 	}
 
 	/**
@@ -521,9 +534,9 @@ public:
 	/**
 	 * @return a reference to the group description specified by the group ID
 	 */
-	const FProfilerGroup& GetGroup( const uint32 GroupID ) const
+	const FProfilerGroup& GetGroup(const uint32 GroupID) const
 	{
-		return *GroupDescriptions.FindChecked( GroupID );
+		return *GroupDescriptions.FindChecked(GroupID);
 	}
 
 	/**
@@ -553,7 +566,7 @@ public:
 	/**
 	 * @return the specified number of cycles converted to milliseconds.
 	 */
-	const double ConvertCyclesToMS( const uint32 Cycles ) const
+	const double ConvertCyclesToMS(const uint32 Cycles) const
 	{
 		return SecondsPerCycle * 1000 * Cycles;
 	}
@@ -561,17 +574,17 @@ public:
 	/**
 	 * @return the profiler sample type for the specified stat ID.
 	 */
-	const EProfilerSampleTypes::Type GetSampleTypeForStatID( const uint32 StatID ) const
+	const EProfilerSampleTypes::Type GetSampleTypeForStatID(const uint32 StatID) const
 	{
-		return GetStatByID( StatID ).Type();
+		return GetStatByID(StatID).Type();
 	}
 
 	/**
 	 * @return true, if the stat for the specified stat ID has been initialized.
 	 */
-	const bool IsStatInitialized( const uint32 StatID )
+	const bool IsStatInitialized(const uint32 StatID)
 	{
-		return StatDescriptions.Contains( StatID );
+		return StatDescriptions.Contains(StatID);
 	}
 
 	const uint32 GetGameThreadID() const
@@ -591,7 +604,7 @@ public:
 
 	const uint32 GetGameThreadStatID() const
 	{
-		return ThreadIDtoStatID.FindChecked( GameThreadID );
+		return ThreadIDtoStatID.FindChecked(GameThreadID);
 	}
 
 protected:
@@ -623,6 +636,7 @@ protected:
 	TArray<uint32> RenderThreadIDs;
 };
 
+
 /** Holds the aggregated information for the specific stat across all frames that have been captured. */
 class FProfilerAggregatedStat
 {
@@ -645,7 +659,7 @@ public:
 	};
 
 	/** Default constructor. */
-	FProfilerAggregatedStat( const FName& InStatName, const FName& InGroupName, EProfilerSampleTypes::Type InStatType );
+	FProfilerAggregatedStat(const FName& InStatName, const FName& InGroupName, EProfilerSampleTypes::Type InStatType);
 
 public:
 	/** @return The average value of all combined instances. */
@@ -710,7 +724,7 @@ public:
 	/**
 	 * @return a string representation of the specified value type.
 	 */
-	FString GetFormattedValue( const Type ValueType ) const;
+	FString GetFormattedValue(const Type ValueType) const;
 
 protected:
 	/** Called once a frame to update aggregates. */
@@ -722,7 +736,7 @@ protected:
 	 * @param Sample - a reference to the profiler sample that will be aggregated
 	 *
 	 */
-	void Aggregate( const FProfilerSample& Sample, const FProfilerStatMetaDataRef& Metadata );
+	void Aggregate(const FProfilerSample& Sample, const TSharedRef<FProfilerStatMetaData>& Metadata);
 
 protected:
 	FName _StatName;
@@ -764,48 +778,57 @@ protected:
 	const EProfilerSampleTypes::Type StatType;
 };
 
+
 //template <> struct TIsPODType<FProfilerAggregatedStat> { enum { Value = true }; };
 
 // @TODO: Standardize naming used in the profiler session/ session / session instance.
 
-/** Class that holds the profiler session information. */
-class FProfilerSession : public TSharedFromThis<FProfilerSession>
+
+/**
+ * Class that holds the profiler session information.
+ */
+class FProfilerSession
+	: public TSharedFromThis<FProfilerSession>
 {
 	friend class FProfilerManager;
 	friend class FProfilerActionManager;
 
 protected:
+
 	/** Default constructor. */
-	FProfilerSession
-	( 
-		EProfilerSessionTypes::Type InSessionType, 
-		const ISessionInstanceInfoPtr InSessionInstanceInfo,
+	FProfilerSession(
+		EProfilerSessionTypes InSessionType, 
+		const TSharedPtr<ISessionInstanceInfo>& InSessionInstanceInfo,
 		FGuid InSessionInstanceID,
-		FString InDataFilepath
-	);
+		FString InDataFilepath);
 
 public:
+
 	/**
 	 * Initialization constructor, creates a profiler session from a capture file.
 	 */
-	FProfilerSession( const FString& InDataFilepath );
+	FProfilerSession(const FString& InDataFilepath);
 
 	/**
 	 * Initialization constructor, creates a live profiler session.
 	 */
-	FProfilerSession( const ISessionInstanceInfoPtr InSessionInstanceInfo );
+	FProfilerSession(const TSharedPtr<ISessionInstanceInfo>& InSessionInstanceInfo);
 
 	/** Destructor. */
 	~FProfilerSession();
 
+public:
+
 	/** Updates this profiler session. */
-	bool HandleTicker( float DeltaTime );
+	bool HandleTicker(float DeltaTime);
 
 public:
-	typedef TMap<uint32, float> FThreadTimesMap;
-	DECLARE_DELEGATE_ThreeParams( FAddThreadTimeDelegate, int32 /*FrameIndex*/, const FThreadTimesMap& /*ThreadMS*/, const FProfilerStatMetaDataRef& /*StatMetaData*/ );
 
-	FProfilerSession& SetOnAddThreadTime( const FAddThreadTimeDelegate& InOnAddThreadTime )
+	typedef TMap<uint32, float> FThreadTimesMap;
+	typedef TSharedRef<FProfilerStatMetaData> FProfilerStatMetaDataRef;
+	DECLARE_DELEGATE_ThreeParams(FAddThreadTimeDelegate, int32 /*FrameIndex*/, const FThreadTimesMap& /*ThreadMS*/, const FProfilerStatMetaDataRef& /*StatMetaData*/);
+
+	FProfilerSession& SetOnAddThreadTime(const FAddThreadTimeDelegate& InOnAddThreadTime)
 	{
 		OnAddThreadTime = InOnAddThreadTime;
 		return *this;
@@ -821,14 +844,14 @@ public:
 	 * @param SessionInstanceID - the session instance ID of this session, used to determine of which session this method should be called
 	 *
 	 */
-	DECLARE_DELEGATE_OneParam( FCaptureFileProcessedDelegate, const FGuid /*SessionInstanceID*/ );
+	DECLARE_DELEGATE_OneParam(FCaptureFileProcessedDelegate, const FGuid /*SessionInstanceID*/);
 
 	/**
 	 * Sets the handler that will be invoked when this profiler session has fully processed a capture file
 	 * 
 	 * @return This instance (for method chaining).
 	 */
-	FProfilerSession& SetOnCaptureFileProcessed( const FCaptureFileProcessedDelegate& InOnCaptureFileProcessed )
+	FProfilerSession& SetOnCaptureFileProcessed(const FCaptureFileProcessedDelegate& InOnCaptureFileProcessed)
 	{
 		OnCaptureFileProcessed = InOnCaptureFileProcessed;
 		return *this;
@@ -846,17 +869,17 @@ public:
 	const FString GetName() const
 	{
 		FString SessionName;
-		if( SessionType == EProfilerSessionTypes::Live )
+		if(SessionType == EProfilerSessionTypes::Live)
 		{
-			SessionName = FString::Printf( TEXT("%s"), *SessionInstanceInfo->GetInstanceName() );
+			SessionName = FString::Printf(TEXT("%s"), *SessionInstanceInfo->GetInstanceName());
 		}
-		else if( SessionType == EProfilerSessionTypes::StatsFile )
+		else if(SessionType == EProfilerSessionTypes::StatsFile)
 		{
-			SessionName = FString::Printf( TEXT("%s"), *DataFilepath );
+			SessionName = FString::Printf(TEXT("%s"), *DataFilepath);
 		}
-		else if( SessionType == EProfilerSessionTypes::StatsFileRaw )
+		else if(SessionType == EProfilerSessionTypes::StatsFileRaw)
 		{
-			SessionName = FString::Printf( TEXT( "%s" ), *DataFilepath );
+			SessionName = FString::Printf(TEXT("%s"), *DataFilepath);
 		}
 		
 		return SessionName;
@@ -867,13 +890,13 @@ public:
 	 */
 	const FString GetShortName() const
 	{
-		return FProfilerHelper::ShortenName( GetName(), 12 );
+		return FProfilerHelper::ShortenName(GetName(), 12);
 	}
 
 	/**
 	 * @return session type for this profiler session
 	 */
-	const EProfilerSessionTypes::Type GetSessionType() const
+	const EProfilerSessionTypes GetSessionType() const
 	{
 		return SessionType;
 	}
@@ -887,7 +910,7 @@ public:
 	}
 
 	/**
-	 * @return the time when this profiler session was created ( time of the connection to the client, time when a profiler capture was created ).
+	 * @return the time when this profiler session was created (time of the connection to the client, time when a profiler capture was created).
 	 */
 	const FDateTime& GetCreationTime() const
 	{
@@ -897,7 +920,7 @@ public:
 	/**
 	 * @return a shared reference to the the data provider which holds all the collected profiler samples.
 	 */
-	const IDataProviderRef& GetDataProvider() const
+	const TSharedRef<IDataProvider>& GetDataProvider() const
 	{
 		return DataProvider;
 	}
@@ -905,7 +928,7 @@ public:
 	/**
 	 * @return a shared reference to the stat metadata which holds all collected stats descriptions.
 	 */
-	const FProfilerStatMetaDataRef& GetMetaData() const
+	const TSharedRef<FProfilerStatMetaData>& GetMetaData() const
 	{
 		return StatMetaData;
 	}
@@ -913,19 +936,19 @@ public:
 	/**
 	 * @return a const pointer to the aggregated stat for the specified stat ID or null if not found.
 	 */
-	FORCEINLINE_DEBUGGABLE const FProfilerAggregatedStat* GetAggregatedStat( const uint32 StatID ) const
+	FORCEINLINE_DEBUGGABLE const FProfilerAggregatedStat* GetAggregatedStat(const uint32 StatID) const
 	{
-		return AggregatedStats.Find( StatID );
+		return AggregatedStats.Find(StatID);
 	}
 
-	FORCEINLINE_DEBUGGABLE const TMap<uint32, FInclusiveTime>& GetInclusiveAggregateStackStats( const uint32 FrameIndex ) const
+	FORCEINLINE_DEBUGGABLE const TMap<uint32, FInclusiveTime>& GetInclusiveAggregateStackStats(const uint32 FrameIndex) const
 	{
 		return InclusiveAggregateStackStats[FrameIndex];
 	}
 
-	const FEventGraphDataRef GetEventGraphDataTotal() const;
-	const FEventGraphDataRef GetEventGraphDataMaximum() const;
-	const FEventGraphDataRef GetEventGraphDataAverage() const;
+	const TSharedRef<FEventGraphData, ESPMode::ThreadSafe> GetEventGraphDataTotal() const;
+	const TSharedRef<FEventGraphData, ESPMode::ThreadSafe> GetEventGraphDataMaximum() const;
+	const TSharedRef<FEventGraphData, ESPMode::ThreadSafe> GetEventGraphDataAverage() const;
 
 	/**
 	 * @return number of bytes allocated by this profiler session.
@@ -935,28 +958,27 @@ public:
 	/**
 	 * @return a new instance of the graph data source for the specified stat ID.
 	 */
-	FGraphDataSourceRefConst CreateGraphDataSource( const uint32 InStatID );
+	TSharedRef<const FGraphDataSource> CreateGraphDataSource(const uint32 InStatID);
 
 	/**
 	 * @return a new instance of the event graph container for the specified frame range.
 	 */
-	FEventGraphContainer CreateEventGraphData( const uint32 FrameStartIndex, const uint32 FrameEndIndex );
+	FEventGraphContainer CreateEventGraphData(const uint32 FrameStartIndex, const uint32 FrameEndIndex);
 
 	/** Combines event graphs for the specified frames range. */
-	FEventGraphData* CombineEventGraphs( const uint32 FrameStartIndex, const uint32 FrameEndIndex );
+	FEventGraphData* CombineEventGraphs(const uint32 FrameStartIndex, const uint32 FrameEndIndex);
 
 	/** Combines event graphs for the specified frames range, as the task graph task. */
-	void CombineEventGraphsTask( const uint32 FrameStartIndex, const uint32 FrameEndIndex );
+	void CombineEventGraphsTask(const uint32 FrameStartIndex, const uint32 FrameEndIndex);
 
 protected:
 	/**
 	 * Recursively populates hierarchy based on the specified profiler cycle graph.
 	 *
-	 * @param ParentGraph - <describe ParentGraph>
-	 * @param ParentStartTimeMS - <describe ParentStartTimeMS>
-	 * @param ParentDurationMS - <describe ParentDurationMS>
-	 * @param ParentSampleIndex - <describe ParentSampleIndex>
-	 *
+	 * @param ParentGraph
+	 * @param ParentStartTimeMS
+	 * @param ParentDurationMS
+	 * @param ParentSampleIndex
 	 * @return <describe return value>
 	 */
 	void PopulateHierarchy_Recurrent
@@ -969,10 +991,10 @@ protected:
 	);
 
 	/** Called when this profiler session receives a new profiler data. */
-	void UpdateProfilerData( const FProfilerDataFrame& Content );
+	void UpdateProfilerData(const FProfilerDataFrame& Content);
 
 	/** Called when this profiler session receives information that the meta data has been updated. @see FProfilerMetaDataUpdateDelegate and IProfilerClient */
-	void UpdateMetadata( const FStatMetaData& InClientStatMetaData );
+	void UpdateMetadata(const FStatMetaData& InClientStatMetaData);
 
 	/**
 	 * Updates aggregated stats.
@@ -980,7 +1002,7 @@ protected:
 	 * @param FrameIndex - the index of the profiler samples that will be used to update the aggregated stats.
 	 *
 	 */
-	void UpdateAggregatedStats( const uint32 FrameIndex );
+	void UpdateAggregatedStats(const uint32 FrameIndex);
 
 	/**
 	 * Updates aggregated event graphs.
@@ -988,20 +1010,20 @@ protected:
 	 * @param FrameIndex - the index of the profiler samples that will be used to update the aggregated stats.
 	 *
 	 */
-	void UpdateAggregatedEventGraphData( const uint32 FrameIndex );
+	void UpdateAggregatedEventGraphData(const uint32 FrameIndex);
 
 	/** Completion sync. */
 	void CompletionSyncAggregatedEventGraphData();
 
-	void EventGraphCombine( const FEventGraphData* Current, const uint32 InNumFrames );
+	void EventGraphCombine(const FEventGraphData* Current, const uint32 InNumFrames);
 
-	void UpdateAllEventGraphs( const uint32 InNumFrames );
+	void UpdateAllEventGraphs(const uint32 InNumFrames);
 
 	/** Called when the capture file has been fully loaded. */
 	void LoadComplete();
 
 	/** Sets number of frames. */
-	void SetNumberOfFrames( int32 InNumFrames );
+	void SetNumberOfFrames(int32 InNumFrames);
 	
 	/**
 	 * @return progress as floating point between 0 and 1.
@@ -1036,10 +1058,10 @@ protected:
 	FDelegateHandle OnTickHandle;
 
 	/** The data provider which holds all the collected profiler samples. */
-	IDataProviderRef DataProvider;
+	TSharedRef<IDataProvider> DataProvider;
 
 	/** The stat metadata which holds all collected stats descriptions. */
-	FProfilerStatMetaDataRef StatMetaData;
+	TSharedRef<FProfilerStatMetaData> StatMetaData;
 
 	/** Aggregated event graph data for all collected frames, used for generating average values. Also contains min and max. */
 	FEventGraphDataPtr EventGraphDataTotal;
@@ -1053,21 +1075,21 @@ protected:
 	/** Temporary event graph data for the specified frame. Recreated each frame, used by the task graph tasks only. */
 	const FEventGraphData* EventGraphDataCurrent;
 
-	/** Event graph completion sync ( combine for max, combine for add ) that can be done in parallel, but need to wait before combining the next frame. */
+	/** Event graph completion sync (combine for max, combine for add) that can be done in parallel, but need to wait before combining the next frame. */
 	FGraphEventRef CompletionSync;
 
 	/** Combined event graphs calculated on the task graph threads. */
 	TLockFreePointerListFIFO<FEventGraphData, PLATFORM_CACHE_LINE_SIZE> CombinedSubEventGraphsLFL;
 
 	// TODO: Temporary, need to be stored in metadata or send via UMB.
-	/** The time when this profiler session was created ( time of the connection to the client, time when a capture file was created ). */
+	/** The time when this profiler session was created (time of the connection to the client, time when a capture file was created). */
 	FDateTime CreationTime;
 
 	/** Session type for this profiler session. */
-	EProfilerSessionTypes::Type SessionType;
+	EProfilerSessionTypes SessionType;
 
 	/** Shared pointer to the session instance info. */
-	const ISessionInstanceInfoPtr SessionInstanceInfo;
+	const TSharedPtr<ISessionInstanceInfo> SessionInstanceInfo;
 
 	/** An unique session instance ID. */
 	FGuid SessionInstanceID;

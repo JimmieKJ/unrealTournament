@@ -4,10 +4,12 @@
 	TextureCube.cpp: UTextureCube implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "RenderUtils.h"
-#include "DDSLoader.h"
 #include "Engine/TextureCube.h"
+#include "RenderUtils.h"
+#include "TextureResource.h"
+#include "EngineUtils.h"
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
 
 UTextureCube::UTextureCube(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -112,7 +114,7 @@ uint32 UTextureCube::CalcTextureMemorySizeEnum( ETextureMipCount Enum ) const
 {
 	if ( Enum == TMC_ResidentMips || Enum == TMC_AllMipsBiased )
 	{
-		return CalcTextureMemorySize( GetNumMips() - LODBias );
+		return CalcTextureMemorySize( GetNumMips() - GetCachedLODBias() );
 	}
 	else
 	{
@@ -346,9 +348,10 @@ FTextureResource* UTextureCube::CreateResource()
 	return NewResource;
 }
 
-SIZE_T UTextureCube::GetResourceSize(EResourceSizeMode::Type Mode)
+void UTextureCube::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	return CalcTextureMemorySizeEnum(TMC_ResidentMips);
+	Super::GetResourceSizeEx(CumulativeResourceSize);
+	CumulativeResourceSize.AddUnknownMemoryBytes(CalcTextureMemorySizeEnum(TMC_ResidentMips));
 }
 
 #if WITH_EDITOR

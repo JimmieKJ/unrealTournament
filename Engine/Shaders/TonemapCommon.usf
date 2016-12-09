@@ -4,12 +4,8 @@
 	TonemapCommon.usf: PostProcessing tone mapping common
 =============================================================================*/
 
-// #todo-rco: Fix in the cross-compiler
-#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1 || COMPILER_METAL || VULKAN_PROFILE || COMPILER_HLSLCC
-#define log10(x)  log(x) / log(10.0)
-#endif
-
 #include "ACES.usf"
+#include "GammaCorrectionCommon.usf"
 
 // usually 1/2.2, the .y is used for inverse gamma when "gamma only" mode is not used
 half3 InverseGamma;
@@ -103,13 +99,6 @@ Toe = 0.63;
 Shoulder = 0.45;
 BlackClip = 0;
 WhiteClip = 0;
-
-// Weta settings
-Slope = 0.6;
-Toe = 0.72;
-Shoulder = 0.55;
-BlackClip = 0;
-WhiteClip = 0.02;
 
 // Legacy settings
 Slope = 0.98;
@@ -244,18 +233,32 @@ float3 InverseACESOutputTransformsRGBD65( float3 OutputReferredLinearsRGBColor )
 }
 
 //
-// ACES P3 D60 PQ 2000 nit Output Transform - Forward and Inverse
+// ACES D65 1000 nit Output Transform - Forward
 //  Input is scene-referred linear values in the sRGB gamut
 //  Output is output-referred linear values in the AP1 gamut
 //
-float3 ACESOutputTransformsP3D60PQ2000( float3 SceneReferredLinearsRGBColor )
+float3 ACESOutputTransforms1000( float3 SceneReferredLinearsRGBColor )
 {
 	const float3x3 sRGB_2_AP0 = mul( XYZ_2_AP0_MAT, mul( D65_2_D60_CAT, sRGB_2_XYZ_MAT ) );
 
-	// Bring values up two stops as the ACES Output Transforms tend to be dark
-	float3 aces = mul( sRGB_2_AP0, SceneReferredLinearsRGBColor * 4 );
+	float3 aces = mul( sRGB_2_AP0, SceneReferredLinearsRGBColor * 1.5 );
 	float3 oces = RRT( aces );
-	float3 OutputReferredLinearAP1Color =  ODT_Academy_P3D60_PQ_2000nits( oces );
+	float3 OutputReferredLinearAP1Color = ODT_1000nits( oces );
+	return OutputReferredLinearAP1Color;
+}
+
+//
+// ACES D65 2000 nit Output Transform - Forward
+//  Input is scene-referred linear values in the sRGB gamut
+//  Output is output-referred linear values in the AP1 gamut
+//
+float3 ACESOutputTransforms2000( float3 SceneReferredLinearsRGBColor )
+{
+	const float3x3 sRGB_2_AP0 = mul( XYZ_2_AP0_MAT, mul( D65_2_D60_CAT, sRGB_2_XYZ_MAT ) );
+
+	float3 aces = mul( sRGB_2_AP0, SceneReferredLinearsRGBColor * 1.5 );
+	float3 oces = RRT( aces );
+	float3 OutputReferredLinearAP1Color = ODT_2000nits( oces );
 	return OutputReferredLinearAP1Color;
 }
 
@@ -313,4 +316,32 @@ float3x3 OuputInverseGamutMappingMatrix( uint OutputGamut )
 	return GamutMappingMatrix;
 }
 
+float3 ST2084ToScRGB(float3 Color, uint OutputDevice)
+{
+	// Nvidia HDR encoding - Remove PQ, convert to linear scRGB
+	const float3x3 AP1_2_sRGB = mul(XYZ_2_sRGB_MAT, AP1_2_XYZ_MAT);
+	const float WhitePoint = 80.f;
 
+	// 1000.f nit display
+	float MaxODTNits = 1000.0f;
+	float MinODTNits = 0.0001f;
+
+	if (OutputDevice == 4)
+	{
+		// 2000 nit display
+		MaxODTNits = 2000.0f;
+		MinODTNits = 0.005f;
+	}
+
+	float3 OutColor = ST2084ToLinear(Color);
+		
+	OutColor = clamp(OutColor, MinODTNits, MaxODTNits);
+	OutColor.x = Y_2_linCV(OutColor.x, MaxODTNits, MinODTNits);
+	OutColor.y = Y_2_linCV(OutColor.y, MaxODTNits, MinODTNits);
+	OutColor.z = Y_2_linCV(OutColor.z, MaxODTNits, MinODTNits);
+
+	float scRGBScale = MaxODTNits / WhitePoint;
+	OutColor = mul(AP1_2_sRGB, OutColor) * scRGBScale;
+
+	return OutColor;
+}

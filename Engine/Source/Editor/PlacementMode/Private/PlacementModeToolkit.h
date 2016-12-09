@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "BaseToolkit.h"
-#include "SPlacementModeTools.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "EditorModes.h"
+#include "Toolkits/BaseToolkit.h"
+#include "EditorModeManager.h"
+#include "Editor/PlacementMode/Private/SPlacementModeTools.h"
 
 class FPlacementModeToolkit : public FModeToolkit
 {

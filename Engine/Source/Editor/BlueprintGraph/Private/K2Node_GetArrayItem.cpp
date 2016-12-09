@@ -1,16 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_GetArrayItem.h"
+#include "Engine/Blueprint.h"
+#include "EdGraphSchema_K2.h"
 
-#include "SlateBasics.h"
-#include "../../../Runtime/Engine/Classes/Kismet/KismetArrayLibrary.h"
-#include "ScopedTransaction.h"
-#include "KismetCompiler.h"
-#include "BlueprintNodeSpawner.h"
-#include "EditorCategoryUtils.h"
-#include "BlueprintActionDatabaseRegistrar.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
+#include "EdGraphUtilities.h"
+#include "BPTerminal.h"
+#include "BlueprintCompiledStatement.h"
+#include "KismetCompiledFunctionContext.h"
+#include "KismetCompilerMisc.h"
 
 #define LOCTEXT_NAMESPACE "GetArrayItem"
 
@@ -59,8 +58,9 @@ public:
 		FBPTerminal** ArrayTerm = Context.NetMap.Find(ArrayPinNet);
 
 		UEdGraphPin* IndexPin = ArrayNode->GetIndexPin();
-		UEdGraphPin* IndexPinNet = IndexPin ? FEdGraphUtilities::GetNetFromPin(IndexPin) : nullptr;
-		FBPTerminal** IndexTermPtr = IndexPinNet ? Context.NetMap.Find(IndexPinNet) : nullptr;
+		check(IndexPin);
+		UEdGraphPin* IndexPinNet = FEdGraphUtilities::GetNetFromPin(IndexPin);
+		FBPTerminal** IndexTermPtr = Context.NetMap.Find(IndexPinNet);
 
 		FBPTerminal** ReturnValue = Context.NetMap.Find(ReturnValueNet);
 		FBPTerminal** ReturnValueOrig = Context.NetMap.Find(Node->Pins[2]);

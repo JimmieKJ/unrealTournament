@@ -103,6 +103,10 @@ void UQosEvaluator::FindDatacenters(const FQosParams& InParams, TArray<FQosDatac
 			{
 				new (Datacenters) FQosRegionInfo(Datacenter);
 			}
+			else
+			{
+				UE_LOG(LogQos, Verbose, TEXT("Skipping region [%s]"), *Datacenter.RegionId);
+			}
 		}
 
 		if (!InParams.bUseOldQosServers)
@@ -172,7 +176,8 @@ void UQosEvaluator::PingRegionServers(const FQosParams& InParams, const FOnQosSe
 			const FString& RegionId = Region.Region.RegionId;
 			const int32 NumServers = Region.Region.Servers.Num();
 			int32 ServerIdx = FMath::RandHelper(NumServers);
-			Region.Result = NumServers > 0 ? EQosCompletionResult::Invalid : EQosCompletionResult::Success;
+			// Default to invalid ping tests and set it to something else later
+			Region.Result = EQosCompletionResult::Invalid;
 			if (NumServers > 0)
 			{
 				for (int32 PingIdx = 0; PingIdx < NumTestsPerRegion; PingIdx++)
@@ -201,6 +206,14 @@ void UQosEvaluator::PingRegionServers(const FQosParams& InParams, const FOnQosSe
 					bDidNothing = false;
 				}
 			}
+			else
+			{
+				UE_LOG(LogQos, Verbose, TEXT("Nothing to ping [%s]"), *RegionId);
+			}
+		}
+		else
+		{
+			UE_LOG(LogQos, Verbose, TEXT("Region disabled [%s]"), *Region.Region.RegionId);
 		}
 	}
 

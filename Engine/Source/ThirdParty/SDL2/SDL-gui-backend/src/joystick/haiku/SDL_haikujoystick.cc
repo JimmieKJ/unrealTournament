@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -74,8 +74,8 @@ extern "C"
                 if (joystick.Open(name) != B_ERROR) {
                     BString stick_name;
                       joystick.GetControllerName(&stick_name);
-                      SDL_joyport[SDL_SYS_numjoysticks] = strdup(name);
-                      SDL_joyname[SDL_SYS_numjoysticks] = strdup(stick_name.String());
+                      SDL_joyport[SDL_SYS_numjoysticks] = SDL_strdup(name);
+                      SDL_joyname[SDL_SYS_numjoysticks] = SDL_strdup(stick_name.String());
                       SDL_SYS_numjoysticks++;
                       joystick.Close();
                 }

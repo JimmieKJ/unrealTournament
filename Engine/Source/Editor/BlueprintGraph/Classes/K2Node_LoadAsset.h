@@ -2,8 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node.h"
 #include "K2Node_LoadAsset.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UK2Node_LoadAsset : public UK2Node

@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "EngineDefines.h"
+#include "AI/Navigation/NavigationTypes.h"
 #include "AI/Navigation/NavigationData.h"
-#include "Tickable.h"
 #include "RecastNavMesh.generated.h"
 
 /** Initial checkin. */
@@ -34,14 +38,14 @@
 #define RECAST_STRAIGHTPATH_OFFMESH_CONNECTION 0x04
 #define RECAST_UNWALKABLE_POLY_COST	FLT_MAX
 
-class FNavDataGenerator;
 class FPImplRecastNavMesh;
 class FRecastQueryFilter;
 class INavLinkCustomInterface;
+class UCanvas;
 class UNavArea;
 class UNavigationSystem;
+class UPrimitiveComponent;
 class URecastNavMeshDataChunk;
-struct FAreaNavModifier;
 struct FRecastAreaNavModifierElement;
 
 UENUM()
@@ -369,7 +373,7 @@ struct FNavMeshTileData
 	// size of allocated data
 	int32	DataSize;
 	// actual tile data
-	TSharedPtr<FNavData> NavData;
+	TSharedPtr<FNavData, ESPMode::ThreadSafe> NavData;
 	
 	FNavMeshTileData() : LayerIndex(0), DataSize(0) { }
 	~FNavMeshTileData();
@@ -611,6 +615,10 @@ class ENGINE_API ARecastNavMesh : public ANavigationData
 	UPROPERTY(config)
 	uint32 bUseBetterOffsetsFromCorners : 1;
 
+	/** If set, tiles generated without any navmesh data will be marked to distinguish them from not generated / streamed out ones. Defaults to false. */
+	UPROPERTY(config)
+	uint32 bStoreEmptyTileLayers : 1;
+
 	/** Indicates whether default navigation filters will use virtual functions. Defaults to true. */
 	UPROPERTY(config)
 	uint32 bUseVirtualFilters : 1;
@@ -768,13 +776,16 @@ public:
 	/** Retrieves number of tiles in this navmesh */
 	int32 GetNavMeshTilesCount() const;
 
-	/**  */
+	/** Removes compressed tile data at given tile coord */
 	void RemoveTileCacheLayers(int32 TileX, int32 TileY);
 	
-	/**  */
+	/** Stores compressed tile data for given tile coord */
 	void AddTileCacheLayers(int32 TileX, int32 TileY, const TArray<FNavMeshTileData>& InLayers);
+
+	/** Marks tile coord as rebuild and empty */
+	void MarkEmptyTileCacheLayers(int32 TileX, int32 TileY);
 	
-	/**  */
+	/** Returns compressed tile data at given tile coord */
 	TArray<FNavMeshTileData> GetTileCacheLayers(int32 TileX, int32 TileY) const;
 	
 	void GetEdgesForPathCorridor(const TArray<NavNodeRef>* PathCorridor, TArray<struct FNavigationPortalEdge>* PathCorridorEdges) const;
@@ -944,6 +955,9 @@ public:
 	/** Get all polys that overlap the specified box */
 	bool GetPolysInBox(const FBox& Box, TArray<FNavPoly>& Polys, FSharedConstNavQueryFilter Filter = nullptr, const UObject* Owner = nullptr) const;
 
+	/** Get all polys from tile */
+	bool GetNavLinksInTile(const int32 TileIndex, TArray<FNavPoly>& Polys, const bool bIncludeLinksFromNeighborTiles) const;
+
 	/** Projects point on navmesh, returning all hits along vertical line defined by min-max Z params */
 	bool ProjectPointMulti(const FVector& Point, TArray<FNavLocation>& OutLocations, const FVector& Extent,
 		float MinZ, float MaxZ, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const;
@@ -962,6 +976,11 @@ public:
 	 *	@return true if adjusting was required, false otherwise */
 	bool AdjustLocationWithFilter(const FVector& StartLoc, FVector& OutAdjustedLocation, const FNavigationQueryFilter& Filter, const UObject* Querier = NULL) const;
 	
+	/** Check if navmesh is defined (either built/streamed or recognized as empty tile by generator) in given radius.
+	  * @returns true if ALL tiles inside are ready
+	  */
+	bool HasCompleteDataInRadius(const FVector& TestLocation, float TestRadius) const;
+
 	/** @return true is specified segment is fully on navmesh (respecting the optional filter) */
 	bool IsSegmentOnNavmesh(const FVector& SegmentStart, const FVector& SegmentEnd, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const;
 

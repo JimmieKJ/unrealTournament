@@ -381,7 +381,7 @@ bool UUTLocalPlayer::IsMenuGame()
 
 	if (GetWorld()->GetNetMode() == NM_Standalone)
 	{
-		AUTMenuGameMode* GM = Cast<AUTMenuGameMode>(GetWorld()->GetAuthGameMode());
+		AUTMenuGameMode* GM = GetWorld()->GetAuthGameMode<AUTMenuGameMode>();
 		return GM != NULL;
 	}
 	return false;
@@ -3585,7 +3585,7 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target, bool 
 	}
 	else
 	{
-		if (DesktopSlateWidget.IsValid() && !IsMenuGame() && Cast<AUTLobbyGameState>(GetWorld()->GameState) == nullptr && GetWorld()->GetNetMode() != NM_Standalone)
+		if (DesktopSlateWidget.IsValid() && !IsMenuGame() && GetWorld()->GetGameState<AUTLobbyGameState>() == nullptr && GetWorld()->GetNetMode() != NM_Standalone)
 		{
 			HideMenu();
 		}

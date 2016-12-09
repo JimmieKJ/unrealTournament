@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SubversionSourceControlState.h"
 #include "ISubversionSourceControlWorker.h"
 #include "SubversionSourceControlUtils.h"
 

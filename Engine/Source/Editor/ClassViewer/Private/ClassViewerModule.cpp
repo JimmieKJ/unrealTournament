@@ -1,11 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ClassViewerPrivatePCH.h"
-#include "Editor/ClassViewer/Private/SClassViewer.h"
+#include "ClassViewerModule.h"
+#include "Widgets/SWidget.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "SClassViewer.h"
+#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructure.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 
-#include "ModuleManager.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 IMPLEMENT_MODULE( FClassViewerModule, ClassViewer );
 

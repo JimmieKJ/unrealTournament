@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "FontBulkData.h"
+#include "Fonts/FontBulkData.h"
+#include "HAL/FileManager.h"
+#include "Misc/ScopeLock.h"
+#include "SlateGlobals.h"
 
 // The total amount of memory we are using to store raw font bytes in bulk data
 DECLARE_MEMORY_STAT(TEXT("Font BulkData Memory"), STAT_SlateBulkFontDataMemory, STATGROUP_SlateMemory);
@@ -83,29 +85,6 @@ void UFontBulkData::Unlock() const
 	}
 #endif
 	CriticalSection.Unlock();
-}
-
-void UFontBulkData::ForceLoadBulkData()
-{
-	FScopeLock Lock(&CriticalSection);
-
-	// Keep the bulk data resident once it's been loaded
-	BulkData.ClearBulkDataFlags(BULKDATA_SingleUse);
-
-#if STATS
-	const bool bWasLoaded = BulkData.IsBulkDataLoaded();
-#endif
-
-	// Trigger the load (if needed)
-	BulkData.LockReadOnly();
-	BulkData.Unlock();
-
-#if STATS
-	if (!bWasLoaded && BulkData.IsBulkDataLoaded())
-	{
-		INC_DWORD_STAT_BY(STAT_SlateBulkFontDataMemory, BulkData.GetBulkDataSize());
-	}
-#endif
 }
 
 int32 UFontBulkData::GetBulkDataSize() const

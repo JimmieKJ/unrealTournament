@@ -3,6 +3,17 @@
 /** Inline file for UnitConversion.h to separate the implementation from the header */
 
 
+#include "CoreTypes.h"
+#include "CoreFwd.h"
+
+struct FMath;
+struct FUnitConversion;
+enum class EUnit : uint8;
+enum class EUnitType;
+template<typename NumericType> struct FNumericUnit;
+template<typename OptionalType> struct TOptional;
+template<typename ValueType, typename ErrorType> class TValueOrError;
+
 namespace UnitConversion
 {
 	/** Find the common quantization factor for the specified distance unit. Quantizes to Meters. */

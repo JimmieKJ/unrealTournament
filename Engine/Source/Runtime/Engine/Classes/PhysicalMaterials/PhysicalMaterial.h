@@ -1,26 +1,36 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/EngineTypes.h"
+#include "EngineDefines.h"
+#include "PhysxUserData.h"
+#include "Vehicles/TireType.h"
 #include "PhysicsEngine/PhysicsSettingsEnums.h"
 #include "PhysicalMaterial.generated.h"
+
+struct FPropertyChangedEvent;
 
 namespace physx
 {
 	class PxMaterial;
 }
 
-/** Pairs desired tire friction scale with tire type */
+/** DEPRECATED Pairs desired tire friction scale with tire type */
 USTRUCT()
 struct FTireFrictionScalePair
 {
 	GENERATED_USTRUCT_BODY()
 
 	/** Tire type */
-	UPROPERTY(EditAnywhere, Category=TireFrictionScalePair)
+	UPROPERTY()
 	class UTireType*				TireType;
 
 	/** Friction scale for this type of tire */
-	UPROPERTY(EditAnywhere, Category=TireFrictionScalePair)
+	UPROPERTY()
 	float							FrictionScale;
 
 	FTireFrictionScalePair()
@@ -95,12 +105,12 @@ class ENGINE_API UPhysicalMaterial : public UObject
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = PhysicalProperties)
 	TEnumAsByte<EPhysicalSurface> SurfaceType;
 
-	/** Overall tire friction scalar for every type of tire. This value is multiplied against our parents' values. */
-	UPROPERTY(EditAnywhere, Category=Vehicles)
+	/** DEPRECATED - Overall tire friction scalar for every type of tire. This value is multiplied against our parents' values. */
+	UPROPERTY(VisibleAnywhere, Category = Deprecated)
 	float TireFrictionScale;
 
-	/** Tire friction scales for specific types of tires. These values are multiplied against our parents' values. */
-	UPROPERTY(EditAnywhere, Category=Vehicles)
+	/** DEPRECATED - Tire friction scales for specific types of tires. These values are multiplied against our parents' values. */
+	UPROPERTY(VisibleAnywhere, Category = Deprecated)
 	TArray<FTireFrictionScalePair> TireFrictionScales;
 
 public:
@@ -126,9 +136,6 @@ public:
 
 	/** Update the PhysX material from this objects properties */
 	void UpdatePhysXMaterial();
-
-	/** Get the tire friction scale for a type of tire */
-	virtual float GetTireFrictionScale( TWeakObjectPtr<class UTireType> TireType );
 
 	/** Determine Material Type from input PhysicalMaterial **/
 	static EPhysicalSurface DetermineSurfaceType(UPhysicalMaterial const* PhysicalMaterial);

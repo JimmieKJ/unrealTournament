@@ -1,0 +1,15 @@
+﻿<!-- // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. -->
+@using Tools.CrashReporter.CrashReportWebSite.Models
+@model Tools.CrashReporter.CrashReportWebSite.ViewModels.ReportsViewModel
+
+@{
+    ViewBag.Title = "Index";
+    Layout = "../Shared/_CRWLayout.cshtml";
+}
+@section AboveMainContent{
+    <div style="clear: both;">
+        <p style="color: lightgray;">
+            Successfully Unsubscribed from weekly Reports Email for the branch @ ViewData.Eval("BranchName")  and email address @ ViewData.Eval("EmailAddress") .
+        </p><br />
+    </div>
+}

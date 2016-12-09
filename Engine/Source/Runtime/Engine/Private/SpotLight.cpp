@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Engine/SpotLight.h"
+#include "Components/ArrowComponent.h"
 #include "Components/SpotLightComponent.h"
 
 ASpotLight::ASpotLight(const FObjectInitializer& ObjectInitializer)

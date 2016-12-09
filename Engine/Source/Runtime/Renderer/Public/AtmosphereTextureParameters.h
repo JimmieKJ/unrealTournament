@@ -6,7 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
 #include "RHIStaticStates.h"
+#include "SceneView.h"
+
+class FShaderParameterMap;
 
 /** Shader parameters needed for atmosphere passes. */
 class FAtmosphereShaderTextureParameters

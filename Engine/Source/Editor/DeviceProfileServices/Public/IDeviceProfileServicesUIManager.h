@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
+class IDeviceProfileServicesUIManager;
 class UDeviceProfile;
 
 /** Type definition for shared pointers to instances of IDeviceProfileServicesUIManager. */

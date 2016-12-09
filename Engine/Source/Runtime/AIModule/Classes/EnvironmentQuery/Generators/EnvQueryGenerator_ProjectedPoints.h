@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AI/Navigation/NavigationData.h"
-#include "EnvironmentQuery/EnvQueryGenerator.h"
-#include "EnvironmentQuery/EnvQueryTypes.h"
-#include "EnvQueryGenerator_ProjectedPoints.generated.h"
 
-class ANavigationData;
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AI/Navigation/NavigationTypes.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
+#include "EnvironmentQuery/EnvQueryGenerator.h"
+#include "EnvQueryGenerator_ProjectedPoints.generated.h"
 
 UCLASS(Abstract)
 class AIMODULE_API UEnvQueryGenerator_ProjectedPoints : public UEnvQueryGenerator

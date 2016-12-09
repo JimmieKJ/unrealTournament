@@ -1,44 +1,78 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ClassViewerPrivatePCH.h"
+#include "SClassViewer.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Misc/PackageName.h"
+#include "Widgets/SOverlay.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "GameFramework/Actor.h"
+#include "Engine/BlueprintCore.h"
+#include "Engine/Blueprint.h"
+#include "Engine/Brush.h"
+#include "AssetData.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Animation/AnimBlueprint.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "EditorDirectories.h"
+#include "Dialogs/Dialogs.h"
+#include "UnrealEdGlobals.h"
 
-#include "EditorWidgets.h"
-#include "Editor/ClassViewer/Private/SClassViewer.h"
-#include "Editor/UnrealEd/Public/DragAndDrop/ClassDragDropOp.h"
-#include "Editor/UnrealEd/Public/DragAndDrop/AssetDragDropOp.h"
+#include "EditorWidgetsModule.h"
+#include "Styling/SlateIconFinder.h"
+#include "DragAndDrop/ClassDragDropOp.h"
+#include "DragAndDrop/AssetDragDropOp.h"
 
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
+#include "IAssetTools.h"
+#include "ARFilter.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
 
 #include "Kismet2/KismetEditorUtilities.h"
+#include "Editor.h"
 #include "Toolkits/AssetEditorManager.h"
 #include "PackageTools.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 
 #include "AssetRegistryModule.h"
-#include "AssetSelection.h"
 #include "AssetToolsModule.h"
 
-#include "SlateIconFinder.h"
 
 #include "ClassViewerNode.h"
 
+#include "ClassViewerFilter.h"
 #include "UnloadedBlueprintData.h"
 
 #include "EditorClassUtils.h"
 #include "IDocumentation.h"
 
-#include "PropertyEditorModule.h"
 #include "PropertyHandle.h"
 
+#include "AddToProjectConfig.h"
 #include "GameProjectGenerationModule.h"
 
 #include "SourceCodeNavigation.h"
-#include "HotReloadInterface.h"
-#include "SSearchBox.h"
-#include "TextFilterExpressionEvaluator.h"
+#include "Misc/HotReloadInterface.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Misc/TextFilterExpressionEvaluator.h"
 
 #include "SListViewSelectorDropdownMenu.h"
-#include "Engine/BlueprintGeneratedClass.h"
 
 #define LOCTEXT_NAMESPACE "SClassViewer"
 
@@ -2159,7 +2193,7 @@ void SClassViewer::OnGetChildrenForClassViewerTree( TSharedPtr<FClassViewerNode>
 void SClassViewer::OnClassViewerSelectionChanged( TSharedPtr<FClassViewerNode> Item, ESelectInfo::Type SelectInfo )
 {
 	// Do not act on selection change when it is for navigation
-	if(SelectInfo == ESelectInfo::OnNavigation)
+	if(SelectInfo == ESelectInfo::OnNavigation && InitOptions.DisplayMode == EClassViewerDisplayMode::ListView)
 	{
 		return;
 	}

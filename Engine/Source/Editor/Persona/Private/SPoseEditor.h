@@ -3,16 +3,24 @@
 
 #pragma once
 
-#include "Persona.h"
-#include "GraphEditor.h"
-#include "SNodePanel.h"
-#include "SAnimCurvePanel.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "IPersonaPreviewScene.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "IEditableSkeleton.h"
+#include "IPersonaToolkit.h"
+#include "Widgets/Views/SListView.h"
 #include "SAnimEditorBase.h"
-#include "Animation/AnimInstance.h"
 #include "Animation/PoseAsset.h"
-
+#include "Animation/AnimInstance.h"
 
 class SPoseViewer;
+class UAnimSingleNodeInstance;
 
 //////////////////////////////////////////////////////////////////////////
 // FDisplayedPoseInfo
@@ -66,7 +74,7 @@ public:
 
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& OwnerTableView);
+	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& OwnerTableView, const TSharedRef<IPersonaPreviewScene>& InPreviewScene);
 
 	/** Overridden from SMultiColumnTableRow.  Generates a widget for this column of the tree row. */
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override;
@@ -115,6 +123,9 @@ private:
 
 	/** Text the user typed into the search box - used for text highlighting */
 	FText FilterText;
+
+	/** The preview scene we are viewing */
+	TWeakPtr<class IPersonaPreviewScene> PreviewScenePtr;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -189,11 +200,8 @@ class SPoseViewer : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SPoseViewer)
-		: _Persona()
 	{}
 
-	/* The Persona that owns this table */
-	SLATE_ARGUMENT(TWeakPtr< FPersona >, Persona)
 	SLATE_ARGUMENT(TWeakObjectPtr< UPoseAsset >, PoseAsset)
 
 	SLATE_END_ARGS()
@@ -204,13 +212,16 @@ public:
 	* @param InArgs - Arguments passed from Slate
 	*
 	*/
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, const TSharedRef<class IPersonaToolkit>& InPersonaToolkit, const TSharedRef<IEditableSkeleton>& InEditableSkeleton, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene);
 
 	/**
 	* Destructor - resets the animation curve
 	*
 	*/
 	virtual ~SPoseViewer();
+
+	/** SWidget interface */
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent);
 
 	/**
 	* Is registered with Persona to handle when its preview mesh is changed.
@@ -283,10 +294,6 @@ public:
 	FText& GetFilterText() { return FilterText; }
 
 	/**
-	* Get Title text
-	*/
-	FText GetTitleText() const;
-	/**
 	* Refreshes the morph target list after an undo
 	*/
 	void RefreshList();
@@ -295,6 +302,8 @@ public:
 	bool IsBasePose(FName PoseName) const;
 
 private:
+
+	void BindCommands();
 
 	/** Handler for context menus */
 	TSharedPtr<SWidget> OnGetContextMenuContent() const;
@@ -315,10 +324,16 @@ private:
 
 	void ApplyCustomCurveOverride(UAnimInstance* AnimInstance) const;
 	void RefreshCachePreviewInstance();
-	void OnAssestChanged(UAnimationAsset* NewAsset);
+	void OnAssetChanged(UAnimationAsset* NewAsset);
 
-	/** Pointer back to the Persona that owns us */
-	TWeakPtr<FPersona> PersonaPtr;
+	/** Pointer to the preview scene we are viewing */
+	TWeakPtr<class IPersonaPreviewScene> PreviewScenePtr;
+
+	/** Pointer to the persona toolkit we are embedded in */
+	TWeakPtr<class IPersonaToolkit> PersonaToolkitPtr;
+
+	/** Pointer to the editable skeleton we will need to modify */
+	TWeakPtr<class IEditableSkeleton> EditableSkeletonPtr;
 
 	/** Pointer to the pose asset */
 	TWeakObjectPtr<UPoseAsset> PoseAssetPtr;
@@ -344,10 +359,14 @@ private:
 	/** Current text typed into NameFilterBox */
 	FText FilterText;
 
+	/** Commands that are bound to delegates*/
+	TSharedPtr<FUICommandList> UICommandList;
+
 	TMap<FName, float> OverrideCurves;
 
 	/** Add curve delegate */
 	FOnAddCustomAnimationCurves OnAddAnimationCurveDelegate;
+	FDelegateHandle OnDelegatePoseListChangedDelegateHandle;
 
 	friend class SPoseListRow;
 	friend class SCurveListRow;
@@ -360,17 +379,14 @@ class SPoseEditor : public SAnimEditorBase
 {
 public:
 	SLATE_BEGIN_ARGS( SPoseEditor )
-		: _Persona()
-		, _PoseAsset(NULL)
+		: _PoseAsset(NULL)
 		{}
 
-		SLATE_ARGUMENT( TSharedPtr<FPersona>, Persona )
 		SLATE_ARGUMENT( UPoseAsset*, PoseAsset )
 	SLATE_END_ARGS()
 
 public:
-	void Construct(const FArguments& InArgs);
-	virtual ~SPoseEditor();
+	void Construct(const FArguments& InArgs, const TSharedRef<class IPersonaToolkit>& InPersonaToolkit, const TSharedRef<IEditableSkeleton>& InEditableSkeleton, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene);
 
 	virtual UAnimationAsset* GetEditorObject() const override { return PoseAssetObj; }
 

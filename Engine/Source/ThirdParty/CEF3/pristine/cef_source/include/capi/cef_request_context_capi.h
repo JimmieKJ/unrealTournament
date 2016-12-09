@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Marshall A. Greenblatt. All rights reserved.
+// Copyright (c) 2016 Marshall A. Greenblatt. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -38,14 +38,36 @@
 #define CEF_INCLUDE_CAPI_CEF_REQUEST_CONTEXT_CAPI_H_
 #pragma once
 
+#include "include/capi/cef_callback_capi.h"
 #include "include/capi/cef_cookie_capi.h"
 #include "include/capi/cef_request_context_handler_capi.h"
+#include "include/capi/cef_values_capi.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct _cef_scheme_handler_factory_t;
+
+///
+// Callback structure for cef_request_tContext::ResolveHost.
+///
+typedef struct _cef_resolve_callback_t {
+  ///
+  // Base structure.
+  ///
+  cef_base_t base;
+
+  ///
+  // Called after the ResolveHost request has completed. |result| will be the
+  // result code. |resolved_ips| will be the list of resolved IP addresses or
+  // NULL if the resolution failed.
+  ///
+  void (CEF_CALLBACK *on_resolve_completed)(
+      struct _cef_resolve_callback_t* self, cef_errorcode_t result,
+      cef_string_list_t resolved_ips);
+} cef_resolve_callback_t;
+
 
 ///
 // A request context provides request handling for a set of related browser or
@@ -140,6 +162,103 @@ typedef struct _cef_request_context_t {
   ///
   int (CEF_CALLBACK *clear_scheme_handler_factories)(
       struct _cef_request_context_t* self);
+
+  ///
+  // Tells all renderer processes associated with this context to throw away
+  // their plugin list cache. If |reload_pages| is true (1) they will also
+  // reload all pages with plugins.
+  // cef_request_tContextHandler::OnBeforePluginLoad may be called to rebuild
+  // the plugin list cache.
+  ///
+  void (CEF_CALLBACK *purge_plugin_list_cache)(
+      struct _cef_request_context_t* self, int reload_pages);
+
+  ///
+  // Returns true (1) if a preference with the specified |name| exists. This
+  // function must be called on the browser process UI thread.
+  ///
+  int (CEF_CALLBACK *has_preference)(struct _cef_request_context_t* self,
+      const cef_string_t* name);
+
+  ///
+  // Returns the value for the preference with the specified |name|. Returns
+  // NULL if the preference does not exist. The returned object contains a copy
+  // of the underlying preference value and modifications to the returned object
+  // will not modify the underlying preference value. This function must be
+  // called on the browser process UI thread.
+  ///
+  struct _cef_value_t* (CEF_CALLBACK *get_preference)(
+      struct _cef_request_context_t* self, const cef_string_t* name);
+
+  ///
+  // Returns all preferences as a dictionary. If |include_defaults| is true (1)
+  // then preferences currently at their default value will be included. The
+  // returned object contains a copy of the underlying preference values and
+  // modifications to the returned object will not modify the underlying
+  // preference values. This function must be called on the browser process UI
+  // thread.
+  ///
+  struct _cef_dictionary_value_t* (CEF_CALLBACK *get_all_preferences)(
+      struct _cef_request_context_t* self, int include_defaults);
+
+  ///
+  // Returns true (1) if the preference with the specified |name| can be
+  // modified using SetPreference. As one example preferences set via the
+  // command-line usually cannot be modified. This function must be called on
+  // the browser process UI thread.
+  ///
+  int (CEF_CALLBACK *can_set_preference)(struct _cef_request_context_t* self,
+      const cef_string_t* name);
+
+  ///
+  // Set the |value| associated with preference |name|. Returns true (1) if the
+  // value is set successfully and false (0) otherwise. If |value| is NULL the
+  // preference will be restored to its default value. If setting the preference
+  // fails then |error| will be populated with a detailed description of the
+  // problem. This function must be called on the browser process UI thread.
+  ///
+  int (CEF_CALLBACK *set_preference)(struct _cef_request_context_t* self,
+      const cef_string_t* name, struct _cef_value_t* value,
+      cef_string_t* error);
+
+  ///
+  // Clears all certificate exceptions that were added as part of handling
+  // cef_request_tHandler::on_certificate_error(). If you call this it is
+  // recommended that you also call close_all_connections() or you risk not
+  // being prompted again for server certificates if you reconnect quickly. If
+  // |callback| is non-NULL it will be executed on the UI thread after
+  // completion.
+  ///
+  void (CEF_CALLBACK *clear_certificate_exceptions)(
+      struct _cef_request_context_t* self,
+      struct _cef_completion_callback_t* callback);
+
+  ///
+  // Clears all active and idle connections that Chromium currently has. This is
+  // only recommended if you have released all other CEF objects but don't yet
+  // want to call cef_shutdown(). If |callback| is non-NULL it will be executed
+  // on the UI thread after completion.
+  ///
+  void (CEF_CALLBACK *close_all_connections)(
+      struct _cef_request_context_t* self,
+      struct _cef_completion_callback_t* callback);
+
+  ///
+  // Attempts to resolve |origin| to a list of associated IP addresses.
+  // |callback| will be executed on the UI thread after completion.
+  ///
+  void (CEF_CALLBACK *resolve_host)(struct _cef_request_context_t* self,
+      const cef_string_t* origin, struct _cef_resolve_callback_t* callback);
+
+  ///
+  // Attempts to resolve |origin| to a list of associated IP addresses using
+  // cached data. |resolved_ips| will be populated with the list of resolved IP
+  // addresses or NULL if no cached data is available. Returns ERR_NONE on
+  // success. This function must be called on the browser process IO thread.
+  ///
+  cef_errorcode_t (CEF_CALLBACK *resolve_host_cached)(
+      struct _cef_request_context_t* self, const cef_string_t* origin,
+      cef_string_list_t resolved_ips);
 } cef_request_context_t;
 
 

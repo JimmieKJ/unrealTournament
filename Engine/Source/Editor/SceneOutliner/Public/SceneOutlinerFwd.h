@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/CoreDelegates.h"
+#include "GameFramework/Actor.h"
+
 class ISceneOutliner;
 class ISceneOutlinerColumn;
 

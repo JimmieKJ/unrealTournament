@@ -1,14 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "EngineDefines.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/ScopedSlowTask.h"
+#include "GameFramework/Actor.h"
+#include "Materials/Material.h"
+#include "Engine/Brush.h"
+#include "Editor/EditorEngine.h"
+#include "Engine/Polys.h"
+#include "Engine/Selection.h"
+#include "EdMode.h"
+#include "EditorModeManager.h"
 #include "SurfaceIterators.h"
 #include "BSPOps.h"
 #include "ActorEditorUtils.h"
-#include "Engine/Polys.h"
+#include "Misc/FeedbackContext.h"
 #include "EngineUtils.h"
-#include "Engine/Brush.h"
-#include "Engine/Selection.h"
 
 // Globals:
 static TArray<uint8*> GFlags1;
@@ -133,7 +142,7 @@ void UEditorEngine::csgRebuild( UWorld* InWorld )
 {
 	GWarn->BeginSlowTask( NSLOCTEXT("UnrealEd", "RebuildingGeometry", "Rebuilding geometry"), false );
 	FBSPOps::GFastRebuild = 1;
-
+	ABrush::GGeometryRebuildCause = TEXT("csgRebuild");
 	FinishAllSnaps();
 
 	// Empty the model out.
@@ -307,6 +316,7 @@ void UEditorEngine::csgRebuild( UWorld* InWorld )
 	InWorld->GetModel()->Polys->Element.Empty();
 
 	// Done.
+	ABrush::GGeometryRebuildCause = nullptr;
 	FBSPOps::GFastRebuild = 0;
 	InWorld->GetCurrentLevel()->MarkPackageDirty();
 	GWarn->EndSlowTask();
@@ -1348,13 +1358,9 @@ void UEditorEngine::mapBrushPut()
 static void SendTo( UWorld* InWorld, int32 bSendToFirst )
 {
 	ULevel*	Level = InWorld->GetCurrentLevel();
-	check(Level);
 	for (AActor* Actor : Level->Actors)
 	{
-		if (Actor)
-		{
-			Actor->Modify();
-		}
+		Actor->Modify();
 	}
 	
 	// Fire ULevel::LevelDirtiedEvent when falling out of scope.

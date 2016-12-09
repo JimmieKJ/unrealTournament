@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Widget.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/Widget.h"
 #include "TableViewBase.generated.h"
 
 /** The base class for all wrapped table views */

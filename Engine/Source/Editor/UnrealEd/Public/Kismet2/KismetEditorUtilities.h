@@ -6,9 +6,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "GameFramework/Actor.h"
 #include "Engine/Blueprint.h"
+#include "Engine/BlueprintGeneratedClass.h"
 
-class UBlueprintGeneratedClass;
+class IBlueprintEditor;
+class UEdGraph;
+struct Rect;
 
 //////////////////////////////////////////////////////////////////////////
 // FKismetEditorUtilities

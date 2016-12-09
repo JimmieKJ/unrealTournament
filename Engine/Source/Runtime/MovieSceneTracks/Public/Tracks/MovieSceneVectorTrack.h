@@ -2,13 +2,11 @@
 
 #pragma once
 
-#include "MovieScene.h"
-#include "MovieSceneTrack.h"
-#include "MovieScenePropertyTrack.h"
-#include "MovieScenePropertyTrack.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Tracks/MovieScenePropertyTrack.h"
 
 #include "MovieSceneVectorTrack.generated.h"
-
 
 /**
  * Handles manipulation of component transforms in a movie scene
@@ -20,17 +18,7 @@ class UMovieSceneVectorTrack : public UMovieScenePropertyTrack
 public:
 	/** UMovieSceneTrack interface */
 	virtual UMovieSceneSection* CreateNewSection() override;
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
-
-	/**
-	 * Evaluates the track at the playback position
-	 *
-	 * @param Position	The current playback position
-	 * @param LastPosition	The last plackback position
-	 * @param OutVector 	The value at the playback position
-	 * @return true if anything was evaluated. Note: if false is returned OutVector remains unchanged
-	 */
-	virtual bool Eval( float Position, float LastPostion, FVector4& InOutVector ) const;
+	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 
 	/** @return Get the number of channels used by the vector */
 	int32 GetNumChannelsUsed() const { return NumChannelsUsed; }

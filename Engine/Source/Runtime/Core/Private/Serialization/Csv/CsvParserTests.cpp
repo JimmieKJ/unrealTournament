@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "CsvParser.h"
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Misc/AutomationTest.h"
+#include "Serialization/Csv/CsvParser.h"
 
 namespace CsvParser_Tests
 {

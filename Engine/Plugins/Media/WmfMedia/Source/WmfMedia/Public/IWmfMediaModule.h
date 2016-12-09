@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-
+#include "CoreTypes.h"
+#include "Templates/SharedPointer.h"
+#include "Modules/ModuleInterface.h"
 
 class IMediaPlayer;
-
 
 /**
  * Interface for the WmfMedia module.

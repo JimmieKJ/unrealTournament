@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "ContentBrowserUtils.h"
+#include "CoreMinimal.h"
+#include "AssetData.h"
+#include "UObject/GCObject.h"
+#include "Misc/Paths.h"
+#include "Editor/ContentBrowser/Private/ContentBrowserUtils.h"
+
+class UFactory;
 
 namespace EAssetItemType
 {

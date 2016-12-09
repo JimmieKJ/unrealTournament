@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AnimGraphNode_Base.h"
 #include "Animation/AnimNode_TransitionResult.h"
 #include "AnimGraphNode_TransitionResult.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
 
 UCLASS(MinimalAPI)
 class UAnimGraphNode_TransitionResult : public UAnimGraphNode_Base

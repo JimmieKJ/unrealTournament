@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 /**
  * Traits class which tests if a type is arithmetic.
  */

@@ -4,16 +4,18 @@
 	PostProcessMotionBlur.cpp: Post process MotionBlur implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessAmbientOcclusion.h"
-#include "PostProcessMotionBlur.h"
-#include "PostProcessAmbientOcclusion.h"
-#include "PostProcessing.h"
+#include "PostProcess/PostProcessMotionBlur.h"
+#include "StaticBoundShaderState.h"
+#include "CanvasTypes.h"
+#include "RenderTargetTemp.h"
 #include "SceneUtils.h"
-#include "GPUSkinVertexFactory.h"
-#include "../../Engine/Private/SkeletalRenderGPUSkin.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "SceneRenderTargetParameters.h"
+#include "ScenePrivate.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "CompositionLighting/PostProcessAmbientOcclusion.h"
+#include "PostProcess/PostProcessing.h"
+#include "DeferredShadingRenderer.h"
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 static TAutoConsoleVariable<int32> CVarMotionBlurFiltering(
@@ -720,7 +722,10 @@ FPooledRenderTargetDesc FRCPassPostProcessMotionBlur::ComputeOutputDesc(EPassOut
 	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.Reset();
-	Ret.Format = PF_FloatRGB;
+	if (!SupportSceneAlpha())
+	{
+		Ret.Format = PF_FloatRGB;
+	}
 	Ret.DebugName = TEXT("MotionBlur");
 	Ret.AutoWritable = false;
 
@@ -796,12 +801,12 @@ public:
 			// Instead of finding the world space position of the current pixel, calculate the world space position offset by the camera position, 
 			// then translate by the difference between last frame's camera position and this frame's camera position,
 			// then apply the rest of the transforms.  This effectively avoids precision issues near the extents of large levels whose world space position is very large.
-			FVector ViewOriginDelta = Context.View.ViewMatrices.ViewOrigin - Context.View.PrevViewMatrices.ViewOrigin;
-			SetShaderValue(Context.RHICmdList, ShaderRHI, PrevViewProjMatrix, FTranslationMatrix(ViewOriginDelta) * Context.View.PrevViewRotationProjMatrix);
+			FVector ViewOriginDelta = Context.View.ViewMatrices.GetViewOrigin() - Context.View.PrevViewMatrices.GetViewOrigin();
+			SetShaderValue(Context.RHICmdList, ShaderRHI, PrevViewProjMatrix, FTranslationMatrix(ViewOriginDelta) * Context.View.PrevViewMatrices.ComputeViewRotationProjectionMatrix());
 		}
 		else
 		{
-			SetShaderValue(Context.RHICmdList, ShaderRHI, PrevViewProjMatrix, Context.View.ViewMatrices.GetViewRotationProjMatrix());
+			SetShaderValue(Context.RHICmdList, ShaderRHI, PrevViewProjMatrix, Context.View.ViewMatrices.ComputeViewRotationProjectionMatrix());
 		}
 	}
 
@@ -852,7 +857,7 @@ void FRCPassPostProcessVisualizeMotionBlur::Process(FRenderingCompositePassConte
 	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
 	
 	// is optimized away if possible (RT size=view size, )
-	Context.RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, SrcRect);
+	Context.RHICmdList.ClearColorTexture(DestRenderTarget.TargetableTexture, FLinearColor::Black, SrcRect);
 
 	Context.SetViewportAndCallRHI(SrcRect);
 
@@ -920,8 +925,8 @@ void FRCPassPostProcessVisualizeMotionBlur::Process(FRenderingCompositePassConte
 	const FSceneViewState *SceneViewState = (const FSceneViewState*)View.State;
 
 	Line = FString::Printf(TEXT("View=%.4x PrevView=%.4x"),
-		View.ViewMatrices.ViewMatrix.ComputeHash() & 0xffff,
-		SceneViewState->PrevViewMatrices.ViewMatrix.ComputeHash() & 0xffff);
+		View.ViewMatrices.GetViewMatrix().ComputeHash() & 0xffff,
+		SceneViewState->PrevViewMatrices.GetViewMatrix().ComputeHash() & 0xffff);
 	Canvas.DrawShadowedString(X, Y += YStep, TEXT("ViewMatrix:"), GetStatsFont(), FLinearColor(1, 1, 0));
 	Canvas.DrawShadowedString(X + ColumnWidth, Y, *Line, GetStatsFont(), FLinearColor(1, 1, 0));
 

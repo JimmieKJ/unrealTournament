@@ -1,15 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-using System;
-using System.IO;
-using System.Xml.Serialization;
-using System.Collections;
-using System.Collections.Generic;
-using Tools.DotNETCommon.XmlHandler;
-using System.Xml;
-using System.Linq;
-using System.Security;
-
 namespace Tools.CrashReporter.CrashReportCommon
 {
 	/// <summary>
@@ -27,11 +17,6 @@ namespace Tools.CrashReporter.CrashReportCommon
 		public WERReportMetadataDynamicSignatures DynamicSignatures;
 		/// <summary>Information about the system the crash occurred on.</summary>
 		public WERReportMetadataSystemInformation SystemInformation;
-
-		/// <summary>A simple default constructor to allow Xml serialisation.</summary>
-		public WERReportMetadata()
-		{
-		}
 	}
 
 	/// <summary>
@@ -101,6 +86,9 @@ namespace Tools.CrashReporter.CrashReportCommon
 
 		/// <summary>Was the "crash" a non-fatal event?</summary>
 		public bool IsEnsure = false;
+
+		/// <summary>Is the build version string</summary>
+		public string BuildVersion = "";
 
 		/// <summary>Was the "crash" an assert or check that failed?</summary>
 		public bool IsAssert = false;

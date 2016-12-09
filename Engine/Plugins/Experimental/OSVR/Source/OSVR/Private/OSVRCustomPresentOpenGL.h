@@ -26,8 +26,8 @@
 class FCurrentCustomPresent : public FOSVRCustomPresent<void*>
 {
 public:
-    FCurrentCustomPresent(OSVR_ClientContext clientContext, float screenScale) :
-        FOSVRCustomPresent(clientContext, screenScale)
+    FCurrentCustomPresent(OSVR_ClientContext clientContext) :
+        FOSVRCustomPresent(clientContext)
     {
     }
 

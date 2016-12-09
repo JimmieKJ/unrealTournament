@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "SThrobber.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Styling/SlateBrush.h"
+#include "Widgets/SWidget.h"
+#include "Components/Widget.h"
+#include "Widgets/Images/SThrobber.h"
 #include "Throbber.generated.h"
 
 class USlateBrushAsset;

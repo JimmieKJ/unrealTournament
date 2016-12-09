@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "Brushes/SlateNoResource.h"
-#include "Fonts/SlateFontInfo.h"
-#include "Misc/Paths.h"
 
-struct FMargin;
-struct FSlateSound;
+#include "CoreMinimal.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Layout/Margin.h"
+#include "Sound/SlateSound.h"
+#include "Misc/Paths.h"
+#include "Brushes/SlateNoResource.h"
 
 class SLATECORE_API FStyleDefaults
 {

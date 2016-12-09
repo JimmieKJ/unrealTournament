@@ -11,8 +11,8 @@
 /**
 * Future-proofing the min version check so we keep bumping it whenever we upgrade.
 */
-#if _MSC_VER > 1900 
-	#pragma message("Detected compiler newer than Visual Studio 2015, please update min version checking in WindowsPlatformCompilerSetup.h")
+#if _MSC_VER > 1919 
+	#pragma message("Detected compiler newer than Visual Studio '15', please update min version checking in WindowsPlatformCompilerSetup.h")
 #endif
 
 /**

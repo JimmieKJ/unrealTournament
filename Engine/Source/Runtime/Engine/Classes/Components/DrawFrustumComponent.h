@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/PrimitiveComponent.h"
 #include "DrawFrustumComponent.generated.h"
+
+class FPrimitiveSceneProxy;
 
 /**
  *	Utility component for drawing a view frustum. Origin is at the component location, frustum points down position X axis.

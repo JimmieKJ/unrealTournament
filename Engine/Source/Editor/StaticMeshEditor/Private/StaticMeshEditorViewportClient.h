@@ -2,16 +2,25 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "UnrealWidget.h"
 #include "EditorViewportClient.h"
+#include "Components.h"
 
-class SStaticMeshEditorViewport;
 class FAdvancedPreviewScene;
+class FCanvas;
+class IStaticMeshEditor;
+class SStaticMeshEditorViewport;
+class UStaticMesh;
+class UStaticMeshComponent;
+class UStaticMeshSocket;
 
 /** Viewport Client for the preview viewport */
 class FStaticMeshEditorViewportClient : public FEditorViewportClient, public TSharedFromThis<FStaticMeshEditorViewportClient>
 {
 public:
-	FStaticMeshEditorViewportClient(TWeakPtr<IStaticMeshEditor> InStaticMeshEditor, const TSharedRef<SStaticMeshEditorViewport>& InStaticMeshEditorViewport, FAdvancedPreviewScene& InPreviewScene, UStaticMesh* InPreviewStaticMesh, UStaticMeshComponent* InPreviewStaticMeshComponent);
+	FStaticMeshEditorViewportClient(TWeakPtr<IStaticMeshEditor> InStaticMeshEditor, const TSharedRef<SStaticMeshEditorViewport>& InStaticMeshEditorViewport, const TSharedRef<FAdvancedPreviewScene>& InPreviewScene, UStaticMesh* InPreviewStaticMesh, UStaticMeshComponent* InPreviewStaticMeshComponent);
 	~FStaticMeshEditorViewportClient();
 
 	// FEditorViewportClient interface

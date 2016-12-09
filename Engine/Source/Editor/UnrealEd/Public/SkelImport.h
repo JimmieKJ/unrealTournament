@@ -6,6 +6,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "ReferenceSkeleton.h"
+#include "SkeletalMeshTypes.h"
+#include "Engine/SkeletalMesh.h"
+
+class UAssetImportData;
+class UMorphTarget;
+class UPhysicsAsset;
+class USkeletalMeshSocket;
+class USkeleton;
+class UThumbnailInfo;
+
 // Raw data material.
 struct VMaterial
 {

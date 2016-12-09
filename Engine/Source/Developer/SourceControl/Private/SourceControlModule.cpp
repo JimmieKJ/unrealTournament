@@ -1,15 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SourceControlPrivatePCH.h"
 #include "SourceControlModule.h"
-#include "SourceControlSettings.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
-#include "Developer/MessageLog/Public/MessageLogModule.h"
+#include "Features/IModularFeatures.h"
 #include "SSourceControlLogin.h"
 
-#if WITH_EDITOR
+#if SOURCE_CONTROL_WITH_SLATE
+	#include "Widgets/DeclarativeSyntaxSupport.h"
+	#include "Widgets/SWindow.h"
+	#include "Widgets/Layout/SBox.h"
+	#include "Framework/Docking/TabManager.h"
+	#include "Framework/Application/SlateApplication.h"
+#endif
 
-	#include "Settings/EditorLoadingSavingSettings.h"
+#if WITH_UNREAL_DEVELOPER_TOOLS
+	#include "MessageLogModule.h"
+#endif
+
+#if WITH_EDITOR
 	#include "Runtime/Engine/Public/EngineAnalytics.h"
 	#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #endif

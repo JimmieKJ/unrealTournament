@@ -1,17 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SlateBasics.h"
-#include "IWebBrowserDialog.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/PopupMethodReply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/SlateDelegates.h"
+#include "Framework/Application/IMenu.h"
+#include "Widgets/SViewport.h"
 #include "IWebBrowserSingleton.h"
 
-enum class EWebBrowserDocumentState;
-class IWebBrowserWindow;
 class FWebBrowserViewport;
-class UObject;
-class IWebBrowserPopupFeatures;
 class IWebBrowserAdapter;
+class IWebBrowserDialog;
+class IWebBrowserPopupFeatures;
+class IWebBrowserWindow;
 struct FWebNavigationRequest;
+enum class EWebBrowserDialogEventResponse;
+enum class EWebBrowserDocumentState;
 
 DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopupDelegate, FString, FString);
 DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnCreateWindowDelegate, const TWeakPtr<IWebBrowserWindow>&, const TWeakPtr<IWebBrowserPopupFeatures>&);
@@ -86,7 +93,7 @@ public:
 
 		/** Called when the Url changes. */
 		SLATE_EVENT(FOnTextChanged, OnUrlChanged)
-	
+
 		/** Called before a popup window happens */
 		SLATE_EVENT(FOnBeforePopupDelegate, OnBeforePopup)
 
@@ -98,7 +105,7 @@ public:
 
 		/** Called before browser navigation. */
 		SLATE_EVENT(FOnBeforeBrowse, OnBeforeNavigation)
-	
+
 		/** Called to allow bypassing page content on load. */
 		SLATE_EVENT(FOnLoadUrl, OnLoadUrl)
 
@@ -127,7 +134,7 @@ public:
 
 	/**
 	 * Load the specified URL.
-	 * 
+	 *
 	 * @param NewURL New URL to load.
 	 */
 	void LoadURL(FString NewURL);
@@ -175,7 +182,16 @@ public:
 	/** Execute javascript on the current window */
 	void ExecuteJavascript(const FString& ScriptText);
 
-	/** 
+	/**
+	 * Gets the source of the main frame as raw HTML.
+	 *
+	 * This method has to be called asynchronously by passing a callback function, which will be called at a later point when the
+	 * result is ready.
+	 * @param	Callback	A callable that takes a single string reference for handling the result.
+	 */
+	void GetSource(TFunction<void (const FString&)> Callback) const ;
+
+	/**
 	 * Expose a UObject instance to the browser runtime.
 	 * Properties and Functions will be accessible from JavaScript side.
 	 * As all communication with the rendering procesis asynchronous, return values (both for properties and function results) are wrapped into JS Future objects.
@@ -226,7 +242,7 @@ private:
 
 	/** Callback for loaded url changes. */
 	void HandleUrlChanged(FString NewUrl);
-	
+
 	/** Callback for showing browser tool tips. */
 	void HandleToolTip(FString ToolTipText);
 
@@ -236,7 +252,7 @@ private:
 	 * @return true if the navigation was handled an no further action should be taken by the browser, false if the browser should handle.
 	 */
 	bool HandleBeforeNavigation(const FString& Url, const FWebNavigationRequest& Request);
-	
+
 	bool HandleLoadUrl(const FString& Method, const FString& Url, FString& OutResponse);
 
 	/**
@@ -279,13 +295,14 @@ private:
 	}
 
 	void HandleWindowDeactivated();
+	void HandleWindowActivated();
 
 private:
 
 	/** Interface for dealing with a web browser window. */
 	TSharedPtr<IWebBrowserWindow> BrowserWindow;
-	/** The slate window that contains this widget. */
-	TSharedPtr<SWindow> SlateParentWindow;
+	/** The slate window that contains this widget. This must be stored weak otherwise we create a circular reference. */
+	TWeakPtr<SWindow> SlateParentWindowPtr;
 	/** Viewport interface for rendering the web page. */
 	TSharedPtr<FWebBrowserViewport> BrowserViewport;
 	/** Viewport interface for rendering popup menus. */
@@ -321,7 +338,7 @@ private:
 
 	/** A delegate that is invoked when document address changed. */
 	FOnTextChanged OnUrlChanged;
-	
+
 	/** A delegate that is invoked when the browser attempts to pop up a new window */
 	FOnBeforePopupDelegate OnBeforePopup;
 
@@ -333,7 +350,7 @@ private:
 
 	/** A delegate that is invoked prior to browser navigation */
 	FOnBeforeBrowse OnBeforeNavigation;
-	
+
 	/** A delegate that is invoked when loading a resource, allowing the application to provide contents directly */
 	FOnLoadUrl OnLoadUrl;
 

@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
-#include "SoundDefinitions.h"
 #include "Sound/SoundNodeDistanceCrossFade.h"
+#include "ActiveSound.h"
+#include "AudioDevice.h"
+#include "Sound/SoundBase.h"
 
 /*-----------------------------------------------------------------------------
 	USoundNodeDistanceCrossFade implementation.
@@ -97,8 +98,17 @@ void USoundNodeDistanceCrossFade::ParseNodes( FAudioDevice* AudioDevice, const U
 
 			UpdatedParams.Volume = ParseParams.Volume * VolumeToSet;
 
+			const bool bWasFinished = ActiveSound.bFinished;
+			const int32 WaveInstanceCount = WaveInstances.Num();
+
 			// "play" the rest of the tree
 			ChildNodes[ ChildNodeIndex ]->ParseNodes( AudioDevice, GetNodeWaveInstanceHash(NodeWaveInstanceHash, ChildNodes[ChildNodeIndex], ChildNodeIndex), ActiveSound, UpdatedParams, WaveInstances );
+		
+			// Don't let an out of range cross-fade branch keep an active sound alive
+			if (bWasFinished && VolumeToSet <= 0.f && WaveInstanceCount == WaveInstances.Num() && !ActiveSound.GetSound()->IsLooping())
+			{
+				ActiveSound.bFinished = true;
+			}
 		}
 	}
 

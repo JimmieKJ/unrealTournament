@@ -1,16 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "MaterialShaderQualitySettingsCustomization.h"
+
 #if WITH_EDITOR
 
-#include "MaterialShaderQualitySettingsPrivatePCH.h"
-#include "MaterialShaderQualitySettingsCustomization.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/Input/SButton.h"
+#include "PropertyHandle.h"
+#include "IDetailChildrenBuilder.h"
 #include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
 #include "DetailCategoryBuilder.h"
-#include "PropertyEditing.h"
-#include "ShaderPlatformQualitySettings.h"
-#include "SListView.h"
-#include "SCompoundWidget.h"
-#include "SceneTypes.h"
 #include "ShaderQualityOverridesListItem.h"
 
 #define LOCTEXT_NAMESPACE "MaterialShaderQualitySettings"

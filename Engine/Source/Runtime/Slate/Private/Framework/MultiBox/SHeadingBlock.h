@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/MultiBox/MultiBox.h"
+
 /**
  * Heading MultiBlock
  */

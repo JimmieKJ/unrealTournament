@@ -1,13 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // Core includes.
-#include "CorePrivatePCH.h"
+#include "Misc/Paths.h"
+#include "UObject/NameTypes.h"
+#include "Logging/LogMacros.h"
+#include "HAL/FileManager.h"
+#include "Misc/Parse.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/CommandLine.h"
+#include "Internationalization/Text.h"
+#include "Internationalization/Internationalization.h"
+#include "Misc/Guid.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Misc/App.h"
-#include "EngineVersion.h"
+#include "Misc/EngineVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPaths, Log, All);
 
- 
+
 /*-----------------------------------------------------------------------------
 	Path helpers for retrieving game dir, engine dir, etc.
 -----------------------------------------------------------------------------*/
@@ -153,8 +163,7 @@ FString FPaths::GameUserDir()
 {
 	if (ShouldSaveToUserDir())
 	{
-		// PLK - We're a config heavy game, I'd prefer to be in My Documents than AppData
-		return FPaths::Combine(FPlatformProcess::UserDir(), FApp::GetGameName()) + TEXT("/");
+		return FPaths::Combine(FPlatformProcess::UserSettingsDir(), FApp::GetGameName()) + TEXT("/");
 	}
 	else
 	{
@@ -186,7 +195,7 @@ FString FPaths::GameSavedDir()
 
 FString FPaths::GameIntermediateDir()
 {
-	return FPaths::GameDir() + TEXT("Intermediate/");
+	return GameUserDir() + TEXT("Intermediate/");
 }
 
 FString FPaths::GamePluginsDir()

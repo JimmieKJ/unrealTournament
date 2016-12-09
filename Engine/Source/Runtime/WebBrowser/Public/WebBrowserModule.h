@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
-// Forward Declarations
 class IWebBrowserSingleton;
 
 /**

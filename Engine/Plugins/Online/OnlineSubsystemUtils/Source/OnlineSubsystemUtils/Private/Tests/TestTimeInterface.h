@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "Core.h"
-#include "OnlineTimeInterface.h"
+#include "CoreMinimal.h"
+#include "Interfaces/OnlineTimeInterface.h"
+
+class Error;
 
 #if WITH_DEV_AUTOMATION_TESTS
 

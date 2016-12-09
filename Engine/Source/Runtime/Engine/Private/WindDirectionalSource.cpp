@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Components/WindDirectionalSourceComponent.h"
 #include "Engine/WindDirectionalSource.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/ArrowComponent.h"
+#include "Engine/Texture2D.h"
+#include "SceneManagement.h"
+#include "Components/WindDirectionalSourceComponent.h"
+#include "Components/BillboardComponent.h"
 
 AWindDirectionalSource::AWindDirectionalSource(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -41,24 +45,24 @@ AWindDirectionalSource::AWindDirectionalSource(const FObjectInitializer& ObjectI
 			ArrowComponent->bUseInEditorScaling = true;
 		}
 
-		if (GetSpriteComponent())
+		if (UBillboardComponent* SpriteComp = GetSpriteComponent())
 		{
-			GetSpriteComponent()->Sprite = ConstructorStatics.SpriteTexture.Get();
-			GetSpriteComponent()->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
-			GetSpriteComponent()->SpriteInfo.Category = ConstructorStatics.ID_Wind;
-			GetSpriteComponent()->SpriteInfo.DisplayName = ConstructorStatics.NAME_Wind;
-			GetSpriteComponent()->SetupAttachment(Component);
+			SpriteComp->Sprite = ConstructorStatics.SpriteTexture.Get();
+			SpriteComp->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
+			SpriteComp->SpriteInfo.Category = ConstructorStatics.ID_Wind;
+			SpriteComp->SpriteInfo.DisplayName = ConstructorStatics.NAME_Wind;
+			SpriteComp->SetupAttachment(Component);
 		}
 	}
 #endif // WITH_EDITORONLY_DATA
 }
 
-void FWindSourceSceneProxy::FWindData::PrepareForAccumulate()
+void FWindData::PrepareForAccumulate()
 {
 	FMemory::Memset(this, 0, sizeof(FWindData));
 }
 
-void FWindSourceSceneProxy::FWindData::AddWeighted(const FWindData& InWindData, float Weight)
+void FWindData::AddWeighted(const FWindData& InWindData, float Weight)
 {	
 	Speed += InWindData.Speed * Weight;
 	MinGustAmt += InWindData.MinGustAmt * Weight;
@@ -66,7 +70,7 @@ void FWindSourceSceneProxy::FWindData::AddWeighted(const FWindData& InWindData, 
 	Direction += InWindData.Direction * Weight;
 }
 
-void FWindSourceSceneProxy::FWindData::NormalizeByTotalWeight(float TotalWeight)
+void FWindData::NormalizeByTotalWeight(float TotalWeight)
 {
 	if (TotalWeight > 0.0f)
 	{
@@ -147,6 +151,72 @@ UWindDirectionalSourceComponent::UWindDirectionalSourceComponent(const FObjectIn
 	bAutoActivate = true;
 }
 
+void UWindDirectionalSourceComponent::Activate(bool bReset)
+{
+	Super::Activate(bReset);
+	if (bRenderStateCreated)
+	{
+		GetWorld()->Scene->AddWindSource(this);
+	}
+}
+
+void UWindDirectionalSourceComponent::Deactivate()
+{
+	Super::Deactivate();
+	if (SceneProxy)
+	{
+		GetWorld()->Scene->RemoveWindSource(this);
+	}
+}
+
+void UWindDirectionalSourceComponent::SetStrength(float InNewStrength)
+{
+	Strength = InNewStrength;
+
+	// Need to update render thread proxy with new data
+	MarkRenderDynamicDataDirty();
+}
+
+void UWindDirectionalSourceComponent::SetSpeed(float InNewSpeed)
+{
+	Speed = InNewSpeed;
+
+	// Need to update render thread proxy with new data
+	MarkRenderDynamicDataDirty();
+}
+
+void UWindDirectionalSourceComponent::SetMinimumGustAmount(float InNewMinGust)
+{
+	MinGustAmount = InNewMinGust;
+
+	// Need to update render thread proxy with new data
+	MarkRenderDynamicDataDirty();
+}
+
+void UWindDirectionalSourceComponent::SetMaximumGustAmount(float InNewMaxGust)
+{
+	MaxGustAmount = InNewMaxGust;
+
+	// Need to update render thread proxy with new data
+	MarkRenderDynamicDataDirty();
+}
+
+void UWindDirectionalSourceComponent::SetRadius(float InNewRadius)
+{
+	Radius = InNewRadius;
+
+	// Need to update render thread proxy with new data
+	MarkRenderDynamicDataDirty();
+}
+
+void UWindDirectionalSourceComponent::SetWindType(EWindSourceType InNewType)
+{
+	bPointWind = InNewType == EWindSourceType::Point;
+
+	// Need to update render thread proxy with new data
+	MarkRenderDynamicDataDirty();
+}
+
 void UWindDirectionalSourceComponent::CreateRenderState_Concurrent()
 {
 	Super::CreateRenderState_Concurrent();
@@ -156,8 +226,20 @@ void UWindDirectionalSourceComponent::CreateRenderState_Concurrent()
 void UWindDirectionalSourceComponent::SendRenderTransform_Concurrent()
 {
 	Super::SendRenderTransform_Concurrent();
-	GetWorld()->Scene->RemoveWindSource(this);
-	GetWorld()->Scene->AddWindSource(this);
+	UpdateSceneData_Concurrent();
+}
+
+void UWindDirectionalSourceComponent::SendRenderDynamicData_Concurrent()
+{
+	Super::SendRenderDynamicData_Concurrent();
+	UpdateSceneData_Concurrent();
+}
+
+void UWindDirectionalSourceComponent::UpdateSceneData_Concurrent()
+{
+	FSceneInterface* Scene = GetWorld()->Scene;
+	Scene->RemoveWindSource(this);
+	Scene->AddWindSource(this);
 }
 
 void UWindDirectionalSourceComponent::DestroyRenderState_Concurrent()
@@ -191,6 +273,24 @@ FWindSourceSceneProxy* UWindDirectionalSourceComponent::CreateSceneProxy() const
 	}
 }
 
+bool UWindDirectionalSourceComponent::GetWindParameters(const FVector& EvaluatePosition, FWindData& OutData, float& Weight) const
+{
+	// Whether we found any wind at the requested position (perhaps there's only point wind in the scene, or no wind)
+	bool bFoundWind = false;
+
+	if(bPointWind)
+	{
+		FWindSourceSceneProxy LocalProxy = FWindSourceSceneProxy(ComponentToWorld.GetLocation(), Strength, Speed, MinGustAmount, MaxGustAmount, Radius);
+		bFoundWind = LocalProxy.GetWindParameters(EvaluatePosition, OutData, Weight);
+	}
+	else
+	{
+		FWindSourceSceneProxy LocalProxy = FWindSourceSceneProxy(ComponentToWorld.GetUnitAxis(EAxis::X), Strength, Speed, MinGustAmount, MaxGustAmount);
+		bFoundWind = LocalProxy.GetWindParameters(EvaluatePosition, OutData, Weight);
+	}
+
+	return bFoundWind;
+}
 
 /** Returns Component subobject **/
 UWindDirectionalSourceComponent* AWindDirectionalSource::GetComponent() const { return Component; }

@@ -1,7 +1,7 @@
 //
 // paOutputStream.cpp
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #include "System/paConfig.h"
 

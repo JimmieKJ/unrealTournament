@@ -2,23 +2,29 @@
 
 #pragma once
 
-/*-----------------------------------------------------------------------------
-	Declarations
------------------------------------------------------------------------------*/
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/Commands.h"
 
-/** Class that holds all profiler commands. */
-class FProfilerCommands : public TCommands<FProfilerCommands>
+class FMenuBuilder;
+
+/**
+ * Class that holds all profiler commands.
+ */
+class FProfilerCommands
+	: public TCommands<FProfilerCommands>
 {
 public:
+
 	/** Default constructor. */
 	FProfilerCommands();
 	
-	/**
-	 * Initialize commands.
-	 */
+	/** Initialize commands. */
 	virtual void RegisterCommands() override;
 
 public:
+
 	/*-----------------------------------------------------------------------------
 		Global and custom commands.	Need to implement following methods:
 
@@ -82,6 +88,7 @@ public:
 	TSharedPtr< FUICommandInfo > EventGraph_SelectAllFrames;
 };
 
+
 class FProfilerMenuBuilder
 {
 public:
@@ -93,13 +100,14 @@ public:
 	 *		SessionInstance_ToggleCapture			- Global version will toggle capture process for all active session instances
 	 *		SessionInstance_ToggleCapture_OneParam	- Local version will toggle capture process only for the specified session instance
 	 *
-	 * @param MenuBuilder		- the menu to add items to
-	 * @param FUICommandInfo	- a shared pointer to the UI command info
-	 * @param UIAction			- customized version of the UI command info stored in an UI action 
+	 * @param MenuBuilder The menu to add items to
+	 * @param FUICommandInfo A shared pointer to the UI command info
+	 * @param UIAction Customized version of the UI command info stored in an UI action 
 	 *
 	 */
-	static void AddMenuEntry( FMenuBuilder& MenuBuilder, const TSharedPtr< FUICommandInfo >& FUICommandInfo, const FUIAction& UIAction );
+	static void AddMenuEntry( FMenuBuilder& MenuBuilder, const TSharedPtr< FUICommandInfo >& UICommandInfo, const FUIAction& UIAction );
 };
+
 
 /** 
  * Class that provides helper functions for the commands to avoid cluttering profiler manager with many small functions. Can't contain any variables.

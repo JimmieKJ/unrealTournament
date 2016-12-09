@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetworkFileSystemPrivatePCH.h"
-#include "PackageName.h"
-#include "TargetPlatform.h"
+#include "NetworkFileServerConnection.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopeLock.h"
+#include "Serialization/BufferArchive.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/LocalTimestampDirectoryVisitor.h"
+#include "IPlatformFileSandboxWrapper.h"
+#include "NetworkMessage.h"
+#include "ProjectDescriptor.h"
+#include "NetworkFileSystemLog.h"
+#include "Misc/PackageName.h"
+#include "Interfaces/ITargetPlatform.h"
 
 
 /* FNetworkFileServerClientConnection structors

@@ -2,9 +2,19 @@
 
 #pragma once
 
-/*-----------------------------------------------------------------------------
-	Enumerators
------------------------------------------------------------------------------*/
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/Geometry.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "ProfilerDataSource.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+class FTrackedStat;
+class SVerticalBox;
 
 namespace EDataGraphViewModes
 {
@@ -21,6 +31,7 @@ namespace EDataGraphViewModes
 	};
 }
 
+
 namespace EDataGraphMultiModes
 {
 	enum Type
@@ -35,9 +46,6 @@ namespace EDataGraphMultiModes
 	};
 }
 
-/*-----------------------------------------------------------------------------
-	Delegates
------------------------------------------------------------------------------*/
 
 /** The delegate to be invoked when the frame offset has been changed. */
 DECLARE_DELEGATE_OneParam( FGraphOffsetChangedDelegate, int /*InFrameOffset*/ );
@@ -53,10 +61,6 @@ DECLARE_DELEGATE_OneParam( FViewModeChangedDelegate, EDataGraphViewModes::Type )
 /** The delegate to be invoked when the selected frames have been changed, for index based view mode. */
 DECLARE_DELEGATE_TwoParams( FSelectionChangedForTimeDelegate, float /*FrameStartTimeMS*/, float /*FrameEndTimeMS*/ );
 
-
-/*-----------------------------------------------------------------------------
-	Declarations
------------------------------------------------------------------------------*/
 
 /** A custom widget used to display graphs. */
 // Rename to SDataChart ?
@@ -238,7 +242,7 @@ protected:
 	FSelectionChangedForIndexEvent SelectionChangedForIndexEvent;
 
 public:
-	void AddInnerGraph( const FTrackedStatPtr& TrackedStat );
+	void AddInnerGraph( const TSharedPtr<FTrackedStat>& TrackedStat );
 	void RemoveInnerGraph( const uint32 StatID );
 
 	/**
@@ -313,7 +317,7 @@ protected:
 	/** Handles FIsActionChecked for DataGraph_ViewMode_SetTimeBased. */
 	bool ViewMode_SetTimeBased_IsChecked() const;
 
-	const FTrackedStatPtr GetFirstGraph() const;
+	const TSharedPtr<FTrackedStat> GetFirstGraph() const;
 
 	/*-----------------------------------------------------------------------------
 		Misc
@@ -322,7 +326,7 @@ protected:
 	/** Horizontal box widget where graph descriptions are displayed. */
 	TSharedPtr<SVerticalBox> GraphDescriptionsVBox;
 
-	TMap< uint32, FTrackedStatPtr > StatIDToGraphDescriptionMapping;
+	TMap< uint32, TSharedPtr<FTrackedStat> > StatIDToGraphDescriptionMapping;
 	TMap< uint32, TSharedRef<SWidget> > StatIDToWidgetMapping;
 
 	/** The current mouse position. */

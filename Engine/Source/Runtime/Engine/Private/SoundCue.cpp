@@ -1,22 +1,37 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Sound/SoundCue.h"
+#include "Misc/App.h"
+#include "EngineDefines.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Components/AudioComponent.h"
+#include "UObject/UObjectIterator.h"
+#include "EngineUtils.h"
+#include "Sound/SoundNode.h"
 #include "Sound/SoundNodeMixer.h"
+#include "Sound/SoundNodeAssetReferencer.h"
+#include "Sound/SoundWave.h"
 #include "Sound/SoundNodeWavePlayer.h"
 #include "Sound/SoundNodeAttenuation.h"
 #include "Sound/SoundNodeQualityLevel.h"
 #include "Sound/SoundNodeSoundClass.h"
-#include "Sound/SoundWave.h"
 #include "GameFramework/GameUserSettings.h"
 #if WITH_EDITOR
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "UnrealEd.h"
+#include "SoundCueGraph/SoundCueGraphNode.h"
+#include "SoundCueGraph/SoundCueGraph.h"
+#include "SoundCueGraph/SoundCueGraphNode_Root.h"
+#include "SoundCueGraph/SoundCueGraphSchema.h"
 #endif
 
 /*-----------------------------------------------------------------------------
 	USoundCue implementation.
 -----------------------------------------------------------------------------*/
+
+#if WITH_EDITOR
+TSharedPtr<ISoundCueAudioEditor> USoundCue::SoundCueAudioEditor = nullptr;
+#endif
 
 USoundCue::USoundCue(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -85,16 +100,7 @@ void USoundCue::PostLoad()
 	{
 		if (SoundCueGraph)
 		{
-			// Deal with SoundNode types being removed - iterate in reverse as nodes may be removed
-			for (int32 idx = SoundCueGraph->Nodes.Num() - 1; idx >= 0; --idx)
-			{
-				USoundCueGraphNode* Node = Cast<USoundCueGraphNode>(SoundCueGraph->Nodes[idx]);
-
-				if (Node && Node->SoundNode == NULL)
-				{
-					FBlueprintEditorUtils::RemoveNode(NULL, Node, true);
-				}
-			}
+			USoundCue::GetSoundCueAudioEditor()->RemoveNullNodes(this);
 		}
 		else
 		{
@@ -276,17 +282,17 @@ FString USoundCue::GetDesc()
 	return Description;
 }
 
-SIZE_T USoundCue::GetResourceSize(EResourceSizeMode::Type Mode)
+void USoundCue::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	if( Mode == EResourceSizeMode::Exclusive )
+	Super::GetResourceSizeEx(CumulativeResourceSize);
+
+	if( CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::Exclusive )
 	{
-		return( 0 );
+		// Nothing to add
 	}
 	else
 	{
 		// Sum up the size of referenced waves
-		int32 ResourceSize = 0;
-
 		TArray<USoundNodeWavePlayer*> WavePlayers;
 		RecursiveFindNode<USoundNodeWavePlayer>( FirstNode, WavePlayers );
 
@@ -295,11 +301,9 @@ SIZE_T USoundCue::GetResourceSize(EResourceSizeMode::Type Mode)
 			USoundWave* SoundWave = WavePlayers[WaveIndex]->GetSoundWave();
 			if (SoundWave)
 			{
-				ResourceSize += SoundWave->GetResourceSize(Mode);
+				SoundWave->GetResourceSizeEx(CumulativeResourceSize);
 			}
 		}
-
-		return( ResourceSize );
 	}
 }
 
@@ -422,16 +426,16 @@ const FAttenuationSettings* USoundCue::GetAttenuationSettingsToApply() const
 }
 
 #if WITH_EDITOR
-USoundCueGraph* USoundCue::GetGraph()
+UEdGraph* USoundCue::GetGraph()
 { 
-	return CastChecked<USoundCueGraph>(SoundCueGraph);
+	return SoundCueGraph;
 }
 
 void USoundCue::CreateGraph()
 {
 	if (SoundCueGraph == nullptr)
 	{
-		SoundCueGraph = CastChecked<USoundCueGraph>(FBlueprintEditorUtils::CreateNewGraph(this, NAME_None, USoundCueGraph::StaticClass(), USoundCueGraphSchema::StaticClass()));
+		SoundCueGraph = USoundCue::GetSoundCueAudioEditor()->CreateNewSoundCueGraph(this);
 		SoundCueGraph->bAllowDeletion = false;
 
 		// Give the schema a chance to fill out any required nodes (like the results node)
@@ -456,100 +460,30 @@ void USoundCue::SetupSoundNode(USoundNode* InSoundNode, bool bSelectNewNode/* = 
 	// Create the graph node
 	check(InSoundNode->GraphNode == NULL);
 
-	FGraphNodeCreator<USoundCueGraphNode> NodeCreator(*SoundCueGraph);
-	USoundCueGraphNode* GraphNode = NodeCreator.CreateNode(bSelectNewNode);
-	GraphNode->SetSoundNode(InSoundNode);
-	NodeCreator.Finalize();
+	USoundCue::GetSoundCueAudioEditor()->SetupSoundNode(SoundCueGraph, InSoundNode, bSelectNewNode);
 }
 
 void USoundCue::LinkGraphNodesFromSoundNodes()
 {
-	// Use SoundNodes to make GraphNode Connections
-	if (FirstNode != NULL)
-	{
-		// Find the root node
-		TArray<USoundCueGraphNode_Root*> RootNodeList;
-		SoundCueGraph->GetNodesOfClass<USoundCueGraphNode_Root>(/*out*/ RootNodeList);
-		check(RootNodeList.Num() == 1);
-
-		RootNodeList[0]->Pins[0]->BreakAllPinLinks();
-		RootNodeList[0]->Pins[0]->MakeLinkTo(FirstNode->GetGraphNode()->GetOutputPin());
+	USoundCue::GetSoundCueAudioEditor()->LinkGraphNodesFromSoundNodes(this);
 	}
-
-	for(TArray<USoundNode*>::TConstIterator It(AllNodes); It; ++It)
-	{
-		USoundNode* SoundNode = *It;
-		if (SoundNode)
-		{
-			TArray<UEdGraphPin*> InputPins;
-			SoundNode->GetGraphNode()->GetInputPins(/*out*/ InputPins);
-			check(InputPins.Num() == SoundNode->ChildNodes.Num());
-			for (int32 ChildIndex = 0; ChildIndex < SoundNode->ChildNodes.Num(); ChildIndex++)
-			{
-				USoundNode* ChildNode = SoundNode->ChildNodes[ChildIndex];
-				if (ChildNode)
-				{
-					InputPins[ChildIndex]->BreakAllPinLinks();
-					InputPins[ChildIndex]->MakeLinkTo(ChildNode->GetGraphNode()->GetOutputPin());
-				}
-			}
-		}
-	}
-}
 
 void USoundCue::CompileSoundNodesFromGraphNodes()
-{
-	// Use GraphNodes to make SoundNode Connections
-	TArray<USoundNode*> ChildNodes;
-	TArray<UEdGraphPin*> InputPins;
-
-	for (int32 NodeIndex = 0; NodeIndex < SoundCueGraph->Nodes.Num(); ++NodeIndex)
 	{
-		USoundCueGraphNode* GraphNode = Cast<USoundCueGraphNode>(SoundCueGraph->Nodes[NodeIndex]);
-		if (GraphNode && GraphNode->SoundNode)
-		{
-			// Set ChildNodes of each SoundNode
-			
-			GraphNode->GetInputPins(InputPins);
-			ChildNodes.Empty();
-			for (int32 PinIndex = 0; PinIndex < InputPins.Num(); ++PinIndex)
-			{
-				UEdGraphPin* ChildPin = InputPins[PinIndex];
-
-				if (ChildPin->LinkedTo.Num() > 0)
-				{
-					USoundCueGraphNode* GraphChildNode = CastChecked<USoundCueGraphNode>(ChildPin->LinkedTo[0]->GetOwningNode());
-					ChildNodes.Add(GraphChildNode->SoundNode);
-				}
-				else
-				{
-					ChildNodes.AddZeroed();
-				}
-			}
-
-			GraphNode->SoundNode->SetFlags(RF_Transactional);
-			GraphNode->SoundNode->Modify();
-			GraphNode->SoundNode->SetChildNodes(ChildNodes);
-			GraphNode->SoundNode->PostEditChange();
-		}
-		else
-		{
-			// Set FirstNode based on RootNode connection
-			USoundCueGraphNode_Root* RootNode = Cast<USoundCueGraphNode_Root>(SoundCueGraph->Nodes[NodeIndex]);
-			if (RootNode)
-			{
-				Modify();
-				if (RootNode->Pins[0]->LinkedTo.Num() > 0)
-				{
-					FirstNode = CastChecked<USoundCueGraphNode>(RootNode->Pins[0]->LinkedTo[0]->GetOwningNode())->SoundNode;
-				}
-				else
-				{
-					FirstNode = NULL;
-				}
-				PostEditChange();
-			}
-		}
-	}
+	USoundCue::GetSoundCueAudioEditor()->CompileSoundNodesFromGraphNodes(this);
 }
+
+void USoundCue::SetSoundCueAudioEditor(TSharedPtr<ISoundCueAudioEditor> InSoundCueAudioEditor)
+{
+	check(!SoundCueAudioEditor.IsValid());
+	SoundCueAudioEditor = InSoundCueAudioEditor;
+}
+
+/** Gets the sound cue graph editor implementation. */
+TSharedPtr<ISoundCueAudioEditor> USoundCue::GetSoundCueAudioEditor()
+	{
+	return SoundCueAudioEditor;
+}
+			
+
 #endif

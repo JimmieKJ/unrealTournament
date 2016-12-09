@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Interface.h"
 #include "TurnBasedMatchInterface.generated.h"
-
-class IOnlineSubsystem;
 
 UINTERFACE(Blueprintable)
 class UTurnBasedMatchInterface : public UInterface

@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LobbyPrivatePCH.h"
 #include "LobbyBeaconPlayerState.h"
+#include "Net/UnrealNetwork.h"
 #include "LobbyBeaconClient.h"
 
 ALobbyBeaconPlayerState::ALobbyBeaconPlayerState(const FObjectInitializer& ObjectInitializer) :

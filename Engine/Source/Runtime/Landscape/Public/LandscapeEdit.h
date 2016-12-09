@@ -6,12 +6,22 @@ LandscapeEdit.h: Classes for the editor to access to Landscape data
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RHI.h"
+#include "LandscapeProxy.h"
+#include "Engine/Texture2D.h"
+
+#if WITH_EDITOR
+	#include "Containers/ArrayView.h"
+#endif
+
+class ULandscapeComponent;
+class ULandscapeInfo;
+class ULandscapeLayerInfoObject;
+
 #define MAX_LANDSCAPE_LOD_DISTANCE_FACTOR 10.f
 
 #if WITH_EDITOR
-
-#include "LandscapeProxy.h" // for ELandscapeLayerPaintingRestriction
-#include "Containers/ArrayView.h"
 
 struct FLandscapeTextureDataInfo
 {

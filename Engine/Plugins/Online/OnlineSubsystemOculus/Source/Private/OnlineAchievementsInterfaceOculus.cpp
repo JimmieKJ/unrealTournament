@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemOculusPrivatePCH.h"
 #include "OnlineAchievementsInterfaceOculus.h"
+#include "OnlineSubsystemOculusPrivate.h"
 #include "OnlineIdentityOculus.h"
 #include "OnlineMessageMultiTaskOculus.h"
 #include "OnlineSubsystemOculusPackage.h"

@@ -1,14 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "EdGraph/EdGraph.h"
+#include "Engine/Blueprint.h"
+#include "GraphEditAction.h"
 #include "EdGraph/EdGraphSchema.h"
-#include "BlueprintUtilities.h"
 #if WITH_EDITOR
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "SlateBasics.h"
-#include "ScopedTransaction.h"
-#include "Editor/UnrealEd/Public/Kismet2/Kismet2NameValidators.h"
+#include "UObject/UObjectHash.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "EdGraph"

@@ -9,7 +9,8 @@
 
 #pragma once
 
-#include "GenericPlatformProperties.h"
+#include "CoreTypes.h"
+#include "GenericPlatform/GenericPlatformProperties.h"
 
 
 /**
@@ -40,7 +41,7 @@ struct FAndroidPlatformProperties
 
 	static FORCEINLINE bool IsGameOnly( )
 	{
-		return UE_GAME;
+		return true;
 	}
 
 	static FORCEINLINE bool RequiresCookedData( )

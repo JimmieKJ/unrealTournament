@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ISlateStyle.h"
-#include "SlateColor.h"
-#include "SlateDynamicImageBrush.h"
-#include "SlateFontInfo.h"
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Styling/StyleDefaults.h"
+#include "Styling/ISlateStyle.h"
+
+struct FSlateDynamicImageBrush;
 
 /**
  * A collection of named properties that guide the appearance of Slate.

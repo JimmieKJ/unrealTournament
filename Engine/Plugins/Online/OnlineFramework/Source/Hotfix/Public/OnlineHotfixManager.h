@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "OnlineTitleFileInterface.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
+#include "OnlineSubsystemTypes.h"
+#include "OnlineDelegateMacros.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Interfaces/OnlineTitleFileInterface.h"
 #include "OnlineHotfixManager.generated.h"
 
 HOTFIX_API DECLARE_LOG_CATEGORY_EXTERN(LogHotfixManager, Verbose, All);

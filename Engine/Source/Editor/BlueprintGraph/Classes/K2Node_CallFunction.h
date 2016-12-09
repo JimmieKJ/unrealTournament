@@ -2,10 +2,19 @@
 
 #pragma once
 
-#include "K2Node.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "Textures/SlateIcon.h"
 #include "Engine/MemberReference.h"
+#include "EdGraph/EdGraphNodeUtils.h"
+#include "K2Node.h"
 #include "K2Node_CallFunction.generated.h"
+
+class FKismetCompilerContext;
+class SWidget;
+class UEdGraph;
 
 UCLASS()
 class BLUEPRINTGRAPH_API UK2Node_CallFunction : public UK2Node
@@ -80,6 +89,7 @@ public:
 	virtual bool CanPasteHere(const UEdGraph* TargetGraph) const override;
 	virtual void PinDefaultValueChanged(UEdGraphPin* Pin) override;
 	virtual void AddSearchMetaDataInfo(TArray<struct FSearchTagDataPair>& OutTaggedMetaData) const override;
+	virtual TSharedPtr<SWidget> CreateNodeImage() const override;
 	// End of UEdGraphNode interface
 
 	// UK2Node interface
@@ -91,7 +101,7 @@ public:
 	virtual bool ShouldDrawAsBead() const override;
 	virtual FText GetCompactNodeTitle() const override;
 	virtual void PostPasteNode() override;
-	virtual void ValidateNodeAfterPrune(class FCompilerResultsLog& MessageLog) const override;
+	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual bool ShouldShowNodeProperties() const override;
 	virtual void GetRedirectPinNames(const UEdGraphPin& Pin, TArray<FString>& RedirectPinNames) const override;
 	virtual void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override;
@@ -178,6 +188,9 @@ public:
 	/** Checks if the property is marked as "CustomStructureParam" */
 	static bool IsStructureWildcardProperty(const UFunction* InFunction, const FString& PropertyName);
 
+	/** returns true if InProperty should be treated as a wildcard (e.g. due to SetParam markup) */
+	static bool IsWildcardProperty(const UFunction* InFunction, const UProperty* InProperty);
+
 	/** Used to determine the result of AllowMultipleSelfs() (without having a node instance) */
 	static bool CanFunctionSupportMultipleTargets(UFunction const* InFunction);
 
@@ -202,6 +215,9 @@ private:
 
 	/** Invalidates current pin tool tips, so that they will be refreshed before being displayed: */
 	void InvalidatePinTooltips();
+
+	/** Conforms container pins */
+	void ConformContainerPins();
 
 protected:
 	/** Helper function to ensure function is called in our context */

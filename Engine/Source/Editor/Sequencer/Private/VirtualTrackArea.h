@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Geometry.h"
+#include "SequencerSelectedKey.h"
+#include "SequencerHotspots.h"
 #include "CommonMovieSceneTools.h"
 
+class FSequencer;
 class SSequencerTreeView;
 
 /** Structure used for handling the virtual space of the track area */

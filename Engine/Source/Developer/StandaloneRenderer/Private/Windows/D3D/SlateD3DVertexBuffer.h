@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/RefCounting.h"
+#include "StandaloneRendererPlatformHeaders.h"
+
 /** 
  * Vertex buffer containing all Slate vertices
  */

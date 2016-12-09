@@ -1,9 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
 #include "OnlineAchievementsInterfaceSteam.h"
 #include "OnlineSubsystemSteam.h"
-#include "OnlineAchievementsInterface.h"
 #include "OnlineLeaderboardInterfaceSteam.h"
 
 FOnlineAchievementsSteam::FOnlineAchievementsSteam( class FOnlineSubsystemSteam* InSubsystem )

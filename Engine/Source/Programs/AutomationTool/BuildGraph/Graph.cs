@@ -467,7 +467,7 @@ namespace AutomationTool
 						{
 							JsonWriter.WriteObjectStart();
 							JsonWriter.WriteValue("Name", Node.Name);
-							JsonWriter.WriteValue("DependsOn", String.Join(";", Node.GetDirectOrderDependencies().Where(x => NodesToExecute.Contains(x))));
+							JsonWriter.WriteValue("DependsOn", String.Join(";", Node.GetDirectOrderDependencies().Where(x => NodesToExecute.Contains(x) && x.ControllingTrigger == Trigger)));
 							JsonWriter.WriteObjectStart("Notify");
 							JsonWriter.WriteValue("Default", String.Join(";", Node.NotifyUsers));
 							JsonWriter.WriteValue("Submitters", String.Join(";", Node.NotifySubmitters));

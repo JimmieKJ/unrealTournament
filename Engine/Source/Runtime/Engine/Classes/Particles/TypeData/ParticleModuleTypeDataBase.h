@@ -2,9 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/ParticleModule.h"
 #include "ParticleModuleTypeDataBase.generated.h"
 
+class UParticleEmitter;
+class UParticleSystemComponent;
 struct FParticleEmitterInstance;
 
 UCLASS(editinlinenew, hidecategories=Object, abstract, MinimalAPI)

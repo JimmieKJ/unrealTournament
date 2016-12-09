@@ -1,14 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SourceControlPrivatePCH.h"
 #include "SourceControlHelpers.h"
-#include "ISourceControlProvider.h"
 #include "ISourceControlState.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
 #include "ISourceControlLabel.h"
-#include "ISourceControlRevision.h"
-#include "CoreUObject.h"
-#include "MessageLog.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
+#include "Logging/MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "SourceControlHelpers"
 
@@ -119,6 +123,8 @@ TArray<FString> AbsoluteFilenames( const TArray<FString>& InFileNames )
 		{
 			AbsoluteFiles.Add(FPaths::ConvertRelativePathToFull(FileName));
 		}
+
+		FPaths::NormalizeFilename(AbsoluteFiles[AbsoluteFiles.Num() - 1]);
 	}
 
 	return AbsoluteFiles;

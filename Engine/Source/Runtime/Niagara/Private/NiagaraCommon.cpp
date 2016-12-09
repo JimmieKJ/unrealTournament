@@ -1,4 +1,3 @@
-#include "NiagaraPrivate.h"
 #include "NiagaraCommon.h"
 
 uint32 GetNiagaraDataElementCount(ENiagaraDataType Type)

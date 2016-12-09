@@ -1,16 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
-
 #include "UI/SLogDialog.h"
-
-#include "Internationalization.h"
-
-
+#include "Misc/Attribute.h"
+#include "InputCoreTypes.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
 #include "Styling/CoreStyle.h"
-#include "Styling/ISlateStyle.h"
+#include "Widgets/SWindow.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "NetcodeUnitTest.h"
 
-#include "Runtime/Slate/Public/SlateBasics.h"
+
+
+
+
 
 
 #define LOCTEXT_NAMESPACE "Dialogs"

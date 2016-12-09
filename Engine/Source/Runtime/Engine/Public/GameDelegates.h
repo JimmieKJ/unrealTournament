@@ -2,6 +2,8 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+
 /**
  * Collection of delegates for various components to call into game code
  */
@@ -19,6 +21,7 @@ enum class EGameDelegates_SaveGame : short
 /** Delegate to modify cooking behavior - return extra packages to cook, load up the asset registry, etc */
 DECLARE_DELEGATE_OneParam(FCookModificationDelegate, TArray<FString>& /*ExtraPackagesToCook*/);
 DECLARE_DELEGATE_FiveParams(FAssignStreamingChunkDelegate, const FString& /*PackageToAdd*/, const FString& /*LastLoadedMapName*/, const TArray<int32>& /*AssetRegistryChunkIDs*/, const TArray<int32>& /*ExistingChunkIds*/, TArray<int32>& /*OutChunkIndexList*/);
+DECLARE_DELEGATE_RetVal_ThreeParams(bool, FGetPackageDependenciesForManifestGeneratorDelegate, FName /*PackageName*/, TArray<FName>& /*DependentPackageNames*/, uint8 /*DependencyType*/);
 
 /** Delegate to assign a disc layer to a chunk */
 typedef const TMap<FName, FString> FAssignLayerChunkMap;
@@ -32,15 +35,20 @@ DECLARE_DELEGATE_ThreeParams(FExtendedSaveGameInfoDelegate, const TCHAR* /*SaveN
 typedef TMap<FString, FString> StringStringMap;
 DECLARE_DELEGATE_FiveParams(FWebServerActionDelegate, int32 /*UserIndex*/, const FString& /*Action*/, const FString& /*URL*/, const StringStringMap& /*Params*/, StringStringMap& /*Response*/);
 
+/** Delegate called before a map change at runtime */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FPreCommitMapChangeDelegate, const FString& /*PreviousMapName*/, const FString& /*NextMapName*/);
 
+/** Delegate to handle when a connection is disconnecting */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FHandleDisconnectDelegate, class UWorld* /*InWorld*/, class UNetDriver* /*NetDriver*/);
 
-
-// a helper define to make defining the delegate members easy
+// Helper defines to make defining the delegate members easy
 #define DEFINE_GAME_DELEGATE(DelegateType) \
 	public: F##DelegateType& Get##DelegateType() { return DelegateType; } \
 	private: F##DelegateType DelegateType;
 
-
+#define DEFINE_GAME_DELEGATE_TYPED(DelegateVariable, DelegateType) \
+	public: DelegateType& Get##DelegateVariable() { return DelegateVariable; } \
+	private: DelegateType DelegateVariable;
 
 /** Class to set and get game callbacks */
 class ENGINE_API FGameDelegates
@@ -51,26 +59,30 @@ public:
 	static FGameDelegates& Get();
 
 	// Called when an exit command is received
-	FSimpleMulticastDelegate& GetExitCommandDelegate()
-	{
-		return ExitCommandDelegate;
-	}
+	DEFINE_GAME_DELEGATE_TYPED(ExitCommandDelegate, FSimpleMulticastDelegate);
 
 	// Called when ending playing a map
-	FSimpleMulticastDelegate& GetEndPlayMapDelegate()
-	{
-		return EndPlayMapDelegate;
-	}
+	DEFINE_GAME_DELEGATE_TYPED(EndPlayMapDelegate, FSimpleMulticastDelegate);
+
+	// Called when a matinee is canceled 
+	DEFINE_GAME_DELEGATE_TYPED(MatineeCancelledDelegate, FSimpleMulticastDelegate);
+
+	// Called when a pending connection has been lost 
+	DEFINE_GAME_DELEGATE_TYPED(PendingConnectionLostDelegate, FSimpleMulticastDelegate);
+
+	// Called when pre/post committing a map change at runtime
+	DEFINE_GAME_DELEGATE(PreCommitMapChangeDelegate);
+	DEFINE_GAME_DELEGATE_TYPED(PostCommitMapChangeDelegate, FSimpleMulticastDelegate);
+
+	// Called when a player is disconnecting due to network failure
+	DEFINE_GAME_DELEGATE(HandleDisconnectDelegate);
 
 	// Implement all delegates declared above
 	DEFINE_GAME_DELEGATE(CookModificationDelegate);
 	DEFINE_GAME_DELEGATE(AssignStreamingChunkDelegate);
+	DEFINE_GAME_DELEGATE(GetPackageDependenciesForManifestGeneratorDelegate);
 	DEFINE_GAME_DELEGATE(AssignLayerChunkDelegate);
 	DEFINE_GAME_DELEGATE(ExtendedSaveGameInfoDelegate);
 	DEFINE_GAME_DELEGATE(WebServerActionDelegate);	
 
-private:
-
-	FSimpleMulticastDelegate ExitCommandDelegate;
-	FSimpleMulticastDelegate EndPlayMapDelegate;
 };

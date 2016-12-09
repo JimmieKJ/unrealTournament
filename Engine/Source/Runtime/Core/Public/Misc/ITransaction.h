@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "UObject/UObjectHierarchyFwd.h"
 
 // Class for handling undo/redo transactions among objects.
 typedef void(*STRUCT_DC)( void* TPtr );						// default construct

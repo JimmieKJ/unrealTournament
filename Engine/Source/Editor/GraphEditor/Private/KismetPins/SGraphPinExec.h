@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "SGraphPin.h"
+
 class SGraphPinExec : public SGraphPin
 {
 public:
@@ -16,8 +21,9 @@ protected:
 	virtual const FSlateBrush* GetPinIcon() const override;
 	//~ End SGraphPin Interface
 
-	void CachePinBrushes(bool bForceCache = false) const;
-
 protected:
 	mutable bool bWasEventPin;
+
+	mutable const FSlateBrush* CachedImg_Pin_ConnectedHovered;
+	mutable const FSlateBrush* CachedImg_Pin_DisconnectedHovered;
 };

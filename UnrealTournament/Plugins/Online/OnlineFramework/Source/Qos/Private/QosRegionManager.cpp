@@ -206,10 +206,12 @@ void UQosRegionManager::OnQosEvaluationComplete(EQosCompletionResult Result, con
 		QosEvalResult = EQosCompletionResult::Failure;
 	}
 
-	if (QosEvalResult == EQosCompletionResult::Success)
+	if (QosEvalResult == EQosCompletionResult::Success ||
+		QosEvalResult == EQosCompletionResult::Failure)
 	{
 		if (RegionOptions.Num() > 0)
 		{
+			// Try to set something regardless of Qos result
 			TrySetDefaultRegion();
 		}
 	}
@@ -235,7 +237,14 @@ FString UQosRegionManager::GetRegionId() const
 	{
 		// if we haven't run the evaluator just use the region from settings
 		// development dedicated server will come here, live services should use -mcpregion
-		return TEXT("NONE");
+		return NO_REGION;
+	}
+
+	if (SelectedRegionId.IsEmpty())
+	{
+		// Always set some kind of region, empty implies "wildcard" to the matchmaking code
+		UE_LOG(LogQos, Verbose, TEXT("No region found, returning REGION_NONE"));
+		return NO_REGION;
 	}
 
 	return SelectedRegionId;
@@ -281,7 +290,8 @@ void UQosRegionManager::TrySetDefaultRegion()
 			FString BestRegionId;
 			for (const FQosRegionInfo& Region : RegionOptions)
 			{
-				if (!Region.Region.bBeta && Region.AvgPingMs < BestPing)
+				if (Region.IsUsable() && (Region.Result == EQosCompletionResult::Success) &&
+					!Region.Region.bBeta && Region.AvgPingMs < BestPing)
 				{
 					BestPing = Region.AvgPingMs;
 					BestRegionId = Region.Region.RegionId;

@@ -3,6 +3,9 @@
 // be found in the LICENSE file.
 
 #include "libcef/renderer/render_urlrequest_impl.h"
+
+#include <stdint.h>
+
 #include "libcef/common/request_impl.h"
 #include "libcef/common/response_impl.h"
 
@@ -34,7 +37,7 @@ class CefWebURLLoaderClient : public blink::WebURLLoaderClient {
   ~CefWebURLLoaderClient() override;
 
   // blink::WebURLLoaderClient methods.
-  void willSendRequest(
+  void willFollowRedirect(
       WebURLLoader* loader,
       WebURLRequest& newRequest,
       const WebURLResponse& redirectResponse) override;
@@ -81,7 +84,7 @@ class CefRenderURLRequest::Context
     : url_request_(url_request),
       request_(request),
       client_(client),
-      message_loop_proxy_(base::MessageLoop::current()->message_loop_proxy()),
+      task_runner_(base::MessageLoop::current()->task_runner()),
       status_(UR_IO_PENDING),
       error_code_(ERR_NONE),
       upload_data_size_(0),
@@ -93,7 +96,7 @@ class CefRenderURLRequest::Context
   }
 
   inline bool CalledOnValidThread() {
-    return message_loop_proxy_->BelongsToCurrentThread();
+    return task_runner_->RunsTasksOnCurrentThread();
   }
 
   bool Start() {
@@ -107,21 +110,8 @@ class CefRenderURLRequest::Context
     url_client_.reset(new CefWebURLLoaderClient(this, request_->GetFlags()));
 
     WebURLRequest urlRequest;
-    static_cast<CefRequestImpl*>(request_.get())->Get(urlRequest);
-
-    if (urlRequest.reportUploadProgress()) {
-      // Attempt to determine the upload data size.
-      CefRefPtr<CefPostData> post_data = request_->GetPostData();
-      if (post_data.get()) {
-        CefPostData::ElementVector elements;
-        post_data->GetElements(elements);
-        if (elements.size() == 1 && elements[0]->GetType() == PDE_TYPE_BYTES) {
-          CefPostDataElementImpl* impl =
-              static_cast<CefPostDataElementImpl*>(elements[0].get());
-          upload_data_size_ = impl->GetBytesCount();
-        }
-      }
-    }
+    static_cast<CefRequestImpl*>(request_.get())->Get(urlRequest,
+                                                      upload_data_size_);
 
     loader_->loadAsynchronously(urlRequest, url_client_.get());
     return true;
@@ -182,7 +172,7 @@ class CefRenderURLRequest::Context
     url_request_ = NULL;
   }
 
-  void OnDownloadProgress(int64 current) {
+  void OnDownloadProgress(int64_t current) {
     DCHECK(CalledOnValidThread());
     DCHECK(url_request_.get());
 
@@ -199,7 +189,7 @@ class CefRenderURLRequest::Context
     client_->OnDownloadData(url_request_.get(), data, dataLength);
   }
 
-  void OnUploadProgress(int64 current, int64 total) {
+  void OnUploadProgress(int64_t current, int64_t total) {
     DCHECK(CalledOnValidThread());
     DCHECK(url_request_.get());
     if (current == total)
@@ -233,16 +223,16 @@ class CefRenderURLRequest::Context
   CefRefPtr<CefRenderURLRequest> url_request_;
   CefRefPtr<CefRequest> request_;
   CefRefPtr<CefURLRequestClient> client_;
-  scoped_refptr<base::MessageLoopProxy> message_loop_proxy_;
+  scoped_refptr<base::SequencedTaskRunner> task_runner_;
   CefURLRequest::Status status_;
   CefURLRequest::ErrorCode error_code_;
   CefRefPtr<CefResponse> response_;
   scoped_ptr<blink::WebURLLoader> loader_;
   scoped_ptr<CefWebURLLoaderClient> url_client_;
-  int64 upload_data_size_;
+  int64_t upload_data_size_;
   bool got_upload_progress_complete_;
-  int64 download_data_received_;
-  int64 download_data_total_;
+  int64_t download_data_received_;
+  int64_t download_data_total_;
 };
 
 
@@ -260,7 +250,7 @@ CefWebURLLoaderClient::CefWebURLLoaderClient(
 CefWebURLLoaderClient::~CefWebURLLoaderClient() {
 }
 
-void CefWebURLLoaderClient::willSendRequest(
+void CefWebURLLoaderClient::willFollowRedirect(
     WebURLLoader* loader,
     WebURLRequest& newRequest,
     const WebURLResponse& redirectResponse) {

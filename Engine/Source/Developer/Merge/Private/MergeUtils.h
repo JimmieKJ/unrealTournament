@@ -2,10 +2,11 @@
 
 #pragma once
 
-#include "ISourceControlState.h" // for FSourceControlStatePtr
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "ISourceControlState.h"
 
-// Forward declarations
-class  ISourceControlRevision;
+class ISourceControlRevision;
 struct FRevisionInfo;
 
 /**  */

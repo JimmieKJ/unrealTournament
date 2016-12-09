@@ -2,12 +2,13 @@
 
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "NetcodeUnitTest.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWindow.h"
 
-
-// Forward declarations
 class SLogWidget;
-
 
 /**
  * Setup a multicast version of the standard OnWindowClosed delegate

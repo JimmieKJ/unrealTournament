@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
+#include "Application/SlateWindowHelper.h"
+#include "Layout/ArrangedChildren.h"
+#include "SlateGlobals.h"
+#include "Layout/WidgetPath.h"
 
 
 DECLARE_CYCLE_STAT( TEXT("FindPathToWidget"), STAT_FindPathToWidget, STATGROUP_Slate );

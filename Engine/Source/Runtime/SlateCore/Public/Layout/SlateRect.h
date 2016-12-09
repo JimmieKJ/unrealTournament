@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+struct FMargin;
+struct Rect;
 
 /** 
  * A rectangle defined by upper-left and lower-right corners.

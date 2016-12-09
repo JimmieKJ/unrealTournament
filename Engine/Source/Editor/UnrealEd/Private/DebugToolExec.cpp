@@ -1,16 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "DebugToolExec.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EditorStyleSet.h"
+#include "Engine/EngineTypes.h"
+#include "GameFramework/Actor.h"
+#include "CollisionQueryParams.h"
 #include "Engine/GameEngine.h"
 #include "GameFramework/PlayerController.h"
 #include "EngineUtils.h"
-#include "GameFramework/Pawn.h"
-#include "CollisionQueryParams.h"
-#include "Engine/EngineTypes.h"
+#include "EngineGlobals.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
 
 
 /**

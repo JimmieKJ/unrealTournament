@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "K2Node_BitmaskLiteral.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_CallFunction.h"
 #include "EditorCategoryUtils.h"
 #include "KismetCompiler.h"
-#include "../../../Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h"
-#include "BlueprintFieldNodeSpawner.h"
+#include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 
 #define LOCTEXT_NAMESPACE "UK2Node_BitmaskLiteral"

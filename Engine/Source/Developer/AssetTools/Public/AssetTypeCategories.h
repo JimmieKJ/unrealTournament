@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /**
  *	this enum has been extracted into a separate header for easier inclusion in
  *	code in other modules

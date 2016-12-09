@@ -8,8 +8,15 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionVector.h"
 #include "Particles/Location/ParticleModuleLocationBase.h"
 #include "ParticleModuleLocationDirect.generated.h"
+
+class UParticleModuleTypeDataBase;
+struct FParticleEmitterInstance;
 
 UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Direct Location"))
 class ENGINE_API UParticleModuleLocationDirect : public UParticleModuleLocationBase

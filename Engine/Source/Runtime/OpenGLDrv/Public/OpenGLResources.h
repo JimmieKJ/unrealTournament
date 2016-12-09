@@ -6,9 +6,26 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Containers/ContainerAllocationPolicies.h"
+#include "Containers/Array.h"
+#include "Math/UnrealMathUtility.h"
+#include "Logging/LogMacros.h"
+#include "Containers/BitArray.h"
+#include "Math/IntPoint.h"
+#include "Misc/CommandLine.h"
+#include "Templates/RefCounting.h"
+#include "Stats/Stats.h"
+#include "RHI.h"
 #include "BoundShaderStateCache.h"
+#include "RenderResource.h"
 #include "OpenGLShaderResources.h"
 #include "ShaderCache.h"
+
+class FOpenGLDynamicRHI;
+class FOpenGLLinkedProgram;
 
 extern void OnVertexBufferDeletion( GLuint VertexBufferResource );
 extern void OnIndexBufferDeletion( GLuint IndexBufferResource );
@@ -1281,6 +1298,11 @@ public:
 	GLuint	Resource;
 	GLuint  BufferResource;
 	GLenum	Format;
+
+	virtual uint32 GetBufferSize()
+	{
+		return 0;
+	}
 };
 
 class FOpenGLTextureUnorderedAccessView : public FOpenGLUnorderedAccessView
@@ -1306,6 +1328,8 @@ public:
 	FVertexBufferRHIRef VertexBufferRHI; // to keep the vertex buffer alive
 
 	FOpenGLDynamicRHI* OpenGLRHI;
+
+	virtual uint32 GetBufferSize() override;
 };
 
 class FOpenGLShaderResourceView : public FRHIShaderResourceView

@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SubversionSourceControlPrivatePCH.h"
 #include "SubversionSourceControlUtils.h"
-#include "SubversionSourceControlState.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "ISourceControlModule.h"
 #include "SubversionSourceControlModule.h"
 #include "SubversionSourceControlCommand.h"
-#include "XmlParser.h"
+#include "XmlFile.h"
 
 namespace SubversionSourceControlConstants
 {
@@ -13,7 +18,7 @@ namespace SubversionSourceControlConstants
 	const int32 MaxFilesPerBatch = 50;
 }
 
-FScopedTempFile::FScopedTempFile(const FText& InText)
+FSVNScopedTempFile::FSVNScopedTempFile(const FText& InText)
 {
 	Filename = FPaths::CreateTempFilename(*FPaths::GameLogDir(), TEXT("SVN-Temp"), TEXT(".txt"));
 	if (!FFileHelper::SaveStringToFile(InText.ToString(), *Filename, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
@@ -22,7 +27,7 @@ FScopedTempFile::FScopedTempFile(const FText& InText)
 	}
 }
 
-FScopedTempFile::FScopedTempFile(const FString& InText)
+FSVNScopedTempFile::FSVNScopedTempFile(const FString& InText)
 {
 	Filename = FPaths::CreateTempFilename( *FPaths::GameLogDir(), TEXT("SVN-Temp"), TEXT( ".txt" ) );
 	if (!FFileHelper::SaveStringToFile(InText, *Filename, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
@@ -31,7 +36,7 @@ FScopedTempFile::FScopedTempFile(const FString& InText)
 	}
 }
 
-FScopedTempFile::~FScopedTempFile()
+FSVNScopedTempFile::~FSVNScopedTempFile()
 {
 	if(FPaths::FileExists(Filename))
 	{
@@ -42,7 +47,7 @@ FScopedTempFile::~FScopedTempFile()
 	}
 }
 
-const FString& FScopedTempFile::GetFilename() const
+const FString& FSVNScopedTempFile::GetFilename() const
 {
 	return Filename;
 }

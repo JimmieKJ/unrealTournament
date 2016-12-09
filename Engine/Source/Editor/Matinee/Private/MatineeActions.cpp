@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MatineeModule.h"
 #include "MatineeActions.h"
-#include "Matinee.h"
 
 #define LOCTEXT_NAMESPACE "MatineeCommands"
 

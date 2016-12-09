@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeK2Base.h"
-#include "SGraphNodeK2Terminator.h"
+#include "KismetNodes/SGraphNodeK2Terminator.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "K2Node.h"
 
 
 void SGraphNodeK2Terminator::Construct( const FArguments& InArgs, UK2Node* InNode )

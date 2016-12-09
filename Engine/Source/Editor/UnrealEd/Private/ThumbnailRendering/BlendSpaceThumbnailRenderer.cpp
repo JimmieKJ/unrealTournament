@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "ThumbnailRendering/BlendSpaceThumbnailRenderer.h"
+#include "Misc/App.h"
+#include "ShowFlags.h"
+#include "SceneView.h"
+#include "ThumbnailHelpers.h"
 
 // FPreviewScene derived helpers for rendering
-#include "ThumbnailHelpers.h"
-#include "EngineModule.h"
 #include "RendererInterface.h"
+#include "EngineModule.h"
 #include "Animation/BlendSpaceBase.h"
 
 UBlendSpaceThumbnailRenderer::UBlendSpaceThumbnailRenderer(const FObjectInitializer& ObjectInitializer)

@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Textures/TextureAtlas.h"
+
+class FSlateTexture2DRHIRef;
+struct FSlateTextureData;
 
 /**
  * Represents a texture atlas for use with RHI.

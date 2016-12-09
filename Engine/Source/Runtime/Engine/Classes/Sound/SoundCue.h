@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Sound/SoundAttenuation.h"
 #include "Sound/SoundBase.h"
 #include "SoundCue.generated.h"
 
+class USoundCue;
+class USoundNode;
 struct FActiveSound;
 struct FSoundParseParameters;
 
@@ -29,6 +36,38 @@ struct FSoundNodeEditorData
 		return Ar << MySoundNodeEditorData.NodePosX << MySoundNodeEditorData.NodePosY;
 	}
 };
+
+#if WITH_EDITOR
+class USoundCue;
+
+/** Interface for sound cue graph interaction with the AudioEditor module. */
+class ISoundCueAudioEditor
+{
+public:
+	virtual ~ISoundCueAudioEditor() {}
+
+	/** Called when creating a new sound cue graph. */
+	virtual UEdGraph* CreateNewSoundCueGraph(USoundCue* InSoundCue) = 0;
+
+	/** Sets up a sound node. */
+	virtual void SetupSoundNode(UEdGraph* SoundCueGraph, USoundNode* SoundNode, bool bSelectNewNode) = 0;
+
+	/** Links graph nodes from sound nodes. */
+	virtual void LinkGraphNodesFromSoundNodes(USoundCue* SoundCue) = 0;
+
+	/** Compiles sound nodes from graph nodes. */
+	virtual void CompileSoundNodesFromGraphNodes(USoundCue* SoundCue) = 0;
+
+	/** Removes nodes which are null from the sound cue graph. */
+	virtual void RemoveNullNodes(USoundCue* SoundCue) = 0;
+
+	/** Creates an input pin on the given sound cue graph node. */
+	virtual void CreateInputPin(UEdGraphNode* SoundCueNode) = 0;
+
+	/** Renames all pins in a sound cue node */
+	virtual void RenameNodePins(USoundNode* SoundNode) = 0;
+};
+#endif
 
 /**
  * The behavior of audio playback is defined within Sound Cues.
@@ -63,17 +102,15 @@ class USoundCue : public USoundBase
 
 	UPROPERTY()
 	class UEdGraph* SoundCueGraph;
-
 #endif
 
 private:
 	float MaxAudibleDistance;
 
-
 public:
 
 	//~ Begin UObject Interface.
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	virtual FString GetDesc() override;
 #if WITH_EDITOR
 	virtual void PostInitProperties() override;
@@ -99,7 +136,8 @@ public:
 	template<class T>
 	T* ConstructSoundNode(TSubclassOf<USoundNode> SoundNodeClass = T::StaticClass(), bool bSelectNewNode = true)
 	{
-		T* SoundNode = NewObject<T>(this, SoundNodeClass);
+		// Set flag to be transactional so it registers with undo system
+		T* SoundNode = NewObject<T>(this, SoundNodeClass, NAME_None, RF_Transactional);
 #if WITH_EDITOR
 		AllNodes.Add(SoundNode);
 		SetupSoundNode(SoundNode, bSelectNewNode);
@@ -160,7 +198,19 @@ public:
 	ENGINE_API void CompileSoundNodesFromGraphNodes();
 
 	/** Get the EdGraph of SoundNodes */
-	ENGINE_API class USoundCueGraph* GetGraph();
+	ENGINE_API class UEdGraph* GetGraph();
+
+	/** Sets the sound cue graph editor implementation.* */
+	static ENGINE_API void SetSoundCueAudioEditor(TSharedPtr<ISoundCueAudioEditor> InSoundCueGraphEditor);
+
+	/** Gets the sound cue graph editor implementation. */
+	static TSharedPtr<ISoundCueAudioEditor> ENGINE_API GetSoundCueAudioEditor();
+
+private:
+
+	/** Ptr to interface to sound cue editor operations. */
+	static ENGINE_API TSharedPtr<ISoundCueAudioEditor> SoundCueAudioEditor;
+
 #endif
 };
 

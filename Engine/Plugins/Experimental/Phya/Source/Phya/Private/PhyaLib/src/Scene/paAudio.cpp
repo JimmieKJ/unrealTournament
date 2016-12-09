@@ -1,7 +1,7 @@
 //
 // paAudio.cpp
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
  
 #include "Scene/paAudio.hpp"

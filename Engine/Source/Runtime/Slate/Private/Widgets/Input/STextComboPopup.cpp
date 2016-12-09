@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "STextComboPopup.h"
+#include "Widgets/Input/STextComboPopup.h"
+#include "Widgets/Input/SButton.h"
 
 
 void STextComboPopup::Construct( const FArguments& InArgs )

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Interface for types that provide caching for package localization. */
 class IPackageLocalizationCache
 {

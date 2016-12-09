@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "ExternalProfiler.h"
-#include "Runtime/Core/Public/Features/IModularFeature.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "ProfilingDebugging/ExternalProfiler.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
+#include "Features/IModularFeatures.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC( LogExternalProfiler, Log, All );

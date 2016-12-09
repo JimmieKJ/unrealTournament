@@ -6,7 +6,10 @@
 
 #pragma once
 
-#include "IStereoLayers.h"
+#include "CoreMinimal.h"
+#include "Engine/GameViewportClient.h"
+
+class IStereoLayers;
 
 class IStereoRendering
 {

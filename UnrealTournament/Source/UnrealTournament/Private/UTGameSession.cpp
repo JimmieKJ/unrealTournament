@@ -24,7 +24,7 @@ static void GracefulShutdown_Execute(const TArray<FString>& Args, UWorld* World)
 		AUTGameSession::GracefulExitCode = TCString<TCHAR>::Atoi(*Args[0]);
 	}
 
-	AGameMode* GameMode = World->GetAuthGameMode();
+	AGameModeBase* GameMode = World->GetAuthGameMode();
 	if (GameMode)
 	{
 		AUTGameSession* GameSession = Cast<AUTGameSession>(GameMode->GameSession);
@@ -86,7 +86,7 @@ void AUTGameSession::InitOptions( const FString& Options )
 	}
 
 	// Cache the GameMode for later.
-	UTBaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
+	UTBaseGameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 	bNoJoinInProgress = UGameplayStatics::HasOption(Options, "NoJIP");
 }
 
@@ -253,7 +253,7 @@ bool AUTGameSession::ShouldStopServer()
 void AUTGameSession::CheckForPossibleRestart()
 {
 	UWorld* const World = GetWorld();
-	AGameMode* const GameMode = World->GetAuthGameMode();
+	AGameModeBase* const GameMode = World->GetAuthGameMode();
 	check(GameMode);
 
 	UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Checking for possible restart..."));

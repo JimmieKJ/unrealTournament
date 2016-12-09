@@ -2,13 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Curves/KeyHandle.h"
+#include "Widgets/SWidget.h"
 #include "NamedKeyArea.h"
-#include "ClipboardTypes.h"
 
-
-struct FRichCurve;
+class FMovieSceneClipboardBuilder;
+class FMovieSceneClipboardKeyTrack;
+class FStructOnScope;
+class ISequencer;
 class UMovieSceneSection;
-
+struct FMovieSceneClipboardEnvironment;
+struct FSequencerPasteEnvironment;
+enum class EMovieSceneKeyInterpolation : uint8;
 
 /**
  * A key area for float keys.
@@ -18,23 +25,35 @@ class MOVIESCENETOOLS_API FFloatCurveKeyArea
 {
 public:
 
+	/**
+	* Creates a new key area for editing float curves.
+	*
+	* @param InCurve The rich curve which has the float keys.
+	* @param InOwningSection The section which owns the curve which is being displayed and edited by this area.
+	* @param InColor An optional color which should be used to draw the background of this key area.
+	*/
 	FFloatCurveKeyArea(FRichCurve* InCurve, UMovieSceneSection* InOwningSection, TOptional<FLinearColor> InColor = TOptional<FLinearColor>())
 		: Color(InColor)
 		, Curve(InCurve)
 		, OwningSection(InOwningSection)
 	{ }
 
-public:
-
-	void ClearIntermediateValue()
-	{
-		IntermediateValue.Reset();
-	}
-
-	void SetIntermediateValue(float InIntermediateValue)
-	{
-		IntermediateValue = InIntermediateValue;
-	}
+	/**
+	* Creates a new key area for editing float curves whose value can be overridden externally.
+	*
+	* @param InCurve The rich curve which has the float keys.
+	* @param InExternalValue An attribute which can provide an external value for this key area.  External values are
+	*        useful for things like property tracks where the property value can change without changing the animation
+	*        and we want to be able to key and update using the new property value.
+	* @param InOwningSection The section which owns the curve which is being displayed and edited by this area.
+	* @param InColor An optional color which should be used to draw the background of this key area.
+	*/
+	FFloatCurveKeyArea(FRichCurve* InCurve, TAttribute<TOptional<float>> InExternalValue, UMovieSceneSection* InOwningSection, TOptional<FLinearColor> InColor = TOptional<FLinearColor>())
+		: Color(InColor)
+		, Curve(InCurve)
+		, OwningSection(InOwningSection)
+		, ExternalValue(InExternalValue)
+	{ }
 
 public:
 
@@ -59,7 +78,7 @@ public:
 	virtual bool CanSetExtrapolationMode() const override;
 	virtual void SetKeyInterpMode(FKeyHandle KeyHandle, ERichCurveInterpMode InterpMode) override;
 	virtual void SetKeyTangentMode(FKeyHandle KeyHandle, ERichCurveTangentMode TangentMode) override;
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) const override;
+	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) override;
 	virtual void CopyKeys(FMovieSceneClipboardBuilder& ClipboardBuilder, const TFunctionRef<bool(FKeyHandle, const IKeyArea&)>& KeyMask) const override;
 	virtual void PasteKeys(const FMovieSceneClipboardKeyTrack& KeyTrack, const FMovieSceneClipboardEnvironment& SrcEnvironment, const FSequencerPasteEnvironment& DstEnvironment) override;
 
@@ -78,5 +97,6 @@ private:
 	/** The section that owns this key area. */
 	UMovieSceneSection* OwningSection;
 
-	TOptional<float> IntermediateValue;
+	/** The value displayed by this key area supplied externally. */
+	TAttribute<TOptional<float>> ExternalValue;
 };

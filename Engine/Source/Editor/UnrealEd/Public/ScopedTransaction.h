@@ -4,6 +4,8 @@
 #ifndef __SCOPEDTRANSACTION_H__
 #define __SCOPEDTRANSACTION_H__
 
+#include "CoreMinimal.h"
+
 /**
  * Delineates a transactable block; Begin()s a transaction when entering scope,
  * and End()s a transaction when leaving scope.

@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "AES.h"
+#include "Misc/AES.h"
+#include "Misc/AssertionMacros.h"
+#include "Misc/CString.h"
+#include "HAL/UnrealMemory.h"
 
 
 // Uncomment this line to skip encryption
@@ -19,8 +21,6 @@
 
 // It may be useful to integrate this into a class derived from FArchive to allow streaming encryption/decryption - but that's a mission for another day.
 
-#ifdef AES_KEY
-
 #define TEST_ENCRYPTION			0
 #define AES_KEYBITS				256
 
@@ -29,7 +29,9 @@
 #define NROUNDS( keybits )			( ( keybits ) / 32 + 6 )
 
 // This is quite insecure and could do with some obfuscation work
+#ifdef AES_KEY
 static ANSICHAR* DefinedKey = (ANSICHAR*)AES_KEY;
+#endif
 
 static const uint32 Te0[256] =
 {
@@ -977,7 +979,7 @@ static void rijndaelEncrypt( const uint32 *rk, int32 nrounds, const uint8 plaint
 		}
 	}
 
-	rk += nrounds << 2;
+	rk += ((UPTRINT)nrounds) << 2;
 
 	/*
 	 * apply last round and
@@ -1100,7 +1102,7 @@ static void rijndaelDecrypt( const uint32 *rk, int32 nrounds, const uint8 cipher
 			t3 = Td0[s3 >> 24] ^ Td1[(s2 >> 16) & 0xff] ^ Td2[(s1 >>  8) & 0xff] ^ Td3[s0 & 0xff] ^ rk[55];
 		}
 	}
-	rk += nrounds << 2;
+	rk += (UPTRINT)nrounds << 2;
 	/*
 	 * apply last round and
 	 * map cipher state to byte array block:
@@ -1137,7 +1139,6 @@ static void rijndaelDecrypt( const uint32 *rk, int32 nrounds, const uint8 cipher
 		rk[3];
 	PUTU32( plaintext + 12, s3 );
 }
-#endif
 
 void FAES::EncryptData(uint8 *Contents, uint32 NumBytes)
 {
@@ -1148,11 +1149,11 @@ void FAES::EncryptData(uint8 *Contents, uint32 NumBytes)
 
 void FAES::EncryptData( uint8 *Contents, uint32 NumBytes, ANSICHAR* Key )
 {
-#ifdef AES_KEY
 	uint32 rk[RKLENGTH(AES_KEYBITS)] = { 0 };
 	int32 nrounds;
 
 	checkf( ( NumBytes & ( AESBlockSize - 1 ) ) == 0, TEXT( "NumBytes needs to be a multiple of 16 bytes" ) );
+	checkf( Key, TEXT("No encryption key specified") );
 	checkf( TCString<ANSICHAR>::Strlen( Key ) >= KEYLENGTH( AES_KEYBITS ), TEXT( "AES_KEY needs to be at least %d characters" ), KEYLENGTH( AES_KEYBITS ) );
 
 #if TEST_ENCRYPTION
@@ -1178,8 +1179,6 @@ void FAES::EncryptData( uint8 *Contents, uint32 NumBytes, ANSICHAR* Key )
 	DecryptData( DecryptedBlob.GetData(), DecryptedBlob.Num() );
 	checkf( DecryptedBlob == OriginalBlob, TEXT( "Decrypted data different from original data - this is bad" ) );
 #endif
-
-#endif
 }
 
 void FAES::DecryptData(uint8 *Contents, uint32 NumBytes)
@@ -1191,7 +1190,6 @@ void FAES::DecryptData(uint8 *Contents, uint32 NumBytes)
 
 void FAES::DecryptData( uint8 *Contents, uint32 NumBytes, ANSICHAR* Key )
 {
-#ifdef AES_KEY
 	uint32 rk[RKLENGTH(AES_KEYBITS)] = { 0 };
 	int32 nrounds;
 
@@ -1206,5 +1204,4 @@ void FAES::DecryptData( uint8 *Contents, uint32 NumBytes, ANSICHAR* Key )
 	{
 		rijndaelDecrypt( rk, nrounds, Contents + Offset, Contents + Offset );
 	}
-#endif
 }

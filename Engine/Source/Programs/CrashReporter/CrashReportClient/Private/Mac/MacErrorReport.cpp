@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "MacErrorReport.h"
 #include "CrashReportClientApp.h"
 #include "../CrashReportUtil.h"
 #include "CrashDebugHelperModule.h"
-
-#include "MacErrorReport.h"
 
 #define LOCTEXT_NAMESPACE "CrashReportClient"
 

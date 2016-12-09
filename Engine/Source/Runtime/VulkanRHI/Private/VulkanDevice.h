@@ -14,11 +14,6 @@ class FVulkanCommandListContext;
 class FVulkanDevice
 {
 public:
-	enum
-	{
-		NumTimestampPools = 3,	// Must be the same size as the number of the backbuffer images
-	};
-
 	FVulkanDevice(VkPhysicalDevice Gpu);
 
 	~FVulkanDevice();
@@ -43,11 +38,6 @@ public:
 	inline VkPhysicalDevice GetPhysicalHandle() const
 	{
 		return Gpu;
-	}
-
-	inline FVulkanRingBuffer* GetUBRingBuffer()
-	{
-		return UBRingBuffer;
 	}
 
 	inline const VkPhysicalDeviceProperties& GetDeviceProperties() const
@@ -83,12 +73,6 @@ public:
 	inline VkSampler GetDefaultSampler() const
 	{
 		return DefaultSampler->Sampler;
-	}
-
-	inline FVulkanTimestampQueryPool* GetTimestampQueryPool(uint32 Index)
-	{
-		check(Index < NumTimestampPools);
-		return TimestampQueryPool[Index];
 	}
 
 	inline const VkFormatProperties* GetFormatProperties() const
@@ -138,7 +122,39 @@ public:
 	{
 		return CmdDbgMarkerEnd;
 	}
+
+	PFN_vkDebugMarkerSetObjectNameEXT GetDebugMarkerSetObjectName() const
+	{
+		return DebugMarkerSetObjectName;
+	}
 #endif
+
+	void PrepareForCPURead();
+
+	void SubmitCommandsAndFlushGPU();
+
+	inline FVulkanOcclusionQueryPool& FindAvailableOcclusionQueryPool(FVulkanCmdBuffer* CmdBuffer)
+	{
+		// First try to find An available one
+		for (int32 Index = 0; Index < OcclusionQueryPools.Num(); ++Index)
+		{
+			FVulkanOcclusionQueryPool* Pool = OcclusionQueryPools[Index];
+			if (Pool->HasRoom())
+			{
+				return *Pool;
+			}
+		}
+
+		// None found, so allocate new Pool
+		FVulkanOcclusionQueryPool* Pool = new FVulkanOcclusionQueryPool(this, NUM_OCCLUSION_QUERIES_PER_POOL);
+		OcclusionQueryPools.Add(Pool);
+		return *Pool;
+	}
+
+	inline FVulkanTimestampPool* GetTimestampQueryPool()
+	{
+		return TimestampQueryPool;
+	}
 
 private:
 	void MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat);
@@ -168,16 +184,14 @@ private:
 	// Info for formats that are not in the core Vulkan spec (i.e. extensions)
 	mutable TMap<VkFormat, VkFormatProperties> ExtensionFormatProperties;
 
-	// Nullptr if not supported
-	FVulkanTimestampQueryPool* TimestampQueryPool[NumTimestampPools];
+	TArray<FVulkanOcclusionQueryPool*> OcclusionQueryPools;
+	FVulkanTimestampPool* TimestampQueryPool;
 
 	FVulkanQueue* Queue;
 
 	VkComponentMapping PixelFormatComponentMapping[PF_MAX];
 
 	FVulkanCommandListContext* ImmediateContext;
-
-	FVulkanRingBuffer* UBRingBuffer;
 
 	void GetDeviceExtensions(TArray<const ANSICHAR*>& OutDeviceExtensions, TArray<const ANSICHAR*>& OutDeviceLayers, bool& bOutDebugMarkers);
 	void SetupFormats();
@@ -189,10 +203,9 @@ private:
 	friend class FVulkanCommandListContext;
 #endif
 
-public:
-	uint64 FrameCounter;
-
 #if VULKAN_ENABLE_PIPELINE_CACHE
 	class FVulkanPipelineStateCache* PipelineStateCache;
+	friend class FVulkanDynamicRHI;
+	friend class FVulkanBoundShaderState;
 #endif
 };

@@ -24,6 +24,7 @@ public class DetailCustomizations : ModuleRules
 				"EditorWidgets",
 				"KismetWidgets",
 				"MovieSceneCapture",
+				"MovieSceneTools",
 				"SharedSettingsWidgets",
                 "ContentBrowser",
 				"BlueprintGraph",
@@ -41,14 +42,14 @@ public class DetailCustomizations : ModuleRules
 				"RHI",
                 "HardwareTargeting",
 				"SharedSettingsWidgets",
-                "LightPropagationVolumeRuntime",
                 "AIModule", 
                 "MeshUtilities",
 				"ConfigEditor",
                 "Persona",
                 "CinematicCamera",
-                "ComponentVisualizers"
-			}
+				"ComponentVisualizers",
+                "SkeletonEditor",
+            }
 		);
 
         PrivateIncludePathModuleNames.AddRange(

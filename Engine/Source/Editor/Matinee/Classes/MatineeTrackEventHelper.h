@@ -2,8 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Types/SlateEnums.h"
+#include "InterpTrackHelper.h"
 #include "MatineeTrackEventHelper.generated.h"
 
+class IMatineeBase;
+class UInterpTrack;
 
 UCLASS()
 class UMatineeTrackEventHelper : public UInterpTrackHelper

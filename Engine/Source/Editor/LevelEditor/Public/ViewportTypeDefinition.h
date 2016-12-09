@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FUICommandInfo;
 class IViewportLayoutEntity;
 struct FViewportConstructionArgs;
 

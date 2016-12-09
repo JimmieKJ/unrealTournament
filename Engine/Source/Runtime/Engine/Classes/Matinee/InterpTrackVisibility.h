@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrack.h"
 #include "InterpTrackVisibility.generated.h"
+
+class AActor;
+class FCanvas;
+class UInterpGroup;
+class UInterpTrackInst;
 
 /**
  *	This track implements support for setting or toggling the visibility of the associated actor

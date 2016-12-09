@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Containers/ContainersFwd.h"
+
 /** An argument supplied to FString::Format */
 struct CORE_API FStringFormatArg
 {

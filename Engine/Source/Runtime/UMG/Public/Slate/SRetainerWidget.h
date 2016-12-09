@@ -2,9 +2,25 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Layout/Visibility.h"
+#include "Layout/SlateRect.h"
+#include "Layout/Geometry.h"
+#include "Input/Events.h"
+#include "Layout/ArrangedWidget.h"
+#include "Widgets/SWidget.h"
+#include "Styling/SlateBrush.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/Children.h"
+#include "UObject/GCObject.h"
+#include "Widgets/SCompoundWidget.h"
 #include "Input/HittestGrid.h"
-#include "WidgetRenderer.h"
+#include "Slate/WidgetRenderer.h"
 
+class FArrangedChildren;
+class UMaterialInstanceDynamic;
+class UMaterialInterface;
 
 DECLARE_MULTICAST_DELEGATE( FOnRetainedModeChanged );
 
@@ -76,6 +92,7 @@ protected:
 
 	void RefreshRenderingMode();
 	bool ShouldBeRenderingOffscreen() const;
+	bool IsAnythingVisibleToRender() const;
 	void OnRetainerModeChanged();
 private:
 #if !UE_BUILD_SHIPPING

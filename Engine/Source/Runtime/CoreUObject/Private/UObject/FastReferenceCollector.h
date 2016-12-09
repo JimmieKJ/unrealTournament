@@ -2,7 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
 #include "UObject/GarbageCollection.h"
+#include "UObject/Class.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "UObject/UnrealType.h"
+
+struct FStackEntry;
 
 /*=============================================================================
 	FastReferenceCollector.h: Unreal realtime garbage collection helpers
@@ -218,7 +225,12 @@ private:
 						ObjectClass->AssembleReferenceTokenStream();
 					}
 				}
-				check(CurrentObject->GetClass()->HasAnyClassFlags(CLASS_TokenStreamAssembled));
+#if DO_CHECK
+				if (!CurrentObject->GetClass()->HasAnyClassFlags(CLASS_TokenStreamAssembled))
+				{
+					UE_LOG(LogGarbage, Fatal, TEXT("%s does not yet have a token stream assembled."), *GetFullNameSafe(CurrentObject->GetClass()));
+				}
+#endif
 
 				// Get pointer to token stream and jump to the start.
 				FGCReferenceTokenStream* RESTRICT TokenStream = &CurrentObject->GetClass()->ReferenceTokenStream;

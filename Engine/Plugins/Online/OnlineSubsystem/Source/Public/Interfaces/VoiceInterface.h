@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
+#include "OnlineDelegateMacros.h"
 #include "OnlineSubsystemPackage.h"
 
-class FUniqueNetId;
+class FVoicePacket;
 
 /** Enable to pipe local voice data back to this client as remote data */
 #define VOICE_LOOPBACK !UE_BUILD_SHIPPING

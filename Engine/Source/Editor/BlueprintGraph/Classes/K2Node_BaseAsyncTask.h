@@ -3,11 +3,17 @@
 
 #pragma once
 
-#include "EdGraphSchema_K2_Actions.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "K2Node.h"
 #include "K2Node_BaseAsyncTask.generated.h"
 
-class UK2Node_CustomEvent;
+class FBlueprintActionDatabaseRegistrar;
+class FKismetCompilerContext;
+class UEdGraph;
 class UEdGraphPin;
+class UEdGraphSchema_K2;
+class UK2Node_CustomEvent;
 class UK2Node_TemporaryVariable;
 
 /** struct to remap pins for Async Tasks.

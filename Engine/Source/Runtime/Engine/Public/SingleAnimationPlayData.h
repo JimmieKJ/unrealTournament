@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "SingleAnimationPlayData.generated.h"
+
+class UAnimSingleNodeInstance;
 
 USTRUCT()
 struct FSingleAnimationPlayData

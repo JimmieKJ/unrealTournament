@@ -272,6 +272,26 @@ public class ICU : ModuleRules
 				PublicAdditionalLibraries.Add(LibraryName);
 			}
 		}
+		else if (Target.Platform == UnrealTargetPlatform.Switch)
+		{
+			string LibraryNamePrefix = "sicu";
+			string[] LibraryNameStems =
+			{
+				"dt",	// Data
+				"uc",   // Unicode Common
+				"in",	// Internationalization
+				"le",   // Layout Engine
+				"lx",   // Layout Extensions
+				"io"	// Input/Output
+			};
+			string LibraryNamePostfix = ""; //(Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT) ? "d" : string.Empty;
+			string LibraryExtension = "a";
+			foreach (string Stem in LibraryNameStems)
+			{
+				string LibraryName = ICURootPath + "Switch/lib/" + LibraryNamePrefix + Stem + LibraryNamePostfix + "." + LibraryExtension;
+				PublicAdditionalLibraries.Add(LibraryName);
+			}
+		}
 		else if (Target.Platform == UnrealTargetPlatform.XboxOne)
 		{
 			// Use reflection to allow type not to exist if console code is not present
@@ -310,7 +330,9 @@ public class ICU : ModuleRules
 			(Target.Platform == UnrealTargetPlatform.TVOS) ||
 			(Target.Platform == UnrealTargetPlatform.PS4) ||
             (Target.Platform == UnrealTargetPlatform.XboxOne) ||
-            (Target.Platform == UnrealTargetPlatform.HTML5))
+            (Target.Platform == UnrealTargetPlatform.HTML5) ||
+            (Target.Platform == UnrealTargetPlatform.Switch)
+			)
 		{
 			// Definitions
 			Definitions.Add("U_USING_ICU_NAMESPACE=0"); // Disables a using declaration for namespace "icu".

@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/NameTypes.h"
+#include "Math/Color.h"
+#include "UObject/ObjectMacros.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateBrush.h"
+#include "Styling/SlateWidgetStyle.h"
 #include "FriendsChatChromeStyle.generated.h"
 
 /**

@@ -6,7 +6,13 @@
 ==============================================================================================*/
 
 #pragma once
+
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
 #include "GenericPlatform/GenericPlatformOutputDevices.h"
+
+class FOutputDeviceConsole;
+class FOutputDeviceError;
 
 struct CORE_API FLinuxOutputDevices : public FGenericPlatformOutputDevices
 {

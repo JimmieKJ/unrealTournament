@@ -1,6 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/CoreNet.h"
+#include "UObject/UnrealType.h"
+#include "UObject/Package.h"
+#include "UObject/PropertyPortFlags.h"
+
 DECLARE_LOG_CATEGORY_EXTERN(LogProperty, Log, All);
 
 /**

@@ -2,10 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
 #include "PerfCountersModule.h"
-#include "ZeroLoad.h"
+#include "Containers/Ticker.h"
+#include "ProfilingDebugging/Histogram.h"
 
 class FSocket;
+class FZeroLoad;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPerfCounters, Log, All);
 

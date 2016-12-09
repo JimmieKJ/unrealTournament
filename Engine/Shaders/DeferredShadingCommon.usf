@@ -332,7 +332,7 @@ struct FGBufferData
 	uint ShadingModelID;
 	// 0..255 
 	uint SelectiveOutputMask;
-	// 0..1, 2 bits, use HasDistanceFieldRepresentation(GBuffer) or HasHeightfieldRepresentation(GBuffer) to extract
+	// 0..1, 2 bits, use HasDistanceFieldRepresentation(GBuffer) or HasDynamicIndirectShadowCasterRepresentation(GBuffer) to extract
 	float PerObjectGBufferData;
 	// in world units
 	float CustomDepth;
@@ -352,14 +352,12 @@ struct FGBufferData
 
 bool HasDistanceFieldRepresentation(FGBufferData GBufferData)
 {
-	// can be optimized
 	uint PackedAlpha = (uint)(GBufferData.PerObjectGBufferData * 3.999f);
 	return PackedAlpha & 1;
 }
 
-bool HasHeightfieldRepresentation(FGBufferData GBufferData)
+bool HasDynamicIndirectShadowCasterRepresentation(FGBufferData GBufferData)
 {
-	// can be optimized
 	uint PackedAlpha = (uint)(GBufferData.PerObjectGBufferData * 3.999f);
 	return (PackedAlpha & 2) != 0;
 }
@@ -673,8 +671,6 @@ SamplerState DBufferCTextureSampler;
 
 Texture2D ScreenSpaceAOTexture;
 SamplerState ScreenSpaceAOTextureSampler;
-Texture2D CustomDepthTexture;
-SamplerState CustomDepthTextureSampler;
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 
 Texture2D<uint2> CustomStencilTexture;

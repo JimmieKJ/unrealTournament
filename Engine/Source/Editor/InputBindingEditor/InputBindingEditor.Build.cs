@@ -6,21 +6,27 @@ public class InputBindingEditor : ModuleRules
 {
 	public InputBindingEditor(TargetInfo Target)
 	{
-		PublicDependencyModuleNames.AddRange(
-			new string[]
-			{
-				"EditorStyle",
-				"Slate",
-                "SlateCore",
-			}
-		);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
+				"EditorStyle",
 				"Core",
-				"CoreUObject", // @todo Mac: for some reason it's needed to link in debug on Mac
+				"CoreUObject",
+				"Slate",
+				"SlateCore",
 				"InputCore",
+				"Engine",
+				"UnrealEd",
+				"PropertyEditor",
+				"Settings"
+			}
+		);
+
+		DynamicallyLoadedModuleNames.AddRange(
+			new string[]
+			{
+				"SettingsEditor",
 			}
 		);
 

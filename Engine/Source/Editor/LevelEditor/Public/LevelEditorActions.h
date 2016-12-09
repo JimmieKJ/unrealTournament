@@ -4,9 +4,21 @@
 
 #pragma once
 
-#include "IToolkit.h"
+#include "CoreMinimal.h"
+#include "UnrealWidget.h"
+#include "SceneTypes.h"
+#include "Framework/Commands/Commands.h"
+#include "AssetData.h"
+#include "Editor.h"
+#include "Toolkits/IToolkit.h"
+#include "EditorStyleSet.h"
+#include "TexAligner/TexAligner.h"
 #include "LightmapResRatioAdjust.h"
-#include "Developer/AssetTools/Public/IAssetTypeActions.h"
+
+class AMatineeActor;
+class FLightingBuildOptions;
+class SLevelEditor;
+class UActorFactory;
 
 /**
  * Unreal level editor actions

@@ -2,9 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/PrimitiveComponent.h"
 #include "SpriteDrawCall.h"
 #include "PaperTerrainComponent.generated.h"
 
+class FPrimitiveSceneProxy;
+class UBodySetup;
+class UMaterialInterface;
 struct FPaperTerrainMaterialRule;
 
 struct FPaperTerrainSpriteGeometry

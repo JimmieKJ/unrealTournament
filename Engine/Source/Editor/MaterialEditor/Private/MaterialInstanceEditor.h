@@ -2,9 +2,21 @@
 
 #pragma once
 
-#include "Toolkits/AssetEditorToolkit.h"
-#include "SMaterialEditorViewport.h"
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "Misc/NotifyHook.h"
 #include "EditorUndoClient.h"
+#include "Toolkits/IToolkitHost.h"
+#include "IMaterialEditor.h"
+#include "IDetailsView.h"
+#include "SMaterialEditorViewport.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+
+class FCanvas;
+class UMaterialEditorInstanceConstant;
+class UMaterialInterface;
+template <typename ItemType> class SListView;
 
 /**
  * Material Instance Editor class
@@ -48,6 +60,8 @@ public:
 
 	/** Post edit change notify for properties. */
 	virtual void NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged ) override;
+
+	void PreSavePackage(UPackage* Obj);
 
 	/** Rebuilds the inheritance list for this material instance. */
 	void RebuildInheritanceList();

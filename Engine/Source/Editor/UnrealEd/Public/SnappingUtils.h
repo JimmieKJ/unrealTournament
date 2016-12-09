@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FEditorViewportSnapping;
+class FLevelEditorViewportClient;
+class FPrimitiveDrawInterface;
+class FSceneView;
+
 class UNREALED_API FSnappingUtils
 {
 public:

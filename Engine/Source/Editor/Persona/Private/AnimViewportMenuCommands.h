@@ -4,6 +4,10 @@
 #ifndef __AnimViewportMenuCommands_h_
 #define __AnimViewportMenuCommands_h_
 
+#include "CoreMinimal.h"
+#include "Framework/Commands/Commands.h"
+#include "EditorStyleSet.h"
+
 /**
  * Class containing commands for viewport menu actions
  */
@@ -21,17 +25,11 @@ public:
 	{
 	}
 
-	/** Preview what is active on the current window */
-	TSharedPtr< FUICommandInfo > Auto;
-
-	/** Lock to current preview */
-	TSharedPtr< FUICommandInfo > Lock;
-
+	/** Open settings for the preview scene */
+	TSharedPtr< FUICommandInfo > PreviewSceneSettings;
+	
 	/** Select camera follow */
 	TSharedPtr< FUICommandInfo > CameraFollow;
-
-	/** Use in-game Bound of preview mesh */
-	TSharedPtr< FUICommandInfo > UseInGameBound;
 
 	/** Show vertex normals */
 	TSharedPtr< FUICommandInfo > SetCPUSkinning;

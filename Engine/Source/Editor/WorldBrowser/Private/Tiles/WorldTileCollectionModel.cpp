@@ -1,32 +1,46 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "WorldBrowserPrivatePCH.h"
+#include "Tiles/WorldTileCollectionModel.h"
+#include "Misc/PackageName.h"
+#include "Components/PrimitiveComponent.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SWindow.h"
+#include "Engine/MeshMerging.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/Light.h"
+#include "Engine/StaticMeshActor.h"
+#include "Editor.h"
+#include "LevelEditorViewport.h"
+#include "EditorModeManager.h"
+#include "EditorDirectories.h"
+#include "FileHelpers.h"
+#include "LevelCollectionCommands.h"
 
 #include "Engine/WorldComposition.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "FileHelpers.h"
-#include "ContentBrowserModule.h"
+#include "IDetailsView.h"
 #include "AssetRegistryModule.h"
 #include "MeshUtilities.h"
-#include "MaterialUtilities.h"
 #include "RawMesh.h"
+#include "Materials/Material.h"
+#include "MaterialUtilities.h"
+#include "LandscapeLayerInfoObject.h"
 #include "LandscapeEditorUtils.h"
 
-#include "WorldTileDetails.h"
-#include "WorldTileDetailsCustomization.h"
-#include "WorldTileCollectionModel.h"
-#include "STiledLandscapeImportDlg.h"
-#include "Engine/StaticMeshActor.h"
-#include "Engine/StaticMesh.h"
-#include "Engine/LevelStreaming.h"
+#include "Tiles/WorldTileDetails.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Tiles/WorldTileDetailsCustomization.h"
+#include "Tiles/STiledLandscapeImportDlg.h"
 #include "Landscape.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/UObjectIterator.h"
+#include "GameFramework/PlayerController.h"
 #include "GameFramework/WorldSettings.h"
-#include "Engine/Light.h"
+#include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "InstancedFoliageActor.h"
 #include "LandscapeMeshProxyActor.h"
 #include "LandscapeMeshProxyComponent.h"
-#include "LandscapeLayerInfoObject.h"
-#include "Components/HierarchicalInstancedStaticMeshComponent.h"
+#include "LandscapeFileFormatInterface.h"
 #include "LandscapeEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
@@ -589,7 +603,7 @@ bool FWorldTileCollectionModel::GetPlayerView(FVector& Location, FRotator& Rotat
 		UWorld* SimulationWorld = GetSimulationWorld();
 		for (FConstPlayerControllerIterator Iterator = SimulationWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PlayerActor = *Iterator;
+			APlayerController* PlayerActor = Iterator->Get();
 			PlayerActor->GetPlayerViewPoint(Location, Rotation);
 			return true;
 		}
@@ -1965,7 +1979,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 		// Where generated assets will be stored
 		UPackage* AssetsOuter = SimplificationDetails.bCreatePackagePerAsset ? nullptr : LODPackage;
 		// In case we don't have outer generated assets should have same path as LOD level
-		const FString AssetsPath = AssetsOuter ? TEXT("") : FPackageName::GetLongPackagePath(LODLevelPackageName) + TEXT("/");
+		const FString AssetsPath = SimplificationDetails.bCreatePackagePerAsset ? FPackageName::GetLongPackagePath(LODLevelPackageName) + TEXT("/") : TEXT("");
 	
 		// Generate Proxy LOD mesh for all actors excluding landscapes
 		if (Actors.Num() && MeshMerging != nullptr)
@@ -2049,11 +2063,11 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			}
 								
 			// This is texture resolution for a landscape mesh, probably needs to be calculated using landscape size
-			LandscapeFlattenMaterial.DiffuseSize = SimplificationDetails.LandscapeMaterialSettings.TextureSize;
-			LandscapeFlattenMaterial.NormalSize = SimplificationDetails.LandscapeMaterialSettings.bNormalMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue;
-			LandscapeFlattenMaterial.MetallicSize = SimplificationDetails.LandscapeMaterialSettings.bMetallicMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue;
-			LandscapeFlattenMaterial.RoughnessSize = SimplificationDetails.LandscapeMaterialSettings.bRoughnessMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue;
-			LandscapeFlattenMaterial.SpecularSize = SimplificationDetails.LandscapeMaterialSettings.bSpecularMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue;
+			LandscapeFlattenMaterial.SetPropertySize(EFlattenMaterialProperties::Diffuse, SimplificationDetails.LandscapeMaterialSettings.TextureSize);
+			LandscapeFlattenMaterial.SetPropertySize(EFlattenMaterialProperties::Normal, SimplificationDetails.LandscapeMaterialSettings.bNormalMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue);
+			LandscapeFlattenMaterial.SetPropertySize(EFlattenMaterialProperties::Metallic, SimplificationDetails.LandscapeMaterialSettings.bMetallicMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue);  
+			LandscapeFlattenMaterial.SetPropertySize(EFlattenMaterialProperties::Roughness, SimplificationDetails.LandscapeMaterialSettings.bRoughnessMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue);  
+			LandscapeFlattenMaterial.SetPropertySize(EFlattenMaterialProperties::Specular, SimplificationDetails.LandscapeMaterialSettings.bSpecularMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue);
 			
 			FMaterialUtilities::ExportLandscapeMaterial(Landscape, PrimitivesToHide, LandscapeFlattenMaterial);
 					
@@ -2072,7 +2086,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			// Construct landscape static mesh
 			FString LandscapeMeshAssetName = TEXT("SM_") + LandscapeBaseAssetName;
 			UPackage* MeshOuter = AssetsOuter;
-			if (MeshOuter == nullptr)
+			if (SimplificationDetails.bCreatePackagePerAsset)
 			{
 				MeshOuter = CreatePackage(nullptr, *(AssetsPath + LandscapeMeshAssetName));
 				MeshOuter->FullyLoad();
@@ -2101,7 +2115,10 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 				SrcModel->RawMeshBulkData->SaveRawMesh(LandscapeRawMesh);
 
 				//Assign the proxy material to the static mesh
-				StaticMesh->Materials.Add(StaticLandscapeMaterial);
+				StaticMesh->StaticMaterials.Add(FStaticMaterial(StaticLandscapeMaterial));
+
+				//Set the Imported version before calling the build
+				StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
 
 				StaticMesh->Build();
 				StaticMesh->PostEditChange();
@@ -2163,14 +2180,14 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 				if (AssetInfo.SourceLandscape != nullptr)
 				{
 					ALandscapeMeshProxyActor* MeshActor = LODWorld->SpawnActor<ALandscapeMeshProxyActor>(Location, Rotation);
-					MeshActor->GetLandscapeMeshProxyComponent()->StaticMesh = AssetInfo.StaticMesh;
+					MeshActor->GetLandscapeMeshProxyComponent()->SetStaticMesh(AssetInfo.StaticMesh);
 					MeshActor->GetLandscapeMeshProxyComponent()->InitializeForLandscape(AssetInfo.SourceLandscape, AssetInfo.LandscapeLOD);
 					MeshActor->SetActorLabel(AssetInfo.SourceLandscape->GetName());
 				}
 				else
 				{
 					AStaticMeshActor* MeshActor = LODWorld->SpawnActor<AStaticMeshActor>(Location, Rotation);
-					MeshActor->GetStaticMeshComponent()->StaticMesh = AssetInfo.StaticMesh;
+					MeshActor->GetStaticMeshComponent()->SetStaticMesh(AssetInfo.StaticMesh);
 					MeshActor->SetActorLabel(AssetInfo.StaticMesh->GetName());
 				}
 			}

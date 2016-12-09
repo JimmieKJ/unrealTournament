@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimSequence.h"
+#include "Animation/AnimationRecordingSettings.h"
+#include "IMovieSceneSectionRecorder.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "IMovieSceneSectionRecorderFactory.h"
+
+class FMovieSceneAnimationSectionRecorder;
+class UMovieSceneSkeletalAnimationSection;
+
 class FMovieSceneAnimationSectionRecorderFactory : public IMovieSceneSectionRecorderFactory
 {
 public:

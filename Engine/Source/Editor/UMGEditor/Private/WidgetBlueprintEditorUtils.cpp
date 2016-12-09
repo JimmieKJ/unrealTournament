@@ -1,29 +1,36 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
+#include "WidgetBlueprintEditorUtils.h"
 #include "Components/PanelSlot.h"
 #include "Components/PanelWidget.h"
-#include "WidgetBlueprintEditorUtils.h"
-#include "WidgetBlueprintEditor.h"
-#include "Kismet2NameValidators.h"
-#include "BlueprintEditorUtils.h"
-#include "TextPackageNamespaceUtil.h"
-#include "K2Node_Variable.h"
-#include "WidgetTemplateClass.h"
-#include "WidgetTemplateBlueprintClass.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Internationalization/TextPackageNamespaceUtil.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Blueprint/WidgetTree.h"
+#include "MovieScene.h"
+#include "WidgetBlueprint.h"
+
+#if WITH_EDITOR
+	#include "Exporters/Exporter.h"
+#endif // WITH_EDITOR
+#include "ObjectEditorUtils.h"
+#include "Components/CanvasPanelSlot.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+
+#include "Animation/WidgetAnimation.h"
+#include "Kismet2/Kismet2NameValidators.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Templates/WidgetTemplateClass.h"
+#include "Templates/WidgetTemplateBlueprintClass.h"
 #include "Factories.h"
 #include "UnrealExporter.h"
-#include "GenericCommands.h"
-#include "WidgetBlueprint.h"
-#include "Blueprint/WidgetTree.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "ScopedTransaction.h"
-#include "K2Node_ComponentBoundEvent.h"
-#include "CanvasPanel.h"
-#include "WidgetSlotPair.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "MovieScenePossessable.h"
-#include "MovieScene.h"
+#include "Components/CanvasPanel.h"
+#include "Utility/WidgetSlotPair.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -140,7 +147,7 @@ bool FWidgetBlueprintEditorUtils::VerifyWidgetRename(TSharedRef<class FWidgetBlu
 	}
 
 	UProperty* Property = Blueprint->ParentClass->FindPropertyByName( NewNameSlug );
-	if ( Property && Property->HasMetaData( "BindWidget" ) )
+	if ( Property && FWidgetBlueprintEditorUtils::IsBindWidgetProperty(Property))
 	{
 		return true;
 	}
@@ -178,7 +185,7 @@ bool FWidgetBlueprintEditorUtils::RenameWidget(TSharedRef<FWidgetBlueprintEditor
 	const FName NewFName = MakeObjectNameFromDisplayLabel(NewDisplayName, Widget->GetFName());
 
 	UProperty* ExistingProperty = ParentClass->FindPropertyByName( NewFName );
-	const bool bBindWidget = ExistingProperty && ExistingProperty->HasMetaData( "BindWidget" );
+	const bool bBindWidget = ExistingProperty && FWidgetBlueprintEditorUtils::IsBindWidgetProperty(ExistingProperty);
 
 	// NewName should be already validated. But one must make sure that NewTemplateName is also unique.
 	const bool bUniqueNameForTemplate = ( EValidatorResult::Ok == NameValidator->IsValid( NewFName ) || bBindWidget );
@@ -692,7 +699,8 @@ bool FWidgetBlueprintEditorUtils::CanBeReplacedWithTemplate(TSharedRef<FWidgetBl
 				return false;
 			}
 		}
-		return true;
+		UUserWidget* NewUserWidget = CastChecked<UUserWidget>(FWidgetTemplateBlueprintClass(SelectedUserWidget).Create(BP->WidgetTree));
+		return BP->IsWidgetFreeFromCircularReferences(NewUserWidget);
 	}
 
 	UClass* WidgetClass = BlueprintEditor->GetSelectedTemplate().Get();
@@ -1167,6 +1175,25 @@ void FWidgetBlueprintEditorUtils::ImportPropertiesFromText(UObject* Object, cons
 			}
 		}
 	}
+}
+
+bool FWidgetBlueprintEditorUtils::IsBindWidgetProperty(UProperty* InProperty)
+{
+	bool bIsOptional;
+	return IsBindWidgetProperty(InProperty, bIsOptional);
+}
+
+bool FWidgetBlueprintEditorUtils::IsBindWidgetProperty(UProperty* InProperty, bool& bIsOptional)
+{
+	if ( InProperty )
+	{
+		bool bIsBindWidget = InProperty->HasMetaData("BindWidget") || InProperty->HasMetaData("BindWidgetOptional");
+		bIsOptional = InProperty->HasMetaData("BindWidgetOptional") || ( InProperty->HasMetaData("OptionalWidget") || InProperty->GetBoolMetaData("OptionalWidget") );
+
+		return bIsBindWidget;
+	}
+
+	return false;
 }
 
 bool FWidgetBlueprintEditorUtils::IsUsableWidgetClass(UClass* WidgetClass)

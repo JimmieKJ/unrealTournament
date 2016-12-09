@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessagingPrivatePCH.h"
+#include "Bus/MessageBus.h"
+#include "HAL/RunnableThread.h"
+#include "Bus/MessageRouter.h"
+#include "Bus/MessageContext.h"
+#include "Bus/MessageSubscription.h"
+#include "IMessageSender.h"
 
 
 /* FMessageBus structors
  *****************************************************************************/
 
-FMessageBus::FMessageBus(const IAuthorizeMessageRecipientsPtr& InRecipientAuthorizer)
+FMessageBus::FMessageBus(const TSharedPtr<IAuthorizeMessageRecipients>& InRecipientAuthorizer)
 	: RecipientAuthorizer(InRecipientAuthorizer)
 {
 	Router = new FMessageRouter();
@@ -27,19 +32,31 @@ FMessageBus::~FMessageBus()
 /* IMessageBus interface
  *****************************************************************************/
 
-void FMessageBus::Forward(const IMessageContextRef& Context, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const ISendMessagesRef& Forwarder)
+void FMessageBus::Forward(
+	const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context,
+	const TArray<FMessageAddress>& Recipients,
+	const FTimespan& Delay,
+	const TSharedRef<IMessageSender, ESPMode::ThreadSafe>& Forwarder
+)
 {
-	Router->RouteMessage(MakeShareable(new FMessageContext(Context, Forwarder->GetSenderAddress(), Recipients, EMessageScope::Process, FDateTime::UtcNow() + Delay, FTaskGraphInterface::Get().GetCurrentThreadIfKnown())));
+	Router->RouteMessage(MakeShareable(new FMessageContext(
+		Context,
+		Forwarder->GetSenderAddress(),
+		Recipients,
+		EMessageScope::Process,
+		FDateTime::UtcNow() + Delay,
+		FTaskGraphInterface::Get().GetCurrentThreadIfKnown()
+	)));
 }
 
 
-IMessageTracerRef FMessageBus::GetTracer()
+TSharedRef<IMessageTracer, ESPMode::ThreadSafe> FMessageBus::GetTracer()
 {
 	return Router->GetTracer();
 }
 
 
-void FMessageBus::Intercept(const IMessageInterceptorRef& Interceptor, const FName& MessageType)
+void FMessageBus::Intercept(const TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe>& Interceptor, const FName& MessageType)
 {
 	if (MessageType == NAME_None)
 	{
@@ -59,21 +76,56 @@ FOnMessageBusShutdown& FMessageBus::OnShutdown()
 }
 
 
-void FMessageBus::Publish(void* Message, UScriptStruct* TypeInfo, EMessageScope Scope, const FTimespan& Delay, const FDateTime& Expiration, const ISendMessagesRef& Publisher)
+void FMessageBus::Publish(
+	void* Message,
+	UScriptStruct* TypeInfo,
+	EMessageScope Scope,
+	const FTimespan& Delay,
+	const FDateTime& Expiration,
+	const TSharedRef<IMessageSender, ESPMode::ThreadSafe>& Publisher
+)
 {
-	Router->RouteMessage(MakeShareable(new FMessageContext(Message, TypeInfo, nullptr, Publisher->GetSenderAddress(), TArray<FMessageAddress>(), Scope, FDateTime::UtcNow() + Delay, Expiration, FTaskGraphInterface::Get().GetCurrentThreadIfKnown())));
+	Router->RouteMessage(MakeShareable(new FMessageContext(
+		Message,
+		TypeInfo,
+		nullptr,
+		Publisher->GetSenderAddress(),
+		TArray<FMessageAddress>(),
+		Scope,
+		FDateTime::UtcNow() + Delay,
+		Expiration,
+		FTaskGraphInterface::Get().GetCurrentThreadIfKnown()
+	)));
 }
 
 
-void FMessageBus::Register(const FMessageAddress& Address, const IReceiveMessagesRef& Recipient)
+void FMessageBus::Register(const FMessageAddress& Address, const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Recipient)
 {
 	Router->AddRecipient(Address, Recipient);
 }
 
 
-void FMessageBus::Send(void* Message, UScriptStruct* TypeInfo, const IMessageAttachmentPtr& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration, const ISendMessagesRef& Sender)
+void FMessageBus::Send(
+	void* Message,
+	UScriptStruct* TypeInfo,
+	const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment,
+	const TArray<FMessageAddress>& Recipients,
+	const FTimespan& Delay,
+	const FDateTime& Expiration,
+	const TSharedRef<IMessageSender, ESPMode::ThreadSafe>& Sender
+)
 {
-	Router->RouteMessage(MakeShareable(new FMessageContext(Message, TypeInfo, Attachment, Sender->GetSenderAddress(), Recipients, EMessageScope::Network, FDateTime::UtcNow() + Delay, Expiration, FTaskGraphInterface::Get().GetCurrentThreadIfKnown())));
+	Router->RouteMessage(MakeShareable(new FMessageContext(
+		Message,
+		TypeInfo,
+		Attachment,
+		Sender->GetSenderAddress(),
+		Recipients,
+		EMessageScope::Network,
+		FDateTime::UtcNow() + Delay,
+		Expiration,
+		FTaskGraphInterface::Get().GetCurrentThreadIfKnown()
+	)));
 }
 
 
@@ -90,13 +142,17 @@ void FMessageBus::Shutdown()
 }
 
 
-IMessageSubscriptionPtr FMessageBus::Subscribe(const IReceiveMessagesRef& Subscriber, const FName& MessageType, const FMessageScopeRange& ScopeRange)
+TSharedPtr<IMessageSubscription, ESPMode::ThreadSafe> FMessageBus::Subscribe(
+	const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Subscriber,
+	const FName& MessageType,
+	const FMessageScopeRange& ScopeRange
+)
 {
 	if (MessageType != NAME_None)
 	{
 		if (!RecipientAuthorizer.IsValid() || RecipientAuthorizer->AuthorizeSubscription(Subscriber, MessageType))
 		{
-			IMessageSubscriptionRef Subscription = MakeShareable(new FMessageSubscription(Subscriber, MessageType, ScopeRange));
+			TSharedRef<IMessageSubscription, ESPMode::ThreadSafe> Subscription = MakeShareable(new FMessageSubscription(Subscriber, MessageType, ScopeRange));
 			Router->AddSubscription(Subscription);
 
 			return Subscription;
@@ -107,7 +163,7 @@ IMessageSubscriptionPtr FMessageBus::Subscribe(const IReceiveMessagesRef& Subscr
 }
 
 
-void FMessageBus::Unintercept(const IMessageInterceptorRef& Interceptor, const FName& MessageType)
+void FMessageBus::Unintercept(const TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe>& Interceptor, const FName& MessageType)
 {
 	if (MessageType != NAME_None)
 	{
@@ -125,7 +181,7 @@ void FMessageBus::Unregister(const FMessageAddress& Address)
 }
 
 
-void FMessageBus::Unsubscribe(const IReceiveMessagesRef& Subscriber, const FName& MessageType)
+void FMessageBus::Unsubscribe(const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Subscriber, const FName& MessageType)
 {
 	if (MessageType != NAME_None)
 	{

@@ -4,19 +4,30 @@
 	ParticleModules_Collision.cpp: 
 	Collision-related particle module implementations.
 =============================================================================*/
-#include "EnginePrivate.h"
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "EngineDefines.h"
+#include "Engine/EngineTypes.h"
+#include "GameFramework/Pawn.h"
+#include "CollisionQueryParams.h"
+#include "Materials/Material.h"
+#include "ParticleHelper.h"
+#include "Distributions/DistributionFloatConstant.h"
+#include "Distributions/DistributionFloatUniform.h"
+#include "Distributions/DistributionVectorConstant.h"
+#include "Distributions/DistributionVectorUniform.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/TriggerBase.h"
-#include "ParticleDefinitions.h"
-#include "Particles/Collision/ParticleModuleCollision.h"
 #include "Particles/Collision/ParticleModuleCollisionBase.h"
+#include "Particles/Collision/ParticleModuleCollision.h"
 #include "Particles/Collision/ParticleModuleCollisionGPU.h"
 #include "Particles/Event/ParticleModuleEventGenerator.h"
 #include "Particles/TypeData/ParticleModuleTypeDataMesh.h"
 #include "Particles/TypeData/ParticleModuleTypeDataGpu.h"
 #include "Particles/ParticleLODLevel.h"
 #include "Particles/ParticleModuleRequired.h"
-#include "Particles/ParticleSpriteEmitter.h"
-#include "Particles/ParticleSystemComponent.h"
 
 UParticleModuleCollisionBase::UParticleModuleCollisionBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -644,8 +655,10 @@ void UParticleModuleCollisionGPU::CompileModule(struct FParticleEmitterBuildInfo
 #if WITH_EDITOR
 bool UParticleModuleCollisionGPU::IsValidForLODLevel(UParticleLODLevel* LODLevel, FString& OutErrorString)
 {
+	check(LODLevel);
+
 	UMaterialInterface* Material = NULL;
-	if (LODLevel && LODLevel->RequiredModule)
+	if (LODLevel->RequiredModule)
 	{
 		Material = LODLevel->RequiredModule->Material;
 	}

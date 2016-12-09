@@ -24,7 +24,7 @@ class TestP4_Info : BuildCommand
 		Log("P4PORT={0}", GetEnvVar("P4PORT"));
 
 		var Result = P4.P4("info");
-		if (Result != 0)
+		if (Result.ExitCode != 0)
 		{
 			throw new AutomationException("p4 info failed: {0}", Result.Output);
 		}
@@ -76,8 +76,8 @@ class GitPullRequest : BuildCommand
 
 		Log("Running {0} {1}", GitExePath, GitCommandLine);
 
-		ProcessResult Result = Run(App: GitExePath, CommandLine: GitCommandLine, Options: (ERunOptions.NoLoggingOfRunCommand | ERunOptions.AllowSpew | ERunOptions.AppMustExist));
-		if (Result > 0 || Result < 0)
+		IProcessResult Result = Run(App: GitExePath, CommandLine: GitCommandLine, Options: (ERunOptions.NoLoggingOfRunCommand | ERunOptions.AllowSpew | ERunOptions.AppMustExist));
+		if (Result.ExitCode != 0)
 		{
 			throw new AutomationException(String.Format("Command failed (Result:{2}): {0} {1}", GitExePath, GitCommandLine, Result.ExitCode));
 		}
@@ -687,7 +687,7 @@ class TestTestFarm : BuildCommand
 		string ClientLogFile = CombinePaths(CmdEnv.LogFolder, "HoverGameRun");
 		string CmdLine = " ../../../Samples/HoverShip/HoverShip.uproject -game -forcelogflush -log -abslog=" + ClientLogFile;
 
-		ProcessResult App = Run(Exe, CmdLine, null, ERunOptions.AllowSpew | ERunOptions.NoWaitForExit | ERunOptions.AppMustExist | ERunOptions.NoStdOutRedirect);
+		IProcessResult App = Run(Exe, CmdLine, null, ERunOptions.AllowSpew | ERunOptions.NoWaitForExit | ERunOptions.AppMustExist | ERunOptions.NoStdOutRedirect);
 
 		LogFileReaderProcess(ClientLogFile, App, (string Output) =>
 		{
@@ -803,7 +803,7 @@ class TestLog : BuildCommand
 
 		string ServerCmdLine = StartArgs + OtherArgs;
 
-		ProcessResult ServerProcess = Run(ServerApp, ServerCmdLine, null, ERunOptions.AllowSpew | ERunOptions.NoWaitForExit | ERunOptions.AppMustExist | ERunOptions.NoStdOutRedirect);
+		IProcessResult ServerProcess = Run(ServerApp, ServerCmdLine, null, ERunOptions.AllowSpew | ERunOptions.NoWaitForExit | ERunOptions.AppMustExist | ERunOptions.NoStdOutRedirect);
 
 		LogFileReaderProcess(ServerLogFile, ServerProcess, (string Output) =>
 		{

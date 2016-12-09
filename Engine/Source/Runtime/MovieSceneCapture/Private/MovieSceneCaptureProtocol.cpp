@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneCapturePCH.h"
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
 #include "IMovieSceneCaptureProtocol.h"
-#include "SceneViewport.h"
-#include "FileManager.h"
+#include "Slate/SceneViewport.h"
 
 
 bool IMovieSceneCaptureProtocol::CanWriteToFile(const TCHAR* InFilename, bool bOverwriteExisting) const

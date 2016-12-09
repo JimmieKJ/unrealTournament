@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
+#include "AssetTypeActions/AssetTypeActions_MaterialInterface.h"
+#include "Materials/Material.h"
+
 class FAssetTypeActions_Material : public FAssetTypeActions_MaterialInterface
 {
 public:

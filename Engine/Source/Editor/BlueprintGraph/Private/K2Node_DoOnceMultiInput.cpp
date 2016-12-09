@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_DoOnceMultiInput.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_AssignmentStatement.h"
+#include "K2Node_IfThenElse.h"
+#include "K2Node_TemporaryVariable.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
-#include "K2Node_CommutativeAssociativeBinaryOperator.h"
 #include "ScopedTransaction.h"
 #include "KismetCompiler.h"
 #include "BlueprintNodeSpawner.h"

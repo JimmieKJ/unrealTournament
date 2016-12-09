@@ -4,16 +4,26 @@
 	Texture.cpp: Implementation of UTexture.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Engine/Texture.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Materials/MaterialInterface.h"
+#include "Materials/Material.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/UObjectIterator.h"
+#include "TextureResource.h"
+#include "Engine/Texture2D.h"
+#include "ContentStreaming.h"
+#include "EngineUtils.h"
 #include "Engine/AssetUserData.h"
 #include "EditorSupportDelegates.h"
-#include "TargetPlatform.h"
-#include "ImageWrapper.h"
-#include "ContentStreaming.h"
-#include "Streaming/TextureStreamingHelpers.h"
+#include "Interfaces/IImageWrapperModule.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Interfaces/ITargetPlatform.h"
 
 #if WITH_EDITORONLY_DATA
-#include "DDSLoader.h"
 #include "EditorFramework/AssetImportData.h"
 #endif
 #include "Engine/TextureCube.h"
@@ -156,6 +166,30 @@ void UTexture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEven
 		if(bPreventSRGB && SRGB == true)
 		{
 			SRGB = false;
+		}
+	}
+	else
+	{
+		FMaterialUpdateContext UpdateContext;
+		// Update any material that uses this texture and must force a recompile of cache ressource
+		TSet<UMaterial*> BaseMaterialsThatUseThisTexture;
+		for (TObjectIterator<UMaterialInterface> It; It; ++It)
+		{
+			UMaterialInterface* MaterialInterface = *It;
+			if (DoesMaterialUseTexture(MaterialInterface, this))
+			{
+				UMaterial *Material = MaterialInterface->GetMaterial();
+				bool MaterialAlreadyCompute = false;
+				BaseMaterialsThatUseThisTexture.Add(Material, &MaterialAlreadyCompute);
+				if (!MaterialAlreadyCompute)
+				{
+					if (Material->IsTextureForceRecompileCacheRessource(this))
+					{
+						UpdateContext.AddMaterial(Material);
+						Material->UpdateMaterialShaderCacheAndTextureReferences();
+					}
+				}
+			}
 		}
 	}
 
@@ -933,3 +967,140 @@ uint32 UTexture::GetMaximumDimension() const
 	return GetMax2DTextureDimension();
 }
 #endif // #if WITH_EDITOR
+
+FName GetDefaultTextureFormatName( const ITargetPlatform* TargetPlatform, const UTexture* Texture, const FConfigFile& EngineSettings, bool bSupportDX11TextureFormats )
+{
+	FName TextureFormatName = NAME_None;
+
+#if WITH_EDITOR
+	// Supported texture format names.
+	static FName NameDXT1(TEXT("DXT1"));
+	static FName NameDXT3(TEXT("DXT3"));
+	static FName NameDXT5(TEXT("DXT5"));
+	static FName NameDXT5n(TEXT("DXT5n"));
+	static FName NameAutoDXT(TEXT("AutoDXT"));
+	static FName NameBC4(TEXT("BC4"));
+	static FName NameBC5(TEXT("BC5"));
+	static FName NameBGRA8(TEXT("BGRA8"));
+	static FName NameXGXR8(TEXT("XGXR8"));
+	static FName NameG8(TEXT("G8"));
+	static FName NameVU8(TEXT("VU8"));
+	static FName NameRGBA16F(TEXT("RGBA16F"));
+	static FName NameBC6H(TEXT("BC6H"));
+	static FName NameBC7(TEXT("BC7"));
+
+	bool bNoCompression = Texture->CompressionNone				// Code wants the texture uncompressed.
+		|| (TargetPlatform->HasEditorOnlyData() && Texture->DeferCompression)	// The user wishes to defer compression, this is ok for the Editor only.
+		|| (Texture->CompressionSettings == TC_EditorIcon)
+		|| (Texture->LODGroup == TEXTUREGROUP_ColorLookupTable)	// Textures in certain LOD groups should remain uncompressed.
+		|| (Texture->LODGroup == TEXTUREGROUP_Bokeh)
+		|| (Texture->LODGroup == TEXTUREGROUP_IESLightProfile)
+		|| (Texture->Source.GetSizeX() < 4) // Don't compress textures smaller than the DXT block size.
+		|| (Texture->Source.GetSizeY() < 4)
+		|| (Texture->Source.GetSizeX() % 4 != 0)
+		|| (Texture->Source.GetSizeY() % 4 != 0);
+
+	bool bUseDXT5NormalMap = false;
+
+	FString UseDXT5NormalMapsString;
+
+	if (EngineSettings.GetString(TEXT("SystemSettings"), TEXT("Compat.UseDXT5NormalMaps"), UseDXT5NormalMapsString))
+	{
+		bUseDXT5NormalMap = FCString::ToBool(*UseDXT5NormalMapsString);
+	}
+
+	ETextureSourceFormat SourceFormat = Texture->Source.GetFormat();
+
+	// Determine the pixel format of the (un/)compressed texture
+	if (bNoCompression)
+	{
+		if (Texture->HasHDRSource())
+		{
+			TextureFormatName = NameRGBA16F;
+		}
+		else if (SourceFormat == TSF_G8 || Texture->CompressionSettings == TC_Grayscale)
+		{
+			TextureFormatName = NameG8;
+		}
+		else if (Texture->CompressionSettings == TC_Normalmap && bUseDXT5NormalMap)
+		{
+			TextureFormatName = NameXGXR8;
+		}
+		else
+		{
+			TextureFormatName = NameBGRA8;
+		}
+	}
+	else if (Texture->CompressionSettings == TC_HDR)
+	{
+		TextureFormatName = NameRGBA16F;
+	}
+	else if (Texture->CompressionSettings == TC_Normalmap)
+	{
+		TextureFormatName = bUseDXT5NormalMap ? NameDXT5n : NameBC5;
+	}
+	else if (Texture->CompressionSettings == TC_Displacementmap)
+	{
+		TextureFormatName = NameG8;
+	}
+	else if (Texture->CompressionSettings == TC_VectorDisplacementmap)
+	{
+		TextureFormatName = NameBGRA8;
+	}
+	else if (Texture->CompressionSettings == TC_Grayscale)
+	{
+		TextureFormatName = NameG8;
+	}
+	else if ( Texture->CompressionSettings == TC_Alpha)
+	{
+		TextureFormatName = NameBC4;
+	}
+	else if (Texture->CompressionSettings == TC_DistanceFieldFont)
+	{
+		TextureFormatName = NameG8;
+	}
+	else if ( Texture->CompressionSettings == TC_HDR_Compressed )
+	{
+		TextureFormatName = NameBC6H;
+	}
+	else if ( Texture->CompressionSettings == TC_BC7 )
+	{
+		TextureFormatName = NameBC7;
+	}
+	else if (Texture->CompressionNoAlpha)
+	{
+		TextureFormatName = NameDXT1;
+	}
+	else if (Texture->bDitherMipMapAlpha)
+	{
+		TextureFormatName = NameDXT5;
+	}
+	else
+	{
+		TextureFormatName = NameAutoDXT;
+	}
+
+	// Some PC GPUs don't support sRGB read from G8 textures (e.g. AMD DX10 cards on ShaderModel3.0)
+	// This solution requires 4x more memory but a lot of PC HW emulate the format anyway
+	if ((TextureFormatName == NameG8) && Texture->SRGB && !TargetPlatform->SupportsFeature(ETargetPlatformFeatures::GrayscaleSRGB))
+	{
+			TextureFormatName = NameBGRA8;
+	}
+
+	// fallback to non-DX11 formats if one was chosen, but we can't use it
+	if (!bSupportDX11TextureFormats)
+	{
+		if (TextureFormatName == NameBC6H)
+		{
+			TextureFormatName = NameRGBA16F;
+		}
+		else if (TextureFormatName == NameBC7)
+		{
+			TextureFormatName = NameAutoDXT;
+		}
+	}
+
+#endif //WITH_EDITOR
+
+	return TextureFormatName;
+}

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "OnlineSubsystemSteamPrivate.h"
+#include "OnlineSessionSettings.h"
+
 /** Internal Steam session keys for advertising */
 
 /** Well defined lobby/server keys for use with Steam lobby/server data (NOTE: Steam expects UTF8) */

@@ -6,7 +6,7 @@
 ==============================================================================================*/
 
 #pragma once
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
 
 #if PLATFORM_HTML5_WIN32
 #pragma warning(disable : 4481) // nonstandard extension used: override specifier 'override'

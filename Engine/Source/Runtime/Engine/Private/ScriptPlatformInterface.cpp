@@ -4,7 +4,18 @@
 	ScriptPlatformInterface.cpp: Base functionality for the various script accessible platform-interface code
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/Object.h"
+#include "UObject/Package.h"
+#include "Serialization/ObjectAndNameAsStringProxyArchive.h"
+#include "Engine/PlatformInterfaceBase.h"
+#include "Templates/SubclassOf.h"
 #include "Engine/CloudStorageBase.h"
 #include "Engine/MicroTransactionBase.h"
 #include "Engine/PlatformInterfaceWebResponse.h"

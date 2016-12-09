@@ -2,7 +2,28 @@
 
 #pragma once
 
-#include "DiffUtils.h"
+#include "CoreMinimal.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "SGraphActionMenu.h"
+#include "EditorStyleSet.h"
+#include "EdGraph/EdGraph.h"
+#include "EdGraphSchema_K2_Actions.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
+#include "BlueprintEditor.h"
+#include "Framework/Commands/Commands.h"
+
+class FMenuBuilder;
+class SComboButton;
+class SKismetInspector;
+class UUserDefinedEnum;
+class UUserDefinedStruct;
+struct FEdGraphSchemaAction_K2Struct;
+struct FGraphActionNode;
 
 /* Enums to use when grouping the blueprint members in the list panel. The order here will determine the order in the list */
 namespace NodeSectionID

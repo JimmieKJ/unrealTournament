@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GeometryCacheEdModulePublicPCH.h"
 #include "GeometryCacheEdModule.h"
-#include "IAssetTools.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
 #include "ComponentAssetBroker.h"
+#include "AssetToolsModule.h"
 #include "AssetTypeActions_GeometryCache.h"
 #include "GeometryCacheAssetBroker.h"
+#include "GeometryCache.h"
 #include "GeometryCacheComponent.h"
 #include "GeometryCacheThumbnailRenderer.h"
 

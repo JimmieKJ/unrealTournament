@@ -1,16 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
-
 #include "ProcessUnitTest.h"
+#include "Containers/ArrayBuilder.h"
+#include "Misc/FeedbackContext.h"
+
 #include "UnitTestManager.h"
 
 #include "UnitTestEnvironment.h"
 
-#include "SLogWindow.h"
-#include "SLogWidget.h"
+#include "UI/SLogWindow.h"
+#include "UI/SLogWidget.h"
 
-#include "Regex.h"
+#include "Internationalization/Regex.h"
 
 
 /**
@@ -439,12 +440,12 @@ void UProcessUnitTest::PollProcessOutput()
 
 				if (bPartialRead)
 				{
-					UE_LOG(None, Log, TEXT("%s"), PartialLog);
+					UE_LOG(NetCodeTestNone, Log, TEXT("%s"), PartialLog);
 				}
 
 				for (int LineIdx=0; LineIdx<LogLines.Num(); LineIdx++)
 				{
-					UE_LOG(None, Log, TEXT("%s%s"), *CurHandle->LogPrefix, *(LogLines[LineIdx]));
+					UE_LOG(NetCodeTestNone, Log, TEXT("%s%s"), *CurHandle->LogPrefix, *(LogLines[LineIdx]));
 				}
 
 				// Restore the engine-event log hook

@@ -1,16 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "WorldBrowserPrivatePCH.h"
+#include "Tiles/SWorldComposition.h"
+#include "Layout/ArrangedChildren.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/SOverlay.h"
+#include "Engine/GameViewportClient.h"
+#include "Misc/PackageName.h"
+#include "Misc/CoreDelegates.h"
+#include "Modules/ModuleManager.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Editor.h"
+#include "WorldBrowserModule.h"
 #include "SNodePanel.h"
-#include "GraphEditor.h"
-#include "EdGraphUtilities.h"
 
-#include "WorldTileModel.h"
-#include "SWorldComposition.h"
-#include "SWorldTileItem.h"
-#include "SWorldLayers.h"
-#include "WorldTileCollectionModel.h"
-#include "IMenu.h"
-#include "WorldTileThumbnails.h"
+#include "Tiles/SWorldTileItem.h"
+#include "Tiles/SWorldLayers.h"
+#include "Tiles/WorldTileThumbnails.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
@@ -92,7 +103,7 @@ public:
 
 	void Construct(const FArguments& InArgs)
 	{
-		ZoomLevels = new FWorldZoomLevelsContainer();
+		ZoomLevels = MakeUnique<FWorldZoomLevelsContainer>();
 
 		SNodePanel::Construct();
 	

@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "Core.h"
-#include "ModuleManager.h"
-#include "Interfaces/IAdvertisingProvider.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+
+class IAdvertisingProvider;
 
 /**
  * Advertising module interface implementation

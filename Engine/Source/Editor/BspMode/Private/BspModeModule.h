@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+#include "UObject/WeakObjectPtr.h"
 #include "IBspModeModule.h"
+
+struct FSlateBrush;
 
 struct FBspBuilderType
 {

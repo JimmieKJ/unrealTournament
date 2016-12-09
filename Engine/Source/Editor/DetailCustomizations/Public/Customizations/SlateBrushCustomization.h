@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
 #include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
 
-class IPropertyHandle;
-
+class SErrorText;
 
 class DETAILCUSTOMIZATIONS_API FSlateBrushStructCustomization : public IPropertyTypeCustomization
 {

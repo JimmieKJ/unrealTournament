@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "Build.h"
+#include "CoreTypes.h"
+#include "Containers/Map.h"
+#include "CoreGlobals.h"
+#include "Misc/DateTime.h"
+#include "HAL/PlatformTime.h"
 
 #ifndef DO_TIMEGUARD
 	// By default we are enabled based on STATS, but DO_TIMEGUARD can be set in XXX.Target.cs if so desired%

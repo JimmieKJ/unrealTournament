@@ -6,6 +6,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
 #include "GameFramework/Volume.h"
 #include "Audio.h"
 #include "AudioVolume.generated.h"

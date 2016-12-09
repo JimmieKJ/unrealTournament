@@ -2,13 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Curves/KeyHandle.h"
+#include "Widgets/SWidget.h"
+#include "MovieSceneSection.h"
 #include "NamedKeyArea.h"
-#include "ClipboardTypes.h"
 
-
+class FMovieSceneClipboardBuilder;
+class FMovieSceneClipboardKeyTrack;
+class FStructOnScope;
+class ISequencer;
+struct FMovieSceneClipboardEnvironment;
 struct FNameCurve;
-class UMovieSceneSection;
-
+struct FSequencerPasteEnvironment;
 
 /**
  * A key area for FName curves.
@@ -51,7 +58,7 @@ public:
 	virtual void SetExtrapolationMode(ERichCurveExtrapolation ExtrapMode, bool bPreInfinity) override;
 	virtual void SetKeyInterpMode(FKeyHandle KeyHandle, ERichCurveInterpMode InterpMode) override;
 	virtual void SetKeyTangentMode(FKeyHandle KeyHandle, ERichCurveTangentMode TangentMode) override;
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) const override;
+	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) override;
 	virtual void CopyKeys(FMovieSceneClipboardBuilder& ClipboardBuilder, const TFunctionRef<bool(FKeyHandle, const IKeyArea&)>& KeyMask) const override;
 	virtual void PasteKeys(const FMovieSceneClipboardKeyTrack& KeyTrack, const FMovieSceneClipboardEnvironment& SrcEnvironment, const FSequencerPasteEnvironment& DstEnvironment) override;
 

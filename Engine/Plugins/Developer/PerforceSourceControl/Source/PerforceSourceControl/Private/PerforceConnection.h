@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "ISourceControlProvider.h"
+#include "CoreMinimal.h"
+#include "PerforceSourceControlPrivate.h"
 #include "PerforceSourceControlCommand.h"
 
 /** A map containing result of running Perforce command */

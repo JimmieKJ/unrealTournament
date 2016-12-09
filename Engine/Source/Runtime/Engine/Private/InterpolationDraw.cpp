@@ -4,13 +4,21 @@
 	InterpolationDraw.cpp: Code for supporting interpolation of properties in-game.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Logging/LogScopedVerbosityOverride.h"
+#include "CanvasItem.h"
+#include "Engine/Texture2D.h"
+#include "SceneManagement.h"
 #include "Matinee/MatineeActor.h"
 #include "Matinee/InterpData.h"
+#include "Interpolation.h"
 #include "Matinee/InterpGroup.h"
 #include "Matinee/InterpGroupInst.h"
+#include "CanvasTypes.h"
+#include "Matinee/InterpTrack.h"
 #include "Matinee/InterpTrackMove.h"
 #include "Matinee/InterpTrackInstMove.h"
+#include "Matinee/InterpTrackFloatBase.h"
 #include "Matinee/InterpTrackMoveAxis.h"
 #include "Matinee/InterpTrackToggle.h"
 #include "Matinee/InterpTrackEvent.h"
@@ -19,7 +27,9 @@
 #include "Matinee/InterpTrackAnimControl.h"
 #include "Matinee/InterpTrackFloatProp.h"
 #include "Matinee/InterpTrackBoolProp.h"
+#include "Matinee/InterpTrackVectorBase.h"
 #include "Matinee/InterpTrackVectorProp.h"
+#include "Matinee/InterpTrackLinearColorBase.h"
 #include "Matinee/InterpTrackLinearColorProp.h"
 #include "Matinee/InterpTrackColorProp.h"
 #include "Matinee/InterpTrackSound.h"
@@ -28,12 +38,11 @@
 #include "Matinee/InterpTrackAudioMaster.h"
 #include "Matinee/InterpTrackVisibility.h"
 #include "Matinee/InterpTrackParticleReplay.h"
-#include "Sound/SoundBase.h"
 #include "InterpolationHitProxy.h"
-#include "AnimationUtils.h"
-#include "InterpolationHitProxy.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 #include "Animation/AnimSequence.h"
-
+#include "Sound/SoundBase.h"
 
 static const int32	KeyHalfTriSize = 6;
 static const FColor KeyNormalColor(0,0,0);

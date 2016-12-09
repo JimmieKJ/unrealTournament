@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Interfaces/ILauncherTask.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/Runnable.h"
+#include "Launcher/LauncherTaskChainState.h"
+#include "HAL/RunnableThread.h"
 
 /**
  * Abstract base class for launcher tasks.
@@ -26,6 +33,8 @@ public:
 		, ReadPipe(InReadPipe)
 		, WritePipe(InWritePipe)
 		, Result(0)
+		, ErrorCounter(0)
+		, WarningCounter(0)
 	{ }
 
 public:
@@ -201,7 +210,10 @@ public:
 
 		if (Status == ELauncherTaskStatus::Pending || Status == ELauncherTaskStatus::Completed)
 		{
-			Status = ELauncherTaskStatus::Canceled;
+			if (Status == ELauncherTaskStatus::Pending)
+			{
+				Status = ELauncherTaskStatus::Canceled;
+			}
 			CancelContinuations();
 		}
 	}
@@ -253,6 +265,16 @@ public:
 	virtual FOnTaskCompletedDelegate& OnCompleted() override
 	{
 		return TaskCompleted;
+	}
+
+	virtual uint32 GetWarningCount() const override
+	{
+		return WarningCounter;
+	}
+
+	virtual uint32 GetErrorCount() const override
+	{
+		return ErrorCounter;
 	}
 
 	//~ End ILauncherTask Interface
@@ -327,13 +349,16 @@ private:
 	FOnTaskCompletedDelegate TaskCompleted;
 
 protected:
-
 	// read and write pipe
 	void* ReadPipe;
 	void* WritePipe;
 
 	// result
 	int32 Result;
+
+	// counters
+	uint32 ErrorCounter;
+	uint32 WarningCounter;
 
 	// task counter, used to generate unique thread names for each task
 	static FThreadSafeCounter TaskCounter;

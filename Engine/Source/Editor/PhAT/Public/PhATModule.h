@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "AssetEditorToolkit.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Toolkits/AssetEditorToolkit.h"
+
+class UPhysicsAsset;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPhAT, Log, All);
 

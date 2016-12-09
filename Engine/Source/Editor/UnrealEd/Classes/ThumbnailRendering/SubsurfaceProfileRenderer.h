@@ -6,7 +6,14 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ThumbnailRendering/TextureThumbnailRenderer.h"
 #include "SubsurfaceProfileRenderer.generated.h"
+
+class FCanvas;
+class FRenderTarget;
 
 UCLASS()
 class USubsurfaceProfileRenderer : public UTextureThumbnailRenderer

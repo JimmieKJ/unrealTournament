@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "ModuleManager.h"
-#include "CoreUObject.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
 namespace EAssetRegistryDependencyType
 {
@@ -13,10 +14,14 @@ namespace EAssetRegistryDependencyType
 		Soft = 1,
 
 		// Dependencies which are required for correct usage of the source asset, and must be loaded at the same time
-		Hard = 2
+		Hard = 2,
+
+		// References to specific SearchableNames inside a package
+		SearchableName = 4
 	};
 
-	static const Type All = (Type)(Soft | Hard);
+	static const Type All = (Type)(Soft | Hard | SearchableName);
+	static const Type Packages = (Type)(Soft | Hard);
 };
 
 /**
@@ -42,6 +47,6 @@ public:
 	/**
 	* Lookup dependencies for the given package name and fill OutDependencies with direct dependencies
 	*/
-	virtual void GetDependencies(FName InPackageName, TArray<FName>& OutDependencies, EAssetRegistryDependencyType::Type InDependencyType = EAssetRegistryDependencyType::All) = 0;
+	virtual void GetDependencies(FName InPackageName, TArray<FName>& OutDependencies, EAssetRegistryDependencyType::Type InDependencyType = EAssetRegistryDependencyType::Packages) = 0;
 };
 

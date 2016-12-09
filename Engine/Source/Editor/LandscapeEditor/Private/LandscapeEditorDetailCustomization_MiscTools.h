@@ -2,8 +2,13 @@
 
 #pragma once
 
-#include "LandscapeEditorDetailCustomization_Base.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "IDetailCustomization.h"
+#include "Editor/LandscapeEditor/Private/LandscapeEditorDetailCustomization_Base.h"
 
+class IDetailLayoutBuilder;
 
 /**
  * Slate widgets customizer for the smaller tools that need little customization

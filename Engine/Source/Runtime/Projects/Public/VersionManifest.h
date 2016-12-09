@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /**
  * Stores a record of a built target, with all metadata that other tools may need to know about the build.
  */
@@ -9,6 +11,7 @@ class PROJECTS_API FVersionManifest
 {
 public:
 	uint32 Changelist;
+	uint32 CompatibleChangelist;
 	FString BuildId;
 	TMap<FString, FString> ModuleNameToFileName;
 

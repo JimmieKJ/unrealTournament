@@ -7,6 +7,8 @@
 #ifndef __DEBUGTOOLEXEC_H__
 #define __DEBUGTOOLEXEC_H__
 
+#include "CoreMinimal.h"
+
 /**
  * This class servers as an interface to debugging tools like "EDITOBJECT" which
  * can be invoked by console commands which are parsed by the exec function.

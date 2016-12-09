@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "BlueprintNodeHelpers.h"
 #include "EnvironmentQuery/Contexts/EnvQueryContext_BlueprintBase.h"
-#include "EnvironmentQuery/Items/EnvQueryAllItemTypes.h"
-#include "EnvironmentQuery/EnvQueryTypes.h"
+#include "GameFramework/Actor.h"
+#include "AITypes.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_Actor.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_Point.h"
 #include "EnvironmentQuery/EnvQueryManager.h"
 
 namespace

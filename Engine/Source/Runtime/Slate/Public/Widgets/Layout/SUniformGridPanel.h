@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "SlotBase.h"
+#include "Layout/Margin.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Children.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SPanel.h"
+
+class FArrangedChildren;
+
 /** A panel that evenly divides up available space between all of its children. */
 class SLATE_API SUniformGridPanel : public SPanel
 {

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
 #include "ILocalizationServiceOperation.h"
 
 #define LOCTEXT_NAMESPACE "LocalizationService"

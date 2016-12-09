@@ -2,12 +2,11 @@
 
 #pragma once
 
-#include "SequencerDisplayNode.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
 
-
-class FSequencerNodeTree;
 class IKeyArea;
-
 
 /**
  * Represents an area inside a section where keys are displayed.

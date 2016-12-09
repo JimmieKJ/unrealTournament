@@ -1,0 +1,24 @@
+diff --git renderer_preferences_util.cc renderer_preferences_util.cc
+index a6498fc..4bf2cf91 100644
+--- renderer_preferences_util.cc
++++ renderer_preferences_util.cc
+@@ -27,7 +27,8 @@
+ #include "ui/views/controls/textfield/textfield.h"
+ #endif
+ 
+-#if defined(USE_AURA) && defined(OS_LINUX) && !defined(OS_CHROMEOS)
++#if defined(USE_AURA) && defined(OS_LINUX) && !defined(OS_CHROMEOS) && \
++    defined(ENABLE_THEMES)
+ #include "chrome/browser/themes/theme_service.h"
+ #include "chrome/browser/themes/theme_service_factory.h"
+ #include "ui/views/linux_ui/linux_ui.h"
+@@ -95,7 +96,8 @@ void UpdateFromSystemSettings(content::RendererPreferences* prefs,
+   prefs->caret_blink_interval = views::Textfield::GetCaretBlinkMs() / 1000.0;
+ #endif
+ 
+-#if defined(USE_AURA) && defined(OS_LINUX) && !defined(OS_CHROMEOS)
++#if defined(USE_AURA) && defined(OS_LINUX) && !defined(OS_CHROMEOS) && \
++    defined(ENABLE_THEMES)
+   views::LinuxUI* linux_ui = views::LinuxUI::instance();
+   if (linux_ui) {
+     if (ThemeServiceFactory::GetForProfile(profile)->UsingSystemTheme()) {

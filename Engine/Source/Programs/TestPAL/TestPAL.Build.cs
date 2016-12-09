@@ -9,6 +9,7 @@ public class TestPAL : ModuleRules
 		PublicIncludePaths.Add("Runtime/Launch/Public");
 
 		PrivateIncludePaths.Add("Runtime/Launch/Private");		// For LaunchEngineLoop.cpp include
+		PrivateIncludePaths.Add("Programs/TestPAL/Private");
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
@@ -17,5 +18,14 @@ public class TestPAL : ModuleRules
 				"DirectoryWatcher"
 			}
 		);
+
+		if (Target.Platform == UnrealTargetPlatform.Linux)
+		{
+			PrivateDependencyModuleNames.AddRange(
+				new string[] {
+					"SDL2",
+				}
+			);
+		}
 	}
 }

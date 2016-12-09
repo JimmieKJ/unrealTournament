@@ -6,7 +6,14 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ThumbnailRendering/ThumbnailRenderer.h"
 #include "TextureThumbnailRenderer.generated.h"
+
+class FCanvas;
+class FRenderTarget;
 
 UCLASS(MinimalAPI)
 class UTextureThumbnailRenderer : public UThumbnailRenderer

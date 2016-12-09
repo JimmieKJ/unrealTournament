@@ -7,7 +7,8 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "Runtime/Engine/Public/PixelFormat.h"
 
 enum EShaderFrequency
 {
@@ -57,8 +58,10 @@ enum EShaderPlatform
 	SP_METAL_MACES3_1 	= 23,
 	SP_METAL_MACES2		= 24,
 	SP_OPENGL_ES3_1_ANDROID = 25,
+	SP_SWITCH				= 26,
+	SP_SWITCH_FORWARD		= 27,
 
-	SP_NumPlatforms		= 26,
+	SP_NumPlatforms		= 28,
 	SP_NumBits			= 5,
 };
 static_assert(SP_NumPlatforms <= (1 << SP_NumBits), "SP_NumPlatforms will not fit on SP_NumBits");
@@ -357,6 +360,17 @@ enum ERangeCompressionMode
 	RCM_MinMax,
 };
 
+enum class EPrimitiveTopologyType : uint8
+{
+	Triangle,
+	Patch,
+	Line,
+	Point,
+	Quad,
+	Num,
+	NumBits = 3
+};
+
 enum EPrimitiveType
 {
 	PT_TriangleList,
@@ -507,10 +521,8 @@ enum ETextureCreateFlags
 	// Texture that may be updated every frame
 	TexCreate_Dynamic				= 1<<8,
 	// Allow silent texture creation failure
-	// @warning:	When you update this, you must update FTextureAllocations::FindTextureType() in Core/Private/UObject/TextureAllocations.cpp
 	TexCreate_AllowFailure			= 1<<9,
 	// Disable automatic defragmentation if the initial texture memory allocation fails.
-	// @warning:	When you update this, you must update FTextureAllocations::FindTextureType() in Core/Private/UObject/TextureAllocations.cpp
 	TexCreate_DisableAutoDefrag		= 1<<10,
 	// Create the texture with automatic -1..1 biasing
 	TexCreate_BiasNormalMap			= 1<<11,
@@ -596,8 +608,16 @@ enum class ESimpleRenderTargetMode
 	EClearColorAndDepth,							// Clear color and depth to bound clear values.
 	EExistingContents_NoDepthStore,					// Load existing contents, but don't store depth out.  depth can be written.
 	EExistingColorAndClearDepth,					// Color = Existing, Depth = clear value
+	EExistingColorAndDepthAndClearStencil,			// Color = Existing, Depth = Existing, Stencil = clear
 
 	// If you add an item here, make sure to add it to DecodeRenderTargetMode() as well!
+};
+
+enum class EClearDepthStencil
+{
+	Depth,
+	Stencil,
+	DepthStencil,
 };
 
 /**
@@ -631,14 +651,14 @@ inline bool IsMobilePlatform(const EShaderPlatform Platform)
 {
 	return IsES2Platform(Platform)
 		|| Platform == SP_METAL || Platform == SP_PCD3D_ES3_1 || Platform == SP_OPENGL_PCES3_1 || Platform == SP_VULKAN_ES3_1_ANDROID
-		|| Platform == SP_VULKAN_PCES3_1 || Platform == SP_METAL_MACES3_1 || Platform == SP_OPENGL_ES3_1_ANDROID;
+		|| Platform == SP_VULKAN_PCES3_1 || Platform == SP_METAL_MACES3_1 || Platform == SP_OPENGL_ES3_1_ANDROID || Platform == SP_SWITCH_FORWARD;
 }
 
 inline bool IsOpenGLPlatform(const EShaderPlatform Platform)
 {
 	return Platform == SP_OPENGL_SM4 || Platform == SP_OPENGL_SM4_MAC || Platform == SP_OPENGL_SM5 || Platform == SP_OPENGL_PCES2 || Platform == SP_OPENGL_PCES3_1
 		|| Platform == SP_OPENGL_ES2_ANDROID || Platform == SP_OPENGL_ES2_WEBGL || Platform == SP_OPENGL_ES2_IOS || Platform == SP_OPENGL_ES31_EXT
-		|| Platform == SP_OPENGL_ES3_1_ANDROID;
+		|| Platform == SP_OPENGL_ES3_1_ANDROID || Platform == SP_SWITCH || Platform == SP_SWITCH_FORWARD;
 }
 
 inline bool IsMetalPlatform(const EShaderPlatform Platform)
@@ -690,6 +710,7 @@ inline ERHIFeatureLevel::Type GetMaxSupportedFeatureLevel(EShaderPlatform InShad
 	case SP_OPENGL_ES31_EXT:
 	case SP_METAL_SM5:
 	case SP_VULKAN_SM5:
+	case SP_SWITCH:
 		return ERHIFeatureLevel::SM5;
 	case SP_VULKAN_SM4:
 	case SP_PCD3D_SM4:
@@ -712,6 +733,7 @@ inline ERHIFeatureLevel::Type GetMaxSupportedFeatureLevel(EShaderPlatform InShad
 	case SP_VULKAN_PCES3_1:
 	case SP_VULKAN_ES3_1_ANDROID:
 	case SP_OPENGL_ES3_1_ANDROID:
+	case SP_SWITCH_FORWARD:
 		return ERHIFeatureLevel::ES3_1;
 	default:
 		checkf(0, TEXT("Unknown ShaderPlatform %d"), (int32)InShaderPlatform);
@@ -722,60 +744,7 @@ inline ERHIFeatureLevel::Type GetMaxSupportedFeatureLevel(EShaderPlatform InShad
 /** Returns true if the feature level is supported by the shader platform. */
 inline bool IsFeatureLevelSupported(EShaderPlatform InShaderPlatform, ERHIFeatureLevel::Type InFeatureLevel)
 {
-	switch (InShaderPlatform)
-	{
-	case SP_PCD3D_SM5:
-	case SP_VULKAN_SM5:
-		return InFeatureLevel <= ERHIFeatureLevel::SM5;
-	case SP_PCD3D_SM4:
-	case SP_VULKAN_SM4:
-		return InFeatureLevel <= ERHIFeatureLevel::SM4;
-	case SP_PCD3D_ES2:
-		return InFeatureLevel <= ERHIFeatureLevel::ES2;
-	case SP_PCD3D_ES3_1:
-		return InFeatureLevel <= ERHIFeatureLevel::ES3_1;
-	case SP_OPENGL_PCES2:
-		return InFeatureLevel <= ERHIFeatureLevel::ES2;
-	case SP_OPENGL_PCES3_1:
-		return InFeatureLevel <= ERHIFeatureLevel::ES3_1;
-	case SP_OPENGL_ES2_ANDROID:
-		return InFeatureLevel <= ERHIFeatureLevel::ES2;
-	case SP_VULKAN_PCES3_1:
-	case SP_VULKAN_ES3_1_ANDROID:
-		return InFeatureLevel <= ERHIFeatureLevel::ES3_1;
-	case SP_OPENGL_ES2_WEBGL:
-		return InFeatureLevel <= ERHIFeatureLevel::ES2;
-	case SP_OPENGL_ES2_IOS:
-		return InFeatureLevel <= ERHIFeatureLevel::ES2;
-	case SP_OPENGL_SM4:
-		return InFeatureLevel <= ERHIFeatureLevel::SM4;
-	case SP_OPENGL_SM4_MAC:
-		return InFeatureLevel <= ERHIFeatureLevel::SM4;
-	case SP_OPENGL_SM5:
-		return InFeatureLevel <= ERHIFeatureLevel::SM5;
-	case SP_PS4:
-		return InFeatureLevel <= ERHIFeatureLevel::SM5;
-	case SP_XBOXONE:
-		return InFeatureLevel <= ERHIFeatureLevel::SM5;
-	case SP_METAL:
-		return InFeatureLevel <= ERHIFeatureLevel::ES3_1;
-	case SP_METAL_MRT:
-		return InFeatureLevel <= ERHIFeatureLevel::SM4;
-	case SP_METAL_SM4:
-		return InFeatureLevel <= ERHIFeatureLevel::SM4;
-	case SP_OPENGL_ES31_EXT:
-		return InFeatureLevel <= ERHIFeatureLevel::SM5;
-	case SP_METAL_SM5:
-		return InFeatureLevel <= ERHIFeatureLevel::SM5;
-	case SP_METAL_MACES3_1:
-		return InFeatureLevel <= ERHIFeatureLevel::ES3_1;
-	case SP_METAL_MACES2:
-		return InFeatureLevel <= ERHIFeatureLevel::ES2;
-	case SP_OPENGL_ES3_1_ANDROID:
-		return InFeatureLevel <= ERHIFeatureLevel::ES3_1;
-	default:
-		return false;
-	}
+	return InFeatureLevel <= GetMaxSupportedFeatureLevel(InShaderPlatform);
 }
 
 inline bool RHISupportsTessellation(const EShaderPlatform Platform)
@@ -822,6 +791,11 @@ inline bool RHISupportsGeometryShaders(const EShaderPlatform Platform)
 	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && !IsMetalPlatform(Platform) && Platform != SP_VULKAN_PCES3_1 && Platform != SP_VULKAN_ES3_1_ANDROID;
 }
 
+inline bool RHISupportsShaderCompression(const EShaderPlatform Platform)
+{
+	return Platform != SP_XBOXONE; // Handled automatically with hardware decompress
+}
+
 inline bool RHIHasTiledGPU(const EShaderPlatform Platform)
 {
 	return (Platform == SP_METAL_MRT) || Platform == SP_METAL || Platform == SP_OPENGL_ES2_IOS || Platform == SP_OPENGL_ES2_ANDROID || Platform == SP_OPENGL_ES3_1_ANDROID;
@@ -832,7 +806,10 @@ inline bool RHISupportsVertexShaderLayer(const EShaderPlatform Platform)
 	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && IsMetalPlatform(Platform);
 }
 
-inline uint32 GetFeatureLevelMaxTextureSamplers(ERHIFeatureLevel::Type FeatureLevel)
+// Return what the expected number of samplers will be supported by a feature level
+// Note that since the Feature Level is pretty orthogonal to the RHI/HW, this is not going to be perfect
+// If should only be used for a guess at the limit, the real limit will not be known until runtime
+inline uint32 GetExpectedFeatureLevelMaxTextureSamplers(ERHIFeatureLevel::Type FeatureLevel)
 {
 	if (FeatureLevel == ERHIFeatureLevel::ES2)
 	{
@@ -866,20 +843,24 @@ inline bool IsUniformBufferResourceType(EUniformBufferBaseType BaseType)
 	return BaseType == UBMT_SRV || BaseType == UBMT_UAV || BaseType == UBMT_SAMPLER || BaseType == UBMT_TEXTURE;
 }
 
-inline const TCHAR* GetShaderFrequencyString(EShaderFrequency Frequency)
+inline const TCHAR* GetShaderFrequencyString(EShaderFrequency Frequency, bool bIncludePrefix = true)
 {
+	const TCHAR* String = TEXT("SF_NumFrequencies");
 	switch (Frequency)
 	{
-	case SF_Vertex:			return TEXT("SF_Vertex");
-	case SF_Hull:			return TEXT("SF_Hull");
-	case SF_Domain:			return TEXT("SF_Domain");
-	case SF_Geometry:		return TEXT("SF_Geometry");
-	case SF_Pixel:			return TEXT("SF_Pixel");
-	case SF_Compute:		return TEXT("SF_Compute");
+	case SF_Vertex:			String = TEXT("SF_Vertex"); break;
+	case SF_Hull:			String = TEXT("SF_Hull"); break;
+	case SF_Domain:			String = TEXT("SF_Domain"); break;
+	case SF_Geometry:		String = TEXT("SF_Geometry"); break;
+	case SF_Pixel:			String = TEXT("SF_Pixel"); break;
+	case SF_Compute:		String = TEXT("SF_Compute"); break;
 	default:				
 		checkf(0, TEXT("Unknown ShaderFrequency %d"), (int32)Frequency);
 		break;
 	}
 
-	return nullptr;
+	// Skip SF_
+	int32 Index = bIncludePrefix ? 0 : 3;
+	String += Index;
+	return String;
 };

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Transport/UdpSerializedMessage.h"
 
 /**
  * Implements a message segmenter.
@@ -23,7 +25,7 @@ public:
 	 *
 	 * @param InMessage The serialized message to segment.
 	 */
-	FUdpMessageSegmenter(const FUdpSerializedMessageRef& InSerializedMessage, uint16 InSegmentSize)
+	FUdpMessageSegmenter(const TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe>& InSerializedMessage, uint16 InSegmentSize)
 		: MessageReader(nullptr)
 		, SegmentSize(InSegmentSize)
 		, SerializedMessage(InSerializedMessage)
@@ -140,5 +142,5 @@ private:
 	uint16 SegmentSize;
 
 	/** Holds the message. */
-	FUdpSerializedMessagePtr SerializedMessage;
+	TSharedPtr<FUdpSerializedMessage, ESPMode::ThreadSafe> SerializedMessage;
 };

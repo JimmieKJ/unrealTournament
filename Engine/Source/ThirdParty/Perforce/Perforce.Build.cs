@@ -11,7 +11,7 @@ public class Perforce : ModuleRules
 		string LibFolder = "lib/";
 		string LibPrefix = "";
 		string LibPostfixAndExt = ".";
-		string P4APIPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "Perforce/p4api-2015.1/";
+		string P4APIPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "Perforce/p4api-2015.2/";
 
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
@@ -63,13 +63,5 @@ public class Perforce : ModuleRules
 
         PublicAdditionalLibraries.Add(LibPrefix + "librpc" + LibPostfixAndExt);
         PublicAdditionalLibraries.Add(LibPrefix + "libsupp" + LibPostfixAndExt);
-
-        // VS2015 updated some of the CRT definitions but not all of the Windows SDK has been updated to match.
-        // Microsoft provides this shim library to enable building with VS2015 until they fix everything up.
-        //@todo: remove when no longer neeeded (no other code changes should be necessary).
-//         if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
-//         {
-//             PublicAdditionalLibraries.Add("legacy_stdio_definitions.lib");
-//         }
     }
 }

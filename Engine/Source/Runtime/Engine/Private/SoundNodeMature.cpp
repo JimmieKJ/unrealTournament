@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
-#include "ActiveSound.h"
 #include "Sound/SoundNodeMature.h"
-#include "Sound/SoundNodeWavePlayer.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "ActiveSound.h"
 #include "Sound/SoundWave.h"
+#include "Sound/SoundNodeWavePlayer.h"
 
 /*-----------------------------------------------------------------------------
        USoundNodeMature implementation.

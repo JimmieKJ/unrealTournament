@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Animation/AnimationAsset.h"
 #include "Engine/AssetUserData.h"
+#include "Animation/AssetMappingTable.h"
 #include "Animation/AnimSequence.h"
 #include "AnimationUtils.h"
-#include "Animation/AnimInstanceProxy.h"
+#include "Animation/AnimInstance.h"
+#include "UObject/LinkerLoad.h"
 
 #define LEADERSCORE_ALWAYSLEADER  	2.f
 #define LEADERSCORE_MONTAGE			3.f
@@ -63,6 +65,17 @@ void FAnimGroupInstance::TestMontageTickRecordForLeadership()
 		MontageLeaderWeight = Candidate.EffectiveBlendWeight;
 		Candidate.LeaderScore = LEADERSCORE_MONTAGE;
 	}
+	else
+	{
+		if (TestIndex != 0)
+		{
+			// we delete the later ones because we only have one montage for leader. 
+			// this can happen if there was already active one with higher weight. 
+			ActivePlayers.RemoveAt(TestIndex, 1);
+		}
+	}
+
+	ensureAlways(ActivePlayers.Num() == 1);
 }
 
 void FAnimGroupInstance::Finalize(const FAnimGroupInstance* PreviousGroup)
@@ -166,12 +179,20 @@ void UAnimationAsset::PostLoad()
 	// skeleton is ready
 	if (Skeleton)
 	{
-		Skeleton ->ConditionalPostLoad();
+		if (FLinkerLoad* SkeletonLinker = Skeleton->GetLinker())
+		{
+			SkeletonLinker->Preload(Skeleton);
+		}
+		Skeleton->ConditionalPostLoad();
 	}
 
 	ValidateSkeleton();
 
 	check( Skeleton==NULL || SkeletonGuid.IsValid() );
+
+#if WITH_EDITOR
+	UpdateParentAsset();
+#endif // WITH_EDITOR
 }
 
 void UAnimationAsset::ResetSkeleton(USkeleton* NewSkeleton)
@@ -200,13 +221,6 @@ void UAnimationAsset::SetSkeleton(USkeleton* NewSkeleton)
 		Skeleton = NewSkeleton;
 		SkeletonGuid = NewSkeleton->GetGuid();
 	}
-}
-
-void UAnimationAsset::TickAssetPlayerInstance(FAnimTickRecord& Instance, class UAnimInstance* AnimInstance, FAnimAssetTickContext& Context) const
-{ 
-	// @todo: remove after deprecation
-	// Forward to non-deprecated function
-	TickAssetPlayer(Instance, AnimInstance->NotifyQueue, Context); 
 }
 
 #if WITH_EDITOR
@@ -248,23 +262,62 @@ bool UAnimationAsset::ReplaceSkeleton(USkeleton* NewSkeleton, bool bConvertSpace
 	return false;
 }
 
-bool UAnimationAsset::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationSequences)
+bool UAnimationAsset::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationSequences, bool bRecursive /*= true*/) 
 {
-	return false;
+	//@todo:@fixme: this doens't work for retargeting because postload gets called after duplication, mixing up the mapping table
+	// because skeleton changes, for now we don't support retargeting for parent asset, it will disconnect, and just duplicate everything else
+// 	if (ParentAsset)
+// 	{
+// 		ParentAsset->HandleAnimReferenceCollection(AnimationSequences, bRecursive);
+// 	}
+// 
+// 	if (AssetMappingTable)
+// 	{
+// 		AssetMappingTable->GetAllAnimationSequencesReferred(AnimationSequences, bRecursive);
+// 	}
+
+	return (AnimationSequences.Num() > 0);
 }
 
-void UAnimationAsset::HandleAnimReferenceCollection(TArray<UAnimationAsset*>& AnimationAssets) 
+void UAnimationAsset::HandleAnimReferenceCollection(TArray<UAnimationAsset*>& AnimationAssets, bool bRecursive)
 {
 	AnimationAssets.AddUnique(this);
-	// anim sequence still should call this
-	GetAllAnimationSequencesReferred(AnimationAssets);
+	if (bRecursive)
+	{
+		// anim sequence still should call this. since bRecursive is true, I'm not sending the parameter with it
+		GetAllAnimationSequencesReferred(AnimationAssets);
+	}
 }
 
 void UAnimationAsset::ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap)
 {
+	//@todo:@fixme: this doens't work for retargeting because postload gets called after duplication, mixing up the mapping table
+	// because skeleton changes, for now we don't support retargeting for parent asset, it will disconnect, and just duplicate everything else
+	if (ParentAsset)
+	{
+		// clear up, so that it doesn't try to use from other asset
+		ParentAsset = nullptr;
+		AssetMappingTable = nullptr;
+	}
+
+// 	if (ParentAsset)
+// 	{
+// 		// now fix everythign else
+// 		UAnimationAsset* const* ReplacementAsset = ReplacementMap.Find(ParentAsset);
+// 		if (ReplacementAsset)
+// 		{
+// 			ParentAsset = *ReplacementAsset;
+// 			ParentAsset->ReplaceReferredAnimations(ReplacementMap);
+// 		}
+// 	}
+// 
+// 	if (AssetMappingTable)
+// 	{
+// 		AssetMappingTable->ReplaceReferredAnimations(ReplacementMap);
+// 	}
 }
 
-USkeletalMesh* UAnimationAsset::GetPreviewMesh() 
+USkeletalMesh* UAnimationAsset::GetPreviewMesh()
 {
 	USkeletalMesh* PreviewMesh = PreviewSkeletalMesh.Get();
 	if(!PreviewMesh)
@@ -287,10 +340,113 @@ USkeletalMesh* UAnimationAsset::GetPreviewMesh()
 	return PreviewMesh;
 }
 
+USkeletalMesh* UAnimationAsset::GetPreviewMesh() const
+{
+	return PreviewSkeletalMesh.Get();
+}
+
 void UAnimationAsset::SetPreviewMesh(USkeletalMesh* PreviewMesh)
 {
 	Modify();
 	PreviewSkeletalMesh = PreviewMesh;
+}
+
+void UAnimationAsset::UpdateParentAsset()
+{
+	ValidateParentAsset();
+
+	if (ParentAsset)
+	{
+		TArray<UAnimationAsset*> AnimAssetsReferencedDirectly;
+		if (ParentAsset->GetAllAnimationSequencesReferred(AnimAssetsReferencedDirectly, false))
+		{
+			AssetMappingTable->RefreshAssetList(AnimAssetsReferencedDirectly);
+		}
+	}
+	else
+	{
+		// if somehow source data is gone, there is nothing much to do here
+		ParentAsset = nullptr;
+		AssetMappingTable = nullptr;
+	}
+
+	if (ParentAsset)
+	{
+		RefreshParentAssetData();
+	}
+}
+
+void UAnimationAsset::ValidateParentAsset()
+{
+	if (ParentAsset)
+	{
+		if (ParentAsset->GetSkeleton() != GetSkeleton())
+		{
+			// parent asset chnaged skeleton, so we'll have to discard parent asset
+			UE_LOG(LogAnimation, Warning, TEXT("%s: ParentAsset %s linked to different skeleton. Removing the reference."), *GetName(), *GetNameSafe(ParentAsset));
+			ParentAsset = nullptr;
+			Modify();
+		}
+		else if (ParentAsset->StaticClass() != StaticClass())
+		{
+			// parent asset chnaged skeleton, so we'll have to discard parent asset
+			UE_LOG(LogAnimation, Warning, TEXT("%s: ParentAsset %s class type doesn't match. Removing the reference."), *GetName(), *GetNameSafe(ParentAsset));
+			ParentAsset = nullptr;
+			Modify();
+		}
+	}
+}
+
+void UAnimationAsset::RefreshParentAssetData()
+{
+	// should only allow within the same skeleton
+	ParentAsset->ChildrenAssets.AddUnique(this);
+	MetaData = ParentAsset->MetaData;
+	PreviewPoseAsset = ParentAsset->PreviewPoseAsset;
+	PreviewSkeletalMesh = ParentAsset->PreviewSkeletalMesh;
+}
+
+void UAnimationAsset::SetParentAsset(UAnimationAsset* InParentAsset)
+{
+	// only same class and same skeleton
+	if (InParentAsset && InParentAsset->HasParentAsset() == false && 
+		InParentAsset->StaticClass() == StaticClass() && InParentAsset->GetSkeleton() == GetSkeleton())
+	{
+		ParentAsset = InParentAsset;
+
+		// if ParentAsset exists, just create mapping table.
+		// it becomes messy if we only created when we have assets to map
+		if (AssetMappingTable == nullptr)
+		{
+			AssetMappingTable = NewObject<UAssetMappingTable>(this);
+		}
+		else
+		{
+			AssetMappingTable->Clear();
+		}
+
+		UpdateParentAsset();
+	}
+	else
+	{
+		// otherwise, clear it
+		ParentAsset = nullptr;
+		AssetMappingTable = nullptr;
+	}
+}
+
+bool UAnimationAsset::RemapAsset(UAnimationAsset* SourceAsset, UAnimationAsset* TargetAsset)
+{
+	if (AssetMappingTable)
+	{
+		if (AssetMappingTable->RemapAsset(SourceAsset, TargetAsset))
+		{
+			RefreshParentAssetData();
+			return true;
+		}
+	}
+
+	return false;
 }
 #endif
 
@@ -347,229 +503,11 @@ const TArray<UAssetUserData*>* UAnimationAsset::GetAssetUserDataArray() const
 {
 	return &AssetUserData;
 }
-
-//////////////////////////////////////////////////////////////////////////
-// FBoneContainer
-
-FBoneContainer::FBoneContainer()
-: Asset(NULL)
-, AssetSkeletalMesh(NULL)
-, AssetSkeleton(NULL)
-, RefSkeleton(NULL)
-, bDisableRetargeting(false)
-, bUseRAWData(false)
-, bUseSourceData(false)
-{
-	BoneIndicesArray.Empty();
-	BoneSwitchArray.Empty();
-	SkeletonToPoseBoneIndexArray.Empty();
-	PoseToSkeletonBoneIndexArray.Empty();
-}
-
-FBoneContainer::FBoneContainer(const TArray<FBoneIndexType>& InRequiredBoneIndexArray, UObject& InAsset)
-: BoneIndicesArray(InRequiredBoneIndexArray)
-, Asset(&InAsset)
-, AssetSkeletalMesh(NULL)
-, AssetSkeleton(NULL)
-, RefSkeleton(NULL)
-, bDisableRetargeting(false)
-, bUseRAWData(false)
-, bUseSourceData(false)
-{
-	Initialize();
-}
-
-void FBoneContainer::InitializeTo(const TArray<FBoneIndexType>& InRequiredBoneIndexArray, UObject& InAsset)
-{
-	BoneIndicesArray = InRequiredBoneIndexArray;
-	Asset = &InAsset;
-
-	Initialize();
-}
-
-struct FBoneContainerScratchArea : public TThreadSingleton<FBoneContainerScratchArea>
-{
-	TArray<int32> MeshIndexToCompactPoseIndex;
-};
-
-void FBoneContainer::Initialize()
-{
-	RefSkeleton = NULL;
-	UObject* AssetObj = Asset.Get();
-	USkeletalMesh* AssetSkeletalMeshObj = Cast<USkeletalMesh>(AssetObj);
-	USkeleton* AssetSkeletonObj = nullptr;
-
-	if (AssetSkeletalMeshObj)
-	{
-		RefSkeleton = &AssetSkeletalMeshObj->RefSkeleton;
-		AssetSkeletonObj = AssetSkeletalMeshObj->Skeleton;
-	}
-	else
-	{
-		AssetSkeletonObj = Cast<USkeleton>(AssetObj);
-		if (AssetSkeletonObj)
-		{
-			RefSkeleton = &AssetSkeletonObj->GetReferenceSkeleton();
-		}
-	}
-
-	// Only supports SkeletalMeshes or Skeletons.
-	check( AssetSkeletalMeshObj || AssetSkeletonObj );
-	// Skeleton should always be there.
-	checkf( AssetSkeletonObj, TEXT("%s missing skeleton"), *GetNameSafe(AssetSkeletalMeshObj));
-	check( RefSkeleton );
-
-	AssetSkeleton = AssetSkeletonObj;
-	AssetSkeletalMesh = AssetSkeletalMeshObj;
-
-	// Take biggest amount of bones between SkeletalMesh and Skeleton for BoneSwitchArray.
-	// SkeletalMesh can have less, but AnimSequences tracks will map to Skeleton which can have more.
-	const int32 MaxBones = AssetSkeletonObj ? FMath::Max<int32>(RefSkeleton->GetNum(), AssetSkeletonObj->GetReferenceSkeleton().GetNum()) : RefSkeleton->GetNum();
-
-	// Initialize BoneSwitchArray.
-	BoneSwitchArray.Init(false, MaxBones);
-	const int32 NumRequiredBones = BoneIndicesArray.Num();
-	for(int32 Index=0; Index<NumRequiredBones; Index++)
-	{
-		const FBoneIndexType BoneIndex = BoneIndicesArray[Index];
-		checkSlow( BoneIndex < MaxBones );
-		BoneSwitchArray[BoneIndex] = true;
-	}
-
-	// Clear remapping table
-	SkeletonToPoseBoneIndexArray.Reset();
-
-	// Cache our mapping tables
-	// Here we create look up tables between our target asset and its USkeleton's refpose.
-	// Most times our Target is a SkeletalMesh
-	if (AssetSkeletalMeshObj)
-	{
-		RemapFromSkelMesh(*AssetSkeletalMeshObj, *AssetSkeletonObj);
-	}
-	// But we also support a Skeleton's RefPose.
-	else
-	{
-		// Right now we only support a single Skeleton. Skeleton hierarchy coming soon!
-		RemapFromSkeleton(*AssetSkeletonObj);
-	}
-
-	//Set up compact pose data
-	int32 NumReqBones = BoneIndicesArray.Num();
-	CompactPoseParentBones.Reset(NumReqBones);
-
-	CompactPoseRefPoseBones.Reset(NumReqBones);
-	CompactPoseRefPoseBones.AddUninitialized(NumReqBones);
-
-	CompactPoseToSkeletonIndex.Reset(NumReqBones);
-	CompactPoseToSkeletonIndex.AddUninitialized(NumReqBones);
-
-	SkeletonToCompactPose.Reset(SkeletonToPoseBoneIndexArray.Num());
-
-	const TArray<FTransform>& RefPoseArray = RefSkeleton->GetRefBonePose();
-	TArray<int32>& MeshIndexToCompactPoseIndex = FBoneContainerScratchArea::Get().MeshIndexToCompactPoseIndex;
-	MeshIndexToCompactPoseIndex.Reset(PoseToSkeletonBoneIndexArray.Num());
-	MeshIndexToCompactPoseIndex.AddUninitialized(PoseToSkeletonBoneIndexArray.Num());
-
-	for (int32& Item : MeshIndexToCompactPoseIndex)
-	{
-		Item = -1;
-	}
-		
-	for (int32 CompactBoneIndex = 0; CompactBoneIndex < NumReqBones; ++CompactBoneIndex)
-	{
-		FBoneIndexType MeshPoseIndex = BoneIndicesArray[CompactBoneIndex];
-		MeshIndexToCompactPoseIndex[MeshPoseIndex] = CompactBoneIndex;
-
-		//Parent Bone
-		const int32 ParentIndex = GetParentBoneIndex(MeshPoseIndex);
-		const int32 CompactParentIndex = ParentIndex == INDEX_NONE ? INDEX_NONE : MeshIndexToCompactPoseIndex[ParentIndex];
-
-		CompactPoseParentBones.Add(FCompactPoseBoneIndex(CompactParentIndex));
-	}
-
-	//Ref Pose
-	for (int32 CompactBoneIndex = 0; CompactBoneIndex < NumReqBones; ++CompactBoneIndex)
-	{
-		FBoneIndexType MeshPoseIndex = BoneIndicesArray[CompactBoneIndex];
-		CompactPoseRefPoseBones[CompactBoneIndex] = RefPoseArray[MeshPoseIndex];
-	}
-
-	for (int32 CompactBoneIndex = 0; CompactBoneIndex < NumReqBones; ++CompactBoneIndex)
-	{
-		FBoneIndexType MeshPoseIndex = BoneIndicesArray[CompactBoneIndex];
-		CompactPoseToSkeletonIndex[CompactBoneIndex] = PoseToSkeletonBoneIndexArray[MeshPoseIndex];
-	}
-
-
-	for (int32 SkeletonBoneIndex = 0; SkeletonBoneIndex < SkeletonToPoseBoneIndexArray.Num(); ++SkeletonBoneIndex)
-	{
-		int32 PoseBoneIndex = SkeletonToPoseBoneIndexArray[SkeletonBoneIndex];
-		int32 CompactIndex = (PoseBoneIndex != INDEX_NONE) ? MeshIndexToCompactPoseIndex[PoseBoneIndex] : INDEX_NONE;
-		SkeletonToCompactPose.Add(FCompactPoseBoneIndex(CompactIndex));
-	}
-}
-
-int32 FBoneContainer::GetPoseBoneIndexForBoneName(const FName& BoneName) const
-{
-	checkSlow( IsValid() );
-	return RefSkeleton->FindBoneIndex(BoneName);
-}
-
-int32 FBoneContainer::GetParentBoneIndex(const int32& BoneIndex) const
-{
-	checkSlow( IsValid() );
-	checkSlow(BoneIndex != INDEX_NONE);
-	return RefSkeleton->GetParentIndex(BoneIndex);
-}
-
-FCompactPoseBoneIndex FBoneContainer::GetParentBoneIndex(const FCompactPoseBoneIndex& BoneIndex) const
-{
-	checkSlow(IsValid());
-	checkSlow(BoneIndex != INDEX_NONE);
-	return CompactPoseParentBones[BoneIndex.GetInt()];
-}
-
-int32 FBoneContainer::GetDepthBetweenBones(const int32& BoneIndex, const int32& ParentBoneIndex) const
-{
-	checkSlow( IsValid() );
-	checkSlow( BoneIndex != INDEX_NONE );
-	return RefSkeleton->GetDepthBetweenBones(BoneIndex, ParentBoneIndex);
-}
-
-bool FBoneContainer::BoneIsChildOf(const int32& BoneIndex, const int32& ParentBoneIndex) const
-{
-	checkSlow( IsValid() );
-	checkSlow( (BoneIndex != INDEX_NONE) && (ParentBoneIndex != INDEX_NONE) );
-	return RefSkeleton->BoneIsChildOf(BoneIndex, ParentBoneIndex);
-}
-
-void FBoneContainer::RemapFromSkelMesh(USkeletalMesh const & SourceSkeletalMesh, USkeleton& TargetSkeleton)
-{
-	int32 const SkelMeshLinkupIndex = TargetSkeleton.GetMeshLinkupIndex(&SourceSkeletalMesh);
-	check(SkelMeshLinkupIndex != INDEX_NONE);
-
-	FSkeletonToMeshLinkup const & LinkupTable = TargetSkeleton.LinkupCache[SkelMeshLinkupIndex];
-
-	// Copy LinkupTable arrays for now.
-	// @laurent - Long term goal is to trim that down based on LOD, so we can get rid of the BoneIndicesArray and branch cost of testing if PoseBoneIndex is in that required bone index array.
-	SkeletonToPoseBoneIndexArray = LinkupTable.SkeletonToMeshTable;
-	PoseToSkeletonBoneIndexArray = LinkupTable.MeshToSkeletonTable;
-}
-
-void FBoneContainer::RemapFromSkeleton(USkeleton const & SourceSkeleton)
-{
-	// Map SkeletonBoneIndex to the SkeletalMesh Bone Index, taking into account the required bone index array.
-	SkeletonToPoseBoneIndexArray.Init(INDEX_NONE, SourceSkeleton.GetRefLocalPoses().Num());
-	for(int32 Index=0; Index<BoneIndicesArray.Num(); Index++)
-	{
-		int32 const & PoseBoneIndex = BoneIndicesArray[Index];
-		SkeletonToPoseBoneIndexArray[PoseBoneIndex] = PoseBoneIndex;
-	}
-
-	// Skeleton to Skeleton mapping...
-	PoseToSkeletonBoneIndexArray = SkeletonToPoseBoneIndexArray;
-}
-
+///////////////////////////////////////////////////////////////////////////////////////
+//
+// FBlendSampleData
+//
+////////////////////////////////////////////////////////////////////////////////////////
 void FBlendSampleData::NormalizeDataWeight(TArray<FBlendSampleData>& SampleDataList)
 {
 	float TotalSum = 0.f;

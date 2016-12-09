@@ -8,8 +8,20 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionFloat.h"
+#include "Distributions/DistributionVector.h"
+#include "Particles/ParticleModule.h"
 #include "Particles/Beam/ParticleModuleBeamBase.h"
 #include "ParticleModuleBeamModifier.generated.h"
+
+class UInterpCurveEdSetup;
+class UParticleModuleTypeDataBase;
+class UParticleSystemComponent;
+struct FCurveEdEntry;
+struct FParticleEmitterInstance;
 
 /**	What to modify. */
 UENUM()

@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "Layout/Visibility.h"
+#include "Types/SlateStructs.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SlotBase.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Children.h"
+#include "Widgets/SPanel.h"
+
+class FArrangedChildren;
 
 /**
  * A BoxPanel contains one child and describes how that child should be arranged on the screen.

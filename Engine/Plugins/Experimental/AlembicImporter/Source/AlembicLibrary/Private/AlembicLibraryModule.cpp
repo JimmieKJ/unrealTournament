@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AlembicLibraryPublicPCH.h"
 #include "AlembicLibraryModule.h"
 #include "AbcImporter.h"
 
@@ -18,7 +17,8 @@ class FAlembicLibraryModule : public IAlembicLibraryModule
 		FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		PropertyEditorModule.RegisterCustomClassLayout("AbcImportSettings", FOnGetDetailCustomizationInstance::CreateStatic(&FAbcImportSettingsCustomization::MakeInstance));
 		PropertyEditorModule.RegisterCustomPropertyTypeLayout("AbcCompressionSettings", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FAbcCompressionSettingsCustomization::MakeInstance));
-		PropertyEditorModule.RegisterCustomPropertyTypeLayout("AbcSamplingSettings", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FAbcSamplingSettingsCustomization::MakeInstance));		
+		PropertyEditorModule.RegisterCustomPropertyTypeLayout("AbcSamplingSettings", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FAbcSamplingSettingsCustomization::MakeInstance));
+		PropertyEditorModule.RegisterCustomPropertyTypeLayout("AbcConversionSettings", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FAbcConversionSettingsCustomization::MakeInstance));
 	}
 
 	virtual void ShutdownModule() override

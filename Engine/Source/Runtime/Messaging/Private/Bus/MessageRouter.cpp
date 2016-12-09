@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessagingPrivatePCH.h"
+#include "Bus/MessageRouter.h"
+#include "HAL/PlatformProcess.h"
+#include "Bus/MessageDispatchTask.h"
+#include "IMessageSubscription.h"
+#include "IMessageReceiver.h"
+#include "IMessageInterceptor.h"
 
 
 /* FMessageRouter structors
@@ -69,7 +74,7 @@ void FMessageRouter::Stop()
 
 void FMessageRouter::Exit()
 {
-	TArray<IReceiveMessagesWeakPtr> Recipients;
+	TArray<TWeakPtr<IMessageReceiver, ESPMode::ThreadSafe>> Recipients;
 
 	// gather all subscribed and registered recipients
 	for (const auto& RecipientPair : ActiveRecipients)
@@ -108,11 +113,11 @@ FTimespan FMessageRouter::CalculateWaitTime()
 }
 
 
-void FMessageRouter::DispatchMessage( const IMessageContextRef& Context )
+void FMessageRouter::DispatchMessage(const IMessageContextRef& Context)
 {
 	if (Context->IsValid())
 	{
-		TArray<IReceiveMessagesPtr> Recipients;
+		TArray<TSharedPtr<IMessageReceiver, ESPMode::ThreadSafe>> Recipients;
 
 		// get recipients, either from the context...
 		const TArray<FMessageAddress>& RecipientList = Context->GetRecipients();
@@ -121,7 +126,7 @@ void FMessageRouter::DispatchMessage( const IMessageContextRef& Context )
 		{
 			for (const auto& RecipientAddress : RecipientList)
 			{
-				IReceiveMessagesPtr Recipient = ActiveRecipients.FindRef(RecipientAddress).Pin();
+				auto Recipient = ActiveRecipients.FindRef(RecipientAddress).Pin();
 
 				if (Recipient.IsValid())
 				{
@@ -160,20 +165,24 @@ void FMessageRouter::DispatchMessage( const IMessageContextRef& Context )
 }
 
 
-void FMessageRouter::FilterSubscriptions( TArray<IMessageSubscriptionPtr>& Subscriptions, const IMessageContextRef& Context, TArray<IReceiveMessagesPtr>& OutRecipients )
+void FMessageRouter::FilterSubscriptions(
+	TArray<TSharedPtr<IMessageSubscription, ESPMode::ThreadSafe>>& Subscriptions,
+	const IMessageContextRef& Context,
+	TArray<TSharedPtr<IMessageReceiver, ESPMode::ThreadSafe>>& OutRecipients
+)
 {
 	EMessageScope MessageScope = Context->GetScope();
 
 	for (int32 SubscriptionIndex = 0; SubscriptionIndex < Subscriptions.Num(); ++SubscriptionIndex)
 	{
-		const IMessageSubscriptionPtr& Subscription = Subscriptions[SubscriptionIndex];
+		const auto& Subscription = Subscriptions[SubscriptionIndex];
 
 		if (!Subscription->IsEnabled() || !Subscription->GetScopeRange().Contains(MessageScope))
 		{
 			continue;
 		}
 
-		IReceiveMessagesPtr Subscriber = Subscription->GetSubscriber().Pin();
+		auto Subscriber = Subscription->GetSubscriber().Pin();
 
 		if (Subscriber.IsValid())
 		{
@@ -214,16 +223,16 @@ void FMessageRouter::ProcessDelayedMessages()
 /* FMessageRouter callbacks
  *****************************************************************************/
 
-void FMessageRouter::HandleAddInterceptor( IMessageInterceptorRef Interceptor, FName MessageType )
+void FMessageRouter::HandleAddInterceptor(TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe> Interceptor, FName MessageType)
 {
 	ActiveInterceptors.FindOrAdd(MessageType).AddUnique(Interceptor);
 	Tracer->TraceAddedInterceptor(Interceptor, MessageType);
 }
 
 
-void FMessageRouter::HandleAddRecipient( FMessageAddress Address, IReceiveMessagesWeakPtr RecipientPtr )
+void FMessageRouter::HandleAddRecipient(FMessageAddress Address, TWeakPtr<IMessageReceiver, ESPMode::ThreadSafe> RecipientPtr)
 {
-	IReceiveMessagesPtr Recipient = RecipientPtr.Pin();
+	auto Recipient = RecipientPtr.Pin();
 
 	if (Recipient.IsValid())
 	{
@@ -233,14 +242,14 @@ void FMessageRouter::HandleAddRecipient( FMessageAddress Address, IReceiveMessag
 }
 
 
-void FMessageRouter::HandleAddSubscriber( IMessageSubscriptionRef Subscription )
+void FMessageRouter::HandleAddSubscriber(TSharedRef<IMessageSubscription, ESPMode::ThreadSafe> Subscription)
 {
 	ActiveSubscriptions.FindOrAdd(Subscription->GetMessageType()).AddUnique(Subscription);
 	Tracer->TraceAddedSubscription(Subscription);
 }
 
 
-void FMessageRouter::HandleRemoveInterceptor( IMessageInterceptorRef Interceptor, FName MessageType )
+void FMessageRouter::HandleRemoveInterceptor(TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe> Interceptor, FName MessageType)
 {
 	if (MessageType == NAME_All)
 	{
@@ -251,7 +260,7 @@ void FMessageRouter::HandleRemoveInterceptor( IMessageInterceptorRef Interceptor
 	}
 	else
 	{
-		TArray<IMessageInterceptorPtr>& Interceptors = ActiveInterceptors.FindOrAdd(MessageType);
+		auto& Interceptors = ActiveInterceptors.FindOrAdd(MessageType);
 		Interceptors.Remove(Interceptor);
 	}
 
@@ -259,9 +268,9 @@ void FMessageRouter::HandleRemoveInterceptor( IMessageInterceptorRef Interceptor
 }
 
 
-void FMessageRouter::HandleRemoveRecipient( FMessageAddress Address )
+void FMessageRouter::HandleRemoveRecipient(FMessageAddress Address)
 {
-	IReceiveMessagesPtr Recipient = ActiveRecipients.FindRef(Address).Pin();
+	auto Recipient = ActiveRecipients.FindRef(Address).Pin();
 
 	if (Recipient.IsValid())
 	{
@@ -272,9 +281,9 @@ void FMessageRouter::HandleRemoveRecipient( FMessageAddress Address )
 }
 
 
-void FMessageRouter::HandleRemoveSubscriber( IReceiveMessagesWeakPtr SubscriberPtr, FName MessageType )
+void FMessageRouter::HandleRemoveSubscriber(TWeakPtr<IMessageReceiver, ESPMode::ThreadSafe> SubscriberPtr, FName MessageType)
 {
-	IReceiveMessagesPtr Subscriber = SubscriberPtr.Pin();
+	auto Subscriber = SubscriberPtr.Pin();
 
 	if (!Subscriber.IsValid())
 	{
@@ -288,7 +297,7 @@ void FMessageRouter::HandleRemoveSubscriber( IReceiveMessagesWeakPtr SubscriberP
 			continue;
 		}
 
-		TArray<IMessageSubscriptionPtr>& Subscriptions = SubscriptionsPair.Value;
+		TArray<TSharedPtr<IMessageSubscription, ESPMode::ThreadSafe>>& Subscriptions = SubscriptionsPair.Value;
 
 		for (int32 Index = 0; Index < Subscriptions.Num(); Index++)
 		{
@@ -306,12 +315,12 @@ void FMessageRouter::HandleRemoveSubscriber( IReceiveMessagesWeakPtr SubscriberP
 }
 
 
-void FMessageRouter::HandleRouteMessage( IMessageContextRef Context )
+void FMessageRouter::HandleRouteMessage(IMessageContextRef Context)
 {
 	Tracer->TraceRoutedMessage(Context);
 
 	// intercept routing
-	TArray<IMessageInterceptorPtr>& Interceptors = ActiveInterceptors.FindOrAdd(Context->GetMessageType());
+	auto& Interceptors = ActiveInterceptors.FindOrAdd(Context->GetMessageType());
 
 	for (auto& Interceptor : Interceptors)
 	{

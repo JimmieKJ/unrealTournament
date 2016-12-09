@@ -1,15 +1,30 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Windows/WindowsPlatformStackWalk.h"
+#include "HAL/PlatformMemory.h"
+#include "HAL/PlatformMisc.h"
+#include "Logging/LogMacros.h"
+#include "Math/UnrealMathUtility.h"
+#include "HAL/UnrealMemory.h"
+#include "Containers/StringConv.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/Paths.h"
+#include "Misc/CommandLine.h"
+#include "HAL/PlatformProcess.h"
+#include "CoreGlobals.h"
+#include "Misc/ConfigCacheIni.h"
 
-#include "AllowWindowsPlatformTypes.h"
-	#include <DbgHelp.h>				
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+	#include <DbgHelp.h>
 	#include <Shlwapi.h>
-	#include <TlHelp32.h>		
-	#include <psapi.h>
-#include "HideWindowsPlatformTypes.h"
+	#include <TlHelp32.h>
+	#include <Psapi.h>
+#include "Windows/HideWindowsPlatformTypes.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 
 /*-----------------------------------------------------------------------------
@@ -24,8 +39,10 @@ static bool GNeedToRefreshSymbols = false;
 static const TCHAR* CrashReporterSettings = TEXT("/Script/UnrealEd.CrashReporterSettings");
 
 // NOTE: Make sure to enable Stack Frame pointers: bOmitFramePointers = false, or /Oy-
-// If GStackWalkingInitialized is true, traces will work anyway but will be much slower.
 #define USE_FAST_STACKTRACE 1
+
+// Uses StackWalk64 interface which is more reliable, but 500-1000x slower than the fast stacktrace.
+#define USE_SLOW_STACKTRACE 0
 
 typedef bool  (WINAPI *TFEnumProcesses)( uint32* lpidProcess, uint32 cb, uint32* cbNeeded);
 typedef bool  (WINAPI *TFEnumProcessModules)(HANDLE hProcess, HMODULE *lphModule, uint32 cb, LPDWORD lpcbNeeded);
@@ -220,88 +237,80 @@ void FWindowsPlatformStackWalk::CaptureStackBackTrace( uint64* BackTrace, uint32
 {
 	// Make sure we have place to store the information before we go through the process of raising
 	// an exception and handling it.
-	if( BackTrace == NULL || MaxDepth == 0 )
+	if (BackTrace == NULL || MaxDepth == 0)
 	{
 		return;
 	}
 
-	if( Context )
+	if (Context)
 	{
-		CaptureStackTraceHelper( BackTrace, MaxDepth, (CONTEXT*)Context );
+		CaptureStackTraceHelper(BackTrace, MaxDepth, (CONTEXT*)Context);
 	}
 	else
 	{
 #if USE_FAST_STACKTRACE
+		if (!GMaxCallstackDepthInitialized)
+		{
+			DetermineMaxCallstackDepth();
+		}
+		PVOID WinBackTrace[MAX_CALLSTACK_DEPTH];
+		uint16 NumFrames = RtlCaptureStackBackTrace(0, FMath::Min<ULONG>(GMaxCallstackDepth, MaxDepth), WinBackTrace, NULL);
+		for (uint16 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex)
+		{
+			BackTrace[FrameIndex] = (uint64)WinBackTrace[FrameIndex];
+		}
+		while (NumFrames < MaxDepth)
+		{
+			BackTrace[NumFrames++] = 0;
+		}		
+#elif USE_SLOW_STACKTRACE
 		// NOTE: Make sure to enable Stack Frame pointers: bOmitFramePointers = false, or /Oy-
 		// If GStackWalkingInitialized is true, traces will work anyway but will be much slower.
-		if ( GStackWalkingInitialized )
+		if (!GStackWalkingInitialized)
 		{
-			CONTEXT HelperContext;
-			RtlCaptureContext( &HelperContext );
+			InitStackWalking();
+		}
+		
+		CONTEXT HelperContext;
+		RtlCaptureContext(&HelperContext);
 
-			// Capture the back trace.
-			CaptureStackTraceHelper( BackTrace, MaxDepth, &HelperContext );
-		}
-		else
-		{
-			if ( !GMaxCallstackDepthInitialized )
-			{
-				DetermineMaxCallstackDepth();
-			}
-			PVOID WinBackTrace[MAX_CALLSTACK_DEPTH];
-			uint16 NumFrames = RtlCaptureStackBackTrace( 0, FMath::Min<ULONG>(GMaxCallstackDepth,MaxDepth), WinBackTrace, NULL );
-			for ( uint16 FrameIndex=0; FrameIndex < NumFrames; ++FrameIndex )
-			{
-				BackTrace[ FrameIndex ] = (uint64) WinBackTrace[ FrameIndex ];
-			}
-			while ( NumFrames < MaxDepth )
-			{
-				BackTrace[ NumFrames++ ] = 0;
-			}
-		}
+		// Capture the back trace.
+		CaptureStackTraceHelper(BackTrace, MaxDepth, &HelperContext);		
 #elif PLATFORM_64BITS
 		// Raise an exception so CaptureStackBackTraceHelper has access to context record.
 		__try
 		{
-			RaiseException(	0,			// Application-defined exception code.
-							0,			// Zero indicates continuable exception.
-							0,			// Number of arguments in args array (ignored if args is NULL)
-							NULL );		// Array of arguments
-			}
+			RaiseException(0,			// Application-defined exception code.
+				0,			// Zero indicates continuable exception.
+				0,			// Number of arguments in args array (ignored if args is NULL)
+				NULL);		// Array of arguments
+		}
 		// Capture the back trace.
-		__except( CaptureStackTraceHelper( BackTrace, MaxDepth, (GetExceptionInformation())->ContextRecord ) )
+		__except (CaptureStackTraceHelper(BackTrace, MaxDepth, (GetExceptionInformation())->ContextRecord))
 		{
 		}
-#elif 1
+#else
 		// Use a bit of inline assembly to capture the information relevant to stack walking which is
 		// basically EIP and EBP.
 		CONTEXT HelperContext;
-		memset( &HelperContext, 0, sizeof(CONTEXT) );
+		memset(&HelperContext, 0, sizeof(CONTEXT));
 		HelperContext.ContextFlags = CONTEXT_FULL;
 
 		// Use a fake function call to pop the return address and retrieve EIP.
 		__asm
 		{
 			call FakeFunctionCall
-		FakeFunctionCall: 
+			FakeFunctionCall :
 			pop eax
-			mov HelperContext.Eip, eax
-			mov HelperContext.Ebp, ebp
-			mov HelperContext.Esp, esp
+				mov HelperContext.Eip, eax
+				mov HelperContext.Ebp, ebp
+				mov HelperContext.Esp, esp
 		}
 
 		// Capture the back trace.
-		CaptureStackTraceHelper( BackTrace, MaxDepth, &HelperContext );
-#else
-		CONTEXT HelperContext;
-		// RtlCaptureContext relies on EBP being untouched so if the below crashes it is because frame pointer
-		// omission is enabled. It is implied by /Ox or /O2 and needs to be manually disabled via /Oy-
-		RtlCaptureContext( HelperContext );
-
-		// Capture the back trace.
-		CaptureStackTraceHelper( BackTrace, MaxDepth, &HelperContext );
+		CaptureStackTraceHelper(BackTrace, MaxDepth, &HelperContext);
 #endif
-	}
+	}	
 }
 
 PRAGMA_ENABLE_OPTIMIZATION
@@ -421,6 +430,11 @@ bool FWindowsPlatformStackWalk::UploadLocalSymbols()
 		// Nothing to do.
 		return true;
 	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("DisableUploadSymbols")))
+	{
+		UE_LOG(LogWindows, Log, TEXT("Uploading to symbol storage disabled by command line flag"));
+		return true;
+	}
 	// Prepare string
 	SymbolStorage.ReplaceInline( TEXT( "/" ), TEXT( "\\" ), ESearchCase::CaseSensitive );
 	SymbolStorage = TEXT( "SRV*" ) + SymbolStorage;
@@ -469,14 +483,24 @@ bool FWindowsPlatformStackWalk::UploadLocalSymbols()
 				UE_LOG( LogWindows, Log, TEXT( "Uploading to symbol storage: %s" ), ImageName );
 				if (!SymSrvStoreFileW( ProcessHandle, *SymbolStorage, ImageName, SYMSTOREOPT_PASS_IF_EXISTS ))
 				{
-					UE_LOG( LogWindows, Warning, TEXT( "Uploading to symbol storage failed: %s. Error: %d" ), ImageName, GetLastError() );
+					HRESULT Result = GetLastError();
+					TCHAR ErrorBuffer[1024];
+					FPlatformMisc::GetSystemErrorMessage(ErrorBuffer, sizeof(ErrorBuffer) / sizeof(ErrorBuffer[0]), Result);
+					UE_LOG(LogWindows, Warning, TEXT("Uploading to symbol storage failed. Error Code %u: %s"), Result, ErrorBuffer);
+					// Calling SymSrvStoreFileW can crash if called after failing, so ditch out of the loop on error
+					break;
 				}
 
 				// Upload debug symbols
 				UE_LOG( LogWindows, Log, TEXT( "Uploading to symbol storage: %s" ), DebugName );
 				if (!SymSrvStoreFileW( ProcessHandle, *SymbolStorage, DebugName, SYMSTOREOPT_PASS_IF_EXISTS ))
 				{
-					UE_LOG( LogWindows, Warning, TEXT( "Uploading to symbol storage failed: %s. Error: %d" ), DebugName, GetLastError() );
+					HRESULT Result = GetLastError();
+					TCHAR ErrorBuffer[1024];
+					FPlatformMisc::GetSystemErrorMessage(ErrorBuffer, sizeof(ErrorBuffer) / sizeof(ErrorBuffer[0]), Result);
+					UE_LOG(LogWindows, Warning, TEXT("Uploading to symbol storage failed. Error Code %u: %s"), Result, ErrorBuffer);
+					// Calling SymSrvStoreFileW can crash if called after failing, so ditch out of the loop on error
+					break;
 				}
 			}
 		}

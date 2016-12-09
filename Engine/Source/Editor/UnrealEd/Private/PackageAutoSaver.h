@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "UObject/WeakObjectPtr.h"
 #include "IPackageAutoSaver.h"
-
-class SNotificationItem;
 
 namespace ECloseNotification
 {

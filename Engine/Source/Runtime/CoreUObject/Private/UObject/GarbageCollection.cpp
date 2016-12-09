@@ -4,10 +4,20 @@
 	UnObjGC.cpp: Unreal object garbage collection code.
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
-#include "TaskGraphInterfaces.h"
-#include "IConsoleManager.h"
-#include "LinkerPlaceholderClass.h"
+#include "UObject/GarbageCollection.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Misc/TimeGuard.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/App.h"
+#include "UObject/ScriptInterface.h"
+#include "UObject/UObjectAllocator.h"
+#include "UObject/UObjectBase.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/UnrealType.h"
+#include "UObject/LinkerLoad.h"
+#include "UObject/GCObject.h"
 #include "UObject/GCScopeLock.h"
 #include "HAL/ExceptionHandling.h"
 
@@ -32,7 +42,9 @@ int32		GObjectCountDuringLastMarkPhase			= 0;
 /** Count of objects purged since last mark phase																	*/
 int32		GPurgedObjectCountSinceLastMarkPhase	= 0;
 /** Whether incremental object purge is in progress										*/
-static bool GObjIncrementalPurgeIsInProgress = false;
+bool GObjIncrementalPurgeIsInProgress = false;
+/** Whether GC is currently routing BeginDestroy to objects										*/
+bool GObjUnhashUnreachableIsInProgress = false;
 /** Whether FinishDestroy has already been routed to all unreachable objects. */
 static bool GObjFinishDestroyHasBeenRoutedToAllObjects	= false;
 /** 
@@ -518,25 +530,32 @@ public:
 	FORCEINLINE void HandleTokenStreamObjectReference(TArray<UObject*>& ObjectsToSerialize, UObject* ReferencingObject, UObject*& Object, const int32 TokenIndex, bool bAllowReferenceElimination)
 	{
 #if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
-		if (Object && !Object->IsValidLowLevelFast())
+		if (Object)
 		{
-			FString TokenDebugInfo;
-			if (UClass *Class = (ReferencingObject ? ReferencingObject->GetClass() : nullptr))
+			if (
+#if DO_POINTER_CHECKS_ON_GC
+				!IsPossiblyAllocatedUObjectPointer(Object) ||
+#endif
+				!Object->IsValidLowLevelFast())
 			{
-				auto& TokenInfo = Class->DebugTokenMap.GetTokenInfo(TokenIndex);
-				TokenDebugInfo = FString::Printf(TEXT("ReferencingObjectClass: %s, Property Name: %s, Offset: %d"),
-					*Class->GetFullName(), *TokenInfo.Name.GetPlainNameString(), TokenInfo.Offset);
-			}
-			else
-			{
-				// This means this objects is most likely being referenced by AddReferencedObjects
-				TokenDebugInfo = TEXT("Native Reference");
-			}
+				FString TokenDebugInfo;
+				if (UClass *Class = (ReferencingObject ? ReferencingObject->GetClass() : nullptr))
+				{
+					auto& TokenInfo = Class->DebugTokenMap.GetTokenInfo(TokenIndex);
+					TokenDebugInfo = FString::Printf(TEXT("ReferencingObjectClass: %s, Property Name: %s, Offset: %d"),
+						*Class->GetFullName(), *TokenInfo.Name.GetPlainNameString(), TokenInfo.Offset);
+				}
+				else
+				{
+					// This means this objects is most likely being referenced by AddReferencedObjects
+					TokenDebugInfo = TEXT("Native Reference");
+				}
 
-			UE_LOG(LogGarbage, Fatal, TEXT("Invalid object in GC: 0x%016llx, ReferencingObject: %s, %s, TokenIndex: %d"),
-				(int64)(PTRINT)Object,
-				ReferencingObject ? *ReferencingObject->GetFullName() : TEXT("NULL"),
-				*TokenDebugInfo, TokenIndex);
+				UE_LOG(LogGarbage, Fatal, TEXT("Invalid object in GC: 0x%016llx, ReferencingObject: %s, %s, TokenIndex: %d"),
+					(int64)(PTRINT)Object,
+					ReferencingObject ? *ReferencingObject->GetFullName() : TEXT("NULL"),
+					*TokenDebugInfo, TokenIndex);
+			}
 		}
 #endif
 		HandleObjectReference(ObjectsToSerialize, ReferencingObject, Object, bAllowReferenceElimination);
@@ -1130,7 +1149,13 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 	// Flush streaming before GC if requested
 	if (GFlushStreamingOnGC)
 	{
+		if (IsAsyncLoading())
+		{
+			UE_LOG(LogGarbage, Log, TEXT("CollectGarbageInternal() is flushing async loading"));
+		}
+		GGarbageCollectionGuardCritical.GCUnlock();
 		FlushAsyncLoading();
+		GGarbageCollectionGuardCritical.GCLock();
 	}
 
 	// Route callbacks so we can ensure that we are e.g. not in the middle of loading something by flushing
@@ -1138,171 +1163,177 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 	FCoreUObjectDelegates::PreGarbageCollect.Broadcast();
 	GLastGCFrame = GFrameCounter;
 
-	// Set 'I'm garbage collecting' flag - might be checked inside various functions.
-	FGCScopeLock GCLock;
-
-	UE_LOG(LogGarbage, Log, TEXT("Collecting garbage") );
-
-	// Make sure previous incremental purge has finished or we do a full purge pass in case we haven't kicked one
-	// off yet since the last call to garbage collection.
-	if( GObjIncrementalPurgeIsInProgress || GObjPurgeIsRequired )
 	{
-		IncrementalPurgeGarbage( false );
-		FMemory::Trim();
-	}
-	check( !GObjIncrementalPurgeIsInProgress );
-	check( !GObjPurgeIsRequired );
+		// Set 'I'm garbage collecting' flag - might be checked inside various functions.
+		// This has to be unlocked before we call post GC callbacks
+		FGCScopeLock GCLock;
+
+		UE_LOG(LogGarbage, Log, TEXT("Collecting garbage"));
+
+		// Make sure previous incremental purge has finished or we do a full purge pass in case we haven't kicked one
+		// off yet since the last call to garbage collection.
+		if (GObjIncrementalPurgeIsInProgress || GObjPurgeIsRequired)
+		{
+			IncrementalPurgeGarbage(false);
+			FMemory::Trim();
+		}
+		check(!GObjIncrementalPurgeIsInProgress);
+		check(!GObjPurgeIsRequired);
 
 #if VERIFY_DISREGARD_GC_ASSUMPTIONS
-	FUObjectArray& UObjectArray = GUObjectArray;
-	// Only verify assumptions if option is enabled. This avoids false positives in the Editor or commandlets.
-	if ((UObjectArray.DisregardForGCEnabled() || GUObjectClusters.Num()) && GShouldVerifyGCAssumptions)
-	{
-		DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "CollectGarbageInternal.VerifyGCAssumptions" ), STAT_CollectGarbageInternal_VerifyGCAssumptions, STATGROUP_GC );
-		bool bShouldAssert = false;
-
-		// Verify that objects marked to be disregarded for GC are not referencing objects that are not part of the root set.
-		for (FRawObjectIterator It(false); It; ++It)
+		FUObjectArray& UObjectArray = GUObjectArray;
+		// Only verify assumptions if option is enabled. This avoids false positives in the Editor or commandlets.
+		if ((UObjectArray.DisregardForGCEnabled() || GUObjectClusters.Num()) && GShouldVerifyGCAssumptions)
 		{
-			FUObjectItem* ObjectItem = *It;
-			UObject* Object = (UObject*)ObjectItem->Object;
-			// Don't require UGCObjectReferencer's references to adhere to the assumptions.
-			// Although we want the referencer itself to sit in the disregard for gc set, most of the objects
-			// it's referencing will not be in the root set.
-			if (UObjectArray.IsDisregardForGC(Object) && !Object->IsA(UGCObjectReferencer::StaticClass()))
-			{
-				// Serialize object with reference collector.
-				TArray<UObject*> CollectedReferences;
-				FReferenceFinder ObjectReferenceCollector( CollectedReferences );
-				ObjectReferenceCollector.FindReferences( Object );
+			DECLARE_SCOPE_CYCLE_COUNTER(TEXT("CollectGarbageInternal.VerifyGCAssumptions"), STAT_CollectGarbageInternal_VerifyGCAssumptions, STATGROUP_GC);
+			bool bShouldAssert = false;
 
-				// Iterate over referenced objects, finding bad ones.
-				for( int32 ReferenceIndex=0; ReferenceIndex<CollectedReferences.Num(); ReferenceIndex++ )
+			// Verify that objects marked to be disregarded for GC are not referencing objects that are not part of the root set.
+			for (FRawObjectIterator It(false); It; ++It)
+			{
+				FUObjectItem* ObjectItem = *It;
+				UObject* Object = (UObject*)ObjectItem->Object;
+				// Don't require UGCObjectReferencer's references to adhere to the assumptions.
+				// Although we want the referencer itself to sit in the disregard for gc set, most of the objects
+				// it's referencing will not be in the root set.
+				if (UObjectArray.IsDisregardForGC(Object) && !Object->IsA(UGCObjectReferencer::StaticClass()))
 				{
-					UObject* ReferencedObject = CollectedReferences[ReferenceIndex];
-					if (ReferencedObject && 
-						!(ReferencedObject->IsRooted() || 
-						  UObjectArray.IsDisregardForGC(ReferencedObject) || 
-							UObjectArray.ObjectToObjectItem(ReferencedObject)->GetOwnerIndex() ||
-							UObjectArray.ObjectToObjectItem(ReferencedObject)->HasAnyFlags(EInternalObjectFlags::ClusterRoot)))
+					// Serialize object with reference collector.
+					TArray<UObject*> CollectedReferences;
+					FReferenceFinder ObjectReferenceCollector(CollectedReferences);
+					ObjectReferenceCollector.FindReferences(Object);
+
+					// Iterate over referenced objects, finding bad ones.
+					for (int32 ReferenceIndex = 0; ReferenceIndex < CollectedReferences.Num(); ReferenceIndex++)
 					{
-						UE_LOG(LogGarbage, Warning, TEXT("Disregard for GC object %s referencing %s which is not part of root set"),
-							*Object->GetFullName(),
-							*ReferencedObject->GetFullName());						
+						UObject* ReferencedObject = CollectedReferences[ReferenceIndex];
+						if (ReferencedObject &&
+							!(ReferencedObject->IsRooted() ||
+								UObjectArray.IsDisregardForGC(ReferencedObject) ||
+								UObjectArray.ObjectToObjectItem(ReferencedObject)->GetOwnerIndex() ||
+								UObjectArray.ObjectToObjectItem(ReferencedObject)->HasAnyFlags(EInternalObjectFlags::ClusterRoot)))
+						{
+							UE_LOG(LogGarbage, Warning, TEXT("Disregard for GC object %s referencing %s which is not part of root set"),
+								*Object->GetFullName(),
+								*ReferencedObject->GetFullName());
+							bShouldAssert = true;
+						}
+					}
+				}
+				else if (ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot))
+				{
+					if (!VerifyClusterAssumptions(Object))
+					{
 						bShouldAssert = true;
 					}
 				}
 			}
-			else if (ObjectItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot))
+			// Assert if we encountered any objects breaking implicit assumptions.
+			if (bShouldAssert)
 			{
-				if (!VerifyClusterAssumptions(Object))
-				{
-					bShouldAssert = true;
-				}
+				UE_LOG(LogGarbage, Fatal, TEXT("Encountered object(s) breaking Disregard for GC assumption. Please check log for details."));
 			}
 		}
-		// Assert if we encountered any objects breaking implicit assumptions.
-		if (bShouldAssert)
-		{
-			UE_LOG(LogGarbage, Fatal, TEXT("Encountered object(s) breaking Disregard for GC assumption. Please check log for details."));
-		}
-	}
 #endif
 
-	// Fall back to single threaded GC if processor count is 1 or parallel GC is disabled
-	// or detailed per class gc stats are enabled (not thread safe)
-	// Temporarily forcing single-threaded GC in the editor until Modify() can be safely removed from HandleObjectReference.
-	const bool bForceSingleThreadedGC = !FApp::ShouldUseThreadingForPerformance() || !FPlatformProcess::SupportsMultithreading() ||
+		// Fall back to single threaded GC if processor count is 1 or parallel GC is disabled
+		// or detailed per class gc stats are enabled (not thread safe)
+		// Temporarily forcing single-threaded GC in the editor until Modify() can be safely removed from HandleObjectReference.
+		const bool bForceSingleThreadedGC = !FApp::ShouldUseThreadingForPerformance() || !FPlatformProcess::SupportsMultithreading() ||
 #if PLATFORM_SUPPORTS_MULTITHREADED_GC
-		( FPlatformMisc::NumberOfCores() < 2 || GAllowParallelGC == 0 || PERF_DETAILED_PER_CLASS_GC_STATS );
+		(FPlatformMisc::NumberOfCores() < 2 || GAllowParallelGC == 0 || PERF_DETAILED_PER_CLASS_GC_STATS);
 #else	//PLATFORM_SUPPORTS_MULTITHREADED_GC
-		true;
+			true;
 #endif	//PLATFORM_SUPPORTS_MULTITHREADED_GC
 
-	// Perform reachability analysis.
-	{
-		const double StartTime = FPlatformTime::Seconds();
-		FRealtimeGC TagUsedRealtimeGC;
-		TagUsedRealtimeGC.PerformReachabilityAnalysis( KeepFlags, bForceSingleThreadedGC );
-		UE_LOG(LogGarbage, Log, TEXT("%f ms for GC"), (FPlatformTime::Seconds() - StartTime) * 1000 );
-	}
+		// Perform reachability analysis.
+		{
+			const double StartTime = FPlatformTime::Seconds();
+			FRealtimeGC TagUsedRealtimeGC;
+			TagUsedRealtimeGC.PerformReachabilityAnalysis(KeepFlags, bForceSingleThreadedGC);
+			UE_LOG(LogGarbage, Log, TEXT("%f ms for GC"), (FPlatformTime::Seconds() - StartTime) * 1000);
+		}
 
 #if WITH_EDITOR
-	if ( GIsEditor && EditorPostReachabilityAnalysisCallback )
-	{
-		EditorPostReachabilityAnalysisCallback();
-	}
+		if (GIsEditor && EditorPostReachabilityAnalysisCallback)
+		{
+			EditorPostReachabilityAnalysisCallback();
+		}
 #endif // WITH_EDITOR
 
-	{
-		DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "CollectGarbageInternal.UnhashUnreachable" ), STAT_CollectGarbageInternal_UnhashUnreachable, STATGROUP_GC );
-
-		// Unhash all unreachable objects.
-		const double StartTime = FPlatformTime::Seconds();
-		int32 ClustersRemoved = 0;
-		for ( FRawObjectIterator It(true); It; ++It )
 		{
-			//@todo UE4 - A prefetch was removed here. Re-add it. It wasn't right anyway, since it was ten items ahead and the consoles on have 8 prefetch slots
+			DECLARE_SCOPE_CYCLE_COUNTER(TEXT("CollectGarbageInternal.UnhashUnreachable"), STAT_CollectGarbageInternal_UnhashUnreachable, STATGROUP_GC);
 
-			FUObjectItem* ObjectItem = *It;
-			checkSlow(ObjectItem);
-			if (ObjectItem->IsUnreachable())
+			TGuardValue<bool> GuardObjUnhashUnreachableIsInProgress(GObjUnhashUnreachableIsInProgress, true);
+
+			// Unhash all unreachable objects.
+			const double StartTime = FPlatformTime::Seconds();
+			int32 ClustersRemoved = 0;
+			for (FRawObjectIterator It(true); It; ++It)
 			{
-				if ((ObjectItem->GetFlags() & EInternalObjectFlags::ClusterRoot) == EInternalObjectFlags::ClusterRoot)
-				{
-					// Nuke the entire cluster
-					ObjectItem->ClearFlags(EInternalObjectFlags::ClusterRoot|EInternalObjectFlags::NoStrongReference);					
-					const int32 ClusterRootIndex = It.GetIndex();
-					FUObjectCluster* Cluster = GUObjectClusters.FindChecked(ClusterRootIndex);
-					checkSlow(Cluster);
-					for (int32 ClusterObjectIndex : Cluster->Objects)
-					{
-						FUObjectItem* ClusterObjectItem = GUObjectArray.IndexToObjectUnsafeForGC(ClusterObjectIndex);
-						ClusterObjectItem->ClearFlags(EInternalObjectFlags::NoStrongReference);
-						ClusterObjectItem->SetOwnerIndex(0);
+				//@todo UE4 - A prefetch was removed here. Re-add it. It wasn't right anyway, since it was ten items ahead and the consoles on have 8 prefetch slots
 
-						if (!ClusterObjectItem->HasAnyFlags(EInternalObjectFlags::ReachableInCluster))
+				FUObjectItem* ObjectItem = *It;
+				checkSlow(ObjectItem);
+				if (ObjectItem->IsUnreachable())
+				{
+					if ((ObjectItem->GetFlags() & EInternalObjectFlags::ClusterRoot) == EInternalObjectFlags::ClusterRoot)
+					{
+						// Nuke the entire cluster
+						ObjectItem->ClearFlags(EInternalObjectFlags::ClusterRoot | EInternalObjectFlags::NoStrongReference);
+						const int32 ClusterRootIndex = It.GetIndex();
+						FUObjectCluster* Cluster = GUObjectClusters.FindChecked(ClusterRootIndex);
+						checkSlow(Cluster);
+						for (int32 ClusterObjectIndex : Cluster->Objects)
 						{
-							ClusterObjectItem->SetFlags(EInternalObjectFlags::Unreachable);
-							if (ClusterObjectIndex < ClusterRootIndex)
+							FUObjectItem* ClusterObjectItem = GUObjectArray.IndexToObjectUnsafeForGC(ClusterObjectIndex);
+							ClusterObjectItem->ClearFlags(EInternalObjectFlags::NoStrongReference);
+							ClusterObjectItem->SetOwnerIndex(0);
+
+							if (!ClusterObjectItem->HasAnyFlags(EInternalObjectFlags::ReachableInCluster))
 							{
-								UObject* ClusterObject = (UObject*)ClusterObjectItem->Object;
-								ClusterObject->ConditionalBeginDestroy();
+								ClusterObjectItem->SetFlags(EInternalObjectFlags::Unreachable);
+								if (ClusterObjectIndex < ClusterRootIndex)
+								{
+									UObject* ClusterObject = (UObject*)ClusterObjectItem->Object;
+									ClusterObject->ConditionalBeginDestroy();
+								}
 							}
 						}
+						delete Cluster;
+						GUObjectClusters.Remove(ClusterRootIndex);
+						ClustersRemoved++;
 					}
-					delete Cluster;
-					GUObjectClusters.Remove(ClusterRootIndex);
-					ClustersRemoved++;
+
+					// Begin the object's asynchronous destruction.
+					UObject* Object = (UObject*)ObjectItem->Object;
+					Object->ConditionalBeginDestroy();
 				}
-
-				// Begin the object's asynchronous destruction.
-				UObject* Object = (UObject*)ObjectItem->Object;
-				Object->ConditionalBeginDestroy();
+				else if (ObjectItem->IsNoStrongReference())
+				{
+					ObjectItem->ClearNoStrongReference();
+					ObjectItem->SetPendingKill();
+				}
 			}
-			else if (ObjectItem->IsNoStrongReference())
-			{
-				ObjectItem->ClearNoStrongReference();
-				ObjectItem->SetPendingKill();
-			}
+			UE_LOG(LogGarbage, Log, TEXT("%f ms for unhashing unreachable objects. Clusters removed: %d."), (FPlatformTime::Seconds() - StartTime) * 1000, ClustersRemoved);
 		}
-		UE_LOG(LogGarbage, Log, TEXT("%f ms for unhashing unreachable objects. Clusters removed: %d."), (FPlatformTime::Seconds() - StartTime) * 1000, ClustersRemoved);
-	}
 
-	// Set flag to indicate that we are relying on a purge to be performed.
-	GObjPurgeIsRequired = true;
-	// Reset purged count.
-	GPurgedObjectCountSinceLastMarkPhase = 0;
+		// Set flag to indicate that we are relying on a purge to be performed.
+		GObjPurgeIsRequired = true;
+		// Reset purged count.
+		GPurgedObjectCountSinceLastMarkPhase = 0;
 
-	// Perform a full purge by not using a time limit for the incremental purge. The Editor always does a full purge.
-	if( bPerformFullPurge || GIsEditor )
-	{
-		IncrementalPurgeGarbage( false );	
+		// Perform a full purge by not using a time limit for the incremental purge. The Editor always does a full purge.
+		if (bPerformFullPurge || GIsEditor)
+		{
+			IncrementalPurgeGarbage(false);
+		}
 	}
-	FMemory::Trim();
 
 	// Destroy all pending delete linkers
 	DeleteLoaders();
+
+	FMemory::Trim();
 
 	// Route callbacks to verify GC assumptions
 	FCoreUObjectDelegates::PostGarbageCollect.Broadcast();
@@ -1419,7 +1450,7 @@ void UObject::AddReferencedObjects(UObject* This, FReferenceCollector& Collector
  *
  * @return true if property (or sub- properties) contain a UObject reference, false otherwise
  */
-bool UProperty::ContainsObjectReference() const
+bool UProperty::ContainsObjectReference(TArray<const UStructProperty*>& EncounteredStructProps) const
 {
 	return false;
 }
@@ -1430,10 +1461,10 @@ bool UProperty::ContainsObjectReference() const
  *
  * @return true if property (or sub- properties) contain a UObject reference, false otherwise
  */
-bool UArrayProperty::ContainsObjectReference() const
+bool UArrayProperty::ContainsObjectReference(TArray<const UStructProperty*>& EncounteredStructProps) const
 {
 	check(Inner);
-	return Inner->ContainsObjectReference();
+	return Inner->ContainsObjectReference(EncounteredStructProps);
 }
 
 /**
@@ -1442,11 +1473,11 @@ bool UArrayProperty::ContainsObjectReference() const
  *
  * @return true if property (or sub- properties) contain a UObject reference, false otherwise
  */
-bool UMapProperty::ContainsObjectReference() const
+bool UMapProperty::ContainsObjectReference(TArray<const UStructProperty*>& EncounteredStructProps) const
 {
 	check(KeyProp);
 	check(ValueProp);
-	return KeyProp->ContainsObjectReference() || ValueProp->ContainsObjectReference();
+	return KeyProp->ContainsObjectReference(EncounteredStructProps) || ValueProp->ContainsObjectReference(EncounteredStructProps);
 }
 
 /**
@@ -1455,10 +1486,10 @@ bool UMapProperty::ContainsObjectReference() const
 *
 * @return true if property (or sub- properties) contain a UObject reference, false otherwise
 */
-bool USetProperty::ContainsObjectReference() const
+bool USetProperty::ContainsObjectReference(TArray<const UStructProperty*>& EncounteredStructProps) const
 {
 	check(ElementProp);
-	return ElementProp->ContainsObjectReference();
+	return ElementProp->ContainsObjectReference(EncounteredStructProps);
 }
 
 /**
@@ -1467,10 +1498,8 @@ bool USetProperty::ContainsObjectReference() const
  *
  * @return true if property (or sub- properties) contain a UObject reference, false otherwise
  */
-bool UStructProperty::ContainsObjectReference() const
+bool UStructProperty::ContainsObjectReference(TArray<const UStructProperty*>& EncounteredStructProps) const
 {
-	// prevent recursion in the case of structs containing dynamic arrays of themselves
-	static TArray<const UStructProperty*> EncounteredStructProps;
 	if (EncounteredStructProps.Contains(this))
 	{
 		return false;
@@ -1487,7 +1516,7 @@ bool UStructProperty::ContainsObjectReference() const
 			UProperty* Property = Struct->PropertyLink;
 			while( Property )
 			{
-				if( Property->ContainsObjectReference() )
+				if (Property->ContainsObjectReference(EncounteredStructProps))
 				{
 					EncounteredStructProps.RemoveSingleSwap(this);
 					return true;
@@ -1621,7 +1650,7 @@ private:
  * Emits tokens used by realtime garbage collection code to passed in ReferenceTokenStream. The offset emitted is relative
  * to the passed in BaseOffset which is used by e.g. arrays of structs.
  */
-void UProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
+void UProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset, TArray<const UStructProperty*>& EncounteredStructProps)
 {
 }
 
@@ -1629,7 +1658,7 @@ void UProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
  * Emits tokens used by realtime garbage collection code to passed in OwnerClass' ReferenceTokenStream. The offset emitted is relative
  * to the passed in BaseOffset which is used by e.g. arrays of structs.
  */
-void UObjectProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
+void UObjectProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset, TArray<const UStructProperty*>& EncounteredStructProps)
 {
 	FGCReferenceFixedArrayTokenHelper FixedArrayHelper(OwnerClass, BaseOffset + GetOffset_ForGC(), ArrayDim, sizeof(UObject*), *this);
 	OwnerClass.EmitObjectReference(BaseOffset + GetOffset_ForGC(), GetFName(), GCRT_Object);
@@ -1639,9 +1668,9 @@ void UObjectProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
  * Emits tokens used by realtime garbage collection code to passed in OwnerClass' ReferenceTokenStream. The offset emitted is relative
  * to the passed in BaseOffset which is used by e.g. arrays of structs.
  */
-void UArrayProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
+void UArrayProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset, TArray<const UStructProperty*>& EncounteredStructProps)
 {
-	if( Inner->ContainsObjectReference() )
+	if (Inner->ContainsObjectReference(EncounteredStructProps))
 	{
 		if( Inner->IsA(UStructProperty::StaticClass()) )
 		{
@@ -1649,7 +1678,7 @@ void UArrayProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
 
 			OwnerClass.ReferenceTokenStream.EmitStride(Inner->ElementSize);
 			const uint32 SkipIndexIndex = OwnerClass.ReferenceTokenStream.EmitSkipIndexPlaceholder();
-			Inner->EmitReferenceInfo(OwnerClass, 0);
+			Inner->EmitReferenceInfo(OwnerClass, 0, EncounteredStructProps);
 			const uint32 SkipIndex = OwnerClass.ReferenceTokenStream.EmitReturn();
 			OwnerClass.ReferenceTokenStream.UpdateSkipIndexPlaceholder(SkipIndexIndex, SkipIndex);
 		}
@@ -1681,9 +1710,9 @@ void UArrayProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
  * Emits tokens used by realtime garbage collection code to passed in OwnerClass' ReferenceTokenStream. The offset emitted is relative
  * to the passed in BaseOffset which is used by e.g. arrays of structs.
  */
-void UMapProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
+void UMapProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset, TArray<const UStructProperty*>& EncounteredStructProps)
 {
-	if (ContainsObjectReference())
+	if (ContainsObjectReference(EncounteredStructProps))
 	{
 		OwnerClass.EmitObjectReference(BaseOffset + GetOffset_ForGC(), GetFName(), GCRT_AddTMapReferencedObjects);
 		OwnerClass.ReferenceTokenStream.EmitPointer((const void*)this);
@@ -1694,9 +1723,9 @@ void UMapProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
 * Emits tokens used by realtime garbage collection code to passed in OwnerClass' ReferenceTokenStream. The offset emitted is relative
 * to the passed in BaseOffset which is used by e.g. arrays of structs.
 */
-void USetProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
+void USetProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset, TArray<const UStructProperty*>& EncounteredStructProps)
 {
-	if (ContainsObjectReference())
+	if (ContainsObjectReference(EncounteredStructProps))
 	{
 		OwnerClass.EmitObjectReference(BaseOffset + GetOffset_ForGC(), GetFName(), GCRT_AddTSetReferencedObjects);
 		OwnerClass.ReferenceTokenStream.EmitPointer((const void*)this);
@@ -1708,13 +1737,12 @@ void USetProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
  * Emits tokens used by realtime garbage collection code to passed in ReferenceTokenStream. The offset emitted is relative
  * to the passed in BaseOffset which is used by e.g. arrays of structs.
  */
-void UStructProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
+void UStructProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset, TArray<const UStructProperty*>& EncounteredStructProps)
 {
 	if (Struct->StructFlags & STRUCT_AddStructReferencedObjects)
 	{
 		UScriptStruct::ICppStructOps* CppStructOps = Struct->GetCppStructOps();
 		check(CppStructOps); // else should not have STRUCT_AddStructReferencedObjects
-		check(!Struct->InheritedCppStructOps()); // else should not have STRUCT_AddStructReferencedObjects
 		FGCReferenceFixedArrayTokenHelper FixedArrayHelper(OwnerClass, BaseOffset + GetOffset_ForGC(), ArrayDim, ElementSize, *this);
 
 		OwnerClass.EmitObjectReference(BaseOffset + GetOffset_ForGC(), GetFName(), GCRT_AddStructReferencedObjects);
@@ -1724,14 +1752,14 @@ void UStructProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
 		return;
 	}
 	check(Struct);
-	if( ContainsObjectReference() )
+	if (ContainsObjectReference(EncounteredStructProps))
 	{
 		FGCReferenceFixedArrayTokenHelper FixedArrayHelper(OwnerClass, BaseOffset + GetOffset_ForGC(), ArrayDim, ElementSize, *this);
 
 		UProperty* Property = Struct->PropertyLink;
 		while( Property )
 		{
-			Property->EmitReferenceInfo(OwnerClass, BaseOffset + GetOffset_ForGC());
+			Property->EmitReferenceInfo(OwnerClass, BaseOffset + GetOffset_ForGC(), EncounteredStructProps);
 			Property = Property->PropertyLinkNext;
 		}
 	}
@@ -1741,7 +1769,7 @@ void UStructProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
  * Emits tokens used by realtime garbage collection code to passed in ReferenceTokenStream. The offset emitted is relative
  * to the passed in BaseOffset which is used by e.g. arrays of structs.
  */
-void UInterfaceProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
+void UInterfaceProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset, TArray<const UStructProperty*>& EncounteredStructProps)
 {
 	FGCReferenceFixedArrayTokenHelper FixedArrayHelper(OwnerClass, BaseOffset + GetOffset_ForGC(), ArrayDim, sizeof(FScriptInterface), *this);
 
@@ -1806,6 +1834,12 @@ void UClass::EmitFixedArrayEnd()
 
 void UClass::AssembleReferenceTokenStream(bool bForce)
 {
+	const bool bNotNative = !(ClassFlags & CLASS_Native);
+	if (bNotNative)
+	{
+		ReferenceTokenStreamCritical.Lock();
+	}
+
 	if (!HasAnyClassFlags(CLASS_TokenStreamAssembled) || bForce)
 	{
 		if (bForce)
@@ -1816,12 +1850,13 @@ void UClass::AssembleReferenceTokenStream(bool bForce)
 #endif
 			ClassFlags &= ~CLASS_TokenStreamAssembled;
 		}
+		TArray<const UStructProperty*> EncounteredStructProps;
 
 		// Iterate over properties defined in this class
 		for( TFieldIterator<UProperty> It(this,EFieldIteratorFlags::ExcludeSuper); It; ++It)
 		{
 			UProperty* Property = *It;
-			Property->EmitReferenceInfo(*this, 0);
+			Property->EmitReferenceInfo(*this, 0, EncounteredStructProps);
 		}
 
 		if (GetSuperClass())
@@ -1862,6 +1897,10 @@ void UClass::AssembleReferenceTokenStream(bool bForce)
 
 		check(!HasAnyClassFlags(CLASS_TokenStreamAssembled)); // recursion here is probably bad
 		ClassFlags |= CLASS_TokenStreamAssembled;
+	}
+	if (bNotNative)
+	{
+		ReferenceTokenStreamCritical.Unlock();
 	}
 }
 

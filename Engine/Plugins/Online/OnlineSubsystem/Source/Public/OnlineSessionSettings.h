@@ -2,10 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
 #include "OnlineKeyValuePair.h"
 #include "OnlineSubsystemPackage.h"
-#include "OnlineSubsystemSessionSettings.h"
 
 /** Setting describing the name of the current map (value is FString) */
 #define SETTING_MAPNAME FName(TEXT("MAPNAME"))
@@ -350,6 +351,17 @@ public:
 	}
 
 	virtual ~FOnlineSession() {}
+
+	/** @return the session id for a given session */
+	FString GetSessionIdStr() const
+	{
+		if (SessionInfo.IsValid() && SessionInfo->IsValid())
+		{
+			return SessionInfo->GetSessionId().ToString();
+		}
+
+		return TEXT("InvalidSession");
+	}
 };
 
 /** Holds the per session information for named sessions */
@@ -474,6 +486,12 @@ public:
 	bool IsValid() const
 	{
 		return (Session.OwningUserId.IsValid() && Session.SessionInfo.IsValid() && Session.SessionInfo->IsValid());
+	}
+
+	/** @return the session id for a given session search result */
+	FString GetSessionIdStr() const 
+	{ 
+		return Session.GetSessionIdStr();
 	}
 };
 

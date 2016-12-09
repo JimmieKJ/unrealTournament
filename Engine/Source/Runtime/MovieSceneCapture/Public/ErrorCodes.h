@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Process exit codes */
 enum class EMovieSceneCaptureExitCode : uint32
 {

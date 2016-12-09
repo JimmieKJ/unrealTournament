@@ -132,6 +132,7 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 	static FString GetLocalCurrencyCode();
 	static FString GetLocalCurrencySymbol();
 	static void GetValidTargetPlatforms(class TArray<class FString>& TargetPlatformNames);
+	static bool HasActiveWiFiConnection();
 
 	static void ResetGamepadAssignments();
 	static void ResetGamepadAssignmentToController(int32 ControllerId);
@@ -146,7 +147,13 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 	static void ReleaseAutoreleasePool(void *Pool);
 	static void HandleLowMemoryWarning();
 	static bool IsPackagedForDistribution();
+	DEPRECATED(4.14, "GetUniqueDeviceId is deprecated. Use GetDeviceId instead.")
 	static FString GetUniqueDeviceId();
+	/**
+	 * Implemented using UIDevice::identifierForVendor,
+	 * so all the caveats that apply to that API call apply here.
+	 */
+	static FString GetDeviceId();
 
 	// Possible iOS devices
 	enum EIOSDevice

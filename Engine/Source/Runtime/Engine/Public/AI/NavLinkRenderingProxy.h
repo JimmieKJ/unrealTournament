@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AI/Navigation/NavLinkDefinition.h"
+
+#include "CoreMinimal.h"
+#include "PrimitiveViewRelevance.h"
 #include "PrimitiveSceneProxy.h"
+#include "AI/Navigation/NavLinkDefinition.h"
+
+class FMaterialRenderProxy;
+class FMeshElementCollector;
+class FPrimitiveDrawInterface;
+class UPrimitiveComponent;
 
 class ENGINE_API FNavLinkRenderingProxy : public FPrimitiveSceneProxy
 {

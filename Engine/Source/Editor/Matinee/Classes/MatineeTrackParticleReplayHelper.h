@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InterpTrackHelper.h"
 #include "MatineeTrackParticleReplayHelper.generated.h"
 
+class UInterpTrack;
 
 UCLASS()
 class UMatineeTrackParticleReplayHelper : public UInterpTrackHelper

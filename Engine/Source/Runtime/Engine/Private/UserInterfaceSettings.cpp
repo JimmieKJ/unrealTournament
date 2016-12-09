@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-
-#include "MessageLog.h"
-
-#include "Engine/RendererSettings.h"
 #include "Engine/UserInterfaceSettings.h"
+
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+
 #include "Engine/DPICustomScalingRule.h"
 
 #define LOCTEXT_NAMESPACE "Engine"
@@ -14,6 +13,7 @@ UUserInterfaceSettings::UUserInterfaceSettings(const FObjectInitializer& ObjectI
 	: Super(ObjectInitializer)
 	, RenderFocusRule(ERenderFocusRule::NavigationOnly)
 	, ApplicationScale(1)
+	, bLoadWidgetsOnDedicatedServer(true)
 {
 	SectionName = TEXT("UI");
 }
@@ -105,18 +105,5 @@ void UUserInterfaceSettings::ForceLoadResources()
 
 	CustomScalingRuleClassInstance = CustomScalingRuleClass.TryLoadClass<UDPICustomScalingRule>();
 }
-
-#if WITH_EDITOR
-void UUserInterfaceSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-
-	if ( PropertyChangedEvent.Property )
-	{
-		URendererSettings* RendererSettings = GetMutableDefault<URendererSettings>(URendererSettings::StaticClass());
-		RendererSettings->UpdateDefaultConfigFile();
-	}
-}
-#endif // #if WITH_EDITOR
 
 #undef LOCTEXT_NAMESPACE

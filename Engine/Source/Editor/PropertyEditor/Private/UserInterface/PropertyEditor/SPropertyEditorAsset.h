@@ -1,9 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "PropertyEditorConstants.h"
-#include "PropertyEditorAssetConstants.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "GameFramework/Actor.h"
+#include "Styling/SlateColor.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Input/SComboButton.h"
+#include "EditorStyleSet.h"
+#include "AssetData.h"
+#include "AssetThumbnail.h"
+#include "PropertyHandle.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
 #include "PropertyCustomizationHelpers.h"
+
+class UFactory;
 
 /**
  * A widget used to edit Asset-type properties (UObject-derived properties).
@@ -20,6 +36,9 @@ public:
 		, _DisplayThumbnail(false)
 		, _DisplayUseSelected(true)
 		, _DisplayBrowse(true)
+		, _EnableContentPicker(true)
+		, _AllowActorPicker(true)
+		, _SearchInBlueprint(false)
 		, _ThumbnailPool(NULL)
 		, _ThumbnailSize( FIntPoint(64, 64) )
 		, _ObjectPath()
@@ -33,7 +52,10 @@ public:
 		SLATE_ARGUMENT( bool, DisplayThumbnail )
 		SLATE_ARGUMENT( bool, DisplayUseSelected )
 		SLATE_ARGUMENT( bool, DisplayBrowse )
-		SLATE_ARGUMENT( TSharedPtr<FAssetThumbnailPool>, ThumbnailPool )
+		SLATE_ARGUMENT( bool, EnableContentPicker)
+		SLATE_ARGUMENT( bool, AllowActorPicker)
+		SLATE_ARGUMENT( bool, SearchInBlueprint)			
+		SLATE_ARGUMENT( TSharedPtr<FAssetThumbnailPool>, ThumbnailPool)
 		SLATE_ARGUMENT( FIntPoint, ThumbnailSize )
 		SLATE_ATTRIBUTE( FString, ObjectPath )
 		SLATE_ARGUMENT( UClass*, Class )
@@ -255,6 +277,15 @@ private:
 
 	/** @return true if the passed in AssetData can be used to set the property based on the list of custom classes */
 	bool CanSetBasedOnCustomClasses( const FAssetData& InAssetData ) const;
+
+	/**
+	 * Gets the class of the supplied property for use within the PropertyEditorAsset widget. Asserts if the property
+	 * is not supported by the widget.
+	 *
+	 * @param	Property	The supplied property for the widget
+	 * @return	The class of the property. Asserts if this tries to return null.
+	 */
+	static UClass* GetObjectPropertyClass(const UProperty* Property);
 private:
 
 	/** Main combobutton */
@@ -286,6 +317,12 @@ private:
 
 	/** Whether the object we are editing is an Actor (i.e. requires a Scene Outliner to be displayed) */
 	bool bIsActor;
+
+	/** Tell us if we can allow the actor picker to be used instead of the asset picker */
+	bool bAllowActorPicker;
+
+	/** Indicates whether we should filter using the blueprint parent class or ignore blueprint */
+	bool bSearchInBlueprint;
 
 	/** Delegate to call when our object value is set */
 	FOnSetObject OnSetObject;

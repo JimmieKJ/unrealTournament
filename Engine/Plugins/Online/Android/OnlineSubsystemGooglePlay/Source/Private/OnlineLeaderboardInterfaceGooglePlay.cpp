@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemGooglePlayPrivatePCH.h"
 #include "OnlineLeaderboardInterfaceGooglePlay.h"
 #include "Online.h"
 #include "OnlineAsyncTaskGooglePlayReadLeaderboard.h"
+#include "UObject/Class.h"
+#include "OnlineSubsystemGooglePlay.h"
 
 #include "gpg/leaderboard_manager.h"
 

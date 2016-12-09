@@ -2,15 +2,11 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
 
-
-class FFeedbackContext;
-class FOutputDevice;
 class FOutputDeviceConsole;
 class FOutputDeviceError;
-class FString;
-
 
 /**
  * Generic implementation for most platforms

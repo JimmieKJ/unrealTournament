@@ -2,12 +2,54 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
 #include "HAL/PlatformMisc.h"
-#include "Misc/Build.h"
-#include "Templates/EnableIf.h"
-#include "LogVerbosity.h"
 
+/**
+ * FDebug
+ * These functions offer debugging and diagnostic functionality and its presence 
+ * depends on compiler switches.
+ **/
+struct CORE_API FDebug
+{
+	/** Logs final assert message and exits the program. */
+	static void VARARGS AssertFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Format = TEXT(""), ...);
+
+	/** Records the calling of AssertFailed() */
+	static bool bHasAsserted;
+
+#if DO_CHECK || DO_GUARD_SLOW
+	/** Failed assertion handler.  Warning: May be called at library startup time. */
+	static void VARARGS LogAssertFailedMessage( const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Format=TEXT(""), ... );
+	
+	/**
+	 * Called when an 'ensure' assertion fails; gathers stack data and generates and error report.
+	 *
+	 * @param	Expr	Code expression ANSI string (#code)
+	 * @param	File	File name ANSI string (__FILE__)
+	 * @param	Line	Line number (__LINE__)
+	 * @param	Msg		Informative error message text
+	 * 
+	 * Don't change the name of this function, it's used to detect ensures by the crash reporter.
+	 */
+	static void EnsureFailed( const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Msg );
+
+	/**
+	 * Logs an error if bLog is true, and returns false.  Takes a formatted string.
+	 *
+	 * @param	bLog	Log if true.
+	 * @param	Expr	Code expression ANSI string (#code)
+	 * @param	File	File name ANSI string (__FILE__)
+	 * @param	Line	Line number (__LINE__)
+	 * @param	FormattedMsg	Informative error message text with variable args
+	 *
+	 * @return false in all cases.
+	 *
+	 * Note: this crazy name is to ensure that the crash reporter recognizes it, which checks for functions in the callstack starting with 'EnsureNotFalse'.
+	 */
+	static bool VARARGS OptionallyLogFormattedEnsureMessageReturningFalse(bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ...);
+#endif // DO_CHECK || DO_GUARD_SLOW
+};
 
 /*----------------------------------------------------------------------------
 	Check, verify, etc macros
@@ -172,6 +214,10 @@ namespace UE4Asserts_Private
 	bool GetMemberNameCheckedJunk(const volatile T&);
 }
 
+// Returns FName(TEXT("EnumeratorName")), while statically verifying that the enumerator exists in the enum
+#define GET_ENUMERATOR_NAME_CHECKED(EnumName, EnumeratorName) \
+	((void)sizeof(UE4Asserts_Private::GetMemberNameCheckedJunk(EnumName::EnumeratorName)), FName(TEXT(#EnumeratorName)))
+
 // Returns FName(TEXT("MemberName")), while statically verifying that the member exists in ClassName
 #define GET_MEMBER_NAME_CHECKED(ClassName, MemberName) \
 	((void)sizeof(UE4Asserts_Private::GetMemberNameCheckedJunk(((ClassName*)0)->MemberName)), FName(TEXT(#MemberName)))
@@ -187,21 +233,8 @@ namespace UE4Asserts_Private
 	((void)sizeof(&ClassName::FunctionName), TEXT(#FunctionName))
 
 /*----------------------------------------------------------------------------
-	Stats helpers
+	Low level error macros
 ----------------------------------------------------------------------------*/
-
-#if STATS
-	#define STAT(x) x
-#else
-	#define STAT(x)
-#endif
-
-/*----------------------------------------------------------------------------
-	Logging
-----------------------------------------------------------------------------*/
-
-// Define NO_LOGGING to strip out all writing to log files, OutputDebugString(), etc.
-// This is needed for consoles that require no logging (Xbox, Xenon)
 
 struct FTCharArrayTester
 {
@@ -212,317 +245,14 @@ struct FTCharArrayTester
 
 #define IS_TCHAR_ARRAY(expr) (sizeof(FTCharArrayTester::Func(expr)) == 2)
 
+/** low level fatal error handler. */
+CORE_API void VARARGS LowLevelFatalErrorHandler(const ANSICHAR* File, int32 Line, const TCHAR* Format=TEXT(""), ... );
+
 #define LowLevelFatalError(Format, ...) \
 	{ \
 		static_assert(IS_TCHAR_ARRAY(Format), "Formatting string must be a TCHAR array."); \
-		FError::LowLevelFatal(__FILE__, __LINE__, Format, ##__VA_ARGS__); \
+		LowLevelFatalErrorHandler(__FILE__, __LINE__, Format, ##__VA_ARGS__); \
 		_DebugBreakAndPromptForRemote(); \
 		FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
 	}
 
-
-/*----------------------------------------------------------------------------
-	Logging suppression
-----------------------------------------------------------------------------*/
-
-#ifndef COMPILED_IN_MINIMUM_VERBOSITY
-	#define COMPILED_IN_MINIMUM_VERBOSITY VeryVerbose
-#else
-	#if !IS_MONOLITHIC
-		#error COMPILED_IN_MINIMUM_VERBOSITY can only be defined in monolithic builds.
-	#endif
-#endif
-
-#define UE_LOG_EXPAND_IS_FATAL(Verbosity, ActiveBlock, InactiveBlock) PREPROCESSOR_JOIN(UE_LOG_EXPAND_IS_FATAL_, Verbosity)(ActiveBlock, InactiveBlock)
-
-#define UE_LOG_EXPAND_IS_FATAL_Fatal(      ActiveBlock, InactiveBlock) ActiveBlock
-#define UE_LOG_EXPAND_IS_FATAL_Error(      ActiveBlock, InactiveBlock) InactiveBlock
-#define UE_LOG_EXPAND_IS_FATAL_Warning(    ActiveBlock, InactiveBlock) InactiveBlock
-#define UE_LOG_EXPAND_IS_FATAL_Display(    ActiveBlock, InactiveBlock) InactiveBlock
-#define UE_LOG_EXPAND_IS_FATAL_Log(        ActiveBlock, InactiveBlock) InactiveBlock
-#define UE_LOG_EXPAND_IS_FATAL_Verbose(    ActiveBlock, InactiveBlock) InactiveBlock
-#define UE_LOG_EXPAND_IS_FATAL_VeryVerbose(ActiveBlock, InactiveBlock) InactiveBlock
-#define UE_LOG_EXPAND_IS_FATAL_All(        ActiveBlock, InactiveBlock) InactiveBlock
-#define UE_LOG_EXPAND_IS_FATAL_SetColor(   ActiveBlock, InactiveBlock) InactiveBlock
-
-#if NO_LOGGING
-
-	struct FNoLoggingCategory {};
-	
-	// This will only log Fatal errors
-	#define UE_LOG(CategoryName, Verbosity, Format, ...) \
-	{ \
-		static_assert(IS_TCHAR_ARRAY(Format), "Formatting string must be a TCHAR array."); \
-		if (ELogVerbosity::Verbosity == ELogVerbosity::Fatal) \
-		{ \
-			FError::LowLevelFatal(__FILE__, __LINE__, Format, ##__VA_ARGS__); \
-			_DebugBreakAndPromptForRemote(); \
-			FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
-			UE_LOG_EXPAND_IS_FATAL(Verbosity, CA_ASSUME(false);, PREPROCESSOR_NOTHING) \
-		} \
-	}
-	// Conditional logging (fatal errors only).
-	#define UE_CLOG(Condition, CategoryName, Verbosity, Format, ...) \
-	{ \
-		static_assert(IS_TCHAR_ARRAY(Format), "Formatting string must be a TCHAR array."); \
-		if (ELogVerbosity::Verbosity == ELogVerbosity::Fatal) \
-		{ \
-			if (Condition) \
-			{ \
-				FError::LowLevelFatal(__FILE__, __LINE__, Format, ##__VA_ARGS__); \
-				_DebugBreakAndPromptForRemote(); \
-				FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
-				UE_LOG_EXPAND_IS_FATAL(Verbosity, CA_ASSUME(false);, PREPROCESSOR_NOTHING) \
-			} \
-		} \
-	}
-
-	#define UE_LOG_ACTIVE(...)				(0)
-	#define UE_LOG_ANY_ACTIVE(...)			(0)
-	#define UE_SUPPRESS(...) {}
-	#define UE_SET_LOG_VERBOSITY(...)
-	#define DECLARE_LOG_CATEGORY_EXTERN(CategoryName, DefaultVerbosity, CompileTimeVerbosity) extern FNoLoggingCategory CategoryName
-	#define DEFINE_LOG_CATEGORY(...)
-	#define DEFINE_LOG_CATEGORY_STATIC(...)
-	#define DECLARE_LOG_CATEGORY_CLASS(...)
-	#define DEFINE_LOG_CATEGORY_CLASS(...)
-	#define LOG_SCOPE_VERBOSITY_OVERRIDE(...)
-	#define UE_SECURITY_LOG(...)
-
-#else
-
-	namespace UE4Asserts_Private
-	{
-		template <int32 VerbosityToCheck, typename CategoryType>
-		FORCEINLINE
-			typename TEnableIf<
-				((VerbosityToCheck & ELogVerbosity::VerbosityMask) <= CategoryType::CompileTimeVerbosity &&
-				(VerbosityToCheck & ELogVerbosity::VerbosityMask) <= ELogVerbosity::COMPILED_IN_MINIMUM_VERBOSITY),
-				bool>::Type
-			IsLogActive(const CategoryType& Category)
-		{
-			return !Category.IsSuppressed((ELogVerbosity::Type)VerbosityToCheck);
-		}
-
-		template <int32 VerbosityToCheck, typename CategoryType>
-		FORCEINLINE
-			typename TEnableIf<
-				!((VerbosityToCheck & ELogVerbosity::VerbosityMask) <= CategoryType::CompileTimeVerbosity &&
-				(VerbosityToCheck & ELogVerbosity::VerbosityMask) <= ELogVerbosity::COMPILED_IN_MINIMUM_VERBOSITY),
-				bool>::Type
-			IsLogActive(const CategoryType& Category)
-		{
-			return false;
-		}
-	}
-
-	/** 
-	 * A predicate that returns true if the given logging category is active (logging) at a given verbosity level 
-	 * @param CategoryName name of the logging category
-	 * @param Verbosity, verbosity level to test against
-	**/
-	#define UE_LOG_ACTIVE(CategoryName, Verbosity) (::UE4Asserts_Private::IsLogActive<(int32)ELogVerbosity::Verbosity>(CategoryName))
-
-	#define UE_SET_LOG_VERBOSITY(CategoryName, Verbosity) \
-		CategoryName.SetVerbosity(ELogVerbosity::Verbosity);
-
-	/** 
-	 * A  macro that outputs a formatted message to log if a given logging category is active at a given verbosity level
-	 * @param CategoryName name of the logging category
-	 * @param Verbosity, verbosity level to test against
-	 * @param Format, format text
-	 ***/
-	#define UE_LOG(CategoryName, Verbosity, Format, ...) \
-	{ \
-		static_assert(IS_TCHAR_ARRAY(Format), "Formatting string must be a TCHAR array."); \
-		static_assert((ELogVerbosity::Verbosity & ELogVerbosity::VerbosityMask) < ELogVerbosity::NumVerbosity && ELogVerbosity::Verbosity > 0, "Verbosity must be constant and in range."); \
-		CA_CONSTANT_IF((ELogVerbosity::Verbosity & ELogVerbosity::VerbosityMask) <= ELogVerbosity::COMPILED_IN_MINIMUM_VERBOSITY && (ELogVerbosity::Warning & ELogVerbosity::VerbosityMask) <= FLogCategory##CategoryName::CompileTimeVerbosity) \
-		{ \
-			UE_LOG_EXPAND_IS_FATAL(Verbosity, PREPROCESSOR_NOTHING, if (!CategoryName.IsSuppressed(ELogVerbosity::Verbosity))) \
-			{ \
-				FMsg::Logf_Internal(__FILE__, __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, Format, ##__VA_ARGS__); \
-				UE_LOG_EXPAND_IS_FATAL(Verbosity, \
-					{ \
-						_DebugBreakAndPromptForRemote(); \
-						FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
-						CA_ASSUME(false); \
-					}, \
-					PREPROCESSOR_NOTHING \
-				) \
-			} \
-		} \
-	}
-
-	/**
-	* A  macro that outputs a formatted message to the log specifically used for security events
-	* @param NetConnection, a valid UNetConnection
-	* @param SecurityEventType, a security event type (ESecurityEvent::Type)
-	* @param Format, format text
-	***/
-	#define UE_SECURITY_LOG(NetConnection, SecurityEventType, Format, ...) \
-	{ \
-		static_assert(IS_TCHAR_ARRAY(Format), "Formatting string must be a TCHAR array."); \
-		check(NetConnection != nullptr); \
-		CA_CONSTANT_IF((ELogVerbosity::Warning & ELogVerbosity::VerbosityMask) <= ELogVerbosity::COMPILED_IN_MINIMUM_VERBOSITY && (ELogVerbosity::Warning & ELogVerbosity::VerbosityMask) <= FLogCategoryLogSecurity::CompileTimeVerbosity) \
-		{ \
-			if (!LogSecurity.IsSuppressed(ELogVerbosity::Warning)) \
-			{ \
-				FString Test = FString::Printf(TEXT("%s: %s: %s"), *(NetConnection->RemoteAddressToString()), ToString(SecurityEventType), Format); \
-				FMsg::Logf_Internal(__FILE__, __LINE__, LogSecurity.GetCategoryName(), ELogVerbosity::Warning, *Test, ##__VA_ARGS__); \
-			} \
-		} \
-	}
-
-	// Conditional logging. Will only log if Condition is met.
-	#define UE_CLOG(Condition, CategoryName, Verbosity, Format, ...) \
-	{ \
-		static_assert(IS_TCHAR_ARRAY(Format), "Formatting string must be a TCHAR array."); \
-		static_assert((ELogVerbosity::Verbosity & ELogVerbosity::VerbosityMask) < ELogVerbosity::NumVerbosity && ELogVerbosity::Verbosity > 0, "Verbosity must be constant and in range."); \
-		CA_CONSTANT_IF((ELogVerbosity::Verbosity & ELogVerbosity::VerbosityMask) <= ELogVerbosity::COMPILED_IN_MINIMUM_VERBOSITY && (ELogVerbosity::Warning & ELogVerbosity::VerbosityMask) <= FLogCategory##CategoryName::CompileTimeVerbosity) \
-		{ \
-			UE_LOG_EXPAND_IS_FATAL(Verbosity, PREPROCESSOR_NOTHING, if (!CategoryName.IsSuppressed(ELogVerbosity::Verbosity))) \
-			{ \
-				if (Condition) \
-				{ \
-					FMsg::Logf_Internal(__FILE__, __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, Format, ##__VA_ARGS__); \
-					UE_LOG_EXPAND_IS_FATAL(Verbosity, \
-						{ \
-							_DebugBreakAndPromptForRemote(); \
-							FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
-							CA_ASSUME(false); \
-						}, \
-						PREPROCESSOR_NOTHING \
-					) \
-					CA_ASSUME(true); \
-				} \
-			} \
-		} \
-	}
-
-	/** 
-	 * A macro that executes some code within a scope if a given logging category is active at a given verbosity level
-	 * Also, withing the scope of the execution, the default category and verbosity is set up for the low level logging 
-	 * functions.
-	 * @param CategoryName name of the logging category
-	 * @param Verbosity, verbosity level to test against
-	 * @param ExecuteIfUnsuppressed, code to execute if the verbosity level for this category is being displayed
-	 ***/
-	#define UE_SUPPRESS(CategoryName, Verbosity, ExecuteIfUnsuppressed) \
-	{ \
-		static_assert((ELogVerbosity::Verbosity & ELogVerbosity::VerbosityMask) < ELogVerbosity::NumVerbosity && ELogVerbosity::Verbosity > 0, "Verbosity must be constant and in range."); \
-		CA_CONSTANT_IF((ELogVerbosity::Verbosity & ELogVerbosity::VerbosityMask) <= ELogVerbosity::COMPILED_IN_MINIMUM_VERBOSITY && (ELogVerbosity::Warning & ELogVerbosity::VerbosityMask) <= FLogCategory##CategoryName::CompileTimeVerbosity) \
-		{ \
-			if (!CategoryName.IsSuppressed(ELogVerbosity::Verbosity)) \
-			{ \
-				FScopedCategoryAndVerbosityOverride TEMP__##CategoryName(CategoryName.GetCategoryName(), ELogVerbosity::Type(ELogVerbosity::Verbosity & ELogVerbosity::VerbosityMask)); \
-				ExecuteIfUnsuppressed; \
-				CategoryName.PostTrigger(ELogVerbosity::Verbosity); \
-			} \
-		} \
-	}
-
-	/** 
-	 * A macro to declare a logging category as a C++ "extern" 
-	 * @param CategoryName, category to declare
-	 * @param DefaultVerbosity, default run time verbosity
-	 * @param CompileTimeVerbosity, maximum verbosity to compile into the code
-	 **/
-	#define DECLARE_LOG_CATEGORY_EXTERN(CategoryName, DefaultVerbosity, CompileTimeVerbosity) \
-		extern struct FLogCategory##CategoryName : public FLogCategory<ELogVerbosity::DefaultVerbosity, ELogVerbosity::CompileTimeVerbosity> \
-		{ \
-			FORCEINLINE FLogCategory##CategoryName() : FLogCategory(TEXT(#CategoryName)) {} \
-		} CategoryName;
-
-	/** 
-	 * A macro to define a logging category, usually paired with DECLARE_LOG_CATEGORY_EXTERN from the header.
-	 * @param CategoryName, category to define
-	**/
-	#define DEFINE_LOG_CATEGORY(CategoryName) FLogCategory##CategoryName CategoryName;
-
-	/** 
-	 * A macro to define a logging category as a C++ "static"
-	 * @param CategoryName, category to declare
-	 * @param DefaultVerbosity, default run time verbosity
-	 * @param CompileTimeVerbosity, maximum verbosity to compile into the code
-	**/
-	#define DEFINE_LOG_CATEGORY_STATIC(CategoryName, DefaultVerbosity, CompileTimeVerbosity) \
-		static struct FLogCategory##CategoryName : public FLogCategory<ELogVerbosity::DefaultVerbosity, ELogVerbosity::CompileTimeVerbosity> \
-		{ \
-			FORCEINLINE FLogCategory##CategoryName() : FLogCategory(TEXT(#CategoryName)) {} \
-		} CategoryName;
-
-	/** 
-	 * A macro to declare a logging category as a C++ "class static" 
-	 * @param CategoryName, category to declare
-	 * @param DefaultVerbosity, default run time verbosity
-	 * @param CompileTimeVerbosity, maximum verbosity to compile into the code
-	**/
-	#define DECLARE_LOG_CATEGORY_CLASS(CategoryName, DefaultVerbosity, CompileTimeVerbosity) \
-		DEFINE_LOG_CATEGORY_STATIC(CategoryName, DefaultVerbosity, CompileTimeVerbosity)
-
-	/** 
-	 * A macro to define a logging category, usually paired with DECLARE_LOG_CATEGORY_CLASS from the header.
-	 * @param CategoryName, category to definee
-	**/
-	#define DEFINE_LOG_CATEGORY_CLASS(Class, CategoryName) Class::FLogCategory##CategoryName Class::CategoryName;
-
-	/** 
-	 * A macro to override Verbosity of the Category within the scope
-	 * @param CategoryName, category to declare
-	 * @param ScopeVerbosity, verbosity to override
-	 **/
-	#define LOG_SCOPE_VERBOSITY_OVERRIDE(CategoryName, ScopeVerbosity) FLogScopedVerbosityOverride LogCategory##CategoryName##Override(&CategoryName, ScopeVerbosity)
-
-#endif // NO_LOGGING
-#if PLATFORM_HTML5
-#include "HTML5/HTML5AssertionMacros.h"
-#endif 
-
-#if UE_BUILD_SHIPPING
-#define NOTIFY_CLIENT_OF_SECURITY_EVENT_IF_NOT_SHIPPING(NetConnection, SecurityPrint) ;
-#else
-#define NOTIFY_CLIENT_OF_SECURITY_EVENT_IF_NOT_SHIPPING(NetConnection, SecurityPrint) \
-	FNetControlMessage<NMT_SecurityViolation>::Send(NetConnection, SecurityPrint); \
-	NetConnection->FlushNet(true)
-#endif
-
-/**
-	* A  macro that closes the connection and logs the security event on the server and the client
-	* @param NetConnection, a valid UNetConnection
-	* @param SecurityEventType, a security event type (ESecurityEvent::Type)
-	* @param Format, format text
-***/
-#define CLOSE_CONNECTION_DUE_TO_SECURITY_VIOLATION(NetConnection, SecurityEventType, Format, ...) \
-{ \
-	static_assert(IS_TCHAR_ARRAY(Format), "Formatting string must be a TCHAR array."); \
-	check(NetConnection != nullptr); \
-	FString SecurityPrint = FString::Printf(Format, ##__VA_ARGS__); \
-	UE_SECURITY_LOG(NetConnection, SecurityEventType, Format, ##__VA_ARGS__); \
-	UE_SECURITY_LOG(NetConnection, ESecurityEvent::Closed, TEXT("Connection closed")); \
-	NetConnection->Close(); \
-	PerfCountersIncrement(TEXT("ClosedConnectionsDueToSecurityViolations")); \
-}
-
-extern CORE_API int32 GEnsureOnNANDiagnostic;
-
-// Macro to either log an error or ensure on a NaN error.
-#if DO_CHECK && !USING_CODE_ANALYSIS
-namespace UE4Asserts_Private
-{
-	CORE_API void VARARGS InternalLogNANDiagnosticMessage(const TCHAR* FormattedMsg, ...); // UE_LOG(LogCore, Error, _FormatString_, ##__VA_ARGS__);
-}
-#define logOrEnsureNanError(_FormatString_, ...) \
-	if (!GEnsureOnNANDiagnostic)\
-	{\
-		if (UE4Asserts_Private::TrueOnFirstCallOnly([]{}))\
-		{\
-			UE4Asserts_Private::InternalLogNANDiagnosticMessage(_FormatString_, ##__VA_ARGS__); \
-		}\
-	}\
-	else\
-	{\
-		ensureMsgf(!GEnsureOnNANDiagnostic, _FormatString_, ##__VA_ARGS__); \
-	}
-#else
-#define logOrEnsureNanError(_FormatString_, ...)
-#endif // DO_CHECK

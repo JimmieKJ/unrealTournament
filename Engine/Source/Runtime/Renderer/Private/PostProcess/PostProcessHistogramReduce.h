@@ -6,8 +6,10 @@
 
 #pragma once
 
-#include "RenderingCompositionGraph.h"
-#include "PostProcessHistogram.h"
+#include "CoreMinimal.h"
+#include "RendererInterface.h"
+#include "PostProcess/RenderingCompositionGraph.h"
+#include "PostProcess/PostProcessHistogram.h"
 
 // derives from TRenderingCompositePassBase<InputCount, OutputCount>
 class FRCPassPostProcessHistogramReduce : public TRenderingCompositePassBase<1, 1>

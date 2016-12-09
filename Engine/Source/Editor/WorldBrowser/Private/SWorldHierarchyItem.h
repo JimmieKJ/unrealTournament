@@ -1,11 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Styling/SlateColor.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+
+class FLevelCollectionModel;
+class FLevelModel;
+class SButton;
+
 namespace HierarchyColumns
 {
 	/** IDs for list columns */
 	static const FName ColumnID_LevelLabel( "Level" );
 	static const FName ColumnID_Visibility( "Visibility" );
+	static const FName ColumnID_LightingScenario( "LightingScenario" );
 	static const FName ColumnID_Lock( "Lock" );
 	static const FName ColumnID_SCCStatus( "SCC_Status" );
 	static const FName ColumnID_Save( "Save" );
@@ -53,6 +69,7 @@ public:
 private:
 	/** Operations buttons enabled/disabled state */
 	bool IsSaveEnabled() const;
+	bool IsLightingScenarioEnabled() const;
 	bool IsLockEnabled() const;
 	bool IsVisibilityEnabled() const;
 	bool IsKismetEnabled() const;
@@ -66,6 +83,8 @@ private:
 	 *	@return	A reply that indicated whether this event was handled.
 	 */
 	FReply OnToggleVisibility();
+
+	FReply OnToggleLightingScenario();
 
 	/**
 	 *	Called when the user clicks on the lock icon for a Level's item widget
@@ -133,6 +152,8 @@ private:
 	 */
 	const FSlateBrush* GetLevelVisibilityBrush() const;
 
+	const FSlateBrush* GetLightingScenarioBrush() const;
+
 	/**
 	 *	Called to get the Slate Image Brush representing the lock state of
 	 *	the Level this item widget represents
@@ -165,6 +186,8 @@ private:
 	*/
 	const FSlateBrush* GetLevelColorBrush() const;
 
+	/** */
+	FText GetLightingScenarioToolTip() const;
 	
 	/** */
 	FText GetLevelLockToolTip() const;
@@ -194,6 +217,9 @@ private:
 
 	/**	The visibility button for the Level */
 	TSharedPtr<SButton>				VisibilityButton;
+
+	/**	The lighting scenario button for the Level */
+	TSharedPtr<SButton>				LightingScenarioButton;
 
 	/**	The lock button for the Level */
 	TSharedPtr<SButton>				LockButton;

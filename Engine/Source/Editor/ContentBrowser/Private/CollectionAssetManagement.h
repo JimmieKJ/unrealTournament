@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetData.h"
+#include "CollectionManagerTypes.h"
+#include "Styling/SlateTypes.h"
+
 /** Handles the collection management for the given assets */
 class FCollectionAssetManagement
 {

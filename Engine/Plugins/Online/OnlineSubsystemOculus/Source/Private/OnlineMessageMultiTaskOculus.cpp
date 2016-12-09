@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "OnlineSubsystemOculusPrivatePCH.h"
 #include "OnlineMessageMultiTaskOculus.h"
+#include "OnlineSubsystemOculusPrivate.h"
 
 void FOnlineMessageMultiTaskOculus::AddNewRequest(ovrRequest RequestId)
 {

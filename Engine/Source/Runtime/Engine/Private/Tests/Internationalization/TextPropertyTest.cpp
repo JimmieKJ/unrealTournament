@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
 #include "Misc/AutomationTest.h"
+#include "UObject/Package.h"
+#include "UObject/TextProperty.h"
 #include "Tests/TextPropertyTestObject.h"
 
 #define LOCTEXT_NAMESPACE "TextPropertyTest"

@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
 #include "AssetToolsModule.h"
+#include "AssetToolsLog.h"
+#include "AssetTools.h"
 #include "AssetToolsConsoleCommands.h"
+#include "MessageLogInitializationOptions.h"
 #include "MessageLogModule.h"
 
 IMPLEMENT_MODULE( FAssetToolsModule, AssetTools );

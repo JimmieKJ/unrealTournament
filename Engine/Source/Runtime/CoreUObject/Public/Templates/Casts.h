@@ -2,10 +2,27 @@
 
 #pragma once
 
-#include "Templates/AndOr.h"
-#include "SubclassOf.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
 
-COREUOBJECT_API void CastLogError(const TCHAR* FromType, const TCHAR* ToType);
+class AActor;
+class APawn;
+class APlayerController;
+class UAssetClassProperty;
+class UBlueprint;
+class ULevel;
+class UPrimitiveComponent;
+class USceneComponent;
+class USkeletalMeshComponent;
+class USkinnedMeshComponent;
+class UStaticMeshComponent;
+template<class TClass> class TSubclassOf;
+
+FUNCTION_NO_RETURN_START
+	COREUOBJECT_API void CastLogError(const TCHAR* FromType, const TCHAR* ToType)
+FUNCTION_NO_RETURN_END;
 
 /**
  * Metafunction which detects whether or not a class is an IInterface.  Rules:
@@ -74,7 +91,7 @@ struct TCastFlags
 template <typename From, typename To, bool bFromInterface = TIsIInterface<From>::Value, bool bToInterface = TIsIInterface<To>::Value, uint64 CastClass = TCastFlags<To>::Value>
 struct TGetCastType
 {
-#if UCLASS_FAST_ISA_IMPL == 2
+#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE || UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
 	static const ECastType Value = ECastType::UObjectToUObject;
 #else
 	static const ECastType Value = ECastType::FromCastFlags;
@@ -88,9 +105,6 @@ template <typename From, typename To, uint64 CastClass> struct TGetCastType<From
 
 template <typename To, typename From>
 To* Cast(From* Src);
-
-template <typename To, typename From>
-To* CastChecked(From* Src, ECastCheckedType::Type CheckType = ECastCheckedType::NullChecked);
 
 template <typename From, typename To, ECastType CastType = TGetCastType<From, To>::Value>
 struct TCastImpl
@@ -188,6 +202,25 @@ FORCEINLINE T* ExactCast( UObject* Src )
 #if DO_CHECK
 
 	template <typename To, typename From>
+	FUNCTION_NON_NULL_RETURN_START
+		To* CastChecked(From* Src)
+	FUNCTION_NON_NULL_RETURN_END
+	{
+		if (!Src)
+		{
+			CastLogError(TEXT("nullptr"), *GetTypeName<To>());
+		}
+
+		To* Result = Cast<To>(Src);
+		if (!Result)
+		{
+			CastLogError(*Cast<UObject>(Src)->GetFullName(), *GetTypeName<To>());
+		}
+
+		return Result;
+	}
+
+	template <typename To, typename From>
 	To* CastChecked(From* Src, ECastCheckedType::Type CheckType)
 	{
 		if (Src)
@@ -210,6 +243,14 @@ FORCEINLINE T* ExactCast( UObject* Src )
 	}
 
 #else
+
+	template <typename To, typename From>
+	FUNCTION_NON_NULL_RETURN_START
+		FORCEINLINE To* CastChecked(From* Src)
+	FUNCTION_NON_NULL_RETURN_END
+	{
+		return TCastImpl<From, To>::DoCastCheckedWithoutTypeCheck(Src);
+	}
 
 	template <typename To, typename From>
 	FORCEINLINE To* CastChecked(From* Src, ECastCheckedType::Type CheckType)
@@ -315,6 +356,7 @@ DECLARE_CAST_BY_FLAG(USkeletalMeshComponent)			\
 DECLARE_CAST_BY_FLAG(UBlueprint)						\
 DECLARE_CAST_BY_FLAG(UDelegateFunction)					\
 DECLARE_CAST_BY_FLAG(UStaticMeshComponent)				\
+DECLARE_CAST_BY_FLAG(UEnumProperty)						\
 FINISH_DECLARING_CAST_FLAGS		// This is here to hopefully remind people to include the "\" in all declarations above, especially when copy/pasting the final line.
 
 // Now actually declare the flags

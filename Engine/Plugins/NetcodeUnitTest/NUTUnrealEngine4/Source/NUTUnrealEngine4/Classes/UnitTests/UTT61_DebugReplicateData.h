@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "ClientUnitTest.h"
 
 #include "UTT61_DebugReplicateData.generated.h"
+
+class AActor;
+class UActorChannel;
 
 /**
  * Implements UTT GameplayDebuggingComponent/ServerReplicateData crash

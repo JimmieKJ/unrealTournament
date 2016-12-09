@@ -1,21 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "BlueprintDragDropMenuItem.h"
-#include "BlueprintActionMenuItem.h" // for PerformAction()
+#include "EditorStyleSet.h"
+#include "BlueprintActionMenuItem.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintDelegateNodeSpawner.h"
 #include "BlueprintVariableNodeSpawner.h"
-#include "BPDelegateDragDropAction.h"
 #include "BPVariableDragDropAction.h"
-#include "BlueprintEditor.h"		// for GetVarIconAndColor()
-#include "ObjectEditorUtils.h"
-#include "SlateColor.h"
-#include "EdGraph/EdGraph.h"
-#include "EdGraph/EdGraphNode.h"
-#include "BlueprintActionFilter.h"	// for FBlueprintActionContext
-#include "EditorCategoryUtils.h"
-#include "EditorStyleSettings.h"	// for bShowFriendlyNames
+#include "BPDelegateDragDropAction.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintDragDropMenuItem"
 DEFINE_LOG_CATEGORY_STATIC(LogBlueprintDragDropMenuItem, Log, All);
@@ -62,10 +54,7 @@ void FBlueprintDragDropMenuItem::AddReferencedObjects(FReferenceCollector& Colle
 	
 	// these don't get saved to disk, but we want to make sure the objects don't
 	// get GC'd while the action array is around
-	for (UBlueprintNodeSpawner const* Action : ActionSet)
-	{
-		Collector.AddReferencedObject(Action);
-	}
+	Collector.AddReferencedObjects(ActionSet);
 }
 
 //------------------------------------------------------------------------------
@@ -90,7 +79,11 @@ FSlateBrush const* FBlueprintDragDropMenuItem::GetMenuIcon(FSlateColor& ColorOut
 		if (UProperty const* Property = VariableSpawner->GetVarProperty())
 		{
 			UStruct* const PropertyOwner = CastChecked<UStruct>(Property->GetOuterUField());
-			IconBrush = FBlueprintEditor::GetVarIconAndColor(PropertyOwner, Property->GetFName(), ColorOut);
+			// @note(DanO): not sure wht relies on this logic, but discarding extra icon info util
+			// I can confirm that containers are a possility here:
+			FSlateBrush const* Discarded = nullptr;
+			FSlateColor DiscardedColor;
+			IconBrush = FBlueprintEditor::GetVarIconAndColor(PropertyOwner, Property->GetFName(), ColorOut, Discarded, DiscardedColor);
 		}
 	}
 	return IconBrush;

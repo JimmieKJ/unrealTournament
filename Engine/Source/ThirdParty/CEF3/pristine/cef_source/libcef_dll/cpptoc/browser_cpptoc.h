@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -29,9 +29,8 @@
 class CefBrowserCppToC
     : public CefCppToC<CefBrowserCppToC, CefBrowser, cef_browser_t> {
  public:
-  explicit CefBrowserCppToC(CefBrowser* cls);
+  CefBrowserCppToC();
 };
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CPPTOC_BROWSER_CPPTOC_H_
-

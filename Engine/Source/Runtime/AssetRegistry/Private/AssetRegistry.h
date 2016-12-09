@@ -3,6 +3,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetData.h"
+#include "IAssetRegistry.h"
+#include "Runtime/AssetRegistry/Private/PathTree.h"
+#include "Runtime/AssetRegistry/Private/PackageDependencyData.h"
+#include "Runtime/AssetRegistry/Private/AssetDataGatherer.h"
+
+class FDependsNode;
+struct FARFilter;
+
 /**
  * The AssetRegistry singleton gathers information about .uasset files in the background so things
  * like the content browser don't have to work with the filesystem
@@ -14,15 +24,17 @@ public:
 	virtual ~FAssetRegistry();
 
 	// IAssetRegistry implementation
-	virtual bool GetAssetsByPackageName(FName PackageName, TArray<FAssetData>& OutAssetData) const override;
-	virtual bool GetAssetsByPath(FName PackagePath, TArray<FAssetData>& OutAssetData, bool bRecursive = false) const override;
+	virtual bool GetAssetsByPackageName(FName PackageName, TArray<FAssetData>& OutAssetData, bool bIncludeOnlyOnDiskAssets = false) const override;
+	virtual bool GetAssetsByPath(FName PackagePath, TArray<FAssetData>& OutAssetData, bool bRecursive = false, bool bIncludeOnlyOnDiskAssets = false) const override;
 	virtual bool GetAssetsByClass(FName ClassName, TArray<FAssetData>& OutAssetData, bool bSearchSubClasses = false) const override;
 	virtual bool GetAssetsByTagValues(const TMultiMap<FName, FString>& AssetTagsAndValues, TArray<FAssetData>& OutAssetData) const override;
 	virtual bool GetAssets(const FARFilter& Filter, TArray<FAssetData>& OutAssetData) const override;
-	virtual FAssetData GetAssetByObjectPath( const FName ObjectPath ) const override;
+	virtual FAssetData GetAssetByObjectPath( const FName ObjectPath, bool bIncludeOnlyOnDiskAssets = false ) const override;
 	virtual bool GetAllAssets(TArray<FAssetData>& OutAssetData, bool bIncludeOnlyOnDiskAssets = false) const override;
-	virtual bool GetDependencies(FName PackageName, TArray<FName>& OutDependencies, EAssetRegistryDependencyType::Type InDependencyType = EAssetRegistryDependencyType::All, bool bResolveIniStringReferences = false) const override;
-	virtual bool GetReferencers(FName PackageName, TArray<FName>& OutReferencers, EAssetRegistryDependencyType::Type InReferenceType) const override;
+	virtual bool GetDependencies(const FAssetIdentifier& AssetIdentifier, TArray<FAssetIdentifier>& OutDependencies, EAssetRegistryDependencyType::Type InDependencyType = EAssetRegistryDependencyType::All) const override;
+	virtual bool GetDependencies(FName PackageName, TArray<FName>& OutDependencies, EAssetRegistryDependencyType::Type InDependencyType = EAssetRegistryDependencyType::Packages) const override;
+	virtual bool GetReferencers(const FAssetIdentifier& AssetIdentifier, TArray<FAssetIdentifier>& OutReferencers, EAssetRegistryDependencyType::Type InReferenceType = EAssetRegistryDependencyType::All) const override;
+	virtual bool GetReferencers(FName PackageName, TArray<FName>& OutReferencers, EAssetRegistryDependencyType::Type InReferenceType = EAssetRegistryDependencyType::Packages) const override;
 	virtual bool GetAncestorClassNames(FName ClassName, TArray<FName>& OutAncestorClassNames) const override;
 	virtual void GetDerivedClassNames(const TArray<FName>& ClassNames, const TSet<FName>& ExcludedClassNames, TSet<FName>& OutDerivedClassNames) const override;
 	virtual void GetAllCachedPaths(TArray<FString>& OutPathList) const override;
@@ -52,6 +64,8 @@ public:
 	virtual void AssetDeleted(UObject* DeletedAsset) override;
 	virtual void AssetRenamed(const UObject* RenamedAsset, const FString& OldObjectPath) override;
 
+	virtual void PackageDeleted(UPackage* DeletedPackage) override;
+
 	DECLARE_DERIVED_EVENT( FAssetRegistry, IAssetRegistry::FAssetAddedEvent, FAssetAddedEvent);
 	virtual FAssetAddedEvent& OnAssetAdded() override { return AssetAddedEvent; }
 
@@ -73,6 +87,9 @@ public:
 	DECLARE_DERIVED_EVENT( FAssetRegistry, IAssetRegistry::FFileLoadProgressUpdatedEvent, FFileLoadProgressUpdatedEvent );
 	virtual FFileLoadProgressUpdatedEvent& OnFileLoadProgressUpdated() override { return FileLoadProgressUpdatedEvent; }
 
+	virtual IAssetRegistry::FAssetEditSearchableNameDelegate& OnEditSearchableName(FName PackageName, FName ObjectName) override;
+	virtual bool EditSearchableName(const FAssetIdentifier& SearchableName) override;
+
 	virtual bool IsLoadingAssets() const override;
 
 	virtual void Tick (float DeltaTime) override;
@@ -84,6 +101,7 @@ private:
 
 	/** Internal handler for ScanPathsSynchronous */
 	void ScanPathsAndFilesSynchronous(const TArray<FString>& InPaths, const TArray<FString>& InSpecificFiles, bool bForceRescan, EAssetDataCacheMode AssetDataCacheMode);
+	void ScanPathsAndFilesSynchronous(const TArray<FString>& InPaths, const TArray<FString>& InSpecificFiles, bool bForceRescan, EAssetDataCacheMode AssetDataCacheMode, TArray<FName>* OutFoundAssets, TArray<FName>* OutFoundPaths);
 
 	/** Called every tick to when data is retrieved by the background asset search. If TickStartTime is < 0, the entire list of gathered assets will be cached. Also used in sychronous searches */
 	void AssetSearchDataGathered(const double TickStartTime, TArray<FAssetData*>& AssetResults);
@@ -98,13 +116,13 @@ private:
 	void CookedPackageNamesWithoutAssetDataGathered(const double TickStartTime, TArray<FString>& CookedPackageNamesWithoutAssetDataResults);
 
 	/** Finds an existing node for the given package and returns it, or returns null if one isn't found */
-	FDependsNode* FindDependsNode(FName ObjectName);
+	FDependsNode* FindDependsNode(const FAssetIdentifier& Identifier);
 
 	/** Creates a node in the CachedDependsNodes map or finds the existing node and returns it */
-	FDependsNode* CreateOrFindDependsNode(FName ObjectName);
+	FDependsNode* CreateOrFindDependsNode(const FAssetIdentifier& Identifier);
 
 	/** Removes the depends node and updates the dependencies to no longer contain it as as a referencer. */
-	bool RemoveDependsNode( FName PackageName );
+	bool RemoveDependsNode(const FAssetIdentifier& Identifier);
 
 	/** Adds an asset to the empty package list which contains packages that have no assets left in them */
 	void AddEmptyPackage(FName PackageName);
@@ -129,6 +147,9 @@ private:
 
 	/** Removes the asset data from the lookup maps */
 	bool RemoveAssetData(FAssetData* AssetData);
+
+	/** Removes the asset data associated with this package from the look-up maps */
+	void RemovePackageData(const FName PackageName);
 
 	/** Find the first non-redirector dependency node starting from InDependency. */
 	FDependsNode* ResolveRedirector(FDependsNode* InDependency, TMap<FName, FAssetData*>& InAllowedAssets, TMap<FDependsNode*, FDependsNode*>& InCache);
@@ -196,7 +217,7 @@ private:
 	TMap<FName, TArray<FAssetData*> > CachedAssetsByTag;
 
 	/** A map of object names to dependency data */
-	TMap<FName, FDependsNode*> CachedDependsNodes;
+	TMap<FAssetIdentifier, FDependsNode*> CachedDependsNodes;
 
 	/** The set of empty package names (packages which contain no assets but have not yet been saved) */
 	TSet<FName> CachedEmptyPackages;
@@ -251,6 +272,9 @@ private:
 
 	/** The delegate to execute while loading files to update progress */
 	FFileLoadProgressUpdatedEvent FileLoadProgressUpdatedEvent;
+
+	/** Delegates to call when editing searchable name */
+	TMap<FAssetIdentifier, FAssetEditSearchableNameDelegate> EditSearchableNameDelegates;
 
 	/** Counters for asset/depends data memory allocation to ensure that every FAssetData and FDependsNode created is deleted */
 	int32 NumAssets;

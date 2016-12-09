@@ -2,19 +2,15 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+
 #if UE_ENABLE_ICU
 
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(push)
-	#pragma warning(disable:28251)
-	#pragma warning(disable:28252)
-	#pragma warning(disable:28253)
-#endif
+THIRD_PARTY_INCLUDES_START
 	#include <unicode/uchriter.h>
 	#include <unicode/schriter.h>
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(pop)
-#endif
+THIRD_PARTY_INCLUDES_END
 
 /**
  * Implementation of an ICU CharacterIterator that is able to iterate over an FText/FString directly since the native string format for this platform is already UTF-16 (as used by ICU)
@@ -40,6 +36,9 @@ public:
 
 	FICUTextCharacterIterator_NativeUTF16& operator=(const FICUTextCharacterIterator_NativeUTF16& Other);
 
+	int32 InternalIndexToSourceIndex(const int32 InInternalIndex) const;
+	int32 SourceIndexToInternalIndex(const int32 InSourceIndex) const;
+
 	// ICU RTTI
 	static UClassID getStaticClassID();
 	virtual UClassID getDynamicClassID() const override;
@@ -55,13 +54,38 @@ private:
 	const FString* StringPtr;
 };
 
+/**
+ * Private implemenation type used by FICUTextCharacterIterator_ConvertToUnicodeString to avoid copying an icu::UnicodeString twice
+ * (once to construct the icu::StringCharacterIterator, and once to get hold of the string again)
+ * With this, the private type is initialized first (populating the InternalString), which is then copied once into the icu::StringCharacterIterator
+ */
+class FICUTextCharacterIterator_ConvertToUnicodeStringPrivate
+{
+public:
+	/** Construct from a string by value (fills in InternalString) */
+	FICUTextCharacterIterator_ConvertToUnicodeStringPrivate(const FString& InString);
+
+	/** Construct from a string by stealing (moving) the data */
+	FICUTextCharacterIterator_ConvertToUnicodeStringPrivate(FString&& InString);
+
+	FICUTextCharacterIterator_ConvertToUnicodeStringPrivate(const FICUTextCharacterIterator_ConvertToUnicodeStringPrivate& Other);
+
+	FICUTextCharacterIterator_ConvertToUnicodeStringPrivate& operator=(const FICUTextCharacterIterator_ConvertToUnicodeStringPrivate& Other);
+
+protected:
+	/** Original source string */
+	FString SourceString;
+
+	/** Internal ICU string */
+	icu::UnicodeString InternalString;
+};
 
 /**
  * Implementation of an ICU CharacterIterator that converts an FText/FString to an icu::UnicodeString, since the native string format for this platform is not UTF-16 (as used by ICU)
  * This can be used with the ICU break iterator types by passing it in via adoptText(...)
  * Note: Do not use this type directly! Use the FICUTextCharacterIterator typedef, which will be set correctly for your platform
  */
-class FICUTextCharacterIterator_ConvertToUnicodeString : public icu::StringCharacterIterator
+class FICUTextCharacterIterator_ConvertToUnicodeString : private FICUTextCharacterIterator_ConvertToUnicodeStringPrivate, public icu::StringCharacterIterator
 {
 public:
 	/** Construct from a string by value */
@@ -79,6 +103,9 @@ public:
 	virtual ~FICUTextCharacterIterator_ConvertToUnicodeString();
 
 	FICUTextCharacterIterator_ConvertToUnicodeString& operator=(const FICUTextCharacterIterator_ConvertToUnicodeString& Other);
+
+	int32 InternalIndexToSourceIndex(const int32 InInternalIndex) const;
+	int32 SourceIndexToInternalIndex(const int32 InSourceIndex) const;
 
 	// ICU RTTI
 	static UClassID getStaticClassID();

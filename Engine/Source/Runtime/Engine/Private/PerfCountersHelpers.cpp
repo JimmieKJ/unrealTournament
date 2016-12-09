@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Net/PerfCountersHelpers.h"
 
 #if USE_SERVER_PERF_COUNTERS
 
-#include "PerfCountersModule.h"
 
 void ENGINE_API PerfCountersSet(const FString& Name, float Val, uint32 Flags)
 {

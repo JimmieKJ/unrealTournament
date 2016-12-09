@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
 #include "BehaviorTree/BlackboardData.h"
+#include "GameFramework/Actor.h"
+#include "BehaviorTree/BTNode.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 
 UBlackboardData::FKeyUpdate UBlackboardData::OnUpdateKeys;
 
@@ -39,7 +42,7 @@ FName UBlackboardData::GetKeyName(FBlackboard::FKey KeyID) const
 TSubclassOf<UBlackboardKeyType> UBlackboardData::GetKeyType(FBlackboard::FKey KeyID) const
 {
 	const FBlackboardEntry* KeyEntry = GetKey(KeyID);
-	return KeyEntry ? KeyEntry->KeyType->GetClass() : NULL;
+	return KeyEntry && KeyEntry->KeyType ? KeyEntry->KeyType->GetClass() : NULL;
 }
 
 bool UBlackboardData::IsKeyInstanceSynced(FBlackboard::FKey KeyID) const
@@ -116,6 +119,16 @@ void UBlackboardData::PostLoad()
 {
 	Super::PostLoad();
 
+	// we cache some information based on Parent asset
+	// but while UE4 guarantees the Parent is already loaded
+	// it does not guarantee that it's PostLoad has been called
+	// Following is a little hack that's widely used in the
+	// engine to address this
+	if (Parent)
+	{
+		Parent->ConditionalPostLoad();
+	}
+
 	UpdateParentKeys();
 	UpdateIfHasSynchronizedKeys();
 }
@@ -139,7 +152,7 @@ void UBlackboardData::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		if (PropertyChangedEvent.Property->GetFName() == NAME_Parent)
 		{
 			// look for cycles
-			if (Parent && Parent->HasParent(this))
+			if (Parent && Parent->IsChildOf(*this))
 			{
 				UE_LOG(LogBehaviorTree, Warning, TEXT("Blackboard asset (%s) has (%s) in parent chain! Clearing value to avoid cycle."),
 					*GetNameSafe(Parent), *GetNameSafe(this));
@@ -164,6 +177,7 @@ void UBlackboardData::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		}
 	}
 }
+#endif // WITH_EDITOR
 
 void UBlackboardData::PropagateKeyChangesToDerivedBlackboardAssets()
 {
@@ -177,8 +191,6 @@ void UBlackboardData::PropagateKeyChangesToDerivedBlackboardAssets()
 		}
 	}
 }
-
-#endif // WITH_EDITOR
 
 static bool ContainsKeyName(FName KeyName, const TArray<FBlackboardEntry>& Keys, const TArray<FBlackboardEntry>& ParentKeys)
 {
@@ -199,16 +211,6 @@ static bool ContainsKeyName(FName KeyName, const TArray<FBlackboardEntry>& Keys,
 	}
 
 	return false;
-}
-
-bool UBlackboardData::HasParent(const UBlackboardData* TestParent) const
-{
-	if (Parent == TestParent)
-	{
-		return true;
-	}
-
-	return Parent ? Parent->HasParent(TestParent) : false;
 }
 
 void UBlackboardData::UpdateParentKeys()
@@ -258,4 +260,30 @@ void UBlackboardData::UpdateDeprecatedKeys()
 			}
 		}
 	}
+}
+
+bool UBlackboardData::IsChildOf(const UBlackboardData& OtherAsset) const
+{
+	const UBlackboardData* TmpParent = Parent;
+	
+	// rewind
+	while (TmpParent != nullptr && TmpParent != &OtherAsset)
+	{
+		TmpParent = TmpParent->Parent;
+	}
+
+	return (TmpParent == &OtherAsset);
+}
+
+//----------------------------------------------------------------------//
+// DEPRECATED
+//----------------------------------------------------------------------//
+bool UBlackboardData::HasParent(const UBlackboardData* TestParent) const
+{
+	if (Parent == TestParent)
+	{
+		return true;
+	}
+
+	return Parent ? Parent->HasParent(TestParent) : false;
 }

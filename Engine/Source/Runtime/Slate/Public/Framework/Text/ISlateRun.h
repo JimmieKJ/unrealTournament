@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "TextLayout.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/TextLayout.h"
+#include "Framework/Text/ILayoutBlock.h"
+
+class FArrangedChildren;
+class FPaintArgs;
+class FSlateWindowElementList;
+struct FTextBlockStyle;
 
 class SLATE_API ISlateRun : public IRun
 {

@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "LeaderboardBlueprintLibrary.generated.h"
+
+class APlayerController;
 
 /**
  * A beacon host used for taking reservations for an existing game session

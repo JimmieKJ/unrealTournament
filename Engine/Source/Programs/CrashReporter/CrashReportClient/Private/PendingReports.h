@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+
 /**
  * Manager for reports that weren't able to be sent on previous runs of the tool
  */

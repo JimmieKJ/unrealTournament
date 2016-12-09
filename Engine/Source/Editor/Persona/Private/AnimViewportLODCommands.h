@@ -4,6 +4,10 @@
 #ifndef __AnimViewportLODCommands_h_
 #define __AnimViewportLODCommands_h_
 
+#include "CoreMinimal.h"
+#include "Framework/Commands/Commands.h"
+#include "EditorStyleSet.h"
+
 /**
  * Class containing commands for persona viewport LOD actions
  */

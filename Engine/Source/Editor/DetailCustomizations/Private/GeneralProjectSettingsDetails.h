@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "GeneralProjectSettings.h"
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
 
 class FGeneralProjectSettingsDetails : public IDetailCustomization
 {

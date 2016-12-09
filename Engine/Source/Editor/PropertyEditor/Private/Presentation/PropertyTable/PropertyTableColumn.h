@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "PropertyPath.h"
 #include "IPropertyTableColumn.h"
+#include "IPropertyTable.h"
+#include "IPropertyTableRow.h"
 
 class FPropertyTableColumn : public TSharedFromThis< FPropertyTableColumn >, public IPropertyTableColumn
 {

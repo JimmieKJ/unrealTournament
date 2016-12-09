@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "Http.h"
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "Internationalization/Text.h"
+#include "Interfaces/IHttpRequest.h"
 #include "PlatformErrorReport.h"
+
+struct FCompressedData;
+struct FCompressedHeader;
 
 class FCrashUploadBase
 {

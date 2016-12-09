@@ -2,7 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "SViewportToolBar.h"
+
+class FExtender;
+class FUICommandList;
+enum class ECheckBoxState : uint8;
 
 /**
  * 

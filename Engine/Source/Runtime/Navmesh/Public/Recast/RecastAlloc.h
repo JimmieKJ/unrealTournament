@@ -22,6 +22,8 @@
 #ifndef RECASTALLOC_H
 #define RECASTALLOC_H
 
+#include "CoreMinimal.h"
+
 /// Provides hint values to the memory allocator on how long the
 /// memory is expected to be used.
 enum rcAllocHint

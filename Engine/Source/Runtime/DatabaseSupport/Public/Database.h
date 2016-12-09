@@ -2,9 +2,7 @@
 
 #pragma once
 
-#include "Core.h"
-#include "UnrealString.h"
-#include "Array.h"
+#include "CoreMinimal.h"
 
 /**
  * Whether to compile in support for database connectivity and SQL execution.
@@ -15,9 +13,10 @@
 
 // Only use ADO on windows, if support is enabled and not for shipping games.
 // @todo clang: #import is not supported by Clang on Windows platform, but we currently need this for ADO symbol importing.  For now we disable ADO support in Clang builds.
-#define USE_ADO_INTEGRATION (PLATFORM_WINDOWS && !(UE_BUILD_SHIPPING && WITH_EDITOR) && WITH_DATABASE_SUPPORT && !defined(__clang__))
-#define USE_REMOTE_INTEGRATION (!USE_ADO_INTEGRATION && !(UE_BUILD_SHIPPING && WITH_EDITOR) && WITH_DATABASE_SUPPORT && !defined(__clang__))
+#define USE_ADO_INTEGRATION (PLATFORM_WINDOWS && !(UE_BUILD_SHIPPING && WITH_EDITOR) && WITH_DATABASE_SUPPORT && !PLATFORM_COMPILER_CLANG)
+#define USE_REMOTE_INTEGRATION (!USE_ADO_INTEGRATION && !(UE_BUILD_SHIPPING && WITH_EDITOR) && WITH_DATABASE_SUPPORT && !PLATFORM_COMPILER_CLANG)
 
+class FSocket;
 
 /**  
  * Enums for Database types.  Each Database has their own set of DB types and  

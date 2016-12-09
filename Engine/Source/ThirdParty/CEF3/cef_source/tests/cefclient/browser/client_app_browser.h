@@ -21,7 +21,11 @@ class ClientAppBrowser : public ClientApp,
   // constructor. See CefBrowserProcessHandler for documentation.
   class Delegate : public virtual CefBase {
    public:
-    virtual void OnContextInitialized(CefRefPtr<ClientApp> app) {}
+    virtual void OnBeforeCommandLineProcessing(
+        CefRefPtr<ClientAppBrowser> app,
+        CefRefPtr<CefCommandLine> command_line) {}
+
+    virtual void OnContextInitialized(CefRefPtr<ClientAppBrowser> app) {}
 
     virtual void OnBeforeChildProcessLaunch(
         CefRefPtr<ClientAppBrowser> app,
@@ -46,6 +50,9 @@ class ClientAppBrowser : public ClientApp,
   static CefRefPtr<CefPrintHandler> CreatePrintHandler();
 
   // CefApp methods.
+  void OnBeforeCommandLineProcessing(
+      const CefString& process_type,
+      CefRefPtr<CefCommandLine> command_line) OVERRIDE;
   CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() OVERRIDE {
     return this;
   }

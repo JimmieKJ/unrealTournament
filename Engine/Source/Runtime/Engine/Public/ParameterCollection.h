@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "RHI.h"
+
 /** 
  * Maximum number of parameter collections referenced by a material.  
  * Limited to a fairly low count for now, can be raised later.  

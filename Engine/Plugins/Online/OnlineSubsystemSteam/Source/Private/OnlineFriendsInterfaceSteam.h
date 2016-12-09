@@ -2,10 +2,16 @@
 
 #pragma once
 
-#include "OnlineFriendsInterface.h"
-#include "OnlinePresenceInterface.h"
-#include "OnlineAsyncTaskManagerSteam.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
+#include "OnlineSubsystemTypes.h"
+#include "OnlineSubsystemSteamPrivate.h"
+#include "OnlineAsyncTaskManager.h"
+#include "Interfaces/OnlineFriendsInterface.h"
+#include "Interfaces/OnlinePresenceInterface.h"
 #include "OnlineSubsystemSteamPackage.h"
+
+class FOnlineSubsystemSteam;
 
 /**
  * Info associated with an online friend on the Steam service

@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "Preferences/CascadeOptions.h"
+#include "Preferences/CurveEdOptions.h"
+#include "Preferences/MaterialEditorOptions.h"
+#include "Preferences/PersonaOptions.h"
+#include "Preferences/PhATSimOptions.h"
 
 // @todo find a better place for all of this, preferably in the appropriate modules
 // though this would require the classes to be relocated as well

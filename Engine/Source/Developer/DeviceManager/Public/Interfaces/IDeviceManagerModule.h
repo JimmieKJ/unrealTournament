@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Modules/ModuleInterface.h"
+#include "Interfaces/ITargetDeviceServiceManager.h"
+
+class SWindow;
 
 /**
  * Interface for device manager modules.

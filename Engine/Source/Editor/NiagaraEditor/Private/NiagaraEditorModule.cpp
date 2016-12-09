@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
-
-#include "ModuleManager.h"
-#include "Toolkits/ToolkitManager.h"
+#include "NiagaraEditorModule.h"
+#include "Modules/ModuleManager.h"
+#include "IAssetTypeActions.h"
 #include "AssetToolsModule.h"
-#include "EdGraphUtilities.h"
+#include "Misc/ConfigCacheIni.h"
 
 #include "AssetTypeActions/AssetTypeActions_NiagaraEffect.h"
 #include "AssetTypeActions/AssetTypeActions_NiagaraScript.h"

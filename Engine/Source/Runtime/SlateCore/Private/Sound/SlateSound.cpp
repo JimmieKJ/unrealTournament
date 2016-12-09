@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
+#include "Sound/SlateSound.h"
+#include "UObject/PropertyTag.h"
+#include "SlateGlobals.h"
 
 
 /* FSlateSound interface

@@ -1,6 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SteamControllerPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "HAL/PlatformTime.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/Paths.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
+#include "Modules/ModuleManager.h"
+#include "GenericPlatform/IInputInterface.h"
+#include "IInputDevice.h"
+#include "IInputDeviceModule.h"
+#include "ISteamControllerPlugin.h"
+#include "SteamControllerPrivate.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSteamController, Log, All);
 

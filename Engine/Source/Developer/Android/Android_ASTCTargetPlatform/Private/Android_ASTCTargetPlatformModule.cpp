@@ -4,7 +4,15 @@
 	AndroidTargetPlatformModule.cpp: Implements the FAndroidTargetPlatformModule class.
 =============================================================================*/
 
-#include "Android_ASTCTargetPlatformPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Android/AndroidProperties.h"
+#include "Interfaces/ITargetPlatformModule.h"
+#include "Common/TargetPlatformBase.h"
+#include "Interfaces/IAndroidDeviceDetection.h"
+#include "Interfaces/IAndroidDeviceDetectionModule.h"
+#include "AndroidTargetDevice.h"
+#include "AndroidTargetPlatform.h"
 
 #define LOCTEXT_NAMESPACE "FAndroid_ASTCTargetPlatformModule" 
 
@@ -72,7 +80,7 @@ class FAndroid_ASTCTargetPlatform
 		// if we didn't assign anything specially, then use the defaults
 		if (TextureFormatName == NAME_None)
 		{
-			TextureFormatName = GetDefaultTextureFormatName(Texture, EngineSettings, false);
+			TextureFormatName = GetDefaultTextureFormatName(this, Texture, EngineSettings, false);
 		}
 
 		// perform any remapping away from defaults

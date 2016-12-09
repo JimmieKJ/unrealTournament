@@ -1,12 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "AssetToolsPrivatePCH.h"
-#include "AssetRegistryModule.h"
-#include "CollectionManagerModule.h"
+#include "AssetFixUpRedirectors.h"
+#include "UObject/ObjectRedirector.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/MetaData.h"
+#include "Misc/PackageName.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
+#include "FileHelpers.h"
+#include "SDiscoveringAssetsDialog.h"
+#include "AssetRenameManager.h"
+#include "AssetRegistryModule.h"
+#include "ICollectionManager.h"
+#include "CollectionManagerModule.h"
 #include "ObjectTools.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "AssetFixUpRedirectors"
 
@@ -351,6 +365,8 @@ void FAssetFixUpRedirectors::DeleteRedirectors(TArray<FRedirectorRefs>& Redirect
 		FRedirectorRefs& RedirectorRefs = *RedirectorIt;
 		if ( RedirectorRefs.bRedirectorValidForFixup )
 		{
+			check(RedirectorRefs.Redirector);
+
 			bool bAllReferencersFixedUp = true;
 			for (const auto& ReferencingPackageName : RedirectorRefs.ReferencingPackageNames)
 			{

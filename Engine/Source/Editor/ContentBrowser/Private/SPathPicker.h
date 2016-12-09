@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "IContentBrowserSingleton.h"
+
+class SPathView;
+
 /**
  * A sources view designed for path picking
  */

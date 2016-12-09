@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SVectorInputBox.h"
-#include "SNumericEntryBox.h"
-#include "SWidgetSwitcher.h"
+#include "Widgets/Input/SVectorInputBox.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "HAL/IConsoleManager.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
 
 #define LOCTEXT_NAMESPACE "SVectorInputBox"
 

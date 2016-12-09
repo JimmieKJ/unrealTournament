@@ -1,66 +1,41 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "AutomationEditorCommon.h"
-#include "AssetEditorManager.h"
-#include "ModuleManager.h"
-#include "LevelEditor.h"
-#include "Editor/MainFrame/Public/MainFrame.h"
-#include "EngineVersion.h"
-#include "ShaderCompiler.h"
-#include "BehaviorTree/BehaviorTree.h"
-#include "Engine/DestructibleMesh.h"
-#include "FileManagerGeneric.h"
-#include "GameFramework/WorldSettings.h"
-#include "Animation/AimOffsetBlendSpace.h"
-#include "Animation/AimOffsetBlendSpace1D.h"
-#include "Animation/AnimBlueprint.h"
-#include "Animation/AnimMontage.h"
-#include "Animation/AnimSequence.h"
-#include "Animation/BlendSpace.h"
-#include "Animation/BlendSpace1D.h"
-#include "Engine/Blueprint.h"
-#include "Sound/DialogueVoice.h"
-#include "Sound/DialogueWave.h"
-#include "Engine/Font.h"
-#include "Materials/Material.h"
-#include "Materials/MaterialFunction.h"
-#include "Materials/MaterialInstanceConstant.h"
-#include "Materials/MaterialParameterCollection.h"
-#include "Particles/ParticleSystem.h"
-#include "PhysicalMaterials/PhysicalMaterial.h"
-#include "PhysicsEngine/PhysicsAsset.h"
-#include "Sound/ReverbEffect.h"
-#include "Engine/SkeletalMesh.h"
-#include "Animation/Skeleton.h"
-#include "Slate/SlateBrushAsset.h"
-#include "SlateWidgetStyleAsset.h"
-#include "Sound/SoundAttenuation.h"
-#include "Sound/SoundClass.h"
-#include "Sound/SoundCue.h"
-#include "Sound/SoundMix.h"
-#include "Sound/SoundWave.h"
+#include "Tests/AutomationEditorCommon.h"
+#include "UObject/UnrealType.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Serialization/FindReferencersArchive.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Factories/Factory.h"
+#include "Factories/TextureFactory.h"
 #include "Engine/StaticMesh.h"
-#include "Engine/SubsurfaceProfile.h"
-#include "Engine/Texture.h"
-#include "Engine/Texture2D.h"
-#include "Engine/TextureCube.h"
-#include "Engine/TextureRenderTarget.h"
-#include "Engine/TextureRenderTarget2D.h"
-#include "Engine/UserDefinedEnum.h"
-#include "Engine/World.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Serialization/ArchiveReplaceObjectRef.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/StaticMeshActor.h"
+#include "LevelEditorViewport.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "FileHelpers.h"
+#include "UnrealEdGlobals.h"
+#include "ARFilter.h"
+#include "AssetRegistryModule.h"
+#include "Tests/AutomationCommon.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "LevelEditor.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "ShaderCompiler.h"
 #include "AssetSelection.h"
 
-#include "Interfaces/ILauncherDeviceGroup.h"
-#include "LauncherServices.h"
-#include "TargetDeviceServices.h"
-#include "Editor/EditorEngine.h"
-#include "PlatformInfo.h"
+#include "Interfaces/ITargetDeviceServicesModule.h"
+#include "Interfaces/ILauncherWorker.h"
 
 #include "CookOnTheSide/CookOnTheFlyServer.h"
-#include "Interfaces/ILauncherProfile.h"
 #include "LightingBuildOptions.h"
-#include "Engine/StaticMeshActor.h"
 
 #define COOK_TIMEOUT 3600
 
@@ -597,7 +572,7 @@ void FAutomationEditorCommonUtils::CollectTestsByClass(UClass * Class, TArray<FS
 		FString Filename = Asset.ObjectPath.ToString();
 		//convert to full paths
 		Filename = FPackageName::LongPackageNameToFilename(Filename);
-		if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
+		if (FAutomationTestFramework::Get().ShouldTestContent(Filename))
 		{
 			FString BeautifiedFilename = Asset.AssetName.ToString();
 			OutBeautifiedNames.Add(BeautifiedFilename);
@@ -639,7 +614,7 @@ void FAutomationEditorCommonUtils::CollectGameContentTestsByClass(UClass * Class
 		{
 			//convert to full paths
 			Filename = FPackageName::LongPackageNameToFilename(Filename);
-			if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
+			if (FAutomationTestFramework::Get().ShouldTestContent(Filename))
 			{
 				FString BeautifiedFilename = Asset.AssetName.ToString();
 				OutBeautifiedNames.Add(BeautifiedFilename);
@@ -709,7 +684,7 @@ void FAutomationEditorCommonUtils::CollectGameContentTests(TArray<FString>& OutB
 			{
 				//convert to full paths
 				Filename = FPackageName::LongPackageNameToFilename(Filename);
-				if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
+				if (FAutomationTestFramework::Get().ShouldTestContent(Filename))
 				{
 					FString BeautifiedFilename = FString::Printf(TEXT("%s.%s"), *Asset.GetClass()->GetFName().ToString(), *Asset.AssetName.ToString());
 					OutBeautifiedNames.Add(BeautifiedFilename);
@@ -761,7 +736,7 @@ bool FOpenEditorForAssetCommand::Update()
 		if ( FAssetEditorManager::Get().FindEditorForAsset(Object, true) != NULL )
 		{
 			UE_LOG(LogEditorAutomationTests, Log, TEXT("Verified asset editor for: %s."), *AssetName);
-			UE_LOG(LogEditorAutomationTests, Display, TEXT("The editor successffully loaded for: %s."), *AssetName);
+			UE_LOG(LogEditorAutomationTests, Display, TEXT("The editor successfully loaded for: %s."), *AssetName);
 			return true;
 		}
 	}
@@ -787,7 +762,7 @@ bool FCloseAllAssetEditorsCommand::Update()
 	}
 
 	UE_LOG(LogEditorAutomationTests, Log, TEXT("Verified asset editors were closed"));
-	UE_LOG(LogEditorAutomationTests, Display, TEXT("The asset editors closed successffully"));
+	UE_LOG(LogEditorAutomationTests, Display, TEXT("The asset editors closed successfully"));
 	return true;
 }
 

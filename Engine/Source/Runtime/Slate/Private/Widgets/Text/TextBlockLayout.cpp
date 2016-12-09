@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "TextBlockLayout.h"
-#include "SlateTextLayout.h"
-#include "ITextLayoutMarshaller.h"
-#include "SlateTextHighlightRunRenderer.h"
-#include "SlateStats.h"
+#include "Widgets/Text/TextBlockLayout.h"
+#include "Fonts/FontCache.h"
+#include "Framework/Text/SlateTextHighlightRunRenderer.h"
+#include "Stats/SlateStats.h"
 
 SLATE_DECLARE_CYCLE_COUNTER(GSlateTextBlockLayoutComputeDesiredSize, "FTextBlockLayout ComputeDesiredSize");
 

@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectsPrivatePCH.h"
+#include "ModuleDescriptor.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Dom/JsonObject.h"
+#include "Modules/ModuleManager.h"
 
 #define LOCTEXT_NAMESPACE "ModuleDescriptor"
 
@@ -90,6 +93,9 @@ const TCHAR* EHostType::ToString( const EHostType::Type Value )
 
 		case ServerOnly:
 			return TEXT("ServerOnly");
+
+		case ClientOnly:
+			return TEXT("ClientOnly");
 
 		default:
 			ensureMsgf( false, TEXT( "Unrecognized EModuleType value: %i" ), Value );
@@ -312,6 +318,10 @@ bool FModuleDescriptor::IsCompiledInCurrentConfiguration() const
 
 	case EHostType::ServerOnly:
 		return !FPlatformProperties::IsClientOnly();
+
+	case EHostType::ClientOnly:
+		return !FPlatformProperties::IsServerOnly();
+
 	}
 
 	return false;
@@ -372,6 +382,10 @@ bool FModuleDescriptor::IsLoadedInCurrentConfiguration() const
 
 	case EHostType::ServerOnly:
 		return !FPlatformProperties::IsClientOnly();
+
+	case EHostType::ClientOnly:
+		return !IsRunningDedicatedServer();
+
 	}
 
 	return false;

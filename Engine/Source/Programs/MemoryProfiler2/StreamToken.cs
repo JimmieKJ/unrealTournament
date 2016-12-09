@@ -109,198 +109,6 @@ namespace MemoryProfiler2
 		SUBTYPE_Unknown,
 	};
 
-	public interface IMemoryStats
-	{
-
-	}
-
-	/// <summary> Struct used to hold memory allocation statistics. Mirrored in MemoryBase.h. This need to be a class because of how ReadMemoryAllocationsStats method works. </summary>
-	public class FMemoryAllocationStatsV3
-	{
-		/// <summary> The total amount of memory used by the game. </summary>
-		public Int64 TotalUsed;
-		/// <summary> The total amount of memory allocated from the OS. </summary>
-		public Int64 TotalAllocated;
-
-		// Virtual memory for Xbox and PC / Main memory for PS3 (tracked in the allocators) Host is not included ??
-
-		/// <summary> The allocated in use by the application virtual memory. </summary>
-		public Int64 CPUUsed;
-		/// <summary> The allocated from the OS/allocator, but not used by the application. </summary>
-		public Int64 CPUSlack;
-		/// <summary> Alignment waste from a pooled allocator plus book keeping overhead. </summary>
-		public Int64 CPUWaste;
-		/// <summary> The amount of free memory before the first malloc has been done. (PS3 only). </summary>
-		public Int64 CPUAvailable;
-
-		// Physical memory for Xbox and PC / Local memory for PS3 (tracked in the allocators)
-
-		/// <summary> The allocated in use by the application physical memory. </summary>
-		public Int64 GPUUsed;
-		/// <summary> The allocated from the OS, but not used by the application. </summary>
-		public Int64 GPUSlack;
-		/// <summary> Alignment waste from a pooled allocator plus book keeping overhead. </summary>
-		public Int64 GPUWaste;
-		/// <summary> The total amount of memory available for the allocator. (PS3 only) </summary>
-		public Int64 GPUAvailable;
-
-		/// <summary> Used memory as reported by the operating system. (Xbox360, PS3 only) </summary>
-		public Int64 OSReportedUsed;
-		/// <summary> Free memory as reported by the operating system. (Xbox360, PS3 only) </summary>
-		public Int64 OSReportedFree;
-		/// <summary> The overhead of the operating system. (Xbox360 only) </summary>
-		public Int64 OSOverhead;
-		/// <summary> Size of loaded executable, stack, static, and global object size. (Xbox360, PS3 only) </summary>
-		public Int64 ImageSize;
-
-		/// <summary> Host memory in use by the application. (PS3 only) </summary>
-		public Int64 HostUsed;
-		/// <summary> Host memory allocated, but not used by the application. (PS3 only) </summary>
-		public Int64 HostSlack;
-		/// <summary> Host memory wasted due to allocations' alignment. (PS3 only) </summary>
-		public Int64 HostWaste;
-		/// <summary> The total amount of host memory that has been allocated. (PS3 only) </summary>
-		public Int64 HostAvailable;
-
-		/// <summary> Size of allocated memory in the texture pool. </summary>
-		public Int64 AllocatedTextureMemorySize;
-		/// <summary> Size of available memory in the texture pool. </summary>
-		public Int64 AvailableTextureMemorySize;
-
-		public void Zero()
-		{
-			TotalUsed = 0;
-			TotalAllocated = 0;
-
-			CPUUsed = 0;
-			CPUSlack = 0;
-			CPUWaste = 0;
-			CPUAvailable = 0;
-
-			GPUUsed = 0;
-			GPUSlack = 0;
-			GPUWaste = 0;
-			GPUAvailable = 0;
-
-			HostUsed = 0;
-			HostSlack = 0;
-			HostWaste = 0;
-			HostAvailable = 0;
-
-			OSReportedUsed = 0;
-			OSReportedFree = 0;
-			OSOverhead = 0;
-			ImageSize = 0;
-
-			AllocatedTextureMemorySize = 0;
-			AvailableTextureMemorySize = 0;
-		}
-
-		/// <summary> Returns a difference between old and new memory allocation stats. </summary>
-		public static FMemoryAllocationStatsV3 Diff( FMemoryAllocationStatsV3 Old, FMemoryAllocationStatsV3 New )
-		{
-			FMemoryAllocationStatsV3 Diff = new FMemoryAllocationStatsV3();
-
-			FieldInfo[] FieldInfos = typeof( FMemoryAllocationStatsV3 ).GetFields();
-			int PropertiesNum = FieldInfos.Length;
-
-			for( int FieldIndex = 0; FieldIndex < PropertiesNum; FieldIndex++ )
-			{
-				Int64 OldValue = (Int64)FieldInfos[ FieldIndex ].GetValue( Old );
-				Int64 NewValue = (Int64)FieldInfos[ FieldIndex ].GetValue( New );
-
-				FieldInfos[ FieldIndex ].SetValue( Diff, NewValue-OldValue );
-			}
-
-			return Diff;
-		}
-
-		/// <summary> Creates a new copy of this class. </summary>
-		public FMemoryAllocationStatsV3 DeepCopy()
-		{
-			FMemoryAllocationStatsV3 Copy = ( FMemoryAllocationStatsV3 )MemberwiseClone();
-			return Copy;
-		}
-
-		/// <summary> Converts this memory allocation statistics to its equivalent string representation. </summary>
-		public override string ToString()
-		{
-			StringBuilder StrBuilder = new StringBuilder(1024);
-
-			/// <summary> The total amount of memory used by the game. </summary>
-			StrBuilder.AppendLine( "	TotalUsed: " + MainWindow.FormatSizeString2( TotalUsed ) );
-
-			/// <summary> The total amount of memory allocated from the OS. </summary>
-			StrBuilder.AppendLine( "	TotalAllocated: " + MainWindow.FormatSizeString2( TotalAllocated ) );
-
-			// Virtual memory for Xbox and PC / Main memory for PS3 (tracked in the allocators) Host is not included ??
-
-			/// <summary> The allocated in use by the application virtual memory. </summary>
-			StrBuilder.AppendLine( "	CPUUsed: " + MainWindow.FormatSizeString2( CPUUsed ) );
-			/// <summary> The allocated from the OS/allocator, but not used by the application. </summary>
-			StrBuilder.AppendLine( "	CPUSlack: " + MainWindow.FormatSizeString2( CPUSlack ) );
-			/// <summary> Alignment waste from a pooled allocator plus book keeping overhead. </summary>
-			StrBuilder.AppendLine( "	CPUWaste: " + MainWindow.FormatSizeString2( CPUWaste ) );
-
-			/// <summary> The amount of free memory before the first malloc has been done. (PS3 only). </summary>
-			if( FStreamInfo.GlobalInstance.Platform == EPlatformType.PS3 )
-			{
-				StrBuilder.AppendLine( "	CPUAvailable: " + MainWindow.FormatSizeString2( CPUAvailable ) );
-			}
-
-			// Physical memory for Xbox and PC / Local memory for PS3 (tracked in the allocators)
-
-			/// <summary> The allocated in use by the application physical memory. </summary>
-			StrBuilder.AppendLine( "	GPUUsed: " + MainWindow.FormatSizeString2( GPUUsed ) );
-			/// <summary> The allocated from the OS, but not used by the application. </summary>
-			StrBuilder.AppendLine( "	GPUSlack: " + MainWindow.FormatSizeString2( GPUSlack ) );
-			/// <summary> Alignment waste from a pooled allocator plus book keeping overhead. </summary>
-			StrBuilder.AppendLine( "	GPUWaste: " + MainWindow.FormatSizeString2( GPUWaste ) );
-			/// <summary> The total amount of memory available for the allocator. (PS3 only) </summary>
-			StrBuilder.AppendLine( "	GPUAvailable: " + MainWindow.FormatSizeString2( GPUAvailable ) );
-
-			/// <summary> Used memory as reported by the operating system. (Xbox360, PS3 only) </summary>
-			if( FStreamInfo.GlobalInstance.Platform == EPlatformType.PS3 || FStreamInfo.GlobalInstance.Platform == EPlatformType.Xbox360 )
-			{
-				StrBuilder.AppendLine( "	OSReportedUsed: " + MainWindow.FormatSizeString2( OSReportedUsed ) );
-			}
-			/// <summary> Free memory as reported by the operating system. (Xbox360, PS3 only) </summary>
-			if( FStreamInfo.GlobalInstance.Platform == EPlatformType.PS3 || FStreamInfo.GlobalInstance.Platform == EPlatformType.Xbox360 )
-			{
-				StrBuilder.AppendLine( "	OSReportedFree: " + MainWindow.FormatSizeString2( OSReportedFree ) );
-			}
-			/// <summary> The overhead of the operating system. (Xbox360 only) </summary>
-			if( FStreamInfo.GlobalInstance.Platform == EPlatformType.Xbox360 )
-			{
-				StrBuilder.AppendLine( "	OSOverhead: " + MainWindow.FormatSizeString2( OSOverhead ) );
-			}
-			/// <summary> Size of loaded executable, stack, static, and global object size. (Xbox360, PS3 only) </summary>
-			if( FStreamInfo.GlobalInstance.Platform == EPlatformType.PS3 || FStreamInfo.GlobalInstance.Platform == EPlatformType.Xbox360 )
-			{
-				StrBuilder.AppendLine( "	ImageSize: " + MainWindow.FormatSizeString2( ImageSize ) );
-			}
-
-			if( FStreamInfo.GlobalInstance.Platform == EPlatformType.PS3 )
-			{
-				/// <summary> Host memory in use by the application. (PS3 only) </summary>
-				StrBuilder.AppendLine( "	HostUsed: " + MainWindow.FormatSizeString2( HostUsed ) );
-				/// <summary> Host memory allocated, but not used by the application. (PS3 only) </summary>
-				StrBuilder.AppendLine( "	HostSlack: " + MainWindow.FormatSizeString2( HostSlack ) );
-				/// <summary> Host memory wasted due to allocations' alignment. (PS3 only) </summary>
-				StrBuilder.AppendLine( "	HostWaste: " + MainWindow.FormatSizeString2( HostWaste ) );
-				/// <summary> The total amount of host memory that has been allocated. (PS3 only) </summary>
-				StrBuilder.AppendLine( "	HostAvailable: " + MainWindow.FormatSizeString2( HostAvailable ) );
-			}
-
-			/// <summary> Size of allocated memory in the texture pool. </summary>
-			StrBuilder.AppendLine( "	AllocatedTextureMemorySize: " + MainWindow.FormatSizeString2( AllocatedTextureMemorySize ) );
-			/// <summary> Size of available memory in the texture pool. </summary>
-			StrBuilder.AppendLine( "	AvailableTextureMemorySize: " + MainWindow.FormatSizeString2( AvailableTextureMemorySize ) );
-
-			return StrBuilder.ToString();
-		}
-	};
-
 	/// <summary> 
 	/// Struct used to hold platform memory stats and allocator stats. Valid only for MemoryProfiler2.FProfileDataHeader.Version >= 4.
 	/// @see FGenericPlatformMemory::GetStatsForMallocProfiler 
@@ -425,7 +233,7 @@ namespace MemoryProfiler2
 	/// Variable sized token emitted by capture code. The parsing code ReadNextToken deals with this and updates
 	/// internal data. The calling code is responsible for only accessing member variables associated with the type.
 	/// </summary>
-	public class FStreamToken//@TODO: Can I turn this back into a struct?
+	public class FStreamToken
 	{
 		// Parsing configuration
 
@@ -462,6 +270,9 @@ namespace MemoryProfiler2
 		/// <summary> Index into callstack array. </summary>
 		public Int32 CallStackIndex;
 
+		/// <summary> Index into tags array. </summary>
+		public Int32 TagsIndex;
+
 		/// <summary> Size of allocation in alloc / realloc case. </summary>
 		public Int32 Size;
 
@@ -488,9 +299,6 @@ namespace MemoryProfiler2
 
 		/// <summary> A list of indices into the name table, one for each loaded level including persistent level. </summary>
 		public List<int> LoadedLevels = new List<int>();
-
-		/// <summary> Generic memory allocation stats for V3. </summary>
-		public FMemoryAllocationStatsV3 MemoryAllocationStats3 = new FMemoryAllocationStatsV3();
 
 		/// <summary> Generic memory allocation stats for V4. </summary>
 		public FMemoryAllocationStatsV4 MemoryAllocationStats4 = new FMemoryAllocationStatsV4();
@@ -578,35 +386,18 @@ namespace MemoryProfiler2
 		/// <param name="BinaryStream"> Stream to serialize data from </param>
 		private void ReadMemoryAllocationsStats( BinaryReader BinaryStream )
 		{
-			if( Version >= 4 )
+			// Read Platform Memory and Allocator Stats
+			// @see FMallocProfiler::WriteMemoryAllocationStats
+			int StatsNum = BinaryStream.ReadByte();
+
+			for( int StatIndex = 0; StatIndex < StatsNum; StatIndex++ )
 			{
-				// Read Platform Memory and Allocator Stats
-				// @see FMallocProfiler::WriteMemoryAllocationStats
-				int StatsNum = BinaryStream.ReadByte();
+				int NameIndex = BinaryStream.ReadInt32();
+				Int64 StatValue = BinaryStream.ReadInt64();
+				string StatName = FStreamInfo.GlobalInstance.NameArray[NameIndex];
 
-				for( int StatIndex = 0; StatIndex < StatsNum; StatIndex++ )
-				{
-					int NameIndex = BinaryStream.ReadInt32();
-					Int64 StatValue = BinaryStream.ReadInt64();
-					string StatName = FStreamInfo.GlobalInstance.NameArray[NameIndex];
-
-					MemoryAllocationStats4[StatName] = StatValue;
-				}
-			}
-			else
-			{
-				int StatsNum = BinaryStream.ReadByte();
-
-				FieldInfo[] FieldInfos = MemoryAllocationStats3.GetType().GetFields();
-				int PropertiesNum = FieldInfos.Length;
-				Debug.Assert( StatsNum == PropertiesNum );
-
-				for( int StatIndex = 0; StatIndex < StatsNum; StatIndex++ )
-				{
-					Int64 Value = BinaryStream.ReadInt64();
-					FieldInfos[StatIndex].SetValue( MemoryAllocationStats3, Value );
-				}
-			}			
+				MemoryAllocationStats4[StatName] = StatValue;
+			}	
 		}
 
 		/// <summary> Updates the token with data read from passed in stream and returns whether we've reached the end. </summary>
@@ -629,8 +420,8 @@ namespace MemoryProfiler2
 
 			Metrics.Clear();
 			LoadedLevels.Clear();
-			MemoryAllocationStats3.Zero();
 			CallStackIndex = -1;
+			TagsIndex = -1;
 			ScriptCallstackIndex = -1;
 			ScriptObjectTypeIndex = -1;
 
@@ -648,6 +439,12 @@ namespace MemoryProfiler2
 				{
 					// Get the call stack index.
 					CallStackIndex = BinaryStream.ReadInt32();
+
+					// Get the tags index.
+					if (Version >= 7)
+					{
+						TagsIndex = BinaryStream.ReadInt32();
+					}
 
 					// Get the size of an allocation.
 					UInt32 UnsignedSize = BinaryStream.ReadUInt32();
@@ -678,6 +475,12 @@ namespace MemoryProfiler2
 					NewPointer = BinaryStream.ReadUInt64();
 					CallStackIndex = BinaryStream.ReadInt32();
 
+					// Get the tags index.
+					if (Version >= 7)
+					{
+						TagsIndex = BinaryStream.ReadInt32();
+					}
+
 					UInt32 UnsignedSize = BinaryStream.ReadUInt32();
 					bool bHasGCMData = ReadGCMData( BinaryStream, ref UnsignedSize );
 					if( bHasGCMData == false )
@@ -701,17 +504,8 @@ namespace MemoryProfiler2
 						// End of stream!
 						case EProfilingPayloadSubType.SUBTYPE_EndOfStreamMarker:
 						{
-							if( Version >= 4 )
-							{
-								ReadMemoryAllocationsStats( BinaryStream );
-								ReadLoadedLevels( BinaryStream );
-							}
-							else
-							{
-								ReadMemoryAllocationsStats( BinaryStream );
-								ReadLoadedLevels( BinaryStream );
-								ReadMetrics( BinaryStream );
-							}
+							ReadMemoryAllocationsStats( BinaryStream );
+							ReadLoadedLevels( BinaryStream );
 							bReachedEndOfStream = true;
 							break;
 						}
@@ -733,17 +527,8 @@ namespace MemoryProfiler2
 						{
 							TextIndex = ( int )Payload;
 
-							if( Version >= 4 )
-							{
-								ReadMemoryAllocationsStats( BinaryStream );
-								ReadLoadedLevels( BinaryStream );
-							}
-							else
-							{
-								ReadMemoryAllocationsStats( BinaryStream );
-								ReadLoadedLevels( BinaryStream );
-								ReadMetrics( BinaryStream );
-							}
+							ReadMemoryAllocationsStats( BinaryStream );
+							ReadLoadedLevels( BinaryStream );
 							break;
 						}
 						

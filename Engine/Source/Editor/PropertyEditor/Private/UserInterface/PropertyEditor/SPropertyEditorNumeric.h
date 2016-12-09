@@ -1,11 +1,36 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "PropertyEditorConstants.h"
-#include "SNumericEntryBox.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "Misc/Attribute.h"
+#include "UObject/UnrealType.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Margin.h"
+#include "EditorStyleSet.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/SCompoundWidget.h"
+#include "PropertyNode.h"
+#include "Textures/SlateIcon.h"
+#include "PropertyHandle.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
+#include "UserInterface/PropertyEditor/PropertyEditorConstants.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Editor.h"
+#include "Widgets/Input/NumericTypeInterface.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Input/SComboButton.h"
+#include "ObjectPropertyNode.h"
 
-#include "UnitConversion.h"
-#include "NumericUnitTypeInterface.inl"
+#include "Math/UnitConversion.h"
+#include "Widgets/Input/NumericUnitTypeInterface.inl"
 
 #define LOCTEXT_NAMESPACE "PropertyEditor"
 
@@ -29,7 +54,7 @@ public:
 		const TSharedRef< FPropertyNode > PropertyNode = InPropertyEditor->GetPropertyNode();
 		const UProperty* Property = InPropertyEditor->GetProperty();
 
-		if(!Property->IsA(UFloatProperty::StaticClass()) && Property->HasMetaData(PropertyEditorConstants::MD_Bitmask))
+		if(!Property->IsA(UFloatProperty::StaticClass()) && !Property->IsA(UDoubleProperty::StaticClass()) && Property->HasMetaData(PropertyEditorConstants::MD_Bitmask))
 		{
 			auto CreateBitmaskFlagsArray = [](const UProperty* Prop)
 			{
@@ -341,7 +366,7 @@ public:
 	{ 
 		const TSharedRef< FPropertyNode > PropertyNode = PropertyEditor->GetPropertyNode();
 		
-		if (!PropertyNode->HasNodeFlags(EPropertyNodeFlags::EditInline))
+		if (!PropertyNode->HasNodeFlags(EPropertyNodeFlags::EditInlineNew))
 		{
 			return TTypeToProperty<NumericType>::Match(PropertyEditor->GetProperty());
 		}
@@ -363,6 +388,12 @@ private:
 	struct TTypeToProperty<float, U> 
 	{	
 		static bool Match(const UProperty* InProperty) { return InProperty->IsA(UFloatProperty::StaticClass()); } 
+	};
+
+	template<typename U>
+	struct TTypeToProperty<double, U>
+	{
+		static bool Match(const UProperty* InProperty) { return InProperty->IsA(UDoubleProperty::StaticClass()); }
 	};
 
 	template<typename U>
@@ -542,6 +573,15 @@ private:
 		static float BitwiseAND(float Base, float Mask) { return 0.0f; }
 		static float BitwiseXOR(float Base, float Mask) { return 0.0f; }
 		static float LeftShift(float Base, int32 Shift) { return 0.0f; }
+	};
+
+	/** Explicit specialization for numeric 'double' types (these will not be used). */
+	template<typename U>
+	struct TBitmaskValueHelpers<double, U>
+	{
+		static double BitwiseAND(double Base, double Mask) { return 0.0f; }
+		static double BitwiseXOR(double Base, double Mask) { return 0.0f; }
+		static double LeftShift(double Base, int32 Shift)  { return 0.0f; }
 	};
 
 private:

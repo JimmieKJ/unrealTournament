@@ -4,12 +4,15 @@
 	OpenGLShaders.cpp: OpenGL shader RHI implementation.
 =============================================================================*/
  
-#include "OpenGLDrvPrivate.h"
 #include "OpenGLShaders.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "OpenGLDrvPrivate.h"
 #include "Shader.h"
 #include "GlobalShader.h"
-#include "ShaderCache.h"
-#include "CrossCompilerCommon.h"
 
 #define CHECK_FOR_GL_SHADERS_TO_REPLACE 0
 
@@ -678,6 +681,9 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 {
 	// Whether shader was compiled for ES 3.1
 	const bool bES31 = (FCStringAnsi::Strstr(GlslCodeOriginal.GetData(), "#version 310 es") != nullptr);
+
+	// Whether we need to emit mobile multi-view code or not.
+	const bool bEmitMobileMultiView = (FCStringAnsi::Strstr(GlslCodeOriginal.GetData(), "gl_ViewID_OVR") != nullptr);
 	
 	if (Capabilities.TargetPlatform == EOpenGLShaderTargetPlatform::OGLSTP_Android || Capabilities.TargetPlatform == EOpenGLShaderTargetPlatform::OGLSTP_HTML5)
 	{
@@ -701,8 +707,25 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 		ReplaceCString(GlslCodeOriginal, "#version 150", "");
 	}
 
-		// Only desktop with separable shader platform can use GL_ARB_separate_shader_objects for reduced shader compile/link hitches
-		// however ES3.1 relies on layout(location=) support
+	if (bEmitMobileMultiView)
+	{
+		MoveHashLines(GlslCode, GlslCodeOriginal);
+
+		if (GSupportsMobileMultiView)
+		{
+			AppendCString(GlslCode, "\n\n");
+			AppendCString(GlslCode, "#extension GL_OVR_multiview2 : enable\n");
+			AppendCString(GlslCode, "\n\n");
+		}
+		else
+		{
+			// Strip out multi-view for devices that don't support it.
+			AppendCString(GlslCode, "#define gl_ViewID_OVR 0\n");
+		}
+	}
+
+	// Only desktop with separable shader platform can use GL_ARB_separate_shader_objects for reduced shader compile/link hitches
+	// however ES3.1 relies on layout(location=) support
 	bool const bNeedsBindLocation = OpenGLShaderPlatformNeedsBindLocation(Capabilities.MaxRHIShaderPlatform) && !bES31;
 	if (OpenGLShaderPlatformSeparable(Capabilities.MaxRHIShaderPlatform) || !bNeedsBindLocation)
 	{
@@ -730,12 +753,19 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 			AppendCString(GlslCode, "#define INTERFACE_BLOCK(Pos, Interp, Modifiers, Semantic, PreType, PostType) Modifiers Semantic { Interp PreType PostType; }\n");
 		}
 	}
-		
+
 	if (ShaderName.IsEmpty() == false)
 	{
 		AppendCString(GlslCode, "// ");
 		AppendCString(GlslCode, TCHAR_TO_ANSI(ShaderName.GetCharArray().GetData()));
 		AppendCString(GlslCode, "\n");
+	}
+
+	if (bEmitMobileMultiView && GSupportsMobileMultiView && TypeEnum == GL_VERTEX_SHADER)
+	{
+		AppendCString(GlslCode, "\n\n");
+		AppendCString(GlslCode, "layout(num_views = 2) in;\n");
+		AppendCString(GlslCode, "\n\n");
 	}
 
 	if (Capabilities.TargetPlatform == EOpenGLShaderTargetPlatform::OGLSTP_Android)
@@ -898,11 +928,20 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 		}
 	}
 
-		// Append the possibly edited shader to the one we will compile.
-		// This is to make it easier to debug as we can see the whole
-		// shader source.
-		AppendCString(GlslCode, "\n\n");
-		AppendCString(GlslCode, GlslCodeOriginal.GetData());
+	if (FOpenGL::SupportsClipControl())
+	{
+		AppendCString(GlslCode, "#define HLSLCC_DX11ClipSpace 0 \n");
+	}
+	else
+	{
+		AppendCString(GlslCode, "#define HLSLCC_DX11ClipSpace 1 \n");
+	}
+
+	// Append the possibly edited shader to the one we will compile.
+	// This is to make it easier to debug as we can see the whole
+	// shader source.
+	AppendCString(GlslCode, "\n\n");
+	AppendCString(GlslCode, GlslCodeOriginal.GetData());
 }
 
 /**

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/IHttpRequest.h"
 #include "HttpRequestAdapter.h"
 
 /**

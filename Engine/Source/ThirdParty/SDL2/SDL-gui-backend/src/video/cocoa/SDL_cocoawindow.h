@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -70,6 +70,7 @@ typedef enum
 -(void) windowDidDeminiaturize:(NSNotification *) aNotification;
 -(void) windowDidBecomeKey:(NSNotification *) aNotification;
 -(void) windowDidResignKey:(NSNotification *) aNotification;
+-(void) windowDidChangeBackingProperties:(NSNotification *) aNotification;
 -(void) windowWillEnterFullScreen:(NSNotification *) aNotification;
 -(void) windowDidEnterFullScreen:(NSNotification *) aNotification;
 -(void) windowWillExitFullScreen:(NSNotification *) aNotification;
@@ -124,6 +125,7 @@ extern void Cocoa_SetWindowPosition(_THIS, SDL_Window * window);
 extern void Cocoa_SetWindowSize(_THIS, SDL_Window * window);
 extern void Cocoa_SetWindowMinimumSize(_THIS, SDL_Window * window);
 extern void Cocoa_SetWindowMaximumSize(_THIS, SDL_Window * window);
+extern int Cocoa_SetWindowOpacity(_THIS, SDL_Window * window, float opacity);
 extern void Cocoa_ShowWindow(_THIS, SDL_Window * window);
 extern void Cocoa_HideWindow(_THIS, SDL_Window * window);
 extern void Cocoa_RaiseWindow(_THIS, SDL_Window * window);

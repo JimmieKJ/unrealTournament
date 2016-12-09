@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Core.h"
-#include "CoreUObject.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 
 //TODO: move to a per platform header and have VM scale vectorization according to vector width.
 #define VECTOR_WIDTH (128)
@@ -10,7 +11,6 @@
 #define VECTOR_WIDTH_FLOATS (4)
 
 class FVectorVMSharedDataView;
-struct FVectorVMContext;
 
 UENUM()
 enum class EVectorVMOperandLocation : uint8

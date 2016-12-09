@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StatsViewerPrivatePCH.h"
+#include "StatsPages/CookerStatsPage.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Modules/ModuleManager.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SComboButton.h"
 #include "AssetRegistryModule.h"
-#include "CookerStatsPage.h"
 
 
 #define LOCTEXT_NAMESPACE "FCookerStatsPage"

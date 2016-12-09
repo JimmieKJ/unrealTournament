@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 struct FRedirectorRefs;
 
 class FAssetFixUpRedirectors : public TSharedFromThis<FAssetFixUpRedirectors>

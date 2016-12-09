@@ -3,16 +3,20 @@
 /*=============================================================================
 	ParticleModules_Event.cpp: Particle event-related module implementations.
 =============================================================================*/
-#include "EnginePrivate.h"
-#include "ParticleDefinitions.h"
+
+#include "CoreMinimal.h"
+#include "Particles/ParticleSystem.h"
+#include "ParticleHelper.h"
+#include "Distributions/DistributionFloatConstant.h"
+#include "Distributions/DistributionVectorConstant.h"
 #include "Particles/Event/ParticleModuleEventBase.h"
+#include "Particles/ParticleEmitter.h"
 #include "Particles/Event/ParticleModuleEventGenerator.h"
 #include "Particles/Event/ParticleModuleEventReceiverBase.h"
 #include "Particles/Event/ParticleModuleEventReceiverKillParticles.h"
 #include "Particles/Event/ParticleModuleEventReceiverSpawn.h"
 #include "Particles/Event/ParticleModuleEventSendToGame.h"
 #include "Particles/ParticleLODLevel.h"
-#include "Particles/ParticleEmitter.h"
 
 /*-----------------------------------------------------------------------------
 	Abstract base modules used for categorization.

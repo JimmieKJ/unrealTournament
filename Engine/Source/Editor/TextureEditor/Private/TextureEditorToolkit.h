@@ -2,9 +2,21 @@
 
 #pragma once
 
-#include "Toolkits/AssetEditorToolkit.h"
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
 #include "EditorUndoClient.h"
+#include "Toolkits/IToolkitHost.h"
+#include "Interfaces/ITextureEditorToolkit.h"
+#include "IDetailsView.h"
+#include "TextureEditorSettings.h"
 
+class SDockableTab;
+class STextBlock;
+class STextureEditorViewport;
+class UFactory;
+class UTexture;
 
 /**
  * Implements an Editor toolkit for textures.
@@ -15,6 +27,7 @@ class FTextureEditorToolkit
 	, public FGCObject
 {
 public:
+	FTextureEditorToolkit();
 
 	/**
 	 * Destructor.
@@ -203,6 +216,9 @@ private:
 	
 	// Callback that is executed before the reimport manager reimported an asset.
 	void HandleReimportManagerPreReimport( UObject* InObject );
+
+	// Callback that is executed once an asset is imported
+	void HandleAssetPostImport(UFactory* InFactory, UObject* InObject);
 
 	// Callback for toggling the Desaturation channel action.
 	void HandleDesaturationChannelActionExecute( );

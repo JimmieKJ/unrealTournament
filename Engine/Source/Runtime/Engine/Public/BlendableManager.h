@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 // used to blend IBlendableInterface object data, the member act as a header for a following data block
 struct FBlendableEntry
 {

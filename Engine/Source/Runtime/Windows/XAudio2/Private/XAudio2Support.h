@@ -23,14 +23,128 @@
 /*------------------------------------------------------------------------------------
 	XAudio2 system headers
 ------------------------------------------------------------------------------------*/
-#include "Engine.h"
-#include "SoundDefinitions.h"
 #include "AudioDecompress.h"
 #include "AudioEffect.h"
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
+#include "AllowWindowsPlatformAtomics.h"
 	#include <xaudio2.h>
 	#include <X3Daudio.h>
+#include "HideWindowsPlatformAtomics.h"
 #include "HideWindowsPlatformTypes.h"
+
+#if PLATFORM_WINDOWS
+#include "AllowWindowsPlatformTypes.h"
+#include "AllowWindowsPlatformAtomics.h"
+#include <mmdeviceapi.h>
+#include <functiondiscoverykeys_devpkey.h>
+
+class FMMNotificationClient : public IMMNotificationClient
+{
+public:
+	FMMNotificationClient()
+		: Ref(1)
+		, DeviceEnumerator(nullptr)
+	{
+		bComInitialized = FWindowsPlatformMisc::CoInitialize();
+		HRESULT Result = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_INPROC_SERVER, __uuidof(IMMDeviceEnumerator), (void**)&DeviceEnumerator);
+		if (Result == S_OK)
+		{
+			DeviceEnumerator->RegisterEndpointNotificationCallback(this);
+		}
+	}
+
+	~FMMNotificationClient()
+	{
+		if (DeviceEnumerator)
+		{
+			DeviceEnumerator->UnregisterEndpointNotificationCallback(this);
+			SAFE_RELEASE(DeviceEnumerator);
+		}
+
+		if (bComInitialized)
+		{
+			FWindowsPlatformMisc::CoUninitialize();
+		}
+	}
+
+	HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR pwstrDeviceId) override
+	{
+		return S_OK;
+	}
+
+	HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR pwstrDeviceId) override
+	{
+		return S_OK;
+	};
+
+	HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR pwstrDeviceId) override
+	{
+		for (IDeviceChangedListener* Listener : Listeners)
+		{
+			Listener->OnDeviceRemoved(FString(pwstrDeviceId));
+		}
+		return S_OK;
+	}
+
+	HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR pwstrDeviceId, DWORD dwNewState) override
+	{
+		if (dwNewState == DEVICE_STATE_DISABLED || dwNewState == DEVICE_STATE_UNPLUGGED || dwNewState == DEVICE_STATE_NOTPRESENT)
+		{
+			for (IDeviceChangedListener* Listener : Listeners)
+			{
+				Listener->OnDeviceRemoved(FString(pwstrDeviceId));
+			}
+		}
+		return S_OK;
+	}
+
+	HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR pwstrDeviceId, const PROPERTYKEY key)
+	{
+		return S_OK;
+	}
+
+	HRESULT STDMETHODCALLTYPE QueryInterface(const IID &, void **) override
+	{
+		return S_OK;
+	}
+
+	ULONG STDMETHODCALLTYPE AddRef() override
+	{
+		return InterlockedIncrement(&Ref);
+	}
+
+	ULONG STDMETHODCALLTYPE Release() override
+	{
+		ULONG ulRef = InterlockedDecrement(&Ref);
+		if (0 == ulRef)
+		{
+			delete this;
+		}
+		return ulRef;
+	}
+
+	void RegisterDeviceChangedListener(IDeviceChangedListener* DeviceChangedListener)
+	{
+		Listeners.Add(DeviceChangedListener);
+	}
+
+	void UnRegisterDeviceDeviceChangedListener(IDeviceChangedListener* DeviceChangedListener)
+	{
+		Listeners.Remove(DeviceChangedListener);
+	}
+
+private:
+	LONG Ref;
+	TSet<IDeviceChangedListener*> Listeners;
+	IMMDeviceEnumerator* DeviceEnumerator;
+	bool bComInitialized;
+};
+
+#include "HideWindowsPlatformAtomics.h"
+#include "HideWindowsPlatformTypes.h"
+#endif 
+
 
 /*------------------------------------------------------------------------------------
 	Dependencies, helpers & forward declarations.
@@ -154,7 +268,7 @@ public:
 	 * @param bLooping			Whether to loop the sound seamlessly, or pad with zeroes
 	 * @return					Whether the sound looped or not
 	 */
-	bool ReadCompressedData( uint8* Destination, bool bLooping );
+	bool ReadCompressedData( uint8* Destination, bool bLooping ) override;
 
 	/**
 	 * Sets the point in time within the buffer to the specified time
@@ -162,7 +276,7 @@ public:
 	 *
 	 * @param SeekTime		Time in seconds from the beginning of sound to seek to
 	 */
-	void Seek( const float SeekTime );
+	void Seek( const float SeekTime ) override;
 
 	/**
 	 * Static function used to create an OpenAL buffer and dynamically upload decompressed ogg vorbis data to.
@@ -327,6 +441,9 @@ public:
 	 */
 	virtual void Update();
 
+	/** Returns the playback percent */
+	virtual float GetPlaybackPercent() const override;
+
 	/**
 	 * Plays the current wave instance.	
 	 */
@@ -403,7 +520,7 @@ public:
 	/** 
 	 * Maps a sound with a given number of channels to to expected speakers
 	 */
-	void RouteDryToSpeakers(float ChannelVolumes[CHANNEL_MATRIX_COUNT]);
+	void RouteDryToSpeakers(float ChannelVolumes[CHANNEL_MATRIX_COUNT], const float InVolume);
 
 	/** 
 	 * Maps the sound to the relevant reverb effect
@@ -501,9 +618,6 @@ protected:
 
 	/** Additional buffer info for XWMA sounds */
 	XAUDIO2_BUFFER_WMA XAudio2BufferXWMA[1];
-
-	/** Index of this sound source in the audio device sound source array. */
-	uint32 VoiceId;
 
 	/** Which sound buffer should be written to next - used for triple buffering. */
 	int32 CurrentBuffer;
@@ -619,12 +733,17 @@ FORCEINLINE bool operator==(const WAVEFORMATEX& FormatA, const WAVEFORMATEX& For
 
 
 /** This structure holds any singleton XAudio2 resources which need to be used, not just "properties" of the device. */
-struct FXAudioDeviceProperties
+struct FXAudioDeviceProperties : public IDeviceChangedListener
 {
 	// These variables are non-static to support multiple audio device instances
 	struct IXAudio2*					XAudio2;
 	struct IXAudio2MasteringVoice*		MasteringVoice;
 	HMODULE								XAudio2Dll;
+
+	// Audio clock info
+	struct IXAudio2SourceVoice*			AudioClockVoice;
+	XAUDIO2_BUFFER						AudioClockXAudio2Buffer;
+	TArray<int16>						AudioClockPCMBufferData;
 
 	// These variables are static because they are common across all audio device instances
 	static int32						NumSpeakers;
@@ -633,49 +752,57 @@ struct FXAudioDeviceProperties
 	static XAUDIO2_DEVICE_DETAILS		DeviceDetails;
 #endif	//XAUDIO_SUPPORTS_DEVICE_DETAILS
 
+#if PLATFORM_WINDOWS
+	static FMMNotificationClient* NotificationClient;
+#endif
+
 	// For calculating speaker maps for 3d audio
 	FSpatializationHelper				SpatializationHelper;
 
 	/** Source callback to handle looping sound callbacks */
 	FXAudio2SoundSourceCallback	SourceCallback;
 	
-	/** The array of voice pools. Each pool is according to the sound format (and max effect chain channels) */
-	TArray<FSourceVoicePoolEntry*> VoicePool;
-
 	/** Number of non-free active voices */
 	int32 NumActiveVoices;
 
+	/** Whether or not the audio device changed. Used to trigger device reset when audio device changes. */
+	FThreadSafeBool bDeviceChanged;
+
+	/** Whether or not to allow new voices to be created. */
+	FThreadSafeBool bAllowNewVoices;
+
 	FXAudioDeviceProperties()
 		: XAudio2(nullptr)
+		, AudioClockVoice(nullptr)
 		, MasteringVoice(nullptr)
 		, XAudio2Dll(nullptr)
 		, NumActiveVoices(0)
+		, bDeviceChanged(false)
+		, bAllowNewVoices(true)
 	{
+#if PLATFORM_WINDOWS
+		if (NotificationClient == nullptr)
+		{
+			NotificationClient = new FMMNotificationClient();
+	}
+		else
+		{
+			NotificationClient->AddRef();
+		}
+
+		NotificationClient->RegisterDeviceChangedListener(this);
+#endif
 	}
 	
 	~FXAudioDeviceProperties()
 	{
+#if PLATFORM_WINDOWS
+		NotificationClient->UnRegisterDeviceDeviceChangedListener(this);
+		NotificationClient->Release();
+#endif
+
 		// Make sure we've free'd all of our active voices at this point!
 		check(NumActiveVoices == 0);
-
-		// Destroy all the xaudio2 voices allocated in our pools
-		for (int32 i = 0; i < VoicePool.Num(); ++i)
-		{
-			for (int32 j = 0; j < VoicePool[i]->FreeVoices.Num(); ++j)
-			{
-				IXAudio2SourceVoice** Voice = &VoicePool[i]->FreeVoices[j];
-				check(*Voice != nullptr);
-				(*Voice)->DestroyVoice();
-				*Voice = nullptr;
-			}
-		}
-
-		// Now delete all the pool entries
-		for (int32 i = 0; i < VoicePool.Num(); ++i)
-		{
-			delete VoicePool[i];
-			VoicePool[i] = nullptr;
-		}
 
 		// close hardware interfaces
 		if (MasteringVoice)
@@ -701,6 +828,76 @@ struct FXAudioDeviceProperties
 			}
 		}
 #endif
+	}
+
+	void OnDeviceRemoved(FString DeviceID) override
+	{
+#if XAUDIO_SUPPORTS_DEVICE_DETAILS
+		if (DeviceID == FString(DeviceDetails.DeviceID))
+		{
+			bDeviceChanged = true;
+
+			// Immediately disallow new voices to be created
+			bAllowNewVoices = false;
+
+			// Log that the default audio device changed 
+			UE_LOG(LogAudio, Warning, TEXT("Current Audio Device with ID %s was removed. Shutting down audio device."), *DeviceID);
+		}
+#endif // XAUDIO_SUPPORTS_DEVICE_DETAILS
+	}
+
+	bool DidAudioDeviceChange()
+	{
+		bool bChanged = bDeviceChanged;
+		bDeviceChanged = false;
+		return bChanged;
+	}
+
+	void InitAudioClockVoice()
+	{
+		if (XAudio2)
+		{
+			WAVEFORMATEX PCMFormat;
+			PCMFormat.wFormatTag = WAVE_FORMAT_PCM;
+			PCMFormat.nChannels = 1;
+			PCMFormat.nSamplesPerSec = 44100;
+			PCMFormat.wBitsPerSample = 16;
+			PCMFormat.cbSize = 0;
+			PCMFormat.nBlockAlign = sizeof(int16);
+			PCMFormat.nAvgBytesPerSec = sizeof(int16) * 44100;
+
+			check(XAudio2 != nullptr);
+			bool bSuccess = Validate(TEXT("CreateSourceVoice, GetAudioClockTime"),
+				XAudio2->CreateSourceVoice(&AudioClockVoice, &PCMFormat));
+
+			if (bSuccess && AudioClockVoice)
+			{
+				// Setup the zeroed clock buffer
+				AudioClockPCMBufferData.Reset();
+				AudioClockPCMBufferData.AddZeroed(64);
+
+				// Setup the xaudio2 buffer of looping silence
+				FMemory::Memzero(&AudioClockXAudio2Buffer, sizeof(XAUDIO2_BUFFER));
+				AudioClockXAudio2Buffer.AudioBytes = AudioClockPCMBufferData.Num() * sizeof(int16);
+				AudioClockXAudio2Buffer.pAudioData = (uint8*)AudioClockPCMBufferData.GetData();
+				AudioClockXAudio2Buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
+
+				// Submit it and start the voice... basically an always looping silent sound
+				AudioClockVoice->SubmitSourceBuffer(&AudioClockXAudio2Buffer);
+				AudioClockVoice->Start(0);
+			}
+		}
+	}
+
+	double GetAudioClockTime()
+	{
+		if (AudioClockVoice)
+		{
+			XAUDIO2_VOICE_STATE VoiceState;
+			AudioClockVoice->GetState(&VoiceState);
+			return (double)VoiceState.SamplesPlayed / 44100;
+		}
+		return 0.0;
 	}
 
 	bool Validate(const TCHAR* Function, uint32 ErrorCode) const
@@ -767,9 +964,13 @@ struct FXAudioDeviceProperties
 	{
 		bool bSuccess = false;
 
-		check(XAudio2 != nullptr);
-		bSuccess = Validate(TEXT("GetFreeSourceVoice, XAudio2->CreateSourceVoice"),
-							XAudio2->CreateSourceVoice(Voice, &BufferInfo.PCMFormat, XAUDIO2_VOICE_USEFILTER, MAX_PITCH, &SourceCallback, SendList, EffectChain));
+		if (bAllowNewVoices)
+		{
+			check(XAudio2 != nullptr);
+			bSuccess = Validate(TEXT("GetFreeSourceVoice, XAudio2->CreateSourceVoice"),
+				XAudio2->CreateSourceVoice(Voice, &BufferInfo.PCMFormat, XAUDIO2_VOICE_USEFILTER, MAX_PITCH, &SourceCallback, SendList, EffectChain));
+		}
+
 		if (bSuccess)
 		{
 			// Track the number of source voices out in the world
@@ -786,7 +987,6 @@ struct FXAudioDeviceProperties
 	void ReleaseSourceVoice(IXAudio2SourceVoice* Voice, const FPCMBufferInfo& BufferInfo, const int32 MaxEffectChainChannels)
 	{
 		Voice->DestroyVoice();
-
 		--NumActiveVoices;
 	}
 
@@ -797,7 +997,7 @@ struct FXAudioDeviceProperties
 	#define UE4_XAUDIO2_CHANNELMASK		FXAudioDeviceProperties::DeviceDetails.OutputFormat.dwChannelMask
 	#define UE4_XAUDIO2_SAMPLERATE		FXAudioDeviceProperties::DeviceDetails.OutputFormat.Format.nSamplesPerSec
 #else	//XAUDIO_SUPPORTS_DEVICE_DETAILS
-	#define UE4_XAUDIO2_NUMCHANNELS		8		// Up to 7.1 supported
-	#define UE4_XAUDIO2_CHANNELMASK		3		// Default to left and right speakers...
-	#define UE4_XAUDIO2_SAMPLERATE		44100	// Default to CD sample rate
+#define UE4_XAUDIO2_NUMCHANNELS		6
+#define UE4_XAUDIO2_CHANNELMASK		SPEAKER_5POINT1
+#define UE4_XAUDIO2_SAMPLERATE		44100
 #endif	//XAUDIO_SUPPORTS_DEVICE_DETAILS

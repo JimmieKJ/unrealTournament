@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GammaUIPrivatePCH.h"
+#include "GammaUI.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "GammaUIPanel.h"
-#include "ModuleManager.h"
 
 IMPLEMENT_MODULE( FGammaUI, GammaUI );
 

@@ -4,15 +4,16 @@
 	PostProcessMorpheus.cpp: Post processing for Sony Morpheus HMD device.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessMorpheus.h"
-#include "PostProcessing.h"
-#include "PostProcessHistogram.h"
-#include "PostProcessEyeAdaptation.h"
-#include "IHeadMountedDisplay.h"
+#include "PostProcess/PostProcessMorpheus.h"
+#include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
+#include "SceneRenderTargetParameters.h"
+#include "SceneRendering.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "IHeadMountedDisplay.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMorpheusHMDPostProcess, All, All);
 

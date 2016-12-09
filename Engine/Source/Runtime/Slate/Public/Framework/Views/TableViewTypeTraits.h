@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/UObjectBase.h"
+#include "UObject/GCObject.h"
 
 /**
  * Lists/Trees only work with shared pointer types, and UObjbectBase*.

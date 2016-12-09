@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include <initializer_list>
+#include "CoreTypes.h"
+#include "Templates/PointerIsConvertibleFromTo.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Math/NumericLimits.h"
+#include "Containers/Array.h"
 
 namespace ArrayViewPrivate
 {
@@ -561,6 +566,12 @@ private:
 
 template <typename InElementType>
 struct TIsZeroConstructType<TArrayView<InElementType>>
+{
+	enum { Value = true };
+};
+
+template <typename T>
+struct TIsContiguousContainer<TArrayView<T>>
 {
 	enum { Value = true };
 };

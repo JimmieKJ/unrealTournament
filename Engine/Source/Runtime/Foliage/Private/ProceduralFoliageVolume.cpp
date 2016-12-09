@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FoliagePrivate.h"
 #include "ProceduralFoliageVolume.h"
+#include "Components/BrushComponent.h"
 #include "ProceduralFoliageComponent.h"
 #include "ProceduralFoliageSpawner.h"
 

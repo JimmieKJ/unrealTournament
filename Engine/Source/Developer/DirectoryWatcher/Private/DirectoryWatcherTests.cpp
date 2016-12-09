@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DirectoryWatcherPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/AutomationTest.h"
+#include "IDirectoryWatcher.h"
 #include "DirectoryWatcherModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDirectoryWatcherTests, Log, All);
 

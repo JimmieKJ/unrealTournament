@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Templates/EnableIf.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/AndOrNot.h"
+#include "Templates/RemoveReference.h"
+#include "Templates/TypeCompatibleBytes.h"
+
 
 /** Default behavior. */
 #define	FORCE_THREADSAFE_SHAREDPTRS 0
@@ -58,11 +66,11 @@ namespace SharedPointerInternals
 	{
 	public:
 		/** Constructor */
-		FORCEINLINE explicit FReferenceControllerBase(void* InObject)
+		FORCEINLINE explicit FReferenceControllerBase()
 			: SharedReferenceCount(1)
 			, WeakReferenceCount(1)
-			, Object(InObject)
-		{ }
+		{
+		}
 
 		// NOTE: The primary reason these reference counters are 32-bit values (and not 16-bit to save
 		//       memory), is that atomic operations require at least 32-bit objects.
@@ -75,14 +83,12 @@ namespace SharedPointerInternals
 		   weak reference too. */
 		int32 WeakReferenceCount;
 
-		/** The object associated with this reference counter.  */
-		void* Object;
-
 		/** Destroys the object associated with this reference counter.  */
 		virtual void DestroyObject() = 0;
 
-		/** Destroys the object associated with this reference counter.  */
-		virtual ~FReferenceControllerBase() {};
+		virtual ~FReferenceControllerBase()
+		{
+		}
 
 	private:
 		FReferenceControllerBase( FReferenceControllerBase const& );
@@ -93,16 +99,53 @@ namespace SharedPointerInternals
 	class TReferenceControllerWithDeleter : private DeleterType, public FReferenceControllerBase
 	{
 	public:
-		explicit TReferenceControllerWithDeleter(void* Object, DeleterType&& Deleter)
-			: DeleterType             (MoveTemp(Deleter))
-			, FReferenceControllerBase(Object)
+		explicit TReferenceControllerWithDeleter(ObjectType* InObject, DeleterType&& Deleter)
+			: DeleterType(MoveTemp(Deleter))
+			, Object(InObject)
 		{
 		}
 
-		virtual void DestroyObject()
+		virtual void DestroyObject() override
 		{
-			(*static_cast<DeleterType*>(this))((ObjectType*)static_cast<FReferenceControllerBase*>(this)->Object);
+			(*static_cast<DeleterType*>(this))(Object);
 		}
+
+		// Non-copyable
+		TReferenceControllerWithDeleter(const TReferenceControllerWithDeleter&) = delete;
+		TReferenceControllerWithDeleter& operator=(const TReferenceControllerWithDeleter&) = delete;
+
+	private:
+		/** The object associated with this reference counter.  */
+		ObjectType* Object;
+	};
+
+	template <typename ObjectType>
+	class TIntrusiveReferenceController : public FReferenceControllerBase
+	{
+	public:
+		template <typename... ArgTypes>
+		explicit TIntrusiveReferenceController(ArgTypes&&... Args)
+		{
+			new ((void*)&ObjectStorage) ObjectType(Forward<ArgTypes>(Args)...);
+		}
+
+		ObjectType* GetObjectPtr() const
+		{
+			return (ObjectType*)&ObjectStorage;
+		}
+
+		virtual void DestroyObject() override
+		{
+			DestructItem((ObjectType*)&ObjectStorage);
+		}
+
+		// Non-copyable
+		TIntrusiveReferenceController(const TIntrusiveReferenceController&) = delete;
+		TIntrusiveReferenceController& operator=(const TIntrusiveReferenceController&) = delete;
+
+	private:
+		/** The object associated with this reference counter.  */
+		mutable TTypeCompatibleBytes<ObjectType> ObjectStorage;
 	};
 
 
@@ -128,6 +171,13 @@ namespace SharedPointerInternals
 	inline FReferenceControllerBase* NewCustomReferenceController(ObjectType* Object, DeleterType&& Deleter)
 	{
 		return new TReferenceControllerWithDeleter<ObjectType, typename TRemoveReference<DeleterType>::Type>(Object, Forward<DeleterType>(Deleter));
+	}
+
+	/** Creates an intrusive reference controller */
+	template <typename ObjectType, typename... ArgTypes>
+	inline TIntrusiveReferenceController<ObjectType>* NewIntrusiveReferenceController(ArgTypes&&... Args)
+	{
+		return new TIntrusiveReferenceController<ObjectType>(Forward<ArgTypes>(Args)...);
 	}
 
 

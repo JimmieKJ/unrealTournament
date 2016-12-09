@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "MediaSourceActions.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Styling/ISlateStyle.h"
+#include "AssetTools/MediaSourceActions.h"
 
+class FAssetData;
 
 /**
  * Implements an action for UMediaSource assets.
@@ -24,6 +28,7 @@ public:
 
 	//~ FAssetTypeActions_Base interface
 
+	virtual bool CanFilter() override;
 	virtual FText GetName() const override;
 	virtual UClass* GetSupportedClass() const override;
 	virtual TSharedPtr<class SWidget> GetThumbnailOverlay(const FAssetData& AssetData) const override;

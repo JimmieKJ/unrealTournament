@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 /**
  * Defines a contiguous enum range containing Count values, starting from zero:
  *

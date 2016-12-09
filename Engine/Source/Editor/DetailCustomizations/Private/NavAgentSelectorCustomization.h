@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+
 class FNavAgentSelectorCustomization : public IPropertyTypeCustomization
 {
 public:

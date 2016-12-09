@@ -2,6 +2,8 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+
 /**
  * Interface(s) for platform feature modules
  */

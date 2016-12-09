@@ -1,21 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Editor/UnrealEd/Public/Kismet2/ComponentEditorUtils.h"
-#include "Engine/Blueprint.h"
-#include "Runtime/Engine/Classes/Components/SceneComponent.h"
-#include "Engine/SCS_Node.h"
-#include "Engine/SimpleConstructionScript.h"
+#include "Kismet2/ComponentEditorUtils.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "EditorStyleSet.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/MeshComponent.h"
+#include "Exporters/Exporter.h"
+#include "Materials/Material.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Components/DecalComponent.h"
+#include "UnrealEdGlobals.h"
 #include "ScopedTransaction.h"
-#include "BlueprintEditorUtils.h"
-#include "KismetEditorUtilities.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "Factories.h"
 #include "UnrealExporter.h"
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "SourceCodeNavigation.h"
-#include "SlateIconFinder.h"
-#include "AssetEditorManager.h"
-#include "Components/DecalComponent.h"
+#include "Styling/SlateIconFinder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Editor.h"
+#include "Toolkits/AssetEditorManager.h"
 
 #define LOCTEXT_NAMESPACE "ComponentEditorUtils"
 
@@ -150,41 +160,26 @@ bool FComponentEditorUtils::CanEditNativeComponent(const UActorComponent* Native
 
 	bool bCanEdit = false;
 	
-	UClass* OwnerClass = (NativeComponent && NativeComponent->GetOwner()) ? NativeComponent->GetOwner()->GetClass() : nullptr;
+	UObject* ComponentOuter = (NativeComponent ? NativeComponent->GetOuter() : nullptr);
+	UClass* OwnerClass = (ComponentOuter ? ComponentOuter->GetClass() : nullptr);
 	if (OwnerClass != nullptr)
 	{
-		// If the owner is a blueprint generated class, use the BP parent class
-		UBlueprint* Blueprint = UBlueprint::GetBlueprintFromClass(OwnerClass);
-		if (Blueprint != nullptr && Blueprint->ParentClass != nullptr)
+		for (TFieldIterator<UObjectProperty> It(OwnerClass); It; ++It)
 		{
-			OwnerClass = Blueprint->ParentClass;
-		}
+			UObjectProperty* ObjectProp = *It;
 
-		for (TFieldIterator<UProperty> It(OwnerClass); It; ++It)
-		{
-			UProperty* Property = *It;
-			if (UObjectProperty* ObjectProp = Cast<UObjectProperty>(Property))
+			// Must be visible - note CPF_Edit is set for all properties that should be visible, not just those that are editable
+			if (( ObjectProp->PropertyFlags & ( CPF_Edit ) ) == 0)
 			{
-				// Must be visible - note CPF_Edit is set for all properties that should be visible, not just those that are editable
-				if (( Property->PropertyFlags & ( CPF_Edit ) ) == 0)
-				{
-					continue;
-				}
+				continue;
+			}
 
-				UObject* ParentCDO = OwnerClass->GetDefaultObject();
+			UObject* Object = ObjectProp->GetObjectPropertyValue(ObjectProp->ContainerPtrToValuePtr<void>(ComponentOuter));
+			bCanEdit = Object != nullptr && Object->GetFName() == NativeComponent->GetFName();
 
-				if (!NativeComponent->GetClass()->IsChildOf(ObjectProp->PropertyClass))
-				{
-					continue;
-				}
-
-				UObject* Object = ObjectProp->GetObjectPropertyValue(ObjectProp->ContainerPtrToValuePtr<void>(ParentCDO));
-				bCanEdit = Object != nullptr && Object->GetFName() == NativeComponent->GetFName();
-
-				if (bCanEdit)
-				{
-					break;
-				}
+			if (bCanEdit)
+			{
+				break;
 			}
 		}
 	}

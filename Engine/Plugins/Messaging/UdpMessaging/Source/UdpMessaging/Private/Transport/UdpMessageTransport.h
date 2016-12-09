@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "IMessageContext.h"
+#include "IMessageTransport.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "IMessageAttachment.h"
+#include "Common/UdpSocketReceiver.h"
+#include "Transport/UdpReassembledMessage.h"
+
+class FUdpMessageProcessor;
 
 /**
  * Implements a message transport technology using an UDP network connection.
@@ -29,7 +39,7 @@ public:
 
 public:
 
-	// IMessageTransport interface
+	//~ IMessageTransport interface
 
 	virtual FName GetDebugName() const override
 	{
@@ -53,12 +63,12 @@ public:
 
 	virtual bool StartTransport() override;
 	virtual void StopTransport() override;
-	virtual bool TransportMessage(const IMessageContextRef& Context, const TArray<FGuid>& Recipients) override;
+	virtual bool TransportMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, const TArray<FGuid>& Recipients) override;
 
 private:
 
 	/** Handles received transport messages. */
-	void HandleProcessorMessageReassembled(const FUdpReassembledMessageRef& ReassembledMessage, const IMessageAttachmentPtr& Attachment, const FGuid& NodeId);
+	void HandleProcessorMessageReassembled(const FReassembledUdpMessage& ReassembledMessage, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const FGuid& NodeId);
 
 	/** Handles discovered transport endpoints. */
 	void HandleProcessorNodeDiscovered(const FGuid& DiscoveredNodeId)

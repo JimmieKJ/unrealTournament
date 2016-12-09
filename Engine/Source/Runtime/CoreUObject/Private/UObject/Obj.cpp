@@ -4,17 +4,50 @@
 	UnObj.cpp: Unreal object manager.
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Logging/LogScopedCategoryAndVerbosityOverride.h"
+#include "Stats/Stats.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/UObjectBaseUtility.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/Object.h"
+#include "Serialization/ArchiveUObject.h"
+#include "UObject/GarbageCollection.h"
+#include "UObject/Class.h"
+#include "UObject/EnumProperty.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "UObject/MetaData.h"
+#include "Templates/Casts.h"
+#include "UObject/LazyObjectPtr.h"
+#include "Misc/StringAssetReference.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/UnrealType.h"
+#include "UObject/ObjectRedirector.h"
+#include "UObject/UObjectAnnotation.h"
+#include "UObject/ReferenceChainSearch.h"
+#include "Serialization/ArchiveCountMem.h"
+#include "Serialization/ArchiveShowReferences.h"
+#include "Serialization/ArchiveFindCulprit.h"
+#include "Serialization/ArchiveTraceRoute.h"
+#include "Misc/PackageName.h"
+#include "Serialization/BulkData.h"
+#include "UObject/LinkerLoad.h"
+#include "Misc/RedirectCollector.h"
 
-#include "UObjectAnnotation.h"
-#include "ModuleManager.h"
-#include "MallocProfiler.h"
 
 #include "Serialization/ArchiveDescribeReference.h"
-#include "FindStronglyConnected.h"
-#include "HotReloadInterface.h"
+#include "UObject/FindStronglyConnected.h"
 #include "UObject/UObjectThreadContext.h"
-#include "ExclusiveLoadPackageTimeTracker.h"
+#include "Misc/ExclusiveLoadPackageTimeTracker.h"
 #include "Serialization/DeferredMessageLog.h"
 
 DEFINE_LOG_CATEGORY(LogObj);
@@ -488,66 +521,79 @@ void UObject::PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionA
 
 #endif // WITH_EDITOR
 
-class FCachedClassExclusionData
+
+/**
+	Helper class for tracking the list of classes excluded on a certain target system (client/server)
+*/
+struct FClassExclusionData
 {
-public:
+	TArray<FName> ExcludedClassNames;
+	TArray<FName> CachedExcludeList;
+	TArray<FName> CachedIncludeList;
 
-	FCachedClassExclusionData(const TCHAR* InSectionName)
+	bool IsExcluded(UClass* InClass)
 	{
-		check(GConfig != nullptr && GConfig->IsReadyForUse());
+		FName OriginalClassName = InClass->GetFName();
 
-		TArray<FString> ConfigData;
-		GConfig->GetArray(TEXT("Core.System"), InSectionName, ConfigData, GEngineIni);
-
-		for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
+		if (CachedExcludeList.Contains(OriginalClassName))
 		{
-			UClass* Class = *ClassIt;
-			if (ConfigData.Contains(Class->GetName()))
-			{
-				ExcludedClasses.Add(Class);
-			}
+			return true;
 		}
 
-		// Now gather all the classes which are derived from the specified ones
-		TSet<UClass*> DerivedClasses;
-
-		for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
+		if (CachedIncludeList.Contains(OriginalClassName))
 		{
-			UClass* Class = *ClassIt;
-
-			for (const UClass* SpecifiedClass : ExcludedClasses)
-			{
-				if (Class->IsChildOf(SpecifiedClass))
-				{
-					if (!ExcludedClasses.Contains(Class))
-					{
-						DerivedClasses.Add(Class);
-					}
-					
-					break;
-				}
-			}
+			return false;
 		}
 
-		// Add them together
-		ExcludedClasses.Append(DerivedClasses);
+		while (InClass != nullptr)
+		{
+			if (ExcludedClassNames.Contains(InClass->GetFName()))
+			{
+				CachedExcludeList.Add(OriginalClassName);
+				return true;
+			}
+
+			InClass = InClass->GetSuperClass();
+		}
+
+		CachedIncludeList.Add(OriginalClassName);
+		return false;
 	}
 
-	bool IsExcluded(UClass* InClass) const 
+	void UpdateExclusionList(const TArray<FString>& InClassNames)
 	{
-		return ExcludedClasses.Contains(InClass);
+		ExcludedClassNames.Empty(InClassNames.Num());
+		CachedIncludeList.Empty();
+		CachedExcludeList.Empty();
+
+		for (const FString& ClassName : InClassNames)
+		{
+			ExcludedClassNames.Add(FName(*ClassName));
+		}
 	}
-
-private:
-
-	TSet<UClass*> ExcludedClasses;
-
 };
+
+FClassExclusionData GDedicatedServerExclusionList;
+FClassExclusionData GDedicatedClientExclusionList;
 
 bool UObject::NeedsLoadForServer() const
 {
-	static const FCachedClassExclusionData CachedClassExclusionData(TEXT("ClassesExcludedForServer"));
-	return !CachedClassExclusionData.IsExcluded(GetClass());
+	return !GDedicatedServerExclusionList.IsExcluded(GetClass());
+}
+
+void UObject::UpdateClassesExcludedFromDedicatedServer(const TArray<FString>& InClassNames)
+{
+	GDedicatedServerExclusionList.UpdateExclusionList(InClassNames);
+}
+
+bool UObject::NeedsLoadForClient() const
+{
+	return !GDedicatedClientExclusionList.IsExcluded(GetClass());
+}
+
+void UObject::UpdateClassesExcludedFromDedicatedClient(const TArray<FString>& InClassNames)
+{
+	GDedicatedClientExclusionList.UpdateExclusionList(InClassNames);
 }
 
 bool UObject::CanCreateInCurrentContext(UObject* Template)
@@ -775,11 +821,20 @@ bool UObject::ConditionalFinishDestroy()
 	}
 }
 
+#if !defined(USE_EVENT_DRIVEN_ASYNC_LOAD)
+#error "USE_EVENT_DRIVEN_ASYNC_LOAD must be defined"
+#endif
 
 void UObject::ConditionalPostLoad()
 {
-	if( HasAnyFlags(RF_NeedPostLoad) )
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+	check(!HasAnyFlags(RF_NeedLoad)); //@todoio Added this as "nicks rule"
+#endif
+									  // PostLoad only if the object needs it and has already been serialized
+	//@todoio note this logic should be unchanged compared to main
+	if (HasAnyFlags(RF_NeedPostLoad))
 	{
+
 		check(IsInGameThread() || HasAnyFlags(RF_ClassDefaultObject|RF_ArchetypeObject) || IsPostLoadThreadSafe() || IsA(UClass::StaticClass()))
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -820,15 +875,25 @@ void UObject::ConditionalPostLoad()
 	}
 }
 
+#if !defined(USE_EVENT_DRIVEN_ASYNC_LOAD)
+#error "USE_EVENT_DRIVEN_ASYNC_LOAD must be defined."
+#endif
+
 
 void UObject::PostLoadSubobjects( FObjectInstancingGraph* OuterInstanceGraph/*=NULL*/ )
 {
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+	check(!HasAnyFlags(RF_NeedLoad));
+#endif
 	if( GetClass()->HasAnyClassFlags(CLASS_HasInstancedReference) )
 	{
 		UObject* ObjOuter = GetOuter();
 		// make sure our Outer has already called ConditionalPostLoadSubobjects
 		if (ObjOuter != NULL && ObjOuter->HasAnyFlags(RF_NeedPostLoadSubobjects) )
 		{
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+			check(!ObjOuter->HasAnyFlags(RF_NeedLoad));
+#endif
 			if (ObjOuter->HasAnyFlags(RF_NeedPostLoad) )
 			{
 				ObjOuter->ConditionalPostLoad();
@@ -919,7 +984,7 @@ bool UObject::Modify( bool bAlwaysMarkDirty/*=true*/ )
 	{
 		// Do not consider PIE world objects or script packages, as they should never end up in the
 		// transaction buffer and we don't want to mark them dirty here either.
-		if (GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor | PKG_ContainsScript | PKG_CompiledIn) == false)
+		if (GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor | PKG_ContainsScript | PKG_CompiledIn) == false || GetClass()->HasAnyClassFlags(CLASS_DefaultConfig | CLASS_Config))
 		{
 			// Attempt to mark the package dirty and save a copy of the object to the transaction
 			// buffer. The save will fail if there isn't a valid transactor, the object isn't
@@ -944,6 +1009,20 @@ bool UObject::Modify( bool bAlwaysMarkDirty/*=true*/ )
 bool UObject::IsSelected() const
 {
 	return !IsPendingKill() && GSelectedAnnotation.Get(this);
+}
+
+void UObject::GetPreloadDependencies(TArray<UObject*>& OutDeps)
+{
+	UClass *ObjClass = GetClass();
+	if (!ObjClass->HasAnyClassFlags(CLASS_Intrinsic | CLASS_Native))
+	{
+		OutDeps.Add(ObjClass);
+
+		if (!HasAnyFlags(RF_ClassDefaultObject) && ObjClass->GetDefaultsCount() > 0)
+		{
+			OutDeps.Add(ObjClass->GetDefaultObject());
+		}
+	}
 }
 
 void UObject::Serialize( FArchive& Ar )
@@ -1064,7 +1143,12 @@ void UObject::SerializeScriptProperties( FArchive& Ar ) const
 
 	if( (Ar.IsLoading() || Ar.IsSaving()) && !Ar.WantBinaryPropertySerialization() )
 	{
-		UObject* DiffObject = GetArchetype();
+		//@todoio GetArchetype is pathological for blueprint classes and the event driven loader; the EDL already knows what the archetype is; just calling this->GetArchetype() tries to load some other stuff.
+		UObject* DiffObject = Ar.GetArchetypeFromLoader(this);
+		if (!DiffObject)
+		{
+			DiffObject = GetArchetype();
+		}
 #if WITH_EDITOR
 		static const FBoolConfigValueHelper BreakSerializationRecursion(TEXT("StructSerialization"), TEXT("BreakSerializationRecursion"));
 		const bool bBreakSerializationRecursion = BreakSerializationRecursion && Ar.IsLoading() && Ar.GetLinker();
@@ -1080,7 +1164,12 @@ void UObject::SerializeScriptProperties( FArchive& Ar ) const
 	}
 	else if ( Ar.GetPortFlags() != 0 && !Ar.ArUseCustomPropertyList )
 	{
-		UObject* DiffObject = GetArchetype();
+		//@todoio GetArchetype is pathological for blueprint classes and the event driven loader; the EDL already knows what the archetype is; just calling this->GetArchetype() tries to load some other stuff.
+		UObject* DiffObject = Ar.GetArchetypeFromLoader(this);
+		if (!DiffObject)
+		{
+			DiffObject = GetArchetype();
+		}
 		ObjClass->SerializeBinEx( Ar, const_cast<UObject *>(this), DiffObject, DiffObject ? DiffObject->GetClass() : NULL );
 	}
 	else
@@ -1325,7 +1414,7 @@ void UObject::FAssetRegistryTag::GetAssetRegistryTagsFromSearchableProperties(co
 			else if ( Class->IsChildOf(UByteProperty::StaticClass()) )
 			{
 				// bytes are numerical, enums are alphabetical
-				UByteProperty* ByteProp = dynamic_cast<UByteProperty*>(*FieldIt);
+				UByteProperty* ByteProp = static_cast<UByteProperty*>(*FieldIt);
 				if ( ByteProp->Enum )
 				{
 					TagType = FAssetRegistryTag::TT_Alphabetical;
@@ -1334,6 +1423,11 @@ void UObject::FAssetRegistryTag::GetAssetRegistryTagsFromSearchableProperties(co
 				{
 					TagType = FAssetRegistryTag::TT_Numerical;
 				}
+			}
+			else if ( Class->IsChildOf(UEnumProperty::StaticClass()) )
+			{
+				// enums are alphabetical
+				TagType = FAssetRegistryTag::TT_Alphabetical;
 			}
 			else if ( Class->IsChildOf(UArrayProperty::StaticClass()) )
 			{
@@ -1354,7 +1448,7 @@ void UObject::FAssetRegistryTag::GetAssetRegistryTagsFromSearchableProperties(co
 void UObject::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
 	// Add ResourceSize if non-zero. GetResourceSize is not const because many override implementations end up calling Serialize on this pointers.
-	SIZE_T ResourceSize = const_cast<UObject*>(this)->GetResourceSize(EResourceSizeMode::Exclusive);
+	const SIZE_T ResourceSize = const_cast<UObject*>(this)->GetResourceSizeBytes(EResourceSizeMode::Exclusive);
 	if ( ResourceSize > 0 || ( !GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint) && HasAnyFlags(RF_ClassDefaultObject) ) )
 	{
 		OutTags.Add( FAssetRegistryTag("ResourceSize", FString::Printf(TEXT("%d"), (ResourceSize + 512) / 1024), FAssetRegistryTag::TT_Numerical) );
@@ -2126,7 +2220,7 @@ static void StaticShutdownAfterError()
 /*-----------------------------------------------------------------------------
    Command line.
 -----------------------------------------------------------------------------*/
-#include "ClassTree.h"
+#include "UObject/ClassTree.h"
 
 static void ShowIntrinsicClasses( FOutputDevice& Ar )
 {
@@ -2813,7 +2907,7 @@ bool StaticExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 					int32 cnt = 0;
 					UObject* LimitOuter = NULL;
 
-					const bool bHasOuter = FCString::Strfind(Str,TEXT("OUTER=")) ? true : false;
+					const bool bHasOuter = FCString::Strifind(Str,TEXT("OUTER=")) ? true : false;
 					ParseObject<UObject>(Str,TEXT("OUTER="),LimitOuter,ANY_PACKAGE);
 
 					// Check for a specific object name
@@ -2826,7 +2920,7 @@ bool StaticExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 					
 					if( bHasOuter && !LimitOuter )
 					{
-						UE_SUPPRESS(LogExec, Warning, Ar.Logf(TEXT("Failed to find outer %s"), FCString::Strfind(Str,TEXT("OUTER=")) ));
+						UE_SUPPRESS(LogExec, Warning, Ar.Logf(TEXT("Failed to find outer %s"), FCString::Strifind(Str,TEXT("OUTER=")) ));
 					}
 					else
 					{
@@ -3366,8 +3460,8 @@ bool StaticExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 								FArchiveCountMem Count(Object);
 
 								// Get the 'old-style' resource size and the truer resource size
-								const SIZE_T ResourceSize = It->GetResourceSize(EResourceSizeMode::Inclusive);
-								const SIZE_T TrueResourceSize = It->GetResourceSize(EResourceSizeMode::Exclusive);
+								const SIZE_T ResourceSize = It->GetResourceSizeBytes(EResourceSizeMode::Inclusive);
+								const SIZE_T TrueResourceSize = It->GetResourceSizeBytes(EResourceSizeMode::Exclusive);
 								
 								if (bListClass)
 								{
@@ -3704,24 +3798,20 @@ void InitUObject()
 	};
 	FModuleManager::Get().IsPackageLoadedCallback().BindStatic(Local::IsPackageLoaded);
 	
+
+
+#if WITH_EDITORONLY_DATA
 	const FString CommandLine = FCommandLine::Get();
 
 	// this is a hack to give fixup redirects insight into the startup packages
 	if (CommandLine.Contains(TEXT("fixupredirects")) )
 	{
 		FCoreUObjectDelegates::RedirectorFollowed.AddRaw(&GRedirectCollector, &FRedirectCollector::OnRedirectorFollowed);
-		FCoreUObjectDelegates::StringAssetReferenceLoaded.BindRaw(&GRedirectCollector, &FRedirectCollector::OnStringAssetReferenceLoaded);
-		FCoreUObjectDelegates::StringAssetReferenceSaving.BindRaw(&GRedirectCollector, &FRedirectCollector::OnStringAssetReferenceSaved);
 	}
 
-	// If the cooker is running or we want to fixup string referenced assets, hook up callbacks for string asset references
-	if (CommandLine.Contains(TEXT("cookcommandlet")) || 
-		  CommandLine.Contains(TEXT("run=cook")) ||
-		  CommandLine.Contains(TEXT("FixupStringAssetReferences")) )
-	{
-		FCoreUObjectDelegates::StringAssetReferenceLoaded.BindRaw(&GRedirectCollector, &FRedirectCollector::OnStringAssetReferenceLoaded);
-		FCoreUObjectDelegates::StringAssetReferenceSaving.BindRaw(&GRedirectCollector, &FRedirectCollector::OnStringAssetReferenceSaved);
-	}
+	FCoreUObjectDelegates::StringAssetReferenceLoaded.BindRaw(&GRedirectCollector, &FRedirectCollector::OnStringAssetReferenceLoaded);
+	FCoreUObjectDelegates::StringAssetReferenceSaving.BindRaw(&GRedirectCollector, &FRedirectCollector::OnStringAssetReferenceSaved);
+#endif
 
 	// Object initialization.
 	StaticUObjectInit();

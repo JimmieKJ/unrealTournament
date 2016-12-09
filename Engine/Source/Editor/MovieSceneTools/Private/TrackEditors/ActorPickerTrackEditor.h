@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "ISequencer.h"
+#include "MovieSceneTrackEditor.h"
+
+class AActor;
+class FMenuBuilder;
+class USceneComponent;
+
 /**
  * Track editor actor picker
  */

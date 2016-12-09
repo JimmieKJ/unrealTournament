@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Matinee/InterpTrackFloatBase.h"
 #include "InterpTrackAnimControl.generated.h"
+
+class FCanvas;
+class UAnimSequence;
+class UInterpGroup;
+class UInterpTrackInst;
 
 /** Structure used for holding information for one animation played on the Anim Control track. */
 USTRUCT()

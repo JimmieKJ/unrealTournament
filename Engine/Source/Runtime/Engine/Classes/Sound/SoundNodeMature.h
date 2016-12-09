@@ -2,8 +2,16 @@
 
  
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Sound/SoundNode.h"
 #include "SoundNodeMature.generated.h"
+
+class FAudioDevice;
+struct FActiveSound;
+struct FSoundParseParameters;
+struct FWaveInstance;
 
 /**
  * This SoundNode uses UEngine::bAllowMatureLanguage to determine whether child nodes

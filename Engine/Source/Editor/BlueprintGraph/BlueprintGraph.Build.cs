@@ -22,7 +22,6 @@ public class BlueprintGraph : ModuleRules
                 "InputCore",
 				"Slate",
                 "EditorStyle",
-                "AIModule",
 			}
 		);
 
@@ -34,6 +33,7 @@ public class BlueprintGraph : ModuleRules
                 "GraphEditor",
 				"SlateCore",
                 "Kismet",
+                "KismetWidgets",
                 "PropertyEditor",
 			}
 		);

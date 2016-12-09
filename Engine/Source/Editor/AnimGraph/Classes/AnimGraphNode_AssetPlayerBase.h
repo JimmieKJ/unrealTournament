@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/StringAssetReference.h"
+#include "Animation/AnimationAsset.h"
 #include "AnimGraphNode_Base.h"
 #include "AnimGraphNode_AssetPlayerBase.generated.h"
-
-class UAnimSequenceBase;
 
 ANIMGRAPH_API UClass* GetNodeClassForAsset(const UClass* AssetClass);
 ANIMGRAPH_API bool SupportNodeClassForAsset(const UClass* AssetClass, const UClass* NodeClass);

@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIGraphPrivatePCH.h"
-#include "SGraphNode.h"
 #include "SGraphNodeAI.h"
-#include "SGraphPin.h"
+#include "AIGraphNode.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Editor.h"
+#include "AIGraph.h"
 #include "SGraphPanel.h"
 #include "ScopedTransaction.h"
 

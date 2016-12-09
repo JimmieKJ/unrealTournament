@@ -2,11 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "EdGraph/EdGraphSchema.h"
 #include "BlueprintNodeSignature.h"
 #include "BlueprintPaletteFavorites.generated.h"
 
-// Forward Declarations
-class  UBlueprintNodeSpawner;
+class UBlueprintNodeSpawner;
 struct FBlueprintActionInfo;
 
 /*******************************************************************************

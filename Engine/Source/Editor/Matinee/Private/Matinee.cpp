@@ -1,5 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "Matinee.h"
+#include "Engine/Texture2D.h"
+#include "Widgets/Layout/SBorder.h"
+#include "CanvasTypes.h"
+#include "Engine/InterpCurveEdSetup.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "CanvasItem.h"
+#include "Matinee/MatineeAnimInterface.h"
+#include "Editor/TransBuffer.h"
+#include "Camera/CameraActor.h"
+#include "Engine/Light.h"
+#include "LevelEditorViewport.h"
+#include "UObject/UObjectHash.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "EditorModeInterpolation.h"
 #include "MatineeModule.h"
 
 #include "Matinee/InterpFilter.h"
@@ -12,17 +32,14 @@
 #include "Matinee/InterpTrackVisibility.h"
 #include "Matinee/InterpTrackEvent.h"
 #include "Matinee/InterpGroupDirector.h"
-#include "Matinee/MatineeAnimInterface.h"
 
-#include "Matinee.h"
-#include "MatineeActions.h"
+#include "MatineeOptions.h"
+#include "MatineeTransBuffer.h"
+#include "MatineeViewportClient.h"
 #include "MatineeFilterButton.h"
 
 #include "DistCurveEditorModule.h"
-#include "IDistCurveEditor.h"
 
-#include "Classes/MatineeOptions.h"
-#include "Classes/MatineeTransBuffer.h"
 
 #include "CameraController.h"
 #include "MatineeConstants.h"
@@ -31,28 +48,23 @@
 #include "InterpolationHitProxy.h"
 
 #include "LevelEditor.h"
-#include "LevelEditorActions.h"
 #include "EditorSupportDelegates.h"
 
-#include "MessageLog.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
+#include "Logging/MessageLog.h"
+#include "IDetailsView.h"
 
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
 
-#include "SColorPicker.h"
-#include "SDockTab.h"
-#include "STextComboBox.h"
-#include "GenericCommands.h"
-#include "CanvasTypes.h"
-#include "Engine/InterpCurveEdSetup.h"
-#include "Engine/Light.h"
-#include "CanvasItem.h"
-#include "Camera/CameraActor.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/Colors/SColorPicker.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Input/STextComboBox.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "Camera/CameraAnim.h"
 
 #include "MovieSceneCaptureDialogModule.h"
-#include "MovieSceneCaptureModule.h"
 
 #include "LevelCapture.h"
 
@@ -1006,10 +1018,25 @@ FMatinee::~FMatinee()
 
 void FMatinee::AddReferencedObjects( FReferenceCollector& Collector )
 {
+	Collector.AddReferencedObject( BarGradText );
 	Collector.AddReferencedObject( MatineeActor );
 	Collector.AddReferencedObject( IData );
+	Collector.AddReferencedObject( CamViewGroup );
 	Collector.AddReferencedObject( NormalTransactor );
+	Collector.AddReferencedObject( InterpEdTrans );
 	Collector.AddReferencedObject( Opt );
+	Collector.AddReferencedObject( PreviousCamera );
+
+	Collector.AddReferencedObjects(RecordingTracks);
+	Collector.AddReferencedObjects(RecordingParentOffsets);
+	Collector.AddReferencedObjects(TrackToNewKeyIndexMap);
+
+	for (TPair<UInterpTrack*, AddKeyInfo>& Pair : AddKeyInfoMap)
+	{
+		Collector.AddReferencedObject( Pair.Key );
+		Collector.AddReferencedObject( Pair.Value.TrInst );
+		Collector.AddReferencedObject( Pair.Value.TrackHelper );
+	}
 
 	// Check for non-NULL, as these references will be cleared in OnClose.
 	if ( TrackWindow.IsValid() && TrackWindow->InterpEdVC.IsValid() )

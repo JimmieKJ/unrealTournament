@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
-#include "BlueprintGraphDefinitions.h"
-#include "GraphEditorSettings.h"
-#include "NiagaraScript.h"
 #include "NiagaraNodeFunctionCall.h"
+#include "UObject/UnrealType.h"
+#include "NiagaraGraph.h"
+#include "NiagaraScriptSource.h"
+#include "NiagaraScript.h"
 #include "NiagaraNodeInput.h"
 #include "NiagaraNodeOutput.h"
 #include "EdGraphSchema_Niagara.h"

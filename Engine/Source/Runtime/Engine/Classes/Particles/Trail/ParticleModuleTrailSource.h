@@ -8,8 +8,15 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionFloat.h"
 #include "Particles/Trail/ParticleModuleTrailBase.h"
 #include "ParticleModuleTrailSource.generated.h"
+
+class UParticleSystemComponent;
+struct FParticleEmitterInstance;
 
 UENUM()
 enum ETrail2SourceMethod

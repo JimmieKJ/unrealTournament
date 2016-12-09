@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CableComponentPluginPrivatePCH.h"
+#include "CableActor.h"
+#include "CableComponent.h"
 
 
 ACableActor::ACableActor(const FObjectInitializer& ObjectInitializer)

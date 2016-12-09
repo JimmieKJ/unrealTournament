@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "KismetCompiler.h"
+#include "K2Node_ExecutionSequence.h"
+#include "EdGraph/EdGraphPin.h"
+#include "EdGraphSchema_K2.h"
 #include "KismetCompilerMisc.h"
+#include "KismetCompiler.h"
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
 #include "BlueprintActionDatabaseRegistrar.h"
@@ -111,6 +113,9 @@ public:
 					GotoSequenceLinkedState.Type = KCST_UnconditionalGoto;
 					Context.GotoFixupRequestMap.Add(&GotoSequenceLinkedState, OutputPins[i]);
 				}
+
+				check(LastPushStatement);
+
 				if (bInstrumentedVersion)
 				{
 					// For instrumented builds jump back to node and pop the execution state then exit the thread.

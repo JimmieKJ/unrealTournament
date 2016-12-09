@@ -3,7 +3,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Commands/InputChord.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "SGraphPalette.h"
+
+class FMaterialEditor;
 
 /** Widget for displaying a single item  */
 class SMaterialPaletteItem : public SGraphPaletteItem

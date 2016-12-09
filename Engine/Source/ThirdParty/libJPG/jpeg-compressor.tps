@@ -5,27 +5,11 @@
   <Date>2016-06-10T14:07:13.8351319-04:00</Date>
   <Function>Allows JPEG compression and decompression.</Function>
   <Justification>Compressing video frames at runtime for reduced memory usage. Decompression to access the data afterwards.</Justification>
-  <Platforms>
-    <Platform>PC</Platform>
-    <Platform>Mac</Platform>
-    <Platform>iOS</Platform>
-  </Platforms>
-  <Products>
-    <Product>UE3</Product>
-    <Product>UDK4</Product>
-    <Product>UE4</Product>
-    <Product>Infinity Blade</Product>
-  </Products>
-  <TpsType>Source Code</TpsType>
-  <Eula>None</Eula>
+  <Eula>https://code.google.com/archive/p/jpeg-compressor/</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
   <LicenseFolder>None</LicenseFolder>
 </TpsData>

@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ComponentVisualizersPrivatePCH.h"
-
-#include "SoundDefinitions.h"
 #include "AudioComponentVisualizer.h"
+#include "SceneManagement.h"
+#include "Sound/SoundAttenuation.h"
 #include "Components/AudioComponent.h"
+
 
 
 void FAudioComponentVisualizer::DrawVisualization( const UActorComponent* Component, const FSceneView* View, FPrimitiveDrawInterface* PDI )

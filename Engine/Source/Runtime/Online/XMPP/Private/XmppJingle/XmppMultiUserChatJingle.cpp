@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "XmppPrivatePCH.h"
-#include "XmppJingle.h"
-#include "XmppConnectionJingle.h"
-#include "XmppMultiUserChatJingle.h"
+#include "XmppJingle/XmppMultiUserChatJingle.h"
+#include "XmppLog.h"
+#include "Misc/ScopeLock.h"
+#include "Logging/LogScopedVerbosityOverride.h"
+#include "XmppJingle/XmppConnectionJingle.h"
 
 #if WITH_XMPP_JINGLE
 
@@ -103,6 +104,10 @@ private:
 	static buzz::XmlElement* MakeRequest()
 	{
 		buzz::XmlElement* OwnerConfigQuery = new buzz::XmlElement(buzz::QN_MUC_OWNER_QUERY, true);
+
+		// Add CorrelationID for tracking purposes
+		FXmppJingle::AddCorrIdToStanza(*OwnerConfigQuery);
+
 		return OwnerConfigQuery;
 	}
 
@@ -148,6 +153,10 @@ private:
 	static buzz::XmlElement* MakeDefaultRequest()
 	{
 		buzz::XmlElement* OwnerQuery = new buzz::XmlElement(buzz::QN_MUC_OWNER_QUERY, true);
+
+		// Add CorrelationID for tracking purposes
+		FXmppJingle::AddCorrIdToStanza(*OwnerQuery);
+
 		buzz::XmlElement* XForm = new buzz::XmlElement(buzz::QN_XDATA_X, true);
 		XForm->SetAttr(buzz::QN_TYPE, buzz::STR_SUBMIT);
 		OwnerQuery->AddElement(XForm);
@@ -158,6 +167,10 @@ private:
 		const FRoomFeatureValuePairs& RoomFeatureValuePairs)
 	{
 		buzz::XmlElement* OwnerQuery = new buzz::XmlElement(buzz::QN_MUC_OWNER_QUERY, true);
+
+		// Add CorrelationID for tracking purposes
+		FXmppJingle::AddCorrIdToStanza(*OwnerQuery);
+
 		buzz::XmlElement* XForm = new buzz::XmlElement(buzz::QN_XDATA_X, true);
 		XForm->SetAttr(buzz::QN_TYPE, buzz::STR_SUBMIT);
 
@@ -1064,6 +1077,9 @@ public:
 		buzz::XmlElement Message(buzz::QN_MESSAGE);
 		Message.AddAttr(buzz::QN_TO, XmppRoom->chatroom_jid().Str());
 		Message.AddAttr(buzz::QN_TYPE, ChatType);
+
+		// Add CorrelationID for tracking purposes
+		FXmppJingle::AddCorrIdToStanza(Message);
 
 		buzz::XmlElement* Body = new buzz::XmlElement(buzz::QN_BODY);
 		Body->SetBodyText(TCHAR_TO_UTF8(*MsgBody));

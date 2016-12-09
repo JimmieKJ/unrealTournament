@@ -2,10 +2,13 @@
 
 #pragma once
 
-#include "Perception/AIPerceptionSystem.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Perception/AISense.h"
 #include "AISense_Prediction.generated.h"
 
+class AAIController;
+class APawn;
 class UAISense_Prediction;
 
 USTRUCT()

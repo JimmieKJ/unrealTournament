@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "UObject/WeakObjectPtr.h"
 #include "SlateSound.generated.h"
-
 
 /**
  * An intermediary to make UBaseSound available for Slate to play sounds

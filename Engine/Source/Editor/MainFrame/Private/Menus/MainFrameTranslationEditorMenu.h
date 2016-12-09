@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "ITranslationEditor.h"
 
 #define LOCTEXT_NAMESPACE "FMainFrameTranslationEditorMenu"
 

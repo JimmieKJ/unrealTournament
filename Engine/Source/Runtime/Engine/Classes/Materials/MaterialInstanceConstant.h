@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "Materials/MaterialInstance.h"
 
 #include "MaterialInstanceConstant.generated.h"

@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MatineeModule.h"
 #include "MatineeFilterButton.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
 
 void SMatineeFilterButton::Construct(const FArguments& InArgs)
 {

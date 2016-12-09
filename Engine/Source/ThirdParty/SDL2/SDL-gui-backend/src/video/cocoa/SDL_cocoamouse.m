@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -195,7 +195,22 @@ Cocoa_ShowCursor(SDL_Cursor * cursor)
     return 0;
 }}
 
-static void
+static SDL_Window *
+SDL_FindWindowAtPoint(const int x, const int y)
+{
+    const SDL_Point pt = { x, y };
+    SDL_Window *i;
+    for (i = SDL_GetVideoDevice()->windows; i; i = i->next) {
+        const SDL_Rect r = { i->x, i->y, i->w, i->h };
+        if (SDL_PointInRect(&pt, &r)) {
+            return i;
+        }
+    }
+
+    return NULL;
+}
+
+static int
 Cocoa_WarpMouseGlobal(int x, int y)
 {
     SDL_Mouse *mouse = SDL_GetMouse();
@@ -204,27 +219,36 @@ Cocoa_WarpMouseGlobal(int x, int y)
         if ([data->listener isMoving]) {
             DLog("Postponing warp, window being moved.");
             [data->listener setPendingMoveX:x Y:y];
-            return;
+            return 0;
         }
     }
-    CGPoint point = CGPointMake((float)x, (float)y);
+    const CGPoint point = CGPointMake((float)x, (float)y);
 
     Cocoa_HandleMouseWarp(point.x, point.y);
 
-    /* According to the docs, this was deprecated in 10.6, but it's still
-     * around. The substitute requires a CGEventSource, but I'm not entirely
-     * sure how we'd procure the right one for this event.
-     */
-    CGSetLocalEventsSuppressionInterval(0.0);
     CGWarpMouseCursorPosition(point);
-    CGSetLocalEventsSuppressionInterval(0.25);
 
-    if (!mouse->relative_mode && mouse->focus) {
-        /* CGWarpMouseCursorPosition doesn't generate a window event, unlike our
-         * other implementations' APIs.
-         */
-        SDL_SendMouseMotion(mouse->focus, mouse->mouseID, 0, x - mouse->focus->x, y - mouse->focus->y);
+    /* CGWarpMouse causes a short delay by default, which is preventable by
+     * Calling this directly after. CGSetLocalEventsSuppressionInterval can also
+     * prevent it, but it's deprecated as of OS X 10.6.
+     */
+    if (!mouse->relative_mode) {
+        CGAssociateMouseAndMouseCursorPosition(YES);
     }
+
+    /* CGWarpMouseCursorPosition doesn't generate a window event, unlike our
+     * other implementations' APIs. Send what's appropriate.
+     */
+    if (!mouse->relative_mode) {
+        SDL_Window *win = SDL_FindWindowAtPoint(x, y);
+        SDL_SetMouseFocus(win);
+        if (win) {
+            SDL_assert(win == mouse->focus);
+            SDL_SendMouseMotion(win, mouse->mouseID, 0, x - win->x, y - win->y);
+        }
+    }
+
+    return 0;
 }
 
 static void
@@ -292,7 +316,7 @@ Cocoa_GetGlobalMouseState(int *x, int *y)
 
     for (NSScreen *screen in [NSScreen screens]) {
         NSRect frame = [screen frame];
-        if (NSPointInRect(cocoaLocation, frame)) {
+        if (NSMouseInRect(cocoaLocation, frame, NO)) {
             *x = (int) cocoaLocation.x;
             *y = (int) ((frame.origin.y + frame.size.height) - cocoaLocation.y);
             break;
@@ -374,7 +398,7 @@ Cocoa_HandleMouseEvent(_THIS, NSEvent *event)
     /* Ignore events that aren't inside the client area (i.e. title bar.) */
     if ([event window]) {
         NSRect windowRect = [[[event window] contentView] frame];
-        if (!NSPointInRect([event locationInWindow], windowRect)) {
+        if (!NSMouseInRect([event locationInWindow], windowRect, NO)) {
             return;
         }
     }
@@ -397,8 +421,8 @@ Cocoa_HandleMouseWheel(SDL_Window *window, NSEvent *event)
 {
     SDL_Mouse *mouse = SDL_GetMouse();
 
-    float x = -[event deltaX];
-    float y = [event deltaY];
+    CGFloat x = -[event deltaX];
+    CGFloat y = [event deltaY];
     SDL_MouseWheelDirection direction = SDL_MOUSEWHEEL_NORMAL;
 
     if ([event respondsToSelector:@selector(isDirectionInvertedFromDevice)]) {
@@ -408,14 +432,14 @@ Cocoa_HandleMouseWheel(SDL_Window *window, NSEvent *event)
     }
 
     if (x > 0) {
-        x += 0.9f;
+        x = SDL_ceil(x);
     } else if (x < 0) {
-        x -= 0.9f;
+        x = SDL_floor(x);
     }
     if (y > 0) {
-        y += 0.9f;
+        y = SDL_ceil(y);
     } else if (y < 0) {
-        y -= 0.9f;
+        y = SDL_floor(y);
     }
     SDL_SendMouseWheel(window, mouse->mouseID, (int)x, (int)y, direction);
 }

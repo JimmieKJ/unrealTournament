@@ -2,11 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/Docking/TabManager.h"
+#include "Toolkits/IToolkit.h"
 #include "Toolkits/IToolkitHost.h"
 #include "Toolkits/AssetEditorToolkit.h"
 
-
-
+class SBorder;
 
 /**
  * Base class for standalone asset editing host tabs

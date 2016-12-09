@@ -1,15 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "LevelEditor.h"
 #include "LevelEditorMenu.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "LevelEditor.h"
 #include "LevelEditorActions.h"
-#include "SLevelEditor.h"
-#include "Editor/MainFrame/Public/MainFrame.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "MRUFavoritesList.h"
-#include "GlobalEditorCommonCommands.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "IDocumentation.h"
 
 #define LOCTEXT_NAMESPACE "LevelEditorMenu"

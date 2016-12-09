@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "QuitMatchCallbackProxy.h"
-#include "GameFramework/Actor.h"
-#include "RepLayout.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "OnlineSubsystem.h"
+#include "OnlineSubsystemBPCallHelper.h"
+#include "GameFramework/PlayerController.h"
 
 UQuitMatchCallbackProxy::UQuitMatchCallbackProxy(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

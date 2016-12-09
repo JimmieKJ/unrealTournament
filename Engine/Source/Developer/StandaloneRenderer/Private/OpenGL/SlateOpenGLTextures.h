@@ -5,6 +5,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Textures/SlateShaderResource.h"
+#include "Fonts/FontTypes.h"
+#include "Textures/SlateUpdatableTexture.h"
+#include "OpenGL/SlateOpenGLExtensions.h"
+
+struct FSlateTextureData;
+
 class FSlateOpenGLTexture : public TSlateTexture< GLuint >, public FSlateUpdatableTexture
 {
 public:

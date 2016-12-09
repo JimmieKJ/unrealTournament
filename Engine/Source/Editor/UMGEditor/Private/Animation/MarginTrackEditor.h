@@ -2,13 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "ISequencer.h"
+#include "ISequencerSection.h"
+#include "ISequencerTrackEditor.h"
 #include "PropertyTrackEditor.h"
-#include "MovieSceneMarginTrack.h"
-#include "MovieSceneMarginSection.h"
-
-
-class UMovieSceneTrack;
-
+#include "Animation/MovieSceneMarginTrack.h"
+#include "Animation/MovieSceneMarginSection.h"
 
 class FMarginTrackEditor
 	: public FPropertyTrackEditor<UMovieSceneMarginTrack, UMovieSceneMarginSection, FMarginKey>
@@ -34,11 +35,14 @@ public:
 	 */
 	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer );
 
+	//~ ISequencerTrackEditor Interface
+
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
+
 protected:
 
-	// FPropertyTrackEditor Interface
+	//~ FPropertyTrackEditor Interface
 
-	virtual TSharedRef<FPropertySection> MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track ) override;
 	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FMarginKey>& NewGeneratedKeys, TArray<FMarginKey>& DefaultGeneratedKeys) override;
 
 private:

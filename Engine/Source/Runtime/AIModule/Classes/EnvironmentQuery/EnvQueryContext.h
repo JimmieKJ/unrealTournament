@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "EnvQueryContext.generated.h"
 
 struct FEnvQueryContextData;
 struct FEnvQueryInstance;
 
-UCLASS(Abstract)
+UCLASS(Abstract, EditInlineNew)
 class AIMODULE_API UEnvQueryContext : public UObject
 {
 	GENERATED_UCLASS_BODY()

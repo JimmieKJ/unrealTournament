@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "Interfaces/IHttpResponse.h"
+#include "HttpModule.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 	#include <wininet.h>
 #include "HideWindowsPlatformTypes.h"

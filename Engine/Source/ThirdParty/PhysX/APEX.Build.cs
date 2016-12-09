@@ -1,7 +1,8 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System;
+using System.IO;
 using System.Collections.Generic;
 
 public class APEX : ModuleRules
@@ -19,20 +20,17 @@ public class APEX : ModuleRules
 		switch (Config)
 		{
 			case UnrealTargetConfiguration.Debug:
-				if( BuildConfiguration.bDebugBuildsActuallyUseDebugCRT )
-				{ 
-					return APEXLibraryMode.Debug;
-				}
-				else if(BuildConfiguration.bUseCheckedPhysXLibraries)
+                if (BuildConfiguration.bDebugBuildsActuallyUseDebugCRT)
                 {
-   	                return APEXLibraryMode.Checked;
-       	        }
-				else
-				{
-                	return APEXLibraryMode.Profile;
-				}
+                    return APEXLibraryMode.Debug;
+                }
+                else
+                {
+                    return APEXLibraryMode.Checked;
+                }
 			case UnrealTargetConfiguration.Shipping:
 			case UnrealTargetConfiguration.Test:
+				return APEXLibraryMode.Shipping;
 			case UnrealTargetConfiguration.Development:
 			case UnrealTargetConfiguration.DebugGame:
 			case UnrealTargetConfiguration.Unknown:
@@ -41,7 +39,7 @@ public class APEX : ModuleRules
                 {
                     return APEXLibraryMode.Shipping;
                 }
-                else if(BuildConfiguration.bUseCheckedPhysXLibraries)
+                else if (BuildConfiguration.bUseCheckedPhysXLibraries)
                 {
                     return APEXLibraryMode.Checked;
                 }
@@ -54,7 +52,6 @@ public class APEX : ModuleRules
 
 	static string GetAPEXLibrarySuffix(APEXLibraryMode Mode)
 	{
-
 		switch (Mode)
 		{
 			case APEXLibraryMode.Debug:
@@ -63,9 +60,9 @@ public class APEX : ModuleRules
 				return "CHECKED";
 			case APEXLibraryMode.Profile:
 				return "PROFILE";
-			default:
-			case APEXLibraryMode.Shipping:
-                return "";
+            case APEXLibraryMode.Shipping:
+            default:
+				return "";	
 		}
 	}
 
@@ -75,30 +72,32 @@ public class APEX : ModuleRules
 
 		// Determine which kind of libraries to link against
 		APEXLibraryMode LibraryMode = GetAPEXLibraryMode(Target.Configuration);
-
-		// Quick Mac hack
-		if (Target.Platform == UnrealTargetPlatform.Mac && (LibraryMode == APEXLibraryMode.Checked || LibraryMode == APEXLibraryMode.Shipping))
-		{
-			LibraryMode = APEXLibraryMode.Profile;
-		}
-
 		string LibrarySuffix = GetAPEXLibrarySuffix(LibraryMode);
 
 		Definitions.Add("WITH_APEX=1");
 
-		string APEXDir = UEBuildConfiguration.UEThirdPartySourceDirectory + "PhysX/APEX-1.3/";
+        string ApexVersion = "APEX_1.4";
 
-		string APEXLibDir = APEXDir + "lib";
+        string APEXDir = UEBuildConfiguration.UEThirdPartySourceDirectory + "PhysX/" + ApexVersion + "/";
+
+		string APEXLibDir = UEBuildConfiguration.UEThirdPartySourceDirectory + "PhysX/Lib";
 
 		PublicSystemIncludePaths.AddRange(
 			new string[] {
-				APEXDir + "public",
-				APEXDir + "framework/public",
-				APEXDir + "framework/public/PhysX3",
-				APEXDir + "module/destructible/public",
-				APEXDir + "module/clothing/public",
-				APEXDir + "module/legacy/public",
-				APEXDir + "NxParameterized/public",
+                APEXDir + "include",
+                APEXDir + "include/clothing",
+                APEXDir + "include/destructible",
+                APEXDir + "include/nvparameterized",
+                APEXDir + "include/legacy",
+                APEXDir + "include/PhysX3",
+                APEXDir + "common/include",
+				APEXDir + "common/include/autogen",
+				APEXDir + "framework/include",
+				APEXDir + "framework/include/autogen",
+                APEXDir + "shared/general/RenderDebug/public",
+                APEXDir + "shared/general/PairFilter/include",
+				APEXDir + "shared/internal/include",
+                APEXDir + "externals/CUDA_6.5.19/include",
 			}
 			);
 
@@ -132,12 +131,12 @@ public class APEX : ModuleRules
 				"ApexFramework{0}_x64.dll",
 			};
 
-			string ApexBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/PhysX/APEX-1.3/Win64/VS{0}/", WindowsPlatform.GetVisualStudioCompilerVersionName());
+			string ApexBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/PhysX/Win64/VS{0}/", WindowsPlatform.GetVisualStudioCompilerVersionName());
 			foreach(string RuntimeDependency in RuntimeDependenciesX64)
 			{
 				string FileName = ApexBinariesDir + String.Format(RuntimeDependency, LibrarySuffix);
 				RuntimeDependencies.Add(FileName, StagedFileType.NonUFS);
-				RuntimeDependencies.Add(FileName + ".pdb", StagedFileType.DebugNonUFS);
+				RuntimeDependencies.Add(Path.ChangeExtension(FileName, ".pdb"), StagedFileType.DebugNonUFS);
 			}
             if(LibrarySuffix != "")
             {
@@ -161,12 +160,12 @@ public class APEX : ModuleRules
 				"ApexFramework{0}_x86.dll",
 			};
 
-			string ApexBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/PhysX/APEX-1.3/Win32/VS{0}/", WindowsPlatform.GetVisualStudioCompilerVersionName());
+			string ApexBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/PhysX/Win32/VS{0}/", WindowsPlatform.GetVisualStudioCompilerVersionName());
 			foreach(string RuntimeDependency in RuntimeDependenciesX86)
 			{
 				string FileName = ApexBinariesDir + String.Format(RuntimeDependency, LibrarySuffix);
 				RuntimeDependencies.Add(FileName, StagedFileType.NonUFS);
-				RuntimeDependencies.Add(FileName + ".pdb", StagedFileType.DebugNonUFS);
+				RuntimeDependencies.Add(Path.ChangeExtension(FileName, ".pdb"), StagedFileType.DebugNonUFS);
 			}
             if (LibrarySuffix != "")
             {
@@ -175,23 +174,52 @@ public class APEX : ModuleRules
         }
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			APEXLibDir += "/osx64";
-			Definitions.Add("APEX_STATICALLY_LINKED=1");
+			APEXLibDir += "/Mac";
 
-			ApexLibraries.Add("APEX_Legacy{0}");
+			ApexLibraries.Clear();
+			ApexLibraries.AddRange(
+				new string[]
+				{
+					"ApexCommon{0}",
+					"ApexShared{0}",
+				});
 
 			LibraryFormatString = APEXLibDir + "/lib{0}" + ".a";
+
+			string[] DynamicLibrariesMac = new string[] {
+				"/libAPEX_Clothing{0}.dylib",
+				"/libAPEX_Destructible{0}.dylib",
+				"/libAPEX_Legacy{0}.dylib",
+				"/libApexFramework{0}.dylib"
+			};
+
+			string PhysXBinariesDir = UEBuildConfiguration.UEThirdPartyBinariesDirectory + "PhysX/Mac";
+			foreach (string Lib in DynamicLibrariesMac)
+			{
+				string LibraryPath = PhysXBinariesDir + String.Format(Lib, LibrarySuffix);
+				PublicDelayLoadDLLs.Add(LibraryPath);
+				RuntimeDependencies.Add(new RuntimeDependency(LibraryPath));
+			}
+			if (LibrarySuffix != "")
+			{
+				Definitions.Add("UE_APEX_SUFFIX=" + LibrarySuffix);
+			}
 		}
-        else if (Target.Platform == UnrealTargetPlatform.Linux)
-        {
-            APEXLibDir += "/Linux/" + Target.Architecture;
-            Definitions.Add("APEX_STATICALLY_LINKED=1");
+		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		{
+			if (Target.Architecture != "arm-unknown-linux-gnueabihf")
+			{
+				APEXLibDir += "/Linux/" + Target.Architecture;
+				Definitions.Add("APEX_STATICALLY_LINKED=1");
 
-            ApexLibraries.Add("APEX_Legacy{0}");
-
-            LibraryFormatString = APEXLibDir + "/lib{0}" + ".a";
-        }
-        else if (Target.Platform == UnrealTargetPlatform.PS4)
+				ApexLibraries.Add("APEX_Clothing{0}");
+				ApexLibraries.Add("APEX_Destructible{0}");
+				ApexLibraries.Add("APEX_Legacy{0}");
+				ApexLibraries.Add("ApexFramework{0}");
+				LibraryFormatString = APEXLibDir + "/lib{0}" + ".a";
+			}
+		}
+		else if (Target.Platform == UnrealTargetPlatform.PS4)
 		{
 			Definitions.Add("APEX_STATICALLY_LINKED=1");
 			Definitions.Add("WITH_APEX_LEGACY=0");
@@ -199,27 +227,40 @@ public class APEX : ModuleRules
 			APEXLibDir += "/PS4";
 			PublicLibraryPaths.Add(APEXLibDir);
 
+            ApexLibraries.Add("NvParameterized{0}");
+            ApexLibraries.Add("RenderDebug{0}");
+
 			LibraryFormatString = "{0}";
 		}
 		else if (Target.Platform == UnrealTargetPlatform.XboxOne)
 		{
-			// Use reflection to allow type not to exist if console code is not present
-			System.Type XboxOnePlatformType = System.Type.GetType("UnrealBuildTool.XboxOnePlatform,UnrealBuildTool");
-			if (XboxOnePlatformType != null)
-			{
-				Definitions.Add("APEX_STATICALLY_LINKED=1");
-				Definitions.Add("WITH_APEX_LEGACY=0");
+			Definitions.Add("APEX_STATICALLY_LINKED=1");
+			Definitions.Add("WITH_APEX_LEGACY=0");
+			Definitions.Add("_XBOX_ONE=1");
 
-				// This MUST be defined for XboxOne!
-				Definitions.Add("PX_HAS_SECURE_STRCPY=1");
+			// This MUST be defined for XboxOne!
+			Definitions.Add("PX_HAS_SECURE_STRCPY=1");
 
-				System.Object VersionName = XboxOnePlatformType.GetMethod("GetVisualStudioCompilerVersionName").Invoke(null, null);
-				APEXLibDir += "/XboxOne/VS" + VersionName.ToString();
-				PublicLibraryPaths.Add(APEXLibDir);
+			APEXLibDir += "/XboxOne/VS" + WindowsPlatform.GetVisualStudioCompilerVersionName();
+			PublicLibraryPaths.Add(APEXLibDir);
 
-				LibraryFormatString = "{0}.lib";
-			}
+			ApexLibraries.Add("NvParameterized{0}");
+			ApexLibraries.Add("RenderDebug{0}");
+
+			LibraryFormatString = "{0}.lib";
 		}
+		else if (Target.Platform == UnrealTargetPlatform.Switch)
+		{
+			Definitions.Add("APEX_STATICALLY_LINKED=1");
+			Definitions.Add("WITH_APEX_LEGACY=0");
+
+			APEXLibDir += "/Switch";
+			PublicLibraryPaths.Add(APEXLibDir);
+
+			LibraryFormatString = "{0}";
+		}
+
+		Definitions.Add("APEX_UE4=1");
 
 		// Add the libraries needed (used for all platforms except Windows)
 		if (LibraryFormatString != null)

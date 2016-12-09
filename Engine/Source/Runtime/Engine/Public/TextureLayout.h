@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /**
  * An incremental texture space allocator.
  * For best results, add the elements ordered descending in size.
@@ -21,11 +23,14 @@ public:
 	 * @param	MaxSizeX - The maximum width of the texture.
 	 * @param	MaxSizeY - The maximum height of the texture.
 	 * @param	InPowerOfTwoSize - True if the texture size must be a power of two.
+	 * @param	bInForce2To1Aspect - True if the texture size must have a 2:1 aspect.
+	 * @param	bInAlignByFour - True if the texture size must be a multiple of 4..
 	 */
-	FTextureLayout(uint32 MinSizeX, uint32 MinSizeY, uint32 MaxSizeX, uint32 MaxSizeY, bool bInPowerOfTwoSize = false, bool bInAlignByFour = true):
+	FTextureLayout(uint32 MinSizeX, uint32 MinSizeY, uint32 MaxSizeX, uint32 MaxSizeY, bool bInPowerOfTwoSize = false, bool bInForce2To1Aspect = false, bool bInAlignByFour = true):
 		SizeX(MinSizeX),
 		SizeY(MinSizeY),
 		bPowerOfTwoSize(bInPowerOfTwoSize),
+		bForce2To1Aspect(bInForce2To1Aspect),
 		bAlignByFour(bInAlignByFour)
 	{
 		new(Nodes) FTextureLayoutNode(0, 0, MaxSizeX, MaxSizeY);
@@ -57,7 +62,7 @@ public:
 			ElementSizeX = (ElementSizeX + 3) & ~3;
 			ElementSizeY = (ElementSizeY + 3) & ~3;
 		}
-		
+
 		// Try allocating space without enlarging the texture.
 		int32	NodeIndex = AddSurfaceInner(0, ElementSizeX, ElementSizeY, false);
 		if (NodeIndex == INDEX_NONE)
@@ -77,10 +82,12 @@ public:
 			{
 				SizeX = FMath::Max<uint32>(SizeX, FMath::RoundUpToPowerOfTwo(Node.MinX + ElementSizeX));
 				SizeY = FMath::Max<uint32>(SizeY, FMath::RoundUpToPowerOfTwo(Node.MinY + ElementSizeY));
-
-				// Force 2:1 aspect
-				SizeX = FMath::Max( SizeX, SizeY * 2 );
-				SizeY = FMath::Max( SizeY, SizeX / 2 );
+			
+				if (bForce2To1Aspect)
+				{
+					SizeX = FMath::Max( SizeX, SizeY * 2 );
+					SizeY = FMath::Max( SizeY, SizeX / 2 );
+				}
 			}
 			else
 			{
@@ -194,6 +201,7 @@ private:
 	uint32 SizeX;
 	uint32 SizeY;
 	bool bPowerOfTwoSize;
+	bool bForce2To1Aspect;
 	bool bAlignByFour;
 	TArray<FTextureLayoutNode,TInlineAllocator<5> > Nodes;
 
@@ -244,6 +252,28 @@ private:
 				// Reject this node if this is an attempt to allocate space without enlarging the texture, 
 				// And this node cannot hold the element without enlarging the texture.
 				if (CurrentNodePtr->MinX + ElementSizeX > SizeX || CurrentNodePtr->MinY + ElementSizeY > SizeY)
+				{
+					return INDEX_NONE;
+				}
+			}
+			else // Reject this node if this is an attempt to allocate space beyond max size.
+			{
+				const int32 MaxTextureSize = (1 << (MAX_TEXTURE_MIP_COUNT - 1));
+				int32 ExpectedSizeX = CurrentNodePtr->MinX + ElementSizeX;
+				int32 ExpectedSizeY = CurrentNodePtr->MinY + ElementSizeY;
+				if (bPowerOfTwoSize)
+				{
+					ExpectedSizeX = FMath::RoundUpToPowerOfTwo(ExpectedSizeX);
+					ExpectedSizeY = FMath::RoundUpToPowerOfTwo(ExpectedSizeY);
+
+					if (bForce2To1Aspect)
+					{
+						ExpectedSizeX = FMath::Max( ExpectedSizeX, ExpectedSizeY * 2 );
+						ExpectedSizeY = FMath::Max( ExpectedSizeY, ExpectedSizeX / 2 );
+					}
+				}
+				
+				if (ExpectedSizeX > MaxTextureSize ||ExpectedSizeY > MaxTextureSize)
 				{
 					return INDEX_NONE;
 				}

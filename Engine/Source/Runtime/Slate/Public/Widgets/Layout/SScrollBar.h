@@ -1,8 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  
 #pragma once
-#include "SSpacer.h"
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Styling/SlateWidgetStyleAsset.h"
+
+class SScrollBarTrack;
+class SSpacer;
 
 DECLARE_DELEGATE_OneParam(
 	FOnUserScrolled,
@@ -100,6 +112,9 @@ public:
 
 	/** @return True if the user is scrolling by dragging the scroll bar thumb. */
 	bool IsScrolling() const;
+
+	/** @return the orientation in which the scrollbar is scrolling. */
+	EOrientation GetOrientation() const; 
 
 	/** See argument Style */
 	void SetStyle(const FScrollBarStyle* InStyle);

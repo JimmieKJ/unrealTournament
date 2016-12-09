@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "Core.h"
-#include "OnlineLeaderboardInterface.h"
+#include "CoreMinimal.h"
+#include "Containers/Ticker.h"
+#include "UObject/CoreOnline.h"
+#include "Interfaces/OnlineLeaderboardInterface.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

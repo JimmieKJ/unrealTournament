@@ -2,6 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "ClassViewerModule.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Preferences/UnrealEdOptions.h"
+
+class ITableRow;
+class SClassViewer;
+class STableViewBase;
+class SWindow;
+
 //////////////////////////////////////////////////////////////////////////
 // SClassPickerDialog
 

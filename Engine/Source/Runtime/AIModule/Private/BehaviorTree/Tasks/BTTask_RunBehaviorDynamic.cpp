@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Tasks/BTTask_RunBehaviorDynamic.h"
-#include "BehaviorTree/BehaviorTreeManager.h"
+#include "BehaviorTree/BehaviorTree.h"
 
 UBTTask_RunBehaviorDynamic::UBTTask_RunBehaviorDynamic(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

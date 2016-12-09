@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "PropertyEditing.h"
-#include "PropertyCustomizationHelpers.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "IPropertyTypeCustomization.h"
+
+class IPropertyHandle;
 
 class FEnvDirectionCustomization : public IPropertyTypeCustomization
 {

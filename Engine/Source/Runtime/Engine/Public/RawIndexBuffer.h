@@ -6,7 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RHI.h"
 #include "RenderResource.h"
+#include "Containers/DynamicRHIResourceArray.h"
 
 class FRawIndexBuffer : public FIndexBuffer
 {
@@ -29,7 +32,9 @@ public:
 #if DISALLOW_32BIT_INDICES
 
 // if 32 bit indices are disallowed, then use 16 bits in the FRawIndexBuffer16or32
-typedef FRawIndexBuffer FRawIndexBuffer16or32;
+class FRawIndexBuffer16or32 : public FRawIndexBuffer
+{
+};
 
 #else
 

@@ -1,26 +1,35 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "BlueprintEditorModule.h"
-#include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
+#include "Editor.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorStyleSet.h"
+#include "EditorUndoClient.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "Logging/TokenizedMessage.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/UObjectHash.h"
+#include "Serialization/ArchiveReplaceObjectRef.h"
 #include "BlueprintEditor.h"
-#include "BlueprintEditorUtils.h"
-#include "BlueprintUtilities.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 //#include "BlueprintWarningsConfigurationPanel.h"
-#include "Toolkits/ToolkitManager.h"
-#include "Editor/UnrealEd/Public/Kismet2/DebuggerCommands.h"
+#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructure.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 #include "Editor/LevelEditor/Public/LevelEditor.h"
 #include "UserDefinedEnumEditor.h"
+#include "MessageLogInitializationOptions.h"
+#include "IMessageLogListing.h"
 #include "Developer/MessageLog/Public/MessageLogModule.h"
-#include "UObjectToken.h"
+#include "Misc/UObjectToken.h"
 #include "InstancedStaticMeshSCSEditorCustomization.h"
 #include "InstancedReferenceSubobjectHelper.h"
 #include "ISettingsModule.h"
 #include "UserDefinedStructureEditor.h"
+#include "EdGraphUtilities.h"
 #include "BlueprintGraphPanelPinFactory.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintEditor"
 
@@ -222,6 +231,7 @@ void FBlueprintEditorModule::StartupModule()
 
 	// Register internal SCS editor customizations
 	RegisterSCSEditorCustomization("InstancedStaticMeshComponent", FSCSEditorCustomizationBuilder::CreateStatic(&FInstancedStaticMeshSCSEditorCustomization::MakeInstance));
+	RegisterSCSEditorCustomization("HierarchicalInstancedStaticMeshComponent", FSCSEditorCustomizationBuilder::CreateStatic(&FInstancedStaticMeshSCSEditorCustomization::MakeInstance));
 
 	TSharedPtr<FBlueprintGraphPanelPinFactory> BlueprintGraphPanelPinFactory = MakeShareable(new FBlueprintGraphPanelPinFactory());
 	FEdGraphUtilities::RegisterVisualPinFactory(BlueprintGraphPanelPinFactory);

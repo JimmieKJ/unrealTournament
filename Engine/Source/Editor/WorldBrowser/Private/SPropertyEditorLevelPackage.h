@@ -1,8 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "TextFilter.h"
-#include "FilterCollection.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Misc/Paths.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "PropertyHandle.h"
+#include "Misc/PackageName.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+
+template <typename ItemType> class SListView;
+template< typename ItemType > class TTextFilter;
 
 /////////////////////////////////////////////////////
 // FLevelPackageItem

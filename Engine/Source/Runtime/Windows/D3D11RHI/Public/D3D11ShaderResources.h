@@ -15,7 +15,7 @@ struct FD3D11ShaderResourceTable : public FBaseShaderResourceTable
 	{
 		const FBaseShaderResourceTable& BaseA = A;
 		const FBaseShaderResourceTable& BaseB = B;
-		return A == B && (FMemory::Memcmp(A.TextureMap.GetData(), B.TextureMap.GetData(), A.TextureMap.GetTypeSize()*A.TextureMap.Num()) == 0);
+		return BaseA == BaseB && (FMemory::Memcmp(A.TextureMap.GetData(), B.TextureMap.GetData(), A.TextureMap.GetTypeSize()*A.TextureMap.Num()) == 0);
 	}
 };
 
@@ -26,4 +26,3 @@ inline FArchive& operator<<(FArchive& Ar, FD3D11ShaderResourceTable& SRT)
 	Ar << SRT.TextureMap;
 	return Ar;
 }
-

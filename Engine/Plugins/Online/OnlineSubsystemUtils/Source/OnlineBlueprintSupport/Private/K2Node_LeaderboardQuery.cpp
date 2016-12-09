@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineBlueprintSupportPrivatePCH.h"
-#include "LeaderboardQueryCallbackProxy.h"
 #include "K2Node_LeaderboardQuery.h"
+#include "LeaderboardQueryCallbackProxy.h"
 
 #define LOCTEXT_NAMESPACE "K2Node"
 

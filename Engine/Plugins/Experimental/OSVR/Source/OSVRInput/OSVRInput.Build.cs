@@ -41,7 +41,6 @@ public class OSVRInput : ModuleRules
         if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
         {
             PrivateDependencyModuleNames.AddRange(new string[] { "D3D11RHI" });
-			PrivateIncludePathModuleNames.Add("DX11");
 
             // Required for some private headers needed for the rendering support.
             var EngineDir = Path.GetFullPath(BuildConfiguration.RelativeEnginePath);

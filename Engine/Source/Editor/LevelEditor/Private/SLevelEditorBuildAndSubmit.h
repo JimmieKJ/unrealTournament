@@ -3,6 +3,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "ILevelEditor.h"
+#include "ISourceControlState.h"
+
+class FPackageItem;
+class ITableRow;
+class SCheckBox;
+class SEditableTextBox;
+class STableViewBase;
+
 /**
  * Build and Submit tab for the level editor                   
  */

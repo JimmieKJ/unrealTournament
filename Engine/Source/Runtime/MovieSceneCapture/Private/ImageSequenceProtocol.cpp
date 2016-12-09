@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneCapturePCH.h"
+#include "Protocols/ImageSequenceProtocol.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/ScopeLock.h"
+#include "Modules/ModuleManager.h"
+#include "Async/Future.h"
+#include "Async/Async.h"
 
-#include "ImageSequenceProtocol.h"
+#include "Templates/Casts.h"
+#include "MovieSceneCaptureSettings.h"
 
 void UBmpImageCaptureSettings::OnReleaseConfig(FMovieSceneCaptureSettings& InSettings)
 {
@@ -51,7 +59,7 @@ void UImageCaptureSettings::OnLoadConfig(FMovieSceneCaptureSettings& InSettings)
 }
 
 #if WITH_EDITOR
-#include "IImageWrapperModule.h"
+#include "Interfaces/IImageWrapperModule.h"
 
 namespace
 {

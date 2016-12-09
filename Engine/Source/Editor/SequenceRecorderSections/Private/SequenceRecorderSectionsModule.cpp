@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderSectionsPrivatePCH.h"
-#include "ModuleManager.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Features/IModularFeatures.h"
 #include "MovieScene3DAttachSectionRecorder.h"
 #include "MovieSceneParticleTrackSectionRecorder.h"
 #include "MovieSceneSpawnSectionRecorder.h"

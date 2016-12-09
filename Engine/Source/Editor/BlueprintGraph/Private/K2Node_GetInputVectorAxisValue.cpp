@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "K2Node_GetInputVectorAxisValue.h"
-#include "CompilerResultsLog.h"
+#include "GameFramework/Actor.h"
+#include "Kismet2/CompilerResultsLog.h"
 #include "BlueprintNodeSpawner.h"
+#include "Engine/InputAxisKeyDelegateBinding.h"
 #include "Engine/InputVectorAxisDelegateBinding.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 

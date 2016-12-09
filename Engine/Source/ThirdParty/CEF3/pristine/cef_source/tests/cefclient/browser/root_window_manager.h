@@ -72,6 +72,7 @@ class RootWindowManager : public RootWindow::Delegate {
 
   const bool terminate_when_all_windows_closed_;
   bool request_context_per_browser_;
+  bool request_context_shared_cache_;
 
   // Existing root windows. Only accessed on the main thread.
   typedef std::set<scoped_refptr<RootWindow> > RootWindowSet;
@@ -79,6 +80,8 @@ class RootWindowManager : public RootWindow::Delegate {
 
   // Singleton window used as the temporary parent for popup browsers.
   TempWindow temp_window_;
+
+  CefRefPtr<CefRequestContext> shared_request_context_;
 
   DISALLOW_COPY_AND_ASSIGN(RootWindowManager);
 };

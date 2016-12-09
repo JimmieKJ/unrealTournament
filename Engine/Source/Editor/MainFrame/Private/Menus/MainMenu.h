@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Docking/TabManager.h"
+#include "ILocalizationDashboardModule.h"
+
+class FMenuBuilder;
 
 /**
  * Unreal editor main frame Slate widget

@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LeapMotionPrivatePCH.h"
+#include "FLeapMotion.h"
+#include "Misc/Paths.h"
+#include "HAL/PlatformProcess.h"
+#include "LeapForwardDeclaration.h"
+#include "LeapInterfaceUtility.h"
 
 #define LOCTEXT_NAMESPACE "LeapPlugin"
 #define PLUGIN_VERSION "2.0.0"

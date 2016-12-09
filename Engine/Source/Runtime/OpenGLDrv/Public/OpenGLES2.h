@@ -91,6 +91,7 @@ struct FOpenGLES2 : public FOpenGLBase
 	static FORCEINLINE bool SupportsPolygonMode()						{ return false; }
 	static FORCEINLINE bool SupportsSamplerObjects()					{ return false; }
 	static FORCEINLINE bool SupportsTexture3D()							{ return false; }
+	static FORCEINLINE bool SupportsMobileMultiView()					{ return false; }
 	static FORCEINLINE bool SupportsTextureLODBias()					{ return false; }
 	static FORCEINLINE bool SupportsTextureCompare()					{ return false; }
 	static FORCEINLINE bool SupportsTextureBaseLevel()					{ return false; }
@@ -150,6 +151,10 @@ struct FOpenGLES2 : public FOpenGLBase
 	static FORCEINLINE int32 GetReadHalfFloatPixelsEnum()				{ return GL_HALF_FLOAT_OES; }
 
 	static FORCEINLINE GLenum GetVertexHalfFloatFormat()				{ return GL_HALF_FLOAT_OES; }
+	static FORCEINLINE GLenum GetTextureHalfFloatPixelType()			{ return GL_HALF_FLOAT_OES; }
+	static FORCEINLINE GLenum GetTextureHalfFloatInternalFormat()		{ return GL_RGBA; }
+
+	
 	static FORCEINLINE bool NeedsVertexAttribRemapTable()				{ return bNeedsVertexAttribRemap; }
 
 	// On iOS both glMapBufferOES() and glBufferSubData() for immediate vertex and index data
@@ -196,27 +201,36 @@ struct FOpenGLES2 : public FOpenGLBase
 
 	static FORCEINLINE void LabelObject(GLenum Type, GLuint Object, const ANSICHAR* Name)
 	{
-		// @todo-mobile: Tie this to be optional; 
-		glLabelObjectEXT(Type, Object, 0, Name);
+		if (glLabelObjectEXT != nullptr)
+		{
+			glLabelObjectEXT(Type, Object, 0, Name);
+		}
 	}
 
 	static FORCEINLINE GLsizei GetLabelObject(GLenum Type, GLuint Object, GLsizei BufferSize, ANSICHAR* OutName)
 	{
 		GLsizei Length = 0;
-		glGetObjectLabelEXT(Type, Object, BufferSize, &Length, OutName);
+		if (glGetObjectLabelEXT != nullptr)
+		{
+			glGetObjectLabelEXT(Type, Object, BufferSize, &Length, OutName);
+		}
 		return Length;
 	}
 
 	static FORCEINLINE void PushGroupMarker(const ANSICHAR* Name)
 	{
-		// @todo-mobile: Tie this to be optional; 
-		glPushGroupMarkerEXT(0, Name);
+		if (glPushGroupMarkerEXT != nullptr)
+		{
+			glPushGroupMarkerEXT(0, Name);
+		}
 	}
 
 	static FORCEINLINE void PopGroupMarker()
 	{
-		// @todo-mobile: Tie this to be optional; 
-		glPopGroupMarkerEXT();
+		if (glPopGroupMarkerEXT != nullptr)
+		{
+			glPopGroupMarkerEXT();
+		}
 	}
 
 	// Required
@@ -727,9 +741,6 @@ public:
 #endif
 #ifndef GL_RGBA16
 #define GL_RGBA16 0x805B
-#endif
-#ifndef GL_RGBA16F
-#define GL_RGBA16F 0x881A
 #endif
 #ifndef GL_RGBA32F
 #define GL_RGBA32F 0x8814

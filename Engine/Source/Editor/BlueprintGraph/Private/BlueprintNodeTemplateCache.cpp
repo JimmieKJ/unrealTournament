@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintNodeTemplateCache.h"
-#include "BlueprintEditorUtils.h"	// for FindFirstNativeClass(), FindBlueprintForGraph()
+#include "Engine/Blueprint.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/MetaData.h"
+#include "GameFramework/Actor.h"
+#include "Animation/AnimBlueprint.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
+#include "EdGraph/EdGraphSchema.h"
 #include "EdGraph/EdGraph.h"
-#include "KismetEditorUtilities.h"	// for CreateBlueprint()
-#include "BlueprintNodeSpawner.h"   // for NodeClass/Invoke()
-#include "BlueprintEditorSettings.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "Animation/AnimInstance.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "BlueprintEditorSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogBlueprintNodeCache, Log, All);
 

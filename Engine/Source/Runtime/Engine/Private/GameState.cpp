@@ -4,44 +4,17 @@
 	GameState.cpp: GameState C++ code.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Net/UnrealNetwork.h"
 #include "GameFramework/GameState.h"
-#include "GameFramework/PlayerState.h"
+#include "TimerManager.h"
 #include "GameFramework/GameMode.h"
-
-DEFINE_LOG_CATEGORY_STATIC(LogGameState, Log, All);
+#include "GameFramework/WorldSettings.h"
+#include "Net/UnrealNetwork.h"
 
 AGameState::AGameState(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer
-		.DoNotCreateDefaultSubobject(TEXT("Sprite")) )
+	: Super(ObjectInitializer)
 {
-	SetRemoteRoleForBackwardsCompat(ROLE_SimulatedProxy);
-	bReplicates = true;
-	bAlwaysRelevant = true;
-	bReplicateMovement = false;
-
-	// Note: this is very important to set to false. Though all replication infos are spawned at run time, during seamless travel
-	// they are held on to and brought over into the new world. In ULevel::InitializeNetworkActors, these PlayerStates may be treated as map/startup actors
-	// and given static NetGUIDs. This also causes their deletions to be recorded and sent to new clients, which if unlucky due to name conflicts,
-	// may end up deleting the new PlayerStates they had just spaned.
-	bNetLoadOnClient = false;
 	MatchState = MatchState::EnteringMap;
 	PreviousMatchState = MatchState::EnteringMap;
-
-	// Default to every few seconds.
-	ServerWorldTimeSecondsUpdateFrequency = 5.f;
-}
-
-/** Helper to return the default object of the GameMode class corresponding to this GameState. */
-AGameMode* AGameState::GetDefaultGameMode() const
-{
-	if ( GameModeClass )
-	{
-		AGameMode* const DefaultGameActor = GameModeClass->GetDefaultObject<AGameMode>();
-		return DefaultGameActor;
-	}
-	return NULL;
 }
 
 void AGameState::DefaultTimer()
@@ -58,98 +31,17 @@ void AGameState::DefaultTimer()
 	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AGameState::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation() / GetWorldSettings()->DemoPlayTimeDilation, true);
 }
 
+bool AGameState::ShouldShowGore() const
+{
+	return true;
+}
+
 void AGameState::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
 	FTimerManager& TimerManager = GetWorldTimerManager();
 	TimerManager.SetTimer(TimerHandle_DefaultTimer, this, &AGameState::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation() / GetWorldSettings()->DemoPlayTimeDilation, true);
-
-	UWorld* World = GetWorld();
-	World->GameState = this;
-
-	if (World->IsGameWorld() && Role == ROLE_Authority)
-	{
-		UpdateServerTimeSeconds();
-		if (ServerWorldTimeSecondsUpdateFrequency > 0.f)
-		{
-			TimerManager.SetTimer(TimerHandle_UpdateServerTimeSeconds, this, &AGameState::UpdateServerTimeSeconds, ServerWorldTimeSecondsUpdateFrequency, true);
-		}
-	}
-
-	for (TActorIterator<APlayerState> It(World); It; ++It)
-	{
-		AddPlayerState(*It);
-	}
-}
-
-void AGameState::OnRep_GameModeClass()
-{
-	ReceivedGameModeClass();
-}
-
-void AGameState::OnRep_SpectatorClass()
-{
-	ReceivedSpectatorClass();
-}
-
-void AGameState::ReceivedGameModeClass()
-{
-	// Tell each PlayerController that the Game class is here
-	for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
-	{
-		APlayerController* const PlayerController = *Iterator;
-		if (PlayerController)
-		{
-			PlayerController->ReceivedGameModeClass(GameModeClass);
-		}
-	}
-}
-
-void AGameState::ReceivedSpectatorClass()
-{
-	// Tell each PlayerController that the Spectator class is here
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-	{
-		APlayerController* const PlayerController = *Iterator;
-		if (PlayerController && PlayerController->IsLocalController())
-		{
-			PlayerController->ReceivedSpectatorClass(SpectatorClass);
-		}
-	}
-}
-
-void AGameState::SeamlessTravelTransitionCheckpoint(bool bToTransitionMap)
-{
-	UWorld* World = GetWorld();
-
-	// mark all existing player states as from previous level for various bookkeeping
-	for (int32 i = 0; i < World->GameState->PlayerArray.Num(); i++)
-	{
-		World->GameState->PlayerArray[i]->bFromPreviousLevel = true;
-	}
-}
-
-void AGameState::AddPlayerState(APlayerState* PlayerState)
-{
-	// Determine whether it should go in the active or inactive list
-	if (!PlayerState->bIsInactive)
-	{
-		// make sure no duplicates
-		PlayerArray.AddUnique(PlayerState);
-	}
-}
-
-void AGameState::RemovePlayerState(APlayerState* PlayerState)
-{
-	for (int32 i=0; i<PlayerArray.Num(); i++)
-	{
-		if (PlayerArray[i] == PlayerState)
-		{
-			PlayerArray.RemoveAt(i,1);
-			return;
-		}
-	}
 }
 
 void AGameState::HandleMatchIsWaitingToStart()
@@ -167,6 +59,11 @@ void AGameState::HandleMatchHasStarted()
 	{
 		// Server handles this in AGameMode::HandleMatchHasStarted
 		GetWorldSettings()->NotifyMatchStarted();
+	}
+	else
+	{
+		// Now that match has started, act like the base class and set replicated flag
+		bReplicatedHasBegunPlay = true;
 	}
 }
 
@@ -188,6 +85,11 @@ bool AGameState::HasMatchStarted() const
 	}
 
 	return true;
+}
+
+void AGameState::HandleBeginPlay()
+{
+	// Overridden to not do anything, the state machine tells world when to start
 }
 
 bool AGameState::IsMatchInProgress() const
@@ -249,41 +151,24 @@ void AGameState::OnRep_MatchState()
 
 void AGameState::OnRep_ElapsedTime()
 {
-	//Blank on purpose
+	// Blank on purpose
 }
 
-bool AGameState::ShouldShowGore() const
+float AGameState::GetPlayerStartTime(class AController* Controller) const
 {
-	return true;
+	return ElapsedTime;
 }
 
-float AGameState::GetServerWorldTimeSeconds() const
+float AGameState::GetPlayerRespawnDelay(class AController* Controller) const
 {
-	UWorld* World = GetWorld();
-	if (World)
+	const AGameMode* GameMode = GetDefaultGameMode<AGameMode>();
+
+	if (GameMode)
 	{
-		return World->GetTimeSeconds() + ServerWorldTimeSecondsDelta;
+		return GameMode->MinRespawnDelay;
 	}
 
-	return 0.f;
-}
-
-void AGameState::UpdateServerTimeSeconds()
-{
-	UWorld* World = GetWorld();
-	if (World)
-	{
-		ReplicatedWorldTimeSeconds = World->GetTimeSeconds();
-	}
-}
-
-void AGameState::OnRep_ReplicatedWorldTimeSeconds()
-{
-	UWorld* World = GetWorld();
-	if (World)
-	{
-		ServerWorldTimeSecondsDelta = ReplicatedWorldTimeSeconds - World->GetTimeSeconds();
-	}
+	return Super::GetPlayerRespawnDelay(Controller);
 }
 
 void AGameState::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetimeProps ) const
@@ -291,10 +176,5 @@ void AGameState::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLi
 	Super::GetLifetimeReplicatedProps( OutLifetimeProps );
 
 	DOREPLIFETIME( AGameState, MatchState );
-	DOREPLIFETIME( AGameState, SpectatorClass );
-
-	DOREPLIFETIME_CONDITION( AGameState, GameModeClass,	COND_InitialOnly );
 	DOREPLIFETIME_CONDITION( AGameState, ElapsedTime,	COND_InitialOnly );
-
-	DOREPLIFETIME( AGameState, ReplicatedWorldTimeSeconds );
 }

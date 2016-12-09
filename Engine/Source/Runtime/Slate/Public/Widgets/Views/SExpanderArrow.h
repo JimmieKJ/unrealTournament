@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "SButton.h"
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/Margin.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Styling/CoreStyle.h"
+
+class ITableRow;
+class SButton;
 
 /**
  * Expander arrow and indentation component that can be placed in a TableRow

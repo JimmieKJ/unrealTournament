@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "Core.h"
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class IOnlineSubsystem;
 
 typedef TSharedPtr<class IOnlineSubsystem, ESPMode::ThreadSafe> IOnlineSubsystemPtr;
 

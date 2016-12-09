@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "UObject/ReferenceChainSearch.h"
+#include "HAL/PlatformStackWalk.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/UnrealType.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogReferenceChain, Log, All);
 

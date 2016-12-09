@@ -1,25 +1,37 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
 #include "SAnimViewportToolBar.h"
-#include "SAnimationEditorViewport.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EngineGlobals.h"
+#include "AssetData.h"
+#include "Engine/Engine.h"
+#include "EditorStyleSet.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Preferences/PersonaOptions.h"
 #include "EditorViewportCommands.h"
 #include "AnimViewportMenuCommands.h"
 #include "AnimViewportShowCommands.h"
 #include "AnimViewportLODCommands.h"
 #include "AnimViewportPlaybackCommands.h"
 #include "SAnimPlusMinusSlider.h"
-#include "AnimationEditorViewportClient.h"
-#include "Editor/UnrealEd/Public/SEditorViewportToolBarMenu.h"
-#include "Editor/UnrealEd/Public/STransformViewportToolbar.h"
+#include "SEditorViewportToolBarMenu.h"
+#include "STransformViewportToolbar.h"
 #include "SEditorViewportViewMenu.h"
-#include "SColorPicker.h"
-#include "SNumericEntryBox.h"
-#include "STextComboBox.h"
-
+#include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Colors/SColorPicker.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Input/STextComboBox.h"
 #include "AssetViewerSettings.h"
-
+#include "PersonaPreviewSceneDescription.h"
+#include "Engine/PreviewMeshCollection.h"
+#include "PreviewSceneCustomizations.h"
 
 #define LOCTEXT_NAMESPACE "AnimViewportToolBar"
 
@@ -127,7 +139,7 @@ protected:
 		const UEditorPerProjectUserSettings* PerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
 		const int32 ProfileIndex = Settings->Profiles.IsValidIndex(PerProjectUserSettings->AssetViewerProfileIndex) ? PerProjectUserSettings->AssetViewerProfileIndex : 0;
 
-		ensureMsgf(Settings && Settings->Profiles.IsValidIndex(PerProjectUserSettings->AssetViewerProfileIndex), TEXT("Invalid default settings pointer or current profile index"));
+		ensureMsgf(Settings->Profiles.IsValidIndex(PerProjectUserSettings->AssetViewerProfileIndex), TEXT("Invalid default settings pointer or current profile index"));
 		
 		return !Settings->Profiles[ProfileIndex].bShowEnvironment;
 	}
@@ -274,7 +286,6 @@ void SAnimViewportToolBar::Construct(const FArguments& InArgs, TSharedPtr<class 
 				SNew( SEditorViewportToolbarMenu )
 				.ParentToolBar( SharedThis( this ) )
 				.Image("EditorViewportToolBar.MenuDropdown")
-//					.Label( this, &SAnimViewportToolBar::GetViewMenuLabel )
 				.OnGetMenuContent( this, &SAnimViewportToolBar::GenerateViewMenu ) 
 			]
 
@@ -332,18 +343,6 @@ void SAnimViewportToolBar::Construct(const FArguments& InArgs, TSharedPtr<class 
 				.LabelIcon(FEditorStyle::GetBrush("AnimViewportMenu.PlayBackSpeed"))
 				.OnGetMenuContent( this, &SAnimViewportToolBar::GeneratePlaybackMenu ) 
 			]
-
-			// Turn table menu
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(2.0f, 2.0f)
-			[
-				SNew(SEditorViewportToolbarMenu)
-				.ParentToolBar(SharedThis(this))
-				.Label(this, &SAnimViewportToolBar::GetTurnTableMenuLabel)
-				.LabelIcon(FEditorStyle::GetBrush("AnimViewportMenu.TurnTableSpeed"))
-				.OnGetMenuContent(this, &SAnimViewportToolBar::GenerateTurnTableMenu)
-			]
 				
  			+SHorizontalBox::Slot()
 			.Padding(3.0f, 1.0f)
@@ -395,21 +394,6 @@ EVisibility SAnimViewportToolBar::GetTransformToolbarVisibility() const
 	return Viewport.Pin()->CanUseGizmos() ? EVisibility::Visible : EVisibility::Hidden;
 }
 
-FText SAnimViewportToolBar::GetViewMenuLabel() const
-{
-	FText Label = LOCTEXT("ViewMenu_AutoLabel", "Menu");
-	if (Viewport.IsValid())
-	{
-		// lock mode on
-		if (Viewport.Pin()->IsPreviewModeOn(1))
-		{
-			Label = LOCTEXT("ViewMenu_LockLabel", "Lock");
-		}
-	}
-
-	return Label;
-}
-
 TSharedRef<SWidget> SAnimViewportToolBar::GenerateViewMenu() const
 {
 	const FAnimViewportMenuCommands& Actions = FAnimViewportMenuCommands::Get();
@@ -417,27 +401,37 @@ TSharedRef<SWidget> SAnimViewportToolBar::GenerateViewMenu() const
 	const bool bInShouldCloseWindowAfterMenuSelection = true;
 	FMenuBuilder ViewMenuBuilder( bInShouldCloseWindowAfterMenuSelection, Viewport.Pin()->GetCommandList() );
 	{
-		// View modes
+		ViewMenuBuilder.BeginSection("AnimViewportSceneSetup", LOCTEXT("ViewMenu_SceneSetupLabel", "Scene Setup"));
 		{
-			ViewMenuBuilder.BeginSection("AnimViewportPreviewMode", LOCTEXT("ViewMenu_PreviewModeLabel", "Preview Mode") );
-			{
-				ViewMenuBuilder.AddMenuEntry( Actions.Auto );
-				ViewMenuBuilder.AddMenuEntry( Actions.Lock );
-			}
-			ViewMenuBuilder.EndSection();
+			ViewMenuBuilder.AddMenuEntry(FAnimViewportMenuCommands::Get().PreviewSceneSettings);
 
-			ViewMenuBuilder.AddMenuEntry(FAnimViewportMenuCommands::Get().CameraFollow);
+			ViewMenuBuilder.AddSubMenu(
+				LOCTEXT("SceneSetupLabel", "Scene Setup"),
+				LOCTEXT("SceneSetupTooltip", "Set up preview meshes, animations etc."),
+				FNewMenuDelegate::CreateRaw(this, &SAnimViewportToolBar::GenerateSceneSetupMenu),
+				false,
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "AnimViewportMenu.SceneSetup")
+				);
 
-			ViewMenuBuilder.BeginSection("AnimViewportPreview", LOCTEXT("ViewMenu_PreviewLabel", "Preview") );
-			{
-				ViewMenuBuilder.AddMenuEntry( Actions.UseInGameBound );
-			}
-			ViewMenuBuilder.EndSection();
+			ViewMenuBuilder.AddSubMenu(
+				LOCTEXT("TurnTableLabel", "Turn Table"),
+				LOCTEXT("TurnTableTooltip", "Set up auto-rotation of preview."),
+				FNewMenuDelegate::CreateRaw(this, &SAnimViewportToolBar::GenerateTurnTableMenu),
+				false,
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "AnimViewportMenu.TurnTableSpeed")
+				);
 		}
+		ViewMenuBuilder.EndSection();
+
+		ViewMenuBuilder.BeginSection("AnimViewportCamera", LOCTEXT("ViewMenu_CameraLabel", "Camera"));
+		{
+			ViewMenuBuilder.AddMenuEntry(FAnimViewportMenuCommands::Get().CameraFollow);
+			ViewMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().FocusViewportToSelection);
+		}
+		ViewMenuBuilder.EndSection();
 	}
 
 	return ViewMenuBuilder.MakeWidget();
-
 }
 
 TSharedRef<SWidget> SAnimViewportToolBar::GenerateShowMenu() const
@@ -478,9 +472,9 @@ TSharedRef<SWidget> SAnimViewportToolBar::GenerateShowMenu() const
 
 			ShowMenuBuilder.BeginSection("AnimViewportMesh", LOCTEXT("ShowMenu_Actions_Mesh", "Mesh"));
 			{
-				ShowMenuBuilder.AddMenuEntry( Actions.ShowReferencePose );
 				ShowMenuBuilder.AddMenuEntry( Actions.ShowRetargetBasePose );
 				ShowMenuBuilder.AddMenuEntry( Actions.ShowBound );
+				ShowMenuBuilder.AddMenuEntry( Actions.UseInGameBound );
 				ShowMenuBuilder.AddMenuEntry( Actions.ShowPreviewMesh );
 				ShowMenuBuilder.AddMenuEntry( Actions.ShowMorphTargets );
 			}
@@ -506,7 +500,12 @@ TSharedRef<SWidget> SAnimViewportToolBar::GenerateShowMenu() const
 
 				ShowMenuBuilder.AddMenuEntry( Actions.ShowSockets );
 				ShowMenuBuilder.AddMenuEntry( Actions.ShowBoneNames );
-				ShowMenuBuilder.AddMenuEntry( Actions.ShowBoneWeight );
+
+				ShowMenuBuilder.AddSubMenu(
+					LOCTEXT("AnimViewportOverlayDrawSubMenu", "Mesh Overlay"),
+					LOCTEXT("AnimViewportOverlayDrawSubMenuToolTip", "Options"),
+					FNewMenuDelegate::CreateRaw(this, &SAnimViewportToolBar::FillShowOverlayDrawMenu)
+				);
 			}
 			ShowMenuBuilder.EndSection();
 
@@ -517,7 +516,7 @@ TSharedRef<SWidget> SAnimViewportToolBar::GenerateShowMenu() const
 				FNewMenuDelegate::CreateRaw(this, &SAnimViewportToolBar::FillShowDisplayInfoMenu));
 
 #if WITH_APEX_CLOTHING
-			UDebugSkelMeshComponent* PreviewComp = Viewport.Pin()->GetPersona().Pin()->PreviewComponent;
+			UDebugSkelMeshComponent* PreviewComp = Viewport.Pin()->GetPreviewScene()->GetPreviewMeshComponent();
 
 			if( PreviewComp && PreviewComp->HasValidClothingActors() )
 			{
@@ -595,11 +594,25 @@ void SAnimViewportToolBar::FillShowBoneDrawMenu(FMenuBuilder& MenuBuilder) const
 {
 	const FAnimViewportShowCommands& Actions = FAnimViewportShowCommands::Get();
 
-	MenuBuilder.BeginSection("AnimViewportPreviewHierarchyBoneDraw", LOCTEXT("ShowMenu_Actions_HierarchyAxes", "Hierarchy Local Axes"));
+	MenuBuilder.BeginSection("AnimViewportPreviewHierarchyBoneDraw", LOCTEXT("ShowMenu_Actions_BoneDrawing", "Bone Drawing"));
 	{
 		MenuBuilder.AddMenuEntry(Actions.ShowBoneDrawAll);
 		MenuBuilder.AddMenuEntry(Actions.ShowBoneDrawSelected);
+		MenuBuilder.AddMenuEntry(Actions.ShowBoneDrawSelectedAndParents);
 		MenuBuilder.AddMenuEntry(Actions.ShowBoneDrawNone);
+	}
+	MenuBuilder.EndSection();
+}
+
+void SAnimViewportToolBar::FillShowOverlayDrawMenu(FMenuBuilder& MenuBuilder) const
+{
+	const FAnimViewportShowCommands& Actions = FAnimViewportShowCommands::Get();
+
+	MenuBuilder.BeginSection("AnimViewportPreviewOverlayDraw", LOCTEXT("ShowMenu_Actions_Overlay", "Overlay Draw"));
+	{
+		MenuBuilder.AddMenuEntry(Actions.ShowOverlayNone);
+		MenuBuilder.AddMenuEntry(Actions.ShowBoneWeight);
+		MenuBuilder.AddMenuEntry(Actions.ShowMorphTargetVerts);
 	}
 	MenuBuilder.EndSection();
 }
@@ -790,53 +803,54 @@ TSharedRef<SWidget> SAnimViewportToolBar::GeneratePlaybackMenu() const
 
 }
 
-TSharedRef<SWidget> SAnimViewportToolBar::GenerateTurnTableMenu() const
+void SAnimViewportToolBar::GenerateTurnTableMenu(FMenuBuilder& MenuBuilder) const
 {
 	const FAnimViewportPlaybackCommands& Actions = FAnimViewportPlaybackCommands::Get();
 
 	const bool bInShouldCloseWindowAfterMenuSelection = true;
 
-	FMenuBuilder TurnTableMenuBuilder(bInShouldCloseWindowAfterMenuSelection, Viewport.Pin()->GetCommandList());
+	MenuBuilder.BeginSection("AnimViewportTurnTableMode", LOCTEXT("TurnTableMenu_ModeLabel", "Turn Table Mode"));
 	{
-		TurnTableMenuBuilder.BeginSection("AnimViewportTurnTableMode", LOCTEXT("TurnTableMenu_ModeLabel", "Turn Table Mode"));
-		{
-			TurnTableMenuBuilder.AddMenuEntry(Actions.PersonaTurnTablePlay);
-			TurnTableMenuBuilder.AddMenuEntry(Actions.PersonaTurnTablePause);
-			TurnTableMenuBuilder.AddMenuEntry(Actions.PersonaTurnTableStop);
-		}
-		TurnTableMenuBuilder.EndSection();
-
-		TurnTableMenuBuilder.BeginSection("AnimViewportTurnTableSpeed", LOCTEXT("TurnTableMenu_SpeedLabel", "Turn Table Speed"));
-		{
-			for (int i = 0; i < EAnimationPlaybackSpeeds::NumPlaybackSpeeds; ++i)
-			{
-				TurnTableMenuBuilder.AddMenuEntry(Actions.TurnTableSpeeds[i]);
-			}
-		}
-		TurnTableMenuBuilder.EndSection();
+		MenuBuilder.AddMenuEntry(Actions.PersonaTurnTablePlay);
+		MenuBuilder.AddMenuEntry(Actions.PersonaTurnTablePause);
+		MenuBuilder.AddMenuEntry(Actions.PersonaTurnTableStop);
 	}
+	MenuBuilder.EndSection();
 
-	return TurnTableMenuBuilder.MakeWidget();
-}
-
-FText SAnimViewportToolBar::GetTurnTableMenuLabel() const
-{
-	FText Label = LOCTEXT("TurnTableError", "Error");
-	if (Viewport.IsValid())
+	MenuBuilder.BeginSection("AnimViewportTurnTableSpeed", LOCTEXT("TurnTableMenu_SpeedLabel", "Turn Table Speed"));
 	{
 		for (int i = 0; i < EAnimationPlaybackSpeeds::NumPlaybackSpeeds; ++i)
 		{
-			if (Viewport.Pin()->IsTurnTableSpeedSelected(i))
-			{
-				Label = FText::FromString(FString::Printf(
-					(i == EAnimationPlaybackSpeeds::Quarter) ? TEXT("x%.2f") : TEXT("x%.1f"),
-					EAnimationPlaybackSpeeds::Values[i]
-					));
-				break;
-			}
+			MenuBuilder.AddMenuEntry(Actions.TurnTableSpeeds[i]);
 		}
 	}
-	return Label;
+	MenuBuilder.EndSection();
+}
+
+void SAnimViewportToolBar::GenerateSceneSetupMenu(FMenuBuilder& MenuBuilder)
+{
+	FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+	FDetailsViewArgs Args(false, false, false, FDetailsViewArgs::HideNameArea, true, nullptr, false, "PersonaPreviewSceneDescription");
+	Args.bShowScrollBar = false;
+
+	TSharedRef<IDetailsView> DetailsView = PropertyEditorModule.CreateDetailView(Args);
+
+	DetailsView->RegisterInstancedCustomPropertyLayout(UPersonaPreviewSceneDescription::StaticClass(), FOnGetDetailCustomizationInstance::CreateSP(this, &SAnimViewportToolBar::CustomizePreviewSceneDescription));
+	PropertyEditorModule.RegisterCustomPropertyTypeLayout(FPreviewMeshCollectionEntry::StaticStruct()->GetFName(), FOnGetPropertyTypeCustomizationInstance::CreateSP(this, &SAnimViewportToolBar::CustomizePreviewMeshCollectionEntry), nullptr, DetailsView);
+
+	DetailsView->SetObject(StaticCastSharedRef<FAnimationEditorPreviewScene>(Viewport.Pin()->GetPreviewScene())->GetPreviewSceneDescription());
+
+	MenuBuilder.AddWidget(DetailsView, FText(), true);
+}
+
+TSharedRef<class IDetailCustomization> SAnimViewportToolBar::CustomizePreviewSceneDescription()
+{
+	return MakeShareable(new FPreviewSceneDescriptionCustomization(FAssetData(&Viewport.Pin()->GetSkeletonTree()->GetEditableSkeleton()->GetSkeleton()).GetExportTextName(), Viewport.Pin()->GetPreviewScene()->GetPersonaToolkit()));
+}
+
+TSharedRef<class IPropertyTypeCustomization> SAnimViewportToolBar::CustomizePreviewMeshCollectionEntry()
+{
+	return MakeShareable(new FPreviewMeshCollectionEntryCustomization(Viewport.Pin()->GetPreviewScene()));
 }
 
 FSlateColor SAnimViewportToolBar::GetFontColor() const
@@ -845,7 +859,7 @@ FSlateColor SAnimViewportToolBar::GetFontColor() const
 	const UEditorPerProjectUserSettings* PerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
 	const int32 ProfileIndex = Settings->Profiles.IsValidIndex(PerProjectUserSettings->AssetViewerProfileIndex) ? PerProjectUserSettings->AssetViewerProfileIndex : 0;
 
-	ensureMsgf(Settings && Settings->Profiles.IsValidIndex(PerProjectUserSettings->AssetViewerProfileIndex), TEXT("Invalid default settings pointer or current profile index"));
+	ensureMsgf(Settings->Profiles.IsValidIndex(PerProjectUserSettings->AssetViewerProfileIndex), TEXT("Invalid default settings pointer or current profile index"));
 
 	FLinearColor FontColor;
 	if (Settings->Profiles[ProfileIndex].bShowEnvironment)

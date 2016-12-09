@@ -1,11 +1,48 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintActionDatabase.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "EdGraph/EdGraphNode.h"
+#include "Engine/Blueprint.h"
+#include "UObject/UnrealType.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
+#include "Layout/SlateRect.h"
+#include "Engine/World.h"
+#include "BlueprintNodeBinder.h"
+#include "BlueprintActionFilter.h"
+#include "Modules/ModuleManager.h"
+#include "EngineGlobals.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/MemberReference.h"
+#include "Animation/Skeleton.h"
+#include "Animation/AnimBlueprint.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
+#include "Engine/Engine.h"
+#include "AssetData.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "K2Node_Event.h"
+#include "K2Node_ActorBoundEvent.h"
+#include "K2Node_AddDelegate.h"
+#include "K2Node_CallDelegate.h"
+#include "K2Node_ClearDelegate.h"
+#include "K2Node_ComponentBoundEvent.h"
+#include "K2Node_DynamicCast.h"
+#include "K2Node_FunctionEntry.h"
+#include "K2Node_MacroInstance.h"
+#include "K2Node_RemoveDelegate.h"
+#include "K2Node_VariableGet.h"
+#include "K2Node_VariableSet.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "EdGraphNode_Comment.h"
+#include "Animation/AnimInstance.h"
+#include "Editor.h"
 #include "ComponentTypeRegistry.h"
-#include "EdGraphSchema_K2.h"       // for CanUserKismetCallFunction()
 #include "EditorCategoryUtils.h"
-#include "KismetEditorUtilities.h"	// for IsClassABlueprintSkeleton(), IsClassABlueprintInterface(), GetBoundsForSelectedNodes(), etc.
+#include "Kismet2/KismetEditorUtilities.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintFunctionNodeSpawner.h"
 #include "BlueprintDelegateNodeSpawner.h"
@@ -13,40 +50,22 @@
 #include "BlueprintComponentNodeSpawner.h"
 #include "BlueprintBoundEventNodeSpawner.h"
 #include "BlueprintVariableNodeSpawner.h"
-#include "Stats.h"					// for RETURN_QUICK_DECLARE_CYCLE_STAT()
-#include "CallbackDevice.h"			// for FCoreDelegates::OnAssetLoaded
-#include "ModuleManager.h"
-#include "AssetRegistryModule.h"	// for OnAssetAdded()/OnAssetRemoved()
-#include "BlueprintEditorUtils.h"	// for FindBlueprintForGraph()
+#include "AssetRegistryModule.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "BlueprintActionFilter.h"	// for FBlueprintActionContext
-#include "Engine/LevelScriptBlueprint.h" // for ULevelScriptBlueprint
-#include "Animation/AnimInstance.h"
+#include "Engine/LevelScriptBlueprint.h"
 
 // used below in FBlueprintNodeSpawnerFactory::MakeMacroNodeSpawner()
-#include "K2Node_MacroInstance.h"
 // used below in FBlueprintNodeSpawnerFactory::MakeComponentBoundEventSpawner()/MakeActorBoundEventSpawner()
-#include "K2Node_ComponentBoundEvent.h"
-#include "K2Node_ActorBoundEvent.h"
 // used below in FBlueprintNodeSpawnerFactory::MakeMessageNodeSpawner()
 #include "K2Node_Message.h"
 // used below in BlueprintActionDatabaseImpl::AddClassPropertyActions()
-#include "K2Node_VariableGet.h"
-#include "K2Node_VariableSet.h"
-#include "K2Node_AddDelegate.h"
-#include "K2Node_CallDelegate.h"
-#include "K2Node_RemoveDelegate.h"
-#include "K2Node_ClearDelegate.h"
 #include "K2Node_AssignDelegate.h"
 // used below in BlueprintActionDatabaseImpl::AddClassCastActions()
-#include "K2Node_DynamicCast.h"
 #include "K2Node_ClassDynamicCast.h"
 // used below in BlueprintActionDatabaseImpl::GetNodeSpectificActions()
-#include "EdGraphNode_Comment.h"
 #include "EdGraph/EdGraphNode_Documentation.h"
-#include "K2Node_FunctionEntry.h"
 
-#include "HotReloadInterface.h"
+#include "Misc/HotReloadInterface.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintActionDatabase"
 
@@ -1030,13 +1049,11 @@ void FBlueprintActionDatabase::AddReferencedObjects(FReferenceCollector& Collect
 		for (auto& UnloadedActionListIt : UnloadedActionRegistry)
 		{
 			UnloadedActions.Append(UnloadedActionListIt.Value);
+			Collector.AddReferencedObjects(UnloadedActionListIt.Value);
 		}
 
 		auto OrphanedUnloadedActions = UnloadedActions.Difference(AllActions.Intersect(UnloadedActions));
-		if (!ensureMsgf(OrphanedUnloadedActions.Num() == 0, TEXT("Found %d unloaded actions that were not also present in the Action Registry. This should be 0."), UnloadedActions.Num()))
-		{
-			Collector.AddReferencedObjects(OrphanedUnloadedActions);
-		}
+		ensureMsgf(OrphanedUnloadedActions.Num() == 0, TEXT("Found %d unloaded actions that were not also present in the Action Registry. This should be 0."), UnloadedActions.Num());
 	}
 }
 
@@ -1306,7 +1323,7 @@ void FBlueprintActionDatabase::RefreshAssetActions(UObject* const AssetObject)
 		for( auto Level : WorldAsset->GetLevels() )
 		{
 			UBlueprint* LevelScript = Cast<UBlueprint>(Level->GetLevelScriptBlueprint(true));
-			if (Level->bIsVisible && LevelScript)
+			if (LevelScript != nullptr)
 			{
 				AddBlueprintGraphActions(LevelScript, AssetActionList);
 				if (UClass* SkeletonClass = LevelScript->SkeletonGeneratedClass)

@@ -2,7 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Geometry.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SLeafWidget.h"
+#include "Framework/SlateDelegates.h"
 #include "VisualizerEvents.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+struct FSlateBrush;
 
 /** A graph bar widget.*/
 class TASKGRAPH_API SGraphBar : public SLeafWidget

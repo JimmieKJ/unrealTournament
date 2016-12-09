@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+
+class FCanvasItem;
+class UCanvas;
+class UFont;
+struct FCanvasIcon;
+
 DECLARE_LOG_CATEGORY_EXTERN(LogGameplayDebug, Log, All);
 
 class FCanvasItem;

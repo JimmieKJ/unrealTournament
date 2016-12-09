@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once 
 
-#include "LocalizationConfigurationScript.h"
+#include "CoreMinimal.h"
+#include "HAL/PlatformProcess.h"
+
+class SWindow;
 
 namespace LocalizationCommandletExecution
 {

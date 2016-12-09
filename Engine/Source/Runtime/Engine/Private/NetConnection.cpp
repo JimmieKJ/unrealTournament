@@ -4,21 +4,28 @@
 	NetConnection.cpp: Unreal connection base class.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Engine/NetConnection.h"
+#include "Misc/CommandLine.h"
+#include "EngineStats.h"
+#include "EngineGlobals.h"
+#include "UObject/Package.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/LevelStreaming.h"
+#include "PacketHandlers/StatelessConnectHandlerComponent.h"
+#include "Engine/LocalPlayer.h"
+#include "UnrealEngine.h"
+#include "EngineUtils.h"
+#include "Misc/NetworkVersion.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/NetworkProfiler.h"
 #include "Net/DataReplication.h"
 #include "Engine/ActorChannel.h"
-#include "Engine/NetworkObjectList.h"
-#include "DataChannel.h"
+#include "Engine/ChildConnection.h"
+#include "Net/DataChannel.h"
 #include "Engine/PackageMapClient.h"
-#include "GameFramework/GameMode.h"
-#include "Runtime/PacketHandlers/PacketHandler/Public/PacketHandler.h"
 
-#include "PerfCountersHelpers.h"
-#if WITH_EDITOR
-#include "UnrealEd.h"
-#endif
+#include "Net/PerfCountersHelpers.h"
+#include "GameDelegates.h"
 
 #if !UE_BUILD_SHIPPING
 static TAutoConsoleVariable<int32> CVarPingExcludeFrameTime( TEXT( "net.PingExcludeFrameTime" ), 0, TEXT( "Calculate RTT time between NIC's of server and client." ) );
@@ -387,15 +394,7 @@ void UNetConnection::CleanUp()
 		}
 		else 
 		{
-			UWorld* World = Driver ? Driver->GetWorld() : NULL;
-			if (World)
-			{
-				AGameMode* const GameMode = World->GetAuthGameMode();
-				if (GameMode)
-				{
-					GameMode->NotifyPendingConnectionLost();
-				}
-			}
+			FGameDelegates::Get().GetPendingConnectionLostDelegate().Broadcast();
 		}
 	}
 
@@ -563,15 +562,25 @@ void UNetConnection::ReceivedRawPacket( void* InData, int32 Count )
 	{
 		const ProcessedPacket UnProcessedPacket = Handler->Incoming(Data, Count);
 
-		Count = FMath::DivideAndRoundUp(UnProcessedPacket.CountBits, 8);
-
-		if (Count > 0)
+		if (!UnProcessedPacket.bError)
 		{
-			Data = UnProcessedPacket.Data;
+			Count = FMath::DivideAndRoundUp(UnProcessedPacket.CountBits, 8);
+
+			if (Count > 0)
+			{
+				Data = UnProcessedPacket.Data;
+			}
+			// This packed has been consumed
+			else
+			{
+				return;
+			}
 		}
-		// This packed has been consumed
 		else
 		{
+			CLOSE_CONNECTION_DUE_TO_SECURITY_VIOLATION(this, ESecurityEvent::Malformed_Packet,
+														TEXT("Packet failed PacketHandler processing."));
+
 			return;
 		}
 	}
@@ -741,6 +750,11 @@ void UNetConnection::FlushNet(bool bIgnoreSimulation)
 		OutPacketId++;
 		++OutPackets;
 		Driver->OutPackets++;
+
+		//Record the packet time to the histogram
+		double LastPacketTimeDiffInMs = (Driver->Time - LastSendTime) * 1000.0;
+		NetConnectionHistogram.AddMeasurement(LastPacketTimeDiffInMs);
+
 		LastSendTime = Driver->Time;
 
 		const int32 PacketBytes = SendBuffer.GetNumBytes() + PacketOverhead;
@@ -915,13 +929,13 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 				OutLagPacketId[Index] = -1;		// Only use the ack once
 
 #if !UE_BUILD_SHIPPING
-				if ( CVarPingDisplayServerTime.GetValueOnGameThread() > 0 )
+				if ( CVarPingDisplayServerTime.GetValueOnAnyThread() > 0 )
 				{
 					UE_LOG( LogNetTraffic, Warning, TEXT( "ServerFrameTime: %2.2f" ), ServerFrameTime * 1000.0f );
 				}
 
 				const float GameTime	= ServerFrameTime + FrameTime;
-				const float RTT			= ( FPlatformTime::Seconds() - OutLagTime[Index] ) - ( CVarPingExcludeFrameTime.GetValueOnGameThread() ? GameTime : 0.0f );
+				const float RTT			= ( FPlatformTime::Seconds() - OutLagTime[Index] ) - ( CVarPingExcludeFrameTime.GetValueOnAnyThread() ? GameTime : 0.0f );
 				const float NewLag		= FMath::Max( RTT, 0.0f );
 #else
 				const float NewLag		= FPlatformTime::Seconds() - OutLagTime[Index];
@@ -1157,7 +1171,7 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 				if( !Driver->Notify->NotifyAcceptingChannel( Channel ) )
 				{
 					// Channel refused, so close it, flush it, and delete it.
-					UE_LOG(LogNetDormancy, Verbose, TEXT("      NotifyAcceptingChannel Failed! Channel: %s"), *Channel->Describe() );
+					UE_LOG(LogNet, Verbose, TEXT("      NotifyAcceptingChannel Failed! Channel: %s"), *Channel->Describe() );
 
 					FOutBunch CloseBunch( Channel, 1 );
 					check(!CloseBunch.IsError());
@@ -1512,7 +1526,9 @@ float UNetConnection::GetTimeoutValue()
 #if !UE_BUILD_SHIPPING
 	if (Driver->bNoTimeouts)
 	{
-		return MAX_FLT;
+		// APlayerController depends on this timeout to destroy itself and free up
+		// its resources, so we have to handle this case here as well
+		return bPendingDestroy ? 2.f : MAX_FLT;
 	}
 #endif
 
@@ -1659,7 +1675,7 @@ void UNetConnection::Tick()
 		checkf(ChannelsToTick.Num() <= OpenChannels.Num(), TEXT("More ticking channels (%d) than open channels (%d) for net connection!"), ChannelsToTick.Num(), OpenChannels.Num())
 
 		// Tick the channels.
-		if (CVarTickAllOpenChannels.GetValueOnGameThread() == 0)
+		if (CVarTickAllOpenChannels.GetValueOnAnyThread() == 0)
 		{
 			for( int32 i=ChannelsToTick.Num()-1; i>=0; i-- )
 			{
@@ -1775,9 +1791,9 @@ void UNetConnection::HandleClientPlayer( APlayerController *PC, UNetConnection* 
 		break;
 	}
 
-	// Detach old player if same world.
+	// Detach old player if it's in the same level.
 	check(LocalPlayer);
-	if( LocalPlayer->PlayerController && LocalPlayer->PlayerController->GetWorld() == PC->GetWorld() )
+	if( LocalPlayer->PlayerController && LocalPlayer->PlayerController->GetLevel() == PC->GetLevel())
 	{
 		if (LocalPlayer->PlayerController->Role == ROLE_Authority)
 		{
@@ -1822,7 +1838,7 @@ void UNetConnection::HandleClientPlayer( APlayerController *PC, UNetConnection* 
 				// Remap packagename for PIE networking before sending out to server
 				FName PackageName = Level->GetOutermost()->GetFName();
 				FString PackageNameStr = PackageName.ToString();
-				if (GEngine->NetworkRemapPath(Driver->GetWorld(), PackageNameStr, false))
+				if (GEngine->NetworkRemapPath(Driver, PackageNameStr, false))
 				{
 					PackageName = FName(*PackageNameStr);
 				}
@@ -2027,7 +2043,7 @@ void UNetConnection::FlushDormancy(class AActor* Actor)
 void UNetConnection::FlushDormancyForObject( UObject* Object )
 {
 	static const auto ValidateCVar = IConsoleManager::Get().FindTConsoleVariableDataInt( TEXT( "net.DormancyValidate" ) );
-	const bool ValidateProperties = ( ValidateCVar && ValidateCVar->GetValueOnGameThread() == 1 );
+	const bool ValidateProperties = ( ValidateCVar && ValidateCVar->GetValueOnAnyThread() == 1 );
 
 	TSharedRef< FObjectReplicator > * Replicator = DormantReplicatorMap.Find( Object );
 

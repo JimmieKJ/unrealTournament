@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Curves/RichCurve.h"
+
 #if WITH_EDITOR
 
 #include "MovieSceneClipboard.h"
@@ -36,6 +40,11 @@ namespace MovieSceneClipboard
 	template<> inline FName GetKeyTypeName<FString>()
 	{
 		static FName Name("String");
+		return Name;
+	}
+	template<> inline FName GetKeyTypeName<FGuid>()
+	{
+		static FName Name("Guid");
 		return Name;
 	}
 }

@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FunctionalTestingPrivatePCH.h"
-//#include "PrimitiveViewRelevance.h"
+#include "FuncTestRenderingComponent.h"
+#include "PrimitiveViewRelevance.h"
 #include "PrimitiveSceneProxy.h"
+#include "Engine/CollisionProfile.h"
+#include "FunctionalTest.h"
+//#include "PrimitiveViewRelevance.h"
+#include "SceneManagement.h"
 
 //----------------------------------------------------------------------//
 // FFTestRenderingSceneProxy
@@ -78,8 +82,7 @@ UFuncTestRenderingComponent::UFuncTestRenderingComponent(const FObjectInitialize
 
 	BodyInstance.SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 
-	AlwaysLoadOnClient = false;
-	AlwaysLoadOnServer = false;
+	bIsEditorOnly = true;
 
 	bGenerateOverlapEvents = false;
 }

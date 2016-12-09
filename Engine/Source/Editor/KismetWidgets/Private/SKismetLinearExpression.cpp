@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "KismetWidgetsPrivatePCH.h"
 #include "SKismetLinearExpression.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableText.h"
+#include "EditorStyleSet.h"
+#include "K2Node.h"
 #include "K2Node_VariableGet.h"
 
 #define LOCTEXT_NAMESPACE "KismetLinearExpression"

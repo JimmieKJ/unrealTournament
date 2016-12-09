@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SpriterImporterPrivatePCH.h"
-#include "Json.h"
-#include "PaperJSONHelpers.h"
 #include "SpriterDataModel.h"
+#include "SpriterImporterLog.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonSerializer.h"
+#include "PaperJSONHelpers.h"
 
 
 #define LOCTEXT_NAMESPACE "SpriterImporter"

@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "AISystem.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Components/ActorComponent.h"
 #include "Perception/AISense.h"
-#include "AIPerceptionSystem.h"
 
 #include "AIPerceptionStimuliSourceComponent.generated.h"
 

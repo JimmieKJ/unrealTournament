@@ -1150,7 +1150,7 @@ void AUTGameMode::RecreateLobbyBeacon()
 void AUTGameMode::DefaultTimer()
 {
 	// preview world is for blueprint editing, don't try to play
-	if (GetWorld()->WorldType == EWorldType::Preview)
+	if (GetWorld()->WorldType == EWorldType::EditorPreview)
 	{
 		return;
 	}
@@ -1187,7 +1187,7 @@ void AUTGameMode::DefaultTimer()
 	{
 		for (auto It = GetWorld()->GetControllerIterator(); It; ++It)
 		{
-			AController* Controller = *It;
+			AController* Controller = It->Get();
 			if (Controller->IsInState(NAME_Inactive))
 			{
 				AUTPlayerState* PS = Cast<AUTPlayerState>(Controller->PlayerState);
@@ -1823,7 +1823,7 @@ void AUTGameMode::RemoveAllPawns()
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
 		// Detach all controllers from their pawns
-		AController* Controller = *Iterator;
+		AController* Controller = Iterator->Get();
 		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
 		if (PC)
 		{
@@ -1848,9 +1848,9 @@ void AUTGameMode::RemoveAllPawns()
 	TArray<APawn*> PawnsToDestroy;
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
+		if (It->IsValid() && !Cast<ASpectatorPawn>((*It).Get()))
 		{
-			PawnsToDestroy.Add(*It);
+			PawnsToDestroy.Add(It->Get());
 		}
 	}
 
@@ -1928,7 +1928,7 @@ void AUTGameMode::BeginGame()
 			Cast<AUTPlayerState>(TestActor)->bSentLogoutAnalytics = false;
 		}
 	}
-	GameState->ElapsedTime = 0;
+	UTGameState->ElapsedTime = 0;
 
 	//Let the game session override the StartMatch function, in case it wants to wait for arbitration
 	if (GameSession->HandleStartMatchRequest())
@@ -2094,9 +2094,9 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Reason"), *Reason.ToString()));
 			FUTAnalytics::GetProvider().RecordEvent(TEXT("EndFFAMatch"), ParamArray);
 		}
-		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
-			SendLogoutAnalytics(Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]));
+			SendLogoutAnalytics(Cast<AUTPlayerState>(UTGameState->PlayerArray[i]));
 		}
 	}
 
@@ -2107,14 +2107,14 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 		UpdateSkillRating();
 
 		const double CloudStatsStartTime = FPlatformTime::Seconds();
-		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			if (PS != NULL)
 			{
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, PS->ElapsedTime);
-				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), nullptr, &UTGameState->PlayerArray, &InactivePlayerArray);
 				PS->WriteStatsToCloud();
 			}
 		}
@@ -2132,7 +2132,7 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, PS->ElapsedTime);
 
-				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), nullptr, &UTGameState->PlayerArray, &InactivePlayerArray);
 				if (PS != nullptr)
 				{
 					PS->WriteStatsToCloud();
@@ -2160,7 +2160,7 @@ void AUTGameMode::AwardXP()
 				UTPS->GiveXP(FNewScoreXP(FMath::Max<int32>(0, FMath::TruncToInt(UTPS->Score))));
 				if (XPCapPerMin > 0)
 				{
-					UTPS->ClampXP(XPCapPerMin * (((GameState->ElapsedTime - PS->StartTime) / 60) + 1));
+					UTPS->ClampXP(XPCapPerMin * (((UTGameState->ElapsedTime - PS->StartTime) / 60) + 1));
 				}
 				if (GameSession->MaxPlayers > 2 && (NumPlayers == 1 || NumPlayers < NumBots))
 				{
@@ -2199,7 +2199,7 @@ bool AUTGameMode::PlayerWonChallenge()
 	AUTPlayerState* Winner = NULL;
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
-		AController* Controller = *Iterator;
+		AController* Controller = Iterator->Get();
 		AUTPlayerState* CPS = Cast<AUTPlayerState>(Controller->PlayerState);
 		if (CPS && ((Winner == NULL) || (CPS->Score >= Winner->Score)))
 		{
@@ -2219,7 +2219,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	{
 		for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 		{
-			AController* Controller = *Iterator;
+			AController* Controller = Iterator->Get();
 			AUTPlayerState* CPS = Cast<AUTPlayerState>(Controller->PlayerState);
 			if ( CPS && !CPS->bOnlySpectator )
 			{
@@ -2253,7 +2253,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
-		FString MatchStats = FString::Printf(TEXT("%i"), GetWorld()->GetGameState()->ElapsedTime);
+		FString MatchStats = FString::Printf(TEXT("%i"), UTGameState->ElapsedTime);
 
 		FMatchUpdate MatchUpdate;
 		MatchUpdate.GameTime = UTGameState->ElapsedTime;
@@ -2677,7 +2677,7 @@ void AUTGameMode::SetEndGameFocus(AUTPlayerState* Winner)
 
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
-		AController* Controller = *Iterator;
+		AController* Controller = Iterator->Get();
 		Controller->GameHasEnded(EndGameFocus, (Controller->PlayerState != NULL) && (Controller->PlayerState == Winner) );
 	}
 }
@@ -3028,7 +3028,7 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 		bool bTwoPlayerGame = (NumPlayers + NumBots == 2);
 		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 		{
-			AController* OtherController = *Iterator;
+			AController* OtherController = Iterator->Get();
 			ACharacter* OtherCharacter = Cast<ACharacter>( OtherController->GetPawn());
 
 			if ( OtherCharacter && OtherCharacter->PlayerState )
@@ -3131,37 +3131,20 @@ bool AUTGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 	return Player->CanRestartPlayer();
 }
 
-/**
- *	We are going to duplicate GameMode's StartNewPlayer because we need to replicate the scoreboard class along with the hud class.  
- *  We are doing this here like this because we are trying to not change engine.  Ultimately the code to create the hud should be
- *  moved to it's own easy to override function instead of being hard-coded in StartNewPlayer
- **/
-void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
+void AUTGameMode::InitializeHUDForPlayer_Implementation(APlayerController* NewPlayer)
 {
 	AUTPlayerController* UTNewPlayer = Cast<AUTPlayerController>(NewPlayer);
 	if (UTNewPlayer != NULL)
 	{
-		// tell client what hud class to use
 		UTNewPlayer->HUDClass = HUDClass;
 		if (Cast<UNetConnection>(UTNewPlayer->Player) == NULL)
 		{
 			UTNewPlayer->OnRep_HUDClass();
 		}
-
-		// start match, or let player enter, immediately
-		if (PlayerCanRestart(NewPlayer))
-		{
-			RestartPlayer(NewPlayer);
-		}
-
-		if (NewPlayer->GetPawn() != NULL)
-		{
-			NewPlayer->GetPawn()->ClientSetRotation(NewPlayer->GetPawn()->GetActorRotation());
-		}
 	}
 	else
 	{
-		Super::StartNewPlayer(NewPlayer);
+		Super::InitializeHUDForPlayer_Implementation(NewPlayer);
 	}
 }
 
@@ -3338,9 +3321,9 @@ void AUTGameMode::SetMatchState(FName NewState)
 	}
 
 	MatchState = NewState;
-	if (GameState)
+	if (UTGameState)
 	{
-		GameState->SetMatchState(NewState);
+		UTGameState->SetMatchState(NewState);
 	}
 
 	if (UTGameState && UTGameState->LineUpHelper)
@@ -3678,7 +3661,7 @@ void AUTGameMode::SendLogoutAnalytics(AUTPlayerState* PS)
 	if ((PS != nullptr) && !PS->bSentLogoutAnalytics && FUTAnalytics::IsAvailable())
 	{
 		PS->bSentLogoutAnalytics = true;
-		float TotalTimeOnline = GameState->ElapsedTime - PS->StartTime;
+		float TotalTimeOnline = UTGameState->ElapsedTime - PS->StartTime;
 		TArray<FAnalyticsEventAttribute> ParamArray;
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ID"), PS->StatsID));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerName"), PS->PlayerName));
@@ -4172,7 +4155,7 @@ void AUTGameMode::BroadcastSpectator(AActor* Sender, TSubclassOf<ULocalMessage> 
 {
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
-		APlayerController* PC = (*Iterator);
+		APlayerController* PC = Iterator->Get();
 		if (PC->PlayerState != nullptr && PC->PlayerState->bOnlySpectator)
 		{
 			PC->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
@@ -4498,7 +4481,7 @@ void AUTGameMode::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class S
 	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "Suicides", "Suicides"), MakeShareable(new TAttributeStat(PlayerState, NAME_Suicides)), StatList);
 	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "ScorePM", "Score Per Minute"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float
 	{
-		return (PS->StartTime <  PS->GetWorld()->GameState->ElapsedTime) ? PS->Score * 60.f / (PS->GetWorld()->GameState->ElapsedTime - PS->StartTime) : 0.f;
+		return (PS->StartTime < PS->GetWorld()->GetGameState<AUTGameState>()->ElapsedTime) ? PS->Score * 60.f / (PS->GetWorld()->GetGameState<AUTGameState>()->ElapsedTime - PS->StartTime) : 0.f;
 	}, TwoDecimal)), StatList);
 	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "KDRatio", "K/D Ratio"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float
 	{
@@ -4915,7 +4898,7 @@ void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController
 		APlayerState* NewPlayerState = PlayerState->Duplicate();
 		if (NewPlayerState)
 		{
-			GetWorld()->GameState->RemovePlayerState(NewPlayerState);
+			GameState->RemovePlayerState(NewPlayerState);
 
 			//AUTGameMode begin 
 			SetPlayerStateInactive(NewPlayerState);
@@ -4986,7 +4969,7 @@ bool AUTGameMode::FindInactivePlayer(APlayerController* PC)
 
 			PC->PlayerState->SetOwner(PC);
 			OverridePlayerState(PC, OldPlayerState);
-			GetWorld()->GameState->AddPlayerState(PC->PlayerState);
+			GameState->AddPlayerState(PC->PlayerState);
 			InactivePlayerArray.RemoveAt(i, 1);
 			OldPlayerState->bIsInactive = true;
 			// Set the uniqueId to NULL so it will not kill the player's registration 

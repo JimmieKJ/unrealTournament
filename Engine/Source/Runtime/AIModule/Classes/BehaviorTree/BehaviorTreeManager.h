@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "BehaviorTreeManager.generated.h"
 
+class UBehaviorTree;
 class UBehaviorTreeComponent;
 class UBTCompositeNode;
 class UBTDecorator;
-class UBehaviorTree;
 
 USTRUCT()
 struct FBehaviorTreeTemplateInfo

@@ -2,11 +2,19 @@
 
 #pragma once
 
-#include "ClientUnitTest.h"
+#include "CoreMinimal.h"
+#include "Misc/CommandLine.h"
+#include "Input/Reply.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Framework/Docking/TabManager.h"
+#include "NetcodeUnitTest.h"
 
-#include "SlateBasics.h"
-#include "SDockTab.h"
-
+class FUICommandList;
+class SEditableTextBox;
+enum class ESuspendState : uint8;
 
 // Delegate definitions
 

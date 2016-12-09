@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "UnitTest.h"
 
 #include "VMReflection.generated.h"
+
+class APawn;
 
 /**
  * Internal unit test for verifying the functionality of the UScript/BP VM reflection helper

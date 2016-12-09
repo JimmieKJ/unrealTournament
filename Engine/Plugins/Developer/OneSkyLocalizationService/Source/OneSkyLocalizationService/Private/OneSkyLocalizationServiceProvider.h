@@ -2,9 +2,22 @@
 
 #pragma once
 
-#include "Developer/LocalizationService/Public/ILocalizationServiceModule.h"
+#include "CoreMinimal.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "ILocalizationServiceOperation.h"
+#include "ILocalizationServiceState.h"
+#include "ILocalizationServiceProvider.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Internationalization/Culture.h"
+#include "Containers/Queue.h"
 #include "IOneSkyLocalizationServiceWorker.h"
 #include "OneSkyLocalizationServiceState.h"
+
+class FOneSkyLocalizationServiceCommand;
+class FToolBarBuilder;
+class IDetailCategoryBuilder;
+class ULocalizationTarget;
+class ULocalizationTargetSet;
 
 DECLARE_DELEGATE_RetVal(FOneSkyLocalizationServiceWorkerRef, FGetOneSkyLocalizationServiceWorker)
 

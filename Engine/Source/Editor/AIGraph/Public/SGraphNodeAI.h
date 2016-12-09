@@ -2,8 +2,19 @@
 
 #pragma once
 
-#include "GraphEditorCommon.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Styling/SlateColor.h"
+#include "Input/DragAndDrop.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "SGraphNode.h"
+#include "SGraphPin.h"
+#include "Editor/GraphEditor/Private/DragNode.h"
 
+class SGraphPanel;
+class SToolTip;
 class UAIGraphNode;
 
 class FDragAIGraphNode : public FDragNode

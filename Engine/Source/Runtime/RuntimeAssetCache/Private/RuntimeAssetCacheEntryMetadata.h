@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/DateTime.h"
+#include "UObject/NameTypes.h"
+#include "HAL/ThreadSafeBool.h"
+
+class FArchive;
+
 /**
  * Cache entry metadata.
  */

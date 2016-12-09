@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "Editor/PropertyEditor/Public/IPropertyTableColumn.h"
+#include "CoreMinimal.h"
+#include "IPropertyTableColumn.h"
+#include "IPropertyTableUtilities.h"
 #include "Editor/PropertyEditor/Public/IPropertyTableCustomColumn.h"
 
+class IPropertyTableCell;
+class IPropertyTableCellPresenter;
 
 /**
 * A property table custom column used to display source control condition of files.

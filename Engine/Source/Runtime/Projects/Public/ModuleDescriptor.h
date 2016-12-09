@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "Json.h"
+#include "CoreMinimal.h"
+#include "Serialization/JsonWriter.h"
 
+class FJsonObject;
 enum class EModuleLoadResult;
 
 /**
@@ -70,6 +72,7 @@ namespace EHostType
 		EditorNoCommandlet,
 		Program,		//!< Program-only plugin type
 		ServerOnly,
+		ClientOnly,
 		// NOTE: If you add a new value, make sure to update the ToString() method below!
 
 		Max

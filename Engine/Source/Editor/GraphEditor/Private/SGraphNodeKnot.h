@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SGraphPin.h"
 #include "SGraphNodeDefault.h"
-#include "K2Node_Knot.h"
 
 class SCommentBubble;
 

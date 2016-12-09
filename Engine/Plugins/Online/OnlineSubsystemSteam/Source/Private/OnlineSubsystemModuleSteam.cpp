@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "OnlineSubsystemSteamModule.h"
+#include "OnlineSubsystemModule.h"
+#include "OnlineSubsystemNames.h"
+#include "OnlineSubsystem.h"
+#include "OnlineSubsystemSteamPrivate.h"
 #include "OnlineSubsystemSteam.h"
-#include "ModuleManager.h"
+#include "HAL/PlatformProcess.h"
 
 IMPLEMENT_MODULE(FOnlineSubsystemSteamModule, OnlineSubsystemSteam);
 

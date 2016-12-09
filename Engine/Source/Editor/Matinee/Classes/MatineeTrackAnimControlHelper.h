@@ -2,8 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Widgets/SWindow.h"
+#include "InterpTrackHelper.h"
 #include "MatineeTrackAnimControlHelper.generated.h"
 
+class IMatineeBase;
+class UInterpGroup;
+class UInterpTrack;
 
 UCLASS()
 class UMatineeTrackAnimControlHelper : public UInterpTrackHelper

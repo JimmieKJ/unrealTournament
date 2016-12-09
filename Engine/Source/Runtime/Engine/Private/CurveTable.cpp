@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Engine/CurveTable.h"
-#include "Json.h"
-#include "CsvParser.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/Csv/CsvParser.h"
 
 #include "EditorFramework/AssetImportData.h"
 
@@ -240,7 +240,7 @@ FString UCurveTable::GetTableAsJSON() const
 	return Result;
 }
 
-bool UCurveTable::WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR> > >& JsonWriter) const
+bool UCurveTable::WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR> > >& JsonWriter, bool bAsArray) const
 {
 	if(RowMap.Num() <= 0)
 	{
@@ -263,15 +263,24 @@ bool UCurveTable::WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJ
 		}
 	}
 
-	JsonWriter->WriteArrayStart();
+	if (bAsArray)
+	{
+		JsonWriter->WriteArrayStart();
+	}
 
 	// display all the curves
 	for(int32 CurvesIdx = 0; CurvesIdx < Curves.Num(); CurvesIdx++)
 	{
-		JsonWriter->WriteObjectStart();
-		// show name of curve
-		JsonWriter->WriteValue(TEXT("Name"),Names[CurvesIdx].ToString());
-
+		if (bAsArray)
+		{
+			JsonWriter->WriteObjectStart();
+			// show name of curve
+			JsonWriter->WriteValue(TEXT("Name"),Names[CurvesIdx].ToString());
+		}
+		else
+		{
+			JsonWriter->WriteObjectStart(Names[CurvesIdx].ToString());
+		}
 		// show data of curve
 		auto LongIt(Curves[LongestCurveIndex]->GetKeyIterator());
 		for (auto It(Curves[CurvesIdx]->GetKeyIterator()); It; ++It)
@@ -282,7 +291,10 @@ bool UCurveTable::WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJ
 		JsonWriter->WriteObjectEnd();
 	}
 
-	JsonWriter->WriteArrayEnd();
+	if(bAsArray)
+	{
+		JsonWriter->WriteArrayEnd();
+	}
 	return true;
 }
 
@@ -478,6 +490,58 @@ TArray<FString> UCurveTable::CreateTableFromJSONString(const FString& InString, 
 	return OutProblems;
 }
 
+TArray<FRichCurveEditInfoConst> UCurveTable::GetCurves() const
+{
+	TArray<FRichCurveEditInfoConst> Curves;
+
+	for (auto Iter = RowMap.CreateConstIterator(); Iter; ++Iter)
+	{
+		Curves.Add(FRichCurveEditInfoConst(Iter.Value(), Iter.Key()));
+	}
+
+	return Curves;
+}
+
+TArray<FRichCurveEditInfo> UCurveTable::GetCurves()
+{
+	TArray<FRichCurveEditInfo> Curves;
+	
+	for (auto Iter = RowMap.CreateIterator(); Iter; ++Iter)
+	{
+		Curves.Add(FRichCurveEditInfo(Iter.Value(), Iter.Key()));
+	}
+
+	return Curves;
+}
+
+void UCurveTable::ModifyOwner()
+{
+	Modify(true);
+}
+
+void UCurveTable::MakeTransactional()
+{
+	SetFlags(GetFlags() | RF_Transactional);
+}
+
+void UCurveTable::OnCurveChanged(const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos)
+{
+
+}
+
+bool UCurveTable::IsValidCurve(FRichCurveEditInfo CurveInfo)
+{
+	for (auto Iter = RowMap.CreateConstIterator(); Iter; ++Iter)
+	{
+		if (CurveInfo.CurveToEdit == Iter.Value())
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 
@@ -530,4 +594,12 @@ bool FCurveTableRowHandle::operator==(const FCurveTableRowHandle& Other) const
 bool FCurveTableRowHandle::operator!=(const FCurveTableRowHandle& Other) const
 {
 	return ((Other.CurveTable != CurveTable) || (Other.RowName != RowName));
+}
+void FCurveTableRowHandle::PostSerialize(const FArchive& Ar)
+{
+	if (Ar.IsSaving() && !IsNull() && CurveTable)
+	{
+		// Note which row we are pointing to for later searching
+		Ar.MarkSearchableName(CurveTable, RowName);
+	}
 }

@@ -1,7 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TextureEditorPrivatePCH.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/STextureEditorViewport.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/SViewport.h"
+#include "Widgets/Input/SSlider.h"
+#include "Engine/Texture.h"
+#include "Slate/SceneViewport.h"
+#include "TextureEditorConstants.h"
+#include "Widgets/STextureEditorViewportToolbar.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 
 #define LOCTEXT_NAMESPACE "STextureEditorViewport"

@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/UniformGridPanel.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Components/UniformGridSlot.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

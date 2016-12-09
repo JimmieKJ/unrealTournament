@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "IMessageRpcClient.h"
+#include "MessageRpcClient.h"
+#include "IMessageRpcServer.h"
+#include "MessageRpcServer.h"
 #include "IMessagingRpcModule.h"
-#include "ModuleManager.h"
 
 
 /**

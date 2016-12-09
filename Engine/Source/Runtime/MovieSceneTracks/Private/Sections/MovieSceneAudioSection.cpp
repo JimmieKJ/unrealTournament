@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneAudioSection.h"
-#include "SoundDefinitions.h"
-
+#include "Sections/MovieSceneAudioSection.h"
+#include "Sound/SoundBase.h"
+#include "Evaluation/MovieSceneAudioTemplate.h"
 
 UMovieSceneAudioSection::UMovieSceneAudioSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
@@ -16,8 +15,15 @@ UMovieSceneAudioSection::UMovieSceneAudioSection( const FObjectInitializer& Obje
 #if WITH_EDITORONLY_DATA
 	bShowIntensity = false;
 #endif
+	bSuppressSubtitles = false;
+
+	EvalOptions.EnableAndSetCompletionMode(EMovieSceneCompletionMode::RestoreState);
 }
 
+FMovieSceneEvalTemplatePtr UMovieSceneAudioSection::GenerateTemplate() const
+{
+	return FMovieSceneAudioSectionTemplate(*this);
+}
 
 TRange<float> UMovieSceneAudioSection::GetAudioRange() const
 {

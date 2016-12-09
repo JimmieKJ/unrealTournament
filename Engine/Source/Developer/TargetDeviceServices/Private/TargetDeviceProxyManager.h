@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ITargetDeviceProxyManager.h"
+#include "Containers/Ticker.h"
+#include "Developer/TargetDeviceServices/Private/TargetDeviceProxy.h"
+
+struct FTargetDeviceServicePong;
 
 /**
  * Implements a class which locates devices based on criteria for use in the Launcher.

@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "VREditorModule.h"
 #include "VREditorTranslationGizmoHandle.h"
-#include "VREditorTransformGizmo.h"
-#include "UnitConversion.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "VIBaseTransformGizmo.h"
 
 UVREditorTranslationGizmoHandleGroup::UVREditorTranslationGizmoHandleGroup() 
 	: Super()

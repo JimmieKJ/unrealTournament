@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SNodePanel.h"
+#include "SGraphNode.h"
+
+class SGraphPin;
+class UAnimStateEntryNode;
+
 //
 // Forward declarations.
 //

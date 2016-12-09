@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Commands/UICommandList.h"
+#include "VisualLogger/VisualLoggerTypes.h"
+#include "Developer/LogVisualizer/Private/LogVisualizerPrivate.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+
+struct FLogEntryItem;
+struct FVisualLoggerDBRow;
+
 class SVisualLoggerLogsList : public SVisualLoggerBaseWidget
 {
 public:

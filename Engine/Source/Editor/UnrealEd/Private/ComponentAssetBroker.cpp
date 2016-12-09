@@ -1,19 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "ComponentAssetBroker.h"
-
-#include "SoundDefinitions.h"
-
+#include "GameFramework/Actor.h"
+#include "Engine/Blueprint.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Particles/ParticleSystem.h"
+#include "Components/AudioComponent.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Sound/SoundBase.h"
+#include "Components/ChildActorComponent.h"
+#include "Components/DestructibleComponent.h"
+
+
 
 #include "Engine/DestructibleMesh.h"
-#include "Components/DestructibleComponent.h"
-#include "Sound/SoundBase.h"
-#include "Engine/StaticMesh.h"
-#include "Components/AudioComponent.h"
-#include "Components/ChildActorComponent.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FStaticMeshComponentBroker
@@ -46,7 +49,7 @@ public:
 	{
 		if (UStaticMeshComponent* StaticMeshComp = Cast<UStaticMeshComponent>(InComponent))
 		{
-			return StaticMeshComp->StaticMesh;
+			return StaticMeshComp->GetStaticMesh();
 		}
 		return NULL;
 	}

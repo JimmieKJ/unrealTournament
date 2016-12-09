@@ -2,12 +2,15 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
-#include "BlueprintEditor.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Input/DragAndDrop.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
 #include "WidgetReference.h"
-#include "Components/Widget.h"
-#include "Kismet2/BlueprintEditorUtils.h"
-#include "WidgetBlueprintEditor.h"
 
 class FWidgetBlueprintEditor;
 

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 // magic number distances used by AI/networking
 #define CLOSEPROXIMITY					500.f
 #define NEARSIGHTTHRESHOLD				2000.f

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "DockingPrivate.h"
+#include "Framework/Docking/SDockingSplitter.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Docking/SDockingTabStack.h"
 
 
 void SDockingSplitter::Construct( const FArguments& InArgs, const TSharedRef<FTabManager::FSplitter>& PersistentNode )

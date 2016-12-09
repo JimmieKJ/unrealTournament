@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -12,6 +12,8 @@
 
 #include "libcef_dll/cpptoc/set_cookie_callback_cpptoc.h"
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -28,14 +30,20 @@ void CEF_CALLBACK set_cookie_callback_on_complete(
       success?true:false);
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefSetCookieCallbackCppToC::CefSetCookieCallbackCppToC(
-    CefSetCookieCallback* cls)
-    : CefCppToC<CefSetCookieCallbackCppToC, CefSetCookieCallback,
-        cef_set_cookie_callback_t>(cls) {
-  struct_.struct_.on_complete = set_cookie_callback_on_complete;
+CefSetCookieCallbackCppToC::CefSetCookieCallbackCppToC() {
+  GetStruct()->on_complete = set_cookie_callback_on_complete;
+}
+
+template<> CefRefPtr<CefSetCookieCallback> CefCppToC<CefSetCookieCallbackCppToC,
+    CefSetCookieCallback, cef_set_cookie_callback_t>::UnwrapDerived(
+    CefWrapperType type, cef_set_cookie_callback_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -43,3 +51,6 @@ template<> base::AtomicRefCount CefCppToC<CefSetCookieCallbackCppToC,
     CefSetCookieCallback, cef_set_cookie_callback_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefSetCookieCallbackCppToC,
+    CefSetCookieCallback, cef_set_cookie_callback_t>::kWrapperType =
+    WT_SET_COOKIE_CALLBACK;

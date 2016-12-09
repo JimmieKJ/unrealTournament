@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
 #include "AssetTypeActions_Base.h"
 
+class FAssetData;
 class IClassTypeActions;
 
 /** Base class for "class type" assets (C++ classes and Blueprints */

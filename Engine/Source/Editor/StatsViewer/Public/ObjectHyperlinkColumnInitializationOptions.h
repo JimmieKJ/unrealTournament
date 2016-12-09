@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Delegate called to generate a custom widget for display in a cell of a UObject custom column */
 DECLARE_DELEGATE_RetVal_TwoParams(TSharedRef<class SWidget>, FOnGenerateWidget, const FText& /** InValueAsText */, const TWeakObjectPtr< UObject >& /** InObjectPtr */);
 

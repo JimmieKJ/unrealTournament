@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Math/UnrealMathUtility.h"
+#include "Math/VectorRegister.h"
+#include "Math/ScalarRegister.h"
+
+#if !ENABLE_VECTORIZED_TRANSFORM
 
 /**
 * Transform composed of Scale, Rotation (as a quaternion), and Translation.
@@ -20,12 +27,11 @@
 */
 struct FTransform
 {
-#if !defined(COREUOBJECT_API)
-#define MAYBE_COREUOBJECT_API
+#ifdef COREUOBJECT_API
+	friend COREUOBJECT_API class UScriptStruct* Z_Construct_UScriptStruct_FTransform();
 #else
-#define MAYBE_COREUOBJECT_API COREUOBJECT_API
+	friend class UScriptStruct* Z_Construct_UScriptStruct_FTransform();
 #endif
-	friend MAYBE_COREUOBJECT_API class UScriptStruct* Z_Construct_UScriptStruct_FTransform();
 
 protected:
 	/** Rotation of this transformation, as a quaternion. */
@@ -1578,3 +1584,5 @@ FORCEINLINE FVector FTransform::GetSafeScaleReciprocal(const FVector& InScale, f
 
 	return SafeReciprocalScale;
 }
+
+#endif

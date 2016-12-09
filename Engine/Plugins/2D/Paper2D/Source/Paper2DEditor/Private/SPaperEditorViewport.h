@@ -2,8 +2,22 @@
 
 #pragma once
 
-#include "MarqueeRect.h"
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Layout/SlateRect.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Animation/CurveSequence.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "EditorViewportClient.h"
 #include "SEditorViewport.h"
+#include "PaperEditorViewportClient.h"
+#include "Framework/MarqueeRect.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+struct FMarqueeOperation;
+struct Rect;
 
 /** Helper for managing marquee operations */
 struct FMarqueeOperation

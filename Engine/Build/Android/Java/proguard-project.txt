@@ -37,8 +37,16 @@
 -keep class com.epicgames.ue4.VolumeReceiver {
 	public *;
 }
+-keep class com.epicgames.ue4.LocalNotificationReceiver {
+	public *;
+}
 
 # Needed...
+
+-keep class com.epicgames.ue4.GameActivity$LaunchNotification {
+	public *;
+}
+
 -keep class com.epicgames.ue4.GameActivity$InputDeviceInfo {
 	public *;
 }

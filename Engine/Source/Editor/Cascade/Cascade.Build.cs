@@ -6,6 +6,12 @@ public class Cascade : ModuleRules
 {
 	public Cascade(TargetInfo Target)
 	{
+		PrivateIncludePaths.AddRange(
+			new string[] {
+				"Editor/Cascade/Private"
+			}
+		);
+
 		PublicIncludePaths.AddRange(
 			new string[] {
 				"Editor/DistCurveEditor/Public",

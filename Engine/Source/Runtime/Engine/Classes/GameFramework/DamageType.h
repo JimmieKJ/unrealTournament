@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "DamageType.generated.h"
 
 /**
@@ -25,13 +29,13 @@ class UDamageType : public UObject
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=DamageType)
 	uint32 bScaleMomentumByMass:1;
 
+	/** When applying radial impulses, whether to treat as impulse or velocity change. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RigidBody)
+	uint32 bRadialDamageVelChange : 1;
+
 	/** The magnitude of impulse to apply to the Actors damaged by this type. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=RigidBody)
 	float DamageImpulse;
-
-	/** When applying radial impulses, whether to treat as impulse or velocity change. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=RigidBody)
-	uint32 bRadialDamageVelChange:1;
 
 	/** How large the impulse should be applied to destructible meshes */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Destruction)

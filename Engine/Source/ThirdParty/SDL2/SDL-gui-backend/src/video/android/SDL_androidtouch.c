@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -50,7 +50,7 @@ static void Android_GetWindowCoordinates(float x, float y,
     *window_y = (int)(y * window_h);
 }
 
-static volatile SDL_bool separate_mouse_and_touch = SDL_FALSE;
+static SDL_bool separate_mouse_and_touch = SDL_FALSE;
 
 static void
 SeparateEventsHintWatcher(void *userdata, const char *name,

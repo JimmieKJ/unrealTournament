@@ -69,6 +69,9 @@ namespace UnrealBuildTool
 
 			// Compile the engine
 			UEBuildConfiguration.bCompileAgainstEngine = true;
+			
+			//enable PerfCounters
+            UEBuildConfiguration.bWithPerfCounters = true;
 
 			// Tag it as a 'Server' build
 			OutCPPEnvironmentConfiguration.Definitions.Add("UE_SERVER=1");

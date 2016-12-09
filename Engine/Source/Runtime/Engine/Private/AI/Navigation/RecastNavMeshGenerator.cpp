@@ -1,30 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "AI/Navigation/RecastNavMeshGenerator.h"
+#include "AI/Navigation/NavRelevantInterface.h"
+#include "Components/PrimitiveComponent.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Serialization/MemoryWriter.h"
+#include "EngineGlobals.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/Engine.h"
 #if WITH_RECAST
 
-#include "PhysicsPublic.h"
 
 #if WITH_PHYSX
-	#include "../../PhysicsEngine/PhysXSupport.h"
+	#include "PhysXPublic.h"
 #endif
-#include "RecastNavMeshGenerator.h"
-#include "PImplRecastNavMesh.h"
-#include "SurfaceIterators.h"
-#include "AI/Navigation/NavMeshBoundsVolume.h"
-#include "AI/NavigationOctree.h"
+#include "AI/Navigation/PImplRecastNavMesh.h"
 
 // recast includes
-#include "Recast.h"
-#include "DetourCommon.h"
-#include "DetourNavMeshBuilder.h"
-#include "DetourNavMeshQuery.h"
-#include "RecastAlloc.h"
-#include "DetourTileCache.h"
-#include "DetourTileCacheBuilder.h"
-#include "RecastHelpers.h"
-#include "NavigationSystemHelpers.h"
-#include "VisualLogger/VisualLogger.h"
+#include "Detour/DetourNavMeshBuilder.h"
+#include "DetourTileCache/DetourTileCacheBuilder.h"
+#include "AI/Navigation/RecastHelpers.h"
+#include "AI/NavigationSystemHelpers.h"
+#include "VisualLogger/VisualLoggerTypes.h"
+#include "PhysicsEngine/ConvexElem.h"
 #include "PhysicsEngine/BodySetup.h"
 
 #define SEAMLESS_REBUILDING_ENABLED 1
@@ -492,6 +491,14 @@ void ExportPxHeightField(PxHeightField const * const HeightField, const FTransfo
 	{
 		for (int32 X = 0; X < NumCols - 1; X++)
 		{
+			const int32 SampleIdx = (bMirrored ? X : (NumCols - X - 1))*NumCols + Y;
+			const PxHeightFieldSample& Sample = HFSamples[SampleIdx];
+			const bool bIsHole = (Sample.materialIndex0 == PxHeightFieldMaterial::eHOLE);
+			if (bIsHole)
+			{
+				continue;
+			}
+
 			const int32 I00 = X + 0 + (Y + 0)*NumCols;
 			int32 I01 = X + 0 + (Y + 1)*NumCols;
 			int32 I10 = X + 1 + (Y + 0)*NumCols;
@@ -502,20 +509,13 @@ void ExportPxHeightField(PxHeightField const * const HeightField, const FTransfo
 				Swap(I01, I10);
 			}
 
-			const int32 SampleIdx = (NumCols - X - 1)*NumCols + Y;
-			const PxHeightFieldSample& Sample = HFSamples[SampleIdx];
-			const bool HoleQuad = (Sample.materialIndex0 == PxHeightFieldMaterial::eHOLE);
+			IndexBuffer.Add(VertOffset + I00);
+			IndexBuffer.Add(VertOffset + I11);
+			IndexBuffer.Add(VertOffset + I10);
 
-			if (!HoleQuad)
-			{
-				IndexBuffer.Add(VertOffset + I00);
-				IndexBuffer.Add(VertOffset + I11);
-				IndexBuffer.Add(VertOffset + I10);
-
-				IndexBuffer.Add(VertOffset + I00);
-				IndexBuffer.Add(VertOffset + I01);
-				IndexBuffer.Add(VertOffset + I11);
-			}
+			IndexBuffer.Add(VertOffset + I00);
+			IndexBuffer.Add(VertOffset + I01);
+			IndexBuffer.Add(VertOffset + I11);
 		}
 	}
 }
@@ -532,76 +532,75 @@ void ExportHeightFieldSlice(const FNavHeightfieldSamples& PrefetchedHeightfieldS
 
 	// calculate the actual start and number of columns we want
 	const FBox LocalBox = SliceBox.TransformBy(LocalToWorld.Inverse());
+	const bool bMirrored = (LocalToWorld.GetDeterminant() < 0.f);
 
-	const int32 StartingRow = FMath::Max(FMath::FloorToInt(LocalBox.Min.Y) - 1, 0);
-	const int32 StartingColumn = FMath::Max(FMath::FloorToInt(LocalBox.Min.X) - 1, 0);
-	const int32 RowLimit = FMath::Min(FMath::CeilToInt(LocalBox.Max.Y) + 1, NumRows);
-	const int32 ColumnLimit = FMath::Min(FMath::CeilToInt(LocalBox.Max.X) + 1, NumCols);
-	
-	const int32 VertexCount = (RowLimit - StartingRow)*(ColumnLimit - StartingColumn);
+	const int32 MinX = FMath::Clamp(FMath::FloorToInt(LocalBox.Min.X) - 1, 0, NumCols);
+	const int32 MinY = FMath::Clamp(FMath::FloorToInt(LocalBox.Min.Y) - 1, 0, NumRows);
+	const int32 MaxX = FMath::Clamp(FMath::CeilToInt(LocalBox.Max.X) + 1, 0, NumCols);
+	const int32 MaxY = FMath::Clamp(FMath::CeilToInt(LocalBox.Max.Y) + 1, 0, NumRows);
+	const int32 SizeX = MaxX - MinX;
+	const int32 SizeY = MaxY - MinY;
+
+	if (SizeX <= 0 || SizeY <= 0)
+	{
+		// slice is outside bounds, skip
+		return;
+	}
 
 	const int32 VertOffset = VertexBuffer.Num() / 3;
-	const int32 RowCount = RowLimit - StartingRow;
-	const int32 CollumnCount = ColumnLimit - StartingColumn;
-	const int32 NumQuads = (RowCount - 1)*(CollumnCount - 1);
-
+	const int32 NumVerts = SizeX * SizeY;
+	const int32 NumQuads = (SizeX - 1) * (SizeY - 1);
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_RecastGeometryExport_AllocatingMemory);
-		VertexBuffer.Reserve(VertexBuffer.Num() + VertexCount * 3);
-		IndexBuffer.Reserve(IndexBuffer.Num() + NumQuads * 6);
+		VertexBuffer.Reserve(VertexBuffer.Num() + NumVerts * 3);
+		IndexBuffer.Reserve(IndexBuffer.Num() + NumQuads * 3 * 2);
 	}
 
-	const bool bMirrored = (LocalToWorld.GetDeterminant() < 0.f);
-	
-	TNavStatArray<float> TmpVertexBuffer;
-	TmpVertexBuffer.AddUninitialized(VertexCount * 3);
-	FVector* Vertex = ((FVector*)TmpVertexBuffer.GetData());
-
-	for (int32 Y = StartingRow; Y < RowLimit; Y++)
+	for (int32 IdxY = 0; IdxY < SizeY; IdxY++)
 	{
-		for (int32 X = StartingColumn; X < ColumnLimit; X++)
+		for (int32 IdxX = 0; IdxX < SizeX; IdxX++)
 		{
-			const int32 SampleIdx = (bMirrored ? X : (NumCols - X - 1))*NumCols + Y;
+			const int32 CoordX = IdxX + MinX;
+			const int32 CoordY = IdxY + MinY;
+			const int32 SampleIdx = ((bMirrored ? CoordX : (NumCols - CoordX - 1)) * NumCols) + CoordY;
 
-			const FVector UnrealCoords = LocalToWorld.TransformPosition(FVector(X, Y, PrefetchedHeightfieldSamples.Heights[SampleIdx]));
-			*Vertex++ = UnrealCoords;
+			const FVector UnrealCoords = LocalToWorld.TransformPosition(FVector(CoordX, CoordY, PrefetchedHeightfieldSamples.Heights[SampleIdx]));
+			VertexBuffer.Add(UnrealCoords.X);
+			VertexBuffer.Add(UnrealCoords.Y);
+			VertexBuffer.Add(UnrealCoords.Z);
 		}
 	}
-	VertexBuffer.Append(TmpVertexBuffer);
 
-	for (int32 Y = 0; Y < RowCount - 1; Y++)
+	for (int32 IdxY = 0; IdxY < SizeY - 1; IdxY++)
 	{
-		for (int32 X = 0; X < CollumnCount - 1; X++)
+		for (int32 IdxX = 0; IdxX < SizeX - 1; IdxX++)
 		{
-			const int32 SampleIdx = (NumCols - X - 1)*NumCols + Y;
-			if (PrefetchedHeightfieldSamples.Holes[SampleIdx] == false)
+			const int32 CoordX = IdxX + MinX;
+			const int32 CoordY = IdxY + MinY;
+			const int32 SampleIdx = ((bMirrored ? CoordX : (NumCols - CoordX - 1)) * NumCols) + CoordY;
+
+			const bool bIsHole = PrefetchedHeightfieldSamples.Holes[SampleIdx];
+			if (bIsHole)
 			{
-				const int32 I00 = X + 0 + (Y + 0)*CollumnCount;
-				const int32 I01 = X + 0 + (Y + 1)*CollumnCount;
-				const int32 I10 = X + 1 + (Y + 0)*CollumnCount;
-				const int32 I11 = X + 1 + (Y + 1)*CollumnCount;
-
-				if (bMirrored == false)
-				{
-					IndexBuffer.Add(VertOffset + I00);
-					IndexBuffer.Add(VertOffset + I11);
-					IndexBuffer.Add(VertOffset + I10);
-
-					IndexBuffer.Add(VertOffset + I00);
-					IndexBuffer.Add(VertOffset + I01);
-					IndexBuffer.Add(VertOffset + I11);
-				}
-				else
-				{
-					IndexBuffer.Add(VertOffset + I00);
-					IndexBuffer.Add(VertOffset + I01);
-					IndexBuffer.Add(VertOffset + I11);
-
-					IndexBuffer.Add(VertOffset + I00);
-					IndexBuffer.Add(VertOffset + I11);
-					IndexBuffer.Add(VertOffset + I10);
-				}
+				continue;
 			}
+
+			const int32 I00 = (IdxX + 0) + (IdxY + 0)*SizeX;
+			int32 I01 = (IdxX + 0) + (IdxY + 1)*SizeX;
+			int32 I10 = (IdxX + 1) + (IdxY + 0)*SizeX;
+			const int32 I11 = (IdxX + 1) + (IdxY + 1)*SizeX;
+			if (bMirrored)
+			{
+				Swap(I01, I10);
+			}
+
+			IndexBuffer.Add(VertOffset + I00);
+			IndexBuffer.Add(VertOffset + I11);
+			IndexBuffer.Add(VertOffset + I10);
+
+			IndexBuffer.Add(VertOffset + I00);
+			IndexBuffer.Add(VertOffset + I01);
+			IndexBuffer.Add(VertOffset + I11);
 		}
 	}
 }
@@ -727,7 +726,7 @@ FORCEINLINE_DEBUGGABLE void ExportRigidBodyTriMesh(UBodySetup& BodySetup, TNavSt
 	{
 		for(PxTriangleMesh* TriMesh : BodySetup.TriMeshes)
 		{
-			if (TriMesh->getTriangleMeshFlags() & PxTriangleMeshFlag::eHAS_16BIT_TRIANGLE_INDICES)
+			if (TriMesh->getTriangleMeshFlags() & PxTriangleMeshFlag::e16_BIT_INDICES)
 			{
 				ExportPxTriMesh<PxU16>(TriMesh, LocalToWorld, VertexBuffer, IndexBuffer, UnrealBounds);
 			}
@@ -1296,7 +1295,8 @@ struct FOffMeshData
 			NewInfo.snapHeight = Link.bUseSnapHeight ? Link.SnapHeight : DefaultSnapHeight;
 			NewInfo.userID = Link.UserId;
 
-			const int32* AreaID = AreaClassToIdMap->Find(Link.AreaClass ? Link.AreaClass : UNavigationSystem::GetDefaultWalkableArea());
+			UClass* AreaClass = Link.GetAreaClass();
+			const int32* AreaID = AreaClassToIdMap->Find(AreaClass);
 			if (AreaID != NULL)
 			{
 				NewInfo.area = *AreaID;
@@ -1304,7 +1304,7 @@ struct FOffMeshData
 			}
 			else
 			{
-				UE_LOG(LogNavigation, Warning, TEXT("FRecastTileGenerator: Trying to use undefined area class while defining Off-Mesh links! (%s)"), *GetNameSafe(Link.AreaClass));
+				UE_LOG(LogNavigation, Warning, TEXT("FRecastTileGenerator: Trying to use undefined area class while defining Off-Mesh links! (%s)"), *GetNameSafe(AreaClass));
 			}
 
 			// snap area is currently not supported for regular (point-point) offmesh links
@@ -1336,7 +1336,8 @@ struct FOffMeshData
 			NewInfo.snapHeight = Link.bUseSnapHeight ? Link.SnapHeight : DefaultSnapHeight;
 			NewInfo.userID = Link.UserId;
 
-			const int32* AreaID = AreaClassToIdMap->Find(Link.AreaClass);
+			UClass* AreaClass = Link.GetAreaClass();
+			const int32* AreaID = AreaClassToIdMap->Find(AreaClass);
 			if (AreaID != NULL)
 			{
 				NewInfo.area = *AreaID;
@@ -1344,7 +1345,7 @@ struct FOffMeshData
 			}
 			else
 			{
-				UE_LOG(LogNavigation, Warning, TEXT("FRecastTileGenerator: Trying to use undefined area class while defining Off-Mesh links! (%s)"), *GetNameSafe(Link.AreaClass));
+				UE_LOG(LogNavigation, Warning, TEXT("FRecastTileGenerator: Trying to use undefined area class while defining Off-Mesh links! (%s)"), *GetNameSafe(AreaClass));
 			}
 
 			LinkParams.Add(NewInfo);
@@ -2819,24 +2820,24 @@ void FRecastTileGenerator::MarkDynamicArea(const FAreaNavModifier& Modifier, con
 		return;
 	}
 
+	const float ExpandBy = TileConfig.AgentRadius;
+
 	// Expand by 1 cell height up and down to cover for voxel grid inaccuracy
 	const float OffsetZMax = TileConfig.ch;
-	const float OffsetZMin = -TileConfig.ch - (Modifier.ShouldIncludeAgentHeight() ? TileConfig.AgentHeight : 0.0f);
+	const float OffsetZMin = TileConfig.ch + (Modifier.ShouldIncludeAgentHeight() ? TileConfig.AgentHeight : 0.0f);
 
 	// Check whether modifier affects this layer
 	const FBox LayerUnrealBounds = Recast2UnrealBox(Layer.header->bmin, Layer.header->bmax);
 	FBox ModifierBounds = Modifier.GetBounds().TransformBy(LocalToWorld);
-	ModifierBounds.Max.Z += OffsetZMax;
-	ModifierBounds.Min.Z += OffsetZMin;
+	ModifierBounds.Min -= FVector(ExpandBy, ExpandBy, OffsetZMin);
+	ModifierBounds.Max += FVector(ExpandBy, ExpandBy, OffsetZMax);
 
 	if (!LayerUnrealBounds.Intersect(ModifierBounds))
 	{
 		return;
 	}
 
-	const float ExpandBy = TileConfig.AgentRadius;
 	const float* LayerRecastOrig = Layer.header->bmin;
-
 	switch (Modifier.GetShapeType())
 	{
 	case ENavigationShapeType::Cylinder:
@@ -2850,7 +2851,7 @@ void FRecastTileGenerator::MarkDynamicArea(const FAreaNavModifier& Modifier, con
 			CylinderData.Radius *= FMath::Max(Scale3D.X, Scale3D.Y);
 			CylinderData.Origin = LocalToWorld.TransformPosition(CylinderData.Origin);
 			
-			const float OffsetZMid = (OffsetZMin + OffsetZMax) * 0.5f;
+			const float OffsetZMid = (OffsetZMax - OffsetZMin) * 0.5f;
 			CylinderData.Origin.Z += OffsetZMid;
 			CylinderData.Height += FMath::Abs(OffsetZMid) * 2.f;
 			CylinderData.Radius += ExpandBy;
@@ -2877,7 +2878,7 @@ void FRecastTileGenerator::MarkDynamicArea(const FAreaNavModifier& Modifier, con
 
 			FBox WorldBox = FBox::BuildAABB(BoxData.Origin, BoxData.Extent).TransformBy(LocalToWorld);
 			WorldBox = WorldBox.ExpandBy(FVector(ExpandBy, ExpandBy, 0));
-			WorldBox.Min.Z += OffsetZMin;
+			WorldBox.Min.Z -= OffsetZMin;
 			WorldBox.Max.Z += OffsetZMax;
 
 			FBox RacastBox = Unreal2RecastBox(WorldBox);
@@ -2907,7 +2908,7 @@ void FRecastTileGenerator::MarkDynamicArea(const FAreaNavModifier& Modifier, con
 
 			TArray<FVector> ConvexVerts;
 			GrowConvexHull(ExpandBy, ConvexData.Points, ConvexVerts);
-			ConvexData.MinZ += OffsetZMin;
+			ConvexData.MinZ -= OffsetZMin;
 			ConvexData.MaxZ += OffsetZMax;
 
 			if (ConvexVerts.Num())
@@ -3956,7 +3957,7 @@ void FRecastNavMeshGenerator::SortPendingBuildTiles()
 	// Collect players positions
 	for (FConstPlayerControllerIterator PlayerIt = CurWorld->GetPlayerControllerIterator(); PlayerIt; ++PlayerIt)
 	{
-		if (*PlayerIt && (*PlayerIt)->GetPawn() != NULL)
+		if (PlayerIt->IsValid() && PlayerIt->Get()->GetPawn() != NULL)
 		{
 			const FVector2D SeedLoc((*PlayerIt)->GetPawn()->GetActorLocation());
 			SeedLocations.Add(SeedLoc);
@@ -4021,6 +4022,7 @@ TArray<uint32> FRecastNavMeshGenerator::ProcessTileTasks(const int32 NumTasksToS
 		if (!RunningDirtyTiles.Contains(RunningElement))
 		{
 			// Spawn async task
+#if RECAST_ASYNC_REBUILDING
 			TUniquePtr<FRecastTileGeneratorTask> TileTask = MakeUnique<FRecastTileGeneratorTask>(CreateTileGenerator(PendingElement.Coord, PendingElement.DirtyAreas));
 
 			// Start it in background in case it has something to build
@@ -4032,12 +4034,37 @@ TArray<uint32> FRecastNavMeshGenerator::ProcessTileTasks(const int32 NumTasksToS
 				RunningDirtyTiles.Add(RunningElement);
 				NumSubmittedTasks++;
 			}
+#else
+			TSharedRef<FRecastTileGenerator> TileGenerator = CreateTileGenerator(PendingElement.Coord, PendingElement.DirtyAreas);
+			if (TileGenerator->HasDataToBuild())
+			{
+				FRecastTileGenerator& TileGeneratorRef = TileGenerator.Get();
+				TileGeneratorRef.DoWork();
+
+				TArray<uint32> UpdatedTileIndices = AddGeneratedTiles(TileGeneratorRef);
+				UpdatedTiles.Append(UpdatedTileIndices);
+
+				// Store compressed tile cache layers so it can be reused later
+				if (TileGeneratorRef.GetCompressedLayers().Num())
+				{
+					QUICK_SCOPE_CYCLE_COUNTER(STAT_RecastNavMeshGenerator_StoringCompressedLayers);
+					DestNavMesh->AddTileCacheLayers(PendingElement.Coord.X, PendingElement.Coord.Y, TileGeneratorRef.GetCompressedLayers());
+				}
+				else
+				{
+					DestNavMesh->MarkEmptyTileCacheLayers(PendingElement.Coord.X, PendingElement.Coord.Y);
+				}
+
+				NumSubmittedTasks++;
+			}
+#endif
 			else if (!bGameStaticNavMesh)
 			{
 				// If there is nothing to generate remove all tiles from navmesh at specified grid coordinates
 				UpdatedTiles.Append(
 					RemoveTileLayers(PendingElement.Coord.X, PendingElement.Coord.Y)
 				);
+				DestNavMesh->MarkEmptyTileCacheLayers(PendingElement.Coord.X, PendingElement.Coord.Y);
 					
 				// TODO: should we increment NumSubmittedTasks here? 
 				// We can count removing as a tasks to avoid hitches when there are large number of pending tiles to remove
@@ -4076,6 +4103,10 @@ TArray<uint32> FRecastNavMeshGenerator::ProcessTileTasks(const int32 NumTasksToS
 				{
 					QUICK_SCOPE_CYCLE_COUNTER(STAT_RecastNavMeshGenerator_StoringCompressedLayers);
 					DestNavMesh->AddTileCacheLayers(Element.Coord.X, Element.Coord.Y, TileGenerator.GetCompressedLayers());
+				}
+				else
+				{
+					DestNavMesh->MarkEmptyTileCacheLayers(Element.Coord.X, Element.Coord.Y);
 				}
 			}
 

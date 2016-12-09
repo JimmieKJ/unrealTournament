@@ -1,12 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
 #include "MaterialEditorModule.h"
-#include "Materials/MaterialFunction.h"
+#include "Modules/ModuleManager.h"
+#include "IMaterialEditor.h"
 #include "MaterialEditor.h"
 #include "MaterialEditorUtilities.h"
 #include "MaterialInstanceEditor.h"
-#include "ModuleManager.h"
 #include "Materials/MaterialInstance.h"
 
 const FName MaterialEditorAppIdentifier = FName(TEXT("MaterialEditorApp"));

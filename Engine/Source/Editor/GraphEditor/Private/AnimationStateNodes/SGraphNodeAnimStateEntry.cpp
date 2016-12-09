@@ -1,12 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeAnimStateEntry.h"
-#include "SGraphPreviewer.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "NodeFactory.h"
+#include "AnimationStateNodes/SGraphNodeAnimStateEntry.h"
 #include "AnimStateEntryNode.h"
+#include "Widgets/SBoxPanel.h"
+#include "SGraphPin.h"
 
 /////////////////////////////////////////////////////
 // SGraphNodeAnimStateEntry

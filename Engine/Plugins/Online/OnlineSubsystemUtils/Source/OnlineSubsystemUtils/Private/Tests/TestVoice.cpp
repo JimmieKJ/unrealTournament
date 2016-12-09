@@ -1,13 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
-#include "TestVoice.h"
-#include "TestVoiceData.h"
+#include "Tests/TestVoice.h"
+#include "Components/AudioComponent.h"
+#include "Tests/TestVoiceData.h"
 
-#include "Engine.h"
 #include "OnlineSubsystemUtils.h"
+#include "VoiceModule.h"
 #include "Voice.h"
-#include "Runtime/Engine/Classes/Sound/SoundWaveProcedural.h"
+#include "Sound/SoundWaveProcedural.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

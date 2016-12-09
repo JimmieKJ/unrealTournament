@@ -6,7 +6,13 @@
 
 #pragma once
 
-#include "RenderingCompositionGraph.h"
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "GlobalShader.h"
+#include "RendererInterface.h"
+#include "PostProcessParameters.h"
+#include "PostProcess/RenderingCompositionGraph.h"
 
 /**
 * The number of shader complexity colors from the engine ini that will be passed to the shader. 

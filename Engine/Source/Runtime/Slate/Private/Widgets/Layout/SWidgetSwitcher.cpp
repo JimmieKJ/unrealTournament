@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "LayoutUtils.h"
-#include "SWidgetSwitcher.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
+#include "Layout/LayoutUtils.h"
 
 
 SWidgetSwitcher::SWidgetSwitcher()

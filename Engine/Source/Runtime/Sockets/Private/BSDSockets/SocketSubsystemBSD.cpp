@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SocketsPrivatePCH.h"
+#include "BSDSockets/SocketSubsystemBSD.h"
+#include "Misc/ScopeLock.h"
 
 #if PLATFORM_HAS_BSD_SOCKETS
 
-#include "SocketSubsystemBSD.h"
-#include "SocketsBSD.h"
-
+#include "IPAddress.h"
+#include "BSDSockets/IPAddressBSD.h"
+#include "BSDSockets/SocketsBSD.h"
+#include <errno.h>
 
 FSocketBSD* FSocketSubsystemBSD::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription)
 {
@@ -60,7 +62,7 @@ void FSocketSubsystemBSD::DestroySocket(FSocket* Socket)
 
 ESocketErrors FSocketSubsystemBSD::GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr)
 {
-#if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETHOSTNAME
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
 	FScopeLock ScopeLock(&HostByNameSynch);
 	addrinfo* AddrInfo = nullptr;
 
@@ -199,6 +201,7 @@ ESocketErrors FSocketSubsystemBSD::TranslateErrorCode(int32 Code)
 // 	case SYSNOTREADY: return SE_SYSNOTREADY;
 // 	case VERNOTSUPPORTED: return SE_VERNOTSUPPORTED;
 // 	case NOTINITIALISED: return SE_NOTINITIALISED;
+
 #if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETHOSTNAME
 	case HOST_NOT_FOUND: return SE_HOST_NOT_FOUND;
 	case TRY_AGAIN: return SE_TRY_AGAIN;
@@ -210,9 +213,8 @@ ESocketErrors FSocketSubsystemBSD::TranslateErrorCode(int32 Code)
 	}
 #endif
 
-	UE_LOG(LogSockets, Warning, TEXT("Unhandled socket error! Error Code: %d"), Code);
-	check(0);
-	return SE_NO_ERROR;
+	UE_LOG(LogSockets, Warning, TEXT("Unhandled socket error! Error Code: %d. Returning SE_EINVAL!"), Code);
+	return SE_EINVAL;
 }
 
 

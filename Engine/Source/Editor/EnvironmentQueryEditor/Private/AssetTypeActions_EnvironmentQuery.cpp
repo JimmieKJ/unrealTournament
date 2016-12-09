@@ -1,13 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnvironmentQueryEditorPrivatePCH.h"
-#include "Toolkits/AssetEditorManager.h"
-
-#include "Editor/EnvironmentQueryEditor/Public/EnvironmentQueryEditorModule.h"
-#include "Editor/EnvironmentQueryEditor/Public/IEnvironmentQueryEditor.h"
-
-#include "EnvironmentQuery/EnvQuery.h"
 #include "AssetTypeActions_EnvironmentQuery.h"
+#include "EnvironmentQuery/EnvQuery.h"
+#include "EnvironmentQueryEditorModule.h"
+
+
 
 #include "AIModule.h"
 

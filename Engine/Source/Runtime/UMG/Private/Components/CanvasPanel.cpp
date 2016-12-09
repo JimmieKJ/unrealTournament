@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/CanvasPanel.h"
+#include "Layout/ArrangedChildren.h"
+#include "Components/CanvasPanelSlot.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

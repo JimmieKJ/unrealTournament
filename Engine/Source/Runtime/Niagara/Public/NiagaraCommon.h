@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "NiagaraCommon.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogNiagara, Log, Verbose);
@@ -63,7 +65,7 @@ struct FNiagaraVariableInfo
 	FName Name;
 
 	UPROPERTY(EditAnywhere, Category = "Variable")
-	TEnumAsByte<ENiagaraDataType> Type;
+	ENiagaraDataType Type;
 	
 	FORCEINLINE bool operator==(const FNiagaraVariableInfo& Other)const
 	{
@@ -84,7 +86,7 @@ FORCEINLINE FArchive& operator<<(FArchive& Ar, FNiagaraVariableInfo& VarInfo)
 
 FORCEINLINE uint32 GetTypeHash(const FNiagaraVariableInfo& Var)
 {
-	return HashCombine(GetTypeHash(Var.Name), (uint32)(Var.Type.GetValue()));
+	return HashCombine(GetTypeHash(Var.Name), (uint32)Var.Type);
 }
 
 
@@ -115,7 +117,7 @@ struct FNiagaraDataSetID
 	FName Name;
 
 	UPROPERTY()
-	TEnumAsByte<ENiagaraDataSetType> Type;
+	ENiagaraDataSetType Type;
 
 	FORCEINLINE bool operator==(const FNiagaraDataSetID& Other)const
 	{
@@ -141,5 +143,5 @@ FORCEINLINE FArchive& operator<<(FArchive& Ar, FNiagaraDataSetID& VarInfo)
 
 FORCEINLINE uint32 GetTypeHash(const FNiagaraDataSetID& Var)
 {
-	return HashCombine(GetTypeHash(Var.Name), (uint32)(Var.Type.GetValue()));
+	return HashCombine(GetTypeHash(Var.Name), (uint32)Var.Type);
 }

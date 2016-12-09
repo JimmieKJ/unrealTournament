@@ -7,7 +7,9 @@
 	And flatten a few header files into this self contained file.
 =============================================================================*/
 
-#include "LightmassPCH.h"
+#include "CoreMinimal.h"
+#include "LMMath.h"
+#include "LMMathSSE.h"
 
 /** 
  * @file  SFMT.c

@@ -4,7 +4,6 @@
 	InterpFilter.h
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
 #include "AnimInterpFilter.h"
 
 ////////////////////////////

@@ -2,10 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/CursorReply.h"
+#include "SequencerSelectedKey.h"
 #include "ISequencerHotspot.h"
-#include "SequencerDisplayNode.h"
-#include "ISequencerSection.h"
+#include "DisplayNodes/SequencerTrackNode.h"
 
+class FMenuBuilder;
+class ISequencer;
+class ISequencerEditToolDragOperation;
 
 /** A hotspot representing a key */
 struct FKeyHotspot

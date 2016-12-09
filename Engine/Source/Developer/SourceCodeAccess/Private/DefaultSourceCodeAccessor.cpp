@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SourceCodeAccessPrivatePCH.h"
 #include "DefaultSourceCodeAccessor.h"
 
 #define LOCTEXT_NAMESPACE "DefaultSourceCodeAccessor"

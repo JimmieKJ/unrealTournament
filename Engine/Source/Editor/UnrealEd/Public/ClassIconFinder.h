@@ -2,9 +2,15 @@
 
 #pragma once
 
-#include "SlateIconFinder.h"
+#include "CoreMinimal.h"
+#include "Textures/SlateIcon.h"
+#include "Styling/SlateIconFinder.h"
 
+class AActor;
 class FAssetData;
+class ISlateStyle;
+class UBlueprint;
+struct FSlateBrush;
 
 class FClassIconFinder
 {

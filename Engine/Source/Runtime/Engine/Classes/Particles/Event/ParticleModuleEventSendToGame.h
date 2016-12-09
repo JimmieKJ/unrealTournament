@@ -2,6 +2,10 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "ParticleModuleEventSendToGame.generated.h"
 
 UCLASS(abstract, editinlinenew, hidecategories=Object)

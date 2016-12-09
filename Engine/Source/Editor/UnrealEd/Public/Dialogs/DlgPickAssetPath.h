@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWindow.h"
+
 #define LOCTEXT_NAMESPACE "DlgPickAssetPath"
 
 class SDlgPickAssetPath : public SWindow

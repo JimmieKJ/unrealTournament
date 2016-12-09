@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "PostProcessOutput.h"
+#include "PostProcess/PostProcessOutput.h"
 
 FRCPassPostProcessOutput::FRCPassPostProcessOutput(TRefCountPtr<IPooledRenderTarget>* InExternalRenderTarget)
 	: ExternalRenderTarget(InExternalRenderTarget)

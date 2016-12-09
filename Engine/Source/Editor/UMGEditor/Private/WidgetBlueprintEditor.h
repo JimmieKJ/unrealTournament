@@ -2,14 +2,26 @@
 
 #pragma once
 
-#include "Editor/Kismet/Public/BlueprintEditor.h"
-#include "ISequencer.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "AssetData.h"
 #include "PreviewScene.h"
+#include "GraphEditor.h"
+#include "BlueprintEditor.h"
+#include "ISequencer.h"
 #include "WidgetReference.h"
+#include "Blueprint/UserWidget.h"
 
-class ISequencer;
+class FMenuBuilder;
+class FWidgetBlueprintEditorToolbar;
+class IMessageLogListing;
+class STextBlock;
+class UPanelSlot;
 class UWidgetAnimation;
-class UUserWidget;
+class UWidgetBlueprint;
 
 struct FNamedSlotSelection
 {
@@ -154,6 +166,9 @@ public:
 	/** Get the current designer flags that are in effect for the current user widget we're editing. */
 	EWidgetDesignFlags::Type GetCurrentDesignerFlags() const;
 
+	bool GetShowDashedOutlines() const;
+	void SetShowDashedOutlines(bool Value);
+
 public:
 	/** Fires whenever a new widget is being hovered over */
 	FOnHoveredWidgetSet OnHoveredWidgetSet;
@@ -244,6 +259,12 @@ private:
 	/** Fire off when sequencer selection changed */
 	void SyncSelectedWidgetsWithSequencerSelection(TArray<FGuid> ObjectGuids);
 
+	/** Get the animation playback context */
+	UObject* GetAnimationPlaybackContext() const { return GetPreview(); }
+
+	/** Get the animation playback event contexts */
+	TArray<UObject*> GetAnimationEventContexts() const { TArray<UObject*> EventContexts; EventContexts.Add(GetPreview()); return EventContexts; }
+	
 private:
 	/** The preview scene that owns the preview GUI */
 	FPreviewScene PreviewScene;
@@ -298,6 +319,9 @@ private:
 
 	/**  */
 	bool bIsRealTime;
+
+	/** Should the designer show outlines when it creates widgets? */
+	bool bShowDashedOutlines;
 
 	TArray< TFunction<void()> > QueuedDesignerActions;
 

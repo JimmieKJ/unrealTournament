@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealHeaderTool.h"
 #include "FileLineException.h"
+#include "UnrealHeaderTool.h"
 
 void VARARGS FFileLineException::ThrowfImpl(FString&& InFilename, int32 InLine, const TCHAR* Fmt, ...)
 {

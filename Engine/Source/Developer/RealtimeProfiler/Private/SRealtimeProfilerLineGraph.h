@@ -2,12 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Layout/Geometry.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 #include "VisualizerEvents.h"
 
-
-struct FRealtimeProfilerFPSChartFrame;
-
+class FPaintArgs;
+class FSlateWindowElementList;
+class SButton;
 class SRealtimeProfilerVisualizer;
+struct FRealtimeProfilerFPSChartFrame;
 
 //////////////////////////////////////////////////////////////////////////
 // SRealtimeProfilerLineGraph

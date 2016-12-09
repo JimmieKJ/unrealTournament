@@ -1,18 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TcpMessagingPrivatePCH.h"
-#include "JsonStructDeserializerBackend.h"
+#include "Transport/TcpDeserializedMessage.h"
+#include "UObject/Package.h"
+#include "TcpMessagingPrivate.h"
+#include "Backends/JsonStructDeserializerBackend.h"
 #include "StructDeserializer.h"
 
 
 /* FTcpDeserializedMessage structors
 *****************************************************************************/
 
-FTcpDeserializedMessage::FTcpDeserializedMessage(const IMessageAttachmentPtr& InAttachment)
+FTcpDeserializedMessage::FTcpDeserializedMessage(const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& InAttachment)
 	: Attachment(InAttachment)
 	, MessageData(nullptr)
-{
-}
+{ }
 
 
 FTcpDeserializedMessage::~FTcpDeserializedMessage()
@@ -82,7 +83,7 @@ bool FTcpDeserializedMessage::Deserialize(const FArrayReaderPtr& Message)
 	{
 		MessageReader << Scope;
 
-		if (static_cast<uint8>(Scope.GetValue()) > static_cast<uint8>(EMessageScope::All))
+		if (Scope > EMessageScope::All)
 		{
 			return false;
 		}
@@ -117,7 +118,7 @@ bool FTcpDeserializedMessage::Deserialize(const FArrayReaderPtr& Message)
 	}
 
 	// create message body
-	MessageData = FMemory::Malloc(TypeInfo->PropertiesSize);
+	MessageData = FMemory::Malloc(TypeInfo->GetStructureSize());
 	TypeInfo->InitializeStruct(MessageData);
 
 	// deserialize message body
@@ -136,7 +137,7 @@ const TMap<FName, FString>& FTcpDeserializedMessage::GetAnnotations() const
 }
 
 
-IMessageAttachmentPtr FTcpDeserializedMessage::GetAttachment() const
+TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe> FTcpDeserializedMessage::GetAttachment() const
 {
 	return Attachment;
 }

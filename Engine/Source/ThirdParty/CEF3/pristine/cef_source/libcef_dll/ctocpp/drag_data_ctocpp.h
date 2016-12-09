@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,35 +28,32 @@
 class CefDragDataCToCpp
     : public CefCToCpp<CefDragDataCToCpp, CefDragData, cef_drag_data_t> {
  public:
-  explicit CefDragDataCToCpp(cef_drag_data_t* str)
-      : CefCToCpp<CefDragDataCToCpp, CefDragData, cef_drag_data_t>(str) {}
+  CefDragDataCToCpp();
 
-  // CefDragData methods
-  virtual CefRefPtr<CefDragData> Clone() OVERRIDE;
-  virtual bool IsReadOnly() OVERRIDE;
-  virtual bool IsLink() OVERRIDE;
-  virtual bool IsFragment() OVERRIDE;
-  virtual bool IsFile() OVERRIDE;
-  virtual CefString GetLinkURL() OVERRIDE;
-  virtual CefString GetLinkTitle() OVERRIDE;
-  virtual CefString GetLinkMetadata() OVERRIDE;
-  virtual CefString GetFragmentText() OVERRIDE;
-  virtual CefString GetFragmentHtml() OVERRIDE;
-  virtual CefString GetFragmentBaseURL() OVERRIDE;
-  virtual CefString GetFileName() OVERRIDE;
-  virtual size_t GetFileContents(CefRefPtr<CefStreamWriter> writer) OVERRIDE;
-  virtual bool GetFileNames(std::vector<CefString>& names) OVERRIDE;
-  virtual void SetLinkURL(const CefString& url) OVERRIDE;
-  virtual void SetLinkTitle(const CefString& title) OVERRIDE;
-  virtual void SetLinkMetadata(const CefString& data) OVERRIDE;
-  virtual void SetFragmentText(const CefString& text) OVERRIDE;
-  virtual void SetFragmentHtml(const CefString& html) OVERRIDE;
-  virtual void SetFragmentBaseURL(const CefString& base_url) OVERRIDE;
-  virtual void ResetFileContents() OVERRIDE;
-  virtual void AddFile(const CefString& path,
-      const CefString& display_name) OVERRIDE;
+  // CefDragData methods.
+  CefRefPtr<CefDragData> Clone() OVERRIDE;
+  bool IsReadOnly() OVERRIDE;
+  bool IsLink() OVERRIDE;
+  bool IsFragment() OVERRIDE;
+  bool IsFile() OVERRIDE;
+  CefString GetLinkURL() OVERRIDE;
+  CefString GetLinkTitle() OVERRIDE;
+  CefString GetLinkMetadata() OVERRIDE;
+  CefString GetFragmentText() OVERRIDE;
+  CefString GetFragmentHtml() OVERRIDE;
+  CefString GetFragmentBaseURL() OVERRIDE;
+  CefString GetFileName() OVERRIDE;
+  size_t GetFileContents(CefRefPtr<CefStreamWriter> writer) OVERRIDE;
+  bool GetFileNames(std::vector<CefString>& names) OVERRIDE;
+  void SetLinkURL(const CefString& url) OVERRIDE;
+  void SetLinkTitle(const CefString& title) OVERRIDE;
+  void SetLinkMetadata(const CefString& data) OVERRIDE;
+  void SetFragmentText(const CefString& text) OVERRIDE;
+  void SetFragmentHtml(const CefString& html) OVERRIDE;
+  void SetFragmentBaseURL(const CefString& base_url) OVERRIDE;
+  void ResetFileContents() OVERRIDE;
+  void AddFile(const CefString& path, const CefString& display_name) OVERRIDE;
 };
 
 #endif  // USING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_DRAG_DATA_CTOCPP_H_
-

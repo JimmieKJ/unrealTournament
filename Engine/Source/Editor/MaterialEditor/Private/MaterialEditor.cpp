@@ -1,8 +1,40 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "MaterialEditor.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EngineGlobals.h"
+#include "Engine/SkeletalMesh.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/Engine.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "EdGraph/EdGraph.h"
+#include "MaterialGraph/MaterialGraph.h"
+#include "MaterialGraph/MaterialGraphNode_Comment.h"
+#include "Editor/UnrealEdEngine.h"
+#include "MaterialEditor/MaterialEditorInstanceConstant.h"
+#include "Preferences/MaterialEditorOptions.h"
+#include "MaterialGraph/MaterialGraphNode.h"
+#include "MaterialGraph/MaterialGraphNode_Root.h"
+#include "MaterialGraph/MaterialGraphSchema.h"
+#include "MaterialEditor/PreviewMaterial.h"
+#include "ThumbnailRendering/SceneThumbnailInfoWithPrimitive.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Materials/MaterialInstance.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialInstanceConstant.h"
+#include "Materials/MaterialParameterCollection.h"
+#include "Engine/TextureCube.h"
+#include "Dialogs/Dialogs.h"
+#include "UnrealEdGlobals.h"
+#include "Editor.h"
 #include "MaterialEditorModule.h"
 
-#include "MaterialGraph/MaterialGraphNode_Comment.h"
 
 #include "Materials/MaterialExpressionBreakMaterialAttributes.h"
 #include "Materials/MaterialExpressionCollectionParameter.h"
@@ -17,8 +49,9 @@
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionParameter.h"
+#include "Materials/MaterialExpressionTextureBase.h"
+#include "Materials/MaterialExpressionTextureSample.h"
 #include "Materials/MaterialExpressionParticleSubUV.h"
-#include "Materials/MaterialExpressionRotateAboutAxis.h"
 #include "Materials/MaterialExpressionScalarParameter.h"
 #include "Materials/MaterialExpressionStaticComponentMaskParameter.h"
 #include "Materials/MaterialExpressionTextureSampleParameter.h"
@@ -28,50 +61,48 @@
 #include "Materials/MaterialExpressionTextureSampleParameterSubUV.h"
 #include "Materials/MaterialExpressionTransformPosition.h"
 #include "Materials/MaterialExpressionVectorParameter.h"
-#include "Materials/MaterialFunction.h"
-#include "Materials/MaterialParameterCollection.h"
 
 #include "MaterialEditorActions.h"
 #include "MaterialExpressionClasses.h"
 #include "MaterialCompiler.h"
 #include "EditorSupportDelegates.h"
-#include "Toolkits/IToolkitHost.h"
-#include "Editor/EditorWidgets/Public/EditorWidgets.h"
 #include "AssetRegistryModule.h"
+#include "IAssetTools.h"
+#include "IAssetTypeActions.h"
 #include "AssetToolsModule.h"
-#include "SMaterialEditorViewport.h"
 #include "SMaterialEditorTitleBar.h"
-#include "PreviewScene.h"
 #include "ScopedTransaction.h"
 #include "BusyCursor.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
+#include "PropertyEditorModule.h"
 #include "MaterialEditorDetailCustomization.h"
 #include "MaterialInstanceEditor.h"
 
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 #include "EditorViewportCommands.h"
 
 #include "GraphEditor.h"
 #include "GraphEditorActions.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Logging/TokenizedMessage.h"
 #include "EdGraphUtilities.h"
 #include "SNodePanel.h"
 #include "MaterialEditorUtilities.h"
 #include "SMaterialPalette.h"
 #include "FindInMaterial.h"
-#include "SColorPicker.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/Colors/SColorPicker.h"
 #include "EditorClassUtils.h"
 #include "IDocumentation.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
+#include "Developer/MessageLog/Public/IMessageLogListing.h"
+#include "Developer/MessageLog/Public/MessageLogInitializationOptions.h"
 #include "Developer/MessageLog/Public/MessageLogModule.h"
-#include "Particles/ParticleSystemComponent.h"
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "CanvasTypes.h"
 #include "Engine/Selection.h"
-#include "Engine/TextureCube.h"
 
 #define LOCTEXT_NAMESPACE "MaterialEditor"
 
@@ -144,7 +175,7 @@ int32 FMatExpressionPreview::CompilePropertyAndSetMaterialProperty(EMaterialProp
 		// Hardcoding output 0 as we don't have the UI to specify any other output
 		const int32 OutputIndex = 0;
 		// Get back into gamma corrected space, as DrawTile does not do this adjustment.
-		Ret = Compiler->Power(Compiler->Max(Expression->CompilePreview(Compiler, OutputIndex, -1), Compiler->Constant(0)), Compiler->Constant(1.f / 2.2f));
+		Ret = Compiler->Power(Compiler->Max(Expression->CompilePreview(Compiler, OutputIndex), Compiler->Constant(0)), Compiler->Constant(1.f / 2.2f));
 	}
 	else if (Property == MP_WorldPositionOffset)
 	{
@@ -162,7 +193,7 @@ int32 FMatExpressionPreview::CompilePropertyAndSetMaterialProperty(EMaterialProp
 	}
 
 	// output should always be the right type for this property
-	return Compiler->ForceCast(Ret, GetMaterialPropertyType(Property));
+	return Compiler->ForceCast(Ret, FMaterialAttributeDefinitionMap::GetValueType(Property));
 }
 
 void FMatExpressionPreview::NotifyCompilationFinished()
@@ -979,7 +1010,7 @@ void FMaterialEditor::DrawMaterialInfoStrings(
 
 		if (SamplersUsed >= 0)
 		{
-			int32 MaxSamplers = GetFeatureLevelMaxTextureSamplers(MaterialResource->GetFeatureLevel());
+			int32 MaxSamplers = GetExpectedFeatureLevelMaxTextureSamplers(MaterialResource->GetFeatureLevel());
 
 			Canvas->DrawShadowedString(
 				5,
@@ -1278,6 +1309,8 @@ void FMaterialEditor::UpdatePreviewMaterial( bool bForce )
 
 	if(PreviewExpression)
 	{
+		check(ExpressionPreviewMaterial);
+
 		// The preview material's expressions array must stay up to date before recompiling 
 		// So that RebuildMaterialFunctionInfo will see all the nested material functions that may need to be updated
 		ExpressionPreviewMaterial->Expressions = Material->Expressions;
@@ -1289,15 +1322,18 @@ void FMaterialEditor::UpdatePreviewMaterial( bool bForce )
 		ExpressionPreviewMaterial->PreEditChange( NULL );
 		ExpressionPreviewMaterial->PostEditChange();
 	}
-	else 
+	
 	{
 		FMaterialUpdateContext UpdateContext(FMaterialUpdateContext::EOptions::SyncWithRenderingThread);
 		UpdateContext.AddMaterial(Material);
 
-		// Update the regular preview material when not previewing an expression.
-		Material->PreEditChange( NULL );
+		// Update the regular preview material even when previewing an expression to allow code view regeneration.
+		Material->PreEditChange(NULL);
 		Material->PostEditChange();
+	}
 
+	if (!PreviewExpression)
+	{
 		UpdateStatsMaterials();
 
 		// Null out the expression preview material so they can be GC'ed
@@ -1592,6 +1628,8 @@ void FMaterialEditor::UpdateOriginalMaterial()
 		}
 
 		RebuildMaterialInstanceEditors(NULL);
+
+		FMaterialEditorUtilities::BuildTextureStreamingData(OriginalMaterial);
 	}
 
 	GWarn->EndSlowTask();
@@ -1693,7 +1731,7 @@ void FMaterialEditor::UpdateMaterialInfoList(bool bForceDisplay)
 
 				if (SamplersUsed >= 0)
 				{
-					int32 MaxSamplers = GetFeatureLevelMaxTextureSamplers(MaterialResource->GetFeatureLevel());
+					int32 MaxSamplers = GetExpectedFeatureLevelMaxTextureSamplers(MaterialResource->GetFeatureLevel());
 					FString SamplersString = FString::Printf(TEXT("%s samplers: %u/%u"), FeatureLevel <= ERHIFeatureLevel::ES3_1 ? TEXT("Mobile texture") : TEXT("Texture"), SamplersUsed, MaxSamplers);
 					TempMaterialInfoList.Add(MakeShareable(new FMaterialInfo(SamplersString, FLinearColor::Yellow)));
 					TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create( EMessageSeverity::Info );
@@ -1779,6 +1817,8 @@ void FMaterialEditor::UpdateGraphNodeStates()
 
 			if (MaterialNode->bIsErrorExpression && !MaterialNode->bHasCompilerMessage)
 			{
+				check(MaterialNode->MaterialExpression);
+
 				bUpdatedErrorState = true;
 				MaterialNode->bHasCompilerMessage = true;
 				MaterialNode->ErrorMsg = MaterialNode->MaterialExpression->LastErrorText;
@@ -3387,7 +3427,7 @@ void FMaterialEditor::PasteNodesHere(const FVector2D& Location)
 
 			UMaterialExpression* NewExpression = GraphNode->MaterialExpression;
 			NewExpression->Material = Material;
-			NewExpression->Function = NULL;
+			NewExpression->Function = MaterialFunction;
 			Material->Expressions.Add(NewExpression);
 
 			// There can be only one default mesh paint texture.
@@ -3437,6 +3477,7 @@ void FMaterialEditor::PasteNodesHere(const FVector2D& Location)
 		{
 			CommentNode->MaterialDirtyDelegate = Material->MaterialGraph->MaterialDirtyDelegate;
 			CommentNode->MaterialExpressionComment->Material = Material;
+			CommentNode->MaterialExpressionComment->Function = MaterialFunction;
 			Material->EditorComments.Add(CommentNode->MaterialExpressionComment);
 		}
 

@@ -30,8 +30,8 @@
 	CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+#include "VulkanBackend.h"
 #include "VulkanShaderFormat.h"
-#include "Core.h"
 #include "hlslcc.h"
 #include "hlslcc_private.h"
 #include "VulkanBackend.h"
@@ -39,6 +39,8 @@
 #include "ShaderCompilerCommon.h"
 
 #include "VulkanConfiguration.h"
+
+#include "CrossCompilerCommon.h"
 
 PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "glsl_parser_extras.h"
@@ -735,6 +737,10 @@ class FGenerateVulkanVisitor : public ir_visitor
 		{
 			ralloc_asprintf_append(buffer, "%s", t->name);
 		}
+		else if (t->base_type == GLSL_TYPE_IMAGE)
+		{
+			ralloc_asprintf_append(buffer, "%s", t->name);
+		}
 		else
 		{
 			std::string Name = FixHlslName(t, LanguageSpec->AllowsSharingSamplers());
@@ -1064,7 +1070,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 						GetDescriptorSetForStage(ShaderTarget),
 						comp_str,
 						type_str[var->type->inner_type->base_type],
-						var->location
+						BindingTable.RegisterBinding(var->name, "u", var->type->sampler_buffer ? EVulkanBindingType::StorageTexelBuffer : EVulkanBindingType::StorageImage)
 						);
 				}
 				else
@@ -1094,7 +1100,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 					layout = ralloc_asprintf(nullptr,
 						"layout(set=%d, binding=%d) ",
 						GetDescriptorSetForStage(ShaderTarget),
-						BindingTable.RegisterBinding(var->name, "s", var->type->sampler_buffer ? FVulkanBindingTable::TYPE_SAMPLER_BUFFER : FVulkanBindingTable::TYPE_COMBINED_IMAGE_SAMPLER));
+						BindingTable.RegisterBinding(var->name, "s", var->type->sampler_buffer ? EVulkanBindingType::UniformTexelBuffer : EVulkanBindingType::CombinedImageSampler));
 				}
 				else if (bGenerateLayoutLocations && var->explicit_location)
 				{
@@ -1362,7 +1368,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 			uint32 SSIndex = AddUniqueSamplerState(tex->SamplerStateName);
 			char PackedName[256];
 			FCStringAnsi::Sprintf(PackedName, "%sz%u", glsl_variable_tag_from_parser_target(ShaderTarget), SSIndex);
-			BindingTable.RegisterBinding(PackedName, "z", FVulkanBindingTable::TYPE_SAMPLER);
+			BindingTable.RegisterBinding(PackedName, "z", EVulkanBindingType::Sampler);
 
 			auto GetSamplerSuffix = [](int32 Dim)
 			{
@@ -2343,14 +2349,14 @@ class FGenerateVulkanVisitor : public ir_visitor
 					num_used_blocks
 					);
 
-				auto Type = FVulkanBindingTable::TYPE_UNIFORM_BUFFER;
+				auto Type = EVulkanBindingType::UniformBuffer;
 				if (bCanHaveUBs && block->num_vars == 1 && strlen(var_name) == 4 && var_name[0] == glsl_variable_tag_from_parser_target(state->target)[0] && var_name[1] == 'u' && var_name[2] == '_')
 				{
 					// Find in the regular globals
 					auto Found = state->GlobalPackedArraysMap.find(var_name[3]);
 					if (Found != state->GlobalPackedArraysMap.end())
 					{
-						Type = FVulkanBindingTable::TYPE_PACKED_UNIFORM_BUFFER;
+						Type = EVulkanBindingType::PackedUniformBuffer;
 					}
 					else
 					{
@@ -2360,7 +2366,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 							auto InnerFound = Pair.second.find(var_name[3]);
 							if (InnerFound != Pair.second.end())
 							{
-								Type = FVulkanBindingTable::TYPE_PACKED_UNIFORM_BUFFER;
+								Type = EVulkanBindingType::PackedUniformBuffer;
 								break;
 							}
 						}
@@ -2409,6 +2415,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 						ir_variable* var = block->vars[var_index];
 
 						//EHart - name-mangle variables to prevent colliding names
+						//#todo-rco: Check if this is still is needed when creating PSOs
 						ralloc_asprintf_append(buffer, "#define %s %s%s\n", var->name, var->name, block_name);
 
 						ralloc_asprintf_append(buffer, "\t%s", (state->language_version == 310 && bEmitPrecision) ? "highp " : "");
@@ -3251,7 +3258,7 @@ public:
 			const auto& Bindings = BindingTable.GetBindings();
 			for (int32 Index = 0; Index < Bindings.Num(); ++Index)
 			{
-				if (Bindings[Index].Type == FVulkanBindingTable::TYPE_SAMPLER)
+				if (Bindings[Index].Type == EVulkanBindingType::Sampler)
 				{
 					int32 Binding = atoi(Bindings[Index].Name + 2);
 					const char* Precision = FindPrecision(Binding);
@@ -3398,7 +3405,7 @@ void FGenerateVulkanVisitor::AddTypeToUsedStructs(const glsl_type* type)
 char* FVulkanCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* state, EHlslShaderFrequency Frequency)
 {
 	FixRedundantCasts(ir);
-	//IRDump(ir);
+	//IRDump(ir, state);
 
 	FixIntrinsics(state, ir);
 
@@ -3612,6 +3619,8 @@ static FSystemValue PixelSystemValueTable[] =
 	{ "SV_PrimitiveID", glsl_type::int_type, "gl_PrimitiveID", ir_var_in, false, false, false, false },
 	{ "SV_RenderTargetArrayIndex", glsl_type::int_type, "gl_Layer", ir_var_in, false, false, false, false },
 	{ "SV_Target0", glsl_type::half4_type, "gl_FragColor", ir_var_out, false, false, false, true },
+	{ "SV_Coverage", glsl_type::int_type, "gl_SampleMaskIn[0]", ir_var_in, false, false, false, false },
+	{ "SV_Coverage", glsl_type::int_type, "gl_SampleMask[0]", ir_var_out, false, false, false, false },
 	{ NULL, NULL, NULL, ir_var_auto, false, false, false }
 };
 
@@ -3620,8 +3629,8 @@ static FSystemValue GeometrySystemValueTable[] =
 {
 	{ "SV_VertexID", glsl_type::int_type, "gl_VertexID", ir_var_in, false, false, false, false },
 	{ "SV_InstanceID", glsl_type::int_type, "gl_InstanceID", ir_var_in, false, false, false, false },
-	{ "SV_Position", glsl_type::vec4_type, "gl_Position", ir_var_in, false, true, true, false },
-	{ "SV_Position", glsl_type::vec4_type, "gl_Position", ir_var_out, false, false, true, false },
+	{ "SV_Position", glsl_type::vec4_type, "gl_Position", ir_var_in, false, true, false, false },
+	{ "SV_Position", glsl_type::vec4_type, "gl_Position", ir_var_out, false, false, false, false },
 	{ "SV_RenderTargetArrayIndex", glsl_type::int_type, "gl_Layer", ir_var_out, false, false, false, false },
 	{ "SV_PrimitiveID", glsl_type::int_type, "gl_PrimitiveID", ir_var_out, false, false, false, false },
 	{ "SV_PrimitiveID", glsl_type::int_type, "gl_PrimitiveIDIn", ir_var_in, false, false, false, false },
@@ -5496,7 +5505,7 @@ FVulkanBindingTable::FBinding::FBinding()
 	FMemory::Memzero(Name);
 }
 
-FVulkanBindingTable::FBinding::FBinding(const char* InName, int32 InIndex, EBindingType InType, int8 InSubType) :
+FVulkanBindingTable::FBinding::FBinding(const char* InName, int32 InIndex, EVulkanBindingType::EType InType, int8 InSubType) :
 	Index(InIndex),
 	Type(InType),
 	SubType(InSubType)
@@ -5507,10 +5516,9 @@ FVulkanBindingTable::FBinding::FBinding(const char* InName, int32 InIndex, EBind
 	FMemory::Memcpy(Name, InName, NewNameLength);
 
 	// Validate Sampler type, s == PACKED_TYPENAME_SAMPLER
-	check((Type == TYPE_COMBINED_IMAGE_SAMPLER || Type == TYPE_SAMPLER_BUFFER) ? SubType == 's' : true);
+	check((Type == EVulkanBindingType::CombinedImageSampler || Type == EVulkanBindingType::UniformTexelBuffer) ? SubType == 's' : true);
 
-	check(Type == TYPE_PACKED_UNIFORM_BUFFER ?
-		( SubType == 'h' || SubType == 'm' || SubType == 'l' || SubType == 'i' || SubType == 'u' ) : true);
+	check(Type != EVulkanBindingType::PackedUniformBuffer || CrossCompiler::IsValidPackedTypeName((CrossCompiler::EPackedTypeName)SubType));
 }
 
 inline int8 ExtractHLSLCCType(const char* name)
@@ -5527,7 +5535,7 @@ inline int8 ExtractHLSLCCType(const char* name)
 	return TypeChar;
 }
 
-int32 FVulkanBindingTable::RegisterBinding(const char* InName, const char* BlockName, EBindingType Type)
+int32 FVulkanBindingTable::RegisterBinding(const char* InName, const char* BlockName, EVulkanBindingType::EType Type)
 {
 	check(InName);
 
@@ -5555,7 +5563,6 @@ int32 FVulkanBindingTable::FindBinding(const char* InName) const
 		}
 	}
 
-	check(0);
 	return -1;
 }
 

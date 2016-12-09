@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemNullPrivatePCH.h"
 #include "OnlineLeaderboardInterfaceNull.h"
 #include "OnlineSubsystemNull.h"
-#include "OnlineAsyncTaskManagerNull.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 
 bool FOnlineLeaderboardsNull::ReadLeaderboards(const TArray< TSharedRef<const FUniqueNetId> >& Players, FOnlineLeaderboardReadRef& ReadObject)
 {

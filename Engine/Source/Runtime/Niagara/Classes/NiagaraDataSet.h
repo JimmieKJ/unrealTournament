@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
 #include "NiagaraCommon.h"
+#include "RHI.h"
 
 const FName BUILTIN_VAR_PARTICLEAGE = FName(TEXT("Age"));
 

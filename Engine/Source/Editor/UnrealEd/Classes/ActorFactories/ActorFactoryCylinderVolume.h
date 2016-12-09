@@ -2,8 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "ActorFactories/ActorFactory.h"
 #include "ActorFactoryCylinderVolume.generated.h"
+
+class AActor;
+class FAssetData;
 
 UCLASS(MinimalAPI, config=Editor, collapsecategories, hidecategories=Object)
 class UActorFactoryCylinderVolume : public UActorFactory

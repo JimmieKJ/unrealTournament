@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class Error;
 
 /**
  * Enumerates directions for playback rate information.

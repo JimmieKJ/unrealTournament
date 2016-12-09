@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Serialization/ArchiveUObject.h"
+
 /** Helper archive class to describe a reference **/
 class FArchiveDescribeReference : public FArchiveUObject
 {

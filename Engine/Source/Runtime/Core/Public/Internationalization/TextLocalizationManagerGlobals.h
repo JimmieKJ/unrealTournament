@@ -2,5 +2,7 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 CORE_API void BeginInitTextLocalization();
 CORE_API void EndInitTextLocalization();

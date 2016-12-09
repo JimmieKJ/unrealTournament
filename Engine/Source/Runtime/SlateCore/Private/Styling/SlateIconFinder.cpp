@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "SlateIconFinder.h"
-#include "SlateIcon.h"
+#include "Styling/SlateIconFinder.h"
+#include "Styling/ISlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
 
 FSlateIcon FSlateIconFinder::FindIconForClass(const UClass* InClass, const FName& InDefaultName)
 {

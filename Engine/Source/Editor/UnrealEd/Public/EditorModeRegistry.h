@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Textures/SlateIcon.h"
 #include "Editor.h"
-#include "SlateIcon.h"
+
+class FEditorModeTools;
+class FEdMode;
 
 // Required forward declarations
 class FEdMode;

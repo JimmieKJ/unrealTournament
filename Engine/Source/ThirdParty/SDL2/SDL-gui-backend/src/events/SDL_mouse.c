@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -304,6 +304,9 @@ SDL_PrivateSendMouseMotion(SDL_Window * window, SDL_MouseID mouseID, int relativ
     return posted;
 }
 
+/* EG BEGIN */
+/* RCL - removed 'static' because this function needs to be called from another unit */
+/* EG END */
 SDL_MouseClickState *GetMouseClickState(SDL_Mouse *mouse, Uint8 button)
 {
     if (button >= mouse->num_clickstates) {
@@ -324,10 +327,11 @@ SDL_MouseClickState *GetMouseClickState(SDL_Mouse *mouse, Uint8 button)
 
 /* EG BEGIN */
 #ifdef SDL_WITH_EPIC_EXTENSIONS
-Uint8
+/* This is made separate function because it is also called from SDL_x11events.c directly. */
+int
 SDL_HandleMouseButtonClickState(SDL_Mouse * mouse, Uint8 state, Uint8 button)
 {
-    Uint8 click_count;
+    int clicks;
     SDL_MouseClickState *clickstate = GetMouseClickState(mouse, button);
     if (clickstate) {
         if (state == SDL_PRESSED) {
@@ -345,28 +349,22 @@ SDL_HandleMouseButtonClickState(SDL_Mouse * mouse, Uint8 state, Uint8 button)
                 ++clickstate->click_count;
             }
         }
-        click_count = clickstate->click_count;
+        clicks = clickstate->click_count;
     } else {
-        click_count = 1;
+        clicks = 1;
     }
-    return click_count;
+    return clicks;
 }
 #endif /* SDL_WITH_EPIC_EXTENSIONS */
 /* EG END */
 
-int
-SDL_SendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8 button)
+static int
+SDL_PrivateSendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8 button, int clicks)
 {
     SDL_Mouse *mouse = SDL_GetMouse();
     int posted;
     Uint32 type;
     Uint32 buttonstate = mouse->buttonstate;
-/* EG BEGIN */
-#ifndef SDL_WITH_EPIC_EXTENSIONS
-    SDL_MouseClickState *clickstate = GetMouseClickState(mouse, button);
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-/* EG END */
-    Uint8 click_count;
 
     /* Figure out which event to perform */
     switch (state) {
@@ -394,11 +392,13 @@ SDL_SendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8
     }
     mouse->buttonstate = buttonstate;
 
-/* EG BEGIN */
-#ifdef SDL_WITH_EPIC_EXTENSIONS
-    click_count = SDL_HandleMouseButtonClickState(mouse, state, button);
-#else
-    if (clickstate) {
+    if (clicks < 0) {
+    /* EG BEGIN */
+    #ifdef SDL_WITH_EPIC_EXTENSIONS
+        /* for consistency, call the same function that is also called elsewhere */
+        clicks = SDL_HandleMouseButtonClickState(mouse, state, button);
+    #else
+        SDL_MouseClickState *clickstate = GetMouseClickState(mouse, button);
         if (state == SDL_PRESSED) {
             Uint32 now = SDL_GetTicks();
 
@@ -414,12 +414,11 @@ SDL_SendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8
                 ++clickstate->click_count;
             }
         }
-        click_count = clickstate->click_count;
-    } else {
-        click_count = 1;
+        clicks = clickstate->click_count;
+    #endif//  SDL_WITH_EPIC_EXTENSIONS
+    /* EG END */
     }
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-/* EG END */
+
     /* Post the event, if desired */
     posted = 0;
     if (SDL_GetEventState(type) == SDL_ENABLE) {
@@ -429,7 +428,7 @@ SDL_SendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8
         event.button.which = mouseID;
         event.button.state = state;
         event.button.button = button;
-        event.button.clicks = click_count;
+        event.button.clicks = (Uint8) SDL_min(clicks, 255);
         event.button.x = mouse->x;
         event.button.y = mouse->y;
         posted = (SDL_PushEvent(&event) > 0);
@@ -439,8 +438,21 @@ SDL_SendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8
     if (window && state == SDL_RELEASED) {
         SDL_UpdateMouseFocus(window, mouse->x, mouse->y, buttonstate);
     }
-
+    
     return posted;
+}
+
+int
+SDL_SendMouseButtonClicks(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8 button, int clicks)
+{
+    clicks = SDL_max(clicks, 0);
+    return SDL_PrivateSendMouseButton(window, mouseID, state, button, clicks);
+}
+
+int
+SDL_SendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8 button)
+{
+    return SDL_PrivateSendMouseButton(window, mouseID, state, button, -1);
 }
 
 int
@@ -576,14 +588,16 @@ SDL_WarpMouseInWindow(SDL_Window * window, int x, int y)
     }
 }
 
-void
+int
 SDL_WarpMouseGlobal(int x, int y)
 {
     SDL_Mouse *mouse = SDL_GetMouse();
 
     if (mouse->WarpMouseGlobal) {
-        mouse->WarpMouseGlobal(x, y);
+        return mouse->WarpMouseGlobal(x, y);
     }
+
+    return SDL_Unsupported();
 }
 
 static SDL_bool

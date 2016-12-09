@@ -64,9 +64,11 @@ SamplerState	PrevSceneColorSampler;
 // Optimization: if opacity is 0 then revert to default shading model 
 #define SUBSURFACE_PROFILE_OPACITY_THRESHOLD 1
 
-#if TRANSLUCENCY_LIGHTING_SURFACE || TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL || FORWARD_SHADING
+#if TRANSLUCENCY_LIGHTING_SURFACE_LIGHTINGVOLUME || TRANSLUCENCY_LIGHTING_SURFACE_FORWARDSHADING || FORWARD_SHADING
 #include "ForwardLightingCommon.usf" 
 #endif
+
+#if !FORWARD_SHADING
 
 void GetVolumeLightingNonDirectional(float4 AmbientLightingVector, float3 DiffuseColor, inout float3 InterpolatedLighting, out float4 VolumeLighting)
 {
@@ -107,7 +109,7 @@ void GetVolumeLightingDirectional(float4 AmbientLightingVector, float3 Direction
 }
 
 /** Calculates lighting for translucency. */
-float3 GetTranslucencyLighting(
+float3 GetTranslucencyVolumeLighting(
 	FMaterialPixelParameters MaterialParameters, 
 	FPixelMaterialInputs PixelMaterialInputs,
 	FBasePassInterpolantsVSToPS BasePassInterpolants, 
@@ -130,7 +132,7 @@ float3 GetTranslucencyLighting(
 
 		GetVolumeLightingNonDirectional(float4(BasePassInterpolants.AmbientLightingVector, 1), GBuffer.DiffuseColor, InterpolatedLighting, VolumeLighting);
 
-	#elif TRANSLUCENCY_LIGHTING_VOLUMETRIC_DIRECTIONAL || TRANSLUCENCY_LIGHTING_SURFACE
+	#elif TRANSLUCENCY_LIGHTING_VOLUMETRIC_DIRECTIONAL || TRANSLUCENCY_LIGHTING_SURFACE_LIGHTINGVOLUME
 	
 		float4 AmbientLightingVector = GetAmbientLightingVectorFromTranslucentLightingVolume(InnerVolumeUVs, OuterVolumeUVs, FinalLerpFactor);
 		float3 DirectionalLightingVector = GetDirectionalLightingVectorFromTranslucentLightingVolume(InnerVolumeUVs, OuterVolumeUVs, FinalLerpFactor);
@@ -143,7 +145,7 @@ float3 GetTranslucencyLighting(
 
 	#endif
 
-	#if (TRANSLUCENCY_LIGHTING_VOLUMETRIC_DIRECTIONAL || TRANSLUCENCY_LIGHTING_VOLUMETRIC_NONDIRECTIONAL || TRANSLUCENCY_LIGHTING_SURFACE) && TRANSLUCENT_SELF_SHADOWING
+	#if (TRANSLUCENCY_LIGHTING_VOLUMETRIC_DIRECTIONAL || TRANSLUCENCY_LIGHTING_VOLUMETRIC_NONDIRECTIONAL || TRANSLUCENCY_LIGHTING_SURFACE_LIGHTINGVOLUME) && TRANSLUCENT_SELF_SHADOWING
 
 		// Only apply self shadowing if the shadow hasn't faded out completely
 		if (DirectionalLightColor.a > 0)
@@ -202,12 +204,10 @@ float3 GetTranslucencyLighting(
 
 	#endif
 
-	#if TRANSLUCENCY_LIGHTING_SURFACE
-		InterpolatedLighting += GetImageBasedReflectionLighting(MaterialParameters, GBuffer.Roughness, GBuffer.SpecularColor, IndirectIrradiance, 0);
-	#endif
-
 	return InterpolatedLighting;
 }
+
+#endif
 
 #if SIMPLE_FORWARD_SHADING
 	#define GetEffectiveSkySHDiffuse GetSkySHDiffuseSimple
@@ -424,7 +424,7 @@ float3 GetSimpleForwardLightingDirectionalLight(FGBufferData GBuffer, float3 Dif
 	float3 LightColor = ResolvedView.DirectionalLightColor.rgb * PI;
 	
 	// Not computing specular, material was forced fully rough
-	float3 DiffuseLighting = StandardShading(DiffuseColor, SpecularColor, Roughness.xxx, 1.0f, L, V, N, float2(1, 0));
+	float3 DiffuseLighting = Diffuse_Lambert( DiffuseColor );
 	float3 SubsurfaceLighting = SubsurfaceShading(GBuffer, L, V, N, 1.0f, uint2(0, 0));
 
 	return LightColor * NoL * (DiffuseLighting + SubsurfaceLighting);
@@ -520,10 +520,10 @@ uint GetSelectiveOutputMask()
 #if !WRITES_CUSTOMDATA_TO_GBUFFER
 	Mask |= SKIP_CUSTOMDATA_MASK;
 #endif
-#if !WRITES_PRECSHADOWFACTOR_TO_GBUFFER
+#if !GBUFFER_HAS_PRECSHADOWFACTOR
 	Mask |= SKIP_PRECSHADOW_MASK;
 #endif
-#if WRITES_PRECSHADOWFACTOR_ZERO
+#if (GBUFFER_HAS_PRECSHADOWFACTOR && WRITES_PRECSHADOWFACTOR_ZERO)
 	Mask |= ZERO_PRECSHADOW_MASK;
 #endif
 #if !WRITES_VELOCITY_TO_GBUFFER
@@ -588,10 +588,12 @@ void FPixelShaderInOut_MainPS(
 #endif
 
 	//Clip if the blend mode requires it.
+#if !EARLY_Z_PASS_ONLY_MATERIAL_MASKING
 	if(!bEditorWeightedZBuffering)
 	{
 		GetMaterialCoverageAndClipping(MaterialParameters, PixelMaterialInputs);
 	}
+#endif
 	// Store the results in local variables and reuse instead of calling the functions multiple times.
 	half3 BaseColor = GetMaterialBaseColor(PixelMaterialInputs);
 	half  Metallic = GetMaterialMetallic(PixelMaterialInputs);
@@ -863,15 +865,36 @@ void FPixelShaderInOut_MainPS(
 
 		DiffuseColor += (DiffuseIndirectLighting * DiffuseColorForIndirect + SubsurfaceIndirectLighting * SubsurfaceColor) * MaterialAO;
 
-		#if FORWARD_SHADING || TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL
+		#if TRANSLUCENCY_PERVERTEX_FORWARD_SHADING
+
+			Color += BasePassInterpolants.VertexDiffuseLighting * GBuffer.DiffuseColor;
+
+		#elif FORWARD_SHADING || TRANSLUCENCY_LIGHTING_SURFACE_FORWARDSHADING || TRANSLUCENCY_LIGHTING_SURFACE_LIGHTINGVOLUME
 			uint GridIndex = 0;
 
-			#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
-				GridIndex = ComputeLightGridCellIndex((uint2)(MaterialParameters.SvPosition.xy - View.ViewRectMin.xy), MaterialParameters.SvPosition.w);
-				Color += GetForwardDirectLighting(GridIndex, MaterialParameters.ScreenPosition, MaterialParameters.AbsoluteWorldPosition, MaterialParameters.CameraVector, GBuffer);
+			#if INSTANCED_STEREO
+				const uint EyeIndex = GetEyeIndex(Interpolants.PackedEyeIndex);
+			#else
+				const uint EyeIndex = 0;
 			#endif
 
-			Color += GetImageBasedReflectionLighting(MaterialParameters, GBuffer.Roughness, GBuffer.SpecularColor, IndirectIrradiance, GridIndex) * IndirectOcclusion;
+			#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+				GridIndex = ComputeLightGridCellIndex((uint2)(MaterialParameters.SvPosition.xy - ResolvedView.ViewRectMin.xy), MaterialParameters.SvPosition.w, EyeIndex);
+
+				#if FORWARD_SHADING || TRANSLUCENCY_LIGHTING_SURFACE_FORWARDSHADING
+					float4 DynamicShadowFactors = 1;
+
+					#if MATERIALBLENDING_SOLID || MATERIALBLENDING_MASKED
+						float2 NDC = MaterialParameters.ScreenPosition.xy / MaterialParameters.ScreenPosition.w;
+						float2 ScreenUV = NDC * ResolvedView.ScreenPositionScaleBias.xy + ResolvedView.ScreenPositionScaleBias.wz;
+						DynamicShadowFactors = GetPerPixelLightAttenuation(ScreenUV);
+					#endif
+
+					Color += GetForwardDirectLighting(GridIndex, MaterialParameters.AbsoluteWorldPosition, MaterialParameters.CameraVector, GBuffer, DynamicShadowFactors, EyeIndex);
+				#endif
+			#endif
+
+			Color += GetImageBasedReflectionLighting(MaterialParameters, GBuffer.Roughness, GBuffer.SpecularColor, IndirectIrradiance, GridIndex, EyeIndex) * IndirectOcclusion;
 		#endif
 
 		#if SIMPLE_FORWARD_DIRECTIONAL_LIGHT
@@ -903,7 +926,7 @@ void FPixelShaderInOut_MainPS(
 		
 	// Volume lighting for lit translucency
 	#if (MATERIAL_SHADINGMODEL_DEFAULT_LIT || MATERIAL_SHADINGMODEL_SUBSURFACE) && (MATERIALBLENDING_TRANSLUCENT || MATERIALBLENDING_ADDITIVE) && !SIMPLE_FORWARD_SHADING && !FORWARD_SHADING
-		Color += GetTranslucencyLighting(MaterialParameters, PixelMaterialInputs, BasePassInterpolants, GBuffer, IndirectIrradiance);
+		Color += GetTranslucencyVolumeLighting(MaterialParameters, PixelMaterialInputs, BasePassInterpolants, GBuffer, IndirectIrradiance);
 	#endif
 
 	#if !MATERIAL_SHADINGMODEL_UNLIT && USE_DEVELOPMENT_SHADERS
@@ -934,7 +957,10 @@ void FPixelShaderInOut_MainPS(
 #endif
 	Color += Emissive;
 
-	#if MATERIALBLENDING_TRANSLUCENT
+	#if MATERIALBLENDING_ALPHACOMPOSITE
+		Out.MRT[0] = half4(Color * VertexFog.a + VertexFog.rgb * Opacity, Opacity);
+		Out.MRT[0] = RETURN_COLOR(Out.MRT[0]);
+	#elif MATERIALBLENDING_TRANSLUCENT
 		Out.MRT[0] = half4(Color * VertexFog.a + VertexFog.rgb, Opacity);
 		Out.MRT[0] = RETURN_COLOR(Out.MRT[0]);
 	#elif MATERIALBLENDING_ADDITIVE
@@ -962,11 +988,17 @@ void FPixelShaderInOut_MainPS(
 				// to the specular component, otherwise lighting is applied twice
 				Color *= !bChecker;
 			}
-			LightAccumulator_Add(LightAccumulator, DiffuseColor, Color, 1.0f, GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE);
+			LightAccumulator_Add(LightAccumulator, Color + DiffuseColor, DiffuseColor, 1.0f, GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE);
 #else
 			LightAccumulator_Add(LightAccumulator, Color, 0, 1.0f, false);
 #endif
 			Out.MRT[0] = RETURN_COLOR(LightAccumulator_GetResult(LightAccumulator));
+
+			#if !USES_GBUFFER
+				// Without deferred shading the SSS pass will not be run to reset scene color alpha for opaque / masked to 0
+				// Scene color alpha is used by scene captures and planar reflections
+				Out.MRT[0].a = 0;
+			#endif
 		}
 	#endif
 
@@ -1007,44 +1039,37 @@ void FPixelShaderInOut_MainPS(
 	}
 
 #if USES_GBUFFER
-	// extra starts at MRT4 (see PIXELSHADEROUTPUT_MRT3)
-	int MRT_Write_Index = 4;
-
-	#if WRITES_VELOCITY_TO_GBUFFER
-		Out.MRT[MRT_Write_Index++] = OutVelocity;
+	#if GBUFFER_HAS_VELOCITY
+		Out.MRT[4] = OutVelocity;
 	#endif
 
-	// we don't test for WRITES_CUSTOMDATA_TO_GBUFFER because GetGBufferRenderTargets() is not masking the MRT based on it, we mask by GetSelectiveOutputMask instead
-	Out.MRT[MRT_Write_Index++] = OutGBufferD;
+	Out.MRT[GBUFFER_HAS_VELOCITY ? 5 : 4] = OutGBufferD;
 
-	#if WRITES_PRECSHADOWFACTOR_TO_GBUFFER
-		Out.MRT[MRT_Write_Index++] = OutGBufferE;
+	#if GBUFFER_HAS_PRECSHADOWFACTOR
+		Out.MRT[GBUFFER_HAS_VELOCITY ? 6 : 5] = OutGBufferE;
 	#endif
-
 #endif
 }
 
 
-// Two options control the render target bindings : OUTPUT_GBUFFER_VELOCITY and ALLOW_STATIC_LIGHTING
-// Big issue here on PC with AMD hardware : putting the velocity buffer after an optional RT fails!!!
-#define VELOCITY_OUTPUT ((USES_GBUFFER) && (WRITES_VELOCITY_TO_GBUFFER))
-// we don't test for WRITES_CUSTOMDATA_TO_GBUFFER because GetGBufferRenderTargets() is not masking the MRT based on it, we mask by GetSelectiveOutputMask instead
-#define CUSTOMDATA_OUTPUT (USES_GBUFFER)
-#define PRESHADOWFACTOR_OUTPUT ((USES_GBUFFER) && (WRITES_PRECSHADOWFACTOR_TO_GBUFFER))
-
-#define EXTRA_MRT_COUNT (VELOCITY_OUTPUT + CUSTOMDATA_OUTPUT + PRESHADOWFACTOR_OUTPUT)
-
 // the following needs to match to the code in FSceneRenderTargets::GetGBufferRenderTargets()
-
 #define PIXELSHADEROUTPUT_BASEPASS 1
-#define PIXELSHADEROUTPUT_MRT0 (1)
-#define PIXELSHADEROUTPUT_MRT1 (USES_GBUFFER)
-#define PIXELSHADEROUTPUT_MRT2 (USES_GBUFFER)
-#define PIXELSHADEROUTPUT_MRT3 (USES_GBUFFER)
-#define PIXELSHADEROUTPUT_MRT4 (EXTRA_MRT_COUNT > 0)
-#define PIXELSHADEROUTPUT_MRT5 (EXTRA_MRT_COUNT > 1)
-#define PIXELSHADEROUTPUT_MRT6 (EXTRA_MRT_COUNT > 2)
+#define PIXELSHADEROUTPUT_MRT0 (!USES_GBUFFER || !SELECTIVE_BASEPASS_OUTPUTS || NEEDS_BASEPASS_FOGGING || USES_EMISSIVE_COLOR || ALLOW_STATIC_LIGHTING)
+#define PIXELSHADEROUTPUT_MRT1 (USES_GBUFFER && (!SELECTIVE_BASEPASS_OUTPUTS || !MATERIAL_SHADINGMODEL_UNLIT))
+#define PIXELSHADEROUTPUT_MRT2 (USES_GBUFFER && (!SELECTIVE_BASEPASS_OUTPUTS || !MATERIAL_SHADINGMODEL_UNLIT))
+#define PIXELSHADEROUTPUT_MRT3 (USES_GBUFFER && (!SELECTIVE_BASEPASS_OUTPUTS || !MATERIAL_SHADINGMODEL_UNLIT))
 #define PIXELSHADEROUTPUT_A2C ((EDITOR_ALPHA2COVERAGE) != 0)
+#if GBUFFER_HAS_VELOCITY
+#define PIXELSHADEROUTPUT_MRT4 WRITES_VELOCITY_TO_GBUFFER
+#define PIXELSHADEROUTPUT_MRT5 (USES_GBUFFER && (!SELECTIVE_BASEPASS_OUTPUTS || WRITES_CUSTOMDATA_TO_GBUFFER))
+#define PIXELSHADEROUTPUT_MRT6 (GBUFFER_HAS_PRECSHADOWFACTOR && (!SELECTIVE_BASEPASS_OUTPUTS || WRITES_PRECSHADOWFACTOR_TO_GBUFFER && !MATERIAL_SHADINGMODEL_UNLIT))
+
+#else //WRITES_VELOCITY_TO_GBUFFER
+#define PIXELSHADEROUTPUT_MRT4 (USES_GBUFFER && (!SELECTIVE_BASEPASS_OUTPUTS || WRITES_CUSTOMDATA_TO_GBUFFER))
+#define PIXELSHADEROUTPUT_MRT5 (GBUFFER_HAS_PRECSHADOWFACTOR && (!SELECTIVE_BASEPASS_OUTPUTS || WRITES_PRECSHADOWFACTOR_TO_GBUFFER && !MATERIAL_SHADINGMODEL_UNLIT))
+
+#endif //WRITES_VELOCITY_TO_GBUFFER
+
 // all PIXELSHADEROUTPUT_ and "void FPixelShaderInOut_MainPS()" need to be setup before this include
 // this include generates the wrapper code to call MainPS(inout FPixelShaderOutput PixelShaderOutput)
 #include "PixelShaderOutputCommon.usf"

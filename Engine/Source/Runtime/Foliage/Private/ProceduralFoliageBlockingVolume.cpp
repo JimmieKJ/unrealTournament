@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FoliagePrivate.h"
-#include "Components/BrushComponent.h"
 #include "ProceduralFoliageBlockingVolume.h"
+#include "Components/BrushComponent.h"
 
 static FName ProceduralFoliageBlocking_NAME(TEXT("ProceduralFoliageBlockingVolume"));
 

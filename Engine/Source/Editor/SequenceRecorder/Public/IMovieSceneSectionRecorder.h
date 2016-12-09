@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** A recorder class used to create and populate individual sections in level sequences */
 class IMovieSceneSectionRecorder
 {

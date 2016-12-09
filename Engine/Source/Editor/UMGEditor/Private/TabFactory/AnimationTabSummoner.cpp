@@ -1,21 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-
-#include "AnimationTabSummoner.h"
-#include "WidgetBlueprintEditor.h"
-#include "ISequencer.h"
-#include "WidgetAnimation.h"
+#include "TabFactory/AnimationTabSummoner.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "MovieScene.h"
-#include "UMGStyle.h"
-#include "SSearchBox.h"
-#include "SInlineEditableTextBlock.h"
-#include "GenericCommands.h"
-#include "ScopedTransaction.h"
+#include "Animation/WidgetAnimation.h"
 #include "WidgetBlueprint.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBorder.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+
+#if WITH_EDITOR
+	#include "EditorStyleSet.h"
+#endif // WITH_EDITOR
+#include "Blueprint/WidgetTree.h"
+
+#include "UMGStyle.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "ScopedTransaction.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Misc/TextFilter.h"
-#include "Editor/UnrealEd/Public/Kismet2/Kismet2NameValidators.h"
+#include "Kismet2/Kismet2NameValidators.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -35,23 +45,25 @@ FAnimationTabSummoner::FAnimationTabSummoner(TSharedPtr<class FWidgetBlueprintEd
 }
 
 
-bool VerifyAnimationRename( UWidgetBlueprint* Blueprint, UWidgetAnimation* Animation, FString NewAnimationName, FText& OutErrorMessage )
+bool VerifyAnimationRename( FWidgetBlueprintEditor& BlueprintEditor, UWidgetAnimation* Animation, FString NewAnimationName, FText& OutErrorMessage )
 {
-	if ( FindObject<UWidgetAnimation>( Blueprint, *NewAnimationName, true ) )
+	UWidgetBlueprint* Blueprint = BlueprintEditor.GetWidgetBlueprintObj();
+	if (Blueprint && FindObject<UWidgetAnimation>( Blueprint, *NewAnimationName, true ) )
 	{
 		OutErrorMessage = LOCTEXT( "NameInUseByAnimation", "An animation with this name already exists" );
 		return false;
 	}
 
 	FName NewAnimationNameAsName( *NewAnimationName );
-	if ( Blueprint->WidgetTree->FindWidget<UWidget>( NewAnimationNameAsName ) != nullptr )
+	if ( Blueprint && Blueprint->WidgetTree->FindWidget<UWidget>( NewAnimationNameAsName ) != nullptr )
 	{
 		OutErrorMessage = LOCTEXT( "NameInUseByWidget", "A widget with this name already exists" );
 		return false;
 	}
 
+	UUserWidget* PreviewWidget = BlueprintEditor.GetPreview();
 	FName FunctionName(*NewAnimationName);
-	if (Animation->GetPreviewWidget().IsValid() && Animation->GetPreviewWidget().Get()->FindFunction(FunctionName))
+	if (PreviewWidget && PreviewWidget->FindFunction(FunctionName))
 	{
 		OutErrorMessage = LOCTEXT("NameInUseByFunction", "A function with this name already exists");
 		return false;
@@ -138,8 +150,8 @@ private:
 
 		if ( Animation->GetName() != NewName )
 		{
-			UWidgetBlueprint* Blueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
-			return VerifyAnimationRename( Blueprint, Animation, NewName, OutErrorMessage );
+			TSharedPtr<FWidgetBlueprintEditor> Editor = BlueprintEditor.Pin();
+			return Editor.IsValid() && VerifyAnimationRename( *Editor, Animation, NewName, OutErrorMessage );
 		}
 
 		return true;
@@ -367,7 +379,13 @@ private:
 		const float InTime = 0.f;
 		const float OutTime = 5.0f;
 
-		UWidgetBlueprint* WidgetBlueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
+		TSharedPtr<FWidgetBlueprintEditor> Editor = BlueprintEditor.Pin();
+		if (!Editor.IsValid())
+		{
+			return FReply::Handled();
+		}
+
+		UWidgetBlueprint* WidgetBlueprint = Editor->GetWidgetBlueprintObj();
 
 		FString BaseName = "NewAnimation";
 		UWidgetAnimation* NewAnimation = NewObject<UWidgetAnimation>(WidgetBlueprint, *BaseName, RF_Transactional);
@@ -375,7 +393,7 @@ private:
 		FString UniqueName = BaseName;
 		int32 NameIndex = 1;
 		FText Unused;
-		while ( VerifyAnimationRename( WidgetBlueprint, NewAnimation, UniqueName, Unused ) == false )
+		while ( VerifyAnimationRename( *Editor, NewAnimation, UniqueName, Unused ) == false )
 		{
 			UniqueName = FString::Printf( TEXT( "%s_%i" ), *BaseName, NameIndex );
 			NameIndex++;

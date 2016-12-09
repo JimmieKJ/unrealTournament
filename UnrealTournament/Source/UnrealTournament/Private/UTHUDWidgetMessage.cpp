@@ -188,6 +188,8 @@ void UUTHUDWidgetMessage::ClearMessage(FLocalizedMessageData& Message)
 	Message.bHasBeenRendered = false;
 	Message.Text = FText::GetEmpty();
 	Message.EmphasisText = FText::GetEmpty();
+	Message.PrefixText = FText::GetEmpty();
+	Message.PostfixText = FText::GetEmpty();
 	Message.OptionalObject = NULL;
 	Message.DrawColor = FLinearColor::White;
 	Message.LifeLeft = 0.f;

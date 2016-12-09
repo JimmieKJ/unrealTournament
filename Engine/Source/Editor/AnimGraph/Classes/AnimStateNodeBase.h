@@ -1,8 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "EdGraph/EdGraphNode.h"
 #include "AnimStateNodeBase.generated.h"
+
+class INameValidatorInterface;
+class UAnimBlueprint;
+class UEdGraph;
+class UEdGraphPin;
+class UEdGraphSchema;
 
 UCLASS(MinimalAPI, abstract)
 class UAnimStateNodeBase : public UEdGraphNode

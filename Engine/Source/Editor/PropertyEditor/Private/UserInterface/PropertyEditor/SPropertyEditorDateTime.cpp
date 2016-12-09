@@ -1,11 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "SPropertyEditorDateTime.h"
-#include "PropertyNode.h"
-#include "ObjectPropertyNode.h"
-#include "PropertyEditor.h"
-#include "PropertyEditorHelpers.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorDateTime.h"
+#include "Widgets/Input/SEditableTextBox.h"
 
 
 void SPropertyEditorDateTime::Construct( const FArguments& InArgs, const TSharedRef< class FPropertyEditor >& InPropertyEditor )

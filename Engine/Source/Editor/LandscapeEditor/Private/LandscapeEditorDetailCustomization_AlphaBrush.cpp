@@ -1,21 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
-#include "LandscapeEdMode.h"
+#include "LandscapeEditorDetailCustomization_AlphaBrush.h"
+#include "UnrealClient.h"
+#include "Engine/Texture2D.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Modules/ModuleManager.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/SViewport.h"
+#include "CanvasItem.h"
 #include "LandscapeEditorObject.h"
-#include "LandscapeEditorDetails.h"
-#include "LandscapeEditorDetailCustomizations.h"
 
 #include "DetailLayoutBuilder.h"
-#include "DetailCategoryBuilder.h"
 #include "IDetailPropertyRow.h"
-#include "DetailWidgetRow.h"
-#include "IDetailGroup.h"
-#include "PropertyHandle.h"
+#include "DetailCategoryBuilder.h"
 #include "PropertyCustomizationHelpers.h"
 #include "SAssetDropTarget.h"
 
 #include "Slate/SceneViewport.h"
+#include "IAssetTools.h"
+#include "IAssetTypeActions.h"
 #include "AssetToolsModule.h"
 #include "CanvasTypes.h"
 

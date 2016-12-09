@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "LockFreeList.h"
-#include "Array.h"
+#include "CoreTypes.h"
+#include "HAL/MemoryBase.h"
+#include "Containers/Array.h"
+#include "Math/UnrealMathUtility.h"
+#include "Stats/Stats.h"
+#include "HAL/MallocJemalloc.h"
 
 #define MEM_TIME(st)
 

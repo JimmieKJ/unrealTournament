@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "VoicePacketImpl.h"
-#include "OnlineIdentityInterface.h"
-#include "Voice.h"
+#include "OnlineSubsystem.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 
 FVoicePacketImpl::FVoicePacketImpl(const FVoicePacketImpl& Other) :
 	FVoicePacket(Other)

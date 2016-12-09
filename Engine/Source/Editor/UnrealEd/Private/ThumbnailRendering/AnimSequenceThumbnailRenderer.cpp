@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "ThumbnailRendering/AnimSequenceThumbnailRenderer.h"
+#include "Misc/App.h"
+#include "ShowFlags.h"
+#include "SceneView.h"
+#include "Animation/AnimSequenceBase.h"
+#include "ThumbnailHelpers.h"
 
 // FPreviewScene derived helpers for rendering
-#include "ThumbnailHelpers.h"
-#include "EngineModule.h"
 #include "RendererInterface.h"
+#include "EngineModule.h"
 
 UAnimSequenceThumbnailRenderer::UAnimSequenceThumbnailRenderer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

@@ -2,9 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Engine/Blueprint.h"
+#include "Framework/Commands/UICommandList.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "Toolkits/IToolkit.h"
 #include "WorkflowOrientedApp/WorkflowCentricApplication.h"
+
+class FSCSEditorTreeNode;
+class UUserDefinedEnum;
+class UUserDefinedStruct;
+struct Rect;
 
 extern const FName BlueprintEditorAppName;
 

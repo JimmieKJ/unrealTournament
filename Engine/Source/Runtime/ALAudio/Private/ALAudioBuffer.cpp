@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Audio.h"
 #include "ALAudioDevice.h"
-#include "AudioEffect.h"
-#include "Engine.h"
-#include "IAudioFormat.h"
 #include "AudioDecompress.h"
-#include "ContentStreaming.h"
 
 /*------------------------------------------------------------------------------------
 	FALSoundBuffer.

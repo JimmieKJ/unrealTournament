@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PluginWardenPrivatePCH.h"
-
 #include "PluginWardenModule.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+
 #include "SAuthorizingPlugin.h"
 
 IMPLEMENT_MODULE( FPluginWardenModule, PluginWarden );

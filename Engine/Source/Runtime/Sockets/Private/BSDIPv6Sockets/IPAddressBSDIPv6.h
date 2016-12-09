@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "BSDSockets/SocketSubsystemBSDPrivate.h"
+#include "IPAddress.h"
+
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 
-#include "Core.h"
-#include "IPAddress.h"
 
 
 /**
@@ -57,60 +59,77 @@ public:
 	}
 
 	/**
-	 * Sets the ip address from a string ("[aaaa:bbbb:cccc:dddd:eeee:ffff:gggg:hhhh]:port" or "a.b.c.d:port")
+	 * Sets the ip address from a string IPv6 or IPv4 address.
+	 * Ports may be included using the form Address:Port, or excluded and set manually.
+	 *
+	 * IPv6 - [1111:2222:3333:4444:5555:6666:7777:8888]:PORT || [1111:2222:3333::]:PORT || [::ffff:IPv4]:PORT
+	 * IPv4 - aaa.bbb.ccc.ddd:PORT || 127.0.0.1:1234:PORT
 	 *
 	 * @param InAddr the string containing the new ip address to use
 	 * @param bIsValid will be set to true if InAddr was a valid IPv6 or IPv4 address, false if not.
 	 */
 	virtual void SetIp(const TCHAR* InAddr, bool& bIsValid) override
 	{
+		bIsValid = false;
 
-		// Count colons to determine IP address type
-		int NumColons = 0;
-		int LastColonIndex = 0;
-		int i = 0;
-		while(InAddr && InAddr[i] != '\0')
-		{
-			if(InAddr[i] == ':')
-			{
-				NumColons++;
-				LastColonIndex = i;
-			}
-			i++;
-		}
-
-		// Break off port portion of string
 		FString AddressString(InAddr);
-		FString Port;
-		if(NumColons == 1 || NumColons == 8)
-		{
-			Port = AddressString.RightChop(LastColonIndex+1);
-			AddressString = AddressString.Left(LastColonIndex);
-			SetPort(FCString::Atoi(*Port));
-		}
 
-		// IPv6 URLs are surrounded by square brackets, check for that.
-		AddressString.RemoveFromStart(FString("["));
-		AddressString.RemoveFromEnd(FString("]"));
+		const bool bHasOpenBracket = AddressString.Contains("[");
+		const int32 CloseBracketIndex = AddressString.Find("]");
+		const bool bHasCloseBracket = CloseBracketIndex != -1;
 
-		// check for valid IPv6 address
-		auto InAddrAnsi = StringCast<ANSICHAR>(*AddressString);
-		if (inet_pton(AF_INET6, InAddrAnsi.Get(), &Addr.sin6_addr))
-		{
-			bIsValid = true;
-			return;
-		}
+		// IPv6 may or may not include open and close brackets.
+		// However, only IPv6 address can have them.
+		bool bIsIPv6 = bHasOpenBracket && bHasCloseBracket;
 
-		// Check if it's a valid IPv4 address, and if it is convert
-		in_addr  IPv4Addr;
-		if (inet_pton(AF_INET, InAddrAnsi.Get(), &IPv4Addr))
+		// Valid IPv4 should not contain an open or close bracket
+		const bool bIsLikelyIPv4 = !bHasOpenBracket && !bHasCloseBracket;
+
+		if (bIsLikelyIPv4 || bIsIPv6)
 		{
-			bIsValid = true;
-			SetIp(IPv4Addr);
-		}
-		else
-		{
-			bIsValid = false;
+			const int32 LastColonIndex = AddressString.Find(":", ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+
+			// Double check to ensure this isn't actually an IPv6 address without brackets.
+			if (bIsLikelyIPv4)
+			{
+				// IPv4 addresses can contain at most 1 colon.
+				const int32 FirstColonIndex = AddressString.Find(":");
+				bIsIPv6 = (FirstColonIndex != LastColonIndex);
+			}
+
+			// IPv4 address will only have a port when a colon is present.
+			// IPv6 address will only have a port when surrounded by brackets.
+			const bool bHasPort = (INDEX_NONE != LastColonIndex) && (!bIsIPv6 || (bHasCloseBracket && LastColonIndex > CloseBracketIndex));
+
+			if (bHasPort)
+			{
+				FString Port = AddressString.RightChop(LastColonIndex + 1);
+				AddressString = AddressString.Left(LastColonIndex);
+				SetPort(FCString::Atoi(*Port));
+			}
+
+			if (bIsIPv6)
+			{
+				AddressString.RemoveFromStart("[");
+				AddressString.RemoveFromEnd("]");
+
+				// Check for valid IPv6 address
+				const auto InAddrAnsi = StringCast<ANSICHAR>(*AddressString);
+				if (inet_pton(AF_INET6, InAddrAnsi.Get(), &Addr.sin6_addr))
+				{
+					bIsValid = true;
+				}
+			}
+			else
+			{
+				const auto InAddrAnsi = StringCast<ANSICHAR>(*AddressString);
+				in_addr IPv4Addr;
+				if (inet_pton(AF_INET, InAddrAnsi.Get(), &IPv4Addr))
+				{
+					bIsValid = true;
+					SetIp(IPv4Addr);
+				}
+			}
 		}
 	}
 

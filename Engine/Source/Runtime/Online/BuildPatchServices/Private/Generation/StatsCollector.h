@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+
 namespace BuildPatchServices
 {
 	enum EStatFormat
@@ -20,7 +22,14 @@ namespace BuildPatchServices
 	class FStatsCollector
 	{
 	public:
-		virtual volatile int64* CreateStat(const FString& Name, EStatFormat Type, int64 InitialValue = 0) = 0;
+#if PLATFORM_HAS_64BIT_ATOMICS
+		typedef int64 FAtomicValue;
+#else
+		typedef int32 FAtomicValue;
+#endif
+
+	public:
+		virtual volatile FAtomicValue* CreateStat(const FString& Name, EStatFormat Type, FAtomicValue InitialValue = 0) = 0;
 		virtual void LogStats(float TimeBetweenLogs = 0.0f) = 0;
 
 	public:
@@ -28,11 +37,11 @@ namespace BuildPatchServices
 		static double CyclesToSeconds(uint64 Cycles);
 		static uint64 SecondsToCycles(double Seconds);
 		static void AccumulateTimeBegin(uint64& TempValue);
-		static void AccumulateTimeEnd(volatile int64* Stat, uint64& TempValue);
-		static void Accumulate(volatile int64* Stat, int64 Amount);
-		static void Set(volatile int64* Stat, int64 Value);
-		static void SetAsPercentage(volatile int64* Stat, double Value);
-		static double GetAsPercentage(volatile int64* Stat);
+		static void AccumulateTimeEnd(volatile FAtomicValue* Stat, uint64& TempValue);
+		static void Accumulate(volatile FAtomicValue* Stat, int64 Amount);
+		static void Set(volatile FAtomicValue* Stat, int64 Value);
+		static void SetAsPercentage(volatile FAtomicValue* Stat, double Value);
+		static double GetAsPercentage(volatile FAtomicValue* Stat);
 	};
 
 	typedef TSharedRef<FStatsCollector, ESPMode::ThreadSafe> FStatsCollectorRef;
@@ -47,7 +56,7 @@ namespace BuildPatchServices
 	class FStatsScopedTimer
 	{
 	public:
-		FStatsScopedTimer(volatile int64* InStat)
+		FStatsScopedTimer(volatile FStatsCollector::FAtomicValue* InStat)
 			: Stat(InStat)
 		{
 			FStatsCollector::AccumulateTimeBegin(TempTime);
@@ -59,40 +68,40 @@ namespace BuildPatchServices
 
 	private:
 		uint64 TempTime;
-		volatile int64* Stat;
+		volatile FStatsCollector::FAtomicValue* Stat;
 	};
 
 	class FStatsParallelScopeTimer
 	{
 	public:
-		FStatsParallelScopeTimer(volatile int64* InStaticTempValue, volatile int64* InTimerStat, volatile int64* InCounterStat)
+		FStatsParallelScopeTimer(volatile FStatsCollector::FAtomicValue* InStaticTempValue, volatile FStatsCollector::FAtomicValue* InTimerStat, volatile FStatsCollector::FAtomicValue* InCounterStat)
 			: TempTime(InStaticTempValue)
 			, TimerStat(InTimerStat)
 			, CounterStat(InCounterStat)
 		{
-			int64 OldValue = FPlatformAtomics::InterlockedAdd(CounterStat, 1);
+			FStatsCollector::FAtomicValue OldValue = FPlatformAtomics::InterlockedAdd(CounterStat, 1);
 			if (OldValue == 0)
 			{
-				FPlatformAtomics::InterlockedExchange(TempTime, FStatsCollector::GetCycles());
+				FPlatformAtomics::InterlockedExchange(TempTime, FStatsCollector::FAtomicValue(FStatsCollector::GetCycles()));
 			}
 		}
 		~FStatsParallelScopeTimer()
 		{
-			int64 CurrTempTime = *TempTime;
-			int64 OldValue = FPlatformAtomics::InterlockedAdd(CounterStat, -1);
+			FStatsCollector::FAtomicValue CurrTempTime = *TempTime;
+			FStatsCollector::FAtomicValue OldValue = FPlatformAtomics::InterlockedAdd(CounterStat, -1);
 			if (OldValue == 1)
 			{
-				FPlatformAtomics::InterlockedAdd(TimerStat, FStatsCollector::GetCycles() - CurrTempTime);
+				FPlatformAtomics::InterlockedAdd(TimerStat, FStatsCollector::FAtomicValue(FStatsCollector::GetCycles() - CurrTempTime));
 			}
 		}
-		int64 GetCurrentTime() const
+		FStatsCollector::FAtomicValue GetCurrentTime() const
 		{
-			return (*TimerStat) + ((*CounterStat) > 0 ? FStatsCollector::GetCycles() - (*TempTime) : 0);
+			return (*TimerStat) + ((*CounterStat) > 0 ? FStatsCollector::FAtomicValue(FStatsCollector::GetCycles() - (*TempTime)) : 0);
 		}
 
 	private:
-		volatile int64* TempTime;
-		volatile int64* TimerStat;
-		volatile int64* CounterStat;
+		volatile FStatsCollector::FAtomicValue* TempTime;
+		volatile FStatsCollector::FAtomicValue* TimerStat;
+		volatile FStatsCollector::FAtomicValue* CounterStat;
 	};
 }

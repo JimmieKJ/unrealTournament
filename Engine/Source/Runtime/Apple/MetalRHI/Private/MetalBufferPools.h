@@ -132,4 +132,5 @@ struct FRingBuffer
 	id<MTLBuffer> Buffer;
 	uint32 Offset;
 	uint32 LastRead;
+	uint32 LastWritten;
 };

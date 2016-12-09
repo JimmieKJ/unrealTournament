@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/PlatformInterfaceBase.h"
 #include "CloudStorageBase.generated.h"
-
 
 /** All the types of delegate callbacks that a CloudStorage subclass may receive from C++ */
 UENUM()

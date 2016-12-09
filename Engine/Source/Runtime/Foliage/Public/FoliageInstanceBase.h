@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/LazyObjectPtr.h"
+#include "UObject/AssetPtr.h"
+
 class AInstancedFoliageActor;
+class UActorComponent;
 
 typedef int32 FFoliageInstanceBaseId;
 typedef TLazyObjectPtr<UActorComponent> FFoliageInstanceBasePtr;

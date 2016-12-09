@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "MobilityCustomization.h"
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class FMobilityCustomization;
+class IDetailLayoutBuilder;
 
 class FSceneComponentDetails : public IDetailCustomization
 {

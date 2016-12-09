@@ -1,14 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Widgets/Text/SMultiLineEditableText.h"
+#include "Rendering/DrawElements.h"
+#include "Types/SlateConstants.h"
+#include "Framework/Application/SlateApplication.h"
 
 #if WITH_FANCY_TEXT
 
-#include "TextEditHelper.h"
-#include "PlainTextLayoutMarshaller.h"
-#include "SlateEditableTextLayout.h"
-#include "ReflectionMetadata.h"
-#include "IMenu.h"
+#include "Framework/Text/TextEditHelper.h"
+#include "Framework/Text/PlainTextLayoutMarshaller.h"
+#include "Widgets/Text/SlateEditableTextLayout.h"
+#include "Types/ReflectionMetadata.h"
 
 SMultiLineEditableText::SMultiLineEditableText()
 	: bSelectAllTextWhenFocused(false)
@@ -428,7 +430,13 @@ void SMultiLineEditableText::Tick( const FGeometry& AllottedGeometry, const doub
 
 int32 SMultiLineEditableText::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
-	LayerId = EditableTextLayout->OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, ShouldBeEnabled(bParentEnabled));
+	const FTextBlockStyle& EditableTextStyle = EditableTextLayout->GetTextStyle();
+	const FLinearColor ForegroundColor = EditableTextStyle.ColorAndOpacity.GetColor(InWidgetStyle);
+
+	FWidgetStyle TextWidgetStyle = FWidgetStyle(InWidgetStyle)
+		.SetForegroundColor(ForegroundColor);
+
+	LayerId = EditableTextLayout->OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, TextWidgetStyle, ShouldBeEnabled(bParentEnabled));
 
 	if (bIsSoftwareCursor)
 	{
@@ -497,7 +505,7 @@ FReply SMultiLineEditableText::OnKeyDown( const FGeometry& MyGeometry, const FKe
 
 FReply SMultiLineEditableText::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
 {
-	return FReply::Unhandled();
+	return EditableTextLayout->HandleKeyUp(InKeyEvent);
 }
 
 FReply SMultiLineEditableText::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) 
@@ -572,7 +580,7 @@ FReply SMultiLineEditableText::OnMouseWheel( const FGeometry& MyGeometry, const 
 {
 	if (VScrollBar.IsValid() && VScrollBar->IsNeeded())
 	{
-		const float ScrollAmount = -MouseEvent.GetWheelDelta() * WheelScrollAmount;
+		const float ScrollAmount = -MouseEvent.GetWheelDelta() * GetGlobalScrollAmount();
 
 		const FVector2D PreviousScrollOffset = EditableTextLayout->GetScrollOffset();
 		
@@ -612,6 +620,14 @@ FCursorReply SMultiLineEditableText::OnCursorQuery( const FGeometry& MyGeometry,
 bool SMultiLineEditableText::IsInteractable() const
 {
 	return IsEnabled();
+}
+
+bool SMultiLineEditableText::ComputeVolatility() const
+{
+	return SWidget::ComputeVolatility()
+		|| HasKeyboardFocus()
+		|| EditableTextLayout->ComputeVolatility()
+		|| bIsReadOnly.IsBound();
 }
 
 bool SMultiLineEditableText::IsRightClickScrolling() const

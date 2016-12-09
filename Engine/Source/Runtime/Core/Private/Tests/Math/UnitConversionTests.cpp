@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "UnitConversion.h"
+#include "CoreTypes.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
+#include "Misc/AutomationTest.h"
+#include "Math/UnitConversion.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

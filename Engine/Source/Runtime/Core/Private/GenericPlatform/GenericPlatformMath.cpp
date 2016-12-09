@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "BigInt.h"
+#include "GenericPlatform/GenericPlatformMath.h"
+#include "Misc/AssertionMacros.h"
+#include "Math/UnrealMathUtility.h"
+#include "Math/BigInt.h"
 
 static int32 GSRandSeed;
 

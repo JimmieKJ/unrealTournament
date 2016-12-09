@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-class FSurvey;
-class FQuestionBlock;
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Views/STileView.h"
+#include "EpicSurvey.h"
+#include "Survey.h"
+#include "QuestionBlock.h"
+
+class SScrollBox;
 
 class SSurvey : public SCompoundWidget
 {

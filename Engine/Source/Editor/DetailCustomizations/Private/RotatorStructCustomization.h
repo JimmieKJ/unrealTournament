@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
 #include "MathStructCustomizations.h"
-
 
 /**
  * Customizes FRotator structs.

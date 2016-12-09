@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashReportClientApp.h"
-#include "CrashReportUtil.h"
-#include "CrashDescription.h"
 #include "CrashReportClient.h"
-#include "UniquePtr.h"
-#include "TaskGraphInterfaces.h"
+#include "Misc/CommandLine.h"
+#include "Internationalization/Internationalization.h"
+#include "Containers/Ticker.h"
+#include "CrashReportClientConfig.h"
+#include "Templates/UniquePtr.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
 
 #define LOCTEXT_NAMESPACE "CrashReportClient"
@@ -15,13 +17,16 @@ struct FCrashReportUtil
 	/** Formats processed diagnostic text by adding additional information about machine and user. */
 	static FText FormatDiagnosticText( const FText& DiagnosticText )
 	{
-		const FString MachineId = FPrimaryCrashProperties::Get()->MachineId.AsString();
+		const FString LoginId = FPrimaryCrashProperties::Get()->LoginId.AsString();
 		const FString EpicAccountId = FPrimaryCrashProperties::Get()->EpicAccountId.AsString();
-		return FText::Format( LOCTEXT( "CrashReportClientCallstackPattern", "MachineId:{0}\nEpicAccountId:{1}\n\n{2}" ), FText::FromString( MachineId ), FText::FromString( EpicAccountId ), DiagnosticText );
+		return FText::Format( LOCTEXT( "CrashReportClientCallstackPattern", "LoginId:{0}\nEpicAccountId:{1}\n\n{2}" ), FText::FromString( LoginId ), FText::FromString( EpicAccountId ), DiagnosticText );
 	}
 };
 
 #if !CRASH_REPORT_UNATTENDED_ONLY
+
+#include "PlatformHttp.h"
+#include "Framework/Application/SlateApplication.h"
 
 FCrashReportClient::FCrashReportClient(const FPlatformErrorReport& InErrorReport)
 	: DiagnosticText( LOCTEXT("ProcessingReport", "Processing crash report ...") )
@@ -98,31 +103,35 @@ FReply FCrashReportClient::SubmitAndRestart()
 	bool bLauncherRestarted = false;
 	if (bRunFromLauncher)
 	{
-		// We'll restart Launcher-run processes by having the installed Launcher handle it
-		IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
-
-		if (DesktopPlatform != nullptr)
+		// Hacky check to see if this is the editor. Not attempting to relaunch the editor using the Launcher because there is no way to pass the project via OpenLauncher()
+		if (!FPaths::GetCleanFilename(CrashedAppPath).StartsWith(TEXT("UE4Editor")))
 		{
-			// Split the path so we can format it as a URI
-			TArray<FString> PathArray;
-			CrashedAppPath.Replace(TEXT("//"), TEXT("/")).ParseIntoArray(PathArray, TEXT("/"), false);	// WER saves this out on Windows with double slashes as the separator for some reason.
-			FString CrashedAppPathUri;
+			// We'll restart Launcher-run processes by having the installed Launcher handle it
+			IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 
-			// Exclude the last item (the filename). The Launcher currently expects an installed application folder.
-			for (int32 ItemIndex = 0; ItemIndex < PathArray.Num() - 1; ItemIndex++)
+			if (DesktopPlatform != nullptr)
 			{
-				FString& PathItem = PathArray[ItemIndex];
-				CrashedAppPathUri += FPlatformHttp::UrlEncode(PathItem);
-				CrashedAppPathUri += TEXT("/");
-			}
-			CrashedAppPathUri.RemoveAt(CrashedAppPathUri.Len() - 1);
+				// Split the path so we can format it as a URI
+				TArray<FString> PathArray;
+				CrashedAppPath.Replace(TEXT("//"), TEXT("/")).ParseIntoArray(PathArray, TEXT("/"), false);	// WER saves this out on Windows with double slashes as the separator for some reason.
+				FString CrashedAppPathUri;
 
-			// Re-run the application via the Launcher
-			FOpenLauncherOptions OpenOptions(FString::Printf(TEXT("apps/%s"), *CrashedAppPathUri));
-			OpenOptions.bSilent = true;
-			if (DesktopPlatform->OpenLauncher(OpenOptions))
-			{
-				bLauncherRestarted = true;
+				// Exclude the last item (the filename). The Launcher currently expects an installed application folder.
+				for (int32 ItemIndex = 0; ItemIndex < PathArray.Num() - 1; ItemIndex++)
+				{
+					FString& PathItem = PathArray[ItemIndex];
+					CrashedAppPathUri += FPlatformHttp::UrlEncode(PathItem);
+					CrashedAppPathUri += TEXT("/");
+				}
+				CrashedAppPathUri.RemoveAt(CrashedAppPathUri.Len() - 1);
+
+				// Re-run the application via the Launcher
+				FOpenLauncherOptions OpenOptions(FString::Printf(TEXT("apps/%s"), *CrashedAppPathUri));
+				OpenOptions.bSilent = true;
+				if (DesktopPlatform->OpenLauncher(OpenOptions))
+				{
+					bLauncherRestarted = true;
+				}
 			}
 		}
 	}

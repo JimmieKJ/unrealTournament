@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "../UnrealVersionSelector.h"
+#include "CoreMinimal.h"
 #include "../GenericPlatform/GenericPlatformInstallation.h"
 
 struct FWindowsPlatformInstallation : FGenericPlatformInstallation

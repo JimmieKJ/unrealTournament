@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Linker.h"
+
 class FPackageDependencyData : public FLinkerTables
 {
 public:
@@ -24,6 +27,11 @@ public:
 		Ar << DependencyData.PackageName;
 		Ar << DependencyData.ImportMap;
 		Ar << DependencyData.StringAssetReferencesMap;
+
+		if (Ar.UE4Ver() >= VER_UE4_ADDED_SEARCHABLE_NAMES)
+		{
+			Ar << DependencyData.SearchableNamesMap;
+		}
 
 		return Ar;
 	}

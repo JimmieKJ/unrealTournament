@@ -2,11 +2,17 @@
 
 #pragma once
 
-#include "IKeyframeSection.h"
-#include "MovieSceneKeyStruct.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/SceneComponent.h"
+#include "Curves/KeyHandle.h"
+#include "Curves/RichCurve.h"
 #include "MovieSceneSection.h"
+#include "Sections/IKeyframeSection.h"
+#include "MovieSceneKeyStruct.h"
 #include "MovieScene3DTransformSection.generated.h"
 
+class FStructOnScope;
 
 namespace EKey3DTransformChannel
 {
@@ -22,7 +28,7 @@ namespace EKey3DTransformChannel
 #if WITH_EDITORONLY_DATA
 /** Visibility options for 3d trajectory. */
 UENUM()
-enum class EShow3DTrajectory
+enum class EShow3DTrajectory : uint8
 {
 	EST_OnlyWhenSelected UMETA(DisplayName="Only When Selected"),
 	EST_Always UMETA(DisplayName="Always"),
@@ -185,7 +191,7 @@ public:
 	 * @param Time				The position in time within the movie scene
 	 * @param OutTranslation	The evaluated translation.  Note: will remain unchanged if there were no keys to evaluate
 	 */
-	MOVIESCENETRACKS_API void EvalTranslation( float Time, FVector& OutTranslation ) const;
+	MOVIESCENETRACKS_API void EvalTranslation( float Time, FVector& InOutTranslation ) const;
 
 	/**
 	 * Evaluates the rotation component of the transform
@@ -193,7 +199,7 @@ public:
 	 * @param Time				The position in time within the movie scene
 	 * @param OutRotation		The evaluated rotation.  Note: will remain unchanged if there were no keys to evaluate
 	 */
-	MOVIESCENETRACKS_API void EvalRotation( float Time, FRotator& OutRotation ) const;
+	MOVIESCENETRACKS_API void EvalRotation( float Time, FRotator& InOutRotation ) const;
 
 	/**
 	 * Evaluates the scale component of the transform
@@ -201,7 +207,7 @@ public:
 	 * @param Time				The position in time within the movie scene
 	 * @param OutScale			The evaluated scale.  Note: will remain unchanged if there were no keys to evaluate
 	 */
-	MOVIESCENETRACKS_API void EvalScale( float Time, FVector& OutScale ) const;
+	MOVIESCENETRACKS_API void EvalScale( float Time, FVector& InOutScale ) const;
 
 	/** 
 	 * Returns the translation curve for a specific axis
@@ -210,6 +216,7 @@ public:
 	 * @return The curve on the axis
 	 */
 	MOVIESCENETRACKS_API FRichCurve& GetTranslationCurve( EAxis::Type Axis );
+	MOVIESCENETRACKS_API const FRichCurve& GetTranslationCurve( EAxis::Type Axis ) const;
 
 	/** 
 	 * Returns the rotation curve for a specific axis
@@ -218,6 +225,7 @@ public:
 	 * @return The curve on the axis
 	 */
 	MOVIESCENETRACKS_API FRichCurve& GetRotationCurve( EAxis::Type Axis );
+	MOVIESCENETRACKS_API const FRichCurve& GetRotationCurve( EAxis::Type Axis ) const;
 
 	/** 
 	 * Returns the scale curve for a specific axis
@@ -226,6 +234,7 @@ public:
 	 * @return The curve on the axis
 	 */
 	MOVIESCENETRACKS_API FRichCurve& GetScaleCurve( EAxis::Type Axis );
+	MOVIESCENETRACKS_API const FRichCurve& GetScaleCurve( EAxis::Type Axis ) const;
 
 	/**
 	 * Return the trajectory visibility
@@ -253,7 +262,9 @@ public:
 	virtual bool HasKeys( const FTransformKey& KeyData ) const override;
 	virtual void AddKey( float Time, const FTransformKey& KeyData, EMovieSceneKeyInterpolation KeyInterpolation ) override;
 	virtual void SetDefault( const FTransformKey& KeyData ) override;
-
+	virtual void ClearDefaults() override;
+	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
+	
 private:
 
 	/** Translation curves */
@@ -271,6 +282,6 @@ private:
 #if WITH_EDITORONLY_DATA
 	/** Whether to show the 3d trajectory */
 	UPROPERTY(EditAnywhere, DisplayName = "Show 3D Trajectory", Category = "Transform")
-	TEnumAsByte<EShow3DTrajectory> Show3DTrajectory;
+	EShow3DTrajectory Show3DTrajectory;
 #endif
 };

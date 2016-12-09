@@ -2,7 +2,16 @@
 
 #pragma once
 
-#include "Editor/Kismet/Public/BlueprintEditor.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "BlueprintUtilities.h"
+
+class FBlueprintEditor;
+class UEdGraph;
+struct FSlateBrush;
 
 //////////////////////////////////////////////////////////////////////////
 // SGraphTitleBar

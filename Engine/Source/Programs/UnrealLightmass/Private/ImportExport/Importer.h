@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "LMCore.h"
 #include "LightmassSwarm.h"
 

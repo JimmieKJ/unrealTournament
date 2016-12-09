@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FriendsAndChatPrivatePCH.h"
+#include "FriendsMarkupStyle.h"
 
 const FName FFriendsMarkupStyle::TypeName( TEXT("FFriendsMarkupStyle") );
 

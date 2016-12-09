@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "MeshPaintSpriteAdapter.h"
+#include "MeshPainting/MeshPaintSpriteAdapter.h"
+#include "Paper2DModule.h"
 #include "MeshPaintEdMode.h"
 #include "PaperSpriteComponent.h"
+#include "PaperSprite.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FMeshPaintSpriteAdapter

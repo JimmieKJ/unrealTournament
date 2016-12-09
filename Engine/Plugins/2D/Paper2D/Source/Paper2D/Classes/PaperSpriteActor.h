@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "PaperSpriteComponent.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "PaperSpriteActor.generated.h"
 
 /**

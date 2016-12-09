@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ViewModels/CategoryViewModel.h"
+#include "Misc/TextFilter.h"
+
+class FContentSourceViewModel;
+class IContentSourceProvider;
+
 /** The view model for the SAddContentWidget. */
 class FAddContentWidgetViewModel : public TSharedFromThis<FAddContentWidgetViewModel>
 {

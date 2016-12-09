@@ -6,8 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "ProceduralFoliageSpawnerFactory.generated.h"
-
 
 UCLASS()
 class UProceduralFoliageSpawnerFactory : public UFactory

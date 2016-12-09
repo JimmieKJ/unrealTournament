@@ -5,6 +5,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/ReflectionCapture.h"
 #include "PlaneReflectionCapture.generated.h"
 
 UCLASS(abstract, hidecategories=(Collision, Attachment, Actor), MinimalAPI)

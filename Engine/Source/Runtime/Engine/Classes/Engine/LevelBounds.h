@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "Tickable.h"
 #include "LevelBounds.generated.h"
-
-
 
 /**
  *  Ticks only in the editor, regardless of viewport 'Realtime' option

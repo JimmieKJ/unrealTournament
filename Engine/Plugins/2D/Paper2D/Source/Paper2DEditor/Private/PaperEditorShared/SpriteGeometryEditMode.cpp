@@ -1,10 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "SpriteGeometryEditMode.h"
-#include "SpriteGeometryEditCommands.h"
+#include "PaperEditorShared/SpriteGeometryEditMode.h"
+#include "SceneView.h"
+#include "EditorViewportClient.h"
+#include "Framework/Commands/UICommandList.h"
+#include "CanvasItem.h"
+#include "CanvasTypes.h"
+#include "EditorModeManager.h"
+#include "PaperEditorShared/AssetEditorSelectedItem.h"
+#include "SpriteEditorOnlyTypes.h"
+#include "SpriteEditor/SpriteEditorSelections.h"
+#include "PaperEditorShared/SpriteGeometryEditCommands.h"
 #include "PhysicsEngine/BodySetup2D.h"
-#include "SocketEditing.h"
+#include "PaperEditorShared/SocketEditing.h"
 
 #define LOCTEXT_NAMESPACE "PaperGeometryEditing"
 

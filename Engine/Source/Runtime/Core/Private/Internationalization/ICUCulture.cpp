@@ -1,12 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "FastDecimalFormat.h"
+#include "Internationalization/ICUCulture.h"
+#include "Misc/ScopeLock.h"
+#include "Internationalization/FastDecimalFormat.h"
 
 #if UE_ENABLE_ICU
-#include "ICUUtilities.h"
-#include "ICUCulture.h"
-#include "Function.h"
+#include "Internationalization/ICUUtilities.h"
 
 namespace
 {

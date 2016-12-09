@@ -2,12 +2,20 @@
 
 #pragma once
 
-#include "Sound/AudioVolume.h"
-#include "Sound/SoundConcurrency.h"
+#include "CoreMinimal.h"
+#include "WorldCollision.h"
 #include "Sound/SoundAttenuation.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Audio.h"
+#include "Sound/SoundConcurrency.h"
 #include "Components/AudioComponent.h"
+#include "Sound/AudioVolume.h"
 
-class UWorld;
+class FAudioDevice;
+class USoundBase;
+class USoundSubmix;
+class USoundWave;
+struct FListener;
 
 /**
  *	Struct used for gathering the final parameters to apply to a wave instance
@@ -18,16 +26,25 @@ struct FSoundParseParameters
 	FNotifyBufferFinishedHooks NotifyBufferFinishedHooks;
 
 	// The Sound Class to use the settings of
-	class USoundClass* SoundClass;
+	USoundClass* SoundClass;
 	
+	// The sound submix to use for the wave instance
+	USoundSubmix* SoundSubmix;
+
 	// The transform of the sound (scale is not used)
 	FTransform Transform;
 
 	// The speed that the sound is moving relative to the listener
 	FVector Velocity;
 	
+	// The volume product of the sound
 	float Volume;
+
+	// A volume scalse on the sound specified by user
 	float VolumeMultiplier;
+	
+	// Volume due to application-level volume scaling (tabbing, master volume)
+	float VolumeApp;
 
 	// The multiplier to apply if the sound class desires
 	float InteriorVolumeMultiplier;
@@ -35,6 +52,7 @@ struct FSoundParseParameters
 	// The priority of sound, which is the product of the component priority and the USoundBased priority
 	float Priority;
 
+	// The pitch scale factor of the sound
 	float Pitch;
 
 	// How far in to the sound the
@@ -42,6 +60,12 @@ struct FSoundParseParameters
 
 	// At what distance from the source of the sound should spatialization begin
 	float OmniRadius;
+
+	// The distance from the emitter to the listener, used in sound attenuation and spatialization.
+	float AttenuationDistance;
+
+	// The absolute azimuth angle of the sound relative to the forward listener vector (359 degrees to left, 1 degrees to right)
+	float AbsoluteAzimuth;
 
 	// The distance between left and right channels when spatializing stereo assets
 	float StereoSpread;
@@ -68,20 +92,27 @@ struct FSoundParseParameters
 	uint32 bLooping:1;
 	
 	// Whether we have enabled low-pass filtering of this sound
-	uint32 bEnableLowPassFilter : 1;
+	uint32 bEnableLowPassFilter:1;
 
 	// Whether this sound is occluded
-	uint32 bIsOccluded : 1;
+	uint32 bIsOccluded:1;
+
+	// Whether or not this sound is manually paused (i.e. not by application-wide pause)
+	uint32 bIsPaused:1;
 
 	FSoundParseParameters()
-		: SoundClass(NULL)
+		: SoundClass(nullptr)
+		, SoundSubmix(nullptr)
 		, Velocity(ForceInit)
 		, Volume(1.f)
 		, VolumeMultiplier(1.f)
+		, VolumeApp(1.f)
 		, InteriorVolumeMultiplier(1.f)
 		, Pitch(1.f)
 		, StartTime(-1.f)
 		, OmniRadius(0.0f)
+		, AttenuationDistance(0.0f)
+		, AbsoluteAzimuth(0.0f)
 		, StereoSpread(0.0f)
 		, SpatializationAlgorithm(SPATIALIZATION_Default)
 		, LowPassFilterFrequency(MAX_FILTER_FREQUENCY)
@@ -92,6 +123,7 @@ struct FSoundParseParameters
 		, bLooping(false)
 		, bEnableLowPassFilter(false)
 		, bIsOccluded(false)
+		, bIsPaused(false)
 	{
 	}
 };
@@ -102,7 +134,6 @@ public:
 
 	FActiveSound();
 	~FActiveSound();
-
 
 private:
 	TWeakObjectPtr<UWorld> World;
@@ -153,24 +184,24 @@ public:
 	/** The generation of this sound in the concurrency group. */
 	int32 ConcurrencyGeneration;
 
-	/** Optional USoundConcurrency to override sound */
+	/** Optional USoundConcurrency to override for the sound. */
 	USoundConcurrency* ConcurrencySettings;
 
 private:
-	/** Optional SoundClass to override Sound */
+	/** Optional SoundClass to override for the sound. */
 	USoundClass* SoundClassOverride;
+
+	/** Optional SoundSubmix to override for the sound. */
+	USoundSubmix* SoundSubmixOverride;
 
 public:
 	/** Whether or not the sound has checked if it was occluded already. Used to initialize a sound as occluded and bypassing occlusion interpolation. */
 	uint8 bHasCheckedOcclusion:1;
 
-	/** Flag to trigger binding our trace delegate for async trace calls */
-	uint8 bIsTraceDelegateBound:1;
-
 	/** Is this sound allowed to be spatialized? */
 	uint8 bAllowSpatialization:1;
 
-	/** Does this sound have attenuation settings specified */
+	/** Does this sound have attenuation settings specified. */
 	uint8 bHasAttenuationSettings:1;
 
 	/** Whether the wave instances should remain active if they're dropped by the prioritization code. Useful for e.g. vehicle sounds that shouldn't cut out. */
@@ -181,6 +212,9 @@ public:
 
 	/** Whether the current component has finished playing */
 	uint8 bFinished:1;
+
+	/** Whether or not the active sound is paused. Independently set vs global pause or unpause. */
+	uint8 bIsPaused:1;
 
 	/** Whether or not to stop this active sound due to max concurrency */
 	uint8 bShouldStopDueToMaxConcurrency:1;
@@ -235,12 +269,8 @@ public:
 	/** Whether or not we have a low-pass filter enabled on this active sound. */
 	uint8 bEnableLowPassFilter : 1;
 
-	/** Whether or not to use an async trace for occlusion */
-	uint8 bOcclusionAsyncTrace : 1;
-
-private:
-	/** Whether or not this sound is audible */
-	uint8 bIsAudible : 1;
+	/** Whether or not this active sound will update play percentage. Based on set delegates on audio component. */
+	uint8 bUpdatePlayPercentage:1;
 
 public:
 	uint8 UserIndex;
@@ -264,9 +294,10 @@ public:
 	/** The low-pass filter frequency to apply if bEnableLowPassFilter is true. */
 	float LowPassFilterFrequency;
 
-	/** The interpolated parameter for the low-pass frequency due to occlusion */
+	/** The interpolated parameter for the low-pass frequency due to occlusion. */
 	FDynamicParameter CurrentOcclusionFilterFrequency;
 
+	/** The interpolated parameter for the volume attenuation due to occlusion. */
 	FDynamicParameter CurrentOcclusionVolumeAttenuation;
 
 	/** A volume scale to apply to a sound based on the concurrency count of the active sound when it started. Will reduce volume of new sounds if many sounds are playing in concurrency group. */
@@ -286,11 +317,9 @@ public:
 	/** The amount distance is scaled due to focus */
 	float FocusDistanceScale;
 
-	/** Frequency with which to check for occlusion from its closest listener */
 	// The volume used to determine concurrency resolution for "quietest" active sound
 	float VolumeConcurrency;
 
-	/** Frequency with which to check for occlusion from its closest listener */
 	/** The time in seconds with which to check for occlusion from its closest listener */
 	float OcclusionCheckInterval;
 
@@ -301,6 +330,12 @@ public:
 	float MaxDistance;
 
 	FTransform Transform;
+
+	/** Azimuth of the active sound relative to the listener. Used by sound focus. */
+	float Azimuth;
+
+	/** Absolute azimuth of the active sound relative to the listener. Used for 3d audio calculations. */
+	float AbsoluteAzimuth;
 
 	/** Location last time playback was updated */
 	FVector LastLocation;
@@ -331,7 +366,7 @@ public:
 #endif
 
 	// Updates the wave instances to be played.
-	void UpdateWaveInstances( TArray<FWaveInstance*> &OutWaveInstances, const float DeltaTime );
+	void UpdateWaveInstances(TArray<FWaveInstance*> &OutWaveInstances, const float DeltaTime);
 
 	/** 
 	 * Find an existing waveinstance attached to this audio component (if any)
@@ -341,7 +376,7 @@ public:
 	/** 
 	 * Check whether to apply the radio filter
 	 */
-	void ApplyRadioFilter(const struct FSoundParseParameters& ParseParams );
+	void ApplyRadioFilter(const struct FSoundParseParameters& ParseParams);
 
 	/** Sets a float instance parameter for the ActiveSound */
 	void SetFloatParameter(const FName InName, const float InFloat);
@@ -380,7 +415,7 @@ public:
 	 *Try and find an Instance Parameter with the given name and if we find it return the integer value.
 	 * @return true if boolean for parameter was found, otherwise false
 	 */
-	int32 GetIntParameter(const FName InName, int32& OutInt) const;
+	bool GetIntParameter(const FName InName, int32& OutInt) const;
 
 	void CollectAttenuationShapesForVisualization(TMultiMap<EAttenuationShape::Type, FAttenuationSettings::AttenuationShapeDetails>& ShapeDetailsMap) const;
 
@@ -395,6 +430,11 @@ public:
 	 * Get the sound class to apply on this sound instance
 	 */
 	USoundClass* GetSoundClass() const;
+
+	/**
+	* Get the sound submix to use for this sound instance
+	*/
+	USoundSubmix* GetSoundSubmix() const;
 
 	/* Determines which listener is the closest to the sound */
 	int32 FindClosestListener( const TArray<struct FListener>& InListeners ) const;

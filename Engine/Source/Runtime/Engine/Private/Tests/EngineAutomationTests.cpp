@@ -1,15 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Serialization/MemoryWriter.h"
+#include "Misc/AutomationTest.h"
+#include "Misc/PackageName.h"
+#include "GameMapsSettings.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Engine/EngineTypes.h"
+#include "UnrealClient.h"
+#include "Engine/GameViewportClient.h"
+#include "UnrealEngine.h"
+#include "Serialization/MemoryReader.h"
+#include "UObject/UObjectIterator.h"
+#include "EngineUtils.h"
 #include "Tests/AutomationTestSettings.h"
 
 #if WITH_EDITOR
 #include "FileHelpers.h"
 #endif
 
-#include "AutomationCommon.h"
-#include "AutomationTestCommon.h"
+#include "EngineGlobals.h"
+#include "Tests/AutomationCommon.h"
 #include "PlatformFeatures.h"
 #include "SaveGameSystem.h"
 #include "GameFramework/DefaultPawn.h"
@@ -52,7 +66,7 @@ namespace
 			// Disregard filenames that don't have the map extension if we're in MAPSONLY mode.
 			if (FPaths::GetExtension(Filename, true) == FPackageName::GetMapPackageExtension())
 			{
-				if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
+				if (FAutomationTestFramework::Get().ShouldTestContent(Filename))
 				{
 					OutBeautifiedNames.Add(FPaths::GetBaseFilename(Filename));
 					OutTestCommands.Add(Filename);
@@ -111,64 +125,16 @@ bool FStatsVerificationMapTest::RunTest(const FString& Parameters)
 {
 	UAutomationTestSettings const* AutomationTestSettings = GetDefault<UAutomationTestSettings>();
 	check(AutomationTestSettings);
-	FString MapName = AutomationTestSettings->AutomationTestmap.FilePath;
 
-	//Get the location of the map being used.
-	FString Filename = FPaths::ConvertRelativePathToFull(MapName);
-
-	//If the filename doesn't exist then we'll make the filename path relative to the engine instead of the game and the retry.
-	if (!FPaths::FileExists(Filename))
+	if ( AutomationTestSettings->AutomationTestmap.IsValid() )
 	{
-		FString EngDirectory = FPaths::ConvertRelativePathToFull(FPaths::EngineContentDir());
+		FString MapName = AutomationTestSettings->AutomationTestmap.GetLongPackageName();
 
-		Filename = EngDirectory / MapName;
-
-		Filename.ReplaceInline(TEXT("/Content/../../"), TEXT("/"),ESearchCase::CaseSensitive);
-	}
-
-	if (FPaths::FileExists(Filename))
-	{
-		//If the map is located in the engine folder then we'll make the path relative to that.  Otherwise it will be relative to the game content folder.
-		if (Filename.Contains(TEXT("Engine"), ESearchCase::IgnoreCase, ESearchDir::FromStart))
-		{
-			//This will be false if the map is on a different drive.
-			if (FPaths::MakePathRelativeTo(Filename, *FPaths::EngineContentDir()))
-			{
-				FString ShortName = FPaths::GetBaseFilename(Filename);
-				FString PathName = FPaths::GetPath(Filename);
-				MapName = FString::Printf(TEXT("/Engine/%s/%s.%s"), *PathName, *ShortName, *ShortName);
-
-				UE_LOG(LogEngineAutomationTests, Log, TEXT("Opening '%s'"), *MapName);
-
-				GEngine->Exec(GetSimpleEngineAutomationTestGameWorld(GetTestFlags()), *FString::Printf(TEXT("Open %s"), *MapName));
-			}
-			else
-			{
-				UE_LOG(LogEngineAutomationTests, Error, TEXT("Invalid asset path: %s."), *Filename);
-			}
-		}
-		else
-		{
-			//This will be false if the map is on a different drive.
-			if (FPaths::MakePathRelativeTo(Filename, *FPaths::GameContentDir()))
-			{
-				FString ShortName = FPaths::GetBaseFilename(Filename);
-				FString PathName = FPaths::GetPath(Filename);
-				MapName = FString::Printf(TEXT("/Game/%s/%s.%s"), *PathName, *ShortName, *ShortName);
-
-				UE_LOG(LogEngineAutomationTests, Log, TEXT("Opening '%s'"), *MapName);
-
-				GEngine->Exec(GetSimpleEngineAutomationTestGameWorld(GetTestFlags()), *FString::Printf(TEXT("Open %s"), *MapName));
-			}
-			else
-			{
-				UE_LOG(LogEngineAutomationTests, Error, TEXT("Invalid asset path: %s."), *MapName);
-			}
-		}
+		GEngine->Exec(GetSimpleEngineAutomationTestGameWorld(GetTestFlags()), *FString::Printf(TEXT("Open %s"), *MapName));
 	}
 	else
 	{
-		UE_LOG(LogEngineAutomationTests, Log, TEXT("Automation test map doesn't exist or is not set: %s.  \nUsing the currently loaded map."), *Filename);
+		UE_LOG(LogEngineAutomationTests, Log, TEXT("Automation test map doesn't exist or is not set: %s.  \nUsing the currently loaded map."), *AutomationTestSettings->AutomationTestmap.GetLongPackageName());
 	}
 
 	ADD_LATENT_AUTOMATION_COMMAND(FExecStringLatentCommand(TEXT("stat game")));
@@ -206,7 +172,7 @@ bool FPerformanceCaptureTest::RunTest(const FString& Parameters)
 {
 	UAutomationTestSettings const* AutomationTestSettings = GetDefault<UAutomationTestSettings>();
 	check(AutomationTestSettings);
-	FString MapName = AutomationTestSettings->AutomationTestmap.FilePath;
+	FString MapName = AutomationTestSettings->AutomationTestmap.GetLongPackageName();
 
 	GEngine->Exec(GetSimpleEngineAutomationTestGameWorld(GetTestFlags()), *FString::Printf(TEXT("Open %s"), *MapName));
 	ADD_LATENT_AUTOMATION_COMMAND(FEnqueuePerformanceCaptureCommands());
@@ -254,12 +220,12 @@ bool FLoadAllMapsInGameTest::RunTest(const FString& Parameters)
 	//Open the map
 	GEngine->Exec(GetSimpleEngineAutomationTestGameWorld(GetTestFlags()), *FString::Printf(TEXT("Open %s"), *MapName));
 
-	if( FAutomationTestFramework::GetInstance().IsScreenshotAllowed() )
+	if( FAutomationTestFramework::Get().IsScreenshotAllowed() )
 	{
 		//Generate the screen shot name and path
 		FString ScreenshotFileName;
 		const FString LoadAllMapsTestName = FString::Printf(TEXT("LoadAllMaps_Game/%s"), *FPaths::GetBaseFilename(MapName));
-		AutomationCommon::GetScreenshotPath(LoadAllMapsTestName, ScreenshotFileName, true);
+		AutomationCommon::GetScreenshotPath(LoadAllMapsTestName, ScreenshotFileName);
 
 		//Give the map some time to load
 		ADD_LATENT_AUTOMATION_COMMAND(FEngineWaitLatentCommand(1.5f));
@@ -616,36 +582,36 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			{
 				{
 					FTransform(
-						FQuat(-0.49031073f, -0.11344112f, 0.64335662f, 0.57690436f),
-						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FQuat(-0.49031073f, -0.11344108f, 0.64335668f, 0.57690459f),
+						FVector(10.26776695f, -7.73223495f, 7.53553295f),
 						FVector(1.56250000f, 1.56250000f, 1.56250000f)
 					),
 					FTransform(
-						FQuat(-0.16042998f, -0.06645227f, 0.37686959f, 0.90984368f),
+						FQuat(-0.16042995f, -0.06645225f, 0.37686956f, 0.90984380f),
 						FVector(2.00000000f, -8.00000000f, -4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
 				{
 					FTransform(
-						FQuat(-0.49031073f, -0.11344112f, 0.64335662f, 0.57690436f),
-						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FQuat(-0.49031073f, -0.11344108f, 0.64335668f, 0.57690459f),
+						FVector(10.26776695f, -7.73223495f, 7.53553295f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 					FTransform(
-						FQuat(-0.16042998f, -0.06645227f, 0.37686959f, 0.90984368f),
+						FQuat(-0.16042995f, -0.06645225f, 0.37686956f, 0.90984380f),
 						FVector(2.00000000f, -8.00000000f, -4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
 				{
 					FTransform(
-						FQuat(-0.49031073f, -0.11344112f, 0.64335662f, 0.57690436f),
-						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FQuat(-0.49031073f, -0.11344108f, 0.64335668f, 0.57690459f),
+						FVector(10.26776695f, -7.73223495f, 7.53553295f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 					FTransform(
-						FQuat(-0.16042998f, -0.06645227f, 0.37686959f, 0.90984368f),
+						FQuat(-0.16042995f, -0.06645225f, 0.37686956f, 0.90984380f),
 						FVector(2.00000000f, -8.00000000f, -4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
@@ -654,36 +620,36 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			{
 				{
 					FTransform(
-						FQuat(-0.16042998f, -0.06645226f, 0.37686962f, 0.90984368f),
-						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FQuat(-0.16042994f, -0.06645226f, 0.37686956f, 0.90984380f),
+						FVector(10.26776695f, -7.73223495f, 7.53553295f),
 						FVector(1.56250000f, 1.56250000f, 1.56250000f)
 					),
 					FTransform(
-						FQuat(-0.16042995f, -0.06645225f, 0.37686959f, 0.90984380f),
+						FQuat(-0.16042991f, -0.06645230f, 0.37686959f, 0.90984380f),
 						FVector(2.00000000f, -8.00000000f, -4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
 				{
 					FTransform(
-						FQuat(-0.16042994f, -0.06645224f, 0.37686956f, 0.90984374f),
-						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FQuat(-0.16042991f, -0.06645229f, 0.37686959f, 0.90984380f),
+						FVector(10.26776695f, -7.73223495f, 7.53553295f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 					FTransform(
-						FQuat(-0.16042992f, -0.06645223f, 0.37686956f, 0.90984380f),
+						FQuat(-0.16042989f, -0.06645229f, 0.37686959f, 0.90984380f),
 						FVector(2.00000000f, -8.00000000f, -4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
 				{
 					FTransform(
-						FQuat(-0.16042989f, -0.06645222f, 0.37686950f, 0.90984374f),
-						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FQuat(-0.16042989f, -0.06645229f, 0.37686956f, 0.90984380f),
+						FVector(10.26776695f, -7.73223495f, 7.53553295f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 					FTransform(
-						FQuat(-0.16042989f, -0.06645220f, 0.37686944f, 0.90984386f),
+						FQuat(-0.16042989f, -0.06645229f, 0.37686959f, 0.90984380f),
 						FVector(2.00000000f, -8.00000000f, -4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
@@ -692,153 +658,37 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			{
 				{
 					FTransform(
-						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
-						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(10.26776695f, -7.73223495f, 7.53553295f),
 						FVector(1.56250000f, 1.56250000f, 1.56250000f)
 					),
 					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
 						FVector(2.00000000f, -8.00000000f, -4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
 				{
 					FTransform(
-						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
-						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(10.26776695f, -7.73223495f, 7.53553295f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
 						FVector(2.00000000f, -8.00000000f, -4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
 				{
 					FTransform(
-						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
-						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(10.26776695f, -7.73223495f, 7.53553295f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
 						FVector(2.00000000f, -8.00000000f, -4.00000000f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-				},
-			},
-		},
-		{
-			{
-				{
-					FTransform(
-						FQuat(-0.60355341f, -0.24999994f, 0.60355335f, 0.45710683f),
-						FVector(2.00000024f, -8.00000000f, -4.00000000f),
-						FVector(1.56250000f, 1.56250000f, 1.56250000f)
-					),
-					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
-						FVector(2.00000024f, -8.00000000f, -4.00000000f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-				},
-				{
-					FTransform(
-						FQuat(-0.60355341f, -0.24999994f, 0.60355335f, 0.45710683f),
-						FVector(2.00000048f, -8.00000000f, -4.00000000f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
-						FVector(2.00000048f, -8.00000000f, -4.00000000f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-				},
-				{
-					FTransform(
-						FQuat(-0.60355341f, -0.24999994f, 0.60355335f, 0.45710683f),
-						FVector(2.00000095f, -8.00000000f, -4.00000000f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
-						FVector(2.00000095f, -8.00000000f, -4.00000000f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-				},
-			},
-			{
-				{
-					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355332f, 0.85355335f),
-						FVector(2.00000143f, -7.99999905f, -4.00000000f),
-						FVector(1.56250000f, 1.56250000f, 1.56250000f)
-					),
-					FTransform(
-						FQuat(-0.35355335f, -0.14644654f, 0.35355330f, 0.85355347f),
-						FVector(2.00000143f, -7.99999905f, -4.00000000f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-				},
-				{
-					FTransform(
-						FQuat(-0.35355330f, -0.14644653f, 0.35355324f, 0.85355335f),
-						FVector(2.00000095f, -7.99999905f, -4.00000000f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-					FTransform(
-						FQuat(-0.35355327f, -0.14644645f, 0.35355321f, 0.85355353f),
-						FVector(2.00000095f, -7.99999905f, -4.00000000f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-				},
-				{
-					FTransform(
-						FQuat(-0.35355324f, -0.14644644f, 0.35355318f, 0.85355341f),
-						FVector(2.00000072f, -7.99999905f, -4.00000000f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-					FTransform(
-						FQuat(-0.35355324f, -0.14644639f, 0.35355315f, 0.85355359f),
-						FVector(2.00000072f, -7.99999905f, -4.00000000f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-				},
-			},
-			{
-				{
-					FTransform(
-						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
-						FVector(2.00000048f, -7.99999857f, -4.00000000f),
-						FVector(1.56250000f, 1.56250000f, 1.56250000f)
-					),
-					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
-						FVector(2.00000048f, -7.99999857f, -4.00000000f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-				},
-				{
-					FTransform(
-						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
-						FVector(2.00000024f, -7.99999714f, -3.99999905f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
-						FVector(2.00000024f, -7.99999714f, -3.99999905f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-				},
-				{
-					FTransform(
-						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
-						FVector(2.00000048f, -7.99999714f, -3.99999905f),
-						FVector(1.25000000f, 1.25000000f, 1.25000000f)
-					),
-					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
-						FVector(2.00000048f, -7.99999714f, -3.99999905f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
@@ -848,36 +698,152 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			{
 				{
 					FTransform(
-						FQuat(-0.60355341f, -0.24999994f, 0.60355335f, 0.45710683f),
+						FQuat(-0.60355335f, -0.24999997f, 0.60355341f, 0.45710698f),
+						FVector(1.99999976f, -8.00000000f, -4.00000095f),
+						FVector(1.56250000f, 1.56250000f, 1.56250000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
+						FVector(1.99999976f, -8.00000000f, -4.00000095f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.60355335f, -0.24999997f, 0.60355341f, 0.45710698f),
+						FVector(1.99999881f, -8.00000095f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
+						FVector(1.99999881f, -8.00000095f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.60355335f, -0.24999997f, 0.60355341f, 0.45710698f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+			},
+			{
+				{
+					FTransform(
+						FQuat(-0.35355335f, -0.14644657f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.56250000f, 1.56250000f, 1.56250000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355335f, -0.14644657f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355335f, -0.14644657f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+			},
+			{
+				{
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.56250000f, 1.56250000f, 1.56250000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
+						FVector(1.99999857f, -8.00000191f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+			},
+		},
+		{
+			{
+				{
+					FTransform(
+						FQuat(-0.60355335f, -0.24999997f, 0.60355341f, 0.45710698f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.56250000f, 1.56250000f, 1.56250000f)
 					),
 					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
 				{
 					FTransform(
-						FQuat(-0.60355341f, -0.24999994f, 0.60355335f, 0.45710683f),
+						FQuat(-0.60355335f, -0.24999997f, 0.60355341f, 0.45710698f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
 				{
 					FTransform(
-						FQuat(-0.60355341f, -0.24999994f, 0.60355335f, 0.45710683f),
+						FQuat(-0.60355335f, -0.24999997f, 0.60355341f, 0.45710698f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
@@ -886,36 +852,36 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			{
 				{
 					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355332f, 0.85355335f),
+						FQuat(-0.35355335f, -0.14644657f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.56250000f, 1.56250000f, 1.56250000f)
 					),
 					FTransform(
-						FQuat(-0.35355335f, -0.14644654f, 0.35355330f, 0.85355347f),
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
 				{
 					FTransform(
-						FQuat(-0.35355330f, -0.14644653f, 0.35355324f, 0.85355335f),
+						FQuat(-0.35355335f, -0.14644657f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 					FTransform(
-						FQuat(-0.35355327f, -0.14644645f, 0.35355321f, 0.85355353f),
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
 				{
 					FTransform(
-						FQuat(-0.35355324f, -0.14644644f, 0.35355318f, 0.85355341f),
+						FQuat(-0.35355335f, -0.14644657f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 					FTransform(
-						FQuat(-0.35355324f, -0.14644639f, 0.35355315f, 0.85355359f),
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
@@ -924,36 +890,36 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			{
 				{
 					FTransform(
-						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.56250000f, 1.56250000f, 1.56250000f)
 					),
 					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
 				{
 					FTransform(
-						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 				},
 				{
 					FTransform(
-						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
 					FTransform(
-						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FQuat(-0.35355335f, -0.14644659f, 0.35355335f, 0.85355347f),
 						FVector(1.00000000f, -2.00000000f, 4.00000000f),
 						FVector(1.25000000f, 1.25000000f, 1.25000000f)
 					),
@@ -961,6 +927,10 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			},
 		},
 	};
+
+	const FVector ParentPreAttachmentLocation = ParentActor->GetActorLocation();
+	const FQuat ParentPreAttachmentRotation = ParentActor->GetActorQuat();
+	const FVector ParentPreAttachmentScale = ParentActor->GetActorScale3D();
 
 	for (uint8 RuleInteger0 = (uint8)EAttachmentRule::KeepRelative; RuleInteger0 <= (uint8)EAttachmentRule::SnapToTarget; ++RuleInteger0)
 	{
@@ -986,9 +956,9 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 				ChildActor->AttachToActor(ParentActor, Rules);
 
 				// check parent actor is unaffected by attachment
-				Test->TestEqual<FVector>(TEXT("Parent location was affected by attachment"), ParentActor->GetActorLocation(), AttachTestConstants::ParentLocation);
-				Test->TestEqual<FQuat>(TEXT("Parent rotation was affected by attachment"), ParentActor->GetActorQuat(), AttachTestConstants::ParentRotation);
-				Test->TestEqual<FVector>(TEXT("Parent scale was affected by attachment"), ParentActor->GetActorScale3D(), AttachTestConstants::ParentScale);
+				Test->TestEqual<FVector>(TEXT("Parent location was affected by attachment"), ParentActor->GetActorLocation(), ParentPreAttachmentLocation);
+				Test->TestEqual<FQuat>(TEXT("Parent rotation was affected by attachment"), ParentActor->GetActorQuat(), ParentPreAttachmentRotation);
+				Test->TestEqual<FVector>(TEXT("Parent scale was affected by attachment"), ParentActor->GetActorScale3D(), ParentPreAttachmentScale);
 
 				// check we have expected transforms for each mode
 #if DUMP_EXPECTED_TRANSFORMS
@@ -1006,9 +976,9 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 				ChildActor->DetachFromActor(FDetachmentTransformRules(Rules, true));
 
 				// check we have expected values after detachment
-				Test->TestEqual<FVector>(TEXT("Parent location was affected by detachment"), ParentActor->GetActorLocation(), AttachTestConstants::ParentLocation);
-				Test->TestEqual<FQuat>(TEXT("Parent rotation was affected by detachment"), ParentActor->GetActorQuat(), AttachTestConstants::ParentRotation);
-				Test->TestEqual<FVector>(TEXT("Parent scale was affected by detachment"), ParentActor->GetActorScale3D(), AttachTestConstants::ParentScale);
+				Test->TestEqual<FVector>(TEXT("Parent location was affected by detachment"), ParentActor->GetActorLocation(), ParentPreAttachmentLocation);
+				Test->TestEqual<FQuat>(TEXT("Parent rotation was affected by detachment"), ParentActor->GetActorQuat(), ParentPreAttachmentRotation);
+				Test->TestEqual<FVector>(TEXT("Parent scale was affected by detachment"), ParentActor->GetActorScale3D(), ParentPreAttachmentScale);
 
 				// check we have expected transforms for each mode
 #if DUMP_EXPECTED_TRANSFORMS
@@ -1141,11 +1111,8 @@ bool FRenderOutputValidation::RunTest(const FString& Parameters)
 //	const FString& MapName = GameMapsSettings->GetGameDefaultMap();
 	const FString MapName = TEXT("ScreenshotsTest");
 
-	// to make sure the state of the FAutomationTestFramework is reset before we call the test
-	check(!FAutomationTestFramework::GetInstance().ShouldUseFullSizeScreenshots());
-
 	// request full res screenshots
-	FAutomationTestFramework::GetInstance().SetScreenshotOptions(true, true);
+	FAutomationTestFramework::Get().SetScreenshotOptions(true);
 
 	if(bLoadMap)
 	{
@@ -1184,7 +1151,7 @@ bool FRenderOutputValidation::RunTest(const FString& Parameters)
 	// this needs to be improved: better thank hanging would be to render frames (showing the user that it waits on something)
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitForShadersToFinishCompilingInGame);
 
-	if( FAutomationTestFramework::GetInstance().IsScreenshotAllowed() )
+	if( FAutomationTestFramework::Get().IsScreenshotAllowed() )
 	{
 		for (TObjectIterator<AMatineeActor> It; It; ++It)
 		{
@@ -1229,4 +1196,5 @@ bool FRenderOutputValidation::RunTest(const FString& Parameters)
 UAutomationTestSettings::UAutomationTestSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	DefaultScreenshotResolution = FIntPoint(1920, 1080);
 }

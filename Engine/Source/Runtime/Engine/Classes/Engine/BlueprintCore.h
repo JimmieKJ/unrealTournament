@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
 #include "BlueprintCore.generated.h"
-
 
 UCLASS()
 class ENGINE_API UBlueprintCore

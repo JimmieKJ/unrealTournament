@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
 #include "BoneControllers/AnimNode_TwistCorrectiveNode.h"
+#include "AnimationRuntime.h"
 
-#include "AnimInstanceProxy.h"
+#include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////
 // FAnimNode_TwistCorrectiveNode
@@ -13,7 +13,6 @@ FAnimNode_TwistCorrectiveNode::FAnimNode_TwistCorrectiveNode()
 	, RemappedMin(0.0f)
 	, RemappedMax(1.0f)
 {
-	Curve.Type = FAnimCurveType(true, true, false);
 }
 
 void FAnimNode_TwistCorrectiveNode::GatherDebugData(FNodeDebugData& DebugData)
@@ -46,7 +45,7 @@ void FAnimNode_TwistCorrectiveNode::EvaluateComponentSpaceInternal(FComponentSpa
 	const float FinalMappedValue = (FMath::Clamp(CurAngle, ReferenceAngle, RangeMaxInRadian) - ReferenceAngle) * (RemappedMax - RemappedMin) / (RangeMaxInRadian - ReferenceAngle);
 
 	//	set Curve Value
-	Context.Curve.Set(Curve.UID, FinalMappedValue*Alpha, Curve.Type.GetAnimCurveFlags());
+	Context.Curve.Set(Curve.UID, FinalMappedValue*Alpha);
 }
 
 bool FAnimNode_TwistCorrectiveNode::IsValidToEvaluate(const USkeleton* Skeleton, const FBoneContainer& RequiredBones)

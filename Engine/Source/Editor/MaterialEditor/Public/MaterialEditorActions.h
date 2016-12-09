@@ -4,6 +4,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Commands/InputChord.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "Framework/Commands/Commands.h"
+#include "EditorStyleSet.h"
+
+class UEdGraph;
+
 /**
  * Unreal material editor actions
  */

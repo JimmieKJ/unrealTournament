@@ -4,12 +4,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Engine/EngineTypes.h"
 
 /** Macro to convert ECollisionChannels to bit flag **/
 #define ECC_TO_BITFIELD(x)	(1<<(x))
 /** Macro to convert from CollisionResponseContainer to bit flag **/
 #define CRC_TO_BITFIELD(x)	(1<<(x))
+
+class AActor;
+class UPrimitiveComponent;
 
 enum class EQueryMobilityType
 {

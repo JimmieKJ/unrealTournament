@@ -2,13 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/MaterialMerging.h"
+#include "StaticParameterSet.h"
+#include "Materials/Material.h"
+#include "Engine/Texture2D.h"
+#include "MaterialUtilities.h"
+#include "Materials/MaterialInstanceConstant.h"
+
 namespace ProxyMaterialUtilities
 {
 #define TEXTURE_MACRO_BASE(a, b, c) \
-	bool b##a##Texture = FlattenMaterial.a##Samples.Num() > 1; \
+	bool b##a##Texture = FlattenMaterial.DoesPropertyContainData(EFlattenMaterialProperties::a) && !FlattenMaterial.IsPropertyConstant(EFlattenMaterialProperties::a); \
 	if ( b##a##Texture) \
 	{ \
-		UTexture2D* a##Texture = b##a##Texture ? FMaterialUtilities::CreateTexture(InOuter, AssetBasePath + TEXT("T_") + AssetBaseName + TEXT("_" #a), FlattenMaterial.a##Size, FlattenMaterial.a##Samples, b, TEXTUREGROUP_HierarchicalLOD, RF_Public | RF_Standalone, c) : nullptr; \
+		UTexture2D* a##Texture = b##a##Texture ? FMaterialUtilities::CreateTexture(InOuter, AssetBasePath + TEXT("T_") + AssetBaseName + TEXT("_" #a), FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::a), FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::a), b, TEXTUREGROUP_HierarchicalLOD, RF_Public | RF_Standalone, c) : nullptr; \
 		OutMaterial->SetTextureParameterValueEditorOnly(#a "Texture", a##Texture); \
 		FStaticSwitchParameter SwitchParameter; \
 		SwitchParameter.ParameterName = "Use" #a; \
@@ -21,46 +29,52 @@ namespace ProxyMaterialUtilities
 #define TEXTURE_MACRO_VECTOR(a, b, c) TEXTURE_MACRO_BASE(a, b, c)\
 	else\
 	{ \
-		OutMaterial->SetVectorParameterValueEditorOnly(#a "Const", FlattenMaterial.a##Samples[0]); \
+		OutMaterial->SetVectorParameterValueEditorOnly(#a "Const", FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::a)[0]); \
 	} 
 
 #define TEXTURE_MACRO_VECTOR_LINEAR(a, b, c) TEXTURE_MACRO_BASE(a, b, c)\
 	else\
 	{ \
-		OutMaterial->SetVectorParameterValueEditorOnly(#a "Const", FlattenMaterial.a##Samples[0].ReinterpretAsLinear()); \
+		OutMaterial->SetVectorParameterValueEditorOnly(#a "Const", FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::a)[0].ReinterpretAsLinear()); \
 	} 
 
 #define TEXTURE_MACRO_SCALAR(a, b, c) TEXTURE_MACRO_BASE(a, b, c)\
 	else \
 	{ \
-		FLinearColor Colour = ( FlattenMaterial.a##Samples.Num() == 1 ) ? FLinearColor::FromSRGBColor( FlattenMaterial.a##Samples[0]) : FLinearColor( InMaterialProxySettings.a##Constant, 0, 0, 0 ); \
+		FLinearColor Colour = FlattenMaterial.IsPropertyConstant(EFlattenMaterialProperties::a) ? FLinearColor::FromSRGBColor( FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::a)[0]) : FLinearColor( InMaterialProxySettings.a##Constant, 0, 0, 0 ); \
 		OutMaterial->SetScalarParameterValueEditorOnly(#a "Const", Colour.R ); \
 	}
 
 	static const bool CalculatePackedTextureData(const FFlattenMaterial& InMaterial, bool& bOutPackMetallic, bool& bOutPackSpecular, bool& bOutPackRoughness, int32& OutNumSamples, FIntPoint& OutSize)
 	{
 		// Whether or not a material property is baked down
-		const bool bHasMetallic = (InMaterial.MetallicSamples.Num() > 1);
-		const bool bHasRoughness = (InMaterial.RoughnessSamples.Num() > 1);
-		const bool bHasSpecular = (InMaterial.SpecularSamples.Num() > 1);
+		const bool bHasMetallic = InMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Metallic) && !InMaterial.IsPropertyConstant(EFlattenMaterialProperties::Metallic);
+		const bool bHasRoughness = InMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Roughness) && !InMaterial.IsPropertyConstant(EFlattenMaterialProperties::Roughness);
+		const bool bHasSpecular = InMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Specular) && !InMaterial.IsPropertyConstant(EFlattenMaterialProperties::Specular);
 
 		// Check for same texture sizes
 		bool bSameTextureSize = false;
 
 		// Determine whether or not the properties sizes match
-		bSameTextureSize = (InMaterial.MetallicSize == InMaterial.RoughnessSize) || (InMaterial.MetallicSize == InMaterial.SpecularSize);
+
+
+		const FIntPoint MetallicSize = InMaterial.GetPropertySize(EFlattenMaterialProperties::Metallic);
+		const FIntPoint SpecularSize = InMaterial.GetPropertySize(EFlattenMaterialProperties::Specular);
+		const FIntPoint RoughnessSize = InMaterial.GetPropertySize(EFlattenMaterialProperties::Roughness);
+
+		bSameTextureSize = (MetallicSize == RoughnessSize) || (MetallicSize == SpecularSize);
 		if (bSameTextureSize)
 		{
-			OutSize = InMaterial.MetallicSize;
-			OutNumSamples = InMaterial.MetallicSamples.Num();
+			OutSize = MetallicSize;
+			OutNumSamples = InMaterial.GetPropertySamples(EFlattenMaterialProperties::Metallic).Num();
 		}
 		else
 		{
-			bSameTextureSize = (InMaterial.RoughnessSize == InMaterial.SpecularSize);
+			bSameTextureSize = (RoughnessSize == SpecularSize);
 			if (bSameTextureSize)
 			{
-				OutSize = InMaterial.RoughnessSize;
-				OutNumSamples = InMaterial.RoughnessSamples.Num();
+				OutSize = RoughnessSize;
+				OutNumSamples = InMaterial.GetPropertySamples(EFlattenMaterialProperties::Roughness).Num();
 			}
 		}
 
@@ -68,11 +82,11 @@ namespace ProxyMaterialUtilities
 		int32 NumPacked = 0;
 		if (OutNumSamples != 0)
 		{
-			bOutPackMetallic = bHasMetallic ? (OutNumSamples == InMaterial.MetallicSamples.Num()) : false;
+			bOutPackMetallic = bHasMetallic ? (OutNumSamples == InMaterial.GetPropertySamples(EFlattenMaterialProperties::Metallic).Num()) : false;
 			NumPacked += (bOutPackMetallic) ? 1 : 0;
-			bOutPackRoughness = bHasRoughness ? (OutNumSamples == InMaterial.RoughnessSamples.Num()) : false;
+			bOutPackRoughness = bHasRoughness ? (OutNumSamples == InMaterial.GetPropertySamples(EFlattenMaterialProperties::Roughness).Num()) : false;
 			NumPacked += (bOutPackRoughness) ? 1 : 0;
-			bOutPackSpecular = bHasSpecular ? (OutNumSamples == InMaterial.SpecularSamples.Num()) : false;
+			bOutPackSpecular = bHasSpecular ? (OutNumSamples == InMaterial.GetPropertySamples(EFlattenMaterialProperties::Specular).Num()) : false;
 			NumPacked += (bOutPackSpecular) ? 1 : 0;
 		}
 		else
@@ -107,28 +121,28 @@ namespace ProxyMaterialUtilities
 		FStaticParameterSet NewStaticParameterSet;
 
 		// Load textures and set switches accordingly
-		if (FlattenMaterial.DiffuseSamples.Num() > 0 && !(FlattenMaterial.DiffuseSamples.Num() == 1 && FlattenMaterial.DiffuseSamples[0] == FColor::Black))
+		if (FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Diffuse).Num() > 0 && !(FlattenMaterial.IsPropertyConstant(EFlattenMaterialProperties::Diffuse) && FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Diffuse)[0] == FColor::Black))
 		{
 			TEXTURE_MACRO_VECTOR(Diffuse, TC_Default, bSRGB);
 		}
 
-		if (FlattenMaterial.NormalSamples.Num() > 1)
+		if (FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Normal).Num() > 1)
 		{
 			TEXTURE_MACRO_BASE(Normal, TC_Normalmap, bRGB)
 		}
 
 		// Determine whether or not specific material properties are packed together into one texture (requires at least two to match (number of samples and texture size) in order to be packed
-		if (!bPackMetallic && (FlattenMaterial.MetallicSamples.Num() > 0 || !InMaterialProxySettings.bMetallicMap))
+		if (!bPackMetallic && (FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Metallic).Num() > 0 || !InMaterialProxySettings.bMetallicMap))
 		{
 			TEXTURE_MACRO_SCALAR(Metallic, TC_Default, bSRGB);
 		}
 
-		if (!bPackRoughness && (FlattenMaterial.RoughnessSamples.Num() > 0 || !InMaterialProxySettings.bRoughnessMap))
+		if (!bPackRoughness && (FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Roughness).Num() > 0 || !InMaterialProxySettings.bRoughnessMap))
 		{
 			TEXTURE_MACRO_SCALAR(Roughness, TC_Default, bSRGB);
 		}
 
-		if (!bPackSpecular && (FlattenMaterial.SpecularSamples.Num() > 0 || !InMaterialProxySettings.bSpecularMap))
+		if (!bPackSpecular && (FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Specular).Num() > 0 || !InMaterialProxySettings.bSpecularMap))
 		{
 			TEXTURE_MACRO_SCALAR(Specular, TC_Default, bSRGB);
 		}
@@ -140,11 +154,24 @@ namespace ProxyMaterialUtilities
 			MergedTexture.AddZeroed(NumSamples);
 
 			// Merge properties into one texture using the separate colour channels
-			if (bPackMetallic) for (int32 SampleIndex = 0; SampleIndex < NumSamples; ++SampleIndex) { MergedTexture[SampleIndex].R = FlattenMaterial.MetallicSamples[SampleIndex].R; }
 
-			if (bPackRoughness) for (int32 SampleIndex = 0; SampleIndex < NumSamples; ++SampleIndex) { MergedTexture[SampleIndex].G = FlattenMaterial.RoughnessSamples[SampleIndex].R; }
+			// R G B masks
+			const uint32 ColorMask[3] = { FColor::Red.DWColor(), FColor::Green.DWColor(), FColor::Blue.DWColor() };
+			for (int32 PropertyIndex = 0; PropertyIndex < 3; ++PropertyIndex)
+			{
+				EFlattenMaterialProperties Property = (EFlattenMaterialProperties)(PropertyIndex + (int32)EFlattenMaterialProperties::Metallic);
+				const bool HasProperty = FlattenMaterial.DoesPropertyContainData(Property) && !FlattenMaterial.IsPropertyConstant(Property);
 
-			if (bPackSpecular) for (int32 SampleIndex = 0; SampleIndex < NumSamples; ++SampleIndex) { MergedTexture[SampleIndex].B = FlattenMaterial.SpecularSamples[SampleIndex].R; }
+				if (HasProperty)
+				{
+					const TArray<FColor>& PropertySamples = FlattenMaterial.GetPropertySamples(Property);
+					// OR masked values (samples initialized to zero, so no random data)
+					for (int32 SampleIndex = 0; SampleIndex < NumSamples; ++SampleIndex)
+					{
+						MergedTexture[SampleIndex].DWColor() |= (PropertySamples[SampleIndex].DWColor() & ColorMask[PropertyIndex]);
+					}
+				}
+			}
 
 			// Create texture using the merged property data
 			UTexture2D* PackedTexture = FMaterialUtilities::CreateTexture(InOuter, AssetBasePath + TEXT("T_") + AssetBaseName + TEXT("_MRS"), PackedSize, MergedTexture, TC_Default, TEXTUREGROUP_HierarchicalLOD, RF_Public | RF_Standalone, bSRGB);
@@ -172,7 +199,7 @@ namespace ProxyMaterialUtilities
 		}
 
 		// Emissive is a special case due to the scaling variable
-		if (FlattenMaterial.EmissiveSamples.Num() > 0 && !(FlattenMaterial.EmissiveSamples.Num() == 1 && FlattenMaterial.EmissiveSamples[0] == FColor::Black))
+		if (FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Emissive).Num() > 0 && !(FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Emissive).Num() == 1 && FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Emissive)[0] == FColor::Black))
 		{
 			TEXTURE_MACRO_VECTOR_LINEAR(Emissive, TC_Default, bRGB);
 

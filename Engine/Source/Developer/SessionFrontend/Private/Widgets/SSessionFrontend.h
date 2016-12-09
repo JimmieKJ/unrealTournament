@@ -2,6 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "ISessionManager.h"
+#include "Interfaces/ITargetDeviceProxyManager.h"
+#include "Interfaces/IScreenShotManager.h"
+
+class FMenuBuilder;
+class FSpawnTabArgs;
+class FTabManager;
+class SButton;
+class SWindow;
 
 /**
  * Implements the launcher application
@@ -60,7 +73,7 @@ private:
 	TSharedPtr<SButton> NewSessionButton;
 
 	/** Holds a pointer to the session manager. */
-	ISessionManagerPtr SessionManager;
+	TSharedPtr<ISessionManager> SessionManager;
 
 	/** Holds a pointer to the session manager. */
 	IScreenShotManagerPtr ScreenShotManager;

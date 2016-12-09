@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "HTML5PlatformOutputDevices.h"
+#include "HAL/OutputDevices.h"
 #include "trace.h"
 
 class FTraceOutputDevice : public FOutputDevice

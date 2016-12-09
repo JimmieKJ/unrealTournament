@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
-#include "Misc/Char.h"
+#include "CoreTypes.h"
 #include "Templates/EnableIf.h"
 #include "Templates/UnrealTypeTraits.h"
+#include "Misc/Char.h"
 
 
 /**

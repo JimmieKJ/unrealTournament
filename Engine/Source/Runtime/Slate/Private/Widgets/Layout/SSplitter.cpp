@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "LayoutGeometry.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Layout/ArrangedChildren.h"
+#include "Rendering/DrawElements.h"
 
 /** The user is not allowed to make any of the splitter's children smaller than this. */
 const float MinSplitterChildLength = 20.0f;

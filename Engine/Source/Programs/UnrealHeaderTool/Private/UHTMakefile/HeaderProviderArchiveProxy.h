@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+
+class FArchive;
 class FUHTMakefile;
 class FHeaderProvider;
 

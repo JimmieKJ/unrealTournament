@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "HAL/UnrealMemory.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Containers/StringConv.h"
+#include "Stats/Stats.h"
+#include "Async/AsyncWork.h"
+#include "Serialization/BufferReader.h"
+
+struct FMD5Hash;
 
 /*-----------------------------------------------------------------------------
 	MD5 functions.
@@ -39,7 +49,7 @@ public:
 	 * @param input		input data
 	 * @param inputLen	length of the input data in bytes
 	 **/
-	void Update(uint8* input, int32 inputLen);
+	void Update(const uint8* input, int32 inputLen);
 
 	/**
 	 * MD5 finalization. Ends an MD5 message-digest operation, writing the
@@ -79,9 +89,9 @@ private:
 		uint8 buffer[64];
 	};
 
-	void Transform( uint32* state, uint8* block );
-	void Encode( uint8* output, uint32* input, int32 len );
-	void Decode( uint32* output, uint8* input, int32 len );
+	void Transform( uint32* state, const uint8* block );
+	void Encode( uint8* output, const uint32* input, int32 len );
+	void Decode( uint32* output, const uint8* input, int32 len );
 
 	FContext Context;
 };
@@ -137,6 +147,10 @@ struct FMD5Hash
 
 	/** Hash the specified file contents (using the optionally supplied scratch buffer) */
 	CORE_API static FMD5Hash HashFile(const TCHAR* InFilename, TArray<uint8>* Buffer = nullptr);
+	CORE_API static FMD5Hash HashFileFromArchive(FArchive* Ar, TArray<uint8>* ScratchPad = nullptr);
+
+	const uint8* GetBytes() const { return Bytes; }
+	const int32 GetSize() const { return sizeof(Bytes); }
 
 private:
 	/** Whether this hash is valid or not */

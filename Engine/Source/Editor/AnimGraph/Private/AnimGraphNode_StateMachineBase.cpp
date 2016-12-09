@@ -1,17 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
+#include "AnimGraphNode_StateMachineBase.h"
+#include "EdGraph/EdGraph.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
-#include "GraphEditorActions.h"
-#include "ScopedTransaction.h"
-#include "EdGraphUtilities.h"
-#include "Kismet2NameValidators.h"
+#include "Kismet2/Kismet2NameValidators.h"
 
 #include "AnimationGraph.h"
 #include "AnimationStateMachineGraph.h"
 #include "AnimationStateMachineSchema.h"
 #include "AnimGraphNode_StateMachine.h"
-#include "AnimGraphNode_StateMachineBase.h"
 
 /////////////////////////////////////////////////////
 // FAnimStateMachineNodeNameValidator

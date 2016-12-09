@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "MultiBox.h"
-#include "SMenuSeparatorBlock.h"
+#include "Framework/MultiBox/SMenuSeparatorBlock.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
 
 
 /**

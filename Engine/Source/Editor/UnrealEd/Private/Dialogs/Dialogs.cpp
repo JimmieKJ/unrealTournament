@@ -1,14 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
-#include "TexAlignTools.h"
-#include "ScopedTransaction.h"
-#include "SlateBasics.h"
+#include "Dialogs/Dialogs.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/ConfigCacheIni.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
 #include "ObjectTools.h"
-#include "Editor/MainFrame/Public/MainFrame.h"
 #include "DesktopPlatformModule.h"
-#include "SHyperlink.h"
+#include "Widgets/Input/SHyperlink.h"
 DEFINE_LOG_CATEGORY_STATIC(LogDialogs, Log, All);
 
 #define LOCTEXT_NAMESPACE "Dialogs"
@@ -723,18 +732,9 @@ bool PromptUserForDirectory(FString& OutDirectory, const FString& Message, const
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if ( DesktopPlatform )
 	{
-		void* ParentWindowWindowHandle = NULL;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		FString FolderName;
 		bFolderSelected = DesktopPlatform->OpenDirectoryDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			Message,
 			DefaultPath,
 			FolderName

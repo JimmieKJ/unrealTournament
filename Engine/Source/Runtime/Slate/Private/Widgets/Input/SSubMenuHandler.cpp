@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SSubMenuHandler.h"
+#include "Widgets/Input/SSubMenuHandler.h"
+#include "Framework/MultiBox/MultiBox.h"
 
 void SSubMenuHandler::Construct(const FArguments& InArgs, TWeakPtr<SMenuOwner> InMenuOwner)
 {

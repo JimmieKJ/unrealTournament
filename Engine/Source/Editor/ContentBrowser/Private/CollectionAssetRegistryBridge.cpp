@@ -1,7 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ContentBrowserPCH.h"
 #include "CollectionAssetRegistryBridge.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "Misc/PackageName.h"
+#include "UObject/ConstructorHelpers.h"
+#include "AssetData.h"
+#include "AssetRegistryModule.h"
+#include "CollectionManagerTypes.h"
+#include "ICollectionManager.h"
+#include "CollectionManagerModule.h"
+#include "ContentBrowserLog.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 

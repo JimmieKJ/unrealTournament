@@ -2,9 +2,64 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "BoneContainer.h"
 #include "SmartName.generated.h"
 
 struct FSmartName;
+
+/** in the future if we need more bools, please convert to bitfield 
+ * These are not saved in asset but per skeleton. 
+ */
+USTRUCT()
+struct ENGINE_API FAnimCurveType
+{
+	GENERATED_USTRUCT_BODY()
+
+	bool bMaterial;
+	bool bMorphtarget;
+
+	FAnimCurveType(bool bInMorphtarget = false, bool bInMaterial = false)
+		: bMaterial(bInMaterial)
+		, bMorphtarget(bInMorphtarget)
+	{
+	}
+};
+
+/** Curve Meta Data for each name
+ * Unfortunately this should be linked to FName, but no GUID because we don't have GUID in run-time
+ * We only add this if anything changed, by default, it is attribute curve
+ */
+USTRUCT()
+struct FCurveMetaData
+{
+	GENERATED_USTRUCT_BODY()
+
+	struct FAnimCurveType Type;
+	TArray<struct FBoneReference> LinkedBones;
+
+	friend FArchive& operator<<(FArchive& Ar, FCurveMetaData& B)
+	{
+		Ar << B.Type.bMaterial;
+		Ar << B.Type.bMorphtarget;
+		Ar << B.LinkedBones;
+
+		return Ar;
+	}
+
+	bool Serialize(FArchive& Ar)
+	{
+		Ar << *this;
+		return true;
+	}
+
+	FCurveMetaData()
+	{
+	}
+};
 
 USTRUCT()
 struct ENGINE_API FSmartNameMapping
@@ -13,61 +68,53 @@ struct ENGINE_API FSmartNameMapping
 
 	FSmartNameMapping();
 
-	// ID type, should be used to access names as fundamental type may change.
-	// NOTE: If changing this, also change the type of NextUid below. UHT ignores,
-	// this typedef and needs to know the fundamental type to parse properties.
-	// If this changes and UHT handles typedefs, set NextUid type to UID.
-	typedef uint16 UID;
-	// Max UID used for overflow checking
-	static const UID MaxUID = MAX_uint16;
-
 	// Add a name to the mapping, if it exists, get it.
 	// @param Name - The name to add/get
 	// @param OUT OutUid - The UID of the newly created or retrieved name
 	// @param OUT OutGuid - The GUID of the newly created or retrieved name
 	// @return bool - true if the name was added, false if it existed (OutUid will be correctly set still in this case)
-	bool AddOrFindName(FName Name, UID& OutUid, FGuid& OutGuid);
+	bool AddOrFindName(FName Name, SmartName::UID_Type& OutUid, FGuid& OutGuid);
 	// Add a name to the mapping if it doesn't exist
 	// @param Name - The name to add/get
 	// @param OUT OutUid - The UID of the newly created or retrieved name
 	// @param InGuid - the guid of the name
 	// @return bool - true if the name was added, false if it existed (OutUid will be correctly set still in this case)
-	bool AddName(FName Name, UID& OutUid, const FGuid& InGuid);
+	bool AddName(FName Name, SmartName::UID_Type& OutUid, const FGuid& InGuid);
 
 	// Get a name from the mapping
-	// @param Uid - UID of the name to retrieve
+	// @param Uid - SmartName::UID_Type of the name to retrieve
 	// @param OUT OutName - Retrieved name
 	// @return bool - true if name existed and OutName is valid
-	bool GetName(const UID& Uid, FName& OutName) const;
+	bool GetName(const SmartName::UID_Type& Uid, FName& OutName) const;
 	bool GetNameByGuid(const FGuid& Guid, FName& OutName) const;
 	// Fill an array with all used UIDs
 	// @param Array - Array to fill
-	void FillUidArray(TArray<UID>& Array) const;
+	void FillUidArray(TArray<SmartName::UID_Type>& Array) const;
 
 	// Fill an array with all used names
 	// @param Array - Array to fill
 	void FillNameArray(TArray<FName>& Array) const;
 
 	// Change a name
-	// @param Uid - UID of the name to change
+	// @param Uid - SmartName::UID_Type of the name to change
 	// @param NewName - New name to set 
 	// @return bool - true if the name was found and changed, false if the name wasn't present in the mapping
-	bool Rename(const UID& Uid, FName NewName);
+	bool Rename(const SmartName::UID_Type& Uid, FName NewName);
 
 	// Remove a name from the mapping
-	// @param Uid - UID of the name to remove
+	// @param Uid - SmartName::UID_Type of the name to remove
 	// @return bool - true if the name was found and removed, false if the name wasn't present in the mapping
-	bool Remove(const UID& Uid);
+	bool Remove(const SmartName::UID_Type& Uid);
 
-	// Return UID * if it finds it
+	// Return SmartName::UID_Type * if it finds it
 	//  @param NewName - New name to set 
-	// @return UID pointer - null if it doesn't find. pointer if it finds. 
-	const FSmartNameMapping::UID* FindUID(const FName& Name) const;
+	// @return SmartName::UID_Type pointer - null if it doesn't find. pointer if it finds. 
+	const SmartName::UID_Type* FindUID(const FName& Name) const;
 
 	// Check whether a name already exists in the mapping
-	// @param Uid - the UID to check
+	// @param Uid - the SmartName::UID_Type to check
 	// @return bool - whether the name was found
-	bool Exists(const UID& Uid) const;
+	bool Exists(const SmartName::UID_Type& Uid) const;
 
 	// Check whether a name already exists in the mapping
 	// @param Name - the name to check
@@ -81,19 +128,38 @@ struct ENGINE_API FSmartNameMapping
 #if WITH_EDITOR
 	bool FindOrAddSmartName(FName Name, FSmartName& OutName);
 	bool AddSmartName(FSmartName& OutName);
+#else
+	// in cooked build, you don't have GUID, so register without GUID
+	bool FindOrAddSmartName(FName Name, SmartName::UID_Type& OutUid);
 #endif // WITH_EDITOR
 	bool FindSmartName(FName Name, FSmartName& OutName) const;
-	bool FindSmartNameByUID(FSmartNameMapping::UID UID, FSmartName& OutName) const;
+	bool FindSmartNameByUID(SmartName::UID_Type UID, FSmartName& OutName) const;
+
+	// Curve Meta Data Accessors
+	FCurveMetaData* GetCurveMetaData(FName CurveName)
+	{
+		checkSlow(Exists(CurveName));
+		return &CurveMetaDataMap.FindOrAdd(CurveName);
+	}
+
+	const FCurveMetaData* GetCurveMetaData(FName CurveName) const
+	{
+		checkSlow(Exists(CurveName));
+		return CurveMetaDataMap.Find(CurveName);
+	}
 
 	// Serialize this to the provided archive; required for TMap serialization
 	void Serialize(FArchive& Ar);
 
 	friend FArchive& operator<<(FArchive& Ar, FSmartNameMapping& Elem);
 
+	/* initialize curve meta data for the container */
+	void InitializeCurveMetaData(class USkeleton* Skeleton);
 private:
-	UID NextUid;				// The next UID to use 
-	TMap<UID, FName> UidMap;	// Mapping of UIDs and names. This is transient and built upon serialize - this is run-time data, and searching from UID to FName is important
+	SmartName::UID_Type NextUid;				// The next SmartName::UID_Type to use 
+	TMap<SmartName::UID_Type, FName> UidMap;	// Mapping of UIDs and names. This is transient and built upon serialize - this is run-time data, and searching from SmartName::UID_Type to FName is important
 	TMap<FName, FGuid> GuidMap;	// Mapping of GUIDs and names. This is the one serializing
+	TMap<FName, FCurveMetaData> CurveMetaDataMap;
 };
 
 USTRUCT()
@@ -116,6 +182,10 @@ struct ENGINE_API FSmartNameContainer
 	friend class USkeleton;
 protected:
 	FSmartNameMapping* GetContainerInternal(const FName& ContainerName);
+	const FSmartNameMapping* GetContainerInternal(const FName& ContainerName) const;
+
+	/* initialize curve meta data for the container */
+	void InitializeCurveMetaData(class USkeleton* Skeleton);
 
 private:
 	TMap<FName, FSmartNameMapping> NameMappings;	// List of smartname mappings
@@ -128,11 +198,11 @@ struct ENGINE_API FSmartName
 	GENERATED_USTRUCT_BODY();
 
 	// name 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, Category=FSmartName)
 	FName DisplayName;
 
-	// UID - for faster access
-	FSmartNameMapping::UID	UID;
+	// SmartName::UID_Type - for faster access
+	SmartName::UID_Type	UID;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
@@ -141,17 +211,17 @@ struct ENGINE_API FSmartName
 
 	FSmartName()
 		: DisplayName(NAME_None)
-		, UID(FSmartNameMapping::MaxUID)
+		, UID(SmartName::MaxUID)
 	{}
 
 #if WITH_EDITORONLY_DATA
-	FSmartName(const FName& InDisplayName, FSmartNameMapping::UID InUID, const FGuid& InGuid)
+	FSmartName(const FName& InDisplayName, SmartName::UID_Type InUID, const FGuid& InGuid)
 		: DisplayName(InDisplayName)
 		, UID(InUID)
 		, Guid(InGuid)
 	{}
 #else
-	FSmartName(const FName& InDisplayName, FSmartNameMapping::UID InUID)
+	FSmartName(const FName& InDisplayName, SmartName::UID_Type InUID)
 		: DisplayName(InDisplayName)
 		, UID(InUID)
 	{}
@@ -187,9 +257,9 @@ struct ENGINE_API FSmartName
 	bool IsValid() const
 	{
 #if WITH_EDITORONLY_DATA
-		return UID != FSmartNameMapping::MaxUID && Guid.IsValid(); 
+		return UID != SmartName::MaxUID && Guid.IsValid(); 
 #else
-		return UID != FSmartNameMapping::MaxUID;
+		return UID != SmartName::MaxUID;
 #endif  // WITH_EDITORONLY_DATA
 	}
 };

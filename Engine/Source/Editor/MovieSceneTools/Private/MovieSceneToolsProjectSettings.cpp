@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
 #include "MovieSceneToolsProjectSettings.h"
 
 
@@ -15,4 +14,5 @@ UMovieSceneToolsProjectSettings::UMovieSceneToolsProjectSettings()
 	, TakeNumDigits(3)
 	, FirstTakeNumber(1)
 	, TakeSeparator(TEXT("_"))
+	, SubSequenceSeparator(TEXT("_"))
 { }

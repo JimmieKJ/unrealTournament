@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
+#include "Layout/ArrangedWidget.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/SWidget.h"
 
 
 FArrangedWidget FArrangedWidget::NullWidget(SNullWidget::NullWidget, FGeometry());

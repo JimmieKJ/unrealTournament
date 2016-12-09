@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
 #include "GenericApplication.h"
 #include "MacWindow.h"
 #include "MacTextInputMethodSystem.h"
@@ -122,8 +122,11 @@ struct FMacScreen
 	NSScreen* Screen;
 	NSRect Frame;
 	NSRect VisibleFrame;
+	NSRect FramePixels;
+	NSRect VisibleFramePixels;
 
-	FMacScreen(NSScreen* InScreen) : Screen(InScreen), Frame(InScreen.frame), VisibleFrame(InScreen.visibleFrame) {}
+	FMacScreen(NSScreen* InScreen) : Screen([InScreen retain]), Frame(InScreen.frame), VisibleFrame(InScreen.visibleFrame), FramePixels(InScreen.frame), VisibleFramePixels(InScreen.visibleFrame) {}
+	~FMacScreen() { [Screen release]; }
 };
 
 /**
@@ -165,6 +168,8 @@ public:
 
 	virtual bool IsUsingTrackpad() const override { return bUsingTrackpad; }
 
+	virtual bool IsGamepadAttached() const override;
+
 	virtual FPlatformRect GetWorkArea(const FPlatformRect& CurrentWindow) const override;
 
 	virtual EWindowTitleAlignment::Type GetWindowTitleAlignment() const override { return EWindowTitleAlignment::Center; }
@@ -186,6 +191,8 @@ public:
 	bool IsProcessingDeferredEvents() const { return bIsProcessingDeferredEvents; }
 
 	TSharedPtr<FMacWindow> FindWindowByNSWindow(FCocoaWindow* WindowHandle);
+	
+	void OnWindowWillResize(TSharedRef<FMacWindow> Window);
 
 	/** Queues a window for text layout invalidation when safe */
 	void InvalidateTextLayout(FCocoaWindow* Window);
@@ -204,15 +211,23 @@ public:
 
 	void SetIsRightClickEmulationEnabled(bool bEnabled) { bIsRightClickEmulationEnabled = bEnabled; }
 
+	void OnWindowDidResize(TSharedRef<FMacWindow> Window, bool bRestoreMouseCursorLocking = false);
+
 public:
 
 	static void UpdateScreensArray();
 
 	static const TArray<TSharedRef<FMacScreen>>& GetAllScreens() { return AllScreens; }
 
-	static int32 ConvertSlateYPositionToCocoa(int32 YPosition);
+	static TSharedRef<FMacScreen> FindScreenBySlatePosition(float X, float Y);
 
-	static int32 ConvertCocoaYPositionToSlate(int32 YPosition);
+	static TSharedRef<FMacScreen> FindScreenByCocoaPosition(float X, float Y);
+
+	static FVector2D ConvertSlatePositionToCocoa(float X, float Y);
+
+	static FVector2D ConvertCocoaPositionToSlate(float X, float Y);
+
+	static CGPoint ConvertSlatePositionToCGPoint(float X, float Y);
 
 	static FVector2D CalculateScreenOrigin(NSScreen* Screen);
 
@@ -240,7 +255,6 @@ private:
 	void ProcessKeyUpEvent(const FDeferredMacEvent& Event);
 
 	void OnWindowDidMove(TSharedRef<FMacWindow> Window);
-	void OnWindowDidResize(TSharedRef<FMacWindow> Window, bool bRestoreMouseCursorLocking = false);
 	bool OnWindowDestroyed(TSharedRef<FMacWindow> Window);
 
 	void OnApplicationDidBecomeActive();
@@ -252,7 +266,6 @@ private:
 	void HandleModifierChange(NSUInteger NewModifierFlags, NSUInteger FlagsShift, NSUInteger UE4Shift, EMacModifierKeys TranslatedCode);
 
 	FCocoaWindow* FindEventWindow(NSEvent* CocoaEvent) const;
-	TSharedRef<FMacScreen> FindScreenByPoint(int32 X, int32 Y) const;
 	EWindowZone::Type GetCurrentWindowZone(const TSharedRef<FMacWindow>& Window) const;
 	bool IsEdgeZone(EWindowZone::Type Zone) const;
 	bool IsPrintableKey(uint32 Character) const;
@@ -263,7 +276,7 @@ private:
 
 	/** Invalidates all queued windows requiring text layout changes */
 	void InvalidateTextLayouts();
-	
+
 #if WITH_EDITOR
 	void RecordUsage(EGestureEvent::Type Gesture);
 #else

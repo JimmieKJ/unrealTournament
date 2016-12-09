@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "Editor/PropertyEditor/Public/IDetailKeyframeHandler.h"
+#include "CoreMinimal.h"
+#include "ISequencer.h"
+#include "IDetailKeyframeHandler.h"
+
+class IPropertyHandle;
 
 class FSequencerDetailKeyframeHandler : public IDetailKeyframeHandler
 {

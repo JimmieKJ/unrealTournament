@@ -8,8 +8,6 @@
   <Products />
   <Eula />
   <RedistributeTo />
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
   <Notification>
 Redirect: ../Classes/Kismet/KismetMathLibrary.tps
 Notes:

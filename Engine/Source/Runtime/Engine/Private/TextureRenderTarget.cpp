@@ -4,8 +4,8 @@
 	TextureRenderTarget.cpp: UTextureRenderTarget implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Engine/TextureRenderTarget.h"
+#include "TextureResource.h"
 
 /*-----------------------------------------------------------------------------
 UTextureRenderTarget

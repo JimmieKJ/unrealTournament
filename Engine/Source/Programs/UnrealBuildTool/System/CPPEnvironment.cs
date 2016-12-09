@@ -24,10 +24,12 @@ namespace UnrealBuildTool
 		HTML5,
 		Linux,
 		TVOS,
+		Switch,
 	}
 
 	/// <summary>
-	/// The optimization level that may be compilation targets for C++ files.
+	/// Compiler configuration. This controls whether to use define debug macros and other compiler settings. Note that optimization level should be based on the bOptimizeCode variable rather than
+	/// this setting, so it can be modified on a per-module basis without introducing an incompatibility between object files or PCHs.
 	/// </summary>
 	public enum CPPTargetConfiguration
 	{
@@ -56,15 +58,6 @@ namespace UnrealBuildTool
 	}
 
 	/// <summary>
-	/// Whether the Common Language Runtime is enabled when compiling C++ targets (enables C++/CLI)
-	/// </summary>
-	public enum CPPCLRMode
-	{
-		CLRDisabled,
-		CLREnabled,
-	}
-
-	/// <summary>
 	/// Encapsulates the compilation output of compiling a set of C++ files.
 	/// </summary>
 	public class CPPOutput
@@ -72,37 +65,6 @@ namespace UnrealBuildTool
 		public List<FileItem> ObjectFiles = new List<FileItem>();
 		public List<FileItem> DebugDataFiles = new List<FileItem>();
 		public FileItem PrecompiledHeaderFile = null;
-	}
-
-	public class PrivateAssemblyInfoConfiguration
-	{
-		/// <summary>
-		/// True if the assembly should be copied to an output folder.  Often, referenced assemblies must
-		/// be loaded from the directory that the main executable resides in (or a sub-folder).  Note that
-		/// PDB files will be copied as well.
-		/// </summary>
-		public bool bShouldCopyToOutputDirectory = false;
-
-		/// <summary>
-		/// Optional sub-directory to copy the assembly to
-		/// </summary>
-		public string DestinationSubDirectory = "";
-	}
-
-	/// <summary>
-	/// Describes a private assembly dependency
-	/// </summary>
-	public class PrivateAssemblyInfo
-	{
-		/// <summary>
-		/// The file item for the reference assembly on disk
-		/// </summary>
-		public FileItem FileItem = null;
-
-		/// <summary>
-		/// The configuration of the private assembly info
-		/// </summary>
-		public PrivateAssemblyInfoConfiguration Config = new PrivateAssemblyInfoConfiguration();
 	}
 
 	/// <summary>
@@ -121,96 +83,26 @@ namespace UnrealBuildTool
 		public CPPTargetPlatform EnvironmentTargetPlatform;
 	}
 
-	public abstract class NativeBuildEnvironmentConfiguration
-	{
-		public class TargetInfo
-		{
-			/// <summary>
-			/// The platform to be compiled/linked for.
-			/// </summary>
-			public CPPTargetPlatform Platform;
-
-			/// <summary>
-			/// The architecture that is being compiled/linked (empty string by default)
-			/// </summary>
-			public string Architecture;
-
-			/// <summary>
-			/// The configuration to be compiled/linked for.
-			/// </summary>
-			public CPPTargetConfiguration Configuration;
-
-			public TargetInfo()
-			{
-				Architecture = "";
-			}
-
-			public TargetInfo(TargetInfo Target)
-			{
-				Platform = Target.Platform;
-				Architecture = Target.Architecture;
-				Configuration = Target.Configuration;
-			}
-		}
-
-		public TargetInfo Target;
-
-		[Obsolete("Use Target.Platform instead")]
-		public CPPTargetPlatform TargetPlatform
-		{
-			get
-			{
-				return Target.Platform;
-			}
-			set
-			{
-				Target.Platform = value;
-			}
-		}
-
-		[Obsolete("Use Target.Architecture instead")]
-		public string TargetArchitecture
-		{
-			get
-			{
-				return Target.Architecture;
-			}
-			set
-			{
-				Target.Architecture = value;
-			}
-		}
-
-		[Obsolete("Use Target.Configuration instead")]
-		public CPPTargetConfiguration TargetConfiguration
-		{
-			get
-			{
-				return Target.Configuration;
-			}
-			set
-			{
-				Target.Configuration = value;
-			}
-		}
-
-		protected NativeBuildEnvironmentConfiguration()
-		{
-			Target = new TargetInfo();
-		}
-
-		protected NativeBuildEnvironmentConfiguration(NativeBuildEnvironmentConfiguration Configuration)
-		{
-			Target = new TargetInfo(Configuration.Target);
-		}
-
-	}
-
 	/// <summary>
 	/// Encapsulates the configuration of an environment that a C++ file is compiled in.
 	/// </summary>
-	public class CPPEnvironmentConfiguration : NativeBuildEnvironmentConfiguration
+	public class CPPEnvironmentConfiguration
 	{
+		/// <summary>
+		/// The platform to be compiled/linked for.
+		/// </summary>
+		public CPPTargetPlatform Platform;
+
+		/// <summary>
+		/// The configuration to be compiled/linked for.
+		/// </summary>
+		public CPPTargetConfiguration Configuration;
+
+		/// <summary>
+		/// The architecture that is being compiled/linked (empty string by default)
+		/// </summary>
+		public string Architecture;
+
 		/// <summary>
 		/// The directory to put the output object/debug files in.
 		/// </summary>
@@ -227,12 +119,6 @@ namespace UnrealBuildTool
 		public DirectoryReference LocalShadowDirectory = null;
 
 		/// <summary>
-		/// PCH header file name as it appears in an #include statement in source code (might include partial, or no relative path.)
-		/// This is needed by some compilers to use PCH features.
-		/// </summary>
-		public string PCHHeaderNameInCode;
-
-		/// <summary>
 		/// The name of the header file which is precompiled.
 		/// </summary>
 		public FileReference PrecompiledHeaderIncludeFilename = null;
@@ -241,13 +127,6 @@ namespace UnrealBuildTool
 		/// Whether the compilation should create, use, or do nothing with the precompiled header.
 		/// </summary>
 		public PrecompiledHeaderAction PrecompiledHeaderAction = PrecompiledHeaderAction.None;
-
-		/// <summary>
-		/// True if the precompiled header needs to be "force included" by the compiler.  This is usually used with
-		/// the "Shared PCH" feature of UnrealBuildTool.  Note that certain platform toolchains *always* force
-		/// include PCH header files first.
-		/// </summary>
-		public bool bForceIncludePrecompiledHeader = false;
 
 		/// <summary>
 		/// Use run time type information
@@ -296,9 +175,9 @@ namespace UnrealBuildTool
 		public bool bEnableShadowVariableWarning = false;
 
 		/// <summary>
-		/// True if the environment contains performance critical code.
+		/// True if compiler optimizations should be enabled. This setting is distinct from the configuration (see CPPTargetConfiguration).
 		/// </summary>
-		public ModuleRules.CodeOptimization OptimizeCode = ModuleRules.CodeOptimization.Default;
+		public bool bOptimizeCode = false;
 
 		/// <summary>
 		/// True if debug info should be created.
@@ -326,29 +205,14 @@ namespace UnrealBuildTool
 		public bool bEnableOSX109Support = false;
 
 		/// <summary>
-		/// Whether the CLR (Common Language Runtime) support should be enabled for C++ targets (C++/CLI).
-		/// </summary>
-		public CPPCLRMode CLRMode = CPPCLRMode.CLRDisabled;
-
-		/// <summary>
 		/// The include paths to look for included files in.
 		/// </summary>
 		public readonly CPPIncludeInfo CPPIncludeInfo = new CPPIncludeInfo();
 
 		/// <summary>
-		/// Paths where .NET framework assembly references are found, when compiling CLR applications.
+		/// List of header files to force include
 		/// </summary>
-		public List<string> SystemDotNetAssemblyPaths = new List<string>();
-
-		/// <summary>
-		/// Full path and file name of .NET framework assemblies we're referencing
-		/// </summary>
-		public List<string> FrameworkAssemblyDependencies = new List<string>();
-
-		/// <summary>
-		/// List of private CLR assemblies that, when modified, will force recompilation of any CLR source files
-		/// </summary>
-		public List<PrivateAssemblyInfoConfiguration> PrivateAssemblyDependencies = new List<PrivateAssemblyInfoConfiguration>();
+		public List<FileReference> ForceIncludeFiles = new List<FileReference>();
 
 		/// <summary>
 		/// The C++ preprocessor definitions to use.
@@ -375,16 +239,16 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Copy constructor.
 		/// </summary>
-		public CPPEnvironmentConfiguration(CPPEnvironmentConfiguration InCopyEnvironment) :
-			base(InCopyEnvironment)
+		public CPPEnvironmentConfiguration(CPPEnvironmentConfiguration InCopyEnvironment)
 		{
+			Platform = InCopyEnvironment.Platform;
+			Configuration = InCopyEnvironment.Configuration;
+			Architecture = InCopyEnvironment.Architecture;
 			OutputDirectory = InCopyEnvironment.OutputDirectory;
 			PCHOutputDirectory = InCopyEnvironment.PCHOutputDirectory;
 			LocalShadowDirectory = InCopyEnvironment.LocalShadowDirectory;
-			PCHHeaderNameInCode = InCopyEnvironment.PCHHeaderNameInCode;
 			PrecompiledHeaderIncludeFilename = InCopyEnvironment.PrecompiledHeaderIncludeFilename;
 			PrecompiledHeaderAction = InCopyEnvironment.PrecompiledHeaderAction;
-			bForceIncludePrecompiledHeader = InCopyEnvironment.bForceIncludePrecompiledHeader;
 			bUseRTTI = InCopyEnvironment.bUseRTTI;
 			bUseAVX = InCopyEnvironment.bUseAVX;
 			bFasterWithoutUnity = InCopyEnvironment.bFasterWithoutUnity;
@@ -393,18 +257,15 @@ namespace UnrealBuildTool
 			bBuildLocallyWithSNDBS = InCopyEnvironment.bBuildLocallyWithSNDBS;
 			bEnableExceptions = InCopyEnvironment.bEnableExceptions;
 			bEnableShadowVariableWarning = InCopyEnvironment.bEnableShadowVariableWarning;
-			OptimizeCode = InCopyEnvironment.OptimizeCode;
+			bOptimizeCode = InCopyEnvironment.bOptimizeCode;
 			bCreateDebugInfo = InCopyEnvironment.bCreateDebugInfo;
 			bIsBuildingLibrary = InCopyEnvironment.bIsBuildingLibrary;
 			bIsBuildingDLL = InCopyEnvironment.bIsBuildingDLL;
 			bUseStaticCRT = InCopyEnvironment.bUseStaticCRT;
 			bEnableOSX109Support = InCopyEnvironment.bEnableOSX109Support;
-			CLRMode = InCopyEnvironment.CLRMode;
 			CPPIncludeInfo.IncludePaths.UnionWith(InCopyEnvironment.CPPIncludeInfo.IncludePaths);
 			CPPIncludeInfo.SystemIncludePaths.UnionWith(InCopyEnvironment.CPPIncludeInfo.SystemIncludePaths);
-			SystemDotNetAssemblyPaths.AddRange(InCopyEnvironment.SystemDotNetAssemblyPaths);
-			FrameworkAssemblyDependencies.AddRange(InCopyEnvironment.FrameworkAssemblyDependencies);
-			PrivateAssemblyDependencies.AddRange(InCopyEnvironment.PrivateAssemblyDependencies);
+			ForceIncludeFiles.AddRange(InCopyEnvironment.ForceIncludeFiles);
 			Definitions.AddRange(InCopyEnvironment.Definitions);
 			AdditionalArguments = InCopyEnvironment.AdditionalArguments;
 			AdditionalFrameworks.AddRange(InCopyEnvironment.AdditionalFrameworks);
@@ -433,7 +294,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Encapsulates the environment that a C++ file is compiled in.
 	/// </summary>
-	public partial class CPPEnvironment
+	public class CPPEnvironment
 	{
 		/// <summary>
 		/// The file containing the precompiled header data.
@@ -441,30 +302,27 @@ namespace UnrealBuildTool
 		public FileItem PrecompiledHeaderFile = null;
 
 		/// <summary>
-		/// List of private CLR assemblies that, when modified, will force recompilation of any CLR source files
+		/// Header file cache for this target
 		/// </summary>
-		public List<PrivateAssemblyInfo> PrivateAssemblyDependencies = new List<PrivateAssemblyInfo>();
+		public CPPHeaders Headers;
 
+		/// <summary>
+		/// Compile settings
+		/// </summary>
 		public CPPEnvironmentConfiguration Config = new CPPEnvironmentConfiguration();
 
 		/// <summary>
-		/// List of available shared global PCH headers
+		/// Whether or not UHT is being built
 		/// </summary>
-		public List<SharedPCHHeaderInfo> SharedPCHHeaderFiles = new List<SharedPCHHeaderInfo>();
-
-		/// <summary>
-		/// List of "shared" precompiled header environments, potentially shared between modules
-		/// </summary>
-		public readonly List<PrecompileHeaderEnvironment> SharedPCHEnvironments = new List<PrecompileHeaderEnvironment>();
-
-		// Whether or not UHT is being built
 		public bool bHackHeaderGenerator;
 
 		/// <summary>
 		/// Default constructor.
 		/// </summary>
-		public CPPEnvironment()
-		{ }
+		public CPPEnvironment(CPPHeaders Headers)
+		{
+			this.Headers = Headers;
+		}
 
 		/// <summary>
 		/// Copy constructor.
@@ -472,9 +330,7 @@ namespace UnrealBuildTool
 		protected CPPEnvironment(CPPEnvironment InCopyEnvironment)
 		{
 			PrecompiledHeaderFile = InCopyEnvironment.PrecompiledHeaderFile;
-			PrivateAssemblyDependencies.AddRange(InCopyEnvironment.PrivateAssemblyDependencies);
-			SharedPCHHeaderFiles.AddRange(InCopyEnvironment.SharedPCHHeaderFiles);
-			SharedPCHEnvironments.AddRange(InCopyEnvironment.SharedPCHEnvironments);
+			Headers = InCopyEnvironment.Headers;
 			bHackHeaderGenerator = InCopyEnvironment.bHackHeaderGenerator;
 
 			Config = new CPPEnvironmentConfiguration(InCopyEnvironment.Config);
@@ -486,14 +342,7 @@ namespace UnrealBuildTool
 		/// <returns>true if PCH files should be used, false otherwise</returns>
 		public bool ShouldUsePCHs()
 		{
-			return UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(Config.Target.Platform).ShouldUsePCHFiles(Config.Target.Platform, Config.Target.Configuration);
-		}
-
-		public void AddPrivateAssembly(string FilePath)
-		{
-			PrivateAssemblyInfo NewPrivateAssembly = new PrivateAssemblyInfo();
-			NewPrivateAssembly.FileItem = FileItem.GetItemByPath(FilePath);
-			PrivateAssemblyDependencies.Add(NewPrivateAssembly);
+			return UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(Config.Platform).ShouldUsePCHFiles(Config.Platform, Config.Configuration);
 		}
 
 		/// <summary>
@@ -504,7 +353,5 @@ namespace UnrealBuildTool
 		{
 			return new CPPEnvironment(this);
 		}
-
-
 	};
 }

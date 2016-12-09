@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "SProfilerStatExpander.h"
+#include "Profiler/SProfilerStatExpander.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
 
 void SProfilerStatExpander::Construct( const FArguments& InArgs, const TSharedPtr<class ITableRow>& TableRow  )
 {

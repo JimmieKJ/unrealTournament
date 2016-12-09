@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Engine/LevelScriptActor.h"
 #include "Engine/LevelScriptBlueprint.h"
+#include "Misc/PackageName.h"
 #include "Engine/LevelScriptActor.h"
-#include "BlueprintUtilities.h"
-#include "LatentActions.h"
+#include "UObject/Package.h"
 
 //////////////////////////////////////////////////////////////////////////
 // ULevelScriptBlueprint

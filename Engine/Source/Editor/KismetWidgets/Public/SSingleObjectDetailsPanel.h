@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/Commands/UICommandList.h"
+
+class IDetailsView;
+
 /////////////////////////////////////////////////////
 // SSingleObjectDetailsPanel
 

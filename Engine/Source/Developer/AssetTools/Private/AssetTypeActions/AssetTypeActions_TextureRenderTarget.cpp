@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
+#include "AssetTypeActions/AssetTypeActions_TextureRenderTarget.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Engine/Texture2D.h"
+#include "EditorStyleSet.h"
+#include "Engine/TextureCube.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Engine/TextureRenderTargetCube.h"
 #include "AssetRegistryModule.h"
-#include "Engine/TextureRenderTarget.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

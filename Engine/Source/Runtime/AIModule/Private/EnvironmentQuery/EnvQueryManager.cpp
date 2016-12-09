@@ -1,19 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "EnvironmentQuery/EnvQueryManager.h"
+#include "UObject/UObjectIterator.h"
+#include "EngineGlobals.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Controller.h"
+#include "AISystem.h"
+#include "VisualLogger/VisualLogger.h"
 #include "EnvironmentQuery/EnvQuery.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
 #include "EnvironmentQuery/EnvQueryGenerator.h"
 #include "EnvironmentQuery/EnvQueryOption.h"
-#include "EnvironmentQuery/EnvQueryManager.h"
-#include "EnvironmentQuery/EnvQueryContext.h"
 #include "EnvironmentQuery/EQSTestingPawn.h"
 #include "EnvironmentQuery/EnvQueryDebugHelpers.h"
-#include "EnvironmentQuery/EnvQueryInstanceBlueprintWrapper.h"
+#include "Engine/Engine.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/Package.h"
 
 #if WITH_EDITOR
-#include "UnrealEd.h"
-#include "Engine/Brush.h"
+#include "Editor/EditorEngine.h"
 #include "EngineUtils.h"
 
 extern UNREALED_API UEditorEngine* GEditor;
@@ -319,7 +324,7 @@ void UEnvQueryManager::Tick(float DeltaTime)
 
 			const TSharedPtr<FEnvQueryInstance>& QueryInstance = RunningQueries[Index];
 
-			if (QueryInstance->IsFinished())
+			if (!QueryInstance.IsValid() || QueryInstance->IsFinished())
 			{
 				// If this query is already finished, skip it.
 				++Index;
@@ -340,10 +345,11 @@ void UEnvQueryManager::Tick(float DeltaTime)
 					QueryInstance->ExecuteOneStep(TimeLeft);
 				}
 
+				const float QueryExecutionTime = QueryInstance->GetTotalExecutionTime();
 				if (QueryInstance->IsFinished())
 				{
 					// Always log that we executed total execution time at the end of the query.
-					if (QueryInstance->GetTotalExecutionTime() > ExecutionTimeWarningSeconds)
+					if (QueryExecutionTime > ExecutionTimeWarningSeconds)
 					{
 						UE_LOG(LogEQS, Warning, TEXT("Finished query %s over execution time warning. %s"), *QueryInstance->QueryName, *QueryInstance->GetExecutionTimeDescription());
 					}
@@ -375,7 +381,7 @@ void UEnvQueryManager::Tick(float DeltaTime)
 					++Index;
 				}
 
-				if (!QueryInstance->HasLoggedTimeLimitWarning() && (QueryInstance->GetTotalExecutionTime() > ExecutionTimeWarningSeconds))
+				if (QueryExecutionTime > ExecutionTimeWarningSeconds && QueryInstance.IsValid() && !QueryInstance->HasLoggedTimeLimitWarning())
 				{
 					UE_LOG(LogEQS, Warning, TEXT("Query %s over execution time warning. %s"), *QueryInstance->QueryName, *QueryInstance->GetExecutionTimeDescription());
 					QueryInstance->SetHasLoggedTimeLimitWarning();
@@ -415,13 +421,16 @@ void UEnvQueryManager::Tick(float DeltaTime)
 				for (int32 Index = RunningQueries.Num() - 1, FinishedQueriesCounter = NumQueriesFinished; Index >= 0 && FinishedQueriesCounter > 0; --Index)
 				{
 					TSharedPtr<FEnvQueryInstance>& QueryInstance = RunningQueries[Index];
+					if (!QueryInstance.IsValid())
+					{
+						RunningQueries.RemoveAt(Index, 1, /*bAllowShrinking=*/false);
+						continue;
+					}
 
 					if (QueryInstance->IsFinished())
 					{
 						FinishedQueriesTotalTime += FPlatformTime::Seconds() - QueryInstance->GetQueryStartTime();
-
 						RunningQueries.RemoveAt(Index, 1, /*bAllowShrinking=*/false);
-
 						--FinishedQueriesCounter;
 					}
 				}
@@ -626,7 +635,7 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::CreateQueryInstance(const UEnvQu
 	FEnvQueryInstance* InstanceTemplate = NULL;
 	for (int32 InstanceIndex = 0; InstanceIndex < InstanceCache.Num(); InstanceIndex++)
 	{
-		if (InstanceCache[InstanceIndex].Template->GetFName() == Template->GetFName() &&
+		if (InstanceCache[InstanceIndex].AssetName == Template->GetFName() &&
 			InstanceCache[InstanceIndex].Instance.Mode == RunMode)
 		{
 			InstanceTemplate = &InstanceCache[InstanceIndex].Instance;
@@ -638,13 +647,18 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::CreateQueryInstance(const UEnvQu
 	if (InstanceTemplate == NULL)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_AI_EQS_LoadTime);
-		
+		static const UEnum* RunModeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvQueryRunMode"));
+
 		// duplicate template in manager's world for BP based nodes
-		UEnvQuery* LocalTemplate = (UEnvQuery*)StaticDuplicateObject(Template, this, TEXT("None"));
+		const FString NewInstanceName = RunModeEnum
+			? FString::Printf(TEXT("%s_%s"), *Template->GetFName().ToString(), *RunModeEnum->GetEnumName(RunMode))
+			: FString::Printf(TEXT("%s_%d"), *Template->GetFName().ToString(), uint8(RunMode));
+		UEnvQuery* LocalTemplate = (UEnvQuery*)StaticDuplicateObject(Template, this, *NewInstanceName);
 
 		{
 			// memory stat tracking: temporary variable will exist only inside this section
 			FEnvQueryInstanceCache NewCacheEntry;
+			NewCacheEntry.AssetName = Template->GetFName();
 			NewCacheEntry.Template = LocalTemplate;
 			NewCacheEntry.Instance.UniqueName = LocalTemplate->GetFName();
 			NewCacheEntry.Instance.QueryName = LocalTemplate->GetQueryName().ToString();
@@ -724,7 +738,6 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::CreateQueryInstance(const UEnvQu
 
 				default:
 					{
-						UEnum* RunModeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvQueryRunMode"));
 						UE_LOG(LogEQS, Warning, TEXT("Query [%s] can't be sorted for RunMode: %d [%s]"),
 							*GetNameSafe(LocalTemplate), (int32)RunMode, RunModeEnum ? *RunModeEnum->GetEnumName(RunMode) : TEXT("??"));
 					}

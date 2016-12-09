@@ -2,7 +2,20 @@
 
 #pragma once
 
-#include "Input/HittestGrid.h"
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "Layout/Visibility.h"
+#include "Layout/Geometry.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Children.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class FCachedWidgetNode;
+class FPaintArgs;
+class FSlateRenderDataHandle;
+class FSlateWindowElementList;
+class SWindow;
 
 class SLATE_API SInvalidationPanel : public SCompoundWidget, public FGCObject, public ILayoutCache
 {

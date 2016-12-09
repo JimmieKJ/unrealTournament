@@ -2,7 +2,20 @@
 
 #pragma once
 
-struct FSpriteAnimationFrame;
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+class FUICommandList;
+class SFlipbookTimelineTrack;
+class SHorizontalBox;
+class STimelineHeader;
 
 // Called when the selection changes
 DECLARE_DELEGATE_OneParam(FOnFlipbookKeyframeSelectionChanged, int32);

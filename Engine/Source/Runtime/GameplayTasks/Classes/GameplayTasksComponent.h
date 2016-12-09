@@ -2,11 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/CoreNet.h"
+#include "UObject/ScriptInterface.h"
+#include "Components/ActorComponent.h"
+#include "EngineDefines.h"
 #include "GameplayTaskOwnerInterface.h"
-#include "GameplayTaskTypes.h"
 #include "GameplayTask.h"
+#include "GameplayTaskResource.h"
 #include "GameplayTasksComponent.generated.h"
 
+class AActor;
+class Error;
 class FOutBunch;
 class UActorChannel;
 

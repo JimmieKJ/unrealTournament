@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "CamelCaseBreakIterator.h"
+#include "Internationalization/CamelCaseBreakIterator.h"
+#include "Internationalization/Text.h"
 
 FCamelCaseBreakIterator::FCamelCaseBreakIterator()
 	: String()
@@ -33,7 +33,7 @@ void FCamelCaseBreakIterator::SetString(const TCHAR* const InString, const int32
 
 void FCamelCaseBreakIterator::ClearString()
 {
-	String = FString();
+	String.Reset();
 	BreakPoints.Empty(1);
 	BreakPoints.Add(0);
 	ResetToBeginning();

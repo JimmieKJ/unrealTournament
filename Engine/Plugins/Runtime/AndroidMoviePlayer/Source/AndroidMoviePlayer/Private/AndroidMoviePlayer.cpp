@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidMoviePlayerPrivatePCH.h"
+#include "AndroidMoviePlayer.h"
+#include "AndroidMovieStreamer.h"
 
 #include "MoviePlayer.h"
 

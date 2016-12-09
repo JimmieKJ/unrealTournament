@@ -4,9 +4,18 @@
 	OpenGLCommands.cpp: OpenGL RHI commands implementation.
 =============================================================================*/
 
-#include "OpenGLDrvPrivate.h"
-#include "OpenGLState.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/App.h"
+#include "RHIDefinitions.h"
+#include "RHI.h"
+#include "EngineGlobals.h"
+#include "RenderResource.h"
 #include "ShaderCache.h"
+#include "OpenGLDrv.h"
+#include "OpenGLDrvPrivate.h"
+#include "RenderUtils.h"
 
 #define DECLARE_ISBOUNDSHADER(ShaderType) inline void ValidateBoundShader(TRefCountPtr<FOpenGLBoundShaderState> InBoundShaderState, F##ShaderType##RHIParamRef ShaderType##RHI) \
 { \
@@ -2621,7 +2630,7 @@ void FOpenGLDynamicRHI::RHIDrawPrimitive(uint32 PrimitiveType,uint32 BaseVertexI
 	CommitNonComputeShaderConstants();
 	CachedBindElementArrayBuffer(ContextState,0);
 	uint32 VertexCount = GetVertexCountForPrimitiveCount(NumPrimitives,PrimitiveType);
-	SetupVertexArrays(ContextState, BaseVertexIndex, PendingState.Streams, VertexCount, NUM_OPENGL_VERTEX_STREAMS);
+	SetupVertexArrays(ContextState, BaseVertexIndex, PendingState.Streams, NUM_OPENGL_VERTEX_STREAMS, VertexCount);
 
 	GLenum DrawMode = GL_TRIANGLES;
 	GLsizei NumElements = 0;
@@ -3498,6 +3507,11 @@ void FOpenGLDynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const 
 void FOpenGLDynamicRHI::RHIBlockUntilGPUIdle()
 {
 	// Not really supported
+}
+
+void FOpenGLDynamicRHI::RHISubmitCommandsAndFlushGPU()
+{
+	FOpenGL::Flush();
 }
 
 /**

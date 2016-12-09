@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "OnlineExternalUIInterface.h"
-#include "OnlineSubsystemTypes.h"
-#include "OnlineAsyncTaskManagerSteam.h"
+#include "CoreMinimal.h"
+#include "OnlineSubsystemSteam.h"
+#include "OnlineAsyncTaskManager.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 #include "OnlineSubsystemSteamPackage.h"
 
 /**

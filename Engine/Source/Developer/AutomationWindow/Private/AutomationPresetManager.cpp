@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationWindowPrivatePCH.h"
-
+#include "AutomationPresetManager.h"
+#include "HAL/FileManager.h"
+#include "UObject/Class.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "JsonObjectConverter.h"
 
 FAutomationTestPresetManager::FAutomationTestPresetManager()
 {
@@ -9,36 +13,49 @@ FAutomationTestPresetManager::FAutomationTestPresetManager()
 	Presets.Add(AutomationPresetPtr());
 }
 
-
-AutomationPresetRef FAutomationTestPresetManager::AddNewPreset( )
+AutomationPresetPtr FAutomationTestPresetManager::AddNewPreset( const FText& PresetName, const TArray<FString>& SelectedTests )
 {
-	AutomationPresetPtr NewPreset = MakeShareable(new FAutomationTestPreset());
-	Presets.Add(NewPreset);
-	return NewPreset.ToSharedRef();
+	if ( PresetName.IsEmpty() )
+	{
+		return nullptr;
+	}
+
+	const FName NewNameSlug = MakeObjectNameFromDisplayLabel(PresetName.ToString(), NAME_None);
+
+	if ( !Presets.FindByPredicate([&NewNameSlug] (const AutomationPresetPtr& Preset) { return Preset.IsValid() && Preset->GetID() == NewNameSlug; }) )
+	{
+		AutomationPresetRef NewPreset = MakeShareable(new FAutomationTestPreset(NewNameSlug));
+		NewPreset->SetName(PresetName);
+		NewPreset->SetEnabledTests(SelectedTests);
+
+		Presets.Add(NewPreset);
+
+		SavePreset(NewPreset);
+
+		return NewPreset;
+	}
+
+	return nullptr;
 }
 
-
-AutomationPresetRef FAutomationTestPresetManager::AddNewPreset( const FText& PresetName, const TArray<FString>& SelectedTests )
-{
-	AutomationPresetRef NewPreset = AddNewPreset();
-	NewPreset->SetPresetName(PresetName);
-	NewPreset->SetEnabledTests(SelectedTests);
-	SavePreset(NewPreset);
-	return NewPreset;
-}
-
-
-TArray<AutomationPresetPtr>& FAutomationTestPresetManager::GetAllPresets( )
+TArray<AutomationPresetPtr>& FAutomationTestPresetManager::GetAllPresets()
 {
 	return Presets;
 }
 
-
 AutomationPresetPtr FAutomationTestPresetManager::LoadPreset( FArchive& Archive )
 {
+	TSharedPtr<FJsonObject> JsonPreset;
+
+	TSharedRef< TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(&Archive);
+	if ( !FJsonSerializer::Deserialize(JsonReader, JsonPreset) )
+	{
+		return nullptr;
+	}
+
 	FAutomationTestPreset* NewPreset = new FAutomationTestPreset();
 
-	if(NewPreset->Serialize(Archive))
+	if ( FJsonObjectConverter::JsonObjectToUStruct(JsonPreset.ToSharedRef(), NewPreset, 0, 0) )
 	{
 		return MakeShareable(NewPreset);
 	}
@@ -48,51 +65,48 @@ AutomationPresetPtr FAutomationTestPresetManager::LoadPreset( FArchive& Archive 
 	return nullptr;
 }
 
-
 void FAutomationTestPresetManager::RemovePreset( const AutomationPresetRef Preset )
 {
 	if (Presets.Remove(Preset) > 0)
 	{
 		// Find the name of the preset on disk
-		FString PresetFileName = GetPresetFolder() / Preset->GetID().ToString() + TEXT(".uap");
+		FString PresetFileName = GetPresetFolder() / Preset->GetID().ToString() + TEXT(".json");
 
 		// delete the preset on disk
 		IFileManager::Get().Delete(*PresetFileName);
 	}
 }
 
-
 void FAutomationTestPresetManager::SavePreset( const AutomationPresetRef Preset )
 {
-	FString PresetFileName = GetPresetFolder() / Preset->GetID().ToString() + TEXT(".uap");
-	FArchive* PresetFileWriter = IFileManager::Get().CreateFileWriter(*PresetFileName);
+	TSharedPtr<FJsonObject> PresetJson = FJsonObjectConverter::UStructToJsonObject(Preset.Get());
 
-	if (PresetFileWriter != nullptr)
+	if ( PresetJson.IsValid() )
 	{
-		SavePreset(Preset, *PresetFileWriter);
+		FString PresetFileName = GetPresetFolder() / Preset->GetID().ToString() + TEXT(".json");
+		FArchive* PresetFileWriter = IFileManager::Get().CreateFileWriter(*PresetFileName);
 
-		delete PresetFileWriter;
+		if ( PresetFileWriter != nullptr )
+		{
+			TSharedRef<TJsonWriter<> > JsonWriter = TJsonWriterFactory<>::Create(PresetFileWriter, 0);
+			FJsonSerializer::Serialize(PresetJson.ToSharedRef(), JsonWriter);
+
+			delete PresetFileWriter;
+		}
 	}
 }
 
-
-void FAutomationTestPresetManager::SavePreset( const AutomationPresetRef Preset, FArchive& Archive )
-{
-	Preset->Serialize(Archive);
-}
-
-
-void FAutomationTestPresetManager::LoadPresets( )
+void FAutomationTestPresetManager::LoadPresets()
 {
 	TArray<FString> PresetFileNames;
 
-	IFileManager::Get().FindFiles(PresetFileNames, *(GetPresetFolder() / TEXT("*.uap")), true, false);
+	IFileManager::Get().FindFiles(PresetFileNames, *(GetPresetFolder() / TEXT("*.json")), true, false);
 
 	for (TArray<FString>::TConstIterator It(PresetFileNames); It; ++It)
 	{
 		FString PresetFilePath = GetPresetFolder() / *It;
 		FArchive* PresetFileReader = IFileManager::Get().CreateFileReader(*PresetFilePath);
-
+		
 		if (PresetFileReader != nullptr)
 		{
 			AutomationPresetPtr LoadedPreset = LoadPreset(*PresetFileReader);

@@ -367,13 +367,11 @@ void AUTJumpPad::CheckForErrors()
 
 	FVector JumpVelocity = CalculateJumpVelocity(this);
 	// figure out default game mode from which we will derive the default character
-	TSubclassOf<AGameMode> GameClass = GetWorld()->GetWorldSettings()->DefaultGameMode;
+	TSubclassOf<AGameModeBase> GameClass = GetWorld()->GetWorldSettings()->DefaultGameMode;
 	if (GameClass == NULL)
 	{
-		// horrible config hack around unexported function UGameMapsSettings::GetGlobalDefaultGameMode()
-		FString GameClassPath;
-		GConfig->GetString(TEXT("/Script/EngineSettings.GameMapsSettings"), TEXT("GlobalDefaultGameMode"), GameClassPath, GEngineIni);
-		GameClass = LoadClass<AGameMode>(NULL, *GameClassPath, NULL, 0, NULL);
+		FString GameClassPath = UGameMapsSettings::GetGlobalDefaultGameMode();
+		GameClass = LoadClass<AGameModeBase>(NULL, *GameClassPath, NULL, 0, NULL);
 	}
 	const ACharacter* DefaultChar = GetDefault<AUTCharacter>();
 	

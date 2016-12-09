@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
+#include "SSequencerCurveEditorToolBar.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Input/SNumericDropDown.h"
+#include "SequencerCommonHelpers.h"
+#include "SequencerSettings.h"
 #include "RichCurveEditorCommands.h"
-#include "Sequencer.h"
 
 #define LOCTEXT_NAMESPACE "CurveEditorToolBar"
 

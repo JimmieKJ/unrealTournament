@@ -1,21 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "InputCoreTypes.h"
+#include "Templates/SubclassOf.h"
 #include "BehaviorTreeTypes.generated.h"
 
-class UBlackboardData;
-class UBlackboardComponent;
+class FBlackboardDecoratorDetails;
+class UBehaviorTree;
 class UBehaviorTreeComponent;
+class UBlackboardComponent;
+class UBlackboardData;
+class UBlackboardKeyType;
+class UBTAuxiliaryNode;
+class UBTCompositeNode;
 class UBTNode;
 class UBTTaskNode;
-class UBehaviorTree;
-class UBTCompositeNode;
-class UBTAuxiliaryNode;
-class UBlackboardKeyType;
-class FBlackboardDecoratorDetails;
-
-struct FBTNodeIndex;
-struct FBehaviorTreeSearchUpdate;
+struct FBehaviorTreeSearchData;
 
 // Visual logging helper
 #define BT_VLOG(Context, Verbosity, Format, ...) UE_VLOG(Context->OwnerComp.IsValid() ? Context->OwnerComp->GetOwner() : NULL, LogBehaviorTree, Verbosity, Format, ##__VA_ARGS__)
@@ -492,33 +498,6 @@ public:
 	void AddRotatorFilter(UObject* Owner, FName PropertyName);
 	void AddStringFilter(UObject* Owner, FName PropertyName);
 	void AddNameFilter(UObject* Owner, FName PropertyName);
-
-	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
-	void AddObjectFilter(UObject* Owner, TSubclassOf<UObject> AllowedClass);
-	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
-	void AddClassFilter(UObject* Owner, TSubclassOf<UClass> AllowedClass);
-	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
-	void AddEnumFilter(UObject* Owner, UEnum* AllowedEnum);
-	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
-	void AddNativeEnumFilter(UObject* Owner, const FString& AllowedEnumName);
-	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
-	void AddIntFilter(UObject* Owner);
-	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
-	void AddFloatFilter(UObject* Owner);
-	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
-	void AddBoolFilter(UObject* Owner);
-	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
-	void AddVectorFilter(UObject* Owner);
-	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
-	void AddRotatorFilter(UObject* Owner);
-	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
-	void AddStringFilter(UObject* Owner);
-	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
-	void AddNameFilter(UObject* Owner);
-	DEPRECATED(4.10, "CacheSelectedKey is deprecated. Please use ResolveSelectedKey instead.")
-	void CacheSelectedKey(UBlackboardData* BlackboardAsset);
-	DEPRECATED(4.10, "InitSelectedKey is deprecated. Please use InitSelection instead.")
-	void InitSelectedKey(UBlackboardData* BlackboardAsset);
 
 	FORCEINLINE bool IsNone() const { return bNoneIsAllowedValue && SelectedKeyID == FBlackboard::InvalidKey; }
 	FORCEINLINE bool IsSet() const { return SelectedKeyID != FBlackboard::InvalidKey; }

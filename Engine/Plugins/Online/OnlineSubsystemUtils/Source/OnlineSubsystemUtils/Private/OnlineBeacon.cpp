@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "OnlineBeacon.h"
-#include "Net/DataChannel.h"
+#include "Engine/NetConnection.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 
 DEFINE_LOG_CATEGORY(LogBeacon);
 

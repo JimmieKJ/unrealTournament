@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "ConfigCacheIni.h"
-#include "LocalizationTargetTypes.h"
+#include "CoreMinimal.h"
+#include "Misc/ConfigCacheIni.h"
+
+class ULocalizationTarget;
 
 struct LOCALIZATION_API FLocalizationConfigurationScript : public FConfigFile
 {

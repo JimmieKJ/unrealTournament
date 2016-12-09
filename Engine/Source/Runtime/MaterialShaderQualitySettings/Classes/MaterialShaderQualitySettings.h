@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "RHIDefinitions.h"
-#include "ShaderPlatformQualitySettings.h"
+#include "SceneTypes.h"
 #include "MaterialShaderQualitySettings.generated.h"
+
+class UShaderPlatformQualitySettings;
 
 //UCLASS(config = Engine, defaultconfig)
 UCLASS()

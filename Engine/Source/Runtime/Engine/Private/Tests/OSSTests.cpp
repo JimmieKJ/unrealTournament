@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
 #if WITH_EDITOR
-#include "UnrealEd.h"
 
-#include "AutomationCommon.h"
+#include "Tests/AutomationCommon.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

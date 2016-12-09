@@ -2,8 +2,19 @@
 
 #pragma once
 
-#include "MovieSceneCameraAnimSection.h"
-#include "MovieSceneCameraAnimTrack.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
+#include "MovieSceneTrack.h"
+#include "Widgets/SWidget.h"
+#include "ISequencerSection.h"
+#include "ISequencer.h"
+#include "ISequencerTrackEditor.h"
+#include "MovieSceneTrackEditor.h"
+
+class FAssetData;
+class FMenuBuilder;
+class UCameraAnim;
 
 /**
  * Tools for playing a camera anim
@@ -36,7 +47,7 @@ public:
 	virtual void AddKey(const FGuid& ObjectGuid) override;
 	virtual void BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding, const UClass* ObjectClass) override;
 	virtual bool HandleAssetAdded(UObject* Asset, const FGuid& TargetObjectGuid) override;
-	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track) override;
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
 	virtual bool SupportsType(TSubclassOf<UMovieSceneTrack> Type) const override;
 	virtual TSharedPtr<SWidget> BuildOutlinerEditWidget(const FGuid& ObjectBinding, UMovieSceneTrack* Track, const FBuildEditWidgetParams& Params) override;
 

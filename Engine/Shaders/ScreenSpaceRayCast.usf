@@ -95,7 +95,7 @@ void RayCast(
 	
 	const float Step = 1.0 / NumSteps;
 
-	const float CompareTolerance = abs( RayDepthScreen.z - RayStartScreen.z ) * Step * 4;
+	const float CompareTolerance = max(abs( RayStepUVz.z ), ( RayStartScreen.z - RayDepthScreen.z ) * 4) * Step;
 
 	// avoid bugs with early returns inside of loops on certain platform compilers.
 	float4 Result = float4( 0, 0, 0, 1 );

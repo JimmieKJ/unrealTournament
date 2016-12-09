@@ -6,7 +6,11 @@
 
 #pragma once
 
-#include "AnimSequence.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Animation/AnimSequence.h"
+#include "Engine/DeveloperSettings.h"
 #include "AnimationSettings.generated.h"
 
 /**
@@ -81,6 +85,10 @@ class ENGINE_API UAnimationSettings : public UDeveloperSettings
 
 	UPROPERTY(config, EditAnywhere, Category = Performance)
 	bool bEnablePerformanceLog;
+
+	/** If true, animation track data will be stripped from dedicated server cooked data */
+	UPROPERTY(config, EditAnywhere, Category = Performance)
+	bool bStripAnimationDataOnDedicatedServer;
 
 public:
 	static UAnimationSettings * Get() { return CastChecked<UAnimationSettings>(UAnimationSettings::StaticClass()->GetDefaultObject()); }

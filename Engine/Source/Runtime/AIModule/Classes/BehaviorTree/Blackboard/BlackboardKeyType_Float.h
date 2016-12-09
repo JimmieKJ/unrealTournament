@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType.h"
 #include "BlackboardKeyType_Float.generated.h"
+
+class UBlackboardComponent;
 
 UCLASS(EditInlineNew, meta=(DisplayName="Float"))
 class AIMODULE_API UBlackboardKeyType_Float : public UBlackboardKeyType

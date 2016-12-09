@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AI/Navigation/NavigationData.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
 #include "AI/Navigation/NavigationTypes.h"
+#include "AI/Navigation/NavigationData.h"
 #include "AbstractNavData.generated.h"
 
 struct ENGINE_API FAbstractNavigationPath : public FNavigationPath
@@ -30,6 +34,7 @@ public:
 	virtual uint16 GetIncludeFlags() const override { return 0; }
 	virtual void SetExcludeFlags(uint16 Flags) override {}
 	virtual uint16 GetExcludeFlags() const override { return 0; }
+	virtual FVector GetAdjustedEndLocation(const FVector& EndLocation) const override { return EndLocation; }
 	virtual INavigationQueryFilterInterface* CreateCopy() const override;
 };
 

@@ -3,11 +3,18 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Public Dependencies
  *****************************************************************************/
 
 #include "Core.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "Sockets.h"
 #include "SocketSubsystem.h"
 
@@ -15,19 +22,19 @@
 /* Public Includes
  *****************************************************************************/
 
-#include "IPv4SubnetMask.h"
-#include "IPv4Address.h"
-#include "IPv4Endpoint.h"
-#include "IPv4Subnet.h"
-#include "SteamEndpoint.h"
-#include "INetworkingModule.h"
+#include "Interfaces/IPv4/IPv4SubnetMask.h"
+#include "Interfaces/IPv4/IPv4Address.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "Interfaces/IPv4/IPv4Subnet.h"
+#include "Interfaces/Steam/SteamEndpoint.h"
+#include "Interfaces/INetworkingModule.h"
 
 
 /* Common
  *****************************************************************************/
 
-#include "TcpSocketBuilder.h"
-#include "TcpListener.h"
-#include "UdpSocketReceiver.h"
-#include "UdpSocketSender.h"
-#include "UdpSocketBuilder.h"
+#include "Common/TcpSocketBuilder.h"
+#include "Common/TcpListener.h"
+#include "Common/UdpSocketReceiver.h"
+#include "Common/UdpSocketSender.h"
+#include "Common/UdpSocketBuilder.h"

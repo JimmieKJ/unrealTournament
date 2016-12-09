@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class IDetailCategoryBuilder;
+class IDetailLayoutBuilder;
+
 class FMeshComponentDetails : public IDetailCustomization
 {
 public:

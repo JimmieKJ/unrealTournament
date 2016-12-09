@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaAssetsPCH.h"
 #include "MediaTexture.h"
-#include "MediaTextureResource.h"
+#include "Misc/ScopeLock.h"
+#include "RenderUtils.h"
+#include "MediaAssetsPrivate.h"
+#include "Misc/MediaTextureResource.h"
 
 
 /* UMediaTexture structors
@@ -13,7 +15,8 @@ UMediaTexture::UMediaTexture(const FObjectInitializer& ObjectInitializer)
 	, AddressX(TA_Clamp)
 	, AddressY(TA_Clamp)
 	, ClearColor(FLinearColor::Black)
-	, SinkDimensions(FIntPoint(1, 1))
+	, SinkBufferDim(FIntPoint(1, 1))
+	, SinkOutputDim(FIntPoint(1, 1))
 	, SinkFormat(EMediaTextureSinkFormat::CharBGRA)
 	, SinkMode(EMediaTextureSinkMode::Unbuffered)
 {
@@ -21,20 +24,36 @@ UMediaTexture::UMediaTexture(const FObjectInitializer& ObjectInitializer)
 }
 
 
-/* FTickerObjectBase interface
+/* IMediaTextureSink interface
  *****************************************************************************/
 
-bool UMediaTexture::Tick(float DeltaTime)
+float UMediaTexture::GetAspectRatio() const
 {
-	// process deferred tasks
-	TFunction<void()> Task;
-
-	while (GameThreadTasks.Dequeue(Task))
+	if (Resource == nullptr)
 	{
-		Task();
+		return 0.0f;
 	}
 
-	return true;
+	const FIntPoint Dimensions = ((FMediaTextureResource*)Resource)->GetSizeXY();
+
+	if (Dimensions.Y == 0)
+	{
+		return 0.0f;
+	}
+
+	return Dimensions.X / Dimensions.Y;
+}
+
+
+int32 UMediaTexture::GetHeight() const
+{
+	return (Resource != nullptr) ? (int32)Resource->GetSizeY() : 0;
+}
+
+
+int32 UMediaTexture::GetWidth() const
+{
+	return (Resource != nullptr) ? (int32)Resource->GetSizeX() : 0;
 }
 
 
@@ -88,11 +107,12 @@ FRHITexture* UMediaTexture::GetTextureSinkTexture()
 }
 
 
-bool UMediaTexture::InitializeTextureSink(FIntPoint Dimensions, EMediaTextureSinkFormat Format, EMediaTextureSinkMode Mode)
+bool UMediaTexture::InitializeTextureSink(FIntPoint OutputDim, FIntPoint BufferDim, EMediaTextureSinkFormat Format, EMediaTextureSinkMode Mode)
 {
-	UE_LOG(LogMediaAssets, Verbose, TEXT("MediaTexture initializing sink with %i x %i pixels %s."), Dimensions.X, Dimensions.Y, (Mode == EMediaTextureSinkMode::Buffered) ? TEXT("Buffered") : TEXT("Unbuffered"));
+	UE_LOG(LogMediaAssets, Verbose, TEXT("MediaTexture initializing sink with %ix%i output and %ix%i buffer as %s."), OutputDim.X, OutputDim.Y, BufferDim.X, BufferDim.Y, (Mode == EMediaTextureSinkMode::Buffered) ? TEXT("Buffered") : TEXT("Unbuffered"));
 
-	SinkDimensions = Dimensions;
+	SinkBufferDim = BufferDim;
+	SinkOutputDim = OutputDim;
 	SinkFormat = Format;
 	SinkMode = Mode;
 
@@ -103,7 +123,7 @@ bool UMediaTexture::InitializeTextureSink(FIntPoint Dimensions, EMediaTextureSin
 		return false;
 	}
 
-	((FMediaTextureResource*)Resource)->InitializeBuffer(Dimensions, Format, Mode);
+	((FMediaTextureResource*)Resource)->InitializeBuffer(OutputDim, BufferDim, Format, Mode);
 
 	return true;
 }
@@ -122,15 +142,24 @@ void UMediaTexture::ReleaseTextureSinkBuffer()
 
 void UMediaTexture::ShutdownTextureSink()
 {
-	if (ClearColor.A != 0.0f)
-	{
-		SinkDimensions = FIntPoint(1, 1);
-		SinkFormat = EMediaTextureSinkFormat::CharBGRA;
-		SinkMode = EMediaTextureSinkMode::Unbuffered;
+	UE_LOG(LogMediaAssets, Verbose, TEXT("MediaTexture shutting down sink."));
 
-		GameThreadTasks.Enqueue([=]() {
-			UpdateResource();
-		});
+	if (ClearColor.A == 0.0f)
+	{
+		return;
+	}
+
+	// reset to 1x1 clear color
+	SinkBufferDim = FIntPoint(1, 1);
+	SinkOutputDim = FIntPoint(1, 1);
+	SinkFormat = EMediaTextureSinkFormat::CharBGRA;
+	SinkMode = EMediaTextureSinkMode::Unbuffered;
+
+	FScopeLock Lock(&CriticalSection);
+
+	if (Resource != nullptr)
+	{
+		((FMediaTextureResource*)Resource)->InitializeBuffer(SinkOutputDim, SinkBufferDim, SinkFormat, SinkMode);
 	}
 }
 
@@ -168,7 +197,7 @@ void UMediaTexture::UpdateTextureSinkResource(FRHITexture* RenderTarget, FRHITex
 
 FTextureResource* UMediaTexture::CreateResource()
 {
-	return new FMediaTextureResource(*this, ClearColor, SinkDimensions, SinkFormat, SinkMode);
+	return new FMediaTextureResource(*this, ClearColor, SinkOutputDim, SinkFormat, SinkMode);
 }
 
 
@@ -215,9 +244,14 @@ FString UMediaTexture::GetDesc()
 }
 
 
-SIZE_T UMediaTexture::GetResourceSize(EResourceSizeMode::Type Mode)
+void UMediaTexture::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	return (Resource != nullptr) ? ((FMediaTextureResource*)Resource)->GetResourceSize() : 0;
+	Super::GetResourceSizeEx(CumulativeResourceSize);
+
+	if (Resource)
+	{
+		((FMediaTextureResource*)Resource)->GetResourceSizeEx(CumulativeResourceSize);
+	}
 }
 
 

@@ -2,11 +2,13 @@
 
 #pragma once
 
-#include "AISenseConfig.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Perception/AISense.h"
+#include "Perception/AISenseConfig.h"
 #include "Perception/AISense_Team.h"
 #include "AISenseConfig_Team.generated.h"
-
-class UAISense_Team;
 
 UCLASS(meta = (DisplayName = "AI Team sense config"))
 class AIMODULE_API UAISenseConfig_Team : public UAISenseConfig

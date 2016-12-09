@@ -2,9 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Kismet2/CompilerResultsLog.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_Composite.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_MathExpression.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class INameValidatorInterface;
 
 /**
 * This node type acts like a collapsed node, a single node that represents

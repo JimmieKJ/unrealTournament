@@ -5,9 +5,12 @@
 
 #pragma once 
 
-#include "Runtime/Core/Public/Templates/UniquePtr.h"
-#include "Runtime/Core/Public/Async/TaskGraphInterfaces.h"
+#include "CoreMinimal.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "CollisionQueryParams.h"
+
+struct FOverlapDatum;
+struct FTraceDatum;
 
 /** Trace Data Structs that are used for Async Trace */
 

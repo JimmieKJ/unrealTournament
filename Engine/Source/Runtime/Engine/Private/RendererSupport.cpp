@@ -4,21 +4,38 @@
 	RendererSupport.cpp: Central place for various rendering functionality that exists in Engine
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "EditorSupportDelegates.h"
-#include "FXSystem.h"
-#include "RenderCore.h"
-#include "GlobalShader.h"
-#include "SlateBasics.h"
-#include "EngineModule.h"
-#include "RendererInterface.h"
-#include "HotReloadInterface.h"
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "EngineGlobals.h"
+#include "RenderingThread.h"
+#include "Containers/List.h"
+#include "Shader.h"
+#include "VertexFactory.h"
+#include "SceneTypes.h"
+#include "Templates/ScopedPointer.h"
+#include "Materials/MaterialInterface.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
+#include "UObject/UObjectIterator.h"
 #include "ComponentReregisterContext.h"
+#include "UnrealEngine.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorSupportDelegates.h"
+#include "RendererInterface.h"
+#include "FXSystem.h"
+#include "GlobalShader.h"
+#include "EngineModule.h"
+#include "Misc/HotReloadInterface.h"
+#include "ComponentReregisterContext.h"
+#include "UniquePtr.h"
 
 /** Clears and optionally backs up all references to renderer module classes in other modules, particularly engine. */
 static void ClearReferencesToRendererModuleClasses(
 	TMap<UWorld*, bool>& WorldsToUpdate, 
-	TMap<FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData,
+	TMap<FMaterialShaderMap*, TUniquePtr<TArray<uint8> > >& ShaderMapToSerializedShaderData,
 	FGlobalShaderBackupData& GlobalShaderBackup,
 	TMap<FShaderType*, FString>& ShaderTypeNames,
 	TMap<const FShaderPipelineType*, FString>& ShaderPipelineTypeNames,
@@ -122,9 +139,9 @@ void RecompileRendererModule()
 }
 
 /** Restores systems that need references to classes in the renderer module. */
-void RestoreReferencesToRendererModuleClasses(
+static void RestoreReferencesToRendererModuleClasses(
 	const TMap<UWorld*, bool>& WorldsToUpdate, 
-	const TMap<FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData,
+	const TMap<FMaterialShaderMap*, TUniquePtr<TArray<uint8> > >& ShaderMapToSerializedShaderData,
 	const FGlobalShaderBackupData& GlobalShaderBackup,
 	const TMap<FShaderType*, FString>& ShaderTypeNames,
 	const TMap<const FShaderPipelineType*, FString>& ShaderPipelineTypeNames,
@@ -207,7 +224,7 @@ void RecompileRenderer(const TArray<FString>& Args)
 		SCOPED_SUSPEND_RENDERING_THREAD(true);
 
 		TMap<UWorld*, bool> WorldsToUpdate;
-		TMap<FMaterialShaderMap*, TScopedPointer<TArray<uint8> > > ShaderMapToSerializedShaderData;
+		TMap<FMaterialShaderMap*, TUniquePtr<TArray<uint8> > > ShaderMapToSerializedShaderData;
 		FGlobalShaderBackupData GlobalShaderBackup;
 		TMap<FShaderType*, FString> ShaderTypeNames;
 		TMap<const FShaderPipelineType*, FString> ShaderPipelineTypeNames;

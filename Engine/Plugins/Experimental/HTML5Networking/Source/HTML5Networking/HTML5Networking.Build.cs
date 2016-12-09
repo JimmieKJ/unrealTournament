@@ -11,8 +11,11 @@ namespace UnrealBuildTool.Rules
                     "Core", 
                     "CoreUObject",
                     "Engine",
+					"EngineSettings",
                     "ImageCore",
                     "Sockets",
+					"PacketHandler",
+                    "OpenSSL",
                     "libWebSockets",
                     "zlib"
                 }

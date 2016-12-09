@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformOutputDevices.h"
 
+class FOutputDevice;
+class FOutputDeviceConsole;
+class FOutputDeviceError;
+class FFeedbackContext;
 
 struct CORE_API FWindowsPlatformOutputDevices
 	: public FGenericPlatformOutputDevices

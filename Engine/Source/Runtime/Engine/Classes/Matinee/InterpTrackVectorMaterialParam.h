@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrackVectorBase.h"
 #include "InterpTrackVectorMaterialParam.generated.h"
+
+class UInterpTrackInst;
+struct FPropertyChangedEvent;
 
 UCLASS(MinimalAPI, meta=( DisplayName = "Vector Material Parameter Track" ))
 class UInterpTrackVectorMaterialParam : public UInterpTrackVectorBase

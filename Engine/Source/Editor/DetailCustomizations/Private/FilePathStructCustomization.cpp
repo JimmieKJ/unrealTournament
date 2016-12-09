@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "FilePathStructCustomization.h"
-#include "SFilePathPicker.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "Misc/PackageName.h"
+#include "PropertyHandle.h"
+#include "Misc/MessageDialog.h"
+#include "EditorDirectories.h"
+#include "DetailWidgetRow.h"
+#include "Widgets/Input/SFilePathPicker.h"
 
 
 #define LOCTEXT_NAMESPACE "FilePathStructCustomization"

@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Perception/AIPerceptionTypes.h"
+#include "Perception/AIPerceptionComponent.h"
 
 template<>
 FAISenseCounter FAINamedID<FAISenseCounter>::Counter = FAISenseCounter();

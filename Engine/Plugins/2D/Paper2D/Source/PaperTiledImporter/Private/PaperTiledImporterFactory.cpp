@@ -1,13 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PaperTiledImporterPrivatePCH.h"
-#include "Json.h"
+#include "PaperTiledImporterFactory.h"
+#include "PaperTiledImporterLog.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Editor.h"
 #include "TileMapAssetImportData.h"
 #include "PaperJSONHelpers.h"
+#include "IAssetTools.h"
 #include "AssetToolsModule.h"
 #include "AssetRegistryModule.h"
 #include "PaperImporterSettings.h"
 #include "PackageTools.h"
+#include "IntMargin.h"
+#include "PaperTileSet.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 #define TILED_IMPORT_ERROR(FormatString, ...) \

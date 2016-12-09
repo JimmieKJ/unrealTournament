@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BTNode.h"
+#include "Engine/World.h"
+#include "AIController.h"
 #include "BehaviorTree/BTCompositeNode.h"
+#include "BehaviorTree/BehaviorTree.h"
 #include "GameplayTasksComponent.h"
 
 //----------------------------------------------------------------------//
@@ -291,68 +292,3 @@ UBehaviorTreeComponent* UBTNode::GetBTComponentForTask(UGameplayTask& Task) cons
 //----------------------------------------------------------------------//
 // DEPRECATED
 //----------------------------------------------------------------------//
-void UBTNode::InitializeMemory(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, EBTMemoryInit::Type InitType) const
-{
-	if (OwnerComp)
-	{
-		InitializeMemory(*OwnerComp, NodeMemory, InitType);
-	}
-}
-void UBTNode::CleanupMemory(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, EBTMemoryClear::Type CleanupType) const
-{
-	if (OwnerComp)
-	{
-		CleanupMemory(*OwnerComp, NodeMemory, CleanupType);
-	}
-}
-void UBTNode::DescribeRuntimeValues(const UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity, TArray<FString>& Values) const
-{
-	if (OwnerComp)
-	{
-		DescribeRuntimeValues(*OwnerComp, NodeMemory, Verbosity, Values);
-	}
-}
-void UBTNode::OnInstanceCreated(UBehaviorTreeComponent* OwnerComp)
-{
-	if (OwnerComp)
-	{
-		OnInstanceCreated(*OwnerComp);
-	}
-}
-void UBTNode::OnInstanceDestroyed(UBehaviorTreeComponent* OwnerComp)
-{
-	if (OwnerComp)
-	{
-		OnInstanceDestroyed(*OwnerComp);
-	}
-}
-void UBTNode::InitializeInSubtree(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, int32& NextInstancedIndex, EBTMemoryInit::Type InitType) const
-{
-	if (OwnerComp)
-	{
-		InitializeInSubtree(*OwnerComp, NodeMemory, NextInstancedIndex, InitType);
-	}
-}
-void UBTNode::CleanupInSubtree(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, EBTMemoryClear::Type CleanupType) const
-{
-	if (OwnerComp)
-	{
-		CleanupInSubtree(*OwnerComp, NodeMemory, CleanupType);
-	}
-}
-UBTNode* UBTNode::GetNodeInstance(const UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory) const
-{
-	if (OwnerComp)
-	{
-		return GetNodeInstance(*OwnerComp, NodeMemory);
-	}
-	return nullptr;
-}
-FString UBTNode::GetRuntimeDescription(const UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity) const
-{
-	if (OwnerComp)
-	{
-		return GetRuntimeDescription(*OwnerComp, NodeMemory, Verbosity);
-	}
-	return TEXT("");
-}

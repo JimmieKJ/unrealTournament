@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Framework/Text/SlateImageRun.h"
+#include "Styling/StyleDefaults.h"
+#include "Rendering/DrawElements.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Text/DefaultLayoutBlock.h"
 
 #if WITH_FANCY_TEXT
 
-#include "SlateImageRun.h"
-#include "RunUtils.h"
+#include "Framework/Text/RunUtils.h"
 
 TSharedRef< FSlateImageRun > FSlateImageRun::Create( const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FSlateBrush* InImage, int16 InBaseline )
 {

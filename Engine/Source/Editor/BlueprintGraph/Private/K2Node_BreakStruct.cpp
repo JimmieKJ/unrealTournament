@@ -1,13 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_BreakStruct.h"
+#include "Engine/UserDefinedStruct.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "EdGraphUtilities.h"
+#include "KismetCompilerMisc.h"
 #include "KismetCompiler.h"
+#include "BlueprintNodeBinder.h"
+#include "BlueprintActionFilter.h"
 #include "BlueprintFieldNodeSpawner.h"
 #include "EditorCategoryUtils.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "BlueprintActionFilter.h"	// for FBlueprintActionContext
-#include "Editor/PropertyEditor/Public/PropertyCustomizationHelpers.h"
+#include "PropertyCustomizationHelpers.h"
 #include "BlueprintEditorSettings.h"
+#include "Kismet/KismetMathLibrary.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_BreakStruct"
 
@@ -424,6 +431,75 @@ void UK2Node_BreakStruct::Serialize(FArchive& Ar)
 		if (Blueprint && !Blueprint->bBeingCompiled)
 		{
 			bMadeAfterOverridePinRemoval = true;
+		}
+	}
+}
+
+void UK2Node_BreakStruct::ConvertDeprecatedNode(UEdGraph* Graph, bool bOnlySafeChanges)
+{
+	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
+
+	// User may have since deleted the struct type
+	if (StructType == nullptr)
+	{
+		return;
+	}
+
+	// Check to see if the struct has a native make/break that we should try to convert to.
+	if (StructType->HasMetaData(FBlueprintMetadata::MD_NativeBreakFunction))
+	{
+		UFunction* BreakNodeFunction = nullptr;
+
+		// If any pins need to change their names during the conversion, add them to the map.
+		TMap<FString, FString> OldPinToNewPinMap;
+
+		if (StructType == TBaseStructure<FRotator>::Get())
+		{
+			BreakNodeFunction = UKismetMathLibrary::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UKismetMathLibrary, BreakRotator));
+			OldPinToNewPinMap.Add(TEXT("Rotator"), TEXT("InRot"));
+		}
+		else if (StructType == TBaseStructure<FVector>::Get())
+		{
+			BreakNodeFunction = UKismetMathLibrary::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UKismetMathLibrary, BreakVector));
+			OldPinToNewPinMap.Add(TEXT("Vector"), TEXT("InVec"));
+		}
+		else if (StructType == TBaseStructure<FVector2D>::Get())
+		{
+			BreakNodeFunction = UKismetMathLibrary::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UKismetMathLibrary, BreakVector2D));
+			OldPinToNewPinMap.Add(TEXT("Vector2D"), TEXT("InVec"));
+		}
+		else
+		{
+			const FString& MetaData = StructType->GetMetaData(FBlueprintMetadata::MD_NativeBreakFunction);
+			BreakNodeFunction = FindObject<UFunction>(nullptr, *MetaData, true);
+			if (BreakNodeFunction)
+			{
+				// Look for the first parameter
+				for (TFieldIterator<UProperty> FieldIterator(BreakNodeFunction); FieldIterator && (FieldIterator->PropertyFlags & CPF_Parm); ++FieldIterator)
+				{
+					if (FieldIterator->PropertyFlags & CPF_Parm && !(FieldIterator->PropertyFlags & CPF_ReturnParm))
+					{
+						OldPinToNewPinMap.Add(*StructType->GetName(), *FieldIterator->GetName());
+						break;
+					}
+				}
+
+				// If map is empty, didn't find parameter
+				if (OldPinToNewPinMap.Num() == 0)
+				{
+					const UBlueprint* Blueprint = GetBlueprint();
+					UE_LOG(LogBlueprint, Warning, TEXT("BackwardCompatibilityNodeConversion Error 'cannot find input pin for break node function %s in blueprint: %s"),
+						*BreakNodeFunction->GetName(),
+						Blueprint ? *Blueprint->GetName() : TEXT("Unknown"));
+
+					BreakNodeFunction = nullptr;
+				}
+			}
+		}
+
+		if (BreakNodeFunction)
+		{
+			Schema->ConvertDeprecatedNodeToFunctionCall(this, BreakNodeFunction, OldPinToNewPinMap, Graph);
 		}
 	}
 }

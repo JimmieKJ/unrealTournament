@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "Runtime/Engine/Classes/Particles/ParticleSystem.h"
-#include "ParticleDefinitions.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Commandlets/Commandlet.h"
 #include "ParticleSystemAuditCommandlet.generated.h"
 
 UCLASS(config=Editor)

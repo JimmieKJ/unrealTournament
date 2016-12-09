@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AI/Navigation/NavigationTypes.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "AI/Navigation/NavigationData.h"
 #include "NavigationPath.generated.h"
 
+class APlayerController;
+class UCanvas;
 class UNavigationPath;
-struct FNavigationPath;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnNavigationPathUpdated, UNavigationPath*, AffectedPath, TEnumAsByte<ENavPathEvent::Type>, PathEvent);
 

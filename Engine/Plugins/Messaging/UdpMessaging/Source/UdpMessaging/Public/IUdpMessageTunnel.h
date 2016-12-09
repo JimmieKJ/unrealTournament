@@ -2,11 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
-// forward declarations
-struct FIPv4Endpoint;
 class IUdpMessageTunnelConnection;
-
+struct FIPv4Endpoint;
 
 /**
  * Interface for message tunnels.
@@ -86,10 +85,3 @@ public:
 	/** Virtual destructor. */
 	virtual ~IUdpMessageTunnel() { }
 };
-
-
-/** Type definition for shared pointers to instances of IUdpMessageTunnel. */
-typedef TSharedPtr<IUdpMessageTunnel> IUdpMessageTunnelPtr;
-
-/** Type definition for shared references to instances of IUdpMessageTunnel. */
-typedef TSharedRef<IUdpMessageTunnel> IUdpMessageTunnelRef;

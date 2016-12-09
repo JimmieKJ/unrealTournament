@@ -15,7 +15,7 @@ if [ ! $MONO_VERSION_PATH == "" ] && [ -f $MONO_VERSION_PATH ]; then
 	if [ ${MONO_VERSION[0]} -ge 4 ]; then
 		if [ ${MONO_VERSION[1]} -eq 0 ] && [ ${MONO_VERSION[2]} -ge 2 ]; then
 			IS_MONO_INSTALLED=1
-		elif [ ${MONO_VERSION[1]} -gt 0 ]; then
+		elif [ ${MONO_VERSION[1]} -gt 0 ] && [ ${MONO_VERSION[1]} -lt 6 ]; then # Mono 4.6 has issues on macOS 10.12
 			IS_MONO_INSTALLED=1
 		fi
 	fi

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/Plane.h"
+#include "Math/Matrix.h"
 
 /**
  * Realigns the near plane for an existing projection matrix 

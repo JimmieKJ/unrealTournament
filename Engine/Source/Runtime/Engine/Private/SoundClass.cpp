@@ -1,26 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
-#include "SoundDefinitions.h"
-#if WITH_EDITOR
-#include "UnrealEd.h"
-#endif
-#if WITH_EDITOR
-#include "SlateBasics.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#endif
+#include "Sound/SoundClass.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Audio.h"
+#include "Styling/CoreStyle.h"
+#include "AudioDeviceManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 #include "Sound/SoundMix.h"
+#if WITH_EDITOR
+#include "SoundClassGraph/SoundClassGraph.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#endif
 
 /*-----------------------------------------------------------------------------
 	USoundClass implementation.
 -----------------------------------------------------------------------------*/
 
+#if WITH_EDITOR
+TSharedPtr<ISoundClassAudioEditor> USoundClass::SoundClassAudioEditor = nullptr;
+#endif
+
 USoundClass::USoundClass(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 #if WITH_EDITORONLY_DATA
-	, SoundClassGraph(NULL)
+	, SoundClassGraph(nullptr)
 #endif
 {
 }
@@ -142,6 +149,15 @@ void USoundClass::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyC
 		}
 	}
 
+	// Use the main/default audio device for storing and retrieving sound class properties
+	FAudioDeviceManager* AudioDeviceManager = (GEngine ? GEngine->GetAudioDeviceManager() : nullptr);
+
+	// Force the properties to be initialized for this SoundClass on all active audio devices
+	if (AudioDeviceManager)
+	{
+		AudioDeviceManager->RegisterSoundClass(this);
+	}
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif
@@ -243,6 +259,8 @@ void USoundClass::AddReferencedObjects(UObject* InThis, FReferenceCollector& Col
 
 void USoundClass::RefreshAllGraphs(bool bIgnoreThis)
 {
+	if (SoundClassAudioEditor.IsValid())
+	{
 	// Update the graph representation of every SoundClass
 	for (TObjectIterator<USoundClass> It; It; ++It)
 	{
@@ -251,9 +269,23 @@ void USoundClass::RefreshAllGraphs(bool bIgnoreThis)
 		{
 			if (SoundClass->SoundClassGraph)
 			{
-				SoundClass->SoundClassGraph->RefreshGraphLinks();
+					SoundClassAudioEditor->RefreshGraphLinks(SoundClass->SoundClassGraph);
+				}
 			}
 		}
 	}
 }
+
+void USoundClass::SetSoundClassAudioEditor(TSharedPtr<ISoundClassAudioEditor> InSoundClassAudioEditor)
+{
+	check(!SoundClassAudioEditor.IsValid());
+	SoundClassAudioEditor = InSoundClassAudioEditor;
+}
+
+TSharedPtr<ISoundClassAudioEditor> USoundClass::GetSoundClassAudioEditor()
+{
+	return SoundClassAudioEditor;
+}
+
+
 #endif

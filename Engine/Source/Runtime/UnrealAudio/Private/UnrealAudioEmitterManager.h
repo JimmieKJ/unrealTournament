@@ -2,11 +2,9 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
 #include "UnrealAudioTypes.h"
-#include "UnrealAudioEmitter.h"
-#include "UnrealAudioEntityManager.h"
 #include "UnrealAudioEmitterInternal.h"
-#include "UnrealAudioUtilities.h"
 
 #if ENABLE_UNREAL_AUDIO
 
@@ -26,9 +24,9 @@ namespace UAudio
 		/* Main Thread Functions												*/
 		/************************************************************************/
 
-		FEmitterHandle FEmitterManager::CreateEmitter();
-		ESystemError::Type FEmitterManager::ReleaseEmitter(const FEmitterHandle& EmitterHandle);
-		ESystemError::Type FEmitterManager::SetEmitterPosition(const FEmitterHandle& EmitterHandle, const FVector& Position);
+		FEmitterHandle CreateEmitter();
+		ESystemError::Type ReleaseEmitter(const FEmitterHandle& EmitterHandle);
+		ESystemError::Type SetEmitterPosition(const FEmitterHandle& EmitterHandle, const FVector& Position);
 		bool IsValid(const FEmitterHandle& EmitterHandle) const;
 
 		/************************************************************************/

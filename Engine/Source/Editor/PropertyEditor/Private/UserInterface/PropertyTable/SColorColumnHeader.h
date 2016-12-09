@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SColumnHeader.h"
-#include "ColorPropertyTableCellPresenter.h"
-#include "IPropertyTableUtilities.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
+#include "UserInterface/PropertyTable/SColumnHeader.h"
+#include "IPropertyTableCell.h"
+#include "UserInterface/PropertyTable/SPropertyTableCell.h"
+#include "UserInterface/PropertyTable/ColorPropertyTableCellPresenter.h"
 
 class SColorColumnHeader : public SColumnHeader
 {

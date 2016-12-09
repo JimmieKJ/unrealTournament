@@ -1,11 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnvironmentQueryEditorPrivatePCH.h"
 #include "EdGraphSchema_EnvironmentQuery.h"
-#include "Toolkits/ToolkitManager.h"
+#include "Modules/ModuleManager.h"
+#include "EdGraph/EdGraph.h"
+#include "EnvironmentQuery/EnvQuery.h"
 #include "EnvironmentQuery/EnvQueryGenerator.h"
-#include "EnvironmentQuery/Generators/EnvQueryGenerator_Composite.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
+#include "EnvironmentQueryGraphNode.h"
+#include "EnvironmentQueryGraphNode_Option.h"
+#include "EnvironmentQueryGraphNode_Root.h"
+#include "EnvironmentQueryGraphNode_Test.h"
+#include "EnvironmentQueryEditorModule.h"
+#include "IEnvironmentQueryEditor.h"
+#include "Toolkits/ToolkitManager.h"
 
 #define LOCTEXT_NAMESPACE "EnvironmentQueryEditor"
 

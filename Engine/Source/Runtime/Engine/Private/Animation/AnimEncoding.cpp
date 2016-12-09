@@ -4,11 +4,10 @@
 	AnimEncoding.cpp: Skeletal mesh animation functions.
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "SoundDefinitions.h"
-#include "AnimationCompression.h"
 #include "AnimEncoding.h"
-#include "AnimationUtils.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "AnimationCompression.h"
 
 // known codecs
 #include "AnimEncoding_ConstantKeyLerp.h"

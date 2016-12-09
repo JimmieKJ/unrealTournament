@@ -6,11 +6,31 @@
 
 #pragma once
 
-#include "Ticker.h"
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Delegates/IDelegateInstance.h"
+#include "Containers/Map.h"
+#include "Delegates/Delegate.h"
+#include "Containers/Ticker.h"
+#include "Misc/ScopeLock.h"
 
 #if WITH_ENGINE
+#include "Internationalization/Text.h"
 #include "StaticMeshResources.h"
 #endif // WITH_ENGINE
+
+class FTargetDeviceId;
+class IAndroidDeviceDetection;
+class ITargetPlatform;
+class UTextureLODSettings;
+enum class ETargetPlatformFeatures;
+template<typename TPlatformProperties> class TTargetPlatformBase;
+
+template< typename InElementType, typename KeyFuncs , typename Allocator > class TSet;
+template<typename KeyType,typename ValueType,typename SetAllocator ,typename KeyFuncs > class TMap;
+template<typename KeyType,typename ValueType,typename SetAllocator ,typename KeyFuncs > class TMultiMap;
+template<typename TPlatformProperties> class TTargetPlatformBase;
 
 /**
  * Defines supported texture format names.
@@ -160,7 +180,7 @@ public:
 	{
 		OutSection = TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings");
 		InBoolKeys.Add(TEXT("bBuildForArmV7")); InBoolKeys.Add(TEXT("bBuildForArm64")); InBoolKeys.Add(TEXT("bBuildForX86"));
-		InBoolKeys.Add(TEXT("bBuildForX8664")); InBoolKeys.Add(TEXT("bBuildForES2")); InBoolKeys.Add(TEXT("bBuildForESDeferred")); InBoolKeys.Add(TEXT("bSupportsVulkan"));
+		InBoolKeys.Add(TEXT("bBuildForX8664")); InBoolKeys.Add(TEXT("bBuildForES2")); InBoolKeys.Add(TEXT("bBuildForESDeferred"));
 		InBoolKeys.Add(TEXT("bBuildForES31"));
 	}
 

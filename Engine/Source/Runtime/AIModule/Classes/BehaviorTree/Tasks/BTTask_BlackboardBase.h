@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "BehaviorTree/BTTaskNode.h"
 #include "BTTask_BlackboardBase.generated.h"
 

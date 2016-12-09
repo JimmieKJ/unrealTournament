@@ -4,10 +4,9 @@
 	ParticleBeamTrailVertexFactory.cpp: Particle vertex factory implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "ParticleDefinitions.h"
-#include "ShaderParameterUtils.h"
 #include "ParticleBeamTrailVertexFactory.h"
+#include "ParticleHelper.h"
+#include "ShaderParameterUtils.h"
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleBeamTrailUniformParameters,TEXT("BeamTrailVF"));
 

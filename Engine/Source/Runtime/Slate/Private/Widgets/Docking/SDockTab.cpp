@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SDockTab.h"
-#include "DockingPrivate.h"
-#include "TabCommands.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/SToolTip.h"
+#include "Framework/Docking/SDockingTabStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Input/SButton.h"
+#include "Framework/Docking/SDockingTabWell.h"
+#include "Framework/Docking/TabCommands.h"
 
 namespace SDockTabDefs
 {

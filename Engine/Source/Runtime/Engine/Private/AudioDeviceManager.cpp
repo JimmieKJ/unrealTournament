@@ -1,10 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Audio.h"
-#include "AudioDevice.h"
 #include "AudioDeviceManager.h"
-#include "AudioThread.h"
+#include "AudioDevice.h"
 #include "Sound/SoundWave.h"
 #include "Sound/AudioSettings.h"
 #include "GameFramework/GameUserSettings.h"
@@ -17,9 +14,6 @@ static const uint32 AUDIO_DEVICE_HANDLE_GENERATION_MASK = (1 << AUDIO_DEVICE_HAN
 
 static const uint16 AUDIO_DEVICE_MINIMUM_FREE_AUDIO_DEVICE_INDICES = 32;
 
-// Invalid handle used for initializing audio device handles
-static const uint32 AUDIO_DEVICE_HANDLE_INVALID			= ~0u;
-
 // The number of multiple audio devices allowed by default
 static const uint32 AUDIO_DEVICE_DEFAULT_ALLOWED_DEVICE_COUNT = 2;
 
@@ -27,7 +21,7 @@ static const uint32 AUDIO_DEVICE_DEFAULT_ALLOWED_DEVICE_COUNT = 2;
 static const uint32 AUDIO_DEVICE_MAX_DEVICE_COUNT = 8;
 
 FAudioDeviceManager::FCreateAudioDeviceResults::FCreateAudioDeviceResults()
-	: Handle(AUDIO_DEVICE_HANDLE_INVALID)
+	: Handle(INDEX_NONE)
 	, bNewDevice(false)
 	, AudioDevice(nullptr)
 {
@@ -107,7 +101,7 @@ bool FAudioDeviceManager::CreateAudioDevice(bool bCreateNewDevice, FCreateAudioD
 		// Now generation a new audio device handle for the device and store the
 		// ptr to the new device in the array of audio devices.
 
-		uint32 AudioDeviceIndex(AUDIO_DEVICE_HANDLE_INVALID);
+		uint32 AudioDeviceIndex(INDEX_NONE);
 
 		// First check to see if we should start recycling audio device indices, if not
 		// then we add a new entry to the Generation array and generate a new index
@@ -161,7 +155,7 @@ bool FAudioDeviceManager::CreateAudioDevice(bool bCreateNewDevice, FCreateAudioD
 
 bool FAudioDeviceManager::IsValidAudioDeviceHandle(uint32 Handle) const
 {
-	if (AudioDeviceModule == nullptr || Handle == AUDIO_DEVICE_HANDLE_INVALID)
+	if (AudioDeviceModule == nullptr || Handle == INDEX_NONE)
 	{
 		return false;
 	}
@@ -254,7 +248,7 @@ bool FAudioDeviceManager::ShutdownAllAudioDevices()
 	return true;
 }
 
-class FAudioDevice* FAudioDeviceManager::GetAudioDevice(uint32 Handle)
+FAudioDevice* FAudioDeviceManager::GetAudioDevice(uint32 Handle)
 {
 	if (!IsValidAudioDeviceHandle(Handle))
 	{
@@ -268,7 +262,7 @@ class FAudioDevice* FAudioDeviceManager::GetAudioDevice(uint32 Handle)
 	return AudioDevice;
 }
 
-class FAudioDevice* FAudioDeviceManager::GetActiveAudioDevice()
+FAudioDevice* FAudioDeviceManager::GetActiveAudioDevice()
 {
 	if (ActiveAudioDeviceHandle != INDEX_NONE)
 	{
@@ -304,7 +298,7 @@ void FAudioDeviceManager::AddReferencedObjects(FReferenceCollector& Collector)
 	}
 }
 
-void FAudioDeviceManager::StopSoundsUsingResource(class USoundWave* InSoundWave, TArray<UAudioComponent*>* StoppedComponents)
+void FAudioDeviceManager::StopSoundsUsingResource(USoundWave* InSoundWave, TArray<UAudioComponent*>* StoppedComponents)
 {
 	for (FAudioDevice* AudioDevice : Devices)
 	{
@@ -344,6 +338,50 @@ void FAudioDeviceManager::InitSoundClasses()
 		if (AudioDevice)
 		{
 			AudioDevice->InitSoundClasses();
+		}
+	}
+}
+
+void FAudioDeviceManager::RegisterSoundSubmix(USoundSubmix* SoundSubmix)
+{
+	for (FAudioDevice* AudioDevice : Devices)
+	{
+		if (AudioDevice)
+		{
+			AudioDevice->RegisterSoundSubmix(SoundSubmix);
+		}
+	}
+}
+
+void FAudioDeviceManager::UnregisterSoundSubmix(USoundSubmix* SoundSubmix)
+{
+	for (FAudioDevice* AudioDevice : Devices)
+	{
+		if (AudioDevice)
+		{
+			AudioDevice->UnregisterSoundSubmix(SoundSubmix);
+		}
+	}
+}
+
+void FAudioDeviceManager::InitSoundSubmixes()
+{
+	for (FAudioDevice* AudioDevice : Devices)
+	{
+		if (AudioDevice)
+		{
+			AudioDevice->InitSoundSubmixes();
+		}
+	}
+}
+
+void FAudioDeviceManager::InitSoundEffectPresets()
+{
+	for (FAudioDevice* AudioDevice : Devices)
+	{
+		if (AudioDevice)
+		{
+			AudioDevice->InitSoundEffectPresets();
 		}
 	}
 }
@@ -545,6 +583,30 @@ void FAudioDeviceManager::ToggleVisualize3dDebug()
 	bVisualize3dDebug = !bVisualize3dDebug;
 }
 
+void FAudioDeviceManager::ToggleDebugStat(const uint8 StatBitMask)
+{
+#if !UE_BUILD_SHIPPING
+	if (!IsInAudioThread())
+	{
+		FAudioDeviceManager* AudioDeviceManager = this;
+		FAudioThread::RunCommandOnAudioThread([AudioDeviceManager, StatBitMask]()
+		{
+			AudioDeviceManager->ToggleDebugStat(StatBitMask);
+		});
+
+		return;
+	}
+
+	for (FAudioDevice* AudioDevice : Devices)
+	{
+		if (AudioDevice)
+		{
+			AudioDevice->UpdateRequestedStat(StatBitMask);
+		}
+	}
+#endif
+}
+
 void FAudioDeviceManager::SetDebugSoloSoundClass(const TCHAR* SoundClassName)
 {
 	if (!IsInAudioThread())
@@ -607,6 +669,16 @@ void FAudioDeviceManager::SetDebugSoloSoundCue(const TCHAR* SoundCue)
 const FString& FAudioDeviceManager::GetDebugSoloSoundCue() const
 {
 	return DebugNames.DebugSoloSoundCue;
+}
+
+void FAudioDeviceManager::SetAudioMixerDebugSound(const TCHAR* SoundName)
+{
+	DebugNames.DebugAudioMixerSoundName = SoundName;
+}
+
+const FString& FAudioDeviceManager::GetAudioMixerDebugSoundName() const
+{
+	return DebugNames.DebugAudioMixerSoundName;
 }
 
 

@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SSceneImportNodeTreeView.h"
-#include "SSceneImportStaticMeshListView.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "Fbx/SSceneImportNodeTreeView.h"
+#include "Fbx/SSceneBaseMeshListView.h"
 
 struct FTreeNodeValue
 {

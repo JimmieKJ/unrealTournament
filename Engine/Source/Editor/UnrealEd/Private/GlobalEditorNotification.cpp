@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "GlobalEditorNotification.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Layout/Visibility.h"
+#include "UnrealClient.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 TSharedPtr<SNotificationItem> FGlobalEditorNotification::BeginNotification()
 {

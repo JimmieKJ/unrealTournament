@@ -2,9 +2,17 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Textures/SlateIcon.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_Event.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_CustomEvent.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class INameValidatorInterface;
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UK2Node_CustomEvent : public UK2Node_Event
@@ -32,6 +40,7 @@ class UK2Node_CustomEvent : public UK2Node_Event
 	virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
 	virtual void AutowireNewNode(UEdGraphPin* FromPin) override;
 	virtual void AddSearchMetaDataInfo(TArray<struct FSearchTagDataPair>& OutTaggedMetaData) const override;
+	virtual FText GetKeywords() const override;
 	//~ End UEdGraphNode Interface
 
 	//~ Begin UK2Node Interface

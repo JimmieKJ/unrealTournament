@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformProcess.h"
+
+#include "WindowsHWrapper.h"
+#include "AllowWindowsPlatformTypes.h"
+#include <TlHelp32.h>
 
 /**
  * Template for local PC target devices.
@@ -123,7 +131,7 @@ public:
 
 						if (::OpenProcessToken(ProcessHandle, TOKEN_QUERY, &TokenHandle))
 						{
-							::DWORD UserTokenSize;
+							DWORD UserTokenSize;
 
 							::GetTokenInformation(TokenHandle, TokenUser, NULL, 0, &UserTokenSize);
 
@@ -136,10 +144,10 @@ public:
 									if (::GetTokenInformation(TokenHandle, TokenUser, UserToken, UserTokenSize, &UserTokenSize))
 									{
 										WCHAR DomainName[256];
-										::DWORD DomainNameLength = 256;
+										DWORD DomainNameLength = 256;
 
 										WCHAR UserName[256];
-										::DWORD UserNameLength = 256;
+										DWORD UserNameLength = 256;
 
 										SID_NAME_USE SidType;
 
@@ -155,7 +163,7 @@ public:
 								}
 								else
 								{
-									::DWORD LastError = ::GetLastError();
+									DWORD LastError = ::GetLastError();
 								}
 							}
 
@@ -342,7 +350,7 @@ public:
 		return false;
 	}
 
-	virtual bool TerminateProcess( const int32 ProcessId ) override
+	virtual bool TerminateProcess( const int64 ProcessId ) override
 	{
 		HANDLE ProcessHandle = OpenProcess(PROCESS_TERMINATE, false, ProcessId);
 
@@ -398,3 +406,6 @@ private:
 	// Holds a reference to the device's target platform.
 	const ITargetPlatform& TargetPlatform;
 };
+
+#include "HideWindowsPlatformTypes.h"
+#undef PROCESSENTRY32

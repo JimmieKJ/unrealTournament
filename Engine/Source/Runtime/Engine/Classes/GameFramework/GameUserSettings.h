@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
+#include "GenericPlatform/GenericWindow.h"
 #include "Scalability.h"
 #include "GameUserSettings.generated.h"
 
@@ -309,13 +314,6 @@ protected:
 	UPROPERTY(config)
 	int32 WindowPosY;
 
-	/** 
-	 * Whether or not to use the desktop resolution.  
-	 * This value only applies if ResolutionX and ResolutionY have not been set yet and only on desktop platforms
-	 */
-	UPROPERTY(config)
-	bool bUseDesktopResolutionForFullscreen;
-
 	/**
 	 * Game window fullscreen mode
 	 *	0 = Fullscreen
@@ -432,12 +430,13 @@ protected:
 
 	/** Returns the effective frame rate limit (by default it returns the FrameRateLimit member) */
 	virtual float GetEffectiveFrameRateLimit();
+
+	void UpdateResolutionQuality();
+
 private:
 
 	UPROPERTY(BlueprintAssignable, meta = (AllowPrivateAccess = "true"))
 	FOnGameUserSettingsUINeedsUpdate OnGameUserSettingsUINeedsUpdate;
-
-	void UpdateResolutionQuality();
 
 	void SetPreferredFullscreenMode(int32 Mode);
 };

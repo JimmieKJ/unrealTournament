@@ -2,9 +2,8 @@
 
 #pragma once
 
-#include "AlembicLibraryPublicPCH.h"
-
-#include "PropertyEditing.h"
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
 #include "PropertyCustomizationHelpers.h"
 
 class UAbcImportSettings;
@@ -67,5 +66,27 @@ public:
 
 protected:
 	EVisibility ArePropertiesVisible(const int32 VisibleType) const;
+	UAbcImportSettings* Settings;
+};
+
+class FAbcConversionSettingsCustomization
+	: public IPropertyTypeCustomization
+{
+public:
+	static TSharedRef<IPropertyTypeCustomization> MakeInstance();
+
+	FAbcConversionSettingsCustomization()
+	{ }
+
+	virtual ~FAbcConversionSettingsCustomization() {}
+
+	/** Begin IPropertyTypeCustomization interface */
+	virtual void CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils) override {}
+	virtual void CustomizeChildren(TSharedRef<IPropertyHandle> StructPropertyHandle, IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils) override;
+	/** End IPropertyTypeCustomization interface */
+
+protected:
+	void OnConversionPresetChanged();
+	void OnConversionValueChanged();
 	UAbcImportSettings* Settings;
 };

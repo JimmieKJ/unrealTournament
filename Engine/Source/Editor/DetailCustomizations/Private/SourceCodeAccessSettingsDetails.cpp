@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "SourceCodeAccessSettingsDetails.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SComboBox.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "ISourceCodeAccessor.h"
 #include "ISourceCodeAccessModule.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "Features/IModularFeatures.h"
 
 #define LOCTEXT_NAMESPACE "SourceCodeAccessSettingsDetails"
 

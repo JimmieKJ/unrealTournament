@@ -1,6 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PrivatePCH.h"
+#include "MessageRpcClient.h"
+#include "Containers/ArrayBuilder.h"
+#include "Helpers/MessageEndpoint.h"
+#include "Containers/Ticker.h"
+#include "Helpers/MessageEndpointBuilder.h"
+#include "RpcMessage.h"
+#include "MessageRpcDefines.h"
+#include "MessageRpcMessages.h"
 
 
 /* FMessageRpcClient structors
@@ -10,7 +17,7 @@ FMessageRpcClient::FMessageRpcClient()
 {
 	MessageEndpoint = FMessageEndpoint::Builder("FMessageRpcClient")
 		.Handling<FMessageRpcProgress>(this, &FMessageRpcClient::HandleProgressMessage)
-		.WithCatchall(this, &FMessageRpcClient::HandleMessage);
+		.WithCatchall(this, &FMessageRpcClient::HandleRpcMessages);
 
 	TickerHandle = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMessageRpcClient::HandleTicker), MESSAGE_RPC_RETRY_INTERVAL);
 }
@@ -24,12 +31,6 @@ FMessageRpcClient::~FMessageRpcClient()
 
 /* IMessageRpcClient interface
  *****************************************************************************/
-
-bool FMessageRpcClient::IsConnected() const
-{
-	return ServerAddress.IsValid();
-}
-
 
 void FMessageRpcClient::Connect(const FMessageAddress& InServerAddress)
 {
@@ -47,6 +48,12 @@ void FMessageRpcClient::Disconnect()
 
 	Calls.Empty();
 	ServerAddress.Invalidate();
+}
+
+
+bool FMessageRpcClient::IsConnected() const
+{
+	return ServerAddress.IsValid();
 }
 
 
@@ -102,25 +109,16 @@ void FMessageRpcClient::CancelCall(const FGuid& CallId)
 
 void FMessageRpcClient::HandleProgressMessage(const FMessageRpcProgress& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
-	const TWeakObjectPtr<UScriptStruct>& MessageTypeInfo = Context->GetMessageTypeInfo();
+	TSharedPtr<IMessageRpcCall> Call = Calls.FindRef(Message.CallId);
 
-	if (!MessageTypeInfo.IsValid())
+	if (Call.IsValid())
 	{
-		return;
-	}
-
-	if (MessageTypeInfo->IsChildOf(FRpcMessage::StaticStruct()))
-	{
-		TSharedPtr<IMessageRpcCall> Call = FindCall(Context);
-
-		if (Call.IsValid())
-		{
-			Call->UpdateProgress(Message.Completion, FText::FromString(Message.StatusText));
-		}
+		Call->UpdateProgress(Message.Completion, FText::FromString(Message.StatusText));
 	}
 }
 
-void FMessageRpcClient::HandleMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
+
+void FMessageRpcClient::HandleRpcMessages(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
 	const TWeakObjectPtr<UScriptStruct>& MessageTypeInfo = Context->GetMessageTypeInfo();
 
@@ -131,14 +129,16 @@ void FMessageRpcClient::HandleMessage(const TSharedRef<IMessageContext, ESPMode:
 
 	if (MessageTypeInfo->IsChildOf(FRpcMessage::StaticStruct()))
 	{
-		TSharedPtr<IMessageRpcCall> Call;
 		auto Request = static_cast<const FRpcMessage*>(Context->GetMessage());
+		TSharedPtr<IMessageRpcCall> Call;
+
 		if (Calls.RemoveAndCopyValue(Request->CallId, Call))
 		{
 			Call->Complete(Context);
 		}
 	}
 }
+
 
 bool FMessageRpcClient::HandleTicker(float DeltaTime)
 {
@@ -148,12 +148,12 @@ bool FMessageRpcClient::HandleTicker(float DeltaTime)
 	{
 		auto Call = It.Value();
 		
-		if (UtcNow - Call->GetTimeCreated() > FTimespan::FromSeconds(MESSAGE_RPC_RETRY_TIMEOUT))
+		if ((UtcNow - Call->GetTimeCreated()) > FTimespan::FromSeconds(MESSAGE_RPC_RETRY_TIMEOUT))
 		{
 			It.RemoveCurrent();
 			Call->TimeOut();
 		}
-		else if (UtcNow - Call->GetLastUpdated() > FTimespan::FromSeconds(MESSAGE_RPC_RETRY_INTERVAL))
+		else if ((UtcNow - Call->GetLastUpdated()) > FTimespan::FromSeconds(MESSAGE_RPC_RETRY_INTERVAL))
 		{
 			SendCall(Call);
 		}

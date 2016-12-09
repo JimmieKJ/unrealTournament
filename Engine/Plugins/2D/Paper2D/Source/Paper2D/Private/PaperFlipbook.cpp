@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
 #include "PaperFlipbook.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Materials/MaterialInterface.h"
+#include "PaperSprite.h"
 #include "PaperCustomVersion.h"
 #include "PaperFlipbookComponent.h"
 
 #if WITH_EDITORONLY_DATA
-#include "Runtime/Engine/Public/ComponentReregisterContext.h"
+#include "UObject/UObjectHash.h"
+#include "ComponentReregisterContext.h"
 #endif
 
 //////////////////////////////////////////////////////////////////////////

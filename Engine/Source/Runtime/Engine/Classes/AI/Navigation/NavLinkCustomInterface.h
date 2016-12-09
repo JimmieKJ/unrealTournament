@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AI/Navigation/NavLinkDefinition.h"
-#include "Interface.h"
-#include "NavLinkCustomInterface.generated.h"
 
-struct FNavigationLink;
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/Interface.h"
+#include "AI/Navigation/NavAreas/NavArea.h"
+#include "AI/Navigation/NavLinkDefinition.h"
+#include "NavLinkCustomInterface.generated.h"
 
 /** 
  *  Interface for custom navigation links

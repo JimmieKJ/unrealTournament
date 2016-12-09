@@ -195,6 +195,23 @@ struct FInvitationEntry
 };
 
 template <typename EntryType>
+struct TGroupConfigEntry
+{
+	TSharedPtr<const FUniqueNetId> GetId() const { return AccountId; }
+
+	/** Context AccountId. */
+	TSharedPtr<const FUniqueNetId> AccountId;
+
+	/** The max number of members in any group. */
+	FString Key;
+
+	/** The max number of groups in which a user may be a member. */
+	EntryType Value;
+};
+
+typedef TGroupConfigEntry<int32> FGroupConfigEntryInt;
+
+template <typename EntryType>
 struct IGroupUserCollection
 {
 	virtual const EntryType* GetEntry(const FUniqueNetId& EntryId) const =0;
@@ -237,6 +254,11 @@ typedef IGroupUserCollection<FApplicationEntry> IApplications;
 * A list of pending membership invitations for a given user.
 */
 typedef IGroupUserCollection<FInvitationEntry> IInvitations;
+
+/**
+* Configuration key->values (int)
+*/
+typedef TMap<FString, TSharedPtr<const FGroupConfigEntryInt>> IGroupConfigInt;
 
 /**
  * Group search options
@@ -408,6 +430,16 @@ public: // callable by all users
 	 *        (regardless of success/fail) and will not be called before this function returns.
 	 */
 	virtual void LeaveGroup(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	* Cancel pending request to join the given group.
+	*
+	* @param ContextUserId The ID of the user whose credentials are being used to make this call
+	* @param GroupId The group's globally unique ID
+	* @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	*        (regardless of success/fail) and will not be called before this function returns.
+	*/
+	virtual void CancelRequest(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
 
 	/**
 	 * Accept a pending invite to join a group. This is done on behalf of the context
@@ -744,6 +776,24 @@ public: // can be called by group admins
 	*/
 	virtual void QueryIncomingApplications(const FUniqueNetId& ContextUserId, const FUniqueNetId& UserId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
 
+public: // configuration queries
+
+	/**
+	* Queries the system configuration for system-wide group max membership headcount.
+	*/
+	virtual void QueryConfigHeadcount(const FUniqueNetId& ContextUserId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	* Queries the system configuration for system-wide user max membership count.
+	*/
+	virtual void QueryConfigMembership(const FUniqueNetId& ContextUserId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	* Get the result of a previous configuration query.
+	* Only the member queried for will be valid.
+	*/
+	virtual TSharedPtr<const FGroupConfigEntryInt> GetCachedConfigInt(const FString& Key) = 0;
+
 public: // can be called by group owner only
 
 	/**
@@ -771,6 +821,7 @@ public: // can be called by group owner only
 
 protected:
 	IOnlineGroups() {}
+
 public:
 	virtual ~IOnlineGroups() {};
 

@@ -1,15 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NullDrvPrivate.h"
-#include "RHI.h"
-
 #include "NullRHI.h"
+#include "Misc/CoreMisc.h"
+#include "Containers/List.h"
 #include "RenderResource.h"
 
 
 FNullDynamicRHI::FNullDynamicRHI()
 {
 	GMaxRHIShaderPlatform = ShaderFormatToLegacyShaderPlatform(FName(FPlatformMisc::GetNullRHIShaderFormat()));
+	GMaxTextureDimensions = 16384;
+	GMaxTextureMipCount = FPlatformMath::CeilLogTwo(GMaxTextureDimensions) + 1;
+	GMaxTextureMipCount = FPlatformMath::Min<int32>( MAX_TEXTURE_MIP_COUNT, GMaxTextureMipCount );
 }
 
 

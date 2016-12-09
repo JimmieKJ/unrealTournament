@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPrivatePCH.h"
-#include "OnlineMessageInterface.h"
+#include "CoreMinimal.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
+#include "Serialization/JsonTypes.h"
+#include "Dom/JsonValue.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "OnlineKeyValuePair.h"
+#include "Interfaces/OnlineMessageInterface.h"
 #include "NboSerializer.h"
 
 void FOnlineMessagePayload::ToBytes(TArray<uint8>& OutBytes) const

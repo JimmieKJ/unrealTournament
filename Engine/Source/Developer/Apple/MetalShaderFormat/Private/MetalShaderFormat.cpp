@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
 #include "MetalShaderFormat.h"
 #include "ModuleInterface.h"
 #include "ModuleManager.h"
-#include "TargetPlatform.h"   
+#include "Interfaces/IShaderFormat.h"
+#include "Interfaces/IShaderFormatModule.h"
 #include "ShaderCore.h"
 #include "hlslcc.h"
 
@@ -19,7 +19,7 @@ class FMetalShaderFormat : public IShaderFormat
 {
 	enum
 	{
-		HEADER_VERSION = 34,
+		HEADER_VERSION = 35,
 	};
 	
 	struct FVersion

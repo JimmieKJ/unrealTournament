@@ -4,17 +4,27 @@
 	DistanceFieldShadowing.cpp
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "UniformBuffer.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "RHI.h"
 #include "ShaderParameters.h"
-#include "PostProcessing.h"
-#include "SceneFilterRendering.h"
+#include "RenderResource.h"
+#include "RendererInterface.h"
+#include "Shader.h"
+#include "StaticBoundShaderState.h"
+#include "SceneUtils.h"
+#include "RHIStaticStates.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "LightSceneInfo.h"
+#include "GlobalShader.h"
+#include "SceneRenderTargetParameters.h"
+#include "ShadowRendering.h"
+#include "DeferredShadingRenderer.h"
+#include "PostProcess/PostProcessing.h"
+#include "PostProcess/SceneFilterRendering.h"
 #include "DistanceFieldLightingShared.h"
 #include "DistanceFieldSurfaceCacheLighting.h"
-#include "RHICommandList.h"
-#include "SceneUtils.h"
-#include "DistanceFieldAtlas.h"
 
 int32 GDistanceFieldShadowing = 1;
 FAutoConsoleVariableRef CVarDistanceFieldShadowing(
@@ -67,63 +77,6 @@ FIntPoint GetBufferSizeForDFShadows()
 }
 
 TGlobalResource<FDistanceFieldObjectBufferResource> GShadowCulledObjectBuffers;
-
-/**  */
-class FClearObjectIndirectArguments : public FGlobalShader
-{
-	DECLARE_SHADER_TYPE(FClearObjectIndirectArguments,Global)
-public:
-
-	static bool ShouldCache(EShaderPlatform Platform)
-	{
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && DoesPlatformSupportDistanceFieldShadowing(Platform);
-	}
-
-	FClearObjectIndirectArguments(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
-		: FGlobalShader(Initializer)
-	{
-		ObjectIndirectArguments.Bind(Initializer.ParameterMap, TEXT("ObjectIndirectArguments"));
-	}
-
-	FClearObjectIndirectArguments()
-	{
-	}
-
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View)
-	{
-		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
-
-		FGlobalShader::SetParameters(RHICmdList, ShaderRHI, View);
-
-		FUnorderedAccessViewRHIParamRef OutUAVs[1];
-		OutUAVs[0] = GShadowCulledObjectBuffers.Buffers.ObjectIndirectArguments.UAV;	
-		RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, OutUAVs, ARRAY_COUNT(OutUAVs));
-
-		ObjectIndirectArguments.SetBuffer(RHICmdList, ShaderRHI, GShadowCulledObjectBuffers.Buffers.ObjectIndirectArguments);
-	}
-
-	void UnsetParameters(FRHICommandList& RHICmdList)
-	{
-		ObjectIndirectArguments.UnsetUAV(RHICmdList, GetComputeShader());
-
-		FUnorderedAccessViewRHIParamRef OutUAVs[1];
-		OutUAVs[0] = GShadowCulledObjectBuffers.Buffers.ObjectIndirectArguments.UAV;	
-		RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToCompute, OutUAVs, ARRAY_COUNT(OutUAVs));
-	}
-
-	virtual bool Serialize(FArchive& Ar) override
-	{		
-		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << ObjectIndirectArguments;
-		return bShaderHasOutdatedParameters;
-	}
-
-private:
-
-	FRWShaderParameter ObjectIndirectArguments;
-};
-
-IMPLEMENT_SHADER_TYPE(,FClearObjectIndirectArguments,TEXT("DistanceFieldShadowing"),TEXT("ClearObjectIndirectArguments"),SF_Compute);
 
 class FCullObjectsForShadowCS : public FGlobalShader
 {
@@ -709,6 +662,8 @@ public:
 		ScissorRectMinAndSize.Bind(Initializer.ParameterMap,TEXT("ScissorRectMinAndSize"));
 		FadePlaneOffset.Bind(Initializer.ParameterMap,TEXT("FadePlaneOffset"));
 		InvFadePlaneLength.Bind(Initializer.ParameterMap,TEXT("InvFadePlaneLength"));
+		NearFadePlaneOffset.Bind(Initializer.ParameterMap,TEXT("NearFadePlaneOffset"));
+		InvNearFadePlaneLength.Bind(Initializer.ParameterMap,TEXT("InvNearFadePlaneLength"));
 	}
 
 	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FProjectedShadowInfo* ShadowInfo, const FIntRect& ScissorRect, TRefCountPtr<IPooledRenderTarget>& ShadowFactorsTextureValue)
@@ -732,6 +687,17 @@ public:
 			SetShaderValue(RHICmdList, ShaderRHI, FadePlaneOffset, 0.0f);
 			SetShaderValue(RHICmdList, ShaderRHI, InvFadePlaneLength, 0.0f);
 		}
+
+		if (ShadowInfo->bDirectionalLight && ShadowInfo->CascadeSettings.SplitNearFadeRegion > 0)
+		{
+			SetShaderValue(RHICmdList, ShaderRHI, NearFadePlaneOffset, ShadowInfo->CascadeSettings.SplitNear - ShadowInfo->CascadeSettings.SplitNearFadeRegion);
+			SetShaderValue(RHICmdList, ShaderRHI, InvNearFadePlaneLength, 1.0f / FMath::Max(ShadowInfo->CascadeSettings.SplitNearFadeRegion, .00001f));
+		}
+		else
+		{
+			SetShaderValue(RHICmdList, ShaderRHI, NearFadePlaneOffset, -1.0f);
+			SetShaderValue(RHICmdList, ShaderRHI, InvNearFadePlaneLength, 1.0f);
+		}
 	}
 
 	// FShader interface.
@@ -744,6 +710,8 @@ public:
 		Ar << ScissorRectMinAndSize;
 		Ar << FadePlaneOffset;
 		Ar << InvFadePlaneLength;
+		Ar << NearFadePlaneOffset;
+		Ar << InvNearFadePlaneLength;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -755,6 +723,8 @@ private:
 	FShaderParameter ScissorRectMinAndSize;
 	FShaderParameter FadePlaneOffset;
 	FShaderParameter InvFadePlaneLength;
+	FShaderParameter NearFadePlaneOffset;
+	FShaderParameter InvNearFadePlaneLength;
 };
 
 IMPLEMENT_SHADER_TYPE(template<>,TDistanceFieldShadowingUpsamplePS<true>,TEXT("DistanceFieldShadowing"),TEXT("DistanceFieldShadowingUpsamplePS"),SF_Pixel);
@@ -769,7 +739,7 @@ void CullDistanceFieldObjectsForLight(
 	const FPlane* PlaneData, 
 	const FVector4& ShadowBoundingSphereValue,
 	float ShadowBoundingRadius,
-	TScopedPointer<FLightTileIntersectionResources>& TileIntersectionResources)
+	TUniquePtr<FLightTileIntersectionResources>& TileIntersectionResources)
 {
 	const FScene* Scene = (const FScene*)(View.Family->Scene);
 
@@ -786,23 +756,8 @@ void CullDistanceFieldObjectsForLight(
 		}
 
 		{
-			// Manual compute shader clear to work around a bug on PS4 where a ClearUAV does not complete before the DrawIndexedPrimitiveIndirect read in the graphics pipe
-			bool bUseComputeShaderClear = true;
-
-			if (bUseComputeShaderClear)
-			{
-				TShaderMapRef<FClearObjectIndirectArguments> ComputeShader(View.ShaderMap);
-
-				RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
-				ComputeShader->SetParameters(RHICmdList, View);
-				DispatchComputeShader(RHICmdList, *ComputeShader, 1, 1, 1);
-				ComputeShader->UnsetParameters(RHICmdList);
-			}
-			else
-			{
-				uint32 ClearValues[4] = { 0 };
-				RHICmdList.ClearUAV(GShadowCulledObjectBuffers.Buffers.ObjectIndirectArguments.UAV, ClearValues);
-			}
+			uint32 ClearValues[4] = { 0 };
+			RHICmdList.ClearUAV(GShadowCulledObjectBuffers.Buffers.ObjectIndirectArguments.UAV, ClearValues);
 
 			TShaderMapRef<FCullObjectsForShadowCS> ComputeShader(GetGlobalShaderMap(Scene->GetFeatureLevel()));
 			RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
@@ -828,7 +783,7 @@ void CullDistanceFieldObjectsForLight(
 			}
 			else
 			{
-				TileIntersectionResources = new FLightTileIntersectionResources();
+				TileIntersectionResources = MakeUnique<FLightTileIntersectionResources>();
 			}
 
 			TileIntersectionResources->TileDimensions = LightTileDimensions;
@@ -843,10 +798,10 @@ void CullDistanceFieldObjectsForLight(
 			TShaderMapRef<FWorkaroundAMDBugCS> ComputeShader(View.ShaderMap);
 
 			RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
-			ComputeShader->SetParameters(RHICmdList, View, TileIntersectionResources);
+			ComputeShader->SetParameters(RHICmdList, View, TileIntersectionResources.Get());
 			DispatchComputeShader(RHICmdList, *ComputeShader, 1, 1, 1);
 
-			ComputeShader->UnsetParameters(RHICmdList, TileIntersectionResources);
+			ComputeShader->UnsetParameters(RHICmdList, TileIntersectionResources.Get());
 		}
 		
 		{
@@ -856,10 +811,10 @@ void CullDistanceFieldObjectsForLight(
 			uint32 GroupSizeY = FMath::DivideAndRoundUp(LightTileDimensions.Y, GDistanceFieldAOTileSizeY);
 
 			RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
-			ComputeShader->SetParameters(RHICmdList, View, FVector2D(LightTileDimensions.X, LightTileDimensions.Y), TileIntersectionResources);
+			ComputeShader->SetParameters(RHICmdList, View, FVector2D(LightTileDimensions.X, LightTileDimensions.Y), TileIntersectionResources.Get());
 			DispatchComputeShader(RHICmdList, *ComputeShader, GroupSizeX, GroupSizeY, 1);
 
-			ComputeShader->UnsetParameters(RHICmdList, TileIntersectionResources);
+			ComputeShader->UnsetParameters(RHICmdList, TileIntersectionResources.Get());
 		}
 
 		{
@@ -867,7 +822,7 @@ void CullDistanceFieldObjectsForLight(
 			TShaderMapRef<FShadowObjectCullPS> PixelShader(View.ShaderMap);
 
 			TArray<FUnorderedAccessViewRHIParamRef> UAVs;
-			PixelShader->GetUAVs(View, TileIntersectionResources, UAVs);
+			PixelShader->GetUAVs(View, TileIntersectionResources.Get(), UAVs);
 			RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToGfx, UAVs.GetData(), UAVs.Num());
 			RHICmdList.SetRenderTargets(0, (const FRHIRenderTargetView *)NULL, NULL, UAVs.Num(), UAVs.GetData());
 
@@ -903,6 +858,7 @@ bool SupportsDistanceFieldShadows(ERHIFeatureLevel::Type FeatureLevel, EShaderPl
 {
 	return GDistanceFieldShadowing
 		&& FeatureLevel >= ERHIFeatureLevel::SM5
+		&& (!IsMetalPlatform(ShaderPlatform) || !IsRHIDeviceIntel())
 		&& DoesPlatformSupportDistanceFieldShadowing(ShaderPlatform);
 }
 
@@ -987,7 +943,7 @@ void FProjectedShadowInfo::RenderRayTracedDistanceFieldProjection(FRHICommandLis
 				LightSceneInfo->TileIntersectionResources
 				);
 
-			FLightTileIntersectionResources* TileIntersectionResources = LightSceneInfo->TileIntersectionResources;
+			FLightTileIntersectionResources* TileIntersectionResources = LightSceneInfo->TileIntersectionResources.Get();
 
 			View.HeightfieldLightingViewInfo.ComputeRayTracedShadowing(View, RHICmdList, this, TileIntersectionResources, GShadowCulledObjectBuffers);
 

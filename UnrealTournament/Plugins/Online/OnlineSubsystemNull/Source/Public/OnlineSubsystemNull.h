@@ -81,6 +81,7 @@ PACKAGE_SCOPE:
 		FOnlineSubsystemImpl(InInstanceName),
 		SessionInterface(nullptr),
 		VoiceInterface(nullptr),
+		bVoiceInterfaceInitialized(false),
 		LeaderboardsInterface(nullptr),
 		IdentityInterface(nullptr),
 		AchievementsInterface(nullptr),
@@ -91,6 +92,7 @@ PACKAGE_SCOPE:
 	FOnlineSubsystemNull() :
 		SessionInterface(nullptr),
 		VoiceInterface(nullptr),
+		bVoiceInterfaceInitialized(false),
 		LeaderboardsInterface(nullptr),
 		IdentityInterface(nullptr),
 		AchievementsInterface(nullptr),
@@ -104,7 +106,10 @@ private:
 	FOnlineSessionNullPtr SessionInterface;
 
 	/** Interface for voice communication */
-	FOnlineVoiceImplPtr VoiceInterface;
+	mutable FOnlineVoiceImplPtr VoiceInterface;
+
+	/** Interface for voice communication */
+	mutable bool bVoiceInterfaceInitialized;
 
 	/** Interface to the leaderboard services */
 	FOnlineLeaderboardsNullPtr LeaderboardsInterface;

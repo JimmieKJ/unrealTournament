@@ -1,13 +1,18 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemOculusPrivatePCH.h"
 #include "OnlineSubsystemOculus.h"
+#include "OnlineSubsystemOculusPrivate.h"
 
 #include "OnlineAchievementsInterfaceOculus.h"
 #include "OnlineFriendsInterfaceOculus.h"
 #include "OnlineIdentityOculus.h"
 #include "OnlineLeaderboardInterfaceOculus.h"
 #include "OnlineSessionInterfaceOculus.h"
+#include "OnlineUserCloudOculus.h"
+
+#if PLATFORM_ANDROID
+#include "AndroidApplication.h"
+#endif
 
 #if !OVRPL_DISABLED && WITH_EDITOR
 OVRPL_PUBLIC_FUNCTION(void) ovr_ResetInitAndContext();
@@ -35,7 +40,7 @@ IOnlineSharedCloudPtr FOnlineSubsystemOculus::GetSharedCloudInterface() const
 
 IOnlineUserCloudPtr FOnlineSubsystemOculus::GetUserCloudInterface() const
 {
-	return nullptr;
+	return UserCloudInterface;
 }
 
 IOnlineEntitlementsPtr FOnlineSubsystemOculus::GetEntitlementsInterface() const
@@ -176,7 +181,12 @@ void FOnlineSubsystemOculus::RemoveNotifDelegate(ovrMessageType MessageType, con
 
 bool FOnlineSubsystemOculus::Init()
 {
-	bool bOculusInit = InitWithWindowsPlatform();
+	bool bOculusInit = false;
+#if PLATFORM_WINDOWS
+	bOculusInit = InitWithWindowsPlatform();
+#elif PLATFORM_ANDROID
+	bOculusInit = InitWithAndroidPlatform();
+#endif
 	if (bOculusInit)
 	{
 		MessageTaskManager = MakeUnique<FOnlineMessageTaskManagerOculus>();
@@ -187,15 +197,19 @@ bool FOnlineSubsystemOculus::Init()
 		FriendsInterface = MakeShareable(new FOnlineFriendsOculus(*this));
 		SessionInterface = MakeShareable(new FOnlineSessionOculus(*this));
 		LeaderboardsInterface = MakeShareable(new FOnlineLeaderboardOculus(*this));
+		UserCloudInterface = MakeShareable(new FOnlineUserCloudOculus(*this));
 	}
 	else
 	{
-		Shutdown();
+		// Only do the parent shutdown since nothing else is setup and we don't want to do
+		// any LibOVRPlatform calls against an invalid or missing dll
+		FOnlineSubsystemImpl::Shutdown();
 	}
 
 	return bOculusInit;
 }
 
+#if PLATFORM_WINDOWS
 bool FOnlineSubsystemOculus::InitWithWindowsPlatform()
 {
 	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemOculus::InitWithWindowsPlatform()"));
@@ -209,11 +223,40 @@ bool FOnlineSubsystemOculus::InitWithWindowsPlatform()
 	auto InitResult = ovr_PlatformInitializeWindows(TCHAR_TO_ANSI(*OculusAppId));
 	if (InitResult != ovrPlatformInitialize_Success)
 	{
-		UE_LOG_ONLINE(Error, TEXT("Failed to initialize the Oculus Platform SDK! Error code: %d"), (int) InitResult);
+		UE_LOG_ONLINE(Warning, TEXT("Failed to initialize the Oculus Platform SDK! Error code: %d"), (int)InitResult);
 		return false;
 	}
 	return true;
 }
+#elif PLATFORM_ANDROID
+bool FOnlineSubsystemOculus::InitWithAndroidPlatform()
+{
+	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemOculus::InitWithAndroidPlatform()"));
+	auto OculusAppId = GetAppId();
+	if (OculusAppId.IsEmpty())
+	{
+		UE_LOG_ONLINE(Error, TEXT("Missing OculusAppId key in OnlineSubsystemOculus of DefaultEngine.ini"));
+		return false;
+	}
+
+	JNIEnv* Env = FAndroidApplication::GetJavaEnv();
+
+	if (Env == nullptr)
+	{
+		UE_LOG_ONLINE(Error, TEXT("Missing JNIEnv"));
+		return false;
+	}
+
+	auto InitResult = ovr_PlatformInitializeAndroid(TCHAR_TO_ANSI(*OculusAppId), FAndroidApplication::GetGameActivityThis(), Env);
+	if (InitResult != ovrPlatformInitialize_Success)
+	{
+		UE_LOG_ONLINE(Error, TEXT("Failed to initialize the Oculus Platform SDK! Error code: %d"), (int)InitResult);
+		return false;
+	}
+
+	return true;
+}
+#endif
 
 bool FOnlineSubsystemOculus::Shutdown()
 {
@@ -226,6 +269,7 @@ bool FOnlineSubsystemOculus::Shutdown()
 	IdentityInterface.Reset();
 	SessionInterface.Reset();
 	LeaderboardsInterface.Reset();
+	UserCloudInterface.Reset();
 
 	if (MessageTaskManager.IsValid())
 	{

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 // http://radsite.lbl.gov/radiance/refer/Notes/picture_format.html
 // http://paulbourke.net/dataformats/pic/
 

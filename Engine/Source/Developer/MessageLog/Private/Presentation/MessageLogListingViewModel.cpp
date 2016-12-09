@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessageLogPrivatePCH.h"
-#include "MessageLogListingViewModel.h"
+#include "Presentation/MessageLogListingViewModel.h"
+#include "Modules/ModuleManager.h"
+#include "EditorStyleSet.h"
 #include "MessageLogModule.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "MessageLog"
 

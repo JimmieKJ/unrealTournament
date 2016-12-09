@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "CameraFocusSettingsCustomization.h"
+#include "Misc/Attribute.h"
+#include "Templates/Casts.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/SBoxPanel.h"
+#include "DetailWidgetRow.h"
+#include "PropertyHandle.h"
+#include "IDetailPropertyRow.h"
+#include "IDetailChildrenBuilder.h"
+#include "PropertyCustomizationHelpers.h"
 #include "CineCameraComponent.h"
 #include "ScopedTransaction.h"
 

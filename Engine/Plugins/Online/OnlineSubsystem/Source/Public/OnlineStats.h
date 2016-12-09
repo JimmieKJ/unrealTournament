@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "OnlineKeyValuePair.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
+#include "OnlineKeyValuePair.h"
 
 /** Representation of a single column and its data */ 
 typedef FOnlineKeyValuePairs<FName, FVariantData> FStatsColumnArray;

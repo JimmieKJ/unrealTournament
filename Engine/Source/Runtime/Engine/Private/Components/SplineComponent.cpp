@@ -4,10 +4,11 @@
 	Spline.cpp
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Components/SplineComponent.h"
-#include "ComponentInstanceDataCache.h"
-#include "EditorObjectVersion.h"
+#include "UObject/EditorObjectVersion.h"
+#include "PrimitiveViewRelevance.h"
+#include "PrimitiveSceneProxy.h"
+#include "SceneManagement.h"
 
 
 USplineComponent::USplineComponent(const FObjectInitializer& ObjectInitializer)
@@ -154,7 +155,8 @@ void USplineComponent::UpdateSpline()
 	// Ensure splines' looping status matches with that of the spline component
 	if (bClosedLoop)
 	{
-		const float LoopKey = bLoopPositionOverride ? LoopPosition : static_cast<float>(NumPoints);
+		const float LastKey = SplineCurves.Position.Points.Num() > 0 ? SplineCurves.Position.Points.Last().InVal : 0.0f;
+		const float LoopKey = bLoopPositionOverride ? LoopPosition : LastKey + 1.0f;
 		SplineCurves.Position.SetLoopKey(LoopKey);
 		SplineCurves.Rotation.SetLoopKey(LoopKey);
 		SplineCurves.Scale.SetLoopKey(LoopKey);
@@ -190,6 +192,13 @@ void USplineComponent::UpdateSpline()
 	}
 
 	SplineCurves.ReparamTable.Points.Emplace(AccumulatedLength, static_cast<float>(NumSegments), 0.0f, 0.0f, CIM_Linear);
+
+#if !UE_BUILD_SHIPPING
+	if (bDrawDebug)
+	{
+		MarkRenderStateDirty();
+	}
+#endif
 }
 
 
@@ -553,6 +562,11 @@ void USplineComponent::AddPoint(const FSplinePoint& InSplinePoint, bool bUpdateS
 		),
 		Index);
 
+	if (bLoopPositionOverride && LoopPosition <= SplineCurves.Position.Points.Last().InVal)
+	{
+		bLoopPositionOverride = false;
+	}
+
 	if (bUpdateSpline)
 	{
 		UpdateSpline();
@@ -590,6 +604,11 @@ void USplineComponent::AddSplinePoint(const FVector& Position, ESplineCoordinate
 	SplineCurves.Rotation.Points.Emplace(InKey, FQuat::Identity, FQuat::Identity, FQuat::Identity, CIM_CurveAuto);
 	SplineCurves.Scale.Points.Emplace(InKey, FVector(1.0f), FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto);
 
+	if (bLoopPositionOverride)
+	{
+		LoopPosition += 1.0f;
+	}
+
 	if (bUpdateSpline)
 	{
 		UpdateSpline();
@@ -601,7 +620,7 @@ void USplineComponent::AddSplinePointAtIndex(const FVector& Position, int32 Inde
 	const FVector TransformedPosition = (CoordinateSpace == ESplineCoordinateSpace::World) ?
 		ComponentToWorld.InverseTransformPosition(Position) : Position;
 
-	const int32 NumPoints = SplineCurves.Position.Points.Num();
+	int32 NumPoints = SplineCurves.Position.Points.Num();
 
 	if (Index >= 0 && Index <= NumPoints)
 	{
@@ -610,6 +629,7 @@ void USplineComponent::AddSplinePointAtIndex(const FVector& Position, int32 Inde
 		SplineCurves.Position.Points.Insert(FInterpCurvePoint<FVector>(InKey, TransformedPosition, FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto), Index);
 		SplineCurves.Rotation.Points.Insert(FInterpCurvePoint<FQuat>(InKey, FQuat::Identity, FQuat::Identity, FQuat::Identity, CIM_CurveAuto), Index);
 		SplineCurves.Scale.Points.Insert(FInterpCurvePoint<FVector>(InKey, FVector(1.0f), FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto), Index);
+		NumPoints++;
 
 		// Adjust subsequent points' input keys to make room for the value just added
 		for (int I = Index + 1; I < NumPoints; ++I)
@@ -617,6 +637,11 @@ void USplineComponent::AddSplinePointAtIndex(const FVector& Position, int32 Inde
 			SplineCurves.Position.Points[I].InVal += 1.0f;
 			SplineCurves.Rotation.Points[I].InVal += 1.0f;
 			SplineCurves.Scale.Points[I].InVal += 1.0f;
+		}
+
+		if (bLoopPositionOverride)
+		{
+			LoopPosition += 1.0f;
 		}
 	}
 
@@ -628,13 +653,14 @@ void USplineComponent::AddSplinePointAtIndex(const FVector& Position, int32 Inde
 
 void USplineComponent::RemoveSplinePoint(int32 Index, bool bUpdateSpline)
 {
-	const int32 NumPoints = SplineCurves.Position.Points.Num();
+	int32 NumPoints = SplineCurves.Position.Points.Num();
 
 	if (Index >= 0 && Index < NumPoints)
 	{
 		SplineCurves.Position.Points.RemoveAt(Index, 1, false);
 		SplineCurves.Rotation.Points.RemoveAt(Index, 1, false);
 		SplineCurves.Scale.Points.RemoveAt(Index, 1, false);
+		NumPoints--;
 
 		// Adjust all following spline point input keys to close the gap left by the removed point
 		while (Index < NumPoints)
@@ -643,6 +669,11 @@ void USplineComponent::RemoveSplinePoint(int32 Index, bool bUpdateSpline)
 			SplineCurves.Rotation.Points[Index].InVal -= 1.0f;
 			SplineCurves.Scale.Points[Index].InVal -= 1.0f;
 			Index++;
+		}
+
+		if (bLoopPositionOverride)
+		{
+			LoopPosition -= 1.0f;
 		}
 	}
 
@@ -671,6 +702,8 @@ void USplineComponent::SetSplinePoints(const TArray<FVector>& Points, ESplineCoo
 
 		InputKey += 1.0f;
 	}
+
+	bLoopPositionOverride = false;
 
 	if (bUpdateSpline)
 	{
@@ -1374,7 +1407,7 @@ FPrimitiveSceneProxy* USplineComponent::CreateSceneProxy()
 					const FMatrix& LocalToWorld = GetLocalToWorld();
 
 					// Taking into account the min and maximum drawing distance
-					const float DistanceSqr = (View->ViewMatrices.ViewOrigin - LocalToWorld.GetOrigin()).SizeSquared();
+					const float DistanceSqr = (View->ViewMatrices.GetViewOrigin() - LocalToWorld.GetOrigin()).SizeSquared();
 					if (DistanceSqr < FMath::Square(GetMinDrawDistance()) || DistanceSqr > FMath::Square(GetMaxDrawDistance()))
 					{
 						continue;

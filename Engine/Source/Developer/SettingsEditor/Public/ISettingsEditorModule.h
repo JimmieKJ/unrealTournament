@@ -2,14 +2,12 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Modules/ModuleInterface.h"
 
-
-// forward declarations
 class ISettingsContainer;
 class ISettingsEditorModel;
-class SWidget;
-
 
 /**
  * Interface for settings editor modules.

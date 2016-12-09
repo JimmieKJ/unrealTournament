@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 /** Tests whether two typenames refer to the same type. */
 template<typename A,typename B>
 struct TAreTypesEqual;

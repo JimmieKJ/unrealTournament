@@ -4,11 +4,9 @@
 	AnimCompress_BitwiseCompressionOnly.cpp: Bitwise animation compression only; performs no key reduction.
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
 #include "Animation/AnimCompress_BitwiseCompressOnly.h"
-#include "AnimationUtils.h"
-#include "AnimEncoding.h"
 #include "AnimationCompression.h"
+#include "AnimEncoding.h"
 
 UAnimCompress_BitwiseCompressOnly::UAnimCompress_BitwiseCompressOnly(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -24,7 +22,7 @@ void UAnimCompress_BitwiseCompressOnly::DoReduction(UAnimSequence* AnimSeq, cons
 	TArray<FTranslationTrack> TranslationData;
 	TArray<FRotationTrack> RotationData;
 	TArray<FScaleTrack> ScaleData;
-	SeparateRawDataIntoTracks( AnimSeq->RawAnimationData, AnimSeq->SequenceLength, TranslationData, RotationData, ScaleData );
+	SeparateRawDataIntoTracks( AnimSeq->GetRawAnimationData(), AnimSeq->SequenceLength, TranslationData, RotationData, ScaleData );
 
 	// Remove Translation Keys from tracks marked bAnimRotationOnly
 	FilterAnimRotationOnlyKeys(TranslationData, AnimSeq);

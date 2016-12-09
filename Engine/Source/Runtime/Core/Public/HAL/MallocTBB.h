@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "HAL/PlatformMemory.h"
+#include "HAL/MemoryBase.h"
 
 /**
  * TBB 64-bit scalable memory allocator.

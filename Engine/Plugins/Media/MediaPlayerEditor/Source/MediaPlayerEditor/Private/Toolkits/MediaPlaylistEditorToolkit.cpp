@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "MediaPlaylistEditorToolkit.h"
-#include "SMediaPlaylistEditorDetails.h"
-#include "SMediaPlaylistEditorMedia.h"
+#include "Toolkits/MediaPlaylistEditorToolkit.h"
+#include "Editor.h"
+#include "EditorStyleSet.h"
+#include "EditorReimportHandler.h"
+#include "MediaPlaylist.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/SMediaPlaylistEditorDetails.h"
+#include "Widgets/SMediaPlaylistEditorMedia.h"
 
 
 #define LOCTEXT_NAMESPACE "FMediaPlaylistEditorToolkit"

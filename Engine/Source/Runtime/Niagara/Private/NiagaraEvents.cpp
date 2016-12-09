@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraPrivate.h"
 #include "NiagaraEvents.h"
-#include "NiagaraSimulation.h"
+#include "NiagaraModule.h"
 #include "NiagaraEffect.h"
 
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Death Events"), STAT_NiagaraNumDeathEvents, STATGROUP_Niagara);

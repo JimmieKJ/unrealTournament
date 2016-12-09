@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "PacketHandler.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 
 #include "HandlerComponentFactory.generated.h"
+
+class HandlerComponent;
 
 /**
  * A UObject alternative for loading HandlerComponents without strict module dependency

@@ -95,10 +95,9 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	}
 
 	// allocate a preview scene for rendering
-	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Preview, true);
-	PlayerPreviewWorld->bHack_Force_UsesGameHiddenFlags_True = true;
+	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::GamePreview, true);
 	PlayerPreviewWorld->bShouldSimulatePhysics = true;
-	GEngine->CreateNewWorldContext(EWorldType::Preview).SetCurrentWorld(PlayerPreviewWorld);
+	GEngine->CreateNewWorldContext(EWorldType::GamePreview).SetCurrentWorld(PlayerPreviewWorld);
 	PlayerPreviewWorld->InitializeActorsForPlay(FURL(), true);
 	ViewState.Allocate();
 	{

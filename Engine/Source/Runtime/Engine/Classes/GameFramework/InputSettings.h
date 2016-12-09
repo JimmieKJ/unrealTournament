@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "PlayerInput.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "InputCoreTypes.h"
+#include "Misc/StringAssetReference.h"
+#include "GameFramework/PlayerInput.h"
 
 #include "InputSettings.generated.h"
 
@@ -52,7 +58,7 @@ class ENGINE_API UInputSettings
 	
 	/** The default mouse capture mode for the game viewport */
 	UPROPERTY(config, EditAnywhere, Category = "ViewportProperties")
-	TEnumAsByte<EMouseCaptureMode> DefaultViewportMouseCaptureMode;
+	EMouseCaptureMode DefaultViewportMouseCaptureMode;
 
 	/** The default mouse lock state when the viewport acquires capture */
 	UPROPERTY(config)

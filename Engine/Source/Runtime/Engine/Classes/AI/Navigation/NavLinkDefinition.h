@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "NavAreas/NavArea.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "AI/Navigation/NavigationTypes.h"
 #include "NavLinkDefinition.generated.h"
 
 UENUM()
@@ -40,10 +45,6 @@ struct ENGINE_API FNavigationLinkBase
 
 	UPROPERTY(EditAnywhere, Category=Default, meta=(ClampMin = "1.0", EditCondition="bUseSnapHeight"))
 	float SnapHeight;
-
-	/** Area type of this link (empty = default) */
-	UPROPERTY(EditAnywhere, Category=Default)
-	TSubclassOf<class UNavArea> AreaClass;
 
 	/** restrict area only to specified agents */
 	UPROPERTY(EditAnywhere, Category=Default)
@@ -141,6 +142,11 @@ struct ENGINE_API FNavigationLinkBase
 
 	FNavigationLinkBase();
 
+	void InitializeAreaClass(const bool bForceRefresh = false);
+	void SetAreaClass(UClass* InAreaClass);
+	UClass* GetAreaClass() const;
+	bool HasMetaArea() const;
+
 	void PostSerialize(const FArchive& Ar);
 
 #if WITH_EDITOR
@@ -149,6 +155,15 @@ struct ENGINE_API FNavigationLinkBase
 	  */
 	static void DescribeCustomFlags(const TArray<FString>& EditableFlagNames, UClass* NavLinkPropertiesOwnerClass = nullptr);
 #endif // WITH_EDITOR
+
+private:
+	uint32 bAreaClassInitialized : 1;
+
+	/** Area type of this link (empty = default) */
+	UPROPERTY(EditAnywhere, Category = Default)
+	TSubclassOf<class UNavArea> AreaClass;
+
+	TWeakObjectPtr<UClass> AreaClassOb;
 };
 
 template<>
@@ -303,13 +318,14 @@ class ENGINE_API UNavLinkDefinition : public UObject
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
+	void InitializeAreaClass() const;
 	bool HasMetaAreaClass() const;
 	bool HasAdjustableLinks() const;
 
 private:
-	// These booleans are mutable to cache the restul for HasMetaAreaClass();
-	mutable uint32 bHasDeterminedMetaAreaClass : 1;
-	mutable uint32 bHasMetaAreaClass : 1;
-	mutable uint32 bHasDeterminedAdjustableLinks : 1;
-	mutable uint32 bHasAdjustableLinks : 1;
+	uint32 bHasInitializedAreaClasses : 1;
+	uint32 bHasDeterminedMetaAreaClass : 1;
+	uint32 bHasMetaAreaClass : 1;
+	uint32 bHasDeterminedAdjustableLinks : 1;
+	uint32 bHasAdjustableLinks : 1;
 };

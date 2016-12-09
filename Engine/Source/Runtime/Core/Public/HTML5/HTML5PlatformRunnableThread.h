@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "HAL/RunnableThread.h"
+
 /**
  * @todo html5 threads: Dummy thread class
  */

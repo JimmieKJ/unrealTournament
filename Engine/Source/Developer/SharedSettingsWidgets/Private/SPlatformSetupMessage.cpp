@@ -1,12 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SharedSettingsWidgetsPrivatePCH.h"
 #include "SPlatformSetupMessage.h"
+#include "Misc/Paths.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
 #include "EditorStyleSet.h"
-#include "SWidgetSwitcher.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "SPlatformSetupMessage"
 

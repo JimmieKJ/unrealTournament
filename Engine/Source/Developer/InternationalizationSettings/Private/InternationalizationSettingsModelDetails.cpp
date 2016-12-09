@@ -1,9 +1,25 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "InternationalizationSettingsModulePrivatePCH.h"
+#include "InternationalizationSettingsModelDetails.h"
+#include "Misc/Paths.h"
+#include "Internationalization/Culture.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "InternationalizationSettingsModel.h"
 #include "EdGraph/EdGraphSchema.h"
 #include "SCulturePicker.h"
-#include "ISettingsEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "InternationalizationSettingsModelDetails"
 

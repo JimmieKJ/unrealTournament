@@ -2,14 +2,20 @@
 
 #pragma once
 
-#include "UniqueObj.h"
-#include "ParserClass.h"
-#include "Scope.h"
-#include "HeaderProvider.h"
+#include "CoreMinimal.h"
+#include "UObject/Stack.h"
+#include "UnderlyingEnumType.h"
 
 #include "UnrealSourceFile.h"
-#include "ClassDeclarationMetaData.h"
 
+class UField;
+class UClass;
+class UProperty;
+class UPackage;
+class UEnum;
+class FClassDeclarationMetaData;
+class FArchive;
+class FUHTMakefile;
 struct FManifestModule;
 class FUnrealSourceFile;
 class FUnrealTypeDefinitionInfo;
@@ -24,7 +30,7 @@ extern TSet<FUnrealSourceFile*> GPublicSourceFileSet;
 extern TMap<UProperty*, FString> GArrayDimensions;
 extern TMap<UPackage*,  const FManifestModule*> GPackageToManifestModuleMap;
 extern TMap<UField*, uint32> GGeneratedCodeCRCs;
-extern TMap<UEnum*,  EPropertyType> GEnumUnderlyingTypes;
+extern TMap<UEnum*, EUnderlyingEnumType> GEnumUnderlyingTypes;
 extern TMap<FName, TSharedRef<FClassDeclarationMetaData> > GClassDeclarations;
 extern TSet<UProperty*> GUnsizedProperties;
 

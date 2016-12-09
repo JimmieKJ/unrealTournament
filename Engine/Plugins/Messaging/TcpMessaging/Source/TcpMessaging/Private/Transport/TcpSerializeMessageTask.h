@@ -2,10 +2,12 @@
 
 #pragma once
 
-#include "TcpMessageTransportConnection.h"
-#include "JsonStructSerializerBackend.h"
-#include "StructSerializer.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "IMessageContext.h"
+#include "Transport/TcpSerializedMessage.h"
 
+class FTcpMessageTransportConnection;
 
 /**
  * Implements an asynchronous task for serializing a message.

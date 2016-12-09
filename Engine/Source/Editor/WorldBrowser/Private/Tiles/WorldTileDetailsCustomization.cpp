@@ -1,17 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "WorldBrowserPrivatePCH.h"
+#include "Tiles/WorldTileDetailsCustomization.h"
+#include "Misc/PackageName.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
 
 #include "Engine/WorldComposition.h"
 
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "Editor/PropertyEditor/Public/PropertyEditing.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailChildrenBuilder.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
 
-#include "SWorldDetails.h"
 #include "SPropertyEditorLevelPackage.h"
-#include "WorldTileDetails.h"
-#include "WorldTileCollectionModel.h"
-#include "WorldTileDetailsCustomization.h"
+#include "Tiles/WorldTileDetails.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 

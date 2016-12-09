@@ -2,16 +2,18 @@
 
 #pragma once
 
-#include "EdGraph/EdGraphSchema.h" // for FEdGraphSchemaAction
-#include "SlateColor.h"
-#include "BlueprintNodeBinder.h" // for IBlueprintNodeBinder::FBindingSet
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Styling/SlateColor.h"
+#include "Styling/SlateBrush.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "BlueprintNodeBinder.h"
 #include "BlueprintActionMenuItem.generated.h"
 
-// Forward declarations
-class  UBlueprintNodeSpawner;
-struct FSlateBrush;
-struct FBlueprintActionUiSpec;
+class UBlueprintNodeSpawner;
+class UEdGraph;
 struct FBlueprintActionContext;
+struct FBlueprintActionUiSpec;
 
 /**
  * Wrapper around a UBlueprintNodeSpawner, which takes care of specialized

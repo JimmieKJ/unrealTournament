@@ -6,9 +6,108 @@ using System.IO;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
+using System.ComponentModel;
+using System.Xml.Serialization;
 
 namespace MemoryProfiler2
 {
+	public class FCallStackFunctionFilter
+	{
+		public enum EFilterMode
+		{
+			SubString,
+			StartsWith,
+			EndsWith,
+			RegEx,
+		}
+
+		public FCallStackFunctionFilter()
+        {
+			FilterMode = EFilterMode.SubString;
+		}
+
+		public FCallStackFunctionFilter(string InFilterPattern, EFilterMode InFilterMode)
+		{
+			FilterPattern = InFilterPattern;
+			FilterMode = InFilterMode;
+			CompileExpression();
+		}
+
+		void CompileExpression()
+		{
+			if (FilterMode == EFilterMode.RegEx)
+			{
+				CompiledRegex = new Regex(FilterPattern, RegexOptions.Compiled | RegexOptions.CultureInvariant);
+			}
+			else
+			{
+				CompiledRegex = null;
+			}
+		}
+
+		public bool EvaluateExpression(string ToEvaluate)
+		{
+			switch (FilterMode)
+			{
+				case EFilterMode.SubString:
+					return ToEvaluate.Contains(FilterPattern);
+				case EFilterMode.StartsWith:
+					return ToEvaluate.StartsWith(FilterPattern);
+				case EFilterMode.EndsWith:
+					return ToEvaluate.EndsWith(FilterPattern);
+				case EFilterMode.RegEx:
+					return CompiledRegex.Match(ToEvaluate).Success;
+			}
+			return false;
+		}
+
+		[XmlIgnore]
+		[Browsable(false)]
+		public string Name
+		{
+			get { return FilterMode.ToString() + " " + FilterPattern; }
+		}
+
+		string _FilterPattern;
+		[Description("The filter pattern to match.")]
+		[XmlAttribute]
+		public string FilterPattern
+		{
+			get
+			{
+				return _FilterPattern;
+			}
+
+			set
+			{
+				_FilterPattern = value;
+				CompileExpression();
+			}
+		}
+
+		EFilterMode _FilterMode;
+		[Description("How to process the filter pattern.")]
+		[XmlAttribute]
+		public EFilterMode FilterMode
+		{
+			get
+			{
+				return _FilterMode;
+			}
+
+			set
+			{
+				_FilterMode = value;
+				CompileExpression();
+			}
+		}
+
+		[XmlIgnore]
+		[Browsable(false)]
+		Regex CompiledRegex;
+	}
+
 	/// <summary> Encapsulates callstack information. </summary>
 	public class FCallStack
 	{
@@ -260,18 +359,34 @@ namespace MemoryProfiler2
 			}
 		}
 
-		/// <summary> Removes entries related to malloc profiler or GCM malloc profiler. </summary>
-		public void TrimProfilerEntries()
+		/// <summary> Removes entries related to allocation or the malloc profilers. </summary>
+		public void TrimAllocatorEntries(List<FCallStackFunctionFilter> AllocatorFunctionFilters)
 		{
-			bool bFoundProfiler = false;
+			if (AllocatorFunctionFilters.Count == 0)
+			{
+				return;
+			}
+
+			bool bFoundAllocator = false;
 			for (int AddressIndex = AddressIndices.Count - 1; AddressIndex >= 0; AddressIndex--)
 			{
 				string FunctionName = FStreamInfo.GlobalInstance.NameArray[FStreamInfo.GlobalInstance.CallStackAddressArray[AddressIndices[AddressIndex]].FunctionIndex];
-				if (FunctionName.StartsWith("FMallocProfiler") || FunctionName.StartsWith("FMallocGcmProfiler"))
+
+				bool bFunctionIsAllocator = false;
+				foreach (var AllocatorFunctionFilter in AllocatorFunctionFilters)
 				{
-					bFoundProfiler = true;
+					if (AllocatorFunctionFilter.EvaluateExpression(FunctionName))
+					{
+						bFunctionIsAllocator = true;
+						break;
+					}
 				}
-				else if (bFoundProfiler)
+
+				if (bFunctionIsAllocator)
+				{
+					bFoundAllocator = true;
+				}
+				else if (bFoundAllocator)
 				{
 					AddressIndices.RemoveRange(AddressIndex + 1, AddressIndices.Count - AddressIndex - 1);
 					break;

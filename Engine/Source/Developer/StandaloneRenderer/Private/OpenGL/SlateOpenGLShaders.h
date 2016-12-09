@@ -5,6 +5,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "StandaloneRendererPlatformHeaders.h"
+
 /**
  * Base class for all OpenGL shaders                   
  */

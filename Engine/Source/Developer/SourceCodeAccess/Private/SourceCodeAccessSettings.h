@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "SourceCodeAccessSettings.generated.h"
 
-UCLASS(config=EditorPerProjectUserSettings)
+UCLASS(config=EditorPerProjectUserSettings, defaultconfig)
 class USourceCodeAccessSettings : public UObject
 {
 	GENERATED_UCLASS_BODY()

@@ -159,7 +159,7 @@ void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out
 	// default to no shadows, good for volumetric decals
 	Out.MRT[4] = 1;
 
-	bool bVolumetric = DECAL_BLEND_MODE == DECALBLENDMODEID_VOLUMETRIC;
+	const bool bVolumetric = DECAL_BLEND_MODE == DECALBLENDMODEID_VOLUMETRIC;
 
 	float3 OSPosition;
 	float3 WSPosition;
@@ -231,6 +231,7 @@ void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out
 		MaterialParameters.TexCoords[CoordinateIndex] = DecalUVs;
 	}
 #endif
+	MaterialParameters.TwoSidedSign = 1;
 	MaterialParameters.VertexColor = 1;
 	MaterialParameters.CameraVector = CameraVector;
 	MaterialParameters.SvPosition = In.SvPosition;
@@ -242,60 +243,29 @@ void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out
 		MaterialParameters.WorldPosition_NoOffsets_CamRelative = WSPosition;
 	FPixelMaterialInputs PixelMaterialInputs;
 	CalcPixelMaterialInputs(MaterialParameters, PixelMaterialInputs);
+
+	if(bVolumetric)
 	{
-		if(bVolumetric)
-		{
-			// not normalized
-			float3 OSNormal = GradientNotNormalized(In.SvPosition, OSPosition, HitT);
+		// not normalized
+		float3 OSNormal = GradientNotNormalized(In.SvPosition, OSPosition, HitT);
 			
-			// To transform the normals use tranpose(Inverse(DecalToWorld)) = transpose(WorldToDecal)
-			// But we want to only rotate the normals (we don't want to non-uniformaly scale them).
-			// We assume the matrix is only a scale and rotation, and we remove non-uniform scale:
-			float3 lengthSqr = { length2(DecalToWorld._m00_m01_m02),
-				length2(DecalToWorld._m10_m11_m12),
-				length2(DecalToWorld._m20_m21_m22) };
+		// To transform the normals use tranpose(Inverse(DecalToWorld)) = transpose(WorldToDecal)
+		// But we want to only rotate the normals (we don't want to non-uniformaly scale them).
+		// We assume the matrix is only a scale and rotation, and we remove non-uniform scale:
+		float3 lengthSqr = { length2(DecalToWorld._m00_m01_m02),
+			length2(DecalToWorld._m10_m11_m12),
+			length2(DecalToWorld._m20_m21_m22) };
 
-			float3 scale = rsqrt(lengthSqr);
+		float3 scale = rsqrt(lengthSqr);
 
-			// Pre-multiply by the inverse of the non-uniform scale in DecalToWorld
-		    float4 ScaledNormal = float4(OSNormal.xyz * scale.xyz, 0.f); 
-		    float3 WSNormal = mul(ScaledNormal, DecalToWorld).xyz;
+		// Pre-multiply by the inverse of the non-uniform scale in DecalToWorld
+		float4 ScaledNormal = float4(OSNormal.xyz * scale.xyz, 0.f); 
+		float3 WSNormal = mul(ScaledNormal, DecalToWorld).xyz;
 
-			// need to normalized
+		// need to normalized
 
-			MaterialParameters.WorldNormal = normalize(WSNormal);
-		}
-		else
-		{
-			// not normalized
-			float3 MaterialNormal = GetMaterialNormal(MaterialParameters, PixelMaterialInputs);
-
-			// tangent/decal space to world space
-#if MATERIAL_TANGENTSPACENORMAL
-
-	
-			// To transform the normals use tranpose(Inverse(DecalToWorld)) = transpose(WorldToDecal)
-			// But we want to only rotate the normals (we don't want to non-uniformaly scale them).
-			// We assume the matrix is only a scale and rotation, and we remove non-uniform scale:
-			float3 lengthSqr = { length2(DecalToWorld._m00_m01_m02),
-					             length2(DecalToWorld._m10_m11_m12),
-					             length2(DecalToWorld._m20_m21_m22) };
-
-			float3 scale = rsqrt(lengthSqr);
-				
-			// Pre-multiply by the inverse of the non-uniform scale in DecalToWorld
-			float4 ScaledNormal = { -MaterialNormal.z * scale.x, MaterialNormal.y * scale.y, MaterialNormal.x * scale.z, 0.f };
-				
-			// Compute the normal 
-			MaterialParameters.WorldNormal = normalize(mul(ScaledNormal, DecalToWorld).xyz);
-
-#else
-			MaterialParameters.WorldNormal = normalize(MaterialNormal);
-#endif
-		}
+		MaterialParameters.WorldNormal = normalize(WSNormal);
 	}
-
-	MaterialParameters.ReflectionVector = -MaterialParameters.CameraVector + MaterialParameters.WorldNormal * dot(MaterialParameters.WorldNormal, MaterialParameters.CameraVector) * 2.0;
 
 	// Store the results in local variables and reuse instead of calling the functions multiple times.
 	half3 BaseColor = GetMaterialBaseColor(PixelMaterialInputs);
@@ -316,13 +286,6 @@ void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out
 	#endif
 
 	float Opacity = GetMaterialOpacity(PixelMaterialInputs);
-
-#if 0
-	// Normal based fade
-	float3 FaceNormal = normalize( cross( ddx_fine(WorldPosition), ddy_fine(WorldPosition) ) );
-	float3 DecalZ = mul(float4(-1, 0, 0, 0), DecalToWorld).xyz;
-	Opacity *= saturate( 2 * dot( FaceNormal, DecalZ ) );
-#endif
 
 	// Z fade
 	Opacity *= saturate( 4 - 4 * abs( SwizzlePos.z * 2 - 1 ) );

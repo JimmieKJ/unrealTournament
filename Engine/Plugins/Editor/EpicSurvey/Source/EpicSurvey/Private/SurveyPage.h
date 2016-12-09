@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
 #include "EpicSurvey.h"
+#include "QuestionBlock.h"
 
-class FSurveyBranch;
-class FQuestionBlock;
+class FJsonObject;
+class FSurvey;
 
 class FSurveyPage
 {

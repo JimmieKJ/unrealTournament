@@ -1,14 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlutilityPrivatePCH.h"
 #include "AssetTypeActions_EditorUtilityBlueprint.h"
-#include "Toolkits/AssetEditorManager.h"
-#include "BlueprintEditorModule.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Misc/PackageName.h"
+#include "Misc/MessageDialog.h"
+#include "EditorUtilityBlueprintFactory.h"
+#include "GlobalEditorUtilityBase.h"
 #include "Kismet2/KismetEditorUtilities.h"
-#include "AssetRegistryModule.h"
-#include "AssetToolsModule.h"
+#include "BlueprintEditorModule.h"
 #include "GlobalBlutilityDialog.h"
-#include "Engine/BlueprintGeneratedClass.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"

@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
 #include "UnitTest.h"
+#include "LMkDOP.h"
+#include "Math/LMOctree.h"
+#include "UnrealLightmass.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/PlatformTime.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/Guid.h"
+#include "LightmassScene.h"
 
 namespace Lightmass
 {

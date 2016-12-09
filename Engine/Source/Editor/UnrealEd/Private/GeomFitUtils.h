@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
 /*=============================================================================
 	GeomFitUtils.h: Utilities for fitting collision models to static meshes.
 =============================================================================*/
@@ -9,6 +11,7 @@
 #define RCP_SQRT2 (0.70710678118654752440084436210485f)
 #define RCP_SQRT3 (0.57735026918962576450914878050196f)
 
+class UStaticMesh;
 
 const FVector KDopDir10X[10] = 
 {

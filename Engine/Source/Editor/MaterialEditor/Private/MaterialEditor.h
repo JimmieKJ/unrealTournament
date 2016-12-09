@@ -1,11 +1,40 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Materials/MaterialExpression.h"
-#include "Toolkits/AssetEditorToolkit.h"
-#include "DragAndDrop.h"
-#include "Editor/GraphEditor/Public/GraphEditorDragDropAction.h"
+
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "Stats/Stats.h"
+#include "Misc/Guid.h"
+#include "UObject/GCObject.h"
+#include "Misc/NotifyHook.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Commands/InputChord.h"
 #include "EditorUndoClient.h"
+#include "MaterialShared.h"
+#include "Toolkits/IToolkitHost.h"
+#include "IMaterialEditor.h"
+#include "Editor/PropertyEditor/Public/IDetailsView.h"
+#include "SMaterialEditorViewport.h"
+#include "Materials/Material.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Tickable.h"
+
+class FAssetData;
+class FCanvas;
+class FMaterialCompiler;
+class FScopedTransaction;
+class IMessageLogListing;
+class SDockableTab;
+class SFindInMaterial;
+class SGraphEditor;
+class SMaterialPalette;
+class UEdGraph;
+class UFactory;
+class UMaterialEditorOptions;
+class UMaterialExpressionComment;
+class UMaterialInstance;
 
 /**
  * Class for rendering previews of material expressions in the material editor's linked object viewport.

@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "LinkerPlaceholderBase.h"
+#include "UObject/LinkerPlaceholderBase.h"
+#include "UObject/UnrealType.h"
 #include "Blueprint/BlueprintSupport.h"
 
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
@@ -18,6 +18,7 @@
 struct FPlaceholderContainerTracker : TThreadSingleton<FPlaceholderContainerTracker>
 {	
 	TArray<UObject*> PerspectiveReferencerStack;
+	TArray<void*> PerspectiveRootDataStack;
 	// as far as I can tell, structs are going to be the only bridging point 
 	// between property ownership
 	TArray<const UStructProperty*> IntermediatePropertyStack; 
@@ -56,6 +57,7 @@ public:
 	 * @return The UObject instance that is assumably referencing a placeholder (null if one couldn't be found)
 	 */
 	static UObject* FindPlaceholderContainer(const FLinkerPlaceholderBase::FPlaceholderValuePropertyPath& PropertyChainRef);
+	static void* FindRawPlaceholderContainer(const FLinkerPlaceholderBase::FPlaceholderValuePropertyPath& PropertyChainRef);
 };
 
 //------------------------------------------------------------------------------
@@ -153,6 +155,12 @@ UObject* FLinkerPlaceholderObjectImpl::FindPlaceholderContainer(const FLinkerPla
 	return ContainerObj;
 }
 
+void* FLinkerPlaceholderObjectImpl::FindRawPlaceholderContainer(const FLinkerPlaceholderBase::FPlaceholderValuePropertyPath& PropertyChainRef)
+{
+	TArray<void*>& PossibleStructReferencers = FPlaceholderContainerTracker::Get().PerspectiveRootDataStack;
+	return PossibleStructReferencers[0];
+}
+
 /*******************************************************************************
  * FPlaceholderContainerTracker / FScopedPlaceholderPropertyTracker
  ******************************************************************************/
@@ -173,12 +181,30 @@ FScopedPlaceholderContainerTracker::~FScopedPlaceholderContainerTracker()
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 }
 
+#if WITH_EDITOR
+
+FScopedPlaceholderRawContainerTracker::FScopedPlaceholderRawContainerTracker(void* InData)
+	:Data(InData)
+{
+	FPlaceholderContainerTracker::Get().PerspectiveRootDataStack.Add(InData);
+}
+
+FScopedPlaceholderRawContainerTracker::~FScopedPlaceholderRawContainerTracker()
+{
+	void* StackTop = FPlaceholderContainerTracker::Get().PerspectiveRootDataStack.Pop();
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	check(StackTop == Data);
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+}
+
+#endif
+
 //------------------------------------------------------------------------------
 FScopedPlaceholderPropertyTracker::FScopedPlaceholderPropertyTracker(const UStructProperty* InIntermediateProperty)
 	: IntermediateProperty(nullptr) // leave null, as a sentinel value (implying that PerspectiveReferencerStack was empty)
 {
 	FPlaceholderContainerTracker& ContainerRepository = FPlaceholderContainerTracker::Get();
-	if (ContainerRepository.PerspectiveReferencerStack.Num() > 0)
+	if (ContainerRepository.PerspectiveReferencerStack.Num() > 0 || ContainerRepository.PerspectiveRootDataStack.Num() > 0)
 	{
 		IntermediateProperty = InIntermediateProperty;
 		ContainerRepository.IntermediatePropertyStack.Add(InIntermediateProperty);
@@ -202,6 +228,7 @@ FScopedPlaceholderPropertyTracker::~FScopedPlaceholderPropertyTracker()
 	{
 		check(ContainerRepository.IntermediatePropertyStack.Num()  == 0);
 		check(ContainerRepository.PerspectiveReferencerStack.Num() == 0);
+		check(ContainerRepository.PerspectiveRootDataStack.Num() == 0);
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 	}
 }
@@ -230,7 +257,7 @@ FLinkerPlaceholderBase::FPlaceholderValuePropertyPath::FPlaceholderValueProperty
 		// to help trace the property path)
 		else if (const UScriptStruct* StructOwner = Cast<const UScriptStruct>(PropertyOuter))
 		{
-			if (DEFERRED_DEPENDENCY_ENSURE(StructStackIndex != INDEX_NONE))
+			if (StructStackIndex != INDEX_NONE)
 			{
 				// we expect the top struct property to be the one we're currently serializing
 				const UStructProperty* SerializingStructProp = StructPropertyStack[StructStackIndex];
@@ -248,6 +275,11 @@ FLinkerPlaceholderBase::FPlaceholderValuePropertyPath::FPlaceholderValueProperty
 					break;
 				}
 				--StructStackIndex;
+			}
+			else
+			{
+				// We're serializing a struct that isn't owned by a UObject (e.g. UUserDefinedStructEditorData::DefaultStructInstance)
+				break;
 			}
 		}
 		PropertyOuter = PropertyOuter->GetOuter();
@@ -286,6 +318,13 @@ int32 FLinkerPlaceholderBase::FPlaceholderValuePropertyPath::Resolve(FLinkerPlac
 	uint8* OutermostAddress = OutermostProperty->ContainerPtrToValuePtr<uint8>((uint8*)Container, /*ArrayIndex =*/0);
 	return FLinkerPlaceholderObjectImpl::ResolvePlaceholderValues(PropertyChain, PropertyChain.Num() - 1, OutermostAddress, Placeholder->GetPlaceholderAsUObject(), Replacement);
 }
+
+int32 FLinkerPlaceholderBase::FPlaceholderValuePropertyPath::ResolveRaw(FLinkerPlaceholderBase* Placeholder, UObject* Replacement, void* Container) const
+{
+	const UProperty* OutermostProperty = PropertyChain.Last();
+	uint8* OutermostAddress = OutermostProperty->ContainerPtrToValuePtr<uint8>((uint8*)Container, /*ArrayIndex =*/0);
+	return FLinkerPlaceholderObjectImpl::ResolvePlaceholderValues(PropertyChain, PropertyChain.Num() - 1, OutermostAddress, Placeholder->GetPlaceholderAsUObject(), Replacement);;
+}
  
 /*******************************************************************************
  * FLinkerPlaceholderBase
@@ -310,24 +349,34 @@ bool FLinkerPlaceholderBase::AddReferencingPropertyValue(const UObjectProperty* 
 {
 	FPlaceholderValuePropertyPath PropertyChain(ReferencingProperty);
 	UObject* ReferencingContainer = FLinkerPlaceholderObjectImpl::FindPlaceholderContainer(PropertyChain);
-
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-	check(ReferencingProperty->GetObjectPropertyValue(DataPtr) == GetPlaceholderAsUObject());
-	check(PropertyChain.IsValid());
-	checkf(ReferencingContainer != nullptr, TEXT("We couldn't reliably determine the object that a placeholder value should belong to - are we missing a FScopedPlaceholderContainerTracker somewhere?"));
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-
 	if (ReferencingContainer != nullptr)
 	{
-		ReferencingContainers.FindOrAdd(ReferencingContainer).Add(PropertyChain);
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+		check(ReferencingProperty->GetObjectPropertyValue(DataPtr) == GetPlaceholderAsUObject());
+		check(PropertyChain.IsValid());
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+
+		if (ReferencingContainer != nullptr)
+		{
+			ReferencingContainers.FindOrAdd(ReferencingContainer).Add(PropertyChain);
+		}
+		return (ReferencingContainer != nullptr);
 	}
-	return (ReferencingContainer != nullptr);
+	else
+	{
+		void* ReferencingRootStruct = FLinkerPlaceholderObjectImpl::FindRawPlaceholderContainer(PropertyChain);
+		if (ReferencingRootStruct)
+		{
+			ReferencingRawContainers.FindOrAdd(ReferencingRootStruct).Add(PropertyChain);
+		}
+		return ReferencingRootStruct != nullptr;
+	}
 }
 
 //------------------------------------------------------------------------------
 bool FLinkerPlaceholderBase::HasKnownReferences() const
 {
-	return (ReferencingContainers.Num() > 0);
+	return (ReferencingContainers.Num() > 0) || ReferencingRawContainers.Num() > 0;
 }
 
 //------------------------------------------------------------------------------
@@ -335,6 +384,7 @@ int32 FLinkerPlaceholderBase::ResolveAllPlaceholderReferences(UObject* Replaceme
 {
 	int32 ReplacementCount = ResolvePlaceholderPropertyValues(ReplacementObj);
 	ReferencingContainers.Empty();
+	ReferencingRawContainers.Empty();
 
 	MarkAsResolved();
 	return ReplacementCount;
@@ -395,6 +445,21 @@ int32 FLinkerPlaceholderBase::ResolvePlaceholderPropertyValues(UObject* NewObjec
 			//       scenario
 			check(ResolvedCount > 0);
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+		}
+	}
+
+	for (auto& ReferencingRawPair : ReferencingRawContainers)
+	{
+		void* RawValue = ReferencingRawPair.Key;
+		check(RawValue);
+
+		for (const FPlaceholderValuePropertyPath& PropertyRef : ReferencingRawPair.Value)
+		{
+			int32 ResolvedCount = PropertyRef.ResolveRaw(this, NewObjectValue, RawValue);
+			ResolvedTotal += ResolvedCount;
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+			check(ResolvedCount > 0);
+#endif
 		}
 	}
 

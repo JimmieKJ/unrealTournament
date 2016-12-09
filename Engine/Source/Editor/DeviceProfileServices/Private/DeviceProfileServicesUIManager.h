@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDeviceProfileServicesUIManager.h"
+
+class UDeviceProfile;
 
 /**
  * Implements the device profile services manager for UI

@@ -2,29 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "XmppConnection.h"
+
 #if WITH_XMPP_JINGLE
 #if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
+#include "AllowWindowsPlatformAtomics.h"
 #endif
 
-#if PLATFORM_PS4
-
-PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
-
-#elif defined (__clang__)
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wshadow"
-
-#elif defined (_MSC_VER)
-
-#pragma warning(push)
-#pragma warning(disable: 4510)
-#pragma warning(disable: 4610)
-#pragma warning(disable: 4996)
-#pragma warning(disable: 6011)
-
-#endif
+THIRD_PARTY_INCLUDES_START
 
 #pragma push_macro("NO_LOGGING")
 #pragma push_macro("OVERRIDE")
@@ -56,21 +44,10 @@ PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #pragma pop_macro("NO_LOGGING")
 #pragma pop_macro("OVERRIDE")
 
-#if PLATFORM_PS4
-
-PRAGMA_POP
-
-#elif defined (__clang__) 
-
-#pragma clang diagnostics pop
-
-#elif defined (_MSC_VER)
-
-#pragma warning(pop)
-
-#endif
+THIRD_PARTY_INCLUDES_END
 
 #if PLATFORM_WINDOWS
+#include "HideWindowsPlatformAtomics.h"
 #include "HideWindowsPlatformTypes.h"
 #endif
 
@@ -89,6 +66,9 @@ public:
 
 	static void ConvertToJid(FXmppUserJid& OutJid, const buzz::Jid& InJid);
 	static void ConvertFromJid(buzz::Jid& OutJid, const FXmppUserJid& InJid);
+
+	/** Adds a Correlation ID to a stanza.  If none is provided, one will be generated */
+	static void AddCorrIdToStanza(buzz::XmlElement& Stanza, const TCHAR* const CorrId = nullptr);
 };
 
 #endif //WITH_XMPP_JINGLE

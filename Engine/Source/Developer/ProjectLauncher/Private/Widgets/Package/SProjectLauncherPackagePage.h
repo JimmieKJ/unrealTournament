@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Models/ProjectLauncherModel.h"
+
+class SProjectLauncherPackagingSettings;
 
 /**
  * Implements the profile page for the session launcher wizard.

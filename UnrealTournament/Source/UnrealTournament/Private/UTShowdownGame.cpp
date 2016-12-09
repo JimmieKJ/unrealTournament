@@ -148,7 +148,7 @@ void AUTShowdownGame::StartNewRound()
 			AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
 			if (PS == NULL || PS->SelectionOrder != 255)
 			{
-				RestartPlayer(*It);
+				RestartPlayer(It->Get());
 			}
 		}
 	}

@@ -1,10 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
 #include "Widgets/SWidget.h"
-#include "Input/Events.h"
-#include "ActiveTimerHandle.h"
-#include "SlateStats.h"
+#include "Types/PaintArgs.h"
+#include "Layout/ArrangedChildren.h"
+#include "Layout/Children.h"
+#include "SlateGlobals.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/IToolTip.h"
+#include "Misc/Paths.h"
+#include "HAL/IConsoleManager.h"
+#include "Types/NavigationMetaData.h"
+#include "Application/SlateApplicationBase.h"
+#include "Styling/CoreStyle.h"
+#include "Application/ActiveTimerHandle.h"
+#include "Stats/SlateStats.h"
 
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Total Widgets"), STAT_SlateTotalWidgets, STATGROUP_Slate);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Painted Widgets"), STAT_SlateNumPaintedWidgets, STATGROUP_Slate);
@@ -20,6 +29,55 @@ TAutoConsoleVariable<int32> TickInvisibleWidgets(TEXT("Slate.TickInvisibleWidget
 
 SLATECORE_API int32 bFoldTick = 1;
 FAutoConsoleVariableRef FoldTick(TEXT("Slate.FoldTick"), bFoldTick, TEXT("When folding, call Tick as part of the paint pass instead of a separate tick pass."));
+
+#if STATS
+
+struct FScopeCycleCounterSWidget : public FCycleCounter
+{
+	/**
+	 * Constructor, starts timing
+	 */
+	FORCEINLINE_STATS FScopeCycleCounterSWidget(const SWidget* Widget)
+	{
+		if (Widget)
+		{
+			TStatId WidgetStatId = Widget->GetStatID();
+			if (FThreadStats::IsCollectingData(WidgetStatId))
+			{
+				Start(WidgetStatId);
+			}
+		}
+	}
+
+	/**
+	 * Updates the stat with the time spent
+	 */
+	FORCEINLINE_STATS ~FScopeCycleCounterSWidget()
+	{
+		Stop();
+	}
+};
+
+#else
+
+struct FScopeCycleCounterSWidget
+{
+	FScopeCycleCounterSWidget(const SWidget* Widget)
+	{
+	}
+	~FScopeCycleCounterSWidget()
+	{;
+	}
+};
+
+#endif
+
+void SWidget::CreateStatID() const
+{
+#if STATS
+	StatID = FDynamicStats::CreateStatId<FStatGroup_STATGROUP_SlateVeryVerbose>( ToString() );
+#endif
+}
 
 SWidget::SWidget()
 	: Cursor( TOptional<EMouseCursor::Type>() )
@@ -96,6 +154,8 @@ void SWidget::Construct(
 	Tag = InTag;
 	bForceVolatile = InForceVolatile;
 	MetaData = InMetaData;
+
+	CreateStatID();
 }
 
 FReply SWidget::OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent)
@@ -200,11 +260,23 @@ FReply SWidget::OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPoi
 void SWidget::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	bIsHovered = true;
+
+	if (MouseEnterHandler.IsBound())
+	{
+		// A valid handler is assigned; let it handle the event.
+		MouseEnterHandler.Execute(MyGeometry, MouseEvent);
+	}
 }
 
 void SWidget::OnMouseLeave( const FPointerEvent& MouseEvent )
 {
 	bIsHovered = false;
+
+	if (MouseLeaveHandler.IsBound())
+	{
+		// A valid handler is assigned; let it handle the event.
+		MouseLeaveHandler.Execute(MouseEvent);
+	}
 }
 
 FReply SWidget::OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
@@ -653,6 +725,10 @@ void SWidget::SetDebugInfo( const ANSICHAR* InType, const ANSICHAR* InFile, int3
 
 int32 SWidget::Paint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
+#if WITH_VERY_VERBOSE_SLATE_STATS
+	FScopeCycleCounterSWidget WidgetScope( this );
+#endif
+
 	INC_DWORD_STAT(STAT_SlateNumPaintedWidgets);
 	SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlateOnPaint, GetType());
 
@@ -784,4 +860,14 @@ void SWidget::SetOnMouseMove(FPointerEventHandler EventHandler)
 void SWidget::SetOnMouseDoubleClick(FPointerEventHandler EventHandler)
 {
 	MouseDoubleClickHandler = EventHandler;
+}
+
+void SWidget::SetOnMouseEnter(FNoReplyPointerEventHandler EventHandler)
+{
+	MouseEnterHandler = EventHandler;
+}
+
+void SWidget::SetOnMouseLeave(FSimpleNoReplyPointerEventHandler EventHandler)
+{
+	MouseLeaveHandler = EventHandler;
 }

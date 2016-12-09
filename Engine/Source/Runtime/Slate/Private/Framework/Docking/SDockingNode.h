@@ -2,7 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/Docking/TabManager.h"
+#include "Widgets/Layout/SSplitter.h"
 
+class SDockingArea;
+class SDockingSplitter;
 
 /**
  * A node in the Docking/Tabbing hierarchy.

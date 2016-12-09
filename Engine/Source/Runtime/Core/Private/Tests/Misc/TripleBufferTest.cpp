@@ -1,8 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "AutomationTest.h"
-#include "TripleBuffer.h"
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Misc/AutomationTest.h"
+#include "Containers/TripleBuffer.h"
+#include "Math/RandomStream.h"
 
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTripleBufferTest, "System.Core.Misc.TripleBuffer", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
@@ -62,17 +64,42 @@ bool FTripleBufferTest::RunTest(const FString& Parameters)
 	{
 		TTripleBuffer<int32> Buffer;
 
-		Buffer.WriteAndSwap(1);
-		Buffer.SwapReadBuffers();
-		Buffer.WriteAndSwap(2);
-		Buffer.Write(3);
+		for (int32 Index = 0; Index < 6; ++Index)
+		{
+			int32& Write = Buffer.GetWriteBuffer(); Write = Index; Buffer.SwapWriteBuffers();
+			Buffer.SwapReadBuffers();
+			TestEqual(*FString::Printf(TEXT("Triple buffer must read correct value (%i)"), Index), Buffer.Read(), Index);
+		}
 
-		TestEqual(TEXT("Triple buffer must read correct value (1)"), Buffer.Read(), 1);
-		TestEqual(TEXT("Triple buffer must read correct value (2)"), Buffer.SwapAndRead(), 2);
+		FRandomStream Rand;
+		int32 LastRead = -1;
 
-		Buffer.SwapWriteBuffers();
+		for (int32 Index = 0; Index < 100; ++Index)
+		{
+			int32 Writes = Rand.GetUnsignedInt() % 4;
 
-		TestEqual(TEXT("Triple buffer must read correct value (3)"), Buffer.SwapAndRead(), 3);
+			while (Writes > 0)
+			{
+				int32& Write = Buffer.GetWriteBuffer(); Write = Index; Buffer.SwapWriteBuffers();
+				--Writes;
+			}
+			
+			int32 Reads = Rand.GetUnsignedInt() % 4;
+
+			while (Reads > 0)
+			{
+				if (!Buffer.IsDirty())
+				{
+					break;
+				}
+
+				Buffer.SwapReadBuffers();
+				int32 Read = Buffer.Read();
+				TestTrue(TEXT("Triple buffer must read in increasing order"), Read > LastRead);
+				LastRead = Read;
+				--Reads;
+			}
+		}
 	}
 
 	return true;

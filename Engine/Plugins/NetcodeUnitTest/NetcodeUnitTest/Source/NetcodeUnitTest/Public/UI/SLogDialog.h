@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class SWindow;
+
 // Largely a copy of UnrealEd Dialogs.h
 
 // Warning: Currently all 'window close' events for the dialog are treated as user input, so be careful if closing within code

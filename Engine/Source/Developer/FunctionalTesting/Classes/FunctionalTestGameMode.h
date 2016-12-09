@@ -2,11 +2,13 @@
 
 #pragma once
 
-#include "GameFramework/GameMode.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/GameModeBase.h"
 #include "FunctionalTestGameMode.generated.h"
 
 UCLASS(Blueprintable)
-class FUNCTIONALTESTING_API AFunctionalTestGameMode : public AGameMode
+class FUNCTIONALTESTING_API AFunctionalTestGameMode : public AGameModeBase
 {
 	GENERATED_UCLASS_BODY()
 

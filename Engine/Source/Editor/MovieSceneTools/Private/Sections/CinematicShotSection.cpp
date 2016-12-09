@@ -1,14 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "CinematicShotSection.h"
-#include "ISectionLayoutBuilder.h"
-#include "Runtime/MovieSceneTracks/Public/Sections/MovieSceneCinematicShotSection.h"
-#include "CinematicShotTrackEditor.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "SInlineEditableTextBlock.h"
+#include "Sections/CinematicShotSection.h"
+#include "Sections/MovieSceneCinematicShotSection.h"
+#include "Rendering/DrawElements.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "ScopedTransaction.h"
+#include "MovieSceneTrack.h"
+#include "MovieScene.h"
+#include "TrackEditors/CinematicShotTrackEditor.h"
+#include "SequencerSectionPainter.h"
+#include "EditorStyleSet.h"
 #include "MovieSceneToolHelpers.h"
-#include "MovieSceneToolsUserSettings.h"
 
 
 #define LOCTEXT_NAMESPACE "FCinematicShotSection"
@@ -22,8 +26,8 @@ FCinematicShotSection::FCinematicSectionCache::FCinematicSectionCache(UMovieScen
 {
 	if (Section)
 	{
-		ActualStartTime = Section->GetStartTime() - Section->StartOffset;
-		TimeScale = Section->TimeScale;
+		ActualStartTime = Section->GetStartTime() - Section->Parameters.StartOffset;
+		TimeScale = Section->Parameters.TimeScale;
 	}
 }
 
@@ -37,10 +41,6 @@ FCinematicShotSection::FCinematicShotSection(TSharedPtr<ISequencer> InSequencer,
 	, InitialStartTimeDuringResize(0.f)
 	, ThumbnailCacheData(&SectionObject)
 {
-	if (InSequencer->HasSequenceInstanceForSection(InSection))
-	{
-		SequenceInstance = InSequencer->GetSequenceInstanceForSection(InSection);
-	}
 }
 
 
@@ -65,7 +65,7 @@ void FCinematicShotSection::SetSingleTime(float GlobalTime)
 
 void FCinematicShotSection::BeginResizeSection()
 {
-	InitialStartOffsetDuringResize = SectionObject.StartOffset;
+	InitialStartOffsetDuringResize = SectionObject.Parameters.StartOffset;
 	InitialStartTimeDuringResize = SectionObject.GetStartTime();
 }
 
@@ -74,13 +74,13 @@ void FCinematicShotSection::ResizeSection(ESequencerSectionResizeMode ResizeMode
 	// Adjust the start offset when resizing from the beginning
 	if (ResizeMode == SSRM_LeadingEdge)
 	{
-		float StartOffset = (ResizeTime - InitialStartTimeDuringResize) / SectionObject.TimeScale;
+		float StartOffset = (ResizeTime - InitialStartTimeDuringResize) / SectionObject.Parameters.TimeScale;
 		StartOffset += InitialStartOffsetDuringResize;
 
 		// Ensure start offset is not less than 0
 		StartOffset = FMath::Max(StartOffset, 0.f);
 
-		SectionObject.StartOffset = StartOffset;
+		SectionObject.Parameters.StartOffset = StartOffset;
 	}
 
 	FThumbnailSection::ResizeSection(ResizeMode, ResizeTime);
@@ -115,12 +115,12 @@ int32 FCinematicShotSection::OnPaintSection(FSequencerSectionPainter& InPainter)
 
 	InPainter.LayerId = InPainter.PaintSectionBackground();
 
-	FVector2D SectionSize = InPainter.SectionGeometry.GetLocalSize();
+	FVector2D LocalSectionSize = InPainter.SectionGeometry.GetLocalSize();
 
 	FSlateDrawElement::MakeBox(
 		InPainter.DrawElements,
 		InPainter.LayerId++,
-		InPainter.SectionGeometry.ToPaintGeometry(FVector2D(SectionSize.X-2.f, 7.f), FSlateLayoutTransform(FVector2D(1.f, 4.f))),
+		InPainter.SectionGeometry.ToPaintGeometry(FVector2D(LocalSectionSize.X-2.f, 7.f), FSlateLayoutTransform(FVector2D(1.f, 4.f))),
 		FilmBorder,
 		InPainter.SectionClippingRect.InsetBy(FMargin(1.f)),
 		InPainter.bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect
@@ -129,15 +129,110 @@ int32 FCinematicShotSection::OnPaintSection(FSequencerSectionPainter& InPainter)
 	FSlateDrawElement::MakeBox(
 		InPainter.DrawElements,
 		InPainter.LayerId++,
-		InPainter.SectionGeometry.ToPaintGeometry(FVector2D(SectionSize.X-2.f, 7.f), FSlateLayoutTransform(FVector2D(1.f, SectionSize.Y - 11.f))),
+		InPainter.SectionGeometry.ToPaintGeometry(FVector2D(LocalSectionSize.X-2.f, 7.f), FSlateLayoutTransform(FVector2D(1.f, LocalSectionSize.Y - 11.f))),
 		FilmBorder,
 		InPainter.SectionClippingRect.InsetBy(FMargin(1.f)),
 		InPainter.bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect
 	);
 
-	if (SequenceInstance.IsValid())
+	const float SectionSize = SectionObject.GetTimeSize();
+
+	if (SectionSize <= 0.0f)
 	{
-		return FThumbnailSection::OnPaintSection(InPainter);
+		return InPainter.LayerId;
+	}
+
+	FThumbnailSection::OnPaintSection(InPainter);
+
+	const float DrawScale = InPainter.SectionGeometry.Size.X / SectionSize;
+		
+	UMovieScene* MovieScene = nullptr;
+	FFloatRange PlaybackRange;
+	if(SectionObject.GetSequence() != nullptr)
+	{
+		MovieScene = SectionObject.GetSequence()->GetMovieScene();
+		PlaybackRange = MovieScene->GetPlaybackRange();
+	}
+	else
+	{
+		UMovieSceneTrack* MovieSceneTrack = CastChecked<UMovieSceneTrack>(SectionObject.GetOuter());
+		MovieScene = CastChecked<UMovieScene>(MovieSceneTrack->GetOuter());
+		PlaybackRange = MovieScene->GetPlaybackRange();
+	}
+
+	// add box for the working size
+	const float StartOffset = SectionObject.Parameters.TimeScale * SectionObject.Parameters.StartOffset;
+	const float WorkingStart = -SectionObject.Parameters.TimeScale * PlaybackRange.GetLowerBoundValue() - StartOffset;
+	const float WorkingSize = SectionObject.Parameters.TimeScale * (MovieScene != nullptr ? MovieScene->GetEditorData().WorkingRange.Size<float>() : 1.0f);
+
+	// add dark tint for left out-of-bounds & working range
+	if (StartOffset < 0.0f)
+	{
+		FSlateDrawElement::MakeBox(
+			InPainter.DrawElements,
+			InPainter.LayerId++,
+			InPainter.SectionGeometry.ToPaintGeometry(
+				FVector2D(0.0f, 0.f),
+				FVector2D(-StartOffset * DrawScale, InPainter.SectionGeometry.Size.Y)
+			),
+			FEditorStyle::GetBrush("WhiteBrush"),
+			InPainter.SectionClippingRect,
+			ESlateDrawEffect::None,
+			FLinearColor::Black.CopyWithNewOpacity(0.5f)
+		);
+	}
+
+	// add green line for playback start
+	if (StartOffset < 0)
+	{
+		FSlateDrawElement::MakeBox(
+			InPainter.DrawElements,
+			InPainter.LayerId++,
+			InPainter.SectionGeometry.ToPaintGeometry(
+				FVector2D(-StartOffset * DrawScale, 0.f),
+				FVector2D(1.0f, InPainter.SectionGeometry.Size.Y)
+			),
+			FEditorStyle::GetBrush("WhiteBrush"),
+			InPainter.SectionClippingRect,
+			ESlateDrawEffect::None,
+			FColor(32, 128, 32)	// 120, 75, 50 (HSV)
+		);
+	}
+
+	// add dark tint for right out-of-bounds & working range
+	const float PlaybackEnd = SectionObject.Parameters.TimeScale * PlaybackRange.Size<float>() - StartOffset;
+
+	if (PlaybackEnd < SectionSize)
+	{
+		FSlateDrawElement::MakeBox(
+			InPainter.DrawElements,
+			InPainter.LayerId++,
+			InPainter.SectionGeometry.ToPaintGeometry(
+				FVector2D(PlaybackEnd * DrawScale, 0.f),
+				FVector2D((SectionSize - PlaybackEnd) * DrawScale, InPainter.SectionGeometry.Size.Y)
+			),
+			FEditorStyle::GetBrush("WhiteBrush"),
+			InPainter.SectionClippingRect,
+			ESlateDrawEffect::None,
+			FLinearColor::Black.CopyWithNewOpacity(0.5f)
+		);
+	}
+
+	// add red line for playback end
+	if (PlaybackEnd <= SectionSize)
+	{
+		FSlateDrawElement::MakeBox(
+			InPainter.DrawElements,
+			InPainter.LayerId++,
+			InPainter.SectionGeometry.ToPaintGeometry(
+				FVector2D(PlaybackEnd * DrawScale, 0.f),
+				FVector2D(1.0f, InPainter.SectionGeometry.Size.Y)
+			),
+			FEditorStyle::GetBrush("WhiteBrush"),
+			InPainter.SectionClippingRect,
+			ESlateDrawEffect::None,
+			FColor(128, 32, 32)	// 0, 75, 50 (HSV)
+		);
 	}
 
 	return InPainter.LayerId;
@@ -149,20 +244,17 @@ void FCinematicShotSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, c
 
 	MenuBuilder.BeginSection(NAME_None, LOCTEXT("ShotMenuText", "Shot"));
 	{
-		if (SequenceInstance.IsValid())
-		{
-			MenuBuilder.AddSubMenu(
-				LOCTEXT("TakesMenu", "Takes"),
-				LOCTEXT("TakesMenuTooltip", "Shot takes"),
-				FNewMenuDelegate::CreateLambda([=](FMenuBuilder& InMenuBuilder){ AddTakesMenu(InMenuBuilder); }));
+		MenuBuilder.AddSubMenu(
+			LOCTEXT("TakesMenu", "Takes"),
+			LOCTEXT("TakesMenuTooltip", "Shot takes"),
+			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& InMenuBuilder){ AddTakesMenu(InMenuBuilder); }));
 
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("NewTake", "New Take"),
-				FText::Format(LOCTEXT("NewTakeTooltip", "Create a new take for {0}"), SectionObject.GetShotDisplayName()),
-				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateSP(CinematicShotTrackEditor.Pin().ToSharedRef(), &FCinematicShotTrackEditor::NewTake, &SectionObject))
-			);
-		}
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("NewTake", "New Take"),
+			FText::Format(LOCTEXT("NewTakeTooltip", "Create a new take for {0}"), SectionObject.GetShotDisplayName()),
+			FSlateIcon(),
+			FUIAction(FExecuteAction::CreateSP(CinematicShotTrackEditor.Pin().ToSharedRef(), &FCinematicShotTrackEditor::NewTake, &SectionObject))
+		);
 
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("InsertNewShot", "Insert Shot"),
@@ -171,32 +263,26 @@ void FCinematicShotSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, c
 			FUIAction(FExecuteAction::CreateSP(CinematicShotTrackEditor.Pin().ToSharedRef(), &FCinematicShotTrackEditor::InsertShot, &SectionObject))
 		);
 
-		if (SequenceInstance.IsValid())
-		{
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("DuplicateShot", "Duplicate Shot"),
-				FText::Format(LOCTEXT("DuplicateShotTooltip", "Duplicate {0} to create a new shot"), SectionObject.GetShotDisplayName()),
-				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateSP(CinematicShotTrackEditor.Pin().ToSharedRef(), &FCinematicShotTrackEditor::DuplicateShot, &SectionObject))
-			);
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("DuplicateShot", "Duplicate Shot"),
+			FText::Format(LOCTEXT("DuplicateShotTooltip", "Duplicate {0} to create a new shot"), SectionObject.GetShotDisplayName()),
+			FSlateIcon(),
+			FUIAction(FExecuteAction::CreateSP(CinematicShotTrackEditor.Pin().ToSharedRef(), &FCinematicShotTrackEditor::DuplicateShot, &SectionObject))
+		);
 
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("RenderShot", "Render Shot"),
-				FText::Format(LOCTEXT("RenderShotTooltip", "Render shot movie"), SectionObject.GetShotDisplayName()),
-				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateSP(CinematicShotTrackEditor.Pin().ToSharedRef(), &FCinematicShotTrackEditor::RenderShot, &SectionObject))
-			);
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("RenderShot", "Render Shot"),
+			FText::Format(LOCTEXT("RenderShotTooltip", "Render shot movie"), SectionObject.GetShotDisplayName()),
+			FSlateIcon(),
+			FUIAction(FExecuteAction::CreateSP(CinematicShotTrackEditor.Pin().ToSharedRef(), &FCinematicShotTrackEditor::RenderShot, &SectionObject))
+		);
 
-			/*
-			//@todo
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("RenameShot", "Rename Shot"),
-				FText::Format(LOCTEXT("RenameShotTooltip", "Rename {0}"), SectionObject.GetShotDisplayName()),
-				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateSP(CinematicShotTrackEditor.Pin().ToSharedRef(), &FCinematicShotTrackEditor::RenameShot, &SectionObject))
-			);
-			*/
-		}
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("RenameShot", "Rename Shot"),
+			FText::Format(LOCTEXT("RenameShotTooltip", "Rename {0}"), SectionObject.GetShotDisplayName()),
+			FSlateIcon(),
+			FUIAction(FExecuteAction::CreateSP(this, &FCinematicShotSection::EnterRename))
+		);
 	}
 	MenuBuilder.EndSection();
 }
@@ -248,12 +334,9 @@ FReply FCinematicShotSection::OnSectionDoubleClicked(const FGeometry& SectionGeo
 {
 	if( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton )
 	{
-		if (SequenceInstance.IsValid())
+		if (SectionObject.GetSequence())
 		{
-			if (SectionObject.GetSequence())
-			{
-				Sequencer.Pin()->FocusSequenceInstance(SectionObject);
-			}
+			Sequencer.Pin()->FocusSequenceInstance(SectionObject);
 		}
 	}
 

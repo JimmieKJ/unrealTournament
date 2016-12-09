@@ -2,8 +2,11 @@
 
 #pragma once
 
-#define LOCTEXT_NAMESPACE "FVisualLoggerCommands"
+#include "CoreMinimal.h"
+#include "Framework/Commands/InputChord.h"
+#include "Framework/Commands/Commands.h"
 
+#define LOCTEXT_NAMESPACE "FVisualLoggerCommands"
 
 class FVisualLoggerCommands : public TCommands<FVisualLoggerCommands>
 {

@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SyntaxHighlighterTextLayoutMarshaller.h"
+#include "CoreMinimal.h"
+#include "Styling/SlateTypes.h"
+#include "CodeEditorStyle.h"
+#include "Framework/Text/SyntaxTokenizer.h"
+#include "Framework/Text/SyntaxHighlighterTextLayoutMarshaller.h"
 
+class FTextLayout;
 
 /**
  * Get/set the raw text to/from a text layout, and also inject syntax highlighting for our rich-text markup

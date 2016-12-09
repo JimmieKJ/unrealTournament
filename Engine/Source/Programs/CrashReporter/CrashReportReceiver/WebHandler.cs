@@ -147,8 +147,11 @@ namespace Tools.CrashReporter.CrashReportReceiver
 		/// <returns>Result object, indicating whether the report has already been uploaded.</returns>
 		private CrashReporterResult CheckReport(HttpListenerRequest Request)
 		{
-			var ReportResult = new CrashReporterResult();
-
+			CrashReporterResult ReportResult = new CrashReporterResult();
+#if DISABLED_CRR
+			ReportResult.bSuccess = false;
+			CrashReporterReceiverServicer.WriteEvent("CheckReport() Report rejected by disabled CRR");
+#else
 			var RequestClass = new CheckReportRequest();
 			RequestClass.ReportId = GetReportIdFromPostData(GetContentStreamString(Request));
 
@@ -158,7 +161,7 @@ namespace Tools.CrashReporter.CrashReportReceiver
 			{
 				CrashReporterReceiverServicer.WriteEvent( string.Format( "Report \"{0}\" has already been received", RequestClass.ReportId ) );
 			}
-
+#endif
 			return ReportResult;
 		}
 
@@ -170,7 +173,11 @@ namespace Tools.CrashReporter.CrashReportReceiver
 		private CrashReporterResult CheckReportDetail( HttpListenerRequest Request )
 		{
 			CrashReporterResult ReportResult = new CrashReporterResult();
-
+#if DISABLED_CRR	
+			ReportResult.bSuccess = false;
+			ReportResult.Message = "CRR disabled";
+			CrashReporterReceiverServicer.WriteEvent("CheckReportDetail() Report rejected by disabled CRR");
+#else
 			string WERReportMetadataString = GetContentStreamString( Request );
 			WERReportMetadata WERData = null;
 
@@ -208,7 +215,7 @@ namespace Tools.CrashReporter.CrashReportReceiver
 					ReportResult.Message = "Rejecting Debug or DebugGame crash";
 				}
 			}
-
+#endif
 			return ReportResult;
 		}
 

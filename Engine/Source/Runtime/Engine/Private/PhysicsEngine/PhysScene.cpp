@@ -1,27 +1,35 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
-#include "PhysicsPublic.h"
+#include "CoreMinimal.h"
+#include "Misc/CommandLine.h"
+#include "Stats/Stats.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "HAL/IConsoleManager.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "EngineDefines.h"
+#include "Engine/EngineTypes.h"
+#include "PhysxUserData.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "Components/PrimitiveComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "PhysicsEngine/RigidBodyIndexPair.h"
+#include "PhysicsPublic.h"
 
 #if WITH_PHYSX
-	#include "PhysXSupport.h"
-	#include "../Vehicles/PhysXVehicleManager.h"
-	#include "PhysXSupport.h"
-#if WITH_VEHICLE
-	#include "../Vehicles/PhysXVehicleManager.h"
-#include "PhysXSupport.h"
-#include "../Vehicles/PhysXVehicleManager.h"
-#endif
+	#include "PhysXPublic.h"
+	#include "PhysicsEngine/PhysXSupport.h"
 #endif
 
-#include "PhysSubstepTasks.h"	//needed even if not substepping, contains common utility class for PhysX
+#include "PhysicsEngine/PhysSubstepTasks.h"
 #include "PhysicsEngine/PhysicsCollisionHandler.h"
 #include "Components/DestructibleComponent.h"
 #include "Components/LineBatchComponent.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "PhysicsEngine/ConstraintInstance.h"
 
 /** Physics stats **/
 
@@ -35,6 +43,7 @@ DECLARE_CYCLE_STAT(TEXT("Fetch Results Time (cloth)"), STAT_PhysicsFetchDynamics
 DECLARE_CYCLE_STAT(TEXT("Start Physics Time (async)"), STAT_PhysicsKickOffDynamicsTime_Async, STATGROUP_Physics);
 DECLARE_CYCLE_STAT(TEXT("Fetch Results Time (async)"), STAT_PhysicsFetchDynamicsTime_Async, STATGROUP_Physics);
 
+DECLARE_CYCLE_STAT(TEXT("Update Kinematics On Deferred SkelMeshes"), STAT_UpdateKinematicsOnDeferredSkelMeshes, STATGROUP_Physics);
 
 DECLARE_CYCLE_STAT(TEXT("Phys Events Time"), STAT_PhysicsEventTime, STATGROUP_Physics);
 DECLARE_CYCLE_STAT(TEXT("SyncComponentsToBodies (sync)"), STAT_SyncComponentsToBodies, STATGROUP_Physics);
@@ -96,14 +105,14 @@ FORCEINLINE static bool FrameLagAsync()
 
 #if WITH_APEX
 
-//This level of indirection is needed because we don't want to expose NxApexDamageEventReportData in a public engine header
+//This level of indirection is needed because we don't want to expose apex::ApexDamageEventReportData in a public engine header
 struct FPendingApexDamageEvent
 {
 	TWeakObjectPtr<class UDestructibleComponent> DestructibleComponent;
-	NxApexDamageEventReportData DamageEvent;
-	TArray<NxApexChunkData> ApexChunkData;
+	apex::DamageEventReportData DamageEvent;
+	TArray<apex::ChunkData> ApexChunkData;
 
-	FPendingApexDamageEvent(UDestructibleComponent* InDestructibleComponent, const NxApexDamageEventReportData& InDamageEvent)
+	FPendingApexDamageEvent(UDestructibleComponent* InDestructibleComponent, const apex::DamageEventReportData& InDamageEvent)
 		: DestructibleComponent(InDestructibleComponent)
 		, DamageEvent(InDamageEvent)
 	{
@@ -260,11 +269,7 @@ FPhysScene::FPhysScene()
 	LineBatcher = NULL;
 	OwningWorld = NULL;
 #if WITH_PHYSX
-#if WITH_VEHICLE
-	VehicleManager = NULL;
-#endif
 	PhysxUserData = FPhysxUserData(this);
-	
 #endif	//#if WITH_PHYSX
 
 	UPhysicsSettings * PhysSetting = UPhysicsSettings::Get();
@@ -301,13 +306,13 @@ FPhysScene::FPhysScene()
 
 	// Make sure we use the sync scene for apex world support of destructibles in the async scene
 #if WITH_APEX
-	NxApexScene* ApexScene = GetApexScene(bAsyncSceneEnabled ? PST_Async : PST_Sync);
+	apex::Scene* ApexScene = GetApexScene(bAsyncSceneEnabled ? PST_Async : PST_Sync);
 	check(ApexScene);
 	PxScene* SyncPhysXScene = GetPhysXScene(PST_Sync);
 	check(SyncPhysXScene);
 	check(GApexModuleDestructible);
 	GApexModuleDestructible->setWorldSupportPhysXScene(*ApexScene, SyncPhysXScene);
-	GApexModuleDestructible->setDamageApplicationRaycastFlags(NxDestructibleActorRaycastFlags::AllChunks, *ApexScene);
+	GApexModuleDestructible->setDamageApplicationRaycastFlags(apex::DestructibleActorRaycastFlags::AllChunks, *ApexScene);
 #endif
 
 	PreGarbageCollectDelegateHandle = FCoreUObjectDelegates::PreGarbageCollect.AddRaw(this, &FPhysScene::WaitPhysScenes);
@@ -317,6 +322,9 @@ FPhysScene::FPhysScene()
 	int32 SceneScratchBufferSize = PhysSetting->SimulateScratchMemorySize;
 	if(SceneScratchBufferSize > 0)
 	{
+		// Make sure that SceneScratchBufferSize is a multiple of 16K as requested by PhysX.
+		SceneScratchBufferSize = FMath::DivideAndRoundUp<int32>(SceneScratchBufferSize, SimScratchBufferBoundary) * SimScratchBufferBoundary;
+
 		for(uint32 SceneType = 0; SceneType < PST_MAX; ++SceneType)
 		{
 			if(SceneType < NumPhysScenes)
@@ -577,7 +585,7 @@ void FPhysScene::TermBody_AssumesLocked(FBodyInstance* BodyInstance)
 }
 
 #if WITH_APEX
-void FPhysScene::AddPendingDamageEvent(UDestructibleComponent* DestructibleComponent, const NxApexDamageEventReportData& DamageEvent)
+void FPhysScene::AddPendingDamageEvent(UDestructibleComponent* DestructibleComponent, const apex::DamageEventReportData& DamageEvent)
 {
 	check(IsInGameThread());
 	FPendingApexDamageEvent* Pending = new (PendingApexDamageManager->PendingDamageEvents) FPendingApexDamageEvent(DestructibleComponent, DamageEvent);
@@ -742,7 +750,7 @@ void FinishSceneStat(uint32 Scene)
 }
 
 #if WITH_APEX
-void GatherApexStats(const UWorld* World, NxApexScene* ApexScene)
+void GatherApexStats(const UWorld* World, apex::Scene* ApexScene)
 {
 #if STATS
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_GatherApexStats);
@@ -758,7 +766,7 @@ void GatherApexStats(const UWorld* World, NxApexScene* ApexScene)
 			const TArray<FClothingActor>& ClothingActors = Itr->GetClothingActors();
 			for (const FClothingActor& ClothingActor : ClothingActors)
 			{
-				if (ClothingActor.ApexClothingActor && ClothingActor.ApexClothingActor->getActivePhysicalLod() == 1)
+				if (ClothingActor.ApexClothingActor && ClothingActor.ApexClothingActor->getActiveLod() == 1)
 				{
 					NumCloths++;
 					NumVerts += ClothingActor.ApexClothingActor->getNumSimulationVertices();
@@ -827,6 +835,8 @@ void FPhysScene::ClearPreSimKinematicUpdate(USkeletalMeshComponent* InSkelComp)
 
 void FPhysScene::UpdateKinematicsOnDeferredSkelMeshes()
 {
+	SCOPE_CYCLE_COUNTER(STAT_UpdateKinematicsOnDeferredSkelMeshes);
+
 	for (TMap< USkeletalMeshComponent*, FDeferredKinematicUpdateInfo >::TIterator It(DeferredKinematicUpdateSkelMeshes); It; ++It)
 	{
 		USkeletalMeshComponent* SkelComp = (*It).Key;
@@ -907,31 +917,30 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 	// Update any skeletal meshes that need their bone transforms sent to physics sim
 	UpdateKinematicsOnDeferredSkelMeshes();
 
-#if WITH_PHYSX
 
-#if WITH_VEHICLE
-	if (VehicleManager && SceneType == PST_Sync)
-	{
-		float TickTime = AveragedFrameTime[SceneType];
-		if (IsSubstepping(SceneType))
-		{
-			TickTime = UseSyncTime(SceneType) ? SyncDeltaSeconds : DeltaSeconds;
-		}
-		VehicleManager->PreTick(TickTime);
+	float PreTickTime = IsSubstepping(SceneType) ? UseDelta : AveragedFrameTime[SceneType];
 
+	// Broadcast 'pre tick' delegate
+	OnPhysScenePreTick.Broadcast(this, SceneType, PreTickTime);
+
+	// If not substepping, call this delegate here. Otherwise we call it in FPhysSubstepTask::SubstepSimulationStart
 		if (IsSubstepping(SceneType) == false)
 		{
-			VehicleManager->Update(AveragedFrameTime[SceneType]);
+		OnPhysSceneStep.Broadcast(this, SceneType, PreTickTime);
 		}
-	}
-#endif
+
+
+#if WITH_PHYSX
+
+	FlushDeferredActors((EPhysicsSceneType)SceneType);
+	DeferredSceneData[SceneType].bIsSimulating = true;
 
 #if !WITH_APEX
 	PxScene* PScene = GetPhysXScene(SceneType);
 	if (PScene && (UseDelta > 0.f))
 #else
-	NxApexScene* ApexScene = GetApexScene(SceneType);
-	if(ApexScene && UseDelta > 0.f)
+	apex::Scene* ApexScene = GetApexScene(SceneType);
+	if (ApexScene && UseDelta > 0.f)
 #endif
 	{
 		if(IsSubstepping(SceneType)) //we don't bother sub-stepping cloth
@@ -957,11 +966,11 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 			{
 				GatherApexStats(this->OwningWorld, ApexScene);
 			}
-
 #endif
 		}
 	}
-#endif
+
+#endif // WITH_PHYSX
 
 	if (!bTaskOutstanding)
 	{
@@ -974,12 +983,9 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 
 void FPhysScene::KillVisualDebugger()
 {
-	if (GPhysXSDK)
+	if (GPhysXVisualDebugger)
 	{
-		if (PxVisualDebuggerConnectionManager* PVD = GPhysXSDK->getPvdConnectionManager())
-		{
-			PVD->disconnect();
-		}
+		GPhysXVisualDebugger->disconnect();
 	}
 }
 
@@ -1065,7 +1071,7 @@ void FPhysScene::ProcessPhysScene(uint32 SceneType)
 	PScene->unlockWrite();
 #else	//	#if !WITH_APEX
 	// The APEX scene calls the fetchResults function for the PhysX scene, so we only call ApexScene->fetchResults().
-	NxApexScene* ApexScene = GetApexScene(SceneType);
+	apex::Scene* ApexScene = GetApexScene(SceneType);
 	check(ApexScene);
 	bSuccess = ApexScene->fetchResults(true, &OutErrorCode);
 #endif	//	#if !WITH_APEX
@@ -1083,6 +1089,11 @@ void FPhysScene::ProcessPhysScene(uint32 SceneType)
 
 	PhysicsSubsceneCompletion[SceneType] = NULL;
 	bPhysXSceneExecuting[SceneType] = false;
+
+#if WITH_PHYSX
+	DeferredSceneData[SceneType].bIsSimulating = false;
+	FlushDeferredActors((EPhysicsSceneType)SceneType);
+#endif
 }
 #if WITH_PHYSX
 void FPhysScene::UpdateActiveTransforms(uint32 SceneType)
@@ -1097,15 +1108,15 @@ void FPhysScene::UpdateActiveTransforms(uint32 SceneType)
 	check(PScene);
 	SCOPED_SCENE_READ_LOCK(PScene);
 
-	PxU32 NumTransforms = 0;
-	const PxActiveTransform* PActiveTransforms = PScene->getActiveTransforms(NumTransforms);
-	ActiveBodyInstances[SceneType].Empty(NumTransforms);
-	ActiveDestructibleActors[SceneType].Empty(NumTransforms);
+	PxU32 NumActors = 0;
+	PxActor** PActiveActors = PScene->getActiveActors(NumActors);
+	ActiveBodyInstances[SceneType].Empty(NumActors);
+	ActiveDestructibleActors[SceneType].Empty(NumActors);
 
-	for (PxU32 TransformIdx = 0; TransformIdx < NumTransforms; ++TransformIdx)
+	for (PxU32 TransformIdx = 0; TransformIdx < NumActors; ++TransformIdx)
 	{
-		const PxActiveTransform& PActiveTransform = PActiveTransforms[TransformIdx];
-		PxRigidActor* RigidActor = PActiveTransform.actor->isRigidActor();
+		PxActor* PActiveActor = PActiveActors[TransformIdx];
+		PxRigidActor* RigidActor = PActiveActor->is<PxRigidActor>();
 		ensure(!RigidActor->userData || !FPhysxUserData::IsGarbage(RigidActor->userData));
 
 		if (FBodyInstance* BodyInstance = FPhysxUserData::Get<FBodyInstance>(RigidActor->userData))
@@ -1208,7 +1219,7 @@ void FPhysScene::DispatchPhysNotifications_AssumesLocked()
 	{
 		if(UDestructibleComponent* DestructibleComponent = PendingDamageEvent.DestructibleComponent.Get())
 		{
-			const NxApexDamageEventReportData & damageEvent = PendingDamageEvent.DamageEvent;
+			const apex::DamageEventReportData & damageEvent = PendingDamageEvent.DamageEvent;
 			check(DestructibleComponent == Cast<UDestructibleComponent>(FPhysxUserData::Get<UPrimitiveComponent>(damageEvent.destructible->userData)))	//we store this as a weak pointer above in case one of the callbacks decided to call DestroyComponent
 			DestructibleComponent->OnDamageEvent(damageEvent);
 		}
@@ -1235,6 +1246,17 @@ void FPhysScene::DispatchPhysNotifications_AssumesLocked()
 		PendingSleepEvents[SceneType].Empty();
 	}
 #endif
+
+	for(int32 SceneType = 0; SceneType < PST_MAX; ++SceneType)
+	{
+		FPendingConstraintData& ConstraintData = PendingConstraintData[SceneType];
+		for(FConstraintBrokenDelegateData& ConstraintBrokenData : ConstraintData.PendingConstraintBroken)
+		{
+			ConstraintBrokenData.DispatchOnBroken();
+		}
+
+		ConstraintData.PendingConstraintBroken.Empty();
+	}
 }
 
 void FPhysScene::SetUpForFrame(const FVector* NewGrav, float InDeltaSeconds, float InMaxPhysicsDeltaTime)
@@ -1259,7 +1281,7 @@ void FPhysScene::SetUpForFrame(const FVector* NewGrav, float InDeltaSeconds, flo
 				PScene->setGravity(U2PVector(*NewGrav));
 
 #if WITH_APEX_CLOTHING
-				NxApexScene* ApexScene = GetApexScene(SceneType);
+				apex::Scene* ApexScene = GetApexScene(SceneType);
 				if(SceneType == PST_Cloth && ApexScene)
 				{
 					ApexScene->updateGravity();
@@ -1290,10 +1312,6 @@ void FPhysScene::StartFrame()
 
 	//Update the collision disable table before ticking
 	FlushDeferredCollisionDisableTableQueue();
-#if WITH_PHYSX
-	// Flush list of deferred actors to add to the scene
-	FlushDeferredActors();
-#endif
 
 	// Run the sync scene
 	TickPhysScene(PST_Sync, PhysicsSubsceneCompletion[PST_Sync]);
@@ -1455,7 +1473,7 @@ struct FHelpEnsureCollisionTreeIsBuilt
 				{
 					if (PActor)
 					{
-						if (PxRigidDynamic* PDynamic = PActor->isRigidDynamic())
+						if (PxRigidDynamic* PDynamic = PActor->is<PxRigidDynamic>())
 						{
 							if (PDynamic->isSleeping() == false)
 							{
@@ -1479,7 +1497,7 @@ struct FHelpEnsureCollisionTreeIsBuilt
 		{
 			if (PActor)
 			{
-				if (PxRigidDynamic* PDynamic = PActor->isRigidDynamic())
+				if (PxRigidDynamic* PDynamic = PActor->is<PxRigidDynamic>())
 				{
 					PDynamic->wakeUp();
 				}
@@ -1554,15 +1572,8 @@ PxScene* FPhysScene::GetPhysXScene(uint32 SceneType)
 	return GetPhysXSceneFromIndex(PhysXSceneIndex[SceneType]);
 }
 
-#if WITH_VEHICLE
-FPhysXVehicleManager* FPhysScene::GetVehicleManager()
-{
-	return VehicleManager;
-}
-#endif
-
 #if WITH_APEX
-NxApexScene* FPhysScene::GetApexScene(uint32 SceneType)
+apex::Scene* FPhysScene::GetApexScene(uint32 SceneType)
 {
 	check(SceneType < NumPhysScenes);
 	return GetApexSceneFromIndex(PhysXSceneIndex[SceneType]);
@@ -1635,7 +1646,7 @@ void FPhysScene::AddDebugLines(uint32 SceneType, class ULineBatchComponent* Line
 		BatchPxRenderBufferLines(*LineBatcherToUse, DebugData);
 #if WITH_APEX
 		// Render APEX debug data
-		NxApexScene* ApexScene = GetApexScene(SceneType);
+		apex::Scene* ApexScene = GetApexScene(SceneType);
 		const PxRenderBuffer* RenderBuffer = ApexScene->getRenderBuffer();
 		if (RenderBuffer != NULL)
 		{
@@ -1729,7 +1740,10 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 	{
 		PSceneDesc.flags |= PxSceneFlag::eENABLE_PCM;
 	}
-	
+	else
+	{
+		PSceneDesc.flags &= ~PxSceneFlag::eENABLE_PCM;
+	}
 
 	//LOC_MOD enable kinematic vs kinematic for APEX destructibles. This is for the kinematic cube moving horizontally in QA-Destructible map to collide with the destructible.
 	// Was this flag turned off in UE4? Do we want to turn it on for both sync and async scenes?
@@ -1762,16 +1776,26 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 	
 #endif
 
-	if(!UPhysicsSettings::Get()->bDisableActiveTransforms)
+	if(!UPhysicsSettings::Get()->bDisableActiveActors)
 	{
-		// We want to use 'active transforms'
-		PSceneDesc.flags |= PxSceneFlag::eENABLE_ACTIVETRANSFORMS;
+		// We want to use 'active actors'
+		PSceneDesc.flags |= PxSceneFlag::eENABLE_ACTIVE_ACTORS;
+		PSceneDesc.flags |= PxSceneFlag::eEXCLUDE_KINEMATICS_FROM_ACTIVE_ACTORS;
 	}
+
+	// enable CCD at scene level
+	if (UPhysicsSettings::Get()->bDisableCCD == false)
+	{
+		PSceneDesc.flags |= PxSceneFlag::eENABLE_CCD;
+	}
+
+	// Need to turn this on to consider kinematics turning into dynamic. Otherwise, you'll need to call resetFiltering to do the expensive broadphase reinserting 
+	PSceneDesc.flags |= PxSceneFlag::eENABLE_KINEMATIC_STATIC_PAIRS;
 
 	// @TODO Should we set up PSceneDesc.limits? How?
 
 	// Do this to improve loading times, esp. for streaming in sublevels
-	PSceneDesc.staticStructure = PxPruningStructure::eDYNAMIC_AABB_TREE;
+	PSceneDesc.staticStructure = PxPruningStructureType::eDYNAMIC_AABB_TREE;
 	// Default to rebuilding tree slowly
 	PSceneDesc.dynamicTreeRebuildRateHint = PhysXSlowRebuildRate;
 
@@ -1786,40 +1810,25 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 
 #if WITH_APEX
 	// Build the APEX scene descriptor for the PhysX scene
-	NxApexSceneDesc ApexSceneDesc;
+	apex::SceneDesc ApexSceneDesc;
 	ApexSceneDesc.scene = PScene;
 	// This interface allows us to modify the PhysX simulation filter shader data with contact pair flags 
 	ApexSceneDesc.physX3Interface = &GApexPhysX3Interface;
 
 	// Create the APEX scene from our descriptor
-	NxApexScene* ApexScene = GApexSDK->createScene(ApexSceneDesc);
+	apex::Scene* ApexScene = GApexSDK->createScene(ApexSceneDesc);
 
 	// This enables debug rendering using the "legacy" method, not using the APEX render API
 	ApexScene->setUseDebugRenderable(true);
 
 	// Allocate a view matrix for APEX scene LOD
-	ApexScene->allocViewMatrix(physx::ViewMatrixType::LOOK_AT_RH);
+	ApexScene->allocViewMatrix(apex::ViewMatrixType::LOOK_AT_RH);
 
 	// Add the APEX scene to the map instead of the PhysX scene, since we can access the latter through the former
 	GPhysXSceneMap.Add(PhysXSceneCount, ApexScene);
 #else	// #if WITH_APEX
 	GPhysXSceneMap.Add(PhysXSceneCount, PScene);
 #endif	// #if WITH_APEX
-
-	// Lock scene lock, in case it is required
-	SCENE_LOCK_WRITE(PScene);
-
-	// enable CCD at scene level
-	if (UPhysicsSettings::Get()->bDisableCCD == false)
-	{
-		PScene->setFlag(PxSceneFlag::eENABLE_CCD, true);
-	}
-
-	// Need to turn this on to consider kinematics turning into dynamic. Otherwise, you'll need to call resetFiltering to do the expensive broadphase reinserting 
-	PScene->setFlag(PxSceneFlag::eENABLE_KINEMATIC_STATIC_PAIRS, true);
-
-	// Unlock scene lock, in case it is required
-	SCENE_UNLOCK_WRITE(PScene);
 
 	// Save pointer to FPhysScene in userdata
 	PScene->userData = &PhysxUserData;
@@ -1829,36 +1838,22 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 
 	// Store index of PhysX Scene in this FPhysScene
 	this->PhysXSceneIndex[SceneType] = PhysXSceneCount;
-	DeferredSceneData[SceneType].SceneIndex = PhysXSceneCount;
 
 	// Increment scene count
 	PhysXSceneCount++;
-
-#if WITH_VEHICLE
-	// Only create PhysXVehicleManager in the sync scene
-	if (SceneType == PST_Sync)
-	{
-		check(VehicleManager == NULL);
-		VehicleManager = new FPhysXVehicleManager(PScene);
-	}
-#endif
 
 	//Initialize substeppers
 	//we don't bother sub-stepping cloth
 #if WITH_PHYSX
 #if WITH_APEX
-	PhysSubSteppers[SceneType] = SceneType == PST_Cloth ? NULL : new FPhysSubstepTask(ApexScene);
+	PhysSubSteppers[SceneType] = SceneType == PST_Cloth ? NULL : new FPhysSubstepTask(ApexScene, this, SceneType);
 #else
-	PhysSubSteppers[SceneType] = SceneType == PST_Cloth ? NULL : new FPhysSubstepTask(PScene);
+	PhysSubSteppers[SceneType] = SceneType == PST_Cloth ? NULL : new FPhysSubstepTask(PScene, this, SceneType);
 #endif
 #endif
-#if WITH_VEHICLE
-	if (SceneType == PST_Sync)
-	{
-		PhysSubSteppers[SceneType]->SetVehicleManager(VehicleManager);
-	}
-#endif
-	
+
+	FPhysicsDelegates::OnPhysSceneInit.Broadcast(this, (EPhysicsSceneType)SceneType);
+
 #endif // WITH_PHYSX
 }
 
@@ -1871,25 +1866,14 @@ void FPhysScene::TermPhysScene(uint32 SceneType)
 	if (PScene != NULL)
 	{
 #if WITH_APEX
-		NxApexScene* ApexScene = GetApexScene(SceneType);
+		apex::Scene* ApexScene = GetApexScene(SceneType);
 		if (ApexScene != NULL)
 		{
 			GPhysCommandHandler->DeferredRelease(ApexScene);
 		}
 #endif // #if WITH_APEX
 
-#if WITH_VEHICLE
-		if (SceneType == PST_Sync && VehicleManager != NULL)
-		{
-			delete VehicleManager;
-			VehicleManager = NULL;
-		}
-#endif
-
-		if (SceneType == PST_Sync && PhysSubSteppers[SceneType])
-		{
-			PhysSubSteppers[SceneType]->SetVehicleManager(NULL);
-		}
+		FPhysicsDelegates::OnPhysSceneTerm.Broadcast(this, (EPhysicsSceneType)SceneType);
 
 		delete PhysSubSteppers[SceneType];
 		PhysSubSteppers[SceneType] = NULL;
@@ -1907,6 +1891,18 @@ void FPhysScene::TermPhysScene(uint32 SceneType)
 #endif
 }
 
+void FPhysScene::AddPendingOnConstraintBreak(FConstraintInstance* ConstraintInstance, int32 SceneType)
+{
+	PendingConstraintData[SceneType].PendingConstraintBroken.Add( FConstraintBrokenDelegateData(ConstraintInstance) );
+}
+
+FConstraintBrokenDelegateData::FConstraintBrokenDelegateData(FConstraintInstance* ConstraintInstance)
+	: OnConstraintBrokenDelegate(ConstraintInstance->OnConstraintBrokenDelegate)
+	, ConstraintIndex(ConstraintInstance->ConstraintIndex)
+{
+	
+}
+
 #if WITH_PHYSX
 
 void FPhysScene::AddPendingSleepingEvent(PxActor* Actor, SleepEvent::Type SleepEventType, int32 SceneType)
@@ -1914,16 +1910,31 @@ void FPhysScene::AddPendingSleepingEvent(PxActor* Actor, SleepEvent::Type SleepE
 	PendingSleepEvents[SceneType].FindOrAdd(Actor) = SleepEventType;
 }
 
-void FPhysScene::FDeferredSceneData::FlushDeferredActors()
+FPhysScene::FDeferredSceneData::FDeferredSceneData()
+{
+	bIsSimulating = false;
+}
+
+void FPhysScene::FDeferredSceneData::FlushDeferredActors_AssumesLocked(PxScene* Scene)
 {
 	check(AddInstances.Num() == AddActors.Num());
 
 	if (AddInstances.Num() > 0)
 	{
-		PxScene* Scene = GetPhysXSceneFromIndex(SceneIndex);
-		SCOPED_SCENE_WRITE_LOCK(Scene);
+		if(!bIsSimulating)
+		{
+			//This is the fast path, but it's only allowed when the physx simulation is not currently running
+			Scene->addActors(AddActors.GetData(), AddActors.Num());
+		}
+		else
+		{
+			for(PxActor* Actor : AddActors)
+			{
+				Scene->addActor(*Actor);
+			}
+		}
 
-		Scene->addActors(AddActors.GetData(), AddActors.Num());
+		
 		int32 Idx = -1;
 		for (FBodyInstance* Instance : AddInstances)
 		{
@@ -1945,9 +1956,6 @@ void FPhysScene::FDeferredSceneData::FlushDeferredActors()
 
 	if (RemoveInstances.Num() > 0)
 	{
-		PxScene* Scene = GetPhysXSceneFromIndex(SceneIndex);
-		SCOPED_SCENE_WRITE_LOCK(Scene);
-
 		Scene->removeActors(RemoveActors.GetData(), RemoveActors.Num());
 
 		for (FBodyInstance* Instance : AddInstances)
@@ -1960,19 +1968,7 @@ void FPhysScene::FDeferredSceneData::FlushDeferredActors()
 	}
 }
 
-void FPhysScene::FlushDeferredActors()
-{
-	check(IsInGameThread());
-
-	for(FDeferredSceneData& Deferred : DeferredSceneData)
-	{
-		Deferred.FlushDeferredActors();
-	}
-}
-
-
-
-void FPhysScene::FDeferredSceneData::DeferAddActor(FBodyInstance* OwningInstance, PxActor* Actor)
+void FPhysScene::FDeferredSceneData::DeferAddActor_AssumesLocked(FBodyInstance* OwningInstance, PxActor* Actor)
 {
 	// Allowed to be unadded or awaiting add here (objects can be in more than one scene
 	if (OwningInstance->CurrentSceneState == BodyInstanceSceneState::NotAdded ||
@@ -1994,13 +1990,14 @@ void FPhysScene::FDeferredSceneData::DeferAddActor(FBodyInstance* OwningInstance
 
 void FPhysScene::DeferAddActor(FBodyInstance* OwningInstance, PxActor* Actor, EPhysicsSceneType SceneType)
 {
-	check(IsInGameThread());
-	check(OwningInstance && Actor && SceneType < PST_MAX);
-	DeferredSceneData[SceneType].DeferAddActor(OwningInstance, Actor);
+	check(OwningInstance && Actor);
+	SCOPED_SCENE_WRITE_LOCK(GetPhysXScene(SceneType));
+
+	DeferredSceneData[SceneType].DeferAddActor_AssumesLocked(OwningInstance, Actor);
 }
 
 
-void FPhysScene::FDeferredSceneData::DeferAddActors(TArray<FBodyInstance*>& OwningInstances, TArray<PxActor*>& Actors)
+void FPhysScene::FDeferredSceneData::DeferAddActors_AssumesLocked(const TArray<FBodyInstance*>& OwningInstances, const TArray<PxActor*>& Actors)
 {
 	int32 Num = OwningInstances.Num();
 	AddInstances.Reserve(AddInstances.Num() + Num);
@@ -2008,18 +2005,17 @@ void FPhysScene::FDeferredSceneData::DeferAddActors(TArray<FBodyInstance*>& Owni
 
 	for (int32 Idx = 0; Idx < Num; ++Idx)
 	{
-		DeferAddActor(OwningInstances[Idx], Actors[Idx]);
+		DeferAddActor_AssumesLocked(OwningInstances[Idx], Actors[Idx]);
 	}
 }
 
-void FPhysScene::DeferAddActors(TArray<FBodyInstance*>& OwningInstances, TArray<PxActor*>& Actors, EPhysicsSceneType SceneType)
+void FPhysScene::DeferAddActors(const TArray<FBodyInstance*>& OwningInstances, const TArray<PxActor*>& Actors, EPhysicsSceneType SceneType)
 {
-	check(IsInGameThread());
-	check(SceneType < PST_MAX);
-	DeferredSceneData[SceneType].DeferAddActors(OwningInstances, Actors);
+	SCOPED_SCENE_WRITE_LOCK(GetPhysXScene(SceneType));
+	DeferredSceneData[SceneType].DeferAddActors_AssumesLocked(OwningInstances, Actors);
 }
 
-void FPhysScene::FDeferredSceneData::DeferRemoveActor(FBodyInstance* OwningInstance, PxActor* Actor)
+void FPhysScene::FDeferredSceneData::DeferRemoveActor_AssumesLocked(FBodyInstance* OwningInstance, PxActor* Actor)
 {
 	if (OwningInstance->CurrentSceneState == BodyInstanceSceneState::Added ||
 		OwningInstance->CurrentSceneState == BodyInstanceSceneState::AwaitingRemove)
@@ -2037,11 +2033,37 @@ void FPhysScene::FDeferredSceneData::DeferRemoveActor(FBodyInstance* OwningInsta
 	}
 }
 
+void FPhysScene::FDeferredSceneData::DeferRemoveActors_AssumesLocked(const TArray<FBodyInstance*>& OwningInstances, const TArray<PxActor*>& Actors)
+{
+	check(OwningInstances.Num() == Actors.Num());
+	const int32 Num = OwningInstances.Num();
+
+	for(int32 Idx = 0; Idx < Num; ++Idx)
+	{
+		DeferRemoveActor_AssumesLocked(OwningInstances[Idx], Actors[Idx]);
+	}
+}
+
+
 void FPhysScene::DeferRemoveActor(FBodyInstance* OwningInstance, PxActor* Actor, EPhysicsSceneType SceneType)
 {
-	check(IsInGameThread());
-	check(OwningInstance && Actor && SceneType < PST_MAX);
-	DeferredSceneData[SceneType].DeferRemoveActor(OwningInstance, Actor);
+	check(OwningInstance && Actor);
+	SCOPED_SCENE_WRITE_LOCK(GetPhysXScene(SceneType));
+
+	DeferredSceneData[SceneType].DeferRemoveActor_AssumesLocked(OwningInstance, Actor);
+}
+
+void FPhysScene::DeferRemoveActors(const TArray<FBodyInstance*>& OwningInstances, const TArray<PxActor*>& Actors, EPhysicsSceneType SceneType)
+{
+	SCOPED_SCENE_WRITE_LOCK(GetPhysXScene(SceneType));
+	DeferredSceneData[SceneType].DeferRemoveActors_AssumesLocked(OwningInstances, Actors);
+}
+
+void FPhysScene::FlushDeferredActors(EPhysicsSceneType SceneType)
+{
+	PxScene* Scene = GetPhysXScene(SceneType);
+	SCOPED_SCENE_WRITE_LOCK(Scene);
+	DeferredSceneData[SceneType].FlushDeferredActors_AssumesLocked(Scene);
 }
 
 #endif

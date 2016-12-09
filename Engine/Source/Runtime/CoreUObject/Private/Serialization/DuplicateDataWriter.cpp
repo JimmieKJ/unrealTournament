@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "CoreMinimal.h"
+#include "UObject/LazyObjectPtr.h"
+#include "Misc/StringAssetReference.h"
+#include "UObject/AssetPtr.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Serialization/DuplicatedObject.h"
+#include "Serialization/DuplicatedDataWriter.h"
 
 /*----------------------------------------------------------------------------
 	FDuplicateDataWriter.
@@ -51,10 +57,20 @@ FArchive& FDuplicateDataWriter::operator<<(FName& N)
 
 FArchive& FDuplicateDataWriter::operator<<(UObject*& Object)
 {
-	GetDuplicatedObject(Object);
+	if (Object &&
+		!Object->HasAnyFlags(RF_DuplicateTransient) &&
+		(!Object->HasAnyFlags(RF_NonPIEDuplicateTransient) || HasAnyPortFlags(PPF_DuplicateForPIE)))
+	{
+		GetDuplicatedObject(Object);
 
-	// store the pointer to this object
-	Serialize(&Object,sizeof(UObject*));
+		// store the pointer to this object
+		Serialize(&Object, sizeof(UObject*));
+	}
+	else
+	{
+		UObject* NullObject = nullptr;
+		Serialize(&NullObject, sizeof(UObject*));
+	}
 	return *this;
 }
 

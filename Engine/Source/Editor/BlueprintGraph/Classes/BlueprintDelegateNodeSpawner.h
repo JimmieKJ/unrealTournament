@@ -2,11 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/UnrealType.h"
+#include "K2Node_BaseMCDelegate.h"
 #include "BlueprintFieldNodeSpawner.h"
 #include "BlueprintDelegateNodeSpawner.generated.h"
-
-// Forward declarations
-class UK2Node_BaseMCDelegate;
 
 /**
  * Takes care of spawning various nodes associated with delegates. Serves as the 

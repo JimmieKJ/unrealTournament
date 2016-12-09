@@ -2,10 +2,18 @@
 
 #pragma once
 
-#include "MovieScene3DAttachSection.h"
-#include "MovieScene3DAttachTrack.h"
-#include "ActorPickerTrackEditor.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
+#include "MovieSceneTrack.h"
+#include "ISequencerSection.h"
+#include "ISequencer.h"
+#include "ISequencerTrackEditor.h"
+#include "TrackEditors/ActorPickerTrackEditor.h"
 
+class AActor;
+class FMenuBuilder;
+class USceneComponent;
 
 /**
  * Tools for attaching an object to another object
@@ -38,7 +46,7 @@ public:
 	// ISequencerTrackEditor interface
 
 	virtual void BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding, const UClass* ObjectClass) override;
-	virtual TSharedRef<ISequencerSection> MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track ) override;
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding ) override;
 	virtual bool SupportsType( TSubclassOf<UMovieSceneTrack> Type ) const override;
 
 	// FTrackEditorActorPicker

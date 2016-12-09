@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
-#include "GraphEditorActions.h"
-#include "CompilerResultsLog.h"
 #include "AnimGraphNode_BlendSpaceEvaluator.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "GraphEditorActions.h"
+#include "Kismet2/CompilerResultsLog.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_BlendSpaceEvaluator

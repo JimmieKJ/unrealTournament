@@ -1,20 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "SSequencerTrackArea.h"
+#include "Types/PaintArgs.h"
+#include "Layout/ArrangedChildren.h"
+#include "Rendering/DrawElements.h"
+#include "Layout/LayoutUtils.h"
+#include "Widgets/SWeakWidget.h"
+#include "EditorStyleSet.h"
 #include "SSequencerTrackLane.h"
-#include "SequencerTimeSliderController.h"
-#include "CommonMovieSceneTools.h"
-#include "Sequencer.h"
 #include "SSequencerTreeView.h"
-#include "IKeyArea.h"
-#include "ISequencerSection.h"
-#include "SSequencerSection.h"
+#include "ISequencerHotspot.h"
 #include "SequencerHotspots.h"
 #include "Tools/SequencerEditTool_Movement.h"
 #include "Tools/SequencerEditTool_Selection.h"
-#include "MovieSceneSection.h"
-#include "VirtualTrackArea.h"
 #include "ISequencerTrackEditor.h"
 
 FTrackAreaSlot::FTrackAreaSlot(const TSharedPtr<SSequencerTrackLane>& InSlotContent)

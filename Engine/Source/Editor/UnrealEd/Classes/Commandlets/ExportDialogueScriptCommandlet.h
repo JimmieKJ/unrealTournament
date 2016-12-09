@@ -2,6 +2,8 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Commandlets/GatherTextCommandletBase.h"
 #include "ExportDialogueScriptCommandlet.generated.h"
 

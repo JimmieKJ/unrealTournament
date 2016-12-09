@@ -1,13 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "MouseDeltaTracker.h"
-#include "DragTool_BoxSelect.h"
-#include "DragTool_Measure.h"
-#include "DragTool_FrustumSelect.h"
+#include "EngineDefines.h"
+#include "SceneView.h"
+#include "EditorViewportClient.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Editor.h"
+#include "EditorDragTools.h"
 #include "SnappingUtils.h"
-#include "Engine/Selection.h"
 
 #define LOCTEXT_NAMESPACE "MouseDeltaTracker"
 

@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Misc/DateTime.h"
+#include "IMessageContext.h"
 
 /**
  * Structure for log messages that are displayed in the session console panel.

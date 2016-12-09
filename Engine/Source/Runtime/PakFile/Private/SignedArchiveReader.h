@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "LockFreeList.h"
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Containers/LockFreeList.h"
+#include "IPlatformFilePak.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/Runnable.h"
+#include "Math/BigInt.h"
 
 /**
  * Chunk buffer.
@@ -98,10 +104,8 @@ class FChunkCacheWorker : public FRunnable
 		MaxCachedChunks = 8		
 	};
 
-	/** Encrypted signatures */
-	TArray<FEncryptedSignature> EncryptedSignatures;
-	/** Decrypted signatures */
-	TArray<FDecryptedSignature> DecryptedSignatures;
+	/** Reference hashes */
+	TArray<uint32> ChunkHashes;
 	/** Thread to run the worker FRunnable on */
 	FRunnableThread* Thread;
 	/** Archive reader */
@@ -122,14 +126,6 @@ class FChunkCacheWorker : public FRunnable
 	TLockFreePointerListUnordered<FChunkRequest, PLATFORM_CACHE_LINE_SIZE> FreeChunkRequests;
 	/** Public decryption key */
 	FEncryptionKey DecryptionKey;
-	/** The time at which the chunk cache worker started, for debugging purposes */
-	double StartTime;
-	/** Track the index of the last signature decrypted in the background, for debugging purposes */
-	int32 LastDecryptedSignatureIndex;
-	/** Stored CRC for the encrypted signature data after loading */
-	uint32 EncryptedSignaturesCRC;
-	/** Stored CRC for the fully dencrypted signature data after loading. Only computed when all signatures were decrypted */
-	uint32 DecryptedSignaturesCRC;
 
 	/** 
 	 * Process requested chunks 
@@ -141,10 +137,6 @@ class FChunkCacheWorker : public FRunnable
 	 * Verifies chunk signature [*]
 	 */
 	bool CheckSignature(const FChunkRequest& ChunkInfo);
-	/** 
-	* Decrypts multiple signature [*]
-	*/
-	void DecryptSignatures(int32 NextIndexToDecrypt);
 	/** 
 	 * Tries to get a pre-cached chunk buffer 
 	 */

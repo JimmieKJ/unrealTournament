@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "EngineBuildSettings.h"
+#include "Misc/EngineBuildSettings.h"
+#include "Misc/Paths.h"
 
 
 bool FEngineBuildSettings::IsInternalBuild()

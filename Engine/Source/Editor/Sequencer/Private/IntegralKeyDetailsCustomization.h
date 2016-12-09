@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "MovieSceneSection.h"
 #include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
 
 class FIntegralKeyDetailsCustomization : public IDetailCustomization
 {

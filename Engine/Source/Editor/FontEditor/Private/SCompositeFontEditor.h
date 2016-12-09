@@ -2,7 +2,29 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STileView.h"
+#include "Widgets/Input/SComboBox.h"
+#include "AssetData.h"
+
+class IFontEditor;
+class STypefaceEditor;
+class UFont;
+class UFontFace;
+struct FCharacterRangeTileViewEntry;
+struct FSubTypefaceListViewEntry;
 struct FTypefaceListViewEntry;
+
 typedef TSharedPtr<FTypefaceListViewEntry> FTypefaceListViewEntryPtr;
 
 struct FSubTypefaceListViewEntry;
@@ -187,14 +209,6 @@ public:
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
 private:
-	/** Entries used by the hinting type combo box */
-	struct FFontHintingComboEntry
-	{
-		FText DisplayName;
-		FText Tooltip;
-		EFontHinting EnumValue;
-	};
-
 	/** Get the current name of this typeface entry */
 	FText GetTypefaceEntryName() const;
 
@@ -204,11 +218,11 @@ private:
 	/** Verify the given typename entry name is valid */
 	bool OnTypefaceEntryChanged(const FText& InNewName, FText& OutFailureReason) const;
 
-	/** Get the current font filename of this typeface entry */
-	FText GetTypefaceEntryFontFilePath() const;
+	/** Get the path to the font face asset used by this typeface entry */
+	FString GetFontFaceAssetPath() const;
 
-	/** Get the current font leafname of this typeface entry */
-	FText GetTypefaceEntryFontLeafname() const;
+	/** Update the font face asset used by this typeface entry */
+	void OnFontFaceAssetChanged(const FAssetData& InAssetData);
 
 	/** Open a file picker to let you pick a new font file */
 	FReply OnBrowseTypefaceEntryFontPath();
@@ -219,20 +233,17 @@ private:
 	/** Called in response to the "Delete Font" button being clicked" */
 	FReply OnDeleteFontClicked();
 
+	/** Should the "Upgrade Data" button be visible? */
+	EVisibility GetUpgradeDataVisibility() const;
+
+	/** Called in response to the "Upgrade Data" button being clicked" */
+	FReply OnUpgradeDataClicked();
+
+	/** Saves the given font face as a real asset, and returns the asset font face instance */
+	UFontFace* SaveFontFaceAsAsset(const UFontFace* InFontFace, const TCHAR* InDefaultNameOverride);
+
 	/** Get the current font style to use for the preview text */
 	FSlateFontInfo GetPreviewFontStyle() const;
-
-	/** Populate HintingComboData with the names of the hinting enum entries */
-	void GatherHintingEnumEntries();
-
-	/** Called when the selection of the hinting combo is changed */
-	void OnHintingComboSelectionChanged(TSharedPtr<FFontHintingComboEntry> InNewSelection, ESelectInfo::Type);
-
-	/** Make the widget for an entry in the hinting combo */
-	TSharedRef<SWidget> MakeHintingComboEntryWidget(TSharedPtr<FFontHintingComboEntry> InHintingEntry);
-
-	/** Get the text to use for the hinting combo button */
-	FText GetHintingComboText() const;
 
 	/** Pointer back to the composite font editor that owns us */
 	SCompositeFontEditor* CompositeFontEditorPtr;
@@ -248,12 +259,6 @@ private:
 
 	/** Inline editable text for the font name */
 	TSharedPtr<SInlineEditableTextBlock> NameEditableTextBox;
-
-	/** Source data for the hinting combo widget */
-	TArray<TSharedPtr<FFontHintingComboEntry>> HintingComboData;
-
-	/** The cached text for the currently selected hinting enum entry */
-	FText ActiveHintingEnumEntryText;
 };
 
 class SSubTypefaceEditor : public SCompoundWidget

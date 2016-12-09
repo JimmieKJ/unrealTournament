@@ -7,9 +7,11 @@ public class Engine : ModuleRules
 {
 	public Engine(TargetInfo Target)
 	{
-		SharedPCHHeaderFile = "Runtime/Engine/Public/Engine.h";
+		PrivatePCHHeaderFile = "Private/EnginePrivatePCH.h";
 
-		PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler" });
+		SharedPCHHeaderFile = "Public/EngineSharedPCH.h";
+
+		PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming" });
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -69,6 +71,7 @@ public class Engine : ModuleRules
 				"EngineMessages",
 				"EngineSettings",
 				"SynthBenchmark",
+                "GameplayTags",
                 "AIModule",
 				"DatabaseSupport",
                 "PacketHandler",
@@ -148,6 +151,7 @@ public class Engine : ModuleRules
         }
         }
 
+        CircularlyReferencedDependentModules.Add("GameplayTags");
         CircularlyReferencedDependentModules.Add("AIModule");
 		CircularlyReferencedDependentModules.Add("Landscape");
         CircularlyReferencedDependentModules.Add("UMG");
@@ -157,6 +161,8 @@ public class Engine : ModuleRules
         // The AnimGraphRuntime module is not needed by Engine proper, but it is loaded in LaunchEngineLoop.cpp,
         // and needs to be listed in an always-included module in order to be compiled into standalone games
         DynamicallyLoadedModuleNames.Add("AnimGraphRuntime");
+        // So does Geometry Cache
+        DynamicallyLoadedModuleNames.Add("GeometryCache");
 
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]

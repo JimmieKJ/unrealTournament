@@ -2,6 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/SlateRect.h"
+#include "Layout/Geometry.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Rendering/RenderingCommon.h"
+#include "Curves/KeyHandle.h"
+#include "Curves/RichCurve.h"
+#include "Widgets/SLeafWidget.h"
+
+class FCurveOwnerInterface;
+class FPaintArgs;
+class FSlateWindowElementList;
+
 struct FGradientStopMark
 {
 public:

@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Modules/ModuleInterface.h"
 
 /**
  * New Level Dialog module

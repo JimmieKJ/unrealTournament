@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -15,10 +15,10 @@ namespace UnrealBuildTool
 		Initial = 1,
 		NameHash = 2,
 		ProjectPluginUnification = 3,
-		// !!!!!!!!!! IMPORTANT: Remember to also update LatestPluginDescriptorFileVersion in Plugins.cs (and Plugin system documentation) when this changes!!!!!!!!!!!
-		// -----<new versions can be added before this line>-------------------------------------------------
-		// - this needs to be the last line (see note below)
-		LatestPlusOne,
+        // !!!!!!!!!! IMPORTANT: Remember to also update LatestPluginDescriptorFileVersion in Plugins.cs (and Plugin system documentation) when this changes!!!!!!!!!!!
+        // -----<new versions can be added before this line>-------------------------------------------------
+        // - this needs to be the last line (see note below)
+        LatestPlusOne,
 		Latest = LatestPlusOne - 1
 	};
 

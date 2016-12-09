@@ -6,6 +6,23 @@
 
 #pragma once
 
+#include "UObject/UObjectHierarchyFwd.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Parse.h"
+#include "Containers/StringConv.h"
+#include "CoreGlobals.h"
+#include "Containers/Map.h"
+#include "CoreMinimal.h"
+#include "Misc/CommandLine.h"
+
+struct FPlatformOpenGLContext;
+struct FPlatformOpenGLDevice;
+
+template<typename KeyType,typename ValueType,typename SetAllocator ,typename KeyFuncs > class TMap;
+
 typedef GLsync UGLsync;
 
 #define OPENGL_GL3		1

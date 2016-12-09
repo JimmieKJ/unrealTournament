@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Commandlets/Commandlet.h"
 #include "ResavePackagesCommandlet.generated.h"
 
@@ -71,6 +74,9 @@ protected:
 
 	/** Should we build lighting for the packages we are saving? **/
 	bool bShouldBuildLighting;
+
+	/** Should we build texture streaming for the packages we are saving? **/
+	bool bShouldBuildTextureStreaming;
 
 	/** Ignore package version changelist **/
 	bool bIgnoreChangelist;
@@ -152,7 +158,7 @@ protected:
 	// Get the changelist description to use if automatically checking packages out
 	virtual FText GetChangelistDescription() const;
 
-	bool CheckoutFile(const FString& Filename);
+	bool CheckoutFile(const FString& Filename, bool bAddFile = false);
 
 	// Print out a message only if running in very verbose mode
 	void VerboseMessage(const FString& Message);

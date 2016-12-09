@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "AnimNodeBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimationAsset.h"
+#include "Animation/AnimNodeBase.h"
 #include "AnimNode_AssetPlayerBase.generated.h"
 
 /* Base class for any asset playing anim node */

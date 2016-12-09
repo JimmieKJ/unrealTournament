@@ -67,7 +67,7 @@ public class AllDesktopPlatform : Platform
 		Devices = new List<string>();
 	}
 
-	public override ProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
+	public override IProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
 	{
 		return null;
 	}

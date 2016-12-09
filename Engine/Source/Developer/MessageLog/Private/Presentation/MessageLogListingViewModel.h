@@ -2,11 +2,12 @@
 
 #pragma once
 
-#include "MessageLogListingModel.h"
-#include "MessageFilter.h"
-#include "IMessageLogListing.h"
+#include "CoreMinimal.h"
 #include "MessageLogInitializationOptions.h"
-
+#include "Logging/TokenizedMessage.h"
+#include "IMessageLogListing.h"
+#include "Model/MessageLogListingModel.h"
+#include "MessageFilter.h"
 
 /**
  * The non-UI solution specific presentation logic for a collection of messages for a particular system.

@@ -4,18 +4,14 @@
 	SurfelTree.cpp
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "UniformBuffer.h"
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "RHI.h"
 #include "ShaderParameters.h"
-#include "PostProcessing.h"
-#include "SceneFilterRendering.h"
+#include "Shader.h"
+#include "GlobalShader.h"
+#include "ScenePrivate.h"
 #include "DistanceFieldLightingShared.h"
-#include "DistanceFieldSurfaceCacheLighting.h"
-#include "DistanceFieldGlobalIllumination.h"
-#include "RHICommandList.h"
-#include "SceneUtils.h"
-#include "DistanceFieldAtlas.h"
 
 float GSurfelDensity = .05f;
 FAutoConsoleVariableRef CVarSurfelDensity(

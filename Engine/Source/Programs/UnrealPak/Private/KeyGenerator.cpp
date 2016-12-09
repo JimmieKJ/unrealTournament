@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "KeyGenerator.h"
 #include "UnrealPak.h"
 #include "IPlatformFilePak.h"
 #include "SecureHash.h"
 #include "BigInt.h"
-#include "KeyGenerator.h"
 #include "TaskGraphInterfaces.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "Math/RandomStream.h"
+#include "Misc/FileHelper.h"
+#include "Misc/CommandLine.h"
 #include "Primes.inl"
 
 // Global constants

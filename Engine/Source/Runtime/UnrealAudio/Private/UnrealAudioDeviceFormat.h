@@ -2,6 +2,7 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
 #include "UnrealAudioTypes.h"
 
 #if ENABLE_UNREAL_AUDIO

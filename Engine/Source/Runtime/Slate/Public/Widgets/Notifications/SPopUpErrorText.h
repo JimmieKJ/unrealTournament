@@ -2,7 +2,12 @@
  
 #pragma once
 
-#include "SComboButton.h"
+#include "CoreMinimal.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Notifications/SErrorText.h"
+#include "Widgets/Input/SComboButton.h"
 
 class SLATE_API SPopupErrorText : public SComboButton, public IErrorReportingWidget
 {

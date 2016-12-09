@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/Vector.h"
+#include "Math/Interval.h"
 
 /**
  * Structure for arbitrarily oriented boxes (not necessarily axis-aligned).

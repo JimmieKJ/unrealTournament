@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Toolkits/IToolkit.h"
+#include "CoreMinimal.h"
 #include "Toolkits/AssetEditorToolkit.h"
 
 

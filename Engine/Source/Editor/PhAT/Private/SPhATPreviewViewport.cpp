@@ -1,14 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PhATPrivatePCH.h"
-#include "PhAT.h"
-#include "PreviewScene.h"
-#include "Editor/UnrealEd/Public/SViewportToolBar.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "PhATPreviewViewportClient.h"
-#include "SPhATPreviewToolbar.h"
 #include "SPhATPreviewViewport.h"
-#include "SDockTab.h"
+#include "PhAT.h"
+#include "PhATPreviewViewportClient.h"
+#include "Widgets/SViewport.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Slate/SceneViewport.h"
+#include "SPhATPreviewToolbar.h"
+#include "Widgets/Docking/SDockTab.h"
 
 
 SPhATPreviewViewport::~SPhATPreviewViewport()

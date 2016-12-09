@@ -4,11 +4,11 @@
 	MaterialGraphNode_Comment.cpp
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "MaterialGraph/MaterialGraphNode_Comment.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "MaterialGraph/MaterialGraphSchema.h"
 #include "Materials/MaterialExpressionComment.h"
-#include "Materials/MaterialFunction.h"
-#include "MaterialEditorUtilities.h"
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 
 /////////////////////////////////////////////////////
 // UMaterialGraphNode_Comment

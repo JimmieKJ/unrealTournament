@@ -2,11 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "Toolkits/IToolkitHost.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "Toolkits/AssetEditorManager.h"
 
+class FToolBarBuilder;
 class SSpriteEditorViewport;
 class SSpriteList;
+class UPaperSprite;
+class UTexture2D;
 
 //////////////////////////////////////////////////////////////////////////
 // 
@@ -28,6 +33,8 @@ namespace ESpriteEditorMode
 class FSpriteEditor : public FAssetEditorToolkit, public FGCObject
 {
 public:
+	FSpriteEditor();
+
 	// IToolkit interface
 	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
 	virtual void UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;

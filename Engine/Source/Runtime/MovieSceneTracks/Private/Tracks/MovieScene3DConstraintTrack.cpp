@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieScene3DConstraintSection.h"
-#include "MovieScene3DConstraintTrack.h"
+#include "Tracks/MovieScene3DConstraintTrack.h"
+#include "Sections/MovieScene3DConstraintSection.h"
 #include "IMovieScenePlayer.h"
-#include "MovieScene3DConstraintTrackInstance.h"
 
 
 #define LOCTEXT_NAMESPACE "MovieScene3DConstraintTrack"

@@ -31,6 +31,7 @@ ENUM_GL_ENTRYPOINTS_OPTIONAL(DEFINE_GL_ENTRYPOINTS)
 ///////////////////////////////////////////////////////////////////////////////
 
 bool FAndroidESDeferredOpenGL::bSupportsBindlessTexture = false;
+bool FAndroidESDeferredOpenGL::bSupportsMobileMultiView = false;
 
 void FAndroidESDeferredOpenGL::ProcessExtensions(const FString& ExtensionsString)
 {
@@ -47,6 +48,24 @@ void FAndroidESDeferredOpenGL::ProcessExtensions(const FString& ExtensionsString
 		{
 			UE_LOG(LogRHI, Log, TEXT("Disabling support for NvTimerQuery on Nexus 9 before Android 6.0"));
 			bSupportsNvTimerQuery = false;
+		}
+	}
+
+	// Mobile multi-view setup
+	const bool bMultiViewSupport = ExtensionsString.Contains(TEXT("GL_OVR_multiview"));
+	const bool bMultiView2Support = ExtensionsString.Contains(TEXT("GL_OVR_multiview2"));
+	const bool bMultiViewMultiSampleSupport = ExtensionsString.Contains(TEXT("GL_OVR_multiview_multisampled_render_to_texture"));
+	if (bMultiViewSupport && bMultiView2Support && bMultiViewMultiSampleSupport)
+	{
+		// function pointers are set in Init as part of ENUM_GL_ENTRYPOINTS_OPTIONAL
+		bSupportsMobileMultiView = (glFramebufferTextureMultiviewOVR != NULL) && (glFramebufferTextureMultisampleMultiviewOVR != NULL);
+
+		// Just because the driver declares multi-view support and hands us valid function pointers doesn't actually guarantee the feature works...
+		if (bSupportsMobileMultiView)
+		{
+			// Disable for now, not supported with deferred path yet
+			bSupportsMobileMultiView = false;
+			//UE_LOG(LogRHI, Log, TEXT("Device supports mobile multi-view."));
 		}
 	}
 }
@@ -246,6 +265,11 @@ FPlatformOpenGLDevice* PlatformCreateOpenGLDevice()
 	FPlatformOpenGLDevice* Device = new FPlatformOpenGLDevice();
 	Device->Init();
 	return Device;
+}
+
+bool PlatformCanEnableGPUCapture()
+{
+	return false;
 }
 
 void PlatformDestroyOpenGLDevice(FPlatformOpenGLDevice* Device)
@@ -577,6 +601,11 @@ bool FAndroidMisc::SupportsShaderFramebufferFetch()
 	return FAndroidGPUInfo::Get().bSupportsFrameBufferFetch;
 }
 
+bool FAndroidMisc::SupportsShaderIOBlocks()
+{
+	return FAndroidGPUInfo::Get().bSupportsShaderIOBlocks;
+}
+
 void FAndroidMisc::GetValidTargetPlatforms(TArray<FString>& TargetPlatformNames)
 {
 	TargetPlatformNames = FAndroidGPUInfo::Get().TargetPlatformNames;
@@ -591,6 +620,16 @@ void FAndroidAppEntry::PlatformInit()
 	{
 		//AndroidEGL::GetInstance()->Init(AndroidEGL::AV_OpenGLES, 3, 1, Debug);
 		AndroidEGL::GetInstance()->Init(AndroidEGL::AV_OpenGLES, 2, 0, Debug);
+	}
+}
+
+void FAndroidAppEntry::ReleaseEGL()
+{
+	AndroidEGL* EGL = AndroidEGL::GetInstance();
+	if (EGL->IsInitialized())
+	{
+		EGL->DestroyBackBuffer();
+		EGL->Terminate();
 	}
 }
 

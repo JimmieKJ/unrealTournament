@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+#include "CompilerMetadataManagerArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/CompilerMetadataManagerArchiveProxy.h"
+#include "UHTMakefile.h"
 
 FCompilerMetadataManagerArchiveProxy::FCompilerMetadataManagerArchiveProxy(const FUHTMakefile& UHTMakefile, TArray<TPair<UStruct*, FClassMetaData*>>& CompilerMetadataManager)
 {
@@ -15,7 +16,7 @@ void FCompilerMetadataManagerArchiveProxy::AddReferencedNames(const FCompilerMet
 {
 	for (auto& Kvp : *CompilerMetadataManager)
 	{
-		FClassMetaDataArchiveProxy::AddReferencedNames(Kvp.Value, UHTMakefile);
+		FClassMetaDataArchiveProxy::AddReferencedNames(Kvp.Value.Get(), UHTMakefile);
 	}
 }
 

@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Textures/SlateShaderResource.h"
+#include "Materials/MaterialInterface.h"
+
+class FMaterialRenderProxy;
+
 /**
  * A resource for rendering a UMaterial in Slate
  */
@@ -27,11 +33,21 @@ public:
 	FSlateShaderResource* GetTextureMaskResource() const { return TextureMaskResource; }
 public:
 	const class UMaterialInterface* MaterialObject;
+#if !UE_BUILD_SHIPPING
+	// Used to guard against crashes when the material object is deleted.  This is expensive so we do not do it in shipping
+	TWeakObjectPtr<UMaterialInterface> MaterialObjectWeakPtr;
+	FName MaterialName;
+#endif
 	/** Slate proxy used for batching the material */
 	FSlateShaderResourceProxy* SlateProxy;
 
 	FSlateShaderResource* TextureMaskResource;
 	uint32 Width;
 	uint32 Height;
+
+private:
+#if !UE_BUILD_SHIPPING
+	void UpdateMaterialName();
+#endif
 };
 

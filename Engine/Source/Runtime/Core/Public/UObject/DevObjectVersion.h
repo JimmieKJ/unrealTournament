@@ -1,20 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreTypes.h"
+#include "UObject/NameTypes.h"
+#include "Misc/Guid.h"
 #include "Serialization/CustomVersion.h"
-#include "BlueprintsObjectVersion.h"
-#include "BuildObjectVersion.h"
-#include "CoreObjectVersion.h"
-#include "EditorObjectVersion.h"
-#include "FrameworkObjectVersion.h"
-#include "MobileObjectVersion.h"
-#include "NetworkingObjectVersion.h"
-#include "OnlineObjectVersion.h"
-#include "PhysicsObjectVersion.h"
-#include "PlatformObjectVersion.h"
-#include "RenderingObjectVersion.h"
-#include "SequencerObjectVersion.h"
-#include "VRObjectVersion.h"
+#include "LoadTimesObjectVersion.h"
 
 class CORE_API FDevVersionRegistration :  public FCustomVersionRegistration
 {

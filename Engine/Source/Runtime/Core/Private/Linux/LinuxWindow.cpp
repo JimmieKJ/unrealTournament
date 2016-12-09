@@ -1,12 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "LinuxWindow.h"
-#include "LinuxApplication.h"
+#include "Linux/LinuxWindow.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Internationalization/Text.h"
+#include "Math/Vector2D.h"
+#include "GenericPlatform/GenericWindowDefinition.h"
+#include "Misc/App.h"
+#include "Linux/LinuxApplication.h"
 
 DEFINE_LOG_CATEGORY( LogLinuxWindow );
 DEFINE_LOG_CATEGORY( LogLinuxWindowType );
 DEFINE_LOG_CATEGORY( LogLinuxWindowEvent );
+
+// SDL 2.0.4 as of 10374:dccf51aee79b will account for border width/height automatically (see SDL_x11window.c)
+// might need to be a function in case SDL gets overriden at runtime
+#define UE4_USING_BORDERS_AWARE_SDL					1
 
 FLinuxWindow::~FLinuxWindow()
 {
@@ -341,10 +350,17 @@ SDL_HitTestResult FLinuxWindow::HitTest( SDL_Window *SDLwin, const SDL_Point *po
 /** Native windows should implement MoveWindowTo by relocating the platform-specific window to (X,Y). */
 void FLinuxWindow::MoveWindowTo( int32 X, int32 Y )
 {
-	// we are passed coordinates of a client area, so account for decorations
-	checkf(bValidNativePropertiesCache, TEXT("Attempted to use border sizes too early, native properties aren't yet cached. Review the flow"));
+	if (UE4_USING_BORDERS_AWARE_SDL)
+	{
+		SDL_SetWindowPosition( HWnd, X, Y );
+	}
+	else
+	{
+		// we are passed coordinates of a client area, so account for decorations
+		checkf(bValidNativePropertiesCache, TEXT("Attempted to use border sizes too early, native properties aren't yet cached. Review the flow"));
 
-	SDL_SetWindowPosition( HWnd, X - LeftBorderWidth, Y - TopBorderHeight );
+		SDL_SetWindowPosition( HWnd, X - LeftBorderWidth, Y - TopBorderHeight );
+	}
 }
 
 /** Native windows should implement BringToFront by making this window the top-most window (i.e. focused).
@@ -374,7 +390,9 @@ void FLinuxWindow::Destroy()
 	OwningApplication->RemoveEventWindow( HWnd );
 	OwningApplication->RemoveNotificationWindow( HWnd );
 
-	SDL_DestroyWindow( HWnd );
+	// We cannot destroy the window right now as it may be accessed by render thread, since Slate queued it for drawing earlier.
+	// To make sure no window gets destroyed while we're blitting into it, defer destroying the window to the app.
+	OwningApplication->DestroyNativeWindow(HWnd);
 }
 
 /** Native window should implement this function by performing the equivalent of the Win32 minimize-to-taskbar operation */
@@ -453,8 +471,8 @@ void FLinuxWindow::ReshapeWindow( int32 NewX, int32 NewY, int32 NewWidth, int32 
 	{
 		// Fullscreen and WindowedFullscreen both use SDL_WINDOW_FULLSCREEN_DESKTOP now
 		//  and code elsewhere handles the backbufer blit properly. This solves several
-		//  problems that actual mode switches cause, and a GPU scales better than your
-		//  cheap LCD display anyhow.
+		//  problems that actual mode switches cause, and a GPU scales better than LCD display.
+		// If this is changed, change SetWindowMode() and FSystemResolution::RequestResolutionChange() as well.
 		case EWindowMode::Fullscreen:
 		case EWindowMode::WindowedFullscreen:
 		{
@@ -462,11 +480,12 @@ void FLinuxWindow::ReshapeWindow( int32 NewX, int32 NewY, int32 NewWidth, int32 
 			SDL_SetWindowSize( HWnd, NewWidth, NewHeight );
 			SDL_SetWindowFullscreen( HWnd, SDL_WINDOW_FULLSCREEN_DESKTOP );
 			bWasFullscreen = true;
-		}	break;
+		}
+		break;
 
 		case EWindowMode::Windowed:
 		{
-			if (Definition->HasOSWindowBorder)
+			if (UE4_USING_BORDERS_AWARE_SDL == 0 && Definition->HasOSWindowBorder)
 			{
 				// we are passed coordinates of a client area, so account for decorations
 				checkf(bValidNativePropertiesCache, TEXT("Attempted to use border sizes too early, native properties aren't yet cached. Review the flow"));
@@ -478,7 +497,8 @@ void FLinuxWindow::ReshapeWindow( int32 NewX, int32 NewY, int32 NewWidth, int32 
 
 			bWasFullscreen = false;
 
-		}	break;
+		}
+		break;
 	}
 
 	RegionWidth   = NewWidth;
@@ -496,8 +516,8 @@ void FLinuxWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 		{
 			// Fullscreen and WindowedFullscreen both use SDL_WINDOW_FULLSCREEN_DESKTOP now
 			//  and code elsewhere handles the backbufer blit properly. This solves several
-			//  problems that actual mode switches cause, and a GPU scales better than your
-			//  cheap LCD display anyhow.
+			//  problems that actual mode switches cause, and a GPU scales better than LCD display.
+			// If this is changed, change ReshapeWindow() and FSystemResolution::RequestResolutionChange() as well.
 			case EWindowMode::Fullscreen:
 			case EWindowMode::WindowedFullscreen:
 			{
@@ -507,7 +527,8 @@ void FLinuxWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 					SDL_SetWindowFullscreen( HWnd, SDL_WINDOW_FULLSCREEN_DESKTOP );
 					bWasFullscreen = true;
 				}
-			}	break;
+			}
+			break;
 
 			case EWindowMode::Windowed:
 			{
@@ -524,7 +545,8 @@ void FLinuxWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 				SDL_SetWindowGrab( HWnd, SDL_FALSE );
 
 				bWasFullscreen = false;
-			}	break;
+			}
+			break;
 		}
 
 

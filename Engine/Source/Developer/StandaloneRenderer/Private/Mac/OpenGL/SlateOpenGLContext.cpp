@@ -117,7 +117,7 @@ void UnlockGLContext(NSOpenGLContext* Context)
 		glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &CurrentReadFramebuffer);
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, Framebuffer);
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		glBlitFramebuffer(0, 0, ViewportRect.Right, ViewportRect.Bottom, 0, 0, self.frame.size.width, self.frame.size.height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		glBlitFramebuffer(0, 0, ViewportRect.Right, ViewportRect.Bottom, 0, 0, self.frame.size.width * self.window.backingScaleFactor, self.frame.size.height * self.window.backingScaleFactor, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 		CHECK_GL_ERRORS;
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, CurrentReadFramebuffer);
 	}
@@ -185,6 +185,7 @@ void FSlateOpenGLContext::Initialize(void* InWindow, const FSlateOpenGLContext* 
 		const NSRect ViewRect = NSMakeRect(0, 0, Window.frame.size.width, Window.frame.size.height);
 		View = [[FSlateCocoaView alloc] initWithFrame:ViewRect context:Context pixelFormat:PixelFormat];
 		[View setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+		[View setWantsBestResolutionOpenGLSurface:YES];
 
 		if (FPlatformMisc::IsRunningOnMavericks() && ([Window styleMask] & NSTexturedBackgroundWindowMask))
 		{

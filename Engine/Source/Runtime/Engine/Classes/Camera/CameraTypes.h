@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "Engine/Scene.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Engine/EngineTypes.h"
 #include "EngineDefines.h"
+#include "Engine/Scene.h"
 #include "CameraTypes.generated.h"
 
 //@TODO: Document
@@ -85,6 +87,10 @@ struct FMinimalViewInfo
 	UPROPERTY(BlueprintReadWrite, Category = Camera)
 	struct FPostProcessSettings PostProcessSettings;
 
+	/** Off-axis / off-center projection offset as proportion of screen dimensions */
+	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadWrite, Category = Camera)
+	FVector2D OffCenterProjectionOffset;
+
 	FMinimalViewInfo()
 		: Location(ForceInit)
 		, Rotation(ForceInit)
@@ -97,6 +103,7 @@ struct FMinimalViewInfo
 		, bUseFieldOfViewForLOD(true)
 		, ProjectionMode(ECameraProjectionMode::Perspective)
 		, PostProcessBlendWeight(0.0f)
+		, OffCenterProjectionOffset(ForceInitToZero)
 	{
 	}
 

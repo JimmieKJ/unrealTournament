@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Editor/TransBuffer.h"
 #include "MatineeTransBuffer.generated.h"
-
 
 /**
  * Special transaction buffer for Matinee undo/redo.

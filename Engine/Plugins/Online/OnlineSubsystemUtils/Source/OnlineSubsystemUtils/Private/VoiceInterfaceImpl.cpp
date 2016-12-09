@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
-#include "OnlineSubsystem.h"
 #include "VoiceInterfaceImpl.h"
+#include "Misc/ConfigCacheIni.h"
+#include "EngineGlobals.h"
+#include "GameFramework/OnlineReplStructs.h"
+#include "Engine/Engine.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/LocalPlayer.h"
+#include "OnlineSubsystemImpl.h"
+#include "VoiceModule.h"
 #include "VoiceEngineImpl.h"
-#include "OnlineIdentityInterface.h"
-#include "OnlineSessionInterface.h"
-#include "Voice.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "Interfaces/OnlineSessionInterface.h"
 
 /** Largest size to attempt to transmit */
 #define MAX_VOICE_PACKET_SIZE_IMPL 1 * 1024

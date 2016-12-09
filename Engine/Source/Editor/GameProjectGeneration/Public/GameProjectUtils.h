@@ -2,13 +2,14 @@
 
 #pragma once
 
-#include "HardwareTargetingModule.h"
-#include "ProjectDescriptor.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "AddToProjectConfig.h"
+#include "GameProjectGenerationModule.h"
+#include "HardwareTargetingSettings.h"
 
-struct FModuleContextInfo;
-struct FAddToProjectConfig;
-struct FNewClassInfo;
 class UTemplateProjectDefs;
+struct FProjectDescriptor;
 enum class EClassDomain : uint8;
 
 struct FProjectInformation
@@ -254,6 +255,15 @@ public:
 
 	/** Deletes the specified list of files that were created during file creation */
 	static void DeleteCreatedFiles(const FString& RootFolder, const TArray<FString>& CreatedFiles);
+
+	/**
+	 * Update the list of plugin directories to scan
+	 * This will take care of checking out and saving the updated .uproject file automatically
+	 *
+	 * @param	InDir directory to add/remove
+	 * @param	bAddOrRemove true if the directory should be added to this project, false if it should not
+	 */
+	static void UpdateAdditionalPluginDirectory(const FString& InDir, const bool bAddOrRemove);
 
 private:
 

@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "PropertyTag.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/UnrealType.h"
 
 /*-----------------------------------------------------------------------------
 	UStrProperty.
@@ -24,6 +26,11 @@ bool UStrProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8*
 	}
 
 	return bOutAdvanceProperty;
+}
+
+FString UStrProperty::GetCPPTypeForwardDeclaration() const
+{
+	return FString();
 }
 
 // Necessary to fix Compiler Error C2026 and C1091
@@ -87,6 +94,10 @@ void UStrProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue,
 	{
 		ValueStr += FString::Printf( TEXT("\"%s\""), *(StringValue.ReplaceCharWithEscapedChar()) );
 	}
+	else
+	{
+		ValueStr += TEXT("\"\"");
+	}
 }
 const TCHAR* UStrProperty::ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText ) const
 {
@@ -120,6 +131,11 @@ const TCHAR* UStrProperty::ImportText_Internal( const TCHAR* Buffer, void* Data,
 		*(FString*)Data = Temp;
 	}
 	return Buffer;
+}
+
+uint32 UStrProperty::GetValueTypeHashInternal(const void* Src) const
+{
+	return GetTypeHash(*(const FString*)Src);
 }
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UStrProperty, UProperty,

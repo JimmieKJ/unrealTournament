@@ -2,8 +2,11 @@
 
 
 #pragma once
-#include "InterpData.generated.h"
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "InterpData.generated.h"
 
 /**
  * Interpolation data, containing keyframe tracks, event tracks etc.

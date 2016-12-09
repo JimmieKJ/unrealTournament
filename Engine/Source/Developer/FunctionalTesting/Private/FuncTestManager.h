@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/WeakObjectPtr.h"
+#include "IFuncTestManager.h"
+
+class UFunctionalTestingManager;
+
 DECLARE_LOG_CATEGORY_EXTERN(LogFunctionalTest, Log, All);
 
 class FFuncTestManager : public IFuncTestManager, public TSharedFromThis<FFuncTestManager>

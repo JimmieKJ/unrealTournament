@@ -1,7 +1,15 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphPin.h"
+#include "K2Node.h"
 #include "K2Node_FormatText.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UK2Node_FormatText : public UK2Node

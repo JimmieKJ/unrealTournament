@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "MakefileHelpers.h"
+
+class FUHTMakefile;
+class FArchive;
 class FUnrealSourceFile;
 
 /* See UHTMakefile.h for overview how makefiles work. */

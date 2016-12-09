@@ -1,13 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "LevelEditor.h"
-#include "LevelEditorActions.h"
 #include "SLevelEditorModeContent.h"
-#include "LevelEditorActions.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "SDockTab.h"
+#include "EdMode.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EditorStyleSet.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "EditorModeManager.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "SLevelEditorModeContent"
 

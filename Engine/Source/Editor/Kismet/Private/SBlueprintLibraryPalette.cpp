@@ -1,9 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "SBlueprintLibraryPalette.h"
-#include "ClassViewerModule.h" // for FClassViewerInitializationOptions
-#include "ClassViewerFilter.h" // for FClassViewerFilterFuncs
+#include "Modules/ModuleManager.h"
+#include "Framework/Commands/InputChord.h"
+#include "Framework/Commands/Commands.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Input/SComboButton.h"
+#include "EditorStyleSet.h"
+#include "Engine/Blueprint.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "EdGraphSchema_K2.h"
+#include "ClassViewerModule.h"
+#include "ClassViewerFilter.h"
 #include "BlueprintPaletteFavorites.h"
 #include "BlueprintActionFilter.h"
 #include "BlueprintActionMenuBuilder.h"

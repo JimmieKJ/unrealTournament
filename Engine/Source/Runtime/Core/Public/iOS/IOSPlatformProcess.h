@@ -45,5 +45,3 @@ private:
 };
 
 typedef FIOSPlatformProcess FPlatformProcess;
-
-typedef FSystemWideCriticalSectionNotImplemented FSystemWideCriticalSection;

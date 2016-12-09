@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "K2Node.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node_EnumEquality.h"
 #include "K2Node_EnumInequality.generated.h"
-
 
 UCLASS(MinimalAPI, meta=(Keywords = "!="))
 class UK2Node_EnumInequality : public UK2Node_EnumEquality

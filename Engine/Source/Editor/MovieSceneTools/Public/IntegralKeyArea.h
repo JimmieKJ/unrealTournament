@@ -2,14 +2,16 @@
 
 #pragma once
 
-#include "ClipboardTypes.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Curves/KeyHandle.h"
+#include "Curves/IntegralCurve.h"
+#include "MovieSceneTrack.h"
 #include "NamedKeyArea.h"
-#include "MovieSceneClipboard.h"
 #include "SequencerClipboardReconciler.h"
+#include "ClipboardTypes.h"
 
-
-struct FIntegralCurve;
-
+class FStructOnScope;
 
 /**
  * Abstract base class for integral curve key areas.
@@ -45,12 +47,12 @@ public:
 	virtual void SetExtrapolationMode(ERichCurveExtrapolation ExtrapMode, bool bPreInfinity) override;
 	virtual void SetKeyInterpMode(FKeyHandle KeyHandle, ERichCurveInterpMode InterpMode) override;
 	virtual void SetKeyTangentMode(FKeyHandle KeyHandle, ERichCurveTangentMode TangentMode) override;
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) const override;
+	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) override;
 
 protected:
 
 	virtual void EvaluateAndAddKey(float Time, float TimeToCopyFrom, FKeyHandle& CurrentKey) = 0;
-	virtual void SetKeyValue(float Time) = 0;
+	virtual void UpdateKeyWithExternalValue(float Time) = 0;
 
 protected:
 
@@ -71,8 +73,28 @@ class MOVIESCENETOOLS_API FIntegralKeyArea
 {
 public:
 
+	/**
+	* Creates a new key area for editing integral curves.
+	*
+	* @param InCurve The integral curve which has the integral keys.
+	* @param InOwningSection The section which owns the curve which is being displayed and edited by this area.
+	*/
 	FIntegralKeyArea(FIntegralCurve& InCurve, UMovieSceneSection* InOwningSection)
 		: FIntegralCurveKeyAreaBase(InCurve, InOwningSection)
+	{ }
+
+	/**
+	* Creates a new key area for editing integral curves whose value can be overridden externally.
+	*
+	* @param InCurve The integral curve which has the integral keys.
+	* @param InExternalValue An attribute which can provide an external value for this key area.  External values are
+	*        useful for things like property tracks where the property value can change without changing the animation
+	*        and we want to be able to key and update using the new property value.
+	* @param InOwningSection The section which owns the curve which is being displayed and edited by this area.
+	*/
+	FIntegralKeyArea(FIntegralCurve& InCurve, TAttribute<TOptional<IntegralType>> InExternalValue, UMovieSceneSection* InOwningSection)
+		: FIntegralCurveKeyAreaBase(InCurve, InOwningSection)
+		, ExternalValue(InExternalValue)
 	{ }
 
 	virtual void CopyKeys(FMovieSceneClipboardBuilder& ClipboardBuilder, const TFunctionRef<bool(FKeyHandle, const IKeyArea&)>& KeyMask) const override
@@ -134,41 +156,32 @@ public:
 		});
 	}
 
-public:
-
-	void ClearIntermediateValue()
-	{
-		IntermediateValue.Reset();
-	}
-
-	void SetIntermediateValue(IntegralType InIntermediateValue)
-	{
-		IntermediateValue = InIntermediateValue;
-	}
-
 protected:
+
+	virtual IntegralType ConvertCurveValueToIntegralType(int32 CurveValue) const = 0;
 
 	virtual void EvaluateAndAddKey(float Time, float TimeToCopyFrom, FKeyHandle& CurrentKey) override
 	{
-		int32 Value = Curve.Evaluate(Time);
-
-		if (TimeToCopyFrom != FLT_MAX)
+		IntegralType Value;
+		if (ExternalValue.IsSet() && ExternalValue.Get().IsSet() && TimeToCopyFrom == FLT_MAX)
 		{
-			Value = Curve.Evaluate(TimeToCopyFrom);
+			Value = ExternalValue.Get().GetValue();
 		}
-		else if (IntermediateValue.IsSet())
+		else
 		{
-			Value = IntermediateValue.GetValue();
+			float EvalTime = TimeToCopyFrom != FLT_MAX ? Time : TimeToCopyFrom;
+			IntegralType DefaultValue = 0;
+			Value = ConvertCurveValueToIntegralType(Curve.Evaluate(EvalTime, DefaultValue));
 		}
 
 		Curve.AddKey(Time, Value, CurrentKey);
 	}
 
-	virtual void SetKeyValue(float Time) override
+	virtual void UpdateKeyWithExternalValue(float Time) override
 	{
-		if (IntermediateValue.IsSet())
+		if (ExternalValue.IsSet() && ExternalValue.Get().IsSet())
 		{
-			int32 Value = IntermediateValue.GetValue();
+			IntegralType Value = ExternalValue.Get().GetValue();
 
 			Curve.UpdateOrAddKey(Time, Value);
 		}
@@ -176,5 +189,5 @@ protected:
 
 protected:
 
-	TOptional<IntegralType> IntermediateValue;
+	TAttribute<TOptional<IntegralType>> ExternalValue;
 };

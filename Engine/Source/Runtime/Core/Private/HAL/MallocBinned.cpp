@@ -4,10 +4,11 @@
 	MallocBinned.cpp: Binned memory allocator
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "HAL/MallocBinned.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/BufferedOutputDevice.h"
 
-#include "MallocBinned.h"
-#include "MemoryMisc.h"
+#include "HAL/MemoryMisc.h"
 
 /** Malloc binned allocator specific stats. */
 DEFINE_STAT(STAT_Binned_OsCurrent);
@@ -1056,21 +1057,27 @@ bool FMallocBinned::GetAllocationSize(void *Original, SIZE_T &SizeOut)
 	{
 		return false;
 	}
+
 	UPTRINT BasePtr;
 	FPoolInfo* Pool = Private::FindPoolInfo(*this, (UPTRINT)Original, BasePtr);
+
+	PTRINT OffsetFromBase = (PTRINT)Original - (PTRINT)BasePtr;
+	check(OffsetFromBase >= 0);
+
 	if (Pool->TableIndex < BinnedOSTableIndex)
 	{
 		FPoolTable* Table = MemSizeToPoolTable[Pool->TableIndex];
 
-		PTRINT OffsetFromBase = (PTRINT)Original - (PTRINT)BasePtr;
-		check(OffsetFromBase >= 0);
 		uint32 AlignOffset = OffsetFromBase % Table->BlockSize;
 
 		SizeOut = Table->BlockSize - AlignOffset;
 	}
 	else
 	{
-		SizeOut = Pool->GetBytes();
+		// if we padded out the allocation for alignment, and then offset the returned pointer from the actual allocation
+		// we need to adjust for that offset. Pool->GetBytes() returns the entire size of the allocation, not just the 
+		// usable part that was returned to the caller
+		SizeOut = Pool->GetBytes() - OffsetFromBase;
 	}
 	return true;
 }

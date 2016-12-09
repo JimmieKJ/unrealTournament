@@ -2,10 +2,11 @@
 
 #pragma once
 
-#include "LightmassRender.h"
+#include "CoreMinimal.h"
 
-class FMaterialRenderProxy;
 class FLandscapeStaticLightingMesh;
+class FMaterialRenderProxy;
+class FRenderTarget;
 
 extern void RenderLandscapeMaterialForLightmass(const FLandscapeStaticLightingMesh* LandscapeMesh, FMaterialRenderProxy* MaterialProxy, const FRenderTarget* RenderTarget);
 extern void GetLandscapeOpacityData(const FLandscapeStaticLightingMesh* LandscapeMesh, int32& InOutSizeX, int32& InOutSizeY, TArray<FFloat16Color>& OutMaterialSamples);

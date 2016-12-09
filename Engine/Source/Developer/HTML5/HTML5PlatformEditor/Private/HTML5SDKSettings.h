@@ -2,14 +2,14 @@
 
 #pragma once
 
-#include "ITargetPlatformManagerModule.h"
-#include "EditorStyleSet.h"
-#include "IDetailCustomization.h"
-#include "IPropertyTypeCustomization.h"
-#include "IHTML5TargetPlatformModule.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/EngineTypes.h"
 #include "HTML5SDKSettings.generated.h"
 
 class IHTML5TargetPlatformModule;
+class ITargetPlatformManagerModule;
 
 USTRUCT()
 struct FHTML5DeviceMapping

@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AvfMediaFactoryPCH.h"
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "IMediaModule.h"
+#include "IAvfMediaModule.h"
+#include "AvfMediaFactoryPrivate.h"
 #include "IMediaPlayerFactory.h"
-#include "ModuleInterface.h"
 
 
 DEFINE_LOG_CATEGORY(LogAvfMediaFactory);
@@ -102,9 +107,29 @@ public:
 		SupportedPlatforms.Add(TEXT("Mac"));
 
 		// supported file extensions
+		SupportedFileExtensions.Add(TEXT("3g2"));
+		SupportedFileExtensions.Add(TEXT("3gp"));
+		SupportedFileExtensions.Add(TEXT("3gp2"));
+		SupportedFileExtensions.Add(TEXT("3gpp"));
+		SupportedFileExtensions.Add(TEXT("ac3"));
+		SupportedFileExtensions.Add(TEXT("aif"));
+		SupportedFileExtensions.Add(TEXT("aiff"));
+		SupportedFileExtensions.Add(TEXT("aifc"));
+		SupportedFileExtensions.Add(TEXT("amr"));
+		SupportedFileExtensions.Add(TEXT("au"));
+		SupportedFileExtensions.Add(TEXT("bwf"));
+		SupportedFileExtensions.Add(TEXT("caf"));
+		SupportedFileExtensions.Add(TEXT("cdda"));
+		SupportedFileExtensions.Add(TEXT("m4a"));
 		SupportedFileExtensions.Add(TEXT("m4v"));
 		SupportedFileExtensions.Add(TEXT("mov"));
+		SupportedFileExtensions.Add(TEXT("mp3"));
 		SupportedFileExtensions.Add(TEXT("mp4"));
+		SupportedFileExtensions.Add(TEXT("qt"));
+		SupportedFileExtensions.Add(TEXT("sdv"));
+		SupportedFileExtensions.Add(TEXT("snd"));
+		SupportedFileExtensions.Add(TEXT("wav"));
+		SupportedFileExtensions.Add(TEXT("wave"));
 
 		// register player factory
 		auto MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");

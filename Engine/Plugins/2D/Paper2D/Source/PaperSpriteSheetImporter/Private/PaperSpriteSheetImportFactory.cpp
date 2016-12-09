@@ -1,14 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PaperSpriteSheetImporterPrivatePCH.h"
-#include "Json.h"
-#include "PaperJSONHelpers.h"
-#include "AssetToolsModule.h"
-#include "AssetRegistryModule.h"
-#include "PackageTools.h"
-#include "PaperSpriteSheet.h"
 #include "PaperSpriteSheetImportFactory.h"
-#include "PaperSpriteSheetReimportFactory.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "EditorFramework/AssetImportData.h"
+#include "Editor.h"
+#include "AssetToolsModule.h"
+#include "PaperSpriteSheet.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UPaperSpriteSheetImportFactory

@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ActorFactories/ActorFactory.h"
 #include "PaperFlipbookActorFactory.generated.h"
+
+class AActor;
+class FAssetData;
 
 UCLASS()
 class UPaperFlipbookActorFactory : public UActorFactory

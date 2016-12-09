@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "BehaviorTree/Decorators/BTDecorator_Loop.h"
+#include "Engine/World.h"
 #include "BehaviorTree/BTCompositeNode.h"
 #include "BehaviorTree/Composites/BTComposite_SimpleParallel.h"
-#include "BehaviorTree/Decorators/BTDecorator_Loop.h"
 
 UBTDecorator_Loop::UBTDecorator_Loop(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

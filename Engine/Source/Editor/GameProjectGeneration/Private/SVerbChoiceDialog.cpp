@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameProjectGenerationPrivatePCH.h"
 #include "SVerbChoiceDialog.h"
-#include "SHyperlink.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
+#include "Widgets/Input/SHyperlink.h"
 
 int32 SVerbChoiceDialog::ShowModal(const FText& InTitle, const FText& InText, const TArray<FText>& InButtons)
 {

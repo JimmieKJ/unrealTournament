@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "../GenericErrorReport.h"
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "Internationalization/Text.h"
+#include "GenericErrorReport.h"
+
+struct FTimespan;
 
 /**
  * Helper that works with Linux Error Reports

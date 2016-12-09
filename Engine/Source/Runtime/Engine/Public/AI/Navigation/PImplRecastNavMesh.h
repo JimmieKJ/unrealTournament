@@ -8,18 +8,23 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "AI/Navigation/NavigationTypes.h"
+#include "AI/Navigation/RecastNavMesh.h"
+
+#if WITH_RECAST
+#include "Detour/DetourNavMesh.h"
+#include "Detour/DetourNavMeshQuery.h"
+#endif
+
+class FRecastNavMeshGenerator;
+class UNavigationSystem;
+
 #if WITH_RECAST
 
-#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
-#include "AI/Navigation/RecastNavMesh.h"
-#include "Detour/DetourNavMeshQuery.h"
-
 #define RECAST_VERY_SMALL_AGENT_RADIUS 0.0f
-
-class ARecastNavMesh;
-class FRecastNavMeshGenerator;
-class dtNavMesh;
-struct dtMeshTile;
 
 class ENGINE_API FRecastQueryFilter : public INavigationQueryFilterInterface, public dtQueryFilter
 {
@@ -41,6 +46,7 @@ public:
 	virtual uint16 GetIncludeFlags() const override;
 	virtual void SetExcludeFlags(uint16 Flags) override;
 	virtual uint16 GetExcludeFlags() const override;
+	virtual FVector GetAdjustedEndLocation(const FVector& EndLocation) const override { return EndLocation; }
 	virtual INavigationQueryFilterInterface* CreateCopy() const override;
 
 	const dtQueryFilter* GetAsDetourQueryFilter() const { return this; }
@@ -213,9 +219,11 @@ public:
 	void RemoveTileCacheLayer(int32 TileX, int32 TileY, int32 LayerIdx);
 	void AddTileCacheLayers(int32 TileX, int32 TileY, const TArray<FNavMeshTileData>& Layers);
 	void AddTileCacheLayer(int32 TileX, int32 TileY, int32 LayerIdx, const FNavMeshTileData& LayerData);
+	void MarkEmptyTileCacheLayers(int32 TileX, int32 TileY);
 	FNavMeshTileData GetTileCacheLayer(int32 TileX, int32 TileY, int32 LayerIdx) const;
 	TArray<FNavMeshTileData> GetTileCacheLayers(int32 TileX, int32 TileY) const;
-	
+	bool HasTileCacheLayers(int32 TileX, int32 TileY) const;
+
 	/** Assigns recast generated navmesh to this instance.
 	 *	@param bOwnData if true from now on this FPImplRecastNavMesh instance will be responsible for this piece 
 	 *		of memory

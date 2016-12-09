@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
 #include "UnrealEd.h"
 #include "GraphEditor.h"
 

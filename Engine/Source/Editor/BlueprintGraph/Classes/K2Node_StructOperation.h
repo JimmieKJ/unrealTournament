@@ -2,6 +2,10 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "K2Node.h"
 #include "K2Node_Variable.h"
 #include "K2Node_StructOperation.generated.h"
 

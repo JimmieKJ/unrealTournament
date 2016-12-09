@@ -3,6 +3,7 @@
  */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,15 +14,38 @@ namespace MemoryProfiler2
 {
 	public static class FShortLivedAllocationView
 	{
-		private static int[] ShortLivedColumnMapping = new int[] { 3, 4, 2, 0, 1 };
-
 		private static MainWindow OwnerWindow;
 
 		private static int ColumnToSortBy = 3;
 
 		private static bool ColumnSortModeAscending = false;
 
-		public static void SetProfilerWindow( MainWindow InMainWindow )
+		private static List<int> ColumnSortOrder = new List<int> { 3, 4, 2, 0, 1 };
+
+		private class FShortLivedListViewComparer : IComparer
+		{
+			public int Compare(object A, object B)
+			{
+				FShortLivedCallStackTag AValues = (FShortLivedCallStackTag)((ListViewItem)A).Tag;
+				FShortLivedCallStackTag BValues = (FShortLivedCallStackTag)((ListViewItem)B).Tag;
+
+				foreach (int ColumnIndex in ColumnSortOrder)
+				{
+					if (AValues.ColumnValues[ColumnIndex] < BValues.ColumnValues[ColumnIndex])
+					{
+						return ColumnSortModeAscending ? -1 : 1;
+					}
+					else if (AValues.ColumnValues[ColumnIndex] > BValues.ColumnValues[ColumnIndex])
+					{
+						return ColumnSortModeAscending ? 1 : -1;
+					}
+				}
+
+				return 0;
+			}
+		}
+
+		public static void SetProfilerWindow(MainWindow InMainWindow)
 		{
 			OwnerWindow = InMainWindow;
 		}
@@ -40,7 +64,7 @@ namespace MemoryProfiler2
 
 			ColumnToSortBy = 3;
 			ColumnSortModeAscending = false;
-			ShortLivedColumnMapping = new int[] { 3, 4, 2, 0, 1 };
+			ColumnSortOrder = new List<int> { 3, 4, 2, 0, 1 };
 		}
 
 		public static void ParseSnapshot( string FilterText )
@@ -60,6 +84,8 @@ namespace MemoryProfiler2
 
 			OwnerWindow.ShortLivedListView.BeginUpdate();
 			OwnerWindow.ShortLivedListView.Items.Clear();
+
+			OwnerWindow.ShortLivedListView.ListViewItemSorter = null; // clear this to avoid a Sort for each call to Add
 
 			const int MaxLifetime = 1;
 			const int MinAllocations = 100;
@@ -194,63 +220,32 @@ namespace MemoryProfiler2
 						{
 							float LongestRunAvgAllocSize = LongestRun == 0 ? 0 : LongestRunTotalAllocSize / LongestRun;
 
-							ListViewItem LVItem = new ListViewItem();
-							uint[] ColumnValues = new uint[ 5 ];
-							ColumnValues[ ShortLivedColumnMapping[ 0 ] ] = AllocationLifetimes[ 0 ];
-							ColumnValues[ ShortLivedColumnMapping[ 1 ] ] = UniqueFramesWithAge0Allocs;
-							ColumnValues[ ShortLivedColumnMapping[ 2 ] ] = AllocationLifetimes[ 1 ];
-							ColumnValues[ ShortLivedColumnMapping[ 3 ] ] = ( uint )LongestRun;
-							ColumnValues[ ShortLivedColumnMapping[ 4 ] ] = ( uint )LongestRunAvgAllocSize;
+							uint[] ColumnValues = new uint[5];
+							ColumnValues[0] = AllocationLifetimes[0];
+							ColumnValues[1] = UniqueFramesWithAge0Allocs;
+							ColumnValues[2] = AllocationLifetimes[1];
+							ColumnValues[3] = (uint)LongestRun;
+							ColumnValues[4] = (uint)LongestRunAvgAllocSize;
 
-							LVItem.Tag = new FShortLivedCallStackTag( CallStack, ColumnValues );
-							LVItem.Text = ColumnValues[ ShortLivedColumnMapping[ 0 ] ].ToString();
-							for( int ValueIndex = 1; ValueIndex < ColumnValues.Length; ValueIndex++ )
+							var LVItem = new ListViewItem();
+
+							LVItem.Tag = new FShortLivedCallStackTag(CallStack, ColumnValues);
+
+							LVItem.Text = ColumnValues[0].ToString();
+							for (int ValueIndex = 1; ValueIndex < ColumnValues.Length; ValueIndex++)
 							{
-								LVItem.SubItems.Add( ColumnValues[ ShortLivedColumnMapping[ ValueIndex ] ].ToString() );
+								LVItem.SubItems.Add(ColumnValues[ValueIndex].ToString());
 							}
 
-							bool bInsertedItem = false;
-							for( int ItemIndex = OwnerWindow.ShortLivedListView.Items.Count - 1; ItemIndex >= 0; ItemIndex-- )
-							{
-								uint[] ItemValues = ( ( FShortLivedCallStackTag )OwnerWindow.ShortLivedListView.Items[ ItemIndex ].Tag ).ColumnValues;
-								for( int ValueIndex = 0; ValueIndex < ColumnValues.Length; ValueIndex++ )
-								{
-									if( ItemValues[ ValueIndex ] > ColumnValues[ ValueIndex ] )
-									{
-										// found correct index to insert item
-										OwnerWindow.ShortLivedListView.Items.Insert( ItemIndex + 1, LVItem );
-										bInsertedItem = true;
-										break;
-									}
-									else if( ItemValues[ ValueIndex ] < ColumnValues[ ValueIndex ] )
-									{
-										break;
-									}
-									else if( ValueIndex == ColumnValues.Length - 1 )
-									{
-										// the items being compared are identical, so just insert here
-										OwnerWindow.ShortLivedListView.Items.Insert( ItemIndex + 1, LVItem );
-										bInsertedItem = true;
-									}
-								}
-
-								if( bInsertedItem )
-								{
-									break;
-								}
-							}
-
-							if( !bInsertedItem )
-							{
-								// item must be at top of list
-								OwnerWindow.ShortLivedListView.Items.Insert( 0, LVItem );
-							}
+							OwnerWindow.ShortLivedListView.Items.Add(LVItem);
 						}
 					}
 				}
 			}
 
-			OwnerWindow.ShortLivedListView.SetSortArrow( 3, false );
+			OwnerWindow.ShortLivedListView.ListViewItemSorter = new FShortLivedListViewComparer(); // Assignment automatically calls Sort
+			OwnerWindow.ShortLivedListView.SetSortArrow(ColumnToSortBy, ColumnSortModeAscending);
+
 			OwnerWindow.ShortLivedListView.EndUpdate();
 
 			OwnerWindow.ToolStripProgressBar.Visible = false;
@@ -258,14 +253,12 @@ namespace MemoryProfiler2
 
 		public static void ListColumnClick( ColumnClickEventArgs e )
 		{
-			ListViewEx ShortLivedListView = OwnerWindow.ShortLivedListView;
-
-			if( ShortLivedListView.Items.Count == 0 )
+			if (OwnerWindow.ShortLivedListView.Items.Count == 0)
 			{
 				return;
 			}
 
-			if( e.Column == ColumnToSortBy )
+			if (e.Column == ColumnToSortBy)
 			{
 				ColumnSortModeAscending = !ColumnSortModeAscending;
 			}
@@ -273,68 +266,16 @@ namespace MemoryProfiler2
 			{
 				ColumnToSortBy = e.Column;
 				ColumnSortModeAscending = false;
-			}	
-
-			int[] NewColumnMapping = new int[ ShortLivedColumnMapping.Length ];
-			for( int MappingIndex = 0; MappingIndex < NewColumnMapping.Length; MappingIndex++ )
-			{
-				NewColumnMapping[ MappingIndex ] = ShortLivedColumnMapping[ MappingIndex ];
-
-				if( ShortLivedColumnMapping[ MappingIndex ] < ShortLivedColumnMapping[ e.Column ] )
-				{
-					NewColumnMapping[ MappingIndex ]++;
-				}
-			}
-			NewColumnMapping[ e.Column ] = 0;
-
-			// copy items to a temp array because the ListViewItemCollection doesn't have a Sort method
-			ListViewItem[] TempItems = new ListViewItem[ ShortLivedListView.Items.Count ];
-			uint[] TempValues = new uint[ ShortLivedColumnMapping.Length ];
-			for( int MappingIndex = 0; MappingIndex < TempItems.Length; MappingIndex++ )
-			{
-				FShortLivedCallStackTag Tag = ( FShortLivedCallStackTag )ShortLivedListView.Items[ MappingIndex ].Tag;
-				for( int j = 0; j < Tag.ColumnValues.Length; j++ )
-				{
-					TempValues[ NewColumnMapping[ j ] ] = Tag.ColumnValues[ ShortLivedColumnMapping[ j ] ];
-				}
-
-				uint[] OldValues = Tag.ColumnValues;
-				Tag.ColumnValues = TempValues;
-				// reuse old array for next value swap
-				TempValues = OldValues;
-
-				TempItems[ MappingIndex ] = ShortLivedListView.Items[ MappingIndex ];
 			}
 
-			Array.Sort<ListViewItem>( TempItems, CompareShortLivedColumns );
+			// Move the current sort column to the start of the sort list
+			ColumnSortOrder.RemoveAll(x => x == ColumnToSortBy);
+			ColumnSortOrder.Insert(0, ColumnToSortBy);
 
-			ShortLivedListView.BeginUpdate();
-			ShortLivedListView.Items.Clear();
-			ShortLivedListView.Items.AddRange( TempItems );
-			ShortLivedListView.SetSortArrow( ColumnToSortBy, ColumnSortModeAscending );
-			ShortLivedListView.EndUpdate();
-
-			ShortLivedColumnMapping = NewColumnMapping;
-		}
-
-		private static int CompareShortLivedColumns( ListViewItem ItemA, ListViewItem ItemB )
-		{
-			uint[] AValues = ( ( FShortLivedCallStackTag )ItemA.Tag ).ColumnValues;
-			uint[] BValues = ( ( FShortLivedCallStackTag )ItemB.Tag ).ColumnValues;
-
-			for( int ValueIndex = 0; ValueIndex < AValues.Length; ValueIndex++ )
-			{
-				if( AValues[ ValueIndex ] < BValues[ ValueIndex ] )
-				{
-					return ColumnSortModeAscending ? -1 : 1;
-				}
-				else if( AValues[ ValueIndex ] > BValues[ ValueIndex ] )
-				{
-					return ColumnSortModeAscending ? 1 : -1;
-				}
-			}
-
-			return 0;
+			OwnerWindow.ShortLivedListView.BeginUpdate();
+			OwnerWindow.ShortLivedListView.SetSortArrow(ColumnToSortBy, ColumnSortModeAscending);
+			OwnerWindow.ShortLivedListView.Sort();
+			OwnerWindow.ShortLivedListView.EndUpdate();
 		}
 	}
 

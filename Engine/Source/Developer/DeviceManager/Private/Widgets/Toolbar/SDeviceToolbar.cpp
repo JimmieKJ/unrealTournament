@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DeviceManagerPrivatePCH.h"
+#include "Widgets/Toolbar/SDeviceToolbar.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "Models/DeviceDetailsCommands.h"
 
 
 #define LOCTEXT_NAMESPACE "SDeviceToolbar"

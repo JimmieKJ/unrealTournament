@@ -25,8 +25,7 @@ class UNREALTOURNAMENT_API AUTNavBlockingVolume : public AVolume, public INavRel
 		GetBrushComponent()->SetCollisionProfileName(FName(TEXT("InvisibleWall")));
 		GetBrushComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision); // should match default for bBlockSpecialMoveTests
 		// NOTE: this relies on no nav building during gameplay
-		GetBrushComponent()->AlwaysLoadOnClient = false;
-		GetBrushComponent()->AlwaysLoadOnServer = false;
+		GetBrushComponent()->bIsEditorOnly = true;
 		bNotForClientOrServer = true;
 	}
 

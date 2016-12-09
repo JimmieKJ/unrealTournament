@@ -1,7 +1,19 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Internationalization/TextLocalizationManager.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/FileManager.h"
+#include "Misc/Parse.h"
+#include "Templates/ScopedPointer.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Internationalization/Culture.h"
+#include "Internationalization/Internationalization.h"
+#include "Stats/Stats.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Misc/App.h"
+#include "UniquePtr.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTextLocalizationManager, Log, All);
 
@@ -46,26 +58,26 @@ void EndInitTextLocalization()
 		// Use culture override specified on commandline.
 		else if (FParse::Value(FCommandLine::Get(), TEXT("CULTURE="), RequestedCultureName))
 		{
-			UE_LOG(LogInit, Log, TEXT("Overriding culture %s w/ command-line option."), *RequestedCultureName);
+			UE_LOG(LogInit, Log, TEXT("Overriding culture %s with command-line option."), *RequestedCultureName);
 		}
 		else
 #if WITH_EDITOR
 			// See if we've been provided a culture override in the editor
 			if(GIsEditor && GConfig->GetString( TEXT("Internationalization"), TEXT("Culture"), RequestedCultureName, GEditorSettingsIni ))
 			{
-				UE_LOG(LogInit, Log, TEXT("Overriding culture %s w/ editor configuration."), *RequestedCultureName);
+				UE_LOG(LogInit, Log, TEXT("Overriding culture %s with editor configuration."), *RequestedCultureName);
 			}
 			else
 #endif // WITH_EDITOR
 				// Use culture specified in game configuration.
 				if(GConfig->GetString( TEXT("Internationalization"), TEXT("Culture"), RequestedCultureName, GGameUserSettingsIni ))
 				{
-					UE_LOG(LogInit, Log, TEXT("Overriding culture %s w/ game configuration."), *RequestedCultureName);
+					UE_LOG(LogInit, Log, TEXT("Overriding culture %s with game configuration."), *RequestedCultureName);
 				}
 				// Use culture specified in engine configuration.
 				else if(GConfig->GetString( TEXT("Internationalization"), TEXT("Culture"), RequestedCultureName, GEngineIni ))
 				{
-					UE_LOG(LogInit, Log, TEXT("Overriding culture %s w/ engine configuration."), *RequestedCultureName);
+					UE_LOG(LogInit, Log, TEXT("Overriding culture %s with engine configuration."), *RequestedCultureName);
 				}
 				else
 				{
@@ -142,7 +154,7 @@ void FTextLocalizationManager::FLocalizationEntryTracker::LoadFromDirectory(cons
 
 bool FTextLocalizationManager::FLocalizationEntryTracker::LoadFromFile(const FString& FilePath)
 {
-	TScopedPointer<FArchive> Reader(IFileManager::Get().CreateFileReader( *FilePath ));
+	TUniquePtr<FArchive> Reader(IFileManager::Get().CreateFileReader( *FilePath ));
 	if( !Reader )
 	{
 		return false;

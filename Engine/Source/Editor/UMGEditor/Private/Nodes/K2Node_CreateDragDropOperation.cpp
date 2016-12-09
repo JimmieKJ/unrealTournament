@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
+#include "Nodes/K2Node_CreateDragDropOperation.h"
+
+#include "K2Node_CallFunction.h"
 #include "Blueprint/DragDropOperation.h"
+
 #include "Blueprint/WidgetBlueprintLibrary.h"
-#include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
+#include "KismetCompilerMisc.h"
 #include "KismetCompiler.h"
-#include "K2Node_CreateDragDropOperation.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -70,6 +72,13 @@ void UK2Node_CreateDragDropOperation::ExpandNode(class FKismetCompilerContext& C
 	UEdGraphPin* SpawnClassPin = CreateOpNode->GetClassPin();
 	UEdGraphPin* SpawnNodeThen = CreateOpNode->GetThenPin();
 	UEdGraphPin* SpawnNodeResult = CreateOpNode->GetResultPin();
+
+	if (!SpawnNodeExec || !SpawnClassPin || !SpawnNodeThen || !SpawnNodeResult)
+	{
+		CompilerContext.MessageLog.Error(*LOCTEXT("CreateDragDropOperation_InternalError", "Invalid Drag/Drop node @@").ToString(), CreateOpNode);
+		CreateOpNode->BreakAllNodeLinks();
+		return;
+	}
 
 	UClass* SpawnClass = ( SpawnClassPin != NULL ) ? Cast<UClass>(SpawnClassPin->DefaultObject) : NULL;
 	//if ( ( 0 == SpawnClassPin->LinkedTo.Num() ) && ( NULL == SpawnClass ) )

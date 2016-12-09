@@ -37,7 +37,7 @@ public class IntelISPCTexComp : ModuleRules
             PublicAdditionalShadowFiles.Add(LibraryFilePath);
             RuntimeDependencies.Add(new RuntimeDependency(LibraryFilePath));
         }
-        else if (Target.Platform == UnrealTargetPlatform.Linux)
+        else if (Target.Platform == UnrealTargetPlatform.Linux && Target.Architecture.StartsWith("x86_64"))
         {
             string BinaryLibraryFolder = BinaryFolder + "Linux64-Release";
             string LibraryFilePath = BinaryLibraryFolder + "/libispc_texcomp.so";

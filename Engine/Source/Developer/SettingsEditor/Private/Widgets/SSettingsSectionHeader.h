@@ -2,7 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "ISettingsEditorModel.h"
+#include "ISettingsSection.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "IDetailRootObjectCustomization.h"
+
+class IDetailsView;
+class SSettingsEditorCheckoutNotice;
 
 class SSettingsSectionHeader : public SCompoundWidget
 {
@@ -40,7 +51,7 @@ private:
 	*
 	* @return true if the file needs to be checked out, false otherwise.
 	*/
-	bool IsDefaultConfigCheckOutNeeded() const;
+	bool IsDefaultConfigCheckOutNeeded(bool bForceSourceControlUpdate = false) const;
 
 	FReply HandleResetDefaultsButtonClicked();
 
@@ -59,7 +70,7 @@ private:
 	*
 	* @return true if the check-out succeeded, false otherwise.
 	*/
-	bool CheckOutDefaultConfigFile();
+	bool CheckOutOrAddDefaultConfigFile(bool bForceSourceControlUpdate = false);
 
 	/**
 	* Makes the default configuration file for the currently selected settings object writable.

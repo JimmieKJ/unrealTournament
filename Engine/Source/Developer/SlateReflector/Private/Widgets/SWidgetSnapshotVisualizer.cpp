@@ -1,10 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateReflectorPrivatePCH.h"
-#include "SWidgetSnapshotVisualizer.h"
-#include "WidgetReflectorNode.h"
-#include "ScrollyZoomy.h"
-#include "Base64.h"
+#include "Widgets/SWidgetSnapshotVisualizer.h"
+#include "HAL/FileManager.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "Serialization/ArrayWriter.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
+#include "Dom/JsonValue.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Framework/Layout/ScrollyZoomy.h"
+#include "Misc/Base64.h"
 
 #if SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
 #include "DesktopPlatformModule.h"

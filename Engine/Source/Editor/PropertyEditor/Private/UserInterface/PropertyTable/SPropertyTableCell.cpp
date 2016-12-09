@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "SPropertyTableCell.h"
-#include "IPropertyTableCell.h"
+#include "UserInterface/PropertyTable/SPropertyTableCell.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SMenuAnchor.h"
 #include "IPropertyTable.h"
-#include "IPropertyTableCellPresenter.h"
-#include "IPropertyTableUtilities.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
 
 void SPropertyTableCell::Construct( const FArguments& InArgs, const TSharedRef< class IPropertyTableCell >& InCell )
 {

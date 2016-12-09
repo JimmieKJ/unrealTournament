@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Toolkits/IToolkitHost.h"
 #include "Toolkits/BaseToolkit.h"
+
+class SFoliageEdit;
 
 /**
  * Public interface to Foliage Edit mode.

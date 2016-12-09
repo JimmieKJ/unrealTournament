@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Options governing what the main loop object should Tick */
 namespace EMainLoopOptions
 {

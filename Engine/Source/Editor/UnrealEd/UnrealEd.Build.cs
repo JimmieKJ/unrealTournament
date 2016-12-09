@@ -7,7 +7,9 @@ public class UnrealEd : ModuleRules
 {
 	public UnrealEd(TargetInfo Target)
 	{
-		SharedPCHHeaderFile = "Editor/UnrealEd/Public/UnrealEd.h";
+		PrivatePCHHeaderFile = "Private/UnrealEdPrivatePCH.h";
+
+		SharedPCHHeaderFile = "Public/UnrealEdSharedPCH.h";
 
 		PrivateIncludePaths.AddRange(
 			new string[] 
@@ -46,7 +48,7 @@ public class UnrealEd : ModuleRules
 				"Settings",
 				"SettingsEditor",
                 "SuperSearch",
-                "SoundClassEditor",
+                "AudioEditor",
 				"ViewportSnapping",
 				"SourceCodeAccess",
 				"ReferenceViewer",
@@ -61,7 +63,10 @@ public class UnrealEd : ModuleRules
                 "PortalRpc",
                 "PortalServices",
                 "BlueprintNativeCodeGen",
-			}
+                "ViewportInteraction",
+                "VREditor",
+                "Persona",
+            }
 		);
 
 		PublicDependencyModuleNames.AddRange(
@@ -89,6 +94,7 @@ public class UnrealEd : ModuleRules
                 "FunctionalTesting",
 				"AutomationController",
 				"Internationalization",
+				"AudioEditor",
 			}
 		);
 
@@ -99,7 +105,8 @@ public class UnrealEd : ModuleRules
 				"AnimGraph",
                 "AppFramework",
 				"BlueprintGraph",
-				"DesktopPlatform",
+                "CinematicCamera",
+                "DesktopPlatform",
 				"EditorStyle",
 				"EngineSettings",
 				"InputCore",
@@ -116,8 +123,6 @@ public class UnrealEd : ModuleRules
 				"RHI", 
 				"ShaderCore", 
 				"Sockets",
-				"SoundClassEditor",
-				"SoundCueEditor",
 				"SourceControlWindows",
 				"StatsViewer",
 				"SwarmInterface",
@@ -145,6 +150,8 @@ public class UnrealEd : ModuleRules
                 "PixelInspectorModule",
 				"MovieScene",
 				"MovieSceneTracks",
+                "ViewportInteraction",
+                "VREditor"
             }
 		);
 
@@ -201,9 +208,7 @@ public class UnrealEd : ModuleRules
                 "EnvironmentQueryEditor",
 				"ViewportSnapping",
 				"UserFeedback",
-				"GameplayTagsEditor",
                 "GameplayTasksEditor",
-                "GameplayAbilitiesEditor",
 				"UndoHistory",
 				"SourceCodeAccess",
 				"ReferenceViewer",
@@ -216,12 +221,10 @@ public class UnrealEd : ModuleRules
                 "PortalServices",
                 "GeometryCacheEd",
                 "BlueprintNativeCodeGen",
-				"VREditor",
-                "EditorAutomation",
             }
 		);
 
-		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Mac)
+		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Linux)
 		{
 			DynamicallyLoadedModuleNames.Add("AndroidPlatformEditor");
 		}
@@ -231,6 +234,7 @@ public class UnrealEd : ModuleRules
 			{
                 "GraphEditor",
 				"Kismet",
+				"AudioEditor"
             }
 		); 
 
@@ -252,6 +256,7 @@ public class UnrealEd : ModuleRules
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
 			PublicDependencyModuleNames.Add("XAudio2");
+			PublicDependencyModuleNames.Add("AudioMixerXAudio2");
 			PublicDependencyModuleNames.Add("UnrealAudioXAudio2");
 
 			AddEngineThirdPartyPrivateStaticDependencies(Target, 

@@ -3,6 +3,10 @@
 #pragma once
 
 #include "TextureAtlas.h"
+#include "Rendering/ShaderResourceManager.h"
+#include "SlateD3DTextures.h"
+
+class ISlateStyle;
 
 /**
  * Stores a mapping of texture names to their loaded d3d resource.  Resources are loaded from disk and created on demand when needed                   

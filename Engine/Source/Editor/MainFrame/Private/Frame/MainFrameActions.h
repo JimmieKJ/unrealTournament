@@ -6,7 +6,14 @@
 
 #pragma once
 
-#include "ISourceControlProvider.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "HAL/IConsoleManager.h"
+#include "Input/Reply.h"
+#include "Framework/Commands/Commands.h"
+#include "Settings/ProjectPackagingSettings.h"
+
+class FUICommandList;
 
 /**
  * Unreal editor main frame actions

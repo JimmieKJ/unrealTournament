@@ -1,26 +1,53 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "BlueprintEditor.h"
-#include "BlueprintEditorModes.h"
-#include "BlueprintEditorUtils.h"
-#include "CompilerResultsLog.h"
-#include "ComponentAssetBroker.h"
-#include "EdGraphUtilities.h"
-#include "Engine/Breakpoint.h"
-#include "Engine/LevelScriptBlueprint.h"
-#include "Kismet/KismetStringLibrary.h"
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/AutomationTest.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
+#include "Framework/Commands/InputChord.h"
+#include "Templates/SubclassOf.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Blueprint.h"
+#include "Components/StaticMeshComponent.h"
+#include "EdGraph/EdGraph.h"
+#include "Factories/BlueprintFactory.h"
+#include "Particles/ParticleSystem.h"
+#include "Engine/StaticMesh.h"
 #include "Kismet/KismetSystemLibrary.h"
-#include "KismetDebugUtilities.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "AssetData.h"
+#include "Editor.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "EdGraphSchema_K2.h"
+#include "EdGraphSchema_K2_Actions.h"
+#include "K2Node_Event.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_AddComponent.h"
+#include "K2Node_CustomEvent.h"
+#include "K2Node_FunctionEntry.h"
+#include "K2Node_VariableGet.h"
+#include "K2Node_VariableSet.h"
+#include "Engine/SCS_Node.h"
+#include "BlueprintEditorModes.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "ComponentAssetBroker.h"
+#include "ARFilter.h"
 
-#include "AssetSelection.h"
 #include "ScopedTransaction.h"
 #include "ObjectTools.h"
 
 // Automation
-#include "AutomationTest.h"
-#include "AutomationEditorCommon.h"
-#include "AutomationEditorPromotionCommon.h"
+#include "AssetRegistryModule.h"
+#include "Tests/AutomationTestSettings.h"
+#include "Tests/AutomationEditorCommon.h"
+#include "Tests/AutomationEditorPromotionCommon.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -225,6 +252,8 @@ namespace BlueprintEditorPromotionUtils
 				break;
 			}
 		}
+
+		check(OldParent);
 
 		//Remove the new root from its old parent and 
 		OldParent->ChildNodes.Remove(NewRoot);
@@ -689,6 +718,8 @@ namespace BlueprintEditorPromotionTestHelper
 		FBlueprintEditorPromotionTestHelper(FAutomationTestExecutionInfo* InExecutionInfo) :
 			CurrentStage(0)
 		{
+			check(InExecutionInfo);
+
 			FMemory::Memzero(this, sizeof(FBlueprintEditorPromotionTestHelper));
 
 			TestExecutionInfo = InExecutionInfo;
@@ -743,7 +774,7 @@ namespace BlueprintEditorPromotionTestHelper
 		*/
 		void TagPreviousLogs(const FString& NewLogTag)
 		{
-			if (TestExecutionInfo && NewLogTag.Len() > 0)
+			if (NewLogTag.Len() > 0)
 			{
 				for (int32 ErrorIndex = LastErrorCount; ErrorIndex < TestExecutionInfo->Errors.Num(); ++ErrorIndex)
 				{

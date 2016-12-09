@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "LightingMesh.h"
+#include "Mesh.h"
+#include "Mappings.h"
+
 namespace Lightmass
 {
 	/** Represents the triangles of one LOD of a static mesh primitive to the static lighting system. */

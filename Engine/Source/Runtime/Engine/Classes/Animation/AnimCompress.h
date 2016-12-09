@@ -7,10 +7,12 @@
  *
  */
 
-#include "AnimSequence.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Animation/AnimSequence.h"
 #include "AnimationUtils.h"
 #include "AnimCompress.generated.h"
-
 
 //Helper function for ddc key generation
 uint8 MakeBitForFlag(uint32 Item, uint32 Position);

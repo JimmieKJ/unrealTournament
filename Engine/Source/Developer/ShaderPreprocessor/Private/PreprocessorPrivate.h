@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "ShaderPreprocessor.h"
+#include "CoreMinimal.h"
+#include "ShaderCore.h"
 #include "mcpp.h"
 
 /**

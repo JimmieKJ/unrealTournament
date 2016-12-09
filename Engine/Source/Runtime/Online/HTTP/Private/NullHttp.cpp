@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HttpPrivatePCH.h"
 #include "NullHttp.h"
+#include "HttpManager.h"
+#include "HttpModule.h"
+#include "Http.h"
 
 // FNullHttpRequest
 

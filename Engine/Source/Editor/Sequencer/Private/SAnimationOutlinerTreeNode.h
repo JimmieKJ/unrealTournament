@@ -2,11 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 
 class SEditableLabel;
-class SSequencerTreeView;
 class SSequencerTreeViewRow;
-
+struct FSlateBrush;
+struct FTableRowStyle;
 
 /**
  * A widget for displaying a sequencer tree node in the animation outliner.

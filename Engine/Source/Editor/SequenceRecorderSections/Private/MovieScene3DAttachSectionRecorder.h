@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "GameFramework/Actor.h"
+#include "MovieScene.h"
+#include "IMovieSceneSectionRecorder.h"
+#include "IMovieSceneSectionRecorderFactory.h"
+
+class UMovieScene3DAttachSection;
+class UMovieScene3DAttachTrack;
+
 class FMovieScene3DAttachSectionRecorderFactory : public IMovieSceneSectionRecorderFactory
 {
 public:

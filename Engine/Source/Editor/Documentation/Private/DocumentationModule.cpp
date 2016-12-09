@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DocumentationModulePrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Commands/UICommandInfo.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Widgets/SToolTip.h"
+#include "IDocumentationModule.h"
+#include "IDocumentation.h"
 #include "Documentation.h"
-#include "MultiBoxDefs.h"
 
 class FDocumentationModule : public IDocumentationModule
 {

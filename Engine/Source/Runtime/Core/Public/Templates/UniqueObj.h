@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "UniquePtr.h"
+#include "CoreTypes.h"
+#include "Templates/UniquePtr.h"
 
 // This is essentially a reference version of TUniquePtr
 // Useful to force heap allocation of a value, e.g. in a TMap to give similar behaviour to TIndirectArray

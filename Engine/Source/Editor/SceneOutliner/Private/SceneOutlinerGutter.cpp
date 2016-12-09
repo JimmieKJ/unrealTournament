@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "SceneOutlinerPrivatePCH.h"
+#include "SceneOutlinerGutter.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
+#include "ScopedTransaction.h"
+#include "Widgets/Views/STreeView.h"
+#include "ISceneOutliner.h"
 
 #include "SortHelper.h"
 

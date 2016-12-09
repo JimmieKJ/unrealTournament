@@ -4,13 +4,11 @@
 	NormalMapPreview.h: Implementation for previewing normal maps.
 ==============================================================================*/
 
-#include "UnrealEd.h"
 #include "NormalMapPreview.h"
-#include "SimpleElementShaders.h"
+#include "Shader.h"
 #include "GlobalShader.h"
-#include "ShaderParameters.h"
+#include "SimpleElementShaders.h"
 #include "ShaderParameterUtils.h"
-#include "RHIStaticStates.h"
 
 /*------------------------------------------------------------------------------
 	Batched element shaders for previewing normal maps.

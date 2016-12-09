@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateBrush.h"
 
 /**
  * Ignores the Margin. Just renders the image. Can tile the image instead of stretching.

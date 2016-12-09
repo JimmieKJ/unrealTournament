@@ -2,8 +2,19 @@
 
 #pragma once
 
-#include "PropertyEditing.h"
-#include "SpriteEditorViewportClient.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "PaperSprite.h"
+#include "IDetailCustomization.h"
+#include "SpriteEditor/SpriteEditor.h"
+
+class FDetailWidgetRow;
+class IDetailCategoryBuilder;
+class IDetailChildrenBuilder;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
 
 //////////////////////////////////////////////////////////////////////////
 // FSpriteDetailsCustomization

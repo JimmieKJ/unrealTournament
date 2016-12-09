@@ -2,5 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 class FTestClass
 { };

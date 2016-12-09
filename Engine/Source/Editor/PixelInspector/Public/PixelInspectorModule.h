@@ -2,9 +2,14 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Widgets/SWidget.h"
+#include "Modules/ModuleInterface.h"
 
+class FSceneInterface;
+class FSpawnTabArgs;
+class FWorkspaceItem;
 
 namespace PixelInspector { class SPixelInspector; };
 

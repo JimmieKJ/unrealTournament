@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "DetourNavMeshQuery.h"
+#include "CoreMinimal.h"
+#include "Detour/DetourNavMeshQuery.h"
 
 struct dtSharedBoundaryEdge
 {

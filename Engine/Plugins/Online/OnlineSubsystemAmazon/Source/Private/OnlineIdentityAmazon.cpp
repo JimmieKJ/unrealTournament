@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemAmazonPCH.h"
 #include "OnlineIdentityAmazon.h"
+#include "Misc/ConfigCacheIni.h"
+#include "OnlineSubsystem.h"
 
 // FUserOnlineAccountAmazon
 

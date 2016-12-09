@@ -1,12 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
-
-#include "GraphEditorActions.h"
-#include "ScopedTransaction.h"
 #include "AnimGraphNode_ApplyAdditive.h"
+
 #include "Animation/AnimationSettings.h"
-#include "CompilerResultsLog.h"
+#include "Kismet2/CompilerResultsLog.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_ApplyAdditive

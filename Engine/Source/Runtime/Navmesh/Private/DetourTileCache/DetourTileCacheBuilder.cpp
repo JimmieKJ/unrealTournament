@@ -19,14 +19,9 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include "DetourCommon.h"
-#include "DetourStatus.h"
-#include "DetourAssert.h"
-#include "DetourTileCacheBuilder.h"
-#include <string.h>
-#include <math.h>
-#include <stdarg.h>
+#include "DetourTileCache/DetourTileCacheBuilder.h"
+#include "Detour/DetourCommon.h"
+#include "Detour/DetourAssert.h"
 
 static const int MAX_VERTS_PER_POLY = 6;	// TODO: use the DT_VERTS_PER_POLYGON
 static const int MAX_REM_EDGES = 48;		// TODO: make this an expression.
@@ -722,8 +717,11 @@ dtStatus dtBuildTileCacheContours(dtTileCacheAlloc* alloc, dtTileCacheLayer& lay
 				{
 					const int ax = x + getDirOffsetX(dir);
 					const int ay = y + getDirOffsetY(dir);
-					const int aidx = ax+ay*w;
-					r = layer.regs[aidx];
+					if (ax >= 0 && ay >= 0 && ax < w && ay < h)
+					{
+						const int aidx = ax + ay*w;
+						r = layer.regs[aidx];
+					}
 				}
 
 				if (r == ri)

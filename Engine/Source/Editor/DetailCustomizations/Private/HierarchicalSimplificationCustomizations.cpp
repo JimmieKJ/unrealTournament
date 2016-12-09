@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "HierarchicalSimplificationCustomizations.h"
-#include "Developer/MeshUtilities/Public/MeshUtilities.h"
+#include "Modules/ModuleManager.h"
 #include "GameFramework/WorldSettings.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailGroup.h"
+#include "IDetailPropertyRow.h"
+#include "MeshUtilities.h"
 
 #define LOCTEXT_NAMESPACE "HierarchicalSimplificationCustomizations"
 

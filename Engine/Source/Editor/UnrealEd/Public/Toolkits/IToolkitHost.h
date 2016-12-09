@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "IToolkit.h"		// For EToolkitTabSpot
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkit.h"
 
 /**
  * Base interface class for toolkit hosts

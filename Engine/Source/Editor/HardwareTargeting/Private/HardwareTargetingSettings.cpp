@@ -1,10 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HardwareTargetingPrivatePCH.h"
-#include "HardwareTargetingModule.h"
 #include "HardwareTargetingSettings.h"
-#include "Internationalization.h"
-#include "SDecoratedEnumCombo.h"
 
 
 UHardwareTargetingSettings::UHardwareTargetingSettings(const FObjectInitializer& ObjectInitializer)

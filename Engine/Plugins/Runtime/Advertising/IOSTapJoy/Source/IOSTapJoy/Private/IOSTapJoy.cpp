@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSTapJoyPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "IAdvertisingProvider.h"
 #include "IOSAppDelegate.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/ConfigCacheIni.h"
 #import <Tapjoy/Tapjoy.h>
 
 class FTapJoyProvider : public IAdvertisingProvider
@@ -15,6 +19,11 @@ class FTapJoyProvider : public IAdvertisingProvider
 	virtual void HideAdBanner() override;
 	virtual void CloseAdBanner() override;
 	virtual int32 GetAdIDCount() override;
+
+	virtual void LoadInterstitialAd(int32 adID) override;
+	virtual bool IsInterstitialAdAvailable() override;
+	virtual bool IsInterstitialAdRequested() override;
+	virtual void ShowInterstitialAd() override;
 };
 
 IMPLEMENT_MODULE( FTapJoyProvider, IOSTapJoy )
@@ -227,3 +236,24 @@ int32 FTapJoyProvider::GetAdIDCount()
 {
 	return 1;
 }
+
+void LoadInterstitialAd(int32 adID)
+{
+
+}
+
+bool IsInterstitialAdAvailable()
+{
+	return false;
+}
+
+bool IsInterstitialAdRequested()
+{
+	return false;
+}
+
+void ShowInterstitialAd()
+{
+	
+}
+

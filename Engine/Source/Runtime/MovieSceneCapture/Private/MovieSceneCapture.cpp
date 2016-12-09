@@ -1,19 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneCapturePCH.h"
 #include "MovieSceneCapture.h"
+#include "Dom/JsonValue.h"
+#include "Dom/JsonObject.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/App.h"
+#include "Engine/World.h"
+#include "Slate/SceneViewport.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 #include "ActiveMovieSceneCaptures.h"
-#include "HighResScreenshot.h"
-#include "BufferVisualizationData.h"
-#include "SceneViewExtension.h"
 #include "JsonObjectConverter.h"
-#include "RemoteConfigIni.h"
-#include "SceneViewport.h"
-
-#if WITH_EDITOR
-#include "ImageWrapper.h"
-#endif
-
+#include "Misc/RemoteConfigIni.h"
 #include "MovieSceneCaptureModule.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCapture"
@@ -36,11 +38,13 @@ FMovieSceneCaptureSettings::FMovieSceneCaptureSettings()
 
 	bCreateTemporaryCopiesOfLevels = false;
 	bUseRelativeFrameNumbers = false;
+	HandleFrames = 0;
 	GameModeOverride = nullptr;
 	OutputFormat = TEXT("{world}");
 	FrameRate = 24;
 	ZeroPadFrameNumbers = 4;
 	bEnableTextureStreaming = false;
+	bCinematicEngineScalability = true;
 	bCinematicMode = true;
 	bAllowMovement = false;
 	bAllowTurning = false;
@@ -126,6 +130,18 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 		{
 			Settings.bUseRelativeFrameNumbers = bOverrideRelativeFrameNumbers;
 		}
+				
+		int32 HandleFramesOverride;
+		if( FParse::Value( FCommandLine::Get(), TEXT( "-HandleFrames=" ), HandleFramesOverride ) )
+		{
+			Settings.HandleFrames = HandleFramesOverride;
+		}
+
+		bool bOverrideCinematicEngineScalabilityMode;
+		if( FParse::Bool( FCommandLine::Get(), TEXT( "-MovieEngineScalabilityMode=" ), bOverrideCinematicEngineScalabilityMode ) )
+		{
+			Settings.bCinematicEngineScalability = bOverrideCinematicEngineScalabilityMode;
+		}
 
 		bool bOverrideCinematicMode;
 		if( FParse::Bool( FCommandLine::Get(), TEXT( "-MovieCinematicMode=" ), bOverrideCinematicMode ) )
@@ -171,6 +187,14 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 
 void UMovieSceneCapture::StartWarmup()
 {
+	if (Settings.bCinematicEngineScalability)
+	{
+		CachedQualityLevels = Scalability::GetQualityLevels();
+		Scalability::FQualityLevels QualityLevels = CachedQualityLevels;
+		QualityLevels.SetFromSingleQualityLevelRelativeToMax(0);
+		Scalability::SetQualityLevels(QualityLevels);
+	}
+
 	check( !bCapturing );
 	if( !CaptureStrategy.IsValid() )
 	{
@@ -237,6 +261,11 @@ void UMovieSceneCapture::FinalizeWhenReady()
 
 void UMovieSceneCapture::Finalize()
 {
+	if (Settings.bCinematicEngineScalability)
+	{
+		Scalability::SetQualityLevels(CachedQualityLevels);
+	}
+
 	FActiveMovieSceneCaptures::Get().Remove(this);
 
 	if (bCapturing)

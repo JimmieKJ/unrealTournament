@@ -1,9 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OutputLogPrivatePCH.h"
 #include "SDeviceOutputLog.h"
-#include "ITargetPlatform.h"
-#include "ITargetPlatformManagerModule.h"
+#include "Framework/Text/TextLayout.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Misc/ScopeLock.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
 #include "PlatformInfo.h"
 
 static bool IsSupportedPlatform(ITargetPlatform* Platform)
@@ -43,20 +52,19 @@ void SDeviceOutputLog::Construct( const FArguments& InArgs )
 			// The console input box
 			+SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding(FMargin(0.0f, 4.0f, 0.0f, 0.0f))
+			.Padding(FMargin(0.0f, 2.0f, 0.0f, 0.0f))
 			[
 				SNew(SHorizontalBox)
 
 				+SHorizontalBox::Slot()
 				.AutoWidth()
 				[
-					SAssignNew(TargetDeviceComboBox, SComboBox<FTargetDeviceEntryPtr>)
-					.OptionsSource(&DeviceList)
-					.ButtonStyle(FEditorStyle::Get(), "ToolBar.Button")
-					.OnSelectionChanged(this, &SDeviceOutputLog::OnDeviceSelectionChanged)
-					.OnGenerateWidget(this, &SDeviceOutputLog::GenerateWidgetForDeviceComboBox)
+					SAssignNew(TargetDeviceComboButton, SComboButton)
+					.ComboButtonStyle(FEditorStyle::Get(), "OutputLog.Filters.Style")
+					.ForegroundColor(FLinearColor::White)
+					.OnGetMenuContent(this, &SDeviceOutputLog::MakeDeviceComboButtonMenu)
 					.ContentPadding(FMargin(4.0f, 0.0f))
-					.Content()
+					.ButtonContent()
 					[
 						SNew(SHorizontalBox)
 						+SHorizontalBox::Slot()
@@ -73,14 +81,17 @@ void SDeviceOutputLog::Construct( const FArguments& InArgs )
 						+SHorizontalBox::Slot()
 						.VAlign(VAlign_Center)
 						[
-							SNew(STextBlock).Text(this, &SDeviceOutputLog::GetSelectedTargetDeviceText)
+							SNew(STextBlock)
+							.TextStyle(FEditorStyle::Get(), "OutputLog.Filters.Text")
+							.Text(this, &SDeviceOutputLog::GetSelectedTargetDeviceText)
 						]
 					]
 				]
 
 				+SHorizontalBox::Slot()
-				.Padding(FMargin(4.0f, 0.0f, 0.0f, 4.0f))
+				.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
 				.FillWidth(1)
+				.VAlign(VAlign_Center)
 				[
 					SNew(SConsoleInputBox)
 					.ConsoleCommandCustomExec(this, &SDeviceOutputLog::ExecuteConsoleCommand)
@@ -171,10 +182,9 @@ bool SDeviceOutputLog::CanBeUsedOnAnyThread() const
 
 void SDeviceOutputLog::ExecuteConsoleCommand(const FString& ExecCommand)
 {
-	FTargetDeviceEntryPtr SelectedDeviceEntry = TargetDeviceComboBox->GetSelectedItem();
-	if (SelectedDeviceEntry.IsValid())
+	if (CurrentDevicePtr.IsValid())
 	{
-		ITargetDevicePtr PinnedPtr = SelectedDeviceEntry->DeviceWeakPtr.Pin();
+		ITargetDevicePtr PinnedPtr = CurrentDevicePtr->DeviceWeakPtr.Pin();
 		if (PinnedPtr.IsValid())
 		{
 			PinnedPtr->ExecuteConsoleCommand(ExecCommand);
@@ -184,10 +194,9 @@ void SDeviceOutputLog::ExecuteConsoleCommand(const FString& ExecCommand)
 
 void SDeviceOutputLog::HandleTargetPlatformDeviceLost(ITargetDeviceRef LostDevice)
 {
-	auto LostDeviceId = LostDevice->GetId();
-	FTargetDeviceEntryPtr SelectedDeviceEntry = TargetDeviceComboBox->GetSelectedItem();
-
-	if (SelectedDeviceEntry.IsValid() && SelectedDeviceEntry->DeviceId == LostDeviceId)
+	FTargetDeviceId LostDeviceId = LostDevice->GetId();
+	
+	if (CurrentDevicePtr.IsValid() && CurrentDevicePtr->DeviceId == LostDeviceId)
 	{
 		// Kill device output object, but do not clean up output in the window
 		CurrentDeviceOutputPtr.Reset();
@@ -215,7 +224,7 @@ void SDeviceOutputLog::HandleTargetPlatformDeviceDiscovered(ITargetDeviceRef Dis
 	{
 		DeviceList[ExistingEntryIdx]->DeviceWeakPtr = DiscoveredDevice;
 		
-		if (TargetDeviceComboBox->GetSelectedItem() == DeviceList[ExistingEntryIdx])
+		if (CurrentDevicePtr.IsValid() && CurrentDevicePtr->DeviceId == DeviceList[ExistingEntryIdx]->DeviceId)
 		{
 			CurrentDeviceOutputPtr = DiscoveredDevice->CreateDeviceOutputRouter(this);
 		}
@@ -223,7 +232,6 @@ void SDeviceOutputLog::HandleTargetPlatformDeviceDiscovered(ITargetDeviceRef Dis
 	else
 	{
 		AddDeviceEntry(DiscoveredDevice);
-		TargetDeviceComboBox->RefreshOptions();
 	}
 }
 
@@ -242,10 +250,11 @@ void SDeviceOutputLog::AddDeviceEntry(ITargetDeviceRef TargetDevice)
 	DeviceList.Add(DeviceEntry);
 }
 
-void SDeviceOutputLog::OnDeviceSelectionChanged(FTargetDeviceEntryPtr DeviceEntry, ESelectInfo::Type SelectInfo)
+void SDeviceOutputLog::OnDeviceSelectionChanged(FTargetDeviceEntryPtr DeviceEntry)
 {
 	CurrentDeviceOutputPtr.Reset();
 	OnClearLog();
+	CurrentDevicePtr = DeviceEntry;
 	
 	if (DeviceEntry.IsValid())
 	{
@@ -257,7 +266,22 @@ void SDeviceOutputLog::OnDeviceSelectionChanged(FTargetDeviceEntryPtr DeviceEntr
 	}
 }
 
-TSharedRef<SWidget> SDeviceOutputLog::GenerateWidgetForDeviceComboBox(FTargetDeviceEntryPtr DeviceEntry) const
+TSharedRef<SWidget> SDeviceOutputLog::MakeDeviceComboButtonMenu()
+{
+	FMenuBuilder MenuBuilder(/*bInShouldCloseWindowAfterMenuSelection=*/true, nullptr);
+	for (const FTargetDeviceEntryPtr& TargetDeviceEntryPtr : DeviceList)
+	{
+		TSharedRef<SWidget> MenuEntryWidget = GenerateWidgetForDeviceComboBox(TargetDeviceEntryPtr);
+				
+		MenuBuilder.AddMenuEntry(
+			FUIAction(FExecuteAction::CreateSP(this, &SDeviceOutputLog::OnDeviceSelectionChanged, TargetDeviceEntryPtr)), 
+			MenuEntryWidget
+			);
+	}
+	return MenuBuilder.MakeWidget();
+}
+
+TSharedRef<SWidget> SDeviceOutputLog::GenerateWidgetForDeviceComboBox(const FTargetDeviceEntryPtr& DeviceEntry) const
 {
 	return 
 		SNew(SBox)
@@ -298,8 +322,7 @@ const FSlateBrush* SDeviceOutputLog::GetTargetDeviceBrush(FTargetDeviceEntryPtr 
 
 const FSlateBrush* SDeviceOutputLog::GetSelectedTargetDeviceBrush() const
 {
-	FTargetDeviceEntryPtr DeviceEntry = TargetDeviceComboBox->GetSelectedItem();
-	return GetTargetDeviceBrush(DeviceEntry);
+	return GetTargetDeviceBrush(CurrentDevicePtr);
 }
 
 FText SDeviceOutputLog::GetTargetDeviceText(FTargetDeviceEntryPtr DeviceEntry) const
@@ -324,6 +347,5 @@ FText SDeviceOutputLog::GetTargetDeviceText(FTargetDeviceEntryPtr DeviceEntry) c
 
 FText SDeviceOutputLog::GetSelectedTargetDeviceText() const
 {
-	FTargetDeviceEntryPtr DeviceEntry = TargetDeviceComboBox->GetSelectedItem();
-	return GetTargetDeviceText(DeviceEntry);
+	return GetTargetDeviceText(CurrentDevicePtr);
 }

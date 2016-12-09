@@ -4,9 +4,14 @@
 	DecalRenderingShared.cpp
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
 #include "DecalRenderingShared.h"
+#include "StaticBoundShaderState.h"
+#include "Components/DecalComponent.h"
+#include "GlobalShader.h"
+#include "MaterialShaderType.h"
+#include "MaterialShader.h"
+#include "DebugViewModeRendering.h"
+#include "ScenePrivate.h"
 
 static TAutoConsoleVariable<float> CVarDecalFadeScreenSizeMultiplier(
 	TEXT("r.Decal.FadeScreenSizeMult"),
@@ -152,7 +157,7 @@ public:
 					FPlane( 0, My,   0,  0),
 					FPlane( 0,  0,   1,  0),
 					FPlane(Ax, Ay,   0,  1)
-				) * View.InvViewProjectionMatrix * WorldToComponent;
+				) * View.ViewMatrices.GetInvViewProjectionMatrix() * WorldToComponent;
 
 			SetShaderValue(RHICmdList, ShaderRHI, SvPositionToDecal, SvPositionToDecalValue);
 		}
@@ -232,14 +237,14 @@ void FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo
 			{
 				if (bIsPerspectiveProjection && Data.DecalProxy->Component->FadeScreenSize != 0.0f)
 				{
-					float Distance = (View.ViewMatrices.ViewOrigin - ComponentToWorldMatrix.GetOrigin()).Size();
+					float Distance = (View.ViewMatrices.GetViewOrigin() - ComponentToWorldMatrix.GetOrigin()).Size();
 					float Radius = ComponentToWorldMatrix.GetMaximumAxisScale();
 					float CurrentScreenSize = ((Radius / Distance) * FadeMultiplier);
 
 					// fading coefficient needs to increase with increasing field of view and decrease with increasing resolution
 					// FadeCoeffScale is an empirically determined constant to bring us back roughly to fraction of screen size for FadeScreenSize
 					const float FadeCoeffScale = 600.0f;
-					float FOVFactor = ((2.0f/View.ViewMatrices.ProjMatrix.M[0][0]) / View.ViewRect.Width()) * FadeCoeffScale;
+					float FOVFactor = ((2.0f/View.ViewMatrices.GetProjectionMatrix().M[0][0]) / View.ViewRect.Width()) * FadeCoeffScale;
 					float FadeCoeff = Data.DecalProxy->Component->FadeScreenSize * FOVFactor;
 					float FadeRange = FadeCoeff * 0.5f;
 
@@ -296,8 +301,8 @@ void FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo
 
 FMatrix FDecalRendering::ComputeComponentToClipMatrix(const FViewInfo& View, const FMatrix& DecalComponentToWorld)
 {
-	FMatrix ComponentToWorldMatrixTrans = DecalComponentToWorld.ConcatTranslation(View.ViewMatrices.PreViewTranslation);
-	return ComponentToWorldMatrixTrans * View.ViewMatrices.TranslatedViewProjectionMatrix;
+	FMatrix ComponentToWorldMatrixTrans = DecalComponentToWorld.ConcatTranslation(View.ViewMatrices.GetPreViewTranslation());
+	return ComponentToWorldMatrixTrans * View.ViewMatrices.GetTranslatedViewProjectionMatrix();
 }
 
 void FDecalRendering::SetShader(FRHICommandList& RHICmdList, const FViewInfo& View, const FTransientDecalRenderData& DecalData, const FMatrix& FrustumComponentToClip)

@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "TokenizedMessage.h"
+#include "CoreMinimal.h"
+#include "Containers/List.h"
+#include "Logging/TokenizedMessage.h"
 
 /** Define the container type for all the messages */
 typedef TArray< TSharedRef<FTokenizedMessage> > MessageContainer;

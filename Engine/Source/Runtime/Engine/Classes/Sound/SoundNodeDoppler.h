@@ -1,10 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AudioDevice.h"
 #include "Sound/SoundNode.h"
 #include "SoundNodeDoppler.generated.h"
 
-struct FListener;
+struct FActiveSound;
+struct FSoundParseParameters;
 
 /** 
  * Computes doppler pitch shift

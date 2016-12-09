@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "STableRow.h"
-#include "IPropertyUtilities.h"
-#include "PropertyHandle.h"
-#include "LocalizationTargetTypes.h"
-#include "LocalizationTargetTypes.h"
-#include "SDockTab.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+
+class IPropertyHandle;
+class IPropertyUtilities;
+class ULocalizationTarget;
+struct FLocalizationTargetSettings;
 
 class SLocalizationDashboardTargetRow : public SMultiColumnTableRow< TSharedPtr<IPropertyHandle> >
 {

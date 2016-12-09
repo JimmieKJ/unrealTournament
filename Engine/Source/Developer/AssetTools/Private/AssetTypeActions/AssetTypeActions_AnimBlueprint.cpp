@@ -1,13 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
+#include "AssetTypeActions/AssetTypeActions_AnimBlueprint.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Misc/MessageDialog.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "Animation/AnimInstance.h"
+#include "Factories/AnimBlueprintFactory.h"
+#include "ThumbnailRendering/SceneThumbnailInfo.h"
+#include "AssetTools.h"
 #include "PersonaModule.h"
-#include "EditorAnimUtils.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
 #include "SBlueprintDiff.h"
-#include "SNotificationList.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "SSkeletonWidget.h"
-#include "SlateIconFinder.h"
+#include "Styling/SlateIconFinder.h"
+#include "IAnimationBlueprintEditorModule.h"
+#include "Preferences/PersonaOptions.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -125,8 +136,16 @@ void FAssetTypeActions_AnimBlueprint::OpenAssetEditor( const TArray<UObject*>& I
 			}
 			else
 			{
-				FPersonaModule& PersonaModule = FModuleManager::LoadModuleChecked<FPersonaModule>( "Persona" );
-				PersonaModule.CreatePersona( Mode, EditWithinLevelEditor, NULL, AnimBlueprint, NULL, NULL);
+				const bool bBringToFrontIfOpen = true;
+				if (IAssetEditorInstance* EditorInstance = FAssetEditorManager::Get().FindEditorForAsset(AnimBlueprint, bBringToFrontIfOpen))
+				{
+					EditorInstance->FocusWindow(AnimBlueprint);
+				}
+				else
+				{
+					IAnimationBlueprintEditorModule& AnimationBlueprintEditorModule = FModuleManager::LoadModuleChecked<IAnimationBlueprintEditorModule>("AnimationBlueprintEditor");
+					AnimationBlueprintEditorModule.CreateAnimationBlueprintEditor(Mode, EditWithinLevelEditor, AnimBlueprint);
+				}
 			}
 		}
 		else
@@ -138,11 +157,6 @@ void FAssetTypeActions_AnimBlueprint::OpenAssetEditor( const TArray<UObject*>& I
 
 void FAssetTypeActions_AnimBlueprint::PerformAssetDiff(UObject* Asset1, UObject* Asset2, const struct FRevisionInfo& OldRevision, const struct FRevisionInfo& NewRevision) const
 {
-	if (!GetDefault<UEditorExperimentalSettings>()->bEnableAnimVisualDiff)
-	{
-		return FAssetTypeActions_Base::PerformAssetDiff(Asset1, Asset2, OldRevision, NewRevision);
-	}
-
 	UBlueprint* OldBlueprint = CastChecked<UBlueprint>(Asset1);
 	UBlueprint* NewBlueprint = CastChecked<UBlueprint>(Asset2);
 

@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/Texture2D.h"
 #include "SpriteEditorOnlyTypes.generated.h"
+
+class UMaterialInterface;
 
 // The kind of collision that a Paper2D asset or component might participate in
 UENUM()

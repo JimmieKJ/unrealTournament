@@ -1,18 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnvironmentQueryEditorPrivatePCH.h"
-#include "SGraphPreviewer.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "NodeFactory.h"
-#include "SGraphNode.h"
 #include "SGraphNode_EnvironmentQuery.h"
-#include "SGraphPin.h"
-#include "SGraphPanel.h"
-#include "ScopedTransaction.h"
-#include "EnvironmentQueryColors.h"
+#include "Types/SlateStructs.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Notifications/SProgressBar.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
-#include "SInlineEditableTextBlock.h"
+#include "EnvironmentQuery/EnvQueryOption.h"
+#include "EnvironmentQueryGraph.h"
+#include "EnvironmentQueryGraphNode.h"
+#include "EnvironmentQueryGraphNode_Option.h"
+#include "EnvironmentQueryGraphNode_Test.h"
+#include "GraphEditorSettings.h"
+#include "SCommentBubble.h"
+#include "NodeFactory.h"
+#include "SGraphPanel.h"
+#include "EnvironmentQueryColors.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "SLevelOfDetailBranchNode.h"
 
 #define LOCTEXT_NAMESPACE "EnvironmentQueryEditor"
@@ -85,7 +91,7 @@ FSlateColor SGraphNode_EnvironmentQuery::GetBackgroundColor() const
 		}
 	}
 
-	if (MyNode->HasErrors())
+	if (!MyNode || MyNode->HasErrors())
 	{
 		NodeColor = EnvironmentQueryColors::NodeBody::Error;
 	}

@@ -66,6 +66,8 @@ public:
 
 private:
 
+	void EndPIE(bool bIsSimulating);
+
 	FAutoConsoleCommand PanoramicScreenshotCommand;
 	FAutoConsoleCommand PanoramicMovieCommand;
 	FAutoConsoleCommand PanoramicQualityCommand;

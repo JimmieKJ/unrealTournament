@@ -2,13 +2,25 @@
 
 #pragma once
 
-#include "IScrollableWidget.h"
-#include "InertialScrollManager.h"
-#include "Overscroll.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Geometry.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/SlateDelegates.h"
+#include "Framework/Layout/IScrollableWidget.h"
+#include "Framework/Views/ITypedTableView.h"
+#include "Framework/Layout/InertialScrollManager.h"
 
-class SListPanel;
+class FPaintArgs;
+class FSlateWindowElementList;
+class ITableRow;
 class SHeaderRow;
-
+class SListPanel;
+class SScrollBar;
+enum class EAllowOverscroll : uint8;
+enum class EConsumeMouseWheel : uint8;
 
 /** If the list panel is arranging items horizontally, this enum dictates how the items should be aligned (basically, where any extra space is placed) */
 enum class EListItemAlignment : uint8

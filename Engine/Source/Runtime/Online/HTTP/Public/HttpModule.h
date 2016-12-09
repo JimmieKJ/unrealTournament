@@ -2,10 +2,12 @@
 
 #pragma once
 
-#include "ModuleManager.h"
-#include "HttpManager.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Modules/ModuleInterface.h"
 
-class IHttpRequest;
+class FHttpManager;
 
 /**
  * Module for Http request implementations
@@ -169,19 +171,67 @@ public:
 	}
 
 	/**
-	 * @return Target tick rate of an http thread
+	 * @return Target tick rate of an active http thread
 	 */
-	inline float GetHttpThreadTickRate() const
+	inline float GetHttpThreadActiveFrameTimeInSeconds() const
 	{
-		return HttpThreadTickRate;
+		return HttpThreadActiveFrameTimeInSeconds;
 	}
 
 	/**
-	 * Set the target tick rate of an http thread
+	 * Set the target tick rate of an active http thread
 	 */
-	inline void SetHttpThreadTickRate(float InHttpThreadTickRate)
+	inline void SetHttpThreadActiveFrameTimeInSeconds(float InHttpThreadActiveFrameTimeInSeconds)
 	{
-		HttpThreadTickRate = InHttpThreadTickRate;
+		HttpThreadActiveFrameTimeInSeconds = InHttpThreadActiveFrameTimeInSeconds;
+	}
+
+	/**
+	 * @return Minimum sleep time of an active http thread
+	 */
+	inline float GetHttpThreadActiveMinimumSleepTimeInSeconds() const
+	{
+		return HttpThreadActiveMinimumSleepTimeInSeconds;
+	}
+
+	/**
+	 * Set the minimum sleep time of an active http thread
+	 */
+	inline void SetHttpThreadActiveMinimumSleepTimeInSeconds(float InHttpThreadActiveMinimumSleepTimeInSeconds)
+	{
+		HttpThreadActiveMinimumSleepTimeInSeconds = InHttpThreadActiveMinimumSleepTimeInSeconds;
+	}
+
+	/**
+	 * @return Target tick rate of an idle http thread
+	 */
+	inline float GetHttpThreadIdleFrameTimeInSeconds() const
+	{
+		return HttpThreadIdleFrameTimeInSeconds;
+	}
+
+	/**
+	 * Set the target tick rate of an idle http thread
+	 */
+	inline void SetHttpThreadIdleFrameTimeInSeconds(float InHttpThreadIdleFrameTimeInSeconds)
+	{
+		HttpThreadIdleFrameTimeInSeconds = InHttpThreadIdleFrameTimeInSeconds;
+	}
+
+	/**
+	 * @return Minimum sleep time when idle, waiting for requests
+	 */
+	inline float GetHttpThreadIdleMinimumSleepTimeInSeconds() const
+	{
+		return HttpThreadIdleMinimumSleepTimeInSeconds;
+	}
+
+	/**
+	 * Set the minimum sleep time when idle, waiting for requests
+	 */
+	inline void SetHttpThreadIdleMinimumSleepTimeInSeconds(float InHttpThreadIdleMinimumSleepTimeInSeconds)
+	{
+		HttpThreadIdleMinimumSleepTimeInSeconds = InHttpThreadIdleMinimumSleepTimeInSeconds;
 	}
 
 private:
@@ -190,13 +240,24 @@ private:
 
 	/**
 	 * Called when Http module is loaded
-	 * Initialize platform specific parts of Http handling
+	 * load dependant modules
 	 */
 	virtual void StartupModule() override;
+
+	/**
+	 * Called after Http module is loaded
+	 * Initialize platform specific parts of Http handling
+	 */
+	virtual void PostLoadCallback() override;
 	
 	/**
-	 * Called when Http module is unloaded
+	 * Called before Http module is unloaded
 	 * Shutdown platform specific parts of Http handling
+	 */
+	virtual void PreUnloadCallback() override;
+
+	/**
+	 * Called when Http module is unloaded
 	 */
 	virtual void ShutdownModule() override;
 
@@ -213,8 +274,14 @@ private:
 	float HttpSendTimeout;
 	/** total time to delay the request */
 	float HttpDelayTime;
-	/** Target tick rate (Hz) of HTTP thread (if applicable to platform's HTTP manager) */
-	float HttpThreadTickRate;
+	/** Time in seconds to use as frame time when actively processing requests. 0 means no frame time. */
+	float HttpThreadActiveFrameTimeInSeconds;
+	/** Time in seconds to sleep minimally when actively processing requests. */
+	float HttpThreadActiveMinimumSleepTimeInSeconds;
+	/** Time in seconds to use as frame time when idle, waiting for requests. 0 means no frame time. */
+	float HttpThreadIdleFrameTimeInSeconds;
+	/** Time in seconds to sleep minimally when idle, waiting for requests. */
+	float HttpThreadIdleMinimumSleepTimeInSeconds;
 	/** Max number of simultaneous connections to a specific server */
 	int32 HttpMaxConnectionsPerServer;
 	/** Max buffer size for individual http reads */

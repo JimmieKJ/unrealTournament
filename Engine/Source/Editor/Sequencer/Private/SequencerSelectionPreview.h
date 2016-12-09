@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
+#include "SequencerSelectedKey.h"
 
 class UMovieSceneSection;
-class FSequencerDisplayNode;
-
 
 enum class ESelectionPreviewState
 {

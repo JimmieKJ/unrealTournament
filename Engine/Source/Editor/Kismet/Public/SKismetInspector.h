@@ -3,8 +3,19 @@
 
 #pragma once
 
-#include "BlueprintEditor.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "Editor/PropertyEditor/Public/PropertyEditorDelegates.h"
+
+class FBlueprintEditor;
+class IDetailsView;
+class SBorder;
+class SMyBlueprint;
 
 typedef TSet<class UObject*> FInspectorSelectionSet;
 

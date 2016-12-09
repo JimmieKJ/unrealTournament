@@ -1,19 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "Toolkits/AssetEditorManager.h"
-#include "ObjectTools.h"
+#include "Helpers/MessageEndpoint.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "Settings/EditorLoadingSavingSettings.h"
+#include "AssetEditorMessages.h"
+#include "Helpers/MessageEndpointBuilder.h"
+#include "IAssetTools.h"
+#include "IAssetTypeActions.h"
 #include "AssetToolsModule.h"
 #include "Toolkits/AssetEditorToolkit.h"
 #include "Toolkits/SimpleAssetEditor.h"
 #include "LevelEditor.h"
 #include "EngineAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#include "ToolkitManager.h"
-#include "BlueprintEditorModule.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "AssetEditorManager"
 

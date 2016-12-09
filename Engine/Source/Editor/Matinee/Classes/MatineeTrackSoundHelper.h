@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InterpTrackHelper.h"
 #include "MatineeTrackSoundHelper.generated.h"
 
+class UInterpTrack;
 
 UCLASS()
 class UMatineeTrackSoundHelper : public UInterpTrackHelper

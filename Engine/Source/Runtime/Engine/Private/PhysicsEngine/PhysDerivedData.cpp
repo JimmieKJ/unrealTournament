@@ -1,15 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "EnginePrivate.h"
-#include "PhysDerivedData.h"
-#include "TargetPlatform.h"
+#include "PhysicsEngine/PhysDerivedData.h"
+#include "Serialization/MemoryWriter.h"
+#include "Modules/ModuleManager.h"
+#include "Stats/Stats.h"
+#include "Interfaces/Interface_CollisionDataProvider.h"
+#include "Components/SplineMeshComponent.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
 
 #if WITH_PHYSX && (WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR)
 
 #include "IPhysXFormatModule.h"
 
-FDerivedDataPhysXCooker::FDerivedDataPhysXCooker(FName InFormat, int32 InRuntimeCookFlags, UBodySetup* InBodySetup)
+FDerivedDataPhysXCooker::FDerivedDataPhysXCooker(FName InFormat, EPhysXMeshCookFlags InRuntimeCookFlags, UBodySetup* InBodySetup)
 	: BodySetup( InBodySetup )
 	, CollisionDataProvider( NULL )
 	, Format( InFormat )
@@ -69,16 +73,18 @@ bool FDerivedDataPhysXCooker::Build( TArray<uint8>& OutData )
 
 	//TODO: we must save an id with convex and tri meshes for serialization. We must save this here and patch it up at runtime somehow
 
+	bool bSuccess = true;
+
 	// Cook convex meshes, but only if we are not forcing complex collision to be used as simple collision as well
 	if( BodySetup && BodySetup->GetCollisionTraceFlag() != CTF_UseComplexAsSimple && BodySetup->AggGeom.ConvexElems.Num() > 0 )
 	{
 		if( bGenerateNormalMesh )
 		{
-			NumConvexElementsCooked = BuildConvex( OutData, false );
+			bSuccess = BuildConvex( OutData, false, NumConvexElementsCooked) && bSuccess;
 		}
 		if ( bGenerateMirroredMesh )
 		{
-			NumMirroredElementsCooked = BuildConvex( OutData, true );
+			bSuccess = BuildConvex( OutData, true, NumMirroredElementsCooked) && bSuccess;
 		}
 	}
 
@@ -88,7 +94,7 @@ bool FDerivedDataPhysXCooker::Build( TArray<uint8>& OutData )
 	bool bUsingAllTriData = BodySetup != NULL ? BodySetup->bMeshCollideAll : false;
 	if( (BodySetup == NULL || BodySetup->GetCollisionTraceFlag() != CTF_UseSimpleAsComplex) && ShouldGenerateTriMeshData(bUsingAllTriData) )
 	{
-		NumTriMeshesCooked = BuildTriMesh( OutData, bUsingAllTriData, UPhysicsSettings::Get()->bSupportUVFromHitResults ? &UVInfo : nullptr );
+		bSuccess = BuildTriMesh( OutData, bUsingAllTriData, UPhysicsSettings::Get()->bSupportUVFromHitResults ? &UVInfo : nullptr, NumTriMeshesCooked) && bSuccess;
 	}
 
 	// Seek to end, serialize UV info
@@ -101,12 +107,12 @@ bool FDerivedDataPhysXCooker::Build( TArray<uint8>& OutData )
 	Ar << NumMirroredElementsCooked;
 	Ar << NumTriMeshesCooked;
 
-	// Whatever got cached return true. We want to cache 'failure' too.
-	return true;
+	return bSuccess;
 }
 
-int32 FDerivedDataPhysXCooker::BuildConvex( TArray<uint8>& OutData, bool InMirrored )
+bool FDerivedDataPhysXCooker::BuildConvex( TArray<uint8>& OutData, bool InMirrored, int32& NumConvexCooked )
 {	
+	bool bSuccess = true;
 	check( BodySetup != NULL );
 	for( int32 ElementIndex = 0; ElementIndex < BodySetup->AggGeom.ConvexElems.Num(); ElementIndex++ )
 	{
@@ -131,20 +137,29 @@ int32 FDerivedDataPhysXCooker::BuildConvex( TArray<uint8>& OutData, bool InMirro
 		// Store info on the cooking result (1 byte)
 		int32 ResultInfoOffset = OutData.Add( false );
 
+		// Get cook flags to use
+		const bool bDeformableMesh = CollisionDataProvider->IsA(USplineMeshComponent::StaticClass());
+		EPhysXMeshCookFlags CookFlags = RuntimeCookFlags;
+		if (bDeformableMesh)
+		{
+			CookFlags |= EPhysXMeshCookFlags::DeformableMesh;
+		}
+
 		// Cook and store Result at ResultInfoOffset
 		UE_LOG(LogPhysics, Log, TEXT("Cook Convex: %s %d (FlipX:%d)"), *BodySetup->GetOuter()->GetPathName(), ElementIndex, InMirrored);		
-		const bool bDeformableMesh = CollisionDataProvider->IsA(USplineMeshComponent::StaticClass());
-		const EPhysXCookingResult Result = Cooker->CookConvex(Format, RuntimeCookFlags, *MeshVertices, OutData, bDeformableMesh);
+		const EPhysXCookingResult Result = Cooker->CookConvex(Format, CookFlags, *MeshVertices, OutData);
 		switch (Result)
 		{
 		case EPhysXCookingResult::Succeeded:
 			break;
 		case EPhysXCookingResult::Failed:
 			UE_LOG(LogPhysics, Warning, TEXT("Failed to cook convex: %s %d (FlipX:%d). The remaining elements will not get cooked."), *BodySetup->GetOuter()->GetPathName(), ElementIndex, InMirrored ? 1 : 0);
+			bSuccess = false;
 			break;
 		case EPhysXCookingResult::SucceededWithInflation:
 			if (!bDeformableMesh)
 			{
+				bSuccess = false;
 				UE_LOG(LogPhysics, Warning, TEXT("Cook convex: %s %d (FlipX:%d) failed but succeeded with inflation.  The mesh should be looked at."), *BodySetup->GetOuter()->GetPathName(), ElementIndex, InMirrored ? 1 : 0);
 			}
 			else
@@ -154,12 +169,14 @@ int32 FDerivedDataPhysXCooker::BuildConvex( TArray<uint8>& OutData, bool InMirro
 			break;
 		default:
 			// Unknown/unsupported enum value
+			bSuccess = false;
 			check(false);
 		}
 		OutData[ ResultInfoOffset ] = (Result != EPhysXCookingResult::Failed) ? 1 : 0;
 	}
 
-	return BodySetup->AggGeom.ConvexElems.Num();
+	NumConvexCooked = BodySetup->AggGeom.ConvexElems.Num();
+	return bSuccess;
 }
 
 bool FDerivedDataPhysXCooker::ShouldGenerateTriMeshData(bool InUseAllTriData)
@@ -171,10 +188,11 @@ bool FDerivedDataPhysXCooker::ShouldGenerateTriMeshData(bool InUseAllTriData)
 	return bPerformCook;
 }
 
-int32 FDerivedDataPhysXCooker::BuildTriMesh( TArray<uint8>& OutData, bool InUseAllTriData, FBodySetupUVInfo* UVInfo)
+bool FDerivedDataPhysXCooker::BuildTriMesh( TArray<uint8>& OutData, bool InUseAllTriData, FBodySetupUVInfo* UVInfo, int32& NumTrimeshCooked)
 {
 	check(Cooker != NULL);
 
+	bool bError = false;
 	bool bResult = false;
 	FTriMeshCollisionData TriangleMeshDesc;
 	IInterface_CollisionDataProvider* CDP = Cast<IInterface_CollisionDataProvider>(CollisionDataProvider);
@@ -190,22 +208,31 @@ int32 FDerivedDataPhysXCooker::BuildTriMesh( TArray<uint8>& OutData, bool InUseA
 		if(NumIndices == 0 || NumVerts == 0 || TriangleMeshDesc.MaterialIndices.Num() > NumIndices)
 		{
 			UE_LOG(LogPhysics, Warning, TEXT("FDerivedDataPhysXCooker::BuildTriMesh: Triangle data from '%s' invalid (%d verts, %d indices)."), *CollisionDataProvider->GetPathName(), NumVerts, NumIndices );
+			bError = true;
 			return bResult;
 		}
 
 		TArray<FVector>* MeshVertices = NULL;
 		MeshVertices = &TriangleMeshDesc.Vertices;
 		
-		UE_LOG(LogPhysics, Log, TEXT("Cook TriMesh: %s"), *CollisionDataProvider->GetPathName());
-		bool bDeformableMesh = CollisionDataProvider->IsA(USplineMeshComponent::StaticClass());
-		if (USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(CollisionDataProvider))
+		// Set up cooking flags
+		EPhysXMeshCookFlags CookFlags = RuntimeCookFlags;
+
+		if (TriangleMeshDesc.bDeformableMesh)
 		{
-			ensure(SkeletalMesh->bEnablePerPolyCollision);
-			bDeformableMesh = true;
+			CookFlags |= EPhysXMeshCookFlags::DeformableMesh;
 		}
-		bResult = Cooker->CookTriMesh( Format, RuntimeCookFlags, *MeshVertices, TriangleMeshDesc.Indices, TriangleMeshDesc.MaterialIndices, TriangleMeshDesc.bFlipNormals, OutData, bDeformableMesh );
+
+		if (TriangleMeshDesc.bFastCook)
+		{
+			CookFlags |= EPhysXMeshCookFlags::FastCook;
+		}
+
+		UE_LOG(LogPhysics, Log, TEXT("Cook TriMesh: %s"), *CollisionDataProvider->GetPathName());
+		bResult = Cooker->CookTriMesh( Format, CookFlags, *MeshVertices, TriangleMeshDesc.Indices, TriangleMeshDesc.MaterialIndices, TriangleMeshDesc.bFlipNormals, OutData);
 		if( !bResult )
 		{
+			bError = true;
 			UE_LOG(LogPhysics, Warning, TEXT("Failed to cook TriMesh: %s."), *CollisionDataProvider->GetPathName());
 		}
 
@@ -246,7 +273,8 @@ int32 FDerivedDataPhysXCooker::BuildTriMesh( TArray<uint8>& OutData, bool InUseA
 		}
 	}
 
-	return bResult == true ? 1 : 0;	//the cooker only generates 1 or 0 trimeshes. We return an int because we support multiple trimeshes for welding and we might want to do this per static mesh in the future.
+	NumTrimeshCooked = bResult == true ? 1 : 0;	//the cooker only generates 1 or 0 trimeshes. We save an int because we support multiple trimeshes for welding and we might want to do this per static mesh in the future.
+	return !bError;	//use error instead of bResult because we do not warn if the trimesh data is simply empty, and in that case we don't consider it to be a failure
 }
 
 FDerivedDataPhysXBinarySerializer::FDerivedDataPhysXBinarySerializer(FName InFormat, const TArray<FBodyInstance*>& InBodies, const TArray<class UBodySetup*>& InBodySetups, const TArray<class UPhysicalMaterial*>& InPhysicalMaterials, const FGuid& InGuid)

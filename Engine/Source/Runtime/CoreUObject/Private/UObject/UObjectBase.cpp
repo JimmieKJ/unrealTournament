@@ -4,8 +4,19 @@
 	UObjectBase.cpp: Unreal UObject base class
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
-#include "GCObject.h"
+#include "UObject/UObjectBase.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectAllocator.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "Templates/Casts.h"
+#include "UObject/GCObject.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUObjectBase, Log, All);
 DEFINE_STAT(STAT_UObjectsStatGroupTester);
@@ -262,7 +273,7 @@ bool UObjectBase::IsValidLowLevel() const
 
 bool UObjectBase::IsValidLowLevelFast(bool bRecursive /*= true*/) const
 {
-	// As DEFULT_ALIGNMENT is defined to 0 now, I changed that to the original numerical value here
+	// As DEFAULT_ALIGNMENT is defined to 0 now, I changed that to the original numerical value here
 	const int32 AlignmentCheck = MIN_ALIGNMENT - 1;
 
 	// Check 'this' pointer before trying to access any of the Object's members
@@ -270,7 +281,7 @@ bool UObjectBase::IsValidLowLevelFast(bool bRecursive /*= true*/) const
 	{
 		UE_LOG(LogUObjectBase, Error, TEXT("\'this\' pointer is invalid."));
 		return false;
-	}	
+	}
 	if ((UPTRINT)this & AlignmentCheck)
 	{
 		UE_LOG(LogUObjectBase, Error, TEXT("\'this\' pointer is misaligned."));
@@ -321,8 +332,10 @@ void UObjectBase::EmitBaseReferences(UClass *RootClass)
 /** Enqueue the registration for this object. */
 void UObjectBase::Register(const TCHAR* PackageName,const TCHAR* InName)
 {
+	TMap<UObjectBase*, FPendingRegistrantInfo>& PendingRegistrants = FPendingRegistrantInfo::GetMap();
+
 	FPendingRegistrant* PendingRegistration = new FPendingRegistrant(this);
-	FPendingRegistrantInfo::GetMap().Add(this, FPendingRegistrantInfo(InName, PackageName));
+	PendingRegistrants.Add(this, FPendingRegistrantInfo(InName, PackageName));
 	if(GLastPendingRegistrant)
 	{
 		GLastPendingRegistrant->NextAutoRegister = PendingRegistration;
@@ -381,12 +394,14 @@ static void UObjectProcessRegistrants()
 
 void UObjectForceRegistration(UObjectBase* Object)
 {
-	FPendingRegistrantInfo* Info = FPendingRegistrantInfo::GetMap().Find(Object);
+	TMap<UObjectBase*, FPendingRegistrantInfo>& PendingRegistrants = FPendingRegistrantInfo::GetMap();
+
+	FPendingRegistrantInfo* Info = PendingRegistrants.Find(Object);
 	if (Info)
 	{
 		const TCHAR* PackageName = Info->PackageName;
 		const TCHAR* Name = Info->Name;
-		FPendingRegistrantInfo::GetMap().Remove(Object);  // delete this first so that it doesn't try to do it twice
+		PendingRegistrants.Remove(Object);  // delete this first so that it doesn't try to do it twice
 		Object->DeferredRegister(UClass::StaticClass(),PackageName,Name);
 	}
 }
@@ -769,41 +784,32 @@ static void UObjectLoadAllCompiledInDefaultProperties()
  */
 static void UObjectLoadAllCompiledInStructs()
 {
-	TArray<FPendingEnumRegistrant>& DeferredCompiledInEnumRegistration = GetDeferredCompiledInEnumRegistration();
-	TArray<FPendingStructRegistrant>& DeferredCompiledInStructRegistration = GetDeferredCompiledInStructRegistration();
 
 	// Load Enums first
-	if( DeferredCompiledInEnumRegistration.Num() )
-	{
-		TArray<FPendingEnumRegistrant> PendingRegistrants = MoveTemp(DeferredCompiledInEnumRegistration);
+	TArray<FPendingEnumRegistrant> PendingEnumRegistrants = MoveTemp(GetDeferredCompiledInEnumRegistration());
 		
-		for (const FPendingEnumRegistrant& EnumRegistrant : PendingRegistrants)
+	for (const FPendingEnumRegistrant& EnumRegistrant : PendingEnumRegistrants)
 		{
 			// Make sure the package exists in case it does not contain any UObjects
 			CreatePackage(nullptr, EnumRegistrant.PackageName);
 		}
-
-		for (const FPendingEnumRegistrant& EnumRegistrant : PendingRegistrants)
+	TArray<FPendingStructRegistrant> PendingStructRegistrants = MoveTemp(GetDeferredCompiledInStructRegistration());
+	for (const FPendingStructRegistrant& StructRegistrant : PendingStructRegistrants)
 		{
-			EnumRegistrant.RegisterFn();
-		}
+		// Make sure the package exists in case it does not contain any UObjects or UEnums
+		CreatePackage(nullptr, StructRegistrant.PackageName);
 	}
 
 	// Load Structs
-	if( DeferredCompiledInStructRegistration.Num() )
-	{
-		TArray<FPendingStructRegistrant> PendingRegistrants = MoveTemp(DeferredCompiledInStructRegistration);
 
-		for (const FPendingStructRegistrant& StructRegistrant : PendingRegistrants)
+	for (const FPendingEnumRegistrant& EnumRegistrant : PendingEnumRegistrants)
 		{
-			// Make sure the package exists in case it does not contain any UObjects or UEnums
-			CreatePackage(nullptr, StructRegistrant.PackageName);
+		EnumRegistrant.RegisterFn();
 		}
 
-		for (const FPendingStructRegistrant& StructRegistrant : PendingRegistrants)
+	for (const FPendingStructRegistrant& StructRegistrant : PendingStructRegistrants)
 		{
 			StructRegistrant.RegisterFn();
-		}
 	}
 }
 
@@ -1153,27 +1159,23 @@ UEnum* FindExistingEnumIfHotReloadOrDynamic(UObject* Outer, const TCHAR* EnumNam
 	return Result;
 }
 
-UClass::StaticClassFunctionType GetDynamicClassConstructFn(FName ClassPathName)
-{
-	FDynamicClassStaticData* ClassConstructFn = GetDynamicClassMap().Find(ClassPathName);
-	UE_CLOG(!ClassConstructFn, LogUObjectBase, Fatal, TEXT("Unable to find construct function pointer for dynamic class %s. Make sure dynamic class exists."), *ClassPathName.ToString());
-	if (ClassConstructFn)
-	{
-		return ClassConstructFn->ZConstructFn;
-	}
-	// We should never get here. We either find the class or assert.
-	return nullptr;
-}
-
-UObject* ConstructDynamicType(FName TypePathName)
+UObject* ConstructDynamicType(FName TypePathName, EConstructDynamicType ConstructionSpecifier)
 {
 	UObject* Result = nullptr;
 	if (FDynamicClassStaticData* ClassConstructFn = GetDynamicClassMap().Find(TypePathName))
 	{
-		UClass* DynamicClass = ClassConstructFn->StaticClassFn();
-		check(DynamicClass);
-		DynamicClass->AssembleReferenceTokenStream();
-		Result = DynamicClass;
+		if (ConstructionSpecifier == EConstructDynamicType::CallZConstructor)
+		{
+			UClass* DynamicClass = ClassConstructFn->ZConstructFn();
+			check(DynamicClass);
+			DynamicClass->AssembleReferenceTokenStream();
+			Result = DynamicClass;
+		}
+		else if (ConstructionSpecifier == EConstructDynamicType::OnlyAllocateClassObject)
+		{
+			Result = ClassConstructFn->StaticClassFn();
+			check(Result);
+		}
 	}
 	else if (UScriptStruct *(**StaticStructFNPtr)() = GetDynamicStructMap().Find(TypePathName))
 	{
@@ -1210,7 +1212,9 @@ UPackage* FindOrConstructDynamicTypePackage(const TCHAR* PackageName)
 	if (!Package)
 	{
 		Package = CreatePackage(nullptr, PackageName);
+#if !USE_EVENT_DRIVEN_ASYNC_LOAD
 		Package->SetPackageFlags(PKG_CompiledIn);
+#endif
 	}
 	check(Package);
 	return Package;

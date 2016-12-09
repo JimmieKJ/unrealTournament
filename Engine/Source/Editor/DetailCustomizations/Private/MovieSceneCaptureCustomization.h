@@ -2,7 +2,10 @@
 
 #pragma once
 
-class IDetailsView;
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
 
 class FMovieSceneCaptureCustomization : public IDetailCustomization
 {

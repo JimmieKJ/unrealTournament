@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/RefCounting.h"
+#include "Containers/List.h"
+
 class FLightMap;
-class FShadowMap;
 class FSceneViewStateInterface;
-class FLightMap;
 class FShadowMap;
 
 /** A reference to a light-map. */
@@ -157,6 +159,7 @@ enum EMaterialProperty
 
 	//^^^ New material properties go above here ^^^^
 	MP_MaterialAttributes,
+	MP_CustomOutput,
 	MP_MAX,
 };
 

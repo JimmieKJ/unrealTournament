@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "GoogleVRHMDPCH.h"
 #include "Classes/GoogleVRHMDFunctionLibrary.h"
 #include "GoogleVRHMD.h"
 
@@ -22,7 +21,7 @@ UGoogleVRHMDFunctionLibrary::UGoogleVRHMDFunctionLibrary(const FObjectInitialize
 {
 }
 
-FGoogleVRHMD* GetHMD()
+static FGoogleVRHMD* GetHMD()
 {
 	if (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->GetVersionString().Contains(TEXT("GoogleVR")) )
 	{
@@ -32,13 +31,24 @@ FGoogleVRHMD* GetHMD()
 	return nullptr;
 }
 
-void UGoogleVRHMDFunctionLibrary::SetChromaticAberrationCorrectionEnabled(bool bEnable)
+bool UGoogleVRHMDFunctionLibrary::IsGoogleVRHMDEnabled()
 {
 	FGoogleVRHMD* HMD = GetHMD();
 	if(HMD)
 	{
-		HMD->SetChromaticAberrationCorrectionEnabled(bEnable);
+		return HMD->IsHMDEnabled();
 	}
+	return false;
+}
+
+bool UGoogleVRHMDFunctionLibrary::IsGoogleVRStereoRenderingEnabled()
+{
+	FGoogleVRHMD* HMD = GetHMD();
+	if(HMD)
+	{
+		return HMD->IsStereoEnabled();
+	}
+	return false;
 }
 
 void UGoogleVRHMDFunctionLibrary::SetDistortionCorrectionEnabled(bool bEnable)
@@ -101,4 +111,127 @@ FString UGoogleVRHMDFunctionLibrary::GetViewerVendor()
 	}
 
 	return TEXT("");
+}
+
+bool UGoogleVRHMDFunctionLibrary::IsVrLaunch()
+{
+	FGoogleVRHMD* HMD = GetHMD();
+	if(HMD)
+	{
+		return HMD->IsVrLaunch();
+	}
+
+	return false;
+}
+
+FIntPoint UGoogleVRHMDFunctionLibrary::GetGVRHMDRenderTargetSize()
+{
+	FGoogleVRHMD* HMD = GetHMD();
+	if(HMD)
+	{
+		return HMD->GetGVRHMDRenderTargetSize();
+	}
+
+	return FIntPoint::ZeroValue;
+}
+
+FIntPoint UGoogleVRHMDFunctionLibrary::SetRenderTargetSizeToDefault()
+{
+	FGoogleVRHMD* HMD = GetHMD();
+	if(HMD)
+	{
+		return HMD->SetRenderTargetSizeToDefault();
+	}
+
+	return FIntPoint::ZeroValue;
+}
+
+bool UGoogleVRHMDFunctionLibrary::SetGVRHMDRenderTargetScale(float ScaleFactor, FIntPoint& OutRenderTargetSize)
+{
+	FGoogleVRHMD* HMD = GetHMD();
+	if(HMD)
+	{
+		return HMD->SetGVRHMDRenderTargetSize(ScaleFactor, OutRenderTargetSize);
+	}
+
+	return false;
+}
+
+bool UGoogleVRHMDFunctionLibrary::SetGVRHMDRenderTargetSize(int DesiredWidth, int DesiredHeight, FIntPoint& OutRenderTargetSize)
+{
+	FGoogleVRHMD* HMD = GetHMD();
+	if(HMD)
+	{
+		return HMD->SetGVRHMDRenderTargetSize(DesiredWidth, DesiredHeight, OutRenderTargetSize);
+	}
+
+	return false;
+}
+
+void UGoogleVRHMDFunctionLibrary::SetNeckModelScale(float ScaleFactor)
+{
+	FGoogleVRHMD* HMD = GetHMD();
+	if(HMD)
+	{
+		return HMD->SetNeckModelScale(ScaleFactor);
+	}
+}
+
+float UGoogleVRHMDFunctionLibrary::GetNeckModelScale()
+{
+	FGoogleVRHMD* HMD = GetHMD();
+	if (HMD)
+	{
+		return HMD->GetNeckModelScale();
+	}
+
+	return 0.0f;
+}
+
+FString UGoogleVRHMDFunctionLibrary::GetIntentData()
+{
+	FGoogleVRHMD* HMD = GetHMD();
+	if (HMD)
+	{
+		return HMD->GetIntentData();
+	}
+
+	return TEXT("");
+}
+
+void UGoogleVRHMDFunctionLibrary::SetDaydreamLoadingSplashScreenEnable(bool bEnable)
+{
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	FGoogleVRHMD* HMD = GetHMD();
+	if(HMD && HMD->GVRSplash.IsValid())
+	{
+		HMD->GVRSplash->bEnableSplashScreen = bEnable;
+	}
+#endif
+}
+
+void UGoogleVRHMDFunctionLibrary::SetDaydreamLoadingSplashScreenTexture(UTexture2D* Texture, FVector2D UVOffset, FVector2D UVSize)
+{
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	FGoogleVRHMD* HMD = GetHMD();
+	if(HMD && HMD->GVRSplash.IsValid() && Texture)
+	{
+		HMD->GVRSplash->SplashTexture = Texture;
+		HMD->GVRSplash->SplashTexturePath = "";
+		HMD->GVRSplash->SplashTextureUVOffset = UVOffset;
+		HMD->GVRSplash->SplashTextureUVSize = UVSize;
+	}
+#endif
+}
+
+void UGoogleVRHMDFunctionLibrary::ClearDaydreamLoadingSplashScreenTexture()
+{
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	FGoogleVRHMD* HMD = GetHMD();
+	if(HMD && HMD->GVRSplash.IsValid())
+	{
+		HMD->GVRSplash->SplashTexture = nullptr;
+		HMD->GVRSplash->SplashTexturePath = "";
+	}
+#endif
 }

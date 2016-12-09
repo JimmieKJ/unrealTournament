@@ -4,24 +4,12 @@
   <Location>/Engine/Source/ThirdParty/Steamworks/</Location>
   <Date>2016-06-16T14:03:01.8139738-04:00</Date>
   <Function>SDK for connecting with the Steamworks platform</Function>
-  <Justification>support licensees that want to use Steam with our engine</Justification>
-  <Platforms>
-    <Platform>PC</Platform>
-  </Platforms>
-  <Products>
-    <Product>UDK4</Product>
-    <Product>UE4</Product>
-  </Products>
-  <TpsType>Source Code</TpsType>
+  <Justification>To support licensees that want to use Steam with UE</Justification>
   <Eula>http://store.steampowered.com/subscriber_agreement/</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>true</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
   <LicenseFolder>None</LicenseFolder>
 </TpsData>

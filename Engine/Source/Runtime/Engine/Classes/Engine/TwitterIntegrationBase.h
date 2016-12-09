@@ -6,6 +6,11 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptMacros.h"
+#include "Engine/PlatformInterfaceBase.h"
 #include "TwitterIntegrationBase.generated.h"
 
 /** The possible twitter request methods */

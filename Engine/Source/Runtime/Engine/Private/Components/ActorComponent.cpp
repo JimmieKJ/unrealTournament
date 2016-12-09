@@ -1,17 +1,37 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // ActorComponent.cpp: Actor component implementation.
 
-#include "EnginePrivate.h"
+#include "Components/ActorComponent.h"
+#include "Misc/App.h"
+#include "EngineStats.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/MemberReference.h"
+#include "ComponentInstanceDataCache.h"
+#include "Engine/Level.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
+#include "Components/PrimitiveComponent.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "ContentStreaming.h"
+#include "ComponentReregisterContext.h"
 #include "Engine/AssetUserData.h"
 #include "Engine/LevelStreamingPersistent.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/UObjectHash.h"
+#include "Engine/NetDriver.h"
 #include "Net/UnrealNetwork.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "MapErrors.h"
-#include "ComponentReregisterContext.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "Misc/MapErrors.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "Engine/SimpleConstructionScript.h"
 #include "ComponentUtils.h"
+
+#if WITH_EDITOR
+#include "Kismet2/ComponentEditorUtils.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "ActorComponent"
 
@@ -239,7 +259,7 @@ void UActorComponent::PostRename(UObject* OldOuter, const FName OldName)
 	if (OldOuter != GetOuter())
 	{
 		OwnerPrivate = GetTypedOuter<AActor>();
-		AActor* OldOwner = (OldOuter->IsA<AActor>() ? CastChecked<AActor>(OldOuter) : OldOuter->GetTypedOuter<AActor>());
+		AActor* OldOwner = (OldOuter->IsA<AActor>() ? static_cast<AActor*>(OldOuter) : OldOuter->GetTypedOuter<AActor>());
 
 		if (OwnerPrivate != OldOwner)
 		{
@@ -253,21 +273,28 @@ void UActorComponent::PostRename(UObject* OldOuter, const FName OldName)
 			}
 
 			TArray<UObject*> Children;
-			GetObjectsWithOuter(this, Children);
+			GetObjectsWithOuter(this, Children, /*bIncludeNestedObjects=*/false);
 
-			for (UObject* Child : Children)
+			for (int32 Index = 0; Index < Children.Num(); ++Index)
 			{
-				if (UActorComponent* ChildComponent = Cast<UActorComponent>(Child))
+				UObject* Child = Children[Index];
+
+				// Cut off if we have a nested Actor
+				if (!Child->IsA<AActor>())
 				{
-					ChildComponent->OwnerPrivate = OwnerPrivate;
-					if (OldOwner)
+					if (UActorComponent* ChildComponent = Cast<UActorComponent>(Child))
 					{
-						OldOwner->RemoveOwnedComponent(ChildComponent);
+						ChildComponent->OwnerPrivate = OwnerPrivate;
+						if (OldOwner)
+						{
+							OldOwner->RemoveOwnedComponent(ChildComponent);
+						}
+						if (OwnerPrivate)
+						{
+							OwnerPrivate->AddOwnedComponent(ChildComponent);
+						}
 					}
-					if (OwnerPrivate)
-					{
-						OwnerPrivate->AddOwnedComponent(ChildComponent);
-					}
+					GetObjectsWithOuter(Child, Children, /*bIncludeNestedObjects=*/false);
 				}
 			}
 		}
@@ -358,7 +385,7 @@ ULevel* UActorComponent::GetComponentLevel() const
 {
 	// For model components Level is outer object
 	AActor* MyOwner = GetOwner();
-	return (MyOwner ? CastChecked<ULevel>(MyOwner->GetOuter()) : Cast<ULevel>( GetOuter() ) );
+	return (MyOwner ? Cast<ULevel>(MyOwner->GetOuter()) : Cast<ULevel>( GetOuter() ) );
 }
 
 bool UActorComponent::ComponentIsInLevel(const ULevel *TestLevel) const
@@ -425,18 +452,16 @@ void UActorComponent::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-
 bool UActorComponent::NeedsLoadForClient() const
 {
 	check(GetOuter());
-	return (GetOuter()->NeedsLoadForClient() && Super::NeedsLoadForClient());
+	return (!IsEditorOnly() && GetOuter()->NeedsLoadForClient() && Super::NeedsLoadForClient());
 }
-
 
 bool UActorComponent::NeedsLoadForServer() const
 {
 	check(GetOuter());
-	return (GetOuter()->NeedsLoadForServer() && Super::NeedsLoadForServer());
+	return (!IsEditorOnly() && GetOuter()->NeedsLoadForServer() && Super::NeedsLoadForServer());
 }
 
 int32 UActorComponent::GetFunctionCallspace( UFunction* Function, void* Parameters, FFrame* Stack )
@@ -554,21 +579,28 @@ void UActorComponent::PostEditUndo()
 		}
 
 		TArray<UObject*> Children;
-		GetObjectsWithOuter(this, Children);
+		GetObjectsWithOuter(this, Children, /*bIncludeNestedObjects=*/false);
 
-		for (UObject* Child : Children)
+		for (int32 Index = 0; Index < Children.Num(); ++Index)
 		{
-			if (UActorComponent* ChildComponent = Cast<UActorComponent>(Child))
+			UObject* Child = Children[Index];
+
+			// Cut off if we have a nested Actor
+			if (!Child->IsA<AActor>())
 			{
-				if (ChildComponent->OwnerPrivate)
+				if (UActorComponent* ChildComponent = Cast<UActorComponent>(Child))
 				{
-					ChildComponent->OwnerPrivate->RemoveOwnedComponent(ChildComponent);
+					if (ChildComponent->OwnerPrivate)
+					{
+						ChildComponent->OwnerPrivate->RemoveOwnedComponent(ChildComponent);
+					}
+					ChildComponent->OwnerPrivate = OwnerPrivate;
+					if (OwnerPrivate)
+					{
+						OwnerPrivate->AddOwnedComponent(ChildComponent);
+					}
 				}
-				ChildComponent->OwnerPrivate = OwnerPrivate;
-				if (OwnerPrivate)
-				{
-					OwnerPrivate->AddOwnedComponent(ChildComponent);
-				}
+				GetObjectsWithOuter(Child, Children, /*bIncludeNestedObjects=*/false);
 			}
 		}
 
@@ -654,7 +686,11 @@ void UActorComponent::OnRegister()
 
 	if (bAutoActivate)
 	{
-		Activate(true);
+		AActor* Owner = GetOwner();
+		if (!WorldPrivate->IsGameWorld() || Owner == nullptr || Owner->IsActorInitialized())
+		{
+			Activate(true);
+		}
 	}
 }
 
@@ -747,7 +783,7 @@ bool UActorComponent::SetupActorComponentTickFunction(struct FTickFunction* Tick
 
 void UActorComponent::SetComponentTickEnabled(bool bEnabled)
 {
-	if (!IsTemplate() && PrimaryComponentTick.bCanEverTick)
+	if (PrimaryComponentTick.bCanEverTick && !IsTemplate())
 	{
 		PrimaryComponentTick.SetTickFunctionEnable(bEnabled);
 	}
@@ -755,7 +791,7 @@ void UActorComponent::SetComponentTickEnabled(bool bEnabled)
 
 void UActorComponent::SetComponentTickEnabledAsync(bool bEnabled)
 {
-	if (!IsTemplate() && PrimaryComponentTick.bCanEverTick)
+	if (PrimaryComponentTick.bCanEverTick && !IsTemplate())
 	{
 		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.SetComponentTickEnabledAsync"),
 			STAT_FSimpleDelegateGraphTask_SetComponentTickEnabledAsync,
@@ -916,7 +952,7 @@ void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
 		if (MyOwner->HasActorBegunPlay() || MyOwner->IsActorBeginningPlay())
 		{
 			RegisterAllComponentTickFunctions(true);
-			if (bWantsBeginPlay && !bHasBegunPlay)
+			if (!bHasBegunPlay)
 			{
 				BeginPlay();
 			}
@@ -932,7 +968,7 @@ void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
 		for (UObject* Child : Children)
 		{
 			UActorComponent* ChildComponent = Cast<UActorComponent>(Child);
-			if (ChildComponent && !ChildComponent->IsRegistered())
+			if (ChildComponent && !ChildComponent->IsRegistered() && ChildComponent->GetOwner() == MyOwner)
 			{
 				ChildComponent->RegisterComponentWithWorld(InWorld);
 			}
@@ -1095,7 +1131,7 @@ void UActorComponent::SendRenderDynamicData_Concurrent()
 
 void UActorComponent::DestroyRenderState_Concurrent()
 {
-	checkf(bRenderStateCreated, TEXT("%s"), *GetFullName());
+	check(bRenderStateCreated);
 	bRenderStateCreated = false;
 
 #if LOG_RENDER_STATE
@@ -1308,7 +1344,7 @@ void UActorComponent::DoDeferredRenderUpdates_Concurrent()
 
 void UActorComponent::MarkRenderStateDirty()
 {
-	// If registered and has a render state to make as dirty
+	// If registered and has a render state to mark as dirty
 	if(IsRegistered() && bRenderStateCreated && (!bRenderStateDirty || !GetWorld()))
 	{
 		// Flag as dirty
@@ -1330,7 +1366,7 @@ void UActorComponent::MarkRenderTransformDirty()
 
 void UActorComponent::MarkRenderDynamicDataDirty()
 {
-	// If registered and has a render state to make as dirty
+	// If registered and has a render state to mark as dirty
 	if(IsRegistered() && bRenderStateCreated)
 	{
 		// Flag as dirty
@@ -1395,7 +1431,7 @@ void UActorComponent::Activate(bool bReset)
 		SetComponentTickEnabled(true);
 		bIsActive = true;
 
-		OnComponentActivated.Broadcast(bReset);
+		OnComponentActivated.Broadcast(this, bReset);
 	}
 }
 
@@ -1406,7 +1442,7 @@ void UActorComponent::Deactivate()
 		SetComponentTickEnabled(false);
 		bIsActive = false;
 
-		OnComponentDeactivated.Broadcast();
+		OnComponentDeactivated.Broadcast(this);
 	}
 }
 
@@ -1428,6 +1464,18 @@ void UActorComponent::SetActive(bool bNewActive, bool bReset)
 	else 
 	{
 		Deactivate();
+	}
+}
+
+void UActorComponent::SetAutoActivate(bool bNewAutoActivate)
+{
+	if (!bRegistered || IsOwnerRunningUserConstructionScript())
+	{
+		bAutoActivate = bNewAutoActivate;
+	}
+	else
+	{
+		UE_LOG(LogActorComponent, Warning, TEXT("SetAutoActivate called on component %s after construction!"), *GetFullName());
 	}
 }
 

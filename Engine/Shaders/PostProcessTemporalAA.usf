@@ -13,13 +13,8 @@
 #endif
 
 float SampleWeights[9];
-float LowpassWeights[9];
 float PlusWeights[5];
-float2 RandomOffset;
 float VelocityScaling;
-
-// TODO: This can be removed.
-float ClampFeebackMix;
 
 float3 RGBToYCoCg( float3 RGB )
 {
@@ -209,35 +204,6 @@ float4 HdrLerp(float4 ColorA, float4 ColorB, float Blend, float Exposure)
 	return ColorA * BlendA + ColorB * BlendB;
 }
 
-void Bicubic2DCatmullRom( in float2 UV, in float2 Size, out float2 Sample[3], out float2 Weight[3] )
-{
-	const float2 InvSize = 1.0 / Size;
- 
-	UV *= Size;
-
-	float2 tc = floor( UV - 0.5 ) + 0.5;
-	float2 f = UV - tc;
-	float2 f2 = f * f;
-	float2 f3 = f2 * f;
-
-	float2 w0 = f2 - 0.5 * (f3 + f);
-	float2 w1 = 1.5 * f3 - 2.5 * f2 + 1;
-	float2 w3 = 0.5 * (f3 - f2);
-	float2 w2 = 1 - w0 - w1 - w3;
-
-	Weight[0] = w0;
-	Weight[1] = w1 + w2;
-	Weight[2] = w3;
-
-	Sample[0] = tc - 1;
-	Sample[1] = tc + w2 / Weight[1];
-	Sample[2] = tc + 2;
- 
-	Sample[0] *= InvSize;
-	Sample[1] *= InvSize;
-	Sample[2] *= InvSize;
-}
-
 #define MINIMAL_REPROJECTION_DEBUG 0
 
 // Useful for verifying that the camera motion reprojection is correct, and the history texture contains the right values
@@ -278,7 +244,7 @@ void SSRTemporalAAPS(
 {
 #if ENABLE_TEMPORAL_AA
 	float InExposureScale = InExposureScaleVignette.x;
-	#define AA_ALPHA 0
+	#define AA_ALPHA 1
 	#define AA_CROSS 0
 	#define AA_DYNAMIC 1
 	#define AA_LERP 8
@@ -302,16 +268,13 @@ void DOFTemporalAAPS(
 #if ENABLE_TEMPORAL_AA
 	float InExposureScale = InExposureScaleVignette.x;
 	#define AA_FILTERED 0
-	#define AA_VELOCITY_WEIGHTING 0
-	#define AA_ALPHA 0
+	#define AA_ALPHA 1
 	#define AA_CROSS 4
 	#define AA_DYNAMIC 1
 	#define AA_NAN 1
 	#define AA_BORDER 1
 	#define AA_FORCE_ALPHA_CLAMP 1
-	#define AA_GREEN_AS_LUMA 1
 	#define AA_YCOCG 1
-	#define AA_DOF 1
 	#include "PostProcessTemporalCommon.usf"
 #else 
 	OutColor = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV, 0);
@@ -329,7 +292,7 @@ void LightShaftTemporalAAPS(
 {
 #if ENABLE_TEMPORAL_AA
 	float InExposureScale = InExposureScaleVignette.x;
-	#define AA_ALPHA 0
+	#define AA_ALPHA 1
 	#define AA_CROSS 0
 	#define AA_DYNAMIC 0
 	#define AA_LERP 64
@@ -358,18 +321,14 @@ void MainTemporalAAPS(
 		OutColor = float4(MinimalReprojectionForDebugging(UV, SvPosition), 0);
 	#else
 		float InExposureScale = InExposureScaleVignette.x;
-		#define AA_FILTERED 0
+		#define AA_FILTERED 1
+		#define AA_ALPHA (SCENE_ALPHA)
 		#define AA_BORDER 1
-		#define AA_ALPHA 0
 		#define AA_CROSS 2
-		#define AA_GREEN_AS_LUMA 1
 		#define AA_AABB 1
-		#define AA_LOWPASS 0
-		#define AA_DEBUG 0
-		#define AA_VELOCITY_WEIGHTING 0
 		#define AA_YCOCG 1
 		#define AA_BICUBIC 1
-		#define AA_DYNAMIC_ANTIGHOST 0
+		#define AA_DYNAMIC_ANTIGHOST 1
 		#include "PostProcessTemporalCommon.usf"
 	#endif
 #else
@@ -388,26 +347,13 @@ void MainFastTemporalAAPS(
 {
 #if ENABLE_TEMPORAL_AA
 	float InExposureScale = InExposureScaleVignette.x;
-	#define AA_FILTERED 0
+	#define AA_FILTERED 1
+	#define AA_ALPHA (SCENE_ALPHA)
 	#define AA_BORDER 1
-	#define AA_ALPHA 0
 	#define AA_CROSS 2
-	#define AA_GREEN_AS_LUMA 0
-	#define AA_AABB 1
-	#define AA_LOWPASS 0
-	#define AA_DEBUG 0
-	#define AA_VELOCITY_WEIGHTING 0
 	#define AA_YCOCG 1
 	#define AA_BICUBIC 1
-	#define AA_TONE 0
 	#include "PostProcessTemporalCommon.usf"
-
-	// InExposureScale will always be 1.0 for < SM5 so the exposure of the below will always be wrong, so only use it when EyeAdaptation is supported.
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
-	uint2 PixelPos = SvPosition.xy + uint2( View.FrameNumber & 3, (View.FrameNumber / 4) & 3 );
-	float Random = RandFast( PixelPos );
-	OutColor += DitherScale * (Random - 0.5) * (1.0 / 1024.0) / InExposureScale;
-#endif
 #else
 	OutColor = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV, 0);
 #endif

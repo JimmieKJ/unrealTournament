@@ -1,14 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
-#include "SequencerEntityVisitor.h"
-#include "SequencerEditTool_Selection.h"
-#include "MovieSceneSection.h"
-#include "ISequencerSection.h"
-#include "VirtualTrackArea.h"
-#include "Sequencer.h"
+#include "Tools/SequencerEditTool_Selection.h"
+#include "EditorStyleSet.h"
+#include "SequencerCommonHelpers.h"
+#include "SSequencer.h"
+#include "Tools/SequencerEntityVisitor.h"
 #include "SSequencerTreeView.h"
-#include "SequencerHotspots.h"
+#include "ISequencerHotspot.h"
+#include "VirtualTrackArea.h"
 
 
 struct FSelectionPreviewVisitor

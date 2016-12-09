@@ -6,8 +6,11 @@
 //=============================================================================
 
 #pragma once
-#include "NetworkPredictionInterface.generated.h"
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Interface.h"
+#include "NetworkPredictionInterface.generated.h"
 
 UINTERFACE(MinimalAPI, meta=(CannotImplementInterfaceInBlueprint))
 class UNetworkPredictionInterface : public UInterface

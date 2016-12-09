@@ -70,6 +70,12 @@ namespace DoxygenLib
 			{
 				Entity.File = LocationNode.Attributes["file"].Value.Replace('/', '\\');
 
+                // Fix Doxygen's inconsistent pathing.
+                if (!Entity.File.StartsWith(InModule.BaseSrcDir))
+                {
+                    Entity.File = InModule.BaseSrcDir + "Source\\" + Entity.File;
+                }
+
 				XmlAttribute LineAttribute = LocationNode.Attributes["line"];
 				if (LineAttribute != null)
 				{
@@ -83,7 +89,12 @@ namespace DoxygenLib
 				if (BodyFileAttribute != null && BodyStartAttribute != null && BodyEndAttribute != null)
 				{
 					Entity.BodyFile = BodyFileAttribute.Value.Replace('/', '\\');
-					Entity.BodyStart = Int32.Parse(BodyStartAttribute.Value);
+                    // Fix Doxygen's inconsistent pathing.
+                    if (!Entity.BodyFile.StartsWith(InModule.BaseSrcDir))
+                    {
+                        Entity.BodyFile = InModule.BaseSrcDir + "Source\\" + Entity.BodyFile;
+                    }
+                    Entity.BodyStart = Int32.Parse(BodyStartAttribute.Value);
 					Entity.BodyEnd = Int32.Parse(BodyEndAttribute.Value);
 				}
 			}
@@ -127,7 +138,7 @@ namespace DoxygenLib
 			return Module;
 		}
 
-		public static DoxygenModule TryRead(string Name, string BaseSrcDir, string BaseXmlDir)
+        public static DoxygenModule TryRead(string Name, string BaseSrcDir, string BaseXmlDir)
 		{
 			// Load the index
 			XmlDocument Document;

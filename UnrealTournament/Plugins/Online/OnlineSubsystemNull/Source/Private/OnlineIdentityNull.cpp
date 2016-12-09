@@ -54,7 +54,7 @@ inline FString GenerateRandomUserId(int32 LocalUserNum)
 	if ( ( GIsFirstInstance || bForceUniqueId ) && !GIsEditor )
 	{
 		// When possible, return a stable user id
-		return FString::Printf( TEXT( "%s-%s" ), *HostName, *FPlatformMisc::GetMachineId().ToString( EGuidFormats::Digits ) );
+		return FString::Printf( TEXT( "%s-%s" ), *HostName, *FPlatformMisc::GetLoginId().ToUpper() );
 	}
 
 	// If we're not the first instance (or in the editor), return truly random id

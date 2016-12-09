@@ -2,6 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Layout/Margin.h"
+#include "Sound/SlateSound.h"
+#include "Styling/StyleDefaults.h"
+#include "Styling/ISlateStyle.h"
+#include "Brushes/SlateBorderBrush.h"
+#include "Brushes/SlateBoxBrush.h"
+#include "Brushes/SlateColorBrush.h"
+#include "Brushes/SlateImageBrush.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+
+class UTexture2D;
+struct FSlateWidgetStyle;
 
 /**
  * A slate style chunk that contains a collection of named properties that guide the appearance of Slate.

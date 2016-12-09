@@ -4,12 +4,17 @@
 #ifndef __PackagesDialog_h__
 #define __PackagesDialog_h__
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Modules/ModuleInterface.h"
+
 #ifdef _MSC_VER
 	#pragma once
 #endif
 
-#include "UnrealEd.h"
-#include "ModuleInterface.h"
+class SPackagesDialog;
+class SWindow;
+enum class ECheckBoxState : uint8;
 
 enum EDialogReturnType
 {

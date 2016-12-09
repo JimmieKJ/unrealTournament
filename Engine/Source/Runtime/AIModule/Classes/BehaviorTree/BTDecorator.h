@@ -1,14 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "BehaviorTreeTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "BehaviorTree/BTAuxiliaryNode.h"
 #include "BTDecorator.generated.h"
 
-class UBTNode;
-class UBehaviorTreeComponent;
-class FBehaviorDecoratorDetails; 
-struct FBehaviorTreeSearchData;
+class FBehaviorDecoratorDetails;
 
 /** 
  * Decorators are supporting nodes placed on parent-child connection, that receive notification about execution flow and can be ticked
@@ -113,8 +111,6 @@ protected:
 	//----------------------------------------------------------------------//
 	// DEPRECATED
 	//----------------------------------------------------------------------//
-	DEPRECATED(4.7, "This version is deprecated. Please use the one taking reference to UBehaviorTreeComponent rather than a pointer.")
-	virtual bool CalculateRawConditionValue(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory) const;
 	DEPRECATED(4.12, "This function is deprecated, please use InitializeParentLink instead.")
 	void InitializeDecorator(uint8 InChildIndex);
 };

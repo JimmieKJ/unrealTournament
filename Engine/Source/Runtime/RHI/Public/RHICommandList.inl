@@ -6,6 +6,13 @@
 
 #pragma once
 
+class FRHICommandListBase;
+class FRHICommandListExecutor;
+class FRHICommandListImmediate;
+class FRHIResource;
+class FScopedRHIThreadStaller;
+struct FRHICommandBase;
+
 FORCEINLINE_DEBUGGABLE void FRHICommandListBase::Flush()
 {
 	if (HasCommands())

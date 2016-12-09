@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IFilter.h"
+#include "CoreMinimal.h"
 
-class FLevelEditorViewportClient;
+class AActor;
+class ULayer;
+class ULevel;
+template< typename TItemType > class IFilter;
 
 namespace ELayersAction
 {

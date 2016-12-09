@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "BehaviorTree/BehaviorTree.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameplayTagContainer.h"
 #include "BehaviorTree/BTTaskNode.h"
 #include "BTTask_RunBehaviorDynamic.generated.h"
+
+class UBehaviorTree;
 
 /**
  * RunBehaviorDynamic task allows pushing subtrees on execution stack.

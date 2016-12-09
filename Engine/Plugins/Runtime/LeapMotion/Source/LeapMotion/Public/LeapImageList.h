@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
+#include "Leap_NoPI.h"
 #include "LeapImageList.generated.h"
 
 /**

@@ -7,7 +7,9 @@
 #ifndef _INC_EDITOR_COMMANDLETS
 #define _INC_EDITOR_COMMANDLETS
 
-#include "UObjectAnnotation.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+
 /**
  * Contains stats about a single resource in a package file.
  */

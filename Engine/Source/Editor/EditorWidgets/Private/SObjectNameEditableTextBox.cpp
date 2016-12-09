@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EditorWidgetsPrivatePCH.h"
+#include "SObjectNameEditableTextBox.h"
+#include "Rendering/DrawElements.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "EditorStyleSet.h"
+#include "GameFramework/Actor.h"
 #include "ScopedTransaction.h"
 
 const float SObjectNameEditableTextBox::HighlightRectLeftOffset = 0.0f;

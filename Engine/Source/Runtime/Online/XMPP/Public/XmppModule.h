@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
+#include "XmppConnection.h"
+#include "Modules/ModuleInterface.h"
+#include "XmppMultiUserChat.h"
+
+class Error;
 
 /**
  * Module for Xmpp connections

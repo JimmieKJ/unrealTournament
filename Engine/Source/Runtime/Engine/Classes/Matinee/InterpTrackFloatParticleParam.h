@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrackFloatBase.h"
 #include "InterpTrackFloatParticleParam.generated.h"
+
+class UInterpTrackInst;
 
 UCLASS(meta=( DisplayName = "Float Particle Param Track" ) )
 class UInterpTrackFloatParticleParam : public UInterpTrackFloatBase

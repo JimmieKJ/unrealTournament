@@ -19,14 +19,10 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include <math.h>
-#include <string.h>
-#include <new>
-#include "DetourProximityGrid.h"
-#include "DetourCommon.h"
-#include "DetourAlloc.h"
-#include "DetourAssert.h"
+#include "DetourCrowd/DetourProximityGrid.h"
+#include "Detour/DetourCommon.h"
+#include "Detour/DetourAlloc.h"
+#include "Detour/DetourAssert.h"
 
 
 dtProximityGrid* dtAllocProximityGrid()

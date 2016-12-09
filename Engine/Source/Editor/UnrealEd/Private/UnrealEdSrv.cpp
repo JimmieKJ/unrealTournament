@@ -1,7 +1,67 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "EngineDefines.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "UObject/UnrealType.h"
+#include "InputCoreTypes.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "GameFramework/Actor.h"
+#include "RawIndexBuffer.h"
+#include "Model.h"
+#include "CookOnTheSide/CookOnTheFlyServer.h"
+#include "Builders/CubeBuilder.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Engine/Brush.h"
+#include "AssetData.h"
+#include "Editor/EditorEngine.h"
+#include "ISourceControlModule.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Settings/EditorLoadingSavingSettings.h"
+#include "EditorFramework/AssetImportData.h"
+#include "Animation/SkeletalMeshActor.h"
+#include "Components/CapsuleComponent.h"
+#include "Components/SphereComponent.h"
+#include "Components/BoxComponent.h"
+#include "Components/PointLightComponent.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/BrushComponent.h"
+#include "PhysicsEngine/RadialForceComponent.h"
+#include "Engine/Polys.h"
+#include "Engine/Selection.h"
+#include "Editor.h"
+#include "LevelEditorViewport.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "EditorDirectories.h"
+#include "FileHelpers.h"
+#include "UnrealEdGlobals.h"
+#include "UObject/UObjectIterator.h"
 #include "StaticMeshResources.h"
 #include "EditorSupportDelegates.h"
 #include "BusyCursor.h"
@@ -9,56 +69,44 @@
 #include "LevelUtils.h"
 #include "ObjectTools.h"
 #include "PackageTools.h"
-#include "MainFrame.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "EditorLevelUtils.h"
 #include "EditorBuildUtils.h"
 #include "ScriptDisassembler.h"
+#include "IAssetTools.h"
 #include "AssetToolsModule.h"
 #include "Editor/GeometryMode/Public/GeometryEdMode.h"
 #include "AssetRegistryModule.h"
-#include "ISourceControlModule.h"
+#include "Matinee/MatineeActor.h"
+#include "MatineeExporter.h"
 #include "FbxExporter.h"
 #include "DesktopPlatformModule.h"
 #include "SnappingUtils.h"
-#include "MessageLog.h"
 #include "AssetSelection.h"
 #include "HighResScreenshot.h"
 #include "ActorEditorUtils.h"
 #include "Editor/ActorPositioning.h"
 #include "Matinee/InterpData.h"
-#include "Animation/SkeletalMeshActor.h"
-#include "Landscape.h"
 #include "LandscapeInfo.h"
-#include "LandscapeLayerInfoObject.h"
-#include "LandscapeProxy.h"
-#include "LandscapeGizmoActiveActor.h"
-#include "LandscapeComponent.h"
-#include "LandscapeHeightfieldCollisionComponent.h"
-#include "ComponentReregisterContext.h"
-#include "Engine/DestructibleMesh.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
-#include "Engine/Polys.h"
-#include "Engine/Selection.h"
-#include "Components/BoxComponent.h"
-#include "Components/CapsuleComponent.h"
-#include "Components/PointLightComponent.h"
-#include "PhysicsEngine/RadialForceComponent.h"
-#include "Components/SphereComponent.h"
-#include "Engine/StaticMeshActor.h"
+#include "LandscapeInfoMap.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Logging/LogScopedCategoryAndVerbosityOverride.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
 #include "EngineUtils.h"
-#include "LevelEditor.h"
 #include "AutoReimport/AssetSourceFilenameCache.h"
-#include "ComponentEditorUtils.h"
-
+#if PLATFORM_WINDOWS
+	#include "WindowsHWrapper.h"
+#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnrealEdSrv, Log, All);
 
 #define LOCTEXT_NAMESPACE "UnrealEdSrv"
 
 //@hack: this needs to be cleaned up!
-static TCHAR TempStr[MAX_EDCMD], TempName[MAX_EDCMD], Temp[MAX_EDCMD];
-static uint16 Word1, Word4;
+static TCHAR TempStr[MAX_EDCMD];
+static uint16 Word1;
 
 
 /**
@@ -243,9 +291,9 @@ UPackage* UUnrealEdEngine::GeneratePackageThumbnailsIfRequired( const TCHAR* Str
 			Packages.Add( Pkg );
 
 			// Allocate a new thumbnail map if we need one
-			if( !Pkg->ThumbnailMap.IsValid() )
+			if( !Pkg->ThumbnailMap )
 			{
-				Pkg->ThumbnailMap.Reset( new FThumbnailMap() );
+				Pkg->ThumbnailMap = MakeUnique<FThumbnailMap>();
 			}
 
 			// OK, now query all of the browsable objects in the package we're about to save
@@ -515,7 +563,7 @@ bool UUnrealEdEngine::HandleRecreateLandscapeCollisionCommand(const TCHAR* Str, 
 {
 	if (!PlayWorld && InWorld && InWorld->GetWorldSettings())
 	{
-		for (auto It = GetLandscapeInfoMap(InWorld).Map.CreateIterator(); It; ++It)
+		for (auto It = ULandscapeInfoMap::GetLandscapeInfoMap(InWorld).Map.CreateIterator(); It; ++It)
 		{
 			ULandscapeInfo* Info = It.Value();
 			Info->RecreateCollisionComponents();
@@ -528,7 +576,7 @@ bool UUnrealEdEngine::HandleRemoveLandscapeXYOffsetsCommand(const TCHAR* Str, FO
 {
 	if (!PlayWorld && InWorld && InWorld->GetWorldSettings())
 	{
-		for (auto It = GetLandscapeInfoMap(InWorld).Map.CreateIterator(); It; ++It)
+		for (auto It = ULandscapeInfoMap::GetLandscapeInfoMap(InWorld).Map.CreateIterator(); It; ++It)
 		{
 			ULandscapeInfo* Info = It.Value();
 			Info->RemoveXYOffsets();
@@ -1741,9 +1789,9 @@ TArray<FPoly*> GetSelectedPolygons()
 		{
 			// If its a static mesh component, with a static mesh
 			UStaticMeshComponent* SMComp = StaticMeshComponents[j];
-			if(SMComp->IsRegistered() && SMComp->StaticMesh)
+			if(SMComp->IsRegistered() && SMComp->GetStaticMesh())
 			{
-				UStaticMesh* StaticMesh = SMComp->StaticMesh;
+				UStaticMesh* StaticMesh = SMComp->GetStaticMesh();
 				if ( StaticMesh )
 				{
 					int32 NumLods = StaticMesh->GetNumLODs();

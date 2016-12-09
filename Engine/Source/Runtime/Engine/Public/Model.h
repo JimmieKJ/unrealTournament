@@ -6,20 +6,31 @@
 
 #pragma once
 
-#include "ObjectBase.h"
-#include "LocalVertexFactory.h"
-#include "SceneTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Engine/EngineTypes.h"
+#include "RenderCommandFence.h"
+#include "Templates/ScopedPointer.h"
+#include "RenderResource.h"
+#include "PackedNormal.h"
+#include "Containers/DynamicRHIResourceArray.h"
 #include "RawIndexBuffer.h"
+#include "LocalVertexFactory.h"
+#include "UniquePtr.h"
 
-struct FLightmassPrimitiveSettings;
-struct FStaticLightingVertex;
+class AActor;
 class ABrush;
+class FMeshMapBuildData;
 class ULevel;
 class ULightComponent;
 class UMaterialInterface;
-class FRawIndexBuffer16or32;
 class UModel;
+class UModelComponent;
 class UPolys;
+struct FStaticLightingVertex;
 
 //
 // One vertex associated with a Bsp node's polygon.  Contains a vertex index
@@ -371,7 +382,7 @@ class UModel : public UObject
 	TArray<FLightmassPrimitiveSettings>	LightmassSettings;
 
 	/** An index buffer for each material used by the model, containing all the nodes with that material applied. */
-	TMap<UMaterialInterface*,TScopedPointer<FRawIndexBuffer16or32> > MaterialIndexBuffers;
+	TMap<UMaterialInterface*,TUniquePtr<FRawIndexBuffer16or32> > MaterialIndexBuffers;
 
 	/** A vertex buffer containing the vertices for all nodes in the UModel. */
 	FModelVertexBuffer VertexBuffer;
@@ -408,7 +419,7 @@ class UModel : public UObject
 	int32 NumIncompleteNodeGroups;
 
 	/** The level used to generate NodeGroups */
-	const ULevel* LightingLevel;
+	ULevel* LightingLevel;
 
 	/** Cached transform of the owner brush when the geometry was last built */
 	FVector OwnerLocationWhenLastBuilt;
@@ -468,7 +479,7 @@ public:
 	/**
 	* @return		Sum of the size of textures referenced by this material.
 	*/
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 
 	// UModel interface.
 	ENGINE_API void EmptyModel( int32 EmptySurfInfo, int32 EmptyPolys );
@@ -538,12 +549,12 @@ public:
 	 * @param Level The level for this model
 	 * @param Lights The possible lights that will be cached in the NodeGroups
 	 */
-	ENGINE_API void GroupAllNodes(const ULevel* Level, const TArray<class ULightComponentBase*>& Lights);
+	ENGINE_API void GroupAllNodes(ULevel* Level, const TArray<class ULightComponentBase*>& Lights);
 
 	/**
 	 * Applies all of the finished lighting cached in the NodeGroups 
 	 */
-	void ApplyStaticLighting();
+	void ApplyStaticLighting(ULevel* LightingScenario);
 
 	/**
 	 * Apply world origin changes
@@ -553,14 +564,12 @@ public:
 	/** Release CPU access version of vertex buffer */
 	void ReleaseVertices();
 
-#if WITH_EDITOR
 	/**
 	* Clears local (non RHI) data associated with MaterialIndexBuffers
 	*/
 	ENGINE_API void ClearLocalMaterialIndexBuffersData();
 
 	void CalculateUniqueVertCount();
-#endif
 
 	friend class UWorld;
 	friend class UBrushComponent;
@@ -588,13 +597,10 @@ public:
 	/** The nodes in the element. */
 	TArray<uint16> Nodes;
 
-	/** The light-map for this element. */
-	FLightMapRef LightMap;
+	FMeshMapBuildData* LegacyMapBuildData;
 
-	FShadowMapRef ShadowMap;
-
-	/** The statically irrelevant lights for this element. */
-	TArray<FGuid> IrrelevantLights;
+	/** Uniquely identifies this component's built map data. */
+	FGuid MapBuildDataId;
 
 	/** A pointer to the index buffer holding this element's indices. */
 	FIndexBuffer* IndexBuffer;
@@ -620,6 +626,8 @@ public:
 	ENGINE_API FModelElement(UModelComponent* InComponent,UMaterialInterface* InMaterial);
 	ENGINE_API FModelElement();
 	ENGINE_API virtual ~FModelElement();
+
+	ENGINE_API const FMeshMapBuildData* GetMeshMapBuildData() const;
 
 	/**
 	 * Serializer.

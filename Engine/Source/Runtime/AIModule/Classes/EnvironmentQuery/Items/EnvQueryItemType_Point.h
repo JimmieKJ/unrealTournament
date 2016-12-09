@@ -2,21 +2,25 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "AI/Navigation/NavigationTypes.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
 #include "EnvQueryItemType_Point.generated.h"
 
-struct FEnvQueryContextData;
-
 UCLASS()
 class AIMODULE_API UEnvQueryItemType_Point : public UEnvQueryItemType_VectorBase
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
+public:
+	typedef const FNavLocation FValueType;
 
-	static FVector GetValue(const uint8* RawData);
-	static void SetValue(uint8* RawData, const FVector& Value);
-	static FNavLocation GetNavValue(const uint8* RawData);
-	static void SetNavValue(uint8* RawData, const FNavLocation& Value);
+	UEnvQueryItemType_Point(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	static FNavLocation GetValue(const uint8* RawData);
+	static void SetValue(uint8* RawData, const FNavLocation& Value);
 
 	static void SetContextHelper(FEnvQueryContextData& ContextData, const FVector& SinglePoint);
 	static void SetContextHelper(FEnvQueryContextData& ContextData, const TArray<FVector>& MultiplePoints);
@@ -30,4 +34,4 @@ class AIMODULE_API UEnvQueryItemType_Point : public UEnvQueryItemType_VectorBase
 
 // a specialization to support saving locations with navigation data already gathered
 template<>
-AIMODULE_API void FEnvQueryInstance::AddItemData<UEnvQueryItemType_Point, FNavLocation>(FNavLocation ItemValue);
+AIMODULE_API void FEnvQueryInstance::AddItemData<UEnvQueryItemType_Point, FVector>(FVector ItemValue);

@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneSlomoSection.h"
+#include "Sections/MovieSceneSlomoSection.h"
 
 
 /* UMovieSceneSlomoSection structors
@@ -12,4 +11,6 @@ UMovieSceneSlomoSection::UMovieSceneSlomoSection()
 {
 	SetIsInfinite(true);
 	GetFloatCurve().SetDefaultValue(1.0f);
+
+	EvalOptions.EnableAndSetCompletionMode(EMovieSceneCompletionMode::RestoreState);
 }

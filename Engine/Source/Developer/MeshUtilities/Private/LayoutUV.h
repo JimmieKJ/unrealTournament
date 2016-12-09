@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Allocator2D.h"
+#include "CoreMinimal.h"
+#include "RawMesh.h"
+#include "Developer/MeshUtilities/Private/Allocator2D.h"
 
 struct FMeshChart
 {

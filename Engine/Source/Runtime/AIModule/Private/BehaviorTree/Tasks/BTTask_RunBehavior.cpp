@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
+#include "VisualLogger/VisualLogger.h"
+#include "AIController.h"
 
 UBTTask_RunBehavior::UBTTask_RunBehavior(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

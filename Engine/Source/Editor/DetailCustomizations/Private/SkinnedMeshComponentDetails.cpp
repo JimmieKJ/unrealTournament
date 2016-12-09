@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "SkinnedMeshComponentDetails.h"
-#include "../../../Runtime/Engine/Classes/PhysicsEngine/PhysicsAsset.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "GameFramework/Actor.h"
+#include "Components/SkinnedMeshComponent.h"
+#include "Editor.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "IDetailsView.h"
+#include "PhysicsEngine/PhysicsAsset.h"
 #include "PropertyCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "SkinnedMeshComponentDetails"

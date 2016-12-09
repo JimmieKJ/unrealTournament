@@ -1,28 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "SPropertyEditorTableRow.h"
-
-#include "PropertyNode.h"
-#include "PropertyEditorConstants.h"
-#include "PropertyTreeConstants.h"
-#include "IPropertyUtilities.h"
-#include "PropertyEditor.h" 
+#include "UserInterface/PropertyEditor/SPropertyEditorTableRow.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SListView.h"
+#include "UserInterface/PropertyEditor/PropertyEditorConstants.h"
 #include "PropertyEditorHelpers.h"
-#include "PropertyPath.h"
 
-#include "SPropertyEditor.h"
-#include "SPropertyEditorTitle.h"
-#include "SResetToDefaultPropertyEditor.h"
-#include "SPropertyEditorNumeric.h"
-#include "SPropertyEditorArray.h"
-#include "SPropertyEditorCombo.h"
-#include "SPropertyEditorEditInline.h"
-#include "SPropertyEditorText.h"
-#include "SPropertyEditorBool.h"
-#include "SPropertyEditorColor.h"
-#include "SPropertyEditorArrayItem.h"
-#include "SPropertyEditorDateTime.h"
+#include "UserInterface/PropertyTree/PropertyTreeConstants.h"
+
+#include "UserInterface/PropertyEditor/SPropertyEditor.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorNumeric.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorArray.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorCombo.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorEditInline.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorText.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorBool.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorColor.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorArrayItem.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorDateTime.h"
 
 
 void SPropertyEditorTableRow::Construct( const FArguments& InArgs, const TSharedRef<FPropertyEditor>& InPropertyEditor, const TSharedRef< class IPropertyUtilities >& InPropertyUtilities, const TSharedRef<STableViewBase>& InOwnerTable )

@@ -9,7 +9,10 @@
 //=============================================================================
 
 #pragma once
-#include "Engine/EngineTypes.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Interface.h"
 #include "ImportantToggleSettingInterface.generated.h"
 
 UINTERFACE(MinimalAPI, meta=(CannotImplementInterfaceInBlueprint))

@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SessionFrontendPrivatePCH.h"
-#include "SSuggestionTextBox.h"
+#include "Widgets/Console/SSessionConsoleCommandBar.h"
+#include "Widgets/SBoxPanel.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SSuggestionTextBox.h"
 
 
 #define LOCTEXT_NAMESPACE "SSessionConsoleCommandBar"

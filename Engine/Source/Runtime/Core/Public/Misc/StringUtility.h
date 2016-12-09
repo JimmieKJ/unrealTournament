@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "Char.h"
-#include "CString.h"
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
 
 namespace StringUtility
 {

@@ -2,9 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformTLS.h"
-#include "HAL/Platform.h"
-#include "Windows/WindowsSystemIncludes.h"
+#include "WindowsSystemIncludes.h"
 
 
 /**
@@ -20,7 +20,7 @@ struct CORE_API FWindowsPlatformTLS
 	 */
 	static FORCEINLINE uint32 GetCurrentThreadId(void)
 	{
-		return ::GetCurrentThreadId();
+		return Windows::GetCurrentThreadId();
 	}
 
 	/**
@@ -30,8 +30,7 @@ struct CORE_API FWindowsPlatformTLS
 	 */
 	static FORCEINLINE uint32 AllocTlsSlot(void)
 	{
-		static_assert(static_cast<uint32>(INDEX_NONE) == TLS_OUT_OF_INDEXES, "TLS_OUT_OF_INDEXES is different from INDEX_NONE, change FWindowsPlatformTLS::AllocTlsSlot() implementation.");
-		return ::TlsAlloc();
+		return Windows::TlsAlloc();
 	}
 
 	/**
@@ -42,7 +41,7 @@ struct CORE_API FWindowsPlatformTLS
 	 */
 	static FORCEINLINE void SetTlsValue(uint32 SlotIndex,void* Value)
 	{
-		::TlsSetValue(SlotIndex,Value);
+		Windows::TlsSetValue(SlotIndex,Value);
 	}
 
 	/**
@@ -53,7 +52,7 @@ struct CORE_API FWindowsPlatformTLS
 	 */
 	static FORCEINLINE void* GetTlsValue(uint32 SlotIndex)
 	{
-		return ::TlsGetValue(SlotIndex);
+		return Windows::TlsGetValue(SlotIndex);
 	}
 
 	/**
@@ -63,7 +62,7 @@ struct CORE_API FWindowsPlatformTLS
 	 */
 	static FORCEINLINE void FreeTlsSlot(uint32 SlotIndex)
 	{
-		::TlsFree(SlotIndex);
+		Windows::TlsFree(SlotIndex);
 	}
 };
 

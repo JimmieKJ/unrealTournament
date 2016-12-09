@@ -5,8 +5,13 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/NavMovementComponent.h"
 #include "PawnMovementComponent.generated.h"
+
+class APawn;
 
 /** 
  * PawnMovementComponent can be used to update movement for an associated Pawn.

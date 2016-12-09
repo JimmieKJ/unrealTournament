@@ -22,8 +22,9 @@
 #ifndef DETOURNAVMESH_H
 #define DETOURNAVMESH_H
 
-#include "DetourAlloc.h"
-#include "DetourStatus.h"
+#include "CoreMinimal.h"
+#include "Detour/DetourAlloc.h"
+#include "Detour/DetourStatus.h"
 
 // Note: If you want to use 64-bit refs, change the types of both dtPolyRef & dtTileRef.
 // It is also recommended that you change dtHashRef() to a proper 64-bit hash.
@@ -750,6 +751,33 @@ public:
 	}
 
 	void applyAreaCostOrder(unsigned char* costOrder);
+	
+	/// Returns neighbour tile count based on side of given tile.
+	int getNeighbourTilesCountAt(const int x, const int y, const int side) const;
+
+	bool getNeighbourCoords(const int x, const int y, const int side, int& outX, int& outY) const
+	{
+		outX = x;
+		outY = y;
+		switch (side)
+		{
+		case 0: ++outX; break;
+		case 1: ++outX; ++outY; break;
+		case 2: ++outY; break;
+		case 3: --outX; ++outY; break;
+		case 4: --outX; break;
+		case 5: --outX; --outY; break;
+		case 6: --outY; break;
+		case 7: ++outX; --outY; break;
+		};
+		// @todo we might want to do some validation
+		return true;
+	}
+
+	unsigned int getTileIndex(const dtMeshTile* tile) const
+	{
+		return (unsigned int)(tile - m_tiles);
+	}
 	//@UE4 END
 	
 private:
@@ -764,10 +792,6 @@ private:
 	/// Returns neighbour tile based on side.
 	int getNeighbourTilesAt(const int x, const int y, const int side,
 							dtMeshTile** tiles, const int maxTiles) const;
-// @UE4 BEGIN
-	/// Returns neighbour tile based on side.
-	int getNeighbourTilesCountAt(const int x, const int y, const int side) const;
-// @UE4 END
 	
 	/// Returns all polygons in neighbour tile based on portal defined by the segment.
 	int findConnectingPolys(const float* va, const float* vb,

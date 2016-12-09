@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ISourceControlProvider.h"
+#include "Misc/IQueuedWork.h"
+
 /**
  * Used to execute Subversion commands multi-threaded.
  */

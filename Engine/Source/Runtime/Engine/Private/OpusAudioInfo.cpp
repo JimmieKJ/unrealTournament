@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "OpusAudioInfo.h"
-#include "IAudioFormat.h"
-#include "Sound/SoundWave.h"
+#include "ContentStreaming.h"
+#include "Interfaces/IAudioFormat.h"
 
 #define WITH_OPUS (PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX)
 
@@ -14,7 +13,6 @@
 
 #define USE_UE4_MEM_ALLOC 1
 #define OPUS_MAX_FRAME_SIZE_MS 120
-#define SAMPLE_SIZE			( ( uint32 )sizeof( short ) )
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // Followed pattern used in opus_multistream_encoder.c - this will allow us to setup //
@@ -97,46 +95,21 @@ private:
 /*------------------------------------------------------------------------------------
 FOpusAudioInfo.
 ------------------------------------------------------------------------------------*/
-FOpusAudioInfo::FOpusAudioInfo(void)
-	: OpusDecoderWrapper(NULL)
-	, SrcBufferData(NULL)
-	, SrcBufferDataSize(0)
-	, SrcBufferOffset(0)
-	, AudioDataOffset(0)
-	, SampleRate(0)
-	, TrueSampleCount(0)
-	, CurrentSampleCount(0)
-	, NumChannels(0)
-	, MaxFrameSizeSamples(0)
-	, SampleStride(0)
-	, LastPCMByteSize(0)
-	, LastPCMOffset(0)
-	, bStoringEndOfFile(false)
-	, StreamingSoundWave(NULL)
-	, CurrentChunkIndex(0)
+FOpusAudioInfo::FOpusAudioInfo()
+	: OpusDecoderWrapper(nullptr)
 {
 }
 
-FOpusAudioInfo::~FOpusAudioInfo(void)
+FOpusAudioInfo::~FOpusAudioInfo()
 {
-	if (OpusDecoderWrapper != NULL)
+	if (OpusDecoderWrapper != nullptr)
 	{
 		delete OpusDecoderWrapper;
+		OpusDecoderWrapper = nullptr;
 	}
 }
 
-size_t FOpusAudioInfo::Read(void *ptr, uint32 size)
-{
-	size_t BytesToRead = FMath::Min(size, SrcBufferDataSize - SrcBufferOffset);
-	if (BytesToRead > 0)
-	{
-		FMemory::Memcpy(ptr, SrcBufferData + SrcBufferOffset, BytesToRead);
-		SrcBufferOffset += BytesToRead;
-	}
-	return(BytesToRead);
-}
-
-bool FOpusAudioInfo::ReadCompressedInfo(const uint8* InSrcBufferData, uint32 InSrcBufferDataSize, struct FSoundQualityInfo* QualityInfo)
+bool FOpusAudioInfo::ParseHeader(const uint8* InSrcBufferData, uint32 InSrcBufferDataSize, struct FSoundQualityInfo* QualityInfo)
 {
 	SrcBufferData = InSrcBufferData;
 	SrcBufferDataSize = InSrcBufferDataSize;
@@ -144,7 +117,7 @@ bool FOpusAudioInfo::ReadCompressedInfo(const uint8* InSrcBufferData, uint32 InS
 	CurrentSampleCount = 0;
 
 	// Read Identifier, True Sample Count, Number of channels and Frames to Encode first
-	if (FCStringAnsi::Strcmp((char*)InSrcBufferData, OPUS_ID_STRING) != 0)
+	if (!SrcBufferData || FCStringAnsi::Strcmp((char*)SrcBufferData, OPUS_ID_STRING) != 0)
 	{
 		return false;
 	}
@@ -152,306 +125,59 @@ bool FOpusAudioInfo::ReadCompressedInfo(const uint8* InSrcBufferData, uint32 InS
 	{
 		SrcBufferOffset += FCStringAnsi::Strlen(OPUS_ID_STRING) + 1;
 	}
+
 	Read(&SampleRate, sizeof(uint16));
 	Read(&TrueSampleCount, sizeof(uint32));
 	Read(&NumChannels, sizeof(uint8));
+
 	uint16 SerializedFrames = 0;
 	Read(&SerializedFrames, sizeof(uint16));
+
+	// Store the offset to where the audio data begins
 	AudioDataOffset = SrcBufferOffset;
-	SampleStride = SAMPLE_SIZE * NumChannels;
 
-	check(OpusDecoderWrapper == NULL);
-	OpusDecoderWrapper = new FOpusDecoderWrapper(SampleRate, NumChannels);
-	if (!OpusDecoderWrapper->WasInitialisedSuccessfully())
-	{
-		delete OpusDecoderWrapper;
-		OpusDecoderWrapper = NULL;
-		return false;
-	}
-
-	MaxFrameSizeSamples = (SampleRate * OPUS_MAX_FRAME_SIZE_MS) / 1000;
-
-	LastDecodedPCM.Empty(MaxFrameSizeSamples * SampleStride);
-	LastDecodedPCM.AddUninitialized(MaxFrameSizeSamples * SampleStride);
-
+	// Write out the the header info
 	if (QualityInfo)
 	{
 		QualityInfo->SampleRate = SampleRate;
 		QualityInfo->NumChannels = NumChannels;
-		QualityInfo->SampleDataSize = TrueSampleCount * QualityInfo->NumChannels * SAMPLE_SIZE;
+		QualityInfo->SampleDataSize = TrueSampleCount * QualityInfo->NumChannels * sizeof(int16);
 		QualityInfo->Duration = (float)TrueSampleCount / QualityInfo->SampleRate;
 	}
 
 	return true;
 }
 
-bool FOpusAudioInfo::ReadCompressedData(uint8* Destination, bool bLooping, uint32 BufferSize /*= 0*/)
+bool FOpusAudioInfo::CreateDecoder()
 {
-	check(OpusDecoderWrapper);
-	check(Destination);
-
-	SCOPE_CYCLE_COUNTER(STAT_OpusDecompressTime);
-
-	// Write out any PCM data that was decoded during the last request
-	uint32 RawPCMOffset = WriteFromDecodedPCM(Destination, BufferSize);
-
-	bool bLooped = false;
-
-	if (bStoringEndOfFile && LastPCMByteSize > 0)
+	check(OpusDecoderWrapper == nullptr);
+	OpusDecoderWrapper = new FOpusDecoderWrapper(SampleRate, NumChannels);
+	if (!OpusDecoderWrapper->WasInitialisedSuccessfully())
 	{
-		// delayed returning looped because we hadn't read the entire buffer
-		bLooped = true;
-		bStoringEndOfFile = false;
+		delete OpusDecoderWrapper;
+		OpusDecoderWrapper = nullptr;
+		return false;
 	}
 
-	while (RawPCMOffset < BufferSize)
-	{
-		uint16 FrameSize = 0;
-		Read(&FrameSize, sizeof(uint16));
-		int32 DecodedSamples = DecompressToPCMBuffer(FrameSize);
-		if (DecodedSamples < 0)
-		{
-			LastPCMByteSize = 0;
-			ZeroBuffer(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
-			return false;
-		}
-		else
-		{
-			LastPCMByteSize = IncrementCurrentSampleCount(DecodedSamples) * SampleStride;
-			RawPCMOffset += WriteFromDecodedPCM(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
-
-			if (SrcBufferOffset >= SrcBufferDataSize)
-			{
-				// check whether all decoded PCM was written
-				if (LastPCMByteSize == 0)
-				{
-					bLooped = true;
-				}
-				else
-				{
-					bStoringEndOfFile = true;
-				}
-				if (bLooping)
-				{
-					SrcBufferOffset = AudioDataOffset;
-					CurrentSampleCount = 0;
-				}
-				else
-				{
-					RawPCMOffset += ZeroBuffer(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
-				}
-			}
-		}
-	}
-
-	return bLooped;
+	return true;
 }
 
-void FOpusAudioInfo::ExpandFile(uint8* DstBuffer, struct FSoundQualityInfo* QualityInfo)
+uint32 FOpusAudioInfo::GetFrameSize()
 {
-	check(OpusDecoderWrapper);
-	check(DstBuffer);
-	check(QualityInfo);
-	check(QualityInfo->SampleDataSize <= SrcBufferDataSize);
-
-	// Ensure we're at the start of the audio data
-	SrcBufferOffset = AudioDataOffset;
-
-	uint32 RawPCMOffset = 0;
-
-	while (RawPCMOffset < QualityInfo->SampleDataSize)
-	{
-		uint16 FrameSize = 0;
-		Read(&FrameSize, sizeof(uint16));
-		int32 DecodedSamples = DecompressToPCMBuffer(FrameSize);
-
-		if (DecodedSamples < 0)
-		{
-			RawPCMOffset += ZeroBuffer(DstBuffer + RawPCMOffset, QualityInfo->SampleDataSize - RawPCMOffset);
-		}
-		else
-		{
-			LastPCMByteSize = IncrementCurrentSampleCount(DecodedSamples) * SampleStride;
-			RawPCMOffset += WriteFromDecodedPCM(DstBuffer + RawPCMOffset, QualityInfo->SampleDataSize - RawPCMOffset);
-		}
-	}
+	// Opus format has variable frame size at the head of each frame...
+	// We have to assume that the SrcBufferOffset is at the correct location for the read
+	uint16 FrameSize = 0;
+	Read(&FrameSize, sizeof(uint16));
+	return (uint32)FrameSize;
 }
 
-bool FOpusAudioInfo::StreamCompressedInfo(USoundWave* Wave, struct FSoundQualityInfo* QualityInfo)
+uint32 FOpusAudioInfo::GetMaxFrameSizeSamples() const
 {
-	StreamingSoundWave = Wave;
-
-	// Get the first chunk of audio data (should always be loaded)
-	CurrentChunkIndex = 0;
-	const uint8* FirstChunk = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, CurrentChunkIndex);
-
-	if (FirstChunk)
-	{
-		return ReadCompressedInfo(FirstChunk, Wave->RunningPlatformData->Chunks[0].DataSize, QualityInfo);
-	}
-
-	return false;
+	return SampleRate * OPUS_MAX_FRAME_SIZE_MS / 1000;
 }
 
-bool FOpusAudioInfo::StreamCompressedData(uint8* Destination, bool bLooping, uint32 BufferSize)
+int32 FOpusAudioInfo::Decode(const uint8* FrameData, uint16 FrameSize, int16* OutPCMData, int32 SampleSize)
 {
-	check(OpusDecoderWrapper);
-	check(Destination);
-
-	SCOPE_CYCLE_COUNTER(STAT_OpusDecompressTime);
-
-	UE_LOG(LogAudio, Log, TEXT("Streaming compressed data from SoundWave'%s' - Chunk %d, Offset %d"), *StreamingSoundWave->GetName(), CurrentChunkIndex, SrcBufferOffset);
-
-	// Write out any PCM data that was decoded during the last request
-	uint32 RawPCMOffset = WriteFromDecodedPCM(Destination, BufferSize);
-
-	// If next chunk wasn't loaded when last one finished reading, try to get it again now
-	if (SrcBufferData == NULL)
-	{
-		SrcBufferData = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, CurrentChunkIndex);
-		if (SrcBufferData)
-		{
-			SrcBufferDataSize = StreamingSoundWave->RunningPlatformData->Chunks[CurrentChunkIndex].DataSize;
-			SrcBufferOffset = CurrentChunkIndex == 0 ? AudioDataOffset : 0;
-		}
-		else
-		{
-			// Still not loaded, zero remainder of current buffer
-			UE_LOG(LogAudio, Warning, TEXT("Unable to read from chunk %d of SoundWave'%s'"), CurrentChunkIndex, *StreamingSoundWave->GetName());
-			ZeroBuffer(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
-			return false;
-		}
-	}
-
-	bool bLooped = false;
-
-	if (bStoringEndOfFile && LastPCMByteSize > 0)
-	{
-		// delayed returning looped because we hadn't read the entire buffer
-		bLooped = true;
-		bStoringEndOfFile = false;
-	}
-
-	while (RawPCMOffset < BufferSize)
-	{
-		uint16 FrameSize = 0;
-		Read(&FrameSize, sizeof(uint16));
-		int32 DecodedSamples = DecompressToPCMBuffer(FrameSize);
-
-		if (DecodedSamples < 0)
-		{
-			LastPCMByteSize = 0;
-			ZeroBuffer(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
-			return false;
-		}
-		else
-		{
-			LastPCMByteSize = IncrementCurrentSampleCount(DecodedSamples) * SampleStride;
-
-			RawPCMOffset += WriteFromDecodedPCM(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
-
-			// Have we reached the end of buffer
-			if (SrcBufferOffset >= SrcBufferDataSize)
-			{
-				// Special case for the last chunk of audio
-				if (CurrentChunkIndex == StreamingSoundWave->RunningPlatformData->NumChunks - 1)
-				{
-					// check whether all decoded PCM was written
-					if (LastPCMByteSize == 0)
-					{
-						bLooped = true;
-					}
-					else
-					{
-						bStoringEndOfFile = true;
-					}
-					if (bLooping)
-					{
-						CurrentChunkIndex = 0;
-						SrcBufferOffset = AudioDataOffset;
-						CurrentSampleCount = 0;
-					}
-					else
-					{
-						RawPCMOffset += ZeroBuffer(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
-					}
-				}
-				else
-				{
-					CurrentChunkIndex++;
-					SrcBufferOffset = 0;
-				}
-
-				SrcBufferData = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, CurrentChunkIndex);
-				if (SrcBufferData)
-				{
-					UE_LOG(LogAudio, Log, TEXT("Incremented current chunk from SoundWave'%s' - Chunk %d, Offset %d"), *StreamingSoundWave->GetName(), CurrentChunkIndex, SrcBufferOffset);
-					SrcBufferDataSize = StreamingSoundWave->RunningPlatformData->Chunks[CurrentChunkIndex].DataSize;
-				}
-				else
-				{
-					SrcBufferDataSize = 0;
-					RawPCMOffset += ZeroBuffer(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
-				}
-			}
-		}
-	}
-
-	return bLooped;
+	return OpusDecoderWrapper->Decode(FrameData, FrameSize, OutPCMData, SampleSize);
 }
 
-int32 FOpusAudioInfo::DecompressToPCMBuffer(uint16 FrameSize)
-{
-	if (SrcBufferOffset + FrameSize > SrcBufferDataSize)
-	{
-		// if frame size is too large, something has gone wrong
-		return -1;
-	}
-
-	const uint8* SrcPtr = SrcBufferData + SrcBufferOffset;
-	SrcBufferOffset += FrameSize;
-	LastPCMOffset = 0;
-	return OpusDecoderWrapper->Decode(SrcPtr, FrameSize, (int16*)LastDecodedPCM.GetData(), MaxFrameSizeSamples);
-}
-
-uint32 FOpusAudioInfo::IncrementCurrentSampleCount(uint32 NewSamples)
-{
-	if (CurrentSampleCount + NewSamples > TrueSampleCount)
-	{
-		NewSamples = TrueSampleCount - CurrentSampleCount;
-		CurrentSampleCount = TrueSampleCount;
-	}
-	else
-	{
-		CurrentSampleCount += NewSamples;
-	}
-	return NewSamples;
-}
-
-uint32 FOpusAudioInfo::WriteFromDecodedPCM(uint8* Destination, uint32 BufferSize)
-{
-	uint32 BytesToCopy = FMath::Min(BufferSize, LastPCMByteSize - LastPCMOffset);
-	if (BytesToCopy > 0)
-	{
-		FMemory::Memcpy(Destination, LastDecodedPCM.GetData() + LastPCMOffset, BytesToCopy);
-		LastPCMOffset += BytesToCopy;
-		if (LastPCMOffset >= LastPCMByteSize)
-		{
-			LastPCMOffset = 0;
-			LastPCMByteSize = 0;
-		}
-	}
-	return BytesToCopy;
-}
-
-uint32	FOpusAudioInfo::ZeroBuffer(uint8* Destination, uint32 BufferSize)
-{
-	check(Destination);
-
-	if (BufferSize > 0)
-	{
-		FMemory::Memzero(Destination, BufferSize);
-		return BufferSize;
-	}
-	return 0;
-}

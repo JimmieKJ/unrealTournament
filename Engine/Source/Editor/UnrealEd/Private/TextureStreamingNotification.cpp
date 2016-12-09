@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "Editor.h"
 #include "GlobalEditorNotification.h"
 #include "ContentStreaming.h"
-#include "SNotificationList.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 /** Notification class for texture streaming. */
 class FTextureStreamingNotificationImpl : public FGlobalEditorNotification

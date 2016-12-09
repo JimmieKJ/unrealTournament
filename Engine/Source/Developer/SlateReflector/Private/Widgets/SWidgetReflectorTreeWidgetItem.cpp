@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateReflectorPrivatePCH.h"
-#include "SWidgetReflectorTreeWidgetItem.h"
-#include "SHyperlink.h"
+#include "Widgets/SWidgetReflectorTreeWidgetItem.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "Widgets/Input/SHyperlink.h"
 
 
 /* SMultiColumnTableRow overrides

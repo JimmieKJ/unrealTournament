@@ -2,8 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Textures/SlateIcon.h"
 #include "K2Node.h"
 #include "K2Node_ExecutionSequence.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UEdGraphPin;
 
 UCLASS(MinimalAPI)
 class UK2Node_ExecutionSequence : public UK2Node

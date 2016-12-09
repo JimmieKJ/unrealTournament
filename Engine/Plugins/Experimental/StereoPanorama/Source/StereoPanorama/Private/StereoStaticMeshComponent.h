@@ -2,14 +2,13 @@
 
 #pragma once
 
-#include "CoreUObject.h"
-#include "Engine.h"
+#include "CoreMinimal.h"
 #include "Components/StaticMeshComponent.h"
 #include "StereoStaticMeshComponent.generated.h"
 
 
 UENUM(BlueprintType)
-enum class ESPStereoCameraLayer
+enum class ESPStereoCameraLayer : uint8
 {
     LeftEye,
     RightEye,
@@ -29,7 +28,7 @@ class UStereoStaticMeshComponent
 public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sprite)
-    TEnumAsByte<ESPStereoCameraLayer> EyeToRender;
+    ESPStereoCameraLayer EyeToRender;
 
     virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	

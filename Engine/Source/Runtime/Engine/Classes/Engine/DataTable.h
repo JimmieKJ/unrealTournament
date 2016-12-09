@@ -2,15 +2,27 @@
 
 #pragma once
 
-#include "DataTableUtils.h" // Needed here for LogDataTable and EDataTableExportFlags
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
+#include "UObject/PropertyPortFlags.h"
+#include "DataTableUtils.h"
 #include "DataTable.generated.h"
 
+class Error;
+class UDataTable;
+template <class CharType> struct TPrettyJsonPrintPolicy;
 
 // forward declare JSON writer
 template <class CharType>
 struct TPrettyJsonPrintPolicy;
 template <class CharType, class PrintPolicy>
 class TJsonWriter;
+
+
+class UDataTable;
 
 
 /**
@@ -22,21 +34,24 @@ struct FTableRowBase
 	GENERATED_USTRUCT_BODY()
 
 	FTableRowBase() { }
+	virtual ~FTableRowBase() { }
 
 	/** 
 	 * Can be overridden by subclasses; Called whenever the owning data table is imported or re-imported.
 	 * Allows for custom fix-ups, parsing, etc. after initial data is read in.
 	 * 
-	 * @param OutCollectedImportProblems	[OUT] List of problems accumulated during import; Can be added to via this method
+	 * @param InDataTable					The data table that owns this row
+	 * @param InRowName						The name of the row we're performing fix-up on
+	 * @param OutCollectedImportProblems	List of problems accumulated during import; Can be added to via this method
 	 */
-	virtual void OnPostDataImport(OUT TArray<FString>& OutCollectedImportProblems) {}
+	virtual void OnPostDataImport(const UDataTable* InDataTable, const FName InRowName, TArray<FString>& OutCollectedImportProblems) {}
 };
 
 
 /**
  * Imported spreadsheet table.
  */
-UCLASS(MinimalAPI)
+UCLASS(MinimalAPI, BlueprintType)
 class UDataTable
 	: public UObject
 {
@@ -53,7 +68,8 @@ class UDataTable
 	ENGINE_API virtual void FinishDestroy() override;
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	ENGINE_API virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	ENGINE_API virtual void GetPreloadDependencies(TArray<UObject*>& OutDeps) override;
+	ENGINE_API virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 #if WITH_EDITORONLY_DATA
 	ENGINE_API FName GetRowStructName() const;
 	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
@@ -124,7 +140,7 @@ class UDataTable
 		{
 			if (bWarnIfRowMissing)
 			{
-				UE_LOG(LogDataTable, Warning, TEXT("UDataTable::FindRow : '%s' requested row '%s' not in DataTable '%s'."), *ContextString, *GetPathName(), *RowName.ToString());
+				UE_LOG(LogDataTable, Warning, TEXT("UDataTable::FindRow : '%s' requested row '%s' not in DataTable '%s'."), *ContextString, *RowName.ToString(), *GetPathName());
 			}
 			return nullptr;
 		}
@@ -295,6 +311,16 @@ struct ENGINE_API FDataTableRowHandle
 
 	bool operator==(FDataTableRowHandle const& Other) const;
 	bool operator!=(FDataTableRowHandle const& Other) const;
+	void PostSerialize(const FArchive& Ar);
+};
+
+template<>
+struct TStructOpsTypeTraits< FDataTableRowHandle > : public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithPostSerialize = true,
+	};
 };
 
 /** Handle to a particular row in a table*/

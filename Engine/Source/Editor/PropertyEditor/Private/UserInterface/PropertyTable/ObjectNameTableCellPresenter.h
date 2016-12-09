@@ -1,9 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IPropertyTableCellPresenter.h"
+#include "CoreMinimal.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/SToolTip.h"
+#include "EditorStyleSet.h"
 #include "IPropertyTableCell.h"
-#include "PropertyTableConstants.h"
+#include "Widgets/Layout/SBox.h"
+#include "IPropertyTableCellPresenter.h"
+#include "UserInterface/PropertyTable/PropertyTableConstants.h"
+#include "Widgets/Input/SEditableTextBox.h"
 
 class FObjectNameTableCellPresenter : public TSharedFromThis< FObjectNameTableCellPresenter >, public IPropertyTableCellPresenter
 {

@@ -1,26 +1,45 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "Kismet/KismetStringLibrary.h"
-#include "Kismet/KismetSystemLibrary.h"
-#include "GraphEditor.h"
-#include "BlueprintUtilities.h"
-#include "AnimGraphDefinitions.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "SKismetInspector.h"
-#include "SKismetLinearExpression.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "EdGraph/EdGraphNode.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Blueprint.h"
+#include "EdGraph/EdGraph.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Components/ChildActorComponent.h"
+#include "Engine/SCS_Node.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "K2Node_EditablePinBase.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_FormatText.h"
+#include "K2Node_VariableGet.h"
+#include "K2Node_VariableSet.h"
+#include "IDetailCustomization.h"
+#include "Editor.h"
+#include "PropertyEditorModule.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditing.h"
+#include "IDetailsView.h"
 
-#include "SMyBlueprint.h"
+#include "EdGraph/EdGraphNode_Documentation.h"
 #include "BlueprintDetailsCustomization.h"
-#include "UserDefinedEnumEditor.h"
-#include "UserDefinedStructureEditor.h"
+#include "K2Node_BitmaskLiteral.h"
 #include "BitmaskLiteralDetails.h"
 #include "FormatTextDetails.h"
-#include "Engine/SCS_Node.h"
-#include "Components/ChildActorComponent.h"
 
 #define LOCTEXT_NAMESPACE "KismetInspector"
 
@@ -222,9 +241,10 @@ FText SKismetInspector::GetContextualEditingWidgetTitle() const
 			{
 				if (SCSNode->ComponentTemplate != NULL)
 				{
-					if (SCSNode->VariableName != NAME_None)
+					const FName VariableName = SCSNode->GetVariableName();
+					if (VariableName != NAME_None)
 					{
-						Title = FText::Format(LOCTEXT("TemplateForFmt", "Template for {0}"), FText::FromName(SCSNode->VariableName));
+						Title = FText::Format(LOCTEXT("TemplateForFmt", "Template for {0}"), FText::FromName(VariableName));
 					}
 					else 
 					{
@@ -248,7 +268,7 @@ FText SKismetInspector::GetContextualEditingWidgetTitle() const
 		}
 		else if (SelectedObjects.Num() > 1)
 		{
-			UClass* BaseClass = NULL;
+			UClass* BaseClass = nullptr;
 
 			for (auto ObjectWkPtrIt = SelectedObjects.CreateConstIterator(); ObjectWkPtrIt; ++ObjectWkPtrIt)
 			{
@@ -265,9 +285,10 @@ FText SKismetInspector::GetContextualEditingWidgetTitle() const
 					}
 
 					// Keep track of the class of objects selected
-					if (BaseClass == NULL)
+					if (BaseClass == nullptr)
 					{
 						BaseClass = ObjClass;
+						checkSlow(ObjClass);
 					}
 					while (!ObjClass->IsChildOf(BaseClass))
 					{
@@ -485,6 +506,12 @@ void SKismetInspector::UpdateFromObjects(const TArray<UObject*>& PropertyObjects
 		{
 			for (UObject* PropertyObject : PropertyObjects)
 			{
+				if (!PropertyObject->IsValidLowLevel())
+				{
+					ensureMsgf(false, TEXT("Object in KismetInspector is invalid, see TTP 281915"));
+					continue;
+				}
+
 				if (PropertyObject->IsA<UActorComponent>())
 				{
 					bEnableComponentCustomization = true;
@@ -507,6 +534,12 @@ void SKismetInspector::UpdateFromObjects(const TArray<UObject*>& PropertyObjects
 			{
 				if (PropertyObjects[i] != SelectedObjects[i].Get())
 				{
+					if (!PropertyObjects[i]->IsValidLowLevel())
+					{
+						ensureMsgf(false, TEXT("Object in KismetInspector is invalid, see TTP 281915"));
+						continue;
+					}
+
 					bEquivalentSets = false;
 					break;
 				}
@@ -671,11 +704,11 @@ bool SKismetInspector::IsPropertyVisible( const FPropertyAndParent& PropertyAndP
 	bool bEditOnTemplateDisabled = Property.HasAnyPropertyFlags(CPF_DisableEditOnTemplate);
 	if (bEditOnTemplateDisabled)
 	{
-		// Only hide properties if we are editing a CDO
+		// Only hide properties if we are editing a CDO/archetype
 		for (const TWeakObjectPtr<UObject>& SelectedObject : SelectedObjects)
 		{
 			UObject* Object = Cast<UObject>(SelectedObject.Get());
-			if (!Object->HasAllFlags(RF_ClassDefaultObject))
+			if (!Object->IsTemplate())
 			{
 				bEditOnTemplateDisabled = false;
 				break;

@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SlateBasics.h"
-#include "SlateStyle.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
 
+class ITableRow;
+class STableViewBase;
 class SWizard;
+enum class ECheckBoxState : uint8;
 
 namespace EProfileTarget
 {

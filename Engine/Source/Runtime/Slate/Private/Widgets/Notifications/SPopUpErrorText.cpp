@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Widgets/Notifications/SPopUpErrorText.h"
 
 
 void SPopupErrorText::Construct( const FArguments& InArgs )

@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SocketsPrivatePCH.h"
-#include "Sockets.h"
 #include "NetworkMessage.h"
-#include "MultichannelTCP.h"
+#include "SocketSubsystem.h"
+#include "Sockets.h"
+#include "MultichannelTcpSocket.h"
 
 bool FSimpleAbstractSocket_FSocket::Receive(uint8 *Results, int32 Size) const
 {

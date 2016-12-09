@@ -1,14 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "WorldBrowserPrivatePCH.h"
+#include "LevelModel.h"
+#include "GameFramework/Actor.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Engine/Brush.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/Selection.h"
+#include "Editor.h"
+#include "ScopedTransaction.h"
+#include "LevelUtils.h"
+#include "EditorLevelUtils.h"
+#include "ActorEditorUtils.h"
 
 #include "Engine/LevelScriptBlueprint.h"
 #include "Toolkits/AssetEditorManager.h"
-#include "LevelModel.h"
 #include "LevelCollectionModel.h"
-#include "Engine/Selection.h"
-#include "Engine/LevelStreaming.h"
 #include "AssetRegistryModule.h"
-#include "GameFramework/WorldSettings.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
@@ -146,6 +155,24 @@ bool FLevelModel::IsDirty() const
 	}
 	
 	return false;
+}
+
+bool FLevelModel::IsLightingScenario() const
+{
+	if (GetLevelObject())
+	{
+		return GetLevelObject()->bIsLightingScenario;
+	}
+	
+	return false;
+}
+
+void FLevelModel::SetIsLightingScenario(bool bNew)
+{
+	if (GetLevelObject())
+	{
+		GetLevelObject()->SetLightingScenario(bNew);
+	}
 }
 
 bool FLevelModel::IsLoaded() const

@@ -1,23 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "TextureEditorPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Engine/Texture.h"
+#include "Toolkits/AssetEditorToolkit.h"
+#include "Interfaces/ITextureEditorToolkit.h"
+#include "Interfaces/ITextureEditorModule.h"
+#include "PropertyEditorModule.h"
+#include "TextureEditorSettings.h"
+#include "TextureEditorToolkit.h"
 #include "ISettingsModule.h"
-#include "ModuleManager.h"
 #include "Customizations/TextureDetailsCustomization.h"
 
-#include "PropertyEditorModule.h"
-#include "DetailLayoutBuilder.h"
-#include "DetailCategoryBuilder.h"
-#include "DetailWidgetRow.h"
-#include "IDetailPropertyRow.h"
-#include "PropertyHandle.h"
-#include "SNumericEntryBox.h"
 
 #define LOCTEXT_NAMESPACE "FTextureEditorModule"
 
 
-const FName TextureEditorAppIdentifier = FName(TEXT("TextureEditorApp"));
+extern const FName TextureEditorAppIdentifier = FName(TEXT("TextureEditorApp"));
 
 
 /*-----------------------------------------------------------------------------

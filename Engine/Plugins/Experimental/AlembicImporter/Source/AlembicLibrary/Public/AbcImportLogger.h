@@ -2,8 +2,7 @@
 
 #pragma once
 
-#include "AlembicLibraryPublicPCH.h"
-
+#include "CoreMinimal.h"
 #include "Logging/TokenizedMessage.h"
 
 class FAbcImportLogger

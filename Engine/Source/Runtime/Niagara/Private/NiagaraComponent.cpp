@@ -1,16 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraPrivate.h"
 #include "NiagaraComponent.h"
-#include "NiagaraScript.h"
 #include "VectorVM.h"
-#include "ParticleHelper.h"
-#include "Particles/ParticleResources.h"
+#include "NiagaraModule.h"
 #include "NiagaraEffectRenderer.h"
 #include "NiagaraEffect.h"
-#include "NiagaraSimulation.h"
-#include "MeshBatch.h"
-#include "SceneUtils.h"
 #include "ComponentReregisterContext.h"
 
 DECLARE_CYCLE_STAT(TEXT("Gen Verts"),STAT_NiagaraGenerateVertices,STATGROUP_Niagara);
@@ -78,7 +72,6 @@ void FNiagaraSceneProxy::CreateRenderThreadResources()
 	}
 	return;
 }
-
 
 void FNiagaraSceneProxy::OnTransformChanged()
 {

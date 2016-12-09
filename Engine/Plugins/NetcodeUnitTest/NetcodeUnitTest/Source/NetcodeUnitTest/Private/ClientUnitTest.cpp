@@ -1,22 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
-
 #include "ClientUnitTest.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/Character.h"
+#include "HAL/PlatformNamedPipe.h"
+
 #include "UnitTestManager.h"
+#include "Net/DataChannel.h"
 #include "NUTActor.h"
 
 #include "Net/UnitTestNetDriver.h"
+#include "Net/NUTUtilNet.h"
 #include "Net/UnitTestNetConnection.h"
 #include "Net/UnitTestChannel.h"
 
-#include "NUTUtil.h"
 #include "UnitTestEnvironment.h"
-#include "Net/NUTUtilNet.h"
 #include "NUTUtilDebug.h"
 #include "NUTUtilReflection.h"
 
-#include "LogWindowManager.h"
 
 #include "OnlineBeaconClient.h"
 

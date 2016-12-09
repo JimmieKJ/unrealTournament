@@ -1,9 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "DesignerCommands.h"
-#include "SDesignerToolBar.h"
+#include "Designer/SDesignerToolBar.h"
+#include "Styling/SlateTypes.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+
+#if WITH_EDITOR
+	#include "EditorStyleSet.h"
+#endif // WITH_EDITOR
 #include "Settings/WidgetDesignerSettings.h"
+
+#include "Designer/DesignerCommands.h"
 #include "SViewportToolBarComboMenu.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
@@ -31,6 +40,10 @@ TSharedRef< SWidget > SDesignerToolBar::MakeToolBar(const TSharedPtr< FExtender 
 
 	// Transform controls cannot be focusable as it fights with the press space to change transform mode feature
 	ToolbarBuilder.SetIsFocusable( false );
+
+	ToolbarBuilder.BeginSection("View");
+	ToolbarBuilder.AddToolBarButton(FDesignerCommands::Get().ToggleOutlines, NAME_None, TAttribute<FText>(), TAttribute<FText>(), TAttribute<FSlateIcon>(), "ToggleOutlines");
+	ToolbarBuilder.EndSection();
 
 	ToolbarBuilder.BeginSection("Transform");
 	ToolbarBuilder.BeginBlockGroup();

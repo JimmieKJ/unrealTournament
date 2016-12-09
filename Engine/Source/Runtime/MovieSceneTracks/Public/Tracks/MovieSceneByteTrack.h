@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "MovieScene.h"
-#include "MovieSceneTrack.h"
-#include "MovieScenePropertyTrack.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Tracks/MovieScenePropertyTrack.h"
 #include "MovieSceneByteTrack.generated.h"
 
 /**
@@ -18,17 +18,7 @@ class MOVIESCENETRACKS_API UMovieSceneByteTrack : public UMovieScenePropertyTrac
 public:
 	/** UMovieSceneTrack interface */
 	virtual UMovieSceneSection* CreateNewSection() override;
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
-
-	/**
-	 * Evaluates the track at the playback position
-	 *
-	 * @param Position	The current playback position
-	 * @param LastPosition	The last plackback position
-	 * @param OutByte 	The value at the playback position
-	 * @return true if anything was evaluated. Note: if false is returned OutByte remains unchanged
-	 */
-	virtual bool Eval( float Position, float LastPostion, uint8& OutByte ) const;
+	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 
 	void SetEnum(UEnum* Enum);
 

@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "TranslationEditorPrivatePCH.h"
-#include "TranslationEditor.h"
-#include "GraphEditorActions.h"
-#include "Editor/PropertyEditor/Public/PropertyEditing.h"
-#include "PropertyCustomizationHelpers.h"
+#include "TranslationEditorMenu.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Settings/EditorExperimentalSettings.h"
 #include "TranslationPickerWidget.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "TranslationEditor.h"
 
 #define LOCTEXT_NAMESPACE "TranslationEditorToolbar"
 

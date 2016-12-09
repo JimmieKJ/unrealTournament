@@ -4,6 +4,9 @@
 
 /** This class represents an APEX Destructible Actor. */
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "DestructibleActor.generated.h"
 
 class UDestructibleComponent;

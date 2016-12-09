@@ -1,18 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OneSkyLocalizationServicePrivatePCH.h"
 #include "OneSkyLocalizationServiceOperations.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "Modules/ModuleManager.h"
+#include "LocalizationServiceOperations.h"
+#include "ILocalizationServiceState.h"
+#include "ILocalizationServiceModule.h"
 #include "OneSkyLocalizationServiceState.h"
-#include "OneSkyLocalizationServiceCommand.h"
-#include "OneSkyConnection.h"
+#include "OneSkyLocalizationServiceProvider.h"
 #include "OneSkyLocalizationServiceModule.h"
-#include "OneSkyLocalizationServiceRevision.h"
-#include "SecureHash.h"
-#include "Runtime/Online/HTTP/Public/Http.h"
-#include "JsonStructDeserializerBackend.h"
+#include "OneSkyLocalizationServiceCommand.h"
+#include "Misc/SecureHash.h"
+#include "Interfaces/IHttpResponse.h"
+#include "HttpModule.h"
+#include "PlatformHttp.h"
+#include "Backends/JsonStructDeserializerBackend.h"
 #include "StructDeserializer.h"
-#include "OneSkyLocalizationServiceResponseTypes.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "OneSkyLocalizationService"
 
@@ -833,11 +841,14 @@ void FOneSkyTranslationExportWorker::Query_HttpRequestComplete(FHttpRequestPtr H
 		if (!bResult)
 		{
 			UE_LOG(LogLocalizationService, Warning, TEXT("%s"), *(ErrorText.ToString()));
-			Command->ErrorMessages.Add(ErrorText);
-			TSharedPtr<FDownloadLocalizationTargetFile, ESPMode::ThreadSafe> DownloadLocTargetOp = StaticCastSharedRef<FDownloadLocalizationTargetFile>(Command->Operation);
-			if (DownloadLocTargetOp.IsValid())
+			if (Command != nullptr)
 			{
-				DownloadLocTargetOp->SetOutErrorText(ErrorText);
+				Command->ErrorMessages.Add(ErrorText);
+				TSharedPtr<FDownloadLocalizationTargetFile, ESPMode::ThreadSafe> DownloadLocTargetOp = StaticCastSharedRef<FDownloadLocalizationTargetFile>(Command->Operation);
+				if (DownloadLocTargetOp.IsValid())
+				{
+					DownloadLocTargetOp->SetOutErrorText(ErrorText);
+				}
 			}
 		}
 	}

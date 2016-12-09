@@ -1,6 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LauncherServicesPrivatePCH.h"
+#include "Profiles/LauncherProfileManager.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Launcher/LauncherProjectPath.h"
+#include "Profiles/LauncherDeviceGroup.h"
+#include "Profiles/LauncherProfile.h"
 
 
 /* ILauncherProfileManager structors

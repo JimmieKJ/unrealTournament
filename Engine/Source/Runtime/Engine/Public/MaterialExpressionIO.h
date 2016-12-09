@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+#include "SceneTypes.h"
+
 //
 //	FExpressionInput
 //
@@ -46,7 +50,7 @@ struct FExpressionInput
 	}
 
 #if WITH_EDITOR
-	ENGINE_API int32 Compile(class FMaterialCompiler* Compiler, int32 MultiplexIndex=INDEX_NONE);
+	ENGINE_API int32 Compile(class FMaterialCompiler* Compiler);
 #endif // WITH_EDITOR
 
 	/**
@@ -209,7 +213,7 @@ struct FMaterialAttributesInput : FExpressionInput
 	}
 
 #if WITH_EDITOR
-	ENGINE_API int32 CompileWithDefault(class FMaterialCompiler* Compiler, EMaterialProperty Property);
+	ENGINE_API int32 CompileWithDefault(class FMaterialCompiler* Compiler, const FGuid& AttributeID);
 #endif  // WITH_EDITOR
 	ENGINE_API bool IsConnected(EMaterialProperty Property) { return ((PropertyConnectedBitmask >> (uint32)Property) & 0x1) != 0; }
 	ENGINE_API bool IsConnected() const { return FExpressionInput::IsConnected(); }

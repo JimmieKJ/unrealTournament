@@ -2,7 +2,7 @@
 
 
 #include "VulkanRHIPrivate.h"
-
+#include "Containers/ResourceArray.h"
 
 FVulkanStructuredBuffer::FVulkanStructuredBuffer(uint32 Stride, uint32 Size, FResourceArrayInterface* ResourceArray, uint32 Usage)
 	: FRHIStructuredBuffer(Stride, Size, Usage)

@@ -1,28 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
+#include "MovieSceneToolHelpers.h"
 #include "MovieScene.h"
-#include "MovieSceneSection.h"
-#include "MovieSceneAudioTrack.h"
-#include "MovieSceneFloatSection.h"
-#include "MovieSceneFloatTrack.h"
-#include "MovieScene3DTransformSection.h"
-#include "MovieScene3DTransformTrack.h"
-#include "MovieSceneCinematicShotSection.h"
-#include "MovieSceneCinematicShotTrack.h"
+#include "Layout/Margin.h"
+#include "Misc/Paths.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Text/STextBlock.h"
+#include "AssetData.h"
+#include "Containers/ArrayView.h"
+#include "ISequencer.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Input/SComboBox.h"
+#include "ScopedTransaction.h"
+#include "EditorStyleSet.h"
+#include "EditorDirectories.h"
+#include "Sections/MovieSceneFloatSection.h"
+#include "Tracks/MovieSceneFloatTrack.h"
+#include "Sections/MovieScene3DTransformSection.h"
+#include "Tracks/MovieScene3DTransformTrack.h"
+#include "Sections/MovieSceneCinematicShotSection.h"
 #include "LevelSequence.h"
 #include "AssetRegistryModule.h"
-#include "CoreMisc.h"
 #include "DesktopPlatformModule.h"
-#include "IDesktopPlatform.h"
-#include "Editor/MainFrame/Public/MainFrame.h"
-#include "SlateBasics.h"
-#include "SlateExtras.h"
-#include "INotificationWidget.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "MovieSceneCaptureHelpers.h"
 #include "FbxImporter.h"
 #include "MatineeImportTools.h"
-#include "MovieSceneToolHelpers.h"
 #include "MovieSceneToolsProjectSettings.h"
 
 
@@ -403,7 +408,6 @@ class SEnumCombobox : public SComboBox<TSharedPtr<int32>>
 public:
 	SLATE_BEGIN_ARGS(SEnumCombobox) {}
 
-	SLATE_ATTRIBUTE(TOptional<uint8>, IntermediateValue)
 	SLATE_ATTRIBUTE(int32, CurrentValue)
 	SLATE_ARGUMENT(FOnEnumSelectionChanged, OnEnumSelectionChanged)
 
@@ -412,7 +416,6 @@ public:
 	void Construct(const FArguments& InArgs, const UEnum* InEnum)
 	{
 		Enum = InEnum;
-		IntermediateValue = InArgs._IntermediateValue;
 		CurrentValue = InArgs._CurrentValue;
 		check(CurrentValue.IsBound());
 		OnEnumSelectionChangedDelegate = InArgs._OnEnumSelectionChanged;
@@ -448,12 +451,6 @@ public:
 private:
 	FText GetCurrentValue() const
 	{
-		if(IntermediateValue.IsSet() && IntermediateValue.Get().IsSet())
-		{
-			int32 IntermediateNameIndex = Enum->GetIndexByValue(IntermediateValue.Get().GetValue());
-			return Enum->GetDisplayNameText(IntermediateNameIndex);
-		}
-
 		int32 CurrentNameIndex = Enum->GetIndexByValue(CurrentValue.Get());
 		return Enum->GetDisplayNameText(CurrentNameIndex);
 	}
@@ -497,8 +494,6 @@ private:
 
 	TAttribute<int32> CurrentValue;
 
-	TAttribute<TOptional<uint8>> IntermediateValue;
-
 	TArray<TSharedPtr<int32>> VisibleEnumNameIndices;
 
 	bool bUpdatingSelectionInternally;
@@ -506,12 +501,11 @@ private:
 	FOnEnumSelectionChanged OnEnumSelectionChangedDelegate;
 };
 
-TSharedRef<SWidget> MovieSceneToolHelpers::MakeEnumComboBox(const UEnum* InEnum, TAttribute<int32> InCurrentValue, FOnEnumSelectionChanged InOnSelectionChanged, TAttribute<TOptional<uint8>> InIntermediateValue)
+TSharedRef<SWidget> MovieSceneToolHelpers::MakeEnumComboBox(const UEnum* InEnum, TAttribute<int32> InCurrentValue, FOnEnumSelectionChanged InOnSelectionChanged)
 {
 	return SNew(SEnumCombobox, InEnum)
 		.CurrentValue(InCurrentValue)
-		.OnEnumSelectionChanged(InOnSelectionChanged)
-		.IntermediateValue(InIntermediateValue);
+		.OnEnumSelectionChanged(InOnSelectionChanged);
 }
 
 bool MovieSceneToolHelpers::ShowImportEDLDialog(UMovieScene* InMovieScene, float InFrameRate, FString InOpenDirectory)
@@ -521,20 +515,11 @@ bool MovieSceneToolHelpers::ShowImportEDLDialog(UMovieScene* InMovieScene, float
 	bool bOpen = false;
 	if (DesktopPlatform)
 	{
-		void* ParentWindowWindowHandle = NULL;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		FString ExtensionStr;
 		ExtensionStr += TEXT("CMX 3600 EDL (*.edl)|*.edl|");
 
 		bOpen = DesktopPlatform->OpenFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			NSLOCTEXT("UnrealEd", "MovieSceneToolHelpersImportEDL", "Import EDL from...").ToString(), 
 			InOpenDirectory,
 			TEXT(""), 
@@ -558,7 +543,7 @@ bool MovieSceneToolHelpers::ShowImportEDLDialog(UMovieScene* InMovieScene, float
 	return MovieSceneCaptureHelpers::ImportEDL(InMovieScene, InFrameRate, OpenFilenames[0]);
 }
 
-bool MovieSceneToolHelpers::ShowExportEDLDialog(const UMovieScene* InMovieScene, float InFrameRate, FString InSaveDirectory)
+bool MovieSceneToolHelpers::ShowExportEDLDialog(const UMovieScene* InMovieScene, float InFrameRate, FString InSaveDirectory, int32 InHandleFrames)
 {
 	TArray<FString> SaveFilenames;
 	FString SequenceName = InMovieScene->GetOuter()->GetName();
@@ -568,21 +553,12 @@ bool MovieSceneToolHelpers::ShowExportEDLDialog(const UMovieScene* InMovieScene,
 	bool bSave = false;
 	if (DesktopPlatform)
 	{
-		void* ParentWindowWindowHandle = NULL;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		FString ExtensionStr;
 		ExtensionStr += TEXT("CMX 3600 EDL (*.edl)|*.edl|");
 		ExtensionStr += TEXT("RV (*.rv)|*.rv|");
 
 		bSave = DesktopPlatform->SaveFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			NSLOCTEXT("UnrealEd", "MovieSceneToolHelpersExportEDL", "Export EDL to...").ToString(), 
 			InSaveDirectory,
 			SequenceName + TEXT(".edl"), 
@@ -601,7 +577,7 @@ bool MovieSceneToolHelpers::ShowExportEDLDialog(const UMovieScene* InMovieScene,
 		return false;
 	}
 
-	if (MovieSceneCaptureHelpers::ExportEDL(InMovieScene, InFrameRate, SaveFilenames[0]))
+	if (MovieSceneCaptureHelpers::ExportEDL(InMovieScene, InFrameRate, SaveFilenames[0], InHandleFrames))
 	{
 		const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(SaveFilenames[0]);
 		const FString SaveDirectory = FPaths::GetPath(AbsoluteFilename);
@@ -618,9 +594,11 @@ bool MovieSceneToolHelpers::ShowExportEDLDialog(const UMovieScene* InMovieScene,
 	return false;
 }
 
-bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid ObjectBinding, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene, FMovieSceneSequenceInstance& InSequence, ISequencer& InSequencer)
+bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid ObjectBinding, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene, ISequencer& InSequencer)
 {
 	const UMovieSceneToolsProjectSettings* ProjectSettings = GetDefault<UMovieSceneToolsProjectSettings>();
+
+	TArrayView<TWeakObjectPtr<>> BoundObjects = InSequencer.FindBoundObjects(ObjectBinding, InSequencer.GetFocusedTemplateID());
 
 	for (auto FbxSetting : ProjectSettings->FbxSettings)
 	{
@@ -628,32 +606,33 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 		{
 			continue;
 		}
-					
-		UObject* FoundObject = InSequence.FindObject(ObjectBinding, InSequencer);
-		if (!FoundObject)
+
+		for (TWeakObjectPtr<>& WeakObject : BoundObjects)
 		{
-			continue;
-		}
+			UObject* FoundObject = WeakObject.Get();
+
+			if (!FoundObject)
+			{
+				continue;
+			}
+			
+			UObject* PropertyOwner = FoundObject;
+			if (!FbxSetting.PropertyPath.ComponentName.IsEmpty())
+			{
+				PropertyOwner = FindObjectFast<UObject>(FoundObject, *FbxSetting.PropertyPath.ComponentName);
+			}
+
+			if (!PropertyOwner)
+			{
+				continue;
+			}
 		
-		UObject* PropertyOwner = FoundObject;
-		if (!FbxSetting.PropertyPath.ComponentName.IsEmpty())
-		{
-			PropertyOwner = FindObjectFast<UObject>(FoundObject, *FbxSetting.PropertyPath.ComponentName);
-		}
+			FGuid PropertyOwnerGuid = InSequencer.GetHandleToObject(PropertyOwner);
+			if (!PropertyOwnerGuid.IsValid())
+			{
+				continue;
+			}
 
-		if (!PropertyOwner)
-		{
-			continue;
-		}
-	
-		FGuid PropertyOwnerGuid = InSequence.FindObjectId(*PropertyOwner);
-		if (!PropertyOwnerGuid.IsValid())
-		{
-			PropertyOwnerGuid = InSequencer.GetHandleToObject(PropertyOwner);
-		}
-
-		if (PropertyOwnerGuid.IsValid())
-		{
 			UMovieSceneFloatTrack* FloatTrack = InMovieScene->FindTrack<UMovieSceneFloatTrack>(PropertyOwnerGuid, *FbxSetting.PropertyPath.PropertyName);
 			if (!FloatTrack)
 			{
@@ -664,7 +643,7 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 			}
 
 			if (FloatTrack)
-			{			
+			{
 				bool bSectionAdded = false;
 				UMovieSceneFloatSection* FloatSection = Cast<UMovieSceneFloatSection>(FloatTrack->FindOrAddSection(0.f, bSectionAdded));
 				if (!FloatSection)
@@ -692,7 +671,20 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 				{
 					MinTime = FMath::Min(MinTime, CurveHandle.Points[KeyIndex].InVal);
 					MaxTime = FMath::Max(MaxTime, CurveHandle.Points[KeyIndex].InVal);
-					FMatineeImportTools::SetOrAddKey(FloatCurve, CurveHandle.Points[KeyIndex].InVal, CurveHandle.Points[KeyIndex].OutVal, CurveHandle.Points[KeyIndex].ArriveTangent, CurveHandle.Points[KeyIndex].LeaveTangent, CurveHandle.Points[KeyIndex].InterpMode);
+
+					float ArriveTangent = CurveHandle.Points[KeyIndex].ArriveTangent;
+					if (KeyIndex > 0)
+					{
+						ArriveTangent = ArriveTangent / (CurveHandle.Points[KeyIndex].InVal - CurveHandle.Points[KeyIndex-1].InVal);
+					}
+					
+					float LeaveTangent = CurveHandle.Points[KeyIndex].LeaveTangent;
+					if (KeyIndex < CurveHandle.Points.Num() - 1)
+					{
+						LeaveTangent = LeaveTangent / (CurveHandle.Points[KeyIndex+1].InVal - CurveHandle.Points[KeyIndex].InVal);
+					}
+
+					FMatineeImportTools::SetOrAddKey(FloatCurve, CurveHandle.Points[KeyIndex].InVal, CurveHandle.Points[KeyIndex].OutVal, ArriveTangent, LeaveTangent, CurveHandle.Points[KeyIndex].InterpMode);
 				}
 
 				FloatCurve.RemoveRedundantKeys(KINDA_SMALL_NUMBER);
@@ -761,16 +753,25 @@ bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurves
 	
 			FInterpCurveFloat* CurveFloat = nullptr;
 			FRichCurve* ChannelCurve = nullptr;
-				
+			bool bNegative = false;
+
 			if (CurveIndex == 0)
 			{
 				CurveFloat = &Translation[ChannelIndex];
 				ChannelCurve = &TransformSection->GetTranslationCurve(ChannelAxis);
+				if (ChannelIndex == 1)
+				{
+					bNegative = true;
+				}
 			}
 			else if (CurveIndex == 1)
 			{
 				CurveFloat = &EulerRotation[ChannelIndex];
 				ChannelCurve = &TransformSection->GetRotationCurve(ChannelAxis);
+				if (ChannelIndex == 1 || ChannelIndex == 2)
+				{
+					bNegative = true;
+				}
 			}
 			else if (CurveIndex == 2)
 			{
@@ -786,7 +787,26 @@ bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurves
 				{
 					MinTime = FMath::Min(MinTime, CurveFloat->Points[KeyIndex].InVal);
 					MaxTime = FMath::Max(MaxTime, CurveFloat->Points[KeyIndex].InVal);
-					FMatineeImportTools::SetOrAddKey(*ChannelCurve, CurveFloat->Points[KeyIndex].InVal, CurveFloat->Points[KeyIndex].OutVal, CurveFloat->Points[KeyIndex].ArriveTangent, CurveFloat->Points[KeyIndex].LeaveTangent, CurveFloat->Points[KeyIndex].InterpMode);
+					
+					float ArriveTangent = CurveFloat->Points[KeyIndex].ArriveTangent;
+					if (KeyIndex > 0)
+					{
+						ArriveTangent = ArriveTangent / (CurveFloat->Points[KeyIndex].InVal - CurveFloat->Points[KeyIndex-1].InVal);
+					}
+					
+					float LeaveTangent = CurveFloat->Points[KeyIndex].LeaveTangent;
+					if (KeyIndex < CurveFloat->Points.Num() - 1)
+					{
+						LeaveTangent = LeaveTangent / (CurveFloat->Points[KeyIndex+1].InVal - CurveFloat->Points[KeyIndex].InVal);
+					}
+
+					if (bNegative)
+					{
+						ArriveTangent = -ArriveTangent;
+						LeaveTangent = -LeaveTangent;
+					}
+
+					FMatineeImportTools::SetOrAddKey(*ChannelCurve, CurveFloat->Points[KeyIndex].InVal, CurveFloat->Points[KeyIndex].OutVal, ArriveTangent, LeaveTangent, CurveFloat->Points[KeyIndex].InterpMode);
 				}
 
 				ChannelCurve->RemoveRedundantKeys(KINDA_SMALL_NUMBER);
@@ -800,7 +820,7 @@ bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurves
 	return true;
 }
 
-bool ImportFBXNode(FString NodeName, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene, FMovieSceneSequenceInstance& InSequence, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingMap)
+bool ImportFBXNode(FString NodeName, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingMap)
 {
 	// Find the matching object binding to apply this animation to. Defaults to the first.
 	FGuid ObjectBinding;
@@ -825,7 +845,7 @@ bool ImportFBXNode(FString NodeName, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene
 		
 	for (auto AnimatedPropertyName : AnimatedPropertyNames)
 	{
-		ImportFBXProperty(NodeName, AnimatedPropertyName, ObjectBinding, CurveAPI, InMovieScene, InSequence, InSequencer);
+		ImportFBXProperty(NodeName, AnimatedPropertyName, ObjectBinding, CurveAPI, InMovieScene, InSequencer);
 	}
 	
 	ImportFBXTransform(NodeName, ObjectBinding, CurveAPI, InMovieScene);
@@ -833,27 +853,18 @@ bool ImportFBXNode(FString NodeName, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene
 	return true;
 }
 
-bool MovieSceneToolHelpers::ImportFBX(UMovieScene* InMovieScene, FMovieSceneSequenceInstance& InSequence, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingMap)
+bool MovieSceneToolHelpers::ImportFBX(UMovieScene* InMovieScene, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingMap)
 {
 	TArray<FString> OpenFilenames;
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	bool bOpen = false;
 	if (DesktopPlatform)
 	{
-		void* ParentWindowWindowHandle = NULL;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		FString ExtensionStr;
 		ExtensionStr += TEXT("FBX (*.fbx)|*.fbx|");
 
 		bOpen = DesktopPlatform->OpenFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			NSLOCTEXT("UnrealEd", "MovieSceneToolHelpersImportFBX", "Import FBX from...").ToString(), 
 			FEditorDirectories::Get().GetLastDirectory(ELastDirectory::FBX),
 			TEXT(""), 
@@ -894,7 +905,7 @@ bool MovieSceneToolHelpers::ImportFBX(UMovieScene* InMovieScene, FMovieSceneSequ
 
 	for (FString NodeName : AnimatedNodeNames)
 	{
-		ImportFBXNode(NodeName, CurveAPI, InMovieScene, InSequence, InSequencer, InObjectBindingMap);
+		ImportFBXNode(NodeName, CurveAPI, InMovieScene, InSequencer, InObjectBindingMap);
 	}
 
 	FbxImporter->ReleaseScene();

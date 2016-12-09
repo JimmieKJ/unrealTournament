@@ -5,6 +5,11 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/VectorFieldStaticFactory.h"
+#include "EditorReimportHandler.h"
 #include "ReimportVectorFieldStaticFactory.generated.h"
 
 UCLASS()

@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "HeadMountedDisplayFunctionLibrary.generated.h"
 
 UENUM()
@@ -99,15 +103,17 @@ class ENGINE_API UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionL
 	 * @param Index				(in) Index of the tracking sensor to query
 	 * @param Origin			(out) Origin, in world-space, of the sensor
 	 * @param Rotation			(out) Rotation, in world-space, of the sensor
-	 * @param HFOV				(out) Field-of-view, horizontal, in degrees, of the valid tracking zone of the sensor
-	 * @param VFOV				(out) Field-of-view, vertical, in degrees, of the valid tracking zone of the sensor
+	 * @param LeftFOV			(out) Field-of-view, left from center, in degrees, of the valid tracking zone of the sensor
+	 * @param RightFOV			(out) Field-of-view, right from center, in degrees, of the valid tracking zone of the sensor
+	 * @param TopFOV			(out) Field-of-view, top from center, in degrees, of the valid tracking zone of the sensor
+	 * @param BottomFOV			(out) Field-of-view, bottom from center, in degrees, of the valid tracking zone of the sensor
 	 * @param Distance			(out) Nominal distance to sensor, in world-space
 	 * @param NearPlane			(out) Near plane distance of the tracking volume, in world-space
 	 * @param FarPlane			(out) Far plane distance of the tracking volume, in world-space
 	 * @param IsActive			(out) True, if the query for the specified sensor succeeded.
 	 */
-	UFUNCTION(BlueprintPure, Category = "Input|HeadMountedDisplay", meta = (AdvancedDisplay = "HFOV,VFOV,Distance,NearPlane,FarPlane"))
-	static void GetTrackingSensorParameters(FVector& Origin, FRotator& Rotation, float& HFOV, float& VFOV, float& Distance, float& NearPlane, float& FarPlane, bool& IsActive, int32 Index = 0);
+	UFUNCTION(BlueprintPure, Category = "Input|HeadMountedDisplay", meta = (AdvancedDisplay = "LeftFOV,RightFOV,TopFOV,BottomFOV,Distance,NearPlane,FarPlane"))
+	static void GetTrackingSensorParameters(FVector& Origin, FRotator& Rotation, float& LeftFOV, float& RightFOV, float& TopFOV, float& BottomFOV, float& Distance, float& NearPlane, float& FarPlane, bool& IsActive, int32 Index = 0);
 
 	/**
 	 * If the HMD has a positional sensor, this will return the game-world location of it, as well as the parameters for the bounding region of tracking.

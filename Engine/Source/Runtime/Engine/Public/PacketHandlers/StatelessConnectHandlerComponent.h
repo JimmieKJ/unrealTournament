@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "PacketHandler.h"
 
+class UNetDriver;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogHandshake, Log, All);
 

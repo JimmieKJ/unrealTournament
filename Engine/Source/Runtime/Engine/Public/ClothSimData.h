@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** data for updating cloth section from the results of clothing simulation */
 struct FClothSimulData
 {

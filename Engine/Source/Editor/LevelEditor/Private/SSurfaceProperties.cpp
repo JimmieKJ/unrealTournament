@@ -1,15 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelEditor.h"
 #include "SSurfaceProperties.h"
-#include "SlateBasics.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "SurfaceIterators.h"
-#include "SNumericEntryBox.h"
-#include "SHyperlink.h"
-#include "Engine/Polys.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Editor/UnrealEdEngine.h"
 #include "Lightmass/LightmassPrimitiveSettingsObject.h"
+#include "UnrealEdGlobals.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
+#include "SurfaceIterators.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Input/SHyperlink.h"
+#include "Engine/Polys.h"
 
 #define LOCTEXT_NAMESPACE "SSurfaceProperties"
 
@@ -24,7 +35,7 @@ void SSurfaceProperties::Construct( const FArguments& InArgs )
 	CachedScalingValueV = 1.0f;
 
 	// Initialize scale fields according to the scale of the first selected surface
-	for (TSelectedSurfaceIterator<> It(GWorld); It; ++It)
+	for (TSelectedSurfaceIterator<> It(GetWorld()); It; ++It)
 	{
 		FBspSurf* Surf = *It;
 		UModel* Model = It.GetModel();

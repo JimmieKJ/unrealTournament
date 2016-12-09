@@ -4,9 +4,11 @@
 	StaticLightingExport.cpp: Static lighting export implementations.
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "Lightmass/LightmappedSurfaceCollection.h"
 
 #include "StaticMeshLight.h"
+#include "Components/LightComponent.h"
 #include "ModelLight.h"
 #include "StaticMeshResources.h"
 
@@ -14,7 +16,6 @@
 #include "LandscapeComponent.h"
 
 #include "Lightmass/Lightmass.h"
-#include "Lightmass/LightmappedSurfaceCollection.h"
 
 #include "Materials/MaterialInstanceConstant.h"
 

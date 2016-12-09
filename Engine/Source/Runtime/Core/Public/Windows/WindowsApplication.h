@@ -2,17 +2,28 @@
 
 #pragma once
 
-#include "GenericApplication.h"
+#include "CoreTypes.h"
+#include "Math/Color.h"
+#include "HAL/IConsoleManager.h"
+#include "GenericPlatform/GenericApplication.h"
 
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
-	#include "Ole2.h"
-	#include "OleIdl.h"
+	#include <Ole2.h>
+	#include <oleidl.h>
 	#include <ShObjIdl.h>
 #include "HideWindowsPlatformTypes.h"
-#include "IInputInterface.h"
-#include "IForceFeedbackSystem.h"
+#include "GenericPlatform/IForceFeedbackSystem.h"
 #include "WindowsTextInputMethodSystem.h"
 
+class FGenericWindow;
+struct FVector2D;
+enum class EWindowTransparency;
+class IInputInterface;
+class ITextInputMethodSystem;
+enum class FForceFeedbackChannelType;
+struct FForceFeedbackValues;
+struct FHapticFeedbackValues;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogWindowsDesktop, Log, All);
 
@@ -428,6 +439,14 @@ private:
 	/** Queries and caches the number of connected mouse devices. */
 	void QueryConnectedMice();
 
+#if WINVER >= 0x0601
+	/** Gets the touch index for a given windows touch ID. */
+	uint32 GetTouchIndexForID(int32 TouchID);
+
+	/** Searches for a free touch index. */
+	uint32 GetFirstFreeTouchIndex();
+#endif
+
 	/** Helper function to update the cached states of all modifier keys */
 	void UpdateAllModifierKeyStates();
 
@@ -492,6 +511,13 @@ private:
 	STICKYKEYS							StartupStickyKeys;
 	TOGGLEKEYS							StartupToggleKeys;
 	FILTERKEYS							StartupFilterKeys;
+
+#if WINVER >= 0x0601
+	static const int32 MaxTouches = 10;
+
+	/** Maps touch indexes to windows touch IDs. */
+	TOptional<int32> TouchIDs[MaxTouches];
+#endif
 };
 
 

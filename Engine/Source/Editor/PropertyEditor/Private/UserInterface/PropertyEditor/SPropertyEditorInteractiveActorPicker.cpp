@@ -1,11 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "PropertyEditorPrivatePCH.h"
-#include "SPropertyEditorInteractiveActorPicker.h"
-#include "PropertyEditor.h"
-#include "PropertyNode.h"
-#include "ObjectPropertyNode.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Editor/LevelEditor/Public/ILevelViewport.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorInteractiveActorPicker.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "PropertyPicker"
 

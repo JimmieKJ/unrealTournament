@@ -1,11 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SlateBasics.h"
-#include "EditorStyle.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "PropertyPath.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "IPropertyUtilities.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "PropertyEditorDelegates.h"
 
-class FPropertyNode;
+class AActor;
+class FNotifyHook;
 class FObjectPropertyNode;
+class FPropertyNode;
 
 typedef STreeView< TSharedPtr<FPropertyNode> > SPropertyTree;
 

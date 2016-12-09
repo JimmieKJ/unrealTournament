@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
+#include "TileSetEditor/TileSetSelectorViewport.h"
+#include "Widgets/SViewport.h"
 #include "TileMapEditing/EdModeTileMap.h"
-#include "TileSetSelectorViewport.h"
-#include "TileSetEditorViewportClient.h"
-#include "TileSetEditorCommands.h"
-#include "PaperTileSet.h"
+#include "Slate/SceneViewport.h"
+#include "TileSetEditor/TileSetEditorCommands.h"
 
 #define LOCTEXT_NAMESPACE "TileSetEditor"
 

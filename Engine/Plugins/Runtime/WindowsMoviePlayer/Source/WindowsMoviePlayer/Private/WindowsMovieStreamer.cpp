@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsMoviePlayerPrivatePCH.h"
+#include "WindowsMovieStreamer.h"
 
-#include "SlateBasics.h"
 #include "RenderingCommon.h"
 #include "Slate/SlateTextures.h"
 #include "MoviePlayer.h"
+#include "RenderUtils.h"
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 
 #pragma comment(lib, "shlwapi")

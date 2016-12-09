@@ -4,9 +4,44 @@
 	UCContentCommandlets.cpp: Various commmandlets.
 =============================================================================*/
 
-#include "UnrealEd.h"
-
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "UObject/MetaData.h"
+#include "Misc/PackageName.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/StartupPackages.h"
+#include "Misc/RedirectCollector.h"
+#include "Engine/EngineTypes.h"
+#include "Materials/Material.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "SourceControlHelpers.h"
 #include "ISourceControlModule.h"
+#include "Engine/MapBuildDataRegistry.h"
+#include "Commandlets/ListMaterialsUsedWithMeshEmittersCommandlet.h"
+#include "Commandlets/ListStaticMeshesImportedFromSpeedTreesCommandlet.h"
+#include "Particles/ParticleSystem.h"
+#include "Commandlets/ResavePackagesCommandlet.h"
+#include "Commandlets/WrangleContentCommandlet.h"
+#include "EngineGlobals.h"
+#include "Particles/ParticleEmitter.h"
+#include "Engine/StaticMesh.h"
+#include "AssetData.h"
+#include "Engine/Brush.h"
+#include "Editor.h"
+#include "FileHelpers.h"
+
 #include "PackageHelperFunctions.h"
 #include "PackageTools.h"
 
@@ -14,24 +49,18 @@ DEFINE_LOG_CATEGORY(LogContentCommandlet);
 
 #include "AssetRegistryModule.h"
 
-#include "Kismet2/KismetEditorUtilities.h"
-#include "Kismet2/BlueprintEditorUtils.h"
 
 #include "Particles/Material/ParticleModuleMeshMaterial.h"
-#include "Particles/ParticleEmitter.h"
 #include "Particles/ParticleLODLevel.h"
-#include "Particles/ParticleModule.h"
 #include "Particles/ParticleModuleRequired.h"
-#include "Particles/ParticleSystem.h"
 #include "Particles/TypeData/ParticleModuleTypeDataMesh.h"
 #include "Engine/LevelStreaming.h"
-#include "Engine/StaticMesh.h"
+#include "EditorBuildUtils.h"
 
 // for UResavePackagesCommandlet::PerformAdditionalOperations building lighting code
-#include "Engine/WorldComposition.h"
 #include "LightingBuildOptions.h"
 // For preloading FFindInBlueprintSearchManager
-#include "Editor/Kismet/Public/FindInBlueprintManager.h"
+#include "FindInBlueprintManager.h"
 
 /**-----------------------------------------------------------------------------
  *	UResavePackages commandlet.
@@ -141,6 +170,22 @@ int32 UResavePackagesCommandlet::InitializeResaveParameters( const TArray<FStrin
 			}
 		}
 
+	}
+
+	if (bShouldBuildLighting && !bExplicitPackages)
+	{
+		UE_LOG(LogContentCommandlet, Display, TEXT("No maps found to save when building lighting, checking CommandletSettings:ResavePackages in EditorIni"));
+		// if we haven't specified any maps and we are building lighting check if there are packages setup in the ini file to build
+		TArray<FString> ResavePackages;
+		GConfig->GetArray(TEXT("CommandletSettings"), TEXT("ResavePackages"), ResavePackages, GEditorIni);
+		for ( const auto& ResavePackage : ResavePackages )
+		{
+			FString PackageFile;
+			FPackageName::SearchForPackageOnDisk(ResavePackage, NULL, &PackageFile);
+			UE_LOG(LogContentCommandlet, Display, TEXT("Rebuilding lighting for package %s"), *PackageFile);
+			PackageNames.Add(*PackageFile);
+			bExplicitPackages = true;
+		}
 	}
 
 	// ... if not, load in all packages
@@ -641,11 +686,14 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 	bAutoCheckIn = bAutoCheckOut && Switches.Contains(TEXT("AutoCheckIn"));
 	/** determine if we are building lighting for the map packages on the pass. **/
 	bShouldBuildLighting = Switches.Contains(TEXT("buildlighting"));
+	/** determine if we are building lighting for the map packages on the pass. **/
+	bShouldBuildTextureStreaming = Switches.Contains(TEXT("buildtexturestreaming"));
 	/** determine if we can skip the version changelist check */
 	bIgnoreChangelist = Switches.Contains(TEXT("IgnoreChangelist"));
 	if ( bShouldBuildLighting )
 	{
 		check( Switches.Contains(TEXT("AllowCommandletRendering")) );
+		GarbageCollectionFrequency = 1;
 	}
 
 	TArray<FString> PackageNames;
@@ -742,9 +790,17 @@ FText UResavePackagesCommandlet::GetChangelistDescription() const
 {
 	FText ChangelistDescription;
 
-	if (bShouldBuildLighting)
+	if (bShouldBuildTextureStreaming && bShouldBuildLighting)
+	{
+		ChangelistDescription = NSLOCTEXT("ContentCmdlets", "ChangelistDescriptionBuildLightingAndTextureStreaming", "Rebuild lightmaps & texture streaming.");
+	}
+	else if (bShouldBuildLighting)
 	{
 		ChangelistDescription = NSLOCTEXT("ContentCmdlets", "ChangelistDescriptionBuildLighting", "Rebuild lightmaps.");
+	}
+	else if (bShouldBuildTextureStreaming)
+	{
+		ChangelistDescription = NSLOCTEXT("ContentCmdlets", "ChangelistDescriptionBuildTextureStreaming", "Rebuild texture streaming.");
 	}
 	else
 	{
@@ -806,7 +862,7 @@ void UResavePackagesCommandlet::PerformPreloadOperations( FLinkerLoad* PackageLi
 	}
 }
 
-bool UResavePackagesCommandlet::CheckoutFile(const FString& Filename)
+bool UResavePackagesCommandlet::CheckoutFile(const FString& Filename, bool bAddFile )
 {
 	if (!bAutoCheckOut)
 	{
@@ -814,7 +870,7 @@ bool UResavePackagesCommandlet::CheckoutFile(const FString& Filename)
 	}
 
 	bool bIsReadOnly = IFileManager::Get().IsReadOnly(*Filename);
-	if (!bIsReadOnly)
+	if (!bIsReadOnly && !bAddFile)
 	{
 		return true;
 	}
@@ -832,8 +888,28 @@ bool UResavePackagesCommandlet::CheckoutFile(const FString& Filename)
 		{
 			UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] %s is not synced to head, can not submit"), *Filename);
 		}
-		else
+		else if ( SourceControlState->IsSourceControlled() == false )
 		{
+			if ( bAddFile )
+			{
+				if (SourceControlProvider.Execute(ISourceControlOperation::Create<FMarkForAdd>(), *Filename) == ECommandResult::Succeeded)
+				{
+					UE_LOG(LogContentCommandlet, Display, TEXT("[REPORT] %s successfully added"), *Filename);
+					return true;
+				}
+				else
+				{
+					UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] %s could not be added!"), *Filename);
+				}
+			}
+		}
+		else 
+		{
+			// already checked out this file
+			if (SourceControlState->IsCheckedOut() || SourceControlState->IsAdded() )
+			{
+				return true;
+			}
 			if (SourceControlProvider.Execute(ISourceControlOperation::Create<FCheckOut>(), *Filename) == ECommandResult::Succeeded)
 			{
 				UE_LOG(LogContentCommandlet, Display, TEXT("[REPORT] %s Checked out successfully"), *Filename);
@@ -852,9 +928,20 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 {
 	check(World);
 
-	if (bShouldBuildLighting)
+	TArray<TWeakObjectPtr<ULevel>> LevelsToRebuild;
+	ABrush::NeedsRebuild(&LevelsToRebuild);
+	for (const TWeakObjectPtr<ULevel>& Level : LevelsToRebuild)
 	{
-		bool bShouldProceedWithLightmapRebuild = true;
+		if (Level.IsValid())
+		{
+			GEditor->RebuildLevel(*Level.Get());
+		}
+	}
+	ABrush::OnRebuildDone();
+
+	if (bShouldBuildLighting || bShouldBuildTextureStreaming)
+	{
+		bool bShouldProceedWithRebuild = true;
 
 		static bool bHasLoadedStartupPackages = false;
 		if (bHasLoadedStartupPackages == false)
@@ -875,7 +962,7 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 			IVS.CreateNavigation(false);
 			IVS.CreateAISystem(false);
 			IVS.AllowAudioPlayback(false);
-			IVS.CreatePhysicsScene(false);
+			IVS.CreatePhysicsScene(true);
 
 			World->InitWorld(IVS);
 			World->PersistentLevel->UpdateModelComponents();
@@ -886,6 +973,26 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 		GWorld = World;
 
 		TArray<FString> SublevelFilenames;
+		
+		auto CheckOutLevelFile = [this,&bShouldProceedWithRebuild, &SublevelFilenames](ULevel* InLevel)
+		{
+			if (InLevel && InLevel->MapBuildData)
+			{
+				UPackage* MapBuildDataPackage = InLevel->MapBuildData->GetOutermost();
+				FString MapBuildDataPackageName = MapBuildDataPackage->GetName();
+				if (MapBuildDataPackage != InLevel->GetOutermost())
+				{
+					if (CheckoutFile(MapBuildDataPackageName))
+					{
+						SublevelFilenames.Add(MapBuildDataPackageName);
+					}
+					else
+					{
+						bShouldProceedWithRebuild = false;
+					}
+				}
+			}
+		};
 
 		// if we can't check out the main map or it's not up to date then we can't do the lighting rebuild at all!
 		FString WorldPackageName;
@@ -894,25 +1001,29 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 			if (CheckoutFile(WorldPackageName))
 			{
 				SublevelFilenames.Add(WorldPackageName);
+
+				CheckOutLevelFile(World->PersistentLevel);
 			}
 			else
 			{
-				bShouldProceedWithLightmapRebuild = false;
+				bShouldProceedWithRebuild = false;
 			}
 		}
 		else
 		{
-			bShouldProceedWithLightmapRebuild = false;
+			bShouldProceedWithRebuild = false;
 		}
 		
 
 
-		if (bShouldProceedWithLightmapRebuild)
+		if (bShouldProceedWithRebuild)
 		{
 			World->LoadSecondaryLevels(true, NULL);
 
 			for (ULevelStreaming* NextStreamingLevel : World->StreamingLevels)
 			{
+				CheckOutLevelFile(NextStreamingLevel->GetLoadedLevel());
+
 				FString StreamingLevelPackageFilename;
 				const FString StreamingLevelWorldAssetPackageName = NextStreamingLevel->GetWorldAssetPackageName();
 				if (FPackageName::DoesPackageExist(StreamingLevelWorldAssetPackageName, NULL, &StreamingLevelPackageFilename))
@@ -924,7 +1035,7 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 					}
 					else
 					{
-						bShouldProceedWithLightmapRebuild = false;
+						bShouldProceedWithRebuild = false;
 						break;
 					}
 				}
@@ -936,35 +1047,71 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 
 	
 		// If nothing came up that stops us from continuing, then start building lightmass
-		if (bShouldProceedWithLightmapRebuild)
+		if (bShouldProceedWithRebuild)
 		{
 			World->FlushLevelStreaming(EFlushLevelStreamingType::Full);
 
 			// We need any deferred commands added when loading to be executed before we start building lighting.
 			GEngine->TickDeferredCommands();
 
-			GRedirectCollector.ResolveStringAssetReference();
-
-			FLightingBuildOptions LightingOptions;
-			// Always build on production
-			LightingOptions.QualityLevel = Quality_Production;
-
-			auto BuildFailedDelegate = [&bShouldProceedWithLightmapRebuild,&World]() {
-				UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] Failed building lighting for %s"), *World->GetOutermost()->GetName());
-				bShouldProceedWithLightmapRebuild = false;
-			};
-
-			FDelegateHandle BuildFailedDelegateHandle = FEditorDelegates::OnLightingBuildFailed.AddLambda(BuildFailedDelegate);
-
-			GEditor->BuildLighting(LightingOptions);
-			while (GEditor->IsLightingBuildCurrentlyRunning())
+			if (bShouldBuildTextureStreaming)
 			{
-				GEditor->UpdateBuildLighting();
+				FEditorBuildUtils::EditorBuildTextureStreaming(World);
 			}
 
-			FEditorDelegates::OnLightingBuildFailed.Remove(BuildFailedDelegateHandle);
+			if (bShouldBuildLighting)
+			{
+				// This does not seem to have any use for the texture streaming build but slows down considerably the process.
+				GRedirectCollector.ResolveStringAssetReference();
 
-			if( bShouldProceedWithLightmapRebuild )
+				FLightingBuildOptions LightingOptions;
+				// Always build on production
+				LightingOptions.QualityLevel = Quality_Production;
+
+				auto BuildFailedDelegate = [&bShouldProceedWithRebuild,&World]() {
+					UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] Failed building lighting for %s"), *World->GetOutermost()->GetName());
+					bShouldProceedWithRebuild = false;
+				};
+
+				FDelegateHandle BuildFailedDelegateHandle = FEditorDelegates::OnLightingBuildFailed.AddLambda(BuildFailedDelegate);
+
+				GEditor->BuildLighting(LightingOptions);
+				while (GEditor->IsLightingBuildCurrentlyRunning())
+				{
+					GEditor->UpdateBuildLighting();
+				}
+
+				FEditorDelegates::OnLightingBuildFailed.Remove(BuildFailedDelegateHandle);
+			}
+
+			auto SaveMapBuildData = [this, &SublevelFilenames] (ULevel* InLevel) 
+			{
+				if (InLevel && InLevel->MapBuildData && bShouldBuildLighting)
+				{
+					UPackage* MapBuildDataPackage = InLevel->MapBuildData->GetOutermost();
+					FString MapBuildDataPackageName = MapBuildDataPackage->GetName();
+
+					if (MapBuildDataPackage != InLevel->GetOutermost())
+					{
+						FString MapBuildDataFilename;
+
+						if ( FPackageName::TryConvertLongPackageNameToFilename(MapBuildDataPackageName, MapBuildDataFilename, FPackageName::GetMapPackageExtension() ) )
+						{
+							SavePackageHelper(MapBuildDataPackage, MapBuildDataFilename);
+							if ( IFileManager::Get().FileExists(*MapBuildDataFilename))
+							{
+								CheckoutFile(MapBuildDataFilename, true);
+							}
+						}
+					}
+				}
+			};
+
+			SaveMapBuildData( World->PersistentLevel );
+
+
+			// If everything is a success, resave the levels.
+			if( bShouldProceedWithRebuild )
 			{
 				for (ULevelStreaming* NextStreamingLevel : World->StreamingLevels)
 				{
@@ -977,16 +1124,18 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 						{
 							UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] Failed to save sub level: %s"), *StreamingLevelPackageFilename);
 						}
+
+						SaveMapBuildData(NextStreamingLevel->GetLoadedLevel());
 					}
 				}
 			}
 		}
 		else
 		{
-			UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] Failed to complete steps necessary to start a lightmass build of %s"), *World->GetName());
+			UE_LOG(LogContentCommandlet, Error, TEXT("[REPORT] Failed to complete steps necessary to start a lightmass or texture streaming build of %s"), *World->GetName());
 		}
 
-		if ((bShouldProceedWithLightmapRebuild == false)||(bSavePackage == false))
+		if ((bShouldProceedWithRebuild == false)||(bSavePackage == false))
 		{
 			// don't save our parent package
 			bSavePackage = false;
@@ -1008,7 +1157,12 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 			}
 		}
 
+		
 		World->RemoveFromRoot();
+
+		WorldContext.SetCurrentWorld(nullptr);
+		GWorld = nullptr;
+
 	}
 }
 
@@ -1949,11 +2103,11 @@ void UListMaterialsUsedWithMeshEmittersCommandlet::ProcessParticleSystem( UParti
 				{
 					if (MeshTypeData->Mesh)
 					{
-						for (int32 MaterialIdx = 0; MaterialIdx < MeshTypeData->Mesh->Materials.Num(); MaterialIdx++)
+						for (int32 MaterialIdx = 0; MaterialIdx < MeshTypeData->Mesh->StaticMaterials.Num(); MaterialIdx++)
 						{
-							if(MeshTypeData->Mesh->Materials[MaterialIdx])
+							if(MeshTypeData->Mesh->StaticMaterials[MaterialIdx].MaterialInterface)
 							{
-								UMaterial* Mat = MeshTypeData->Mesh->Materials[MaterialIdx]->GetMaterial();
+								UMaterial* Mat = MeshTypeData->Mesh->StaticMaterials[MaterialIdx].MaterialInterface->GetMaterial();
 								if(!Mat->bUsedWithMeshParticles)
 								{
 									OutMaterials.AddUnique(Mat->GetPathName());

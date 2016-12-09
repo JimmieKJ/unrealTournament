@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Services/BTService_RunEQS.h"
-#include "BehaviorTree/Blackboard/BlackboardKeyAllTypes.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/Controller.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType.h"
+#include "VisualLogger/VisualLogger.h"
 #include "EnvironmentQuery/EnvQuery.h"
 #include "EnvironmentQuery/EnvQueryManager.h"
 

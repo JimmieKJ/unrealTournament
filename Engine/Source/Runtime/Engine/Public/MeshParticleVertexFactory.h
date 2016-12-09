@@ -6,9 +6,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RHI.h"
 #include "UniformBuffer.h"
-//@todo - parallelrendering - remove once FOneFrameResource no longer needs to be referenced in header
+#include "VertexFactory.h"
+#include "Components.h"
 #include "SceneManagement.h"
+#include "ParticleVertexFactory.h"
+//@todo - parallelrendering - remove once FOneFrameResource no longer needs to be referenced in header
+
+class FMaterial;
+class FVertexBuffer;
+struct FDynamicReadBuffer;
+struct FShaderCompilerEnvironment;
 
 /**
  * Uniform buffer for mesh particle vertex factories.
@@ -20,6 +30,9 @@ BEGIN_UNIFORM_BUFFER_STRUCT( FMeshParticleUniformParameters, ENGINE_API)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, PrevTransformAvailable )
 END_UNIFORM_BUFFER_STRUCT( FMeshParticleUniformParameters )
 typedef TUniformBufferRef<FMeshParticleUniformParameters> FMeshParticleUniformBufferRef;
+
+class FMeshParticleInstanceVertices;
+
 
 /**
  * Vertex factory for rendering instanced mesh particles with out dynamic parameter support.
@@ -80,12 +93,14 @@ public:
 		: FParticleVertexFactoryBase(InType, InFeatureLevel)
 		, DynamicVertexStride(InDynamicVertexStride)
 		, DynamicParameterVertexStride(InDynamicParameterVertexStride)
+		, InstanceVerticesCPU(nullptr)
 	{}
 
 	FMeshParticleVertexFactory()
 		: FParticleVertexFactoryBase(PVFT_MAX, ERHIFeatureLevel::Num)
 		, DynamicVertexStride(-1)
 		, DynamicParameterVertexStride(-1)
+		, InstanceVerticesCPU(nullptr)
 	{}
 
 	/**
@@ -164,6 +179,11 @@ public:
 
 	static FVertexFactoryShaderParameters* ConstructShaderParameters(EShaderFrequency ShaderFrequency);
 
+	FMeshParticleInstanceVertices*& GetInstanceVerticesCPU()
+	{
+		return InstanceVerticesCPU;
+	}
+
 protected:
 	FDataType Data;
 	
@@ -175,6 +195,9 @@ protected:
 	FUniformBufferRHIParamRef MeshParticleUniformBuffer;
 
 	FDynamicReadBuffer PrevTransformBuffer;
+
+	/** Used to remember this in the case that we reuse the same vertex factory for multiple renders . */
+	FMeshParticleInstanceVertices* InstanceVerticesCPU;
 };
 
 

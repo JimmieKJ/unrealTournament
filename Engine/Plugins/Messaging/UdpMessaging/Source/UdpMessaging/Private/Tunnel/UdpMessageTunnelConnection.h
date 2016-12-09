@@ -2,13 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/Runnable.h"
+#include "Containers/Queue.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "Common/UdpSocketReceiver.h"
 #include "IUdpMessageTunnelConnection.h"
-
-
-// forward declarations
-class FRunnableThread;
-class FSocket;
-
 
 /**
  * Implements a UDP message tunnel connection.

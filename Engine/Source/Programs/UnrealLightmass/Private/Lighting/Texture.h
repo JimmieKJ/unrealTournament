@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 namespace Lightmass
 {
 	/** Texture formats used by FTexture2D */

@@ -5,7 +5,9 @@
 =============================================================================*/
 
 #pragma once
-#include "Core.h"
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogRendererCore, Log, All);
 

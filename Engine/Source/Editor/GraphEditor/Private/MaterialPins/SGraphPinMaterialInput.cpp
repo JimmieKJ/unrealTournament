@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphPinText.h"
-#include "SGraphPinMaterialInput.h"
+#include "MaterialPins/SGraphPinMaterialInput.h"
+#include "MaterialGraph/MaterialGraph.h"
+#include "MaterialGraph/MaterialGraphSchema.h"
 
 void SGraphPinMaterialInput::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {

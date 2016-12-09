@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "ProceduralMeshComponent.h"
 #include "KismetProceduralMeshLibrary.generated.h"
 
+class UStaticMesh;
+class UStaticMeshComponent;
+
 /** Options for creating cap geometry when slicing */
 UENUM()
-enum class EProcMeshSliceCapOption
+enum class EProcMeshSliceCapOption : uint8
 {
 	/** Do not create cap geometry */
 	NoCap,

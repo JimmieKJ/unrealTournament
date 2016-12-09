@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "PackageLocalizationUtil.h"
+#include "Internationalization/PackageLocalizationUtil.h"
+#include "Misc/PackageName.h"
 
 bool FPackageLocalizationUtil::ConvertLocalizedToSource(const FString& InLocalized, FString& OutSource)
 {

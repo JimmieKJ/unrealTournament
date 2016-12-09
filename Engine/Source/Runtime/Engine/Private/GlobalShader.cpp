@@ -4,14 +4,28 @@
 	GlobalShader.cpp: Global shader implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "GlobalShader.h"
+#include "Materials/MaterialInterface.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Serialization/NameAsStringProxyArchive.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Misc/App.h"
 #include "StaticBoundShaderState.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
 #include "ShaderCompiler.h"
 #include "DerivedDataCacheInterface.h"
 #include "ShaderDerivedDataVersion.h"
-#include "TargetPlatform.h"
-#include "CookStats.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "ProfilingDebugging/CookStats.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 
 #if ENABLE_COOK_STATS
 namespace GlobalShaderCookStats
@@ -261,12 +275,12 @@ void BackupGlobalShaderMap(FGlobalShaderBackupData& OutGlobalShaderBackup)
 		EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform((ERHIFeatureLevel::Type)i);
 		if (ShaderPlatform < EShaderPlatform::SP_NumPlatforms && GGlobalShaderMap[ShaderPlatform] != nullptr)
 		{
-			TArray<uint8>* ShaderData = new TArray<uint8>();
+			TUniquePtr<TArray<uint8>> ShaderData = MakeUnique<TArray<uint8>>();
 			FMemoryWriter Ar(*ShaderData);
 			GGlobalShaderMap[ShaderPlatform]->SerializeInline(Ar, true, true);
 			GGlobalShaderMap[ShaderPlatform]->RegisterSerializedShaders();
 			GGlobalShaderMap[ShaderPlatform]->Empty();
-			OutGlobalShaderBackup.FeatureLevelShaderData[i] = ShaderData;
+			OutGlobalShaderBackup.FeatureLevelShaderData[i] = MoveTemp(ShaderData);
 		}
 	}
 
@@ -421,7 +435,7 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 			// TODO_OPENGL: Allow shaders to be compiled asynchronously.
 			// Metal also needs this when using RHI thread because it uses TOneColorVS very early in RHIPostInit()
 			!IsOpenGLPlatform(GMaxRHIShaderPlatform) && !IsVulkanPlatform(GMaxRHIShaderPlatform) &&
-			(!IsMetalPlatform(GMaxRHIShaderPlatform) || !GUseRHIThread) &&
+			!IsMetalPlatform(GMaxRHIShaderPlatform) &&
 			GShaderCompilingManager->AllowAsynchronousShaderCompiling();
 
 		if (!bAllowAsynchronousGlobalShaderCompiling)

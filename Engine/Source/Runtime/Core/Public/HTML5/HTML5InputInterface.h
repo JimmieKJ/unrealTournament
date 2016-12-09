@@ -1,15 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreTypes.h"
+#include "GenericPlatform/ICursor.h"
+#include "Templates/SharedPointer.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
+#include "Containers/BitArray.h"
 #include <SDL.h>
 
 #if PLATFORM_HTML5_BROWSER
-#include <html5.h>
-#endif 
+#include <emscripten/html5.h>
+#endif
 
 
 /**
- * Interface class for HTML5 input devices                 
+ * Interface class for HTML5 input devices
  */
 class FHTML5InputInterface
 {
@@ -45,9 +51,9 @@ private:
 
 #if PLATFORM_HTML5_BROWSER
 
-	EmscriptenGamepadEvent PrevGamePadState[5]; 
+	EmscriptenGamepadEvent PrevGamePadState[5];
 	double LastPressedTime[5][15];
 
-#endif 
+#endif
 
 };

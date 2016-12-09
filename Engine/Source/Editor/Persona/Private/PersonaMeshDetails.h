@@ -2,7 +2,26 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "EngineDefines.h"
+#include "Engine/SkeletalMesh.h"
+#include "PropertyHandle.h"
 #include "IDetailCustomNodeBuilder.h"
+#include "IDetailCustomization.h"
+
+class FAssetData;
+class FDetailWidgetRow;
+class FPersonaMeshDetails;
+class IDetailChildrenBuilder;
+class IDetailLayoutBuilder;
+class IPersonaToolkit;
+class SUniformGridPanel;
+struct FSectionLocalizer;
+
 /**
  * Struct to uniquely identify clothing applied to a material section
  * Contains index into the ClothingAssets array and the submesh index.
@@ -37,6 +56,26 @@ struct FClothingComboInfo
 	TArray<int32>							ClothingComboSelectedIndices;
 };
 
+struct FSectionLocalizer
+{
+	FSectionLocalizer(int32 InLODIndex, int32 InSectionIndex)
+		: LODIndex(InLODIndex)
+		, SectionIndex(InSectionIndex)
+	{}
+
+	bool operator==(const FSectionLocalizer& Other) const
+	{
+		return (LODIndex == Other.LODIndex && SectionIndex == Other.SectionIndex);
+	}
+
+	bool operator!=(const FSectionLocalizer& Other) const
+	{
+		return !((*this) == Other);
+	}
+
+	int32 LODIndex;
+	int32 SectionIndex;
+};
 
 class FSkelMeshReductionSettingsLayout : public IDetailCustomNodeBuilder, public TSharedFromThis<FSkelMeshReductionSettingsLayout>
 {
@@ -99,21 +138,26 @@ private:
 class FPersonaMeshDetails : public IDetailCustomization
 {
 public:
-	FPersonaMeshDetails(TSharedPtr<FPersona> InPersona) : PersonaPtr(InPersona) {}
+	FPersonaMeshDetails(TSharedRef<class IPersonaToolkit> InPersonaToolkit) : PersonaToolkitPtr(InPersonaToolkit) {}
 
 	/** Makes a new instance of this detail layout class for a specific detail view requesting it */
-	static TSharedRef<IDetailCustomization> MakeInstance(TSharedPtr<FPersona> InPersona);
+	static TSharedRef<IDetailCustomization> MakeInstance(TSharedRef<class IPersonaToolkit> InPersonaToolkit);
 
 	/** IDetailCustomization interface */
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailLayout ) override;
 
 private:
+
+	FReply AddMaterialSlot();
+
+	FText GetMaterialArrayText() const;
+
 	/**
 	 * Called by the material list widget when we need to get new materials for the list
 	 *
 	 * @param OutMaterials	Handle to a material list builder that materials should be added to
 	 */
-	void OnGetMaterialsForView( class IMaterialListBuilder& OutMaterials, int32 LODIndex );
+	void OnGetSectionsForView( class ISectionListBuilder& OutSections, int32 LODIndex );
 
 	/**
 	 * Called when a user drags a new material over a list item to replace it
@@ -123,7 +167,24 @@ private:
 	 * @param SlotIndex		The index of the slot on the component where materials should be replaces
 	 * @param bReplaceAll	If true all materials in the slot should be replaced not just ones using PrevMaterial
 	 */
-	void OnMaterialChanged(UMaterialInterface* NewMaterial, UMaterialInterface* PrevMaterial, int32 SlotIndex, bool bReplaceAll, int32 LODIndex);
+	void OnSectionChanged(int32 LODIndex, int32 SectionIndex, int32 NewMaterialSlotIndex, FName NewMaterialSlotName);
+
+	/**
+	* Called by the material list widget when we need to get new materials for the list
+	*
+	* @param OutMaterials	Handle to a material list builder that materials should be added to
+	*/
+	void OnGetMaterialsForArray(class IMaterialListBuilder& OutMaterials, int32 LODIndex);
+
+	/**
+	* Called when a user drags a new material over a list item to replace it
+	*
+	* @param NewMaterial	The material that should replace the existing material
+	* @param PrevMaterial	The material that should be replaced
+	* @param SlotIndex		The index of the slot on the component where materials should be replaces
+	* @param bReplaceAll	If true all materials in the slot should be replaced not just ones using PrevMaterial
+	*/
+	void OnMaterialArrayChanged(UMaterialInterface* NewMaterial, UMaterialInterface* PrevMaterial, int32 SlotIndex, bool bReplaceAll, int32 LODIndex);
 
 	
 	/**
@@ -132,7 +193,7 @@ private:
 	 * @param Material		The material that is being displayed
 	 * @param SlotIndex		The index of the material slot
 	 */
-	TSharedRef<SWidget> OnGenerateCustomNameWidgetsForMaterial(UMaterialInterface* Material, int32 SlotIndex, int32 LODIndex);
+	TSharedRef<SWidget> OnGenerateCustomNameWidgetsForSection(int32 LodIndex, int32 SectionIndex);
 
 	/**
 	 * Called by the material list widget on generating each thumbnail widget
@@ -140,7 +201,32 @@ private:
 	 * @param Material		The material that is being displayed
 	 * @param SlotIndex		The index of the material slot
 	 */
-	TSharedRef<SWidget> OnGenerateCustomMaterialWidgetsForMaterial(UMaterialInterface* Material, int32 SlotIndex, int32 LODIndex);
+	TSharedRef<SWidget> OnGenerateCustomSectionWidgetsForSection(int32 LODIndex, int32 SectionIndex);
+
+	FText GetMaterialNameText(int32 MaterialIndex)const ;
+	void OnMaterialNameCommitted(const FText& InValue, ETextCommit::Type CommitType, int32 MaterialIndex);
+	void OnMaterialNameChanged(const FText& InValue, int32 MaterialIndex);
+
+	FText GetOriginalImportMaterialNameText(int32 MaterialIndex)const;
+
+	/**
+	* Called by the material list widget on generating each thumbnail widget
+	*
+	* @param Material		The material that is being displayed
+	* @param MaterialIndex	The index of the material slot
+	*/
+	TSharedRef<SWidget> OnGenerateCustomMaterialWidgetsForMaterialArray(UMaterialInterface* Material, int32 MaterialIndex, int32 LODIndex);
+
+	/* If the material list is dirty this function will return true */
+	bool OnMaterialListDirty();
+
+	bool CanDeleteMaterialSlot(int32 MaterialIndex) const;
+
+	void OnDeleteMaterialSlot(int32 MaterialIndex);
+
+	TSharedRef<SWidget> OnGetMaterialSlotUsedByMenuContent(int32 MaterialIndex);
+
+	FText GetFirstMaterialSlotUsedBySection(int32 MaterialIndex) const;
 
 	/**
 	 * Handler for check box display based on whether the material is highlighted
@@ -199,6 +285,38 @@ private:
 	void OnRecomputeTangentChanged(ECheckBoxState NewState, int32 MaterialIndex);
 
 	/**
+	* Handler for check box display based on whether the material has shadow casting enabled
+	*
+	* @param LODIndex	The LODIndex we want to change
+	* @param SectionIndex	The SectionIndex we change the RecomputeTangent
+	*/
+	ECheckBoxState IsSectionShadowCastingEnabled(int32 LODIndex, int32 SectionIndex) const;
+
+	/**
+	* Handler for changing shadow casting status on a section
+	*
+	* @param LODIndex	The LODIndex we want to change
+	* @param SectionIndex	The SectionIndex we change the RecomputeTangent
+	*/
+	void OnSectionShadowCastingChanged(ECheckBoxState NewState, int32 LODIndex, int32 SectionIndex);
+
+	/**
+	* Handler for check box display based on whether this section does recalculate normal or not
+	*
+	* @param LODIndex	The LODIndex we want to change
+	* @param SectionIndex	The SectionIndex we change the RecomputeTangent
+	*/
+	ECheckBoxState IsSectionRecomputeTangentEnabled(int32 LODIndex, int32 SectionIndex) const;
+
+	/**
+	* Handler for changing recalulate normal status on a section
+	*
+	* @param LODIndex	The LODIndex we want to change
+	* @param SectionIndex	The SectionIndex we change the RecomputeTangent
+	*/
+	void OnSectionRecomputeTangentChanged(ECheckBoxState NewState, int32 LODIndex, int32 SectionIndex);
+
+	/**
 	 * Handler for enabling delete button on materials
 	 *
 	 * @param SectionIndex - index of the section to check
@@ -218,7 +336,7 @@ private:
 	bool IsDuplicatedMaterialIndex(int32 LODIndex, int32 MaterialIndex);
 
 	/** Get a material index from LOD index and section index */
-	int32 GetMaterialIndex(int32 LODIndex, int32 SectionIndex);
+	int32 GetMaterialIndex(int32 LODIndex, int32 SectionIndex) const;
 
 	/** for LOD settings category */
 	void CustomizeLODSettingsCategories(IDetailLayoutBuilder& DetailLayout);
@@ -230,6 +348,9 @@ private:
 	void OnLODCountCommitted(int32 InValue, ETextCommit::Type CommitInfo);
 	FText GetLODCountTooltip() const;
 	FText GetLODImportedText(int32 LODIndex) const;
+
+	FText GetMaterialSlotNameText(int32 MaterialIndex) const;
+
 	/** apply LOD changes if the user modified LOD reduction settings */
 	FReply OnApplyChanges();
 	/** Removes the specified lod from the skeletal mesh */
@@ -239,6 +360,35 @@ private:
 	/** hide properties which don't need to be showed to end users */
 	void HideUnnecessaryProperties(IDetailLayoutBuilder& DetailLayout);
 
+	// Handling functions for post process blueprint selection combo box
+	void OnPostProcessBlueprintChanged(IDetailLayoutBuilder* DetailBuilder);
+	FString GetCurrentPostProcessBlueprintPath() const;
+	bool OnShouldFilterPostProcessBlueprint(const FAssetData& AssetData) const;
+	void OnSetPostProcessBlueprint(const FAssetData& AssetData, TSharedRef<IPropertyHandle> BlueprintProperty);
+
+	/** Access the persona toolkit ptr. It should always be valid in the lifetime of this customization */
+	TSharedRef<IPersonaToolkit> GetPersonaToolkit() const { check(PersonaToolkitPtr.IsValid()); return PersonaToolkitPtr.Pin().ToSharedRef(); }
+
+	EVisibility GetOverrideUVDensityVisibililty() const;
+	ECheckBoxState IsUVDensityOverridden(int32 MaterialIndex) const;
+	void OnOverrideUVDensityChanged(ECheckBoxState NewState, int32 MaterialIndex);
+
+	EVisibility GetUVDensityVisibility(int32 MaterialIndex, int32 UVChannelIndex) const;
+	TOptional<float> GetUVDensityValue(int32 MaterialIndex, int32 UVChannelIndex) const;
+	void SetUVDensityValue(float InDensity, ETextCommit::Type CommitType, int32 MaterialIndex, int32 UVChannelIndex);
+
+	SVerticalBox::FSlot& GetUVDensitySlot(int32 MaterialIndex, int32 UVChannelIndex) const;
+
+	// Used to control the type of reimport to do with a named parameter
+	enum class EReimportButtonType : uint8
+	{
+		Reimport,
+		ReimportWithNewFile
+	};
+
+	// Handler for reimport buttons in LOD details
+	FReply OnReimportLodClicked(IDetailLayoutBuilder* DetailLayout, EReimportButtonType InReimportType, int32 InLODIndex);
+
 public:
 
 	bool IsApplyNeeded() const;
@@ -247,23 +397,12 @@ public:
 	void ApplyChanges();
 	FText GetApplyButtonText() const;
 
-	USkeletalMesh* GetMesh() const
-	{ 
-		if (PersonaPtr.IsValid())
-		{
-			return PersonaPtr->GetMesh();
-		}
-		else
-		{
-			return NULL;
-		}
-	}
 private:
 	// Container for the objects to display
 	TWeakObjectPtr<USkeletalMesh> SkeletalMeshPtr;
 
-	// Pointer back to Persona
-	TSharedPtr<FPersona> PersonaPtr;
+	// Reference the persona toolkit
+	TWeakPtr<class IPersonaToolkit> PersonaToolkitPtr;
 
 	IDetailLayoutBuilder* MeshDetailLayout;
 
@@ -274,6 +413,9 @@ private:
 
 	/** Simplification options for each LOD level */
 	TArray<TSharedPtr<FSkelMeshReductionSettingsLayout>> ReductionSettingsWidgets;
+
+	/* This is to know if material are used by any LODs sections. */
+	TMap<int32, TArray<FSectionLocalizer>> MaterialUsedMap;
 
 #if WITH_APEX_CLOTHING
 private:

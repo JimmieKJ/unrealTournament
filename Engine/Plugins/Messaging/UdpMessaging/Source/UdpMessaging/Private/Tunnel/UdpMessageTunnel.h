@@ -2,13 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "HAL/Runnable.h"
+#include "Containers/Queue.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "Tunnel/UdpMessageTunnelConnection.h"
 #include "IUdpMessageTunnel.h"
 
-
-// forward declarations
-class FRunnableThread;
-class FSocket;
-
+class FTcpListener;
 
 /**
  * Implements a bi-directional tunnel to send UDP messages over a TCP connection.
@@ -45,7 +47,7 @@ public:
 
 public:
 
-	// FRunnable interface
+	//~ FRunnable interface
 
 	virtual bool Init() override;
 	virtual uint32 Run() override;
@@ -54,10 +56,10 @@ public:
 
 public:
 
-	// IUdpMessageTunnel interface
+	//~ IUdpMessageTunnel interface
 
 	virtual bool Connect(const FIPv4Endpoint& RemoteEndpoint) override;
-	virtual int32 GetConnections(TArray<IUdpMessageTunnelConnectionPtr>& OutConnections) override;
+	virtual int32 GetConnections(TArray<TSharedPtr<IUdpMessageTunnelConnection>>& OutConnections) override;
 	virtual uint64 GetTotalInboundBytes() const override;
 	virtual uint64 GetTotalOutboundBytes() const override;
 	virtual bool IsServerRunning() const override;

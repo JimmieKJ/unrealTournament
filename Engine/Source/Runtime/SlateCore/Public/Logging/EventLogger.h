@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Logging/IEventLogger.h"
+
+class SWidget;
 
 /**
  * Implements an event logger that forwards events to two other event loggers.

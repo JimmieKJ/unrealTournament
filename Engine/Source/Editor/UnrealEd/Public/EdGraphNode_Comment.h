@@ -1,9 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
 #include "EdGraph/EdGraphNode.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
+#include "Textures/SlateIcon.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "EdGraphNode_Comment.generated.h"
+
+class INameValidatorInterface;
+struct Rect;
 
 typedef TArray<class UObject*> FCommentNodeSet;
 

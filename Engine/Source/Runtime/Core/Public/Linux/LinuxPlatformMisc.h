@@ -6,11 +6,13 @@
 ==============================================================================================*/
 
 #pragma once
+
+#include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "Linux/LinuxSystemIncludes.h"
 #include "Misc/Build.h"
 
-class FString;
+class Error;
 struct FGenericCrashContext;
 
 /**
@@ -25,6 +27,7 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 	static class GenericApplication* CreateApplication();
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
 	static void SetEnvironmentVar(const TCHAR* VariableName, const TCHAR* Value);
+	DEPRECATED(4.14, "GetMacAddress is deprecated. It is not reliable on all platforms")
 	static TArray<uint8> GetMacAddress();
 	static bool IsRunningOnBattery();
 
@@ -70,6 +73,7 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 	static void LowLevelOutputDebugString(const TCHAR *Message);
 	static bool ControlScreensaver(EScreenSaverAction Action);
 
+	static void RequestExit(bool Force);
 	static void RequestExitWithStatus(bool Force, uint8 ReturnCode);
 	static const TCHAR* GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error);
 	static void ClipboardCopy(const TCHAR* Str);

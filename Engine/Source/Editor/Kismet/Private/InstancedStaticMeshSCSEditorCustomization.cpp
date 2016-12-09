@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "InstancedStaticMeshSCSEditorCustomization.h"
-#include "BlueprintEditorModule.h"
 #include "Components/InstancedStaticMeshComponent.h"
 
 TSharedRef<ISCSEditorCustomization> FInstancedStaticMeshSCSEditorCustomization::MakeInstance(TSharedRef< IBlueprintEditor > InBlueprintEditor)
@@ -77,8 +75,7 @@ bool FInstancedStaticMeshSCSEditorCustomization::HandleViewportDrag(class UScene
 	{
 		if (InstancedStaticMeshComponentScene->SelectedInstances[InstanceIndex] && InstancedStaticMeshComponentTemplate->PerInstanceSMData.IsValidIndex(InstanceIndex))
 		{
-			FMatrix& MatrixScene = InstancedStaticMeshComponentScene->PerInstanceSMData[InstanceIndex].Transform;
-			FMatrix& MatrixTemplate = InstancedStaticMeshComponentTemplate->PerInstanceSMData[InstanceIndex].Transform;
+			const FMatrix& MatrixScene = InstancedStaticMeshComponentScene->PerInstanceSMData[InstanceIndex].Transform;
 
 			FVector Translation = MatrixScene.GetOrigin();
 			FRotator Rotation = MatrixScene.Rotator();
@@ -111,8 +108,8 @@ bool FInstancedStaticMeshSCSEditorCustomization::HandleViewportDrag(class UScene
 				NewTranslation += LocalPivot;
 			}
 
-			MatrixScene = FScaleRotationTranslationMatrix(NewScale, NewRotation, NewTranslation);
-			MatrixTemplate = FScaleRotationTranslationMatrix(NewScale, NewRotation, NewTranslation);
+			InstancedStaticMeshComponentScene->UpdateInstanceTransform(InstanceIndex, FTransform(NewRotation, NewTranslation, NewScale));
+			InstancedStaticMeshComponentTemplate->UpdateInstanceTransform(InstanceIndex, FTransform(NewRotation, NewTranslation, NewScale));
 
 			bMovedInstance = true;
 		}

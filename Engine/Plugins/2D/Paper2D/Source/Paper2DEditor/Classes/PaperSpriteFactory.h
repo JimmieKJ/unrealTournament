@@ -6,6 +6,9 @@
  * Factory for sprites
  */
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "PaperSpriteFactory.generated.h"
 
 UCLASS()

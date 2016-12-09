@@ -1,13 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
-#include "TargetPlatform.h"
-#include "OpusAudioInfo.h"
 #include "AudioFormatOpus.h"
+#include "Serialization/MemoryWriter.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IAudioFormat.h"
+#include "Interfaces/IAudioFormatModule.h"
+#include "OpusAudioInfo.h"
 #include "VorbisAudioInfo.h"
-#include "Audio.h"
 
 // Need to define this so that resampler.h compiles - probably a way around this somehow
 #define OUTSIDE_SPEEX
@@ -267,6 +266,7 @@ public:
 				int32 CurrInterleavedOffset = SampleIndex*kSampleStride;
 				if (CurrSrcOffset < SourceSize)
 				{
+					check(QualityInfo.NumChannels <= 8); // Static analysis fix: warning C6385: Reading invalid data from 'Order':  the readable size is '256' bytes, but '8160' bytes may be read.
 					for (uint32 ChannelIndex = 0; ChannelIndex < QualityInfo.NumChannels; ++ChannelIndex)
 					{
 						// Interleave the channels in the Vorbis format, so that the correct channel is used for LFE

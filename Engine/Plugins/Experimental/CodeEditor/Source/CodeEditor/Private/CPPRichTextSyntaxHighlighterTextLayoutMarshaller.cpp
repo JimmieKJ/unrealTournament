@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeEditorPrivatePCH.h"
 #include "CPPRichTextSyntaxHighlighterTextLayoutMarshaller.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/TextLayout.h"
+#include "Framework/Text/ISlateRun.h"
+#include "Framework/Text/SlateTextRun.h"
+#include "Misc/ExpressionParserTypes.h"
 #include "WhiteSpaceTextRun.h"
 
 const TCHAR* Keywords[] =

@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapePrivatePCH.h"
-#include "Landscape.h"
-#include "MaterialCompiler.h"
 #include "Materials/MaterialExpressionLandscapeLayerCoords.h"
+#include "LandscapePrivate.h"
+#include "MaterialCompiler.h"
 
 
 #define LOCTEXT_NAMESPACE "Landscape"
@@ -27,12 +26,15 @@ UMaterialExpressionLandscapeLayerCoords::UMaterialExpressionLandscapeLayerCoords
 	};
 	static FConstructorStatics ConstructorStatics;
 
+#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Landscape);
+#endif
+
 	bCollapsed = false;
 }
 
 #if WITH_EDITOR
-int32 UMaterialExpressionLandscapeLayerCoords::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
+int32 UMaterialExpressionLandscapeLayerCoords::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
 {
 	switch (CustomUVType)
 	{

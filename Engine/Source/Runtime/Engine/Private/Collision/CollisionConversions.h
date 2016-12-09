@@ -3,9 +3,15 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "EngineDefines.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "PhysicsPublic.h"
+#include "PhysXIncludes.h"
+
 #if WITH_PHYSX
 
-#include "../PhysicsEngine/PhysXSupport.h"
 
 enum class EConvertQueryResult
 {
@@ -60,7 +66,7 @@ EConvertQueryResult ConvertRaycastResults(bool& OutHasValidBlockingHit, const UW
  * @param	bReturnPhysMat		True if we want to lookup the physical material
  * @return	Whether all results passed NaN/Inf checks.
  */
-EConvertQueryResult AddSweepResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, const PxSweepHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const PxTransform& QueryTM, float MaxDistance, bool bReturnFaceIndex, bool bReturnPhysMat);
+EConvertQueryResult AddSweepResults(bool& OutHasValidBlockingHit, const UWorld* World, int32 NumHits, PxSweepHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const PxTransform& QueryTM, float MaxDistance, bool bReturnFaceIndex, bool bReturnPhysMat);
 
 /** 
  * Util to convert physX overlap query to our overlap result

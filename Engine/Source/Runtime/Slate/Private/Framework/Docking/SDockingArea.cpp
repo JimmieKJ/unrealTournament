@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "DockingPrivate.h"
+#include "Framework/Docking/SDockingArea.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Docking/SDockingTabStack.h"
+#include "Framework/Docking/SDockingTarget.h"
+#include "Framework/Docking/FDockingDragOperation.h"
 
 
 void SDockingArea::Construct( const FArguments& InArgs, const TSharedRef<FTabManager>& InTabManager, const TSharedRef<FTabManager::FArea>& PersistentNode )

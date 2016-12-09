@@ -1,11 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_SubInput.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "GraphEditorSettings.h"
-#include "AnimGraphNode_SubInstance.h"
-#include "BlueprintActionDatabaseRegistrar.h"
-#include "BlueprintNodeSpawner.h"
 #include "BlueprintActionFilter.h"
 
 #define LOCTEXT_NAMESPACE "SubInputNode"

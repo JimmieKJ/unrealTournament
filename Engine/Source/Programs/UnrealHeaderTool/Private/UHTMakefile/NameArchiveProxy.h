@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/OutputDevice.h"
+
+class FArchive;
 class FUHTMakefile;
 
 /* See UHTMakefile.h for overview how makefiles work. */

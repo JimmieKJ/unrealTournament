@@ -1,10 +1,18 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "ButtonWidgetStyle.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Input/Reply.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SWidget.h"
+#include "Components/ContentWidget.h"
 
 #include "Button.generated.h"
+
+class SButton;
+class USlateWidgetStyleAsset;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnButtonClickedEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnButtonPressedEvent);

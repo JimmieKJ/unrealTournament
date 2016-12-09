@@ -4,49 +4,94 @@
 	BlendSpace1D.cpp: 1D BlendSpace functionality
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "AnimationRuntime.h"
-#include "AnimationUtils.h"
 #include "Animation/BlendSpace1D.h"
 
 UBlendSpace1D::UBlendSpace1D(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	NumOfDimension = 1;
-}
-
-float UBlendSpace1D::CalculateParamStep() const
-{
-	float GridSize = BlendParameters[0].GridNum;
-	float CoordDim = BlendParameters[0].Max - BlendParameters[0].Min;
-	return CoordDim/GridSize;
-}
-
-float UBlendSpace1D::CalculateThreshold() const
-{
-	return CalculateParamStep()*0.3f;
 }
 
 bool UBlendSpace1D::IsValidAdditive() const
 {
-	return IsValidAdditiveInternal(AAT_LocalSpaceBase);
+	return ContainsMatchingSamples(AAT_LocalSpaceBase);
 }
 
-void UBlendSpace1D::SnapToBorder(FBlendSample& Sample) const
+bool UBlendSpace1D::IsValidAdditiveType(EAdditiveAnimationType AdditiveType) const
 {
-	FVector& SampleValue = Sample.SampleValue;
+	return (AdditiveType == AAT_LocalSpaceBase || AdditiveType == AAT_None);
+}
 
-	const float Threshold = CalculateThreshold();
+void UBlendSpace1D::SnapSamplesToClosestGridPoint()
+{
+	TArray<float> GridPoints;
+	TArray<int32> ClosestSampleToGridPoint;
+	TArray<bool> SampleDataOnPoints;
+
 	const float GridMin = BlendParameters[0].Min;
 	const float GridMax = BlendParameters[0].Max;
+	const float GridRange = GridMax - GridMin;	
+	const int32 NumGridPoints = BlendParameters[0].GridNum + 1;
+	const float GridStep = GridRange / BlendParameters[0].GridNum;
 
-	if (SampleValue.X != GridMax && SampleValue.X+Threshold > GridMax)
+	// First mark all samples as invalid
+	for (FBlendSample& BlendSample : SampleData)
 	{
-		SampleValue.X = GridMax;
+		BlendSample.bIsValid = false;
 	}
-	if (SampleValue.X != GridMin && SampleValue.X-Threshold < GridMin)
+	
+	for (int32 GridPointIndex = 0; GridPointIndex < NumGridPoints; ++GridPointIndex)
 	{
-		SampleValue.X = GridMin;
+		const float GridPointValue = (GridPointIndex * GridStep) + GridMin;
+		GridPoints.Add(GridPointValue);
+	}
+
+	ClosestSampleToGridPoint.Init(INDEX_NONE, GridPoints.Num());
+
+	// Find closest sample to grid point
+	for (int32 PointIndex = 0; PointIndex < GridPoints.Num(); ++PointIndex)
+	{
+		const float GridPoint = GridPoints[PointIndex];
+		float SmallestDistance = FLT_MAX;
+		int32 Index = INDEX_NONE;
+
+		for (int32 SampleIndex = 0; SampleIndex < SampleData.Num(); ++SampleIndex)
+		{
+			FBlendSample& BlendSample = SampleData[SampleIndex];
+			const float Distance = FMath::Abs(GridPoint - BlendSample.SampleValue.X);
+			if (Distance < SmallestDistance)
+			{
+				Index = SampleIndex;
+				SmallestDistance = Distance;
+			}
+		}
+
+		ClosestSampleToGridPoint[PointIndex] = Index;
+	}
+
+	// Find closest grid point to sample
+	for (int32 SampleIndex = 0; SampleIndex < SampleData.Num(); ++SampleIndex)
+	{
+		FBlendSample& BlendSample = SampleData[SampleIndex];
+
+		// Find closest grid point
+		float SmallestDistance = FLT_MAX;
+		int32 Index = INDEX_NONE;
+		for (int32 PointIndex = 0; PointIndex < GridPoints.Num(); ++PointIndex)
+		{
+			const float Distance = FMath::Abs(GridPoints[PointIndex] - BlendSample.SampleValue.X);
+			if (Distance < SmallestDistance)
+			{
+				Index = PointIndex;
+				SmallestDistance = Distance;
+			}
+		}
+
+		// Only move the sample if it is also closest to the grid point
+		if (Index != INDEX_NONE && ClosestSampleToGridPoint[Index] == SampleIndex)
+		{
+			BlendSample.SampleValue.X = GridPoints[Index];
+			BlendSample.bIsValid = true;
+		}
 	}
 }
 
@@ -57,9 +102,7 @@ EBlendSpaceAxis UBlendSpace1D::GetAxisToScale() const
 
 bool UBlendSpace1D::IsSameSamplePoint(const FVector& SamplePointA, const FVector& SamplePointB) const
 {
-	const float Threshold = CalculateThreshold();
-	const FVector Diff = (SamplePointA-SamplePointB).GetAbs();
-	return (Diff.X < Threshold);
+	return FMath::IsNearlyEqual(SamplePointA.X, SamplePointB.X);
 }
 
 void UBlendSpace1D::GetRawSamplesFromBlendInput(const FVector &BlendInput, TArray<FGridBlendSample, TInlineAllocator<4> > & OutBlendSamples) const

@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "EditorObjectVersion.h"
+#include "UObject/MetaData.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/Package.h"
+#include "UObject/EditorObjectVersion.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMetaData, Log, All);
 
@@ -451,11 +456,6 @@ void UMetaData::RemoveMetaDataOutsidePackage()
 	}
 }
 
-bool UMetaData::NeedsLoadForClient() const
-{ 
-	return false; 
-}
-
 bool UMetaData::NeedsLoadForEditorGame() const
 {
 	return true;
@@ -499,12 +499,9 @@ void UMetaData::InitializeRedirectMap()
 	}
 }
 
-#if HACK_HEADER_GENERATOR
-
 FName UMetaData::GetRemappedKeyName(FName OldKey)
 {
 	InitializeRedirectMap();
 	return KeyRedirectMap.FindRef(OldKey);
 }
 
-#endif

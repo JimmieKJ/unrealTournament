@@ -1,9 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderSectionsPrivatePCH.h"
 #include "MovieSceneSpawnSectionRecorder.h"
-#include "MovieSceneBoolSection.h"
-#include "MovieSceneSpawnTrack.h"
+#include "GameFramework/Actor.h"
+#include "KeyParams.h"
+#include "Sections/MovieSceneBoolSection.h"
+#include "Tracks/MovieSceneSpawnTrack.h"
 #include "MovieScene.h"
 
 TSharedPtr<IMovieSceneSectionRecorder> FMovieSceneSpawnSectionRecorderFactory::CreateSectionRecorder(const struct FActorRecordingSettings& InActorRecordingSettings) const

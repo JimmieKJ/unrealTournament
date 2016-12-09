@@ -4,9 +4,9 @@
 	PlanarReflectionProxy.cpp
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Components/PlanarReflectionComponent.h"
 #include "PlanarReflectionSceneProxy.h"
+#include "GameFramework/Actor.h"
+#include "Components/PlanarReflectionComponent.h"
 
 FPlanarReflectionSceneProxy::FPlanarReflectionSceneProxy(UPlanarReflectionComponent* Component, FPlanarReflectionRenderTarget* InRenderTarget) :
 	bIsStereo(false)

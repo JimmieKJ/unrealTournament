@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "SceneDepthPickerMode.h"
+#include "EdMode.h"
+
+class FEditorViewportClient;
+class FViewport;
+
 enum class ESceneDepthPickState : uint8
 {
 	NotOverViewport,

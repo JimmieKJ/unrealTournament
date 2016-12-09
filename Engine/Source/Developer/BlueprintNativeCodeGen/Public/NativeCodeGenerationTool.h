@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "BlueprintEditor.h"
+#include "CoreMinimal.h"
+
+class UBlueprint;
 
 //////////////////////////////////////////////////////////////////////////
 // FNativeCodeGenerationTool

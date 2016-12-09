@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "UObject/StructOnScope.h"
 #include "PropertyEditorDelegates.h"
+
+class IDetailsView;
 
 /**
  * Interface class for all detail views

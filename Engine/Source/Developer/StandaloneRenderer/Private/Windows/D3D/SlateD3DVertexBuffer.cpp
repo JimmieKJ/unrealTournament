@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "StandaloneRendererPrivate.h"
-
 #include "Windows/D3D/SlateD3DVertexBuffer.h"
 #include "Windows/D3D/SlateD3DRenderer.h"
+#include "StandaloneRendererPrivate.h"
 
 FSlateD3DVertexBuffer::FSlateD3DVertexBuffer()
 : BufferSize(0), Stride(0)

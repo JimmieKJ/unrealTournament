@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Framework/SlateDelegates.h"
 #include "PropertyHandle.h"
 
-// Forward declarations
 class FDetailWidgetRow;
 
 DECLARE_DELEGATE_RetVal_OneParam(bool, FIsResetToDefaultVisible, TSharedRef<IPropertyHandle> /* PropertyHandle */);

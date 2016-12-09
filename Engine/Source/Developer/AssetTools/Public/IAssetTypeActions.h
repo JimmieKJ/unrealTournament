@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "Developer/AssetTools/Public/IAssetTools.h"
-#include "Developer/Merge/Public/Merge.h" // for FOnMergeResolved
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Developer/Merge/Public/Merge.h"
+
+class IToolkitHost;
 
 namespace EAssetTypeActivationMethod
 {

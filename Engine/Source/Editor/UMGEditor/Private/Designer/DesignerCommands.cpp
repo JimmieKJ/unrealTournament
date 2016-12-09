@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "DesignerCommands.h"
+#include "Designer/DesignerCommands.h"
 
 #define LOCTEXT_NAMESPACE "DesignerCommands"
 
@@ -12,6 +11,8 @@ void FDesignerCommands::RegisterCommands()
 
 	UI_COMMAND( LocationGridSnap, "Grid Snap", "Enables or disables snapping to the grid when dragging objects around", EUserInterfaceActionType::ToggleButton, FInputChord() );
 	UI_COMMAND( RotationGridSnap, "Rotation Snap", "Enables or disables snapping objects to a rotation grid", EUserInterfaceActionType::ToggleButton, FInputChord() );
+
+	UI_COMMAND( ToggleOutlines, "Show Outlines", "Enables or disables showing the dashed outlines", EUserInterfaceActionType::ToggleButton, FInputChord(EKeys::G) );
 }
 
 #undef LOCTEXT_NAMESPACE

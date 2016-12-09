@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
 #include "BoneControllers/AnimNode_TwoBoneIK.h"
-#include "Animation/AnimTypes.h"
 #include "AnimationRuntime.h"
 
 DECLARE_CYCLE_STAT(TEXT("TwoBoneIK Eval"), STAT_TwoBoneIK_Eval, STATGROUP_Anim);
@@ -14,10 +12,12 @@ DECLARE_CYCLE_STAT(TEXT("TwoBoneIK Eval"), STAT_TwoBoneIK_Eval, STATGROUP_Anim);
 FAnimNode_TwoBoneIK::FAnimNode_TwoBoneIK()
 	: EffectorLocation(FVector::ZeroVector)
 	, JointTargetLocation(FVector::ZeroVector)
-	, StretchLimits(FVector2D::ZeroVector)
 	, bTakeRotationFromEffectorSpace(false)
 	, bMaintainEffectorRelRot(false)
 	, bAllowStretching(false)
+	, StretchLimits_DEPRECATED(FVector2D::ZeroVector)
+	, StartStretchRatio(1.f)
+	, MaxStretchScale(1.2f)
 	, EffectorLocationSpace(BCS_ComponentSpace)
 	, JointTargetLocationSpace(BCS_ComponentSpace)
 {
@@ -164,11 +164,11 @@ void FAnimNode_TwoBoneIK::EvaluateBoneTransforms(USkeletalMeshComponent* SkelCom
 
 	if (bAllowStretching)
 	{
-		const float ScaleRange = StretchLimits.Y - StretchLimits.X;
+		const float ScaleRange = MaxStretchScale - StartStretchRatio;
 		if( ScaleRange > KINDA_SMALL_NUMBER && MaxLimbLength > KINDA_SMALL_NUMBER )
 		{
 			const float ReachRatio = DesiredLength / MaxLimbLength;
-			const float ScalingFactor = (StretchLimits.Y - 1.f) * FMath::Clamp<float>((ReachRatio - StretchLimits.X) / ScaleRange, 0.f, 1.f);
+			const float ScalingFactor = (MaxStretchScale - 1.f) * FMath::Clamp<float>((ReachRatio - StartStretchRatio) / ScaleRange, 0.f, 1.f);
 			if (ScalingFactor > KINDA_SMALL_NUMBER)
 			{
 				LowerLimbLength *= (1.f + ScalingFactor);

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/CoreDelegates.h"
+
 class IPackageLocalizationCache;
 
 /** Singleton class that manages localized package data. */
@@ -71,22 +74,9 @@ private:
 	 */
 	FName FindLocalizedPackageNameNoCache(const FName InSourcePackageName, const FString& InCultureName) const;
 
-	/**
-	* Delegate registered with FCoreDelegates to allow us to perform resolution of package names
-	*
-	* @param InRequestedPackage		The name of the package requested for load.
-	* @param OutResolvedPackage		The name of the resolved package to actually load
-	*
-	* @return						True/False based on whether resolution occured
-	*/
-	bool LinkerResolutionCallback(const FString& InRequestedPackage, FString& OutResolvedPackage);
-
 	/** Function to call to lazily initialize the manager. */
 	FLazyInitFunc LazyInitFunc;
 
 	/** Pointer to our currently active cache. Only valid after Initialize has been called. */
 	TSharedPtr<IPackageLocalizationCache> ActiveCache;
-
-	/** Delegate installed to handle resolution of packages during loading */
-	FCoreDelegates::FResolvePackageNameDelegate  PackageResolutionDelegate;
 };

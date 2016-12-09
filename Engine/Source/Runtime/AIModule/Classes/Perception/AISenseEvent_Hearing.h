@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Perception/AISense_Hearing.h"
 #include "Perception/AISenseEvent.h"
 #include "AISenseEvent_Hearing.generated.h"
 

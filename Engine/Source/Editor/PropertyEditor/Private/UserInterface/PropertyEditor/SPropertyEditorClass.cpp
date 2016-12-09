@@ -1,17 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorClass.h"
+#include "Engine/Blueprint.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Layout/SBox.h"
 
-#include "PropertyNode.h"
 #include "DragAndDrop/ClassDragDropOp.h"
-#include "PropertyEditorHelpers.h"
-#include "PropertyEditor.h"
-#include "SPropertyEditorClass.h"
-#include "SPropertyEditorCombo.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
 
-#include "PropertyHandle.h"
 
 #define LOCTEXT_NAMESPACE "PropertyEditor"
 

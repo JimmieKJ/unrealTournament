@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieScene3DPathSection.h"
-#include "MovieScene3DPathTrack.h"
+#include "Sections/MovieScene3DPathSection.h"
 #include "Components/SplineComponent.h"
 
 

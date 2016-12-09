@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidMediaEditorPCH.h"
 #include "AndroidFileMediaSourceFactory.h"
+#include "FileMediaSource.h"
 
 
 /* UAndroidFileMediaSourceFactory structors
@@ -31,7 +31,7 @@ bool UAndroidFileMediaSourceFactory::FactoryCanImport(const FString& Filename)
 UObject* UAndroidFileMediaSourceFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
 	UFileMediaSource* MediaSource = NewObject<UFileMediaSource>(InParent, InClass, InName, Flags);
-	MediaSource->FilePath = CurrentFilename;
+	MediaSource->SetFilePath(CurrentFilename);
 
 	return MediaSource;
 }

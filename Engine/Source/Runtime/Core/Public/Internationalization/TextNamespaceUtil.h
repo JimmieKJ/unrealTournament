@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "TextNamespaceFwd.h"
+#include "CoreTypes.h"
+#include "Internationalization/TextNamespaceFwd.h"
+#include "Containers/UnrealString.h"
 
 namespace TextNamespaceUtil
 {

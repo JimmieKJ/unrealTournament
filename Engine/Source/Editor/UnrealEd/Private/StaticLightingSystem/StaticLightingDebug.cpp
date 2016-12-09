@@ -4,10 +4,16 @@
 	StaticLightingDebug.cpp: Code for debugging static lighting
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "RawIndexBuffer.h"
+#include "Components/StaticMeshComponent.h"
+#include "CanvasTypes.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
 #include "StaticMeshResources.h"
-#include "StaticLightingPrivate.h"
+#include "StaticLightingSystem/StaticLightingPrivate.h"
 #include "LightMap.h"
+#include "Engine/MapBuildDataRegistry.h"
 #include "Components/ModelComponent.h"
 
 /** Information about the texel that is selected */
@@ -56,7 +62,7 @@ static void WriteTexel(UTexture2D* Texture, int32 X, int32 Y, FColor NewColor)
 static bool UpdateSelectedTexel(
 	UPrimitiveComponent* Component, 
 	int32 NodeIndex, 
-	FLightMapRef& Lightmap, 
+	FLightMapRef Lightmap, 
 	const FVector& Position, 
 	FVector2D InterpolatedUV, 
 	int32 LocalX, int32 LocalY,
@@ -165,7 +171,7 @@ void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model,
 			for (int32 ComponentIndex = 0; ComponentIndex < Components->Num() && !SMComponent; ComponentIndex++)
 			{
 				SMComponent = Cast<UStaticMeshComponent>((*Components)[ComponentIndex]);
-				if (SMComponent && (!SMComponent->StaticMesh || SMComponent->LODData.Num() == 0))
+				if (SMComponent && (!SMComponent->GetStaticMesh() || SMComponent->LODData.Num() == 0))
 				{
 					SMComponent = NULL;
 				}
@@ -176,7 +182,7 @@ void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model,
 		// Only static mesh components and BSP handled for now
 		if (SMComponent)
 		{
-			UStaticMesh* StaticMesh = SMComponent->StaticMesh;
+			UStaticMesh* StaticMesh = SMComponent->GetStaticMesh();
 			check(StaticMesh);
 			check(StaticMesh->RenderData);
 			check(StaticMesh->RenderData->LODResources.Num());
@@ -267,7 +273,12 @@ void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model,
 						}
 						else
 						{
-							bFoundLightmapSample = UpdateSelectedTexel(SMComponent, -1, SMComponent->LODData[LODIndex].LightMap, ClickLocation, InterpolatedUV, LocalX, LocalY, LightmapSizeX, LightmapSizeY);
+							const FMeshMapBuildData* MeshMapBuildData = SMComponent->GetMeshMapBuildData(SMComponent->LODData[LODIndex]);
+
+							if (MeshMapBuildData)
+							{
+								bFoundLightmapSample = UpdateSelectedTexel(SMComponent, -1, MeshMapBuildData->LightMap, ClickLocation, InterpolatedUV, LocalX, LocalY, LightmapSizeX, LightmapSizeY);
+							}
 						}
 					}
 				}
@@ -317,7 +328,12 @@ void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model,
 					}
 					else
 					{
-						bFoundLightmapSample = UpdateSelectedTexel(SMComponent, -1, SMComponent->LODData[LODIndex].LightMap, ClickLocation, InterpolatedUV, LocalX, LocalY, LightmapSizeX, LightmapSizeY);
+						const FMeshMapBuildData* MeshMapBuildData = SMComponent->GetMeshMapBuildData(SMComponent->LODData[LODIndex]);
+
+						if (MeshMapBuildData)
+						{
+							bFoundLightmapSample = UpdateSelectedTexel(SMComponent, -1, MeshMapBuildData->LightMap, ClickLocation, InterpolatedUV, LocalX, LocalY, LightmapSizeX, LightmapSizeY);
+						}
 					}		
 				}
 			}
@@ -344,7 +360,7 @@ void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model,
 					for (int32 ElementIndex = 0; ElementIndex < CurrentComponent->GetElements().Num(); ElementIndex++)
 					{
 						FModelElement& Element = CurrentComponent->GetElements()[ElementIndex];
-						TScopedPointer<FRawIndexBuffer16or32>* IndexBufferRef = Model->MaterialIndexBuffers.Find(Element.Material);
+						TUniquePtr<FRawIndexBuffer16or32>* IndexBufferRef = Model->MaterialIndexBuffers.Find(Element.Material);
 						check(IndexBufferRef);
 						for(uint32 TriangleIndex = Element.FirstIndex; TriangleIndex < Element.FirstIndex + Element.NumTriangles * 3; TriangleIndex += 3)
 						{
@@ -385,7 +401,7 @@ void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model,
 				FModelVertex* ModelVertices = (FModelVertex*)Model->VertexBuffer.Vertices.GetData();
 
 				FModelElement& Element = ClosestComponent->GetElements()[ClosestElementIndex];
-				TScopedPointer<FRawIndexBuffer16or32>* IndexBufferRef = Model->MaterialIndexBuffers.Find(Element.Material);
+				TUniquePtr<FRawIndexBuffer16or32>* IndexBufferRef = Model->MaterialIndexBuffers.Find(Element.Material);
 
 				uint32 Index0 = (*IndexBufferRef)->Indices[ClosestTriangleIndex];
 				uint32 Index1 = (*IndexBufferRef)->Indices[ClosestTriangleIndex + 1];
@@ -456,14 +472,19 @@ void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model,
 				const int32 LocalY = FMath::TruncToInt(StaticLightingTextureCoordinate.Y * PaddedSizeY);
 				check(LocalX >= 0 && LocalX < PaddedSizeX && LocalY >= 0 && LocalY < PaddedSizeY);
 
-				bFoundLightmapSample = UpdateSelectedTexel(
-					ClosestComponent, 
-					SelectedNodeIndex, 
-					Element.LightMap, 
-					ClickLocation, 
-					InterpolatedUV, 
-					LocalX, LocalY,
-					LightmapSizeX, LightmapSizeY);
+				const FMeshMapBuildData* MeshMapBuildData = Element.GetMeshMapBuildData();
+
+				if (MeshMapBuildData)
+				{
+					bFoundLightmapSample = UpdateSelectedTexel(
+						ClosestComponent,
+						SelectedNodeIndex,
+						MeshMapBuildData->LightMap,
+						ClickLocation,
+						InterpolatedUV,
+						LocalX, LocalY,
+						LightmapSizeX, LightmapSizeY);
+				}
 
 				if (!bFoundLightmapSample)
 				{

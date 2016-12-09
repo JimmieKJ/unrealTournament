@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Textures/SlateIcon.h"
 #include "K2Node_GetEnumeratorName.h"
 #include "K2Node_GetEnumeratorNameAsString.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
 
 UCLASS(MinimalAPI)
 class UK2Node_GetEnumeratorNameAsString : public UK2Node_GetEnumeratorName

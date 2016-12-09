@@ -2,14 +2,20 @@
 
 #pragma once
 
-#include <initializer_list>
-
-#include "Containers/SparseArray.h"
-#include "Misc/StructBuilder.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Templates/AlignOf.h"
+#include "Templates/UnrealTemplate.h"
+#include "Containers/ContainerAllocationPolicies.h"
 #include "Templates/Sorting.h"
+#include "Containers/Array.h"
+#include "Math/UnrealMathUtility.h"
+#include "Misc/StructBuilder.h"
 #include "Templates/Function.h"
-
-class FScriptSet;
+#include <initializer_list>
+#include "Templates/TypeHash.h"
+#include "Containers/SparseArray.h"
 
 /**
  * The base KeyFuncs type with some useful definitions for all KeyFuncs; meant to be derived from instead of used directly.
@@ -1389,7 +1395,6 @@ public:
 	int32 AddUninitialized(const FScriptSetLayout& Layout)
 	{
 		int32 Result = Elements.AddUninitialized(Layout.SparseArrayLayout);
-		++HashSize;
 		return Result;
 	}
 
@@ -1408,8 +1413,6 @@ public:
 			{
 				GetTypedHash(HashIndex) = FSetElementId();
 			}
-
-			int32 NumBytesPerSetElement = Layout.Size;
 
 			// Add the existing elements to the new hash.
 			int32 Index = 0;
@@ -1437,6 +1440,62 @@ public:
 				++Index;
 			}
 		}
+	}
+
+	uint8* Find(const void* Element, const FScriptSetLayout& Layout, TFunctionRef<uint32 (const void*)> GetKeyHash, TFunctionRef<bool (const void*, const void*)> EqualityFn)
+	{
+		if (Elements.Num())
+		{
+			const uint32 ElementHash = GetKeyHash(Element);
+			const int32  HashIndex = ElementHash & (HashSize - 1);
+
+			uint8* CurrentElement = nullptr;
+			for (FSetElementId ElementId = GetTypedHash(HashIndex);
+				ElementId.IsValidId();
+				ElementId = GetHashNextIdRef(CurrentElement, Layout))
+			{
+				CurrentElement = (uint8*)Elements.GetData(ElementId, Layout.SparseArrayLayout);
+				if (EqualityFn(Element, CurrentElement))
+				{
+					return CurrentElement;
+				}
+			}
+		}
+
+		return nullptr;
+	}
+
+	uint8* Add(const void* Element, const FScriptSetLayout& Layout, TFunctionRef<uint32(const void*)> GetKeyHash, TFunctionRef<bool(const void*, const void*)> EqualityFn, TFunctionRef<void(void*)> ConstructFn)
+	{
+		// Minor efficiency concern: we hash the element both here in the Find() call and below
+		// when we link the new element into the set
+		uint8* ExistingEntry = Find(Element, Layout, GetKeyHash, EqualityFn);
+		if (ExistingEntry == nullptr)
+		{
+			// add the set element
+			FSetElementId	ElementId(AddUninitialized(Layout));
+			void* CurrentElement = Elements.GetData(ElementId, Layout.SparseArrayLayout);
+
+			ConstructFn(CurrentElement);
+
+			const int32 DesiredHashSize = FDefaultSetAllocator::GetNumberOfHashBuckets(Num());
+			if (!HashSize ||
+				HashSize < DesiredHashSize)
+			{
+				// rehash, this will link in our new element if needed:
+				Rehash(Layout, GetKeyHash);
+			}
+			else
+			{
+				// link the new element into the set:
+				const uint32	ElementHash = GetKeyHash(Element);
+				const int32		HashIndex = ElementHash & (HashSize - 1);
+				FSetElementId& TypedHash = GetTypedHash(HashIndex);
+				GetHashNextIdRef(CurrentElement, Layout) = TypedHash;
+				TypedHash = ElementId;
+			}
+		}
+		return ExistingEntry;
 	}
 
 private:

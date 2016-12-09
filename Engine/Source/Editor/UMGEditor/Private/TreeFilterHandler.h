@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/SlateDelegates.h"
+
+template< typename TItemType > class IFilter;
+template<typename ItemType> class STreeView;
+
 /** Handles filtering and expanding a TreeView using an IFilter implementation. */
 template<typename ItemType>
 class TreeFilterHandler

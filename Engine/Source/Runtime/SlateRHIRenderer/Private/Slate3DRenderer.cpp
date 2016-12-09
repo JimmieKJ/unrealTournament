@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateRHIRendererPrivatePCH.h"
 #include "Slate3DRenderer.h"
-#include "ElementBatcher.h"
+#include "Fonts/FontCache.h"
+#include "Widgets/SWindow.h"
+#include "SceneUtils.h"
+#include "SlateRHIRenderer.h"
+#include "Rendering/ElementBatcher.h"
+
+DECLARE_FLOAT_COUNTER_STAT(TEXT("Slate 3D"), Slate3D, STATGROUP_GPU);
 
 FSlate3DRenderer::FSlate3DRenderer( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager, bool bUseGammaCorrection )
 	: SlateFontServices( InSlateFontServices )
@@ -95,6 +100,7 @@ struct TKeepAliveCommand : public FRHICommand < TKeepAliveCommand<TKeepAliveType
 void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate& InRHICmdList, FTextureRenderTarget2DResource* RenderTargetResource, FSlateDrawBuffer& WindowDrawBuffer, bool bInClearTarget)
 {
 	SCOPED_DRAW_EVENT( InRHICmdList, SlateRenderToTarget );
+	SCOPED_GPU_STAT(InRHICmdList, Slate3D);
 
 	checkSlow( RenderTargetResource );
 

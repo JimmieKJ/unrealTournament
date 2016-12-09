@@ -2,11 +2,21 @@
 
 #pragma once
 
-#include "ProjectTargetPlatformEditor.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Textures/SlateIcon.h"
+#include "Misc/Paths.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Frame/MainFrameActions.h"
+#include "HAL/FileManager.h"
+#include "GameProjectGenerationModule.h"
+#include "PlatformInfo.h"
+#include "Interfaces/IProjectTargetPlatformEditorModule.h"
+#include "Interfaces/IProjectManager.h"
 #include "InstalledPlatformInfo.h"
 
 #define LOCTEXT_NAMESPACE "FPackageProjectMenu"
-
 
 /**
  * Static helper class for populating the "Package Project" menu.

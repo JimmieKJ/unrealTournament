@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/UnrealMathUtility.h"
+#include "Math/VectorRegister.h"
+
 /**
 * This define controls whether a scalar implementation or vector implementation is used for FTransform.
 * The vector implementation works even when using UnMathFPU, but it will be much slower than the equivalent

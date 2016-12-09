@@ -2,11 +2,18 @@
 
 #pragma once
 
-#include "IAssetTypeActions.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "AssetData.h"
+#include "ARFilter.h"
+#include "FrontendFilterBase.h"
 
+class FMenuBuilder;
 class SFilter;
-class FFrontendFilter;
-class FFrontendFilterCategory;
+class SWrapBox;
 
 /**
  * A list of filters currently applied to an asset view.

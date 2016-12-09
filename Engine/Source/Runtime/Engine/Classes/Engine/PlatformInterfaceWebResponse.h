@@ -8,6 +8,11 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
 #include "PlatformInterfaceWebResponse.generated.h"
 
 UCLASS(transient,MinimalAPI)

@@ -1,11 +1,41 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-
-#include "UnrealEd.h"
-
 #include "NodeFactory.h"
+#include "UObject/Class.h"
+#include "InputCoreTypes.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "MaterialGraph/MaterialGraphNode_Comment.h"
+#include "MaterialGraph/MaterialGraphNode_Base.h"
+#include "MaterialGraph/MaterialGraphNode.h"
+#include "MaterialGraph/MaterialGraphNode_Root.h"
+#include "MaterialGraph/MaterialGraphSchema.h"
+#include "SoundCueGraph/SoundCueGraphNode.h"
+#include "SoundCueGraph/SoundCueGraphNode_Root.h"
+#include "SoundCueGraph/SoundCueGraphSchema.h"
+#include "Engine/CollisionProfile.h"
+#include "SGraphPin.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "K2Node_Event.h"
+#include "K2Node_CallArrayFunction.h"
+#include "K2Node_CallMaterialParameterCollectionFunction.h"
+#include "K2Node_CommutativeAssociativeBinaryOperator.h"
+#include "K2Node_DoOnceMultiInput.h"
+#include "K2Node_Composite.h"
+#include "K2Node_Copy.h"
+#include "K2Node_CreateDelegate.h"
+#include "K2Node_ExecutionSequence.h"
+#include "K2Node_FormatText.h"
+#include "K2Node_GetArrayItem.h"
+#include "K2Node_Knot.h"
+#include "K2Node_MakeArray.h"
+#include "K2Node_MakeStruct.h"
+#include "K2Node_SpawnActor.h"
+#include "K2Node_SpawnActorFromClass.h"
+#include "K2Node_Switch.h"
+#include "K2Node_Timeline.h"
+
 
 #include "SGraphNodeDefault.h"
 #include "SGraphNodeComment.h"
@@ -13,10 +43,8 @@
 #include "EdGraph/EdGraphNode_Documentation.h"
 #include "SGraphNodeKnot.h"
 
-#include "KismetNodes/SGraphNodeK2Base.h"
 #include "KismetNodes/SGraphNodeK2Default.h"
 #include "KismetNodes/SGraphNodeK2Var.h"
-#include "KismetNodes/SGraphNodeK2Terminator.h"
 #include "KismetNodes/SGraphNodeK2Composite.h"
 #include "KismetNodes/SGraphNodeSwitchStatement.h"
 #include "KismetNodes/SGraphNodeK2Sequence.h"
@@ -27,10 +55,11 @@
 #include "KismetNodes/SGraphNodeCallParameterCollectionFunction.h"
 #include "KismetNodes/SGraphNodeK2Event.h"
 #include "KismetNodes/SGraphNodeFormatText.h"
-#include "KismetNodes/SGraphNodeK2ArrayFunction.h"
 #include "KismetNodes/SGraphNodeMakeStruct.h"
 #include "KismetNodes/SGraphNodeK2Copy.h"
 
+#include "Animation/AnimNodeBase.h"
+#include "AnimGraphNode_Base.h"
 #include "AnimGraphNode_Root.h"
 #include "AnimGraphNode_SequencePlayer.h"
 #include "AnimGraphNode_StateMachineBase.h"
@@ -47,6 +76,7 @@
 #include "AnimationStateNodes/SGraphNodeAnimTransition.h"
 #include "AnimationStateNodes/SGraphNodeAnimStateEntry.h"
 
+#include "AnimationNodes/SAnimationGraphNode.h"
 #include "AnimationNodes/SGraphNodeSequencePlayer.h"
 #include "AnimationNodes/SGraphNodeAnimationResult.h"
 #include "AnimationNodes/SGraphNodeStateMachineInstance.h"
@@ -70,9 +100,6 @@
 #include "KismetPins/SGraphPinIndex.h"
 #include "KismetPins/SGraphPinCollisionProfile.h"
 
-#include "SoundNodes/SGraphNodeSoundBase.h"
-#include "SoundNodes/SGraphNodeSoundResult.h"
-
 #include "MaterialNodes/SGraphNodeMaterialBase.h"
 #include "MaterialNodes/SGraphNodeMaterialComment.h"
 #include "MaterialNodes/SGraphNodeMaterialResult.h"
@@ -80,9 +107,9 @@
 #include "MaterialPins/SGraphPinMaterialInput.h"
 
 #include "ConnectionDrawingPolicy.h"
+#include "BlueprintConnectionDrawingPolicy.h"
 #include "AnimGraphConnectionDrawingPolicy.h"
 #include "StateMachineConnectionDrawingPolicy.h"
-#include "SoundCueGraphConnectionDrawingPolicy.h"
 #include "MaterialGraphConnectionDrawingPolicy.h"
 
 #include "EdGraphUtilities.h"
@@ -138,18 +165,6 @@ TSharedPtr<SGraphNode> FNodeFactory::CreateNodeWidget(UEdGraphNode* InNode)
 		else
 		{
 			return SNew(SAnimationGraphNode, BaseAnimNode);
-		}
-	}
-
-	if (USoundCueGraphNode_Base* BaseSoundNode = Cast<USoundCueGraphNode_Base>(InNode))
-	{
-		if (USoundCueGraphNode_Root* RootSoundNode = Cast<USoundCueGraphNode_Root>(InNode))
-		{
-			return SNew(SGraphNodeSoundResult, RootSoundNode);
-		}
-		else if (USoundCueGraphNode* SoundNode = Cast<USoundCueGraphNode>(InNode))
-		{
-			return SNew(SGraphNodeSoundBase, SoundNode);
 		}
 	}
 
@@ -222,14 +237,6 @@ TSharedPtr<SGraphNode> FNodeFactory::CreateNodeWidget(UEdGraphNode* InNode)
 		else if (UK2Node_FormatText* FormatTextNode = Cast<UK2Node_FormatText>(InNode))
 		{
 			return SNew(SGraphNodeFormatText, FormatTextNode);
-		}
-		else if (UK2Node_CallArrayFunction* CallFunction = Cast<UK2Node_CallArrayFunction>(InNode))
-		{
-			return SNew(SGraphNodeK2ArrayFunction, CallFunction);
-		}
-		else if (UK2Node_GetArrayItem* GetArrayItemNode = Cast<UK2Node_GetArrayItem>(InNode))
-		{
-			return SNew(SGraphNodeK2ArrayFunction, GetArrayItemNode);
 		}
 		else if (UK2Node_Knot* Knot = Cast<UK2Node_Knot>(InNode))
 		{
@@ -465,10 +472,6 @@ FConnectionDrawingPolicy* FNodeFactory::CreateConnectionPolicy(const UEdGraphSch
         else if (Schema->IsA(UEdGraphSchema_K2::StaticClass()))
         {
             ConnectionDrawingPolicy = new FKismetConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj);
-        }
-        else if (Schema->IsA(USoundCueGraphSchema::StaticClass()))
-        {
-            ConnectionDrawingPolicy = new FSoundCueGraphConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj);
         }
         else if (Schema->IsA(UMaterialGraphSchema::StaticClass()))
         {

@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Textures/SlateIcon.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_MakeStruct.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_SetFieldsInStruct.generated.h"
 
 // Pure kismet node that creates a struct with specified values for each member
@@ -18,6 +22,7 @@ class UK2Node_SetFieldsInStruct : public UK2Node_MakeStruct
 	virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual bool IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const override;
+	virtual bool CanSplitPin(const UEdGraphPin* Pin) const override;
 	//~ End  UEdGraphNode Interface
 
 	//~ Begin K2Node Interface

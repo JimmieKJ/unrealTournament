@@ -1,12 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Editor/UnrealEd/Public/SViewportToolBar.h"
+#pragma once
 
-#include "SLevelEditor.h"
-#include "Editor/UnrealEd/Public/SEditorViewportToolBarMenu.h"
-#include "Editor/UnrealEd/Public/SEditorViewportToolBarButton.h"
-
-class SLevelViewport;
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Textures/SlateIcon.h"
+#include "Layout/Margin.h"
+#include "Widgets/SBoxPanel.h"
+#include "SLevelViewport.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SBox.h"
+#include "EditorStyleSet.h"
+#include "LevelEditorViewport.h"
+#include "SViewportToolBar.h"
+#include "LevelViewportActions.h"
 
 #define LOCTEXT_NAMESPACE "SActorPilotViewportToolbar"
 

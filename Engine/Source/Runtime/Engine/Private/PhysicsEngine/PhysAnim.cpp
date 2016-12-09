@@ -4,14 +4,21 @@
 	PhysAnim.cpp: Code for supporting animation/physics blending
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Misc/MemStack.h"
+#include "Misc/App.h"
+#include "HAL/IConsoleManager.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "EngineDefines.h"
+#include "Engine/EngineTypes.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimStats.h"
 #include "SkeletalRenderPublic.h"
 #include "Components/LineBatchComponent.h"
 #if WITH_PHYSX
-	#include "PhysXSupport.h"
+	#include "PhysXPublic.h"
 #endif // WITH_PHYSX
-#include "PhysicsPublic.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 
@@ -130,7 +137,7 @@ void UpdateWorldBoneTM(TAssetWorldBoneTMArray& WorldBoneTMs, const TArray<FTrans
 	WorldBoneTMs[BoneIndex].TM = RelTM * ParentTM;
 	WorldBoneTMs[BoneIndex].bUpToDate = true;
 }
-
+TAutoConsoleVariable<int32> CVarPhysicsAnimBlendUpdatesPhysX(TEXT("p.PhysicsAnimBlendUpdatesPhysX"), 1, TEXT("Whether to update the physx simulation with the results of physics animation blending"));
 
 void USkeletalMeshComponent::PerformBlendPhysicsBones(const TArray<FBoneIndexType>& InRequiredBones, TArray<FTransform>& InBoneSpaceTransforms)
 {
@@ -309,7 +316,7 @@ void USkeletalMeshComponent::PerformBlendPhysicsBones(const TArray<FBoneIndexTyp
 #if WITH_PHYSX
 	}	//end scope for read lock
 #if DEPERCATED_PHYSBLEND_UPDATES_PHYSX
-	if(PendingBodyTMs.Num())
+	if(PendingBodyTMs.Num() && CVarPhysicsAnimBlendUpdatesPhysX.GetValueOnAnyThread())
 	{
 		//This is extremely inefficient. We need to obtain a write lock which will block other threads from blending
 		//For now I'm juts deferring it to the end of this loop, but in general we need to move it all out of here and do it when the blend task is done
@@ -345,7 +352,7 @@ bool USkeletalMeshComponent::DoAnyPhysicsBodiesHaveWeight() const
 	return false;
 }
 
-TAutoConsoleVariable<int32> CVarUseParallelBlendPhysics(TEXT("a.ParallelBlendPhysics"), 0, TEXT("If 1, physics blending will be run across the task graph system. If 0, blending will run purely on the game thread"));
+TAutoConsoleVariable<int32> CVarUseParallelBlendPhysics(TEXT("a.ParallelBlendPhysics"), 1, TEXT("If 1, physics blending will be run across the task graph system. If 0, blending will run purely on the game thread"));
 
 void USkeletalMeshComponent::BlendInPhysics(FTickFunction& ThisTickFunction)
 {
@@ -464,11 +471,14 @@ void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>
 
 	const FTransform& CurrentLocalToWorld = ComponentToWorld;
 
+#if !(UE_BUILD_SHIPPING)
 	// Gracefully handle NaN
 	if(CurrentLocalToWorld.ContainsNaN())
 	{
+		logOrEnsureNanError(TEXT("USkeletalMeshComponent::UpdateKinematicBonesToAnim: CurrentLocalToWorld contains NaN, aborting."));
 		return;
 	}
+#endif
 
 	// If we are only using bodies for physics, don't need to move them right away, can defer until simulation (unless told not to)
 	if(BodyInstance.GetCollisionEnabled() == ECollisionEnabled::PhysicsOnly && DeferralAllowed == EAllowKinematicDeferral::AllowDeferral)

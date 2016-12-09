@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Shader.h"
 #include "GlobalShader.h"
 
@@ -18,6 +19,12 @@
 		FunctionName, \
 		Frequency \
 		);
+
+class FMaterial;
+class FShaderCommonCompileJob;
+class FShaderCompileJob;
+class FUniformExpressionSet;
+class FVertexFactoryType;
 
 /** Converts an EMaterialShadingModel to a string description. */
 extern FString GetShadingModelString(EMaterialShadingModel ShadingModel);

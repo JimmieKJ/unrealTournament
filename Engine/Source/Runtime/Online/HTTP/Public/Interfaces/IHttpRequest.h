@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "IHttpBase.h"
+#include "CoreMinimal.h"
+#include "Interfaces/IHttpBase.h"
+
+class IHttpRequest;
+class IHttpResponse;
 
 namespace EHttpRequestStatus
 {

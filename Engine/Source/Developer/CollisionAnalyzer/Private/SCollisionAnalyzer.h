@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "Developer/CollisionAnalyzer/Private/CollisionAnalyzer.h"
+
+class SCAQueryDetails;
+class SEditableTextBox;
+
 class FQueryTreeItem
 {
 public:

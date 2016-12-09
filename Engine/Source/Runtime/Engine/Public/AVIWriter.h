@@ -6,6 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Async/Future.h"
+
 DECLARE_LOG_CATEGORY_EXTERN(LogMovieCapture, Warning, All);
 
 DECLARE_DELEGATE_RetVal_TwoParams(FString, FResolveFileFormat, const FString&, const FString&);

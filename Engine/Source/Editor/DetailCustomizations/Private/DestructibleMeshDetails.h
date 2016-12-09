@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+
 class FDestructibleMeshDetails : public IDetailCustomization
 {
 public:
@@ -12,6 +17,10 @@ public:
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder ) override;
 
 private:
+
+	/** Hide any properties that aren't supported on destructible meshes */
+	void HideUnsupportedProperties(IDetailLayoutBuilder &DetailBuilder);
+
 	TArray< TWeakObjectPtr<UObject> > ObjectsCustomized;
 };
 

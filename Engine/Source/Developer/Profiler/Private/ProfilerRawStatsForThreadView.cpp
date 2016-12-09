@@ -1,6 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerPrivatePCH.h"
+#include "ProfilerRawStatsForThreadView.h"
+#include "HAL/FileManager.h"
+#include "Templates/ScopedPointer.h"
+#include "Serialization/MemoryReader.h"
+#include "ProfilerDataProvider.h"
+
 
 // Only copied from ProfilerSession, still not working.
 
@@ -9,8 +14,8 @@
 -----------------------------------------------------------------------------*/
 
 FRawProfilerSession::FRawProfilerSession( const FString& InRawStatsFileFileath )
-: FProfilerSession( EProfilerSessionTypes::StatsFileRaw, nullptr, FGuid::NewGuid(), InRawStatsFileFileath.Replace( *FStatConstants::StatsFileRawExtension, TEXT( "" ) ) )
-, CurrentMiniViewFrame( 0 )
+	: FProfilerSession( EProfilerSessionTypes::StatsFileRaw, nullptr, FGuid::NewGuid(), InRawStatsFileFileath.Replace( *FStatConstants::StatsFileRawExtension, TEXT( "" ) ) )
+	, CurrentMiniViewFrame( 0 )
 {
 	OnTick = FTickerDelegate::CreateRaw( this, &FRawProfilerSession::HandleTicker );
 }
@@ -146,7 +151,7 @@ void FRawProfilerSession::PrepareLoading()
 		UE_LOG( LogStats, Error, TEXT( "Could not open: %s" ), *Filepath );
 		return;
 	}
-	TAutoPtr<FArchive> FileReader( IFileManager::Get().CreateFileReader( *Filepath ) );
+	TUniquePtr<FArchive> FileReader( IFileManager::Get().CreateFileReader( *Filepath ) );
 	if( !FileReader )
 	{
 		UE_LOG( LogStats, Error, TEXT( "Could not open: %s" ), *Filepath );
@@ -377,7 +382,7 @@ void FRawProfilerSession::ProcessStatPacketArray( const FStatPacketArray& StatPa
 	// Raw stats callstack for this stat packet array.
 	TMap<FName, FProfilerStackNode*> ThreadNodes;
 
-	const FProfilerStatMetaDataRef MetaData = GetMetaData();
+	const TSharedRef<FProfilerStatMetaData> MetaData = GetMetaData();
 
 	FProfilerSampleArray& MutableCollection = const_cast<FProfilerSampleArray&>(DataProvider->GetCollection());
 
@@ -423,7 +428,7 @@ void FRawProfilerSession::ProcessStatPacketArray( const FStatPacketArray& StatPa
 				NewThreadID,
 				MetaData->GetStatByID( NewThreadID ).OwningGroup().ID(),
 				NewThreadID,
-				-1.0f, 1,
+				-1, 1,
 				FrameRootSampleIndex
 				);
 

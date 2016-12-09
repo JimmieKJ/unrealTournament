@@ -2,8 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Particles/ParticleModule.h"
 #include "Particles/SubUV/ParticleModuleSubUV.h"
 #include "ParticleModuleSubUVMovie.generated.h"
+
+class UParticleModuleTypeDataBase;
 
 UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "SubUV Movie"))
 class UParticleModuleSubUVMovie : public UParticleModuleSubUV

@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "RenderingCommon.h"
+#include "Rendering/RenderingCommon.h"
 
 FSlateRotatedRect::FSlateRotatedRect() {}
 
@@ -50,6 +49,33 @@ bool FSlateRotatedRect::IsUnderLocation(const FVector2D& Location) const
 		return FMath::IsWithinInclusive(T, 0.0f, 1.0f);
 	}
 	return false;
+}
+
+static FVector2D RoundToInt(const FVector2D& Vec)
+{
+	return FVector2D(FMath::RoundToInt(Vec.X), FMath::RoundToInt(Vec.Y));
+}
+
+FSlateRotatedRect FSlateRotatedRect::MakeSnappedRotatedRect(const FSlateRect& ClipRectInLayoutWindowSpace, const FSlateLayoutTransform& InverseLayoutTransform, const FSlateRenderTransform& RenderTransform)
+{
+	FSlateRotatedRect RotatedRect = TransformRect(
+		Concatenate(InverseLayoutTransform, RenderTransform),
+		FSlateRotatedRect(ClipRectInLayoutWindowSpace));
+
+	// Pixel snapping is done here by rounding the resulting floats to ints, we do this before
+	// calculating the final extents of the clip box otherwise we'll get a smaller clip rect than a visual
+	// rect where each point is individually snapped.
+	FVector2D SnappedTopLeft = RoundToInt(RotatedRect.TopLeft);
+	FVector2D SnappedTopRight = RoundToInt(RotatedRect.TopLeft + RotatedRect.ExtentX);
+	FVector2D SnappedBottomLeft = RoundToInt(RotatedRect.TopLeft + RotatedRect.ExtentY);
+
+	//NOTE: We explicitly do not re-snap the extent x/y, it wouldn't be correct to snap again in distance space
+	// even if two points are snapped, their distance wont necessarily be a whole number if those points are not
+	// axis aligned.
+	return FSlateRotatedClipRectType(
+		SnappedTopLeft,
+		SnappedTopRight - SnappedTopLeft,
+		SnappedBottomLeft - SnappedTopLeft);
 }
 
 FSlateVertex::FSlateVertex() 

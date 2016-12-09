@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ComponentVisualizer.h"
-#include "Components/DecalComponent.h"
+
+class FPrimitiveDrawInterface;
+class FSceneView;
 
 class COMPONENTVISUALIZERS_API FDecalComponentVisualizer : public FComponentVisualizer
 {

@@ -1,21 +1,30 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PhATPrivatePCH.h"
+#include "PhATSharedData.h"
+#include "PhysicsEngine/PhysicsHandleComponent.h"
+#include "PhysicsEngine/RigidBodyIndexPair.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/SWindow.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Preferences/PhATSimOptions.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/CollisionProfile.h"
+#include "Editor.h"
 #include "PhATModule.h"
-#include "PhysicsPublic.h"
 #include "EditorSupportDelegates.h"
 #include "ScopedTransaction.h"
 #include "SPhATNewAssetDlg.h"
 #include "PhATEdSkeletalMeshComponent.h"
-#include "PhATSharedData.h"
-#include "Developer/MeshUtilities/Public/MeshUtilities.h"
-#include "PhysicsEngine/BodySetup.h"
-#include "Engine/CollisionProfile.h"
+#include "MeshUtilities.h"
+#include "PhysicsEngine/BoxElem.h"
+#include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
-#include "PhysicsEngine/PhysicsHandleComponent.h"
+#include "PhysicsEngine/PhysicalAnimationComponent.h"
 #include "PhysicsEngine/PhysicsAsset.h"
-#include "Vehicles/WheeledVehicleMovementComponent.h"
-#include "Engine/StaticMesh.h"
 
 #define LOCTEXT_NAMESPACE "PhATShared"
 
@@ -107,6 +116,7 @@ void FPhATSharedData::Initialize()
 	// Create SkeletalMeshComponent for rendering skeletal mesh
 	EditorSkelComp = NewObject<UPhATEdSkeletalMeshComponent>();
 	EditorSkelComp->SharedData = this;
+	EditorSkelComp->SetPhysicsAsset(PhysicsAsset);
 
 	PhysicalAnimationComponent = NewObject<UPhysicalAnimationComponent>();
 	PhysicalAnimationComponent->SetSkeletalMeshComponent(EditorSkelComp);
@@ -120,7 +130,7 @@ void FPhATSharedData::Initialize()
 	check(FloorMesh);
 
 	EditorFloorComp = NewObject<UStaticMeshComponent>();
-	EditorFloorComp->StaticMesh = FloorMesh;
+	EditorFloorComp->SetStaticMesh(FloorMesh);
 	EditorFloorComp->SetRelativeScale3D(FVector(4.f));
 
 	PreviewScene.AddComponent(EditorSkelComp, FTransform::Identity);
@@ -394,19 +404,8 @@ void FPhATSharedData::RefreshPhysicsAssetChange(const UPhysicsAsset* InPhysAsset
 			}
 		}
 
-		for (FObjectIterator Iter(UWheeledVehicleMovementComponent::StaticClass()); Iter; ++Iter)
-		{
-			UWheeledVehicleMovementComponent * WheeledVehicleMovementComponent = Cast<UWheeledVehicleMovementComponent>(*Iter);
-			if (USkeletalMeshComponent * SkeltalMeshComponent = Cast<USkeletalMeshComponent>(WheeledVehicleMovementComponent->UpdatedComponent))
-			{
-				if (SkeltalMeshComponent->GetPhysicsAsset() == InPhysAsset)
-				{
-					//Need to recreate car data
-					WheeledVehicleMovementComponent->RecreatePhysicsState();
-				}
-
-			}
-		}
+		// Broadbcast delegate
+		FPhysicsDelegates::OnPhysicsAssetChanged.Broadcast(InPhysAsset);
 
 		FEditorSupportDelegates::RedrawAllViewports.Broadcast();
 		// since we recreate physicsstate, a lot of transient state data will be gone
@@ -518,7 +517,7 @@ void FPhATSharedData::SetSelectedBody(const FSelection* Body, bool bGroupSelect 
 		return;
 	}
 
-	for (int32 i = 0; i <EditorSkelMesh->RefSkeleton.GetNum(); ++i)
+	for (int32 i = 0; i <EditorSkelMesh->RefSkeleton.GetRawBoneNum(); ++i)
 	{
 		int32 ControllerBodyIndex = PhysicsAsset->FindControllingBodyIndex(EditorSkelMesh, i);
 		if (ControllerBodyIndex == GetSelectedBody()->Index)
@@ -986,7 +985,7 @@ void FPhATSharedData::MakeNewBody(int32 NewBoneIndex, bool bAutoSelect)
 	}
 
 	// Check if the bone of the new body has any physical children bones
-	for (int32 i = 0; i < EditorSkelMesh->RefSkeleton.GetNum(); ++i)
+	for (int32 i = 0; i < EditorSkelMesh->RefSkeleton.GetRawBoneNum(); ++i)
 	{
 		if (EditorSkelMesh->RefSkeleton.BoneIsChildOf(i, NewBoneIndex))
 		{
@@ -1063,12 +1062,12 @@ void FPhATSharedData::MakeNewBody(int32 NewBoneIndex, bool bAutoSelect)
 	RefreshPhysicsAssetChange(PhysicsAsset);
 }
 
-void FPhATSharedData::SetSelectedConstraintRelTM(const FTransform& RelTM)
+void FPhATSharedData::SetConstraintRelTM(const FPhATSharedData::FSelection* Constraint, const FTransform& RelTM)
 {
-	FTransform WParentFrame = GetConstraintWorldTM(GetSelectedConstraint(), EConstraintFrame::Frame2);
+    FTransform WParentFrame = GetConstraintWorldTM(Constraint, EConstraintFrame::Frame2);
 	FTransform WNewChildFrame = RelTM * WParentFrame;
 
-	UPhysicsConstraintTemplate* ConstraintSetup = PhysicsAsset->ConstraintSetup[GetSelectedConstraint()->Index];
+    UPhysicsConstraintTemplate* ConstraintSetup = PhysicsAsset->ConstraintSetup[Constraint->Index];
 	ConstraintSetup->Modify();
 
 	// Get child bone transform
@@ -1637,6 +1636,21 @@ void FPhATSharedData::Redo()
 
 	PreviewChangedEvent.Broadcast();
 	HierarchyChangedEvent.Broadcast();
+}
+
+void FPhATSharedData::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(PhysicsAsset);
+	Collector.AddReferencedObject(EditorSkelComp);
+	Collector.AddReferencedObject(PhysicalAnimationComponent);
+	Collector.AddReferencedObject(EditorSkelMesh);
+	Collector.AddReferencedObject(EditorFloorComp);
+	Collector.AddReferencedObject(EditorSimOptions);
+	Collector.AddReferencedObject(MouseHandle);
+	Collector.AddReferencedObject(CopiedBodySetup);
+	Collector.AddReferencedObject(CopiedConstraintTemplate);
+
+	PreviewScene.AddReferencedObjects(Collector);
 }
 
 #undef LOCTEXT_NAMESPACE

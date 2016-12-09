@@ -1,16 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerServicePrivatePCH.h"
+#include "ProfilerServiceManager.h"
+#include "Serialization/MemoryReader.h"
+#include "Misc/App.h"
+#include "Helpers/MessageEndpointBuilder.h"
+#include "ProfilerServiceMessages.h"
+#include "Stats/StatsData.h"
+#include "Stats/StatsFile.h"
 
-#include "StatsData.h"
-#include "StatsFile.h"
+
+DEFINE_LOG_CATEGORY(LogProfilerService);
 
 
-DEFINE_LOG_CATEGORY( LogProfilerService );
-
-/*-----------------------------------------------------------------------------
-	FProfilerServiceStatsStream
------------------------------------------------------------------------------*/
+/* FProfilerServiceStatsStream
+ *****************************************************************************/
 
 #if STATS
 
@@ -37,30 +40,7 @@ public:
 	}
 };
 
-#endif
-
-/*-----------------------------------------------------------------------------
-	FProfilerServiceManager
------------------------------------------------------------------------------*/
-
-void FProfilerServiceManager::HandleServiceFileChunkMessage( const FProfilerServiceFileChunk& Message, const IMessageContextRef& Context )
-{
-	FMemoryReader Reader( Message.Header );
-	FProfilerFileChunkHeader Header;
-	Reader << Header;
-	Header.Validate();
-
-	if (Header.ChunkType == EProfilerFileChunkType::SendChunk)
-	{
-		// Send this file chunk again.
-		FileTransferRunnable->EnqueueFileChunkToSend( new FProfilerServiceFileChunk( Message, FProfilerServiceFileChunk::FNullTag() ), true );
-	}
-	else if (Header.ChunkType == EProfilerFileChunkType::FinalizeFile)
-	{
-		// Finalize file.
-		FileTransferRunnable->FinalizeFileSending( Message.Filename );
-	}
-}
+#endif //STATS
 
 
 /* FProfilerServiceManager structors
@@ -72,6 +52,7 @@ FProfilerServiceManager::FProfilerServiceManager()
 {
 	PingDelegate = FTickerDelegate::CreateRaw(this, &FProfilerServiceManager::HandlePing);
 }
+
 
 /* IProfilerServiceManager interface
  *****************************************************************************/
@@ -92,6 +73,7 @@ void FProfilerServiceManager::StopCapture()
 	LastStatsFilename = FCommandStatsFile::Get().LastFileSaved;
 #endif
 }
+
 
 /* FProfilerServiceManager implementation
  *****************************************************************************/
@@ -131,9 +113,9 @@ void FProfilerServiceManager::Shutdown()
 }
 
 
-IProfilerServiceManagerPtr FProfilerServiceManager::CreateSharedServiceManager()
+TSharedPtr<IProfilerServiceManager> FProfilerServiceManager::CreateSharedServiceManager()
 {
-	static IProfilerServiceManagerPtr ProfilerServiceManager;
+	static TSharedPtr<IProfilerServiceManager> ProfilerServiceManager;
 
 	if (!ProfilerServiceManager.IsValid())
 	{
@@ -143,6 +125,7 @@ IProfilerServiceManagerPtr FProfilerServiceManager::CreateSharedServiceManager()
 	return ProfilerServiceManager;
 }
 
+
 void FProfilerServiceManager::AddNewFrameHandleStatsThread()
 {
 #if	STATS
@@ -150,8 +133,9 @@ void FProfilerServiceManager::AddNewFrameHandleStatsThread()
 	NewFrameDelegateHandle = Stats.NewFrameDelegate.AddRaw( this, &FProfilerServiceManager::HandleNewFrame );
 	StatsMasterEnableAdd();
 	MetadataSize = 0;
-#endif // STATS
+#endif //STATS
 }
+
 
 void FProfilerServiceManager::RemoveNewFrameHandleStatsThread()
 {
@@ -160,8 +144,9 @@ void FProfilerServiceManager::RemoveNewFrameHandleStatsThread()
 	Stats.NewFrameDelegate.Remove( NewFrameDelegateHandle );
 	StatsMasterEnableSubtract();
 	MetadataSize = 0;
-#endif // STATS
+#endif //STATS
 }
+
 
 void FProfilerServiceManager::SetPreviewState( const FMessageAddress& ClientAddress, const bool bRequestedPreviewState )
 {
@@ -211,7 +196,7 @@ void FProfilerServiceManager::SetPreviewState( const FMessageAddress& ClientAddr
 
 		UE_LOG( LogProfilerService, Verbose, TEXT( "SetPreviewState: %i, InstanceId: %s, ClientAddress: %s" ), (int32)bRequestedPreviewState, *InstanceId.ToString(), *ClientAddress.ToString() );
 	}
-#endif
+#endif //STATS
 }
 
 
@@ -248,12 +233,13 @@ bool FProfilerServiceManager::HandlePing( float DeltaTime )
 		MessageEndpoint->Send(new FProfilerServicePing(), Clients);
 	}
 	return (ClientData.Num() > 0);
-#endif
+#endif //STATS
+
 	return false;
 }
 
 
-void FProfilerServiceManager::HandleServiceCaptureMessage( const FProfilerServiceCapture& Message, const IMessageContextRef& Context )
+void FProfilerServiceManager::HandleServiceCaptureMessage( const FProfilerServiceCapture& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context )
 {
 #if STATS
 	const bool bRequestedCaptureState = Message.bRequestedCaptureState;
@@ -272,11 +258,11 @@ void FProfilerServiceManager::HandleServiceCaptureMessage( const FProfilerServic
 			StopCapture();
 		}
 	}
-#endif
+#endif //STATS
 }
 
 
-void FProfilerServiceManager::HandleServicePongMessage( const FProfilerServicePong& Message, const IMessageContextRef& Context )
+void FProfilerServiceManager::HandleServicePongMessage( const FProfilerServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context )
 {
 #if STATS
 	FClientData* Data = ClientData.Find(Context->GetSender());
@@ -286,17 +272,17 @@ void FProfilerServiceManager::HandleServicePongMessage( const FProfilerServicePo
 		Data->Active = true;
 		UE_LOG( LogProfilerService, Verbose, TEXT( "Pong InstanceId: %s, GetSender: %s" ), *InstanceId.ToString(), *Context->GetSender().ToString() );
 	}
-#endif
+#endif //STATS
 }
 
 
-void FProfilerServiceManager::HandleServicePreviewMessage( const FProfilerServicePreview& Message, const IMessageContextRef& Context )
+void FProfilerServiceManager::HandleServicePreviewMessage( const FProfilerServicePreview& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context )
 {
 	SetPreviewState( Context->GetSender(), Message.bRequestedPreviewState );
 }
 
 
-void FProfilerServiceManager::HandleServiceRequestMessage( const FProfilerServiceRequest& Message, const IMessageContextRef& Context )
+void FProfilerServiceManager::HandleServiceRequestMessage( const FProfilerServiceRequest& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context )
 {
 	if( Message.Request == EProfilerRequestType::PRT_SendLastCapturedFile )
 	{
@@ -309,8 +295,27 @@ void FProfilerServiceManager::HandleServiceRequestMessage( const FProfilerServic
 }
 
 
+void FProfilerServiceManager::HandleServiceFileChunkMessage(const FProfilerServiceFileChunk& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
+{
+	FMemoryReader Reader(Message.Header);
+	FProfilerFileChunkHeader Header;
+	Reader << Header;
+	Header.Validate();
 
-void FProfilerServiceManager::HandleServiceSubscribeMessage( const FProfilerServiceSubscribe& Message, const IMessageContextRef& Context )
+	if (Header.ChunkType == EProfilerFileChunkType::SendChunk)
+	{
+		// Send this file chunk again.
+		FileTransferRunnable->EnqueueFileChunkToSend(new FProfilerServiceFileChunk(Message, FProfilerServiceFileChunk::FNullTag()), true);
+	}
+	else if (Header.ChunkType == EProfilerFileChunkType::FinalizeFile)
+	{
+		// Finalize file.
+		FileTransferRunnable->FinalizeFileSending(Message.Filename);
+	}
+}
+
+
+void FProfilerServiceManager::HandleServiceSubscribeMessage( const FProfilerServiceSubscribe& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context )
 {
 #if STATS
 	const FMessageAddress& SenderAddress = Context->GetSender();
@@ -335,11 +340,11 @@ void FProfilerServiceManager::HandleServiceSubscribeMessage( const FProfilerServ
 			PingDelegateHandle = FTicker::GetCoreTicker().AddTicker(PingDelegate, 5.0f);
 		}
 	}
-#endif
+#endif //STATS
 }
 
 
-void FProfilerServiceManager::HandleServiceUnsubscribeMessage( const FProfilerServiceUnsubscribe& Message, const IMessageContextRef& Context )
+void FProfilerServiceManager::HandleServiceUnsubscribeMessage( const FProfilerServiceUnsubscribe& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context )
 {
 #if	STATS
 	const FMessageAddress SenderAddress = Context->GetSender();
@@ -363,8 +368,9 @@ void FProfilerServiceManager::HandleServiceUnsubscribeMessage( const FProfilerSe
 			FTicker::GetCoreTicker().RemoveTicker(PingDelegateHandle);
 		}
 	}
-#endif // STATS
+#endif //STATS
 }
+
 
 void FProfilerServiceManager::HandleNewFrame(int64 Frame)
 {
@@ -396,8 +402,9 @@ void FProfilerServiceManager::HandleNewFrame(int64 Frame)
 		FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerServiceManager::CompressDataAndSendToGame, DataToTask, Frame ),
 		TStatId()
 	);
-#endif
+#endif //STATS
 }
+
 
 #if STATS
 
@@ -435,6 +442,7 @@ void FProfilerServiceManager::CompressDataAndSendToGame( TArray<uint8>* DataToTa
 	delete DataToTask;
 }
 
+
 void FProfilerServiceManager::HandleNewFrameGT( FProfilerServiceData2* ToGameThread )
 {
 	if (MessageEndpoint.IsValid())
@@ -443,4 +451,5 @@ void FProfilerServiceManager::HandleNewFrameGT( FProfilerServiceData2* ToGameThr
 		MessageEndpoint->Send( ToGameThread, PreviewClients );
 	}
 }
-#endif
+
+#endif //STATS

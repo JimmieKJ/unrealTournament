@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Commands/Commands.h"
+#include "EditorStyleSet.h"
+
 class FSequencerCommands : public TCommands<FSequencerCommands>
 {
 
@@ -144,6 +148,9 @@ public:
 	/** Toggle the visibility of the goto box. */
 	TSharedPtr< FUICommandInfo > ToggleShowGotoBox;
 
+	/** Toggle the visibility of the transform box. */
+	TSharedPtr< FUICommandInfo > ToggleShowTransformBox;
+
 	/** Turns the range slider on and off. */
 	TSharedPtr< FUICommandInfo > ToggleShowRangeSlider;
 
@@ -216,6 +223,9 @@ public:
 	/** Convert the selected spawnable objects to possessables. The newly created possessables will be created in the current level. */
 	TSharedPtr< FUICommandInfo > ConvertToPossessable;
 
+	/** Saves the current state of this object as the default spawnable state. */
+	TSharedPtr< FUICommandInfo > SaveCurrentSpawnableState;
+
 	/** Discard all changes to the current movie scene. */
 	TSharedPtr< FUICommandInfo > DiscardChanges;
 
@@ -233,6 +243,9 @@ public:
 
 	/** Exports animation to fbx. */
 	TSharedPtr< FUICommandInfo > ExportFBX;
+
+	/** Toggle whether we should evaluate sub sequences in isolation */
+	TSharedPtr< FUICommandInfo > ToggleEvaluateSubSequencesInIsolation;
 
 	/**
 	 * Initialize commands

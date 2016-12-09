@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
-#include "SProjectLauncherLaunchRoleEditor.h"
-#include "SEditableTextBox.h"
-#include "STextComboBox.h"
+#include "Widgets/Launch/SProjectLauncherLaunchRoleEditor.h"
+#include "SlateOptMacros.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Shared/SProjectLauncherFormLabel.h"
+#include "Widgets/Input/STextComboBox.h"
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherLaunchRoleEditor"
 

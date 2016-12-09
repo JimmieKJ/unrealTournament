@@ -2,11 +2,12 @@
 
 #pragma once
 
-#include "Ticker.h"
+#include "CoreMinimal.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Runtime/Online/HTTP/Private/IHttpThreadedRequest.h"
+#include "Containers/Ticker.h"
 #include "HttpPackage.h"
 
-class IHttpRequest;
-class IHttpThreadedRequest;
 class FHttpThread;
 
 /**

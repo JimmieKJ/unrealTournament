@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "SlateWidgetStyleContainerInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Styling/SlateWidgetStyleContainerInterface.h"
 #include "SlateWidgetStyleContainerBase.generated.h"
 
 SLATECORE_API DECLARE_LOG_CATEGORY_EXTERN(LogSlateStyle, Log, All);

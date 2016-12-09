@@ -2,9 +2,14 @@
 
 #pragma once
 
-#include "OnlineBlueprintCallProxyBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Interfaces/OnlineIdentityInterface.h"
+#include "Net/OnlineBlueprintCallProxyBase.h"
 #include "ConnectionCallbackProxy.generated.h"
+
+class APlayerController;
+class Error;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnlineConnectionResult, int32, ErrorCode);
 

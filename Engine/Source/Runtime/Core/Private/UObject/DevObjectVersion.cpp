@@ -1,6 +1,19 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-#include "CorePrivatePCH.h"
 #include "UObject/DevObjectVersion.h"
+#include "Logging/LogMacros.h"
+#include "UObject/BlueprintsObjectVersion.h"
+#include "UObject/BuildObjectVersion.h"
+#include "UObject/CoreObjectVersion.h"
+#include "UObject/EditorObjectVersion.h"
+#include "UObject/FrameworkObjectVersion.h"
+#include "UObject/MobileObjectVersion.h"
+#include "UObject/NetworkingObjectVersion.h"
+#include "UObject/OnlineObjectVersion.h"
+#include "UObject/PhysicsObjectVersion.h"
+#include "UObject/PlatformObjectVersion.h"
+#include "UObject/RenderingObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
+#include "UObject/VRObjectVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDevObjectVersion, Log, All);
 
@@ -90,3 +103,8 @@ FDevVersionRegistration GRegisterSequencerObjectVersion(FSequencerObjectVersion:
 const FGuid FVRObjectVersion::GUID(0xD7296918, 0x1DD64BDD, 0x9DE264A8, 0x3CC13884);
 // Register VR custom version with Core
 FDevVersionRegistration GRegisterVRObjectVersion(FVRObjectVersion::GUID, FVRObjectVersion::LatestVersion, TEXT("Dev-VR"));
+
+// Unique Load Times version id
+const FGuid FLoadTimesObjectVersion::GUID(0xC2A15278, 0xBFE74AFE, 0x6C1790FF, 0x531DF755);
+// Register LoadTimes custom version with Core
+FDevVersionRegistration GRegisterLoadTimesObjectVersion(FLoadTimesObjectVersion::GUID, FLoadTimesObjectVersion::LatestVersion, TEXT("Dev-LoadTimes"));

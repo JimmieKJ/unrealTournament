@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionFloat.h"
 #include "Particles/Collision/ParticleModuleCollisionBase.h"
 #include "ParticleModuleCollisionGPU.generated.h"
+
+class UParticleEmitter;
+class UParticleLODLevel;
 
 /**
  * How particles respond to collision events.

@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RHIPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/MessageDialog.h"
 #include "RHI.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/ConfigCacheIni.h"
 
 FDynamicRHI* PlatformCreateDynamicRHI()
 {
@@ -17,10 +19,24 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 		DynamicRHIModule = NULL;
 	}
 
+	// default to SM4 for safety's sake
+	ERHIFeatureLevel::Type RequestedFeatureLevel = ERHIFeatureLevel::SM4;
+
+	// Check the list of targeted shader platforms and decide an RHI based off them
+	TArray<FString> TargetedShaderFormats;
+	GConfig->GetArray(TEXT("/Script/LinuxTargetPlatform.LinuxTargetSettings"), TEXT("TargetedRHIs"), TargetedShaderFormats, GEngineIni);
+	if (TargetedShaderFormats.Num() > 0)
+	{
+		// Pick the first one
+		FName ShaderFormatName(*TargetedShaderFormats[0]);
+		EShaderPlatform TargetedPlatform = ShaderFormatToLegacyShaderPlatform(ShaderFormatName);
+		RequestedFeatureLevel = GetMaxSupportedFeatureLevel(TargetedPlatform);
+	}
+
 	// Create the dynamic RHI.
 	if (DynamicRHIModule)
 	{
-		DynamicRHI = DynamicRHIModule->CreateRHI();
+		DynamicRHI = DynamicRHIModule->CreateRHI(RequestedFeatureLevel);
 	}
 
 	return DynamicRHI;

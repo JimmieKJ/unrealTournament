@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ILauncherTask.h"
+#include "Interfaces/ILauncherProfile.h"
+
+class ILauncherWorker;
 
 namespace ELauncherWorkerStatus
 {
@@ -108,6 +113,13 @@ public:
 	 * @return the delegate
 	 */
 	virtual FOnLaunchCanceledDelegate& OnCanceled() = 0;
+
+	/**
+	 * Get the launcher profile
+	 *
+	 * @return the variable
+	 */
+	virtual ILauncherProfilePtr GetLauncherProfile() const = 0;
 
 protected:
 

@@ -4,10 +4,7 @@
 	AnimCompress_PerTrackCompression.cpp
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "Animation/AnimCompress_RemoveLinearKeys.h"
 #include "Animation/AnimCompress_PerTrackCompression.h"
-#include "AnimationUtils.h"
 #include "AnimationCompression.h"
 #include "AnimEncoding.h"
 

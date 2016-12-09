@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HTTPChunkInstallerPrivatePCH.h"
 #include "LocalTitleFile.h"
+#include "HTTPChunkInstallerLog.h"
 
 
 FLocalTitleFile::FLocalTitleFile(const FString& InRootDirectory)

@@ -16,7 +16,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "GameplayDebuggerAddonBase.h"
+
+class APlayerController;
 
 class GAMEPLAYDEBUGGER_API FGameplayDebuggerExtension : public FGameplayDebuggerAddonBase
 {

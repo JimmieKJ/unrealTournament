@@ -8,8 +8,9 @@
 
 #define OPENGL_GL4		1
 
+#include "UObject/UObjectHierarchyFwd.h"
+#include "Misc/AssertionMacros.h"
 #include "OpenGL3.h"
-
 
 struct FOpenGL4 : public FOpenGL3
 {

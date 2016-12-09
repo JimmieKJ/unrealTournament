@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "IMediaOptions.h"
 #include "MediaSource.generated.h"
-
 
 /**
  * Abstract base class for media sources.
@@ -22,26 +24,13 @@ class MEDIAASSETS_API UMediaSource
 
 public:
 
-	/** Name of the default native media player for all platforms (Empty = find one automatically). */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=Playback)
-	FString DefaultPlayer;
-
 #if WITH_EDITORONLY_DATA
 
 	/** Override native media player plug-ins per platform (Empty = find one automatically). */
-	UPROPERTY(EditAnywhere, Category=Playback, AdvancedDisplay)
-	TMap<FString, FString> PlatformPlayers;
+	UPROPERTY(EditAnywhere, Category=Overrides, Meta=(DisplayName="Platform Players"))
+	TMap<FString, FName> PlatformPlayerNames;
 
 #endif
-
-public:
-
-	/**
-	 * Get the name of the desired native player for this media source.
-	 *
-	 * @return Native player name, or empty string if not set.
-	 */
-	FString GetDesiredPlayer() const;
 
 public:
 
@@ -66,10 +55,17 @@ public:
 
 	//~ IMediaOptions interface
 
+	virtual FName GetDesiredPlayerName() const override;
 	virtual bool GetMediaOption(const FName& Key, bool DefaultValue) const override;
 	virtual double GetMediaOption(const FName& Key, double DefaultValue) const override;
 	virtual int64 GetMediaOption(const FName& Key, int64 DefaultValue) const override;
 	virtual FString GetMediaOption(const FName& Key, const FString& DefaultValue) const override;
 	virtual FText GetMediaOption(const FName& Key, const FText& DefaultValue) const override;
 	virtual bool HasMediaOption(const FName& Key) const override;
+
+private:
+
+	/** Name of the desired native media player (Empty = find one automatically). */
+	UPROPERTY()
+	FName PlayerName;
 };

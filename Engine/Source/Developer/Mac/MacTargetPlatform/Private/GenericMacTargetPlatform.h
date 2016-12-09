@@ -6,7 +6,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "TargetPlatformBase.h"
+#include "Mac/MacPlatformProperties.h"
+#include "Misc/ConfigCacheIni.h"
+#include "LocalMacTargetDevice.h"
+
 #if WITH_ENGINE
+#include "Sound/SoundWave.h"
+#include "TextureResource.h"
 #include "StaticMeshResources.h"
 #endif // WITH_ENGINE
 
@@ -29,7 +37,10 @@ public:
 	 */
 	TGenericMacTargetPlatform( )
 	{
+#if PLATFORM_MAC
+		// only add local device if actually running on Mac
 		LocalDevice = MakeShareable(new FLocalMacTargetDevice(*this));
+#endif
 
 		#if WITH_ENGINE
 			FConfigCacheIni::LoadLocalIniFile(EngineSettings, TEXT("Engine"), true, *this->PlatformName());
@@ -75,7 +86,10 @@ public:
 	virtual void GetAllDevices( TArray<ITargetDevicePtr>& OutDevices ) const override
 	{
 		OutDevices.Reset();
-		OutDevices.Add(LocalDevice);
+		if (LocalDevice.IsValid())
+		{
+			OutDevices.Add(LocalDevice);
+		}
 	}
 
 	virtual ECompressionFlags GetBaseCompressionMethod( ) const override
@@ -90,7 +104,12 @@ public:
 
 	virtual ITargetDevicePtr GetDefaultDevice( ) const override
 	{
-		return LocalDevice;
+		if (LocalDevice.IsValid())
+		{
+			return LocalDevice;
+		}
+
+		return nullptr;
 	}
 
 	virtual ITargetDevicePtr GetDevice( const FTargetDeviceId& DeviceId )
@@ -171,7 +190,7 @@ return TSuper::SupportsFeature(Feature);
 		if (!IS_DEDICATED_SERVER)
 		{
 			// just use the standard texture format name for this texture (with no DX11 support)
-			FName TextureFormatName = this->GetDefaultTextureFormatName(Texture, EngineSettings, false);
+			FName TextureFormatName = GetDefaultTextureFormatName(this, Texture, EngineSettings, false);
 			OutFormats.Add(TextureFormatName);
 		}
 	}

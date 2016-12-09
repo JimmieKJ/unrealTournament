@@ -1,16 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
+#include "Details/SPropertyBinding.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+
+#if WITH_EDITOR
+	#include "Components/PrimitiveComponent.h"
+	#include "Components/StaticMeshComponent.h"
+	#include "Engine/BlueprintGeneratedClass.h"
+#endif // WITH_EDITOR
+#include "EdGraph/EdGraph.h"
+#include "EdGraphSchema_K2.h"
+#include "Blueprint/WidgetBlueprintGeneratedClass.h"
+#include "Animation/WidgetAnimation.h"
+#include "WidgetBlueprint.h"
+
 #include "DetailLayoutBuilder.h"
-#include "PropertyHandle.h"
-#include "SPropertyBinding.h"
-#include "WidgetBlueprintApplicationModes.h"
+#include "BlueprintModes/WidgetBlueprintApplicationModes.h"
 #include "WidgetGraphSchema.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "ScopedTransaction.h"
-#include "WidgetComponent.h"
-#include "WidgetAnimation.h"
-#include "PropertyBinding.h"
+#include "Components/WidgetComponent.h"
+#include "Binding/PropertyBinding.h"
 
 
 #define LOCTEXT_NAMESPACE "UMG"

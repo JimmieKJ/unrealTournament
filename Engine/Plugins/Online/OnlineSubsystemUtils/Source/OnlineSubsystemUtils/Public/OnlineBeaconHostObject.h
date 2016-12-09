@@ -1,10 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "GameFramework/Actor.h"
 #include "OnlineBeacon.h"
 #include "OnlineBeaconHostObject.generated.h"
 
-class UClass;
 class AOnlineBeaconClient;
 class UNetConnection;
 

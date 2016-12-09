@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class SCodeEditableText;
+class SScrollBar;
+
 class SCodeEditor : public SCompoundWidget
 {
 public:

@@ -1,13 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "LevelEditor.h"
-#include "LevelViewportTabContent.h"
 #include "LevelViewportLayout.h"
-#include "SDockTab.h"
-#include "SLevelViewport.h"
-#include "HeadMountedDisplay.h"
-#include "LevelEditor.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SOverlay.h"
+#include "Framework/Docking/LayoutService.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/SCanvas.h"
+#include "EditorStyleSet.h"
+#include "Editor/UnrealEdEngine.h"
+#include "UnrealEdGlobals.h"
+#include "Widgets/Docking/SDockTab.h"
 
 namespace ViewportLayoutDefs
 {

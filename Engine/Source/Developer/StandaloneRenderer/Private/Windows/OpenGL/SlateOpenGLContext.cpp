@@ -2,6 +2,7 @@
 
 #include "StandaloneRendererPrivate.h"
 
+#include "OpenGL/SlateOpenGLExtensions.h"
 #include "OpenGL/SlateOpenGLRenderer.h"
 
 /**

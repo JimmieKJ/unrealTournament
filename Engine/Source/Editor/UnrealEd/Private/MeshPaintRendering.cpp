@@ -4,12 +4,16 @@
 	MeshPaintRendering.cpp: Mesh texture paint brush rendering
 ================================================================================*/
 
-#include "UnrealEd.h"
 #include "MeshPaintRendering.h"
-#include "GlobalShader.h"
 #include "ShaderParameters.h"
-#include "ShaderParameterUtils.h"
+#include "RenderResource.h"
+#include "Shader.h"
+#include "StaticBoundShaderState.h"
 #include "RHIStaticStates.h"
+#include "BatchedElements.h"
+#include "GlobalShader.h"
+#include "ShaderParameterUtils.h"
+#include "TextureResource.h"
 #include "Engine/TextureRenderTarget2D.h"
 
 namespace MeshPaintRendering

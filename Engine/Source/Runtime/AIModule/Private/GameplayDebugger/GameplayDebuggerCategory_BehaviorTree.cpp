@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "GameplayDebuggerCategory_BehaviorTree.h"
+#include "GameplayDebugger/GameplayDebuggerCategory_BehaviorTree.h"
+#include "GameFramework/Pawn.h"
+#include "BrainComponent.h"
+#include "AIController.h"
+#include "BehaviorTree/BlackboardComponent.h"
 
 #if WITH_GAMEPLAY_DEBUGGER
 

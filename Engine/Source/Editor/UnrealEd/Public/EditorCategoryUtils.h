@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+
 /**
  * Wrapper for an enum detailing common editor categories. Users can reference
  * these categories in metadata using the enum value name in braces, like so:

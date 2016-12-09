@@ -3,6 +3,13 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Public dependencies
  *****************************************************************************/
 
@@ -14,15 +21,15 @@
 
 #include "JsonGlobals.h"
 
-#include "JsonPrintPolicy.h"
-#include "PrettyJsonPrintPolicy.h"
-#include "CondensedJsonPrintPolicy.h"
+#include "Policies/JsonPrintPolicy.h"
+#include "Policies/PrettyJsonPrintPolicy.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
 
-#include "JsonTypes.h"
-#include "JsonValue.h"
-#include "JsonObject.h"
+#include "Serialization/JsonTypes.h"
+#include "Dom/JsonValue.h"
+#include "Dom/JsonObject.h"
 
-#include "JsonReader.h"
-#include "JsonWriter.h"
-#include "JsonSerializer.h"
-#include "JsonSerializerMacros.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonWriter.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonSerializerMacros.h"

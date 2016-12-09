@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/Optional.h"
+
+class Error;
+
 template<typename ArgType>
 struct TValueOrError_ValueProxy
 {

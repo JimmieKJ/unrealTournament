@@ -1,14 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
+#include "BlueprintModes/WidgetGraphApplicationMode.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/Kismet/Public/BlueprintEditorTabs.h"
-#include "Editor/Kismet/Public/SBlueprintEditorToolbar.h"
-#include "Editor/Kismet/Public/BlueprintEditorModes.h"
+#include "BlueprintEditorTabs.h"
+#include "SBlueprintEditorToolbar.h"
 
-#include "WidgetBlueprintEditor.h"
-#include "WidgetGraphApplicationMode.h"
 #include "WidgetBlueprintEditorToolbar.h"
 #include "BlueprintModes/WidgetBlueprintApplicationModes.h"
 

@@ -6,11 +6,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "EngineDefines.h"
+#include "PhysicsPublic.h"
+
 #if WITH_PHYSX
 
 
 #include "PhysXIncludes.h"
-#include "EngineLogs.h"
 
 // Whether or not to use the PhysX scene lock
 #ifndef USE_SCENE_LOCK
@@ -52,7 +56,7 @@ class FApexSceneReadLock
 {
 public:
 
-	FApexSceneReadLock(NxApexScene* PInScene, const char* filename, PxU32 lineno)
+	FApexSceneReadLock(nvidia::apex::Scene* PInScene, const char* filename, PxU32 lineno)
 		: PScene(PInScene)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_PhysSceneReadLock);
@@ -71,7 +75,7 @@ public:
 	}
 
 private:
-	NxApexScene* PScene;
+	nvidia::apex::Scene* PScene;
 };
 #endif
 
@@ -106,7 +110,7 @@ private:
 class FApexSceneWriteLock
 {
 public:
-	FApexSceneWriteLock(NxApexScene* PInScene, const char* filename, PxU32 lineno)
+	FApexSceneWriteLock(nvidia::apex::Scene* PInScene, const char* filename, PxU32 lineno)
 		: PScene(PInScene)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_PhysSceneWriteLock);
@@ -125,7 +129,7 @@ public:
 	}
 
 private:
-	NxApexScene* PScene;
+	nvidia::apex::Scene* PScene;
 };
 #endif
 
@@ -209,7 +213,7 @@ struct FPhysXSupport
 				SCENE_LOCK_READ(PScene);
 			}
 
-			if (const physx::PxRigidBody* PRigidBody = RigidActor->isRigidBody())
+			if (const physx::PxRigidBody* PRigidBody = RigidActor->is<PxRigidBody>())
 			{
 				Func(PRigidBody);
 				bSuccess = true;
@@ -241,7 +245,7 @@ struct FPhysXSupport
 				SCENE_LOCK_WRITE(PScene);
 			}
 			
-			if (physx::PxRigidBody* PRigidBody = RigidActor->isRigidBody())
+			if (physx::PxRigidBody* PRigidBody = RigidActor->is<PxRigidBody>())
 			{
 				Func(PRigidBody);
 				bSuccess = true;
@@ -273,7 +277,7 @@ struct FPhysXSupport
 				SCENE_LOCK_READ(PScene);
 			}
 
-			if (physx::PxRigidDynamic* PRigidDynamic = RigidActor->isRigidDynamic())
+			if (physx::PxRigidDynamic* PRigidDynamic = RigidActor->is<PxRigidDynamic>())
 			{
 				Func(PRigidDynamic);
 				bSuccess = true;
@@ -305,7 +309,7 @@ struct FPhysXSupport
 				SCENE_LOCK_WRITE(PScene);
 			}
 
-			if (physx::PxRigidDynamic* PRigidDynamic = RigidActor->isRigidDynamic())
+			if (physx::PxRigidDynamic* PRigidDynamic = RigidActor->is<PxRigidDynamic>())
 			{
 				Func(PRigidDynamic);
 				bSuccess = true;

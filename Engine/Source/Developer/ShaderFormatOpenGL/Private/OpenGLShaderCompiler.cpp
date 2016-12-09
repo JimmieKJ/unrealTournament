@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-// .
+// ..
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Serialization/MemoryWriter.h"
 #include "ShaderFormatOpenGL.h"
 
 #if PLATFORM_WINDOWS
@@ -14,9 +18,9 @@
 	#include "Windows/MinWindows.h"
 #include "HideWindowsPlatformTypes.h"
 #endif
+#include "ShaderCore.h"
 #include "ShaderPreprocessor.h"
 #include "ShaderCompilerCommon.h"
-#include "hlslcc.h"
 #include "GlslBackend.h"
 #if PLATFORM_WINDOWS
 #include "AllowWindowsPlatformTypes.h"
@@ -73,12 +77,13 @@ static FORCEINLINE bool IsPCES2Platform(GLSLVersion Version)
 }
 
 // This function should match OpenGLShaderPlatformSeparable
-static FORCEINLINE bool SupportsSeparateShaderObjects(GLSLVersion Version)
+bool FOpenGLFrontend::SupportsSeparateShaderObjects(GLSLVersion Version)
 {
 	// Only desktop shader platforms can use separable shaders for now,
 	// the generated code relies on macros supplied at runtime to determine whether
 	// shaders may be separable and/or linked.
-	return Version == GLSL_150 || Version == GLSL_150_MAC || Version == GLSL_150_ES2 || Version == GLSL_150_ES2_NOUB || Version == GLSL_150_ES3_1 || Version == GLSL_430;
+	return Version == GLSL_150 || Version == GLSL_150_MAC || Version == GLSL_150_ES2 || Version == GLSL_150_ES2_NOUB ||
+		Version == GLSL_150_ES3_1 || Version == GLSL_430;
 }
 
 /*------------------------------------------------------------------------------
@@ -504,13 +509,44 @@ static uint32 ParseNumber(const TCHAR* Str)
 	return Num;
 }
 
+
+static ANSICHAR TranslateFrequencyToCrossCompilerPrefix(int32 Frequency)
+{
+	switch (Frequency)
+	{
+		case SF_Vertex: return 'v';
+		case SF_Pixel: return 'p';
+		case SF_Hull: return 'h';
+		case SF_Domain: return 'd';
+		case SF_Geometry: return 'g';
+		case SF_Compute: return 'c';
+	}
+	return '\0';
+}
+
+static TCHAR* SetIndex(TCHAR* Str, int32 Offset, int32 Index)
+{
+	check(Index >= 0 && Index < 100);
+
+	Str += Offset;
+	if (Index >= 10)
+	{
+		*Str++ = '0' + (TCHAR)(Index / 10);
+	}
+	*Str++ = '0' + (TCHAR)(Index % 10);
+	*Str = '\0';
+	return Str;
+}
+
+
+
 /**
  * Construct the final microcode from the compiled and verified shader source.
  * @param ShaderOutput - Where to store the microcode and parameter map.
  * @param InShaderSource - GLSL source with input/output signature.
  * @param SourceLen - The length of the GLSL source code.
  */
-static void BuildShaderOutput(
+void FOpenGLFrontend::BuildShaderOutput(
 	FShaderCompilerOutput& ShaderOutput,
 	const FShaderCompilerInput& ShaderInput, 
 	const ANSICHAR* InShaderSource,
@@ -629,13 +665,30 @@ static void BuildShaderOutput(
         }
 	}
 
+	// general purpose binding name
+	TCHAR BindingName[] = TEXT("XYZ\0\0\0\0\0\0\0\0");
+	BindingName[0] = TranslateFrequencyToCrossCompilerPrefix(Frequency);
+
+	TMap<FString, FString> BindingNameMap;
+
 	// Then 'normal' uniform buffers.
 	for (auto& UniformBlock : CCHeader.UniformBlocks)
 	{
 		uint16 UBIndex = UniformBlock.Index;
 		check(UBIndex == Header.Bindings.NumUniformBuffers);
 		UsedUniformBufferSlots[UBIndex] = true;
-		ParameterMap.AddParameterAllocation(*UniformBlock.Name, Header.Bindings.NumUniformBuffers++, 0, 0);
+		if (OutputTrueParameterNames())
+		{
+			// make the final name this will be in the shader
+			BindingName[1] = 'b';
+			SetIndex(BindingName, 2, UBIndex);
+			BindingNameMap.Add(BindingName, UniformBlock.Name);
+		}
+		else
+		{
+			ParameterMap.AddParameterAllocation(*UniformBlock.Name, Header.Bindings.NumUniformBuffers, 0, 0);
+		}
+		Header.Bindings.NumUniformBuffers++;
 	}
 
 	const uint16 BytesPerComponent = 4;
@@ -659,9 +712,20 @@ static void BuildShaderOutput(
 	TMap<int, TMap<ANSICHAR, uint16> > PackedUniformBuffersSize;
 	for (auto& PackedUB : CCHeader.PackedUBs)
 	{
+		checkf(OutputTrueParameterNames() == false, TEXT("Unexpected Packed UBs used with a shader format that needs true parameter names - If this is hit, we need to figure out how to handle them"));
+
 		check(PackedUB.Attribute.Index == Header.Bindings.NumUniformBuffers);
 		UsedUniformBufferSlots[PackedUB.Attribute.Index] = true;
-		ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.Bindings.NumUniformBuffers++, 0, 0);
+		if (OutputTrueParameterNames())
+		{
+			BindingName[1] = 'b';
+			// ???
+		}
+		else
+		{
+			ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.Bindings.NumUniformBuffers, 0, 0);
+		}
+		Header.Bindings.NumUniformBuffers++;
 
 		// Nothing else...
 		//for (auto& Member : PackedUB.Members)
@@ -760,12 +824,21 @@ static void BuildShaderOutput(
 	// Then samplers.
 	for (auto& Sampler : CCHeader.Samplers)
 	{
+		if (OutputTrueParameterNames())
+		{
+			BindingName[1] = 's';
+			SetIndex(BindingName, 2, Sampler.Offset);
+			BindingNameMap.Add(BindingName, Sampler.Name);
+		}
+		else
+		{
 		ParameterMap.AddParameterAllocation(
 			*Sampler.Name,
 			0,
 			Sampler.Offset,
 			Sampler.Count
 			);
+		}
 
 		Header.Bindings.NumSamplers = FMath::Max<uint8>(
 			Header.Bindings.NumSamplers,
@@ -774,6 +847,13 @@ static void BuildShaderOutput(
 
 		for (auto& SamplerState : Sampler.SamplerStates)
 		{
+			if (OutputTrueParameterNames())
+			{
+				// add an entry for the sampler parameter as well
+				BindingNameMap.Add(FString(BindingName) + TEXT("_samp"), SamplerState);
+			}
+			else
+			{
 			ParameterMap.AddParameterAllocation(
 				*SamplerState,
 				0,
@@ -782,16 +862,27 @@ static void BuildShaderOutput(
 				);
 		}
 	}	
+	}	
 
 	// Then UAVs (images in GLSL)
 	for (auto& UAV : CCHeader.UAVs)
 	{
+		if (OutputTrueParameterNames())
+		{
+			// make the final name this will be in the shader
+			BindingName[1] = 'i';
+			SetIndex(BindingName, 2, UAV.Offset);
+			BindingNameMap.Add(BindingName, UAV.Name);
+		}
+		else
+		{
 		ParameterMap.AddParameterAllocation(
 			*UAV.Name,
 			0,
 			UAV.Offset,
 			UAV.Count
 			);
+		}
 
 		Header.Bindings.NumUAVs = FMath::Max<uint8>(
 			Header.Bindings.NumSamplers,
@@ -800,6 +891,9 @@ static void BuildShaderOutput(
 	}
 
 	Header.ShaderName = CCHeader.Name;
+
+	// perform any post processing this frontend class may need to do
+	ShaderOutput.bSucceeded = PostProcessShaderSource(Version, Frequency, USFSource, SourceLen + 1 - (USFSource - InShaderSource), ParameterMap, BindingNameMap, ShaderOutput.Errors);
 
 	// Build the SRT for this shader.
 	{
@@ -819,8 +913,7 @@ static void BuildShaderOutput(
 		BuildResourceTableTokenStream(GenericSRT.UnorderedAccessViewMap, GenericSRT.MaxBoundResourceTable, Header.Bindings.ShaderResourceTable.UnorderedAccessViewMap);
 	}
 
-	// Assume that GL4.3 targets support 32 samplers as we don't currently support separate sampler objects
-	const int32 MaxSamplers = (Version == GLSL_430) ? 32 : GetFeatureLevelMaxTextureSamplers(GetMaxSupportedFeatureLevel((EShaderPlatform)ShaderOutput.Target.Platform));
+	const int32 MaxSamplers = GetMaxSamplers(Version);
 
 	if (Header.Bindings.NumSamplers > MaxSamplers)
 	{
@@ -830,12 +923,17 @@ static void BuildShaderOutput(
 			FString::Printf(TEXT("shader uses %d samplers exceeding the limit of %d"),
 				Header.Bindings.NumSamplers, MaxSamplers);
 	}
-	else
+	else if (ShaderOutput.bSucceeded)
 	{
-		// Write out the header and shader source code.
+		// Write out the header
 		FMemoryWriter Ar(ShaderOutput.ShaderCode.GetWriteAccess(), true);
 		Ar << Header;
+
+		if (OptionalSerializeOutputAndReturnIfSerialized(Ar) == false)
+		{
 		Ar.Serialize((void*)USFSource, SourceLen + 1 - (USFSource - InShaderSource));
+			ShaderOutput.bSucceeded = true;
+		}
 		
 		// store data we can pickup later with ShaderCode.FindOptionalData('n'), could be removed for shipping
 		// Daniel L: This GenerateShaderName does not generate a deterministic output among shaders as the shader code can be shared. 
@@ -844,11 +942,10 @@ static void BuildShaderOutput(
 
 		ShaderOutput.NumInstructions = 0;
 		ShaderOutput.NumTextureSamplers = Header.Bindings.NumSamplers;
-		ShaderOutput.bSucceeded = true;
 	}
 }
 
-static void OpenGLVersionFromGLSLVersion(GLSLVersion InVersion, int& OutMajorVersion, int& OutMinorVersion)
+void FOpenGLFrontend::ConvertOpenGLVersionFromGLSLVersion(GLSLVersion InVersion, int& OutMajorVersion, int& OutMinorVersion)
 {
 	switch(InVersion)
 	{
@@ -932,7 +1029,7 @@ static FString CreateCommandLineGLSLES2(const FString& ShaderFile, const FString
 }
 
 /** Precompile a glsl shader for ES2. */
-static void PrecompileGLSLES2(FShaderCompilerOutput& ShaderOutput, const FShaderCompilerInput& ShaderInput, const ANSICHAR* ShaderSource, EHlslShaderFrequency Frequency)
+void FOpenGLFrontend::PrecompileGLSLES2(FShaderCompilerOutput& ShaderOutput, const FShaderCompilerInput& ShaderInput, const ANSICHAR* ShaderSource, EHlslShaderFrequency Frequency)
 {
 	const TCHAR* CompilerExecutableName = GetGLSLES2CompilerExecutable(false);
 	const int32 SourceLen = FCStringAnsi::Strlen(ShaderSource);
@@ -953,7 +1050,7 @@ static void PrecompileGLSLES2(FShaderCompilerOutput& ShaderOutput, const FShader
 				bSavedSuccessfully = true;
 
 				// @todo: Patch the code so that textureCubeLodEXT gets converted to textureCubeLod to workaround PowerVR issues
-				const ANSICHAR* VersionString = FCStringAnsi::Strfind(ShaderSource, "#version 100");
+				const ANSICHAR* VersionString = FCStringAnsi::Strifind(ShaderSource, "#version 100");
 				check(VersionString);
 				VersionString += 12;	// strlen("# version 100");
 				Ar->Serialize((void*)ShaderSource, (VersionString - ShaderSource) * sizeof(ANSICHAR));
@@ -1029,7 +1126,7 @@ static void PrecompileGLSLES2(FShaderCompilerOutput& ShaderOutput, const FShader
  * @param ShaderInput - The shader input.
  * @param InPreprocessedShader - The preprocessed source code.
  */
-static void PrecompileShader(FShaderCompilerOutput& ShaderOutput, const FShaderCompilerInput& ShaderInput, const ANSICHAR* ShaderSource, GLSLVersion Version, EHlslShaderFrequency Frequency)
+void FOpenGLFrontend::PrecompileShader(FShaderCompilerOutput& ShaderOutput, const FShaderCompilerInput& ShaderInput, const ANSICHAR* ShaderSource, GLSLVersion Version, EHlslShaderFrequency Frequency)
 {
 	check(ShaderInput.Target.Frequency < SF_NumFrequencies);
 
@@ -1054,7 +1151,7 @@ static void PrecompileShader(FShaderCompilerOutput& ShaderOutput, const FShaderC
 		void* PrevContextPtr;
 		int MajorVersion = 0;
 		int MinorVersion = 0;
-		OpenGLVersionFromGLSLVersion(Version, MajorVersion, MinorVersion);
+		ConvertOpenGLVersionFromGLSLVersion(Version, MajorVersion, MinorVersion);
 		PlatformInitOpenGL(ContextPtr, PrevContextPtr, MajorVersion, MinorVersion);
 
 		GLint SourceLen = FCStringAnsi::Strlen(ShaderSource);
@@ -1169,25 +1266,10 @@ static FString CreateCrossCompilerBatchFile( const FString& ShaderFile, const FS
 	return CrossCompiler::CreateBatchFileContents(ShaderFile, OutputFile, Frequency, EntryPoint, VersionSwitch, CCFlags, TEXT(""));
 }
 
-/**
- * Compile a shader for OpenGL on Windows.
- * @param Input - The input shader code and environment.
- * @param Output - Contains shader compilation results upon return.
- */
-void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompilerOutput& Output,const FString& WorkingDirectory, GLSLVersion Version)
-{
-	FString PreprocessedShader;
-	FShaderCompilerDefinitions AdditionalDefines;
-	EHlslCompileTarget HlslCompilerTarget = HCT_InvalidTarget;
-	ECompilerFlags PlatformFlowControl = CFLAG_AvoidFlowControl;
 
-	const bool bCompileES2With310 = (Version == GLSL_ES2 && Input.Environment.CompilerFlags.Contains(CFLAG_FeatureLevelES31));
-	if (bCompileES2With310)
+
+void FOpenGLFrontend::SetupPerVersionCompilationEnvironment(GLSLVersion Version, FShaderCompilerDefinitions& AdditionalDefines, EHlslCompileTarget& HlslCompilerTarget)
 	{
-		Version = GLSL_310_ES_EXT;
-	}
-
-	AdditionalDefines.SetDefine(TEXT("COMPILER_HLSLCC"), 1);
 	switch (Version)
 	{
 		case GLSL_ES3_1_ANDROID:
@@ -1265,6 +1347,93 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 		default:
 			check(0);
 	}
+}
+
+uint32 FOpenGLFrontend::GetMaxSamplers(GLSLVersion Version)
+{
+	switch (Version)
+	{
+		// Assume that GL4.3 targets support 32 samplers as we don't currently support separate sampler objects
+		case GLSL_430:
+			return 32;
+
+		// mimicing the old GetFeatureLevelMaxTextureSamplers for the rest
+		case GLSL_ES2:
+		case GLSL_ES2_WEBGL:
+		case GLSL_150_ES2:
+		case GLSL_150_ES2_NOUB:
+			return 8;
+
+		default:
+			return 16;
+	}
+}
+
+uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, bool bCompileES2With310, bool bUseFullPrecisionInPS)
+{
+	uint32  CCFlags = HLSLCC_NoPreprocess | HLSLCC_PackUniforms | HLSLCC_DX11ClipSpace;
+	if (IsES2Platform(Version) && !IsPCES2Platform(Version))
+	{
+		CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
+		// Currently only enabled for ES2, as there are still features to implement for SM4+ (atomics, global store, UAVs, etc)
+		CCFlags |= HLSLCC_ApplyCommonSubexpressionElimination;
+	}
+
+	if (bUseFullPrecisionInPS)
+	{
+		CCFlags |= HLSLCC_UseFullPrecisionInPS;
+	}
+
+	if (bCompileES2With310)
+	{
+		CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
+	}
+
+	if (Version == GLSL_150_ES2_NOUB)
+	{
+		CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
+	}
+
+	if (SupportsSeparateShaderObjects(Version))
+	{
+		CCFlags |= HLSLCC_SeparateShaderObjects;
+	}
+
+	return CCFlags;
+}
+
+FGlslCodeBackend* FOpenGLFrontend::CreateBackend(GLSLVersion Version, uint32 CCFlags, EHlslCompileTarget HlslCompilerTarget)
+{
+	return new FGlslCodeBackend(CCFlags, HlslCompilerTarget);
+}
+
+FGlslLanguageSpec* FOpenGLFrontend::CreateLanguageSpec(GLSLVersion Version)
+{
+	return new FGlslLanguageSpec(IsES2Platform(Version) && !IsPCES2Platform(Version));
+}
+
+/**
+ * Compile a shader for OpenGL on Windows.
+ * @param Input - The input shader code and environment.
+ * @param Output - Contains shader compilation results upon return.
+ */
+void FOpenGLFrontend::CompileShader(const FShaderCompilerInput& Input,FShaderCompilerOutput& Output,const FString& WorkingDirectory, GLSLVersion Version)
+{
+	FString PreprocessedShader;
+	FShaderCompilerDefinitions AdditionalDefines;
+	EHlslCompileTarget HlslCompilerTarget = HCT_InvalidTarget;
+	ECompilerFlags PlatformFlowControl = CFLAG_AvoidFlowControl;
+
+	const bool bCompileES2With310 = (Version == GLSL_ES2 && Input.Environment.CompilerFlags.Contains(CFLAG_FeatureLevelES31));
+	if (bCompileES2With310)
+	{
+		Version = GLSL_310_ES_EXT;
+	}
+
+	// set up compiler env based on version
+	SetupPerVersionCompilationEnvironment(Version, AdditionalDefines, HlslCompilerTarget);
+
+	AdditionalDefines.SetDefine(TEXT("COMPILER_HLSLCC"), 1);
 	
 	const bool bDumpDebugInfo = (Input.DumpDebugInfoPath != TEXT("") && IFileManager::Get().DirectoryExists(*Input.DumpDebugInfoPath));
 
@@ -1297,13 +1466,10 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 
 	if (DoPreprocess())
 	{
-		// Disable instanced stereo until supported for glsl
-		StripInstancedStereo(PreprocessedShader);
-
 		char* GlslShaderSource = NULL;
 		char* ErrorLog = NULL;
 
-		const bool bIsSM5 = Version == GLSL_430 || Version == GLSL_310_ES_EXT;
+		const bool bIsSM5 = IsSM5(Version);
 
 		const EHlslShaderFrequency FrequencyTable[] =
 		{
@@ -1351,33 +1517,7 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 			}
 		}
 
-		uint32 CCFlags = HLSLCC_NoPreprocess | HLSLCC_PackUniforms | HLSLCC_DX11ClipSpace;
-		if (IsES2Platform(Version) && !IsPCES2Platform(Version))
-		{
-			CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
-			// Currently only enabled for ES2, as there are still features to implement for SM4+ (atomics, global store, UAVs, etc)
-			CCFlags |= HLSLCC_ApplyCommonSubexpressionElimination;
-		}
-
-		if (bUseFullPrecisionInPS)
-		{
-			CCFlags |= HLSLCC_UseFullPrecisionInPS;
-		}
-	
-		if (bCompileES2With310)
-		{
-			CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
-		}
-		
-		if (Version == GLSL_150_ES2_NOUB)
-		{
-			CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
-		}
-		
-		if (SupportsSeparateShaderObjects(Version))
-		{
-			CCFlags |= HLSLCC_SeparateShaderObjects;
-		}
+		uint32 CCFlags = CalculateCrossCompilerFlags(Version, bCompileES2With310, bUseFullPrecisionInPS);
 
 		if (bDumpDebugInfo)
 		{
@@ -1394,21 +1534,24 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 		// Required as we added the RemoveUniformBuffersFromSource() function (the cross-compiler won't be able to interpret comments w/o a preprocessor)
 		CCFlags &= ~HLSLCC_NoPreprocess;
 
-		FGlslCodeBackend GlslBackEnd(CCFlags, HlslCompilerTarget);
-		FGlslLanguageSpec GlslLanguageSpec(IsES2Platform(Version) && !IsPCES2Platform(Version));
+		FGlslCodeBackend* BackEnd = CreateBackend(Version, CCFlags, HlslCompilerTarget);
+		FGlslLanguageSpec* LanguageSpec = CreateLanguageSpec(Version);
 
 		int32 Result = 0;
 		FHlslCrossCompilerContext CrossCompilerContext(CCFlags, Frequency, HlslCompilerTarget);
-		if (CrossCompilerContext.Init(TCHAR_TO_ANSI(*Input.SourceFilename), &GlslLanguageSpec))
+		if (CrossCompilerContext.Init(TCHAR_TO_ANSI(*Input.SourceFilename), LanguageSpec))
 		{
 			Result = CrossCompilerContext.Run(
 				TCHAR_TO_ANSI(*PreprocessedShader),
 				TCHAR_TO_ANSI(*Input.EntryPointName),
-				&GlslBackEnd,
+				BackEnd,
 				&GlslShaderSource,
 				&ErrorLog
 				) ? 1 : 0;
 		}
+
+		delete BackEnd;
+		delete LanguageSpec;
 
 		if (Result != 0)
 		{

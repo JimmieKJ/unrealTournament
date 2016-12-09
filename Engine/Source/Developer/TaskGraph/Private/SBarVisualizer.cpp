@@ -1,11 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TaskGraphPrivatePCH.h"
-#include "SlateBasics.h"
-#include "TaskGraphInterfaces.h"
-#include "VisualizerEvents.h"
-#include "SGraphBar.h"
 #include "SBarVisualizer.h"
+#include "SlateOptMacros.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SSlider.h"
+#include "SGraphBar.h"
 #include "STimeline.h"
 #include "TaskGraphStyle.h"
 
@@ -327,28 +334,6 @@ void SBarVisualizer::HandleEventSelectionChanged( TSharedPtr< FVisualizerEvent >
 				BarGraphsList->SetSelection( BarGraph );
 				BarGraphsList->RequestScrollIntoView( BarGraph );
 				BarGraphFound = true;
-			}
-		}
-
-		if( BarGraphFound == false )
-		{
-			TSharedPtr< FVisualizerEvent > BarGraph = FindSelectedEventsParent( ProfileDataView, Selection );
-			if( BarGraph.IsValid() && ProfileDataView.Contains( BarGraph ) == false )
-			{
-				SelectedBarGraph = BarGraph;
-				CreateDataView();
-				BarGraphsList->RequestListRefresh();
-				OnBarGraphExpansionChangedDelegate.ExecuteIfBound( SelectedBarGraph );
-
-				// Now find the event in the profile data view we've just created
-				for( int32 Index = 0; Index < ProfileDataView.Num() ; Index++ )
-				{
-					if( ProfileDataView[ Index ]->Children.Contains( Selection ) )
-					{
-						BarGraphsList->RequestScrollIntoView( ProfileDataView[ Index ] );
-						break;
-					}
-				}
 			}
 		}
 	}

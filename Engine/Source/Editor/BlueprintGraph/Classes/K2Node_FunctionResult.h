@@ -2,8 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraph.h"
 #include "K2Node_FunctionTerminator.h"
 #include "K2Node_FunctionResult.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
 
 UCLASS(MinimalAPI)
 class UK2Node_FunctionResult : public UK2Node_FunctionTerminator

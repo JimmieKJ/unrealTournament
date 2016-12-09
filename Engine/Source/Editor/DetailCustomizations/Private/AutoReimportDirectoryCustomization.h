@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "IPropertyTypeCustomization.h"
+
+class IPropertyHandle;
+enum class ECheckBoxState : uint8;
 
 /**
  * Implements a details view customization for the FAutoReimportDirectoryConfig struct.

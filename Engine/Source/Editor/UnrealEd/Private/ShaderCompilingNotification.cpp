@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
 #include "GlobalEditorNotification.h"
 #include "ShaderCompiler.h"
-#include "SNotificationList.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 /** Notification class for asynchronous shader compiling. */
 class FShaderCompilingNotificationImpl : public FGlobalEditorNotification

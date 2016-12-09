@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "HTML5Cursor.h"
 #include "HTML5InputInterface.h"
+#include "HTML5Cursor.h"
+#include "HAL/OutputDevices.h"
+#include "HAL/PlatformTime.h"
 #include <SDL.h>
 
 DECLARE_LOG_CATEGORY_EXTERN(LogHTML5, Log, All);
@@ -11,28 +12,28 @@ DEFINE_LOG_CATEGORY_STATIC(LogHTML5Input, Log, All);
 
 
 #if PLATFORM_HTML5_BROWSER
-#include "emscripten.h"
-#include "html5.h"
+#include <emscripten/emscripten.h>
+#include <emscripten/html5.h>
 
 static FGamepadKeyNames::Type AxisMapping[4] =
 {
 	FGamepadKeyNames::LeftAnalogX,
-	FGamepadKeyNames::LeftAnalogY, 
+	FGamepadKeyNames::LeftAnalogY,
 	FGamepadKeyNames::RightAnalogX,
 	FGamepadKeyNames::RightAnalogY
 };
 
-// Axis Mapping, reversed or not. 
+// Axis Mapping, reversed or not.
 static int Reversed[4] =
 {
 	1,
-	-1, 
+	-1,
 	1,
 	-1
 };
 
-// all are digital except Left and Right Trigger Analog. 
-static FGamepadKeyNames::Type ButtonMapping[16] = 
+// all are digital except Left and Right Trigger Analog.
+static FGamepadKeyNames::Type ButtonMapping[16] =
 {
 	FGamepadKeyNames::FaceButtonBottom,
 	FGamepadKeyNames::FaceButtonRight,
@@ -40,9 +41,9 @@ static FGamepadKeyNames::Type ButtonMapping[16] =
 	FGamepadKeyNames::FaceButtonTop,
 	FGamepadKeyNames::LeftShoulder,
 	FGamepadKeyNames::RightShoulder,
-	FGamepadKeyNames::LeftTriggerThreshold, 
+	FGamepadKeyNames::LeftTriggerThreshold,
 	FGamepadKeyNames::RightTriggerThreshold,
-	FGamepadKeyNames::SpecialLeft, 
+	FGamepadKeyNames::SpecialLeft,
 	FGamepadKeyNames::SpecialRight,
 	FGamepadKeyNames::LeftStickDown,
 	FGamepadKeyNames::RightStickDown,
@@ -52,7 +53,7 @@ static FGamepadKeyNames::Type ButtonMapping[16] =
 	FGamepadKeyNames::DPadRight
 };
 
-#endif 
+#endif
 
 
 TSharedRef< FHTML5InputInterface > FHTML5InputInterface::Create(  const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler, const TSharedPtr< ICursor >& InCursor )
@@ -101,7 +102,7 @@ void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedR
 				// First KeyDown, then KeyChar. This is important, as in-game console ignores first character otherwise
 				MessageHandler->OnKeyDown(KeyCode, KeyEvent.keysym.sym, bIsRepeated);
 
-				// Backspace/Return input caught here. 
+				// Backspace/Return input caught here.
 				// Note that TextInput still seems to get characters messages too but slate seems to not process them.
 				if (KeyCode == SDL_SCANCODE_BACKSPACE || KeyCode == SDL_SCANCODE_RETURN)
 				{
@@ -144,14 +145,14 @@ void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedR
 				MessageHandler->OnMouseUp(MouseButton );
 				UE_LOG(LogHTML5Input, Verbose, TEXT("MouseButtonUp ID:%d"), Event.button.button);
 			}
-			break; 
+			break;
 		case SDL_MOUSEMOTION:
 			{
 				//Cursor->SetPosition(Event.motion.x, Event.motion.y);
 				MessageHandler->OnRawMouseMove(Event.motion.xrel, Event.motion.yrel);
-				MessageHandler->OnMouseMove(); 
+				MessageHandler->OnMouseMove();
 				UE_LOG(LogHTML5Input, Verbose, TEXT("MouseMotion Pos(%d, %d) XRel:%d YRel:%d"), Event.motion.x, Event.motion.y, Event.motion.xrel, Event.motion.yrel);
-			} 
+			}
 			break;
 		case SDL_MOUSEWHEEL:
 			{
@@ -162,8 +163,8 @@ void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedR
 			}
 			break;
 		default:
-			// unhandled. 
-			break; 
+			// unhandled.
+			break;
 	}
 }
 
@@ -203,34 +204,34 @@ void FHTML5InputInterface::SendControllerEvents()
 						MessageHandler->OnControllerAnalog(AxisMapping[CurrentAxis],CurrentGamePad, Reversed[CurrentAxis]*GamePadEvent.axis[CurrentAxis]);
 					}
 				}
-				// edge trigger. 
+				// edge trigger.
 				for(int CurrentButton = 0; CurrentButton < GamePadEvent.numButtons; ++CurrentButton)
 				{
-					// trigger for digital buttons. 
+					// trigger for digital buttons.
 					if ( GamePadEvent.digitalButton[CurrentButton]   != PrevGamePadState[CurrentGamePad].digitalButton[CurrentButton] )
 					{
 						bool Triggered = GamePadEvent.digitalButton[CurrentButton] != 0;
 						if ( Triggered )
 						{
-							MessageHandler->OnControllerButtonPressed(ButtonMapping[CurrentButton],CurrentGamePad, false); 
+							MessageHandler->OnControllerButtonPressed(ButtonMapping[CurrentButton],CurrentGamePad, false);
 							LastPressedTime[CurrentGamePad][CurrentButton] = CurrentTime;
 						}
-						else 
+						else
 						{
-							MessageHandler->OnControllerButtonReleased(ButtonMapping[CurrentButton],CurrentGamePad, false); 
+							MessageHandler->OnControllerButtonReleased(ButtonMapping[CurrentButton],CurrentGamePad, false);
 						}
 					}
 				}
-				// repeat trigger. 
-				const float RepeatDelta = 0.2f; 
+				// repeat trigger.
+				const float RepeatDelta = 0.2f;
 				for(int CurrentButton = 0; CurrentButton < GamePadEvent.numButtons; ++CurrentButton)
 				{
 					if ( GamePadEvent.digitalButton[CurrentButton]  )
 					{
-						if (CurrentTime - LastPressedTime[CurrentGamePad][CurrentButton] > RepeatDelta) 
+						if (CurrentTime - LastPressedTime[CurrentGamePad][CurrentButton] > RepeatDelta)
 						{
-							MessageHandler->OnControllerButtonPressed(ButtonMapping[CurrentButton],CurrentGamePad, true); 
-							LastPressedTime[CurrentGamePad][CurrentButton] = CurrentTime; 
+							MessageHandler->OnControllerButtonPressed(ButtonMapping[CurrentButton],CurrentGamePad, true);
+							LastPressedTime[CurrentGamePad][CurrentButton] = CurrentTime;
 						}
 					}
 				}

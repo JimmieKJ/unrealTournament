@@ -1,18 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PersonaPrivatePCH.h"
-#include "DetailLayoutBuilder.h"
-#include "PropertyHandle.h"
-#include "PropertyEditorModule.h"
 #include "AnimInstanceDetails.h"
-#include "ObjectEditorUtils.h"
-#include "DetailCategoryBuilder.h"
+#include "UObject/UnrealType.h"
+#include "Animation/AnimationAsset.h"
 #include "DetailWidgetRow.h"
 #include "IDetailPropertyRow.h"
-#include "IDetailCustomNodeBuilder.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
 #include "PropertyCustomizationHelpers.h"
-#include "AssetData.h"
 #include "Animation/AnimInstance.h"
+#include "ObjectEditorUtils.h"
 
 /////////////////////////////////////////////////////
 // FAnimInstanceDetails 

@@ -4,14 +4,15 @@
 	PostProcessBokehDOFRecombine.cpp: Post processing lens blur implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessPassThrough.h"
-#include "PostProcessing.h"
-#include "PostProcessBokehDOFRecombine.h"
-#include "PostProcessBokehDOF.h"
+#include "PostProcess/PostProcessBokehDOFRecombine.h"
+#include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "SceneRenderTargetParameters.h"
+#include "PostProcess/PostProcessing.h"
+#include "PostProcess/PostProcessBokehDOF.h"
+#include "ClearQuad.h"
 
 static TAutoConsoleVariable<int32> CVarSeparateTranslucencyUpsampleMode(
 	TEXT("r.SeparateTranslucencyUpsampleMode"),
@@ -216,7 +217,7 @@ void FRCPassPostProcessBokehDOFRecombine::Process(FRenderingCompositePassContext
 	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
 
 	// is optimized away if possible (RT size=view size, )
-	Context.RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, View.ViewRect);
+	DrawClearQuad(Context.RHICmdList, Context.GetFeatureLevel(), true, FLinearColor::Black, false, 1.0f, false, 0, PassOutputs[0].RenderTargetDesc.Extent, View.ViewRect);
 
 	Context.SetViewportAndCallRHI(View.ViewRect);
 

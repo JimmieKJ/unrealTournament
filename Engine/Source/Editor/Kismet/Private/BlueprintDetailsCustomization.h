@@ -2,7 +2,31 @@
 
 #pragma once
 
-#include "EdGraph/EdGraphNode_Documentation.h"
+#include "CoreMinimal.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "K2Node_EditablePinBase.h"
+#include "IDetailCustomization.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "IDetailCustomNodeBuilder.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "SMyBlueprint.h"
+
+class Error;
+class FBlueprintGlobalOptionsDetails;
+class FDetailWidgetRow;
+class FSCSEditorTreeNode;
+class FStructOnScope;
+class IDetailChildrenBuilder;
+class IDetailLayoutBuilder;
+class SEditableTextBox;
+class SMultiLineEditableTextBox;
+class UEdGraphNode_Documentation;
+class UK2Node_Variable;
 
 /**
  * Variable network replication options.
@@ -167,6 +191,14 @@ private:
 	void OnChangeReplication(TSharedPtr<FString> ItemSelected, ESelectInfo::Type SelectInfo);
 	void ReplicationOnRepFuncChanged(const FString& NewOnRepFunc) const;
 	EVisibility ReplicationVisibility() const;
+
+	/** Array of replication conditions for the combo text box */
+	TArray<TSharedPtr<FString>> ReplicationConditionEnumTypeNames;
+	TSharedPtr<FString> GetVariableReplicationCondition() const;
+	void OnChangeReplicationCondition(TSharedPtr<FString> ItemSelected, ESelectInfo::Type SelectInfo);
+	bool ReplicationConditionEnabled() const;
+	bool ReplicationEnabled() const;
+	FText ReplicationTooltip() const;
 
 	EVisibility GetTransientVisibility() const;
 	ECheckBoxState OnGetTransientCheckboxState() const;

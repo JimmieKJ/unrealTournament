@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "TimeGuard.h"
+#include "Misc/TimeGuard.h"
+#include "Misc/ScopeLock.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTimeGuard, Log, All);
 
@@ -10,7 +10,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogTimeGuard, Log, All);
 TMap<const TCHAR*, FLightweightTimeGuard::FGuardInfo>  FLightweightTimeGuard::HitchData;
 bool FLightweightTimeGuard::bEnabled;
 double FLightweightTimeGuard::LastHitchTime;
-float FLightweightTimeGuard::FrameTimeThresholdMS = 1 / 30.0;
+float FLightweightTimeGuard::FrameTimeThresholdMS = 1000.0 / 30.0;
 FCriticalSection FLightweightTimeGuard::ReportMutex;
 
 void FLightweightTimeGuard::SetEnabled(bool InEnable)
@@ -18,28 +18,28 @@ void FLightweightTimeGuard::SetEnabled(bool InEnable)
 	bEnabled = InEnable;
 }
 
-void	FLightweightTimeGuard::SetFrameTimeThresholdMS(float InTimeMS)
+void FLightweightTimeGuard::SetFrameTimeThresholdMS(float InTimeMS)
 {
 	FrameTimeThresholdMS = InTimeMS;
 }
 
 void FLightweightTimeGuard::ClearData()
 {
-	FScopeLock lock(&ReportMutex);
+	FScopeLock Lock(&ReportMutex);
 	HitchData.Empty();
 	// don't capture any hitches immediately
 	LastHitchTime = FPlatformTime::Seconds();
 }
 
-void  FLightweightTimeGuard::GetData(TMap<const TCHAR*, FGuardInfo>& Dest)
+void FLightweightTimeGuard::GetData(TMap<const TCHAR*, FGuardInfo>& Dest)
 {
-	FScopeLock lock(&ReportMutex);
+	FScopeLock Lock(&ReportMutex);
 	Dest = HitchData;
 }
 
 void FLightweightTimeGuard::ReportHitch(const TCHAR* InName, const float TimeMS)
 {
-	const double	kHitchDebounceTime = 2;
+	const double kHitchDebounceTime = 2.0;
 
 	// Don't report hitches that occur in the same 5sec window. This will also stop
 	// the outer scope of nested checks reporting

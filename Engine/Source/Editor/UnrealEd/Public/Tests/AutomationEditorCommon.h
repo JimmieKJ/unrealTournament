@@ -2,10 +2,12 @@
 
 #pragma once
 
-#include "AssetRegistryModule.h"
-#include "ModuleManager.h"
-#include "AutomationCommon.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+#include "AssetData.h"
 #include "Tests/AutomationTestSettings.h"
+
+class UFactory;
 
 //////////////////////////////////////////////////////////////////////////
 // FAutomationEditorCommonUtils

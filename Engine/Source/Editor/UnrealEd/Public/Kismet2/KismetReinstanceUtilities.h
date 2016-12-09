@@ -6,7 +6,14 @@
 
 #pragma once
 
-#include "Engine.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Templates/SubclassOf.h"
+#include "Components/ActorComponent.h"
+#include "UObject/GCObject.h"
+
+class FReinstanceFinalizer;
+class UBlueprint;
 
 DECLARE_STATS_GROUP(TEXT("Kismet Reinstancer"), STATGROUP_KismetReinstancer, STATCAT_Advanced);
 

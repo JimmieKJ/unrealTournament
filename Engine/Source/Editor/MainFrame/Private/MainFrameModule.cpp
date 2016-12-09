@@ -1,13 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MainFramePrivatePCH.h"
-#include "CompilerResultsLog.h"
+#include "MainFrameModule.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Interfaces/ICrashTrackerModule.h"
+#include "GameProjectGenerationModule.h"
+#include "MessageLogModule.h"
+#include "MRUFavoritesList.h"
+#include "SuperSearchModule.h"
+#include "OutputLogModule.h"
+#include "EditorStyleSet.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Sound/SoundBase.h"
+#include "ISourceCodeAccessor.h"
+#include "ISourceCodeAccessModule.h"
+#include "Menus/MainMenu.h"
+#include "Frame/RootWindowLocation.h"
+#include "Kismet2/CompilerResultsLog.h"
 #include "Editor/EditorLiveStreaming/Public/IEditorLiveStreaming.h"
 #include "Developer/HotReload/Public/IHotReload.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
-#include "GenericCommands.h"
-#include "IAnalyticsProvider.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
 
 DEFINE_LOG_CATEGORY(LogMainFrame);
@@ -64,7 +84,11 @@ void FMainFrameModule::CreateDefaultMainFrame( const bool bStartImmersive, const
 			// Do not maximize the window initially. Keep a small dialog feel.
 			DefaultWindowLocation.InitiallyMaximized = false;
 
-			DefaultWindowLocation.WindowSize = GetProjectBrowserWindowSize();
+
+			FDisplayMetrics DisplayMetrics;
+			FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+			const float DPIScaleFactor = FPlatformMisc::GetDPIScaleFactorAtPoint(DisplayMetrics.PrimaryDisplayWorkAreaRect.Left, DisplayMetrics.PrimaryDisplayWorkAreaRect.Top);
+			DefaultWindowLocation.WindowSize = GetProjectBrowserWindowSize() * DPIScaleFactor;
 			DefaultWindowLocation.ScreenPosition = DefaultWindowLocation.GetCenteredScreenPosition();
 
 			bIsUserSizable = true;

@@ -4,6 +4,12 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "EngineDefines.h"
+#include "PhysicsPublic.h"
+#include "PhysXIncludes.h"
+
 #if WITH_PHYSX
 /** Draw PhysX geom with overlaps */
 void DrawGeomOverlaps(const UWorld* InWorld, const PxGeometry& PGeom, const PxTransform& PGeomPose, TArray<struct FOverlapResult>& Overlaps, float Lifetime);

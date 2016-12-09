@@ -1,9 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/Widget.h"
+#include "Widgets/SNullWidget.h"
+#include "Types/NavigationMetaData.h"
+#include "Widgets/IToolTip.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SOverlay.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/LocalPlayer.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/SToolTip.h"
+#include "Binding/PropertyBinding.h"
+#include "Blueprint/WidgetNavigation.h"
+#include "Logging/MessageLog.h"
+#include "Blueprint/UserWidget.h"
+#include "Slate/SObjectWidget.h"
+#include "Blueprint/WidgetTree.h"
+#include "UMGStyle.h"
 
-#include "ReflectionMetadata.h"
-#include "SObjectWidget.h"
+#include "Types/ReflectionMetadata.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -241,7 +259,7 @@ void UWidget::SetVisibility(ESlateVisibility InVisibility)
 	if (SafeWidget.IsValid())
 	{
 		EVisibility SlateVisibility = UWidget::ConvertSerializedVisibilityToRuntime(InVisibility);
-		return SafeWidget->SetVisibility(SlateVisibility);
+		SafeWidget->SetVisibility(SlateVisibility);
 	}
 }
 
@@ -262,7 +280,7 @@ void UWidget::SetToolTipText(const FText& InToolTipText)
 	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
 	if (SafeWidget.IsValid())
 	{
-		return SafeWidget->SetToolTipText(InToolTipText);
+		SafeWidget->SetToolTipText(InToolTipText);
 	}
 }
 
@@ -329,7 +347,23 @@ void UWidget::SetKeyboardFocus()
 	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
 	if (SafeWidget.IsValid())
 	{
-		FSlateApplication::Get().SetKeyboardFocus(SafeWidget);
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if ( !SafeWidget->SupportsKeyboardFocus() )
+		{
+			FMessageLog("PIE").Warning(LOCTEXT("ThisWidgetDoesntSupportFocus", "This widget does not support focus.  If this is a UserWidget, you should set bIsFocusable to true."));
+		}
+#endif
+
+		if ( !FSlateApplication::Get().SetKeyboardFocus(SafeWidget) )
+		{
+			if ( UWorld* World = GetWorld() )
+			{
+				if ( ULocalPlayer* LocalPlayer = World->GetFirstLocalPlayerFromController() )
+				{
+					LocalPlayer->GetSlateOperations().SetUserFocus(SafeWidget.ToSharedRef(), EFocusCause::SetDirectly);
+				}
+			}
+		}
 	}
 }
 
@@ -432,7 +466,10 @@ void UWidget::SetUserFocus(APlayerController* PlayerController)
 			// HACK: We use the controller Id as the local player index for focusing widgets in Slate.
 			int32 UserIndex = LocalPlayer->GetControllerId();
 
-			FSlateApplication::Get().SetUserFocus(UserIndex, SafeWidget);
+			if ( !FSlateApplication::Get().SetUserFocus(UserIndex, SafeWidget) )
+			{
+				LocalPlayer->GetSlateOperations().SetUserFocus(SafeWidget.ToSharedRef());
+			}
 		}
 	}
 }
@@ -577,9 +614,9 @@ TSharedPtr<SWidget> UWidget::GetCachedWidget() const
 	return MyWidget.Pin();
 }
 
+#if WITH_EDITOR
 TSharedRef<SWidget> UWidget::BuildDesignTimeWidget(TSharedRef<SWidget> WrapWidget)
 {
-#if WITH_EDITOR
 	if (IsDesignTime())
 	{
 		return SNew(SOverlay)
@@ -604,9 +641,20 @@ TSharedRef<SWidget> UWidget::BuildDesignTimeWidget(TSharedRef<SWidget> WrapWidge
 	{
 		return WrapWidget;
 	}
-#else
-	return WrapWidget;
+}
 #endif
+
+class APlayerController* UWidget::GetOwningPlayer() const
+{
+	if ( UWidgetTree* WidgetTree = Cast<UWidgetTree>(GetOuter()) )
+	{
+		if ( UUserWidget* UserWidget = Cast<UUserWidget>(WidgetTree->GetOuter()) )
+		{
+			UserWidget->GetOwningPlayer();
+		}
+	}
+
+	return nullptr;
 }
 
 #if WITH_EDITOR

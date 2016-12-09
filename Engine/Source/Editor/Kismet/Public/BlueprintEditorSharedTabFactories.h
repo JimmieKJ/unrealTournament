@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Toolkits/AssetEditorToolkit.h"
+#include "WorkflowOrientedApp/WorkflowTabFactory.h"
+
 #define LOCTEXT_NAMESPACE "BlueprintEditor"
 
 //////////////////////////////////////////////////////////////////////////

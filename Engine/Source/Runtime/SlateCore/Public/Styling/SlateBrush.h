@@ -2,11 +2,12 @@
 
 #pragma once
 
-#include "Margin.h"
-#include "SlateColor.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Margin.h"
 
 #include "SlateBrush.generated.h"
-
 
 /**
  * Enumerates ways in which an image can be drawn.
@@ -285,7 +286,7 @@ public:
 
 	void PostSerialize(const FArchive& Ar);
 
-public:
+	void AddReferencedObjects(FReferenceCollector& Collector);
 
 	/**
 	 * Gets the identifier for UObject based texture paths.

@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "IInputProcessor.h"
+#include "CoreMinimal.h"
+#include "GenericPlatform/ICursor.h"
+#include "Framework/Application/IInputProcessor.h"
+
+class FSlateApplication;
+struct FAnalogInputEvent;
+struct FKeyEvent;
+struct FPointerEvent;
 
 namespace AnalogCursorMode
 {

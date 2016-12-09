@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "CollectionManagerTypes.h"
+#include "ICollectionManager.h"
+#include "Developer/CollectionManager/Private/Collection.h"
+
+class ITextFilterExpressionContext;
+
 namespace DirectoryWatcher { class FFileCache; }
 
 /** Collection info for a given object - gives the collection name, as well as the reason this object is considered to be part of this collection */

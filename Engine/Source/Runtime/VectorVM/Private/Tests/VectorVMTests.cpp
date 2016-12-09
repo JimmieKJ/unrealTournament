@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Private/VectorVMPrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
 #include "VectorVM.h"
+#include "Runtime/VectorVM/Private/VectorVMPrivate.h"
 
 #define OP_REGISTER (0)
 #define OP1_CONST (1 << 1)

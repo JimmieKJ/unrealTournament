@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Presentation/MessageLogListingViewModel.h"
+#include "Model/MessageLogModel.h"
+
 /** Presentation logic for the message log */
 class FMessageLogViewModel : public TSharedFromThis< FMessageLogViewModel >
 {

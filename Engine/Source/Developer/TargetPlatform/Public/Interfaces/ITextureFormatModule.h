@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class ITextureFormat;
 
 /**
  * Interface for texture format modules.

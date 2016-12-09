@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Modules/ModuleInterface.h"
+#include "Widgets/SWindow.h"
+
+class SEditableTextBox;
 
 /** Style of the debug console */
 namespace EDebugConsoleStyle

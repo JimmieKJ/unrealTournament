@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/INetworkingModule.h"
 
 /**
  * Implements the Networking module.

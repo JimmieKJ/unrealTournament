@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+#include "TokenArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/TokenArchiveProxy.h"
+#include "UHTMakefile.h"
 #include "ParserHelper.h"
 
 /* See UHTMakefile.h for overview how makefiles work. */
@@ -22,6 +23,9 @@ FTokenArchiveProxy::FTokenArchiveProxy(const FUHTMakefile& UHTMakefile, const FT
 		break;
 	case CPT_Int:
 		Int = Token->Int;
+		break;
+	case CPT_Int64:
+		Int64 = Token->Int64;
 		break;
 	case CPT_Bool:
 		NativeBool = Token->NativeBool;
@@ -74,6 +78,9 @@ void FTokenArchiveProxy::PostConstruct(FToken* Token) const
 	case CPT_Int:
 		Token->Int = Int;
 		break;
+	case CPT_Int64:
+		Token->Int64 = Int64;
+		break;
 	case CPT_Bool:
 		Token->NativeBool = NativeBool;
 		break;
@@ -118,6 +125,9 @@ FArchive& operator<<(FArchive& Ar, FTokenArchiveProxy& TokenArchiveProxy)
 		break;
 	case CPT_Int:
 		Ar << TokenArchiveProxy.Int;
+		break;
+	case CPT_Int64:
+		Ar << TokenArchiveProxy.Int64;
 		break;
 	case CPT_Bool:
 		Ar << TokenArchiveProxy.NativeBool;

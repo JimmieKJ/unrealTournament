@@ -4,11 +4,10 @@
 	AnimStateNode.cpp
 =============================================================================*/
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimStateNode.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "AnimStateTransitionNode.h"
 #include "AnimationStateGraph.h"
-#include "EdGraphUtilities.h"
 #include "Kismet2/Kismet2NameValidators.h"
 #include "AnimGraphNode_StateResult.h"
 #include "AnimationStateGraphSchema.h"

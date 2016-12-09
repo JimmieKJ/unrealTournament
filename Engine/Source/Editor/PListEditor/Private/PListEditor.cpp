@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
-#include "SlateBasics.h"
 #include "PListEditor.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Docking/TabManager.h"
+
 #include "SPlistEditor.h"
+#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructure.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 IMPLEMENT_MODULE( FPListEditor, PListEditor );
 

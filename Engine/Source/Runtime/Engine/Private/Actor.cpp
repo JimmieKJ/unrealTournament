@@ -1,30 +1,43 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "GameFramework/Actor.h"
+#include "Serialization/AsyncLoading.h"
+#include "EngineDefines.h"
+#include "EngineStats.h"
+#include "EngineGlobals.h"
+#include "GameFramework/DamageType.h"
+#include "TimerManager.h"
+#include "GameFramework/Pawn.h"
+#include "Components/PrimitiveComponent.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Components/InputComponent.h"
+#include "Engine/Engine.h"
+#include "Components/AudioComponent.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/LocalPlayer.h"
+#include "ContentStreaming.h"
+#include "DrawDebugHelpers.h"
 #include "Engine/InputDelegateBinding.h"
 #include "Engine/LevelStreamingPersistent.h"
 #include "PhysicsPublic.h"
-#include "ParticleDefinitions.h"
-#include "Sound/SoundCue.h"
-#include "LatentActions.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/RepLayout.h"
-#include "DisplayDebugHelpers.h"
 #include "Matinee/MatineeActor.h"
 #include "Matinee/InterpGroup.h"
 #include "Matinee/InterpGroupInst.h"
-#include "Particles/ParticleSystemComponent.h"
-#include "VisualLogger/VisualLogger.h"
+#include "Engine/Canvas.h"
+#include "DisplayDebugHelpers.h"
 #include "Animation/AnimInstance.h"
 #include "Engine/DemoNetDriver.h"
-#include "GameFramework/Pawn.h"
 #include "Components/PawnNoiseEmitterComponent.h"
 #include "Components/TimelineComponent.h"
 #include "Components/ChildActorComponent.h"
 #include "Camera/CameraComponent.h"
-#include "GameFramework/DamageType.h"
-#include "Kismet/GameplayStatics.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 
 DEFINE_LOG_CATEGORY(LogActor);
@@ -98,6 +111,7 @@ void AActor::InitializeDefaults()
 	bAllowReceiveTickEventOnDedicatedServer = true;
 	bRelevantForNetworkReplays = true;
 	bGenerateOverlapEventsDuringLevelStreaming = false;
+	bHasDeferredComponentRegistration = false;
 #if WITH_EDITORONLY_DATA
 	PivotOffset = FVector::ZeroVector;
 #endif
@@ -230,15 +244,13 @@ void AActor::ResetOwnedComponents()
 	}
 #endif
 
-	TArray<UObject*> ActorChildren;
 	OwnedComponents.Reset();
 	ReplicatedComponents.Reset();
-	GetObjectsWithOuter(this, ActorChildren, true, RF_NoFlags, EInternalObjectFlags::PendingKill);
 
-	for (UObject* Child : ActorChildren)
+	ForEachObjectWithOuter(this, [this](UObject* Child)
 	{
 		UActorComponent* Component = Cast<UActorComponent>(Child);
-		if (Component)
+		if (Component && Component->GetOwner() == this)
 		{
 			OwnedComponents.Add(Component);
 
@@ -247,7 +259,7 @@ void AActor::ResetOwnedComponents()
 				ReplicatedComponents.Add(Component);
 			}
 		}
-	}
+	}, true, RF_NoFlags, EInternalObjectFlags::PendingKill);
 }
 
 void AActor::PostInitProperties()
@@ -333,8 +345,10 @@ bool AActor::TeleportTo( const FVector& DestLocation, const FRotator& DestRotati
 		return false;
 	}
 
+	UWorld* MyWorld = GetWorld();
+
 	// Can't move non-movable actors during play
-	if( (RootComponent->Mobility == EComponentMobility::Static) && GetWorld()->AreActorsInitialized() )
+	if( (RootComponent->Mobility == EComponentMobility::Static) && MyWorld->AreActorsInitialized() )
 	{
 		return false;
 	}
@@ -357,7 +371,7 @@ bool AActor::TeleportTo( const FVector& DestLocation, const FRotator& DestRotati
 			NewLocation = NewLocation + Offset;
 
 			// check if able to find an acceptable destination for this actor that doesn't embed it in world geometry
-			bTeleportSucceeded = GetWorld()->FindTeleportSpot(this, NewLocation, DestRotation);
+			bTeleportSucceeded = MyWorld->FindTeleportSpot(this, NewLocation, DestRotation);
 			NewLocation = NewLocation - Offset;
 		}
 
@@ -522,7 +536,7 @@ void AActor::Serialize(FArchive& Ar)
 			DuplicatingComponents.Reserve(OwnedComponents.Num());
 			for (UActorComponent* OwnedComponent : OwnedComponents)
 			{
-				if (!OwnedComponent->HasAnyFlags(RF_Transient))
+				if (OwnedComponent && !OwnedComponent->HasAnyFlags(RF_Transient))
 				{
 					DuplicatingComponents.Add(OwnedComponent);
 				}
@@ -834,27 +848,30 @@ void AActor::Tick( float DeltaSeconds )
 {
 	// Blueprint code outside of the construction script should not run in the editor
 	// Allow tick if we are not a dedicated server, or we allow this tick on dedicated servers
-	if (GetWorldSettings() != NULL && (bAllowReceiveTickEventOnDedicatedServer || !IsRunningDedicatedServer()))
+	if (GetWorldSettings() != nullptr && (bAllowReceiveTickEventOnDedicatedServer || !IsRunningDedicatedServer()))
 	{
 		ReceiveTick(DeltaSeconds);
 	}
 
 
 	// Update any latent actions we have for this actor
-	GetWorld()->GetLatentActionManager().ProcessLatentActions(this, DeltaSeconds);
+
+	// If this tick is skipped on a frame because we've got a TickInterval, our latent actions will be ticked
+	// anyway by UWorld::Tick(). Given that, our latent actions don't need to be passed a larger
+	// DeltaSeconds to make up the frames that they missed (because they wouldn't have missed any).
+	// So pass in the world's DeltaSeconds value rather than our specific DeltaSeconds value.
+	UWorld* MyWorld = GetWorld();
+	MyWorld->GetLatentActionManager().ProcessLatentActions(this, MyWorld->GetDeltaSeconds());
 
 	if (bAutoDestroyWhenFinished)
 	{
 		bool bOKToDestroy = true;
 
 		// @todo: naive implementation, needs improved
-		TInlineComponentArray<UActorComponent*> Components;
-		GetComponents(Components);
+		TInlineComponentArray<UActorComponent*> Components(this);
 
-		for (int32 CompIdx=0; CompIdx<Components.Num(); ++CompIdx)
+		for (UActorComponent* const Comp : Components)
 		{
-			UActorComponent* const Comp = Components[CompIdx];
-
 			UParticleSystemComponent* const PSC = Cast<UParticleSystemComponent>(Comp);
 			if ( PSC && (PSC->bIsActive || !PSC->bWasCompleted) )
 			{
@@ -1049,6 +1066,8 @@ bool AActor::Modify( bool bAlwaysMarkDirty/*=true*/ )
 	{
 		bSavedToTransactionBuffer = RootComponent->Modify( bAlwaysMarkDirty ) || bSavedToTransactionBuffer;
 	}
+
+	ULevel* Level = GetLevel();
 
 	return bSavedToTransactionBuffer;
 }
@@ -2026,7 +2045,7 @@ float AActor::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AC
 		// K2 notification for this actor
 		if (ActualDamage != 0.f)
 		{
-			ReceivePointDamage(ActualDamage, DamageTypeCDO, PointDamageEvent->HitInfo.ImpactPoint, PointDamageEvent->HitInfo.ImpactNormal, PointDamageEvent->HitInfo.Component.Get(), PointDamageEvent->HitInfo.BoneName, PointDamageEvent->ShotDirection, EventInstigator, DamageCauser);
+			ReceivePointDamage(ActualDamage, DamageTypeCDO, PointDamageEvent->HitInfo.ImpactPoint, PointDamageEvent->HitInfo.ImpactNormal, PointDamageEvent->HitInfo.Component.Get(), PointDamageEvent->HitInfo.BoneName, PointDamageEvent->ShotDirection, EventInstigator, DamageCauser, PointDamageEvent->HitInfo);
 			OnTakePointDamage.Broadcast(this, ActualDamage, EventInstigator, PointDamageEvent->HitInfo.ImpactPoint, PointDamageEvent->HitInfo.Component.Get(), PointDamageEvent->HitInfo.BoneName, PointDamageEvent->ShotDirection, DamageTypeCDO, DamageCauser);
 
 			// Notify the component
@@ -2108,6 +2127,13 @@ float AActor::InternalTakeRadialDamage(float Damage, FRadialDamageEvent const& R
 float AActor::InternalTakePointDamage(float Damage, FPointDamageEvent const& PointDamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	return Damage;
+}
+
+// deprecated
+void AActor::ReceivePointDamage(float Damage, const class UDamageType* DamageType, FVector HitLocation, FVector HitNormal, class UPrimitiveComponent* HitComponent, FName BoneName, FVector ShotFromDirection, class AController* InstigatedBy, AActor* DamageCauser)
+{
+	// Call proper version with a default FHitResult.
+	ReceivePointDamage(Damage, DamageType, HitLocation, HitNormal, HitComponent, BoneName, ShotFromDirection, InstigatedBy, DamageCauser, FHitResult());
 }
 
 /** Util to check if prim comp pointer is valid and still alive */
@@ -2687,7 +2713,7 @@ void AActor::PostSpawnInitialize(FTransform const& UserSpawnTransform, AActor* I
 	ExchangeNetRoles(bRemoteOwned);
 
 	USceneComponent* const SceneRootComponent = FixupNativeActorComponents(this);
-	if (SceneRootComponent != NULL)
+	if (SceneRootComponent != nullptr)
 	{
 		// Set the actor's location and rotation since it has a native rootcomponent
 		// Note that we respect any initial transformation the root component may have from the CDO, so the final transform
@@ -2700,8 +2726,14 @@ void AActor::PostSpawnInitialize(FTransform const& UserSpawnTransform, AActor* I
 	// Call OnComponentCreated on all default (native) components
 	DispatchOnComponentsCreated(this);
 
-	// Initialize the actor's components.
-	RegisterAllComponents();
+	// Register the actor's default (native) components, but only if we have a native scene root. If we don't, it implies that there could be only non-scene components
+	// at the native class level. In that case, if this is a Blueprint instance, we need to defer native registration until after SCS execution can establish a scene root.
+	// Note: This API will also call PostRegisterAllComponents() on the actor instance. If deferred, PostRegisterAllComponents() won't be called until the root is set by SCS.
+	bHasDeferredComponentRegistration = (SceneRootComponent == nullptr && Cast<UBlueprintGeneratedClass>(GetClass()) != nullptr);
+	if (!bHasDeferredComponentRegistration)
+	{
+		RegisterAllComponents();
+	}
 
 	// Set owner.
 	SetOwner(InOwner);
@@ -2766,6 +2798,9 @@ void AActor::FinishSpawning(const FTransform& UserTransform, bool bIsDefaultTran
 
 				if (OriginalSpawnTransform->Equals(UserTransform) == false)
 				{
+					UserTransform.GetLocation().DiagnosticCheckNaN(TEXT("AActor::FinishSpawning: UserTransform.GetLocation()"));
+					UserTransform.GetRotation().DiagnosticCheckNaN(TEXT("AActor::FinishSpawning: UserTransform.GetRotation()"));
+
 					// caller passed a different transform!
 					// undo the original spawn transform to get back to the template transform, so we can recompute a good
 					// final transform that takes into account the template's transform
@@ -2777,6 +2812,9 @@ void AActor::FinishSpawning(const FTransform& UserTransform, bool bIsDefaultTran
 			// should be fast and relatively rare
 			ValidateDeferredTransformCache();
 		}
+
+		FinalRootComponentTransform.GetLocation().DiagnosticCheckNaN(TEXT("AActor::FinishSpawning: FinalRootComponentTransform.GetLocation()"));
+		FinalRootComponentTransform.GetRotation().DiagnosticCheckNaN(TEXT("AActor::FinishSpawning: FinalRootComponentTransform.GetRotation()"));
 
 		ExecuteConstruction(FinalRootComponentTransform, InstanceDataCache, bIsDefaultTransform);
 
@@ -2797,7 +2835,7 @@ void AActor::PostActorConstruction()
 		PreInitializeComponents();
 	}
 
-	// If this is dynamically spawned replicted actor, defer calls to BeginPlay and UpdateOverlaps until replicated properties are deserialized
+	// If this is dynamically spawned replicated actor, defer calls to BeginPlay and UpdateOverlaps until replicated properties are deserialized
 	const bool bDeferBeginPlayAndUpdateOverlaps = (bExchangedRoles && RemoteRole == ROLE_Authority);
 
 	if (bActorsInitialized)
@@ -2993,7 +3031,7 @@ void AActor::SwapRolesForReplay()
 
 void AActor::BeginPlay()
 {
-	ensure(ActorHasBegunPlay == EActorBeginPlayState::HasNotBegunPlay);
+	ensureMsgf(ActorHasBegunPlay == EActorBeginPlayState::HasNotBegunPlay, TEXT("BeginPlay was called on actor %s which was in state %d"), *GetPathName(), ActorHasBegunPlay);
 	SetLifeSpan( InitialLifeSpan );
 	RegisterAllActorTickFunctions(true, false); // Components are done below.
 
@@ -3007,10 +3045,7 @@ void AActor::BeginPlay()
 		if (Component->IsRegistered() && !Component->HasBegunPlay())
 		{
 			Component->RegisterAllComponentTickFunctions(true);
-			//if (Component->bWantsBeginPlay) // TODO: this should be enforced, but we need to address an upgrade path first to not quietly break code. Not checking this flag is the old behavior.
-			{
-				Component->BeginPlay();
-			}
+			Component->BeginPlay();
 		}
 		else
 		{
@@ -3914,6 +3949,9 @@ void AActor::RegisterAllComponents()
 {
 	// 0 - means register all components
 	verify(IncrementalRegisterComponents(0));
+
+	// Clear this flag as it's no longer deferred
+	bHasDeferredComponentRegistration = false;
 }
 
 // Walks through components hierarchy and returns closest to root parent component that is unregistered
@@ -4102,9 +4140,18 @@ void AActor::InitializeComponents()
 
 	for (UActorComponent* ActorComp : Components)
 	{
-		if (ActorComp->bWantsInitializeComponent && ActorComp->IsRegistered())
+		if (ActorComp->IsRegistered())
 		{
-			ActorComp->InitializeComponent();
+			if (!ActorComp->IsActive() && ActorComp->bAutoActivate)
+			{
+				ActorComp->Activate(true);
+			}
+
+			if (ActorComp->bWantsInitializeComponent)
+			{
+				// Broadcast the activation event since Activate occurs too early to fire a callback in a game
+				ActorComp->InitializeComponent();
+			}
 		}
 	}
 }
@@ -4125,6 +4172,7 @@ void AActor::UninitializeComponents()
 
 void AActor::DrawDebugComponents(FColor const& BaseColor) const
 {
+#if ENABLE_DRAW_DEBUG
 	TInlineComponentArray<USceneComponent*> Components;
 	GetComponents(Components);
 
@@ -4149,6 +4197,7 @@ void AActor::DrawDebugComponents(FColor const& BaseColor) const
 		// draw component name
 		DrawDebugString(MyWorld, Loc+FVector(0,0,32), *Component->GetName());
 	}
+#endif // ENABLE_DRAW_DEBUG
 }
 
 
@@ -4171,7 +4220,7 @@ void AActor::InvalidateLightingCacheDetailed(bool bTranslationOnly)
 	// Validate that we didn't change it during this action
 	TInlineComponentArray<UActorComponent*> NewComponents;
 	GetComponents(NewComponents);
-	check(Components == NewComponents);
+	ensure(Components == NewComponents);
 #endif
 }
 
@@ -4458,9 +4507,9 @@ void AActor::K2_SetActorRelativeTransform(const FTransform& NewRelativeTransform
 
 float AActor::GetGameTimeSinceCreation()
 {
-	if(GetWorld() != nullptr)
+	if (UWorld* MyWorld = GetWorld())
 	{
-		return GetWorld()->GetTimeSeconds() - CreationTime;		
+		return MyWorld->GetTimeSeconds() - CreationTime;		
 	}
 	// return 0.f if GetWorld return's null
 	else

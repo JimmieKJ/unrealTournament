@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include <sys/file.h>	// flock()
-#include <sys/stat.h>   // mkdirp()
+#include "Linux/LinuxPlatformFile.h"
+#include "GenericPlatform/GenericPlatformProcess.h"
+#include "HAL/PlatformTime.h"
+#include "Containers/StringConv.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Paths.h"
+#include <sys/file.h>
 
 DEFINE_LOG_CATEGORY_STATIC(LogLinuxPlatformFile, Log, All);
 

@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LeapMotionPrivatePCH.h"
 #include "AnimHand.h"
+#include "LeapArm.h"
+#include "LeapFinger.h"
+#include "LeapFingerList.h"
 
 UAnimHand::UAnimHand(const class FObjectInitializer& Init)
 	: Super(Init)

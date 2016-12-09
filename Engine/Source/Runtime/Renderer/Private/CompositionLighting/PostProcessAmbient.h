@@ -6,8 +6,9 @@
 
 #pragma once
 
-#include "RenderingCompositionGraph.h"
-#include "AmbientCubemapParameters.h"
+#include "CoreMinimal.h"
+#include "RendererInterface.h"
+#include "PostProcess/RenderingCompositionGraph.h"
 
 // ePId_Input0: SceneColor
 // ePId_Input1: optional AmbientOcclusion

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Engine/EngineBaseTypes.h"
 
 /** for FShowFlagData, order is not important, adding new elements requires updating some editor code */
@@ -380,9 +381,10 @@ private:
 		SetVisualizeSSS(false);
 		SetVisualizeBloom(false);
 		SetPrimitiveDistanceAccuracy(false);
-		SetMeshTexCoordSizeAccuracy(false);
-		SetMaterialTexCoordScalesAccuracy(false);
-		SetMaterialTexCoordScalesAnalysis(false);
+		SetMeshUVDensityAccuracy(false);
+		SetMaterialTextureScaleAccuracy(false);
+		SetOutputMaterialTextureScales(false);
+		SetRequiredTextureResolution(false);
 	}
 
 

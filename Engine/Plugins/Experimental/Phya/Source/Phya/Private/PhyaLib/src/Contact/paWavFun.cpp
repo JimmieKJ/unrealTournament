@@ -4,7 +4,7 @@
 // Wav like excitation.
 // NB - it repeats consistently when rate reverses.
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 
 #include "System/paConfig.h"

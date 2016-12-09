@@ -1,6 +1,8 @@
 // Copyright 2015 Kite & Lightning.  All rights reserved.
 
-#include "StereoPanoramaPrivatePCH.h"
+#include "StereoPanorama.h"
+#include "StereoPanoramaManager.h"
+#include "Modules/ModuleManager.h"
 
 
 TSharedPtr<FStereoPanoramaManager> StereoPanoramaManager;

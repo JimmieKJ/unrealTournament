@@ -1,10 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DeviceManagerPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Textures/SlateIcon.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "Interfaces/ITargetDeviceServicesModule.h"
+#include "Interfaces/IDeviceManagerModule.h"
+#include "Widgets/SDeviceManager.h"
 
+#include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
-#include "SDockTab.h"
-
+#include "Widgets/Docking/SDockTab.h"
 
 static const FName DeviceManagerTabName("DeviceManager");
 

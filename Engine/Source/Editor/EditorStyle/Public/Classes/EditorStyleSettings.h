@@ -3,8 +3,10 @@
 #pragma once
 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "EditorStyleSettings.generated.h"
-
 
 /**
  * Enumerates color vision deficiency types.
@@ -85,16 +87,20 @@ public:
 	uint32 bUseGrid : 1;
 
 	/** The color used to represent regular grid lines */
-	UPROPERTY(EditAnywhere, config, Category = Graphs, meta = (DisplayName = "Grid regular Color"))
+	UPROPERTY(EditAnywhere, config, Category = Graphs, meta = (DisplayName = "Grid Regular Color"))
 	FLinearColor RegularColor;
 
 	/** The color used to represent ruler lines in the grid */
-	UPROPERTY(EditAnywhere, config, Category = Graphs, meta = (DisplayName = "Grid ruler Color"))
+	UPROPERTY(EditAnywhere, config, Category = Graphs, meta = (DisplayName = "Grid Ruler Color"))
 	FLinearColor RuleColor;
 
 	/** The color used to represent the center lines in the grid */
-	UPROPERTY(EditAnywhere, config, Category = Graphs, meta = (DisplayName = "Grid center Color"))
+	UPROPERTY(EditAnywhere, config, Category = Graphs, meta = (DisplayName = "Grid Center Color"))
 	FLinearColor CenterColor;
+
+	/** The custom grid snap size to use  */
+	UPROPERTY(EditAnywhere, config, Category = Graphs, meta = (ClampMin = "1.0", ClampMax = "100.0", UIMin = "1.0", UIMax = "100.0"))
+	uint32 GridSnapSize;
 
 	/** Enables animated transitions for certain menus and pop-up windows.  Note that animations may be automatically disabled at low frame rates in order to improve responsiveness. */
 	UPROPERTY(EditAnywhere, config, Category=UserInterface)
@@ -116,12 +122,44 @@ public:
 	UPROPERTY(config)
 	uint32 bShowLaunchMenus : 1;
 
+	/** The color used for the background in the output log */
+	UPROPERTY(EditAnywhere, config, Category="Output Log", meta=(DisplayName="Background Color"))
+	FLinearColor LogBackgroundColor;
+
+	/** The color used for the background of selected text in the output log */
+	UPROPERTY(EditAnywhere, config, Category="Output Log", meta=(DisplayName="Selection Background Color"))
+	FLinearColor LogSelectionBackgroundColor;
+
+	/** The color used for normal text in the output log */
+	UPROPERTY(EditAnywhere, config, Category="Output Log", meta=(DisplayName="Normal Text Color"))
+	FLinearColor LogNormalColor;
+
+	/** The color used for normal text in the output log */
+	UPROPERTY(EditAnywhere, config, Category="Output Log", meta=(DisplayName="Command Text Color"))
+	FLinearColor LogCommandColor;
+
+	/** The color used for warning log lines */
+	UPROPERTY(EditAnywhere, config, Category="Output Log", meta=(DisplayName="Warning Text Color"))
+	FLinearColor LogWarningColor;
+
+	/** The color used for error log lines */
+	UPROPERTY(EditAnywhere, config, Category="Output Log", meta=(DisplayName="Error Text Color"))
+	FLinearColor LogErrorColor;
+
+	/** When enabled, the Advanced Details will always auto expand. */
+	UPROPERTY(config)
+	uint32 bShowAllAdvancedDetails : 1;
+
+	/** The font size used in the output log */
+	UPROPERTY(EditAnywhere, config, Category="Output Log", meta=(DisplayName="Log Font Size", ConfigRestartRequired=true))
+	int32 LogFontSize;
+
 	/** The display mode for timestamps in the output log */
-	UPROPERTY(EditAnywhere, config, Category=Logging)
+	UPROPERTY(EditAnywhere, config, Category="Output Log")
 	TEnumAsByte<ELogTimes::Type> LogTimestampMode;
 
 	/** Should warnings and errors in the Output Log during "Play in Editor" be promoted to the message log? */
-	UPROPERTY(EditAnywhere, config, Category=Logging)
+	UPROPERTY(EditAnywhere, config, Category="Output Log")
 	bool bPromoteOutputLogWarningsDuringPIE;
 
 	/** New asset editor tabs will open at the specified location. */

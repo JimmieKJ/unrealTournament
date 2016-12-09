@@ -4,11 +4,11 @@
 	HlslUtils.cpp - Utils for HLSL.
 =============================================================================*/
 
-#include "ShaderCompilerCommonPrivatePCH.h"
-#include "ShaderCompilerCommon.h"
 #include "HlslUtils.h"
+#include "Misc/ScopeLock.h"
 #include "HlslAST.h"
 #include "HlslParser.h"
+#include "ShaderCompilerCommon.h"
 
 static bool bLeaveAllUsed = false;
 

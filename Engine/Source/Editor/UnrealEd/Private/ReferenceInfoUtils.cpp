@@ -1,11 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "../Private/ReferenceInfoUtils.h"
+#include "ReferenceInfoUtils.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/OutputDeviceFile.h"
+#include "HAL/IConsoleManager.h"
+#include "Modules/ModuleManager.h"
+#include "Serialization/ArchiveUObject.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "Engine/Level.h"
+#include "GameFramework/Actor.h"
+#include "Materials/MaterialInterface.h"
+#include "AssetData.h"
+#include "Editor/UnrealEdEngine.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
+#include "Editor.h"
+#include "UnrealEdGlobals.h"
+#include "ARFilter.h"
 #include "AssetRegistryModule.h"
-#include "Editor/MainFrame/Public/MainFrame.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "Engine/Selection.h"
 
 void ExecuteReferenceInfo(const TArray<FString>& Args, UWorld* InWorld )
@@ -460,11 +476,11 @@ namespace ReferenceInfoUtils
 		}
 
 		// Create a string for the resource size.
-		const SIZE_T ResourceSize = ReferencedObject->GetResourceSize(EResourceSizeMode::Exclusive);
+		const SIZE_T ReferencedObjectResourceSize = ReferencedObject->GetResourceSizeBytes(EResourceSizeMode::Exclusive);
 		FString ResourceSizeString;
-		if ( ResourceSize > 0 )
+		if ( ReferencedObjectResourceSize > 0 )
 		{
-			ResourceSizeString = FString::Printf( TEXT("%.2f"), ((float)ResourceSize)/1024.f );
+			ResourceSizeString = FString::Printf( TEXT("%.2f"), ((float)ReferencedObjectResourceSize)/1024.f );
 		}
 
 		FString ObjectPathName;

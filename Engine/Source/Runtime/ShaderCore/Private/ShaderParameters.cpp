@@ -4,7 +4,9 @@
 	ShaderParameters.cpp: Shader parameter implementation.
 =============================================================================*/
 
-#include "ShaderCorePrivatePCH.h"
+#include "ShaderParameters.h"
+#include "Containers/List.h"
+#include "UniformBuffer.h"
 #include "ShaderCore.h"
 #include "Shader.h"
 #include "VertexFactory.h"
@@ -323,6 +325,7 @@ FString CreateUniformBufferShaderDeclaration(const TCHAR* Name,const FUniformBuf
 		case SP_OPENGL_SM4:
 		case SP_OPENGL_SM4_MAC:
 		case SP_OPENGL_SM5:
+		case SP_SWITCH:
 			return CreateHLSLUniformBufferDeclaration(Name, UniformBufferStruct, false);
 		case SP_PCD3D_SM5:
 		default:

@@ -1,25 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "EnvironmentQuery/EQSTestingPawn.h"
+#include "UObject/ConstructorHelpers.h"
+#include "AISystem.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnvironmentQuery/EnvQuery.h"
-#include "EnvironmentQuery/EQSTestingPawn.h"
-#include "EnvironmentQuery/EnvQueryTypes.h"
 #include "EnvironmentQuery/EnvQueryManager.h"
+#include "Engine/Texture2D.h"
 #include "EnvironmentQuery/EQSRenderingComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 
 #if WITH_EDITORONLY_DATA
 #include "Components/ArrowComponent.h"
 #endif // WITH_EDITORONLY_DATA
 
 #if WITH_EDITOR
-#include "Engine/Brush.h"
 #include "Editor/EditorEngine.h"
 extern UNREALED_API UEditorEngine* GEditor;
 #endif // WITH_EDITOR
 
 #include "Engine/Selection.h"
-#include "Engine/Texture2D.h"
 #include "Components/BillboardComponent.h"
 
 //----------------------------------------------------------------------//
@@ -78,7 +79,7 @@ AEQSTestingPawn::AEQSTestingPawn(const FObjectInitializer& ObjectInitializer)
 #endif // WITH_EDITORONLY_DATA
 
 	// Default to no tick function, but if we set 'never ticks' to false (so there is a tick function) it is enabled by default
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 	PrimaryActorTick.bStartWithTickEnabled = true;
 
 	if (GetCharacterMovement())
@@ -160,9 +161,19 @@ void AEQSTestingPawn::PostLoad()
 	}
 
 	UWorld* World = GetWorld();
-	if (World && World->IsGameWorld() && bTickDuringGame)
+	PrimaryActorTick.bCanEverTick = World && ((World->IsGameWorld() == false) || bTickDuringGame);
+
+	if (PrimaryActorTick.bCanEverTick == false)
 	{
-		PrimaryActorTick.bCanEverTick = false;
+		// Also disable components that may tick
+		if (GetCharacterMovement())
+		{
+			GetCharacterMovement()->PrimaryComponentTick.bCanEverTick = false;
+		}
+		if (GetMesh())
+		{
+			GetMesh()->PrimaryComponentTick.bCanEverTick = false;
+		}
 	}
 }
 

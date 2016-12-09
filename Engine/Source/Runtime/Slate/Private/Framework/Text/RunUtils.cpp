@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "RunUtils.h"
+#include "Framework/Text/RunUtils.h"
+#include "Framework/Text/TextHitPoint.h"
 
 ETextHitPoint RunUtils::CalculateTextHitPoint(const int32 InIndex, const FTextRange& InTextRange, const TextBiDi::ETextDirection InTextDirection)
 {

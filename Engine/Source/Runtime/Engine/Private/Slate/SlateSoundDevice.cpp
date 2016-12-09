@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Slate/SlateSoundDevice.h"
+#include "Sound/SlateSound.h"
 #include "ActiveSound.h"
 #include "AudioDevice.h"
-#include "Slate/SlateSoundDevice.h"
 #include "Sound/SoundBase.h"
-#include "Sound/SlateSound.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSlateSoundDevice, Log, All);
 

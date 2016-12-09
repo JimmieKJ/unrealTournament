@@ -1,21 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
+#include "SSocketManager.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "UObject/UnrealType.h"
+#include "Engine/StaticMesh.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
+#include "Components/StaticMeshComponent.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Engine/StaticMeshSocket.h"
+#include "UnrealEdGlobals.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Editor/StaticMeshEditor/Public/IStaticMeshEditor.h"
 
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
 
-#include "SSocketManager.h"
 #include "ScopedTransaction.h"
 
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
-#include "SInlineEditableTextBlock.h"
-#include "GenericCommands.h"
-#include "Engine/StaticMesh.h"
-#include "Engine/StaticMeshSocket.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #define LOCTEXT_NAMESPACE "SSCSSocketManagerEditor"
 
@@ -691,7 +701,7 @@ void SSocketManager::OnSocketPropertyChanged( const UStaticMeshSocket* Socket, c
 
 			for (TObjectIterator<UStaticMeshComponent> It; It; ++It)
 			{
-				if (It->StaticMesh == CurrentStaticMesh)
+				if (It->GetStaticMesh() == CurrentStaticMesh)
 				{
 					const AActor* Actor = It->GetOwner();
 					if (Actor != nullptr)

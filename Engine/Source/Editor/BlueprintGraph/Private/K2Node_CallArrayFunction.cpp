@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "K2Node_CallArrayFunction.h"
+#include "EdGraphSchema_K2.h"
 
 UK2Node_CallArrayFunction::UK2Node_CallArrayFunction(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -15,12 +15,14 @@ void UK2Node_CallArrayFunction::AllocateDefaultPins()
 	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 
 	UEdGraphPin* TargetArrayPin = GetTargetArrayPin();
-	check(TargetArrayPin);
-	TargetArrayPin->PinType.bIsArray = true;
-	TargetArrayPin->PinType.bIsReference = true;
-	TargetArrayPin->PinType.PinCategory = Schema->PC_Wildcard;
-	TargetArrayPin->PinType.PinSubCategory = TEXT("");
-	TargetArrayPin->PinType.PinSubCategoryObject = NULL;
+	if (ensure(TargetArrayPin))
+	{
+		TargetArrayPin->PinType.bIsArray = true;
+		TargetArrayPin->PinType.bIsReference = true;
+		TargetArrayPin->PinType.PinCategory = Schema->PC_Wildcard;
+		TargetArrayPin->PinType.PinSubCategory = TEXT("");
+		TargetArrayPin->PinType.PinSubCategoryObject = NULL;
+	}
 
 	TArray< FArrayPropertyPinCombo > ArrayPins;
 	GetArrayPins(ArrayPins);
@@ -137,26 +139,28 @@ void UK2Node_CallArrayFunction::GetArrayPins(TArray< FArrayPropertyPinCombo >& O
 	OutArrayPinInfo.Empty();
 
 	UFunction* TargetFunction = GetTargetFunction();
-	check(TargetFunction);
-	FString ArrayPointerMetaData = TargetFunction->GetMetaData(FBlueprintMetadata::MD_ArrayParam);
-	TArray<FString> ArrayPinComboNames;
-	ArrayPointerMetaData.ParseIntoArray(ArrayPinComboNames, TEXT(","), true);
-
-	for(auto Iter = ArrayPinComboNames.CreateConstIterator(); Iter; ++Iter)
+	if (ensure(TargetFunction))
 	{
-		TArray<FString> ArrayPinNames;
-		Iter->ParseIntoArray(ArrayPinNames, TEXT("|"), true);
+		FString ArrayPointerMetaData = TargetFunction->GetMetaData(FBlueprintMetadata::MD_ArrayParam);
+		TArray<FString> ArrayPinComboNames;
+		ArrayPointerMetaData.ParseIntoArray(ArrayPinComboNames, TEXT(","), true);
 
-		FArrayPropertyPinCombo ArrayInfo;
-		ArrayInfo.ArrayPin = FindPin(ArrayPinNames[0]);
-		if(ArrayPinNames.Num() > 1)
+		for (auto Iter = ArrayPinComboNames.CreateConstIterator(); Iter; ++Iter)
 		{
-			ArrayInfo.ArrayPropPin = FindPin(ArrayPinNames[1]);
-		}
+			TArray<FString> ArrayPinNames;
+			Iter->ParseIntoArray(ArrayPinNames, TEXT("|"), true);
 
-		if(ArrayInfo.ArrayPin)
-		{
-			OutArrayPinInfo.Add(ArrayInfo);
+			FArrayPropertyPinCombo ArrayInfo;
+			ArrayInfo.ArrayPin = FindPin(ArrayPinNames[0]);
+			if (ArrayPinNames.Num() > 1)
+			{
+				ArrayInfo.ArrayPropPin = FindPin(ArrayPinNames[1]);
+			}
+
+			if (ArrayInfo.ArrayPin)
+			{
+				OutArrayPinInfo.Add(ArrayInfo);
+			}
 		}
 	}
 }
@@ -165,18 +169,21 @@ bool UK2Node_CallArrayFunction::IsWildcardProperty(UFunction* InArrayFunction, c
 {
 	if(InArrayFunction && InProperty)
 	{
-		FString ArrayPointerMetaData = InArrayFunction->GetMetaData(FBlueprintMetadata::MD_ArrayParam);
-		TArray<FString> ArrayPinComboNames;
-		ArrayPointerMetaData.ParseIntoArray(ArrayPinComboNames, TEXT(","), true);
-
-		for(auto Iter = ArrayPinComboNames.CreateConstIterator(); Iter; ++Iter)
+		const FString& ArrayPointerMetaData = InArrayFunction->GetMetaData(FBlueprintMetadata::MD_ArrayParam);
+		if (!ArrayPointerMetaData.IsEmpty())
 		{
-			TArray<FString> ArrayPinNames;
-			Iter->ParseIntoArray(ArrayPinNames, TEXT("|"), true);
+			TArray<FString> ArrayPinComboNames;
+			ArrayPointerMetaData.ParseIntoArray(ArrayPinComboNames, TEXT(","), true);
 
-			if(ArrayPinNames[0] == InProperty->GetName())
+			for (auto Iter = ArrayPinComboNames.CreateConstIterator(); Iter; ++Iter)
 			{
-				return true;
+				TArray<FString> ArrayPinNames;
+				Iter->ParseIntoArray(ArrayPinNames, TEXT("|"), true);
+
+				if (ArrayPinNames[0] == InProperty->GetName())
+				{
+					return true;
+				}
 			}
 		}
 	}
@@ -188,19 +195,20 @@ void UK2Node_CallArrayFunction::GetArrayTypeDependentPins(TArray<UEdGraphPin*>& 
 	OutPins.Empty();
 
 	UFunction* TargetFunction = GetTargetFunction();
-	check(TargetFunction);
-
-	const FString DependentPinMetaData = TargetFunction->GetMetaData(FBlueprintMetadata::MD_ArrayDependentParam);
-	TArray<FString> TypeDependentPinNames;
-	DependentPinMetaData.ParseIntoArray(TypeDependentPinNames, TEXT(","), true);
-
-	for(TArray<UEdGraphPin*>::TConstIterator it(Pins); it; ++it)
+	if (ensure(TargetFunction))
 	{
-		UEdGraphPin* CurrentPin = *it;
-		int32 ItemIndex = 0;
-		if( CurrentPin && TypeDependentPinNames.Find(CurrentPin->PinName, ItemIndex) )
+		const FString DependentPinMetaData = TargetFunction->GetMetaData(FBlueprintMetadata::MD_ArrayDependentParam);
+		TArray<FString> TypeDependentPinNames;
+		DependentPinMetaData.ParseIntoArray(TypeDependentPinNames, TEXT(","), true);
+
+		for (TArray<UEdGraphPin*>::TConstIterator it(Pins); it; ++it)
 		{
-			OutPins.Add(CurrentPin);
+			UEdGraphPin* CurrentPin = *it;
+			int32 ItemIndex = 0;
+			if (CurrentPin && TypeDependentPinNames.Find(CurrentPin->PinName, ItemIndex))
+			{
+				OutPins.Add(CurrentPin);
+			}
 		}
 	}
 }
@@ -221,6 +229,7 @@ void UK2Node_CallArrayFunction::PropagateArrayTypeInfo(const UEdGraphPin* Source
 		{
 			if (CurrentPin != SourcePin)
 			{
+				CA_SUPPRESS(6011); // warning C6011: Dereferencing NULL pointer 'CurrentPin'.
 				FEdGraphPinType& CurrentPinType = CurrentPin->PinType;
 
 				bool const bHasTypeMismatch = (CurrentPinType.PinCategory != SourcePinType.PinCategory) ||

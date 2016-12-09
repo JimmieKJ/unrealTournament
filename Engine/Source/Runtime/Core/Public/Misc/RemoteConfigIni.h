@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Misc/DateTime.h"
+#include "Stats/Stats.h"
+
+template<typename TTask> class FAsyncTask;
 
 /**
  * Stores info relating to remote config files

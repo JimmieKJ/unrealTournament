@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealHeaderTool.h"
 #include "HeaderProvider.h"
-#include "UnrealSourceFile.h"
+#include "UnrealHeaderTool.h"
+#include "UnrealTypeDefinitionInfo.h"
 #include "ClassMaps.h"
 
 FHeaderProvider::FHeaderProvider(EHeaderProviderSourceType InType, const FString& InId, bool bInAutoInclude/* = false*/)

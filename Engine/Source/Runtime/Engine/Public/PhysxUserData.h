@@ -1,6 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EngineDefines.h"
+
+class FPhysScene;
+class UPhysicalMaterial;
+class UPrimitiveComponent;
+struct FBodyInstance;
+struct FConstraintInstance;
+struct FDestructibleChunkInfo;
+struct FKShapeElem;
+
 #if WITH_PHYSX
 
 /** Forward declarations */

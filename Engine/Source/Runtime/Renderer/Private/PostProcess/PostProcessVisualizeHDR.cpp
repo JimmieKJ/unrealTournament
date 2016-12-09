@@ -4,15 +4,18 @@
 	PostProcessVisualizeHDR.cpp: Post processing VisualizeHDR implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessVisualizeHDR.h"
-#include "PostProcessing.h"
-#include "PostProcessHistogram.h"
-#include "PostProcessEyeAdaptation.h"
-#include "PostProcessTonemap.h"
+#include "PostProcess/PostProcessVisualizeHDR.h"
+#include "EngineGlobals.h"
+#include "StaticBoundShaderState.h"
+#include "CanvasTypes.h"
+#include "UnrealEngine.h"
+#include "RenderTargetTemp.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "PostProcess/PostProcessing.h"
+#include "PostProcess/PostProcessHistogram.h"
+#include "PostProcess/PostProcessEyeAdaptation.h"
+#include "PostProcess/PostProcessTonemap.h"
 
 /** Encapsulates the post processing eye adaptation pixel shader. */
 class FPostProcessVisualizeHDRPS : public FGlobalShader

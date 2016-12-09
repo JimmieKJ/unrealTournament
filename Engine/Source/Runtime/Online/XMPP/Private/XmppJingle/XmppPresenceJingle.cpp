@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "XmppPrivatePCH.h"
-#include "XmppJingle.h"
-#include "XmppConnectionJingle.h"
-#include "XmppPresenceJingle.h"
+#include "XmppJingle/XmppPresenceJingle.h"
+#include "Misc/ScopeLock.h"
+#include "XmppLog.h"
+#include "XmppJingle/XmppConnectionJingle.h"
+#include "XmppMultiUserChat.h"
 
 #if WITH_XMPP_JINGLE
 
@@ -219,13 +220,13 @@ protected:
 	}
 };
 
-class FXmppPresenceOutTask : public buzz::XmppTask 
+class FXmppPresenceOutTask : public buzz::XmppTask
 {
 public:
 	explicit FXmppPresenceOutTask(buzz::XmppTaskParentInterface* Parent)
-		: buzz::XmppTask(Parent) 
+		: buzz::XmppTask(Parent)
 	{}
-	virtual ~FXmppPresenceOutTask() 
+	virtual ~FXmppPresenceOutTask()
 	{}
 
 	buzz::XmppReturnStatus Send(const buzz::PresenceStatus& Status)
@@ -233,9 +234,8 @@ public:
 		if (GetState() != STATE_INIT && GetState() != STATE_START)
 			return buzz::XMPP_RETURN_BADSTATE;
 
-		buzz::XmlElement* Presence = TranslateStatus(Status);
-		QueueStanza(Presence);
-		delete Presence;
+		TUniquePtr<buzz::XmlElement> Presence{TranslateStatus(Status)};
+		QueueStanza(Presence.Get());
 		return buzz::XMPP_RETURN_OK;
 	}
 
@@ -244,10 +244,9 @@ public:
 		if (GetState() != STATE_INIT && GetState() != STATE_START)
 			return buzz::XMPP_RETURN_BADSTATE;
 
-		buzz::XmlElement* Presence = TranslateStatus(Status);
+		TUniquePtr<buzz::XmlElement> Presence{TranslateStatus(Status)};
 		Presence->AddAttr(buzz::QN_TO, Jid.Str());
-		QueueStanza(Presence);
-		delete Presence;
+		QueueStanza(Presence.Get());
 		return buzz::XMPP_RETURN_OK;
 	}
 
@@ -256,12 +255,14 @@ public:
 		if (GetState() != STATE_INIT && GetState() != STATE_START)
 			return buzz::XMPP_RETURN_BADSTATE;
 
-		buzz::XmlElement* Presence = new buzz::XmlElement(buzz::QN_PRESENCE);
-		Presence->AddAttr(buzz::QN_TO, Jid.Str());
-		Presence->AddAttr(buzz::QN_TYPE, "probe");
+		buzz::XmlElement Presence{buzz::QN_PRESENCE};
+		Presence.AddAttr(buzz::QN_TO, Jid.Str());
+		Presence.AddAttr(buzz::QN_TYPE, "probe");
 
-		QueueStanza(Presence);
-		delete Presence;
+		// Add CorrelationID for tracking purposes
+		FXmppJingle::AddCorrIdToStanza(Presence);
+
+		QueueStanza(&Presence);
 		return buzz::XMPP_RETURN_OK;
 	}
 
@@ -281,17 +282,21 @@ private:
 	buzz::XmlElement* TranslateStatus(const buzz::PresenceStatus& Status)
 	{
 		buzz::XmlElement* Result = new buzz::XmlElement(buzz::QN_PRESENCE);
-		if (!Status.available()) 
+
+		// Add CorrelationID for tracking purposes
+		FXmppJingle::AddCorrIdToStanza(*Result);
+
+		if (!Status.available())
 		{
 			Result->AddAttr(buzz::QN_TYPE, buzz::STR_UNAVAILABLE);
 		}
-		else 
+		else
 		{
 			if (Status.show() != buzz::PresenceStatus::SHOW_ONLINE &&
-				Status.show() != buzz::PresenceStatus::SHOW_OFFLINE) 
+				Status.show() != buzz::PresenceStatus::SHOW_OFFLINE)
 			{
 				Result->AddElement(new buzz::XmlElement(buzz::QN_SHOW));
-				switch (Status.show()) 
+				switch (Status.show())
 				{
 				default:
 					Result->AddText(buzz::STR_SHOW_AWAY, 1);
@@ -311,7 +316,7 @@ private:
 			Result->AddElement(new buzz::XmlElement(buzz::QN_STATUS));
 			Result->AddText(Status.status(), 1);
 
-			if (!Status.nick().empty()) 
+			if (!Status.nick().empty())
 			{
 				Result->AddElement(new buzz::XmlElement(buzz::QN_NICKNAME));
 				Result->AddText(Status.nick(), 1);
@@ -323,7 +328,7 @@ private:
 			Result->AddElement(new buzz::XmlElement(buzz::QN_PRIORITY));
 			Result->AddText(Pri, 1);
 
-			if (Status.know_capabilities()) 
+			if (Status.know_capabilities())
 			{
 				Result->AddElement(new buzz::XmlElement(buzz::QN_CAPS_C, true));
 				Result->AddAttr(buzz::QN_NODE, Status.caps_node(), 1);

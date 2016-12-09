@@ -1,6 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Engine/EngineTypes.h"
+#include "TimerManager.h"
+#include "Styling/SlateColor.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "OnlineSubsystemTypes.h"
+#define SUPPRESS_MONOLITHIC_HEADER_WARNINGS 1 // This is necessary because a game project may contain an older revision of the OnlineSubsystem plugin, which includes monolithic headers.
+#include "OnlineSubsystem.h"
+#undef SUPPRESS_MONOLITHIC_HEADER_WARNINGS
+
+class FExtender;
+class FMenuBuilder;
+class FSurvey;
+class FToolBarBuilder;
+class FUICommandList;
+class SWidget;
+class SWindow;
+
 DECLARE_DELEGATE_OneParam( FOnBrushLoaded, const TSharedPtr< FSlateDynamicImageBrush >& /*Brush*/ );
 
 namespace EContentInitializationState

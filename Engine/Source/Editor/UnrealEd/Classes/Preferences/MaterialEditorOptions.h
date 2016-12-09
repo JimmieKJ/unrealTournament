@@ -7,6 +7,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "MaterialEditorOptions.generated.h"
 
 UCLASS(hidecategories=Object, config=EditorPerProjectUserSettings)

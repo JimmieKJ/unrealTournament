@@ -2,7 +2,19 @@
 
 #pragma once
 
-#include "BlueprintProfilerSettings.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Profiler/EventExecution.h"
+
+class SComboButton;
+enum class EBlueprintProfilerHeatLevelMetricsType : uint8;
+enum class EBlueprintProfilerHeatMapDisplayMode : uint8;
+enum class ECheckBoxState : uint8;
 
 /** Blueprint performance view type */
 namespace EBlueprintPerfViewType
@@ -45,7 +57,8 @@ public:
 		GraphFilter					= 0x00000004,	// Filter to current graph
 		DisplayPure					= 0x00000008,	// Display pure stats
 		DisplayInheritedEvents		= 0x00000010,	// Display inherited events
-		AverageBlueprintStats		= 0x00000020,	// Average blueprint stats ( Rather than sum )
+		DisplayHottestPathStats		= 0x00000020,	// -- Debugging feature to show hottest path heat levels
+		DisplayNodeHeatStat			= 0x00000040,	// -- Debugging feature to show node heat levels
 		Modified					= 0x10000000,	// Display state was changed
 	};
 
@@ -74,7 +87,7 @@ public:
 	bool HasAllFlags(const uint32 FlagsIn) const { return (Flags & FlagsIn) == FlagsIn; }
 
 	/** Set active instance name */
-	FName GetActiveInstance() const { return HasFlags(DisplayByInstance) ? ActiveInstance : NAME_None; }
+	FName GetActiveInstance() const { return HasFlags(DisplayByInstance) ? ActiveInstance : SPDN_Blueprint; }
 
 	/** Set active instance name */
 	void SetActiveInstance(const FName InstanceName);
@@ -176,6 +189,9 @@ protected:
 	/** Create the custom heat thresholds combo menu content */
 	TSharedRef<SWidget> CreateCustomHeatThresholdsMenuContent();
 
+	/** Save custom heat thresholds on combo close */
+	void SaveCustomHeatThresholds(bool bIsOpened);
+
 private:
 	/** Custom performance thresholds */
 	enum ECustomPerformanceThreshold
@@ -217,4 +233,7 @@ protected:
 
 	/** Custom heat threshold combo button widget */
 	TSharedPtr<SComboButton> CustomHeatThresholdComboButton;
+
+	/** Settings dirty flag */
+	bool bSettingsDirty;
 };

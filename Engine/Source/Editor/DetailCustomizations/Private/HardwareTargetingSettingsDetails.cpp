@@ -1,10 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
-
 #include "HardwareTargetingSettingsDetails.h"
+#include "Misc/Paths.h"
+#include "Layout/Visibility.h"
+#include "Layout/Margin.h"
+#include "Misc/Attribute.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "UnrealEdMisc.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+
+#include "HardwareTargetingSettings.h"
 #include "HardwareTargetingModule.h"
-#include "ISourceControlModule.h"
 #include "SSettingsEditorCheckoutNotice.h"
 
 #define LOCTEXT_NAMESPACE "FHardwareTargetingSettingsDetails"

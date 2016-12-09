@@ -1,10 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
-#include "BlueprintUtilities.h"
-#include "GraphEditorActions.h"
-#include "ScopedTransaction.h"
-#include "AssetData.h"
 #include "AnimationStateGraphSchema.h"
 #include "AnimationStateGraph.h"
 #include "AnimStateNode.h"

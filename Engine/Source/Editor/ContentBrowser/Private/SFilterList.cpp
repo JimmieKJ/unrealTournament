@@ -1,7 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "ContentBrowserPCH.h"
+#include "SFilterList.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Commands/UIAction.h"
+#include "Textures/SlateIcon.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/SBoxPanel.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "AssetRegistryModule.h"
+#include "IAssetTools.h"
+#include "AssetToolsModule.h"
 #include "FrontendFilters.h"
 #include "ContentBrowserFrontEndFilterExtension.h"
 
@@ -598,7 +617,7 @@ void SFilterList::DisableFiltersThatHideAssets(const TArray<FAssetData>& AssetDa
 				{
 					for ( auto AssetIt = AssetDataList.CreateConstIterator(); AssetIt; ++AssetIt )
 					{
-						if ( !FrontendFilter->PassesFilter( *AssetIt ) )
+						if (!FrontendFilter->IsInverseFilter() && !FrontendFilter->PassesFilter(*AssetIt))
 						{
 							// This is a frontend filter and at least one asset did not pass.
 							Filter->SetEnabled(false);
@@ -1160,7 +1179,7 @@ TSharedRef<SWidget> SFilterList::MakeAddFilterMenu(EAssetTypeCategories::Type Me
 		SNew(SVerticalBox)
 
 		+SVerticalBox::Slot()
-		.MaxHeight(DisplaySize.Y * 0.5)
+		.MaxHeight(DisplaySize.Y * 0.9)
 		[
 			MenuBuilder.MakeWidget()
 		];

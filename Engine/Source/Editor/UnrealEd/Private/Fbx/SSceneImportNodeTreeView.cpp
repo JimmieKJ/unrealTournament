@@ -1,8 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "SSceneImportNodeTreeView.h"
-#include "SlateIconFinder.h"
+#include "Fbx/SSceneImportNodeTreeView.h"
+#include "Factories/FbxSceneImportFactory.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "GameFramework/Actor.h"
+#include "Components/LightComponent.h"
+#include "Camera/CameraComponent.h"
+#include "Components/PointLightComponent.h"
+#include "Components/SpotLightComponent.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Styling/SlateIconFinder.h"
 
 #define LOCTEXT_NAMESPACE "SFbxSceneTreeView"
 

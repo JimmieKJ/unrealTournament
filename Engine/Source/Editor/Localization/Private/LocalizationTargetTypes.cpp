@@ -1,8 +1,15 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationPrivatePCH.h"
 #include "LocalizationTargetTypes.h"
-#include "CsvParser.h"
+#include "Templates/Casts.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+#include "Serialization/Csv/CsvParser.h"
 #include "LocalizationConfigurationScript.h"
 #include "LocalizationSettings.h"
 
@@ -551,7 +558,7 @@ bool ULocalizationTarget::DeleteFiles(const FString* const Culture) const
 	ISourceControlModule& SourceControl = ISourceControlModule::Get();
 	ISourceControlProvider& SourceControlProvider = SourceControl.GetProvider();
 
-	const FString DataDirectory = LocalizationConfigurationScript::GetDataDirectory(this) + (Culture ? *Culture : FString());
+	const FString DataDirectory = LocalizationConfigurationScript::GetDataDirectory(this) / (Culture ? *Culture : FString());
 
 	// Remove data files from source control.
 	{
@@ -567,20 +574,26 @@ bool ULocalizationTarget::DeleteFiles(const FString* const Culture) const
 
 			for (const FSourceControlStateRef& SourceControlState : SourceControlStates)
 			{
-				// Added/edited files must be reverted.
-				if (SourceControlState->IsAdded() || SourceControlState->IsCheckedOut())
+				// Added/ files must be reverted.
+				if (SourceControlState->IsAdded())
 				{
 					FilesToRevert.Add(SourceControlState->GetFilename());
 				}
-				// Edited files must be deleted.
-				if (SourceControlState->IsCheckedOut())
+				// Edited files must be reverted then deleted.
+				else if (SourceControlState->IsCheckedOut())
+				{
+					FilesToRevert.Add(SourceControlState->GetFilename());
+					FilesToDelete.Add(SourceControlState->GetFilename());
+				}
+				// Other source controlled files must be deleted.
+				else if (SourceControlState->IsSourceControlled() && !SourceControlState->IsDeleted())
 				{
 					FilesToDelete.Add(SourceControlState->GetFilename());
 				}
 			}
 
-			const bool WasSuccessfullyReverted = (SourceControlProvider.Execute( ISourceControlOperation::Create<FRevert>(), FilesToRevert ) == ECommandResult::Succeeded);
-			const bool WasSuccessfullyDeleted = (SourceControlProvider.Execute( ISourceControlOperation::Create<FDelete>(), FilesToDelete ) == ECommandResult::Succeeded);
+			const bool WasSuccessfullyReverted = FilesToRevert.Num() == 0 || SourceControlProvider.Execute( ISourceControlOperation::Create<FRevert>(), FilesToRevert ) == ECommandResult::Succeeded;
+			const bool WasSuccessfullyDeleted = FilesToDelete.Num() == 0 || SourceControlProvider.Execute( ISourceControlOperation::Create<FDelete>(), FilesToDelete ) == ECommandResult::Succeeded;
 			HasCompletelySucceeded = HasCompletelySucceeded && WasSuccessfullyReverted && WasSuccessfullyDeleted;
 		}
 	}
@@ -607,20 +620,26 @@ bool ULocalizationTarget::DeleteFiles(const FString* const Culture) const
 
 				for (const FSourceControlStateRef& SourceControlState : SourceControlStates)
 				{
-					// Added/edited files must be reverted.
-					if (SourceControlState->IsAdded() || SourceControlState->IsCheckedOut())
+					// Added/ files must be reverted.
+					if (SourceControlState->IsAdded())
 					{
 						FilesToRevert.Add(SourceControlState->GetFilename());
 					}
-					// Edited files must be deleted.
-					if (SourceControlState->IsCheckedOut())
+					// Edited files must be reverted then deleted.
+					else if (SourceControlState->IsCheckedOut())
+					{
+						FilesToRevert.Add(SourceControlState->GetFilename());
+						FilesToDelete.Add(SourceControlState->GetFilename());
+					}
+					// Other source controlled files must be deleted.
+					else if (SourceControlState->IsSourceControlled() && !SourceControlState->IsDeleted())
 					{
 						FilesToDelete.Add(SourceControlState->GetFilename());
 					}
 				}
 
-				const bool WasSuccessfullyReverted = (SourceControlProvider.Execute( ISourceControlOperation::Create<FRevert>(), FilesToRevert ) == ECommandResult::Succeeded);
-				const bool WasSuccessfullyDeleted = (SourceControlProvider.Execute( ISourceControlOperation::Create<FDelete>(), FilesToDelete ) == ECommandResult::Succeeded);
+				const bool WasSuccessfullyReverted = FilesToRevert.Num() == 0 || SourceControlProvider.Execute( ISourceControlOperation::Create<FRevert>(), FilesToRevert ) == ECommandResult::Succeeded;
+				const bool WasSuccessfullyDeleted = FilesToDelete.Num() == 0 || SourceControlProvider.Execute( ISourceControlOperation::Create<FDelete>(), FilesToDelete ) == ECommandResult::Succeeded;
 				HasCompletelySucceeded = HasCompletelySucceeded && WasSuccessfullyReverted && WasSuccessfullyDeleted;
 			}
 		}

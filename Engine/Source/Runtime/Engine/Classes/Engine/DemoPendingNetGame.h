@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/PendingNetGame.h"
 #include "DemoPendingNetGame.generated.h"
 
 class UEngine;

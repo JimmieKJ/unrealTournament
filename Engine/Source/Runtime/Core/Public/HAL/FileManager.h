@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "GenericPlatform/GenericPlatformFile.h"
-#include "HAL/Platform.h"
 
-struct FDateTime;
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Misc/DateTime.h"
+#include "GenericPlatform/GenericPlatformFile.h"
 
 // Maximum length of any filename.  For now, we have no restriction. We would probably use shortening rules if we have to.
 #define MAX_UNREAL_FILENAME_LENGTH (PLATFORM_MAX_FILEPATH_LENGTH)
@@ -12,6 +13,7 @@ struct FDateTime;
 
 enum EFileWrite
 {
+	FILEWRITE_None				= 0x00,
 	FILEWRITE_NoFail            = 0x01,
 	FILEWRITE_NoReplaceExisting = 0x02,
 	FILEWRITE_EvenIfReadOnly    = 0x04,
@@ -22,6 +24,7 @@ enum EFileWrite
 
 enum EFileRead
 {
+	FILEREAD_None				= 0x00,
 	FILEREAD_NoFail             = 0x01,
 	FILEREAD_Silent				= 0x02,
 	FILEREAD_AllowWrite			= 0x04,
@@ -88,7 +91,7 @@ public:
 	virtual bool Delete( const TCHAR* Filename, bool RequireExists=0, bool EvenReadOnly=0, bool Quiet=0 )=0;
 
 	/** Copies a file. */
-	virtual uint32 Copy( const TCHAR* Dest, const TCHAR* Src, bool Replace=1, bool EvenIfReadOnly=0, bool Attributes=0, FCopyProgress* Progress = nullptr )=0; // utility
+	virtual uint32 Copy( const TCHAR* Dest, const TCHAR* Src, bool Replace=1, bool EvenIfReadOnly=0, bool Attributes=0, FCopyProgress* Progress = nullptr, EFileRead ReadFlags=FILEREAD_None, EFileWrite WriteFlags=FILEWRITE_None)=0; // utility
 
 	/** Moves/renames a file. */
 	virtual bool Move( const TCHAR* Dest, const TCHAR* Src, bool Replace=1, bool EvenIfReadOnly=0, bool Attributes=0, bool bDoNotRetryOrError=0 )=0;

@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+
+class FTabManager;
+class SWindow;
 
 /**
  * Interface for main frame modules.
@@ -144,7 +154,8 @@ public:
 	 */
 	static IMainFrameModule& Get( )
 	{
-		return FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame");
+		static const FName MainFrameModuleName = "MainFrame";
+		return FModuleManager::LoadModuleChecked<IMainFrameModule>(MainFrameModuleName);
 	}
 
 public:

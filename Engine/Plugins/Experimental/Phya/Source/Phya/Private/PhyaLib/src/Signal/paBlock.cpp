@@ -4,7 +4,7 @@
 // Container class for audio blocks used in signal processing.
 //
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #include "System/paConfig.h"
 #include <limits.h>

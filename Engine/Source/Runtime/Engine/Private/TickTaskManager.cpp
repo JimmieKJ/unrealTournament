@@ -4,9 +4,19 @@
 	TickTaskManager.cpp: Manager for ticking tasks
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/App.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/World.h"
 #include "TickTaskManagerInterface.h"
-#include "ParallelFor.h"
+#include "Async/ParallelFor.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTick, Log, All);
 
@@ -167,12 +177,15 @@ struct FTickContext
 	ETickingGroup			TickGroup;
 	/** Current or desired thread **/
 	ENamedThreads::Type		Thread;
+	/** The world in which the object being ticked is contained. **/
+	UWorld*					World;
 
 	FTickContext(float InDeltaSeconds = 0.0f, ELevelTick InTickType = LEVELTICK_All, ETickingGroup InTickGroup = TG_PrePhysics, ENamedThreads::Type InThread = ENamedThreads::GameThread)
 		: DeltaSeconds(InDeltaSeconds)
 		, TickType(InTickType)
 		, TickGroup(InTickGroup)
 		, Thread(InThread)
+		, World(nullptr)
 	{
 	}
 
@@ -181,6 +194,7 @@ struct FTickContext
 		, TickType(In.TickType)
 		, TickGroup(In.TickGroup)
 		, Thread(In.Thread)
+		, World(In.World)
 	{
 	}
 	void operator=(const FTickContext& In)
@@ -189,6 +203,7 @@ struct FTickContext
 		TickType = In.TickType;
 		TickGroup = In.TickGroup;
 		Thread = In.Thread;
+		World = In.World;
 	}
 };
 
@@ -241,13 +256,13 @@ public:
 	{
 		if (bLogTick)
 		{
-				UE_LOG(LogTick, Log, TEXT("tick %s [%1d, %1d] %6d %2d %s"), Target->bHighPriority ? TEXT("*") : TEXT(" "), (int32)Target->GetActualTickGroup(), (int32)Target->GetActualEndTickGroup(), GFrameCounter, (int32)CurrentThread, *Target->DiagnosticMessage());
+			UE_LOG(LogTick, Log, TEXT("tick %s [%1d, %1d] %6d %2d %s"), Target->bHighPriority ? TEXT("*") : TEXT(" "), (int32)Target->GetActualTickGroup(), (int32)Target->GetActualEndTickGroup(), GFrameCounter, (int32)CurrentThread, *Target->DiagnosticMessage());
 			if (bLogTicksShowPrerequistes)
 			{
 				Target->ShowPrerequistes();
 			}
 		}
-		Target->ExecuteTick(Context.DeltaSeconds, Context.TickType, CurrentThread, MyCompletionGraphEvent);
+		Target->ExecuteTick(Target->CalculateDeltaTime(Context), Context.TickType, CurrentThread, MyCompletionGraphEvent);
 		Target->TaskPointer = nullptr;  // This is stale and a good time to clear it for safety
 	}
 };
@@ -697,6 +712,7 @@ public:
 		Context.DeltaSeconds = InContext.DeltaSeconds;
 		Context.TickType = InContext.TickType;
 		Context.Thread = ENamedThreads::GameThread;
+		Context.World = InContext.World;
 		bTickNewlySpawned = true;
 
 		int32 CooldownTicksEnabled = 0;
@@ -734,6 +750,7 @@ public:
 		Context.DeltaSeconds = InContext.DeltaSeconds;
 		Context.TickType = InContext.TickType;
 		Context.Thread = ENamedThreads::GameThread;
+		Context.World = InContext.World;
 		bTickNewlySpawned = true;
 
 		{
@@ -896,10 +913,10 @@ public:
 			TickFunction->QueueTickFunction(TTS, Context);
 
 			if (TickFunction->TickInterval > 0.f)
-		{
+			{
 				It.RemoveCurrent();
 				TickFunctionsToReschedule.Add(FTickScheduleDetails(TickFunction, TickFunction->TickInterval));
-		}
+			}
 		}
 		int32 EnabledCooldownTicks = 0;
 		float CumulativeCooldown = 0.f;
@@ -984,12 +1001,12 @@ public:
 			CumulativeCooldown += TickFunction->RelativeTickCooldown;
 			if (TickFunction->bTickEvenWhenPaused)
 			{
+				TickFunction->TaskPointer = nullptr; // this is stale, clear it out now
 				if (CumulativeCooldown < InContext.DeltaSeconds)
-		{
+				{
 					TickFunction->TickVisitedGFrameCounter = GFrameCounter;
 					TickFunction->TickQueuedGFrameCounter = GFrameCounter;
-					TickFunction->ExecuteTick(InContext.DeltaSeconds, InContext.TickType, ENamedThreads::GameThread, FGraphEventRef());
-					TickFunction->TaskPointer = nullptr; // this is stale, clear it out now
+					TickFunction->ExecuteTick(TickFunction->CalculateDeltaTime(InContext), InContext.TickType, ENamedThreads::GameThread, FGraphEventRef());
 
 					TickFunctionsToReschedule.Add(FTickScheduleDetails(TickFunction, TickFunction->TickInterval - (InContext.DeltaSeconds - CumulativeCooldown))); // Give credit for any overrun
 				}
@@ -1012,7 +1029,10 @@ public:
 					CumulativeCooldown -= TickFunction->RelativeTickCooldown; // Since the next object in the list will have this cooldown included take it back out of the cumulative
 				}
 			}
-			PrevTickFunction = TickFunction;
+			else
+			{
+				PrevTickFunction = TickFunction;
+			}
 			TickFunction = TickFunction->Next;
 		}
 
@@ -1024,7 +1044,7 @@ public:
 			{
 				TickFunction->TickVisitedGFrameCounter = GFrameCounter;
 				TickFunction->TickQueuedGFrameCounter = GFrameCounter;
-				TickFunction->ExecuteTick(InContext.DeltaSeconds, InContext.TickType, ENamedThreads::GameThread, FGraphEventRef());
+				TickFunction->ExecuteTick(TickFunction->CalculateDeltaTime(InContext), InContext.TickType, ENamedThreads::GameThread, FGraphEventRef());
 
 				if (TickFunction->TickInterval > 0.f)
 				{
@@ -1309,14 +1329,15 @@ public:
 	}
 
 	/**
-	 * Ticks the world's dynamic actors based upon their tick group. This function
+	 * Ticks the dynamic actors in the given levels based upon their tick group. This function
 	 * is called once for each ticking group
 	 *
 	 * @param World	- World currently ticking
 	 * @param DeltaSeconds - time in seconds since last tick
 	 * @param TickType - type of tick (viewports only, time only, etc)
+	 * @param LevelsToTick - the levels to tick, may be a subset of InWorld->Levels
 	 */
-	virtual void StartFrame(UWorld* InWorld, float InDeltaSeconds, ELevelTick InTickType) override
+	virtual void StartFrame(UWorld* InWorld, float InDeltaSeconds, ELevelTick InTickType, const TArray<ULevel*>& LevelsToTick) override
 	{
 		SCOPE_CYCLE_COUNTER(STAT_QueueTicks);
 #if !UE_BUILD_SHIPPING
@@ -1326,15 +1347,15 @@ public:
 			FPlatformProcess::Sleep(CVarStallStartFrame.GetValueOnGameThread() / 1000.0f);
 		}
 #endif
-		World = InWorld;
 		Context.TickGroup = ETickingGroup(0); // reset this to the start tick group
 		Context.DeltaSeconds = InDeltaSeconds;
 		Context.TickType = InTickType;
 		Context.Thread = ENamedThreads::GameThread;
+		Context.World = InWorld;
 
 		bTickNewlySpawned = true;
 		TickTaskSequencer.StartFrame();
-		FillLevelList();
+		FillLevelList(LevelsToTick);
 		
 		int32 NumWorkerThread = 0;
 		bool bConcurrentQueue = false;
@@ -1396,20 +1417,20 @@ public:
 	 * @param DeltaSeconds - time in seconds since last tick
 	 * @param TickType - type of tick (viewports only, time only, etc)
 	 */
-	virtual void RunPauseFrame(UWorld* InWorld, float InDeltaSeconds, ELevelTick InTickType) override
+	virtual void RunPauseFrame(UWorld* InWorld, float InDeltaSeconds, ELevelTick InTickType, const TArray<ULevel*>& LevelsToTick) override
 	{
 		bTickNewlySpawned = true; // we don't support new spawns, but lets at least catch them.
 		Context.TickGroup = ETickingGroup(0); // reset this to the start tick group
 		Context.DeltaSeconds = InDeltaSeconds;
 		Context.TickType = InTickType;
 		Context.Thread = ENamedThreads::GameThread;
-		World = InWorld;
-		FillLevelList();
+		Context.World = InWorld;
+		FillLevelList(LevelsToTick);
 		for( int32 LevelIndex = 0; LevelIndex < LevelList.Num(); LevelIndex++ )
 		{
 			LevelList[LevelIndex]->RunPauseFrame(Context);
 		}
-		World = NULL;
+		Context.World = nullptr;
 		bTickNewlySpawned = false;
 		LevelList.Reset();
 	}
@@ -1467,7 +1488,7 @@ public:
 		{
 			LevelList[LevelIndex]->EndFrame();
 		}
-		World = NULL;
+		Context.World = nullptr;
 		LevelList.Reset();
 	}
 
@@ -1499,21 +1520,23 @@ private:
 	/** Default constructor **/
 	FTickTaskManager()
 		: TickTaskSequencer(FTickTaskSequencer::Get())
-		, World(NULL)
 		, bTickNewlySpawned(false)
 	{
 		IConsoleManager::Get().RegisterConsoleCommand(TEXT("dumpticks"), TEXT("Dumps all tick functions registered with FTickTaskManager to log."));
 	}
 
 	/** Fill the level list **/
-	void FillLevelList()
+	void FillLevelList(const TArray<ULevel*>& Levels)
 	{
 		check(!LevelList.Num());
-		check(World->TickTaskLevel);
-		LevelList.Add(World->TickTaskLevel);
-		for( int32 LevelIndex = 0; LevelIndex < World->GetNumLevels(); LevelIndex++ )
+		if (!Context.World->GetActiveLevelCollection() || Context.World->GetActiveLevelCollection()->GetType() == ELevelCollectionType::DynamicSourceLevels)
 		{
-			ULevel* Level = World->GetLevel(LevelIndex);
+			check(Context.World->TickTaskLevel);
+			LevelList.Add(Context.World->TickTaskLevel);
+		}
+		for( int32 LevelIndex = 0; LevelIndex < Levels.Num(); LevelIndex++ )
+		{
+			ULevel* Level = Levels[LevelIndex];
 			if (Level->bIsVisible)
 			{
 				check(Level->TickTaskLevel);
@@ -1558,8 +1581,6 @@ private:
 
 	/** Global Sequencer														*/
 	FTickTaskSequencer&							TickTaskSequencer;
-	/** World currently ticking **/
-	UWorld*										World;
 	/** List of current levels **/
 	TArray<FTickTaskLevel*>						LevelList;
 	/** tick context **/
@@ -1589,8 +1610,9 @@ FTickFunction::FTickFunction()
 	, TickVisitedGFrameCounter(0)
 	, TickQueuedGFrameCounter(0)
 	, RelativeTickCooldown(0.f)
+	, LastTickGameTimeSeconds(-1.f)
 	, TickInterval(0.f)
-	, TickTaskLevel(NULL)
+	, TickTaskLevel(nullptr)
 {
 }
 
@@ -1878,6 +1900,31 @@ void FTickFunction::QueueTickFunctionParallel(const struct FTickContext& TickCon
 			}
 		}
 	}
+}
+
+float FTickFunction::CalculateDeltaTime(const FTickContext& TickContext) 
+{
+	float DeltaTimeForFunction = TickContext.DeltaSeconds;
+
+	if (TickInterval == 0.f)
+	{
+		// No tick interval. Return the world delta seconds, and make sure to mark that 
+		// we're not tracking last-tick-time for this object.
+		LastTickGameTimeSeconds = -1.f;
+	}
+	else
+	{
+		// We've got a tick interval. Mark last-tick-time. If we already had last-tick-time, return
+		// the time since then; otherwise, return the world delta seconds.
+		const float CurrentWorldTime = (bTickEvenWhenPaused ? TickContext.World->GetUnpausedTimeSeconds() : TickContext.World->GetTimeSeconds());
+		if (LastTickGameTimeSeconds >= 0.f)
+		{
+			DeltaTimeForFunction = CurrentWorldTime - LastTickGameTimeSeconds;
+		}
+		LastTickGameTimeSeconds = CurrentWorldTime;
+	}
+
+	return DeltaTimeForFunction;
 }
 
 /**

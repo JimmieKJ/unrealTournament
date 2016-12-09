@@ -2,6 +2,8 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+
 /** The different directory identifiers */
 namespace ELastDirectory
 {

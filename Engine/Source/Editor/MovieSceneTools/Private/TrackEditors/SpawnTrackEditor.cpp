@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "MovieSceneSpawnTrack.h"
-#include "MovieSceneTrack.h"
-#include "SpawnTrackEditor.h"
+#include "TrackEditors/SpawnTrackEditor.h"
+#include "Tracks/MovieSceneSpawnTrack.h"
+#include "Sections/BoolPropertySection.h"
 
 
 #define LOCTEXT_NAMESPACE "FSpawnTrackEditor"
@@ -58,6 +57,12 @@ void FSpawnTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, c
 bool FSpawnTrackEditor::SupportsType(TSubclassOf<UMovieSceneTrack> Type) const
 {
 	return (Type == UMovieSceneSpawnTrack::StaticClass());
+}
+
+
+TSharedRef<ISequencerSection> FSpawnTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
+{
+	return MakeShareable(new FBoolPropertySection(SectionObject, Track.GetDisplayName()));
 }
 
 

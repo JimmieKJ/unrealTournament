@@ -1,7 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemOculusPrivatePCH.h"
 #include "OnlineMessageTaskManagerOculus.h"
+#include "OnlineSubsystemOculusPrivate.h"
 
 void FOnlineMessageTaskManagerOculus::OnReceiveMessage(ovrMessageHandle Message)
 {

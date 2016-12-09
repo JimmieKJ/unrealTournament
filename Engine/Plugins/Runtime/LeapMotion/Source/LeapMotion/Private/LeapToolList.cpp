@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LeapMotionPrivatePCH.h"
 #include "LeapToolList.h"
 #include "LeapTool.h"
 

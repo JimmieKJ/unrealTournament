@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/EnumClassFlags.h"
+
 /**
  * Compatibility defines
  */
@@ -60,6 +63,11 @@
  */
 #define TARGET_UE4_CL 2960134	// IMPORTANT: If you're hovering over this because compiling failed, you need to adjust this value.
 
+class Error;
+class UNetConnection;
+class UUnitTest;
+class UUnitTestBase;
+class UUnitTestManager;
 
 /**
  * Forward declarations
@@ -170,7 +178,7 @@ extern NETCODEUNITTEST_API ELogType GActiveLogTypeFlags;
 NETCODEUNITTEST_API DECLARE_LOG_CATEGORY_EXTERN(LogUnitTest, Log, All);
 
 // Hack to allow log entries to print without the category (specify log type of 'none')
-DECLARE_LOG_CATEGORY_EXTERN(None, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(NetCodeTestNone, Log, All);
 
 
 /**
@@ -205,6 +213,7 @@ inline ELogType OptionalFlags(ELogType InFlags=ELogType::None)
 				TEXT(":")); \
 		UE_LOG(LogUnitTest, Error, TEXT("Condition '(") TEXT(PREPROCESSOR_TO_STRING(Condition)) TEXT(")' failed")); \
 		FPlatformMisc::RequestExit(true); \
+		CA_ASSUME(false); \
 	}
 
 

@@ -1,20 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnvironmentQueryEditorPrivatePCH.h"
-#include "GraphEditorActions.h"
-#include "ScopedTransaction.h"
-#include "EdGraphUtilities.h"
+#include "EnvironmentQueryEditor.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Modules/ModuleManager.h"
+#include "EditorStyleSet.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "EnvironmentQuery/EnvQueryGenerator.h"
+#include "EnvironmentQuery/EnvQueryOption.h"
+#include "EnvironmentQueryGraph.h"
+#include "EnvironmentQueryGraphNode.h"
+#include "EnvironmentQueryGraphNode_Option.h"
+#include "EnvironmentQueryGraphNode_Root.h"
+#include "EnvironmentQueryGraphNode_Test.h"
+#include "PropertyEditorModule.h"
+#include "EnvironmentQueryEditorModule.h"
 
 #include "EnvironmentQuery/EnvQuery.h"
-#include "EnvironmentQuery/EnvQueryOption.h"
-#include "EnvironmentQuery/EnvQueryGenerator.h"
 
-#include "Toolkits/IToolkitHost.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "SDockTab.h"
-#include "GenericCommands.h"
+#include "IDetailsView.h"
+#include "Widgets/Docking/SDockTab.h"
  
 #define LOCTEXT_NAMESPACE "EnvironmentQueryEditor"
 

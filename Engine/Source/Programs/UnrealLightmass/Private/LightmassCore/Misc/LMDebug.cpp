@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
-#include "LMCore.h"
 #include "LMDebug.h"
+#include "LMCore.h"
 #include "ExceptionHandling.h"
+#include "UnrealLightmass.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/CString.h"
+#include "Misc/CommandLine.h"
 
 #if PLATFORM_WINDOWS
 #include "AllowWindowsPlatformTypes.h"

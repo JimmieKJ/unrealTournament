@@ -5,9 +5,11 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Engine/Texture2D.h"
 #include "LightMapTexture2D.generated.h"
-
 
 /**
  * Bit-field flags that affects storage (e.g. packing, streaming) and other info about a lightmap.

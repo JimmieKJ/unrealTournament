@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Components/Widget.h"
 #include "ComboBox.generated.h"
 
 /**

@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PhATPrivatePCH.h"
 #include "SPhATNewAssetDlg.h"
-#include "SNumericEntryBox.h"
-#include "STextComboBox.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "PhysicsAssetUtils.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Input/STextComboBox.h"
 
 // Add in the constants from the static mesh editor as we need them here too
 const float MaxHullAccuracy = 1.f;

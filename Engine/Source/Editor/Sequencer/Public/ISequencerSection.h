@@ -2,11 +2,18 @@
 
 #pragma once
 
-#include "SequencerSectionPainter.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Curves/KeyHandle.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SNullWidget.h"
+#include "Layout/Margin.h"
 #include "MovieSceneSection.h"
 
-class IKeyArea;
-class UMovieSceneSection;
+class FMenuBuilder;
+class FSequencerSectionPainter;
+struct FSlateBrush;
 
 /** Enumerates which edge is being resized */
 UENUM()

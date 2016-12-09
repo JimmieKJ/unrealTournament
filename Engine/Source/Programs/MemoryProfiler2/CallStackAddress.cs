@@ -10,7 +10,7 @@ namespace MemoryProfiler2
     public class FCallStackAddress
     {
         /// <summary> Program counter. </summary>
-        public Int64 ProgramCounter;
+        public ulong ProgramCounter;
         /// <summary> Index of filename in name array. </summary>
         public Int32 FilenameIndex;
         /// <summary> Index of function in name array. </summary>
@@ -36,7 +36,7 @@ namespace MemoryProfiler2
         /// <param name="bShouldSerializeSymbolInfo"> Whether symbol info is being serialized </param>
         public FCallStackAddress(BinaryReader BinaryStream,bool bShouldSerializeSymbolInfo)
         {
-            ProgramCounter = BinaryStream.ReadInt64();
+            ProgramCounter = BinaryStream.ReadUInt64();
             // Platforms not supporting run-time symbol lookup won't serialize the below
             if( bShouldSerializeSymbolInfo )
             {

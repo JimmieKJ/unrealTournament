@@ -1,12 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Camera/CameraComponent.h"
 #include "Camera/CameraActor.h"
+#include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
+#include "Camera/CameraComponent.h"
 #include "Camera/CameraAnim.h"
-#include "Net/UnrealNetwork.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
 
 #define LOCTEXT_NAMESPACE "CameraActor"
 

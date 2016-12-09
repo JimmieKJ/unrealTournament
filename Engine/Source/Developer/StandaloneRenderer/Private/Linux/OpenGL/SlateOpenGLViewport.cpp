@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StandaloneRendererPrivate.h"
+#include "CoreMinimal.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "Widgets/SWindow.h"
 
 #include "OpenGL/SlateOpenGLRenderer.h"
 

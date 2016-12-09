@@ -1,7 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemOculusPrivatePCH.h"
 #include "OnlineIdentityOculus.h"
+#include "OnlineSubsystemOculusPrivate.h"
 #include "OnlineSubsystemOculusPackage.h"
 
 bool FUserOnlineAccountOculus::GetAuthAttribute(const FString& AttrName, FString& OutAttrValue) const

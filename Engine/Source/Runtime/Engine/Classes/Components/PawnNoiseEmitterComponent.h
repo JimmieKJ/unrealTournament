@@ -3,7 +3,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/ActorComponent.h"
 #include "PawnNoiseEmitterComponent.generated.h"
+
+class AActor;
 
 /**
  * PawnNoiseEmitterComponent tracks noise event data used by SensingComponents to hear a Pawn.

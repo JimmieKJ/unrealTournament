@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/TextureLightProfile.h"
+#include "AssetTypeActions/AssetTypeActions_Texture.h"
+
 class FAssetTypeActions_TextureLightProfile : public FAssetTypeActions_Texture
 {
 public:

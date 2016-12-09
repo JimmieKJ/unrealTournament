@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealFrontendPrivatePCH.h"
 #include "DeployCommand.h"
-#include "Projects.h"
-#include "TargetPlatform.h"
+#include "Interfaces/IPluginManager.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Misc/CoreMisc.h"
 #include "TaskGraphInterfaces.h"
-
+#include "Misc/CommandLine.h"
+#include "Containers/Ticker.h"
+#include "HAL/PlatformProcess.h"
+#include "Modules/ModuleManager.h"
 
 bool FDeployCommand::Run( )
 {

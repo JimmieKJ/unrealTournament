@@ -1,10 +1,20 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "CheckBoxWidgetStyle.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateColor.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SWidget.h"
+#include "Components/ContentWidget.h"
 
 #include "CheckBox.generated.h"
+
+class SCheckBox;
+class USlateBrushAsset;
+class USlateWidgetStyleAsset;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FOnCheckBoxComponentStateChanged, bool, bIsChecked );
 

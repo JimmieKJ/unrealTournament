@@ -66,10 +66,9 @@ void SUTPlayerInfoDialog::Construct(const FArguments& InArgs)
 	PlayerPreviewAnimFemaleBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_Female_PlayerPreview.ABP_Female_PlayerPreview_C"));
 
 	// allocate a preview scene for rendering
-	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Preview, true);
-	PlayerPreviewWorld->bHack_Force_UsesGameHiddenFlags_True = true;
+	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::GamePreview, true);
 	PlayerPreviewWorld->bShouldSimulatePhysics = true;
-	GEngine->CreateNewWorldContext(EWorldType::Preview).SetCurrentWorld(PlayerPreviewWorld);
+	GEngine->CreateNewWorldContext(EWorldType::GamePreview).SetCurrentWorld(PlayerPreviewWorld);
 	PlayerPreviewWorld->InitializeActorsForPlay(FURL(), true);
 	ViewState.Allocate();
 	{
@@ -268,8 +267,8 @@ void SUTPlayerInfoDialog::RecreatePlayerPreview()
 		PreviewWeapon->Destroy();
 	}
 
-	AGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState();
-	AUTBaseGameMode* DefaultGameMode = GameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>();
+	AGameStateBase* GameState = GetPlayerOwner()->GetWorld()->GetGameState();
+	const AUTBaseGameMode* DefaultGameMode = GameState->GetDefaultGameMode<AUTBaseGameMode>();
 	if (DefaultGameMode)
 	{
 		TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *DefaultGameMode->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
@@ -703,11 +702,12 @@ AUTPlayerState* SUTPlayerInfoDialog::GetNextPlayerState(int32 dir)
 	if (TargetPlayerState.IsValid())
 	{
 		UWorld* World = TargetPlayerState->GetWorld();
+		AGameState* GameState = World->GetGameState<AGameState>();
 
 		// Find index of current viewtarget's PlayerState
-		for (int32 i = 0; i < World->GameState->PlayerArray.Num(); i++)
+		for (int32 i = 0; i < GameState->PlayerArray.Num(); i++)
 		{
-			if (TargetPlayerState.Get() == World->GameState->PlayerArray[i])
+			if (TargetPlayerState.Get() == GameState->PlayerArray[i])
 			{
 				CurrentIndex = i;
 				break;
@@ -716,9 +716,9 @@ AUTPlayerState* SUTPlayerInfoDialog::GetNextPlayerState(int32 dir)
 
 		// Find next valid viewtarget in appropriate direction
 		int32 NewIndex;
-		for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex < TargetPlayerState->GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
+		for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex < GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
 		{
-			AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(World->GameState->PlayerArray[NewIndex]);
+			AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(GameState->PlayerArray[NewIndex]);
 			if ((PlayerState != NULL) && (!PlayerState->bOnlySpectator))
 			{
 				return PlayerState;
@@ -726,10 +726,10 @@ AUTPlayerState* SUTPlayerInfoDialog::GetNextPlayerState(int32 dir)
 		}
 
 		// wrap around
-		CurrentIndex = (NewIndex < 0) ? TargetPlayerState->GetWorld()->GameState->PlayerArray.Num() : -1;
-		for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex < World->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
+		CurrentIndex = (NewIndex < 0) ? GameState->PlayerArray.Num() : -1;
+		for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex < GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
 		{
-			AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(World->GameState->PlayerArray[NewIndex]);
+			AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(GameState->PlayerArray[NewIndex]);
 			if ((PlayerState != NULL) && (!PlayerState->bOnlySpectator))
 			{
 				return PlayerState;
@@ -759,17 +759,13 @@ void SUTPlayerInfoDialog::OnUpdatePlayerState()
 		TargetPlayerState->BuildPlayerInfo(TabWidget, StatList);
 
 		//Draw the game specific stats
-		AGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState();
-		if (GameState && GameState->GameModeClass && !TargetPlayerState->bOnlySpectator)
+		AGameStateBase* GameState = GetPlayerOwner()->GetWorld()->GetGameState();
+		if (GameState && !TargetPlayerState->bOnlySpectator)
 		{
-			AGameMode* DefaultGameMode = GameState->GameModeClass->GetDefaultObject<AGameMode>();
-			if (DefaultGameMode)
+			AUTBaseGameMode* UTDefaultGameMode = const_cast<AUTBaseGameMode*>(GameState->GetDefaultGameMode<AUTBaseGameMode>());
+			if (UTDefaultGameMode)
 			{
-				AUTBaseGameMode* UTDefaultGameMode = Cast<AUTBaseGameMode>(DefaultGameMode);
-				if (UTDefaultGameMode)
-				{
-					UTDefaultGameMode->BuildPlayerInfo(TargetPlayerState.Get(), TabWidget, StatList);
-				}
+				UTDefaultGameMode->BuildPlayerInfo(TargetPlayerState.Get(), TabWidget, StatList);
 			}
 		}
 
@@ -861,7 +857,7 @@ TSharedRef<class SWidget> SUTPlayerInfoDialog::BuildTitleBar(FText InDialogTitle
 	if (TargetPlayerState.IsValid())
 	{
 		UWorld* World = TargetPlayerState->GetWorld();
-		if (World && World->GameState && (World->GameState->PlayerArray.Num() > 1))
+		if (World && World->GetGameState() && (World->GetGameState()->PlayerArray.Num() > 1))
 		{
 			return SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot()

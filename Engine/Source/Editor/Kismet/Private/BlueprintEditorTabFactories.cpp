@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-
 #include "BlueprintEditorTabFactories.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Editor.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Notifications/SErrorText.h"
+#include "EditorStyleSet.h"
+
 #include "BlueprintEditorSharedTabFactories.h"
 #include "BlueprintEditorTabs.h"
-#include "SDockTab.h"
-#include "BlueprintEditor.h"
 #include "STimelineEditor.h"
 #include "Debugging/SKismetDebuggingView.h"
 #include "Profiler/SBlueprintProfilerView.h"
@@ -18,10 +20,7 @@
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "SMyBlueprint.h"
 #include "SReplaceNodeReferences.h"
-#include "Engine/Blueprint.h"
-#include "Engine/TimelineTemplate.h"
-#include "EditorClassUtils.h"
-#include "SHyperlink.h"
+#include "Widgets/Input/SHyperlink.h"
 
 
 #define LOCTEXT_NAMESPACE "BlueprintEditor"

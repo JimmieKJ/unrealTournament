@@ -6,7 +6,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
 #include "StaticLighting.h"
+#include "RawIndexBuffer.h"
+
+class FShadowMapData2D;
+class ULevel;
+class ULightComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
+struct FQuantizedLightmapData;
+struct FStaticMeshLODResources;
 
 /** Represents the triangles of one LOD of a static mesh primitive to the static lighting system. */
 class FStaticMeshStaticLightingMesh : public FStaticLightingMesh
@@ -98,7 +109,7 @@ public:
 	FStaticMeshStaticLightingTextureMapping(UStaticMeshComponent* InPrimitive,int32 InLODIndex,FStaticLightingMesh* InMesh,int32 InSizeX,int32 InSizeY,int32 InTextureCoordinateIndex,bool bPerformFullQualityRebuild);
 
 	// FStaticLightingTextureMapping interface
-	virtual void Apply(FQuantizedLightmapData* QuantizedData, const TMap<ULightComponent*,FShadowMapData2D*>& ShadowMapData) override;
+	virtual void Apply(FQuantizedLightmapData* QuantizedData, const TMap<ULightComponent*,FShadowMapData2D*>& ShadowMapData, ULevel* LightingScenario) override;
 
 #if WITH_EDITOR
 	/** 

@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "CurveAssetEditorModule.h"
+#include "AssetTypeActions/AssetTypeActions_Curve.h"
+#include "EditorFramework/AssetImportData.h"
 #include "ICurveAssetEditor.h"
+#include "CurveAssetEditorModule.h"
 
 void FAssetTypeActions_Curve::OpenAssetEditor( const TArray<UObject*>& InObjects, TSharedPtr<IToolkitHost> EditWithinLevelEditor )
 {

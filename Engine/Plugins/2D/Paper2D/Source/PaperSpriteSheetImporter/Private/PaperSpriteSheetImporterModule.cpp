@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PaperSpriteSheetImporterPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "PaperSpriteSheetImporterLog.h"
+#include "Modules/ModuleManager.h"
 
 #include "AssetToolsModule.h"
 #include "PaperSpriteSheetAssetTypeActions.h"

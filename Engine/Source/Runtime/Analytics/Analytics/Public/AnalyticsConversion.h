@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
 
 /** Helpers for converting various common types to strings that analytics providers can consume. */
 namespace AnalyticsConversion

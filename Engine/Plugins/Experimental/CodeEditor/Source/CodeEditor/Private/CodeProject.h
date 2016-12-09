@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "CodeProjectItem.h"
 #include "CodeProject.generated.h"
 

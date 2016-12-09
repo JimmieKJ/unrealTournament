@@ -1,16 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "ConfigEditorPropertyDetails.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/PropertyPath.h"
-#include "Editor/PropertyEditor/Public/IPropertyTable.h"
-#include "Editor/PropertyEditor/Public/IPropertyTableColumn.h"
-#include "Editor/PropertyEditor/Public/IPropertyTableCustomColumn.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UnrealType.h"
+#include "PropertyEditorModule.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
+#include "IPropertyTable.h"
+#include "IPropertyTableColumn.h"
 
 #include "IConfigEditorModule.h"
-#include "ConfigPropertyColumn.h"
-#include "ConfigPropertyConfigFileStateColumn.h"
+#include "PropertyVisualization/ConfigPropertyColumn.h"
 #include "ConfigPropertyHelper.h"
 
 

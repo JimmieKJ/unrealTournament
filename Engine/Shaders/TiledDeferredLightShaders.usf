@@ -4,8 +4,9 @@
 	TiledDeferredLightShaders.usf: Implementation of tiled deferred shading
 =============================================================================*/
 
-#include "Common.usf"
+#define SUPPORT_CONTACT_SHADOWS 0
 
+#include "Common.usf"
 #include "DeferredLightingCommon.usf"
 
 #define THREADGROUP_TOTALSIZE (THREADGROUP_SIZEX * THREADGROUP_SIZEY)
@@ -15,7 +16,7 @@ uint4 ViewDimensions;
 uint NumLights;
 
 // Workaround performance issue with shared memory bank collisions in GLSL
-#if GL4_PROFILE
+#if GL4_PROFILE || SWITCH_PROFILE || SWITCH_PROFILE_FORWARD
 #define ATOMIC_REDUCTION 0
 #else
 #define ATOMIC_REDUCTION 1
@@ -166,7 +167,10 @@ void TiledDeferredLightingMain(
         frustumPlanes[i] *= rcp(length(frustumPlanes[i].xyz));
     }
 
-	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+	// With a perspective projection, the clip space position is NDC * Clip.w
+	// With an orthographic projection, clip space is the same as NDC
+	float2 ClipPosition = ScreenPosition * (View.ViewToClip[3][3] < 1.0f ? SceneDepth : 1.0f);
+	float4 HomogeneousWorldPosition = mul(float4(ClipPosition, SceneDepth, 1), View.ScreenToWorld);
 	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
 
 	// RGB accumulated RGB HDR color, A: luminance for screenspace subsurface scattering
@@ -282,7 +286,7 @@ void TiledDeferredLightingMain(
 			LightData.bInverseSquared = LightData.LightColorAndFalloffExponent.w == 0;
 						
 			// todo: doesn't support ScreenSpaceSubsurfaceScattering yet (not using alpha)
-			CompositedLighting.rgb += GetSimpleDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData, LightData);
+			CompositedLighting.rgb += GetSimpleDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData.GBuffer.WorldNormal, ScreenSpaceData.AmbientOcclusion, ScreenSpaceData.GBuffer.DiffuseColor, ScreenSpaceData.GBuffer.SpecularColor, ScreenSpaceData.GBuffer.Roughness, LightData);
 		}
 	}
 		

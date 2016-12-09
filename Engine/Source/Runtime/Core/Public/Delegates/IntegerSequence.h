@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 template <typename T, T... Indices>
 struct TIntegerSequence
 {

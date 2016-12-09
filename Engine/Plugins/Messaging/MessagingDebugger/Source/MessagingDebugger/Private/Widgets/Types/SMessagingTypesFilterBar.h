@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Models/MessagingDebuggerTypeFilter.h"
 
 /**
  * Implements the message type list filter bar widget.
@@ -26,18 +30,10 @@ public:
 	 * @param InArgs The declaration data for this widget.
 	 * @param InFilter The filter model.
 	 */
-	void Construct( const FArguments& InArgs, FMessagingDebuggerTypeFilterRef InFilter );
-
-private:
-
-	/** Handles changing the filter string text box text. */
-	void HandleFilterStringTextChanged( const FText& NewText )
-	{
-		Filter->SetFilterString(NewText.ToString());
-	}
+	void Construct( const FArguments& InArgs, TSharedRef<FMessagingDebuggerTypeFilter> InFilter );
 
 private:
 
 	/** Holds the filter model. */
-	FMessagingDebuggerTypeFilterPtr Filter;
+	TSharedPtr<FMessagingDebuggerTypeFilter> Filter;
 };

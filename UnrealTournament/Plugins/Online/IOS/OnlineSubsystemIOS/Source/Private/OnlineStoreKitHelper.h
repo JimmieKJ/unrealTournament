@@ -15,49 +15,51 @@
  */
 struct FStoreKitTransactionData
 {
-	FStoreKitTransactionData(const FString& InTransactionId, const FString& InReceiptData)
-	: TransactionIdentifier(InTransactionId)
-	, ReceiptData(InReceiptData)
-	{
-	}
-	
-	FStoreKitTransactionData(const FString& InTransactionId, const FString& InReceiptData, const FString& InErrorStr)
-	: TransactionIdentifier(InTransactionId)
-	, ReceiptData(InReceiptData)
-	, ErrorStr(InErrorStr)
-	{
-	}
-	
 	FStoreKitTransactionData(const SKPaymentTransaction* Transaction);
-	
-	/**
-	 * Set the offer id associated with this transaction
-	 *
-	 * @param InOfferId the offer id setup on the iTunesConnect site
-	 */
-	void SetOfferId(const FString& InOfferId)
-	{
-		OfferId = InOfferId;
-	}
 	
 	/** @return a string that prints useful debug information about this transaction */
 	FString ToDebugString() const
 	{
-		return FString::Printf(TEXT("OfferId: %s TransactionId: %s ReceiptData: %s%s"),
+		return FString::Printf(TEXT("OfferId: %s TransactionId: %s%s ReceiptData: %s%s"),
 						*OfferId,
 						*TransactionIdentifier,
+						OriginalTransactionIdentifier.IsEmpty() ? TEXT("") : *FString::Printf(TEXT(" OriginalTransactionId: %s"), *OriginalTransactionIdentifier),
 						*ReceiptData,
 						ErrorStr.IsEmpty() ? TEXT("") : *FString::Printf(TEXT(" Error: %s"), *ErrorStr));
 	}
 	
+	/** @return offer id for this transaction */
+	const FString& GetOfferId() const { return OfferId; }
+	/** @return receipt data for this transaction */
+	const FString& GetReceiptData() const { return ReceiptData; }
+	/** @return error string for this transaction, if applicable */
+	const FString& GetErrorStr() const { return ErrorStr; }
+	
+	/** @return the correct transaction identifier relative to the original purchase */
+	const FString& GetTransactionIdentifier() const
+	{
+		if (!OriginalTransactionIdentifier.IsEmpty())
+		{
+			return OriginalTransactionIdentifier;
+		}
+		else
+		{
+			return TransactionIdentifier;
+		}
+	}
+	
+private:
+	
 	/** iTunesConnect offer id */
 	FString OfferId;
-	/** Unique transaction id */
-	FString TransactionIdentifier;
 	/** Opaque store receipt data */
 	FString ReceiptData;
 	/** Error on the transaction, if applicable */
 	FString ErrorStr;
+	/** Unique transaction id */
+	FString TransactionIdentifier;
+	/** Original transaction id if restored purchase */
+	FString OriginalTransactionIdentifier;
 };
 
 /**
@@ -96,7 +98,7 @@ typedef FOnRestoreTransactionsCompleteIOS::FDelegate FOnRestoreTransactionsCompl
  * Delegate fires when a product request for offer(s) has completed
  *
  * @param Response the array of product information for the products that were queried
- * @param CompletionDelegate the delgate to fire externally when this operation completes
+ * @param CompletionDelegate the delegate to fire externally when this operation completes
  */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnProductsRequestResponse, SKProductsResponse* /*Response*/, const FOnQueryOnlineStoreOffersComplete& /*CompletionDelegate*/);
 typedef FOnProductsRequestResponse::FDelegate FOnProductsRequestResponseDelegate;
@@ -182,6 +184,14 @@ typedef FOnProductsRequestResponse::FDelegate FOnProductsRequestResponseDelegate
  * @param products array of SKProducts to purchase
  */
 -(void)makePurchase:(NSArray*)products;
+
+/**
+ * Make a purchase with the app store
+ *
+ * @param products array of SKProducts to purchase
+ * @param userId hashed and opaque representation of platform user id
+ */
+-(void)makePurchase:(NSArray*)products WithUserId: (const FString&) userId;
 
 /**
  * Make a request for product information

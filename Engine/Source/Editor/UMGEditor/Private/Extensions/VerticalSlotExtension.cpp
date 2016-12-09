@@ -1,11 +1,13 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "Components/VerticalBox.h"
-#include "Components/VerticalBoxSlot.h"
 #include "Extensions/VerticalSlotExtension.h"
-#include "Kismet2/BlueprintEditorUtils.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
 #include "WidgetBlueprint.h"
+#include "Widgets/Input/SButton.h"
+#include "Components/VerticalBoxSlot.h"
+#include "Components/VerticalBox.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -32,13 +34,13 @@ void FVerticalSlotExtension::ExtendSelection(const TArray< FWidgetReference >& S
 	SelectionCache = Selection;
 
 	TSharedRef<SButton> UpArrow = SNew(SButton)
-		.Text(LOCTEXT("UpArrow", "↑"))
+		.Text(LOCTEXT("UpArrow", "\u2191"))
 		.ContentPadding(FMargin(6, 2))
 		.IsEnabled(this, &FVerticalSlotExtension::CanShift, -1)
 		.OnClicked(this, &FVerticalSlotExtension::HandleShiftVertical, -1);
 
 	TSharedRef<SButton> DownArrow = SNew(SButton)
-		.Text(LOCTEXT("DownArrow", "↓"))
+		.Text(LOCTEXT("DownArrow", "\u2193"))
 		.ContentPadding(FMargin(6, 2))
 		.IsEnabled(this, &FVerticalSlotExtension::CanShift, 1)
 		.OnClicked(this, &FVerticalSlotExtension::HandleShiftVertical, 1);

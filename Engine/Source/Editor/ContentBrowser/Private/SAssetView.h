@@ -2,10 +2,36 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
 #include "AssetData.h"
+#include "ARFilter.h"
 #include "AssetThumbnail.h"
+#include "IContentBrowserSingleton.h"
+#include "SourcesData.h"
+#include "Animation/CurveSequence.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Editor/ContentBrowser/Private/AssetViewSortManager.h"
 
+class FMenuBuilder;
+class FWeakWidgetPath;
+class FWidgetPath;
+class SAssetColumnView;
+class SAssetListView;
+class SAssetTileView;
+class SComboButton;
+class UFactory;
 struct FAssetViewAsset;
+struct FAssetViewItem;
+struct FHistoryData;
+struct FPropertyChangedEvent;
 
 /**
  * A widget to display a list of filtered assets
@@ -35,6 +61,7 @@ public:
 		, _ShowPathInColumnView(false)
 		, _ShowTypeInColumnView(true)
 		, _SortByPathInColumnView(false)
+		, _SearchInBlueprint(false)
 		{}
 
 		/** Called to check if an asset should be filtered out by external code */
@@ -151,11 +178,17 @@ public:
 		/** Sort by path in the column view. Only works if the initial view type is Column */
 		SLATE_ARGUMENT(bool, SortByPathInColumnView)
 
+		/** Indicates whether we should filter using the blueprint parent class or ignore blueprint */
+		SLATE_ARGUMENT(bool, SearchInBlueprint)	
+
 		/** Called to check if an asset tag should be display in details view. */
 		SLATE_EVENT( FOnShouldDisplayAssetTag, OnAssetTagWantsToBeDisplayed )
 
 		/** Called when a folder is entered */
 		SLATE_EVENT( FOnPathSelected, OnPathSelected )
+
+		/** Columns to hide by default */
+		SLATE_ARGUMENT( TArray<FString>, HiddenColumnNames )
 
 	SLATE_END_ARGS()
 
@@ -425,6 +458,12 @@ private:
 	/** @return true when we are showing collections */
 	bool IsShowingCollections() const;
 
+	/** Toggle whether C++ content folders should be shown or not */
+	void ToggleShowCppFolders();
+
+	/** @return true when we are showing c++ content folders */
+	bool IsShowingCppFolders() const;
+
 	/** Sets the view type and updates lists accordingly */
 	void SetCurrentViewType(EAssetViewType::Type NewType);
 
@@ -637,6 +676,29 @@ private:
 	 * @return True if the quick-jump found a valid match, false otherwise
 	 */
 	bool PerformQuickJump(const bool bWasJumping);
+	
+	/** Generates the column filtering menu */
+	void FillToggleColumnsMenu(FMenuBuilder& MenuBuilder);
+
+	/** Resets the column filtering state to make them all visible */
+	void ResetColumns();
+
+	/** Toggle the column at ColumnIndex */
+	void ToggleColumn(const FString ColumnName);
+	/** Sets the column visibility by removing/inserting the column*/
+	void SetColumnVisibility(const FString ColumnName, const bool bShow);
+
+	/** Whether or not a column can be toggled, has to be valid column and mandatory minimum number of columns = 1*/
+	bool CanToggleColumn(const FString ColumnName) const;
+
+	/** Whether or not a column is visible to show it's state in the filtering menu */
+	bool IsColumnVisible(const FString ColumnName) const;
+
+	/** Creates the row header context menu allowing for hiding individually clicked columns*/
+	TSharedRef<SWidget> CreateRowHeaderMenuContent(const FString ColumnName);
+
+	/** Filtering callback to know if the container root is of searching class*/
+	bool FilterOnContainerContentValid(const UClass* SearchingClass, const UObject* Container, const FAssetData* AssetData);
 
 private:
 
@@ -863,6 +925,12 @@ private:
 
 	/** Flag set if the user is currently searching */
 	bool bUserSearching;
+	
+	/** Whether or not to notify about newly selected items on on the next asset sync */
+	bool bShouldNotifyNextAssetSync;
+
+	/** Indicates whether we should filter using the blueprint parent class or ignore blueprint */
+	bool bSearchInBlueprint;
 
 	/** A struct to hold data for the deferred creation of assets */
 	struct FCreateDeferredAssetData
@@ -925,4 +993,11 @@ private:
 
 	/** Data for the asset quick-jump */
 	FQuickJumpData QuickJumpData;
+	
+	/** Column filtering state */
+	TArray<FString> DefaultHiddenColumnNames;
+	TArray<FString> HiddenColumnNames;
+	int32 NumVisibleColumns;
+public:
+	bool ShouldColumnGenerateWidget(const FString ColumnName) const;
 };

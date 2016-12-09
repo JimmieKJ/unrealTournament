@@ -1,12 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "BlueprintGraphDefinitions.h"
-#include "GraphEditorActions.h"
+#include "EdGraphSchema_BehaviorTreeDecorator.h"
+#include "Modules/ModuleManager.h"
+#include "EdGraph/EdGraph.h"
+#include "SoundClassGraph/SoundClassGraphSchema.h"
+#include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTreeDecoratorGraphNode.h"
+#include "AIGraphTypes.h"
+#include "BehaviorTreeDecoratorGraphNode_Decorator.h"
+#include "BehaviorTreeDecoratorGraphNode_Logic.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "BehaviorTreeEditorModule.h"
 #include "GraphEditorSettings.h"
-#include "BehaviorTreeConnectionDrawingPolicy.h"
+#include "GraphEditorActions.h"
 #include "ScopedTransaction.h"
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #define LOCTEXT_NAMESPACE "BehaviorTreeDecoratorSchema"
 #define SNAP_GRID (16) // @todo ensure this is the same as SNodePanel::GetSnapGridSize()
@@ -160,32 +168,13 @@ void UEdGraphSchema_BehaviorTreeDecorator::GetContextMenuActions(const UEdGraph*
 
 	if (InGraphPin)
 	{
-		MenuBuilder->BeginSection("DecoratorGraphSchemaPinActions", LOCTEXT("PinActionsMenuHeader", "Pin Actions"));
+		// Only display the 'Break Links' option if there is a link to break!
+		if (InGraphPin->LinkedTo.Num() > 0)
 		{
-			// Only display the 'Break Links' option if there is a link to break!
-			if (InGraphPin->LinkedTo.Num() > 0)
-			{
-				MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().BreakPinLinks );
-
-				// add sub menu for break link to
-				if(InGraphPin->LinkedTo.Num() > 1)
-				{
-					MenuBuilder->AddSubMenu(
-						LOCTEXT("BreakLinkTo", "Break Link To..." ),
-						LOCTEXT("BreakSpecificLinks", "Break a specific link..." ),
-						FNewMenuDelegate::CreateUObject( (UEdGraphSchema_BehaviorTreeDecorator*const)this, &UEdGraphSchema_BehaviorTreeDecorator::GetBreakLinkToSubMenuActions, const_cast<UEdGraphPin*>(InGraphPin)));
-				}
-				else
-				{
-					((UEdGraphSchema_BehaviorTreeDecorator*const)this)->GetBreakLinkToSubMenuActions(*MenuBuilder, const_cast<UEdGraphPin*>(InGraphPin));
-				}
-			}
-			else
-			{
-				MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().RemoveExecutionPin);
-			}
+			MenuBuilder->BeginSection("DecoratorGraphSchemaPinActions", LOCTEXT("PinActionsMenuHeader", "Pin Actions"));
+			MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().BreakPinLinks );
+			MenuBuilder->EndSection();
 		}
-		MenuBuilder->EndSection();
 	}
 	else if (InGraphNode)
 	{
@@ -196,50 +185,6 @@ void UEdGraphSchema_BehaviorTreeDecorator::GetContextMenuActions(const UEdGraph*
 			MenuBuilder->AddMenuEntry(FGenericCommands::Get().Delete);
 		}
 		MenuBuilder->EndSection();
-	}
-}
-
-void UEdGraphSchema_BehaviorTreeDecorator::GetBreakLinkToSubMenuActions( class FMenuBuilder& MenuBuilder, UEdGraphPin* InGraphPin )
-{
-	// Make sure we have a unique name for every entry in the list
-	TMap< FString, uint32 > LinkTitleCount;
-
-	// Add all the links we could break from
-	for(TArray<class UEdGraphPin*>::TConstIterator Links(InGraphPin->LinkedTo); Links; ++Links)
-	{
-		UEdGraphPin* Pin = *Links;
-		FString TitleString = Pin->GetOwningNode()->GetNodeTitle(ENodeTitleType::ListView).ToString();
-		FText Title = FText::FromString( TitleString );
-		if ( Pin->PinName != TEXT("") )
-		{
-			TitleString = FString::Printf(TEXT("%s (%s)"), *TitleString, *Pin->PinName);
-
-			// Add name of connection if possible
-			FFormatNamedArguments Args;
-			Args.Add( TEXT("NodeTitle"), Title );
-			Args.Add( TEXT("PinName"), Pin->GetDisplayName() );
-			Title = FText::Format( LOCTEXT("BreakDescPin", "{NodeTitle} ({PinName})"), Args );
-		}
-
-		uint32 &Count = LinkTitleCount.FindOrAdd( TitleString );
-
-		FText Description;
-		FFormatNamedArguments Args;
-		Args.Add( TEXT("NodeTitle"), Title );
-		Args.Add( TEXT("NumberOfNodes"), Count );
-
-		if ( Count == 0 )
-		{
-			Description = FText::Format( LOCTEXT("BreakDesc", "Break link to {NodeTitle}"), Args );
-		}
-		else
-		{
-			Description = FText::Format( LOCTEXT("BreakDescMulti", "Break link to {NodeTitle} ({NumberOfNodes})"), Args );
-		}
-		++Count;
-
-		MenuBuilder.AddMenuEntry( Description, Description, FSlateIcon(), FUIAction(
-			FExecuteAction::CreateUObject((USoundClassGraphSchema*const)this, &USoundClassGraphSchema::BreakSinglePinLink, const_cast< UEdGraphPin* >(InGraphPin), *Links) ) );
 	}
 }
 

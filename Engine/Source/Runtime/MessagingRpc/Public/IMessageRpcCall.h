@@ -2,10 +2,8 @@
 
 #pragma once
 
-
-class IMessageContext;
-class UScriptStruct;
-
+#include "CoreMinimal.h"
+#include "IMessageContext.h"
 
 /**
  * Interface for RPC calls.

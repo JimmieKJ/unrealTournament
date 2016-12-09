@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ISourceControlProvider.h"
 #include "PerforceConnectionInfo.h"
+#include "Misc/IQueuedWork.h"
 
 DECLARE_DELEGATE_RetVal(bool, FOnIsCancelled);
 

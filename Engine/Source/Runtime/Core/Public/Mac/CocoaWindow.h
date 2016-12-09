@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "GenericWindow.h"
+
 /**
  * Custom window class used for input handling
  */

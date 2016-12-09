@@ -2,10 +2,19 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "K2Node.h"
 #include "K2Node_TransitionRuleGetter.generated.h"
 
-class UAnimGraphNode_Base;
+class FBlueprintActionDatabaseRegistrar;
 class FBlueprintActionFilter;
+class UAnimBlueprint;
+class UAnimGraphNode_Base;
+class UAnimStateNode;
+class UEdGraphPin;
+class UEdGraphSchema;
 
 UENUM()
 namespace ETransitionGetter
@@ -50,6 +59,7 @@ class UK2Node_TransitionRuleGetter : public UK2Node
 
 	// UK2Node interface
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
+	virtual bool IsNodePure() const override { return true; }
 	// end of UK2Node interface
 
 	// @todo document

@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IPropertyTypeCustomization.h"
+
+class IPropertyHandle;
+
 class FBlackboardEntryDetails : public IPropertyTypeCustomization
 {
 public:

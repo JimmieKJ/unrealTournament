@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ViewportSnappingPrivatePCH.h"
-#include "ModuleManager.h"
+#include "ViewportSnappingModule.h"
+#include "ISnappingPolicy.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FMergedSnappingPolicy

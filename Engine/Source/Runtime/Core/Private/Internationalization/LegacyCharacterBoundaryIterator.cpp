@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "BreakIterator.h"
+#include "CoreTypes.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
+#include "Internationalization/IBreakIterator.h"
+#include "Templates/SharedPointer.h"
+#include "Internationalization/BreakIterator.h"
+#include "Internationalization/Text.h"
 
 #if !UE_ENABLE_ICU
 

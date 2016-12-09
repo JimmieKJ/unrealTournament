@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Animation/AnimationAsset.h"
-#include "PreviewScene.h"
+
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "IDetailCustomization.h"
+
+class FAssetData;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class USkeleton;
 
 class FAnimationAssetDetails : public IDetailCustomization
 {

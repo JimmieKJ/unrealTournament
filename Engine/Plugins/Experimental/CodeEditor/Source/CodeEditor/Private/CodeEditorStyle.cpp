@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeEditorPrivatePCH.h"
+#include "CodeEditorStyle.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Styling/SlateTypes.h"
 
 
 TSharedPtr< FSlateStyleSet > FCodeEditorStyle::StyleSet = nullptr;

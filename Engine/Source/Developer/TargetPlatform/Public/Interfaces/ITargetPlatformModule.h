@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
+class ITargetPlatform;
 
 /**
  * Interface for target platform modules.

@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "ISlateMetaData.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Types/ISlateMetaData.h"
 
 class INTROTUTORIALS_API FTutorialMetaData : public FTagMetaData
 {

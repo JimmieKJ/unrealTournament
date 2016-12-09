@@ -1,32 +1,32 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	ProfilerClientModule.cpp: Implements the FProfilerClientModule class.
-=============================================================================*/
+#include "ProfilerClientManager.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Serialization/MemoryReader.h"
+#include "Helpers/MessageEndpointBuilder.h"
+#include "ProfilerServiceMessages.h"
+#include "Misc/SecureHash.h"
 
-#include "ProfilerClientPrivatePCH.h"
-#include "ISessionInstanceInfo.h"
-#include "SecureHash.h"
-#include "StatsData.h"
-#include "StatsFile.h"
 
-DEFINE_LOG_CATEGORY_STATIC( LogProfilerClient, Log, All );
+DEFINE_LOG_CATEGORY_STATIC(LogProfilerClient, Log, All);
 
-DECLARE_CYCLE_STAT( TEXT("HandleDataReceived"),	STAT_PC_HandleDataReceived,			STATGROUP_Profiler );
-DECLARE_CYCLE_STAT( TEXT("ReadStatMessages"),	STAT_PC_ReadStatMessages,			STATGROUP_Profiler );
-DECLARE_CYCLE_STAT( TEXT("AddStatMessages"),	STAT_PC_AddStatMessages,			STATGROUP_Profiler );
-DECLARE_CYCLE_STAT( TEXT("GenerateDataFrame"),	STAT_PC_GenerateDataFrame,			STATGROUP_Profiler );
-DECLARE_CYCLE_STAT( TEXT("AddStatFName"),		STAT_PC_AddStatFName,				STATGROUP_Profiler );
-DECLARE_CYCLE_STAT( TEXT("AddGroupFName"),		STAT_PC_AddGroupFName,				STATGROUP_Profiler );
-DECLARE_CYCLE_STAT( TEXT("GenerateCycleGraph"),	STAT_PC_GenerateCycleGraph,			STATGROUP_Profiler );
-DECLARE_CYCLE_STAT( TEXT("GenerateAccumulator"),STAT_PC_GenerateAccumulator,		STATGROUP_Profiler );
-DECLARE_CYCLE_STAT( TEXT("FindOrAddStat"),		STAT_PC_FindOrAddStat,				STATGROUP_Profiler );
-DECLARE_CYCLE_STAT( TEXT("FindOrAddThread"),	STAT_PC_FindOrAddThread,			STATGROUP_Profiler );
+DECLARE_CYCLE_STAT(TEXT("HandleDataReceived"),	STAT_PC_HandleDataReceived,			STATGROUP_Profiler);
+DECLARE_CYCLE_STAT(TEXT("ReadStatMessages"),	STAT_PC_ReadStatMessages,			STATGROUP_Profiler);
+DECLARE_CYCLE_STAT(TEXT("AddStatMessages"),	STAT_PC_AddStatMessages,			STATGROUP_Profiler);
+DECLARE_CYCLE_STAT(TEXT("GenerateDataFrame"),	STAT_PC_GenerateDataFrame,			STATGROUP_Profiler);
+DECLARE_CYCLE_STAT(TEXT("AddStatFName"),		STAT_PC_AddStatFName,				STATGROUP_Profiler);
+DECLARE_CYCLE_STAT(TEXT("AddGroupFName"),		STAT_PC_AddGroupFName,				STATGROUP_Profiler);
+DECLARE_CYCLE_STAT(TEXT("GenerateCycleGraph"),	STAT_PC_GenerateCycleGraph,			STATGROUP_Profiler);
+DECLARE_CYCLE_STAT(TEXT("GenerateAccumulator"),STAT_PC_GenerateAccumulator,		STATGROUP_Profiler);
+DECLARE_CYCLE_STAT(TEXT("FindOrAddStat"),		STAT_PC_FindOrAddStat,				STATGROUP_Profiler);
+DECLARE_CYCLE_STAT(TEXT("FindOrAddThread"),	STAT_PC_FindOrAddThread,			STATGROUP_Profiler);
+
 
 /* FProfilerClientManager structors
  *****************************************************************************/
 
-FProfilerClientManager::FProfilerClientManager( const IMessageBusRef& InMessageBus )
+FProfilerClientManager::FProfilerClientManager(const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InMessageBus)
 {
 #if STATS
 	MessageBus = InMessageBus;
@@ -39,7 +39,7 @@ FProfilerClientManager::FProfilerClientManager( const IMessageBusRef& InMessageB
 
 	if (MessageEndpoint.IsValid())
 	{
-		OnShutdownMessageBusDelegateHandle = InMessageBus->OnShutdown().AddRaw( this, &FProfilerClientManager::HandleMessageBusShutdown );
+		OnShutdownMessageBusDelegateHandle = InMessageBus->OnShutdown().AddRaw(this, &FProfilerClientManager::HandleMessageBusShutdown);
 		MessageEndpoint->Subscribe<FProfilerServicePing>();
 	}
 
@@ -53,6 +53,7 @@ FProfilerClientManager::FProfilerClientManager( const IMessageBusRef& InMessageB
 #endif
 }
 
+
 FProfilerClientManager::~FProfilerClientManager()
 {
 #if STATS
@@ -62,7 +63,7 @@ FProfilerClientManager::~FProfilerClientManager()
 
 	if (MessageBus.IsValid())
 	{
-		MessageBus->OnShutdown().Remove( OnShutdownMessageBusDelegateHandle );
+		MessageBus->OnShutdown().Remove(OnShutdownMessageBusDelegateHandle);
 	}
 
 	LoadConnection = nullptr;
@@ -73,7 +74,7 @@ FProfilerClientManager::~FProfilerClientManager()
 /* IProfilerClient interface
  *****************************************************************************/
 
-void FProfilerClientManager::Subscribe( const FGuid& Session )
+void FProfilerClientManager::Subscribe(const FGuid& Session)
 {
 #if STATS
 	FGuid OldSessionId = ActiveSessionId;
@@ -99,11 +100,12 @@ void FProfilerClientManager::Subscribe( const FGuid& Session )
 
 	Connections.Reset();
 
-	UE_LOG( LogProfilerClient, Log, TEXT( "Subscribe Session: %s" ), *Session.ToString() );
+	UE_LOG(LogProfilerClient, Log, TEXT("Subscribe Session: %s"), *Session.ToString());
 #endif
 }
 
-void FProfilerClientManager::Track( const FGuid& Instance )
+
+void FProfilerClientManager::Track(const FGuid& Instance)
 {
 #if STATS
 	if (MessageEndpoint.IsValid() && ActiveSessionId.IsValid() && !PendingInstances.Contains(Instance))
@@ -115,12 +117,13 @@ void FProfilerClientManager::Track( const FGuid& Instance )
 		RetryTime = 5.f;
 		TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate, RetryTime);
 
-		UE_LOG( LogProfilerClient, Verbose, TEXT( "Track Session: %s, Instance: %s" ), *ActiveSessionId.ToString(), *Instance.ToString() );
+		UE_LOG(LogProfilerClient, Verbose, TEXT("Track Session: %s, Instance: %s"), *ActiveSessionId.ToString(), *Instance.ToString());
 	}
 #endif
 }
 
-void FProfilerClientManager::Untrack( const FGuid& Instance )
+
+void FProfilerClientManager::Untrack(const FGuid& Instance)
 {
 #if STATS
 	if (MessageEndpoint.IsValid() && ActiveSessionId.IsValid())
@@ -131,10 +134,11 @@ void FProfilerClientManager::Untrack( const FGuid& Instance )
 		// fire the disconnection delegate
 		ProfilerClientDisconnectedDelegate.Broadcast(ActiveSessionId, Instance);
 
-		UE_LOG( LogProfilerClient, Verbose, TEXT( "Untrack Session: %s, Instance: %s" ), *ActiveSessionId.ToString(), *Instance.ToString() );
+		UE_LOG(LogProfilerClient, Verbose, TEXT("Untrack Session: %s, Instance: %s"), *ActiveSessionId.ToString(), *Instance.ToString());
 	}
 #endif
 }
+
 
 void FProfilerClientManager::Unsubscribe()
 {
@@ -144,62 +148,65 @@ void FProfilerClientManager::Unsubscribe()
 #endif
 }
 
-void FProfilerClientManager::SetCaptureState( const bool bRequestedCaptureState, const FGuid& InstanceId /*= FGuid()*/  )
+
+void FProfilerClientManager::SetCaptureState(const bool bRequestedCaptureState, const FGuid& InstanceId /*= FGuid()*/ )
 {
 #if STATS
 	if (MessageEndpoint.IsValid() && ActiveSessionId.IsValid())
 	{
-		if( !InstanceId.IsValid() )
+		if(!InstanceId.IsValid())
 		{
 			TArray<FMessageAddress> Instances;
 			for (auto It = Connections.CreateConstIterator(); It; ++It)
 			{
-				Instances.Add( It.Value().ProfilerServiceAddress );
+				Instances.Add(It.Value().ProfilerServiceAddress);
 			}
 			MessageEndpoint->Send(new FProfilerServiceCapture(bRequestedCaptureState), Instances);
-			UE_LOG( LogProfilerClient, Verbose, TEXT( "SetCaptureState Session: %s, Instance: %s, State: %i" ), *ActiveSessionId.ToString(), *InstanceId.ToString(), (int32)bRequestedCaptureState );
+			UE_LOG(LogProfilerClient, Verbose, TEXT("SetCaptureState Session: %s, Instance: %s, State: %i"), *ActiveSessionId.ToString(), *InstanceId.ToString(), (int32)bRequestedCaptureState);
 		}
 		else
 		{
 			const FMessageAddress* MessageAddress = &Connections.Find(InstanceId)->ProfilerServiceAddress;
-			if( MessageAddress )
+			if(MessageAddress)
 			{
 				MessageEndpoint->Send(new FProfilerServiceCapture(bRequestedCaptureState), *MessageAddress);
 			}
 
-			UE_LOG( LogProfilerClient, Verbose, TEXT( "SetCaptureState Session: %s, Instance: %s, State: %i" ), *ActiveSessionId.ToString(), *InstanceId.ToString(), (int32)bRequestedCaptureState );
+			UE_LOG(LogProfilerClient, Verbose, TEXT("SetCaptureState Session: %s, Instance: %s, State: %i"), *ActiveSessionId.ToString(), *InstanceId.ToString(), (int32)bRequestedCaptureState);
 		}
 	}
 #endif
 }
 
-void FProfilerClientManager::SetPreviewState( const bool bRequestedPreviewState, const FGuid& InstanceId /*= FGuid()*/ )
+
+void FProfilerClientManager::SetPreviewState(const bool bRequestedPreviewState, const FGuid& InstanceId /*= FGuid()*/)
 {
 #if STATS
 	if (MessageEndpoint.IsValid() && ActiveSessionId.IsValid())
 	{
-		if( !InstanceId.IsValid() )
+		if(!InstanceId.IsValid())
 		{
 			TArray<FMessageAddress> Instances;
 			for (auto It = Connections.CreateConstIterator(); It; ++It)
 			{
-				Instances.Add( It.Value().ProfilerServiceAddress );
+				Instances.Add(It.Value().ProfilerServiceAddress);
 			}
 			MessageEndpoint->Send(new FProfilerServicePreview(bRequestedPreviewState), Instances);
-			UE_LOG( LogProfilerClient, Verbose, TEXT( "SetPreviewState Session: %s, Instance: %s, State: %i" ), *ActiveSessionId.ToString(), *InstanceId.ToString(), (int32)bRequestedPreviewState );
+			UE_LOG(LogProfilerClient, Verbose, TEXT("SetPreviewState Session: %s, Instance: %s, State: %i"), *ActiveSessionId.ToString(), *InstanceId.ToString(), (int32)bRequestedPreviewState);
 		}
 		else
 		{
 			const FMessageAddress* MessageAddress = &Connections.Find(InstanceId)->ProfilerServiceAddress;
-			if( MessageAddress )
+			if(MessageAddress)
 			{
 				MessageEndpoint->Send(new FProfilerServicePreview(bRequestedPreviewState), *MessageAddress);
 			}
-			UE_LOG( LogProfilerClient, Verbose, TEXT( "SetPreviewState Session: %s, Instance: %s, State: %i" ), *ActiveSessionId.ToString(), *InstanceId.ToString(), (int32)bRequestedPreviewState );
+			UE_LOG(LogProfilerClient, Verbose, TEXT("SetPreviewState Session: %s, Instance: %s, State: %i"), *ActiveSessionId.ToString(), *InstanceId.ToString(), (int32)bRequestedPreviewState);
 		}
 	}
 #endif
 }
+
 
 /*-----------------------------------------------------------------------------
 	New read test, still temporary, but around 4x faster
@@ -211,8 +218,9 @@ class FNewStatsReader : public FStatsReadFile
 	typedef FStatsReadFile Super;
 
 public:
+
 	/** Initialize. */
-	void Initialize( FProfilerClientManager* InProfilerClientManager, FServiceConnection* InLoadConnection )
+	void Initialize(FProfilerClientManager* InProfilerClientManager, FServiceConnection* InLoadConnection)
 	{
 		ProfilerClientManager = InProfilerClientManager;
 		LoadConnection = InLoadConnection;
@@ -221,19 +229,19 @@ public:
 protected:
 
 	/** Initialization constructor. */
-	FNewStatsReader( const TCHAR* InFilename )
-		: FStatsReadFile( InFilename, false )
-		, ProfilerClientManager( nullptr )
-		, LoadConnection( nullptr )
+	FNewStatsReader(const TCHAR* InFilename)
+		: FStatsReadFile(InFilename, false)
+		, ProfilerClientManager(nullptr)
+		, LoadConnection(nullptr)
 	{
 		// Keep only the last frame.
-		SetHistoryFrames( 1 );
+		SetHistoryFrames(1);
 	}	
 
 	/** Called every each frame has been read from the file. */
-	virtual void ReadStatsFrame( const TArray<FStatMessage>& CondensedMessages, const int64 Frame ) override
+	virtual void ReadStatsFrame(const TArray<FStatMessage>& CondensedMessages, const int64 Frame) override
 	{
-		SCOPE_CYCLE_COUNTER( STAT_PC_GenerateDataFrame );
+		SCOPE_CYCLE_COUNTER(STAT_PC_GenerateDataFrame);
 
 		FProfilerDataFrame& DataFrame = LoadConnection->CurrentData;
 
@@ -247,10 +255,10 @@ protected:
 		// Get the stat stack root and the non frame stats.
 		FRawStatStackNode Stack;
 		TArray<FStatMessage> NonFrameStats;
-		State.UncondenseStackStats( CondensedMessages, Stack, nullptr, &NonFrameStats );
+		State.UncondenseStackStats(CondensedMessages, Stack, nullptr, &NonFrameStats);
 
-		LoadConnection->GenerateCycleGraphs( Stack, DataFrame.CycleGraphs );
-		LoadConnection->GenerateAccumulators( NonFrameStats, DataFrame.CountAccumulators, DataFrame.FloatAccumulators );
+		LoadConnection->GenerateCycleGraphs(Stack, DataFrame.CycleGraphs);
+		LoadConnection->GenerateAccumulators(NonFrameStats, DataFrame.CountAccumulators, DataFrame.FloatAccumulators);
 
 		// Create a copy of the stats metadata.
 		FStatMetaData* MetaDataPtr = nullptr;
@@ -268,7 +276,7 @@ protected:
 		// Send to game thread.
 		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
 		(
-			FSimpleDelegateGraphTask::FDelegate::CreateRaw( ProfilerClientManager, &FProfilerClientManager::SendProfilerDataFrameToGame, DataFramePtr, MetaDataPtr, LoadConnection->InstanceId ),
+			FSimpleDelegateGraphTask::FDelegate::CreateRaw(ProfilerClientManager, &FProfilerClientManager::SendProfilerDataFrameToGame, DataFramePtr, MetaDataPtr, LoadConnection->InstanceId),
 			TStatId(), nullptr, ENamedThreads::GameThread
 		);
 	}
@@ -278,7 +286,7 @@ protected:
 	{
 		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
 		(
-			FSimpleDelegateGraphTask::FDelegate::CreateRaw( ProfilerClientManager, &FProfilerClientManager::FinalizeLoading, LoadConnection->InstanceId ),
+			FSimpleDelegateGraphTask::FDelegate::CreateRaw(ProfilerClientManager, &FProfilerClientManager::FinalizeLoading, LoadConnection->InstanceId),
 			TStatId(), NULL, ENamedThreads::GameThread
 		);
 	}
@@ -287,19 +295,19 @@ protected:
 	FServiceConnection* LoadConnection;
 };
 
-void FServiceConnection::LoadCapture( const FString& DataFilepath, FProfilerClientManager* ProfilerClientManager )
+
+void FServiceConnection::LoadCapture(const FString& DataFilepath, FProfilerClientManager* ProfilerClientManager)
 {
-	StatsReader = FStatsReader<FNewStatsReader>::Create( *DataFilepath );
+	StatsReader = FStatsReader<FNewStatsReader>::Create(*DataFilepath);
 	if (StatsReader)
 	{
-		StatsReader->Initialize( ProfilerClientManager, this );
+		StatsReader->Initialize(ProfilerClientManager, this);
 		StatsReader->ReadAndProcessAsynchronously();
 	}
 }
 
 
-
-void FProfilerClientManager::LoadCapture( const FString& DataFilepath, const FGuid& ProfileId )
+void FProfilerClientManager::LoadCapture(const FString& DataFilepath, const FGuid& ProfileId)
 {
 #if STATS
 	// Start an async load.
@@ -307,8 +315,8 @@ void FProfilerClientManager::LoadCapture( const FString& DataFilepath, const FGu
 	LoadConnection->InstanceId = ProfileId;
 	LoadConnection->StatMetaData.SecondsPerCycle = FPlatformTime::GetSecondsPerCycle(); // fix this by adding a message which specifies this
 
-	ProfilerLoadStartedDelegate.Broadcast( ProfileId );
-	LoadConnection->LoadCapture( DataFilepath, this );
+	ProfilerLoadStartedDelegate.Broadcast(ProfileId);
+	LoadConnection->LoadCapture(DataFilepath, this);
 
 	RetryTime = 0.05f;
 	TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate, RetryTime);	
@@ -316,24 +324,24 @@ void FProfilerClientManager::LoadCapture( const FString& DataFilepath, const FGu
 }
 
 
-void FProfilerClientManager::RequestLastCapturedFile( const FGuid& InstanceId /*= FGuid()*/ )
+void FProfilerClientManager::RequestLastCapturedFile(const FGuid& InstanceId /*= FGuid()*/)
 {
 #if STATS
 	if (MessageEndpoint.IsValid() && ActiveSessionId.IsValid())
 	{
-		if( !InstanceId.IsValid() )
+		if(!InstanceId.IsValid())
 		{
 			TArray<FMessageAddress> Instances;
 			for (auto It = Connections.CreateConstIterator(); It; ++It)
 			{
-				Instances.Add( It.Value().ProfilerServiceAddress );
+				Instances.Add(It.Value().ProfilerServiceAddress);
 			}
 			MessageEndpoint->Send(new FProfilerServiceRequest(EProfilerRequestType::PRT_SendLastCapturedFile), Instances);
 		}
 		else
 		{
 			const FMessageAddress* MessageAddress = &Connections.Find(InstanceId)->ProfilerServiceAddress;
-			if( MessageAddress )
+			if(MessageAddress)
 			{
 				MessageEndpoint->Send(new FProfilerServiceRequest(EProfilerRequestType::PRT_SendLastCapturedFile), *MessageAddress);
 			}
@@ -341,6 +349,61 @@ void FProfilerClientManager::RequestLastCapturedFile( const FGuid& InstanceId /*
 	}
 #endif
 }
+
+
+const FStatMetaData& FProfilerClientManager::GetStatMetaData(const FGuid& InstanceId) const
+{
+	return Connections.Find(InstanceId)->StatMetaData;
+}
+
+
+FProfilerClientDataDelegate& FProfilerClientManager::OnProfilerData()
+{
+	return ProfilerDataDelegate;
+}
+
+
+FProfilerFileTransferDelegate& FProfilerClientManager::OnProfilerFileTransfer()
+{
+	return ProfilerFileTransferDelegate;
+}
+
+
+FProfilerClientConnectedDelegate& FProfilerClientManager::OnProfilerClientConnected()
+{
+	return ProfilerClientConnectedDelegate;
+}
+
+
+FProfilerClientDisconnectedDelegate& FProfilerClientManager::OnProfilerClientDisconnected()
+{
+	return ProfilerClientDisconnectedDelegate;
+}
+
+
+FProfilerMetaDataUpdateDelegate& FProfilerClientManager::OnMetaDataUpdated()
+{
+	return ProfilerMetaDataUpdatedDelegate;
+}
+
+
+FProfilerLoadStartedDelegate& FProfilerClientManager::OnLoadStarted()
+{
+	return ProfilerLoadStartedDelegate;
+}
+
+
+FProfilerLoadCompletedDelegate& FProfilerClientManager::OnLoadCompleted()
+{
+	return ProfilerLoadCompletedDelegate;
+}
+
+
+FProfilerLoadCancelledDelegate& FProfilerClientManager::OnLoadCancelled()
+{
+	return ProfilerLoadCancelledDelegate;
+}
+
 
 /* FProfilerClientManager event handlers
  *****************************************************************************/
@@ -355,7 +418,8 @@ void FProfilerClientManager::HandleMessageBusShutdown()
 #endif
 }
 
-void FProfilerClientManager::HandleServiceAuthorizeMessage( const FProfilerServiceAuthorize& Message, const IMessageContextRef& Context )
+
+void FProfilerClientManager::HandleServiceAuthorizeMessage(const FProfilerServiceAuthorize& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
 #if STATS
 	if (ActiveSessionId == Message.SessionId && PendingInstances.Contains(Message.InstanceId))
@@ -370,23 +434,23 @@ void FProfilerClientManager::HandleServiceAuthorizeMessage( const FProfilerServi
 		// Fire the client connection event
 		ProfilerClientConnectedDelegate.Broadcast(ActiveSessionId, Message.InstanceId);
 
-		UE_LOG( LogProfilerClient, Verbose, TEXT( "Authorize SessionId: %s, InstanceId: %s" ), *Message.SessionId.ToString(), *Message.InstanceId.ToString() );
+		UE_LOG(LogProfilerClient, Verbose, TEXT("Authorize SessionId: %s, InstanceId: %s"), *Message.SessionId.ToString(), *Message.InstanceId.ToString());
 	}
 #endif
 }
 
-/*-----------------------------------------------------------------------------
-	FServiceConnection
------------------------------------------------------------------------------*/
+
+/* FServiceConnection
+ *****************************************************************************/
 
 FServiceConnection::FServiceConnection() 
-	: StatsReader( nullptr )
-{
-}
+	: StatsReader(nullptr)
+{ }
 
-FServiceConnection::FServiceConnection( const FServiceConnection& InConnnection )
-{
-}
+
+FServiceConnection::FServiceConnection(const FServiceConnection& InConnnection)
+{ }
+
 
 FServiceConnection::~FServiceConnection()
 {
@@ -396,8 +460,8 @@ FServiceConnection::~FServiceConnection()
 
 		while (StatsReader->IsBusy())
 		{
-			FPlatformProcess::Sleep( 2.0f );
-			UE_LOG( LogStats, Log, TEXT( "RequestStop: Stage: %s / %3i%%" ), *StatsReader->GetProcessingStageAsString(), StatsReader->GetStageProgress() );
+			FPlatformProcess::Sleep(2.0f);
+			UE_LOG(LogStats, Log, TEXT("RequestStop: Stage: %s / %3i%%"), *StatsReader->GetProcessingStageAsString(), StatsReader->GetStageProgress());
 		}
 
 		delete StatsReader;
@@ -410,7 +474,8 @@ FServiceConnection::~FServiceConnection()
 	}
 }
 
-void FServiceConnection::Initialize( const FProfilerServiceAuthorize& Message, const IMessageContextRef& Context )
+
+void FServiceConnection::Initialize(const FProfilerServiceAuthorize& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
 #if STATS
 	ProfilerServiceAddress = Context->GetSender();
@@ -419,7 +484,8 @@ void FServiceConnection::Initialize( const FProfilerServiceAuthorize& Message, c
 #endif
 }
 
-bool FProfilerClientManager::CheckHashAndWrite( const FProfilerServiceFileChunk& FileChunk, const FProfilerFileChunkHeader& FileChunkHeader, FArchive* Writer )
+
+bool FProfilerClientManager::CheckHashAndWrite(const FProfilerServiceFileChunk& FileChunk, const FProfilerFileChunkHeader& FileChunkHeader, FArchive* Writer)
 {
 #if STATS
 	const int32 HashSize = 20;
@@ -428,27 +494,27 @@ bool FProfilerClientManager::CheckHashAndWrite( const FProfilerServiceFileChunk&
 	// De-hex string into TArray<uint8>
 	TArray<uint8> FileChunkData;
 	const int32 DataLength = FileChunk.HexData.Len() / 2;
-	FileChunkData.Reset( DataLength );
-	FileChunkData.AddUninitialized( DataLength );
-	FString::ToHexBlob( FileChunk.HexData, FileChunkData.GetData(), DataLength );
+	FileChunkData.Reset(DataLength);
+	FileChunkData.AddUninitialized(DataLength);
+	FString::ToHexBlob(FileChunk.HexData, FileChunkData.GetData(), DataLength);
 
 	// Hash file chunk data. 
 	FSHA1 Sha;
-	Sha.Update( FileChunkData.GetData(), FileChunkHeader.ChunkSize );
+	Sha.Update(FileChunkData.GetData(), FileChunkHeader.ChunkSize);
 	// Hash file chunk header.
-	Sha.Update( FileChunk.Header.GetData(), FileChunk.Header.Num() );
+	Sha.Update(FileChunk.Header.GetData(), FileChunk.Header.Num());
 	Sha.Final();
-	Sha.GetHash( LocalHash );
+	Sha.GetHash(LocalHash);
 
-	const int32 MemDiff = FMemory::Memcmp( FileChunk.ChunkHash.GetData(), LocalHash, HashSize );
+	const int32 MemDiff = FMemory::Memcmp(FileChunk.ChunkHash.GetData(), LocalHash, HashSize);
 
 	bool bResult = false;
 
-	if( MemDiff == 0 )
+	if(MemDiff == 0)
 	{
 		// Write the data to the archive.
-		Writer->Seek( FileChunkHeader.ChunkOffset );
-		Writer->Serialize( (void*)FileChunkData.GetData(), FileChunkHeader.ChunkSize );
+		Writer->Seek(FileChunkHeader.ChunkOffset);
+		Writer->Serialize((void*)FileChunkData.GetData(), FileChunkHeader.ChunkSize);
 
 		bResult = true;
 	}
@@ -459,54 +525,55 @@ bool FProfilerClientManager::CheckHashAndWrite( const FProfilerServiceFileChunk&
 #endif
 }
 
-void FProfilerClientManager::HandleServiceFileChunk( const FProfilerServiceFileChunk& FileChunk, const IMessageContextRef& Context )
+
+void FProfilerClientManager::HandleServiceFileChunk(const FProfilerServiceFileChunk& FileChunk, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
 #if STATS
 	const TCHAR* StrTmp = TEXT(".tmp");
 
 	// Read file chunk header.
-	FMemoryReader Reader( FileChunk.Header );
+	FMemoryReader Reader(FileChunk.Header);
 	FProfilerFileChunkHeader FileChunkHeader;
 	Reader << FileChunkHeader;
 	FileChunkHeader.Validate();
 
-	const bool bValidFileChunk = !FailedTransfer.Contains( FileChunk.Filename );
+	const bool bValidFileChunk = !FailedTransfer.Contains(FileChunk.Filename);
 
 	if (ActiveSessionId.IsValid() && Connections.Find(FileChunk.InstanceId) != nullptr && bValidFileChunk)
 	{
-		FReceivedFileInfo* ReceivedFileInfo = ActiveTransfers.Find( FileChunk.Filename );
-		if( !ReceivedFileInfo )
+		FReceivedFileInfo* ReceivedFileInfo = ActiveTransfers.Find(FileChunk.Filename);
+		if(!ReceivedFileInfo)
 		{
 			const FString PathName = FPaths::ProfilingDir() + TEXT("UnrealStats/Received/");
 			const FString StatFilepath = PathName + FileChunk.Filename + StrTmp;
 
-			UE_LOG( LogProfilerClient, Log, TEXT( "Opening stats file for service-client sending: %s" ), *StatFilepath );
+			UE_LOG(LogProfilerClient, Log, TEXT("Opening stats file for service-client sending: %s"), *StatFilepath);
 
 			FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*StatFilepath);
-			if( !FileWriter )
+			if(!FileWriter)
 			{
-				UE_LOG( LogProfilerClient, Error, TEXT( "Could not open: %s" ), *StatFilepath );
+				UE_LOG(LogProfilerClient, Error, TEXT("Could not open: %s"), *StatFilepath);
 				return;
 			}
 
-			ReceivedFileInfo = &ActiveTransfers.Add( FileChunk.Filename, FReceivedFileInfo(FileWriter,0,StatFilepath) );
-			ProfilerFileTransferDelegate.Broadcast( FileChunk.Filename, ReceivedFileInfo->Progress, FileChunkHeader.FileSize );
+			ReceivedFileInfo = &ActiveTransfers.Add(FileChunk.Filename, FReceivedFileInfo(FileWriter,0,StatFilepath));
+			ProfilerFileTransferDelegate.Broadcast(FileChunk.Filename, ReceivedFileInfo->Progress, FileChunkHeader.FileSize);
 		}
 
 		const bool bSimulateBadFileChunk = true;//FMath::Rand() % 10 != 0;
-		const bool bSuccess = CheckHashAndWrite( FileChunk, FileChunkHeader, ReceivedFileInfo->FileWriter ) && bSimulateBadFileChunk;	
-		if( bSuccess )
+		const bool bSuccess = CheckHashAndWrite(FileChunk, FileChunkHeader, ReceivedFileInfo->FileWriter) && bSimulateBadFileChunk;	
+		if(bSuccess)
 		{
 			ReceivedFileInfo->Progress += FileChunkHeader.ChunkSize;
 			ReceivedFileInfo->Update();
 
-			if( ReceivedFileInfo->Progress == FileChunkHeader.FileSize )
+			if(ReceivedFileInfo->Progress == FileChunkHeader.FileSize)
 			{
 				// File has been successfully sent, so send this information to the profiler service.
-				if( MessageEndpoint.IsValid() )
+				if(MessageEndpoint.IsValid())
 				{
-					MessageEndpoint->Send( new FProfilerServiceFileChunk( FGuid(),FileChunk.Filename,FProfilerFileChunkHeader(0,0,0,EProfilerFileChunkType::FinalizeFile).AsArray() ), Context->GetSender() );
-					ProfilerFileTransferDelegate.Broadcast( FileChunk.Filename, ReceivedFileInfo->Progress, FileChunkHeader.FileSize );
+					MessageEndpoint->Send(new FProfilerServiceFileChunk(FGuid(),FileChunk.Filename,FProfilerFileChunkHeader(0,0,0,EProfilerFileChunkType::FinalizeFile).AsArray()), Context->GetSender());
+					ProfilerFileTransferDelegate.Broadcast(FileChunk.Filename, ReceivedFileInfo->Progress, FileChunkHeader.FileSize);
 				}
 				
 				// Delete the file writer.
@@ -514,31 +581,32 @@ void FProfilerClientManager::HandleServiceFileChunk( const FProfilerServiceFileC
 				ReceivedFileInfo->FileWriter = nullptr;
 
 				// Rename the stats file.
-				IFileManager::Get().Move( *ReceivedFileInfo->DestFilepath.Replace( StrTmp, TEXT("") ), *ReceivedFileInfo->DestFilepath );
+				IFileManager::Get().Move(*ReceivedFileInfo->DestFilepath.Replace(StrTmp, TEXT("")), *ReceivedFileInfo->DestFilepath);
 
-				ActiveTransfers.Remove( FileChunk.Filename );
+				ActiveTransfers.Remove(FileChunk.Filename);
 
-				UE_LOG( LogProfilerClient, Log, TEXT( "File service-client received successfully: %s" ), *FileChunk.Filename );
+				UE_LOG(LogProfilerClient, Log, TEXT("File service-client received successfully: %s"), *FileChunk.Filename);
 			}
 			else
 			{
-				ProfilerFileTransferDelegate.Broadcast( FileChunk.Filename, ReceivedFileInfo->Progress, FileChunkHeader.FileSize );			
+				ProfilerFileTransferDelegate.Broadcast(FileChunk.Filename, ReceivedFileInfo->Progress, FileChunkHeader.FileSize);			
 			}
 		}
 		else
 		{
 			// This chunk is a bad chunk, so ask for resending it.
-			if( MessageEndpoint.IsValid() )
+			if(MessageEndpoint.IsValid())
 			{
-				MessageEndpoint->Send( new FProfilerServiceFileChunk(FileChunk,FProfilerServiceFileChunk::FNullTag()), Context->GetSender() );
-				UE_LOG( LogProfilerClient, Log, TEXT( "Received a bad chunk of file, resending: %5i, %6u, %10u, %s" ), FileChunk.HexData.Len(), ReceivedFileInfo->Progress, FileChunkHeader.FileSize, *FileChunk.Filename );
+				MessageEndpoint->Send(new FProfilerServiceFileChunk(FileChunk,FProfilerServiceFileChunk::FNullTag()), Context->GetSender());
+				UE_LOG(LogProfilerClient, Log, TEXT("Received a bad chunk of file, resending: %5i, %6u, %10u, %s"), FileChunk.HexData.Len(), ReceivedFileInfo->Progress, FileChunkHeader.FileSize, *FileChunk.Filename);
 			}
 		}
 	}
 #endif
 }
 
-void FProfilerClientManager::HandleServicePingMessage( const FProfilerServicePing& Message, const IMessageContextRef& Context )
+
+void FProfilerClientManager::HandleServicePingMessage(const FProfilerServicePing& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
 #if STATS
 	if (MessageEndpoint.IsValid())
@@ -550,13 +618,13 @@ void FProfilerClientManager::HandleServicePingMessage( const FProfilerServicePin
 		}
 		MessageEndpoint->Send(new FProfilerServicePong(), Instances);
 
-		UE_LOG( LogProfilerClient, Verbose, TEXT( "Ping GetSender: %s" ), *Context->GetSender().ToString() );
+		UE_LOG(LogProfilerClient, Verbose, TEXT("Ping GetSender: %s"), *Context->GetSender().ToString());
 	}
 #endif
 }
 
 
-bool FProfilerClientManager::HandleTicker( float DeltaTime )
+bool FProfilerClientManager::HandleTicker(float DeltaTime)
 {
 #if STATS
 	if (PendingInstances.Num() > 0 && FDateTime::Now() > LastPingTime + DeltaTime)
@@ -576,7 +644,8 @@ bool FProfilerClientManager::HandleTicker( float DeltaTime )
 	return false;
 }
 
-bool FProfilerClientManager::HandleMessagesTicker( float DeltaTime )
+
+bool FProfilerClientManager::HandleMessagesTicker(float DeltaTime)
 {
 #if STATS
 	for (auto It = Connections.CreateIterator(); It; ++It)
@@ -584,41 +653,41 @@ bool FProfilerClientManager::HandleMessagesTicker( float DeltaTime )
 		FServiceConnection& Connection = It.Value();
 
 		TArray<int64> Frames;
-		Connection.ReceivedData.GenerateKeyArray( Frames );
+		Connection.ReceivedData.GenerateKeyArray(Frames);
 		Frames.Sort();
 
 		// MessageBus sends all data in out of order fashion.
 		// We buffer frame to make sure that all frames are received in the proper order.
 		const int32 NUM_BUFFERED_FRAMES = 15;
 
-		for( int32 Index = 0; Index < Frames.Num(); Index++ )
+		for(int32 Index = 0; Index < Frames.Num(); Index++)
 		{
 			if (Connection.ReceivedData.Num() < NUM_BUFFERED_FRAMES)
 			{
 				break;
 			}
 
-			//FScopeLogTime SLT( "HandleMessagesTicker" );
+			//FScopeLogTime SLT("HandleMessagesTicker");
 
 			const int64 FrameNum = Frames[Index];
-			const TArray<uint8>* const Data = Connection.ReceivedData.FindChecked( FrameNum );
+			const TArray<uint8>* const Data = Connection.ReceivedData.FindChecked(FrameNum);
 			FStatsReadStream& Stream = Connection.Stream;
 
 
 			// Read all messages from the uncompressed buffer.
-			FMemoryReader MemoryReader( *Data, true );
+			FMemoryReader MemoryReader(*Data, true);
 			while (MemoryReader.Tell() < MemoryReader.TotalSize())
 			{
 				// Read the message.
-				FStatMessage Message( Stream.ReadMessage( MemoryReader ) );
-				new (Connection.PendingStatMessagesMessages)FStatMessage( Message );
+				FStatMessage Message(Stream.ReadMessage(MemoryReader));
+				new (Connection.PendingStatMessagesMessages)FStatMessage(Message);
 			}
 
 			// Adds a new from from the pending messages, the pending messages will be removed after the call.
-			Connection.CurrentThreadState.ProcessMetaDataAndLeaveDataOnly( Connection.PendingStatMessagesMessages );
-			Connection.CurrentThreadState.AddFrameFromCondensedMessages( Connection.PendingStatMessagesMessages );
+			Connection.CurrentThreadState.ProcessMetaDataAndLeaveDataOnly(Connection.PendingStatMessagesMessages);
+			Connection.CurrentThreadState.AddFrameFromCondensedMessages(Connection.PendingStatMessagesMessages);
 
-			UE_LOG( LogProfilerClient, VeryVerbose, TEXT( "Frame=%i/%i, FNamesIndexMap=%i, CurrentMetadataSize=%i" ), FrameNum, Frames.Num(), Connection.Stream.FNamesIndexMap.Num(), Connection.CurrentThreadState.ShortNameToLongName.Num() );
+			UE_LOG(LogProfilerClient, VeryVerbose, TEXT("Frame=%i/%i, FNamesIndexMap=%i, CurrentMetadataSize=%i"), FrameNum, Frames.Num(), Connection.Stream.FNamesIndexMap.Num(), Connection.CurrentThreadState.ShortNameToLongName.Num());
 
 			// create an old format data frame from the data
 			Connection.GenerateProfilerDataFrame();
@@ -626,33 +695,33 @@ bool FProfilerClientManager::HandleMessagesTicker( float DeltaTime )
 			// Fire a meta data update message
 			if (Connection.CurrentData.MetaDataUpdated)
 			{
-				ProfilerMetaDataUpdatedDelegate.Broadcast( Connection.InstanceId, Connection.StatMetaData );
+				ProfilerMetaDataUpdatedDelegate.Broadcast(Connection.InstanceId, Connection.StatMetaData);
 			}
 
 			// send the data out
-			ProfilerDataDelegate.Broadcast( Connection.InstanceId, Connection.CurrentData );
+			ProfilerDataDelegate.Broadcast(Connection.InstanceId, Connection.CurrentData);
 
 			delete Data;
-			Connection.ReceivedData.Remove( FrameNum );
+			Connection.ReceivedData.Remove(FrameNum);
 		}
 	}
 
 	// Remove any active transfer that timed out.
-	for( auto It = ActiveTransfers.CreateIterator(); It; ++It )
+	for(auto It = ActiveTransfers.CreateIterator(); It; ++It)
 	{
 		FReceivedFileInfo& ReceivedFileInfo = It.Value();
 		const FString& Filename = It.Key();
 
-		if( ReceivedFileInfo.IsTimedOut() )
+		if(ReceivedFileInfo.IsTimedOut())
 		{
-			UE_LOG( LogProfilerClient, Log, TEXT( "File service-client timed out, aborted: %s" ), *Filename );
-			FailedTransfer.Add( Filename );
+			UE_LOG(LogProfilerClient, Log, TEXT("File service-client timed out, aborted: %s"), *Filename);
+			FailedTransfer.Add(Filename);
 
 			delete ReceivedFileInfo.FileWriter;
 			ReceivedFileInfo.FileWriter = nullptr;
 
-			IFileManager::Get().Delete( *ReceivedFileInfo.DestFilepath );
-			ProfilerFileTransferDelegate.Broadcast( Filename, -1, -1 );
+			IFileManager::Get().Delete(*ReceivedFileInfo.DestFilepath);
+			ProfilerFileTransferDelegate.Broadcast(Filename, -1, -1);
 			It.RemoveCurrent();	
 		}
 	}
@@ -661,98 +730,104 @@ bool FProfilerClientManager::HandleMessagesTicker( float DeltaTime )
 	return true;
 }
 
-void FProfilerClientManager::HandleServicePreviewAckMessage( const FProfilerServicePreviewAck& Message, const IMessageContextRef& Context )
+
+void FProfilerClientManager::HandleServicePreviewAckMessage(const FProfilerServicePreviewAck& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
 #if STATS
 	if (ActiveSessionId.IsValid() && Connections.Find(Message.InstanceId) != nullptr)
 	{
 		FServiceConnection& Connection = *Connections.Find(Message.InstanceId);
 
-		UE_LOG( LogProfilerClient, Verbose, TEXT( "PreviewAck InstanceId: %s, GetSender: %s" ), *Message.InstanceId.ToString(), *Context->GetSender().ToString() );
+		UE_LOG(LogProfilerClient, Verbose, TEXT("PreviewAck InstanceId: %s, GetSender: %s"), *Message.InstanceId.ToString(), *Context->GetSender().ToString());
 	}
 #endif
 }
 
-void FProfilerClientManager::HandleProfilerServiceData2Message( const FProfilerServiceData2& Message, const IMessageContextRef& Context )
+
+void FProfilerClientManager::HandleProfilerServiceData2Message(const FProfilerServiceData2& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
 #if STATS
 	SCOPE_CYCLE_COUNTER(STAT_PC_HandleDataReceived);
 	if (ActiveSessionId.IsValid() && Connections.Find(Message.InstanceId) != nullptr)
 	{
 		// Create a temporary profiler data and prepare all data.
-		FProfilerServiceData2* ToProcess = new FProfilerServiceData2( Message.InstanceId, Message.Frame, Message.HexData, Message.CompressedSize, Message.UncompressedSize );
+		FProfilerServiceData2* ToProcess = new FProfilerServiceData2(Message.InstanceId, Message.Frame, Message.HexData, Message.CompressedSize, Message.UncompressedSize);
 
 		// Decompression and decoding is done on the task graph.
 		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
 		(
-			FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerClientManager::DecompressDataAndSendToGame, ToProcess ), 
+			FSimpleDelegateGraphTask::FDelegate::CreateRaw(this, &FProfilerClientManager::DecompressDataAndSendToGame, ToProcess), 
 			TStatId()
 		);
 	}
 #endif
 }
 
-void FProfilerClientManager::DecompressDataAndSendToGame( FProfilerServiceData2* ToProcess )
+
+void FProfilerClientManager::DecompressDataAndSendToGame(FProfilerServiceData2* ToProcess)
 {
-	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FProfilerClientManager::DecompressDataAndSendToGame" ), STAT_FProfilerClientManager_DecompressDataAndSendToGame, STATGROUP_Profiler );
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FProfilerClientManager::DecompressDataAndSendToGame"), STAT_FProfilerClientManager_DecompressDataAndSendToGame, STATGROUP_Profiler);
 
 	// De-hex string into TArray<uint8>
 	TArray<uint8> CompressedData;
-	CompressedData.Reset( ToProcess->CompressedSize );
-	CompressedData.AddUninitialized( ToProcess->CompressedSize );
-	FString::ToHexBlob( ToProcess->HexData, CompressedData.GetData(), ToProcess->CompressedSize );
+	CompressedData.Reset(ToProcess->CompressedSize);
+	CompressedData.AddUninitialized(ToProcess->CompressedSize);
+	FString::ToHexBlob(ToProcess->HexData, CompressedData.GetData(), ToProcess->CompressedSize);
 
 	// Decompress data.
 	TArray<uint8> UncompressedData;
-	UncompressedData.Reset( ToProcess->UncompressedSize );
-	UncompressedData.AddUninitialized( ToProcess->UncompressedSize );
+	UncompressedData.Reset(ToProcess->UncompressedSize);
+	UncompressedData.AddUninitialized(ToProcess->UncompressedSize);
 
-	bool bResult = FCompression::UncompressMemory( COMPRESS_ZLIB, UncompressedData.GetData(), ToProcess->UncompressedSize, CompressedData.GetData(), ToProcess->CompressedSize );
-	check( bResult );
+	bool bResult = FCompression::UncompressMemory(COMPRESS_ZLIB, UncompressedData.GetData(), ToProcess->UncompressedSize, CompressedData.GetData(), ToProcess->CompressedSize);
+	check(bResult);
 
 	// Send to the game thread. Connections is not thread-safe, so we cannot add the data here.
-	TArray<uint8>* DateToGame = new TArray<uint8>( MoveTemp( UncompressedData ) );
+	TArray<uint8>* DateToGame = new TArray<uint8>(MoveTemp(UncompressedData));
 
 	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
 	(
-		FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerClientManager::SendDataToGame, DateToGame, ToProcess->Frame, ToProcess->InstanceId ), 
+		FSimpleDelegateGraphTask::FDelegate::CreateRaw(this, &FProfilerClientManager::SendDataToGame, DateToGame, ToProcess->Frame, ToProcess->InstanceId), 
 		TStatId(), nullptr, ENamedThreads::GameThread
 	);
 
 	delete ToProcess;
 }
 
-void FProfilerClientManager::SendDataToGame( TArray<uint8>* DataToGame, int64 Frame, const FGuid InstanceId )
+
+void FProfilerClientManager::SendDataToGame(TArray<uint8>* DataToGame, int64 Frame, const FGuid InstanceId)
 {
-	if (ActiveSessionId.IsValid() && Connections.Find( InstanceId ) != nullptr)
+	if (ActiveSessionId.IsValid() && Connections.Find(InstanceId) != nullptr)
 	{
-		FServiceConnection& Connection = *Connections.Find( InstanceId );
+		FServiceConnection& Connection = *Connections.Find(InstanceId);
 
 		// Add the message to the connections queue.
-		UE_LOG( LogProfilerClient, VeryVerbose, TEXT( "Frame: %i, UncompressedSize: %i, InstanceId: %s" ), Frame, DataToGame->Num(), *InstanceId.ToString() );
-		Connection.ReceivedData.Add( Frame, DataToGame );
+		UE_LOG(LogProfilerClient, VeryVerbose, TEXT("Frame: %i, UncompressedSize: %i, InstanceId: %s"), Frame, DataToGame->Num(), *InstanceId.ToString());
+		Connection.ReceivedData.Add(Frame, DataToGame);
 	}
 }
 
-void FProfilerClientManager::SendProfilerDataFrameToGame( FProfilerDataFrame* NewData, FStatMetaData* MetaDataPtr, const FGuid InstanceId )
+
+void FProfilerClientManager::SendProfilerDataFrameToGame(FProfilerDataFrame* NewData, FStatMetaData* MetaDataPtr, const FGuid InstanceId)
 {
 	if (Connections.Find(InstanceId) != nullptr)
 	{
 		if (MetaDataPtr)
 		{
-			ProfilerMetaDataUpdatedDelegate.Broadcast( InstanceId, *MetaDataPtr );
+			ProfilerMetaDataUpdatedDelegate.Broadcast(InstanceId, *MetaDataPtr);
 			delete MetaDataPtr;
 			MetaDataPtr = nullptr;
 		}
 
 		if (NewData)
 		{
-			ProfilerDataDelegate.Broadcast( InstanceId, *NewData );
+			ProfilerDataDelegate.Broadcast(InstanceId, *NewData);
 			delete NewData;
 			NewData = nullptr;
 		}
 	}
 }
+
 
 void FProfilerClientManager::Shutdown()
 {
@@ -764,14 +839,15 @@ void FProfilerClientManager::Shutdown()
 		delete ReceivedFileInfo.FileWriter;
 		ReceivedFileInfo.FileWriter = nullptr;
 
-		IFileManager::Get().Delete( *ReceivedFileInfo.DestFilepath );
+		IFileManager::Get().Delete(*ReceivedFileInfo.DestFilepath);
 
-		UE_LOG( LogProfilerClient, Log, TEXT( "File service-client transfer aborted: %s" ), *It.Key() );
+		UE_LOG(LogProfilerClient, Log, TEXT("File service-client transfer aborted: %s"), *It.Key());
 	}
 
-	FTicker::GetCoreTicker().RemoveTicker( MessageDelegateHandle );
-	FTicker::GetCoreTicker().RemoveTicker( TickDelegateHandle );
+	FTicker::GetCoreTicker().RemoveTicker(MessageDelegateHandle);
+	FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
 }
+
 
 void FProfilerClientManager::FinalizeLoading(const FGuid InstanceId)
 {
@@ -788,6 +864,7 @@ void FProfilerClientManager::FinalizeLoading(const FGuid InstanceId)
 	}
 }
 
+
 void FProfilerClientManager::CancelLoading(const FGuid InstanceId)
 {
 	if (Connections.Find(InstanceId) != nullptr)
@@ -801,13 +878,14 @@ void FProfilerClientManager::CancelLoading(const FGuid InstanceId)
 	}
 }
 
+
 #if STATS
 
-int32 FServiceConnection::FindOrAddStat( const FStatNameAndInfo& StatNameAndInfo, uint32 StatType)
+int32 FServiceConnection::FindOrAddStat(const FStatNameAndInfo& StatNameAndInfo, uint32 StatType)
 {
 	SCOPE_CYCLE_COUNTER(STAT_PC_FindOrAddStat);
 	const FName LongName = StatNameAndInfo.GetRawName();
-	int32* const StatIDPtr = LongNameToStatID.Find( LongName );
+	int32* const StatIDPtr = LongNameToStatID.Find(LongName);
 	int32 StatID = StatIDPtr != nullptr ? *StatIDPtr : -1;
 
 	if (!StatIDPtr)
@@ -827,7 +905,7 @@ int32 FServiceConnection::FindOrAddStat( const FStatNameAndInfo& StatNameAndInfo
 		else if (StatName == FStatConstants::NAME_ThreadRoot)
 		{
 			StatID = LongNameToStatID.Add(LongName, 1);
-			GroupName = TEXT( "NoGroup" );
+			GroupName = TEXT("NoGroup");
 		}
 		else
 		{
@@ -839,20 +917,20 @@ int32 FServiceConnection::FindOrAddStat( const FStatNameAndInfo& StatNameAndInfo
 		FStatDescription StatDescription;
 		StatDescription.ID = StatID;
 		StatDescription.Name = !Description.IsEmpty() ? Description : StatName.ToString();
-		if( StatDescription.Name.Contains( TEXT("STAT_") ) )
+		if(StatDescription.Name.Contains(TEXT("STAT_")))
 		{
 			StatDescription.Name = StatDescription.Name.RightChop(FString(TEXT("STAT_")).Len());
 		}
 		StatDescription.StatType = StatType;
 
-		if( GroupName == NAME_None && Stream.Header.Version == EStatMagicNoHeader::NO_VERSION )
+		if(GroupName == NAME_None && Stream.Header.Version == EStatMagicNoHeader::NO_VERSION)
 		{	
 			// @todo Add more ways to group the stats.
-			const int32 Thread_Pos = StatDescription.Name.Find( TEXT("Thread_") );
-			const int32 _0Pos = StatDescription.Name.Find( TEXT("_0") );
+			const int32 Thread_Pos = StatDescription.Name.Find(TEXT("Thread_"));
+			const int32 _0Pos = StatDescription.Name.Find(TEXT("_0"));
 			const bool bIsThread = Thread_Pos != INDEX_NONE && _0Pos > Thread_Pos;
 			// Add a special group for all threads.
-			if( bIsThread )
+			if(bIsThread)
 			{
 				GroupName = TEXT("Threads");
 			}
@@ -863,13 +941,13 @@ int32 FServiceConnection::FindOrAddStat( const FStatNameAndInfo& StatNameAndInfo
 			}
 		}
 
-		int32* const GroupIDPtr = GroupNameArray.Find( GroupName );
+		int32* const GroupIDPtr = GroupNameArray.Find(GroupName);
 		int32 GroupID = GroupIDPtr != nullptr ? *GroupIDPtr : -1;
-		if( !GroupIDPtr )
+		if(!GroupIDPtr)
 		{
 			// add a new group description to the meta data
 			GroupID = GroupNameArray.Add(GroupName, GroupNameArray.Num()+10);
-			check( GroupID != -1 );
+			check(GroupID != -1);
 
 			FStatGroupDescription GroupDescription;
 			GroupDescription.ID = GroupID;
@@ -887,19 +965,20 @@ int32 FServiceConnection::FindOrAddStat( const FStatNameAndInfo& StatNameAndInfo
 	return StatID;
 }
 
+
 int32 FServiceConnection::FindOrAddThread(const FStatNameAndInfo& Thread)
 {
 	SCOPE_CYCLE_COUNTER(STAT_PC_FindOrAddThread);
 
 	// The description of a thread group contains the thread id
 	const FString Desc = Thread.GetDescription();
-	const uint32 ThreadID = FStatsUtils::ParseThreadID( Desc );
+	const uint32 ThreadID = FStatsUtils::ParseThreadID(Desc);
 
 	const FName ShortName = Thread.GetShortName();
 
 	// add to the meta data
 	const int32 OldNum = StatMetaData.ThreadDescriptions.Num();
-	StatMetaData.ThreadDescriptions.Add( ThreadID, ShortName.ToString() );
+	StatMetaData.ThreadDescriptions.Add(ThreadID, ShortName.ToString());
 	const int32 NewNum = StatMetaData.ThreadDescriptions.Num();
 
 	// meta data has been updated
@@ -907,6 +986,7 @@ int32 FServiceConnection::FindOrAddThread(const FStatNameAndInfo& Thread)
 
 	return ThreadID;
 }
+
 
 void FServiceConnection::GenerateAccumulators(TArray<FStatMessage>& Stats, TArray<FProfilerCountAccumulator>& CountAccumulators, TArray<FProfilerFloatAccumulator>& FloatAccumulators)
 {
@@ -918,11 +998,11 @@ void FServiceConnection::GenerateAccumulators(TArray<FStatMessage>& Stats, TArra
 		uint32 StatType = STATTYPE_Error;
 		if (StatMessage.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_int64)
 		{
-			if (StatMessage.NameAndInfo.GetFlag( EStatMetaFlags::IsCycle ))
+			if (StatMessage.NameAndInfo.GetFlag(EStatMetaFlags::IsCycle))
 			{
 				StatType = STATTYPE_CycleCounter;
 			}
-			else if (StatMessage.NameAndInfo.GetFlag( EStatMetaFlags::IsMemory ))
+			else if (StatMessage.NameAndInfo.GetFlag(EStatMetaFlags::IsMemory))
 			{
 				StatType = STATTYPE_MemoryCounter;
 			}
@@ -938,7 +1018,7 @@ void FServiceConnection::GenerateAccumulators(TArray<FStatMessage>& Stats, TArra
 
 		if (StatType != STATTYPE_Error)
 		{
-			const int32 StatId = FindOrAddStat( StatMessage.NameAndInfo, StatType );
+			const int32 StatId = FindOrAddStat(StatMessage.NameAndInfo, StatType);
 
 			if (StatMessage.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_int64)
 			{
@@ -946,7 +1026,7 @@ void FServiceConnection::GenerateAccumulators(TArray<FStatMessage>& Stats, TArra
 				FProfilerCountAccumulator Data;
 				Data.StatId = StatId;
 				Data.Value = StatMessage.GetValue_int64();
-				CountAccumulators.Add( Data );
+				CountAccumulators.Add(Data);
 			}
 			else if (StatMessage.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_double)
 			{
@@ -954,7 +1034,7 @@ void FServiceConnection::GenerateAccumulators(TArray<FStatMessage>& Stats, TArra
 				FProfilerFloatAccumulator Data;
 				Data.StatId = StatId;
 				Data.Value = StatMessage.GetValue_double();
-				FloatAccumulators.Add( Data );
+				FloatAccumulators.Add(Data);
 
 				const FName StatName = StatMessage.NameAndInfo.GetRawName();
 				if (StatName == FStatConstants::RAW_SecondsPerCycle)
@@ -965,6 +1045,7 @@ void FServiceConnection::GenerateAccumulators(TArray<FStatMessage>& Stats, TArra
 		}
 	}
 }
+
 
 void FServiceConnection::CreateGraphRecursively(const FRawStatStackNode* Root, FProfilerCycleGraph& Graph, uint32 InStartCycles)
 {
@@ -989,8 +1070,8 @@ void FServiceConnection::CreateGraphRecursively(const FRawStatStackNode* Root, F
 	uint32 ChildStartCycles = InStartCycles;
 	TArray<FRawStatStackNode*> ChildArray;
 	Root->Children.GenerateValueArray(ChildArray);
-	ChildArray.Sort( FStatDurationComparer<FRawStatStackNode>() );
-	for( int32 Index = 0; Index < ChildArray.Num(); ++Index )
+	ChildArray.Sort(FStatDurationComparer<FRawStatStackNode>());
+	for(int32 Index = 0; Index < ChildArray.Num(); ++Index)
 	{
 		const FRawStatStackNode* ChildStat = ChildArray[Index];
 
@@ -1006,6 +1087,7 @@ void FServiceConnection::CreateGraphRecursively(const FRawStatStackNode* Root, F
 		ChildStartCycles += ChildGraph.Value;
 	}
 }
+
 
 void FServiceConnection::GenerateCycleGraphs(const FRawStatStackNode& Root, TMap<uint32, FProfilerCycleGraph>& CycleGraphs)
 {
@@ -1033,9 +1115,10 @@ void FServiceConnection::GenerateCycleGraphs(const FRawStatStackNode& Root, TMap
 	}
 }
 
+
 void FServiceConnection::GenerateProfilerDataFrame()
 {
-	SCOPE_CYCLE_COUNTER( STAT_PC_GenerateDataFrame );
+	SCOPE_CYCLE_COUNTER(STAT_PC_GenerateDataFrame);
 	FProfilerDataFrame& DataFrame = CurrentData;
 	DataFrame.Frame = CurrentThreadState.CurrentGameFrame;
 	DataFrame.FrameStart = 0.0;
@@ -1047,13 +1130,14 @@ void FServiceConnection::GenerateProfilerDataFrame()
 	// get the stat stack root and the non frame stats
 	FRawStatStackNode Stack;
 	TArray<FStatMessage> NonFrameStats;
-	CurrentThreadState.UncondenseStackStats( CurrentThreadState.CurrentGameFrame, Stack, nullptr, &NonFrameStats );
+	CurrentThreadState.UncondenseStackStats(CurrentThreadState.CurrentGameFrame, Stack, nullptr, &NonFrameStats);
 
 	// cycle graphs
-	GenerateCycleGraphs( Stack, DataFrame.CycleGraphs );
+	GenerateCycleGraphs(Stack, DataFrame.CycleGraphs);
 
 	// accumulators
-	GenerateAccumulators( NonFrameStats, DataFrame.CountAccumulators, DataFrame.FloatAccumulators );
+	GenerateAccumulators(NonFrameStats, DataFrame.CountAccumulators, DataFrame.FloatAccumulators);
 }
+
 
 #endif

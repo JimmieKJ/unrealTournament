@@ -6,6 +6,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AI/Navigation/NavigationTypes.h"
 #include "GameFramework/Volume.h"
 #include "NavMeshBoundsVolume.generated.h"
 

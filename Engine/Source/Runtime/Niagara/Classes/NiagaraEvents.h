@@ -6,11 +6,15 @@ NiagaraSimulation.h: Niagara emitter simulation class
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "NiagaraCommon.h"
 #include "NiagaraDataSet.h"
 #include "NiagaraEvents.generated.h"
 
-struct FNiagaraSimulation;
 struct FNiagaraEventReceiverProperties;
+struct FNiagaraSimulation;
 
 /**
 Base class for actions that an event receiver will perform at the emitter level.

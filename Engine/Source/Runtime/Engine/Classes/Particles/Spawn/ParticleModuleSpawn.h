@@ -2,8 +2,11 @@
 
 
 #pragma once
-#include "Particles/Spawn/ParticleModuleSpawnBase.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/ParticleEmitter.h"
+#include "Particles/Spawn/ParticleModuleSpawnBase.h"
 #include "ParticleModuleSpawn.generated.h"
 
 class UParticleLODLevel;

@@ -2,8 +2,16 @@
 
 #pragma once
 
-#include "AlignmentTemplates.h"
-#include "Allocators/CachedOSPageAllocator.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/MemoryBase.h"
+#include "HAL/UnrealMemory.h"
+#include "Math/NumericLimits.h"
+#include "Templates/AlignmentTemplates.h"
+#include "HAL/CriticalSection.h"
+#include "HAL/PlatformTLS.h"
+#include "HAL/Allocators/CachedOSPageAllocator.h"
+#include "HAL/PlatformMath.h"
 
 #define BINNED2_MAX_CACHED_OS_FREES (64)
 #if PLATFORM_64BITS
@@ -409,7 +417,7 @@ public:
 					{
 						if (Result && Ptr)
 						{
-							FMemory::Memcpy(Result, Ptr, FMath::Min<SIZE_T>(NewSize, BlockSize));
+							FMemory::Memcpy(Result, Ptr, FPlatformMath::Min<SIZE_T>(NewSize, BlockSize));
 						}
 						if (Ptr)
 						{
@@ -458,7 +466,7 @@ public:
 	FORCEINLINE virtual SIZE_T QuantizeSize(SIZE_T Count, uint32 Alignment) override
 	{
 		static_assert(DEFAULT_ALIGNMENT <= BINNED2_MINIMUM_ALIGNMENT, "DEFAULT_ALIGNMENT is assumed to be zero"); // used below
-		checkSlow(FMath::IsPowerOfTwo(Alignment));
+		checkSlow((Alignment & (Alignment - 1)) == 0); // Check the alignment is a power of two
 		SIZE_T SizeOut;
 		if ((Count <= BINNED2_MAX_SMALL_POOL_SIZE) & (Alignment <= BINNED2_MINIMUM_ALIGNMENT)) // one branch, not two
 		{
@@ -466,7 +474,7 @@ public:
 		}
 		else
 		{
-			Alignment = FMath::Max<uint32>(Alignment, OsAllocationGranularity);
+			Alignment = FPlatformMath::Max<uint32>(Alignment, OsAllocationGranularity);
 			checkSlow(Alignment <= PageSize);
 			SizeOut = Align(Count, Alignment);
 		}

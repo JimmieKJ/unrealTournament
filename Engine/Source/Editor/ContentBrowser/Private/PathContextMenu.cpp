@@ -1,20 +1,45 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ContentBrowserPCH.h"
-#include "PathViewTypes.h"
 #include "PathContextMenu.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/ObjectRedirector.h"
+#include "Misc/PackageName.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
+#include "AssetData.h"
+#include "Editor.h"
+#include "FileHelpers.h"
+#include "ARFilter.h"
+#include "AssetRegistryModule.h"
+#include "IAssetTools.h"
+#include "AssetToolsModule.h"
+#include "ContentBrowserLog.h"
+#include "ContentBrowserSingleton.h"
+#include "ContentBrowserUtils.h"
 #include "SourceControlWindows.h"
 #include "ContentBrowserModule.h"
 #include "ReferenceViewer.h"
 #include "ISizeMapModule.h"
-#include "AssetToolsModule.h"
-#include "Editor/UnrealEd/Public/PackageTools.h"
-#include "SColorPicker.h"
-#include "GenericCommands.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Colors/SColorPicker.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "NativeClassHierarchy.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "ContentBrowserCommands.h"
 
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
@@ -208,11 +233,10 @@ void FPathContextMenu::MakePathViewContextMenu(FMenuBuilder& MenuBuilder)
 			MenuBuilder.BeginSection("PathContextBulkOperations", LOCTEXT("AssetTreeBulkMenuHeading", "Bulk Operations") );
 			{
 				// Save
-				MenuBuilder.AddMenuEntry(
+				MenuBuilder.AddMenuEntry(FContentBrowserCommands::Get().SaveAllCurrentFolder, NAME_None,
 					LOCTEXT("SaveFolder", "Save All"),
 					LOCTEXT("SaveFolderTooltip", "Saves all modified assets in this folder."),
-					FSlateIcon(),
-					FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSaveFolder ) )
+					FSlateIcon()
 					);
     
 				// Delete

@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "IPropertyTypeCustomization.h"
+
+class IPropertyHandle;
+class SEditableTextBox;
 
 namespace EPropertyEditorGuidActions
 {

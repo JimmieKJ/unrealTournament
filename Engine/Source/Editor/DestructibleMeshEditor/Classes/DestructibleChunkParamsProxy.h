@@ -2,9 +2,14 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "Runtime/Engine/Classes/Engine/DestructibleFractureSettings.h"
 #include "DestructibleChunkParamsProxy.generated.h"
 
+class IDestructibleMeshEditor;
+class UDestructibleMesh;
 
 UCLASS()
 class UDestructibleChunkParamsProxy : public UObject

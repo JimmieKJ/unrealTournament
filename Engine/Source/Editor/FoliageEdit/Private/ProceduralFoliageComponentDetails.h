@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Input/Reply.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class UProceduralFoliageComponent;
+
 class FProceduralFoliageComponentDetails : public IDetailCustomization
 {
 public:

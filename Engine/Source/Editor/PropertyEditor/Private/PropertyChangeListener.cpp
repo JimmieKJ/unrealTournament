@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "PropertyEditorPrivatePCH.h"
 #include "PropertyChangeListener.h"
+#include "UObject/UnrealType.h"
+#include "PropertyNode.h"
 #include "ObjectPropertyNode.h"
 #include "PropertyEditorHelpers.h"
 
@@ -78,7 +79,9 @@ public:
 		UProperty* Property = PropertyNodeRef.GetProperty();
 		{
 			// Not supported yet
-			check( !Property->IsA( UArrayProperty::StaticClass() ) )
+			check( !Property->IsA( UArrayProperty::StaticClass() ) );
+			check( !Property->IsA( USetProperty::StaticClass() ) );
+			check( !Property->IsA( UMapProperty::StaticClass() ) );
 
 			if( PropertyNodeRef.GetArrayIndex() == INDEX_NONE && Property->ArrayDim > 1 )
 			{
@@ -113,10 +116,31 @@ public:
 		if ( PropertyValueAddresses.BaseAddress != nullptr && PropertyValueAddresses.Address != nullptr )
 		{
 			UArrayProperty* OuterArrayProperty = Cast<UArrayProperty>( Property->GetOuter() );
+			USetProperty* OuterSetProperty = Cast<USetProperty>( Property->GetOuter() );
+			UMapProperty* OuterMapProperty = Cast<UMapProperty>( Property->GetOuter() );
+
 			if ( OuterArrayProperty != NULL )
 			{
 				// make sure we're not trying to compare against an element that doesn't exist
 				if ( PropertyNodeRef.GetArrayIndex() >= FScriptArrayHelper::Num( PropertyValueAddresses.BaseAddress ) )
+				{
+					bPropertyValid = false;
+				}
+			}
+			else if ( OuterSetProperty != NULL )
+			{
+				FScriptSetHelper SetHelper(OuterSetProperty, PropertyValueAddresses.BaseAddress);
+				
+				if ( !SetHelper.IsValidIndex(PropertyNodeRef.GetArrayIndex()) )
+				{
+					bPropertyValid = false;
+				}
+			}
+			else if ( OuterMapProperty != NULL )
+			{
+				FScriptMapHelper MapHelper(OuterMapProperty, PropertyValueAddresses.BaseAddress);
+
+				if ( !MapHelper.IsValidIndex(PropertyNodeRef.GetArrayIndex()) )
 				{
 					bPropertyValid = false;
 				}
@@ -164,10 +188,12 @@ private:
 
 		FPropertyNode* ParentNode = PropertyNodeRef.GetParentNode();
 		UArrayProperty* OuterArrayProp = Cast<UArrayProperty>( Property->GetOuter() );
+		USetProperty* OuterSetProp = Cast<USetProperty>( Property->GetOuter() );
+		UMapProperty* OuterMapProp = Cast<UMapProperty>( Property->GetOuter() );
 
 		FPropertyValueAddresses ValueAddresses;
 
-		ValueAddresses.BaseAddress = OuterArrayProp == NULL
+		ValueAddresses.BaseAddress = (OuterArrayProp == NULL && OuterSetProp == NULL && OuterMapProp == NULL)
 			? PropertyNodeRef.GetValueBaseAddress( PropertyValueRoot.ValueAddress )
 			: ParentNode->GetValueBaseAddress( PropertyValueRoot.ValueAddress );
 
@@ -275,7 +301,7 @@ void FPropertyChangeListener::CreatePropertyCaches( TSharedRef<FPropertyNode>& P
 		// Check whether or not we should ignore object properties
 		bool bValidProperty = ( !PropertyListenerSettings.bIgnoreObjectProperties || !Property->IsA( UObjectPropertyBase::StaticClass() ) );
 		// Check whether or not we should ignore array properties
-		bValidProperty &= ( !PropertyListenerSettings.bIgnoreArrayProperties || !Property->IsA(UArrayProperty::StaticClass() ) );
+		bValidProperty &= ( !PropertyListenerSettings.bIgnoreArrayProperties || ! ( Property->IsA(UArrayProperty::StaticClass()) || Property->IsA(USetProperty::StaticClass()) || Property->IsA(UMapProperty::StaticClass()) ) );
 		// Check whether or not the required property flags are set
 		bValidProperty &= ( PropertyListenerSettings.RequiredPropertyFlags == 0 || Property->HasAllPropertyFlags( PropertyListenerSettings.RequiredPropertyFlags ) );
 		// Check to make sure the disallowed property flags are not set

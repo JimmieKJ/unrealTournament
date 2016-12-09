@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MacTargetPlatformPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "GenericMacTargetPlatform.h"
 #include "ModuleManager.h"
 #include "ISettingsModule.h"
-
+#include "Interfaces/ITargetPlatformModule.h"
+#include "Modules/ModuleManager.h"
+#include "MacTargetSettings.h"
+#include "UObject/Package.h"
+#include "UObject/WeakObjectPtr.h"
 
 #define LOCTEXT_NAMESPACE "FMacTargetPlatformModule"
 

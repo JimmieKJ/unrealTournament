@@ -27,6 +27,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "Commandlet.generated.h"
 
 UCLASS(abstract, transient,MinimalAPI)

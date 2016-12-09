@@ -9,8 +9,6 @@
   <Products />
   <Eula />
   <RedistributeTo />
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
   <Notification>
 Redirect: ../../../Runtime/Core/Private/Android/AndroidOpenSourceProject.tps
 Notes:

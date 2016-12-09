@@ -1,9 +1,6 @@
 <?xml version='1.0' ?>
 <BuildGraph xmlns="http://www.epicgames.com/BuildGraph" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.epicgames.com/BuildGraph ../../Engine/Build/Graph/Schema.xsd" >
 
-	<!-- The output directory to store zip files and full symbols -->
-	<Option Name="PublishDir" DefaultValue="$(RootDir)/LocalBuilds/Engine" Description="Root directory to contain published builds and symbols"/>
-	
 	<!-- Helper option to make installed build for host platform only -->
 	<Option Name="HostPlatformOnly" Restrict="true|false" DefaultValue="false" Description="A helper option to make an installed build for your host platform only, so that you don't have to disable each platform individually"/>
 	
@@ -18,6 +15,7 @@
 	<Option Name="WithHTML5" Restrict="true|false" DefaultValue="true" Description="Include the HTML5 target platform"/>
 	<Option Name="WithPS4" Restrict="true|false" DefaultValue="false" Description="Include the PS4 target platform"/>
 	<Option Name="WithXboxOne" Restrict="true|false" DefaultValue="false" Description="Include the XboxOne target platform"/>
+	<Option Name="WithSwitch" Restrict="true|false" DefaultValue="false" Description="Include the Switch target platform"/>
 
 	<!-- Whether to create a prebuilt DDC -->
 	<Option Name="WithDDC" Restrict="true|false" DefaultValue="true" Description="Build a standalone derived-data cache for the engine content and templates" />
@@ -27,6 +25,8 @@
 
 	<!-- The analytics type -->
 	<Option Name="AnalyticsTypeOverride" DefaultValue="" Description="Identifier for analytic events to send"/>
+
+	<Option Name="EnableSymStore" Restrict="true|false" DefaultValue="false" Description="Whether to add Source indexing to Windows game apps so they can be added to a symbol server"/>
 
 	<Do If="'$(HostPlatformOnly)' == true">
 		<!-- Activate correct Target Platforms for host -->
@@ -60,11 +60,13 @@
 		<Property Name="WithHTML5" Value="false"/>
 		<Property Name="WithPS4" Value="false"/>
 		<Property Name="WithXboxOne" Value="false"/>
+		<Property Name="WithSwitch" Value="false"/>
 	</Do>
 
 	<!-- The local output directory -->
 	<Property Name="LocalInstalledDir" Value="$(RootDir)/LocalBuilds/Engine/Windows"/>
 	<Property Name="LocalInstalledDirMac" Value="$(RootDir)/LocalBuilds/Engine/Mac"/>
+	<Property Name="LocalInstalledDirLinux" Value="$(RootDir)/LocalBuilds/Engine/Linux"/>
 
 	<!-- Directory for storing build products like the Compressed DDC, Stripped and Signed files -->
 	<Property Name="SavedOutput" Value="$(RootDir)/Saved"/>
@@ -88,12 +90,19 @@
 		<Node Name="Compile UE4Editor Win64" Requires="Compile UnrealHeaderTool Win64" Produces="#UE4Editor Win64;#UE4Editor Win64 Unstripped;#UE4Editor Win64 Stripped;#UE4Editor Win64 Unsigned;#UE4Editor Win64 Signed;#UE4Editor Win64 Includes">
 			<Compile Target="UE4Editor" Platform="Win64" Configuration="Development" Tag="#UE4Editor Win64" Arguments="-precompile"/>
 
+			<Do If="$(EnableSymStore)">
+				<!-- Embed source info into the PDB files. Should be done from this machine to ensure that paths are correct. -->
+				<Log Message="Embedding source file information into PDB files..."/>
+				<Tag Files="Engine/Source/...;Engine/Plugins/..." Filter="*.c;*.h;*.cpp;*.hpp;*.inl" Except="Engine/Source/ThirdParty/..." With="#SourceFiles"/>
+				<SrcSrv BinaryFiles="#UE4Editor Win64" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)"/>
+			</Do>
+
 			<Tag Files="#UE4Editor Win64" Filter="$(Win64StripFilter)" Except="$(Win64StripExceptions)" With="#UE4Editor Win64 Unstripped"/>
 			<Strip BaseDir="$(RootDir)" OutputDir="$(SavedOutput)" Platform="Win64" Files="#UE4Editor Win64 Unstripped" Tag="#UE4Editor Win64 Stripped"/>
 
 			<Do If="'$(SignExecutables)' == true">
 				<Tag Files="#UE4Editor Win64" Filter="$(WindowsSignFilter)" With="#UE4Editor Win64 Unsigned"/>
-				<Copy Files="#UE4Editor Win64 Unsigned" FromDir="$(RootDir)" ToDir="$(SavedOutput)" Tag="#Editor_ToSign_Win64"/>
+				<Copy Files="#UE4Editor Win64 Unsigned" From="$(RootDir)" To="$(SavedOutput)" Tag="#Editor_ToSign_Win64"/>
 				<Sign Files="#Editor_ToSign_Win64" Tag="#UE4Editor Win64 Signed"/>
 			</Do>
 
@@ -116,7 +125,7 @@
 
 			<Do If="'$(SignExecutables)' == true">
 				<Tag Files="#UE4Editor Mac" Filter="$(MacSignFilter)" With="#UE4Editor Mac Unsigned"/>
-				<Copy Files="#UE4Editor Mac Unsigned" FromDir="$(RootDir)" ToDir="$(SavedOutput)" Tag="#Editor_ToSign_Mac"/>
+				<Copy Files="#UE4Editor Mac Unsigned" From="$(RootDir)" To="$(SavedOutput)" Tag="#Editor_ToSign_Mac"/>
 				<Sign Files="#Editor_ToSign_Mac" Tag="#UE4Editor Mac Signed"/>
 			</Do>
 		
@@ -148,12 +157,19 @@
 			<Compile Target="UE4Game" Platform="Win64" Configuration="Development" Tag="#UE4Game Win64" Arguments="-precompile -nodebuginfo"/>
 			<Compile Target="UE4Game" Platform="Win64" Configuration="Shipping" Tag="#UE4Game Win64" Arguments="-precompile -nodebuginfo"/>
 
+			<Do If="$(EnableSymStore)">
+				<!-- Embed source info into the PDB files. Should be done from this machine to ensure that paths are correct. -->
+				<Log Message="Embedding source file information into PDB files..."/>
+				<Tag Files="Engine/Source/...;Engine/Plugins/..." Filter="*.c;*.h;*.cpp;*.hpp;*.inl" Except="Engine/Source/ThirdParty/..." With="#SourceFiles"/>
+				<SrcSrv BinaryFiles="#UE4Game Win64" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)"/>
+			</Do>
+
 			<Tag Files="#UE4Game Win64" Filter="$(Win64StripFilter)" Except="$(Win64StripExceptions)" With="#UE4Game Win64 Unstripped"/>
 			<Strip BaseDir="$(RootDir)" OutputDir="$(SavedOutput)" Platform="Win64" Files="#UE4Game Win64 Unstripped" Tag="#UE4Game Win64 Stripped"/>
 
 			<Do If="'$(SignExecutables)' == true">
 				<Tag Files="#UE4Game Win64" Filter="$(WindowsSignFilter)" With="#UE4Game Win64 Unsigned"/>
-				<Copy Files="#UE4Game Win64 Unsigned" FromDir="$(RootDir)" ToDir="$(SavedOutput)" Tag="#Game_ToSign_Win64"/>
+				<Copy Files="#UE4Game Win64 Unsigned" From="$(RootDir)" To="$(SavedOutput)" Tag="#Game_ToSign_Win64"/>
 				<Sign Files="#Game_ToSign_Win64" Tag="#UE4Game Win64 Signed"/>
 			</Do>
 		
@@ -166,12 +182,19 @@
 			<Compile Target="UE4Game" Platform="Win32" Configuration="Development" Tag="#UE4Game Win32" Arguments="-precompile -nodebuginfo"/>
 			<Compile Target="UE4Game" Platform="Win32" Configuration="Shipping" Tag="#UE4Game Win32" Arguments="-precompile -nodebuginfo"/>
 
+			<Do If="$(EnableSymStore)">
+				<!-- Embed source info into the PDB files. Should be done from this machine to ensure that paths are correct. -->
+				<Log Message="Embedding source file information into PDB files..."/>
+				<Tag Files="Engine/Source/...;Engine/Plugins/..." Filter="*.c;*.h;*.cpp;*.hpp;*.inl" Except="Engine/Source/ThirdParty/..." With="#SourceFiles"/>
+				<SrcSrv BinaryFiles="#UE4Game Win32" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)"/>
+			</Do>
+
 			<Tag Files="#UE4Game Win32" Filter="$(Win32StripFilter)" With="#UE4Game Win32 Unstripped"/>
 			<Strip BaseDir="$(RootDir)" OutputDir="$(SavedOutput)" Platform="Win32" Files="#UE4Game Win32 Unstripped" Tag="#UE4Game Win32 Stripped"/>
 
 			<Do If="'$(SignExecutables)' == true">
 				<Tag Files="#UE4Game Win32" Filter="$(WindowsSignFilter)" With="#UE4Game Win32 Unsigned"/>
-				<Copy Files="#UE4Game Win32 Unsigned" FromDir="$(RootDir)" ToDir="$(SavedOutput)" Tag="#Game_ToSign_Win32"/>
+				<Copy Files="#UE4Game Win32 Unsigned" From="$(RootDir)" To="$(SavedOutput)" Tag="#Game_ToSign_Win32"/>
 				<Sign Files="#Game_ToSign_Win32" Tag="#UE4Game Win32 Signed"/>
 			</Do>
 
@@ -229,6 +252,15 @@
 			<!-- Tag the generated includes for this target -->
 			<Tag Files="Engine/Intermediate/Build/XboxOne/UE4/Inc/...;Engine/Plugins/.../Intermediate/Build/XboxOne/UE4/Inc/..." With="#UE4Game XboxOne Includes"/>
 		</Node>
+	
+		<!-- Downstream monolithics Switch -->
+		<Node Name="Compile UE4Game Switch" Requires="Compile UnrealHeaderTool Win64" Produces="#UE4Game Switch;#UE4Game Switch Includes" If="'$(WithSwitch)' == true">
+			<Compile Target="UE4Game" Platform="Switch" Configuration="Development" Tag="#UE4Game Switch" Arguments="-precompile"/>
+			<Compile Target="UE4Game" Platform="Switch" Configuration="Shipping" Tag="#UE4Game Switch" Arguments="-precompile"/>
+
+			<!-- Tag the generated includes for this target -->
+			<Tag Files="Engine/Intermediate/Build/Switch/UE4/Inc/...;Engine/Plugins/.../Intermediate/Build/Switch/UE4/Inc/..." With="#UE4Game Switch Includes"/>
+		</Node>
 	</Agent>
 
 	<!-- Target Platforms normally built from a Mac machine -->
@@ -243,7 +275,7 @@
 
 			<Do If="'$(SignExecutables)' == true">
 				<Tag Files="#UE4Game Mac" Filter="$(MacSignFilter)" With="#UE4Game Mac Unsigned"/>
-				<Copy Files="#UE4Game Mac Unsigned" FromDir="$(RootDir)" ToDir="$(SavedOutput)" Tag="#Game_ToSign_Mac"/>
+				<Copy Files="#UE4Game Mac Unsigned" From="$(RootDir)" To="$(SavedOutput)" Tag="#Game_ToSign_Mac"/>
 				<Sign Files="#Game_ToSign_Mac" Tag="#UE4Game Mac Signed"/>
 			</Do>
 
@@ -289,14 +321,25 @@
 			<Compile Target="BootstrapPackagedGame" Configuration="Shipping" Platform="Win32" Tag="#Build Tools Win64"/>
 			<Compile Target="BootstrapPackagedGame" Configuration="Shipping" Platform="Win64" Tag="#Build Tools Win64"/>
 			<Compile Target="BuildPatchTool" Configuration="Shipping" Platform="Win64" Tag="#Build Tools Win64"/>
+
+			<Do If="$(EnableSymStore)">
+				<!-- Embed source info into the PDB files. Should be done from this machine to ensure that paths are correct. -->
+				<Log Message="Embedding source file information into PDB files..."/>
+				<Tag Files="Engine/Source/...;Engine/Plugins/..." Filter="*.c;*.h;*.cpp;*.hpp;*.inl" Except="Engine/Source/ThirdParty/..." With="#SourceFiles"/>
+				<SrcSrv BinaryFiles="#Build Tools Win64" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)"/>
+			</Do>
 		</Node>
 		<Node Name="Build Tools CS">
-			<CsCompile Project="Engine/Source/Editor/SwarmInterface/DotNET/SwarmInterface.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
-			<CsCompile Project="Engine/Source/Programs/UnrealSwarm/SwarmCoordinator/SwarmCoordinator.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
-			<CsCompile Project="Engine/Source/Programs/UnrealSwarm/Agent/Agent.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
-			<CsCompile Project="Engine/Source/Programs/NetworkProfiler/NetworkProfiler/NetworkProfiler.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
-			<CsCompile Project="Engine/Source/Programs/UnrealControls/UnrealControls.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
-			<CsCompile Project="Engine/Source/Programs/IOS/iPhonePackager/iPhonePackager.csproj" Configuration="Development" Platform="AnyCPU" Arguments="/verbosity:minimal /target:Rebuild" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
+            <Do If="'$(HostPlatform)' == 'Win64'">
+                <CsCompile Project="Engine/Source/Editor/SwarmInterface/DotNET/SwarmInterface.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
+                <CsCompile Project="Engine/Source/Programs/UnrealSwarm/SwarmCoordinator/SwarmCoordinator.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
+                <CsCompile Project="Engine/Source/Programs/UnrealSwarm/Agent/Agent.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
+                <CsCompile Project="Engine/Source/Programs/PS4/PS4DevKitUtil/PS4DevKitUtil.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS" If="'$(WithPS4)' == true"/>
+                <!-- TODO: Change these projects so that they can be compiled on non-windows platforms (currently use WinForms) -->
+                <CsCompile Project="Engine/Source/Programs/UnrealControls/UnrealControls.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
+                <CsCompile Project="Engine/Source/Programs/IOS/iPhonePackager/iPhonePackager.csproj" Configuration="Development" Platform="AnyCPU" Arguments="/verbosity:minimal /target:Rebuild" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
+            </Do>
+			<CsCompile Project="Engine/Source/Programs/NetworkProfiler/NetworkProfiler/NetworkProfiler.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS" If="'$(HostPlatform)' != 'Linux'"/>
 			<CsCompile Project="Engine/Source/Programs/IOS/DeploymentServer/DeploymentServer.csproj" Configuration="Development" Platform="AnyCPU" Arguments="/verbosity:minimal /target:Rebuild" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
 			<CsCompile Project="Engine/Source/Programs/IOS/MobileDeviceInterface/MobileDeviceInterface.csproj" Configuration="Development" Platform="AnyCPU" Arguments="/verbosity:minimal /target:Rebuild" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
 			<CsCompile Project="Engine/Source/Programs/IOS/DeploymentInterface/DeploymentInterface.csproj" Configuration="Development" Platform="AnyCPU" Arguments="/verbosity:minimal /target:Rebuild" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
@@ -314,6 +357,7 @@
 		</Node>
 		<Node Name="Build Tools Linux" Requires="Compile UnrealHeaderTool $(HostPlatform)">
 			<Compile Target="CrashReportClient" Platform="Linux" Configuration="Shipping"/>
+			<Compile Target="ShaderCompileWorker" Configuration="Development" Platform="Linux" Tag="#Build Tools Linux"/>
 		</Node>
 	</Agent>
 
@@ -341,9 +385,10 @@
 	<Property Name="CookPlatformsWin64" Value="$(CookPlatformsWin64)+HTML5" If="'$(WithHTML5)' == true"/>
 	<Property Name="CookPlatformsWin64" Value="$(CookPlatformsWin64)+PS4" If="'$(WithPS4)' == true"/>
 	<Property Name="CookPlatformsWin64" Value="$(CookPlatformsWin64)+XboxOne" If="'$(WithXboxOne)' == true"/>
+	<Property Name="CookPlatformsWin64" Value="$(CookPlatformsWin64)+Switch" If="'$(WithSwitch)' == true"/>
 
 	<Agent Name="DDC Group Win64" Type="Win64">
-		<Node Name="Build DDC Win64" Requires="Compile UE4Editor Win64;Build Tools Win64;Build Tools CS" Produces="#CompressedDDCWin64">
+		<Node Name="Build DDC Win64" Requires="#UE4Editor Win64;Build Tools Win64;Build Tools CS" Produces="#CompressedDDCWin64">
 			<!-- Get our temp dir -->
 			<Property Name="DDCDir" Value="$(RootDir)\LocalBuilds\InstalledDDC"/>
 			<Property Name="SavedDir" Value="$(SavedOutput)\Installed\Win64"/>
@@ -367,7 +412,7 @@
 			<Tag Files="Engine\Build\NotForLicensees\EpicInternal.txt" With="#FilteredCopyList" If="Exists('Engine\Build\NotForLicensees\EpicInternal.txt')"/>
 			<Tag Files="Engine\Binaries\...\*DDCUtils*" With="#FilteredCopyList"/>
 			<!-- Copy everything to a temporary directory -->
-			<Copy FromDir="$(RootDir)" ToDir="$(DDCDir)" Files="#FilteredCopyList"/>
+			<Copy From="$(RootDir)" To="$(DDCDir)" Files="#FilteredCopyList"/>
 
 			<Command Name="BuildDerivedDataCache" Arguments="-TempDir=$(DDCDir) -FeaturePacks=$(ProjectsToBuildDDC) -TargetPlatforms=$(CookPlatformsWin64) -HostPlatform=Win64 -SavedDir=$(SavedDir)"/>
 
@@ -383,7 +428,7 @@
 	<Property Name="CookPlatformsMac" Value="$(CookPlatformsMac)+HTML5" If="'$(WithHTML5)' == true"/>
 
 	<Agent Name="DDC Group Mac" Type="Mac">
-		<Node Name="Build DDC Mac" Requires="Compile UE4Editor Mac;Build Tools Mac;Build Tools CS" Produces="#CompressedDDCMac">
+		<Node Name="Build DDC Mac" Requires="#UE4Editor Mac;Build Tools Mac;Build Tools CS" Produces="#CompressedDDCMac">
 			<!-- Get our temp dir -->
 			<Property Name="DDCDir" Value="$(RootDir)/LocalBuilds/InstalledDDC"/>
 			<Property Name="SavedDir" Value="$(SavedOutput)/Installed/Mac"/>
@@ -407,7 +452,7 @@
 			<Tag Files="Engine/Build/NotForLicensees/EpicInternal.txt" With="#FilteredCopyList" If="Exists('Engine/Build/NotForLicensees/EpicInternal.txt')"/>
 			<Tag Files="Engine/Binaries/.../*DDCUtils*" With="#FilteredCopyList"/>
 			<!-- Copy everything to a temporary directory -->
-			<Copy FromDir="$(RootDir)" ToDir="$(DDCDir)" Files="#FilteredCopyList"/>
+			<Copy From="$(RootDir)" To="$(DDCDir)" Files="#FilteredCopyList"/>
 
 			<Command Name="BuildDerivedDataCache" Arguments="-TempDir=$(DDCDir) -FeaturePacks=$(ProjectsToBuildDDC) -TargetPlatforms=$(CookPlatformsMac) -HostPlatform=Mac -SavedDir=$(SavedDir)"/>
 
@@ -419,7 +464,7 @@
 	<Property Name="CookPlatformsLinux" Value="$(CookPlatformsWin64)+LinuxNoEditor" If="'$(WithLinux)' == true"/>
 
 	<Agent Name="DDC Group Linux" Type="Linux">
-		<Node Name="Build DDC Linux" Requires="Compile UE4Editor Linux;Build Tools Linux;Build Tools CS" Produces="#CompressedDDCLinux">
+		<Node Name="Build DDC Linux" Requires="#UE4Editor Linux;Build Tools Linux;Build Tools CS" Produces="#CompressedDDCLinux">
 			<!-- Get our temp dir -->
 			<Property Name="DDCDir" Value="$(RootDir)/LocalBuilds/InstalledDDC"/>
 			<Property Name="SavedDir" Value="$(SavedOutput)/Installed/Linux"/>
@@ -443,7 +488,7 @@
 			<Tag Files="Engine/Build/NotForLicensees/EpicInternal.txt" With="#FilteredCopyList" If="Exists('Engine/Build/NotForLicensees/EpicInternal.txt')"/>
 			<Tag Files="Engine/Binaries/.../*DDCUtils*" With="#FilteredCopyList"/>
 			<!-- Copy everything to a temporary directory -->
-			<Copy FromDir="$(RootDir)" ToDir="$(DDCDir)" Files="#FilteredCopyList"/>
+			<Copy From="$(RootDir)" To="$(DDCDir)" Files="#FilteredCopyList"/>
 
 			<Command Name="BuildDerivedDataCache" Arguments="-TempDir=$(DDCDir) -FeaturePacks=$(ProjectsToBuildDDC) -TargetPlatforms=$(CookPlatformsLinux) -HostPlatform=Linux -SavedDir=$(SavedDir)"/>
 
@@ -464,6 +509,7 @@
 		<Property Name="InstalledRequirements" Value="$(InstalledRequirements);#UE4Game HTML5;#UE4Game HTML5 Includes" If="'$(WithHTML5)' == true"/>
 		<Property Name="InstalledRequirements" Value="$(InstalledRequirements);#UE4Game PS4;#UE4Game PS4 Includes" If="'$(WithPS4)' == true"/>
 		<Property Name="InstalledRequirements" Value="$(InstalledRequirements);#UE4Game XboxOne;#UE4Game XboxOne Includes" If="'$(WithXboxOne)' == true"/>
+		<Property Name="InstalledRequirements" Value="$(InstalledRequirements);#UE4Game Switch;#UE4Game Switch Includes" If="'$(WithSwitch)' == true"/>
 		<Property Name="InstalledRequirements" Value="$(InstalledRequirements);#CompressedDDCWin64" If="'$(WithDDC)' == true"/>
 		<!-- Feature packs -->
 		<Property Name="InstalledRequirements" Value="$(InstalledRequirements);Make Feature Packs"/>
@@ -540,6 +586,11 @@
 				<Property Name="CopyInstalledFilter" Value="$(CopyInstalledFilter);$(CopyXboxOneFilter)"/>
 				<Property Name="CopyInstalledExceptions" Value="$(CopyInstalledExceptions);$(CopyXboxOneExceptions)"/>
 			</Do>
+			<Do If="'$(WithSwitch)' == true">
+				<Tag Files="#UE4Game Switch;#UE4Game Switch Includes" With="#Installed Win64"/>
+				<Property Name="CopyInstalledFilter" Value="$(CopyInstalledFilter);$(CopySwitchFilter)"/>
+				<Property Name="CopyInstalledExceptions" Value="$(CopyInstalledExceptions);$(CopySwitchExceptions)"/>
+			</Do>
 
 			<!-- Tag any dependencies from all previous build products -->
 			<Tag Files="#Installed Win64" Filter="*.target" With="#TargetReceipts"/>
@@ -561,24 +612,24 @@
 
 			<!-- Tag files that need to be copied directly -->
 			<Tag Files="#Installed Win64" Except="$(CopyInstalledExceptions);#Strip Tools for Installed Win64;#Sign Tools for Installed Win64" With="#Copy for Installed Win64"/>
-			<Copy Files="#Copy for Installed Win64" FromDir="$(RootDir)" ToDir="$(LocalInstalledDir)" Tag="#Installed Build Win64 Files"/>
+			<Copy Files="#Copy for Installed Win64" From="$(RootDir)" To="$(LocalInstalledDir)" Tag="#Installed Build Win64 Files"/>
 
 			<!-- Tag saved output that needs to be copied directly -->
 			<Tag BaseDir="$(SavedOutput)" Files="#Saved Output" Except="$(CopyInstalledExceptions)" With="#Copy Saved Output"/>
-			<Copy Files="#Copy Saved Output" FromDir="$(SavedOutput)" ToDir="$(LocalInstalledDir)" Tag="#Installed Build Win64 Files"/>
+			<Copy Files="#Copy Saved Output" From="$(SavedOutput)" To="$(LocalInstalledDir)" Tag="#Installed Build Win64 Files"/>
 
 			<!-- Strip required files into their final location -->
 			<Strip Files="#Strip Tools for Installed Win64" BaseDir="$(RootDir)" OutputDir="$(LocalInstalledDir)" Platform="Win64" Tag="#Installed Build Win64 Files"/>
 
 			<Do If="'$(SignExecutables)' == true">
 				<!-- Copy then Sign required files in their final location -->
-				<Copy Files="#Sign Tools for Installed Win64" FromDir="$(RootDir)" ToDir="$(LocalInstalledDir)" Tag="#Files to Sign"/>
+				<Copy Files="#Sign Tools for Installed Win64" From="$(RootDir)" To="$(LocalInstalledDir)" Tag="#Files to Sign"/>
 				<Sign Files="#Files to Sign" Tag="#Installed Build Win64 Files"/>
 			</Do>
 
 			<!-- Copy the compressed DDC -->
 			<Property Name="SavedDir" Value="$(SavedOutput)\Installed\Win64"/>
-			<Copy Files="#CompressedDDCWin64" FromDir="$(SavedDir)" ToDir="$(LocalInstalledDir)" If="'$(WithDDC)' == true" Tag="#Installed Build Win64 Files"/>
+			<Copy Files="#CompressedDDCWin64" From="$(SavedDir)" To="$(LocalInstalledDir)" If="'$(WithDDC)' == true" Tag="#Installed Build Win64 Files"/>
 
 			<!-- List all of the platforms that we only allow for content projects -->
 			<Property Name="ContentOnlyPlatforms" Value="Linux"/>
@@ -590,37 +641,6 @@
 			<!-- Finalize the build and then tag the text file that this process creates -->
 			<Command Name="FinalizeInstalledBuild" Arguments="-OutputDir=$(LocalInstalledDir) -ContentOnlyPlatforms=$(ContentOnlyPlatforms) $(ArchitectureCommands) -AnalyticsTypeOverride=$(AnalyticsTypeOverride)"/>
 			<Tag Files="$(LocalInstalledDir)/Engine/Build/InstalledBuild.txt" With="#Installed Build Win64 Files"/>
-		</Node>
-
-		<Node Name="Publish Installed Build Win64" Requires="#Installed Build Win64 Files" Produces="#Published Installed Build Win64">
-			<!-- Create a zip file containing the install -->
-			<Zip FromDir="$(LocalInstalledDir)" ZipFile="FullInstall.zip" Tag="#Zipped Installs"/>
-
-			<!-- Tag the files we need just to run the editor -->
-			<Tag BaseDir="$(LocalInstalledDir)" Files="Engine/..." Except="Engine/Binaries/...;Engine/Source/.../Private/...;*.pdb" With="#EditorOnly"/>
-			<Tag BaseDir="$(LocalInstalledDir)" Files="Engine/Binaries/DotNET/...;Engine/Binaries/ThirdParty/...;Engine/Binaries/Win64/..." Except="*.lib;*.a;*.pdb" With="#EditorOnly"/>
-
-			<!-- Create a zip file containing the editor install -->
-			<Zip FromDir="$(LocalInstalledDir)" Files="#EditorOnly" ZipFile="EditorInstall.zip" Tag="#Zipped Installs"/>
-			
-			<!-- Copy the files to their final location -->
-			<Copy Files="#Zipped Installs" FromDir="$(RootDir)" ToDir="$(PublishDir)/WindowsZips" Tag="#Published Installed Build Win64"/>
-			<Delete Files="#Zipped Installs"/>
-		</Node>
-
-		<!-- Build up a list of requirements as some can be optional -->
-		<Property Name="SymbolRequirements" Value="#Compile UnrealHeaderTool Win64;#UE4Editor Win64;#Build Tools Win64;#Build Tools CS"/>
-		<!-- Only include Target Platforms that will be built on Win64 machines -->
-		<Property Name="SymbolRequirements" Value="$(SymbolRequirements);#UE4Game Win64" If="'$(WithWin64)' == true"/>
-		<Property Name="SymbolRequirements" Value="$(SymbolRequirements);#UE4Game Win32" If="'$(WithWin32)' == true"/>
-		<Property Name="SymbolRequirements" Value="$(SymbolRequirements);#UE4Game Android" If="'$(WithAndroid)' == true"/>
-		<Property Name="SymbolRequirements" Value="$(SymbolRequirements);#UE4Game Linux" If="'$(WithLinux)' == true"/>
-		<Property Name="SymbolRequirements" Value="$(SymbolRequirements);#UE4Game HTML5" If="'$(WithHTML5)' == true"/>
-
-		<Node Name="Publish Installed Symbols Win64" Requires="$(SymbolRequirements)">
-			<!-- Also include all of the DotNET binaries -->
-			<Tag Files="Engine/Binaries/DotNET/...;$(SymbolRequirements)" Filter="*.pdb;*.dsym;*.map;*.exe;*.dll" Except=".../Binaries/Mac/..." With="#Symbols To Publish"/>
-			<Copy Files="#Symbols To Publish" FromDir="$(RootDir)" ToDir="$(PublishDir)/WindowsSymbols"/>
 		</Node>
 	</Agent>
 
@@ -708,24 +728,24 @@
 
 			<!-- Tag files that need to be copied directly -->
 			<Tag Files="#Installed Mac" Except="$(CopyInstalledExceptions);#Strip Tools for Installed Mac;#Sign Tools for Installed Mac" With="#Copy for Installed Mac"/>
-			<Copy Files="#Copy for Installed Mac" FromDir="$(RootDir)" ToDir="$(LocalInstalledDirMac)" Tag="#Installed Build Mac Files"/>
+			<Copy Files="#Copy for Installed Mac" From="$(RootDir)" To="$(LocalInstalledDirMac)" Tag="#Installed Build Mac Files"/>
 
 			<!-- Tag saved output that needs to be copied directly -->
 			<Tag BaseDir="$(SavedOutput)" Files="#Saved Output" Except="$(CopyInstalledExceptions)" With="#Copy Saved Output"/>
-			<Copy Files="#Copy Saved Output" FromDir="$(SavedOutput)" ToDir="$(LocalInstalledDirMac)" Tag="#Installed Build Mac Files"/>
+			<Copy Files="#Copy Saved Output" From="$(SavedOutput)" To="$(LocalInstalledDirMac)" Tag="#Installed Build Mac Files"/>
 
 			<!-- Strip required files into their final location -->
 			<Strip Files="#Strip Tools for Installed Mac" BaseDir="$(RootDir)" OutputDir="$(LocalInstalledDirMac)" Platform="Mac" Tag="#Installed Build Mac Files"/>
 
 			<Do If="'$(SignExecutables)' == true">
 				<!-- Copy then Sign required files in their final location -->
-				<Copy Files="#Sign Tools for Installed Mac" FromDir="$(RootDir)" ToDir="$(LocalInstalledDirMac)" Tag="#Files to Sign"/>
+				<Copy Files="#Sign Tools for Installed Mac" From="$(RootDir)" To="$(LocalInstalledDirMac)" Tag="#Files to Sign"/>
 				<Sign Files="#Files to Sign" Tag="#Installed Build Mac Files"/>
 			</Do>
 
 			<!-- Copy the compressed DDC -->
 			<Property Name="SavedDir" Value="$(SavedOutput)/Installed/Mac"/>
-			<Copy Files="#CompressedDDCMac" FromDir="$(SavedDir)" ToDir="$(LocalInstalledDirMac)" If="'$(WithDDC)' == true" Tag="#Installed Build Mac Files"/>
+			<Copy Files="#CompressedDDCMac" From="$(SavedDir)" To="$(LocalInstalledDirMac)" If="'$(WithDDC)' == true" Tag="#Installed Build Mac Files"/>
 
 			<!-- Create command line arguments for any platforms that were built with additional architectures -->
 			<Property Name="ArchitectureCommands" Value=""/>
@@ -733,34 +753,6 @@
 			<!-- Finalize the build and then tag the text file that this process creates -->
 			<Command Name="FinalizeInstalledBuild" Arguments="-OutputDir=$(LocalInstalledDirMac) $(ArchitectureCommands) -AnalyticsTypeOverride=$(AnalyticsTypeOverride)"/>
 			<Tag Files="$(LocalInstalledDirMac)/Engine/Build/InstalledBuild.txt" With="#Installed Build Mac Files"/>
-		</Node>
-
-		<Node Name="Publish Installed Build Mac" Requires="#Installed Build Mac Files" Produces="#Published Installed Build Mac">
-			<!-- Create a zip file containing the install -->
-			<Zip FromDir="$(LocalInstalledDirMac)" ZipFile="FullInstall_OnMac.zip" Tag="#Zipped Installs"/>
-
-			<!-- Tag the files we need just to run the editor -->
-			<Tag BaseDir="$(LocalInstalledDirMac)" Files="Engine/..." Except="Engine/Binaries/...;Engine/Source/.../Private/...;*.pdb" With="#EditorOnly"/>
-			<Tag BaseDir="$(LocalInstalledDirMac)" Files="Engine/Binaries/DotNET/...;Engine/Binaries/ThirdParty/...;Engine/Binaries/Mac/..." Except="*.lib;*.a;*.pdb" With="#EditorOnly"/>
-
-			<!-- Create a zip file containing the editor install -->
-			<Zip FromDir="$(LocalInstalledDirMac)" Files="#EditorOnly" ZipFile="EditorInstall_OnMac.zip" Tag="#Zipped Installs"/>
-
-			<!-- Copy the files to their final location -->
-			<Copy Files="#Zipped Installs" FromDir="$(RootDir)" ToDir="$(PublishDir)/MacZips" Tag="#Published Installed Build Mac"/>
-			<Delete Files="#Zipped Installs"/>
-		</Node>
-
-		<!-- Build up a list of requirements as some can be optional -->
-		<Property Name="SymbolRequirements" Value="#Compile UnrealHeaderTool Mac;#UE4Editor Mac;#Build Tools Mac;#Build Tools CS"/>
-		<!-- Only include Target Platforms that will be built on Mac machines -->
-		<Property Name="SymbolRequirements" Value="$(SymbolRequirements);#UE4Game Mac" If="'$(WithMac)' == true"/>
-		<Property Name="SymbolRequirements" Value="$(SymbolRequirements);#UE4Game IOS" If="'$(WithIOS)' == true"/>
-		<Property Name="SymbolRequirements" Value="$(SymbolRequirements);#UE4Game TVOS" If="'$(WithTVOS)' == true"/>
-
-		<Node Name="Publish Installed Symbols Mac" Requires="$(SymbolRequirements)">
-			<Tag Files="$(SymbolRequirements)" Filter="*.pdb;*.dsym;*.map;*.exe;*.dll" Except=".../Binaries/Win64/...;.../Binaries/Win32/..." With="#Symbols To Publish"/>
-			<Copy Files="#Symbols To Publish" FromDir="$(RootDir)" ToDir="$(PublishDir)/MacSymbols"/>
 		</Node>
 	</Agent>
 
@@ -777,7 +769,7 @@
 		<Node Name="Make Installed Build Linux" Requires="$(InstalledRequirements)" Produces="#Installed Build Linux Files">
 
 			<!-- Clear any existing files from the final location -->
-			<Delete Files="$(LocalInstalledDir)\..."/>
+			<Delete Files="$(LocalInstalledDirLinux)\..."/>
 
 			<!-- Define filter and exception properties for the installed build -->
 			<Property Name="CopyInstalledFilter" Value="$(CopyEditorFilter)"/>
@@ -816,18 +808,18 @@
 
 			<!-- Tag files that need to be copied directly -->
 			<Tag Files="#Installed Linux" Except="$(CopyInstalledExceptions);#Strip Tools for Installed Linux" With="#Copy for Installed Linux"/>
-			<Copy Files="#Copy for Installed Linux" FromDir="$(RootDir)" ToDir="$(LocalInstalledDir)" Tag="#Installed Build Linux Files"/>
+			<Copy Files="#Copy for Installed Linux" From="$(RootDir)" To="$(LocalInstalledDirLinux)" Tag="#Installed Build Linux Files"/>
 
 			<!-- Tag saved output that needs to be copied directly -->
 			<Tag BaseDir="$(SavedOutput)" Files="#Saved Output" Except="$(CopyInstalledExceptions)" With="#Copy Saved Output"/>
-			<Copy Files="#Copy Saved Output" FromDir="$(SavedOutput)" ToDir="$(LocalInstalledDir)" Tag="#Installed Build Linux Files"/>
+			<Copy Files="#Copy Saved Output" From="$(SavedOutput)" To="$(LocalInstalledDirLinux)" Tag="#Installed Build Linux Files"/>
 
 			<!-- Strip required files into their final location -->
-			<Strip Files="#Strip Tools for Installed Linux" BaseDir="$(RootDir)" OutputDir="$(LocalInstalledDir)" Platform="Linux" Tag="#Installed Build Linux Files"/>
+			<Strip Files="#Strip Tools for Installed Linux" BaseDir="$(RootDir)" OutputDir="$(LocalInstalledDirLinux)" Platform="Linux" Tag="#Installed Build Linux Files"/>
 
 			<!-- Copy the compressed DDC -->
 			<Property Name="SavedDir" Value="$(SavedOutput)\Installed\Linux"/>
-			<Copy Files="#CompressedDDCLinux" FromDir="$(SavedDir)" ToDir="$(LocalInstalledDir)" If="'$(WithDDC)' == true" Tag="#Installed Build Linux Files"/>
+			<Copy Files="#CompressedDDCLinux" From="$(SavedDir)" To="$(LocalInstalledDirLinux)" If="'$(WithDDC)' == true" Tag="#Installed Build Linux Files"/>
 
 			<!-- List all of the platforms that we only allow for content projects -->
 			<Property Name="ContentOnlyPlatforms" Value=""/>
@@ -837,8 +829,8 @@
 			<Property Name="ArchitectureCommands" Value="$(ArchitectureCommands) -AndroidArchitectures=$(AndroidArchitectures) -AndroidGPUArchitectures=$(AndroidGPUArchitectures)" If="'$(WithAndroid)' == true"/>
 
 			<!-- Finalize the build and then tag the text file that this process creates -->
-			<Command Name="FinalizeInstalledBuild" Arguments="-OutputDir=$(LocalInstalledDir) -ContentOnlyPlatforms=$(ContentOnlyPlatforms) $(ArchitectureCommands) -AnalyticsTypeOverride=$(AnalyticsTypeOverride)"/>
-			<Tag Files="$(LocalInstalledDir)/Engine/Build/InstalledBuild.txt" With="#Installed Build Linux Files"/>
+			<Command Name="FinalizeInstalledBuild" Arguments="-OutputDir=$(LocalInstalledDirLinux) -ContentOnlyPlatforms=$(ContentOnlyPlatforms) $(ArchitectureCommands) -AnalyticsTypeOverride=$(AnalyticsTypeOverride)"/>
+			<Tag Files="$(LocalInstalledDirLinux)/Engine/Build/InstalledBuild.txt" With="#Installed Build Linux Files"/>
 		</Node>
 	</Agent>
 

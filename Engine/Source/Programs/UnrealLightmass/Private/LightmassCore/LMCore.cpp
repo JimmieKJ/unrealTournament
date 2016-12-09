@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
 #include "LMCore.h"
+#include "Misc/Guid.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformTime.h"
+#include "Templates/ScopedPointer.h"
+#include "UnrealLightmass.h"
+#include "Misc/Paths.h"
+#include "UniquePtr.h"
 
 namespace Lightmass
 {
@@ -37,7 +44,7 @@ FLightmassLog::FLightmassLog()
 	LogName += TEXT("_");
 	LogName += Guid.ToString();
 	LogName += TEXT(".log");
-	FCString::Strncpy( Filename, *LogName, MAX_PATH );
+	FCString::Strncpy( Filename, *LogName, PLATFORM_MAX_FILEPATH_LENGTH );
 
 	// open the file for writing
 	File = IFileManager::Get().CreateFileWriter(*LogName);
@@ -92,7 +99,7 @@ void FLightmassLog::Flush()
 	File->Flush();
 }
 
-static TScopedPointer<FLightmassLog>	GScopedLog;
+static TUniquePtr<FLightmassLog>	GScopedLog;
 
 FLightmassLog* FLightmassLog::Get()
 {

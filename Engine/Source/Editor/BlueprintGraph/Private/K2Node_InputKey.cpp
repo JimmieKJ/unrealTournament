@@ -1,15 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_InputKey.h"
+#include "GraphEditorSettings.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_AssignmentStatement.h"
+#include "K2Node_TemporaryVariable.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "K2Node_InputKeyEvent.h"
-#include "CompilerResultsLog.h"
 #include "KismetCompiler.h"
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
-#include "BlueprintEditorUtils.h"
-#include "EdGraphSchema_K2.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "GraphEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "UK2Node_InputKey"
 

@@ -4,8 +4,8 @@
 	WindowsD3D11ConstantBuffer.cpp: D3D Constant Buffer functions
 =============================================================================*/
 
-#include "D3D11RHIPrivate.h"
 #include "WindowsD3D11ConstantBuffer.h"
+#include "D3D11RHIPrivate.h"
 
 void FWinD3D11ConstantBuffer::InitDynamicRHI()
 {

@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "SequencerCurveOwner.h"
+#include "Containers/List.h"
+#include "ISequencer.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
+#include "DisplayNodes/SequencerSectionKeyAreaNode.h"
 #include "IKeyArea.h"
-#include "MovieSceneSection.h"
+#include "DisplayNodes/SequencerTrackNode.h"
 #include "Sequencer.h"
 
 struct FDisplayNodeAndKeyArea

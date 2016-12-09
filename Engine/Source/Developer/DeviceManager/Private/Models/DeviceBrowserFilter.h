@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ITargetDeviceService.h"
+
+class FDeviceBrowserFilter;
 
 /** Type definition for shared pointers to instances of FDeviceBrowserFilter. */
 typedef TSharedPtr<class FDeviceBrowserFilter> FDeviceBrowserFilterPtr;

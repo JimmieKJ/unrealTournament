@@ -35,10 +35,20 @@
 
 #pragma once
 
-#include "Array.h"
-#include "RHIResources.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "RHI.h"
 #include "RenderResource.h"
+#include "ShaderParameters.h"
 #include "UniformBuffer.h"
+#include "GPUSkinPublicDefs.h"
+
+class FGPUSkinPassthroughVertexFactory;
+class FShader;
+class FSkeletalMeshObjectGPUSkin;
+class FVertexFactory;
+struct FSkelMeshSection;
 
 typedef FRHIShaderResourceView* FShaderResourceViewRHIParamRef;
 

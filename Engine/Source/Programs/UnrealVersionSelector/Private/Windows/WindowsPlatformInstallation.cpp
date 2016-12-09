@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "../UnrealVersionSelector.h"
 #include "WindowsPlatformInstallation.h"
 #include "Runtime/Core/Public/Misc/EngineVersion.h"
 #include "AllowWindowsPlatformTypes.h"
 #include "DesktopPlatformModule.h"
+#include "Misc/Paths.h"
 #include "Resources/Resource.h"
 #include <CommCtrl.h>
 #include <Shlwapi.h>
@@ -167,7 +167,7 @@ struct FErrorDialog
 	FErrorDialog(const FString& InMessage, const FString& InLogText) : Message(InMessage), LogText(InLogText)
 	{
 		int FontHeight = -MulDiv(8, GetDeviceCaps(GetDC(NULL), LOGPIXELSY), 72);
-		hFont = CreateFont(FontHeight, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, FIXED_PITCH | FF_MODERN, TEXT("Courier New"));
+		hFont = CreateFontW(FontHeight, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, FIXED_PITCH | FF_MODERN, TEXT("Courier New"));
 	}
 
 	~FErrorDialog()

@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PersonaPrivatePCH.h"
-
 #include "STimingTrack.h"
+#include "Layout/ArrangedChildren.h"
+
 #include "SCurveEditor.h"
 
 void STimingTrack::Construct(const FArguments& Args)

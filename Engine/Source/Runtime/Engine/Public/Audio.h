@@ -6,8 +6,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "HAL/ThreadSafeBool.h"
 #include "Sound/SoundClass.h"
 #include "Sound/SoundAttenuation.h"
+#include "IAudioExtensionPlugin.h"
+
+class FAudioDevice;
+class USoundNode;
+class USoundWave;
+struct FActiveSound;
+struct FWaveInstance;
+
 //#include "Sound/SoundConcurrency.h"
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAudio, Warning, All);
@@ -72,7 +83,6 @@ DECLARE_CYCLE_STAT_EXTERN( TEXT( "Finished delegates time" ), STAT_AudioFinished
 DECLARE_MEMORY_STAT_EXTERN( TEXT( "Audio Memory Used" ), STAT_AudioMemorySize, STATGROUP_Audio , );
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN( TEXT( "Audio Buffer Time" ), STAT_AudioBufferTime, STATGROUP_Audio , );
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN( TEXT( "Audio Buffer Time (w/ Channels)" ), STAT_AudioBufferTimeChannels, STATGROUP_Audio , );
-DECLARE_DWORD_COUNTER_STAT_EXTERN( TEXT( "CPU Decompressed Wave Instances" ), STAT_OggWaveInstances, STATGROUP_Audio , );
 DECLARE_CYCLE_STAT_EXTERN( TEXT( "Gathering WaveInstances" ), STAT_AudioGatherWaveInstances, STATGROUP_Audio , );
 DECLARE_CYCLE_STAT_EXTERN( TEXT( "Processing Sources" ), STAT_AudioStartSources, STATGROUP_Audio , );
 DECLARE_CYCLE_STAT_EXTERN( TEXT( "Updating Sources" ), STAT_AudioUpdateSources, STATGROUP_Audio , ENGINE_API);
@@ -85,7 +95,7 @@ DECLARE_CYCLE_STAT_EXTERN( TEXT( "Decompress Vorbis" ), STAT_VorbisDecompressTim
 DECLARE_CYCLE_STAT_EXTERN( TEXT( "Prepare Audio Decompression" ), STAT_AudioPrepareDecompressionTime, STATGROUP_Audio , );
 DECLARE_CYCLE_STAT_EXTERN( TEXT( "Prepare Vorbis Decompression" ), STAT_VorbisPrepareDecompressionTime, STATGROUP_Audio , );
 DECLARE_CYCLE_STAT_EXTERN( TEXT( "Finding Nearest Location" ), STAT_AudioFindNearestLocation, STATGROUP_Audio , );
-DECLARE_CYCLE_STAT_EXTERN( TEXT( "Decompress Opus" ), STAT_OpusDecompressTime, STATGROUP_Audio , );
+DECLARE_CYCLE_STAT_EXTERN( TEXT( "Decompress Streamed" ), STAT_AudioStreamedDecompressTime, STATGROUP_Audio , );
 DECLARE_CYCLE_STAT_EXTERN( TEXT( "Buffer Creation" ), STAT_AudioResourceCreationTime, STATGROUP_Audio , );
 
 /**
@@ -187,6 +197,8 @@ struct ENGINE_API FWaveInstance
 	class USoundWave*	WaveData;
 	/** Sound class */
 	class USoundClass*  SoundClass;
+	/** Sound submix */
+	class USoundSubmix* SoundSubmix;
 	/** Sound nodes to notify when the current audio buffer finishes */
 	FNotifyBufferFinishedHooks NotifyBufferFinishedHooks;
 
@@ -198,6 +210,8 @@ struct ENGINE_API FWaveInstance
 	float				Volume;
 	/** Current volume multiplier - used to zero the volume without stopping the source */
 	float				VolumeMultiplier;
+	/** The volume of the wave instance due to application volume or tab-state */
+	float				VolumeApp;
 	/** An audio component priority value that scales with volume (post all gain stages) and is used to determine voice playback priority. */
 	float				Priority;
 	/** Voice center channel volume */
@@ -241,6 +255,8 @@ struct ENGINE_API FWaveInstance
 	uint32				bReverb:1;
 	/** Whether or not this sound class forces sounds to the center channel */
 	uint32				bCenterChannelOnly:1;
+	/** Whether or not this sound is manually paused */
+	uint32				bIsPaused:1;
 	/** Prevent spamming of spatialization of surround sounds by tracking if the warning has already been emitted */
 	uint32				bReportedSpatializationWarning:1;
 	/** Which algorithm to use to spatialize 3d sounds. */
@@ -264,6 +280,10 @@ struct ENGINE_API FWaveInstance
 	float				OmniRadius;
 	/** Amount of spread for 3d multi-channel asset spatialization */
 	float				StereoSpread;
+	/** Distance from closest listener to sound. used in attenuation calculations. */
+	float				AttenuationDistance;
+	/** The absolute position of the wave instance relative to forward vector of listener. */
+	float				AbsoluteAzimuth; 
 	/** Cached type hash */
 	uint32				TypeHash;
 	/** Hash value for finding the wave instance based on the path through the cue to get to it */
@@ -302,8 +322,11 @@ struct ENGINE_API FWaveInstance
 	/** Returns the actual volume the wave instance will play at */
 	bool ShouldStopDueToMaxConcurrency() const;
 
-	/** Returns the actual volume the wave instance will play at */
+	/** Returns the actual volume the wave instance will play at, including all gain stages. */
 	float GetActualVolume() const;
+
+	/** Returns the volume of the wave instance (ignoring application muting) */
+	float GetVolume() const;
 
 	/** Returns the weighted priority of the wave instance. */
 	float GetVolumeWeightedPriority() const;
@@ -361,6 +384,12 @@ public:
 	 */
 	virtual bool ReadCompressedInfo(USoundWave* SoundWave) { return true; }
 
+	/** Reads the next compressed data chunk */
+	virtual bool ReadCompressedData(uint8* Destination, bool bLooping) { return true; }
+	
+	/** Seeks the buffer to the given seek time */
+	virtual void Seek(const float SeekTime) {}
+
 	/**
 	 * Gets the chunk index that was last read from (for Streaming Manager requests)
 	 */
@@ -389,220 +418,232 @@ public:
 	class FAudioDevice * AudioDevice;
 };
 
-/**
-* FSpatializationParams
-* Struct for retrieving parameters needed for computing 3d spatialization
-*/
-struct FSpatializationParams
-{
-	FSpatializationParams()
-	{
-		FMemory::Memzero(this, sizeof(*this));
-	}
-
-	FVector ListenerPosition;
-	FVector ListenerOrientation;
-	FVector EmitterPosition;
-	FVector LeftChannelPosition;
-	FVector RightChannelPosition;
-	float Distance;
-	float NormalizedOmniRadius;
-};
-
 /*-----------------------------------------------------------------------------
-	FSoundSource.
+FSoundSource.
 -----------------------------------------------------------------------------*/
 
 class FSoundSource
 {
 public:
-	// Constructor/ Destructor.
-	FSoundSource(class FAudioDevice* InAudioDevice)
+	/** Constructor */
+	FSoundSource(FAudioDevice* InAudioDevice)
 		: AudioDevice(InAudioDevice)
-		, WaveInstance(NULL)
-		, Buffer(NULL)
-		, Playing(false)
-		, Paused(false)
-		, bInitialized(true) // Note: this is defaulted to true since not all platforms need to deal with async initialization.
-		, bReverbApplied(false)
-		, bIsPreviewSound(false)
+		, WaveInstance(nullptr)
+		, Buffer(nullptr)
 		, StereoBleed(0.0f)
 		, LFEBleed(0.5f)
 		, LPFFrequency(MAX_FILTER_FREQUENCY)
 		, LastLPFFrequency(MAX_FILTER_FREQUENCY)
+		, PlaybackTime(0.0f)
+		, Pitch(1.0f)
 		, LastUpdate(0)
 		, LeftChannelSourceLocation(0)
 		, RightChannelSourceLocation(0)
+		, NumFramesPlayed(0)
+		, NumTotalFrames(1)
+		, StartFrame(0)
+		, VoiceId(-1)
+		, Playing(false)
+		, bReverbApplied(false)
+		, bIsPausedByGame(false)
+		, bIsManuallyPaused(false)
+		, Paused(false)
+		, bInitialized(true) // Note: this is defaulted to true since not all platforms need to deal with async initialization.
+		, bIsPreviewSound(false)
+		, bIsVirtual(false)
 	{
 	}
 
-	virtual ~FSoundSource( void )
-	{
-	}
+	/** Destructor */
+	virtual ~FSoundSource() {}
 
-	// Initialization & update.
+	/* Prepares the source voice for initialization. This may parse a compressed asset header on some platforms */
 	virtual bool PrepareForInitialization(FWaveInstance* InWaveInstance) { return true; }
+
+	/** Returns if the source voice is prepared to initialize. */
 	virtual bool IsPreparedToInit() { return true; }
+
+	/** Initializes the sound source. */
 	virtual bool Init(FWaveInstance* InWaveInstance) = 0;
-	virtual void Update(void) = 0;
 
-	// Playback.
-	virtual void Play( void ) = 0;
-	ENGINE_API virtual void Stop( void );
-	virtual void Pause( void ) = 0;
+	/** Returns whether or not the sound source has initialized. */
+	bool IsInitialized() const { return bInitialized; };
 
-	// Query.
-	virtual	bool IsFinished( void ) = 0;
+	/** Updates the sound source. */
+	virtual void Update() = 0;
 
-	/** Returns whether or not the sound source has initialized */
-	bool IsInitialized(void) const { return bInitialized; };
+	/** Plays the sound source. */
+	virtual void Play() = 0;
 
-	/**
-	 * Returns a string describing the source (subclass can override, but it should call the base and append)
-	 */
+	/** Stops the sound source. */
+	ENGINE_API virtual void Stop();
+
+	/** Returns true if the sound source has finished playing. */
+	virtual	bool IsFinished() = 0;
+	
+	/** Pause the source from game pause */
+	void SetPauseByGame(bool bInIsPauseByGame);
+
+	/** Pause the source manually */
+	void SetPauseManually(bool bInIsPauseManually);
+
+	/** Returns a string describing the source (subclass can override, but it should call the base and append). */
 	ENGINE_API virtual FString Describe(bool bUseLongName);
 
-	/**
-	 * Returns whether the buffer associated with this source is using CPU decompression.
-	 *
-	 * @return true if decompressed on the CPU, false otherwise
-	 */
-	virtual bool UsesCPUDecompression( void )
-	{
-		return( false );
-	}
+	/** Returns source is an in-game only. Will pause when in UI. */
+	bool IsGameOnly() const;
 
-	/**
-	 * Returns whether associated audio component is an ingame only component, aka one that will
-	 * not play unless we're in game mode (not paused in the UI)
-	 *
-	 * @return false if associated component has bIsUISound set, true otherwise
-	 */
-	bool IsGameOnly( void );
+	/** Returns the wave instance of the sound source. */
+	const FWaveInstance* GetWaveInstance() const { return WaveInstance; }
 
-	/** 
-	 * @return	The wave instance associated with the sound. 
-	 */
-	const FWaveInstance* GetWaveInstance( void ) const
-	{
-		return( WaveInstance );
-	}
+	/** Returns whether or not the sound source is playing. */
+	bool IsPlaying() const { return Playing; }
 
-	/** 
-	 * @return		true if the sound is playing, false otherwise. 
-	 */
-	bool IsPlaying( void ) const
-	{
-		return( Playing );
-	}
+	/**  Returns true if the sound is paused. */
+	bool IsPaused() const { return Paused; }
+	
+	/**  Returns true if the sound is paused. */
+	bool IsPausedByGame() const { return bIsPausedByGame; }
 
-	/** 
-	 * @return		true if the sound is paused, false otherwise. 
-	 */
-	bool IsPaused( void ) const
-	{
-		return( Paused );
-	}
+	bool IsPausedManually() const { return bIsManuallyPaused; }
 
-	/** 
-	 * Returns true if reverb should be applied
-	 */
-	bool IsReverbApplied( void ) const 
-	{	
-		return( bReverbApplied ); 
-	}
+	/** Returns true if reverb should be applied. */
+	bool IsReverbApplied() const { return bReverbApplied; }
 
-	/** 
-	 * Returns true if EQ should be applied
-	 */
-	bool IsEQFilterApplied( void ) const 
-	{ 
-		return( WaveInstance->bEQFilterApplied ); 
-	}
+	/** Returns true if EQ should be applied. */
+	bool IsEQFilterApplied() const  { return WaveInstance->bEQFilterApplied; }
 
-	/**
-	 * Set the bReverbApplied variable
-	 */
-	ENGINE_API bool SetReverbApplied( bool bHardwareAvailable );
+	/** Set the bReverbApplied variable. */
+	ENGINE_API bool SetReverbApplied(bool bHardwareAvailable);
 
-	/**
-	 * Set the StereoBleed variable
-	 */
-	ENGINE_API float SetStereoBleed( void );
+	/** Set the StereoBleed variable. */
+	ENGINE_API float SetStereoBleed();
 
-	/**
-	 * Set the LFEBleed variable
-	 */
-	ENGINE_API float SetLFEBleed( void );
+	/** Updates and sets the LFEBleed variable. */
+	ENGINE_API float SetLFEBleed();
 
-	/**
-	* Set the FilterFrequency value
-	*/
-	ENGINE_API void SetFilterFrequency(void);
+	/** Updates the FilterFrequency value. */
+	ENGINE_API void SetFilterFrequency();
 
-	/** Updates the stereo emitter positions of this voice */
+	/** Updates the stereo emitter positions of this voice. */
 	ENGINE_API void UpdateStereoEmitterPositions();
 
 	/** Draws debug info about this source voice if enabled. */
 	ENGINE_API void DrawDebugInfo();
 
-	/**
-	* Gets parameters necessary for computing 3d spatialization of sources
-	*/
+	/** Gets parameters necessary for computing 3d spatialization of sources. */
 	ENGINE_API FSpatializationParams GetSpatializationParams();
 
+	/** Returns the contained sound buffer object. */
+	const FSoundBuffer* GetBuffer() const { return Buffer; }
 
-	const FSoundBuffer* GetBuffer() const {return Buffer;}
-
-	/**
-	* Initializes any source effects for this sound source
-	*/
-	virtual void InitializeSourceEffects(uint32 InVoiceId)
+	/** Initializes any source effects for this sound source. */
+	virtual void InitializeSourceEffects(uint32 InEffectVoiceId)
 	{
 	}
 
+	/** Sets if this voice is virtual. */
+	void SetVirtual()
+	{
+		bIsVirtual = true;
+	}
+
+	/** Returns the source's playback percent. */
+	ENGINE_API virtual float GetPlaybackPercent() const;
+
+	void NotifyPlaybackPercent();
+
 protected:
+
+	/** Initializes common data for all sound source types. */
+	ENGINE_API void InitCommon();
+
+	/** Updates common data for all sound source types. */
+	ENGINE_API void UpdateCommon();
+
+	/** Pauses the sound source. */
+	virtual void Pause() = 0;
+
+	/** Updates this source's pause state */
+	void UpdatePause();
 
 	/** Returns the volume of the sound source after evaluating debug commands */
 	ENGINE_API float GetDebugVolume(const float InVolume);
 
-	// Variables.	
-	class FAudioDevice*		AudioDevice;
-	struct FWaveInstance*	WaveInstance;
+	/** Owning audio device. */
+	FAudioDevice* AudioDevice;
+
+	/** Contained wave instance. */
+	FWaveInstance* WaveInstance;
 
 	/** Cached sound buffer associated with currently bound wave instance. */
-	class FSoundBuffer*		Buffer;
+	FSoundBuffer* Buffer;
 
-	/** Cached status information whether we are playing or not. */
-	FThreadSafeBool		Playing;
-	/** Cached status information whether we are paused or not. */
-	uint32				Paused:1;
-	/** Whether or not the sound source is ready to be initialized */
-	uint32				bInitialized:1;
-	/** Cached sound mode value used to detect when to switch outputs. */
-	uint32				bReverbApplied:1;
-	/** Whether or not the sound is a preview sound */
-	uint32				bIsPreviewSound:1;
 	/** The amount of stereo sounds to bleed to the rear speakers */
-	float				StereoBleed;
+	float StereoBleed;
+
 	/** The amount of a sound to bleed to the LFE speaker */
-	float				LFEBleed;
+	float LFEBleed;
 
 	/** What frequency to set the LPF filter to. Note this could be caused by occlusion, manual LPF application, or LPF distance attenuation. */
-	float				LPFFrequency;
+	float LPFFrequency;
 
 	/** The last LPF frequency set. Used to avoid making API calls when parameter doesn't changing. */
-	float				LastLPFFrequency;
+	float LastLPFFrequency;
+
+	/** The virtual current playback time. Used to trigger notifications when finished. */
+	float PlaybackTime;
+
+	/** The pitch of the sound source. */
+	float Pitch;
 
 	/** Last tick when this source was active */
-	int32					LastUpdate;
+	int32 LastUpdate;
+
 	/** Last tick when this source was active *and* had a hearable volume */
-	int32					LastHeardUpdate;
+	int32 LastHeardUpdate;
 
 	/** The location of the left-channel source for stereo spatialization. */
-	FVector						LeftChannelSourceLocation;
+	FVector LeftChannelSourceLocation;
+
 	/** The location of the right-channel source for stereo spatialization. */
-	FVector						RightChannelSourceLocation;
+	FVector RightChannelSourceLocation;
+
+	/** The number of frames (Samples / NumChannels) played by the sound source. */
+	int32 NumFramesPlayed;
+
+	/** The total number of frames of audio for the sound wave */
+	int32 NumTotalFrames;
+
+	/** The frame we started on. */
+	int32 StartFrame;
+
+	/** Effect ID of this sound source in the audio device sound source array. */
+	uint32 VoiceId;
+
+	/** Whether we are playing or not. */
+	FThreadSafeBool Playing;
+
+	/** Cached sound mode value used to detect when to switch outputs. */
+	uint8 bReverbApplied : 1;
+
+	/** Whether we are paused by game state or not. */
+	uint8 bIsPausedByGame : 1;
+
+	/** Whether or not we were paused manually. */
+	uint8 bIsManuallyPaused : 1;
+
+	/** Whether or not we are actually paused. */
+	uint8 Paused : 1;
+
+	/** Whether or not the sound source is initialized. */
+	uint8 bInitialized : 1;
+
+	/** Whether or not the sound is a preview sound. */
+	uint8 bIsPreviewSound : 1;
+
+	/** True if this isn't a real hardware voice */
+	uint32 bIsVirtual : 1;
 
 	friend class FAudioDevice;
 };
@@ -627,8 +668,6 @@ public:
 	uint16* pChannels;
 	uint16* pFormatTag;
 
-	uint32  OldBitsPerSample;
-
 	uint32* pWaveDataSize;
 	uint32* pMasterSize;
 	uint8*  SampleDataStart;
@@ -644,14 +683,15 @@ public:
 	}
 	
 	// 16-bit padding.
-	uint32 Pad16Bit( uint32 InDW )
+	static uint32 Pad16Bit( uint32 InDW )
 	{
 		return ((InDW + 1)& ~1);
 	}
 
 	// Read headers and load all info pointers in WaveModInfo. 
 	// Returns 0 if invalid data encountered.
-	ENGINE_API bool ReadWaveInfo( uint8* WaveData, int32 WaveDataSize, FString* ErrorMessage = NULL );
+	ENGINE_API bool ReadWaveInfo( uint8* WaveData, int32 WaveDataSize, FString* ErrorMessage = NULL, bool InHeaderDataOnly = false, void** OutFormatHeader = NULL );
+	
 	/**
 	 * Read a wave file header from bulkdata
 	 */

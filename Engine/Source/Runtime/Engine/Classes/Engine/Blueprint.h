@@ -2,12 +2,22 @@
 
 #pragma once
 
-#include "EdGraph/EdGraphPin.h"
-#include "EdGraph/EdGraphNode.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
 #include "Engine/EngineTypes.h"
-#include "BlueprintCore.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Engine/BlueprintCore.h"
 #include "Blueprint.generated.h"
 
+class FCompilerResultsLog;
+class ITargetPlatform;
+class UActorComponent;
+class UEdGraph;
+class UInheritableComponentHandler;
 
 /**
  * Enumerates states a blueprint can be in.
@@ -187,6 +197,9 @@ struct FBPVariableDescription
 	UPROPERTY(EditAnywhere, Category=BPVariableRepNotify)
 	FName RepNotifyFunc;
 
+	UPROPERTY(EditAnywhere, Category=BPVariableDescription)
+	TEnumAsByte<ELifetimeCondition> ReplicationCondition;
+
 	/** Metadata information for this variable */
 	UPROPERTY(EditAnywhere, Category=BPVariableDescription)
 	TArray<struct FBPVariableMetaDataEntry> MetaDataArray;
@@ -281,7 +294,7 @@ struct FEditedDocumentInfo
  * and script level events; giving designers and gameplay programmers the tools to quickly create and iterate gameplay from
  * within Unreal Editor without ever needing to write a line of code.
  */
-UCLASS(config=Engine, BlueprintType)
+UCLASS(config=Engine)
 class ENGINE_API UBlueprint : public UBlueprintCore
 {
 	GENERATED_UCLASS_BODY()
@@ -341,6 +354,10 @@ class ENGINE_API UBlueprint : public UBlueprintCore
 	/** Additional HideCategories. These are added to HideCategories from parent. */
 	UPROPERTY(EditAnywhere, Category=BlueprintOptions)
 	TArray<FString> HideCategories;
+	 
+	/** When nativization is enabled, and "NativizeOnlySelectedBlueprints" is set true, then this asset will be nativized. All super classes must be also nativized. */
+	UPROPERTY(EditAnywhere, Category=Experimental)
+	bool bNativize;
 
 	/** TRUE to show a warning when attempting to start in PIE and there is a compiler error on this Blueprint */
 	UPROPERTY(transient)
@@ -459,6 +476,14 @@ class ENGINE_API UBlueprint : public UBlueprintCore
 
 	UPROPERTY()
 	TArray<class UEdGraphPin_Deprecated*> DeprecatedPinWatches;
+
+	/** Index map for component template names */
+	UPROPERTY()
+	TMap<FName, int32> ComponentTemplateNameIndex;
+
+	/** Maps old to new component template names */
+	UPROPERTY(transient)
+	TMap<FName, FName> OldToNewComponentTemplateNames;
 #endif // WITH_EDITORONLY_DATA
 
 public:
@@ -477,6 +502,9 @@ public:
 
 	/** Whether or not this blueprint can be considered for a bytecode only compile */
 	virtual bool IsValidForBytecodeOnlyRecompile() const { return true; }
+
+	/** Return the root class of this blueprint */
+	TSubclassOf<class UObject> GetParentClass() const { return ParentClass; }
 
 #if WITH_EDITORONLY_DATA
 protected:
@@ -508,6 +536,16 @@ public:
 
 	// User Defined Structures, the blueprint depends on
 	TSet<TWeakObjectPtr<UStruct>> CachedUDSDependencies;
+
+	enum class EIsBPNonReducible : uint8
+	{
+		Unkown,
+		Yes,
+		No,
+	};
+
+	// Cached information if the BP contains any non-reducible functions (that can benefit from nativization).
+	EIsBPNonReducible bHasAnyNonReducibleFunction;
 
 	// If this BP is just a duplicate created for a specific compilation, the reference to original GeneratedClass is needed
 	UPROPERTY(transient, duplicatetransient)
@@ -633,11 +671,15 @@ public:
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 #endif // WITH_EDITORONLY_DATA
 	virtual void Serialize(FArchive& Ar) override;
+	virtual void GetPreloadDependencies(TArray<UObject*>& OutDeps) override;
 	virtual FString GetDesc(void) override;
 	virtual void TagSubobjects(EObjectFlags NewFlags) override;
 	virtual bool NeedsLoadForClient() const override;
 	virtual bool NeedsLoadForServer() const override;
 	virtual bool NeedsLoadForEditorGame() const override;
+#if WITH_EDITOR
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
+#endif // WITH_EDITOR
 	//~ End UObject Interface
 
 	/** Get the Blueprint object that generated the supplied class */

@@ -6,15 +6,16 @@
 
 #pragma once
 
-#include "Vector.h"
-#include "Vector2D.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Templates/RefCounting.h"
 #include "Components.h"
-#include "Components/PrimitiveComponent.h"
-#include "Components/LightComponent.h"
 
-// Forward declarations.
-class FStaticLightingTextureMapping;
 class FStaticLightingMapping;
+class FStaticLightingTextureMapping;
+class ULevel;
+class ULightComponent;
+class UPrimitiveComponent;
 
 /** The vertex data used to build static lighting. */
 struct FStaticLightingVertex
@@ -394,7 +395,7 @@ public:
 	 * This function is responsible for deleting ShadowMapData and QuantizedData.
 	 * @param LightMapData - The light-map data which has been computed for the mapping.
 	 */
-	virtual void Apply(struct FQuantizedLightmapData* QuantizedData, const TMap<ULightComponent*,class FShadowMapData2D*>& ShadowMapData) = 0;
+	virtual void Apply(struct FQuantizedLightmapData* QuantizedData, const TMap<ULightComponent*,class FShadowMapData2D*>& ShadowMapData, ULevel* LightingScenario) = 0;
 
 	// FStaticLightingMapping interface.
 	virtual FStaticLightingTextureMapping* GetTextureMapping()

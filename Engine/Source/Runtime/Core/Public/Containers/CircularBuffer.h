@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/Array.h"
+#include "Math/UnrealMathUtility.h"
 
 /**
  * Template for circular buffers.

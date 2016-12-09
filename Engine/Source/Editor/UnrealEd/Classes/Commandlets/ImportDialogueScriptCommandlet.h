@@ -2,12 +2,10 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Commandlets/GatherTextCommandletBase.h"
-#include "ExportDialogueScriptCommandlet.h" // For FDialogueScriptEntry
 #include "ImportDialogueScriptCommandlet.generated.h"
-
-class FInternationalizationManifest;
-class FInternationalizationArchive;
 
 /**
  *	UImportDialogueScriptCommandlet: Handles importing localized script sheets to update the translated archive text.

@@ -2,6 +2,38 @@
 
 #pragma once
 
+//#include "CoreMinimal.h"
+//#include "HAL/UnrealMemory.h"
+//#include "Math/UnrealMathUtility.h"
+//#include "Containers/UnrealString.h"
+//#include "Misc/Guid.h"
+//#include "Math/Color.h"
+//#include "Math/Vector.h"
+//#include "Math/Vector4.h"
+//#include "Math/Matrix.h"
+//#include "Math/Float16.h"
+
+#include "CoreTypes.h"
+#include "HAL/UnrealMemory.h"
+#include "Containers/Array.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
+#include "Math/Color.h"
+#include "Math/Vector.h"
+#include "Math/Vector4.h"
+#include "Math/Matrix.h"
+#include "Math/Float16.h"
+#include "Misc/Guid.h"
+#include "SceneExport.h"
+
+struct FDebugLightingCacheRecord;
+struct FDebugLightingOutput;
+struct FDebugOctreeNode;
+struct FDebugPhoton;
+struct FDebugStaticLightingRay;
+struct FDebugStaticLightingVertex;
+struct FDebugVolumeLightingSample;
+
 namespace Lightmass
 {	
 /** Whether or not to request compression on heavyweight input file types */
@@ -51,7 +83,7 @@ namespace Lightmass
 	static const int32 LM_DEBUGOUTPUT_VERSION			= 1;
 	static const int32 LM_SCENE_VERSION					= 1;
 	static const int32 LM_STATICMESH_VERSION			= 1;
-	static const int32 LM_MATERIAL_VERSION				= 2;
+	static const int32 LM_MATERIAL_VERSION				= 1;
 
 
 	/** Alert source object type identifiers... */

@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "Kismet/KismetMathLibrary.h"
 #include "K2Node_SwitchEnum.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "BlueprintFieldNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 

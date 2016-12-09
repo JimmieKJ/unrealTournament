@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "CollectionManagerModule.h"
+#include "CollectionManagerTypes.h"
+#include "ICollectionManager.h"
+#include "Developer/CollectionManager/Private/CollectionManagerLog.h"
+
 #define LOCTEXT_NAMESPACE "CollectionManager"
 
 class FCollectionManagerConsoleCommands

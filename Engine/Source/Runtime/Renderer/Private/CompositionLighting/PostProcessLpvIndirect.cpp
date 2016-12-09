@@ -10,14 +10,17 @@
 //				Copyright (C) Microsoft. All rights reserved.
 //-----------------------------------------------------------------------------
 
-#include "RendererPrivate.h"
+#include "CompositionLighting/PostProcessLpvIndirect.h"
+#include "StaticBoundShaderState.h"
+#include "CanvasTypes.h"
+#include "RenderTargetTemp.h"
+#include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "SceneRenderTargetParameters.h"
+#include "LightPropagationVolume.h"
 #include "ScenePrivate.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "PostProcess/PostProcessing.h"
-#include "PostProcessLpvIndirect.h"
-#include "LightPropagationVolume.h"
-#include "UniformBuffer.h"
-#include "SceneUtils.h"
 #include "LightPropagationVolumeBlendable.h"
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FLpvReadUniformBufferParameters,TEXT("LpvRead"));

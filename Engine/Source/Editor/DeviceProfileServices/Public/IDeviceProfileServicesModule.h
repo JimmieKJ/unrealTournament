@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "IDeviceProfileServicesUIManager.h"
 
 /**
  * Device Profile Editor module

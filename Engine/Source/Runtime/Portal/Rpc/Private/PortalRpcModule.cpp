@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PortalRpcPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "IPortalRpcModule.h"
 #include "PortalRpcLocator.h"
 #include "PortalRpcResponder.h"

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -134,6 +134,9 @@ struct SDL_Renderer
     int logical_h;
     int logical_w_backup;
     int logical_h_backup;
+
+    /* Whether or not to force the viewport to even integer intervals */
+    SDL_bool integer_scale;
 
     /* The drawable area within the window */
     SDL_Rect viewport;

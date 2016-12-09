@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateBrush.h"
 
 /**
  * A 3x3 box where the sides stretch horizontally and vertically and the middle stretches to fill.

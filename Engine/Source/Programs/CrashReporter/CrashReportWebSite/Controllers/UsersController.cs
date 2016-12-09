@@ -1,11 +1,9 @@
 ﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-using System.Collections.Generic;
 using System.Linq;
 using System.Web.Mvc;
-using Tools.CrashReporter.CrashReportWebSite.DataModels;
 using Tools.CrashReporter.CrashReportWebSite.DataModels.Repositories;
-using Tools.CrashReporter.CrashReportWebSite.Models;
+using Tools.CrashReporter.CrashReportWebSite.ViewModels;
 
 namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 {
@@ -16,55 +14,84 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 	{
 	    private IUnitOfWork _unitOfWork;
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="unitOfWork"></param>
 	    public UsersController(IUnitOfWork unitOfWork)
 	    {
 	        _unitOfWork = unitOfWork;
 	    }
-        
-		/// <summary>
-		/// Display the main user groups.
-		/// </summary>
-		/// <param name="UserForms">A form of user data passed up from the client.</param>
-		/// <param name="UserGroup">The name of the current user group to display users for.</param>
-		/// <returns>A view to show a list of users in the current user group.</returns>
-		public ActionResult Index( FormCollection UserForms, string UserGroup )
-		{
-			// Examine an incoming form for a new user group
-			foreach( var FormInstance in UserForms )
+
+	    /// <summary>
+	    /// Display the main user groups.
+	    /// </summary>
+	    /// <param name="formData"></param>
+	    /// <param name="userName">A form of user data passed up from the client.</param>
+	    /// <param name="userGroup">The name of the current user group to display users for.</param>
+	    /// <returns>A view to show a list of users in the current user group.</returns>
+	    public ActionResult Index( FormCollection formData, string userName, string userGroup = "General" )
+        {
+            var group = _unitOfWork.UserGroupRepository.First(data => data.Name == userGroup);
+
+            if (!string.IsNullOrWhiteSpace(userName))
+            {
+                var user = _unitOfWork.UserRepository.GetByUserName(userName);
+                if (user != null && group != null)
+                {
+                    user.UserGroup = group;
+                    _unitOfWork.UserRepository.Update(user);
+                    _unitOfWork.Save();
+                }
+            }
+
+	        var formhelper = new FormHelper(Request, formData, "");
+	        var skip = (formhelper.Page -1) * formhelper.PageSize;
+	        var take = formhelper.PageSize;
+
+			var model = new UsersViewModel
 			{
-				var UserName = FormInstance.ToString();
-				var NewUserGroup = UserForms[UserName];
-			}
-
-			UsersViewModel Model = new UsersViewModel();
-
-		    var userGroup = _unitOfWork.UserGroupRepository.First(data => data.Name == UserGroup);
-
-			Model.UserGroup = UserGroup;
-		    Model.Users =
-		        new HashSet<string>(
-		            _unitOfWork.UserRepository.ListAll()
-		                .Where(data => data.UserGroupId == userGroup.Id)
-		                .Select(data => data.UserName));
+			    UserGroup = userGroup,
+			    User = userName,
+			    Users = _unitOfWork.UserRepository.ListAll().Where(data => data.UserGroupId == group.Id).OrderBy(data => data.UserName)
+                    .Skip(skip)
+                    .Take(take)
+			        .Select(data => new UserViewModel() {Name = data.UserName, UserGroup = data.UserGroup.Name})
+			        .ToList()
+			};
 
 		    var groupCounts =
 		        _unitOfWork.UserRepository.ListAll()
 		            .GroupBy(data => data.UserGroup)
-		            .Select(data => new {Key = data.Key, Count = data.Count()}).ToDictionary(groupCount => groupCount.Key.Name, groupCount => groupCount.Count);;
+		            .Select(data => new { Key = data.Key, Count = data.Count() }).ToDictionary( groupCount => groupCount.Key.Name, groupCount => groupCount.Count );
             
-            // Add in all groups, even though there are no crashes associated
-			//IEnumerable<string> UserGroups = ( from UserGroupDetail in _entities.UserGroups select UserGroupDetail.Name );
-            //foreach( string UserGroupName in UserGroups )
-            //{
-            //    if( !groupCounts.Keys.Contains( UserGroupName ) )
-            //    {
-            //        groupCounts[UserGroupName] = 0;
-            //    }
-            //}
+		    model.GroupSelectList = groupCounts.Select(listItem => new SelectListItem{Selected = listItem.Key == userGroup, Text = listItem.Key, Value = listItem.Key}).ToList();
+            model.GroupCounts = groupCounts;
+	        model.PagingInfo = new PagingInfo
+	        {
+	            CurrentPage = formhelper.Page,
+	            PageSize = formhelper.PageSize,
+	            TotalResults = _unitOfWork.UserRepository.ListAll().Count(data => data.UserGroupId == group.Id)
+	        };
 
-            Model.GroupCounts = groupCounts;
-
-			return View( "Index", Model );
+			return View( "Index", model );
 		}
+
+        /// <summary>
+        /// Returns a list of user names and ids as a json for the auto-complete jQuery to parse
+        /// </summary>
+        /// <param name="userName"></param>
+        /// <returns></returns>
+	    public JsonResult AutocompleteUser(string userName)
+        {
+            var users = _unitOfWork.UserRepository.Get(data => data.UserName.Contains(userName)).Take(10).Select(data => new { UserName = data.UserName, Group = data.UserGroup.Name}).ToList();
+            return Json(users, JsonRequestBehavior.AllowGet);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            _unitOfWork.Dispose();
+            base.Dispose(disposing);
+        }
 	}
 }

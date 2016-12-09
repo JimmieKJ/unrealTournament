@@ -5,6 +5,8 @@
 ==============================================================================================*/
 
 #pragma once
+
+#include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformMath.h"
 #include "Linux/LinuxSystemIncludes.h"
 #if PLATFORM_ENABLE_VECTORINTRINSICS

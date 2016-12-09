@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsMoviePlayerPrivatePCH.h"
-
+#include "WindowsMoviePlayer.h"
 #include "MoviePlayer.h"
+#include "WindowsMovieStreamer.h"
+#include "Modules/ModuleManager.h"
 
 #include "AllowWindowsPlatformTypes.h"
 #include <mfapi.h>

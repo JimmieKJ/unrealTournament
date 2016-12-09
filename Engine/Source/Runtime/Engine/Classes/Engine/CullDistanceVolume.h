@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/Volume.h"
 #include "CullDistanceVolume.generated.h"
 
+class UPrimitiveComponent;
 
 /**
  * Helper structure containing size and cull distance pair.
@@ -72,6 +75,9 @@ public:
 	 */
 	static bool CanBeAffectedByVolumes( UPrimitiveComponent* PrimitiveComponent );
 
-	/** Get the set of primitives and new max draw distances defined by this volume. */
+	/** 
+	  * Get the set of primitives and new max draw distances defined by this volume. 
+	  * Presumes only primitives that can be affected by volumes are being passed in.
+	  */
 	void GetPrimitiveMaxDrawDistances(TMap<UPrimitiveComponent*,float>& OutCullDistances);
 };

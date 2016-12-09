@@ -4,19 +4,30 @@
 	GPUBenchmark.cpp: GPUBenchmark to compute performance index to set video options automatically
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
 #include "GPUBenchmark.h"
+#include "GenericPlatform/GenericPlatformSurvey.h"
+#include "RHI.h"
+#include "ShaderParameters.h"
+#include "RenderResource.h"
+#include "RendererInterface.h"
+#include "Shader.h"
+#include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
+#include "RHIStaticStates.h"
+#include "Containers/DynamicRHIResourceArray.h"
+#include "GlobalShader.h"
+#include "PostProcess/RenderTargetPool.h"
+#include "PostProcess/SceneFilterRendering.h"
 #include "GPUProfiler.h"
 
-static uint32 GBenchmarkResolution = 512;
+static const uint32 GBenchmarkResolution = 512;
+static const uint32 GBenchmarkPrimitives = 200000;
+static const uint32 GBenchmarkVertices = GBenchmarkPrimitives * 3;
 
 DEFINE_LOG_CATEGORY_STATIC(LogSynthBenchmark, Log, All);
 
 /** Encapsulates the post processing down sample pixel shader. */
-template <uint32 Method>
+template <uint32 PsMethod>
 class FPostProcessBenchmarkPS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FPostProcessBenchmarkPS, Global);
@@ -29,7 +40,7 @@ class FPostProcessBenchmarkPS : public FGlobalShader
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
-		OutEnvironment.SetDefine(TEXT("METHOD"), Method);
+		OutEnvironment.SetDefine(TEXT("PS_METHOD"), PsMethod);
 	}
 
 	/** Default constructor. */
@@ -79,11 +90,12 @@ public:
 #define VARIATION1(A) typedef FPostProcessBenchmarkPS<A> FPostProcessBenchmarkPS##A; \
 	IMPLEMENT_SHADER_TYPE2(FPostProcessBenchmarkPS##A, SF_Pixel);
 
-VARIATION1(0)			VARIATION1(1)			VARIATION1(2)			VARIATION1(3)			VARIATION1(4)
+VARIATION1(0)			VARIATION1(1)			VARIATION1(2)			VARIATION1(3)			VARIATION1(4)			VARIATION1(5)
 #undef VARIATION1
 
 
 /** Encapsulates the post processing down sample vertex shader. */
+template <uint32 VsMethod>
 class FPostProcessBenchmarkVS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FPostProcessBenchmarkVS,Global);
@@ -92,6 +104,12 @@ public:
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
 		return true;
+	}
+
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
+		OutEnvironment.SetDefine(TEXT("VS_METHOD"), VsMethod);
 	}
 
 	/** Default constructor. */
@@ -119,62 +137,138 @@ public:
 	}
 };
 
-IMPLEMENT_SHADER_TYPE(,FPostProcessBenchmarkVS,TEXT("GPUBenchmark"),TEXT("MainBenchmarkVS"),SF_Vertex);
+typedef FPostProcessBenchmarkVS<0> FPostProcessBenchmarkVS0;
+typedef FPostProcessBenchmarkVS<1> FPostProcessBenchmarkVS1;
+typedef FPostProcessBenchmarkVS<2> FPostProcessBenchmarkVS2;
 
+IMPLEMENT_SHADER_TYPE(template<>,FPostProcessBenchmarkVS0,TEXT("GPUBenchmark"),TEXT("MainBenchmarkVS"),SF_Vertex);
+IMPLEMENT_SHADER_TYPE(template<>,FPostProcessBenchmarkVS1,TEXT("GPUBenchmark"),TEXT("MainBenchmarkVS"),SF_Vertex);
+IMPLEMENT_SHADER_TYPE(template<>,FPostProcessBenchmarkVS2,TEXT("GPUBenchmark"),TEXT("MainBenchmarkVS"),SF_Vertex);
 
-template <uint32 Method>
-void RunBenchmarkShader(FRHICommandList& RHICmdList, const FSceneView& View, TRefCountPtr<IPooledRenderTarget>& Src, float WorkScale)
+struct FBenchmarkVertex
+{
+	FVector4 Arg0;
+	FVector4 Arg1;
+	FVector4 Arg2;
+	FVector4 Arg3;
+	FVector4 Arg4;
+
+	FBenchmarkVertex(uint32 VertexID)
+		: Arg0(VertexID, 0.0f, 0.0f, 0.0f)
+		, Arg1()
+		, Arg2()
+		, Arg3()
+		, Arg4()
+	{}
+};
+
+struct FVertexThroughputDeclaration : public FRenderResource
+{
+	FVertexDeclarationRHIRef DeclRHI;
+
+	virtual void InitRHI() override
+	{
+		FVertexDeclarationElementList Elements = 
+		{
+			{ 0, 0 * sizeof(FVector4), VET_Float4, 0, sizeof(FBenchmarkVertex) },
+			{ 0, 1 * sizeof(FVector4), VET_Float4, 1, sizeof(FBenchmarkVertex) },
+			{ 0, 2 * sizeof(FVector4), VET_Float4, 2, sizeof(FBenchmarkVertex) },
+			{ 0, 3 * sizeof(FVector4), VET_Float4, 3, sizeof(FBenchmarkVertex) },
+			{ 0, 4 * sizeof(FVector4), VET_Float4, 4, sizeof(FBenchmarkVertex) },
+		};
+
+		DeclRHI = RHICreateVertexDeclaration(Elements);
+	}
+
+	virtual void ReleaseRHI() override
+	{
+		DeclRHI = nullptr;
+	}
+};
+
+TGlobalResource<FVertexThroughputDeclaration> GVertexThroughputDeclaration;
+
+template <uint32 VsMethod, uint32 PsMethod>
+void RunBenchmarkShader(FRHICommandList& RHICmdList, FVertexBufferRHIParamRef VertexThroughputBuffer, const FSceneView& View, TRefCountPtr<IPooledRenderTarget>& Src, float WorkScale)
 {
 	auto ShaderMap = GetGlobalShaderMap(View.GetFeatureLevel());
 
-	TShaderMapRef<FPostProcessBenchmarkVS> VertexShader(ShaderMap);
-	TShaderMapRef<FPostProcessBenchmarkPS<Method> > PixelShader(ShaderMap);
+	TShaderMapRef<FPostProcessBenchmarkVS<VsMethod>> VertexShader(ShaderMap);
+	TShaderMapRef<FPostProcessBenchmarkPS<PsMethod>> PixelShader(ShaderMap);
+
+	bool bVertexTest = VsMethod != 0;
+	FVertexDeclarationRHIParamRef VertexDeclaration = bVertexTest
+		? GVertexThroughputDeclaration.DeclRHI
+		: GFilterVertexDeclaration.VertexDeclarationRHI;
 
 	static FGlobalBoundShaderState BoundShaderState;
-	
-
-	SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+	SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), BoundShaderState, VertexDeclaration, *VertexShader, *PixelShader);
 
 	PixelShader->SetParameters(RHICmdList, View, Src);
 	VertexShader->SetParameters(RHICmdList, View);
 
-	// single pass was not fine grained enough so we reduce the pass size based on the fractional part of WorkScale
-	float TotalHeight = GBenchmarkResolution * WorkScale;
-
-	// rounds up
-	uint32 PassCount = (uint32)FMath::CeilToFloat(TotalHeight / GBenchmarkResolution);
-
-	for(uint32 i = 0; i < PassCount; ++i)
+	if (bVertexTest)
 	{
-		float Top = i * GBenchmarkResolution;
-		float Bottom = FMath::Min(Top + GBenchmarkResolution, TotalHeight);
-		float LocalHeight = Bottom - Top;
+		// Vertex Tests
 
-		DrawRectangle(
-			RHICmdList,
-			0, 0,
-			GBenchmarkResolution, LocalHeight,
-			0, 0,
-			GBenchmarkResolution, LocalHeight,
-			FIntPoint(GBenchmarkResolution, GBenchmarkResolution),
-			FIntPoint(GBenchmarkResolution, GBenchmarkResolution),
-			*VertexShader,
-			EDRF_Default);
+		uint32 TotalNumPrimitives = FMath::CeilToInt(GBenchmarkPrimitives * WorkScale);
+		uint32 TotalNumVertices = TotalNumPrimitives * 3;
+
+		while (TotalNumVertices != 0)
+		{
+			uint32 VerticesThisPass = FMath::Min(TotalNumVertices, GBenchmarkVertices);
+			uint32 PrimitivesThisPass = VerticesThisPass / 3;
+
+			RHICmdList.SetStreamSource(0, VertexThroughputBuffer, VertexThroughputBuffer ? sizeof(FBenchmarkVertex) : 0, 0);
+
+			RHICmdList.DrawPrimitive(PT_TriangleList, 0, PrimitivesThisPass, 1);
+
+			TotalNumVertices -= VerticesThisPass;
+		}
+	}
+	else
+	{
+		// Pixel Tests
+
+		// single pass was not fine grained enough so we reduce the pass size based on the fractional part of WorkScale
+		float TotalHeight = GBenchmarkResolution * WorkScale;
+
+		// rounds up
+		uint32 PassCount = (uint32)FMath::CeilToFloat(TotalHeight / GBenchmarkResolution);
+
+		for (uint32 i = 0; i < PassCount; ++i)
+		{
+			float Top = i * GBenchmarkResolution;
+			float Bottom = FMath::Min(Top + GBenchmarkResolution, TotalHeight);
+			float LocalHeight = Bottom - Top;
+
+			DrawRectangle(
+				RHICmdList,
+				0, 0,
+				GBenchmarkResolution, LocalHeight,
+				0, 0,
+				GBenchmarkResolution, LocalHeight,
+				FIntPoint(GBenchmarkResolution, GBenchmarkResolution),
+				FIntPoint(GBenchmarkResolution, GBenchmarkResolution),
+				*VertexShader,
+				EDRF_Default);
+		}
 	}
 }
 
-void RunBenchmarkShader(FRHICommandListImmediate& RHICmdList, const FSceneView& View, uint32 MethodId, TRefCountPtr<IPooledRenderTarget>& Src, float WorkScale)
+void RunBenchmarkShader(FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexThroughputBuffer, const FSceneView& View, uint32 MethodId, TRefCountPtr<IPooledRenderTarget>& Src, float WorkScale)
 {
 	SCOPED_DRAW_EVENTF(RHICmdList, Benchmark, TEXT("Benchmark Method:%d"), MethodId);
 
 	switch(MethodId)
 	{
-		case 0: RunBenchmarkShader<0>(RHICmdList, View, Src, WorkScale); return;
-		case 1: RunBenchmarkShader<1>(RHICmdList, View, Src, WorkScale); return;
-		case 2: RunBenchmarkShader<2>(RHICmdList, View, Src, WorkScale); return;
-		case 3: RunBenchmarkShader<3>(RHICmdList, View, Src, WorkScale); return;
-		case 4: RunBenchmarkShader<4>(RHICmdList, View, Src, WorkScale); return;
-
+		case 0: RunBenchmarkShader<0, 0>(RHICmdList, VertexThroughputBuffer, View, Src, WorkScale); return;
+		case 1: RunBenchmarkShader<0, 1>(RHICmdList, VertexThroughputBuffer, View, Src, WorkScale); return;
+		case 2: RunBenchmarkShader<0, 2>(RHICmdList, VertexThroughputBuffer, View, Src, WorkScale); return;
+		case 3: RunBenchmarkShader<0, 3>(RHICmdList, VertexThroughputBuffer, View, Src, WorkScale); return;
+		case 4: RunBenchmarkShader<0, 4>(RHICmdList, VertexThroughputBuffer, View, Src, WorkScale); return;
+		case 5: RunBenchmarkShader<1, 5>(RHICmdList, VertexThroughputBuffer, View, Src, WorkScale); return;
+		case 6: RunBenchmarkShader<2, 5>(RHICmdList,                nullptr, View, Src, WorkScale); return;
 		default:
 			check(0);
 	}
@@ -317,6 +411,16 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 		return;
 	}
 
+	TResourceArray<FBenchmarkVertex> Vertices;
+	Vertices.Reserve(GBenchmarkVertices);
+	for (uint32 Index = 0; Index < GBenchmarkVertices; ++Index)
+	{
+		Vertices.Emplace(Index);
+	}
+
+	FRHIResourceCreateInfo CreateInfo(&Vertices);
+	FVertexBufferRHIRef VertexBuffer = RHICreateVertexBuffer(GBenchmarkVertices * sizeof(FBenchmarkVertex), BUF_Static, CreateInfo);
+
 	// two RT to ping pong so we force the GPU to flush it's pipeline
 	TRefCountPtr<IPooledRenderTarget> RTItems[3];
 	{
@@ -342,6 +446,43 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 		// larger number means more accuracy but slower, some slower GPUs might timeout with a number to large
 		const uint32 IterationCount = 70;
 		const uint32 MethodCount = ARRAY_COUNT(InOut.GPUStats);
+
+		enum class EMethodType
+		{
+			Vertex,
+			Pixel
+		};
+
+		struct FBenchmarkMethod
+		{
+			const TCHAR* Desc;
+			float IndexNormalizedTime;
+			const TCHAR* ValueType;
+			float Weight;
+			EMethodType Type;
+		};
+		
+		const FBenchmarkMethod Methods[] =
+		{
+			// e.g. on NV670: Method3 (mostly fill rate )-> 26GP/s (seems realistic)
+			// reference: http://en.wikipedia.org/wiki/Comparison_of_Nvidia_graphics_processing_units theoretical: 29.3G/s
+			{ TEXT("ALUHeavyNoise"),    1.0f / 4.601f,  TEXT("s/GigaPix"),  1.0f, EMethodType::Pixel  },
+			{ TEXT("TexHeavy"),         1.0f / 7.447f,  TEXT("s/GigaPix"),  0.1f, EMethodType::Pixel  },
+			{ TEXT("DepTexHeavy"),      1.0f / 3.847f,  TEXT("s/GigaPix"),  0.1f, EMethodType::Pixel  },
+			{ TEXT("FillOnly"),         1.0f / 25.463f, TEXT("s/GigaPix"),  3.0f, EMethodType::Pixel  },
+			{ TEXT("Bandwidth"),        1.0f / 1.072f,  TEXT("s/GigaPix"),  1.0f, EMethodType::Pixel  },
+			{ TEXT("VertThroughPut1"),  1.0f / 1.537f,  TEXT("s/GigaVert"), 0.0f, EMethodType::Vertex }, // TODO: Set weights
+			{ TEXT("VertThroughPut2"),  1.0f / 1.767f,  TEXT("s/GigaVert"), 0.0f, EMethodType::Vertex }, // TODO: Set weights
+		};
+
+		static_assert(ARRAY_COUNT(Methods) == ARRAY_COUNT(InOut.GPUStats), "Benchmark methods descriptor array lengths should match.");
+
+		// Initialize the GPU benchmark stats
+		for (int32 Index = 0; Index < ARRAY_COUNT(Methods); ++Index)
+		{
+			auto& Method = Methods[Index];
+			InOut.GPUStats[Index] = FSynthBenchmarkStat(Method.Desc, Method.IndexNormalizedTime, Method.ValueType, Method.Weight);
+		}
 
 		// 0 / 1
 		uint32 DestRTIndex = 0;
@@ -390,17 +531,12 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 						break;
 				}
 			}
-			
-			InOut.GPUStats[0] = FSynthBenchmarkStat(TEXT("ALUHeavyNoise"), 1.0f / 4.601f, TEXT("s/GigaPix"), 1.f);
-			InOut.GPUStats[1] = FSynthBenchmarkStat(TEXT("TexHeavy"), 1.0f / 7.447f, TEXT("s/GigaPix"), 0.1f);
-			InOut.GPUStats[2] = FSynthBenchmarkStat(TEXT("DepTexHeavy"), 1.0f / 3.847f, TEXT("s/GigaPix"), 0.1f);
-			InOut.GPUStats[3] = FSynthBenchmarkStat(TEXT("FillOnly"), 1.0f / 25.463f, TEXT("s/GigaPix"), 3.f);
-			InOut.GPUStats[4] = FSynthBenchmarkStat(TEXT("Bandwidth"), 1.0f / 1.072f, TEXT("s/GigaPix"), 1.f);
-			InOut.GPUStats[0].SetMeasuredTime( FTimeSample(PerfScale, PerfScale * (1.0f / 4.601f)) );
-			InOut.GPUStats[1].SetMeasuredTime( FTimeSample(PerfScale, PerfScale * (1.0f / 7.447f)) );
-			InOut.GPUStats[2].SetMeasuredTime( FTimeSample(PerfScale, PerfScale * (1.0f / 3.847f)) );
-			InOut.GPUStats[3].SetMeasuredTime( FTimeSample(PerfScale, PerfScale * (1.0f / 25.463f)) );
-			InOut.GPUStats[4].SetMeasuredTime( FTimeSample(PerfScale, PerfScale * (1.0f / 1.072f)) );
+
+			for (int32 Index = 0; Index < MethodCount; ++Index)
+			{
+				FSynthBenchmarkStat& Stat = InOut.GPUStats[Index];
+				Stat.SetMeasuredTime(FTimeSample(PerfScale, PerfScale * Methods[Index].IndexNormalizedTime));
+			}
 #endif
 			return;
 		}
@@ -415,16 +551,6 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 			TotalTimes[MethodIterator] = 0;
 			TimingSeries[MethodIterator].Init(IterationCount);
 		}
-
-		check(MethodCount == 5);
-		InOut.GPUStats[0] = FSynthBenchmarkStat(TEXT("ALUHeavyNoise"), 1.0f / 4.601f, TEXT("s/GigaPix"), 1.f);
-		InOut.GPUStats[1] = FSynthBenchmarkStat(TEXT("TexHeavy"), 1.0f / 7.447f, TEXT("s/GigaPix"), 0.1f);
-		InOut.GPUStats[2] = FSynthBenchmarkStat(TEXT("DepTexHeavy"), 1.0f / 3.847f, TEXT("s/GigaPix"), 0.1f);
-		InOut.GPUStats[3] = FSynthBenchmarkStat(TEXT("FillOnly"), 1.0f / 25.463f, TEXT("s/GigaPix"), 3.f);
-		InOut.GPUStats[4] = FSynthBenchmarkStat(TEXT("Bandwidth"), 1.0f / 1.072f, TEXT("s/GigaPix"), 1.f);
-
-		// e.g. on NV670: Method3 (mostly fill rate )-> 26GP/s (seems realistic)
-		// reference: http://en.wikipedia.org/wiki/Comparison_of_Nvidia_graphics_processing_units theoretical: 29.3G/s
 
 		RHICmdList.EndRenderQuery(TimerQueries[0]);
 
@@ -449,7 +575,7 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 				// decide how much work we do in this pass
 				LocalWorkScale[Iteration] = (Iteration / 10.f + 1.f) * WorkScale;
 
-				RunBenchmarkShader(RHICmdList, View, MethodId, RTItems[SrcRTIndex], LocalWorkScale[Iteration]);
+				RunBenchmarkShader(RHICmdList, VertexBuffer, View, MethodId, RTItems[SrcRTIndex], LocalWorkScale[Iteration]);
 
 				RHICmdList.CopyToResolveTarget(RTItems[DestRTIndex]->GetRenderTargetItem().TargetableTexture, RTItems[DestRTIndex]->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
 
@@ -500,7 +626,7 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 					RHICmdList.GetRenderQueryResult(TimerQueries[QueryIndex], AbsTime, true);
 					TimerQueryPool.ReleaseQuery(TimerQueries[QueryIndex]);
 
-					uint64 RelTime = AbsTime - OldAbsTime; 
+					uint64 RelTime = FMath::Max(AbsTime - OldAbsTime, 1ull);
 
 					TotalTimes[MethodId] += RelTime;
 					Results[MethodId] = RelTime;
@@ -512,11 +638,22 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 				{
 					float TimeInSec = Results[MethodId] / 1000000.0f;
 
-					// to normalize from seconds to seconds per GPixel
-					float SamplesInGPix = LocalWorkScale[Iteration] * GBenchmarkResolution * GBenchmarkResolution / 1000000000.0f;
+					if (Methods[MethodId].Type == EMethodType::Vertex)
+					{
+						// to normalize from seconds to seconds per GVert
+						float SamplesInGVert = LocalWorkScale[Iteration] * GBenchmarkVertices / 1000000000.0f;
+						TimingSeries[MethodId].SetEntry(Iteration, TimeInSec / SamplesInGVert);
+					}
+					else
+					{
+						check(Methods[MethodId].Type == EMethodType::Pixel);
 
-					// TimingValue in Seconds per GPixel
-					TimingSeries[MethodId].SetEntry(Iteration, TimeInSec / SamplesInGPix);
+						// to normalize from seconds to seconds per GPixel
+						float SamplesInGPix = LocalWorkScale[Iteration] * GBenchmarkResolution * GBenchmarkResolution / 1000000000.0f;
+
+						// TimingValue in Seconds per GPixel
+						TimingSeries[MethodId].SetEntry(Iteration, TimeInSec / SamplesInGPix);
+					}
 				}
 			}
 

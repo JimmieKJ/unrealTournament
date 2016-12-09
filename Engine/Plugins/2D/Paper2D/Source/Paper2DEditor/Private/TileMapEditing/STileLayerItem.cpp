@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "STileLayerItem.h"
-#include "SContentReference.h"
+#include "TileMapEditing/STileLayerItem.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "PaperTileLayer.h"
 #include "ScopedTransaction.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "PaperStyle.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"

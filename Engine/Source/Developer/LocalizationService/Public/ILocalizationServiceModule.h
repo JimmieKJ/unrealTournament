@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "ModuleManager.h"
-#include "ILocalizationServiceProvider.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+
+class ILocalizationServiceProvider;
 
 LOCALIZATIONSERVICE_API DECLARE_LOG_CATEGORY_EXTERN(LogLocalizationService, Log, All);
 

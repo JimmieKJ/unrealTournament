@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Sound/SoundBase.h"
+#include "Sound/SoundSubmix.h"
 #include "Sound/AudioSettings.h"
-#include "AudioDevice.h"
 
 USoundClass* USoundBase::DefaultSoundClassObject = nullptr;
 USoundConcurrency* USoundBase::DefaultSoundConcurrencyObject = nullptr;
+USoundSubmix* USoundBase::DefaultSoundSubmixObject = nullptr;
 
 USoundBase::USoundBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -29,6 +29,16 @@ void USoundBase::PostInitProperties()
 		}
 	}
 	SoundClassObject = USoundBase::DefaultSoundClassObject;
+
+	if (USoundBase::DefaultSoundSubmixObject == nullptr)
+	{
+		const FStringAssetReference DefaultSoundSubmixName = GetDefault<UAudioSettings>()->DefaultSoundSubmixName;
+		if (DefaultSoundSubmixName.IsValid())
+		{
+			USoundBase::DefaultSoundSubmixObject = LoadObject<USoundSubmix>(nullptr, *DefaultSoundSubmixName.ToString());
+		}
+	}
+	SoundSubmixObject = USoundBase::DefaultSoundSubmixObject;
 
 	if (USoundBase::DefaultSoundConcurrencyObject == nullptr)
 	{
@@ -89,6 +99,11 @@ bool USoundBase::ShouldApplyInteriorVolumes() const
 USoundClass* USoundBase::GetSoundClass() const
 {
 	return SoundClassObject;
+}
+
+USoundSubmix* USoundBase::GetSoundSubmix() const
+{
+	return SoundSubmixObject;
 }
 
 const FSoundConcurrencySettings* USoundBase::GetSoundConcurrencySettingsToApply()

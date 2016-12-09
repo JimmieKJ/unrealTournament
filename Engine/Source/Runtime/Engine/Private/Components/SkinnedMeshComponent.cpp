@@ -4,17 +4,20 @@
 	UnSkeletalComponent.cpp: Actor component implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "ParticleDefinitions.h"
-#include "BlueprintUtilities.h"
+#include "Components/SkinnedMeshComponent.h"
+#include "Misc/App.h"
+#include "RenderingThread.h"
+#include "GameFramework/PlayerController.h"
+#include "ContentStreaming.h"
+#include "DrawDebugHelpers.h"
+#include "UnrealEngine.h"
+#include "SkeletalRenderPublic.h"
 #include "SkeletalRenderCPUSkin.h"
 #include "SkeletalRenderGPUSkin.h"
-#include "AnimationUtils.h"
 #include "Animation/AnimStats.h"
-#include "Animation/MorphTarget.h"
-#include "ComponentReregisterContext.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "EngineGlobals.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSkinnedMeshComp, Log, All);
 
@@ -457,6 +460,27 @@ void USkinnedMeshComponent::PostEditChangeProperty(FPropertyChangedEvent& Proper
 		}
 	}
 }
+
+bool USkinnedMeshComponent::CanEditChange(const UProperty* InProperty) const
+{
+	if (InProperty)
+	{
+		FString PropertyName = InProperty->GetName();
+
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(USkinnedMeshComponent, bCastCapsuleIndirectShadow))
+		{
+			return CastShadow && bCastDynamicShadow;
+		}
+
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(USkinnedMeshComponent, CapsuleIndirectShadowMinVisibility))
+		{
+			return bCastCapsuleIndirectShadow && CastShadow && bCastDynamicShadow;
+		}
+	}
+
+	return Super::CanEditChange(InProperty);
+}
+
 #endif // WITH_EDITOR
 
 void USkinnedMeshComponent::InitLODInfos()
@@ -500,11 +524,13 @@ void USkinnedMeshComponent::TickUpdateRate(float DeltaTime, bool bNeedsValidRoot
 			// Tick Owner once per frame. All attached SkinnedMeshComponents will share the same settings.
 			FAnimUpdateRateManager::TickUpdateRateParameters(this, DeltaTime, bNeedsValidRootMotion);
 
+#if ENABLE_DRAW_DEBUG
 			if ((CVarDrawAnimRateOptimization.GetValueOnGameThread() > 0) || bDisplayDebugUpdateRateOptimizations)
 			{
 				FColor DrawColor = AnimUpdateRateParams->GetUpdateRateDebugColor();
 				DrawDebugBox(GetWorld(), Bounds.Origin, Bounds.BoxExtent, FQuat::Identity, DrawColor, false);
 			}
+#endif // ENABLE_DRAW_DEBUG
 		}
 	}
 }
@@ -591,41 +617,54 @@ UMaterialInterface* USkinnedMeshComponent::GetMaterial(int32 MaterialIndex) cons
 	return NULL;
 }
 
+int32 USkinnedMeshComponent::GetMaterialIndex(FName MaterialSlotName) const
+{
+	for (int32 MaterialIndex = 0; MaterialIndex < SkeletalMesh->Materials.Num(); ++MaterialIndex)
+	{
+		const FSkeletalMaterial &SkeletalMaterial = SkeletalMesh->Materials[MaterialIndex];
+		if (SkeletalMaterial.MaterialSlotName == MaterialSlotName)
+		{
+			return MaterialIndex;
+		}
+	}
+	return -1;
+}
+
+TArray<FName> USkinnedMeshComponent::GetMaterialSlotNames() const
+{
+	TArray<FName> MaterialNames;
+	for (int32 MaterialIndex = 0; MaterialIndex < SkeletalMesh->Materials.Num(); ++MaterialIndex)
+	{
+		const FSkeletalMaterial &SkeletalMaterial = SkeletalMesh->Materials[MaterialIndex];
+		MaterialNames.Add(SkeletalMaterial.MaterialSlotName);
+	}
+	return MaterialNames;
+}
+
+bool USkinnedMeshComponent::IsMaterialSlotNameValid(FName MaterialSlotName) const
+{
+	return GetMaterialIndex(MaterialSlotName) >= 0;
+}
 
 bool USkinnedMeshComponent::ShouldCPUSkin()
 {
-	return false;
+	return bCPUSkinning;
+}
+
+bool USkinnedMeshComponent::GetMaterialStreamingData(int32 MaterialIndex, FPrimitiveMaterialInfo& MaterialData) const
+{
+	if (SkeletalMesh)
+	{
+		MaterialData.Material = GetMaterial(MaterialIndex);
+		MaterialData.UVChannelData = SkeletalMesh->GetUVChannelData(MaterialIndex);
+		MaterialData.PackedRelativeBox = PackedRelativeBox_Identity;
+	}
+	return MaterialData.IsValid();
 }
 
 void USkinnedMeshComponent::GetStreamingTextureInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const
 {
-	if( SkeletalMesh )
-	{
-		const float LocalTexelFactor = SkeletalMesh->GetStreamingTextureFactor(0) * FMath::Max(0.0f, StreamingDistanceMultiplier);
-		const float WorldTexelFactor = LocalTexelFactor * ComponentToWorld.GetMaximumAxisScale();
-		const int32 NumMaterials = FMath::Max(SkeletalMesh->Materials.Num(), OverrideMaterials.Num());
-		for( int32 MatIndex = 0; MatIndex < NumMaterials; MatIndex++ )
-		{
-			UMaterialInterface* const MaterialInterface = GetMaterial(MatIndex);
-			if(MaterialInterface)
-			{
-				TArray<UTexture*> Textures;
-				
-				auto World = GetWorld();
-				MaterialInterface->GetUsedTextures(Textures, EMaterialQualityLevel::Num, false, World ? World->FeatureLevel : GMaxRHIFeatureLevel, false);
-				for(int32 TextureIndex = 0; TextureIndex < Textures.Num(); TextureIndex++ )
-				{
-					UTexture2D* Texture2D = Cast<UTexture2D>(Textures[TextureIndex]);
-					if (!Texture2D) continue;
-
-					FStreamingTexturePrimitiveInfo& StreamingTexture = *new(OutStreamingTextures) FStreamingTexturePrimitiveInfo;
-					StreamingTexture.Bounds = Bounds.GetSphere();
-					StreamingTexture.TexelFactor = WorldTexelFactor;
-					StreamingTexture.Texture = Texture2D;
-				}
-			}
-		}
-	}
+	GetStreamingTextureInfoInner(LevelContext, nullptr, ComponentToWorld.GetMaximumAxisScale(), OutStreamingTextures);
 }
 
 bool USkinnedMeshComponent::ShouldUpdateBoneVisibility() const
@@ -1115,7 +1154,7 @@ void USkinnedMeshComponent::SetMasterPoseComponent(class USkinnedMeshComponent* 
 
 		if (bAddNew)
 		{
-			MasterPoseComponent->SlavePoseComponents.Add(this);
+			MasterPoseComponent->AddSlavePoseComponent(this);
 		}
 	}
 
@@ -1134,6 +1173,11 @@ void USkinnedMeshComponent::SetMasterPoseComponent(class USkinnedMeshComponent* 
 	AllocateTransformData();
 	RecreatePhysicsState();
 	UpdateMasterBoneMap();
+}
+
+void USkinnedMeshComponent::AddSlavePoseComponent(USkinnedMeshComponent* SkinnedMeshComponent)
+{
+	SlavePoseComponents.Add(SkinnedMeshComponent);
 }
 
 void USkinnedMeshComponent::InvalidateCachedBounds()
@@ -1307,7 +1351,8 @@ class USkeletalMeshSocket const* USkinnedMeshComponent::GetSocketByName(FName In
 	}
 	else
 	{
-		UE_LOG(LogSkinnedMeshComp, Warning, TEXT("GetSocketByName(%s: %s): No SkeletalMesh for %s"), *GetNameSafe(SkeletalMesh), *InSocketName.ToString(), *GetName());
+		UE_LOG(LogSkinnedMeshComp, Warning, TEXT("GetSocketByName(%s): No SkeletalMesh for Component(%s) Actor(%s)"), 
+			*InSocketName.ToString(), *GetName(), *GetNameSafe(GetOuter()));
 	}
 
 	return Socket;
@@ -1969,6 +2014,16 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 	{
 		MaxDistanceFactor = MeshObject->MaxDistanceFactor;
 	}
+	
+	// also update slave component LOD status, as we may need to recalc required bones if this changes
+	// independently of our LOD
+	for (TWeakObjectPtr<USkinnedMeshComponent> SlaveComponents : SlavePoseComponents)
+	{
+		if (SlaveComponents.IsValid())
+		{
+			bLODChanged |= SlaveComponents->UpdateLODStatus();
+		}
+	}
 
 	return bLODChanged;
 }
@@ -2009,12 +2064,46 @@ void USkinnedMeshComponent::SetComponentSpaceTransformsDoubleBuffering(bool bInD
 	}
 }
 
-void USkinnedMeshComponent::UpdateRecomputeTangent(int32 MaterialIndex)
+void USkinnedMeshComponent::UpdateRecomputeTangent(int32 MaterialIndex, int32 LodIndex, bool bRecomputeTangentValue)
 {
 	if (ensure(SkeletalMesh) && MeshObject)
 	{
-		MeshObject->UpdateRecomputeTangent(MaterialIndex, SkeletalMesh->Materials[MaterialIndex].bRecomputeTangent);
+		MeshObject->UpdateRecomputeTangent(MaterialIndex, LodIndex, bRecomputeTangentValue);
 	}
+}
+
+void USkinnedMeshComponent::GetCPUSkinnedVertices(TArray<FFinalSkinVertex>& OutVertices, int32 InLODIndex)
+{
+	// switch to CPU skinning
+	bool bCachedCPUSkinning = bCPUSkinning;
+	bCPUSkinning = true;
+
+	if (MasterPoseComponent.IsValid())
+	{
+		MasterPoseComponent->ForcedLodModel = InLODIndex + 1;
+		MasterPoseComponent->UpdateLODStatus();
+		MasterPoseComponent->RefreshBoneTransforms(nullptr);
+	}
+	else
+	{
+		ForcedLodModel = InLODIndex + 1;
+		UpdateLODStatus();
+		RefreshBoneTransforms(nullptr);
+	}
+
+	// Recreate render state and flush the renderer
+	RecreateRenderState_Concurrent();
+	FlushRenderingCommands();
+
+	check(MeshObject);
+
+	// Copy our vertices out. We know we are using CPU skinning now, so this cast is safe
+	OutVertices = static_cast<FSkeletalMeshObjectCPUSkin*>(MeshObject)->GetCachedFinalVertices();
+
+	// switch skinning mode, LOD etc. back
+	bCPUSkinning = bCachedCPUSkinning;
+	ForcedLodModel = 0;
+	RecreateRenderState_Concurrent();
 }
 
 void FAnimUpdateRateParameters::SetTrailMode(float DeltaTime, uint8 UpdateRateShift, int32 NewUpdateRate, int32 NewEvaluationRate, bool bNewInterpSkippedFrames)

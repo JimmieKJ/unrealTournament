@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Editor/MaterialEditor/Private/MaterialEditor.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+
 /** Item that matched the search results */
 class FFindInMaterialResult
 {

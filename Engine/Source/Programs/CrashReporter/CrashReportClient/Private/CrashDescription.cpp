@@ -1,14 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashReportClientApp.h"
-#include "GenericPlatformCrashContext.h"
-
-#include "XmlFile.h"
 #include "CrashDescription.h"
+#include "Misc/DateTime.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
+#include "CrashReportClientConfig.h"
+
 #include "CrashReportAnalytics.h"
-#include "CrashReportUtil.h"
+#include "AnalyticsEventAttribute.h"
 #include "IAnalyticsProviderET.h"
-#include "EngineBuildSettings.h"
+#include "Misc/EngineBuildSettings.h"
 #include "QoSReporter.h"
 
 // #CrashReport: 2015-07-23 Move crashes from C:\Users\[USER]\AppData\Local\Microsoft\Windows\WER\ReportQueue to C:\Users\[USER]\AppData\Local\CrashReportClient\Saved
@@ -100,10 +102,11 @@ FPrimaryCrashProperties* FPrimaryCrashProperties::Singleton = nullptr;
 
 FPrimaryCrashProperties::FPrimaryCrashProperties()
 	// At this moment only these properties can be changed by the crash report client.
-	: PlatformFullName( FGenericCrashContext::RuntimePropertiesTag, TEXT( "PlatformFullName" ), this )
+	: EngineModeEx( FGenericCrashContext::RuntimePropertiesTag, TEXT("EngineModeEx"), this )
+	, PlatformFullName( FGenericCrashContext::RuntimePropertiesTag, TEXT( "PlatformFullName" ), this )
 	, CommandLine( FGenericCrashContext::RuntimePropertiesTag, TEXT( "CommandLine" ), this )
 	, UserName( FGenericCrashContext::RuntimePropertiesTag, TEXT("UserName"), this )
-	, MachineId( FGenericCrashContext::RuntimePropertiesTag, TEXT( "MachineId" ), this )
+	, LoginId( FGenericCrashContext::RuntimePropertiesTag, TEXT( "LoginId" ), this )
 	, EpicAccountId( FGenericCrashContext::RuntimePropertiesTag, TEXT( "EpicAccountId" ), this )
 	, GameSessionID( FGenericCrashContext::RuntimePropertiesTag, TEXT( "GameSessionID" ), this )
 	// Multiline properties
@@ -160,7 +163,7 @@ void FPrimaryCrashProperties::UpdateIDs()
 		UserName = FString();
 	}
 
-	MachineId = FPlatformMisc::GetMachineId().ToString( EGuidFormats::Digits );
+	LoginId = FPlatformMisc::GetLoginId();
 }
 
 void FPrimaryCrashProperties::ReadXML( const FString& CrashContextFilepath  )
@@ -266,13 +269,14 @@ void FPrimaryCrashProperties::MakeCrashEventAttributes(TArray<FAnalyticsEventAtt
 	OutCrashAttributes.Add(FAnalyticsEventAttribute(TEXT("CrashReportClientVersion"), CrashReportClientVersion.AsString()));
 
 	// @see UpdateIDs()
-	OutCrashAttributes.Add(FAnalyticsEventAttribute(TEXT("MachineID"), MachineId.AsString()));
+	OutCrashAttributes.Add(FAnalyticsEventAttribute(TEXT("LoginID"), LoginId.AsString()));
 	OutCrashAttributes.Add(FAnalyticsEventAttribute(TEXT("UserName"), UserName.AsString()));
 	OutCrashAttributes.Add(FAnalyticsEventAttribute(TEXT("EpicAccountId"), EpicAccountId.AsString()));
 
 	OutCrashAttributes.Add(FAnalyticsEventAttribute(TEXT("Platform"), PlatformFullName.AsString()));
 	OutCrashAttributes.Add(FAnalyticsEventAttribute(TEXT("TimeOfCrash"), TimeOfCrash.AsString()));
 	OutCrashAttributes.Add(FAnalyticsEventAttribute(TEXT("EngineMode"), EngineMode));
+	OutCrashAttributes.Add(FAnalyticsEventAttribute(TEXT("EngineModeEx"), EngineModeEx.AsString()));
 	OutCrashAttributes.Add(FAnalyticsEventAttribute(TEXT("AppDefaultLocale"), AppDefaultLocale));
 
 	OutCrashAttributes.Add(FAnalyticsEventAttribute(TEXT("UserActivityHint"), UserActivityHint.AsString()));
@@ -299,11 +303,12 @@ FCrashContext::FCrashContext( const FString& CrashContextFilepath )
 		RestartCommandLine = CommandLine.AsString();
 
 		// Setup properties required for the analytics.
-		GetCrashProperty( CrashVersion, FGenericCrashContext::RuntimePropertiesTag, TEXT( "CrashVersion" ) );
-		GetCrashProperty( CrashGUID, FGenericCrashContext::RuntimePropertiesTag, TEXT( "CrashGUID" ) );
-		GetCrashProperty( CrashDumpMode, FGenericCrashContext::RuntimePropertiesTag, TEXT( "CrashDumpMode" ) );
-		GetCrashProperty( GameName, FGenericCrashContext::RuntimePropertiesTag, TEXT( "GameName" ) );
-		GetCrashProperty( EngineVersion, FGenericCrashContext::RuntimePropertiesTag, TEXT( "EngineVersion" ) );
+		GetCrashProperty(CrashVersion, FGenericCrashContext::RuntimePropertiesTag, TEXT("CrashVersion"));
+		GetCrashProperty(CrashGUID, FGenericCrashContext::RuntimePropertiesTag, TEXT("CrashGUID"));
+		GetCrashProperty(CrashDumpMode, FGenericCrashContext::RuntimePropertiesTag, TEXT("CrashDumpMode"));
+		GetCrashProperty(GameName, FGenericCrashContext::RuntimePropertiesTag, TEXT("GameName"));
+		GetCrashProperty(ExecutableName, FGenericCrashContext::RuntimePropertiesTag, TEXT("ExecutableName"));
+		GetCrashProperty(EngineVersion, FGenericCrashContext::RuntimePropertiesTag, TEXT("EngineVersion"));
 
 		GetCrashProperty( BaseDir, FGenericCrashContext::RuntimePropertiesTag, TEXT( "BaseDir" ) );
 		FString Misc_OSVersionMajor;
@@ -454,6 +459,10 @@ FCrashWERContext::FCrashWERContext( const FString& WERXMLFilepath )
 
 		GetCrashProperty(DeploymentName, TEXT("DynamicSignatures"), TEXT("DeploymentName"));
 		GetCrashProperty(bIsEnsure, TEXT("DynamicSignatures"), TEXT("IsEnsure"));
+
+		FString EngineModeExString;
+		GetCrashProperty(EngineModeExString, TEXT("DynamicSignatures"), TEXT("EngineModeEx"));
+		EngineModeEx = EngineModeExString;
 
 		bHasPrimaryData = true;
 	}

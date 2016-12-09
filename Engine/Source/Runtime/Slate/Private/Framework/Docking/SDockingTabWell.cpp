@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "DockingPrivate.h"
+#include "Framework/Docking/SDockingTabWell.h"
+#include "Types/PaintArgs.h"
+#include "Layout/ArrangedChildren.h"
+#include "Framework/Docking/FDockingDragOperation.h"
 
 
 const FVector2D FDockingConstants::MaxMinorTabSize(150.f, 50.0f);

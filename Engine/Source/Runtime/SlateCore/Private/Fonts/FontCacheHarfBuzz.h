@@ -2,17 +2,29 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FFreeTypeAdvanceCache;
 class FFreeTypeFace;
 class FFreeTypeGlyphCache;
+class FFreeTypeKerningPairCache;
 
 #ifndef WITH_HARFBUZZ
 	#define WITH_HARFBUZZ	0
 #endif // WITH_HARFBUZZ
 
+#if PLATFORM_COMPILER_HAS_GENERIC_KEYWORD
+	#define generic __identifier(generic)
+#endif	//PLATFORM_COMPILER_HAS_GENERIC_KEYWORD
+
 #if WITH_HARFBUZZ
 	#include "hb.h"
 	#include "hb-ft.h"
 #endif // #if WITH_HARFBUZZ
+
+#if PLATFORM_COMPILER_HAS_GENERIC_KEYWORD
+	#undef generic
+#endif	//PLATFORM_COMPILER_HAS_GENERIC_KEYWORD
 
 namespace HarfBuzzUtils
 {

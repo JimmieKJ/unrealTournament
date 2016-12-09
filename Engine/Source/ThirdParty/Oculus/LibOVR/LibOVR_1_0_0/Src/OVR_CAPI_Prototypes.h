@@ -72,7 +72,15 @@ _(ovrResult, ovr_Lookup, , (const char* name, void** data)) \
 _(ovrTouchHapticsDesc, ovr_GetTouchHapticsDesc, , (ovrSession session, ovrControllerType controllerType)) \
 _(ovrResult, ovr_SetControllerVibration, , (ovrSession session, ovrControllerType controllerType, float frequency, float amplitude)) \
 _(ovrResult, ovr_SubmitControllerVibration, , (ovrSession session, ovrControllerType controllerType, const ovrHapticsBuffer* buffer)) \
-_(ovrResult, ovr_GetControllerVibrationState, , (ovrSession session, ovrControllerType controllerType, ovrHapticsPlaybackState* outState))
+_(ovrResult, ovr_GetControllerVibrationState, , (ovrSession session, ovrControllerType controllerType, ovrHapticsPlaybackState* outState)) \
+_(ovrResult, ovr_TestBoundary, , (ovrSession session, ovrTrackedDeviceType deviceBitmask, ovrBoundaryType singleBoundaryType, ovrBoundaryTestResult* outTestResult)) \
+_(ovrResult, ovr_TestBoundaryPoint, , (ovrSession session, const ovrVector3f* point, ovrBoundaryType singleBoundaryType, ovrBoundaryTestResult* outTestResult)) \
+_(ovrResult, ovr_SetBoundaryLookAndFeel, , (ovrSession session, const ovrBoundaryLookAndFeel* lookAndFeel)) \
+_(ovrResult, ovr_ResetBoundaryLookAndFeel, , (ovrSession session)) \
+_(ovrResult, ovr_GetBoundaryGeometry, , (ovrSession session, ovrBoundaryType singleBoundaryType, ovrVector3f* outFloorPoints, int* outFloorPointsCount)) \
+_(ovrResult, ovr_GetBoundaryDimensions, , (ovrSession session, ovrBoundaryType singleBoundaryType, ovrVector3f* outDimension)) \
+_(ovrResult, ovr_GetBoundaryVisible, , (ovrSession session, ovrBool* outIsVisible)) \
+_(ovrResult, ovr_RequestBoundaryVisible, , (ovrSession session, ovrBool visible))
 
 #if defined (_WIN32)
     #define OVR_LIST_WIN32_APIS(_,X) \

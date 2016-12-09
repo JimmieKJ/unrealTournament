@@ -61,6 +61,9 @@
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>Icon.ico</ApplicationIcon>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="EnvDTE, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
     <Reference Include="System" />
@@ -81,6 +84,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AllocationTags.cs" />
     <Compile Include="BinaryReaderBigEndian.cs" />
     <Compile Include="CallGraphTreeViewParser.cs" />
     <Compile Include="CallStack.cs" />
@@ -91,7 +95,14 @@
     <Compile Include="DoubleBufferedPanel.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="ElfSymbolParser.cs" />
     <Compile Include="ExclusiveListViewParser.cs" />
+    <Compile Include="FilterTagsDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FilterTagsDialog.Designer.cs">
+      <DependentUpon>FilterTagsDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="FindDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -99,7 +110,6 @@
       <DependentUpon>FindDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="HistogramParser.cs" />
-    <Compile Include="IDisplayCallback.cs" />
     <Compile Include="MainWindow.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -124,6 +134,9 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="FilterTagsDialog.resx">
+      <DependentUpon>FilterTagsDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="FindDialog.resx">
       <DependentUpon>FindDialog.cs</DependentUpon>
     </EmbeddedResource>
@@ -161,8 +174,25 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
   </ItemGroup>
+  <Choose>
+    <When Condition="Exists('PS4\PS4SymbolParser.cs')">
+      <ItemGroup>
+        <Compile Include="PS4\PS4SymbolParser.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="Exists('Switch\SwitchSymbolParser.cs')">
+      <ItemGroup>
+        <Compile Include="Switch\SwitchSymbolParser.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
   <ItemGroup>
     <Compile Include="ListViewEx.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="TreeViewEx.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="ScriptCallstack.cs" />
@@ -207,9 +237,7 @@
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Resources\" />
-  </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
     <None Include="Icons\Play.png" />
   </ItemGroup>
@@ -219,7 +247,10 @@
   <ItemGroup>
     <None Include="Icons\ExclamationMark.png" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Content Include="Icon.ico" />
+    <Content Include="Resources\Icon.ico" />
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

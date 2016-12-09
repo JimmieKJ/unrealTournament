@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Editor/UnrealEd/Classes/Factories/FbxSceneImportData.h"
+#include "CoreMinimal.h"
+#include "AssetTypeActions_Base.h"
+#include "Factories/FbxSceneImportData.h"
 
 class FAssetTypeActions_SceneImportData : public FAssetTypeActions_Base
 {

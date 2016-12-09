@@ -1,8 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "Layout/Visibility.h"
+#include "Animation/CurveSequence.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "PropertyPath.h"
+#include "Toolkits/IToolkitHost.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "TimerManager.h"
+#include "IPropertyTable.h"
+#include "SPropertyTreeViewImpl.h"
+
+class IPropertyTreeRow;
 
 class FPropertyEditorToolkit : public FAssetEditorToolkit
 {

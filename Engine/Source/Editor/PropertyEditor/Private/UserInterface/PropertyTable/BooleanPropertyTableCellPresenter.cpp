@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "BooleanPropertyTableCellPresenter.h"
-#include "PropertyEditor.h"
+#include "UserInterface/PropertyTable/BooleanPropertyTableCellPresenter.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EditorStyleSet.h"
 
-#include "SPropertyEditorBool.h"
-#include "SResetToDefaultPropertyEditor.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorBool.h"
+#include "UserInterface/PropertyEditor/SResetToDefaultPropertyEditor.h"
 
 FBooleanPropertyTableCellPresenter::FBooleanPropertyTableCellPresenter( const TSharedRef< class FPropertyEditor >& InPropertyEditor )
 	: PropertyEditor( InPropertyEditor )
@@ -14,14 +17,16 @@ FBooleanPropertyTableCellPresenter::FBooleanPropertyTableCellPresenter( const TS
 
 TSharedRef< class SWidget > FBooleanPropertyTableCellPresenter::ConstructDisplayWidget()
 {
-	return SNew( SBorder )
+	TSharedPtr<SHorizontalBox> HorizontalBox;
+
+	TSharedRef<SBorder> Border = SNew( SBorder )
 		.Padding( 0 )
 		.VAlign( VAlign_Center )
 		.HAlign( HAlign_Center )
 		.BorderImage( FEditorStyle::GetBrush("NoBorder") )
 		.Content()
 		[	
-			SNew( SHorizontalBox )
+			SAssignNew( HorizontalBox, SHorizontalBox )
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign( VAlign_Center )
@@ -37,15 +42,21 @@ TSharedRef< class SWidget > FBooleanPropertyTableCellPresenter::ConstructDisplay
 					.ToolTipText( PropertyEditor->GetToolTipText() )
 				]
 			]
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign( VAlign_Center )
-			.HAlign( HAlign_Center )
-			.Padding( FMargin( 0, 0, 2, 0 ) )
-			[
-				SNew( SResetToDefaultPropertyEditor, PropertyEditor )
-			]
 		];
+
+	if (!PropertyEditor->GetPropertyHandle()->HasMetaData(TEXT("NoResetToDefault")))
+	{
+		HorizontalBox->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Center)
+		.Padding(FMargin(0, 0, 2, 0))
+		[
+			SNew(SResetToDefaultPropertyEditor, PropertyEditor)
+		];
+	}
+
+	return Border;
 }
 
 bool FBooleanPropertyTableCellPresenter::RequiresDropDown()

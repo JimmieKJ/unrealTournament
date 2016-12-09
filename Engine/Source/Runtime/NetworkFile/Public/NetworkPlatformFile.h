@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "GenericPlatform/GenericPlatformFile.h"
 #include "NetworkMessage.h"
 #include "ServerTOC.h"
+
+class FScopedEvent;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogNetworkPlatformFile, Log, All);
 
@@ -121,7 +125,7 @@ public:
 	virtual bool		IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override;
 
 	virtual bool		DeleteDirectoryRecursively(const TCHAR* Directory) override;
-	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From) override;
+	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags = EPlatformFileRead::None, EPlatformFileWrite WriteFlags = EPlatformFileWrite::None) override;
 
 	virtual FString ConvertToAbsolutePathForExternalAppForRead( const TCHAR* Filename ) override;
 	virtual FString ConvertToAbsolutePathForExternalAppForWrite( const TCHAR* Filename ) override;
@@ -165,13 +169,21 @@ protected:
 private:
 
 	/**
-	* Returns whether the passed in extension is a video
-	* extension. Extensions with and without trailing dots are supported.
-	*
-	* @param	Extension to test.
-	* @return	True if Ext is a video extension.  e.g. .mp4
-	*/
+	 * Returns whether the passed in extension is a video
+	 * extension. Extensions with and without trailing dots are supported.
+	 *
+	 * @param	Extension to test.
+	 * @return	True if Ext is a video extension.  e.g. .mp4
+	 */
 	static bool IsMediaExtension(const TCHAR* Ext);
+
+	/**
+	 * Returns whether the passed in extension is a an additional (but non asset) cooked file.
+	 *
+	 * @param	Extension to test.
+	 * @return	True if Ext is a additional cooked file.  e.g. .ubulk, .ufont
+	 */
+	static bool IsAdditionalCookedFileExtension(const TCHAR* Ext);
 
 	/**
 	 * @return true if the path exists in a directory that should always use the local filesystem
@@ -236,6 +248,8 @@ private:
 
 	static FString MP4Extension;
 	static FString BulkFileExtension;
+	static FString ExpFileExtension;
+	static FString FontFileExtension;
 };
 
 class SOCKETS_API FNetworkFileHandle : public IFileHandle

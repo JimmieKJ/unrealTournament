@@ -1,16 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateReflectorPrivatePCH.h"
 #include "WidgetSnapshotService.h"
+#include "Misc/App.h"
+#include "WidgetSnapshotMessages.h"
 #include "IMessagingModule.h"
-#include "MessageEndpointBuilder.h"
-#include "SWidgetSnapshotVisualizer.h"
+#include "Helpers/MessageEndpointBuilder.h"
+#include "Widgets/SWidgetSnapshotVisualizer.h"
 
 FWidgetSnapshotService::FWidgetSnapshotService()
 {
 	if (FPlatformMisc::SupportsMessaging() && FPlatformProcess::SupportsMultithreading())
 	{
-		IMessageBusPtr MessageBusPtr = IMessagingModule::Get().GetDefaultBus();
+		TSharedPtr<IMessageBus, ESPMode::ThreadSafe> MessageBusPtr = IMessagingModule::Get().GetDefaultBus();
 
 		MessageEndpoint = FMessageEndpoint::Builder("FWidgetSnapshotService", MessageBusPtr.ToSharedRef())
 			.ReceivingOnThread(ENamedThreads::GameThread)

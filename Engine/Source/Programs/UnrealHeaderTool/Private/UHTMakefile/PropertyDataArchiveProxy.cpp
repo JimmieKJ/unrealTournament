@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+#include "PropertyDataArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/PropertyDataArchiveProxy.h"
-#include "UHTMakefile/TokenDataArchiveProxy.h"
+#include "ParserHelper.h"
+#include "UHTMakefile.h"
+#include "TokenDataArchiveProxy.h"
 
 FPropertyDataArchiveProxy::FPropertyDataArchiveProxy(const FUHTMakefile& UHTMakefile, const FPropertyData* PropertyData)
 {

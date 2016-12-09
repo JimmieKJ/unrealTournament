@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "IAnalyticsProvider.h"
+#include "CoreMinimal.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
 
 /** ET specific analytics provider instance. Exposes additional APIs to support Json-based events. */
 class IAnalyticsProviderET : public IAnalyticsProvider

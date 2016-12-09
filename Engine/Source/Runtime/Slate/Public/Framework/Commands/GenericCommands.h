@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/Commands/Commands.h"
+
 class SLATE_API FGenericCommands : public TCommands<FGenericCommands>
 {
 public:

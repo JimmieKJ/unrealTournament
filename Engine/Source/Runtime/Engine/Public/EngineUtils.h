@@ -6,13 +6,22 @@
 
 #pragma once
 
-#include "Engine/Brush.h"
-#include "Engine/Level.h"
-#include "GameFramework/WorldSettings.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/EngineTypes.h"
+#include "GameFramework/Actor.h"
 #include "HitProxies.h"
-#include "Misc/Optional.h"
+#include "Engine/World.h"
+#include "UObject/UObjectHash.h"
+#include "ProfilingDebugging/ProfilingHelpers.h"
+#include "GameFramework/WorldSettings.h"
 
-class FActorRange;
+class FCanvas;
+class FViewport;
+class UCanvas;
+class UConsole;
+class UPrimitiveComponent;
 
 /*-----------------------------------------------------------------------------
 	Hit proxies.
@@ -55,9 +64,7 @@ struct HActor : public HHitProxy
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override
 	{
 		Collector.AddReferencedObject( Actor );
-
-		UPrimitiveComponent* NonConstPrimComp = const_cast<UPrimitiveComponent*>(PrimComponent);
-		Collector.AddReferencedObject( NonConstPrimComp );
+		Collector.AddReferencedObject( PrimComponent );
 	}
 
 	virtual EMouseCursor::Type GetMouseCursor() override
@@ -397,7 +404,20 @@ private:
 	 */
 	static bool CanIterateLevel(ULevel* Level)
 	{
-		return Level->bIsVisible || Level->bIsAssociatingLevel;
+		const bool bIsLevelVisibleOrAssociating = Level->bIsVisible || Level->bIsAssociatingLevel;
+
+		// Only allow iteration of Level if it's in the currently active level collection of the world, or is a static level.
+		const FLevelCollection* const ActorLevelCollection = Level->GetCachedLevelCollection();
+		const FLevelCollection* const ActiveLevelCollection = Level->OwningWorld ? Level->OwningWorld->GetActiveLevelCollection() : nullptr;
+
+		// If the world's active level collection is null, we can't apply any meaningful filter,
+		// so just allow iteration in this case.
+		const bool bIsCurrentLevelCollectionTicking = !ActiveLevelCollection || (ActorLevelCollection == ActiveLevelCollection);
+		
+		const bool bIsLevelCollectionNullOrStatic = !ActorLevelCollection || ActorLevelCollection->GetType() == ELevelCollectionType::StaticLevels;
+		const bool bShouldIterateLevelCollection = bIsCurrentLevelCollectionTicking || bIsLevelCollectionNullOrStatic;
+
+		return bIsLevelVisibleOrAssociating && bShouldIterateLevelCollection;
 	}
 };
 
@@ -723,7 +743,7 @@ namespace EngineUtils
 }
 
 /** Helper class for serializing flags describing which data have been stripped (if any). */
-class FStripDataFlags
+class ENGINE_API FStripDataFlags
 {
 	/** Serialized engine strip flags (up to 8 flags). */
 	uint8 GlobalStripFlags;

@@ -1,23 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PropertyEditorPrivatePCH.h"
-#include "AssetSelection.h"
-#include "PropertyNode.h"
-#include "ItemPropertyNode.h"
-#include "CategoryPropertyNode.h"
+#include "SDetailsView.h"
+#include "GameFramework/Actor.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ObjectPropertyNode.h"
-#include "ScopedTransaction.h"
-#include "AssetThumbnail.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
 #include "SDetailNameArea.h"
-#include "IPropertyUtilities.h"
 #include "PropertyEditorHelpers.h"
-#include "PropertyEditor.h"
-#include "PropertyDetailsUtilities.h"
-#include "SPropertyEditorEditInline.h"
-#include "ObjectEditorUtils.h"
-#include "SColorPicker.h"
-#include "SSearchBox.h"
+#include "UserInterface/PropertyDetails/PropertyDetailsUtilities.h"
+#include "Widgets/Colors/SColorPicker.h"
+#include "Widgets/Input/SSearchBox.h"
 
 
 #define LOCTEXT_NAMESPACE "SDetailsView"
@@ -267,8 +263,9 @@ EVisibility SDetailsView::GetActorNameAreaVisibility() const
 
 EVisibility SDetailsView::GetScrollBarVisibility() const
 {
-	const bool bHasObjects = RootPropertyNodes.Num() > 0;
-	return bHasObjects ? EVisibility::Visible : EVisibility::Collapsed; 
+	const bool bHasAnythingToShow = RootTreeNodes.Num() > 0;
+	const bool bShowScrollBar = DetailsViewArgs.bShowScrollBar && bHasAnythingToShow;
+	return bShowScrollBar ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 void SDetailsView::ForceRefresh()

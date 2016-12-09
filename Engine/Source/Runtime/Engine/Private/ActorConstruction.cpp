@@ -1,19 +1,36 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "BlueprintUtilities.h"
-#include "LatentActions.h"
+#include "CoreMinimal.h"
+#include "Math/RandomStream.h"
+#include "Stats/Stats.h"
+#include "UObject/Script.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
+#include "Serialization/ObjectReader.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/Blueprint.h"
 #include "ComponentInstanceDataCache.h"
+#include "HAL/IConsoleManager.h"
+#include "Components/ActorComponent.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/BillboardComponent.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Engine/World.h"
+#include "Engine/Texture2D.h"
+#include "Engine/BlueprintGeneratedClass.h"
 #include "Engine/LevelScriptActor.h"
 #include "Engine/CullDistanceVolume.h"
+#include "Engine/SimpleConstructionScript.h"
 #include "Components/ChildActorComponent.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
 #endif
-#include "Engine/SimpleConstructionScript.h"
 
 DEFINE_LOG_CATEGORY(LogBlueprintUserMessages);
 
@@ -653,6 +670,31 @@ bool AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 	{
 		if (bErrorFree)
 		{
+			// Get all scene components owned by the given actor prior to SCS execution
+			// Note: GetComponents() internally does a NULL check, so we can assume here that all entries are valid.
+			TInlineComponentArray<USceneComponent*> AllSceneComponents;
+			GetComponents(AllSceneComponents);
+
+			// Determine the set of native scene components that SCS nodes can attach to.
+			TInlineComponentArray<USceneComponent*> NativeSceneComponents;
+			NativeSceneComponents.Reserve(AllSceneComponents.Num());
+			for (USceneComponent* SceneComponent : AllSceneComponents)
+			{
+				// Exclude subcomponents of native components, as these could unintentionally be matched by name during SCS execution. Also exclude instance-only components.
+				if (SceneComponent->CreationMethod == EComponentCreationMethod::Native && SceneComponent->GetOuter()->IsA<AActor>())
+				{
+					// If RootComponent is not set, the first unattached native scene component will be used as root. This matches what's done in FixupNativeActorComponents().
+					// @TODO - consider removing this; keeping here as a fallback just in case it wasn't set prior to SCS execution, but in most cases now this should be valid. 
+					if (RootComponent == nullptr && SceneComponent->GetAttachParent() == nullptr)
+					{
+						// Note: All native scene components should already have been registered at this point, so we don't need to register the component here.
+						SetRootComponent(SceneComponent);
+					}
+
+					NativeSceneComponents.Add(SceneComponent);
+				}
+			}
+
 			// Prevent user from spawning actors in User Construction Script
 			TGuardValue<bool> AutoRestoreISCS(GetWorld()->bIsRunningConstructionScript, true);
 			for (int32 i = ParentBPClassStack.Num() - 1; i >= 0; i--)
@@ -663,10 +705,28 @@ bool AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 				if (SCS)
 				{
 					SCS->CreateNameToSCSNodeMap();
-					SCS->ExecuteScriptOnActor(this, Transform, bIsDefaultTransform);
+					SCS->ExecuteScriptOnActor(this, NativeSceneComponents, Transform, bIsDefaultTransform);
 				}
 				// Now that the construction scripts have been run, we can create timelines and hook them up
 				UBlueprintGeneratedClass::CreateComponentsForActor(CurrentBPGClass, this);
+			}
+
+			// Ensure that we've called RegisterAllComponents(), in case it was deferred and the SCS could not be fully executed.
+			if (HasDeferredComponentRegistration())
+			{
+				RegisterAllComponents();
+			}
+
+			// Once SCS execution has finished, we do a final pass to register any components that may have been deferred or were otherwise left unregistered after SCS execution.
+			TInlineComponentArray<UActorComponent*> PostSCSComponents;
+			GetComponents(PostSCSComponents);
+			for (UActorComponent* ActorComponent : PostSCSComponents)
+			{
+				// Limit registration to components that are known to have been created during SCS execution
+				if (!ActorComponent->IsRegistered() && (ActorComponent->CreationMethod == EComponentCreationMethod::SimpleConstructionScript || !AllSceneComponents.Contains(ActorComponent)))
+				{
+					USimpleConstructionScript::RegisterInstancedComponent(ActorComponent);
+				}
 			}
 
 			// If we passed in cached data, we apply it now, so that the UserConstructionScript can use the updated values
@@ -735,6 +795,12 @@ bool AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 
 				SetRootComponent(BillboardComponent);
 				FinishAndRegisterComponent(BillboardComponent);
+			}
+
+			// Ensure that we've called RegisterAllComponents(), in case it was deferred and the SCS could not be executed (due to error).
+			if (HasDeferredComponentRegistration())
+			{
+				RegisterAllComponents();
 			}
 		}
 	}
@@ -817,12 +883,12 @@ UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, 
 #if !UE_BUILD_SHIPPING
 		const double StartTime = FPlatformTime::Seconds();
 #endif
-		// Resolve any name conflicts.
-		CheckComponentInstanceName(InName);
-
-		//Make sure, that the name of the instance is different than the name of the template. Otherwise, the template could be handled as an archetype of the instance.
+		// Make sure, that the name of the instance is different than the name of the template. This ensures that archetypes will not be recycled as instances in the nativized case.
 		const FName NewComponentName = (InName != NAME_None) ? InName : MakeUniqueObjectName(this, Template->GetClass(), Template->GetFName());
 		ensure(NewComponentName != Template->GetFName());
+
+		// Resolve any name conflicts.
+		CheckComponentInstanceName(NewComponentName);
 
 		// Note we aren't copying the the RF_ArchetypeObject flag. Also note the result is non-transactional by default.
 		NewActorComp = (UActorComponent*)StaticDuplicateObject(Template, this, NewComponentName, RF_AllFlags & ~(RF_ArchetypeObject | RF_Transactional | RF_WasLoaded | RF_Public | RF_InheritableComponentTemplate));
@@ -857,6 +923,9 @@ UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedC
 
 			// Set this flag to emulate things that would happen in the SDO case when this flag is set (e.g. - not setting 'bHasBeenCreated').
 			ArPortFlags |= PPF_Duplicate;
+
+			// Set this flag to ensure that we also serialize any deprecated properties.
+			ArPortFlags |= PPF_UseDeprecatedProperties;
 		}
 	};
 
@@ -866,12 +935,12 @@ UActorComponent* AActor::CreateComponentFromTemplateData(const FBlueprintCookedC
 #if !UE_BUILD_SHIPPING
 		const double StartTime = FPlatformTime::Seconds();
 #endif
-		// Resolve any name conflicts.
-		CheckComponentInstanceName(InName);
-
-		//Make sure, that the name of the instance is different than the name of the template. Otherwise, the template could be handled as an archetype of the instance.
+		// Make sure, that the name of the instance is different than the name of the template. This ensures that archetypes will not be recycled as instances in the nativized case.
 		const FName NewComponentName = (InName != NAME_None) ? InName : MakeUniqueObjectName(this, TemplateData->ComponentTemplateClass, TemplateData->ComponentTemplateName);
 		ensure(NewComponentName != TemplateData->ComponentTemplateName);
+
+		// Resolve any name conflicts.
+		CheckComponentInstanceName(NewComponentName);
 
 		// Note we aren't copying the the RF_ArchetypeObject flag. Also note the result is non-transactional by default.
 		NewActorComp = NewObject<UActorComponent>(
@@ -965,7 +1034,10 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 		}
 
 		// Register component, which will create physics/rendering state, now component is in correct position
-		NewActorComp->RegisterComponent();
+		if (NewActorComp->bAutoRegister)
+		{
+			NewActorComp->RegisterComponent();
+		}
 
 		UWorld* World = GetWorld();
 		if (!bRunningUserConstructionScript && World && bIsSceneComponent)

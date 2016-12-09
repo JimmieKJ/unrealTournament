@@ -18,7 +18,7 @@ import zipfile
 ##
 
 depot_tools_url = 'https://chromium.googlesource.com/chromium/tools/depot_tools.git'
-depot_tools_archive_url = 'https://src.chromium.org/svn/trunk/tools/depot_tools.zip'
+depot_tools_archive_url = 'https://storage.googleapis.com/chrome-infra/depot_tools.zip'
 
 cef_git_url = 'https://bitbucket.org/chromiumembedded/cef.git'
 
@@ -153,7 +153,7 @@ def get_git_url(path):
     return result['out'].strip()
   return 'Unknown'
 
-def download_and_extract(src, target, contents_prefix):
+def download_and_extract(src, target):
   """ Extracts the contents of src, which may be a URL or local file, to the
       target directory. """
   temporary = False
@@ -176,19 +176,11 @@ def download_and_extract(src, target, contents_prefix):
   if not zipfile.is_zipfile(archive_path):
     raise Exception('Not a valid zip archive: ' + src)
 
-  def remove_prefix(zip, prefix):
-    offset = len(prefix)
-    for zipinfo in zip.infolist():
-      name = zipinfo.filename
-      if len(name) > offset and name[:offset] == prefix:
-        zipinfo.filename = name[offset:]
-        yield zipinfo
-
   # Attempt to extract the archive file.
   try:
     os.makedirs(target)
     zf = zipfile.ZipFile(archive_path, 'r')
-    zf.extractall(target, remove_prefix(zf, contents_prefix))
+    zf.extractall(target)
   except:
     shutil.rmtree(target, onerror=onerror)
     raise
@@ -240,9 +232,6 @@ def remove_deps_entry(path, entry):
   """ Remove an entry from the Chromium DEPS file at the specified path. """
   msg('Updating DEPS file: %s' % path)
   if not options.dryrun:
-    if not os.path.isfile(path):
-      raise Exception('Path does not exist: %s' % path)
-
     # Read the DEPS file.
     fp = open(path, 'r')
     lines = fp.readlines()
@@ -264,19 +253,31 @@ def remove_deps_entry(path, entry):
 
 def apply_deps_patch():
   """ Patch the Chromium DEPS file if necessary. """
-  deps_file = 'DEPS'
-  patch_file = os.path.join(cef_dir, 'patch', 'patches', deps_file + '.patch')
-  if os.path.exists(patch_file):
-    # Attempt to apply the DEPS patch file that may exist with newer branches.
-    patch_tool = os.path.join(cef_dir, 'tools', 'patcher.py')
-    run('%s %s --patch-file "%s" --patch-dir "%s"' %
-            (python_exe, patch_tool, patch_file, chromium_src_dir),
-        chromium_src_dir, depot_tools_dir)
-  elif cef_branch != 'trunk':
-    # Older release branch DEPS files may include a 'src' entry. This entry
-    # needs to be removed otherwise `gclient sync` will fail.
+  # Starting with 43.0.2357.126 the DEPS file is now 100% Git and the .DEPS.git
+  # file is no longer created. Look for the older file first in case we're
+  # building an older branch version.
+  deps_file = '.DEPS.git'
+  deps_path = os.path.join(chromium_src_dir, deps_file)
+  if not os.path.isfile(deps_path):
+    deps_file = 'DEPS'
     deps_path = os.path.join(chromium_src_dir, deps_file)
-    remove_deps_entry(deps_path, "'src'")
+
+  if os.path.isfile(deps_path):
+    msg("Chromium DEPS file: %s" % (deps_path))
+    patch_file = os.path.join(cef_dir, 'patch', 'patches', deps_file + '.patch')
+    if os.path.exists(patch_file):
+      # Attempt to apply the DEPS patch file that may exist with newer branches.
+      patch_tool = os.path.join(cef_dir, 'tools', 'patcher.py')
+      run('%s %s --patch-file "%s" --patch-dir "%s"' %
+              (python_exe, patch_tool, patch_file, chromium_src_dir),
+          chromium_src_dir, depot_tools_dir)
+    elif cef_branch != 'trunk' and int(cef_branch) <= 1916:
+      # Release branch DEPS files older than 37.0.2007.0 may include a 'src'
+      # entry. This entry needs to be removed otherwise `gclient sync` will
+      # fail.
+      remove_deps_entry(deps_path, "'src'")
+  else:
+    raise Exception("Path does not exist: %s" % (deps_path))
 
 def onerror(func, path, exc_info):
   """
@@ -323,6 +324,10 @@ parser.add_option('--depot-tools-dir', dest='depottoolsdir', metavar='DIR',
 parser.add_option('--depot-tools-archive', dest='depottoolsarchive',
                   help='Zip archive file that contains a single top-level '+\
                        'depot_tools directory.', default='')
+parser.add_option('--chromium-url', dest='chromiumurl',
+                  help='Chromium download URL. If not specified the default '+\
+                       'URL will be used.',
+                  default='')
 parser.add_option('--chromium-checkout', dest='chromiumcheckout',
                   help='Version of Chromium to checkout (Git '+\
                        'branch/hash/tag). This overrides the value specified '+\
@@ -359,16 +364,29 @@ parser.add_option('--no-update',
                   help='Do not update Chromium. Pass --force-build or '+\
                        '--force-distrib if you desire a new build or '+\
                        'distribution.')
+parser.add_option('--no-cef-update',
+                  action='store_true', dest='nocefupdate', default=False,
+                  help='Do not update CEF. Pass --force-build or '+\
+                       '--force-distrib if you desire a new build or '+\
+                       'distribution.')
+parser.add_option('--no-chromium-update',
+                  action='store_true', dest='nochromiumupdate', default=False,
+                  help='Do not update Chromium.')
+parser.add_option('--no-depot-tools-update',
+                  action='store_true', dest='nodepottoolsupdate', default=False,
+                  help='Do not update depot_tools.')
 
 # Build-related options.
 parser.add_option('--force-build',
                   action='store_true', dest='forcebuild', default=False,
                   help='Force CEF debug and release builds. This builds '+\
-                       'cefclient on all platforms and chrome_sandbox on '+\
-                       'Linux.')
+                       '[build-target] on all platforms and chrome_sandbox '+\
+                       'on Linux.')
 parser.add_option('--no-build',
                   action='store_true', dest='nobuild', default=False,
                   help='Do not build CEF.')
+parser.add_option('--build-target', dest='buildtarget', default='cefclient',
+                  help='Target name(s) to build (defaults to "cefclient").')
 parser.add_option('--build-tests',
                   action='store_true', dest='buildtests', default=False,
                   help='Also build the cef_unittests target.')
@@ -418,6 +436,10 @@ parser.add_option('--no-distrib-archive',
 parser.add_option('--clean-artifacts',
                   action='store_true', dest='cleanartifacts', default=False,
                   help='Clean the artifacts output directory.')
+parser.add_option('--distrib-subdir', dest='distribsubdir',
+                  help='CEF distrib dir name, child of '+\
+                       'chromium/src/cef/binary_distrib',
+                  default='')
 
 (options, args) = parser.parse_args()
 
@@ -426,9 +448,16 @@ if options.downloaddir is None:
   parser.print_help(sys.stderr)
   sys.exit()
 
-if options.noupdate and options.forceupdate or \
-   options.nobuild and options.forcebuild or \
-   options.nodistrib and options.forcedistrib:
+# Opt into component-specific flags for later use.
+if options.noupdate:
+  options.nocefupdate = True
+  options.nochromiumupdate = True
+  options.nodepottoolsupdate = True
+
+if (options.nochromiumupdate and options.forceupdate) or \
+   (options.nocefupdate and options.forceupdate) or \
+   (options.nobuild and options.forcebuild) or \
+   (options.nodistrib and options.forcedistrib):
   print "Invalid combination of options."
   parser.print_help(sys.stderr)
   sys.exit()
@@ -438,6 +467,13 @@ if (options.noreleasebuild and \
       options.clientdistrib or options.clientdistribonly)) or \
    (options.minimaldistribonly and options.clientdistribonly):
   print 'Invalid combination of options.'
+  parser.print_help(sys.stderr)
+  sys.exit()
+
+if (options.clientdistrib or options.clientdistribonly) and \
+   options.buildtarget.find('cefclient') == -1:
+  print "A client distribution cannot be generated if --build-target "+\
+        "excludes cefclient."
   parser.print_help(sys.stderr)
   sys.exit()
 
@@ -485,6 +521,16 @@ else:
 
 # True if the requested branch is 2272 or newer.
 branch_is_2272_or_newer = int(revision_config['branch']) >= 2272
+
+# True if the requested branch is 2357 or newer.
+branch_is_2357_or_newer = (cef_branch == 'trunk' or int(cef_branch) >= 2357)
+
+# Starting with 43.0.2357.126 the DEPS file is now 100% Git and the .DEPS.git
+# file is no longer created.
+if branch_is_2357_or_newer:
+  deps_file = 'DEPS'
+else:
+  deps_file = '.DEPS.git'
 
 if platform == 'macosx' and not options.x64build and branch_is_2272_or_newer:
   print '32-bit Mac OS X builds are no longer supported with 2272 branch and '+\
@@ -538,15 +584,15 @@ if not os.path.exists(depot_tools_dir):
     msg('Extracting %s to %s.' % \
         (options.depottoolsarchive, depot_tools_dir))
     if not options.dryrun:
-      download_and_extract(options.depottoolsarchive, depot_tools_dir, \
-                           'depot_tools/')
+      download_and_extract(options.depottoolsarchive, depot_tools_dir)
   else:
     # On Linux and OS X check out depot_tools using Git.
     run('git clone '+depot_tools_url+' '+depot_tools_dir, download_dir)
 
-if not options.noupdate:
+if not options.nodepottoolsupdate:
   # Update depot_tools.
   # On Windows this will download required python and git binaries.
+  msg('Updating depot_tools')
   if platform == 'windows':
     run('update_depot_tools.bat', depot_tools_dir, depot_tools_dir);
   else:
@@ -578,10 +624,9 @@ msg("CEF Source Directory: %s" % (cef_dir))
 # Determine the CEF Git branch we're using.
 # Target the most recent branch commit from the remote repo.
 if cef_branch == 'trunk':
-	cef_checkout = 'origin/master'
+  cef_checkout = 'origin/master'
 else:
-	cef_checkout = 'origin/' + cef_branch
-
+  cef_checkout = 'origin/' + cef_branch
 cef_checkout_new = False
 
 # This will control wether we will perform a rebuild or not
@@ -611,6 +656,11 @@ chromium_src_dir = os.path.join(chromium_dir, 'src')
 cef_src_dir = os.path.join(chromium_src_dir, 'cef')
 out_src_dir = os.path.join(chromium_src_dir, 'out')
 
+if options.chromiumurl != '':
+  chromium_url = options.chromiumurl;
+else:
+  chromium_url = 'https://chromium.googlesource.com/chromium/src.git'
+
 # Create gclient configuration file.
 gclient_file = os.path.join(chromium_dir, '.gclient')
 if not os.path.exists(gclient_file) or options.forceconfig:
@@ -619,7 +669,7 @@ if not os.path.exists(gclient_file) or options.forceconfig:
       "solutions = [{"+\
         "u'managed': False,"+\
         "u'name': u'src', "+\
-        "u'url': u'https://chromium.googlesource.com/chromium/src.git', "+\
+        "u'url': u'" + chromium_url + "', "+\
         "u'custom_deps': {"+\
           "u'build': None, "+\
           "u'build/scripts/command_wrapper/bin': None, "+\
@@ -634,7 +684,7 @@ if not os.path.exists(gclient_file) or options.forceconfig:
           "u'src/chrome/tools/test/reference_build/chrome_mac': None, "+\
           "u'src/chrome/tools/test/reference_build/chrome_win': None, "+\
         "}, "+\
-        "u'deps_file': u'DEPS', "+\
+        "u'deps_file': u'" + deps_file + "', "+\
         "u'safesync_url': u''"+\
       "}]"
 
@@ -645,7 +695,7 @@ if not os.path.exists(gclient_file) or options.forceconfig:
     fp.close()
 
 # Initial Chromium checkout.
-if not options.noupdate and not os.path.exists(chromium_src_dir):
+if not options.nochromiumupdate and not os.path.exists(chromium_src_dir):
   chromium_checkout_new = True
   run("gclient sync --nohooks --with_branch_heads --jobs 8", chromium_dir, \
       depot_tools_dir)
@@ -673,7 +723,7 @@ else:
   chromium_checkout = options.chromiumcheckout
 
 # Determine if the Chromium checkout needs to change.
-if not options.noupdate and os.path.exists(chromium_src_dir):
+if not options.nochromiumupdate and os.path.exists(chromium_src_dir):
   chromium_current_hash = get_git_hash(chromium_src_dir, 'HEAD')
   chromium_desired_hash = get_git_hash(chromium_src_dir, chromium_checkout)
   chromium_checkout_changed = chromium_checkout_new or force_change or \
@@ -791,7 +841,7 @@ if not options.nobuild and (chromium_checkout_changed or \
   command = 'ninja -C '
   if options.verbosebuild:
     command = 'ninja -v -C'
-  target = ' cefclient'
+  target = ' ' + options.buildtarget
   if options.buildtests:
     target = target + ' cef_unittests'
   if platform == 'linux':
@@ -813,6 +863,10 @@ if not options.nobuild and (chromium_checkout_changed or \
         chromium_src_dir, depot_tools_dir,
         os.path.join(download_dir, 'build-%s-release.log' % (cef_branch)) \
           if options.buildlogfile else None)
+
+elif not options.nobuild:
+  msg('Not building. The source hashes have not changed and ' +
+      'the output folder "%s" already exists' % (out_src_dir))
 
 
 ##
@@ -865,6 +919,10 @@ if not options.nodistrib and (chromium_checkout_changed or \
     else:
       # Don't create the symbol archives or documentation more than once.
       path = path + ' --no-symbols --no-docs'
+
+    # Override the subdirectory name of binary_distrib if the caller requested.
+    if options.distribsubdir != '':
+      path = path + ' --distrib-subdir=' + options.distribsubdir
 
     # Create the distribution.
     run(path, cef_tools_dir, depot_tools_dir)

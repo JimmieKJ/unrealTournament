@@ -1,7 +1,7 @@
 //
 // paImpactGen.cpp
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #include "Impact/paImpactGen.hpp"
 

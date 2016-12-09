@@ -17,6 +17,9 @@ struct FPartyMemberRepState
 	/** Reset the variables of this party member state */
 	virtual void Reset()
 	{}
+
+	virtual ~FPartyMemberRepState()
+	{}
 };
 
 /**

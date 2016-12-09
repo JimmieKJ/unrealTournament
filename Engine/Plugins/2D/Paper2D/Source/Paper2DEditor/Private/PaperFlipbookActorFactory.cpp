@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "AssetData.h"
 #include "PaperFlipbookActorFactory.h"
+#include "AssetData.h"
 #include "PaperFlipbookActor.h"
+#include "PaperFlipbook.h"
+#include "PaperFlipbookComponent.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UPaperFlipbookActorFactory

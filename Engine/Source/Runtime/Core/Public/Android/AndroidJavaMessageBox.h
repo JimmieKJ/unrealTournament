@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
 #include "AndroidJava.h"
 
 // Wrapper for com/epicgames/ue4/MessageBox*.java.

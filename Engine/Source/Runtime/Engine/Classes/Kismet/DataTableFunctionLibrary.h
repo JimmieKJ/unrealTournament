@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Engine/DataTable.h"
+
+#include "CoreMinimal.h"
+#include "UObject/Script.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UnrealType.h"
+#include "UObject/ScriptMacros.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Engine/DataTable.h"
 #include "DataTableFunctionLibrary.generated.h"
 
 class UCurveTable;

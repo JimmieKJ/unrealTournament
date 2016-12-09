@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Curves/KeyHandle.h"
+#include "Curves/RichCurve.h"
 #include "MovieSceneSection.h"
 #include "MovieSceneParameterSection.generated.h"
 
@@ -218,28 +222,18 @@ public:
 
 	/** Gets the animated scalar parameters and their associated curves. */
 	MOVIESCENETRACKS_API TArray<FScalarParameterNameAndCurve>* GetScalarParameterNamesAndCurves();
+	MOVIESCENETRACKS_API const TArray<FScalarParameterNameAndCurve>& GetScalarParameterNamesAndCurves() const;
 
-	/** Gets the animated color parameters and their associated curves. */
+	/** Gets the animated vector parameters and their associated curves. */
 	MOVIESCENETRACKS_API TArray<FVectorParameterNameAndCurves>* GetVectorParameterNamesAndCurves();
+	MOVIESCENETRACKS_API const TArray<FVectorParameterNameAndCurves>& GetVectorParameterNamesAndCurves() const;
 
 	/** Gets the animated color parameters and their associated curves. */
 	MOVIESCENETRACKS_API TArray<FColorParameterNameAndCurves>* GetColorParameterNamesAndCurves();
+	MOVIESCENETRACKS_API const TArray<FColorParameterNameAndCurves>& GetColorParameterNamesAndCurves() const;
 
 	/** Gets the set of all parameter names used by this section. */
 	MOVIESCENETRACKS_API void GetParameterNames(TSet<FName>& ParameterNames) const;
-
-	/**
-	 * Gets the animated values for this track.
-	 *
-	 * @param Position The playback position to use for evaluation.
-	 * @param OutScalarValues An array of FScalarParameterNameAndValue objects representing each animated scalar parameter and it's animated value.
-	 * @param OutVectorValues An array of FVectorParameterNameAndValue objects representing each animated vector parameter and it's animated value.
-	 * @param OutColorValues An array of FColorParameterNameAndValue objects representing each animated color parameter and it's animated value.
-	 */
-	void Eval(float Position, 
-		TArray<FScalarParameterNameAndValue>& OutScalarValues,
-		TArray<FVectorParameterNameAndValue>& OutVectorValues,
-		TArray<FColorParameterNameAndValue>& OutColorValues) const;
 
 public:
 

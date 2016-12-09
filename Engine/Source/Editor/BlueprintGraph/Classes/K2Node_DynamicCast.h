@@ -2,8 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "BlueprintNodeSignature.h"
 #include "K2Node.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
+#include "Textures/SlateIcon.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_DynamicCast.generated.h"
 
 UCLASS(MinimalAPI)

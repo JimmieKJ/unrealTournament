@@ -15,26 +15,33 @@
 /// Allow `peerID` to establish a peer-to-peer connection to this host. Call
 /// this after receiving ovrMessage_NetworkingPeerConnection. This function is
 /// a no-op if there are no pending connection attempts from peerID.
+/// 
+/// This function can be safely called from any thread.
 OVRP_PUBLIC_FUNCTION(void) ovr_Net_Accept(ovrID peerID);
 
 /// Automatically accept all current and future connection attempts from
 /// members of the current room. Note that the room has to be created or joined
 /// by calling one of the existing room/matchmaking functions. Returns false if
 /// the user currently isn't in a room.
+/// 
+/// This function can be safely called from any thread.
 OVRP_PUBLIC_FUNCTION(bool) ovr_Net_AcceptForCurrentRoom();
 
 /// Destroy the connection to peerID, if one exists. Note that in most cases
 /// this is not needed, as the library manages the pool of connections and
 /// discards unused ones.
+/// 
+/// This function can be safely called from any thread.
 OVRP_PUBLIC_FUNCTION(void) ovr_Net_Close(ovrID peerID);
 
 /// Close the connection to everyone in the current room. This is typically
-/// called before leaving the room.
+/// called before leaving the room. Can be called from any thread.
 OVRP_PUBLIC_FUNCTION(void) ovr_Net_CloseForCurrentRoom();
 
 /// Connects to the peer with the specified user ID. This function returns
 /// immediately; once the connection is established, a
-/// ovrMessage_NetworkingPeerConnectionStateChange message is enqueued.
+/// ovrMessage_NetworkingPeerConnectionStateChange message is enqueued. Can be
+/// called from any thread.
 /// 
 /// Note that ovr_Net_SendPacket() implicitly connects. However, it does not
 /// buffer messages in unreliable mode. ovr_Net_Connect() allows the
@@ -42,11 +49,13 @@ OVRP_PUBLIC_FUNCTION(void) ovr_Net_CloseForCurrentRoom();
 /// established.
 OVRP_PUBLIC_FUNCTION(void) ovr_Net_Connect(ovrID peerID);
 
-/// Returns true only when there is an open connection to peerID.
+/// Returns true only when there is an open connection to peerID. Can be called
+/// from any thread.
 OVRP_PUBLIC_FUNCTION(bool) ovr_Net_IsConnected(ovrID peerID);
 
 /// Ping the user with the given ID. Once the request completes, a
-/// ovrMessage_Notification_Networking_PingResult message is enqueued.
+/// ovrMessage_Notification_Networking_PingResult message is enqueued. Can be
+/// called from any thread.
 OVRP_PUBLIC_FUNCTION(ovrRequest) ovr_Net_Ping(ovrID peerID);
 
 /// Read the next incoming packet. Returns null when no more packets are
@@ -62,6 +71,8 @@ OVRP_PUBLIC_FUNCTION(ovrRequest) ovr_Net_Ping(ovrID peerID);
 ///     // dispatch packet
 ///     ovr_Packet_Free(packet);
 ///   }
+/// 
+/// This function can be safely called from any thread.
 OVRP_PUBLIC_FUNCTION(ovrPacketHandle) ovr_Net_ReadPacket();
 
 /// Send a sequence of bytes to another user. The length must be less than or
@@ -72,6 +83,8 @@ OVRP_PUBLIC_FUNCTION(ovrPacketHandle) ovr_Net_ReadPacket();
 /// connection to the peer exists. The function returns false if the packet
 /// can't be enqueued for sending (e.g., there's not enough memory) or the
 /// policy prohibits buffering. See ovrSendPolicy and ovr_Net_Connect().
+/// 
+/// This function can be safely called from any thread.
 OVRP_PUBLIC_FUNCTION(bool) ovr_Net_SendPacket(ovrID userID, size_t length, const void *bytes, ovrSendPolicy policy);
 
 /// Sends a packet to all members of the room, excluding the currently logged
@@ -79,6 +92,8 @@ OVRP_PUBLIC_FUNCTION(bool) ovr_Net_SendPacket(ovrID userID, size_t length, const
 /// the existing room/matchmaking functions, with subscribe_to_updates enabled.
 /// See ovr_Net_SendPacket() for a description of parameters. This function
 /// returns false if the user currently isn't in a room.
+/// 
+/// This function can be safely called from any thread.
 OVRP_PUBLIC_FUNCTION(bool) ovr_Net_SendPacketToCurrentRoom(size_t length, const void *bytes, ovrSendPolicy policy);
 
 

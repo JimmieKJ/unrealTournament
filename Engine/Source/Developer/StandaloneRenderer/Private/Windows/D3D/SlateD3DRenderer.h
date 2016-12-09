@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/RefCounting.h"
+#include "Rendering/SlateRenderer.h"
+#include "Rendering/SlateDrawBuffer.h"
+#include "StandaloneRendererPlatformHeaders.h"
+
 class FSlateD3DTextureManager;
 class FSlateD3D11RenderingPolicy;
 

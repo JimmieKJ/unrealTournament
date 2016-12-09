@@ -2,7 +2,7 @@
 
 #include "MinidumpDiagnosticsApp.h"
 
-#include "Core.h"
+#include "CoreMinimal.h"
 #include "RequiredProgramMainCPPInclude.h"
 #include "ExceptionHandling.h"
 

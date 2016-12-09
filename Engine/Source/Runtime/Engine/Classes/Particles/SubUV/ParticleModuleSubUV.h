@@ -2,10 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/SubUV/ParticleModuleSubUVBase.h"
 #include "Particles/ParticleEmitter.h"
-#include "Particles/SubUVAnimation.h"
 #include "ParticleModuleSubUV.generated.h"
+
+class UParticleLODLevel;
+class USubUVAnimation;
 
 UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "SubImage Index"))
 class UParticleModuleSubUV : public UParticleModuleSubUVBase

@@ -19,6 +19,16 @@ void CreateBrowserDelegates(ClientAppBrowser::DelegateSet& delegates) {
       ClientAppBrowser::DelegateSet& delegates);
   CreateNavigationBrowserTests(delegates);
 
+  // Bring in the plugin tests.
+  extern void CreatePluginBrowserTests(
+      ClientAppBrowser::DelegateSet& delegates);
+  CreatePluginBrowserTests(delegates);
+
+  // Bring in the preference tests.
+  extern void CreatePreferenceBrowserTests(
+      ClientAppBrowser::DelegateSet& delegates);
+  CreatePreferenceBrowserTests(delegates);
+
   // Bring in the RequestHandler tests.
   extern void CreateRequestHandlerBrowserTests(
       ClientAppBrowser::DelegateSet& delegates);

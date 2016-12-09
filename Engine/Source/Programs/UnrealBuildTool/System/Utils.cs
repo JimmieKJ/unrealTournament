@@ -32,6 +32,15 @@ namespace UnrealBuildTool
 		public string BranchName;
 
 		/// <summary>
+		/// Returns the value which can be used as the compatible changelist. Requires that the regular changelist is also set, and defaults to the 
+		/// regular changelist if a specific compatible changelist is not set.
+		/// </summary>
+		public int EffectiveCompatibleChangelist
+		{
+			get { return (Changelist != 0 && CompatibleChangelist != 0)? CompatibleChangelist : Changelist; }
+		}
+
+		/// <summary>
 		/// Try to read a version file from disk
 		/// </summary>
 		/// <param name="Version">The version information</param>
@@ -82,13 +91,7 @@ namespace UnrealBuildTool
 			}
 
 			Object.TryGetIntegerField("Changelist", out NewVersion.Changelist);
-			if(NewVersion.Changelist != 0)
-			{
-				if(!Object.TryGetIntegerField("CompatibleChangelist", out NewVersion.CompatibleChangelist))
-				{
-					NewVersion.CompatibleChangelist = NewVersion.Changelist;
-				}
-			}
+			Object.TryGetIntegerField("CompatibleChangelist", out NewVersion.CompatibleChangelist);
 			Object.TryGetIntegerField("IsLicenseeVersion", out NewVersion.IsLicenseeVersion);
 			Object.TryGetStringField("BranchName", out NewVersion.BranchName);
 

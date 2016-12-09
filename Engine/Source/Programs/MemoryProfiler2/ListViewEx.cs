@@ -49,33 +49,33 @@ namespace MemoryProfiler2
 			for( int ColumnIndex = 0; ColumnIndex < Columns.Count; ColumnIndex++ )
 			{
 				IntPtr ColumnPtr = new IntPtr( ColumnIndex );
-				Win32.HDITEM ListViewColumn = new Win32.HDITEM();
-				ListViewColumn.mask = Win32.HDI_FORMAT;
-				Win32.SendMessageHeaderItem( ColumnHeader, Win32.HDM_GETITEM, ColumnPtr, ref ListViewColumn );
+				ListViewWin32.HDITEM ListViewColumn = new ListViewWin32.HDITEM();
+				ListViewColumn.mask = ListViewWin32.HDI_FORMAT;
+				ListViewWin32.SendMessageHeaderItem( ColumnHeader, ListViewWin32.HDM_GETITEM, ColumnPtr, ref ListViewColumn );
 
-				bool bIsSortArrowDown = ( ( ListViewColumn.fmt & Win32.HDF_SORTDOWN ) == Win32.HDF_SORTDOWN );
-				bool bIsSortArrowUp = ( ( ListViewColumn.fmt & Win32.HDF_SORTUP ) == Win32.HDF_SORTUP );
+				bool bIsSortArrowDown = ( ( ListViewColumn.fmt & ListViewWin32.HDF_SORTDOWN ) == ListViewWin32.HDF_SORTDOWN );
+				bool bIsSortArrowUp = ( ( ListViewColumn.fmt & ListViewWin32.HDF_SORTUP ) == ListViewWin32.HDF_SORTUP );
 
 				// Change the sort arrow to opposite direction.
 				if( ColumnToShowArrow == ColumnIndex )
 				{
 					if( bSortModeAscending )
 					{
-						ListViewColumn.fmt &= ~Win32.HDF_SORTDOWN;
-						ListViewColumn.fmt |= Win32.HDF_SORTUP;
+						ListViewColumn.fmt &= ~ListViewWin32.HDF_SORTDOWN;
+						ListViewColumn.fmt |= ListViewWin32.HDF_SORTUP;
 					}
 					else
 					{
-						ListViewColumn.fmt &= ~Win32.HDF_SORTUP;
-						ListViewColumn.fmt |= Win32.HDF_SORTDOWN;
+						ListViewColumn.fmt &= ~ListViewWin32.HDF_SORTUP;
+						ListViewColumn.fmt |= ListViewWin32.HDF_SORTDOWN;
 					}
 				}
 				else
 				{
-					ListViewColumn.fmt &= ~Win32.HDF_SORTDOWN & ~Win32.HDF_SORTUP;
+					ListViewColumn.fmt &= ~ListViewWin32.HDF_SORTDOWN & ~ListViewWin32.HDF_SORTUP;
 				}
 
-				Win32.SendMessageHeaderItem( ColumnHeader, Win32.HDM_SETITEM, ColumnPtr, ref ListViewColumn );
+				ListViewWin32.SendMessageHeaderItem( ColumnHeader, ListViewWin32.HDM_SETITEM, ColumnPtr, ref ListViewColumn );
 			}
 		}
 
@@ -124,7 +124,7 @@ namespace MemoryProfiler2
 		{
 			Parent = InParent;
 			// Get the header control window.
-			IntPtr HeaderWindow = Win32.SendMessage( Parent.Handle, Win32.LVM_GETHEADER, IntPtr.Zero, IntPtr.Zero );
+			IntPtr HeaderWindow = ListViewWin32.SendMessage( Parent.Handle, ListViewWin32.LVM_GETHEADER, IntPtr.Zero, IntPtr.Zero );
 			AssignHandle( HeaderWindow );
 
 			// Only allow tooltips if data is valid.
@@ -137,10 +137,10 @@ namespace MemoryProfiler2
 		/// <summary> Overridden window message processing. </summary>
 		protected override void WndProc( ref Message Msg )
 		{
-			if( Msg.Msg == Win32.WM_MOUSEMOVE )
+			if( Msg.Msg == ListViewWin32.WM_MOUSEMOVE )
 			{
-				int PosX = Win32.GET_X_LPARAM( ( uint )Msg.LParam );
-				int PosY = Win32.GET_Y_LPARAM( ( uint )Msg.LParam );
+				int PosX = ListViewWin32.GET_X_LPARAM( ( uint )Msg.LParam );
+				int PosY = ListViewWin32.GET_Y_LPARAM( ( uint )Msg.LParam );
 
 				int ColumnStart = 0;
 				int ColumnEnd = 0;
@@ -167,25 +167,25 @@ namespace MemoryProfiler2
 				}
 				else if( CurrentColumnIndex != LastColumnIndex )
 				{
-					Win32.TRACKMOUSEEVENT trackMouseEvent = new Win32.TRACKMOUSEEVENT( Win32.ETrackMouseEvent.TME_HOVER, Handle, Win32.HOVER_DEFAULT );
-					Win32.TrackMouseEvent( ref trackMouseEvent );
+					ListViewWin32.TRACKMOUSEEVENT trackMouseEvent = new ListViewWin32.TRACKMOUSEEVENT(ListViewWin32.ETrackMouseEvent.TME_HOVER, Handle, ListViewWin32.HOVER_DEFAULT );
+					ListViewWin32.TrackMouseEvent( ref trackMouseEvent );
 
 					HeaderToolTip.Hide( Parent );
 				}
 
 				LastColumnIndex = CurrentColumnIndex;
 			}
-			else if( Msg.Msg == Win32.WM_MOUSELEAVE )
+			else if( Msg.Msg == ListViewWin32.WM_MOUSELEAVE )
 			{
 				HeaderToolTip.Hide( Parent );
 				LastColumnIndex = -1;
 			}
-			else if( Msg.Msg == Win32.WM_MOUSEHOVER )
+			else if( Msg.Msg == ListViewWin32.WM_MOUSEHOVER )
 			{
 				if( bAllowTooltips && CurrentColumnIndex != -1 )
 				{
-					int PosX = Win32.GET_X_LPARAM( ( uint )Msg.LParam );
-					int PosY = Win32.GET_Y_LPARAM( ( uint )Msg.LParam );
+					int PosX = ListViewWin32.GET_X_LPARAM( ( uint )Msg.LParam );
+					int PosY = ListViewWin32.GET_Y_LPARAM( ( uint )Msg.LParam );
 
 					// Show tooltip.
 					HeaderToolTip.Show( Parent.ColumnsTooltips[ CurrentColumnIndex ], Parent, PosX, PosY + 32 );
@@ -197,7 +197,7 @@ namespace MemoryProfiler2
 	}
 
 	/// <summary> Helper class with native Win32 functions, constants and structures. </summary>
-	public class Win32
+	public class ListViewWin32
 	{
 		[DllImport( "user32.dll", EntryPoint = "SendMessage" )]
 		public static extern IntPtr SendMessage( IntPtr hwnd, UInt32 wMsg, IntPtr wParam, IntPtr lParam );

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 
 // Prevents incorrect files from being loaded.
 
@@ -606,6 +607,16 @@ enum EUnrealEngineObjectUE4Version
 	VER_UE4_NAME_HASHES_SERIALIZED,
 	// Updating custom material expression nodes for instanced stereo implementation refactor
 	VER_UE4_INSTANCED_STEREO_UNIFORM_REFACTOR,
+	// Added compression to the shader resource for memory savings
+	VER_UE4_COMPRESSED_SHADER_RESOURCES,
+	// Cooked files contain the dependency graph for the event driven loader (the serialization is largely independent of the use of the new loader)
+	VER_UE4_PRELOAD_DEPENDENCIES_IN_COOKED_EXPORTS,
+	// Cooked files contain the TemplateIndex used by the event driven loader (the serialization is largely independent of the use of the new loader, i.e. this will be null if cooking for the old loader)
+	VER_UE4_TemplateIndex_IN_COOKED_EXPORTS,
+	// FPropertyTag includes contained type(s) for Set and Map properties:
+	VER_UE4_PROPERTY_TAG_SET_MAP_SUPPORT,
+	// Added SearchableNames to the package summary and asset registry
+	VER_UE4_ADDED_SEARCHABLE_NAMES,
 
 	// -----<new versions can be added before this line>-------------------------------------------------
 	// - this needs to be the last line (see note below)

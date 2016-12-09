@@ -1,16 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SlateTextLayout.h"
-#include "SlateEditableTextLayout.h"
-#include "SlateTextRun.h"
-#include "SlatePasswordRun.h"
-#include "TextBlockLayout.h"
-#include "TextEditHelper.h"
-#include "ITextLayoutMarshaller.h"
-#include "ISlateEditableTextWidget.h"
-#include "GenericCommands.h"
-#include "BreakIterator.h"
+#include "Widgets/Text/SlateEditableTextLayout.h"
+#include "Styling/CoreStyle.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Fonts/FontCache.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/Text/TextHitPoint.h"
+#include "Framework/Text/SlateTextRun.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Text/SlatePasswordRun.h"
+#include "Widgets/Text/TextBlockLayout.h"
+#include "Framework/Text/TextEditHelper.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Internationalization/BreakIterator.h"
+#include "SlateSettings.h"
 
 /**
  * Ensure that text transactions are always completed.
@@ -241,6 +247,8 @@ void FSlateEditableTextLayout::SetText(const TAttribute<FText>& InText)
 			OwnerWidget->OnTextChanged(NewText);
 		}
 	}
+
+	OwnerWidget->GetSlateWidget()->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 FText FSlateEditableTextLayout::GetText() const
@@ -263,6 +271,8 @@ void FSlateEditableTextLayout::SetHintText(const TAttribute<FText>& InHintText)
 	{
 		HintTextLayout.Reset();
 	}
+
+	OwnerWidget->GetSlateWidget()->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 FText FSlateEditableTextLayout::GetHintText() const
@@ -323,8 +333,6 @@ bool FSlateEditableTextLayout::SetEditableText(const FText& TextToSet, const boo
 	{
 		const FString& TextToSetString = TextToSet.ToString();
 
-		Marshaller->ClearDirty();
-
 		ClearSelection();
 		TextLayout->ClearLines();
 
@@ -332,6 +340,8 @@ bool FSlateEditableTextLayout::SetEditableText(const FText& TextToSet, const boo
 		TextLayout->ClearRunRenderers();
 
 		Marshaller->SetText(TextToSetString, *TextLayout);
+
+		Marshaller->ClearDirty();
 
 		const TArray< FTextLayout::FLineModel >& Lines = TextLayout->GetLineModels();
 		if (Lines.Num() == 0)
@@ -360,6 +370,8 @@ bool FSlateEditableTextLayout::SetEditableText(const FText& TextToSet, const boo
 				UpdateCursorHighlight();
 			}
 		}
+
+		OwnerWidget->GetSlateWidget()->Invalidate(EInvalidateWidget::Layout);
 
 		return true;
 	}
@@ -406,36 +418,50 @@ void FSlateEditableTextLayout::SetTextWrapping(const TAttribute<float>& InWrapTe
 	WrapTextAt = InWrapTextAt;
 	AutoWrapText = InAutoWrapText;
 	WrappingPolicy = InWrappingPolicy;
+
+	OwnerWidget->GetSlateWidget()->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void FSlateEditableTextLayout::SetWrapTextAt(const TAttribute<float>& InWrapTextAt)
 {
 	WrapTextAt = InWrapTextAt;
+
+	OwnerWidget->GetSlateWidget()->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void FSlateEditableTextLayout::SetAutoWrapText(const TAttribute<bool>& InAutoWrapText)
 {
 	AutoWrapText = InAutoWrapText;
+
+	OwnerWidget->GetSlateWidget()->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void FSlateEditableTextLayout::SetWrappingPolicy(const TAttribute<ETextWrappingPolicy>& InWrappingPolicy)
 {
 	WrappingPolicy = InWrappingPolicy;
+
+	OwnerWidget->GetSlateWidget()->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void FSlateEditableTextLayout::SetMargin(const TAttribute<FMargin>& InMargin)
 {
 	Margin = InMargin;
+
+	OwnerWidget->GetSlateWidget()->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void FSlateEditableTextLayout::SetJustification(const TAttribute<ETextJustify::Type>& InJustification)
 {
 	Justification = InJustification;
+
+	OwnerWidget->GetSlateWidget()->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void FSlateEditableTextLayout::SetLineHeightPercentage(const TAttribute<float>& InLineHeightPercentage)
 {
 	LineHeightPercentage = InLineHeightPercentage;
+
+	OwnerWidget->GetSlateWidget()->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void FSlateEditableTextLayout::SetDebugSourceInfo(const TAttribute<FString>& InDebugSourceInfo)
@@ -557,8 +583,12 @@ bool FSlateEditableTextLayout::HandleFocusReceived(const FFocusEvent& InFocusEve
 	{
 		if (!OwnerWidget->IsTextReadOnly())
 		{
-			// @TODO: Create ITextInputMethodSystem derivations for mobile
-			FSlateApplication::Get().ShowVirtualKeyboard(true, InFocusEvent.GetUser(), VirtualKeyboardEntry);
+			const bool bShowVirtualKeyboardOnAllFocusTypes = GetDefault<USlateSettings>()->bVirtualKeyboardDisplayOnFocus;
+			if (InFocusEvent.GetCause() == EFocusCause::Mouse || bShowVirtualKeyboardOnAllFocusTypes)
+			{
+				// @TODO: Create ITextInputMethodSystem derivations for mobile
+				FSlateApplication::Get().ShowVirtualKeyboard(true, InFocusEvent.GetUser(), VirtualKeyboardEntry);
+			}
 		}
 	}
 	else
@@ -596,6 +626,9 @@ bool FSlateEditableTextLayout::HandleFocusReceived(const FFocusEvent& InFocusEve
 	// If we gained focus via a mouse click that moved the cursor, then MoveCursor will already take care
 	// of making sure that gets scrolled into view
 	PositionToScrollIntoView.Reset();
+
+	// Focus change affects volatility, so update that too
+	OwnerWidget->GetSlateWidget()->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 
 	return true;
 }
@@ -661,6 +694,9 @@ bool FSlateEditableTextLayout::HandleFocusLost(const FFocusEvent& InFocusEvent)
 	// UpdateCursorHighlight always tries to scroll to the cursor, but we don't want that to happen when we 
 	// lose focus since it can cause the scroll position to jump unexpectedly
 	PositionToScrollIntoView.Reset();
+
+	// Focus change affects volatility, so update that too
+	OwnerWidget->GetSlateWidget()->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 
 	return true;
 }
@@ -897,6 +933,21 @@ FReply FSlateEditableTextLayout::HandleKeyDown(const FKeyEvent& InKeyEvent)
 	}
 
 	return Reply;
+}
+
+FReply FSlateEditableTextLayout::HandleKeyUp(const FKeyEvent& InKeyEvent)
+{
+	if (FPlatformMisc::GetRequiresVirtualKeyboard() && InKeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Bottom)
+	{
+		if (!OwnerWidget->IsTextReadOnly())
+		{
+			// @TODO: Create ITextInputMethodSystem derivations for mobile
+			FSlateApplication::Get().ShowVirtualKeyboard(true, InKeyEvent.GetUserIndex(), VirtualKeyboardEntry);
+			return FReply::Handled();
+		}
+	}
+
+	return FReply::Unhandled();
 }
 
 FReply FSlateEditableTextLayout::HandleMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& InMouseEvent)
@@ -2921,16 +2972,32 @@ void FSlateEditableTextLayout::LoadText()
 	}
 }
 
+bool FSlateEditableTextLayout::ComputeVolatility() const
+{
+	return BoundText.IsBound()
+		|| HintText.IsBound()
+		|| WrapTextAt.IsBound()
+		|| AutoWrapText.IsBound()
+		|| WrappingPolicy.IsBound()
+		|| Margin.IsBound()
+		|| Justification.IsBound()
+		|| LineHeightPercentage.IsBound();
+}
+
 void FSlateEditableTextLayout::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	if (bTextCommittedByVirtualKeyboard)
 	{
-		// Let outsiders know that the text content has been changed
-		OwnerWidget->OnTextCommitted(GetEditableText(), VirtualKeyboardTextCommitType);
-		bTextCommittedByVirtualKeyboard = false;
+		if (SetEditableText(VirtualKeyboardText))
+		{
+			// Let outsiders know that the text content has been changed
+			OwnerWidget->OnTextCommitted(GetEditableText(), VirtualKeyboardTextCommitType);
+			bTextCommittedByVirtualKeyboard = false;
+		}
 	}
 	else if (bTextChangedByVirtualKeyboard)
 	{
+		SetEditableText(VirtualKeyboardText);
 		// Let outsiders know that the text content has been changed
 		OwnerWidget->OnTextChanged(GetEditableText());
 		bTextChangedByVirtualKeyboard = false;
@@ -3109,14 +3176,16 @@ FVector2D FSlateEditableTextLayout::ComputeDesiredSize(float LayoutScaleMultipli
 	}
 	else
 	{
-		// If a wrapping width has been provided, then we need to report the wrapped size as the desired width
-		// (rather than the actual text layout size as that can have non-breaking lines that extend beyond the wrap width)
-		// Note: We don't do this when auto-wrapping as it would cause a feedback loop in the Slate sizing logic
-		const FVector2D TextLayoutSize = WrappingWidth > 0 ? TextLayout->GetWrappedSize() : TextLayout->GetSize();
+		// If an explicit wrapping width has been provided, then we need to report the wrapped size as the desired width if it has lines that extend beyond the fixed wrapping width
+		// Note: We don't do this when auto-wrapping with a non-explicit width as it would cause a feedback loop in the Slate sizing logic
+		FVector2D TextLayoutSize = TextLayout->GetSize();
+		if (WrappingWidth > 0 && TextLayoutSize.X > WrappingWidth)
+		{
+			TextLayoutSize = TextLayout->GetWrappedSize();
+		}
 
 		DesiredWidth = TextLayoutSize.X;
 		DesiredHeight = TextLayoutSize.Y;
-		
 	}
 
 	// The layouts current margin size. We should not report a size smaller then the margins.
@@ -3226,15 +3295,13 @@ void FSlateEditableTextLayout::FVirtualKeyboardEntry::SetTextFromVirtualKeyboard
 	}
 
 	// Update the internal editable text
-	if (OwnerLayout->SetEditableText(InNewText))
+	// This method is called from the main thread (i.e. not the game thread) of the device with the virtual keyboard
+	// This causes the app to crash on those devices, so we're using polling here to ensure delegates are
+	// fired on the game thread in Tick.		
+	OwnerLayout->VirtualKeyboardText = InNewText;
+	if (SetTextType == ESetTextType::Changed)
 	{
-		// This method is called from the main thread (i.e. not the game thread) of the device with the virtual keyboard
-		// This causes the app to crash on those devices, so we're using polling here to ensure delegates are
-		// fired on the game thread in Tick.		
-		if (SetTextType == ESetTextType::Changed)
-		{
-			OwnerLayout->bTextChangedByVirtualKeyboard = true;
-		}
+		OwnerLayout->bTextChangedByVirtualKeyboard = true;
 	}
 	if (SetTextType == ESetTextType::Commited)
 	{

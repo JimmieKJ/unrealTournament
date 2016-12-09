@@ -2,8 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InterpTrackHelper.h"
 #include "MatineeTrackVectorPropHelper.generated.h"
 
+class SWindow;
+class UInterpGroup;
+class UInterpTrack;
 
 UCLASS()
 class UMatineeTrackVectorPropHelper : public UInterpTrackHelper

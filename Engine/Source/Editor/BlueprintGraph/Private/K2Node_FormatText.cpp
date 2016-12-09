@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "Kismet/KismetTextLibrary.h"
+#include "K2Node_FormatText.h"
+#include "UObject/Package.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "EdGraphSchema_K2.h"
+#include "EdGraphSchema_K2_Actions.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_MakeArray.h"
+#include "K2Node_MakeStruct.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet/KismetTextLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "Editor/GraphEditor/Public/DiffResults.h"
-#include "Kismet2NameValidators.h"
 #include "KismetCompiler.h"
 #include "ScopedTransaction.h"
 #include "BlueprintNodeSpawner.h"

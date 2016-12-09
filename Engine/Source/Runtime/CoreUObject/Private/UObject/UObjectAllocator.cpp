@@ -4,7 +4,8 @@
 	UnObjAllocator.cpp: Unreal object allocation
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
+#include "UObject/UObjectAllocator.h"
+#include "UObject/UObjectGlobals.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUObjectAllocator, Log, All);
 

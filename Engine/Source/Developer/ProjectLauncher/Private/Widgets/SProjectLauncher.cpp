@@ -1,7 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
-#include "SWidgetSwitcher.h"
+#include "Widgets/SProjectLauncher.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "SlateOptMacros.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "Models/ProjectLauncherCommands.h"
+#include "Widgets/Project/SProjectLauncherProjectPicker.h"
+#include "Widgets/Deploy/SProjectLauncherSimpleDeviceListView.h"
+#include "Widgets/Profile/SProjectLauncherProfileListView.h"
+#include "Widgets/SProjectLauncherProgress.h"
+#include "Widgets/SProjectLauncherSettings.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
 
 
 #define LOCTEXT_NAMESPACE "SProjectLauncher"
@@ -315,7 +336,7 @@ FReply SProjectLauncher::OnAddCustomLaunchProfileClicked()
 
 EVisibility SProjectLauncher::GetProfileWizardsMenuVisibility() const
 {
-	return Model->GetProfileManager()->GetProfileWizards().Num() > 0 ? EVisibility::Visible : EVisibility::Hidden;
+	return (Model->GetProfileManager()->GetProfileWizards().Num() > 0) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 TSharedRef<SWidget> SProjectLauncher::MakeProfileWizardsMenu()

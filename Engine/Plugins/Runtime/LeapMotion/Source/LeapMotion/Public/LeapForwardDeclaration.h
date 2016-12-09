@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "InputCoreTypes.h"
+
 //Forward declare namespace so public is not exposed to Leap header
 namespace Leap
 {

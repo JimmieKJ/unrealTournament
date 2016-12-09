@@ -38,7 +38,7 @@ import android.util.Log;
  * This class binds the service API to your application client.  It contains the IDownloaderClient proxy,
  * which is used to call functions in your client as well as the Stub, which is used to call functions
  * in the client implementation of IDownloaderClient.
- * 
+ *
  * <p>The IPC is implemented using an Android Messenger and a service Binder.  The connect method
  * should be called whenever the client wants to bind to the service.  It opens up a service connection
  * that ends up calling the onServiceConnected client API that passes the service messenger
@@ -96,7 +96,7 @@ public class DownloaderClientMarshaller {
                 e.printStackTrace();
             }
         }
-        
+
         public Proxy(Messenger msg) {
             mServiceMessenger = msg;
         }
@@ -122,7 +122,7 @@ public class DownloaderClientMarshaller {
             @Override
             public void handleMessage(Message msg) {
                 switch (msg.what) {
-                    case MSG_ONDOWNLOADPROGRESS:                        
+                    case MSG_ONDOWNLOADPROGRESS:
                         Bundle bun = msg.getData();
                         if ( null != mContext ) {
                             bun.setClassLoader(mContext.getClassLoader());
@@ -181,7 +181,7 @@ public class DownloaderClientMarshaller {
             } else {
                 mBound = true;
             }
-                
+
         }
 
         @Override
@@ -201,7 +201,7 @@ public class DownloaderClientMarshaller {
 
     /**
      * Returns a proxy that will marshal calls to IDownloaderClient methods
-     * 
+     *
      * @param msg
      * @return
      */
@@ -213,7 +213,7 @@ public class DownloaderClientMarshaller {
      * Returns a stub object that, when connected, will listen for marshaled
      * {@link IDownloaderClient} methods and translate them into calls to the supplied
      * interface.
-     * 
+     *
      * @param itf An implementation of IDownloaderClient that will be called
      *            when remote method calls are unmarshaled.
      * @param downloaderService The class for your implementation of {@link
@@ -224,7 +224,7 @@ public class DownloaderClientMarshaller {
     public static IStub CreateStub(IDownloaderClient itf, Class<?> downloaderService) {
         return new Stub(itf, downloaderService);
     }
-    
+
     /**
      * Starts the download if necessary. This function starts a flow that does `
      * many things. 1) Checks to see if the APK version has been checked and
@@ -237,7 +237,7 @@ public class DownloaderClientMarshaller {
      * to wait to hear about any updated APK expansion files. Note that this does
      * mean that the application MUST be run for the first time with a network
      * connection, even if Market delivers all of the files.
-     * 
+     *
      * @param context Your application Context.
      * @param notificationClient A PendingIntent to start the Activity in your application
      * that shows the download progress and which will also start the application when download
@@ -248,30 +248,30 @@ public class DownloaderClientMarshaller {
      * #DOWNLOAD_REQUIRED}.
      * @throws NameNotFoundException
      */
-    public static int startDownloadServiceIfRequired(Context context, PendingIntent notificationClient, 
+    public static int startDownloadServiceIfRequired(Context context, PendingIntent notificationClient,
             Class<?> serviceClass)
             throws NameNotFoundException {
         return DownloaderService.startDownloadServiceIfRequired(context, notificationClient,
                 serviceClass);
     }
-    
+
     /**
      * This version assumes that the intent contains the pending intent as a parameter. This
      * is used for responding to alarms.
-     * <p>The pending intent must be in an extra with the key {@link 
+     * <p>The pending intent must be in an extra with the key {@link
      * impl.DownloaderService#EXTRA_PENDING_INTENT}.
-     * 
+     *
      * @param context
      * @param notificationClient
      * @param serviceClass the class of the service to start
      * @return
      * @throws NameNotFoundException
      */
-    public static int startDownloadServiceIfRequired(Context context, Intent notificationClient, 
+    public static int startDownloadServiceIfRequired(Context context, Intent notificationClient,
             Class<?> serviceClass)
             throws NameNotFoundException {
         return DownloaderService.startDownloadServiceIfRequired(context, notificationClient,
                 serviceClass);
-    }    
+    }
 
 }

@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
-#include "SoundDefinitions.h"
 #include "Sound/SoundNodeDelay.h"
+#include "ActiveSound.h"
+
+struct FSoundNodeDelayPayload
+{
+	float EndOfDelay;
+	float StartTimeModifier;
+};
 
 /*-----------------------------------------------------------------------------
          USoundNodeDelay implementation.
@@ -18,8 +23,8 @@ USoundNodeDelay::USoundNodeDelay(const FObjectInitializer& ObjectInitializer)
 
 void USoundNodeDelay::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances )
 {
-	RETRIEVE_SOUNDNODE_PAYLOAD( sizeof( float ) );
-	DECLARE_SOUNDNODE_ELEMENT( float, EndOfDelay );
+	RETRIEVE_SOUNDNODE_PAYLOAD( sizeof(FSoundNodeDelayPayload) );
+	DECLARE_SOUNDNODE_ELEMENT(FSoundNodeDelayPayload, SoundNodeDelayPayload );
 
 	// Check to see if this is the first time through.
 	if( *RequiresInitialization )
@@ -28,22 +33,26 @@ void USoundNodeDelay::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeW
 
 		const float ActualDelay = FMath::Max(0.f, DelayMax + ( ( DelayMin - DelayMax ) * FMath::SRand() ));
 
-		if (ParseParams.StartTime > ActualDelay)
+		if (ParseParams.StartTime >= ActualDelay)
 		{
+			SoundNodeDelayPayload.StartTimeModifier = ActualDelay;
+			SoundNodeDelayPayload.EndOfDelay = -1.f;
+
 			FSoundParseParameters UpdatedParams = ParseParams;
-			UpdatedParams.StartTime -= ActualDelay;
-			EndOfDelay = -1.f;
+			UpdatedParams.StartTime -= SoundNodeDelayPayload.StartTimeModifier;
+					
 			Super::ParseNodes( AudioDevice, NodeWaveInstanceHash, ActiveSound, UpdatedParams, WaveInstances );
 			return;
 		}
 		else
 		{
-			EndOfDelay = ActiveSound.PlaybackTime + ActualDelay - ParseParams.StartTime;
+			SoundNodeDelayPayload.StartTimeModifier = 0.0f;
+			SoundNodeDelayPayload.EndOfDelay = ActiveSound.PlaybackTime + ActualDelay - ParseParams.StartTime;
 		}
 	}
 
 	// If we have not waited long enough then just keep waiting.
-	if( EndOfDelay > ActiveSound.PlaybackTime )
+	if (SoundNodeDelayPayload.EndOfDelay > ActiveSound.PlaybackTime )
 	{
 		// We're not finished even though we might not have any wave instances in flight.
 		ActiveSound.bFinished = false;
@@ -51,7 +60,10 @@ void USoundNodeDelay::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeW
 	// Go ahead and play the sound.
 	else
 	{
-		Super::ParseNodes( AudioDevice, NodeWaveInstanceHash, ActiveSound, ParseParams, WaveInstances );
+		FSoundParseParameters UpdatedParams = ParseParams;
+		UpdatedParams.StartTime -= SoundNodeDelayPayload.StartTimeModifier;
+
+		Super::ParseNodes( AudioDevice, NodeWaveInstanceHash, ActiveSound, UpdatedParams, WaveInstances );
 	}
 }
 

@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "PaperAtlasTextureHelpers.h"
-#include "PaperSprite.h"
+#include "Atlasing/PaperAtlasTextureHelpers.h"
+#include "Paper2DEditorLog.h"
 
 //////////////////////////////////////////////////////////////////////////
 // 

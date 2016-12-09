@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
 #include "IntegralKeyArea.h"
-#include "MovieSceneClipboard.h"
+#include "UObject/StructOnScope.h"
 
 /* IKeyArea interface
  *****************************************************************************/
@@ -29,7 +28,7 @@ TArray<FKeyHandle> FIntegralCurveKeyAreaBase::AddKeyUnique(float Time, EMovieSce
 	}
 	else
 	{
-		SetKeyValue(Time);
+		UpdateKeyWithExternalValue(Time);
 	}
 
 	return AddedKeyHandles;
@@ -136,7 +135,7 @@ void FIntegralCurveKeyAreaBase::SetKeyTangentMode(FKeyHandle KeyHandle, ERichCur
 }
 
 
-void FIntegralCurveKeyAreaBase::SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) const
+void FIntegralCurveKeyAreaBase::SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime)
 {
 	Curve.SetKeyTime(KeyHandle, NewKeyTime);
 }

@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NullSourceCodeAccessPrivatePCH.h"
 #include "NullSourceCodeAccessor.h"
-#include "DesktopPlatformModule.h"
+#include "Misc/Paths.h"
 
 #define LOCTEXT_NAMESPACE "NullSourceCodeAccessor"
 bool FNullSourceCodeAccessor::CanAccessSourceCode() const

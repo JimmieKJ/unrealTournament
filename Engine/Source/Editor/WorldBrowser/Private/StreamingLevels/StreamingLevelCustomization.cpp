@@ -1,21 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "WorldBrowserPrivatePCH.h"
-
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "Editor/PropertyEditor/Public/PropertyEditing.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/PropertyCustomizationHelpers.h"
-#include "SVectorInputBox.h"
-#include "SRotatorInputBox.h"
-
-#include "SWorldDetails.h"
-#include "StreamingLevelCollectionModel.h"
-#include "StreamingLevelCustomization.h"
-#include "StreamingLevelEdMode.h"
-#include "SNumericEntryBox.h"
-#include "Engine/LevelStreaming.h"
+#include "StreamingLevels/StreamingLevelCustomization.h"
+#include "Misc/MessageDialog.h"
+#include "Widgets/Input/SButton.h"
 #include "Engine/LevelStreamingVolume.h"
-#include "AssetData.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "LevelUtils.h"
+
+#include "DetailWidgetRow.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailChildrenBuilder.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
+#include "PropertyCustomizationHelpers.h"
+#include "Widgets/Input/SVectorInputBox.h"
+
+#include "StreamingLevels/StreamingLevelModel.h"
+#include "StreamingLevels/StreamingLevelEdMode.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 

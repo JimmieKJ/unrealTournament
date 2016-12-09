@@ -1,6 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/Guid.h"
+
 // Custom serialization version for changes made in Dev-Build stream
 struct CORE_API FBuildObjectVersion
 {

@@ -4,9 +4,12 @@
 	UObjectLinker.cpp: Unreal object linker relationship management
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
-
-#include "UObjectAnnotation.h"
+#include "CoreMinimal.h"
+#include "UObject/UObjectBaseUtility.h"
+#include "UObject/Object.h"
+#include "UObject/LinkerLoad.h"
+#include "UObject/Package.h"
+#include "UObject/UObjectAnnotation.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUObjectLinker, Log, All);
 

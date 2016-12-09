@@ -13,7 +13,7 @@
 #endif
  
 #if XBOXONE_PROFILE
-	#define STENCIL_COMPONENT_SWIZZLE .x
+	#include "XboxOne/XboxOneCommon.usf"
 #endif
 
 #if COMPILER_METAL
@@ -72,7 +72,7 @@
 	#define MaterialFloat4x3 float4x3 
 #endif
 
-#if COMPILER_GLSL_ES2 || COMPILER_METAL
+#if COMPILER_GLSL_ES2 || COMPILER_METAL || COMPILER_SWITCH
 
 	float determinant(float3x3 M)
 	{    
@@ -83,6 +83,16 @@
 	}
 
 #endif   
+
+#if SCENE_ALPHA
+#define SceneColorLayout float4
+#define CastFloat4ToSceneColorLayout(x) (x)
+#define SetSceneColorLayoutToFloat4(dest,value) dest = (value)
+#else
+#define SceneColorLayout float3
+#define CastFloat4ToSceneColorLayout(x) ((x).rgb)
+#define SetSceneColorLayoutToFloat4(dest,value) dest.rgb = (value)
+#endif
 
 // Generated file that contains uniform buffer declarations needed by the shader being compiled 
 #include "GeneratedUniformBuffers.usf" 
@@ -116,6 +126,25 @@
 	#define FEATURE_LEVEL FEATURE_LEVEL_SM5
 #elif SM4_PROFILE
 	#define FEATURE_LEVEL FEATURE_LEVEL_SM4
+#elif SWITCH_PROFILE || SWITCH_PROFILE_FORWARD
+	#undef ES3_1_PROFILE
+
+	#if SWITCH_PROFILE
+		#define FEATURE_LEVEL FEATURE_LEVEL_SM5
+	#else
+		#define FEATURE_LEVEL FEATURE_LEVEL_ES3_1
+		// @todo switch: maybe all uses of this should check feature level not profile?
+		#define ES3_1_PROFILE 1
+	#endif
+
+
+	// A8 textures when sampled have their component in R.
+	#undef A8_SAMPLE_MASK
+	#define A8_SAMPLE_MASK .r
+
+	// switch doesn't have vertex attribute swizzling
+	#define FCOLOR_COMPONENT_SWIZZLE .bgra
+
 #elif VULKAN_PROFILE
 	#define FEATURE_LEVEL FEATURE_LEVEL_ES3_1
 #elif VULKAN_PROFILE_SM4
@@ -192,11 +221,15 @@
 #endif
 
 // non-editor platforms generally never want development/editor features.
-#define PLATFORM_SUPPORTS_DEVELOPMENT_SHADERS (!PS4_PROFILE && !XBOXONE_PROFILE && !ESDEFERRED_PROFILE)
+#define PLATFORM_SUPPORTS_DEVELOPMENT_SHADERS (!PS4_PROFILE && !XBOXONE_PROFILE && !ESDEFERRED_PROFILE && !SWITCH_PROFILE)
 #define USE_DEVELOPMENT_SHADERS (COMPILE_SHADERS_FOR_DEVELOPMENT && PLATFORM_SUPPORTS_DEVELOPMENT_SHADERS)
 
 #ifndef MOBILE_EMULATION
-#define MOBILE_EMULATION ((FEATURE_LEVEL == FEATURE_LEVEL_ES2 || FEATURE_LEVEL == FEATURE_LEVEL_ES3_1) && (!(COMPILER_GLSL_ES3_1 || COMPILER_GLSL_ES2) && USE_DEVELOPMENT_SHADERS && !(METAL_PROFILE && MAC) && !VULKAN_PROFILE))
+#define MOBILE_EMULATION ((FEATURE_LEVEL == FEATURE_LEVEL_ES2 || FEATURE_LEVEL == FEATURE_LEVEL_ES3_1) && (!(COMPILER_GLSL_ES3_1 || COMPILER_GLSL_ES2) && USE_DEVELOPMENT_SHADERS && !(METAL_PROFILE && MAC) && !VULKAN_PROFILE && !SWITCH_PROFILE))
+#endif
+
+#ifndef MOBILE_FORCE_DEPTH_TEXTURE_READS
+#define MOBILE_FORCE_DEPTH_TEXTURE_READS 0
 #endif
 
 // If we didn't request color component swizzling, just make it empty
@@ -216,7 +249,7 @@
 
 // Whether the platform supports a global clip plane through SV_ClipDistance
 // Ideally this would just be enabled for all SM4 and above feature level platforms, but not tested everywhere yet
-#define PLATFORM_SUPPORTS_GLOBAL_CLIP_PLANE (PS4_PROFILE || SM5_PROFILE || SM4_PROFILE || METAL_PROFILE || METAL_MRT_PROFILE || METAL_SM4_PROFILE || METAL_SM5_PROFILE)
+#define PLATFORM_SUPPORTS_GLOBAL_CLIP_PLANE (PS4_PROFILE || SM5_PROFILE || SM4_PROFILE || METAL_PROFILE || METAL_MRT_PROFILE || METAL_SM4_PROFILE || METAL_SM5_PROFILE || GL4_PROFILE || GL3_PROFILE || VULKAN_PROFILE_SM4 || VULKAN_PROFILE_SM5)
 
 // Using SV_ClipDistance has overhead (15% slower base pass in triangle bound test scene on PS4) so projects have to opt-in
 #define USE_GLOBAL_CLIP_PLANE (PLATFORM_SUPPORTS_GLOBAL_CLIP_PLANE && PROJECT_ALLOW_GLOBAL_CLIP_PLANE)
@@ -304,12 +337,114 @@ MaterialFloat4 TextureCubeSampleGrad(TextureCube Tex, SamplerState Sampler, floa
 	return Tex.SampleGrad(Sampler, UV, DDX, DDY);
 }
 
+//converts an input 1d to 2d position. Useful for locating z frames that have been laid out in a 2d grid like a flipbook.
+float2 Tile1Dto2D(float xsize, float idx)
+{
+	float2 xyidx = 0;
+	xyidx.y = floor(idx / xsize);
+	xyidx.x = idx - xsize * xyidx.y;
+
+	return xyidx;
+}
+
+float4 PseudoVolumeTexture(Texture2D Tex, SamplerState TexSampler, float3 inPos, float xsize, float numframes)
+{
+	float zframe = ceil(inPos.z * numframes);
+	float zphase = frac(inPos.z * numframes);
+
+	float2 uv = frac(inPos.xy) / xsize;
+
+	float2 curframe = Tile1Dto2D(xsize, zframe) / xsize;
+	float2 nextframe = Tile1Dto2D(xsize, zframe + 1) / xsize;
+
+	float4 sampleA = Tex.SampleLevel(TexSampler, uv + curframe, 0);
+	float4 sampleB = Tex.SampleLevel(TexSampler, uv + nextframe, 0);
+
+	return lerp(sampleA, sampleB, zphase);
+}
+
+// return a pseudovolume texture sample.
+// useful for simulating 3D texturing with a 2D texture or as a texture flipbook with lerped transitions
+// treats 2d layout of frames a 3d texture and performs bilinear filtering by blending with an offset Z frame.
+// @param Tex       = Input Texture Object storing Volume Data
+// @param inPos     = Input float3 for Position, 0-1
+// @param xsize     = Input float for num frames in x,y directions
+// @param numFrames = Input float for num total frames
+
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5 // Cubemap arrays are not supported in SM4 feature level
 	MaterialFloat4 TextureCubeArraySampleLevel(TextureCubeArray Tex, SamplerState Sampler, float3 UV, float ArrayIndex, MaterialFloat Mip)
 	{
 		return Tex.SampleLevel(Sampler, float4(UV, ArrayIndex), Mip);
 	}
 #endif
+
+void Bicubic2DCatmullRom( in float2 UV, in float2 Size, out float2 Sample[3], out float2 Weight[3] )
+{
+	const float2 InvSize = 1.0 / Size;
+ 
+	UV *= Size;
+
+	float2 tc = floor( UV - 0.5 ) + 0.5;
+	float2 f = UV - tc;
+	float2 f2 = f * f;
+	float2 f3 = f2 * f;
+
+	float2 w0 = f2 - 0.5 * (f3 + f);
+	float2 w1 = 1.5 * f3 - 2.5 * f2 + 1;
+	float2 w3 = 0.5 * (f3 - f2);
+	float2 w2 = 1 - w0 - w1 - w3;
+
+	Weight[0] = w0;
+	Weight[1] = w1 + w2;
+	Weight[2] = w3;
+
+	Sample[0] = tc - 1;
+	Sample[1] = tc + w2 / Weight[1];
+	Sample[2] = tc + 2;
+ 
+	Sample[0] *= InvSize;
+	Sample[1] *= InvSize;
+	Sample[2] *= InvSize;
+}
+
+MaterialFloat4 Texture2DSampleBicubic( Texture2D Tex, SamplerState Sampler, float2 UV, float2 Size )
+{
+	float2 Weight[3];
+	float2 Sample[3];
+	Bicubic2DCatmullRom( UV, Size, Sample, Weight );
+
+	MaterialFloat4 OutColor;
+#if 0
+	OutColor  = Tex.SampleLevel( Sampler, float2( Sample[0].x, Sample[0].y ), 0 ) * Weight[0].x * Weight[0].y;
+	OutColor += Tex.SampleLevel( Sampler, float2( Sample[1].x, Sample[0].y ), 0 ) * Weight[1].x * Weight[0].y;
+	OutColor += Tex.SampleLevel( Sampler, float2( Sample[2].x, Sample[0].y ), 0 ) * Weight[2].x * Weight[0].y;
+
+	OutColor += Tex.SampleLevel( Sampler, float2( Sample[0].x, Sample[1].y ), 0 ) * Weight[0].x * Weight[1].y;
+	OutColor += Tex.SampleLevel( Sampler, float2( Sample[1].x, Sample[1].y ), 0 ) * Weight[1].x * Weight[1].y;
+	OutColor += Tex.SampleLevel( Sampler, float2( Sample[2].x, Sample[1].y ), 0 ) * Weight[2].x * Weight[1].y;
+
+	OutColor += Tex.SampleLevel( Sampler, float2( Sample[0].x, Sample[2].y ), 0 ) * Weight[0].x * Weight[2].y;
+	OutColor += Tex.SampleLevel( Sampler, float2( Sample[1].x, Sample[2].y ), 0 ) * Weight[1].x * Weight[2].y;
+	OutColor += Tex.SampleLevel( Sampler, float2( Sample[2].x, Sample[2].y ), 0 ) * Weight[2].x * Weight[2].y;
+#else
+	// Optimized by removing corner samples
+	OutColor  = Tex.SampleLevel( Sampler, float2( Sample[1].x, Sample[0].y ), 0 ) * Weight[1].x * Weight[0].y;
+	OutColor += Tex.SampleLevel( Sampler, float2( Sample[0].x, Sample[1].y ), 0 ) * Weight[0].x * Weight[1].y;
+	OutColor += Tex.SampleLevel( Sampler, float2( Sample[1].x, Sample[1].y ), 0 ) * Weight[1].x * Weight[1].y;
+	OutColor += Tex.SampleLevel( Sampler, float2( Sample[2].x, Sample[1].y ), 0 ) * Weight[2].x * Weight[1].y;
+	OutColor += Tex.SampleLevel( Sampler, float2( Sample[1].x, Sample[2].y ), 0 ) * Weight[1].x * Weight[2].y;
+
+	// Reweight after removing the corners
+	float CornerWeights;
+	CornerWeights  = Weight[1].x * Weight[0].y;
+	CornerWeights += Weight[0].x * Weight[1].y;
+	CornerWeights += Weight[1].x * Weight[1].y;
+	CornerWeights += Weight[2].x * Weight[1].y;
+	CornerWeights += Weight[1].x * Weight[2].y;
+	OutColor /= CornerWeights;
+#endif
+	return OutColor;
+}
 
 	// TANGENTTOWORLD0 is the first row of the tangent to world matrix, w might be needed for padding and is not used yet.
 	// TANGENTTOWORLD2 is the last row of the tangent to world matrix, determinant of tangent basis in w
@@ -554,6 +689,8 @@ MaterialFloat PhongShadingPow(MaterialFloat X, MaterialFloat Y)
 // depth in the red channel in DeviceZ
 Texture2D		SceneDepthTexture;
 SamplerState	SceneDepthTextureSampler;
+Texture2D		CustomDepthTexture;
+SamplerState	CustomDepthTextureSampler;
 // scene HDR color
 Texture2D		SceneColorTexture;
 SamplerState	SceneColorTextureSampler;
@@ -901,14 +1038,8 @@ MaterialFloat3 RGBTDecode8BPC(MaterialFloat4 RGBT, MaterialFloat Range)
 float GetHDR32bppEncodeMode()
 {
 #if ES2_PROFILE
-	#if COMPILER_GLSL_ES2
-		#if IOS || WEBGL
-			#if USE_32BPP_HDR
-				return HDR_ENCODE_MOSAIC;
-			#endif
-		#else // ANDROID
-			return intrinsic_GetHDR32bppEncodeModeES2();
-		#endif
+	#if COMPILER_GLSL_ES2 && !IOS && !WEBGL // ANDROID
+		return intrinsic_GetHDR32bppEncodeModeES2();
 	#endif
 	#if MOBILE_EMULATION
 		// To enable editor runtime change without recompile, PC always eats the encode cost.
@@ -954,6 +1085,23 @@ MaterialFloat4 Decode32BPPHDR(MaterialFloat4 Encoded, MaterialFloat3 OtherEncode
 	}
 }
 
+// Demosaic capable 32bpp hdr decode.
+float4 Decode32BPPHDR(float4 Pixel, float2 SvPosition, Texture2D SourceTexture, SamplerState SourceSampler, float2 InTexCoords[4])
+{
+	half3 PixelColorN = SourceTexture.Sample(SourceSampler, InTexCoords[0].xy).rgb;
+	half3 PixelColorE = SourceTexture.Sample(SourceSampler, InTexCoords[1].xy).rgb;
+	half3 PixelColorW = SourceTexture.Sample(SourceSampler, InTexCoords[2].xy).rgb;
+	half3 PixelColorS = SourceTexture.Sample(SourceSampler, InTexCoords[3].xy).rgb;
+	half3 PixelColorV = PixelColorN * 0.5 + PixelColorS * 0.5;
+	half3 PixelColorH = PixelColorW * 0.5 + PixelColorE * 0.5;
+	if(abs(PixelColorN.g - PixelColorS.g) < abs(PixelColorW.g - PixelColorE.g)) 
+	{
+		PixelColorH = PixelColorV;
+	}
+	Pixel.rgb = Decode32BPPHDR(Pixel, PixelColorH, SvPosition.xy).rgb;
+	Pixel.a = 0.0;
+	return Pixel;
+}
 
 /** Get render target write mask value
   * This gets a bit from a write mask texture created with FRTWriteMaskDecodeCS. Only supprted on some platforms.
@@ -1038,26 +1186,25 @@ float CalcSceneDepth(float2 ScreenUV)
 #if SCENE_TEXTURES_DISABLED
 	return 0.0f;
 #else
-
-#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1
-	return ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);
-#else
-	#if COMPILER_GLSL_ES2
-		#if IOS
-			// Only call FramebufferFetch when actually compiling for IOS ES2.
-			return FramebufferFetchES2().w;
-		#elif WEBGL
-			return Texture2DSampleLevel(SceneAlphaCopyTexture, SceneAlphaCopyTextureSampler, ScreenUV, 0).r;
-		#else 
-			float SceneW = ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);		
-			return DepthbufferFetchES2(SceneW, View.InvDeviceZToWorldZTransform[2], View.InvDeviceZToWorldZTransform[3]);
-		#endif 
-	#elif METAL_PROFILE && !MAC
-			return FramebufferFetchES2().w;
-	#else
+	#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1 || MOBILE_FORCE_DEPTH_TEXTURE_READS
 		return ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);
+	#else
+		#if COMPILER_GLSL_ES2
+			#if IOS
+				// Only call FramebufferFetch when actually compiling for IOS ES2.
+				return FramebufferFetchES2().w;
+			#elif WEBGL
+				return Texture2DSampleLevel(SceneAlphaCopyTexture, SceneAlphaCopyTextureSampler, ScreenUV, 0).r;
+			#else 
+				float SceneW = ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);		
+				return DepthbufferFetchES2(SceneW, View.InvDeviceZToWorldZTransform[2], View.InvDeviceZToWorldZTransform[3]);
+			#endif 
+		#elif METAL_PROFILE && !MAC
+				return FramebufferFetchES2().w;
+		#else
+			return ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);
+		#endif
 	#endif
-#endif
 #endif
 }
 
@@ -1312,14 +1459,14 @@ float Noise3D_Multiplexer(int Function, float3 Position, int Quality, bool bTili
 		case 4:
 			return ValueNoise3D_ALU(Position, bTiling, RepeatSize);
 		default:
-			return VoronoiNoise3D_ALU(Position, Quality, bTiling, RepeatSize);
+			return VoronoiNoise3D_ALU(Position, Quality, bTiling, RepeatSize, true).w * 2. - 1.;
 	}
 	return 0;
 }
 
 // @param LevelScale usually 2 but higher values allow efficient use of few levels
 // @return in user defined range (OutputMin..OutputMax)
-float MaterialExpressionNoise(float3 Position, float Scale, int Quality, int Function, bool bTurbulence, uint Levels, float OutputMin, float OutputMax, float LevelScale, float FilterWidth, bool bTiling, float RepeatSize)
+MaterialFloat MaterialExpressionNoise(float3 Position, float Scale, int Quality, int Function, bool bTurbulence, uint Levels, float OutputMin, float OutputMax, float LevelScale, float FilterWidth, bool bTiling, float RepeatSize)
 {
 	Position *= Scale;
 	FilterWidth *= Scale;
@@ -1356,6 +1503,37 @@ float MaterialExpressionNoise(float3 Position, float Scale, int Quality, int Fun
 
 	// Out is in 0..1 range
 	return lerp(OutputMin, OutputMax, Out);
+}
+
+
+// Material node for noise functions returning a vector value
+// @param LevelScale usually 2 but higher values allow efficient use of few levels
+// @return in user defined range (OutputMin..OutputMax)
+MaterialFloat4 MaterialExpressionVectorNoise(MaterialFloat3 Position, int Quality, int Function, bool bTiling, float TileSize)
+{
+	float4 result = float4(0,0,0,1);
+	float3x4 Jacobian = JacobianSimplex_ALU(Position, bTiling, TileSize);	// compiled out if not used
+
+	// verified, HLSL compiled out the switch if Function is a constant
+	switch (Function)
+	{
+	case 0:	// Cellnoise
+		result.xyz = float3(Rand3DPCG16(int3(floor(NoiseTileWrap(Position, bTiling, TileSize))))) / 0xffff;
+		break;
+	case 1: // Color noise
+		result.xyz = float3(Jacobian[0].w, Jacobian[1].w, Jacobian[2].w);
+		break;
+	case 2: // Gradient
+		result = Jacobian[0];
+		break;
+	case 3: // Curl
+		result.xyz = float3(Jacobian[2][1] - Jacobian[1][2], Jacobian[0][2] - Jacobian[2][0], Jacobian[1][0] - Jacobian[0][1]);
+		break;
+	default: // Voronoi
+		result = VoronoiNoise3D_ALU(Position, Quality, bTiling, TileSize, false);
+		break;
+	}
+	return result;
 }
 
 

@@ -5,7 +5,13 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/FbxMeshImportData.h"
 #include "FbxStaticMeshImportData.generated.h"
+
+class UStaticMesh;
 
 UENUM()
 namespace EVertexColorImportOption
@@ -26,8 +32,8 @@ class UFbxStaticMeshImportData : public UFbxMeshImportData
 {
 	GENERATED_UCLASS_BODY()
 
-	/** For static meshes, enabling this option will combine all meshes in the FBX into a single monolithic mesh in Unreal */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=ImportSettings, meta=(ImportType="StaticMesh"))
+	/** The LODGroup to associate with this mesh when it is imported */
+	UPROPERTY(EditAnywhere, config, AdvancedDisplay, Category=ImportSettings, meta=(ImportType="StaticMesh"))
 	FName StaticMeshLODGroup;
 
 	/** Specify how vertex colors should be imported */

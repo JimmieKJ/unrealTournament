@@ -4,7 +4,8 @@
 	ConvexVolume.cpp: Convex volume implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "ConvexVolume.h"
+#include "SceneManagement.h"
 #include "Engine/Polys.h"
 
 /**

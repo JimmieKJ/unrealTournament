@@ -1,13 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPrivatePCH.h"
-#include "OnlineSessionInterface.h"
-#include "OnlineIdentityInterface.h"
-#include "OnlineAchievementsInterface.h"
+#include "OnlineSubsystem.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HAL/IConsoleManager.h"
 #include "NboSerializer.h"
 #include "Online.h"
-#include "IConsoleManager.h"
-#include "NetworkVersion.h"
+#include "Misc/NetworkVersion.h"
 
 DEFINE_LOG_CATEGORY(LogOnline);
 DEFINE_LOG_CATEGORY(LogOnlineGame);

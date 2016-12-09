@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ActorFactories/ActorFactoryEmptyActor.h"
 #include "ActorFactoryPawn.generated.h"
+
+class FAssetData;
 
 UCLASS(MinimalAPI,config=Editor)
 class UActorFactoryPawn : public UActorFactoryEmptyActor

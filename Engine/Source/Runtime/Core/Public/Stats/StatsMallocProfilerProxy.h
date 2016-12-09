@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "HAL/MemoryBase.h"
+#include "HAL/ThreadSafeCounter.h"
+
 #if STATS
 
 /**

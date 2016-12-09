@@ -1,27 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/Kismet/Public/BlueprintEditorTabs.h"
-#include "Editor/Kismet/Public/SBlueprintEditorToolbar.h"
-#include "Editor/Kismet/Public/BlueprintEditorModes.h"
-#include "Editor/Kismet/Public/BlueprintEditorSharedTabFactories.h"
-#include "SKismetInspector.h"
-
-#include "WidgetBlueprintEditor.h"
-#include "WidgetDesignerApplicationMode.h"
-#include "WidgetBlueprintEditorToolbar.h"
-
-#include "IDetailsView.h"
+#include "BlueprintModes/WidgetDesignerApplicationMode.h"
 
 #include "BlueprintEditorTabs.h"
-#include "PaletteTabSummoner.h"
-#include "HierarchyTabSummoner.h"
-#include "DesignerTabSummoner.h"
-#include "SequencerTabSummoner.h"
-#include "DetailsTabSummoner.h"
-#include "AnimationTabSummoner.h"
+#include "SBlueprintEditorToolbar.h"
+#include "BlueprintEditorSharedTabFactories.h"
+
+#include "WidgetBlueprintEditorToolbar.h"
+
+
+#include "TabFactory/PaletteTabSummoner.h"
+#include "TabFactory/HierarchyTabSummoner.h"
+#include "TabFactory/DesignerTabSummoner.h"
+#include "TabFactory/SequencerTabSummoner.h"
+#include "TabFactory/DetailsTabSummoner.h"
+#include "TabFactory/AnimationTabSummoner.h"
 #include "BlueprintModes/WidgetBlueprintApplicationModes.h"
 
 #define LOCTEXT_NAMESPACE "WidgetDesignerMode"

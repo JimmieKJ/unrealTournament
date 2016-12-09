@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AppFrameworkPrivatePCH.h"
-#include "SSimpleGradient.h"
+#include "Widgets/Colors/SSimpleGradient.h"
+#include "Rendering/DrawElements.h"
+#include "Styling/CoreStyle.h"
+#include "Application/SlateWindowHelper.h"
 
 
 /* SSimpleGradient interface

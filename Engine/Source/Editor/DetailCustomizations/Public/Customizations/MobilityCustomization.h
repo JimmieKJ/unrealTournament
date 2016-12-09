@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-class IPropertyHandle;
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "Styling/SlateColor.h"
+
 class IDetailCategoryBuilder;
+class IPropertyHandle;
+enum class ECheckBoxState : uint8;
 
 // Helper class to create a Mobility customization for the specified Property in the specified CategoryBuilder.
 class DETAILCUSTOMIZATIONS_API FMobilityCustomization : public TSharedFromThis<FMobilityCustomization>

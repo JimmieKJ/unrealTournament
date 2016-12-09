@@ -1,13 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyTableRow.h"
+#include "Presentation/PropertyTable/PropertyTableRow.h"
+#include "PropertyNode.h"
 #include "ObjectPropertyNode.h"
-#include "IPropertyTable.h"
-#include "IPropertyTableCell.h"
 #include "IPropertyTableColumn.h"
-#include "DataSource.h"
-#include "PropertyPath.h"
+#include "IPropertyTableCell.h"
+#include "Presentation/PropertyTable/DataSource.h"
 
 FPropertyTableRow::FPropertyTableRow( const TSharedRef< class IPropertyTable >& InTable, const TWeakObjectPtr< UObject >& InObject )
 	: DataSource( MakeShareable( new UObjectDataSource( InObject ) ) )

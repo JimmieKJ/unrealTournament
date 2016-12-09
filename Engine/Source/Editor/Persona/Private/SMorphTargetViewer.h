@@ -2,7 +2,16 @@
 
 #pragma once
 
-#include "Persona.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "IPersonaPreviewScene.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+
+class USkeletalMesh;
 
 //////////////////////////////////////////////////////////////////////////
 // FDisplayedMorphTargetInfo
@@ -43,12 +52,8 @@ class SMorphTargetViewer : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS( SMorphTargetViewer )
-		: _Persona()
 	{}
-		
-		/* The Persona that owns this table */
-		SLATE_ARGUMENT( TWeakPtr< FPersona >, Persona )
-
+	
 	SLATE_END_ARGS()
 
 	/**
@@ -57,7 +62,7 @@ public:
 	* @param InArgs - Arguments passed from Slate
 	*
 	*/
-	void Construct( const FArguments& InArgs );
+	void Construct( const FArguments& InArgs, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, FSimpleMulticastDelegate& OnPostUndo );
 
 	/**
 	* Destructor - resets the morph targets
@@ -127,6 +132,9 @@ public:
 	*/
 	void OnDeleteMorphTargets();
 
+	/** Handler for copying morph taret names */
+	void OnCopyMorphTargetNames();
+
 	/**
 	* Accessor so our rows can grab the filtertext for highlighting
 	*
@@ -143,6 +151,9 @@ private:
 	/** Handler for context menus */
 	TSharedPtr<SWidget> OnGetContextMenuContent() const;
 
+	/** Handler for row selection change */
+	void OnRowsSelectedChanged(TSharedPtr<FDisplayedMorphTargetInfo> Item, ESelectInfo::Type SelectInfo);
+
 	/**
 	* Clears and rebuilds the table, according to an optional search string
 	*
@@ -151,8 +162,11 @@ private:
 	*/
 	void CreateMorphTargetList( const FString& SearchText = FString() );
 
+	// Sets the selected morph target
+	void SetSelectedMorphTargets(const TArray<FName>& SelectedMorphTargetNames) const;
+
 	/** Pointer back to the Persona that owns us */
-	TWeakPtr<FPersona> PersonaPtr;
+	TWeakPtr<class IPersonaPreviewScene> PreviewScenePtr;
 
 	/** Box to filter to a specific morph target name */
 	TSharedPtr<SSearchBox>	NameFilterBox;
@@ -168,4 +182,7 @@ private:
 
 	/** Current text typed into NameFilterBox */
 	FText FilterText;
+
+	/** notify selection change to Persona */
+	void NotifySelectionChange() const;
 };

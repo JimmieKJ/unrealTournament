@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 
 /**
  * Includes a function in an overload set if the predicate is true.  It should be used similarly to this:

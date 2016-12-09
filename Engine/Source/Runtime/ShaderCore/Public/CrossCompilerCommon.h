@@ -6,7 +6,8 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "ShaderCore.h"
 
 namespace CrossCompiler
 {
@@ -20,21 +21,47 @@ namespace CrossCompiler
 		NUM_NON_COMPUTE_SHADER_STAGES,
 		SHADER_STAGE_COMPUTE = NUM_NON_COMPUTE_SHADER_STAGES,
 		NUM_SHADER_STAGES,
+	};
 
-		PACKED_TYPENAME_HIGHP	= 'h',	// Make sure these enums match hlslcc
-		PACKED_TYPENAME_MEDIUMP	= 'm',
-		PACKED_TYPENAME_LOWP		= 'l',
-		PACKED_TYPENAME_INT		= 'i',
-		PACKED_TYPENAME_UINT		= 'u',
+	enum class EPackedTypeName : int8
+	{
+		HighP	= 'h',	// Make sure these enums match hlslcc
+		MediumP	= 'm',
+		LowP	= 'l',
+		Int		= 'i',
+		Uint	= 'u',
+
+		Invalid = ' ',
+	};
+
+	enum class EPackedTypeIndex : int8
+	{
+		HighP	= 0,
+		MediumP	= 1,
+		LowP	= 2,
+		Int		= 3,
+		Uint	= 4,
+
+		Max		= 5,
+		Invalid = -1,
+	};
+
+	enum
+	{
+		PACKED_TYPENAME_HIGHP	= (int32)EPackedTypeName::HighP,	// Make sure these enums match hlslcc
+		PACKED_TYPENAME_MEDIUMP	= (int32)EPackedTypeName::MediumP,
+		PACKED_TYPENAME_LOWP	= (int32)EPackedTypeName::LowP,
+		PACKED_TYPENAME_INT		= (int32)EPackedTypeName::Int,
+		PACKED_TYPENAME_UINT	= (int32)EPackedTypeName::Uint,
 		PACKED_TYPENAME_SAMPLER	= 's',
 		PACKED_TYPENAME_IMAGE	= 'g',
 
-		PACKED_TYPEINDEX_HIGHP	= 0,
-		PACKED_TYPEINDEX_MEDIUMP	= 1,
-		PACKED_TYPEINDEX_LOWP	= 2,
-		PACKED_TYPEINDEX_INT		= 3,
-		PACKED_TYPEINDEX_UINT	= 4,
-		PACKED_TYPEINDEX_MAX		= 5,
+		PACKED_TYPEINDEX_HIGHP		= (int32)EPackedTypeIndex::HighP,
+		PACKED_TYPEINDEX_MEDIUMP	= (int32)EPackedTypeIndex::MediumP,
+		PACKED_TYPEINDEX_LOWP		= (int32)EPackedTypeIndex::LowP,
+		PACKED_TYPEINDEX_INT		= (int32)EPackedTypeIndex::Int,
+		PACKED_TYPEINDEX_UINT		= (int32)EPackedTypeIndex::Uint,
+		PACKED_TYPEINDEX_MAX		= (int32)EPackedTypeIndex::Max,
 	};
 
 	static FORCEINLINE uint8 ShaderStageIndexToTypeName(uint8 ShaderStage)
@@ -62,6 +89,7 @@ namespace CrossCompiler
 		case PACKED_TYPEINDEX_LOWP:		return PACKED_TYPENAME_LOWP;
 		case PACKED_TYPEINDEX_INT:		return PACKED_TYPENAME_INT;
 		case PACKED_TYPEINDEX_UINT:		return PACKED_TYPENAME_UINT;
+		default: break;
 		}
 		check(0);
 		return 0;
@@ -76,9 +104,56 @@ namespace CrossCompiler
 		case PACKED_TYPENAME_LOWP:		return PACKED_TYPEINDEX_LOWP;
 		case PACKED_TYPENAME_INT:		return PACKED_TYPEINDEX_INT;
 		case PACKED_TYPENAME_UINT:		return PACKED_TYPEINDEX_UINT;
+		default: break;
 		}
 		check(0);
 		return 0;
+	}
+
+	static FORCEINLINE bool IsValidPackedTypeName(EPackedTypeName TypeName)
+	{
+		switch (TypeName)
+		{
+		case EPackedTypeName::HighP:
+		case EPackedTypeName::MediumP:
+		case EPackedTypeName::LowP:
+		case EPackedTypeName::Int:
+		case EPackedTypeName::Uint:
+			return true;
+		default: break;
+		}
+
+		return false;
+	}
+
+	static FORCEINLINE EPackedTypeName PackedTypeIndexToTypeName(EPackedTypeIndex TypeIndex)
+	{
+		switch (TypeIndex)
+		{
+		case EPackedTypeIndex::HighP:	return EPackedTypeName::HighP;
+		case EPackedTypeIndex::MediumP:	return EPackedTypeName::MediumP;
+		case EPackedTypeIndex::LowP:	return EPackedTypeName::LowP;
+		case EPackedTypeIndex::Int:		return EPackedTypeName::Int;
+		case EPackedTypeIndex::Uint:	return EPackedTypeName::Uint;
+		default: break;
+		}
+
+		return EPackedTypeName::Invalid;
+	}
+
+	static FORCEINLINE EPackedTypeIndex PackedTypeNameToTypeIndex(EPackedTypeName TypeName)
+	{
+		switch (TypeName)
+		{
+		case EPackedTypeName::HighP:	return EPackedTypeIndex::HighP;
+		case EPackedTypeName::MediumP:	return EPackedTypeIndex::MediumP;
+		case EPackedTypeName::LowP:		return EPackedTypeIndex::LowP;
+		case EPackedTypeName::Int:		return EPackedTypeIndex::Int;
+		case EPackedTypeName::Uint:		return EPackedTypeIndex::Uint;
+		default: break;
+		}
+
+		return EPackedTypeIndex::Invalid;
 	}
 
 	struct FPackedArrayInfo

@@ -23,7 +23,7 @@ public class SpeedTree : ModuleRules
 
 			if (Target.Platform == UnrealTargetPlatform.Win64)
 			{
-				if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+				if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 || WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2017)
 				{
 					PublicLibraryPaths.Add(SpeedTreePath + "Lib/Windows/VC14.x64");
 
@@ -52,7 +52,7 @@ public class SpeedTree : ModuleRules
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Win32)
 			{
-				if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+				if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 || WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2017)
 				{
 					PublicLibraryPaths.Add(SpeedTreePath + "Lib/Windows/VC14");
 

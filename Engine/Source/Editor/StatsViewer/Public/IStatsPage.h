@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IStatsViewer.h"
+
 /**
  * The public interface for a stats page.
  * A stats page displays a collection of identically-typed objects with columns based around their UPROPERTY()'s

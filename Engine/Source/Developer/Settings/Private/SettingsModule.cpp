@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SettingsPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "ISettingsViewer.h"
+#include "UObject/WeakObjectPtr.h"
+#include "SettingsContainer.h"
 #include "ISettingsModule.h"
 
 

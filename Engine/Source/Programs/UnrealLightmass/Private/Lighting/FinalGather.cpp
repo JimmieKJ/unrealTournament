@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
+#include "CoreMinimal.h"
 #include "Exporter.h"
 #include "LightmassSwarm.h"
 #include "CPUSolver.h"
@@ -9,6 +9,7 @@
 #include "ExceptionHandling.h"
 
 #if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 	#include <psapi.h>
 #include "HideWindowsPlatformTypes.h"

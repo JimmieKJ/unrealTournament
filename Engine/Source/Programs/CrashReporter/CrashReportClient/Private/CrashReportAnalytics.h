@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/UnrealTemplate.h"
+#include "Templates/SharedPointer.h"
+
 class IAnalyticsProviderET;
 
 /**

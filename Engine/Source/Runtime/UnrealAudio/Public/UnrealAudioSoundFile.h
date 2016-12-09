@@ -2,7 +2,7 @@
 
 #pragma once 
 
-#include "UnrealAudioTypes.h"
+#include "CoreMinimal.h"
 
 namespace UAudio
 {

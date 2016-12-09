@@ -2,8 +2,15 @@
 
 
 #pragma once
-#include "AnimNotify.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimNotifies/AnimNotify.h"
 #include "AnimNotify_PlaySound.generated.h"
+
+class UAnimSequenceBase;
+class USkeletalMeshComponent;
+class USoundBase;
 
 UCLASS(const, hidecategories=Object, collapsecategories, meta=(DisplayName="Play Sound"))
 class ENGINE_API UAnimNotify_PlaySound : public UAnimNotify

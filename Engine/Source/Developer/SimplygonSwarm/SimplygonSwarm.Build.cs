@@ -7,8 +7,6 @@ public class SimplygonSwarm : ModuleRules
 {
 	public SimplygonSwarm(TargetInfo Target)
 	{
-		BinariesSubFolder = "NotForLicensees";
-
 		PublicIncludePaths.Add("Developer/SimplygonSwarm/Public");
         PrivateIncludePaths.Add("Developer/SimplygonSwarm/Private");
 
@@ -51,6 +49,14 @@ public class SimplygonSwarm : ModuleRules
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "SPL");
 		AddEngineThirdPartyPrivateDynamicDependencies(Target, "PropertyEditor");
 
-		PrecompileForTargets = PrecompileTargetsType.None;
+		string SimplygonPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees/Simplygon/Simplygon-latest/Inc/SimplygonSDK.h";
+		if (Target.Platform == UnrealTargetPlatform.Win64 && File.Exists(SimplygonPath))
+		{
+			PrecompileForTargets = PrecompileTargetsType.Editor;
+		}
+		else
+		{
+			PrecompileForTargets = PrecompileTargetsType.None;
+		}
 	}
 }

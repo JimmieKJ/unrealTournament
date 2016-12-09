@@ -1,7 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. 
 
-#include "ProceduralMeshComponentPluginPrivatePCH.h"
 #include "ProceduralMeshComponent.h"
+#include "PrimitiveViewRelevance.h"
+#include "RenderResource.h"
+#include "RenderingThread.h"
+#include "PrimitiveSceneProxy.h"
+#include "Containers/ResourceArray.h"
+#include "EngineGlobals.h"
+#include "VertexFactory.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
+#include "LocalVertexFactory.h"
+#include "Engine/Engine.h"
+#include "SceneManagement.h"
+#include "PhysicsEngine/BodySetup.h"
+#include "ProceduralMeshComponentPluginPrivate.h"
 #include "DynamicMeshBuilder.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 
@@ -401,6 +414,16 @@ UProceduralMeshComponent::UProceduralMeshComponent(const FObjectInitializer& Obj
 	bUseComplexAsSimpleCollision = true;
 }
 
+void UProceduralMeshComponent::PostLoad()
+{
+	Super::PostLoad();
+
+	if (ProcMeshBodySetup && IsTemplate())
+	{
+		ProcMeshBodySetup->SetFlags(RF_Public);
+	}
+}
+
 void UProceduralMeshComponent::CreateMeshSection_LinearColor(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FLinearColor>& VertexColors, const TArray<FProcMeshTangent>& Tangents, bool bCreateCollision)
 {
 	// Convert FLinearColors to FColors
@@ -411,7 +434,7 @@ void UProceduralMeshComponent::CreateMeshSection_LinearColor(int32 SectionIndex,
 
 		for (int32 ColorIdx = 0; ColorIdx < VertexColors.Num(); ColorIdx++)
 		{
-			Colors[ColorIdx] = VertexColors[ColorIdx].ToFColor(true);
+			Colors[ColorIdx] = VertexColors[ColorIdx].ToFColor(false);
 		}
 	}
 
@@ -743,7 +766,12 @@ void UProceduralMeshComponent::SetProcMeshSection(int32 SectionIndex, const FPro
 
 FBoxSphereBounds UProceduralMeshComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
-	return LocalBounds.TransformBy(LocalToWorld);
+	FBoxSphereBounds Ret(LocalBounds.TransformBy(LocalToWorld));
+
+	Ret.BoxExtent *= BoundsScale;
+	Ret.SphereRadius *= BoundsScale;
+
+	return Ret;
 }
 
 bool UProceduralMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
@@ -797,6 +825,8 @@ bool UProceduralMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionDat
 	}
 
 	CollisionData->bFlipNormals = true;
+	CollisionData->bDeformableMesh = true;
+	CollisionData->bFastCook = true;
 
 	return true;
 }
@@ -818,7 +848,8 @@ void UProceduralMeshComponent::CreateProcMeshBodySetup()
 {
 	if (ProcMeshBodySetup == NULL)
 	{
-		ProcMeshBodySetup = NewObject<UBodySetup>(this);
+		// The body setup in a template needs to be public since the property is Tnstanced and thus is the archetype of the instance meaning there is a direct reference
+		ProcMeshBodySetup = NewObject<UBodySetup>(this, NAME_None, (IsTemplate() ? RF_Public : RF_NoFlags));
 		ProcMeshBodySetup->BodySetupGuid = FGuid::NewGuid();
 
 		ProcMeshBodySetup->bGenerateMirroredCollision = false;

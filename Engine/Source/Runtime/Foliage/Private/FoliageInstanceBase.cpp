@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "FoliagePrivate.h"
 #include "FoliageInstanceBase.h"
+#include "GameFramework/Actor.h"
+#include "Misc/PackageName.h"
+#include "InstancedFoliageActor.h"
 #include "InstancedFoliage.h"
 #include "Engine/WorldComposition.h"
 

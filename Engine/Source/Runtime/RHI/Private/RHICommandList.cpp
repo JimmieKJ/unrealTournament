@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "RHIPrivatePCH.h"
-#include "RHICommandList.h"
+#include "CoreMinimal.h"
+#include "Misc/CommandLine.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/App.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "RHI.h"
 
 DECLARE_CYCLE_STAT(TEXT("Nonimmed. Command List Execute"), STAT_NonImmedCmdListExecuteTime, STATGROUP_RHICMDLIST);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Nonimmed. Command List memory"), STAT_NonImmedCmdListMemory, STATGROUP_RHICMDLIST);
@@ -106,7 +111,6 @@ static FAutoConsoleVariableRef CVarRHICmdListStateCache(
 	TEXT("If > 0, then enable a minor state cache on the from of cmdlist recording.")
 	);
 
-
 RHI_API bool GEnableAsyncCompute = true;
 RHI_API FRHICommandListExecutor GRHICommandList;
 
@@ -115,6 +119,9 @@ static FGraphEventArray WaitOutstandingTasks;
 static FGraphEventRef RHIThreadTask;
 static FGraphEventRef RenderThreadSublistDispatchTask;
 static FGraphEventRef RHIThreadBufferLockFence;
+
+static FGraphEventRef GRHIThreadEndDrawingViewportFences[2];
+static uint32 GRHIThreadEndDrawingViewportFenceIndex = 0;
 
 // Used by AsyncCompute
 RHI_API FRHICommandListFenceAllocator GRHIFenceAllocator;
@@ -129,7 +136,6 @@ RHI_API FAutoConsoleTaskPriority CPrio_SceneRenderingTask(
 	ENamedThreads::NormalThreadPriority, 
 	ENamedThreads::HighTaskPriority 
 	);
-
 
 struct FRHICommandStat : public FRHICommand<FRHICommandStat>
 {
@@ -684,7 +690,9 @@ void FRHICommandListExecutor::WaitOnRHIThreadFence(FGraphEventRef& Fence)
 
 
 FRHICommandListBase::FRHICommandListBase()
-	: MemManager(0)
+	: StrictGraphicsPipelineStateUse(0)
+	, MemManager(0)
+	, CachedNumSimultanousRenderTargets(0)
 {
 	GRHICommandList.OutstandingCmdListCount.Increment();
 	Reset();
@@ -1260,6 +1268,14 @@ void FRHICommandListBase::QueueRenderThreadCommandListSubmit(FGraphEventRef& Ren
 	new (AllocCommand<FRHICommandWaitForAndSubmitRTSubList>()) FRHICommandWaitForAndSubmitRTSubList(RenderThreadCompletionEvent, CmdList);
 }
 
+#if RHI_PSO_X_VALIDATION
+void FRHICommandListBase::ValidatePsoState(const FBlendStateRHIParamRef BlendState, const FDepthStencilStateRHIParamRef DepthStencilState)
+{
+	ensure(VerifyableDepthStencilState == DepthStencilState);
+	ensure(VerifyableBlendState == BlendState);
+}
+#endif
+
 struct FRHICommandSubmitSubList : public FRHICommand<FRHICommandSubmitSubList>
 {
 	FRHICommandList* RHICmdList;
@@ -1344,12 +1360,29 @@ void FRHICommandList::EndDrawingViewport(FViewportRHIParamRef Viewport, bool bPr
 	else
 	{
 		new (AllocCommand<FRHICommandEndDrawingViewport>()) FRHICommandEndDrawingViewport(Viewport, bPresent, bLockToVsync);
+
+		if ( GRHIThread )
+		{
+			// Insert a fence to prevent the renderthread getting more than a frame ahead of the RHIThread
+			GRHIThreadEndDrawingViewportFences[GRHIThreadEndDrawingViewportFenceIndex] = static_cast<FRHICommandListImmediate*>(this)->RHIThreadFence();
+		}
 		// if we aren't running an RHIThread, there is no good reason to buffer this frame advance stuff and that complicates state management, so flush everything out now
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_EndDrawingViewport_Dispatch);
 			FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 		}
 	}
+
+	if ( GRHIThread )
+	{
+		// Wait on the previous frame's RHI thread fence (we never want the rendering thread to get more than a frame ahead)
+		uint32 PreviousFrameFenceIndex = 1 - GRHIThreadEndDrawingViewportFenceIndex;
+		FGraphEventRef& LastFrameFence = GRHIThreadEndDrawingViewportFences[PreviousFrameFenceIndex];
+		FRHICommandListExecutor::WaitOnRHIThreadFence(LastFrameFence);
+		GRHIThreadEndDrawingViewportFences[PreviousFrameFenceIndex] = nullptr;
+		GRHIThreadEndDrawingViewportFenceIndex = PreviousFrameFenceIndex;
+	}
+
 	RHIAdvanceFrameForGetViewportBackBuffer();
 }
 
@@ -1505,8 +1538,16 @@ public:
 	}
 };
 
+int32 StallCount = 0;
+bool FRHICommandListImmediate::IsStalled()
+{
+	return StallCount > 0;
+}
+
 bool FRHICommandListImmediate::StallRHIThread()
 {
+	FPlatformAtomics::InterlockedIncrement(&StallCount);
+
 	check(IsInRenderingThread() && GRHIThread && !GRHIThreadStallTask.GetReference());
 	bool bAsyncSubmit = CVarRHICmdAsyncRHIThreadDispatch.GetValueOnRenderThread() > 0;
 	if (bAsyncSubmit)
@@ -1547,7 +1588,7 @@ bool FRHICommandListImmediate::StallRHIThread()
 
 void FRHICommandListImmediate::UnStallRHIThread()
 {
-	check(IsInRenderingThread() || GRHIThread && GRHIThreadStallTask.GetReference() && !GRHIThreadStallTask->IsComplete() && GRHIThreadStallEvent);
+	check(IsInRenderingThread() && GRHIThread && GRHIThreadStallTask.GetReference() && !GRHIThreadStallTask->IsComplete() && GRHIThreadStallEvent);
 	GRHIThreadStallEvent->Trigger();
 	SCOPE_CYCLE_COUNTER(STAT_SpinWaitRHIThreadUnstall);
 	while (!GRHIThreadStallTask->IsComplete())
@@ -1555,6 +1596,7 @@ void FRHICommandListImmediate::UnStallRHIThread()
 		FPlatformProcess::SleepNoStats(0);
 	}
 	GRHIThreadStallTask = nullptr;
+	FPlatformAtomics::InterlockedDecrement(&StallCount);
 }
 
 
@@ -1936,6 +1978,12 @@ void FDynamicRHI::UpdateTexture2D_RenderThread(class FRHICommandListImmediate& R
 {
 	FScopedRHIThreadStaller StallRHIThread(RHICmdList);
 	return GDynamicRHI->RHIUpdateTexture2D(Texture, MipIndex, UpdateRegion, SourcePitch, SourceData);
+}
+
+void FDynamicRHI::UpdateTexture3D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture3DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion3D& UpdateRegion, uint32 SourceRowPitch, uint32 SourceDepthPitch, const uint8* SourceData)
+{
+	FScopedRHIThreadStaller StallRHIThread(RHICmdList);
+	return GDynamicRHI->RHIUpdateTexture3D(Texture, MipIndex, UpdateRegion, SourceRowPitch, SourceDepthPitch, SourceData);
 }
 
 void* FDynamicRHI::LockTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, EResourceLockMode LockMode, uint32& DestStride, bool bLockWithinMiptail, bool bNeedsDefaultRHIFlush)

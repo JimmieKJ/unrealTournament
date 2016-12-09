@@ -33,6 +33,11 @@ struct FIOSPlatformProperties
 		return "IOS";
 	}
 
+	static FORCEINLINE bool IsGameOnly()
+	{
+		return true;
+	}
+	
 	static FORCEINLINE bool RequiresCookedData( )
 	{
 		return true;
@@ -64,6 +69,11 @@ struct FIOSPlatformProperties
 	}
 
 	static FORCEINLINE bool AllowsFramerateSmoothing()
+	{
+		return true;
+	}
+
+	static FORCEINLINE bool SupportsAudioStreaming()
 	{
 		return true;
 	}

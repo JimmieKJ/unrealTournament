@@ -1,9 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "ContentBrowserPCH.h"
-#include "AssetThumbnail.h"
 #include "SThumbnailEditModeTools.h"
+#include "ThumbnailRendering/SceneThumbnailInfo.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Editor/UnrealEdEngine.h"
+#include "ThumbnailRendering/SceneThumbnailInfoWithPrimitive.h"
+#include "UnrealEdGlobals.h"
+#include "IAssetTools.h"
+#include "IAssetTypeActions.h"
+#include "AssetToolsModule.h"
+#include "AssetThumbnail.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 

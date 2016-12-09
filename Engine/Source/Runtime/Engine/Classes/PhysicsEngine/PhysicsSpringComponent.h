@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/SceneComponent.h"
 #include "PhysicsSpringComponent.generated.h"
+
+class UPrimitiveComponent;
 
 /** 
  *  Note: this component is still work in progress. Uses raycast springs for simple vehicle forces

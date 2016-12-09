@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+
+class FDetailWidgetRow;
+class IDetailChildrenBuilder;
+class STextBlock;
+
 class FCaptureResolutionCustomization : public IPropertyTypeCustomization
 {
 public:

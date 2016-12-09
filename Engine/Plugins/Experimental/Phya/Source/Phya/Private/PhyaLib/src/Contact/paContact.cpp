@@ -3,7 +3,7 @@
 //
 // Describes the state of a continuous contact between two acoustic bodies.
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #include "System/paConfig.h"
 #include "Contact/paContact.hpp"

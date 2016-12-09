@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Templates/UnrealTemplate.h"
+#include "Misc/Crc.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Set.h"
+#include "UObject/NameTypes.h"
 #include "Misc/Guid.h"
-
 
 struct ECustomVersionSerializationFormat
 {

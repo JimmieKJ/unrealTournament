@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
+#include "TabFactory/DetailsTabSummoner.h"
 
-#include "DetailsTabSummoner.h"
-#include "SWidgetDetailsView.h"
-#include "WidgetBlueprintEditor.h"
+#if WITH_EDITOR
+	#include "EditorStyleSet.h"
+#endif // WITH_EDITOR
+
+#include "Details/SWidgetDetailsView.h"
 #define LOCTEXT_NAMESPACE "UMG"
 
 const FName FDetailsTabSummoner::TabID(TEXT("WidgetDetails"));

@@ -25,6 +25,12 @@ public class UE4EditorServicesTarget : TargetRules
 			);
 	}
 
+	public override bool GetSupportedPlatforms(ref List<UnrealTargetPlatform> OutPlatforms)
+	{
+		OutPlatforms.Add( UnrealTargetPlatform.Mac );
+		return true;
+	}
+
 	public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 	{
 		return true;
@@ -52,22 +58,4 @@ public class UE4EditorServicesTarget : TargetRules
 		// We still need to support old versions of the engine that are compatible with OS X 10.9
 		OutCPPEnvironmentConfiguration.bEnableOSX109Support = true;
 	}
-    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
-	{
-		bInternalToolOnly = false;
-		SeparateNode = false;
-		CrossCompile = false;
-		return true;
-	}
-    public override List<UnrealTargetPlatform> GUBP_ToolPlatforms(UnrealTargetPlatform InHostPlatform)
-    {
-		if(InHostPlatform == UnrealTargetPlatform.Mac)
-		{
-			return new List<UnrealTargetPlatform> { InHostPlatform };
-		}
-		else
-		{
-			return new List<UnrealTargetPlatform>();
-		}
-    }
 }

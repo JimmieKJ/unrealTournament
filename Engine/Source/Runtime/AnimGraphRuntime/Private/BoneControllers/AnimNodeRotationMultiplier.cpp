@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
+#include "CoreMinimal.h"
+#include "BoneIndices.h"
+#include "BonePose.h"
 #include "BoneControllers/AnimNode_RotationMultiplier.h"
-#include "AnimationRuntime.h"
 
 /////////////////////////////////////////////////////
 // FAnimNode_RotationMultiplier

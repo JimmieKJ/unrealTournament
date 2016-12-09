@@ -1,15 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "MultiBox.h"
-#include "SButtonRowBlock.h"
-#include "SToolBarButtonBlock.h"
-#include "SMenuEntryBlock.h"
-#include "SWidgetBlock.h"
-#include "MultiBoxCustomization.h"
-#include "SClippingHorizontalBox.h"
-#include "UICommandInfo.h"
-#include "UICommandDragDropOp.h"
+#include "Framework/MultiBox/MultiBox.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STileView.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Framework/MultiBox/SToolBarButtonBlock.h"
+#include "Framework/MultiBox/SMenuEntryBlock.h"
+#include "Framework/MultiBox/MultiBoxCustomization.h"
+#include "Framework/MultiBox/SClippingHorizontalBox.h"
+#include "Framework/Commands/UICommandDragDropOp.h"
 
 
 TAttribute<bool> FMultiBoxSettings::UseSmallToolBarIcons;
@@ -1232,6 +1241,6 @@ void SMultiBoxWidget::AddSearchElement( TSharedPtr<SWidget> BlockWidget, FText B
 
 bool SMultiBoxWidget::OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent)
 {
-	// tooltips on multibox widgets are not supported outside of the editor
-	return !GIsEditor;
+	// tooltips on multibox widgets are not supported outside of the editor or programs
+	return !GIsEditor && !FGenericPlatformProperties::IsProgram();
 }

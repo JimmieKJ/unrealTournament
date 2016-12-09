@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateTypes.h"
 
 /**
  * Delegate type for category filter state changes.

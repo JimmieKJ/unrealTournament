@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "ISlateMetaData.h"
+#include "CoreMinimal.h"
+#include "Types/SlateEnums.h"
+#include "Input/NavigationReply.h"
+#include "Types/ISlateMetaData.h"
+
+class SWidget;
 
 /**
  * Simple tagging metadata

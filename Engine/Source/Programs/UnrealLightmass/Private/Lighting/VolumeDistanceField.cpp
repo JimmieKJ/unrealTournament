@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "LightmassPCH.h"
+#include "CoreMinimal.h"
+#include "HAL/PlatformTime.h"
 #include "LightingSystem.h"
 #include "MonteCarlo.h"
 

@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "EdMode.h"
+#include "ActorPickerMode.h"
+
+class FEditorViewportClient;
+class FViewport;
+
 namespace EPickState
 {
 	enum Type

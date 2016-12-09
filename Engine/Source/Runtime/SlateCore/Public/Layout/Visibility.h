@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /** Is an entity visible? */
 struct SLATECORE_API EVisibility

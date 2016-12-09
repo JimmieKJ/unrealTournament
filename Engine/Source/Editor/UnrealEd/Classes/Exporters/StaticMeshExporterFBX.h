@@ -5,6 +5,10 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Exporters/Exporter.h"
 #include "StaticMeshExporterFBX.generated.h"
 
 UCLASS()

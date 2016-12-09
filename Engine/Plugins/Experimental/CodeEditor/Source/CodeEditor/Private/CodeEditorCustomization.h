@@ -2,14 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "CodeEditorCustomization.generated.h"
 
 USTRUCT()
-struct FTextCustomization
+struct FCodeEditorTextCustomization
 {
 	GENERATED_USTRUCT_BODY()
 
-	FTextCustomization()
+	FCodeEditorTextCustomization()
 		: Font("")
 		, Color(0.0f, 0.0f, 0.0f, 1.0f)
 	{
@@ -23,11 +26,11 @@ struct FTextCustomization
 };
 
 USTRUCT()
-struct FControlCustomization
+struct FCodeEditorControlCustomization
 {
 	GENERATED_USTRUCT_BODY()
 
-	FControlCustomization()
+	FCodeEditorControlCustomization()
 		: Color(0.0f, 0.0f, 0.0f, 1.0f)
 	{
 	}
@@ -41,14 +44,14 @@ class UCodeEditorCustomization : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	static const FControlCustomization& GetControl(const FName& ControlCustomizationName);
+	static const FCodeEditorControlCustomization& GetControl(const FName& ControlCustomizationName);
 
-	static const FTextCustomization& GetText(const FName& TextCustomizationName);
+	static const FCodeEditorTextCustomization& GetText(const FName& TextCustomizationName);
 
 private:
 	UPROPERTY(EditAnywhere, EditFixedSize, Category=Controls)
-	TArray<FControlCustomization> Controls;
+	TArray<FCodeEditorControlCustomization> Controls;
 
 	UPROPERTY(EditAnywhere, EditFixedSize, Category=Text)
-	TArray<FTextCustomization> Text;
+	TArray<FCodeEditorTextCustomization> Text;
 };

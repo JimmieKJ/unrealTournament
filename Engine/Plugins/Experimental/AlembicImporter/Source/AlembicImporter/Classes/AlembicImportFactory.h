@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "Factories/Factory.h"
+#include "EditorReimportHandler.h"
 #include "AlembicImportFactory.generated.h"
 
 class UAbcImportSettings;
 class FAbcImporter;
 class UGeometryCache;
+class UStaticMesh;
+class USkeletalMesh;
 class SAlembicImportOptions;
 class SAlembicTrackSelectionWindow;
 
@@ -28,7 +33,7 @@ class UAlembicImportFactory : public UFactory, public FReimportHandler
 	virtual FText GetDisplayName() const override;
 	virtual bool DoesSupportClass(UClass * Class) override;
 	virtual UClass* ResolveSupportedClass() override;
-	virtual UObject* FactoryCreateBinary(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled) override;
+	virtual UObject* FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled) override;
 	//~ End UFactory Interface
 
 	//~ Begin FReimportHandler Interface

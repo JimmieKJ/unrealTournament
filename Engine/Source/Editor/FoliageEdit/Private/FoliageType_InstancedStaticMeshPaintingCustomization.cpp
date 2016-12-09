@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "UnrealEd.h"
-#include "FoliageEditModule.h"
-#include "PropertyEditing.h"
-#include "FoliageType_InstancedStaticMesh.h"
+
 #include "FoliageType_InstancedStaticMeshPaintingCustomization.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/StaticMesh.h"
+#include "DetailWidgetRow.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
+#include "FoliageType_InstancedStaticMesh.h"
 #include "FoliageEdMode.h"
 #include "PropertyCustomizationHelpers.h"
 

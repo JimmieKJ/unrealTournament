@@ -2,8 +2,36 @@
 
 #pragma once
 
-#include "GraphEditorModule.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Layout/SlateRect.h"
+#include "Layout/Geometry.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Styling/SlateColor.h"
+#include "Layout/ArrangedWidget.h"
+#include "Layout/Margin.h"
+#include "Animation/CurveSequence.h"
+#include "SlotBase.h"
+#include "Layout/Children.h"
+#include "Widgets/SPanel.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/Commands/InputChord.h"
+#include "GraphEditor.h"
+#include "Templates/ScopedPointer.h"
+#include "Layout/ArrangedChildren.h"
+#include "Types/PaintArgs.h"
+#include "EditorStyleSet.h"
+#include "Layout/LayoutUtils.h"
 #include "MarqueeOperation.h"
+#include "UniquePtr.h"
+
+class FActiveTimerHandle;
+class FScopedTransaction;
+class FSlateWindowElementList;
+struct FMarqueeOperation;
+struct Rect;
 
 //@TODO: Too generic of a name to expose at this scope
 typedef class UObject* SelectedItemType;
@@ -485,6 +513,18 @@ public:
 		{
 		}
 
+		/** @return The profiler heat intensity */
+		virtual FLinearColor GetProfilerHeatmapIntensity() const
+		{
+			return FLinearColor(1.f, 1.f, 1.f, 0.f);
+		}
+
+		/** @return The brush to use for drawing the profiler heatmap with the heat intensity */
+		virtual const FSlateBrush* GetProfilerHeatmapBrush() const
+		{
+			return FEditorStyle::GetBrush(TEXT("BlueprintProfiler.RegularNode.HeatDisplay"));
+		}
+
 		/** Populate the widgets array with any overlay widgets to render */
 		virtual TArray<FOverlayWidgetInfo> GetOverlayWidgets(bool bSelected, const FVector2D& WidgetSize) const
 		{
@@ -638,10 +678,7 @@ public:
 	void RestoreViewSettings(const FVector2D& InViewOffset, float InZoomAmount);
 
 	/** Get the grid snap size */
-	static float GetSnapGridSize()
-	{
-		return 16.f;
-	}
+	static float GetSnapGridSize();
 
 	/** 
 	 * Zooms out to fit either all nodes or only the selected ones.
@@ -814,7 +851,7 @@ protected:
 	void CancelZoomToFit();
 protected:
 	// The interface for mapping ZoomLevel values to actual node scaling values
-	TScopedPointer<FZoomLevelsContainer> ZoomLevels;
+	TUniquePtr<FZoomLevelsContainer> ZoomLevels;
 
 	/** The position within the graph at which the user is looking */
 	FVector2D ViewOffset;

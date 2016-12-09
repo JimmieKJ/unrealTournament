@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDeviceProfileSelectorModule.h"
 
 /**
  * Implements the IOS Device Profile Selector module.

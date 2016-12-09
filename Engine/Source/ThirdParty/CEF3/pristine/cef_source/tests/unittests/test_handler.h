@@ -288,9 +288,6 @@ class TestHandler : public CefClient,
   // Used to track the number of currently existing browser windows.
   static int browser_count_;
 
-  // Include the default reference counting implementation.
-  IMPLEMENT_REFCOUNTING(TestHandler);
-
   DISALLOW_COPY_AND_ASSIGN(TestHandler);
 };
 
@@ -302,10 +299,15 @@ template<typename T>
 void ReleaseAndWaitForDestructor(CefRefPtr<T>& handler, int delay_ms = 2000) {
   base::WaitableEvent event(true, false);
   handler->SetDestroyEvent(&event);
+  T* _handler_ptr = handler.get();
   handler = NULL;
   bool handler_destructed =
       event.TimedWait(base::TimeDelta::FromMilliseconds(delay_ms));
   EXPECT_TRUE(handler_destructed);
+  if (!handler_destructed) {
+   // |event| is a stack variable so clear the reference before returning.
+    _handler_ptr->SetDestroyEvent(NULL);
+  }
 }
 
 // Post a task to the specified thread and wait for the task to execute as
@@ -315,6 +317,7 @@ void WaitForThread(CefRefPtr<CefTaskRunner> task_runner);
 
 #define WaitForIOThread() WaitForThread(TID_IO)
 #define WaitForUIThread() WaitForThread(TID_UI)
+#define WaitForDBThread() WaitForThread(TID_DB)
 
 // Returns true if the currently running test has failed.
 bool TestFailed();

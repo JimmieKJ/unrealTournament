@@ -1,16 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "CorePrivatePCH.h"
-#include "ThreadHeartBeat.h"
-#include "ExceptionHandling.h"
+#include "HAL/ThreadHeartBeat.h"
+#include "HAL/PlatformStackWalk.h"
+#include "HAL/PlatformTime.h"
+#include "HAL/PlatformProcess.h"
+#include "Logging/LogMacros.h"
+#include "CoreGlobals.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/ThreadManager.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HAL/ExceptionHandling.h"
 
 #ifndef UE_ASSERT_ON_HANG
 #define UE_ASSERT_ON_HANG 0
 #endif
 
 FThreadHeartBeat::FThreadHeartBeat()
-: Thread(nullptr)
-, bReadyToCheckHeartbeat(false)
-, HangDuration(25.0)
+	: Thread(nullptr)
+	, bReadyToCheckHeartbeat(false)
+	, HangDuration(25.0)
+	, LastHangCallstackCRC(0)
+	, LastHungThreadId(0)
 {
 	if (GConfig)
 	{
@@ -46,9 +57,38 @@ FThreadHeartBeat::~FThreadHeartBeat()
 	Thread = nullptr;
 }
 
+FThreadHeartBeat* FThreadHeartBeat::Singleton = nullptr;
+
 FThreadHeartBeat& FThreadHeartBeat::Get()
 {
-	static FThreadHeartBeat Singleton;
+	struct FInitHelper
+	{
+		FThreadHeartBeat* Instance;
+
+		FInitHelper()
+		{
+			check(!Singleton);
+			Instance = new FThreadHeartBeat();
+			Singleton = Instance;
+		}
+
+		~FInitHelper()
+		{
+			Singleton = nullptr;
+
+			delete Instance;
+			Instance = nullptr;
+		}
+	};
+
+	// Use a function static helper to ensure creation
+	// of the FThreadHeartBeat instance is thread safe.
+	static FInitHelper Helper;
+	return *Helper.Instance;
+}
+
+FThreadHeartBeat* FThreadHeartBeat::GetNoInit()
+{
 	return Singleton;
 }
 
@@ -60,55 +100,76 @@ bool FThreadHeartBeat::Init()
 
 uint32 FThreadHeartBeat::Run()
 {
+	bool InHungState = false;
+
 	while (StopTaskCounter.GetValue() == 0)
 	{
 		uint32 ThreadThatHung = CheckHeartBeat();
-		if (ThreadThatHung != FThreadHeartBeat::InvalidThreadId)
+
+		if (ThreadThatHung == FThreadHeartBeat::InvalidThreadId)
 		{
+			InHungState = false;
+		}
+		else if (InHungState == false)
+		{
+			// Only want to call this once per hang (particularly if we're just ensuring).
+			InHungState = true;
+
 			const SIZE_T StackTraceSize = 65535;
 			ANSICHAR* StackTrace = (ANSICHAR*)GMalloc->Malloc(StackTraceSize);
 			StackTrace[0] = 0;
 			// Walk the stack and dump it to the allocated memory. This process usually allocates a lot of memory.
 			FPlatformStackWalk::ThreadStackWalkAndDump(StackTrace, StackTraceSize, 0, ThreadThatHung);
-			FString StackTraceText(StackTrace);
-			TArray<FString> StackLines;
-			StackTraceText.ParseIntoArrayLines(StackLines);
 
-			// Dump the callstack and the thread name to log
-			FString ThreadName(ThreadThatHung == GGameThreadId ? TEXT("GameThread") : FThreadManager::Get().GetThreadName(ThreadThatHung));
-			if (ThreadName.IsEmpty())
+			// First verify we're not reporting the same hang over and over again
+			uint32 CallstackCRC = FCrc::StrCrc32(StackTrace);
+			if (CallstackCRC != LastHangCallstackCRC || ThreadThatHung != LastHungThreadId)
 			{
-				ThreadName = FString::Printf(TEXT("unknown thread (%u)"), ThreadThatHung);
-			}
-			UE_LOG(LogCore, Error, TEXT("Hang detected on %s (thread hasn't sent a heartbeat for %.2llf seconds):"), *ThreadName, HangDuration);
-			for (FString& StackLine : StackLines)
-			{
-				UE_LOG(LogCore, Error, TEXT("  %s"), *StackLine);
-			}
-			
-			// Assert (on the current thread unfortunately) with a trimmed stack.
-			FString StackTrimmed;
-			for (int32 LineIndex = 0; LineIndex < StackLines.Num() && StackTrimmed.Len() < 512; ++LineIndex)
-			{
-				StackTrimmed += TEXT("  ");
-				StackTrimmed += StackLines[LineIndex];
-				StackTrimmed += LINE_TERMINATOR;
-			}
+				LastHangCallstackCRC = CallstackCRC;
+				LastHungThreadId = ThreadThatHung;
 
-			const FString ErrorMessage = FString::Printf(TEXT("Hang detected on %s:%s%s%sCheck log for full callstack."), *ThreadName, LINE_TERMINATOR, *StackTrimmed, LINE_TERMINATOR);
+				FString StackTraceText(StackTrace);
+				TArray<FString> StackLines;
+				StackTraceText.ParseIntoArrayLines(StackLines);
+
+				// Dump the callstack and the thread name to log
+				FString ThreadName(ThreadThatHung == GGameThreadId ? TEXT("GameThread") : FThreadManager::Get().GetThreadName(ThreadThatHung));
+				if (ThreadName.IsEmpty())
+				{
+					ThreadName = FString::Printf(TEXT("unknown thread (%u)"), ThreadThatHung);
+				}
+				UE_LOG(LogCore, Error, TEXT("Hang detected on %s (thread hasn't sent a heartbeat for %.2llf seconds):"), *ThreadName, HangDuration);
+				for (FString& StackLine : StackLines)
+				{
+					UE_LOG(LogCore, Error, TEXT("  %s"), *StackLine);
+				}
+
+				// Assert (on the current thread unfortunately) with a trimmed stack.
+				FString StackTrimmed;
+				for (int32 LineIndex = 0; LineIndex < StackLines.Num() && StackTrimmed.Len() < 512; ++LineIndex)
+				{
+					StackTrimmed += TEXT("  ");
+					StackTrimmed += StackLines[LineIndex];
+					StackTrimmed += LINE_TERMINATOR;
+				}
+
+				const FString ErrorMessage = FString::Printf(TEXT("Hang detected on %s:%s%s%sCheck log for full callstack."), *ThreadName, LINE_TERMINATOR, *StackTrimmed, LINE_TERMINATOR);
 #if UE_ASSERT_ON_HANG
-			UE_LOG(LogCore, Fatal, TEXT("%s"), *ErrorMessage);
+				UE_LOG(LogCore, Fatal, TEXT("%s"), *ErrorMessage);
 #else
-			UE_LOG(LogCore, Error, TEXT("%s"), *ErrorMessage);
+				UE_LOG(LogCore, Error, TEXT("%s"), *ErrorMessage);
 #if PLATFORM_DESKTOP
-			GLog->PanicFlushThreadedLogs();
-			// GErrorMessage here is very unfortunate but it's used internally by the crash context code.
-			FCString::Strcpy(GErrorMessage, ARRAY_COUNT(GErrorMessage), *ErrorMessage);
-			// Skip macros and FDebug, we always want this to fire
-			NewReportEnsure(*ErrorMessage);
-			GErrorMessage[0] = '\0';
+				GLog->PanicFlushThreadedLogs();
+				// GErrorMessage here is very unfortunate but it's used internally by the crash context code.
+				FCString::Strcpy(GErrorMessage, ARRAY_COUNT(GErrorMessage), *ErrorMessage);
+				// Skip macros and FDebug, we always want this to fire
+				NewReportEnsure(*ErrorMessage);
+				GErrorMessage[0] = '\0';
 #endif
 #endif
+			}
+
+			GMalloc->Free(StackTrace);
 		}
 		FPlatformProcess::SleepNoStats(0.5f);
 	}
@@ -188,4 +249,17 @@ void FThreadHeartBeat::ResumeHeartBeat()
 			HeartBeatInfo->LastHeartBeatTime = FPlatformTime::Seconds();
 		}
 	}
+}
+
+bool FThreadHeartBeat::IsBeating()
+{
+	uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
+	FScopeLock HeartBeatLock(&HeartBeatCritical);
+	FHeartBeatInfo* HeartBeatInfo = ThreadHeartBeat.Find(ThreadId);
+	if (HeartBeatInfo && HeartBeatInfo->SuspendedCount == 0)
+	{
+		return true;
+	}
+
+	return false;
 }

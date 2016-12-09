@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Engine/DeveloperSettings.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "Engine/SkeletalMesh.h"
 
 #include "SkeletalMeshReductionSettings.generated.h"

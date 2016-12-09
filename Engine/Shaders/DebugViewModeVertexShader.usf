@@ -17,7 +17,7 @@
 	{
 		FVertexFactoryInterpolantsVSToDS FactoryInterpolants;
 		float4 Position : VS_To_DS_Position;
-		OPTIONAL_VertexID_VS_To_DS
+		OPTIONAL_VertexID_VS_To_DS 
 	};
 	
 	#define FDebugVSOutput FDebugVSToDS

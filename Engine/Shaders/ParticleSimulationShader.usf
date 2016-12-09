@@ -11,6 +11,7 @@
 #endif
 
 #define IMPROVED_DEPTH_BUFFER_COLLISION 1
+#define FORWARD_SHADING_ACCURATE_NORMAL 1
 
 /*------------------------------------------------------------------------------
 	Shared declarations and functions.
@@ -253,12 +254,21 @@ Texture2D RenderAttributesTexture;
 SamplerState RenderAttributesTextureSampler;
 
 #if DEPTH_BUFFER_COLLISION
+#if !FORWARD_SHADING
 /** For retrieving the world-space normal. */
 Texture2D GBufferATexture;
 SamplerState GBufferATextureSampler;
+#endif
 
 /** Limits the depth bounds for which to search for a collision plane. */
 float CollisionDepthBounds;
+
+/** TODO: Should be moved to Common.usf and used globaly. */
+float3 WorldPositionFromSceneDepth(float2 ScreenPosition, float SceneDepth)
+{
+	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+	return HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+}
 
 /**
  * Compute collision with the depth buffer.
@@ -281,11 +291,7 @@ void CollideWithDepthBuffer(
 	NewVelocity = InVelocity.xyz + Acceleration;
 
 	// Figure out where to sample the depth buffer.
-#if IMPROVED_DEPTH_BUFFER_COLLISION
-	float3 CollisionOffset = normalize(DeltaPosition*0.5f) * CollisionRadius;
-#else
 	float3 CollisionOffset = normalize(DeltaPosition) * CollisionRadius;
-#endif
 
 	float3 CollisionPosition = InPosition + CollisionOffset;
 	float4 SamplePosition = float4(CollisionPosition + View.PreViewTranslation,1);
@@ -298,16 +304,37 @@ void CollideWithDepthBuffer(
 		// Sample the depth buffer to get a world position near the particle.
 		float2 ScreenUV = ScreenPosition * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
 		float SceneDepth = CalcSceneDepth(ScreenUV);
-
 		if (abs(ClipPosition.w - SceneDepth) < CollisionDepthBounds)
 		{
+#if FORWARD_SHADING_ACCURATE_NORMAL && FORWARD_SHADING
+			float SceneDepth0 = CalcSceneDepth(ScreenUV + float2(View.BufferSizeAndInvSize.z, 0.0));
+			float SceneDepth1 = CalcSceneDepth(ScreenUV + float2(0.0, View.BufferSizeAndInvSize.w));
+			// When using the forward shading, the normal of the pixel is approximated by the derivative of the world position
+			// of the pixel. But in on the visible edge this derivative can become very high, making CollisionPlane almost
+			// perpendicular to the view plane. In these case the particle may collide the visible edges of the diferent meshes
+			// in the view frustum. To avoid this, we disable the collision test if one of the derivate is above a threshold.
+			if (max(abs(SceneDepth - SceneDepth0), abs(SceneDepth - SceneDepth1)) > CollisionDepthBounds)
+			{
+				return;
+			}
+#endif
 			// Reconstruct world position.
-			float4 HomogeneousWorldPosition = mul(float4(ScreenPosition.xy * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
-			float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
-
+			float3 WorldPosition = WorldPositionFromSceneDepth(ScreenPosition.xy, SceneDepth);
+			
+#if FORWARD_SHADING && FORWARD_SHADING_ACCURATE_NORMAL
+			// Compute normal using the two additional neighbooring pixel depth buffer fetches.
+			float3 WorldPosition0 = WorldPositionFromSceneDepth(ScreenPosition.xy + float2(2 * View.ViewSizeAndInvSize.z, 0.0), SceneDepth0);
+			float3 WorldPosition1 = WorldPositionFromSceneDepth(ScreenPosition.xy - float2(0.0, 2 * View.ViewSizeAndInvSize.w), SceneDepth1);
+			float3 WorldNormal = normalize(cross(WorldPosition0 - WorldPosition, WorldPosition1 - WorldPosition));
+#elif FORWARD_SHADING // && !FORWARD_SHADING_ACCURATE_NORMAL
+			// Compute normal using a ddx/ddy hack, hopefully the neighbooring particules will be close enough...
+			float3 WorldNormal = normalize(cross(ddx(WorldPosition), ddy(WorldPosition)));
+			WorldNormal *= sign(dot(View.WorldCameraOrigin - NewPosition, WorldNormal));
+#else //!FORWARD_SHADING
 			// Sample the normal buffer to create a plane to collide against.
-			float4 WorldNormal = Texture2DSampleLevel(GBufferATexture, GBufferATextureSampler, ScreenUV, 0) * float4(2,2,2,1) - float4(1,1,1,0);
-			float4 CollisionPlane = float4(WorldNormal.xyz, dot(WorldPosition.xyz,WorldNormal.xyz));
+			float3 WorldNormal = Texture2DSampleLevel(GBufferATexture, GBufferATextureSampler, ScreenUV, 0).xyz * 2.0 - 1.0;
+#endif
+			float4 CollisionPlane = float4(WorldNormal, dot(WorldPosition.xyz,WorldNormal));
 
 			// Compute the portion of velocity normal to the collision plane.
 			float VelocityDot = dot(CollisionPlane.xyz, DeltaPosition.xyz);

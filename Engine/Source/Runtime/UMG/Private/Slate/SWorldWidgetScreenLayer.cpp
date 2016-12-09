@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "WidgetComponent.h"
-#include "WidgetLayoutLibrary.h"
+#include "Slate/SWorldWidgetScreenLayer.h"
+#include "Widgets/Layout/SBox.h"
+#include "Components/WidgetComponent.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
 
-#include "SWorldWidgetScreenLayer.h"
 
 void SWorldWidgetScreenLayer::Construct(const FArguments& InArgs, const FLocalPlayerContext& InPlayerContext)
 {

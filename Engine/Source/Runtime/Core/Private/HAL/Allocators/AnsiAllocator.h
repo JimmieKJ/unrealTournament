@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/ContainerAllocationPolicies.h"
 
 /** Allocator that allocates memory using standard library functions. */
 class CORE_API FAnsiAllocator

@@ -2,8 +2,17 @@
 
  
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EngineDefines.h"
 #include "Sound/SoundNode.h"
 #include "SoundNodeLooping.generated.h"
+
+class FAudioDevice;
+struct FActiveSound;
+struct FSoundParseParameters;
+struct FWaveInstance;
 
 /** 
  * Defines how a sound loops; either indefinitely, or for a set number of times.

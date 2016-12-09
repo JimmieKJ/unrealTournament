@@ -7,9 +7,9 @@
 
 
 #pragma once
-#include "HAL/Platform.h"
 
-class FEvent;
+#include "CoreTypes.h"
+#include "CoreFwd.h"
 
 /**
  * Generic implementation for most platforms, these tend to be unused and unimplemented

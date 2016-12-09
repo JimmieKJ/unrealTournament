@@ -1,23 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	ScreenShotDataItem.h: Implements the ScreenShotDataItem class.
-=============================================================================*/
-
 #pragma once
 
-// Dummy data used to test the Screen Shot Comparison UI
+#include "CoreMinimal.h"
+#include "ImageComparer.h"
+
 struct FScreenShotDataItem
 {
 	// Constructors
-	FScreenShotDataItem( const FString& InViewName, const FString& InDeviceName, const FString& InAssetName, const int32 InChangeListNumber )
-		: AssetName( InAssetName )
-		, ChangeListNumber( InChangeListNumber )
+	FScreenShotDataItem( const FString& InImageFilePath, const FString& InViewName, const FString& InDeviceName, const FImageComparisonResult& InComparison)
+		: ImageFilePath(InImageFilePath)
+		, AssetName( InImageFilePath )
+		, ChangeListNumber( 0 )
 		, DeviceName( InDeviceName )
 		, ViewName( InViewName )
+		, Comparison( InComparison )
 	{}
 
 public:
+
+	// The asset name associated with the view
+	FString ImageFilePath;
 
 	// The asset name associated with the view
 	FString AssetName;
@@ -30,5 +33,7 @@ public:
 
 	// The name of the view
 	FString ViewName;
+
+	FImageComparisonResult Comparison;
 };
 

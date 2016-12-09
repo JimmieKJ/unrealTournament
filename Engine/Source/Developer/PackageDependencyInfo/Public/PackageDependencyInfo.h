@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "Core.h"
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Modules/ModuleInterface.h"
+#include "SecureHash.h"
 
 /** Helper struct for tracking dependency info for package timestamps */
 class FPackageDependencyTrackingInfo
@@ -23,8 +25,20 @@ public:
 	bool bContainsShaders;
 	/** Does the package contain blueprints? */
 	bool bContainsBlueprints;
+	/** Hash of the file */
+	FMD5Hash FullPackageHash;
+	/** Hash of the hash of this file, hashed with the hashes of dependent files */
+	FMD5Hash DependentHash;
 	/** Packages this package depends on */
 	TMap<FString,FPackageDependencyTrackingInfo*> DependentPackages;
+
+	/**
+	 * has this package dependency tracking info been initialized
+	 */
+	bool bInitializedDependencies;
+	bool bInitializedHashes;
+	bool bValid;
+
 
 	/** 
 	 *	Temporary value indicating that this info is being processed...
@@ -44,18 +58,24 @@ public:
 		, bContainsMap(false)
 		, bContainsShaders(false)
 		, bContainsBlueprints(false)
+		, bInitializedDependencies(false)
+		, bInitializedHashes(false)
+		, bValid(true)
 		, bBeingProcessed(false)
 		, bHasCircularReferences(false)
 	{
 	}
 
-	FPackageDependencyTrackingInfo(FString& InPackageName, FDateTime& InTimeStamp)
+	FPackageDependencyTrackingInfo(const FString& InPackageName, const FDateTime& InTimeStamp)
 		: PackageName(InPackageName)
 		, TimeStamp(InTimeStamp)
 		, DependentTimeStamp(FDateTime::MinValue())
 		, bContainsMap(false)
 		, bContainsShaders(false)
 		, bContainsBlueprints(false)
+		, bInitializedDependencies(false)
+		, bInitializedHashes(false)
+		, bValid(true)
 		, bBeingProcessed(false)
 		, bHasCircularReferences(false)
 	{
@@ -71,6 +91,9 @@ public:
 		bContainsShaders = InInfo.bContainsShaders;
 		bContainsBlueprints = InInfo.bContainsBlueprints;
 		DependentPackages = InInfo.DependentPackages;
+		bInitializedDependencies = InInfo.bInitializedDependencies;
+		bInitializedHashes = InInfo.bInitializedHashes;
+		bValid = InInfo.bValid;
 		return *this;
 	}
 
@@ -137,6 +160,29 @@ public:
 	virtual bool DeterminePackageDependentTimeStamp(const TCHAR* InPackageName, FDateTime& OutNewestTime);
 
 	/**
+	 *	Determine the given packages dependent hash
+	 *
+	 *	@param	InPackageName		The package to process
+	 *	@param	OutDependentHash	The hash of this package and dependent packages
+	 *
+	 *	@return	bool				true if successful, false if not
+	 */
+	virtual bool DeterminePackageDependentHash(const TCHAR* InPackageName, FMD5Hash& OutDependentHash);
+
+	/**
+	 *	Determine the given packages file full hash
+	 *
+	 *	@param	InPackageName		The package to process
+	 *	@param	OutNewestTime		The dependent time stamp for the package.
+	 *
+	 *	@return	bool				true if successful, false if not
+	 */
+	virtual bool DetermineFullPackageHash(const TCHAR* InPackageName, FMD5Hash& OutFullPackageHash);
+
+
+	virtual bool RecursiveGetDependentPackageHashes(const TCHAR* InPackageName, TMap<FString, FMD5Hash>& Dependencies);
+
+	/**
 	 *	Determine dependent timestamps for the given list of files
 	 *
 	 *	@param	InPackageList		The list of packages to process
@@ -148,11 +194,22 @@ public:
 	 */
 	virtual void DetermineAllDependentTimeStamps();
 
+	virtual void AsyncDetermineAllDependentPackageInfo(const TArray<FString>& PackageNames, int32 NumThreads);
+
 	/**
 	 *	Get a list of all dependent package information
 	 */
 	virtual void GetAllPackageDependentInfo(TMap<FString, FPackageDependencyTrackingInfo*>& OutPkgDependencyInfo);
 
+
+	/**
+	* Get the sorted list of generated package dependencies
+	*
+	* @param PackageName name of the package to get dependencies for
+	* @param Dependencies list of dependencies
+	* @return true if succeeded and package exists false if package doesn't exist
+	*/
+	virtual bool GetPackageDependencies( const TCHAR* PackageName, TArray<FString>& OutDependencies );
 protected:
 	static class FPackageDependencyInfo* PackageDependencyInfo;
 };

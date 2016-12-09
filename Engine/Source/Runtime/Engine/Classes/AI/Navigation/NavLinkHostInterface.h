@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Interface.h"
-#include "NavLinkHostInterface.generated.h"
 
-struct FNavigationLink;
-struct FNavigationSegmentLink;
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/Interface.h"
+#include "AI/Navigation/NavLinkDefinition.h"
+#include "NavLinkHostInterface.generated.h"
 
 UINTERFACE(MinimalAPI, meta=(CannotImplementInterfaceInBlueprint))
 class UNavLinkHostInterface : public UInterface

@@ -2,6 +2,22 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Layout/Margin.h"
+#include "Animation/CurveSequence.h"
+#include "Styling/SlateColor.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Input/Reply.h"
+#include "Styling/SlateWidgetStyleAsset.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/SlateDelegates.h"
+
+class SBorder;
 
 /**
  * Represents an expandable area of content            
@@ -14,12 +30,17 @@ public:
 		: _Style( &FCoreStyle::Get().GetWidgetStyle<FExpandableAreaStyle>("ExpandableArea") )
 		, _BorderBackgroundColor( FLinearColor::White )
 		, _BorderImage( FCoreStyle::Get().GetBrush("ExpandableArea.Border") )
+		, _BodyBorderBackgroundColor()
+		, _BodyBorderImage()
 		, _AreaTitle( )
 		, _InitiallyCollapsed( false )
+		, _MinWidth( 0.0f )
 		, _MaxHeight( 0.0f )
-		, _HeaderPadding(FMargin(4.0, 2.0))
+		, _AreaTitlePadding(FMargin(0.0f, 0.0f, 3.0f, 0.0f))
+		, _HeaderPadding(FMargin(4.0f, 2.0f))
 		, _Padding( 1.0f )
 		, _AreaTitleFont( FCoreStyle::Get().GetFontStyle("ExpandableArea.TitleFont") )
+		, _HeaderCursor( )
 		{}
 		
 		/** Style used to draw this area */
@@ -28,6 +49,10 @@ public:
 		SLATE_ATTRIBUTE( FSlateColor, BorderBackgroundColor )
 		/** Border to use around the area */
 		SLATE_ARGUMENT( const FSlateBrush*, BorderImage )
+		/** Background color to apply to the body's border image. Unspecified uses BorderBackgroundColor */
+		SLATE_ATTRIBUTE( FSlateColor, BodyBorderBackgroundColor )
+		/** Border to use around the body. Unspecified uses BorderImage */
+		SLATE_ARGUMENT( const FSlateBrush*, BodyBorderImage )
 		/** Content displayed next to the expansion arrow.  This is always visible */
 		SLATE_NAMED_SLOT( FArguments, HeaderContent )
 		/** Content displayed inside the area that is expanded */
@@ -36,8 +61,12 @@ public:
 		SLATE_ATTRIBUTE( FText, AreaTitle )
 		/** Whether or not the area is initially collapsed */
 		SLATE_ARGUMENT( bool, InitiallyCollapsed )
+		/** The minimum width of the area */
+		SLATE_ARGUMENT( float, MinWidth )
 		/** The maximum height of the area */
 		SLATE_ARGUMENT( float, MaxHeight )
+		/** The title padding */
+		SLATE_ATTRIBUTE(FMargin, AreaTitlePadding)
 		/** The header padding */
 		SLATE_ATTRIBUTE( FMargin, HeaderPadding )
 		/** The content padding */
@@ -46,6 +75,9 @@ public:
 		SLATE_EVENT( FOnBooleanValueChanged, OnAreaExpansionChanged )
 		/** Sets the font used to draw the title text */
 		SLATE_ATTRIBUTE( FSlateFontInfo, AreaTitleFont )
+		/** Override for Cursor, so you can specify a different cursor for the header */
+		SLATE_ATTRIBUTE( TOptional<EMouseCursor::Type>, HeaderCursor )
+			
 	SLATE_END_ARGS()
 
 
@@ -113,6 +145,9 @@ protected:
 
 	/** Delegate that fires when the area becomes expanded or collapsed the user */
 	FOnBooleanValueChanged OnAreaExpansionChanged;
+
+	/** The minimum width of this area */
+	float MinWidth;
 
 	/** The maximum height of this area */
 	float MaxHeight;

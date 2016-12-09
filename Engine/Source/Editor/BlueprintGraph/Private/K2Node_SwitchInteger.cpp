@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "../../../Runtime/Engine/Classes/Kismet/KismetMathLibrary.h"
+#include "K2Node_SwitchInteger.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "K2Node_SwitchInteger.h"
 
 UK2Node_SwitchInteger::UK2Node_SwitchInteger(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

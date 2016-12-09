@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "TokenizedMessage.h"
+#include "CoreTypes.h"
+#include "Templates/SharedPointer.h"
+#include "Logging/TokenizedMessage.h"
 
 /**
  * A message log.

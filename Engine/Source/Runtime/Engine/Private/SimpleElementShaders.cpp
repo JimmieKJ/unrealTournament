@@ -4,10 +4,8 @@
 	SimpleElementShaders.h: Definitions for simple element shaders.
 ==============================================================================*/
 
-#include "EnginePrivate.h"
-#include "ShaderParameterUtils.h"
 #include "SimpleElementShaders.h"
-#include "SceneTypes.h"
+#include "ShaderParameterUtils.h"
 
 /*------------------------------------------------------------------------------
 	Simple element vertex shader.

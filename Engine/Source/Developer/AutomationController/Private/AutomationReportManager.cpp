@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationControllerPrivatePCH.h"
+#include "AutomationReportManager.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IAutomationControllerModule.h"
+#include "AutomationReport.h"
 
 
 FAutomationReportManager::FAutomationReportManager()

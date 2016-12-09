@@ -1,18 +1,22 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "VREditorModule.h"
 #include "VREditorTeleporter.h"
-#include "IVREditorMode.h"
+#include "HAL/IConsoleManager.h"
+#include "Engine/EngineTypes.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
+#include "VREditorMode.h"
+#include "ViewportInteractionTypes.h"
 #include "ViewportWorldInteraction.h"
 #include "VREditorInteractor.h"
 
-#include "Kismet/GameplayStatics.h"
 
 namespace VREd
 {
 	static FAutoConsoleVariable TeleportLerpTime( TEXT( "VREd.TeleportLerpTime" ), 0.1f, TEXT( "The lerp time to teleport" ) );
 	static FAutoConsoleVariable TeleportOffset( TEXT( "VREd.TeleportOffset" ), 100.0f, TEXT( "The offset from the hitresult towards the controller" ) );
 	static FAutoConsoleVariable TeleportLaserPointerLength( TEXT( "VREd.TeleportLaserPointerLength" ), 500000.0f, TEXT( "Distance of the LaserPointer for teleporting" ) );
+	static FAutoConsoleVariable TeleportDistance( TEXT( "VREd.TeleportDistance" ), 500.0f, TEXT( "Default distance for teleporting when not hitting anything" ) );
 }
 
 UVREditorTeleporter::UVREditorTeleporter( const FObjectInitializer& Initializer ) :
@@ -29,7 +33,7 @@ UVREditorTeleporter::UVREditorTeleporter( const FObjectInitializer& Initializer 
 	check( TeleportSound != nullptr );
 }
 
-void UVREditorTeleporter::Init( IVREditorMode* InMode )
+void UVREditorTeleporter::Init( UVREditorMode* InMode )
 {
 	VRMode = InMode;
 	VRMode->OnTickHandle().AddUObject( this, &UVREditorTeleporter::Tick );
@@ -41,6 +45,7 @@ void UVREditorTeleporter::Shutdown()
 	VRMode->OnTickHandle().RemoveAll( this );
 	VRMode->GetWorldInteraction().OnViewportInteractionInputAction().RemoveAll( this );
 	TeleportSound = nullptr;
+	VRMode = nullptr;
 }
 
 void UVREditorTeleporter::Tick( const float DeltaTime )
@@ -48,11 +53,6 @@ void UVREditorTeleporter::Tick( const float DeltaTime )
 	if ( bIsTeleporting )
 	{
 		Teleport( DeltaTime );
-
-		//if ( bJustTeleported && !bIsTeleporting )
-		//{
-		//	bJustTeleported = false;
-		//}
 	}
 }
 
@@ -64,29 +64,42 @@ void UVREditorTeleporter::StartTeleport( UViewportInteractor* Interactor )
 		FVector LaserPointerStart, LaserPointerEnd;
 		if ( Interactor->GetLaserPointer( LaserPointerStart, LaserPointerEnd ) )
 		{
+			FVector EndLocation;
 			FHitResult HitResult = Interactor->GetHitResultFromLaserPointer( nullptr, true, nullptr, false, VREd::TeleportLaserPointerLength->GetFloat() );
-			if ( HitResult.bBlockingHit )
+			if( HitResult.bBlockingHit )
 			{
-				const FVector HeadLocation = VRMode->GetHeadTransform().GetLocation();
-				const FVector RoomLocation = VRMode->GetRoomTransform().GetLocation();
-
-				const FVector Offset = ( LaserPointerStart - HitResult.Location ).GetSafeNormal() *
-					VREd::TeleportOffset->GetFloat() * VRMode->GetWorldInteraction().GetWorldScaleFactor(); 	// Offset from the hitresult, TeleportOffset is in centimeter
-				const FVector NewHandLocation = HitResult.Location + Offset;								// New world location offset from the hitresult
-				const FVector HandHeadOffset = HeadLocation - Interactor->GetTransform().GetLocation();		// The offset between the hand and the head
-				const FVector NewHeadLocation = NewHandLocation + HandHeadOffset;							// The location in world space where the head is going to be
-																											// The new roomspace location in world space
-				const FVector HeadRoomOffset = HeadLocation - RoomLocation;									// Where the head is going to be in world space
-				const FVector NewRoomSpaceLocation = NewHeadLocation - HeadRoomOffset;						// Result, where the roomspace is going to be in world space
-				
-																											// Set values to start teleporting
-				bIsTeleporting = true;
-				TeleportLerpAlpha = 0.0f;
-				TeleportStartLocation = RoomLocation;
-				TeleportGoalLocation = NewRoomSpaceLocation;
-
-				UGameplayStatics::PlaySound2D( VRMode->GetWorld(), TeleportSound );
+				EndLocation = HitResult.Location;
 			}
+			else
+			{
+				FVector Direction = LaserPointerEnd - LaserPointerStart;
+				Direction.Normalize();
+				EndLocation = LaserPointerStart + ( Direction * ( VREd::TeleportDistance->GetFloat() * VRMode->GetWorldScaleFactor() ) );
+			}
+
+			const FVector HeadLocation = VRMode->GetHeadTransform().GetLocation();
+			const FVector RoomLocation = VRMode->GetRoomTransform().GetLocation();
+
+			FVector NewHandLocation = EndLocation;
+			if( HitResult.bBlockingHit )
+			{
+				const FVector Offset = ( LaserPointerStart - EndLocation ).GetSafeNormal() *
+					VREd::TeleportOffset->GetFloat() * VRMode->GetWorldInteraction().GetWorldScaleFactor(); // Offset from the hitresult, TeleportOffset is in centimeter
+				NewHandLocation = EndLocation + Offset;
+			}
+
+			const FVector HandHeadOffset = HeadLocation - Interactor->GetTransform().GetLocation();		// The offset between the hand and the head
+			const FVector NewHeadLocation = NewHandLocation + HandHeadOffset;							// The location in world space where the head is going to be
+																										// The new roomspace location in world space
+			const FVector HeadRoomOffset = HeadLocation - RoomLocation;									// Where the head is going to be in world space
+			const FVector NewRoomSpaceLocation = NewHeadLocation - HeadRoomOffset;						// Result, where the roomspace is going to be in world space
+																										// Set values to start teleporting
+			bIsTeleporting = true;
+			TeleportLerpAlpha = 0.0f;
+			TeleportStartLocation = RoomLocation;
+			TeleportGoalLocation = NewRoomSpaceLocation;
+
+			UGameplayStatics::PlaySound2D( VRMode->GetWorld(), TeleportSound );
 		}
 	}
 }

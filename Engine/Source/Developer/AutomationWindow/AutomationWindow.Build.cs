@@ -15,12 +15,14 @@ namespace UnrealBuildTool.Rules
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
-					"DesktopPlatform",
+                    "DesktopPlatform",
                     "InputCore",
-					"Slate",
-					"SlateCore",
+                    "Slate",
+                    "SlateCore",
                     "EditorStyle",
                     "CoreUObject",
+                    "Json",
+                    "JsonUtilities"
                 }
 			);
 

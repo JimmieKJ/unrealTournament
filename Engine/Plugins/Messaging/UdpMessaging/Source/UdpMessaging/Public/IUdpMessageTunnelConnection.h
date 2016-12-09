@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /**
  * Interface for message tunnel connections.
@@ -53,10 +54,3 @@ public:
 	/** Virtual destructor. */
 	virtual ~IUdpMessageTunnelConnection() { }
 };
-
-
-/** Type definition for shared pointers to instances of IUdpMessageTunnelConnection. */
-typedef TSharedPtr<IUdpMessageTunnelConnection> IUdpMessageTunnelConnectionPtr;
-
-/** Type definition for shared references to instances of IUdpMessageTunnelConnection. */
-typedef TSharedRef<IUdpMessageTunnelConnection> IUdpMessageTunnelConnectionRef;

@@ -6,7 +6,18 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
+#include "GeomModifier_Edit.h"
 #include "GeomModifier_Clip.generated.h"
+
+class FCanvas;
+class FEditorViewportClient;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FViewport;
 
 UCLASS()
 class UGeomModifier_Clip : public UGeomModifier_Edit

@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraPrivate.h"
 #include "NiagaraFunctionLibrary.h"
+#include "EngineGlobals.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/Engine.h"
 #include "NiagaraComponent.h"
 #include "NiagaraEffect.h"
-#include "NiagaraSimulation.h"
 
 
 UNiagaraFunctionLibrary::UNiagaraFunctionLibrary(const FObjectInitializer& ObjectInitializer)

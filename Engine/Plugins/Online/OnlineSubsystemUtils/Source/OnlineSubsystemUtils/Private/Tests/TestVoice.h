@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "Ticker.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
+#include "Containers/Ticker.h"
+
+class IVoiceCapture;
+class IVoiceDecoder;
+class IVoiceEncoder;
 
 #if WITH_DEV_AUTOMATION_TESTS
 

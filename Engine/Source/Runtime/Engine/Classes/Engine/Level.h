@@ -1,16 +1,34 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "MaterialMerging.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Interfaces/Interface_AssetUserData.h"
+#include "RenderCommandFence.h"
+#include "Templates/ScopedCallback.h"
+#include "Misc/WorldCompositionUtility.h"
+#include "Engine/MaterialMerging.h"
 #include "Level.generated.h"
 
-class ALevelBounds;
+class AActor;
 class ABrush;
-class UTexture2D;
-class UNavigationDataChunk;
 class AInstancedFoliageActor;
+class ALevelBounds;
+class APlayerController;
 class AWorldSettings;
-class UWorld;
+class FSceneInterface;
+class ITargetPlatform;
+class UAssetUserData;
+class UMapBuildDataRegistry;
+class UNavigationDataChunk;
+class UTexture2D;
+struct FLevelCollection;
 
 /**
  * Structure containing all information needed for determining the screen space
@@ -373,8 +391,7 @@ public:
 
 	/** The Guid list of all materials and meshes Guid used in the last texture streaming build. Used to know if the streaming data needs rebuild. Only used for the persistent level. */
 	UPROPERTY(NonTransactional)
-	TArray<FGuid> TextureStreamingBuildGuids;
-
+	TArray<FGuid> TextureStreamingResourceGuids;
 #endif //WITH_EDITORONLY_DATA
 
 	/** Num of components missing valid texture streaming data. Updated in map check. */
@@ -439,6 +456,27 @@ public:
 	/** Fence used to track when the rendering thread has finished referencing this ULevel's resources. */
 	FRenderCommandFence							RemoveFromSceneFence;
 
+	/** 
+	 * Whether the level is a lighting scenario.  Lighting is built separately for each lighting scenario level with all other scenario levels hidden. 
+	 * Only one lighting scenario level should be visible at a time for correct rendering, and lightmaps from that level will be used on the rest of the world.
+	 * Note: When a lighting scenario level is present, lightmaps for all streaming levels are placed in the scenario's _BuildData package.  
+	 *		This means that lightmaps for those streaming levels will not be streamed with them.
+	 */
+	UPROPERTY()
+	bool bIsLightingScenario;
+
+	/** Identifies map build data specific to this level, eg lighting volume samples. */
+	UPROPERTY()
+	FGuid LevelBuildDataId;
+
+	/** Registry for data from the map build.  This is stored in a separate package from the level to speed up saving / autosaving. */
+	UPROPERTY()
+	UMapBuildDataRegistry* MapBuildData;
+
+	/** Level offset at time when lighting was built */
+	UPROPERTY()
+	FIntVector LightBuildLevelOffset;
+
 	/** Whether components are currently registered or not. */
 	uint8										bAreComponentsCurrentlyRegistered:1;
 
@@ -487,9 +525,16 @@ public:
 	uint8										bIsBeingRemoved:1;
 	/** Current index into actors array for updating components.							*/
 	int32										CurrentActorIndexForUpdateComponents;
+	/** Current index into actors array for updating components.							*/
+	int32										CurrentActorIndexForUnregisterComponents;
+
 
 	/** Whether the level is currently pending being made visible.							*/
+	DEPRECATED(4.15, "Use HasVisibilityChangeRequestPending")
 	bool HasVisibilityRequestPending() const;
+
+	/** Whether the level is currently pending being made invisible or visible.				*/
+	bool HasVisibilityChangeRequestPending() const;
 
 	// Event on level transform changes
 	DECLARE_MULTICAST_DELEGATE_OneParam(FLevelTransformEvent, const FTransform&);
@@ -532,6 +577,9 @@ private:
 	UPROPERTY()
 	AWorldSettings* WorldSettings;
 
+	/** Cached level collection that this level is contained in, for faster access than looping through the collections in the world. */
+	FLevelCollection* CachedLevelCollection;
+
 protected:
 
 	/** Array of user data stored with the asset */
@@ -564,6 +612,7 @@ public:
 	~ULevel();
 
 	//~ Begin UObject Interface.
+	virtual void PostInitProperties() override;	
 	virtual void Serialize( FArchive& Ar ) override;
 	virtual void BeginDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;
@@ -601,6 +650,15 @@ public:
 	 * @param bRerunConstructionScripts	If we want to rerun construction scripts on actors in level
 	 */
 	void IncrementalUpdateComponents( int32 NumComponentsToUpdate, bool bRerunConstructionScripts );
+
+	/**
+	* Incrementally unregisters all components of actors associated with this level.
+	* This is done at the granularity of actors (individual actors have all of their components unregistered)
+    *
+	* @param NumComponentsToUnregister		Minimum number of components to unregister in this run, 0 for all
+	*/
+	bool IncrementalUnregisterComponents(int32 NumComponentsToUnregister);
+
 
 	/**
 	 * Invalidates the cached data used to render the level's UModel.
@@ -649,7 +707,7 @@ public:
 	void InitializeNetworkActors();
 
 	/** Initializes rendering resources for this level. */
-	void InitializeRenderingResources();
+	ENGINE_API void InitializeRenderingResources();
 
 	/** Releases rendering resources for this level. */
 	ENGINE_API void ReleaseRenderingResources();
@@ -700,6 +758,12 @@ public:
 	 */
 	ENGINE_API class ALevelScriptActor* GetLevelScriptActor() const;
 
+	/** Returns the cached collection that contains this level, if any. May be null. */
+	FLevelCollection* GetCachedLevelCollection() const { return CachedLevelCollection; }
+
+	/** Sets the cached level collection that contains this level. Should only be called by FLevelCollection. */
+	void SetCachedLevelCollection(FLevelCollection* const InCachedLevelCollection) { CachedLevelCollection = InCachedLevelCollection; }
+
 	/**
 	 * Utility searches this level's actor list for any actors of the specified type.
 	 */
@@ -710,13 +774,34 @@ public:
 	 */
 	ENGINE_API void ResetNavList();
 
+	ENGINE_API UPackage* CreateMapBuildDataPackage() const;
+
+	ENGINE_API UMapBuildDataRegistry* GetOrCreateMapBuildData();
+
+	/** Sets whether this level is a lighting scenario and handles propagating the change. */
+	ENGINE_API void SetLightingScenario(bool bNewIsLightingScenario);
+
+	/** Creates UMapBuildDataRegistry entries for legacy lightmaps from components loaded for this level. */
+	ENGINE_API void HandleLegacyMapBuildData();
+
 #if WITH_EDITOR
+	/** 
+	*  Called after lighting was built and data gets propagated to this level
+	*  @param	bLightingSuccessful	 Whether lighting build was successful
+	*/
+	ENGINE_API void OnApplyNewLightingData(bool bLightingSuccessful);
+
 	/**
 	 *	Grabs a reference to the level scripting blueprint for this level.  If none exists, it creates a new blueprint
 	 *
 	 * @param	bDontCreate		If true, if no level scripting blueprint is found, none will be created
 	 */
 	ENGINE_API class ULevelScriptBlueprint* GetLevelScriptBlueprint(bool bDontCreate=false);
+
+	/**
+	 * Nulls certain references related to the LevelScriptBlueprint. Called by UWorld::CleanupWorld.
+	 */
+	ENGINE_API void CleanupLevelScriptBlueprint();
 
 	/**
 	 *  Returns a list of all blueprints contained within the level

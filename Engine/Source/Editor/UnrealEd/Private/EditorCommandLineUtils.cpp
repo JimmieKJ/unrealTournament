@@ -1,18 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "EditorCommandLineUtils.h"
-#include "Commandlets/Commandlet.h" // for ParseCommandLine()
-#include "Paths.h"
-#include "App.h"					// for IsGameNameEmpty()
-#include "Dialogs.h"				// for OpenMsgDlgInt_NonModal()
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Stats/Stats.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "Misc/PackageName.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
 #include "TickableEditorObject.h"
-#include "Editor/MainFrame/Public/Interfaces/IMainFrameModule.h"
-#include "AssetRegistryModule.h"
-#include "IAssetTypeActions.h"		// for FRevisionInfo
+#include "Commandlets/Commandlet.h"
+#include "EngineGlobals.h"
+#include "Editor.h"
+#include "Dialogs/Dialogs.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "IAssetTools.h"
+#include "IAssetTypeActions.h"
 #include "AssetToolsModule.h"
-#include "AssetEditorManager.h"
-#include "Editor.h"					// for OnShutdownPostPackagesSaved
 #include "ProjectDescriptor.h"
 
 #define LOCTEXT_NAMESPACE "EditorCommandLineUtils"

@@ -1,14 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "XmppPrivatePCH.h"
-#include "XmppJingle.h"
-#include "XmppConnectionJingle.h"
-#include "XmppPresenceJingle.h"
-#include "XmppMessagesJingle.h"
-#include "XmppChatJingle.h"
-#include "XmppMultiUserChatJingle.h"
-
-#include "Stats.h"
+#include "XmppJingle/XmppConnectionJingle.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/Guid.h"
+#include "Stats/Stats.h"
+#include "XmppJingle/XmppPresenceJingle.h"
+#include "XmppJingle/XmppMessagesJingle.h"
+#include "XmppJingle/XmppMultiUserChatJingle.h"
+#include "XmppLog.h"
 
 DECLARE_STATS_GROUP(TEXT("Xmpp"), STATGROUP_Xmpp, STATCAT_Advanced);
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("PresQry"), STAT_XmppPresenceQueries, STATGROUP_Xmpp, );

@@ -1,18 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "OculusAudioEffect.h"
 #include "OculusAudio.h"
 #include "OVR_Audio.h"
 #include "AudioDevice.h"
 #include "XAudio2Device.h"
 #include "AudioEffect.h"
 #include "XAudio2Effects.h"
-#include "Engine.h"
-#include "OculusAudioEffect.h"
 
 #include "AllowWindowsPlatformTypes.h"
+#include "AllowWindowsPlatformAtomics.h"
 #include <xapobase.h>
 #include <xapofx.h>
 #include <xaudio2fx.h>
+#include "HideWindowsPlatformAtomics.h"
 #include "HideWindowsPlatformTypes.h"
 
 FXAudio2HRTFEffect::FXAudio2HRTFEffect(uint32 InVoiceId, FAudioDevice* InAudioDevice)
@@ -57,6 +58,11 @@ HRESULT FXAudio2HRTFEffect::LockForProcess(UINT32 InputLockedParameterCount, con
 
 void FXAudio2HRTFEffect::Process(UINT32 InputProcessParameterCount, const XAPO_PROCESS_BUFFER_PARAMETERS *pInputProcessParameters, UINT32 OutputProcessParameterCount, XAPO_PROCESS_BUFFER_PARAMETERS *pOutputProcessParameters, BOOL IsEnabled)
 {
+	if (!pInputProcessParameters || !pOutputProcessParameters)
+	{
+		return;
+	}
+
 	// Verify several condition based on the registration 
 	// properties we used to create the class. 
 	if (!IsLocked())
@@ -74,7 +80,7 @@ void FXAudio2HRTFEffect::Process(UINT32 InputProcessParameterCount, const XAPO_P
 		return;
 	}
 
-	FAudioSpatializationParams CurrentParameters;
+	FSpatializationParams CurrentParameters;
 	AudioDevice->SpatializeProcessor->GetSpatializationParameters(VoiceId, CurrentParameters);
 
 	FVector& EmitterPosition = CurrentParameters.EmitterPosition;

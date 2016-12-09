@@ -1,13 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_AnimDynamics.h"
+#include "EngineGlobals.h"
+#include "SceneManagement.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Widgets/Input/SButton.h"
 
 // Details includes
+#include "PropertyHandle.h"
 #include "DetailLayoutBuilder.h"
-#include "DetailCategoryBuilder.h"
 #include "DetailWidgetRow.h"
-#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
 #include "AnimationCustomVersion.h"
 #include "Animation/AnimInstance.h"
 

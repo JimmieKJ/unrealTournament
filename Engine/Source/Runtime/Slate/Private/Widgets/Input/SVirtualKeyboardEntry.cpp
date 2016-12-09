@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SVirtualKeyboardEntry.h"
-#include "TextEditHelper.h"
+#include "Widgets/Input/SVirtualKeyboardEntry.h"
+#include "Rendering/DrawElements.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Text/TextEditHelper.h"
 
 /** Constructor */
 SVirtualKeyboardEntry::SVirtualKeyboardEntry()

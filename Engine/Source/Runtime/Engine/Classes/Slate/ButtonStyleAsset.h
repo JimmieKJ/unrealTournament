@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "SlateCore.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Styling/SlateTypes.h"
 #include "ButtonStyleAsset.generated.h"
 
 /**

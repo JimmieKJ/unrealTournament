@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
+#include "Components/Widget.h"
+#include "Widgets/IToolTip.h"
 #include "WidgetTemplate.h"
 
-class UWidget;
+class UWidgetTree;
 
 /**
  * A template that can spawn any widget derived from the UWidget class.

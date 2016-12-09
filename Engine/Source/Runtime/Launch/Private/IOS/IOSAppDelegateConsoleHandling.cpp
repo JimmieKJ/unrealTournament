@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LaunchPrivatePCH.h"
 #include "IOSAppDelegateConsoleHandling.h"
-#include "LaunchPrivatePCH.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
 
 extern bool GShowSplashScreen;
 

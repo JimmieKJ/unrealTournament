@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#if WITH_FANCY_TEXT
+#include "CoreMinimal.h"
+#include "SlateGlobals.h"
+#include "Framework/Text/TextRange.h"
+#include "Framework/Text/ITextDecorator.h"
+#include "Internationalization/Regex.h"
+#include "Framework/Text/IRichTextMarkupParser.h"
+#include "Framework/Text/IRichTextMarkupWriter.h"
 
-#include "IRichTextMarkupParser.h"
-#include "IRichTextMarkupWriter.h"
-#include "Regex.h"
+#if WITH_FANCY_TEXT
 
 class SLATE_API FDefaultRichTextMarkupParser : public IRichTextMarkupParser
 {

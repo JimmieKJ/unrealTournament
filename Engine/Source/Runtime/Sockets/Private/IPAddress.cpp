@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SocketsPrivatePCH.h"
 #include "IPAddress.h"
-#include "ModuleManager.h"
 #include "SocketSubsystem.h"
 
 /**

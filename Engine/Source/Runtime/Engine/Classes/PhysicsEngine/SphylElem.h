@@ -2,11 +2,13 @@
 
 #pragma once
 
-#include "ShapeElem.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "PhysicsEngine/ShapeElem.h"
 #include "SphylElem.generated.h"
 
 class FMaterialRenderProxy;
-class FPrimitiveDrawInterface;
+class FMeshElementCollector;
 
 /** Capsule shape used for collision */
 USTRUCT()

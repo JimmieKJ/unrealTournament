@@ -7,6 +7,9 @@
 #ifndef __SCRIPTDISASSEMBLER_H__
 #define __SCRIPTDISASSEMBLER_H__
 
+#include "CoreMinimal.h"
+#include "UObject/Script.h"
+
 /**
  * Kismet bytecode disassembler; Can be used to create a human readable version
  * of Kismet bytecode for a specified structure or class.

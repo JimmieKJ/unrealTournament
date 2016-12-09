@@ -6,8 +6,15 @@
  */
 
 #pragma once
-#include "AnimCompositeBase.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Animation/AnimCompositeBase.h"
 #include "AnimComposite.generated.h"
+
+class UAnimSequence;
+struct FCompactPose;
 
 UCLASS(config=Engine, hidecategories=UObject, MinimalAPI, BlueprintType)
 class UAnimComposite : public UAnimCompositeBase
@@ -38,7 +45,7 @@ public:
 	//~ Begin UAnimSequence Interface
 #if WITH_EDITOR
 	virtual class UAnimSequence* GetAdditiveBasePose() const override;
-	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) override;
+	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets, bool bRecursive = true) override;
 	virtual void ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap) override;
 #endif
 	//~ End UAnimSequence Interface

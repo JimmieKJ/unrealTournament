@@ -2,9 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "MaterialExpressionIO.h"
 #include "Materials/MaterialExpressionTextureBase.h"
 #include "MaterialExpressionTextureSample.generated.h"
 
+struct FPropertyChangedEvent;
 
 /** defines how MipValue is used */
 UENUM()
@@ -77,6 +82,7 @@ class ENGINE_API UMaterialExpressionTextureSample : public UMaterialExpressionTe
 #if WITH_EDITOR
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostLoad() override;
 #endif // WITH_EDITOR
 	//~ End UObject Interface
 
@@ -87,7 +93,7 @@ class ENGINE_API UMaterialExpressionTextureSample : public UMaterialExpressionTe
 	virtual int32 GetWidth() const override;
 	virtual int32 GetLabelPadding() override { return 8; }
 #if WITH_EDITOR
-	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
+	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 #endif // WITH_EDITOR
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
@@ -102,6 +108,10 @@ class ENGINE_API UMaterialExpressionTextureSample : public UMaterialExpressionTe
 	int32 CompileMipValue0(class FMaterialCompiler* Compiler);
 	int32 CompileMipValue1(class FMaterialCompiler* Compiler);
 #endif // WITH_EDITOR
+
+protected:
+	// Inherited parameter expressions can hide unused input pin
+	bool bShowTextureInputPin;
 };
 
 

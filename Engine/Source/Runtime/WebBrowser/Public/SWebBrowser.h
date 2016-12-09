@@ -2,10 +2,19 @@
 
 #pragma once
 
-#include "SlateBasics.h"
-#include "IWebBrowserDialog.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 #include "SWebBrowserView.h"
 
+class IWebBrowserAdapter;
+class IWebBrowserDialog;
+class IWebBrowserWindow;
+class SEditableTextBox;
+struct FWebNavigationRequest;
+enum class EWebBrowserDialogEventResponse;
 
 class WEBBROWSER_API SWebBrowser
 	: public SCompoundWidget
@@ -78,7 +87,7 @@ public:
 
 		/** Called when the Url changes. */
 		SLATE_EVENT(FOnTextChanged, OnUrlChanged)
-	
+
 		/** Called before a popup window happens */
 		SLATE_EVENT(FOnBeforePopupDelegate, OnBeforePopup)
 
@@ -90,7 +99,7 @@ public:
 
 		/** Called before browser navigation. */
 		SLATE_EVENT(FOnBeforeBrowse, OnBeforeNavigation)
-	
+
 		/** Called to allow bypassing page content on load. */
 		SLATE_EVENT(FOnLoadUrl, OnLoadUrl)
 
@@ -119,7 +128,7 @@ public:
 
 	/**
 	 * Load the specified URL.
-	 * 
+	 *
 	 * @param NewURL New URL to load.
 	 */
 	void LoadURL(FString NewURL);
@@ -159,12 +168,21 @@ public:
 	bool IsLoaded() const;
 
 	/** Whether the document is currently being loaded. */
-	bool IsLoading() const; 
+	bool IsLoading() const;
 
 	/** Execute javascript on the current window */
 	void ExecuteJavascript(const FString& ScriptText);
 
-	/** 
+	/**
+	 * Gets the source of the main frame as raw HTML.
+	 *
+	 * This method has to be called asynchronously by passing a callback function, which will be called at a later point when the
+	 * result is ready.
+	 * @param	Callback	A callable that takes a single string reference for handling the result.
+	 */
+	void GetSource(TFunction<void (const FString&)> Callback) const;
+
+	/**
 	 * Expose a UObject instance to the browser runtime.
 	 * Properties and Functions will be accessible from JavaScript side.
 	 * As all communication with the rendering procesis asynchronous, return values (both for properties and function results) are wrapped into JS Future objects.
@@ -247,7 +265,7 @@ private:
 
 	/** A delegate that is invoked when document address changed. */
 	FOnTextChanged OnUrlChanged;
-	
+
 	/** A delegate that is invoked when the browser attempts to pop up a new window */
 	FOnBeforePopupDelegate OnBeforePopup;
 
@@ -259,7 +277,7 @@ private:
 
 	/** A delegate that is invoked prior to browser navigation */
 	FOnBeforeBrowse OnBeforeNavigation;
-	
+
 	/** A delegate that is invoked when loading a resource, allowing the application to provide contents directly */
 	FOnLoadUrl OnLoadUrl;
 

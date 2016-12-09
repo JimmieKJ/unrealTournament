@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SColorWheel.h"
+#include "Widgets/Colors/SColorWheel.h"
+#include "Rendering/DrawElements.h"
+#include "Styling/CoreStyle.h"
 
 
 /* SColorWheel methods

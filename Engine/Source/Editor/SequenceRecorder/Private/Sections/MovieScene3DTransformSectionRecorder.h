@@ -2,7 +2,16 @@
 
 #pragma once
 
-#include "MovieScene3DTransformSectionRecorderSettings.h"
+#include "CoreMinimal.h"
+#include "IMovieSceneSectionRecorder.h"
+#include "IMovieSceneSectionRecorderFactory.h"
+#include "Sections/MovieSceneAnimationSectionRecorder.h"
+#include "MovieScene.h"
+#include "Sections/MovieScene3DTransformSectionRecorderSettings.h"
+
+class FMovieScene3DTransformSectionRecorder;
+class UMovieScene3DTransformSection;
+class UMovieScene3DTransformTrack;
 
 class FMovieScene3DTransformSectionRecorderFactory : public IMovieSceneSectionRecorderFactory
 {

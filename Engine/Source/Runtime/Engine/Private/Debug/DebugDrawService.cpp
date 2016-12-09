@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "DebugRenderSceneProxy.h"
 #include "Debug/DebugDrawService.h"
+#include "UObject/Package.h"
+#include "Engine/Canvas.h"
 
 TArray<TArray<FDebugDrawDelegate> > UDebugDrawService::Delegates;
 FEngineShowFlags UDebugDrawService::ObservedFlags(ESFIM_Editor);

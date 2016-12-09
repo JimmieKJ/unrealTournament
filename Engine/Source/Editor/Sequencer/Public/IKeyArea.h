@@ -2,15 +2,20 @@
 
 #pragma once
 
-#include "Curves/CurveBase.h"
-#include "KeyParams.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Curves/KeyHandle.h"
+#include "Curves/RichCurve.h"
 
-
-class UMovieSceneSection;
 class FMovieSceneClipboardBuilder;
 class FMovieSceneClipboardKeyTrack;
+class FStructOnScope;
+class ISequencer;
+class UMovieSceneSection;
 struct FMovieSceneClipboardEnvironment;
 struct FSequencerPasteEnvironment;
+struct FSlateBrush;
+enum class EMovieSceneKeyInterpolation : uint8;
 
 /**
  * Information for how to draw each key.
@@ -49,7 +54,7 @@ public:
 	 * @param KeyHandle Handle of the key
 	 * @param The new time of the key
 	 */
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) const = 0;
+	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) = 0;
 
 	/**
 	 * Gets the time of a key given a handle

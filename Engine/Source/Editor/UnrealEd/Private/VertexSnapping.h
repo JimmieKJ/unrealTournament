@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+
+class AActor;
+class FLevelEditorViewportClient;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class UPrimitiveComponent;
+struct FVertexSnappingArgs;
+
 struct FSnappingVertex
 {
 	FSnappingVertex( const FVector& InPosition, const FVector& InNormal )

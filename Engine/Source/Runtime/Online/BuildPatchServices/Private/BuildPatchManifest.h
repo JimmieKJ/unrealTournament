@@ -4,11 +4,19 @@
 	BuildPatchManifest.h: Declares the manifest classes.
 =============================================================================*/
 
-#include "CoreUObject.h"
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Interfaces/IBuildManifest.h"
 #include "BuildPatchChunk.h"
+#include "UObject/GCObject.h"
 #include "BuildPatchManifest.generated.h"
 
-#pragma once
+class FBuildPatchAppManifest;
+class FBuildPatchCustomField;
 
 typedef TSharedPtr< class FBuildPatchCustomField, ESPMode::ThreadSafe > FBuildPatchCustomFieldPtr;
 typedef TSharedRef< class FBuildPatchCustomField, ESPMode::ThreadSafe > FBuildPatchCustomFieldRef;
@@ -109,16 +117,17 @@ namespace EManifestFileHeader
 USTRUCT()
 struct FCustomFieldData
 {
+public:
 	GENERATED_USTRUCT_BODY()
+	FCustomFieldData();
+	FCustomFieldData(const FString& Key, const FString& Value);
 
+public:
 	UPROPERTY()
 	FString Key;
 
 	UPROPERTY()
 	FString Value;
-
-	FCustomFieldData();
-	FCustomFieldData(const FString& Key, const FString& Value);
 };
 
 /**
@@ -127,8 +136,11 @@ struct FCustomFieldData
 USTRUCT()
 struct FChunkInfoData
 {
+public:
 	GENERATED_USTRUCT_BODY()
+	FChunkInfoData();
 
+public:
 	UPROPERTY()
 	FGuid Guid;
 
@@ -143,8 +155,6 @@ struct FChunkInfoData
 
 	UPROPERTY()
 	uint8 GroupNumber;
-
-	FChunkInfoData();
 };
 
 /**
@@ -153,8 +163,11 @@ struct FChunkInfoData
 USTRUCT()
 struct FChunkPartData
 {
+public:
 	GENERATED_USTRUCT_BODY()
+	FChunkPartData();
 
+public:
 	// The GUID of the chunk containing this part
 	UPROPERTY()
 	FGuid Guid;
@@ -166,8 +179,6 @@ struct FChunkPartData
 	// The size of this part
 	UPROPERTY()
 	uint32 Size;
-
-	FChunkPartData();
 };
 
 /**
@@ -176,8 +187,15 @@ struct FChunkPartData
 USTRUCT()
 struct FFileManifestData
 {
+public:
 	GENERATED_USTRUCT_BODY()
+	FFileManifestData();
 
+	void Init();
+	int64 GetFileSize() const;
+	bool operator<(const FFileManifestData& Other) const;
+
+public:
 	UPROPERTY()
 	FString Filename;
 
@@ -202,14 +220,6 @@ struct FFileManifestData
 	UPROPERTY()
 	bool bIsCompressed;
 
-	FFileManifestData();
-
-	void Init();
-
-	int64 GetFileSize() const;
-
-	bool operator<(const FFileManifestData& Other) const;
-
 private:
 	int64 FileSize;
 };
@@ -220,8 +230,13 @@ private:
 UCLASS()
 class UBuildPatchManifest : public UObject
 {
+public:
 	GENERATED_UCLASS_BODY()
+	~UBuildPatchManifest();
 
+	void Clear();
+
+public:
 	UPROPERTY()
 	uint8 ManifestFileVersion;
 
@@ -260,10 +275,6 @@ class UBuildPatchManifest : public UObject
 
 	UPROPERTY()
 	TArray<FCustomFieldData> CustomFields;
-
-	void Clear();
-
-	~UBuildPatchManifest();
 };
 
 /**
@@ -271,16 +282,19 @@ class UBuildPatchManifest : public UObject
  */
 struct FManifestFileHeader
 {
+public:
+	FManifestFileHeader();
+
+	bool CheckMagic() const;
+	friend FArchive& operator<<(FArchive& Ar, FManifestFileHeader& Header);
+
+public:
 	uint32 Magic;
 	uint32 HeaderSize;
 	uint32 DataSize;
 	uint32 CompressedSize;
 	FSHAHashData SHAHash;
 	uint8 StoredAs;
-
-	FManifestFileHeader();
-	bool CheckMagic() const;
-	friend FArchive& operator<<(FArchive& Ar, FManifestFileHeader& Header);
 };
 
 /**
@@ -290,16 +304,7 @@ struct FManifestFileHeader
 class FBuildPatchCustomField
 	: public IManifestField
 {
-private:
-	// Holds the underlying value
-	FString CustomValue;
-
-	/**
-	 * Hide the default constructor
-	 */
-	FBuildPatchCustomField(){}
 public:
-	
 	/**
 	 * Constructor taking the custom value
 	 */
@@ -310,6 +315,16 @@ public:
 	virtual double AsDouble() const override;
 	virtual int64 AsInteger() const override;
 	// END IBuildManifest Interface
+
+private:
+	/**
+	 * Hide the default constructor
+	 */
+	FBuildPatchCustomField(){}
+
+private:
+	// Holds the underlying value
+	FString CustomValue;
 };
 
 /**
@@ -317,21 +332,23 @@ public:
  */
 struct FFileChunkPart
 {
+public:
+	/**
+	 * Default Constructor
+	 */
+	FFileChunkPart()
+		: Filename()
+		, FileOffset(0)
+		, ChunkPart()
+	{}
+
+public:
 	// The file containing this piece
 	FString Filename;
 	// The offset into the file of this piece
 	uint64 FileOffset;
 	// The FChunkPartData that can be salvaged from this file
 	FChunkPartData ChunkPart;
-
-	/**
-	* Default Constructor
-	*/
-	FFileChunkPart()
-		: Filename()
-		, FileOffset(0)
-		, ChunkPart()
-	{}
 };
 
 // Required to allow private access to manifest builder for now..
@@ -344,7 +361,7 @@ namespace BuildPatchServices
  * Declare the FBuildPatchAppManifest object class. This holds the UObject data, and the implemented build manifest functionality
  */
 class FBuildPatchAppManifest
-	: public IBuildManifest, FGCObject
+	: public IBuildManifest
 {
 	// Allow access to build processor classes
 	friend class FBuildDataGenerator;
@@ -352,6 +369,7 @@ class FBuildPatchAppManifest
 	friend class FBuildPatchInstaller;
 	friend class BuildPatchServices::FManifestBuilder;
 	friend class FBuildMergeManifests;
+	friend class FBuildDiffManifests;
 public:
 
 	/**
@@ -385,14 +403,15 @@ public:
 	virtual const FString& GetPrereqArgs() const override;
 	virtual int64 GetDownloadSize() const override;
 	virtual int64 GetDownloadSize(const TSet<FString>& Tags) const override;
+	virtual int64 GetDeltaDownloadSize(const TSet<FString>& Tags, const IBuildManifestRef& PreviousVersion) const override;
 	virtual int64 GetBuildSize() const override;
 	virtual int64 GetBuildSize(const TSet<FString>& Tags) const override;
 	virtual TArray<FString> GetBuildFileList() const override;
 	virtual void GetFileTagList(TSet<FString>& Tags) const override;
-	virtual void GetRemovableFiles(IBuildManifestRef OldManifest, TArray< FString >& RemovableFiles) const override;
+	virtual void GetRemovableFiles(const IBuildManifestRef& OldManifest, TArray< FString >& RemovableFiles) const override;
 	virtual void GetRemovableFiles(const TCHAR* InstallPath, TArray< FString >& RemovableFiles) const override;
 	virtual bool NeedsResaving() const override;
-	virtual void CopyCustomFields(IBuildManifestRef Other, bool bClobber) override;
+	virtual void CopyCustomFields(const IBuildManifestRef& Other, bool bClobber) override;
 	virtual const IManifestFieldPtr GetCustomField(const FString& FieldName) const override;
 	virtual const IManifestFieldPtr SetCustomField(const FString& FieldName, const FString& Value) override;
 	virtual const IManifestFieldPtr SetCustomField(const FString& FieldName, const double& Value) override;
@@ -444,10 +463,12 @@ public:
 
 	/**
 	 * Provides a list of chunks required to produce the list of given files.
-	 * @param FileList			IN		The list of files.
-	 * @param RequiredChunks	OUT		The list of chunk GUIDs needed for those files.
+	 * @param FileList          IN      The list of files.
+	 * @param RequiredChunks    OUT     The list of chunk GUIDs needed for those files.
+	 * @param bAddUnique        IN      If true, will not add duplicate entries. Optional, default true.
 	 */
-	void GetChunksRequiredForFiles(const TArray< FString >& FileList, TArray< FGuid >& RequiredChunks, bool bAddUnique = true) const;
+	void GetChunksRequiredForFiles(const TArray<FString>& FileList, TArray<FGuid>& RequiredChunks, bool bAddUnique = true) const;
+	void GetChunksRequiredForFiles(const TSet<FString>&   FileList, TArray<FGuid>& RequiredChunks, bool bAddUnique = true) const;
 
 	/**
 	 * Get the number of times a chunks is referenced in this manifest
@@ -484,7 +505,8 @@ public:
 	 * @param Filenames		The array of files.
 	 * @return		Total size of files in array.
 	 */
-	int64 GetFileSize(const TArray< FString >& Filenames) const;
+	int64 GetFileSize(const TArray<FString>& Filenames) const;
+	int64 GetFileSize(const TSet<FString>&   Filenames) const;
 
 	/**
 	 * Returns the number of files in this build.
@@ -516,7 +538,7 @@ public:
 	 * @param Filename	The filename.
 	 * @return	The file manifest, or invalid ptr
 	 */
-	const FFileManifestData* GetFileManifest(const FString& Filename);
+	const FFileManifestData* GetFileManifest(const FString& Filename) const;
 
 	/**
 	 * Gets whether this manifest is made up of file data instead of chunk data
@@ -573,29 +595,19 @@ public:
 	void EnumerateProducibleChunks(const FString& InstallDirectory, const TArray<FGuid>& ChunksRequired, TArray<FGuid>& ChunksAvailable) const;
 
 	/**
-	 * Gets a list of files that were installed with the Old Manifest, but no longer required by the New Manifest.
-	 * @param OldManifest		IN		The Build Manifest that is currently installed
-	 * @param NewManifest		IN		The Build Manifest that is being patched to
-	 * @param RemovableFiles	OUT		A list to receive the files that may be removed.
-	 */
-	static void GetRemovableFiles(FBuildPatchAppManifestRef OldManifest, FBuildPatchAppManifestRef NewManifest, TArray< FString >& RemovableFiles);
-
-	/**
-	 * Gets a list of files that have different hash values in the New Manifest, to those in the Old Manifest.
+	 * Gets a list of files that have changed or are new in the this manifest, compared to those in the old manifest, or are missing from disk.
 	 * @param OldManifest		IN		The Build Manifest that is currently installed. Shared Ptr - Can be invalid.
-	 * @param NewManifest		IN		The Build Manifest that is being patched to. Shared Ref - Implicitly valid.
 	 * @param InstallDirectory	IN		The Build installation directory, so that it can be checked for missing files.
 	 * @param OutDatedFiles		OUT		The files that changed hash, are new, are wrong size, or missing on disk.
 	 */
-	static void GetOutdatedFiles(FBuildPatchAppManifestPtr OldManifest, FBuildPatchAppManifestRef NewManifest, const FString& InstallDirectory, TSet<FString>& OutDatedFiles);
+	BUILDPATCHSERVICES_API void GetOutdatedFiles(const FBuildPatchAppManifestPtr& OldManifest, const FString& InstallDirectory, TSet<FString>& OutDatedFiles) const;
 
 	/**
-	 * Check a single file to see if it will be effected by patching
+	 * Check a single file to see if it will be effected by patching from a previous version.
 	 * @param OldManifest		The Build Manifest that is currently installed. Shared Ref - Implicitly valid.
-	 * @param NewManifest		The Build Manifest that is being patched to. Shared Ref - Implicitly valid.
 	 * @param Filename			The Build installation directory, so that it can be checked for missing files.
 	 */
-	static bool IsFileOutdated(FBuildPatchAppManifestRef OldManifest, FBuildPatchAppManifestRef NewManifest, const FString& Filename);
+	bool IsFileOutdated(const FBuildPatchAppManifestRef& OldManifest, const FString& Filename) const;
 
 	/**
 	 * Populates a map of FFileChunkParts referring to the chunks in the given array, that should be accessible locally.
@@ -609,10 +621,6 @@ public:
 
 	/** @return True if this manifest is for the same build, i.e. same ID, Name, and Version */
 	bool IsSameAs(FBuildPatchAppManifestRef InstallManifest) const;
-public:
-
-	// FGCObject API
-	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
 
 private:
 
@@ -630,8 +638,23 @@ private:
 
 private:
 
-	/** Holds the actual manifest data. Some other variables point to the memory held by this object */
-	UBuildPatchManifest* Data;
+	/** Holds the actual manifest data. Some other variables point to the memory held by these objects */
+	uint8 ManifestFileVersion;
+	bool bIsFileData;
+	uint32 AppID;
+	FString AppName;
+	FString BuildVersion;
+	FString LaunchExe;
+	FString LaunchCommand;
+	FString PrereqName;
+	FString PrereqPath;
+	FString PrereqArgs;
+	TArray<FFileManifestData> FileManifestList;
+	TArray<FChunkInfoData> ChunkList;
+	TArray<FCustomFieldData> CustomFields;
+
+	/** Holds the handle to our PreExit delegate */
+	FDelegateHandle OnPreExitHandle;
 
 	/** Some lookups to optimize data access */
 	TMap<FGuid, FString*> FileNameLookup;

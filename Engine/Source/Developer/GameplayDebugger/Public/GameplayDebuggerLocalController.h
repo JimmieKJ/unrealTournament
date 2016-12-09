@@ -2,12 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/EngineTypes.h"
 #include "GameplayDebuggerLocalController.generated.h"
 
+class AActor;
 class AGameplayDebuggerCategoryReplicator;
 class AGameplayDebuggerPlayerManager;
-class FGameplayDebuggerExtension;
+class FGameplayDebuggerCanvasContext;
+class FGameplayDebuggerCategory;
 class UInputComponent;
+struct FKey;
 
 UCLASS(NotBlueprintable, NotBlueprintType, noteditinlinenew, hidedropdown, Transient)
 class UGameplayDebuggerLocalController : public UObject
@@ -28,6 +35,9 @@ class UGameplayDebuggerLocalController : public UObject
 	/** binds input actions */
 	void BindInput(UInputComponent& InputComponent);
 
+	/** checks if key is bound by any action */
+	bool IsKeyBound(const FName KeyName) const;
+
 protected:
 
 	UPROPERTY()
@@ -43,7 +53,7 @@ protected:
 	TArray<TArray<int32> > SlotCategoryIds;
 	TArray<FString> SlotNames;
 
-	TSet<FName> MaskedDebugBindings;
+	TSet<FName> UsedBindings;
 
 	uint32 bSimulateMode : 1;
 	uint32 bNeedsCleanup : 1;
@@ -96,9 +106,6 @@ protected:
 
 	/** draw header row */
 	void DrawHeader(FGameplayDebuggerCanvasContext& CanvasContext);
-
-	/** draw header row for simulate in editor mode */
-	void DrawSimulateHeader(FGameplayDebuggerCanvasContext& CanvasContext);
 
 	/** draw header for category */
 	void DrawCategoryHeader(int32 CategoryId, TSharedRef<FGameplayDebuggerCategory> Category, FGameplayDebuggerCanvasContext& CanvasContext);

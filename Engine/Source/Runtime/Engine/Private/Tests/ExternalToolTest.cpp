@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "AutomationTestCommon.h"
+#include "CoreMinimal.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/AutomationTest.h"
 #include "Tests/AutomationTestSettings.h"
 
 #if WITH_DEV_AUTOMATION_TESTS

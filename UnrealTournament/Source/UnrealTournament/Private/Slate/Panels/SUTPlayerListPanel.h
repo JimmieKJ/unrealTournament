@@ -197,7 +197,7 @@ public:
 		if (PlayerState.IsValid())
 		{
 			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
-			AUTBaseGameMode* BaseGame = nullptr;
+			const AUTBaseGameMode* BaseGame = nullptr;
 			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState.Get());
 			if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
 			{
@@ -206,7 +206,7 @@ public:
 			else
 			{
 				// Attempt to use the GameMode
-				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GetDefaultGameMode<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 			}
 
 			bool bRankedSession = false;
@@ -215,7 +215,7 @@ public:
 				bRankedSession = UTGameState->bRankedSession;
 			}
 
-			PlayerState->GetBadgeFromELO(BaseGame, bRankedSession, Badge, Level);
+			PlayerState->GetBadgeFromELO(const_cast<AUTBaseGameMode*>(BaseGame), bRankedSession, Badge, Level);
 		}
 		else
 		{
@@ -235,7 +235,7 @@ public:
 		if (PlayerState.IsValid())
 		{
 			AUTGameState* UTGameState = PlayerState->GetWorld()->GetGameState<AUTGameState>();
-			AUTBaseGameMode* BaseGame = nullptr;
+			const AUTBaseGameMode* BaseGame = nullptr;
 			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState.Get());
 			if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
 			{
@@ -244,7 +244,7 @@ public:
 			else
 			{
 				// Attempt to use the GameMode
-				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+				BaseGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GetDefaultGameMode<AUTBaseGameMode>() : AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 			}
 
 			bool bRankedSession = false;
@@ -253,7 +253,7 @@ public:
 				bRankedSession = UTGameState->bRankedSession;
 			}
 
-			PlayerState->GetBadgeFromELO(BaseGame, bRankedSession, Badge, Level);
+			PlayerState->GetBadgeFromELO(const_cast<AUTBaseGameMode*>(BaseGame), bRankedSession, Badge, Level);
 		}
 		else
 		{

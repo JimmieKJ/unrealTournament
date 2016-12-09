@@ -4,44 +4,57 @@
 	UnMaterial.cpp: Shader implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Materials/MaterialFunction.h"
+#include "Materials/Material.h"
+#include "Stats/StatsMisc.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/RenderingObjectVersion.h"
+#include "Misc/App.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "UObject/UObjectAnnotation.h"
+#include "UObject/LinkerLoad.h"
+#include "EngineGlobals.h"
+#include "Materials/MaterialInstance.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "UnrealEngine.h"
 #include "Materials/MaterialExpressionCollectionParameter.h"
-#include "Materials/MaterialExpressionComment.h"
 #include "Materials/MaterialExpressionCustomOutput.h"
 #include "Materials/MaterialExpressionDynamicParameter.h"
 #include "Materials/MaterialExpressionFontSampleParameter.h"
-#include "Materials/MaterialExpressionMaterialFunctionCall.h"
-#include "Materials/MaterialExpressionMultiply.h"
 #include "Materials/MaterialExpressionQualitySwitch.h"
+#include "Materials/MaterialExpressionParameter.h"
 #include "Materials/MaterialExpressionScalarParameter.h"
 #include "Materials/MaterialExpressionStaticBoolParameter.h"
 #include "Materials/MaterialExpressionStaticComponentMaskParameter.h"
 #include "Materials/MaterialExpressionStaticSwitchParameter.h"
+#include "Materials/MaterialExpressionTextureBase.h"
+#include "Materials/MaterialExpressionTextureSample.h"
 #include "Materials/MaterialExpressionTextureSampleParameter.h"
 #include "Materials/MaterialExpressionVectorParameter.h"
 #include "Materials/MaterialExpressionSceneColor.h"
-#include "MaterialUniformExpressions.h"
+#include "SceneManagement.h"
+#include "Materials/MaterialUniformExpressions.h"
 #include "Engine/SubsurfaceProfile.h"
 #include "EditorSupportDelegates.h"
-#include "MaterialShaderType.h"
-#include "MaterialInstanceSupport.h"
-#include "UObjectAnnotation.h"
-#include "MaterialCompiler.h"
-#include "TargetPlatform.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "ShaderCompiler.h"
 #include "Materials/MaterialParameterCollection.h"
+#include "ShaderPlatformQualitySettings.h"
 #include "MaterialShaderQualitySettings.h"
-#include "LoadTimeTracker.h"
-#include "RenderingObjectVersion.h"
+#include "ProfilingDebugging/LoadTimeTracker.h"
+#include "MaterialCompiler.h"
+#include "Materials/MaterialInstanceSupport.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Materials/MaterialExpressionComment.h"
 #if WITH_EDITOR
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "UnrealEd.h"
-#include "SlateBasics.h"  // For AddNotification
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "MaterialGraph/MaterialGraph.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "Material"
@@ -100,19 +113,19 @@ int32 FMaterialResource::CompilePropertyAndSetMaterialProperty(EMaterialProperty
 		case MP_EmissiveColor:
 			if (SelectionColorIndex != INDEX_NONE)
 			{
-				Ret = Compiler->Add(Compiler->ForceCast(MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor), MCT_Float3), SelectionColorIndex);
+				Ret = Compiler->Add(MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor, MFCF_ForceCast), SelectionColorIndex);
 			}
 			else
 			{
-				Ret = Compiler->ForceCast(MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor), MCT_Float3);
+				Ret = MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor);
 			}
 			break;
 
 		case MP_DiffuseColor: 
-			Ret = Compiler->Mul(Compiler->ForceCast(MaterialInterface->CompileProperty(Compiler, MP_DiffuseColor), MCT_Float3), Compiler->Sub(Compiler->Constant(1.0f), SelectionColorIndex));
+			Ret = Compiler->Mul(MaterialInterface->CompileProperty(Compiler, MP_DiffuseColor, MFCF_ForceCast), Compiler->Sub(Compiler->Constant(1.0f), SelectionColorIndex));
 			break;
 		case MP_BaseColor: 
-			Ret = Compiler->Mul(Compiler->ForceCast(MaterialInterface->CompileProperty(Compiler, MP_BaseColor),MCT_Float3),Compiler->Sub(Compiler->Constant(1.0f),SelectionColorIndex));
+			Ret = Compiler->Mul(MaterialInterface->CompileProperty(Compiler, MP_BaseColor, MFCF_ForceCast), Compiler->Sub(Compiler->Constant(1.0f), SelectionColorIndex));
 			break;
 		case MP_MaterialAttributes:
 			Ret = INDEX_NONE;
@@ -122,12 +135,19 @@ int32 FMaterialResource::CompilePropertyAndSetMaterialProperty(EMaterialProperty
 	};
 
 	// output should always be the right type for this property
-	return Compiler->ForceCast(Ret, GetMaterialPropertyType(Property));
+	return Compiler->ForceCast(Ret, FMaterialAttributeDefinitionMap::GetValueType(Property));
 #else // WITH_EDITOR
 	check(0); // This is editor-only function
 	return INDEX_NONE;
 #endif // WITH_EDITOR
 }
+
+#if HANDLE_CUSTOM_OUTPUTS_AS_MATERIAL_ATTRIBUTES
+int32 FMaterialResource::CompileCustomAttribute(const FGuid& AttributeID, FMaterialCompiler* Compiler) const
+{
+	return Material->CompilePropertyEx(Compiler, AttributeID);
+}
+#endif
 
 void FMaterialResource::GatherCustomOutputExpressions(TArray<UMaterialExpressionCustomOutput*>& OutCustomOutputs) const
 {
@@ -139,6 +159,9 @@ void FMaterialResource::GetShaderMapId(EShaderPlatform Platform, FMaterialShader
 	FMaterial::GetShaderMapId(Platform, OutId);
 	Material->GetReferencedFunctionIds(OutId.ReferencedFunctions);
 	Material->GetReferencedParameterCollectionIds(OutId.ReferencedParameterCollections);
+
+	Material->GetForceRecompileTextureIdsHash(OutId.TextureReferencesHash);
+
 	if(MaterialInstance)
 	{
 		MaterialInstance->GetBasePropertyOverridesHash(OutId.BasePropertyOverridesHash);
@@ -208,7 +231,9 @@ public:
 				{
 					if( IsSelected() )
 					{
-						*OutValue = GEngine->GetSelectedMaterialColor() * GEngine->SelectionHighlightIntensity;
+						// Note this code is only used for mesh selections in mesh editors now
+						// Selected objects in the level editor now goes through the selection outline post process effect where it applies the highlight intensity there
+						*OutValue = GEngine->GetSelectedMaterialColor() * GEngine->SelectionMeshSectionHighlightIntensity;
 					}
 					else if( IsHovered() )
 					{
@@ -386,6 +411,12 @@ void UMaterialInterface::PostLoadDefaultMaterials()
 			UMaterial* Material = GDefaultMaterials[Domain];
 			check(Material);
 			Material->ConditionalPostLoad();
+			// Sometimes the above will get called before the material has been fully serialized
+			// in this case its NeedPostLoad flag will not be cleared.
+			if (Material->HasAnyFlags(RF_NeedPostLoad))
+			{
+				bPostLoaded = false;
+			}
 		}
 	}
 }
@@ -626,6 +657,7 @@ UMaterial::UMaterial(const FObjectInitializer& ObjectInitializer)
 	bUseTranslucencyVertexFog = true;
 	BlendableLocation = BL_AfterTonemapping;
 	BlendablePriority = 0;
+	BlendableOutputAlpha = false;
 
 	bUseEmissiveForDynamicAreaLighting = false;
 	bBlockGI = false;
@@ -1178,7 +1210,11 @@ bool UMaterial::SetMaterialUsage(bool &bNeedsRecompile, EMaterialUsage Usage, co
 		if( GIsEditor && !FApp::IsGame() && bAutomaticallySetUsageInEditor )
 		{
 			check(IsInGameThread());
-			UE_LOG(LogMaterial, Warning, TEXT("Material %s needed to have new flag set %s !"), *GetPathName(), *GetUsageName(Usage));
+			//Do not warn the user during automation testing
+			if (!GIsAutomationTesting)
+			{
+				UE_LOG(LogMaterial, Warning, TEXT("Material %s needed to have new flag set %s !"), *GetPathName(), *GetUsageName(Usage));
+			}
 
 			// Open a material update context so this material can be modified safely.
 			FMaterialUpdateContext UpdateContext(
@@ -1916,6 +1952,97 @@ static FAutoConsoleVariable GCompileMaterialsForShaderFormatCVar(
 	TEXT("Note that these shaders are compiled and immediately tossed. This is only useful when directly inspecting output via r.DebugDumpShaderInfo.")
 	);
 
+void UMaterial::GetForceRecompileTextureIdsHash(FSHAHash &TextureReferencesHash)
+{
+	TArray<UTexture*> ForceRecompileTextures;
+	for (const UMaterialExpression *MaterialExpression : Expressions)
+	{
+		if (MaterialExpression == nullptr)
+		{
+			continue;
+		}
+		TArray<UTexture*> ExpressionForceRecompileTextures;
+		MaterialExpression->GetTexturesForceMaterialRecompile(ExpressionForceRecompileTextures);
+		for (UTexture *ForceRecompileTexture : ExpressionForceRecompileTextures)
+		{
+			ForceRecompileTextures.AddUnique(ForceRecompileTexture);
+		}
+	}
+	if (ForceRecompileTextures.Num() <= 0)
+	{
+		//There is no Texture that trig a recompile of the material, nothing to add to the hash
+		return;
+	}
+
+	FSHA1 TextureCompileDependencies;
+	FString OriginalHash = TextureReferencesHash.ToString();
+	TextureCompileDependencies.UpdateWithString(*OriginalHash, OriginalHash.Len());
+
+	for (UTexture *ForceRecompileTexture : ForceRecompileTextures)
+	{
+		FString TextureGuidString = ForceRecompileTexture->GetLightingGuid().ToString();
+		TextureCompileDependencies.UpdateWithString(*TextureGuidString, TextureGuidString.Len());
+	}
+
+	TextureCompileDependencies.Final();
+	TextureCompileDependencies.GetHash(&TextureReferencesHash.Hash[0]);
+}
+
+bool UMaterial::IsTextureForceRecompileCacheRessource(UTexture *Texture)
+{
+	for (const UMaterialExpression *MaterialExpression : Expressions)
+	{
+		if (MaterialExpression == nullptr)
+		{
+			continue;
+		}
+		TArray<UTexture*> ExpressionForceRecompileTextures;
+		MaterialExpression->GetTexturesForceMaterialRecompile(ExpressionForceRecompileTextures);
+		for (UTexture *ForceRecompileTexture : ExpressionForceRecompileTextures)
+		{
+			if (Texture == ForceRecompileTexture)
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+#if WITH_EDITOR
+
+void UMaterial::UpdateMaterialShaderCacheAndTextureReferences()
+{
+	// If the material changes, then the debug view material must reset to prevent parameters mismatch
+	void ClearAllDebugViewMaterials();
+	ClearAllDebugViewMaterials();
+
+	//Cancel any current compilation jobs that are in flight for this material.
+	CancelOutstandingCompilation();
+
+	//Force a recompute of the DDC key
+	CacheResourceShadersForRendering(true);
+	RecacheMaterialInstanceUniformExpressions(this);
+	
+	// Ensure that the ReferencedTextureGuids array is up to date.
+	if (GIsEditor)
+	{
+		UpdateLightmassTextureTracking();
+	}
+
+	// Ensure that any components with static elements using this material have their render state recreated
+	// so changes are propagated to them. The preview material is only applied to the preview mesh component,
+	// and that reregister is handled by the material editor.
+	if (!bIsPreviewMaterial && !bIsMaterialEditorStatsMaterial)
+	{
+		FGlobalComponentRecreateRenderStateContext RecreateComponentsRenderState;
+	}
+	// needed for UMaterial as it doesn't have the InitResources() override where this is called
+	PropagateDataToMaterialProxy();
+}
+
+#endif //WITH_EDITOR
+
 void UMaterial::CacheResourceShadersForRendering(bool bRegenerateId)
 {
 	if (bRegenerateId)
@@ -2231,7 +2358,7 @@ void UMaterial::Serialize(FArchive& Ar)
 	}
 #endif // #if WITH_EDITOR
 
-	static_assert(MP_MAX == 28, "New material properties must have DoMaterialAttributesReorder called on them to ensure that any future reordering of property pins is correctly applied.");
+	static_assert(MP_MAX == 29, "New material properties must have DoMaterialAttributesReorder called on them to ensure that any future reordering of property pins is correctly applied.");
 
 	if (Ar.UE4Ver() < VER_UE4_MATERIAL_MASKED_BLENDMODE_TIDY)
 	{
@@ -2372,23 +2499,26 @@ void UMaterial::GetQualityLevelNodeUsage(TArray<bool, TInlineAllocator<EMaterial
 
 void UMaterial::UpdateResourceAllocations()
 {
-	for (int32 FeatureLevelIndex = 0; FeatureLevelIndex < ERHIFeatureLevel::Num; FeatureLevelIndex++)
+	if (FApp::CanEverRender())
 	{
-		TArray<bool, TInlineAllocator<EMaterialQualityLevel::Num> > QualityLevelsUsed;
-		EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevelIndex];
-		GetQualityLevelUsage(QualityLevelsUsed, ShaderPlatform);
-		for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
+		for (int32 FeatureLevelIndex = 0; FeatureLevelIndex < ERHIFeatureLevel::Num; FeatureLevelIndex++)
 		{
-			FMaterialResource*& CurrentResource = MaterialResources[QualityLevelIndex][FeatureLevelIndex];
-
-			if (!CurrentResource)
+			TArray<bool, TInlineAllocator<EMaterialQualityLevel::Num> > QualityLevelsUsed;
+			EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevelIndex];
+			GetQualityLevelUsage(QualityLevelsUsed, ShaderPlatform);
+			for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
 			{
-				CurrentResource = AllocateResource();
-			}
+				FMaterialResource*& CurrentResource = MaterialResources[QualityLevelIndex][FeatureLevelIndex];
 
-			const bool bHasQualityLevelUsage = QualityLevelsUsed[QualityLevelIndex];
-			// Setup transient FMaterialResource properties that are needed to use this resource for rendering or compilation
-			CurrentResource->SetMaterial(this, (EMaterialQualityLevel::Type)QualityLevelIndex, bHasQualityLevelUsage, (ERHIFeatureLevel::Type)FeatureLevelIndex);
+				if (!CurrentResource)
+				{
+					CurrentResource = AllocateResource();
+				}
+
+				const bool bHasQualityLevelUsage = QualityLevelsUsed[QualityLevelIndex];
+				// Setup transient FMaterialResource properties that are needed to use this resource for rendering or compilation
+				CurrentResource->SetMaterial(this, (EMaterialQualityLevel::Type)QualityLevelIndex, bHasQualityLevelUsage, (ERHIFeatureLevel::Type)FeatureLevelIndex);
+			}
 		}
 	}
 }
@@ -2560,7 +2690,8 @@ void UMaterial::PostLoad()
 	STAT(double MaterialLoadTime = 0);
 	{
 		SCOPE_SECONDS_COUNTER(MaterialLoadTime);
-#if WITH_EDITOR
+// Daniel: Disable compiling shaders for cooked platforms as the cooker will manually call the BeginCacheForCookedPlatformData function and load balence
+/*#if WITH_EDITOR
 		// enable caching in postload for derived data cache commandlet and cook by the book
 		ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
 		if (TPM && (TPM->RestrictFormatsToRuntimeOnly() == false))
@@ -2572,7 +2703,7 @@ void UMaterial::PostLoad()
 				BeginCacheForCookedPlatformData(Platforms[FormatIndex]);
 			}
 		}
-#endif
+#endif*/
 		//Don't compile shaders in post load for dev overhead materials.
 		if (FApp::CanEverRender() && !bIsMaterialEditorStatsMaterial)
 		{
@@ -2725,7 +2856,7 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, DitherOpacityMask)
 			)
 		{
-			return BlendMode == BLEND_Masked;
+			return BlendMode == BLEND_Masked || IsTranslucencyWritingCustomDepth();
 		}
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, DecalBlendMode))
@@ -2778,8 +2909,8 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 		}
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, BlendableLocation) ||
-			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, BlendablePriority)
-			)
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, BlendablePriority) || 
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, BlendableOutputAlpha)	)
 		{
 			return MaterialDomain == MD_PostProcess;
 		}
@@ -3289,27 +3420,26 @@ void UMaterial::FinishDestroy()
 	Super::FinishDestroy();
 }
 
-
-SIZE_T UMaterial::GetResourceSize(EResourceSizeMode::Type Mode)
+void UMaterial::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	int32 ResourceSize = Super::GetResourceSize(Mode);
+	Super::GetResourceSizeEx(CumulativeResourceSize);
 
 	for (int32 InstanceIndex = 0; InstanceIndex < 3; ++InstanceIndex)
 	{
 		if (DefaultMaterialInstances[InstanceIndex])
 		{
-			ResourceSize += sizeof(FDefaultMaterialInstance);
+			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(FDefaultMaterialInstance));
 		}
 	}
 
-	if (Mode == EResourceSizeMode::Inclusive)
+	if (CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::Inclusive)
 	{
 		for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
 		{
 			for (int32 FeatureLevelIndex = 0; FeatureLevelIndex < ERHIFeatureLevel::Num; FeatureLevelIndex++)
 			{
 				FMaterialResource* CurrentResource = MaterialResources[QualityLevelIndex][FeatureLevelIndex];
-				ResourceSize += CurrentResource->GetResourceSizeInclusive();
+				CurrentResource->GetResourceSizeEx(CumulativeResourceSize);
 			}
 		}
 
@@ -3324,13 +3454,11 @@ SIZE_T UMaterial::GetResourceSize(EResourceSizeMode::Type Mode)
 				if ( !bTextureAlreadyConsidered )
 				{
 					TheReferencedTextures.Add( Texture );
-					ResourceSize += Texture->GetResourceSize(Mode);
+					Texture->GetResourceSizeEx(CumulativeResourceSize);
 				}
 			}
 		}
 	}
-
-	return ResourceSize;
 }
 
 void UMaterial::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
@@ -3342,7 +3470,10 @@ void UMaterial::AddReferencedObjects(UObject* InThis, FReferenceCollector& Colle
 		for (int32 FeatureLevelIndex = 0; FeatureLevelIndex < ERHIFeatureLevel::Num; FeatureLevelIndex++)
 		{
 			FMaterialResource* CurrentResource = This->MaterialResources[QualityLevelIndex][FeatureLevelIndex];
-			CurrentResource->AddReferencedObjects(Collector);
+			if (CurrentResource)
+			{
+				CurrentResource->AddReferencedObjects(Collector);
+			}
 		}
 	}
 #if WITH_EDITORONLY_DATA
@@ -3436,7 +3567,7 @@ void UMaterial::UpdateMaterialShaders(TArray<FShaderType*>& ShaderTypesToFlush, 
 	FMaterial::UpdateEditorLoadedMaterialResources(ShaderPlatform);
 }
 
-void UMaterial::BackupMaterialShadersToMemory(TMap<FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData)
+void UMaterial::BackupMaterialShadersToMemory(TMap<FMaterialShaderMap*, TUniquePtr<TArray<uint8> > >& ShaderMapToSerializedShaderData)
 {
 	// Process FMaterialShaderMap's referenced by UObjects (UMaterial, UMaterialInstance)
 	for (TObjectIterator<UMaterialInterface> It; It; ++It)
@@ -3487,7 +3618,7 @@ void UMaterial::BackupMaterialShadersToMemory(TMap<FMaterialShaderMap*, TScopedP
 	FMaterial::BackupEditorLoadedMaterialShadersToMemory(ShaderMapToSerializedShaderData);
 }
 
-void UMaterial::RestoreMaterialShadersFromMemory(const TMap<FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData)
+void UMaterial::RestoreMaterialShadersFromMemory(const TMap<FMaterialShaderMap*, TUniquePtr<TArray<uint8> > >& ShaderMapToSerializedShaderData)
 {
 	// Process FMaterialShaderMap's referenced by UObjects (UMaterial, UMaterialInstance)
 	for (TObjectIterator<UMaterialInterface> It; It; ++It)
@@ -3509,7 +3640,7 @@ void UMaterial::RestoreMaterialShadersFromMemory(const TMap<FMaterialShaderMap*,
 
 					if (ShaderMap)
 					{
-						const TScopedPointer<TArray<uint8> >* ShaderData = ShaderMapToSerializedShaderData.Find(ShaderMap);
+						const TUniquePtr<TArray<uint8> >* ShaderData = ShaderMapToSerializedShaderData.Find(ShaderMap);
 
 						if (ShaderData)
 						{
@@ -3530,7 +3661,7 @@ void UMaterial::RestoreMaterialShadersFromMemory(const TMap<FMaterialShaderMap*,
 
 					if (ShaderMap)
 					{
-						const TScopedPointer<TArray<uint8> >* ShaderData = ShaderMapToSerializedShaderData.Find(ShaderMap);
+						const TUniquePtr<TArray<uint8> >* ShaderData = ShaderMapToSerializedShaderData.Find(ShaderMap);
 
 						if (ShaderData)
 						{
@@ -3950,11 +4081,13 @@ void UMaterial::GetReferencedParameterCollectionIds(TArray<FGuid>& Ids) const
 }
 
 #if WITH_EDITOR
-int32 UMaterial::CompilePropertyEx( FMaterialCompiler* Compiler, EMaterialProperty Property )
+int32 UMaterial::CompilePropertyEx( FMaterialCompiler* Compiler, const FGuid& AttributeID )
 {
+	const EMaterialProperty Property = FMaterialAttributeDefinitionMap::GetProperty(AttributeID);
+
 	if( bUseMaterialAttributes && MP_DiffuseColor != Property && MP_SpecularColor != Property )
 	{
-		return MaterialAttributes.CompileWithDefault(Compiler, Property);
+		return MaterialAttributes.CompileWithDefault(Compiler, AttributeID);
 	}
 
 	switch (Property)
@@ -4118,6 +4251,10 @@ bool UMaterial::IsDitheredLODTransition() const
 	return DitheredLODTransition != 0;
 }
 
+bool UMaterial::IsTranslucencyWritingCustomDepth() const
+{
+	return AllowTranslucentCustomDepthWrites != 0 && IsTranslucentBlendMode(GetBlendMode());
+}
 
 bool UMaterial::IsMasked() const
 {
@@ -4134,7 +4271,7 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 {
 	if(MaterialDomain == MD_PostProcess)
 	{
-		return InProperty == MP_EmissiveColor;
+		return InProperty == MP_EmissiveColor || ( BlendableOutputAlpha && InProperty == MP_Opacity );
 	}
 	else if(MaterialDomain == MD_LightFunction)
 	{

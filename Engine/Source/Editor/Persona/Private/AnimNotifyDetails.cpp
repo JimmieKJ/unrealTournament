@@ -1,16 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PersonaPrivatePCH.h"
 #include "AnimNotifyDetails.h"
-#include "SAssetSearchBox.h"
-#include "PropertyHandle.h"
-#include "IDetailPropertyRow.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Animation/AnimTypes.h"
+#include "Animation/AnimationAsset.h"
 #include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
-#include "IDetailsView.h"
+#include "Animation/AnimMontage.h"
+#include "Animation/EditorNotifyObject.h"
 #include "AssetSearchBoxUtilPersona.h"
-#include "STextComboBox.h"
+#include "Widgets/Input/STextComboBox.h"
 
 TSharedRef<IDetailCustomization> FAnimNotifyDetails::MakeInstance()
 {

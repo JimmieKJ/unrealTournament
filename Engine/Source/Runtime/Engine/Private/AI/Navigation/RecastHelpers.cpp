@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "AI/Navigation/RecastHelpers.h"
 
 ENGINE_API FVector Unreal2RecastPoint(const FVector& UnrealPoint)

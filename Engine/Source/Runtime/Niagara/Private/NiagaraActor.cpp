@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "NiagaraPrivate.h"
 #include "NiagaraActor.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/Texture2D.h"
+#include "Components/ArrowComponent.h"
+#include "Components/BillboardComponent.h"
 #include "NiagaraComponent.h"
 #include "NiagaraEffect.h"
 

@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphPinBool.h"
-#include "Editor/UnrealEd/Public/ScopedTransaction.h"
+#include "KismetPins/SGraphPinBool.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "ScopedTransaction.h"
 
 void SGraphPinBool::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {

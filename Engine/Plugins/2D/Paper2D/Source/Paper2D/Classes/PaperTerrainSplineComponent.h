@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Components/SplineComponent.h"
 #include "PaperTerrainSplineComponent.generated.h"
 

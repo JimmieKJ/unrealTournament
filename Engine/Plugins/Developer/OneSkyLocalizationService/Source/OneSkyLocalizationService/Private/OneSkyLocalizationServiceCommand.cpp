@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OneSkyLocalizationServicePrivatePCH.h"
 #include "OneSkyLocalizationServiceCommand.h"
+#include "HAL/PlatformProcess.h"
+#include "Modules/ModuleManager.h"
 #include "OneSkyLocalizationServiceModule.h"
-#include "IOneSkyLocalizationServiceWorker.h"
 
 FOneSkyLocalizationServiceCommand::FOneSkyLocalizationServiceCommand(const TSharedRef<class ILocalizationServiceOperation, ESPMode::ThreadSafe>& InOperation, const TSharedRef<class IOneSkyLocalizationServiceWorker, ESPMode::ThreadSafe>& InWorker, const FLocalizationServiceOperationComplete& InOperationCompleteDelegate /*= FTranslationServiceOperationComplete() */)
 	: Operation(InOperation)

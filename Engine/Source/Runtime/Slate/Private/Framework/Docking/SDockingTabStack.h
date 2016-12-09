@@ -2,7 +2,30 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Margin.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Geometry.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Animation/CurveSequence.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Framework/Docking/TabManager.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "SDockingNode.h"
+#include "Widgets/Docking/SDockTab.h"
+
 #define DEBUG_TAB_MANAGEMENT 0
+
+class FUICommandList;
+class FWeakWidgetPath;
+class FWidgetPath;
+class SDockingTabWell;
+
+template<typename ChildType> class TSlotlessChildren;
 
 /**
  * A node in the Docking/Tabbing hierarchy.

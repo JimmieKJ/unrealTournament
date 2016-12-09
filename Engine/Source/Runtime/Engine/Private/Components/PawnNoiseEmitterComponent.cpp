@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "Components/PawnNoiseEmitterComponent.h"
+#include "GameFramework/Pawn.h"
+#include "Engine/World.h"
+#include "GameFramework/Controller.h"
 
 UPawnNoiseEmitterComponent::UPawnNoiseEmitterComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

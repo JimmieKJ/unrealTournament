@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "KismetNodes/SGraphNodeK2Default.h"
+
 class SGraphNodeSpawnActor : public SGraphNodeK2Default
 {
 public:

@@ -2,10 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ImportExport.h"
+#include "Material.h"
+#include "Templates/RefCounting.h"
+#include "LMMath.h"
+#include "Containers/IndirectArray.h"
 
 namespace Lightmass
 {
+class FLight;
+class FScene;
+class FMeshAreaLight;
 
 /** The vertex data used to build static lighting. */
 struct FStaticLightingVertex: public FStaticLightingVertexData

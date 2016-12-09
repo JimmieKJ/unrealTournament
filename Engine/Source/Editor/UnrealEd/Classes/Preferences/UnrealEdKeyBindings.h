@@ -5,6 +5,11 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "InputCoreTypes.h"
 #include "UnrealEdKeyBindings.generated.h"
 
 /** An editor hotkey binding to a parameterless exec. */

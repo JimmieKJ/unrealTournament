@@ -1,19 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
+#include "AssetTypeActions/AssetTypeActions_StaticMesh.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "EditorFramework/AssetImportData.h"
+#include "ThumbnailRendering/SceneThumbnailInfo.h"
+#include "AssetTools.h"
 
 #include "Editor/StaticMeshEditor/Public/StaticMeshEditorModule.h"
 
 #include "Editor/DestructibleMeshEditor/Public/DestructibleMeshEditorModule.h"
-#include "Editor/DestructibleMeshEditor/Public/IDestructibleMeshEditor.h"
 
-#include "ApexDestructibleAssetImport.h"
 #include "Engine/DestructibleMesh.h"
 
 #include "FbxMeshUtils.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "Engine/StaticMesh.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -116,7 +118,7 @@ void FAssetTypeActions_StaticMesh::GetImportLODMenu(class FMenuBuilder& MenuBuil
 		}
 
 		MenuBuilder.AddMenuEntry( Description, ToolTip, FSlateIcon(),
-			FUIAction(FExecuteAction::CreateStatic( &FbxMeshUtils::ImportMeshLODDialog, Cast<UObject>(StaticMesh), LOD) )) ;
+			FUIAction(FExecuteAction::CreateStatic( &FAssetTypeActions_StaticMesh::ExecuteImportMeshLOD, Cast<UObject>(StaticMesh), LOD) )) ;
 	}
 }
 
@@ -160,6 +162,11 @@ void FAssetTypeActions_StaticMesh::GetLODMenu(class FMenuBuilder& MenuBuilder, T
 
 }
 
+void FAssetTypeActions_StaticMesh::ExecuteImportMeshLOD(UObject* Mesh, int32 LOD)
+{
+	FbxMeshUtils::ImportMeshLODDialog(Mesh, LOD);
+}
+
 void FAssetTypeActions_StaticMesh::ExecuteCopyLODSettings(TArray<TWeakObjectPtr<UStaticMesh>> Objects)
 {
 	LODCopyMesh = Objects[0];
@@ -194,7 +201,6 @@ void FAssetTypeActions_StaticMesh::ExecutePasteLODSettings(TArray<TWeakObjectPtr
 	}
 
 	const bool bAutoComputeLODScreenSize = LODCopyMesh->bAutoComputeLODScreenSize;
-	const float StreamingDistanceMultiplier = LODCopyMesh->StreamingDistanceMultiplier;
 
 	// Copy LOD settings over to selected objects in content browser (meshes)
 	for (TWeakObjectPtr<UStaticMesh> MeshPtr : Objects)
@@ -230,7 +236,6 @@ void FAssetTypeActions_StaticMesh::ExecutePasteLODSettings(TArray<TWeakObjectPtr
 			}
 
 			Mesh->bAutoComputeLODScreenSize = bAutoComputeLODScreenSize;
-			Mesh->StreamingDistanceMultiplier = StreamingDistanceMultiplier;
 
 			Mesh->PostEditChange();
 			Mesh->MarkPackageDirty();

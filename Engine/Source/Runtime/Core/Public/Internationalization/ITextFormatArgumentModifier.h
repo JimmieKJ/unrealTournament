@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "Text.h"
+#include "CoreTypes.h"
+#include "Misc/Crc.h"
+#include "Containers/UnrealString.h"
+
+class FFormatArgumentValue;
+struct FPrivateTextFormatArguments;
+
+template<typename KeyType,typename ValueType,typename SetAllocator ,typename KeyFuncs > class TMap;
 
 /**
  * Private type used to pass low-level format argument information through custom format argument modifiers without exposing the inner workings.

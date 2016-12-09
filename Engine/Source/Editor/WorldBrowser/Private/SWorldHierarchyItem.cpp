@@ -1,10 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "WorldBrowserPrivatePCH.h"
-
 #include "SWorldHierarchyItem.h"
-#include "SColorPicker.h"
+#include "Misc/PackageName.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Engine/Engine.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+#include "EngineGlobals.h"
 #include "Engine/LevelStreamingAlwaysLoaded.h"
 #include "Engine/LevelStreamingKismet.h"
+#include "Editor.h"
+#include "DragAndDrop/LevelDragDropOp.h"
+#include "LevelCollectionModel.h"
+
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Colors/SColorPicker.h"
 
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
@@ -70,6 +83,24 @@ TSharedRef< SWidget > SWorldHierarchyItem::GenerateWidgetForColumn( const FName&
 				.ColorAndOpacity(this, &SWorldHierarchyItem::GetLevelDisplayNameColorAndOpacity)
 				.HighlightText(HighlightText)
 				.ToolTipText(this, &SWorldHierarchyItem::GetLevelDisplayNameTooltip)
+			]
+		;
+	}
+	else if (ColumnID == HierarchyColumns::ColumnID_LightingScenario)
+	{
+		TableRowContent = 
+			SAssignNew(LightingScenarioButton, SButton)
+			.ContentPadding(0 )
+			.ButtonStyle(FEditorStyle::Get(), "ToggleButton")
+			.IsEnabled(this, &SWorldHierarchyItem::IsLightingScenarioEnabled)
+			.OnClicked(this, &SWorldHierarchyItem::OnToggleLightingScenario)
+			.ToolTipText(this, &SWorldHierarchyItem::GetLightingScenarioToolTip)
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			.Content()
+			[
+				SNew(SImage)
+				.Image(this, &SWorldHierarchyItem::GetLightingScenarioBrush)
 			]
 		;
 	}
@@ -214,6 +245,11 @@ bool SWorldHierarchyItem::IsSaveEnabled() const
 	return LevelModel->IsLoaded();
 }
 
+bool SWorldHierarchyItem::IsLightingScenarioEnabled() const
+{
+	return LevelModel->IsLoaded();
+}
+
 bool SWorldHierarchyItem::IsLockEnabled() const
 {
 	return LevelModel->IsLoaded();
@@ -248,6 +284,12 @@ FReply SWorldHierarchyItem::OnToggleVisibility()
 		WorldModel->ShowLevels(LevelList);
 	}
 
+	return FReply::Handled();
+}
+
+FReply SWorldHierarchyItem::OnToggleLightingScenario()
+{
+	LevelModel->SetIsLightingScenario(!LevelModel->IsLightingScenario());
 	return FReply::Handled();
 }
 
@@ -469,6 +511,23 @@ const FSlateBrush* SWorldHierarchyItem::GetLevelVisibilityBrush() const
 	{
 		return FEditorStyle::GetBrush( "Level.EmptyIcon16x" );
 	}
+}
+
+const FSlateBrush* SWorldHierarchyItem::GetLightingScenarioBrush() const
+{
+	if (LevelModel->IsLightingScenario())
+	{
+		return FEditorStyle::GetBrush( "Level.LightingScenarioIcon16x" );
+	}
+	else
+	{
+		return FEditorStyle::GetBrush( "Level.LightingScenarioNotIcon16x" );
+	}
+}
+
+FText SWorldHierarchyItem::GetLightingScenarioToolTip() const
+{
+	return LOCTEXT("LightingScenarioButtonToolTip", "Toggle Lighting Scenario");
 }
 
 const FSlateBrush* SWorldHierarchyItem::GetLevelLockBrush() const

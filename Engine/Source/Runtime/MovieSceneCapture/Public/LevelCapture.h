@@ -2,8 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "MovieSceneCapture.h"
 #include "LevelCapture.generated.h"
+
+class AActor;
+class FSceneViewport;
 
 UCLASS()
 class MOVIESCENECAPTURE_API ULevelCapture : public UMovieSceneCapture

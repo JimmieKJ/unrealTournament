@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Curves/StringCurve.h"
 
 
@@ -161,6 +160,17 @@ float FStringCurve::GetKeyTime(FKeyHandle KeyHandle) const
 }
 
 
+FString FStringCurve::GetKeyValue(FKeyHandle KeyHandle) const
+{
+	if (!IsKeyHandleValid(KeyHandle))
+	{
+		return FString();
+	}
+
+	return GetKey(KeyHandle).Value;
+}
+
+
 FKeyHandle FStringCurve::SetKeyTime(FKeyHandle KeyHandle, float NewTime)
 {
 	if (!IsKeyHandleValid(KeyHandle))
@@ -178,6 +188,14 @@ FKeyHandle FStringCurve::SetKeyTime(FKeyHandle KeyHandle, float NewTime)
 	GetKey(KeyHandle).Time = NewTime;
 
 	return KeyHandle;
+}
+
+void FStringCurve::SetKeyValue(FKeyHandle KeyHandle, FString NewValue)
+{
+	if (IsKeyHandleValid(KeyHandle))
+	{
+		GetKey(KeyHandle).Value = NewValue;
+	}
 }
 
 

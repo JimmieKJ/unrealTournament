@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
+#include "PaperSpriteActorFactory.h"
 #include "AssetData.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "PaperSpriteActorFactory.h"
 #include "PaperSpriteActor.h"
+#include "PaperSprite.h"
+#include "PaperSpriteComponent.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UPaperSpriteActorFactory

@@ -2,12 +2,14 @@
 
 #pragma once
 
-#include "OnlineSubsystemOculusPrivatePCH.h"
+#include "OculusNetDriver.h"
+#include "OnlineSubsystemOculusPrivate.h"
+
 
 #include "IPAddressOculus.h"
 #include "OculusNetConnection.h"
-#include "OculusNetDriver.h"
 #include "OnlineSubsystemOculus.h"
+#include "Engine/Engine.h"
 
 #include "Net/DataChannel.h"
 

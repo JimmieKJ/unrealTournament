@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Engine/EngineTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 
 #include "PaperTerrainActor.generated.h"
 

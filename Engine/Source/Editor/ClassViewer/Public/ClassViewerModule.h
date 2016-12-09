@@ -1,5 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class IClassViewerFilter;
+class IPropertyHandle;
 
 /** Delegate used with the Class Viewer in 'class picking' mode.  You'll bind a delegate when the
     class viewer widget is created, which will be fired off when a class is selected in the list */

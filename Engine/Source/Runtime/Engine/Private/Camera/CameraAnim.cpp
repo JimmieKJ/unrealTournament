@@ -1,13 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Camera/CameraActor.h"
 #include "Camera/CameraAnim.h"
-#include "ParticleDefinitions.h"
+#include "Serialization/ArchiveCountMem.h"
 #include "Camera/CameraActor.h"
 #include "Matinee/MatineeActor.h"
 #include "Matinee/InterpData.h"
-#include "Matinee/InterpGroup.h"
 #include "Matinee/InterpGroupInst.h"
 #include "Matinee/InterpGroupCamera.h"
 #include "Matinee/InterpTrackMove.h"
@@ -138,18 +135,44 @@ void UCameraAnim::CalcLocalAABB()
 
 		if (MoveTrack != NULL)
 		{
-			FVector Zero(0.f), MinBounds, MaxBounds;
-			MoveTrack->PosTrack.CalcBounds(MinBounds, MaxBounds, Zero);
+			FVector Zero(0.0f);
+			FVector MinBounds(0.0f);
+			FVector MaxBounds(0.0f);
+			if (bRelativeToInitialTransform)
+			{
+				if (MoveTrack->PosTrack.Points.Num() > 0 &&
+					MoveTrack->EulerTrack.Points.Num() > 0)
+				{
+					const FRotator InitialRotation = FRotator::MakeFromEuler(MoveTrack->EulerTrack.Points[0].OutVal);
+					const FVector InitialLocation = MoveTrack->PosTrack.Points[0].OutVal;
+					const FTransform MoveTrackInitialTransform(InitialRotation, InitialLocation);
+					const FTransform MoveTrackInitialTransformInverse = MoveTrackInitialTransform.Inverse();
+
+					// start at Index = 1 as the initial position will be transformed back to (0,0,0)
+					const int32 MoveTrackNum = MoveTrack->PosTrack.Points.Num();
+					for (int32 Index = 1; Index < MoveTrackNum; Index++)
+					{
+						const FVector CurrentPositionRelativeToInitial = MoveTrackInitialTransformInverse.TransformPosition(MoveTrack->PosTrack.Points[Index].OutVal);
+
+						MinBounds = CurrentPositionRelativeToInitial.ComponentMin(MinBounds);
+						MaxBounds = CurrentPositionRelativeToInitial.ComponentMax(MaxBounds);
+					}
+				}
+			}
+			else
+			{
+				MoveTrack->PosTrack.CalcBounds(MinBounds, MaxBounds, Zero);
+			}
 			BoundingBox = FBox(MinBounds, MaxBounds);
 		}
 	}
 }
 
-SIZE_T UCameraAnim::GetResourceSize(EResourceSizeMode::Type Mode)
+void UCameraAnim::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	int32 ResourceSize = Super::GetResourceSize(Mode);
+	Super::GetResourceSizeEx(CumulativeResourceSize);
 
-	if (Mode == EResourceSizeMode::Inclusive && CameraInterpGroup)
+	if (CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::Inclusive && CameraInterpGroup)
 	{
 		// find move track
 		UInterpTrackMove *MoveTrack = NULL;
@@ -160,9 +183,8 @@ SIZE_T UCameraAnim::GetResourceSize(EResourceSizeMode::Type Mode)
 			if (MoveTrack)
 			{
 				FArchiveCountMem CountBytesSize(MoveTrack);
-				ResourceSize += CountBytesSize.GetNum();
+				CumulativeResourceSize.AddDedicatedSystemMemoryBytes(CountBytesSize.GetNum());
 			}
 		}
 	}
-	return ResourceSize;
 }

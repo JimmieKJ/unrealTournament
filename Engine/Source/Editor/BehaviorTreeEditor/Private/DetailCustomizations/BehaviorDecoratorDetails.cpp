@@ -1,9 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "BehaviorDecoratorDetails.h"
-#include "IPropertyUtilities.h"
+#include "DetailCustomizations/BehaviorDecoratorDetails.h"
+#include "Layout/Margin.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SlateOptMacros.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SComboButton.h"
+#include "BehaviorTree/BehaviorTreeTypes.h"
 #include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTree/BTCompositeNode.h"
+#include "BehaviorTreeDebugger.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
+#include "IPropertyUtilities.h"
 
 #define LOCTEXT_NAMESPACE "BehaviorDecoratorDetails"
 

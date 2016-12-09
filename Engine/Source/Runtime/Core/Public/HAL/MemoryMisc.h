@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
 
 /** Holds generic memory stats, internally implemented as a map. */
 struct FGenericMemoryStats

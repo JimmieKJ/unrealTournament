@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Animation/AnimNodeBase.h"
-#include "Animation/PoseAsset.h"
-#include "AnimNode_PoseHandler.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AnimNodes/AnimNode_PoseHandler.h"
 #include "AnimNode_PoseByName.generated.h"
 
 // Evaluates a point in an anim sequence, using a specific time input rather than advancing time internally.
@@ -23,7 +24,7 @@ public:
 public:	
 	FAnimNode_PoseByName()
 		: PoseWeight(1.f)
-		, PoseUID(FSmartNameMapping::MaxUID)
+		, PoseUID(SmartName::MaxUID)
 	{
 	}
 
@@ -36,6 +37,6 @@ public:
 	// End of FAnimNode_Base interface
 private:
 	// PoseUID
-	FSmartNameMapping::UID PoseUID;
+	SmartName::UID_Type PoseUID;
 };
 

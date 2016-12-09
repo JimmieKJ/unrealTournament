@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "DistanceDatumStructCustomization.h"
+#include "UObject/UnrealType.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "Sound/SoundNodeDistanceCrossFade.h"
 #include "Sound/SoundNodeParamCrossFade.h"
 
 #define LOCTEXT_NAMESPACE "DistanceDatumStructCustomization"

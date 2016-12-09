@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "LevelUtils.h"
+#include "Engine/Engine.h"
+#include "Engine/LevelStreaming.h"
+#include "HAL/FileManager.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
 #include "EditorSupportDelegates.h"
+#include "EngineGlobals.h"
+#include "Misc/FeedbackContext.h"
+#include "GameFramework/WorldSettings.h"
 
 #if WITH_EDITOR
 #include "ScopedTransaction.h"

@@ -2,89 +2,34 @@
 
 #pragma once
 
-#include "Curves/CurveBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Animation/AnimTypes.h"
+#include "Animation/SmartName.h"
 #include "Animation/Skeleton.h"
+#include "Curves/RichCurve.h"
 #include "AnimCurveTypes.generated.h"
 
-/** native enum for curve types **/
-enum EAnimCurveFlags
+/** This is curve flags that are saved in asset and **/
+enum EAnimAssetCurveFlags
 {
 	// Used as morph target curve
-	ACF_DriveMorphTarget	= 0x00000001,
+	ACF_DriveMorphTarget_DEPRECATED		= 0x00000001, // This has moved to FAnimCurveType:bMorphTarget. Set per skeleton. DO NOT REMOVE UNTIL FrameworkObjectVersion.MoveCurveTypesToSkeleton expires.
 	// Used as triggering event
-	ACF_DriveAttribute		= 0x00000002,
+	ACF_DriveAttribute_DEPRECATED		= 0x00000002, // Set per skeleton. DO NOT REMOVE UNTIL FrameworkObjectVersion.MoveCurveTypesToSkeleton expires.
 	// Is editable in Sequence Editor
-	ACF_Editable			= 0x00000004,
+	ACF_Editable						= 0x00000004, // per asset
 	// Used as a material curve
-	ACF_DriveMaterial		= 0x00000008,
+	ACF_DriveMaterial_DEPRECATED		= 0x00000008, // This has moved to FAnimCurveType:bMaterial. Set per skeleton. DO NOT REMOVE UNTIL FrameworkObjectVersion.MoveCurveTypesToSkeleton expires.
 	// Is a metadata 'curve'
-	ACF_Metadata			= 0x00000010,
+	ACF_Metadata						= 0x00000010, // per asset
 	// motifies bone track
-	ACF_DriveTrack			= 0x00000020,
+	ACF_DriveTrack						= 0x00000020, // @Todo: remove?
 	// disabled, right now it's used by track
-	ACF_Disabled			= 0x00000040,
+	ACF_Disabled						= 0x00000040, // per asset
 
 	// default flag when created
-	ACF_DefaultCurve		= ACF_DriveAttribute | ACF_Editable,
-	// curves created from Morph Target
-	ACF_MorphTargetCurve	= ACF_DriveMorphTarget, 
-	// all editor preview curves - this will go away soon once skeleton contains curve types
-	ACF_EditorPreviewCurves	= ACF_DriveMorphTarget | ACF_DriveAttribute | ACF_DriveMaterial
-};
-
-/** UI representation of EAnimCurveFlags. This is used in Animation Nodes to set custom curves 
- * Feel free to extend as we extend AnimCurveFlags - 
- * DriveTrack is only used for Transform Curve, and as this is currently only used for float curves, that hasn't been included */
-USTRUCT()
-struct ENGINE_API FAnimCurveType
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = FAnimCurveType)
-	bool bMorphtarget;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = FAnimCurveType)
-	bool bEvent;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = FAnimCurveType)
-	bool bMaterial;
-
-	FAnimCurveType(bool bInMorphtarget = false, bool bInEvent = false, bool bInMaterial = false)
-		: bMorphtarget(bInMorphtarget)
-		, bEvent(bInEvent)
-		, bMaterial(bInMaterial)
-	{
-	}
-
-	// return matching curve type flags
-	int32 GetAnimCurveFlags()
-	{
-		int32 OutFlags = 0;
-
-		if (bMorphtarget)
-		{
-			OutFlags |= ACF_DriveMorphTarget;
-		}
-
-		if (bEvent)
-		{
-			OutFlags |= ACF_DriveAttribute;
-		}
-
-		if (bMaterial)
-		{
-			OutFlags |= ACF_DriveMaterial;
-		}
-
-		return OutFlags;
-	}
-
-	// return true if it has any valid flag set up
-	bool IsValid() const
-	{
-		return bMorphtarget || bEvent || bMaterial;
-	}
+	ACF_DefaultCurve					= ACF_Editable,
 };
 
 /** UI Curve Parameter type
@@ -96,17 +41,14 @@ struct ENGINE_API FAnimCurveParam
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = FAnimCurveType)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = FAnimCurveParam)
 	FName Name;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = FAnimCurveType)
-	FAnimCurveType Type;
-
 	// name UID for fast access
-	FSmartNameMapping::UID UID;
+	SmartName::UID_Type UID;
 
 	FAnimCurveParam()
-		: UID(FSmartNameMapping::MaxUID)
+		: UID(SmartName::MaxUID)
 	{}
 
 	// initialize
@@ -116,12 +58,12 @@ struct ENGINE_API FAnimCurveParam
 	// because it's possible you don't care about your curve types
 	bool IsValid() const
 	{
-		return UID != FSmartNameMapping::MaxUID;
+		return UID != SmartName::MaxUID;
 	}
 
 	bool IsValidToEvaluate() const
 	{
-		return IsValid() && Type.IsValid();
+		return IsValid();
 	}
 };
 /**
@@ -142,6 +84,10 @@ struct ENGINE_API FAnimCurveBase
 	FSmartName	Name;
 
 private:
+	// this flag is mostly used by editor only now
+	// however I can't remove this to editor only because 
+	// we need DEPRECATED Flag to be loaded in game
+	// because those data are stored in asset, and skeleton might not be saved with it. 
 	/** Curve Type Flags */
 	UPROPERTY()
 	int32		CurveTypeFlags;
@@ -161,17 +107,17 @@ public:
 	/**
 	 * Set InFlag to bValue
 	 */
-	void SetCurveTypeFlag(EAnimCurveFlags InFlag, bool bValue);
+	void SetCurveTypeFlag(EAnimAssetCurveFlags InFlag, bool bValue);
 
 	/**
 	 * Toggle the value of the specified flag
 	 */
-	void ToggleCurveTypeFlag(EAnimCurveFlags InFlag);
+	void ToggleCurveTypeFlag(EAnimAssetCurveFlags InFlag);
 
 	/**
 	 * Return true if InFlag is set, false otherwise 
 	 */
-	bool GetCurveTypeFlag(EAnimCurveFlags InFlag) const;
+	bool GetCurveTypeFlag(EAnimAssetCurveFlags InFlag) const;
 
 	/**
 	 * Set CurveTypeFlags to NewCurveTypeFlags
@@ -279,11 +225,9 @@ struct FCurveElement
 {
 	/** Curve Value */
 	float					Value;
-	/** Curve Flags - this does OR ops when it gets blended*/
-	int32					Flags;
 
 	FCurveElement(float InValue, int32	InFlags)
-		:  Value(InValue), Flags(InFlags)
+		:  Value(InValue)
 	{}
 };
 
@@ -302,7 +246,7 @@ struct FBaseBlendedCurve
 	/**
 	* List of SmartName UIDs, retrieved from AnimInstanceProxy (which keeps authority)
 	*/
-	TArray<FSmartNameMapping::UID> const * UIDList;
+	TArray<SmartName::UID_Type> const * UIDList;
 
 
 	/**
@@ -315,13 +259,12 @@ struct FBaseBlendedCurve
 	}
 
 	/** Initialize Curve Data from following data */
-	DEPRECATED(4.11, "Use new InitFrom(TArray<FSmartNameMapping::UID>* InSmartNameUIDs) signature")
-	void InitFrom(const class USkeleton* Skeleton)
+	void InitFrom(const FBoneContainer& RequiredBones)
 	{
-		InitFrom((TArray<FSmartNameMapping::UID>*)&(const_cast<USkeleton*>(Skeleton)->GetCachedAnimCurveMappingNameUids()));
+		InitFrom(&RequiredBones.GetAnimCurveNameUids());
 	}
 
-	void InitFrom(TArray<FSmartNameMapping::UID> const * InSmartNameUIDs)
+	void InitFrom(TArray<SmartName::UID_Type> const * InSmartNameUIDs)
 	{
 		check(InSmartNameUIDs != nullptr);
 		UIDList = InSmartNameUIDs;
@@ -359,7 +302,7 @@ struct FBaseBlendedCurve
 	}
 
 	/** Set value of InUID to InValue */
-	void Set(USkeleton::AnimCurveUID InUid, float InValue, int32 InFlags)
+	void Set(USkeleton::AnimCurveUID InUid, float InValue)
 	{
 		int32 ArrayIndex;
 
@@ -368,12 +311,11 @@ struct FBaseBlendedCurve
 		if (UIDList->Find(InUid, ArrayIndex))
 		{
 			Elements[ArrayIndex].Value = InValue;
-			Elements[ArrayIndex].Flags = InFlags;
 		}
 	}
 
 	/** Get Value of InUID */
-	float Get(USkeleton::AnimCurveUID InUid)
+	float Get(USkeleton::AnimCurveUID InUid) const
 	{
 		int32 ArrayIndex;
 
@@ -410,7 +352,6 @@ struct FBaseBlendedCurve
 			for (int32 CurveId = 0; CurveId < A.Elements.Num(); ++CurveId)
 			{
 				Elements[CurveId].Value = FMath::Lerp(A.Elements[CurveId].Value, B.Elements[CurveId].Value, Alpha);
-				Elements[CurveId].Flags = (A.Elements[CurveId].Flags) | (B.Elements[CurveId].Flags);
 			}
 		}
 	}
@@ -435,7 +376,6 @@ struct FBaseBlendedCurve
 			for (int32 CurveId = 0; CurveId < Elements.Num(); ++CurveId)
 			{
 				Elements[CurveId].Value = FMath::Lerp(Elements[CurveId].Value, Other.Elements[CurveId].Value, Alpha);
-				Elements[CurveId].Flags |= (Other.Elements[CurveId].Flags);
 			}
 		}
 	}
@@ -450,7 +390,6 @@ struct FBaseBlendedCurve
 		for (int32 CurveId = 0; CurveId < Elements.Num(); ++CurveId)
 		{
 			Elements[CurveId].Value -= BaseCurve.Elements[CurveId].Value;
-			Elements[CurveId].Flags |= BaseCurve.Elements[CurveId].Flags;
 		}
 	}
 	/**
@@ -466,7 +405,6 @@ struct FBaseBlendedCurve
 			for (int32 CurveId = 0; CurveId < Elements.Num(); ++CurveId)
 			{
 				Elements[CurveId].Value += AdditiveCurve.Elements[CurveId].Value * Weight;
-				Elements[CurveId].Flags |= AdditiveCurve.Elements[CurveId].Flags;
 			}
 		}
 	}
@@ -490,7 +428,6 @@ struct FBaseBlendedCurve
 				Elements[CurveId].Value = CurveToCombine.Elements[CurveId].Value;
 			}
 
-			Elements[CurveId].Flags |= CurveToCombine.Elements[CurveId].Flags;
 		}
 	}
 
@@ -510,7 +447,6 @@ struct FBaseBlendedCurve
 			for (int32 CurveId = 0; CurveId < CurveToOverrideFrom.Elements.Num(); ++CurveId)
 			{
 				Elements[CurveId].Value = CurveToOverrideFrom.Elements[CurveId].Value * Weight;
-				Elements[CurveId].Flags |= CurveToOverrideFrom.Elements[CurveId].Flags;
 			}
 		}
 	}

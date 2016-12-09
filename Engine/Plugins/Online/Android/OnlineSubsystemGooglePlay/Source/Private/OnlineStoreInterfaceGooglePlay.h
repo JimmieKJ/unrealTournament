@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "OnlineStoreInterface.h"
 
+class FOnlineSubsystemGooglePlay;
 
 enum class EGooglePlayBillingResponseCode
 {

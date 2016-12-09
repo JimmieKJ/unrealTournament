@@ -1,10 +1,15 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "ViewportInteractionTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/Actor.h"
+#include "UnrealWidget.h"
+#include "ViewportInteractionTypes.h"
 #include "VIBaseTransformGizmo.generated.h"
+
+class UMaterialInterface;
 
 UENUM()
 enum class EGizmoHandleTypes : uint8

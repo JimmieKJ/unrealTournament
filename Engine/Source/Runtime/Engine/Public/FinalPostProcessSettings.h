@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Engine/Scene.h"
 #include "BlendableManager.h"
+
+class UMaterialInstanceDynamic;
+class UMaterialInterface;
+class UTexture;
 
 /** All blended postprocessing in one place, non lerpable data is stored in non merged form */
 class FFinalPostProcessSettings : public FPostProcessSettings

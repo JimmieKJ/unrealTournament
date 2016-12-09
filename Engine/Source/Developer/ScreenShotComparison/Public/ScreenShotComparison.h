@@ -7,11 +7,18 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Dependencies
  *****************************************************************************/
 
 #include "Core.h"
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
 #include "SlateBasics.h"
 #include "EditorStyle.h"
 #include "ScreenShotComparisonTools.h"
@@ -19,4 +26,4 @@
 
 /* Interfaces
  *****************************************************************************/
-#include "IScreenShotComparisonModule.h"
+#include "Interfaces/IScreenShotComparisonModule.h"

@@ -1,14 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateGlobals.h"
+#include "Framework/Text/TextLineHighlight.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/ITextDecorator.h"
 #if WITH_FANCY_TEXT
-
-#include "BaseTextLayoutMarshaller.h"
-#include "ITextDecorator.h"
-#include "IRichTextMarkupParser.h"
-#include "IRichTextMarkupWriter.h"
+	#include "Framework/Text/BaseTextLayoutMarshaller.h"
+#endif
 
 class FSlateTextUnderlineLineHighlighter;
+class IRichTextMarkupParser;
+class IRichTextMarkupWriter;
+class ISlateStyle;
+struct FTextBlockStyle;
+
+#if WITH_FANCY_TEXT
 
 /**
  * Get/set the raw text to/from a text layout as rich text

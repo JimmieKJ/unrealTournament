@@ -6,8 +6,14 @@
 
 #pragma once
 
-#include "GlobalShader.h" 
-#include "SimpleElementShaders.h" 
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "BatchedElements.h"
+#include "GlobalShader.h"
+
+class UTextureCube;
+class UTextureRenderTargetCube;
 
 namespace CubemapHelpers
 {

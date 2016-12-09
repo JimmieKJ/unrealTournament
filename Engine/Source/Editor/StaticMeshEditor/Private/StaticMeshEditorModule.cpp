@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
 #include "StaticMeshEditorModule.h"
+#include "Modules/ModuleManager.h"
+#include "IStaticMeshEditor.h"
 #include "StaticMeshEditor.h"
-#include "ModuleManager.h"
 
 const FName StaticMeshEditorAppIdentifier = FName(TEXT("StaticMeshEditorApp"));
 

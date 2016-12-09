@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "SceneViewport.h"
-#include "AssetEditorModeManager.h"
+#include "CoreMinimal.h"
+#include "EditorViewportClient.h"
+#include "SEditorViewport.h"
+
+class FCanvas;
 
 struct FViewportSelectionRectangle
 {

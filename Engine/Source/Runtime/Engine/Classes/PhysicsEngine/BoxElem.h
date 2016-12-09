@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "ShapeElem.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "PhysicsEngine/ShapeElem.h"
 #include "BoxElem.generated.h"
 
+class FMaterialRenderProxy;
 class FMeshElementCollector;
 
 /** Box shape used for collision */

@@ -1,10 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DesktopPlatformPrivatePCH.h"
+#include "Mac/DesktopPlatformMac.h"
 #include "MacApplication.h"
 #include "FeedbackContextMarkup.h"
 #include "MacNativeFeedbackContext.h"
 #include "CocoaThread.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/Guid.h"
+#include "HAL/FileManager.h"
 
 #define LOCTEXT_NAMESPACE "DesktopPlatform"
 

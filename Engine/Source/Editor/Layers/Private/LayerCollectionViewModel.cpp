@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "LayersPrivatePCH.h"
-#include "GenericCommands.h"
+#include "LayerCollectionViewModel.h"
+#include "Editor/EditorEngine.h"
+#include "Misc/FilterCollection.h"
+#include "ScopedTransaction.h"
+#include "LayerViewModel.h"
+#include "LayerCollectionViewCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #define LOCTEXT_NAMESPACE "LayersView"
 

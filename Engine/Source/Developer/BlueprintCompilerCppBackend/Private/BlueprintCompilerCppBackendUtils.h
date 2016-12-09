@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma  once
 
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+#include "Misc/StringAssetReference.h"
+#include "UObject/UnrealType.h"
+#include "IBlueprintCompilerCppBackendModule.h"
 #include "BlueprintCompilerCppBackendGatherDependencies.h"
-#include "BlueprintCompilerCppBackend.h"
+
+class USCS_Node;
+class UUserDefinedEnum;
+class UUserDefinedStruct;
+struct FNonativeComponentData;
+enum class ENativizedTermUsage : uint8;
 
 struct FCodeText
 {
@@ -44,15 +54,21 @@ struct FEmitterLocalContext
 
 	EGeneratedCodeType CurrentCodeType;
 
-	TArray<const UObject*> UsedObjectInCurrentClass;
+	// List od assets directly used in class implementation.
+	TArray<const UObject*> UsedObjectInCurrentClass; 
 	TArray<const UUserDefinedEnum*> EnumsInCurrentClass;
-private:
-	int32 LocalNameIndexMax;
+
+	// Nativized UDS doesn't reference its default value dependencies. When ::GetDefaultValue is used, then we need to reference the dependencies in the class.
+	TArray<UUserDefinedStruct*> StructsWithDefaultValuesUsed;
 
 	//ConstructorOnly Local Names
 	TMap<UObject*, FString> ClassSubobjectsMap;
 	//ConstructorOnly Local Names
 	TMap<UObject*, FString> CommonSubobjectsMap;
+
+
+private:
+	int32 LocalNameIndexMax;
 
 	// Class subobjects
 	TArray<UObject*> MiscConvertedSubobjects;
@@ -157,7 +173,14 @@ public:
 	FString FindGloballyMappedObject(const UObject* Object, const UClass* ExpectedClass = nullptr, bool bLoadIfNotFound = false, bool bTryUsedAssetsList = true);
 
 	// Functions needed for Unconverted classes
-	FString ExportCppDeclaration(const UProperty* Property, EExportedDeclaration::Type DeclarationType, uint32 AdditionalExportCPPFlags, bool bSkipParameterName = false, const FString& NamePostfix = FString(), const FString& TypePrefix = FString()) const;
+	enum class EPropertyNameInDeclaration
+	{
+		Regular,
+		Skip,
+		ForceConverted,
+	};
+
+	FString ExportCppDeclaration(const UProperty* Property, EExportedDeclaration::Type DeclarationType, uint32 AdditionalExportCPPFlags, EPropertyNameInDeclaration ParameterName = EPropertyNameInDeclaration::Regular, const FString& NamePostfix = FString(), const FString& TypePrefix = FString()) const;
 	FString ExportTextItem(const UProperty* Property, const void* PropertyValue) const;
 
 	// AS FCodeText
@@ -183,7 +206,7 @@ private:
 struct FEmitHelper
 {
 	// bUInterface - use interface with "U" prefix, by default there is "I" prefix
-	static FString GetCppName(const UField* Field, bool bUInterface = false);
+	static FString GetCppName(const UField* Field, bool bUInterface = false, bool bForceParameterNameModification = false);
 
 	// returns an unique number for a structure in structures hierarchy
 	static int32 GetInheritenceLevel(const UStruct* Struct);
@@ -234,7 +257,7 @@ struct FEmitHelper
 
 	static bool ShouldHandleAsImplementableEvent(UFunction* Function);
 
-	static bool GenerateAutomaticCast(FEmitterLocalContext& EmitterContext, const FEdGraphPinType& LType, const FEdGraphPinType& RType, FString& OutCastBegin, FString& OutCastEnd);
+	static bool GenerateAutomaticCast(FEmitterLocalContext& EmitterContext, const FEdGraphPinType& LType, const FEdGraphPinType& RType, FString& OutCastBegin, FString& OutCastEnd, bool bForceReference = false);
 
 	static FString GenerateReplaceConvertedMD(UObject* Obj);
 
@@ -267,8 +290,6 @@ struct FEmitDefaultValueHelper
 
 	static void GenerateConstructor(FEmitterLocalContext& Context);
 
-	static void FillCommonUsedAssets(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies);
-
 	static void GenerateCustomDynamicClassInitialization(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies);
 
 	enum class EPropertyAccessOperator
@@ -287,12 +308,12 @@ struct FEmitDefaultValueHelper
 
 	// Creates the subobject (of class) returns it's native local name, 
 	// returns empty string if cannot handle
-	static FString HandleClassSubobject(FEmitterLocalContext& Context, UObject* Object, FEmitterLocalContext::EClassSubobjectList ListOfSubobjectsTyp, bool bCreate, bool bInitilize);
+	static FString HandleClassSubobject(FEmitterLocalContext& Context, UObject* Object, FEmitterLocalContext::EClassSubobjectList ListOfSubobjectsTyp, bool bCreate, bool bInitialize);
 
 	// returns true, and fill OutResult, when the structure is handled in a custom way.
 	static bool SpecialStructureConstructor(const UStruct* Struct, const uint8* ValuePtr, FString* OutResult);
 
-	// Add static initialization functions. Must be call after Context.UsedObjectInCurrentClass is fully filled
+	// Add static initialization functions. Must be called after Context.UsedObjectInCurrentClass is fully filled
 	static void AddStaticFunctionsForDependencies(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies);
 
 	static void AddRegisterHelper(FEmitterLocalContext& Context);
@@ -334,4 +355,35 @@ struct FBackendHelperStaticSearchableValues
 	static FString GenerateClassMetaData(UClass* Class);
 	static void EmitFunctionDeclaration(FEmitterLocalContext& Context);
 	static void EmitFunctionDefinition(FEmitterLocalContext& Context);
+};
+struct FNativizationSummaryHelper
+{
+	static void InaccessibleProperty(const UProperty* Property);
+	// Notify, that the class used a (unrelated) property
+	static void PropertyUsed(const UClass* Class, const UProperty* Property);
+	// Notify, that the class used a (unrelated) function
+	static void FunctionUsed(const UClass* Class, const UFunction* Function);
+	static void RegisterClass(const UClass* OriginalClass);
+
+	static void ReducibleFunciton(const UClass* OriginalClass);
+};
+struct FDependenciesGlobalMapHelper
+{
+	static FString EmitHeaderCode();
+	static FString EmitBodyCode();
+
+	static FNativizationSummary::FDependencyRecord& FindDependencyRecord(const FStringAssetReference& Key);
+
+private:
+	static TMap<FStringAssetReference, FNativizationSummary::FDependencyRecord>& GetDependenciesGlobalMap();
+};
+
+struct FDisableUnwantedWarningOnScope
+{
+private:
+	FCodeText& CodeText;
+
+public:
+	FDisableUnwantedWarningOnScope(FCodeText& InCodeText);
+	~FDisableUnwantedWarningOnScope();
 };

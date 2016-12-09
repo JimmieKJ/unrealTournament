@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "IContentSource.generated.h"
 
 /** Defines categories for content sources. */

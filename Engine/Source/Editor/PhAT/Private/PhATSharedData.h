@@ -2,11 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SkeletalMeshTypes.h"
 #include "PreviewScene.h"
+#include "PhysicsAssetUtils.h"
 #include "PhysicsPublic.h"
 
+class UBodySetup;
 class UPhATEdSkeletalMeshComponent;
+class UPhATSimOptions;
+class UPhysicsAsset;
+class UPhysicsConstraintTemplate;
 class UPhysicsHandleComponent;
+class USkeletalMesh;
+class UStaticMeshComponent;
+
 #define DEBUG_CLICK_VIEWPORT 0
 
 /*-----------------------------------------------------------------------------
@@ -84,7 +94,11 @@ public:
 	
 	FTransform GetConstraintBodyTM(const UPhysicsConstraintTemplate* ConstraintSetup, EConstraintFrame::Type Frame) const;
 
-	void SetSelectedConstraintRelTM(const FTransform& RelTM);	
+    void SetConstraintRelTM(const FSelection* Constraint, const FTransform& RelTM);
+    inline void SetSelectedConstraintRelTM(const FTransform& RelTM)
+    {
+        SetConstraintRelTM(GetSelectedConstraint(), RelTM);
+    }
 	
 	void DeleteCurrentConstraint();
 	void PasteConstraintProperties();
@@ -127,6 +141,8 @@ public:
 	void PostUndo();
 	void Redo();
 	void SetCollisionBetweenSelected(bool bEnableCollision);
+
+	void AddReferencedObjects(FReferenceCollector& Collector);
 
 
 private:

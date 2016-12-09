@@ -1,17 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType.h"
 #include "EnvQueryItemType_VectorBase.generated.h"
 
-struct FBlackboardKeySelector;
 class UBlackboardComponent;
+struct FBlackboardKeySelector;
 
 UCLASS(Abstract)
 class AIMODULE_API UEnvQueryItemType_VectorBase : public UEnvQueryItemType
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
+public:
 	virtual FVector GetItemLocation(const uint8* RawData) const;
 	virtual FRotator GetItemRotation(const uint8* RawData) const;
 

@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SymbolDebuggerApp.h"
 #include "SSymbolDebugger.h"
 #include "SThrobber.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/SBoxPanel.h"
+
 
 TSharedRef<SWidget> SSymbolDebugger::GenerateActionButton(ESymbolDebuggerActions InAction)
 {

@@ -6,8 +6,12 @@
 
 #pragma once
 
-#include "UObjectArray.h"
-#include "UObjectMarks.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectBase.h"
+#include "UObject/UObjectArray.h"
+#include "UObject/UObjectMarks.h"
 
 #if _MSC_VER == 1900
 	#ifdef PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
@@ -15,7 +19,6 @@
 	#endif
 #endif
 
-#include "Templates/PointerIsConvertibleFromTo.h"
 
 class COREUOBJECT_API UObjectBaseUtility : public UObjectBase
 {
@@ -428,12 +431,16 @@ public:
 	/**
 	 * @return	true if this object is of the specified type.
 	 */
-	#if UCLASS_FAST_ISA_IMPL == 2
+	#if !UCLASS_FAST_ISA_COMPARE_WITH_OUTERWALK && UCLASS_FAST_ISA_IMPL != UCLASS_ISA_OUTERWALK
 	private:
 		template <typename ClassType>
 		static FORCEINLINE bool IsAWorkaround(const ClassType* ObjClass, const ClassType* TestCls)
 		{
-			return ObjClass->IsAUsingFastTree(*TestCls);
+			#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
+				return ObjClass->IsAUsingFastTree(*TestCls);
+			#elif UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
+				return ObjClass->IsAUsingClassArray(*TestCls);
+			#endif
 		}
 
 	public:
@@ -573,6 +580,28 @@ public:
 	}
 };
 
+FORCEINLINE bool IsPossiblyAllocatedUObjectPointer(UObject* Ptr)
+{
+	auto CountByteValues = [](UPTRINT Val, UPTRINT ByteVal) -> int32
+	{
+		int32 Result = 0;
+
+		for (int32 I = 0; I != sizeof(UPTRINT); ++I)
+		{
+			if ((Val & 0xFF) == ByteVal)
+			{
+				++Result;
+			}
+			Val >>= 8;
+		}
+
+		return Result;
+	};
+
+	UPTRINT PtrVal = (UPTRINT)Ptr;
+	return PtrVal >= 0x1000 && CountByteValues(PtrVal, 0xCD) < sizeof(UPTRINT) / 2;
+}
+
 /**
  * Returns the name of this object (with no path information)
  * @param Object object to retrieve the name for; NULL gives "None"
@@ -627,6 +656,15 @@ FORCEINLINE FString GetFullNameSafe(const UObjectBaseUtility *Object)
 #if STATS
 struct FScopeCycleCounterUObject : public FCycleCounter
 {
+#if USE_MALLOC_PROFILER
+	/** Package path being tracked */
+	FName PackageTag;
+	/** Class path being tracked */
+	FName ClassTag;
+	/** Object path being tracked */
+	FName ObjectTag;
+#endif
+
 	/**
 	 * Constructor, starts timing
 	 */
@@ -634,12 +672,19 @@ struct FScopeCycleCounterUObject : public FCycleCounter
 	{
 		if (Object)
 		{
-			TStatId StatId = Object->GetStatID();
-			if (FThreadStats::IsCollectingData(StatId))
+			TStatId ObjectStatId = Object->GetStatID();
+			if (FThreadStats::IsCollectingData(ObjectStatId))
 			{
-				Start(StatId);
+				Start(ObjectStatId);
 			}
 		}
+
+#if USE_MALLOC_PROFILER
+		if (Object)
+		{
+			TrackObjectForMallocProfiling(Object);
+		}
+#endif
 	}
 	/**
 	 * Constructor, starts timing with an alternate enable stat to use high performance disable for only SOME UObject stats
@@ -648,12 +693,19 @@ struct FScopeCycleCounterUObject : public FCycleCounter
 	{
 		if (FThreadStats::IsCollectingData(OtherStat) && Object)
 		{
-			TStatId StatId = Object->GetStatID();
-			if (!StatId.IsNone())
+			TStatId ObjectStatId = Object->GetStatID();
+			if (!ObjectStatId.IsNone())
 			{
-				Start(StatId);
+				Start(ObjectStatId);
 			}
 		}
+
+#if USE_MALLOC_PROFILER
+		if (Object)
+		{
+			TrackObjectForMallocProfiling(Object);
+		}
+#endif
 	}
 	/**
 	 * Updates the stat with the time spent
@@ -661,7 +713,17 @@ struct FScopeCycleCounterUObject : public FCycleCounter
 	FORCEINLINE_STATS ~FScopeCycleCounterUObject()
 	{
 		Stop();
+
+#if USE_MALLOC_PROFILER
+		UntrackObjectForMallocProfiling();
+#endif
 	}
+
+#if USE_MALLOC_PROFILER
+	COREUOBJECT_API void TrackObjectForMallocProfiling(const UObjectBaseUtility *InObject);
+	COREUOBJECT_API void TrackObjectForMallocProfiling(const FName InPackageName, const FName InClassName, const FName InObjectName);
+	COREUOBJECT_API void UntrackObjectForMallocProfiling();
+#endif
 };
 #else
 struct FScopeCycleCounterUObject

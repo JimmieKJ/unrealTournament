@@ -1,34 +1,43 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
 #include "LevelEditor.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "EditorStyleSet.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Editor/UnrealEdEngine.h"
+#include "LevelEditorViewport.h"
+#include "EditorModes.h"
+#include "UnrealEdGlobals.h"
+#include "Misc/ConfigCacheIni.h"
+#include "LevelViewportLayout.h"
 #include "SLevelEditor.h"
-#include "ModuleManager.h"
+#include "LightmapResRatioAdjust.h"
 #include "LevelEditorActions.h"
 #include "LevelEditorModesActions.h"
-#include "AssetSelection.h"
-#include "LevelEditorContextMenu.h"
-#include "SLevelViewport.h"
+#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructure.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "Developer/MessageLog/Public/MessageLogModule.h"
+#include "MessageLogModule.h"
 #include "EditorViewportCommands.h"
 #include "LevelViewportActions.h"
-#include "GlobalEditorCommonCommands.h"
+#include "Toolkits/GlobalEditorCommonCommands.h"
 #include "IUserFeedbackModule.h"
 #include "ISlateReflectorModule.h"
-#include "SDockTab.h"
-#include "ToolkitManager.h"
-#include "TargetPlatform.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "IIntroTutorials.h"
-#include "IProjectManager.h"
-#include "LevelViewportLayout.h"
+#include "Interfaces/IProjectManager.h"
 #include "LevelViewportLayoutEntity.h"
 #include "PixelInspectorModule.h"
-#include "FbxAutomationBuilderModule.h"
 
 // @todo Editor: remove this circular dependency
-#include "Editor/MainFrame/Public/Interfaces/IMainFrameModule.h"
-#include "GenericCommands.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Misc/EngineBuildSettings.h"
 
 #define LOCTEXT_NAMESPACE "LevelEditor"
 
@@ -54,8 +63,8 @@ public:
 
 	void Construct(const FArguments& InArgs)
 	{
-		FString OptionalBranchPrefix;
-		GConfig->GetString(TEXT("LevelEditor"), TEXT("ProjectNameWatermarkPrefix"), /*out*/ OptionalBranchPrefix, GEditorPerProjectIni);
+		FString ProjectNameWatermarkPrefix;
+		GConfig->GetString(TEXT("LevelEditor"), TEXT("ProjectNameWatermarkPrefix"), /*out*/ ProjectNameWatermarkPrefix, GEditorPerProjectIni);
 
 		FColor BadgeBackgroundColor = FColor::Black;
 		GConfig->GetColor(TEXT("LevelEditor"), TEXT("ProjectBadgeBackgroundColor"), /*out*/ BadgeBackgroundColor, GEditorPerProjectIni);
@@ -66,7 +75,9 @@ public:
 		const FString EngineVersionString = FEngineVersion::Current().ToString(FEngineVersion::Current().HasChangelist() ? EVersionComponent::Changelist : EVersionComponent::Patch);
 		
 		FFormatNamedArguments Args;
-		Args.Add(TEXT("Branch"), FText::FromString(OptionalBranchPrefix));
+
+		Args.Add(TEXT("ProjectNameWatermarkPrefix"), FText::FromString(ProjectNameWatermarkPrefix));
+		Args.Add(TEXT("Branch"), FEngineBuildSettings::IsPerforceBuild() ? FText::FromString(FApp::GetBranchName()) : FText::GetEmpty());
 		Args.Add(TEXT("GameName"), FText::FromString(FString(FApp::GetGameName())));
 		Args.Add(TEXT("EngineVersion"), (GetDefault<UEditorPerProjectUserSettings>()->bDisplayEngineVersionInBadge) ? FText::FromString("(" + EngineVersionString + ")") : FText());
 
@@ -77,11 +88,11 @@ public:
 		if (BuildConfig != EBuildConfigurations::Shipping && BuildConfig != EBuildConfigurations::Development && BuildConfig != EBuildConfigurations::Unknown)
 		{
 			Args.Add(TEXT("Config"), EBuildConfigurations::ToText(BuildConfig));
-			RightContentText = FText::Format(NSLOCTEXT("UnrealEditor", "TitleBarRightContentAndConfig", "{Branch}{GameName} [{Config}] {EngineVersion}"), Args);
+			RightContentText = FText::Format(NSLOCTEXT("UnrealEditor", "TitleBarRightContentAndConfig", "{ProjectNameWatermarkPrefix} {GameName} [{Config}] {Branch} {EngineVersion}"), Args);
 		}
 		else
 		{
-			RightContentText = FText::Format(NSLOCTEXT("UnrealEditor", "TitleBarRightContent", "{Branch}{GameName} {EngineVersion}"), Args);
+			RightContentText = FText::Format(NSLOCTEXT("UnrealEditor", "TitleBarRightContent", "{ProjectNameWatermarkPrefix} {GameName} {Branch} {EngineVersion}"), Args);
 		}
 
 		// Create the tooltip showing more detailed information
@@ -247,8 +258,6 @@ void FLevelEditorModule::StartupModule()
 	FModuleManager::LoadModuleChecked<ISlateReflectorModule>("SlateReflector").RegisterTabSpawner(MenuStructure.GetDeveloperToolsMiscCategory());
 
 	FModuleManager::LoadModuleChecked<FPixelInspectorModule>("PixelInspectorModule").RegisterTabSpawner(MenuStructure.GetDeveloperToolsMiscCategory());
-
-	FModuleManager::LoadModuleChecked<FFbxAutomationBuilderModule>("FbxAutomationBuilderModule").RegisterTabSpawner(MenuStructure.GetAutomationToolsCategory());
 
 	FMessageLogModule& MessageLogModule = FModuleManager::LoadModuleChecked<FMessageLogModule>("MessageLog");
 	MessageLogModule.RegisterLogListing("BuildAndSubmitErrors", LOCTEXT("BuildAndSubmitErrors", "Build and Submit Errors"));

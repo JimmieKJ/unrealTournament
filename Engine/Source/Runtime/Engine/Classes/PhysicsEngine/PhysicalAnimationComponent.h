@@ -2,8 +2,15 @@
 
 #pragma once
 
-#include "ConstraintInstance.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/ActorComponent.h"
+#include "EngineDefines.h"
+#include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicalAnimationComponent.generated.h"
+
+class FPrimitiveDrawInterface;
+class USkeletalMeshComponent;
 
 namespace physx
 {

@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Containers/ContainerAllocationPolicies.h"
+#include "Containers/Array.h"
+#include "CoreGlobals.h"
+#include "Containers/ResourceArray.h"
 
 /** alignment for supported resource types */
 enum EResourceAlignment

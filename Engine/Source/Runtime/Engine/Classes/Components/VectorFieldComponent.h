@@ -3,8 +3,13 @@
 
 
 #pragma once
-#include "PrimitiveComponent.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/PrimitiveComponent.h"
 #include "VectorFieldComponent.generated.h"
+
+class FPrimitiveSceneProxy;
 
 /** 
  * A Component referencing a vector field.

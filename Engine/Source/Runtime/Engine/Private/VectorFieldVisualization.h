@@ -5,8 +5,16 @@
 ==============================================================================*/
 
 #pragma once
-#include "VertexFactory.h"
+
+#include "CoreMinimal.h"
 #include "UniformBuffer.h"
+#include "VertexFactory.h"
+
+class FMaterial;
+class FMeshElementCollector;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FVectorFieldInstance;
 
 /*------------------------------------------------------------------------------
 	Forward declarations.

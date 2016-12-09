@@ -1,31 +1,58 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Factories.h"
-#include "BusyCursor.h"
-#include "Dialogs/DlgPickPath.h"
-
-#include "FbxImporter.h"
-#include "AssetSelection.h"
-
-#include "FbxErrors.h"
-#include "AssetRegistryModule.h"
-#include "Engine/StaticMesh.h"
-#include "Animation/SkeletalMeshActor.h"
+#include "Factories/ReimportFbxSceneFactory.h"
+#include "Misc/Paths.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "Serialization/ObjectWriter.h"
+#include "Serialization/ObjectReader.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Components/SceneComponent.h"
+#include "Engine/Blueprint.h"
+#include "Components/StaticMeshComponent.h"
+#include "Animation/AnimTypes.h"
+#include "Engine/SkeletalMesh.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Materials/Material.h"
 #include "Animation/AnimSequence.h"
+#include "Factories/FbxAssetImportData.h"
+#include "Factories/FbxAnimSequenceImportData.h"
+#include "Factories/FbxSkeletalMeshImportData.h"
+#include "Factories/FbxSceneImportData.h"
+#include "Factories/FbxSceneImportOptions.h"
+#include "Factories/FbxSceneImportOptionsSkeletalMesh.h"
+#include "Factories/FbxSceneImportOptionsStaticMesh.h"
+#include "Camera/CameraComponent.h"
+#include "Components/PointLightComponent.h"
+#include "Components/SpotLightComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Engine/AssetUserData.h"
+#include "FileHelpers.h"
+
+#include "Logging/TokenizedMessage.h"
+#include "FbxImporter.h"
+
+#include "Misc/FbxErrors.h"
+#include "AssetRegistryModule.h"
 #include "PackageTools.h"
 
 #include "SFbxSceneOptionWindow.h"
-#include "MainFrame.h"
+#include "Interfaces/IMainFrameModule.h"
 
-#include "Editor/KismetCompiler/Public/KismetCompilerModule.h"
 #include "Kismet2/KismetEditorUtilities.h"
+#include "Engine/SimpleConstructionScript.h"
+#include "Engine/SCS_Node.h"
 #include "Kismet2/BlueprintEditorUtils.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 #include "Toolkits/AssetEditorManager.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 
 #include "ObjectTools.h"
-#include "FileHelpers.h"
 
 #include "AI/Navigation/NavCollision.h"
 
@@ -212,6 +239,8 @@ bool GetFbxSceneReImportOptions(UnFbx::FFbxImporter* FbxImporter
 	GlobalImportSettings->ImportUniformScale = 1.0f;
 
 	GlobalImportSettings->bConvertScene = true;
+	GlobalImportSettings->bForceFrontXAxis = false;
+	GlobalImportSettings->bConvertSceneUnit = true;
 
 
 	TSharedPtr<SWindow> ParentWindow;
@@ -352,6 +381,8 @@ EReimportResult::Type UReimportFbxSceneFactory::Reimport(UObject* Obj)
 
 	//Always convert the scene
 	GlobalImportSettings->bConvertScene = true;
+	GlobalImportSettings->bForceFrontXAxis = false;
+	GlobalImportSettings->bConvertSceneUnit = true;
 	GlobalImportSettings->bImportScene = ReimportData->bImportScene;
 	if (ReimportData->NameOptionsMap.Contains(DefaultOptionName))
 	{
@@ -462,10 +493,8 @@ EReimportResult::Type UReimportFbxSceneFactory::Reimport(UObject* Obj)
 	}
 
 	StaticMeshImportData->bImportAsScene = true;
-	StaticMeshImportData->bImportMaterials = GlobalImportSettingsReference->bImportMaterials;
 	StaticMeshImportData->FbxSceneImportDataReference = ReimportData;
 	SkeletalMeshImportData->bImportAsScene = true;
-	SkeletalMeshImportData->bImportMaterials = GlobalImportSettingsReference->bImportMaterials;
 	SkeletalMeshImportData->FbxSceneImportDataReference = ReimportData;
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
@@ -718,7 +747,7 @@ void UReimportFbxSceneFactory::RecursivelySetComponentProperties(USCS_Node* Curr
 	if (!CurrentNodeActorComponent) //We need a component
 		return;
 
-	int32 IndexTemplateSuffixe = CurrentNodeActorComponent->GetName().Find(TEXT("_GEN_VARIABLE"));
+	int32 IndexTemplateSuffixe = CurrentNodeActorComponent->GetName().Find(USimpleConstructionScript::ComponentTemplateNameSuffix);
 	bool NameContainTemplateSuffixe = IndexTemplateSuffixe != INDEX_NONE;
 	FString NodeName = CurrentNodeActorComponent->GetName();
 	FString ReduceNodeName = NodeName;
@@ -745,7 +774,7 @@ void UReimportFbxSceneFactory::RecursivelySetComponentProperties(USCS_Node* Curr
 
 		if (NameContainTemplateSuffixe)
 		{
-			ComponentName += TEXT("_GEN_VARIABLE");
+			ComponentName += USimpleConstructionScript::ComponentTemplateNameSuffix;
 		}
 		USceneComponent *SceneComponent = Cast<USceneComponent>(ActorComponent);
 		if (!SceneComponent) //We support only scene component
@@ -763,7 +792,7 @@ void UReimportFbxSceneFactory::RecursivelySetComponentProperties(USCS_Node* Curr
 			FString ComponentParentName = ParentComponent->GetName();
 			if (NameContainTemplateSuffixe)
 			{
-				ComponentParentName += TEXT("_GEN_VARIABLE");
+				ComponentParentName += USimpleConstructionScript::ComponentTemplateNameSuffix;
 			}
 			ComponentParentNames.Insert(ComponentParentName, 0);
 			ParentComponent = ParentComponent->GetAttachParent();
@@ -792,7 +821,7 @@ void UReimportFbxSceneFactory::RecursivelySetComponentProperties(USCS_Node* Curr
 		{
 			UStaticMeshComponent *CurrentNodeMeshComponent = Cast<UStaticMeshComponent>(CurrentNodeSceneComponent);
 			UStaticMeshComponent *MeshComponent = Cast<UStaticMeshComponent>(SceneComponent);
-			if (CurrentNodeMeshComponent->StaticMesh != MeshComponent->StaticMesh)
+			if (CurrentNodeMeshComponent->GetStaticMesh() != MeshComponent->GetStaticMesh())
 				bShouldSerializeProperty = false;
 		}
 		else if (CurrentNodeComponentClass == USkeletalMeshComponent::StaticClass())

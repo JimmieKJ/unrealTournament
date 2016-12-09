@@ -1,13 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
 #include "BehaviorTreeEditorTabFactories.h"
-#include "BehaviorTreeEditor.h"
+#include "Engine/Blueprint.h"
+#include "EditorStyleSet.h"
 #include "BehaviorTreeEditorTabs.h"
 #include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/BlackboardData.h"
-#include "SBehaviorTreeBlackboardView.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "BehaviorTreeEditorFactories"
 

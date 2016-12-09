@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "MoviePlayer.h"
 
 /** An placeholder implementation of the movie player for the editor */
 class FNullGameMoviePlayer : public IGameMoviePlayer,

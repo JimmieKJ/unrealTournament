@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "PaperSpriteSheetImporterPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "UObject/AssetPtr.h"
 
+class FJsonObject;
+class UPaperSprite;
 class UPaperSpriteSheet;
+class UTexture2D;
 
 //////////////////////////////////////////////////////////////////////////
 // FSpriteFrame

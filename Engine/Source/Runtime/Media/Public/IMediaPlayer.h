@@ -2,11 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 class IMediaControls;
 class IMediaOptions;
 class IMediaOutput;
 class IMediaTracks;
-
 
 /**
  * Enumerates media player related events.
@@ -75,6 +76,13 @@ public:
 	 * @see GetStats
 	 */
 	virtual FString GetInfo() const = 0;
+
+	/**
+	 * Get the name of this player.
+	 *
+	 * @return Player name, i.e. 'AndroidMedia' or 'WmfMedia'.
+	 */
+	virtual FName GetName() const = 0;
 
 	/**
 	 * Get access to the media player's output.

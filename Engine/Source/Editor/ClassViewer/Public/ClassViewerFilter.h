@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FClassViewerInitializationOptions;
+
 /** Interface class for creating filters for the Class Viewer. */
 class IClassViewerFilter
 {

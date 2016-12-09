@@ -5,11 +5,18 @@
  * This file contains the rendering functions used in the stats code
  */
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
+#include "Stats/Stats.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "CanvasItem.h"
+#include "Engine/Canvas.h"
+#include "Engine/Texture2D.h"
 
 #if STATS
 
-#include "StatsData.h"
+#include "Stats/StatsData.h"
 #include "Performance/EnginePerformanceTargets.h"
 
 /** Stats rendering constants. */

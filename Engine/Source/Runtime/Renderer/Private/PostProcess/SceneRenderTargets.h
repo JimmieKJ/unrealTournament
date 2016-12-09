@@ -6,12 +6,17 @@
 
 #pragma once
 
-#include "ShaderParameters.h"
-#include "RenderTargetPool.h"
-#include "../SystemTextures.h"
-#include "RHIStaticStates.h"
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "RHIDefinitions.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "UniformBuffer.h"
+#include "SceneInterface.h"
+#include "SceneView.h"
+#include "RendererInterface.h"
 
-struct IPooledRenderTarget;
+class FViewInfo;
 
 /** Number of cube map shadow depth surfaces that will be created and used for rendering one pass point light shadows. */
 static const int32 NumCubeShadowDepthSurfaces = 5;
@@ -131,6 +136,14 @@ END_UNIFORM_BUFFER_STRUCT( FGBufferResourceStruct )
 
 #define STENCIL_LIGHTING_CHANNELS_MASK(Value) uint8((Value & 0x7) << STENCIL_LIGHTING_CHANNELS_BIT_ID)
 
+enum class ESceneColorFormatType
+{
+	Mobile,
+	HighEnd,
+	HighEndWithAlpha,
+	Num,
+};
+
 /**
  * Encapsulates the render targets used for scene rendering.
  */
@@ -146,7 +159,7 @@ public:
 	static FSceneRenderTargets& Get(FRHIAsyncComputeCommandListImmediate& RHICmdList);
 
 	// this is a placeholder, the context should come from somewhere. This is very unsafe, please don't use it!
-	static FSceneRenderTargets& Get_Todo_PassContext();
+	static FSceneRenderTargets& GetGlobalUnsafe();
 	// As above but relaxed checks and always gives the global FSceneRenderTargets. The intention here is that it is only used for constants that don't change during a frame. This is very unsafe, please don't use it!
 	static FSceneRenderTargets& Get_FrameConstantsOnly();
 
@@ -186,6 +199,7 @@ protected:
 		bCurrentLightPropagationVolume(false),
 		CurrentFeatureLevel(ERHIFeatureLevel::Num),
 		CurrentShadingPath(EShadingPath::Num),
+		bRequireSceneColorAlpha(false),
 		bAllocateVelocityGBuffer(false),
 		bSnapshot(false),
 		QuadOverdrawIndex(INDEX_NONE)
@@ -215,7 +229,7 @@ public:
 	 * Sets the scene color target and restores its contents if necessary
 	 */
 	void BeginRenderingSceneColor(FRHICommandList& FRHICommandListImmediate, ESimpleRenderTargetMode RenderTargetMode = ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil DepthStencilAccess = FExclusiveDepthStencil::DepthWrite_StencilWrite, bool bTransitionWritable = true);
-	
+
 	/**
 	 * Called when finished rendering to the scene color surface
 	 */
@@ -237,7 +251,7 @@ public:
 	void BeginRenderingTranslucency(FRHICommandList& RHICmdList, const class FViewInfo& View, bool bFirstTimeThisFrame = true);
 	void FinishRenderingTranslucency(FRHICommandListImmediate& RHICmdList, const class FViewInfo& View);
 
-	bool BeginRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View, bool bFirstTimeThisFrame);
+	void BeginRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View, bool bFirstTimeThisFrame);
 	void FinishRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View);
 	void FreeSeparateTranslucency()
 	{
@@ -253,7 +267,7 @@ public:
 		}
 	}
 
-	void ResolveSceneDepthTexture(FRHICommandList& RHICmdList);
+	void ResolveSceneDepthTexture(FRHICommandList& RHICmdList, const FResolveRect& ResolveRect);
 	void ResolveSceneDepthToAuxiliaryTexture(FRHICommandList& RHICmdList);
 
 	void BeginRenderingPrePass(FRHICommandList& RHICmdList, bool bPerformClear);
@@ -400,7 +414,7 @@ public:
 	{ 
 		// if this triggers you need to make sure the GBuffer is not getting released before (using AdjustGBufferRefCount(1) and AdjustGBufferRefCount(-1))
 		// Maybe You use a SceneTexture material expression that should set MaterialCompilationOutput.bNeedsGBuffer
-		check(IsValidRef(GBufferResourcesUniformBuffer));
+		checkf(IsValidRef(GBufferResourcesUniformBuffer), TEXT("GBuffer required but not available. Failure often caused by incorrect custom code use in a post processing material."));
 
 		return GBufferResourcesUniformBuffer; 
 	}
@@ -453,8 +467,7 @@ public:
 	// @param 1: add a reference, -1: remove a reference
 	void AdjustGBufferRefCount(FRHICommandList& RHICmdList, int Delta);
 
-	//
-	void PreallocGBufferTargets(bool bShouldRenderVelocities);
+	void PreallocGBufferTargets();
 	void GetGBufferADesc(FPooledRenderTargetDesc& Desc) const;
 	void AllocGBufferTargets(FRHICommandList& RHICmdList);
 
@@ -492,7 +505,7 @@ private: // Get...() methods instead of direct access
 
 	// 0 before BeginRenderingSceneColor and after tone mapping in deferred shading
 	// Permanently allocated for forward shading
-	TRefCountPtr<IPooledRenderTarget> SceneColor[(int32)EShadingPath::Num];
+	TRefCountPtr<IPooledRenderTarget> SceneColor[(int32)ESceneColorFormatType::Num];
 	// Light Attenuation is a low precision scratch pad matching the size of the scene color buffer used by many passes.
 	TRefCountPtr<IPooledRenderTarget> LightAttenuation;
 public:
@@ -550,6 +563,10 @@ public:
 	/** Volume textures used for lighting translucency. */
 	TRefCountPtr<IPooledRenderTarget> TranslucencyLightingVolumeAmbient[NumTranslucentVolumeRenderTargetSets];
 	TRefCountPtr<IPooledRenderTarget> TranslucencyLightingVolumeDirectional[NumTranslucentVolumeRenderTargetSets];
+
+	/** Color and depth texture arrays for mobile multi-view */
+	TRefCountPtr<IPooledRenderTarget> MobileMultiViewSceneColor;
+	TRefCountPtr<IPooledRenderTarget> MobileMultiViewSceneDepthZ;
 
 	/** Color and opacity for editor primitives (i.e editor gizmos). */
 	TRefCountPtr<IPooledRenderTarget> EditorPrimitivesColor;
@@ -611,6 +628,12 @@ private:
 
 	void AllocSceneColor(FRHICommandList& RHICmdList);
 
+	/** Allocates the mobile multi-view scene color texture array render target. */
+	void AllocMobileMultiViewSceneColor(FRHICommandList& RHICmdList);
+
+	/** Allocates the mobile multi-view depth (no stencil) texture array render target. */
+	void AllocMobileMultiViewDepth(FRHICommandList& RHICmdList);
+
 	// internal method, used by AdjustGBufferRefCount()
 	void ReleaseGBufferTargets();
 
@@ -618,21 +641,41 @@ private:
 	void ReleaseAllTargets();
 
 	/** Get the current scene color target based on our current shading path. Will return a null ptr if there is no valid scene color target  */
-	const TRefCountPtr<IPooledRenderTarget>& GetSceneColorForCurrentShadingPath() const { check(CurrentShadingPath < EShadingPath::Num); return SceneColor[(int32)CurrentShadingPath]; }
-	TRefCountPtr<IPooledRenderTarget>& GetSceneColorForCurrentShadingPath() { check(CurrentShadingPath < EShadingPath::Num); return SceneColor[(int32)CurrentShadingPath]; }
+	const TRefCountPtr<IPooledRenderTarget>& GetSceneColorForCurrentShadingPath() const { check(CurrentShadingPath < EShadingPath::Num); return SceneColor[(int32)GetSceneColorFormatType()]; }
+	TRefCountPtr<IPooledRenderTarget>& GetSceneColorForCurrentShadingPath() { check(CurrentShadingPath < EShadingPath::Num); return SceneColor[(int32)GetSceneColorFormatType()]; }
 
 	/** Determine whether the render targets for a particular shading path have been allocated */
-	bool AreShadingPathRenderTargetsAllocated(EShadingPath InShadingPath) const;
+	bool AreShadingPathRenderTargetsAllocated(ESceneColorFormatType InSceneColorFormatType) const;
 
 	/** Determine whether the render targets for any shading path have been allocated */
 	bool AreAnyShadingPathRenderTargetsAllocated() const 
 	{ 
-		return AreShadingPathRenderTargetsAllocated(EShadingPath::Deferred) 
-			|| AreShadingPathRenderTargetsAllocated(EShadingPath::Mobile); 
+		return AreShadingPathRenderTargetsAllocated(ESceneColorFormatType::HighEnd) 
+			|| AreShadingPathRenderTargetsAllocated(ESceneColorFormatType::HighEndWithAlpha) 
+			|| AreShadingPathRenderTargetsAllocated(ESceneColorFormatType::Mobile); 
 	}
 
 	/** Gets all GBuffers to use.  Returns the number actually used. */
 	int32 GetGBufferRenderTargets(ERenderTargetLoadAction ColorLoadAction, FRHIRenderTargetView OutRenderTargets[MaxSimultaneousRenderTargets], int32& OutVelocityRTIndex);
+
+	ESceneColorFormatType GetSceneColorFormatType() const
+	{
+		if (CurrentShadingPath == EShadingPath::Mobile)
+		{
+			return ESceneColorFormatType::Mobile;
+		}
+		else if (CurrentShadingPath == EShadingPath::Deferred && (bRequireSceneColorAlpha || CurrentSceneColorFormat == 4))
+		{
+			return ESceneColorFormatType::HighEndWithAlpha;
+		}
+		else if (CurrentShadingPath == EShadingPath::Deferred && !bRequireSceneColorAlpha)
+		{
+			return ESceneColorFormatType::HighEnd;
+		}
+
+		check(0);
+		return ESceneColorFormatType::Num;
+	}
 
 	/** Uniform buffer containing GBuffer resources. */
 	FUniformBufferRHIRef GBufferResourcesUniformBuffer;
@@ -670,6 +713,8 @@ private:
 	ERHIFeatureLevel::Type CurrentFeatureLevel;
 	/** Shading path that we are currently drawing through. Set when calling Allocate at the start of a scene render. */
 	EShadingPath CurrentShadingPath;
+
+	bool bRequireSceneColorAlpha;
 
 	// Set this per frame since there might be cases where we don't need an extra GBuffer
 	bool bAllocateVelocityGBuffer;

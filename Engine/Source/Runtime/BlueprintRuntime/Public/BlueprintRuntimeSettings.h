@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "BlueprintRuntimeSettings.generated.h"
+
+class Error;
 
 UENUM()
 enum class EBlueprintWarningBehavior : uint8

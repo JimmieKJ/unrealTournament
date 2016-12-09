@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetworkFilePrivatePCH.h"
 #include "TCPTransport.h"
-#include "MultichannelTCP.h"
+#include "NetworkMessage.h"
+#include "SocketSubsystem.h"
+#include "IPAddress.h"
+#include "Sockets.h"
+#include "MultichannelTcpSocket.h"
 #include "NetworkPlatformFile.h"
 
 FTCPTransport::FTCPTransport()
@@ -34,7 +37,7 @@ bool FTCPTransport::Initialize(const TCHAR* InHostIp)
 		FileSocket = SSS->CreateSocket(NAME_Stream, TEXT("FNetworkPlatformFile tcp"));
 
 		// try to connect to the server
-		if (FileSocket->Connect(*Addr) == false)
+		if (FileSocket == nullptr || FileSocket->Connect(*Addr) == false)
 		{
 			// on failure, shut it all down
 			SSS->DestroySocket(FileSocket);

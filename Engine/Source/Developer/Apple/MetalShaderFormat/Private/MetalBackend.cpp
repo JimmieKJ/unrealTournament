@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
+#include "MetalBackend.h"
 #include "MetalShaderFormat.h"
 #include "hlslcc.h"
 #include "hlslcc_private.h"
-#include "MetalBackend.h"
 #include "MetalUtils.h"
 #include "compiler.h"
 
@@ -639,6 +638,7 @@ protected:
 	{
 		check(0 && "ir_rvalue not handled for GLSL export.");
 	}
+	
 
 	void print_zero_initialiser(const glsl_type * type)
 	{
@@ -1097,11 +1097,24 @@ protected:
 		}
 		else if (op >= ir_unop_fasu && op <= ir_unop_uasf)
 		{
-			ralloc_asprintf_append(buffer, "as_type<");
-			print_type_full(expr->type);
-			ralloc_asprintf_append(buffer, ">(");
-			expr->operands[0]->accept(this);
-			ralloc_asprintf_append(buffer, ")");
+		
+		
+		
+		
+			if (expr->type != expr->operands[0]->type)
+			{
+				ralloc_asprintf_append(buffer, "as_type<");
+				print_type_full(expr->type);
+				ralloc_asprintf_append(buffer, ">(");
+				expr->operands[0]->accept(this);
+				ralloc_asprintf_append(buffer, ")");
+			}
+			else
+			{
+				ralloc_asprintf_append(buffer, "(");
+				expr->operands[0]->accept(this);
+				ralloc_asprintf_append(buffer, ")");
+			}
 		}
 		else if (numOps == 1 && op >= ir_unop_first_conversion && op <= ir_unop_last_conversion)
 		{
@@ -1926,7 +1939,18 @@ protected:
 			if (constant->is_component_finite(index))
 			{
 				float value = constant->value.f[index];
-				const char *format = (fabsf(fmodf(value,1.0f)) < 1.e-8f) ? "%.1f" : "%.8f";
+				float absval = fabsf(value);
+				
+				const char *format = "%e";
+				if (absval >= 1.0f)
+				{
+					format = (fmodf(absval,1.0f) < 1.e-8f) ? "%.1f" : "%.8f";
+				}
+				else if (absval < 1.e-18f)
+				{
+					format = "%.1f";
+				}
+				
 				ralloc_asprintf_append(buffer, format, value);
 			}
 			else

@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Animation/Skeleton.h"
+#include "IDetailCustomization.h"
 #include "Animation/PoseAsset.h"
-#include "PreviewScene.h"
+
+class FAssetData;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
 
 class FPoseAssetDetails : public IDetailCustomization
 {

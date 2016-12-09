@@ -2,8 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "NiagaraCommon.h"
+#include "NiagaraEditorCommon.h"
 #include "NiagaraNode.h"
 #include "NiagaraNodeInput.generated.h"
+
+class UEdGraphPin;
 
 UCLASS(MinimalAPI)
 class UNiagaraNodeInput : public UNiagaraNode

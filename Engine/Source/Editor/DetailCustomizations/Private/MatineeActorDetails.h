@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Input/Reply.h"
+#include "IDetailCustomization.h"
+
+class AMatineeActor;
+class IDetailLayoutBuilder;
+
 class FMatineeActorDetails : public IDetailCustomization
 {
 public:

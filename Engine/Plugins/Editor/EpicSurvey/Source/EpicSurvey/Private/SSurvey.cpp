@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EpicSurveyPrivatePCH.h"
-#include "SQuestionBlock.h"
-#include "QuestionBlock.h"
 #include "SSurvey.h"
-#include "Survey.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Notifications/SProgressBar.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "EditorStyleSet.h"
 #include "SurveyPage.h"
 #include "SSurveyPage.h"
 

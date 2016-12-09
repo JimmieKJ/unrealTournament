@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RHIDefinitions.h"
+
 extern int32 GCapsuleShadows;
 
 inline bool DoesPlatformSupportCapsuleShadows(EShaderPlatform Platform)

@@ -1,22 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Editor/Sequencer/Public/ISequencerModule.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
+#include "Layout/SlateRect.h"
+#include "Rendering/DrawElements.h"
+#include "EditorStyleSet.h"
+#include "Curves/KeyHandle.h"
+#include "NiagaraEmitterProperties.h"
+#include "NiagaraSimulation.h"
+#include "SequencerSectionPainter.h"
+#include "MovieSceneSection.h"
+#include "ISequencerSection.h"
+#include "MovieSceneTrack.h"
 #include "Editor/Sequencer/Public/MovieSceneTrackEditor.h"
-#include "Editor/Sequencer/Public/ISequencerSection.h"
-#include "Runtime/MovieScene/Public/MovieScene.h"
 #include "Runtime/MovieScene/Public/MovieSceneNameableTrack.h"
-#include "Runtime/MovieScene/Public/IMovieSceneTrackInstance.h"
-#include "Runtime/MovieScene/Public/MovieSceneSection.h"
 
 #include "NiagaraSequencer.generated.h"
 
-
-class IMovieScenePlayer;
-class UEmitterMovieSceneTrack;
-class UMovieSceneSection;
-class UMovieSceneTrack;
-
+class ISectionLayoutBuilder;
 
 /** 
  *	Niagara editor movie scene section; represents one emitter in the timeline
@@ -115,28 +120,28 @@ private:
 /**
 *	One instance of a UEmitterMovieSceneTrack
 */
-class INiagaraTrackInstance
-	: public IMovieSceneTrackInstance
-{
-public:
-	INiagaraTrackInstance(UEmitterMovieSceneTrack *InTrack)
-		: Track(InTrack)
-	{
-	}
+// class INiagaraTrackInstance
+// 	: public IMovieSceneTrackInstance
+// {
+// public:
+// 	INiagaraTrackInstance(UEmitterMovieSceneTrack *InTrack)
+// 		: Track(InTrack)
+// 	{
+// 	}
 
-	virtual void Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
-	{
-	}
+// 	virtual void Update(EMovieSceneUpdateData& UpdateData, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player)
+// 	{
+// 	}
 
-	virtual void RefreshInstance(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance);
-	virtual void ClearInstance(IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance) override {}
-	virtual void SaveState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance) override {}
-	virtual void RestoreState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance) override {}
+// 	virtual void RefreshInstance(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance);
+// 	virtual void ClearInstance(IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance) override {}
+// 	virtual void SaveState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance) override {}
+// 	virtual void RestoreState(const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance) override {}
 
-private:
-	TSharedPtr<FNiagaraSimulation> Emitter;
-	UEmitterMovieSceneTrack *Track;
-};
+// private:
+// 	TSharedPtr<FNiagaraSimulation> Emitter;
+// 	UEmitterMovieSceneTrack *Track;
+// };
 
 
 /**
@@ -196,11 +201,6 @@ public:
 		return false;
 	}
 
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance()
-	{
-		return MakeShareable(new INiagaraTrackInstance(this));
-	}
-
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override
 	{
 		return Sections;
@@ -241,7 +241,7 @@ public:
 		return false;
 	}
 
-	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track)
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override
 	{
 		INiagaraSequencerSection *Sec = new INiagaraSequencerSection(SectionObject);
 		return MakeShareable(Sec);

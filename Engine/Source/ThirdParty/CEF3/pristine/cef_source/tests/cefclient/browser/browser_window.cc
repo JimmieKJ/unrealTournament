@@ -15,6 +15,13 @@ BrowserWindow::BrowserWindow(Delegate* delegate)
   DCHECK(delegate_);
 }
 
+void BrowserWindow::SetDeviceScaleFactor(float device_scale_factor) {
+}
+
+float BrowserWindow::GetDeviceScaleFactor() const {
+  return 1.0f;
+}
+
 CefRefPtr<CefBrowser> BrowserWindow::GetBrowser() const {
   REQUIRE_MAIN_THREAD();
   return browser_;
@@ -41,8 +48,10 @@ void BrowserWindow::OnBrowserClosing(CefRefPtr<CefBrowser> browser) {
 
 void BrowserWindow::OnBrowserClosed(CefRefPtr<CefBrowser> browser) {
   REQUIRE_MAIN_THREAD();
-  DCHECK_EQ(browser->GetIdentifier(), browser_->GetIdentifier());
-  browser_ = NULL;
+  if (browser_.get()) {
+    DCHECK_EQ(browser->GetIdentifier(), browser_->GetIdentifier());
+    browser_ = NULL;
+  }
 
   client_handler_->DetachDelegate();
   client_handler_ = NULL;
@@ -59,6 +68,11 @@ void BrowserWindow::OnSetAddress(const std::string& url) {
 void BrowserWindow::OnSetTitle(const std::string& title) {
   REQUIRE_MAIN_THREAD();
   delegate_->OnSetTitle(title);
+}
+
+void BrowserWindow::OnSetFullscreen(bool fullscreen) {
+  REQUIRE_MAIN_THREAD();
+  delegate_->OnSetFullscreen(fullscreen);
 }
 
 void BrowserWindow::OnSetLoadingState(bool isLoading,

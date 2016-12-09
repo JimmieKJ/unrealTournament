@@ -3,8 +3,7 @@
 
 #pragma once
 
-#include "Core.h"
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
 #include "StandaloneRenderer.h"
 
 /**

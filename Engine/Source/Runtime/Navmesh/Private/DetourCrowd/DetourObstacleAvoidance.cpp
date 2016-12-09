@@ -19,16 +19,9 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include "DetourObstacleAvoidance.h"
-#include "DetourCommon.h"
-#include "DetourAlloc.h"
-#include "DetourAssert.h"
-#include "DetourCrowd.h"
-#include <string.h>
-#include <math.h>
-#include <float.h>
-#include <new>
+#include "DetourCrowd/DetourObstacleAvoidance.h"
+#include "Detour/DetourAssert.h"
+#include "DetourCrowd/DetourCrowd.h"
 
 static const float DT_PI = 3.14159265f;
 

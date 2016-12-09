@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "MacSystemIncludes.h"
+#include "Misc/FeedbackContext.h"
 
 @interface FMacNativeFeedbackContextWindowController : NSObject
 {

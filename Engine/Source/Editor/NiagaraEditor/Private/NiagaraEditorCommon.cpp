@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
+#include "NiagaraEditorCommon.h"
+#include "AssetData.h"
+#include "INiagaraCompiler.h"
+#include "NiagaraEffect.h"
 
 #include "ActorFactoryNiagara.h"
 #include "NiagaraActor.h"
@@ -13,6 +16,7 @@ DEFINE_LOG_CATEGORY(LogNiagaraEditor);
 NiagaraOpList
 #undef NiagaraOp
 
+BEGIN_FUNCTION_BUILD_OPTIMIZATION
 void FNiagaraOpInfo::Init()
 {
 	//Common input and output names.
@@ -591,6 +595,7 @@ void FNiagaraOpInfo::Init()
 	}
 #undef NiagaraOp
 }
+END_FUNCTION_BUILD_OPTIMIZATION
 
 const FNiagaraOpInfo* FNiagaraOpInfo::GetOpInfo(FName Name)
 {

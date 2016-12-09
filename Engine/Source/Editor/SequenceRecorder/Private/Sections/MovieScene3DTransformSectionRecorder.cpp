@@ -1,15 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderPrivatePCH.h"
-#include "MovieScene3DTransformSectionRecorder.h"
-#include "MovieScene.h"
-#include "MovieScene3DTransformSection.h"
-#include "MovieScene3DTransformTrack.h"
-#include "MovieSceneAnimationSectionRecorder.h"
-#include "SequenceRecorderUtils.h"
-#include "ActorRecording.h"
-#include "ActorRecordingSettings.h"
-#include "Animation/AnimSequence.h"
+#include "Sections/MovieScene3DTransformSectionRecorder.h"
+#include "Misc/ScopedSlowTask.h"
+#include "GameFramework/Character.h"
+#include "KeyParams.h"
+#include "Sections/MovieScene3DTransformSection.h"
+#include "Tracks/MovieScene3DTransformTrack.h"
 #include "SequenceRecorder.h"
 
 TSharedPtr<IMovieSceneSectionRecorder> FMovieScene3DTransformSectionRecorderFactory::CreateSectionRecorder(const FActorRecordingSettings& InActorRecordingSettings) const
@@ -100,7 +96,7 @@ void FMovieScene3DTransformSectionRecorder::FinalizeSection()
 				// find the root bone
 				int32 RootIndex = INDEX_NONE;
 				USkeleton* AnimSkeleton = AnimSequence->GetSkeleton();
-				for (int32 TrackIndex = 0; TrackIndex < AnimSequence->RawAnimationData.Num(); ++TrackIndex)
+				for (int32 TrackIndex = 0; TrackIndex < AnimSequence->GetRawAnimationData().Num(); ++TrackIndex)
 				{
 					// verify if this bone exists in skeleton
 					int32 BoneTreeIndex = AnimSequence->GetSkeletonIndexFromRawDataTrackIndex(TrackIndex);
@@ -124,7 +120,7 @@ void FMovieScene3DTransformSectionRecorder::FinalizeSection()
 				// we may need to offset the transform here if the animation was not recorded on the root component
 				FTransform InvComponentTransform = AnimRecorder->GetComponentTransform().Inverse();
 
-				FRawAnimSequenceTrack& RawTrack = AnimSequence->RawAnimationData[RootIndex];
+				const FRawAnimSequenceTrack& RawTrack = AnimSequence->GetRawAnimationData()[RootIndex];
 				const int32 KeyCount = FMath::Max(FMath::Max(RawTrack.PosKeys.Num(), RawTrack.RotKeys.Num()), RawTrack.ScaleKeys.Num());
 				for (int32 KeyIndex = 0; KeyIndex < KeyCount; KeyIndex++)
 				{

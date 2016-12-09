@@ -2,8 +2,17 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/UnrealTemplate.h"
+#include "Containers/UnrealString.h"
+#include "Logging/LogMacros.h"
+#include "Delegates/IDelegateInstance.h"
+#include "Delegates/Delegate.h"
+
 #define TRACK_CONSOLE_FIND_COUNT !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
+template <class T> class TConsoleVariableData;
 
 /**
  * Console variable usage guide:
@@ -270,7 +279,16 @@ public:
 		// inefficient but no common code path
 		Set(*FString::Printf(TEXT("%g"), InValue), SetBy);
 	}
-
+	void SetWithCurrentPriority(int32 InValue)
+	{
+		EConsoleVariableFlags CurFlags = (EConsoleVariableFlags)(GetFlags() & ECVF_SetByMask);
+		Set(InValue, CurFlags);
+	}
+	void SetWithCurrentPriority(float InValue)
+	{
+		EConsoleVariableFlags CurFlags = (EConsoleVariableFlags)(GetFlags() & ECVF_SetByMask);
+		Set(InValue, CurFlags);
+	}
 };
 
 /**

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/ISlateStyle.h"
+
 struct FSlateDynamicImageBrush;
 
 /**

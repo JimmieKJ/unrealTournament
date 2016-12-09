@@ -4,26 +4,23 @@
 	DeferredShadingRenderer.cpp: Top level rendering loop for deferred shading
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "Engine.h"
+#include "DeferredShadingRenderer.h"
+#include "VelocityRendering.h"
+#include "AtmosphereRendering.h"
 #include "ScenePrivate.h"
 #include "ScreenRendering.h"
-#include "SceneFilterRendering.h"
-#include "ScreenSpaceReflections.h"
-#include "VisualizeTexture.h"
-#include "CompositionLighting.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "PostProcess/ScreenSpaceReflections.h"
+#include "CompositionLighting/CompositionLighting.h"
 #include "FXSystem.h"
 #include "OneColorShader.h"
 #include "CompositionLighting/PostProcessDeferredDecals.h"
-#include "LightPropagationVolume.h"
-#include "DeferredShadingRenderer.h"
-#include "SceneUtils.h"
 #include "DistanceFieldSurfaceCacheLighting.h"
 #include "GlobalDistanceField.h"
 #include "PostProcess/PostProcessing.h"
 #include "DistanceFieldAtlas.h"
 #include "EngineModule.h"
-#include "IHeadMountedDisplay.h"
+#include "SceneViewExtension.h"
 #include "GPUSkinCache.h"
 
 TAutoConsoleVariable<int32> CVarEarlyZPass(
@@ -46,6 +43,15 @@ static FAutoConsoleVariableRef CVarEarlyZPassMovable(
 	TEXT("Whether to render movable objects into the depth only pass.  Movable objects are typically not good occluders so this defaults to off.\n")
 	TEXT("Note: also look at r.EarlyZPass"),
 	ECVF_RenderThreadSafe | ECVF_Scalability
+	);
+
+/** Affects BasePassPixelShader.usf so must relaunch editor to recompile shaders. */
+static TAutoConsoleVariable<int32> CVarEarlyZPassOnlyMaterialMasking(
+	TEXT("r.EarlyZPassOnlyMaterialMasking"),
+	0,
+	TEXT("Whether to compute materials' mask opacity only in early Z pass. Changing this setting requires restarting the editor.\n")
+	TEXT("Note: Needs r.EarlyZPass == 2 && r.EarlyZPassMovable == 1"),
+	ECVF_RenderThreadSafe | ECVF_ReadOnly
 	);
 
 static TAutoConsoleVariable<int32> CVarStencilForLODDither(
@@ -97,6 +103,14 @@ static FAutoConsoleVariableRef CVarEnableAsyncComputeTranslucencyLightingVolumeC
 	ECVF_RenderThreadSafe | ECVF_Scalability
 );
 
+static TAutoConsoleVariable<int32> CVarAlphaChannel(
+	TEXT("r.SceneAlpha"),
+	0,
+	TEXT("0 to disable scene alpha channel support.\n")
+	TEXT(" 0: disabled (default)\n")
+	TEXT(" 1: enabled"),
+	ECVF_ReadOnly);
+
 DECLARE_CYCLE_STAT(TEXT("PostInitViews FlushDel"), STAT_PostInitViews_FlushDel, STATGROUP_InitViews);
 DECLARE_CYCLE_STAT(TEXT("InitViews Intentional Stall"), STAT_InitViews_Intentional_Stall, STATGROUP_InitViews);
 
@@ -141,7 +155,12 @@ bool ShouldForceFullDepthPass(ERHIFeatureLevel::Type FeatureLevel)
 	bool bStencilLODDither = StencilLODDitherCVar->GetValueOnAnyThread() != 0;
 
 	// Note: ShouldForceFullDepthPass affects which static draw lists meshes go into, so nothing it depends on can change at runtime, unless you do a FGlobalComponentRecreateRenderStateContext to propagate the cvar change
-	return bDBufferAllowed || bStencilLODDither || IsForwardShadingEnabled(FeatureLevel);
+	return bDBufferAllowed || bStencilLODDither || IsForwardShadingEnabled(FeatureLevel) || UseSelectiveBasePassOutputs();
+}
+
+bool SupportSceneAlpha()
+{
+	return CVarAlphaChannel.GetValueOnRenderThread() != 0;
 }
 
 const TCHAR* GetDepthPassReason(bool bDitheredLODTransitionsUseStencil, ERHIFeatureLevel::Type FeatureLevel)
@@ -199,12 +218,6 @@ FDeferredShadingSceneRenderer::FDeferredShadingSceneRenderer(const FSceneViewFam
 		}
 	}
 
-	// Shader complexity requires depth only pass to display masked material cost correctly
-	if (ViewFamily.UseDebugViewPS() && ViewFamily.GetDebugViewShaderMode() != DVSM_MaterialTexCoordScalesAnalysis)
-	{
-		EarlyZPassMode = DDM_AllOpaque;
-	}
-
 	// Warning: EarlyZPass logic is mirrored in FStaticMesh::AddToDrawLists
 
 	bEarlyZPassMovable = GEarlyZPassMovable != 0;
@@ -212,7 +225,13 @@ FDeferredShadingSceneRenderer::FDeferredShadingSceneRenderer(const FSceneViewFam
 	static const auto StencilLODDitherCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.StencilForLODDither"));
 	bDitheredLODTransitionsUseStencil = StencilLODDitherCVar->GetValueOnAnyThread() != 0;
 
-	if (ShouldForceFullDepthPass(FeatureLevel))
+	// Shader complexity requires depth only pass to display masked material cost correctly
+	if (ViewFamily.UseDebugViewPS() && ViewFamily.GetDebugViewShaderMode() != DVSM_OutputMaterialTextureScales)
+	{
+		EarlyZPassMode = DDM_AllOpaque;
+		bEarlyZPassMovable = true;
+	}
+	else if (ShouldForceFullDepthPass(FeatureLevel))
 	{
 		// DBuffer decals and stencil LOD dithering force a full prepass
 		EarlyZPassMode = DDM_AllOccluders;
@@ -569,6 +588,15 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	// Find the visible primitives.
 	bool bDoInitViewAftersPrepass = InitViews(RHICmdList, ILCTaskData, SortEvents);
 
+	for (int32 ViewExt = 0; ViewExt < ViewFamily.ViewExtensions.Num(); ++ViewExt)
+	{
+		ViewFamily.ViewExtensions[ViewExt]->PostInitViewFamily_RenderThread(RHICmdList, ViewFamily);
+		for (int32 ViewIndex = 0; ViewIndex < ViewFamily.Views.Num(); ++ViewIndex)
+		{
+			ViewFamily.ViewExtensions[ViewExt]->PostInitView_RenderThread(RHICmdList, Views[ViewIndex]);
+		}
+	}
+
 	TGuardValue<bool> LockDrawLists(GDrawListsLocked, true);
 #if !UE_BUILD_SHIPPING
 	if (CVarStallInitViews.GetValueOnRenderThread() > 0.0f)
@@ -587,7 +615,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		}	
 	}
 
-	if (ShouldPrepareDistanceFields())
+	if (ShouldPrepareDistanceFieldScene())
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_DistanceFieldAO_Init);
 		GDistanceFieldVolumeTextureAtlas.UpdateAllocations();
@@ -597,7 +625,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		{
 			Views[ViewIndex].HeightfieldLightingViewInfo.SetupVisibleHeightfields(Views[ViewIndex], RHICmdList);
 
-			if (UseGlobalDistanceField())
+			if (ShouldPrepareGlobalDistanceField())
 			{
 				// Use the skylight's max distance if there is one
 				const float OcclusionMaxDistance = Scene->SkyLight && !Scene->SkyLight->bWantsStaticShadowing ? Scene->SkyLight->OcclusionMaxDistance : Scene->DefaultMaxDistanceFieldOcclusionDistance;
@@ -618,7 +646,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	bool bRequiresRHIClear = true;
 	bool bRequiresFarZQuadClear = false;
 
-	const bool bUseGBuffer = !IsAnyForwardShadingEnabled(GetFeatureLevelShaderPlatform(FeatureLevel));
+	const bool bUseGBuffer = IsUsingGBuffers(GetFeatureLevelShaderPlatform(FeatureLevel));
 
 	if (ClearMethodCVar)
 	{
@@ -749,18 +777,16 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_AfterPrePass));
 	ServiceLocalQueue();
 
-	SceneContext.ResolveSceneDepthTexture(RHICmdList);
+	SceneContext.ResolveSceneDepthTexture(RHICmdList, FResolveRect(0, 0, ViewFamily.FamilySizeX, ViewFamily.FamilySizeY));
 
 	const bool bShouldRenderVelocities = ShouldRenderVelocities();
 	const bool bUseVelocityGBuffer = FVelocityRendering::OutputsToGBuffer();
 	const bool bUseSelectiveBasePassOutputs = UseSelectiveBasePassOutputs();
 
-	if (bUseGBuffer)
-	{
-		SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_AllocGBufferTargets);
-		SceneContext.PreallocGBufferTargets(bUseVelocityGBuffer); // Even if !bShouldRenderVelocities, the velocity buffer must be bound because it's a compile time option for the shader.
-		SceneContext.AllocGBufferTargets(RHICmdList);
-	}
+	
+	SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_AllocGBufferTargets);
+	SceneContext.PreallocGBufferTargets();
+	SceneContext.AllocGBufferTargets(RHICmdList);
 
 	//occlusion can't run before basepass if there's no prepass to fill in some depth to occlude against.
 	bool bOcclusionBeforeBasePass = ((CVarOcclusionQueryLocation.GetValueOnRenderThread() == 1) && bNeedsPrePass) || IsForwardShadingEnabled(FeatureLevel);	
@@ -877,7 +903,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	{
 		// clear out emissive and baked lighting (not too efficient but simple and only needed for this debug view)
 		SceneContext.BeginRenderingSceneColor(RHICmdList);
-		RHICmdList.Clear(true, FLinearColor(0, 0, 0, 0), false, (float)ERHIZBuffer::FarPlane, false, 0, FIntRect());
+		RHICmdList.ClearColorTexture(SceneContext.GetSceneColorSurface(), FLinearColor(0, 0, 0, 0), FIntRect());
 	}
 
 	SceneContext.DBufferA.SafeRelease();
@@ -900,7 +926,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		bRequiresFarZQuadClear = false;
 	}
 	
-	SceneContext.ResolveSceneDepthTexture(RHICmdList);
+	SceneContext.ResolveSceneDepthTexture(RHICmdList, FResolveRect(0, 0, ViewFamily.FamilySizeX, ViewFamily.FamilySizeY));
 	SceneContext.ResolveSceneDepthToAuxiliaryTexture(RHICmdList);
 
 	bool bOcclusionAfterBasePass = bIsOcclusionTesting && !bOcclusionBeforeBasePass;
@@ -1197,7 +1223,8 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	}
 
 	if (ViewFamily.EngineShowFlags.StationaryLightOverlap &&
-		FeatureLevel >= ERHIFeatureLevel::SM4)
+		FeatureLevel >= ERHIFeatureLevel::SM4 && 
+		bUseGBuffer)
 	{
 		RenderStationaryLightOverlap(RHICmdList);
 		ServiceLocalQueue();
@@ -1206,10 +1233,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	// Resolve the scene color for post processing.
 	SceneContext.ResolveSceneColor(RHICmdList, FResolveRect(0, 0, ViewFamily.FamilySizeX, ViewFamily.FamilySizeY));
 
-	if (RendererModule.HasPostResolvedSceneColorExtension())
-	{
-		RendererModule.RenderPostResolvedSceneColorExtension(RHICmdList, SceneContext);
-	}
+	GetRendererModule().RenderPostResolvedSceneColorExtension(RHICmdList, SceneContext);
 
 	CopySceneCaptureComponentToTarget(RHICmdList);
 
@@ -1287,7 +1311,7 @@ public:
 		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
 		// Used to remap view space Z (which is stored in scene color alpha) into post projection z and w so we can write z/w into the downsized depth buffer
-		const FVector2D ProjectionScaleBiasValue(View.ViewMatrices.ProjMatrix.M[2][2], View.ViewMatrices.ProjMatrix.M[3][2]);
+		const FVector2D ProjectionScaleBiasValue(View.ViewMatrices.GetProjectionMatrix().M[2][2], View.ViewMatrices.GetProjectionMatrix().M[3][2]);
 		SetShaderValue(RHICmdList, GetPixelShader(), ProjectionScaleBias, ProjectionScaleBiasValue);
 		SetShaderValue(RHICmdList, GetPixelShader(), UseMaxDepth, (bUseMaxDepth ? 1.0f : 0.0f));
 

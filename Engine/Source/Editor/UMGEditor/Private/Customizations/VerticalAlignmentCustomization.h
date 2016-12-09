@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IPropertyTypeCustomization.h"
+
+class IPropertyHandle;
+enum class ECheckBoxState : uint8;
+
 class FVerticalAlignmentCustomization : public IPropertyTypeCustomization
 {
 public:

@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Engine/Texture.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
 #include "Factories/Factory.h"
+#include "Engine/Texture.h"
 #include "TextureFactory.generated.h"
+
+class UTexture2D;
+class UTextureCube;
 
 UCLASS(customconstructor, collapsecategories, hidecategories=Object)
 class UNREALED_API UTextureFactory : public UFactory

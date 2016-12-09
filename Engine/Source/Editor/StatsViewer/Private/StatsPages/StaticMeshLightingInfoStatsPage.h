@@ -2,7 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "IStatsViewer.h"
+#include "Framework/Application/IMenu.h"
+#include "StatsPage.h"
 #include "StaticMeshLightingInfo.h"
+
+class SComboButton;
 
 struct ESwapOptions
 {

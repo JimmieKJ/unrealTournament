@@ -7,188 +7,147 @@
 
 #pragma once
 
-/**
- * Namespace to declares the progress type enum
- */
-namespace EBuildPatchProgress
+#include "CoreMinimal.h"
+#include "BuildPatchState.h"
+
+namespace BuildPatchServices
 {
-	enum Type
+	/**
+	 * A struct to hold patch progress tracking
+	 */
+	struct FBuildPatchProgress
 	{
-		// The patch process is waiting for other installs
-		Queued = 0,
+	private:
 
-		// The patch process is initializing
-		Initializing,
+		// Defines whether each state displays progress percent or is designed for a "please wait" or marquee style progress bar
+		// This is predefined and constant.
+		static const bool bHasProgressValue[static_cast<int32>(EBuildPatchState::NUM_PROGRESS_STATES)];
 
-		// The patch process is enumerating existing staged data
-		Resuming,
+		// Defines whether each state should count towards the overall progress
+		// This is predefined and constant.
+		static const bool bCountsTowardsProgress[static_cast<int32>(EBuildPatchState::NUM_PROGRESS_STATES)];
 
-		// The patch process is downloading patch data
-		Downloading,
+		// Holds the current percentage complete for each state, this will decide the "current" state, being the first that is not complete.
+		// Range 0 to 1.
+		float StateProgressValues[static_cast<int32>(EBuildPatchState::NUM_PROGRESS_STATES)];
 
-		// The patch process is installing files
-		Installing,
+		// Holds the weight that each stage has on overall progress. 
+		// Range 0 to 1.
+		float StateProgressWeights[static_cast<int32>(EBuildPatchState::NUM_PROGRESS_STATES)];
 
-		// The patch process is moving staged files to the install
-		MovingToInstall,
+		// Cached total weight value for progress calculation
+		float TotalWeight;
 
-		// The patch process is setting up attributes on the build
-		SettingAttributes,
+		// Externally set variable to say if the system is currently making download requests
+		bool bIsDownloading;
 
-		// The patch process is verifying the build
-		BuildVerification,
+		// The current state value for UI polling
+		EBuildPatchState CurrentState;
 
-		// The patch process is cleaning temp files
-		CleanUp,
+		// The current progress value for UI polling
+		float CurrentProgress;
 
-		// The patch process is installing prerequisites
-		PrerequisitesInstall,
+		// Critical section to protect variable access
+		mutable FCriticalSection ThreadLock;
 
-		// A state to catch the UI when progress is 100% but UI still being displayed
-		Completed,
+	public:
 
-		// The process has been set paused
-		Paused,
+		/**
+		 * Default constructor
+		 */
+		FBuildPatchProgress();
 
-		// Holds the number of states, for array sizes
-		NUM_PROGRESS_STATES,
+		/**
+		 * Resets internal variables to start over
+		 */
+		void Reset();
+
+		/**
+		 * Sets the progress value for a particular state
+		 * @param State		The state to set progress for
+		 * @param Value		The progress value
+		 */
+		void SetStateProgress(const EBuildPatchState& State, const float& Value);
+
+		/**
+		 * Sets the progress weight for a particular state
+		 * @param State		The state to set weight for
+		 * @param Value		The weight value
+		 */
+		void SetStateWeight(const EBuildPatchState& State, const float& Value);
+
+		/**
+		 * Gets the current progress state
+		 * @return The current progress state
+		 */
+		EBuildPatchState GetState() const;
+
+		/**
+		 * Gets the text for the current progress state
+		 * @return The display text for the current progress state
+		 */
+		const FText& GetStateText() const;
+
+		/**
+		 * Gets the current overall progress
+		 * @return The current progress value. Range 0 to 1. -1 indicates undetermined, i.e. show a marquee style bar.
+		 */
+		float GetProgress() const;
+
+		/**
+		 * Gets the current overall progress regardless of current state using marquee
+		 * @return The current progress value. Range 0 to 1.
+		 */
+		float GetProgressNoMarquee() const;
+
+		/**
+		 * Gets the progress value for a particular state
+		 * @param State		The state to get progress for
+		 * @return The state progress value. Range 0 to 1.
+		 */
+		float GetStateProgress(const EBuildPatchState& State) const;
+
+		/**
+		 * Gets the weight value for a particular state
+		 * @param State		The state to get weight for
+		 * @return The state weight value.
+		 */
+		float GetStateWeight(const EBuildPatchState& State) const;
+
+		/**
+		 * Toggles the pause state
+		 * @return Whether the current state is now paused
+		 */
+		bool TogglePauseState();
+
+		/**
+		 * Blocks calling thread while the progress is paused
+		 * @return How long we paused for, in seconds
+		 */
+		double WaitWhilePaused() const;
+
+		/**
+		 * Gets the pause state
+		 * @return Whether the current state is paused
+		 */
+		bool GetPauseState() const;
+
+		/**
+		 * Set the set state of whether the system is currently downloading data.
+		 * @param bIsDownloading	Whether the system is currently downloading data.
+		 */
+		void SetIsDownloading(bool bIsDownloading);
+
+	private:
+
+		/**
+		 * Updates the current state and progress values
+		 */
+		void UpdateProgressInfo();
+
+		/**
+		 * Updates the cached values
+		 */
+		void UpdateCachedValues();
 	};
-
-	/**
-	 * Returns the string representation of the EBuildPatchProgress value. Used for analytics and logging only.
-	 * @param ProgressValue - The value.
-	 * @return The enum's string value.
-	 */
-	const FString& ToString( const Type& ProgressValue );
-
-	/**
-	 * Returns the FText representation of the specified EBuildPatchProgress value. Used for displaying to the user.
-	 * @param ProgressValue - The error type value.
-	 * @return The display text associated with the progress step.
-	 */
-	const FText& ToText( const Type& ProgressValue );
 }
-
-/**
- * A struct to hold patch progress tracking
- */
-struct FBuildPatchProgress
-{
-private:
-
-	// Defines whether each state displays progress percent or is designed for a "please wait" or marquee style progress bar
-	// This is predefined and constant.
-	static const bool bHasProgressValue[ EBuildPatchProgress::NUM_PROGRESS_STATES ];
-
-	// Defines whether each state should count towards the overall progress
-	// This is predefined and constant.
-	static const bool bCountsTowardsProgress[ EBuildPatchProgress::NUM_PROGRESS_STATES ];
-
-	// Holds the current percentage complete for each state, this will decide the "current" state, being the first that is not complete.
-	// Range 0 to 1.
-	float StateProgressValues[ EBuildPatchProgress::NUM_PROGRESS_STATES ];
-
-	// Holds the weight that each stage has on overall progress. 
-	// Range 0 to 1.
-	float StateProgressWeights[ EBuildPatchProgress::NUM_PROGRESS_STATES ];
-
-	// Cached total weight value for progress calculation
-	float TotalWeight;
-
-	// The current state value for UI polling
-	EBuildPatchProgress::Type CurrentState;
-
-	// The current progress value for UI polling
-	float CurrentProgress;
-
-	// Critical section to protect variable access
-	FCriticalSection ThreadLock;
-
-public:
-
-	/**
-	 * Default constructor
-	 */
-	FBuildPatchProgress();
-
-	/**
-	 * Resets internal variables to start over
-	 */
-	void Reset();
-
-	/**
-	 * Sets the progress value for a particular state
-	 * @param State		The state to set progress for
-	 * @param Value		The progress value
-	 */
-	void SetStateProgress( const EBuildPatchProgress::Type& State, const float& Value );
-
-	/**
-	 * Sets the progress weight for a particular state
-	 * @param State		The state to set weight for
-	 * @param Value		The weight value
-	 */
-	void SetStateWeight( const EBuildPatchProgress::Type& State, const float& Value );
-
-	/**
-	 * Gets the text for the current progress state
-	 * @return The display text for the current progress state
-	 */
-	const FText& GetStateText();
-
-	/**
-	 * Gets the current overall progress
-	 * @return The current progress value. Range 0 to 1. -1 indicates undetermined, i.e. show a marquee style bar.
-	 */
-	float GetProgress();
-
-	/**
-	 * Gets the current overall progress regardless of current state using marquee
-	 * @return The current progress value. Range 0 to 1.
-	 */
-	float GetProgressNoMarquee();
-
-	/**
-	 * Gets the progress value for a particular state
-	 * @param State		The state to get progress for
-	 * @return The state progress value. Range 0 to 1.
-	 */
-	float GetStateProgress( const EBuildPatchProgress::Type& State );
-
-	/**
-	 * Gets the weight value for a particular state
-	 * @param State		The state to get weight for
-	 * @return The state weight value.
-	 */
-	float GetStateWeight( const EBuildPatchProgress::Type& State );
-
-	/**
-	 * Toggles the pause state
-	 * @return Whether the current state is now paused
-	 */
-	bool TogglePauseState();
-
-	/**
-	 * Blocks calling thread while the progress is paused
-	 * @return How long we paused for, in seconds
-	 */
-	double WaitWhilePaused();
-
-	/**
-	 * Gets the pause state
-	 * @return Whether the current state is paused
-	 */
-	bool GetPauseState();
-
-private:
-
-	/**
-	 * Updates the current state and progress values
-	 */
-	void UpdateProgressInfo();
-
-	/**
-	 * Updates the cached values
-	 */
-	void UpdateCachedValues();
-};

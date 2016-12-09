@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "IPlatformTextField.h"
+#include "Framework/Application/IPlatformTextField.h"
+
+class IVirtualKeyboardEntry;
 
 class FGenericPlatformTextField : public IPlatformTextField
 {

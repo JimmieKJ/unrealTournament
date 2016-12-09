@@ -22,6 +22,8 @@
 #ifndef DETOURSTATUS_H
 #define DETOURSTATUS_H
 
+#include "CoreMinimal.h"
+
 typedef unsigned int dtStatus;
 
 // High level status.

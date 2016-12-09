@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "TimerManager.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
 #include "Components/ActorComponent.h"
 #include "PawnSensingComponent.generated.h"
 
-class UPawnNoiseEmitterComponent;
 class AActor;
+class AController;
 class APawn;
+class UPawnNoiseEmitterComponent;
 
 /**
  * SensingComponent encapsulates sensory (ie sight and hearing) settings and functionality for an Actor,

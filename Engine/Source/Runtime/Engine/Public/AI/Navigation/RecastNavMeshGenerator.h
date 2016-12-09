@@ -1,22 +1,32 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "AI/Navigation/NavigationTypes.h"
+#include "EngineDefines.h"
+#include "AI/NavigationModifier.h"
+#include "AI/NavigationOctree.h"
+#include "AI/Navigation/RecastNavMesh.h"
+#include "Async/AsyncWork.h"
+#include "UObject/GCObject.h"
+#include "AI/NavDataGenerator.h"
+
 #if WITH_RECAST
 
 #include "Recast/Recast.h"
-#include "DetourNavMesh.h"
-#include "AI/NavDataGenerator.h"
-#include "AI/Navigation/RecastNavMesh.h"
-#include "AI/NavigationModifier.h"
+#include "Detour/DetourNavMesh.h"
 
-#define MAX_VERTS_PER_POLY	6
-
+class UBodySetup;
 class ARecastNavMesh;
 class FNavigationOctree;
 class FNavMeshBuildContext;
 class FRecastNavMeshGenerator;
+struct BuildContext;
 struct FNavigationRelevantData;
 struct dtTileCacheLayer;
+
+#define MAX_VERTS_PER_POLY	6
 
 struct FRecastBuildConfig : public rcConfig
 {

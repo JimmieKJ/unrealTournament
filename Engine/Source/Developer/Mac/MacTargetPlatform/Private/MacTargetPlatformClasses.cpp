@@ -4,8 +4,8 @@
 	MacTargetPlatformClasses.cpp: Implements the module's UClasses.
 =============================================================================*/
 
-#include "MacTargetPlatformPrivatePCH.h"
-
+#include "MacTargetSettings.h"
+#include "GenericMacTargetPlatform.h"
 
 
 /* UMacTargetSettings structors

@@ -2,8 +2,16 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionVector.h"
 #include "Particles/Orbit/ParticleModuleOrbitBase.h"
 #include "ParticleModuleOrbit.generated.h"
+
+class UParticleLODLevel;
+class UParticleModuleTypeDataBase;
+struct FParticleEmitterInstance;
 
 UENUM()
 enum EOrbitChainMode

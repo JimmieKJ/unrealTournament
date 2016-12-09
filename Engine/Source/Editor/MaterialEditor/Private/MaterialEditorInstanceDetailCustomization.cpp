@@ -1,19 +1,36 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MaterialEditorModule.h"
+#include "MaterialEditorInstanceDetailCustomization.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/Guid.h"
+#include "UObject/UnrealType.h"
+#include "Layout/Margin.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
+#include "Materials/MaterialInterface.h"
+#include "MaterialEditor/DEditorFontParameterValue.h"
+#include "MaterialEditor/DEditorScalarParameterValue.h"
+#include "MaterialEditor/DEditorStaticComponentMaskParameterValue.h"
+#include "MaterialEditor/DEditorStaticSwitchParameterValue.h"
+#include "MaterialEditor/DEditorTextureParameterValue.h"
+#include "MaterialEditor/DEditorVectorParameterValue.h"
+#include "MaterialEditor/MaterialEditorInstanceConstant.h"
+#include "Materials/MaterialInstance.h"
 #include "Materials/MaterialExpressionParameter.h"
 #include "Materials/MaterialExpressionTextureSampleParameter.h"
 #include "Materials/MaterialExpressionFontSampleParameter.h"
 #include "EditorSupportDelegates.h"
-#include "UnrealEd.h"
-#include "PropertyEditing.h"
-#include "PropertyCustomizationHelpers.h"
-#include "MaterialEditor.h"
-#include "MaterialEditorInstanceDetailCustomization.h"
-#include "ScopedTransaction.h"
 #include "DetailWidgetRow.h"
-#include "AssetData.h"
-#include "Materials/MaterialInstance.h"
+#include "PropertyHandle.h"
+#include "IDetailPropertyRow.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailGroup.h"
+#include "DetailCategoryBuilder.h"
+#include "PropertyCustomizationHelpers.h"
+#include "ScopedTransaction.h"
 #include "Materials/MaterialInstanceConstant.h"
 
 #define LOCTEXT_NAMESPACE "MaterialInstanceEditor"
@@ -113,6 +130,16 @@ void FMaterialInstanceParameterDetails::CustomizeDetails(IDetailLayoutBuilder& D
 
 	DetailLayout.HideProperty("BasePropertyOverrides");
 	CreateBasePropertyOverrideWidgets(DetailLayout);
+
+	// Add the preview mesh property directly from the material instance 
+	FName PreviewingCategoryName = TEXT("Previewing");
+	IDetailCategoryBuilder& PreviewingCategory = DetailLayout.EditCategory(PreviewingCategoryName, LOCTEXT("MICPreviewingCategoryTitle", "Previewing"));
+
+	TArray<UObject*> ExternalObjects;
+	ExternalObjects.Add(MaterialEditorInstance->SourceInstance);
+
+	PreviewingCategory.AddExternalProperty(ExternalObjects, TEXT("PreviewMesh"));
+
 }
 
 void FMaterialInstanceParameterDetails::CreateGroupsWidget(TSharedRef<IPropertyHandle> ParameterGroupsProperty, IDetailCategoryBuilder& GroupsCategory)

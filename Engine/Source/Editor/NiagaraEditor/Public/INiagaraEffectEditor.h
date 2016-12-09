@@ -2,9 +2,8 @@
 
 #pragma once
 
-#include "Toolkits/IToolkit.h"
+#include "CoreMinimal.h"
 #include "Toolkits/AssetEditorToolkit.h"
-
 
 /** Niagara Editor public interface */
 class INiagaraEffectEditor : public FAssetEditorToolkit

@@ -26,7 +26,9 @@ MSVC_PUSH_WARNING_LEVEL(0);
 #include "third_party/WebKit/public/web/WebViewClient.h"
 
 #include "third_party/WebKit/Source/core/css/parser/CSSParser.h"
+#include "third_party/WebKit/Source/core/dom/Element.h"
 #include "third_party/WebKit/Source/core/dom/Node.h"
+#include "third_party/WebKit/Source/core/editing/serializers/Serialization.h"
 #include "third_party/WebKit/Source/web/WebLocalFrameImpl.h"
 #include "third_party/WebKit/Source/web/WebViewImpl.h"
 MSVC_POP_WARNING();
@@ -37,7 +39,7 @@ MSVC_POP_WARNING();
 
 namespace webkit_glue {
 
-const int64 kInvalidFrameId = -1;
+const int64_t kInvalidFrameId = -1;
 
 bool CanGoBack(blink::WebView* view) {
   if (!view)
@@ -65,7 +67,7 @@ void GoForward(blink::WebView* view) {
   if (!view)
     return;
   blink::WebViewImpl* impl = reinterpret_cast<blink::WebViewImpl*>(view);
- if (impl->client()->historyForwardListCount() > 0)
+  if (impl->client()->historyForwardListCount() > 0)
     impl->client()->navigateBackForwardSoon(1);
 }
 
@@ -76,7 +78,43 @@ std::string DumpDocumentText(blink::WebFrame* frame) {
   if (document_element.isNull())
     return std::string();
 
-  return document_element.innerText().utf8();
+  blink::Element* web_element = document_element.unwrap<blink::Element>();
+  return blink::WebString(web_element->innerText()).utf8();
+}
+
+cef_dom_node_type_t GetNodeType(const blink::WebNode& node) {
+  const blink::Node* web_node = node.constUnwrap<blink::Node>();
+  switch (web_node->nodeType()) {
+    case blink::Node::ELEMENT_NODE:
+      return DOM_NODE_TYPE_ELEMENT;
+    case blink::Node::ATTRIBUTE_NODE:
+      return DOM_NODE_TYPE_ATTRIBUTE;
+    case blink::Node::TEXT_NODE:
+      return DOM_NODE_TYPE_TEXT;
+    case blink::Node::CDATA_SECTION_NODE:
+      return DOM_NODE_TYPE_CDATA_SECTION;
+    case blink::Node::PROCESSING_INSTRUCTION_NODE:
+      return DOM_NODE_TYPE_PROCESSING_INSTRUCTIONS;
+    case blink::Node::COMMENT_NODE:
+      return DOM_NODE_TYPE_COMMENT;
+    case blink::Node::DOCUMENT_NODE:
+      return DOM_NODE_TYPE_DOCUMENT;
+    case blink::Node::DOCUMENT_TYPE_NODE:
+      return DOM_NODE_TYPE_DOCUMENT_TYPE;
+    case blink::Node::DOCUMENT_FRAGMENT_NODE:
+      return DOM_NODE_TYPE_DOCUMENT_FRAGMENT;
+  }
+  return DOM_NODE_TYPE_UNSUPPORTED;
+}
+
+blink::WebString GetNodeName(const blink::WebNode& node) {
+  const blink::Node* web_node = node.constUnwrap<blink::Node>();
+  return web_node->nodeName();
+}
+
+blink::WebString CreateNodeMarkup(const blink::WebNode& node) {
+  const blink::Node* web_node = node.constUnwrap<blink::Node>();
+  return blink::createMarkup(web_node);
 }
 
 bool SetNodeValue(blink::WebNode& node, const blink::WebString& value) {
@@ -85,7 +123,7 @@ bool SetNodeValue(blink::WebNode& node, const blink::WebString& value) {
   return true;
 }
 
-int64 GetIdentifier(blink::WebFrame* frame) {
+int64_t GetIdentifier(blink::WebFrame* frame) {
   // Each WebFrame will have an associated RenderFrame. The RenderFrame
   // routing IDs are unique within a given renderer process.
   content::RenderFrame* render_frame =
@@ -122,17 +160,22 @@ blink::WebFrame* FindFrameByUniqueName(const blink::WebString& unique_name,
   return NULL;
 }
 
-bool ParseCSSColor(const blink::WebString& string, bool strict, SkColor& color) {
-  blink::RGBA32 rgba_color =
+void InitializePartitionAlloc() {
+  WTF::Partitions::initialize(nullptr);
+}
+
+bool ParseCSSColor(const blink::WebString& string,
+                   bool strict, SkColor& color) {
+  blink::Color rgba_color =
       blink::makeRGBA(SkColorGetR(color), SkColorGetG(color),
                       SkColorGetB(color), SkColorGetA(color));
   if (!blink::CSSParser::parseColor(rgba_color, string, strict))
     return false;
 
-  color = SkColorSetARGB(blink::alphaChannel(rgba_color),
-                         blink::redChannel(rgba_color),
-                         blink::greenChannel(rgba_color),
-                         blink::blueChannel(rgba_color));
+  color = SkColorSetARGB(rgba_color.alpha(),
+                         rgba_color.red(),
+                         rgba_color.green(),
+                         rgba_color.blue());
   return true;
 }
 

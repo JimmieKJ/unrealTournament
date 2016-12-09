@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "StatsData.h"
-#include "StatsFile.h"
+#include "CoreMinimal.h"
+#include "Stats/StatsFile.h"
+
 
 /*-----------------------------------------------------------------------------
 	Basic structures

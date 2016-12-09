@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "SMediaPlaylistEditorDetails.h"
+#include "Widgets/SMediaPlaylistEditorDetails.h"
+#include "Modules/ModuleManager.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
+#include "MediaPlaylist.h"
 
 
 #define LOCTEXT_NAMESPACE "SMediaPlaylistEditorDetails"

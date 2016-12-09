@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "BreakIterator.h"
+#include "CoreTypes.h"
+#include "Templates/SharedPointer.h"
+#include "Internationalization/IBreakIterator.h"
+#include "Internationalization/BreakIterator.h"
 
 #if UE_ENABLE_ICU
-#include "ICUBreakIterator.h"
+#include "Internationalization/ICUBreakIterator.h"
 
 TSharedRef<IBreakIterator> FBreakIterator::CreateWordBreakIterator()
 {

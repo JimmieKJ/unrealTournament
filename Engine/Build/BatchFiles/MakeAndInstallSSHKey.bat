@@ -3,12 +3,13 @@ setlocal
 
 set SSH=%1
 set SSHDIR=%~d1%~p1
-set RSYNC=%2
-set USER=%3
-set MACHINE=%4
-set DOCUMENTS=%5
-set CYGWIN_DOCUMENTS=%6
-set ENGINE=%~7
+set SSHPORT=%2
+set RSYNC=%3
+set USER=%4
+set MACHINE=%5
+set DOCUMENTS=%6
+set CYGWIN_DOCUMENTS=%7
+set ENGINE=%~8
 
 set KEY_DIR=%DOCUMENTS%\Unreal Engine\UnrealBuildTool\SSHKeys\%MACHINE%\%USER%
 set KEY_PATH=%DOCUMENTS%\Unreal Engine\UnrealBuildTool\SSHKeys\%MACHINE%\%USER%\RemoteToolChainPrivate.key
@@ -30,7 +31,7 @@ echo.
 
 pause
 
-%SSH% %USER%@%MACHINE% "if [[ ! -e .ssh ]]; then mkdir .ssh; fi && cd .ssh && if [[ -e authorized_keys ]]; then cp -f authorized_keys authorized_keys_UEBackup; fi && ssh-keygen -t rsa -f RemoteToolChain && mv -f RemoteToolChain.pub RemoteToolChainPublic.key && mv -f RemoteToolChain RemoteToolChainPrivate.key && cat RemoteToolChainPublic.key >> authorized_keys";
+%SSH% -p %SSHPORT% %USER%@%MACHINE% "if [[ ! -e .ssh ]]; then mkdir .ssh; fi && cd .ssh && if [[ -e authorized_keys ]]; then cp -f authorized_keys authorized_keys_UEBackup; fi && ssh-keygen -t rsa -f RemoteToolChain && mv -f RemoteToolChain.pub RemoteToolChainPublic.key && mv -f RemoteToolChain RemoteToolChainPrivate.key && cat RemoteToolChainPublic.key >> authorized_keys";
 
 echo.
 echo ================================================================================
@@ -49,7 +50,7 @@ pause
 
 mkdir "%KEY_DIR%" 2> NUL
 pushd %SSHDIR%
-%RSYNC% -za %USER%@%MACHINE%:.ssh/RemoteToolChainPrivate.key "%CYGWIN_KEY_PATH%"
+%RSYNC% -az -e '%SSH% -p %SSHPORT%' %USER%@%MACHINE%:.ssh/RemoteToolChainPrivate.key "%CYGWIN_KEY_PATH%"
 popd
 
 echo.

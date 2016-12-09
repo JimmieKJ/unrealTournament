@@ -2,7 +2,9 @@
 
 #pragma once
 
-// Forward declarations.
+#include "CoreMinimal.h"
+
+class AActor;
 class ULevel;
 class ULevelStreaming;
 

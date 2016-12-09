@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "AudioEffect.h"
+#include "XAudio2Device.h"
+
 /** 
  * XAudio2 effects manager
  */

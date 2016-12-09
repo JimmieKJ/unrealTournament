@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlankModulePrivatePCH.h"
+#include "BlankModule.h"
 
 
 class FBlankModule : public IBlankModule

@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_ConvertAsset.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Engine/Blueprint.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_DynamicCast.h"
 #include "K2Node_ClassDynamicCast.h"
 #include "KismetCompiler.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "K2Node_ConvertAsset.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_ConvertAsset"
 

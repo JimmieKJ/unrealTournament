@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -21,18 +21,10 @@
 
 #import <UIKit/UIKit.h>
 #import <OpenGLES/EAGL.h>
-#import <OpenGLES/ES2/gl.h>
+#import <OpenGLES/ES3/gl.h>
 
 #import "SDL_uikitview.h"
 #include "SDL_uikitvideo.h"
-
-@class SDL_uikitopenglview;
-
-@interface SDLEAGLContext : EAGLContext
-
-@property (nonatomic, weak) SDL_uikitopenglview *sdlView;
-
-@end
 
 @interface SDL_uikitopenglview : SDL_uikitview
 
@@ -46,10 +38,10 @@
                     depthBits:(int)depthBits
                   stencilBits:(int)stencilBits
                          sRGB:(BOOL)sRGB
-                 majorVersion:(int)majorVersion
-                   shareGroup:(EAGLSharegroup*)shareGroup;
+                 multisamples:(int)multisamples
+                      context:(EAGLContext *)glcontext;
 
-@property (nonatomic, readonly, strong) SDLEAGLContext *context;
+@property (nonatomic, readonly, weak) EAGLContext *context;
 
 /* The width and height of the drawable in pixels (as opposed to points.) */
 @property (nonatomic, readonly) int backingWidth;
@@ -57,9 +49,9 @@
 
 @property (nonatomic, readonly) GLuint drawableRenderbuffer;
 @property (nonatomic, readonly) GLuint drawableFramebuffer;
+@property (nonatomic, readonly) GLuint msaaResolveFramebuffer;
 
 - (void)swapBuffers;
-- (void)setCurrentContext;
 
 - (void)updateFrame;
 

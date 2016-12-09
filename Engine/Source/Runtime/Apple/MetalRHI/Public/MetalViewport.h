@@ -12,26 +12,39 @@
 @end
 #endif
 
+enum EMetalViewportAccessFlag
+{
+	EMetalViewportAccessRHI,
+	EMetalViewportAccessRenderer,
+	EMetalViewportAccessGame
+};
+
 class FMetalViewport : public FRHIViewport
 {
 public:
 	FMetalViewport(void* WindowHandle, uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen);
 	~FMetalViewport();
 
+	void BeginDrawingViewport();
 	void Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen);
 	
-	FMetalTexture2D* GetBackBuffer() const { return BackBuffer; }
-	id<MTLDrawable> GetDrawable();
-	id<MTLTexture> GetDrawableTexture();
-	void ReleaseDrawable();
+	FMetalTexture2D* GetBackBuffer(EMetalViewportAccessFlag Accessor) const;
+	id<MTLDrawable> GetDrawable(EMetalViewportAccessFlag Accessor);
+	id<MTLTexture> GetDrawableTexture(EMetalViewportAccessFlag Accessor);
+	void ReleaseDrawable(void);
 	
 #if PLATFORM_MAC
 	NSWindow* GetWindow() const;
 #endif
+	
+private:
+	uint32 GetViewportIndex(EMetalViewportAccessFlag Accessor) const;
 
 private:
 	id<MTLDrawable> Drawable;
-	TRefCountPtr<FMetalTexture2D> BackBuffer;
+	TRefCountPtr<FMetalTexture2D> BackBuffer[2];
+	TArray<TRefCountPtr<FMetalTexture2D>> BackBuffersQueue;
+	FCriticalSection Mutex;
 
 #if PLATFORM_MAC
 	FMetalView* View;

@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
- #include "SlateCorePrivatePCH.h"
+ #include "Widgets/SOverlay.h"
+ #include "Types/PaintArgs.h"
+ #include "Layout/ArrangedChildren.h"
+ #include "Layout/LayoutUtils.h"
 
-#include "LayoutUtils.h"
 
 SOverlay::SOverlay()
 : Children()

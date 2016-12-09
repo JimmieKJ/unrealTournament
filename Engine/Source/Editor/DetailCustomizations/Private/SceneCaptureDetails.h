@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Components/SceneCaptureComponent.h"
+
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
 #include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class USceneCaptureComponent;
+enum class ECheckBoxState : uint8;
 
 class FSceneCaptureDetails : public IDetailCustomization
 {

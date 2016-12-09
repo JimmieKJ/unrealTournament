@@ -22,6 +22,8 @@
 #ifndef DETOURPROXIMITYGRID_H
 #define DETOURPROXIMITYGRID_H
 
+#include "CoreMinimal.h"
+
 class dtProximityGrid
 {
 	int m_maxItems;

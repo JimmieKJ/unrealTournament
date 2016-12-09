@@ -1,13 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Materials/MaterialInterface.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "UnrealWidget.h"
+#include "EditorModeManager.h"
+#include "EditorViewportClient.h"
+#include "LandscapeToolInterface.h"
+#include "LandscapeProxy.h"
 #include "LandscapeEdMode.h"
+#include "Containers/ArrayView.h"
+#include "LandscapeEditorObject.h"
 #include "ScopedTransaction.h"
 #include "LandscapeEdit.h"
 #include "LandscapeDataAccess.h"
 #include "LandscapeRender.h"
 #include "LandscapeHeightfieldCollisionComponent.h"
-#include "Algo/Reverse.h"
 //#include "LandscapeDataAccess.h"
 //#include "AI/Navigation/NavigationSystem.h"
 
@@ -62,7 +72,7 @@ public:
 		GLevelEditorModeTools().SetCoordSystem(SavedCoordSystem);
 	}
 
-	virtual bool BeginTool(FEditorViewportClient* ViewportClient, const FLandscapeToolTarget& Target, const FVector& InHitLocation) override
+	virtual bool BeginTool(FEditorViewportClient* ViewportClient, const FLandscapeToolTarget& Target, const FVector& InHitLocation, const UViewportInteractor* Interactor = nullptr) override
 	{
 		return true;
 	}
@@ -117,7 +127,9 @@ public:
 				FVector MirrorPlaneScale = FVector(0, 1, 100);
 
 				if (EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::MinusXToPlusX ||
-					EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::PlusXToMinusX)
+					EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::PlusXToMinusX ||
+					EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotateMinusXToPlusX ||
+					EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotatePlusXToMinusX)
 				{
 					MirrorPoint3D.X = EdMode->UISettings->MirrorPoint.X;
 					MirrorPlaneScale.Y = (MaxY - MinY) / 2.0f;
@@ -133,7 +145,9 @@ public:
 
 				FMatrix Matrix;
 				if (EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::MinusYToPlusY ||
-					EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::PlusYToMinusY)
+					EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::PlusYToMinusY ||
+					EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotateMinusYToPlusY ||
+					EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotatePlusYToMinusY)
 				{
 					Matrix = FScaleRotationTranslationMatrix(MirrorPlaneScale, FRotator(0, 90, 0), FVector::ZeroVector);
 				}
@@ -196,9 +210,13 @@ public:
 			{
 			case ELandscapeMirrorOperation::MinusXToPlusX:
 			case ELandscapeMirrorOperation::PlusXToMinusX:
+			case ELandscapeMirrorOperation::RotateMinusXToPlusX:
+			case ELandscapeMirrorOperation::RotatePlusXToMinusX:
 				return EAxisList::X;
 			case ELandscapeMirrorOperation::MinusYToPlusY:
 			case ELandscapeMirrorOperation::PlusYToMinusY:
+			case ELandscapeMirrorOperation::RotateMinusYToPlusY:
+			case ELandscapeMirrorOperation::RotatePlusYToMinusY:
 				return EAxisList::Y;
 			default:
 				check(0);
@@ -230,7 +248,9 @@ public:
 
 			FVector MirrorPoint3D = FVector((MaxX + MinX) / 2.0f, (MaxY + MinY) / 2.0f, 0);
 			if (EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::MinusXToPlusX ||
-				EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::PlusXToMinusX)
+				EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::PlusXToMinusX ||
+				EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotateMinusXToPlusX ||
+				EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotatePlusXToMinusX)
 			{
 				MirrorPoint3D.X = EdMode->UISettings->MirrorPoint.X;
 			}
@@ -256,7 +276,9 @@ public:
 
 			FMatrix Result = FQuatRotationTranslationMatrix(LandscapeToWorld.GetRotation(), FVector::ZeroVector);
 			if (EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::PlusXToMinusX ||
-				EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::PlusYToMinusY)
+				EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::PlusYToMinusY ||
+				EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotatePlusXToMinusX ||
+				EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotatePlusYToMinusY)
 			{
 				Result = FRotationMatrix(FRotator(0, 180, 0)) * Result;
 			}
@@ -280,38 +302,195 @@ protected:
 		return 0.0f;
 	}
 
+	/**
+	 * @param SourceData  Data from the "source" side of the mirror op, including blend region
+	 * @param DestData    Result of the mirror op, including blend region
+	 * @param SourceSizeX Width of SourceData
+	 * @param SourceSizeY Height of SourceData
+	 * @param DestSizeX   Width of DestData
+	 * @param DestSizeY   Height of DestData
+	 * @param MirrorPos   Position of the mirror point in the source data (X or Y pos depending on MirrorOp)
+	 * @param BlendWidth  Width of the blend region (in X or Y axis depending on MirrorOp)
+	 */
 	template<typename T>
-	void ApplyMirrorInternal(T* MirrorData, int32 SizeX, int32 SizeY, int32 MirrorSize)
+	void ApplyMirrorInternal(TArrayView<const T> SourceData, TArrayView<T> DestData, int32 SourceSizeX, int32 SourceSizeY, int32 DestSizeX, int32 DestSizeY, int32 MirrorPos, int32 BlendWidth)
 	{
+		checkSlow(SourceData.Num() == SourceSizeX * SourceSizeY);
+		checkSlow(DestData.Num()   == DestSizeX   * DestSizeY);
+
 		switch (EdMode->UISettings->MirrorOp)
 		{
 		case ELandscapeMirrorOperation::MinusXToPlusX:
-		{
-			for (int32 Y = 0; Y < SizeY; ++Y) // copy extra column to calc normals for mirror column
+		case ELandscapeMirrorOperation::RotateMinusXToPlusX:
 			{
-				Algo::Reverse(&MirrorData[Y * (2 + MirrorSize) + 1], MirrorSize + 1);
-				MirrorData[Y * (2 + MirrorSize) + 0] = MirrorData[Y * (2 + MirrorSize) + 2];
+				checkSlow(SourceSizeY == DestSizeY);
+				checkSlow(MirrorPos + BlendWidth + 1 == SourceSizeX);
+				const int32 BlendStart = (DestSizeX - MirrorPos - 1) - BlendWidth;
+				const int32 BlendEnd   = BlendStart + 2 * BlendWidth + 1;
+				const int32 Offset = 2 * MirrorPos - DestSizeX + 1;
+				const bool bFlipY = (EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotateMinusXToPlusX);
+				for (int32 Y = 0; Y < DestSizeY; ++Y)
+				{
+					TArrayView<const T> SourceLine1 = SourceData.Slice(Y * SourceSizeX, SourceSizeX);
+					TArrayView<const T> SourceLine2 = bFlipY ? SourceData.Slice((SourceSizeY - Y - 1) * SourceSizeX, SourceSizeX) : SourceLine1;
+					TArrayView<T> DestLine = DestData.Slice(Y * DestSizeX, DestSizeX);
+
+					// Pre-blend
+					int32 DestX = 0;
+					for (int32 SourceX = Offset; DestX < BlendStart; ++DestX, ++SourceX)
+					{
+						DestLine.GetData()[DestX] = SourceLine1.GetData()[SourceX];
+					}
+
+					// Blend
+					for (int32 SourceX1 = BlendStart + Offset, SourceX2 = BlendEnd + Offset - 1;
+						 DestX < BlendEnd; ++DestX, ++SourceX1, --SourceX2)
+					{
+						const float Frac = (float)(DestX - BlendStart + 1) / (BlendEnd - BlendStart + 1);
+						const float Alpha = FMath::Cos(Frac * PI) * -0.5f + 0.5f;
+						DestLine.GetData()[DestX] = FMath::Lerp(SourceLine1.GetData()[SourceX1], SourceLine2.GetData()[SourceX2], Alpha);
+					}
+
+					// Post-Blend
+					for (int32 SourceX = BlendStart + Offset - 1; DestX < DestSizeX; ++DestX, --SourceX)
+					{
+						DestLine.GetData()[DestX] = SourceLine2.GetData()[SourceX];
+					}
+				}
 			}
-		}
-		break;
+			break;
 		case ELandscapeMirrorOperation::PlusXToMinusX:
-		{
-			for (int32 Y = 0; Y < SizeY; ++Y) // copy extra column to calc normals for mirror column
+		case ELandscapeMirrorOperation::RotatePlusXToMinusX:
 			{
-				Algo::Reverse(&MirrorData[Y * (2 + MirrorSize) + 0], MirrorSize + 1);
-				MirrorData[Y * (2 + MirrorSize) + MirrorSize + 1] = MirrorData[Y * (2 + MirrorSize) + MirrorSize - 1];
+				checkSlow(SourceSizeY == DestSizeY);
+				const int32 BlendStart = (SourceSizeX - MirrorPos - 1) - BlendWidth;
+				const int32 BlendEnd   = BlendStart + 2 * BlendWidth + 1;
+				const int32 Offset = 2 * MirrorPos - SourceSizeX + 1;
+				const bool bFlipY = (EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotatePlusXToMinusX);
+				for (int32 Y = 0; Y < DestSizeY; ++Y)
+				{
+					TArrayView<const T> SourceLine1 = SourceData.Slice(Y * SourceSizeX, SourceSizeX);
+					TArrayView<const T> SourceLine2 = bFlipY ? SourceData.Slice((SourceSizeY - Y - 1) * SourceSizeX, SourceSizeX) : SourceLine1;
+					TArrayView<T> DestLine = DestData.Slice(Y * DestSizeX, DestSizeX);
+
+					// Pre-blend
+					int32 DestX = 0;
+					for (int32 SourceX = SourceSizeX - 1; DestX < BlendStart; ++DestX, --SourceX)
+					{
+						DestLine.GetData()[DestX] = SourceLine2.GetData()[SourceX];
+					}
+
+					// Blend
+					for (int32 SourceX1 = BlendStart + Offset, SourceX2 = BlendEnd + Offset - 1;
+						 DestX < BlendEnd; ++DestX, ++SourceX1, --SourceX2)
+					{
+						const float Frac = (float)(DestX - BlendStart + 1) / (BlendEnd - BlendStart + 1);
+						const float Alpha = FMath::Cos(Frac * PI) * -0.5f + 0.5f;
+						DestLine.GetData()[DestX] = FMath::Lerp(SourceLine2.GetData()[SourceX2], SourceLine1.GetData()[SourceX1], Alpha);
+					}
+
+					// Post-Blend
+					for (int32 SourceX = BlendEnd + Offset; DestX < DestSizeX; ++DestX, ++SourceX)
+					{
+						DestLine.GetData()[DestX] = SourceLine1.GetData()[SourceX];
+					}
+				}
 			}
-		}
-		break;
+			break;
 		case ELandscapeMirrorOperation::MinusYToPlusY:
-		{
-			FMemory::Memcpy(&MirrorData[(MirrorSize + 1) * SizeX], &MirrorData[(MirrorSize - 1) * SizeX], SizeX * sizeof(T)); // copy extra row to calc normals for mirror row
-		}
+		case ELandscapeMirrorOperation::RotateMinusYToPlusY:
+			{
+				checkSlow(SourceSizeX == DestSizeX);
+				checkSlow(MirrorPos + BlendWidth + 1 == SourceSizeY);
+				const int32 BlendStart = (DestSizeY - MirrorPos - 1) - BlendWidth;
+				const int32 BlendEnd   = BlendStart + 2 * BlendWidth + 1;
+				const int32 Offset = 2 * MirrorPos - DestSizeY + 1;
+				const bool bFlipX = (EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotateMinusYToPlusY);
+
+				// Pre-blend
+				int32 DestY = 0;
+				for (int32 SourceY = Offset; DestY < BlendStart; ++DestY, ++SourceY)
+				{
+					TArrayView<const T> SourceLine = SourceData.Slice(SourceY * SourceSizeX, SourceSizeX);
+					TArrayView<T> DestLine = DestData.Slice(DestY * DestSizeX, DestSizeX);
+					FMemory::Memcpy(DestLine.GetData(), SourceLine.GetData(), DestSizeX * sizeof(T));
+				}
+
+				// Blend
+				for (int32 SourceY1 = BlendStart + Offset, SourceY2 = BlendEnd + Offset - 1;
+					 DestY < BlendEnd; ++DestY, ++SourceY1, --SourceY2)
+				{
+					const float Frac = (float)(DestY - BlendStart + 1) / (BlendEnd - BlendStart + 1);
+					const float Alpha = FMath::Cos(Frac * PI) * -0.5f + 0.5f;
+					TArrayView<const T> SourceLine1 = SourceData.Slice(SourceY1 * SourceSizeX, SourceSizeX);
+					TArrayView<const T> SourceLine2 = SourceData.Slice(SourceY2 * SourceSizeX, SourceSizeX);
+					TArrayView<T> DestLine = DestData.Slice(DestY * DestSizeX, DestSizeX);
+					for (int32 DestX = 0; DestX < DestSizeX; ++DestX)
+					{
+						const int32 SourceX2 = bFlipX ? (SourceSizeX - DestX - 1) : DestX;
+						DestLine.GetData()[DestX] = FMath::Lerp(SourceLine1.GetData()[DestX], SourceLine2.GetData()[SourceX2], Alpha);
+					}
+				}
+
+				// Post-Blend
+				for (int32 SourceY = BlendStart + Offset - 1; DestY < DestSizeY; ++DestY, --SourceY)
+				{
+					TArrayView<const T> SourceLine = SourceData.Slice(SourceY * SourceSizeX, SourceSizeX);
+					TArrayView<T> DestLine = DestData.Slice(DestY * DestSizeX, DestSizeX);
+					FMemory::Memcpy(DestLine.GetData(), SourceLine.GetData(), DestSizeX * sizeof(T));
+					if (bFlipX)
+					{
+						Algo::Reverse(DestLine);
+					}
+				}
+			}
 			break;
 		case ELandscapeMirrorOperation::PlusYToMinusY:
-		{
-			FMemory::Memcpy(&MirrorData[0 * SizeX], &MirrorData[2 * SizeX], SizeX * sizeof(T)); // copy extra row to calc normals for mirror row
-		}
+		case ELandscapeMirrorOperation::RotatePlusYToMinusY:
+			{
+				checkSlow(SourceSizeX == DestSizeX);
+				const int32 BlendStart = (SourceSizeY - MirrorPos - 1) - BlendWidth;
+				const int32 BlendEnd   = BlendStart + 2 * BlendWidth + 1;
+				const int32 Offset = 2 * MirrorPos - SourceSizeY + 1;
+				const bool bFlipX = (EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotatePlusYToMinusY);
+
+				// Pre-blend
+				int32 DestY = 0;
+				for (int32 SourceY = SourceSizeY - 1; DestY < BlendStart; ++DestY, --SourceY)
+				{
+					TArrayView<const T> SourceLine = SourceData.Slice(SourceY * SourceSizeX, SourceSizeX);
+					TArrayView<T> DestLine = DestData.Slice(DestY * DestSizeX, DestSizeX);
+					FMemory::Memcpy(DestLine.GetData(), SourceLine.GetData(), DestSizeX * sizeof(T));
+					if (bFlipX)
+					{
+						Algo::Reverse(DestLine);
+					}
+				}
+
+				// Blend
+				for (int32 SourceY1 = BlendStart + Offset, SourceY2 = BlendEnd + Offset - 1;
+					 DestY < BlendEnd; ++DestY, ++SourceY1, --SourceY2)
+				{
+					const float Frac = (float)(DestY - BlendStart + 1) / (BlendEnd - BlendStart + 1);
+					const float Alpha = FMath::Cos(Frac * PI) * -0.5f + 0.5f;
+					TArrayView<const T> SourceLine1 = SourceData.Slice(SourceY1 * SourceSizeX, SourceSizeX);
+					TArrayView<const T> SourceLine2 = SourceData.Slice(SourceY2 * SourceSizeX, SourceSizeX);
+					TArrayView<T> DestLine = DestData.Slice(DestY * DestSizeX, DestSizeX);
+					for (int32 DestX = 0; DestX < DestSizeX; ++DestX)
+					{
+						const int32 SourceX2 = bFlipX ? (SourceSizeX - DestX - 1) : DestX;
+						DestLine.GetData()[DestX] = FMath::Lerp(SourceLine2.GetData()[SourceX2], SourceLine1.GetData()[DestX], Alpha);
+					}
+				}
+
+				// Post-Blend
+				for (int32 SourceY = BlendEnd + Offset; DestY < DestSizeY; ++DestY, ++SourceY)
+				{
+					TArrayView<const T> SourceLine = SourceData.Slice(SourceY * SourceSizeX, SourceSizeX);
+					TArrayView<T> DestLine = DestData.Slice(DestY * DestSizeX, DestSizeX);
+					FMemory::Memcpy(DestLine.GetData(), SourceLine.GetData(), DestSizeX * sizeof(T));
+				}
+			}
 			break;
 		default:
 			check(0);
@@ -328,6 +507,7 @@ public:
 		const ALandscapeProxy* const LandscapeProxy = LandscapeInfo->GetLandscapeProxy();
 		const FTransform LandscapeToWorld = LandscapeProxy->LandscapeActorToWorld();
 		const FVector2D MirrorPoint = EdMode->UISettings->MirrorPoint;
+		int32 BlendWidth = FMath::Clamp(EdMode->UISettings->MirrorSmoothingWidth, 0, 32768);
 
 		FLandscapeEditDataInterface LandscapeEdit(EdMode->CurrentToolTarget.LandscapeInfo.Get());
 
@@ -344,124 +524,101 @@ public:
 		int32 SourceMaxX, SourceMaxY;
 		int32 DestMinX, DestMinY;
 		int32 DestMaxX, DestMaxY;
-		int32 MirrorSize;
-		int32 DataSize;
-		int32 ReadOffset;
-		int32 ReadStride;
-		int32 WriteOffset;
-		int32 WriteStride;
+		int32 MirrorPos;
 
 		switch (EdMode->UISettings->MirrorOp)
 		{
 		case ELandscapeMirrorOperation::MinusXToPlusX:
-		{
-			const int32 MirrorX = FMath::RoundToInt(MirrorPoint.X);
-			if (MirrorX <= MinX || MirrorX >= MaxX)
-			{
-				return;
-			}
-			MirrorSize = FMath::Max(MaxX - MirrorX, MirrorX - MinX); // not including the mirror column itself
-			DataSize = SizeY * (2 + MirrorSize); // +2 for mirror column and extra to calc normals for mirror column
-			SourceMinX = MirrorX - MirrorSize;
-			SourceMaxX = MirrorX;
-			SourceMinY = MinY;
-			SourceMaxY = MaxY;
-			DestMinX = MirrorX - 1; // extra column to calc normals for mirror column
-			DestMaxX = MirrorX + MirrorSize;
-			DestMinY = MinY;
-			DestMaxY = MaxY;
-			ReadOffset = 1;
-			ReadStride = (2 + MirrorSize);
-			WriteOffset = 0;
-			WriteStride = (2 + MirrorSize);
-		}
-		break;
+		case ELandscapeMirrorOperation::RotateMinusXToPlusX:
 		case ELandscapeMirrorOperation::PlusXToMinusX:
-		{
-			const int32 MirrorX = FMath::RoundToInt(MirrorPoint.X);
-			if (MirrorX <= MinX || MirrorX >= MaxX)
+		case ELandscapeMirrorOperation::RotatePlusXToMinusX:
 			{
-				return;
+				MirrorPos = FMath::RoundToInt(MirrorPoint.X);
+				if (MirrorPos <= MinX || MirrorPos >= MaxX)
+				{
+					return;
+				}
+				const int32 MirrorSize = FMath::Max(MaxX - MirrorPos, MirrorPos - MinX); // not including the mirror column itself
+				BlendWidth = FMath::Min(BlendWidth, MirrorSize);
+				if (EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::MinusXToPlusX ||
+					EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotateMinusXToPlusX)
+				{
+					SourceMinX = MirrorPos - MirrorSize;
+					SourceMaxX = MirrorPos + BlendWidth;
+					DestMinX = MirrorPos - BlendWidth - 1; // extra column to calc normals for mirror column
+					DestMaxX = MirrorPos + MirrorSize;
+				}
+				else
+				{
+					SourceMinX = MirrorPos - BlendWidth;
+					SourceMaxX = MirrorPos + MirrorSize;
+					DestMinX = MirrorPos - MirrorSize;
+					DestMaxX = MirrorPos + BlendWidth + 1; // extra column to calc normals for mirror column
+				}
+				SourceMinY = MinY;
+				SourceMaxY = MaxY;
+				DestMinY = MinY;
+				DestMaxY = MaxY;
+				MirrorPos -= SourceMinX;
 			}
-			MirrorSize = FMath::Max(MaxX - MirrorX, MirrorX - MinX); // not including the mirror column itself
-			DataSize = SizeY * (2 + MirrorSize); // +2 for mirror column and extra to calc normals for mirror column
-			SourceMinX = MirrorX;
-			SourceMaxX = MirrorX + MirrorSize;
-			SourceMinY = MinY;
-			SourceMaxY = MaxY;
-			DestMinX = MirrorX - MirrorSize;
-			DestMaxX = MirrorX + 1; // extra column to calc normals for mirror column
-			DestMinY = MinY;
-			DestMaxY = MaxY;
-			ReadOffset = 0;
-			ReadStride = (2 + MirrorSize);
-			WriteOffset = 0;
-			WriteStride = (2 + MirrorSize);
-		}
-		break;
-		case ELandscapeMirrorOperation::MinusYToPlusY:
-		{
-			const int32 MirrorY = FMath::RoundToInt(MirrorPoint.Y);
-			if (MirrorY <= MinY || MirrorY >= MaxY)
-			{
-				return;
-			}
-			MirrorSize = FMath::Max(MaxY - MirrorY, MirrorY - MinY); // not including the mirror row itself
-			DataSize = (2 + MirrorSize) * SizeX; // +2 for mirror row and extra to calc normals for mirror row
-			SourceMinX = MinX;
-			SourceMaxX = MaxX;
-			SourceMinY = MirrorY - MirrorSize;
-			SourceMaxY = MirrorY;
-			DestMinX = MinX;
-			DestMaxX = MaxX;
-			DestMinY = MirrorY - 1; // extra column to calc normals for mirror column
-			DestMaxY = MirrorY + MirrorSize;
-			ReadOffset = 0 * SizeX;
-			ReadStride = SizeX;
-			WriteOffset = DataSize - SizeX; // last line first and negative stride to flip :)
-			WriteStride = -SizeX;
-		}
 			break;
+		case ELandscapeMirrorOperation::MinusYToPlusY:
+		case ELandscapeMirrorOperation::RotateMinusYToPlusY:
 		case ELandscapeMirrorOperation::PlusYToMinusY:
-		{
-			const int32 MirrorY = FMath::RoundToInt(MirrorPoint.Y);
-			if (MirrorY <= MinY || MirrorY >= MaxY)
+		case ELandscapeMirrorOperation::RotatePlusYToMinusY:
 			{
-				return;
+				MirrorPos = FMath::RoundToInt(MirrorPoint.Y);
+				if (MirrorPos <= MinY || MirrorPos >= MaxY)
+				{
+					return;
+				}
+				const int32 MirrorSize = FMath::Max(MaxY - MirrorPos, MirrorPos - MinY); // not including the mirror row itself
+				SourceMinX = MinX;
+				SourceMaxX = MaxX;
+				DestMinX = MinX;
+				DestMaxX = MaxX;
+				if (EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::MinusYToPlusY ||
+					EdMode->UISettings->MirrorOp == ELandscapeMirrorOperation::RotateMinusYToPlusY)
+				{
+					SourceMinY = MirrorPos - MirrorSize;
+					SourceMaxY = MirrorPos + BlendWidth;
+					DestMinY = MirrorPos - BlendWidth - 1; // extra column to calc normals for mirror column
+					DestMaxY = MirrorPos + MirrorSize;
+				}
+				else
+				{
+					SourceMinY = MirrorPos - BlendWidth;
+					SourceMaxY = MirrorPos + MirrorSize;
+					DestMinY = MirrorPos - MirrorSize;
+					DestMaxY = MirrorPos + BlendWidth + 1; // extra column to calc normals for mirror column
+				}
+				MirrorPos -= SourceMinY;
 			}
-			MirrorSize = FMath::Max(MaxY - MirrorY, MirrorY - MinY); // not including the mirror row itself
-			DataSize = (2 + MirrorSize) * SizeX; // +2 for mirror row and extra to calc normals for mirror row
-			SourceMinX = MinX;
-			SourceMaxX = MaxX;
-			SourceMinY = MirrorY;
-			SourceMaxY = MirrorY + MirrorSize;
-			DestMinX = MinX;
-			DestMaxX = MaxX;
-			DestMinY = MirrorY - MirrorSize;
-			DestMaxY = MirrorY + 1; // extra column to calc normals for mirror column
-			ReadOffset = 1 * SizeX;
-			ReadStride = SizeX;
-			WriteOffset = DataSize - SizeX; // last line first and negative stride to flip :)
-			WriteStride = -SizeX;
-		}
 			break;
 		default:
 			check(0);
 			return;
 		}
 
-		TArray<uint16> MirrorHeightData;
-		MirrorHeightData.AddZeroed(DataSize);
+		const int32 SourceSizeX = SourceMaxX - SourceMinX + 1;
+		const int32 SourceSizeY = SourceMaxY - SourceMinY + 1;
+		const int32 DestSizeX = DestMaxX - DestMinX + 1;
+		const int32 DestSizeY = DestMaxY - DestMinY + 1;
+
+		TArray<uint16> SourceHeightData, DestHeightData;
+		SourceHeightData.AddUninitialized(SourceSizeX * SourceSizeY);
+		DestHeightData.AddUninitialized(DestSizeX * DestSizeY);
 		int32 TempMinX = SourceMinX; // GetHeightData overwrites its input min/max x/y
 		int32 TempMaxX = SourceMaxX;
 		int32 TempMinY = SourceMinY;
 		int32 TempMaxY = SourceMaxY;
-		LandscapeEdit.GetHeightData(TempMinX, TempMinY, TempMaxX, TempMaxY, &MirrorHeightData[ReadOffset], ReadStride);
-		ApplyMirrorInternal(MirrorHeightData.GetData(), SizeX, SizeY, MirrorSize);
-		LandscapeEdit.SetHeightData(DestMinX, DestMinY, DestMaxX, DestMaxY, &MirrorHeightData[WriteOffset], WriteStride, true);
+		LandscapeEdit.GetHeightData(TempMinX, TempMinY, TempMaxX, TempMaxY, &SourceHeightData[0], SourceSizeX);
+		ApplyMirrorInternal<uint16>(SourceHeightData, DestHeightData, SourceSizeX, SourceSizeY, DestSizeX, DestSizeY, MirrorPos, BlendWidth);
+		LandscapeEdit.SetHeightData(DestMinX, DestMinY, DestMaxX, DestMaxY, &DestHeightData[0], DestSizeX, true);
 
-		TArray<uint8> MirrorWeightData;
-		MirrorWeightData.AddZeroed(DataSize);
+		TArray<uint8> SourceWeightData, DestWeightData;
+		SourceWeightData.AddUninitialized(SourceSizeX * SourceSizeY);
+		DestWeightData.AddUninitialized(DestSizeX * DestSizeY);
 		for (const auto& LayerSettings : LandscapeInfo->Layers)
 		{
 			ULandscapeLayerInfoObject* LayerInfo = LayerSettings.LayerInfoObj;
@@ -471,9 +628,9 @@ public:
 				TempMaxX = SourceMaxX;
 				TempMinY = SourceMinY;
 				TempMaxY = SourceMaxY;
-				LandscapeEdit.GetWeightData(LayerInfo, TempMinX, TempMinY, TempMaxX, TempMaxY, &MirrorWeightData[ReadOffset], ReadStride);
-				ApplyMirrorInternal(MirrorWeightData.GetData(), SizeX, SizeY, MirrorSize);
-				LandscapeEdit.SetAlphaData(LayerInfo, DestMinX, DestMinY, DestMaxX, DestMaxY, &MirrorWeightData[WriteOffset], WriteStride, ELandscapeLayerPaintingRestriction::None, false, false);
+				LandscapeEdit.GetWeightData(LayerInfo, TempMinX, TempMinY, TempMaxX, TempMaxY, &SourceWeightData[0], SourceSizeX);
+				ApplyMirrorInternal<uint8>(SourceWeightData, DestWeightData, SourceSizeX, SourceSizeY, DestSizeX, DestSizeY, MirrorPos, BlendWidth);
+				LandscapeEdit.SetAlphaData(LayerInfo, DestMinX, DestMinY, DestMaxX, DestMaxY, &DestWeightData[0], DestSizeX, ELandscapeLayerPaintingRestriction::None, false, false);
 			}
 		}
 

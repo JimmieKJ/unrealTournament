@@ -4,14 +4,17 @@
 	LODActorBase.cpp: Static mesh actor base class implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Engine/LODActor.h"
-#include "Engine/HLODMeshCullingVolume.h"
-#include "MapErrors.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/CollisionProfile.h"
+#include "Logging/TokenizedMessage.h"
+#include "Misc/MapErrors.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 
 #include "StaticMeshResources.h"
+#include "EngineUtils.h"
+#include "UObject/FrameworkObjectVersion.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -110,6 +113,29 @@ static FAutoConsoleCommandWithWorldAndArgs GHLODCmd(
 	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(HLODConsoleCommand)
 	);
 
+static void ListUnbuiltHLODActors(const TArray<FString>& Args, UWorld* World)
+{
+	int32 NumUnbuilt = 0;
+	for (TActorIterator<ALODActor> HLODIt(World); HLODIt; ++HLODIt)
+	{
+		ALODActor* Actor = *HLODIt;
+		if (!Actor->IsBuilt())
+		{
+			++NumUnbuilt;
+			FString ActorPathName = Actor->GetPathName(World);
+			UE_LOG(LogInit, Warning, TEXT("HLOD %s is unbuilt"), *ActorPathName);
+		}
+	}
+
+	UE_LOG(LogInit, Warning, TEXT("%d HLOD actor(s) were unbuilt"), NumUnbuilt);
+}
+
+static FAutoConsoleCommandWithWorldAndArgs GHLODListUnbuiltCmd(
+	TEXT("r.HLOD.ListUnbuilt"),
+	TEXT("Lists all unbuilt HLOD actors in the world"),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(ListUnbuiltHLODActors)
+);
+
 #endif // !(UE_BUILD_SHIPPING)
 
 //////////////////////////////////////////////////////////////////////////
@@ -162,6 +188,32 @@ void ALODActor::PostLoad()
 {
 	Super::PostLoad();
 	UpdateRegistrationToMatchMaximumLODLevel();
+
+#if WITH_EDITOR
+	if (bRequiresLODScreenSizeConversion)
+	{
+		if (TransitionScreenSize == 0.0f)
+		{
+			TransitionScreenSize = 1.0f;
+		}
+		else
+		{
+			const float HalfFOV = PI * 0.25f;
+			const float ScreenWidth = 1920.0f;
+			const float ScreenHeight = 1080.0f;
+			const FPerspectiveMatrix ProjMatrix(HalfFOV, ScreenWidth, ScreenHeight, 1.0f);
+			FBoxSphereBounds Bounds = GetStaticMeshComponent()->CalcBounds(FTransform());
+
+			// legacy transition screen size was previously a screen AREA fraction using resolution-scaled values, so we need to convert to distance first to correctly calculate the threshold
+			const float ScreenArea = TransitionScreenSize * (ScreenWidth * ScreenHeight);
+			const float ScreenRadius = FMath::Sqrt(ScreenArea / PI);
+			const float ScreenDistance = FMath::Max(ScreenWidth / 2.0f * ProjMatrix.M[0][0], ScreenHeight / 2.0f * ProjMatrix.M[1][1]) * Bounds.SphereRadius / ScreenRadius;
+
+			// Now convert using the query function
+			TransitionScreenSize = ComputeBoundsScreenSize(FVector::ZeroVector, Bounds.SphereRadius, FVector(0.0f, 0.0f, ScreenDistance), ProjMatrix);
+		}
+	}
+#endif
 }
 
 void ALODActor::UpdateRegistrationToMatchMaximumLODLevel()
@@ -294,7 +346,7 @@ void ALODActor::CheckForErrors()
 			->AddToken(FMapErrorToken::Create(FMapErrors::StaticMeshComponent));
 	}
 
-	if (StaticMeshComponent && StaticMeshComponent->StaticMesh == NULL)
+	if (StaticMeshComponent && StaticMeshComponent->GetStaticMesh() == nullptr)
 	{
 		FFormatNamedArguments Arguments;
 		Arguments.Add(TEXT("ActorName"), FText::FromString(GetName()));
@@ -360,9 +412,9 @@ void ALODActor::AddSubActor(AActor* InActor)
 		InActor->GetComponents<UStaticMeshComponent>(StaticMeshComponents);
 		for (UStaticMeshComponent* Component : StaticMeshComponents)
 		{
-			if (Component && Component->StaticMesh && Component->StaticMesh->RenderData)
+			if (Component && Component->GetStaticMesh() && Component->GetStaticMesh()->RenderData)
 			{
-				NumTrianglesInSubActors += Component->StaticMesh->RenderData->LODResources[0].GetNumTriangles();
+				NumTrianglesInSubActors += Component->GetStaticMesh()->RenderData->LODResources[0].GetNumTriangles();
 			}
 			Component->MarkRenderStateDirty();
 		}
@@ -393,9 +445,9 @@ const bool ALODActor::RemoveSubActor(AActor* InActor)
 			InActor->GetComponents<UStaticMeshComponent>(StaticMeshComponents);
 			for (UStaticMeshComponent* Component : StaticMeshComponents)
 			{
-				if (Component && Component->StaticMesh && Component->StaticMesh->RenderData)
+				if (Component && Component->GetStaticMesh() && Component->GetStaticMesh()->RenderData)
 				{
-					NumTrianglesInSubActors -= Component->StaticMesh->RenderData->LODResources[0].GetNumTriangles();
+					NumTrianglesInSubActors -= Component->GetStaticMesh()->RenderData->LODResources[0].GetNumTriangles();
 				}
 
 				Component->MarkRenderStateDirty();
@@ -467,10 +519,8 @@ void ALODActor::SetIsDirty(const bool bNewState)
 			}
 		}
 
-		// Set static mesh to null (this so we can revert without destroying the previously build static mesh)
-		StaticMeshComponent->StaticMesh = nullptr;
-		// Mark render state dirty to update viewport
-		StaticMeshComponent->MarkRenderStateDirty();
+		// Set static mesh to null
+		StaticMeshComponent->SetStaticMesh(nullptr);
 #if WITH_EDITOR
 		// Broadcast actor marked dirty event
 		if (GEditor)
@@ -481,11 +531,7 @@ void ALODActor::SetIsDirty(const bool bNewState)
 	}	
 	else
 	{
-		// Update SubActor's LOD parent component
-		for (AActor* SubActor : SubActors)
-		{
-			SubActor->SetLODParent(StaticMeshComponent, StaticMeshComponent->MinDrawDistance);
-		}
+		UpdateSubActorLODParents();
 	}
 }
 
@@ -565,12 +611,12 @@ void ALODActor::SetStaticMesh(class UStaticMesh* InStaticMesh)
 {
 	if (StaticMeshComponent)
 	{
-		StaticMeshComponent->StaticMesh = InStaticMesh;
+		StaticMeshComponent->SetStaticMesh(InStaticMesh);
 		SetIsDirty(false);
 
-		if (StaticMeshComponent && StaticMeshComponent->StaticMesh && StaticMeshComponent->StaticMesh->RenderData)
+		if (StaticMeshComponent && StaticMeshComponent->GetStaticMesh() && StaticMeshComponent->GetStaticMesh()->RenderData)
 		{
-			NumTrianglesInMergedMesh = StaticMeshComponent->StaticMesh->RenderData->LODResources[0].GetNumTriangles();
+			NumTrianglesInMergedMesh = StaticMeshComponent->GetStaticMesh()->RenderData->LODResources[0].GetNumTriangles();
 		}
 	}
 }
@@ -625,7 +671,7 @@ void ALODActor::CleanSubObjectsArray()
 
 void ALODActor::RecalculateDrawingDistance(const float InTransitionScreenSize)
 {
-	// At the moment this assumes a fixed field of view of 90 degrees (horizontal and vertical axi)
+	// At the moment this assumes a fixed field of view of 90 degrees (horizontal and vertical axes)
 	static const float FOVRad = 90.0f * (float)PI / 360.0f;
 	static const FMatrix ProjectionMatrix = FPerspectiveMatrix(FOVRad, 1920, 1080, 0.01f);
 	FBoxSphereBounds Bounds = GetStaticMeshComponent()->CalcBounds(FTransform());
@@ -633,8 +679,12 @@ void ALODActor::RecalculateDrawingDistance(const float InTransitionScreenSize)
 	// Get projection multiple accounting for view scaling.
 	const float ScreenMultiple = FMath::Max(1920.0f / 2.0f * ProjectionMatrix.M[0][0],
 		1080.0f / 2.0f * ProjectionMatrix.M[1][1]);
-	// (ScreenMultiple * SphereRadius) / Sqrt(Screensize * 1920 * 1080.0f * PI) = Distance
-	LODDrawDistance = (ScreenMultiple * Bounds.SphereRadius) / FMath::Sqrt((InTransitionScreenSize * 1920.0f * 1080.0f) / PI);
+
+	// ScreenSize is the projected diameter, so halve it
+	const float ScreenRadius = FMath::Max(SMALL_NUMBER, InTransitionScreenSize * 0.5f);
+
+	// Invert the calcs in ComputeBoundsScreenSize
+	LODDrawDistance = FMath::Sqrt(FMath::Abs((FMath::Square((ScreenMultiple * Bounds.SphereRadius) / ScreenRadius)) + FMath::Square(Bounds.SphereRadius)));
 
 	UpdateSubActorLODParents();
 }
@@ -654,9 +704,9 @@ FBox ALODActor::GetComponentsBoundingBox(bool bNonColliding) const
 
 	if (bNonColliding)
 	{
-		if (StaticMeshComponent && StaticMeshComponent->StaticMesh)
+		if (StaticMeshComponent && StaticMeshComponent->GetStaticMesh())
 		{
-			FBoxSphereBounds StaticBound = StaticMeshComponent->StaticMesh->GetBounds();
+			FBoxSphereBounds StaticBound = StaticMeshComponent->GetStaticMesh()->GetBounds();
 			FBox StaticBoundBox(BoundBox.GetCenter()-StaticBound.BoxExtent, BoundBox.GetCenter()+StaticBound.BoxExtent);
 			BoundBox += StaticBoundBox;
 		}
@@ -691,6 +741,17 @@ void ALODActor::OnCVarsChanged()
 		}
 	}
 }
+
+#if WITH_EDITOR
+void ALODActor::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+
+	bRequiresLODScreenSizeConversion = Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::LODsUseResolutionIndependentScreenSize;
+}
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 // AHLODMeshCullingVolume

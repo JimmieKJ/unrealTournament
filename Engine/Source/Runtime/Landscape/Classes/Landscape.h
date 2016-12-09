@@ -2,17 +2,14 @@
 
 #pragma once
 
-#include "Core.h"
-#include "CoreUObject.h"
-#include "Casts.h"
-#include "LazyObjectPtr.h"
-#include "Engine/EngineBaseTypes.h"
-#include "Engine/World.h"
-
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "LandscapeProxy.h"
-#include "LandscapeInfoMap.h"
+
 
 #include "Landscape.generated.h"
+
+class ULandscapeComponent;
 
 UENUM()
 enum ELandscapeSetupErrors
@@ -34,10 +31,6 @@ class ALandscape : public ALandscapeProxy
 
 public:
 	ALandscape(const FObjectInitializer& ObjectInitializer);
-
-	// Make a key for XYtoComponentMap
-	static FIntPoint MakeKey( int32 X, int32 Y ) { return FIntPoint(X, Y); }
-	static void UnpackKey( FIntPoint Key, int32& OutX, int32& OutY ) { OutX = Key.X; OutY = Key.Y; }
 
 	//~ Begin ALandscapeProxy Interface
 	LANDSCAPE_API virtual ALandscape* GetLandscapeActor() override;
@@ -63,35 +56,8 @@ public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditMove(bool bFinished) override;
 	virtual void PostEditImport() override;
+	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 #endif
 	virtual void PostLoad() override;
 	//~ End UObject Interface
 };
-
-LANDSCAPE_API DECLARE_LOG_CATEGORY_EXTERN(LogLandscape, Warning, All);
-
-/**
- * Landscape stats
- */
-
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Landscape Dynamic Draw Time"), STAT_LandscapeDynamicDrawTime, STATGROUP_Landscape, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Landscape Static Draw LOD Time"), STAT_LandscapeStaticDrawLODTime, STATGROUP_Landscape, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("LandscapeVF Draw Time"), STAT_LandscapeVFDrawTime, STATGROUP_Landscape, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Landscape Triangles"), STAT_LandscapeTriangles, STATGROUP_Landscape, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Landscape Render Passes"), STAT_LandscapeComponents, STATGROUP_Landscape, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Landscape DrawCalls"), STAT_LandscapeDrawCalls, STATGROUP_Landscape, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Landscape Vertex Mem"), STAT_LandscapeVertexMem, STATGROUP_Landscape, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Component Mem"), STAT_LandscapeComponentMem, STATGROUP_Landscape, );
-
-#if WITH_EDITORONLY_DATA
-
-/**
- * Gets landscape-specific data for given world.
- *
- * @param World A pointer to world that return data should be associated with.
- *
- * @returns Landscape-specific data associated with given world.
- */
-LANDSCAPE_API ULandscapeInfoMap& GetLandscapeInfoMap(UWorld* World);
-
-#endif // WITH_EDITORONLY_DATA

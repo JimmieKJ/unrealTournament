@@ -1,14 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_SequencePlayer.h"
+#include "EdGraphSchema_K2_Actions.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
-#include "CompilerResultsLog.h"
+#include "Kismet2/CompilerResultsLog.h"
 #include "GraphEditorActions.h"
+#include "ARFilter.h"
 #include "AssetRegistryModule.h"
-#include "AnimationGraphSchema.h"
-#include "BlueprintActionDatabaseRegistrar.h"
 #include "BlueprintActionFilter.h"
+#include "BlueprintActionDatabaseRegistrar.h"
 #include "EditorCategoryUtils.h"
 #include "BlueprintNodeSpawner.h"
 

@@ -1,18 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-
-#include "Editor/UnrealEd/Classes/Settings/EditorExperimentalSettings.h"
-#include "PackageTools.h"
-#include "Kismet2/BlueprintEditorUtils.h"
-#include "Kismet2/KismetEditorUtilities.h"
-#include "BlueprintEditorModule.h"
-#include "AssetRegistryModule.h"
-#include "SBlueprintDiff.h"
-#include "ISourceControlModule.h"
-#include "MessageLog.h"
-#include "WidgetBlueprint.h"
 #include "AssetTypeActions_WidgetBlueprint.h"
+#include "Misc/MessageDialog.h"
+#include "Engine/Blueprint.h"
+#include "Framework/Application/SlateApplication.h"
+
+#include "WidgetBlueprint.h"
+
+#include "SBlueprintDiff.h"
 #include "WidgetBlueprintEditor.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
@@ -58,11 +53,6 @@ FText FAssetTypeActions_WidgetBlueprint::GetAssetDescription( const FAssetData& 
 
 void FAssetTypeActions_WidgetBlueprint::PerformAssetDiff(UObject* Asset1, UObject* Asset2, const struct FRevisionInfo& OldRevision, const struct FRevisionInfo& NewRevision) const
 {
-	if (!GetDefault<UEditorExperimentalSettings>()->bEnableWidgetVisualDiff)
-	{
-		return FAssetTypeActions_Base::PerformAssetDiff(Asset1, Asset2, OldRevision, NewRevision);
-	}
-
 	UBlueprint* OldBlueprint = CastChecked<UBlueprint>(Asset1);
 	UBlueprint* NewBlueprint = CastChecked<UBlueprint>(Asset2);
 

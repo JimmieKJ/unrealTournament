@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIGraphPrivatePCH.h"
+#include "AIGraph.h"
+#include "UObject/UObjectHash.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "AIGraphTypes.h"
+#include "AIGraphNode.h"
 #include "AIGraphModule.h"
 
 UAIGraph::UAIGraph(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -70,26 +74,64 @@ bool UAIGraph::UpdateUnknownNodeClasses()
 	return bUpdated;
 }
 
+void UpdateAIGraphNodeErrorMessage(UAIGraphNode& Node)
+{
+	// Broke out setting error message in to own function so it can be reused when iterating nodes collection.
+	if (Node.NodeInstance)
+	{
+		Node.ErrorMessage = FGraphNodeClassHelper::GetDeprecationMessage(Node.NodeInstance->GetClass());
+	}
+	else
+	{
+		// Null instance. Do we have any meaningful class data?
+		FString StoredClassName = Node.ClassData.GetClassName();
+		StoredClassName.RemoveFromEnd(TEXT("_C"));
+
+		if (!StoredClassName.IsEmpty())
+		{
+			// There is class data here but the instance was not be created.
+			static const FString IsMissingClassMessage(" class missing. Referenced by ");
+			Node.ErrorMessage = StoredClassName + IsMissingClassMessage + Node.GetFullName();
+		}
+	}
+
+	if (Node.HasErrors())
+	{
+		UE_LOG(LogAIGraph, Error, TEXT("%s"), *Node.ErrorMessage);
+	}
+}
+
 void UAIGraph::UpdateDeprecatedClasses()
 {
-	for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
+	// This function sets error messages and logs errors about nodes.
+
+	for (int32 Idx = 0, IdxNum = Nodes.Num(); Idx < IdxNum; ++Idx)
 	{
 		UAIGraphNode* Node = Cast<UAIGraphNode>(Nodes[Idx]);
-		if (Node)
+		if (Node != nullptr)
 		{
-			if (Node->NodeInstance)
+			UpdateAIGraphNodeErrorMessage(*Node);
+			
+			for (int32 SubIdx = 0, SubIdxNum = Node->SubNodes.Num(); SubIdx < SubIdxNum; ++SubIdx)
 			{
-				Node->ErrorMessage = FGraphNodeClassHelper::GetDeprecationMessage(Node->NodeInstance->GetClass());
-			}
-
-			for (int32 SubIdx = 0; SubIdx < Node->SubNodes.Num(); SubIdx++)
-			{
-				if (Node->SubNodes[SubIdx] && Node->SubNodes[SubIdx]->NodeInstance)
+				if (Node->SubNodes[SubIdx] != nullptr)
 				{
-					Node->SubNodes[SubIdx]->ErrorMessage = FGraphNodeClassHelper::GetDeprecationMessage(Node->SubNodes[SubIdx]->NodeInstance->GetClass());
+					UpdateAIGraphNodeErrorMessage(*Node->SubNodes[SubIdx]);
 				}
 			}
 		}
+	}
+}
+
+void UAIGraph::Serialize(FArchive& Ar)
+{
+	// Overridden to flags up errors in the behavior tree while cooking.
+	Super::Serialize(Ar);
+
+	if (Ar.IsSaving() || Ar.IsCooking())
+	{
+		// Logging of errors happens in UpdateDeprecatedClasses
+		UpdateDeprecatedClasses();
 	}
 }
 

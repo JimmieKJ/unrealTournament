@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "NiagaraSimulation.h"
-#include "NiagaraEmitterProperties.h"
-#include "NiagaraEffectRenderer.h"
-#include "List.h"
-#include "NiagaraEffect.generated.h"
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "NiagaraCommon.h"
+#include "Runtime/Niagara/NiagaraConstantSet.h"
+#include "NiagaraDataSet.h"
+#include "NiagaraSimulation.h"
+#include "NiagaraComponent.h"
+#include "NiagaraEffect.generated.h"
 
 enum NiagaraTickState
 {

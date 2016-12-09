@@ -3,7 +3,9 @@
 #pragma once
 
 
-#include "EditorStyle.h"
+#include "CoreMinimal.h"
+#include "Styling/ISlateStyle.h"
+#include "Styling/SlateStyle.h"
 
 /**
 * Declares the Collision Analyzer window's visual style.

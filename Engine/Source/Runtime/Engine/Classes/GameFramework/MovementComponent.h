@@ -5,14 +5,20 @@
  */
 
 #pragma once
-#include "Components/ActorComponent.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Engine/EngineTypes.h"
+#include "Components/ActorComponent.h"
+#include "Components/SceneComponent.h"
 #include "MovementComponent.generated.h"
 
+class AActor;
+class APhysicsVolume;
+class UPrimitiveComponent;
 struct FCollisionQueryParams;
 struct FCollisionResponseParams;
 struct FCollisionShape;
-class USceneComponent;
 
 /**
  * Setting that controls behavior when movement is restricted to a 2D plane defined by a specific axis/normal,

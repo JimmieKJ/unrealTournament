@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/Array.h"
+#include "Containers/Map.h"
+#include "Containers/UnrealString.h"
+#include "Templates/ScopedPointer.h"
+#include "WindowsHWrapper.h"
+#include "UniquePtr.h"
+
 struct FRegistryValue
 {
 	uint32 Type;
@@ -45,7 +53,7 @@ struct FRegistryRootedKey
 {
 	HKEY hRootKey;
 	FString Path;
-	TScopedPointer<FRegistryKey> Key;
+	TUniquePtr<FRegistryKey> Key;
 
 	FRegistryRootedKey(HKEY hInKeyRoot, const FString &InPath);
 

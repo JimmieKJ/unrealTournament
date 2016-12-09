@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
+#include "BehaviorTreeDecoratorGraphNode_Logic.h"
+#include "EdGraph/EdGraph.h"
+#include "EdGraphSchema_BehaviorTreeDecorator.h"
 
 UBehaviorTreeDecoratorGraphNode_Logic::UBehaviorTreeDecoratorGraphNode_Logic(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

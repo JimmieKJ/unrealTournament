@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "SceneOutlinerFwd.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Views/SHeaderRow.h"
+
+template<typename ItemType> class STableRow;
 
 /**
  *	Interface for a scene outliner column

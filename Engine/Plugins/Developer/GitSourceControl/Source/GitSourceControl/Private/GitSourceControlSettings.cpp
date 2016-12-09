@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GitSourceControlPrivatePCH.h"
 #include "GitSourceControlSettings.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
 #include "GitSourceControlModule.h"
-#include "GitSourceControlProvider.h"
 #include "GitSourceControlUtils.h"
-#include "SourceControlHelpers.h"
 
 namespace GitSettingsConstants
 {

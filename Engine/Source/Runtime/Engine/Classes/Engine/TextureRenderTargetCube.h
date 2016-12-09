@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "TextureRenderTarget.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/TextureRenderTarget.h"
 #include "TextureRenderTargetCube.generated.h"
+
+class FTextureResource;
+struct FPropertyChangedEvent;
 
 /**
  * TextureRenderTargetCube
@@ -88,7 +94,7 @@ class UTextureRenderTargetCube : public UTextureRenderTarget
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostLoad() override;
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	virtual FString GetDesc() override;
 	//~ Begin UObject Interface
 };

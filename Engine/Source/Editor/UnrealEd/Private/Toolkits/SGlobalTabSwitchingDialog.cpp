@@ -1,12 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "SGlobalTabSwitchingDialog.h"
-#include "SDockTab.h"
+#include "Toolkits/SGlobalTabSwitchingDialog.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBorder.h"
+#include "Widgets/Views/SListView.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Docking/SDockTab.h"
 
-#include "AssetEditorManager.h"
-#include "AssetThumbnail.h"
+#include "EngineGlobals.h"
+#include "Editor.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "LevelEditor.h"
+#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructure.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 
 #if PLATFORM_MAC

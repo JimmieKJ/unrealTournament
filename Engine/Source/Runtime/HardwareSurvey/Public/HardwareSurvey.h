@@ -3,11 +3,18 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Dependencies
  *****************************************************************************/
 
 #include "Core.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 /* Interfaces
  *****************************************************************************/

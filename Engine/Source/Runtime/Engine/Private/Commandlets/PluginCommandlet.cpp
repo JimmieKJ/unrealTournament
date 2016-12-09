@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Commandlets/PluginCommandlet.h"
+#include "Misc/Paths.h"
 
-#include "Projects.h"
+#include "Interfaces/IPluginManager.h"
+#include "Interfaces/IProjectManager.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogPluginCommandlet, Log, All);

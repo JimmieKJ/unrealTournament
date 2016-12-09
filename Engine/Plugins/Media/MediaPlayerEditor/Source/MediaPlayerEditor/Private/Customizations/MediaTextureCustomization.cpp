@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "MediaTextureCustomization.h"
+#include "Customizations/MediaTextureCustomization.h"
+#include "Widgets/SNullWidget.h"
+#include "PropertyHandle.h"
 
 
 #define LOCTEXT_NAMESPACE "FMediaTextureCustomization"

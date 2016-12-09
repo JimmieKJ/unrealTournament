@@ -2,15 +2,14 @@
 
 #pragma once
 
-#include "ThumbnailSection.h"
+#include "CoreMinimal.h"
+#include "Layout/Margin.h"
+#include "Sections/ThumbnailSection.h"
 
-
-class FTrackEditorThumbnail;
+class AActor;
+class FMenuBuilder;
+class FSequencerSectionPainter;
 class FTrackEditorThumbnailPool;
-class IMenu;
-class ISectionLayoutBuilder;
-class UMovieSceneCameraCutSection;
-
 
 /**
  * CameraCut section, which paints and ticks the appropriate section.

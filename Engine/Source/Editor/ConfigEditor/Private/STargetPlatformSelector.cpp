@@ -1,13 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ConfigEditorPCH.h"
 #include "STargetPlatformSelector.h"
-#include "ModuleManager.h"
+#include "Misc/CoreMisc.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/CoreStyle.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
 
-#include "ITargetPlatformManagerModule.h"
-#include "ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/ITargetPlatform.h"
 
-#include "STextComboBox.h"
+#include "Widgets/Input/STextComboBox.h"
 
 #define LOCTEXT_NAMESPACE "ConfigEditor"
 

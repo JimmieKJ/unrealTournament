@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SoundVisualizationsPrivatePCH.h"
-#include "SoundDefinitions.h"
-#include "tools/kiss_fftnd.h" // Kiss FFT for Real component...
+#include "SoundVisualizationStatics.h"
+#include "Audio.h"
+#include "Sound/SoundWave.h"
+#include "tools/kiss_fftnd.h"
 
 /////////////////////////////////////////////////////
 // USoundVisualizationStatics

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateBrush.h"
 
 /**
  * A color brush.  Draws a box with no margins that only has a color applied to it                   

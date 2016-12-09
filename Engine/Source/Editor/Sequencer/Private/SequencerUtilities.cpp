@@ -1,7 +1,15 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "SequencerUtilities.h"
+#include "Misc/Paths.h"
+#include "Layout/Margin.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SComboButton.h"
+#include "EditorStyleSet.h"
 
 static EVisibility GetRolloverVisibility(TAttribute<bool> HoverState, TWeakPtr<SComboButton> WeakComboButton)
 {
@@ -76,7 +84,7 @@ FName FSequencerUtilities::GetUniqueName( FName CandidateName, const TArray<FNam
 	int32 NameIndex = 1;
 	while ( ExistingNames.Contains( UniqueName ) )
 	{
-		UniqueName = FName( *FString::Printf(TEXT("%s%03i"), *BaseNameString, NameIndex ) );
+		UniqueName = FName( *FString::Printf(TEXT("%s%i"), *BaseNameString, NameIndex ) );
 		NameIndex++;
 	}
 

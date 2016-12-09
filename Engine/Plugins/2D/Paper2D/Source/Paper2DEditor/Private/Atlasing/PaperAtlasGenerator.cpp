@@ -1,17 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "PaperAtlasGenerator.h"
+#include "Atlasing/PaperAtlasGenerator.h"
+#include "Paper2DEditorLog.h"
+#include "Misc/MessageDialog.h"
+#include "Engine/Texture2D.h"
 
-#include "AssetRegistryModule.h"
-#include "Textures/TextureAtlas.h"
-#include "PaperSprite.h"
 
 //////////////////////////////////////////////////////////////////////////
 // 
 
-#include "PaperAtlasTextureHelpers.h"
-#include "PaperAtlasHelpers.h"
+#include "PaperSpriteAtlas.h"
+#include "Atlasing/PaperAtlasTextureHelpers.h"
+#include "Atlasing/PaperAtlasHelpers.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperAtlasGenerator

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "HAL/Runnable.h"
 #include "HttpPackage.h"
 
 class IHttpThreadedRequest;
@@ -80,8 +83,14 @@ protected:
 	/** signal request to stop and exit thread */
 	FThreadSafeCounter ExitRequest;
 
-	/** Target frame duration of a http thread tick, in seconds. */
-	double	HttpThreadTickBudget;
+	/** Time in seconds to use as frame time when actively processing requests. 0 means no frame time. */
+	double HttpThreadActiveFrameTimeInSeconds;
+	/** Time in seconds to sleep minimally when actively processing requests. */
+	double HttpThreadActiveMinimumSleepTimeInSeconds;
+	/** Time in seconds to use as frame time when idle, waiting for requests. 0 means no frame time. */
+	double HttpThreadIdleFrameTimeInSeconds;
+	/** Time in seconds to sleep minimally when idle, waiting for requests. */
+	double HttpThreadIdleMinimumSleepTimeInSeconds;
 
 protected:
 	/** Critical section to lock access to PendingThreadedRequests, CancelledThreadedRequests, and CompletedThreadedRequests */

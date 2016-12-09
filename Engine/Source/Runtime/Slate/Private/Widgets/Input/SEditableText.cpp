@@ -1,12 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "BreakIterator.h"
-#include "TextEditHelper.h"
-#include "PlainTextLayoutMarshaller.h"
-#include "SlateEditableTextLayout.h"
-#include "ReflectionMetadata.h"
-#include "IMenu.h"
+#include "Widgets/Input/SEditableText.h"
+#include "Framework/Text/TextEditHelper.h"
+#include "Framework/Text/PlainTextLayoutMarshaller.h"
+#include "Widgets/Text/SlateEditableTextLayout.h"
+#include "Types/ReflectionMetadata.h"
 
 SEditableText::SEditableText()
 {
@@ -87,7 +85,13 @@ void SEditableText::Tick( const FGeometry& AllottedGeometry, const double InCurr
 
 int32 SEditableText::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
-	LayerId = EditableTextLayout->OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, ShouldBeEnabled(bParentEnabled));
+	const FTextBlockStyle& EditableTextStyle = EditableTextLayout->GetTextStyle();
+	const FLinearColor ForegroundColor = EditableTextStyle.ColorAndOpacity.GetColor(InWidgetStyle);
+
+	FWidgetStyle TextWidgetStyle = FWidgetStyle(InWidgetStyle)
+		.SetForegroundColor(ForegroundColor);
+
+	LayerId = EditableTextLayout->OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, TextWidgetStyle, ShouldBeEnabled(bParentEnabled));
 
 	return LayerId;
 }
@@ -191,7 +195,7 @@ FReply SEditableText::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& I
 
 FReply SEditableText::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
 {
-	return FReply::Unhandled();
+	return EditableTextLayout->HandleKeyUp(InKeyEvent);
 }
 
 FReply SEditableText::OnMouseButtonDown( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent )
@@ -227,6 +231,19 @@ const FSlateBrush* SEditableText::GetFocusBrush() const
 bool SEditableText::IsInteractable() const
 {
 	return IsEnabled();
+}
+
+bool SEditableText::ComputeVolatility() const
+{
+	return SWidget::ComputeVolatility()
+		|| HasKeyboardFocus()
+		|| EditableTextLayout->ComputeVolatility()
+		|| Font.IsBound()
+		|| ColorAndOpacity.IsBound()
+		|| BackgroundImageSelected.IsBound()
+		|| bIsReadOnly.IsBound()
+		|| bIsPassword.IsBound()
+		|| MinDesiredWidth.IsBound();
 }
 
 void SEditableText::SetHintText( const TAttribute< FText >& InHintText )

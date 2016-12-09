@@ -14,7 +14,6 @@
 // limitations under the License.
 //
 
-#include "OSVRPrivatePCH.h"
 #include "OSVRCustomPresent.h"
 
 DEFINE_LOG_CATEGORY(FOSVRCustomPresentLog);

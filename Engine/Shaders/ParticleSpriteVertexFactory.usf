@@ -256,6 +256,8 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.Particle.MacroUV = SpriteVF.MacroUVParameters;
 	Result.Particle.Color = Intermediates.Color;
 	Result.Particle.MotionBlurFade = 1.0f;
+	Result.PreSkinnedPosition = Input.Position.xyz;
+	Result.PreSkinnedNormal = TangentToLocal[2].xyz;
 
 #if USE_DYNAMIC_PARAMETERS
 	Result.Particle.DynamicParameter = Intermediates.DynamicParameter;
@@ -317,9 +319,12 @@ float3 SafeNormalize(float3 V)
 void GetTangents(FVertexFactoryInput Input, float3 WorldPosition, float3 OldWorldPosition, out float3 OutRight, out float3 OutUp)
 {
 	// Select camera up/right vectors.
-	float3 CameraRight = lerp(ResolvedView.ViewRight, SpriteVF.AxisLockRight.xyz, SpriteVF.AxisLockRight.w);
-	float3 CameraUp = lerp(-ResolvedView.ViewUp, SpriteVF.AxisLockUp.xyz, SpriteVF.AxisLockUp.w);
+	float3 ResolvedViewRight = lerp(ResolvedView.ViewRight, ResolvedView.HMDViewNoRollRight, SpriteVF.RemoveHMDRoll);
+	float3 ResolvedViewUp = lerp(ResolvedView.ViewUp, ResolvedView.HMDViewNoRollUp, SpriteVF.RemoveHMDRoll);
 
+	float3 CameraRight = lerp(ResolvedViewRight, SpriteVF.AxisLockRight.xyz, SpriteVF.AxisLockRight.w);
+	float3 CameraUp = lerp(-ResolvedViewUp, SpriteVF.AxisLockUp.xyz, SpriteVF.AxisLockUp.w);
+	
 	// Determine the vector from the particle to the camera and the particle's movement direction.
 	float3 CameraDirection		= SafeNormalize(ResolvedView.WorldCameraOrigin - WorldPosition.xyz);
 	float3 ParticleDirection	= SafeNormalize(WorldPosition.xyz - OldWorldPosition.xyz);
@@ -336,20 +341,37 @@ void GetTangents(FVertexFactoryInput Input, float3 WorldPosition, float3 OldWorl
 	float3 Right_FacingCameraPosition = SafeNormalize(cross(CameraDirection,float3(0,0,1)));
 	float3 Up_FacingCameraPosition = cross(CameraDirection, Right_FacingCameraPosition);
 
+	// Blend between PSA_FacingCamera and PSA_Square over distance
+	float4 LocalTangentSelector = SpriteVF.TangentSelector;
+
+	BRANCH
+	if (SpriteVF.CameraFacingBlend.x > 0.f)
+	{
+		float3 CameraVector = ResolvedView.WorldCameraOrigin.xyz - WorldPosition.xyz;
+		float CameraDistanceSq = dot(CameraVector, CameraVector);
+		float AlignmentMode = saturate(CameraDistanceSq * SpriteVF.CameraFacingBlend.y - SpriteVF.CameraFacingBlend.z);
+
+		LocalTangentSelector.x = 1.f - AlignmentMode;
+		LocalTangentSelector.w = AlignmentMode;
+	}
+
 	// Select the appropriate tangents.
 	// The TangentSelector values are as follows:
 	//   x - multiplied by the standard camera right/up values
 	//   y - multiplied by the velocity right/up values
 	//   z - multiplied by the axis rotation right/up values
 	// The multiplies are summed together to give the final right/up
-	float3 Right_Square	=	(CameraRight.xyz * SpriteVF.TangentSelector.x) +
-							(Right_Velocity * SpriteVF.TangentSelector.y) +
-							(Right_AxisRot * SpriteVF.TangentSelector.z) +
-							(Right_FacingCameraPosition * SpriteVF.TangentSelector.w);
-	float3 Up_Square =		(CameraUp.xyz * SpriteVF.TangentSelector.x) +
-							(Up_Velocity * SpriteVF.TangentSelector.y) +
-							(Up_AxisRot * SpriteVF.TangentSelector.z) +
-							(Up_FacingCameraPosition * SpriteVF.TangentSelector.w);
+	float3 Right_Square	=	(CameraRight.xyz * LocalTangentSelector.x) +
+							(Right_Velocity * LocalTangentSelector.y) +
+							(Right_AxisRot * LocalTangentSelector.z) +
+							(Right_FacingCameraPosition * LocalTangentSelector.w);
+	float3 Up_Square =		(CameraUp.xyz * LocalTangentSelector.x) +
+							(Up_Velocity * LocalTangentSelector.y) +
+							(Up_AxisRot * LocalTangentSelector.z) +
+							(Up_FacingCameraPosition * LocalTangentSelector.w);
+							
+	Right_Square = normalize(Right_Square);
+	Up_Square = normalize(Up_Square);
 
 	// Determine the angle of rotation.
 	float SinRotation;

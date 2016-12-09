@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "SpriteEditorOnlyTypes.h"
-#include "Engine/DataAsset.h"
-#include "Engine/EngineTypes.h"
 #include "IntMargin.h"
 
 #include "PaperTileSet.generated.h"

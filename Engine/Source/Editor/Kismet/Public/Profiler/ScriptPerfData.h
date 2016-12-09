@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "BlueprintProfilerSettings.h"
+#include "CoreMinimal.h"
 
 //////////////////////////////////////////////////////////////////////////
 // EScriptPerfDataType
@@ -78,11 +78,11 @@ public:
 	/** Add data */
 	void AddData(const FScriptPerfData& DataIn);
 
-	/** Initialise from data set */
-	void InitialiseFromDataSet(const TArray<TSharedPtr<FScriptPerfData>>& DataSet);
+	/** Initialise blueprint data from data set */
+	void CreateBlueprintStats(const TArray<TSharedPtr<FScriptPerfData>>& BlueprintDataSet);
 
 	/** Initialise as accumulated from data set */
-	void AccumulateDataSet(const TArray<TSharedPtr<FScriptPerfData>>& DataSet);
+	void AccumulateDataSet(const TArray<TSharedPtr<FScriptPerfData>>& DataSet, bool bApplyAsInclusive = false);
 
 	/** Increments sample count without affecting data */
 	void TickSamples() { RawSamples++; }
@@ -100,10 +100,11 @@ public:
 	// Returns the various stats this container holds
 	double GetAverageTiming() const;
 	double GetInclusiveTiming() const;
-	double GetMaxTiming() const { return MaxTiming; }
-	double GetMinTiming() const { return MinTiming; }
+	double GetMaxTiming() const { return MaxTiming == -MAX_dbl ? 0.0 : MaxTiming; }
+	double GetMinTiming() const { return MinTiming == MAX_dbl ? 0.0 : MinTiming; }
 	double GetTotalTiming() const { return AverageTiming; }
 	float GetSampleCount() const { return RawSamples / SampleFrequency; }
+	float GetRawSampleCount() const { return RawSamples; }
 	void OverrideSampleCount(const int32 NewSampleCount) { RawSamples = NewSampleCount; }
 
 	// Returns performance heat levels for visual display
@@ -113,7 +114,7 @@ public:
 	float GetTotalHeatLevel() const { return TotalTimingHeatLevel; }
 
 	// Calculate performance heat levels for visual display
-	void SetHeatLevels(TSharedPtr<FScriptHeatLevelMetrics> HeatLevelMetrics);
+	void SetHeatLevels(TSharedPtr<const FScriptHeatLevelMetrics> HeatLevelMetrics);
 
 	// Hottest path interface
 	float GetHottestPathHeatLevel() const { return HottestPathHeatValue; }
@@ -126,6 +127,8 @@ public:
 	FText GetMaxTimingText() const;
 	FText GetMinTimingText() const;
 	FText GetSamplesText() const;
+	FText GetHottestPathText() const;
+	FText GetHeatLevelText() const;
 
 private:
 
@@ -160,6 +163,4 @@ private:
 	/** Time number formatting options */
 	static FNumberFormattingOptions TimeNumberFormat;
 
-	/** Sets blueprint level stats as averaged */
-	static bool bAverageBlueprintStats;
 };

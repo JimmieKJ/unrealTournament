@@ -1,13 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NUTUnrealEngine4PCH.h"
-
 #include "UnitTests/UTT61_DebugReplicateData.h"
+#include "UObject/Package.h"
+
 
 #include "NUTActor.h"
 
-#include "NUTUtilNet.h"
-#include "NUTUtilDebug.h"
+#include "Net/NUTUtilNet.h"
 #include "UnitTestEnvironment.h"
 
 

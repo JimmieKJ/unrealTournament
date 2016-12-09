@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -31,8 +31,8 @@
 #include "../../events/SDL_keyboard_c.h"
 #include "SDL_pspvideo.h"
 #include "SDL_pspevents_c.h"
-#include "SDL_thread.h"
 #include "SDL_keyboard.h"
+#include "../../thread/SDL_systhread.h"
 #include <psphprm.h>
 
 #ifdef PSPIRKEYB
@@ -42,7 +42,7 @@
 #define IRKBD_CONFIG_FILE     NULL    /* this will take ms0:/seplugins/pspirkeyb.ini */
 
 static int irkbd_ready = 0;
-static SDLKey keymap[256];
+static SDL_Keycode keymap[256];
 #endif
 
 static enum PspHprmKeys hprm = 0;
@@ -124,7 +124,7 @@ void PSP_PumpEvents(_THIS)
                 /* not tested */
                 /* SDL_PrivateKeyboard(pressed?SDL_PRESSED:SDL_RELEASED, &sym); */
                 SDL_SendKeyboardKey((keys & keymap_psp[i].id) ?
-                                    SDL_PRESSED : SDL_RELEASED, SDL_GetScancodeFromKey(keymap[raw]);
+                                    SDL_PRESSED : SDL_RELEASED, SDL_GetScancodeFromKey(keymap[raw]));
 
                 }
             }
@@ -264,7 +264,7 @@ void PSP_EventInit(_THIS)
         return;
     }
     running = 1;
-    if((thread = SDL_CreateThread(EventUpdate, "PSPInputThread",NULL)) == NULL) {
+    if((thread = SDL_CreateThreadInternal(EventUpdate, "PSPInputThread", 4096, NULL)) == NULL) {
         SDL_SetError("Can't create input thread\n");
         return;
     }

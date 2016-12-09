@@ -1,20 +1,35 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
+#include "KismetNodes/SGraphNodeK2Base.h"
+#include "Engine/Engine.h"
+#include "Internationalization/Culture.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/SToolTip.h"
+#include "EngineGlobals.h"
+#include "GraphEditorSettings.h"
+#include "SCommentBubble.h"
+#include "SGraphPin.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "K2Node_Composite.h"
+#include "K2Node_MacroInstance.h"
+#include "K2Node_Timeline.h"
 #include "Engine/Breakpoint.h"
-#include "SGraphNodeK2Base.h"
-#include "Editor/UnrealEd/Public/Kismet2/KismetDebugUtilities.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "KismetNodeInfoContext.h"
+#include "Kismet2/KismetDebugUtilities.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "KismetNodes/KismetNodeInfoContext.h"
 #include "IDocumentation.h"
 #include "TutorialMetaData.h"
+#include "Widgets/Layout/SBox.h"
 
 // Blueprint Profiler
 #include "Developer/BlueprintProfiler/Public/BlueprintProfilerModule.h"
 #include "Editor/Kismet/Public/Profiler/BlueprintProfilerSettings.h"
 #include "Editor/Kismet/Public/Profiler/EventExecution.h"
-#include "Editor/Kismet/Public/Profiler/ScriptPerfData.h"
 
 #define LOCTEXT_NAMESPACE "SGraphNodeK2Base"
 
@@ -54,6 +69,69 @@ void SGraphNodeK2Base::UpdateCompactNode()
 	// Setup a meta tag for this node
 	FGraphNodeMetaData TagMeta(TEXT("Graphnode"));
 	PopulateMetaTag(&TagMeta);
+	
+	TSharedPtr<SNodeTitle> NodeTitle = SNew(SNodeTitle, GraphNode)
+		.Text(this, &SGraphNodeK2Base::GetNodeCompactTitle);
+
+	TSharedRef<SOverlay> NodeOverlay = SNew(SOverlay);
+	
+	// add optional node specific widget to the overlay:
+	TSharedPtr<SWidget> OverlayWidget = GraphNode->CreateNodeImage();
+	if(OverlayWidget.IsValid())
+	{
+		NodeOverlay->AddSlot()
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Center)
+		[
+			SNew( SBox )
+			.WidthOverride( 70.f )
+			.HeightOverride( 70.f )
+			[
+				OverlayWidget.ToSharedRef()
+			]
+		];
+	}
+
+	NodeOverlay->AddSlot()
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Center)
+		.Padding(45.f, 0.f, 45.f, 0.f)
+		[
+			// MIDDLE
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.HAlign(HAlign_Center)
+			.AutoHeight()
+			[
+				SNew(STextBlock)
+					.TextStyle( FEditorStyle::Get(), "Graph.CompactNode.Title" )
+					.Text( NodeTitle.Get(), &SNodeTitle::GetHeadTitle )
+					.WrapTextAt(128.0f)
+			]
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				NodeTitle.ToSharedRef()
+			]
+		];
+	
+	NodeOverlay->AddSlot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.Padding(0.f, 0.f, 55.f, 0.f)
+		[
+			// LEFT
+			SAssignNew(LeftNodeBox, SVerticalBox)
+		];
+
+	NodeOverlay->AddSlot()
+		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Center)
+		.Padding(55.f, 0.f, 0.f, 0.f)
+		[
+			// RIGHT
+			SAssignNew(RightNodeBox, SVerticalBox)
+		];
 
 	//
 	//             ______________________
@@ -66,74 +144,35 @@ void SGraphNodeK2Base::UpdateCompactNode()
 	//
 	this->ContentScale.Bind( this, &SGraphNode::GetContentScale );
 	this->GetOrAddSlot( ENodeZone::Center )
-
 	.HAlign(HAlign_Center)
 	.VAlign(VAlign_Center)
 	[
 		SNew(SVerticalBox)
 		+SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding( FMargin(5.0f, 1.0f) )
-		[
-			ErrorReporting->AsWidget()
-		]
-		+SVerticalBox::Slot()
 		[
 			// NODE CONTENT AREA
-			SNew(SOverlay)
-			.ToolTip( NodeToolTip.ToSharedRef() )
-			.AddMetaData<FGraphNodeMetaData>(TagMeta)
+			SNew( SOverlay)
 			+SOverlay::Slot()
-			.Padding(Settings->GetNonPinNodeBodyPadding())
 			[
-				SNew(SOverlay)
-				+SOverlay::Slot()
-				[
-					SNew(SImage)
-					.Image(FEditorStyle::GetBrush("Graph.CompactNode.Body"))
-					.ColorAndOpacity(this, &SGraphNodeK2Base::GetNodeBodyColor)
-				]
-				+SOverlay::Slot()
-				[
-					SNew(SImage)
-					.Image(FEditorStyle::GetBrush("Graph.CompactNode.IndicatorOverlay"))
-					.Visibility(this, &SGraphNodeK2Base::GetNodeIndicatorOverlayVisibility)
-					.ColorAndOpacity(this, &SGraphNodeK2Base::GetNodeIndicatorOverlayColor)
-				]
+				SNew(SImage)
+				.Image( FEditorStyle::GetBrush("Graph.VarNode.Body") )
 			]
-			+SOverlay::Slot()
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			.Padding(Settings->GetNonPinNodeBodyPadding())
+			+ SOverlay::Slot()
 			[
-				// MIDDLE
-				SNew(STextBlock)
-				.TextStyle( FEditorStyle::Get(), "Graph.CompactNode.Title" )
-				.Text( this, &SGraphNodeK2Base::GetNodeCompactTitle )
+				SNew(SImage)
+				.Image( FEditorStyle::GetBrush("Graph.VarNode.Gloss") )
 			]
 			+SOverlay::Slot()
 			.Padding( FMargin(0,3) )
 			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.Padding(0)
-				.HAlign(HAlign_Left)
-				.VAlign(VAlign_Center)
-				.FillWidth(1.0f)
-				[
-					// LEFT
-					SAssignNew(LeftNodeBox, SVerticalBox)
-				]
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(0)
-				.HAlign(HAlign_Right)
-				.VAlign(VAlign_Center)
-				[
-					// RIGHT
-					SAssignNew(RightNodeBox, SVerticalBox)
-				]
+				NodeOverlay
 			]
+		]
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding( FMargin(5.0f, 1.0f) )
+		[
+			ErrorReporting->AsWidget()
 		]
 	];
 
@@ -284,67 +323,6 @@ FText SGraphNodeK2Base::GetToolTipHeading() const
 	return FText::GetEmpty();
 }
 
-FSlateColor SGraphNodeK2Base::GetNodeIndicatorOverlayColor() const
-{
-	float IntensityValue = 0.0f;
-	const float IntensityScale = 0.8f;
-
-	IBlueprintProfilerInterface& ProfilerModule = FModuleManager::LoadModuleChecked<IBlueprintProfilerInterface>("BlueprintProfiler");
-	if (ProfilerModule.IsProfilerEnabled() && GraphNode)
-	{
-		UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForNode(GraphNode);
-		if (Blueprint && Blueprint->GeneratedClass && Blueprint->GeneratedClass->HasInstrumentation())
-		{
-			TSharedPtr<FScriptExecutionBlueprint> BlueprintExecNode = ProfilerModule.GetProfilerDataForBlueprint(Blueprint);
-			if (BlueprintExecNode.IsValid())
-			{
-				TSharedPtr<FScriptExecutionNode> ExecNode = ProfilerModule.GetProfilerDataForNode(GraphNode);
-				if (ExecNode.IsValid())
-				{
-					FScriptPerfData NodePerfData(EScriptPerfDataType::Node);
-					ExecNode->GetBlueprintPerfDataForAllTracePaths(NodePerfData);
-
-					NodePerfData.SetHeatLevels(BlueprintExecNode->GetHeatLevelMetrics());
-
-					switch (GetDefault<UBlueprintProfilerSettings>()->GraphNodeHeatMapDisplayMode)
-					{
-					case EBlueprintProfilerHeatMapDisplayMode::Average:
-						IntensityValue = NodePerfData.GetAverageHeatLevel();
-						break;
-
-					case EBlueprintProfilerHeatMapDisplayMode::Inclusive:
-						IntensityValue = NodePerfData.GetInclusiveHeatLevel();
-						break;
-
-					case EBlueprintProfilerHeatMapDisplayMode::MaxTiming:
-						IntensityValue = NodePerfData.GetMaxTimeHeatLevel();
-						break;
-
-					case EBlueprintProfilerHeatMapDisplayMode::Total:
-						IntensityValue = NodePerfData.GetTotalHeatLevel();
-						break;
-					}
-				}
-			}
-		}
-	}
-
-	return FLinearColor(0.9f, 0.0f, 0.0f, FMath::Clamp<float>(IntensityValue, 0.0f, 1.0f) * IntensityScale);
-}
-
-EVisibility SGraphNodeK2Base::GetNodeIndicatorOverlayVisibility() const
-{
-	IBlueprintProfilerInterface& ProfilerModule = FModuleManager::LoadModuleChecked<IBlueprintProfilerInterface>("BlueprintProfiler");
-	if (ProfilerModule.IsProfilerEnabled() && GetDefault<UBlueprintProfilerSettings>()->GraphNodeHeatMapDisplayMode != EBlueprintProfilerHeatMapDisplayMode::None)
-	{
-		return EVisibility::Visible;
-	}
-	else
-	{
-		return EVisibility::Hidden;
-	}
-}
-
 /**
  * Update this GraphNode to match the data that it is observing
  */
@@ -456,9 +434,9 @@ void SGraphNodeK2Base::GetOverlayBrushes(bool bSelected, const FVector2D WidgetS
 				const float Padding = 2.5f;
 				IPOverlayInfo.OverlayOffset.X = WidgetSize.X - IPOverlayInfo.Brush->ImageSize.X - Padding;
 				IPOverlayInfo.OverlayOffset.Y = Padding;
+				Offset = IPOverlayInfo.Brush->ImageSize.X;
 			}
 			Brushes.Add(IPOverlayInfo);
-			Offset = IPOverlayInfo.Brush->ImageSize.X;
 		}
 		if (Timeline && Timeline->bLoop)
 		{
@@ -589,12 +567,59 @@ const FSlateBrush* SGraphNodeK2Base::GetShadowBrush(bool bSelected) const
 
 	if (bSelected && bCompactMode)
 	{
-		return FEditorStyle::GetBrush( "Graph.CompactNode.ShadowSelected" );
+		return FEditorStyle::GetBrush( "Graph.VarNode.ShadowSelected" );
 	}
 	else
 	{
 		return SGraphNode::GetShadowBrush(bSelected);
 	}
+}
+
+FLinearColor SGraphNodeK2Base::GetProfilerHeatmapIntensity() const
+{
+	float IntensityValue = 0.0f;
+	IBlueprintProfilerInterface& ProfilerModule = FModuleManager::LoadModuleChecked<IBlueprintProfilerInterface>("BlueprintProfiler");
+	if (ProfilerModule.IsProfilerEnabled() && GraphNode)
+	{
+		UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForNode(GraphNode);
+		if (Blueprint && Blueprint->GeneratedClass && Blueprint->GeneratedClass->HasInstrumentation())
+		{
+			TSharedPtr<FScriptExecutionNode> ExecNode = ProfilerModule.GetProfilerDataForNode(GraphNode);
+			if (ExecNode.IsValid())
+			{
+				const FScriptPerfData& NodePerfData = ExecNode->GetNodePerfData();
+				switch (GetDefault<UBlueprintProfilerSettings>()->GraphNodeHeatMapDisplayMode)
+				{
+				case EBlueprintProfilerHeatMapDisplayMode::Average:
+					IntensityValue = NodePerfData.GetAverageHeatLevel();
+					break;
+
+				case EBlueprintProfilerHeatMapDisplayMode::Inclusive:
+					IntensityValue = NodePerfData.GetInclusiveHeatLevel();
+					break;
+
+				case EBlueprintProfilerHeatMapDisplayMode::MaxTiming:
+					IntensityValue = NodePerfData.GetMaxTimeHeatLevel();
+					break;
+
+				case EBlueprintProfilerHeatMapDisplayMode::Total:
+					IntensityValue = NodePerfData.GetTotalHeatLevel();
+					break;
+				}
+			}
+		}
+	}
+	const float Value = 1.f - IntensityValue;
+	return FLinearColor(1.f, Value, Value, IntensityValue*IntensityValue);
+}
+
+const FSlateBrush* SGraphNodeK2Base::GetProfilerHeatmapBrush() const
+{
+	const UK2Node* K2Node = CastChecked<UK2Node>(GraphNode);
+	const bool bCompactMode = K2Node->ShouldDrawCompact();
+
+	return bCompactMode ?	FEditorStyle::GetBrush(TEXT("BlueprintProfiler.CompactNode.HeatDisplay")) : 
+							FEditorStyle::GetBrush(TEXT("BlueprintProfiler.RegularNode.HeatDisplay"));
 }
 
 void SGraphNodeK2Base::PerformSecondPassLayout(const TMap< UObject*, TSharedRef<SNode> >& NodeToWidgetLookup) const

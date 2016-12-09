@@ -11,15 +11,12 @@
 	Audio includes.
 ------------------------------------------------------------------------------------*/
 
-#include "XAudio2PrivatePCH.h"
 #include "XAudio2Device.h"
 #include "AudioDecompress.h"
 #include "AudioEffect.h"
 #include "XAudio2Effects.h"
-#include "Engine.h"
-#include "TargetPlatform.h"
 #include "XAudio2Support.h"
-#include "SoundDefinitions.h"
+#include "Interfaces/IAudioFormat.h"
 
 #if XAUDIO_SUPPORTS_XMA2WAVEFORMATEX
 /**
@@ -75,11 +72,6 @@ struct FXMAInfo
 	FXAudio2SoundBuffer.
 ------------------------------------------------------------------------------------*/
 
-/** 
- * Constructor
- *
- * @param AudioDevice	audio device this sound buffer is going to be attached to.
- */
 FXAudio2SoundBuffer::FXAudio2SoundBuffer( FAudioDevice* InAudioDevice, ESoundFormat InSoundFormat )
 	: FSoundBuffer(InAudioDevice)
 	, SoundFormat(InSoundFormat)
@@ -101,11 +93,6 @@ FXAudio2SoundBuffer::FXAudio2SoundBuffer( FAudioDevice* InAudioDevice, ESoundFor
 	XWMA.XWMASeekDataSize = 0;
 }
 
-/**
- * Destructor 
- * 
- * Frees wave data and detaches itself from audio device.
- */
 FXAudio2SoundBuffer::~FXAudio2SoundBuffer( void )
 {
 	if( bAllocationInPermanentPool )
@@ -167,11 +154,6 @@ FXAudio2SoundBuffer::~FXAudio2SoundBuffer( void )
 	}
 }
 
-/**
- * Returns the size of this buffer in bytes.
- *
- * @return Size in bytes
- */
 int32 FXAudio2SoundBuffer::GetSize( void )
 {
 	int32 TotalSize = 0;
@@ -247,9 +229,7 @@ void FXAudio2SoundBuffer::EnsureRealtimeTaskCompletion()
 	}
 }
 
-/** 
- * Setup a WAVEFORMATEX structure
- */
+
 void FXAudio2SoundBuffer::InitWaveFormatEx( uint16 Format, USoundWave* Wave, bool bCheckPCMData )
 {
 	// Setup the format structure required for XAudio2
@@ -275,9 +255,6 @@ void FXAudio2SoundBuffer::InitWaveFormatEx( uint16 Format, USoundWave* Wave, boo
 	PCM.PCMFormat.nAvgBytesPerSec = NumChannels * sizeof( int16 ) * Wave->SampleRate;
 }
 
-/** 
- * Set up this buffer to contain and play XMA2 data
- */
 void FXAudio2SoundBuffer::InitXMA2( FXAudio2Device* XAudio2Device, USoundWave* Wave, FXMAInfo* XMAInfo )
 {
 #if XAUDIO_SUPPORTS_XMA2WAVEFORMATEX
@@ -309,9 +286,6 @@ void FXAudio2SoundBuffer::InitXMA2( FXAudio2Device* XAudio2Device, USoundWave* W
 #endif	//XAUDIO_SUPPORTS_XMA2WAVEFORMATEX
 }
 
-/** 
- * Set up this buffer to contain and play XWMA data
- */
 void FXAudio2SoundBuffer::InitXWMA( USoundWave* Wave, FXMAInfo* XMAInfo )
 {
 #if XAUDIO_SUPPORTS_XMA2WAVEFORMATEX
@@ -347,13 +321,6 @@ bool FXAudio2SoundBuffer::ReadCompressedInfo(USoundWave* SoundWave)
 	return DecompressionState->ReadCompressedInfo(SoundWave->ResourceData, SoundWave->ResourceSize, nullptr);
 }
 
-/**
- * Decompresses a chunk of compressed audio to the destination memory
- *
- * @param Destination		Memory to decompress to
- * @param bLooping			Whether to loop the sound seamlessly, or pad with zeroes
- * @return					Whether the sound looped or not
- */
 bool FXAudio2SoundBuffer::ReadCompressedData( uint8* Destination, bool bLooping )
 {
 	if (!DecompressionState)
@@ -375,19 +342,12 @@ bool FXAudio2SoundBuffer::ReadCompressedData( uint8* Destination, bool bLooping 
 
 void FXAudio2SoundBuffer::Seek( const float SeekTime )
 {
-	if (ensure(DecompressionState))
+	if (DecompressionState)
 	{
 		DecompressionState->SeekToTime(SeekTime);
 	}
 }
 
-/**
- * Static function used to create an OpenAL buffer and dynamically upload decompressed ogg vorbis data to.
- *
- * @param InWave		USoundWave to use as template and wave source
- * @param AudioDevice	audio device to attach created buffer to
- * @return FXAudio2SoundBuffer pointer if buffer creation succeeded, NULL otherwise
- */
 FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateQueuedBuffer( FXAudio2Device* XAudio2Device, USoundWave* Wave )
 {
 	check(XAudio2Device);
@@ -439,13 +399,6 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateQueuedBuffer( FXAudio2Device* XA
 	return Buffer;
 }
 
-/**
- * Static function used to create an OpenAL buffer and dynamically upload procedural data to.
- *
- * @param InWave		USoundWave to use as template and wave source
- * @param AudioDevice	audio device to attach created buffer to
- * @return FXAudio2SoundBuffer pointer if buffer creation succeeded, NULL otherwise
- */
 FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateProceduralBuffer( FXAudio2Device* XAudio2Device, USoundWave* Wave )
 {
 	// Always create a new buffer for real time decompressed sounds
@@ -464,13 +417,6 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateProceduralBuffer( FXAudio2Device
 	return( Buffer );
 }
 
-/**
- * Static function used to create an OpenAL buffer and upload raw PCM data to.
- *
- * @param InWave		USoundWave to use as template and wave source
- * @param AudioDevice	audio device to attach created buffer to
- * @return FXAudio2SoundBuffer pointer if buffer creation succeeded, NULL otherwise
- */
 FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreatePreviewBuffer( FXAudio2Device* XAudio2Device, USoundWave* Wave, FXAudio2SoundBuffer* Buffer )
 {
 	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
@@ -500,13 +446,6 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreatePreviewBuffer( FXAudio2Device* X
 	return( Buffer );
 }
 
-/**
- * Static function used to create an OpenAL buffer and upload decompressed ogg vorbis data to.
- *
- * @param InWave		USoundWave to use as template and wave source
- * @param AudioDevice	audio device to attach created buffer to
- * @return FXAudio2SoundBuffer pointer if buffer creation succeeded, NULL otherwise
- */
 FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateNativeBuffer( FXAudio2Device* XAudio2Device, USoundWave* Wave )
 {
 	// Check to see if thread has finished decompressing on the other thread
@@ -575,13 +514,6 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateStreamingBuffer( FXAudio2Device*
 	return(Buffer);
 }
 
-/**
- * Static function used to create a buffer.
- *
- * @param InWave USoundWave to use as template and wave source
- * @param AudioDevice audio device to attach created buffer to
- * @return FXAudio2SoundBuffer pointer if buffer creation succeeded, NULL otherwise
- */
 FXAudio2SoundBuffer* FXAudio2SoundBuffer::Init( FAudioDevice* AudioDevice, USoundWave* Wave, bool bForceRealTime )
 {
 	// Can't create a buffer without any source data
@@ -666,6 +598,4 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::Init( FAudioDevice* AudioDevice, USoun
 
 	return( Buffer );
 }
-
-// end
 

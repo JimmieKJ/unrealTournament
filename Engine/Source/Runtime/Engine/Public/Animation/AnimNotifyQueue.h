@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Math/RandomStream.h"
+
+class USkeletalMeshComponent;
 struct FAnimInstanceProxy;
+struct FAnimNotifyEvent;
 
 struct FAnimNotifyQueue
 {

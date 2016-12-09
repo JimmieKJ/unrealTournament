@@ -5,7 +5,14 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Exporters/Exporter.h"
 #include "PolysExporterOBJ.generated.h"
+
+class FExportObjectInnerContext;
 
 UCLASS()
 class UPolysExporterOBJ : public UExporter

@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
+#include "TileSetEditor/TileSheetPaddingFactory.h"
+#include "Paper2DEditorLog.h"
+#include "Engine/Texture.h"
+#include "Engine/Texture2D.h"
+#include "IntMargin.h"
 #include "PaperTileSet.h"
-#include "TileSheetPaddingFactory.h"
+#include "PaperSpriteAtlas.h"
 #include "Atlasing/PaperAtlasTextureHelpers.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"

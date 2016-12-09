@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "VoiceCapture.h"
 #include "VoicePackage.h"
+#include "Containers/Ticker.h"
+#include "WindowsHWrapper.h"
 
 typedef struct IDirectSound8 *LPDIRECTSOUND8;
 

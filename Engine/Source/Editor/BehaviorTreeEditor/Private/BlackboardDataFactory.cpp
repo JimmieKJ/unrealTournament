@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "BehaviorTree/BlackboardData.h"
 #include "BlackboardDataFactory.h"
+#include "BehaviorTree/BlackboardData.h"
 
 #define LOCTEXT_NAMESPACE "BlackboardDataFactory"
 

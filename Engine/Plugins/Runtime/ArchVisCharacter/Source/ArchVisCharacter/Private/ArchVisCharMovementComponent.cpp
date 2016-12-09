@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. 
 
-#include "ArchVisCharacterPluginPrivatePCH.h"
+#include "ArchVisCharMovementComponent.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/Controller.h"
 
 UArchVisCharMovementComponent::UArchVisCharMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -90,9 +92,11 @@ void UArchVisCharMovementComponent::PhysWalking(float DeltaTime, int32 Iteration
 
 	// apply rotation
 	FRotator RotDelta = CurrentRotationalVelocity * DeltaTime;
-	if (!RotDelta.IsNearlyZero())
+	if (!RotDelta.IsNearlyZero() && CharacterOwner)
 	{
-		FRotator const CurrentComponentRot = UpdatedComponent->GetComponentRotation();
+		FRotator const ViewRot = CharacterOwner->GetControlRotation();
+		FRotator const ComponentRot = UpdatedComponent->GetComponentRotation();
+		FRotator const CurrentComponentRot(ViewRot.Pitch, ComponentRot.Yaw, ComponentRot.Roll);
 
 		// enforce pitch limits
 		float const CurrentPitch = CurrentComponentRot.Pitch;
@@ -109,7 +113,13 @@ void UArchVisCharMovementComponent::PhysWalking(float DeltaTime, int32 Iteration
 		FRotator const NewRot = CurrentComponentRot + RotDelta;
 
 		FHitResult Hit(1.f);
-		SafeMoveUpdatedComponent(FVector::ZeroVector, NewRot, false, Hit);
+		SafeMoveUpdatedComponent(FVector::ZeroVector, FRotator(0.f, NewRot.Yaw, NewRot.Roll), false, Hit);
+		CharacterOwner->Controller->SetControlRotation(FRotator(NewRot.Pitch, 0.f, 0.f));
+
+		// TODO: Do Cosine scaling?
+		float const PercentSpeed = (90.f - fabs(NewRot.Pitch)) / 90.f;
+		MaxWalkSpeed = WalkingSpeed * PercentSpeed;
+		MaxAcceleration = WalkingAcceleration * PercentSpeed;
 	}
 
 	// consume input

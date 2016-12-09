@@ -6,19 +6,29 @@ LandscapeRender.h: New terrain rendering
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Engine/EngineTypes.h"
+#include "Templates/RefCounting.h"
+#include "Containers/ArrayView.h"
+#include "ShaderParameters.h"
+#include "RenderResource.h"
 #include "UniformBuffer.h"
-
-#include "LandscapeComponent.h"
+#include "VertexFactory.h"
+#include "MaterialShared.h"
 #include "LandscapeProxy.h"
-#include "LandscapeMeshProxyComponent.h"
-
+#include "RendererInterface.h"
+#include "MeshBatch.h"
+#include "SceneManagement.h"
+#include "Engine/MapBuildDataRegistry.h"
+#include "LandscapeComponent.h"
 #include "Materials/MaterialInterface.h"
+#include "PrimitiveViewRelevance.h"
 #include "PrimitiveSceneProxy.h"
 #include "StaticMeshResources.h"
 
-#include "LightMap.h"
-#include "MeshBatch.h"
-#include "ShadowMap.h"
+
+
 
 // This defines the number of border blocks to surround terrain by when generating lightmaps
 #define TERRAIN_PATCH_EXPAND_SCALAR	1
@@ -26,7 +36,6 @@ LandscapeRender.h: New terrain rendering
 #define LANDSCAPE_LOD_LEVELS 8
 #define LANDSCAPE_MAX_SUBSECTION_NUM 2
 
-// Forward declarations
 class FLandscapeComponentSceneProxy;
 
 #if WITH_EDITOR
@@ -465,9 +474,16 @@ class FLandscapeComponentSceneProxy : public FPrimitiveSceneProxy, public FLands
 	public:
 		/** Initialization constructor. */
 		FLandscapeLCI(const ULandscapeComponent* InComponent)
-			: FLightCacheInterface(InComponent->LightMap, InComponent->ShadowMap)
+			: FLightCacheInterface(NULL, NULL)
 		{
-			IrrelevantLights = InComponent->IrrelevantLights;
+			const FMeshMapBuildData* MapBuildData = InComponent->GetMeshMapBuildData();
+
+			if (MapBuildData)
+			{
+				SetLightMap(MapBuildData->LightMap);
+				SetShadowMap(MapBuildData->ShadowMap);
+				IrrelevantLights = MapBuildData->IrrelevantLights;
+			}
 		}
 
 		// FLightCacheInterface
@@ -520,8 +536,9 @@ protected:
 	FVector4 WeightmapScaleBias;
 	float WeightmapSubsectionOffset;
 	TArray<UTexture2D*> WeightmapTextures;
-	TArray<FName> LayerNames;
+#if WITH_EDITOR
 	TArray<FLinearColor> LayerColors;
+#endif
 	int8 NumWeightmapLayerAllocations;
 	UTexture2D* NormalmapTexture; // PC : Heightmap, Mobile : Weightmap
 	UTexture2D* BaseColorForGITexture;
@@ -575,7 +592,7 @@ protected:
 
 public:
 	// constructor
-	FLandscapeComponentSceneProxy(ULandscapeComponent* InComponent, FLandscapeEditToolRenderData* InEditToolRenderData);
+	FLandscapeComponentSceneProxy(ULandscapeComponent* InComponent, TArrayView<UMaterialInterface* const> InMaterialInterfacesByLOD, FLandscapeEditToolRenderData* InEditToolRenderData);
 
 	// FPrimitiveSceneProxy interface.
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
@@ -607,6 +624,8 @@ public:
 
 	// FLandcapeSceneProxy
 	void ChangeLODDistanceFactor_RenderThread(float InLODDistanceFactor);
+
+	virtual bool HeightfieldHasPendingStreaming() const override;
 
 	virtual void GetHeightfieldRepresentation(UTexture2D*& OutHeightmapTexture, UTexture2D*& OutDiffuseColorTexture, FHeightfieldComponentDescription& OutDescription) override;
 

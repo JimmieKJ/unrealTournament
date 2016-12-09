@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/Vector.h"
+#include "Math/Matrix.h"
+#include "Math/RotationTranslationMatrix.h"
 
 /** Rotates about an Origin point. */
 class FRotationAboutPointMatrix

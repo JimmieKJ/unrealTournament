@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AddContentDialogPCH.h"
+#include "ViewModels/AddContentWidgetViewModel.h"
+#include "Modules/ModuleManager.h"
+#include "IAddContentDialogModule.h"
+#include "IContentSource.h"
+#include "ContentSourceProviderManager.h"
+#include "ViewModels/ContentSourceViewModel.h"
 
-#include "ImageWrapper.h"
-#include "ModuleManager.h"
 
 FAddContentWidgetViewModel::FAddContentWidgetViewModel()
 {

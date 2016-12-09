@@ -1,11 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "../../../Renderer/Private/ScenePrivate.h"
-#include "Atmosphere.h"
-#include "ComponentInstanceDataCache.h"
-#include "Atmosphere/AtmosphericFog.h"
+#include "Atmosphere/Atmosphere.h"
+#include "UObject/ConstructorHelpers.h"
+#include "EngineDefines.h"
+#include "RenderingThread.h"
+#include "Components/ArrowComponent.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/Texture2D.h"
 #include "ComponentReregisterContext.h"
+#include "Atmosphere/AtmosphericFog.h"
+#include "Components/BillboardComponent.h"
+#include "Private/ScenePrivate.h"
+#include "Private/AtmosphereRendering.h"
 
 #if WITH_EDITOR
 #include "ObjectEditorUtils.h"
@@ -175,7 +182,7 @@ void UAtmosphericFogComponent::PostLoad()
 }
 
 #if WITH_EDITOR
-#include "UnrealEd.h"
+#include "TickableEditorObject.h"
 
 class FAtmospherePrecomputeDataHandler : public FTickableEditorObject
 {

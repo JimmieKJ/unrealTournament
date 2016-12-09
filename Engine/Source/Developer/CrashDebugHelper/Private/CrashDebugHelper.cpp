@@ -1,12 +1,24 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashDebugHelperPrivatePCH.h"
+#include "CrashDebugHelper.h"
+#include "HAL/FileManager.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Stats/StatsMisc.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/App.h"
+#include "CrashDebugHelperPrivate.h"
 #include "CrashDebugPDBCache.h"
 
-#include "EngineVersion.h"
+#include "Misc/EngineVersion.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlRevision.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
 #include "ISourceControlLabel.h"
-#include "ISourceControlRevision.h"
 
 #ifndef MINIDUMPDIAGNOSTICS
 	#define MINIDUMPDIAGNOSTICS	0
@@ -222,7 +234,7 @@ bool ICrashDebugHelper::Init()
 		if (CrashInfo.bMutexPDBCache && !CrashInfo.PDBCacheLockName.IsEmpty())
 		{
 			// Scoped lock
-			FSystemWideCriticalSection PDBCacheLock(CrashInfo.PDBCacheLockName, FTimespan(0, 0, 3, 0, 0));
+			FSystemWideCriticalSection PDBCacheLock(CrashInfo.PDBCacheLockName, FTimespan(0, 0, 10, 0, 0));
 			if (PDBCacheLock.IsValid())
 			{
 				FPDBCache::Get().Init();
@@ -294,8 +306,10 @@ void ICrashDebugHelper::ShutdownSourceControl()
 }
 
 
-bool ICrashDebugHelper::SyncModules()
+bool ICrashDebugHelper::SyncModules(bool& bOutPDBCacheEntryValid)
 {
+	bOutPDBCacheEntryValid = false;
+
 	if( !FPDBCache::Get().UsePDBCache() )
 	{
 		UE_LOG( LogCrashDebugHelper, Warning, TEXT( "The PDB Cache is disabled, cannot proceed, %s" ), *CrashInfo.EngineVersion );
@@ -307,13 +321,12 @@ bool ICrashDebugHelper::SyncModules()
 	const bool bHasExecutable = !CrashInfo.ExecutablesPath.IsEmpty();
 	const bool bHasSymbols = !CrashInfo.SymbolsPath.IsEmpty();
 	
-	const bool bContainsProductVersion = FPDBCache::Get().ContainsPDBCacheEntry( CrashInfo.EngineVersion );
 	if( bHasExecutable && bHasSymbols )
 	{
-		if( bContainsProductVersion )
+		if(FPDBCache::Get().ContainsPDBCacheEntry(CrashInfo.BuildVersion))
 		{
-			UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Using cached storage: %s" ), *CrashInfo.EngineVersion );
-			CrashInfo.PDBCacheEntry = FPDBCache::Get().FindAndTouchPDBCacheEntry( CrashInfo.EngineVersion );
+			UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Using cached storage: %s" ), *CrashInfo.BuildVersion);
+			CrashInfo.PDBCacheEntry = FPDBCache::Get().FindAndTouchPDBCacheEntry( CrashInfo.BuildVersion);
 		}
 		else
 		{
@@ -352,7 +365,7 @@ bool ICrashDebugHelper::SyncModules()
 			}
 
 			// Initialize and add a new PDB Cache entry to the database.
-			CrashInfo.PDBCacheEntry = FPDBCache::Get().CreateAndAddPDBCacheEntryMixed( CrashInfo.EngineVersion, FilesToBeCached );
+			CrashInfo.PDBCacheEntry = FPDBCache::Get().CreateAndAddPDBCacheEntryMixed( CrashInfo.BuildVersion, FilesToBeCached );
 		}
 	}
 	// OBSOLETE PATH
@@ -375,15 +388,13 @@ bool ICrashDebugHelper::SyncModules()
 			TSharedRef<ISourceControlLabel> Label = Labels[0];
 			TSet<FString> FilesToSync;
 
-			// Use product version instead of label name to make a distinguish between chosen methods.
-			const bool bContainsLabelName = FPDBCache::Get().ContainsPDBCacheEntry(CrashInfo.LabelName);
-
-			if (bContainsProductVersion)
+			if (FPDBCache::Get().ContainsPDBCacheEntry(CrashInfo.EngineVersion))
 			{
 				UE_LOG(LogCrashDebugHelper, Warning, TEXT("Using cached storage: %s"), *CrashInfo.EngineVersion);
 				CrashInfo.PDBCacheEntry = FPDBCache::Get().FindAndTouchPDBCacheEntry(CrashInfo.EngineVersion);
 			}
-			else if (bContainsLabelName)
+			// Use product version instead of label name to make a distinguish between chosen methods.
+			else if (FPDBCache::Get().ContainsPDBCacheEntry(CrashInfo.LabelName))
 			{
 				UE_LOG(LogCrashDebugHelper, Warning, TEXT("Using cached storage: %s"), *CrashInfo.LabelName);
 				CrashInfo.PDBCacheEntry = FPDBCache::Get().FindAndTouchPDBCacheEntry(CrashInfo.LabelName);
@@ -537,6 +548,7 @@ bool ICrashDebugHelper::SyncModules()
 		}
 	}
 
+	bOutPDBCacheEntryValid = CrashInfo.PDBCacheEntry.IsValid() && CrashInfo.PDBCacheEntry->Files.Num() > 0;
 	return true;
 }
 

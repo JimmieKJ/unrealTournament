@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SSpacer.h"
+
+class FDetailWidgetRow;
+
 /** Widget declaration for custom widgets in a widget row */
 class FDetailWidgetDecl
 {

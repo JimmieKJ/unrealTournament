@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Engine.h"
+#include "Online.h"
 #include "ParticleDefinitions.h"
 
 UNREALTOURNAMENT_API DECLARE_LOG_CATEGORY_EXTERN(UT, Log, All);

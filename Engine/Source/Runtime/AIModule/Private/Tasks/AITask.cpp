@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "GameplayTasksComponent.h"
+#include "Tasks/AITask.h"
+#include "GameFramework/Pawn.h"
+#include "AIController.h"
+#include "AIResources.h"
 
 
 UAITask::UAITask(const FObjectInitializer& ObjectInitializer)

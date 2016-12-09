@@ -6,8 +6,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Camera/CameraTypes.h"
 #include "Camera/CameraModifier.h"
 #include "CameraModifier_CameraShake.generated.h"
+
+class UCameraShake;
 
 //~=============================================================================
 /**

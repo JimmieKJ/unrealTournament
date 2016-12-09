@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
+#include "TessellationRendering.h"
+#include "Materials/MaterialInterface.h"
+#include "Materials/Material.h"
 
 /** Returns true if the Material and Vertex Factory combination require adjacency information.
   * Game thread version that looks at the material settings. Will not change answer during a shader compile */

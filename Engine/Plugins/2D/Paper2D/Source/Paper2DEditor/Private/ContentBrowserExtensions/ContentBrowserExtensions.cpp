@@ -1,10 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
+#include "ContentBrowserExtensions/ContentBrowserExtensions.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "Engine/Texture2D.h"
+#include "AssetData.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
-#include "ContentBrowserExtensions.h"
 #include "PaperSprite.h"
-#include "PaperFlipbook.h"
 #include "PaperTileSet.h"
 #include "PaperSpriteFactory.h"
 #include "PaperTileSetFactory.h"
@@ -39,8 +47,8 @@ public:
 //////////////////////////////////////////////////////////////////////////
 // FCreateSpriteFromTextureExtension
 
+#include "IAssetTools.h"
 #include "AssetToolsModule.h"
-#include "AssetRegistryModule.h"
 
 
 struct FCreateSpriteFromTextureExtension : public FContentBrowserSelectedAssetExtensionBase

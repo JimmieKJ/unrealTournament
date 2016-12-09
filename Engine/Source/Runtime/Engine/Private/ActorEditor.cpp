@@ -1,14 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "EditorSupportDelegates.h"
-#include "ActorEditorUtils.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "LevelUtils.h"
-#include "MapErrors.h"
-#include "Engine/LevelBounds.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreDelegates.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UnrealType.h"
+#include "Engine/Blueprint.h"
+#include "Components/ActorComponent.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
 #include "Components/ChildActorComponent.h"
+#include "Components/PrimitiveComponent.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "EditorSupportDelegates.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "LevelUtils.h"
+#include "Misc/MapErrors.h"
+#include "ActorEditorUtils.h"
+#include "EngineGlobals.h"
 
 #if WITH_EDITOR
 
@@ -121,21 +132,16 @@ void AActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 		GEngine->BroadcastOnActorMoved( this );
 	}
 
-	if (GetWorld())
-	{
-		GetWorld()->bDoDelayedUpdateCullDistanceVolumes = true;
-	}
-
 	FEditorSupportDelegates::UpdateUI.Broadcast();
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
 void AActor::PostEditMove(bool bFinished)
 {
-	if ( ReregisterComponentsWhenModified() )
+	if ( ReregisterComponentsWhenModified() && !FLevelUtils::IsMovingLevel())
 	{
 		UBlueprint* Blueprint = Cast<UBlueprint>(GetClass()->ClassGeneratedBy);
-		if(Blueprint && (Blueprint->bRunConstructionScriptOnDrag || bFinished) && !FLevelUtils::IsMovingLevel() )
+		if (bFinished || bRunConstructionScriptOnDrag || (Blueprint && Blueprint->bRunConstructionScriptOnDrag))
 		{
 			FNavigationLockContext NavLock(GetWorld(), ENavigationLockReason::AllowUnregister);
 			RerunConstructionScripts();
@@ -144,8 +150,10 @@ void AActor::PostEditMove(bool bFinished)
 
 	if ( bFinished )
 	{
-		GetWorld()->bDoDelayedUpdateCullDistanceVolumes = true;
-		GetWorld()->bAreConstraintsDirty = true;
+		UWorld* World = GetWorld();
+
+		World->UpdateCullDistanceVolumes(this);
+		World->bAreConstraintsDirty = true;
 
 		FEditorSupportDelegates::RefreshPropertyWindows.Broadcast();
 
@@ -423,7 +431,6 @@ void AActor::PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionAn
 		return;
 	}
 
-
 	// Notify LevelBounds actor that level bounding box might be changed
 	if (!IsTemplate())
 	{
@@ -434,6 +441,10 @@ void AActor::PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionAn
 	if (!IsPendingKill())
 	{
 		ResetOwnedComponents();
+
+		// BP created components are not serialized, so this should be cleared and will be filled in as the construction scripts are run
+		BlueprintCreatedComponents.Reset();
+
 		// notify navigation system
 		UNavigationSystem::UpdateActorAndComponentsInNavOctree(*this);
 	}

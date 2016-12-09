@@ -95,6 +95,17 @@
 		_Pragma("clang diagnostic pop")
 #endif // PRAGMA_POP
 
+// Disable common CA warnings around SDK includes
+#ifndef THIRD_PARTY_INCLUDES_START
+	#define THIRD_PARTY_INCLUDES_START \
+		PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+#endif
+
+#ifndef THIRD_PARTY_INCLUDES_END
+	#define THIRD_PARTY_INCLUDES_END \
+		PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+#endif
+
 #ifndef EMIT_CUSTOM_WARNING_AT_LINE
 #define EMIT_CUSTOM_WARNING_AT_LINE(Line, Warning) \
 	_Pragma(PREPROCESSOR_TO_STRING(message(WARNING_LOCATION(Line) Warning)))

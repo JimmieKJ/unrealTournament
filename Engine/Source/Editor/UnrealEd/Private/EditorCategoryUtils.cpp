@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "EditorCategoryUtils.h"
+#include "IDocumentationPage.h"
 #include "IDocumentation.h"
 
 #define LOCTEXT_NAMESPACE "EditorCategoryUtils"

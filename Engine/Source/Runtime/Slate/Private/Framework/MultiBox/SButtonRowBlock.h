@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UICommandInfo.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/MultiBox/MultiBox.h"
+
+class SCheckBox;
 
 /**
  * Button Row MultiBlock

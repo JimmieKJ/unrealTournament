@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "IMovieSceneSectionRecorder.h"
 #include "IMovieSceneSectionRecorderFactory.h"
-#include "MovieSceneParticleSection.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Sections/MovieSceneParticleSection.h"
 #include "MovieSceneParticleTrackSectionRecorder.generated.h"
 
 struct FMovieSceneParticleTrackSectionRecorder;

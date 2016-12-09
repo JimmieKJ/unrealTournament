@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/PrimitiveComponent.h"
 #include "NavLinkRenderingComponent.generated.h"
 
-class UNavLinkDefinition;
+class FPrimitiveSceneProxy;
+struct FConvexVolume;
+struct FEngineShowFlags;
 
 UCLASS(hidecategories=Object, editinlinenew)
 class ENGINE_API UNavLinkRenderingComponent : public UPrimitiveComponent

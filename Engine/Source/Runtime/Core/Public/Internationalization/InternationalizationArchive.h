@@ -2,7 +2,16 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/ContainerAllocationPolicies.h"
+#include "Misc/Crc.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Set.h"
+#include "Containers/Map.h"
+#include "Templates/SharedPointer.h"
 #include "Internationalization/InternationalizationManifest.h"
+
+class FLocMetadataObject;
 
 class CORE_API FArchiveEntry
 {

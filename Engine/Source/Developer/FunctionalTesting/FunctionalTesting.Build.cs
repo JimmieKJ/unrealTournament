@@ -16,7 +16,8 @@ public class FunctionalTesting : ModuleRules
                 "AIModule",
                 "RenderCore",
                 "AssetRegistry",
-                "RHI"
+                "RHI",
+				"UMG"
 			}
 			);
 

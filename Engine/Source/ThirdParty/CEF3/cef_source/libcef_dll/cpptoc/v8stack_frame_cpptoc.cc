@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -12,6 +12,8 @@
 
 #include "libcef_dll/cpptoc/v8stack_frame_cpptoc.h"
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -133,21 +135,28 @@ int CEF_CALLBACK v8stack_frame_is_constructor(
   return _retval;
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefV8StackFrameCppToC::CefV8StackFrameCppToC(CefV8StackFrame* cls)
-    : CefCppToC<CefV8StackFrameCppToC, CefV8StackFrame, cef_v8stack_frame_t>(
-        cls) {
-  struct_.struct_.is_valid = v8stack_frame_is_valid;
-  struct_.struct_.get_script_name = v8stack_frame_get_script_name;
-  struct_.struct_.get_script_name_or_source_url =
+CefV8StackFrameCppToC::CefV8StackFrameCppToC() {
+  GetStruct()->is_valid = v8stack_frame_is_valid;
+  GetStruct()->get_script_name = v8stack_frame_get_script_name;
+  GetStruct()->get_script_name_or_source_url =
       v8stack_frame_get_script_name_or_source_url;
-  struct_.struct_.get_function_name = v8stack_frame_get_function_name;
-  struct_.struct_.get_line_number = v8stack_frame_get_line_number;
-  struct_.struct_.get_column = v8stack_frame_get_column;
-  struct_.struct_.is_eval = v8stack_frame_is_eval;
-  struct_.struct_.is_constructor = v8stack_frame_is_constructor;
+  GetStruct()->get_function_name = v8stack_frame_get_function_name;
+  GetStruct()->get_line_number = v8stack_frame_get_line_number;
+  GetStruct()->get_column = v8stack_frame_get_column;
+  GetStruct()->is_eval = v8stack_frame_is_eval;
+  GetStruct()->is_constructor = v8stack_frame_is_constructor;
+}
+
+template<> CefRefPtr<CefV8StackFrame> CefCppToC<CefV8StackFrameCppToC,
+    CefV8StackFrame, cef_v8stack_frame_t>::UnwrapDerived(CefWrapperType type,
+    cef_v8stack_frame_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -155,3 +164,5 @@ template<> base::AtomicRefCount CefCppToC<CefV8StackFrameCppToC,
     CefV8StackFrame, cef_v8stack_frame_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefV8StackFrameCppToC, CefV8StackFrame,
+    cef_v8stack_frame_t>::kWrapperType = WT_V8STACK_FRAME;

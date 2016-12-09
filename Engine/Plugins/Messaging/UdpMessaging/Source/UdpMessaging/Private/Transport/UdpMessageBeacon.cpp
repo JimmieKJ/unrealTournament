@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UdpMessagingPrivatePCH.h"
+#include "Transport/UdpMessageBeacon.h"
+#include "HAL/RunnableThread.h"
+#include "Serialization/ArrayWriter.h"
+#include "Sockets.h"
+#include "UdpMessagingPrivate.h"
 
 
 /* FUdpMessageHelloSender static initialization
@@ -14,7 +18,8 @@ const FTimespan FUdpMessageBeacon::MinimumInterval = FTimespan::FromMilliseconds
  *****************************************************************************/
 
 FUdpMessageBeacon::FUdpMessageBeacon(FSocket* InSocket, const FGuid& InSocketId, const FIPv4Endpoint& InMulticastEndpoint)
-	: LastEndpointCount(1)
+	: BeaconInterval(MinimumInterval)
+	, LastEndpointCount(1)
 	, LastHelloSent(FDateTime::MinValue())
 	, NextHelloTime(FDateTime::UtcNow())
 	, NodeId(InSocketId)
@@ -81,11 +86,11 @@ uint32 FUdpMessageBeacon::Run()
 
 		if (CurrentTime >= NextHelloTime)
 		{
-			SendSegment(EUdpMessageSegments::Hello);
-
 			// calculate the next send interval
 			BeaconInterval = FMath::Max(MinimumInterval, IntervalPerEndpoint * LastEndpointCount);
 			NextHelloTime = CurrentTime + BeaconInterval;
+
+			SendSegment(EUdpMessageSegments::Hello);
 		}
 
 		EndpointLeftEvent->Wait(NextHelloTime - CurrentTime);
@@ -106,7 +111,7 @@ void FUdpMessageBeacon::Stop()
 /* FUdpMessageHelloSender implementation
  *****************************************************************************/
 
-void FUdpMessageBeacon::SendSegment(EUdpMessageSegments::Type SegmentType)
+void FUdpMessageBeacon::SendSegment(EUdpMessageSegments SegmentType)
 {
 	FUdpMessageSegment::FHeader Header;
 	{

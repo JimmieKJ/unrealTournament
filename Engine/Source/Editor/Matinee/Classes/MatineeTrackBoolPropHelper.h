@@ -2,7 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InterpTrackHelper.h"
 #include "MatineeTrackBoolPropHelper.generated.h"
+
+class SWindow;
+class UInterpGroup;
+class UInterpTrack;
 
 UCLASS()
 class UMatineeTrackBoolPropHelper : public UInterpTrackHelper

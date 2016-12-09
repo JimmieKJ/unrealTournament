@@ -1,8 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PluginWardenPrivatePCH.h"
-
 #include "SAuthorizingPlugin.h"
+#include "Misc/MessageDialog.h"
+#include "Containers/Ticker.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
+#include "Widgets/Images/SThrobber.h"
+#include "IDesktopPlatform.h"
+#include "DesktopPlatformModule.h"
+
+#include "IPortalServiceLocator.h"
+#include "Account/IPortalUserLogin.h"
+#include "Application/IPortalApplicationWindow.h"
 
 #define LOCTEXT_NAMESPACE "PluginWarden"
 

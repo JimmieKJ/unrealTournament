@@ -1,16 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "Materials/MaterialExpressionConstant3Vector.h"
-#include "PropertyEditorHelpers.h"
-#include "IPropertyUtilities.h"
-#include "PropertyNode.h"
-#include "PropertyEditor.h"
-#include "ObjectPropertyNode.h"
-#include "ScopedTransaction.h"
-#include "SPropertyEditorColor.h"
-#include "SColorPicker.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorColor.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 #include "Components/LightComponent.h"
+#include "Editor.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "Materials/MaterialExpressionConstant3Vector.h"
+#include "Widgets/Colors/SColorPicker.h"
 
 void SPropertyEditorColor::Construct( const FArguments& InArgs, const TSharedRef<FPropertyEditor>& InPropertyEditor, const TSharedRef<IPropertyUtilities>& InPropertyUtilities )
 {

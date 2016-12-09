@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "Animation/AnimNodeBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimationAsset.h"
 #include "Animation/AnimNode_AssetPlayerBase.h"
 #include "AnimNode_BlendSpacePlayer.generated.h"
+
+class UBlendSpaceBase;
 
 //@TODO: Comment
 USTRUCT()

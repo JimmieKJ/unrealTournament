@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class FReferenceCollector;
+class UMeshComponent;
+class UTexture;
 
 /**
  * Interface for a class to provide mesh painting support for a subclass of UMeshComponent

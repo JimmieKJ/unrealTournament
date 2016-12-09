@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AlembicImporterPrivatePCH.h"
-#include "AlembicLibraryModule.h"
 #include "AlembicImporterModule.h"
+#include "AlembicLibraryModule.h"
 
 class FAlembicImporterModule : public IAlembicImporterModuleInterface
 {

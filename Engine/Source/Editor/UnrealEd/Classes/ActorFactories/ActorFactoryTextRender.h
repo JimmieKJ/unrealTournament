@@ -2,6 +2,10 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ActorFactories/ActorFactory.h"
 #include "ActorFactoryTextRender.generated.h"
 
 UCLASS(MinimalAPI, config=Editor)

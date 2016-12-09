@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "SNotificationList.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 class SLATE_API INotificationWidget
 {

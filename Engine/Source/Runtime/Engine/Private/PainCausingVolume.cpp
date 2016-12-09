@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "GameFramework/PainCausingVolume.h"
-#include "GameFramework/DamageType.h"
+#include "TimerManager.h"
+#include "GameFramework/Pawn.h"
 
 APainCausingVolume::APainCausingVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

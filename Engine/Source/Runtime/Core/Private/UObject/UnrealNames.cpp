@@ -1,6 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "UObject/UnrealNames.h"
+#include "Misc/AssertionMacros.h"
+#include "Misc/MessageDialog.h"
+#include "Math/NumericLimits.h"
+#include "Math/UnrealMathUtility.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/AlignOf.h"
+#include "Templates/UnrealTemplate.h"
+#include "Misc/CString.h"
+#include "Misc/Crc.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Logging/LogMacros.h"
+#include "Misc/ByteSwap.h"
+#include "UObject/ObjectVersion.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/ScopeLock.h"
+#include "Containers/Set.h"
+#include "Internationalization/Text.h"
+#include "Internationalization/Internationalization.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "HAL/IConsoleManager.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnrealNames, Log, All);
@@ -240,12 +261,6 @@ TNameEntryArray& FName::GetNames()
 		Names = new TNameEntryArray();
 	}
 	return *Names;
-}
-
-//@todo, delete this in 2013, and clean up the visualizers
-TArray<FNameEntry const*>* FName::GetNameTableForDebuggerVisualizers_ST()
-{
-	return NULL;
 }
 
 FNameEntry*** FName::GetNameTableForDebuggerVisualizers_MT()
@@ -1338,7 +1353,7 @@ FNameEntry* AllocateNameEntry(const void* Name, NAME_INDEX Index)
 
 #if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
 
-#include "StackTracker.h"
+#include "Containers/StackTracker.h"
 static TAutoConsoleVariable<int32> CVarLogGameThreadFNameChurn(
 	TEXT("LogGameThreadFNameChurn.Enable"),
 	0,

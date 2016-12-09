@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	ProfilerClientModule.cpp: Implements the FProfilerClientModule class.
-=============================================================================*/
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "IProfilerClientModule.h"
+#include "ProfilerClientManager.h"
+#include "IMessagingModule.h"
 
-#include "ProfilerClientPrivatePCH.h"
-
+class IMessageBus;
 
 /**
  * Implements the ProfilerClient module
@@ -15,7 +16,7 @@ class FProfilerClientModule
 {
 public:
 
-	// Begin IModuleInterface interface
+	//~ IModuleInterface interface
 
 	virtual void StartupModule() override
 	{
@@ -24,17 +25,16 @@ public:
 
 	virtual void ShutdownModule() override
 	{
+		// do nothing
 	}
-
-	// End IModuleInterface interface
 
 public:
 
-	// Begin IProfilerClientModule interface
+	//~ IProfilerClientModule interface
 
-	virtual IProfilerClientPtr CreateProfilerClient() override
+	virtual TSharedPtr<IProfilerClient> CreateProfilerClient() override
 	{
-		IMessageBusPtr MessageBus = MessageBusPtr.Pin();
+		auto MessageBus = MessageBusPtr.Pin();
 
 		if (!MessageBus.IsValid())
 		{
@@ -44,17 +44,11 @@ public:
 		return MakeShareable(new FProfilerClientManager(MessageBus.ToSharedRef()));
 	}
 
-	// End IProfilerClientModule interface
-
 private:
 
-	// Holds a weak pointer to the message bus.
-	IMessageBusWeakPtr MessageBusPtr;
+	/** Holds a weak pointer to the message bus. */
+	TWeakPtr<IMessageBus, ESPMode::ThreadSafe> MessageBusPtr;
 };
-
-
-/* Static initialization
- *****************************************************************************/
 
 
 IMPLEMENT_MODULE(FProfilerClientModule, ProfilerClient);

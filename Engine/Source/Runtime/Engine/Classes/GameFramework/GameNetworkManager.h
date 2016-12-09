@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "TimerManager.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "GameFramework/Info.h"
 #include "GameNetworkManager.generated.h"
 
 /** Describes which standby detection event occured so the game can take appropriate action. */
@@ -183,6 +187,9 @@ class ENGINE_API AGameNetworkManager : public AInfo
 
 	/** Timer which calls UpdateNetSpeeds() once a second. */
 	virtual void UpdateNetSpeedsTimer();
+
+	/** Returns true if we should be in low bandwidth mode */
+	virtual bool IsInLowBandwidthMode();
 
 	//======================================================================================================================
 	// Player replication

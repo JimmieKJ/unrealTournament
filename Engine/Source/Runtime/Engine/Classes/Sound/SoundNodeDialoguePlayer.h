@@ -1,8 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Sound/DialogueTypes.h"
 #include "Sound/SoundNode.h"
 #include "SoundNodeDialoguePlayer.generated.h"
+
+class FAudioDevice;
+class UDialogueWave;
+struct FActiveSound;
+struct FSoundParseParameters;
+struct FWaveInstance;
 
 /**
  Sound node that contains a reference to the dialogue table to pull from and be played

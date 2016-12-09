@@ -1,14 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "SlateBasics.h"
 #include "BlueprintEditorCommands.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "Engine/Selection.h"
+#include "EdGraph/EdGraphNode.h"
+#include "Engine/Blueprint.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "UObject/UnrealType.h"
 #include "Engine/LevelScriptActor.h"
-#include "BlueprintFunctionNodeSpawner.h" 
-#include "BlueprintEventNodeSpawner.h" 
+#include "UObject/UObjectHash.h"
+#include "Engine/Selection.h"
+#include "Editor.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_Literal.h"
+#include "K2Node_MacroInstance.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "BlueprintNodeBinder.h"
+#include "BlueprintNodeSpawner.h"
+#include "BlueprintFunctionNodeSpawner.h"
+#include "UObject/UObjectIterator.h"
+#include "BlueprintEventNodeSpawner.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintEditorCommands"
 

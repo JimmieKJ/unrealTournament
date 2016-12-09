@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
+#include "Rendering/SlateRenderer.h"
+#include "Textures/TextureAtlas.h"
+#include "Fonts/FontCache.h"
+#include "Fonts/FontMeasure.h"
+#include "Widgets/SWindow.h"
 
 
 /* FSlateFontCacheProvider interface

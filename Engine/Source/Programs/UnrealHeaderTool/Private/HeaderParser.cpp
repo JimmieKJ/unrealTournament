@@ -1,21 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealHeaderTool.h"
 #include "HeaderParser.h"
+#include "UnrealHeaderTool.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/Interface.h"
+#include "ParserClass.h"
+#include "GeneratedCodeVersion.h"
+#include "ClassDeclarationMetaData.h"
+#include "ProfilingDebugging/ScopedTimers.h"
 #include "NativeClassExporter.h"
-#include "ClassMaps.h"
 #include "Classes.h"
 #include "StringUtils.h"
-#include "UObjectAnnotation.h"
-#include "DefaultValueHelper.h"
-#include "IScriptGeneratorPluginInterface.h"
+#include "Misc/DefaultValueHelper.h"
 #include "Manifest.h"
-#include "UnitConversion.h"
-#include "GeneratedCodeVersion.h"
+#include "Math/UnitConversion.h"
 #include "FileLineException.h"
+#include "Containers/EnumAsByte.h"
 
-#include "Algo/FindSortedStringCaseInsensitive.h"
+#include "Containers/Algo/FindSortedStringCaseInsensitive.h"
 
 #include "Specifiers/CheckedMetadataSpecifiers.h"
 #include "Specifiers/FunctionSpecifiers.h"
@@ -505,6 +511,41 @@ namespace
 
 	UProperty* CreateVariableProperty(FPropertyBase& VarProperty, UObject* Scope, FName Name, EObjectFlags ObjectFlags, EVariableCategory::Type VariableCategory, FUHTMakefile& UHTMakefile, FUnrealSourceFile* UnrealSourceFile)
 	{
+		// Check if it's an enum class property
+		if (const EUnderlyingEnumType* EnumPropType = GEnumUnderlyingTypes.Find(VarProperty.Enum))
+		{
+			FPropertyBase UnderlyingProperty = VarProperty;
+			UnderlyingProperty.Enum = nullptr;
+			switch (*EnumPropType)
+			{
+				case EUnderlyingEnumType::int8:        UnderlyingProperty.Type = CPT_Int8;   break;
+				case EUnderlyingEnumType::int16:       UnderlyingProperty.Type = CPT_Int16;  break;
+				case EUnderlyingEnumType::int32:       UnderlyingProperty.Type = CPT_Int;    break;
+				case EUnderlyingEnumType::int64:       UnderlyingProperty.Type = CPT_Int64;  break;
+				case EUnderlyingEnumType::uint8:       UnderlyingProperty.Type = CPT_Byte;   break;
+				case EUnderlyingEnumType::uint16:      UnderlyingProperty.Type = CPT_UInt16; break;
+				case EUnderlyingEnumType::uint32:      UnderlyingProperty.Type = CPT_UInt32; break;
+				case EUnderlyingEnumType::uint64:      UnderlyingProperty.Type = CPT_UInt64; break;
+				case EUnderlyingEnumType::Unspecified: UnderlyingProperty.Type = CPT_Int;    break;
+
+				default:
+					check(false);
+			}
+
+			if (*EnumPropType == EUnderlyingEnumType::Unspecified)
+			{
+				UnderlyingProperty.IntType = EIntType::Unsized;
+			}
+
+			UEnumProperty* Result = new (EC_InternalUseOnlyConstructor, Scope, Name, ObjectFlags) UEnumProperty(FObjectInitializer());
+			UNumericProperty* UnderlyingProp = CastChecked<UNumericProperty>(CreateVariableProperty(UnderlyingProperty, Result, TEXT("UnderlyingType"), ObjectFlags, VariableCategory, UHTMakefile, UnrealSourceFile));
+			Result->UnderlyingProp = UnderlyingProp;
+			Result->Enum = VarProperty.Enum;
+
+			UHTMakefile.AddEnumProperty(UnrealSourceFile, Result);
+			return Result;
+		}
+
 		switch (VarProperty.Type)
 		{
 			case CPT_Byte:
@@ -887,6 +928,15 @@ namespace
 			// Script VM doesn't support array of weak ptrs.
 			return IsPropertySupportedByBlueprint(ArrayProperty->Inner, false);
 		}
+		else if (const USetProperty* SetProperty = Cast<const USetProperty>(Property))
+		{
+			return IsPropertySupportedByBlueprint(SetProperty->ElementProp, false);
+		}
+		else if (const UMapProperty* MapProperty = Cast<const UMapProperty>(Property))
+		{
+			return IsPropertySupportedByBlueprint(MapProperty->KeyProp, false) &&
+				IsPropertySupportedByBlueprint(MapProperty->ValueProp, false);
+		}
 
 		const bool bSupportedType = Property->IsA<UInterfaceProperty>()
 			|| Property->IsA<UClassProperty>()
@@ -900,7 +950,8 @@ namespace
 			|| Property->IsA<UBoolProperty>()
 			|| Property->IsA<UStrProperty>()
 			|| Property->IsA<UTextProperty>()
-			|| Property->IsA<UDelegateProperty>();
+			|| Property->IsA<UDelegateProperty>()
+			|| Property->IsA<UEnumProperty>();
 
 		const bool bIsSupportedMemberVariable = Property->IsA<UWeakObjectProperty>() || Property->IsA<UMulticastDelegateProperty>();
 
@@ -1194,23 +1245,68 @@ UEnum* FHeaderParser::CompileEnum()
 	// Validate the metadata for the enum
 	ValidateMetaDataFormat(Enum, EnumToken.MetaData);
 
-	// Read optional base for enum class
-	if (CppForm == UEnum::ECppForm::EnumClass && MatchSymbol(TEXT(":")))
+	// Read base for enum class
+	EUnderlyingEnumType UnderlyingType = EUnderlyingEnumType::uint8;
+	if (CppForm == UEnum::ECppForm::EnumClass)
 	{
-		FToken BaseToken;
-		if (!GetIdentifier(BaseToken))
+		if (MatchSymbol(TEXT(":")))
 		{
-			FError::Throwf(TEXT("Missing enum base") );
+			FToken BaseToken;
+			if (!GetIdentifier(BaseToken))
+			{
+				FError::Throwf(TEXT("Missing enum base") );
+			}
+
+			if (!FCString::Strcmp(BaseToken.Identifier, TEXT("uint8")))
+			{
+				UnderlyingType = EUnderlyingEnumType::uint8;
+			}
+			else if (!FCString::Strcmp(BaseToken.Identifier, TEXT("uint16")))
+			{
+				UnderlyingType = EUnderlyingEnumType::uint16;
+			}
+			else if (!FCString::Strcmp(BaseToken.Identifier, TEXT("uint32")))
+			{
+				UnderlyingType = EUnderlyingEnumType::uint32;
+			}
+			else if (!FCString::Strcmp(BaseToken.Identifier, TEXT("uint64")))
+			{
+				UnderlyingType = EUnderlyingEnumType::uint64;
+			}
+			else if (!FCString::Strcmp(BaseToken.Identifier, TEXT("int8")))
+			{
+				UnderlyingType = EUnderlyingEnumType::int8;
+			}
+			else if (!FCString::Strcmp(BaseToken.Identifier, TEXT("int16")))
+			{
+				UnderlyingType = EUnderlyingEnumType::int16;
+			}
+			else if (!FCString::Strcmp(BaseToken.Identifier, TEXT("int32")))
+			{
+				UnderlyingType = EUnderlyingEnumType::int32;
+			}
+			else if (!FCString::Strcmp(BaseToken.Identifier, TEXT("int64")))
+			{
+				UnderlyingType = EUnderlyingEnumType::int64;
+			}
+			else
+			{
+				FError::Throwf(TEXT("Unsupported enum class base type: %s"), BaseToken.Identifier);
+			}
+		}
+		else
+		{
+			UnderlyingType = EUnderlyingEnumType::Unspecified;
 		}
 
-		// We only support uint8 at the moment, until the properties get updated
-		if (FCString::Strcmp(BaseToken.Identifier, TEXT("uint8")))
-		{
-			FError::Throwf(TEXT("Only enum bases of type uint8 are currently supported"));
-		}
+		GEnumUnderlyingTypes.Add(Enum, UnderlyingType);
+		UHTMakefile.AddGEnumUnderlyingType(CurrentSrcFile, Enum, UnderlyingType);
+	}
 
-		GEnumUnderlyingTypes.Add(Enum, CPT_Byte);
-		UHTMakefile.AddGEnumUnderlyingType(CurrentSrcFile, Enum, CPT_Byte);
+	static const FName BlueprintTypeName = TEXT("BlueprintType");
+	if (UnderlyingType != EUnderlyingEnumType::uint8 && !EnumToken.MetaData.Contains(BlueprintTypeName))
+	{
+		FError::Throwf(TEXT("Invalid BlueprintType enum base - currently only uint8 supported"));
 	}
 
 	// Get opening brace.
@@ -1253,9 +1349,9 @@ UEnum* FHeaderParser::CompileEnum()
 	FToken TagToken;
 
 	TArray<FScriptLocation> EnumTagLocations;
-	TArray<TPair<FName, uint8>> EnumNames;
+	TArray<TPair<FName, int64>> EnumNames;
 
-	int32 CurrentEnumValue = 0;
+	int64 CurrentEnumValue = 0;
 
 	while (GetIdentifier(TagToken))
 	{
@@ -1266,12 +1362,58 @@ UEnum* FHeaderParser::CompileEnum()
 		// Try to read an optional explicit enum value specification
 		if (MatchSymbol(TEXT("=")))
 		{
-			int32 NewEnumValue = 0;
-			GetConstInt(/*out*/ NewEnumValue, TEXT("Enumerator value"));
+			int64 NewEnumValue = 0;
+			GetConstInt64(/*out*/ NewEnumValue, TEXT("Enumerator value"));
 
-			if ((NewEnumValue < CurrentEnumValue) || (NewEnumValue > 255))
+			if (EnumNames.Num() > 0 && NewEnumValue < CurrentEnumValue)
 			{
-				FError::Throwf(TEXT("Explicitly specified enum values must be greater than any previous value and less than 256"));
+				FError::Throwf(TEXT("Explicitly specified enum value (%d) must be greater than the previous value (%d)"), NewEnumValue, CurrentEnumValue);
+			}
+
+			if (UnderlyingType == EUnderlyingEnumType::Unspecified || UnderlyingType == EUnderlyingEnumType::int8 || UnderlyingType == EUnderlyingEnumType::int16 || UnderlyingType == EUnderlyingEnumType::int32 || UnderlyingType == EUnderlyingEnumType::int64)
+			{
+				int64 Min = 0;
+				int64 Max = 0;
+				switch (UnderlyingType)
+				{
+					case EUnderlyingEnumType::Unspecified: Min = TNumericLimits<int>  ::Min(); Max = TNumericLimits<int>  ::Max(); break;
+					case EUnderlyingEnumType::int8:        Min = TNumericLimits<int8> ::Min(); Max = TNumericLimits<int8> ::Max(); break;
+					case EUnderlyingEnumType::int16:       Min = TNumericLimits<int16>::Min(); Max = TNumericLimits<int16>::Max(); break;
+					case EUnderlyingEnumType::int32:       Min = TNumericLimits<int32>::Min(); Max = TNumericLimits<int32>::Max(); break;
+					case EUnderlyingEnumType::int64:       Min = TNumericLimits<int64>::Min(); Max = TNumericLimits<int64>::Max(); break;
+
+					default:
+						check(false);
+				}
+
+				if (NewEnumValue < Min || NewEnumValue > Max)
+				{
+					FError::Throwf(TEXT("Explicitly specified enum value (%lld) must be in the range of the underlying type of the enum (%lld to %lld)"), NewEnumValue, Min, Max);
+				}
+			}
+			else
+			{
+				uint64 Min = 0;
+				uint64 Max = 0;
+				switch (UnderlyingType)
+				{
+					case EUnderlyingEnumType::uint8:  Min = TNumericLimits<uint8> ::Min(); Max = TNumericLimits<uint8> ::Max(); break;
+					case EUnderlyingEnumType::uint16: Min = TNumericLimits<uint16>::Min(); Max = TNumericLimits<uint16>::Max(); break;
+					case EUnderlyingEnumType::uint32: Min = TNumericLimits<uint32>::Min(); Max = TNumericLimits<uint32>::Max(); break;
+					case EUnderlyingEnumType::uint64: Min = TNumericLimits<uint64>::Min(); Max = TNumericLimits<uint64>::Max(); break;
+
+					default:
+						check(false);
+				}
+
+				if (NewEnumValue < 0)
+				{
+					FError::Throwf(TEXT("Explicitly specified enum value (%lld) must be in the range of the underlying type of the enum (%llu to %llu)"), NewEnumValue, Min, Max);
+				}
+				else if ((uint64)NewEnumValue < Min || (uint64)NewEnumValue > Max)
+				{
+					FError::Throwf(TEXT("Explicitly specified enum value (%llu) must be in the range of the underlying type of the enum (%llu to %llu)"), (uint64)NewEnumValue, Min, Max);
+				}
 			}
 
 			CurrentEnumValue = NewEnumValue;
@@ -1295,16 +1437,11 @@ UEnum* FHeaderParser::CompileEnum()
 			break;
 		}
 
-		TPair<FName, uint8> CurrentEnum = TPair<FName, uint8>(TPairInitializer<FName, uint8>(NewTag, CurrentEnumValue));
+		TPair<FName, int64> CurrentEnum = TPair<FName, int64>(TPairInitializer<FName, int64>(NewTag, CurrentEnumValue));
 
 		if (EnumNames.Find(CurrentEnum, iFound))
 		{
 			FError::Throwf(TEXT("Duplicate enumeration tag %s"), TagToken.Identifier );
-		}
-
-		if (CurrentEnumValue > 255)
-		{
-			FError::Throwf(TEXT("Exceeded maximum of 255 enumerators") );
 		}
 
 		UEnum* FoundEnum = NULL;
@@ -1895,10 +2032,6 @@ UScriptStruct* FHeaderParser::CompileStructDeclaration(FClasses& AllClasses)
 						BaseStruct = NULL;
 						FError::Throwf(TEXT("Parent Struct '%s' is missing a valid Unreal prefix, expecting '%s'"), *ParentStructNameInScript, *FString::Printf(TEXT("%s%s"), PrefixCPP, *Type->GetName()));
 					}
-				}
-				else
-				{
-				
 				}
 			}
 		}
@@ -2547,7 +2680,7 @@ void FHeaderParser::VerifyRepNotifyCallbacks( UClass* TargetClass )
 
 				if ( TargetFunc->NumParms >= 2 && Parm)
 				{
-					// A 2nd parmaeter for arrays can be specified as a const TArray<uint8>&. This is a list of element indices that have changed
+					// A 2nd parameter for arrays can be specified as a const TArray<uint8>&. This is a list of element indices that have changed
 					UArrayProperty *ArrayProp = Cast<UArrayProperty>(*Parm);
 					if (!(ArrayProp && Cast<UByteProperty>(ArrayProp->Inner)) || !(Parm->GetPropertyFlags() & CPF_ConstParm) || !(Parm->GetPropertyFlags() & CPF_ReferenceParm))
 					{
@@ -2600,7 +2733,7 @@ void FHeaderParser::CompileDirective(FClasses& AllClasses)
 	else if (Directive.Matches(TEXT("linenumber")))
 	{
 		FToken Number;
-		if (!GetToken(Number) || (Number.TokenType != TOKEN_Const) || (Number.Type != CPT_Int))
+		if (!GetToken(Number) || (Number.TokenType != TOKEN_Const) || (Number.Type != CPT_Int && Number.Type != CPT_Int64))
 		{
 			FError::Throwf(TEXT("Missing line number in line number directive"));
 		}
@@ -3389,6 +3522,16 @@ FIndexRange*                    ParsedVarIndexRange
 			FError::Throwf(TEXT("USTRUCTs are not currently supported as key types."));
 		}
 
+		if (MapKeyType.Type == CPT_Interface)
+		{
+			FError::Throwf(TEXT("UINTERFACEs are not currently supported as key types."));
+		}
+
+		if (MapKeyType.Type == CPT_Text)
+		{
+			FError::Throwf(TEXT("FText is not currently supported as a key type."));
+		}
+
 		FToken CommaToken;
 		if (!GetToken(CommaToken, /*bNoConsts=*/ true) || CommaToken.TokenType != TOKEN_Symbol || FCString::Stricmp(CommaToken.Identifier, TEXT(",")))
 		{
@@ -3451,6 +3594,16 @@ FIndexRange*                    ParsedVarIndexRange
 		if (VarProperty.Type == CPT_Struct)
 		{
 			FError::Throwf(TEXT("USTRUCTs are not currently supported as element types."));
+		}
+
+		if (VarProperty.Type == CPT_Interface)
+		{
+			FError::Throwf(TEXT("UINTERFACEs are not currently supported as element types."));
+		}
+
+		if (VarProperty.Type == CPT_Text)
+		{
+			FError::Throwf(TEXT("FText is not currently supported as an element type."));
 		}
 
 		OriginalVarTypeFlags |= VarProperty.PropertyFlags & (CPF_ContainsInstancedReference | CPF_InstancedReference); // propagate these to the set, we will fix them later
@@ -3560,10 +3713,10 @@ FIndexRange*                    ParsedVarIndexRange
 
 		if (VariableCategory == EVariableCategory::Member)
 		{
-			auto* EnumUnderlyingType = GEnumUnderlyingTypes.Find(Enum);
-			if (!EnumUnderlyingType || *EnumUnderlyingType != CPT_Byte)
+			EUnderlyingEnumType* EnumUnderlyingType = GEnumUnderlyingTypes.Find(Enum);
+			if (!EnumUnderlyingType)
 			{
-				FError::Throwf(TEXT("You cannot use the raw enum name as a type for member variables, instead use TEnumAsByte or a C++11 enum class with an explicit underlying type (currently only uint8 supported)."), *Enum->CppType);
+				FError::Throwf(TEXT("You cannot use the raw enum name as a type for member variables, instead use TEnumAsByte or a C++11 enum class with an explicit underlying type."), *Enum->CppType);
 			}
 		}
 
@@ -4108,8 +4261,11 @@ UProperty* FHeaderParser::GetVarNameAndDim
 	// Check to see if the variable is deprecated, and if so set the flag
 	{
 		FString VarName(VarProperty.Identifier);
-		int32 DeprecatedIndex = VarName.Find(TEXT("_DEPRECATED"));
-		if (DeprecatedIndex != INDEX_NONE)
+
+		const int32 DeprecatedIndex = VarName.Find(TEXT("_DEPRECATED"));
+		const int32 NativizedPropertyPostfixIndex = VarName.Find(TEXT("__pf")); //TODO: check OverrideNativeName in Meta Data, to be sure it's not a random occurrence of the "__pf" string.
+		bool bIgnoreDeprecatedWord = (NativizedPropertyPostfixIndex != INDEX_NONE) && (NativizedPropertyPostfixIndex > DeprecatedIndex);
+		if ((DeprecatedIndex != INDEX_NONE) && !bIgnoreDeprecatedWord)
 		{
 			if (DeprecatedIndex != VarName.Len() - 11)
 			{
@@ -4845,6 +5001,9 @@ FClass* FHeaderParser::ParseClassNameDeclaration(FClasses& AllClasses, FString& 
 
 	// Get parent class.
 	bool bSpecifiesParentClass = false;
+
+	// Skip optional final keyword
+	MatchIdentifier(TEXT("final"));
 
 	if (MatchSymbol(TEXT(":")))
 	{
@@ -6455,7 +6614,7 @@ void FHeaderParser::CompileVariableDeclaration(FClasses& AllClasses, UStruct* St
 	{
 		if ((*ExposeOnSpawnValue == TEXT("true")) && !FExposeOnSpawnValidator::IsSupported(OriginalProperty))
 		{
-			FError::Throwf(TEXT("ExposeOnSpawn - Property cannoty be exposed"));
+			FError::Throwf(TEXT("ExposeOnSpawn - Property cannot be exposed"));
 		}
 	}
 
@@ -6855,7 +7014,7 @@ ECompilationResult::Type FHeaderParser::ParseHeader(FClasses& AllClasses, FUnrea
 			FString FormattedErrorMessageWithContext = FString::Printf(TEXT("%s: Error: %s"), *GetContext(), ErrorMsg);
 
 			UE_LOG(LogCompile, Log,  TEXT("%s"), *FormattedErrorMessageWithContext );
-			Warn->Log(ELogVerbosity::Error, ErrorMsg);
+			Warn->Log(ELogVerbosity::Error, *FString::Printf(TEXT("Error: %s"), ErrorMsg));
 		}
 
 		FailedFilesAnnotation.Set(CurrentSrcFile);
@@ -7830,6 +7989,9 @@ void FHeaderPreParser::ParseClassDeclaration(const TCHAR* InputText, int32 InLin
 		GClassDeclarations.Add(ClassNameWithoutPrefix, DeclarationData);
 	}
 
+	// Skip optional final keyword
+	MatchIdentifier(TEXT("final"));
+
 	// Handle inheritance
 	if (MatchSymbol(TEXT(":")))
 	{
@@ -7913,6 +8075,22 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 			{
 				OutForm = FString::FromInt(Value);
 				return ( 0 <= Value ) && ( 255 >= Value );
+			}
+		}
+		else if( Property->IsA(UEnumProperty::StaticClass()) )
+		{
+			const UEnumProperty* EnumProp = CastChecked<UEnumProperty>(Property);
+			if (const UEnum* Enum = CastChecked<UEnumProperty>(Property)->GetEnum())
+			{
+				OutForm = FDefaultValueHelper::GetUnqualifiedEnumValue(FDefaultValueHelper::RemoveWhitespaces(CppForm));
+				return Enum->FindEnumIndex(*OutForm) != INDEX_NONE;
+			}
+
+			int64 Value;
+			if (FDefaultValueHelper::ParseInt64(CppForm, Value))
+			{
+				OutForm = LexicalConversion::ToString(Value);
+				return EnumProp->GetUnderlyingProperty()->CanHoldValue(Value);
 			}
 		}
 		else if( Property->IsA(UFloatProperty::StaticClass()) )

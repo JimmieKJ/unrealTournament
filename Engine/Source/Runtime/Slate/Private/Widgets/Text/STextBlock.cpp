@@ -1,9 +1,10 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "PlainTextLayoutMarshaller.h"
-#include "TextBlockLayout.h"
-#include "ReflectionMetadata.h"
+#include "Widgets/Text/STextBlock.h"
+#include "SlateGlobals.h"
+#include "Framework/Text/PlainTextLayoutMarshaller.h"
+#include "Widgets/Text/TextBlockLayout.h"
+#include "Types/ReflectionMetadata.h"
 
 DECLARE_CYCLE_STAT(TEXT("STextBlock::SetText Time"), Stat_SlateTextBlockSetText, STATGROUP_SlateVerbose)
 DECLARE_CYCLE_STAT(TEXT("STextBlock::OnPaint Time"), Stat_SlateTextBlockOnPaint, STATGROUP_SlateVerbose)
@@ -184,13 +185,28 @@ FVector2D STextBlock::ComputeDesiredSize(float LayoutScaleMultiplier) const
 bool STextBlock::ComputeVolatility() const
 {
 	SCOPE_CYCLE_COUNTER(Stat_SlateTextBlockCV);
-	return SLeafWidget::ComputeVolatility() || BoundText.IsBound();
+	return SLeafWidget::ComputeVolatility() 
+		|| BoundText.IsBound()
+		|| Font.IsBound()
+		|| ColorAndOpacity.IsBound()
+		|| ShadowOffset.IsBound()
+		|| ShadowColorAndOpacity.IsBound()
+		|| HighlightColor.IsBound()
+		|| HighlightShape.IsBound()
+		|| HighlightText.IsBound()
+		|| WrapTextAt.IsBound()
+		|| AutoWrapText.IsBound()
+		|| WrappingPolicy.IsBound()
+		|| Margin.IsBound()
+		|| Justification.IsBound()
+		|| LineHeightPercentage.IsBound()
+		|| MinDesiredWidth.IsBound();
 }
 
 void STextBlock::SetFont(const TAttribute< FSlateFontInfo >& InFont)
 {
 	Font = InFont;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void STextBlock::SetColorAndOpacity(const TAttribute<FSlateColor>& InColorAndOpacity)
@@ -198,7 +214,7 @@ void STextBlock::SetColorAndOpacity(const TAttribute<FSlateColor>& InColorAndOpa
 	if ( !ColorAndOpacity.IsSet() || !ColorAndOpacity.IdenticalTo(InColorAndOpacity) )
 	{
 		ColorAndOpacity = InColorAndOpacity;
-		Invalidate(EInvalidateWidget::Layout);
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
 	}
 }
 
@@ -232,55 +248,55 @@ void STextBlock::SetTextFlowDirection(const TOptional<ETextFlowDirection>& InTex
 void STextBlock::SetWrapTextAt(const TAttribute<float>& InWrapTextAt)
 {
 	WrapTextAt = InWrapTextAt;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void STextBlock::SetAutoWrapText(const TAttribute<bool>& InAutoWrapText)
 {
 	AutoWrapText = InAutoWrapText;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void STextBlock::SetWrappingPolicy(const TAttribute<ETextWrappingPolicy>& InWrappingPolicy)
 {
 	WrappingPolicy = InWrappingPolicy;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void STextBlock::SetShadowOffset(const TAttribute<FVector2D>& InShadowOffset)
 {
 	ShadowOffset = InShadowOffset;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void STextBlock::SetShadowColorAndOpacity(const TAttribute<FLinearColor>& InShadowColorAndOpacity)
 {
 	ShadowColorAndOpacity = InShadowColorAndOpacity;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void STextBlock::SetMinDesiredWidth(const TAttribute<float>& InMinDesiredWidth)
 {
 	MinDesiredWidth = InMinDesiredWidth;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void STextBlock::SetLineHeightPercentage(const TAttribute<float>& InLineHeightPercentage)
 {
 	LineHeightPercentage = InLineHeightPercentage;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void STextBlock::SetMargin(const TAttribute<FMargin>& InMargin)
 {
 	Margin = InMargin;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void STextBlock::SetJustification(const TAttribute<ETextJustify::Type>& InJustification)
 {
 	Justification = InJustification;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 FTextBlockStyle STextBlock::GetComputedTextStyle() const

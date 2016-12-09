@@ -7,6 +7,8 @@
 #ifndef __SCONSOLIDATEWINDOW_H__
 #define __SCONSOLIDATEWINDOW_H__
 
+#include "CoreMinimal.h"
+
 class SConsolidateToolWidget;
 
 class FConsolidateToolWindow

@@ -6,8 +6,14 @@
 
 #pragma once
 
-#include "Engine.h"
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Engine/Selection.h"
+
+class UBlueprint;
+class UBreakpoint;
+template<typename ElementType> class TSimpleRingBuffer;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogBlueprintDebug, Log, All);
 

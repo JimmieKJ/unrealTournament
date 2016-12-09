@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "SGraphPin.h"
+
 class SGraphPinMaterialInput : public SGraphPin
 {
 public:

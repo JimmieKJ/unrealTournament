@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ScriptEditorPluginPrivatePCH.h"
+#include "ScriptBlueprintCompiler.h"
 #include "ScriptBlueprint.h"
 #include "ScriptBlueprintGeneratedClass.h"
-#include "ScriptBlueprintCompiler.h"
 #include "Kismet2NameValidators.h"
 #include "KismetReinstanceUtilities.h"
 #include "ScriptContext.h"
 #include "ScriptContextComponent.h"
+#include "K2Node_FunctionEntry.h"
+#include "K2Node_VariableGet.h"
+#include "K2Node_CallFunction.h"
+#include "GameFramework/Actor.h"
+#include "ScriptPluginComponent.h"
 
 ///-------------------------------------------------------------
 
@@ -192,9 +196,9 @@ void FScriptBlueprintCompiler::FinishCompilingClass(UClass* Class)
 void FScriptBlueprintCompiler::Compile()
 {
 	ScriptBlueprint()->UpdateSourceCodeIfChanged();
-	ScriptContext = FScriptContextBase::CreateContext(ScriptBlueprint()->SourceCode, NULL, NULL);
+	ScriptContext.Reset(FScriptContextBase::CreateContext(ScriptBlueprint()->SourceCode, NULL, NULL));
 	bool Result = true;
-	if (ScriptContext.IsValid())
+	if (ScriptContext)
 	{
 		ScriptDefinedFields.Empty();
 		ScriptContext->GetScriptDefinedFields(ScriptDefinedFields);

@@ -3,6 +3,10 @@
 #ifndef _INC_DIRECTORYWATCHREQUESTMAC
 #define _INC_DIRECTORYWATCHREQUESTMAC
 
+#include "Delegates/Delegate.h"
+#include "IDirectoryWatcher.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Array.h"
 #include <CoreServices/CoreServices.h>
 
 class FDirectoryWatchRequestMac

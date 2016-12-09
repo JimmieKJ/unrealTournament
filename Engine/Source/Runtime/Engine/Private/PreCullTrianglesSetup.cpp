@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "StaticMeshResources.h"
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/World.h"
+#include "SceneInterface.h"
+#include "Components/StaticMeshComponent.h"
+#include "Model.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "Engine/PreCullTrianglesVolume.h"
 
@@ -22,7 +28,7 @@ void PreCullTrianglesExec(UWorld* InWorld)
 			&& Component->Mobility == EComponentMobility::Static
 			&& Component->GetOwner() 
 			&& InWorld->ContainsActor(Component->GetOwner()) 
-			&& Component->StaticMesh 
+			&& Component->GetStaticMesh()
 			&& Component->IsRegistered()
 			&& Component->SceneProxy)
 		{

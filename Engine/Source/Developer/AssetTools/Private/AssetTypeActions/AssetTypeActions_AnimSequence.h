@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
+#include "Animation/AnimationAsset.h"
+#include "AssetTypeActions/AssetTypeActions_AnimationAsset.h"
+
+class FMenuBuilder;
+class UAnimSequence;
+class UFactory;
+
 /** Delegate used when creating Assets from an AnimSequence */
 DECLARE_DELEGATE_TwoParams(FOnConfigureFactory, class UFactory*, class UAnimSequence* );
 

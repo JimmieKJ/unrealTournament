@@ -6,7 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Animation/AnimSequence.h"
+
+class UAnimCompress;
+class UAnimSet;
+struct FAnimCompressContext;
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogMatinee, Warning, All);
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAnimNotify, Warning, All);

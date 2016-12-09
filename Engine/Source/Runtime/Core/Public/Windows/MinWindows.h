@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 #ifdef _WINDOWS_
 	#pragma message ( " " )
 	#pragma message ( "You have included windows.h before MinWindows.h" )
@@ -59,4 +61,4 @@
 #define NORPC
 
 // Finally now we can include windows.h
-#include <windows.h>
+#include <Windows.h>

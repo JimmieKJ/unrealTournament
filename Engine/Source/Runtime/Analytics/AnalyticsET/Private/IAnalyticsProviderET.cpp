@@ -1,15 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Runtime/Analytics/AnalyticsET/Private/AnalyticsETPrivatePCH.h"
-
-#include "Core.h"
-#include "Guid.h"
-#include "Json.h"
-#include "SecureHash.h"
-#include "AnalyticsET.h"
 #include "IAnalyticsProviderET.h"
-#include "Http.h"
-#include "EngineVersion.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/OutputDeviceFile.h"
+#include "Stats/Stats.h"
+#include "Containers/Ticker.h"
+#include "Misc/App.h"
+#include "Misc/TimeGuard.h"
+
+#include "Policies/CondensedJsonPrintPolicy.h"
+#include "Serialization/JsonWriter.h"
+#include "Modules/ModuleManager.h"
+#include "AnalyticsET.h"
+#include "Interfaces/IHttpResponse.h"
+#include "Interfaces/IHttpRequest.h"
+#include "HttpModule.h"
+#include "PlatformHttp.h"
+#include "Misc/EngineVersion.h"
 
 /** When enabled (and -AnalyticsTrackPerf is specified on the command line, will log out analytics flush timings on a regular basis to Saved/AnalyticsTiming.csv. */
 #define ANALYTICS_PERF_TRACKING_ENABLED !UE_BUILD_SHIPPING
@@ -222,6 +231,8 @@ private:
 	bool bInDestructor;
 	/** True to use the legacy backend server protocol that uses URL params. */
 	bool UseLegacyProtocol;
+	/** False to disable dropping events when a flush fails due to network reasons */
+	bool bDropEventsOnFlushFailure;
 	/** AppEnvironment to use. */
 	FString AppEnvironment;
 	/** UploadType to use. */
@@ -265,7 +276,7 @@ private:
 	/**
 	* Delegate called when an event Http request completes
 	*/
-	void EventRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
+	void EventRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, TSharedPtr< TArray<FAnalyticsEventEntry> > FlushedEvents);
 };
 
 TSharedPtr<IAnalyticsProviderET> FAnalyticsET::CreateAnalyticsProvider(const Config& ConfigValues) const
@@ -292,6 +303,7 @@ FAnalyticsProviderET::FAnalyticsProviderET(const FAnalyticsET::Config& ConfigVal
 	, FlushEventsCountdown(MaxCachedElapsedTime)
 	, bInDestructor(false)
 	, UseLegacyProtocol(ConfigValues.UseLegacyProtocol)
+	, bDropEventsOnFlushFailure(ConfigValues.bDropEventsOnFlushFailure)
 {
 	if (APIKey.IsEmpty() || APIServer.IsEmpty())
 	{
@@ -399,8 +411,6 @@ bool FAnalyticsProviderET::StartSession(TArray<FAnalyticsEventAttribute>&& Attri
 
 	// always ensure we send a few specific attributes on session start.
 	TArray<FAnalyticsEventAttribute> AppendedAttributes(MoveTemp(Attributes));
-	// this is for legacy reasons (we used to use this ID, so helps us create old->new mappings).
-	AppendedAttributes.Emplace(TEXT("UniqueDeviceId"), FPlatformMisc::GetUniqueDeviceId());
 	// we should always know what platform is hosting this session.
 	AppendedAttributes.Emplace(TEXT("Platform"), FString(FPlatformProperties::IniPlatformName()));
 
@@ -426,6 +436,9 @@ void FAnalyticsProviderET::EndSession()
 
 void FAnalyticsProviderET::FlushEvents()
 {
+	// Warn if this takes more than 2 ms
+	SCOPE_TIME_GUARD_MS(TEXT("FAnalyticsProviderET::FlushEvents"), 2);
+
 	// There are much better ways to do this, but since most events are recorded and handled on the same (game) thread,
 	// this is probably mostly fine for now, and simply favoring not crashing at the moment
 	FScopeLock ScopedLock(&CachedEventsCS);
@@ -451,6 +464,13 @@ void FAnalyticsProviderET::FlushEvents()
 
 		if (!UseLegacyProtocol)
 		{
+			TSharedPtr< TArray<FAnalyticsEventEntry> > FlushedEvents;
+			if (!bDropEventsOnFlushFailure)
+			{
+				FlushedEvents = TSharedPtr< TArray<FAnalyticsEventEntry> >(new TArray<FAnalyticsEventEntry>());
+				FlushedEvents->Reserve(CachedEvents.Num());
+			}
+
 			TSharedRef< TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > JsonWriter = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&Payload);
 			JsonWriter->WriteObjectStart();
 			JsonWriter->WriteArrayStart(TEXT("Events"));
@@ -459,11 +479,20 @@ void FAnalyticsProviderET::FlushEvents()
 				if (Entry.bIsDefaultAttributes)
 				{
 					// This is the default attributes, so update the array.
-					CurrentDefaultAttributes = MoveTemp(Entry.Attributes);
+					if (FlushedEvents.IsValid())
+					{
+						CurrentDefaultAttributes = Entry.Attributes; // need to copy
+						FlushedEvents->Emplace(MoveTemp(Entry));
+					}
+					else
+					{
+						CurrentDefaultAttributes = MoveTemp(Entry.Attributes);
+					}
 				}
 				else
 				{
 					++EventCount;
+
 					// event entry
 					JsonWriter->WriteObjectStart();
 					JsonWriter->WriteValue(TEXT("EventName"), Entry.EventName);
@@ -490,6 +519,12 @@ void FAnalyticsProviderET::FlushEvents()
 						}
 					}
 					JsonWriter->WriteObjectEnd();
+
+					// move the entry into the flushed
+					if (FlushedEvents.IsValid())
+					{
+						FlushedEvents->Emplace(MoveTemp(Entry));
+					}
 				}
 			}
 
@@ -532,7 +567,7 @@ void FAnalyticsProviderET::FlushEvents()
 			// Don't set a response callback if we are in our destructor, as the instance will no longer be there to call.
 			if (!bInDestructor)
 			{
-				HttpRequest->OnProcessRequestComplete().BindSP(this, &FAnalyticsProviderET::EventRequestComplete);
+				HttpRequest->OnProcessRequestComplete().BindSP(this, &FAnalyticsProviderET::EventRequestComplete, FlushedEvents);
 			}
 			HttpRequest->ProcessRequest();
 		}
@@ -594,7 +629,10 @@ void FAnalyticsProviderET::FlushEvents()
 						*EventParams));
 					PayloadSize = HttpRequest->GetURL().Len();
 					HttpRequest->SetVerb(TEXT("GET"));
-					HttpRequest->OnProcessRequestComplete().BindRaw(this, &FAnalyticsProviderET::EventRequestComplete);
+					if (!bInDestructor)
+					{
+						HttpRequest->OnProcessRequestComplete().BindSP(this, &FAnalyticsProviderET::EventRequestComplete, TSharedPtr< TArray<FAnalyticsEventEntry> >());
+					}
 					HttpRequest->ProcessRequest();
 				}
 			}
@@ -689,14 +727,48 @@ void FAnalyticsProviderET::SetDefaultEventAttributes(TArray<FAnalyticsEventAttri
 	}
 }
 
-void FAnalyticsProviderET::EventRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+void FAnalyticsProviderET::EventRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool, TSharedPtr< TArray<FAnalyticsEventEntry> > FlushedEvents)
 {
-	if (bSucceeded && HttpResponse.IsValid())
+	// process responses
+	bool bEventsDelivered = false;
+	if (HttpResponse.IsValid())
 	{
 		UE_LOG(LogAnalytics, VeryVerbose, TEXT("[%s] ET response for [%s]. Code: %d. Payload: %s"), *APIKey, *HttpRequest->GetURL(), HttpResponse->GetResponseCode(), *HttpResponse->GetContentAsString());
+		if (EHttpResponseCodes::IsOk(HttpResponse->GetResponseCode()))
+		{
+			bEventsDelivered = true;
+		}
 	}
 	else
 	{
 		UE_LOG(LogAnalytics, VeryVerbose, TEXT("[%s] ET response for [%s]. No response"), *APIKey, *HttpRequest->GetURL());
+	}
+
+	// if the events were not delivered and FlushedEvents is passed, requeue them at the beginning
+	if (FlushedEvents.IsValid() && !bEventsDelivered)
+	{
+		// add a dropped submission event so we can see how often this is happening
+		if (bShouldCacheEvents && CachedEvents.Num() < 1024)
+		{
+			TArray<FAnalyticsEventAttribute> Attributes;
+			Attributes.Emplace(FAnalyticsEventAttribute(FString(TEXT("HTTP_STATUS")), FString::Printf(TEXT("%d"), HttpResponse.IsValid() ? HttpResponse->GetResponseCode() : 0)));
+			Attributes.Emplace(FAnalyticsEventAttribute(FString(TEXT("URL")), HttpRequest->GetURL()));
+			Attributes.Emplace(FAnalyticsEventAttribute(FString(TEXT("EVENTS_IN_BATCH")), FString::Printf(TEXT("%d"), FlushedEvents->Num())));
+			Attributes.Emplace(FAnalyticsEventAttribute(FString(TEXT("EVENTS_QUEUED")), FString::Printf(TEXT("%d"), CachedEvents.Num())));
+			CachedEvents.Emplace(FAnalyticsEventEntry(FString(TEXT("ET.DroppedSubmission")), MoveTemp(Attributes), false, false));
+		}
+
+		// if we're being super spammy or have been offline forever, just leave it at the ET.DroppedSubmission event
+		if (bShouldCacheEvents && CachedEvents.Num() < 256)
+		{
+			UE_LOG(LogAnalytics, Log, TEXT("[%s] ET Requeuing %d analytics events due to failure to send"), *APIKey, FlushedEvents->Num());
+
+			// put them at the beginning since it should include a default attributes entry and we don't want to change the current default attributes
+			CachedEvents.Insert(*FlushedEvents, 0);
+		}
+		else
+		{
+			UE_LOG(LogAnalytics, Error, TEXT("[%s] ET dropping %d analytics events due to too many in queue (%d)"), *APIKey, FlushedEvents->Num(), CachedEvents.Num());
+		}
 	}
 }

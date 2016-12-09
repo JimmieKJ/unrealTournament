@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -255,7 +255,7 @@ SDL_SYS_HapticQuit(void)
     for (hapticitem = SDL_haptics; hapticitem; hapticitem = hapticitem->next) {
         if ((hapticitem->hwdata->bXInputHaptic) && (hapticitem->hwdata->thread)) {
             /* we _have_ to stop the thread before we free the XInput DLL! */
-            hapticitem->hwdata->stopThread = 1;
+            SDL_AtomicSet(&hapticitem->hwdata->stopThread, 1);
             SDL_WaitThread(hapticitem->hwdata->thread, NULL);
             hapticitem->hwdata->thread = NULL;
         }
@@ -272,6 +272,10 @@ SDL_SYS_HapticQuit(void)
 
     SDL_XINPUT_HapticQuit();
     SDL_DINPUT_HapticQuit();
+
+    numhaptics = 0;
+    SDL_hapticlist = NULL;
+    SDL_hapticlist_tail = NULL;
 }
 
 /*

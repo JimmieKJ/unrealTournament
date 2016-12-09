@@ -6,7 +6,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "TargetPlatformBase.h"
+#include "IOSPlatformProperties.h"
 #include "Ticker.h"
+#include "IOSMessageProtocol.h"
+#include "IMessageContext.h"
+#include "IOSTargetDevice.h"
+#include "IOSDeviceHelper.h"
+#include "Misc/ConfigCacheIni.h"
 
 #if WITH_ENGINE
 #include "StaticMeshResources.h"

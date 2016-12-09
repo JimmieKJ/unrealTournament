@@ -2,8 +2,13 @@
 
 #pragma once
 
-#include "ContentWidget.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Widgets/SWidget.h"
+#include "Components/ContentWidget.h"
 #include "NamedSlot.generated.h"
+
+class SBox;
 
 /**
  * Allows you to expose an external slot for your user widget.  When others reuse your user control, 

@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "GenericApplicationMessageHandler.h"
 #include <android/input.h>
 #include <android/keycodes.h>
 #include <android/api-level.h>
 #include "IInputInterface.h"
 #include "IForceFeedbackSystem.h"
+#include "Math/Vector.h"
+#include "Math/Vector2D.h"
+#include "Math/Color.h"
 
 #if __ANDROID_API__ < 13
 
@@ -213,6 +217,8 @@ public:
 	virtual void SetForceFeedbackChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value) override;
 	virtual void SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &values) override;
 	virtual void SetLightColor(int32 ControllerId, FColor Color) override {}
+
+	virtual bool IsGamepadAttached() const;
 
 	virtual void AddExternalInputDevice(TSharedPtr<class IInputDevice> InputDevice);
 

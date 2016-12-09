@@ -6,8 +6,13 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Matinee/InterpTrackVectorBase.h"
 #include "InterpTrackColorScale.generated.h"
+
+class UInterpTrackInst;
 
 UCLASS(meta=( DisplayName = "Color Scale Track" ) )
 class UInterpTrackColorScale : public UInterpTrackVectorBase

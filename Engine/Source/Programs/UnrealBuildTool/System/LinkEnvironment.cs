@@ -10,8 +10,23 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Configuration class for LinkEnvironment
 	/// </summary>
-	public class LinkEnvironmentConfiguration : NativeBuildEnvironmentConfiguration
+	public class LinkEnvironmentConfiguration
 	{
+		/// <summary>
+		/// The platform to be compiled/linked for.
+		/// </summary>
+		public CPPTargetPlatform Platform;
+
+		/// <summary>
+		/// The configuration to be compiled/linked for.
+		/// </summary>
+		public CPPTargetConfiguration Configuration;
+
+		/// <summary>
+		/// The architecture that is being compiled/linked (empty string by default)
+		/// </summary>
+		public string Architecture;
+
 		/// <summary>
 		/// The directory to put the non-executable files in (PDBs, import library, etc)
 		/// </summary>
@@ -112,11 +127,6 @@ namespace UnrealBuildTool
 		public bool bDisableSymbolCache = true;
 
 		/// <summary>
-		/// Whether the CLR (Common Language Runtime) support should be enabled for C++ targets (C++/CLI).
-		/// </summary>
-		public CPPCLRMode CLRMode = CPPCLRMode.CLRDisabled;
-
-		/// <summary>
 		/// True if we're compiling .cpp files that will go into a library (.lib file)
 		/// </summary>
 		public bool bIsBuildingLibrary = false;
@@ -175,9 +185,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Copy constructor.
 		/// </summary>
-		public LinkEnvironmentConfiguration(LinkEnvironmentConfiguration InCopyEnvironment) :
-			base(InCopyEnvironment)
+		public LinkEnvironmentConfiguration(LinkEnvironmentConfiguration InCopyEnvironment)
 		{
+			Platform = InCopyEnvironment.Platform;
+			Configuration = InCopyEnvironment.Configuration;
+			Architecture = InCopyEnvironment.Architecture;
 			OutputDirectory = InCopyEnvironment.OutputDirectory;
 			IntermediateDirectory = InCopyEnvironment.IntermediateDirectory;
 			LocalShadowDirectory = InCopyEnvironment.LocalShadowDirectory;
@@ -194,7 +206,6 @@ namespace UnrealBuildTool
 			DelayLoadDLLs.AddRange(InCopyEnvironment.DelayLoadDLLs);
 			AdditionalArguments = InCopyEnvironment.AdditionalArguments;
 			bCreateDebugInfo = InCopyEnvironment.bCreateDebugInfo;
-			CLRMode = InCopyEnvironment.CLRMode;
 			bIsBuildingLibrary = InCopyEnvironment.bIsBuildingLibrary;
 			bIsBuildingDLL = InCopyEnvironment.bIsBuildingDLL;
 			bIsBuildingConsoleApplication = InCopyEnvironment.bIsBuildingConsoleApplication;
@@ -226,6 +237,16 @@ namespace UnrealBuildTool
 		public List<FileItem> InputLibraries = new List<FileItem>();
 
 		/// <summary>
+		/// The default resource file to link in to every binary if a custom one is not provided
+		/// </summary>
+		public List<FileItem> DefaultResourceFiles = new List<FileItem>();
+
+		/// <summary>
+		/// Resource files which should be compiled into every binary
+		/// </summary>
+		public List<FileItem> CommonResourceFiles = new List<FileItem>();
+
+		/// <summary>
 		/// The LinkEnvironmentConfiguration.
 		/// </summary>
 		public LinkEnvironmentConfiguration Config = new LinkEnvironmentConfiguration();
@@ -244,7 +265,9 @@ namespace UnrealBuildTool
 		{
 			InputFiles.AddRange(InCopyEnvironment.InputFiles);
 			InputLibraries.AddRange(InCopyEnvironment.InputLibraries);
-
+			DefaultResourceFiles.AddRange(InCopyEnvironment.DefaultResourceFiles);
+			CommonResourceFiles.AddRange(InCopyEnvironment.CommonResourceFiles);
+			
 			Config = new LinkEnvironmentConfiguration(InCopyEnvironment.Config);
 		}
 

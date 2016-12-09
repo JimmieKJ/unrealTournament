@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "BSPOps.h"
-#include "Engine/Polys.h"
+#include "EngineDefines.h"
+#include "Model.h"
+#include "Materials/Material.h"
+#include "Engine/BrushBuilder.h"
+#include "Editor/EditorEngine.h"
 #include "Components/BrushComponent.h"
 #include "GameFramework/Volume.h"
 
@@ -800,44 +803,66 @@ void FBSPOps::bspBuild( UModel* Model, enum EBspOptimization Opt, int32 Balance,
  */
 void FBSPOps::bspRefresh( UModel* Model, bool NoRemapSurfs )
 {
-	FMemMark Mark(FMemStack::Get());
-	int32 *VectorRef, *PointRef, *NodeRef, *PolyRef, i;
-	TArray<int32*>	VertexRef;
-	uint8  B;
+	FMemStack& MemStack = FMemStack::Get();
+
+	FMemMark Mark(MemStack);
+
+	int32 NumNodes = Model->Nodes.Num();
+	int32 NumSurfs = Model->Surfs.Num();
+	int32 NumVectors = Model->Vectors.Num();
+	int32 NumPoints = Model->Points.Num();
 
 	// Remove unreferenced Bsp surfs.
-	NodeRef		= new(FMemStack::Get(),MEM_Oned,Model->Nodes.Num())int32;
-	PolyRef		= new(FMemStack::Get(),MEM_Oned,Model->Surfs.Num())int32;
-	if( Model->Nodes.Num() > 0 )
-		TagReferencedNodes( Model, NodeRef, PolyRef, 0 );
-
+	int32* PolyRef;
 	if( NoRemapSurfs )
-		FMemory::Memzero(PolyRef,Model->Surfs.Num() * sizeof (int32));
-
-	// Remap Bsp nodes and surfs.
-	int32 n=0;
-	for( i=0; i<Model->Surfs.Num(); i++ )
 	{
-		if( PolyRef[i]!=INDEX_NONE )
+		PolyRef = NewZeroed<int32>(MemStack, NumSurfs);
+	}
+	else
+	{
+		PolyRef = NewOned<int32>(MemStack, NumSurfs);
+	}
+
+	int32* NodeRef = NewOned<int32>(MemStack, NumNodes);
+	if( NumNodes > 0 )
+	{
+		TagReferencedNodes( Model, NodeRef, PolyRef, 0 );
+	}
+
+	// Remap Bsp surfs.
+	{
+		int32 n=0;
+		for( int32 i=0; i<NumSurfs; i++ )
 		{
-			Model->Surfs[n] = Model->Surfs[i];
-			PolyRef[i]=n++;
+			if( PolyRef[i]!=INDEX_NONE )
+			{
+				Model->Surfs[n] = Model->Surfs[i];
+				PolyRef[i]=n++;
+			}
 		}
+		//UE_LOG(LogBSPOps, Log,  TEXT("Polys: %i -> %i"), NumSurfs, n );
+		Model->Surfs.RemoveAt( n, NumSurfs-n );
+		NumSurfs = n;
 	}
-	//UE_LOG(LogBSPOps, Log,  TEXT("Polys: %i -> %i"), Model->Surfs.Num(), n );
-	Model->Surfs.RemoveAt( n, Model->Surfs.Num()-n );
 
-	n=0;
-	for( i=0; i<Model->Nodes.Num(); i++ ) if( NodeRef[i]!=INDEX_NONE )
+	// Remap Bsp nodes.
 	{
-		Model->Nodes[n] = Model->Nodes[i];
-		NodeRef[i]=n++;
+		int32 n=0;
+		for( int32 i=0; i<NumNodes; i++ )
+		{
+			if( NodeRef[i]!=INDEX_NONE )
+			{
+				Model->Nodes[n] = Model->Nodes[i];
+				NodeRef[i]=n++;
+			}
+		}
+		//UE_LOG(LogBSPOps, Log,  TEXT("Nodes: %i -> %i"), NumNodes, n );
+		Model->Nodes.RemoveAt( n, NumNodes-n );
+		NumNodes = n;
 	}
-	//UE_LOG(LogBSPOps, Log,  TEXT("Nodes: %i -> %i"), Model->Nodes.Num(), n );
-	Model->Nodes.RemoveAt( n, Model->Nodes.Num()-n  );
 
 	// Update Bsp nodes.
-	for( i=0; i<Model->Nodes.Num(); i++ )
+	for( int32 i=0; i<NumNodes; i++ )
 	{
 		FBspNode *Node = &Model->Nodes[i];
 		Node->iSurf = PolyRef[Node->iSurf];
@@ -847,11 +872,12 @@ void FBSPOps::bspRefresh( UModel* Model, bool NoRemapSurfs )
 	}
 
 	// Remove unreferenced points and vectors.
-	VectorRef = new(FMemStack::Get(),MEM_Oned,Model->Vectors.Num())int32;
-	PointRef  = new(FMemStack::Get(),MEM_Oned,Model->Points .Num ())int32;
+	int32* VectorRef = NewOned<int32>(MemStack, NumVectors);
+	int32* PointRef  = NewOned<int32>(MemStack, NumPoints);
 
 	// Check Bsp surfs.
-	for( i=0; i<Model->Surfs.Num(); i++ )
+	TArray<int32*> VertexRef;
+	for( int32 i=0; i<NumSurfs; i++ )
 	{
 		FBspSurf *Surf = &Model->Surfs[i];
 		VectorRef [Surf->vNormal   ] = 0;
@@ -861,41 +887,46 @@ void FBSPOps::bspRefresh( UModel* Model, bool NoRemapSurfs )
 	}
 
 	// Check Bsp nodes.
-	for( i=0; i<Model->Nodes.Num(); i++ )
+	for( int32 i=0; i<NumNodes; i++ )
 	{
 		// Tag all points used by nodes.
 		FBspNode*	Node		= &Model->Nodes[i];
 		FVert*		VertPool	= &Model->Verts[Node->iVertPool];
-		for( B=0; B<Node->NumVertices;  B++ )
+		for( int B=0; B<Node->NumVertices;  B++ )
 		{
 			PointRef[VertPool->pVertex] = 0;
 			VertPool++;
 		}
-		Node++;
 	}
 
 	// Remap points.
-	n=0; 
-	for( i=0; i<Model->Points.Num(); i++ ) if( PointRef[i]!=INDEX_NONE )
 	{
-		Model->Points[n] = Model->Points[i];
-		PointRef[i] = n++;
+		int32 n=0;
+		for( int32 i=0; i<NumPoints; i++ ) if( PointRef[i]!=INDEX_NONE )
+		{
+			Model->Points[n] = Model->Points[i];
+			PointRef[i] = n++;
+		}
+		//UE_LOG(LogBSPOps, Log,  TEXT("Points: %i -> %i"), NumPoints, n );
+		Model->Points.RemoveAt( n, NumPoints-n );
+		NumPoints = n;
 	}
-	//UE_LOG(LogBSPOps, Log,  TEXT("Points: %i -> %i"), Model->Points.Num(), n );
-	Model->Points.RemoveAt( n, Model->Points.Num()-n );
-	check(Model->Points.Num()==n);
 
 	// Remap vectors.
-	n=0; for (i=0; i<Model->Vectors.Num(); i++) if (VectorRef[i]!=INDEX_NONE)
 	{
-		Model->Vectors[n] = Model->Vectors[i];
-		VectorRef[i] = n++;
+		int32 n=0;
+		for (int32 i=0; i<NumVectors; i++) if (VectorRef[i]!=INDEX_NONE)
+		{
+			Model->Vectors[n] = Model->Vectors[i];
+			VectorRef[i] = n++;
+		}
+		//UE_LOG(LogBSPOps, Log,  TEXT("Vectors: %i -> %i"), NumVectors, n );
+		Model->Vectors.RemoveAt( n, NumVectors-n );
+		NumVectors = n;
 	}
-	//UE_LOG(LogBSPOps, Log,  TEXT("Vectors: %i -> %i"), Model->Vectors.Num(), n );
-	Model->Vectors.RemoveAt( n, Model->Vectors.Num()-n );
 
 	// Update Bsp surfs.
-	for( i=0; i<Model->Surfs.Num(); i++ )
+	for( int32 i=0; i<NumSurfs; i++ )
 	{
 		FBspSurf *Surf	= &Model->Surfs[i];
 		Surf->vNormal   = VectorRef [Surf->vNormal  ];
@@ -905,17 +936,15 @@ void FBSPOps::bspRefresh( UModel* Model, bool NoRemapSurfs )
 	}
 
 	// Update Bsp nodes.
-	for( i=0; i<Model->Nodes.Num(); i++ )
+	for( int32 i=0; i<NumNodes; i++ )
 	{
 		FBspNode*	Node		= &Model->Nodes[i];
 		FVert*		VertPool	= &Model->Verts[Node->iVertPool];
-		for( B=0; B<Node->NumVertices;  B++ )
+		for( int B=0; B<Node->NumVertices;  B++ )
 		{			
 			VertPool->pVertex = PointRef [VertPool->pVertex];
 			VertPool++;
 		}
-
-		Node++;
 	}
 
 	// Shrink the objects.

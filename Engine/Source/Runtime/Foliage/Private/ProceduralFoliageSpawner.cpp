@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FoliagePrivate.h"
 #include "ProceduralFoliageSpawner.h"
 #include "ProceduralFoliageTile.h"
-#include "Components/BoxComponent.h"
-#include "PhysicsPublic.h"
+#include "Misc/FeedbackContext.h"
+#include "Serialization/CustomVersion.h"
 #include "Async/Async.h"
 
 #define LOCTEXT_NAMESPACE "ProceduralFoliage"

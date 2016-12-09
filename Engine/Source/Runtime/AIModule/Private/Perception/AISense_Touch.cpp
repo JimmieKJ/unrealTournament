@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Perception/AISense_Touch.h"
+#include "Perception/AIPerceptionListenerInterface.h"
+#include "Perception/AIPerceptionComponent.h"
 
 UAISense_Touch::UAISense_Touch(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)

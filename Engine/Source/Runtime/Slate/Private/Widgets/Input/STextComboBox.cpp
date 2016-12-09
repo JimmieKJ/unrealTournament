@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "STextComboBox.h"
+#include "Widgets/Input/STextComboBox.h"
 
 
 void STextComboBox::Construct( const FArguments& InArgs )

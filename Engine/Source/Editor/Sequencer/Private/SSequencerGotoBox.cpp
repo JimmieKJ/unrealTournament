@@ -1,9 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
-#include "Sequencer.h"
-#include "SequencerSettings.h"
 #include "SSequencerGotoBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 
 #define LOCTEXT_NAMESPACE "Sequencer"
@@ -40,7 +42,7 @@ void SSequencerGotoBox::Construct(const FArguments& InArgs, const TSharedRef<FSe
 							.MinDesiredValueWidth(64.0f)
 							.OnValueCommitted(this, &SSequencerGotoBox::HandleEntryBoxValueCommitted)
 							.TypeInterface(NumericTypeInterface)
-							.Value_Lambda([this](){ return SequencerPtr.Pin()->GetGlobalTime(); })
+							.Value_Lambda([this](){ return SequencerPtr.Pin()->GetLocalTime(); })
 					]
 			]
 	];
@@ -86,7 +88,7 @@ void SSequencerGotoBox::HandleEntryBoxValueCommitted(float Value, ETextCommit::T
 		Sequencer->SetViewRange(NewRange);
 	}
 
-	Sequencer->SetGlobalTime(Value);
+	Sequencer->SetLocalTimeDirectly(Value);
 }
 
 

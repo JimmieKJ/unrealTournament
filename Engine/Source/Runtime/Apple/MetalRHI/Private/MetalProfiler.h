@@ -52,6 +52,29 @@ DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffer Memory Freed Per-Frame"), STAT_Me
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffer Memory Allocated Per-Frame"), STAT_MetalBufferNativeMemAlloc, STATGROUP_MetalRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffer Memory Freed Per-Frame"), STAT_MetalBufferNativeMemFreed, STATGROUP_MetalRHI, );
 
+DECLARE_CYCLE_STAT_EXTERN(TEXT("PrepareVertexDesc time"),STAT_MetalPrepareVertexDescTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("BoundShaderPrepareDraw time"),STAT_MetalBoundShaderPrepareDrawTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("BoundShaderLock time"),STAT_MetalBoundShaderLockTime,STATGROUP_MetalRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("PipelineLock time"),STAT_MetalPipelineLockTime,STATGROUP_MetalRHI, );
+
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Uniform Memory Allocated Per-Frame"), STAT_MetalUniformMemAlloc, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Uniform Memory Freed Per-Frame"), STAT_MetalUniformMemFreed, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Vertex Memory Allocated Per-Frame"), STAT_MetalVertexMemAlloc, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Vertex Memory Freed Per-Frame"), STAT_MetalVertexMemFreed, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Index Memory Allocated Per-Frame"), STAT_MetalIndexMemAlloc, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Index Memory Freed Per-Frame"), STAT_MetalIndexMemFreed, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Private Texture Count"), STAT_MetalPrivateTextureCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Managed Texture Count"), STAT_MetalManagedTextureCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Texture Memory Updated Per-Frame"), STAT_MetalTextureMemUpdate, STATGROUP_MetalRHI, );
+
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Texture Page-On time"), STAT_MetalTexturePageOnTime, STATGROUP_MetalRHI, );
+#if STATS
+extern uint64 GMetalTexturePageOnTime;
+#endif
+
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Number Command Buffers Created Per-Frame"), STAT_MetalCommandBufferCreatedPerFrame, STATGROUP_MetalRHI, );
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Number Command Buffers Committed Per-Frame"), STAT_MetalCommandBufferCommittedPerFrame, STATGROUP_MetalRHI, );
+
 #if METAL_STATISTICS
 #define RHI_PROFILE_DRAW_CALL_STATS(StartPoint, EndPoint, NumPrims, NumVerts) FMetalDrawProfiler GPUWork(Profiler, (uint32)StartPoint, (uint32)EndPoint, NumPrims, NumVerts)
 #else

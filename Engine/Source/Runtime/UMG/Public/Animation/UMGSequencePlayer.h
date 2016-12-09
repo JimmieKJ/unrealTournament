@@ -2,11 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Blueprint/UserWidget.h"
 #include "IMovieScenePlayer.h"
+#include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 #include "UMGSequencePlayer.generated.h"
 
 class UWidgetAnimation;
-class UMovieSceneBindings;
 
 UCLASS(transient)
 class UMG_API UUMGSequencePlayer : public UObject, public IMovieScenePlayer
@@ -14,7 +18,7 @@ class UMG_API UUMGSequencePlayer : public UObject, public IMovieScenePlayer
 	GENERATED_UCLASS_BODY()
 
 public:
-	void InitSequencePlayer(const UWidgetAnimation& InAnimation, UUserWidget& InUserWidget);
+	void InitSequencePlayer(UWidgetAnimation& InAnimation, UUserWidget& InUserWidget);
 
 	/** Updates the running movie */
 	void Tick( float DeltaTime );
@@ -47,13 +51,10 @@ public:
 	void SetPlaybackSpeed(float PlaybackSpeed);
 
 	/** IMovieScenePlayer interface */
-	virtual void GetRuntimeObjects( TSharedRef<FMovieSceneSequenceInstance> MovieSceneInstance, const FGuid& ObjectHandle, TArray<TWeakObjectPtr<UObject>>& OutObjects ) const override;
+	virtual FMovieSceneRootEvaluationTemplateInstance& GetEvaluationTemplate() override { return RootTemplateInstance; }
 	virtual void UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject, bool bJumpCut) override {}
 	virtual void SetViewportSettings(const TMap<FViewportClient*, EMovieSceneViewportParams>& ViewportParamsMap) override {}
 	virtual void GetViewportSettings(TMap<FViewportClient*, EMovieSceneViewportParams>& ViewportParamsMap) const override {}
-	virtual void AddOrUpdateMovieSceneInstance( class UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneSequenceInstance> InstanceToAdd ) override {}
-	virtual void RemoveMovieSceneInstance( class UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneSequenceInstance> InstanceToRemove ) override {}
-	virtual TSharedRef<FMovieSceneSequenceInstance> GetRootMovieSceneSequenceInstance() const override { return RootMovieSceneInstance.ToSharedRef(); }
 	virtual EMovieScenePlayerStatus::Type GetPlaybackStatus() const override;
 	virtual UObject* GetPlaybackContext() const override;
 	virtual TArray<UObject*> GetEventContexts() const override;
@@ -68,15 +69,12 @@ private:
 
 	/** Animation being played */
 	UPROPERTY()
-	const UWidgetAnimation* Animation;
+	UWidgetAnimation* Animation;
 
 	/** The user widget this sequence is animating */
 	TWeakObjectPtr<UUserWidget> UserWidget;
 
-	TMap<FGuid, TArray<UObject*> > GuidToRuntimeObjectMap;
-
-	/** The root movie scene instance to update when playing. */
-	TSharedPtr<class FMovieSceneSequenceInstance> RootMovieSceneInstance;
+	FMovieSceneRootEvaluationTemplateInstance RootTemplateInstance;
 
 	/** Time range of the animation */
 	TRange<float> TimeRange;

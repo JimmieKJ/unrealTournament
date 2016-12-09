@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectRedirector.h"
+#include "AssetTypeActions_Base.h"
+
+class FMenuBuilder;
+
 class FAssetTypeActions_Redirector : public FAssetTypeActions_Base
 {
 public:

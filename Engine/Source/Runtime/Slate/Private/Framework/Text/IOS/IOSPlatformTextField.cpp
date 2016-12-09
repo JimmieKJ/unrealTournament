@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Framework/Text/IOS/IOSPlatformTextField.h"
 #include "IOSAppDelegate.h"
 #include "IOSView.h"
+#include "Widgets/Input/IVirtualKeyboardEntry.h"
+#include "IOS/IOSAsyncTask.h"
 
 
 FIOSPlatformTextField::FIOSPlatformTextField()

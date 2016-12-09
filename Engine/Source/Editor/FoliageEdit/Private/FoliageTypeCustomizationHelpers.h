@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "Axis.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
 
-class FEdModeFoliage;
 class IDetailLayoutBuilder;
-class IDetailCategoryBuilder;
 class IDetailPropertyRow;
 class IPropertyHandle;
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -38,6 +38,8 @@ CEF_EXPORT cef_task_runner_t* cef_task_runner_get_for_thread(
   return CefTaskRunnerCppToC::Wrap(_retval);
 }
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -133,17 +135,25 @@ int CEF_CALLBACK task_runner_post_delayed_task(struct _cef_task_runner_t* self,
   return _retval;
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefTaskRunnerCppToC::CefTaskRunnerCppToC(CefTaskRunner* cls)
-    : CefCppToC<CefTaskRunnerCppToC, CefTaskRunner, cef_task_runner_t>(cls) {
-  struct_.struct_.is_same = task_runner_is_same;
-  struct_.struct_.belongs_to_current_thread =
+CefTaskRunnerCppToC::CefTaskRunnerCppToC() {
+  GetStruct()->is_same = task_runner_is_same;
+  GetStruct()->belongs_to_current_thread =
       task_runner_belongs_to_current_thread;
-  struct_.struct_.belongs_to_thread = task_runner_belongs_to_thread;
-  struct_.struct_.post_task = task_runner_post_task;
-  struct_.struct_.post_delayed_task = task_runner_post_delayed_task;
+  GetStruct()->belongs_to_thread = task_runner_belongs_to_thread;
+  GetStruct()->post_task = task_runner_post_task;
+  GetStruct()->post_delayed_task = task_runner_post_delayed_task;
+}
+
+template<> CefRefPtr<CefTaskRunner> CefCppToC<CefTaskRunnerCppToC,
+    CefTaskRunner, cef_task_runner_t>::UnwrapDerived(CefWrapperType type,
+    cef_task_runner_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -151,3 +161,5 @@ template<> base::AtomicRefCount CefCppToC<CefTaskRunnerCppToC, CefTaskRunner,
     cef_task_runner_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefTaskRunnerCppToC, CefTaskRunner,
+    cef_task_runner_t>::kWrapperType = WT_TASK_RUNNER;

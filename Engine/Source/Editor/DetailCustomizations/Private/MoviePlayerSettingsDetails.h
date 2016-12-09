@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class IDetailChildrenBuilder;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+
 class FMoviePlayerSettingsDetails : public IDetailCustomization
 {
 public:

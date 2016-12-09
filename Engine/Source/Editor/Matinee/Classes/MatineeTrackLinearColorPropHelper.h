@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "MatineeTrackVectorPropHelper.h"
 #include "MatineeTrackLinearColorPropHelper.generated.h"
 
+class UInterpGroup;
+class UInterpTrack;
 
 UCLASS()
 class UMatineeTrackLinearColorPropHelper : public UMatineeTrackVectorPropHelper

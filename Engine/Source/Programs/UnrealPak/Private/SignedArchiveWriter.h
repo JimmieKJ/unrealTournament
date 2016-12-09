@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Serialization/Archive.h"
+#include "Serialization/MemoryWriter.h"
+#include "Math/BigInt.h"
+
 /**
  * Wrapper for writing and signing an archive
  */
@@ -22,8 +27,8 @@ class FSignedArchiveWriter : public FArchive
 	FEncryptionKey PublicKey;
 	/** Encryption key */
 	FEncryptionKey PrivateKey;
-	/** Signatures */
-	TArray<FEncryptedSignature> ChunkSignatures;
+	/** Hashes */
+	TArray<TPakChunkHash> ChunkHashes;
 
 	/** 
 	 * Serializes and signs a buffer

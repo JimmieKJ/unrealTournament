@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyNode.h"
+#include "DetailLayoutBuilderImpl.h"
+#include "ObjectPropertyNode.h"
+#include "DetailCategoryBuilderImpl.h"
 #include "PropertyHandleImpl.h"
 #include "PropertyEditorHelpers.h"
-#include "IPropertyUtilities.h"
+#include "StructurePropertyNode.h"
 #include "DetailMultiTopLevelObjectRootNode.h"
-#include "IDetailRootObjectCustomization.h"
 
 FDetailLayoutBuilderImpl::FDetailLayoutBuilderImpl(TSharedPtr<FComplexPropertyNode>& InRootNode, FClassToPropertyMap& InPropertyMap, const TSharedRef< class IPropertyUtilities >& InPropertyUtilities, const TSharedRef< IDetailsViewPrivate >& InDetailsView)
 	: RootNode( InRootNode )
@@ -479,6 +479,7 @@ void FDetailLayoutBuilderImpl::GetObjectsBeingCustomized( TArray< TWeakObjectPtr
 	OutObjects.Empty();
 
 	FObjectPropertyNode* RootObjectNode = RootNode.IsValid() ? RootNode.Pin()->AsObjectNode() : nullptr;
+
 	// The class to find properties in defaults to the class currently being customized
 	FName ClassName = CurrentCustomizationClass ? CurrentCustomizationClass->GetFName() : NAME_None;
 
@@ -513,6 +514,45 @@ void FDetailLayoutBuilderImpl::GetObjectsBeingCustomized( TArray< TWeakObjectPtr
 		{
 			OutObjects.Add(RootObjectNode->GetUObject(ObjectIndex));
 		}
+	}
+}
+
+void FDetailLayoutBuilderImpl::GetStructsBeingCustomized( TArray< TSharedPtr<FStructOnScope> >& OutStructs ) const
+{
+	OutStructs.Reset();
+
+	FStructurePropertyNode* RootStructNode = RootNode.IsValid() ? RootNode.Pin()->AsStructureNode() : nullptr;
+
+	// The class to find properties in defaults to the class currently being customized
+	FName ClassName = CurrentCustomizationClass ? CurrentCustomizationClass->GetFName() : NAME_None;
+
+	if(ClassName != NAME_None && CurrentCustomizationVariableName != NAME_None)
+	{
+		// If this fails there are no properties associated with the class name provided
+		FClassInstanceToPropertyMap* ClassInstanceToPropertyMapPtr = PropertyMap.Find(ClassName);
+
+		if(ClassInstanceToPropertyMapPtr)
+		{
+			FClassInstanceToPropertyMap& ClassInstanceToPropertyMap = *ClassInstanceToPropertyMapPtr;
+
+			FPropertyNodeMap* PropertyNodeMapPtr = ClassInstanceToPropertyMap.Find(CurrentCustomizationVariableName);
+
+			if(PropertyNodeMapPtr)
+			{
+				FPropertyNodeMap& PropertyNodeMap = *PropertyNodeMapPtr;
+				FComplexPropertyNode* ParentComplexProperty = PropertyNodeMap.ParentProperty ? PropertyNodeMap.ParentProperty->AsComplexNode() : nullptr;
+				FStructurePropertyNode* StructureNode = ParentComplexProperty ? ParentComplexProperty->AsStructureNode() : nullptr;
+				if(StructureNode)
+				{
+					OutStructs.Add(StructureNode->GetStructData());
+				}
+			}
+		}
+	}
+
+	if(RootStructNode)
+	{
+		OutStructs.Add(RootStructNode->GetStructData());
 	}
 }
 

@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Serialization/Archive.h"
+#include "Features/IModularFeature.h"
+#include "Modules/ModuleInterface.h"
+
+class FArchive;
+class UClass;
 
 /** Build module type, mirrored in UEBuildModule.cs, enum UEBuildModuletype */
 struct EBuildModuleType

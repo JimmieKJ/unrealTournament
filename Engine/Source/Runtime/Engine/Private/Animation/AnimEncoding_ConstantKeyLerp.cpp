@@ -4,11 +4,9 @@
 	AnimEncoding_ConstantKeyLerp.cpp: Skeletal mesh animation functions.
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "SoundDefinitions.h"
-#include "AnimationCompression.h"
 #include "AnimEncoding_ConstantKeyLerp.h"
-#include "AnimationUtils.h"
+#include "Serialization/MemoryReader.h"
+#include "Serialization/MemoryWriter.h"
 
 /**
  * Handles the ByteSwap of compressed rotation data on import

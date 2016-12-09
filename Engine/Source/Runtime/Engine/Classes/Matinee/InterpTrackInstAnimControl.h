@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrackInst.h"
 #include "InterpTrackInstAnimControl.generated.h"
+
+class UInterpTrack;
 
 UCLASS(MinimalAPI)
 class UInterpTrackInstAnimControl : public UInterpTrackInst

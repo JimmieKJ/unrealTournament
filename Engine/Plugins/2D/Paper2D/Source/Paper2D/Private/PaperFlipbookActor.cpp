@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
 #include "PaperFlipbookActor.h"
+#include "PaperFlipbookComponent.h"
+#include "PaperFlipbook.h"
 
 //////////////////////////////////////////////////////////////////////////
 // APaperFlipbookActor

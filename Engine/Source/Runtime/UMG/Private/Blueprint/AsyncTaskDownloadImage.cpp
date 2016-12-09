@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-
-#include "ImageWrapper.h"
-#include "Http.h"
-
 #include "Blueprint/AsyncTaskDownloadImage.h"
-#include "TimerManager.h"
+#include "Modules/ModuleManager.h"
+#include "Engine/Texture2D.h"
+#include "Engine/Texture2DDynamic.h"
+#include "Interfaces/IImageWrapperModule.h"
+#include "Interfaces/IHttpResponse.h"
+#include "HttpModule.h"
+
 
 //----------------------------------------------------------------------//
 // UAsyncTaskDownloadImage
@@ -14,18 +15,24 @@
 
 #if !UE_SERVER
 
-static void WriteRawToTexture(UTexture2D* NewTexture2D, const TArray<uint8>& RawData, bool bUseSRGB = true)
+static void WriteRawToTexture_RenderThread(FTexture2DDynamicResource* TextureResource, const TArray<uint8>& RawData, bool bUseSRGB = true)
 {
-	int32 Height = NewTexture2D->GetSizeY();
-	int32 Width = NewTexture2D->GetSizeX();
+	check(IsInRenderingThread());
 
-	// Fill in the base mip for the texture we created
-	uint8* MipData = (uint8*)NewTexture2D->PlatformData->Mips[0].BulkData.Lock(LOCK_READ_WRITE);
-	for ( int32 y=0; y < Height; y++ )
+	FTexture2DRHIParamRef TextureRHI = TextureResource->GetTexture2DRHI();
+
+	int32 Width = TextureRHI->GetSizeX();
+	int32 Height = TextureRHI->GetSizeY();
+
+	uint32 DestStride = 0;
+	uint8* DestData = reinterpret_cast<uint8*>(RHILockTexture2D(TextureRHI, 0, RLM_WriteOnly, DestStride, false, false));
+
+	for (int32 y = 0; y < Height; y++)
 	{
-		uint8* DestPtr = &MipData[( Height - 1 - y ) * Width * sizeof(FColor)];
-		const FColor* SrcPtr = &( (FColor*)( RawData.GetData() ) )[( Height - 1 - y ) * Width];
-		for ( int32 x=0; x < Width; x++ )
+		uint8* DestPtr = &DestData[(Height - 1 - y) * DestStride];
+
+		const FColor* SrcPtr = &((FColor*)(RawData.GetData()))[(Height - 1 - y) * Width];
+		for (int32 x = 0; x < Width; x++)
 		{
 			*DestPtr++ = SrcPtr->B;
 			*DestPtr++ = SrcPtr->G;
@@ -34,17 +41,8 @@ static void WriteRawToTexture(UTexture2D* NewTexture2D, const TArray<uint8>& Raw
 			SrcPtr++;
 		}
 	}
-	NewTexture2D->PlatformData->Mips[0].BulkData.Unlock();
 
-	// Set options
-	NewTexture2D->SRGB = bUseSRGB;
-#if WITH_EDITORONLY_DATA
-	NewTexture2D->CompressionNone = true;
-	NewTexture2D->MipGenSettings = TMGS_NoMipmaps;
-#endif
-	NewTexture2D->CompressionSettings = TC_EditorIcon;
-
-	NewTexture2D->UpdateResource();
+	RHIUnlockTexture2D(TextureRHI, 0, false, false);
 }
 
 #endif
@@ -105,9 +103,18 @@ void UAsyncTaskDownloadImage::HandleImageRequest(FHttpRequestPtr HttpRequest, FH
 				const TArray<uint8>* RawData = NULL;
 				if ( ImageWrapper->GetRaw(ERGBFormat::BGRA, 8, RawData) )
 				{
-					if ( UTexture2D* Texture = UTexture2D::CreateTransient(ImageWrapper->GetWidth(), ImageWrapper->GetHeight()) )
+					if ( UTexture2DDynamic* Texture = UTexture2DDynamic::Create(ImageWrapper->GetWidth(), ImageWrapper->GetHeight()) )
 					{
-						WriteRawToTexture(Texture, *RawData);
+						Texture->SRGB = true;
+						Texture->UpdateResource();
+
+						ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+							FWriteRawDataToTexture,
+							FTexture2DDynamicResource*, TextureResource, static_cast<FTexture2DDynamicResource*>(Texture->Resource),
+							TArray<uint8>, RawData, *RawData,
+						{
+							WriteRawToTexture_RenderThread(TextureResource, RawData);
+						});
 						
 						OnSuccess.Broadcast(Texture);
 						return;

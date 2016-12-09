@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "AllowWindowsPlatformTypes.h"
+#include "../WmfMediaPrivate.h"
 
+#if WMFMEDIA_SUPPORTED_PLATFORM
+
+#include "AllowWindowsPlatformTypes.h"
 
 class IWmfMediaResolverCallbacks;
 struct FWmfMediaResolveState;
@@ -80,3 +83,5 @@ private:
 
 
 #include "HideWindowsPlatformTypes.h"
+
+#endif

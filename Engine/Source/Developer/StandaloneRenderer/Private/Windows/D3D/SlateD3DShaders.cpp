@@ -1,11 +1,69 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "StandaloneRendererPrivate.h"
-
 #include "Windows/D3D/SlateD3DShaders.h"
 #include "Windows/D3D/SlateD3DRenderer.h"
 #include "Windows/D3D/SlateD3DRenderingPolicy.h"
+#include "Misc/Paths.h"
+
+// @return pointer to the D3DCompile function
+static pD3DCompile GetD3DCompileFunc()
+{
+	// Override default compiler path to newer dll
+	FString CompilerPath = FPaths::EngineDir();
+#if !PLATFORM_64BITS
+	CompilerPath.Append(TEXT("Binaries/ThirdParty/Windows/DirectX/x86/d3dcompiler_47.dll"));
+#else
+	CompilerPath.Append(TEXT("Binaries/ThirdParty/Windows/DirectX/x64/d3dcompiler_47.dll"));
+#endif
+	static bool bHasCompiler = false;
+	static HMODULE CompilerDLL = 0;
+
+	if (bHasCompiler == false)
+	{
+		CompilerDLL = LoadLibrary(*CompilerPath);
+	}
+
+	if (CompilerDLL)
+	{
+		return (pD3DCompile)(void*)GetProcAddress(CompilerDLL, "D3DCompile");
+	}
+
+	// D3D SDK we compiled with (usually D3DCompiler_43.dll from windows folder)
+	return &D3DCompile;
+}
+
+class StandaloneD3DIncluder: public ID3DInclude
+{
+	public:
+		STDMETHOD(Open)(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFileName, LPCVOID pParentData, LPCVOID* ppData, uint32* pBytes) override
+		{
+			FString FileName(ANSI_TO_TCHAR(pFileName));
+			FString IncludePath = FPaths::EngineDir();
+			IncludePath.Append(TEXT("Shaders/StandaloneRenderer/D3D/"));
+			IncludePath.Append(FileName);
+
+			TArray<uint8>* ShaderFilePtr = new TArray<uint8>();
+			FFileHelper::LoadFileToArray(*ShaderFilePtr, *IncludePath);
+
+			*ppData = ShaderFilePtr->GetData();
+			*pBytes = ShaderFilePtr->Num();
+
+			IncludeMap.Add(*ppData, ShaderFilePtr);
+
+			return S_OK;
+		}
+
+		STDMETHOD(Close)(LPCVOID pData) override
+		{
+			TArray<uint8>* ShaderFilePtr = IncludeMap.FindChecked(pData);
+			IncludeMap.Remove(pData);
+			delete ShaderFilePtr;
+
+			return S_OK;
+		}
+
+		TMap<LPCVOID, TArray<uint8>*>   IncludeMap;
+};
 
 static void CompileShader( const FString& Filename, const FString& EntryPoint, const FString& ShaderModel, TRefCountPtr<ID3DBlob>& OutBlob )
 {
@@ -16,8 +74,15 @@ static void CompileShader( const FString& Filename, const FString& EntryPoint, c
 	ShaderFlags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
 #endif
 
+	pD3DCompile D3DCompilerFunc = GetD3DCompileFunc();
+
+	StandaloneD3DIncluder Includer;
+
+	TArray<uint8> ShaderFile;
+	FFileHelper::LoadFileToArray(ShaderFile, *Filename);
+
 	TRefCountPtr<ID3DBlob> ErrorBlob;
-	HRESULT Hr = D3DX11CompileFromFile( *Filename, NULL, NULL, TCHAR_TO_ANSI(*EntryPoint), TCHAR_TO_ANSI(*ShaderModel), ShaderFlags, 0, NULL, OutBlob.GetInitReference(), ErrorBlob.GetInitReference(), NULL );
+	HRESULT Hr = D3DCompilerFunc(ShaderFile.GetData(), ShaderFile.Num(), NULL, NULL, &Includer, TCHAR_TO_ANSI(*EntryPoint), TCHAR_TO_ANSI(*ShaderModel), ShaderFlags, 0, OutBlob.GetInitReference(), ErrorBlob.GetInitReference());
 	if( FAILED(Hr) )
 	{
 		if( ErrorBlob.GetReference() )
@@ -100,15 +165,16 @@ void FSlateD3DVS::BindParameters()
 {
 	UpdateParameters();
 
-	if( ShaderBindings.ResourceViews.Num() > 0 )
+	int32 NumViews = ShaderBindings.ResourceViews.Num();
+	if( NumViews > 0 )
 	{
-		ID3D11ShaderResourceView** const Views = new ID3D11ShaderResourceView*[ ShaderBindings.ResourceViews.Num() ];
-		for( int32 I = 0; I < ShaderBindings.ResourceViews.Num(); ++I )
+		ID3D11ShaderResourceView** const Views = new ID3D11ShaderResourceView*[ NumViews ];
+		for( int32 I = 0; I < NumViews; ++I )
 		{
 			Views[I] = ShaderBindings.ResourceViews[I]->GetParameter().GetReference();
 		}
 
-		GD3DDeviceContext->VSSetShaderResources(0, ShaderBindings.ResourceViews.Num(), Views);
+		GD3DDeviceContext->VSSetShaderResources(0, NumViews, Views);
 
 		delete[] Views;
 	}
@@ -194,28 +260,32 @@ void FSlateD3DPS::BindParameters()
 {
 	UpdateParameters();
 
-	if( ShaderBindings.ResourceViews.Num() )
+	int32 NumViews = ShaderBindings.ResourceViews.Num();
+
+	if( NumViews )
 	{
-		ID3D11ShaderResourceView** const Views = new ID3D11ShaderResourceView*[ ShaderBindings.ResourceViews.Num() ];
-		for( int32 I = 0; I < ShaderBindings.ResourceViews.Num(); ++I )
+		ID3D11ShaderResourceView** const Views = new ID3D11ShaderResourceView*[ NumViews ];
+		for( int32 I = 0; I < NumViews; ++I )
 		{
 			Views[I] = ShaderBindings.ResourceViews[I]->GetParameter().GetReference();
 		}
 
-		GD3DDeviceContext->PSSetShaderResources(0, ShaderBindings.ResourceViews.Num(), Views);
+		GD3DDeviceContext->PSSetShaderResources(0, NumViews, Views);
 
 		delete[] Views;
 	}
 
-	if( ShaderBindings.ConstantBuffers.Num() )
+	int32 NumBuffers = ShaderBindings.ConstantBuffers.Num();
+
+	if( NumBuffers )
 	{
-		ID3D11Buffer** const ConstantBuffers = new ID3D11Buffer*[ ShaderBindings.ConstantBuffers.Num()  ];
-		for( int32 I = 0; I < ShaderBindings.ConstantBuffers.Num(); ++I )
+		ID3D11Buffer** const ConstantBuffers = new ID3D11Buffer*[ NumBuffers ];
+		for( int32 I = 0; I < NumBuffers; ++I )
 		{
 			ConstantBuffers[I] = ShaderBindings.ConstantBuffers[I]->GetParameter().GetReference();
 		}
 
-		GD3DDeviceContext->PSSetConstantBuffers(0, ShaderBindings.ConstantBuffers.Num(), ConstantBuffers);
+		GD3DDeviceContext->PSSetConstantBuffers(0, NumBuffers, ConstantBuffers);
 
 		delete[] ConstantBuffers;
 	}	

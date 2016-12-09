@@ -322,7 +322,7 @@ void PositionOnlyMain(
 #endif // #if ONEPASS_POINTLIGHT_SHADOW
 
 #if INTERPOLATE_POSITION
-	OutputParameters.PixelPosition = WorldPos;
+	OutParameters.PixelPosition = WorldPos;
 #endif
 }
 

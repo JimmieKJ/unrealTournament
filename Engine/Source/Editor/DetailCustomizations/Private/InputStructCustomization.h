@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+
 /**
  * Customizes an InputAxisConfigEntry struct to display it more simply
  */

@@ -1,29 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "MovieScene.h"
-#include "MovieSceneSection.h"
-#include "ISequencerSection.h"
-#include "PropertyEditorModule.h"
-#include "PropertyHandle.h"
-#include "MovieSceneTrack.h"
-#include "MovieSceneParticleTrack.h"
-#include "ScopedTransaction.h"
-#include "ISequencerObjectChangeListener.h"
-#include "ISectionLayoutBuilder.h"
-#include "IKeyArea.h"
-#include "MovieSceneTrackEditor.h"
-#include "ParticleTrackEditor.h"
-#include "MovieSceneParticleSection.h"
-#include "CommonMovieSceneTools.h"
-#include "AssetRegistryModule.h"
+#include "TrackEditors/ParticleTrackEditor.h"
+#include "Rendering/DrawElements.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Curves/IntegralCurve.h"
+#include "SequencerSectionPainter.h"
+#include "EditorStyleSet.h"
+#include "Editor/UnrealEdEngine.h"
 #include "Particles/Emitter.h"
-#include "Particles/ParticleEmitter.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "UnrealEdGlobals.h"
+#include "Tracks/MovieSceneParticleTrack.h"
+#include "ISectionLayoutBuilder.h"
+#include "Sections/MovieSceneParticleSection.h"
+#include "CommonMovieSceneTools.h"
 #include "Particles/ParticleLODLevel.h"
 #include "Particles/ParticleModuleRequired.h"
 #include "EnumKeyArea.h"
-#include "MatineeImportTools.h"
 #include "Matinee/InterpTrackToggle.h"
+#include "MatineeImportTools.h"
 
 
 namespace AnimatableParticleEditorConstants
@@ -113,20 +108,22 @@ int32 FParticleSection::OnPaintSection( FSequencerSectionPainter& InPainter ) co
 
 			if ( ObjectHandle.IsValid() )
 			{
-				UObject* BoundObject = OwningSequencer->GetFocusedMovieSceneSequenceInstance()->FindObject( ObjectHandle, *OwningSequencer );
-				UParticleSystemComponent* ParticleSystemComponent = Cast<UParticleSystemComponent>(BoundObject);
-				if(AEmitter* ParticleSystemActor = Cast<AEmitter>(BoundObject))
+				for (TWeakObjectPtr<> Object : OwningSequencer->FindObjectsInCurrentSequence(ObjectHandle))
 				{
-					ParticleSystemComponent = ParticleSystemActor->GetParticleSystemComponent();
-				}
-
-				if ( ParticleSystemComponent != nullptr && ParticleSystemComponent->Template != nullptr )
-				{
-					for ( UParticleEmitter* Emitter : ParticleSystemComponent->Template->Emitters )
+					UParticleSystemComponent* ParticleSystemComponent = Cast<UParticleSystemComponent>(Object.Get());
+					if(AEmitter* ParticleSystemActor = Cast<AEmitter>(Object.Get()))
 					{
-						UParticleModuleRequired* RequiredModule = Emitter->GetLODLevel( 0 )->RequiredModule;
-						bIsLooping |= RequiredModule->EmitterLoops == 0;
-						LastEmitterEndTime = FMath::Max( LastEmitterEndTime, RequiredModule->EmitterDelay + RequiredModule->EmitterDuration );
+						ParticleSystemComponent = ParticleSystemActor->GetParticleSystemComponent();
+					}
+
+					if ( ParticleSystemComponent != nullptr && ParticleSystemComponent->Template != nullptr )
+					{
+						for ( UParticleEmitter* Emitter : ParticleSystemComponent->Template->Emitters )
+						{
+							UParticleModuleRequired* RequiredModule = Emitter->GetLODLevel( 0 )->RequiredModule;
+							bIsLooping |= RequiredModule->EmitterLoops == 0;
+							LastEmitterEndTime = FMath::Max( LastEmitterEndTime, RequiredModule->EmitterDelay + RequiredModule->EmitterDuration );
+						}
 					}
 				}
 			}
@@ -277,7 +274,7 @@ bool FParticleTrackEditor::SupportsType( TSubclassOf<UMovieSceneTrack> Type ) co
 }
 
 
-TSharedRef<ISequencerSection> FParticleTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
+TSharedRef<ISequencerSection> FParticleTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding )
 {
 	check( SupportsType( SectionObject.GetOuter()->GetClass() ) );
 

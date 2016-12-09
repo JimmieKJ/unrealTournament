@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ModuleManager.h"
+#include "ModuleInterface.h"
 #include "InputCoreTypes.h"
+#include "Leap_NoPI.h"
 
 /**
  * The public interface to this module.  In most cases, this interface is only public to sibling modules 

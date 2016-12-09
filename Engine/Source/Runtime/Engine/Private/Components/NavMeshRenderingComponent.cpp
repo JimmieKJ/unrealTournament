@@ -4,14 +4,19 @@
 	NavMeshRenderingComponent.cpp: A component that renders a nav mesh.
  =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "DebugRenderSceneProxy.h"
-#include "NavigationOctree.h"
-#include "AI/Navigation/RecastHelpers.h"
-#include "AI/Navigation/RecastNavMeshGenerator.h"
-#include "AI/Navigation/NavigationSystem.h"
 #include "AI/Navigation/NavMeshRenderingComponent.h"
+#include "EngineGlobals.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/Canvas.h"
+#include "Engine/CollisionProfile.h"
+#include "Engine/Engine.h"
+#include "AI/NavigationOctree.h"
+#include "AI/Navigation/RecastHelpers.h"
+#include "AI/Navigation/RecastNavMesh.h"
+#include "AI/Navigation/RecastNavMeshGenerator.h"
 #include "Debug/DebugDrawService.h"
+#include "SceneManagement.h"
+#include "TimerManager.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -37,8 +42,8 @@ namespace FNavMeshRenderingHelpers
 {
 	bool LineInView(const FVector& Start, const FVector& End, const FSceneView* View, bool bUseDistanceCheck)
 	{
-		if (FVector::DistSquared(Start, View->ViewMatrices.ViewOrigin) > ARecastNavMesh::GetDrawDistanceSq() ||
-			FVector::DistSquared(End, View->ViewMatrices.ViewOrigin) > ARecastNavMesh::GetDrawDistanceSq())
+		if (FVector::DistSquared(Start, View->ViewMatrices.GetViewOrigin()) > ARecastNavMesh::GetDrawDistanceSq() ||
+			FVector::DistSquared(End, View->ViewMatrices.GetViewOrigin()) > ARecastNavMesh::GetDrawDistanceSq())
 		{
 			return false;
 		}
@@ -58,8 +63,8 @@ namespace FNavMeshRenderingHelpers
 	bool LineInCorrectDistance(const FVector& Start, const FVector& End, const FSceneView* View, float CorrectDistance = -1)
 	{
 		const float MaxDistanceSq = (CorrectDistance > 0) ? FMath::Square(CorrectDistance) : ARecastNavMesh::GetDrawDistanceSq();
-		return FVector::DistSquared(Start, View->ViewMatrices.ViewOrigin) < MaxDistanceSq &&
-			FVector::DistSquared(End, View->ViewMatrices.ViewOrigin) < MaxDistanceSq;
+		return FVector::DistSquared(Start, View->ViewMatrices.GetViewOrigin()) < MaxDistanceSq &&
+			FVector::DistSquared(End, View->ViewMatrices.GetViewOrigin()) < MaxDistanceSq;
 	}
 
 	FVector EvalArc(const FVector& Org, const FVector& Dir, const float h, const float u)
@@ -903,19 +908,29 @@ FNavMeshSceneProxy::~FNavMeshSceneProxy()
 	VertexFactory.ReleaseResource();
 }
 
-void FNavMeshSceneProxy::RegisterDebugDrawDelgate()
+#if WITH_RECAST && !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+void FNavMeshDebugDrawDelegateHelper::RegisterDebugDrawDelgate()
 {
-	DebugTextDrawingDelegate = FDebugDrawDelegate::CreateRaw(this, &FNavMeshSceneProxy::DrawDebugLabels);
-	DebugTextDrawingDelegateHandle = UDebugDrawService::Register(TEXT("Navigation"), DebugTextDrawingDelegate);
-}
-
-void FNavMeshSceneProxy::UnregisterDebugDrawDelgate()
-{
-	if (DebugTextDrawingDelegate.IsBound())
+	ensureMsgf(State != RegisteredState, TEXT("RegisterDebugDrawDelgate is already Registered!"));
+	if (State == InitializedState)
 	{
-		UDebugDrawService::Unregister(DebugTextDrawingDelegateHandle);
+		DebugTextDrawingDelegate = FDebugDrawDelegate::CreateRaw(this, &FNavMeshDebugDrawDelegateHelper::DrawDebugLabels);
+		DebugTextDrawingDelegateHandle = UDebugDrawService::Register(TEXT("Navigation"), DebugTextDrawingDelegate);
+		State = RegisteredState;
 	}
 }
+
+void FNavMeshDebugDrawDelegateHelper::UnregisterDebugDrawDelgate()
+{
+	ensureMsgf(State != InitializedState, TEXT("UnegisterDebugDrawDelgate is in an invalid State: %i !"), State);
+	if (State == RegisteredState)
+	{
+		check(DebugTextDrawingDelegate.IsBound());
+		UDebugDrawService::Unregister(DebugTextDrawingDelegateHandle);
+		State = InitializedState;
+	}
+}
+#endif
 
 void FNavMeshSceneProxy::DrawDebugBox(FPrimitiveDrawInterface* PDI, FVector const& Center, FVector const& Box, FColor const& Color) const
 {
@@ -1093,7 +1108,8 @@ void FNavMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>&
 	}
 }
 
-void FNavMeshSceneProxy::DrawDebugLabels(UCanvas* Canvas, APlayerController*)
+#if WITH_RECAST && !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+void FNavMeshDebugDrawDelegateHelper::DrawDebugLabels(UCanvas* Canvas, APlayerController*)
 {
 	if (!Canvas)
 	{
@@ -1101,7 +1117,7 @@ void FNavMeshSceneProxy::DrawDebugLabels(UCanvas* Canvas, APlayerController*)
 	}
 
 	const bool bVisible = (Canvas->SceneView && !!Canvas->SceneView->Family->EngineShowFlags.Navigation) || bForceRendering;
-	if (!bVisible || ProxyData.bNeedsNewData || ProxyData.DebugLabels.Num() == 0)
+	if (!bVisible || bNeedsNewData || DebugLabels.Num() == 0)
 	{
 		return;
 	}
@@ -1110,8 +1126,8 @@ void FNavMeshSceneProxy::DrawDebugLabels(UCanvas* Canvas, APlayerController*)
 	Canvas->SetDrawColor(FColor::White);
 	const FSceneView* View = Canvas->SceneView;
 	UFont* Font = GEngine->GetSmallFont();
-	const FNavMeshSceneProxyData::FDebugText* DebugText = ProxyData.DebugLabels.GetData();
-	for (int32 Idx = 0; Idx < ProxyData.DebugLabels.Num(); ++Idx, ++DebugText)
+	const FNavMeshSceneProxyData::FDebugText* DebugText = DebugLabels.GetData();
+	for (int32 Idx = 0; Idx < DebugLabels.Num(); ++Idx, ++DebugText)
 	{
 		if (View->ViewFrustum.IntersectSphere(DebugText->Location, 1.0f))
 		{
@@ -1122,6 +1138,7 @@ void FNavMeshSceneProxy::DrawDebugLabels(UCanvas* Canvas, APlayerController*)
 
 	Canvas->SetDrawColor(OldDrawColor);
 }
+#endif
 
 FPrimitiveViewRelevance FNavMeshSceneProxy::GetViewRelevance(const FSceneView* View) const
 {
@@ -1175,8 +1192,7 @@ UNavMeshRenderingComponent::UNavMeshRenderingComponent(const FObjectInitializer&
 	: Super(ObjectInitializer)
 {
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-	AlwaysLoadOnClient = false;
-	AlwaysLoadOnServer = false;
+	bIsEditorOnly = true;
 	bSelectable = false;
 	bCollectNavigationData = false;
 }
@@ -1274,7 +1290,7 @@ void UNavMeshRenderingComponent::OnUnregister()
 FPrimitiveSceneProxy* UNavMeshRenderingComponent::CreateSceneProxy()
 {
 #if WITH_RECAST && !UE_BUILD_SHIPPING && !UE_BUILD_TEST
-	FPrimitiveSceneProxy* NavMeshSceneProxy = nullptr;
+	FNavMeshSceneProxy* NavMeshSceneProxy = nullptr;
 
 	const bool bShowNavigation = IsNavigationShowFlagSet(GetWorld());
 
@@ -1294,6 +1310,12 @@ FPrimitiveSceneProxy* UNavMeshRenderingComponent::CreateSceneProxy()
 			NavMeshSceneProxy = new FNavMeshSceneProxy(this, &ProxyData);
 		}
 	}
+
+	if (NavMeshSceneProxy)
+	{
+		NavMeshDebugDrawDelgateManager.InitDelegateHelper(NavMeshSceneProxy);
+		NavMeshDebugDrawDelgateManager.ReregisterDebugDrawDelgate();
+	}
 	return NavMeshSceneProxy;
 #else
 	return nullptr;
@@ -1305,20 +1327,14 @@ void UNavMeshRenderingComponent::CreateRenderState_Concurrent()
 	Super::CreateRenderState_Concurrent();
 
 #if WITH_RECAST && !UE_BUILD_SHIPPING && !UE_BUILD_TEST
-	if (SceneProxy)
-	{
-		static_cast<FNavMeshSceneProxy*>(SceneProxy)->RegisterDebugDrawDelgate();
-	}
+	NavMeshDebugDrawDelgateManager.RegisterDebugDrawDelgate();
 #endif
 }
 
 void UNavMeshRenderingComponent::DestroyRenderState_Concurrent()
 {
 #if WITH_RECAST && !UE_BUILD_SHIPPING && !UE_BUILD_TEST
-	if (SceneProxy)
-	{
-		static_cast<FNavMeshSceneProxy*>(SceneProxy)->UnregisterDebugDrawDelgate();
-	}
+	NavMeshDebugDrawDelgateManager.UnregisterDebugDrawDelgate();
 #endif
 
 	Super::DestroyRenderState_Concurrent();

@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SynthBenchmarkPrivatePCH.h"
+#include "CoreTypes.h"
+#include "Math/Vector.h"
+#include "Math/RandomStream.h"
 
 // simple float ALU heavy (some branching) benchmark
 // some dependency on our library (not ideal)

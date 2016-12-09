@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,11 +28,9 @@ class CefKeyboardHandlerCToCpp
     : public CefCToCpp<CefKeyboardHandlerCToCpp, CefKeyboardHandler,
         cef_keyboard_handler_t> {
  public:
-  explicit CefKeyboardHandlerCToCpp(cef_keyboard_handler_t* str)
-      : CefCToCpp<CefKeyboardHandlerCToCpp, CefKeyboardHandler,
-          cef_keyboard_handler_t>(str) {}
+  CefKeyboardHandlerCToCpp();
 
-  // CefKeyboardHandler methods
+  // CefKeyboardHandler methods.
   bool OnPreKeyEvent(CefRefPtr<CefBrowser> browser, const CefKeyEvent& event,
       CefEventHandle os_event, bool* is_keyboard_shortcut) override;
   bool OnKeyEvent(CefRefPtr<CefBrowser> browser, const CefKeyEvent& event,
@@ -41,4 +39,3 @@ class CefKeyboardHandlerCToCpp
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_KEYBOARD_HANDLER_CTOCPP_H_
-

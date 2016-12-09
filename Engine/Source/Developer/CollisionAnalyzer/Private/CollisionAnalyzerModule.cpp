@@ -1,8 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CollisionAnalyzerPCH.h"
+#include "CollisionAnalyzerModule.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "CollisionAnalyzer.h"
+#include "CollisionAnalyzerStyle.h"
+#include "CollisionAnalyzerLog.h"
+#include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 namespace CollisionAnalyzerModule
 {

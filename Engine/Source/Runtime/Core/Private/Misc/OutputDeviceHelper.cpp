@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "ExceptionHandling.h"
-#include "VarargsHelper.h"
-#include "OutputDeviceHelper.h"
+#include "Misc/OutputDeviceHelper.h"
+#include "Misc/DateTime.h"
+#include "HAL/PlatformTime.h"
+#include "Containers/StringConv.h"
+#include "CoreGlobals.h"
 
 const TCHAR* FOutputDeviceHelper::VerbosityToString(ELogVerbosity::Type Verbosity)
 {

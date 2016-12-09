@@ -2,8 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node.h"
 #include "K2Node_ConvertAsset.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UEdGraph;
+class UEdGraphPin;
 
 UCLASS(MinimalAPI)
 class UK2Node_ConvertAsset : public UK2Node

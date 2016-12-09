@@ -5,7 +5,14 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Builders/EditorBrushBuilder.h"
 #include "ConeBuilder.generated.h"
+
+class ABrush;
 
 UCLASS(MinimalAPI, autoexpandcategories=BrushSettings, EditInlineNew, meta=(DisplayName="Cone"))
 class UConeBuilder : public UEditorBrushBuilder

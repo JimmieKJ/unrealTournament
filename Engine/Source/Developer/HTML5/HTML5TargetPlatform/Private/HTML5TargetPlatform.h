@@ -6,9 +6,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HTML5/HTML5PlatformProperties.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Common/TargetPlatformBase.h"
+#include "Developer/HTML5/HTML5TargetPlatform/Private/HTML5TargetDevice.h"
+
 #if WITH_ENGINE
 #include "StaticMeshResources.h"
 #endif // WITH_ENGINE
+
+class UTextureLODSettings;
 
 /**
  * Implements the HTML5 target platform.

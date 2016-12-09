@@ -1,9 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "DirectoryPathStructCustomization.h"
+#include "Misc/PackageName.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "EditorDirectories.h"
+#include "DetailWidgetRow.h"
 #include "DesktopPlatformModule.h"
-#include "ContentBrowserDelegates.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "DirectoryPathStructCustomization"

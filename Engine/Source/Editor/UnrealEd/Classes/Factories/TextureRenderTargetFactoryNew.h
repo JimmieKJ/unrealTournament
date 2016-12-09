@@ -5,6 +5,10 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "TextureRenderTargetFactoryNew.generated.h"
 
 UCLASS(MinimalAPI, hidecategories=(Object, Texture))

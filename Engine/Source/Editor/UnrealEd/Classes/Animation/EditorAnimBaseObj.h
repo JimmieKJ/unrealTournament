@@ -6,9 +6,14 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "EditorAnimBaseObj.generated.h"
 
 class UAnimSequenceBase;
+struct FPropertyChangedEvent;
 
 DECLARE_DELEGATE_TwoParams( FOnAnimObjectChange, class UObject*, bool)
 

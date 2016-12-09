@@ -2,14 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Framework/SlateDelegates.h"
+#include "UObject/StructOnScope.h"
+#include "PropertyHandle.h"
+#include "IDetailCustomNodeBuilder.h"
 
-class IDetailPropertyRow;
-class IDetailCategoryBuilder;
 class FDetailWidgetRow;
 class IDetailGroup;
-class IDetailCustomNodeBuilder;
-class IPropertyHandle;
-
+class IDetailPropertyRow;
 
 /** The location of a property within a category */
 namespace EPropertyLocation
@@ -92,6 +94,15 @@ public:
 	 * @return A property row for customizing the property or NULL if the property could not be found
 	 */
 	virtual IDetailPropertyRow* AddExternalProperty( TSharedPtr<FStructOnScope> StructData, FName PropertyName, EPropertyLocation::Type Location = EPropertyLocation::Default ) = 0;
+
+	/**
+	 * Adds all properties for the specified external structure to this category
+	 *
+	 * @param StructData		External struct data to add to the root
+	 * @param Location			The location within the category where the properties are to be shown
+	 * @return Array of all properties added to this category
+	 */
+	virtual TArray<TSharedPtr<IPropertyHandle>> AddExternalProperties( TSharedRef<FStructOnScope> StructData, EPropertyLocation::Type Location = EPropertyLocation::Default ) = 0;
 
 	/**
 	 * Adds a custom widget row to the category

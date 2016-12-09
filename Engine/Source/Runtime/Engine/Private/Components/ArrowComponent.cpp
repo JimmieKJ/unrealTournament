@@ -1,8 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "DynamicMeshBuilder.h"
+#include "Components/ArrowComponent.h"
+#include "EngineGlobals.h"
+#include "RHI.h"
+#include "RenderingThread.h"
+#include "RenderResource.h"
+#include "VertexFactory.h"
 #include "LocalVertexFactory.h"
+#include "PrimitiveViewRelevance.h"
+#include "PrimitiveSceneProxy.h"
+#include "Engine/Engine.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
+#include "Engine/CollisionProfile.h"
+#include "SceneManagement.h"
+#include "DynamicMeshBuilder.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 
 #define DEFAULT_SCREEN_SIZE	(0.0025f)
 #define ARROW_SCALE			(80.0f)
@@ -184,9 +198,9 @@ public:
 
 				// Calculate the view-dependent scaling factor.
 				float ViewScale = 1.0f;
-				if (bIsScreenSizeScaled && (View->ViewMatrices.ProjMatrix.M[3][3] != 1.0f))
+				if (bIsScreenSizeScaled && (View->ViewMatrices.GetProjectionMatrix().M[3][3] != 1.0f))
 				{
-					const float ZoomFactor = FMath::Min<float>(View->ViewMatrices.ProjMatrix.M[0][0], View->ViewMatrices.ProjMatrix.M[1][1]);
+					const float ZoomFactor = FMath::Min<float>(View->ViewMatrices.GetProjectionMatrix().M[0][0], View->ViewMatrices.GetProjectionMatrix().M[1][1]);
 					if (ZoomFactor != 0.0f)
 					{
 						const float Radius = View->WorldToScreen(Origin).W * (ScreenSize / ZoomFactor);

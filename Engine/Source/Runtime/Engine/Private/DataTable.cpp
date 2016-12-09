@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Engine/DataTable.h"
+#include "Serialization/PropertyLocalizationDataGathering.h"
+#include "Serialization/ObjectWriter.h"
+#include "Serialization/ObjectReader.h"
+#include "UObject/LinkerLoad.h"
 #include "DataTableCSV.h"
+#include "Policies/PrettyJsonPrintPolicy.h"
 #include "DataTableJSON.h"
 #include "EditorFramework/AssetImportData.h"
 
@@ -58,7 +62,7 @@ void UDataTable::LoadStructData(FArchive& Ar)
 		Ar << RowName;
 
 		// Load row data
-		uint8* RowData = (uint8*)FMemory::Malloc(LoadUsingStruct->PropertiesSize);
+		uint8* RowData = (uint8*)FMemory::Malloc(LoadUsingStruct->GetStructureSize());
 
 		// And be sure to call DestroyScriptStruct later
 		LoadUsingStruct->InitializeStruct(RowData);
@@ -99,21 +103,21 @@ void UDataTable::SaveStructData(FArchive& Ar)
 	}
 }
 
+
+void UDataTable::GetPreloadDependencies(TArray<UObject*>& OutDeps)
+{
+	Super::GetPreloadDependencies(OutDeps);
+	OutDeps.Add(RowStruct);
+}
+
 void UDataTable::OnPostDataImported(TArray<FString>& OutCollectedImportProblems)
 {
 	if (RowStruct && RowStruct->IsChildOf(FTableRowBase::StaticStruct()))
 	{
-		static const FString ContextString(TEXT("UDataTable::OnPostDataImport"));
-		
-		TArray<FTableRowBase*> TableRowBaseRows;
-		GetAllRows(ContextString, TableRowBaseRows);
-
-		for (FTableRowBase* CurRow : TableRowBaseRows)
+		for (const TPair<FName, uint8*>& TableRowPair : RowMap)
 		{
-			if (CurRow)
-			{
-				CurRow->OnPostDataImport(OutCollectedImportProblems);
-			}
+			FTableRowBase* CurRow = reinterpret_cast<FTableRowBase*>(TableRowPair.Value);
+			CurRow->OnPostDataImport(this, TableRowPair.Key, OutCollectedImportProblems);
 		}
 	}
 }
@@ -178,17 +182,15 @@ void UDataTable::AddReferencedObjects(UObject* InThis, FReferenceCollector& Coll
 	Super::AddReferencedObjects( This, Collector );
 }
 
-SIZE_T UDataTable::GetResourceSize(EResourceSizeMode::Type Mode)
+void UDataTable::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	SIZE_T ResourceSize = Super::GetResourceSize(Mode);
+	Super::GetResourceSizeEx(CumulativeResourceSize);
 
-	ResourceSize += RowMap.GetAllocatedSize();
+	CumulativeResourceSize.AddDedicatedSystemMemoryBytes(RowMap.GetAllocatedSize());
 	if (RowStruct)
 	{
-		ResourceSize += RowMap.Num() * RowStruct->PropertiesSize;
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(RowMap.Num() * RowStruct->GetStructureSize());
 	}
-	
-	return ResourceSize;
 }
 
 void UDataTable::FinishDestroy()
@@ -607,6 +609,15 @@ bool FDataTableRowHandle::operator==(FDataTableRowHandle const& Other) const
 bool FDataTableRowHandle::operator != (FDataTableRowHandle const& Other) const
 {
 	return DataTable != Other.DataTable || RowName != Other.RowName;
+}
+
+void FDataTableRowHandle::PostSerialize(const FArchive& Ar)
+{
+	if (Ar.IsSaving() && !IsNull() && DataTable)
+	{
+		// Note which row we are pointing to for later searching
+		Ar.MarkSearchableName(DataTable, RowName);
+	}
 }
 
 bool FDataTableCategoryHandle::operator==(FDataTableCategoryHandle const& Other) const

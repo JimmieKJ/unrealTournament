@@ -1,11 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DesktopPlatformPrivatePCH.h"
 #include "DesktopPlatformBase.h"
-#include "UProjectInfo.h"
-#include "EngineVersion.h"
-#include "ModuleManager.h"
-#include "Json.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "Misc/App.h"
+#include "Misc/EngineVersion.h"
+#include "Serialization/JsonTypes.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Modules/ModuleManager.h"
 
 
 #define LOCTEXT_NAMESPACE "DesktopPlatform"
@@ -587,7 +594,7 @@ bool FDesktopPlatformBase::CompileGameProject(const FString& RootDir, const FStr
 	}
 
 	// Append any other options
-	Arguments += " -editorrecompile -progress -noubtmakefiles -NoHotReloadFromIDE";
+	Arguments += " -editorrecompile -progress -NoHotReloadFromIDE";
 
 	// Run UBT
 	return RunUnrealBuildTool(LOCTEXT("CompilingProject", "Compiling project..."), RootDir, Arguments, Warn);
@@ -736,16 +743,6 @@ bool FDesktopPlatformBase::InvokeUnrealBuildToolSync(const FString& InCmdLinePar
 FProcHandle FDesktopPlatformBase::InvokeUnrealBuildToolAsync(const FString& InCmdLineParams, FOutputDevice &Ar, void*& OutReadPipe, void*& OutWritePipe, bool bSkipBuildUBT)
 {
 	FString CmdLineParams = InCmdLineParams;
-
-#if PLATFORM_WINDOWS
-	#if _MSC_VER >= 1900
-		CmdLineParams += TEXT(" -2015");
-	#elif _MSC_VER >= 1800
-		CmdLineParams += TEXT(" -2013");
-	#else
-		CmdLineParams += TEXT(" -2012");
-	#endif
-#endif // PLATFORM_WINDOWS
 
 	// UnrealBuildTool is currently always located in the Binaries/DotNET folder
 	FString ExecutableFileName = GetUnrealBuildToolExecutableFilename(FPaths::RootDir());
@@ -1159,7 +1156,9 @@ bool FDesktopPlatformBase::BuildUnrealBuildTool(const FString& RootDir, FOutputD
 		FString VCVarsBat;
 
 #if PLATFORM_WINDOWS
-	#if _MSC_VER >= 1900
+	#if _MSC_VER >= 1910
+		FPlatformMisc::GetVSComnTools(15, VCVarsBat);
+	#elif _MSC_VER >= 1900
 		FPlatformMisc::GetVSComnTools(14, VCVarsBat);
 	#elif _MSC_VER >= 1800
 		FPlatformMisc::GetVSComnTools(12, VCVarsBat);
@@ -1186,7 +1185,7 @@ bool FDesktopPlatformBase::BuildUnrealBuildTool(const FString& RootDir, FOutputD
 		BatchFileContents += FString::Printf(TEXT("msbuild /nologo /verbosity:quiet \"%s\" /property:Configuration=Development /property:Platform=AnyCPU"), *CsProjLocation);
 		FFileHelper::SaveStringToFile(BatchFileContents, *BuildBatchFile);
 
-		TCHAR CmdExePath[MAX_PATH];
+		TCHAR CmdExePath[PLATFORM_MAX_FILEPATH_LENGTH];
 		FPlatformMisc::GetEnvironmentVariable(TEXT("ComSpec"), CmdExePath, ARRAY_COUNT(CmdExePath));
 		CompilerExecutableFilename = CmdExePath;
 

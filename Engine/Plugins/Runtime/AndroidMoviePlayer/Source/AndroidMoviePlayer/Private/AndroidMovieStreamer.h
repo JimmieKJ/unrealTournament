@@ -2,9 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "MoviePlayer.h"
 #include "AndroidJavaMediaPlayer.h"
-#include "SlateBasics.h"
 #include "Slate/SlateTextures.h"
 
 // The actual streamer class
@@ -24,6 +24,8 @@ public:
 	virtual FString GetMovieName() override;
 	virtual bool IsLastMovieInPlaylist() override;
 
+	FOnCurrentMovieClipFinished OnCurrentMovieClipFinishedDelegate;
+	virtual FOnCurrentMovieClipFinished& OnCurrentMovieClipFinished() override { return OnCurrentMovieClipFinishedDelegate; }
 
 private:
 	/**

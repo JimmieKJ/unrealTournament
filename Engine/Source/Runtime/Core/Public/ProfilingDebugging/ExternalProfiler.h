@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Runtime/Core/Public/Features/IModularFeature.h"
+#include "CoreTypes.h"
+#include "UObject/NameTypes.h"
+#include "Features/IModularFeature.h"
 
 
 /**

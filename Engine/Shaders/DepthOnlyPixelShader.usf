@@ -39,7 +39,11 @@ void Main(
 	OutDepth = bApplyDepthOffset ? OutDepth : SvPosition.z;
 	#endif
 
-	GetMaterialCoverageAndClipping(MaterialParameters, PixelMaterialInputs);
+	#if MATERIALBLENDING_TRANSLUCENT
+		clip(GetMaterialOpacity(PixelMaterialInputs) - GetMaterialOpacityMaskClipValue());
+	#else
+		GetMaterialCoverageAndClipping(MaterialParameters, PixelMaterialInputs);
+	#endif
 #endif
 
 	OutColor = 0;

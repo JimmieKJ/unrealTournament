@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "AlembicLibraryPublicPCH.h"
+#include "CoreMinimal.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
 
 struct FAbcImportData;
 

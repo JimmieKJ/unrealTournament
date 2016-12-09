@@ -6,6 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SkeletalMeshTypes.h"
+
+class USkinnedMeshComponent;
+
 // smallest blend weight for vertex anims
 extern const float MinMorphTargetBlendWeight;
 // largest blend weight for vertex anims

@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GeometryCacheModulePrivatePCH.h"
 #include "GeometryCacheSceneProxy.h"
+#include "MaterialShared.h"
+#include "SceneManagement.h"
+#include "EngineGlobals.h"
+#include "Materials/Material.h"
+#include "Engine/Engine.h"
 #include "GeometryCacheComponent.h"
 #include "GeometryCacheMeshData.h"
 

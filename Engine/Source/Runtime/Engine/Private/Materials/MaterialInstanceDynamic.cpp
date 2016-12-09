@@ -4,8 +4,10 @@
 	MaterialInstanceDynamic.cpp: MaterialInstanceDynamic implementation.
 ==============================================================================*/
 
-#include "EnginePrivate.h"
-#include "MaterialInstanceSupport.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "UObject/Package.h"
+#include "Materials/MaterialInstanceSupport.h"
+#include "Engine/Texture.h"
 
 UMaterialInstanceDynamic::UMaterialInstanceDynamic(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -85,6 +87,14 @@ float UMaterialInstanceDynamic::K2_GetScalarParameterValue(FName ParameterName)
 
 void UMaterialInstanceDynamic::SetTextureParameterValue(FName ParameterName, UTexture* Value)
 {
+	// Save the texture renaming as it will be useful to remap the texture streaming data.
+	UTexture* RenamedTexture = NULL;
+	Super::GetTextureParameterValue(ParameterName, RenamedTexture);
+	if (Value && RenamedTexture && Value->GetFName() != RenamedTexture->GetFName())
+	{
+		RenamedTextures.FindOrAdd(Value->GetFName()).AddUnique(RenamedTexture->GetFName());
+	}
+
 	SetTextureParameterValueInternal(ParameterName,Value);
 }
 
@@ -291,4 +301,20 @@ void UMaterialInstanceDynamic::CopyParameterOverrides(UMaterialInstance* Materia
 	TextureParameterValues = MaterialInstance->TextureParameterValues;
 	FontParameterValues = MaterialInstance->FontParameterValues;
 	InitResources();
+}
+
+float UMaterialInstanceDynamic::GetTextureDensity(FName TextureName, const struct FMeshUVChannelInfo& UVChannelData) const
+{
+	float Density = Super::GetTextureDensity(TextureName, UVChannelData);
+
+	// Also try any renames. Note that even though it could be renamed, the texture could still be used by the parent.
+	const TArray<FName>* Renames = RenamedTextures.Find(TextureName);
+	if (Renames)
+	{
+		for (FName Rename : *Renames)
+		{
+			Density = FMath::Max<float>(Density, Super::GetTextureDensity(Rename, UVChannelData));
+		}
+	}
+	return Density;
 }

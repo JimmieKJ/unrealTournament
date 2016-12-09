@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "../WmfMediaPrivate.h"
 #include "IWmfMediaResolverCallbacks.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Misc/ScopeLock.h"
 
+#if WMFMEDIA_SUPPORTED_PLATFORM
+
+#include "AllowWindowsPlatformTypes.h"
 
 /** Enumerates media source resolve types. */
 enum class EWmfMediaResolveType
@@ -137,3 +141,5 @@ private:
 
 
 #include "HideWindowsPlatformTypes.h"
+
+#endif

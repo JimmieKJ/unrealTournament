@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Toolkits/AssetEditorToolkit.h"
+#include "Interfaces/ITextureEditorToolkit.h"
+#include "Modules/ModuleInterface.h"
+
+class UTexture;
 
 /**
  * Interface for texture editor modules.

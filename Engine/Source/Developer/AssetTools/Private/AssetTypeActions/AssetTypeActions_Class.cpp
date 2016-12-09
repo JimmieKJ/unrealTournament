@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
+#include "AssetTypeActions/AssetTypeActions_Class.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "AssetData.h"
+#include "HAL/FileManager.h"
+#include "EditorStyleSet.h"
 #include "SourceCodeNavigation.h"
+#include "AddToProjectConfig.h"
 #include "GameProjectGenerationModule.h"
-#include "KismetEditorUtilities.h"
+#include "Kismet2/KismetEditorUtilities.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -65,6 +70,8 @@ void FAssetTypeActions_Class::GetActions(const TArray<UObject*>& InObjects, FMen
 	FText NewDerivedBlueprintClassToolTip;
 	if(InObjects.Num() == 1)
 	{
+		check(BaseClass);
+
 		const FText BaseClassName = FText::FromName(BaseClass->GetFName());
 
 		NewDerivedCppClassLabel = FText::Format(LOCTEXT("Class_NewDerivedCppClassLabel_CreateFrom", "Create C++ class derived from {0}"), BaseClassName);

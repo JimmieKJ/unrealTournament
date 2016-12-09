@@ -2,13 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "PreviewScene.h"
 #include "PaperEditorViewportClient.h"
 #include "SpriteEditor/SpriteEditorSelections.h"
 
+class FCanvas;
+class FScopedTransaction;
+class FUICommandList;
 class UPaperSpriteComponent;
-class SEditorViewport;
-class FScopedTranaction;
 class UPaperTileSet;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnSingleTileIndexChanged, int32 /*NewIndex*/, int32 /*OldIndex*/);

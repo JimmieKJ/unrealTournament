@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "CollectionManagerTypes.h"
+
 class FTextFilterExpressionEvaluator;
+class ITextFilterExpressionContext;
 
 struct ECollectionVersion
 {

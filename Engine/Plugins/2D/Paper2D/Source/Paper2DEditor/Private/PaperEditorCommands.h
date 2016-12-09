@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Commands/Commands.h"
 #include "PaperStyle.h"
 
 class FPaperEditorCommands : public TCommands<FPaperEditorCommands>

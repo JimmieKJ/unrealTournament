@@ -42,6 +42,5 @@ public class EditorStyle : ModuleRules
 
 		// I'm told this is to improve compilation performance of this module
 		OptimizeCode = CodeOptimization.Never;
-		PCHUsage = ModuleRules.PCHUsageMode.NoSharedPCHs;
 	}
 }

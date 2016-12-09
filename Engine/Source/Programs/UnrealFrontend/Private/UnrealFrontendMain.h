@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /**
  * The application's main function.

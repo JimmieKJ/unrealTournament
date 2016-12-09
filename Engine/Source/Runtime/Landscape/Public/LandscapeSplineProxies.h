@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/UObjectGlobals.h"
+#include "HitProxies.h"
+
+class ULandscapeSplineSegment;
+
 //////////////////////////////////////////////////////////////////////////
 // LANDSCAPE SPLINES HIT PROXY
 
@@ -71,5 +77,10 @@ struct HLandscapeSplineProxy_Tangent : public HLandscapeSplineProxy
 	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::CardinalCross;
+	}
+
+	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override
+	{
+		Collector.AddReferencedObject( SplineSegment );
 	}
 };

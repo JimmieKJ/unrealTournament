@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Layout/Geometry.h"
+#include "Input/DragAndDrop.h"
+#include "Input/Reply.h"
+#include "Widgets/Views/STableRow.h"
+#include "NetcodeUnitTest.h"
 
 /**
  * SMultiSelectTableRow

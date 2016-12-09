@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "StackTracker.h"
+#include "Containers/StackTracker.h"
+#include "HAL/PlatformStackWalk.h"
+#include "Logging/LogMacros.h"
+#include "CoreGlobals.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogStackTracker, Log, All);

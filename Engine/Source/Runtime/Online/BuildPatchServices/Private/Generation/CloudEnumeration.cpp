@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "BuildPatchServicesPrivatePCH.h"
-#include "CloudEnumeration.h"
+#include "Generation/CloudEnumeration.h"
+#include "HAL/FileManager.h"
+#include "Misc/ScopeLock.h"
+#include "BuildPatchChunk.h"
+#include "BuildPatchManifest.h"
+#include "Async/Future.h"
+#include "Async/Async.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogCloudEnumeration, Log, All);
 DEFINE_LOG_CATEGORY(LogCloudEnumeration);
@@ -32,11 +37,11 @@ namespace BuildPatchServices
 		TMap<FSHAHash, TSet<FGuid>> FileInventory;
 		FStatsCollectorRef StatsCollector;
 		TFuture<void> Future;
-		volatile int64* StatManifestsLoaded;
-		volatile int64* StatManifestsRejected;
-		volatile int64* StatChunksEnumerated;
-		volatile int64* StatChunksRejected;
-		volatile int64* StatTotalTime;
+		volatile FStatsCollector::FAtomicValue* StatManifestsLoaded;
+		volatile FStatsCollector::FAtomicValue* StatManifestsRejected;
+		volatile FStatsCollector::FAtomicValue* StatChunksEnumerated;
+		volatile FStatsCollector::FAtomicValue* StatChunksRejected;
+		volatile FStatsCollector::FAtomicValue* StatTotalTime;
 	};
 
 	FCloudEnumeration::FCloudEnumeration(const FString& InCloudDirectory, const FDateTime& InManifestAgeThreshold, const FStatsCollectorRef& InStatsCollector)

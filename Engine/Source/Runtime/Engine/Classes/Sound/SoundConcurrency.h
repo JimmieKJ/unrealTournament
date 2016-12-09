@@ -2,8 +2,13 @@
 
 #pragma once
 
-#include "CoreUObject.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "SoundConcurrency.generated.h"
+
+class FAudioDevice;
+struct FActiveSound;
 
 UENUM()
 namespace EMaxConcurrentResolutionRule

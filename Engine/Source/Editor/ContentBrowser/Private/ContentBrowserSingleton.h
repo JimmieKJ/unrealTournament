@@ -3,9 +3,17 @@
 
 #pragma once
 
-class SContentBrowser;
-class FNativeClassHierarchy;
+#include "CoreMinimal.h"
+#include "AssetData.h"
+#include "IContentBrowserSingleton.h"
+
 class FCollectionAssetRegistryBridge;
+class FNativeClassHierarchy;
+class FSpawnTabArgs;
+class FTabManager;
+class FViewport;
+class SContentBrowser;
+class UFactory;
 
 #define MAX_CONTENT_BROWSERS 4
 

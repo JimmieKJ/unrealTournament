@@ -2,8 +2,16 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionVector.h"
 #include "Particles/Size/ParticleModuleSizeBase.h"
 #include "ParticleModuleSizeScale.generated.h"
+
+class UParticleEmitter;
+class UParticleLODLevel;
+struct FParticleEmitterInstance;
 
 UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "Size Scale"))
 class UParticleModuleSizeScale : public UParticleModuleSizeBase

@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MaterialEditorModule.h"
-#include "MaterialEditor.h"
 #include "SMaterialEditorTitleBar.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
 
 void SMaterialEditorTitleBar::Construct(const FArguments& InArgs)
 {

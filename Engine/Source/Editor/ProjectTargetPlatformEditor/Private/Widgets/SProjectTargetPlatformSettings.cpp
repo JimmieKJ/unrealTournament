@@ -1,7 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectTargetPlatformEditorPrivatePCH.h"
-#include "IProjectManager.h"
+#include "Widgets/SProjectTargetPlatformSettings.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "PlatformInfo.h"
+#include "GameProjectGenerationModule.h"
+#include "Interfaces/IProjectManager.h"
 
 #define LOCTEXT_NAMESPACE "SProjectTargetPlatformSettings"
 
@@ -14,8 +26,10 @@ void SProjectTargetPlatformSettings::Construct(const FArguments& InArgs)
 	{
 		if(PlatformInfo.IsVanilla() && PlatformInfo.PlatformType == PlatformInfo::EPlatformType::Game)
 		{
-			// @todo AllDesktop: Re-enable here
+#if !PLATFORM_WINDOWS
+			// @todo AllDesktop now only works on Windows (it can compile D3D shaders, and it can remote compile Metal shaders)
 			if (PlatformInfo.PlatformInfoName != TEXT("AllDesktop"))
+#endif
 			{
 				AvailablePlatforms.Add(&PlatformInfo);
 			}

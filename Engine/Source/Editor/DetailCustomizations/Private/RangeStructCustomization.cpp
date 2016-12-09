@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "RangeStructCustomization.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SComboBox.h"
+#include "DetailWidgetRow.h"
+#include "Editor.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 
 #define LOCTEXT_NAMESPACE "RangeStructCustomization"

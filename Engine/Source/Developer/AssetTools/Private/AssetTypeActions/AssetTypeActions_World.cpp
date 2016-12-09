@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
+#include "AssetTypeActions/AssetTypeActions_World.h"
+#include "Misc/PackageName.h"
+#include "ThumbnailRendering/WorldThumbnailInfo.h"
+#include "FileHelpers.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -8,8 +11,8 @@ void FAssetTypeActions_World::OpenAssetEditor( const TArray<UObject*>& InObjects
 {
 	for (auto ObjIt = InObjects.CreateConstIterator(); ObjIt; ++ObjIt)
 	{
-		auto World = Cast<UWorld>(*ObjIt);
-		if (World != NULL)
+		UWorld* World = Cast<UWorld>(*ObjIt);
+		if (World != nullptr && ensure(World->IsValidLowLevel()))
 		{
 			// If there are any unsaved changes to the current level, see if the user wants to save those first.
 			bool bPromptUserToSave = true;

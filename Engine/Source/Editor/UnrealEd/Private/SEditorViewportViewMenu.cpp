@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "SEditorViewportViewMenu.h"
-#include "SViewportToolBar.h"
-#include "SEditorViewport.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
 #include "EditorViewportCommands.h"
 
 #define LOCTEXT_NAMESPACE "EditorViewportViewMenu"
@@ -25,8 +24,6 @@ void SEditorViewportViewMenu::Construct( const FArguments& InArgs, TSharedRef<SE
 	);
 		
 }
-
-
 
 FText SEditorViewportViewMenu::GetViewMenuLabel() const
 {
@@ -80,12 +77,16 @@ FText SEditorViewportViewMenu::GetViewMenuLabel() const
 				Label = LOCTEXT("ViewMenuTitle_PrimitiveDistanceAccuracy", "Primitive Distance Accuracy");
 				break;
 
-			case VMI_MeshTexCoordSizeAccuracy:
-				Label = LOCTEXT("ViewMenuTitle_MeshTexCoordSizeAccuracy", "Mesh Texture Coordinate Size Accuracy");
+			case VMI_MeshUVDensityAccuracy:
+				Label = LOCTEXT("ViewMenuTitle_MeshUVDensityAccuracy", "Mesh UV Densities Accuracy");
 				break;
 
-			case VMI_MaterialTexCoordScalesAccuracy:
-				Label = LOCTEXT("ViewMenuTitle_MaterialTexCoordScalesAccuracy", "Material Texture Coordinate Scales Accuracy");
+			case VMI_MaterialTextureScaleAccuracy:
+				Label = LOCTEXT("ViewMenuTitle_MaterialTextureScaleAccuracy", "Material Texture Scales Accuracy");
+				break;
+
+			case VMI_RequiredTextureResolution:
+				Label = LOCTEXT("ViewMenuTitle_Required Texture Resolution", "Required Texture Resolution");
 				break;
 
 			case VMI_StationaryLightOverlap:
@@ -143,8 +144,9 @@ const FSlateBrush* SEditorViewportViewMenu::GetViewMenuLabelIcon() const
 		static FName QuadOverdrawIcon("EditorViewport.QuadOverdrawMode");
 		static FName ShaderComplexityWithQuadOverdrawIcon("EditorViewport.ShaderCOmplexityWithQuadOverdrawMode");
 		static FName PrimitiveDistanceAccuracyIcon("EditorViewport.TexStreamAccPrimitiveDistanceMode");
-		static FName MeshTexCoordSizeAccuracyIcon("EditorViewport.TexStreamAccMeshTexCoordSizeMode");
-		static FName MaterialTexCoordScalesIcon("EditorViewport.TexStreamAccMaterialTexCoordScalesMode");
+		static FName MeshUVDensityAccuracyIcon("EditorViewport.TexStreamAccMeshUVDensityMode");
+		static FName MaterialTextureScaleAccuracyIcon("EditorViewport.TexStreamAccMaterialTextureScaleMode");
+		static FName RequiredTextureResolutionIcon("EditorViewport.RequiredTextureResolutionMode");
 		static FName LightOverlapIcon("EditorViewport.StationaryLightOverlapMode");
 		static FName LightmapDensityIcon("EditorViewport.LightmapDensityMode");
 		static FName ReflectionModeIcon("EditorViewport.ReflectionOverrideMode");
@@ -199,12 +201,16 @@ const FSlateBrush* SEditorViewportViewMenu::GetViewMenuLabelIcon() const
 				Icon = PrimitiveDistanceAccuracyIcon;
 				break;
 
-			case VMI_MeshTexCoordSizeAccuracy:
-				Icon = MeshTexCoordSizeAccuracyIcon;
+			case VMI_MeshUVDensityAccuracy:
+				Icon = MeshUVDensityAccuracyIcon;
 				break;
 
-			case VMI_MaterialTexCoordScalesAccuracy:
-				Icon = MaterialTexCoordScalesIcon;
+			case VMI_MaterialTextureScaleAccuracy:
+				Icon = MaterialTextureScaleAccuracyIcon;
+				break;
+
+			case VMI_RequiredTextureResolution:
+				Icon = RequiredTextureResolutionIcon;
 				break;
 
 			case VMI_StationaryLightOverlap:
@@ -276,7 +282,7 @@ TSharedRef<SWidget> SEditorViewportViewMenu::GenerateViewMenuContent() const
 			{
 				struct Local
 				{
-					static void BuildOptimizationMenu( FMenuBuilder& Menu )
+					static void BuildOptimizationMenu( FMenuBuilder& Menu, TSharedPtr< SViewportToolBar > ParentToolBar )
 					{
 						const FEditorViewportCommands& BaseViewportCommands = FEditorViewportCommands::Get();
 						Menu.AddMenuEntry( BaseViewportCommands.LightComplexityMode, NAME_None, LOCTEXT("LightComplexityViewModeDisplayName", "Light Complexity") );
@@ -296,24 +302,28 @@ TSharedRef<SWidget> SEditorViewportViewMenu::GenerateViewMenuContent() const
 						Menu.AddMenuEntry( BaseViewportCommands.LODColorationMode, NAME_None, LOCTEXT("LODColorationViewModeDisplayName", "LOD Coloration") );
 
 						Menu.BeginSection("TextureStreaming", LOCTEXT("TextureStreamingHeader", "Texture Streaming Accuracy") );
-						if ( AllowDebugViewShaderMode(DVSM_PrimitiveDistanceAccuracy) )
+						if ( AllowDebugViewShaderMode(DVSM_PrimitiveDistanceAccuracy) && (!ParentToolBar.IsValid() || ParentToolBar->IsViewModeSupported(VMI_PrimitiveDistanceAccuracy)) )
 						{
-							Menu.AddMenuEntry( BaseViewportCommands.TexStreamAccPrimitiveDistanceMode, NAME_None, LOCTEXT("PrimitiveDistanceAccuracyDisplayName", "Primitive Distance") );
+							Menu.AddMenuEntry( BaseViewportCommands.TexStreamAccPrimitiveDistanceMode, NAME_None, LOCTEXT("TexStreamAccPrimitiveDistanceViewModeDisplayName", "Primitive Distance") );
 						}
-						if ( AllowDebugViewShaderMode(DVSM_MeshTexCoordSizeAccuracy) )
+						if ( AllowDebugViewShaderMode(DVSM_MeshUVDensityAccuracy) && (!ParentToolBar.IsValid() || ParentToolBar->IsViewModeSupported(VMI_MeshUVDensityAccuracy)) )
 						{
-							Menu.AddMenuEntry( BaseViewportCommands.TexStreamAccMeshTexCoordSizeMode, NAME_None, LOCTEXT("MeshTexCoordSizeAccuracyDisplayName", "Mesh TexCoord Size") );
+							Menu.AddMenuEntry(BaseViewportCommands.TexStreamAccMeshUVDensityMode, NAME_None, LOCTEXT("TexStreamAccMeshUVDensityViewModeDisplayName", "Mesh UV Densities"));
 						}
 						// TexCoordScale accuracy viewmode requires shaders that are only built in the TextureStreamingBuild, which requires the new metrics to be enabled.
-						if ( AllowDebugViewShaderMode(DVSM_MaterialTexCoordScalesAccuracy) && CVarStreamingUseNewMetrics.GetValueOnAnyThread() != 0)
+						if ( AllowDebugViewShaderMode(DVSM_MaterialTextureScaleAccuracy) && CVarStreamingUseNewMetrics.GetValueOnAnyThread() != 0 && (!ParentToolBar.IsValid() || ParentToolBar->IsViewModeSupported(VMI_MaterialTextureScaleAccuracy)) )
 						{
-							Menu.AddMenuEntry( BaseViewportCommands.TexStreamAccMaterialTexCoordScalesMode, NAME_None, LOCTEXT("MaterialTexCoordScalesAccuracyDisplayName", "Material TexCoord Scales") );
+							Menu.AddMenuEntry(BaseViewportCommands.TexStreamAccMaterialTextureScaleMode, NAME_None, LOCTEXT("TexStreamAccMaterialTextureScaleViewModeDisplayName", "Material Texture Scales"));
+						}
+						if ( AllowDebugViewShaderMode(DVSM_RequiredTextureResolution) && (!ParentToolBar.IsValid() || ParentToolBar->IsViewModeSupported(VMI_MaterialTextureScaleAccuracy)) )
+						{
+							Menu.AddMenuEntry(BaseViewportCommands.RequiredTextureResolutionMode, NAME_None, LOCTEXT("RequiredTextureResolutionModeDisplayName", "Required Texture Resolution"));
 						}
 						Menu.EndSection();
 					}
 				};
 
-				ViewMenuBuilder.AddSubMenu( LOCTEXT("OptimizationSubMenu", "Optimizations"), LOCTEXT("Optimization_ToolTip", "Select optimization visualizer"), FNewMenuDelegate::CreateStatic( &Local::BuildOptimizationMenu ) );
+				ViewMenuBuilder.AddSubMenu( LOCTEXT("OptimizationSubMenu", "Optimization Viewmodes"), LOCTEXT("Optimization_ToolTip", "Select optimization visualizer"), FNewMenuDelegate::CreateStatic( &Local::BuildOptimizationMenu, ParentToolBar.Pin() ) );
 			}
 
 			ViewMenuBuilder.EndSection();

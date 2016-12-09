@@ -50,7 +50,7 @@ void FD3D11StateCacheBase::VerifySamplerStates()
 
 	for (uint32 Index = 0; Index < D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT; Index++)
 	{
-		check(SamplerStates[Index] == CurrentSamplerStates[ShaderFrequency][Index]);
+		checkf(SamplerStates[Index] == CurrentSamplerStates[ShaderFrequency][Index], TEXT("Dangling bound SamplerState, try running with -d3debug to track it down."));
 
 		if (SamplerStates[Index])
 		{
@@ -76,7 +76,7 @@ void FD3D11StateCacheBase::VerifyConstantBuffers()
 
 	for (uint32 Index = 0; Index < D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT; Index++)
 	{
-		check(Buffers[Index] == CurrentConstantBuffers[ShaderFrequency][Index].Buffer);
+		checkf(Buffers[Index] == CurrentConstantBuffers[ShaderFrequency][Index].Buffer, TEXT("Dangling bound Constant Buffer, try running with -d3debug to track it down."));
 		if (Buffers[Index])
 		{
 			Buffers[Index]->Release();
@@ -101,7 +101,7 @@ void FD3D11StateCacheBase::VerifyShaderResourceViews()
 
 	for (uint32 Index = 0; Index < D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT; Index++)
 	{
-		check(Views[Index] == CurrentShaderResourceViews[ShaderFrequency][Index]);
+		checkf(Views[Index] == CurrentShaderResourceViews[ShaderFrequency][Index], TEXT("Dangling bound SRV, try running with -d3debug to track it down."));
 
 		if (Views[Index])
 		{
@@ -202,7 +202,7 @@ void FD3D11StateCacheBase::VerifyCacheState()
 	{
 		TRefCountPtr<ID3D11InputLayout> InputLayout;
 		Direct3DDeviceIMContext->IAGetInputLayout(InputLayout.GetInitReference());
-		check(InputLayout.GetReference() == CurrentInputLayout);
+		checkf(InputLayout.GetReference() == CurrentInputLayout, TEXT("Dangling bound Input Layout, try running with -d3debug to track it down."));
 	}
 
 	// Verify Sampler States

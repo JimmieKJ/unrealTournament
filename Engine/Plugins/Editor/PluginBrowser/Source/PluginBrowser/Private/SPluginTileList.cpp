@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PluginBrowserPrivatePCH.h"
 #include "SPluginTileList.h"
+#include "Widgets/Views/SListView.h"
 #include "SPluginBrowser.h"
 #include "SPluginTile.h"
-#include "IPluginManager.h"
+#include "Interfaces/IPluginManager.h"
 
 
 #define LOCTEXT_NAMESPACE "PluginList"

@@ -1,8 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "SeparableSSS.h"
-#include "RendererInterface.h"
 #include "Engine/SubDSurface.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSubDSurface, Log, All);

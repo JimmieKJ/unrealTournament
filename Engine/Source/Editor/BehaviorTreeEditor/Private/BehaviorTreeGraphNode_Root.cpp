@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
+#include "BehaviorTreeGraphNode_Root.h"
+#include "UObject/UObjectIterator.h"
+#include "BehaviorTreeEditorTypes.h"
+#include "BehaviorTreeGraph.h"
 #include "BehaviorTree/BlackboardData.h"
 #include "BehaviorTree/BehaviorTree.h"
 

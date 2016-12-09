@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/UObjectArray.h"
+#include "Misc/ScopeLock.h"
+
 /**
 * FUObjectAnnotationSparse is a helper class that is used to store sparse, slow, temporary, editor only, external 
 * or other low priority information about UObjects.

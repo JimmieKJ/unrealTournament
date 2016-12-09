@@ -2,9 +2,14 @@
 
 #pragma once
 
-#include "Engine.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Framework/Commands/UICommandList.h"
 #include "GraphEditor.h"
+#include "Modules/ModuleInterface.h"
 
+class FExtender;
+class UEdGraph;
 
 /**
  * Graph editor public interface

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SlateTextHighlightRunRenderer.h"
+#include "Framework/Text/SlateTextHighlightRunRenderer.h"
+#include "Rendering/DrawElements.h"
+#include "Styling/SlateTypes.h"
 
 FSlateTextHighlightRunRenderer::FSlateTextHighlightRunRenderer()
 {

@@ -4,11 +4,17 @@
 	Property.cpp: UProperty implementation
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
-#include "PropertyHelper.h"
-#include "PropertyTag.h"
-#include "StringAssetReference.h"
-#include "StringClassReference.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Math/RandomStream.h"
+#include "Logging/LogScopedCategoryAndVerbosityOverride.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Class.h"
+#include "Templates/Casts.h"
+#include "UObject/UnrealType.h"
+#include "UObject/PropertyHelper.h"
+#include "Misc/StringClassReference.h"
 
 DEFINE_LOG_CATEGORY(LogProperty);
 
@@ -358,6 +364,26 @@ void UProperty::Serialize( FArchive& Ar )
 	}
 }
 
+void UProperty::CopySingleValueToScriptVM( void* Dest, void const* Src ) const
+{
+	CopySingleValue(Dest, Src);
+}
+
+void UProperty::CopyCompleteValueToScriptVM( void* Dest, void const* Src ) const
+{
+	CopyCompleteValue(Dest, Src);
+}
+
+void UProperty::CopySingleValueFromScriptVM( void* Dest, void const* Src ) const
+{
+	CopySingleValue(Dest, Src);
+}
+
+void UProperty::CopyCompleteValueFromScriptVM( void* Dest, void const* Src ) const
+{
+	CopyCompleteValue(Dest, Src);
+}
+
 void UProperty::ClearValueInternal( void* Data ) const
 {
 	checkf(0, TEXT("%s failed to handle ClearValueInternal, but it was not CPF_NoDestructor | CPF_ZeroConstructor"), *GetFullName());
@@ -414,6 +440,12 @@ FString UProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 	ExtendedTypeText += GetClass()->GetName();
 	return TEXT("PROPERTY");
 }
+
+bool UProperty::PassCPPArgsByRef() const
+{
+	return false;
+}
+
 
 void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::Type DeclarationType, const TCHAR* ArrayDimOverride, uint32 AdditionalExportCPPFlags
 	, bool bSkipParameterName, const FString* ActualCppType, const FString* ActualExtendedType, const FString* ActualParameterName) const
@@ -662,6 +694,16 @@ FName UProperty::GetID() const
 	return GetClass()->GetFName();
 }
 
+void UProperty::InstanceSubobjects( void* Data, void const* DefaultData, UObject* Owner, struct FObjectInstancingGraph* InstanceGraph )
+{
+}
+
+int32 UProperty::GetMinAlignment() const
+{
+	return 1;
+}
+
+
 //
 // Link property loaded from file.
 //
@@ -669,6 +711,12 @@ void UProperty::LinkInternal(FArchive& Ar)
 {
 	check(0); // Link shouldn't call super...and we should never link an abstract property, like this base class
 }
+
+bool UProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+{
+	return false;
+}
+
 
 int32 UProperty::SetupOffset()
 {
@@ -816,8 +864,8 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 			--l;
 		}
 
-
-		UProperty* Property = FindField<UProperty>(ObjectStruct, Token);
+		const FName PropertyName(Token);
+		UProperty* Property = FindField<UProperty>(ObjectStruct, PropertyName);
 
 		if (Property == NULL)
 		{
@@ -825,12 +873,18 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 			const TMap<FName, FName>* const ClassTaggedPropertyRedirects = UStruct::TaggedPropertyRedirects.Find(ObjectStruct->GetFName());
 			if (ClassTaggedPropertyRedirects)
 			{
-				const FName* const NewPropertyName = ClassTaggedPropertyRedirects->Find(FName(Token));
+				const FName* const NewPropertyName = ClassTaggedPropertyRedirects->Find(PropertyName);
 				if (NewPropertyName)
 				{
 					Property = FindField<UProperty>(ObjectStruct, *NewPropertyName);
 				}
 			}
+#if WITH_EDITOR
+			if (!Property)
+			{
+				Property = ObjectStruct->CustomFindProperty(PropertyName);
+			}
+#endif	// WITH_EDITOR
 		}		
 
 		delete[] Token;
@@ -838,7 +892,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 
 		if (Property == NULL)
 		{
-			Warn->Logf(ELogVerbosity::Warning, TEXT("Unknown property in %s: %s "), *ObjectStruct->GetName(), Start);
+			UE_SUPPRESS(LogExec, Verbose, Warn->Logf(TEXT("Unknown property in %s: %s "), *ObjectStruct->GetName(), Start));
 			return Str;
 		}
 
@@ -1188,123 +1242,22 @@ uint32 UProperty::GetValueTypeHash(const void* Src) const
 	return GetValueTypeHashInternal(Src);
 }
 
+void UProperty::CopyValuesInternal( void* Dest, void const* Src, int32 Count  ) const
+{
+	check(0); // if you are not memcpyable, then you need to deal with the virtual call
+}
+
+uint32 UProperty::GetValueTypeHashInternal(const void* Src) const
+{
+	check(false); // you need to deal with the virtual call
+	return 0;
+}
+
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UProperty, UField,
 	{
 	}
 );
-
-uint8 UNumericProperty::ReadEnumAsUint8(FArchive& Ar, UStruct* DefaultsStruct, const FPropertyTag& Tag)
-{
-	//@warning: mirrors loading code in UByteProperty::SerializeItem()
-	FName EnumName;
-	Ar << EnumName;
-
-	UEnum* Enum = FindField<UEnum>(dynamic_cast<UClass*>(DefaultsStruct) ? static_cast<UClass*>(DefaultsStruct) : DefaultsStruct->GetTypedOuter<UClass>(), Tag.EnumName);
-	if (!Enum)
-	{
-		Enum = FindObject<UEnum>(ANY_PACKAGE, *Tag.EnumName.ToString(), true);
-	}
-
-	if (!Enum)
-	{
-		UE_LOG(LogClass, Warning, TEXT("Failed to find enum '%s' when converting property '%s' during property loading - setting to 0"), *Tag.EnumName.ToString(), *Tag.Name.ToString());
-		return 0;
-	}
-
-	Ar.Preload(Enum);
-
-	uint8 Result = Enum->GetValueByName(EnumName);
-	if (!Enum->IsValidEnumValue(Result))
-	{
-		UE_LOG(
-			LogClass,
-			Warning,
-			TEXT("Failed to find valid enum value '%s' for enum type '%s' when converting property '%s' during property loading - setting to '%s'"),
-			*EnumName.ToString(),
-			*Enum->GetName(),
-			*Tag.Name.ToString(),
-			*Enum->GetNameByValue(Enum->GetMaxEnumValue()).ToString()
-			);
-
-		return Enum->GetMaxEnumValue();
-	}
-
-	return Result;
-};
-
-const TCHAR* UNumericProperty::ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText ) const
-{
-	if ( Buffer != NULL )
-	{
-		const TCHAR* Start = Buffer;
-		if (IsInteger())
-		{
-			if (FChar::IsAlpha(*Buffer))
-			{
-				int32 EnumValue = UEnum::ParseEnum(Buffer);
-				if (EnumValue != INDEX_NONE)
-				{
-					SetIntPropertyValue(Data, int64(EnumValue));
-					return Buffer;
-				}
-				else
-				{
-					return NULL;
-				}
-			}
-			else
-			{
-				if ( !FCString::Strnicmp(Start,TEXT("0x"),2) )
-				{
-					Buffer+=2;
-					while ( Buffer && (FParse::HexDigit(*Buffer) != 0 || *Buffer == TCHAR('0')) )
-					{
-						Buffer++;
-					}
-				}
-				else
-				{
-					while ( Buffer && (*Buffer == TCHAR('-') || *Buffer == TCHAR('+')) )
-					{
-						Buffer++;
-					}
-
-					while ( Buffer &&  FChar::IsDigit(*Buffer) )
-					{
-						Buffer++;
-					}
-				}
-
-				if (Start == Buffer)
-				{
-					// import failure
-					return NULL;
-				}
-			}
-		}
-		else
-		{
-			check(IsFloatingPoint());
-			// floating point
-			while( *Buffer == TCHAR('+') || *Buffer == TCHAR('-') || *Buffer == TCHAR('.') || (*Buffer >= TCHAR('0') && *Buffer <= TCHAR('9')) )
-			{
-				Buffer++;
-			}
-			if ( *Buffer == TCHAR('f') || *Buffer == TCHAR('F') )
-			{
-				Buffer++;
-			}
-		}
-		SetNumericPropertyValueFromString(Data, Start);
-	}
-	return Buffer;
-}
-
-void UNumericProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
-{
-	ValueStr += GetNumericPropertyValueToString(PropertyValue);
-}
 
 void UFloatProperty::ExportTextItem(FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const
 {
@@ -1316,11 +1269,6 @@ void UFloatProperty::ExportTextItem(FString& ValueStr, const void* PropertyValue
 	}
 }
 
-
-IMPLEMENT_CORE_INTRINSIC_CLASS(UNumericProperty, UProperty,
-{
-}
-);
 
 UProperty* UStruct::FindPropertyByName(FName InName) const
 {

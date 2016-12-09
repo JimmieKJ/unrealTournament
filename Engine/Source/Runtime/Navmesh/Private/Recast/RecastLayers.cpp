@@ -19,16 +19,11 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include <float.h>
+#include "CoreMinimal.h"
 #define _USE_MATH_DEFINES
-#include <math.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include "Recast.h"
-#include "RecastAlloc.h"
-#include "RecastAssert.h"
+#include "Recast/Recast.h"
+#include "Recast/RecastAlloc.h"
+#include "Recast/RecastAssert.h"
 
 struct rcLayerRegionMonotone
 {
@@ -56,7 +51,36 @@ inline bool overlapRange(const unsigned short amin, const unsigned short amax,
 	return (amin > bmax || amax < bmin) ? false : true;
 }
 
+static void fixLayerConnections(rcHeightfieldLayer* layer)
+{
+	// [UE4: break one directional connections, contour tracing gets stuck in infinite loop]
+	const int lw = layer->width;
+	const int lh = layer->height;
 
+	for (int y = 0; y < lh; ++y)
+	{
+		for (int x = 0; x < lw; ++x)
+		{
+			const int idx = x + y*lw;
+			const int con = layer->cons[idx];
+
+			for (int dir = 0; dir < 4; ++dir)
+			{
+				if ((con & (1 << dir)) == 0)
+				{
+					const int nx = x + rcGetDirOffsetX(dir);
+					const int ny = y + rcGetDirOffsetY(dir);
+					if (nx >= 0 && ny >= 0 && nx < lw && ny < lh)
+					{
+						const int nidx = nx + ny*lw;
+						const int oppDir = (dir + 2) % 4;
+						layer->cons[nidx] &= ~(1 << oppDir);
+					}
+				}
+			}
+		}
+	}
+}
 
 struct rcLayerSweepSpan
 {
@@ -787,10 +811,6 @@ static bool SplitAndStoreLayerRegions(rcContext* ctx, rcCompactHeightfield& chf,
 								if (nx >= 0 && ny >= 0 && nx < lw && ny < lh)
 								{
 									con |= (unsigned char)(1 << dir);
-
-									// [UE4: make sure that connections are bidirectional, otherwise contour tracing will stuck in infinite loop]
-									const int nidx = nx + (ny * lw);
-									layer->cons[nidx] |= (unsigned char)(1 << ((dir + 2) % 4));
 								}
 							}
 						}
@@ -800,6 +820,8 @@ static bool SplitAndStoreLayerRegions(rcContext* ctx, rcCompactHeightfield& chf,
 				}
 			}
 		}
+
+		fixLayerConnections(layer);
 
 		if (layer->minx > layer->maxx)
 			layer->minx = layer->maxx = 0;
@@ -1416,12 +1438,12 @@ bool rcBuildHeightfieldLayers(rcContext* ctx, rcCompactHeightfield& chf,
 						{
 							const int ax = cx + rcGetDirOffsetX(dir);
 							const int ay = cy + rcGetDirOffsetY(dir);
-							const int ai = (int)chf.cells[ax+ay*w].index + rcGetCon(s, dir);
+							const int ai = (int)chf.cells[ax + ay*w].index + rcGetCon(s, dir);
 							unsigned short alid = (srcReg[ai] < nreg) ? regions[srcReg[ai]].layerId : 0xffff;
 							// Portal mask
 							if (chf.areas[ai] != RC_NULL_AREA && lid != alid)
 							{
-								portal |= (unsigned char)(1<<dir);
+								portal |= (unsigned char)(1 << dir);
 								// Update height so that it matches on both sides of the portal.
 								const rcCompactSpan& as = chf.spans[ai];
 								if (as.y > hmin)
@@ -1433,7 +1455,9 @@ bool rcBuildHeightfieldLayers(rcContext* ctx, rcCompactHeightfield& chf,
 								const int nx = ax - borderSize;
 								const int ny = ay - borderSize;
 								if (nx >= 0 && ny >= 0 && nx < lw && ny < lh)
-									con |= (unsigned char)(1<<dir);
+								{
+									con |= (unsigned char)(1 << dir);
+								}
 							}
 						}
 					}
@@ -1442,6 +1466,8 @@ bool rcBuildHeightfieldLayers(rcContext* ctx, rcCompactHeightfield& chf,
 				}
 			}
 		}
+
+		fixLayerConnections(layer);
 
 		if (layer->minx > layer->maxx)
 			layer->minx = layer->maxx = 0;

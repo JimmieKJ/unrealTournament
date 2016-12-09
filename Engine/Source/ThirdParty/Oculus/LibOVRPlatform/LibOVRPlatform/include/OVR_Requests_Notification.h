@@ -8,6 +8,18 @@
 
 #include "OVR_RoomInviteNotificationArray.h"
 
+/// \file
+/// *** Notifications Overview:
+/// Notifications are a way for the Oculus platform to push timely updates to your
+/// application. These are typically time-sensitive items and try to be prolific.
+/// In addition to your application, they usually present themselves in the 2D/3D
+/// Stores as well as Universal Menu.
+///
+/// *** Read Status:
+/// Notifications will currently show up in these areas until they either expire or
+/// they're marked as read. If you mark a notification as read, it'll be removed
+/// from all surfaces.
+
 /// Get the next page of entries
 ///
 /// A message with type ::ovrMessage_Notification_GetNextRoomInviteNotificationArrayPage will be generated in response.

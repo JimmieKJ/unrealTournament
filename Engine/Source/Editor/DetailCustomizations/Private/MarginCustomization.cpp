@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "MarginCustomization.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Editor.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailLayoutBuilder.h"
 #include "ScopedTransaction.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 TSharedRef<IPropertyTypeCustomization> FMarginStructCustomization::MakeInstance() 
 {

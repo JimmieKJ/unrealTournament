@@ -4,18 +4,24 @@
 	Canvas.cpp: Unreal canvas rendering.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "SlateBasics.h"
-#include "Engine/Font.h"
-#include "EngineFontServices.h"
-#include "TileRendering.h"
-#include "TriangleRendering.h"
-#include "RHIStaticStates.h"
-#include "BreakIterator.h"
-
-#include "IHeadMountedDisplay.h"
-#include "Debug/ReporterGraph.h"
+#include "Engine/Canvas.h"
+#include "UObject/Package.h"
+#include "UObject/ConstructorHelpers.h"
+#include "EngineStats.h"
+#include "EngineGlobals.h"
+#include "Materials/MaterialInterface.h"
+#include "Engine/Engine.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/Texture2D.h"
 #include "SceneUtils.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EngineFontServices.h"
+#include "Internationalization/BreakIterator.h"
+#include "Misc/CoreDelegates.h"
+
+#include "StereoRendering.h"
+#include "Debug/ReporterGraph.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCanvas, Log, All);
 
@@ -387,9 +393,7 @@ bool FCanvasBatchedElementRenderItem::Render_RenderThread(FRHICommandListImmedia
 			RHICmdList,
 			Canvas->GetFeatureLevel(),
 			bNeedsToSwitchVerticalAxis,
-			Data->Transform.GetMatrix(),
-			CanvasRenderTarget->GetSizeXY().X,
-			CanvasRenderTarget->GetSizeXY().Y,
+			FBatchedElements::CreateProxySceneView(Data->Transform.GetMatrix(), FIntRect(0, 0, CanvasRenderTarget->GetSizeXY().X, CanvasRenderTarget->GetSizeXY().Y)),
 			Canvas->IsHitTesting(),
 			Gamma
 			);
@@ -460,9 +464,7 @@ bool FCanvasBatchedElementRenderItem::Render_GameThread(const FCanvas* Canvas)
 				RHICmdList,
 				Parameters.FeatureLevel,
 				Parameters.bNeedsToSwitchVerticalAxis,
-				Parameters.RenderData->Transform.GetMatrix(),
-				Parameters.ViewportSizeX,
-				Parameters.ViewportSizeY,
+				FBatchedElements::CreateProxySceneView(Parameters.RenderData->Transform.GetMatrix(),FIntRect(0, 0, Parameters.ViewportSizeX, Parameters.ViewportSizeY)),
 				Parameters.bHitTesting,
 				Parameters.DisplayGamma
 				);
@@ -828,7 +830,14 @@ void FCanvas::PushRelativeTransform(const FMatrix& Transform)
 
 void FCanvas::PushAbsoluteTransform(const FMatrix& Transform) 
 {
-	TransformStack.Add( FTransformEntry(Transform * TransformStack[0].GetMatrix()) );
+	if(ensure(TransformStack.Num()>0))
+	{
+		TransformStack.Add(FTransformEntry(Transform * TransformStack[0].GetMatrix()));
+	}
+	else
+	{
+		TransformStack.Add(FTransformEntry(Transform));
+	}
 }
 
 void FCanvas::PopTransform()
@@ -902,8 +911,14 @@ void FCanvas::Clear(const FLinearColor& LinearColor)
 		{
 			::SetRenderTarget(RHICmdList, CanvasRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), true);
 			RHICmdList.SetViewport(0, 0, 0.0f, CanvasRenderTarget->GetSizeXY().X, CanvasRenderTarget->GetSizeXY().Y, 1.0f);
+			RHICmdList.ClearColorTexture(CanvasRenderTarget->GetRenderTargetTexture(), ClearColor, FIntRect());
 		}
-		RHICmdList.Clear(true, ClearColor, false, 0.0f, false, 0, FIntRect());
+		else
+		{
+			//#todo-rco!
+			ensure(0);
+			//RHICmdList.ClearColorTexture(CanvasRenderTarget->GetRenderTargetTexture(), ClearColor, FIntRect());
+		}
 	});
 }
 
@@ -1164,6 +1179,8 @@ UCanvas::UCanvas(const FObjectInitializer& ObjectInitializer)
 	// only call once on construction.  Expensive on some platforms (occulus).
 	// Init gets called every frame.	
 	UpdateSafeZoneData();
+
+	FCoreDelegates::OnSafeFrameChangedEvent.AddUObject(this, &UCanvas::UpdateSafeZoneData);
 }
 
 void UCanvas::Init(int32 InSizeX, int32 InSizeY, FSceneView* InSceneView)
@@ -1175,8 +1192,16 @@ void UCanvas::Init(int32 InSizeX, int32 InSizeY, FSceneView* InSceneView)
 	UnsafeSizeY = SizeY;
 	SceneView = InSceneView;		
 	
-	Update();	
+	Update();
 }
+
+
+void UCanvas::BeginDestroy()
+{
+	Super::BeginDestroy();
+	FCoreDelegates::OnSafeFrameChangedEvent.RemoveAll(this);
+}
+
 
 void UCanvas::ApplySafeZoneTransform()
 {
@@ -1867,7 +1892,7 @@ void UCanvas::SetView(FSceneView* InView)
 		}
 		else
 		{
-			ViewProjectionMatrix = InView->ViewProjectionMatrix;
+			ViewProjectionMatrix = InView->ViewMatrices.GetViewProjectionMatrix();
 		}
 	}
 	else

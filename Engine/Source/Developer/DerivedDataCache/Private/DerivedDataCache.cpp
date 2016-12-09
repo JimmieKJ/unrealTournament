@@ -1,14 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "Core.h"
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Misc/CommandLine.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/ScopeLock.h"
+#include "Stats/StatsMisc.h"
+#include "Stats/Stats.h"
+#include "Async/AsyncWork.h"
+#include "Serialization/MemoryReader.h"
+#include "Serialization/MemoryWriter.h"
+#include "Modules/ModuleManager.h"
 
 #include "DerivedDataCacheInterface.h"
 #include "DerivedDataBackendInterface.h"
 #include "DerivedDataPluginInterface.h"
 #include "DDCCleanup.h"
-#include "CookStats.h"
+#include "ProfilingDebugging/CookStats.h"
 
 DEFINE_STAT(STAT_DDC_NumGets);
 DEFINE_STAT(STAT_DDC_NumPuts);
@@ -648,12 +656,12 @@ class FDerivedDataRollup : public IDerivedDataRollup
 				return Items[Index];
 			}
 		}
-		check(0);
-		return (FRollupItem&)*(FRollupItem*)NULL;
+		UE_LOG(LogDerivedDataCache, Fatal, TEXT("Illegal async handle passed to FRollupItem::FindItem()."));
+		return Items[0];// shouldn't get here anyway, won't make it worse
 	}
 
 	/** 
-	 * Finds an item by cache keu, not legal to call if this rollup does not contain this cache key
+	 * Finds an item by cache key, not legal to call if this rollup does not contain this cache key
 	 * @param InCacheKey	cache key to find the corresponding item of
 	 * @return				Item with this cache key
 	**/
@@ -666,8 +674,8 @@ class FDerivedDataRollup : public IDerivedDataRollup
 				return Items[Index];
 			}
 		}
-		check(0);
-		return (FRollupItem&)*(FRollupItem*)NULL;
+		UE_LOG(LogDerivedDataCache, Fatal, TEXT("Illegal cache key passed to FRollupItem::FindItem()."));
+		return Items[0];// shouldn't get here anyway, won't make it worse
 	}
 
 public:

@@ -1,17 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PersonaPrivatePCH.h"
 #include "SkeletalMeshSocketDetails.h"
-#include "SAssetSearchBox.h"
-#include "DetailCategoryBuilder.h"
-#include "DetailLayoutBuilder.h"
-#include "PropertyHandle.h"
-#include "IDetailPropertyRow.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Animation/Skeleton.h"
+#include "EditorStyleSet.h"
 #include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
 #include "IDetailsView.h"
-#include "Persona.h"
-#include "AssetSearchBoxUtilPersona.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "Engine/SkeletalMeshSocket.h"
+#include "AssetSearchBoxUtilPersona.h"
+#include "IEditableSkeleton.h"
+#include "ISkeletonEditorModule.h"
 
 TSharedRef<IDetailCustomization> FSkeletalMeshSocketDetails::MakeInstance()
 {
@@ -22,7 +26,7 @@ void FSkeletalMeshSocketDetails::CustomizeDetails( IDetailLayoutBuilder& DetailB
 {
 	TargetSocket = NULL;
 
-	IDetailCategoryBuilder& SocketCategory = DetailBuilder.EditCategory( TEXT("SkeletalMeshSocket"), FText::GetEmpty(), ECategoryPriority::TypeSpecific );
+	IDetailCategoryBuilder& SocketCategory = DetailBuilder.EditCategory( TEXT("Socket Parameters"), FText::GetEmpty(), ECategoryPriority::TypeSpecific );
 
 	SocketNameProperty = DetailBuilder.GetProperty( TEXT("SocketName") );
 	if( SocketNameProperty.IsValid() && SocketNameProperty->GetProperty() )
@@ -107,9 +111,9 @@ void FSkeletalMeshSocketDetails::OnParentBoneNameCommitted(const FText& InSearch
 {
 	UObject* Outer = TargetSocket->GetOuter();
 	USkeleton* Skeleton = Cast<USkeleton>(Outer);
+	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(Outer);
 	if( Skeleton == NULL )
 	{
-		USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(Outer);
 		if( SkeletalMesh )
 		{
 			Skeleton = SkeletalMesh->Skeleton;
@@ -119,13 +123,10 @@ void FSkeletalMeshSocketDetails::OnParentBoneNameCommitted(const FText& InSearch
 	{
 		if( Skeleton->GetReferenceSkeleton().FindBoneIndex( *InSearchText.ToString() ) != INDEX_NONE )
 		{
-			IAssetEditorInstance* EditorInstance = FAssetEditorManager::Get().FindEditorForAsset(Outer, false);
-			if( EditorInstance->GetEditorName() == TEXT("Persona") )
-			{
-				FPersona* PersonaInstance = static_cast<FPersona*> (EditorInstance);
-				PersonaInstance->ChangeSocketParent( TargetSocket, *InSearchText.ToString() );
-				PersonaInstance->SetSelectedSocket( FSelectedSocketInfo( TargetSocket, true ) );
-			}
+			ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+			TSharedRef<IEditableSkeleton> EditableSkeleton = SkeletonEditorModule.CreateEditableSkeleton(Skeleton);
+
+			EditableSkeleton->SetSocketParent( TargetSocket->SocketName, *InSearchText.ToString(), SkeletalMesh );
 
 			ParentBoneProperty->SetValue( InSearchText.ToString() );
 		}
@@ -134,52 +135,66 @@ void FSkeletalMeshSocketDetails::OnParentBoneNameCommitted(const FText& InSearch
 
 void FSkeletalMeshSocketDetails::OnSocketNameChanged(const FText& InSearchText)
 {
-	if( UObject* Outer = TargetSocket->GetOuter() )
+	UObject* Outer = TargetSocket->GetOuter();
+	USkeleton* Skeleton = Cast<USkeleton>(Outer);
+	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(Outer);
+	if (Skeleton == NULL)
 	{
-		IAssetEditorInstance* EditorInstance = FAssetEditorManager::Get().FindEditorForAsset(Outer, false);
-		if( EditorInstance->GetEditorName() == TEXT("Persona") )
+		if (SkeletalMesh)
 		{
-			FPersona* PersonaInstance = static_cast<FPersona*> (EditorInstance);
-			FText OutErrorMessage;
-			if( VerifySocketName(PersonaInstance, TargetSocket, InSearchText, OutErrorMessage) )
-			{
-				SocketNameTextBox->SetError( FText::GetEmpty() );
-			}
-			else
-			{
-				SocketNameTextBox->SetError( OutErrorMessage );
-			}
+			Skeleton = SkeletalMesh->Skeleton;
+		}
+	}
+	if (Skeleton)
+	{
+		ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+		TSharedRef<IEditableSkeleton> EditableSkeleton = SkeletonEditorModule.CreateEditableSkeleton(Skeleton);
+
+		FText OutErrorMessage;
+		if( VerifySocketName(EditableSkeleton, TargetSocket, InSearchText, SkeletalMesh, OutErrorMessage) )
+		{
+			SocketNameTextBox->SetError( FText::GetEmpty() );
+		}
+		else
+		{
+			SocketNameTextBox->SetError( OutErrorMessage );
 		}
 	}
 }
 
 void FSkeletalMeshSocketDetails::OnSocketNameCommitted(const FText& InSearchText, ETextCommit::Type CommitInfo)
 {
-	if( UObject* Outer = TargetSocket->GetOuter() )
+	UObject* Outer = TargetSocket->GetOuter();
+	USkeleton* Skeleton = Cast<USkeleton>(Outer);
+	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(Outer);
+	if (Skeleton == NULL)
 	{
-		IAssetEditorInstance* EditorInstance = FAssetEditorManager::Get().FindEditorForAsset(Outer, false);
-		if( EditorInstance->GetEditorName() == TEXT("Persona") )
+		if (SkeletalMesh)
 		{
-			FPersona* PersonaInstance = static_cast<FPersona*> (EditorInstance);
+			Skeleton = SkeletalMesh->Skeleton;
+		}
+	}
+	if (Skeleton)
+	{
+		ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+		TSharedRef<IEditableSkeleton> EditableSkeleton = SkeletonEditorModule.CreateEditableSkeleton(Skeleton);
 
-			FText NewText = FText::TrimPrecedingAndTrailing(InSearchText);
+		FText NewText = FText::TrimPrecedingAndTrailing(InSearchText);
 
-			FText OutErrorMessage;
-			if (VerifySocketName(PersonaInstance, TargetSocket, NewText, OutErrorMessage))
-			{
-				// tell persona to rename the socket.
-				PersonaInstance->RenameSocket(TargetSocket, *NewText.ToString());
-				PersonaInstance->SetSelectedSocket( FSelectedSocketInfo( TargetSocket, true ) );
+		FText OutErrorMessage;
+		if (VerifySocketName(EditableSkeleton, TargetSocket, NewText, SkeletalMesh, OutErrorMessage))
+		{
+			// tell rename the socket.
+			EditableSkeleton->RenameSocket(TargetSocket->SocketName, FName(*NewText.ToString()), SkeletalMesh);
 				
-				// update the pre-edit socket name and the property
-				PreEditSocketName = NewText;
-				SocketNameTextBox->SetText(NewText);
-			}
-			else
-			{
-				// restore the pre-edit name to the socket text box.
-				SocketNameTextBox->SetText(PreEditSocketName);
-			}
+			// update the pre-edit socket name and the property
+			PreEditSocketName = NewText;
+			SocketNameTextBox->SetText(NewText);
+		}
+		else
+		{
+			// restore the pre-edit name to the socket text box.
+			SocketNameTextBox->SetText(PreEditSocketName);
 		}
 	}
 
@@ -189,7 +204,7 @@ void FSkeletalMeshSocketDetails::OnSocketNameCommitted(const FText& InSearchText
 	}
 }
 
-bool FSkeletalMeshSocketDetails::VerifySocketName( FPersona* PersonaPtr, const USkeletalMeshSocket* Socket, const FText& InText, FText& OutErrorMessage ) const
+bool FSkeletalMeshSocketDetails::VerifySocketName(TSharedRef<IEditableSkeleton> EditableSkeleton, const USkeletalMeshSocket* Socket, const FText& InText, USkeletalMesh* InSkeletalMesh, FText& OutErrorMessage ) const
 {
 	// You can't have two sockets with the same name on the mesh, nor on the skeleton,
 	// but you can have a socket with the same name on the mesh *and* the skeleton.
@@ -204,12 +219,12 @@ bool FSkeletalMeshSocketDetails::VerifySocketName( FPersona* PersonaPtr, const U
 	}
 	else
 	{
-		if (PersonaPtr->DoesSocketAlreadyExist(Socket, NewText, PersonaPtr->GetSkeleton()->Sockets))
+		if (EditableSkeleton->DoesSocketAlreadyExist(Socket, NewText, ESocketParentType::Skeleton, InSkeletalMesh))
 		{
 			bVerifyName = false;
 		}
 
-		if (bVerifyName && PersonaPtr->DoesSocketAlreadyExist(Socket, NewText, PersonaPtr->GetMesh()->GetMeshOnlySocketList()))
+		if (bVerifyName && EditableSkeleton->DoesSocketAlreadyExist(Socket, NewText, ESocketParentType::Mesh, InSkeletalMesh))
 		{
 			bVerifyName = false;
 		}

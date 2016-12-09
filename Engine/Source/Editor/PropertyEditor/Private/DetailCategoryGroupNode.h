@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "IPropertyUtilities.h"
+#include "IDetailTreeNode.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Views/STableRow.h"
+#include "DetailCategoryBuilderImpl.h"
 #include "SDetailTableRowBase.h"
 
 class SDetailCategoryTableRow : public SDetailTableRowBase

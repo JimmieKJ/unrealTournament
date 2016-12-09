@@ -2,9 +2,8 @@
 
 #pragma once
 
-#include <errno.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include "CoreMinimal.h"
+#include "IDirectoryWatcher.h"
 #include <sys/inotify.h>
 
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )

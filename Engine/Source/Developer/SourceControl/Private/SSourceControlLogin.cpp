@@ -1,16 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SourceControlPrivatePCH.h"
 #include "SSourceControlLogin.h"
 #include "SourceControlModule.h"
+#if SOURCE_CONTROL_WITH_SLATE
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Images/SThrobber.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#endif
 #include "SSourceControlPicker.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 
 #if SOURCE_CONTROL_WITH_SLATE
-#include "SExpandableArea.h"
-#include "SThrobber.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "EditorStyleSet.h"
+
+#if WITH_UNREAL_DEVELOPER_TOOLS
+	#include "MessageLogModule.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "SSourceControlLogin"
 

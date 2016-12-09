@@ -2,11 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
-// forward declarations
+class Error;
 class IStructSerializerBackend;
-class UStruct;
-
 
 /**
  * Enumerates policies for serializing null values.

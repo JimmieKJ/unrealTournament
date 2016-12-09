@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/ActorComponent.h"
 #include "PlatformEventsComponent.generated.h"
-
 
 /**
  * Component to handle receiving notifications from the OS about platform events.

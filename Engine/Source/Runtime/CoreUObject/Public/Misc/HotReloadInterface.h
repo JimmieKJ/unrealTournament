@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "ModuleManager.h"
-#include "CoreUObject.h"
-#include "CompilationResult.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreNative.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/CompilationResult.h"
 
 /**
 * HotReload module interface

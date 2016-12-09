@@ -6,7 +6,8 @@
 
 #pragma once
 
-#include "GlobalDistanceFieldParameters.h"
+#include "CoreMinimal.h"
+#include "DistanceFieldSurfaceCacheLighting.h"
 
 extern int32 GAOGlobalDistanceField;
 extern int32 GAOVisualizeGlobalDistanceField;

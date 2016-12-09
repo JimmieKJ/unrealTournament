@@ -2,11 +2,19 @@
 
 #pragma once
 
-#include "SlateTextLayoutFactory.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Text/ITextLayoutMarshaller.h"
+#include "Framework/Text/SlateTextLayoutFactory.h"
 
-class FSlateTextLayout;
-class ITextLayoutMarshaller;
+class FArrangedChildren;
+class FPaintArgs;
+class FSlateWindowElementList;
+class IBreakIterator;
 class ISlateRunRenderer;
+enum class ETextShapingMethod : uint8;
 
 /** Class to handle the cached layout of STextBlock/SRichTextBlock by proxying around a FTextLayout */
 class SLATE_API FTextBlockLayout

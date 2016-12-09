@@ -2,10 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /** Wildcard string used to search for shader format modules. */
 #define SHADERFORMAT_MODULE_WILDCARD TEXT("*ShaderFormat*")
-
 
 /**
  * IShaderFormat, shader pre-compilation abstraction

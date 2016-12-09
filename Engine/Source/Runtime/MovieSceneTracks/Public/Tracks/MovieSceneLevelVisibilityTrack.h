@@ -2,10 +2,14 @@
 
 #pragma once
 
-#include "MovieScene.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "MovieSceneNameableTrack.h"
-#include "MovieScenePropertyTrack.h"
+#include "Tracks/MovieSceneSpawnTrack.h"
+#include "Tracks/MovieScenePropertyTrack.h"
 #include "MovieSceneLevelVisibilityTrack.generated.h"
+
+struct FMovieSceneEvaluationTrack;
 
 /**
  * A track for controlling the visibility of streamed levels.
@@ -16,8 +20,11 @@ class UMovieSceneLevelVisibilityTrack : public UMovieSceneNameableTrack
 	GENERATED_UCLASS_BODY()
 
 public:
+
+	static uint16 GetEvaluationPriority() { return UMovieSceneSpawnTrack::GetEvaluationPriority() + 100; }
+
 	/** UMovieSceneTrack interface */
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
+	virtual void PostCompile(FMovieSceneEvaluationTrack& Track, const FMovieSceneTrackCompilerArgs& Args) const override;
 	virtual bool IsEmpty() const override;
 	virtual void AddSection(UMovieSceneSection& Section) override;
 	virtual void RemoveSection( UMovieSceneSection& Section ) override;

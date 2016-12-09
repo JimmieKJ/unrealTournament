@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "ITimeSlider.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
 
 class SSequencerTimeSlider : public ITimeSlider
 {

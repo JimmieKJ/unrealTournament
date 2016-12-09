@@ -6,6 +6,15 @@ ImageUtils.h: Image utility functions.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Engine/Texture.h"
+
+class UTexture2D;
+class UTextureCube;
+class UTextureRenderTarget2D;
+class UTextureRenderTargetCube;
+
 /**
  *	Parameters used for creating a Texture2D frmo a simple color buffer.
  */
@@ -90,7 +99,7 @@ public:
 	 * @param DstData			compressed image array.
 	 *
 	 */
-	ENGINE_API static void CompressImageArray( int32 ImageWidth, int32 ImageHeight, TArray<FColor> &SrcData, TArray<uint8> &DstData );
+	ENGINE_API static void CompressImageArray( int32 ImageWidth, int32 ImageHeight, const TArray<FColor> &SrcData, TArray<uint8> &DstData );
 
 	/**
 	 * Creates a new UTexture2D with a checkerboard pattern.

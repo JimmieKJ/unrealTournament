@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "QosPrivatePCH.h"
 #include "QosEvaluator.h"
+#include "TimerManager.h"
+#include "QosModule.h"
 #include "QosBeaconClient.h"
 #include "QosStats.h"
 #include "OnlineSubsystemUtils.h"

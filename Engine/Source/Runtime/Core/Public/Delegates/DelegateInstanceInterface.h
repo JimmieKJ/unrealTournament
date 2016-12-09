@@ -2,15 +2,19 @@
 
 #pragma once
 
-#include "Tuple.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/TypeCompatibleBytes.h"
+#include "Delegates/Tuple.h"
+
+class FDelegateBase;
+class IDelegateInstance;
+template <typename FuncType> struct IBaseDelegateInstance;
 
 template <typename FuncType>
 struct IBaseDelegateInstance;
 
 template <typename FuncType>
 struct IBaseDelegateInstanceCommon;
-
-class FDelegateBase;
 
 template <typename RetType, typename... Args>
 struct IBaseDelegateInstanceCommon<RetType(Args...)> : public IDelegateInstance

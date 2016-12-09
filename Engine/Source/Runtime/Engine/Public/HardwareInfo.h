@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /** Hardware entry lookups */
 static const FName NAME_RHI( "RHI" );
@@ -23,6 +24,12 @@ struct ENGINE_API FHardwareInfo
 	 */
 	static void RegisterHardwareInfo( const FName SpecIdentifier, const FString& HardwareInfo );
 
+	/**
+	 * Get the hardware info detail you wanted to keep track of.
+	 *
+	 * @param SpecIdentifier - The piece of hardware information we are registering, must match the lookups above
+	 */
+	static FString GetHardwareInfo(const FName SpecIdentifier);
 
 	/**
 	 * Get the full details of hardware information which has been registered in string format

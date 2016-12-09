@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Commandlets/GatherTextFromSourceCommandlet.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/ExpressionParserTypes.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGatherTextFromSourceCommandlet, Log, All);
 
@@ -666,10 +670,9 @@ bool UGatherTextFromSourceCommandlet::ParseSourceText(const FString& Text, const
 			// Check if we're starting comments or string literals. Begins *at* "//" or "/*".
 			if (!ParseCtxt.WithinLineComment && !ParseCtxt.WithinBlockComment && !ParseCtxt.WithinStringLiteral)
 			{
-				const TCHAR* ForwardCursor = Cursor;
-				if(*ForwardCursor == TEXT('/'))
+				if(*Cursor == TEXT('/'))
 				{
-					++ForwardCursor;
+					const TCHAR* const ForwardCursor = Cursor + 1;
 					switch(*ForwardCursor)
 					{
 					case TEXT('/'):
@@ -682,7 +685,7 @@ bool UGatherTextFromSourceCommandlet::ParseSourceText(const FString& Text, const
 						{
 							ParseCtxt.WithinBlockComment = true;
 							ParseCtxt.WithinStartingLine = ParseCtxt.LineText;
-					}
+						}
 						break;
 					}
 				}
@@ -690,40 +693,47 @@ bool UGatherTextFromSourceCommandlet::ParseSourceText(const FString& Text, const
 
 			if (!ParseCtxt.WithinLineComment && !ParseCtxt.WithinBlockComment && !ParseCtxt.WithinStringLiteral)
 			{
-				if (*Cursor == TEXT('\"') && Cursor >= *Line)
+				if (*Cursor == TEXT('\"'))
 				{
-					const TCHAR* ReverseCursor = Cursor;
-					--ReverseCursor;
-					if ((*ReverseCursor != TEXT('\\') && *ReverseCursor != TEXT('\'') && ReverseCursor >= *Line) || ReverseCursor < *Line)
+					if (Cursor == *Line)
 					{
 						ParseCtxt.WithinStringLiteral = true;
 						ParseCtxt.WithinStartingLine = ParseCtxt.LineText;
 					}
-					else 
+					else if (Cursor > *Line)
 					{
-						bool IsEscaped = false;
-						//if the backslash or single quote is itself escaped then the quote is good
-						while (*(--ReverseCursor) == TEXT('\\') && ReverseCursor >= *Line)
-						{
-							IsEscaped = !IsEscaped;
-						}
-
-						if (IsEscaped)
+						const TCHAR* const ReverseCursor = Cursor - 1;
+						if (*ReverseCursor != TEXT('\\') && *ReverseCursor != TEXT('\''))
 						{
 							ParseCtxt.WithinStringLiteral = true;
 							ParseCtxt.WithinStartingLine = ParseCtxt.LineText;
 						}
-						else
+						else 
 						{
-							//   check for '"'
-							ReverseCursor = Cursor;
-							--ReverseCursor;
-							const TCHAR* ForwardCursor = Cursor;
-							++ForwardCursor;
-							if (*ReverseCursor == TEXT('\'') && *ForwardCursor != TEXT('\'') && ReverseCursor >= *Line)
+							bool IsEscaped = false;
+							{
+								//if the backslash or single quote is itself escaped then the quote is good
+								const TCHAR* EscapeCursor = ReverseCursor;
+								while (EscapeCursor > *Line && *(--EscapeCursor) == TEXT('\\'))
+								{
+									IsEscaped = !IsEscaped;
+								}
+							}
+
+							if (IsEscaped)
 							{
 								ParseCtxt.WithinStringLiteral = true;
 								ParseCtxt.WithinStartingLine = ParseCtxt.LineText;
+							}
+							else
+							{
+								//   check for '"'
+								const TCHAR* const ForwardCursor = Cursor + 1;
+								if (*ReverseCursor == TEXT('\'') && *ForwardCursor != TEXT('\''))
+								{
+									ParseCtxt.WithinStringLiteral = true;
+									ParseCtxt.WithinStartingLine = ParseCtxt.LineText;
+								}
 							}
 						}
 					}
@@ -731,37 +741,43 @@ bool UGatherTextFromSourceCommandlet::ParseSourceText(const FString& Text, const
 			}
 			else if (ParseCtxt.WithinStringLiteral)
 			{
-				const TCHAR* ReverseCursor = Cursor;
-				if (*ReverseCursor == TEXT('\"') && ReverseCursor >= *Line)
+				if (*Cursor == TEXT('\"'))
 				{
-					--ReverseCursor;
-					if ((*ReverseCursor != TEXT('\\') && *ReverseCursor != TEXT('\'') && ReverseCursor >= *Line) || ReverseCursor < *Line)
+					if (Cursor == *Line)
 					{
 						ParseCtxt.WithinStringLiteral = false;
 					}
-					else
+					else if (Cursor > *Line)
 					{
-						bool IsEscaped = false;
-						//if the backslash or single quote is itself escaped then the quote is good
-						while (*(--ReverseCursor) == TEXT('\\') && ReverseCursor >= *Line)
-						{
-							IsEscaped = !IsEscaped;
-						}
-
-						if (IsEscaped)
+						const TCHAR* const ReverseCursor = Cursor - 1;
+						if (*ReverseCursor != TEXT('\\') && *ReverseCursor != TEXT('\''))
 						{
 							ParseCtxt.WithinStringLiteral = false;
 						}
 						else
 						{
-							//   check for '"'
-							ReverseCursor = Cursor;
-							--ReverseCursor;
-							const TCHAR* ForwardCursor = Cursor;
-							++ForwardCursor;
-							if (*ReverseCursor == TEXT('\'') && *ForwardCursor != TEXT('\'') && ReverseCursor >= *Line)
+							bool IsEscaped = false;
+							{
+								//if the backslash or single quote is itself escaped then the quote is good
+								const TCHAR* EscapeCursor = ReverseCursor;
+								while (EscapeCursor > *Line && *(--EscapeCursor) == TEXT('\\'))
+								{
+									IsEscaped = !IsEscaped;
+								}
+							}
+
+							if (IsEscaped)
 							{
 								ParseCtxt.WithinStringLiteral = false;
+							}
+							else
+							{
+								//   check for '"'
+								const TCHAR* const ForwardCursor = Cursor + 1;
+								if (*ReverseCursor == TEXT('\'') && *ForwardCursor != TEXT('\''))
+								{
+									ParseCtxt.WithinStringLiteral = false;
+								}
 							}
 						}
 					}
@@ -771,11 +787,10 @@ bool UGatherTextFromSourceCommandlet::ParseSourceText(const FString& Text, const
 			// Check if we're ending comments. Ends *after* "*/".
 			if(ParseCtxt.WithinBlockComment)
 			{
-				const TCHAR* ReverseCursor = Cursor;
-				if(*ReverseCursor == TEXT('/') && ReverseCursor >= *Line)
+				if(*Cursor == TEXT('/') && Cursor > *Line)
 				{
-					--ReverseCursor;
-					if(*ReverseCursor == TEXT('*')  && ReverseCursor >= *Line)
+					const TCHAR* const ReverseCursor = Cursor - 1;
+					if (*ReverseCursor == TEXT('*'))
 					{
 						ParseCtxt.WithinBlockComment = false;
 					}

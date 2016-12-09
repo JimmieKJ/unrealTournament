@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerCategoryReplicator.h"
+#include "GameFramework/PlayerController.h"
+#include "GameplayDebuggerAddonBase.h"
 #include "GameplayDebuggerAddonManager.h"
 #include "GameplayDebuggerPlayerManager.h"
 #include "GameplayDebuggerRenderingComponent.h"
@@ -183,7 +184,7 @@ bool FGameplayDebuggerNetPack::NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaPa
 			}
 		}
 
-		if (CVarGameplayDebuggerRepDetails.GetValueOnGameThread())
+		if (CVarGameplayDebuggerRepDetails.GetValueOnAnyThread())
 		{
 			if (OldState)
 			{
@@ -589,12 +590,16 @@ void AGameplayDebuggerCategoryReplicator::OnReceivedDataPackPacket(int32 Categor
 void AGameplayDebuggerCategoryReplicator::TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction)
 {
 	Super::TickActor(DeltaTime, TickType, ThisTickFunction);
-	
+	CollectCategoryData();
+}
+
+void AGameplayDebuggerCategoryReplicator::CollectCategoryData(bool bForce)
+{
 	const float GameTime = GetWorld()->GetTimeSeconds();
 	for (int32 Idx = 0; Idx < Categories.Num(); Idx++)
 	{
 		FGameplayDebuggerCategory& CategoryOb = Categories[Idx].Get();
-		if (CategoryOb.bHasAuthority && CategoryOb.bIsEnabled && ((GameTime - CategoryOb.LastCollectDataTime) > CategoryOb.CollectDataInterval))
+		if (CategoryOb.bHasAuthority && CategoryOb.bIsEnabled && (bForce || (GameTime - CategoryOb.LastCollectDataTime) > CategoryOb.CollectDataInterval))
 		{
 			// prepare data packs before calling CollectData
 			for (int32 DataPackIdx = 0; DataPackIdx < CategoryOb.ReplicatedDataPacks.Num(); DataPackIdx++)

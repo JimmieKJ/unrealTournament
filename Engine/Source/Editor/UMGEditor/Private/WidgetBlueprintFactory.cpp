@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-
-#include "Kismet2/BlueprintEditorUtils.h"
+#include "WidgetBlueprintFactory.h"
+#include "UObject/Interface.h"
+#include "Misc/MessageDialog.h"
+#include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetBlueprintGeneratedClass.h"
+#include "WidgetBlueprint.h"
 #include "Kismet2/KismetEditorUtilities.h"
 
-#include "WidgetBlueprintFactory.h"
-#include "WidgetBlueprint.h"
+
 
 #define LOCTEXT_NAMESPACE "UWidgetBlueprintFactory"
 

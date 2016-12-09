@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /**
  * Interface for media options.
@@ -9,6 +10,13 @@
 class IMediaOptions
 {
 public:
+
+/**
+	 * Get the name of the desired native player.
+	 *
+	 * @return Native player name, or NAME_None to auto select.
+	 */
+	virtual FName GetDesiredPlayerName() const = 0;
 
 	/**
 	 * Get a Boolean media option.

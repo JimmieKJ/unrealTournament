@@ -1,10 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "UHTMakefile/MultipleInheritanceBaseClassArchiveProxy.h"
-#include "UHTMakefile/PropertyDataArchiveProxy.h"
-#include "UHTMakefile/StructDataArchiveProxy.h"
 
+#include "CoreMinimal.h"
+#include "Templates/ScopedPointer.h"
+#include "ClassMaps.h"
+#include "MultipleInheritanceBaseClassArchiveProxy.h"
+#include "PropertyDataArchiveProxy.h"
+#include "UniquePtr.h"
+
+class FArchive;
 class FUHTMakefile;
 class FClassMetaData;
 
@@ -17,7 +22,7 @@ struct FClassMetaDataArchiveProxy
 	static void AddReferencedNames(const FClassMetaData* FClassMetaData, FUHTMakefile& UHTMakefile);
 
 	friend FArchive& operator<<(FArchive& Ar, FClassMetaDataArchiveProxy& ClassMetaDataArchiveProxy);
-	TScopedPointer<FClassMetaData> CreateClassMetaData() const;
+	TUniquePtr<FClassMetaData> CreateClassMetaData() const;
 	void PostConstruct(FClassMetaData* ClassMetaData) const;
 	void Resolve(FClassMetaData* ClassMetaData, FUHTMakefile& UHTMakefile);
 

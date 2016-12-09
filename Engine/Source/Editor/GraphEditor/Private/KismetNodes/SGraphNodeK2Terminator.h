@@ -4,6 +4,12 @@
 #ifndef __SGraphNodeK2Terminator_h__
 #define __SGraphNodeK2Terminator_h__
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "KismetNodes/SGraphNodeK2Base.h"
+
+class UK2Node;
+
 class SGraphNodeK2Terminator : public SGraphNodeK2Base
 {
 public:

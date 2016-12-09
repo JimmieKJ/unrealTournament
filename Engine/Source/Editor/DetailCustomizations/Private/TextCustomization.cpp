@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "TextCustomization.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "PropertyHandle.h"
+#include "DetailWidgetRow.h"
 #include "IPropertyUtilities.h"
 #include "STextPropertyEditableTextBox.h"
 

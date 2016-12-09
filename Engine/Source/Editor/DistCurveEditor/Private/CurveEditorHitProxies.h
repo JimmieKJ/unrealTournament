@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HitProxies.h"
 
 /*-----------------------------------------------------------------------------
    Hit Proxies

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
 #include "AndroidJavaSurfaceViewDevices.generated.h"
 
 USTRUCT()

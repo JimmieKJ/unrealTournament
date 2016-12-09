@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessagingDebuggerPrivatePCH.h"
+#include "Widgets/MessageDetails/SMessagingMessageDetails.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/MessageDetails/SMessagingDispatchStateTableRow.h"
 
 
 #define LOCTEXT_NAMESPACE "SMessagingMessageDetails"
@@ -21,7 +25,7 @@ SMessagingMessageDetails::~SMessagingMessageDetails()
 /* SMessagingMessageDetails interface
  *****************************************************************************/
 
-void SMessagingMessageDetails::Construct( const FArguments& InArgs, const FMessagingDebuggerModelRef& InModel, const TSharedRef<ISlateStyle>& InStyle )
+void SMessagingMessageDetails::Construct(const FArguments& InArgs, const TSharedRef<FMessagingDebuggerModel>& InModel, const TSharedRef<ISlateStyle>& InStyle)
 {
 	Model = InModel;
 	Style = InStyle;
@@ -36,7 +40,6 @@ void SMessagingMessageDetails::Construct( const FArguments& InArgs, const FMessa
 			[
 				SNew(SGridPanel)
 					.FillColumn(1, 1.0f)
-
 
 				// Sender thread
 				+ SGridPanel::Slot(0, 2)
@@ -93,7 +96,7 @@ void SMessagingMessageDetails::Construct( const FArguments& InArgs, const FMessa
 					.Padding(0.0f)
 					[
 						// message list
-						SAssignNew(DispatchStateListView, SListView<FMessageTracerDispatchStatePtr>)
+						SAssignNew(DispatchStateListView, SListView<TSharedPtr<FMessageTracerDispatchState>>)
 							.ItemHeight(24.0f)
 							.ListItemsSource(&DispatchStateList)
 							.SelectionMode(ESelectionMode::None)
@@ -139,7 +142,7 @@ void SMessagingMessageDetails::Construct( const FArguments& InArgs, const FMessa
 
 void SMessagingMessageDetails::RefreshDetails()
 {
-	FMessageTracerMessageInfoPtr SelectedMessage = Model->GetSelectedMessage();
+	TSharedPtr<FMessageTracerMessageInfo> SelectedMessage = Model->GetSelectedMessage();
 
 	if (SelectedMessage.IsValid())
 	{
@@ -157,7 +160,7 @@ void SMessagingMessageDetails::RefreshDetails()
 /* SMessagingMessageDetails event handlers
  *****************************************************************************/
 
-TSharedRef<ITableRow> SMessagingMessageDetails::HandleDispatchStateListGenerateRow( FMessageTracerDispatchStatePtr DispatchState, const TSharedRef<STableViewBase>& OwnerTable )
+TSharedRef<ITableRow> SMessagingMessageDetails::HandleDispatchStateListGenerateRow(TSharedPtr<FMessageTracerDispatchState> DispatchState, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(SMessagingDispatchStateTableRow, OwnerTable, Model.ToSharedRef())
 		.DispatchState(DispatchState)
@@ -167,7 +170,7 @@ TSharedRef<ITableRow> SMessagingMessageDetails::HandleDispatchStateListGenerateR
 
 FText SMessagingMessageDetails::HandleExpirationText() const
 {
-	FMessageTracerMessageInfoPtr SelectedMessage = Model->GetSelectedMessage();
+	TSharedPtr<FMessageTracerMessageInfo> SelectedMessage = Model->GetSelectedMessage();
 
 	if (SelectedMessage.IsValid() && SelectedMessage->Context.IsValid())
 	{
@@ -193,7 +196,7 @@ void SMessagingMessageDetails::HandleModelSelectedMessageChanged()
 
 FText SMessagingMessageDetails::HandleSenderThreadText() const
 {
-	FMessageTracerMessageInfoPtr SelectedMessage = Model->GetSelectedMessage();
+	TSharedPtr<FMessageTracerMessageInfo> SelectedMessage = Model->GetSelectedMessage();
 
 	if (SelectedMessage.IsValid() && SelectedMessage->Context.IsValid())
 	{
@@ -246,7 +249,7 @@ FText SMessagingMessageDetails::HandleSenderThreadText() const
 
 FText SMessagingMessageDetails::HandleTimestampText() const
 {
-	FMessageTracerMessageInfoPtr SelectedMessage = Model->GetSelectedMessage();
+	TSharedPtr<FMessageTracerMessageInfo> SelectedMessage = Model->GetSelectedMessage();
 
 	if (SelectedMessage.IsValid() && SelectedMessage->Context.IsValid())
 	{

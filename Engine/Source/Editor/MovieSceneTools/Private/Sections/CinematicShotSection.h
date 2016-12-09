@@ -2,18 +2,16 @@
 
 #pragma once
 
-#include "ThumbnailSection.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Layout/Margin.h"
+#include "Sections/ThumbnailSection.h"
 
-
-class FThumbnailSection;
-class FTrackEditorThumbnail;
+class FCinematicShotTrackEditor;
+class FMenuBuilder;
+class FSequencerSectionPainter;
 class FTrackEditorThumbnailPool;
-class FCinematicShotTrackEditor; 
-class IMenu;
-class ISectionLayoutBuilder;
 class UMovieSceneCinematicShotSection;
-class FMovieSceneSequenceInstance;
-
 
 /**
  * CinematicShot section, which paints and ticks the appropriate section.
@@ -45,7 +43,6 @@ public:
 
 	// FThumbnail interface
 	virtual void SetSingleTime(float GlobalTime) override;
-	virtual bool CanRename() const override { return true; }
 	virtual FText HandleThumbnailTextBlockText() const override;
 	virtual void HandleThumbnailTextBlockTextCommitted(const FText& NewThumbnailName, ETextCommit::Type CommitType) override;
 
@@ -58,9 +55,6 @@ private:
 
 	/** The section we are visualizing */
 	UMovieSceneCinematicShotSection& SectionObject;
-
-	/** The instance that this section is part of */
-	TWeakPtr<FMovieSceneSequenceInstance> SequenceInstance;
 
 	/** Sequencer interface */
 	TWeakPtr<ISequencer> Sequencer;

@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "OculusInputPrivatePCH.h"
 #include "OculusInputState.h"
+#include "IInputDevice.h"
+#include "IHapticDevice.h"
+#include "IMotionController.h"
 
 #if OCULUS_INPUT_SUPPORTED_PLATFORMS
 

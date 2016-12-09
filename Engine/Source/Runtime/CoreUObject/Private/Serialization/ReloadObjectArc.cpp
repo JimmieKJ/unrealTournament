@@ -1,5 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "CoreUObjectPrivate.h"
+#include "Serialization/ReloadObjectArc.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Serialization/ArchiveReplaceArchetype.h"
 
 /** Constructor */
 FReloadObjectArc::FReloadObjectArc()

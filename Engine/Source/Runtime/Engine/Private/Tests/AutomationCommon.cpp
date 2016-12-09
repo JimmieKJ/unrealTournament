@@ -1,16 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "SlateBasics.h"
-#include "AutomationCommon.h"
-#include "ImageUtils.h"
-#include "ShaderCompiler.h"		// GShaderCompilingManager
-#include "GameFramework/GameMode.h"
-
-#if WITH_EDITOR
-#include "FileHelpers.h"
-#endif
-
+#include "Tests/AutomationCommon.h"
+#include "Misc/Paths.h"
+#include "EngineGlobals.h"
+#include "Widgets/SWidget.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/Engine.h"
+#include "HardwareInfo.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Kismet/GameplayStatics.h"
+#include "ContentStreaming.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "ShaderCompiler.h"
+#include "GameFramework/GameStateBase.h"
+#include "Scalability.h"
 #include "Matinee/MatineeActor.h"
 
 #if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
@@ -27,6 +32,112 @@ FOnEditorAutomationMapLoad AutomationCommon::OnEditorAutomationMapLoad;
 
 namespace AutomationCommon
 {
+	FString GetRenderDetailsString()
+	{
+		FString HardwareDetailsString;
+
+		// Create the folder name based on the hardware specs we have been provided
+		FString HardwareDetails = FHardwareInfo::GetHardwareDetailsString();
+
+		FString RHIString;
+		FString RHILookup = NAME_RHI.ToString() + TEXT("=");
+		if ( FParse::Value(*HardwareDetails, *RHILookup, RHIString) )
+		{
+			HardwareDetailsString = ( HardwareDetailsString + TEXT("_") ) + RHIString;
+		}
+
+		FString TextureFormatString;
+		FString TextureFormatLookup = NAME_TextureFormat.ToString() + TEXT("=");
+		if ( FParse::Value(*HardwareDetails, *TextureFormatLookup, TextureFormatString) )
+		{
+			HardwareDetailsString = ( HardwareDetailsString + TEXT("_") ) + TextureFormatString;
+		}
+
+		FString DeviceTypeString;
+		FString DeviceTypeLookup = NAME_DeviceType.ToString() + TEXT("=");
+		if ( FParse::Value(*HardwareDetails, *DeviceTypeLookup, DeviceTypeString) )
+		{
+			HardwareDetailsString = ( HardwareDetailsString + TEXT("_") ) + DeviceTypeString;
+		}
+
+		FString FeatureLevelString;
+		GetFeatureLevelName(GMaxRHIFeatureLevel, FeatureLevelString);
+		{
+			HardwareDetailsString = ( HardwareDetailsString + TEXT("_") ) + FeatureLevelString;
+		}
+
+		if ( GEngine->StereoRenderingDevice.IsValid() )
+		{
+			HardwareDetailsString = ( HardwareDetailsString + TEXT("_") ) + TEXT("STEREO");
+		}
+
+		if ( HardwareDetailsString.Len() > 0 )
+		{
+			//Get rid of the leading "_"
+			HardwareDetailsString = HardwareDetailsString.RightChop(1);
+		}
+
+		return HardwareDetailsString;
+	}
+
+#if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
+
+	/** Gets a path used for automation testing (PNG sent to the AutomationTest folder) */
+	void GetScreenshotPath(const FString& TestName, FString& OutScreenshotName)
+	{
+		FString PathName = FPaths::AutomationDir() + TestName / FPlatformProperties::PlatformName();
+		PathName = PathName + TEXT("_") + GetRenderDetailsString();
+
+		FPaths::MakePathRelativeTo(PathName, *FPaths::RootDir());
+
+		FString AdapterName = GRHIAdapterName.IsEmpty() ? FString(TEXT("Unknown")) : GRHIAdapterName;
+		OutScreenshotName = FString::Printf(TEXT("%s/%s.png"), *PathName, *AdapterName);
+	}
+
+	FAutomationScreenshotData BuildScreenshotData(const FString& MapOrContext, const FString& TestName, int32 Width, int32 Height)
+	{
+		FString HardwareDetails = FHardwareInfo::GetHardwareDetailsString();
+
+		FAutomationScreenshotData Data;
+
+		Data.Name = TestName;
+		Data.Context = MapOrContext;
+
+		Data.Width = Width;
+		Data.Height = Height;
+		Data.Platform = FPlatformProperties::PlatformName();
+		Data.Rhi = FHardwareInfo::GetHardwareInfo(NAME_RHI);
+		GetFeatureLevelName(GMaxRHIFeatureLevel, Data.FeatureLevel);
+		Data.bIsStereo = GEngine->StereoRenderingDevice.IsValid();
+		Data.Vendor = RHIVendorIdToString();
+		Data.AdapterName = GRHIAdapterName;
+		Data.AdapterInternalDriverVersion = GRHIAdapterInternalDriverVersion;
+		Data.AdapterUserDriverVersion = GRHIAdapterUserDriverVersion;
+		Data.UniqueDeviceId = FPlatformMisc::GetDeviceId();
+
+		Scalability::FQualityLevels QualityLevels = Scalability::GetQualityLevels();
+
+		Data.ResolutionQuality = QualityLevels.ResolutionQuality;
+		Data.ViewDistanceQuality = QualityLevels.ViewDistanceQuality;
+		Data.AntiAliasingQuality = QualityLevels.AntiAliasingQuality;
+		Data.ShadowQuality = QualityLevels.ShadowQuality;
+		Data.PostProcessQuality = QualityLevels.PostProcessQuality;
+		Data.TextureQuality = QualityLevels.TextureQuality;
+		Data.EffectsQuality = QualityLevels.EffectsQuality;
+		Data.FoliageQuality = QualityLevels.FoliageQuality;
+
+		//GRHIDeviceId
+
+		// TBD - 
+		// Device's native resolution (we want to use a hardware dump of the frontbuffer at the native resolution so we compare what we actually output rather than what we think we rendered)
+
+		const FString MapAndTest = MapOrContext + TEXT("_") + TestName;
+		AutomationCommon::GetScreenshotPath(MapAndTest, Data.Path);
+
+		return Data;
+	}
+#endif
+
 	/** These save a PNG and get sent over the network */
 	static void SaveWindowAsScreenshot(TSharedRef<SWindow> Window, const FString& FileName)
 	{
@@ -36,7 +147,11 @@ namespace AutomationCommon
 		FIntVector OutImageSize;
 		if (FSlateApplication::Get().TakeScreenshot(WindowRef, OutImageData, OutImageSize))
 		{
-			FAutomationTestFramework::GetInstance().OnScreenshotCaptured().ExecuteIfBound(OutImageSize.X, OutImageSize.Y, OutImageData, FileName);
+			FAutomationScreenshotData Data;
+			Data.Width = OutImageSize.X;
+			Data.Height = OutImageSize.Y;
+			Data.Path = FileName;
+			FAutomationTestFramework::Get().OnScreenshotCaptured().ExecuteIfBound(OutImageData, Data);
 		}
 	}
 
@@ -73,7 +188,9 @@ bool AutomationOpenMap(const FString& MapName)
 	{
 		UWorld* TestWorld = AutomationCommon::GetAnyGameWorld();
 
-		if ( TestWorld->GetMapName() != MapName )
+		//Don't reload the map if it's already loaded. Check if the two are equal or one contains the other,
+		// since sometime one is a path and the other is the asset name, depending on whether we're in PIE.
+		if ( !TestWorld->GetMapName().Contains(MapName) && !MapName.Contains(TestWorld->GetMapName()) )
 		{
 			FString OpenCommand = FString::Printf(TEXT("Open %s"), *MapName);
 			GEngine->Exec(TestWorld, *OpenCommand);
@@ -89,7 +206,7 @@ bool AutomationOpenMap(const FString& MapName)
 
 bool FWaitLatentCommand::Update()
 {
-	float NewTime = FPlatformTime::Seconds();
+	const double NewTime = FPlatformTime::Seconds();
 	if (NewTime - StartTime >= Duration)
 	{
 		return true;
@@ -146,8 +263,8 @@ bool FWaitForMapToLoadCommand::Update()
 
 	if ( TestWorld && TestWorld->AreActorsInitialized() )
 	{
-		AGameMode* GameMode = TestWorld->GetAuthGameMode();
-		if ( GameMode && GameMode->HasMatchStarted() )
+		AGameStateBase* GameState = TestWorld->GetGameState();
+		if (GameState && GameState->HasMatchStarted() )
 		{
 			return true;
 		}

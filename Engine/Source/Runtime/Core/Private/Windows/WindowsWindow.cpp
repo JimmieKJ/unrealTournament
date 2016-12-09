@@ -1,16 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "WindowsWindow.h"
-#include "WindowsApplication.h"
+#include "Windows/WindowsWindow.h"
+#include "Math/UnrealMathUtility.h"
+#include "HAL/UnrealMemory.h"
+#include "Containers/UnrealString.h"
+#include "CoreGlobals.h"
+#include "Math/Vector2D.h"
+#include "GenericPlatform/GenericWindowDefinition.h"
+#include "Windows/WindowsApplication.h"
 #include "HAL/ThreadHeartBeat.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #if WINVER > 0x502	// Windows Vista or better required for DWM
-	#include "Dwmapi.h"
+	#include <dwmapi.h>
 #endif
 #include <ShlObj.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 
 FWindowsWindow::~FWindowsWindow()
@@ -53,6 +58,8 @@ void FWindowsWindow::Initialize( FWindowsApplication* const Application, const T
 
 	const float WidthInitial = Definition->WidthDesiredOnScreen;
 	const float HeightInitial = Definition->HeightDesiredOnScreen;
+
+	DPIScaleFactor = FPlatformMisc::GetDPIScaleFactorAtPoint(XInitialRect, YInitialRect);
 
 	int32 ClientX = FMath::TruncToInt( XInitialRect );
 	int32 ClientY = FMath::TruncToInt( YInitialRect );
@@ -166,6 +173,14 @@ void FWindowsWindow::Initialize( FWindowsApplication* const Application, const T
 		( InParent.IsValid() ) ? static_cast<HWND>( InParent->HWnd ) : NULL,
 		NULL, InHInstance, NULL);
 
+#if WINVER >= 0x0601
+	if ( RegisterTouchWindow( HWnd, 0 ) == false )
+	{
+		uint32 Error = GetLastError();
+		UE_LOG(LogWindows, Warning, TEXT("Register touch input failed!"));
+	}
+#endif
+
 	VirtualWidth = ClientWidth;
 	VirtualHeight = ClientHeight;
 
@@ -230,7 +245,15 @@ void FWindowsWindow::Initialize( FWindowsApplication* const Application, const T
 		}
 
 		verify(SetWindowLong(HWnd, GWL_STYLE, WindowStyle));
-		::SetWindowPos(HWnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+
+		uint32 SetWindowPositionFlags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED;
+
+		if ( !Definition->ActivateWhenFirstShown )
+		{
+			SetWindowPositionFlags |= SWP_NOACTIVATE;
+		}
+
+		::SetWindowPos(HWnd, nullptr, 0, 0, 0, 0, SetWindowPositionFlags);
 
 		AdjustWindowRegion( ClientWidth, ClientHeight );
 	}
@@ -249,9 +272,10 @@ FWindowsWindow::FWindowsWindow()
 	, OLEReferenceCount(0)
 	, AspectRatio(1.0f)
 	, bIsVisible( false )
+	, DPIScaleFactor(1.0f)
 {
+	// PreFullscreenWindowPlacement.length will be set when we save the window placement and then used to check if the structure is valid
 	FMemory::Memzero(PreFullscreenWindowPlacement);
-	PreFullscreenWindowPlacement.length = sizeof(WINDOWPLACEMENT);
 
 	FMemory::Memzero(PreParentMinimizedWindowPlacement);
 	PreParentMinimizedWindowPlacement.length = sizeof(WINDOWPLACEMENT);
@@ -287,14 +311,15 @@ void FWindowsWindow::OnTransparencySupportChanged(EWindowTransparency NewTranspa
 #endif
 }
 
-HRGN FWindowsWindow::MakeWindowRegionObject() const
+HRGN FWindowsWindow::MakeWindowRegionObject(bool bIncludeBorderWhenMaximized) const
 {
 	HRGN Region;
 	if ( RegionWidth != INDEX_NONE && RegionHeight != INDEX_NONE )
 	{
+		const bool bIsBorderlessGameWindow = GetDefinition().Type == EWindowType::GameWindow && !GetDefinition().HasOSWindowBorder;
 		if (IsMaximized())
 		{
-			if (GetDefinition().Type == EWindowType::GameWindow && !GetDefinition().HasOSWindowBorder)
+			if (bIsBorderlessGameWindow)
 			{
 				// Windows caches the cxWindowBorders size at window creation. Even if borders are removed or resized Windows will continue to use this value when evaluating regions
 				// and sizing windows. When maximized this means that our window position will be offset from the screen origin by (-cxWindowBorders,-cxWindowBorders). We want to
@@ -304,17 +329,18 @@ HRGN FWindowsWindow::MakeWindowRegionObject() const
 				WindowInfo.cbSize = sizeof(WindowInfo);
 				::GetWindowInfo(HWnd, &WindowInfo);
 
-				Region = CreateRectRgn(WindowInfo.cxWindowBorders, WindowInfo.cxWindowBorders, RegionWidth + WindowInfo.cxWindowBorders, RegionHeight + WindowInfo.cxWindowBorders);
+				const int32 WindowBorderSize = bIncludeBorderWhenMaximized ? WindowInfo.cxWindowBorders : 0;
+				Region = CreateRectRgn(WindowBorderSize, WindowBorderSize, RegionWidth + WindowBorderSize, RegionHeight + WindowBorderSize);
 			}
 			else
 			{
-				int32 WindowBorderSize = GetWindowBorderSize();
+				const int32 WindowBorderSize = bIncludeBorderWhenMaximized ? GetWindowBorderSize() : 0;
 				Region = CreateRectRgn(WindowBorderSize, WindowBorderSize, RegionWidth - WindowBorderSize, RegionHeight - WindowBorderSize);
 			}
 		}
 		else
 		{
-			const bool bUseCornerRadius  = WindowMode == EWindowMode::Windowed &&
+			const bool bUseCornerRadius  = WindowMode == EWindowMode::Windowed && !bIsBorderlessGameWindow &&
 #if ALPHA_BLENDED_WINDOWS
 				// Corner radii cause DWM window composition blending to fail, so we always set regions to full size rectangles
 				Definition->TransparencySupport != EWindowTransparency::PerPixel &&
@@ -323,8 +349,6 @@ HRGN FWindowsWindow::MakeWindowRegionObject() const
 
 			if( bUseCornerRadius )
 			{
-				// @todo mac: Corner radius not applied on Mac platform yet
-
 				// CreateRoundRectRgn gives you a duff region that's 1 pixel smaller than you ask for. CreateRectRgn behaves correctly.
 				// This can be verified by uncommenting the assert below
 				Region = CreateRoundRectRgn( 0, 0, RegionWidth+1, RegionHeight+1, Definition->CornerRadius, Definition->CornerRadius );
@@ -353,7 +377,7 @@ void FWindowsWindow::AdjustWindowRegion( int32 Width, int32 Height )
 	RegionWidth = Width;
 	RegionHeight = Height;
 
-	HRGN Region = MakeWindowRegionObject();
+	HRGN Region = MakeWindowRegionObject(true);
 
 	// NOTE: We explicitly don't delete the Region object, because the OS deletes the handle when it no longer needed after
 	// a call to SetWindowRgn.
@@ -553,7 +577,14 @@ void FWindowsWindow::Show()
 		// Do not activate windows that do not take input; e.g. tool-tips and cursor decorators
 		// Also dont activate if a window wants to appear but not activate itself
 		const bool bShouldActivate = Definition->AcceptsInput && Definition->ActivateWhenFirstShown;
-		::ShowWindow(HWnd, bShouldActivate ? SW_SHOW : SW_SHOWNA);
+		::ShowWindow(HWnd, bShouldActivate ? SW_SHOW : SW_SHOWNOACTIVATE);
+
+		// Turns out SW_SHOWNA doesn't work correctly if the window has never been shown before.  If the window
+		// was already maximized, (and hidden) and we're showing it again, SW_SHOWNA would be right.  But it's not right
+		// to use SW_SHOWNA when the window has never been shown before!
+		// 
+		// TODO Add in a more complicated path that involves SW_SHOWNA if we hide windows in their maximized/minimized state.
+		//::ShowWindow(HWnd, bShouldActivate ? SW_SHOW : SW_SHOWNA);
 	}
 }
 
@@ -572,6 +603,7 @@ void FWindowsWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 {
 	if (NewWindowMode != WindowMode)
 	{
+		EWindowMode::Type PreviousWindowMode = WindowMode;
 		WindowMode = NewWindowMode;
 
 		const bool bTrueFullscreen = NewWindowMode == EWindowMode::Fullscreen;
@@ -610,21 +642,15 @@ void FWindowsWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 		// If we're not in fullscreen, make it so
 		if (NewWindowMode == EWindowMode::WindowedFullscreen || NewWindowMode == EWindowMode::Fullscreen)
 		{
-			const bool bIsBorderlessGameWindow = Definition->Type == EWindowType::GameWindow && !Definition->HasOSWindowBorder;
-
+			if (PreviousWindowMode == EWindowMode::Windowed)
+			{
+				PreFullscreenWindowPlacement.length = sizeof(WINDOWPLACEMENT);
 			::GetWindowPlacement(HWnd, &PreFullscreenWindowPlacement);
+			}
 
 			// Setup Win32 flags for fullscreen window
-			if (bIsBorderlessGameWindow && !bTrueFullscreen)
-			{
-				WindowStyle &= ~FullscreenModeStyle;
-				WindowStyle |= WindowedModeStyle;
-			}
-			else
-			{
-				WindowStyle &= ~WindowedModeStyle;
-				WindowStyle |= FullscreenModeStyle;
-			}
+			WindowStyle &= ~WindowedModeStyle;
+			WindowStyle |= FullscreenModeStyle;
 
 			SetWindowLong(HWnd, GWL_STYLE, WindowStyle);
 			::SetWindowPos(HWnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
@@ -677,9 +703,12 @@ void FWindowsWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 			SetWindowLong(HWnd, GWL_STYLE, WindowStyle);
 			::SetWindowPos(HWnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 
+			if (PreFullscreenWindowPlacement.length) // Was PreFullscreenWindowPlacement initialized?
+			{
 			::SetWindowPlacement(HWnd, &PreFullscreenWindowPlacement);
 		}
 	}
+}
 }
 
 /** @return true if the native window is maximized, false otherwise */
@@ -793,7 +822,7 @@ bool FWindowsWindow::IsPointInWindow( int32 X, int32 Y ) const
 {
 	bool Result = false;
 
-	HRGN Region = MakeWindowRegionObject();
+	HRGN Region = MakeWindowRegionObject(false);
 	Result = !!PtInRegion( Region, X, Y );
 	DeleteObject( Region );
 

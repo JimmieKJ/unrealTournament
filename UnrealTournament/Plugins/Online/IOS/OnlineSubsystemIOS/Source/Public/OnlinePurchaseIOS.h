@@ -76,7 +76,7 @@ public:
 	virtual void Checkout(const FUniqueNetId& UserId, const FPurchaseCheckoutRequest& CheckoutRequest, const FOnPurchaseCheckoutComplete& Delegate) override;
 	virtual void FinalizePurchase(const FUniqueNetId& UserId, const FString& ReceiptId) override;
 	virtual void RedeemCode(const FUniqueNetId& UserId, const FRedeemCodeRequest& RedeemCodeRequest, const FOnPurchaseRedeemCodeComplete& Delegate) override;
-	virtual void QueryReceipts(const FUniqueNetId& UserId, const FOnQueryReceiptsComplete& Delegate) override;
+	virtual void QueryReceipts(const FUniqueNetId& UserId, bool bRestoreReceipts, const FOnQueryReceiptsComplete& Delegate) override;
 	virtual void GetReceipts(const FUniqueNetId& UserId, TArray<FPurchaseReceipt>& OutReceipts) const override;
 	
 	// FOnlinePurchaseIOS
@@ -124,12 +124,18 @@ private:
 	/** Mapping from user id to complete transactions */
 	typedef TMap<FString, TArray< TSharedRef<FPurchaseReceipt> > > FOnlinePurchaseCompleteTransactionsMap;
 	
-	typedef TArray< TSharedRef<FPurchaseReceipt> > FOnlineCompletedTransactionsMap;
+	/** Array of transactions completion indirectly (previous run, etc) */
+	typedef TArray< TSharedRef<FPurchaseReceipt> > FOnlineCompletedTransactions;
 	
 private:
 	
 	/** Store kit helper for interfacing with app store (owned by main OnlineSubsystem) */
 	FStoreKitHelperV2* StoreHelper;
+	
+	/** Are transactions current being restored */
+	bool bRestoringTransactions;
+	/** Transient delegate to fire when query receipts has completed, when restoring transactions */
+	FOnQueryReceiptsComplete QueryReceiptsComplete;
 	
 	/** Keeps track of pending user transactions */
 	FOnlinePurchasePendingTransactionMap PendingTransactions;
@@ -138,7 +144,7 @@ private:
 	FOnlinePurchaseCompleteTransactionsMap CompletedTransactions;
 	
 	/** Cache of purchases completed outside the running instance */
-	FOnlineCompletedTransactionsMap OfflineTransactions;
+	FOnlineCompletedTransactions OfflineTransactions;
 	
 	/** Reference to the parent subsystem */
 	FOnlineSubsystemIOS* Subsystem;

@@ -2,11 +2,19 @@
 
 #pragma once
 
-#include "PaperSprite.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/MeshComponent.h"
 
 #include "PaperGroupedSpriteComponent.generated.h"
 
 class FGroupedSpriteSceneProxy;
+class FPhysScene;
+class FPrimitiveSceneProxy;
+class UPaperSprite;
+class UTexture;
+struct FNavigableGeometryExport;
+struct FNavigationRelevantData;
 
 USTRUCT()
 struct FSpriteInstanceData

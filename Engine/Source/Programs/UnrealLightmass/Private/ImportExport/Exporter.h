@@ -2,11 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "LMCore.h"
+#include "Containers/IndirectArray.h"
 
 
 namespace Lightmass
 {
+	class FScene;
+	class FMeshAreaLight;
+	class FLightmassSwarm;
 	class FStaticLightingTextureMappingResult;
 	class FStaticLightingVertexMappingResult;
 

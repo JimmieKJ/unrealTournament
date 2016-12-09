@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UnrealType.h"
 
 /*-----------------------------------------------------------------------------
 	UWeakObjectProperty.
@@ -39,6 +41,16 @@ void UWeakObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* 
 	{
 		CheckValidObject(Value);
 	}
+}
+
+UObject* UWeakObjectProperty::GetObjectPropertyValue(const void* PropertyValueAddress) const
+{
+	return GetPropertyValue(PropertyValueAddress).Get();
+}
+
+void UWeakObjectProperty::SetObjectPropertyValue(void* PropertyValueAddress, UObject* Value) const
+{
+	SetPropertyValue(PropertyValueAddress, TCppType(Value));
 }
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UWeakObjectProperty, UObjectPropertyBase,

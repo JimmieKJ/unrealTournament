@@ -1,14 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "AssetData.h"
+#include "GroupedSprites/PaperGroupedSpriteUtilities.h"
+#include "Paper2DEditorLog.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
+#include "Editor/EditorEngine.h"
+#include "Kismet/GameplayStatics.h"
+#include "Editor.h"
 #include "PaperGroupedSpriteActor.h"
-#include "PaperGroupedSpriteUtilities.h"
 #include "PaperSpriteActor.h"
+#include "PaperSprite.h"
 #include "PaperSpriteComponent.h"
 #include "ScopedTransaction.h"
-#include "ILayers.h"
+#include "Layers/ILayers.h"
 #include "ComponentReregisterContext.h"
+#include "PaperGroupedSpriteComponent.h"
 
 #define LOCTEXT_NAMESPACE "SpriteEditor"
 

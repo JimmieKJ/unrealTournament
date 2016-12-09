@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_ConstructObjectFromClass.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UEdGraph;
 
 UCLASS(abstract)
 class BLUEPRINTGRAPH_API UK2Node_ConstructObjectFromClass : public UK2Node

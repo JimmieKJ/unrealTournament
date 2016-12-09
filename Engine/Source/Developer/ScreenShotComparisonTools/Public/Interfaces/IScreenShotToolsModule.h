@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Interfaces/IScreenShotManager.h"
 
 /**
  * Interface for session core modules.
@@ -21,11 +24,6 @@ public:
 	* @return The session manager.
 	*/
 	virtual IScreenShotManagerPtr GetScreenShotManager( ) = 0;
-
-	/**
-	* Update the screenshot data after it has been updated.
-	*/
-	virtual void UpdateScreenShotData( ) = 0;
 
 public:
 

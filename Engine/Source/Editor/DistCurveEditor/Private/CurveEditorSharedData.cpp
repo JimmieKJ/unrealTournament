@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DistCurveEditorModule.h"
-#include "SDistributionCurveEditor.h"
 #include "CurveEditorSharedData.h"
-#include "CurveEditorHitProxies.h"
 #include "Engine/InterpCurveEdSetup.h"
+#include "UObject/Package.h"
+#include "Preferences/CurveEdOptions.h"
 
 FCurveEditorSharedData::FCurveEditorSharedData(UInterpCurveEdSetup* InEdSetup)
 	: LabelEntryHeight(36)

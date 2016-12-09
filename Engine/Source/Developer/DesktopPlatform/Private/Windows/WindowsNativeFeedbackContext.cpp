@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DesktopPlatformPrivatePCH.h"
 #include "WindowsNativeFeedbackContext.h"
 #include "HAL/ThreadHeartBeat.h"
+#include "Misc/CoreMisc.h"
+#include "Misc/OutputDeviceHelper.h"
+#include "Misc/OutputDeviceConsole.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "Misc/App.h"
+#include "Internationalization/Internationalization.h"
 
 #include "AllowWindowsPlatformTypes.h"
 
@@ -59,7 +64,7 @@ void FWindowsNativeFeedbackContext::Serialize( const TCHAR* V, ELogVerbosity::Ty
 		}
 	}
 
-	if( GLogConsole && IsRunningCommandlet() )
+	if( GLogConsole && IsRunningCommandlet() && !GLog->IsRedirectingTo(GLogConsole) )
 	{
 		GLogConsole->Serialize( V, Verbosity, Category );
 	}
@@ -200,7 +205,7 @@ DWORD FWindowsNativeFeedbackContext::SlowTaskThreadProc(void* ThreadParam)
 	HANDLE hFont = CreateFontIndirect(&NonClientMetrics.lfMessageFont);
 
 	int FontHeight = -MulDiv(8, GetDeviceCaps(GetDC(NULL), LOGPIXELSY), 72);
-	HANDLE hLogFont = CreateFont(FontHeight, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, FIXED_PITCH | FF_MODERN, TEXT("Courier New"));
+	HANDLE hLogFont = CreateFontW(FontHeight, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, FIXED_PITCH | FF_MODERN, TEXT("Courier New"));
 
 	TEXTMETRIC TextMetric;
 	HDC hDC = CreateCompatibleDC(NULL);
@@ -230,19 +235,19 @@ DWORD FWindowsNativeFeedbackContext::SlowTaskThreadProc(void* ThreadParam)
 	const TCHAR* WindowClassName = MAKEINTATOM( WndClassAtom );
 	HWND hWnd = CreateWindow(WindowClassName, TEXT("Unreal Engine"), WindowStyle, WindowRect.left, WindowRect.top, WindowRect.right - WindowRect.left, WindowRect.bottom - WindowRect.top, NULL, NULL, HInstance, NULL);
 	SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)&Params);
-	SendMessage(hWnd, WM_SETFONT, (WPARAM)hFont, 0);
+	SendMessageW(hWnd, WM_SETFONT, (WPARAM)hFont, 0);
 
 	HWND hWndOpenLog = CreateWindow(WC_BUTTON, TEXT("Show log"), BS_CENTER | BS_VCENTER | BS_PUSHBUTTON | BS_TEXT | WS_CHILD | WS_VISIBLE, 10, 10, 10, 10, hWnd, (HMENU)ShowLogCtlId, HInstance, NULL);
-	SendMessage(hWndOpenLog, WM_SETFONT, (WPARAM)hFont, 0);
+	SendMessageW(hWndOpenLog, WM_SETFONT, (WPARAM)hFont, 0);
 
 	HWND hWndStatus = CreateWindow(WC_STATIC, TEXT(""), SS_CENTER | WS_CHILD | WS_VISIBLE, 10, 10, 10, 10, hWnd, (HMENU)StatusCtlId, HInstance, NULL);
-	SendMessage(hWndStatus, WM_SETFONT, (WPARAM)hFont, 0);
+	SendMessageW(hWndStatus, WM_SETFONT, (WPARAM)hFont, 0);
 
 	HWND hWndProgress = CreateWindowEx(0, PROGRESS_CLASS, TEXT(""), WS_CHILD | WS_VISIBLE, 10, 10, 10, 10, hWnd, (HMENU)ProgressCtlId, HInstance, NULL);
-	SendMessage(hWndProgress, PBM_SETRANGE32, 0, 1000);
+	SendMessageW(hWndProgress, PBM_SETRANGE32, 0, 1000);
 
 	HWND hWndLogOutput = CreateWindowEx(WS_EX_STATICEDGE, WC_EDIT, TEXT(""), ES_MULTILINE | ES_READONLY | WS_HSCROLL | WS_VSCROLL | WS_CHILD | WS_VISIBLE, 10, 10, 10, 10, hWnd, (HMENU)LogOutputCtlId, HInstance, NULL);
-	SendMessage(hWndLogOutput, WM_SETFONT, (WPARAM)hLogFont, 0);
+	SendMessageW(hWndLogOutput, WM_SETFONT, (WPARAM)hLogFont, 0);
 
 	LayoutControls(hWnd, &Params);
 	SetEvent(Context->hUpdateEvent);
@@ -273,14 +278,14 @@ DWORD FWindowsNativeFeedbackContext::SlowTaskThreadProc(void* ThreadParam)
 			}
 			if(Context->Progress != PrevProgress)
 			{
-				SendMessage(hWndProgress, PBM_SETPOS, (int32)(Context->Progress * 1000.0f), 0);
+				SendMessageW(hWndProgress, PBM_SETPOS, (int32)(Context->Progress * 1000.0f), 0);
 				PrevProgress = Context->Progress;
 			}
 			if(Context->LogOutput.Len() > PrevLogOutputLength)
 			{
-				SendMessage(hWndLogOutput, EM_SETSEL, PrevLogOutputLength, PrevLogOutputLength);
-				SendMessage(hWndLogOutput, EM_REPLACESEL, FALSE, (LPARAM)(*Context->LogOutput + PrevLogOutputLength));
-				SendMessage(hWndLogOutput, EM_SCROLLCARET, 0, 0);
+				SendMessageW(hWndLogOutput, EM_SETSEL, PrevLogOutputLength, PrevLogOutputLength);
+				SendMessageW(hWndLogOutput, EM_REPLACESEL, FALSE, (LPARAM)(*Context->LogOutput + PrevLogOutputLength));
+				SendMessageW(hWndLogOutput, EM_SCROLLCARET, 0, 0);
 				PrevLogOutputLength = Context->LogOutput.Len();
 			}
 		}

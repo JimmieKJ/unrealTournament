@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "ISlackIncomingWebhookInterface.h"
-#include "SlackIntegrationsModule.h"
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
 
 /**  
  * Simple struct represents the parameters used for incoming webhook requests

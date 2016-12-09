@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
 
 #if PLATFORM_WINDOWS
 #include "Windows/WindowsPlatformTime.h"
@@ -20,4 +20,6 @@
 #include "HTML5/HTML5PlatformTime.h"
 #elif PLATFORM_LINUX
 #include "Linux/LinuxPlatformTime.h"
+#elif PLATFORM_SWITCH
+#include "Switch/SwitchPlatformTime.h"
 #endif

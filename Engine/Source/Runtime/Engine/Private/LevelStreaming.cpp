@@ -1,15 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Engine/LevelStreaming.h"
+#include "Misc/App.h"
+#include "UObject/Package.h"
+#include "Serialization/ArchiveTraceRoute.h"
+#include "Misc/PackageName.h"
+#include "UObject/LinkerLoad.h"
+#include "EngineGlobals.h"
+#include "Engine/Level.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/World.h"
+#include "UObject/ObjectRedirector.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/Engine.h"
 #include "Engine/LevelStreamingAlwaysLoaded.h"
 #include "Engine/LevelStreamingPersistent.h"
 #include "Engine/LevelStreamingVolume.h"
-#include "Engine/LevelBounds.h"
 #include "LevelUtils.h"
+#include "EngineUtils.h"
 #if WITH_EDITOR
-	#include "SlateBasics.h"
-	#include "SNotificationList.h"
-	#include "NotificationManager.h"
+	#include "Framework/Notifications/NotificationManager.h"
+	#include "Widgets/Notifications/SNotificationList.h"
 #endif
 #include "Engine/LevelStreamingKismet.h"
 #include "Components/BrushComponent.h"
@@ -134,7 +145,7 @@ void FStreamLevelAction::ActivateLevel( ULevelStreaming* LevelStreamingObject )
 			// Notify players of the change
 			for( FConstPlayerControllerIterator Iterator = LevelWorld->GetPlayerControllerIterator(); Iterator; ++Iterator )
 			{
-				APlayerController* PlayerController = *Iterator;
+				APlayerController* PlayerController = Iterator->Get();
 
 				UE_LOG(LogLevel, Log, TEXT("ActivateLevel %s %i %i %i"), 
 					*LevelStreamingObject->GetWorldAssetPackageName(), 
@@ -264,7 +275,6 @@ UWorld* ULevelStreaming::GetWorld() const
 	}
 }
 
-#if WITH_EDITOR
 void ULevelStreaming::Serialize( FArchive& Ar )
 {
 	Super::Serialize(Ar);
@@ -277,7 +287,6 @@ void ULevelStreaming::Serialize( FArchive& Ar )
 		}
 	}
 }
-#endif
 
 FName ULevelStreaming::GetLODPackageName() const
 {
@@ -313,6 +322,19 @@ void ULevelStreaming::SetLoadedLevel(class ULevel* Level)
 
 	// Cancel unloading for this level, in case it was queued for it
 	FLevelStreamingGCHelper::CancelUnloadRequest(LoadedLevel);
+
+	// Add this level to the correct collection
+	const ELevelCollectionType CollectionType =	bIsStatic ? ELevelCollectionType::StaticLevels : ELevelCollectionType::DynamicSourceLevels;
+
+	FLevelCollection& LC = GetWorld()->FindOrAddCollectionByType(CollectionType);
+	LC.RemoveLevel(PendingUnloadLevel);
+
+	// Remove the loaded level from its current collection, if any.
+	if (LoadedLevel && LoadedLevel->GetCachedLevelCollection())
+	{
+		LoadedLevel->GetCachedLevelCollection()->RemoveLevel(LoadedLevel);
+	}
+	LC.AddLevel(LoadedLevel);
 }
 
 void ULevelStreaming::DiscardPendingUnloadLevel(UWorld* PersistentWorld)
@@ -364,6 +386,13 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 	{
 		return false;
 	}
+
+	// Can not load new level now either, we're still processing visibility for this one
+    if (PersistentWorld->IsVisibilityRequestPending() && PersistentWorld->CurrentLevelPendingVisibility == LoadedLevel)
+    {
+		UE_LOG(LogLevelStreaming, Verbose, TEXT("Delaying load of new level %s, because %s still processing visibility request."), *DesiredPackageName.ToString(), *CachedLoadedLevelPackageName.ToString());
+		return false;
+	}
 		
 	// Try to find the [to be] loaded package.
 	UPackage* LevelPackage = (UPackage*)StaticFindObjectFast(UPackage::StaticClass(), NULL, DesiredPackageName, 0, 0, RF_NoFlags, EInternalObjectFlags::PendingKill);
@@ -375,17 +404,25 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 		UWorld* World = UWorld::FindWorldInPackage(LevelPackage);
 
 		// Check for a redirector. Follow it, if found.
-		if ( !World )
+		if (!World)
 		{
 			World = UWorld::FollowWorldRedirectorInPackage(LevelPackage);
-			if ( World )
+			if (World)
 			{
 				LevelPackage = World->GetOutermost();
 			}
 		}
 
-		if (World != NULL)
+		if (World != nullptr)
 		{
+			if (World->IsPendingKill())
+			{
+				// We're trying to reload a level that has very recently been marked for garbage collection, it might not have been cleaned up yet
+				// So continue attempting to reload the package if possible
+				UE_LOG(LogLevelStreaming, Verbose, TEXT("RequestLevel: World is pending kill %s"), *DesiredPackageName.ToString());
+				return false;
+			}
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 			if (World->PersistentLevel == NULL)
 			{
@@ -418,13 +455,12 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 	// (the world is already loaded for the editor, just find it and copy it)
 	if ( PersistentWorld->IsPlayInEditor() )
 	{
-#if WITH_EDITOR
 		if (PersistentWorld->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 		{
 			PackageFlags |= PKG_PlayInEditor;
 		}
 		PIEInstanceID = PersistentWorld->GetOutermost()->PIEInstanceID;
-#endif
+
 		const FString NonPrefixedLevelName = UWorld::StripPIEPrefixFromPackageName(DesiredPackageName.ToString(), PersistentWorld->StreamingLevelsPrefix);
 		UPackage* EditorLevelPackage = FindObjectFast<UPackage>(nullptr, FName(*NonPrefixedLevelName));
 		
@@ -467,19 +503,6 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 		const FName DesiredPackageNameToLoad = bIsGameWorld ? GetLODPackageNameToLoad() : PackageNameToLoad;
 		const FString PackageNameToLoadFrom = DesiredPackageNameToLoad != NAME_None ? DesiredPackageNameToLoad.ToString() : DesiredPackageName.ToString();
 
-		if (GUseSeekFreeLoading)
-		{
-			// Only load localized package if it exists as async package loading doesn't handle errors gracefully.
-			FString LocalizedPackageName = PackageNameToLoadFrom + LOCALIZED_SEEKFREE_SUFFIX;
-			FString LocalizedFileName;
-			if (FPackageName::DoesPackageExist(LocalizedPackageName, NULL, &LocalizedFileName))
-			{
-				// Load localized part of level first in case it exists. We don't need to worry about GC or completion 
-				// callback as we always kick off another async IO for the level below.
-				LoadPackageAsync(*(GetWorldAssetPackageName() + LOCALIZED_SEEKFREE_SUFFIX), nullptr, *LocalizedPackageName, FLoadPackageAsyncDelegate(), PackageFlags, PIEInstanceID);
-			}
-		}
-
 		if (FPackageName::DoesPackageExist(PackageNameToLoadFrom, NULL, NULL))
 		{
 			bHasLoadRequestPending = true;
@@ -495,6 +518,11 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 			// Editor immediately blocks on load and we also block if background level streaming is disabled.
 			if (BlockPolicy == AlwaysBlock || (ShouldBeAlwaysLoaded() && BlockPolicy != NeverBlock))
 			{
+				if (IsAsyncLoading())
+				{
+					UE_LOG(LogStreaming, Log, TEXT("ULevelStreaming::RequestLevel(%s) is flushing async loading"), *DesiredPackageName.ToString());
+				}
+
 				// Finish all async loading.
 				FlushAsyncLoading();
 			}
@@ -514,23 +542,40 @@ void ULevelStreaming::AsyncLevelLoadComplete(const FName& InPackageName, UPackag
 {
 	bHasLoadRequestPending = false;
 
-	if( InLoadedPackage )
+	if (InLoadedPackage)
 	{
 		UPackage* LevelPackage = InLoadedPackage;
 		
 		// Try to find a UWorld object in the level package.
 		UWorld* World = UWorld::FindWorldInPackage(LevelPackage);
 
-		if ( World )
+		if (World)
 		{
 			ULevel* Level = World->PersistentLevel;
-			if( Level )
+			if (Level)
 			{
-				check(PendingUnloadLevel == NULL);
-				SetLoadedLevel(Level);
+				UWorld* LevelOwningWorld = Level->OwningWorld;
 
-				// Broadcast level loaded event to blueprints
-				OnLevelLoaded.Broadcast();
+				if (LevelOwningWorld && 
+					LevelOwningWorld->IsVisibilityRequestPending() && 
+					LevelOwningWorld->CurrentLevelPendingVisibility == LoadedLevel)
+ 				{
+ 					// We can't change current loaded level if it's still processing visibility request
+					// On next UpdateLevelStreaming call this loaded package will be found in memory by RequestLevel function in case visibility request has finished
+ 					UE_LOG(LogLevelStreaming, Verbose, TEXT("Delaying setting result of async load new level %s, because current loaded level still processing visibility request"), *LevelPackage->GetName());
+ 				}
+				else
+				{
+					check(PendingUnloadLevel == NULL);
+					SetLoadedLevel(Level);
+					// Broadcast level loaded event to blueprints
+					OnLevelLoaded.Broadcast();
+				}
+
+				Level->HandleLegacyMapBuildData();
+
+				// Notify the streamer to start building incrementally the level streaming data.
+				IStreamingManager::Get().AddLevel(Level);
 
 				// Make sure this level will start to render only when it will be fully added to the world
 				if (LODPackageNames.Num() > 0)
@@ -541,9 +586,9 @@ void ULevelStreaming::AsyncLevelLoadComplete(const FName& InPackageName, UPackag
 				}
 			
 				// In the editor levels must be in the levels array regardless of whether they are visible or not
-				if (ensure(Level->OwningWorld) && Level->OwningWorld->WorldType == EWorldType::Editor)
+				if (ensure(LevelOwningWorld) && LevelOwningWorld->WorldType == EWorldType::Editor)
 				{
-					Level->OwningWorld->AddLevel(Level);
+					LevelOwningWorld->AddLevel(Level);
 #if WITH_EDITOR
 					// We should also at this point, apply the level's editor transform
 					if (!Level->bAlreadyMovedActors)
@@ -927,6 +972,7 @@ void ULevelStreaming::RemoveStreamingVolumeDuplicates()
 
 ULevelStreaming::ULevelStreaming(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bIsStatic(false)
 {
 	bShouldBeVisibleInEditor = true;
 	LevelColor = FLinearColor::White;
@@ -975,11 +1021,6 @@ void ULevelStreamingKismet::PostLoad()
 		bShouldBeLoaded = bInitiallyLoaded;
 		bShouldBeVisible = bInitiallyVisible;
 	}
-}
-
-bool ULevelStreamingKismet::ShouldBeVisible() const
-{
-	return bShouldBeVisible || (bShouldBeVisibleInEditor && !FApp::IsGame());
 }
 
 bool ULevelStreamingKismet::ShouldBeLoaded() const

@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "FoliageType_InstancedStaticMesh.h"
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Math/RandomStream.h"
 #include "ProceduralFoliageInstance.h"
 #include "FoliageTypeObject.h"
 #include "ProceduralFoliageSpawner.generated.h"

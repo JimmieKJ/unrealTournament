@@ -6,8 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "LandscapeGrassTypeFactory.generated.h"
-
 
 UCLASS()
 class ULandscapeGrassTypeFactory : public UFactory

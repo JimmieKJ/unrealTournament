@@ -2,11 +2,15 @@
 
 #pragma once
 
-#include "SlateWrapperTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Layout/Margin.h"
+#include "Components/PanelSlot.h"
+#include "Components/WindowTitleBarArea.h"
 
 #include "WindowTitleBarAreaSlot.generated.h"
 
-class UWindowTitleBarArea;
+class SWindowTitleBarArea;
 
 /** The Slot for the UWindowTitleBarArea */
 UCLASS()

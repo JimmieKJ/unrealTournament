@@ -1,5 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "ScriptPluginPrivatePCH.h"
+
 #include "ScriptObjectReferencer.h"
 
 FScriptObjectReferencer* FScriptObjectReferencer::Singleton = NULL;

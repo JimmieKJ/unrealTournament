@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SNodePanel.h"
+#include "KismetNodes/SGraphNodeK2Default.h"
+
+class UK2Node_Timeline;
+
 class SGraphNodeK2Timeline : public SGraphNodeK2Default
 {
 public:

@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "Interfaces/IHttpRequest.h"
 #include "ISlackIncomingWebhookInterface.h"
 
 class IHttpRequest;
+struct FSlackIncomingWebhook;
+struct FSlackMessage;
 
 /**
  * Concrete implementation of ISlackIncomingWebhookInterface in module's private code.

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "LightingMesh.h"
+#include "Mappings.h"
+
 #define LANDSCAPE_ZSCALE	(1.0f/128.0f)
 
 namespace Lightmass

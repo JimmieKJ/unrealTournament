@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
 #include "ISequencerInputHandler.h"
+
+class SWidget;
 
 /**
  * Class responsible for handling input to multiple objects

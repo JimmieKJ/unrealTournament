@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Texture2D.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/Texture2D.h"
 #include "TextureLightProfile.generated.h"
 
 UCLASS(hidecategories=(Object,CompositeTexture,Texture2D), MinimalAPI, BlueprintType)

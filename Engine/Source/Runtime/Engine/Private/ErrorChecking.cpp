@@ -5,18 +5,26 @@
 	Actor Error checking functions
   ===========================================================================*/
 
-#include "EnginePrivate.h"
-#include "ActorEditorUtils.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "MapErrors.h"
-#include "Model.h"
-#include "GameFramework/PainCausingVolume.h"
+#include "CoreMinimal.h"
+#include "Serialization/ArchiveUObject.h"
+#include "UObject/Class.h"
+#include "Engine/Brush.h"
+#include "GameFramework/Volume.h"
+#include "UObject/Package.h"
 #include "GameFramework/DefaultPhysicsVolume.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "Misc/MapErrors.h"
+#include "GameFramework/PainCausingVolume.h"
 #include "Engine/LevelStreamingVolume.h"
 #include "Engine/Light.h"
 #include "Engine/Note.h"
+#include "ActorEditorUtils.h"
+#include "Engine/World.h"
+#include "Model.h"
 #include "Engine/Polys.h"
+#include "Engine/LevelStreaming.h"
 
 #define LOCTEXT_NAMESPACE "ErrorChecking"
 

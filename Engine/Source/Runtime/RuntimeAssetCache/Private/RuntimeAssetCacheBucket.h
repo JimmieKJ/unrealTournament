@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Misc/ScopeLock.h"
+
+class FCacheEntryMetadata;
+
 /** Forward declarations. */
 class FCacheEntryMetadata;
 

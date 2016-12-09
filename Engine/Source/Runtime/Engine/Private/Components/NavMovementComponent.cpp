@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "GameFramework/NavMovementComponent.h"
-#include "Navigation/PathFollowingComponent.h"
+#include "AI/Navigation/NavigationSystem.h"
 #include "Components/CapsuleComponent.h"
+#include "Navigation/PathFollowingComponent.h"
 
 //----------------------------------------------------------------------//
 // FNavAgentProperties

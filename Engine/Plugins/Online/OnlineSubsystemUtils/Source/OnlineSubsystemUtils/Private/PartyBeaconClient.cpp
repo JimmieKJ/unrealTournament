@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "PartyBeaconClient.h"
+#include "OnlineSubsystemUtils.h"
 #include "PartyBeaconHost.h"
-#include "OnlineSessionInterface.h"
 
 #if !UE_BUILD_SHIPPING
 namespace BeaconConsoleVariables

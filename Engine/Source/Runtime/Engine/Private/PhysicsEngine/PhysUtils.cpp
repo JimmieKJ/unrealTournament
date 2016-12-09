@@ -2,10 +2,18 @@
 
 // Physics engine integration utilities
 
-#include "EnginePrivate.h"
-#include "PhysicsPublic.h"
+#include "CoreMinimal.h"
+#include "EngineDefines.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/World.h"
+#include "PhysxUserData.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "Components/PrimitiveComponent.h"
 #include "Model.h"
-#include "PhysXSupport.h"
+#include "PhysicsPublic.h"
+#include "PhysXPublic.h"
+#include "PhysicsEngine/PhysXSupport.h"
+#include "PhysicsEngine/ConvexElem.h"
 #include "PhysicsEngine/BodySetup.h"
 
 /** Returns false if ModelToHulls operation should halt because of vertex count overflow. */
@@ -342,21 +350,21 @@ static bool ExecApexVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOu
 #if WITH_PHYSX
 #if WITH_APEX
 	// Get the scene to set flags on
-	NxApexScene* ApexScene = InWorld->GetPhysicsScene()->GetApexScene(SceneType);
+	apex::Scene* ApexScene = InWorld->GetPhysicsScene()->GetApexScene(SceneType);
 
 	if (ApexScene == NULL)
 	{
 		return false;
 	}
 
-	NxParameterized::Interface* DebugRenderParams = ApexScene->getDebugRenderParams();
+	NvParameterized::Interface* DebugRenderParams = ApexScene->getDebugRenderParams();
 	check(DebugRenderParams != NULL);
 
 	// Toggle global flags if there are no further arguments
 	const bool bToggle = *Cmd == TCHAR(0);
 
 	// Enable or toggle visualization
-	NxParameterized::Handle EnableDebugRenderHandle(*DebugRenderParams, "Enable");
+	NvParameterized::Handle EnableDebugRenderHandle(*DebugRenderParams, "Enable");
 	check(EnableDebugRenderHandle.isValid());
 	bool bEnableValue = true;
 	if (bToggle)
@@ -365,7 +373,7 @@ static bool ExecApexVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOu
 		bEnableValue = !bEnableValue;
 	}
 	EnableDebugRenderHandle.setParamBool(bEnableValue);
-	NxParameterized::Handle ScaleDebugRenderHandle(*DebugRenderParams, "Scale");
+	NvParameterized::Handle ScaleDebugRenderHandle(*DebugRenderParams, "Scale");
 	check(ScaleDebugRenderHandle.isValid());
 	float ScaleValue = 1.0f;
 	if (bToggle)
@@ -395,7 +403,7 @@ static bool ExecApexVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOu
 	}
 
 	auto FlagNameAnsi = StringCast<ANSICHAR>((*Slash == TCHAR(0) ? Cmd : Slash+1));
-	NxParameterized::Handle DebugRenderHandle(*DebugRenderParams, FlagNameAnsi.Get());
+	NvParameterized::Handle DebugRenderHandle(*DebugRenderParams, FlagNameAnsi.Get());
 
 	if (!DebugRenderHandle.isValid())
 	{
@@ -403,21 +411,21 @@ static bool ExecApexVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOu
 		return false;
 	}
 
-	if (DebugRenderHandle.parameterDefinition()->type() == NxParameterized::TYPE_F32)
+	if (DebugRenderHandle.parameterDefinition()->type() == NvParameterized::TYPE_F32)
 	{
 		PxF32 Value;
 		DebugRenderHandle.getParamF32(Value);
 		DebugRenderHandle.setParamF32(Value > 0.0f ? 0.0f : 1.0f);
 	}
 	else
-	if (DebugRenderHandle.parameterDefinition()->type() == NxParameterized::TYPE_U32)
+	if (DebugRenderHandle.parameterDefinition()->type() == NvParameterized::TYPE_U32)
 	{
 		PxU32 Value;
 		DebugRenderHandle.getParamU32(Value);
 		DebugRenderHandle.setParamU32(Value > 0 ? 0 : 1);
 	}
 	else
-	if (DebugRenderHandle.parameterDefinition()->type() == NxParameterized::TYPE_BOOL)
+	if (DebugRenderHandle.parameterDefinition()->type() == NvParameterized::TYPE_BOOL)
 	{
 		bool bValue;
 		DebugRenderHandle.getParamBool(bValue);
@@ -438,21 +446,16 @@ static bool ExecApexVis(UWorld* InWorld, uint32 SceneType, const TCHAR* Cmd, FOu
 #if WITH_PHYSX
 void PvdConnect(FString Host, bool bVisualization)
 {
-	int32		Port = 5425;         // TCP port to connect to, where PVD is listening
+	int32	Port = 5425;         // TCP port to connect to, where PVD is listening
 	uint32	Timeout = 100;          // timeout in milliseconds to wait for PVD to respond, consoles and remote PCs need a higher timeout.
-	
-	PxVisualDebuggerConnectionFlags ConnectionFlags = PxVisualDebuggerExt::getAllConnectionFlags();
-	if (!bVisualization)
-	{
-		ConnectionFlags &= ~PxVisualDebuggerConnectionFlag::eDEBUG;
-	}
 
-	// and now try to connect
-	PxVisualDebuggerExt::createConnection(GPhysXSDK->getPvdConnectionManager(), TCHAR_TO_ANSI(*Host), Port, Timeout, ConnectionFlags);
+	PxPvdInstrumentationFlags ConnectionFlags = PxPvdInstrumentationFlag::eALL;
 
-	GPhysXSDK->getVisualDebugger()->setVisualDebuggerFlag(PxVisualDebuggerFlag::eTRANSMIT_CONTACTS, bVisualization);
-	GPhysXSDK->getVisualDebugger()->setVisualDebuggerFlag(PxVisualDebuggerFlag::eTRANSMIT_SCENEQUERIES, bVisualization);
-	GPhysXSDK->getVisualDebugger()->setVisualDebuggerFlag(PxVisualDebuggerFlag::eTRANSMIT_CONSTRAINTS, bVisualization);
+	PxPvdTransport* transport = PxDefaultPvdSocketTransportCreate(TCHAR_TO_ANSI(*Host), Port, Timeout);
+	GPhysXVisualDebugger->connect(*transport, ConnectionFlags);
+
+	// per scene properties (e.g. PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS) are 
+	// set on the PxPvdSceneClient in PhysScene.cpp, FPhysScene::InitPhysScene
 }
 #endif
 
@@ -541,7 +544,7 @@ bool ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld)
 	else if(!IsRunningCommandlet() && GPhysXSDK && FParse::Command(&Cmd, TEXT("PVD")) )
 	{
 		// check if PvdConnection manager is available on this platform
-		if(GPhysXSDK->getPvdConnectionManager() != NULL)
+		if(GPhysXVisualDebugger != NULL)
 		{
 			if(FParse::Command(&Cmd, TEXT("CONNECT")))
 			{
@@ -563,7 +566,7 @@ bool ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld)
 			}
 			else if(FParse::Command(&Cmd, TEXT("DISCONNECT")))
 			{
-				GPhysXSDK->getPvdConnectionManager()->disconnect();
+				GPhysXVisualDebugger->disconnect();
 			}
 		}
 
@@ -613,11 +616,11 @@ void ListAwakeRigidBodiesFromScene(bool bIncludeKinematic, PxScene* PhysXScene, 
 	SCOPED_SCENE_READ_LOCK(PhysXScene);
 
 	PxActor* PhysXActors[2048];
-	int32 NumberActors = PhysXScene->getActors(PxActorTypeSelectionFlag::eRIGID_DYNAMIC, PhysXActors, 2048);
+	int32 NumberActors = PhysXScene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC, PhysXActors, 2048);
 	for( int32 i = 0; i < NumberActors; ++i )
 	{
 		PxRigidDynamic* RgActor = (PxRigidDynamic*)PhysXActors[ i ];
-		if (!RgActor->isSleeping() && (bIncludeKinematic || RgActor->getRigidDynamicFlags() != PxRigidDynamicFlag::eKINEMATIC))
+		if (!RgActor->isSleeping() && (bIncludeKinematic || RgActor->getRigidBodyFlags() != PxRigidBodyFlag::eKINEMATIC))
 		{
 			++totalCount;
 			FBodyInstance* BodyInst = FPhysxUserData::Get<FBodyInstance>(RgActor->userData);

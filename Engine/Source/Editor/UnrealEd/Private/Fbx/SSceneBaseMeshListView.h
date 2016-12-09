@@ -1,7 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Classes/Factories/FbxSceneImportFactory.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Input/Reply.h"
+#include "Factories/FbxSceneImportFactory.h"
+#include "Widgets/Views/SListView.h"
+
+enum class EFbxSceneReimportStatusFlags : uint8;
 
 typedef TSharedPtr<FFbxMeshInfo> FbxMeshInfoPtr;
 typedef TMap<FString, EFbxSceneReimportStatusFlags> FbxSceneReimportStatusMap;

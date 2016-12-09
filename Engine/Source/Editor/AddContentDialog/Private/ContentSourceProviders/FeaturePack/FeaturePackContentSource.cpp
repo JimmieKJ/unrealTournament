@@ -1,15 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AddContentDialogPCH.h"
 #include "FeaturePackContentSource.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Internationalization/Culture.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "Serialization/JsonTypes.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "IAddContentDialogModule.h"
+#include "ContentSourceProviderManager.h"
 
+#include "IAssetTools.h"
 #include "AssetToolsModule.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "IPlatformFilePak.h"
 #include "FileHelpers.h"
 #include "Editor/MainFrame/Public/Interfaces/IMainFrameModule.h"
 #include "SuperSearchModule.h"
-#include "FeaturePackContentSourceProvider.h"
 
 #define LOCTEXT_NAMESPACE "ContentFeaturePacks"
 
@@ -628,7 +640,7 @@ void FFeaturePackContentSource::ParseAndImportPacks()
 
 void FFeaturePackContentSource::RecordAndLogError(const FString& ErrorString)
 {
-	UE_LOG(LogFeaturePack, Warning, TEXT("%s"), *ErrorString);
+	UE_LOG(LogFeaturePack, Error, TEXT("%s"), *ErrorString);
 	ParseErrors.Add(ErrorString);
 }
 

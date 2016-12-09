@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Async/Async.h"
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Async/Future.h"
 
 /**
  * Flags serialized with the bulk data.
@@ -31,7 +33,8 @@ enum EBulkDataFlags
 	BULKDATA_PayloadInSeperateFile				= 1 << 8,
 	/** If set, payload is compressed using platform specific bit window			*/
 	BULKDATA_SerializeCompressedBitWindow		= 1<<9,
-
+	/** Only used with USE_NEW_ASYNC_IO, which changes the default to inline unless you opt out */
+	BULKDATA_Force_NOT_InlinePayload = 1 << 10,
 };
 
 /**

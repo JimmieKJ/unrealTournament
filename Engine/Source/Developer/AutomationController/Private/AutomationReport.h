@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+#include "Interfaces/IAutomationReport.h"
 
 /**
  * Interface for automation test results modules.
@@ -22,6 +25,7 @@ public:
 	virtual FString GetOpenCommand() const override;
 	virtual FString GetCommand() const override;
 	virtual const FString& GetDisplayName() const override;
+	virtual const FString& GetFullTestPath() const override;
 	virtual FString GetDisplayNameWithDecoration() const override;
 	virtual int32 GetTotalNumChildren() const override;
 	virtual int32 GetTotalNumFilteredChildren() const override;

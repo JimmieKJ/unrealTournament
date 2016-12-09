@@ -2,7 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/ActorComponent.h"
 #include "TimelineComponent.generated.h"
+
+class UCurveFloat;
+class UCurveLinearColor;
+class UCurveVector;
 
 /** Signature of function to handle a timeline 'event' */
 DECLARE_DYNAMIC_DELEGATE( FOnTimelineEvent );
@@ -77,6 +84,10 @@ struct FTimelineVectorTrack
 	UPROPERTY()
 	FOnTimelineVector InterpFunc;
 
+	/** Name of track, usually set in Timeline Editor. Used by SetInterpVectorCurve function. */
+	UPROPERTY()
+	FName TrackName;
+
 	/** Name of property that we should update from this curve */
 	UPROPERTY()
 	FName VectorPropertyName;
@@ -110,6 +121,10 @@ struct FTimelineFloatTrack
 	/** Function that the output from ValueCurve will be passed to */
 	UPROPERTY()
 	FOnTimelineFloat InterpFunc;
+
+	/** Name of track, usually set in Timeline Editor. Used by SetInterpFloatCurve function. */
+	UPROPERTY()
+	FName TrackName;
 
 	/** Name of property that we should update from this curve */
 	UPROPERTY()
@@ -145,6 +160,10 @@ struct FTimelineLinearColorTrack
 	/** Function that the output from ValueCurve will be passed to */
 	UPROPERTY()
 	FOnTimelineLinearColor InterpFunc;
+
+	/** Name of track, usually set in Timeline Editor. Used by SetInterpLinearColorCurve function. */
+	UPROPERTY()
+	FName TrackName;
 
 	/** Name of property that we should update from this curve */
 	UPROPERTY()
@@ -237,7 +256,7 @@ private:
 
 	/** Cached property pointer for setting timeline direction */
 	UPROPERTY(Transient, NotReplicated)
-	UByteProperty* DirectionProperty;
+	UProperty* DirectionProperty;
 
 public:
 	FTimeline()
@@ -248,7 +267,8 @@ public:
 	, bPlaying( false )
 	, PlayRate( 1.f )
 	, Position( 0.0f )	
-	, PropertySetObject(NULL)
+	, PropertySetObject(nullptr)
+	, DirectionProperty(nullptr)
 	{
 	}
 
@@ -306,6 +326,15 @@ public:
 	/** Set the length of the timeline */
 	ENGINE_API void SetTimelineLength(float NewLength);
 
+	/** Update a certain float track's curve */
+	ENGINE_API void SetFloatCurve(UCurveFloat* NewFloatCurve, FName FloatTrackName);
+
+	/** Update a certain vector track's curve */
+	ENGINE_API void SetVectorCurve(UCurveVector* NewVectorCurve, FName VectorTrackName);
+
+	/** Update a certain linear color track's curve */
+	ENGINE_API void SetLinearColorCurve(UCurveLinearColor* NewLinearColorCurve, FName LinearColorTrackName);
+
 	/** Optionally provide an object to automatically update properties on */
 	ENGINE_API void SetPropertySetObject(UObject* NewPropertySetObject);
 
@@ -322,19 +351,19 @@ public:
 	ENGINE_API void AddEvent(float Time, FOnTimelineEvent EventFunc);
 
 	/** Add a vector interpolation to the timeline */
-	ENGINE_API void AddInterpVector(UCurveVector* VectorCurve, FOnTimelineVector InterpFunc, FName PropertyName = NAME_None);
+	ENGINE_API void AddInterpVector(UCurveVector* VectorCurve, FOnTimelineVector InterpFunc, FName PropertyName = NAME_None, FName TrackName = NAME_None);
 
 	/** Add a vector interpolation to the timeline. Use a non-serializeable delegate. */
 	ENGINE_API void AddInterpVector(UCurveVector* VectorCurve, FOnTimelineVectorStatic InterpFunc);
 
 	/** Add a float interpolation to the timeline */
-	ENGINE_API void AddInterpFloat(UCurveFloat* FloatCurve, FOnTimelineFloat InterpFunc, FName PropertyName = NAME_None);
+	ENGINE_API void AddInterpFloat(UCurveFloat* FloatCurve, FOnTimelineFloat InterpFunc, FName PropertyName = NAME_None, FName TrackName = NAME_None);
 
 	/** Add a float interpolation to the timeline. Use a non-serializeable delegate. */
 	ENGINE_API void AddInterpFloat(UCurveFloat* FloatCurve, FOnTimelineFloatStatic InterpFunc );
 
 	/** Add a linear color interpolation to the timeline */
-	ENGINE_API void AddInterpLinearColor(UCurveLinearColor* LinearColorCurve, FOnTimelineLinearColor InterpFunc, FName PropertyName = NAME_None);
+	ENGINE_API void AddInterpLinearColor(UCurveLinearColor* LinearColorCurve, FOnTimelineLinearColor InterpFunc, FName PropertyName = NAME_None, FName TrackName = NAME_None);
 
 	/** Add a linear color interpolation to the timeline. Use a non-serializeable delegate. */
 	ENGINE_API void AddInterpLinearColor(UCurveLinearColor* LinearColorCurve, FOnTimelineLinearColorStatic InterpFunc);
@@ -367,6 +396,10 @@ private:
 	/** The actual timeline structure */
 	UPROPERTY(ReplicatedUsing=OnRep_Timeline)
 	FTimeline	TheTimeline;
+
+	/** True if global time dilation should be ignored by this timeline, false otherwise. */
+	UPROPERTY()
+	uint32 bIgnoreTimeDilation : 1;
 
 public:
 
@@ -409,7 +442,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components|Timeline")
 	ENGINE_API float GetPlaybackPosition() const;
 
-	/** true means we whould loop, false means we should not. */
+	/** true means we would loop, false means we should not. */
 	UFUNCTION(BlueprintCallable, Category="Components|Timeline")
 	ENGINE_API void SetLooping(bool bNewLooping);
 
@@ -441,6 +474,26 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components|Timeline")
 	ENGINE_API void SetTimelineLengthMode(ETimelineLengthMode NewLengthMode);
 
+	/** Set whether to ignore time dilation. */
+	UFUNCTION(BlueprintCallable, Category = "Components|Timeline")
+	ENGINE_API void SetIgnoreTimeDilation(bool bNewIgnoreTimeDilation);
+
+	/** Get whether to ignore time dilation. */
+	UFUNCTION(BlueprintCallable, Category = "Components|Timeline")
+	ENGINE_API bool GetIgnoreTimeDilation() const;
+
+	/** Update a certain float track's curve */
+	UFUNCTION(BlueprintCallable, Category = "Components|Timeline")
+	ENGINE_API void SetFloatCurve(UCurveFloat* NewFloatCurve, FName FloatTrackName);
+
+	/** Update a certain vector track's curve */
+	UFUNCTION(BlueprintCallable, Category = "Components|Timeline")
+	ENGINE_API void SetVectorCurve(UCurveVector* NewVectorCurve, FName VectorTrackName);
+
+	/** Update a certain linear color track's curve */
+	UFUNCTION(BlueprintCallable, Category = "Components|Timeline")
+	ENGINE_API void SetLinearColorCurve(UCurveLinearColor* NewLinearColorCurve, FName LinearColorTrackName);
+
 	UFUNCTION()
 	void OnRep_Timeline();
 
@@ -466,13 +519,13 @@ public:
 	ENGINE_API void AddEvent(float Time, FOnTimelineEvent EventFunc);
 	
 	/** Add a vector interpolation to the timeline */
-	ENGINE_API void AddInterpVector(UCurveVector* VectorCurve, FOnTimelineVector InterpFunc, FName PropertyName = NAME_None);
+	ENGINE_API void AddInterpVector(UCurveVector* VectorCurve, FOnTimelineVector InterpFunc, FName PropertyName = NAME_None, FName TrackName = NAME_None);
 	
 	/** Add a float interpolation to the timeline */
-	ENGINE_API void AddInterpFloat(UCurveFloat* FloatCurve, FOnTimelineFloat InterpFunc, FName PropertyName = NAME_None);
+	ENGINE_API void AddInterpFloat(UCurveFloat* FloatCurve, FOnTimelineFloat InterpFunc, FName PropertyName = NAME_None, FName TrackName = NAME_None);
 
 	/** Add a linear color interpolation to the timeline */
-	ENGINE_API void AddInterpLinearColor(UCurveLinearColor* LinearColorCurve, FOnTimelineLinearColor InterpFunc, FName PropertyName = NAME_None);
+	ENGINE_API void AddInterpLinearColor(UCurveLinearColor* LinearColorCurve, FOnTimelineLinearColor InterpFunc, FName PropertyName = NAME_None, FName TrackName = NAME_None);
 
 	/** Optionally provide an object to automatically update properties on */
 	ENGINE_API void SetPropertySetObject(UObject* NewPropertySetObject);
@@ -482,6 +535,8 @@ public:
 
 	/** Set the delegate to call when timeline is finished */
 	ENGINE_API void SetTimelineFinishedFunc(FOnTimelineEvent NewTimelineFinishedFunc);
+	/** Set the static delegate to call when timeline is finished */
+	ENGINE_API void SetTimelineFinishedFunc(FOnTimelineEventStatic NewTimelineFinishedFunc);
 
 	/** Set the delegate to call when timeline is finished */
 	ENGINE_API void SetDirectionPropertyName(FName DirectionPropertyName);

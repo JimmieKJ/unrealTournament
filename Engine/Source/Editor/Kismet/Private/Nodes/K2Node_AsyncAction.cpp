@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
+#include "Nodes/K2Node_AsyncAction.h"
+#include "UObject/UnrealType.h"
 
 #include "Kismet/BlueprintAsyncActionBase.h"
+#include "BlueprintNodeSpawner.h"
 #include "BlueprintFunctionNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 
-#include "Nodes/K2Node_AsyncAction.h"
 
 #define LOCTEXT_NAMESPACE "K2Node"
 

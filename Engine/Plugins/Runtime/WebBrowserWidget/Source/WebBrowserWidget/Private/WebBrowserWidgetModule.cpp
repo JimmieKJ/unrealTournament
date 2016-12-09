@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WebBrowserWidgetPrivatePCH.h"
+#include "WebBrowserWidgetModule.h"
+#include "Modules/ModuleManager.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FWebBrowserWidgetModule
@@ -20,4 +21,3 @@ public:
 //////////////////////////////////////////////////////////////////////////
 
 IMPLEMENT_MODULE(FWebBrowserWidgetModule, WebBrowserWidget);
-DEFINE_LOG_CATEGORY(LogWebBrowserWidget);

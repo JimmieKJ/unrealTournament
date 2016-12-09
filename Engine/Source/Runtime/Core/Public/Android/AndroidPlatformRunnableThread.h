@@ -22,7 +22,13 @@ public:
     FRunnableThreadAndroid() : FRunnableThreadPThread()
     {
     }
-    
+
+	~FRunnableThreadAndroid()
+	{
+		// Call the parent destructor body before the parent does it - see comment on that function for explanation why.
+		FRunnableThreadPThread_DestructorBody();
+	}
+
 private:
 
 	/**

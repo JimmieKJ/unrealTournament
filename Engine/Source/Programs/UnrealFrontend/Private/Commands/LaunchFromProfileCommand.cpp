@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealFrontendPrivatePCH.h"
 #include "LaunchFromProfileCommand.h"
 #include "DesktopPlatformModule.h"
-#include "LauncherServices.h"
+#include "Interfaces/ILauncherProfile.h"
+#include "Interfaces/ILauncherProfileManager.h"
+#include "Interfaces/ILauncherTask.h"
+#include "Interfaces/ILauncherWorker.h"
+#include "Interfaces/ILauncher.h"
+#include "Interfaces/ILauncherServicesModule.h"
+#include "Interfaces/ITargetDeviceServicesModule.h"
 #include "UserInterfaceCommand.h"
+#include "Misc/CommandLine.h"
+#include "Misc/OutputDeviceRedirector.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUFECommands, All, All);
 

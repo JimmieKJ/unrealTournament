@@ -4,9 +4,8 @@
 	MeshParticleVertexFactory.cpp: Mesh particle vertex factory implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "ParticleDefinitions.h"
 #include "MeshParticleVertexFactory.h"
+#include "ParticleHelper.h"
 #include "ShaderParameterUtils.h"
 
 

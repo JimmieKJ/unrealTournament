@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EditorWidgetsPrivatePCH.h"
 #include "STransportControl.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "STransportControl"
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-TSharedPtr<SWidget> STransportControl::MakeTransportControlWidget(ETransportControlWidgetType WidgetType, const FOnMakeTransportWidget& MakeCustomWidgetDelegate)
+TSharedPtr<SWidget> STransportControl::MakeTransportControlWidget(ETransportControlWidgetType WidgetType, bool bAreButtonsFocusable, const FOnMakeTransportWidget& MakeCustomWidgetDelegate)
 {
 	switch(WidgetType)
 	{
@@ -16,14 +21,16 @@ TSharedPtr<SWidget> STransportControl::MakeTransportControlWidget(ETransportCont
 			. OnClicked(TransportControlArgs.OnBackwardEnd)
 			. Visibility(TransportControlArgs.OnBackwardEnd.IsBound() ? EVisibility::Visible : EVisibility::Collapsed)
 			. ToolTipText( LOCTEXT("ToFront", "To Front") )
-			. ContentPadding(2.0f);
+			. ContentPadding(2.0f)
+			. IsFocusable(bAreButtonsFocusable);
 	case ETransportControlWidgetType::BackwardStep:
 		return SNew(SButton)
 			. ButtonStyle(&FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Animation.Backward_Step"))
 			. OnClicked(TransportControlArgs.OnBackwardStep)
 			. Visibility(TransportControlArgs.OnBackwardStep.IsBound() ? EVisibility::Visible : EVisibility::Collapsed)
 			. ToolTipText( LOCTEXT("ToPrevious", "To Previous") )
-			. ContentPadding(2.0f);
+			. ContentPadding(2.0f)
+			. IsFocusable(bAreButtonsFocusable);
 	case ETransportControlWidgetType::BackwardPlay:
 		return SAssignNew(BackwardPlayButton, SButton)
 			. OnClicked(TransportControlArgs.OnBackwardPlay)
@@ -31,17 +38,23 @@ TSharedPtr<SWidget> STransportControl::MakeTransportControlWidget(ETransportCont
 			. ToolTipText( LOCTEXT("Reverse", "Reverse") )
 			. ButtonStyle( FEditorStyle::Get(), "NoBorder" )
 			. ContentPadding(2.0f)
+			. IsFocusable(bAreButtonsFocusable)
 			[
 				SNew(SImage)
 				. Image( this, &STransportControl::GetBackwardStatusIcon )
 			];
 	case ETransportControlWidgetType::Record:
-		return SNew(SButton)
-			. ButtonStyle(&FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Animation.Record"))
+		return SAssignNew(RecordButton, SButton)
+			. ButtonStyle(FEditorStyle::Get(), "NoBorder")
 			. OnClicked(TransportControlArgs.OnRecord)
 			. Visibility(TransportControlArgs.OnRecord.IsBound() ? EVisibility::Visible : EVisibility::Collapsed)
 			. ToolTipText( this, &STransportControl::GetRecordStatusTooltip )
-			. ContentPadding(2.0f);
+			. ContentPadding(2.0f)
+			. IsFocusable(bAreButtonsFocusable)
+			[
+				SNew(SImage)
+				.Image(this, &STransportControl::GetRecordStatusIcon )
+			];
 	case ETransportControlWidgetType::ForwardPlay:
 		return SAssignNew(ForwardPlayButton, SButton)
 			. OnClicked(TransportControlArgs.OnForwardPlay)
@@ -49,6 +62,7 @@ TSharedPtr<SWidget> STransportControl::MakeTransportControlWidget(ETransportCont
 			. ToolTipText( this, &STransportControl::GetForwardStatusTooltip )
 			. ButtonStyle( FEditorStyle::Get(), "NoBorder" )
 			. ContentPadding(2.0f)
+			. IsFocusable(bAreButtonsFocusable)
 			[
 				SNew(SImage)
 				. Image( this, &STransportControl::GetForwardStatusIcon )
@@ -59,14 +73,16 @@ TSharedPtr<SWidget> STransportControl::MakeTransportControlWidget(ETransportCont
 			. OnClicked(TransportControlArgs.OnForwardStep)
 			. Visibility(TransportControlArgs.OnForwardStep.IsBound() ? EVisibility::Visible : EVisibility::Collapsed)
 			. ToolTipText( LOCTEXT("ToNext", "To Next") )
-			. ContentPadding(2.0f);
+			. ContentPadding(2.0f)
+			. IsFocusable(bAreButtonsFocusable);
 	case ETransportControlWidgetType::ForwardEnd:
 		return SNew(SButton)
 			. ButtonStyle(&FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Animation.Forward_End"))
 			. OnClicked(TransportControlArgs.OnForwardEnd)
 			. Visibility(TransportControlArgs.OnForwardEnd.IsBound() ? EVisibility::Visible : EVisibility::Collapsed)
 			. ToolTipText( LOCTEXT("ToEnd", "To End") )
-			. ContentPadding(2.0f);
+			. ContentPadding(2.0f)
+			. IsFocusable(bAreButtonsFocusable);
 	case ETransportControlWidgetType::Loop:
 		return SNew(SButton)
 			. OnClicked(TransportControlArgs.OnToggleLooping)
@@ -74,6 +90,7 @@ TSharedPtr<SWidget> STransportControl::MakeTransportControlWidget(ETransportCont
 			. ToolTipText( LOCTEXT("Loop", "Loop") )
 			. ButtonStyle( FEditorStyle::Get(), "NoBorder" )
 			. ContentPadding(2.0f)
+			. IsFocusable(bAreButtonsFocusable)
 			[
 				SNew(SImage)
 				. Image( this, &STransportControl::GetLoopStatusIcon )
@@ -98,7 +115,7 @@ void STransportControl::Construct( const STransportControl::FArguments& InArgs )
 	{
 		for(FTransportControlWidget WidgetDesc : TransportControlArgs.WidgetsToCreate)
 		{
-			TSharedPtr<SWidget> Widget = MakeTransportControlWidget(WidgetDesc.WidgetType, WidgetDesc.MakeCustomWidgetDelegate);
+			TSharedPtr<SWidget> Widget = MakeTransportControlWidget(WidgetDesc.WidgetType, InArgs._TransportArgs.bAreButtonsFocusable, WidgetDesc.MakeCustomWidgetDelegate);
 			if(Widget.IsValid())
 			{
 				HorizontalBox->AddSlot()
@@ -115,7 +132,7 @@ void STransportControl::Construct( const STransportControl::FArguments& InArgs )
 	{
 		for(ETransportControlWidgetType WidgetType : TEnumRange<ETransportControlWidgetType>())
 		{
-			TSharedPtr<SWidget> Widget = MakeTransportControlWidget(WidgetType);
+			TSharedPtr<SWidget> Widget = MakeTransportControlWidget(WidgetType, InArgs._TransportArgs.bAreButtonsFocusable);
 			if(Widget.IsValid())
 			{
 				HorizontalBox->AddSlot()
@@ -145,7 +162,7 @@ bool STransportControl::IsTickable() const
 void STransportControl::Tick( float DeltaTime )
 {
 	const auto PlaybackMode = TransportControlArgs.OnGetPlaybackMode.Execute();
-	const bool bIsPlaying = PlaybackMode == EPlaybackMode::PlayingForward || PlaybackMode == EPlaybackMode::PlayingReverse || PlaybackMode == EPlaybackMode::Recording;
+	const bool bIsPlaying = PlaybackMode == EPlaybackMode::PlayingForward || PlaybackMode == EPlaybackMode::PlayingReverse;
 
 	if ( bIsPlaying && !ActiveTimerHandle.IsValid() )
 	{
@@ -159,9 +176,19 @@ void STransportControl::Tick( float DeltaTime )
 
 const FSlateBrush* STransportControl::GetForwardStatusIcon() const
 {
-	const auto PlaybackMode = TransportControlArgs.OnGetPlaybackMode.Execute();
-	if (TransportControlArgs.OnGetPlaybackMode.IsBound() &&
-		 ( PlaybackMode == EPlaybackMode::PlayingForward || PlaybackMode == EPlaybackMode::Recording ) )
+	EPlaybackMode::Type PlaybackMode = EPlaybackMode::Stopped;
+	if (TransportControlArgs.OnGetPlaybackMode.IsBound())
+	{
+		PlaybackMode = TransportControlArgs.OnGetPlaybackMode.Execute();
+	}
+
+	bool bIsRecording = false;
+	if (TransportControlArgs.OnGetRecording.IsBound())
+	{
+		bIsRecording = TransportControlArgs.OnGetRecording.Execute();
+	}
+
+	if ( PlaybackMode == EPlaybackMode::PlayingForward || bIsRecording )
 	{
 		return ForwardPlayButton.IsValid() && ForwardPlayButton->IsPressed() ? 
 			&FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Animation.Pause").Pressed : 
@@ -184,10 +211,30 @@ FText STransportControl::GetForwardStatusTooltip() const
 	return LOCTEXT("Play", "Play");
 }
 
+const FSlateBrush* STransportControl::GetRecordStatusIcon() const
+{
+	bool bIsRecording = false;
+	if (TransportControlArgs.OnGetRecording.IsBound())
+	{
+		bIsRecording = TransportControlArgs.OnGetRecording.Execute();
+	}
+
+	if (bIsRecording)
+	{
+		return RecordButton.IsValid() && RecordButton->IsPressed() ?
+			&FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Animation.Recording").Pressed :
+			&FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Animation.Recording").Normal;
+	}
+
+	return RecordButton.IsValid() && RecordButton->IsPressed() ?
+		&FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Animation.Record").Pressed :
+		&FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Animation.Record").Normal;
+}
+
 FText STransportControl::GetRecordStatusTooltip() const
 {
-	if (TransportControlArgs.OnGetPlaybackMode.IsBound() &&
-		TransportControlArgs.OnGetPlaybackMode.Execute() == EPlaybackMode::Recording)
+	if (TransportControlArgs.OnGetRecording.IsBound() &&
+		TransportControlArgs.OnGetRecording.Execute())
 	{
 		return LOCTEXT("StopRecording", "Stop Recording");
 	}

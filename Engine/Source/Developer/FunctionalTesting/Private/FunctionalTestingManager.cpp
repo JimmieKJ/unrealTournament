@@ -1,11 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FunctionalTestingPrivatePCH.h"
+#include "FunctionalTestingManager.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
+#include "EngineUtils.h"
+#include "FuncTestManager.h"
+#include "FunctionalTestingModule.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 #if WITH_EDITOR
 
 //----------------------------------------------------------------------//
 // 6/25 @todo these will be removed once marge from main comes
-#include "UnrealEd.h"
 class UFactory;
 //----------------------------------------------------------------------//
 
@@ -84,7 +91,7 @@ bool UFunctionalTestingManager::RunAllFunctionalTests(UObject* WorldContext, boo
 
 	if (Manager->bIsRunning)
 	{
-		UE_LOG(LogFunctionalTest, Warning, TEXT("Functional tests are already running, aborting."));
+		UE_LOG(LogFunctionalTest, Log, TEXT("Functional tests are already running."));
 		return true;
 	}
 	
@@ -147,7 +154,8 @@ bool UFunctionalTestingManager::RunAllFunctionalTests(UObject* WorldContext, boo
 void UFunctionalTestingManager::TriggerFirstValidTest()
 {
 	UWorld* World = GetWorld();
-	bIsRunning = World != nullptr && World->GetNavigationSystem() != nullptr;
+	check(World);
+	bIsRunning = World->GetNavigationSystem() != nullptr;
 
 	if (bInitialDelayApplied == true && (bWaitForNavigationBuildFinish == false || UNavigationSystem::IsNavigationBeingBuilt(World) == false) && World->AreActorsInitialized())
 	{
@@ -223,7 +231,7 @@ void UFunctionalTestingManager::NotifyTestDone(AFunctionalTest* FTest)
 	if (FTest->OnWantsReRunCheck() == false && FTest->WantsToRunAgain() == false)
 	{
 		//We can also do named reruns. These are lower priority than those triggered above.
-		//These names can be querried by phases to alter behviour in re-runs.
+		//These names can be queried by phases to alter behavior in re-runs.
 		if (FTest->RerunCauses.Num() > 0)
 		{
 			FTest->CurrentRerunCause = FTest->RerunCauses.Pop();
@@ -319,6 +327,10 @@ bool UFunctionalTestingManager::RunFirstValidTest()
 			AFunctionalTest* TestToRun = FindObject<AFunctionalTest>(TestsOuter, *TestName);			
 			if (TestToRun)
 			{
+				// Add the test we found to the tests left to run, so that if re-runs occur we continue to process this test until
+				// it has finished.
+				TestsLeft.Add(TestToRun);
+
 				TestToRun->TestFinishedObserver = TestFinishedObserver;
 				if (TestToRun->RunTest(TestParams))
 				{

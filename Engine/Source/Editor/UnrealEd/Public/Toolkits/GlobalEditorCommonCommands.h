@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/Commands/Commands.h"
+
+class IMenu;
+class SWindow;
 
 // Global editor common commands
 // Note: There is no real global command concept, so these must still be registered in each editor

@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Timespan.h"
+#include "Delegates/Delegate.h"
+#include "Misc/DateTime.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/Runnable.h"
 
 /**
  * Declares a delegate that is executed when a monitored process completed.
@@ -196,6 +203,9 @@ private:
 
 	// Sleep interval to use
 	float SleepInterval;
+
+	// Buffered output text which does not contain a newline
+	FString OutputBuffer;
 
 private:
 

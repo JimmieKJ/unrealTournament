@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SocketsPrivatePCH.h"
+#include "BSDIPv6Sockets/SocketSubsystemBSDIPv6.h"
+#include "Misc/ScopeLock.h"
 
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 
-#include "SocketSubsystemBSDIPv6.h"
-#include "SocketsBSDIPv6.h"
+#include "BSDIPv6Sockets/IPAddressBSDIPv6.h"
 
 
 class FSocketBSDIPv6* FSocketSubsystemBSDIPv6::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription)

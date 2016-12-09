@@ -1,19 +1,30 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SceneOutlinerPrivatePCH.h"
+#include "SceneOutlinerItemLabelColumn.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/SOverlay.h"
+#include "Engine/GameViewportClient.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
+#include "ScopedTransaction.h"
+#include "Styling/SlateIconFinder.h"
+#include "ClassIconFinder.h"
 #include "SceneOutlinerStandaloneTypes.h"
 #include "SceneOutlinerDragDrop.h"
+#include "Widgets/Views/SListView.h"
 
-#include "SceneOutlinerItemLabelColumn.h"
 
-#include "EditorClassUtils.h"
 #include "SortHelper.h"
 
-#include "ActorTreeItem.h"
-#include "FolderTreeItem.h"
 #include "EditorActorFolders.h"
 
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
 
 #define LOCTEXT_NAMESPACE "SceneOutlinerItemLabelColumn"

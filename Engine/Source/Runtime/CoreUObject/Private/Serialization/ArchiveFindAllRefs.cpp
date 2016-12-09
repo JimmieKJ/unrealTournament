@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "ArchiveFindAllRefs.h"
+#include "Serialization/ArchiveFindAllRefs.h"
+#include "UObject/Object.h"
 
 
 FArchiveFindAllRefs::FArchiveFindAllRefs( UObject* Src )

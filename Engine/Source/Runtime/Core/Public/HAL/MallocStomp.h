@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "HAL/MemoryBase.h"
+
 #if !defined(WITH_EDITOR)
 #error "WITH_EDITOR must be defined"
 #endif
@@ -15,7 +18,6 @@
 #ifndef USE_MALLOC_STOMP
 #define USE_MALLOC_STOMP 0
 #endif
-
 
 #if USE_MALLOC_STOMP
 /**

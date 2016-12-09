@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LeapMotionPrivatePCH.h"
 #include "LeapKeyTapGesture.h"
+#include "LeapPointable.h"
+#include "LeapInterfaceUtility.h"
 
 class FPrivateKeyTapGesture
 {

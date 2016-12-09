@@ -2,11 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/Casts.h"
+#include "Widgets/SWidget.h"
+#include "Toolkits/IToolkitHost.h"
+#include "Modules/ModuleManager.h"
+#include "Settings/EditorLoadingSavingSettings.h"
+#include "IAssetTools.h"
+#include "IAssetTypeActions.h"
 #include "AssetToolsModule.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "Toolkits/SimpleAssetEditor.h"
-#include "EditorReimportHandler.h"
-#include "Editor/UnrealEd/Classes/Settings/EditorLoadingSavingSettings.h"
 
+class FAssetData;
+class FMenuBuilder;
 
 /** A base class for all AssetTypeActions. Provides helper functions useful for many types. Deriving from this class is optional. */
 class FAssetTypeActions_Base : public IAssetTypeActions

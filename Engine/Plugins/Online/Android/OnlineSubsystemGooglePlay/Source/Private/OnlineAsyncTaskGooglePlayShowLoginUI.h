@@ -2,11 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "OnlineAsyncTaskManager.h"
 #include "OnlineExternalUIInterface.h"
 #include "OnlineAsyncTaskGooglePlayAuthAction.h"
 #include "OnlineSubsystemGooglePlayPackage.h"
 
+#include <vector>
 #include "gpg/types.h"
 #include "gpg/player_manager.h"
 

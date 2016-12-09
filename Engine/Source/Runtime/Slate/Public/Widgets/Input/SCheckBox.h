@@ -2,8 +2,21 @@
 
 #pragma once
 
-#include "SBorder.h"
-#include "SlateDelegates.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "Sound/SlateSound.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Styling/SlateWidgetStyleAsset.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/SlateDelegates.h"
+
+class SBorder;
 
 /** DEPRECATED 4.6 - Do not use */
 //@Todo slate: Remove this as soon as the 4.6 deprecated API is Removed.

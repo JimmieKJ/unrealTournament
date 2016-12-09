@@ -2,20 +2,35 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Margin.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "IMessageTracer.h"
+#include "Models/MessagingDebuggerModel.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/SListView.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
 
 #define LOCTEXT_NAMESPACE "SMessagingDispatchStateTableRow"
-
 
 /**
  * Implements a row widget for the dispatch state list.
  */
 class SMessagingDispatchStateTableRow
-	: public SMultiColumnTableRow<FMessageTracerDispatchStatePtr>
+	: public SMultiColumnTableRow<TSharedPtr<FMessageTracerDispatchState>>
 {
 public:
 
 	SLATE_BEGIN_ARGS(SMessagingDispatchStateTableRow) { }
-		SLATE_ARGUMENT(FMessageTracerDispatchStatePtr, DispatchState)
+		SLATE_ARGUMENT(TSharedPtr<FMessageTracerDispatchState>, DispatchState)
 		SLATE_ARGUMENT(TSharedPtr<ISlateStyle>, Style)
 	SLATE_END_ARGS()
 
@@ -27,7 +42,7 @@ public:
 	 * @param InArgs The construction arguments.
 	 * @param InOwnerTableView The table view that owns this row.
 	 */
-	void Construct( const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView, const FMessagingDebuggerModelRef& InModel )
+	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView, const TSharedRef<FMessagingDebuggerModel>& InModel)
 	{
 		check(InArgs._Style.IsValid());
 		check(InArgs._DispatchState.IsValid());
@@ -36,15 +51,15 @@ public:
 		Model = InModel;
 		Style = InArgs._Style;
 
-		SMultiColumnTableRow<FMessageTracerDispatchStatePtr>::Construct(FSuperRowType::FArguments(), InOwnerTableView);
+		SMultiColumnTableRow<TSharedPtr<FMessageTracerDispatchState>>::Construct(FSuperRowType::FArguments(), InOwnerTableView);
 	}
 
 public:
 
-	// SMultiColumnTableRow interface
+	//~ SMultiColumnTableRow interface
 
 	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) override
+	virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
 	{
 		if (ColumnName == "DispatchLatency")
 		{
@@ -80,7 +95,7 @@ public:
 		}
 		else if (ColumnName == "Recipient")
 		{
-			FMessageTracerEndpointInfoPtr EndpointInfo = DispatchState->EndpointInfo;
+			TSharedPtr<FMessageTracerEndpointInfo> EndpointInfo = DispatchState->EndpointInfo;
 
 			return SNew(SHorizontalBox)
 
@@ -125,7 +140,7 @@ protected:
 	 * @param Latency The time span to convert.
 	 * @return The corresponding color value.
 	 */
-	FSlateColor TimespanToColor( double Timespan ) const
+	FSlateColor TimespanToColor(double Timespan) const
 	{
 		if (Timespan >= 0.01)
 		{
@@ -151,7 +166,7 @@ protected:
 	 * @param NamedThread The named thread.
 	 * @return The text representation.
 	 */
-	FText NamedThreadToReadableText( ENamedThreads::Type NamedThread )
+	FText NamedThreadToReadableText(ENamedThreads::Type NamedThread)
 	{
 		switch (NamedThread)
 		{
@@ -189,7 +204,7 @@ protected:
 	 * @return The text representation.
 	 * @todo gmp: refactor this into FText::AsTimespan or something like that
 	 */
-	FText TimespanToReadableText( double Seconds ) const
+	FText TimespanToReadableText(double Seconds) const
 	{
 		if (Seconds < 0.0)
 		{
@@ -296,10 +311,10 @@ private:
 private:
 
 	/** Holds the message dispatch state. */
-	FMessageTracerDispatchStatePtr DispatchState;
+	TSharedPtr<FMessageTracerDispatchState> DispatchState;
 
 	/** Holds a pointer to the view model. */
-	FMessagingDebuggerModelPtr Model;
+	TSharedPtr<FMessagingDebuggerModel> Model;
 
 	/** Holds the widget's visual style. */
 	TSharedPtr<ISlateStyle> Style;

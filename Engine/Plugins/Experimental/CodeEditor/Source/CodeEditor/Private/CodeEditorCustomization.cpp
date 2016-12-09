@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeEditorPrivatePCH.h"
 #include "CodeEditorCustomization.h"
 
 UCodeEditorCustomization::UCodeEditorCustomization(const FObjectInitializer& ObjectInitializer)
@@ -8,16 +7,16 @@ UCodeEditorCustomization::UCodeEditorCustomization(const FObjectInitializer& Obj
 {
 }
 
-const FControlCustomization& UCodeEditorCustomization::GetControl(const FName& ControlCustomizationName)
+const FCodeEditorControlCustomization& UCodeEditorCustomization::GetControl(const FName& ControlCustomizationName)
 {
-	static FControlCustomization Default;
+	static FCodeEditorControlCustomization Default;
 
 	return Default;
 }
 
-const FTextCustomization& UCodeEditorCustomization::GetText(const FName& TextCustomizationName)
+const FCodeEditorTextCustomization& UCodeEditorCustomization::GetText(const FName& TextCustomizationName)
 {
-	static FTextCustomization Default;
+	static FCodeEditorTextCustomization Default;
 
 	return Default;
 }

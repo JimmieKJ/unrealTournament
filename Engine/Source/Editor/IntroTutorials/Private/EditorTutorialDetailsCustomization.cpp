@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IntroTutorialsPrivatePCH.h"
 #include "EditorTutorialDetailsCustomization.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
+#include "Modules/ModuleManager.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Input/SButton.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "IIntroTutorials.h"
+#include "LevelEditor.h"
 #include "EditorTutorial.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "EditorTutorialDetailsCustomization"
 

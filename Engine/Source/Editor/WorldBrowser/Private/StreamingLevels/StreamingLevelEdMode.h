@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "LevelEditorViewport.h"
+#include "CoreMinimal.h"
+#include "UnrealWidget.h"
+#include "EdMode.h"
+
+class FEditorViewportClient;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FViewport;
+class ULevelStreaming;
+class UMaterialInstanceDynamic;
 
 class FStreamingLevelEdMode : public FEdMode
 {

@@ -1,7 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Templates/Casts.h"
+#include "Materials/MaterialExpressionMaterialFunctionCall.h"
 #include "MaterialFunction.generated.h"
+
+class UMaterial;
+class UTexture;
+struct FPropertyChangedEvent;
 
 /**
  * A Material Function is a collection of material expressions that can be reused in different materials
@@ -78,7 +89,12 @@ public:
 	/** Get the inputs and outputs that this function exposes, for a function call expression to use. */
 	void GetInputsAndOutputs(TArray<struct FFunctionExpressionInput>& OutInputs, TArray<struct FFunctionExpressionOutput>& OutOutputs) const;
 
-	int32 Compile(class FMaterialCompiler* Compiler, const struct FFunctionExpressionOutput& Output, int32 MultiplexIndex, const TArray<struct FFunctionExpressionInput>& Inputs);
+	int32 Compile(class FMaterialCompiler* Compiler, const struct FFunctionExpressionOutput& Output);
+
+	/** Called during compilation before entering the function. */
+	void LinkIntoCaller(const TArray<FFunctionExpressionInput>& CallerInputs);
+
+	void UnlinkFromCaller();
 
 	/** @return true if this function is dependent on the passed in function, directly or indirectly. */
 	ENGINE_API bool IsDependent(UMaterialFunction* OtherFunction);

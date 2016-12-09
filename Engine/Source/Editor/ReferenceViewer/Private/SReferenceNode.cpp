@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ReferenceViewerPrivatePCH.h"
 #include "SReferenceNode.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "EdGraphNode_Reference.h"
 #include "AssetThumbnail.h"
-#include "AssetRegistryModule.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "SCommentBubble.h"
 
 #define LOCTEXT_NAMESPACE "ReferenceViewer"
@@ -12,15 +15,14 @@
 void SReferenceNode::Construct( const FArguments& InArgs, UEdGraphNode_Reference* InNode )
 {
 	const int32 ThumbnailSize = 128;
-	bUsesThumbnail = InNode->UsesThumbnail();
 
-	if (bUsesThumbnail)
+	if (InNode->UsesThumbnail())
 	{
 		// Create a thumbnail from the graph's thumbnail pool
 		TSharedPtr<FAssetThumbnailPool> AssetThumbnailPool = InNode->GetReferenceViewerGraph()->GetAssetThumbnailPool();
 		AssetThumbnail = MakeShareable( new FAssetThumbnail( InNode->GetAssetData(), ThumbnailSize, ThumbnailSize, AssetThumbnailPool ) );
 	}
-	else
+	else if (InNode->IsPackage() || InNode->IsCollapsed())
 	{
 		// Just make a generic thumbnail
 		AssetThumbnail = MakeShareable( new FAssetThumbnail( InNode->GetAssetData(), ThumbnailSize, ThumbnailSize, NULL ) );

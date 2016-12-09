@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
 #include "TileSetAssetTypeActions.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Engine/Texture.h"
+#include "Misc/PackageName.h"
+#include "EditorStyleSet.h"
 #include "TileSetEditor.h"
 #include "PaperTileSet.h"
 #include "PaperTileMap.h"
-#include "AssetToolsModule.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "PaperTileMapFactory.h"
 #include "TileSetEditor/TileSetEditorSettings.h"

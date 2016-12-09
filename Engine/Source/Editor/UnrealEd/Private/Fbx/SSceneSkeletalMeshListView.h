@@ -1,8 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Classes/Factories/FbxSceneImportFactory.h"
-#include "SSceneBaseMeshListView.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Fbx/SSceneBaseMeshListView.h"
+
+struct FPropertyChangedEvent;
 
 class SFbxSceneSkeletalMeshListView : public SFbxSSceneBaseMeshListView
 {

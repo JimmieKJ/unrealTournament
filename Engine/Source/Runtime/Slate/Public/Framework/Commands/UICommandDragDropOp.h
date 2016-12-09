@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "DragAndDrop.h"
+#include "CoreMinimal.h"
+#include "Input/DragAndDrop.h"
+#include "Framework/Commands/UICommandInfo.h"
+
+class SWidget;
 
 /**
  * A drag drop operation for UI Commands

@@ -697,7 +697,7 @@ namespace UnrealGameSync
 			PerforceWhereRecord WhereRecord;
 			if(Where(FileName, out WhereRecord, Log))
 			{
-				LocalFileName = WhereRecord.LocalPath;
+				LocalFileName = Utility.GetPathWithCorrectCase(new FileInfo(WhereRecord.LocalPath));
 				return true;
 			}
 			else

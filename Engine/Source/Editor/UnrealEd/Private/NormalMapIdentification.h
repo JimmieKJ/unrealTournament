@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class UTexture;
+class UTextureFactory;
+
 namespace NormalMapIdentification
 {
 	/**

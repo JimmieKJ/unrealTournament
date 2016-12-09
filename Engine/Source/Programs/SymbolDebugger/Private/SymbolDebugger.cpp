@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "SymbolDebugger.h"
 #include "SymbolDebuggerApp.h"
 #include "CrashDebugHelperModule.h"
 #include "SSymbolDebugger.h"
-#include "SymbolDebugger.h"
 #include "DesktopPlatformModule.h"
-
+#include "Misc/ConfigCacheIni.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/SWindow.h"
 
 //-----------------------------------------------------------------------------
 //	FSymbolDebugger_AsyncInspect

@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
-#include "AnimNode_RandomPlayer.h"
-#include "AnimInstanceProxy.h"
+#include "AnimNodes/AnimNode_RandomPlayer.h"
+#include "AnimationRuntime.h"
+#include "Animation/AnimInstanceProxy.h"
 
 FAnimNode_RandomPlayer::FAnimNode_RandomPlayer()
 : CurrentEntry(INDEX_NONE)
@@ -184,11 +184,12 @@ void FAnimNode_RandomPlayer::Evaluate(FPoseContext& Output)
 					FBlendedCurve Curves[2];
 					float Weights[2];
 
-					Poses[0].SetBoneContainer(&AnimProxy->GetRequiredBones());
-					Poses[1].SetBoneContainer(&AnimProxy->GetRequiredBones());
+					const FBoneContainer& RequiredBone = AnimProxy->GetRequiredBones();
+					Poses[0].SetBoneContainer(&RequiredBone);
+					Poses[1].SetBoneContainer(&RequiredBone);
 
-					Curves[0].InitFrom(AnimProxy->GetSkelMeshComponent()->GetCachedAnimCurveMappingNameUids());
-					Curves[1].InitFrom(AnimProxy->GetSkelMeshComponent()->GetCachedAnimCurveMappingNameUids());
+					Curves[0].InitFrom(RequiredBone);
+					Curves[1].InitFrom(RequiredBone);
 
 					Weights[0] = CurrentData.BlendWeight;
 					Weights[1] = NextData.BlendWeight;

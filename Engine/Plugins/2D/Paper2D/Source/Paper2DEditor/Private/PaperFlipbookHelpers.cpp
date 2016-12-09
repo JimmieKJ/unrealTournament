@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
 #include "PaperFlipbookHelpers.h"
-#include "Json.h"
 #include "ObjectTools.h"
-#include "PaperFlipbook.h"
+#include "PaperSprite.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperFlipbookHelpers

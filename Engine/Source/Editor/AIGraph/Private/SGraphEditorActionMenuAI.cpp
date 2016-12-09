@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIGraphPrivatePCH.h"
 #include "SGraphEditorActionMenuAI.h"
+#include "EdGraph/EdGraph.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "EditorStyleSet.h"
+#include "AIGraphNode.h"
 #include "AIGraphSchema.h"
+#include "SGraphActionMenu.h"
 
 SGraphEditorActionMenuAI::~SGraphEditorActionMenuAI()
 {

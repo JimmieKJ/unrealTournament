@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphPinText.h"
+#include "KismetPins/SGraphPinText.h"
 #include "ScopedTransaction.h"
 #include "STextPropertyEditableTextBox.h"
 

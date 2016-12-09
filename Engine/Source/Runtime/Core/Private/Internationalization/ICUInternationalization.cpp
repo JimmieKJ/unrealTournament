@@ -1,24 +1,24 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "CorePrivatePCH.h"
-#include "ICUInternationalization.h"
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+#include "Internationalization/ICUInternationalization.h"
+#include "HAL/FileManager.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/Paths.h"
+#include "Internationalization/Culture.h"
+#include "Internationalization/Internationalization.h"
+#include "Stats/Stats.h"
+#include "Misc/CoreStats.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/App.h"
 
 #if UE_ENABLE_ICU
 
-#include "ICUUtilities.h"
-#include "ICUBreakIterator.h"
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(push)
-	#pragma warning(disable:28251)
-	#pragma warning(disable:28252)
-	#pragma warning(disable:28253)
-#endif
+#include "Internationalization/ICUBreakIterator.h"
+THIRD_PARTY_INCLUDES_START
 	#include <unicode/locid.h>
 	#include <unicode/timezone.h>
 	#include <unicode/uclean.h>
 	#include <unicode/udata.h>
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(pop)
-#endif
+THIRD_PARTY_INCLUDES_END
 
 DEFINE_LOG_CATEGORY_STATIC(LogICUInternationalization, Log, All);
 
@@ -179,7 +179,7 @@ void FICUInternationalization::LoadDLLs()
 	const FString PlatformFolderName = TEXT("Win32");
 #endif //PLATFORM_*BITS
 
-#if _MSC_VER == 1900
+#if _MSC_VER >= 1900
 	const FString VSVersionFolderName = TEXT("VS2015");
 #elif _MSC_VER == 1800
 	const FString VSVersionFolderName = TEXT("VS2013");
@@ -374,13 +374,13 @@ void FICUInternationalization::ConditionalInitializeCultureMappings()
 		FString DestCulture;
 		if (CultureMappingStr.Split(TEXT(";"), &SourceCulture, &DestCulture, ESearchCase::CaseSensitive))
 		{
-			if (AllAvailableCulturesMap.Contains(SourceCulture) && AllAvailableCulturesMap.Contains(DestCulture))
+			if (AllAvailableCulturesMap.Contains(DestCulture))
 			{
 				CultureMappings.Add(MoveTemp(SourceCulture), MoveTemp(DestCulture));
 			}
 			else
 			{
-				UE_LOG(LogICUInternationalization, Warning, TEXT("Culture mapping '%s' contains unknown cultures and has been ignored."), *CultureMappingStr);
+				UE_LOG(LogICUInternationalization, Warning, TEXT("Culture mapping '%s' contains an unknown culture and has been ignored."), *CultureMappingStr);
 			}
 		}
 	}
@@ -616,10 +616,12 @@ TArray<FString> FICUInternationalization::GetPrioritizedCultureNames(const FStri
 		}
 
 		// Sort the cultures by their priority
-		PrioritizedCultureData.Sort([](const FICUCultureData& DataOne, const FICUCultureData& DataTwo) -> bool
+		// Special case handling for the ambiguity of Hong Kong and Macau supporting both Traditional and Simplified Chinese (prefer Traditional)
+		const bool bPreferTraditionalChinese = GivenCultureData.CountryCode == TEXT("HK") || GivenCultureData.CountryCode == TEXT("MO");
+		PrioritizedCultureData.Sort([bPreferTraditionalChinese](const FICUCultureData& DataOne, const FICUCultureData& DataTwo) -> bool
 		{
-			const int32 DataOneSortWeight = (DataOne.CountryCode.IsEmpty() ? 0 : 2) + (DataOne.ScriptCode.IsEmpty() ? 0 : 1);
-			const int32 DataTwoSortWeight = (DataTwo.CountryCode.IsEmpty() ? 0 : 2) + (DataTwo.ScriptCode.IsEmpty() ? 0 : 1);
+			const int32 DataOneSortWeight = (DataOne.CountryCode.IsEmpty() ? 0 : 4) + (DataOne.ScriptCode.IsEmpty() ? 0 : 2) + (bPreferTraditionalChinese && DataOne.ScriptCode == TEXT("Hant") ? 1 : 0);
+			const int32 DataTwoSortWeight = (DataTwo.CountryCode.IsEmpty() ? 0 : 4) + (DataTwo.ScriptCode.IsEmpty() ? 0 : 2) + (bPreferTraditionalChinese && DataTwo.ScriptCode == TEXT("Hant") ? 1 : 0);
 			return DataOneSortWeight >= DataTwoSortWeight;
 		});
 

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EditorReimportHandler.h"
 #include "PaperSpriteSheetImportFactory.h"
 #include "PaperSpriteSheetReimportFactory.generated.h"
 

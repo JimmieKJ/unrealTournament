@@ -1,15 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphPinExec.h"
+#include "KismetPins/SGraphPinExec.h"
+#include "Widgets/Layout/SSpacer.h"
 
 void SGraphPinExec::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 {
 	SGraphPin::Construct(SGraphPin::FArguments(), InPin);
 
 	bWasEventPin = false;
-	CachePinBrushes(/*bForceCache=*/ true);
+
+	CachedImg_Pin_ConnectedHovered = FEditorStyle::GetBrush(TEXT("Graph.ExecPin.ConnectedHovered"));
+	CachedImg_Pin_Connected = FEditorStyle::GetBrush(TEXT("Graph.ExecPin.Connected"));
+	CachedImg_Pin_DisconnectedHovered = FEditorStyle::GetBrush(TEXT("Graph.ExecPin.DisconnectedHovered"));
+	CachedImg_Pin_Disconnected = FEditorStyle::GetBrush(TEXT("Graph.ExecPin.Disconnected"));
 }
 
 TSharedRef<SWidget>	SGraphPinExec::GetDefaultValueWidget()
@@ -19,8 +23,6 @@ TSharedRef<SWidget>	SGraphPinExec::GetDefaultValueWidget()
 
 const FSlateBrush* SGraphPinExec::GetPinIcon() const
 {
-	CachePinBrushes();
-
 	const FSlateBrush* Brush = NULL;
 
 	if (IsConnected())
@@ -33,15 +35,4 @@ const FSlateBrush* SGraphPinExec::GetPinIcon() const
 	}
 
 	return Brush;
-}
-
-void SGraphPinExec::CachePinBrushes(bool bForceCache) const
-{
-	if (bForceCache)
-	{
-		CachedImg_Pin_ConnectedHovered = FEditorStyle::GetBrush(TEXT("Graph.ExecPin.ConnectedHovered"));
-		CachedImg_Pin_Connected = FEditorStyle::GetBrush(TEXT("Graph.ExecPin.Connected"));
-		CachedImg_Pin_DisconnectedHovered = FEditorStyle::GetBrush(TEXT("Graph.ExecPin.DisconnectedHovered"));
-		CachedImg_Pin_Disconnected = FEditorStyle::GetBrush(TEXT("Graph.ExecPin.Disconnected"));
-	}
 }

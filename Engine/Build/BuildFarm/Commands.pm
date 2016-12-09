@@ -157,6 +157,7 @@ sub execute_command
 		my $code_change = get_job_code_change_number($ec,  $ec_job, $stream, $change, $arguments, $ec_update);
 		my $resource_name = $set_exclusive_resource || get_required_parameter($arguments, 'resource-name');
 		my $target = get_required_parameter($arguments, 'target');
+		my $token_signature = $arguments->{'token-signature'} || ec_get_full_url("/commander/link/jobDetails/jobs/$ec_job");
 
 		ec_set_property($ec, "/myCall/postSummary", "Hosted by $resource_name", $ec_update);
 
@@ -200,10 +201,10 @@ sub execute_command
 		my $sync_time = time;
 		my $shared_storage_block = $arguments->{'temp-storage-block'} || $arguments->{'shared-storage-block'} || get_shared_storage_block($ec, $ec_job);
 		my $shared_storage_dir = get_shared_storage_dir($stream, $settings, $agent_type, $shared_storage_block);
-		build_setup($workspace, $change, $code_change, $build_script, $target, $trigger, $shared_storage_dir, $pass_through_arguments);
+		build_setup($workspace, $change, $code_change, $build_script, $target, $trigger, $token_signature, $shared_storage_dir, $pass_through_arguments);
 		my $uat_time = time;
-		build_job_setup($ec, $ec_project, $ec_job, $ec_update, $settings, $workspace, $change, $build_script, $target, $shared_storage_block, $arguments, $pass_through_arguments, { email_only => $arguments->{'email-only'} });
-		build_agent_setup($ec, $ec_job, $workspace, $change, $code_change, $build_script, $target, 'Startup', $resource_name, $shared_storage_dir, $ec_update, { fake_build => $arguments->{'fake-build'}, fake_fail => $arguments->{'fake-fail'}, pass_through_arguments => $pass_through_arguments, email_only => $arguments->{'email-only'}, autosdk => $arguments->{'autosdk'} });
+		build_job_setup($ec, $ec_project, $ec_job, $ec_update, $settings, $workspace, $change, $build_script, $target, $token_signature, $shared_storage_block, $arguments, $pass_through_arguments, { email_only => $arguments->{'email-only'} });
+		build_agent_setup($ec, $ec_job, $workspace, $change, $code_change, $build_script, $target, 'Startup', $token_signature, $resource_name, $shared_storage_dir, $ec_update, { fake_build => $arguments->{'fake-build'}, fake_fail => $arguments->{'fake-fail'}, pass_through_arguments => $pass_through_arguments, email_only => $arguments->{'email-only'}, autosdk => $arguments->{'autosdk'} });
 		my $finish_time = time;
 		ec_set_property($ec, "/myJobStep/postSummary", "Setup completed in ".format_time($finish_time - $start_time). " (Sync: ".format_time($sync_time - $start_time).", UAT: ".format_time($uat_time - $sync_time).", EC: ".format_time($finish_time - $uat_time).")", $ec_update);
 	}
@@ -218,6 +219,7 @@ sub execute_command
 		my $build_script = get_required_parameter($arguments, 'build-script');
 		my $target = get_required_parameter($arguments, 'target');
 		my $shared_storage_dir = get_required_parameter($arguments, 'shared-storage-dir');
+		my $token_signature = get_required_parameter($arguments, 'token-signature');
 
 		ec_set_property($ec, "/myCall/postSummary", "Hosted by $resource_name", $ec_update);
 		
@@ -234,7 +236,7 @@ sub execute_command
 		print "Copying UAT binaries...\n";
 		copy_recursive(join_paths(getcwd(), "UAT"), $workspace->{'dir'});
 		my $sync_time = time;
-		build_agent_setup($ec, $ec_job, $workspace, $change, $code_change, $build_script, $target, $group, $resource_name, $shared_storage_dir, $ec_update, { fake_build => $arguments->{'fake-build'}, fake_fail => $arguments->{'fake-fail'}, pass_through_arguments => $pass_through_arguments, temp_storage_dir => $arguments->{'temp-storage-dir'}, email_only => $arguments->{'email-only'}, autosdk => $arguments->{'autosdk'} });
+		build_agent_setup($ec, $ec_job, $workspace, $change, $code_change, $build_script, $target, $group, $token_signature, $resource_name, $shared_storage_dir, $ec_update, { fake_build => $arguments->{'fake-build'}, fake_fail => $arguments->{'fake-fail'}, pass_through_arguments => $pass_through_arguments, temp_storage_dir => $arguments->{'temp-storage-dir'}, email_only => $arguments->{'email-only'}, autosdk => $arguments->{'autosdk'} });
 		my $finish_time = time;
 		ec_set_property($ec, "/myJobStep/postSummary", "Setup completed in ".format_time($finish_time - $start_time). " (Sync: ".format_time($sync_time - $start_time).", EC: ".format_time($finish_time - $sync_time).")", $ec_update);
 	}
@@ -244,23 +246,26 @@ sub execute_command
 		my $change = get_required_parameter($arguments, 'change');
 		my $workspace_name = get_required_parameter($arguments, 'workspace-name');
 		my $workspace_dir = get_required_parameter($arguments, 'workspace-dir');
+		my $build_script = get_required_parameter($arguments, 'build-script');
 		my $node = get_required_parameter($arguments, 'node');
+		my $token_signature = get_required_parameter($arguments, 'token-signature');
 
 		if($arguments->{'autosdk'} && is_windows())
 		{
 			setup_autosdk_environment($root_dir);
 		}
 
-		build_single_node($ec, $ec_project, $ec_job, $ec_jobstep, $stream, $change, $workspace_name, $workspace_dir, $node, $ec_update, { fake_build => $arguments->{'fake-build'}, fake_fail => $arguments->{'fake-fail'}, email_only => $arguments->{'email-only'}, pass_through_arguments => $pass_through_arguments });
+		build_single_node($ec, $ec_project, $ec_job, $ec_jobstep, $stream, $change, $workspace_name, $workspace_dir, $build_script, $node, $token_signature, $ec_update, { fake_build => $arguments->{'fake-build'}, fake_fail => $arguments->{'fake-fail'}, email_only => $arguments->{'email-only'}, pass_through_arguments => $pass_through_arguments });
 	}
 	elsif($command eq 'buildreportsetup')
 	{
 		my $stream = get_required_parameter($arguments, 'stream');
 		my $change = get_required_parameter($arguments, 'change');
 		my $report_name = $arguments->{'trigger-name'} || get_required_parameter($arguments, 'report-name');
+		my $token_signature = get_required_parameter($arguments, 'token-signature');
 		my $shared_storage_block = get_required_parameter($arguments, 'shared-storage-block');
 
-		build_report_setup($ec, $ec_job, $stream, $change, $report_name, $shared_storage_block, $ec_update, { email_only => $arguments->{'email-only'} });
+		build_report_setup($ec, $ec_job, $stream, $change, $report_name, $token_signature, $shared_storage_block, $ec_update, { email_only => $arguments->{'email-only'} });
 	}
 	elsif($command eq 'buildbadgesetup')
 	{
@@ -274,8 +279,9 @@ sub execute_command
 	{
 		my $names = get_required_parameter($arguments, 'names');
 		my $set_pools = $arguments->{'set-pools'};
+		my $p4_clean = $arguments->{'p4-clean'};
 		my $max_parallel = $arguments->{'max-parallel'};
-		conform_resources($ec, $ec_project, $ec_job, $ec_jobstep, $names, $set_pools, $max_parallel, $ec_update);
+		conform_resources($ec, $ec_project, $ec_job, $ec_jobstep, $names, $set_pools, $p4_clean, $max_parallel, $ec_update);
 	}
 	elsif($command eq 'conformresource')
 	{
@@ -301,7 +307,8 @@ sub execute_command
 			}
 		}
 		
-		conform_resource($ec, $ec_project, $name, $root_dir);
+		my $p4_clean = $arguments->{'p4-clean'};
+		conform_resource($ec, $ec_project, $name, $root_dir, $p4_clean);
 	}
 	elsif($command eq 'printbuildhistory')
 	{

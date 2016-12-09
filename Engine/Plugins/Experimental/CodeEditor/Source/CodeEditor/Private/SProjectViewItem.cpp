@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeEditorPrivatePCH.h"
 #include "SProjectViewItem.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "CodeEditorStyle.h"
 
 
 #define LOCTEXT_NAMESPACE "ProjectViewItem"

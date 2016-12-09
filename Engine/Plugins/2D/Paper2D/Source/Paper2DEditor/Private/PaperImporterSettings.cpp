@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
 #include "PaperImporterSettings.h"
+#include "Paper2DEditorLog.h"
+#include "Materials/MaterialInterface.h"
 #include "PaperTileMap.h"
 #include "PaperTileSet.h"
 #include "AlphaBitmap.h"

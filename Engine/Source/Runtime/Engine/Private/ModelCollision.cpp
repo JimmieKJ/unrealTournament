@@ -4,7 +4,8 @@
     ModelCollision.cpp: Simple physics and occlusion testing for editor
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
 #include "Model.h"
 
 

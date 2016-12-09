@@ -2,17 +2,23 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
 #include "EdGraphNode.generated.h"
 
+class INameValidatorInterface;
+class SGraphNode;
+class SWidget;
 class UBlueprint;
 class UEdGraph;
 class UEdGraphNode;
-class UEdGraphSchema;
 class UEdGraphPin;
-class SGraphNode;
+class UEdGraphSchema;
 struct FEdGraphPinType;
+struct FPropertyChangedEvent;
 struct FSlateIcon;
-
 
 /** Enum used to define which way data flows into or out of this pin. */
 UENUM()
@@ -261,7 +267,16 @@ public:
 	virtual bool ShouldOverridePinNames() const { return false; }
 
 	/** Whether or not struct pins belonging to this node should be allowed to be split or not. */
-	virtual bool AllowSplitPins() const { return false; }
+	DEPRECATED(4.14, "Please call CanSplitPin and provide the specific Pin to split.")
+	virtual bool AllowSplitPins() const { return bAllowSplitPins_DEPRECATED; }
+
+	/** Whether or not struct pins belonging to this node should be allowed to be split or not. */
+	virtual bool CanSplitPin(const UEdGraphPin* Pin) const 
+	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		return AllowSplitPins();
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	}
 
 	/** Gets the overridden name for the specified pin, if any */
 	virtual FText GetPinNameOverride(const UEdGraphPin& Pin) const { return FText::GetEmpty(); }
@@ -324,6 +339,11 @@ public:
 	 * Refresh the connectors on a node, preserving as many connections as it can.
 	 */
 	virtual void ReconstructNode() {}
+
+	/**
+	 * Removes the specified pin from the node, preserving remaining pin ordering.
+	 */
+	virtual void RemovePinAt(const int32 PinIndex, const EEdGraphPinDirection PinDirection);
 
 	/**
 	 * Perform any steps necessary prior to copying a node into the paste buffer
@@ -516,10 +536,17 @@ public:
 	/** Create a visual widget to represent this node in a graph editor or graph panel.  If not implemented, the default node factory will be used. */
 	virtual TSharedPtr<SGraphNode> CreateVisualWidget() { return TSharedPtr<SGraphNode>(); }
 
+	/** Create the background image for the widget representing this node */
+	virtual TSharedPtr<SWidget> CreateNodeImage() const { return TSharedPtr<SWidget>(); }
+
 	/** Adds an upgrade note to this node */
 	void AddNodeUpgradeNote(FText InUpgradeNote);
 #endif // WITH_EDITOR
 
+protected:
+
+	/** (DEPRECATED) Value used for AllowSplitPins(). Do not override. */
+	bool bAllowSplitPins_DEPRECATED;
 };
 
 

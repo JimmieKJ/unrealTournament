@@ -2,9 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "ActorFactories/ActorFactory.h"
 #include "ActorFactorySkeletalMesh.generated.h"
 
+class AActor;
+class FAssetData;
 class USkeletalMesh;
 
 UCLASS(MinimalAPI, config=Editor)

@@ -2,11 +2,19 @@
 
 #pragma once
 
-#if WITH_EDITOR
-#include "AssetData.h"
-#endif
-
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "SuperSearchStyle.h"
 #include "SuperSearchModule.h"
+#include "Interfaces/IHttpRequest.h"
+
+class SMenuAnchor;
 
 /* 
  * Super search - Searches a number of resources including documentation, tutorials, Wiki and AnswerHub
@@ -27,7 +35,7 @@ public:
 		{}
 
 		/** Style used to draw this search box */
-		SLATE_ARGUMENT( TOptional<const FSearchBoxStyle*>, Style )
+		SLATE_ARGUMENT( TOptional<const FSuperSearchStyle*>, Style )
 
 		/** Where to place the suggestion list */
 		SLATE_ARGUMENT( EMenuPlacement, SuggestionListPlacement )
@@ -133,9 +141,9 @@ private:
 	/** to prevent recursive calls in UI callback */
 	bool bIgnoreUIUpdate;
 
-private:
+	FSuperSearchStyle Style;
 
-	TArray< TSharedPtr<ESearchEngine> > SearchEngines;
+private:
 
 	ESearchEngine CurrentSearchEngine;
 };

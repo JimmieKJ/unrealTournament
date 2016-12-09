@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -760,8 +760,8 @@ SDL_RenderDriver D3D11_RenderDriver = {
 };
 
 
-static Uint32
-DXGIFormatToSDLPixelFormat(DXGI_FORMAT dxgiFormat) {
+Uint32
+D3D11_DXGIFormatToSDLPixelFormat(DXGI_FORMAT dxgiFormat) {
     switch (dxgiFormat) {
         case DXGI_FORMAT_B8G8R8A8_UNORM:
             return SDL_PIXELFORMAT_ARGB8888;
@@ -1356,7 +1356,7 @@ D3D11_GetRotationForCurrentRenderTarget(SDL_Renderer * renderer)
 }
 
 static int
-D3D11_GetViewportAlignedD3DRect(SDL_Renderer * renderer, const SDL_Rect * sdlRect, D3D11_RECT * outRect)
+D3D11_GetViewportAlignedD3DRect(SDL_Renderer * renderer, const SDL_Rect * sdlRect, D3D11_RECT * outRect, BOOL includeViewportOffset)
 {
     D3D11_RenderData *data = (D3D11_RenderData *) renderer->driverdata;
     const int rotation = D3D11_GetRotationForCurrentRenderTarget(renderer);
@@ -1366,6 +1366,12 @@ D3D11_GetViewportAlignedD3DRect(SDL_Renderer * renderer, const SDL_Rect * sdlRec
             outRect->right = sdlRect->x + sdlRect->w;
             outRect->top = sdlRect->y;
             outRect->bottom = sdlRect->y + sdlRect->h;
+            if (includeViewportOffset) {
+                outRect->left += renderer->viewport.x;
+                outRect->right += renderer->viewport.x;
+                outRect->top += renderer->viewport.y;
+                outRect->bottom += renderer->viewport.y;
+            }
             break;
         case DXGI_MODE_ROTATION_ROTATE270:
             outRect->left = sdlRect->y;
@@ -2280,7 +2286,7 @@ D3D11_UpdateClipRect(SDL_Renderer * renderer)
         ID3D11DeviceContext_RSSetScissorRects(data->d3dContext, 0, NULL);
     } else {
         D3D11_RECT scissorRect;
-        if (D3D11_GetViewportAlignedD3DRect(renderer, &renderer->clip_rect, &scissorRect) != 0) {
+        if (D3D11_GetViewportAlignedD3DRect(renderer, &renderer->clip_rect, &scissorRect, TRUE) != 0) {
             /* D3D11_GetViewportAlignedD3DRect will have set the SDL error */
             return -1;
         }
@@ -2361,7 +2367,7 @@ D3D11_UpdateVertexBuffer(SDL_Renderer *renderer,
     } else {
         SAFE_RELEASE(rendererData->vertexBuffer);
 
-        vertexBufferDesc.ByteWidth = dataSizeInBytes;
+        vertexBufferDesc.ByteWidth = (UINT) dataSizeInBytes;
         vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
         vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         vertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -2498,7 +2504,7 @@ D3D11_RenderDrawPoints(SDL_Renderer * renderer,
     a = (float)(renderer->a / 255.0f);
 
     vertices = SDL_stack_alloc(VertexPositionColor, count);
-    for (i = 0; i < min(count, 128); ++i) {
+    for (i = 0; i < count; ++i) {
         const VertexPositionColor v = { { points[i].x, points[i].y, 0.0f }, { 0.0f, 0.0f }, { r, g, b, a } };
         vertices[i] = v;
     }
@@ -2869,7 +2875,7 @@ D3D11_RenderReadPixels(SDL_Renderer * renderer, const SDL_Rect * rect,
     }
 
     /* Copy the desired portion of the back buffer to the staging texture: */
-    if (D3D11_GetViewportAlignedD3DRect(renderer, rect, &srcRect) != 0) {
+    if (D3D11_GetViewportAlignedD3DRect(renderer, rect, &srcRect, FALSE) != 0) {
         /* D3D11_GetViewportAlignedD3DRect will have set the SDL error */
         goto done;
     }
@@ -2905,7 +2911,7 @@ D3D11_RenderReadPixels(SDL_Renderer * renderer, const SDL_Rect * rect,
      */
     if (SDL_ConvertPixels(
         rect->w, rect->h,
-        DXGIFormatToSDLPixelFormat(stagingTextureDesc.Format),
+        D3D11_DXGIFormatToSDLPixelFormat(stagingTextureDesc.Format),
         textureMemory.pData,
         textureMemory.RowPitch,
         format,

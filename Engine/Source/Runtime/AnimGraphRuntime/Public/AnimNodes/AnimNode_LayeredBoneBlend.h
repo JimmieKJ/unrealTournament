@@ -2,11 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimTypes.h"
 #include "Animation/AnimNodeBase.h"
 #include "Animation/AnimData/BoneMaskFilter.h"
-#include "Animation/AnimTypes.h"
 #include "AnimNode_LayeredBoneBlend.generated.h"
-
 
 // Layered blend (per bone); has dynamic number of blendposes that can blend per different bone sets
 USTRUCT()
@@ -43,6 +44,7 @@ public:
 protected:
 	TArray<FPerBoneBlendWeight> DesiredBoneBlendWeights;
 	TArray<FPerBoneBlendWeight> CurrentBoneBlendWeights;
+	TArray<uint8> CurvePoseSourceIndices;
 
 public:	
 	FAnimNode_LayeredBoneBlend()

@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Margin.h"
+#include "PropertyHandle.h"
+#include "IDetailCustomNodeBuilder.h"
+#include "IDetailCustomization.h"
+
+class FDetailWidgetRow;
+class IDetailChildrenBuilder;
+class IDetailGroup;
+class IDetailLayoutBuilder;
+
 namespace InputConstants
 {
 	const FMargin PropertyPadding(2.0f, 0.0f, 2.0f, 0.0f);

@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+#include "IStatsViewer.h"
 #include "IStatsPage.h"
-#include "Editor/PropertyEditor/Public/IPropertyTable.h"
-
 
 /** 
  * Template for all stats pages/factories. 

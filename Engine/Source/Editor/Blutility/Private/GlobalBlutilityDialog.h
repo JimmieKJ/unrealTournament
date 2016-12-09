@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "Toolkits/IToolkitHost.h"
+#include "Toolkits/AssetEditorToolkit.h"
+
+class IDetailsView;
+class SDockableTab;
+class UGlobalEditorUtilityBase;
+
 //////////////////////////////////////////////////////////////////////////
 // FGlobalBlutilityDialog
 

@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+
 class FDerivedDataCacheUsageStats;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogDerivedDataCache, Log, All);

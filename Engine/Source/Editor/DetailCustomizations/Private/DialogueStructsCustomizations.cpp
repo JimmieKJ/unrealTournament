@@ -1,12 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
-#include "SoundDefinitions.h"
 #include "DialogueStructsCustomizations.h"
-#include "DialogueWaveWidgets.h"
 #include "AssetThumbnail.h"
-#include "Sound/DialogueWave.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Notifications/SErrorText.h"
+#include "Widgets/Notifications/SErrorHint.h"
+#include "Widgets/Input/SComboBox.h"
 #include "Sound/DialogueVoice.h"
+#include "Sound/DialogueWave.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailChildrenBuilder.h"
+#include "DialogueWaveWidgets.h"
 
 #define LOCTEXT_NAMESPACE "DialogueWaveDetails"
 

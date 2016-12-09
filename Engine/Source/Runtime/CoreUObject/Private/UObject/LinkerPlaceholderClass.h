@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Class.h"
-#include "LinkerPlaceholderBase.h"
-#include "Set.h"
 
-// Forward declarations
-class FObjectInitializer;
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Class.h"
+#include "UObject/LinkerPlaceholderBase.h"
 
 /**  
  * A utility class for the deferred dependency loader, used to stub in temporary

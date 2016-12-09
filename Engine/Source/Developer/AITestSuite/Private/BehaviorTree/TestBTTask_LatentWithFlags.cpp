@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AITestSuitePrivatePCH.h"
 #include "BehaviorTree/TestBTTask_LatentWithFlags.h"
+#include "BehaviorTree/BlackboardComponent.h"
 #include "MockAI_BT.h"
 
 UTestBTTask_LatentWithFlags::UTestBTTask_LatentWithFlags(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)

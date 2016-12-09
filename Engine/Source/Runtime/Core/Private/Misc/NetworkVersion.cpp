@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "NetworkVersion.h"
-#include "EngineVersion.h"
+#include "Misc/NetworkVersion.h"
+#include "Misc/App.h"
+#include "Misc/EngineVersion.h"
 #include "Runtime/Launch/Resources/Version.h"
+#include "Misc/NetworkGuid.h"
 
 DEFINE_LOG_CATEGORY( LogNetVersion );
 
@@ -24,6 +25,9 @@ uint32 FNetworkVersion::CachedNetworkChecksum			= 0;
 uint32 FNetworkVersion::EngineNetworkProtocolVersion	= HISTORY_REPLAY_BACKWARDS_COMPAT;
 uint32 FNetworkVersion::GameNetworkProtocolVersion		= 0;
 
+uint32 FNetworkVersion::EngineCompatibleNetworkProtocolVersion		= HISTORY_REPLAY_BACKWARDS_COMPAT;
+uint32 FNetworkVersion::GameCompatibleNetworkProtocolVersion		= 0;
+
 uint32 FNetworkVersion::GetNetworkCompatibleChangelist()
 {
 	//return FEngineVersion::Current().GetChangelist();
@@ -40,9 +44,19 @@ uint32 FNetworkVersion::GetEngineNetworkProtocolVersion()
 	return EngineNetworkProtocolVersion;
 }
 
+uint32 FNetworkVersion::GetEngineCompatibleNetworkProtocolVersion()
+{
+	return EngineCompatibleNetworkProtocolVersion;
+}
+
 uint32 FNetworkVersion::GetGameNetworkProtocolVersion()
 {
 	return GameNetworkProtocolVersion;
+}
+
+uint32 FNetworkVersion::GetGameCompatibleNetworkProtocolVersion()
+{
+	return GameCompatibleNetworkProtocolVersion;
 }
 
 uint32 FNetworkVersion::GetLocalNetworkVersion( bool AllowOverrideDelegate /*=true*/ )
@@ -98,7 +112,7 @@ bool FNetworkVersion::IsNetworkCompatible( const uint32 LocalNetworkVersion, con
 
 FNetworkReplayVersion FNetworkVersion::GetReplayVersion()
 {
-	const uint32 ReplayVersion = ( GameNetworkProtocolVersion << 16 ) | EngineNetworkProtocolVersion;
+	const uint32 ReplayVersion = ( GameCompatibleNetworkProtocolVersion << 16 ) | EngineCompatibleNetworkProtocolVersion;
 
 	return FNetworkReplayVersion( FApp::GetGameName(), ReplayVersion, GetReplayCompatibleChangelist() );
 }

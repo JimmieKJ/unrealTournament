@@ -2,7 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EngineLogs.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "AssetData.h"
 #include "AssetRegistryModule.h"
+
+class AActor;
+class Error;
 
 namespace SequenceRecorderUtils
 {

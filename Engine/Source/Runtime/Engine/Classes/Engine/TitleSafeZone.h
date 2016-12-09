@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** 
  * Safezone related declarations. Used by GameViewportClient for rendering 'safe zones' on screen.
  *

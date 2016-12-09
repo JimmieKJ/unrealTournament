@@ -6,12 +6,24 @@
 
 #pragma once
 
-#include "LevelEditor.h"
-#include "LevelViewportActions.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Stats/Stats.h"
+#include "Misc/Attribute.h"
+#include "Animation/CurveSequence.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "Editor/UnrealEdTypes.h"
+#include "Application/ThrottleManager.h"
+#include "TickableEditorObject.h"
 
-class ILevelEditor;
-class SLevelEditor;
+class FLevelEditorViewportClient;
 class FLevelViewportLayout;
+class FLevelViewportTabContent;
+class ILevelEditor;
+class SLevelViewport;
+class SViewportsOverlay;
+class SWindow;
 
 /** Arguments for constructing a viewport */
 struct FViewportConstructionArgs

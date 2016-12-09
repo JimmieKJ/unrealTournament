@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Animation/CurveSequence.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Images/SImage.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
 
 /** A widget that displays a spinning image.*/
 class SLATE_API SSpinningImage : public SImage

@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "PhysicsSettingsDetails.h"
-#include "ScopedTransaction.h"
-#include "ObjectEditorUtils.h"
-#include "BodyInstanceCustomization.h"
+#include "Misc/MessageDialog.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Views/SListView.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
-#include "STableViewBase.h"
 
 #define LOCTEXT_NAMESPACE "PhysicalSurfaceDetails"
 

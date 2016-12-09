@@ -1,19 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Engine/NetSerialization.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/EngineBaseTypes.h"
+#include "WorldCollision.h"
+#include "AI/Navigation/NavigationTypes.h"
+#include "Animation/AnimationAsset.h"
+#include "Animation/AnimMontage.h"
+#include "GameFramework/RootMotionSource.h"
 #include "AI/Navigation/NavigationAvoidanceTypes.h"
 #include "AI/RVOAvoidanceInterface.h"
-#include "Engine/EngineBaseTypes.h"
-#include "Engine/EngineTypes.h"
 #include "GameFramework/PawnMovementComponent.h"
 #include "Interfaces/NetworkPredictionInterface.h"
-#include "WorldCollision.h"
-#include "GameFramework/RootMotionSource.h"
 #include "CharacterMovementComponent.generated.h"
 
-class FDebugDisplayInfo;
 class ACharacter;
-class UCharacterMovementComponent;
+class FDebugDisplayInfo;
+class FNetworkPredictionData_Server_Character;
+class FSavedMove_Character;
+class UPrimitiveComponent;
 
 /** Data about the floor for walking movement, used by CharacterMovementComponent. */
 USTRUCT(BlueprintType)
@@ -74,6 +84,14 @@ public:
 		FloorDist = 0.f;
 		LineDist = 0.f;
 		HitResult.Reset(1.f, false);
+	}
+
+	/** Gets the distance to floor, either LineDist or FloorDist. */
+	float GetDistanceToFloor() const
+	{
+		// When the floor distance is set using SetFromSweep, the LineDist value will be reset.
+		// However, when SetLineFromTrace is used, there's no guarantee that FloorDist is set.
+		return bLineTrace ? LineDist : FloorDist;
 	}
 
 	void SetFromSweep(const FHitResult& InHit, const float InSweepFloorDist, const bool bIsWalkableFloor);
@@ -344,18 +362,21 @@ public:
 	float PerchAdditionalHeight;
 
 	/** Change in rotation per second, used when UseControllerDesiredRotation or OrientRotationToMovement are true. Set a negative value for infinite rotation rate and instant turns. */
-	UPROPERTY(Category="Character Movement (General Settings)", EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(Category="Character Movement (Rotation Settings)", EditAnywhere, BlueprintReadWrite)
 	FRotator RotationRate;
 
-	/** If true, smoothly rotate the Character toward the Controller's desired rotation, using RotationRate as the rate of rotation change. Overridden by OrientRotationToMovement. */
-	UPROPERTY(Category="Character Movement (General Settings)", EditAnywhere, BlueprintReadWrite, AdvancedDisplay)
+	/**
+	 * If true, smoothly rotate the Character toward the Controller's desired rotation (typically Controller->ControlRotation), using RotationRate as the rate of rotation change. Overridden by OrientRotationToMovement.
+	 * Normally you will want to make sure that other settings are cleared, such as bUseControllerRotationYaw on the Character.
+	 */
+	UPROPERTY(Category="Character Movement (Rotation Settings)", EditAnywhere, BlueprintReadWrite)
 	uint32 bUseControllerDesiredRotation:1;
 
 	/**
 	 * If true, rotate the Character toward the direction of acceleration, using RotationRate as the rate of rotation change. Overrides UseControllerDesiredRotation.
 	 * Normally you will want to make sure that other settings are cleared, such as bUseControllerRotationYaw on the Character.
 	 */
-	UPROPERTY(Category="Character Movement (General Settings)", EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(Category="Character Movement (Rotation Settings)", EditAnywhere, BlueprintReadWrite)
 	uint32 bOrientRotationToMovement:1;
 
 protected:
@@ -829,6 +850,9 @@ public:
 	UPROPERTY(Category="Character Movement (General Settings)", EditAnywhere, BlueprintReadWrite, AdvancedDisplay)
 	uint32 bRequestedMoveUseAcceleration:1;
 
+	/** Set on clients when server's movement mode is NavWalking */
+	uint32 bIsNavWalkingOnServer : 1;
+
 protected:
 
 	// AI PATH FOLLOWING
@@ -950,6 +974,10 @@ public:
 	UPROPERTY(Category="Character Movement: NavMesh Movement", EditAnywhere, BlueprintReadWrite, meta=(editcondition = "bProjectNavMeshWalking", ClampMin="0", UIMin="0"))
 	float NavMeshProjectionHeightScaleDown;
 
+	/** Ignore small differences in ground height between server and client data during NavWalking mode */
+	UPROPERTY(Category="Character Movement: NavMesh Movement", EditAnywhere, BlueprintReadWrite)
+	float NavWalkingFloorDistTolerance;
+
 	/** Change avoidance state and registers in RVO manager if needed */
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement", meta = (UnsafeDuringActorConstruction = "true"))
 	void SetAvoidanceEnabled(bool bEnable);
@@ -1001,6 +1029,7 @@ public:
 	virtual void BeginDestroy() override;
 	virtual void PostLoad() override;
 	virtual void RegisterComponentTickFunctions(bool bRegister) override;
+	virtual void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift) override;
 	//End UActorComponent Interface
 
 	//BEGIN UMovementComponent Interface
@@ -1256,6 +1285,12 @@ public:
 	
 	/** Applies momentum accumulated through AddImpulse() and AddForce(). */
 	virtual void ApplyAccumulatedForces(float DeltaSeconds);
+
+	/** Update the character state in PerformMovement right before doing the actual position change */
+	virtual void UpdateCharacterStateBeforeMovement();
+
+	/** Update the character state in PerformMovement after the position change. Some rotation updates happen after this. */
+	virtual void UpdateCharacterStateAfterMovement();
 
 	/** 
 	 * Handle start swimming functionality
@@ -1631,6 +1666,9 @@ protected:
 	/** Slows towards stop. */
 	virtual void ApplyVelocityBraking(float DeltaTime, float Friction, float BrakingDeceleration);
 
+
+public:
+
 	/**
 	 * Return true if the 2D distance to the impact point is inside the edge tolerance (CapsuleRadius minus a small rejection threshold).
 	 * Useful for rejecting adjacent hits when finding a floor or landing spot.
@@ -1639,28 +1677,53 @@ protected:
 
 	/**
 	 * Sweeps a vertical trace to find the floor for the capsule at the given location. Will attempt to perch if ShouldComputePerchResult() returns true for the downward sweep result.
+	 * No floor will be found if collision is disabled on the capsule!
 	 *
 	 * @param CapsuleLocation:		Location where the capsule sweep should originate
 	 * @param OutFloorResult:		[Out] Contains the result of the floor check. The HitResult will contain the valid sweep or line test upon success, or the result of the sweep upon failure.
 	 * @param bZeroDelta:			If true, the capsule was not actively moving in this update (can be used to avoid unnecessary floor tests).
 	 * @param DownwardSweepResult:	If non-null and it contains valid blocking hit info, this will be used as the result of a downward sweep test instead of doing it as part of the update.
 	 */
-	virtual void FindFloor(const FVector& CapsuleLocation, struct FFindFloorResult& OutFloorResult, bool bZeroDelta, const FHitResult* DownwardSweepResult = NULL) const;
+	virtual void FindFloor(const FVector& CapsuleLocation, FFindFloorResult& OutFloorResult, bool bZeroDelta, const FHitResult* DownwardSweepResult = NULL) const;
+
+	/**
+	* Sweeps a vertical trace to find the floor for the capsule at the given location. Will attempt to perch if ShouldComputePerchResult() returns true for the downward sweep result.
+	* No floor will be found if collision is disabled on the capsule!
+	*
+	* @param CapsuleLocation		Location where the capsule sweep should originate
+	* @param FloorResult			Result of the floor check
+	*/
+	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement", meta=(DisplayName="FindFloor"))
+	void K2_FindFloor(FVector CapsuleLocation, FFindFloorResult& FloorResult) const;
 
 	/**
 	 * Compute distance to the floor from bottom sphere of capsule and store the result in OutFloorResult.
 	 * This distance is the swept distance of the capsule to the first point impacted by the lower hemisphere, or distance from the bottom of the capsule in the case of a line trace.
-	 * SweepDistance MUST be greater than or equal to the line distance.
+	 * This function does not care if collision is disabled on the capsule (unlike FindFloor).
 	 * @see FindFloor
 	 *
 	 * @param CapsuleLocation:	Location of the capsule used for the query
 	 * @param LineDistance:		If non-zero, max distance to test for a simple line check from the capsule base. Used only if the sweep test fails to find a walkable floor, and only returns a valid result if the impact normal is a walkable normal.
-	 * @param SweepDistance:	If non-zero, max distance to use when sweeping a capsule downwards for the test.
+	 * @param SweepDistance:	If non-zero, max distance to use when sweeping a capsule downwards for the test. MUST be greater than or equal to the line distance.
 	 * @param OutFloorResult:	Result of the floor check. The HitResult will contain the valid sweep or line test upon success, or the result of the sweep upon failure.
 	 * @param SweepRadius:		The radius to use for sweep tests. Should be <= capsule radius.
 	 * @param DownwardSweepResult:	If non-null and it contains valid blocking hit info, this will be used as the result of a downward sweep test instead of doing it as part of the update.
 	 */
 	virtual void ComputeFloorDist(const FVector& CapsuleLocation, float LineDistance, float SweepDistance, FFindFloorResult& OutFloorResult, float SweepRadius, const FHitResult* DownwardSweepResult = NULL) const;
+
+	/**
+	* Compute distance to the floor from bottom sphere of capsule and store the result in FloorResult.
+	* This distance is the swept distance of the capsule to the first point impacted by the lower hemisphere, or distance from the bottom of the capsule in the case of a line trace.
+	* This function does not care if collision is disabled on the capsule (unlike FindFloor).
+	*
+	* @param CapsuleLocation		Location where the capsule sweep should originate
+	* @param LineDistance			If non-zero, max distance to test for a simple line check from the capsule base. Used only if the sweep test fails to find a walkable floor, and only returns a valid result if the impact normal is a walkable normal.
+	* @param SweepDistance			If non-zero, max distance to use when sweeping a capsule downwards for the test. MUST be greater than or equal to the line distance.
+	* @param SweepRadius			The radius to use for sweep tests. Should be <= capsule radius.
+	* @param FloorResult			Result of the floor check
+	*/
+	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement", meta=(DisplayName="ComputeFloorDistance"))
+	void K2_ComputeFloorDist(FVector CapsuleLocation, float LineDistance, float SweepDistance, float SweepRadius, FFindFloorResult& FloorResult) const;
 
 	/**
 	 * Sweep against the world and return the first blocking hit.
@@ -1716,6 +1779,9 @@ protected:
 	 * @return True if the current location is a valid spot at which to perch.
 	 */
 	virtual bool ComputePerchResult(const float TestRadius, const FHitResult& InHit, const float InMaxFloorDist, FFindFloorResult& OutPerchFloorResult) const;
+
+
+protected:
 
 	/** Called when the collision capsule touches another primitive component */
 	UFUNCTION()
@@ -1838,8 +1904,11 @@ public:
 	/** Get prediction data for a server game. Should not be used if not running as a server. Allocates the data on demand and can be overridden to allocate a custom override if desired. */
 	virtual class FNetworkPredictionData_Server* GetPredictionData_Server() const override;
 
-	virtual bool HasPredictionData_Client() const override { return ClientPredictionData != NULL; }
-	virtual bool HasPredictionData_Server() const override { return ServerPredictionData != NULL; }
+	class FNetworkPredictionData_Client_Character* GetPredictionData_Client_Character() const;
+	class FNetworkPredictionData_Server_Character* GetPredictionData_Server_Character() const;
+
+	virtual bool HasPredictionData_Client() const override;
+	virtual bool HasPredictionData_Server() const override;
 
 	virtual void ResetPredictionData_Client() override;
 	virtual void ResetPredictionData_Server() override;
@@ -1847,9 +1916,6 @@ public:
 protected:
 	class FNetworkPredictionData_Client_Character* ClientPredictionData;
 	class FNetworkPredictionData_Server_Character* ServerPredictionData;
-
-	class FNetworkPredictionData_Client_Character* GetPredictionData_Client_Character() const;
-	class FNetworkPredictionData_Server_Character* GetPredictionData_Server_Character() const;
 
 	/**
 	 * Smooth mesh location for network interpolation, based on values set up by SmoothCorrection.

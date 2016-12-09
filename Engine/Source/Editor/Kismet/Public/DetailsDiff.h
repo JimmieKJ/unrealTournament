@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
 #include "PropertyPath.h"
 #include "DiffUtils.h"
+
+class IDetailsView;
 
 class KISMET_API FDetailsDiff
 {

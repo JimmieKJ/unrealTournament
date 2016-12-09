@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AnimGraphNode_Base.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "AnimGraphNode_AssetPlayerBase.h"
 #include "AnimNodes/AnimNode_PoseByName.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "AnimGraphNode_PoseByName.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
 
 UCLASS(MinimalAPI)
 class UAnimGraphNode_PoseByName : public UAnimGraphNode_AssetPlayerBase

@@ -3,11 +3,18 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Dependencies
  *****************************************************************************/
 
 #include "Core.h"
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
 #include "SlateBasics.h"
 #include "EditorStyle.h"
 #include "TargetDeviceServices.h"
@@ -16,4 +23,4 @@
 /* Interfaces
  *****************************************************************************/
 
-#include "IDeviceManagerModule.h"
+#include "Interfaces/IDeviceManagerModule.h"

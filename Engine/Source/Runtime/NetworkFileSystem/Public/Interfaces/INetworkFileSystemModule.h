@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class INetworkFileServer;
 
 /**
  * Delegate type for handling file requests from a network client.

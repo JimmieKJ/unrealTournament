@@ -1,14 +1,34 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "WorldBrowserPrivatePCH.h"
-
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "TextFilter.h"
 #include "SWorldHierarchy.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Widgets/SBoxPanel.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "EditorStyleSet.h"
+#include "AssetData.h"
+#include "WorldBrowserModule.h"
+#include "LevelModel.h"
+#include "LevelCollectionModel.h"
+
+#include "LevelEditor.h"
+#include "Misc/TextFilter.h"
 #include "SWorldHierarchyItem.h"
 
-#include "Editor/UnrealEd/Public/AssetSelection.h"
-#include "Editor/UnrealEd/Public/DragAndDrop/AssetDragDropOp.h"
-#include "SSearchBox.h"
+#include "AssetSelection.h"
+#include "DragAndDrop/AssetDragDropOp.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
@@ -148,6 +168,16 @@ public:
 					SNew(STextBlock)
 						.ToolTipText(LOCTEXT("Column_LevelNameLabel", "Level"))
 				]
+
+			/** Lighting Scenario column */
+			+ SHeaderRow::Column( HierarchyColumns::ColumnID_LightingScenario )
+				.FixedWidth( 18.0f )
+				.HeaderContent()
+				[
+					SNew(STextBlock)
+						.ToolTipText(NSLOCTEXT("WorldBrowser", "Lighting Scenario", "Lighting Scenario"))
+				]
+	
 
 			/** Level lock column */
 			+ SHeaderRow::Column( HierarchyColumns::ColumnID_Lock )

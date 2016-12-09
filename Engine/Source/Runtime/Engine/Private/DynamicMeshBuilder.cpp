@@ -4,10 +4,15 @@
 	DynamicMeshBuilder.cpp: Dynamic mesh builder implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "DynamicMeshBuilder.h"
-#include "ResourcePool.h"
+#include "RenderingThread.h"
+#include "RenderResource.h"
+#include "UniformBuffer.h"
+#include "VertexFactory.h"
+#include "MeshBatch.h"
+#include "SceneManagement.h"
 #include "LocalVertexFactory.h"
+#include "ResourcePool.h"
 
 class FGlobalDynamicMeshPoolPolicy
 {
@@ -510,6 +515,7 @@ void FDynamicMeshBuilder::GetMesh(const FMatrix& LocalToWorld,const FMaterialRen
 			false,
 			false,
 			false,
+			GetDefaultLightingChannelMask(),
 			1.0f		// LPV bias
 			);
 
@@ -578,6 +584,7 @@ void FDynamicMeshBuilder::Draw(FPrimitiveDrawInterface* PDI,const FMatrix& Local
 			false,
 			false,
 			false,
+			GetDefaultLightingChannelMask(),
 			1.0f		// LPV bias
 			);
 

@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
+#include "WidgetBlueprintEditor.h"
 #include "BlueprintEditorModes.h"
+
+class UWidgetBlueprint;
 
 /////////////////////////////////////////////////////
 // FWidgetBlueprintApplicationMode

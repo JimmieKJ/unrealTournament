@@ -221,6 +221,7 @@ bool UPartyGameState::ResetForFrontend()
 	UE_LOG(LogParty, Verbose, TEXT("Resetting parties for frontend"));
 
 	bool bSuccess = false;
+	bool bPendingApprovalsReprocessed = false;
 
 	CleanupReservationBeacon();
 
@@ -290,6 +291,25 @@ bool UPartyGameState::ResetForFrontend()
 						ResetPartySize();
 						UpdateAcceptingMembers();
 					}
+
+					// Re-process any outstanding approval requests now that we are not connected to the reservation beacon anymore
+					bPendingApprovalsReprocessed = true;
+					if (!PendingApprovals.IsEmpty())
+					{
+						UE_LOG(LogParty, Verbose, TEXT("Reprocessing pending approvals as we are no longer connected to the reservation beacon"));
+						FPendingMemberApproval PendingApproval;
+						TQueue<FPendingMemberApproval> ExistingPendingApprovals;
+						while (PendingApprovals.Dequeue(PendingApproval))
+						{
+							ExistingPendingApprovals.Enqueue(PendingApproval);
+						}
+
+						while (ExistingPendingApprovals.Dequeue(PendingApproval))
+						{
+							HandlePartyJoinRequestReceived(*PendingApproval.RecipientId, *PendingApproval.SenderId);
+						}
+
+					}
 				}
 				else
 				{
@@ -309,6 +329,12 @@ bool UPartyGameState::ResetForFrontend()
 	else
 	{
 		UE_LOG(LogParty, Warning, TEXT("Invalid party info during reset!"));
+	}
+
+	if (!bPendingApprovalsReprocessed && !PendingApprovals.IsEmpty())
+	{
+		UE_LOG(LogParty, Verbose, TEXT("Rejecting pending approvals as we are no longer connected to the reservation beacon"));
+		RejectAllPendingJoinRequests();
 	}
 
 	if (!bSuccess)

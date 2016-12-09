@@ -49,17 +49,4 @@ public class UnrealFrontendTarget : TargetRules
 
 		OutLinkEnvironmentConfiguration.bHasExports = false;
 	}
-
-    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
-    {
-        bInternalToolOnly = false;
-        SeparateNode = false;
-        CrossCompile = false;
-        return true;
-    }
-
-    public override bool GUBP_NeedsPlatformSpecificDLLs()
-    {
-        return true;
-    }
 }

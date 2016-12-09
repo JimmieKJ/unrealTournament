@@ -4,9 +4,15 @@
 	RenderTargetPool.cpp: Scene render target pool manager.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "RenderTargetPool.h"
+#include "PostProcess/RenderTargetPool.h"
+#include "RHIStaticStates.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "CanvasTypes.h"
+#include "Engine/Canvas.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "SceneRendering.h"
+#include "RenderTargetTemp.h"
 
 /** The global render targets pool. */
 TGlobalResource<FRenderTargetPool> GRenderTargetPool;
@@ -300,26 +306,44 @@ bool FRenderTargetPool::FindFreeElement(FRHICommandList& RHICmdList, const FPool
 		{
 			if(Desc.Is2DTexture())
 			{
-				RHICreateTargetableShaderResource2D(
-					Desc.Extent.X,
-					Desc.Extent.Y,
-					Desc.Format,
-					Desc.NumMips,
-					Desc.Flags,
-					Desc.TargetableFlags,
-					Desc.bForceSeparateTargetAndShaderResource,
-					CreateInfo,
-					(FTexture2DRHIRef&)Found->RenderTargetItem.TargetableTexture,
-					(FTexture2DRHIRef&)Found->RenderTargetItem.ShaderResourceTexture,
-					Desc.NumSamples
+				if (!Desc.IsArray())
+				{
+					RHICreateTargetableShaderResource2D(
+						Desc.Extent.X,
+						Desc.Extent.Y,
+						Desc.Format,
+						Desc.NumMips,
+						Desc.Flags,
+						Desc.TargetableFlags,
+						Desc.bForceSeparateTargetAndShaderResource,
+						CreateInfo,
+						(FTexture2DRHIRef&)Found->RenderTargetItem.TargetableTexture,
+						(FTexture2DRHIRef&)Found->RenderTargetItem.ShaderResourceTexture,
+						Desc.NumSamples
 					);
+				}
+				else
+				{
+					RHICreateTargetableShaderResource2DArray(
+						Desc.Extent.X,
+						Desc.Extent.Y,
+						Desc.ArraySize,
+						Desc.Format,
+						Desc.NumMips,
+						Desc.Flags,
+						Desc.TargetableFlags,
+						CreateInfo,
+						(FTexture2DArrayRHIRef&)Found->RenderTargetItem.TargetableTexture,
+						(FTexture2DArrayRHIRef&)Found->RenderTargetItem.ShaderResourceTexture,
+						Desc.NumSamples
+					);
+				}
 
 				if (GSupportsRenderTargetWriteMask && Desc.bCreateRenderTargetWriteMask)
 				{
 					Found->RenderTargetItem.RTWriteMaskDataBufferRHI = RHICreateRTWriteMaskBuffer((FTexture2DRHIRef&)Found->RenderTargetItem.TargetableTexture);
 					Found->RenderTargetItem.RTWriteMaskBufferRHI_SRV = RHICreateShaderResourceView(Found->RenderTargetItem.RTWriteMaskDataBufferRHI);
 				}
-
 
 				if( Desc.NumMips > 1 )
 				{
@@ -450,7 +474,7 @@ bool FRenderTargetPool::FindFreeElement(FRHICommandList& RHICmdList, const FPool
 			if(Found->GetDesc().TargetableFlags & TexCreate_RenderTargetable)
 			{
 				SetRenderTarget(RHICmdList, Found->RenderTargetItem.TargetableTexture, FTextureRHIRef());
-				RHICmdList.Clear(true, FLinearColor(1000, 1000, 1000, 1000), false, 1.0f, false, 0, FIntRect());
+				RHICmdList.ClearColorTexture(Found->RenderTargetItem.TargetableTexture, FLinearColor(1000, 1000, 1000, 1000), FIntRect());
 			}
 			else if(Found->GetDesc().TargetableFlags & TexCreate_UAV)
 			{
@@ -461,7 +485,7 @@ bool FRenderTargetPool::FindFreeElement(FRHICommandList& RHICmdList, const FPool
 			if(Desc.TargetableFlags & TexCreate_DepthStencilTargetable)
 			{
 				SetRenderTarget(RHICmdList, FTextureRHIRef(), Found->RenderTargetItem.TargetableTexture);
-				RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, 0.0f, false, 0, FIntRect());
+				RHICmdList.ClearDepthStencilTexture(Found->RenderTargetItem.TargetableTexture, EClearDepthStencil::Depth, 0.0, 0, FIntRect());
 			}
 		}
 	}
@@ -1262,7 +1286,7 @@ void FRenderTargetPool::DumpMemoryUsage(FOutputDevice& OutputDevice)
 				TEXT("  %6.3fMB %4dx%4d%s%s %2dmip(s) %s (%s)"),
 				ComputeSizeInKB(*Element) / 1024.0f,
 				Element->Desc.Extent.X,
-				Element->Desc.IsCubemap() ? Element->Desc.Extent.X : Element->Desc.Extent.Y,
+				Element->Desc.Extent.Y,
 				Element->Desc.Depth > 1 ? *FString::Printf(TEXT("x%3d"), Element->Desc.Depth) : (Element->Desc.IsCubemap() ? TEXT("cube") : TEXT("    ")),
 				Element->Desc.bIsArray ? *FString::Printf(TEXT("[%3d]"), Element->Desc.ArraySize) : TEXT("     "),
 				Element->Desc.NumMips,

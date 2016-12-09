@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "NavigationDataChunk.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AI/Navigation/NavigationTypes.h"
+#include "AI/Navigation/NavigationDataChunk.h"
 #include "RecastNavMeshDataChunk.generated.h"
+
+class FPImplRecastNavMesh;
 
 struct FRecastTileData
 {

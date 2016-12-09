@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "DerivedDataBackendInterface.h"
+#include "ProfilingDebugging/CookStats.h"
+#include "DerivedDataCacheUsageStats.h"
+
 /** 
  * Helper class for placing a footer at the end of of a cache file.
  * No effort is made to byte-swap this as we assume local format.

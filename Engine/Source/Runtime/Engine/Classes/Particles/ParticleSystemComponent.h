@@ -2,12 +2,26 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Components/SceneComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Materials/MaterialInterface.h"
-#include "Particles/Emitter.h"
 #include "Particles/ParticleSystem.h"
-#include "Particles/ParticleEmitter.h"
+#include "Particles/Emitter.h"
 #include "ParticleSystemComponent.generated.h"
+
+class FParticleDynamicData;
+class FPrimitiveSceneProxy;
+class UParticleSystemReplay;
+class UPhysicalMaterial;
+struct EventData;
+struct FDynamicEmitterDataBase;
+struct FDynamicEmitterReplayDataBase;
+struct FParticleEmitterInstance;
+enum class EParticleSignificanceLevel : uint8;
 
 //
 // Forward declarations.
@@ -1139,7 +1153,7 @@ public:
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void Serialize(FArchive& Ar) override;
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	virtual FString GetDetailedInfoInternal() const override;
 	//~ End UObject Interface.
 

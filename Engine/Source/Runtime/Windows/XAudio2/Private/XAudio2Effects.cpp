@@ -11,17 +11,18 @@
 	Audio includes.
 ------------------------------------------------------------------------------------*/
 
-#include "XAudio2PrivatePCH.h"
+#include "XAudio2Effects.h"
 #include "XAudio2Device.h"
 #include "AudioEffect.h"
-#include "XAudio2Effects.h"
-#include "Engine.h"
 #include "XAudio2Support.h"
+#include "Misc/App.h"
 
 #include "AllowWindowsPlatformTypes.h"
+#include "AllowWindowsPlatformAtomics.h"
 	#include <xapobase.h>
 	#include <xapofx.h>
 	#include <xaudio2fx.h>
+#include "HideWindowsPlatformAtomics.h"
 #include "HideWindowsPlatformTypes.h"
 
 /*-----------------------------------------------------------------------------
@@ -419,7 +420,7 @@ bool FXAudio2EffectsManager::CreateReverbVoice()
 	};
 
 	if( !XAudio2Device->ValidateAPICall( TEXT( "SetOutputMatrix (Reverb)" ), 
-		ReverbEffectVoice->SetOutputMatrix( DryPremasterVoice, 2, SPEAKER_COUNT, OutputMatrix ) ) )
+		ReverbEffectVoice->SetOutputMatrix( DryPremasterVoice, 2, SPEAKER_COUNT, OutputMatrix) ) )
 	{
 		return( false );
 	}
@@ -470,7 +471,7 @@ bool FXAudio2EffectsManager::CreateRadioVoice()
 
 	// Designate the radio-distorted audio to route to the master voice.
 	if( !XAudio2Device->ValidateAPICall( TEXT( "SetOutputMatrix (Radio)" ), 
-		RadioEffectVoice->SetOutputMatrix( NULL, SPEAKER_COUNT, NumChannels, FXAudioDeviceProperties::OutputMixMatrix ) ) )
+		RadioEffectVoice->SetOutputMatrix( NULL, SPEAKER_COUNT, NumChannels, FXAudioDeviceProperties::OutputMixMatrix) ) )
 	{
 		return false;
 	}
@@ -499,14 +500,19 @@ FXAudio2EffectsManager::FXAudio2EffectsManager(FXAudio2Device* InDevice)
 	ReverbEffectVoice = NULL;
 	RadioEffectVoice = NULL;
 
-	// Create premaster voices for EQ and dry passes
-	CreateEQPremasterVoices();
+	// Only initialize effects if we've successfully initialized hardware
+	if (InDevice->bIsAudioDeviceHardwareInitialized)
+	{
 
-	// Create reverb voice 
-	CreateReverbVoice();
+		// Create premaster voices for EQ and dry passes
+		CreateEQPremasterVoices();
 
-	// Create radio voice
-	CreateRadioVoice();
+		// Create reverb voice 
+		CreateReverbVoice();
+
+		// Create radio voice
+		CreateRadioVoice();
+	}
 }
 
 /**
@@ -577,7 +583,7 @@ void FXAudio2EffectsManager::SetReverbEffectParameters( const FAudioReverbEffect
 		ReverbConvertI3DL2ToNative( &ReverbParameters, &NativeParameters );
 
 		XAudio2Device->ValidateAPICall( TEXT( "SetEffectParameters (Reverb)" ), 
-			ReverbEffectVoice->SetEffectParameters( 0, &NativeParameters, sizeof( NativeParameters ) ) );
+			ReverbEffectVoice->SetEffectParameters(0, &NativeParameters, sizeof(NativeParameters)));
 	}
 }
 
@@ -607,7 +613,7 @@ void FXAudio2EffectsManager::SetEQEffectParameters( const FAudioEQEffect& EQEffe
 		NativeParameters.Bandwidth3 = EQEffectParameters.Bandwidth3;
 
 		XAudio2Device->ValidateAPICall( TEXT( "SetEffectParameters (EQ)" ), 
-			EQPremasterVoice->SetEffectParameters( 0, &NativeParameters, sizeof( NativeParameters ) ) );
+			EQPremasterVoice->SetEffectParameters(0, &NativeParameters, sizeof(NativeParameters)));
 	}
 }
 
@@ -619,7 +625,7 @@ void FXAudio2EffectsManager::SetEQEffectParameters( const FAudioEQEffect& EQEffe
 void FXAudio2EffectsManager::SetRadioEffectParameters( const FAudioRadioEffect& RadioEffectParameters ) 
 {
 	XAudio2Device->ValidateAPICall( TEXT( "SetEffectParameters (Radio)" ), 
-		RadioEffectVoice->SetEffectParameters( 0, &RadioEffectParameters, sizeof( RadioEffectParameters ) ) );
+		RadioEffectVoice->SetEffectParameters(0, &RadioEffectParameters, sizeof(RadioEffectParameters)));
 }
 
 // end

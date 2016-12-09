@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "Delegates/Delegate.h"
+#include "Styling/SlateTypes.h"
 
 /**
  * Delegate type for session owner filter state changes.

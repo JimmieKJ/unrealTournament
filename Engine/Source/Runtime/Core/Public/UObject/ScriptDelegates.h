@@ -2,11 +2,17 @@
 
 #pragma once
 
-#include "WeakObjectPtrTemplates.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/AreTypesEqual.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Containers/ContainerAllocationPolicies.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Templates/SharedPointer.h"
 
-
-class UObject;
-
+struct FWeakObjectPtr;
 
 /**
  * Script delegate base class.
@@ -567,7 +573,9 @@ protected:
 
 	// 
 	friend class FCallDelegateHelper;
+
+	friend struct TIsZeroConstructType<TMulticastScriptDelegate<TWeakPtr> >;
 };
 
 
-template<typename TWeakPtr> struct TIsZeroConstructType<TMulticastScriptDelegate<TWeakPtr> > { enum { Value = TIsZeroConstructType<TWeakPtr>::Value }; };
+template<typename TWeakPtr> struct TIsZeroConstructType<TMulticastScriptDelegate<TWeakPtr> > { enum { Value = TIsZeroConstructType<typename TMulticastScriptDelegate<TWeakPtr>::FInvocationList>::Value }; };

@@ -315,8 +315,8 @@ namespace Eigen {
       const Index dim=m_S.cols();
       if (abs(m_S.coeff(i+1,i))==Scalar(0))
         return;
-      Index z = findSmallDiagEntry(i,i+1);
-      if (z==i-1)
+      Index diagEntry = findSmallDiagEntry(i,i+1);
+      if (diagEntry==i-1)
       {
         // block of (S T^{-1})
         Matrix2s STi = m_T.template block<2,2>(i,i).template triangularView<Upper>().
@@ -352,7 +352,7 @@ namespace Eigen {
       }
       else
       {
-        pushDownZero(z,i,i+1);
+        pushDownZero(diagEntry,i,i+1);
       }
     }
 

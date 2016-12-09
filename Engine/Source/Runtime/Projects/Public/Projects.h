@@ -3,6 +3,13 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Public Dependencies
  *****************************************************************************/
 
@@ -13,5 +20,9 @@
  *****************************************************************************/
 
 #include "ModuleDescriptor.h"
-#include "IPluginManager.h"
-#include "IProjectManager.h"
+#include "LocalizationDescriptor.h"
+#include "CustomBuildSteps.h"
+#include "PluginDescriptor.h"
+#include "Interfaces/IPluginManager.h"
+#include "ProjectDescriptor.h"
+#include "Interfaces/IProjectManager.h"

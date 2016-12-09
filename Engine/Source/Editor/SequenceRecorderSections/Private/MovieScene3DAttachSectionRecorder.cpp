@@ -1,10 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderSectionsPrivatePCH.h"
 #include "MovieScene3DAttachSectionRecorder.h"
-#include "MovieScene3DAttachSection.h"
-#include "MovieScene3DAttachTrack.h"
-#include "MovieScene.h"
+#include "Modules/ModuleManager.h"
+#include "Sections/MovieScene3DAttachSection.h"
+#include "Tracks/MovieScene3DAttachTrack.h"
 #include "SequenceRecorderUtils.h"
 #include "ISequenceRecorder.h"
 

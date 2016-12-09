@@ -9,7 +9,6 @@
 
 UUTGhostComponent::UUTGhostComponent()
 {
-	bWantsBeginPlay = true;
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
 	GhostData = nullptr;

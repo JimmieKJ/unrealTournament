@@ -2,11 +2,18 @@
 
 #pragma once
 
-#include "SlateBasics.h"
-
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Widgets/SWidget.h"
 #if WITH_EDITOR
 #include "AssetData.h"
 #endif
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+
+class SEditableTextBox;
+class SSuperSearchBox;
+struct FSuperSearchStyle;
 
 struct FSearchEntry
 {
@@ -84,7 +91,7 @@ public:
 	void SetSearchEngine(ESearchEngine SearchEngine);
 	
 	/** Generates a SuperSearch box widget.  Remember, this widget will become invalid if the SuperSearch DLL is unloaded on the fly. */
-	virtual TSharedRef< SWidget > MakeSearchBox(TSharedPtr< SEditableTextBox >& OutExposedEditableTextBox, const TOptional<const FSearchBoxStyle*> InStyle = TOptional<const FSearchBoxStyle*>()) const;
+	virtual TSharedRef< SWidget > MakeSearchBox(TSharedPtr< SEditableTextBox >& OutExposedEditableTextBox, const TOptional<const FSuperSearchStyle*> InStyle = TOptional<const FSuperSearchStyle*>()) const;
 
 private:
 	

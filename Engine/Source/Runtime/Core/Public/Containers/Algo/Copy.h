@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 namespace Algo
 {
 	/**
@@ -14,9 +16,9 @@ namespace Algo
 	template <typename InT, typename OutT, typename PredicateT>
 	FORCEINLINE void CopyIf(const InT& Input, OutT& Output, PredicateT Predicate)
 	{
-		for (auto&& Value : Input)
+		for (const auto& Value : Input)
 		{
-			if (Predicate(Value))
+			if (Invoke(Predicate, Value))
 			{
 				Output.Add(Value);
 			}
@@ -32,7 +34,7 @@ namespace Algo
 	template <typename InT, typename OutT>
 	FORCEINLINE void Copy(const InT& Input, OutT& Output)
 	{
-		for (auto&& Value : Input)
+		for (const auto& Value : Input)
 		{
 			Output.Add(Value);
 		}

@@ -4,7 +4,7 @@
 	InGameAdvertising.cpp: Base implementation for ingame advertising management
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
 #include "Engine/InGameAdManager.h"
 
 UInGameAdManager::UInGameAdManager(const FObjectInitializer& ObjectInitializer)

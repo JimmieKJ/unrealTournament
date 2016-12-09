@@ -4,7 +4,11 @@
 	SScreenShotImagePopup.cpp: Implements the SScreenImagePopup class.
 =============================================================================*/
 
-#include "ScreenShotComparisonPrivatePCH.h"
+#include "Widgets/SScreenShotImagePopup.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "EditorStyleSet.h"
 
 void SScreenShotImagePopup::Construct( const FArguments& InArgs )
 {

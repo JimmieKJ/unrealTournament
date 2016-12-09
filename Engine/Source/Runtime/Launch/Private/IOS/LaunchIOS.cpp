@@ -2,7 +2,11 @@
 
 #import <UIKit/UIKit.h>
 
-#include "LaunchPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/App.h"
+#include "Misc/OutputDeviceError.h"
+#include "LaunchEngineLoop.h"
+#include "IMessagingModule.h"
 #include "IOSAppDelegate.h"
 #include "IOSView.h"
 #include "IOSCommandLineHelper.h"
@@ -12,6 +16,9 @@
 #include "IOSAudioDevice.h"
 #include "LocalNotification.h"
 #include "ModuleManager.h"
+#include "RenderingThread.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Misc/ConfigCacheIni.h"
 
 
 FEngineLoop GEngineLoop;

@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SpriterImporterPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "SpriterImporterLog.h"
+#include "Modules/ModuleManager.h"
+#include "Internationalization/Internationalization.h"
 
 #define LOCTEXT_NAMESPACE "SpriterImporter"
 

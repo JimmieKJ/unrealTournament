@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/SlateDelegates.h"
+#include "EditorStyleSet.h"
+
+class SEditableTextBox;
+
 /**
  * Simple widget used to display a folder path, and a name of a file:
  * __________________________  ____________________

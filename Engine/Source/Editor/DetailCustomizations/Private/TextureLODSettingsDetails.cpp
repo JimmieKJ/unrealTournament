@@ -1,9 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "TextureLODSettingsDetails.h"
 #include "Engine/TextureLODSettings.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "PropertyHandle.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailWidgetRow.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Input/SComboBox.h"
 #include "DeviceProfiles/DeviceProfile.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
 
 #define LOCTEXT_NAMESPACE "TextureLODSettingsDetails"
 

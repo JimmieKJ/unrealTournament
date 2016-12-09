@@ -2,8 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ImportExport.h"
-
+#include "LightmassScene.h"
 
 namespace Lightmass
 {

@@ -1,9 +1,13 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/Actor.h"
 #include "VREditorAvatarActor.generated.h"
+
+class UMaterialInstanceDynamic;
 
 /**
  * Avatar Actor
@@ -18,7 +22,7 @@ public:
 	~AVREditorAvatarActor();
 
 	/** Called by VREditorMode::Enter to initialize all post constructor components and to set the VRMode */
-	void Init( class FVREditorMode* InVRMode );
+	void Init( class UVREditorMode* InVRMode );
 
 	/** Called by VREditorMode to update us every frame */
 	void TickManually( const float DeltaTime );
@@ -94,5 +98,6 @@ private:
 	class UPostProcessComponent* PostProcessComponent;
 
 	/** Owning object */
-	class FVREditorMode* VRMode;
+	UPROPERTY()
+	class UVREditorMode* VRMode;
 };

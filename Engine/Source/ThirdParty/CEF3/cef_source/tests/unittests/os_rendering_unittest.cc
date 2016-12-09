@@ -76,7 +76,7 @@ const CefRect kExpectedRectLI[] = {
 const CefRect kEditBoxRect(412, 245, 60, 22);
 const CefRect kNavigateButtonRect(360, 271, 140, 22);
 const CefRect kSelectRect(467, 22, 75, 20);
-const CefRect kExpandedSelectRect(465, 42, 81, 302);
+const CefRect kExpandedSelectRect(463, 42, 81, 342);
 const CefRect kDropDivRect(8, 332, 52, 52);
 const CefRect kDragDivRect(71, 342, 30, 30);
 const int kDefaultVerticalScrollbarWidth = 17;
@@ -85,7 +85,7 @@ const int kVerticalScrollbarWidth = GetSystemMetrics(SM_CXVSCROLL);
 const CefRect kEditBoxRect(442, 251, 46, 16);
 const CefRect kNavigateButtonRect(375, 275, 130, 20);
 const CefRect kSelectRect(461, 21, 87, 26);
-const CefRect kExpandedSelectRect(465, 42, 80, 262);
+const CefRect kExpandedSelectRect(463, 42, 78, 286);
 const CefRect kDropDivRect(9, 330, 52, 52);
 const CefRect kDragDivRect(60, 330, 52, 52);
 const int kVerticalScrollbarWidth = 15;
@@ -93,7 +93,7 @@ const int kVerticalScrollbarWidth = 15;
 const CefRect kEditBoxRect(434, 246, 60, 20);
 const CefRect kNavigateButtonRect(380, 271, 140, 22);
 const CefRect kSelectRect(467, 22, 75, 20);
-const CefRect kExpandedSelectRect(465, 42, 80, 302);
+const CefRect kExpandedSelectRect(463, 42, 81, 342);
 const CefRect kDropDivRect(8, 332, 52, 52);
 const CefRect kDragDivRect(71, 342, 30, 30);
 const int kDefaultVerticalScrollbarWidth = 14;
@@ -183,10 +183,15 @@ enum OSRTestType {
   OSR_TEST_DRAG_DROP_UPDATE_CURSOR,
   // dropping element inside drop region will move the element
   OSR_TEST_DRAG_DROP_DROP,
+
+  // Define the range for popup tests.
+  OSR_TEST_POPUP_FIRST = OSR_TEST_POPUP_PAINT,
+  OSR_TEST_POPUP_LAST  = OSR_TEST_POPUP_SCROLL_INSIDE,
 };
 
 // Used in the browser process.
 class OSRTestHandler : public RoutingTestHandler,
+                       public CefFocusHandler,
                        public CefRenderHandler,
                        public CefContextMenuHandler {
  public:
@@ -278,6 +283,10 @@ class OSRTestHandler : public RoutingTestHandler,
   }
 
   // CefClient methods, providing handlers
+  CefRefPtr<CefFocusHandler> GetFocusHandler() override {
+    return this;
+  }
+
   CefRefPtr<CefRenderHandler> GetRenderHandler() override {
     return this;
   }
@@ -383,7 +392,10 @@ class OSRTestHandler : public RoutingTestHandler,
     if (started()) {
       switch (test_type_) {
       case OSR_TEST_POPUP_SIZE:
-        EXPECT_EQ(kExpandedSelectRect, rect);
+        EXPECT_EQ(kExpandedSelectRect.x, rect.x);
+        EXPECT_EQ(kExpandedSelectRect.y, rect.y);
+        EXPECT_EQ(kExpandedSelectRect.width, rect.width);
+        EXPECT_EQ(kExpandedSelectRect.height, rect.height);
         DestroySucceededTestSoon();
         break;
       default:
@@ -564,46 +576,14 @@ class OSRTestHandler : public RoutingTestHandler,
           size_t word_length = strlen(kKeyTestWord);
           for (size_t i = 0; i < word_length; ++i) {
 #if defined(OS_WIN)
-            BYTE VkCode = LOBYTE(VkKeyScanA(kKeyTestWord[i]));
-            UINT scanCode = MapVirtualKey(VkCode, MAPVK_VK_TO_VSC);
-            event.native_key_code = (scanCode << 16) |  // key scan code
-                                                    1;  // key repeat count
-            event.windows_key_code = VkCode;
+            SendKeyEvent(browser, kKeyTestWord[i]);
 #elif defined(OS_MACOSX)
-            osr_unittests::GetKeyEvent(event, kKeyTestCodes[i], 0);
+            SendKeyEvent(browser, kKeyTestCodes[i]);
 #elif defined(OS_LINUX)
-            event.native_key_code = kNativeKeyTestCodes[i];
-            event.windows_key_code = kKeyTestCodes[i];
-            event.character = event.unmodified_character =
-                kNativeKeyTestCodes[i];
+            SendKeyEvent(browser, kNativeKeyTestCodes[i], kKeyTestCodes[i]);
 #else
-            NOTREACHED();
+#error "Unsupported platform"
 #endif
-            event.type = KEYEVENT_RAWKEYDOWN;
-            browser->GetHost()->SendKeyEvent(event);
-#if defined(OS_WIN)
-            event.windows_key_code = kKeyTestWord[i];
-#elif defined(OS_MACOSX)
-            osr_unittests::GetKeyEvent(event, kKeyTestCodes[i], 0);
-#elif defined(OS_LINUX)
-            event.native_key_code = kNativeKeyTestCodes[i];
-            event.windows_key_code = kKeyTestCodes[i];
-            event.character = event.unmodified_character =
-                kNativeKeyTestCodes[i];
-#endif
-            event.type = KEYEVENT_CHAR;
-            browser->GetHost()->SendKeyEvent(event);
-#if defined(OS_WIN)
-            event.windows_key_code = VkCode;
-            // bits 30 and 31 should be always 1 for WM_KEYUP
-            event.native_key_code |= 0xC0000000;
-#elif defined(OS_MACOSX)
-            osr_unittests::GetKeyEvent(event, kKeyTestCodes[i], 0);
-#elif defined(OS_LINUX)
-            event.native_key_code = kKeyTestCodes[i];
-#endif
-            event.type = KEYEVENT_KEYUP;
-            browser->GetHost()->SendKeyEvent(event);
           }
           // click button to navigate
           mouse_event.x = MiddleX(kNavigateButtonRect);
@@ -690,25 +670,15 @@ class OSRTestHandler : public RoutingTestHandler,
           ExpandDropDown();
           // Wait for the first popup paint to occur
         } else if (type == PET_POPUP) {
-          CefKeyEvent event;
-          event.is_system_key = false;
 #if defined(OS_WIN)
-          BYTE VkCode = LOBYTE(VK_ESCAPE);
-          UINT scanCode = MapVirtualKey(VkCode, MAPVK_VK_TO_VSC);
-          event.native_key_code = (scanCode << 16) |  // key scan code
-                                                  1;  // key repeat count
-          event.windows_key_code = VkCode;
+          SendKeyEvent(browser, VK_ESCAPE);
 #elif defined(OS_MACOSX)
-          osr_unittests::GetKeyEvent(event, ui::VKEY_ESCAPE, 0);
+          SendKeyEvent(browser, ui::VKEY_ESCAPE);
 #elif defined(OS_LINUX)
-          event.windows_key_code = ui::VKEY_ESCAPE;
-          event.native_key_code = XK_Escape;
-          event.character = event.unmodified_character = XK_Escape;
+          SendKeyEvent(browser, XK_Escape, ui::VKEY_ESCAPE);
 #else
 #error "Unsupported platform"
-#endif  // defined(OS_WIN)
-          event.type = KEYEVENT_CHAR;
-          browser->GetHost()->SendKeyEvent(event);
+#endif
         }
         break;
       case OSR_TEST_POPUP_SHOW:
@@ -729,7 +699,16 @@ class OSRTestHandler : public RoutingTestHandler,
                       expanded_select_rect.width,
                       expanded_select_rect.height));
           // first pixel of border
-          EXPECT_EQ(*(reinterpret_cast<const uint32*>(buffer)), 0xff7f9db9);
+#if defined(OS_MACOSX)
+          EXPECT_EQ(0xff5d99d6, *(reinterpret_cast<const uint32*>(buffer)));
+#elif defined(OS_LINUX) || defined(OS_WIN)
+          if (scale_factor_ == 1.0f)
+            EXPECT_EQ(0xff6497ea, *(reinterpret_cast<const uint32*>(buffer)));
+          else if (scale_factor_ == 2.0f)
+            EXPECT_EQ(0xff4d90fe, *(reinterpret_cast<const uint32*>(buffer)));
+#else
+#error "Unsupported platform"
+#endif
           EXPECT_EQ(expanded_select_rect.width, width);
           EXPECT_EQ(expanded_select_rect.height, height);
           DestroySucceededTestSoon();
@@ -790,6 +769,23 @@ class OSRTestHandler : public RoutingTestHandler,
       default:
         break;
     }
+  }
+
+  bool OnSetFocus(CefRefPtr<CefBrowser> browser,
+                  FocusSource source) override {
+    if (source == FOCUS_SOURCE_NAVIGATION) {
+      got_navigation_focus_event_.yes();
+
+      // Ignore focus from the original navigation when we're testing focus
+      // event delivery.
+      if (test_type_ == OSR_TEST_FOCUS)
+        return true;
+      return false;
+    }
+
+    EXPECT_EQ(source, FOCUS_SOURCE_SYSTEM);
+    got_system_focus_event_.yes();
+    return false;
   }
 
   void OnCursorChange(CefRefPtr<CefBrowser> browser,
@@ -967,6 +963,23 @@ class OSRTestHandler : public RoutingTestHandler,
       CefPostTask(TID_UI, base::Bind(&OSRTestHandler::DestroyTest, this));
   }
 
+  void DestroyTest() override {
+    // Always get the OnSetFocus call for the initial navigation.
+    EXPECT_TRUE(got_navigation_focus_event_);
+
+    if (test_type_ == OSR_TEST_FOCUS ||
+        (test_type_ >= OSR_TEST_POPUP_FIRST &&
+         test_type_ <= OSR_TEST_POPUP_LAST)) {
+      // SetFocus is called by the system when we explicitly set the focus and
+      // when popups are dismissed.
+      EXPECT_TRUE(got_system_focus_event_);
+    } else {
+      EXPECT_FALSE(got_system_focus_event_);
+    }
+
+    RoutingTestHandler::DestroyTest();
+  }
+
   void ExpandDropDown() {
     GetBrowser()->GetHost()->SendFocusEvent(true);
     CefMouseEvent mouse_event;
@@ -975,6 +988,49 @@ class OSRTestHandler : public RoutingTestHandler,
     mouse_event.modifiers = 0;
     GetBrowser()->GetHost()->SendMouseClickEvent(
         mouse_event, MBT_LEFT, false, 1);
+  }
+
+  void SendKeyEvent(CefRefPtr<CefBrowser> browser,
+#if defined(OS_LINUX)
+                    unsigned int native_key_code,
+#endif
+                    int key_code) {
+    CefKeyEvent event;
+    event.is_system_key = false;
+    event.modifiers = 0;
+
+#if defined(OS_WIN)
+    BYTE VkCode = LOBYTE(VkKeyScanA(key_code));
+    UINT scanCode = MapVirtualKey(VkCode, MAPVK_VK_TO_VSC);
+    event.native_key_code = (scanCode << 16) |  // key scan code
+                                            1;  // key repeat count
+    event.windows_key_code = VkCode;
+#elif defined(OS_MACOSX)
+    osr_unittests::GetKeyEvent(
+        event, static_cast<ui::KeyboardCode>(key_code), 0);
+#elif defined(OS_LINUX)
+    event.native_key_code = native_key_code;
+    event.windows_key_code = key_code;
+    event.character = event.unmodified_character = native_key_code;
+#else
+    NOTREACHED();
+#endif
+    event.type = KEYEVENT_RAWKEYDOWN;
+    browser->GetHost()->SendKeyEvent(event);
+
+#if defined(OS_WIN)
+    event.windows_key_code = key_code;
+#endif
+    event.type = KEYEVENT_CHAR;
+    browser->GetHost()->SendKeyEvent(event);
+
+#if defined(OS_WIN)
+    event.windows_key_code = VkCode;
+    // bits 30 and 31 should be always 1 for WM_KEYUP
+    event.native_key_code |= 0xC0000000;
+#endif
+    event.type = KEYEVENT_KEYUP;
+    browser->GetHost()->SendKeyEvent(event);
   }
 
   // true if the events for this test are already sent
@@ -1000,6 +1056,8 @@ class OSRTestHandler : public RoutingTestHandler,
   int event_total_;
   bool started_;
   TrackCallback got_update_cursor_;
+  TrackCallback got_navigation_focus_event_;
+  TrackCallback got_system_focus_event_;
 
   IMPLEMENT_REFCOUNTING(OSRTestHandler);
 };

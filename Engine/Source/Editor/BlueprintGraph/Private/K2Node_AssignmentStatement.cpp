@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_AssignmentStatement.h"
+#include "EdGraphSchema_K2.h"
 #include "KismetCompiler.h"
 #include "VariableSetHandler.h"
 #include "BlueprintNodeSpawner.h"
@@ -29,6 +30,7 @@ public:
 		if ((VariablePin == NULL) || (ValuePin == NULL))
 		{
 			CompilerContext.MessageLog.Error(*LOCTEXT("MissingPins_Error", "Missing pin(s) on @@; expected a pin named Variable and a pin named Value").ToString(), Node);
+			return;
 		}
 
 		if (VariablePin->LinkedTo.Num() == 0)

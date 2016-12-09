@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/Plane.h"
+#include "Math/Matrix.h"
 
 /**
  * Mirrors a point about an abitrary plane 

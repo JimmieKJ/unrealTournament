@@ -12,6 +12,7 @@
 #include "SoundDefinitions.h"
 #include "Runtime/Engine/Classes/Sound/AudioSettings.h"
 #include "Runtime/Engine/Classes/Sound/SoundWaveProcedural.h"
+#include "AudioDevice.h"
 
 // Testing classes
 #include "Tests/TestFriendsInterface.h"
@@ -43,7 +44,9 @@ UAudioComponent* CreateVoiceAudioComponent(uint32 SampleRate)
 			SoundStreaming->SoundGroup = SOUNDGROUP_Voice;
 			SoundStreaming->bLooping = false;
 
-			AudioComponent = AudioDevice->CreateComponent(SoundStreaming, nullptr, nullptr, false);
+			FAudioDevice::FCreateComponentParams CreateComponentParams(AudioDevice);
+			CreateComponentParams.bPlay = false;
+			AudioComponent = AudioDevice->CreateComponent(SoundStreaming, CreateComponentParams);
 			if (AudioComponent)
 			{
 				AudioComponent->bIsUISound = true;

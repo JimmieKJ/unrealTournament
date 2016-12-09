@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
 #include "AnimGraphConnectionDrawingPolicy.h"
+#include "Animation/AnimBlueprint.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "AnimationGraphSchema.h"
 #include "AnimGraphNode_Base.h"
 
@@ -51,6 +52,7 @@ void FAnimGraphConnectionDrawingPolicy::BuildExecutionRoadmap()
 					for (int32 PinIndex = 0; PinIndex < TargetNode->Pins.Num(); ++PinIndex)
 					{
 						UEdGraphPin* Pin = TargetNode->Pins[PinIndex];
+						check(Pin);
 						if (AnimSchema->IsPosePin(Pin->PinType) && (Pin->Direction == EGPD_Output))
 						{
 							PoseNet = Pin;

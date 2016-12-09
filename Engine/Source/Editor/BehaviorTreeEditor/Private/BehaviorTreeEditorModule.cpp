@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
 #include "BehaviorTreeEditorModule.h"
+#include "SGraphNode.h"
+#include "BehaviorTree/BTNode.h"
+#include "BehaviorTreeDecoratorGraphNode_Decorator.h"
+#include "BehaviorTreeGraphNode.h"
+#include "PropertyEditorModule.h"
+#include "AssetTypeActions_BehaviorTree.h"
+#include "AssetTypeActions_Blackboard.h"
+#include "IBehaviorTreeEditor.h"
+#include "BehaviorTreeEditor.h"
 #include "DetailCustomizations/BehaviorDecoratorDetails.h"
 #include "DetailCustomizations/BlackboardDecoratorDetails.h"
 #include "DetailCustomizations/BlackboardSelectorDetails.h"
 
-#include "ModuleManager.h"
-#include "Toolkits/ToolkitManager.h"
 #include "SGraphNode_BehaviorTree.h"
 #include "SGraphNode_Decorator.h"
 #include "EdGraphUtilities.h"

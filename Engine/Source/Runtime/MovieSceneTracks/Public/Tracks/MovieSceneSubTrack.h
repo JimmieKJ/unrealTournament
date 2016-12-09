@@ -2,14 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/InlineValue.h"
 #include "MovieSceneNameableTrack.h"
 #include "MovieSceneSubTrack.generated.h"
 
-
-class UMovieSceneSection;
 class UMovieSceneSequence;
 class UMovieSceneSubSection;
-
+struct FMovieSceneSegmentCompilerRules;
 
 /**
  * A track that holds sub-sequences within a larger sequence.
@@ -54,7 +55,6 @@ public:
 	// UMovieSceneTrack interface
 
 	virtual void AddSection(UMovieSceneSection& Section) override;
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
 	virtual TRange<float> GetSectionBoundaries() const override;
@@ -63,11 +63,15 @@ public:
 	virtual void RemoveAllAnimationData() override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
 	virtual bool SupportsMultipleRows() const override;
+	virtual void GenerateTemplate(const FMovieSceneTrackCompilerArgs& Args) const override;
 
 #if WITH_EDITORONLY_DATA
 	virtual FText GetDefaultDisplayName() const override;
 #endif
-	
+
+protected:
+	virtual TInlineValue<FMovieSceneSegmentCompilerRules> GetTrackCompilerRules() const override;
+
 protected:
 
 	/** All movie scene sections. */

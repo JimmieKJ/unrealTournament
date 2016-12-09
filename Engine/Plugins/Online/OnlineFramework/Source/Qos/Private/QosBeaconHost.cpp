@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "QosPrivatePCH.h"
 #include "QosBeaconHost.h"
+#include "Engine/NetConnection.h"
 #include "QosBeaconClient.h"
 #include "OnlineSubsystemUtils.h"
 

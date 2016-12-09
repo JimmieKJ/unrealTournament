@@ -2,11 +2,16 @@
 
 #pragma once
 
-#include "GenericWindow.h"
-#include "SharedPointer.h"
+#include "CoreTypes.h"
+#include "Logging/LogMacros.h"
+#include "Templates/SharedPointer.h"
+#include "GenericPlatform/GenericWindow.h"
 
 
 #include "SDL.h"
+
+class FLinuxApplication;
+struct FGenericWindowDefinition;
 
 DECLARE_LOG_CATEGORY_EXTERN( LogLinuxWindow, Log, All );
 DECLARE_LOG_CATEGORY_EXTERN( LogLinuxWindowType, Log, All );

@@ -26,7 +26,9 @@ enum class EClientRequestType : uint8
 	/** Reservation to configure an empty server  */
 	EmptyServerReservation,
 	/** Simple reconnect (checks for existing reservation) */
-	Reconnect
+	Reconnect,
+	/** Abandon the reservation beacon (game specific handling)*/
+	Abandon
 };
 
 inline const TCHAR* ToString(EClientRequestType RequestType)

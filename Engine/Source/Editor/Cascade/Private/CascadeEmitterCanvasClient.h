@@ -2,10 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Widgets/SWidget.h"
 #include "Particles/ParticleModule.h"
+#include "EditorViewportClient.h"
 
+class FCanvas;
 class FCascade;
+class FMenuBuilder;
 class SCascadeEmitterCanvas;
+class UParticleEmitter;
 
 /*-----------------------------------------------------------------------------
    FCascadeCanvasClient

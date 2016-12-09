@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintNodeSpawner.h"
+#include "EdGraph/EdGraph.h"
+#include "UObject/Package.h"
+#include "K2Node.h"
+#include "K2Node_IfThenElse.h"
 #include "BlueprintNodeTemplateCache.h"
 #include "BlueprintNodeSpawnerUtils.h"
 

@@ -8,8 +8,17 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionFloat.h"
+#include "Distributions/DistributionVector.h"
 #include "Particles/Beam/ParticleModuleBeamBase.h"
 #include "ParticleModuleBeamTarget.generated.h"
+
+class UParticleSystemComponent;
+struct FParticleBeam2EmitterInstance;
+struct FParticleEmitterInstance;
 
 UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "Target"))
 class UParticleModuleBeamTarget : public UParticleModuleBeamBase

@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Widgets/Notifications/SErrorHint.h"
+#include "Widgets/Images/SImage.h"
 
 
 void SErrorHint::Construct(const FArguments& InArgs)

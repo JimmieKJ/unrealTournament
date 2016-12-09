@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "StringAssetReferenceCustomization.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
 #include "AssetData.h"
+#include "PropertyHandle.h"
+#include "PropertyCustomizationHelpers.h"
 
 void FStringAssetReferenceCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> InStructPropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils )
 {
@@ -67,6 +70,8 @@ void FStringAssetReferenceCustomization::CustomizeHeader( TSharedRef<IPropertyHa
 		.AllowedClass( ClassFilter )
 		.OnShouldFilterAsset( AssetFilter )
 		.AllowClear( bAllowClear )
+		.AllowActorPicker(false)
+		.SearchInBlueprint(true)
 	];
 }
 

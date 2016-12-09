@@ -3,11 +3,19 @@
 
 #pragma once
 
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "InputCoreTypes.h"
+#include "EdGraph/EdGraph.h"
+#include "Textures/SlateIcon.h"
+#include "EdGraph/EdGraphNodeUtils.h"
+#include "BlueprintNodeSignature.h"
 #include "K2Node.h"
 
 #include "K2Node_InputKey.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class FKismetCompilerContext;
 
 UCLASS(MinimalAPI)
 class UK2Node_InputKey : public UK2Node

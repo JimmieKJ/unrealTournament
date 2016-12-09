@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
-#include "SlateDelegates.h"
-#include "CulturePointer.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/SlateDelegates.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
 
 struct FCultureEntry
 {

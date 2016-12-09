@@ -50,6 +50,7 @@ struct FOpenGLESDeferred : public FOpenGLBase
 	static FORCEINLINE bool SupportsPolygonMode()						{ return false; }
 	static FORCEINLINE bool SupportsSamplerObjects()					{ return !bES2Fallback; }
 	static FORCEINLINE bool SupportsTexture3D()							{ return !bES2Fallback; }
+	static FORCEINLINE bool SupportsMobileMultiView()					{ return false; }
 	static FORCEINLINE bool SupportsTextureLODBias()					{ return false; }
 	static FORCEINLINE bool SupportsTextureCompare()					{ return !bES2Fallback; }
 	static FORCEINLINE bool SupportsTextureBaseLevel()					{ return !bES2Fallback; }
@@ -84,7 +85,7 @@ struct FOpenGLESDeferred : public FOpenGLBase
 	static FORCEINLINE bool SupportsATITC()								{ return bSupportsATITC; }
 	static FORCEINLINE bool SupportsETC1()								{ return bSupportsETC1; }
 	static FORCEINLINE bool SupportsETC2()								{ return bSupportsETC2; }
-	static FORCEINLINE bool SupportsCombinedDepthStencilAttachment()	{ return !bES2Fallback;; }
+	static FORCEINLINE bool SupportsCombinedDepthStencilAttachment()	{ return !bES2Fallback; }
 	static FORCEINLINE bool SupportsPackedDepthStencil()				{ return bSupportsPackedDepthStencil || !bES2Fallback; }
 	static FORCEINLINE bool SupportsTextureCubeLodEXT()					{ return bES2Fallback ? bSupportsTextureCubeLodEXT : false; }
 	static FORCEINLINE bool SupportsShaderTextureLod()					{ return bES2Fallback ? bSupportsShaderTextureLod : true; }

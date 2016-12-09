@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TcpMessagingPrivatePCH.h"
-#include "TaskGraphInterfaces.h"
+#include "Transport/TcpSerializeMessageTask.h"
+#include "Transport/TcpMessageTransportConnection.h"
+#include "Backends/JsonStructSerializerBackend.h"
+#include "StructSerializer.h"
 
 
 /* FTcpSerializeMessageTask interface
@@ -27,7 +29,7 @@ void FTcpSerializeMessageTask::DoTask(ENamedThreads::Type CurrentThread, const F
 			const TArray<FMessageAddress>& Recipients = MessageContext->GetRecipients();
 			Archive << const_cast<TArray<FMessageAddress>&>(Recipients);
 
-			TEnumAsByte<EMessageScope> Scope = MessageContext->GetScope();
+			EMessageScope Scope = MessageContext->GetScope();
 			Archive << Scope;
 
 			const FDateTime& TimeSent = MessageContext->GetTimeSent();

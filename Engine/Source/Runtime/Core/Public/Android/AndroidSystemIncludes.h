@@ -30,13 +30,14 @@ int vswprintf(TCHAR *dst, int count, const TCHAR *fmt, va_list arg);
 #define _alloca alloca
 */
 
-struct RECT
+struct tagRECT
 {
 	int32 left;
 	int32 top;
 	int32 right;
 	int32 bottom;
 };
+typedef struct tagRECT RECT;
 
 #define OUT
 #define IN

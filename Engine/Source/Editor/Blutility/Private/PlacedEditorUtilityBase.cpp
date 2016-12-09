@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlutilityPrivatePCH.h"
 #include "PlacedEditorUtilityBase.h"
 #include "Engine/Selection.h"
+#include "Editor.h"
+#include "LevelEditorViewport.h"
 
 /////////////////////////////////////////////////////
 // APlacedEditorUtilityBase

@@ -1,14 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
+#include "Net/UnitTestNetConnection.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/LocalPlayer.h"
 
-#include "Engine.h"
-#include "Net/UnrealNetwork.h"
 
 #include "NUTUtil.h"
-#include "Net/NUTUtilNet.h"
 
-#include "Net/UnitTestNetConnection.h"
 #include "Net/UnitTestPackageMap.h"
 #include "Net/UnitTestActorChannel.h"
 

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "StreamMediaSourceFactoryNew.h"
+#include "Factories/StreamMediaSourceFactoryNew.h"
+#include "AssetTypeCategories.h"
+#include "StreamMediaSource.h"
 
 
 /* UStreamMediaSourceFactoryNew structors

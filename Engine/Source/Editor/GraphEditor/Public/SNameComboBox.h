@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  
 #pragma once
-#include "NameTypes.h"
-#include "SWidget.h"
-#include "SharedPointer.h"
-#include "SlateEnums.h"
-#include "SCompoundWidget.h"
-#include "SComboBox.h"
+
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Margin.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/SlateDelegates.h"
+#include "Widgets/Input/SComboBox.h"
+
 //#include "UnrealString.h"
 
 /**

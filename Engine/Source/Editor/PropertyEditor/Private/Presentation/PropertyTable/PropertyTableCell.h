@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IPropertyTableCell.h"
+#include "CoreMinimal.h"
+#include "PropertyNode.h"
+#include "ObjectPropertyNode.h"
 #include "IPropertyTableColumn.h"
+#include "PropertyHandle.h"
+#include "IPropertyTableCell.h"
 #include "IPropertyTableRow.h"
+
+class FPropertyEditor;
 
 class FPropertyTableCell : public TSharedFromThis< FPropertyTableCell >, public IPropertyTableCell
 {

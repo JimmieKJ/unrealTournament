@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Indicates the type of socket being used (streaming or datagram) */
 enum ESocketType
 {

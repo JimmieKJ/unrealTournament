@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "IMessageContext.h"
+#include "IMessageBus.h"
+#include "ISessionInstanceInfo.h"
+#include "ISessionInfo.h"
+#include "SessionLogMessage.h"
+
+class FSessionInstanceInfo;
+struct FEngineServicePong;
+struct FSessionServicePong;
 
 /**
  * Implements a class to maintain all info related to a game session
@@ -18,7 +29,7 @@ public:
 	 * @param InSessionId The session's identifier.
 	 * @param InMessageBus The message bus to use.
 	 */
-	FSessionInfo( const FGuid& InSessionId, const IMessageBusRef& InMessageBus );
+	FSessionInfo(const FGuid& InSessionId, const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InMessageBus);
 
 public:
 
@@ -28,7 +39,7 @@ public:
 	 * @param Message The message containing engine information.
 	 * @param Context The message context.
 	 */
-	void UpdateFromMessage( const FEngineServicePong& Message, const IMessageContextRef& Context );
+	void UpdateFromMessage(const FEngineServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
 	/**
 	 * Updates this session info with the data in the specified message.
@@ -36,13 +47,13 @@ public:
 	 * @param Message The message containing session information.
 	 * @param Context The message context.
 	 */
-	void UpdateFromMessage( const FSessionServicePong& Message, const IMessageContextRef& Context );
+	void UpdateFromMessage(const FSessionServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
 public:	
 
-	// ISessionInfo interface
+	//~ ISessionInfo interface
 
-	virtual void GetInstances( TArray<ISessionInstanceInfoPtr>& OutInstances ) const override;
+	virtual void GetInstances(TArray<TSharedPtr<ISessionInstanceInfo>>& OutInstances) const override;
 	virtual const FDateTime& GetLastUpdateTime() const override;
 	virtual const int32 GetNumInstances() const override;
 	virtual const FGuid& GetSessionId() const override;
@@ -67,7 +78,7 @@ public:
 private:
 
 	/** Handles received log messages. */
-	void HandleLogReceived( const ISessionInstanceInfoRef& Instance, const FSessionLogMessageRef& LogMessage );
+	void HandleLogReceived(const TSharedRef<ISessionInstanceInfo>& Instance, const TSharedRef<FSessionLogMessage>& LogMessage);
 
 private:
 
@@ -78,7 +89,7 @@ private:
 	FDateTime LastUpdateTime;
 
 	/** Holds a weak pointer to the message bus. */
-	IMessageBusWeakPtr MessageBusPtr;
+	TWeakPtr<IMessageBus, ESPMode::ThreadSafe> MessageBusPtr;
 
 	/** Holds the session identifier. */
 	FGuid SessionId;

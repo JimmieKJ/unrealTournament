@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "Misc/AutomationTest.h"
 #include "AutomationWorkerMessages.generated.h"
 
 
@@ -170,9 +174,35 @@ struct FAutomationWorkerRequestTestsReply
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** Holds the test information serialized into a string. */
 	UPROPERTY(EditAnywhere, Category="Message")
-	FString TestInfo;
+	FString DisplayName;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString FullTestPath;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString TestName;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString TestParameter;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString SourceFile;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 SourceFileLine;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString AssetPath;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString OpenCommand;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint32 TestFlags;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint32 NumParticipantsRequired;
 
 	/** Holds the total number of tests returned. */
 	UPROPERTY(EditAnywhere, Category="Message")
@@ -182,10 +212,35 @@ struct FAutomationWorkerRequestTestsReply
 	FAutomationWorkerRequestTestsReply() { }
 
 	/** Creates and initializes a new instance. */
-	FAutomationWorkerRequestTestsReply(const FString& InTestInfo, const int32& InTotalNumTests)
-		: TestInfo(InTestInfo)
-		, TotalNumTests(InTotalNumTests)
-	{ }
+	FAutomationWorkerRequestTestsReply(const FAutomationTestInfo& InTestInfo, const int32& InTotalNumTests)
+		: TotalNumTests(InTotalNumTests)
+	{
+		DisplayName = InTestInfo.GetDisplayName();
+		FullTestPath = InTestInfo.GetFullTestPath();
+		TestName = InTestInfo.GetTestName();
+		TestParameter = InTestInfo.GetTestParameter();
+		SourceFile = InTestInfo.GetSourceFile();
+		SourceFileLine = InTestInfo.GetSourceFileLine();
+		AssetPath = InTestInfo.GetAssetPath();
+		OpenCommand = InTestInfo.GetOpenCommand();
+		TestFlags = InTestInfo.GetTestFlags();
+		NumParticipantsRequired = InTestInfo.GetNumParticipantsRequired();
+	}
+
+	FAutomationTestInfo GetTestInfo() const
+	{
+		return FAutomationTestInfo(
+			DisplayName,
+			FullTestPath,
+			TestName,
+			TestFlags,
+			NumParticipantsRequired,
+			TestParameter,
+			SourceFile,
+			SourceFileLine,
+			AssetPath,
+			OpenCommand);
+	}
 };
 
 
@@ -226,10 +281,6 @@ struct FAutomationWorkerRunTests
 	UPROPERTY(EditAnywhere, Category="Message")
 	bool bScreenshotsEnabled;
 
-	/** If true, we will not resize screen shots. */
-	UPROPERTY(EditAnywhere, Category="Message")
-	bool bUseFullSizeScreenShots;
-
 	/** If true, send results to analytics when complete */
 	UPROPERTY()
 	bool bSendAnalytics;
@@ -238,13 +289,12 @@ struct FAutomationWorkerRunTests
 	FAutomationWorkerRunTests( ) { }
 
 	/** Creates and initializes a new instance. */
-	FAutomationWorkerRunTests( uint32 InExecutionCount, int32 InRoleIndex, FString InTestName, FString InBeautifiedTestName, bool InScreenshotsEnabled, bool InFullSizeScreenshots, bool InSendAnalytics)
+	FAutomationWorkerRunTests( uint32 InExecutionCount, int32 InRoleIndex, FString InTestName, FString InBeautifiedTestName, bool InScreenshotsEnabled, bool InSendAnalytics)
 		: ExecutionCount(InExecutionCount)
 		, RoleIndex(InRoleIndex)
 		, TestName(InTestName)
 		, BeautifiedTestName(InBeautifiedTestName)
 		, bScreenshotsEnabled(InScreenshotsEnabled)
-		, bUseFullSizeScreenShots(InFullSizeScreenshots)
 		, bSendAnalytics(InSendAnalytics)
 	{ }
 };
@@ -356,6 +406,139 @@ struct FAutomationWorkerNextNetworkCommandReply
 	GENERATED_USTRUCT_BODY()
 };
 
+USTRUCT()
+struct FAutomationScreenshotMetadata
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString Name;
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString Context;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 Width;
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 Height;
+
+	// RHI Details
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString Rhi;
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString Platform;
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString FeatureLevel;
+	UPROPERTY(EditAnywhere, Category="Message")
+	bool bIsStereo;
+
+	// Hardware Details
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString Vendor;
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString AdapterName;
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString AdapterInternalDriverVersion;
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString AdapterUserDriverVersion;
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString UniqueDeviceId;
+
+	// Quality Levels
+	UPROPERTY(EditAnywhere, Category="Message")
+	float ResolutionQuality;
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 ViewDistanceQuality;
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 AntiAliasingQuality;
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 ShadowQuality;
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 PostProcessQuality;
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 TextureQuality;
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 EffectsQuality;
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 FoliageQuality;
+
+	// Comparison Requests
+	UPROPERTY(EditAnywhere, Category="Message")
+	bool bHasComparisonRules;
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint8 ToleranceRed;
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint8 ToleranceGreen;
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint8 ToleranceBlue;
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint8 ToleranceAlpha;
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint8 ToleranceMinBrightness;
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint8 ToleranceMaxBrightness;
+	UPROPERTY(EditAnywhere, Category="Message")
+	float MaximumLocalError;
+	UPROPERTY(EditAnywhere, Category="Message")
+	float MaximumGlobalError;
+	UPROPERTY(EditAnywhere, Category="Message")
+	bool bIgnoreAntiAliasing;
+	UPROPERTY(EditAnywhere, Category="Message")
+	bool bIgnoreColors;
+
+public:
+	FAutomationScreenshotMetadata()
+	{
+	}
+
+	FAutomationScreenshotMetadata(const FAutomationScreenshotData& Data)
+	{
+		Name = Data.Name;
+		Context = Data.Context;
+
+		Width = Data.Width;
+		Height = Data.Height;
+
+		// RHI Details
+		Rhi = Data.Rhi;
+		Platform = Data.Platform;
+		FeatureLevel = Data.FeatureLevel;
+		bIsStereo = Data.bIsStereo;
+
+		// Hardware Details
+		Vendor = Data.Vendor;
+		AdapterName = Data.AdapterName;
+		AdapterInternalDriverVersion = Data.AdapterInternalDriverVersion;
+		AdapterUserDriverVersion = Data.AdapterUserDriverVersion;
+		UniqueDeviceId = Data.UniqueDeviceId;
+
+		// Quality Levels
+		ResolutionQuality = Data.ResolutionQuality;
+		ViewDistanceQuality = Data.ViewDistanceQuality;
+		AntiAliasingQuality = Data.AntiAliasingQuality;
+		ShadowQuality = Data.ShadowQuality;
+		PostProcessQuality = Data.PostProcessQuality;
+		TextureQuality = Data.TextureQuality;
+		EffectsQuality = Data.EffectsQuality;
+		FoliageQuality = Data.FoliageQuality;
+
+		// Comparison Requests
+		bHasComparisonRules = Data.bHasComparisonRules;
+		ToleranceRed = Data.ToleranceRed;
+		ToleranceGreen = Data.ToleranceGreen;
+		ToleranceBlue = Data.ToleranceBlue;
+		ToleranceAlpha = Data.ToleranceAlpha;
+		ToleranceMinBrightness = Data.ToleranceMinBrightness;
+		ToleranceMaxBrightness = Data.ToleranceMaxBrightness;
+		
+		MaximumLocalError = Data.MaximumLocalError;
+		MaximumGlobalError = Data.MaximumGlobalError;
+
+		bIgnoreAntiAliasing = Data.bIgnoreAntiAliasing;
+		bIgnoreColors = Data.bIgnoreColors;
+	}
+};
+
 
 /**
  * Implements a message that is sent in containing a screen shot run during performance test.
@@ -372,4 +555,39 @@ struct FAutomationWorkerScreenImage
 	/** The screen shot name. */
 	UPROPERTY(EditAnywhere, Category="Message")
 	FString ScreenShotName;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	FAutomationScreenshotMetadata Metadata;
+};
+
+
+
+/**
+ * Implements a message that is sent in containing a screen shot run during performance test.
+ */
+USTRUCT()
+struct FAutomationWorkerImageComparisonResults
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	FAutomationWorkerImageComparisonResults()
+		: bNew(false)
+		, bSimilar(false)
+	{
+	}
+
+	FAutomationWorkerImageComparisonResults(bool InIsNew, bool InAreSimilar)
+		: bNew(InIsNew)
+		, bSimilar(InAreSimilar)
+	{
+	}
+
+	/** Was this a new image we've never seen before and have no ground truth for? */
+	UPROPERTY(EditAnywhere, Category="Message")
+	bool bNew;
+
+	/** Were the images similar?  If they're not you should log an error. */
+	UPROPERTY(EditAnywhere, Category="Message")
+	bool bSimilar;
 };

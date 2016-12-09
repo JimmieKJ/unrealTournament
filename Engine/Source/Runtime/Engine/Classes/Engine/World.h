@@ -6,32 +6,55 @@
 	World.h: UWorld definition.
 =============================================================================*/
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/EngineBaseTypes.h"
+#include "CollisionQueryParams.h"
 #include "WorldCollision.h"
-#include "PendingNetGame.h"
+#include "GameFramework/Pawn.h"
 #include "EngineDefines.h"
+#include "Engine/Blueprint.h"
+#include "Engine/PendingNetGame.h"
 #include "Engine/LatentActionManager.h"
-#include "Runtime/RHI/Public/RHIDefinitions.h"
-#include "GameFramework/Actor.h"
-#include "GameInstance.h"
+#include "Engine/GameInstance.h"
 
 #include "World.generated.h"
 
-class FPhysScene;
-class FSceneViewFamily;
-class IInterface_PostProcessVolume;
-class ULocalPlayer;
-class UGameViewportClient;
 class ABrush;
-class UModel;
-class APhysicsVolume;
-class UTexture2D;
-class AController;
-class APlayerController;
-class AMatineeActor;
-class AWorldSettings;
 class ACameraActor;
+class AController;
+class AGameModeBase;
+class AGameStateBase;
+class AMatineeActor;
+class APhysicsVolume;
+class APlayerController;
+class AWorldSettings;
+class Error;
+class FPhysScene;
+class FTimerManager;
 class FUniqueNetId;
 class FWorldInGamePerformanceTrackers;
+class IInterface_PostProcessVolume;
+class UAISystemBase;
+class UCanvas;
+class UDemoNetDriver;
+class UGameViewportClient;
+class ULevelStreaming;
+class ULocalPlayer;
+class UMaterialParameterCollection;
+class UMaterialParameterCollectionInstance;
+class UModel;
+class UNavigationSystem;
+class UNetConnection;
+class UNetDriver;
+class UPrimitiveComponent;
+class UTexture2D;
 struct FUniqueNetIdRepl;
 
 template<typename,typename> class TOctree;
@@ -423,12 +446,16 @@ struct ENGINE_API FActorSpawnParameters
 	/** Method for resolving collisions at the spawn point. Undefined means no override, use the actor's setting. */
 	ESpawnActorCollisionHandlingMethod SpawnCollisionHandlingOverride;
 
-	/* Determines whether a collision test will be performed when spawning the Actor. If true, no collision test will be performed when spawning the Actor regardless of the collision settings of the root component or template Actor. */
-	DEPRECATED(4.9, "bNoCollisionFail is deprecated. Use SpawnCollisionHandlingOverride to override the actor class's spawn collision handling setting.")
-	uint16	bNoCollisionFail:1;
+private:
 
-	/* Is the actor remotely owned. */
+	friend class UPackageMapClient;
+
+	/* Is the actor remotely owned. This should only be set true by the package map when it is creating an actor on a client that was replicated from the server. */
 	uint16	bRemoteOwned:1;
+	
+public:
+
+	bool IsRemoteOwned() const { return bRemoteOwned; }
 
 	/* Determines whether spawning will not fail if certain conditions are not met. If true, spawning will not fail because the class being spawned is `bStatic=true` or because the class of the template Actor is not the same as the class of the Actor being spawned. */
 	uint16	bNoFail:1;
@@ -505,6 +532,148 @@ public:
 };
 #endif
 
+/**
+ * Contains a group of levels of a particular ELevelCollectionType within a UWorld
+ * and the context required to properly tick/update those levels. This object is move-only.
+ */
+USTRUCT()
+struct ENGINE_API FLevelCollection
+{
+	GENERATED_BODY()
+
+	FLevelCollection();
+
+	FLevelCollection(const FLevelCollection&) = delete;
+	FLevelCollection& operator=(const FLevelCollection&) = delete;
+
+	FLevelCollection(FLevelCollection&& Other);
+	FLevelCollection& operator=(FLevelCollection&& Other);
+
+	/** The destructor will clear the cached collection pointers in this collection's levels. */
+	~FLevelCollection();
+
+	/** Gets the type of this collection. */
+	ELevelCollectionType GetType() const { return CollectionType; }
+
+	/** Sets the type of this collection. */
+	void SetType(const ELevelCollectionType InType) { CollectionType = InType; }
+
+	/** Gets the game state for this collection. */
+	AGameStateBase* GetGameState() const { return GameState; }
+
+	/** Sets the game state for this collection. */
+	void SetGameState(AGameStateBase* const InGameState) { GameState = InGameState; }
+
+	/** Gets the net driver for this collection. */
+	UNetDriver* GetNetDriver() const { return NetDriver; }
+	
+	/** Sets the net driver for this collection. */
+	void SetNetDriver(UNetDriver* const InNetDriver) { NetDriver = InNetDriver; }
+
+	/** Gets the demo net driver for this collection. */
+	UDemoNetDriver* GetDemoNetDriver() const { return DemoNetDriver; }
+
+	/** Sets the demo net driver for this collection. */
+	void SetDemoNetDriver(UDemoNetDriver* const InDemoNetDriver) { DemoNetDriver = InDemoNetDriver; }
+
+	/** Returns the set of levels in this collection. */
+	const TSet<ULevel*>& GetLevels() const { return Levels; }
+
+	/** Adds a level to this collection and caches the collection pointer on the level for fast access. */
+	void AddLevel(ULevel* const Level);
+
+	/** Removes a level from this collection and clears the cached collection pointer on the level. */
+	void RemoveLevel(ULevel* const Level);
+
+	/** Sets this collection's PersistentLevel and adds it to the Levels set. */
+	void SetPersistentLevel(ULevel* const Level);
+
+	/** Returns this collection's PersistentLevel. */
+	ULevel* GetPersistentLevel() const { return PersistentLevel; }
+
+	/** Gets whether this collection is currently visible. */
+	bool IsVisible() const { return bIsVisible; }
+
+	/** Sets whether this collection is currently visible. */
+	void SetIsVisible(const bool bInIsVisible) { bIsVisible = bInIsVisible; }
+
+private:
+	/** The type of this collection. */
+	ELevelCollectionType CollectionType;
+
+	/**
+	 * The GameState associated with this collection. This may be different than the UWorld's GameState
+	 * since the source collection and the duplicated collection will have their own instances.
+	 */
+	UPROPERTY()
+	class AGameStateBase* GameState;
+
+	/**
+	 * The network driver associated with this collection.
+	 * The source collection and the duplicated collection will have their own instances.
+	 */
+	UPROPERTY()
+	class UNetDriver* NetDriver;
+
+	/**
+	 * The demo network driver associated with this collection.
+	 * The source collection and the duplicated collection will have their own instances.
+	 */
+	UPROPERTY()
+	class UDemoNetDriver* DemoNetDriver;
+
+	/**
+	 * The persistent level associated with this collection.
+	 * The source collection and the duplicated collection will have their own instances.
+	 */
+	UPROPERTY()
+	class ULevel* PersistentLevel;
+
+	/** All the levels in this collection. */
+	UPROPERTY()
+	TSet<ULevel*> Levels;
+
+	/**
+	 * Whether or not this collection is currently visible. While invisible, actors in this collection's
+	 * levels will not be rendered and sounds originating from levels in this collection will not be played.
+	 */
+	bool bIsVisible;
+};
+
+template<>
+struct TStructOpsTypeTraits<FLevelCollection> : public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithCopy = false
+	};
+};
+
+/**
+ * A helper RAII class to set the relevant context on a UWorld for a particular FLevelCollection within a scope.
+ * The constructor will set the PersistentLevel, GameState, NetDriver, and DemoNetDriver on the world and
+ * the destructor will restore the original values.
+ */
+class ENGINE_API FScopedLevelCollectionContextSwitch
+{
+public:
+	/**
+	 * Constructor that will save the current relevant values of InWorld
+	 * and set the collection's context values for InWorld.
+	 *
+	 * @param InLevelCollection The collection's context to use
+	 * @param InWorld The world on which to set the context.
+	 */
+	FScopedLevelCollectionContextSwitch(const FLevelCollection* const InLevelCollection, UWorld* const InWorld);
+	
+	/** The destructor restores the context on the world that was saved in the constructor. */
+	~FScopedLevelCollectionContextSwitch();
+
+private:
+	class UWorld* World;
+	const FLevelCollection* SavedTickingCollection;
+};
+
 /** 
  * The World is the top level object representing a map or a sandbox in which Actors and Components will exist and be rendered.  
  *
@@ -517,7 +686,7 @@ public:
  */
 
 UCLASS(customConstructor, config=Engine)
-class ENGINE_API UWorld : public UObject, public FNetworkNotify
+class ENGINE_API UWorld final : public UObject, public FNetworkNotify
 {
 	GENERATED_UCLASS_BODY()
 
@@ -557,10 +726,6 @@ class ENGINE_API UWorld : public UObject, public FNetworkNotify
 	UPROPERTY(Transient)
 	class ULineBatchComponent*					ForegroundLineBatcher;
 
-	/** The replicated actor which contains game state information that can be accessible to clients */
-	UPROPERTY(Transient)
-	class AGameState*							GameState;
-
 	/** Instance of this world's game-specific networking management */
 	UPROPERTY(Transient)
 	class AGameNetworkManager*					NetworkManager;
@@ -589,9 +754,13 @@ class ENGINE_API UWorld : public UObject, public FNetworkNotify
 	UPROPERTY()
 	FString										StreamingLevelsPrefix;
 	
-	/** Pointer to the current level in the queue to be made visible, NULL if none are pending.									*/
+	/** Pointer to the current level in the queue to be made visible, NULL if none are pending.					*/
 	UPROPERTY(Transient)
 	class ULevel*								CurrentLevelPendingVisibility;
+
+	/** Pointer to the current level in the queue to be made invisible, NULL if none are pending.					*/
+	UPROPERTY(Transient)
+	class ULevel*								CurrentLevelPendingInvisibility;
 	
 	/** Fake NetDriver for capturing network traffic to record demos															*/
 	UPROPERTY()
@@ -628,8 +797,13 @@ private:
 
 	/** The current GameMode, valid only on the server */
 	UPROPERTY(Transient)
-	class AGameMode*							AuthorityGameMode;
+	class AGameModeBase*						AuthorityGameMode;
 
+	/** The replicated actor which contains game state information that can be accessible to clients. Direct access is not allowed, use GetGameState<>() */
+	UPROPERTY(Transient)
+	class AGameStateBase*						GameState;
+
+	/** The AI System handles generating pathing information and AI behavior */
 	UPROPERTY(Transient)
 	class UAISystemBase*						AISystem;
 	
@@ -640,6 +814,16 @@ private:
 	/** Array of levels currently in this world. Not serialized to disk to avoid hard references.								*/
 	UPROPERTY(Transient)
 	TArray<class ULevel*>						Levels;
+
+	/** Array of level collections currently in this world. */
+	UPROPERTY(Transient, NonTransactional)
+	TArray<FLevelCollection>					LevelCollections;
+
+	/** Pointer to the level collection that's currently ticking. */
+	const FLevelCollection*						ActiveLevelCollection;
+
+	/** Creates the dynamic source and static level collections if they don't already exist. */
+	void ConditionallyCreateDefaultLevelCollections();
 
 public:
 
@@ -729,28 +913,28 @@ public:
 private:
 
 	/** List of all the controllers in the world. */
-	TArray<TAutoWeakObjectPtr<class AController> > ControllerList;
+	TArray<TWeakObjectPtr<class AController> > ControllerList;
 
 	/** List of all the player controllers in the world. */
-	TArray<TAutoWeakObjectPtr<class APlayerController> > PlayerControllerList;
+	TArray<TWeakObjectPtr<class APlayerController> > PlayerControllerList;
 
 	/** List of all the pawns in the world. */
-	TArray<TAutoWeakObjectPtr<class APawn> > PawnList;	
+	TArray<TWeakObjectPtr<class APawn> > PawnList;
 
 	/** List of all the cameras in the world that auto-activate for players. */
-	TArray<TAutoWeakObjectPtr<ACameraActor> > AutoCameraActorList;
+	TArray<TWeakObjectPtr<ACameraActor> > AutoCameraActorList;
 
 	/** List of all physics volumes in the world. Does not include the DefaultPhysicsVolume. */
-	TArray<TAutoWeakObjectPtr<APhysicsVolume> > NonDefaultPhysicsVolumeList;
+	TArray<TWeakObjectPtr<APhysicsVolume> > NonDefaultPhysicsVolumeList;
 
 	/** Physics scene for this world. */
 	FPhysScene*									PhysicsScene;
 
 	/** Set of components that need updates at the end of the frame */
-	TSet<TWeakObjectPtr<class UActorComponent> > ComponentsThatNeedEndOfFrameUpdate;
+	TSet<TWeakObjectPtr<UActorComponent> > ComponentsThatNeedEndOfFrameUpdate;
 
 	/** Set of components that need recreates at the end of the frame */
-	TSet<TWeakObjectPtr<class UActorComponent> > ComponentsThatNeedEndOfFrameUpdate_OnGameThread;
+	TSet<TWeakObjectPtr<UActorComponent> > ComponentsThatNeedEndOfFrameUpdate_OnGameThread;
 
 	/** The state of async tracing - abstracted into its own object for easier reference */
 	FWorldAsyncTraceState AsyncTraceState;
@@ -911,10 +1095,11 @@ public:
 	/** True we want to execute a call to UpdateCulledTriggerVolumes during Tick */
 	bool										bDoDelayedUpdateCullDistanceVolumes;
 
-	/** If true, this is a preview world used for editor tools, and not an actual loaded map world */
-	TEnumAsByte<EWorldType::Type>				WorldType;
+	/** The type of world this is. Describes the context in which it is being used (Editor, Game, Preview etc.) */
+	EWorldType::Type							WorldType;
 
 	/** Force UsesGameHiddenFlags to return true. */
+	DEPRECATED(4.14, "bHack_Force_UsesGameHiddenFlags_True is deprecated. Please use EWorldType::GamePreview (etc.) to enforce correct hidden flag usage for preview scenes.")
 	bool										bHack_Force_UsesGameHiddenFlags_True;
 
 	/** If true this world is in the process of running the construction script for an actor */
@@ -955,10 +1140,13 @@ public:
 	/**  Time in seconds since level began play, but IS paused when the game is paused, and IS dilated/clamped. */
 	float TimeSeconds;
 
-	/** Time in seconds since level began play, but is NOT paused when the game is paused, and is NOT dilated/clamped. */
+	/**  Time in seconds since level began play, but IS NOT paused when the game is paused, and IS dilated/clamped. */
+	float UnpausedTimeSeconds;
+
+	/** Time in seconds since level began play, but IS NOT paused when the game is paused, and IS NOT dilated/clamped. */
 	float RealTimeSeconds;
 
-	/** Time in seconds since level began play, but IS paused when the game is paused, and is NOT dilated/clamped. */
+	/** Time in seconds since level began play, but IS paused when the game is paused, and IS NOT dilated/clamped. */
 	float AudioTimeSeconds;
 
 	/** Frame delta time in seconds adjusted by e.g. time dilation. */
@@ -1005,6 +1193,9 @@ public:
 	 * have lighting rebuilt.
 	 **/
 	uint32 NumLightingUnbuiltObjects;
+	
+	/** Num of reflection capture components missing valid data. This can be non-zero only in game with FeatureLevel < SM4*/
+	uint32 NumInvalidReflectionCaptureComponents;
 
 	/** Num of components missing valid texture streaming data. Updated in map check. */
 	int32 NumTextureStreamingUnbuiltComponents;
@@ -1053,6 +1244,9 @@ public:
 
 	// Kismet debugging flags - they can be only editor only, but they're uint32, so it doens't make much difference
 	uint32 bDebugPauseExecution:1;
+
+	/** When set, camera is potentially moveable even when paused */
+	uint32 bIsCameraMoveableWhenPaused:1;
 
 	/** Indicates this scene always allows audio playback. */
 	uint32 bAllowAudioPlayback:1;
@@ -1707,6 +1901,13 @@ public:
 	float GetTimeSeconds() const;
 
 	/**
+	* Returns time in seconds since world was brought up for play, IS NOT stopped when game pauses, IS dilated/clamped
+	*
+	* @return time in seconds since world was brought up for play
+	*/
+	float GetUnpausedTimeSeconds() const;
+
+	/**
 	* Returns time in seconds since world was brought up for play, does NOT stop when game pauses, NOT dilated/clamped
 	*
 	* @return time in seconds since world was brought up for play
@@ -1945,6 +2146,12 @@ public:
 	/** Purges all sky capture cached derived data and forces a re-render of captured scene data. */
 	void UpdateAllSkyCaptures();
 
+	/** Returns the active lighting scenario for this world or NULL if none. */
+	ULevel* GetActiveLightingScenario() const;
+
+	/** Propagates a change to the active lighting scenario. */
+	void PropagateLightingScenarioChange();
+
 	/**
 	 * Associates the passed in level with the world. The work to make the level visible is spread across several frames and this
 	 * function has to be called till it returns true for the level to be visible/ associated with the world and no longer be in
@@ -1960,7 +2167,7 @@ public:
 	 *
 	 * @param Level			Level object we should remove
 	 */
-	void RemoveFromWorld( ULevel* Level );
+	void RemoveFromWorld( ULevel* Level, bool bAllowIncrementalRemoval = false );
 
 	/**
 	 * Updates sub-levels (load/unload/show/hide) using streaming levels current state
@@ -2127,6 +2334,19 @@ public:
 	 */
 	void DelayGarbageCollection();
 
+	/**
+	 * Updates the timer (as a one-off) that is used to trigger garbage collection; this should only be used for things
+	 * like performance tests, using it recklessly can dramatically increase memory usage and cost of the eventual GC.
+	 *
+	 * Note: Things that force a GC will still force a GC after using this method (and they will also reset the timer)
+	 */
+	void SetTimeUntilNextGarbageCollection(float MinTimeUntilNextPass);
+
+	/**
+	 * Returns the current desired time between garbage collection passes (not the time remaining)
+	 */
+	float GetTimeBetweenGarbageCollectionPasses() const;
+
 protected:
 
 	/**
@@ -2167,14 +2387,20 @@ public:
 	 * @param Component - Component to update at the end of the frame
 	 * @param bForceGameThread - if true, force this to happen on the game thread
 	 */
-	void MarkActorComponentForNeededEndOfFrameUpdate(class UActorComponent* Component, bool bForceGameThread);
+	void MarkActorComponentForNeededEndOfFrameUpdate(UActorComponent* Component, bool bForceGameThread);
+
+	/**
+	* Clears the need for a component to have a end of frame update
+	* @param Component - Component to update at the end of the frame
+	*/
+	void ClearActorComponentEndOfFrameUpdate(UActorComponent* Component);
 
 	/**
 	 * Updates an ActorComponent's cached state of whether it has been marked for end of frame update based on the current
 	 * state of the World's NeedsEndOfFrameUpdate arrays
 	 * @param Component - Component to update the cached state of
 	 */
-	void UpdateActorComponentEndOfFrameUpdateState(class UActorComponent* Component) const;
+	void UpdateActorComponentEndOfFrameUpdateState(UActorComponent* Component) const;
 
 	/**
 	 * Send all render updates to the rendering thread.
@@ -2283,6 +2509,35 @@ public:
 	 */
 	bool RemoveLevel( ULevel* InLevel );
 
+	/** Returns the FLevelCollection for the given InType. If one does not exist, it is created. */
+	FLevelCollection& FindOrAddCollectionByType(const ELevelCollectionType InType);
+
+	/** Returns the FLevelCollection for the given InType, or null if a collection of that type hasn't been created yet. */
+	FLevelCollection* FindCollectionByType(const ELevelCollectionType InType);
+
+	/** Returns the FLevelCollection for the given InType, or null if a collection of that type hasn't been created yet. */
+	const FLevelCollection* FindCollectionByType(const ELevelCollectionType InType) const;
+
+	/**
+	 * Returns the level collection which currently has its context set on this world. May be null.
+	 * If non-null, this implies that execution is currently within the scope of an FScopedLevelCollectionContextSwitch for this world.
+	 */
+	const FLevelCollection* GetActiveLevelCollection() const { return ActiveLevelCollection; }
+
+	/** Sets the level collection and its context on this world. Should only be called by FScopedLevelCollectionContextSwitch. */
+	void SetActiveLevelCollection(const FLevelCollection* InCollection);
+
+	/** Returns a read-only reference to the list of level collections in this world. */
+	const TArray<FLevelCollection>& GetLevelCollections() const { return LevelCollections; }
+
+	/**
+	 * Creates a new level collection of type DynamicDuplicatedLevels by duplicating the levels in DynamicSourceLevels.
+	 * Should only be called by engine.
+	 *
+	 * @param MapName The name of the soure map, used as a parameter to UEngine::Experimental_ShouldPreDuplicateMap
+	 */
+	void DuplicateRequestedLevels(const FName MapName);
+
 	/** Handle Exec/Console Commands related to the World */
 	bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar=*GLog );
 
@@ -2330,6 +2585,9 @@ public:
 
 	/** @return true if the world is in the paused state */
 	bool IsPaused() const;
+
+	/** @return true if the camera is in a moveable state (taking pausedness into account) */
+	bool IsCameraMoveable() const;
 
 	/**
 	 * Wrapper for DestroyActor() that should be called in the editor.
@@ -2504,8 +2762,8 @@ public:
 	}
 
 	/** 
-	 *  Returns the current GameMode instance cast to the template type.
-	 *  This can only return a valid pointer on the server. Will always return null on a client
+	 * Returns the current Game Mode instance cast to the template type.
+	 * This can only return a valid pointer on the server and may be null if the cast fails. Will always return null on a client.
 	 */
 	template< class T >
 	T* GetAuthGameMode() const
@@ -2513,11 +2771,11 @@ public:
 		return Cast<T>(AuthorityGameMode);
 	}
 
-	/** 
-	 *  Returns the current GameMode instance.
-	 *  This can only return a valid pointer on the server. Will always return null on a client
+	/**
+	 * Returns the current Game Mode instance, which is always valid during gameplay on the server.
+	 * This will only return a valid pointer on the server. Will always return null on a client.
 	 */
-	AGameMode* GetAuthGameMode() const { return AuthorityGameMode; }
+	AGameModeBase* GetAuthGameMode() const { return AuthorityGameMode; }
 	
 	/** Returns the current GameState instance cast to the template type. */
 	template< class T >
@@ -2527,10 +2785,13 @@ public:
 	}
 
 	/** Returns the current GameState instance. */
-	AGameState* GetGameState() const { return GameState; }
+	AGameStateBase* GetGameState() const { return GameState; }
+
+	/** Sets the current GameState instance on this world and the game state's level collection. */
+	void SetGameState(AGameStateBase* NewGameState);
 
 	/** Copies GameState properties from the GameMode. */
-	void CopyGameState(AGameMode* FromGameMode, AGameState* FromGameState);
+	void CopyGameState(AGameModeBase* FromGameMode, AGameStateBase* FromGameState);
 
 
 	/** Spawns a Brush Actor in the World */
@@ -2779,8 +3040,8 @@ public:
 
 	/** seamlessly travels to the given URL by first loading the entry level in the background,
 	 * switching to it, and then loading the specified level. Does not disrupt network communication or disconnect clients.
-	 * You may need to implement GameMode::GetSeamlessTravelActorList(), PlayerController::GetSeamlessTravelActorList(),
-	 * GameMode::PostSeamlessTravel(), and/or GameMode::HandleSeamlessTravelPlayer() to handle preserving any information
+	 * You may need to implement GameModeBase::GetSeamlessTravelActorList(), PlayerController::GetSeamlessTravelActorList(),
+	 * GameModeBase::PostSeamlessTravel(), and/or GameModeBase::HandleSeamlessTravelPlayer() to handle preserving any information
 	 * that should be maintained (player teams, etc)
 	 * This codepath is designed for worlds that use little or no level streaming and GameModes where the game state
 	 * is reset/reloaded when transitioning. (like UT)
@@ -3005,6 +3266,11 @@ private:
 FORCEINLINE_DEBUGGABLE float UWorld::GetTimeSeconds() const
 {
 	return TimeSeconds;
+}
+
+FORCEINLINE_DEBUGGABLE float UWorld::GetUnpausedTimeSeconds() const
+{
+	return UnpausedTimeSeconds;
 }
 
 FORCEINLINE_DEBUGGABLE float UWorld::GetRealTimeSeconds() const

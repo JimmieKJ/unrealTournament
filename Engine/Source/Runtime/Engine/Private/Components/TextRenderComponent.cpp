@@ -1,11 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Components/TextRenderComponent.h"
-#include "DynamicMeshBuilder.h"
-#include "Engine/Font.h"
-#include "Engine/TextRenderActor.h"
+#include "UObject/ConstructorHelpers.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "VertexFactory.h"
 #include "LocalVertexFactory.h"
+#include "UObject/GCObject.h"
+#include "PrimitiveViewRelevance.h"
+#include "Materials/MaterialInterface.h"
+#include "PrimitiveSceneProxy.h"
+#include "Engine/Font.h"
+#include "Materials/Material.h"
+#include "Components/BillboardComponent.h"
+#include "Engine/CollisionProfile.h"
+#include "Containers/Ticker.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "MeshBatch.h"
+#include "Engine/Texture2D.h"
+#include "SceneManagement.h"
+#include "DynamicMeshBuilder.h"
+#include "Engine/TextRenderActor.h"
+#include "Materials/MaterialInstanceDynamic.h"
 
 #define LOCTEXT_NAMESPACE "TextRenderComponent"
 
@@ -62,7 +79,7 @@ struct FTextIterator
 		return (CurrentPosition[0] != '\0');
 	}
 
-	bool NextCharacterInLine(int32& Ch)
+	bool NextCharacterInLine(TCHAR& Ch)
 	{	
 		bool bRet = false;
 		check(CurrentPosition);
@@ -89,7 +106,7 @@ struct FTextIterator
 		return bRet;
 	}
 
-	bool Peek(int32& Ch)
+	bool Peek(TCHAR& Ch)
 	{
 		check(CurrentPosition);
 		if ( CurrentPosition[0] =='\0' || (CurrentPosition[0] == '<' && CurrentPosition[1] == 'b' && CurrentPosition[2] == 'r' && CurrentPosition[3] == '>') || (CurrentPosition[0] == '\n') )
@@ -186,19 +203,17 @@ FVector2D ComputeTextSize(FTextIterator It, class UFont* Font,
 
 	float LineX = 0.f;
 
-	const int32 PageIndex = 0;
-
-	int32 Ch;
+	TCHAR Ch = 0;
 	while (It.NextCharacterInLine(Ch))
 	{
-		Ch = (int32)Font->RemapChar(Ch);
+		Ch = Font->RemapChar(Ch);
 
-		if(!Font->Characters.IsValidIndex(Ch + PageIndex))
+		if(!Font->Characters.IsValidIndex(Ch))
 		{
 			continue;
 		}
 
-		FFontCharacter& Char = Font->Characters[Ch + PageIndex];
+		FFontCharacter& Char = Font->Characters[Ch];
 
 		if(!Font->Textures.IsValidIndex(Char.TextureIndex))
 		{
@@ -228,7 +243,7 @@ FVector2D ComputeTextSize(FTextIterator It, class UFont* Font,
 			Ret.Y = FMath::Max(Ret.Y, Bottom);
 
 			// if we have another non-whitespace character to render, add the font's kerning.
-			int32 NextCh;
+			TCHAR NextCh = 0;
 			if( It.Peek(NextCh) && !FChar::IsWhitespace(NextCh) )
 			{
 				SizeX += CharIncrement;
@@ -338,12 +353,9 @@ float CalculateVerticalAlignmentOffset(
 			FirstLineHeight = LineSize.Y;
 		}
 
-		int32 Ch;
-
 		// Iterate to end of line
-		while (It.NextCharacterInLine(Ch))
-		{
-		}
+		TCHAR Ch = 0;
+		while (It.NextCharacterInLine(Ch)) {}
 
 		// Move Y position down to next line. If the current line is empty, move by max char height in font
 		StartY += LineSize.Y > 0.f ? LineSize.Y : Font->GetMaxCharHeight();
@@ -353,6 +365,252 @@ float CalculateVerticalAlignmentOffset(
 	return -ComputeVerticalAlignmentOffset(StartY, VerticalAlignment, FirstLineHeight);
 }
 	
+// ------------------------------------------------------
+
+/** Caches MIDs used by text render components to avoid excessive (re)allocation of MIDs when the SCS runs */
+class FTextRenderComponentMIDCache : public FGCObject
+{
+public:
+	/** Array of MIDs for a particular material and font */
+	struct FMIDData
+	{
+		FMIDData(UMaterialInterface* InMaterial, UFont* InFont)
+		{
+			check(InMaterial && InFont && InFont->FontCacheType == EFontCacheType::Offline);
+
+			const int32 NumFontPages = InFont->Textures.Num();
+
+			// Checking GIsRequestingExit as a workaround for lighting rebuild command let crash.
+			// Happening because GIsRequestingExit is true preventing the FTextRenderComponentMIDCache from registering into the GGCObjectReferencer
+			if (!GIsRequestingExit && NumFontPages > 0)
+			{
+				TArray<FGuid> FontParameterIds;
+				InMaterial->GetMaterial()->GetAllFontParameterNames(FontParameters, FontParameterIds);
+
+				if (FontParameters.Num() > 0)
+				{
+					if (InMaterial->IsA<UMaterialInstanceDynamic>())
+					{
+						// If the user provided a custom MID, we can't do anything but use that single MID for page 0
+						UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(InMaterial);
+						for (const FName FontParameterName : FontParameters)
+						{
+							MID->SetFontParameterValue(FontParameterName, InFont, 0);
+						}
+						MIDs.Add(MID);
+					}
+					else
+					{
+						MIDs.Reserve(NumFontPages);
+						for (int32 FontPageIndex = 0; FontPageIndex < NumFontPages; ++FontPageIndex)
+						{
+							UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(InMaterial, nullptr);
+							for (const FName FontParameterName : FontParameters)
+							{
+								MID->SetFontParameterValue(FontParameterName, InFont, FontPageIndex);
+							}
+							MIDs.Add(MID);
+						}
+					}
+				}
+			}
+		}
+
+		bool IsStale(UMaterialInterface* InMaterial, UFont* InFont) const
+		{
+			bool bIsStale = false;
+
+			// We can only test for stale MIDs when we created the MIDs ourselves (which we don't do if the outer MID was itself a MID)
+			if (GIsEditor && !InMaterial->IsA<UMaterialInstanceDynamic>())
+			{
+				// We only test against the number of font pages when we created the MIDs
+				bIsStale = MIDs.Num() != InFont->Textures.Num();
+
+				if (!bIsStale)
+				{
+					TArray<FName> FontParameterNames;
+					TArray<FGuid> FontParameterIds;
+					InMaterial->GetMaterial()->GetAllFontParameterNames(FontParameterNames, FontParameterIds);
+
+					bIsStale = FontParameters.Num() != FontParameterNames.Num();
+					for (int32 FontParamIndex = 0; !bIsStale && FontParamIndex < FontParameters.Num(); ++FontParamIndex)
+					{
+						bIsStale = FontParameters[FontParamIndex] != FontParameterNames[FontParamIndex];
+					}
+				}
+			}
+
+			return bIsStale;
+		}
+
+
+		TArray<UMaterialInstanceDynamic*> MIDs;
+		TArray<FName> FontParameters;
+	};
+
+	typedef TSharedRef<const FMIDData, ESPMode::ThreadSafe> FMIDDataRef;
+	typedef TSharedPtr<const FMIDData, ESPMode::ThreadSafe> FMIDDataPtr;
+	typedef TWeakPtr<const FMIDData, ESPMode::ThreadSafe>   FMIDDataWeakPtr;
+
+	static void Initialize()
+	{
+		check(!InstancePtr);
+		InstancePtr = new FTextRenderComponentMIDCache();
+	}
+
+	static void Shutdown()
+	{
+		delete InstancePtr;
+		InstancePtr = nullptr;
+	}
+
+	static FTextRenderComponentMIDCache& Get()
+	{
+		check(InstancePtr);
+		return *InstancePtr;
+	}
+
+	FMIDDataRef GetMIDData(UMaterialInterface* InMaterial, UFont* InFont)
+	{
+		checkfSlow(IsInGameThread(), TEXT("FTextRenderComponentMIDCache::GetMIDData is only expected to be called from the game thread!"));
+
+		check(InMaterial && InFont && InFont->FontCacheType == EFontCacheType::Offline);
+
+		FMIDDataPtr MIDData = CachedMIDs.FindRef(FKey(InMaterial, InFont));
+		if (MIDData.IsValid() && MIDData->IsStale(InMaterial, InFont))
+		{
+			StaleMIDs.Add(MIDData);
+			MIDData.Reset();
+		}
+
+		if (!MIDData.IsValid())
+		{
+			MIDData = CachedMIDs.Add(FKey(InMaterial, InFont), MakeShareable(new FMIDData(InMaterial, InFont)));
+		}
+
+		return MIDData.ToSharedRef();
+	}
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		for (auto& MIDDataPair : CachedMIDs)
+		{
+			const FMIDDataPtr& MIDData = MIDDataPair.Value;
+			for (UMaterialInstanceDynamic*& MID : const_cast<FMIDData*>(MIDData.Get())->MIDs)
+			{
+				Collector.AddReferencedObject(MID);
+			}
+		}
+
+		for (const FMIDDataWeakPtr& StaleMID : StaleMIDs)
+		{
+			FMIDDataPtr PinnedMID = StaleMID.Pin();
+			if (PinnedMID.IsValid())
+			{
+				for (UMaterialInstanceDynamic*& MID : const_cast<FMIDData*>(PinnedMID.Get())->MIDs)
+				{
+					Collector.AddReferencedObject(MID);
+				}
+			}
+		}
+	}
+
+private:
+	/** Key identifying an array of MIDs */
+	struct FKey
+	{
+		FKey(const UMaterialInterface* InMaterial, const UFont* InFont)
+			: Material(InMaterial)
+			, Font(InFont)
+		{
+		}
+
+		FORCEINLINE bool operator==(const FKey& Other) const
+		{
+			return Material == Other.Material
+				&& Font == Other.Font;
+		}
+
+		FORCEINLINE bool operator!=(const FKey& Other) const
+		{
+			return Material != Other.Material
+				|| Font != Other.Font;
+		}
+
+		friend inline uint32 GetTypeHash(const FKey& Key)
+		{
+			return HashCombine(GetTypeHash(Key.Material), GetTypeHash(Key.Font));
+		}
+
+		const UMaterialInterface* Material;
+		const UFont* Font;
+	};
+
+	FTextRenderComponentMIDCache()
+	{
+		TickerHandle = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FTextRenderComponentMIDCache::PurgeUnreferencedMIDsTicker), 10.0f);
+	}
+
+	~FTextRenderComponentMIDCache()
+	{
+		FTicker::GetCoreTicker().RemoveTicker(TickerHandle);
+	}
+
+	bool PurgeUnreferencedMIDsTicker(float)
+	{
+		PurgeUnreferencedMIDs();
+		return true;
+	}
+
+	void PurgeUnreferencedMIDs()
+	{
+		checkfSlow(IsInGameThread(), TEXT("FTextRenderComponentMIDCache::PurgeUnreferencedMIDs is only expected to be called from the game thread!"));
+
+		TArray<FKey> MIDsToPurgeNow;
+		TSet<FKey> MIDsToPurgeLater;
+
+		for (const auto& MIDDataPair : CachedMIDs)
+		{
+			const FMIDDataPtr& MIDData = MIDDataPair.Value;
+			if (MIDData.IsUnique())
+			{
+				if (MIDsPendingPurge.Contains(MIDDataPair.Key))
+				{
+					MIDsToPurgeNow.Add(MIDDataPair.Key);
+				}
+				else
+				{
+					MIDsToPurgeLater.Add(MIDDataPair.Key);
+				}
+			}
+		}
+
+		for (const FKey& MIDKey : MIDsToPurgeNow)
+		{
+			CachedMIDs.Remove(MIDKey);
+		}
+
+		StaleMIDs.RemoveAll([](const FMIDDataWeakPtr& InStaleMID)
+		{
+			return !InStaleMID.IsValid();
+		});
+
+		MIDsPendingPurge = MoveTemp(MIDsToPurgeLater);
+	}
+
+	FDelegateHandle TickerHandle;
+
+	TMap<FKey, FMIDDataPtr> CachedMIDs;
+
+	TArray<FMIDDataWeakPtr> StaleMIDs;
+
+	TSet<FKey> MIDsPendingPurge;
+
+	static FTextRenderComponentMIDCache* InstancePtr;
+};
+
+FTextRenderComponentMIDCache* FTextRenderComponentMIDCache::InstancePtr = nullptr;
+
 // ------------------------------------------------------
 
 /** Represents a URenderTextComponent to the scene manager. */
@@ -381,13 +639,26 @@ private:
 	bool BuildStringMesh( TArray<FDynamicMeshVertex>& OutVertices, TArray<uint16>& OutIndices );
 
 private:
+	struct FTextBatch
+	{
+		int32 IndexBufferOffset;
+		int32 IndexBufferCount;
+
+		int32 VertexBufferOffset;
+		int32 VertexBufferCount;
+
+		const UMaterialInterface* Material;
+	};
+
 	FMaterialRelevance MaterialRelevance;
 	FTextRenderVertexBuffer VertexBuffer;
 	FTextRenderIndexBuffer IndexBuffer;
 	FTextRenderVertexFactory VertexFactory;
+	TArray<FTextBatch> TextBatches;
 	const FColor TextRenderColor;
 	UMaterialInterface* TextMaterial;
 	UFont* Font;
+	FTextRenderComponentMIDCache::FMIDDataPtr FontMIDs;
 	FText Text;
 	float XScale;
 	float YScale;
@@ -431,6 +702,11 @@ FTextRenderSceneProxy::FTextRenderSceneProxy( UTextRenderComponent* Component) :
 
 	TextMaterial = EffectiveMaterial;
 	MaterialRelevance |= TextMaterial->GetMaterial()->GetRelevance(GetScene().GetFeatureLevel());
+
+	if (TextMaterial && Font && Font->FontCacheType == EFontCacheType::Offline)
+	{
+		FontMIDs = FTextRenderComponentMIDCache::Get().GetMIDData(TextMaterial, Font);
+	}
 }
 
 FTextRenderSceneProxy::~FTextRenderSceneProxy()
@@ -478,25 +754,29 @@ void FTextRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 			if (VisibilityMap & (1 << ViewIndex))
 			{
 				const FSceneView* View = Views[ViewIndex];
-				// Draw the mesh.
-				FMeshBatch& Mesh = Collector.AllocateMesh();
-				FMeshBatchElement& BatchElement = Mesh.Elements[0];
-				BatchElement.IndexBuffer = &IndexBuffer;
-				Mesh.VertexFactory = &VertexFactory;
-				BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
-				BatchElement.FirstIndex = 0;
-				BatchElement.NumPrimitives = IndexBuffer.Indices.Num() / 3;
-				BatchElement.MinVertexIndex = 0;
-				BatchElement.MaxVertexIndex = VertexBuffer.Vertices.Num() - 1;
-				Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative();
-				Mesh.bDisableBackfaceCulling = false;
-				Mesh.Type = PT_TriangleList;
-				Mesh.DepthPriorityGroup = SDPG_World;
-				const bool bUseSelectedMaterial = GIsEditor && (View->Family->EngineShowFlags.Selection) ? IsSelected() : false;
-				Mesh.MaterialRenderProxy = TextMaterial->GetRenderProxy(bUseSelectedMaterial);
-				Mesh.bCanApplyViewModeOverrides = !bAlwaysRenderAsText;
 
-				Collector.AddMesh(ViewIndex, Mesh);
+				for (const FTextBatch& TextBatch : TextBatches)
+				{
+					// Draw the mesh.
+					FMeshBatch& Mesh = Collector.AllocateMesh();
+					FMeshBatchElement& BatchElement = Mesh.Elements[0];
+					BatchElement.IndexBuffer = &IndexBuffer;
+					Mesh.VertexFactory = &VertexFactory;
+					BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
+					BatchElement.FirstIndex = TextBatch.IndexBufferOffset;
+					BatchElement.NumPrimitives = TextBatch.IndexBufferCount / 3;
+					BatchElement.MinVertexIndex = TextBatch.VertexBufferOffset;
+					BatchElement.MaxVertexIndex = TextBatch.VertexBufferOffset + TextBatch.VertexBufferCount - 1;
+					Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative();
+					Mesh.bDisableBackfaceCulling = false;
+					Mesh.Type = PT_TriangleList;
+					Mesh.DepthPriorityGroup = SDPG_World;
+					const bool bUseSelectedMaterial = GIsEditor && (View->Family->EngineShowFlags.Selection) ? IsSelected() : false;
+					Mesh.MaterialRenderProxy = TextBatch.Material->GetRenderProxy(bUseSelectedMaterial);
+					Mesh.bCanApplyViewModeOverrides = !bAlwaysRenderAsText;
+
+					Collector.AddMesh(ViewIndex, Mesh);
+				}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 				RenderBounds(Collector.GetPDI(ViewIndex), View->Family->EngineShowFlags, GetBounds(), IsSelected());
@@ -511,22 +791,25 @@ void FTextRenderSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 	// Vertex factory will not been initialized when the font is invalid or the text string is empty.
 	if(VertexFactory.IsInitialized())
 	{
-		// Draw the mesh.
-		FMeshBatch Mesh;
-		FMeshBatchElement& BatchElement = Mesh.Elements[0];
-		BatchElement.IndexBuffer = &IndexBuffer;
-		Mesh.VertexFactory = &VertexFactory;
-		Mesh.MaterialRenderProxy = TextMaterial->GetRenderProxy(false);
-		BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
-		BatchElement.FirstIndex = 0;
-		BatchElement.NumPrimitives = IndexBuffer.Indices.Num() / 3;
-		BatchElement.MinVertexIndex = 0;
-		BatchElement.MaxVertexIndex = VertexBuffer.Vertices.Num() - 1;
-		Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative();
-		Mesh.bDisableBackfaceCulling = false;
-		Mesh.Type = PT_TriangleList;
-		Mesh.DepthPriorityGroup = SDPG_World;
-		PDI->DrawMesh(Mesh, 1.0f);
+		for (const FTextBatch& TextBatch : TextBatches)
+		{
+			// Draw the mesh.
+			FMeshBatch Mesh;
+			FMeshBatchElement& BatchElement = Mesh.Elements[0];
+			BatchElement.IndexBuffer = &IndexBuffer;
+			Mesh.VertexFactory = &VertexFactory;
+			Mesh.MaterialRenderProxy = TextBatch.Material->GetRenderProxy(false);
+			BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
+			BatchElement.FirstIndex = TextBatch.IndexBufferOffset;
+			BatchElement.NumPrimitives = TextBatch.IndexBufferCount / 3;
+			BatchElement.MinVertexIndex = TextBatch.VertexBufferOffset;
+			BatchElement.MaxVertexIndex = TextBatch.VertexBufferOffset + TextBatch.VertexBufferCount - 1;
+			Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative();
+			Mesh.bDisableBackfaceCulling = false;
+			Mesh.Type = PT_TriangleList;
+			Mesh.DepthPriorityGroup = SDPG_World;
+			PDI->DrawMesh(Mesh, 1.0f);
+		}
 	}
 }
 
@@ -575,8 +858,10 @@ uint32 FTextRenderSceneProxy::GetAllocatedSize() const
 /**
 * For the given text, constructs a mesh to be used by the vertex factory for rendering.
 */
-bool  FTextRenderSceneProxy::BuildStringMesh( TArray<FDynamicMeshVertex>& OutVertices, TArray<uint16>& OutIndices )
+bool FTextRenderSceneProxy::BuildStringMesh( TArray<FDynamicMeshVertex>& OutVertices, TArray<uint16>& OutIndices )
 {
+	TextBatches.Reset();
+
 	if(!Font || Text.IsEmpty())
 	{
 		return false;
@@ -589,7 +874,36 @@ bool  FTextRenderSceneProxy::BuildStringMesh( TArray<FDynamicMeshVertex>& OutVer
 
 	float LineX = 0.f;
 
-	const int32 PageIndex = 0;
+	int32 PageIndex = INDEX_NONE;
+
+	int32 FirstVertexIndexInTextBatch = 0;
+	int32 FirstIndiceIndexInTextBatch = 0;
+	auto FinishTextBatch = [&]()
+	{
+		if (OutVertices.Num() > FirstVertexIndexInTextBatch && OutIndices.Num() > FirstIndiceIndexInTextBatch)
+		{
+			FTextBatch& TextBatch = TextBatches[TextBatches.AddUninitialized()];
+
+			TextBatch.IndexBufferOffset = FirstIndiceIndexInTextBatch;
+			TextBatch.IndexBufferCount = OutIndices.Num() - FirstIndiceIndexInTextBatch;
+
+			TextBatch.VertexBufferOffset = FirstVertexIndexInTextBatch;
+			TextBatch.VertexBufferCount = OutVertices.Num() - FirstVertexIndexInTextBatch;
+
+			TextBatch.Material = nullptr;
+			if (FontMIDs.IsValid() && FontMIDs->MIDs.IsValidIndex(PageIndex))
+			{
+				TextBatch.Material = FontMIDs->MIDs[PageIndex];
+			}
+			if (!TextBatch.Material)
+			{
+				TextBatch.Material = TextMaterial;
+			}
+		}
+
+		FirstVertexIndexInTextBatch = OutVertices.Num();
+		FirstIndiceIndexInTextBatch = OutIndices.Num();
+	};
 
 	FTextIterator It(*Text.ToString());
 	while (It.NextLine())
@@ -603,22 +917,33 @@ bool  FTextRenderSceneProxy::BuildStringMesh( TArray<FDynamicMeshVertex>& OutVer
 		}
 
 		LineX = 0.f;
-		int32 Ch;
 
+		TCHAR Ch = 0;
 		while (It.NextCharacterInLine(Ch))
 		{
-			Ch = (int32)Font->RemapChar(Ch);
+			Ch = Font->RemapChar(Ch);
 
-			if(!Font->Characters.IsValidIndex(Ch + PageIndex))
+			if(!Font->Characters.IsValidIndex(Ch))
 			{
 				continue;
 			}
 
-			FFontCharacter& Char = Font->Characters[Ch + PageIndex];
+			FFontCharacter& Char = Font->Characters[Ch];
 
 			if(!Font->Textures.IsValidIndex(Char.TextureIndex))
 			{
 				continue;
+			}
+
+			// Need to start a new batch?
+			if (PageIndex != Char.TextureIndex)
+			{
+				if (PageIndex != INDEX_NONE)
+				{
+					FinishTextBatch();
+				}
+
+				PageIndex = Char.TextureIndex;
 			}
 
 			UTexture2D* Tex = Font->Textures[Char.TextureIndex];
@@ -628,10 +953,10 @@ bool  FTextRenderSceneProxy::BuildStringMesh( TArray<FDynamicMeshVertex>& OutVer
 				FIntPoint ImportedTextureSize = Tex->GetImportedSize();
 				FVector2D InvTextureSize(1.0f / (float)ImportedTextureSize.X, 1.0f / (float)ImportedTextureSize.Y);
 
-				const float X      = LineX + StartX;
-				const float Y      = StartY + Char.VerticalOffset * YScale;
-				float SizeX = Char.USize * XScale;
-				const float SizeY = Char.VSize * YScale;
+				const float X		= LineX + StartX;
+				const float Y		= StartY + Char.VerticalOffset * YScale;
+				const float SizeX	= Char.USize * XScale;
+				const float SizeY	= Char.VSize * YScale;
 				const float U		= Char.StartU * InvTextureSize.X;
 				const float V		= Char.StartV * InvTextureSize.Y;
 				const float SizeU	= Char.USize * InvTextureSize.X;
@@ -670,20 +995,22 @@ bool  FTextRenderSceneProxy::BuildStringMesh( TArray<FDynamicMeshVertex>& OutVer
 				OutIndices.Add(V01);
 				OutIndices.Add(V11);
 
+				LineX += SizeX;
+
 				// if we have another non-whitespace character to render, add the font's kerning.
-				int32 NextChar;
+				TCHAR NextChar = 0;
 				if( It.Peek(NextChar) && !FChar::IsWhitespace(NextChar) )
 				{
-					SizeX += CharIncrement;
+					LineX += CharIncrement;
 				}
-
-				LineX += SizeX;
 			}
 		}
 
 		// Move Y position down to next line. If the current line is empty, move by max char height in font
 		StartY += LineSize.Y > 0.f ? LineSize.Y : Font->GetMaxCharHeight();
 	}
+
+	FinishTextBatch();
 
 	// Avoid initializing RHI resources when no vertices are generated.
 	return (OutVertices.Num() > 0);
@@ -842,8 +1169,8 @@ FBoxSphereBounds UTextRenderComponent::CalcBounds(const FTransform& LocalToWorld
 				FirstLineHeight = LineSize.Y;
 			}
 
-			int32 Ch;
-			while (It.NextCharacterInLine(Ch));
+			TCHAR Ch = 0;
+			while (It.NextCharacterInLine(Ch)) {}
 		}
 
 		LeftTop.Y = ComputeVerticalAlignmentOffset(Size.Y, VerticalAlignment, FirstLineHeight);
@@ -858,7 +1185,7 @@ FBoxSphereBounds UTextRenderComponent::CalcBounds(const FTransform& LocalToWorld
 	}
 	else
 	{
-		return FBoxSphereBounds(ForceInit);
+		return FBoxSphereBounds(ForceInit).TransformBy(LocalToWorld);
 	}
 }
 
@@ -883,8 +1210,8 @@ FMatrix UTextRenderComponent::GetRenderMatrix() const
 				FirstLineHeight = LineSize.Y;
 			}
 
-			int32 Ch;
-			while (It.NextCharacterInLine(Ch));
+			TCHAR Ch = 0;
+			while (It.NextCharacterInLine(Ch)) {}
 		}
 
 		// Calculate a vertical translation to create the correct vertical alignment
@@ -1031,6 +1358,16 @@ void UTextRenderComponent::PostLoad()
 	}
 
 	Super::PostLoad();
+}
+
+void UTextRenderComponent::InitializeMIDCache()
+{
+	FTextRenderComponentMIDCache::Initialize();
+}
+
+void UTextRenderComponent::ShutdownMIDCache()
+{
+	FTextRenderComponentMIDCache::Shutdown();
 }
 
 /** Returns TextRender subobject **/

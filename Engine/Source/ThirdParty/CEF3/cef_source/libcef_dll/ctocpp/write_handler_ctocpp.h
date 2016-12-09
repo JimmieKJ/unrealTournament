@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,11 +28,9 @@ class CefWriteHandlerCToCpp
     : public CefCToCpp<CefWriteHandlerCToCpp, CefWriteHandler,
         cef_write_handler_t> {
  public:
-  explicit CefWriteHandlerCToCpp(cef_write_handler_t* str)
-      : CefCToCpp<CefWriteHandlerCToCpp, CefWriteHandler, cef_write_handler_t>(
-          str) {}
+  CefWriteHandlerCToCpp();
 
-  // CefWriteHandler methods
+  // CefWriteHandler methods.
   size_t Write(const void* ptr, size_t size, size_t n) override;
   int Seek(int64 offset, int whence) override;
   int64 Tell() override;
@@ -42,4 +40,3 @@ class CefWriteHandlerCToCpp
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_WRITE_HANDLER_CTOCPP_H_
-

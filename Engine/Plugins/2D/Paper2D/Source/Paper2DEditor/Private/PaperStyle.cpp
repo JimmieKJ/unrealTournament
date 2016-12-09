@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
 #include "PaperStyle.h"
-#include "SlateStyle.h"
-#include "IPluginManager.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Styling/SlateTypes.h"
+#include "EditorStyleSet.h"
+#include "Interfaces/IPluginManager.h"
+#include "SlateOptMacros.h"
+
 
 #define IMAGE_PLUGIN_BRUSH( RelativePath, ... ) FSlateImageBrush( FPaperStyle::InContent( RelativePath, ".png" ), __VA_ARGS__ )
 #define IMAGE_BRUSH(RelativePath, ...) FSlateImageBrush(StyleSet->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
@@ -25,6 +28,8 @@ FName FPaperStyle::GetStyleSetName()
 	static FName PaperStyleName(TEXT("PaperStyle"));
 	return PaperStyleName;
 }
+
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void FPaperStyle::Initialize()
 {
@@ -256,6 +261,8 @@ void FPaperStyle::Initialize()
 
 	FSlateStyleRegistry::RegisterSlateStyle(*StyleSet.Get());
 };
+
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 #undef IMAGE_PLUGIN_BRUSH
 #undef IMAGE_BRUSH

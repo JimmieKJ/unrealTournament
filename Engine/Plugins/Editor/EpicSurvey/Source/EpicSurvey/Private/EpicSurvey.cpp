@@ -1,22 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EpicSurveyPrivatePCH.h"
 #include "EpicSurvey.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Internationalization/Culture.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
 #include "EpicSurveyCommands.h"
 #include "Survey.h"
-#include "QuestionBlock.h"
 #include "SSurvey.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "LevelEditor.h"
 #include "EngineAnalytics.h"
-#include "ImageWrapper.h"
-#include "MainFrame.h"
+#include "Interfaces/IImageWrapperModule.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "SurveyTitleCdnStorage.h"
-#include "IAnalyticsProvider.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "SSurveyNotification.h"
 #include "SurveyTitleLocalStorage.h"
-#include "SurveyPage.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Editor.h"
 
 #include "Settings/EditorSettings.h"
 
@@ -584,7 +595,7 @@ TSharedPtr< FSurvey > FEpicSurvey::GetBranchSurvey( const FString& Filename )
 			}
 		}
 	}
-	return *Survey;
+	return Survey ? *Survey : nullptr;
 }
 
 void FEpicSurvey::LoadSurveyIndexFile()

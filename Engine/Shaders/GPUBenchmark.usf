@@ -10,8 +10,9 @@
 Texture2D InputTexture;
 SamplerState InputTextureSampler;
 
+// Simple Quad Vertex Shader, used for pixel tests
+#if VS_METHOD == 0
 
-// vertex shader entry point
 void MainBenchmarkVS(
 	in float4 InPosition : ATTRIBUTE0,
 	in float2 UV : ATTRIBUTE1,
@@ -22,14 +23,45 @@ void MainBenchmarkVS(
 	DrawRectangle(InPosition, UV, OutPosition, OutUV);
 }
 
+// Vertex Throughput Test
+#elif VS_METHOD == 1
+
+void MainBenchmarkVS(
+	in float4 Arg0 : ATTRIBUTE0,
+	in float4 Arg1 : ATTRIBUTE1,
+	in float4 Arg2 : ATTRIBUTE2,
+	in float4 Arg3 : ATTRIBUTE3,
+	in float4 Arg4 : ATTRIBUTE4,
+	out float2 OutUV : TEXCOORD0,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	OutPosition = Arg0 + Arg1 + Arg2 + Arg3 + Arg4;
+	OutUV = 0.0f;
+}
+
+#elif VS_METHOD == 2
+
+void MainBenchmarkVS(
+	in uint VertexID : SV_VertexID,
+	out float2 OutUV : TEXCOORD0,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	OutPosition = float4(VertexID, 0, 0, 0);
+	OutUV = 0.0f;
+}
+
+#else
+#error Invalid VS_METHOD
+#endif
+
 // pixel shader entry point
 void MainPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 {
-	float2 Offset = PostprocessInput0Size.zw;
-
 	OutColor = 0;
 
-#if METHOD == 0
+#if PS_METHOD == 0
 	// ALU heavy
 	{
 		// some dependency to the input texture
@@ -43,7 +75,7 @@ void MainPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 			OutColor.r += Value.r;
 		}
 	}
-#elif METHOD == 1
+#elif PS_METHOD == 1
 	// TEX heavy
 	{
 		UNROLL for(int i = 0; i < 16; ++i)
@@ -53,7 +85,7 @@ void MainPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 			OutColor.r += Value.r;
 		}
 	}
-#elif METHOD == 2
+#elif PS_METHOD == 2
 	// dependent TEX heavy
 	{
 		UNROLL for(int i = 0; i < 16; ++i)
@@ -63,10 +95,10 @@ void MainPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 			OutColor.r += Value.r;
 		}
 	}
-#elif METHOD == 3
+#elif PS_METHOD == 3
 	// some dependency to the input texture
 	OutColor = Texture2DSample(InputTexture, InputTextureSampler, InUV) * 0.99f;
-#elif METHOD == 4
+#elif PS_METHOD == 4
 	// Bandwidth heavy
 	{
 		float2 PixelPos = frac(InUV * 512.0f / 16.0f) * 16.0f;
@@ -82,8 +114,11 @@ void MainPS(float2 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 			}
 		}
 	}
+#elif PS_METHOD == 5
+	// Simple Pixel Shader used when testing vertex throughput.
+	// Do Nothing (OutColor is black).
 #else
-	error
+#error Invalid PS_METHOD
 #endif
 
 	// todo: Framebuffer blending test, clear test, vertex performance, draw call performance, constant buffer upload performance

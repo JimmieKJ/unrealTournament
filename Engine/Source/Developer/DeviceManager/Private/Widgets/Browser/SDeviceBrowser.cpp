@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DeviceManagerPrivatePCH.h"
-#include "SExpandableArea.h"
+#include "Widgets/Browser/SDeviceBrowser.h"
+#include "SlateOptMacros.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Browser/SDeviceBrowserContextMenu.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Browser/SDeviceBrowserDeviceAdder.h"
+#include "Widgets/Browser/SDeviceBrowserFilterBar.h"
+#include "Widgets/Browser/SDeviceBrowserTooltip.h"
+#include "Widgets/Browser/SDeviceBrowserDeviceListRow.h"
+#include "Widgets/Layout/SExpandableArea.h"
 
 
 #define LOCTEXT_NAMESPACE "SDeviceBrowser"

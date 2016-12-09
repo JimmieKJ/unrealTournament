@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "IPropertyUtilities.h"
+
+#include "CoreMinimal.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/SWidget.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
 #include "MathStructCustomizations.h"
+
+class FDetailWidgetRow;
+class IPropertyUtilities;
 
 /** 
  * Helper class used to track the dirty state of a proxy value

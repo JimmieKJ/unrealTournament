@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "AI/Navigation/NavigationSystem.h"
-#include "AI/Navigation/NavAreas/NavArea.h"
 #include "Navigation/MetaNavMeshPath.h"
+#include "GameFramework/Controller.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "VisualLogger/VisualLoggerTypes.h"
+#include "VisualLogger/VisualLogger.h"
+#include "AI/Navigation/NavAreas/NavArea.h"
 #include "DrawDebugHelpers.h"
 
 const FNavPathType FMetaNavMeshPath::Type(&FMetaNavMeshPath::Super::Type);
@@ -100,6 +102,11 @@ bool FMetaNavMeshPath::ConditionalMoveToNextSection(const FVector& AgentLocation
 	return false;
 }
 
+bool FMetaNavMeshPath::ForceMoveToNextSection(const FVector& AgentLocation)
+{
+	return MoveToNextSection(AgentLocation);
+}
+
 bool FMetaNavMeshPath::MoveToNextSection(const FVector& AgentLocation)
 {
 	if (Waypoints.IsValidIndex(TargetWaypointIdx + 1))
@@ -146,12 +153,12 @@ bool FMetaNavMeshPath::UpdatePath(const FVector& AgentLocation)
 
 void FMetaNavMeshPath::CopyFrom(const FMetaNavMeshPath& Other)
 {
-	new(this) FMetaNavMeshPath(Other.Waypoints, *GetNavigationDataUsed());
+	ResetForRepath();
+
+	TargetWaypointIdx = 0;
+	SetWaypoints(Other.Waypoints);
 
 	WaypointSwitchRadius = Other.WaypointSwitchRadius;
-	// always start with uninitialized path
-	TargetWaypointIdx = 0;
-
 	PathGoal = Other.PathGoal;
 	PathGoalTetherDistance = Other.PathGoalTetherDistance;
 	ApproximateLength = Other.ApproximateLength;
@@ -197,6 +204,7 @@ void FMetaNavMeshPath::DescribeSelfToVisLog(FVisualLogEntry* Snapshot) const
 
 void FMetaNavMeshPath::DebugDraw(const ANavigationData* NavData, FColor PathColor, UCanvas* Canvas, bool bPersistent, const uint32 NextPathPointIndex) const
 {
+#if ENABLE_DRAW_DEBUG
 	if (Waypoints.Num() > 0)
 	{
 		Super::DebugDraw(NavData, PathColor, Canvas, bPersistent, NextPathPointIndex);
@@ -214,4 +222,5 @@ void FMetaNavMeshPath::DebugDraw(const ANavigationData* NavData, FColor PathColo
 			WaypointLocation = NextWaypoint;
 		}
 	}
+#endif // ENABLE_DRAW_DEBUG
 }

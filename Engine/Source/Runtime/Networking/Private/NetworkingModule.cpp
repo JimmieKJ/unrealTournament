@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetworkingPrivatePCH.h"
-#include "ModuleManager.h"
+#include "NetworkingModule.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
 
 
 IMPLEMENT_MODULE(FNetworkingModule, Networking);

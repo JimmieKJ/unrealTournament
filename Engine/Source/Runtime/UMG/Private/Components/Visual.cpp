@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/Visual.h"
+#include "Engine/UserInterfaceSettings.h"
 
 /////////////////////////////////////////////////////
 // UVisual
@@ -20,4 +21,11 @@ void UVisual::BeginDestroy()
 
 	const bool bReleaseChildren = false;
 	ReleaseSlateResources(bReleaseChildren);
+}
+
+bool UVisual::NeedsLoadForServer() const
+{
+	const UUserInterfaceSettings* UISettings = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass());
+	check(UISettings);
+	return UISettings->bLoadWidgetsOnDedicatedServer;
 }

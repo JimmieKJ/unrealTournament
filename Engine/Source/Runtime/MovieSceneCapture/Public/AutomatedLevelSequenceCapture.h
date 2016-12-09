@@ -2,12 +2,17 @@
 
 #pragma once
 
-#include "MovieSceneCapture.h"
-#include "LevelSequenceActor.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/StringAssetReference.h"
 #include "LevelSequencePlayer.h"
+#include "MovieSceneCapture.h"
 #include "AutomatedLevelSequenceCapture.generated.h"
 
 class ALevelSequenceActor;
+class FJsonObject;
+class FSceneViewport;
+class ULevelSequenceBurnInOptions;
 
 UCLASS(config=EditorSettings)
 class MOVIESCENECAPTURE_API UAutomatedLevelSequenceCapture : public UMovieSceneCapture
@@ -61,6 +66,8 @@ public:
 
 	virtual void SaveToConfig() override;
 
+	virtual void Close() override;
+
 protected:
 
 	virtual void AddFormatMappings(TMap<FString, FStringFormatArg>& OutFormatMappings, const FFrameMetrics& FrameMetrics) const override;
@@ -92,6 +99,15 @@ private:
 
 	virtual void Tick(float DeltaSeconds) override;
 
+	/** Initialize all the shots to be recorded, ie. expand section ranges with handle frames */
+	bool InitializeShots();
+
+	/** Set up the current shot to be recorded, ie. expand playback range to the section range */
+	bool SetupShot(float& StartTime, float& EndTime);
+
+	/** Restore any modification to shots */
+	void RestoreShots();
+
 	/** A level sequence asset to playback at runtime - used where the level sequence does not already exist in the world. */
 	UPROPERTY()
 	FStringAssetReference LevelSequenceAsset;
@@ -116,7 +132,32 @@ private:
 	/** The number of warm up frames left before we actually start saving out images */
 	int32 RemainingWarmUpFrames;
 	
+	/** The number of individual shot movies to render */
+	int32 NumShots;
+
+	/** The current shot movie that is rendering */
+	int32 ShotIndex;
+
 	FLevelSequencePlayerSnapshot CachedState;
+
+	struct FCinematicShotCache
+	{
+		FCinematicShotCache(bool bInActive, bool bInLocked, const TRange<float>& InShotRange, const TRange<float>& InMovieSceneRange) : 
+			  bActive(bInActive)
+			, bLocked(bInLocked)
+			, ShotRange(InShotRange)
+			, MovieSceneRange(InMovieSceneRange)
+		{
+		};
+
+		bool bActive;
+		bool bLocked;
+		TRange<float> ShotRange;
+		TRange<float> MovieSceneRange;
+	};
+
+	TArray<FCinematicShotCache> CachedShotStates;
+	TRange<float> CachedPlaybackRange;
 #endif
 };
 

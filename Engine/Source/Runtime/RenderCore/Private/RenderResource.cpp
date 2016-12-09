@@ -4,9 +4,10 @@
 	RenderResource.cpp: Render resource implementation.
 =============================================================================*/
 
-#include "RenderCorePrivatePCH.h"
-#include "RenderCore.h"
 #include "RenderResource.h"
+#include "Misc/ScopedEvent.h"
+#include "Misc/App.h"
+#include "RenderingThread.h"
 
 /** Whether to enable mip-level fading or not: +1.0f if enabled, -1.0f if disabled. */
 float GEnableMipLevelFading = 1.0f;

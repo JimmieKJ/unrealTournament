@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SWindow.h"
+
+class FWidgetPath;
 
 /**
  * Implements a manager for Slate windows.

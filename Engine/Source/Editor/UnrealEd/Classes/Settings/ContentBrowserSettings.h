@@ -7,8 +7,10 @@
 #pragma once
 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "ContentBrowserSettings.generated.h"
-
 
 /**
  * Implements the Level Editor's loading and saving settings.
@@ -95,6 +97,18 @@ public:
 		return DisplayCollections;
 	}
 
+	/** Sets whether we are allowed to display C++ folders or not */
+	void SetDisplayCppFolders(bool bDisplay)
+	{
+		DisplayCppFolders = bDisplay;
+	}
+
+	/** Gets whether we are allowed to display the C++ folders or not*/
+	bool GetDisplayCppFolders() const
+	{
+		return DisplayCppFolders;
+	}
+
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.
 	 *
@@ -137,6 +151,9 @@ private:
 
 	UPROPERTY(config)
 	bool DisplayCollections;
+
+	UPROPERTY(config)
+	bool DisplayCppFolders;
 
 	// Holds an event delegate that is executed when a setting has changed.
 	static FSettingChangedEvent SettingChangedEvent;

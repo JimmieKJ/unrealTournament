@@ -1,17 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Factories.h"
-#include "BusyCursor.h"
-#include "SSkeletonWidget.h"
+#include "Factories/FbxFactory.h"
+#include "Misc/Paths.h"
+#include "Misc/FeedbackContext.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimSequence.h"
+#include "Editor/EditorEngine.h"
+#include "Factories/FbxAnimSequenceImportData.h"
+#include "Factories/FbxSkeletalMeshImportData.h"
+#include "Factories/FbxStaticMeshImportData.h"
+#include "Factories/FbxTextureImportData.h"
+#include "Factories/FbxImportUI.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/SubDSurface.h"
+#include "Editor.h"
 
+#include "Logging/TokenizedMessage.h"
 #include "FbxImporter.h"
 
-#include "FbxErrors.h"
+#include "Misc/FbxErrors.h"
 #include "AssetRegistryModule.h"
-#include "Engine/StaticMesh.h"
 #include "ObjectTools.h"
-#include "Animation/AnimSequence.h"
+#include "JsonObjectConverter.h"
 
 #define LOCTEXT_NAMESPACE "FBXFactory"
 
@@ -27,7 +37,7 @@ UFbxFactory::UFbxFactory(const FObjectInitializer& ObjectInitializer)
 	bText = false;
 	bEditorImport = true;
 	bOperationCanceled = false;
-	bDetectImportTypeOnImport = false;
+	bDetectImportTypeOnImport = true;
 }
 
 
@@ -78,6 +88,7 @@ bool UFbxFactory::DetectImportType(const FString& InFilename)
 	int32 ImportType = FFbxImporter->GetImportType(InFilename);
 	if ( ImportType == -1)
 	{
+		FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, LOCTEXT("NoImportTypeDetected", "Can't detect import type. No mesh is found or animation track.")), FFbxErrors::Generic_CannotDetectImportType);
 		return false;
 	}
 	else
@@ -190,9 +201,11 @@ UObject* UFbxFactory::FactoryCreateBinary
 	}
 
 
-	bool bShowImportDialog = bShowOption && !GIsAutomationTesting;
+	// Show the import dialog only when not in a "yes to all" state or when automating import
+	bool bIsAutomated = IsAutomatedImport();
+	bool bShowImportDialog = bShowOption && !bIsAutomated;
 	bool bImportAll = false;
-	ImportOptions = GetImportOptions(FbxImporter, ImportUI, bShowImportDialog, InParent->GetPathName(), bOperationCanceled, bImportAll, bIsObjFormat, bIsObjFormat, ForcedImportType );
+	ImportOptions = GetImportOptions(FbxImporter, ImportUI, bShowImportDialog, bIsAutomated, InParent->GetPathName(), bOperationCanceled, bImportAll, bIsObjFormat, bIsObjFormat, ForcedImportType );
 	bOutOperationCanceled = bOperationCanceled;
 	
 	if( bImportAll )
@@ -201,16 +214,15 @@ UObject* UFbxFactory::FactoryCreateBinary
 		bShowOption = false;
 	}
 
-	// For multiple files, use the same settings
-	bDetectImportTypeOnImport = false;
+	// Automated importing does not use the same settings and gets its settings straight from the user
+	if(!bIsAutomated)
+	{
+		// For multiple files, use the same settings
+		bDetectImportTypeOnImport = false;
+	}
 
 	if (ImportOptions)
 	{
-		//Set the global option so the reimport know if we must reimport the materails and textures
-		//By default we dont reimport material, because we dont want to override the change made by
-		//the user in the static or skeletal mesh editor. Thos option can be change in those editor.
-		ImportUI->StaticMeshImportData->bImportMaterials = false;
-		ImportUI->SkeletalMeshImportData->bImportMaterials = false;
 
 		Warn->BeginSlowTask( NSLOCTEXT("FbxFactory", "BeginImportingFbxMeshTask", "Importing FBX mesh"), true );
 		if ( !FbxImporter->ImportFromFile( *UFactory::CurrentFilename, Type ) )
@@ -651,6 +663,11 @@ bool UFbxFactory::FactoryCanImport(const FString& Filename)
 	return false;
 }
 
+IImportSettingsParser* UFbxFactory::GetImportSettingsParser()
+{
+	return ImportUI;
+}
+
 UFbxImportUI::UFbxImportUI(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -687,5 +704,41 @@ bool UFbxImportUI::CanEditChange( const UProperty* InProperty ) const
 
 	return bIsMutable;
 }
+
+void UFbxImportUI::ParseFromJson(TSharedRef<class FJsonObject> ImportSettingsJson)
+{
+	// Skip instanced object references. 
+	int64 SkipFlags = CPF_InstancedReference;
+	FJsonObjectConverter::JsonObjectToUStruct(ImportSettingsJson, GetClass(), this, 0, SkipFlags);
+
+	const TSharedPtr<FJsonObject>* StaticMeshImportJson = nullptr;
+	ImportSettingsJson->TryGetObjectField(TEXT("StaticMeshImportData"), StaticMeshImportJson);
+	if(StaticMeshImportJson)
+	{
+		FJsonObjectConverter::JsonObjectToUStruct(StaticMeshImportJson->ToSharedRef(), StaticMeshImportData->GetClass(), StaticMeshImportData, 0, 0);
+	}
+
+	const TSharedPtr<FJsonObject>* SkeletalMeshImportJson = nullptr;
+	ImportSettingsJson->TryGetObjectField(TEXT("SkeletalMeshImportData"), SkeletalMeshImportJson);
+	if (SkeletalMeshImportJson)
+	{
+		FJsonObjectConverter::JsonObjectToUStruct(SkeletalMeshImportJson->ToSharedRef(), SkeletalMeshImportData->GetClass(), SkeletalMeshImportData, 0, 0);
+	}
+
+	const TSharedPtr<FJsonObject>* AnimImportJson = nullptr;
+	ImportSettingsJson->TryGetObjectField(TEXT("AnimSequenceImportData"), AnimImportJson);
+	if (AnimImportJson)
+	{
+		FJsonObjectConverter::JsonObjectToUStruct(AnimImportJson->ToSharedRef(), AnimSequenceImportData->GetClass(), AnimSequenceImportData, 0, 0);
+	}
+
+	const TSharedPtr<FJsonObject>* TextureImportJson = nullptr;
+	ImportSettingsJson->TryGetObjectField(TEXT("TextureImportData"), TextureImportJson);
+	if (TextureImportJson)
+	{
+		FJsonObjectConverter::JsonObjectToUStruct(TextureImportJson->ToSharedRef(), TextureImportData->GetClass(), TextureImportData, 0, 0);
+	}
+}
+
 
 #undef LOCTEXT_NAMESPACE

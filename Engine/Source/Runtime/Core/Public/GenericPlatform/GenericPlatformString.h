@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
 #include "Templates/EnableIf.h"
 
 
@@ -138,7 +138,7 @@ struct FGenericPlatformString
 		while (SrcSize)
 		{
 			if (!DestSize)
-				return NULL;
+				return nullptr;
 
 			SourceEncoding SrcCh = *Src++;
 			if (CanConvertChar<DestEncoding>(SrcCh))

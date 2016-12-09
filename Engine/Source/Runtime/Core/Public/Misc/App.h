@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Templates/UnrealTemplate.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Parse.h"
+#include "UObject/NameTypes.h"
+#include "CoreGlobals.h"
+#include "Delegates/Delegate.h"
+#include "Misc/Guid.h"
+#include "Misc/CoreMisc.h"
+#include "Misc/CommandLine.h"
+#include "HAL/PlatformProcess.h"
 
 // platforms which can have runtime threading switches
 #define HAVE_RUNTIME_THREADING_SWITCHES			(PLATFORM_DESKTOP || PLATFORM_ANDROID || PLATFORM_IOS)
@@ -262,7 +274,7 @@ public:
 	 */
 	FORCEINLINE static bool IsAuthorizedUser(const FString& UserName)
 	{
-		return ((FPlatformProcess::UserName(false) == UserName) || SessionUsers.Contains(UserName));
+		return ((FPlatformProcess::UserName(false) == UserName) || (SessionOwner == UserName) || SessionUsers.Contains(UserName));
 	}
 
 	/**

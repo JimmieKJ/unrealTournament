@@ -4,8 +4,12 @@
 	LazyObjectPtr.cpp: Guid-based lazy pointer to UObject
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
-#include "UObjectAnnotation.h"
+#include "UObject/LazyObjectPtr.h"
+#include "Misc/CommandLine.h"
+#include "Misc/App.h"
+#include "UObject/Package.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/UObjectAnnotation.h"
 
 
 /** Annotation associating objects with their guids **/
@@ -121,22 +125,26 @@ void FLazyObjectPtr::PossiblySerializeObjectGuid(UObject *Object, FArchive& Ar)
 
 			// Don't try and resolve GUIDs when loading a package for diffing
 			const UPackage* Package = Object->GetOutermost();
-			const bool bLoadedForDiff = (Package && Package->HasAnyPackageFlags(PKG_ForDiffing));
+			const bool bLoadedForDiff = Package->HasAnyPackageFlags(PKG_ForDiffing);
 			if (!bLoadedForDiff && (!(Ar.GetPortFlags() & PPF_Duplicate) || (Ar.GetPortFlags() & PPF_DuplicateForPIE)))
 			{
 				check(!Guid.IsDefault());
 				UObject* OtherObject = Guid.ResolveObject();
 				if (OtherObject != Object) // on undo/redo, the object (potentially) already exists
 				{
-					bool Duplicate = OtherObject != NULL;
-					bool Reassigning = FParse::Param(FCommandLine::Get(), TEXT("AssignNewMapGuids"));
+					const bool bDuplicate = OtherObject != nullptr;
+					const bool bReassigning = FParse::Param(FCommandLine::Get(), TEXT("AssignNewMapGuids"));
 
-					if (Duplicate || Reassigning)
+					if (bDuplicate || bReassigning)
 					{
-						// IsGame returns true for GIsPlayInEditorWorld
-						if (!Reassigning)
+						if (!bReassigning)
 						{
-							UE_CLOG(!(FApp::IsGame() && Package && Package->ContainsMap()), LogUObjectGlobals, Warning, TEXT("Guid referenced by %s is already used by %s, which should never happen in the editor but could happen at runtime with duplicate level loading or PIE"), !!Object ? *Object->GetFullName() : TEXT("NULL"), *OtherObject->GetFullName());
+							// Always warn for non-map packages, skip map packages in PIE or game
+							const bool bInGame = FApp::IsGame() || Package->HasAnyPackageFlags(PKG_PlayInEditor);
+
+							UE_CLOG(!Package->ContainsMap() || !bInGame, LogUObjectGlobals, Warning, 
+								TEXT("Guid referenced by %s is already used by %s, which should never happen in the editor but could happen at runtime with duplicate level loading or PIE"), 
+								*Object->GetFullName(), *OtherObject->GetFullName());
 						}
 						else
 						{

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
+#include "Embree.h"
 #include "LightingSystem.h"
+#include "UnrealLightmass.h"
  
 // #pragma optimize( "", off )
 // #define EMBREE_INLINE

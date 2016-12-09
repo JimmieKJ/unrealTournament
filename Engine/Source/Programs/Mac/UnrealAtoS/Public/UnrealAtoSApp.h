@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
 
 // Unreal equivalent to Apple's atos that resolves debug symbol info. from a program counter
 int32 RunUnrealAtoS(int32 ArgC, TCHAR* Argv[]);

@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "ThreadingBase.h"
+
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "CoreGlobals.h"
+#include "HAL/PlatformTime.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "HAL/ThreadSafeCounter64.h"
 
 /**
  * Utility stopwatch class for tracking the duration of some action (tracks 

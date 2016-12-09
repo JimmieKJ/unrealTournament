@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "PackageLocalizationCache.h"
+#include "Internationalization/PackageLocalizationCache.h"
+#include "HAL/PlatformTime.h"
+#include "Misc/ScopeLock.h"
+#include "Internationalization/Culture.h"
+#include "Misc/PackageName.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPackageLocalizationCache, Log, All);
 

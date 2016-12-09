@@ -14,8 +14,10 @@
 #include "OVR_CloudStorageMetadataArray.h"
 #include "OVR_CloudStorageUpdateResponse.h"
 #include "OVR_Error.h"
+#include "OVR_InstalledApplicationArray.h"
 #include "OVR_LeaderboardEntryArray.h"
 #include "OVR_LeaderboardUpdateStatus.h"
+#include "OVR_MatchmakingAdminSnapshot.h"
 #include "OVR_MatchmakingBrowseResult.h"
 #include "OVR_MatchmakingEnqueueResult.h"
 #include "OVR_MatchmakingEnqueueResultAndRoom.h"
@@ -24,6 +26,7 @@
 #include "OVR_MessageType.h"
 #include "OVR_NetworkingPeer.h"
 #include "OVR_OrgScopedID.h"
+#include "OVR_PidArray.h"
 #include "OVR_PingResult.h"
 #include "OVR_ProductArray.h"
 #include "OVR_Purchase.h"
@@ -49,8 +52,10 @@ OVRP_PUBLIC_FUNCTION(ovrCloudStorageMetadataHandle)            ovr_Message_GetCl
 OVRP_PUBLIC_FUNCTION(ovrCloudStorageMetadataArrayHandle)       ovr_Message_GetCloudStorageMetadataArray(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrCloudStorageUpdateResponseHandle)      ovr_Message_GetCloudStorageUpdateResponse(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrErrorHandle)                           ovr_Message_GetError(const ovrMessageHandle obj);
+OVRP_PUBLIC_FUNCTION(ovrInstalledApplicationArrayHandle)       ovr_Message_GetInstalledApplicationArray(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrLeaderboardEntryArrayHandle)           ovr_Message_GetLeaderboardEntryArray(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrLeaderboardUpdateStatusHandle)         ovr_Message_GetLeaderboardUpdateStatus(const ovrMessageHandle obj);
+OVRP_PUBLIC_FUNCTION(ovrMatchmakingAdminSnapshotHandle)        ovr_Message_GetMatchmakingAdminSnapshot(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrMatchmakingBrowseResultHandle)         ovr_Message_GetMatchmakingBrowseResult(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrMatchmakingEnqueueResultHandle)        ovr_Message_GetMatchmakingEnqueueResult(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrMatchmakingEnqueueResultAndRoomHandle) ovr_Message_GetMatchmakingEnqueueResultAndRoom(const ovrMessageHandle obj);
@@ -59,6 +64,7 @@ OVRP_PUBLIC_FUNCTION(ovrMatchmakingStatsHandle)                ovr_Message_GetMa
 OVRP_PUBLIC_FUNCTION(ovrMessageHandle)                         ovr_Message_GetNativeMessage(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrNetworkingPeerHandle)                  ovr_Message_GetNetworkingPeer(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrOrgScopedIDHandle)                     ovr_Message_GetOrgScopedID(const ovrMessageHandle obj);
+OVRP_PUBLIC_FUNCTION(ovrPidArrayHandle)                        ovr_Message_GetPidArray(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrPingResultHandle)                      ovr_Message_GetPingResult(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrProductArrayHandle)                    ovr_Message_GetProductArray(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrPurchaseHandle)                        ovr_Message_GetPurchase(const ovrMessageHandle obj);

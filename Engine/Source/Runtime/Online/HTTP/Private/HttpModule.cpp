@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HttpPrivatePCH.h"
+#include "HttpModule.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "HttpManager.h"
+#include "Http.h"
 #include "NullHttp.h"
 #include "HttpTests.h"
 
@@ -43,8 +47,17 @@ void FHttpModule::StartupModule()
 	HttpDelayTime = 0;
 	GConfig->GetFloat(TEXT("HTTP"), TEXT("HttpDelayTime"), HttpDelayTime, GEngineIni);
 
-	HttpThreadTickRate = 30;
-	GConfig->GetFloat(TEXT("HTTP"), TEXT("HttpThreadTickRate"), HttpThreadTickRate, GEngineIni);
+	HttpThreadActiveFrameTimeInSeconds = 1.0f / 200.0f; // 200Hz
+	GConfig->GetFloat(TEXT("HTTP"), TEXT("HttpThreadActiveFrameTimeInSeconds"), HttpThreadActiveFrameTimeInSeconds, GEngineIni);
+
+	HttpThreadActiveMinimumSleepTimeInSeconds = 0.0f;
+	GConfig->GetFloat(TEXT("HTTP"), TEXT("HttpThreadActiveMinimumSleepTimeInSeconds"), HttpThreadActiveMinimumSleepTimeInSeconds, GEngineIni);
+
+	HttpThreadIdleFrameTimeInSeconds = 1.0f / 30.0f; // 30Hz
+	GConfig->GetFloat(TEXT("HTTP"), TEXT("HttpThreadIdleFrameTimeInSeconds"), HttpThreadIdleFrameTimeInSeconds, GEngineIni);
+
+	HttpThreadIdleMinimumSleepTimeInSeconds = 0.0f;
+	GConfig->GetFloat(TEXT("HTTP"), TEXT("HttpThreadIdleMinimumSleepTimeInSeconds"), HttpThreadIdleMinimumSleepTimeInSeconds, GEngineIni);
 
 	HttpManager = FPlatformHttp::CreatePlatformHttpManager();
 	if (NULL == HttpManager)
@@ -53,6 +66,15 @@ void FHttpModule::StartupModule()
 		HttpManager = new FHttpManager();
 	}
 	HttpManager->Initialize();
+}
+
+void FHttpModule::PostLoadCallback()
+{
+
+}
+
+void FHttpModule::PreUnloadCallback()
+{
 }
 
 void FHttpModule::ShutdownModule()

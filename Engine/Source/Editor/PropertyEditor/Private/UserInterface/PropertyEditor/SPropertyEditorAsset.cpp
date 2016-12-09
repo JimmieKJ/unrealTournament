@@ -1,20 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "SPropertyEditorAsset.h"
-#include "PropertyNode.h"
-#include "PropertyEditor.h"
-#include "AssetThumbnail.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
-#include "Runtime/AssetRegistry/Public/AssetData.h"
-#include "PropertyHandleImpl.h"
-#include "DelegateFilter.h"
-#include "Developer/AssetTools/Public/AssetToolsModule.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorAsset.h"
+#include "Engine/Texture.h"
+#include "Engine/SkeletalMesh.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Editor.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/Layout/SBox.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Particles/ParticleSystem.h"
+#include "UserInterface/PropertyEditor/PropertyEditorConstants.h"
+#include "PropertyEditorHelpers.h"
+#include "IAssetTools.h"
+#include "IAssetTypeActions.h"
+#include "AssetToolsModule.h"
 #include "SAssetDropTarget.h"
 #include "AssetRegistryModule.h"
-#include "Particles/ParticleSystem.h"
 #include "Engine/Selection.h"
-#include "Engine/StaticMesh.h"
+#include "ObjectPropertyNode.h"
 
 #define LOCTEXT_NAMESPACE "PropertyEditor"
 
@@ -28,16 +34,15 @@ bool SPropertyEditorAsset::ShouldDisplayThumbnail( const FArguments& InArgs )
 	if(PropertyEditor.IsValid())
 	{
 		UProperty* NodeProperty = PropertyEditor->GetPropertyNode()->GetProperty();
-		UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>( NodeProperty );
-		check(ObjectProperty);
+		UClass* Class = GetObjectPropertyClass(NodeProperty);
 
-		bDisplayThumbnailByDefault |= ObjectProperty->PropertyClass->IsChildOf(UMaterialInterface::StaticClass()) ||
-									  ObjectProperty->PropertyClass->IsChildOf(UTexture::StaticClass()) ||
-									  ObjectProperty->PropertyClass->IsChildOf(UStaticMesh::StaticClass()) ||
-									  ObjectProperty->PropertyClass->IsChildOf(UStaticMeshComponent::StaticClass()) ||
-									  ObjectProperty->PropertyClass->IsChildOf(USkeletalMesh::StaticClass()) ||
-									  ObjectProperty->PropertyClass->IsChildOf(USkeletalMeshComponent::StaticClass()) ||
-									  ObjectProperty->PropertyClass->IsChildOf(UParticleSystem::StaticClass());
+		bDisplayThumbnailByDefault |= Class->IsChildOf(UMaterialInterface::StaticClass()) ||
+									  Class->IsChildOf(UTexture::StaticClass()) ||
+									  Class->IsChildOf(UStaticMesh::StaticClass()) ||
+									  Class->IsChildOf(UStaticMeshComponent::StaticClass()) ||
+									  Class->IsChildOf(USkeletalMesh::StaticClass()) ||
+									  Class->IsChildOf(USkeletalMeshComponent::StaticClass()) ||
+									  Class->IsChildOf(UParticleSystem::StaticClass());
 	}
 
 	bool bDisplayThumbnail = ( bDisplayThumbnailByDefault || InArgs._DisplayThumbnail ) && InArgs._ThumbnailPool.IsValid();
@@ -48,12 +53,22 @@ bool SPropertyEditorAsset::ShouldDisplayThumbnail( const FArguments& InArgs )
 		if(InArgs._ThumbnailPool.IsValid())
 		{
 			const UProperty* ArrayParent = PropertyEditorHelpers::GetArrayParent( *PropertyEditor->GetPropertyNode() );
+			const UProperty* SetParent = PropertyEditorHelpers::GetSetParent( *PropertyEditor->GetPropertyNode() );
+			const UProperty* MapParent = PropertyEditorHelpers::GetMapParent( *PropertyEditor->GetPropertyNode() );
 
 			const UProperty* PropertyToCheck = PropertyEditor->GetProperty();
 			if( ArrayParent != NULL )
 			{
 				// If the property is a child of an array property, the parent will have the display thumbnail metadata
 				PropertyToCheck = ArrayParent;
+			}
+			else if ( SetParent != NULL )
+			{
+				PropertyToCheck = SetParent;
+			}
+			else if ( MapParent != NULL )
+			{
+				PropertyToCheck = MapParent;
 			}
 
 			FString DisplayThumbnailString = PropertyToCheck->GetMetaData(TEXT("DisplayThumbnail"));
@@ -73,17 +88,17 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 	PropertyHandle = InArgs._PropertyHandle;
 	OnSetObject = InArgs._OnSetObject;
 	OnShouldFilterAsset = InArgs._OnShouldFilterAsset;
+	bAllowActorPicker = InArgs._AllowActorPicker && PropertyEditor.IsValid();
+	bSearchInBlueprint = InArgs._SearchInBlueprint;
 
 	UProperty* Property = nullptr;
 	if(PropertyEditor.IsValid())
 	{
 		Property = PropertyEditor->GetPropertyNode()->GetProperty();
-		UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(Property);
-		check(ObjectProperty);
-
+		
 		bAllowClear = !(Property->PropertyFlags & CPF_NoClear);
-		ObjectClass = ObjectProperty->PropertyClass;
-		bIsActor = ObjectProperty->PropertyClass->IsChildOf( AActor::StaticClass() );
+		ObjectClass = GetObjectPropertyClass(Property);
+		bIsActor = ObjectClass->IsChildOf( AActor::StaticClass() );
 	}
 	else
 	{
@@ -159,6 +174,24 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 				}
 			}
 		}
+
+		// Make sure we're not trying to allow an actor picker on a property of an archetype object
+		if (bAllowActorPicker)
+		{
+			FObjectPropertyNode* RootObjectNode = PropertyEditor->GetPropertyNode()->FindRootObjectItemParent();
+			
+			check(RootObjectNode);
+			
+			// One of the object is an archetype, we can't allow actor picker
+			for (int32 i = 0; i < RootObjectNode->GetNumObjects(); ++i)
+			{
+				if (RootObjectNode->GetUObject(i)->HasAnyFlags(RF_ArchetypeObject))
+				{
+					bAllowActorPicker = false;
+					break;
+				}
+			}
+		}
 	}
 
 	if (InArgs._NewAssetFactories.IsSet())
@@ -211,6 +244,11 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 			}
 		}
 	}
+	bool bOldEnableAttribute = IsEnabledAttribute.Get();
+	if (bOldEnableAttribute && !InArgs._EnableContentPicker)
+	{
+		IsEnabledAttribute.Set(false);
+	}
 
 	AssetComboButton = SNew(SComboButton)
 		.ToolTipText(TooltipAttribute)
@@ -229,7 +267,12 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 			.Text(this,&SPropertyEditorAsset::OnGetAssetName)
 		];
 
-	
+	if (bOldEnableAttribute && !InArgs._EnableContentPicker)
+	{
+		IsEnabledAttribute.Set(true);
+	}
+
+	TSharedPtr<SWidget> ButtonBoxWrapper;
 	TSharedRef<SHorizontalBox> ButtonBox = SNew( SHorizontalBox );
 	
 	TSharedPtr<SVerticalBox> CustomContentBox;
@@ -268,14 +311,18 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 			[
 				SAssignNew( CustomContentBox, SVerticalBox )
 				+ SVerticalBox::Slot()
+				.Padding(0.0f, 4.0f, 0.0f, 0.0f)
 				[
 					AssetComboButton.ToSharedRef()
 				]
 				+ SVerticalBox::Slot()
 				.AutoHeight()
-				.Padding( 0.0f, 2.0f, 4.0f, 2.0f )
 				[
-					ButtonBox
+					SAssignNew(ButtonBoxWrapper, SBox)
+					.Padding( FMargin( 0.0f, 2.0f, 4.0f, 2.0f ) )
+					[
+						ButtonBox
+					]
 				]
 			]
 		];
@@ -295,9 +342,12 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 				]
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
-				.Padding( 4.f, 0.f )
 				[
-					ButtonBox
+					SAssignNew(ButtonBoxWrapper, SBox)
+					.Padding( FMargin( 4.f, 0.f ) )
+					[
+						ButtonBox
+					]
 				]
 			]
 		];
@@ -338,7 +388,7 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 		];
 	}
 
-	if( bIsActor )
+	if( bIsActor && bAllowActorPicker)
 	{
 		TSharedRef<SWidget> ActorPicker = PropertyCustomizationHelpers::MakeInteractiveActorPicker( FOnGetAllowedClasses::CreateSP(this, &SPropertyEditorAsset::OnGetAllowedClasses), FOnShouldFilterActor(), FOnActorSelected::CreateSP( this, &SPropertyEditorAsset::OnActorSelected ) );
 		ActorPicker->SetEnabled( IsEnabledAttribute );
@@ -352,7 +402,7 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 		];
 	}
 
-	if( InArgs._ResetToDefaultSlot.Widget != SNullWidget::NullWidget )
+	if(InArgs._ResetToDefaultSlot.Widget != SNullWidget::NullWidget )
 	{
 		TSharedRef<SWidget> ResetToDefaultWidget  = InArgs._ResetToDefaultSlot.Widget;
 		ResetToDefaultWidget->SetEnabled( IsEnabledAttribute );
@@ -364,6 +414,11 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 		[
 			ResetToDefaultWidget
 		];
+	}
+
+	if (ButtonBoxWrapper.IsValid())
+	{
+		ButtonBoxWrapper->SetVisibility(ButtonBox->NumSlots() > 0 ? EVisibility::Visible : EVisibility::Collapsed);
 	}
 }
 
@@ -405,7 +460,7 @@ void SPropertyEditorAsset::Tick( const FGeometry& AllottedGeometry, const double
 bool SPropertyEditorAsset::Supports( const TSharedRef< FPropertyEditor >& InPropertyEditor )
 {
 	const TSharedRef< FPropertyNode > PropertyNode = InPropertyEditor->GetPropertyNode();
-	if(	PropertyNode->HasNodeFlags(EPropertyNodeFlags::EditInline) )
+	if(	PropertyNode->HasNodeFlags(EPropertyNodeFlags::EditInlineNew) )
 	{
 		return false;
 	}
@@ -416,9 +471,11 @@ bool SPropertyEditorAsset::Supports( const TSharedRef< FPropertyEditor >& InProp
 bool SPropertyEditorAsset::Supports( const UProperty* NodeProperty )
 {
 	const UObjectPropertyBase* ObjectProperty = Cast<const UObjectPropertyBase>( NodeProperty );
-	if (ObjectProperty != NULL 
-		&& !NodeProperty->IsA(UClassProperty::StaticClass()) 
-		&& !NodeProperty->IsA(UAssetClassProperty::StaticClass()))
+	const UInterfaceProperty* InterfaceProperty = Cast<const UInterfaceProperty>( NodeProperty );
+
+	if ( ( ObjectProperty != NULL || InterfaceProperty != NULL )
+		 && !NodeProperty->IsA(UClassProperty::StaticClass()) 
+		 && !NodeProperty->IsA(UAssetClassProperty::StaticClass()) )
 	{
 		return true;
 	}
@@ -431,7 +488,7 @@ TSharedRef<SWidget> SPropertyEditorAsset::OnGetMenuContent()
 	FObjectOrAssetData Value;
 	GetValue(Value);
 
-	if(bIsActor)
+	if(bIsActor && bAllowActorPicker)
 	{
 		return PropertyCustomizationHelpers::MakeActorPickerWithMenu(Cast<AActor>(Value.Object),
 																	 bAllowClear,
@@ -444,6 +501,7 @@ TSharedRef<SWidget> SPropertyEditorAsset::OnGetMenuContent()
 	{
 		return PropertyCustomizationHelpers::MakeAssetPickerWithMenu(Value.AssetData,
 																	 bAllowClear,
+																	 bSearchInBlueprint,
 																	 CustomClassFilters,
 																	 NewAssetFactories,
 																	 OnShouldFilterAsset,
@@ -484,6 +542,10 @@ FText SPropertyEditorAsset::OnGetAssetName() const
 			{
 				AActor* Actor = CastChecked<AActor>(Value.Object);
 				Name = FText::FromString(Actor->GetActorLabel());
+			}
+			else if (UField* AsField = Cast<UField>(Value.Object))
+			{
+				Name = AsField->GetDisplayNameText();
 			}
 			else
 			{
@@ -912,9 +974,18 @@ bool SPropertyEditorAsset::CanSetBasedOnCustomClasses( const FAssetData& InAsset
 	{
 		bAllowedToSetBasedOnFilter = false;
 		UClass* AssetClass = InAssetData.GetClass();
+		UClass* ParentClass	= nullptr;
+		FString ParentClassPath = InAssetData.GetTagValueRef<FString>(FName("ParentClass"));
+
+		if (!ParentClassPath.IsEmpty())
+		{
+			ParentClass = FindObject<UClass>(nullptr, *ParentClassPath);
+		}
+
 		for( const UClass* AllowedClass : CustomClassFilters )
 		{
-			if( AssetClass->IsChildOf( AllowedClass ) )
+			const bool bAllowedClassIsInterface = AllowedClass->HasAnyClassFlags(CLASS_Interface);
+			if( AssetClass->IsChildOf( AllowedClass ) || (bAllowedClassIsInterface && AssetClass->ImplementsInterface(AllowedClass)) || (ParentClass == AllowedClass))
 			{
 				bAllowedToSetBasedOnFilter = true;
 				break;
@@ -923,6 +994,23 @@ bool SPropertyEditorAsset::CanSetBasedOnCustomClasses( const FAssetData& InAsset
 	}
 
 	return bAllowedToSetBasedOnFilter;
+}
+
+UClass* SPropertyEditorAsset::GetObjectPropertyClass(const UProperty* Property)
+{
+	UClass* Class = NULL;
+
+	if (Cast<const UObjectPropertyBase>(Property) != NULL)
+	{
+		Class = Cast<const UObjectPropertyBase>(Property)->PropertyClass;
+	}
+	else if (Cast<const UInterfaceProperty>(Property) != NULL)
+	{
+		Class = Cast<const UInterfaceProperty>(Property)->InterfaceClass;
+	}
+
+	check(Class != NULL);
+	return Class;
 }
 
 #undef LOCTEXT_NAMESPACE

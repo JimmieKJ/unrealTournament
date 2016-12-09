@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "Core.h"
-#include "OpenGLShaderResources.h"
+#include "CoreMinimal.h"
+#include "OpenGLDrv.h"
 
 typedef TArray<ANSICHAR> FAnsiCharArray;
 

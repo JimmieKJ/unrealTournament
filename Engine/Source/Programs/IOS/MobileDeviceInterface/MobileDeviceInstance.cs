@@ -1,4 +1,4 @@
-﻿// Software License Agreement (BSD License)
+// Software License Agreement (BSD License)
 // 
 // Copyright (c) 2007, Peter Dennis Bartok <PeterDennisBartok@gmail.com>
 // All rights reserved.
@@ -91,11 +91,16 @@ namespace Manzana
         /// <param name="myDisconnectHandler"></param>
         public static void Initialize(ConnectEventHandler myConnectHandler, ConnectEventHandler myDisconnectHandler)
         {
-            ConnectEH += myConnectHandler;
+			if (MobileDevice.DeviceImpl == null)
+			{
+				return;
+			}
+
+			ConnectEH += myConnectHandler;
             DisconnectEH += myDisconnectHandler;
         
             DeviceCallbackHandle = new DeviceNotificationCallback(NotifyCallback);
-            
+
             int ret = MobileDevice.DeviceImpl.NotificationSubscribe(DeviceCallbackHandle);
             if (ret != 0)
             {
@@ -179,6 +184,7 @@ namespace Manzana
         internal TypedPtr<AppleMobileDeviceConnection> iPhoneHandle;
         internal TypedPtr<AFCCommConnection> AFCCommsHandle;
         internal IntPtr hService;
+        internal IntPtr hSyslogService;
         internal IntPtr hInstallService;
         public bool connected;
         private string current_directory;
@@ -1328,7 +1334,41 @@ namespace Manzana
             CopyFileToPhone(SourceFile, "PublicStaging/" + IpaFilename);
             //Dictionary<string, string> fi = GetFileInfo("/PublicStaging/" + IpaFilename);
         }
+		
+		public bool StartSyslogService()
+		{
+			if (MobileDevice.DeviceImpl.Connect(iPhoneHandle) != 0)
+            {
+				Console.WriteLine("Connect: Failed to Connect");
+                return false;
+            }
+            
+			if (MobileDevice.DeviceImpl.StartSession(iPhoneHandle) == 1)
+            {
+				Console.WriteLine("Connect: Couldn't start session");
+                return false;
+            }
 
+			if (MobileDevice.DeviceImpl.SecureStartService(iPhoneHandle, MobileDevice.CFStringMakeConstantString("com.apple.syslog_relay"), 0, ref hSyslogService) != 0)
+            {
+				Console.WriteLine("Connect: Couldn't Start syslog relay service");
+                return false;
+            }
+			
+			return true;
+		}
+		
+		public string GetSyslogData()
+		{
+			return MobileDevice.DeviceImpl.ServiceConnectionReceive(hSyslogService);
+		}
+		
+		public void StopSyslogService()
+		{
+			MobileDevice.DeviceImpl.StopSession(iPhoneHandle);
+			MobileDevice.DeviceImpl.Disconnect(iPhoneHandle);
+		}
+		
         #region Private Methods
         public bool ConnectToPhone()
         {

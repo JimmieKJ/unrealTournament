@@ -2,8 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 #include "STutorialsBrowser.h"
 #include "STutorialOverlay.h"
+
+class SWindow;
+class UEditorTutorial;
 
 /** Delegate fired when next button is clicked */
 DECLARE_DELEGATE_OneParam(FOnNextClicked, TWeakPtr<SWindow> /*InNavigationWindow*/);

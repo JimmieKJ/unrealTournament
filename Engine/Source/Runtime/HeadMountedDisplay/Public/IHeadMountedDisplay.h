@@ -2,10 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 #include "StereoRendering.h"
-#include "Layout/SlateRect.h"
 #include "Kismet/HeadMountedDisplayFunctionLibrary.h"
 #include "HeadMountedDisplayTypes.h"
+
+class FPrimitiveSceneInfo;
+class FSceneInterface;
+class ISceneViewExtension;
+class UCanvas;
+class USceneComponent;
+struct FPostProcessSettings;
+struct FWorldContext;
 
 /**
  * HMD device interface
@@ -95,7 +104,16 @@ public:
 	//DEPRECATED(4.13, "Please use GetNumOfTrackingSensors / GetTrackingSensorProperties functions")
 	virtual void	GetPositionalTrackingCameraProperties(FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const
 	{
-		GetTrackingSensorProperties(0, OutOrigin, OutOrientation, OutHFOV, OutVFOV, OutCameraDistance, OutNearPlane, OutFarPlane);
+
+		float LeftFOV; 
+		float RightFOV; 
+		float TopFOV; 
+		float BottomFOV;
+		if (GetTrackingSensorProperties(0, OutOrigin, OutOrientation, LeftFOV, RightFOV, TopFOV, BottomFOV, OutCameraDistance, OutNearPlane, OutFarPlane))
+		{
+			OutHFOV = LeftFOV + RightFOV;
+			OutVFOV = TopFOV + BottomFOV;
+		}
 	}
 
 	/**
@@ -107,7 +125,7 @@ public:
 	 * If the HMD supports positional tracking via a sensor, this returns the frustum properties (all in game-world space) of the sensor.
 	 * Returns false, if the sensor at the specified index is not available.
 	 */
-	virtual bool	GetTrackingSensorProperties(uint8 InSensorIndex, FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const { return false; }
+	virtual bool	GetTrackingSensorProperties(uint8 InSensorIndex, FVector& OutOrigin, FQuat& OutOrientation, float& OutLeftFOV, float& OutRightFOV, float& OutTopFOV, float& OutBottomFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const { return false; }
 
 	/**
 	 * Accessors to modify the interpupillary distance (meters)

@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "HittestGrid.h"
-#include "ActiveTimerHandle.h"
+#include "Application/SlateApplicationBase.h"
+#include "Widgets/SWindow.h"
+#include "Layout/WidgetPath.h"
+#include "Application/ActiveTimerHandle.h"
 
 
 /* Static initialization

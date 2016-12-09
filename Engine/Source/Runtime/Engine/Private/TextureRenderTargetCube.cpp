@@ -4,9 +4,12 @@
 	TextureRenderTargetCube.cpp: UTextureRenderTargetCube implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Engine/TextureRenderTargetCube.h"
-#include "DDSLoader.h"
+#include "RenderUtils.h"
+#include "TextureResource.h"
+#include "UnrealEngine.h"
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
 #include "Engine/TextureCube.h"
 
 /*-----------------------------------------------------------------------------
@@ -51,8 +54,10 @@ void UTextureRenderTargetCube::InitAutoFormat(uint32 InSizeX)
 }
 
 
-SIZE_T UTextureRenderTargetCube::GetResourceSize(EResourceSizeMode::Type Mode)
+void UTextureRenderTargetCube::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
+	Super::GetResourceSizeEx(CumulativeResourceSize);
+
 	// Calculate size based on format.
 	EPixelFormat Format = GetFormat();
 	int32 BlockSizeX	= GPixelFormats[Format].BlockSizeX;
@@ -62,7 +67,7 @@ SIZE_T UTextureRenderTargetCube::GetResourceSize(EResourceSizeMode::Type Mode)
 	int32 NumBlocksY	= (SizeX + BlockSizeY - 1) / BlockSizeY;
 	int32 NumBytes	= NumBlocksX * NumBlocksY * BlockBytes * 6;
 
-	return NumBytes;
+	CumulativeResourceSize.AddUnknownMemoryBytes(NumBytes);
 }
 
 
@@ -293,7 +298,7 @@ void FTextureRenderTargetCubeResource::UpdateDeferredResource(FRHICommandListImm
 		{
 			SetRenderTarget(RHICmdList, RenderTargetTextureRHI, FTextureRHIParamRef(), true);
 			RHICmdList.SetViewport(0, 0, 0.0f, Dims.X, Dims.Y, 1.0f);
-			RHICmdList.Clear(true, Owner->ClearColor, false, 0.f, false, 0, FIntRect());
+			RHICmdList.ClearColorTexture(RenderTargetTextureRHI, Owner->ClearColor, FIntRect());
 		}
 
 		// copy surface to the texture for use

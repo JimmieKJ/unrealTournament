@@ -72,6 +72,12 @@ FOnlineIdentityFacebook::FOnlineIdentityFacebook()
 		// Default to 30 seconds
 		MaxCheckElapsedTime = 30.f;
 	}
+
+	// @HSL_BEGIN - Josh.May - 10/04/2016 - Added permission scope fields
+	GConfig->GetArray(TEXT("OnlineSubsystemFacebook.OnlineIdentityFacebook"), TEXT("ScopeFields"), ScopeFields, GEngineIni);
+	// always required fields
+	ScopeFields.AddUnique(TEXT("public_profile"));
+	// @HSL_END - Josh.May - 10/04/2016
 }
 
 /**
@@ -242,8 +248,14 @@ bool FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FOnlineAccountCred
 		// random number to represent client generated state for verification on login
 		State = FString::FromInt(FMath::Rand() % 100000);
 		// auth url to spawn in browser
-		const FString& Command = FString::Printf(TEXT("%s?redirect_uri=%s&client_id=%s&state=%s&response_type=token"), 
-			*LoginUrl, *LoginRedirectUrl, *ClientId, *State);
+
+		// @HSL_BEGIN - Josh.May - 10/04/2016 - Added permission scope fields
+		FString Scopes = FString::Join(ScopeFields, TEXT(","));
+
+		const FString& Command = FString::Printf(TEXT("%s?redirect_uri=%s&client_id=%s&state=%s&response_type=token&scope=%s"), 
+			*LoginUrl, *LoginRedirectUrl, *ClientId, *State, *Scopes);
+		// @HSL_END - Josh.May - 10/04/2016
+
 		// This should open the browser with the command as the URL
 		if (FPlatformMisc::OsExecute(TEXT("open"), *Command))
 		{

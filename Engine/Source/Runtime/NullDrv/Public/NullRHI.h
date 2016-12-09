@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/ResourceArray.h"
+#include "RHI.h"
+
+struct Rect;
 
 /** A null implementation of the dynamically bound RHI. */
 class FNullDynamicRHI : public FDynamicRHI , public IRHICommandContext
@@ -772,19 +777,18 @@ public:
 	}
 	virtual void RHIEndDrawIndexedPrimitiveUP() final override
 	{
-
 	}
-	virtual void RHIClear(bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) final override
+	virtual void RHIClearColorTexture(FTextureRHIParamRef Texture, const FLinearColor& Color, FIntRect ExcludeRect) final override
 	{
-
 	}
-	virtual void RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) final override
+	virtual void RHIClearDepthStencilTexture(FTextureRHIParamRef Texture, EClearDepthStencil ClearDepthStencil, float Depth, uint32 Stencil, FIntRect ExcludeRect) final override
 	{
-
+	}
+	virtual void RHIClearColorTextures(int32 NumTextures, FTextureRHIParamRef* Textures, const FLinearColor* ColorArray, FIntRect ExcludeRect) final override
+	{
 	}
 	virtual void RHIBlockUntilGPUIdle() final override
 	{
-
 	}
 	virtual bool RHIEnqueueDecompress(uint8_t*, uint8_t*, int, void*) final override
 	{

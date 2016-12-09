@@ -8,6 +8,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/StringAssetReference.h"
+#include "UObject/AssetPtr.h"
 #include "PreviewAssetAttachComponent.generated.h"
 
 /** Preview items that are attached to the skeleton **/
@@ -83,6 +88,14 @@ public:
 	ENGINE_API void AddAttachedObject( UObject* AttachObject, FName AttachPointName );
 
 	/**
+	* Adds the given Name/Object uniquely to the PreviewAttachedObjects list. Allows us to recreate the attached objects later
+	*
+	* @param	AttachObject		The object that is being attached
+	* @param	AttachPointName		The place where the object is attached (bone or socket)
+	*/
+	ENGINE_API void AddUniqueAttachedObject(UObject* AttachObject, FName AttachPointName);
+
+	/**
 	 * Remove the given object from the attached list
 	 *
 	 * @param	ObjectToRemove		The object that is being removed
@@ -111,6 +124,11 @@ public:
 	 * operator [] - pipes through to AttachedObjects
 	 */
 	ENGINE_API FPreviewAttachedObjectPair& operator[]( int32 i );
+
+	/**
+	* operator [] - pipes through to AttachedObjects
+	*/
+	ENGINE_API const FPreviewAttachedObjectPair& operator[](int32 i) const;
 
 	/**
 	 * Const iterator creator for AttachedObjects

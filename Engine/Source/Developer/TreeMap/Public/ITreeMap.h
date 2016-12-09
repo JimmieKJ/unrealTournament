@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Styling/CoreStyle.h"
+
+class FTreeMapAttributeData;
+class FTreeMapNodeData;
 
 typedef TSharedRef< class FTreeMapAttributeData > FTreeMapAttributeDataRef;
 typedef TSharedPtr< class FTreeMapAttributeData > FTreeMapAttributeDataPtr;

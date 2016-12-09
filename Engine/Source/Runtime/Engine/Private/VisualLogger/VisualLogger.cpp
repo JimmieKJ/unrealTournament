@@ -1,16 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "VisualLogger/VisualLogger.h"
+#include "Misc/CoreMisc.h"
+#include "GameFramework/Actor.h"
+#include "Modules/ModuleInterface.h"
+#include "Misc/CommandLine.h"
+#include "Serialization/CustomVersion.h"
+#include "Modules/ModuleManager.h"
+#include "EngineGlobals.h"
+#include "AI/NavDataGenerator.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Framework/Docking/TabManager.h"
 #include "VisualLogger/VisualLoggerBinaryFileDevice.h"
 #include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
+#include "Engine/Engine.h"
+#include "TimerManager.h"
+
 #if WITH_EDITOR
-#	include "Editor/UnrealEd/Public/EditorComponents.h"
-#	include "Editor/UnrealEd/Public/EditorReimportHandler.h"
-#	include "Editor/UnrealEd/Public/TexAlignTools.h"
-#	include "Editor/UnrealEd/Public/TickableEditorObject.h"
-#	include "Editor/UnrealEd/Public/Editor.h"
-#	include "Editor/UnrealEd/Public/EditorViewportClient.h"
+#include "Editor/EditorEngine.h"
 #endif
 
 
@@ -582,9 +589,6 @@ FCustomVersionRegistration GVisualLoggerVersion(EVisualLoggerVersion::GUID, EVis
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
-#if WITH_EDITOR
-#include "SlateBasics.h"
-#endif
 static class FLogVisualizerExec : private FSelfRegisteringExec
 {
 public:

@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrackInst.h"
 #include "InterpTrackInstEvent.generated.h"
+
+class UInterpTrack;
 
 UCLASS(MinimalAPI)
 class UInterpTrackInstEvent : public UInterpTrackInst

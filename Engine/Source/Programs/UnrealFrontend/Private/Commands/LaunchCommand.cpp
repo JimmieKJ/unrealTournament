@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealFrontendPrivatePCH.h"
 #include "LaunchCommand.h"
-#include "Projects.h"
-#include "TargetPlatform.h"
+#include "IPluginManager.h"
+#include "ITargetPlatform.h"
+#include "ITargetPlatformManagerModule.h"
 #include "TaskGraphInterfaces.h"
-
+#include "Misc/CommandLine.h"
+#include "Containers/Ticker.h"
+#include "HAL/PlatformProcess.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/CoreMisc.h"
 
 bool FLaunchCommand::Run( const FString& Params )
 {

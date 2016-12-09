@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+
+class FConfigFile;
 
 /**
 *  Holds FullCrashDump properties from the config.
@@ -88,6 +91,11 @@ struct FCrashReportClientConfig
 		return bIsAllowedToCloseWithoutSending;
 	}
 
+	int GetUserCommentSizeLimit() const
+	{
+		return UserCommentSizeLimit;
+	}
+
 	void SetAllowToBeContacted( bool bNewValue );
 	void SetSendLogFile( bool bNewValue );
 
@@ -139,4 +147,7 @@ protected:
 
 	/** Whether the user is allowed to close the crash reporter without sending a report */
 	bool bIsAllowedToCloseWithoutSending;
+
+	/** Size limit for the description of multi-line text */
+	int UserCommentSizeLimit;
 };

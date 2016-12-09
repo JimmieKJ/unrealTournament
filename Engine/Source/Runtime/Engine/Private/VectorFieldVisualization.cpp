@@ -4,16 +4,14 @@
 	VectorFieldVisualization.cpp: Visualization of vector fields.
 ==============================================================================*/
 
-#include "EnginePrivate.h"
 #include "VectorFieldVisualization.h"
-#include "VectorField.h"
-#include "RenderResource.h"
-#include "UniformBuffer.h"
-#include "ShaderParameters.h"
-#include "ShaderParameterUtils.h"
 #include "RHIStaticStates.h"
-#include "GlobalShader.h"
 #include "SceneManagement.h"
+#include "VectorField.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Materials/Material.h"
+#include "ShaderParameterUtils.h"
 #include "FXSystem.h"
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FVectorFieldVisualizationParameters,TEXT("VectorFieldVis"));

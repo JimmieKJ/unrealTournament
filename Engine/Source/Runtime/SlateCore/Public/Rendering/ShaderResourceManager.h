@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateBrush.h"
+#include "Textures/SlateShaderResource.h"
+#include "Textures/SlateTextureData.h"
+
 class ISlateAtlasProvider;
 
 /**
@@ -62,7 +67,7 @@ public:
 	virtual FSlateResourceHandle GetResourceHandle( const FSlateBrush& InBrush );
 
 
-	virtual FSlateShaderResource* GetFontShaderResource( uint32 FontAtlasIndex, FSlateShaderResource* FontTextureAtlas, const class UObject* FontMaterial ) { return FontTextureAtlas; }
+	virtual FSlateShaderResource* GetFontShaderResource( int32 InTextureAtlasIndex, FSlateShaderResource* FontTextureAtlas, const class UObject* FontMaterial ) { return FontTextureAtlas; }
 
 	/**
 	 * Returns the way to access the texture atlas information from this resource manager

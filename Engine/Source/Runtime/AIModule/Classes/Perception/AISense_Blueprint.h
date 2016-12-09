@@ -2,15 +2,17 @@
 
 #pragma once
 
-#include "Perception/AIPerceptionSystem.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Templates/SubclassOf.h"
 #include "Perception/AISense.h"
 #include "AISense_Blueprint.generated.h"
 
-class AActor;
-class UUserDefinedStruct;
-class UAISenseBlueprintListener;
+class APawn;
 class UAIPerceptionComponent;
 class UAISenseEvent;
+class UUserDefinedStruct;
 
 UCLASS(ClassGroup = AI, Abstract, Blueprintable)
 class AIMODULE_API UAISense_Blueprint : public UAISense

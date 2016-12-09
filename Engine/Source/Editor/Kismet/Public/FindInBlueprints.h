@@ -2,7 +2,26 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Misc/Guid.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Layout/Visibility.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Textures/SlateIcon.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "EdGraph/EdGraphSchema.h"
 #include "FindInBlueprintManager.h"
+
+class FBlueprintEditor;
+class FFindInBlueprintsResult;
+class FImaginaryFiBData;
 
 typedef TSharedPtr<class FFindInBlueprintsResult> FSearchResult;
 typedef STreeView<FSearchResult>  STreeViewType;
@@ -40,7 +59,7 @@ namespace FindInBlueprintsHelpers
 	/** Looks up a JsonValue's FText from the passed lookup table */
 	FText AsFText(int32 InValue, const TMap<int32, FText>& InLookupTable);
 
-	bool IsTextEqualToString(FText InText, FString InString);
+	bool IsTextEqualToString(const FText& InText, const FString& InString);
 
 	/**
 	 * Retrieves the pin type as a string value

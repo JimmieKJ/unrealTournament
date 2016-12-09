@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrackInst.h"
 #include "InterpTrackInstSound.generated.h"
+
+class UInterpTrack;
 
 UCLASS()
 class UInterpTrackInstSound : public UInterpTrackInst

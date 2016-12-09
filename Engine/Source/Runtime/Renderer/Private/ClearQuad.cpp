@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RendererPrivate.h"
+#include "ClearQuad.h"
+#include "StaticBoundShaderState.h"
+#include "Shader.h"
+#include "RHIStaticStates.h"
 #include "OneColorShader.h"
 
 FGlobalBoundShaderState GClearMRTBoundShaderState[8];

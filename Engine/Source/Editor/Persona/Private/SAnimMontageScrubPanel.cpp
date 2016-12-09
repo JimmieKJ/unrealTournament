@@ -1,24 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "PersonaPrivatePCH.h"
 #include "SAnimMontageScrubPanel.h"
-#include "SMontageEditor.h"
 #include "AnimPreviewInstance.h"
 
 // keep localization same
 #define LOCTEXT_NAMESPACE "AnimationScrubPanel"
 
-void SAnimMontageScrubPanel::Construct( const SAnimMontageScrubPanel::FArguments& InArgs )
+void SAnimMontageScrubPanel::Construct( const SAnimMontageScrubPanel::FArguments& InArgs, const TSharedRef<IPersonaPreviewScene>& InPreviewScene)
 {
 	MontageEditor = InArgs._MontageEditor;
 	SAnimationScrubPanel::Construct( SAnimationScrubPanel::FArguments()
-		.Persona(InArgs._Persona)
 		.LockedSequence(InArgs._LockedSequence)
 		.ViewInputMin(InArgs._ViewInputMin)
 		.ViewInputMax(InArgs._ViewInputMax)
 		.OnSetInputViewRange(InArgs._OnSetInputViewRange)
 		.OnCropAnimSequence(InArgs._OnCropAnimSequence)
 		.OnReZeroAnimSequence(InArgs._OnReZeroAnimSequence)
-		.bAllowZoom(InArgs._bAllowZoom)
+		.bAllowZoom(InArgs._bAllowZoom),
+		InPreviewScene
 		);
 }
 

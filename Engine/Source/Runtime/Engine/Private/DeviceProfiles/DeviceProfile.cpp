@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "DeviceProfiles/DeviceProfile.h"
+#include "Misc/Paths.h"
+#include "UObject/Package.h"
+#include "UObject/UnrealType.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 
 UDeviceProfile::UDeviceProfile(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -111,7 +115,7 @@ void UDeviceProfile::PostEditChangeProperty( FPropertyChangedEvent& PropertyChan
 				if( !ParentProfile->IsPendingKill() )
 				{
 					int32 ProfileGeneration = 1;
-					while( ParentProfile != NULL )
+					do
 					{
 						if( this->GetName() == ParentProfile->BaseProfileName )
 						{
@@ -122,7 +126,7 @@ void UDeviceProfile::PostEditChangeProperty( FPropertyChangedEvent& PropertyChan
 
 						ParentProfile = FindObject<UDeviceProfile>( GetTransientPackage(), *ParentProfile->BaseProfileName );
 						++ProfileGeneration;
-					}
+					} while ( ParentProfile );
 				}
 			}
 

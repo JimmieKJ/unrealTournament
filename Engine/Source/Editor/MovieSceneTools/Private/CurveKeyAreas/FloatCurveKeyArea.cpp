@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
 #include "FloatCurveKeyArea.h"
-#include "SFloatCurveKeyEditor.h"
-#include "MovieSceneClipboard.h"
+#include "UObject/StructOnScope.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "MovieSceneTrack.h"
+#include "MovieSceneCommonHelpers.h"
+#include "ClipboardTypes.h"
+#include "CurveKeyEditors/SFloatCurveKeyEditor.h"
 #include "SequencerClipboardReconciler.h"
 
 /* IKeyArea interface
@@ -26,15 +29,16 @@ TArray<FKeyHandle> FFloatCurveKeyArea::AddKeyUnique(float Time, EMovieSceneKeyIn
 			OwningSection->SetEndTime(Time);
 		}
 
-		float Value = Curve->Eval(Time);
-
-		if (TimeToCopyFrom != FLT_MAX)
+		float Value;
+		if (ExternalValue.IsSet() && ExternalValue.Get().IsSet() && TimeToCopyFrom == FLT_MAX)
 		{
-			Value = Curve->Eval(TimeToCopyFrom);
+			Value = ExternalValue.Get().GetValue();
 		}
-		else if ( IntermediateValue.IsSet() )
+		else
 		{
-			Value = IntermediateValue.GetValue();
+			float EvalTime = TimeToCopyFrom != FLT_MAX ? Time : TimeToCopyFrom;
+			float DefaultValue = 0;
+			Value = Curve->Eval(EvalTime, DefaultValue);
 		}
 
 		Curve->AddKey(Time, Value, false, CurrentKeyHandle);
@@ -58,10 +62,10 @@ TArray<FKeyHandle> FFloatCurveKeyArea::AddKeyUnique(float Time, EMovieSceneKeyIn
 			CurrentKey.LeaveTangentWeight = KeyToCopy.LeaveTangentWeight;
 		}
 	}
-	else if ( IntermediateValue.IsSet() )
+	else if (ExternalValue.IsSet() && ExternalValue.Get().IsSet())
 	{
-		float Value = IntermediateValue.GetValue();
-		Curve->UpdateOrAddKey(Time,Value);
+		float Value = ExternalValue.Get().GetValue();
+		Curve->UpdateOrAddKey(Time, Value);
 	}
 
 	return AddedKeyHandles;
@@ -95,10 +99,7 @@ TSharedRef<SWidget> FFloatCurveKeyArea::CreateKeyEditor(ISequencer* Sequencer)
 		.Sequencer(Sequencer)
 		.OwningSection(OwningSection)
 		.Curve(Curve)
-		.OnValueChanged(this, &FFloatCurveKeyArea::OnValueChanged)
-		.IntermediateValue_Lambda([this] {
-			return IntermediateValue;
-		});
+		.ExternalValue(ExternalValue);
 };
 
 
@@ -228,7 +229,7 @@ void FFloatCurveKeyArea::SetKeyTangentMode(FKeyHandle KeyHandle, ERichCurveTange
 }
 
 
-void FFloatCurveKeyArea::SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) const
+void FFloatCurveKeyArea::SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime)
 {
 	Curve->SetKeyTime(KeyHandle, NewKeyTime);
 }
@@ -297,9 +298,4 @@ void FFloatCurveKeyArea::PasteKeys(const FMovieSceneClipboardKeyTrack& KeyTrack,
 
 		return true;
 	});
-}
-
-void FFloatCurveKeyArea::OnValueChanged(float InValue)
-{
-	ClearIntermediateValue();
 }

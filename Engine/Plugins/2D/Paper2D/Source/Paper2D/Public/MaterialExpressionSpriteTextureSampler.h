@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "Runtime/Engine/Classes/Materials/MaterialExpressionTextureSampleParameter2D.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Materials/MaterialExpressionTextureSampleParameter2D.h"
 #include "MaterialExpressionSpriteTextureSampler.generated.h"
+
+struct FPropertyChangedEvent;
 
 // This is a texture sampler 2D with a special automatically defined parameter name. The texture specified here will be replaced by the SourceTexture or an AdditionalSourceTextures entry of a Paper2D sprite if this material is used on a sprite.
 UCLASS(hideCategories=(MaterialExpressionTextureSampleParameter, MaterialExpressionSpriteTextureSampler))

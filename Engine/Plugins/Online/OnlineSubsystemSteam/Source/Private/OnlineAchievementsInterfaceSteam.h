@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "OnlineAchievementsInterface.h"
+#include "CoreMinimal.h"
 #include "OnlineSubsystemSteamTypes.h"
-#include "OnlineAchievementsInterface.h"
+#include "Interfaces/OnlineAchievementsInterface.h"
+#include "Misc/ConfigCacheIni.h"
 
 /**
  *	IOnlineAchievements - Interface class for acheivements

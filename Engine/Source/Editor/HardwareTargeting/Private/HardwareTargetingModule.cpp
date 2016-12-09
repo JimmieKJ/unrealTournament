@@ -1,18 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HardwareTargetingPrivatePCH.h"
 #include "HardwareTargetingModule.h"
-#include "HardwareTargetingSettings.h"
-#include "Internationalization.h"
+#include "HAL/FileManager.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UnrealType.h"
+#include "GameMapsSettings.h"
+#include "GameFramework/InputSettings.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Textures/SlateIcon.h"
+#include "EditorStyleSet.h"
 #include "ISettingsModule.h"
-#include "ModuleManager.h"
+#include "Widgets/SWidget.h"
 #include "SDecoratedEnumCombo.h"
 
-#include "Runtime/Engine/Classes/Engine/RendererSettings.h"
-#include "Editor/Documentation/Public/IDocumentation.h"
-#include "GameFramework/InputSettings.h"
-#include "GameMapsSettings.h"
-#include "EditorProjectSettings.h"
+#include "Engine/RendererSettings.h"
+#include "Widgets/SToolTip.h"
+#include "IDocumentation.h"
+#include "Settings/EditorProjectSettings.h"
 
 #define LOCTEXT_NAMESPACE "HardwareTargeting"
 
@@ -306,7 +310,7 @@ IHardwareTargetingModule& IHardwareTargetingModule::Get()
 	return Instance;
 }
 
-IMPLEMENT_MODULE(FHardwareTargetingModule, HardwareTarget);
+IMPLEMENT_MODULE(FHardwareTargetingModule, HardwareTargeting);
 
 #undef UE_META_SETTING_ENTRY
 #undef LOCTEXT_NAMESPACE

@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "SessionLogMessage.h"
+#include "Models/SessionConsoleCategoryFilter.h"
+#include "Models/SessionConsoleVerbosityFilter.h"
+
+class SCheckBox;
 
 /**
  * Implements the console filter bar widget.
@@ -33,7 +44,7 @@ public:
 	 * @param LogMessage The log message to filter.
 	 * @return true if the log message passed the filter, false otherwise.
 	 */
-	bool FilterLogMessage(const FSessionLogMessageRef& LogMessage);
+	bool FilterLogMessage(const TSharedRef<FSessionLogMessage>& LogMessage);
 
 	/**
 	 * Gets the current filter string.

@@ -6,7 +6,16 @@
 
 #pragma once
 
-#include "Audio.h"
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+
+class AActor;
+class FSoundSource;
+class UPrimitiveComponent;
+class USoundWave;
+class UTexture2D;
+struct FStreamingManagerTexture;
+struct FWaveInstance;
 
 /*-----------------------------------------------------------------------------
 	Stats.
@@ -17,6 +26,8 @@ class UPrimitiveComponent;
 class AActor;
 class UTexture2D;
 class FSoundSource;
+class USoundWave;
+struct FWaveInstance;
 struct FStreamingManagerTexture;
 
 /** Helper function to flush resource streaming. */
@@ -388,6 +399,9 @@ struct ITextureStreamingManager : public IStreamingManager
 
 	virtual int64 GetMemoryOverBudget() const = 0;
 
+	/** Pool size for streaming. */
+	virtual int64 GetPoolSize() const = 0;
+
 	/** Max required textures ever seen in bytes. */
 	virtual int64 GetMaxEverRequired() const = 0;
 
@@ -433,7 +447,7 @@ struct IAudioStreamingManager : public IStreamingManager
 	 * @param ChunkIndex	Index of the chunk we want
 	 * @return Either the desired chunk or NULL if it's not loaded
 	 */
-	virtual const uint8* GetLoadedChunk(const USoundWave* SoundWave, uint32 ChunkIndex) const = 0;
+	virtual const uint8* GetLoadedChunk(const USoundWave* SoundWave, uint32 ChunkIndex, uint32* OutChunkSize = NULL) const = 0;
 };
 
 /**

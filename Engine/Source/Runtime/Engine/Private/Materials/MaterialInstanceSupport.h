@@ -6,6 +6,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RenderingThread.h"
+#include "MaterialShared.h"
+#include "Materials/MaterialInstance.h"
+
+class UTexture;
+
 /**
  * Cache uniform expressions for the given material instance.
  * @param MaterialInstance - The material instance for which to cache uniform expressions.

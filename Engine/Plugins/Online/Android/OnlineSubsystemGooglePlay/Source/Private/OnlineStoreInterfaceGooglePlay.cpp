@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemGooglePlayPrivatePCH.h"
+#include "OnlineStoreInterfaceGooglePlay.h"
 #include "OnlineAsyncTaskGooglePlayQueryInAppPurchases.h"
 #include "TaskGraphInterfaces.h"
+#include "Misc/ConfigCacheIni.h"
+#include "OnlineSubsystem.h"
+#include "OnlineSubsystemGooglePlay.h"
 #include <jni.h>
 
 

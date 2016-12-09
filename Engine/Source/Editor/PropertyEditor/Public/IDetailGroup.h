@@ -2,9 +2,11 @@
 
 #pragma once
 
-class IDetailPropertyRow;
+#include "CoreMinimal.h"
+#include "PropertyHandle.h"
+
 class FDetailWidgetRow;
-class IPropertyHandle;
+class IDetailPropertyRow;
 
 /**
  * A group in the details panel that can have children                                                              

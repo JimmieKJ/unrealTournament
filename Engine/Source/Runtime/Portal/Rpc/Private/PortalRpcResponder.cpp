@@ -1,13 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PortalRpcPrivatePCH.h"
 #include "PortalRpcResponder.h"
+#include "IMessageContext.h"
+#include "Helpers/MessageEndpoint.h"
+#include "Helpers/MessageEndpointBuilder.h"
 #include "IPortalRpcResponder.h"
-#include "IMessageRpcServer.h"
+#include "HAL/PlatformProcess.h"
 #include "IPortalRpcServer.h"
 #include "PortalRpcMessages.h"
-#include "ModuleManager.h"
-#include "GenericPlatformMisc.h"
 
 class FPortalRpcResponderImpl
 	: public IPortalRpcResponder
@@ -89,5 +89,11 @@ private:
 
 TSharedRef<IPortalRpcResponder> FPortalRpcResponderFactory::Create()
 {
-	return MakeShareable(new FPortalRpcResponderImpl(FPlatformMisc::GetMacAddressString(), FPlatformProcess::UserName(false)));
+	// @todo: this need to use GetLoginId, but we need to deprecate this functionality over time.
+	// eventually, when GetMacAddressString is removed from the codebase, this coude will need to be removed also.
+	// In the meantime, it needs to handle BOTH the old Mac address and FPlatformMisc::GetLoginId as a way of recognizing the local machine.
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	FString Identifier = FPlatformMisc::GetMacAddressString();
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	return MakeShareable(new FPortalRpcResponderImpl(Identifier, FPlatformProcess::UserName(false)));
 }

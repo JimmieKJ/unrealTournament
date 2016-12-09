@@ -2,7 +2,9 @@
 
 #pragma once
 
-struct FWidgetReference;
+#include "CoreMinimal.h"
+#include "Layout/Geometry.h"
+#include "WidgetReference.h"
 
 /**
  * The logical type of transform that can be applied to a widget.

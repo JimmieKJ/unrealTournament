@@ -2,6 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Layout/Visibility.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class FAssetThumbnail;
+class USceneThumbnailInfo;
+class USceneThumbnailInfoWithPrimitive;
+struct FSlateBrush;
+
 class SThumbnailEditModeTools : public SCompoundWidget
 {
 public:

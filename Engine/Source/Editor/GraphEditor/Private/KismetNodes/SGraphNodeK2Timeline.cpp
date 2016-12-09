@@ -1,13 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeK2Base.h"
-#include "SGraphNodeK2Default.h"
-#include "SGraphNodeK2Timeline.h"
-#include "Editor/UnrealEd/Public/Kismet2/KismetDebugUtilities.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "KismetNodeInfoContext.h"
+#include "KismetNodes/SGraphNodeK2Timeline.h"
+#include "Editor/EditorEngine.h"
 #include "Components/TimelineComponent.h"
+#include "K2Node_Timeline.h"
+#include "Kismet2/KismetDebugUtilities.h"
+#include "KismetNodes/KismetNodeInfoContext.h"
 
 #define LOCTEXT_NAMESPACE "SGraphNodeK2Base"
 

@@ -5,6 +5,7 @@
  
 // Module includes
 #include "OnlineIdentityInterface.h"
+#include "OnlineJsonSerializer.h"
 #include "OnlineSubsystemFacebookPackage.h"
 
 /**

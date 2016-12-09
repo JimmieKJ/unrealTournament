@@ -19,15 +19,53 @@ enum EGraphAStarResult
 };
 
 /**
+ *	Default A* node class.
+ *	Extend this class and pass as a parameter to FGraphAStar for additional functionality
+ */
+template<typename TGraph>
+struct FGraphAStarDefaultNode
+{
+	typedef typename TGraph::FNodeRef FGraphNodeRef;
+
+	const FGraphNodeRef NodeRef;
+	FGraphNodeRef ParentRef;
+	float TraversalCost;
+	float TotalCost;
+	int32 SearchNodeIndex;
+	int32 ParentNodeIndex;
+	uint8 bIsOpened : 1;
+	uint8 bIsClosed : 1;
+
+	FGraphAStarDefaultNode(const FGraphNodeRef& InNodeRef)
+		: NodeRef(InNodeRef)
+		, ParentRef(INDEX_NONE)
+		, TraversalCost(FLT_MAX)
+		, TotalCost(FLT_MAX)
+		, SearchNodeIndex(INDEX_NONE)
+		, ParentNodeIndex(INDEX_NONE)
+		, bIsOpened(false)
+		, bIsClosed(false)
+	{}
+
+	FORCEINLINE void MarkOpened() { bIsOpened = true; }
+	FORCEINLINE void MarkNotOpened() { bIsOpened = false; }
+	FORCEINLINE void MarkClosed() { bIsClosed = true; }
+	FORCEINLINE void MarkNotClosed() { bIsClosed = false; }
+	FORCEINLINE bool IsOpened() const { return bIsOpened; }
+	FORCEINLINE bool IsClosed() const { return bIsClosed; }
+};
+
+/**
  *	Generic graph A* implementation
  *
- *	TGraph holds graph representation. Needs to implement two functions:
- *		int32 GetNeighbourCount(FNodeRef NodeRef) const;	- returns number of neighbours that the graph node identified with NodeRef has
- *		bool IsValidRef(FNodeRef NodeRef) const;			- returns whether given node identyfication is correct
- *	
- *	it also needs to specify node type 
+ *	TGraph holds graph representation. Needs to implement functions:
+ *		int32 GetNeighbourCount(FNodeRef NodeRef) const;										- returns number of neighbours that the graph node identified with NodeRef has
+ *		bool IsValidRef(FNodeRef NodeRef) const;												- returns whether given node identyfication is correct
+ *      FNodeRef GetNeighbour(const FNodeRef NodeRef, const int32 NeighbourIndex) const;		- returns neighbour ref
+ *
+ *	it also needs to specify node type
  *		FNodeRef		- type used as identification of nodes in the graph
-  *	
+ *
  *	TQueryFilter (FindPath's parameter) filter class is what decides which graph edges can be used and at what cost. It needs to implement following functions:
  *		float GetHeuristicScale() const;														- used as GetHeuristicCost's multiplier
  *		float GetHeuristicCost(const FNodeRef StartNodeRef, const FNodeRef EndNodeRef) const;	- estimate of cost from StartNodeRef to EndNodeRef
@@ -36,40 +74,11 @@ enum EGraphAStarResult
  *		bool WantsPartialSolution() const;														- whether to accept solutions that do not reach the goal
  *
  */
-template<typename TGraph, typename Policy = FGraphAStarDefaultPolicy>
+template<typename TGraph, typename Policy = FGraphAStarDefaultPolicy, typename TSearchNode = FGraphAStarDefaultNode<TGraph> >
 struct FGraphAStar
 {
 	typedef typename TGraph::FNodeRef FGraphNodeRef;
-
-	struct FSearchNode
-	{
-		const FGraphNodeRef NodeRef;
-		FGraphNodeRef ParentRef;
-		float TraversalCost;
-		float TotalCost;
-		int32 SearchNodeIndex;
-		int32 ParentNodeIndex;
-		uint8 bIsOpened : 1;
-		uint8 bIsClosed : 1;
-
-		FSearchNode(const FGraphNodeRef& InNodeRef)
-			: NodeRef(InNodeRef)
-			, ParentRef(INDEX_NONE)
-			, TraversalCost(FLT_MAX)
-			, TotalCost(FLT_MAX)
-			, SearchNodeIndex(INDEX_NONE)
-			, ParentNodeIndex(INDEX_NONE)			
-			, bIsOpened(false)
-			, bIsClosed(false)
-		{}
-
-		FORCEINLINE void MarkOpened() { bIsOpened = true; }
-		FORCEINLINE void MarkNotOpened() { bIsOpened = false; }
-		FORCEINLINE void MarkClosed() { bIsClosed = true; }
-		FORCEINLINE void MarkNotClosed() { bIsClosed = false; }
-		FORCEINLINE bool IsOpened() const { return bIsOpened; }
-		FORCEINLINE bool IsClosed() const { return bIsClosed; }
-	};
+	typedef TSearchNode FSearchNode;
 
 	struct FNodeSorter
 	{
@@ -165,6 +174,86 @@ struct FGraphAStar
 	}
 
 	/** 
+	 * Single run of A* loop: get node from open set and process neighbors 
+	 * returns true if loop should be continued
+	 */
+	template<typename TQueryFilter>
+	bool ProcessSingleNode(const FGraphNodeRef EndNodeRef, const bool bIsBound, const TQueryFilter& Filter, int32& OutBestNodeIndex, float& OutBestNodeCost)
+	{
+		// Pop next best node and put it on closed list
+		FSearchNode& ConsideredNode = OpenList.Pop();
+		ConsideredNode.MarkClosed();
+
+		// We're there, store and move to result composition
+		if (bIsBound && (ConsideredNode.NodeRef == EndNodeRef))
+		{
+			OutBestNodeIndex = ConsideredNode.SearchNodeIndex;
+			OutBestNodeCost = 0.f;
+			return false;
+		}
+
+		const float HeuristicScale = Filter.GetHeuristicScale();
+
+		// consider every neighbor of BestNode
+		const int32 NeighbourCount = Graph.GetNeighbourCount(ConsideredNode.NodeRef);
+		for (int32 NeighbourNodeIndex = 0; NeighbourNodeIndex < NeighbourCount; ++NeighbourNodeIndex)
+		{
+			const FGraphNodeRef NeighbourRef = Graph.GetNeighbour(ConsideredNode.NodeRef, NeighbourNodeIndex);
+
+			// validate and sanitize
+			if (Graph.IsValidRef(NeighbourRef) == false
+				|| NeighbourRef == ConsideredNode.ParentRef
+				|| NeighbourRef == ConsideredNode.NodeRef
+				|| Filter.IsTraversalAllowed(ConsideredNode.NodeRef, NeighbourRef) == false)
+			{
+				continue;
+			}
+
+			FSearchNode& NeighbourNode = NodePool.Get(NeighbourRef);
+
+			// Calculate cost and heuristic.
+			const float NewTraversalCost = Filter.GetTraversalCost(ConsideredNode.NodeRef, NeighbourNode.NodeRef) + ConsideredNode.TraversalCost;
+			const float NewHeuristicCost = bIsBound && (NeighbourNode.NodeRef != EndNodeRef)
+				? (Filter.GetHeuristicCost(NeighbourNode.NodeRef, EndNodeRef) * HeuristicScale)
+				: 0.f;
+			const float NewTotalCost = NewTraversalCost + NewHeuristicCost;
+
+			// check if this is better then the potential previous approach
+			if (NewTotalCost >= NeighbourNode.TotalCost)
+			{
+				// if not, skip
+				continue;
+			}
+
+			// fill in
+			NeighbourNode.TraversalCost = NewTraversalCost;
+			ensure(NewTraversalCost > 0);
+			NeighbourNode.TotalCost = NewTotalCost;
+			NeighbourNode.ParentRef = ConsideredNode.NodeRef;
+			NeighbourNode.ParentNodeIndex = ConsideredNode.SearchNodeIndex;
+			NeighbourNode.MarkNotClosed();
+
+			if (NeighbourNode.IsOpened() == false)
+			{
+				OpenList.Push(NeighbourNode);
+			}
+
+			// In case there's no path let's store information on
+			// "closest to goal" node
+			// using Heuristic cost here rather than Traversal or Total cost
+			// since this is what we'll care about if there's no solution - this node 
+			// will be the one estimated-closest to the goal
+			if (NewHeuristicCost < OutBestNodeCost)
+			{
+				OutBestNodeCost = NewHeuristicCost;
+				OutBestNodeIndex = NeighbourNode.SearchNodeIndex;
+			}
+		}
+
+		return true;
+	}
+
+	/** 
 	 *	Performs the actual search.
 	 *	@param [OUT] OutPath - on successful search contains a sequence of graph nodes representing 
 	 *		solution optimal within given constraints
@@ -182,8 +271,6 @@ struct FGraphAStar
 			return SearchSuccess;
 		}
 
-		const float HeuristicScale = Filter.GetHeuristicScale();
-
 		if (Policy::bReuseNodePoolInSubsequentSearches)
 		{
 			NodePool.ReinitNodes();
@@ -197,7 +284,7 @@ struct FGraphAStar
 		// kick off the search with the first node
 		FSearchNode& StartNode = NodePool.Add(FSearchNode(StartNodeRef));
 		StartNode.TraversalCost = 0;
-		StartNode.TotalCost = Filter.GetHeuristicCost(StartNodeRef, EndNodeRef) * HeuristicScale;
+		StartNode.TotalCost = Filter.GetHeuristicCost(StartNodeRef, EndNodeRef) * Filter.GetHeuristicScale();
 
 		OpenList.Push(StartNode);
 
@@ -205,75 +292,12 @@ struct FGraphAStar
 		float BestNodeCost = StartNode.TotalCost;
 
 		EGraphAStarResult Result = EGraphAStarResult::SearchSuccess;
-
-		while (OpenList.Num() > 0)
+		const bool bIsBound = true;
+		
+		bool bProcessNodes = true;
+		while (OpenList.Num() > 0 && bProcessNodes)
 		{
-			// Pop next best node and put it on closed list
-			FSearchNode& ConsideredNode = OpenList.Pop();
-			ConsideredNode.MarkClosed();
-			
-			// We're there, store and move to result composition
-			if (ConsideredNode.NodeRef == EndNodeRef)
-			{
-				BestNodeIndex = ConsideredNode.SearchNodeIndex;
-				BestNodeCost = 0.f;
-				break;
-			}
-
-			// consider every neighbor of BestNode
-			for (int32 NeighbourNodeIndex = 0; NeighbourNodeIndex < Graph.GetNeighbourCount(ConsideredNode.NodeRef); ++NeighbourNodeIndex)
-			{
-				const FGraphNodeRef NeighbourRef = Graph.GetNeighbour(ConsideredNode.NodeRef, NeighbourNodeIndex);
-				
-				// validate and sanitize
-				if (Graph.IsValidRef(NeighbourRef) == false
-					|| NeighbourRef == ConsideredNode.ParentRef
-					|| NeighbourRef == ConsideredNode.NodeRef
-					|| Filter.IsTraversalAllowed(ConsideredNode.NodeRef, NeighbourRef) == false)
-				{
-					continue;
-				}
-
-				FSearchNode& NeighbourNode = NodePool.Get(NeighbourRef);
-
-				// Calculate cost and heuristic.
-				const float NewTraversalCost = Filter.GetTraversalCost(ConsideredNode.NodeRef, NeighbourNode.NodeRef) + ConsideredNode.TraversalCost;
-				const float NewHeuristicCost = (NeighbourNode.NodeRef != EndNodeRef) 
-					? (Filter.GetHeuristicCost(NeighbourNode.NodeRef, EndNodeRef) * HeuristicScale)
-					: 0.f;
-				const float NewTotalCost = NewTraversalCost + NewHeuristicCost;
-
-				// check if this is better then the potential previous approach
-				if (NewTotalCost >= NeighbourNode.TotalCost)
-				{
-					// if not, skip
-					continue;
-				}
-
-				// fill in
-				NeighbourNode.TraversalCost = NewTraversalCost;
-				ensure(NewTraversalCost > 0);
-				NeighbourNode.TotalCost = NewTotalCost;
-				NeighbourNode.ParentRef = ConsideredNode.NodeRef;
-				NeighbourNode.ParentNodeIndex = ConsideredNode.SearchNodeIndex;
-				NeighbourNode.MarkNotClosed();
-
-				if (NeighbourNode.IsOpened() == false)
-				{
-					OpenList.Push(NeighbourNode);
-				}
-
-				// In case there's no path let's store information on
-				// "closest to goal" node
-				// using Heuristic cost here rather than Traversal or Total cost
-				// since this is what we'll care about if there's no solution - this node 
-				// will be the one estimated-closest to the goal
-				if (NewHeuristicCost < BestNodeCost)
-				{
-					BestNodeCost = NewHeuristicCost;
-					BestNodeIndex = NeighbourNode.SearchNodeIndex;
-				}
-			}
+			bProcessNodes = ProcessSingleNode(EndNodeRef, bIsBound, Filter, BestNodeIndex, BestNodeCost);
 		}
 
 		// check if we've reached the goal
@@ -313,5 +337,39 @@ struct FGraphAStar
 		}
 		
 		return Result;
+	}
+
+	/** Floods node pool until running out of either free nodes or open set  */
+	template<typename TQueryFilter>
+	EGraphAStarResult FloodFrom(const FGraphNodeRef StartNodeRef, const TQueryFilter& Filter)
+	{
+		if (!(Graph.IsValidRef(StartNodeRef)))
+		{
+			return SearchFail;
+		}
+
+		NodePool.Reset();
+		OpenList.Reset();
+
+		// kick off the search with the first node
+		FSearchNode& StartNode = NodePool.Add(FSearchNode(StartNodeRef));
+		StartNode.TraversalCost = 0;
+		StartNode.TotalCost = 0;
+
+		OpenList.Push(StartNode);
+
+		int32 BestNodeIndex = StartNode.SearchNodeIndex;
+		float BestNodeCost = StartNode.TotalCost;
+		
+		const FGraphNodeRef FakeEndNodeRef = StartNodeRef;
+		const bool bIsBound = false;
+
+		bool bProcessNodes = true;
+		while (OpenList.Num() > 0 && bProcessNodes)
+		{
+			bProcessNodes = ProcessSingleNode(FakeEndNodeRef, bIsBound, Filter, BestNodeIndex, BestNodeCost);
+		}
+
+		return EGraphAStarResult::SearchSuccess;
 	}
 };

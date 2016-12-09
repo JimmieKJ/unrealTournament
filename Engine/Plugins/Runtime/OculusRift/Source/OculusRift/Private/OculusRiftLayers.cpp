@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OculusRiftPrivatePCH.h"
+#include "OculusRiftLayers.h"
 #include "OculusRiftHMD.h"
 
 #if OCULUS_RIFT_SUPPORTED_PLATFORMS
 
-#include "OculusRiftLayers.h"
 #include "MediaTexture.h"
+#include "ScreenRendering.h"
+#include "ScenePrivate.h"
+#include "PostProcess/SceneFilterRendering.h"
 
 FRenderLayer::FRenderLayer(FHMDLayerDesc& InDesc) :
 	FHMDRenderLayer(InDesc)
@@ -21,6 +23,14 @@ FRenderLayer::FRenderLayer(FHMDLayerDesc& InDesc) :
 		Layer.Header.Type = ovrLayerType_Quad;
 		break;
 
+	case FHMDLayerDesc::Cylinder:
+		Layer.Header.Type = ovrLayerType_Quad;
+		UE_LOG(LogHMD, Error, TEXT("Cylinder overlays not currently supported on PC"));
+		break;
+	case FHMDLayerDesc::Cubemap:
+		Layer.Header.Type = ovrLayerType_Quad;
+		UE_LOG(LogHMD, Error, TEXT("Cubemap overlays not currently supported on PC"));
+		break;
 	default:
 		check(0); // unsupported layer type
 	}
@@ -102,6 +112,22 @@ TSharedPtr<FHMDRenderLayer> FLayerManager::CreateRenderLayer_RenderThread(FHMDLa
 {
 	TSharedPtr<FHMDRenderLayer> NewLayer = MakeShareable(new FRenderLayer(InDesc));
 	return NewLayer;
+}
+
+bool FLayerManager::ShouldSupportLayerType(FHMDLayerDesc::ELayerTypeMask InType)
+{
+	switch (InType)
+	{
+		case FHMDLayerDesc::Quad:
+		case FHMDLayerDesc::Eye:
+		case FHMDLayerDesc::Debug:
+			return true;
+			break;
+
+		default:
+			return false;
+			break;
+	}
 }
 
 FRenderLayer& FLayerManager::GetEyeLayer_RenderThread() const
@@ -198,7 +224,6 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 				check(schDesc.Type == ovrTexture_2D);
 			}
 #endif
-
 			// always use HighQuality for eyebuffers; the bHighQuality flag in LayerDesc means mipmaps are generated.
 			EyeLayer.EyeFov.Header.Flags = ovrLayerFlag_HighQuality;
 
@@ -297,7 +322,7 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 				check(pPresentBridge);
 				if (isStatic)
 				{
-					RenderLayer->TextureSet = pPresentBridge->CreateTextureSet(SizeX, SizeY, Format, NumMips, FCustomPresent::DefaultStaticImage);
+					RenderLayer->TextureSet = pPresentBridge->CreateTextureSet(SizeX, SizeY, Format, NumMips, FCustomPresent::DefaultLinear);
 				}
 				else
 				{
@@ -393,6 +418,24 @@ ovrResult FLayerManager::SubmitFrame_RenderThread(ovrSession OvrSession, const F
 		}
 	}
 	return res;
+}
+
+void FLayerManager::GetPokeAHoleMatrices(const FViewInfo *LeftView,const FViewInfo *RightView,const FHMDLayerDesc& LayerDesc, const FHMDGameFrame* CurrentFrame, FMatrix &LeftMatrix, FMatrix &RightMatrix, bool &InvertCoordinates)
+{
+	FMatrix fmat(LayerDesc.GetTransform().ToMatrixNoScale());
+	InvertCoordinates = false;
+	if (LayerDesc.IsTorsoLocked())
+	{
+		FTransform torsoTransform(CurrentFrame->PlayerOrientation, CurrentFrame->PlayerLocation);
+		FMatrix torsoMatrix = torsoTransform.ToMatrixNoScale();
+		LeftMatrix = fmat * torsoMatrix * LeftView->ViewMatrices.GetViewMatrix() * LeftView->ViewMatrices.ComputeProjectionNoAAMatrix();
+		RightMatrix = fmat * torsoMatrix * RightView->ViewMatrices.GetViewMatrix() * RightView->ViewMatrices.ComputeProjectionNoAAMatrix();
+	}
+	else if (LayerDesc.IsWorldLocked())
+	{
+		LeftMatrix = fmat * LeftView->ViewMatrices.GetViewMatrix() * LeftView->ViewMatrices.ComputeProjectionNoAAMatrix();
+		RightMatrix = fmat * RightView->ViewMatrices.GetViewMatrix() * RightView->ViewMatrices.ComputeProjectionNoAAMatrix();
+	}
 }
 
 #endif //OCULUS_RIFT_SUPPORTED_PLATFORMS

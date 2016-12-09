@@ -1012,14 +1012,19 @@ void FOnlineSessionNull::OnValidQueryPacketReceived(uint8* PacketData, int32 Pac
 	for (int32 SessionIndex = 0; SessionIndex < Sessions.Num(); SessionIndex++)
 	{
 		FNamedOnlineSession* Session = &Sessions[SessionIndex];
-
+							
+		// Don't respond to query if the session is not a joinable LAN match.
 		if (Session)
 		{
-			bool bAdvertiseSession = ( ( Session->SessionSettings.bIsLANMatch || Session->SessionSettings.bAllowJoinInProgress ) && Session->NumOpenPublicConnections > 0 ) ||
-				Session->SessionSettings.bAllowJoinViaPresence || 
-				Session->SessionSettings.bAllowJoinViaPresenceFriendsOnly;
+			const FOnlineSessionSettings& Settings = Session->SessionSettings;
 
-			if ( bAdvertiseSession )
+			const bool bIsMatchInProgress = Session->SessionState == EOnlineSessionState::InProgress;
+
+			const bool bIsMatchJoinable = Settings.bIsLANMatch &&
+				(!bIsMatchInProgress || Settings.bAllowJoinInProgress) &&
+				Settings.NumPublicConnections > 0;
+
+			if (bIsMatchJoinable)
 			{
 				FNboSerializeToBufferNull Packet(LAN_BEACON_MAX_PACKET_SIZE);
 				// Create the basic header before appending additional information

@@ -2,9 +2,9 @@
 
 #pragma once
 
-class UWidget;
-class SWidget;
-class UWidgetBlueprint;
+#include "CoreMinimal.h"
+#include "Components/Widget.h"
+
 class FWidgetBlueprintEditor;
 struct FWidgetReference;
 

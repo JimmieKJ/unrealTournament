@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "ITreeItem.h"
+
 namespace SceneOutliner
 {
 	/**

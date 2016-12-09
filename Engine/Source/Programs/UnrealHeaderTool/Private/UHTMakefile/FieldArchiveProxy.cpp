@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "FieldArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/FieldArchiveProxy.h"
-#include "UHTMakefile/UHTMakefile.h"
+#include "UHTMakefile.h"
 
 FFieldArchiveProxy::FFieldArchiveProxy(FUHTMakefile& UHTMakefile, const UField* Field)
 	: FObjectBaseArchiveProxy(UHTMakefile, Field)

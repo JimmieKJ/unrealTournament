@@ -18,24 +18,28 @@ public:
 	 * @param InNamespace namespace of offer to be purchased
 	 * @param InOfferId id of offer to be purchased
 	 * @param InQuantity number to purchase
+	 * @param bInIsConsumable is the offer consumable or one time purchase
 	 */
-	void AddPurchaseOffer(const FOfferNamespace& InNamespace, const FUniqueOfferId& InOfferId, int32 InQuantity)
+	void AddPurchaseOffer(const FOfferNamespace& InNamespace, const FUniqueOfferId& InOfferId, int32 InQuantity, bool bInIsConsumable = true)
 	{ 
-		PurchaseOffers.Add(FPurchaseOfferEntry(InNamespace, InOfferId, InQuantity)); 
+		PurchaseOffers.Add(FPurchaseOfferEntry(InNamespace, InOfferId, InQuantity, bInIsConsumable));
 	}
 	/**
 	 * Single offer entry for purchase 
 	 */
 	struct FPurchaseOfferEntry
 	{
-		FPurchaseOfferEntry(const FOfferNamespace& InOfferNamespace, const FUniqueOfferId& InOfferId, int32 InQuantity)
+		FPurchaseOfferEntry(const FOfferNamespace& InOfferNamespace, const FUniqueOfferId& InOfferId, int32 InQuantity, bool bInIsConsumable)
 			: OfferNamespace(InOfferNamespace)
 			, OfferId(InOfferId)
 			, Quantity(InQuantity)
 		{ }
 
+		/** Namespace in which the offer resides */
 		FOfferNamespace OfferNamespace;
+		/** Platform specific offer id (defined on backend) */
 		FUniqueOfferId OfferId;
+		/** Number of offers of this type to purchase */
 		int32 Quantity;
 	};	
 	/** List of offers being purchased */
@@ -209,9 +213,10 @@ public:
 	 * Query for all of the user's receipts from prior purchases
 	 *
 	 * @param UserId user initiating the request
+	 * @param bRestoreReceipts initiate recovery of any receipts on the specific platform
 	 * @param Delegate completion callback (guaranteed to be called)
 	 */
-	virtual void QueryReceipts(const FUniqueNetId& UserId, const FOnQueryReceiptsComplete& Delegate) = 0;
+	virtual void QueryReceipts(const FUniqueNetId& UserId, bool bRestoreReceipts, const FOnQueryReceiptsComplete& Delegate) = 0;
 
 	/**
 	 * Get list of cached receipts for user (includes transactions currently being processed)

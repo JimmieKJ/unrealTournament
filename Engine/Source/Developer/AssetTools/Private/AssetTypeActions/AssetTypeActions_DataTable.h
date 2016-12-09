@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Engine/DataTable.h"
+
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
 #include "AssetTypeActions_CSVAssetBase.h"
+#include "Engine/DataTable.h"
+
+class FMenuBuilder;
 
 class FAssetTypeActions_DataTable : public FAssetTypeActions_CSVAssetBase
 {

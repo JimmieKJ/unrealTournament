@@ -2,17 +2,16 @@
 
 #pragma once
 
-#include "IWebBrowserDialog.h"
+#include "CoreMinimal.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Widgets/SWindow.h"
 
-struct FGeometry;
-struct FKeyEvent;
-struct FCharacterEvent;
-struct FPointerEvent;
-class FReply;
-class FCursorReply;
+class Error;
 class FSlateShaderResource;
+class IWebBrowserDialog;
 class IWebBrowserPopupFeatures;
-
+enum class EWebBrowserDialogEventResponse;
 
 enum class EWebBrowserDocumentState
 {
@@ -170,6 +169,13 @@ public:
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) = 0;
 
 	/**
+	 * Notify the browser that a mouse has left the window
+	 *
+	 * @param MouseEvent Information about the input event
+	 */
+	virtual void OnMouseLeave(const FPointerEvent& MouseEvent) = 0;
+
+	/**
 	 * Called when the mouse wheel is spun
 	 *
 	 * @param MyGeometry The Geometry of the browser
@@ -268,6 +274,16 @@ public:
 	 * @param bValue Setting this to true will prevent any updates from the background web browser.
 	 */
 	virtual void SetIsDisabled(bool bValue) = 0;
+
+	/**
+	* Get parent SWindow for this window
+	*/
+	virtual TSharedPtr<class SWindow> GetParentWindow() const = 0;
+
+	/**
+	* Set parent SWindow for this window
+	*/
+	virtual void SetParentWindow(TSharedPtr<class SWindow> Window) = 0;
 
 public:
 

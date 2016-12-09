@@ -38,13 +38,6 @@ namespace UnrealBuildTool
 		// UEBuildTarget interface.
 		//
 
-
-		protected override void SetupModules()
-		{
-			base.SetupModules();
-		}
-
-
 		/// <summary>
 		/// Setup the binaries for this target
 		/// </summary>

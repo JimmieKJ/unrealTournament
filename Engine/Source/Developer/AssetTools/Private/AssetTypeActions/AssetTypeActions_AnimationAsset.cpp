@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "Toolkits/IToolkitHost.h"
+#include "AssetTypeActions/AssetTypeActions_AnimationAsset.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Misc/MessageDialog.h"
+#include "EditorStyleSet.h"
+#include "ThumbnailRendering/SceneThumbnailInfo.h"
+#include "AssetTools.h"
 #include "PersonaModule.h"
-#include "EditorAnimUtils.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "SSkeletonWidget.h"
+#include "IAnimationEditorModule.h"
+#include "Preferences/PersonaOptions.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -111,19 +116,17 @@ void FAssetTypeActions_AnimationAsset::OpenAssetEditor( const TArray<UObject*>& 
 					RetargetAssets(AnimAssets, bDuplicateAssets, true, EditWithinLevelEditor);
 				}
 			}
-			else if (AnimSkeleton)
+			else
 			{
-				const bool bBringToFrontIfOpen = false;
-				if (IAssetEditorInstance* EditorInstance = FAssetEditorManager::Get().FindEditorForAsset(AnimSkeleton, bBringToFrontIfOpen))
+				const bool bBringToFrontIfOpen = true;
+				if (IAssetEditorInstance* EditorInstance = FAssetEditorManager::Get().FindEditorForAsset(AnimAsset, bBringToFrontIfOpen))
 				{
-					// The skeleton is already open in an editor.
-					// Tell persona that an animation asset was requested
 					EditorInstance->FocusWindow(AnimAsset);
 				}
 				else
 				{
-					FPersonaModule& PersonaModule = FModuleManager::LoadModuleChecked<FPersonaModule>( "Persona" );
-					PersonaModule.CreatePersona(Mode, EditWithinLevelEditor, AnimSkeleton, NULL, AnimAsset, NULL);
+					IAnimationEditorModule& AnimationEditorModule = FModuleManager::LoadModuleChecked<IAnimationEditorModule>("AnimationEditor");
+					AnimationEditorModule.CreateAnimationEditor(Mode, EditWithinLevelEditor, AnimAsset);
 				}
 			}
 		}
@@ -184,19 +187,13 @@ void FAssetTypeActions_AnimationAsset::RetargetNonSkeletonAnimationHandler(USkel
 		{
 			if (Asset.IsValid())
 			{
-				const bool bBringToFrontIfOpen = false;
-				if(IAssetEditorInstance* EditorInstance = FAssetEditorManager::Get().FindEditorForAsset(NewSkeleton, bBringToFrontIfOpen))
+				if (EditWithinLevelEditor.IsValid())
 				{
-					// The skeleton is already open in an editor.
-					// Tell persona that an animation asset was requested
-					EditorInstance->FocusWindow(Asset.Get());
+					FAssetEditorManager::Get().OpenEditorForAsset(Asset.Get(), EToolkitMode::WorldCentric, EditWithinLevelEditor.Pin());
 				}
 				else
 				{
-					EToolkitMode::Type Mode = EditWithinLevelEditor.IsValid() ? EToolkitMode::WorldCentric : EToolkitMode::Standalone;
-					TSharedPtr<IToolkitHost> EditWithInEditor = EditWithinLevelEditor.IsValid()? EditWithinLevelEditor.Pin() : NULL;
-					FPersonaModule& PersonaModule = FModuleManager::LoadModuleChecked<FPersonaModule>("Persona");
-					PersonaModule.CreatePersona(Mode, EditWithInEditor, NewSkeleton, NULL, Cast<UAnimationAsset>(Asset.Get()), NULL);
+					FAssetEditorManager::Get().OpenEditorForAsset(Asset.Get());
 				}
 			}
 		}

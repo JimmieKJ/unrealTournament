@@ -2,11 +2,13 @@
 
 #pragma once
 
-#include "Curves/IntegralCurve.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
-#include "IKeyframeSection.h"
+#include "Curves/IntegralCurve.h"
+#include "Sections/IKeyframeSection.h"
 #include "MovieSceneBoolSection.generated.h"
-
 
 /**
  * A single bool section.
@@ -31,14 +33,12 @@ public:
 	 *
 	 * @param Position The position in time within the movie scene.
 	 */
-	virtual bool Eval(float Position) const;
+	virtual bool Eval(float Position, bool DefaultValue) const;
 
 	/** Gets all the keys of this boolean section. */
-	FIntegralCurve& GetCurve()
-	{
-		return BoolCurve;
-	}
-
+	FIntegralCurve& GetCurve() { return BoolCurve; }
+	const FIntegralCurve& GetCurve() const { return BoolCurve; }
+	
 public:
 
 	//~ IKeyframeSection interface
@@ -46,7 +46,8 @@ public:
 	virtual void AddKey(float Time, const bool& Value, EMovieSceneKeyInterpolation KeyInterpolation) override;
 	virtual void SetDefault(const bool& Value) override;
 	virtual bool NewKeyIsNewData(float Time, const bool& Value) const override;
-	virtual bool HasKeys(const bool& Value) const;
+	virtual bool HasKeys(const bool& Value) const override;
+	virtual void ClearDefaults() override;
 
 public:
 

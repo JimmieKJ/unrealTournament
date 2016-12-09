@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GitSourceControlPrivatePCH.h"
 #include "GitSourceControlRevision.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
 #include "GitSourceControlModule.h"
-#include "GitSourceControlProvider.h"
 #include "GitSourceControlUtils.h"
-#include "SGitSourceControlSettings.h"
 
 #define LOCTEXT_NAMESPACE "GitSourceControl"
 

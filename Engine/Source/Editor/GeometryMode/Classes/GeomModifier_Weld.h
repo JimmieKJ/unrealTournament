@@ -5,6 +5,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GeomModifier_Edit.h"
 #include "GeomModifier_Weld.generated.h"
 
 UCLASS()

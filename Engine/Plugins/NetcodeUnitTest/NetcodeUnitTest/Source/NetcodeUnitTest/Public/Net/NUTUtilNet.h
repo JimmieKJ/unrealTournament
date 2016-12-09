@@ -2,13 +2,22 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/Channel.h"
+#include "NetcodeUnitTest.h"
+#include "Engine/PendingNetGame.h"
+#include "Engine/World.h"
 #include "Sockets.h"
 
-
-// Forward declarations
+class APlayerController;
+class FInBunch;
+class FInternetAddr;
+class FOutBunch;
+class UNetConnection;
+class UNetDriver;
 class UUnitTestChannel;
 class UUnitTestNetDriver;
-
+struct FUniqueNetIdRepl;
 
 /**
  * A transparent FSocket-hook, for capturing lowest-level socket operations (use Attach/Detach functions for hooking)

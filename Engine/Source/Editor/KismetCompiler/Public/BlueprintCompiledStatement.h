@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 //////////////////////////////////////////////////////////////////////////
 // FBlueprintCompiledStatement
 
@@ -38,16 +40,17 @@ enum EKismetCompiledStatementType
 	KCST_GotoReturnIfNot = 28, // [if (!TargetObject->TargetProperty)] goto TargetLabel
 	KCST_SwitchValue = 29,
 	// Kismet instrumentation extensions
-	KCST_InstrumentedEvent,			// Instrumented event
-	KCST_InstrumentedEventStop,		// Instrumented event stop
-	KCST_InstrumentedPureNodeEntry,	// Instrumented pure node entry
-	KCST_InstrumentedWireEntry,		// Instrumented wiretrace entry
-	KCST_InstrumentedWireExit,		// Instrumented wiretrace exit
-	KCST_InstrumentedStatePush,		// Instrumented state push
-	KCST_InstrumentedStateRestore,	// Instrumented state restore
-	KCST_InstrumentedStateReset,	// Instrumented state reset
-	KCST_InstrumentedStateSuspend,	// Instrumented state suspend
-	KCST_InstrumentedStatePop,		// Instrumented state pop
+	KCST_InstrumentedEvent,				// Instrumented event
+	KCST_InstrumentedEventStop,			// Instrumented event stop
+	KCST_InstrumentedPureNodeEntry,		// Instrumented pure node entry
+	KCST_InstrumentedWireEntry,			// Instrumented wiretrace entry
+	KCST_InstrumentedWireExit,			// Instrumented wiretrace exit
+	KCST_InstrumentedStatePush,			// Instrumented state push
+	KCST_InstrumentedStateRestore,		// Instrumented state restore
+	KCST_InstrumentedStateReset,		// Instrumented state reset
+	KCST_InstrumentedStateSuspend,		// Instrumented state suspend
+	KCST_InstrumentedStatePop,			// Instrumented state pop
+	KCST_InstrumentedTunnelEndOfThread,	// Instrumented tunnel exit
 	//
 	KCST_ArrayGetByRef,
 };

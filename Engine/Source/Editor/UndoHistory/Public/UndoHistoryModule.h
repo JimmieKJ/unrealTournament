@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "IUndoHistoryModule.h"
+#include "CoreMinimal.h"
+#include "Framework/Docking/TabManager.h"
+#include "Interfaces/IUndoHistoryModule.h"
 
 static const FName UndoHistoryTabName("UndoHistory");
 

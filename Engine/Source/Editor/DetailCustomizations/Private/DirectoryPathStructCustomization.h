@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+
+class SButton;
+class SComboButton;
+
 class FDirectoryPathStructCustomization : public IPropertyTypeCustomization
 {
 public:

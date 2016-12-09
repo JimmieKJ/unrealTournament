@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class SWindow;
+
 class FScopedSourceControlProgress
 {
 public:

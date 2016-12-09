@@ -28,8 +28,7 @@ namespace UnrealBuildTool
 		public static JsonObject Read(string FileName)
 		{
 			string Text = File.ReadAllText(FileName);
-			Dictionary<string, object> CaseSensitiveRawObject = (Dictionary<string, object>)fastJSON.JSON.Instance.Parse(Text);
-			return new JsonObject(CaseSensitiveRawObject);
+			return Parse(Text);
 		}
 
 		public static bool TryRead(string FileName, out JsonObject Result)
@@ -40,9 +39,21 @@ namespace UnrealBuildTool
 				return false;
 			}
 
+			string Text = File.ReadAllText(FileName);
+			return TryParse(Text, out Result);
+		}
+
+		public static JsonObject Parse(string Text)
+		{
+			Dictionary<string, object> CaseSensitiveRawObject = (Dictionary<string, object>)fastJSON.JSON.Instance.Parse(Text);
+			return new JsonObject(CaseSensitiveRawObject);
+		}
+
+		public static bool TryParse(string Text, out JsonObject Result)
+		{
 			try
 			{
-				Result = Read(FileName);
+				Result = Parse(Text);
 				return true;
 			}
 			catch (Exception)
@@ -401,11 +412,11 @@ namespace UnrealBuildTool
 		{
 			// Escape any characters which may not appear in a JSON string (see http://www.json.org).
 			Writer.Write("\"");
-			if(Value != null)
+			if (Value != null)
 			{
-				for(int Idx = 0; Idx < Value.Length; Idx++)
+				for (int Idx = 0; Idx < Value.Length; Idx++)
 				{
-					switch(Value[Idx])
+					switch (Value[Idx])
 					{
 						case '\"':
 							Writer.Write("\\\"");
@@ -429,7 +440,7 @@ namespace UnrealBuildTool
 							Writer.Write("\\t");
 							break;
 						default:
-							if(Char.IsControl(Value[Idx]))
+							if (Char.IsControl(Value[Idx]))
 							{
 								Writer.Write("\\u{0:X4}", (int)Value[Idx]);
 							}

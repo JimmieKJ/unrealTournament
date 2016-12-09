@@ -2,6 +2,24 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Styling/SlateColor.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Input/SEditableText.h"
+
+class IErrorReportingWidget;
+class SBox;
+class SHorizontalBox;
+enum class ETextFlowDirection : uint8;
+enum class ETextShapingMethod : uint8;
+
 /**
  * Editable text box widget
  */

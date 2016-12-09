@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Kismet/KismetMaterialLibrary.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 #include "Materials/MaterialParameterCollection.h"
 #include "Materials/MaterialParameterCollectionInstance.h"
 

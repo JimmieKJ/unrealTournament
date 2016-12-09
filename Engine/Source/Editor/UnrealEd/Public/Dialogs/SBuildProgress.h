@@ -7,6 +7,11 @@
 #ifndef __DLGBUILDPROGRESS_H__
 #define __DLGBUILDPROGRESS_H__
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Layout/SBorder.h"
+
 class SBuildProgressWidget : public SBorder
 {
 public:

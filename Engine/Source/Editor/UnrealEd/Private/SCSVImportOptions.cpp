@@ -1,19 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
 #include "SCSVImportOptions.h"
-
-#include "MainFrame.h"
-#include "ModuleManager.h"
-#include "DirectoryWatcherModule.h"
-#include "../../../DataTableEditor/Public/IDataTableEditor.h"
-#include "Curves/CurveVector.h"
-#include "Curves/CurveFloat.h"
-#include "Curves/CurveLinearColor.h"
-#include "Engine/DataTable.h"
-#include "Engine/CurveTable.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
 #include "Engine/UserDefinedStruct.h"
+
+
 
 #define LOCTEXT_NAMESPACE "CSVImportFactory"
 

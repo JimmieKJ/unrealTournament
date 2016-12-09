@@ -1,0 +1,11 @@
+prefix="/Users/nickshin/Perforce/ThirdParty/libWebSockets/v1.7.4/INSTALL.v1.7.4/Mac"
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libwebsockets
+Description: Websockets server and client library
+Version: 1.7.4
+
+Libs: -L${libdir} -lwebsockets
+Cflags: -I${includedir}

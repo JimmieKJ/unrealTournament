@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "TextCache.h"
+#include "Internationalization/TextCache.h"
+#include "Misc/ScopeLock.h"
 
 FTextCache& FTextCache::Get()
 {
@@ -11,20 +11,24 @@ FTextCache& FTextCache::Get()
 
 FText FTextCache::FindOrCache(const TCHAR* InTextLiteral, const TCHAR* InNamespace, const TCHAR* InKey)
 {
-	FCacheKey CacheKey = FCacheKey::MakeReference(InTextLiteral, InNamespace, InKey);
+	FCacheKey CacheKey = FCacheKey::MakeReference(InNamespace, InKey);
 
 	// First try and find a cached instance
 	{
 		FScopeLock Lock(&CachedTextCS);
-
+	
 		const FText* FoundText = CachedText.Find(CacheKey);
 		if (FoundText)
 		{
-			return *FoundText;
+			const FString* FoundTextLiteral = FTextInspector::GetSourceString(*FoundText);
+			if (FoundTextLiteral && FCString::Strcmp(**FoundTextLiteral, InTextLiteral) == 0)
+			{
+				return *FoundText;
+			}
 		}
 	}
 
-	// Not current cached, make a new instance...
+	// Not currently cached, make a new instance...
 	FText NewText = FText(InTextLiteral, InNamespace, InKey, ETextFlag::Immutable);
 
 	// ... and add it to the cache

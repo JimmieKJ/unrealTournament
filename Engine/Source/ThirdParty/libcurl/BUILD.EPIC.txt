@@ -2,8 +2,12 @@
 summary
 ----------------------------------------------------------------------
 
-the build script will build libcurl (and libwebsockets, both) with zlib and
-OpenSSL support.
+the build script will build:
+- zlib
+- OpenSSL
+- libcurl
+- libwebsockets
+- webRTC
 
 the configuration (build flags and dependancy paths) and some pretty specific
 build commands sequences -- which were also sometimes different (e.g. pathname
@@ -25,7 +29,7 @@ prerequisites
   o autoconf automake libtool
   o CMake
   o git
-  o perl (should already be installed)
+  o perl sed
 
 
 ----------------------------------------------------------------------
@@ -35,11 +39,11 @@ TO RUN THE BUILD
 
 - that said, this script builds "stand-alone"
 
-- in other words, you can do something like this (windows devs, remember to
-  use git bash):
+- in other words, you can do something like this
+  (windows devs, remember to use git bash):
 
   mkdir -p /isolated
-  cp BUILD.EPIC.sh /isolated/.
+  cp BUILD.EPIC.sh COPY.EPIC.sh /isolated/.
   cd /isolated
   ./BUILD.EPIC.sh
 
@@ -55,6 +59,11 @@ each library folders) to help make finding them easier.
 
 (see build scripts function: configure_platform() for additional info)
 
+<strike>
 copy/move them to the proper folder locations in Engine/Source/ThirdParty/...
+</strike>
 
+you can use the helper script [ COPY.EPIC.sh ] to copy the "installed" files
+(from the stand-alone path) back to your working perforce workspace root path.
+- EDIT [ LOCAL_WORKSPACE ] to point to your perforce workspace root path !!!
 

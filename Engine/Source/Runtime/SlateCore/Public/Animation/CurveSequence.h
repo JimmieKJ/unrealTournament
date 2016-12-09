@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Animation/CurveHandle.h"
+
+class FActiveTimerHandle;
+class SWidget;
+enum class EActiveTimerReturnType : uint8;
 
 /**
  * A sequence of curves that can be used to drive animations for slate widgets.

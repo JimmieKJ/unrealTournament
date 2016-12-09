@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
 #include "FoliageType_InstancedStaticMesh.h"
 #include "FoliageTypeObject.generated.h"
 

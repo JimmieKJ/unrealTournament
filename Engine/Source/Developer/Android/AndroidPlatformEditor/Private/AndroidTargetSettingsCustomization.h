@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "EditorStyle.h"
-#include "PropertyEditorModule.h"
-#include "AndroidRuntimeSettings.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Input/Reply.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
 
 //////////////////////////////////////////////////////////////////////////
 // FAndroidTargetSettingsCustomization
@@ -25,6 +28,7 @@ private:
 	void BuildAppManifestSection(IDetailLayoutBuilder& DetailLayout);
 	void BuildIconSection(IDetailLayoutBuilder& DetailLayout);
 	void BuildLaunchImageSection(IDetailLayoutBuilder& DetailLayout);
+	void BuildDaydreamAppTileImageSection(IDetailLayoutBuilder& DetailLayout);
 
 	// Navigates to the build files in the explorer or finder
 	FReply OpenBuildFolder();
@@ -55,6 +59,7 @@ private:
 
 	TArray<struct FPlatformIconInfo> IconNames;
 	TArray<struct FPlatformIconInfo> LaunchImageNames;
+	TArray<struct FPlatformIconInfo> DaydreamAppTileImageNames;
 
 	// Is the manifest writable?
 	TAttribute<bool> SetupForPlatformAttribute;

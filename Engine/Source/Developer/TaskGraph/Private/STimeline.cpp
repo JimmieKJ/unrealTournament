@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TaskGraphPrivatePCH.h"
-#include "SlateBasics.h"
-#include "TaskGraphStyle.h"
-#include "TaskGraphInterfaces.h"
-#include "VisualizerEvents.h"
 #include "STimeline.h"
+#include "Misc/Paths.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Fonts/FontMeasure.h"
+#include "Rendering/DrawElements.h"
+#include "Framework/Application/SlateApplication.h"
+#include "TaskGraphStyle.h"
 
 void STimeline::Construct( const FArguments& InArgs )
 {

@@ -1,13 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "VoiceEngineImpl.h"
-#include "OnlineSubsystem.h"
-#include "VoiceInterfaceImpl.h"
+#include "Components/AudioComponent.h"
+#include "VoiceModule.h"
+#include "Voice.h"
 
-#include "Engine.h"
-#include "SoundDefinitions.h"
-#include "Runtime/Engine/Classes/Sound/SoundWaveProcedural.h"
+#include "Sound/SoundWaveProcedural.h"
 #include "OnlineSubsystemUtils.h"
 
 /** Largest size preallocated for compressed data */

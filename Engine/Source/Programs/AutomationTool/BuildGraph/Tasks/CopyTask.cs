@@ -15,22 +15,22 @@ namespace BuildGraph.Tasks
 	public class CopyTaskParameters
 	{
 		/// <summary>
-		/// List of file specifications separated by semicolons (eg. *.cpp;Engine/.../*.bat), or the name of a tag set. Relative paths are based at FromDir.
+		/// Filter to be applied to the list of input files. Optional.
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.FileSpec)]
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileSpec)]
 		public string Files;
 
 		/// <summary>
-		/// The base directory to copy from. 
+		/// The pattern(s) to copy from (eg. Engine/*.txt)
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string FromDir;
+		[TaskParameter(ValidationType = TaskParameterValidationType.FileSpec)]
+		public string From;
 
 		/// <summary>
-		/// The directory to copy to
+		/// The directory or to copy to
 		/// </summary>
-		[TaskParameter(ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string ToDir;
+		[TaskParameter(ValidationType = TaskParameterValidationType.FileSpec)]
+		public string To;
 
 		/// <summary>
 		/// Tag to be applied to build products of this task
@@ -68,31 +68,46 @@ namespace BuildGraph.Tasks
 		/// <returns>True if the task succeeded</returns>
 		public override bool Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
-			// Get the source and target directories
-			DirectoryReference FromDir = ResolveDirectory(Parameters.FromDir);
-			DirectoryReference ToDir = ResolveDirectory(Parameters.ToDir);
+			// Parse all the source patterns
+			FilePattern SourcePattern = new FilePattern(CommandUtils.RootDirectory, Parameters.From);
 
-			// Copy all the files
-			IEnumerable<FileReference> SourceFiles = ResolveFilespec(FromDir, Parameters.Files, TagNameToFileSet);
-			IEnumerable<FileReference> TargetFiles = SourceFiles.Select(x => FileReference.Combine(ToDir, x.MakeRelativeTo(FromDir)));
-			if(!FromDir.Exists() && !SourceFiles.Any())
+			// Parse the target pattern
+			FilePattern TargetPattern = new FilePattern(CommandUtils.RootDirectory, Parameters.To);
+
+			// Apply the filter to the source files
+			HashSet<FileReference> Files = null;
+			if(!String.IsNullOrEmpty(Parameters.Files))
 			{
-				CommandUtils.Log("Skipping copy of files from '{0}' - directory does not exist.", FromDir.FullName);
+				SourcePattern = SourcePattern.AsDirectoryPattern();
+				Files = ResolveFilespec(SourcePattern.BaseDirectory, Parameters.Files, TagNameToFileSet);
 			}
-			else if(FromDir == ToDir)
+
+			// Build the file mapping
+			Dictionary<FileReference, FileReference> TargetFileToSourceFile;
+			if(!FilePattern.TryCreateMapping(Files, SourcePattern, TargetPattern, out TargetFileToSourceFile))
 			{
-				CommandUtils.Log("Skipping copy of files in '{0}' - source directory is same as target directory", FromDir.FullName);
+				return false;
 			}
-			else 
+
+			// Check we got some files
+			if(TargetFileToSourceFile.Count == 0)
 			{
-				CommandUtils.ThreadedCopyFiles(SourceFiles.Select(x => x.FullName).ToList(), TargetFiles.Select(x => x.FullName).ToList());
+				CommandUtils.Log("No files found matching '{0}'", SourcePattern);
+				return true;
 			}
-			BuildProducts.UnionWith(TargetFiles);
+
+			// Copy them all
+			KeyValuePair<FileReference, FileReference>[] FilePairs = TargetFileToSourceFile.ToArray();
+			CommandUtils.Log("Copying {0} file{1} from {2} to {3}...", FilePairs.Length, (FilePairs.Length == 1)? "" : "s", SourcePattern.BaseDirectory, TargetPattern.BaseDirectory);
+			CommandUtils.ThreadedCopyFiles(FilePairs.Select(x => x.Value.FullName).ToList(), FilePairs.Select(x => x.Key.FullName).ToList(), bQuiet: true);
+
+			// Update the list of build products
+			BuildProducts.UnionWith(TargetFileToSourceFile.Keys);
 
 			// Apply the optional output tag to them
 			foreach(string TagName in FindTagNamesFromList(Parameters.Tag))
 			{
-				FindOrAddTagSet(TagNameToFileSet, TagName).UnionWith(TargetFiles);
+				FindOrAddTagSet(TagNameToFileSet, TagName).UnionWith(TargetFileToSourceFile.Keys);
 			}
 			return true;
 		}
@@ -111,7 +126,10 @@ namespace BuildGraph.Tasks
 		/// <returns>The tag names which are read by this task</returns>
 		public override IEnumerable<string> FindConsumedTagNames()
 		{
-			return FindTagNamesFromFilespec(Parameters.Files);
+			foreach(string TagName in FindTagNamesFromFilespec(Parameters.Files))
+			{
+				yield return TagName;
+			}
 		}
 
 		/// <summary>

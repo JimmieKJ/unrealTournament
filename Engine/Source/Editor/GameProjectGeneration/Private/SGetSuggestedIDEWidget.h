@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
 
 /**
  * Either a button to directly install or a hyperlink to a website to download the suggested IDE for the platform.
@@ -32,11 +38,11 @@ private:
 	FReply OnInstallIDEClicked();
 
 	/** Handler for when the suggested IDE installer has finished downloading */
-	void OnIDEInstallerDownloadComplete(bool bWasSuccessful);
+	static void OnIDEInstallerDownloadComplete(bool bWasSuccessful);
 
 private:
 
 	/** Handle to the notification displayed when downloading an IDE installer */
-	TSharedPtr<class SNotificationItem> IDEDownloadNotification;
+	static TSharedPtr<class SNotificationItem> IDEDownloadNotification;
 
 };

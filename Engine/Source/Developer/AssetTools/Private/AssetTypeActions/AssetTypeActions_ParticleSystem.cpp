@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "Toolkits/AssetEditorManager.h"
+#include "AssetTypeActions/AssetTypeActions_ParticleSystem.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Misc/FeedbackContext.h"
 #include "Editor/Cascade/Public/CascadeModule.h"
 #include "Particles/ParticleEmitter.h"
 

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "CoreFwd.h"
+
 enum class EConfigManifestVersion;
 
 /** Class responsible for upgrading and migrating various config settings. Keeps track of a manifest version in Manifest.ini, stored in engine saved dir. */

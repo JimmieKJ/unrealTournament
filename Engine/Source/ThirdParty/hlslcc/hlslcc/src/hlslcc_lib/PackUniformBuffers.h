@@ -6,9 +6,17 @@
 #define PACKUNIFORMBUFFERS_H
 
 //@todo-rco: Remove STL!
-#include <map>
-#include <string>
-#include <set>
+// THIRD_PARTY* are macros that aid static analysis of the engine, they won't be defined for hlslcc project
+#ifdef __UNREAL__
+THIRD_PARTY_INCLUDES_START
+#endif // __UNREAL__
+	#include <map>
+	#include <string>
+	#include <set>
+#ifdef __UNREAL__
+THIRD_PARTY_INCLUDES_END
+#endif // __UNREAL__
+
 #include "CustomStdAllocator.h"
 
 typedef std::map<FCustomStdString, ir_variable*> TStringIRVarMap;

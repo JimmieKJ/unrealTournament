@@ -2,11 +2,17 @@
 
 #pragma once
 
-#include "OnlineIdentityInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/EngineTypes.h"
+#include "Templates/Casts.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "UpdateManager.generated.h"
 
+class Error;
+class UGameInstance;
 enum class EHotfixResult : uint8;
-class UEnum;
 
 /**
  * Various states the update manager flows through as it checks for patches/hotfixes

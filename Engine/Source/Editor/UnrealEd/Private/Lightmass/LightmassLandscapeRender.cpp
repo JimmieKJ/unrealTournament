@@ -1,16 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "LightmassLandscapeRender.h"
+#include "Lightmass/LightmassLandscapeRender.h"
+#include "RHI.h"
+#include "RenderingThread.h"
+#include "RenderResource.h"
+#include "VertexFactory.h"
+#include "PackedNormal.h"
 #include "LandscapeLight.h"
-
-#include "LandscapeComponent.h"
-#include "LandscapeProxy.h"
-#include "LandscapeMaterialInstanceConstant.h"
-#include "EngineModule.h"
+#include "ShowFlags.h"
+#include "HitProxies.h"
 #include "RHIStaticStates.h"
-#include "LandscapeEdit.h"
+#include "SceneView.h"
+#include "PrimitiveUniformShaderParameters.h"
+#include "LocalVertexFactory.h"
+#include "CanvasTypes.h"
+#include "MeshBatch.h"
+
+#include "LandscapeProxy.h"
 #include "LandscapeInfo.h"
+#include "RendererInterface.h"
+#include "LandscapeComponent.h"
+#include "EngineModule.h"
+#include "LandscapeEdit.h"
 
 struct FLightmassLandscapeVertex
 {

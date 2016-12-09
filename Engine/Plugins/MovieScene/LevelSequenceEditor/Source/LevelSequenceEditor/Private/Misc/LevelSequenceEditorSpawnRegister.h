@@ -2,16 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/ValueOrError.h"
+#include "MovieSceneSequenceID.h"
+#include "MovieSceneSpawnRegister.h"
 #include "LevelSequenceSpawnRegister.h"
-#include "ObjectKey.h"
+#include "UObject/ObjectKey.h"
 
-class AActor;
-class FMovieSceneSequenceInstance;
 class IMovieScenePlayer;
 class ISequencer;
-class UObject;
-class UProperty;
-
+class UMovieScene;
 
 /**
  * Spawn register used in the editor to add some usability features like maintaining selection states, and projecting spawned state onto spawnable defaults
@@ -35,8 +35,9 @@ public:
 
 	// FLevelSequenceSpawnRegister interface
 
-	virtual UObject* SpawnObject(const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance, IMovieScenePlayer& Player) override;
-	virtual void PreDestroyObject(UObject& Object, const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance) override;
+	virtual UObject* SpawnObject(FMovieSceneSpawnable& Spawnable, FMovieSceneSequenceIDRef TemplateID, IMovieScenePlayer& Player) override;
+	virtual void PreDestroyObject(UObject& Object, const FGuid& BindingId, FMovieSceneSequenceIDRef TemplateID) override;
+	virtual void SaveDefaultSpawnableState(FMovieSceneSpawnable& Spawnable, FMovieSceneSequenceIDRef TemplateID, IMovieScenePlayer& Player) override;
 #if WITH_EDITOR
 	virtual TValueOrError<FNewSpawnable, FText> CreateNewSpawnableType(UObject& SourceObject, UMovieScene& OwnerMovieScene) override;
 #endif
@@ -50,10 +51,10 @@ private:
 	void OnPreSaveMovieScene(ISequencer& InSequencer);
 
 	/** Called when a new movie scene sequence instance has been activated */
-	void OnSequenceInstanceActivated(FMovieSceneSequenceInstance& ActiveInstance);
+	void OnSequenceInstanceActivated(FMovieSceneSequenceIDRef ActiveInstance);
 
 	/** Saves the default state for the specified spawnable, if an instance for it currently exists */
-	void SaveDefaultSpawnableState(const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance);
+	void SaveDefaultSpawnableState(const FGuid& BindingId);
 
 	/** Check whether the specified objects are editable on the details panel. Called from the level editor */
 	bool AreObjectsEditable(const TArray<TWeakObjectPtr<UObject>>& InObjects) const;
@@ -70,7 +71,7 @@ private:
 	TSet<FMovieSceneSpawnRegisterKey> SelectedSpawnedObjects;
 
 	/** Set of currently spawned objects */
-	TMap<FGuid, TSet<FObjectKey>> SpawnedObjects;
+	TMap<FMovieSceneSequenceID, TSet<FObjectKey>> SpawnedObjects;
 
 	/** True if we should clear the above selection cache when the editor selection has been changed. */
 	bool bShouldClearSelectionCache;
@@ -79,5 +80,5 @@ private:
 	TWeakPtr<ISequencer> WeakSequencer;
 
 	/** Identifier for the current active level sequence */
-	FGuid ActiveSequence;
+	FMovieSceneSequenceID ActiveSequence;
 };

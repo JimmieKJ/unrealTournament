@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "OnlineAsyncTaskManager.h"
 #include "OnlineSubsystemGooglePlayPackage.h"
+#include "OnlineAchievementsInterface.h"
 
 #include "gpg/achievement_manager.h"
 

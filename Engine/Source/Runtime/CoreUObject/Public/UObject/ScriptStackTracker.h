@@ -5,7 +5,9 @@ ScriptStackTracker.h: Script Stack Tracking within Unreal Engine.
 =============================================================================*/
 #pragma once
 
-#include "UMemoryDefines.h"
+#include "CoreMinimal.h"
+
+struct FFrame;
 
 struct FScriptStackTracker
 {

@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "UObject/LazyObjectPtr.h"
 #include "LevelSequenceObjectReference.generated.h"
-
 
 /**
  * An external reference to an level sequence object, resolvable through an arbitrary context.

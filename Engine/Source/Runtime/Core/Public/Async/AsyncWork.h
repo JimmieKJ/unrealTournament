@@ -6,8 +6,16 @@
 
 #pragma once
 
-#include "GenericPlatformCompression.h"
-
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Misc/Compression.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Stats/Stats.h"
+#include "HAL/Event.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/IQueuedWork.h"
+#include "Misc/QueuedThreadPool.h"
+#include "GenericPlatform/GenericPlatformCompression.h"
 
 /**
 	FAutoDeleteAsyncTask - template task for jobs that delete themselves when complete

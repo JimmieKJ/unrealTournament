@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Framework/Commands/InputChord.h"
+#include "EditorStyleSet.h"
+#include "Framework/Commands/Commands.h"
+
 #define LOCTEXT_NAMESPACE "LevelCollectionCommands"
 
 /** The set of commands supported by the WorldView */
@@ -70,6 +76,10 @@ public:
 		// change streaming method
 		UI_COMMAND( SetStreamingMethod_Blueprint, "Change Blueprint Streaming Method", "Changes the streaming method for the selected levels to Blueprint streaming", EUserInterfaceActionType::Check, FInputChord() );
 		UI_COMMAND( SetStreamingMethod_AlwaysLoaded, "Change Streaming to Always Loaded", "Changes the streaming method for the selected levels to be always loaded", EUserInterfaceActionType::Check, FInputChord() );
+
+		// change lighting scenario
+		UI_COMMAND( SetLightingScenario_Enabled, "Make level a Lighting Scenario", "Changes the level to be a Lighting Scenario.  Lighting is built separately for each Lighting Scenario, with all other Scenarios hidden.", EUserInterfaceActionType::Check, FInputChord() );
+		UI_COMMAND( SetLightingScenario_Disabled, "Make level not a Lighting Scenario", "Changes the level to not be a Lighting Scenario", EUserInterfaceActionType::Check, FInputChord() );
 
 		//layers
 		UI_COMMAND( AssignLevelToLayer, "Assign to layer", "Assign selected levels to current layer", EUserInterfaceActionType::Button, FInputChord() );
@@ -220,6 +230,8 @@ public:
 	/** Changes the streaming method for the selected levels to be always loaded */
 	TSharedPtr< FUICommandInfo > SetStreamingMethod_AlwaysLoaded;
 
+	TSharedPtr< FUICommandInfo > SetLightingScenario_Enabled;
+	TSharedPtr< FUICommandInfo > SetLightingScenario_Disabled;
 
 	/** Assign selected levels to current layer */
 	TSharedPtr< FUICommandInfo > AssignLevelToLayer;

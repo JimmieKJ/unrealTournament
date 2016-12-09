@@ -1,26 +1,32 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
+#include "UnrealClient.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/App.h"
+#include "EngineStats.h"
+#include "EngineGlobals.h"
+#include "RenderingThread.h"
+#include "Templates/ScopedPointer.h"
+#include "CanvasItem.h"
+#include "CanvasTypes.h"
+#include "Misc/ConfigCacheIni.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/LocalPlayer.h"
+#include "UnrealEngine.h"
 #include "Components/PostProcessComponent.h"
-#include "Engine/Font.h"
 #include "Matinee/MatineeActor.h"
 #include "EditorSupportDelegates.h"
-#include "RenderCore.h"
-#include "RenderResource.h"
-#include "RHIStaticStates.h"
-#include "../../Renderer/Private/ScenePrivate.h"
 #include "HighResScreenshot.h"
 
-#include "SlateBasics.h"
-#include "SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "Engine/PostProcessVolume.h"
+#include "RendererInterface.h"
 #include "EngineModule.h"
-#include "EngineModule.h"
-#include "ContentStreaming.h"
-#include "SceneUtils.h"
-#include "NotificationManager.h"
 #include "Performance/EnginePerformanceTargets.h"
+#include "UniquePtr.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogClient, Log, All);
 
@@ -926,7 +932,7 @@ void FViewport::HighResScreenshot()
 	bTakeHighResScreenShot = false;
 
 	// Notification of a successful screenshot
-	if (GIsEditor || !IsFullscreen())
+	if ((GIsEditor || !IsFullscreen()) && !GIsAutomationTesting )
 	{
 		auto Message = NSLOCTEXT("UnrealClient", "HighResScreenshotSavedAs", "High resolution screenshot saved as");
 		FNotificationInfo Info(Message);
@@ -1077,7 +1083,7 @@ bool GCaptureCompositionNextFrame = false;
 void FViewport::Draw( bool bShouldPresent /*= true */)
 {
 	UWorld* World = GetClient()->GetWorld();
-	static TScopedPointer<FSuspendRenderingThread> GRenderingThreadSuspension;
+	static TUniquePtr<FSuspendRenderingThread> GRenderingThreadSuspension;
 
 	// Ignore reentrant draw calls, since we can only redraw one viewport at a time.
 	static bool bReentrant = false;
@@ -1094,7 +1100,7 @@ void FViewport::Draw( bool bShouldPresent /*= true */)
 		{
 			// To capture the CompositionGraph we go into single threaded for one frame
 			// so that the Slate UI gets the data on the game thread.
-			GRenderingThreadSuspension.Reset(new FSuspendRenderingThread(true));
+			GRenderingThreadSuspension = MakeUnique<FSuspendRenderingThread>(true);
 		}
 
 		// if this is a game viewport, and game rendering is disabled, then we don't want to actually draw anything
@@ -1184,7 +1190,7 @@ void FViewport::Draw( bool bShouldPresent /*= true */)
 		{
 			for( FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator )
 			{
-				APlayerController* PlayerController = *Iterator;
+				APlayerController* PlayerController = Iterator->Get();
 				if (PlayerController && PlayerController->PlayerCameraManager)
 				{
 					PlayerController->PlayerCameraManager->bGameCameraCutThisFrame = false;
@@ -1408,7 +1414,7 @@ HHitProxy* FViewport::GetHitProxy(int32 X,int32 Y)
 	return HitProxy;
 }
 
-void FViewport::UpdateViewportRHI(bool bDestroyed,uint32 NewSizeX,uint32 NewSizeY,EWindowMode::Type NewWindowMode)
+void FViewport::UpdateViewportRHI(bool bDestroyed, uint32 NewSizeX, uint32 NewSizeY, EWindowMode::Type NewWindowMode, EPixelFormat PreferredPixelFormat)
 {
 	// Make sure we're not in the middle of streaming textures.
 	(*GFlushStreamingFunc)();
@@ -1444,7 +1450,8 @@ void FViewport::UpdateViewportRHI(bool bDestroyed,uint32 NewSizeX,uint32 NewSize
 					ViewportRHI,
 					SizeX,
 					SizeY,
-					IsFullscreen()
+					IsFullscreen(),
+					PreferredPixelFormat
 					);
 			}
 			else
@@ -1682,7 +1689,7 @@ void FViewport::SetInitialSize( FIntPoint InitialSizeXY )
 	// Initial size only works if the viewport has not yet been resized
 	if( GetSizeXY() == FIntPoint::ZeroValue )
 	{
-		UpdateViewportRHI( false, InitialSizeXY.X, InitialSizeXY.Y, EWindowMode::Windowed );
+		UpdateViewportRHI( false, InitialSizeXY.X, InitialSizeXY.Y, EWindowMode::Windowed, PF_Unknown );
 	}
 }
 
@@ -1699,7 +1706,7 @@ ENGINE_API bool GetViewportScreenShot(FViewport* Viewport, TArray<FColor>& Bitma
 	return false;
 }
 
-ENGINE_API bool GetHighResScreenShotInput(const TCHAR* Cmd, FOutputDevice& Ar, uint32& OutXRes, uint32& OutYRes, float& OutResMult, FIntRect& OutCaptureRegion, bool& OutShouldEnableMask)
+ENGINE_API bool GetHighResScreenShotInput(const TCHAR* Cmd, FOutputDevice& Ar, uint32& OutXRes, uint32& OutYRes, float& OutResMult, FIntRect& OutCaptureRegion, bool& OutShouldEnableMask, bool& OutDumpBufferVisualizationTargets, bool& OutCaptureHDR)
 {
 	FString CmdString = Cmd;
 	int32 SeperatorPos = -1;
@@ -1752,8 +1759,11 @@ ENGINE_API bool GetHighResScreenShotInput(const TCHAR* Cmd, FOutputDevice& Ar, u
 		int32 CaptureRegionY = NumArguments > 2 ? FCString::Atoi(*Arguments[2]) : 0;
 		int32 CaptureRegionWidth = NumArguments > 3 ? FCString::Atoi(*Arguments[3]) : 0;
 		int32 CaptureRegionHeight = NumArguments > 4 ? FCString::Atoi(*Arguments[4]) : 0;
-		OutShouldEnableMask = NumArguments > 5 ? FCString::Atoi(*Arguments[5]) != 0 : false;
 		OutCaptureRegion = FIntRect(CaptureRegionX, CaptureRegionY, CaptureRegionX + CaptureRegionWidth, CaptureRegionY + CaptureRegionHeight);
+
+		OutShouldEnableMask = NumArguments > 5 ? FCString::Atoi(*Arguments[5]) != 0 : false;
+		OutDumpBufferVisualizationTargets = NumArguments > 6 ? FCString::Atoi(*Arguments[6]) != 0 : false;
+		OutCaptureHDR = NumArguments > 7 ? FCString::Atoi(*Arguments[7]) != 0 : false;
 
 		return true;
 	}

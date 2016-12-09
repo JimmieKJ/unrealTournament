@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyEditorConstants.h"
-#include "PropertyEditor.h"
+#include "UserInterface/PropertyEditor/PropertyEditorConstants.h"
+#include "EditorStyleSet.h"
 
 const FName PropertyEditorConstants::PropertyFontStyle( TEXT("PropertyWindow.NormalFont") );
 const FName PropertyEditorConstants::CategoryFontStyle( TEXT("PropertyWindow.BoldFont") );

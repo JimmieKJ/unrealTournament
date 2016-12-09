@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/ISlateStyle.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class STextBlock;
+class UMediaPlayer;
+enum class EMediaEvent;
 
 /**
  * Implements the info panel of the MediaPlayer asset editor.
@@ -32,8 +40,8 @@ private:
 
 private:
 
-	/** Text box for media information. */
-	TSharedPtr<SMultiLineEditableTextBox> MediaInfoBox;
+	/** Text block for media information. */
+	TSharedPtr<STextBlock> InfoTextBlock;
 
 	/** Pointer to the MediaPlayer asset that is being viewed. */
 	UMediaPlayer* MediaPlayer;

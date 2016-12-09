@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "InputCoreTypes.h"
 #include "BehaviorTree/Services/BTService_BlackboardBase.h"
 #include "BTService_DefaultFocus.generated.h"
+
+class AActor;
+class UBlackboardComponent;
 
 struct FBTFocusMemory
 {

@@ -2,10 +2,15 @@
 
 #pragma once
 
-#include "OnlineSessionInterface.h"
-#include "OnlineSubsystemNullTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
+#include "Misc/ScopeLock.h"
+#include "OnlineSessionSettings.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSubsystemNullPackage.h"
 #include "LANBeacon.h"
+
+class FOnlineSubsystemNull;
 
 /**
  * Interface definition for the online services session services 

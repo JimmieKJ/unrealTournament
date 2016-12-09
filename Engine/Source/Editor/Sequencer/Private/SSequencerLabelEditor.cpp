@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
+#include "SSequencerLabelEditor.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
 #include "MovieScene.h"
+#include "Sequencer.h"
+#include "Widgets/Views/SListView.h"
 #include "SSequencerLabelEditorListRow.h"
 
 

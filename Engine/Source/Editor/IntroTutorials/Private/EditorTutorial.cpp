@@ -1,9 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IntroTutorialsPrivatePCH.h"
-#include "LevelEditor.h"
-#include "SDockTab.h"
 #include "EditorTutorial.h"
+#include "Modules/ModuleManager.h"
+#include "Serialization/PropertyLocalizationDataGathering.h"
+#include "Framework/Docking/TabManager.h"
+#include "GameFramework/Actor.h"
+#include "Settings/ContentBrowserSettings.h"
+#include "EngineGlobals.h"
+#include "Editor.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "IIntroTutorials.h"
+#include "IntroTutorials.h"
+#include "LevelEditor.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #if WITH_EDITORONLY_DATA
 namespace

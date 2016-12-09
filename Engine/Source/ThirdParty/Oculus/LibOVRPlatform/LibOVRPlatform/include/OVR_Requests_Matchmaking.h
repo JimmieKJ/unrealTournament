@@ -45,7 +45,7 @@
 /// 1. EITHER ovr_Matchmaking_CreateAndEnqueueRoom
 ///    OR ovr_Matchmaking_CreateRoom (handle response) and then ovr_Matchmaking_EnqueueRoom
 ///    Your room will be continually re-enqueued until you cancel or a match is found.
-/// 2. Handle ovrMessage_Notification_Matchmaking_MatchFound notification or call ovr_Matchmaking_Cancel2
+/// 2. Observe room joins and leaves if you specified true for subscribeToUpdates, or call ovr_Matchmaking_Cancel2
 /// 3. (for skill matching only) ovr_Matchmaking_StartMatch
 /// 4. (for skill matching only) ovr_Matchmaking_ReportResultInsecure
 ///
@@ -126,37 +126,13 @@
 ///
 /// ## Example (C++)
 ///
-///     static ovrKeyValuePair makePair(const char* key, int value) {
-///       ovrKeyValuePair ret;
-///       ret.key = key;
-///       ret.valueType = ovrKeyValuePairType_Int;
-///       ret.intValue = value;
-///       return ret;
-///     }
-///
-///     static ovrKeyValuePair makePair(const char* key, const char* value) {
-///       ovrKeyValuePair ret;
-///       ret.key = key;
-///       ret.valueType = ovrKeyValuePairType_String;
-///       ret.stringValue = value;
-///       return ret;
-///     }
-///
-///     static ovrKeyValuePair makePair(const char* key, double value) {
-///       ovrKeyValuePair ret;
-///       ret.key = key;
-///       ret.valueType = ovrKeyValuePairType_Double;
-///       ret.doubleValue = value;
-///       return ret;
-///     }
-///
 ///     // facts about this user/room.  They will be vetted by any other party user
 ///     // might want to match with this one.
 ///     // The keys below were specified in the Matchmaking section at developer2.oculus.com
 ///     ovrKeyValuePair queryData[3] = {
-///       makePair("value_of_pi", 3.14159),
-///       makePair("num_dogs", 10),
-///       makePair("favorite_hashtag", "YOLO"),
+///       ovrKeyValuePair_makeDouble("value_of_pi", 3.14159),
+///       ovrKeyValuePair_makeInt("num_dogs", 10),
+///       ovrKeyValuePair_makeString("favorite_hashtag", "YOLO"),
 ///     };
 ///
 ///     // criteria names were specified in the Matchmaking section at developer2.oculus.com
@@ -181,49 +157,28 @@
 ///
 /// # Debugging
 ///
-/// To debug what's going on with your matchmaking pool, you can get snapshots of the queues using an
-/// HTTP endpoint called matchmaking_pool_for_admin.  This endpoint is not intended to be called in
+/// To debug what's going on with your matchmaking pool, you can get snapshots of the queues using
+/// ovr_Matchmaking_GetAdminSnapshot.  This endpoint is not intended to be called in
 /// production.  Below examples will illustrate how to use it, and then there's a reference below
 ///
 /// ## User-oriented snapshot
 /// Find out what scores the logged-in user will assign to other users in the queue, and vice-versa.
 ///
-///     // Global-scope somewhere.  This function is exported from our DLL but is not put in the headers
-///     // because it is not intended for use in production.
-///     OVRP_PUBLIC_FUNCTION(ovrRequest) ovr_GraphAPI_Get(const char *url);
-///
-///     // In your code
-///
-///     ovrMatchmakingEnqueueResultHandle enqueueUserResult = ovr_Message_GetMatchmakingEnqueueResult(message);
-///
-///     auto requestHash = ovr_MatchmakingEnqueueResult_GetRequestHash(enqueueUserBResult);
+///     // In your code, do a matchmaking enqueue first
 ///
 ///     // We can now inspect the queue to debug it.
-///     char url[256];
-///     snprintf(
-///         url,
-///         256,
-///         "matchmaking_pool_for_admin/?pool=%s&trace_id=%s&fields=candidates,my_current_threshold",
-///         matchmakingBoutWithQueryPool,
-///         requestHash
-///     );
-///
-///     ovr_GraphAPI_Get(url);
+///     ovr_Matchmaking_GetAdminSnapshot();
 ///
 ///     // In your handler
-///     case ovr_GraphAPI_Get:
-///         if (!ovr_Message_IsError(message)) {
-///             const char * resultAsString = ovr_Message_GetString(message);
-///             cout << "matchmaking_pool_for_admin results:" << endl << resultAsString << endl;
-///
-///             // Uses https://github.com/open-source-parsers/jsoncpp
-///             Json::Reader reader;
-///             Json::Value resultAsJson;
-///             reader.parse(resultAsString, resultAsJson);
-///             if (resultAsJson["candidates"][0]["can_match"].asBool()) {
-///                 cout << "Yay!" << endl;
-///             }
+///     case ovrMessage_Matchmaking_GetAdminSnapshot:
+///       if (!ovr_Message_IsError(message)) {
+///         auto snapshot = ovr_Message_GetMatchmakingAdminSnapshot(message);
+///         auto candidates = ovr_MatchmakingAdminSnapshot_GetCandidates(snapshot);
+///         auto firstCandidate = ovr_MatchmakingAdminSnapshotCandidateArray_GetElement(candidates, 0);
+///         if (ovr_MatchmakingAdminSnapshotCandidate_GetCanMatch(firstCandidate)) {
+///           cout << "Yay!" << endl;
 ///         }
+///       }
 ///
 /// ## Reference
 /// The following fields are currently exported:
@@ -369,6 +324,17 @@ OVRP_PUBLIC_FUNCTION(ovrRequest) ovr_Matchmaking_Enqueue(const char *pool, ovrMa
 /// If no error occurred, the message will contain a payload of type ::ovrMatchmakingEnqueueResultHandle.
 /// Extract the payload from the message handle with ::ovr_Message_GetMatchmakingEnqueueResult().
 OVRP_PUBLIC_FUNCTION(ovrRequest) ovr_Matchmaking_EnqueueRoom(ovrID roomID, ovrMatchmakingCustomQueryData *customQueryData);
+
+/// Used to debug the state of the current matchmaking pool queue. This is not
+/// intended to be used in production.
+///
+/// A message with type ::ovrMessage_Matchmaking_GetAdminSnapshot will be generated in response.
+///
+/// First call ::ovr_Message_IsError() to check if an error occurred.
+///
+/// If no error occurred, the message will contain a payload of type ::ovrMatchmakingAdminSnapshotHandle.
+/// Extract the payload from the message handle with ::ovr_Message_GetMatchmakingAdminSnapshot().
+OVRP_PUBLIC_FUNCTION(ovrRequest) ovr_Matchmaking_GetAdminSnapshot();
 
 /// Gets the matchmaking stats for the current user
 /// 

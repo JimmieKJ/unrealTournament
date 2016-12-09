@@ -1,14 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
+#include "Customizations/WidgetNavigationCustomization.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SComboButton.h"
 
-#include "PropertyEditing.h"
-#include "ObjectEditorUtils.h"
-#include "WidgetGraphSchema.h"
-#include "ScopedTransaction.h"
-#include "BlueprintEditorUtils.h"
 #include "Blueprint/WidgetNavigation.h"
-#include "WidgetNavigationCustomization.h"
+
+#include "IDetailChildrenBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailLayoutBuilder.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

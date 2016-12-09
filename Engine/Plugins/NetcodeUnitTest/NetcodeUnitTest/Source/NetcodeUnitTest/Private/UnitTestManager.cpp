@@ -1,20 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
-
 #include "UnitTestManager.h"
-#include "LogWindowManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/OutputDeviceHelper.h"
+#include "Misc/App.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/Package.h"
+#include "Engine/NetConnection.h"
+#include "NetcodeUnitTest.h"
+
+#include "UI/LogWindowManager.h"
 
 #include "UnitTest.h"
+#include "ProcessUnitTest.h"
 #include "ClientUnitTest.h"
 
-#include "SLogWidget.h"
-#include "SLogWindow.h"
-#include "SLogDialog.h"
+#include "Widgets/SWindow.h"
+#include "UI/SLogWidget.h"
+#include "UI/SLogWindow.h"
+#include "UI/SLogDialog.h"
 
 #include "NUTUtil.h"
 #include "NUTUtilDebug.h"
-#include "NUTUtilNet.h"
+#include "Net/NUTUtilNet.h"
 #include "NUTUtilProfiler.h"
 
 // @todo #JohnBFeature: Add an overall-timer, and then start debugging the memory management in more detail

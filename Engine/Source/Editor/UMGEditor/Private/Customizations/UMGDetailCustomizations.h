@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "WidgetBlueprint.h"
+#include "WidgetBlueprintEditor.h"
 #include "IDetailCustomization.h"
 
-class FWidgetBlueprintEditor;
-class UWidget;
+class IDetailLayoutBuilder;
 class IPropertyHandle;
-class UWidgetBlueprint;
 
 /**
  * Provides the customization for all UWidgets.  Bindings, style disabling...etc.

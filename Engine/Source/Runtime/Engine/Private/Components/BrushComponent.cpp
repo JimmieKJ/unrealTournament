@@ -4,18 +4,27 @@
 	BrushComponent.cpp: Unreal brush component implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Components/BrushComponent.h"
-#include "Engine/Polys.h"
+#include "EngineGlobals.h"
+#include "RHI.h"
+#include "RenderingThread.h"
+#include "RenderResource.h"
+#include "VertexFactory.h"
+#include "PackedNormal.h"
+#include "LocalVertexFactory.h"
+#include "PrimitiveViewRelevance.h"
+#include "PrimitiveSceneProxy.h"
 #include "Model.h"
+#include "Engine/Brush.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
+#include "GameFramework/Volume.h"
+#include "Engine/Polys.h"
+#include "Engine/Engine.h"
+#include "Engine/LevelStreaming.h"
 #include "LevelUtils.h"
-#if WITH_EDITOR
-#include "Collision.h"
-#include "ShowFlags.h"
-#include "ConvexVolume.h"
-#endif
-#include "DebuggingDefines.h"
 #include "ActorEditorUtils.h"
+#include "SceneManagement.h"
 #include "PhysicsEngine/BodySetup.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogBrushComponent, Log, All);
@@ -563,18 +572,15 @@ void UBrushComponent::PostLoad()
 #endif
 }
 
-
-SIZE_T UBrushComponent::GetResourceSize(EResourceSizeMode::Type Mode)
+void UBrushComponent::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	SIZE_T ResSize = Super::GetResourceSize(Mode);
+	Super::GetResourceSizeEx(CumulativeResourceSize);
 
 	// Count the bodysetup we own as well for 'inclusive' stats
-	if((Mode == EResourceSizeMode::Inclusive) && (BrushBodySetup != NULL))
+	if((CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::Inclusive) && (BrushBodySetup != NULL))
 	{
-		ResSize += BrushBodySetup->GetResourceSize(Mode);
+		BrushBodySetup->GetResourceSizeEx(CumulativeResourceSize);
 	}
-
-	return ResSize;
 }
 
 uint8 UBrushComponent::GetStaticDepthPriorityGroup() const
@@ -780,6 +786,11 @@ void UBrushComponent::BuildSimpleBrushCollision()
 	MarkPackageDirty();
 }
 
+bool UBrushComponent::IsEditorOnly() const
+{
+	// Default to actor component behavior instead of primitive component behavior as brush actors handle it themselves
+	return bIsEditorOnly;
+}
 
 #if WITH_EDITOR
 static FVector GetPolyCenter(const FPoly& Poly)

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "CollectionManagerTypes.h"
+
 /** Status states that a collection item can be in */
 enum class ECollectionItemStatus : uint8
 {

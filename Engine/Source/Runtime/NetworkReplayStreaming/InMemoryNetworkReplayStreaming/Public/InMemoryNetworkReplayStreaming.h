@@ -2,14 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/AssertionMacros.h"
+#include "Serialization/Archive.h"
+#include "Containers/UnrealString.h"
 #include "NetworkReplayStreaming.h"
-#include "Core.h"
-#include "ModuleManager.h"
-#include "UniquePtr.h"
-#include "JsonSerializer.h"
+#include "Stats/Stats.h"
+#include "Modules/ModuleManager.h"
+#include "Serialization/JsonSerializer.h"
 #include "Tickable.h"
 
 class FInMemoryNetworkReplayStreamingFactory;
+class FNetworkReplayVersion;
 
 /* Holds all data about an entire replay */
 struct FInMemoryReplay
@@ -23,6 +27,13 @@ struct FInMemoryReplay
 		TArray<uint8> Data;
 		uint32 TimeInMS;
 		uint32 StreamByteOffset;
+		
+		void Reset()
+		{
+			Data.Reset();
+			TimeInMS = 0;
+			StreamByteOffset = 0;
+		}
 	};
 
 	/** Represents a chunk of replay stream data between two checkpoints. */
@@ -142,6 +153,7 @@ public:
 	virtual void KeepReplay( const FString& ReplayName, const bool bKeep ) override;
 	virtual FString	GetReplayID() const override { return TEXT( "" ); }
 	virtual void SetTimeBufferHintSeconds(const float InTimeBufferHintSeconds) override { TimeBufferHintSeconds = InTimeBufferHintSeconds; }
+	virtual void RefreshHeader() override {};
 
 	/** FTickableObjectBase implementation */
 	virtual void Tick(float DeltaSeconds) override;
@@ -192,6 +204,12 @@ private:
 
 	/* Handle to the archive that will read/write checkpoint files */
 	TUniquePtr<FArchive> CheckpointAr;
+
+	/**
+	 * Temporary checkpoint used during recording. Will be moved onto the
+	 * replay's checkpoint list in FlushCheckpoint to commit it.
+	 */
+	FInMemoryReplay::FCheckpoint CheckpointCurrentlyBeingSaved;
 
 	/** EStreamerState - Overall state of the streamer */
 	enum class EStreamerState

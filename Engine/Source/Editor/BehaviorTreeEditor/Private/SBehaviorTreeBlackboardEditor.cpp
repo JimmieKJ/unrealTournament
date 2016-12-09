@@ -1,19 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
 #include "SBehaviorTreeBlackboardEditor.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType.h"
 #include "BehaviorTree/BlackboardData.h"
-#include "BehaviorTree/Blackboard/BlackboardKeyAllTypes.h"
-
-#include "BehaviorTreeEditor.h"
-#include "ClassIconFinder.h"
-#include "ScopedTransaction.h"
-#include "GraphActionNode.h"
-#include "BehaviorTreeEditorCommands.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "EditorStyleSet.h"
 #include "ClassViewerModule.h"
+#include "SGraphActionMenu.h"
+
+#include "ScopedTransaction.h"
+#include "BehaviorTreeEditorCommands.h"
 #include "ClassViewerFilter.h"
-#include "GenericCommands.h"
-#include "SBehaviorTreeBlackboardView.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #define LOCTEXT_NAMESPACE "SBehaviorTreeBlackboardEditor"
 

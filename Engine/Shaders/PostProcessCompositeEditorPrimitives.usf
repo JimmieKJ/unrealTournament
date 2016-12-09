@@ -183,10 +183,15 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor
 //	OutColor.rgb = lerp(DestColor.rgb, DarkenMask * SrcColor.rgb * HiddenMask, SrcColor.a );
 
 	// SrcColor is in premultipied alpha
-	OutColor.rgb = DestColor.rgb * (1 - SrcColor.a) + DarkenMask * SrcColor.rgb * HiddenMask;
+
+	OutColor.rgb = DestColor.rgb * (1 - SrcColor.a) + SrcColor.rgb * (DarkenMask * HiddenMask);
 
 	// Re-apply gamma corrrection
 //	OutColor.rgb = pow( OutColor.rgb, 1/2.2f );
 
+#if SCENE_ALPHA
+	OutColor.a = lerp(DestColor.a, 1, SrcColor.a * DarkenMask * HiddenMask);
+#else
 	OutColor.a = 0;
+#endif
 }

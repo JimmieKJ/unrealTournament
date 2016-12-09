@@ -1,12 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerPrivatePCH.h"
-#include "SEventGraphTooltip.h"
+#include "Widgets/SEventGraphTooltip.h"
+#include "Misc/Paths.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/SToolTip.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "SEventGraphTooltip"
 
+
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphSamplePtr EventSample )
+TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const TSharedPtr<FEventGraphSample> EventSample )
 {
 	const FSlateFontInfo TitleFont( FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 10 );
 	const FSlateFontInfo DescriptionFont( FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 8 );
@@ -491,5 +503,13 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 	return TableCellTooltip;
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+
+EVisibility SEventGraphTooltip::GetHotPathIconVisibility(const TSharedPtr<FEventGraphSample> EventSample)
+{
+	const bool bIsHotPathIconVisible = EventSample->_bIsHotPath;
+	return bIsHotPathIconVisible ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
 
 #undef LOCTEXT_NAMESPACE

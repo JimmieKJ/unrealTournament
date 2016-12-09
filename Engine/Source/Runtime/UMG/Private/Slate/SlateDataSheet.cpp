@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "SlateDataSheet.h"
+#include "Slate/SlateDataSheet.h"
+#include "Engine/Texture2D.h"
+#include "RenderUtils.h"
 
 
 const FUpdateTextureRegion2D USlateDataSheet::DataSheetUpdateRegion(

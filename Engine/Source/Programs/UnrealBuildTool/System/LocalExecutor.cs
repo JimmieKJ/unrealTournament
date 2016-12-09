@@ -461,7 +461,15 @@ namespace UnrealBuildTool
 								{
 									ActionThread ActionThread = new ActionThread(Action, JobNumber, Actions.Count);
 									JobNumber++;
-									ActionThread.Run();
+
+									try
+									{
+										ActionThread.Run();
+									}
+									catch (Exception ex)
+									{
+										throw new BuildException(ex, "Failed to start thread for action: {0} {1}\r\n{2}", Action.CommandPath, Action.CommandArguments, ex.ToString());
+									}
 
 									ActionThreadDictionary.Add(Action, ActionThread);
 

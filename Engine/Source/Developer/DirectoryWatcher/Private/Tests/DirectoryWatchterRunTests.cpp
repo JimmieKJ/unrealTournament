@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DirectoryWatcherPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
 #include "FileCacheUtilities.h"
 
 /** Test MatchExtensionString */

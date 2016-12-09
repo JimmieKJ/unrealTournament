@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "AITypes.h"
+#include "UObject/Package.h"
+#include "Navigation/PathFollowingComponent.h"
 
 //----------------------------------------------------------------------//
 // FAIResourceLock

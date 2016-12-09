@@ -3,7 +3,7 @@
 //
 // Add / delete members from a list of pointers.
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #if 0
 #include "System/paMemory.hpp"

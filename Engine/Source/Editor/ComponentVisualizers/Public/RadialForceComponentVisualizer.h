@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ComponentVisualizer.h"
+
+class FPrimitiveDrawInterface;
+class FSceneView;
 
 class COMPONENTVISUALIZERS_API FRadialForceComponentVisualizer : public FComponentVisualizer
 {

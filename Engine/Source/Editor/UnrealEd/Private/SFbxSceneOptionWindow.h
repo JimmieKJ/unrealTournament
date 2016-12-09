@@ -2,18 +2,24 @@
 
 #pragma once
 
-#include "SlateBasics.h"
-#include "AssetRegistryModule.h"
-#include "Fbx/SSceneImportNodeTreeView.h"
-#include "Fbx/SSceneReimportNodeTreeView.h"
-#include "Fbx/SSceneImportStaticMeshListView.h"
-#include "Fbx/SSceneSkeletalMeshListView.h"
-#include "Fbx/SSceneReimportSkeletalMeshListView.h"
-#include "Fbx/SSceneReimportStaticMeshListView.h"
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Fbx/SSceneBaseMeshListView.h"
+#include "Framework/Docking/TabManager.h"
 #include "Fbx/SSceneMaterialsListView.h"
-#include "Factories/FbxSceneImportFactory.h"
 
 class IDetailsView;
+class SFbxReimportSceneTreeView;
+class SFbxSceneSkeletalMeshListView;
+class SFbxSceneSkeletalMeshReimportListView;
+class SFbxSceneStaticMeshListView;
+class SFbxSceneStaticMeshReimportListView;
+class SFbxSceneTreeView;
+struct FPropertyChangedEvent;
 
 class SFbxSceneOptionWindow : public SCompoundWidget
 {

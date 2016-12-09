@@ -2,11 +2,13 @@
 
 
 #pragma once
-#include "Components/PrimitiveComponent.h"
-#include "RHIDefinitions.h"
-#include "MeshComponent.generated.h"
 
-struct FMaterialRelevance;
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/TextureStreamingTypes.h"
+#include "Components/PrimitiveComponent.h"
+#include "Materials/MaterialInterface.h"
+#include "MeshComponent.generated.h"
 
 /**
  * MeshComponent is an abstract base for any component that is an instance of a renderable collection of triangles.
@@ -26,8 +28,30 @@ class ENGINE_API UMeshComponent : public UPrimitiveComponent
 	UFUNCTION(BlueprintCallable, Category="Components|Mesh")
 	virtual TArray<class UMaterialInterface*> GetMaterials() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Components|Mesh")
+	virtual int32 GetMaterialIndex(FName MaterialSlotName) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Components|Mesh")
+	virtual TArray<FName> GetMaterialSlotNames() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Components|Mesh")
+	virtual bool IsMaterialSlotNameValid(FName MaterialSlotName) const;
+
 	/** Returns override Materials count */
 	virtual int32 GetNumOverrideMaterials() const;
+
+#if WITH_EDITOR
+	/*
+	 * Make sure the Override array is using only the space it should use.
+	 * 1. The override array cannot be bigger then the number of mesh material.
+	 * 2. The override array must not end with a nullptr UMaterialInterface.
+	 */
+	void CleanUpOverrideMaterials();
+	/** 
+	 * This empties all override materials and used by editor when replacing preview mesh 
+	 */
+	void EmptyOverrideMaterials(); 
+#endif
 
 	//~ Begin UObject Interface
 	virtual void BeginDestroy() override;
@@ -37,6 +61,7 @@ class ENGINE_API UMeshComponent : public UPrimitiveComponent
 	virtual int32 GetNumMaterials() const override;
 	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
 	virtual void SetMaterial(int32 ElementIndex, UMaterialInterface* Material) override;
+	virtual void SetMaterialByName(FName MaterialSlotName, class UMaterialInterface* Material) override;
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const override;	
 	//~ End UPrimitiveComponent Interface
 
@@ -56,6 +81,12 @@ class ENGINE_API UMeshComponent : public UPrimitiveComponent
 	 *	@param CinematicTextureGroups			Bitfield indicating which texture groups that use extra high-resolution mips
 	 */
 	virtual void PrestreamTextures( float Seconds, bool bPrioritizeCharacterTextures, int32 CinematicTextureGroups = 0 );
+
+	/** Get the material info for texture stremaing. Return whether the data is valid or not. */
+	virtual bool GetMaterialStreamingData(int32 MaterialIndex, FPrimitiveMaterialInfo& MaterialData) const { return false; }
+
+	/** Generate streaming data for all materials. */
+	void GetStreamingTextureInfoInner(FStreamingTextureLevelContext& LevelContext, const TArray<FStreamingTextureBuildInfo>* PreBuiltData, float ComponentScaling, TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/**

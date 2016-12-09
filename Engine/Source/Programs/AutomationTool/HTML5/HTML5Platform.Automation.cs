@@ -44,15 +44,15 @@ public class HTML5Platform : Platform
 		{
 			HTMLPakAutomation PakAutomation = new HTMLPakAutomation(Params, SC);
 
-			// Create Necessary Paks. 
+			// Create Necessary Paks.
 			PakAutomation.CreateEnginePak();
 			PakAutomation.CreateGamePak();
 			PakAutomation.CreateContentDirectoryPak();
 
-			// Create Emscripten Package from Necessary Paks. - This will be the VFS. 
+			// Create Emscripten Package from Necessary Paks. - This will be the VFS.
 			PakAutomation.CreateEmscriptenDataPackage(PackagePath, FinalDataLocation);
 
-			// Create All Map Paks which  will be downloaded on the fly. 
+			// Create All Map Paks which  will be downloaded on the fly.
 			PakAutomation.CreateMapPak();
 
 			// Create Delta Paks if setup.
@@ -93,14 +93,14 @@ public class HTML5Platform : Platform
 			GameExe += "-HTML5-" + Params.ClientConfigsToBuild[0].ToString();
 		}
 		GameExe += ".js";
-			
-        // ensure the ue4game binary exists, if applicable
-        string FullGameExePath = Path.Combine(Path.GetDirectoryName(Params.ProjectGameExeFilename), GameExe);
-        if (!SC.IsCodeBasedProject && !FileExists_NoExceptions(FullGameExePath))
-        {
+
+		// ensure the ue4game binary exists, if applicable
+		string FullGameExePath = Path.Combine(Path.GetDirectoryName(Params.ProjectGameExeFilename), GameExe);
+		if (!SC.IsCodeBasedProject && !FileExists_NoExceptions(FullGameExePath))
+		{
 			Log("Failed to find game application " + FullGameExePath);
-	        throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Could not find application {0}. You may need to build the UE4 project with your target configuration and platform.", FullGameExePath);
-        }
+			throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Could not find application {0}. You may need to build the UE4 project with your target configuration and platform.", FullGameExePath);
+		}
 
 		if (Path.Combine(Path.GetDirectoryName(Params.ProjectGameExeFilename), GameExe) != Path.Combine(PackagePath, GameExe))
 		{
@@ -115,7 +115,7 @@ public class HTML5Platform : Platform
 
 
 		// put the HTML file to the package directory
-		string TemplateFileName = "GameX.html.template"; 
+		string TemplateFileName = "GameX.html.template";
 		string TemplateFile = Path.Combine(CombinePaths(CmdEnv.LocalRoot, "Engine"), "Build", "HTML5", TemplateFileName);
 		string OutputFile = Path.Combine(PackagePath, (Params.ClientConfigsToBuild[0].ToString() != "Development" ? (Params.ShortProjectName + "-HTML5-" + Params.ClientConfigsToBuild[0].ToString()) : Params.ShortProjectName)) + ".html";
 
@@ -142,7 +142,7 @@ public class HTML5Platform : Platform
 
 
 		GenerateFileFromTemplate(TemplateFile, OutputFile, Params.ShortProjectName, Params.ClientConfigsToBuild[0].ToString(), Params.StageCommandline, !Params.IsCodeBasedProject, HeapSize);
-		
+
 		string MacBashTemplateFile = Path.Combine(CombinePaths(CmdEnv.LocalRoot, "Engine"), "Build", "HTML5", "RunMacHTML5LaunchHelper.command.template");
 		string MacBashOutputFile = Path.Combine(PackagePath, "RunMacHTML5LaunchHelper.command");
 		string MonoPath = Path.Combine(CombinePaths(CmdEnv.LocalRoot, "Engine"), "Build", "BatchFiles", "Mac", "SetupMono.sh");
@@ -168,17 +168,17 @@ public class HTML5Platform : Platform
 		string[] UtilityJavaScriptFiles = Directory.GetFiles(JSDir, "*.js");
 
 		string DestinationFile = OutDir + "/Utility.js";
-        File.Delete(DestinationFile);
+		File.Delete(DestinationFile);
 		foreach( var UtilityFile in UtilityJavaScriptFiles)
 		{
 			string Data = File.ReadAllText(UtilityFile);
 			File.AppendAllText(DestinationFile, Data);
 		}
 
-		// Compress all files. These are independent tasks which can be threaded. 
+		// Compress all files. These are independent tasks which can be threaded.
 		Task[] CompressionTasks = new Task[6];
 		//data file.
-		CompressionTasks[0] = Task.Factory.StartNew( () => CompressFile(FinalDataLocation, FinalDataLocation + "gz"));		
+		CompressionTasks[0] = Task.Factory.StartNew( () => CompressFile(FinalDataLocation, FinalDataLocation + "gz"));
 		// data file .js driver.
 		CompressionTasks[1] = Task.Factory.StartNew( () => CompressFile(FinalDataLocation + ".js" , FinalDataLocation + ".jsgz"));
 		// main js.
@@ -187,7 +187,7 @@ public class HTML5Platform : Platform
 		CompressionTasks[3] = Task.Factory.StartNew(() => CompressFile(Path.Combine(PackagePath, GameExe) + ".mem", Path.Combine(PackagePath, GameExe) + ".memgz"));
 		// symbols file.
 		CompressionTasks[4] = Task.Factory.StartNew(() => CompressFile(Path.Combine(PackagePath, GameExe) + ".symbols", Path.Combine(PackagePath, GameExe) + ".symbolsgz"));
-		// Utility 
+		// Utility
 		CompressionTasks[5] = Task.Factory.StartNew(() => CompressFile(OutDir + "/Utility.js", OutDir + "/Utility.jsgz"));
 
 		File.Copy(CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/HTML5LaunchHelper.exe"),CombinePaths(OutDir, "HTML5LaunchHelper.exe"),true);
@@ -197,15 +197,15 @@ public class HTML5Platform : Platform
 
 	void CompressFile(string Source, string Destination)
 	{
-		Log(" Compressing " + Source); 
-		bool DeleteSource = false; 
+		Log(" Compressing " + Source);
+		bool DeleteSource = false;
 
 		if(  Source == Destination )
 		{
 			string CopyOrig = Source + ".Copy";
 			File.Copy(Source, CopyOrig);
 			Source = CopyOrig;
-			DeleteSource = true; 
+			DeleteSource = true;
 		}
 
 		using (System.IO.Stream input = System.IO.File.OpenRead(Source))
@@ -340,7 +340,7 @@ public class HTML5Platform : Platform
 				}
 				File.Copy(InTemplateFile, InOutputFile);
 				File.SetAttributes(InOutputFile, File.GetAttributes(InOutputFile) & ~FileAttributes.ReadOnly);
-				using (var CmdFile = File.Open(InOutputFile, FileMode.OpenOrCreate | FileMode.Truncate)) 
+				using (var CmdFile = File.Open(InOutputFile, FileMode.OpenOrCreate | FileMode.Truncate))
 				{
 					Byte[] BytesToWrite = new UTF8Encoding(true).GetBytes(outputContents.ToString());
 					CmdFile.Write(BytesToWrite, 0, BytesToWrite.Length);
@@ -378,10 +378,10 @@ public class HTML5Platform : Platform
 		// put the HTML file to the package directory
 		string OutputFile = Path.Combine(PackagePath, (Params.ClientConfigsToBuild[0].ToString() != "Development" ? (Params.ShortProjectName + "-HTML5-" + Params.ClientConfigsToBuild[0].ToString()) : Params.ShortProjectName)) + ".html";
 
-		// data file 
+		// data file
 		SC.ArchiveFiles(PackagePath, Path.GetFileName(FinalDataLocation));
 		SC.ArchiveFiles(PackagePath, Path.GetFileName(FinalDataLocation + "gz"));
-		// data file js driver 
+		// data file js driver
 		SC.ArchiveFiles(PackagePath, Path.GetFileName(FinalDataLocation + ".js"));
 		SC.ArchiveFiles(PackagePath, Path.GetFileName(FinalDataLocation + ".jsgz"));
 		// main js file
@@ -399,7 +399,7 @@ public class HTML5Platform : Platform
 		// landing page.
 		SC.ArchiveFiles(PackagePath, Path.GetFileName(OutputFile));
 
-		// Archive HTML5 Server and a Readme. 
+		// Archive HTML5 Server and a Readme.
 		var LaunchHelperPath = CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/");
 		SC.ArchiveFiles(LaunchHelperPath, "HTML5LaunchHelper.exe");
 		SC.ArchiveFiles(Path.Combine(CombinePaths(CmdEnv.LocalRoot, "Engine"), "Build", "HTML5"), "Readme.txt");
@@ -414,13 +414,13 @@ public class HTML5Platform : Platform
 			{
 				var DestPak = PakFile.Replace(PackagePath,"");
 				SC.ArchivedFiles.Add(PakFile, DestPak);
-			}	
+			}
 		}
 
 		UploadToS3(SC);
 	}
 
-	public override ProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
+	public override IProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
 	{
 		// look for browser
 		string BrowserPath = Params.Devices[0].Replace("HTML5@", "");
@@ -432,35 +432,18 @@ public class HTML5Platform : Platform
 		ConfigCache.GetInt32("/Script/HTML5PlatformEditor.HTML5TargetSettings", "DeployServerPort", out ServerPort);
 		string WorkingDirectory = Path.GetDirectoryName(ClientApp);
 		string url = Path.GetFileName(ClientApp) +".html";
-		// Are we running via cook on the fly server?
-		// find our http url - This is awkward because RunClient doesn't have real information that NFS is running or not.
-		bool IsCookOnTheFly = false;
-
-		// 9/24/2014 @fixme - All this is convoluted, clean up.
-		// looks like cookonthefly commandline stopped adding protocol or the port :/ hard coding to DEFAULT_TCP_FILE_SERVING_PORT+1 (DEFAULT_HTTP_FILE_SERVING_PORT)
-		// This will fail if the NFS server is started with a different port - we need to modify driver .cs script to pass in IP/Port data correctly. 
-
 		if (ClientCmdLine.Contains("filehostip"))
-		{
-			IsCookOnTheFly = true; 
-			url = "http://127.0.0.1:41898/" + url; 
-		}
-
-		if (IsCookOnTheFly)
 		{
 			url += "?cookonthefly=true";
 		}
-		else
-		{
-			url = String.Format("http://localhost:{0}/{1}", ServerPort, url);
-		}
+		url = String.Format("http://localhost:{0}/{1}", ServerPort, url);
 
 		// Check HTML5LaunchHelper source for command line args
 
 		var LowerBrowserPath = BrowserPath.ToLower();
 		var ProfileDirectory = Path.Combine(Utils.GetUserSettingDirectory().FullName, "UE4_HTML5", "user");
 
-		string BrowserCommandline = url; 
+		string BrowserCommandline = url;
 
 		if (LowerBrowserPath.Contains("chrome"))
 		{
@@ -474,8 +457,8 @@ public class HTML5Platform : Platform
 		string LauncherArguments = string.Format(" -Browser=\"{0}\" + -BrowserCommandLine=\"{1}\" -ServerPort=\"{2}\" -ServerRoot=\"{3}\" ", new object[] { BrowserPath, BrowserCommandline, ServerPort, WorkingDirectory });
 
 		var LaunchHelperPath = CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/HTML5LaunchHelper.exe");
-		ProcessResult BrowserProcess = Run(LaunchHelperPath, LauncherArguments, null, ClientRunFlags | ERunOptions.NoWaitForExit);
-	
+		IProcessResult BrowserProcess = Run(LaunchHelperPath, LauncherArguments, null, ClientRunFlags | ERunOptions.NoWaitForExit);
+
 		return BrowserProcess;
 	}
 
@@ -486,7 +469,7 @@ public class HTML5Platform : Platform
 
 	public override string GetCookExtraCommandLine(ProjectParams Params)
 	{
-		return HTMLPakAutomation.CanCreateMapPaks(Params) ? " -GenerateDependenciesForMaps " : ""; 
+		return HTMLPakAutomation.CanCreateMapPaks(Params) ? " -GenerateDependenciesForMaps " : "";
 	}
 
 	public override bool DeployPakInternalLowerCaseFilenames()
@@ -534,7 +517,7 @@ public class HTML5Platform : Platform
 	}
 	#endregion
 
-#region AMAZON S3 
+#region AMAZON S3
 	public void UploadToS3(DeploymentContext SC)
 	{
 		ConfigCacheIni Ini = ConfigCacheIni.CreateConfigCacheIni(SC.StageTargetPlatform.PlatformType, "Engine", DirectoryReference.FromFile(SC.RawProjectPath));
@@ -552,7 +535,7 @@ public class HTML5Platform : Platform
 		}
 		else
 		{
-			return; 
+			return;
 		}
 		bool AmazonIdentity = Ini.GetString("/Script/HTML5PlatformEditor.HTML5TargetSettings", "S3KeyID", out KeyId) &&
 								Ini.GetString("/Script/HTML5PlatformEditor.HTML5TargetSettings", "S3SecretAccessKey", out AccessKey) &&
@@ -561,8 +544,8 @@ public class HTML5Platform : Platform
 
 		if ( !AmazonIdentity )
 		{
-			Log("Amazon S3 Incorrectly configured"); 
-			return; 
+			Log("Amazon S3 Incorrectly configured");
+			return;
 		}
 
 		if ( FolderName == "" )
@@ -574,7 +557,7 @@ public class HTML5Platform : Platform
 		foreach(KeyValuePair<string, string> Entry in SC.ArchivedFiles)
 		{
 			FileInfo Info = new FileInfo(Entry.Key);
-			UploadTasks.Add (Task.Factory.StartNew(() => UploadToS3Worker(Info,KeyId,AccessKey,BucketName,FolderName))); 
+			UploadTasks.Add (Task.Factory.StartNew(() => UploadToS3Worker(Info,KeyId,AccessKey,BucketName,FolderName)));
 		}
 
 		Task.WaitAll(UploadTasks.ToArray());
@@ -585,42 +568,42 @@ public class HTML5Platform : Platform
 		Log("Upload Tasks finished.");
 	}
 
-	private static IDictionary<string, string> MimeTypeMapping = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase) 
+	private static IDictionary<string, string> MimeTypeMapping = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase)
 		{
 			{ ".html", "text/html"},
-			{ ".jsgz", "application/x-javascript" },  // upload compressed javascript. 
+			{ ".jsgz", "application/x-javascript" },  // upload compressed javascript.
 			{ ".datagz", "appication/octet-stream"}
-		}; 
+		};
 
 	public void UploadToS3Worker(FileInfo Info, string KeyId, string AccessKey, string BucketName, string FolderName )
 	{
-		Log(" Uploading " + Info.Name); 
+		Log(" Uploading " + Info.Name);
 
-			// force upload files even if the timestamps haven't changed. 
+			// force upload files even if the timestamps haven't changed.
 			string TimeStamp = string.Format("{0:r}", DateTime.UtcNow);
-			string ContentType = ""; 
+			string ContentType = "";
 			if (MimeTypeMapping.ContainsKey(Info.Extension))
 			{
 				ContentType = MimeTypeMapping[Info.Extension];
 			}
-			else 
+			else
 			{
 				// default
 				ContentType = "application/octet-stream";
 			}
 
-		
-			// URL to put things. 
+
+			// URL to put things.
 			string URL = "http://" + BucketName + ".s3.amazonaws.com/" + FolderName + "/" + Info.Name;
 
-			HttpWebRequest Request = (HttpWebRequest)WebRequest.Create(URL); 
+			HttpWebRequest Request = (HttpWebRequest)WebRequest.Create(URL);
 
-			// Upload. 
+			// Upload.
 			Request.Method = "PUT";
 			Request.Headers["x-amz-date"] = TimeStamp;
-			Request.Headers["x-amz-acl"] = "public-read"; // we probably want to make public read by default. 
+			Request.Headers["x-amz-acl"] = "public-read"; // we probably want to make public read by default.
 
-			// set correct content encoding for compressed javascript. 
+			// set correct content encoding for compressed javascript.
 			if ( Info.Extension.EndsWith("gz") )
 			{
 				Request.Headers["Content-Encoding"] = "gzip";
@@ -630,20 +613,20 @@ public class HTML5Platform : Platform
 			Request.ContentLength = Info.Length;
 
 			//http://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html
-			// Find Base64Encoded data. 
+			// Find Base64Encoded data.
 			UTF8Encoding EncodingMethod = new UTF8Encoding();
 			HMACSHA1 Signature = new HMACSHA1 { Key = EncodingMethod.GetBytes(AccessKey) };
 			// don't change this string.
-			string RequestString = "PUT\n\n" + ContentType + "\n\nx-amz-acl:public-read\nx-amz-date:" + TimeStamp + "\n/"+ BucketName + "/" + FolderName + "/" + Info.Name; 
+			string RequestString = "PUT\n\n" + ContentType + "\n\nx-amz-acl:public-read\nx-amz-date:" + TimeStamp + "\n/"+ BucketName + "/" + FolderName + "/" + Info.Name;
 			Byte[] ComputedHash = Signature.ComputeHash(EncodingMethod.GetBytes(RequestString));
 			var Base64Encoded = Convert.ToBase64String(ComputedHash);
-			
-			// final amz auth header. 
+
+			// final amz auth header.
 			Request.Headers["Authorization"] = "AWS " + KeyId + ":" + Base64Encoded;
 
 			try
 			{
-				// may fail for really big stuff. YMMV. May need Multi part approach, we will see. 
+				// may fail for really big stuff. YMMV. May need Multi part approach, we will see.
 				Byte[] FileData = File.ReadAllBytes(Info.FullName);
 				var requestStream = Request.GetRequestStream();
 				requestStream.Write(FileData, 0, FileData.Length);
@@ -661,8 +644,8 @@ public class HTML5Platform : Platform
 				throw ex;
 			}
 
-			Log(Info.Name + " has been uploaded "); 
+			Log(Info.Name + " has been uploaded ");
 	}
 
-#endregion 
+#endregion
 }

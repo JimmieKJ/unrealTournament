@@ -4,8 +4,10 @@
 	AudioEffect.cpp: Unreal base audio.
 =============================================================================*/
 
-#include "EnginePrivate.h" 
 #include "AudioEffect.h"
+#include "Misc/App.h"
+#include "Audio.h"
+#include "Sound/AudioVolume.h"
 #include "Sound/ReverbEffect.h"
 
 /** 
@@ -263,6 +265,8 @@ void FAudioEffectsManager::InitAudioEffects( void )
 	ReverbSettings.FadeTime = 0.1f;
 	SetReverbSettings( ReverbSettings );
 
+	FMemory::Memzero(&PrevReverbEffect, sizeof(PrevReverbEffect));
+
 	ClearMixSettings();
 }
 
@@ -362,6 +366,33 @@ void FAudioEffectsManager::ClearMixSettings()
 	}
 }
 
+
+static bool operator==(const FAudioReverbEffect& EffectA, const FAudioReverbEffect& EffectB)
+{
+	bool bIsEqual = true;
+
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.Volume, EffectB.Volume, KINDA_SMALL_NUMBER);
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.Density, EffectB.Density, KINDA_SMALL_NUMBER);
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.Diffusion, EffectB.Diffusion, KINDA_SMALL_NUMBER);
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.Gain, EffectB.Gain, KINDA_SMALL_NUMBER);
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.GainHF, EffectB.GainHF, KINDA_SMALL_NUMBER);
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.DecayTime, EffectB.DecayTime, KINDA_SMALL_NUMBER);
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.DecayHFRatio, EffectB.DecayHFRatio, KINDA_SMALL_NUMBER);
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.ReflectionsGain, EffectB.ReflectionsGain, KINDA_SMALL_NUMBER);
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.ReflectionsDelay, EffectB.ReflectionsDelay, KINDA_SMALL_NUMBER);
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.LateGain, EffectB.LateGain, KINDA_SMALL_NUMBER);
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.LateDelay, EffectB.LateDelay, KINDA_SMALL_NUMBER);
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.AirAbsorptionGainHF, EffectB.AirAbsorptionGainHF, KINDA_SMALL_NUMBER);
+	bIsEqual = bIsEqual && FMath::IsNearlyEqual(EffectA.RoomRolloffFactor, EffectB.RoomRolloffFactor, KINDA_SMALL_NUMBER);
+
+	return bIsEqual;
+}
+
+static bool operator!=(const FAudioReverbEffect& EffectA, const FAudioReverbEffect& EffectB)
+{
+	return !(EffectA == EffectB);
+}
+
 /** 
  * Feed in new settings to the audio effect system
  */
@@ -377,7 +408,13 @@ void FAudioEffectsManager::Update()
 #endif
 
 	Interpolate(CurrentReverbEffect, SourceReverbEffect, DestinationReverbEffect);
-	SetReverbEffectParameters(CurrentReverbEffect);
+
+	// Only apply reverb if it's different
+	if (CurrentReverbEffect != PrevReverbEffect)
+	{
+		PrevReverbEffect = CurrentReverbEffect;
+		SetReverbEffectParameters(CurrentReverbEffect);
+	}
 
 	Interpolate(CurrentEQEffect, SourceEQEffect, DestinationEQEffect);
 	SetEQEffectParameters(CurrentEQEffect);

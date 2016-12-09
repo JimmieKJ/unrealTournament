@@ -2,10 +2,22 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionFloat.h"
 #include "Particles/TypeData/ParticleModuleTypeDataBase.h"
 #include "ParticleModuleTypeDataBeam2.generated.h"
 
 class UInterpCurveEdSetup;
+class UParticleEmitter;
+class UParticleModuleBeamModifier;
+class UParticleModuleBeamNoise;
+class UParticleModuleBeamSource;
+class UParticleModuleBeamTarget;
+class UParticleSystemComponent;
+struct FCurveEdEntry;
+struct FParticleEmitterInstance;
 
 UENUM()
 enum EBeam2Method

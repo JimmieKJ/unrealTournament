@@ -443,10 +443,10 @@ FVector UUTGameViewportClient::PaniniProjectLocation(const FSceneView* SceneView
 		PaniniParamsMat->GetScalarParameterValue(NAME_Scale, Scale);
 	}
 
-	FVector ViewSpaceLoc = SceneView->ViewMatrices.ViewMatrix.TransformPosition(WorldLoc);
+	FVector ViewSpaceLoc = SceneView->ViewMatrices.GetViewMatrix().TransformPosition(WorldLoc);
 	FVector2D PaniniResult = PaniniProjection(FVector2D(ViewSpaceLoc.X / ViewSpaceLoc.Z, ViewSpaceLoc.Y / ViewSpaceLoc.Z), d, s);
 
-	FMatrix ClipToView = SceneView->ViewMatrices.GetInvProjMatrix();
+	FMatrix ClipToView = SceneView->ViewMatrices.GetInvProjectionMatrix();
 	float ScreenSpaceScaleFactor = (ClipToView.M[0][0] / PaniniProjection(FVector2D(ClipToView.M[0][0], ClipToView.M[1][1]), d, 0.0f).X) * Scale;
 	float FOVModifier = ((ClipToView.M[0][0] - 1.0f) * FOVMulti + 1.0f) * ScreenSpaceScaleFactor;
 
@@ -1155,7 +1155,7 @@ void UUTGameViewportClient::SetActiveLocalPlayerControllers()
 		{
 			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 			{
-				APlayerController* Controller = *It;
+				APlayerController* Controller = It->Get();
 				if (Controller->Player == LocalPlayer)
 				{
 					LocalPlayer->PlayerController = Controller;

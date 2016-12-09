@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Modules/ModuleInterface.h"
+
 #define PAPER2D_MODULE_NAME "Paper2D"
 
 //////////////////////////////////////////////////////////////////////////

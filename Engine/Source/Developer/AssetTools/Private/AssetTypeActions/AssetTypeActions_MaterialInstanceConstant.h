@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
+#include "AssetTypeActions/AssetTypeActions_MaterialInterface.h"
 #include "Materials/MaterialInstanceConstant.h"
-#include "AssetTypeActions_MaterialInterface.h"
+
+class FMenuBuilder;
 
 class FAssetTypeActions_MaterialInstanceConstant : public FAssetTypeActions_MaterialInterface
 {

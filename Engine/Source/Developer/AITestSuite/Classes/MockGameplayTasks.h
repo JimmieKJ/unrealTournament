@@ -2,9 +2,16 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "GameplayTaskOwnerInterface.h"
 #include "GameplayTask.h"
 #include "GameplayTasksComponent.h"
 #include "MockGameplayTasks.generated.h"
+
+class AActor;
+template<typename ValueType> struct FTestLogger;
 
 namespace ETestTaskMessage
 {

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AITestSuitePrivatePCH.h"
-#include "GameplayTasksComponent.h"
+#include "CoreMinimal.h"
+#include "GameplayTask.h"
+#include "Tests/AITestsCommon.h"
 #include "MockGameplayTasks.h"
 //#include "MockAI_BT.h"
 //#include "BehaviorTree/TestBTDecorator_CantExecute.h"

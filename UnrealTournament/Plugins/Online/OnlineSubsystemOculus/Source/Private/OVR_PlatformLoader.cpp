@@ -587,10 +587,10 @@ OVRPL_PUBLIC_FUNCTION(ovrPlatformInitializeResult) ovr_PlatformInitializeWindows
 #endif
 
 	swprintf(preLoadLibName, sizeof(preLoadLibName) / sizeof(preLoadLibName[0]), L"LibOVRPlatform%hs_%d.dll", pBitDepth, PLATFORM_MAJOR_VERSION);
-	auto hLibPreLoad = GetModuleHandle(preLoadLibName);
+	auto hLibPreLoad = GetModuleHandleW(preLoadLibName);
 	if (hLibPreLoad != NULL) {
 		// Someone already loaded the module. Might be fine, just copy the path out so we can check it later.
-		GetModuleFileName(hLibPreLoad, preLoadFilePath, sizeof(preLoadFilePath) / sizeof(preLoadFilePath[0]));
+		GetModuleFileNameW(hLibPreLoad, preLoadFilePath, sizeof(preLoadFilePath) / sizeof(preLoadFilePath[0]));
 	}
 
 	FilePathCharType filePath[OVR_MAX_PATH];
@@ -644,7 +644,7 @@ OVRPL_PUBLIC_FUNCTION(void) ovr_PlatformInitializeStandaloneAccessToken(const ch
 #endif
 
 	swprintf(preLoadLibName, sizeof(preLoadLibName) / sizeof(preLoadLibName[0]), L"LibOVRPlatform%hs_%d.dll", pBitDepth, PLATFORM_MAJOR_VERSION);
-	auto hLibPreLoad = GetModuleHandle(preLoadLibName);
+	auto hLibPreLoad = GetModuleHandleW(preLoadLibName);
 
 	LoadFunctions(hLibPreLoad);
 	ovr_PlatformInitializeStandaloneAccessTokenPLPtr(accessToken);

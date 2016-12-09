@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StatsViewerPrivatePCH.h"
 #include "LightingBuildInfo.h"
+#include "UObject/Package.h"
+#include "GameFramework/Actor.h"
+#include "Model.h"
 #include "Lightmass/LightmappedSurfaceCollection.h"
 
 ULightingBuildInfo::ULightingBuildInfo(const FObjectInitializer& ObjectInitializer)

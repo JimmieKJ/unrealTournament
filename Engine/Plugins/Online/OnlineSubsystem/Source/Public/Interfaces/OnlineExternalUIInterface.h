@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "OnlineSubsystemTypes.h"
+
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineDelegateMacros.h"
-#include "OnlineMessageInterface.h"
+#include "Interfaces/OnlineMessageInterface.h"
 
 /**
  * Delegate called when the external UI is opened or closed

@@ -6,6 +6,16 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/VarArgs.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/UnrealTemplate.h"
+#include "Containers/UnrealString.h"
+#include "Misc/DateTime.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+
 #if ALLOW_DEBUG_FILES
 
 /**

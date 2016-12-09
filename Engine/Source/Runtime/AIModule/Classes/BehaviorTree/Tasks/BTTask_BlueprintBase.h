@@ -2,10 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "BehaviorTree/BTTaskNode.h"
 #include "BTTask_BlueprintBase.generated.h"
 
-class FBehaviorBlueprintDetails;
+class AActor;
+class AAIController;
+class APawn;
+class UBehaviorTree;
 
 /**
  *  Base class for blueprint based task nodes. Do NOT use it for creating native c++ classes!
@@ -135,6 +140,4 @@ protected:
 
 	/** ticks this task */
 	virtual void TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds) override;
-
-	friend FBehaviorBlueprintDetails;
 };

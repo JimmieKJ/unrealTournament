@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "OnlineBlueprintCallProxyBase.h"
-#include "OnlineTurnBasedInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Net/OnlineBlueprintCallProxyBase.h"
+#include "Interfaces/OnlineTurnBasedInterface.h"
 #include "QuitMatchCallbackProxy.generated.h"
+
+class APlayerController;
 
 UCLASS(MinimalAPI)
 class UQuitMatchCallbackProxy : public UOnlineBlueprintCallProxyBase

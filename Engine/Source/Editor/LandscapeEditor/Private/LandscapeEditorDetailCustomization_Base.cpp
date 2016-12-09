@@ -1,13 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
+#include "LandscapeEditorDetailCustomization_Base.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
 #include "LandscapeEdMode.h"
-#include "LandscapeEditorCommands.h"
-#include "LandscapeEditorObject.h"
-#include "LandscapeEditorDetails.h"
-#include "LandscapeEditorDetailCustomizations.h"
 
-#include "PropertyHandle.h"
 
 
 FEdModeLandscape* FLandscapeEditorDetailCustomization_Base::GetEditorMode()

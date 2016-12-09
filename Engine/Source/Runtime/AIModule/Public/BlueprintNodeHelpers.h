@@ -2,9 +2,14 @@
 
 #pragma once
 
-class UBTNode;
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+
+class AActor;
+class UActorComponent;
 class UBehaviorTreeComponent;
 class UBlackboardData;
+class UBTNode;
 
 namespace BlueprintNodeHelpers
 {
@@ -41,9 +46,6 @@ namespace BlueprintNodeHelpers
 	//----------------------------------------------------------------------//
 	// DEPRECATED
 	//----------------------------------------------------------------------//
-	DEPRECATED(4.7, "This version is deprecated. Please use the one taking reference to UActorComponent rather than a pointer.")
-	void AbortLatentActions(UActorComponent* OwnerOb, const UObject* Ob);
-
 	DEPRECATED(4.11, "This version of HasBlueprintFunction is deprecated. Please use the one taking reference to UObject and StopAtClass rather than a pointers.")
 	AIMODULE_API bool HasBlueprintFunction(FName FuncName, const UObject* Object, const UClass* StopAtClass);
 }

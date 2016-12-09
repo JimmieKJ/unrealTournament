@@ -1,12 +1,22 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UObjectHash.cpp: Unreal object name hashes
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
-#include "Projects.h"
-#include "PackageLocalizationManager.h"
+#include "Misc/PackageName.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Stats/Stats.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Package.h"
+#include "UObject/PackageFileSummary.h"
+#include "UObject/Linker.h"
+#include "Interfaces/IPluginManager.h"
+#include "Internationalization/PackageLocalizationManager.h"
 #include "HAL/ThreadHeartBeat.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPackageName, Log, All);
@@ -338,6 +348,22 @@ bool FPackageName::TryConvertLongPackageNameToFilename(const FString& InLongPack
 		if (InLongPackageName.StartsWith(Pair.RootPath))
 		{
 			OutFilename = Pair.ContentPath + InLongPackageName.Mid(Pair.RootPath.Len()) + InExtension;
+			return true;
+		}
+	}
+
+	// This is not a long package name or the root folder is not handled in the above cases
+	return false;
+}
+
+bool FPackageName::ConvertRootPathToContentPath( const FString& RootPath, FString& OutContentPath)
+{
+	const auto& Paths = FLongPackagePathsSingleton::Get();
+	for (const auto& Pair : Paths.ContentRootToPath)
+	{
+		if (RootPath.StartsWith(Pair.RootPath))
+		{
+			OutContentPath = Pair.ContentPath;
 			return true;
 		}
 	}
@@ -804,8 +830,9 @@ FString FPackageName::GetNormalizedObjectPath(const FString& ObjectPath)
 	{
 		FString LongPath;
 
-		UE_LOG(LogPackageName, Warning, TEXT("String asset reference \"%s\" is in short form, which is unsupported and -- even if valid -- resolving it will be really slow. Please consider resaving package in order to speed-up loading."), *ObjectPath);
-
+		UE_LOG(LogPackageName, Warning, TEXT("String asset reference \"%s\" is in short form, which is unsupported and -- even if valid -- resolving it will be really slow."), *ObjectPath);
+		UE_LOG(LogPackageName, Warning, TEXT("Please consider resaving package in order to speed-up loading."));
+		
 		if (!FPackageName::TryConvertShortPackagePathToLongInObjectPath(ObjectPath, LongPath))
 		{
 			UE_LOG(LogPackageName, Warning, TEXT("String asset reference \"%s\" could not be resolved."), *ObjectPath);
@@ -854,6 +881,12 @@ FString FPackageName::GetDelegateResolvedPackagePath(const FString& InSourcePack
 	}
 
 	return InSourcePackagePath;
+}
+
+FString FPackageName::GetLocalizedPackagePath(const FString& InSourcePackagePath)
+{
+	const FName LocalizedPackageName = FPackageLocalizationManager::Get().FindLocalizedPackageName(*InSourcePackagePath);
+	return (LocalizedPackageName.IsNone()) ? InSourcePackagePath : LocalizedPackageName.ToString();
 }
 
 FString FPackageName::GetLocalizedPackagePath(const FString& InSourcePackagePath, const FString& InCultureName)

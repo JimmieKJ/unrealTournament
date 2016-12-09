@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "AnimNode_BlendSpacePlayer.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimNodeBase.h"
+#include "AnimNodes/AnimNode_BlendSpacePlayer.h"
 #include "AnimNode_RotationOffsetBlendSpace.generated.h"
 
 //@TODO: Comment

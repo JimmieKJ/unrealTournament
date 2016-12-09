@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
+#include "Leap_NoPI.h"
+#include "LeapEnums.h"
 #include "LeapPointable.generated.h"
 
 /**

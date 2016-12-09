@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/CoreOnline.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
 #include "ShowLoginUICallbackProxy.generated.h"
 

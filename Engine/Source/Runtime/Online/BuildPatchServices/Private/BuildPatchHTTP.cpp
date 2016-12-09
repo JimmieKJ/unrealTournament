@@ -5,7 +5,12 @@
 	in order to insure the HTTP module is only used from the main thread.
 =============================================================================*/
 
-#include "BuildPatchServicesPrivatePCH.h"
+#include "BuildPatchHTTP.h"
+#include "Misc/ScopeLock.h"
+#include "Containers/Ticker.h"
+#include "HttpModule.h"
+#include "BuildPatchError.h"
+#include "BuildPatchAnalytics.h"
 #include "AnalyticsEventAttribute.h"
 
 /* FBuildPatchHTTP implementation

@@ -1,10 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SDocumentationToolTip.h"
-#include "TranslationPickerFloatingWindow.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 
 #define LOCTEXT_NAMESPACE "TranslationPicker"
+
+class STranslationPickerFloatingWindow;
+class SWindow;
+enum class ECheckBoxState : uint8;
 
 class TranslationPickerManager
 {

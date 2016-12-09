@@ -19,8 +19,11 @@ namespace UnrealBuildTool.Rules
 					"AutomationMessages",
 					"CoreUObject",
 					"UnrealEdMessages",
-                    "MessageLog"
-				}
+                    "MessageLog",
+                    "Json",
+                    "JsonUtilities",
+					"ScreenShotComparisonTools"
+                }
 			);
 
             if (UEBuildConfiguration.bBuildEditor)

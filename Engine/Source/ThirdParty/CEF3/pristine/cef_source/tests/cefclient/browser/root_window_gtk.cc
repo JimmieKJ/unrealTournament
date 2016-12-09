@@ -19,6 +19,7 @@
 #include "cefclient/browser/main_message_loop.h"
 #include "cefclient/browser/resource.h"
 #include "cefclient/browser/temp_window.h"
+#include "cefclient/browser/window_test.h"
 #include "cefclient/common/client_switches.h"
 
 namespace client {
@@ -189,6 +190,21 @@ void RootWindowGtk::Close(bool force) {
     force_close_ = force;
     gtk_widget_destroy(window_);
   }
+}
+
+void RootWindowGtk::SetDeviceScaleFactor(float device_scale_factor) {
+  REQUIRE_MAIN_THREAD();
+
+  if (browser_window_)
+    browser_window_->SetDeviceScaleFactor(device_scale_factor);
+}
+
+float RootWindowGtk::GetDeviceScaleFactor() const {
+  REQUIRE_MAIN_THREAD();
+
+  if (browser_window_)
+    return browser_window_->GetDeviceScaleFactor();
+  return 1.0f;
 }
 
 CefRefPtr<CefBrowser> RootWindowGtk::GetBrowser() const {
@@ -371,6 +387,18 @@ void RootWindowGtk::OnSetTitle(const std::string& title) {
   if (window_) {
     std::string titleStr(title);
     gtk_window_set_title(GTK_WINDOW(window_), titleStr.c_str());
+  }
+}
+
+void RootWindowGtk::OnSetFullscreen(bool fullscreen) {
+  REQUIRE_MAIN_THREAD();
+
+  CefRefPtr<CefBrowser> browser = GetBrowser();
+  if (browser) {
+    if (fullscreen)
+      window_test::Maximize(browser);
+    else
+      window_test::Restore(browser);
   }
 }
 
@@ -575,7 +603,31 @@ gboolean RootWindowGtk::URLEntryButtonPress(GtkWidget* widget,
   GdkWindow* gdk_window = gtk_widget_get_window(window);
   ::Display* xdisplay = GDK_WINDOW_XDISPLAY(gdk_window);
   ::Window xwindow = GDK_WINDOW_XID(gdk_window);
-  XSetInputFocus(xdisplay, xwindow, RevertToParent, CurrentTime);
+
+  // Retrieve the atoms required by the below XSendEvent call.
+  const char* kAtoms[] = {
+    "WM_PROTOCOLS",
+    "WM_TAKE_FOCUS"
+  };
+  Atom atoms[2];
+  int result = XInternAtoms(xdisplay, const_cast<char**>(kAtoms), 2, false,
+                            atoms);
+  if (!result)
+    NOTREACHED();
+
+  XEvent e;
+  e.type = ClientMessage;
+  e.xany.display = xdisplay;
+  e.xany.window = xwindow;
+  e.xclient.format = 32;
+  e.xclient.message_type = atoms[0];
+  e.xclient.data.l[0] = atoms[1];
+  e.xclient.data.l[1] = CurrentTime;
+  e.xclient.data.l[2] = 0;
+  e.xclient.data.l[3] = 0;
+  e.xclient.data.l[4] = 0;
+
+  XSendEvent(xdisplay, xwindow, false, 0, &e);
 
   return FALSE;
 }
@@ -594,9 +646,14 @@ GtkWidget* RootWindowGtk::CreateMenuBar() {
   AddMenuEntry(test_menu, "Zoom In",       ID_TESTS_ZOOM_IN);
   AddMenuEntry(test_menu, "Zoom Out",      ID_TESTS_ZOOM_OUT);
   AddMenuEntry(test_menu, "Zoom Reset",    ID_TESTS_ZOOM_RESET);
+  if (with_osr_) {
+    AddMenuEntry(test_menu, "Set FPS",          ID_TESTS_OSR_FPS);
+    AddMenuEntry(test_menu, "Set Scale Factor", ID_TESTS_OSR_DSF);
+  }
   AddMenuEntry(test_menu, "Begin Tracing", ID_TESTS_TRACING_BEGIN);
   AddMenuEntry(test_menu, "End Tracing",   ID_TESTS_TRACING_END);
   AddMenuEntry(test_menu, "Print",         ID_TESTS_PRINT);
+  AddMenuEntry(test_menu, "Print to PDF",  ID_TESTS_PRINT_TO_PDF);
   AddMenuEntry(test_menu, "Other Tests",   ID_TESTS_OTHER_TESTS);
 
   return menu_bar;

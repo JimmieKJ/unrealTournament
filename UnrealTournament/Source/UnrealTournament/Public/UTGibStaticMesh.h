@@ -37,9 +37,9 @@ public:
 		UStaticMeshComponent* SMComp = Cast<UStaticMeshComponent>(Mesh);
 		if (MeshChoices.Num() > 0 && SMComp != NULL)
 		{
-			if (SMComp->StaticMesh != NULL)
+			if (SMComp->GetStaticMesh() != NULL)
 			{
-				MeshChoices.AddUnique(SMComp->StaticMesh);
+				MeshChoices.AddUnique(SMComp->GetStaticMesh());
 			}
 			SMComp->SetStaticMesh(MeshChoices[FMath::RandHelper(MeshChoices.Num())]);
 		}

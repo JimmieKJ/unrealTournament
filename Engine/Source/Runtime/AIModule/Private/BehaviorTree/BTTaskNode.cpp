@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "GameplayTasksComponent.h"
 #include "BehaviorTree/BTTaskNode.h"
+#include "AIController.h"
+#include "VisualLogger/VisualLogger.h"
+#include "GameplayTasksComponent.h"
 
 UBTTaskNode::UBTTaskNode(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -170,90 +171,3 @@ void UBTTaskNode::OnGameplayTaskDeactivated(UGameplayTask& Task)
 //----------------------------------------------------------------------//
 // DEPRECATED
 //----------------------------------------------------------------------//
-EBTNodeResult::Type UBTTaskNode::WrappedExecuteTask(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory) const
-{
-	return OwnerComp ? WrappedExecuteTask(*OwnerComp, NodeMemory) : EBTNodeResult::Failed;
-}
-EBTNodeResult::Type UBTTaskNode::WrappedAbortTask(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory) const
-{
-	return OwnerComp ? WrappedAbortTask(*OwnerComp, NodeMemory) : EBTNodeResult::Failed;
-}
-void UBTTaskNode::WrappedTickTask(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, float DeltaSeconds) const
-{
-	if (OwnerComp)
-	{
-		WrappedTickTask(*OwnerComp, NodeMemory, DeltaSeconds);
-	}
-}
-void UBTTaskNode::WrappedOnTaskFinished(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) const
-{
-	if (OwnerComp)
-	{
-		WrappedOnTaskFinished(*OwnerComp, NodeMemory, TaskResult);
-	}
-}
-void UBTTaskNode::FinishLatentTask(UBehaviorTreeComponent* OwnerComp, EBTNodeResult::Type TaskResult) const
-{
-	if (OwnerComp)
-	{
-		FinishLatentTask(*OwnerComp, TaskResult);
-	}
-}
-void UBTTaskNode::FinishLatentAbort(UBehaviorTreeComponent* OwnerComp) const
-{
-	if (OwnerComp)
-	{
-		FinishLatentAbort(*OwnerComp);
-	}
-}
-EBTNodeResult::Type UBTTaskNode::ExecuteTask(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory)
-{
-	if (OwnerComp)
-	{
-		return ExecuteTask(*OwnerComp, NodeMemory);
-	}
-	return EBTNodeResult::Failed;
-}
-EBTNodeResult::Type UBTTaskNode::AbortTask(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory)
-{
-	if (OwnerComp)
-	{
-		return AbortTask(*OwnerComp, NodeMemory);
-	}
-	return EBTNodeResult::Failed;
-}
-void UBTTaskNode::TickTask(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, float DeltaSeconds)
-{
-	if (OwnerComp)
-	{
-		TickTask(*OwnerComp, NodeMemory, DeltaSeconds);
-	}
-}
-void UBTTaskNode::OnMessage(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, FName Message, int32 RequestID, bool bSuccess)
-{
-	if (OwnerComp)
-	{
-		OnMessage(*OwnerComp, NodeMemory, Message, RequestID, bSuccess);
-	}
-}
-void UBTTaskNode::OnTaskFinished(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult)
-{
-	if (OwnerComp)
-	{
-		OnTaskFinished(*OwnerComp, NodeMemory, TaskResult);
-	}
-}
-void UBTTaskNode::WaitForMessage(UBehaviorTreeComponent* OwnerComp, FName MessageType) const
-{
-	if (OwnerComp)
-	{
-		WaitForMessage(*OwnerComp, MessageType);
-	}
-}
-void UBTTaskNode::WaitForMessage(UBehaviorTreeComponent* OwnerComp, FName MessageType, int32 RequestID) const
-{
-	if (OwnerComp)
-	{
-		WaitForMessage(*OwnerComp, MessageType, RequestID);
-	}
-}

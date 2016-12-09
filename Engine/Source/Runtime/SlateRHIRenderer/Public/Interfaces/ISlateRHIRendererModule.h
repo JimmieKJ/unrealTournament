@@ -2,11 +2,12 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "SlateCore.h"
-
-class ISlate3DRenderer;
-class ISlateFontAtlasFactory;
+#include "CoreMinimal.h"
+#include "Rendering/RenderingCommon.h"
+#include "Modules/ModuleInterface.h"
+#include "Rendering/SlateRenderer.h"
+#include "ISlate3DRenderer.h"
+#include "Fonts/FontTypes.h"
 
 namespace SlateRHIConstants
 {

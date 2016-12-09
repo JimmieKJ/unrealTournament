@@ -11,6 +11,8 @@
 #include "UTBotCharacter.h"
 #include "StatNames.h"
 #include "Runtime/PakFile/Public/IPlatformFilePak.h"
+#include "Misc/NetworkVersion.h"
+#include "ARFilter.h"
 #include "Runtime/Launch/Resources/Version.h"
 
 #if WITH_PROFILE

@@ -3,10 +3,17 @@
 
 #pragma once
 
-#include "Persona.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
 #include "SCurveEditor.h"
 
-DECLARE_DELEGATE_OneParam(FOnSelectionChanged, const FGraphPanelSelectionSet&)
+class FPaintArgs;
+class FSlateWindowElementList;
+
+DECLARE_DELEGATE_OneParam(FOnSelectionChanged, const TArray<UObject*>&)
 DECLARE_DELEGATE(FOnUpdatePanel)
 DECLARE_DELEGATE_RetVal(float, FOnGetScrubValue)
 

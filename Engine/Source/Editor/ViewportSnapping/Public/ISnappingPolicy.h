@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FPrimitiveDrawInterface;
+class FSceneView;
+
 class ISnappingPolicy
 {
 public:

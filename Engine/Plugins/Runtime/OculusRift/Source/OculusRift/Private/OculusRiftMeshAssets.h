@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IOculusRiftPlugin.h"
+
 static const uint32 HiddenAreaVertexCount = 96;
 static const uint32 VisibleAreaVertexCount = 102;
 

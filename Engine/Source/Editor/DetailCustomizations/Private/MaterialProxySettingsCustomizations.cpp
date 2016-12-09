@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "MaterialProxySettingsCustomizations.h"
-#include "Engine/EngineTypes.h"
+#include "Misc/Attribute.h"
+#include "UObject/UnrealType.h"
+#include "Engine/MaterialMerging.h"
+#include "PropertyHandle.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
 
 #define LOCTEXT_NAMESPACE "MaterialProxySettingsCustomizations"
 

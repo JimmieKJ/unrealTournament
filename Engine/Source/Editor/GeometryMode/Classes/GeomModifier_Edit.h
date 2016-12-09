@@ -11,7 +11,13 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GeomModifier.h"
 #include "GeomModifier_Edit.generated.h"
+
+class FViewport;
 
 UCLASS(autoexpandcategories=Settings)
 class UGeomModifier_Edit : public UGeomModifier

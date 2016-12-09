@@ -1,13 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
 #include "IDetailCustomization.h"
-#include "MobilityCustomization.h"
 
 class FEdModeFoliage;
+class FMobilityCustomization;
 class IDetailCategoryBuilder;
+class IDetailLayoutBuilder;
 class IDetailPropertyRow;
 class IPropertyHandle;
+enum class ECheckBoxState : uint8;
+template< typename ObjectType > class TAttribute;
 
 /////////////////////////////////////////////////////
 // FFoliageTypePaintingCustomization

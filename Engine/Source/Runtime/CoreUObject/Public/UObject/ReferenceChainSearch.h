@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Class.h"
+
 class FReferenceChainSearch
 {
 public:

@@ -4,11 +4,10 @@
 	AnimCompositeBase.cpp: Anim Composite base class that contains AnimTrack data structure/interface
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "AnimationUtils.h"
 #include "Animation/AnimCompositeBase.h"
 #include "Animation/AnimSequence.h"
 #include "Animation/AnimComposite.h"
+#include "BonePose.h"
 #include "AnimationRuntime.h"
 
 ///////////////////////////////////////////////////////
@@ -297,7 +296,7 @@ float FAnimTrack::GetLength() const
 	// this can be optimized. For now this is slow. 
 	for ( int32 I=0; I<AnimSegments.Num(); ++I )
 	{
-		const struct FAnimSegment & Segment = AnimSegments[I];
+		const struct FAnimSegment& Segment = AnimSegments[I];
 		float EndFrame = Segment.StartPos + Segment.GetLength();
 		if ( EndFrame > TotalLength )
 		{
@@ -429,14 +428,15 @@ int32 FAnimTrack::GetSegmentIndexAtTime(float InTime)
 }
 
 #if WITH_EDITOR
-bool FAnimTrack::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) const
+bool FAnimTrack::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets, bool bRecursive/* = true*/) const
 {
 	for ( int32 I=0; I<AnimSegments.Num(); ++I )
 	{
-		const struct FAnimSegment & Segment = AnimSegments[I];
-		if ( Segment.bValid && Segment.AnimReference  )
+		const struct FAnimSegment& Segment = AnimSegments[I];
+		UAnimSequenceBase* AnimSeqBase = Segment.AnimReference;
+		if ( Segment.bValid && AnimSeqBase )
 		{
-			Segment.AnimReference->HandleAnimReferenceCollection(AnimationAssets);
+			AnimSeqBase->HandleAnimReferenceCollection(AnimationAssets, bRecursive);
 		}
 	}
 
@@ -448,7 +448,7 @@ void FAnimTrack::ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimati
 	TArray<FAnimSegment> NewAnimSegments;
 	for ( int32 I=0; I<AnimSegments.Num(); ++I )
 	{
-		struct FAnimSegment & Segment = AnimSegments[I];
+		struct FAnimSegment& Segment = AnimSegments[I];
 
 		if (Segment.IsValid())
 		{

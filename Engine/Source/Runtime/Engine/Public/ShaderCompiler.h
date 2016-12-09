@@ -6,12 +6,27 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/RefCounting.h"
+#include "Templates/ScopedPointer.h"
+#include "HAL/PlatformProcess.h"
 #include "ShaderCore.h"
+#include "Shader.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/Runnable.h"
+#include "UniquePtr.h"
+
+class FShaderCompileJob;
+class FShaderPipelineCompileJob;
+class FVertexFactoryType;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogShaderCompilers, Log, All);
 
 class FShaderCompileJob;
 class FShaderPipelineCompileJob;
+
+#define DEBUG_INFINITESHADERCOMPILE 1
+
 
 /** Stores all of the common information used to compile a shader or pipeline. */
 class FShaderCommonCompileJob : public FRefCountedObject
@@ -337,7 +352,7 @@ private:
 	TMap<int32, FShaderMapFinalizeResults> PendingFinalizeShaderMaps;
 
 	/** The threads spawned for shader compiling. */
-	TScopedPointer<FShaderCompileThreadRunnableBase> Thread;
+	TUniquePtr<FShaderCompileThreadRunnableBase> Thread;
 
 	//////////////////////////////////////////////////////
 	// Configuration properties - these are set only on initialization and can be read from either thread
@@ -425,6 +440,16 @@ public:
 	bool IsCompiling() const
 	{
 		return NumOutstandingJobs > 0 || PendingFinalizeShaderMaps.Num() > 0;
+	}
+
+	/**
+	 * return true if we have shader jobs in any state
+	 * shader jobs are removed when they are applied to the gamethreadshadermap
+	 * accessable from gamethread
+	 */
+	bool HasShaderJobs() const
+	{
+		return ShaderMapJobs.Num() > 0 || PendingFinalizeShaderMaps.Num() > 0;
 	}
 
 	/** 

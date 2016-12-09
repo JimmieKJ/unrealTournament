@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "../AvfMediaPrivate.h"
+#include "CoreMinimal.h"
 #include "AvfMediaTracks.h"
 #include "IMediaControls.h"
 #include "IMediaPlayer.h"
+#include "Containers/Ticker.h"
 
 
 @class AVPlayer;
@@ -64,6 +67,7 @@ public:
 	virtual void Close() override;
 	virtual IMediaControls& GetControls() override;
 	virtual FString GetInfo() const override;
+	virtual FName GetName() const override;
 	virtual IMediaOutput& GetOutput() override;
 	virtual FString GetStats() const override;
 	virtual IMediaTracks& GetTracks() override;
@@ -87,6 +91,9 @@ private:
 
 	/** The duration of the media. */
     FTimespan Duration;
+
+	/** Media information string. */
+	FString Info;
 
 	/** Holds an event delegate that is invoked when a media event occurred. */
 	FOnMediaEvent MediaEvent;

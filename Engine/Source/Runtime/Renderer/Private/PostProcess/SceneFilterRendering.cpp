@@ -4,10 +4,10 @@
 	SceneFilterRendering.cpp: Filter rendering implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessWeightedSampleSum.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "Containers/DynamicRHIResourceArray.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 #include "IHeadMountedDisplay.h"
 
 /**

@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "Core.h"
-#include "OnlineIdentityInterface.h"
+#include "CoreMinimal.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+
+class Error;
 
 #if WITH_DEV_AUTOMATION_TESTS
 

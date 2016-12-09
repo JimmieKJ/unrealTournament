@@ -1,13 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Interface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Interface.h"
 #include "GameplayTaskTypes.h"
 #include "GameplayTaskOwnerInterface.generated.h"
 
-class UGameplayTasksComponent;
-class UGameplayTask;
 class AActor;
+class UGameplayTask;
+class UGameplayTasksComponent;
 
 UINTERFACE(MinimalAPI, meta = (CannotImplementInterfaceInBlueprint))
 class UGameplayTaskOwnerInterface : public UInterface

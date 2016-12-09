@@ -10,18 +10,23 @@
 
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "ApexDestructibleAssetImport.h"
+#include "Modules/ModuleManager.h"
+#include "SkeletalMeshTypes.h"
+#include "Engine/SkeletalMesh.h"
+#include "Materials/Material.h"
+#include "Factories/Factory.h"
+#include "EditorFramework/AssetImportData.h"
+#include "Components/DestructibleComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogApexDestructibleAssetImport, Log, All);
 
-#include "Engine.h"
 #include "PhysicsPublic.h"
-#include "Engine/DestructibleFractureSettings.h"
-#include "TextureLayout.h"
 #include "SkelImport.h"
 #include "EditorPhysXSupport.h"
-#include "ApexDestructibleAssetImport.h"
-#include "Developer/MeshUtilities/Public/MeshUtilities.h"
+#include "MeshUtilities.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 #include "ComponentReregisterContext.h"
 #include "Engine/DestructibleMesh.h"
 
@@ -41,17 +46,16 @@ extern ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSke
 extern void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* SkeletalMesh);
 extern void ProcessImportMeshInfluences(FSkeletalMeshImportData& ImportData);
 extern void ProcessImportMeshMaterials(TArray<FSkeletalMaterial>& Materials, FSkeletalMeshImportData& ImportData);
-extern bool ProcessImportMeshSkeleton(FReferenceSkeleton& RefSkeleton, int32& SkeletalDepth, FSkeletalMeshImportData& ImportData);
+extern bool ProcessImportMeshSkeleton(const USkeleton* SkeletonAsset, FReferenceSkeleton& RefSkeleton, int32& SkeletalDepth, FSkeletalMeshImportData& ImportData);
 
 
 // Temporary transform function, to be removed once the APEX SDK is updated
 #if USE_TEMPORARY_TRANSFORMATION_FUNCTION
-#include "NxParamUtils.h"
 
-static void ApplyTransformationToApexDestructibleAsset( physx::NxDestructibleAsset& ApexDestructibleAsset, const physx::PxMat44& Transform )
+static void ApplyTransformationToApexDestructibleAsset( apex::DestructibleAsset& ApexDestructibleAsset, const physx::PxMat44& Transform )
 {
-	// Get the NxParameterized interface to the asset
-	NxParameterized::Interface* AssetParams = const_cast<NxParameterized::Interface*>(ApexDestructibleAsset.getAssetNxParameterized());
+	// Get the NvParameterized interface to the asset
+	NvParameterized::Interface* AssetParams = const_cast<NvParameterized::Interface*>(ApexDestructibleAsset.getAssetNvParameterized());
 	if (AssetParams != NULL)
 	{
 		// Name buffer used for parameterized array element lookup
@@ -59,24 +63,24 @@ static void ApplyTransformationToApexDestructibleAsset( physx::NxDestructibleAss
 
 		/* surfaceTrace default normal */
 		physx::PxI32 SurfaceTraceSetCount;
-		if (NxParameterized::getParamArraySize(*AssetParams, "surfaceTraceSets", SurfaceTraceSetCount))
+		if (NvParameterized::getParamArraySize(*AssetParams, "surfaceTraceSets", SurfaceTraceSetCount))
 		{
 			for (physx::PxI32 i = 0; i < SurfaceTraceSetCount; ++i)
 			{
 				FCStringAnsi::Sprintf( ArrayElementName, "surfaceTraceSets[%d]", i );
-				NxParameterized::Interface* SurfaceTraceSetParams;
-				if (NxParameterized::getParamRef(*AssetParams, ArrayElementName, SurfaceTraceSetParams))
+				NvParameterized::Interface* SurfaceTraceSetParams;
+				if (NvParameterized::getParamRef(*AssetParams, ArrayElementName, SurfaceTraceSetParams))
 				{
 					if (SurfaceTraceSetParams != NULL)
 					{
 						physx::PxI32 SurfaceTraceCount;
-						if (NxParameterized::getParamArraySize(*SurfaceTraceSetParams, "traces", SurfaceTraceCount))
+						if (NvParameterized::getParamArraySize(*SurfaceTraceSetParams, "traces", SurfaceTraceCount))
 						{
 							for (physx::PxI32 j = 0; j < SurfaceTraceCount; ++j)
 							{
 								FCStringAnsi::Sprintf( ArrayElementName, "traces[%d].defaultNormal", j );
-								NxParameterized::Handle DefaultNormalHandle(*SurfaceTraceSetParams);
-								if (NxParameterized::findParam(*SurfaceTraceSetParams, ArrayElementName, DefaultNormalHandle) != NULL)
+								NvParameterized::Handle DefaultNormalHandle(*SurfaceTraceSetParams);
+								if (NvParameterized::findParam(*SurfaceTraceSetParams, ArrayElementName, DefaultNormalHandle) != NULL)
 								{
 									physx::PxVec3 DefaultNormal;
 									DefaultNormalHandle.getParamVec3( DefaultNormal );
@@ -91,25 +95,25 @@ static void ApplyTransformationToApexDestructibleAsset( physx::NxDestructibleAss
 		}
 
 		/* For now, we'll just clear the current cached streams. */
-		NxParameterized::Interface* CollisionDataParams;
-		if (NxParameterized::getParamRef(*AssetParams, "collisionData", CollisionDataParams))
+		NvParameterized::Interface* CollisionDataParams;
+		if (NvParameterized::getParamRef(*AssetParams, "collisionData", CollisionDataParams))
 		{
 			if (CollisionDataParams != NULL)
 			{
 				CollisionDataParams->destroy();
-				NxParameterized::setParamRef(*AssetParams, "collisionData", NULL);
+				NvParameterized::setParamRef(*AssetParams, "collisionData", NULL);
 			}
 		}
 
 		/* chunk surface normal */
 		physx::PxI32 AssetChunkCount;
-		if (NxParameterized::getParamArraySize(*AssetParams, "chunks", AssetChunkCount))
+		if (NvParameterized::getParamArraySize(*AssetParams, "chunks", AssetChunkCount))
 		{
 			for (physx::PxI32 i = 0; i < AssetChunkCount; ++i)
 			{
 				FCStringAnsi::Sprintf( ArrayElementName, "chunks[%d].surfaceNormal", i );
-				NxParameterized::Handle ChunkSurfaceNormalHandle(*AssetParams);
-				if (NxParameterized::findParam(*AssetParams, ArrayElementName, ChunkSurfaceNormalHandle) != NULL)
+				NvParameterized::Handle ChunkSurfaceNormalHandle(*AssetParams);
+				if (NvParameterized::findParam(*AssetParams, ArrayElementName, ChunkSurfaceNormalHandle) != NULL)
 				{
 					physx::PxVec3 ChunkSurfaceNormal;
 					ChunkSurfaceNormalHandle.getParamVec3( ChunkSurfaceNormal );
@@ -121,36 +125,36 @@ static void ApplyTransformationToApexDestructibleAsset( physx::NxDestructibleAss
 
 		/* bounds */
 		physx::PxBounds3 Bounds;
-		if (NxParameterized::getParamBounds3(*AssetParams, "bounds", Bounds))
+		if (NvParameterized::getParamBounds3(*AssetParams, "bounds", Bounds))
 		{
 			if (!Bounds.isEmpty())
 			{
 				Bounds = physx::PxBounds3::basisExtent(Transform.transform(Bounds.getCenter()), physx::PxMat33(Transform.column0.getXYZ(), Transform.column1.getXYZ(), Transform.column2.getXYZ()), Bounds.getExtents());
-				NxParameterized::setParamBounds3(*AssetParams, "bounds", Bounds);
+				NvParameterized::setParamBounds3(*AssetParams, "bounds", Bounds);
 			}
 		}
 
 		/* chunk convex hulls */
 		physx::PxI32 ConvexHullCount;
-		if (NxParameterized::getParamArraySize(*AssetParams, "chunkConvexHulls", ConvexHullCount))
+		if (NvParameterized::getParamArraySize(*AssetParams, "chunkConvexHulls", ConvexHullCount))
 		{
 			for (physx::PxI32 i = 0; i < ConvexHullCount; ++i)
 			{
 				FCStringAnsi::Sprintf( ArrayElementName, "chunkConvexHulls[%d]", i );
-				NxParameterized::Interface* ConvexHullParams;
-				if (NxParameterized::getParamRef(*AssetParams, ArrayElementName, ConvexHullParams))
+				NvParameterized::Interface* ConvexHullParams;
+				if (NvParameterized::getParamRef(*AssetParams, ArrayElementName, ConvexHullParams))
 				{
 					if (ConvexHullParams != NULL)
 					{
 						// planes
 						physx::PxI32 UniquePlaneCount;
-						if (NxParameterized::getParamArraySize(*ConvexHullParams, "uniquePlanes", UniquePlaneCount))
+						if (NvParameterized::getParamArraySize(*ConvexHullParams, "uniquePlanes", UniquePlaneCount))
 						{
 							for (physx::PxI32 j = 0; j < UniquePlaneCount; ++j)
 							{
 								FCStringAnsi::Sprintf( ArrayElementName, "uniquePlanes[%d].normal", j );
-								NxParameterized::Handle PlaneNormalHandle(*ConvexHullParams);
-								if (NxParameterized::findParam(*ConvexHullParams, ArrayElementName, PlaneNormalHandle) != NULL)
+								NvParameterized::Handle PlaneNormalHandle(*ConvexHullParams);
+								if (NvParameterized::findParam(*ConvexHullParams, ArrayElementName, PlaneNormalHandle) != NULL)
 								{
 									physx::PxVec3 PlaneNormal;
 									PlaneNormalHandle.getParamVec3( PlaneNormal );
@@ -164,13 +168,13 @@ static void ApplyTransformationToApexDestructibleAsset( physx::NxDestructibleAss
 						physx::PxBounds3 HullBounds;
 						HullBounds.setEmpty();
 						physx::PxI32 HullVertexCount;
-						if (NxParameterized::getParamArraySize(*ConvexHullParams, "vertices", HullVertexCount))
+						if (NvParameterized::getParamArraySize(*ConvexHullParams, "vertices", HullVertexCount))
 						{
 							for (physx::PxI32 j = 0; j < HullVertexCount; ++j)
 							{
 								FCStringAnsi::Sprintf( ArrayElementName, "vertices[%d]", j );
-								NxParameterized::Handle HullVertexHandle(*ConvexHullParams);
-								if (NxParameterized::findParam(*ConvexHullParams, ArrayElementName, HullVertexHandle) != NULL)
+								NvParameterized::Handle HullVertexHandle(*ConvexHullParams);
+								if (NvParameterized::findParam(*ConvexHullParams, ArrayElementName, HullVertexHandle) != NULL)
 								{
 									physx::PxVec3 HullVertex;
 									HullVertexHandle.getParamVec3( HullVertex );
@@ -180,7 +184,7 @@ static void ApplyTransformationToApexDestructibleAsset( physx::NxDestructibleAss
 								}
 							}
 						}
-						NxParameterized::setParamBounds3(*ConvexHullParams, "bounds", HullBounds);
+						NvParameterized::setParamBounds3(*ConvexHullParams, "bounds", HullBounds);
 					}
 				}
 			}
@@ -189,17 +193,17 @@ static void ApplyTransformationToApexDestructibleAsset( physx::NxDestructibleAss
 		/* render mesh asset (bounding boxes only) */
 		const physx::PxMat33 Basis(Transform.getBasis(0), Transform.getBasis(1), Transform.getBasis(2));
 		const physx::PxVec3 Offset = Transform.getPosition();
-		NxParameterized::Interface* RenderMeshAssetParams;
-		if (NxParameterized::getParamRef(*AssetParams, "renderMeshAsset", RenderMeshAssetParams))
+		NvParameterized::Interface* RenderMeshAssetParams;
+		if (NvParameterized::getParamRef(*AssetParams, "renderMeshAsset", RenderMeshAssetParams))
 		{
 			physx::PxI32 PartBoundsCount;
-			if (NxParameterized::getParamArraySize(*RenderMeshAssetParams, "partBounds", PartBoundsCount))
+			if (NvParameterized::getParamArraySize(*RenderMeshAssetParams, "partBounds", PartBoundsCount))
 			{
 				for (physx::PxI32 i = 0; i < PartBoundsCount; ++i)
 				{
 					FCStringAnsi::Sprintf( ArrayElementName, "partBounds[%d]", i );
-					NxParameterized::Handle PartBoundsHandle(*RenderMeshAssetParams);
-					if (NxParameterized::findParam(*RenderMeshAssetParams, ArrayElementName, PartBoundsHandle) != NULL)
+					NvParameterized::Handle PartBoundsHandle(*RenderMeshAssetParams);
+					if (NvParameterized::findParam(*RenderMeshAssetParams, ArrayElementName, PartBoundsHandle) != NULL)
 					{
 						physx::PxBounds3 PartBounds;
 						PartBoundsHandle.getParamBounds3( PartBounds );
@@ -291,12 +295,12 @@ static void RestoreExistingDestMeshData(ExistingDestMeshData* MeshData, UDestruc
  * @param ImportData - SkeletalMesh import data into which we are extracting information
  * @param ApexDestructibleAsset - the Apex Destructible Asset
  */
-static void ImportMaterialsForSkelMesh(FSkeletalMeshImportData &ImportData, const NxDestructibleAsset& ApexDestructibleAsset)
+static void ImportMaterialsForSkelMesh(FSkeletalMeshImportData &ImportData, const apex::DestructibleAsset& ApexDestructibleAsset)
 {
 	physx::PxU32 SubmeshCount = 0;
 
 	// Get the submesh count from the Destructible Asset's Render Mesh
-	const physx::NxRenderMeshAsset* ApexRenderMesh = ApexDestructibleAsset.getRenderMeshAsset();
+	const apex::RenderMeshAsset* ApexRenderMesh = ApexDestructibleAsset.getRenderMeshAsset();
 	if (ApexRenderMesh != NULL)
 	{
 		SubmeshCount = ApexRenderMesh->getSubmeshCount();
@@ -332,7 +336,7 @@ static void ImportMaterialsForSkelMesh(FSkeletalMeshImportData &ImportData, cons
  * @param ImportData - SkeletalMesh import data into which we are extracting information
  * @param ApexDestructibleAsset - the Apex Destructible Asset
  */
-static void CreateBones(FSkeletalMeshImportData &ImportData, const NxDestructibleAsset& ApexDestructibleAsset)
+static void CreateBones(FSkeletalMeshImportData &ImportData, const apex::DestructibleAsset& ApexDestructibleAsset)
 {
 	// Just need to create ApexDestructibleAsset.getChunkCount() bones, all with identity transform poses
 	const uint32 ChunkCount = ApexDestructibleAsset.getChunkCount();
@@ -394,10 +398,10 @@ static void CreateBones(FSkeletalMeshImportData &ImportData, const NxDestructibl
  *
  * @return Boolean true iff the operation is successful
  */
-static bool FillSkelMeshImporterFromApexDestructibleAsset(FSkeletalMeshImportData& ImportData, const NxDestructibleAsset& ApexDestructibleAsset, bool& bHaveAllNormals, bool& bHaveAllTangents)
+static bool FillSkelMeshImporterFromApexDestructibleAsset(FSkeletalMeshImportData& ImportData, const apex::DestructibleAsset& ApexDestructibleAsset, bool& bHaveAllNormals, bool& bHaveAllTangents)
 {
 	// The APEX Destructible Asset contains an APEX Render Mesh Asset, get a pointer to this
-	const physx::NxRenderMeshAsset* ApexRenderMesh = ApexDestructibleAsset.getRenderMeshAsset();
+	const apex::RenderMeshAsset* ApexRenderMesh = ApexDestructibleAsset.getRenderMeshAsset();
 	if (ApexRenderMesh == NULL)
 	{
 		return false;
@@ -423,15 +427,15 @@ static bool FillSkelMeshImporterFromApexDestructibleAsset(FSkeletalMeshImportDat
 
 	for (uint32 SubmeshIndex = 0; SubmeshIndex < ApexRenderMesh->getSubmeshCount(); ++SubmeshIndex)
 	{
-		const NxRenderSubmesh& Submesh = ApexRenderMesh->getSubmesh(SubmeshIndex);
-		const NxVertexBuffer& VB = Submesh.getVertexBuffer();
-		const NxVertexFormat& VBFormat = VB.getFormat();
+		const apex::RenderSubmesh& Submesh = ApexRenderMesh->getSubmesh(SubmeshIndex);
+		const apex::VertexBuffer& VB = Submesh.getVertexBuffer();
+		const apex::VertexFormat& VBFormat = VB.getFormat();
 
 		// Count UV channels in this VB
 		uint32 UVNum;
-		for (UVNum = 0; UVNum < NxVertexFormat::MAX_UV_COUNT; ++UVNum)
+		for (UVNum = 0; UVNum < apex::VertexFormat::MAX_UV_COUNT; ++UVNum)
 		{
-			const NxVertexFormat::BufferID BufferID = VBFormat.getSemanticID((NxRenderVertexSemantic::Enum)(NxRenderVertexSemantic::TEXCOORD0 + UVNum));
+			const apex::VertexFormat::BufferID BufferID = VBFormat.getSemanticID((apex::RenderVertexSemantic::Enum)(apex::RenderVertexSemantic::TEXCOORD0 + UVNum));
 			if (VBFormat.getBufferIndexFromID(BufferID) < 0)
 			{
 				break;
@@ -440,7 +444,7 @@ static bool FillSkelMeshImporterFromApexDestructibleAsset(FSkeletalMeshImportDat
 		UniqueUVCount = FMath::Max<uint32>( UniqueUVCount, UVNum );
 
 		// See if this VB has a color channel
-		const NxVertexFormat::BufferID BufferID = VBFormat.getSemanticID(NxRenderVertexSemantic::COLOR);
+		const apex::VertexFormat::BufferID BufferID = VBFormat.getSemanticID(apex::RenderVertexSemantic::COLOR);
 		if (VBFormat.getBufferIndexFromID(BufferID) >= 0)
 		{
 			ImportData.bHasVertexColors = true;
@@ -483,16 +487,22 @@ static bool FillSkelMeshImporterFromApexDestructibleAsset(FSkeletalMeshImportDat
 	for (uint32 SubmeshIndex = 0; SubmeshIndex < ApexRenderMesh->getSubmeshCount(); ++SubmeshIndex)
 	{
 		// Submesh data
-		const NxRenderSubmesh& Submesh = ApexRenderMesh->getSubmesh(SubmeshIndex);
-		const NxVertexBuffer& VB = Submesh.getVertexBuffer();
-		const NxVertexFormat& VBFormat = VB.getFormat();
+		const apex::RenderSubmesh& Submesh = ApexRenderMesh->getSubmesh(SubmeshIndex);
+		const apex::VertexBuffer& VB = Submesh.getVertexBuffer();
+		const apex::VertexFormat& VBFormat = VB.getFormat();
 		const physx::PxU32 SubmeshVertexCount = VB.getVertexCount();
+
+		if(SubmeshVertexCount == 0)
+		{
+			// Empty submesh, but the mesh as a whole may be valid, keep looking for more submeshes.
+			continue;
+		}
 
 		// Get VB data semantic indices:
 
 		// Positions
-		const PxI32 PositionBufferIndex = VBFormat.getBufferIndexFromID(VBFormat.getSemanticID(NxRenderVertexSemantic::POSITION));
-		if (!VB.getBufferData(&ImportData.Points[VertexIndexBase], physx::NxRenderDataFormat::FLOAT3, sizeof(FVector), PositionBufferIndex, 0, SubmeshVertexCount))
+		const PxI32 PositionBufferIndex = VBFormat.getBufferIndexFromID(VBFormat.getSemanticID(apex::RenderVertexSemantic::POSITION));
+		if (!VB.getBufferData(&ImportData.Points[VertexIndexBase], apex::RenderDataFormat::FLOAT3, sizeof(FVector), PositionBufferIndex, 0, SubmeshVertexCount))
 		{
 			return false;	// Need a position buffer!
 		}
@@ -505,20 +515,20 @@ static bool FillSkelMeshImporterFromApexDestructibleAsset(FSkeletalMeshImportDat
 #endif
 
 		// Normals
-		const PxI32 NormalBufferIndex = VBFormat.getBufferIndexFromID(VBFormat.getSemanticID(NxRenderVertexSemantic::NORMAL));
+		const PxI32 NormalBufferIndex = VBFormat.getBufferIndexFromID(VBFormat.getSemanticID(apex::RenderVertexSemantic::NORMAL));
 		TArray<FVector> Normals;
 		Normals.AddUninitialized(SubmeshVertexCount);
-		const bool bHaveNormals = VB.getBufferData(Normals.GetData(), physx::NxRenderDataFormat::FLOAT3, sizeof(FVector), NormalBufferIndex, 0, SubmeshVertexCount);
+		const bool bHaveNormals = VB.getBufferData(Normals.GetData(), apex::RenderDataFormat::FLOAT3, sizeof(FVector), NormalBufferIndex, 0, SubmeshVertexCount);
 		if (!bHaveNormals)
 		{
 			FMemory::Memset(Normals.GetData(), 0, SubmeshVertexCount*sizeof(FVector));	// Fill with zeros
 		}
 
 		// Tangents
-		const PxI32 TangentBufferIndex = VBFormat.getBufferIndexFromID(VBFormat.getSemanticID(NxRenderVertexSemantic::TANGENT));
+		const PxI32 TangentBufferIndex = VBFormat.getBufferIndexFromID(VBFormat.getSemanticID(apex::RenderVertexSemantic::TANGENT));
 		TArray<FVector> Tangents;
 		Tangents.AddUninitialized(SubmeshVertexCount);
-		const bool bHaveTangents = VB.getBufferData(Tangents.GetData(), physx::NxRenderDataFormat::FLOAT3, sizeof(FVector), TangentBufferIndex, 0, SubmeshVertexCount);
+		const bool bHaveTangents = VB.getBufferData(Tangents.GetData(), apex::RenderDataFormat::FLOAT3, sizeof(FVector), TangentBufferIndex, 0, SubmeshVertexCount);
 		if (!bHaveTangents)
 		{
 			FMemory::Memset(Tangents.GetData(), 0, SubmeshVertexCount*sizeof(FVector));	// Fill with zeros
@@ -529,10 +539,10 @@ static bool FillSkelMeshImporterFromApexDestructibleAsset(FSkeletalMeshImportDat
 		bHaveAllTangents = bHaveAllTangents && bHaveTangents;
 
 		// Binormomals
-		const PxI32 BinormalBufferIndex = VBFormat.getBufferIndexFromID(VBFormat.getSemanticID(NxRenderVertexSemantic::BINORMAL));
+		const PxI32 BinormalBufferIndex = VBFormat.getBufferIndexFromID(VBFormat.getSemanticID(apex::RenderVertexSemantic::BINORMAL));
 		TArray<FVector> Binormals;
 		Binormals.AddUninitialized(SubmeshVertexCount);
-		bool bHaveBinormals = VB.getBufferData(Binormals.GetData(), physx::NxRenderDataFormat::FLOAT3, sizeof(FVector), BinormalBufferIndex, 0, SubmeshVertexCount);
+		bool bHaveBinormals = VB.getBufferData(Binormals.GetData(), apex::RenderDataFormat::FLOAT3, sizeof(FVector), BinormalBufferIndex, 0, SubmeshVertexCount);
 		if (!bHaveBinormals)
 		{
 			bHaveBinormals = bHaveNormals && bHaveTangents;
@@ -543,22 +553,22 @@ static bool FillSkelMeshImporterFromApexDestructibleAsset(FSkeletalMeshImportDat
 		}
 
 		// Colors
-		const PxI32 ColorBufferIndex = VBFormat.getBufferIndexFromID(VBFormat.getSemanticID(NxRenderVertexSemantic::COLOR));
+		const PxI32 ColorBufferIndex = VBFormat.getBufferIndexFromID(VBFormat.getSemanticID(apex::RenderVertexSemantic::COLOR));
 		TArray<FColor> Colors;
 		Colors.AddUninitialized(SubmeshVertexCount);
-		const bool bHaveColors = VB.getBufferData(Colors.GetData(), physx::NxRenderDataFormat::B8G8R8A8, sizeof(FColor), ColorBufferIndex, 0, SubmeshVertexCount);
+		const bool bHaveColors = VB.getBufferData(Colors.GetData(), apex::RenderDataFormat::B8G8R8A8, sizeof(FColor), ColorBufferIndex, 0, SubmeshVertexCount);
 		if (!bHaveColors)
 		{
 			FMemory::Memset(Colors.GetData(), 0xFF, SubmeshVertexCount*sizeof(FColor));	// Fill with 0xFF
 		}
 
 		// UVs
-		TArray<FVector2D> UVs[NxVertexFormat::MAX_UV_COUNT];
+		TArray<FVector2D> UVs[apex::VertexFormat::MAX_UV_COUNT];
 		for (uint32 UVNum = 0; UVNum < ImportData.NumTexCoords; ++UVNum)
 		{
-			const PxI32 UVBufferIndex = VBFormat.getBufferIndexFromID(VBFormat.getSemanticID((NxRenderVertexSemantic::Enum)(NxRenderVertexSemantic::TEXCOORD0 + UVNum)));
+			const PxI32 UVBufferIndex = VBFormat.getBufferIndexFromID(VBFormat.getSemanticID((apex::RenderVertexSemantic::Enum)(apex::RenderVertexSemantic::TEXCOORD0 + UVNum)));
 			UVs[UVNum].AddUninitialized(SubmeshVertexCount);
-			if (!VB.getBufferData(&UVs[UVNum][0].X, physx::NxRenderDataFormat::FLOAT2, sizeof(FVector2D), UVBufferIndex, 0, SubmeshVertexCount))
+			if (!VB.getBufferData(&UVs[UVNum][0].X, apex::RenderDataFormat::FLOAT2, sizeof(FVector2D), UVBufferIndex, 0, SubmeshVertexCount))
 			{
 				FMemory::Memset(&UVs[UVNum][0].X, 0, SubmeshVertexCount*sizeof(FVector2D));	// Fill with zeros
 			}
@@ -645,6 +655,13 @@ static bool FillSkelMeshImporterFromApexDestructibleAsset(FSkeletalMeshImportDat
 		VertexIndexBase += SubmeshVertexCount;
 	}
 
+	if(ImportData.Points.Num() == 0)
+	{
+		// No points were loaded, can't make a mesh.
+		UE_LOG(LogApexDestructibleAssetImport, Error, TEXT("Failed to import destructible mesh - No positions were found in any submeshes."));
+		return false;
+	}
+
 	// Create mapping from import to raw- @TODO trivial at the moment, do we need this info for destructibles?
 	ImportData.PointToRawMap.AddUninitialized(ImportData.Points.Num());
 	for(int32 PointIdx=0; PointIdx<ImportData.PointToRawMap.Num(); PointIdx++)
@@ -655,19 +672,19 @@ static bool FillSkelMeshImporterFromApexDestructibleAsset(FSkeletalMeshImportDat
 	return true;
 }
 
-static NxDestructibleAsset* CreateApexDestructibleAssetFromPxStream(physx::PxFileBuf& Stream)
+static apex::DestructibleAsset* CreateApexDestructibleAssetFromPxStream(physx::PxFileBuf& Stream)
 {
 	// Peek into the buffer to see what kind of data it is (binary or xml)
-	NxParameterized::Serializer::SerializeType SerializeType = GApexSDK->getSerializeType(Stream);
-	// Create an NxParameterized serializer for the correct data type
-	NxParameterized::Serializer* Serializer = GApexSDK->createSerializer(SerializeType);
+	NvParameterized::Serializer::SerializeType SerializeType = GApexSDK->getSerializeType(Stream);
+	// Create an NvParameterized serializer for the correct data type
+	NvParameterized::Serializer* Serializer = GApexSDK->createSerializer(SerializeType);
 
 	if (Serializer)
 	{
 		// Deserialize into a DeserializedData buffer
-		NxParameterized::Serializer::DeserializedData DeserializedData;
+		NvParameterized::Serializer::DeserializedData DeserializedData;
 		Serializer->deserialize(Stream, DeserializedData);
-		NxApexAsset* ApexAsset = NULL;
+		apex::Asset* ApexAsset = NULL;
 		if( DeserializedData.size() > 0 )
 		{
 			// The DeserializedData has something in it, so create an APEX asset from it
@@ -682,15 +699,15 @@ static NxDestructibleAsset* CreateApexDestructibleAssetFromPxStream(physx::PxFil
 		// Release the serializer
 		Serializer->release();
 
-		return (NxDestructibleAsset*)ApexAsset;
+		return (apex::DestructibleAsset*)ApexAsset;
 	}
 
 	return NULL;
 }
 
-NxDestructibleAsset* CreateApexDestructibleAssetFromBuffer(const uint8* Buffer, int32 BufferSize)
+apex::DestructibleAsset* CreateApexDestructibleAssetFromBuffer(const uint8* Buffer, int32 BufferSize)
 {
-	NxDestructibleAsset* ApexDestructibleAsset = NULL;
+	apex::DestructibleAsset* ApexDestructibleAsset = NULL;
 
 	// Wrap Buffer with the APEX read stream class
 	physx::PxFileBuf* Stream = GApexSDK->createMemoryReadStream(Buffer, BufferSize);
@@ -698,17 +715,17 @@ NxDestructibleAsset* CreateApexDestructibleAssetFromBuffer(const uint8* Buffer, 
 	if (Stream != NULL)
 	{
 		ApexDestructibleAsset = CreateApexDestructibleAssetFromPxStream(*Stream);
-	}
 
-	// Release our stream
-	GApexSDK->releaseMemoryReadStream(*Stream);
+		// Release our stream
+		GApexSDK->releaseMemoryReadStream(*Stream);
+	}
 
 	return ApexDestructibleAsset;
 }
 
-NxDestructibleAsset* CreateApexDestructibleAssetFromFile(const FString& Filename)
+apex::DestructibleAsset* CreateApexDestructibleAssetFromFile(const FString& Filename)
 {
-	NxDestructibleAsset* ApexDestructibleAsset = NULL;
+	apex::DestructibleAsset* ApexDestructibleAsset = NULL;
 
 	// Create a stream to read the file
 	physx::PxFileBuf* Stream = GApexSDK->createStream(TCHAR_TO_ANSI(*Filename), PxFileBuf::OPEN_READ_ONLY);
@@ -716,15 +733,15 @@ NxDestructibleAsset* CreateApexDestructibleAssetFromFile(const FString& Filename
 	if (Stream != NULL)
 	{
 		ApexDestructibleAsset = CreateApexDestructibleAssetFromPxStream(*Stream);
-	}
 
-	// Release our stream
-	Stream->release();
+		// Release our stream
+		Stream->release();
+	}
 
 	return ApexDestructibleAsset;
 }
 
-bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, NxDestructibleAsset& ApexDestructibleAsset, FSkeletalMeshImportData* OutData, EDestructibleImportOptions::Type Options)
+bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, apex::DestructibleAsset& ApexDestructibleAsset, FSkeletalMeshImportData* OutData, EDestructibleImportOptions::Type Options)
 {
 	DestructibleMesh.PreEditChange(NULL);
 
@@ -815,7 +832,7 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, NxDestructibl
 	
 	// process reference skeleton from import data
 	int32 SkeletalDepth=0;
-	if(!ProcessImportMeshSkeleton(DestructibleMesh.RefSkeleton, SkeletalDepth, *SkelMeshImportDataPtr))
+	if(!ProcessImportMeshSkeleton(DestructibleMesh.Skeleton, DestructibleMesh.RefSkeleton, SkeletalDepth, *SkelMeshImportDataPtr))
 	{
 		return false;
 	}
@@ -937,7 +954,7 @@ UNREALED_API bool BuildDestructibleMeshFromFractureSettings(UDestructibleMesh& D
 	bool Success = false;
 
 #if WITH_APEX
-	physx::NxDestructibleAsset* NewApexDestructibleAsset = NULL;
+	apex::DestructibleAsset* NewApexDestructibleAsset = NULL;
 
 #if WITH_EDITORONLY_DATA
 	if (DestructibleMesh.FractureSettings != NULL)
@@ -949,7 +966,7 @@ UNREALED_API bool BuildDestructibleMeshFromFractureSettings(UDestructibleMesh& D
 			OverrideMaterials[MaterialIndex] = DestructibleMesh.Materials[MaterialIndex].MaterialInterface;
 		}
 
-		DestructibleMesh.Materials.SetNumUninitialized(DestructibleMesh.FractureSettings->Materials.Num());
+		DestructibleMesh.Materials.SetNum(DestructibleMesh.FractureSettings->Materials.Num());
 
 		for (int32 MaterialIndex = 0; MaterialIndex < DestructibleMesh.Materials.Num(); ++MaterialIndex)
 		{
@@ -964,7 +981,7 @@ UNREALED_API bool BuildDestructibleMeshFromFractureSettings(UDestructibleMesh& D
 
 		}
 
-		NxDestructibleAssetCookingDesc DestructibleAssetCookingDesc;
+		apex::DestructibleAssetCookingDesc DestructibleAssetCookingDesc;
 		DestructibleMesh.FractureSettings->BuildDestructibleAssetCookingDesc(DestructibleAssetCookingDesc);
 		NewApexDestructibleAsset = DestructibleMesh.FractureSettings->CreateApexDestructibleAsset(DestructibleAssetCookingDesc);
 	}
@@ -979,10 +996,10 @@ UNREALED_API bool BuildDestructibleMeshFromFractureSettings(UDestructibleMesh& D
 	return Success;
 }
 
-UDestructibleMesh* ImportDestructibleMeshFromApexDestructibleAsset(UObject* InParent, NxDestructibleAsset& ApexDestructibleAsset, FName Name, EObjectFlags Flags, FSkeletalMeshImportData* OutData, EDestructibleImportOptions::Type Options)
+UDestructibleMesh* ImportDestructibleMeshFromApexDestructibleAsset(UObject* InParent, apex::DestructibleAsset& ApexDestructibleAsset, FName Name, EObjectFlags Flags, FSkeletalMeshImportData* OutData, EDestructibleImportOptions::Type Options)
 {
 	// The APEX Destructible Asset contains an APEX Render Mesh Asset, get a pointer to this
-	const physx::NxRenderMeshAsset* ApexRenderMesh = ApexDestructibleAsset.getRenderMeshAsset();
+	const apex::RenderMeshAsset* ApexRenderMesh = ApexDestructibleAsset.getRenderMeshAsset();
 	if (ApexRenderMesh == NULL)
 	{
 		return NULL;

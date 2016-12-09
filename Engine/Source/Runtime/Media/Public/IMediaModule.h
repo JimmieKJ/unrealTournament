@@ -2,12 +2,10 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
-
-class IMediaPlayer;
 class IMediaPlayerFactory;
-
 
 /**
  * Interface for the Media module.

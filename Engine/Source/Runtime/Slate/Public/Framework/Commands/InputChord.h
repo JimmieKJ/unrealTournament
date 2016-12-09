@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "GenericApplication.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
+#include "GenericPlatform/GenericApplication.h"
 #include "InputChord.generated.h"
 
 //(4.8, "Use FInputChord instead of FInputGesture")
@@ -14,23 +18,23 @@ struct SLATE_API FInputChord
 	GENERATED_USTRUCT_BODY()
 
 	/** The Key is the core of the chord. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Key)
 	FKey Key;
 
 	/** Whether the shift key is part of the chord.  */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Modifier)
 	uint32 bShift:1;
 
 	/** Whether the control key is part of the chord.  */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Modifier)
 	uint32 bCtrl:1;
 
 	/** Whether the alt key is part of the chord.  */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Modifier)
 	uint32 bAlt:1;
 
 	/** Whether the command key is part of the chord.  */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Modifier)
 	uint32 bCmd:1;
 
 	/** 

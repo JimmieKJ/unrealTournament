@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #if !UE_BUILD_SHIPPING
 
 APPFRAMEWORK_API void SummonPerfTestSuite();

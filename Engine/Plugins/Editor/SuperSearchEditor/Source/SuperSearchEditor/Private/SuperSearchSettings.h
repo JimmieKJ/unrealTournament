@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Engine/DeveloperSettings.h"
-#include "SuperSearchModule.h"
 #include "SuperSearchSettings.generated.h"
+
+enum class ESearchEngine : uint8;
 
 /**
  * 

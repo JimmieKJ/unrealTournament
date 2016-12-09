@@ -2,6 +2,11 @@
 
 #pragma once
 
+class FArrangedChildren;
+class FArrangedWidget;
+class FWidgetPath;
+struct EVisibility;
+
 // FWidgetPath functions that depend on classes defined after WidgetPath.h is included in Slate.h
 
 /**

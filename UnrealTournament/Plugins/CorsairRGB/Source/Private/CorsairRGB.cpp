@@ -1,5 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "AllowWindowsPlatformTypes.h" 
+
+#include "CUESDK.h"
+
+#include "HideWindowsPlatformTypes.h"
+
 #include "CorsairRGB.h"
 
 #include "UnrealTournament.h"

@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "UHTMakefile/ScopeArchiveProxy.h"
 
+#include "CoreMinimal.h"
+#include "ScopeArchiveProxy.h"
+
+class FArchive;
 class FUHTMakefile;
 class FFileScope;
 

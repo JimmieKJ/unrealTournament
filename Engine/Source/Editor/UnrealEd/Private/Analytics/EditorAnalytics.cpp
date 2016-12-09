@@ -1,14 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "TargetPlatform.h"
-
-#include "EngineAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-
 #include "EditorAnalytics.h"
 #include "GeneralProjectSettings.h"
-#include "GameProjectGenerationModule.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
+
+#include "EngineAnalytics.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
+
 
 #define LOCTEXT_NAMESPACE "EditorAnalytics"
 
@@ -48,6 +49,7 @@ void FEditorAnalytics::ReportEvent(FString EventName, FString PlatformName, bool
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ProjectID"), ProjectSettings.ProjectID.ToString()));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Platform"), PlatformName));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ProjectType"), bHasCode ? TEXT("C++ Code") : TEXT("Content Only")));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("VanillaEditor"), (GEngine && GEngine->IsVanillaProduct()) ? TEXT("Yes") : TEXT("No")));
 
 		FEngineAnalytics::GetProvider().RecordEvent( EventName, ParamArray );
 	}
@@ -62,6 +64,7 @@ void FEditorAnalytics::ReportEvent(FString EventName, FString PlatformName, bool
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ProjectID"), ProjectSettings.ProjectID.ToString()));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Platform"), PlatformName));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ProjectType"), bHasCode ? TEXT("C++ Code") : TEXT("Content Only")));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("VanillaEditor"), (GEngine && GEngine->IsVanillaProduct()) ? TEXT("Yes") : TEXT("No")));
 		ParamArray.Append(ExtraParams);
 
 		FEngineAnalytics::GetProvider().RecordEvent( EventName, ParamArray );
@@ -77,6 +80,7 @@ void FEditorAnalytics::ReportEvent(FString EventName, FString PlatformName, bool
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ProjectID"), ProjectSettings.ProjectID.ToString()));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Platform"), PlatformName));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ProjectType"), bHasCode ? TEXT("C++ Code") : TEXT("Content Only")));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("VanillaEditor"), (GEngine && GEngine->IsVanillaProduct()) ? TEXT("Yes") : TEXT("No")));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ErrorCode"), ErrorCode));
 		const FString ErrorMessage = TranslateErrorCode(ErrorCode);
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ErrorName"), ErrorMessage));

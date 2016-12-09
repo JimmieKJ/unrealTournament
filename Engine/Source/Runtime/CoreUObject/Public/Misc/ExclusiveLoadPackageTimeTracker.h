@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/Package.h"
+
 #define WITH_LOADPACKAGE_TIME_TRACKER STATS
 
 /**

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "GeometryCacheEdModulePublicPCH.h"
+#include "CoreMinimal.h"
 #include "ComponentAssetBroker.h"
 
 /** AssetBroker class for GeometryCache assets*/

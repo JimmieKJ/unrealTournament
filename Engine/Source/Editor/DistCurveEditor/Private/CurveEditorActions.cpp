@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DistCurveEditorModule.h"
 #include "CurveEditorActions.h"
 
 #define LOCTEXT_NAMESPACE "CurveEditorCommands"

@@ -7,6 +7,11 @@
 #ifndef __DLGDELTATRANSFORM_H__
 #define __DLGDELTATRANSFORM_H__
 
+#include "CoreMinimal.h"
+
+class SDlgDeltaTransform;
+class SWindow;
+
 /** 
  * FDlgDeltaTransform
  * 

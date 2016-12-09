@@ -1,12 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AlembicLibraryPublicPCH.h"
-#include "Core.h"
-
 #include "AbcMeshDataImportRunnable.h"
-
 #include "AbcImportData.h"
 #include "AbcImportUtilities.h"
+#include "Stats/StatsMisc.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAlembicImport, Log, All);
 
@@ -73,6 +70,12 @@ uint32 FAbcMeshDataImportRunnable::Run()
 			{
 				break;
 			}
+			
+			// No data for this frame index available (empty frames at beginning of sequence)
+			if (PolyMeshObject->StartFrameIndex > (uint32)FrameIndex)
+			{
+				continue;
+			}
 
 			// Determine sample time from frame index and time-step
 			const float SampleTime = FrameIndex * TimeStep;
@@ -91,7 +94,7 @@ uint32 FAbcMeshDataImportRunnable::Run()
 
 			if (bApplyTransformation)
 			{
-				TSharedPtr<FCachedHierarchyTransforms> CachedHierarchyTransforms = ImportData->CachedHierarchyTransforms.FindChecked(PolyMeshObject->HierarchyGuid);
+				TSharedPtr<FCachedHierarchyTransforms>& CachedHierarchyTransforms = ImportData->CachedHierarchyTransforms.FindChecked(PolyMeshObject->HierarchyGuid);
 				checkf(PolyMeshObject->bConstantTransformation || CachedHierarchyTransforms->MatrixSamples.IsValidIndex(FrameIndex - FrameOffset), TEXT("Sampling is identical for transforms as for mesh data so the number of samples should match"));
 				const FMatrix& Transform = PolyMeshObject->bConstantTransformation ? CachedHierarchyTransforms->MatrixSamples[0] : CachedHierarchyTransforms->MatrixSamples[FrameIndex - FrameOffset];
 				AbcImporterUtilities::PropogateMatrixTransformationToSample(Sample, Transform);

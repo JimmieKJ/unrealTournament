@@ -12,8 +12,8 @@
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 
-// This file provides a stub implementation of chrome::BrowserProcess so that
-// PrintJobWorker can determine the current locale.
+// This file provides a stub implementation of Chrome's BrowserProcess object
+// for use as an interop layer between CEF and files that live in chrome/.
 
 class BackgroundModeManager {
  public:
@@ -31,7 +31,8 @@ class ChromeBrowserProcessStub : public BrowserProcess {
   // BrowserProcess implementation.
   void ResourceDispatcherHostCreated() override;
   void EndSession() override;
-  MetricsServicesManager* GetMetricsServicesManager() override;
+  metrics_services_manager::MetricsServicesManager*
+      GetMetricsServicesManager() override;
   metrics::MetricsService* metrics_service() override;
   rappor::RapporService* rappor_service() override;
   IOThread* io_thread() override;
@@ -39,8 +40,8 @@ class ChromeBrowserProcessStub : public BrowserProcess {
   ProfileManager* profile_manager() override;
   PrefService* local_state() override;
   net::URLRequestContextGetter* system_request_context() override;
-  chrome_variations::VariationsService* variations_service() override;
-  PromoResourceService* promo_resource_service() override;
+  variations::VariationsService* variations_service() override;
+  web_resource::PromoResourceService* promo_resource_service() override;
   BrowserProcessPlatformPart* platform_part() override;
   extensions::EventRouterForwarder*
       extension_event_router_forwarder() override;
@@ -54,7 +55,7 @@ class ChromeBrowserProcessStub : public BrowserProcess {
   void CreateDevToolsHttpProtocolHandler(
       chrome::HostDesktopType host_desktop_type,
       const std::string& ip,
-      uint16 port) override;
+      uint16_t port) override;
   unsigned int AddRefModule() override;
   unsigned int ReleaseModule() override;
   bool IsShuttingDown() override;
@@ -72,7 +73,7 @@ class ChromeBrowserProcessStub : public BrowserProcess {
   void set_background_mode_manager_for_test(
       scoped_ptr<BackgroundModeManager> manager) override;
   StatusTray* status_tray() override;
-  SafeBrowsingService* safe_browsing_service() override;
+  safe_browsing::SafeBrowsingService* safe_browsing_service() override;
   safe_browsing::ClientSideDetectionService*
       safe_browsing_detection_service() override;
 
@@ -80,7 +81,7 @@ class ChromeBrowserProcessStub : public BrowserProcess {
   void StartAutoupdateTimer() override;
 #endif
 
-  ChromeNetLog* net_log() override;
+  net_log::ChromeNetLog* net_log() override;
   component_updater::ComponentUpdateService*
       component_updater() override;
   CRLSetFetcher* crl_set_fetcher() override;
@@ -96,6 +97,9 @@ class ChromeBrowserProcessStub : public BrowserProcess {
 #endif
   network_time::NetworkTimeTracker* network_time_tracker() override;
   gcm::GCMDriver* gcm_driver() override;
+  ShellIntegration::DefaultWebClientState
+      CachedDefaultWebClientState() override;
+  memory::TabManager* GetTabManager() override;
 
  private:
   std::string locale_;

@@ -1,10 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "TimerManager.h"
-#include "AI/RVOAvoidanceInterface.h"
-#include "NavEdgeProviderInterface.h"
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/EngineTypes.h"
+#include "Misc/CoreMisc.h"
+#include "UObject/ScriptMacros.h"
 #include "AvoidanceManager.generated.h"
+
+class INavEdgeProviderInterface;
+class IRVOAvoidanceInterface;
+class UAvoidanceManager;
+class UMovementComponent;
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Avoidance Time"),STAT_AI_ObstacleAvoidance,STATGROUP_AI, );
 

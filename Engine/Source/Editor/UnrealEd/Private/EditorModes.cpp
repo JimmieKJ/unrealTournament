@@ -1,30 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Engine/BookMark.h"
-#include "StaticMeshResources.h"
-#include "EditorSupportDelegates.h"
-#include "MouseDeltaTracker.h"
-#include "ScopedTransaction.h"
-#include "SurfaceIterators.h"
-#include "SoundDefinitions.h"
-#include "LevelEditor.h"
-#include "Toolkits/ToolkitManager.h"
-#include "EditorLevelUtils.h"
-#include "DynamicMeshBuilder.h"
+#include "EditorModes.h"
+#include "EdMode.h"
 
-#include "ActorEditorUtils.h"
-#include "EditorStyle.h"
-#include "ComponentVisualizer.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "Engine/Selection.h"
-#include "EngineUtils.h"
-#include "CanvasItem.h"
-#include "CanvasTypes.h"
-#include "Engine/Polys.h"
-#include "Engine/StaticMeshActor.h"
-#include "Engine/LevelStreaming.h"
 
 DEFINE_LOG_CATEGORY(LogEditorModes);
 

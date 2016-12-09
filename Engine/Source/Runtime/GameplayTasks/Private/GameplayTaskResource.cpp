@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayTasksPrivatePCH.h"
 #include "GameplayTaskResource.h"
+#include "GameplayTask.h"
+#include "Modules/ModuleManager.h"
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 TArray<FString> UGameplayTaskResource::ResourceDescriptions;

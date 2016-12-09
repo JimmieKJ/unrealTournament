@@ -6,19 +6,22 @@
 =============================================================================*/
 #pragma once
 
-#include "CoreNet.h"
+#include "CoreMinimal.h"
+#include "Misc/NetworkGuid.h"
+#include "UObject/CoreNet.h"
 #include "Engine/EngineTypes.h"
 
+class FGuidReferences;
 class FNetFieldExportGroup;
-class UPackageMapClient;
+class FRepLayout;
+class UActorChannel;
 class UNetConnection;
+class UPackageMapClient;
 
 class FRepChangedParent
 {
 public:
 	FRepChangedParent() : Active( 1 ), OldActive( 1 ), IsConditional( 0 ) {}
-
-	TArray< uint16 >	Changed;
 
 	uint32				Active			: 1;
 	uint32				OldActive		: 1;
@@ -33,11 +36,7 @@ class FRepChangedPropertyTracker : public IRepChangedPropertyTracker
 {
 public:
 	FRepChangedPropertyTracker( const bool InbIsReplay, const bool InbIsClientReplayRecording )
-		: LastReplicationGroupFrame( 0 )
-		, LastReplicationFrame( 0 )
-		, ActiveStatusChanged( false )
-		, UnconditionalPropChanged( false )
-		, bIsReplay( InbIsReplay )
+		: bIsReplay( InbIsReplay )
 		, bIsClientReplayRecording( InbIsClientReplayRecording )
 		, ExternalDataNumBits( 0 ) {}
 	virtual ~FRepChangedPropertyTracker() { }
@@ -49,11 +48,6 @@ public:
 		checkSlow( Parent.IsConditional );
 
 		Parent.Active = (bIsActive || bIsClientReplayRecording) ? 1 : 0;
-
-		if ( Parent.Active != Parent.OldActive )
-		{
-			ActiveStatusChanged++;		// So we know to rebuild the conditional list with/without this property
-		}
 
 		Parent.OldActive = Parent.Active;
 	}
@@ -70,14 +64,8 @@ public:
 		return bIsReplay;
 	}
 
-	uint32						LastReplicationGroupFrame;		// Most recent frame number of the last FRepState that was compared this frame
-	uint32						LastReplicationFrame;
-	class FRepState *			LastRepState;
-
 	TArray< FRepChangedParent >	Parents;
 
-	uint32						ActiveStatusChanged;
-	bool						UnconditionalPropChanged;
 	bool						bIsReplay;							// True when recording/playing replays
 	bool						bIsClientReplayRecording;			// True when recording client replays
 
@@ -124,6 +112,31 @@ public:
 	int32						CmdIndex;
 };
 
+/** FRepChangelistState
+*  Stores changelist history (that are used to know what properties have changed) for objects
+*/
+class FRepChangelistState
+{
+public:
+	FRepChangelistState() :
+		HistoryStart( 0 ),
+		HistoryEnd( 0 ),
+		CompareIndex( 0 )
+	{ }
+
+	TSharedPtr< FRepLayout >						RepLayout;
+
+	static const int32 MAX_CHANGE_HISTORY = 64;
+
+	FRepChangedHistory								ChangeHistory[MAX_CHANGE_HISTORY];
+	int32											HistoryStart;
+	int32											HistoryEnd;
+	int32											CompareIndex;
+
+	// Properties will be copied in here so memory needs aligned to largest type
+	TArray< uint8, TAlignedHeapAllocator<16> >		StaticBuffer;
+};
+
 /** FRepState
  *  Stores state used by the FRepLayout manager
 */
@@ -133,45 +146,47 @@ public:
 	FRepState() : 
 		HistoryStart( 0 ), 
 		HistoryEnd( 0 ),
-		LastReplicationFrame( 0 ),
 		NumNaks( 0 ),
 		OpenAckedCalled( false ),
 		AwakeFromDormancy( false ),
-		ActiveStatusChanged( 0 )
+		LastChangelistIndex( 0 ),
+		LastCompareIndex( 0 )
 	{ }
 
 	~FRepState();
 
 	// Properties will be copied in here so memory needs aligned to largest type
-	TArray< uint8, TAlignedHeapAllocator<16> >				StaticBuffer;
+	TArray< uint8, TAlignedHeapAllocator<16> >	StaticBuffer;
 
-	FGuidReferencesMap			GuidReferencesMap;
+	FGuidReferencesMap				GuidReferencesMap;
 
-	TSharedPtr< FRepLayout >	RepLayout;
+	TSharedPtr< FRepLayout >		RepLayout;
 	
-	TArray< UProperty * >		RepNotifies;
+	TArray< UProperty * >			RepNotifies;
 
 	TSharedPtr<FRepChangedPropertyTracker> RepChangedPropertyTracker;
 
 	static const int32 MAX_CHANGE_HISTORY = 32;
 
-	FRepChangedHistory			ChangeHistory[MAX_CHANGE_HISTORY];
-	int32						HistoryStart;
-	int32						HistoryEnd;
+	FRepChangedHistory				ChangeHistory[MAX_CHANGE_HISTORY];
+	int32							HistoryStart;
+	int32							HistoryEnd;
 
-	uint32						LastReplicationFrame;
-	int32						NumNaks;
+	int32							NumNaks;
 
 	TArray< FRepChangedHistory >	PreOpenAckHistory;
 
 	bool							OpenAckedCalled;
 	bool							AwakeFromDormancy;
 
-	TArray< uint16 >				ConditionalLifetime;		// Properties the need to be checked conditionally (based on net initial, role, etc)
 	FReplicationFlags				RepFlags;
-	uint32							ActiveStatusChanged;
 
 	TArray< uint16 >				LifetimeChangelist;			// This is the unique list of properties that have changed since the channel was first opened
+
+	int32							LastChangelistIndex;		// The last change list history item we replicated from FRepChangelistState (if we are caught up to FRepChangelistState::HistoryEnd, there are no new changelists to replicate)
+	int32							LastCompareIndex;			// If == FRepChangelistState::CompareIndex, then there is definitely no new information since the last time we checked
+
+	bool							ConditionMap[COND_Max];
 };
 
 enum ERepLayoutCmdType
@@ -245,22 +260,96 @@ public:
 	uint16		ParentIndex;		// Index into Parents
 	uint32		CompatibleChecksum;	// Used to determine if property is still compatible
 };
-
-class FRepWriterState
+	
+/** FHandleToCmdIndex
+ *  Converts a relative handle to the appropriate index into the Cmds array
+ */
+class FHandleToCmdIndex
 {
 public:
-	FRepWriterState( FNetBitWriter & InWriter, TArray< uint16 > & InChanged, bool bInDoChecksum ) : 
-		Writer( InWriter ), 
-		Changed( InChanged ),
-		CurrentChanged( 0 ),
-		bDoChecksum( bInDoChecksum )
+	FHandleToCmdIndex() : CmdIndex( INDEX_NONE )
 	{
 	}
 
-	FNetBitWriter &		Writer;
-	TArray< uint16 > &	Changed;
-	int32				CurrentChanged;
-	bool				bDoChecksum;
+	FHandleToCmdIndex( const int32 InHandleToCmdIndex ) : CmdIndex( InHandleToCmdIndex )
+	{
+	}
+
+	int32										CmdIndex;
+	TUniquePtr< TArray< FHandleToCmdIndex > >	HandleToCmdIndex;
+
+	// Fix VS2013 compiler issue (VS2013 doesn't synthesize move constructor or move assignment operator version of these)
+	FHandleToCmdIndex( FHandleToCmdIndex&& Other ) : CmdIndex( Other.CmdIndex ), HandleToCmdIndex( MoveTemp( Other.HandleToCmdIndex ) )
+	{
+	}
+
+	FHandleToCmdIndex& operator=( FHandleToCmdIndex&& Other )
+	{
+		if ( this != &Other )
+		{
+			CmdIndex			= Other.CmdIndex;
+			HandleToCmdIndex	= MoveTemp( Other.HandleToCmdIndex );
+		}
+
+		return *this;
+	}
+};
+
+class FChangelistIterator
+{
+public:
+	FChangelistIterator( const TArray< uint16 >& InChanged, const int32 InChangedIndex ) : Changed( InChanged ), ChangedIndex( InChangedIndex )
+	{
+	}
+
+	const TArray< uint16 >& Changed;
+	int32					ChangedIndex;
+};
+
+/** FRepHandleIterator
+ *  Iterates over a changelist, taking each handle, and mapping to rep layout index, array index, etc
+ */
+class FRepHandleIterator
+{
+public:
+	FRepHandleIterator(
+		FChangelistIterator&				InChangelistIterator,
+		const TArray< FRepLayoutCmd >&		InCmds,
+		const TArray< FHandleToCmdIndex >&	InHandleToCmdIndex,
+		const int32							InElementSize,
+		const int32							InMaxArrayIndex,
+		const int32							InMinCmdIndex,
+		const int32							InMaxCmdIndex
+	) :
+		ChangelistIterator( InChangelistIterator ),
+		Cmds( InCmds ),
+		HandleToCmdIndex( InHandleToCmdIndex ),
+		NumHandlesPerElement( HandleToCmdIndex.Num() ),
+		ArrayElementSize( InElementSize ),
+		MaxArrayIndex( InMaxArrayIndex ),
+		MinCmdIndex( InMinCmdIndex ),
+		MaxCmdIndex( InMaxCmdIndex )
+	{
+	}
+
+	FChangelistIterator&				ChangelistIterator;
+
+	const TArray< FRepLayoutCmd >&		Cmds;
+	const TArray< FHandleToCmdIndex >&	HandleToCmdIndex;
+	const int32							NumHandlesPerElement;
+	const int32							ArrayElementSize;
+	const int32							MaxArrayIndex;
+	const int32							MinCmdIndex;
+	const int32							MaxCmdIndex;
+
+	int32								Handle;
+	int32								CmdIndex;
+	int32								ArrayIndex;
+	int32								ArrayOffset;
+
+	bool	NextHandle();
+	bool	JumpOverArray();
+	int32	PeekNextHandle() const;
 };
 
 /** FRepLayout
@@ -277,6 +366,11 @@ public:
 
 	void OpenAcked( FRepState * RepState ) const;
 
+	void InitShadowData(
+		TArray< uint8, TAlignedHeapAllocator<16> >&	ShadowData,
+		UClass *									InObjectClass,
+		uint8 *										Src ) const;
+
 	void InitRepState( 
 		FRepState *									RepState, 
 		UClass *									InObjectClass, 
@@ -285,20 +379,20 @@ public:
 
 	void InitChangedTracker( FRepChangedPropertyTracker * ChangedTracker ) const;
 
-	bool ReplicateProperties( 
-		FRepState * RESTRICT		RepState, 
-		const uint8* RESTRICT		Data, 
-		UClass *					ObjectClass,
-		UActorChannel *				OwningChannel,
-		FNetBitWriter&				Writer, 
-		const FReplicationFlags &	RepFlags ) const;
+	bool ReplicateProperties(
+		FRepState* RESTRICT				RepState,
+		FRepChangelistState* RESTRICT	RepChangelistState,
+		const uint8* RESTRICT			Data,
+		UClass *						ObjectClass,
+		UActorChannel *					OwningChannel,
+		FNetBitWriter&					Writer,
+		const FReplicationFlags &		RepFlags ) const;
 
-	void SendProperties( 
-		FRepState *	RESTRICT		RepState, 
-		const FReplicationFlags &	RepFlags,
-		const uint8* RESTRICT		Data, 
-		UClass *					ObjectClass,
-		UActorChannel *				OwningChannel,
+	void SendProperties(
+		FRepState*	RESTRICT		RepState,
+		FRepChangedPropertyTracker* ChangedTracker,
+		const uint8* RESTRICT		Data,
+		UClass*						ObjectClass,
 		FNetBitWriter&				Writer,
 		TArray< uint16 >&			Changed ) const;
 
@@ -321,9 +415,10 @@ public:
 	void ValidateWithChecksum( const void* RESTRICT Data, FArchive & Ar ) const;
 	uint32 GenerateChecksum( const FRepState* RepState ) const;
 
+	/** Clamp the changelist so that it conforms to the current size of either the array, or arrays within structs/arrays */
 	void PruneChangeList( FRepState * RepState, const void* RESTRICT Data, const TArray< uint16 >& Changed, TArray< uint16 >& PrunedChanged ) const;
 
-	void MergeDirtyList( FRepState * RepState, const void* RESTRICT Data, const TArray< uint16 > & Dirty1, const TArray< uint16 > & Dirty2, TArray< uint16 > & MergedDirty ) const;
+	void MergeChangeList( const uint8* RESTRICT Data, const TArray< uint16 >& Dirty1, const TArray< uint16 >& Dirty2, TArray< uint16 >& MergedDirty ) const;
 
 	bool DiffProperties( TArray<UProperty*>* RepNotifies, void* RESTRICT Destination, const void* RESTRICT Source, const bool bSync ) const;
 
@@ -345,6 +440,7 @@ public:
 
 	void SendProperties_BackwardsCompatible(
 		FRepState* RESTRICT			RepState,
+		FRepChangedPropertyTracker* ChangedTracker,
 		const uint8* RESTRICT		Data,
 		UNetConnection*				Connection,
 		FNetBitWriter&				Writer,
@@ -359,90 +455,61 @@ public:
 		const bool					bEnableRepNotifies,
 		bool&						bOutGuidsChanged ) const;
 
+	bool CompareProperties(
+		FRepChangelistState* RESTRICT	RepState,
+		const uint8* RESTRICT			Data,
+		const FReplicationFlags&		RepFlags ) const;
+
 private:
 	void RebuildConditionalProperties( FRepState * RESTRICT	RepState, const FRepChangedPropertyTracker& ChangedTracker, const FReplicationFlags& RepFlags ) const;
 
-	void LogChangeListMismatches( 
-		const uint8* 						Data, 
-		UActorChannel *						OwningChannel, 
-		const TArray< uint16 > &			PropertyList,
-		FRepState *							RepState1, 
-		FRepState * 						RepState2, 
-		const TArray< FRepChangedParent > & ChangedParents1,
-		const TArray< FRepChangedParent > & ChangedParents2 ) const;
-
-	void SanityCheckShadowStateAgainstChangeList(
-		FRepState * 						RepState, 
-		const uint8* 						Data, 
-		UActorChannel *						OwningChannel, 
-		const TArray< uint16 > &			PropertyList,
-		FRepState *							OtherRepState,
-		const TArray< FRepChangedParent > & OtherChangedParents ) const;
-
 	void UpdateChangelistHistory( FRepState * RepState, UClass * ObjectClass, const uint8* RESTRICT Data, const int32 AckPacketId, TArray< uint16 > * OutMerged ) const;
+
+	void SendProperties_BackwardsCompatible_r(
+		FRepState* RESTRICT					RepState,
+		UPackageMapClient*					PackageMapClient,
+		FNetFieldExportGroup*				NetFieldExportGroup,
+		FRepChangedPropertyTracker*			ChangedTracker,
+		FNetBitWriter&						Writer,
+		const bool							bDoChecksum,
+		FRepHandleIterator&					HandleIterator,
+		const uint8* RESTRICT				SourceData ) const;
+
+	void SendAllProperties_BackwardsCompatible_r(
+		FNetBitWriter&						Writer,
+		const bool							bDoChecksum,
+		UPackageMapClient*					PackageMapClient,
+		FNetFieldExportGroup*				NetFieldExportGroup,
+		const int32							CmdStart,
+		const int32							CmdEnd,
+		const uint8*						SourceData ) const;
+
+	void SendProperties_r(
+		FRepState*	RESTRICT				RepState,
+		FRepChangedPropertyTracker*			ChangedTracker,
+		FNetBitWriter&						Writer,
+		const bool							bDoChecksum,
+		FRepHandleIterator&					HandleIterator,
+		const uint8* RESTRICT				SourceData ) const;
 
 	uint16 CompareProperties_r(
 		const int32				CmdStart,
 		const int32				CmdEnd,
-		const uint8* RESTRICT	CompareData, 
+		const uint8* RESTRICT	CompareData,
 		const uint8* RESTRICT	Data,
-		TArray< uint16 > &		Changed,
-		uint16					Handle ) const;
+		TArray< uint16 >&		Changed,
+		uint16					Handle,
+		const bool				bIsInitial,
+		const bool				bForceFail ) const;
 
-	void CompareProperties_Array_r( 
-		const uint8* RESTRICT	CompareData, 
+	void CompareProperties_Array_r(
+		const uint8* RESTRICT	CompareData,
 		const uint8* RESTRICT	Data,
-		TArray< uint16 > &		Changed,
+		TArray< uint16 >&		Changed,
 		const uint16			CmdIndex,
-		const uint16			Handle ) const;
-
-	bool CompareProperties( 
-		FRepState * RESTRICT				RepState, 
-		const uint8* RESTRICT				CompareData,
-		const uint8* RESTRICT				Data, 
-		TArray< FRepChangedParent > &		OutChangedParents,
-		const TArray< uint16 > &			PropertyList ) const;
-
-	void SendProperties_DynamicArray_r( 
-		FRepState *	RESTRICT		RepState, 
-		const FReplicationFlags &	RepFlags,
-		FRepWriterState &			WriterState,
-		const int32					CmdIndex, 
-		const uint8* RESTRICT		StoredData, 
-		const uint8* RESTRICT		Data, 
-		uint16						Handle ) const;
-
-	uint16 SendProperties_r( 
-		FRepState *	RESTRICT		RepState, 
-		const FReplicationFlags &	RepFlags,
-		FRepWriterState &			WriterState,
-		const int32					CmdStart, 
-		const int32					CmdEnd, 
-		const uint8* RESTRICT		StoredData, 
-		const uint8* RESTRICT		Data, 
-		uint16						Handle ) const;
-
-	void SendProperties_BackwardsCompatible_DynamicArray_r(
-		FRepState *	RESTRICT		RepState,
-		FRepWriterState &			WriterState,
-		FNetBitWriter &				Writer,
-		UPackageMapClient*			PackageMapClient,
-		FNetFieldExportGroup*		NetFieldExportGroup,
-		const int32					CmdIndex,
-		const uint8* RESTRICT		StoredData,
-		const uint8* RESTRICT		Data ) const;
-
-	uint16 SendProperties_BackwardsCompatible_r(
-		FRepState *	RESTRICT		RepState,
-		FRepWriterState &			WriterState,
-		FNetBitWriter &				Writer,
-		UPackageMapClient*			PackageMapClient,
-		FNetFieldExportGroup*		NetFieldExportGroup,
-		const int32					CmdStart,
-		const int32					CmdEnd,
-		const uint8* RESTRICT		StoredData,
-		const uint8* RESTRICT		Data,
-		uint16						Handle ) const;
+		const uint16			Handle,
+		const bool				bIsInitial,
+		const bool				bForceFail ) const;
 
 	TSharedPtr< FNetFieldExportGroup > CreateNetfieldExportGroup() const;
 
@@ -518,17 +585,29 @@ private:
 		void *				Data,
 		bool &				bHasUnmapped ) const;
 
-	void BuildChangeList_r( const int32 CmdStart, const int32 CmdEnd, uint8* Data, const int32 HandleOffset, TArray< uint16 >& Changed ) const;
+	void MergeChangeList_r(
+		FRepHandleIterator&		RepHandleIterator1,
+		FRepHandleIterator&		RepHandleIterator2,
+		const uint8* RESTRICT	SourceData,
+		TArray< uint16 >&		OutChanged ) const;
 
-	void ConstructProperties( FRepState * RepState ) const;
-	void InitProperties( FRepState * RepState, uint8* Src ) const;
+	void PruneChangeList_r(
+		FRepHandleIterator&		RepHandleIterator,
+		const uint8* RESTRICT	SourceData,
+		TArray< uint16 >&		OutChanged ) const;
+		
+	void BuildChangeList_r( const TArray< FHandleToCmdIndex >& HandleToCmdIndex, const int32 CmdStart, const int32 CmdEnd, uint8* Data, const int32 HandleOffset, TArray< uint16 >& Changed ) const;
+
+	void BuildHandleToCmdIndexTable_r( const int32 CmdStart, const int32 CmdEnd, TArray< FHandleToCmdIndex >& HandleToCmdIndex );
+
+	void ConstructProperties( TArray< uint8, TAlignedHeapAllocator<16> >& ShadowData ) const;
+	void InitProperties( TArray< uint8, TAlignedHeapAllocator<16> >& ShadowData, uint8* Src ) const;
 	void DestructProperties( FRepState * RepState ) const;
 
 	TArray< FRepParentCmd >		Parents;
 	TArray< FRepLayoutCmd >		Cmds;
 
-	TArray< uint16 >			UnconditionalLifetime;		// Properties that don't need special checks (net initial, role, etc)
-	TArray< FLifetimeProperty >	ConditionalLifetime;		// Properties the need to be checked conditionally (based on net initial, role, etc)
+	TArray< FHandleToCmdIndex >	BaseHandleToCmdIndex;		// Converts a relative handle to the appropriate index into the Cmds array
 
 	int32						FirstNonCustomParent;
 	int32						RoleIndex;

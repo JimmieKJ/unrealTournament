@@ -8,6 +8,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class IBuildManifest;
+class IManifestField;
+
 typedef TSharedPtr< class IManifestField, ESPMode::ThreadSafe > IManifestFieldPtr;
 typedef TSharedRef< class IManifestField, ESPMode::ThreadSafe > IManifestFieldRef;
 typedef TSharedPtr< class IBuildManifest, ESPMode::ThreadSafe > IBuildManifestPtr;
@@ -116,6 +121,14 @@ public:
 	virtual int64 GetDownloadSize(const TSet<FString>& Tags) const = 0;
 
 	/**
+	 * Get the size of the download of this set of tags
+	 * @param Tags				IN	The tags used for installation
+	 * @param PreviousVersion	IN	The manifest for previous version to compare against
+	 * @return		the minimum download size required in bytes
+	 */
+	virtual int64 GetDeltaDownloadSize(const TSet<FString>& Tags, const IBuildManifestRef& PreviousVersion) const = 0;
+
+	/**
 	 * Get the size of this build
 	 * @return		the build size in bytes
 	 */
@@ -145,7 +158,7 @@ public:
 	 * @param OldManifest	IN		The Build Manifest that is currently installed.
 	 * @param RemovableFiles	OUT		A list to receive the files that may be removed.
 	 */
-	virtual void GetRemovableFiles(IBuildManifestRef OldManifest, TArray< FString >& RemovableFiles) const = 0;
+	virtual void GetRemovableFiles(const IBuildManifestRef& OldManifest, TArray< FString >& RemovableFiles) const = 0;
 
 	/**
 	 * Gets a list of files that are installed in InstallPath, but no longer required by this Manifest.
@@ -165,7 +178,7 @@ public:
 	 * @param Other		The manifest to copy from
 	 * @param bClobber	Whether to overwrite any already existing fields
 	 */
-	virtual void CopyCustomFields(IBuildManifestRef Other, bool bClobber) = 0;
+	virtual void CopyCustomFields(const IBuildManifestRef& Other, bool bClobber) = 0;
 
 	/**
 	 * Get a custom field from the manifest

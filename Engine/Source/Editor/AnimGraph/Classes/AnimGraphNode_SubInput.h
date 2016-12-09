@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AnimGraphNode_Base.h"
 #include "Animation/AnimNode_SubInput.h"
 #include "AnimGraphNode_SubInput.generated.h"

@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "OnlinePIESettings.h"
-#include "AES.h"
+#include "UObject/UnrealType.h"
+#include "OnlineSubsystem.h"
+#include "Misc/AES.h"
 
 const int32 ONLINEPIE_XOR_KEY = 0xdeadbeef;
 void FPIELoginSettingsInternal::Encrypt()

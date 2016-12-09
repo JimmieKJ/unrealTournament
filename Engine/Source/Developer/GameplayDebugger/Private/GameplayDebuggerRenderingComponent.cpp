@@ -1,14 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerRenderingComponent.h"
-#include "DebugRenderSceneProxy.h"
+#include "GameplayDebuggerCategoryReplicator.h"
+#include "GameplayDebuggerCategory.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FGameplayDebuggerCompositeSceneProxy
 
 class FGameplayDebuggerCompositeSceneProxy : public FDebugRenderSceneProxy
 {
+	friend class FGameplayDebuggerDebugDrawDelegateHelper;
 public:
 	FGameplayDebuggerCompositeSceneProxy(const UPrimitiveComponent* InComponent) : FDebugRenderSceneProxy(InComponent) { }
 
@@ -33,22 +34,6 @@ public:
 		for (int32 Idx = 0; Idx < ChildProxies.Num(); Idx++)
 		{
 			ChildProxies[Idx]->GetDynamicMeshElements(Views, ViewFamily, VisibilityMap, Collector);
-		}
-	}
-
-	virtual void RegisterDebugDrawDelgate() override
-	{
-		for (int32 Idx = 0; Idx < ChildProxies.Num(); Idx++)
-		{
-			ChildProxies[Idx]->RegisterDebugDrawDelgate();
-		}
-	}
-
-	virtual void UnregisterDebugDrawDelgate() override
-	{
-		for (int32 Idx = 0; Idx < ChildProxies.Num(); Idx++)
-		{
-			ChildProxies[Idx]->UnregisterDebugDrawDelgate();
 		}
 	}
 
@@ -92,6 +77,52 @@ protected:
 	TArray<FDebugRenderSceneProxy*> ChildProxies;
 };
 
+void FGameplayDebuggerDebugDrawDelegateHelper::RegisterDebugDrawDelgate()
+{
+	ensureMsgf(State != RegisteredState, TEXT("RegisterDebugDrawDelgate is already Registered!"));
+	if (State == InitializedState)
+	{
+		for (int32 Idx = 0; Idx < DebugDrawDelegateHelpers.Num(); Idx++)
+		{
+			DebugDrawDelegateHelpers[Idx]->RegisterDebugDrawDelgate();
+		}
+		State = RegisteredState;
+	}
+}
+
+void FGameplayDebuggerDebugDrawDelegateHelper::UnregisterDebugDrawDelgate()
+{
+	ensureMsgf(State != InitializedState, TEXT("UnegisterDebugDrawDelgate is in an invalid State: %i !"), State);
+	if (State == RegisteredState)
+	{
+		for (int32 Idx = 0; Idx < DebugDrawDelegateHelpers.Num(); Idx++)
+		{
+			DebugDrawDelegateHelpers[Idx]->UnregisterDebugDrawDelgate();
+		}
+		State = InitializedState;
+	}
+}
+
+void FGameplayDebuggerDebugDrawDelegateHelper::Reset()
+{
+	for (int32 Idx = 0; Idx < DebugDrawDelegateHelpers.Num(); Idx++)
+	{
+		delete DebugDrawDelegateHelpers[Idx];
+	}
+	DebugDrawDelegateHelpers.Reset();
+}
+
+void FGameplayDebuggerDebugDrawDelegateHelper::AddDelegateHelper(FDebugDrawDelegateHelper* InDebugDrawDelegateHelper)
+{
+	check(InDebugDrawDelegateHelper);
+	DebugDrawDelegateHelpers.Add(InDebugDrawDelegateHelper);
+}
+
+void FGameplayDebuggerDebugDrawDelegateHelper::InitDelegateHelper(const FGameplayDebuggerCompositeSceneProxy* InSceneProxy)
+{
+	Super::InitDelegateHelper(InSceneProxy);
+}
+
 //////////////////////////////////////////////////////////////////////////
 // UGameplayDebuggerRenderingComponent
 
@@ -101,6 +132,8 @@ UGameplayDebuggerRenderingComponent::UGameplayDebuggerRenderingComponent(const F
 
 FPrimitiveSceneProxy* UGameplayDebuggerRenderingComponent::CreateSceneProxy()
 {
+	GameplayDebuggerDebugDrawDelegateHelper.Reset();
+
 	FGameplayDebuggerCompositeSceneProxy* CompositeProxy = nullptr;
 
 	AGameplayDebuggerCategoryReplicator* OwnerReplicator = Cast<AGameplayDebuggerCategoryReplicator>(GetOwner());
@@ -112,9 +145,11 @@ FPrimitiveSceneProxy* UGameplayDebuggerRenderingComponent::CreateSceneProxy()
 			TSharedRef<FGameplayDebuggerCategory> Category = OwnerReplicator->GetCategory(Idx);
 			if (Category->IsCategoryEnabled())
 			{
-				FDebugRenderSceneProxy* CategorySceneProxy = Category->CreateSceneProxy(this);
+				FDebugDrawDelegateHelper* DebugDrawDelegateHelper;
+				FDebugRenderSceneProxy* CategorySceneProxy = Category->CreateDebugSceneProxy(this, DebugDrawDelegateHelper);
 				if (CategorySceneProxy)
 				{
+					GameplayDebuggerDebugDrawDelegateHelper.AddDelegateHelper(DebugDrawDelegateHelper);
 					SceneProxies.Add(CategorySceneProxy);
 				}
 			}
@@ -127,6 +162,11 @@ FPrimitiveSceneProxy* UGameplayDebuggerRenderingComponent::CreateSceneProxy()
 		}
 	}
 
+	if (CompositeProxy)
+	{
+		GameplayDebuggerDebugDrawDelegateHelper.InitDelegateHelper(CompositeProxy);
+		GameplayDebuggerDebugDrawDelegateHelper.ReregisterDebugDrawDelgate();
+	}
 	return CompositeProxy;
 }
 
@@ -139,18 +179,12 @@ void UGameplayDebuggerRenderingComponent::CreateRenderState_Concurrent()
 {
 	Super::CreateRenderState_Concurrent();
 
-	if (SceneProxy)
-	{
-		static_cast<FGameplayDebuggerCompositeSceneProxy*>(SceneProxy)->RegisterDebugDrawDelgate();
-	}
+	GameplayDebuggerDebugDrawDelegateHelper.RegisterDebugDrawDelgate();
 }
 
 void UGameplayDebuggerRenderingComponent::DestroyRenderState_Concurrent()
 {
-	if (SceneProxy)
-	{
-		static_cast<FGameplayDebuggerCompositeSceneProxy*>(SceneProxy)->UnregisterDebugDrawDelgate();
-	}
+	GameplayDebuggerDebugDrawDelegateHelper.UnregisterDebugDrawDelgate();
 
 	Super::DestroyRenderState_Concurrent();
 }

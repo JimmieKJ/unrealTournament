@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "CoreFwd.h"
 
 /**
  * A text-based markup language can be used to allow external processes to control the state 

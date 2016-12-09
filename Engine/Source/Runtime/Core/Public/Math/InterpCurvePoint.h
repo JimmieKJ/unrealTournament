@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "HAL/UnrealMemory.h"
+#include "Math/UnrealMathUtility.h"
+#include "Math/Color.h"
+#include "Math/Vector2D.h"
+#include "Containers/EnumAsByte.h"
+#include "Math/Vector.h"
+#include "Math/Quat.h"
+#include "Math/TwoVectors.h"
 
 enum EInterpCurveMode
 {

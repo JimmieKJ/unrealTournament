@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "ContentStreaming.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "Components/ActorComponent.h"
 
 /** Destroys render state for a component and then recreates it when this object is destroyed */
 class FComponentRecreateRenderStateContext
@@ -30,7 +31,7 @@ public:
 
 	~FComponentRecreateRenderStateContext()
 	{
-		if (Component != nullptr)
+		if (Component && !Component->IsRenderStateCreated() && Component->IsRegistered())
 		{
 			Component->CreateRenderState_Concurrent();
 		}

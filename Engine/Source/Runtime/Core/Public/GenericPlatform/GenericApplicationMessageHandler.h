@@ -2,13 +2,14 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Math/Vector2D.h"
 #include "Templates/SharedPointer.h"
 #include "Misc/Optional.h"
 
-
 class FGenericWindow;
-
 
 namespace EMouseButtons
 {

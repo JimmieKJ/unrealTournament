@@ -1,15 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "KDevelopSourceCodeAccessPrivatePCH.h"
 #include "KDevelopSourceCodeAccessor.h"
-#include "KDevelopSourceCodeAccessModule.h"
-#include "ISourceCodeAccessModule.h"
-#include "ModuleManager.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/Paths.h"
 #include "DesktopPlatformModule.h"
-
-#if WITH_EDITOR
-#include "Developer/HotReload/Public/IHotReload.h"
-#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogKDevelopAccessor, Log, All);
 

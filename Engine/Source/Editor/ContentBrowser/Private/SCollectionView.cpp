@@ -1,18 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ContentBrowserPCH.h"
+#include "SCollectionView.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SOverlay.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+#include "CollectionManagerModule.h"
+#include "ContentBrowserUtils.h"
+#include "HistoryManager.h"
 
 #include "CollectionAssetManagement.h"
-#include "CollectionViewTypes.h"
 #include "CollectionContextMenu.h"
 #include "DragAndDrop/AssetDragDropOp.h"
 #include "DragAndDrop/CollectionDragDropOp.h"
-#include "ObjectTools.h"
 #include "SourcesViewWidgets.h"
 #include "ContentBrowserModule.h"
-#include "ISourceControlModule.h"
-#include "SExpandableArea.h"
-#include "SSearchBox.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -818,13 +833,17 @@ void SCollectionView::MakeSaveDynamicCollectionMenu(FText InQueryString)
 
 	CollectionContextMenu->MakeSaveDynamicCollectionSubMenu(MenuBuilder, InQueryString);
 
-	FSlateApplication::Get().PushMenu(
-		AsShared(),
-		FWidgetPath(),
-		MenuBuilder.MakeWidget(),
-		FSlateApplication::Get().GetCursorPos(),
-		FPopupTransitionEffect( FPopupTransitionEffect::TopMenu )
+	FWidgetPath WidgetPath;
+	if (FSlateApplication::Get().GeneratePathToWidgetUnchecked(AsShared(), WidgetPath, EVisibility::All)) // since the collection window can be hidden, we need to manually search the path with a EVisibility::All instead of the default EVisibility::Visible
+	{
+		FSlateApplication::Get().PushMenu(
+			AsShared(),
+			WidgetPath,
+			MenuBuilder.MakeWidget(),
+			FSlateApplication::Get().GetCursorPos(),
+			FPopupTransitionEffect(FPopupTransitionEffect::TopMenu)
 		);
+	}
 }
 
 bool SCollectionView::ShouldAllowSelectionChangedDelegate() const
@@ -1426,9 +1445,6 @@ bool SCollectionView::IsCollectionNameReadOnly() const
 
 bool SCollectionView::CollectionNameChangeCommit( const TSharedPtr< FCollectionItem >& CollectionItem, const FString& NewName, bool bChangeConfirmed, FText& OutWarningMessage )
 {
-	// There should only ever be one item selected when renaming
-	check(CollectionTreePtr->GetNumItemsSelected() == 1);
-
 	FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 
 	// If new name is empty, set it back to the original name

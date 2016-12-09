@@ -2,10 +2,15 @@
 
 #pragma once
 
-#include "LockFreeList.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Containers/LockFreeList.h"
+#include "Layout/SlateRect.h"
+#include "Widgets/SWindow.h"
 
-class SNotificationItem;
 struct FNotificationInfo;
+
+template <class T> class TLockFreePointerListLIFO;
 
 /**
  * A class which manages a group of notification windows                 

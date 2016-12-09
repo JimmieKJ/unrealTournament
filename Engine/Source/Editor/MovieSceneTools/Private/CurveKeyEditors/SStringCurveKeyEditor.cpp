@@ -1,8 +1,11 @@
 // Copyright 1998t-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "MovieSceneStringSection.h"
-#include "SStringCurveKeyEditor.h"
+#include "CurveKeyEditors/SStringCurveKeyEditor.h"
+#include "Widgets/Input/SEditableText.h"
+#include "Curves/KeyHandle.h"
+#include "ISequencer.h"
+#include "ScopedTransaction.h"
+#include "Curves/StringCurve.h"
 
 #define LOCTEXT_NAMESPACE "StringCurveKeyEditor"
 
@@ -11,9 +14,9 @@ void SStringCurveKeyEditor::Construct(const FArguments& InArgs)
 	Sequencer = InArgs._Sequencer;
 	OwningSection = InArgs._OwningSection;
 	Curve = InArgs._Curve;
-	OnValueChangedEvent = InArgs._OnValueChanged;
-	IntermediateValue = InArgs._IntermediateValue;
-	float CurrentTime = Sequencer->GetCurrentLocalTime(*Sequencer->GetFocusedMovieSceneSequence());
+	ExternalValue = InArgs._ExternalValue;
+
+	float CurrentTime = Sequencer->GetLocalTime();
 	ChildSlot
 	[
 		SNew(SEditableText)
@@ -25,15 +28,13 @@ void SStringCurveKeyEditor::Construct(const FArguments& InArgs)
 
 FText SStringCurveKeyEditor::GetText() const
 {
-	if ( IntermediateValue.IsSet() && IntermediateValue.Get().IsSet() )
+	if (ExternalValue.IsSet() && ExternalValue.Get().IsSet())
 	{
-		return FText::FromString(IntermediateValue.Get().GetValue());
+		return FText::FromString(ExternalValue.Get().GetValue());
 	}
-
-	float CurrentTime = Sequencer->GetCurrentLocalTime(*Sequencer->GetFocusedMovieSceneSequence());
-
-	UMovieSceneStringSection* StringSection = Cast<UMovieSceneStringSection>(OwningSection);
-	FString CurrentValue = StringSection ? StringSection->Eval(CurrentTime, Curve->GetDefaultValue()) : Curve->Eval(CurrentTime, Curve->GetDefaultValue());
+	float CurrentTime = Sequencer->GetLocalTime();
+	FString DefaultValue;
+	FString CurrentValue = Curve->Eval(CurrentTime, DefaultValue);
 	
 	return FText::FromString(CurrentValue);
 }
@@ -44,11 +45,23 @@ void SStringCurveKeyEditor::OnTextCommitted(const FText& InText, ETextCommit::Ty
 	OwningSection->SetFlags(RF_Transactional);
 	if (OwningSection->TryModify())
 	{
-		float CurrentTime = Sequencer->GetCurrentLocalTime(*Sequencer->GetFocusedMovieSceneSequence());
+		float CurrentTime = Sequencer->GetLocalTime();
+		bool bAutoSetTrackDefaults = Sequencer->GetAutoSetTrackDefaults();
 
-		bool bKeyWillBeAdded = Curve->IsKeyHandleValid(Curve->FindKey(CurrentTime)) == false;
-		if (bKeyWillBeAdded)
+		FKeyHandle CurrentKeyHandle = Curve->FindKey(CurrentTime);
+		if (Curve->IsKeyHandleValid(CurrentKeyHandle))
 		{
+			Curve->SetKeyValue(CurrentKeyHandle, InText.ToString());
+		}
+		else
+		{
+			if (Curve->GetNumKeys() != 0 || bAutoSetTrackDefaults == false)
+			{
+				// When auto setting track defaults are disabled, add a key even when it's empty so that the changed
+				// value is saved and is propagated to the property.
+				Curve->AddKey(CurrentTime, InText.ToString(), CurrentKeyHandle);
+			}
+
 			if (OwningSection->GetStartTime() > CurrentTime)
 			{
 				OwningSection->SetStartTime(CurrentTime);
@@ -58,19 +71,15 @@ void SStringCurveKeyEditor::OnTextCommitted(const FText& InText, ETextCommit::Ty
 				OwningSection->SetEndTime(CurrentTime);
 			}
 		}
-		
-		if (Curve->GetNumKeys() == 0)
+
+		// Always update the default value when auto-set default values is enabled so that the last changes
+		// are always saved to the track.
+		if (bAutoSetTrackDefaults)
 		{
 			Curve->SetDefaultValue(InText.ToString());
 		}
-		else
-		{
-			Curve->UpdateOrAddKey(CurrentTime, InText.ToString());
-		}
 
-		OnValueChangedEvent.ExecuteIfBound(InText.ToString());
-
-		Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
+		Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChangedRefreshImmediately );
 	}
 }
 

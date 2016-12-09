@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "CollisionProfileNameCustomization.h"
-#include "SNameComboBox.h"
 #include "Engine/CollisionProfile.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailGroup.h"
+#include "DetailLayoutBuilder.h"
 
 
 #define LOCTEXT_NAMESPACE "CollisionProfileNameCustomization"

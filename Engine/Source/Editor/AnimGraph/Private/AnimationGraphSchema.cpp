@@ -4,16 +4,20 @@
 	AnimationGraphSchema.cpp
 =============================================================================*/
 
-#include "AnimGraphPrivatePCH.h"
-#include "BlueprintUtilities.h"
-#include "GraphEditorActions.h"
-#include "ScopedTransaction.h"
-#include "AssetData.h"
 #include "AnimationGraphSchema.h"
-#include "K2Node_TransitionRuleGetter.h"
+#include "Animation/AnimationAsset.h"
+#include "Animation/AnimBlueprint.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "K2Node.h"
+#include "EdGraphSchema_K2_Actions.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Animation/AnimSequence.h"
 #include "AnimStateNode.h"
+#include "Animation/BlendSpace.h"
 #include "Animation/AimOffsetBlendSpace.h"
 #include "Animation/AimOffsetBlendSpace1D.h"
+#include "Animation/AnimNodeBase.h"
+#include "AnimGraphNode_Base.h"
 #include "AnimGraphNode_AssetPlayerBase.h"
 #include "AnimGraphNode_BlendSpacePlayer.h"
 #include "AnimGraphNode_ComponentToLocalSpace.h"
@@ -21,9 +25,11 @@
 #include "AnimGraphNode_Root.h"
 #include "AnimGraphNode_RotationOffsetBlendSpace.h"
 #include "AnimGraphNode_SequencePlayer.h"
+#include "Animation/PoseAsset.h"
 #include "AnimGraphNode_PoseBlendNode.h"
 #include "AnimGraphNode_PoseByName.h"
 #include "AnimGraphCommands.h"
+#include "K2Node_Knot.h"
 
 #define LOCTEXT_NAMESPACE "AnimationGraphSchema"
 
@@ -139,6 +145,43 @@ bool UAnimationGraphSchema::IsComponentSpacePosePin(const FEdGraphPinType& PinTy
 
 	UScriptStruct* ComponentSpacePoseLinkStruct = FComponentSpacePoseLink::StaticStruct();
 	return (PinType.PinCategory == Schema->PC_Struct) && (PinType.PinSubCategoryObject == ComponentSpacePoseLinkStruct);
+}
+
+bool UAnimationGraphSchema::TryCreateConnection(UEdGraphPin* A, UEdGraphPin* B) const
+{
+	UEdGraphPin* OutputPin = nullptr;
+	UEdGraphPin* InputPin = nullptr;
+
+	if(A->Direction == EEdGraphPinDirection::EGPD_Output)
+	{
+		OutputPin = A;
+		InputPin = B;
+	}
+	else
+	{
+		OutputPin = B;
+		InputPin = A;
+	}
+	check(OutputPin && InputPin);
+
+	UEdGraphNode* OutputNode = OutputPin->GetOwningNode();
+
+	if(UK2Node_Knot* RerouteNode = Cast<UK2Node_Knot>(OutputNode))
+	{
+		// Double check this is our "exec"-like line
+		bool bOutputIsPose = IsPosePin(OutputPin->PinType);
+		bool bInputIsPose = IsPosePin(InputPin->PinType);
+		bool bHavePosePin = bOutputIsPose || bInputIsPose;
+		bool bHaveWildPin = InputPin->PinType.PinCategory == PC_Wildcard || OutputPin->PinType.PinCategory == PC_Wildcard;
+
+		if((bOutputIsPose && bInputIsPose) || (bHavePosePin && bHaveWildPin))
+		{
+			// Ok this is a valid exec-like line, we need to kill any connections already on the output pin
+			OutputPin->BreakAllPinLinks();
+		}
+	}
+
+	return Super::TryCreateConnection(A, B);
 }
 
 const FPinConnectionResponse UAnimationGraphSchema::DetermineConnectionResponseOfCompatibleTypedPins(const UEdGraphPin* PinA, const UEdGraphPin* PinB, const UEdGraphPin* InputPin, const UEdGraphPin* OutputPin) const

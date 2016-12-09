@@ -1,10 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "Templates/Casts.h"
+#include "EdGraph/EdGraphNode.h"
 #include "BlueprintUtilities.h"
 #include "EdGraph.generated.h"
 
+class UEdGraph;
 struct FEdGraphEditAction;
+struct FPropertyChangedEvent;
 
 USTRUCT()
 struct ENGINE_API FGraphReference

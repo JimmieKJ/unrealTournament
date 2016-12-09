@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "Engine/EngineTypes.h"
 #include "MovieSceneCaptureSettings.generated.h"
 
@@ -39,7 +42,7 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 
 	/** Optional game mode to override the map's default game mode with.  This can be useful if the game's normal mode displays UI elements or loading screens that you don't want captured. */
 	UPROPERTY(config, EditAnywhere, Category=General, AdvancedDisplay)
-	TSubclassOf<class AGameMode> GameModeOverride;
+	TSubclassOf<class AGameModeBase> GameModeOverride;
 
 	/** The format to use for the resulting filename. Extension will be added automatically. Any tokens of the form {token} will be replaced with the corresponding value:
 	 * {fps}		- The captured framerate
@@ -62,6 +65,10 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 	UPROPERTY(config, EditAnywhere, Category=General, AdvancedDisplay)
 	bool bUseRelativeFrameNumbers;
 
+	/** Number of frame handles to include for each shot */
+	UPROPERTY(config, EditAnywhere, Category=Sequence, AdvancedDisplay, meta=(ClampMin=0, UIMin=0))
+	int32 HandleFrames;
+
 	/** How much to zero-pad frame numbers on filenames */
 	UPROPERTY(config)
 	uint8 ZeroPadFrameNumbers;
@@ -77,6 +84,10 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 	/** Whether to texture streaming should be enabled while capturing.  Turning off texture streaming may cause much more memory to be used, but also reduces the chance of blurry textures in your captured video. */
 	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay)
 	bool bEnableTextureStreaming;
+
+	/** Whether to enable cinematic engine scalability settings */
+	UPROPERTY(config, EditAnywhere, Category=Cinematic)
+	bool bCinematicEngineScalability;
 
 	/** Whether to enable cinematic mode whilst capturing */
 	UPROPERTY(config, EditAnywhere, Category=Cinematic)

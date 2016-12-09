@@ -2,33 +2,38 @@
 
 #pragma once
 
-#include "UniquePtr.h"
-#include "ISequencerEditTool.h"
-#include "IMovieScenePlayer.h"
-#include "SequencerCommonHelpers.h"
-
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "UObject/GCObject.h"
+#include "Misc/NotifyHook.h"
+#include "Widgets/SCompoundWidget.h"
+#include "MovieSceneSequenceID.h"
+#include "ITimeSlider.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/Input/NumericTypeInterface.h"
+#include "Sequencer.h"
 
 class FActorDragDropGraphEdOp;
 class FAssetDragDropOp;
 class FClassDragDropOp;
-class FEditPropertyChain;
-class FMovieSceneSequenceInstance;
-class FSequencer;
-class FSequencerNodeTree;
+class FMovieSceneClipboard;
+class FSequencerTimeSliderController;
 class FUnloadedClassDragDropOp;
-class IDetailsView;
-class UMovieSceneSection;
+class FVirtualTrackArea;
+class ISequencerEditTool;
 class SSequencerCurveEditor;
 class SSequencerGotoBox;
 class SSequencerLabelBrowser;
 class SSequencerTrackArea;
 class SSequencerTrackOutliner;
+class SSequencerTransformBox;
 class SSequencerTreeView;
-class FSequencerTimeSliderController;
-
-struct FSectionHandle;
+class USequencerSettings;
 struct FPaintPlaybackRangeArgs;
-
+struct FSectionHandle;
 
 namespace SequencerLayoutConstants
 {
@@ -67,11 +72,11 @@ struct FSequencerBreadcrumb
 	FSequencerBreadcrumb::Type BreadcrumbType;
 
 	/** The movie scene this may point to */
-	TWeakPtr<FMovieSceneSequenceInstance> MovieSceneInstance;
+	FMovieSceneSequenceID SequenceID;
 
-	FSequencerBreadcrumb(TSharedRef<FMovieSceneSequenceInstance> InMovieSceneInstance)
+	FSequencerBreadcrumb(FMovieSceneSequenceIDRef InSequenceID)
 		: BreadcrumbType(FSequencerBreadcrumb::MovieSceneType)
-		, MovieSceneInstance(InMovieSceneInstance)
+		, SequenceID(InSequenceID)
 	{ }
 
 	FSequencerBreadcrumb()
@@ -103,8 +108,11 @@ public:
 		/** The playback range */
 		SLATE_ATTRIBUTE( TRange<float>, PlaybackRange )
 
-		/** The selection selection range */
+		/** The selection range */
 		SLATE_ATTRIBUTE(TRange<float>, SelectionRange)
+
+		/** The current sub sequence range */
+		SLATE_ATTRIBUTE(TOptional<TRange<float>>, SubSequenceRange)
 
 		/** The playback status */
 		SLATE_ATTRIBUTE( EMovieScenePlayerStatus::Type, PlaybackStatus )
@@ -386,8 +394,10 @@ private:
 	FPaintPlaybackRangeArgs GetSectionPlaybackRangeArgs() const;
 
 	/** Called whenever the active sequence instance changes on the FSequencer */
-	void OnSequenceInstanceActivated( FMovieSceneSequenceInstance& ActiveInstance );
+	void OnSequenceInstanceActivated( FMovieSceneSequenceIDRef ActiveInstanceID );
 
+	EVisibility GetDebugVisualizerVisibility() const;
+	
 public:
 	/** On Paste Command */
 	void OnPaste();
@@ -409,6 +419,9 @@ private:
 
 	/** Goto box widget. */
 	TSharedPtr<SSequencerGotoBox> GotoBox;
+
+	/** Transform box widget. */
+	TSharedPtr<SSequencerTransformBox> TransformBox;
 
 	/** Section area widget */
 	TSharedPtr<SSequencerTrackArea> TrackArea;

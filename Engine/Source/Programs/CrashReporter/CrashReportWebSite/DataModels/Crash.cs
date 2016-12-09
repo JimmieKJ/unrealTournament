@@ -59,9 +59,14 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
         public string UserActivityHint { get; set; }
         public Nullable<System.DateTime> InsertTS { get; set; }
         public Nullable<int> PatternId { get; set; }
+        public Nullable<int> ErrorMessageId { get; set; }
+        public Nullable<int> BuggId { get; set; }
+        public Nullable<bool> ProcessFailed { get; set; }
     
         public virtual CallStackPattern CallStackPattern { get; set; }
         public virtual User User { get; set; }
         public virtual ICollection<Bugg> Buggs { get; set; }
+        public virtual Bugg Bugg { get; set; }
+        public virtual ErrorMessage ErrorMessage { get; set; }
     }
 }

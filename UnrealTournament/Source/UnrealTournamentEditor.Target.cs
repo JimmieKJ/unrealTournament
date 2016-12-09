@@ -34,12 +34,4 @@ public class UnrealTournamentEditorTarget : TargetRules
         }
         OutExtraModuleNames.Add("OnlineSubsystemNull");
 	}
-    public override GUBPProjectOptions GUBP_IncludeProjectInPromotedBuild_EditorTypeOnly(UnrealTargetPlatform HostPlatform)
-    {
-        var Result = new GUBPProjectOptions();
-        Result.bIsPromotable = true;
-        Result.bSeparateGamePromotion = true;
-        Result.bCustomWorkflowForPromotion = true;
-        return Result;
-    }
 }

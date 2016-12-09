@@ -2,7 +2,19 @@
 
 #pragma once
 
-#include "PListNode.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Editor/PListEditor/Private/PListNode.h"
+
+class ITableRow;
+class SButton;
+class SEditableTextBox;
+class SPListEditorPanel;
+class STableViewBase;
+class STextBlock;
+class SWidget;
+struct FSlateBrush;
 
 /** A Node representing a dictionary */
 class FPListNodeDictionary : public IPListNode

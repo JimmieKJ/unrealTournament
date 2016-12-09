@@ -3,9 +3,10 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/AssetRegistryInterface.h"
 #include "IAssetRegistry.h"
-#include "AssetRegistryInterface.h"
 
 namespace AssetRegistryConstants
 {

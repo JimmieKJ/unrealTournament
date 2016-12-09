@@ -1,19 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "PackageHelperFunctions.h"
-#include "DerivedDataCacheInterface.h"
-#include "ISourceControlModule.h"
-#include "GlobalShader.h"
-#include "TargetPlatform.h"
-#include "IConsoleManager.h"
-#include "Developer/PackageDependencyInfo/Public/PackageDependencyInfo.h"
+#include "Commandlets/ChunkManifestGenerator.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Serialization/ArrayReader.h"
+#include "Serialization/ArrayWriter.h"
+#include "Misc/App.h"
+#include "Serialization/JsonTypes.h"
+#include "Serialization/JsonReader.h"
+#include "Policies/PrettyJsonPrintPolicy.h"
+#include "Serialization/JsonSerializer.h"
+#include "Engine/Level.h"
+#include "Engine/World.h"
+#include "Settings/ProjectPackagingSettings.h"
+#include "CollectionManagerTypes.h"
+#include "ICollectionManager.h"
+#include "CollectionManagerModule.h"
+#include "Interfaces/ITargetPlatform.h"
 #include "AssetRegistryModule.h"
-#include "UnrealEdMessages.h"
 #include "GameDelegates.h"
-#include "ChunkManifestGenerator.h"
-#include "ChunkDependencyInfo.h"
+#include "Commandlets/ChunkDependencyInfo.h"
 #include "IPlatformFileSandboxWrapper.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Stats/StatsMisc.h"
+#include "UniquePtr.h"
 
 #include "JsonWriter.h"
 #include "JsonReader.h"
@@ -67,6 +77,7 @@ FChunkManifestGenerator::FChunkManifestGenerator(const TArray<ITargetPlatform*>&
 	: AssetRegistry(FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get())
 	, Platforms(InPlatforms)
 	, bGenerateChunks(false)
+	, bForceGenerateChunksForAllPlatforms(false)
 {
 	DependencyInfo = GetMutableDefault<UChunkDependencyInfo>();
 
@@ -78,7 +89,7 @@ FChunkManifestGenerator::FChunkManifestGenerator(const TArray<ITargetPlatform*>&
 	}	
 
 	UE_LOG(LogChunkManifestGenerator, Log, TEXT("bChunkHardReferencesOnly: %i"), (int32)bOnlyHardReferences);
-	DependencyType = bOnlyHardReferences ? EAssetRegistryDependencyType::Hard : EAssetRegistryDependencyType::All;
+	DependencyType = bOnlyHardReferences ? EAssetRegistryDependencyType::Hard : EAssetRegistryDependencyType::Packages;
 }
 
 FChunkManifestGenerator::~FChunkManifestGenerator()
@@ -119,6 +130,22 @@ bool FChunkManifestGenerator::CleanTempPackagingDirectory(const FString& Platfor
 	return true;
 }
 
+bool FChunkManifestGenerator::ShouldPlatformGenerateStreamingInstallManifest(const ITargetPlatform* Platform) const
+{
+	if (Platform)
+	{
+		FConfigFile PlatformIniFile;
+		FConfigCacheIni::LoadLocalIniFile(PlatformIniFile, TEXT("Game"), true, *Platform->IniPlatformName());
+		FString ConfigString;
+		if (PlatformIniFile.GetString(TEXT("/Script/UnrealEd.ProjectPackagingSettings"), TEXT("bGenerateChunks"), ConfigString))
+		{
+			return FCString::ToBool(*ConfigString);
+		}
+	}
+
+	return false;
+}
+
 bool FChunkManifestGenerator::GenerateStreamingInstallManifest(const FString& Platform)
 {
 	FString GameNameLower = FString(FApp::GetGameName()).ToLower();
@@ -133,16 +160,16 @@ bool FChunkManifestGenerator::GenerateStreamingInstallManifest(const FString& Pl
 	
 	// open a file for writing the list of pak file lists that we've generated
 	FString PakChunkListFilename = TmpPackagingDir / TEXT("pakchunklist.txt");
-	TAutoPtr<FArchive> PakChunkListFile(IFileManager::Get().CreateFileWriter(*PakChunkListFilename));
+	TUniquePtr<FArchive> PakChunkListFile(IFileManager::Get().CreateFileWriter(*PakChunkListFilename));
 
-	if (!PakChunkListFile.IsValid())
+	if (!PakChunkListFile)
 	{
 		UE_LOG(LogChunkManifestGenerator, Error, TEXT("Failed to open output pakchunklist file %s"), *PakChunkListFilename);
 		return false;
 	}
 
 	FString PakChunkLayerInfoFilename = FString::Printf(TEXT("%s/pakchunklayers.txt"), *TmpPackagingDir);
-	TAutoPtr<FArchive> ChunkLayerFile(IFileManager::Get().CreateFileWriter(*PakChunkLayerInfoFilename));
+	TUniquePtr<FArchive> ChunkLayerFile(IFileManager::Get().CreateFileWriter(*PakChunkLayerInfoFilename));
 
 	// generate per-chunk pak list files
 	for (int32 Index = 0; Index < FinalChunkManifests.Num(); ++Index)
@@ -153,9 +180,9 @@ bool FChunkManifestGenerator::GenerateStreamingInstallManifest(const FString& Pl
 			continue;
 		}
 		FString PakListFilename = FString::Printf(TEXT("%s/pakchunk%d.txt"), *TmpPackagingDir, Index);
-		TAutoPtr<FArchive> PakListFile(IFileManager::Get().CreateFileWriter(*PakListFilename));
+		TUniquePtr<FArchive> PakListFile(IFileManager::Get().CreateFileWriter(*PakListFilename));
 
-		if (!PakListFile.IsValid())
+		if (!PakListFile)
 		{
 			UE_LOG(LogChunkManifestGenerator, Error, TEXT("Failed to open output paklist file %s"), *PakListFilename);
 			return false;
@@ -257,6 +284,11 @@ bool FChunkManifestGenerator::SaveManifests(FSandboxPlatformFile* InSandboxFile)
 	{
 		for (auto Platform : Platforms)
 		{
+			if (!bForceGenerateChunksForAllPlatforms && !ShouldPlatformGenerateStreamingInstallManifest(Platform))
+			{
+				continue;
+			}
+
 			if (!GenerateStreamingInstallManifest(Platform->PlatformName()))
 			{
 				return false;
@@ -379,7 +411,26 @@ void FChunkManifestGenerator::Initialize(const TArray<FName> &InStartupPackages)
 
 void FChunkManifestGenerator::BuildChunkManifest(const TArray<FName>& CookedPackages, FSandboxPlatformFile* InSandboxFile, bool bGenerateStreamingInstallManifest)
 {
-	bGenerateChunks = bGenerateStreamingInstallManifest;
+	// If we were asked to generate a streaming install manifest explicitly we will generate chunks for all platforms.
+	// Otherwise, we will defer to the config settings for each platform.
+	bForceGenerateChunksForAllPlatforms = bGenerateStreamingInstallManifest;
+	if (bForceGenerateChunksForAllPlatforms)
+	{
+		bGenerateChunks = true;
+	}
+	else
+	{
+		// If at least one platform is asking for chunk manifests, we will generate them.
+		for (const ITargetPlatform* Platform : Platforms)
+		{
+			if (ShouldPlatformGenerateStreamingInstallManifest(Platform))
+			{
+				// We found one asking for chunk manifests. We can stop looking.
+				bGenerateChunks = true;
+				break;
+			}
+		}
+	}
 
 	// initialize LargestChunkId, FoundIDList, PackageChunkIDMap, AssetRegistryData
 
@@ -765,189 +816,14 @@ void CopyJsonValueToWriter( JsonWriter &Json, const FString& ValueName, const TS
 	}
 }
 
-// cooked package asset registry saves information about all the cooked packages and assets contained within for stats purposes
-// in json format
-bool FChunkManifestGenerator::SaveCookedPackageAssetRegistry( const FString& SandboxCookedRegistryFilename, const bool Append )
-{
-	bool bSuccess = false;
-	for ( const auto& Platform : Platforms )
-	{
-		TSet<FName> CookedPackages;
-
-		// save the file 
-		const FString CookedAssetRegistryFilename = SandboxCookedRegistryFilename.Replace(TEXT("[Platform]"), *Platform->PlatformName());
-
-		FString JsonOutString;
-		JsonWriter Json = TJsonWriterFactory<TCHAR, TPrettyJsonPrintPolicy<TCHAR> >::Create(&JsonOutString);
-
-		Json->WriteObjectStart();
-		Json->WriteArrayStart(TEXT("Packages"));
-
-		for ( const auto& Package : AllCookedPackages )
-		{
-			Json->WriteObjectStart(); // unnamed package start
-			const FName& PackageName = Package.Key;
-			const FString& SandboxPath = Package.Value;
-
-			CookedPackages.Add( PackageName );
-
-			FString PlatformSandboxPath = SandboxPath.Replace(TEXT("[Platform]"), *Platform->PlatformName());
-			
-			FPackageName::FindPackageFileWithoutExtension(PlatformSandboxPath, PlatformSandboxPath);
-
-			FDateTime TimeStamp = IFileManager::Get().GetTimeStamp( *PlatformSandboxPath );
-			int64 FileSize = IFileManager::Get().FileSize(*PlatformSandboxPath);
-
-			Json->WriteValue( TEXT("SourcePackageName"), PackageName.ToString() );
-			Json->WriteValue( TEXT("CookedPackageName"), PlatformSandboxPath );
-			Json->WriteValue( TEXT("CookedPackageTimeStamp"), TimeStamp.ToString() );
-			Json->WriteValue( TEXT("FileSize"), FString::Printf(TEXT("%lld"), FileSize) );
-			
-
-			Json->WriteArrayStart("AssetData");
-			for (const auto& AssetData : AssetRegistryData)
-			{	// Add only assets that have actually been cooked and belong to any chunk
-				if (AssetData.ChunkIDs.Num() > 0 && (AssetData.PackageName == PackageName))
-				{
-					Json->WriteObjectStart();
-					// save all their infos 
-					Json->WriteValue(TEXT("ObjectPath"), AssetData.ObjectPath.ToString() );
-					Json->WriteValue(TEXT("PackageName"), AssetData.PackageName.ToString() );
-					Json->WriteValue(TEXT("PackagePath"), AssetData.PackagePath.ToString() );
-					Json->WriteValue(TEXT("GroupNames"), AssetData.GroupNames.ToString() );
-					Json->WriteValue(TEXT("AssetName"), AssetData.AssetName.ToString() );
-					Json->WriteValue(TEXT("AssetClass"), AssetData.AssetClass.ToString() );
-					Json->WriteObjectStart("TagsAndValues");
-					for ( const auto& Tag : AssetData.TagsAndValues )
-					{
-						Json->WriteValue( Tag.Key.ToString(), Tag.Value );
-					}
-					Json->WriteObjectEnd(); // end tags and values object
-					Json->WriteObjectEnd(); // end unnamed array object
-				}
-			}
-			Json->WriteArrayEnd();
-			Json->WriteObjectEnd(); // unnamed package
-		}
-
-		if ( Append )
-		{
-			FString JsonInString;
-			if ( FFileHelper::LoadFileToString(JsonInString, *CookedAssetRegistryFilename) )
-			{
-				// load up previous package asset registry and fill in any packages which weren't recooked on this run
-				JsonReader Reader = TJsonReaderFactory<TCHAR>::Create(JsonInString);
-				TSharedPtr<FJsonObject> JsonObject;
-				bool shouldRead = FJsonSerializer::Deserialize(Reader, JsonObject) && JsonObject.IsValid() && JsonObject->HasTypedField<EJson::Array>(TEXT("Packages"));
-				if ( shouldRead )
-				{
-					TArray<TSharedPtr<FJsonValue>> PackageList = JsonObject->GetArrayField(TEXT("Packages"));
-					for (auto PackageListIt = PackageList.CreateConstIterator(); PackageListIt && shouldRead; ++PackageListIt)
-					{
-						const TSharedPtr<FJsonValue>& JsonValue = *PackageListIt;
-						shouldRead = JsonValue->Type == EJson::Object;
-						if ( shouldRead )
-						{
-							const TSharedPtr<FJsonObject>& JsonPackage = JsonValue->AsObject();
-
-							// get the package name and see if we have already written it out this run
-							
-							FString CookedPackageName;
-							verify( JsonPackage->TryGetStringField(TEXT("SourcePackageName"), CookedPackageName) );
-
-							const FName CookedPackageFName(*CookedPackageName);
-							if ( CookedPackages.Contains(CookedPackageFName))
-							{
-								// don't need to process this package
-								continue;
-							}
-
-
-							// check that the on disk version is still valid
-							FString SourcePackageName;
-							check( JsonPackage->TryGetStringField( TEXT("SourcePackageName"), SourcePackageName) );
-
-							// if our timestamp is different then don't copy the information over
-							FDateTime CurrentTimeStamp = IFileManager::Get().GetTimeStamp( *CookedPackageName );
-
-							FString SavedTimeString;
-							check( JsonPackage->TryGetStringField(TEXT("CookedPackageTimeStamp"), SavedTimeString) );
-							FDateTime SavedTimeStamp;
-							FDateTime::Parse(SavedTimeString, SavedTimeStamp);
-
-							if ( SavedTimeStamp != CurrentTimeStamp )
-							{
-								continue;
-							}
-
-
-
-							CopyJsonValueToWriter(Json, FString(), JsonValue);
-							// read in all the other stuff and copy it over to the new registry
-							/*Json->WriteObjectStart(); // open package
-
-							// copy all the values over
-							for ( const auto& JsonPackageValue : JsonPackage->Values)
-							{
-								CopyJsonValueToWriter(Json, JsonPackageValue.Key, JsonPackageValue.Value);
-							}
-
-							Json->WriteObjectEnd();*/
-						}
-						
-					}
-				}
-				else
-				{
-					UE_LOG(LogChunkManifestGenerator, Warning, TEXT("Unable to read or json is invalid format %s"), *CookedAssetRegistryFilename);
-				}
-			}
-		}
-
-
-		Json->WriteArrayEnd();
-		Json->WriteObjectEnd();
-
-		if (Json->Close())
-		{
-			FArchive* ItemTemplatesFile = IFileManager::Get().CreateFileWriter(*CookedAssetRegistryFilename);
-			if (ItemTemplatesFile)
-			{
-				// serialize the file contents
-				TStringConversion<FTCHARToUTF8_Convert> Convert(*JsonOutString);
-				ItemTemplatesFile->Serialize(const_cast<ANSICHAR*>(Convert.Get()), Convert.Length());
-				ItemTemplatesFile->Close();
-				if ( !ItemTemplatesFile->IsError() )
-				{
-					bSuccess = true;
-				}
-				else
-				{
-					UE_LOG(LogChunkManifestGenerator, Error, TEXT("Unable to write to %s"), *CookedAssetRegistryFilename);
-				}
-				delete ItemTemplatesFile;
-			}
-			else
-			{
-				UE_LOG(LogChunkManifestGenerator, Error, TEXT("Unable to open %s for writing."), *CookedAssetRegistryFilename);
-			}
-		}
-		else
-		{
-			UE_LOG(LogChunkManifestGenerator, Error, TEXT("Error closing Json Writer"));
-		}
-	}
-	return bSuccess;
-}
-
-bool FChunkManifestGenerator::GetPackageDependencyChain(FName SourcePackage, FName TargetPackage, TArray<FName>& VisitedPackages, TArray<FName>& OutDependencyChain)
+bool FChunkManifestGenerator::GetPackageDependencyChain(FName SourcePackage, FName TargetPackage, TSet<FName>& VisitedPackages, TArray<FName>& OutDependencyChain)
 {	
 	//avoid crashing from circular dependencies.
 	if (VisitedPackages.Contains(SourcePackage))
 	{		
 		return false;
 	}
-	VisitedPackages.AddUnique(SourcePackage);
+	VisitedPackages.Add(SourcePackage);
 
 	if (SourcePackage == TargetPackage)
 	{		
@@ -978,7 +854,14 @@ bool FChunkManifestGenerator::GetPackageDependencyChain(FName SourcePackage, FNa
 
 bool FChunkManifestGenerator::GetPackageDependencies(FName PackageName, TArray<FName>& DependentPackageNames, EAssetRegistryDependencyType::Type InDependencyType)
 {	
-	return AssetRegistry.GetDependencies(PackageName, DependentPackageNames, InDependencyType);
+	if (FGameDelegates::Get().GetGetPackageDependenciesForManifestGeneratorDelegate().IsBound())
+	{
+		return FGameDelegates::Get().GetGetPackageDependenciesForManifestGeneratorDelegate().Execute(PackageName, DependentPackageNames, InDependencyType);
+	}
+	else
+	{
+		return AssetRegistry.GetDependencies(PackageName, DependentPackageNames, InDependencyType);
+	}
 }
 
 bool FChunkManifestGenerator::GatherAllPackageDependencies(FName PackageName, TArray<FName>& DependentPackageNames)
@@ -987,6 +870,9 @@ bool FChunkManifestGenerator::GatherAllPackageDependencies(FName PackageName, TA
 	{
 		return false;
 	}
+
+	TSet<FName> VisitedPackages;
+	VisitedPackages.Append(DependentPackageNames);
 
 	int32 DependencyCounter = 0;
 	while (DependencyCounter < DependentPackageNames.Num())
@@ -1001,7 +887,11 @@ bool FChunkManifestGenerator::GatherAllPackageDependencies(FName PackageName, TA
 
 		for (const auto& ChildDependentPackageName : ChildDependentPackageNames)
 		{
-			DependentPackageNames.AddUnique(ChildDependentPackageName);
+			if (!VisitedPackages.Contains(ChildDependentPackageName))
+			{
+				DependentPackageNames.Add(ChildDependentPackageName);
+				VisitedPackages.Add(ChildDependentPackageName);
+			}
 		}
 	}
 
@@ -1120,10 +1010,10 @@ void FChunkManifestGenerator::ResolveChunkDependencyGraph(const FChunkDependency
 		for (auto It = BaseAssetSet.CreateConstIterator(); It; ++It)
 		{
 			// Remove any assets belonging to our parents.			
-			OutPackagesMovedBetweenChunks[Node.ChunkID].Add(It.Key());
 			if (FinalChunkManifests[Node.ChunkID]->Remove(It.Key()) > 0)
 			{
-				UE_LOG(LogChunkManifestGenerator, Log, TEXT("Removed %s from chunk %i because it is duplicated in another chunk."), *It.Key().ToString(), Node.ChunkID);
+				OutPackagesMovedBetweenChunks[Node.ChunkID].Add(It.Key());
+				UE_LOG(LogChunkManifestGenerator, Verbose, TEXT("Removed %s from chunk %i because it is duplicated in another chunk."), *It.Key().ToString(), Node.ChunkID);
 			}
 		}
 		// Add the current Chunk's assets
@@ -1211,15 +1101,18 @@ void FChunkManifestGenerator::AddPackageAndDependenciesToChunk(FChunkPackageSet*
 					}
 					else
 					{
-						// It was not assigned to this chunk and we're forcing it to be dragged in, let the user known
-						UE_LOG(LogChunkManifestGenerator, Log, TEXT("Adding %s to chunk %i because %s depends on it."), *FilteredPackageName.ToString(), ChunkID, *InPkgName.ToString());
-
-						TArray<FName> VisitedPackages;
-						TArray<FName> DependencyChain;
-						GetPackageDependencyChain(InPkgName, PkgName, VisitedPackages, DependencyChain);
-						for (const auto& ChainName : DependencyChain)
+						if (UE_LOG_ACTIVE(LogChunkManifestGenerator, Verbose))
 						{
-							UE_LOG(LogChunkManifestGenerator, Log, TEXT("\tchain: %s"), *ChainName.ToString());
+							// It was not assigned to this chunk and we're forcing it to be dragged in, let the user known
+							UE_LOG(LogChunkManifestGenerator, Verbose, TEXT("Adding %s to chunk %i because %s depends on it."), *FilteredPackageName.ToString(), ChunkID, *InPkgName.ToString());
+
+							TSet<FName> VisitedPackages;
+							TArray<FName> DependencyChain;
+							GetPackageDependencyChain(InPkgName, PkgName, VisitedPackages, DependencyChain);
+							for (const auto& ChainName : DependencyChain)
+							{
+								UE_LOG(LogChunkManifestGenerator, Verbose, TEXT("\tchain: %s"), *ChainName.ToString());
+							}
 						}
 					}
 				}
@@ -1232,6 +1125,9 @@ void FChunkManifestGenerator::AddPackageAndDependenciesToChunk(FChunkPackageSet*
 
 void FChunkManifestGenerator::FixupPackageDependenciesForChunks(FSandboxPlatformFile* InSandboxFile)
 {
+	UE_LOG(LogChunkManifestGenerator, Log, TEXT("Starting FixupPackageDependenciesForChunks..."));
+	SCOPE_LOG_TIME_IN_SECONDS(TEXT("... FixupPackageDependenciesForChunks complete."), nullptr);
+
 	for (int32 ChunkID = 0, MaxChunk = ChunkManifests.Num(); ChunkID < MaxChunk; ++ChunkID)
 	{
 		FinalChunkManifests.Add(nullptr);
@@ -1290,10 +1186,9 @@ void FChunkManifestGenerator::FixupPackageDependenciesForChunks(FSandboxPlatform
 
 	for (int32 ChunkID = 0, MaxChunk = ChunkManifests.Num(); ChunkID < MaxChunk; ++ChunkID)
 	{
-		if (FinalChunkManifests[ChunkID] != nullptr)
-		{
-			UE_LOG(LogChunkManifestGenerator, Log, TEXT("Chunk: %i, Started with %i packages, Final after dependency resolve: %i"), ChunkID, ChunkManifests[ChunkID]->Num(), FinalChunkManifests[ChunkID]->Num());
-		}
+		const int32 ChunkManifestNum = ChunkManifests[ChunkID] ? ChunkManifests[ChunkID]->Num() : 0;
+		const int32 FinalChunkManifestNum = FinalChunkManifests[ChunkID] ? FinalChunkManifests[ChunkID]->Num() : 0;
+		UE_LOG(LogChunkManifestGenerator, Log, TEXT("Chunk: %i, Started with %i packages, Final after dependency resolve: %i"), ChunkID, ChunkManifestNum, FinalChunkManifestNum);
 	}
 	
 

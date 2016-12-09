@@ -2,12 +2,14 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "Paths.h"			// for GetCleanFilename()
-#include "ModuleManager.h"	// for GetModuleChecked<>
-#include "Blueprint/BlueprintSupport.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/AssetPtr.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
 class UBlueprint;
+enum class ESavePackageResult;
 
 struct FNativeCodeGenInitData
 {

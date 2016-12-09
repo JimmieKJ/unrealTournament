@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "AITypes.h"
-#include "AI/NavDataGenerator.h"
-#include "AI/Navigation/NavAreas/NavAreaMeta.h"
 #include "AI/Navigation/NavigationData.h"
+#include "EngineGlobals.h"
+#include "AI/Navigation/NavAgentInterface.h"
+#include "Components/PrimitiveComponent.h"
+#include "AI/NavDataGenerator.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/Engine.h"
+#include "AITypes.h"
+#include "AI/Navigation/NavAreas/NavArea.h"
+#include "AI/Navigation/NavAreas/NavAreaMeta.h"
 #include "AI/Navigation/RecastNavMesh.h"
-#include "VisualLogger.h"
+#include "VisualLogger/VisualLogger.h"
 
 //----------------------------------------------------------------------//
 // FPathFindingQuery

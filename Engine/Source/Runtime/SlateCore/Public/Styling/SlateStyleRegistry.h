@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class ISlateStyle;
+struct FSlateBrush;
 
 /**
 * A central repository that can be used to track and manage chunks of slate style data.

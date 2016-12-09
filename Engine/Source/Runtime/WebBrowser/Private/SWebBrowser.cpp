@@ -1,13 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WebBrowserPrivatePCH.h"
 #include "SWebBrowser.h"
-#include "SThrobber.h"
-#include "WebBrowserModule.h"
-#include "IWebBrowserSingleton.h"
-#include "IWebBrowserWindow.h"
-#include "WebBrowserViewport.h"
-#include "IWebBrowserAdapter.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Images/SThrobber.h"
 
 #define LOCTEXT_NAMESPACE "WebBrowser"
 
@@ -330,6 +327,14 @@ void SWebBrowser::ExecuteJavascript(const FString& ScriptText)
 	}
 }
 
+void SWebBrowser::GetSource(TFunction<void (const FString&)> Callback) const
+{
+	if (BrowserView.IsValid())
+	{
+		BrowserView->GetSource(Callback);
+	}
+}
+
 void SWebBrowser::BindUObject(const FString& Name, UObject* Object, bool bIsPermanent)
 {
 	if (BrowserView.IsValid())
@@ -363,4 +368,3 @@ void SWebBrowser::UnbindAdapter(const TSharedRef<IWebBrowserAdapter>& Adapter)
 }
 
 #undef LOCTEXT_NAMESPACE
-

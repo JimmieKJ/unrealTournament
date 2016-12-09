@@ -1,14 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptInterface.h"
+#include "Engine/BlendableInterface.h"
+#include "Camera/CameraTypes.h"
 #include "Components/SceneCaptureComponent.h"
 #include "SceneCaptureComponent2D.generated.h"
+
+class FSceneInterface;
 
 /**
  *	Used to capture a 'snapshot' of the scene from a single plane and feed it to a render target.
  */
-UCLASS(hidecategories=(Collision, Object, Physics, SceneComponent), ClassGroup=Rendering, MinimalAPI, editinlinenew, meta=(BlueprintSpawnableComponent))
-class USceneCaptureComponent2D : public USceneCaptureComponent
+UCLASS(hidecategories=(Collision, Object, Physics, SceneComponent), ClassGroup=Rendering, editinlinenew, meta=(BlueprintSpawnableComponent))
+class ENGINE_API USceneCaptureComponent2D : public USceneCaptureComponent
 {
 	GENERATED_UCLASS_BODY()
 
@@ -64,10 +72,10 @@ class USceneCaptureComponent2D : public USceneCaptureComponent
 
 	/** Adds an Blendable (implements IBlendableInterface) to the array of Blendables (if it doesn't exist) and update the weight */
 	UFUNCTION(BlueprintCallable, Category="Rendering")
-	ENGINE_API void AddOrUpdateBlendable(TScriptInterface<IBlendableInterface> InBlendableObject, float InWeight = 1.0f) { PostProcessSettings.AddBlendable(InBlendableObject, InWeight); }
+	void AddOrUpdateBlendable(TScriptInterface<IBlendableInterface> InBlendableObject, float InWeight = 1.0f) { PostProcessSettings.AddBlendable(InBlendableObject, InWeight); }
 
 	/** Render the scene to the texture the next time the main view is rendered. */
-	ENGINE_API void CaptureSceneDeferred();
+	void CaptureSceneDeferred();
 
 	// For backwards compatibility
 	void UpdateContent() { CaptureSceneDeferred(); }
@@ -77,7 +85,7 @@ class USceneCaptureComponent2D : public USceneCaptureComponent
 	 * This should not be used if bCaptureEveryFrame is enabled, or the scene capture will render redundantly. 
 	 */
 	UFUNCTION(BlueprintCallable,Category = "Rendering|SceneCapture")
-	ENGINE_API void CaptureScene();
+	void CaptureScene();
 
-	ENGINE_API static void UpdateDeferredCaptures( FSceneInterface* Scene );
+	static void UpdateDeferredCaptures( FSceneInterface* Scene );
 };

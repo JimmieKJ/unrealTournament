@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealFrontendPrivatePCH.h"
 #include "PackageCommand.h"
-#include "TargetPlatform.h"
-
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Misc/CommandLine.h"
+#include "Misc/CoreMisc.h"
 
 void FPackageCommand::Run( )
 {

@@ -2,13 +2,30 @@
 
 #pragma once
 
-#include "Editor/ClassViewer/Public/ClassViewerModule.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/UnrealType.h"
+#include "Engine/Blueprint.h"
+#include "Widgets/SWidget.h"
 #include "EdGraph/EdGraph.h"
-#include "EdGraphSchema_K2.h"
 #include "K2Node_EditablePinBase.h"
-#include "Engine/LevelScriptBlueprint.h"
+#include "Editor/ClassViewer/Public/ClassViewerModule.h"
+#include "EdGraphSchema_K2.h"
 
-class  USCS_Node;
+class AActor;
+class ALevelScriptActor;
+class FBlueprintEditor;
+class FCompilerResultsLog;
+class INameValidatorInterface;
+class UActorComponent;
+class UK2Node_Variable;
+class ULevelScriptBlueprint;
+class USCS_Node;
+class UTimelineTemplate;
+struct FBlueprintCookedComponentInstancingData;
 struct FComponentKey;
 
 /** 
@@ -135,6 +152,11 @@ public:
 	 * @param	Graph	The graph to refresh.
 	 */
 	static void RefreshGraphNodes(const UEdGraph* Graph);
+
+	/**
+	 * Replaces any deprecated nodes with new ones
+	 */
+	static void ReplaceDeprecatedNodes(UBlueprint* Blueprint);
 
 	/**
 	 * Preloads the object and all the members it owns (nodes, pins, etc)
@@ -768,15 +790,6 @@ public:
 	static UEdGraph* FindScopeGraph(const UBlueprint* InBlueprint, const UStruct* InScope);
 
 	/**
-	 * Helper function to set the default value of a user defined struct property's local variable description
-	 *
-	 * @param	InBlueprint					The Blueprint the local variable can be found in
-	 * @param	InScope	Name				Local variable's scope name
-	 * @param	InOutVariableDescription	Description of the variable, will be modified with the default value
-	 */
-	static void SetDefaultValueOnUserDefinedStructProperty(UBlueprint* InBlueprint, FString InScopeName, FBPVariableDescription* InOutVariableDescription);
-
-	/**
 	 * Adds a local variable to the function graph.  It cannot mask a member variable or a variable in any superclass.
 	 *
 	 * @param	NewVarName	Name of the new variable.
@@ -1309,7 +1322,27 @@ public:
 	 * @param PinType		The pin get the icon for.
 	 * @param returns a brush that best represents the icon (or Kismet.VariableList.TypeIcon if none is available )
 	 */
-	static const struct FSlateBrush* GetIconFromPin(const FEdGraphPinType& PinType);
+	static const struct FSlateBrush* GetIconFromPin(const FEdGraphPinType& PinType, bool bIsLarge = false);
+
+	/**
+	 * Determine the best secondary icon icon to represent the given pin.
+	 */
+	static const struct FSlateBrush* GetSecondaryIconFromPin(const FEdGraphPinType& PinType);
+
+	/**
+	 * Returns true if this terminal type can be hashed (native types need GetTypeHash, script types are always hashable).
+	 */
+	static bool HasGetTypeHash(const FEdGraphPinType& PinType);
+
+	/**
+	 * Returns true if this type of UProperty can be hashed. Matches native constructors of UNumericProperty, etc.
+	 */
+	static bool PropertyHasGetTypeHash(const UProperty* PropertyType);
+
+	/**
+	 * Returns true if the StructType is native and has a GetTypeHash or is non-native and all of its member types are handled by UScriptStruct::GetStructTypeHash
+	 */
+	static bool StructHasGetTypeHash(const UScriptStruct* StructType);
 
 	/**
 	 * Generate component instancing data (for cooked builds).
@@ -1319,6 +1352,9 @@ public:
 	 * @return					TRUE if component instancing data was built, FALSE otherwise.
 	 */
 	static void BuildComponentInstancingData(UActorComponent* ComponentTemplate, FBlueprintCookedComponentInstancingData& OutData);
+
+	/** Switch for hiding TMap/TSet support until stablized */
+	static bool ShouldEnableAdvancedContainers();
 
 protected:
 	// Removes all NULL graph references from the SubGraphs array and recurses thru the non-NULL ones
@@ -1434,4 +1470,36 @@ struct UNREALED_API FBlueprintDuplicationScopeFlags
 
 	TGuardValue<uint32> Guard;
 	FBlueprintDuplicationScopeFlags(uint32 InFlags) : Guard(bStaticFlags, InFlags) {}
+};
+struct UNREALED_API FMakeClassSpawnableOnScope
+{
+	UClass* Class;
+	bool bIsDeprecated;
+	bool bIsAbstract;
+	FMakeClassSpawnableOnScope(UClass* InClass)
+		: Class(InClass), bIsDeprecated(false), bIsAbstract(false)
+	{
+		if (Class)
+		{
+			bIsDeprecated = Class->HasAnyClassFlags(CLASS_Deprecated);
+			Class->ClassFlags &= ~CLASS_Deprecated;
+			bIsAbstract = Class->HasAnyClassFlags(CLASS_Abstract);
+			Class->ClassFlags &= ~CLASS_Abstract;
+		}
+	}
+	~FMakeClassSpawnableOnScope()
+	{
+		if (Class)
+		{
+			if (bIsAbstract)
+			{
+				Class->ClassFlags |= CLASS_Abstract;
+			}
+
+			if (bIsDeprecated)
+			{
+				Class->ClassFlags |= CLASS_Deprecated;
+			}
+		}
+	}
 };

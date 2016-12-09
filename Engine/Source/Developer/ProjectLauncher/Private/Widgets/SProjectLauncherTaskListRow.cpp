@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
-#include "SProjectLauncherTaskListRow.h"
-#include "SThrobber.h"
+#include "Widgets/SProjectLauncherTaskListRow.h"
+#include "Widgets/SOverlay.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Images/SThrobber.h"
 
 
 
@@ -67,6 +69,26 @@ TSharedRef<SWidget> SProjectLauncherTaskListRow::GenerateWidgetForColumn(const F
 					.Text(FText::FromString(TaskPtr->GetDesc()))
 				];
 		}
+	}
+	else if (ColumnName == "Warnings")
+	{
+		return SNew(SBox)
+			.Padding(FMargin(4.0, 0.0))
+			.VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(this, &SProjectLauncherTaskListRow::HandleWarningCounterText)
+			];
+	}
+	else if (ColumnName == "Errors")
+	{
+		return SNew(SBox)
+			.Padding(FMargin(4.0, 0.0))
+			.VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(this, &SProjectLauncherTaskListRow::HandleErrorCounterText)
+			];
 	}
 
 	return SNullWidget::NullWidget;

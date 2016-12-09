@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "MovieSceneFloatSection.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Sections/MovieSceneFloatSection.h"
 #include "MovieSceneSlomoSection.generated.h"
 
 

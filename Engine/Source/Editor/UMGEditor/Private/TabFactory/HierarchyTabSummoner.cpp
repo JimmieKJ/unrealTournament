@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "HierarchyTabSummoner.h"
-#include "SHierarchyView.h"
-#include "WidgetBlueprintEditor.h"
+#include "TabFactory/HierarchyTabSummoner.h"
+
+#if WITH_EDITOR
+	#include "EditorStyleSet.h"
+#endif // WITH_EDITOR
+
+#include "Hierarchy/SHierarchyView.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

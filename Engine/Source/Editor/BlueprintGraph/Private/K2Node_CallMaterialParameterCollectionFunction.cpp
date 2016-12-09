@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-
-#include "CompilerResultsLog.h"
 #include "K2Node_CallMaterialParameterCollectionFunction.h"
+#include "EdGraph/EdGraph.h"
+
 
 UK2Node_CallMaterialParameterCollectionFunction::UK2Node_CallMaterialParameterCollectionFunction(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

@@ -6,9 +6,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Common/TargetPlatformBase.h"
+
 #if WITH_ENGINE
 #include "StaticMeshResources.h"
 #endif // WITH_ENGINE
+
+class UTextureLODSettings;
 
 class FAllDesktopPlatformProperties : public FGenericPlatformProperties
 {

@@ -8,6 +8,9 @@
 	#define FMEMORY_INLINE_GMalloc GMalloc
 #endif
 
+struct FMemory;
+struct FScopedMallocTimer;
+
 FMEMORY_INLINE_FUNCTION_DECORATOR void* FMemory::Malloc(SIZE_T Count, uint32 Alignment)
 {
 	if (!FMEMORY_INLINE_GMalloc)

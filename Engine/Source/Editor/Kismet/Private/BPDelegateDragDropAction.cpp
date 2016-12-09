@@ -1,11 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-
-#include "BlueprintUtilities.h"
-#include "BlueprintEditorUtils.h"
-#include "GraphEditorDragDropAction.h"
 #include "BPDelegateDragDropAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_AddDelegate.h"
+#include "K2Node_CallDelegate.h"
+#include "K2Node_ClearDelegate.h"
+#include "K2Node_CustomEvent.h"
+#include "K2Node_RemoveDelegate.h"
+
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "DelegateDragDropAction"

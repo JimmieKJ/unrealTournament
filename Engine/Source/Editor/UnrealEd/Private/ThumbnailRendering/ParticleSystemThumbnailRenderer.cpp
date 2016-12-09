@@ -1,13 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "ThumbnailRendering/ParticleSystemThumbnailRenderer.h"
+#include "Misc/App.h"
+#include "UObject/ConstructorHelpers.h"
+#include "ShowFlags.h"
+#include "SceneView.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Particles/ParticleSystem.h"
+#include "Engine/Texture2D.h"
+#include "ThumbnailHelpers.h"
+#include "UnrealEdGlobals.h"
 
 // FPreviewScene derived helpers for rendering
-#include "ThumbnailHelpers.h"
 
-#include "Particles/ParticleSystem.h"
-#include "EngineModule.h"
 #include "RendererInterface.h"
+#include "EngineModule.h"
 #include "CanvasTypes.h"
 
 UParticleSystemThumbnailRenderer::UParticleSystemThumbnailRenderer(const FObjectInitializer& ObjectInitializer)

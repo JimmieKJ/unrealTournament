@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIGraphPrivatePCH.h"
-#include "GraphEditorActions.h"
+#include "AIGraphEditor.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Editor/EditorEngine.h"
+#include "EngineGlobals.h"
+#include "AIGraph.h"
+#include "AIGraphTypes.h"
+#include "AIGraphNode.h"
 #include "ScopedTransaction.h"
 #include "EdGraphUtilities.h"
-#include "GenericCommands.h"
-#include "AIGraphEditor.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #define LOCTEXT_NAMESPACE "AIGraph"
 
@@ -362,6 +366,9 @@ void FAIGraphEditor::PasteNodesHere(const FVector2D& Location)
 
 	//Average position of nodes so we can move them while still maintaining relative distances to each other
 	FVector2D AvgNodePosition(0.0f, 0.0f);
+	
+	// Number of nodes used to calculate AvgNodePosition
+	int32 AvgCount = 0;
 
 	for (TSet<UEdGraphNode*>::TIterator It(PastedNodes); It; ++It)
 	{
@@ -371,12 +378,13 @@ void FAIGraphEditor::PasteNodesHere(const FVector2D& Location)
 		{
 			AvgNodePosition.X += EdNode->NodePosX;
 			AvgNodePosition.Y += EdNode->NodePosY;
+			++AvgCount;
 		}
 	}
 
-	if (PastedNodes.Num() > 0)
+	if (AvgCount > 0)
 	{
-		float InvNumNodes = 1.0f / float(PastedNodes.Num());
+		float InvNumNodes = 1.0f / float(AvgCount);
 		AvgNodePosition.X *= InvNumNodes;
 		AvgNodePosition.Y *= InvNumNodes;
 	}

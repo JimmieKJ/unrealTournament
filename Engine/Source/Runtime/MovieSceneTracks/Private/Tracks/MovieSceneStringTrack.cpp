@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneStringSection.h"
-#include "MovieSceneStringTrack.h"
-#include "MovieSceneStringTrackInstance.h"
+#include "Tracks/MovieSceneStringTrack.h"
+#include "MovieSceneCommonHelpers.h"
+#include "Sections/MovieSceneStringSection.h"
+#include "Evaluation/MovieScenePropertyTemplates.h"
 
 
 #define LOCTEXT_NAMESPACE "MovieSceneStringTrack"
@@ -12,7 +12,7 @@
 /* UMovieSceneStringTrack interface
  *****************************************************************************/
 
-bool UMovieSceneStringTrack::AddKeyToSection(float Time, const FString& String, FKeyParams KeyParams)
+bool UMovieSceneStringTrack::AddKeyToSection(float Time, const FString& String)
 {
 	UMovieSceneSection* TargetSection = MovieSceneHelpers::FindNearestSectionAtTime(Sections, Time);
 
@@ -38,7 +38,7 @@ bool UMovieSceneStringTrack::AddKeyToSection(float Time, const FString& String, 
 }
 
 
-bool UMovieSceneStringTrack::Eval(float Position, float LastPostion, FString& OutString) const
+bool UMovieSceneStringTrack::Eval(float Position, float LastPostion, FString& InOutString) const
 {
 	const UMovieSceneSection* Section = MovieSceneHelpers::FindNearestSectionAtTime(Sections, Position);
 
@@ -49,7 +49,7 @@ bool UMovieSceneStringTrack::Eval(float Position, float LastPostion, FString& Ou
 			Position = FMath::Clamp(Position, Section->GetStartTime(), Section->GetEndTime());
 		}
 
-		OutString = CastChecked<UMovieSceneStringSection>(Section)->Eval(Position, OutString);
+		InOutString = CastChecked<UMovieSceneStringSection>(Section)->Eval(Position, InOutString);
 	}
 
 	return Section != nullptr;
@@ -65,17 +65,16 @@ void UMovieSceneStringTrack::AddSection(UMovieSceneSection& Section)
 }
 
 
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneStringTrack::CreateInstance()
-{
-	return MakeShareable(new FMovieSceneStringTrackInstance(*this));
-}
-
-
 UMovieSceneSection* UMovieSceneStringTrack::CreateNewSection()
 {
 	return NewObject<UMovieSceneSection>(this, UMovieSceneStringSection::StaticClass(), NAME_None, RF_Transactional);
 }
 
+
+FMovieSceneEvalTemplatePtr UMovieSceneStringTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
+{
+	return FMovieSceneStringPropertySectionTemplate(*CastChecked<UMovieSceneStringSection>(&InSection), *this);
+}
 
 const TArray<UMovieSceneSection*>& UMovieSceneStringTrack::GetAllSections() const
 {

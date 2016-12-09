@@ -1,12 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ModuleManager.h"
-#include "Editor.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "GameFramework/Actor.h"
+#include "AssetData.h"
+#include "Widgets/SWidget.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 #include "ActorFactories/ActorFactory.h"
 #include "ActorPlacementInfo.h"
 #include "IPlacementMode.h"
-
+#include "GameFramework/Volume.h"
 
 /**
  * Struct that defines an identifier for a particular placeable item in this module.
@@ -26,8 +32,8 @@ private:
 	/** The category this item is held within */
 	FName Category;
 
-	/** Unique identifier (always universally unique across categories unless there's been an int overflow) */
-	uint32 UniqueID;
+	/** Unique identifier (always universally unique across categories) */
+	FGuid UniqueID;
 };
 
 /**
@@ -118,9 +124,22 @@ struct FPlaceableItem
 	/** Automatically set this item's display name from its class or asset */
 	void AutoSetDisplayName()
 	{
-		if (AssetData.GetClass() == UClass::StaticClass())
+		const bool bIsClass = AssetData.GetClass() == UClass::StaticClass();
+		const bool bIsVolume = bIsClass ? CastChecked<UClass>(AssetData.GetAsset())->IsChildOf(AVolume::StaticClass()) : false;
+		const bool bIsActor = bIsClass ? CastChecked<UClass>(AssetData.GetAsset())->IsChildOf(AActor::StaticClass()) : false;
+
+		if (Factory && !bIsVolume) // Factories give terrible names for volumes
 		{
-			DisplayName = FText::FromString( FName::NameToDisplayString(AssetData.AssetName.ToString(), false));
+			DisplayName = Factory->GetDisplayName();
+		}
+		else if (bIsActor)
+		{
+			AActor* DefaultActor = CastChecked<AActor>(CastChecked<UClass>(AssetData.GetAsset())->ClassDefaultObject);
+			DisplayName = FText::FromString(FName::NameToDisplayString(DefaultActor->GetClass()->GetName(), false));
+		}
+		else if (bIsClass)
+		{
+			DisplayName = FText::FromString(FName::NameToDisplayString(AssetData.AssetName.ToString(), false));
 		}
 		else
 		{

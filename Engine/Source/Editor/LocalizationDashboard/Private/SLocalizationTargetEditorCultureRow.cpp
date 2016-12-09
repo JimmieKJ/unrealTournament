@@ -1,7 +1,20 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationDashboardPrivatePCH.h"
 #include "SLocalizationTargetEditorCultureRow.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Internationalization/Culture.h"
+#include "Modules/ModuleManager.h"
+#include "DesktopPlatformModule.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Notifications/SProgressBar.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "IPropertyUtilities.h"
+#include "LocalizationTargetTypes.h"
 #include "ITranslationEditor.h"
 #include "LocalizationConfigurationScript.h"
 #include "LocalizationCommandletTasks.h"

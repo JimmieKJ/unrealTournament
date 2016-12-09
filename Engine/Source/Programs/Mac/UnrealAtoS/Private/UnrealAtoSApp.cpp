@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealAtoSApp.h"
+#include "Misc/Paths.h"
+#include "HAL/PlatformMisc.h"
 
 #include "GenericPlatformSymbolication.h"
 #if PLATFORM_MAC

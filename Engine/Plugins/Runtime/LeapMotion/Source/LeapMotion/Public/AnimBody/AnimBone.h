@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
 #include "AnimBone.generated.h"
 
 UCLASS(BlueprintType)

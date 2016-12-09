@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "NiagaraEditorCommon.h"
 #include "NiagaraNode.h"
 #include "NiagaraNodeFunctionCall.generated.h"
+
+class UNiagaraScript;
 
 UCLASS(MinimalAPI)
 class UNiagaraNodeFunctionCall : public UNiagaraNode

@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
 #include "Paper2DModule.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "Paper2DPrivate.h"
 #include "PaperRenderSceneProxy.h"
 
 DEFINE_STAT(STAT_PaperRender_SetSpriteRT);

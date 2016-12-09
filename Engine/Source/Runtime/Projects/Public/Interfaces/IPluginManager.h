@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ModuleDescriptor.h"
+#include "CoreMinimal.h"
 #include "PluginDescriptor.h"
 
 /**

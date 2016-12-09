@@ -5,7 +5,14 @@ BuildPatchCompactifier.cpp: Implements the classes that clean up chunk and file
 data that are no longer referenced by the manifests in a given cloud directory.
 =============================================================================*/
 
-#include "BuildPatchServicesPrivatePCH.h"
+#include "BuildPatchCompactifier.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
+#include "BuildPatchManifest.h"
+#include "BuildPatchServicesModule.h"
+#include "BuildPatchUtil.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogDataCompactifier, Log, All);
 DEFINE_LOG_CATEGORY(LogDataCompactifier);
@@ -22,27 +29,29 @@ FBuildDataCompactifier::FBuildDataCompactifier(const FString& InCloudDir, bool b
 /* Public static methods
 *****************************************************************************/
 
-bool FBuildDataCompactifier::CompactifyCloudDirectory(const FString& CloudDir, float DataAgeThreshold, bool bPreview)
+bool FBuildDataCompactifier::CompactifyCloudDirectory(const FString& CloudDir, float DataAgeThreshold, bool bPreview, const FString& DeletedChunkLogFile)
 {
 	FBuildDataCompactifier Compactifier(CloudDir, bPreview);
-	return Compactifier.Compactify(DataAgeThreshold);
+	return Compactifier.Compactify(DataAgeThreshold, DeletedChunkLogFile);
 }
 
-bool FBuildDataCompactifier::CompactifyCloudDirectory(float DataAgeThreshold, bool bPreview)
+bool FBuildDataCompactifier::CompactifyCloudDirectory(float DataAgeThreshold, bool bPreview, const FString& DeletedChunkLogFile)
 {
-	return CompactifyCloudDirectory(FBuildPatchServicesModule::GetCloudDirectory(), DataAgeThreshold, bPreview);
+	return CompactifyCloudDirectory(FBuildPatchServicesModule::GetCloudDirectory(), DataAgeThreshold, bPreview, DeletedChunkLogFile);
 }
 
 /* Private methods
 *****************************************************************************/
 
-bool FBuildDataCompactifier::Compactify(float DataAgeThreshold) const
+bool FBuildDataCompactifier::Compactify(float DataAgeThreshold, const FString& DeletedChunkLogFile) const
 {
 	UE_LOG(LogDataCompactifier, Log, TEXT("Running on %s%s"), *CloudDir, bPreview ? TEXT(". Preview mode. NO action will be taken.") : TEXT(""));
 	UE_LOG(LogDataCompactifier, Log, TEXT("Minimum age of deleted chunks: %.3f days."), DataAgeThreshold);
 
 	// We'll work out the date of the oldest unreferenced file we'll keep
 	FDateTime Cutoff = FDateTime::UtcNow() - FTimespan::FromDays(DataAgeThreshold);
+
+	const bool bLogDeletedChunks = !DeletedChunkLogFile.IsEmpty();
 
 	// We'll get ALL files first, so we can use the count to preallocate space within the data filenames array to save excessive reallocs
 	TArray<FString> AllFiles;
@@ -107,6 +116,7 @@ bool FBuildDataCompactifier::Compactify(float DataAgeThreshold) const
 	uint64 BytesDeleted = 0;
 	uint64 CurrentFileSize;
 	FGuid FileGuid;
+	TArray<FString> DeletedChunks;
 
 	for (const auto& File : AllFiles)
 	{
@@ -136,6 +146,11 @@ bool FBuildDataCompactifier::Compactify(float DataAgeThreshold) const
 					DeleteFile(File);
 					++FilesDeleted;
 					BytesDeleted += CurrentFileSize;
+					if (bLogDeletedChunks)
+					{
+						// Make path relative to cloud directory and add to our set of deleted chunks, which we'll output later.
+						DeletedChunks.Add(File.RightChop(CloudDir.Len() + 1));
+					}
 				}
 				else
 				{
@@ -147,6 +162,23 @@ bool FBuildDataCompactifier::Compactify(float DataAgeThreshold) const
 		else
 		{
 			UE_LOG(LogDataCompactifier, Warning, TEXT("Could not determine size of %s. Perhaps it has been removed by another process."), *File);
+		}
+	}
+
+	if (bLogDeletedChunks)
+	{
+		FString FullList;
+		for (const FString& DeletedChunk : DeletedChunks)
+		{
+			FullList += DeletedChunk + TEXT("\r\n");
+		}
+		if (FFileHelper::SaveStringToFile(FullList, *DeletedChunkLogFile))
+		{
+			UE_LOG(LogDataCompactifier, Log, TEXT("Saved list of deleted chunks out to %s"), *DeletedChunkLogFile);
+		}
+		else
+		{
+			UE_LOG(LogDataCompactifier, Error, TEXT("Failed to save list of deleted chunks out to %s"), *DeletedChunkLogFile);
 		}
 	}
 

@@ -4,8 +4,14 @@
 #ifndef __DIALOGS_H__
 #define __DIALOGS_H__
 
-#include "Engine.h"
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SWindow.h"
+
+class SModalDialogWithCheckbox;
 
 /**
  * Opens a modal/blocking message box dialog (with an additional 'copy message text' button), and returns the result immediately

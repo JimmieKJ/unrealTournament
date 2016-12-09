@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /**
  * An incremental texture space allocator.
  * For best results, add the elements ordered descending in size.

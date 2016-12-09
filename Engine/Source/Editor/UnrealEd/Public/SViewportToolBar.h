@@ -3,6 +3,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Animation/CurveSequence.h"
+
+class SMenuAnchor;
+
 /**
  * A level viewport toolbar widget that is placed in a viewport
  */
@@ -30,6 +38,10 @@ public:
 	 * @return The color and opacity of this viewport. 
 	 */ 
 	FLinearColor OnGetColorAndOpacity() const;
+
+	/** @return Whether the given viewmode is supported. */ 
+	virtual bool IsViewModeSupported(EViewModeIndex ViewModeIndex) const;
+
 private:
 	
 	/**

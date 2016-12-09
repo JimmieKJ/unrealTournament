@@ -1,13 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "SSequencerSectionAreaView.h"
-#include "IKeyArea.h"
-#include "ISequencerSection.h"
-#include "MovieSceneSection.h"
-#include "SequencerDisplayNode.h"
-#include "SSequencer.h"
-#include "Sequencer.h"
+#include "Types/PaintArgs.h"
+#include "Layout/ArrangedChildren.h"
 #include "CommonMovieSceneTools.h"
 
 namespace SequencerSectionAreaConstants

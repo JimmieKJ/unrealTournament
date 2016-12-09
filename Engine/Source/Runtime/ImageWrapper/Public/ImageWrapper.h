@@ -3,14 +3,21 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Dependencies
  *****************************************************************************/
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 
 /* Interfaces
  *****************************************************************************/
 
-#include "IImageWrapper.h"
-#include "IImageWrapperModule.h"
+#include "Interfaces/IImageWrapper.h"
+#include "Interfaces/IImageWrapperModule.h"

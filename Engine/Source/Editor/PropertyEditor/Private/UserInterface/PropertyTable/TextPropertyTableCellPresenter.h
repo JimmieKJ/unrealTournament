@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/SWidget.h"
+#include "EditorStyleSet.h"
 #include "IPropertyTableCellPresenter.h"
-#include "PropertyTableConstants.h"
+#include "UserInterface/PropertyTable/PropertyTableConstants.h"
 
 class FTextPropertyTableCellPresenter : public TSharedFromThis< FTextPropertyTableCellPresenter >, public IPropertyTableCellPresenter
 {

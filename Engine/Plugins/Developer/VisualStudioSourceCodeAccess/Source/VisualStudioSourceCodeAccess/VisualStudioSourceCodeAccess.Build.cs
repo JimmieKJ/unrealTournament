@@ -22,9 +22,6 @@ namespace UnrealBuildTool.Rules
 
 			if (WindowsPlatform.bHasVisualStudioDTE)
 			{
-				// This module requires atlbase.h to be included before Windows headers, so we can make use of shared PCHs.  This
-				// module will always have its own private PCH generated, if necessary.
-				PCHUsage = PCHUsageMode.NoSharedPCHs;
 				Definitions.Add("VSACCESSOR_HAS_DTE=1");
 			}
 			else

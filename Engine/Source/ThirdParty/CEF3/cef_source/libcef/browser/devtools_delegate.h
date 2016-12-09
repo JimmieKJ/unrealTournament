@@ -6,24 +6,26 @@
 #define CEF_LIBCEF_BROWSER_DEVTOOLS_DELEGATE_H_
 #pragma once
 
+#include <stdint.h>
+
 #include <map>
 #include <vector>
 
-#include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
+#include "components/devtools_http_handler/devtools_http_handler.h"
+#include "components/devtools_http_handler/devtools_http_handler_delegate.h"
 #include "content/public/browser/devtools_agent_host.h"
-#include "content/public/browser/devtools_http_handler.h"
-#include "content/public/browser/devtools_http_handler_delegate.h"
 #include "content/public/browser/devtools_manager_delegate.h"
 
 namespace content {
 class RenderViewHost;
 }
 
-class CefDevToolsDelegate : public content::DevToolsHttpHandlerDelegate {
+class CefDevToolsDelegate :
+    public devtools_http_handler::DevToolsHttpHandlerDelegate {
  public:
-  explicit CefDevToolsDelegate(uint16 port);
+  explicit CefDevToolsDelegate(uint16_t port);
   ~CefDevToolsDelegate() override;
 
   // Stops http server.
@@ -31,14 +33,16 @@ class CefDevToolsDelegate : public content::DevToolsHttpHandlerDelegate {
 
   // DevToolsHttpHandlerDelegate overrides.
   std::string GetDiscoveryPageHTML() override;
-  bool BundlesFrontendResources() override;
-  base::FilePath GetDebugFrontendDir() override;
+  std::string GetFrontendResource(const std::string& path) override;
+  std::string GetPageThumbnailData(const GURL& url) override;
+  content::DevToolsExternalAgentProxyDelegate*
+      HandleWebSocketConnection(const std::string& path) override;
 
   // Returns the chrome-devtools URL.
   std::string GetChromeDevToolsURL();
 
  private:
-  scoped_ptr<content::DevToolsHttpHandler> devtools_http_handler_;
+  scoped_ptr<devtools_http_handler::DevToolsHttpHandler> devtools_http_handler_;
 
   DISALLOW_COPY_AND_ASSIGN(CefDevToolsDelegate);
 };
@@ -56,10 +60,6 @@ class CefDevToolsManagerDelegate : public content::DevToolsManagerDelegate {
   base::DictionaryValue* HandleCommand(
       content::DevToolsAgentHost* agent_host,
       base::DictionaryValue* command) override;
-  scoped_ptr<content::DevToolsTarget> CreateNewTarget(
-      const GURL& url) override;
-  void EnumerateTargets(TargetCallback callback) override;
-  std::string GetPageThumbnailData(const GURL& url) override;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(CefDevToolsManagerDelegate);

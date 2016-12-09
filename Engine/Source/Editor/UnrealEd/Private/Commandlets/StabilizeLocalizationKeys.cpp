@@ -1,10 +1,23 @@
-#include "UnrealEd.h"
 #include "Commandlets/StabilizeLocalizationKeys.h"
-#include "Commandlets/GatherTextCommandletBase.h" // We use some of the nice wrapper and util functions from the loc commandlet
-#include "JsonInternationalizationManifestSerializer.h"
-#include "JsonInternationalizationArchiveSerializer.h"
-#include "EditorObjectVersion.h"
-#include "TextPackageNamespaceUtil.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
+#include "UObject/UObjectHash.h"
+#include "Serialization/ArchiveUObject.h"
+#include "Internationalization/TextNamespaceUtil.h"
+#include "Misc/PackageName.h"
+#include "UObject/PackageFileSummary.h"
+#include "UObject/Linker.h"
+#include "Internationalization/InternationalizationManifest.h"
+#include "Internationalization/InternationalizationArchive.h"
+#include "Commandlets/GatherTextCommandletBase.h"
+#include "Templates/ScopedPointer.h"
+#include "UserDefinedStructure/UserDefinedStructEditorData.h"
+#include "Engine/UserDefinedStruct.h"
+#include "Serialization/JsonInternationalizationManifestSerializer.h"
+#include "Serialization/JsonInternationalizationArchiveSerializer.h"
+#include "Internationalization/TextPackageNamespaceUtil.h"
+#include "UniquePtr.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogStabilizeLocalizationKeys, Log, All);
 
@@ -233,7 +246,7 @@ int32 UStabilizeLocalizationKeysCommandlet::Main(const FString& Params)
 	TArray<FString> UnstablePackages;
 	for (const FString& PackageFilename : AllPackages)
 	{
-		if (TScopedPointer<FArchive> FileReader = TScopedPointer<FArchive>(IFileManager::Get().CreateFileReader(*PackageFilename)))
+		if (TUniquePtr<FArchive> FileReader = TUniquePtr<FArchive>(IFileManager::Get().CreateFileReader(*PackageFilename)))
 		{
 			// Read package file summary from the file so we can test the version
 			FPackageFileSummary PackageFileSummary;

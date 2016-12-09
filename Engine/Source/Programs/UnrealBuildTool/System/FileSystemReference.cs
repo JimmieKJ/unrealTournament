@@ -345,11 +345,19 @@ namespace UnrealBuildTool
 			Directory.CreateDirectory(FullName);
 		}
 
-		/// <summary>
-		/// Checks whether the directory exists
-		/// </summary>
-		/// <returns>True if this directory exists</returns>
-		public bool Exists()
+        /// <summary>
+        /// Removes the directory
+        /// </summary>
+        public void RemoveDirectory()
+        {
+            Directory.Delete(FullName, true);
+        }
+
+        /// <summary>
+        /// Checks whether the directory exists
+        /// </summary>
+        /// <returns>True if this directory exists</returns>
+        public bool Exists()
 		{
 			return Directory.Exists(FullName);
 		}

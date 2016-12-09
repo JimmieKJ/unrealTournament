@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "SlateGlobals.h"
 
 typedef FString KeyType;
 typedef FVector2D ValueType;

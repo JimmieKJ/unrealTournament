@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphPinEnum.h"
-#include "SGraphPinComboBox.h"
-#include "Editor/UnrealEd/Public/ScopedTransaction.h"
+#include "KismetPins/SGraphPinEnum.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/SListView.h"
+#include "ScopedTransaction.h"
 
 //Construct combo box using combo button and combo list
 void SPinComboBox::Construct( const FArguments& InArgs )
@@ -136,9 +136,18 @@ void SGraphPinEnum::ComboBoxSelectionChanged( TSharedPtr<int32> NewSelection, ES
 {
 	UEnum* EnumPtr = Cast<UEnum>(GraphPinObj->PinType.PinSubCategoryObject.Get());
 	check(EnumPtr);
-	check(*NewSelection < EnumPtr->NumEnums() - 1);
 
-	FString EnumSelectionString = EnumPtr->GetEnumName(*NewSelection);
+	FString EnumSelectionString;
+	if (NewSelection.IsValid())
+	{
+		check(*NewSelection < EnumPtr->NumEnums() - 1);
+		EnumSelectionString  = EnumPtr->GetEnumName(*NewSelection);
+	}
+	else
+	{
+		EnumSelectionString = FName(NAME_None).ToString();
+	}
+	
 
 	if(GraphPinObj->GetDefaultAsString() != EnumSelectionString)
 	{

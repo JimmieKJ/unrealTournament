@@ -130,6 +130,18 @@
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\propagateNoContraction.cpp">
       <Filter>glslang\MachineIndependent</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslParseables.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\ParseContextBase.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\iomapper.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslAttributes.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\disassemble.h">
@@ -276,40 +288,53 @@
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\propagateNoContraction.h">
       <Filter>glslang\MachineIndependent</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslParseables.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\GLSL.ext.AMD.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\iomapper.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\LiveTraverser.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslAttributes.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\bitutils.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\GLSL.ext.KHR.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\hex_float.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="glslang">
-      <UniqueIdentifier>{47208241-f077-45b4-935c-0191a018f350}</UniqueIdentifier>
     </Filter>
     <Filter Include="OGLCompilersDLL">
-      <UniqueIdentifier>{873d6a89-4a39-4a0e-9e98-06c40647d84e}</UniqueIdentifier>
     </Filter>
     <Filter Include="SPIRV">
-      <UniqueIdentifier>{61a7d4d3-2554-46bf-b9db-41926c272e82}</UniqueIdentifier>
     </Filter>
     <Filter Include="glslang\GenericCodeGen">
-      <UniqueIdentifier>{3781ffce-c263-4078-a5fd-2f9c746eda39}</UniqueIdentifier>
     </Filter>
     <Filter Include="glslang\Include">
-      <UniqueIdentifier>{b9276435-ead1-484b-a3d1-b42654d22ecb}</UniqueIdentifier>
     </Filter>
     <Filter Include="glslang\Public">
-      <UniqueIdentifier>{4b2c13b5-e4be-4268-9d67-81631fd4f36d}</UniqueIdentifier>
     </Filter>
     <Filter Include="glslang\OSDependent">
-      <UniqueIdentifier>{9afa0903-3ff6-4017-b1d9-2c11eee46c0a}</UniqueIdentifier>
     </Filter>
     <Filter Include="glslang\OSDependent\Unix">
-      <UniqueIdentifier>{4ea689be-49c0-4275-ac9f-66dbddefe298}</UniqueIdentifier>
     </Filter>
     <Filter Include="glslang\OSDependent\Windows">
-      <UniqueIdentifier>{288df980-ce61-4971-8709-1b4a60b438fc}</UniqueIdentifier>
     </Filter>
     <Filter Include="glslang\MachineIndependent">
-      <UniqueIdentifier>{fe092b57-9359-4019-8005-4313c7f7c833}</UniqueIdentifier>
     </Filter>
     <Filter Include="glslang\MachineIndependent\preprocessor">
-      <UniqueIdentifier>{1dfaedae-476d-48f3-8f3c-c7f122699c6c}</UniqueIdentifier>
     </Filter>
     <Filter Include="hlsl">
     </Filter>
@@ -317,6 +342,9 @@
   <ItemGroup>
     <None Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\glslang.y">
       <Filter>glslang\MachineIndependent</Filter>
+    </None>
+    <None Include="..\..\..\src\glslang_lib\README.md">
+      <Filter>glslang</Filter>
     </None>
   </ItemGroup>
 </Project>

@@ -1,16 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "Toolkits/IToolkitHost.h"
+#include "AssetTypeActions/AssetTypeActions_CameraAnim.h"
+#include "Engine/World.h"
+#include "Editor.h"
+#include "EdMode.h"
+#include "Misc/ConfigCacheIni.h"
+#include "LevelEditorViewport.h"
+#include "EditorModes.h"
 #include "Matinee/InterpData.h"
+#include "Matinee/InterpGroup.h"
 #include "Matinee/InterpGroupCamera.h"
 #include "Matinee/InterpGroupInst.h"
 #include "Matinee/InterpTrackInst.h"
 #include "Matinee/InterpTrackAnimControl.h"
 #include "Matinee/MatineeActorCameraAnim.h"
-#include "Camera/CameraAnim.h"
-#include "Camera/CameraActor.h"
-#include "GameFramework/Pawn.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/Margin.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SSlider.h"
+
 // Utility widget to set-up a common style for -/+ sliders in Persona
 class SAnimPlusMinusSlider
 	: public SCompoundWidget

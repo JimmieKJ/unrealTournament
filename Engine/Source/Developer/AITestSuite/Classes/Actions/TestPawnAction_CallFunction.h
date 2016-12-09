@@ -2,9 +2,13 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Actions/TestPawnAction_Log.h"
 #include "TestPawnAction_CallFunction.generated.h"
 
+class UPawnActionsComponent;
+template<typename ValueType> struct FTestLogger;
 
 UCLASS()
 class UTestPawnAction_CallFunction : public UTestPawnAction_Log

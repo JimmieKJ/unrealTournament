@@ -12,6 +12,7 @@
 CURL_VER=curl-7.46.0
 OPENSSL_VER=openssl-1.0.2d
 OPENSSL_ARCH=linux-x86_64
+#OPENSSL_ARCH=linux-aarch64
 
 # don't forget to match archive options with tarball type (bz/gz)
 CURL_TARBALL=$CURL_VER.tar.bz2

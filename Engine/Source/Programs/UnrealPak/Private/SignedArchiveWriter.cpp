@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealPak.h"
+#include "SignedArchiveWriter.h"
 #include "IPlatformFilePak.h"
 #include "SecureHash.h"
-#include "BigInt.h"
-#include "SignedArchiveWriter.h"
+#include "HAL/FileManager.h"
 
 FSignedArchiveWriter::FSignedArchiveWriter(FArchive& InPak, const FString& InPakFilename, const FEncryptionKey& InPublicKey, const FEncryptionKey& InPrivateKey)
 : BufferArchive(Buffer)
@@ -29,29 +28,13 @@ FSignedArchiveWriter::~FSignedArchiveWriter()
 
 void FSignedArchiveWriter::SerializeBufferAndSign()
 {
-	// Hash the buffer
-	FDecryptedSignature SourceSignature;
-	
 	// Compute a hash for this buffer data
-	SourceSignature.Data = FCrc::MemCrc32(&Buffer[0], Buffer.Num());
-
-	// Encrypt the signature
-	FEncryptedSignature EncryptedSignature;
-	FEncryption::EncryptSignature(SourceSignature, EncryptedSignature, PrivateKey);
+	ChunkHashes.Add(ComputePakChunkHash(&Buffer[0], Buffer.Num()));
 
 	// Flush the buffer
 	PakWriter.Serialize(&Buffer[0], Buffer.Num());
 	BufferArchive.Seek(0);
 	Buffer.Empty(FPakInfo::MaxChunkDataSize);
-
-	// Collect the signature so we can write it out at the end
-	ChunkSignatures.Add(EncryptedSignature);
-
-#if 0
-	FDecryptedSignature<GPakFileChunkHashSize> TestSignature;
-	FEncryption::DecryptBytes(TestSignature.Data, Signature.Data, GPakFileChunkHashSize, PublicKey);
-	check(FMemory::Memcmp(TestSignature.Data, Hash, sizeof(Hash)) == 0);
-#endif
 }
 
 bool FSignedArchiveWriter::Close()
@@ -61,8 +44,14 @@ bool FSignedArchiveWriter::Close()
 		SerializeBufferAndSign();
 	}
 
+	FEncryptedSignature EncryptedMasterHash;
+	FDecryptedSignature DecryptedMasterHash;
+	DecryptedMasterHash.Data = ComputePakChunkHash((const uint8*)&ChunkHashes[0], ChunkHashes.Num() * sizeof(TPakChunkHash));
+	FEncryption::EncryptSignature(DecryptedMasterHash, EncryptedMasterHash, PrivateKey);
+
 	FArchive* SignatureWriter = IFileManager::Get().CreateFileWriter(*PakSignaturesFilename);
-	*SignatureWriter << ChunkSignatures;
+	*SignatureWriter << EncryptedMasterHash;
+	*SignatureWriter << ChunkHashes;
 	delete SignatureWriter;
 
 	return FArchive::Close();

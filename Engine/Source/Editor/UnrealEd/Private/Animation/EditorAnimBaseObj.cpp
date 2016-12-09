@@ -4,8 +4,8 @@
 	AnimMontage.cpp: Montage classes that contains slots
 =============================================================================*/ 
 
-#include "UnrealEd.h"
-#include "AssetNotifications.h"
+#include "Animation/EditorAnimBaseObj.h"
+#include "Animation/AnimSequenceBase.h"
 
 #define LOCTEXT_NAMESPACE "SSkeletonTree"
 

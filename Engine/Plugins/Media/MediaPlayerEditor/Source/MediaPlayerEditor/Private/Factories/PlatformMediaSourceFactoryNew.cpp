@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "PlatformMediaSourceFactoryNew.h"
+#include "Factories/PlatformMediaSourceFactoryNew.h"
+#include "AssetTypeCategories.h"
+#include "PlatformMediaSource.h"
 
 
 /* UPlatformMediaSourceFactoryNew structors

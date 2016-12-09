@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Animation/AnimNodeBase.h"
-#include "Animation/PoseAsset.h"
-#include "AnimNode_PoseHandler.h"
+#include "AnimNodes/AnimNode_PoseHandler.h"
 #include "AnimNode_PoseBlendNode.generated.h"
 
 // Evaluates a point in an anim sequence, using a specific time input rather than advancing time internally.

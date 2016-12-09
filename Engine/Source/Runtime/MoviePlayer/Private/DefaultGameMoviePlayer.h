@@ -2,8 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Stats/Stats.h"
+#include "Types/SlateStructs.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Rendering/SlateRenderer.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/Layout/SBorder.h"
+#include "MoviePlayer.h"
 #include "TickableObjectRenderThread.h"
-
 
 /** An implementation of the movie player/loading screen we will use */
 class FDefaultGameMoviePlayer : public FTickableObjectRenderThread, public IGameMoviePlayer,

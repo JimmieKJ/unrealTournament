@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
+#include "Templates/SubclassOf.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType.h"
 #include "Engine/DataAsset.h"
-#include "BehaviorTree/BehaviorTreeTypes.h"
 #include "BlackboardData.generated.h"
-
-class UBlackboardData;
 
 /** blackboard entry definition */
 USTRUCT()
@@ -28,6 +30,10 @@ struct FBlackboardEntry
 	/** if set to true then this field will be synchronized across all instances of this blackboard */
 	UPROPERTY(EditAnywhere, Category = Blackboard)
 	uint32 bInstanceSynced : 1;
+
+	FBlackboardEntry()
+		: KeyType(nullptr), bInstanceSynced(0)
+	{}
 
 	bool operator==(const FBlackboardEntry& Other) const;
 };
@@ -84,8 +90,8 @@ public:
 #if WITH_EDITOR
 	virtual void PreEditChange(class FEditPropertyChain& PropertyAboutToChange) override;
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
-	void PropagateKeyChangesToDerivedBlackboardAssets();
 #endif
+	void PropagateKeyChangesToDerivedBlackboardAssets();
 
 	/** @return true if blackboard keys are not conflicting with parent key chain */
 	bool IsValid() const;
@@ -109,12 +115,14 @@ public:
 
 			Keys.Add(Entry);
 			MarkPackageDirty();
+			PropagateKeyChangesToDerivedBlackboardAssets();
 		}
 		else if (KeyID != FBlackboard::InvalidKey && Parent != NULL)
 		{
 			const FBlackboard::FKey KeyIndex = KeyID - FirstKeyID;
 			Keys.RemoveAt(KeyIndex);
 			MarkPackageDirty();
+			PropagateKeyChangesToDerivedBlackboardAssets();
 		}
 
 		return CreatedKeyType;
@@ -135,6 +143,16 @@ public:
 	/** fix entries with deprecated key types */
 	void UpdateDeprecatedKeys();
 
+	/** returns true if OtherAsset is somewhere up the parent chain of this asset. Node that it will return false if *this == OtherAsset */
+	bool IsChildOf(const UBlackboardData& OtherAsset) const;
+
+	/** returns true if OtherAsset is equal to *this, or is it's parent, or *this is OtherAsset's parent */
+	bool IsRelatedTo(const UBlackboardData& OtherAsset) const
+	{
+		return this == &OtherAsset || IsChildOf(OtherAsset) || OtherAsset.IsChildOf(*this)
+			|| (Parent && OtherAsset.Parent && Parent->IsRelatedTo(*OtherAsset.Parent));
+	}
+
 protected:
 
 	enum EKeyLookupMode
@@ -150,5 +168,6 @@ protected:
 	FBlackboard::FKey InternalGetKeyID(const FName& KeyName, EKeyLookupMode LookupMode) const;
 
 	/** check if parent chain contains given blackboard data */
+	DEPRECATED(4.14, "This function is deprecated, please use IsChildOf instead.")
 	bool HasParent(const UBlackboardData* TestParent) const;
 };

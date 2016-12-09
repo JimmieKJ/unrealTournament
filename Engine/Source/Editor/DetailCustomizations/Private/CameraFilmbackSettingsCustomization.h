@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Input/SComboBox.h"
+#include "IPropertyTypeCustomization.h"
+
+class FDetailWidgetRow;
+class IPropertyHandle;
+
 class FCameraFilmbackSettingsCustomization : public IPropertyTypeCustomization
 {
 public:

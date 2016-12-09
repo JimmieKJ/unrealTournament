@@ -1,16 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
-
 #include "SAnimTrackCurvePanel.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SEditableText.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+
+#include "Animation/DebugSkelMeshComponent.h"
+#include "IPersonaPreviewScene.h"
 #include "ScopedTransaction.h"
 #include "SAnimCurveEd.h"
-#include "Editor/KismetWidgets/Public/SScrubWidget.h"
-#include "AssetRegistryModule.h"
-#include "Kismet2NameValidators.h"
-#include "SExpandableArea.h"
-#include "STextEntryPopup.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "AnimPreviewInstance.h"
 
 #define LOCTEXT_NAMESPACE "AnimTrackCurvePanel"
 
@@ -503,7 +515,7 @@ FText STransformCurveEdTrack::GetCurveName(USkeleton::AnimCurveUID Uid, ETransfo
 //////////////////////////////////////////////////////////////////////////
 // SAnimTrackCurvePanel
 
-void SAnimTrackCurvePanel::Construct(const FArguments& InArgs)
+void SAnimTrackCurvePanel::Construct(const FArguments& InArgs, const TSharedRef<IPersonaPreviewScene>& InPreviewScene)
 {
 	SAnimTrackPanel::Construct( SAnimTrackPanel::FArguments()
 		.WidgetWidth(InArgs._WidgetWidth)
@@ -513,7 +525,7 @@ void SAnimTrackCurvePanel::Construct(const FArguments& InArgs)
 		.InputMax(InArgs._InputMax)
 		.OnSetInputViewRange(InArgs._OnSetInputViewRange));
 
-	WeakPersona = InArgs._Persona;
+	PreviewScenePtr = InPreviewScene;
 	Sequence = InArgs._Sequence;
 	WidgetWidth = InArgs._WidgetWidth;
 	OnGetScrubValue = InArgs._OnGetScrubValue;
@@ -578,7 +590,10 @@ void SAnimTrackCurvePanel::DeleteTrack(USkeleton::AnimCurveUID Uid)
 			Sequence->bNeedsRebake = true;
 			Sequence->RawCurveData.DeleteCurveData(CurveToDelete, FRawCurveTracks::TransformType);
 			UpdatePanel();
-			WeakPersona.Pin()->RefreshPreviewInstanceTrackCurves();
+			if (PreviewScenePtr.Pin()->GetPreviewMeshComponent()->PreviewInstance != nullptr)
+			{
+				PreviewScenePtr.Pin()->GetPreviewMeshComponent()->PreviewInstance->RefreshCurveBoneControllers();
+			}
 		}
 	}
 }
@@ -656,11 +671,7 @@ void SAnimTrackCurvePanel::UpdatePanel()
 			}
 		}
 
-		TSharedPtr<FPersona> SharedPersona = WeakPersona.Pin();
-		if(SharedPersona.IsValid())
-		{
-			SharedPersona->OnCurvesChanged.Broadcast();
-		}
+		OnCurvesChanged.ExecuteIfBound();
 	}
 }
 
@@ -822,13 +833,13 @@ FReply		SAnimTrackCurvePanel::ShowAll(bool bShow)
 	return FReply::Handled();
 }
 
-ECheckBoxState SAnimTrackCurvePanel::GetCurveFlagAsCheckboxState(USkeleton::AnimCurveUID CurveUid, EAnimCurveFlags InFlag) const
+ECheckBoxState SAnimTrackCurvePanel::GetCurveFlagAsCheckboxState(USkeleton::AnimCurveUID CurveUid, EAnimAssetCurveFlags InFlag) const
 {
 	FAnimCurveBase* Curve = Sequence->RawCurveData.GetCurveData(CurveUid, FRawCurveTracks::TransformType);
 	return Curve && Curve->GetCurveTypeFlag(InFlag) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
 
-void SAnimTrackCurvePanel::SetCurveFlagFromCheckboxState(ECheckBoxState CheckState, USkeleton::AnimCurveUID CurveUid, EAnimCurveFlags InFlag)
+void SAnimTrackCurvePanel::SetCurveFlagFromCheckboxState(ECheckBoxState CheckState, USkeleton::AnimCurveUID CurveUid, EAnimAssetCurveFlags InFlag)
 {
 	bool Enabled = CheckState == ECheckBoxState::Checked;
 	FAnimCurveBase* Curve = Sequence->RawCurveData.GetCurveData(CurveUid, FRawCurveTracks::TransformType);
@@ -841,7 +852,10 @@ void SAnimTrackCurvePanel::SetCurveFlagFromCheckboxState(ECheckBoxState CheckSta
 			// needs to rebake
 			Sequence->bNeedsRebake = true;
 			// need to update curves, otherwise they're not disabled
-			WeakPersona.Pin()->RefreshPreviewInstanceTrackCurves();		
+			if (PreviewScenePtr.Pin()->GetPreviewMeshComponent()->PreviewInstance != nullptr)
+			{
+				PreviewScenePtr.Pin()->GetPreviewMeshComponent()->PreviewInstance->RefreshCurveBoneControllers();
+			}
 		}
 	}
 }

@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "UObject/UObjectHierarchyFwd.h"
+
+class FLinkerPlaceholderBase;
+struct FObjectImport;
+template<class PlaceholderType> class TLinkerImportPlaceholder;
+
 /*******************************************************************************
  * TLinkerImportPlaceholder<>
  ******************************************************************************/

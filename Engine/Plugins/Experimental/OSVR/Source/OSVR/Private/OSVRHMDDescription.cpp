@@ -14,11 +14,11 @@
 // limitations under the License.
 //
 
-#include "OSVRPrivatePCH.h"
 #include "OSVRHMDDescription.h"
 #include <osvr/RenderKit/RenderManagerC.h>
 
-#include "Json.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonSerializer.h"
 
 DEFINE_LOG_CATEGORY(OSVRHMDDescriptionLog);
 

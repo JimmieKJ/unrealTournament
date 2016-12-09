@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "UnrealSourceFileArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/UnrealSourceFileArchiveProxy.h"
+#include "HeaderProvider.h"
 #include "UnrealSourceFile.h"
+#include "UHTMakefile.h"
 
 FUnrealSourceFileArchiveProxy::FUnrealSourceFileArchiveProxy(FUHTMakefile& UHTMakefile, FUnrealSourceFile* UnrealSourceFile)
 {

@@ -2,11 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "BlueprintNodeSignature.h"
+#include "K2Node.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintFieldNodeSpawner.generated.h"
 
-// Forward declarations
-class UK2Node;
+class UEdGraph;
 
 /**
  * Takes care of spawning various field related nodes (nodes associated with 

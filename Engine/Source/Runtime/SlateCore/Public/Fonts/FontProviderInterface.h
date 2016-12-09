@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "CompositeFont.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Interface.h"
 #include "FontProviderInterface.generated.h"
+
+struct FCompositeFont;
 
 UINTERFACE(MinimalAPI, meta=(CannotImplementInterfaceInBlueprint))
 class UFontProviderInterface : public UInterface

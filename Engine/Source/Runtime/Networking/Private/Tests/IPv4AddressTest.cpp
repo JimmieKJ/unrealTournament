@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetworkingPrivatePCH.h"
-#include "AutomationTest.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+#include "Interfaces/IPv4/IPv4Address.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

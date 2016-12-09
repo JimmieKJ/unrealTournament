@@ -1,10 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashDebugHelperPrivatePCH.h"
-#include "GenericPlatform/GenericPlatformCrashContext.h"
 #include "WindowsPlatformStackWalkExt.h"
+#include "CrashDebugHelperPrivate.h"
+#include "GenericPlatform/GenericPlatformStackWalk.h"
+#include "GenericPlatform/GenericPlatformCrashContext.h"
 #include "CrashDebugPDBCache.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
+#include "Misc/MemStack.h"
+#include "Misc/Paths.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/FileManager.h"
 
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 #include "dbgeng.h"
 #include <DbgHelp.h>
@@ -459,7 +467,9 @@ int FWindowsPlatformStackWalkExt::GetCallstacks(bool bTrimCallstack)
 	bool bFoundSourceFile = false;
 	void* ContextData = FMemStack::Get().PushBytes( MaxFramesSize, 0 );
 	FMemory::Memzero( ContextData, MaxFramesSize );
+	UE_LOG(LogCrashDebugHelper, Log, TEXT("Running GetContextStackTrace()"));
 	HRESULT HR = Control->GetContextStackTrace( Context, ContextUsed, StackFrames, MaxFrames, ContextData, MaxFramesSize, ContextUsed, &Count );
+	UE_LOG(LogCrashDebugHelper, Log, TEXT("GetContextStackTrace() got %d frames"), Count);
 
 	int32 AssertOrEnsureIndex = -1;
 

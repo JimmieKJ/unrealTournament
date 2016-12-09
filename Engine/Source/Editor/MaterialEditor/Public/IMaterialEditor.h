@@ -2,8 +2,16 @@
 
 #pragma once
 
-#include "Toolkits/IToolkitHost.h"
+#include "CoreMinimal.h"
+#include "Toolkits/AssetEditorToolkit.h"
 
+class FCanvas;
+class FMaterialRenderProxy;
+class FViewport;
+class IMaterialEditorModule;
+class UMaterialExpression;
+class UMaterialExpressionComment;
+class UMaterialInterface;
 
 /**
  * Public interface to Material Editor

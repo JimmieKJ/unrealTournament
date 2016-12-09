@@ -1,16 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PropertyEditorPrivatePCH.h"
-#include "ObjectPropertyNode.h"
-#include "CategoryPropertyNode.h"
+#include "PropertyNode.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/MetaData.h"
+#include "Serialization/ArchiveReplaceObjectRef.h"
+#include "Components/ActorComponent.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Engine/UserDefinedStruct.h"
+#include "UnrealEdGlobals.h"
 #include "ScopedTransaction.h"
 #include "PropertyRestriction.h"
-#include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "Engine/UserDefinedStruct.h"
+#include "Kismet2/StructureEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "Misc/ScopeExit.h"
+#include "Editor.h"
+#include "ObjectPropertyNode.h"
 #include "PropertyHandleImpl.h"
+#include "EditorSupportDelegates.h"
+
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+
+#define LOCTEXT_NAMESPACE "PropertyNode"
 
 FPropertySettings& FPropertySettings::Get()
 {
@@ -118,10 +130,12 @@ void FPropertyNode::InitNode( const FPropertyNodeInitParams& InitParams )
 	//needs to happen after the above SetNodeFlags calls so that ObjectPropertyNode can properly respond to CollapseCategories
 	InitBeforeNodeFlags();
 
+	bool bIsEditInlineNew = false;
+	bool bShowInnerObjectProperties = false;
 	if ( !Property.IsValid() )
 	{
 		// Disable all flags if no property is bound.
-		SetNodeFlags(EPropertyNodeFlags::SingleSelectOnly | EPropertyNodeFlags::EditInline , false);
+		SetNodeFlags(EPropertyNodeFlags::SingleSelectOnly | EPropertyNodeFlags::EditInlineNew | EPropertyNodeFlags::ShowInnerObjectProperties, false);
 	}
 	else
 	{
@@ -136,8 +150,19 @@ void FPropertyNode::InitNode( const FPropertyNodeInitParams& InitParams )
 		// true if the property can be expanded into the property window; that is, instead of seeing
 		// a pointer to the object, you see the object's properties.
 		static const FName Name_EditInline("EditInline");
-		const bool bEditInline = bIsObjectOrInterface && GotReadAddresses && MyProperty->HasMetaData(Name_EditInline);
-		SetNodeFlags(EPropertyNodeFlags::EditInline, bEditInline);
+		static const FName Name_ShowInnerProperties("ShowInnerProperties");
+
+		bIsEditInlineNew = bIsObjectOrInterface && GotReadAddresses && MyProperty->HasMetaData(Name_EditInline);
+		bShowInnerObjectProperties = bIsObjectOrInterface && MyProperty->HasMetaData(Name_ShowInnerProperties);
+
+		if(bIsEditInlineNew)
+		{
+			SetNodeFlags(EPropertyNodeFlags::EditInlineNew, true);
+		}
+		else if(bShowInnerObjectProperties)
+		{
+			SetNodeFlags(EPropertyNodeFlags::ShowInnerObjectProperties, true);
+		}
 
 		//Get the property max child depth
 		static const FName Name_MaxPropertyDepth("MaxPropertyDepth");
@@ -165,9 +190,7 @@ void FPropertyNode::InitNode( const FPropertyNodeInitParams& InitParams )
 
 	UProperty* MyProperty = Property.Get();
 
-	bool bIsEditInlineNew = MyProperty && !( MyProperty->PropertyFlags & CPF_EditConst ) && HasNodeFlags( EPropertyNodeFlags::EditInline ) != 0;
-
-	bool bRequiresValidation = bIsEditInlineNew || ( MyProperty && MyProperty->IsA<UArrayProperty>() );
+	bool bRequiresValidation = bIsEditInlineNew || bShowInnerObjectProperties || ( MyProperty && (MyProperty->IsA<UArrayProperty>() || MyProperty->IsA<USetProperty>() || MyProperty->IsA<UMapProperty>() ));
 
 	// We require validation if our parent also needs validation (if an array parent was resized all the addresses of children are invalid)
 	bRequiresValidation |= (GetParentNode() && GetParentNode()->HasNodeFlags( EPropertyNodeFlags::RequiresValidation ) != 0);
@@ -325,12 +348,18 @@ FObjectPropertyNode* FPropertyNode::FindRootObjectItemParent()
 }
 
 
+bool FPropertyNode::DoesChildPropertyRequireValidation(UProperty* InChildProp)
+{
+	return InChildProp != nullptr && (Cast<UObjectProperty>(InChildProp) != nullptr || Cast<UStructProperty>(InChildProp) != nullptr);
+}
+
 /** 
  * Used to see if any data has been destroyed from under the property tree.  Should only be called by PropertyWindow::OnIdle
  */
 EPropertyDataValidationResult FPropertyNode::EnsureDataIsValid()
 {
 	bool bValidateChildren = !HasNodeFlags(EPropertyNodeFlags::SkipChildValidation);
+	bool bValidateChildrenKeyNodes = false;		// by default, we don't check this, since it's just for Map properties
 
 	// The root must always be validated
 	if( GetParentNode() == NULL || HasNodeFlags(EPropertyNodeFlags::RequiresValidation) != 0 )
@@ -347,8 +376,12 @@ EPropertyDataValidationResult FPropertyNode::EnsureDataIsValid()
 		{
 			UProperty* MyProperty = Property.Get();
 
-			//verify that the number of array children is correct
+			//verify that the number of container children is correct
 			UArrayProperty* ArrayProperty = Cast<UArrayProperty>(MyProperty);
+			USetProperty* SetProperty = Cast<USetProperty>(MyProperty);
+			UMapProperty* MapProperty = Cast<UMapProperty>(MyProperty);
+			UStructProperty* StructProperty = Cast<UStructProperty>(MyProperty);
+
 			//default to unknown array length
 			int32 NumArrayChildren = -1;
 			//assume all arrays have the same length
@@ -358,13 +391,25 @@ EPropertyDataValidationResult FPropertyNode::EnsureDataIsValid()
 
 			bool bArrayHasNewItem = false;
 
+			UProperty* ContainerElementProperty = MyProperty;
+
 			if (ArrayProperty)
 			{
-				if (!ArrayProperty->Inner->IsA(UObjectProperty::StaticClass()) && !ArrayProperty->Inner->IsA(UStructProperty::StaticClass()))
-				{
-					bValidateChildren = false;
-				}
+				ContainerElementProperty = ArrayProperty->Inner;
 			}
+			else if (SetProperty)
+			{
+				ContainerElementProperty = SetProperty->ElementProp;
+			}
+			else if (MapProperty)
+			{
+				// Need to attempt to validate both the key and value properties...
+				bValidateChildrenKeyNodes = DoesChildPropertyRequireValidation(MapProperty->KeyProp);
+
+				ContainerElementProperty = MapProperty->ValueProp;
+			}
+
+			bValidateChildren = DoesChildPropertyRequireValidation(ContainerElementProperty);
 
 			//verify that the number of object children are the same too
 			UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(MyProperty);
@@ -373,7 +418,7 @@ EPropertyDataValidationResult FPropertyNode::EnsureDataIsValid()
 			bool bObjectPropertyNull = true;
 
 			//Edit inline properties can change underneath the window
-			bool bIgnoreChangingChildren = !HasNodeFlags(EPropertyNodeFlags::EditInline);
+			bool bIgnoreChangingChildren = !(HasNodeFlags(EPropertyNodeFlags::EditInlineNew) || HasNodeFlags(EPropertyNodeFlags::ShowInnerObjectProperties)) ;
 			//ignore this node if the consistency check should happen for the children
 			bool bIgnoreStaticArray = (Property->ArrayDim > 1) && (ArrayIndex == -1);
 
@@ -393,6 +438,8 @@ EPropertyDataValidationResult FPropertyNode::EnsureDataIsValid()
 				return EPropertyDataValidationResult::ObjectInvalid;
 			}
 
+			// If an object property with ShowInnerProperties changed object values out from under the property
+			bool bShowInnerObjectPropertiesObjectChanged = false;
 
 			//check for null, if we find one, there is a problem.
 			for (int32 Scan = 0; Scan < ReadAddresses.Num(); ++Scan)
@@ -421,14 +468,64 @@ EPropertyDataValidationResult FPropertyNode::EnsureDataIsValid()
 					bArraysMatchChildNum = bArraysMatchChildNum && (GetNumChildNodes() == ArrayNum);
 				}
 
+				if (SetProperty && !bIgnoreAllMismatch)
+				{
+					// like arrays, ensure that set structures have the proper number of children
+					int32 SetNum = FScriptSetHelper::Num(Addr);
+
+					if (NumArrayChildren == -1)
+					{
+						NumArrayChildren = SetNum;
+					}
+
+					bArrayHasNewItem = GetNumChildNodes() < SetNum;
+					bArraysHaveEqualNum = bArraysHaveEqualNum && (NumArrayChildren == SetNum);
+					bArraysMatchChildNum = bArraysMatchChildNum && (GetNumChildNodes() == SetNum);
+				}
+
+				if (MapProperty && !bIgnoreAllMismatch)
+				{
+					int32 MapNum = FScriptMapHelper::Num(Addr);
+
+					if (NumArrayChildren == -1)
+					{
+						NumArrayChildren = MapNum;
+					}
+
+					bArrayHasNewItem = GetNumChildNodes() < MapNum;
+					bArraysHaveEqualNum = bArraysHaveEqualNum && (NumArrayChildren == MapNum);
+					bArraysMatchChildNum = bArraysMatchChildNum && (GetNumChildNodes() == MapNum);
+				}
+
 				if (ObjectProperty && !bIgnoreAllMismatch)
 				{
-					UObject* obj = ObjectProperty->GetObjectPropertyValue(Addr);
-					if (obj != NULL)
+					UObject* Obj = ObjectProperty->GetObjectPropertyValue(Addr);
+
+					if (!bShowInnerObjectPropertiesObjectChanged && HasNodeFlags(EPropertyNodeFlags::ShowInnerObjectProperties) && ChildNodes.Num() == 1)
+					{
+						bool bChildObjectFound = false;
+						// should never have more than one node (0 is ok if the object property is null)
+						check(ChildNodes.Num() == 1);
+						bool bNeedRebuild = false;
+						FObjectPropertyNode* ChildObjectNode = ChildNodes[0]->AsObjectNode();
+						for(int32 ObjectIndex = 0; ObjectIndex < ChildObjectNode->GetNumObjects(); ++ObjectIndex)
+						{
+							if(Obj == ChildObjectNode->GetUObject(ObjectIndex))
+							{
+								bChildObjectFound = true;
+								break;
+							}
+						}
+						bShowInnerObjectPropertiesObjectChanged = !bChildObjectFound;
+					}
+
+					if (Obj != NULL)
 					{
 						bObjectPropertyNull = false;
 						break;
 					}
+
+					
 				}
 			}
 
@@ -451,10 +548,16 @@ EPropertyDataValidationResult FPropertyNode::EnsureDataIsValid()
 				return EPropertyDataValidationResult::ArraySizeChanged;
 			}
 
+			if(bShowInnerObjectPropertiesObjectChanged)
+			{
+				RebuildChildren();
+				return EPropertyDataValidationResult::EditInlineNewValueChanged;
+			}
+
 			const bool bHasChildren = (GetNumChildNodes() != 0);
 			// If the object property is not null and has no children, its children need to be rebuilt
 			// If the object property is null and this node has children, the node needs to be rebuilt
-			if (ObjectProperty && ((!bObjectPropertyNull && !bHasChildren) || (bObjectPropertyNull && bHasChildren)))
+			if (!HasNodeFlags(EPropertyNodeFlags::ShowInnerObjectProperties) && ObjectProperty && ((!bObjectPropertyNull && !bHasChildren) || (bObjectPropertyNull && bHasChildren)))
 			{
 				RebuildChildren();
 				return EPropertyDataValidationResult::PropertiesChanged;
@@ -466,25 +569,38 @@ EPropertyDataValidationResult FPropertyNode::EnsureDataIsValid()
 	{
 		RebuildChildren();
 		// If this property is editinline and not edit const then its editinline new and we can optimize some of the refreshing in some cases.  Otherwise we need to refresh all properties in the view
-		return HasNodeFlags(EPropertyNodeFlags::EditInline) && !IsEditConst() ? EPropertyDataValidationResult::EditInlineNewValueChanged : EPropertyDataValidationResult::PropertiesChanged;
+		return HasNodeFlags(EPropertyNodeFlags::ShowInnerObjectProperties) || (HasNodeFlags(EPropertyNodeFlags::EditInlineNew) && !IsEditConst()) ? EPropertyDataValidationResult::EditInlineNewValueChanged : EPropertyDataValidationResult::PropertiesChanged;
 	}
 	
 	EPropertyDataValidationResult FinalResult = EPropertyDataValidationResult::DataValid;
 
-	//go through my children
-	if (bValidateChildren)
+	// Validate children and/or their key nodes.
+	if (bValidateChildren || bValidateChildrenKeyNodes)
 	{
 		for (int32 Scan = 0; Scan < ChildNodes.Num(); ++Scan)
 		{
 			TSharedPtr<FPropertyNode>& ChildNode = ChildNodes[Scan];
 			check(ChildNode.IsValid());
 
-			EPropertyDataValidationResult ChildDataResult = ChildNode->EnsureDataIsValid();
-			if (FinalResult == EPropertyDataValidationResult::DataValid && ChildDataResult != EPropertyDataValidationResult::DataValid)
+			if (bValidateChildren)
 			{
-				FinalResult = ChildDataResult;
+				EPropertyDataValidationResult ChildDataResult = ChildNode->EnsureDataIsValid();
+				if (FinalResult == EPropertyDataValidationResult::DataValid && ChildDataResult != EPropertyDataValidationResult::DataValid)
+				{
+					FinalResult = ChildDataResult;
+				}
 			}
 
+			// If the child property has a key node that needs validation, validate it here
+			TSharedPtr<FPropertyNode>& ChildKeyNode = ChildNode->GetPropertyKeyNode();
+			if (bValidateChildrenKeyNodes && ChildKeyNode.IsValid())
+			{
+				EPropertyDataValidationResult ChildDataResult = ChildKeyNode->EnsureDataIsValid();
+				if (FinalResult == EPropertyDataValidationResult::DataValid && ChildDataResult != EPropertyDataValidationResult::DataValid)
+				{
+					FinalResult = ChildDataResult;
+				}
+			}
 		}
 	}
 
@@ -508,7 +624,37 @@ void FPropertyNode::SetNodeFlags (const EPropertyNodeFlags::Type InFlags, const 
 	}
 }
 
+bool FPropertyNode::GetChildNode(const int32 ChildArrayIndex, TSharedPtr<FPropertyNode>& OutChildNode)
+{
+	OutChildNode = nullptr;
 
+	for (auto Child = ChildNodes.CreateIterator(); Child; ++Child)
+	{
+		if (Child->IsValid() && (*Child)->ArrayIndex == ChildArrayIndex)
+		{
+			OutChildNode = *Child;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool FPropertyNode::GetChildNode(const int32 ChildArrayIndex, TSharedPtr<FPropertyNode>& OutChildNode) const
+{
+	OutChildNode = nullptr;
+
+	for (auto Child = ChildNodes.CreateConstIterator(); Child; ++Child)
+	{
+		if (Child->IsValid() && (*Child)->ArrayIndex == ChildArrayIndex)
+		{
+			OutChildNode = *Child;
+			return true;
+		}
+	}
+
+	return false;
+}
 
 TSharedPtr<FPropertyNode> FPropertyNode::FindChildPropertyNode( const FName InPropertyName, bool bRecurse )
 {
@@ -794,9 +940,15 @@ public:
 		UArrayProperty* ArrayProp = Cast<UArrayProperty>(Property);
 		UArrayProperty* OuterArrayProp = Cast<UArrayProperty>(Property->GetOuter());
 
+		USetProperty* SetProp = Cast<USetProperty>(Property);
+		USetProperty* OuterSetProp = Cast<USetProperty>(Property->GetOuter());
+
+		UMapProperty* MapProp = Cast<UMapProperty>(Property);
+		UMapProperty* OuterMapProp = Cast<UMapProperty>(Property->GetOuter());
+
 		// calculate the values for the current object
 		{
-			PropertyValueBaseAddress = OuterArrayProp == NULL
+			PropertyValueBaseAddress = (OuterArrayProp == NULL && OuterSetProp == NULL && OuterMapProp == NULL)
 				? PropertyNode->GetValueBaseAddress(PropertyValueRoot.ValueAddress)
 				: ParentNode->GetValueBaseAddress(PropertyValueRoot.ValueAddress);
 
@@ -810,15 +962,16 @@ public:
 			if ( bHasDefaultValue )
 			{
 				PropertyDefaultValueRoot.OwnerObject = PropertyValueRoot.OwnerObject ? PropertyValueRoot.OwnerObject->GetArchetype() : NULL;
-				PropertyDefaultBaseAddress = OuterArrayProp == NULL
+				PropertyDefaultBaseAddress = (OuterArrayProp == NULL && OuterSetProp == NULL && OuterMapProp == NULL)
 					? PropertyNode->GetValueBaseAddress(PropertyDefaultValueRoot.ValueAddress)
 					: ParentNode->GetValueBaseAddress(PropertyDefaultValueRoot.ValueAddress);
 				PropertyDefaultAddress = PropertyNode->GetValueAddress(PropertyDefaultValueRoot.ValueAddress);
 
 				//////////////////////////
-				// If this is an array property, we must take special measures; PropertyDefaultBaseAddress points to an FScriptArray*, while
-				// PropertyDefaultAddress points to the FScriptArray's Data pointer.
-				if ( ArrayProp != NULL )
+				// If this is a container property, we must take special measures to use the base address of the property's value; for instance,
+				// the array property's PropertyDefaultBaseAddress points to an FScriptArray*, while PropertyDefaultAddress points to the 
+				// FScriptArray's Data pointer.
+				if ( ArrayProp != NULL || SetProp != NULL || MapProp != NULL )
 				{
 					PropertyValueAddress = PropertyValueBaseAddress;
 					PropertyDefaultAddress = PropertyDefaultBaseAddress;
@@ -1085,6 +1238,14 @@ struct FPropertyItemComponentCollector
 			{
 				return;
 			}
+			if ( ProcessSetProperty(Cast<USetProperty>(Property), PropertyValueAddress) )
+			{
+				return;
+			}
+			if ( ProcessMapProperty(Cast<UMapProperty>(Property), PropertyValueAddress) )
+			{
+				return;
+			}
 		}
 	}
 private:
@@ -1109,6 +1270,78 @@ private:
 			for ( int32 ArrayIndex = 0; ArrayIndex < ArrayValuePtr->Num(); ArrayIndex++ )
 			{
 				ProcessProperty(ArrayProp->Inner, ArrayValue + ArrayIndex * ArrayProp->Inner->ElementSize);
+			}
+
+			bResult = true;
+		}
+
+		return bResult;
+	}
+
+	/**
+	 * USetProperty version - invokes ProcessProperty on the each item in the set
+	 *
+	 * @param	SetProp					the property to process
+	 * @param	PropertyValueAddress	the address of the property's value
+	 *
+	 * @return	true if the property was handled by this method
+	 */
+	bool ProcessSetProperty( USetProperty* SetProp, uint8* PropertyValueAddress )
+	{
+		bool bResult = false;
+
+		if (SetProp != NULL)
+		{
+			FScriptSet* SetValuePtr = SetProp->GetPropertyValuePtr(PropertyValueAddress);
+
+			FScriptSetLayout SetLayout = SetValuePtr->GetScriptLayout(SetProp->ElementProp->ElementSize, SetProp->ElementProp->GetMinAlignment());
+			int32 ItemsLeft = SetValuePtr->Num();
+
+			for (int32 Index = 0; ItemsLeft > 0; ++Index)
+			{
+				if (SetValuePtr->IsValidIndex(Index))
+				{
+					--ItemsLeft;
+					ProcessProperty(SetProp->ElementProp, (uint8*)SetValuePtr->GetData(Index, SetLayout));
+				}
+			}
+
+			bResult = true;
+		}
+
+		return bResult;
+	}
+
+	/**
+	 * UMapProperty version - invokes ProcessProperty on each item in the map
+	 *
+	 * @param	MapProp					the property to process
+	 * @param	PropertyValueAddress	the address of the property's value
+	 *
+	 * @return	true if the property was handled by this method
+	 */
+	bool ProcessMapProperty( UMapProperty* MapProp, uint8* PropertyValueAddress )
+	{
+		bool bResult = false;
+
+		if (MapProp != NULL)
+		{
+			FScriptMap* MapValuePtr = MapProp->GetPropertyValuePtr(PropertyValueAddress);
+
+			FScriptMapLayout MapLayout = MapValuePtr->GetScriptLayout(MapProp->KeyProp->ElementSize, MapProp->KeyProp->GetMinAlignment(), MapProp->ValueProp->ElementSize, MapProp->ValueProp->GetMinAlignment());
+			int32 ItemsLeft = MapValuePtr->Num();
+
+			for (int32 Index = 0; ItemsLeft > 0; ++Index)
+			{
+				if (MapValuePtr->IsValidIndex(Index))
+				{
+					--ItemsLeft;
+
+					uint8* Data = (uint8*)MapValuePtr->GetData(Index, MapLayout);
+
+					ProcessProperty(MapProp->KeyProp, MapProp->KeyProp->ContainerPtrToValuePtr<uint8>(Data));
+					ProcessProperty(MapProp->ValueProp, MapProp->ValueProp->ContainerPtrToValuePtr<uint8>(Data));
+				}
 			}
 
 			bResult = true;
@@ -1268,10 +1501,31 @@ bool FPropertyNode::GetDiffersFromDefaultForObject( FPropertyItemValueDataTracke
 		// Check the property against its default.
 		// If the property is an object property, we have to take special measures.
 		UArrayProperty* OuterArrayProperty = Cast<UArrayProperty>(InProperty->GetOuter());
+		USetProperty* OuterSetProperty = Cast<USetProperty>(InProperty->GetOuter());
+		UMapProperty* OuterMapProperty = Cast<UMapProperty>(InProperty->GetOuter());
+
 		if ( OuterArrayProperty != NULL )
 		{
 			// make sure we're not trying to compare against an element that doesn't exist
 			if ( ValueTracker.GetPropertyDefaultBaseAddress() != NULL && GetArrayIndex() >= FScriptArrayHelper::Num(ValueTracker.GetPropertyDefaultBaseAddress()) )
+			{
+				bDiffersFromDefaultForObject = true;
+			}
+		}
+		else if (OuterSetProperty != NULL)
+		{
+			FScriptSetHelper SetHelper(OuterSetProperty, ValueTracker.GetPropertyDefaultBaseAddress());
+
+			if ( ValueTracker.GetPropertyDefaultBaseAddress() != NULL && !SetHelper.IsValidIndex(GetArrayIndex()) )
+			{
+				bDiffersFromDefaultForObject = true;
+			}
+		}
+		else if (OuterMapProperty != NULL)
+		{
+			FScriptMapHelper MapHelper(OuterMapProperty, ValueTracker.GetPropertyDefaultBaseAddress());
+
+			if ( ValueTracker.GetPropertyDefaultBaseAddress() != NULL && !MapHelper.IsValidIndex(GetArrayIndex()) )
 			{
 				bDiffersFromDefaultForObject = true;
 			}
@@ -1383,6 +1637,9 @@ FString FPropertyNode::GetDefaultValueAsStringForObject( FPropertyItemValueDataT
 			// Check the property against its default.
 			// If the property is an object property, we have to take special measures.
 			UArrayProperty* OuterArrayProperty = Cast<UArrayProperty>(InProperty->GetOuter());
+			USetProperty* OuterSetProperty = Cast<USetProperty>(InProperty->GetOuter());
+			UMapProperty* OuterMapProperty = Cast<UMapProperty>(InProperty->GetOuter());
+
 			if ( OuterArrayProperty != NULL )
 			{
 				// make sure we're not trying to compare against an element that doesn't exist
@@ -1414,9 +1671,12 @@ FString FPropertyNode::GetDefaultValueAsStringForObject( FPropertyItemValueDataT
 
 				if ( ValueTracker.GetPropertyValueAddress() == NULL || ValueTracker.GetPropertyDefaultAddress() == NULL )
 				{
+					if ( !OuterSetProperty && !OuterMapProperty )
+					{
 					// if either are NULL, we had a dynamic array somewhere in our parent chain and the array doesn't
 					// have enough elements in either the default or the object
 					DefaultValue = NSLOCTEXT("PropertyEditor", "DifferentArrayLength", "Array has different length than the default.").ToString();
+				}
 				}
 				else if ( GetArrayIndex() == INDEX_NONE && InProperty->ArrayDim > 1 )
 				{
@@ -1436,10 +1696,19 @@ FString FPropertyNode::GetDefaultValueAsStringForObject( FPropertyItemValueDataT
 				{
 					InProperty->ExportTextItem( DefaultValue, ValueTracker.GetPropertyDefaultAddress(), ValueTracker.GetPropertyDefaultAddress(), InObject, PortFlags, NULL );
 
-					UByteProperty* ByteProperty = Cast<UByteProperty>(InProperty);
-					if ( ByteProperty != NULL && ByteProperty->Enum != NULL )
+					UEnum* Enum = nullptr;
+					if (UByteProperty* ByteProperty = Cast<UByteProperty>(InProperty))
 					{
-						AdjustEnumPropDisplayName(ByteProperty->Enum, DefaultValue);
+						Enum = ByteProperty->Enum;
+					}
+					else if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(InProperty))
+					{
+						Enum = EnumProperty->GetEnum();
+					}
+
+					if ( Enum )
+					{
+						AdjustEnumPropDisplayName(Enum, DefaultValue);
 					}
 				}
 			}
@@ -1464,7 +1733,7 @@ FString FPropertyNode::GetDefaultValueAsString()
 			if( Object && ValueTracker.IsValid() )
 			{
 				FString NodeDefaultValue = GetDefaultValueAsStringForObject( *ValueTracker, Object, Property.Get() );
-				if ( DefaultValue.Len() > 0 && NodeDefaultValue.Len() )
+				if ( DefaultValue.Len() > 0 && NodeDefaultValue.Len() > 0)
 				{
 					DefaultValue += TEXT(", ");
 				}
@@ -1542,6 +1811,55 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 						bIsGameWorld = true;
 					}
 
+					FPropertyNode* ParentPropertyNode = GetParentNode();
+					UProperty* ParentProperty = ParentPropertyNode != nullptr ? ParentPropertyNode->GetProperty() : nullptr;
+
+					// If we're about to modify an element in a set, check to ensure that we're not duplicating a default value
+					if (Cast<USetProperty>(ParentProperty) != nullptr)
+					{
+						FScriptSetHelper SetHelper(Cast<USetProperty>(ParentProperty), ParentPropertyNode->GetValueBaseAddress((uint8*)Object));
+						FDefaultConstructedPropertyElement DefaultElementValue(SetHelper.ElementProp);
+
+						int32 ThisElementIndex = SetHelper.FindElementIndex(TheProperty->ContainerPtrToValuePtr<uint8>(ValueTrackerPtr->GetPropertyValueAddress()));
+						int32 DefaultIndex = SetHelper.FindElementIndex(DefaultElementValue.GetObjAddress());
+
+						if (DefaultIndex != INDEX_NONE && ThisElementIndex != DefaultIndex)
+						{
+							FNotificationInfo ResetToDefaultErrorInfo = LOCTEXT("SetElementResetToDefault_Duplicate", "Cannot reset the element back to its default value because the default already exists in the set");
+							ResetToDefaultErrorInfo.ExpireDuration = 3.0f;
+							FSlateNotificationManager::Get().AddNotification(ResetToDefaultErrorInfo);
+							return;
+						}
+					}
+
+					// If we're about to modify a map, ensure that the default key value is not duplicated
+					if (Cast<UMapProperty>(ParentProperty) != nullptr)
+					{
+						if (PropertyKeyNode.IsValid())
+						{
+							// This is the value node; it should always be reset to default. The key node should be checked separately.
+							PropertyKeyNode->ResetToDefault( InNotifyHook );
+						}
+						else
+						{
+							// Key node, so perform the default check here
+							FScriptMapHelper MapHelper(Cast<UMapProperty>(ParentProperty), ParentPropertyNode->GetValueBaseAddress((uint8*)Object));
+							FDefaultConstructedPropertyElement DefaultKeyValue(MapHelper.KeyProp);
+
+							uint8* PairPtr = MapHelper.GetPairPtr(ArrayIndex);
+							int32 ThisKeyIndex = MapHelper.FindMapIndexWithKey(TheProperty->ContainerPtrToValuePtr<uint8>(ValueTrackerPtr->GetPropertyValueAddress()));
+							int32 DefaultIndex = MapHelper.FindMapIndexWithKey(DefaultKeyValue.GetObjAddress());
+
+							if (DefaultIndex != INDEX_NONE && ThisKeyIndex != DefaultIndex)
+							{
+								FNotificationInfo ResetToDefaultErrorInfo = LOCTEXT("MapKeyResetToDefault_Duplicate", "Cannot reset the key back to its default value because the default already exists in the map");
+								ResetToDefaultErrorInfo.ExpireDuration = 3.0f;
+								FSlateNotificationManager::Get().AddNotification(ResetToDefaultErrorInfo);
+								return;
+							}
+						}
+					}
+
 					if( !bNotifiedPreChange )
 					{
 						// Call preedit change on all the objects
@@ -1565,10 +1883,9 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 						// dynamic arrays are the only property type that do not support CopySingleValue correctly due to the fact that they cannot
 						// be used in a static array
 
-						FPropertyNode* ParentPropertyNode = GetParentNode();
-						if(ParentPropertyNode != NULL && ParentPropertyNode->GetProperty() && ParentPropertyNode->GetProperty()->IsA(UArrayProperty::StaticClass()))
+						if(Cast<UArrayProperty>(ParentProperty) != nullptr)
 						{
-							UArrayProperty* ArrayProp = Cast<UArrayProperty>(ParentPropertyNode->GetProperty());
+							UArrayProperty* ArrayProp = Cast<UArrayProperty>(ParentProperty);
 							if(ArrayProp->Inner == TheProperty)
 							{
 								uint8* Addr = ParentPropertyNode->GetValueBaseAddress((uint8*)Object);
@@ -2063,7 +2380,7 @@ void FPropertyNode::NotifyPostChange( FPropertyChangedEvent& InPropertyChangedEv
 	}
 
 
-	if( ObjectNode && OriginalActiveProperty )
+	if( OriginalActiveProperty )
 	{
 		//if i have metadata forcing other property windows to rebuild
 		FString MetaData = OriginalActiveProperty->GetMetaData(TEXT("ForceRebuildProperty"));
@@ -2086,6 +2403,9 @@ void FPropertyNode::NotifyPostChange( FPropertyChangedEvent& InPropertyChangedEv
 	// The value has changed so the cached value could be invalid
 	// Need to recurse here as we might be editing a struct with child properties that need re-caching
 	ClearCachedReadAddresses(true);
+
+	// Redraw viewports
+	FEditorSupportDelegates::RedrawAllViewports.Broadcast();
 }
 
 
@@ -2272,21 +2592,31 @@ void FPropertyNode::AdditionalInitializationUDS(UProperty* Property, uint8* RawP
 	}
 }
 
-void FPropertyNode::PropagateArrayPropertyChange( UObject* ModifiedObject, const FString& OriginalArrayContent, EPropertyArrayChangeType::Type ChangeType, int32 Index )
+void FPropertyNode::PropagateContainerPropertyChange( UObject* ModifiedObject, const FString& OriginalContainerContent, EPropertyArrayChangeType::Type ChangeType, int32 Index )
 {
 	UProperty* NodeProperty = GetProperty();
 	UArrayProperty* ArrayProperty = NULL;
+	USetProperty* SetProperty = NULL;
+	UMapProperty* MapProperty = NULL;
 
 	FPropertyNode* ParentPropertyNode = GetParentNode();
 	
+	UProperty* ConvertedProperty = NULL;
+
 	if (ChangeType == EPropertyArrayChangeType::Add || ChangeType == EPropertyArrayChangeType::Clear)
 	{
-		ArrayProperty = CastChecked<UArrayProperty>(NodeProperty);
+		ConvertedProperty = NodeProperty;
 	}
 	else
 	{
-		ArrayProperty = CastChecked<UArrayProperty>(NodeProperty->GetOuter());
+		ConvertedProperty = Cast<UProperty>(NodeProperty->GetOuter());
 	}
+
+	ArrayProperty = Cast<UArrayProperty>(ConvertedProperty);
+	SetProperty = Cast<USetProperty>(ConvertedProperty);
+	MapProperty = Cast<UMapProperty>(ConvertedProperty);
+
+	check(ArrayProperty || SetProperty || MapProperty);
 
 	TArray<UObject*> ArchetypeInstances, ObjectsToChange;
 	FPropertyNode* SubobjectPropertyNode = NULL;
@@ -2344,17 +2674,17 @@ void FPropertyNode::PropagateArrayPropertyChange( UObject* ModifiedObject, const
 				Addr = ParentPropertyNode->GetValueBaseAddress((uint8*)ActualObjToChange);
 			}
 
-			if (Addr != NULL)
+			FString OriginalContent;
+			ConvertedProperty->ExportText_Direct(OriginalContent, Addr, Addr, NULL, PPF_Localized);
+
+			bool bIsDefaultContainerContent = OriginalContent == OriginalContainerContent;
+
+			if (Addr != NULL && ArrayProperty)
 			{
 				FScriptArrayHelper ArrayHelper(ArrayProperty, Addr);
 
-				FString ArrayContent;
-
-				ArrayProperty->ExportText_Direct(ArrayContent, Addr, Addr, NULL, PPF_Localized);
-				bool bIsDefault = ArrayContent == OriginalArrayContent;
-
 				// Check if the original value was the default value and change it only then
-				if (bIsDefault)
+				if (bIsDefaultContainerContent)
 				{
 					int32 ElementToInitialize = -1;
 					switch (ChangeType)
@@ -2384,7 +2714,81 @@ void FPropertyNode::PropagateArrayPropertyChange( UObject* ModifiedObject, const
 						AdditionalInitializationUDS(ArrayProperty->Inner, ArrayHelper.GetRawPtr(ElementToInitialize));
 					}
 				}
+			}	// End Array
+
+			else if ( Addr != NULL && SetProperty )
+			{
+				FScriptSetHelper SetHelper(SetProperty, Addr);
+
+				// Check if the original value was the default value and change it only then
+				if (bIsDefaultContainerContent)
+				{
+					int32 ElementToInitialize = -1;
+					switch (ChangeType)
+					{
+					case EPropertyArrayChangeType::Add:
+						ElementToInitialize = SetHelper.AddDefaultValue_Invalid_NeedsRehash();
+						SetHelper.Rehash();
+						break;
+					case EPropertyArrayChangeType::Clear:
+						SetHelper.EmptyElements();
+						break;
+					case EPropertyArrayChangeType::Insert:
+						check(false);	// Insert is not supported for sets
+						break;
+					case EPropertyArrayChangeType::Delete:
+						SetHelper.RemoveAt(ArrayIndex);
+						SetHelper.Rehash();
+						break;
+					case EPropertyArrayChangeType::Duplicate:
+						check(false);	// Duplicate not supported on sets
+						break;
 			}
+
+					if (ElementToInitialize >= 0)
+					{
+						AdditionalInitializationUDS(SetProperty->ElementProp, SetHelper.GetElementPtr(ElementToInitialize));
+					}
+				}
+			}	// End Set
+			else if (Addr != NULL && MapProperty)
+			{
+				FScriptMapHelper MapHelper(MapProperty, Addr);
+
+				// Check if the original value was the default value and change it only then
+				if (bIsDefaultContainerContent)
+				{
+					int32 ElementToInitialize = -1;
+					switch (ChangeType)
+					{
+					case EPropertyArrayChangeType::Add:
+						ElementToInitialize = MapHelper.AddDefaultValue_Invalid_NeedsRehash();
+						MapHelper.Rehash();
+						break;
+					case EPropertyArrayChangeType::Clear:
+						MapHelper.EmptyValues();
+						break;
+					case EPropertyArrayChangeType::Insert:
+						check(false);	// Insert is not supported for maps
+						break;
+					case EPropertyArrayChangeType::Delete:
+						MapHelper.RemoveAt(ArrayIndex);
+						MapHelper.Rehash();
+						break;
+					case EPropertyArrayChangeType::Duplicate:
+						check(false);	// Duplicate is not supported for maps
+						break;
+					}
+
+					if (ElementToInitialize >= 0)
+					{
+						uint8* PairPtr = MapHelper.GetPairPtr(ElementToInitialize);
+
+						AdditionalInitializationUDS(MapProperty->KeyProp, MapProperty->KeyProp->ContainerPtrToValuePtr<uint8>(PairPtr));
+						AdditionalInitializationUDS(MapProperty->ValueProp, MapProperty->ValueProp->ContainerPtrToValuePtr<uint8>(PairPtr));
+					}
+				}
+			}	// End Map
 		}
 
 		for (int32 i=0; i < ArchetypeInstances.Num(); ++i)
@@ -2432,13 +2836,23 @@ void FPropertyNode::PropagatePropertyChange( UObject* ModifiedObject, const TCHA
 	FPropertyNode*  Parent          = GetParentNode();
 	UProperty*      ParentProp      = Parent->GetProperty();
 	UArrayProperty* ParentArrayProp = Cast<UArrayProperty>(ParentProp);
+	UMapProperty*   ParentMapProp   = Cast<UMapProperty>(ParentProp);
+	USetProperty*	ParentSetProp	= Cast<USetProperty>(ParentProp);
 	UProperty*      Prop            = GetProperty();
-	UMapProperty*   MapProp         = Cast<UMapProperty>(Prop);
-	USetProperty*	SetProp			= Cast<USetProperty>(Prop);
 
-	if (ParentArrayProp != nullptr && ParentArrayProp->Inner != Prop)
+	if (ParentArrayProp && ParentArrayProp->Inner != Prop)
 	{
 		ParentArrayProp = nullptr;
+	}
+
+	if (ParentMapProp && ParentMapProp->KeyProp != Prop && ParentMapProp->ValueProp != Prop)
+	{
+		ParentMapProp = nullptr;
+	}
+
+	if (ParentSetProp && ParentSetProp->ElementProp != Prop)
+	{
+		ParentSetProp = nullptr;
 	}
 
 	ObjectsToChange.Push(Object);
@@ -2465,174 +2879,48 @@ void FPropertyNode::PropagatePropertyChange( UObject* ModifiedObject, const TCHA
 
 		if (ActualObjToChange != ModifiedObject)
 		{
-			FString OrgValue;
-
-			uint8* Addr = GetValueBaseAddress( (uint8*)ActualObjToChange );
-			if (Addr != nullptr)
+			uint8* DestSimplePropAddr = GetValueBaseAddress( (uint8*)ActualObjToChange );
+			if (DestSimplePropAddr != nullptr)
 			{
-				class FMemoryWriterWithObjects : public FArchive
+				UProperty* ComplexProperty = Prop;
+				FPropertyNode* ComplexPropertyNode = this;
+				if (ParentArrayProp || ParentMapProp || ParentSetProp)
 				{
-				public:
-					explicit FMemoryWriterWithObjects(TArray<uint8>& InArray)
-						: Array(InArray)
-						, Offset(0)
-					{
-						ArIsSaving = true;
-					}
-
-					virtual FArchive& operator<<(FName&                 Val) override { this->Serialize(&Val, sizeof(Val)); return *this; }
-					virtual FArchive& operator<<(UObject*&              Val) override { this->Serialize(&Val, sizeof(Val)); return *this; }
-					virtual FArchive& operator<<(FLazyObjectPtr&        Val) override { this->Serialize(&Val, sizeof(Val)); return *this; }
-					virtual FArchive& operator<<(FAssetPtr&             Val) override { this->Serialize(&Val, sizeof(Val)); return *this; }
-					virtual FArchive& operator<<(FStringAssetReference& Val) override { this->Serialize(&Val, sizeof(Val)); return *this; }
-
-					void Serialize(void* Data, int64 Num)
-					{
-						const int64 NumBytesToAdd = Offset + Num - Array.Num();
-						if( NumBytesToAdd > 0 )
-						{
-							const int64 NewArrayCount = Array.Num() + NumBytesToAdd;
-							if( NewArrayCount >= MAX_int32 )
-							{
-								UE_LOG( LogSerialization, Fatal, TEXT( "FMemoryWriterWithObjects does not support data larger than 2GB." ));
-							}
-
-							Array.AddUninitialized( (int32)NumBytesToAdd );
-						}
-
-						check((Offset + Num) <= Array.Num());
-
-						if( Num )
-						{
-							FMemory::Memcpy( &Array[Offset], Data, Num );
-							Offset+=Num;
-						}
-					}
-
-				protected:
-					TArray<uint8>& Array;
-					int64 Offset;
-				};
-
-				class FMemoryReaderWithObjects : public FArchive
-				{
-				public:
-					explicit FMemoryReaderWithObjects(const TArray<uint8>& InArray)
-						: Array(InArray)
-						, Offset(0)
-					{
-						ArIsLoading = true;
-					}
-
-					virtual FArchive& operator<<(FName&                 Val) override { this->Serialize(&Val, sizeof(Val)); return *this; }
-					virtual FArchive& operator<<(UObject*&              Val) override { this->Serialize(&Val, sizeof(Val)); return *this; }
-					virtual FArchive& operator<<(FLazyObjectPtr&        Val) override { this->Serialize(&Val, sizeof(Val)); return *this; }
-					virtual FArchive& operator<<(FAssetPtr&             Val) override { this->Serialize(&Val, sizeof(Val)); return *this; }
-					virtual FArchive& operator<<(FStringAssetReference& Val) override { this->Serialize(&Val, sizeof(Val)); return *this; }
-
-					void Serialize(void* Data, int64 Num)
-					{
-						if (Num && !ArIsError)
-						{
-							// Only serialize if we have the requested amount of data
-							if (Offset + Num <= TotalSize())
-							{
-								FMemory::Memcpy( Data, &Array[Offset], Num );
-								Offset += Num;
-							}
-							else
-							{
-								ArIsError = true;
-							}
-						}
-					}
-
-				protected:
-					const TArray<uint8>& Array;
-					int64 Offset;
-				};
-
-				if (MapProp != nullptr)
-				{
-					// Read previous value back into object
-					uint8* PreviousMap = (uint8*)FMemory::Malloc(MapProp->GetSize(), MapProp->GetMinAlignment());
-					ON_SCOPE_EXIT
-					{
-						FMemory::Free(PreviousMap);
-					};
-
-					MapProp->InitializeValue(PreviousMap);
-					ON_SCOPE_EXIT
-					{
-						MapProp->DestroyValue(PreviousMap);
-					};
-
-					MapProp->ImportText(*PreviousValue, PreviousMap, PPF_Localized, ModifiedObject);
-
-					uint8* ModifiedObjectAddr = GetValueBaseAddress( (uint8*)ModifiedObject );
-
-					// Serialize differences from the 'default' (the old object)
-					TArray<uint8> Data;
-					{
-						FMemoryWriterWithObjects Ar(Data);
-						MapProp->SerializeItem(Ar, Addr, PreviousMap);
-					}
-
-					// Deserialize differences back over the new object
-					{
-						FMemoryReaderWithObjects Ar(Data);
-						MapProp->SerializeItem(Ar, Addr, ModifiedObjectAddr);
-					}
+					ComplexProperty = ParentProp;
+					ComplexPropertyNode = ParentNode;
 				}
-				else if (SetProp != nullptr)
+				
+				uint8* DestComplexPropAddr = ComplexPropertyNode->GetValueBaseAddress((uint8*)ActualObjToChange);
+				uint8* ModifiedComplexPropAddr = ComplexPropertyNode->GetValueBaseAddress((uint8*)ModifiedObject);
+
+				bool bShouldImport = false;
 				{
-					// Read previous value back into object
-					uint8* PreviousSet = (uint8*)FMemory::Malloc(SetProp->GetSize(), SetProp->GetMinAlignment());
+					uint8* TempComplexPropAddr = (uint8*)FMemory::Malloc(ComplexProperty->GetSize(), ComplexProperty->GetMinAlignment());
 					ON_SCOPE_EXIT
 					{
-						FMemory::Free(PreviousSet);
+						FMemory::Free(TempComplexPropAddr);
 					};
 
-					SetProp->InitializeValue(PreviousSet);
+					ComplexProperty->InitializeValue(TempComplexPropAddr);
 					ON_SCOPE_EXIT
 					{
-						SetProp->DestroyValue(PreviousSet);
+						ComplexProperty->DestroyValue(TempComplexPropAddr);
 					};
 
-					SetProp->ImportText(*PreviousValue, PreviousSet, PPF_Localized, ModifiedObject);
-
-					uint8* ModifiedObjectAddr = GetValueBaseAddress( (uint8*)ModifiedObject );
-
-					// Serialize differences from the 'default' (the old object)
-					TArray<uint8> Data;
-					{
-						FMemoryWriterWithObjects Ar(Data);
-						SetProp->SerializeItem(Ar, Addr, PreviousSet);
-					}
-
-					// Deserialize differences back over the new object
-					{
-						FMemoryReaderWithObjects Ar(Data);
-						SetProp->SerializeItem(Ar, Addr, ModifiedObjectAddr);
-					}
+					// Importing the previous value into the temporary property can potentially affect shared state (such as FText display string values), so we back-up the current value 
+					// before we do this, so that we can restore it once we've checked whether the two properties are identical
+					// This ensures that shared state keeps the correct value, even if the destination property itself isn't imported (or only partly imported, as is the case with arrays/maps/sets)
+					FString CurrentValue;
+					ComplexProperty->ExportText_Direct(CurrentValue, ModifiedComplexPropAddr, nullptr, ModifiedObject, PPF_None);
+					ComplexProperty->ImportText(*PreviousValue, TempComplexPropAddr, PPF_None, ModifiedObject);
+					bShouldImport = ComplexProperty->Identical(DestComplexPropAddr, TempComplexPropAddr, PPF_None);
+					ComplexProperty->ImportText(*CurrentValue, TempComplexPropAddr, PPF_None, ModifiedObject);
 				}
-				else
-				{
-					if (ParentArrayProp != nullptr)
-					{
-						uint8* ArrayAddr = ParentNode->GetValueBaseAddress( (uint8*)ActualObjToChange );
-						ParentArrayProp->ExportText_Direct(OrgValue, ArrayAddr, ArrayAddr, nullptr, PPF_Localized );
-					}
-					else
-					{
-						Prop->ExportText_Direct(OrgValue, Addr, Addr, nullptr, PPF_Localized );
-					}
 
-					// Check if the original value was the default value and change it only then
-					if (OrgValue == PreviousValue)
-					{
-						Prop->ImportText( NewValue, Addr, PPF_Localized, ActualObjToChange );
-					}
+				// Only import if the value matches the previous value of the property that changed
+				if (bShouldImport)
+				{
+					Prop->ImportText(NewValue, DestSimplePropAddr, PPF_None, ActualObjToChange);
 				}
 			}
 		}
@@ -2707,3 +2995,5 @@ bool FPropertyNode::GenerateRestrictionToolTip(const FString& Value, FText& OutT
 	}
 	return bRestricted;
 }
+
+#undef LOCTEXT_NAMESPACE

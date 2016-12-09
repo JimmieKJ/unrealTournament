@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "BuildPatchServicesPrivatePCH.h"
+#include "Generation/ManifestBuilder.h"
 
-#include "ManifestBuilder.h"
-#include "BuildStreamer.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogManifestBuilder, Log, All);
 DEFINE_LOG_CATEGORY(LogManifestBuilder);
@@ -11,17 +9,19 @@ namespace BuildPatchServices
 {
 	struct FFileBlock
 	{
-		FGuid ChunkGuid;
-		uint64 FileOffset;
-		uint64 ChunkOffset;
-		uint64 Size;
-
+	public:
 		FFileBlock(FGuid InChunkGuid, uint64 InFileOffset, uint64 InChunkOffset, uint64 InSize)
 			: ChunkGuid(InChunkGuid)
 			, FileOffset(InFileOffset)
 			, ChunkOffset(InChunkOffset)
 			, Size(InSize)
 		{}
+
+	public:
+		FGuid ChunkGuid;
+		uint64 FileOffset;
+		uint64 ChunkOffset;
+		uint64 Size;
 	};
 
 	class FManifestBuilder
@@ -49,15 +49,15 @@ namespace BuildPatchServices
 		: Manifest(MakeShareable(new FBuildPatchAppManifest()))
 		, FileAttributesMap(InDetails.FileAttributesMap)
 	{
-		Manifest->Data->bIsFileData = false;
-		Manifest->Data->AppID = InDetails.AppId;
-		Manifest->Data->AppName = InDetails.AppName;
-		Manifest->Data->BuildVersion = InDetails.BuildVersion;
-		Manifest->Data->LaunchExe = InDetails.LaunchExe;
-		Manifest->Data->LaunchCommand = InDetails.LaunchCommand;
-		Manifest->Data->PrereqName = InDetails.PrereqName;
-		Manifest->Data->PrereqPath = InDetails.PrereqPath;
-		Manifest->Data->PrereqArgs = InDetails.PrereqArgs;
+		Manifest->bIsFileData = false;
+		Manifest->AppID = InDetails.AppId;
+		Manifest->AppName = InDetails.AppName;
+		Manifest->BuildVersion = InDetails.BuildVersion;
+		Manifest->LaunchExe = InDetails.LaunchExe;
+		Manifest->LaunchCommand = InDetails.LaunchCommand;
+		Manifest->PrereqName = InDetails.PrereqName;
+		Manifest->PrereqPath = InDetails.PrereqPath;
+		Manifest->PrereqArgs = InDetails.PrereqArgs;
 		for (const auto& CustomField : InDetails.CustomFields)
 		{
 			int32 VarType = CustomField.Value.GetType();
@@ -89,18 +89,19 @@ namespace BuildPatchServices
 		BuildStructureAdded.Add(Structure);
 		// Add match to map. One chunk can have multiple matches.
 		AllMatches.FindOrAdd(ChunkGuid).Add(Structure);
+		UE_LOG(LogManifestBuilder, Verbose, TEXT("Match added for chunk %s."), *ChunkGuid.ToString());
 	}
 
 	bool FManifestBuilder::FinalizeData(const TArray<FFileSpan>& FileSpans, TArray<FChunkInfoData> ChunkInfo)
 	{
 		// Keep track of referenced chunks so we can trim the list down.
 		TSet<FGuid> ReferencedChunks;
-		// For each file create it's manifest.
+		// For each file create its manifest.
 		for (const FFileSpan& FileSpan : FileSpans)
 		{
 			FFileAttributes FileAttributes = FileAttributesMap.FindRef(FileSpan.Filename);
-			Manifest->Data->FileManifestList.AddDefaulted();
-			FFileManifestData& FileManifest = Manifest->Data->FileManifestList.Last();
+			Manifest->FileManifestList.AddDefaulted();
+			FFileManifestData& FileManifest = Manifest->FileManifestList.Last();
 			FileManifest.Filename = FileSpan.Filename;
 			FMemory::Memcpy(FileManifest.FileHash.Hash, FileSpan.SHAHash.Hash, FSHA1::DigestSize);
 			FileManifest.InstallTags = FileAttributes.InstallTags.Array();
@@ -115,10 +116,10 @@ namespace BuildPatchServices
 		UE_LOG(LogManifestBuilder, Verbose, TEXT("Manifest references %d chunks."), ReferencedChunks.Num());
 
 		// Setup chunk list, removing all that were not referenced.
-		Manifest->Data->ChunkList = MoveTemp(ChunkInfo);
-		int32 TotalChunkListNum = Manifest->Data->ChunkList.Num();
-		Manifest->Data->ChunkList.RemoveAll([&](FChunkInfoData& Candidate){ return ReferencedChunks.Contains(Candidate.Guid) == false; });
-		UE_LOG(LogManifestBuilder, Verbose, TEXT("Chunk info list trimmed from %d to %d."), TotalChunkListNum, Manifest->Data->ChunkList.Num());
+		Manifest->ChunkList = MoveTemp(ChunkInfo);
+		int32 TotalChunkListNum = Manifest->ChunkList.Num();
+		Manifest->ChunkList.RemoveAll([&](FChunkInfoData& Candidate){ return ReferencedChunks.Contains(Candidate.Guid) == false; });
+		UE_LOG(LogManifestBuilder, Verbose, TEXT("Chunk info list trimmed from %d to %d."), TotalChunkListNum, Manifest->ChunkList.Num());
 
 		// Init the manifest, and we are done.
 		Manifest->InitLookups();
@@ -162,7 +163,7 @@ namespace BuildPatchServices
 		checkf(BuildStructureAdded.GetHead()->GetSize() == Manifest->GetBuildSize(), TEXT("Build integrity check failed. Structure added is not the same size as the manifest data setup; did you call FinalizeData?"));
 
 		// Currently we only save out in JSON format
-		Manifest->Data->ManifestFileVersion = EBuildPatchAppManifestVersion::GetLatestJsonVersion();
+		Manifest->ManifestFileVersion = EBuildPatchAppManifestVersion::GetLatestJsonVersion();
 		return Manifest->SaveToFile(Filename, false);
 	}
 

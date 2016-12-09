@@ -1,14 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MatineeModule.h"
+#include "MatineeViewportClient.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "MatineeHitProxy.h"
+#include "MatineeOptions.h"
+#include "MatineeTransBuffer.h"
+#include "Editor.h"
+#include "Engine/InterpCurveEdSetup.h"
 #include "Matinee.h"
 
-#include "Runtime/Engine/Public/InterpolationHitProxy.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
+#include "InterpolationHitProxy.h"
 #include "Matinee/MatineeActor.h"
 #include "Matinee/InterpTrackMove.h"
 #include "Matinee/InterpTrackEvent.h"
-#include "Engine/InterpCurveEdSetup.h"
 
 /*-----------------------------------------------------------------------------
  FMatineeViewportClient

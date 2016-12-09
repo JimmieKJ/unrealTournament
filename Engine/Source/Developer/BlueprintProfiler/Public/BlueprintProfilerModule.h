@@ -2,7 +2,15 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class FBlueprintExecutionContext;
+class FScriptExecutionBlueprint;
+class FScriptExecutionNode;
+class UBlueprint;
+class UEdGraphNode;
+struct FScriptInstrumentationSignal;
 
 /** Delegate to broadcast structural stats changes */
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnBPStatGraphLayoutChanged, TWeakObjectPtr<UBlueprint>);
@@ -35,7 +43,10 @@ public:
 	virtual FOnBPStatGraphLayoutChanged& GetGraphLayoutChangedDelegate() = 0;
 
 	/** Returns the cached blueprint context or creates and maps a new entry */
-	virtual TSharedPtr<class FBlueprintExecutionContext> GetBlueprintContext(const FString& BlueprintClassPath) = 0;
+	virtual TSharedPtr<class FBlueprintExecutionContext> GetOrCreateBlueprintContext(const FString& BlueprintClassPath) = 0;
+
+	/** Returns the cached blueprint context if existing */
+	virtual TSharedPtr<class FBlueprintExecutionContext> FindBlueprintContext(const FString& BlueprintClassPath) = 0;
 
 	/** Returns the current profiling event data for node */
 	virtual TSharedPtr<class FScriptExecutionNode> GetProfilerDataForNode(const UEdGraphNode* GraphNode) = 0;
@@ -48,6 +59,12 @@ public:
 
 	/** Process profiling event data */
 	virtual void ProcessEventProfilingData() {}
+
+	/** Associate utility contexts with the argument blueprint context */
+	virtual void AssociateUtilityContexts(TSharedPtr<FBlueprintExecutionContext> TargetContext) {}
+
+	/** Remove associated utility contexts for the argument blueprint context */
+	virtual void RemoveUtilityContexts(TSharedPtr<FBlueprintExecutionContext> TargetContext) {}
 
 #endif // WITH_EDITOR
 

@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ITreeItem.h"
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SWidget.h"
 #include "TreeItemID.h"
+#include "UnrealClient.h"
+#include "Engine/LODActor.h"
+#include "Editor/HierarchicalLODOutliner/Private/ITreeItem.h"
 
-class ALODActor;
-class AActor;
+class FMenuBuilder;
 
 namespace HLODOutliner
 {

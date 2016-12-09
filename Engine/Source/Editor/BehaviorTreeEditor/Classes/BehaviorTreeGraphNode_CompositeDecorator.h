@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BehaviorTreeGraphNode.h"
 #include "BehaviorTreeGraphNode_CompositeDecorator.generated.h"
+
+class UEdGraph;
 
 UCLASS()
 class UBehaviorTreeGraphNode_CompositeDecorator : public UBehaviorTreeGraphNode

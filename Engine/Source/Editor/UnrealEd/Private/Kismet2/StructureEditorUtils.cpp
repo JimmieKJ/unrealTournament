@@ -1,19 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "StructureEditorUtils.h"
-#include "ScopedTransaction.h"
-#include "Kismet2NameValidators.h"
-#include "Kismet2/BlueprintEditorUtils.h"
-#include "EdGraphSchema_K2.h"
-#include "ObjectTools.h"
-#include "Editor/UnrealEd/Public/Kismet2/CompilerResultsLog.h"
-#include "Editor/UnrealEd/Public/EditorModes.h"
-#include "Editor/KismetCompiler/Public/KismetCompilerModule.h"
-#include "Toolkits/AssetEditorManager.h"
-#include "Editor/DataTableEditor/Public/IDataTableEditor.h"
-#include "Engine/UserDefinedStruct.h"
+#include "Kismet2/StructureEditorUtils.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/CoreMisc.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UnrealType.h"
+#include "UObject/TextProperty.h"
+#include "Engine/Blueprint.h"
 #include "Engine/DataTable.h"
+#include "EdMode.h"
+#include "ScopedTransaction.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Editor/UnrealEd/Public/Kismet2/CompilerResultsLog.h"
+#include "Editor/KismetCompiler/Public/KismetCompilerModule.h"
 
 #define LOCTEXT_NAMESPACE "Structure"
 
@@ -807,15 +808,20 @@ bool FStructureEditorUtils::CanEnable3dWidget(const UUserDefinedStruct* Struct, 
 
 bool FStructureEditorUtils::Change3dWidgetEnabled(UUserDefinedStruct* Struct, FGuid VarGuid, bool bIsEnabled)
 {
-	auto VarDesc = GetVarDescByGuid(Struct, VarGuid);
-	const auto PropertyStruct = VarDesc ? Cast<const UStruct>(VarDesc->SubCategoryObject.Get()) : NULL;
+	FStructVariableDescription* VarDesc = GetVarDescByGuid(Struct, VarGuid);
+	if (!VarDesc)
+	{
+		return false;
+	}
+
+	const UStruct* PropertyStruct = Cast<const UStruct>(VarDesc->SubCategoryObject.Get());
 	if (FEdMode::CanCreateWidgetForStructure(PropertyStruct) && (VarDesc->bEnable3dWidget != bIsEnabled))
 	{
 		const FScopedTransaction Transaction(LOCTEXT("Change3dWidgetEnabled", "Change 3d Widget Enabled"));
 		ModifyStructData(Struct);
 
 		VarDesc->bEnable3dWidget = bIsEnabled;
-		auto Property = FindField<UProperty>(Struct, VarDesc->VarName);
+		UProperty* Property = FindField<UProperty>(Struct, VarDesc->VarName);
 		if (Property)
 		{
 			if (VarDesc->bEnable3dWidget)

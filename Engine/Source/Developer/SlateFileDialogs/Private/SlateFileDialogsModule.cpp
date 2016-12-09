@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateFileDialogsPrivatePCH.h"
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "SlateFileDialogs.h"
-#include "SlateFileDlgWindow.h"
 #include "SlateFileDialogsStyles.h"
+#include "SlateFileDlgWindow.h"
 
 void FSlateFileDialogsModule::StartupModule()
 {

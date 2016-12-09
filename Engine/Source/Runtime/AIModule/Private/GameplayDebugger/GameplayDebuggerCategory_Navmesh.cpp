@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "GameplayDebuggerCategory_Navmesh.h"
+#include "GameplayDebugger/GameplayDebuggerCategory_Navmesh.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "GameFramework/PlayerController.h"
+#include "AI/Navigation/RecastNavMesh.h"
 
 #if WITH_GAMEPLAY_DEBUGGER
 
@@ -30,8 +32,11 @@ void FGameplayDebuggerCategory_Navmesh::CollectData(APlayerController* OwnerPC, 
 	if (OwnerPC && DestPawn)
 	{
 		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(OwnerPC->GetWorld());
-		const FNavAgentProperties& NavAgentProperties = DestPawn->GetNavAgentPropertiesRef();
-		NavData = Cast<ARecastNavMesh>(NavSys->GetNavDataForProps(NavAgentProperties));
+		if (NavSys) 
+		{
+			const FNavAgentProperties& NavAgentProperties = DestPawn->GetNavAgentPropertiesRef();
+			NavData = Cast<ARecastNavMesh>(NavSys->GetNavDataForProps(NavAgentProperties));
+		}
 	}
 
 	if (NavData)
@@ -70,9 +75,15 @@ void FGameplayDebuggerCategory_Navmesh::OnDataPackReplicated(int32 DataPackId)
 	MarkRenderStateDirty();
 }
 
-FDebugRenderSceneProxy* FGameplayDebuggerCategory_Navmesh::CreateSceneProxy(const UPrimitiveComponent* InComponent)
+FDebugRenderSceneProxy* FGameplayDebuggerCategory_Navmesh::CreateDebugSceneProxy(const UPrimitiveComponent* InComponent, FDebugDrawDelegateHelper*& OutDelegateHelper)
 {
-	return new FNavMeshSceneProxy(InComponent, &NavmeshRenderData, true);
+	FNavMeshSceneProxy* NavMeshSceneProxy = new FNavMeshSceneProxy(InComponent, &NavmeshRenderData, true);
+
+	auto* OutDelegateHelper2 = new FNavMeshDebugDrawDelegateHelper();
+	OutDelegateHelper2->InitDelegateHelper(NavMeshSceneProxy);
+	OutDelegateHelper = OutDelegateHelper2;
+
+	return NavMeshSceneProxy;
 }
 
 #endif // WITH_GAMEPLAY_DEBUGGER

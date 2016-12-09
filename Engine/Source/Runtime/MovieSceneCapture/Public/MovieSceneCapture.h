@@ -2,17 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "IMovieSceneCaptureProtocol.h"
+#include "MovieSceneCaptureHandle.h"
 #include "MovieSceneCaptureSettings.h"
 #include "IMovieSceneCapture.h"
-#include "MovieSceneCaptureHandle.h"
-#include "MovieScene.h"
-#include "RenderingThread.h"
-#include "IMovieSceneCaptureProtocol.h"
 #include "MovieSceneCaptureProtocolRegistry.h"
-#include "MovieSceneCaptureProtocolSettings.h"
+#include "Scalability.h"
 #include "MovieSceneCapture.generated.h"
 
 class FJsonObject;
+class FSceneViewport;
 
 /** Structure used to cache various metrics for our capture */
 struct FCachedMetrics
@@ -183,6 +185,8 @@ protected:
 	FOnCaptureFinished OnCaptureFinishedDelegate;
 	/** Format string used for frame numbers */
 	FString FrameNumberFormat;
+	/** Cached quality levels */
+	Scalability::FQualityLevels CachedQualityLevels;
 };
 
 /** A strategy that employs a fixed frame time-step, and as such never drops a frame. Potentially accelerated. */

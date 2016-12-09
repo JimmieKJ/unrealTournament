@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ISourceControlOperation.h"
+#include "ISourceControlState.h"
 #include "ISourceControlProvider.h"
 #include "IPerforceSourceControlWorker.h"
 #include "PerforceSourceControlState.h"
+
+class FPerforceSourceControlCommand;
 
 DECLARE_DELEGATE_RetVal(FPerforceSourceControlWorkerRef, FGetPerforceSourceControlWorker)
 

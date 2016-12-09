@@ -6,9 +6,10 @@
 
 #pragma once
 
-#include "Engine.h"
-#include "SoundDefinitions.h"
+#include "CoreMinimal.h"
 #include "AudioEffect.h"
+#include "AudioDevice.h"
+#include "Sound/SoundWave.h"
 
 /*------------------------------------------------------------------------------------
 	Audio Framework system headers
@@ -26,7 +27,9 @@ DECLARE_LOG_CATEGORY_EXTERN(LogIOSAudio, Log, All);
 ------------------------------------------------------------------------------------*/
 
 #define CHANNELS_PER_BUS 2
+#define AudioCallbackFrameSize	(8 * 1024)	// This needs to be known ahead of time to allocate appropriate buffers
 
+struct FWaveInstance;
 class FIOSAudioDevice;
 class FIOSAudioEffectsManager;
 
@@ -37,36 +40,15 @@ enum ESoundFormat
 	SoundFormat_ADPCM
 };
 
-struct FAudioBuffer
-{
-	int16* StreamBuffer;
-	uint32 StreamReadCursor;
-	uint32 SampleReadCursor;
-
-	int32  Channel;
-	int32  ChannelLock;
-	bool   bFinished;
-	bool   bLooped;
-};
-
 /**
  * IOSAudio implementation of FSoundBuffer, containing the wave data and format information.
  */
 class FIOSAudioSoundBuffer : public FSoundBuffer
 {
 public:
-	FIOSAudioSoundBuffer(FIOSAudioDevice* InAudioDevice, ESoundFormat InSoundFormat);
+	FIOSAudioSoundBuffer(FIOSAudioDevice* InAudioDevice, USoundWave* InWave, bool InStreaming);
 	virtual ~FIOSAudioSoundBuffer(void);
 
-	/**
-	 * Static function used to create a IOSAudio buffer and upload decompressed ogg vorbis data to.
-	 *
-	 * @param Wave			USoundWave to use as template and wave source
-	 * @param AudioDevice	audio device to attach created buffer to
-	 * @return FIOSAudioSoundBuffer pointer if buffer creation succeeded, NULL otherwise
-	 */
-	static FIOSAudioSoundBuffer* CreateNativeBuffer(FIOSAudioDevice* InAudioDevice, USoundWave* InWave);
-	
 	/**
 	 * Static function used to create a buffer.
 	 *
@@ -82,15 +64,35 @@ public:
 	 * @return Size in bytes
 	 */
 	virtual int32 GetSize(void) override;
+	
+	// These are used by the streaming engine to manage loading/unloading of chunks
+	virtual int32 GetCurrentChunkIndex() const override;
+	virtual int32 GetCurrentChunkOffset() const override;
 
-	/** Format of the sound referenced by this buffer */
-	int32  SoundFormat;
-	/** Address of PCM data in physical memory */
-	int16* SampleData;
+	/**
+	* Read the compressed info (i.e. parse header and open up a file handle) from the given sound wave.
+	*/
+	virtual bool ReadCompressedInfo(USoundWave* SoundWave) override;
+
+	/**
+	 * Decompresses a chunk of compressed audio to the destination memory
+	 *
+	 * @param Destination		Memory to decompress to
+	 * @param bLooping			Whether to loop the sound seamlessly, or pad with zeroes
+	 * @return					Whether the sound looped or not
+	 */
+	virtual bool ReadCompressedData( uint8* Destination, bool bLooping ) override;
+	
+	
+	int32  RenderCallbackBufferSize;
 	int32  SampleRate;
-	uint32 CompressedBlockSize;
-	uint32 UncompressedBlockSize;
+	int32  SoundFormat;
+	int16* SampleData;
 	uint32 BufferSize;
+	
+	/** Wrapper to assist in the bookkeeping of uncompressed data when streaming */
+	class FADPCMAudioInfo*		DecompressionState;
+	bool	bStreaming;
 };
 
 /**
@@ -150,23 +152,23 @@ protected:
 	bool DetachFromAUGraph();
 
 	FIOSAudioDevice*      IOSAudioDevice;
+	
 	/** Cached sound buffer associated with currently bound wave instance. */
-	FIOSAudioSoundBuffer* Buffer;
-	/** A pair of sound buffers to allow notification when a sound loops. */
-	FAudioBuffer          StreamBufferStates[CHANNELS_PER_BUS];
-	uint32                StreamBufferSize;
+	/** Do not shadow the declaration of Buffer in the parent class since that member gets used by the streaming engine */
+	FIOSAudioSoundBuffer* IOSBuffer;
 	int32                 SampleRate;
 	uint32                BusNumber;
+	
+	int32	CallbackLock;
+	
+	bool	bChannel0Finished;
+	bool	bAllChannelsFinished;
 
 private:
-	void FreeResources();
 	
 	static OSStatus IOSAudioRenderCallback(void *InRefCon, AudioUnitRenderActionFlags *IOActionFlags,
 	                                       const AudioTimeStamp *InTimeStamp, UInt32 InBusNumber,
 	                                       UInt32 InNumberFrames, AudioBufferList *IOData);
-
-	OSStatus IOSAudioRenderCallbackADPCM(AudioSampleType* OutData, UInt32 NumFrames, UInt32& NumFramesWritten, UInt32 Channel);
-	OSStatus IOSAudioRenderCallbackLPCM (AudioSampleType* OutData, UInt32 NumFrames, UInt32& NumFramesWritten, UInt32 Channel);
 
 	friend class FIOSAudioDevice;
 };
@@ -223,6 +225,11 @@ protected:
 	virtual bool IsExernalBackgroundSoundActive() override;
 	
 private:
+
+	// Used to support adpcm streaming
+	virtual bool HasCompressedAudioInfoClass(USoundWave* SoundWave) override { return true; }
+	virtual class ICompressedAudioInfo* CreateCompressedAudioInfo(USoundWave* SoundWave) override;
+
 	void HandleError(const TCHAR* InLogOutput, bool bTeardown = false);
 
 	AudioStreamBasicDescription MixerFormat;

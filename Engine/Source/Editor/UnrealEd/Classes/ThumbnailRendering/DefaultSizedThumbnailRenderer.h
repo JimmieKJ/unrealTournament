@@ -6,6 +6,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ThumbnailRendering/ThumbnailRenderer.h"
 #include "DefaultSizedThumbnailRenderer.generated.h"
 
 UCLASS(abstract, config=Editor, MinimalAPI)

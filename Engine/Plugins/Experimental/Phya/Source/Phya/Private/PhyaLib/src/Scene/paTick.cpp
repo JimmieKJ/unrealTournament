@@ -4,7 +4,7 @@
 // Calculates one paBlock of audio output, for the whole scene,
 // and possibly calls output callbacks.
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 
 #include "System/paConfig.h"

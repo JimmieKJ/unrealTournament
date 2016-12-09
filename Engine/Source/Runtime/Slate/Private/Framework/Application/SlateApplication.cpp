@@ -1,20 +1,43 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "SlatePrivatePCH.h"
-#include "SWindowTitleBar.h"
-#include "HittestGrid.h"
-#include "SlateStats.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Rendering/SlateDrawBuffer.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/TimeGuard.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "InputCoreModule.h"
+#include "Layout/LayoutUtils.h"
+#include "Sound/ISlateSoundDevice.h"
+#include "Sound/NullSlateSoundDevice.h"
+#include "Framework/Text/PlatformTextField.h"
+#include "Framework/Application/NavigationConfig.h"
+#include "Widgets/SWeakWidget.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/SViewport.h"
+#include "Framework/Application/SWindowTitleBar.h"
+#include "Input/HittestGrid.h"
+#include "Stats/SlateStats.h"
 
-#include "IWidgetReflector.h"
-#include "GenericCommands.h"
-#include "NotificationManager.h"
-#include "IInputProcessor.h"
-#include "ITextInputMethodSystem.h"
+#include "Framework/Application/IWidgetReflector.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Framework/Application/IInputProcessor.h"
+#include "GenericPlatform/ITextInputMethodSystem.h"
 #include "ToolboxModule.h"
-#include "TabCommands.h"
+#include "Framework/Docking/TabCommands.h"
 
 #define SLATE_HAS_WIDGET_REFLECTOR !UE_BUILD_SHIPPING || PLATFORM_DESKTOP
+
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
 
 extern SLATECORE_API TOptional<FShortRect> GSlateScissorRect;
 
@@ -764,11 +787,18 @@ void FPopupSupport::SendNotifications( const FWidgetPath& WidgetsUnderCursor )
 	}
 }
 
+void FSlateApplication::SetPlatformApplication(const TSharedRef<class GenericApplication>& InPlatformApplication)
+{
+	PlatformApplication->SetMessageHandler(MakeShareable(new FGenericApplicationMessageHandler()));
+
+	PlatformApplication = InPlatformApplication;
+	PlatformApplication->SetMessageHandler(CurrentApplication.ToSharedRef());
+}
+
 void FSlateApplication::Create()
 {
 	Create(MakeShareable(FPlatformMisc::CreateApplication()));
 }
-
 
 TSharedRef<FSlateApplication> FSlateApplication::Create(const TSharedRef<class GenericApplication>& InPlatformApplication)
 {
@@ -998,6 +1028,11 @@ FWidgetPath FSlateApplication::LocateWindowUnderMouse( FVector2D ScreenspaceMous
 	{ 
 		const TSharedRef<SWindow>& Window = Windows[WindowIndex];
 
+		if ( !Window->IsVisible() || Window->IsWindowMinimized())
+		{
+			continue;
+		}
+		
 		// Hittest the window's children first.
 		FWidgetPath ResultingPath = LocateWindowUnderMouse(ScreenspaceMouseCoordinate, Window->GetChildWindows(), bIgnoreEnabledStatus);
 		if (ResultingPath.IsValid())
@@ -1048,12 +1083,12 @@ void FSlateApplication::TickWindowAndChildren( TSharedRef<SWindow> WindowToTick 
 		
 		{
 			SCOPE_CYCLE_COUNTER( STAT_SlatePrepass );
-			WindowToTick->SlatePrepass(GetApplicationScale());
+			WindowToTick->SlatePrepass(GetApplicationScale()*WindowToTick->GetNativeWindow()->GetDPIScaleFactor());
 		}
 
 		if (WindowToTick->IsAutosized())
 		{
-			WindowToTick->Resize(WindowToTick->GetDesiredSize());
+			WindowToTick->Resize(WindowToTick->GetDesiredSizeDesktopPixels());
 		}
 
 		{
@@ -1138,7 +1173,7 @@ void FSlateApplication::DrawWindowAndChildren( const TSharedRef<SWindow>& Window
 					if ( DecoratorWidget.IsValid() && DecoratorWidget->GetVisibility().IsVisible() )
 					{
 						DecoratorWidget->SetVisibility(EVisibility::HitTestInvisible);
-						DecoratorWidget->SlatePrepass();
+						DecoratorWidget->SlatePrepass(GetApplicationScale()*DragDropWindow->GetNativeWindow()->GetDPIScaleFactor());
 
 						FVector2D DragDropContentInWindowSpace = WindowToDraw->GetWindowGeometryInScreen().AbsoluteToLocal(DragDropContent->GetDecoratorPosition());
 						const FGeometry DragDropContentGeometry = FGeometry::MakeRoot(DecoratorWidget->GetDesiredSize(), FSlateLayoutTransform(DragDropContentInWindowSpace));
@@ -1162,7 +1197,7 @@ void FSlateApplication::DrawWindowAndChildren( const TSharedRef<SWindow>& Window
 				
 				if (CursorWidget.IsValid())
 				{
-					CursorWidget->SlatePrepass(GetApplicationScale());
+					CursorWidget->SlatePrepass(GetApplicationScale()*CursorWindow->GetNativeWindow()->GetDPIScaleFactor());
 
 					FVector2D CursorPosInWindowSpace = WindowToDraw->GetWindowGeometryInScreen().AbsoluteToLocal(GetCursorPos());
 					CursorPosInWindowSpace += (CursorWidget->GetDesiredSize() * -0.5);
@@ -1217,19 +1252,24 @@ void FSlateApplication::DrawWindowAndChildren( const TSharedRef<SWindow>& Window
 
 static void PrepassWindowAndChildren( TSharedRef<SWindow> WindowToPrepass )
 {
+	if (UNLIKELY(!FApp::CanEverRender()))
+	{
+		return;
+	}
+
 	if ( WindowToPrepass->IsVisible() && !WindowToPrepass->IsWindowMinimized() )
 	{
 		SLATE_CYCLE_COUNTER_SCOPE_CUSTOM(GSlatePrepassWindowAndChildren, WindowToPrepass->GetCreatedInLocation());
 		FScopedSwitchWorldHack SwitchWorld(WindowToPrepass);
-
+		
 		{
 			SCOPE_CYCLE_COUNTER(STAT_SlatePrepass);
-			WindowToPrepass->SlatePrepass(FSlateApplication::Get().GetApplicationScale());
+			WindowToPrepass->SlatePrepass(FSlateApplication::Get().GetApplicationScale() * WindowToPrepass->GetNativeWindow()->GetDPIScaleFactor());
 		}
 
 		if ( WindowToPrepass->IsAutosized() )
 		{
-			WindowToPrepass->Resize(WindowToPrepass->GetDesiredSize());
+			WindowToPrepass->Resize(WindowToPrepass->GetDesiredSizeDesktopPixels());
 		}
 
 		for ( const TSharedRef<SWindow>& ChildWindow : WindowToPrepass->GetChildWindows() )
@@ -1981,13 +2021,16 @@ void FSlateApplication::AddModalWindow( TSharedRef<SWindow> InSlateWindow, const
 				FPlatformProcess::Sleep(SleepTime);
 			}
 
+			const float DeltaTime = GetDeltaTime();
+
+			// Tick any other systems that need to update during modal dialogs
+			ModalLoopTickEvent.Broadcast(DeltaTime);
+
 			FPlatformMisc::BeginNamedEvent(FColor::Magenta, "Slate::Tick");
 
 			{
 				SCOPE_CYCLE_COUNTER(STAT_SlateTickTime);
 				SLATE_CYCLE_COUNTER_SCOPE(GSlateTotalTickTime);
-
-				const float DeltaTime = GetDeltaTime();
 
 				// Tick and pump messages for the platform.
 				TickPlatform(DeltaTime);
@@ -2037,8 +2080,8 @@ TSharedRef<SWindow> FSlateApplication::AddWindowAsNativeChild( TSharedRef<SWindo
 	// don't add the Slate window to our window list, we wouldn't be able to route that message to the window.
 	InParentWindow->AddChildWindow( InSlateWindow );
 
-	// Only make native generic windows if the parent has one.
-	if ( InParentWindow->GetNativeWindow()->GetOSWindowHandle() )
+	// Only make native generic windows if the parent has one. Nullrhi makes only generic windows, whose handles are always null
+	if ( InParentWindow->GetNativeWindow()->GetOSWindowHandle() || !FApp::CanEverRender() )
 	{
 		TSharedRef<FGenericWindow> NewWindow = MakeWindow(InSlateWindow, bShowImmediately);
 
@@ -2404,7 +2447,7 @@ void FSlateApplication::SetAllUserFocusToGameViewport(EFocusCause ReasonFocusIsC
 		FSlateWindowHelper::FindPathToWidget(SlateWindows, CurrentGameViewportWidget.ToSharedRef(), /*OUT*/ PathToWidget);
 
 		ForEachUser([&] (FSlateUser* User) {
-			SetUserFocus(User->GetUserIndex(), PathToWidget, ReasonFocusIsChanging);
+			SetUserFocus(User, PathToWidget, ReasonFocusIsChanging);
 		});
 	}
 }
@@ -2444,7 +2487,7 @@ void FSlateApplication::ActivateGameViewport()
 	}
 }
 
-void FSlateApplication::SetUserFocus(uint32 UserIndex, const TSharedPtr<SWidget>& WidgetToFocus, EFocusCause ReasonFocusIsChanging /* = EFocusCause::SetDirectly*/)
+bool FSlateApplication::SetUserFocus(uint32 UserIndex, const TSharedPtr<SWidget>& WidgetToFocus, EFocusCause ReasonFocusIsChanging /* = EFocusCause::SetDirectly*/)
 {
 	const bool bValidWidget = WidgetToFocus.IsValid();
 	ensureMsgf(bValidWidget, TEXT("Attempting to focus an invalid widget. If your intent is to clear focus use ClearUserFocus()"));
@@ -2454,14 +2497,14 @@ void FSlateApplication::SetUserFocus(uint32 UserIndex, const TSharedPtr<SWidget>
 		const bool bFound = FSlateWindowHelper::FindPathToWidget(SlateWindows, WidgetToFocus.ToSharedRef(), /*OUT*/ PathToWidget);
 		if (bFound)
 		{
-			SetUserFocus(UserIndex, PathToWidget, ReasonFocusIsChanging);
+			return SetUserFocus(UserIndex, PathToWidget, ReasonFocusIsChanging);
 		}
 		else
 		{
 			const bool bFoundVirtual = FSlateWindowHelper::FindPathToWidget(SlateVirtualWindows, WidgetToFocus.ToSharedRef(), /*OUT*/ PathToWidget);
 			if ( bFoundVirtual )
 			{
-				SetUserFocus(UserIndex, PathToWidget, ReasonFocusIsChanging);
+				return SetUserFocus(UserIndex, PathToWidget, ReasonFocusIsChanging);
 			}
 			else
 			{
@@ -2469,6 +2512,8 @@ void FSlateApplication::SetUserFocus(uint32 UserIndex, const TSharedPtr<SWidget>
 			}
 		}
 	}
+
+	return false;
 }
 
 void FSlateApplication::SetAllUserFocus(const TSharedPtr<SWidget>& WidgetToFocus, EFocusCause ReasonFocusIsChanging /*= EFocusCause::SetDirectly*/)
@@ -2520,9 +2565,9 @@ void FSlateApplication::ReleaseJoystickCapture(uint32 UserIndex)
 	ClearUserFocus(UserIndex);
 }
 
-void FSlateApplication::SetKeyboardFocus(const TSharedPtr< SWidget >& OptionalWidgetToFocus, EFocusCause ReasonFocusIsChanging /* = EFocusCause::SetDirectly*/)
+bool FSlateApplication::SetKeyboardFocus(const TSharedPtr< SWidget >& OptionalWidgetToFocus, EFocusCause ReasonFocusIsChanging /* = EFocusCause::SetDirectly*/)
 {
-	SetUserFocus(GetUserIndexForKeyboard(), OptionalWidgetToFocus, ReasonFocusIsChanging);
+	return SetUserFocus(GetUserIndexForKeyboard(), OptionalWidgetToFocus, ReasonFocusIsChanging);
 }
 
 void FSlateApplication::ClearKeyboardFocus(const EFocusCause ReasonFocusIsChanging)
@@ -2588,6 +2633,49 @@ void FSlateApplication::UnregisterOnWindowActionNotification(FDelegateHandle Han
 	}
 }
 
+TSharedPtr<SWindow> FSlateApplication::FindBestParentWindowForDialogs(const TSharedPtr<SWidget>& InWidget)
+{
+	TSharedPtr<SWindow> ParentWindow = ( InWidget.IsValid() ) ? FindWidgetWindow(InWidget.ToSharedRef()) : TSharedPtr<SWindow>();
+
+	if ( !ParentWindow.IsValid() )
+	{
+		// First check the active top level window.
+		TSharedPtr<SWindow> ActiveTopWindow = GetActiveTopLevelWindow();
+		if ( ActiveTopWindow.IsValid() && ActiveTopWindow->IsRegularWindow() )
+		{
+			ParentWindow = ActiveTopWindow;
+		}
+		else
+		{
+			// If the active top level window isn't a good host, lets just try and find the first
+			// reasonable window we can host new dialogs off of.
+			for ( TSharedPtr<SWindow> SlateWindow : SlateWindows )
+			{
+				if ( SlateWindow->IsVisible() && SlateWindow->IsRegularWindow() )
+				{
+					ParentWindow = SlateWindow;
+					break;
+				}
+			}
+		}
+	}
+
+	return ParentWindow;
+}
+
+const void* FSlateApplication::FindBestParentWindowHandleForDialogs(const TSharedPtr<SWidget>& InWidget)
+{
+	TSharedPtr<SWindow> ParentWindow = FindBestParentWindowForDialogs(InWidget);
+
+	const void* ParentWindowWindowHandle = nullptr;
+	if ( ParentWindow.IsValid() && ParentWindow->GetNativeWindow().IsValid() )
+	{
+		ParentWindowWindowHandle = ParentWindow->GetNativeWindow()->GetOSWindowHandle();
+	}
+
+	return ParentWindowWindowHandle;
+}
+
 TSharedPtr<SWindow> FSlateApplication::GetActiveTopLevelWindow() const
 {
 	return ActiveTopLevelWindow.Pin();
@@ -2605,12 +2693,16 @@ bool FSlateApplication::SetKeyboardFocus(const FWidgetPath& InFocusPath, const E
 
 bool FSlateApplication::SetUserFocus(const uint32 InUserIndex, const FWidgetPath& InFocusPath, const EFocusCause InCause)
 {
-	FSlateUser* User = GetUser(InUserIndex);
+	return SetUserFocus(GetOrCreateUser(InUserIndex), InFocusPath, InCause);
+}
+
+bool FSlateApplication::SetUserFocus(FSlateUser* User, const FWidgetPath& InFocusPath, const EFocusCause InCause)
+{
 	if ( !User )
 	{
 		return false;
 	}
-	
+
 	FUserFocusEntry& UserFocusEntry = User->Focus;
 
 	TSharedPtr<IWidgetReflector> WidgetReflector = WidgetReflectorPtr.Pin();
@@ -2658,7 +2750,7 @@ bool FSlateApplication::SetUserFocus(const uint32 InUserIndex, const FWidgetPath
 			TSharedPtr<SWidget> SomeWidget = OldFocusedWidgetPath.Widgets[ChildIndex].Pin();
 			if (SomeWidget.IsValid())
 			{
-				SomeWidget->OnFocusChanging(OldFocusedWidgetPath, NewFocusedWidgetPath, FFocusEvent(InCause, InUserIndex));
+				SomeWidget->OnFocusChanging(OldFocusedWidgetPath, NewFocusedWidgetPath, FFocusEvent(InCause, User->GetUserIndex()));
 			}
 		}
 	}
@@ -2673,10 +2765,11 @@ bool FSlateApplication::SetUserFocus(const uint32 InUserIndex, const FWidgetPath
 			TSharedPtr<SWidget> SomeWidget = NewFocusedWidgetPath.Widgets[ChildIndex].Widget;
 			if (SomeWidget.IsValid())
 			{
-				SomeWidget->OnFocusChanging(OldFocusedWidgetPath, NewFocusedWidgetPath, FFocusEvent(InCause, InUserIndex));
+				SomeWidget->OnFocusChanging(OldFocusedWidgetPath, NewFocusedWidgetPath, FFocusEvent(InCause, User->GetUserIndex()));
 			}
 		}
 	}
+
 
 	//UE_LOG(LogSlate, Warning, TEXT("Focus for user %i set to %s."), InUserIndex, NewFocusedWidget.IsValid() ? *NewFocusedWidget->ToString() : TEXT("Invalid"));
 
@@ -2709,7 +2802,7 @@ bool FSlateApplication::SetUserFocus(const uint32 InUserIndex, const FWidgetPath
 		FScopedSwitchWorldHack SwitchWorld(OldFocusedWidgetPath.Window.Pin());
 
 		// Let previously-focused widget know that it's losing focus
-		OldFocusedWidget->OnFocusLost(FFocusEvent(InCause, InUserIndex));
+		OldFocusedWidget->OnFocusLost(FFocusEvent(InCause, User->GetUserIndex()));
 	}
 
 	if (bReflectorShowingFocus)
@@ -2730,10 +2823,10 @@ bool FSlateApplication::SetUserFocus(const uint32 InUserIndex, const FWidgetPath
 		
 		const FArrangedWidget& WidgetToFocus = NewFocusedWidgetPath.Widgets.Last();
 
-		FReply Reply = NewFocusedWidget->OnFocusReceived(WidgetToFocus.Geometry, FFocusEvent(InCause, InUserIndex));
+		FReply Reply = NewFocusedWidget->OnFocusReceived(WidgetToFocus.Geometry, FFocusEvent(InCause, User->GetUserIndex()));
 		if (Reply.IsEventHandled())
 		{
-			ProcessReply(InFocusPath, Reply, nullptr, nullptr, InUserIndex);
+			ProcessReply(InFocusPath, Reply, nullptr, nullptr, User->GetUserIndex());
 		}
 	}
 
@@ -2744,7 +2837,7 @@ bool FSlateApplication::SetUserFocus(const uint32 InUserIndex, const FWidgetPath
 void FSlateApplication::SetAllUserFocus(const FWidgetPath& InFocusPath, const EFocusCause InCause)
 {
 	ForEachUser([&] (FSlateUser* User) {
-		SetUserFocus(User->GetUserIndex(), InFocusPath, InCause);
+		SetUserFocus(User, InFocusPath, InCause);
 	});
 }
 
@@ -2756,7 +2849,7 @@ void FSlateApplication::SetAllUserFocusAllowingDescendantFocus(const FWidgetPath
 		const FUserFocusEntry& UserFocusEntry = User->Focus;
 		if (!UserFocusEntry.WidgetPath.ContainsWidget(FocusWidget))
 		{
-			SetUserFocus(User->GetUserIndex(), InFocusPath, InCause);
+			SetUserFocus(User, InFocusPath, InCause);
 		}
 	});
 }
@@ -2907,7 +3000,7 @@ void FSlateApplication::ProcessReply( const FWidgetPath& CurrentEventPath, const
 		if (TheReply.AffectsAllUsers())
 		{
 			ForEachUser([&] (FSlateUser* User) {
-				SetUserFocus(User->GetUserIndex(), FWidgetPath(), TheReply.GetFocusCause());
+				SetUserFocus(User, FWidgetPath(), TheReply.GetFocusCause());
 			});
 		}
 		else
@@ -3008,28 +3101,32 @@ void FSlateApplication::ProcessReply( const FWidgetPath& CurrentEventPath, const
 	// If we have a valid Navigation request and enough time has passed since the last navigation then try to navigate.
 	if (TheReply.GetNavigationType() != EUINavigation::Invalid)
 	{
-		TSharedPtr<SWidget> FocusedWidget = GetUserFocusedWidget(UserIndex);
-		if (FocusedWidget.IsValid())
+		FWidgetPath NavigationSource;
+		if (TheReply.GetNavigationSource() == ENavigationSource::WidgetUnderCursor)
+		{
+			NavigationSource = *WidgetsUnderMouse;
+		}
+		else if(const FSlateUser* User = GetOrCreateUser(UserIndex))
+		{
+			const FUserFocusEntry& UserFocusEntry = User->Focus;
+			NavigationSource = UserFocusEntry.WidgetPath.ToWidgetPath();
+		}
+
+		if (NavigationSource.IsValid())
 		{
 			FNavigationEvent NavigationEvent(UserIndex, TheReply.GetNavigationType());
 
-			if ( const FSlateUser* User = GetOrCreateUser(UserIndex) )
+			FNavigationReply NavigationReply = FNavigationReply::Escape();
+			for (int32 WidgetIndex = NavigationSource.Widgets.Num() - 1; WidgetIndex >= 0; --WidgetIndex)
 			{
-				const FUserFocusEntry& UserFocusEntry = User->Focus;
-				FWidgetPath EventPath = UserFocusEntry.WidgetPath.ToWidgetPath();
-
-				FNavigationReply NavigationReply = FNavigationReply::Escape();
-				for ( int32 WidgetIndex = EventPath.Widgets.Num() - 1; WidgetIndex >= 0; --WidgetIndex )
+				FArrangedWidget& SomeWidgetGettingEvent = NavigationSource.Widgets[WidgetIndex];
+				if (SomeWidgetGettingEvent.Widget->IsEnabled())
 				{
-					FArrangedWidget& SomeWidgetGettingEvent = EventPath.Widgets[WidgetIndex];
-					if ( SomeWidgetGettingEvent.Widget->IsEnabled() )
+					NavigationReply = SomeWidgetGettingEvent.Widget->OnNavigation(SomeWidgetGettingEvent.Geometry, NavigationEvent).SetHandler(SomeWidgetGettingEvent.Widget);
+					if (NavigationReply.GetBoundaryRule() != EUINavigationRule::Escape || WidgetIndex == 0)
 					{
-						NavigationReply = SomeWidgetGettingEvent.Widget->OnNavigation(SomeWidgetGettingEvent.Geometry, NavigationEvent).SetHandler(SomeWidgetGettingEvent.Widget);
-						if ( NavigationReply.GetBoundaryRule() != EUINavigationRule::Escape || WidgetIndex == 0 )
-						{
-							AttemptNavigation(NavigationEvent, NavigationReply, SomeWidgetGettingEvent);
-							break;
-						}
+						AttemptNavigation(NavigationSource, NavigationEvent, NavigationReply, SomeWidgetGettingEvent);
+						break;
 					}
 				}
 			}
@@ -3042,6 +3139,7 @@ void FSlateApplication::ProcessReply( const FWidgetPath& CurrentEventPath, const
 		DragDetector.DetectDragButton = TheReply.GetDetectDragRequestButton();
 		checkSlow(InMouseEvent);
 		DragDetector.DetectDragStartLocation = InMouseEvent->GetScreenSpacePosition();
+		DragDetector.DetectDragPointerIndex = InMouseEvent->GetPointerIndex();
 	}
 
 	// Set focus if requested.
@@ -3285,10 +3383,10 @@ void FSlateApplication::SpawnToolTip( const TSharedRef<IToolTip>& InToolTip, con
 		DesiredToolTipLocation = InSpawnLocation;
 		{
 			// Make sure the desired size is valid
-			NewToolTipWindow->SlatePrepass(FSlateApplication::Get().GetApplicationScale());
+			NewToolTipWindow->SlatePrepass(FSlateApplication::Get().GetApplicationScale()*NewToolTipWindow->GetNativeWindow()->GetDPIScaleFactor());
 
 			FSlateRect Anchor(DesiredToolTipLocation.X, DesiredToolTipLocation.Y, DesiredToolTipLocation.X, DesiredToolTipLocation.Y);
-			DesiredToolTipLocation = CalculatePopupWindowPosition( Anchor, NewToolTipWindow->GetDesiredSize() );
+			DesiredToolTipLocation = CalculatePopupWindowPosition( Anchor, NewToolTipWindow->GetDesiredSizeDesktopPixels() );
 
 			// MoveWindowTo will adjust the window's position, if needed
 			NewToolTipWindow->MoveWindowTo( DesiredToolTipLocation );
@@ -3350,6 +3448,8 @@ void FSlateApplication::UpdateToolTip( bool AllowSpawningOfNewToolTips )
 	// We still want to show tooltips for widgets that are disabled
 	const bool bIgnoreEnabledStatus = true;
 
+	float DPIScaleFactor = 1.0f;
+	
 	FWidgetPath WidgetsToQueryForToolTip;
 	// We don't show any tooltips when drag and dropping or when another app is active
 	if (bCheckForToolTipChanges)
@@ -3360,6 +3460,10 @@ void FSlateApplication::UpdateToolTip( bool AllowSpawningOfNewToolTips )
 		if (!WidgetsUnderMouse.IsValid() || WidgetsUnderMouse.GetWindow() != ToolTipWindow.Pin())
 		{
 			WidgetsToQueryForToolTip = WidgetsUnderMouse;
+			if (false)// @na (WidgetsUnderMouse.IsValid())
+			{
+				DPIScaleFactor = WidgetsUnderMouse.GetWindow()->GetNativeWindow()->GetDPIScaleFactor();
+			}
 		}
 	}
 
@@ -3399,6 +3503,7 @@ void FSlateApplication::UpdateToolTip( bool AllowSpawningOfNewToolTips )
 				// of it's child though.  Just is kind of just being paranoid.
 				ForceFieldRect = ForceFieldRect.Expand( CurWidgetGeometry->Geometry.GetClippingRect() );
 			}
+			ForceFieldRect = (1.0f / DPIScaleFactor) * ForceFieldRect;
 		}
 	}
 
@@ -3465,7 +3570,7 @@ void FSlateApplication::UpdateToolTip( bool AllowSpawningOfNewToolTips )
 	if ( ToolTipWindowPtr.IsValid() )
 	{
 		FSlateRect Anchor(DesiredToolTipLocation.X, DesiredToolTipLocation.Y, DesiredToolTipLocation.X, DesiredToolTipLocation.Y);
-		DesiredToolTipLocation = CalculatePopupWindowPosition( Anchor, ToolTipWindowPtr->GetDesiredSize() );
+		DesiredToolTipLocation = CalculatePopupWindowPosition( Anchor, ToolTipWindowPtr->GetDesiredSizeDesktopPixels());
 	}
 
 	// Repel tool-tip from a force field, if necessary
@@ -3552,7 +3657,7 @@ void FSlateApplication::UpdateToolTip( bool AllowSpawningOfNewToolTips )
 		{
 			// Avoid the edges of the desktop
 			FSlateRect Anchor(WindowLocation.X, WindowLocation.Y, WindowLocation.X, WindowLocation.Y);
-			WindowLocation = CalculatePopupWindowPosition( Anchor, PinnedToolTipWindow->GetDesiredSize() );
+			WindowLocation = CalculatePopupWindowPosition( Anchor, PinnedToolTipWindow->GetDesiredSizeDesktopPixels());
 
 			// Update the tool tip window positioning
 			// SetCachedScreenPosition is a hack (issue tracked as TTP #347070) which is needed because code in TickWindowAndChildren()/DrawPrepass()
@@ -3762,7 +3867,7 @@ void FSlateApplication::OnLogSlateEvent(EEventLog::Type Event, const FString& Ad
 #if LOG_SLATE_EVENTS
 	if (EventLogger.IsValid())
 	{
-		LOG_EVENT_CONTENT(Event, AdditionalContent, nullptr);
+		LOG_EVENT_CONTENT(Event, AdditionalContent, TSharedPtr<SWidget>());
 	}
 #endif
 }
@@ -3772,7 +3877,7 @@ void FSlateApplication::OnLogSlateEvent(EEventLog::Type Event, const FText& Addi
 #if LOG_SLATE_EVENTS
 	if (EventLogger.IsValid())
 	{
-		LOG_EVENT_CONTENT(Event, AdditionalContent.ToString(), nullptr);
+		LOG_EVENT_CONTENT(Event, AdditionalContent.ToString(), TSharedPtr<SWidget>());
 	}
 #endif
 };
@@ -4565,7 +4670,7 @@ bool FSlateApplication::ProcessKeyDownEvent( FKeyEvent& InKeyEvent )
 				});
 			}
 
-			LOG_EVENT_CONTENT(EEventLog::KeyDown, GetKeyName(InKeyEvent.GetKey()).ToString(), Reply);
+			LOG_EVENT_CONTENT(EEventLog::KeyDown, InKeyEvent.GetKey().ToString(), Reply);
 
 			// If the key event was not processed by any widget...
 			if ( !Reply.IsEventHandled() && UnhandledKeyDownEventHandler.IsBound() )
@@ -4619,7 +4724,7 @@ bool FSlateApplication::ProcessKeyUpEvent( FKeyEvent& InKeyEvent )
 				: FReply::Unhandled();
 		});
 
-		LOG_EVENT_CONTENT(EEventLog::KeyUp, GetKeyName(InKeyEvent.GetKey()).ToString(), Reply);
+		LOG_EVENT_CONTENT(EEventLog::KeyUp, InKeyEvent.GetKey().ToString(), Reply);
 	}
 
 	return Reply.IsEventHandled();
@@ -4659,7 +4764,7 @@ bool FSlateApplication::ProcessAnalogInputEvent(FAnalogInputEvent& InAnalogInput
 				: FReply::Unhandled();
 		});
 
-		LOG_EVENT_CONTENT(EEventLog::AnalogInput, GetKeyName(InAnalogInputEvent.GetKey()).ToString(), Reply);
+		LOG_EVENT_CONTENT(EEventLog::AnalogInput, InAnalogInputEvent.GetKey().ToString(), Reply);
 
 		QueueSynthesizedMouseMove();
 	}
@@ -4968,6 +5073,10 @@ FReply FSlateApplication::RoutePointerUpEvent(FWidgetPath& WidgetsUnderPointer, 
 
 		Reply = FEventRouter::Route<FReply>( this, FEventRouter::FBubblePolicy(LocalWidgetsUnderCursor), PointerEvent, [&](const FArrangedWidget& CurWidget, const FPointerEvent& Event)
 		{
+			if (bIsDragDropping)
+			{
+				return CurWidget.Widget->OnDrop(CurWidget.Geometry, FDragDropEvent(Event, LocalDragDropContent));
+			}
 			FReply TempReply = FReply::Unhandled();
 			if (Event.IsTouchEvent())
 			{
@@ -4975,9 +5084,7 @@ FReply FSlateApplication::RoutePointerUpEvent(FWidgetPath& WidgetsUnderPointer, 
 			}
 			if (!Event.IsTouchEvent() || (!TempReply.IsEventHandled() && bTouchFallbackToMouse))
 			{
-				TempReply = (bIsDragDropping)
-					? CurWidget.Widget->OnDrop( CurWidget.Geometry, FDragDropEvent( Event, LocalDragDropContent ) )
-					: CurWidget.Widget->OnMouseButtonUp( CurWidget.Geometry, Event );
+				TempReply =  CurWidget.Widget->OnMouseButtonUp( CurWidget.Geometry, Event );
 			}
 			return TempReply;		
 		});
@@ -5382,13 +5489,16 @@ bool FSlateApplication::ProcessMouseButtonUpEvent( FPointerEvent& MouseEvent )
 	LastUserInteractionTimeForThrottling = LastUserInteractionTime;
 	PressedMouseButtons.Remove( MouseEvent.GetEffectingButton() );
 
-	if (DragDetector.DetectDragForWidget.IsValid() && MouseEvent.GetEffectingButton() == DragDetector.DetectDragButton )
+	if ( DragDetector.DetectDragForWidget.IsValid() )
 	{
-		// The user has release the button that was supposed to start the drag; stop detecting it.
-		DragDetector = FDragDetector();
+		if ( MouseEvent.GetEffectingButton() == DragDetector.DetectDragButton && MouseEvent.GetPointerIndex() == DragDetector.DetectDragPointerIndex )
+		{
+			// The user has released the button (or finger) that was supposed to start the drag; stop detecting it.
+			DragDetector = FDragDetector();
+		}
 	}
 
-	// An empty widget path is passed in.  As an optimization, one will be generated only if a captured mouse event isnt routed
+	// An empty widget path is passed in.  As an optimization, one will be generated only if a captured mouse event isn't routed
 	FWidgetPath EmptyPath;
 	const bool bHandled = RoutePointerUpEvent( EmptyPath, MouseEvent ).IsEventHandled();
 
@@ -5481,7 +5591,7 @@ FReply FSlateApplication::RouteMouseWheelOrGestureEvent(const FWidgetPath& Widge
 		return TempReply;
 	});
 
-	LOG_EVENT(bIsGestureEvent ? EEventLog::TouchGesture : EEventLog::MouseWheel, Reply);
+	LOG_EVENT(InGestureEvent ? EEventLog::TouchGesture : EEventLog::MouseWheel, Reply);
 
 	return Reply;
 }
@@ -5593,69 +5703,67 @@ bool FSlateApplication::OnCursorSet()
 	return true;
 }
 
-bool FSlateApplication::AttemptNavigation(const FNavigationEvent& NavigationEvent, const FNavigationReply& NavigationReply, const FArrangedWidget& BoundaryWidget)
+bool FSlateApplication::AttemptNavigation(const FWidgetPath& NavigationSource, const FNavigationEvent& NavigationEvent, const FNavigationReply& NavigationReply, const FArrangedWidget& BoundaryWidget)
 {
-	// Get the controller focus target for this user
-	FSlateUser* User = GetOrCreateUser(NavigationEvent.GetUserIndex());
-	if ( !User )
+	if ( !NavigationSource.IsValid() )
 	{
 		return false;
 	}
 
-	FWeakWidgetPath FocusedWeakWidgetPath = User->Focus.WidgetPath;
-	TSharedPtr<SWidget> FocusedWidget = FocusedWeakWidgetPath.IsValid() ? FocusedWeakWidgetPath.GetLastWidget().Pin() : TSharedPtr<SWidget>();
+	TSharedPtr<SWidget> DestinationWidget = TSharedPtr<SWidget>();
 
-	TSharedPtr<SWidget> NewFocusedWidget = TSharedPtr<SWidget>();
-	if (FocusedWidget.IsValid())
+	EUINavigation NavigationType = NavigationEvent.GetNavigationType();
+	if ( NavigationReply.GetBoundaryRule() == EUINavigationRule::Explicit )
 	{
-		EUINavigation NavigationType = NavigationEvent.GetNavigationType();
-
-		if ( NavigationReply.GetBoundaryRule() == EUINavigationRule::Explicit )
+		DestinationWidget = NavigationReply.GetFocusRecipient();
+	}
+	else if ( NavigationReply.GetBoundaryRule() == EUINavigationRule::Custom )
+	{
+		const FNavigationDelegate& FocusDelegate = NavigationReply.GetFocusDelegate();
+		if ( FocusDelegate.IsBound() )
 		{
-			NewFocusedWidget = NavigationReply.GetFocusRecipient();
+			DestinationWidget = FocusDelegate.Execute(NavigationType);
 		}
-		else if ( NavigationReply.GetBoundaryRule() == EUINavigationRule::Custom )
+	}
+	else
+	{
+		// Find the next widget
+		if (NavigationType == EUINavigation::Next || NavigationType == EUINavigation::Previous)
 		{
-			const FNavigationDelegate& FocusDelegate = NavigationReply.GetFocusDelegate();
-			if ( FocusDelegate.IsBound() )
-			{
-				NewFocusedWidget = FocusDelegate.Execute(NavigationType);
-			}
+			// Fond the next widget
+			FWeakWidgetPath WeakNavigationSource(NavigationSource);
+			FWidgetPath NewFocusedWidgetPath = WeakNavigationSource.ToNextFocusedPath(NavigationType, NavigationReply, BoundaryWidget);
+
+			// Resolve the Widget Path
+			FArrangedWidget& NewFocusedArrangedWidget = NewFocusedWidgetPath.Widgets.Last();
+			DestinationWidget = NewFocusedArrangedWidget.Widget;
 		}
 		else
 		{
-			// Find the next widget
-			if (NavigationType == EUINavigation::Next || NavigationType == EUINavigation::Previous)
-			{
-				// Fond the next widget
-				FWidgetPath NewFocusedWidgetPath = FocusedWeakWidgetPath.ToNextFocusedPath(NavigationType, NavigationReply, BoundaryWidget);
+			// Resolve the Widget Path
+			const FArrangedWidget& FocusedArrangedWidget = NavigationSource.Widgets.Last();
 
-				// Resolve the Widget Path
-				FArrangedWidget& NewFocusedArrangedWidget = NewFocusedWidgetPath.Widgets.Last();
-				NewFocusedWidget = NewFocusedArrangedWidget.Widget;
-			}
-			else
-			{
-				// Resolve the Widget Path
-				FWidgetPath FocusedWidgetPath = FocusedWeakWidgetPath.ToWidgetPath();
-				FArrangedWidget& FocusedArrangedWidget = FocusedWidgetPath.Widgets.Last();
+			// Switch worlds for widgets in the current path 
+			FScopedSwitchWorldHack SwitchWorld(NavigationSource);
 
-				// Switch worlds for widgets in the current path 
-				FScopedSwitchWorldHack SwitchWorld(FocusedWidgetPath);
-
-				NewFocusedWidget = FocusedWidgetPath.GetWindow()->GetHittestGrid()->FindNextFocusableWidget(FocusedArrangedWidget, NavigationType, NavigationReply, BoundaryWidget);
-			}
+			DestinationWidget = NavigationSource.GetWindow()->GetHittestGrid()->FindNextFocusableWidget(FocusedArrangedWidget, NavigationType, NavigationReply, BoundaryWidget);
 		}
 	}
 
 	// Set controller focus if we have a valid widget
-	if (NewFocusedWidget.IsValid())
+	bool bHandled = false;
+	if (CustomNavigationEvent.IsBound())
 	{
-		SetUserFocus(NavigationEvent.GetUserIndex(), NewFocusedWidget, EFocusCause::Navigation);
-		return true;
+		bHandled = CustomNavigationEvent.Execute(DestinationWidget);
 	}
 
-	return false;
+	if (!bHandled && DestinationWidget.IsValid())
+	{
+		SetUserFocus(NavigationEvent.GetUserIndex(), DestinationWidget, EFocusCause::Navigation);
+		bHandled = true;
+	}
+
+	return bHandled;
 }
 
 bool FSlateApplication::OnControllerAnalog( FGamepadKeyNames::Type KeyName, int32 ControllerId, float AnalogValue )
@@ -5798,6 +5906,12 @@ void FSlateApplication::ProcessMotionDetectedEvent( FMotionEvent& MotionEvent )
 	
 	if ( FSlateUser* User = GetOrCreateUser(MotionEvent.GetUserIndex()) )
 	{
+
+		if (InputPreProcessor.IsValid() && InputPreProcessor->HandleMotionDetectedEvent(*this, MotionEvent))
+		{
+			return;
+		}
+
 		if ( User->Focus.WidgetPath.IsValid() )
 		{
 			/* Get the controller focus target for this user */
@@ -5823,7 +5937,7 @@ bool FSlateApplication::OnSizeChanged( const TSharedRef< FGenericWindow >& Platf
 
 		Renderer->RequestResize( Window, Width, Height );
 
-		if ( !bWasMinimized && Window->IsRegularWindow() && !Window->HasOSWindowBorder() && Window->IsVisible() )
+		if ( !bWasMinimized && Window->IsRegularWindow() && !Window->HasOSWindowBorder() && Window->IsVisible() && Window->IsDrawingEnabled() )
 		{
 			PrivateDrawWindows( Window );
 		}
@@ -6190,7 +6304,21 @@ void FSlateApplication::OnWindowClose( const TSharedRef< FGenericWindow >& Platf
 
 	if ( Window.IsValid() )
 	{
-		Window->RequestDestroyWindow();
+		bool bCanCloseWindow = true;
+		TSharedPtr< SViewport > CurrentGameViewportWidget = GameViewportWidget.Pin();
+		if (CurrentGameViewportWidget.IsValid())
+		{
+			TSharedPtr< ISlateViewport > SlateViewport = CurrentGameViewportWidget->GetViewportInterface().Pin();
+			if (SlateViewport.IsValid())
+			{
+				bCanCloseWindow = !SlateViewport->OnRequestWindowClose().bIsHandled;
+			}
+		}
+		
+		if (bCanCloseWindow)
+		{
+		    Window->RequestDestroyWindow();
+		}	 
 	}
 }
 
@@ -6427,6 +6555,23 @@ void FSlateApplication::SetWidgetReflector(const TSharedRef<IWidgetReflector>& W
 	}
 
 	WidgetReflectorPtr = WidgetReflector;
+}
+
+void FSlateApplication::NavigateFromWidgetUnderCursor(EUINavigation InNavigationType, TSharedRef<SWindow> InWindow, uint32 InUserIndex)
+{
+	if (InNavigationType != EUINavigation::Invalid)
+	{
+		FWidgetPath PathToLocatedWidget = LocateWidgetInWindow(GetCursorPos(), InWindow, false);
+		if (PathToLocatedWidget.IsValid())
+		{
+			TSharedPtr<SWidget> WidgetToNavFrom = PathToLocatedWidget.Widgets.Last().Widget;
+
+			if (WidgetToNavFrom.IsValid())
+			{
+				FSlateApplication::Get().ProcessReply(PathToLocatedWidget, FReply::Handled().SetNavigation(InNavigationType, ENavigationSource::WidgetUnderCursor), &PathToLocatedWidget, nullptr, InUserIndex);
+			}
+		}
+	}
 }
 
 #undef SLATE_HAS_WIDGET_REFLECTOR

@@ -1,17 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyEditorHelpers.h"
-#include "ObjectPropertyNode.h"
-#include "PropertyEditor.h"
-#include "PropertyDetailsUtilities.h"
-#include "SPropertyEditor.h"
-#include "ScopedTransaction.h"
-#include "SResetToDefaultPropertyEditor.h"
 #include "SStructureDetailsView.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SComboButton.h"
+#include "AssetSelection.h"
+#include "DetailCategoryBuilderImpl.h"
+#include "UserInterface/PropertyDetails/PropertyDetailsUtilities.h"
 #include "StructurePropertyNode.h"
-#include "SColorPicker.h"
-#include "SSearchBox.h"
+#include "Widgets/Colors/SColorPicker.h"
+#include "Widgets/Input/SSearchBox.h"
 
 
 #define LOCTEXT_NAMESPACE "SStructureDetailsView"
@@ -52,7 +50,8 @@ void SStructureDetailsView::Construct(const FArguments& InArgs)
 
 	TSharedRef<SScrollBar> ExternalScrollbar = 
 		SNew(SScrollBar)
-		.AlwaysShowScrollbar( true );
+		.AlwaysShowScrollbar( DetailsViewArgs.bShowScrollBar )
+		.Visibility(DetailsViewArgs.bShowScrollBar ? EVisibility::Visible : EVisibility::Collapsed);
 
 		FMenuBuilder DetailViewOptions( true, NULL );
 

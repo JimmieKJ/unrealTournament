@@ -6,7 +6,23 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "ShaderParameters.h"
+#include "RenderUtils.h"
+#include "RHIStaticStates.h"
 #include "DistanceFieldAtlas.h"
+#include "UniquePtr.h"
+
+class FLightSceneProxy;
+class FMaterialRenderProxy;
+class FPrimitiveSceneInfo;
+class FSceneRenderer;
+class FShaderParameterMap;
+class FViewInfo;
+
+template<typename ReferencedType> class TScopedPointer;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogDistanceField, Warning, All);
 
@@ -196,6 +212,11 @@ public:
 	{
 		Ar << P.ObjectBounds << P.ObjectData << P.NumSceneObjects << P.DistanceFieldTexture << P.DistanceFieldSampler << P.DistanceFieldAtlasTexelSize;
 		return Ar;
+	}
+
+	bool AnyBound() const
+	{
+		return ObjectBounds.IsBound() || ObjectData.IsBound() || NumSceneObjects.IsBound() || DistanceFieldTexture.IsBound() || DistanceFieldSampler.IsBound() || DistanceFieldAtlasTexelSize.IsBound();
 	}
 
 private:
@@ -484,7 +505,7 @@ extern void CullDistanceFieldObjectsForLight(
 	const FPlane* PlaneData, 
 	const FVector4& ShadowBoundingSphereValue,
 	float ShadowBoundingRadius,
-	TScopedPointer<class FLightTileIntersectionResources>& TileIntersectionResources);
+	TUniquePtr<class FLightTileIntersectionResources>& TileIntersectionResources);
 
 class FUniformMeshBuffers
 {

@@ -2,8 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "SceneTypes.h"
+#include "GameFramework/PlayerController.h"
 #include "DebugCameraController.generated.h"
 
+class ASpectatorPawn;
 
 /**
 * Camera controller that allows you to fly around a level mostly unrestricted by normal movement rules.
@@ -79,19 +85,23 @@ public:
 	/** @todo document */
 	class UPlayer* OriginalPlayer;
 
-	/* Allows control over the speed of the spectator pawn. This scales the speed based on the InitialMaxSpeed. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Debug Camera")
+	/** Allows control over the speed of the spectator pawn. This scales the speed based on the InitialMaxSpeed. Use Set Pawn Movement Speed Scale during runtime */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Debug Camera")
 	float SpeedScale;
 	
-	/* Initial max speed of the spectator pawn when we start possession. */
+	/** Sets the pawn movement speed scale. */
+	UFUNCTION(BlueprintCallable, Category="Debug Camera")
+	void SetPawnMovementSpeedScale(float NewSpeedScale);
+	
+	/** Initial max speed of the spectator pawn when we start possession. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Debug Camera")
 	float InitialMaxSpeed;
 
-	/* Initial acceleration of the spectator pawn when we start possession. */
+	/** Initial acceleration of the spectator pawn when we start possession. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Debug Camera")
 	float InitialAccel;
 
-	/* Initial deceleration of the spectator pawn when we start possession. */
+	/** Initial deceleration of the spectator pawn when we start possession. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Debug Camera")
 	float InitialDecel;
 
@@ -109,17 +119,17 @@ public:
 	*/
 	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "OnActivate"))
 	void ReceiveOnActivate(class APlayerController* OriginalPC);
-	
+
 	/** Function called on activation debug camera controller */
 	virtual void OnActivate(class APlayerController* OriginalPC);
-
+	
 	/** 
 	* Function called on deactivation of debug camera controller.
 	* @param RestoredPC The Player Controller that the player input is being returned to.
 	*/
 	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "OnDeactivate"))
 	void ReceiveOnDeactivate(class APlayerController* RestoredPC);
-	
+
 	/** Function called on deactivation debug camera controller */
 	virtual void OnDeactivate(class APlayerController* RestoredPC);
 
@@ -146,6 +156,9 @@ protected:
 
 	/**
 	 * Called when an actor has been selected with the primary key (e.g. left mouse button).
+	 *
+	 * The selection trace starts from the center of the debug camera's view.
+	 *
 	 * @param SelectHitLocation The exact world-space location where the selection trace hit the New Selected Actor.
 	 * @param SelectHitNormal The world-space surface normal of the New Selected Actor at the hit location.
 	 */

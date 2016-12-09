@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "VoicePrivatePCH.h"
 #include "VoiceCodecOpus.h"
+#include "VoiceModule.h"
 
 #if PLATFORM_SUPPORTS_VOICE_CAPTURE
 

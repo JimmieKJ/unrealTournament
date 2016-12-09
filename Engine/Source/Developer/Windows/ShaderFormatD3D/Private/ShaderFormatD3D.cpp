@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ShaderFormatD3D.h"
-#include "Core.h"
 #include "ModuleInterface.h"
 #include "ModuleManager.h"
-#include "TargetPlatform.h"
+#include "Interfaces/IShaderFormat.h"
+#include "Interfaces/IShaderFormatModule.h"
 
 static FName NAME_PCD3D_SM5(TEXT("PCD3D_SM5"));
 static FName NAME_PCD3D_SM4(TEXT("PCD3D_SM4"));

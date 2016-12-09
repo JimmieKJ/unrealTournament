@@ -1,15 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Engine/MeshMerging.h"
-#include "PropertyEditorModule.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Components/StaticMeshComponent.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
 
 class FMeshMergingTool;
 class IDetailsView;
 class UMeshMergingSettingsObject;
-class IPropertyHandle;
-class FDetailWidgetRow;
-class IDetailChildrenBuilder;
 
 /** Data structure used to keep track of the selected mesh components, and whether or not they should be incorporated in the merge */
 struct FMeshComponentData

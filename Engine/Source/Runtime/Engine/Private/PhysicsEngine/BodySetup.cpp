@@ -4,21 +4,31 @@
 	BodySetup.cpp
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "PhysicsPublic.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "EngineGlobals.h"
+#include "HAL/IConsoleManager.h"
+#include "Components/PrimitiveComponent.h"
+#include "Engine/Engine.h"
+#include "Components/SkinnedMeshComponent.h"
+#include "Interfaces/Interface_CollisionDataProvider.h"
 #include "PhysicsEngine/PhysicsSettings.h"
-#include "TargetPlatform.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
 #include "Animation/AnimStats.h"
+#include "DerivedDataCacheInterface.h"
 
 #if WITH_PHYSX
-	#include "PhysXSupport.h"
+	#include "PhysXPublic.h"
+	#include "PhysicsEngine/PhysXSupport.h"
 #endif // WITH_PHYSX
 
+#if WITH_PHYSX && (WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR)
+	#include "IPhysXFormat.h"
+#endif
 
-#include "PhysDerivedData.h"
+#include "PhysicsEngine/PhysDerivedData.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
-#include "CookStats.h"
+#include "ProfilingDebugging/CookStats.h"
 
 #if ENABLE_COOK_STATS
 namespace PhysXBodySetupCookStats
@@ -51,19 +61,29 @@ static TAutoConsoleVariable<float> CVarMaxContactOffset(
 	ECVF_Default);
 
 
-SIZE_T FBodySetupUVInfo::GetResourceSize()
+SIZE_T FBodySetupUVInfo::GetResourceSize() const
 {
-	SIZE_T Size = 0;
-	Size += IndexBuffer.GetAllocatedSize();
-	Size += VertPositions.GetAllocatedSize();
+	return GetResourceSizeBytes();
+}
+
+void FBodySetupUVInfo::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const
+{
+	CumulativeResourceSize.AddDedicatedSystemMemoryBytes(IndexBuffer.GetAllocatedSize());
+	CumulativeResourceSize.AddDedicatedSystemMemoryBytes(VertPositions.GetAllocatedSize());
 
 	for (int32 ChannelIdx = 0; ChannelIdx < VertUVs.Num(); ChannelIdx++)
 	{
-		Size += VertUVs[ChannelIdx].GetAllocatedSize();
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(VertUVs[ChannelIdx].GetAllocatedSize());
 	}
 
-	Size += VertUVs.GetAllocatedSize();
-	return Size;
+	CumulativeResourceSize.AddDedicatedSystemMemoryBytes(VertUVs.GetAllocatedSize());
+}
+
+SIZE_T FBodySetupUVInfo::GetResourceSizeBytes() const
+{
+	FResourceSizeEx ResSize;
+	GetResourceSizeEx(ResSize);
+	return ResSize.GetTotalMemoryBytes();
 }
 
 
@@ -275,7 +295,7 @@ void UBodySetup::ClearPhysicsMeshes()
 /** Util to determine whether to use NegX version of mesh, and what transform (rotation) to apply. */
 bool CalcMeshNegScaleCompensation(const FVector& InScale3D, PxTransform& POutTransform)
 {
-	POutTransform = PxTransform::createIdentity();
+	POutTransform = PxTransform(physx::PxIdentity);
 
 	if(InScale3D.Y > 0.f)
 	{
@@ -592,7 +612,7 @@ private:
 	PxShape* AttachShape_AssumesLocked(const PxGeometry& PGeom, const PxTransform& PLocalPose, const float ContactOffset, const FPhysxUserData* ShapeElemUserData, PxShapeFlags PShapeFlags = PxShapeFlag::eVISUALIZATION | PxShapeFlag::eSCENE_QUERY_SHAPE | PxShapeFlag::eSIMULATION_SHAPE) const
 	{
 		const PxMaterial* PMaterial = GetDefaultPhysMaterial(); 
-		PxShape* PNewShape = bShapeSharing ? GPhysXSDK->createShape(PGeom, *PMaterial, /*isExclusive =*/ false, PShapeFlags) : PDestActor->createShape(PGeom, *PMaterial, PShapeFlags);
+		PxShape* PNewShape = GPhysXSDK->createShape(PGeom, *PMaterial, !bShapeSharing, PShapeFlags);
 
 		if (PNewShape)
 		{
@@ -615,11 +635,8 @@ private:
 			PNewShape->setSimulationFilterData(Filters.SimFilter);
 			FBodyInstance::ApplyMaterialToShape_AssumesLocked(PNewShape, SimpleMaterial, ComplexMaterials, bShapeSharing);
 
-			if(bShapeSharing)
-			{
-				PDestActor->attachShape(*PNewShape);
-				PNewShape->release();
-			}
+			PDestActor->attachShape(*PNewShape);
+			PNewShape->release();
 		}
 
 		return PNewShape;
@@ -1025,18 +1042,17 @@ void UBodySetup::ClearCachedCookedPlatformData( const ITargetPlatform* TargetPla
 }
 #endif
 
-int32 UBodySetup::GetRuntimeOnlyCookOptimizationFlags() const
-{
-	int32 RuntimeCookFlags = 0;
 #if WITH_PHYSX && (WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR)
+EPhysXMeshCookFlags UBodySetup::GetRuntimeOnlyCookOptimizationFlags() const
+{
+	EPhysXMeshCookFlags RuntimeCookFlags = EPhysXMeshCookFlags::Default;
 	if(UPhysicsSettings::Get()->bSuppressFaceRemapTable)
 	{
-		RuntimeCookFlags |= ERuntimePhysxCookOptimizationFlags::SuppressFaceRemapTable;
+		RuntimeCookFlags |= EPhysXMeshCookFlags::SuppressFaceRemapTable;
 	}
-#endif
-
 	return RuntimeCookFlags;
 }
+#endif
 
 bool UBodySetup::CalcUVAtLocation(const FVector& BodySpaceLocation, int32 FaceIndex, int32 UVChannel, FVector2D& UV) const
 {
@@ -1118,7 +1134,7 @@ FByteBulkData* UBodySetup::GetCookedData(FName Format, bool bRuntimeOnlyOptimize
 #if WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR
 		TArray<uint8> OutData;
 
-		const int32 CookingFlags = bEligibleForRuntimeOptimization ? GetRuntimeOnlyCookOptimizationFlags() : 0;
+		const EPhysXMeshCookFlags CookingFlags = bEligibleForRuntimeOptimization ? GetRuntimeOnlyCookOptimizationFlags() : EPhysXMeshCookFlags::Default;
 		FDerivedDataPhysXCooker* DerivedPhysXData = new FDerivedDataPhysXCooker(Format, CookingFlags, this);
 		if (DerivedPhysXData->CanBuild())
 		{
@@ -1191,15 +1207,15 @@ void UBodySetup::CopyBodySetupProperty(const UBodySetup* Other)
 
 #endif // WITH_EDITOR
 
-SIZE_T UBodySetup::GetResourceSize( EResourceSizeMode::Type Mode )
+void UBodySetup::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	SIZE_T ResourceSize = Super::GetResourceSize(Mode);
+	Super::GetResourceSizeEx(CumulativeResourceSize);
 
 #if WITH_PHYSX
 	// Count PhysX trimesh mem usage
 	for(PxTriangleMesh* TriMesh : TriMeshes)
 	{
-		ResourceSize += GetPhysxObjectSize(TriMesh, NULL);
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(GetPhysxObjectSize(TriMesh, NULL));
 	}
 
 	// Count PhysX convex mem usage
@@ -1209,12 +1225,12 @@ SIZE_T UBodySetup::GetResourceSize( EResourceSizeMode::Type Mode )
 
 		if(ConvexElem.ConvexMesh != NULL)
 		{
-			ResourceSize += GetPhysxObjectSize(ConvexElem.ConvexMesh, NULL);
+			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(GetPhysxObjectSize(ConvexElem.ConvexMesh, NULL));
 		}
 
 		if(ConvexElem.ConvexMeshNegX != NULL)
 		{
-			ResourceSize += GetPhysxObjectSize(ConvexElem.ConvexMeshNegX, NULL);
+			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(GetPhysxObjectSize(ConvexElem.ConvexMeshNegX, NULL));
 		}
 	}
 
@@ -1223,13 +1239,11 @@ SIZE_T UBodySetup::GetResourceSize( EResourceSizeMode::Type Mode )
 	if (CookedFormatData.Contains(FPlatformProperties::GetPhysicsFormat()))
 	{
 		const FByteBulkData& FmtData = CookedFormatData.GetFormat(FPlatformProperties::GetPhysicsFormat());
-		ResourceSize += FmtData.GetElementSize() * FmtData.GetElementCount();
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(FmtData.GetElementSize() * FmtData.GetElementCount());
 	}
 	
 	// Count any UV info
-	ResourceSize += UVInfo.GetResourceSize();
-
-	return ResourceSize;
+	UVInfo.GetResourceSizeEx(CumulativeResourceSize);
 }
 
 void FKAggregateGeom::Serialize( const FArchive& Ar )

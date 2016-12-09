@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreTypes.h"
+#include "GenericPlatform/IInputInterface.h"
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
 
 /** Max number of controllers. */
@@ -9,6 +12,7 @@
 /** Max number of controller buttons.  Must be < 256*/
 #define MAX_NUM_CONTROLLER_BUTTONS 24
 
+enum class FForceFeedbackChannelType;
 
 /**
  * Interface class for XInput devices (xbox 360 controller)                 
@@ -65,16 +69,16 @@ private:
 		double NextRepeatTime[MAX_NUM_CONTROLLER_BUTTONS];
 
 		/** Raw Left thumb x analog value */
-		SHORT LeftXAnalog;
+		int16 LeftXAnalog;
 
 		/** Raw left thumb y analog value */
-		SHORT LeftYAnalog;
+		int16 LeftYAnalog;
 
 		/** Raw Right thumb x analog value */
-		SHORT RightXAnalog;
+		int16 RightXAnalog;
 
 		/** Raw Right thumb x analog value */
-		SHORT RightYAnalog;
+		int16 RightYAnalog;
 
 		/** Left Trigger analog value */
 		uint8 LeftTriggerAnalog;

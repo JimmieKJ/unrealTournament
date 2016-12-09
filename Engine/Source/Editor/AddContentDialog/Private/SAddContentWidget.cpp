@@ -1,8 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AddContentDialogPCH.h"
+#include "SAddContentWidget.h"
+#include "ViewModels/ContentSourceViewModel.h"
+#include "ViewModels/AddContentWidgetViewModel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "AddContentDialogStyle.h"
 
-#include "SSearchBox.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "WidgetCarouselStyle.h"
 #include "SWidgetCarouselWithNavigation.h"
 
 #define LOCTEXT_NAMESPACE "AddContentDialog"

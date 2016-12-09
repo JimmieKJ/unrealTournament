@@ -2,8 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "ActorFactories/ActorFactory.h"
 #include "ActorFactoryDeferredDecal.generated.h"
+
+class AActor;
+class FAssetData;
+class UMaterialInterface;
 
 UCLASS(MinimalAPI, config=Editor)
 class UActorFactoryDeferredDecal : public UActorFactory

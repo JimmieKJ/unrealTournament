@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#if WITH_ENGINE
+#include "Kismet2/KismetReinstanceUtilities.h"
+#endif
+
+class UBlueprint;
+
 #if WITH_ENGINE
 
-#include "Editor/UnrealEd/Public/Kismet2/KismetReinstanceUtilities.h"
 
 /**
  * Helper class used for re-instancing native and blueprint classes after hot-reload

@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_Literal.h"
+#include "GameFramework/Actor.h"
+#include "EdGraphSchema_K2.h"
+#include "BPTerminal.h"
+#include "KismetCompilerMisc.h"
 #include "KismetCompiler.h"
+#include "Styling/SlateIconFinder.h"
 #include "ClassIconFinder.h"
+#include "BlueprintNodeBinder.h"
 #include "BlueprintBoundNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 
@@ -188,7 +194,7 @@ void UK2Node_Literal::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRe
 			UiSpecOut->MenuName = FText::Format( NSLOCTEXT("K2Node", "LiteralTitle", "Create a Reference to {0}"), 
 				FText::FromString(ActorObj->GetActorLabel()) );
 
-			FSlateIcon Icon = FClassIconFinder::FindSlateIconForActor(ActorObj);
+			const FSlateIcon Icon = FSlateIconFinder::FindIconForClass(ActorObj->GetClass());
 			if (Icon.IsSet())
 			{
 				UiSpecOut->Icon = Icon;
@@ -283,15 +289,7 @@ FSlateIcon UK2Node_Literal::GetIconAndTint(FLinearColor& OutColor) const
 {
 	if(ObjectRef != NULL)
 	{
-		AActor* Actor = Cast<AActor>(ObjectRef);
-		if(Actor != NULL)
-		{
-			return FClassIconFinder::FindSlateIconForActor(Actor);
-		}
-		else
-		{
-			return FSlateIconFinder::FindIconForClass(ObjectRef->GetClass());
-		}	
+		return FSlateIconFinder::FindIconForClass(ObjectRef->GetClass());	
 	}
 	return Super::GetIconAndTint(OutColor);
 }

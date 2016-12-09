@@ -2,8 +2,15 @@
 
 #pragma once
 
-#include "SlateBasics.h"
-#include "AssetRegistryModule.h"
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SWindow.h"
+#include "Factories/FbxImportUI.h"
+
+class SButton;
 
 class SFbxOptionWindow : public SCompoundWidget
 {

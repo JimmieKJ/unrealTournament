@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Serialization/Archive.h"
 
 /** A virtual interface for ref counted objects to implement. */
 class IRefCountedObject

@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Misc/AutomationTest.h"
+#include "TestLogger.h"
+#include "Actions/PawnActionsComponent.h"
 
 #define ENSURE_FAILED_TESTS 1
 

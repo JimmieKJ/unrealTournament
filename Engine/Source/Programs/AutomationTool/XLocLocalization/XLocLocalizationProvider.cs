@@ -67,13 +67,6 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		{
 			var AuthToken = RequestAuthTokenWithRetry(XLocApiClient);
 
-			// Create changelist for backed up POs from XLoc.
-			int XLocDownloadedPOChangeList = 0;
-			if (CommandUtils.P4Enabled)
-			{
-				XLocDownloadedPOChangeList = CommandUtils.P4.CreateChange(CommandUtils.P4Env.Client, "XLoc downloaded PO backup.");
-			}
-
 			// Get the latest files for each culture.
 			foreach (var Culture in ProjectImportInfo.CulturesToGenerate)
 			{
@@ -83,14 +76,7 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 					continue;
 				}
 
-				DownloadLatestPOFile(XLocApiClient, AuthToken, Culture, ProjectImportInfo, XLocDownloadedPOChangeList);
-			}
-
-			// Submit changelist for backed up POs from OneSky.
-			if (CommandUtils.P4Enabled)
-			{
-				int SubmittedChangeList;
-				CommandUtils.P4.Submit(XLocDownloadedPOChangeList, out SubmittedChangeList);
+				DownloadLatestPOFile(XLocApiClient, AuthToken, Culture, ProjectImportInfo);
 			}
 		}
 		finally
@@ -99,7 +85,7 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		}
 	}
 
-	private void DownloadLatestPOFile(XLocApiClient XLocApiClient, string AuthToken, string Culture, ProjectImportExportInfo ProjectImportInfo, int XLocDownloadedPOChangeList)
+	private void DownloadLatestPOFile(XLocApiClient XLocApiClient, string AuthToken, string Culture, ProjectImportExportInfo ProjectImportInfo)
 	{
 		var XLocFilename = GetXLocFilename(ProjectImportInfo.PortableObjectName);
 
@@ -221,7 +207,7 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 						// Add/check out backed up POs from OneSky.
 						if (CommandUtils.P4Enabled)
 						{
-							UE4Build.AddBuildProductsToChangelist(XLocDownloadedPOChangeList, new List<string>() { ExportFileCopy.FullName });
+							UE4Build.AddBuildProductsToChangelist(PendingChangeList, new List<string>() { ExportFileCopy.FullName });
 						}
 					}
 				}
@@ -392,7 +378,7 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 
 	protected XLocConfig Config;
 
-	protected Dictionary<string, string> GetEpicCultureToXLocLanguageId()
+	virtual protected Dictionary<string, string> GetEpicCultureToXLocLanguageId()
 	{
 		return new Dictionary<string, string>
 		{

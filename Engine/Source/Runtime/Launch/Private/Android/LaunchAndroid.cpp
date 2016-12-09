@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LaunchPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/App.h"
+#include "Misc/OutputDeviceError.h"
+#include "LaunchEngineLoop.h"
 #include <string.h>
 #include <jni.h>
 #include <pthread.h>
@@ -14,11 +17,15 @@
 #include <dlfcn.h>
 #include "AndroidWindow.h"
 #include <android/sensor.h>
-#include "Core.h"
 #include "AndroidApplication.h"
 #include "IHeadMountedDisplayModule.h"
 #include "ISessionServicesModule.h"
 #include "ISessionService.h"
+#include "Engine/Engine.h"
+#include "HAL/PlatformFile.h"
+#include "HAL/PlatformAffinity.h"
+#include "Modules/ModuleManager.h"
+#include "IMessagingModule.h"
 
 // Function pointer for retrieving joystick events
 // Function has been part of the OS since Honeycomb, but only appeared in the
@@ -303,23 +310,6 @@ int32 AndroidMain(struct android_app* state)
 	AndroidThunkCpp_DismissSplashScreen();
 
 	FAppEventManager::GetInstance()->SetEmptyQueueHandlerEvent(FPlatformProcess::GetSynchEventFromPool(false));
-
-#if PLATFORM_ANDROID_VULKAN
-	//@todo Ronin - is this needed now?
-	// wait for loadmap to complete if Vulkan on Android
-	if (FAndroidMisc::ShouldUseVulkan())
-	{
-		double startTime = FPlatformTime::Seconds();
-		double stopTime = startTime + 5.0f;
-		while (FPlatformTime::Seconds() < stopTime)
-		{
-			GEngineLoop.Tick();
-
-			float timeToSleep = 0.05f; //in seconds
-			sleep(timeToSleep);
-		}
-	}
-#endif
 
 #if !UE_BUILD_SHIPPING
 	if (FParse::Param(FCommandLine::Get(), TEXT("Messaging")))
@@ -740,7 +730,7 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Case APP_CMD_TERM_WINDOW, tid = %d"), gettid());
 		// clean up the window because it is being hidden/closed
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_TERM_WINDOW"));
-		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_WINDOW_DESTROYED, NULL);
+		FAppEventManager::GetInstance()->HandleWindowClosed();
 		
 		bNeedToSync = true;
 		break;

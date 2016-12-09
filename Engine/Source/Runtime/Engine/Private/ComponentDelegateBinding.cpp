@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "BlueprintUtilities.h"
 #include "Engine/ComponentDelegateBinding.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
 
 UComponentDelegateBinding::UComponentDelegateBinding(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

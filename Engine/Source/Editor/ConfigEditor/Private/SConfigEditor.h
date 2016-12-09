@@ -2,10 +2,17 @@
 
 #pragma once
 
-#include "ConfigPropertyHelper.h"
-#include "IDetailsView.h"
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 
 #define LOCTEXT_NAMESPACE "ConfigEditor"
+
+class FConfigCacheIni;
+class IDetailsView;
+class STargetPlatformSelector;
+class UConfigHierarchyPropertyView;
 
 /*-----------------------------------------------------------------------------
    SConfigEditor

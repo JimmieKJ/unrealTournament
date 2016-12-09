@@ -1,6 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Styling/SlateColor.h"
+#include "Styling/SlateWidgetStyle.h"
+#include "Styling/SlateWidgetStyleContainerBase.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "Brushes/SlateImageBrush.h"
+#include "Styling/StyleDefaults.h"
+#include "Styling/ISlateStyle.h"
+#include "Styling/SlateStyle.h"
 
 
 FSlateStyleSet::FSlateStyleSet(const FName& InStyleSetName)

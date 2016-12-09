@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashReportClientApp.h"
 #include "CrashReportClientUnattended.h"
-#include "CrashReportUtil.h"
+#include "Containers/Ticker.h"
+#include "CrashReportClientConfig.h"
 #include "CrashDescription.h"
 
 FCrashReportClientUnattended::FCrashReportClientUnattended(FPlatformErrorReport& InErrorReport)

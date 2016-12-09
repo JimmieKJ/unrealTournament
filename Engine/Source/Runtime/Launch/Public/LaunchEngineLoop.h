@@ -2,10 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+#if WITH_ENGINE
+	#include "UnrealEngine.h"
+#endif
 
 class FEngineService;
+class FPendingCleanupObjects;
 class ISessionService;
-
 
 /**
  * Implements the main engine loop.	
@@ -46,7 +51,7 @@ public:
 	void LoadPreInitModules();
 
 	/** Load core modules. */
-	void LoadCoreModules();
+	bool LoadCoreModules();
 
 #if WITH_ENGINE
 	

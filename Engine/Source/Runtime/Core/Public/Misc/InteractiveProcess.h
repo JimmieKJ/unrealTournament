@@ -2,10 +2,15 @@
 
 #pragma once
 
-#include "Runtime/Core/Public/GenericPlatform/GenericPlatformProcess.h"
-#include "Runtime/Core/Public/Misc/Timespan.h"
-#include "Runtime/Core/Public/Containers/Queue.h"
-
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Timespan.h"
+#include "Logging/LogMacros.h"
+#include "Delegates/Delegate.h"
+#include "Misc/DateTime.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/Runnable.h"
+#include "Containers/Queue.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogInteractiveProcess, Log, All);
 

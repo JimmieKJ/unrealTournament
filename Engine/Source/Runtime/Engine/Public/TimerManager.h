@@ -6,7 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/Object.h"
 #include "Engine/EngineTypes.h"
+
+class UGameInstance;
 
 DECLARE_DELEGATE(FTimerDelegate);
 
@@ -114,12 +119,16 @@ struct FTimerData
 
 	FTimerHandle TimerHandle;
 
+	/** The level collection that was active when this timer was created. Used to set the correct context before executing the timer's delegate. */
+	ELevelCollectionType LevelCollection;
+
 	FTimerData()
 		: bLoop(false)
 		, bRequiresDelegate(false)
 		, Status(ETimerStatus::Active)
 		, Rate(0)
 		, ExpireTime(0)
+		, LevelCollection(ELevelCollectionType::DynamicSourceLevels)
 	{}
 
 	/** Operator less, used to sort the heap based on time until execution. **/
@@ -393,6 +402,9 @@ public:
 	/** Get the current last assigned handle */
 	static void ValidateHandle(FTimerHandle& InOutHandle);
 
+	/** Used by the UGameInstance constructor to set this manager's owning game instance. */
+	void SetGameInstance(UGameInstance* InGameInstance) { OwningGameInstance = InGameInstance; }
+
 private:
 	void InternalSetTimer( FTimerHandle& InOutHandle, FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay );
 	void InternalSetTimer( FTimerData& NewTimerData, float InRate, bool InbLoop, float InFirstDelay );
@@ -432,5 +444,8 @@ private:
 
 	/** The last handle we assigned from this timer manager */
 	static uint64 LastAssignedHandle;
+
+	/** The game instance that created this timer manager. May be null if this timer manager wasn't created by a game instance. */
+	UGameInstance* OwningGameInstance;
 };
 

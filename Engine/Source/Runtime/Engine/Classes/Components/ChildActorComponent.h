@@ -2,9 +2,16 @@
 
 
 #pragma once
-#include "SceneComponent.h"
-#include "ComponentInstanceDataCache.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/CoreNet.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
 #include "ChildActorComponent.generated.h"
+
+struct FAttachedActorInfo;
 
 class ENGINE_API FChildActorComponentInstanceData : public FSceneComponentInstanceData
 {
@@ -47,12 +54,16 @@ class ENGINE_API UChildActorComponent : public USceneComponent
 
 private:
 	/** The class of Actor to spawn */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ChildActorComponent, meta=(OnlyPlaceable, AllowPrivateAccess="true"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ChildActorComponent, meta=(OnlyPlaceable, AllowPrivateAccess="true", ForceRebuildProperty="ChildActorTemplate"))
 	TSubclassOf<AActor>	ChildActorClass;
 
 	/** The actor that we spawned and own */
 	UPROPERTY(Replicated, BlueprintReadOnly, Category=ChildActorComponent, TextExportTransient, NonPIEDuplicateTransient, meta=(AllowPrivateAccess="true"))
 	AActor*	ChildActor;
+
+	/** Property to point to the template child actor for details panel purposes */
+	UPROPERTY(VisibleDefaultsOnly, DuplicateTransient, Category=ChildActorComponent, meta=(ShowInnerProperties))
+	AActor* ChildActorTemplate;
 
 	/** We try to keep the child actor's name as best we can, so we store it off here when destroying */
 	FName ChildActorName;
@@ -65,9 +76,11 @@ public:
 	//~ Begin Object Interface.
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 	virtual void PostEditUndo() override;
 	virtual void PostLoad() override;
 #endif
+	virtual void Serialize(FArchive& Ar) override;
 	virtual void BeginDestroy() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostRepNotifies() override;
@@ -75,7 +88,6 @@ public:
 	//~ End Object Interface.
 
 	//~ Begin ActorComponent Interface.
-	virtual void OnComponentCreated() override;
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 	virtual void OnRegister() override;
 	virtual void OnUnregister() override;
@@ -90,6 +102,7 @@ public:
 	void CreateChildActor();
 
 	AActor* GetChildActor() const { return ChildActor; }
+	AActor* GetChildActorTemplate() const { return ChildActorTemplate; }
 
 	FName GetChildActorName() const { return ChildActorName; }
 

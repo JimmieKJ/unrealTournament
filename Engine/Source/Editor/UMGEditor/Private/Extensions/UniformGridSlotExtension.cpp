@@ -1,11 +1,12 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "Components/UniformGridSlot.h"
 #include "Extensions/UniformGridSlotExtension.h"
-#include "Components/Widget.h"
-#include "Kismet2/BlueprintEditorUtils.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
 #include "WidgetBlueprint.h"
+#include "Widgets/Input/SButton.h"
+#include "Components/UniformGridSlot.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -32,22 +33,22 @@ void FUniformGridSlotExtension::ExtendSelection(const TArray< FWidgetReference >
 	SelectionCache = Selection;
 
 	TSharedRef<SButton> UpArrow = SNew(SButton)
-		.Text(LOCTEXT("UpArrow", "↑"))
+		.Text(LOCTEXT("UpArrow", "\u2191"))
 		.ContentPadding(FMargin(6, 2))
 		.OnClicked(this, &FUniformGridSlotExtension::HandleShiftRow, -1);
 
 	TSharedRef<SButton> DownArrow = SNew(SButton)
-		.Text(LOCTEXT("DownArrow", "↓"))
+		.Text(LOCTEXT("DownArrow", "\u2193"))
 		.ContentPadding(FMargin(6, 2))
 		.OnClicked(this, &FUniformGridSlotExtension::HandleShiftRow, 1);
 
 	TSharedRef<SButton> LeftArrow = SNew(SButton)
-		.Text(LOCTEXT("LeftArrow", "←"))
+		.Text(LOCTEXT("LeftArrow", "\u2190"))
 		.ContentPadding(FMargin(2, 6))
 		.OnClicked(this, &FUniformGridSlotExtension::HandleShiftColumn, -1);
 
 	TSharedRef<SButton> RightArrow = SNew(SButton)
-		.Text(LOCTEXT("RightArrow", "→"))
+		.Text(LOCTEXT("RightArrow", "\u2192"))
 		.ContentPadding(FMargin(2, 6))
 		.OnClicked(this, &FUniformGridSlotExtension::HandleShiftColumn, 1);
 

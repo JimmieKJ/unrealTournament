@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateFileDialogsPrivatePCH.h"
 #include "SlateFileDialogsStyles.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Styling/SlateTypes.h"
 
 
 TSharedPtr< FSlateStyleSet > FSlateFileDialogsStyle::StyleInstance = nullptr;

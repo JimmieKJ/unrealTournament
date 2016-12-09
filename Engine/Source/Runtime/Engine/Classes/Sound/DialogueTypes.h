@@ -7,7 +7,12 @@
  *	use in multiple files where the enum can't be mapped to a specific file.
  */
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "DialogueTypes.generated.h"
+
+class UDialogueVoice;
+class UDialogueWave;
 
 UENUM()
 namespace EGrammaticalGender

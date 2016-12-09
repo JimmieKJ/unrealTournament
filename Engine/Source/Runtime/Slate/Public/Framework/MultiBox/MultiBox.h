@@ -2,10 +2,26 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Layout/SMenuOwner.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandInfo.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
 
-class FUICommandInfo;
-class FUICommandList;
-
+class FDropPreviewBlock;
+class ITableRow;
+class SClippingHorizontalBox;
+class SHorizontalBox;
+class SMultiBoxWidget;
+class STableViewBase;
+class SVerticalBox;
 
 namespace MultiBoxConstants
 {	

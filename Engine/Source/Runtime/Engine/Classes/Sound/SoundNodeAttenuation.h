@@ -2,12 +2,16 @@
 
  
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Sound/SoundAttenuation.h"
 #include "Sound/SoundNode.h"
-#include "SoundAttenuation.h"
 #include "SoundNodeAttenuation.generated.h"
 
-struct FAttenuationSettings;
-class USoundAttenuation;
+struct FActiveSound;
+struct FSoundParseParameters;
+struct FWaveInstance;
 
 /** 
  * Defines how a sound's volume changes based on distance to the listener

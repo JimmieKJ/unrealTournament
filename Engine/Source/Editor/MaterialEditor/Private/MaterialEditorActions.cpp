@@ -1,16 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MaterialEditorModule.h"
-#include "Materials/MaterialExpressionComment.h"
-#include "MaterialEditor.h"
 #include "MaterialEditorActions.h"
-#include "SMaterialEditorViewport.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Materials/MaterialExpression.h"
+#include "MaterialGraph/MaterialGraphSchema.h"
+#include "Materials/MaterialExpressionComment.h"
 
 #define LOCTEXT_NAMESPACE "MaterialEditorCommands"
 
 void FMaterialEditorCommands::RegisterCommands()
 {
-	UI_COMMAND( Apply, "Apply", "Apply changes to original material and it's use in the world.", EUserInterfaceActionType::Button, FInputChord(EKeys::Enter) );
+	UI_COMMAND( Apply, "Apply", "Apply changes to original material and its use in the world.", EUserInterfaceActionType::Button, FInputChord(EKeys::Enter) );
 	UI_COMMAND( Flatten, "Flatten", "Flatten the material to a texture for mobile devices.", EUserInterfaceActionType::Button, FInputChord() );
 
 	UI_COMMAND( ShowAllMaterialParameters, "Params", "Show or Hide all the materials parameters", EUserInterfaceActionType::ToggleButton, FInputChord() );

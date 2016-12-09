@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "ISettingsCategory.h"
+#include "ISettingsSection.h"
+
+class SWidget;
 
 /**
  * Implements a project settings section.

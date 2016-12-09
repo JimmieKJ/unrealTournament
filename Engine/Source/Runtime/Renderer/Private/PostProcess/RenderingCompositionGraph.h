@@ -6,18 +6,20 @@
 
 #pragma once
 
-#include "RHIStaticStates.h"
-#include "RHICommandList.h"
+#include "CoreMinimal.h"
+#include "RendererInterface.h"
+#include "GlobalShader.h"
+#include "PostProcessParameters.h"
+#include "Async/Future.h"
 
-struct FRenderingCompositePass;
-struct FRenderingCompositeOutputRef;
-struct FRenderingCompositeOutput;
-class FRenderingCompositionGraph;
+class FSceneViewState;
 class FViewInfo;
-class FShaderParameterMap;
-
+struct FRenderingCompositeOutput;
 struct FRenderingCompositeOutputRef;
+struct FRenderingCompositePass;
 struct FRenderingCompositePassContext;
+
+template<typename ShaderMetaType> class TShaderMap;
 
 class FRenderingCompositionGraph
 {

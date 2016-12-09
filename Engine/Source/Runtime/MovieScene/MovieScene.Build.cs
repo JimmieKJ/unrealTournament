@@ -9,11 +9,11 @@ public class MovieScene : ModuleRules
 		PrivateIncludePaths.Add("Runtime/MovieScene/Private");
 
 		PublicDependencyModuleNames.AddRange(
-            new string[] {
-                "Core",
-                "CoreUObject",
-                "Engine"
-            }
-        );
+			new string[] {
+				"Core",
+				"CoreUObject",
+				"Engine"
+			}
+		);
 	}
 }

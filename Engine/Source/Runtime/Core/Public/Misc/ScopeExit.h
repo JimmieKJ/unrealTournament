@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
-#include "CoreMiscDefines.h"
-#include "Optional.h"
+#include "CoreTypes.h"
+#include "Templates/UnrealTemplate.h"
+#include "Misc/Optional.h"
 
 namespace ScopeExitSupport
 {

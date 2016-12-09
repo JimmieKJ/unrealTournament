@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /**
  * The different types of relevance a primitive scene proxy can declare towards a particular scene view.
@@ -62,6 +63,8 @@ struct FPrimitiveViewRelevance
 	uint32 bDecal : 1;
 	/** Whether the primitive has materals that use translucent surface lighting. */
 	uint32 bTranslucentSurfaceLighting : 1;
+	/** Whether the primitive has materials that read the scene depth. */
+	uint32 bUsesSceneDepth : 1;
 
 	/** 
 	 * Whether this primitive view relevance has been initialized this frame.  

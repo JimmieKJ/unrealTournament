@@ -41,10 +41,6 @@ namespace MemoryProfiler2
 			OwnerWindow.ExclusiveSingleCallStackView.Items.Clear();
 			OwnerWindow.ExclusiveSingleCallStackView.SelectedItems.Clear();
 			OwnerWindow.ExclusiveSingleCallStackView.EndUpdate();
-
-			MainWindow.FColumnSorter ColumnSorter = OwnerWindow.ExclusiveListView.ListViewItemSorter as MainWindow.FColumnSorter;
-			ColumnSorter.ColumnSortModeAscending = false;
-			ColumnSorter.ColumnToSortBy = 0;
 		}
 
 		public static void ParseSnapshot( ListViewEx ExclusiveListView, List<FCallStackAllocationInfo> CallStackList, bool bShouldSortBySize, string FilterText )
@@ -62,36 +58,48 @@ namespace MemoryProfiler2
 
 			ExclusiveListView.BeginUpdate();
 
-			// Sort based on passed in metric.
-			if( bShouldSortBySize )
-			{
-                CallStackList.Sort( CompareAbsSize );
-			}
-			else
-			{
-				CallStackList.Sort( CompareCount );
-			}
+			ExclusiveListView.ListViewItemSorter = null; // clear this to avoid a Sort for each call to Add
 
 			bool bFilterIn = OwnerWindow.IsFilteringIn();
 
 			using( FScopedLogTimer ParseTiming = new FScopedLogTimer( "FExclusiveListViewParser.ParseSnapshot" ) )
 			{
+				var FilteredCallstackList = new List<FCallStackAllocationInfo>(CallStackList.Count);
+				foreach (var AllocationInfo in CallStackList)
+				{
+					var FilteredAllocationInfo = AllocationInfo.GetAllocationInfoForTags(OwnerWindow.GetTagsFilter(), bFilterIn);
+					if (FilteredAllocationInfo.TotalCount != 0)
+					{
+						FilteredCallstackList.Add(FilteredAllocationInfo);
+					}
+				}
+
+				// Sort based on passed in metric.
+				if (bShouldSortBySize)
+				{
+					FilteredCallstackList.Sort(CompareAbsSize);
+				}
+				else
+				{
+					FilteredCallstackList.Sort(CompareCount);
+				}
+
 				// Figure out total size and count for percentages.
 				long TotalSize = 0;
 				long TotalCount = 0;
-				foreach( FCallStackAllocationInfo AllocationInfo in CallStackList )
+				foreach( FCallStackAllocationInfo AllocationInfo in FilteredCallstackList )
 				{
 					// Apply optional filter.
 					if( FStreamInfo.GlobalInstance.CallStackArray[ AllocationInfo.CallStackIndex ].RunFilters( FilterText, OwnerWindow.Options.ClassGroups, bFilterIn, OwnerWindow.SelectedMemoryPool ) )
 					{
-						TotalSize += AllocationInfo.Size;
-						TotalCount += AllocationInfo.Count;
+						TotalSize += AllocationInfo.TotalSize;
+						TotalCount += AllocationInfo.TotalCount;
 					}
 				}
 
 				// Clear out existing entries and add top 400.
 				ExclusiveListView.Items.Clear();
-				for( int CallStackIndex = 0; CallStackIndex < CallStackList.Count && ExclusiveListView.Items.Count <= MaximumEntries; CallStackIndex++ )
+				for( int CallStackIndex = 0; CallStackIndex < FilteredCallstackList.Count && ExclusiveListView.Items.Count <= MaximumEntries; CallStackIndex++ )
 				{
 					// Update progress bar.
 					if( CallStackCurrent >= NextProgressUpdate )
@@ -102,7 +110,7 @@ namespace MemoryProfiler2
 					}
 					CallStackCurrent++;
 
-					FCallStackAllocationInfo AllocationInfo = CallStackList[ CallStackIndex ];
+					FCallStackAllocationInfo AllocationInfo = FilteredCallstackList[ CallStackIndex ];
 
 					// Apply optional filter.
 					FCallStack CallStack = FStreamInfo.GlobalInstance.CallStackArray[ AllocationInfo.CallStackIndex ];
@@ -128,10 +136,13 @@ namespace MemoryProfiler2
 						}
 						while( UnhelpfulCallSites.Contains( FunctionName ) && FirstStackFrameIndex > 0 );
 
-						string SizeInKByte = String.Format( "{0:0}", ( float )AllocationInfo.Size / 1024 ).PadLeft( 10, ' ' );
-						string SizePercent = String.Format( "{0:0.00}", ( float )AllocationInfo.Size / TotalSize * 100 ).PadLeft( 10, ' ' );
-						string Count = String.Format( "{0:0}", AllocationInfo.Count ).PadLeft( 10, ' ' );
-						string CountPercent = String.Format( "{0:0.00}", ( float )AllocationInfo.Count / TotalCount * 100 ).PadLeft( 10, ' ' );
+						var AllocationSize = AllocationInfo.TotalSize;
+						var AllocationCount = AllocationInfo.TotalCount;
+
+						string SizeInKByte = String.Format( "{0:0}", ( float )AllocationSize / 1024 ).PadLeft( 10, ' ' );
+						string SizePercent = String.Format( "{0:0.00}", ( float )AllocationSize / TotalSize * 100 ).PadLeft( 10, ' ' );
+						string Count = String.Format( "{0:0}", AllocationCount ).PadLeft( 10, ' ' );
+						string CountPercent = String.Format( "{0:0.00}", ( float )AllocationCount / TotalCount * 100 ).PadLeft( 10, ' ' );
 						string GroupName = ( CallStack.Group != null ) ? CallStack.Group.Name : "Ungrouped";
 
 						string[] Row = new string[]
@@ -151,7 +162,12 @@ namespace MemoryProfiler2
 				}
 			}
 
-			ExclusiveListView.SetSortArrow( 0, false );
+			var ColumnSorter = new MainWindow.FColumnSorter();
+			ColumnSorter.ColumnSortModeAscending = false;
+			ColumnSorter.ColumnToSortBy = 0;
+			ExclusiveListView.ListViewItemSorter = ColumnSorter; // Assignment automatically calls Sort
+
+			ExclusiveListView.SetSortArrow( ColumnSorter.ColumnToSortBy, ColumnSorter.ColumnSortModeAscending );
 			ExclusiveListView.EndUpdate();
 
 			OwnerWindow.ToolStripProgressBar.Visible = false;
@@ -160,19 +176,19 @@ namespace MemoryProfiler2
 		/// <summary> Compare helper function, sorting FCallStackAllocation by size. </summary>
 		private static int CompareSize( FCallStackAllocationInfo A, FCallStackAllocationInfo B )
 		{
-			return Math.Sign( B.Size - A.Size );
+			return Math.Sign( B.TotalSize - A.TotalSize);
 		}
 
 		/// <summary> Compare helper function, sorting FCallStackAllocation by abs(size). </summary>
         private static int CompareAbsSize(FCallStackAllocationInfo A, FCallStackAllocationInfo B)
         {
-            return Math.Sign(Math.Abs(B.Size) - Math.Abs(A.Size));
+            return Math.Sign(Math.Abs(B.TotalSize) - Math.Abs(A.TotalSize));
         }
 
 		/// <summary> Compare helper function, sorting FCallStackAllocation by count. </summary>
 		private static int CompareCount( FCallStackAllocationInfo A, FCallStackAllocationInfo B )
 		{
-			return Math.Sign( B.Count - A.Count );
+			return Math.Sign( B.TotalCount - A.TotalCount);
 		}	
 	};
 }

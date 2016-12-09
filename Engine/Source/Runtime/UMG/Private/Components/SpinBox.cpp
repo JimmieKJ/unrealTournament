@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/SpinBox.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/Font.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

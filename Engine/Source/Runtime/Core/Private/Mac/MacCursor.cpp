@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
 #include "MacCursor.h"
 #include "MacWindow.h"
 #include "MacApplication.h"
+#include "Math/IntRect.h"
+#include "HAL/IConsoleManager.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/Paths.h"
 
 #import <IOKit/hid/IOHIDKeys.h>
 #import <IOKit/hidsystem/IOHIDShared.h>
@@ -205,17 +208,6 @@ FMacCursor::~FMacCursor()
 	}
 }
 
-void FMacCursor::SetCustomShape(NSCursor* CursorHandle)
-{
-	SCOPED_AUTORELEASE_POOL;
-	[CursorHandle retain];
-	if (CursorHandles[EMouseCursor::Custom] != NULL)
-	{
-		[CursorHandles[EMouseCursor::Custom] release];
-	}
-	CursorHandles[EMouseCursor::Custom] = CursorHandle;
-}
-
 FVector2D FMacCursor::GetPosition() const
 {
 	FVector2D CurrentPos = CurrentPosition;
@@ -223,7 +215,7 @@ FVector2D FMacCursor::GetPosition() const
 	{
 		SCOPED_AUTORELEASE_POOL;
 		NSPoint CursorPos = [NSEvent mouseLocation];
-		CurrentPos = FVector2D(CursorPos.x, FMacApplication::ConvertSlateYPositionToCocoa(CursorPos.y));
+		CurrentPos = FMacApplication::ConvertCocoaPositionToSlate(CursorPos.x, CursorPos.y);
 	}
 
 	static bool bWasFullscreen = false;
@@ -249,7 +241,7 @@ FVector2D FMacCursor::GetPositionNoScaling() const
 	{
 		SCOPED_AUTORELEASE_POOL;
 		NSPoint CursorPos = [NSEvent mouseLocation];
-		CurrentPos = FVector2D(CursorPos.x, FMacApplication::ConvertSlateYPositionToCocoa(CursorPos.y));
+		CurrentPos = FMacApplication::ConvertCocoaPositionToSlate(CursorPos.x, CursorPos.y);
 	}
 	return CurrentPos;
 }
@@ -455,7 +447,7 @@ void FMacCursor::WarpCursor(const int32 X, const int32 Y)
 	}
 
 	// Perform the warp as normal
-	CGWarpMouseCursorPosition(CGPointMake(X, Y));
+	CGWarpMouseCursorPosition(FMacApplication::ConvertSlatePositionToCGPoint(X, Y));
 
 	// And then reassociate the mouse cursor, which forces the mouse events to come through.
 	if (!bUseHighPrecisionMode)
@@ -540,4 +532,17 @@ const FVector2D& FMacCursor::GetMouseScaling() const
 	{
 		return FVector2D::UnitVector;
 	}
+}
+
+void FMacCursor::SetCustomShape(void* InCursorHandle)
+{
+	NSCursor* CursorHandle = (NSCursor*)InCursorHandle;
+
+	SCOPED_AUTORELEASE_POOL;
+	[CursorHandle retain];
+	if (CursorHandles[EMouseCursor::Custom] != NULL)
+	{
+		[CursorHandles[EMouseCursor::Custom] release];
+	}
+	CursorHandles[EMouseCursor::Custom] = CursorHandle;
 }

@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "Menu.h"
+#include "Framework/Application/Menu.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
 
 FMenuBase::FMenuBase(TSharedRef<SWidget> InContent, const bool bCollapsedByParent)
 	: Content(InContent)
@@ -90,4 +92,14 @@ void FMenuInHostWidget::Dismiss()
 		}
 		OnMenuDismissed.Broadcast(AsShared());
 	}
+}
+
+bool FMenuInHostWidget::UsingApplicationMenuStack() const
+{
+	TSharedPtr<IMenuHost> HostPinned = MenuHost.Pin();
+	if (HostPinned.IsValid())
+	{
+		return HostPinned->UsingApplicationMenuStack();
+	}
+	return true;
 }

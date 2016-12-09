@@ -2,8 +2,13 @@
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimNodeBase.h"
 #include "AnimNode_CopyPoseFromMesh.generated.h"
+
+class USkeletalMeshComponent;
+struct FAnimInstanceProxy;
 
 /**
  *	Simple controller to copy a bone's transform to another one.

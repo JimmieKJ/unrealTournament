@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "UHTMakefile/NameArchiveProxy.h"
+#include "CoreMinimal.h"
+#include "UObject/NameTypes.h"
+#include "NameArchiveProxy.h"
+
+class FUHTMakefile;
+class FArchive;
 
 static const int32 IndexOfNativeClass = -2;
 
@@ -151,6 +156,7 @@ enum class ESerializedObjectType : uint32
 	EEnumUnderlyingType,
 	EStructNameMapEntry,
 	EInterfaceAllocation,
+	EEnumProperty,
 };
 
 enum class EUHTMakefileLoadingPhase : uint8

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+
+class ILauncherDeviceGroup;
 
 /** Type definition for shared pointers to instances of ILauncherDeviceGroup. */
 typedef TSharedPtr<class ILauncherDeviceGroup> ILauncherDeviceGroupPtr;

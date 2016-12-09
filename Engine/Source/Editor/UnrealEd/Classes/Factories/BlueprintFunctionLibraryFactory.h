@@ -5,6 +5,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/BlueprintFactory.h"
 #include "BlueprintFunctionLibraryFactory.generated.h"
 
 UCLASS(MinimalAPI, hidecategories=Object, collapsecategories)

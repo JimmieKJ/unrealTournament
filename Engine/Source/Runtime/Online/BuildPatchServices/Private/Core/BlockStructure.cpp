@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "BuildPatchServicesPrivatePCH.h"
-#include "BlockStructure.h"
+#include "Core/BlockStructure.h"
 
 namespace BuildPatchServices
 {
@@ -176,6 +175,27 @@ namespace BuildPatchServices
 		Empty();
 	}
 
+	const FBlockEntry* FBlockStructure::GetHead() const
+	{
+		return Head;
+	}
+
+	const FBlockEntry* FBlockStructure::GetFoot() const
+	{
+		return Foot;
+	}
+
+	void FBlockStructure::Empty()
+	{
+		// Delete all entries, Foot can be used as temp
+		while (Head != nullptr)
+		{
+			Foot = Head->Next;
+			delete Head;
+			Head = Foot;
+		}
+	}
+
 	void FBlockStructure::Add(uint64 Offset, uint64 Size, ESearchDir::Type SearchDir /*= ESearchDir::FromStart*/)
 	{
 		if (Size > 0)
@@ -314,17 +334,6 @@ namespace BuildPatchServices
 		}
 	}
 
-	void FBlockStructure::Empty()
-	{
-		// Delete all entries, Foot can be used as temp
-		while (Head != nullptr)
-		{
-			Foot = Head->Next;
-			delete Head;
-			Head = Foot;
-		}
-	}
-
 	uint64 FBlockStructure::SelectSerialBytes(uint64 FirstByteIdx, uint64 Count, FBlockStructure& OutputStructure) const
 	{
 		uint64 StartByte = 0;
@@ -373,14 +382,39 @@ namespace BuildPatchServices
 		return Result;
 	}
 
-	const FBlockEntry* FBlockStructure::GetHead() const
+	FString FBlockStructure::ToString(uint64 BlockCountLimit /*= 20*/) const
 	{
-		return Head;
-	}
-
-	const FBlockEntry* FBlockStructure::GetFoot() const
-	{
-		return Foot;
+		FString Output;
+		uint64 NumSkippedBlocks = 0;
+		bool bIsFirst = true;
+		const FBlockEntry* InputBlock = Head;
+		while (InputBlock != nullptr)
+		{
+			if (BlockCountLimit > 0)
+			{
+				--BlockCountLimit;
+				if (bIsFirst)
+				{
+					bIsFirst = false;
+				}
+				else
+				{
+					Output += TEXT("-");
+				}
+				Output += FString::Printf(TEXT("[%llu,%llu]"), InputBlock->GetOffset(), InputBlock->GetSize());
+			}
+			else
+			{
+				++NumSkippedBlocks;
+			}
+			InputBlock = InputBlock->GetNext();
+		}
+		if (NumSkippedBlocks > 0)
+		{
+			Output += FString::Printf(TEXT(".. %llu more"), NumSkippedBlocks);
+		}
+		Output += TEXT(".");
+		return Output;
 	}
 
 	void FBlockStructure::CollectOverlaps(FBlockEntry* From, ESearchDir::Type SearchDir)

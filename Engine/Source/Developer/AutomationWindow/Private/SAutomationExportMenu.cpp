@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationWindowPrivatePCH.h"
-#include "SNotificationList.h"
+#include "SAutomationExportMenu.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IAutomationControllerModule.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 
 #define LOCTEXT_NAMESPACE "AutomationExportMenu"

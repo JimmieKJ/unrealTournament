@@ -2,23 +2,22 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "OnlineSubsystem.h"
-#include "OnlineSubsystemModule.h"
-#include "ModuleManager.h"
 
-#include "OnlineIdentityInterface.h"
-#include "OnlineFriendsInterface.h"
-#include "OnlineEventsInterface.h"
-#include "OnlineSessionInterface.h"
-#include "OnlinePartyInterface.h"
-#include "OnlineExternalUIInterface.h"
-#include "VoiceInterface.h"
-#include "OnlineTitleFileInterface.h"
-#include "OnlineAchievementsInterface.h"
-#include "OnlinePresenceInterface.h"
-#include "OnlineUserCloudInterface.h"
-#include "OnlineUserInterface.h"
-#include "OnlineFriendsInterface.h" //Needed for online friend functionality
+#include "OnlineSessionSettings.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "Interfaces/OnlineFriendsInterface.h"
+#include "Interfaces/OnlineEventsInterface.h"
+#include "Interfaces/OnlineSessionInterface.h"
+#include "Interfaces/OnlinePartyInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
+#include "Interfaces/VoiceInterface.h"
+#include "Interfaces/OnlineTitleFileInterface.h"
+#include "Interfaces/OnlineAchievementsInterface.h"
+#include "Interfaces/OnlinePresenceInterface.h"
+#include "Interfaces/OnlineUserCloudInterface.h"
+#include "Interfaces/OnlineUserInterface.h"
 
 /** Macro to handle the boilerplate of accessing the proper online subsystem and getting the requested interface */
 #define IMPLEMENT_GET_INTERFACE(InterfaceType) \

@@ -2,10 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Curves/KeyHandle.h"
+#include "Curves/RichCurve.h"
 #include "MovieSceneSection.h"
-#include "IKeyframeSection.h"
+#include "Slate/WidgetTransform.h"
+#include "Sections/IKeyframeSection.h"
 #include "MovieScene2DTransformSection.generated.h"
-
 
 enum class EKey2DTransformChannel
 {
@@ -60,13 +64,21 @@ public:
 public:
 
 	UMG_API FRichCurve& GetTranslationCurve( EAxis::Type Axis );
+	UMG_API const FRichCurve& GetTranslationCurve( EAxis::Type Axis ) const;
 
 	UMG_API FRichCurve& GetRotationCurve();
+	UMG_API const FRichCurve& GetRotationCurve() const;
 
 	UMG_API FRichCurve& GetScaleCurve( EAxis::Type Axis );
+	UMG_API const FRichCurve& GetScaleCurve( EAxis::Type Axis ) const;
 
+	DEPRECATED(4.15, "Please use GetShearCurve.")
 	UMG_API FRichCurve& GetSheerCurve( EAxis::Type Axis );
+	
+	UMG_API FRichCurve& GetShearCurve( EAxis::Type Axis );
+	UMG_API const FRichCurve& GetShearCurve( EAxis::Type Axis ) const;
 
+	DEPRECATED(4.15, "Evaluation is now the responsibility of FMovieScene2DTransformSectionTemplate")
 	FWidgetTransform Eval( float Position, const FWidgetTransform& DefaultValue ) const;
 
 	// IKeyframeSection interface.
@@ -74,6 +86,7 @@ public:
 	virtual bool HasKeys( const struct F2DTransformKey& TransformKey ) const override;
 	virtual void AddKey( float Time, const struct F2DTransformKey& TransformKey, EMovieSceneKeyInterpolation KeyInterpolation ) override;
 	virtual void SetDefault( const struct F2DTransformKey& TransformKey ) override;
+	virtual void ClearDefaults() override;
 
 private:
 

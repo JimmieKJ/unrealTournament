@@ -5,7 +5,14 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Exporters/Exporter.h"
 #include "TextBufferExporterTXT.generated.h"
+
+class FExportObjectInnerContext;
 
 UCLASS()
 class UTextBufferExporterTXT : public UExporter

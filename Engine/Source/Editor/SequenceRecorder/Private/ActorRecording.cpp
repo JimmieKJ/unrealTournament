@@ -1,26 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderPrivatePCH.h"
 #include "ActorRecording.h"
+#include "Misc/ScopedSlowTask.h"
+#include "GameFramework/Character.h"
+#include "Camera/CameraActor.h"
+#include "Engine/SimpleConstructionScript.h"
+#include "Editor.h"
+#include "Animation/SkeletalMeshActor.h"
+#include "LevelSequenceObjectReference.h"
 #include "SequenceRecorderSettings.h"
-#include "SequenceRecorderUtils.h"
-#include "MovieScene3DTransformSectionRecorder.h"
-#include "MovieSceneAnimationSectionRecorder.h"
-#include "AssetSelection.h"
-#include "MovieSceneSkeletalAnimationTrack.h"
-#include "MovieSceneSkeletalAnimationSection.h"
-#include "MovieSceneSpawnTrack.h"
-#include "MovieScene3DTransformTrack.h"
-#include "MovieScene3DTransformSection.h"
-#include "MovieSceneBoolSection.h"
-#include "KismetEditorUtilities.h"
-#include "BlueprintEditorUtils.h"
+#include "Sections/MovieScene3DTransformSectionRecorderSettings.h"
 #include "MovieSceneFolder.h"
 #include "CameraRig_Crane.h"
 #include "CameraRig_Rail.h"
-#include "Animation/SkeletalMeshActor.h"
 #include "SequenceRecorder.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "Features/IModularFeatures.h"
 
 static const FName SequencerActorTag(TEXT("SequencerActor"));
 static const FName MovieSceneSectionRecorderFactoryName("MovieSceneSectionRecorderFactory");
@@ -126,6 +120,7 @@ void UActorRecording::GetSceneComponents(TArray<USceneComponent*>& OutArray, boo
 		TInlineComponentArray<USceneComponent*> OwnedComponents(GetActorToRecord());
 		for(USceneComponent* OwnedComponent : OwnedComponents)
 		{
+			check(OwnedComponent);
 			if(OwnedComponent->GetAttachParent() == nullptr && OwnedComponent != RootComponent)
 			{
 				OutArray.Add(OwnedComponent);
@@ -289,6 +284,13 @@ void UActorRecording::StartRecordingActorProperties(ULevelSequence* CurrentSeque
 					SkeletalMeshComponent->bEnableUpdateRateOptimizations = false;
 					SkeletalMeshComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 					SkeletalMeshComponent->ForcedLodModel = 1;
+				}
+
+				// Disable possession of pawns otherwise the recorded character will auto possess the player
+				if (ObjectTemplate->IsA(APawn::StaticClass()))
+				{
+					APawn* Pawn = CastChecked<APawn>(ObjectTemplate);
+					Pawn->AutoPossessPlayer = EAutoReceiveInput::Disabled;
 				}
 
 				Guid = MovieScene->AddSpawnable(TemplateName, *ObjectTemplate);
@@ -709,6 +711,7 @@ void UActorRecording::StartRecordingNewComponents(ULevelSequence* CurrentSequenc
 
 							for (USceneComponent* Child : AllChildren)
 							{
+								CA_SUPPRESS(28182); // Dereferencing NULL pointer. 'Child' contains the same NULL value as 'AttachToComponent' did.
 								if (Child->GetFName() == AttachName)
 								{
 									AttachToComponent = Child;

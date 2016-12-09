@@ -2,7 +2,9 @@
 
 
 #pragma once
-#include "Distributions.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Distributions/DistributionFloat.h"
 #include "DistributionFloatUniformCurve.generated.h"
 

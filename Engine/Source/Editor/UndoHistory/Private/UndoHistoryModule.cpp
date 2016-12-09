@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UndoHistoryPrivatePCH.h"
 #include "UndoHistoryModule.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "SDockTab.h"
+#include "EditorStyleSet.h"
+#include "Widgets/SUndoHistory.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "FUndoHistoryModule"
 

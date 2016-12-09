@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "EdGraph/EdGraph.h"
 #include "Materials/Material.h"
 #include "MaterialGraph.generated.h"
+
+class UMaterialExpressionComment;
 
 DECLARE_DELEGATE_RetVal( bool, FRealtimeStateGetter );
 DECLARE_DELEGATE( FSetMaterialDirty );
@@ -20,9 +25,10 @@ struct FMaterialInputInfo
 	}
 
 	/** Constructor */
-	FMaterialInputInfo(const FText& InName, EMaterialProperty InProperty)
+	FMaterialInputInfo(const FText& InName, EMaterialProperty InProperty, const FText& InToolTip)
 		:	Name( InName )
 		,	Property( InProperty )
+		,	ToolTip( InToolTip )
 	{
 	}
 
@@ -38,9 +44,9 @@ struct FMaterialInputInfo
 		return *Ret;
 	}
 
-	bool IsVisiblePin(const UMaterial* Material, bool bIgnoreMaterialAttriubtes = false) const
+	bool IsVisiblePin(const UMaterial* Material, bool bIgnoreMaterialAttributes = false) const
 	{
-		if(Material->bUseMaterialAttributes && !bIgnoreMaterialAttriubtes)
+		if(Material->bUseMaterialAttributes && !bIgnoreMaterialAttributes)
 		{
 			return Property == MP_MaterialAttributes;
 		}
@@ -79,11 +85,15 @@ struct FMaterialInputInfo
 
 	EMaterialProperty GetProperty() const { return Property; }
 
+	const FText& GetToolTip() const { return ToolTip; }
+
 private:
 	/** Name of the input shown to user */
 	FText Name;
 	/** Type of the input */
 	EMaterialProperty Property;
+	/** The tool-tip describing this input's purpose */
+	FText ToolTip;
 
 };
 

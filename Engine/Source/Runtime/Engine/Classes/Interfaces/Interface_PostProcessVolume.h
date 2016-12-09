@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Interface.h"
 #include "Interface_PostProcessVolume.generated.h"
 
+struct FPostProcessSettings;
 
 struct FPostProcessVolumeProperties
 {

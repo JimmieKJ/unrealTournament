@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateRHIRendererPrivatePCH.h"
+#include "SlateShaders.h"
 
 
 /** Flag to determine if we are running with a color vision deficiency shader on */
@@ -10,6 +10,11 @@ uint32 GSlateShaderColorVisionDeficiencyType = 0;
 IMPLEMENT_SHADER_TYPE(, FSlateElementVS, TEXT("SlateVertexShader"),TEXT("Main"),SF_Vertex);
 
 IMPLEMENT_SHADER_TYPE(, FSlateDebugOverdrawPS, TEXT("SlateElementPixelShader"), TEXT("DebugOverdrawMain"), SF_Pixel );
+
+IMPLEMENT_SHADER_TYPE(, FSlatePostProcessBlurPS, TEXT("SlatePostProcessPixelShader"), TEXT("GaussianBlurMain"), SF_Pixel);
+
+IMPLEMENT_SHADER_TYPE(, FSlatePostProcessDownsamplePS, TEXT("SlatePostProcessPixelShader"), TEXT("DownsampleMain"), SF_Pixel);
+
 
 #define IMPLEMENT_SLATE_PIXELSHADER_TYPE(ShaderType, bDrawDisabledEffect, bUseTextureAlpha) \
 	typedef TSlateElementPS<ESlateShader::ShaderType,bDrawDisabledEffect,bUseTextureAlpha> TSlateElementPS##ShaderType##bDrawDisabledEffect##bUseTextureAlpha##A; \
@@ -80,8 +85,8 @@ void FSlateInstancedVertexDeclaration::InitRHI()
 
 void FSlateElementPS::ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 {
-	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Tonemapper709"));
-	OutEnvironment.SetDefine(TEXT("USE_709"), CVar ? (CVar->GetValueOnGameThread() != 0) : 1);
+	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.HDR.Display.OutputDevice"));
+	OutEnvironment.SetDefine(TEXT("USE_709"), CVar ? (CVar->GetValueOnGameThread() == 1) : 1);
 }
 
 /************************************************************************/

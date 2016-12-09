@@ -1,10 +1,22 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Styling/SlateBrush.h"
+#include "Components/ContentWidget.h"
 #include "Border.generated.h"
 
+class SBorder;
+class UMaterialInstanceDynamic;
+class UMaterialInterface;
 class USlateBrushAsset;
+class UTexture2D;
 
 /**
  * A border is a container widget that can contain one child widget, providing an opportunity 

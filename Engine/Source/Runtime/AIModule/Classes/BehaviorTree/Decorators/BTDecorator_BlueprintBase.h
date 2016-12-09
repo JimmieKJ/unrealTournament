@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "InputCoreTypes.h"
 #include "BehaviorTree/BTDecorator.h"
 #include "BTDecorator_BlueprintBase.generated.h"
 
+class AActor;
+class AAIController;
+class APawn;
+class UBehaviorTree;
 class UBlackboardComponent;
-class UBehaviorTreeComponent;
-class FBehaviorBlueprintDetails;
-struct FBehaviorTreeSearchData;
 
 /**
  *  Base class for blueprint based decorator nodes. Do NOT use it for creating native c++ classes!
@@ -199,19 +205,5 @@ protected:
 	UFUNCTION(BlueprintCallable, Category="AI|BehaviorTree")
 	bool IsDecoratorObserverActive() const;
 
-	friend FBehaviorBlueprintDetails;
-
 	FORCEINLINE bool GetNeedsTickForConditionChecking() const { return PerformConditionCheckImplementations != 0 && (bIsObservingBB == false || bCheckConditionOnlyBlackBoardChanges == false); }
-
-	//----------------------------------------------------------------------//
-	// DEPRECATED
-	//----------------------------------------------------------------------//
-	/** finishes condition check */
-	DEPRECATED(4.7, "This function is deprecated. To implement your condition checking implement PerformConditionCheck or PerformConditionCheckAI function in your Blueprint.")
-	UFUNCTION(BlueprintCallable, Category = "AI|BehaviorTree", meta = (DeprecatedFunction, DeprecationMessage = "To implement your condition checking implement PerformConditionCheck or PerformConditionCheckAI function in your Blueprint."))
-	void FinishConditionCheck(bool bAllowExecution);
-
-	DEPRECATED(4.7, "This function is deprecated. To implement your condition checking implement PerformConditionCheck or PerformConditionCheckAI function in your Blueprint.")
-	UFUNCTION(BlueprintImplementableEvent, meta = (DeprecatedFunction, DeprecationMessage = "To implement your condition checking implement PerformConditionCheck or PerformConditionCheckAI function in your Blueprint."))
-	void ReceiveConditionCheck(AActor* OwnerActor);
 };

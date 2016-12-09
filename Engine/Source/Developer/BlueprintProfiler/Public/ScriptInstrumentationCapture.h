@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "Editor/Kismet/Public/Profiler/TracePath.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/WeakObjectPtr.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FScriptInstrumentedEvent
@@ -13,9 +16,10 @@ public:
 
 	FScriptInstrumentedEvent() {}
 
-	FScriptInstrumentedEvent(EScriptInstrumentation::Type InEventType, const FName InFunctionClassScopeName, const FString& InPathData)
+	FScriptInstrumentedEvent(EScriptInstrumentation::Type InEventType, const FName InFunctionClassScopeName, const FName InFunctionName, const FString& InPathData)
 		: EventType(InEventType)
 		, FunctionClassScopeName(InFunctionClassScopeName)
+		, FunctionName(InFunctionName)
 		, PathData(InPathData)
 		, CodeOffset(-1)
 		, Time(FPlatformTime::Seconds())
@@ -109,19 +113,28 @@ class FInstrumentationCaptureContext
 public:
 
 	/** Update the current execution context, and emit events to signal changes */
-	void UpdateContext(const FScriptInstrumentationSignal& InstrumentSignal, TArray<FScriptInstrumentedEvent>& InstrumentationQueue);
+	bool UpdateContext(const FScriptInstrumentationSignal& InstrumentSignal, TArray<FScriptInstrumentedEvent>& InstrumentationQueue);
 
 	/** Reset the current event context */
 	void ResetContext();
 
+	/** Return to previous scope */
+	void PopScope();
+
 private:
 
-	/** The current class/blueprint context */
-	TWeakObjectPtr<const UClass> ContextClass;
-	/** The current function class scope */
-	TWeakObjectPtr<const UClass> ContextFunctionClassScope;
-	/** The current instance context */
-	TWeakObjectPtr<const UObject> ContextObject;
-	/** The current event context */
-	FName ActiveEvent;
+	struct FContextScope
+	{
+		/** The current class/blueprint context */
+		TWeakObjectPtr<const UClass> ContextClass;
+		/** The current function class scope */
+		TWeakObjectPtr<const UClass> ContextFunctionClassScope;
+		/** The current instance context */
+		TWeakObjectPtr<const UObject> ContextObject;
+	};
+
+	/** The current pending inline Event. NAME_None if no event is pending */
+	FName PendingInlineEventName;
+	/** The Class Scope Stack for traversing through parent blueprint calls */
+	TArray<FContextScope> ScopeStack;
 };

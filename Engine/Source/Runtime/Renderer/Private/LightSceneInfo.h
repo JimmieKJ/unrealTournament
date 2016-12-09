@@ -6,8 +6,19 @@
 
 #pragma once
 
-#include "StaticArray.h"
+#include "CoreMinimal.h"
+#include "RenderResource.h"
+#include "Templates/ScopedPointer.h"
+#include "GenericOctreePublic.h"
 #include "SceneManagement.h"
+#include "GenericOctree.h"
+#include "UniquePtr.h"
+
+class FLightPrimitiveInteraction;
+class FLightSceneInfo;
+class FPrimitiveSceneInfoCompact;
+class FScene;
+class FViewInfo;
 
 /**
  * The information needed to cull a light-primitive interaction.
@@ -120,7 +131,7 @@ public:
 	mutable const FMaterialShaderMap* TranslucentInjectCachedShaderMaps[LightType_MAX][2][2][2];
 
 	/** Tile intersection buffer for distance field shadowing, stored on the light to avoid reallocating each frame. */
-	mutable TScopedPointer<class FLightTileIntersectionResources> TileIntersectionResources;
+	mutable TUniquePtr<class FLightTileIntersectionResources> TileIntersectionResources;
 
 	mutable FVertexBufferRHIRef ShadowCapsuleShapesVertexBuffer;
 	mutable FShaderResourceViewRHIRef ShadowCapsuleShapesSRV;

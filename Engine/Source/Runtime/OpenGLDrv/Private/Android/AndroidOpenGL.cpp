@@ -3,6 +3,8 @@
 #if !PLATFORM_ANDROIDESDEFERRED
 
 #include "OpenGLDrvPrivate.h"
+#include "AndroidOpenGL.h"
+#include "OpenGLDrvPrivate.h"
 #include "OpenGLES2.h"
 #include "AndroidWindow.h"
 #include "AndroidOpenGLPrivate.h"
@@ -78,6 +80,10 @@ PFNGLBINDBUFFERRANGEPROC				glBindBufferRange = NULL;
 PFNGLBINDBUFFERBASEPROC					glBindBufferBase = NULL;
 PFNGLGETUNIFORMBLOCKINDEXPROC			glGetUniformBlockIndex = NULL;
 PFNGLUNIFORMBLOCKBINDINGPROC			glUniformBlockBinding = NULL;
+PFNGLVERTEXATTRIBIPOINTERPROC			glVertexAttribIPointer = NULL;
+
+PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVRPROC glFramebufferTextureMultiviewOVR = NULL;
+PFNGLFRAMEBUFFERTEXTUREMULTISAMPLEMULTIVIEWOVRPROC glFramebufferTextureMultisampleMultiviewOVR = NULL;
 
 struct FPlatformOpenGLDevice
 {
@@ -133,6 +139,11 @@ FPlatformOpenGLDevice* PlatformCreateOpenGLDevice()
 	FPlatformOpenGLDevice* Device = new FPlatformOpenGLDevice();
 	Device->Init();
 	return Device;
+}
+
+bool PlatformCanEnableGPUCapture()
+{
+	return false;
 }
 
 void PlatformReleaseOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGLContext* Context)
@@ -197,25 +208,44 @@ bool PlatformInitOpenGL()
 
 	{
 		// determine ES version. PlatformInitOpenGL happens before ProcessExtensions and therefore FAndroidOpenGL::bES31Support.
-		const bool bES31Supported = FAndroidGPUInfo::Get().GLVersion.Contains(TEXT("OpenGL ES 3.1"));
+		FString SubVersion;
+		const bool bES31Supported = FAndroidGPUInfo::Get().GLVersion.Split(TEXT("OpenGL ES 3."), nullptr, &SubVersion) && FCString::Atoi(*SubVersion) >= 1;
 		static const auto CVarDisableES31 = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Android.DisableOpenGLES31Support"));
 
 		bool bBuildForES31 = false;
 		GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES31"), bBuildForES31, GEngineIni);
+		const bool bSupportsFloatingPointRTs = FAndroidMisc::SupportsFloatingPointRenderTargets();
+		const bool bSupportsShaderIOBlocks = FAndroidMisc::SupportsShaderIOBlocks();
 
-		if (bES31Supported && bBuildForES31 && CVarDisableES31->GetValueOnAnyThread() == 0)
+		if (bBuildForES31 && bES31Supported && bSupportsFloatingPointRTs && bSupportsShaderIOBlocks && CVarDisableES31->GetValueOnAnyThread() == 0)
 		{
+			FAndroidOpenGL::CurrentFeatureLevelSupport = FAndroidOpenGL::EFeatureLevelSupport::ES31;
 			// shut down existing ES2 egl.
+			UE_LOG(LogRHI, Log, TEXT("App is packaged for OpenGL ES 3.1 and an ES 3.1-capable device was detected. Reinitializing OpenGL ES with a 3.1 context."));
 			FAndroidAppEntry::ReleaseEGL();
 			// Re-init gles for 3.1
 			AndroidEGL::GetInstance()->Init(AndroidEGL::AV_OpenGLES, 3, 1, false);
 		}
 		else
 		{
+			FAndroidOpenGL::CurrentFeatureLevelSupport = FAndroidOpenGL::EFeatureLevelSupport::ES2;
+			if (bBuildForES31)
+			{
+				UE_LOG(LogRHI, Log, TEXT("App is packaged for OpenGL ES 3.1 but device has not met all the requirements for ES 3.1 :"));
+				if (CVarDisableES31->GetValueOnAnyThread())
+				{
+					UE_LOG(LogRHI, Log, TEXT("	ES 3.1 support was disabled via r.Android.DisableOpenGLES31Support"));
+				}
+
+				UE_LOG(LogRHI, Log, TEXT("	Device has OpenGL ES 3.1 support: %s"), bES31Supported ? TEXT("YES") : TEXT("NO"));
+				UE_LOG(LogRHI, Log, TEXT("	Floating point render target support: %s"), bSupportsFloatingPointRTs ? TEXT("YES") : TEXT("NO"));
+				UE_LOG(LogRHI, Log, TEXT("	EXT_shader_io_blocks support: %s"), bSupportsShaderIOBlocks ? TEXT("YES") : TEXT("NO"));
+			}
+
 			bool bBuildForES2 = false;
 			GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES2"), bBuildForES2, GEngineIni);
 			// If we're here and there's no ES2 data then we're in trouble.
-			check(bBuildForES2);
+			checkf(bBuildForES2, TEXT("This device only supports OpenGL ES 2 but the app was not packaged with ES2 support."));
 		}
 	}
 	return true;
@@ -374,15 +404,17 @@ bool FAndroidOpenGL::bES30Support = false;
 bool FAndroidOpenGL::bES31Support = false;
 bool FAndroidOpenGL::bSupportsInstancing = false;
 bool FAndroidOpenGL::bHasHardwareHiddenSurfaceRemoval = false;
+bool FAndroidOpenGL::bSupportsMobileMultiView = false;
+FAndroidOpenGL::EFeatureLevelSupport FAndroidOpenGL::CurrentFeatureLevelSupport = FAndroidOpenGL::EFeatureLevelSupport::Invalid;
 
 void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 {
 	FOpenGLES2::ProcessExtensions(ExtensionsString);
 
 	FString VersionString = FString(ANSI_TO_TCHAR((const ANSICHAR*)glGetString(GL_VERSION)));
-
-	bES30Support = VersionString.Contains(TEXT("OpenGL ES 3."));
-	bES31Support = VersionString.Contains(TEXT("OpenGL ES 3.1"));
+	FString SubVersionString;
+	bES30Support = VersionString.Split(TEXT("OpenGL ES 3."), nullptr, &SubVersionString);
+	bES31Support = bES30Support && FCString::Atoi(*SubVersionString) >= 1;
 
 	// Get procedures
 	if (bSupportsOcclusionQueries || bSupportsDisjointTimeQueries)
@@ -478,15 +510,39 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 		glBindBufferBase = (PFNGLBINDBUFFERBASEPROC)((void*)eglGetProcAddress("glBindBufferBase"));
 		glGetUniformBlockIndex = (PFNGLGETUNIFORMBLOCKINDEXPROC)((void*)eglGetProcAddress("glGetUniformBlockIndex"));
 		glUniformBlockBinding = (PFNGLUNIFORMBLOCKBINDINGPROC)((void*)eglGetProcAddress("glUniformBlockBinding"));
+		glVertexAttribIPointer = (PFNGLVERTEXATTRIBIPOINTERPROC)((void*)eglGetProcAddress("glVertexAttribIPointer"));
 
 
 		// Required by the ES3 spec
 		bSupportsInstancing = true;
 		bSupportsTextureFloat = true;
 		bSupportsTextureHalfFloat = true;
+		bSupportsRGB10A2 = true;
+		bSupportsVertexHalfFloat = true;
 		
 		// According to https://www.khronos.org/registry/gles/extensions/EXT/EXT_color_buffer_float.txt
 		bSupportsColorBufferHalfFloat = (bSupportsColorBufferHalfFloat || bSupportsColorBufferFloat);
+	}
+
+	if (bES30Support)
+	{
+		// Mobile multi-view setup
+		const bool bMultiViewSupport = ExtensionsString.Contains(TEXT("GL_OVR_multiview"));
+		const bool bMultiView2Support = ExtensionsString.Contains(TEXT("GL_OVR_multiview2"));
+		const bool bMultiViewMultiSampleSupport = ExtensionsString.Contains(TEXT("GL_OVR_multiview_multisampled_render_to_texture"));
+		if (bMultiViewSupport && bMultiView2Support && bMultiViewMultiSampleSupport)
+		{
+			glFramebufferTextureMultiviewOVR = (PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVRPROC)((void*)eglGetProcAddress("glFramebufferTextureMultiviewOVR"));
+			glFramebufferTextureMultisampleMultiviewOVR = (PFNGLFRAMEBUFFERTEXTUREMULTISAMPLEMULTIVIEWOVRPROC)((void*)eglGetProcAddress("glFramebufferTextureMultisampleMultiviewOVR"));
+
+			bSupportsMobileMultiView = (glFramebufferTextureMultiviewOVR != NULL) && (glFramebufferTextureMultisampleMultiviewOVR != NULL);
+
+			// Just because the driver declares multi-view support and hands us valid function pointers doesn't actually guarantee the feature works...
+			if (bSupportsMobileMultiView)
+			{
+				UE_LOG(LogRHI, Log, TEXT("Device supports mobile multi-view."));
+			}
+		}
 	}
 
 	if (bES31Support)
@@ -540,6 +596,16 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 		bSupportsInstancing = false;
 	}
 
+	// PowerVR Rogue doesn't like glVertexAttribIPointer so disable it
+	if (bIsPoverVRBased && bES30Support)
+	{
+		if (RendererString.Contains(TEXT("Rogue")))
+		{
+			glVertexAttribIPointer = nullptr;
+			UE_LOG(LogRHI, Warning, TEXT("Disabling glVertexAttribIPointer on PowerVR Rogue"));
+		}
+	}
+
 	if (bSupportsBGRA8888)
 	{
 		// Check whether device supports BGRA as color attachment
@@ -580,6 +646,11 @@ bool FAndroidMisc::SupportsShaderFramebufferFetch()
 	return FAndroidGPUInfo::Get().bSupportsFrameBufferFetch;
 }
 
+bool FAndroidMisc::SupportsShaderIOBlocks()
+{
+	return FAndroidGPUInfo::Get().bSupportsShaderIOBlocks;
+}
+
 void FAndroidMisc::GetValidTargetPlatforms(TArray<FString>& TargetPlatformNames)
 {
 	TargetPlatformNames = FAndroidGPUInfo::Get().TargetPlatformNames;
@@ -589,7 +660,6 @@ void FAndroidAppEntry::PlatformInit()
 {
 	// create an ES2 EGL here for gpu queries.
 	AndroidEGL::GetInstance()->Init(AndroidEGL::AV_OpenGLES, 2, 0, false);
-	// FAndroidGPUInfo::Get();
 }
 
 void FAndroidAppEntry::ReleaseEGL()

@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "FontCacheFreeType.h"
-#include "FontCacheHarfBuzz.h"
-#include "FontCacheCompositeFont.h"
-#include "SlateFontRenderer.h"
-#include "SlateTextShaper.h"
-#include "LegacySlateFontInfoCache.h"
+#include "Fonts/FontCache.h"
+#include "Misc/ScopeLock.h"
+#include "HAL/IConsoleManager.h"
+#include "Application/SlateApplicationBase.h"
+#include "Fonts/FontCacheFreeType.h"
+#include "Fonts/FontCacheHarfBuzz.h"
+#include "Fonts/FontCacheCompositeFont.h"
+#include "Fonts/SlateFontRenderer.h"
+#include "Fonts/SlateTextShaper.h"
+#include "Fonts/LegacySlateFontInfoCache.h"
+#include "Fonts/FontCacheUtils.h"
 
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Font Atlases"), STAT_SlateNumFontAtlases, STATGROUP_SlateMemory);
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Font Non-Atlased Textures"), STAT_SlateNumFontNonAtlasedTextures, STATGROUP_SlateMemory);
@@ -40,25 +44,27 @@ ETextShapingMethod GetDefaultTextShapingMethod()
 }
 
 
-FShapedGlyphEntryKey::FShapedGlyphEntryKey(const TSharedPtr<FShapedGlyphFaceData>& InFontFaceData, uint32 InGlyphIndex)
+FShapedGlyphEntryKey::FShapedGlyphEntryKey(const TSharedPtr<FShapedGlyphFaceData>& InFontFaceData, uint32 InGlyphIndex, const FFontOutlineSettings& InOutlineSettings)
 	: FontFace(InFontFaceData->FontFace)
 	, FontSize(InFontFaceData->FontSize)
+	, OutlineSize(InOutlineSettings.OutlineSize)
 	, FontScale(InFontFaceData->FontScale)
 	, GlyphIndex(InGlyphIndex)
 	, KeyHash(0)
 {
 	KeyHash = HashCombine(KeyHash, GetTypeHash(FontFace));
 	KeyHash = HashCombine(KeyHash, GetTypeHash(FontSize));
+	KeyHash = HashCombine(KeyHash, GetTypeHash(InOutlineSettings));
 	KeyHash = HashCombine(KeyHash, GetTypeHash(FontScale));
 	KeyHash = HashCombine(KeyHash, GetTypeHash(GlyphIndex));
 }
 
-
-FShapedGlyphSequence::FShapedGlyphSequence(TArray<FShapedGlyphEntry> InGlyphsToRender, const int16 InTextBaseline, const uint16 InMaxTextHeight, const UObject* InFontMaterial, const FSourceTextRange& InSourceTextRange)
+FShapedGlyphSequence::FShapedGlyphSequence(TArray<FShapedGlyphEntry> InGlyphsToRender, const int16 InTextBaseline, const uint16 InMaxTextHeight, const UObject* InFontMaterial, const FFontOutlineSettings& InOutlineSettings, const FSourceTextRange& InSourceTextRange)
 	: GlyphsToRender(MoveTemp(InGlyphsToRender))
 	, TextBaseline(InTextBaseline)
 	, MaxTextHeight(InMaxTextHeight)
 	, FontMaterial(InFontMaterial)
+	, OutlineSettings(InOutlineSettings)
 	, SequenceWidth(0)
 	, GlyphFontFaces()
 	, SourceIndicesToGlyphData(InSourceTextRange)
@@ -251,7 +257,7 @@ bool FShapedGlyphSequence::HasFoundGlyphAtOffset(FSlateFontCache& InFontCache, c
 	for (int32 SubGlyphIndex = InCurrentGlyphIndex;; ++SubGlyphIndex)
 	{
 		const FShapedGlyphEntry& SubGlyph = GlyphsToRender[SubGlyphIndex];
-		const FShapedGlyphFontAtlasData SubGlyphAtlasData = InFontCache.GetShapedGlyphFontAtlasData(SubGlyph);
+		const FShapedGlyphFontAtlasData SubGlyphAtlasData = InFontCache.GetShapedGlyphFontAtlasData(SubGlyph,FFontOutlineSettings::NoOutline);
 		TotalGlyphSpacing += SubGlyphAtlasData.HorizontalOffset + SubGlyph.XAdvance;
 		TotalGlyphAdvance += SubGlyph.XAdvance;
 
@@ -320,7 +326,7 @@ FShapedGlyphSequencePtr FShapedGlyphSequence::GetSubSequence(const int32 InStart
 
 	if (EnumerateVisualGlyphsInSourceRange(InStartIndex, InEndIndex, GlyphCallback) == EEnumerateGlyphsResult::EnumerationComplete)
 	{
-		return MakeShareable(new FShapedGlyphSequence(MoveTemp(SubGlyphsToRender), TextBaseline, MaxTextHeight, FontMaterial, FSourceTextRange(InStartIndex, InEndIndex - InStartIndex)));
+		return MakeShareable(new FShapedGlyphSequence(MoveTemp(SubGlyphsToRender), TextBaseline, MaxTextHeight, FontMaterial, OutlineSettings, FSourceTextRange(InStartIndex, InEndIndex - InStartIndex)));
 	}
 
 	return nullptr;
@@ -560,7 +566,6 @@ int8 FCharacterList::GetKerning( const FCharacterEntry& FirstCharacterEntry, con
 	if (FirstCharacterEntry.Valid &&
 		SecondCharacterEntry.Valid &&
 		FirstCharacterEntry.FontData && 
-		FirstCharacterEntry.FontData->BulkDataPtr && 
 		FirstCharacterEntry.HasKerning && 
 		*FirstCharacterEntry.FontData == *SecondCharacterEntry.FontData )
 	{
@@ -769,7 +774,7 @@ bool FSlateFontCache::AddNewEntry( TCHAR Character, const FSlateFontKey& InKey, 
 	EFontFallback CharFallbackLevel;
 	const float FontScale = InKey.GetScale() * SubFontScalingFactor;
 
-	const bool bDidRender = FontRenderer->GetRenderData( FontData, InKey.GetFontInfo().Size, Character, RenderData, FontScale, &CharFallbackLevel);
+	const bool bDidRender = FontRenderer->GetRenderData( FontData, InKey.GetFontInfo().Size, InKey.GetFontOutlineSettings(), Character, RenderData, FontScale, &CharFallbackLevel);
 
 	OutCharacterEntry.Valid = bDidRender && AddNewEntry(RenderData, OutCharacterEntry.TextureIndex, OutCharacterEntry.StartU, OutCharacterEntry.StartV, OutCharacterEntry.USize, OutCharacterEntry.VSize);
 	if (OutCharacterEntry.Valid)
@@ -789,11 +794,11 @@ bool FSlateFontCache::AddNewEntry( TCHAR Character, const FSlateFontKey& InKey, 
 	return OutCharacterEntry.Valid;
 }
 
-bool FSlateFontCache::AddNewEntry( const FShapedGlyphEntry& InShapedGlyph, FShapedGlyphFontAtlasData& OutAtlasData )
+bool FSlateFontCache::AddNewEntry(const FShapedGlyphEntry& InShapedGlyph, const FFontOutlineSettings& InOutlineSettings, FShapedGlyphFontAtlasData& OutAtlasData)
 {
 	// Render the glyph
 	FCharacterRenderData RenderData;
-	const bool bDidRender = FontRenderer->GetRenderData(InShapedGlyph, RenderData);
+	const bool bDidRender = FontRenderer->GetRenderData(InShapedGlyph, InOutlineSettings, RenderData);
 
 	OutAtlasData.Valid = bDidRender && AddNewEntry(RenderData, OutAtlasData.TextureIndex, OutAtlasData.StartU, OutAtlasData.StartV, OutAtlasData.USize, OutAtlasData.VSize);
 	if (OutAtlasData.Valid)
@@ -925,11 +930,14 @@ FShapedGlyphSequenceRef FSlateFontCache::ShapeUnidirectionalText( const TCHAR* I
 	return TextShaper->ShapeUnidirectionalText(InText, InTextStart, InTextLen, InFontInfo, InFontScale, InTextDirection, InTextShapingMethod);
 }
 
-FCharacterList& FSlateFontCache::GetCharacterList( const FSlateFontInfo &InFontInfo, float FontScale )
+FCharacterList& FSlateFontCache::GetCharacterList( const FSlateFontInfo &InFontInfo, float FontScale, const FFontOutlineSettings& InOutlineSettings )
 {
 	// Create a key for looking up each character
-	const FSlateFontKey FontKey( InFontInfo, FontScale );
+	const FSlateFontKey FontKey( InFontInfo, InOutlineSettings, FontScale );
 
+	//@HSL_BEGIN - Chance.Lyon - A critical section to help make this class thread-safe */
+	FScopeLock ScopeLock(&CacheCriticalSection);
+	//@HSL_END
 	TSharedRef< class FCharacterList >* CachedCharacterList = FontToCharacterListCache.Find( FontKey );
 
 	if( CachedCharacterList )
@@ -949,18 +957,19 @@ FCharacterList& FSlateFontCache::GetCharacterList( const FSlateFontInfo &InFontI
 	return FontToCharacterListCache.Add( FontKey, MakeShareable( new FCharacterList( FontKey, *this ) ) ).Get();
 }
 
-FShapedGlyphFontAtlasData FSlateFontCache::GetShapedGlyphFontAtlasData( const FShapedGlyphEntry& InShapedGlyph )
+FShapedGlyphFontAtlasData FSlateFontCache::GetShapedGlyphFontAtlasData( const FShapedGlyphEntry& InShapedGlyph, const FFontOutlineSettings& InOutlineSettings )
 {
 	check(IsInGameThread() || IsInRenderingThread());
 
+	uint8 CachedTypeIndex = (uint8)(InOutlineSettings.OutlineSize <= 0 ? EFontCacheAtlasDataType::Regular : EFontCacheAtlasDataType::Outline);
 	const ESlateTextureAtlasThreadId AtlasThreadId = GetCurrentSlateTextureAtlasThreadId();
 	check(AtlasThreadId != ESlateTextureAtlasThreadId::Unknown);
 
-	const int32 CachedAtlasDataIndex = (AtlasThreadId == ESlateTextureAtlasThreadId::Game) ? 0 : 1;
+	const int32 CachedAtlasDataThreadIndex = (AtlasThreadId == ESlateTextureAtlasThreadId::Game) ? 0 : 1;
 
 	// Has the atlas data already been cached on the glyph?
 	{
-		TSharedPtr<FShapedGlyphFontAtlasData> CachedAtlasDataPin = InShapedGlyph.CachedAtlasData[CachedAtlasDataIndex].Pin();
+		TSharedPtr<FShapedGlyphFontAtlasData> CachedAtlasDataPin = InShapedGlyph.CachedAtlasData[CachedTypeIndex][CachedAtlasDataThreadIndex].Pin();
 		if (CachedAtlasDataPin.IsValid())
 		{
 			return *CachedAtlasDataPin;
@@ -969,23 +978,23 @@ FShapedGlyphFontAtlasData FSlateFontCache::GetShapedGlyphFontAtlasData( const FS
 
 	// Not cached on the glyph, so create a key for to look up this glyph, as it may
 	// have already been cached by another shaped text sequence
-	const FShapedGlyphEntryKey GlyphKey(InShapedGlyph.FontFaceData, InShapedGlyph.GlyphIndex);
+	const FShapedGlyphEntryKey GlyphKey(InShapedGlyph.FontFaceData, InShapedGlyph.GlyphIndex, InOutlineSettings);
 
 	// Has the atlas data already been cached by another shaped text sequence?
 	const TSharedRef<FShapedGlyphFontAtlasData>* FoundAtlasData = ShapedGlyphToAtlasData.Find(GlyphKey);
 	if (FoundAtlasData)
 	{
-		InShapedGlyph.CachedAtlasData[CachedAtlasDataIndex] = *FoundAtlasData;
+		InShapedGlyph.CachedAtlasData[CachedTypeIndex][CachedAtlasDataThreadIndex] = *FoundAtlasData;
 		return **FoundAtlasData;
 	}
 
 	// Not cached at all... create a new entry
 	TSharedRef<FShapedGlyphFontAtlasData> NewAtlasData = MakeShareable(new FShapedGlyphFontAtlasData());
-	AddNewEntry(InShapedGlyph, *NewAtlasData);
+	AddNewEntry(InShapedGlyph, InOutlineSettings, *NewAtlasData);
 
 	if (NewAtlasData->Valid)
 	{
-		InShapedGlyph.CachedAtlasData[CachedAtlasDataIndex] = NewAtlasData;
+		InShapedGlyph.CachedAtlasData[CachedTypeIndex][CachedAtlasDataThreadIndex] = NewAtlasData;
 		ShapedGlyphToAtlasData.Add(GlyphKey, NewAtlasData);
 	}
 
@@ -1047,11 +1056,27 @@ void FSlateFontCache::RequestFlushCache()
 
 void FSlateFontCache::FlushObject( const UObject* const InObject )
 {
-	if (InObject)
+	if( !InObject )
 	{
-		// Add it to the list of pending objects to flush
-		FScopeLock ScopeLock(&FontObjectsToFlushCS);
-		FontObjectsToFlush.AddUnique(InObject);
+		return;
+	}
+
+	bool bHasRemovedEntries = false;
+	//@HSL_BEGIN - Chance.Lyon - A critical section to help make this class thread-safe */
+	FScopeLock ScopeLock(&CacheCriticalSection);
+	//@HSL_END
+	for( auto It = FontToCharacterListCache.CreateIterator(); It; ++It )
+	{
+		if( It.Key().GetFontInfo().FontObject == InObject)
+		{
+			bHasRemovedEntries = true;
+			It.RemoveCurrent();
+		}
+	}
+
+	if( bHasRemovedEntries )
+	{
+		FlushData();
 	}
 }
 
@@ -1063,17 +1088,11 @@ void FSlateFontCache::FlushCompositeFont(const FCompositeFont& InCompositeFont)
 bool FSlateFontCache::ConditionalFlushCache()
 {
 	bool bFlushed = false;
-	if (bFlushRequested)
+	if( bFlushRequested )
 	{
 		bFlushRequested = false;
 		FlushCache();
 		bFlushed = !bFlushRequested;
-	}
-
-	if (!bFlushed && DoesThreadOwnSlateRendering())
-	{
-		// Only bother calling this if we didn't do a full flush
-		FlushFontObjects();
 	}
 
 	return bFlushed;
@@ -1117,11 +1136,6 @@ void FSlateFontCache::FlushCache()
 		NonAtlasedTextures.Empty();
 		AllFontTextures.Empty();
 
-		{
-			FScopeLock ScopeLock(&FontObjectsToFlushCS);
-			FontObjectsToFlush.Empty();
-		}
-
 		UE_LOG(LogSlate, Verbose, TEXT("Slate font cache was flushed"));
 	}
 	else
@@ -1142,35 +1156,6 @@ void FSlateFontCache::FlushData()
 
 	FontToCharacterListCache.Empty();
 	ShapedGlyphToAtlasData.Empty();
-}
-
-void FSlateFontCache::FlushFontObjects()
-{
-	check(DoesThreadOwnSlateRendering());
-
-	bool bHasRemovedEntries = false;
-	{
-		FScopeLock ScopeLock(&FontObjectsToFlushCS);
-
-		if (FontObjectsToFlush.Num() > 0)
-		{
-			for (auto It = FontToCharacterListCache.CreateIterator(); It; ++It)
-			{
-				if (FontObjectsToFlush.Contains(It.Key().GetFontInfo().FontObject))
-				{
-					bHasRemovedEntries = true;
-					It.RemoveCurrent();
-				}
-			}
-
-			FontObjectsToFlush.Empty();
-		}
-	}
-
-	if (bHasRemovedEntries)
-	{
-		FlushData();
-	}
 }
 
 void FSlateFontCache::HandleCultureChanged()

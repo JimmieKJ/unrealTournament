@@ -4,16 +4,16 @@
 	ParticleSortingGPU.cpp: Sorting GPU particles.
 ==============================================================================*/
 
-#include "EnginePrivate.h"
-#include "ParticleSortingGPU.h"
-#include "ParticleSimulationGPU.h"
-#include "ParticleHelper.h"
+#include "Particles/ParticleSortingGPU.h"
 #include "UniformBuffer.h"
 #include "ShaderParameters.h"
+#include "Shader.h"
+#include "SceneUtils.h"
+#include "ParticleHelper.h"
+#include "Particles/ParticleSimulationGPU.h"
 #include "ShaderParameterUtils.h"
 #include "GlobalShader.h"
-#include "../GPUSort.h"
-#include "SceneUtils.h"
+#include "GPUSort.h"
 
 /*------------------------------------------------------------------------------
 	Shaders used to generate particle sort keys.

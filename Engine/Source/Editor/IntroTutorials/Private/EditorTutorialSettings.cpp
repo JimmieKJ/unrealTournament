@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IntroTutorialsPrivatePCH.h"
 #include "EditorTutorialSettings.h"
+#include "Templates/SubclassOf.h"
 
 UEditorTutorialSettings::UEditorTutorialSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

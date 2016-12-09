@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -219,6 +219,7 @@ X11_CreateDevice(int devindex)
     device->GetDisplayModes = X11_GetDisplayModes;
     device->GetDisplayBounds = X11_GetDisplayBounds;
     device->GetDisplayUsableBounds = X11_GetDisplayUsableBounds;
+    device->GetDisplayDPI = X11_GetDisplayDPI;
     device->SetDisplayMode = X11_SetDisplayMode;
     device->SuspendScreenSaver = X11_SuspendScreenSaver;
     device->PumpEvents = X11_PumpEvents;
@@ -405,6 +406,9 @@ X11_VideoInit(_THIS)
     GET_ATOM(_NET_WM_STATE_MAXIMIZED_VERT);
     GET_ATOM(_NET_WM_STATE_MAXIMIZED_HORZ);
     GET_ATOM(_NET_WM_STATE_FULLSCREEN);
+    GET_ATOM(_NET_WM_STATE_ABOVE);
+    GET_ATOM(_NET_WM_STATE_SKIP_TASKBAR);
+    GET_ATOM(_NET_WM_STATE_SKIP_PAGER);
     GET_ATOM(_NET_WM_ALLOWED_ACTIONS);
     GET_ATOM(_NET_WM_ACTION_FULLSCREEN);
     GET_ATOM(_NET_WM_NAME);
@@ -412,10 +416,9 @@ X11_VideoInit(_THIS)
     GET_ATOM(_NET_WM_ICON);
     GET_ATOM(_NET_WM_PING);
     GET_ATOM(_NET_WM_WINDOW_OPACITY);
-    GET_ATOM(_NET_WM_STATE_ABOVE);
-    GET_ATOM(_NET_WM_STATE_SKIP_TASKBAR);
-    GET_ATOM(_NET_WM_STATE_SKIP_PAGER);
+    GET_ATOM(_NET_WM_USER_TIME);
     GET_ATOM(_NET_ACTIVE_WINDOW);
+    GET_ATOM(_NET_FRAME_EXTENTS);
     GET_ATOM(UTF8_STRING);
     GET_ATOM(PRIMARY);
     GET_ATOM(XdndEnter);
@@ -426,6 +429,7 @@ X11_VideoInit(_THIS)
     GET_ATOM(XdndDrop);
     GET_ATOM(XdndFinished);
     GET_ATOM(XdndSelection);
+    GET_ATOM(XKLAVIER_STATE);
 
     /* Detect the window manager */
     X11_CheckWindowManager(_this);

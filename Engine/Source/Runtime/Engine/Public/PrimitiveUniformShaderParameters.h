@@ -3,8 +3,11 @@
 #pragma once
 
 
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "RenderResource.h"
+#include "ShaderParameters.h"
 #include "UniformBuffer.h"
-#include "Runtime/ShaderCore/Public/ShaderParameters.h"
 
 
 /** The uniform shader parameters associated with a primitive. */
@@ -24,6 +27,7 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FPrimitiveUniformShaderParameters,ENGINE_API)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector4,InvNonUniformScale,EShaderPrecisionModifier::Half)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, LocalObjectBoundsMin)		// This is used in a custom material function (ObjectLocalBounds.uasset)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, LocalObjectBoundsMax)		// This is used in a custom material function (ObjectLocalBounds.uasset)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,LightingChannelMask)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float,LpvBiasMultiplier)
 END_UNIFORM_BUFFER_STRUCT(FPrimitiveUniformShaderParameters)
 
@@ -35,9 +39,10 @@ inline FPrimitiveUniformShaderParameters GetPrimitiveUniformShaderParameters(
 	const FBoxSphereBounds& LocalBounds,
 	bool bReceivesDecals,
 	bool bHasDistanceFieldRepresentation,
-	bool bHasHeightfieldRepresentation,
+	bool bHasCapsuleRepresentation,
 	bool bUseSingleSampleShadowFromStationaryLights,
 	bool bUseEditorDepthTest,
+	uint32 LightingChannelMask,
 	float LpvBiasMultiplier = 1.0f
 )
 {
@@ -50,6 +55,7 @@ inline FPrimitiveUniformShaderParameters GetPrimitiveUniformShaderParameters(
 	Result.LocalObjectBoundsMax = LocalBounds.GetBoxExtrema(1); // 1 == maximum
 	Result.ObjectOrientation = LocalToWorld.GetUnitAxis( EAxis::Z );
 	Result.ActorWorldPosition = ActorPosition;
+	Result.LightingChannelMask = LightingChannelMask;
 	Result.LpvBiasMultiplier = LpvBiasMultiplier;
 
 	{
@@ -71,7 +77,7 @@ inline FPrimitiveUniformShaderParameters GetPrimitiveUniformShaderParameters(
 
 	Result.LocalToWorldDeterminantSign = FMath::FloatSelect(LocalToWorld.RotDeterminant(),1,-1);
 	Result.DecalReceiverMask = bReceivesDecals ? 1 : 0;
-	Result.PerObjectGBufferData = (2 * (int32)bHasHeightfieldRepresentation + (int32)bHasDistanceFieldRepresentation) / 3.0f;
+	Result.PerObjectGBufferData = (2 * (int32)bHasCapsuleRepresentation + (int32)bHasDistanceFieldRepresentation) / 3.0f;
 	Result.UseSingleSampleShadowFromStationaryLights = bUseSingleSampleShadowFromStationaryLights ? 1.0f : 0.0f;
 	Result.UseEditorDepthTest = bUseEditorDepthTest ? 1 : 0;
 	return Result;
@@ -88,7 +94,7 @@ inline TUniformBufferRef<FPrimitiveUniformShaderParameters> CreatePrimitiveUnifo
 {
 	check(IsInRenderingThread());
 	return TUniformBufferRef<FPrimitiveUniformShaderParameters>::CreateUniformBufferImmediate(
-		GetPrimitiveUniformShaderParameters(LocalToWorld, WorldBounds.Origin, WorldBounds, LocalBounds, bReceivesDecals, false, false, false, bUseEditorDepthTest, LpvBiasMultiplier ),
+		GetPrimitiveUniformShaderParameters(LocalToWorld, WorldBounds.Origin, WorldBounds, LocalBounds, bReceivesDecals, false, false, false, bUseEditorDepthTest, GetDefaultLightingChannelMask(), LpvBiasMultiplier ),
 		UniformBuffer_MultiFrame
 		);
 }
@@ -118,6 +124,7 @@ public:
 			false,
 			false,
 			true,
+			GetDefaultLightingChannelMask(),
 			1.0f		// LPV bias
 			));
 	}

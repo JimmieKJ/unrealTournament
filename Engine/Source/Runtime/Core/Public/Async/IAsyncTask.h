@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 
 /**
  * Enumerates possible states of slow running tasks.

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Commands/Commands.h"
+#include "EditorStyleSet.h"
+
 // Actions that can be invoked in the Size Map
 class FSizeMapActions : public TCommands<FSizeMapActions>
 {

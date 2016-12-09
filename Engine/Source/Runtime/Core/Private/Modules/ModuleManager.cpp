@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "ModuleManager.h"
-#include "EngineVersion.h"
-#include "EngineBuildSettings.h"
-#include "UProjectInfo.h"
-#include "ScopeExit.h"
-#include "ModuleVersion.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/DateTime.h"
+#include "HAL/FileManager.h"
+#include "Misc/Parse.h"
+#include "Misc/Paths.h"
+#include "Stats/Stats.h"
+#include "Misc/App.h"
+#include "Misc/ScopeExit.h"
+#include "Modules/ModuleVersion.h"
+#include "Misc/ScopeLock.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogModuleManager, Log, All);
 
@@ -18,12 +21,12 @@ DEFINE_LOG_CATEGORY_STATIC(LogModuleManager, Log, All);
 
 int32 FModuleManager::FModuleInfo::CurrentLoadOrder = 1;
 
-TSharedPtr<FModuleManager::FModuleInfo> FModuleManager::FindModule(FName InModuleName)
+FModuleManager::ModuleInfoPtr FModuleManager::FindModule(FName InModuleName)
 {
-	TSharedPtr<FModuleManager::FModuleInfo> Result = nullptr;
+	FModuleManager::ModuleInfoPtr Result = nullptr;
 
 	FReadScopeLock Lock(&ModulesCriticalSection);
-	if (TSharedRef<FModuleManager::FModuleInfo>* FoundModule = Modules.Find(InModuleName))
+	if ( FModuleManager::ModuleInfoRef* FoundModule = Modules.Find(InModuleName))
 	{
 		Result = *FoundModule;
 	}
@@ -31,7 +34,7 @@ TSharedPtr<FModuleManager::FModuleInfo> FModuleManager::FindModule(FName InModul
 	return Result;
 }
 
-TSharedRef<FModuleManager::FModuleInfo> FModuleManager::FindModuleChecked(FName InModuleName)
+FModuleManager::ModuleInfoRef FModuleManager::FindModuleChecked(FName InModuleName)
 {
 	FReadScopeLock Lock(&ModulesCriticalSection);
 	return Modules.FindChecked(InModuleName);
@@ -48,25 +51,30 @@ FModuleManager& FModuleManager::Get()
 
 	if( ModuleManager == NULL )
 	{
-		// FModuleManager is not thread-safe
-		ensure(IsInGameThread());
+		static FCriticalSection FModuleManagerSingletonConstructor;
+		FScopeLock Guard(&FModuleManagerSingletonConstructor);
+		if (ModuleManager == NULL)
+		{
+			// FModuleManager is not thread-safe
+			ensure(IsInGameThread());
 
-		ModuleManager = new FModuleManager();
+			ModuleManager = new FModuleManager();
 
-		//temp workaround for IPlatformFile being used for FPaths::DirectoryExists before main() sets up the commandline.
+			//temp workaround for IPlatformFile being used for FPaths::DirectoryExists before main() sets up the commandline.
 #if PLATFORM_DESKTOP
 		// Ensure that dependency dlls can be found in restricted sub directories
-		const TCHAR* RestrictedFolderNames[] = { TEXT("NoRedist"), TEXT("NotForLicensees"), TEXT("CarefullyRedist") };
-		FString ModuleDir = FPlatformProcess::GetModulesDirectory();
-		for (const TCHAR* RestrictedFolderName : RestrictedFolderNames)
-		{
-			FString RestrictedFolder = ModuleDir / RestrictedFolderName;
-			if (FPaths::DirectoryExists(RestrictedFolder))
+			const TCHAR* RestrictedFolderNames[] = { TEXT("NoRedist"), TEXT("NotForLicensees"), TEXT("CarefullyRedist") };
+			FString ModuleDir = FPlatformProcess::GetModulesDirectory();
+			for (const TCHAR* RestrictedFolderName : RestrictedFolderNames)
 			{
-				ModuleManager->AddBinariesDirectory(*RestrictedFolder, false);
+				FString RestrictedFolder = ModuleDir / RestrictedFolderName;
+				if (FPaths::DirectoryExists(RestrictedFolder))
+				{
+					ModuleManager->AddBinariesDirectory(*RestrictedFolder, false);
+				}
 			}
-		}
 #endif
+		}
 	}
 
 	return *ModuleManager;
@@ -118,7 +126,7 @@ bool FModuleManager::ModuleExists(const TCHAR* ModuleName) const
 bool FModuleManager::IsModuleLoaded( const FName InModuleName ) const
 {
 	// Do we even know about this module?
-	TSharedPtr<const FModuleInfo> ModuleInfoPtr = FindModule(InModuleName);
+	TSharedPtr<const FModuleInfo, ESPMode::ThreadSafe> ModuleInfoPtr = FindModule(InModuleName);
 	if( ModuleInfoPtr.IsValid() )
 	{
 		const FModuleInfo& ModuleInfo = *ModuleInfoPtr;
@@ -192,7 +200,7 @@ bool FindNewestModuleFile(TArray<FString>& FilesToSearch, const FDateTime& Newer
 	return bFound;
 }
 
-void FModuleManager::AddModuleToModulesList(const FName InModuleName, TSharedRef<FModuleManager::FModuleInfo>& InModuleInfo)
+void FModuleManager::AddModuleToModulesList(const FName InModuleName, FModuleManager::ModuleInfoRef& InModuleInfo)
 {
 	{
 		FWriteScopeLock Lock(&ModulesCriticalSection);
@@ -214,7 +222,7 @@ void FModuleManager::AddModule(const FName InModuleName)
 		return;
 	}
 
-	TSharedRef<FModuleInfo> ModuleInfo(new FModuleInfo());
+	ModuleInfoRef ModuleInfo(new FModuleInfo());
 	
 	// Make sure module info is added to known modules and proper delegates are fired on exit.
 	ON_SCOPE_EXIT
@@ -356,7 +364,7 @@ TSharedPtr<IModuleInterface> FModuleManager::LoadModuleWithFailureReason(const F
 	AddModule( InModuleName );
 
 	// Grab the module info.  This has the file name of the module, as well as other info.
-	TSharedRef< FModuleInfo > ModuleInfo = Modules.FindChecked( InModuleName );
+	ModuleInfoRef ModuleInfo = Modules.FindChecked( InModuleName );
 
 	if (ModuleInfo->Module.IsValid())
 	{
@@ -386,6 +394,8 @@ TSharedPtr<IModuleInterface> FModuleManager::LoadModuleWithFailureReason(const F
 			{
 				// Startup the module
 				ModuleInfo->Module->StartupModule();
+				// The module might try to load other dependent modules in StartupModule. In this case, we want those modules shut down AFTER this one because we may still depend on the module at shutdown.
+				ModuleInfo->LoadOrder = FModuleInfo::CurrentLoadOrder++;
 
 				// Module was started successfully!  Fire callbacks.
 				ModulesChangedEvent.Broadcast(InModuleName, EModuleChangeReason::ModuleLoaded);
@@ -475,6 +485,8 @@ TSharedPtr<IModuleInterface> FModuleManager::LoadModuleWithFailureReason(const F
 								{
 									// Startup the module
 									ModuleInfo->Module->StartupModule();
+									// The module might try to load other dependent modules in StartupModule. In this case, we want those modules shut down AFTER this one because we may still depend on the module at shutdown.
+									ModuleInfo->LoadOrder = FModuleInfo::CurrentLoadOrder++;
 
 									// Module was started successfully!  Fire callbacks.
 									ModulesChangedEvent.Broadcast(InModuleName, EModuleChangeReason::ModuleLoaded);
@@ -529,7 +541,7 @@ TSharedPtr<IModuleInterface> FModuleManager::LoadModuleWithFailureReason(const F
 bool FModuleManager::UnloadModule( const FName InModuleName, bool bIsShutdown )
 {
 	// Do we even know about this module?
-	TSharedPtr<FModuleInfo> ModuleInfoPtr = FindModule(InModuleName);
+	ModuleInfoPtr ModuleInfoPtr = FindModule(InModuleName);
 	if( ModuleInfoPtr.IsValid() )
 	{
 		FModuleInfo& ModuleInfo = *ModuleInfoPtr;
@@ -591,7 +603,7 @@ bool FModuleManager::UnloadModule( const FName InModuleName, bool bIsShutdown )
 void FModuleManager::AbandonModule( const FName InModuleName )
 {
 	// Do we even know about this module?
-	TSharedPtr<FModuleInfo> ModuleInfoPtr = FindModule(InModuleName);
+	ModuleInfoPtr ModuleInfoPtr = FindModule(InModuleName);
 	if( ModuleInfoPtr.IsValid() )
 	{
 		FModuleInfo& ModuleInfo = *ModuleInfoPtr;
@@ -639,7 +651,7 @@ void FModuleManager::UnloadModulesAtShutdown()
 	TArray<FModulePair> ModulesToUnload;
 	for (const auto ModuleIt : Modules)
 	{
-		TSharedRef< FModuleInfo > ModuleInfo( ModuleIt.Value );
+		ModuleInfoRef ModuleInfo( ModuleIt.Value );
 
 		// Only if already loaded
 		if( ModuleInfo->Module.IsValid() )
@@ -674,7 +686,7 @@ void FModuleManager::UnloadModulesAtShutdown()
 TSharedPtr<IModuleInterface> FModuleManager::GetModule( const FName InModuleName )
 {
 	// Do we even know about this module?
-	TSharedPtr<FModuleInfo> ModuleInfo = FindModule(InModuleName);
+	ModuleInfoPtr ModuleInfo = FindModule(InModuleName);
 
 	if (!ModuleInfo.IsValid())
 	{
@@ -816,7 +828,7 @@ bool FModuleManager::Exec( UWorld* Inworld, const TCHAR* Cmd, FOutputDevice& Ar 
 bool FModuleManager::QueryModule( const FName InModuleName, FModuleStatus& OutModuleStatus ) const
 {
 	// Do we even know about this module?
-	TSharedPtr<const FModuleInfo> ModuleInfoPtr = FindModule(InModuleName);
+	TSharedPtr<const FModuleInfo, ESPMode::ThreadSafe> ModuleInfoPtr = FindModule(InModuleName);
 
 	if (!ModuleInfoPtr.IsValid())
 	{
@@ -841,7 +853,7 @@ void FModuleManager::QueryModules( TArray< FModuleStatus >& OutModuleStatuses ) 
 {
 	OutModuleStatuses.Reset();
 	FReadScopeLock Lock(&ModulesCriticalSection);
-	for (const TPair<FName, TSharedRef<FModuleInfo>>& ModuleIt : Modules)
+	for (const TPair<FName, ModuleInfoRef>& ModuleIt : Modules)
 	{
 		const FModuleInfo& CurModule = *ModuleIt.Value;
 
@@ -1210,7 +1222,7 @@ bool FModuleManager::DoesLoadedModuleHaveUObjects( const FName ModuleName ) cons
 	return false;
 }
 
-TSharedRef<FModuleManager::FModuleInfo> FModuleManager::GetOrCreateModule(FName InModuleName)
+FModuleManager::ModuleInfoRef FModuleManager::GetOrCreateModule(FName InModuleName)
 {
 	check(IsInGameThread());
 	ensureMsgf(InModuleName != NAME_None, TEXT("FModuleManager::AddModule() was called with an invalid module name (empty string or 'None'.)  This is not allowed."));
@@ -1221,7 +1233,7 @@ TSharedRef<FModuleManager::FModuleInfo> FModuleManager::GetOrCreateModule(FName 
 	}
 
 	// Add this module to the set of modules that we know about
-	TSharedRef< FModuleInfo > ModuleInfo(new FModuleInfo());
+	ModuleInfoRef ModuleInfo(new FModuleInfo());
 
 #if !IS_MONOLITHIC
 	FString ModuleNameString = InModuleName.ToString();

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
 /**
  * This module holds the base UObject class that allows visual editing of configuration settings in the Unreal Editor.
  * This is needed because the settings need to be usable outside of the UObject framework so these objects wrap

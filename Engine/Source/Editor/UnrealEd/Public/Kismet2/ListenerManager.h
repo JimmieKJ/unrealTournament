@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 template<typename TType, typename TChangeInfo>
 class INotifyOnChanged
 {

@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "GenericQuadTree.h"
+
+#include "CoreMinimal.h"
 #include "ProceduralFoliageInstance.h"
+#include "GenericQuadTree.h"
 
 class FProceduralFoliageBroadphase
 {

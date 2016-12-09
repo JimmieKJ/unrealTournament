@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Helper struct defining parameters we need to establish a connection */
 struct FOneSkyConnectionInfo
 {

@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SessionServicesPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "IMessagingModule.h"
+#include "ISessionManager.h"
+#include "SessionManager.h"
+#include "ISessionService.h"
+#include "SessionService.h"
 #include "ISessionServicesModule.h"
-#include "ModuleManager.h"
 
 
 /**
@@ -24,7 +31,7 @@ public:
 
 public:
 
-	// FSelfRegisteringExec interface
+	//~ FSelfRegisteringExec interface
 
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override
 	{
@@ -81,9 +88,9 @@ public:
 
 public:
 
-	// ISessionServicesModule interface
+	//~ ISessionServicesModule interface
 
-	virtual ISessionManagerRef GetSessionManager() override
+	virtual TSharedRef<ISessionManager> GetSessionManager() override
 	{
 		if (!SessionManager.IsValid())
 		{
@@ -93,7 +100,7 @@ public:
 		return SessionManager.ToSharedRef();
 	}
 
-	virtual ISessionServiceRef GetSessionService() override
+	virtual TSharedRef<ISessionService> GetSessionService() override
 	{
 		if (!SessionService.IsValid())
 		{
@@ -105,7 +112,7 @@ public:
 
 public:
 
-	// IModuleInterface interface
+	//~ IModuleInterface interface
 
 	virtual void StartupModule() override
 	{
@@ -122,13 +129,13 @@ public:
 private:
 	
 	/** Holds a weak pointer to the message bus. */
-	IMessageBusWeakPtr MessageBusPtr;
+	TWeakPtr<IMessageBus, ESPMode::ThreadSafe> MessageBusPtr;
 
 	/** Holds the session manager singleton. */
-	ISessionManagerPtr SessionManager;
+	TSharedPtr<ISessionManager> SessionManager;
 
 	/** Holds the session service singleton. */
-	ISessionServicePtr SessionService;
+	TSharedPtr<ISessionService> SessionService;
 };
 
 

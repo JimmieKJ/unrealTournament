@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "SequencerSelection.h"
 #include "MovieSceneSection.h"
+#include "DisplayNodes/SequencerObjectBindingNode.h"
+#include "SequencerCommonHelpers.h"
+#include "IKeyArea.h"
 
 FSequencerSelection::FSequencerSelection()
 	: SuspendBroadcastCount(0)
@@ -106,8 +108,6 @@ void FSequencerSelection::AddToSelection(FSequencerSelectedKey Key)
 	{
 		EmptySelectedOutlinerNodesWithoutSection(Key.KeyArea->GetOwningSection());
 	}
-
-	EmptySelectedSections();
 }
 
 void FSequencerSelection::AddToSelection(UMovieSceneSection* Section)
@@ -124,8 +124,6 @@ void FSequencerSelection::AddToSelection(UMovieSceneSection* Section)
 	{
 		EmptySelectedOutlinerNodesWithoutSection(Section);
 	}
-
-	EmptySelectedKeys();
 }
 
 void FSequencerSelection::AddToSelection(TSharedRef<FSequencerDisplayNode> OutlinerNode)

@@ -2,10 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "EditorViewportClient.h"
 #include "SEditorViewport.h"
 
 class FPhAT;
 class FPhATEdPreviewViewportClient;
+class FSceneViewport;
+class SViewport;
 
 /*-----------------------------------------------------------------------------
    SPhATViewport

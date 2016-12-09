@@ -2,11 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "AnimGraphNode_Base.h"
 #include "Animation/AnimNode_SubInstance.h"
 
 #include "AnimGraphNode_SubInstance.generated.h"
 
+class FCompilerResultsLog;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
 
 UCLASS(MinimalAPI)
 class UAnimGraphNode_SubInstance : public UAnimGraphNode_Base

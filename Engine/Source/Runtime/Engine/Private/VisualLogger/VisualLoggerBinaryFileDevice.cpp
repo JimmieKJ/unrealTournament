@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "EnginePrivate.h"
 #include "VisualLogger/VisualLoggerBinaryFileDevice.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "VisualLogger/VisualLogger.h"
 
 #if ENABLE_VISUAL_LOG
 

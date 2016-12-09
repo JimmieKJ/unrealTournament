@@ -1,12 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "GraphEditor.h"
-#include "BlueprintUtilities.h"
-
 #include "SGraphTitleBar.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Misc/Paths.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
+#include "EdGraph/EdGraph.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "Widgets/Navigation/SBreadcrumbTrail.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+
+#include "BlueprintEditor.h"
 
 #define LOCTEXT_NAMESPACE "SGraphTitleBar"
 

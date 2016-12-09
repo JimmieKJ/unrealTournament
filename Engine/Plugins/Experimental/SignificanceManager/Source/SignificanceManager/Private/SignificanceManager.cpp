@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SignificanceManagerPrivate.h"
 #include "SignificanceManager.h"
-#include "DisplayDebugHelpers.h"
-#include "ParallelFor.h"
+#include "EngineGlobals.h"
+#include "Engine/Canvas.h"
+#include "GameFramework/HUD.h"
+#include "Engine/Engine.h"
+#include "Async/ParallelFor.h"
 
 IMPLEMENT_MODULE( FSignificanceManagerModule, SignificanceManager );
 

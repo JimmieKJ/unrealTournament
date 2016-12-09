@@ -2,13 +2,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Text;
-using System.Threading; 
-using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 
 /// <summary>
@@ -76,6 +72,18 @@ public class JiraConnection
 		return NameToPlatform;
 	}
 
+    /// <summary>
+    /// Maps the name to the version.
+    /// </summary>
+    Dictionary<string, Dictionary<string, object>> NameToBranch = new Dictionary<string, Dictionary<string, object>>();
+    /// <summary>
+    /// Maps the name to the branch.
+    /// </summary>
+    public Dictionary<string, Dictionary<string, object>> GetNameToBranch()
+    {
+        return NameToBranch;
+    }
+
 	/// <summary>
 	/// Singleton
 	/// </summary>
@@ -97,16 +105,16 @@ public class JiraConnection
 	}
 
 	/// <summary>
-	/// Retrieves all components from https://jira.ol.epicgames.net/rest/api/2/project/UE/components
+	/// Retrieves all components from https://jira.it.epicgames.net/rest/api/2/project/UE/components
 	/// </summary>
 	private void InitializeComponentArray()
 	{
 		/*
-			"self": "https://jira.ol.epicgames.net/rest/api/2/component/..",
+			"self": "https://jira.it.epicgames.net/rest/api/2/component/..",
 			"id": "14019",
 			"name": "...",
 			"lead": {
-			"self": "https://jira.ol.epicgames.net/rest/api/2/user?username=...,
+			"self": "https://jira.it.epicgames.net/rest/api/2/user?username=...,
 			"key": "...",
 			"name": "...",
 			"avatarUrls": {...},
@@ -132,12 +140,12 @@ public class JiraConnection
 	}
 
 	/// <summary>
-	/// Retrieves all build versions from https://jira.ol.epicgames.net/rest/api/2/project/UE/versions
+	/// Retrieves all build versions from https://jira.it.epicgames.net/rest/api/2/project/UE/versions
 	/// </summary>
 	private void InitializeVersionArray()
 	{
 		/*
-			"self": "https://jira.ol.epicgames.net/rest/api/2/version/...",
+			"self": "https://jira.it.epicgames.net/rest/api/2/version/...",
 			"id": "11700",
 			"description": "Scheduled engine release",
 			"name": "4.8",
@@ -250,15 +258,15 @@ public class JiraConnection
 	/// <summary>
 	/// Creates a Jira ticket with the given fields
 	/// </summary>
-	public string AddJiraTicket( Dictionary<string, object> Fields )
+	public string AddJiraTicket( Dictionary<string, object> fields )
 	{
 		// Create the request object
-		Dictionary<string, object> Request = new Dictionary<string, object> { { "fields", Fields } };
-		HttpWebResponse Response = JiraRequest( "/issue", JiraMethod.POST, Request, HttpStatusCode.Created );
+		var request = new Dictionary<string, object> { { "fields", fields } };
+		var response = JiraRequest( "/issue", JiraMethod.POST, request, HttpStatusCode.Created );
 
 		// Return the new issue id
-		Dictionary<string, object> ResponseObject = ParseJiraResponse( Response );
-		return (string)ResponseObject["key"];
+		var responseObject = ParseJiraResponse( response );
+		return (string)responseObject["key"];
 	}
 
 	/// <summary>
@@ -278,40 +286,40 @@ public class JiraConnection
 	/// <param name="FieldsToGet">Fields that will be grabbed from the results</param>
 	public Dictionary<string,Dictionary<string, object>> SearchJiraTickets( string SearchQuery, string[] FieldsToGet )
 	{
-		Dictionary<string, Dictionary<string, object>> Result = new Dictionary<string, Dictionary<string, object>>();
+		var result = new Dictionary<string, Dictionary<string, object>>();
 
 		// Do the query in multiple steps, to avoid timeouts when receiving large amounts of data
-		const int MaxResultsPerQuery = 100;
-		for( int StartAt = 0; ; StartAt += MaxResultsPerQuery )
+		const int maxResultsPerQuery = 100;
+		for( var startAt = 0; ; startAt += maxResultsPerQuery )
 		{
 			// Create the query
-			Dictionary<string, object> Request = new Dictionary<string, object>();
-			Request.Add( "jql", SearchQuery );
-			Request.Add( "startAt", StartAt.ToString() );
-			Request.Add( "maxResults", MaxResultsPerQuery.ToString() );
-			Request.Add( "fields", FieldsToGet );
-			HttpWebResponse Response = JiraRequest( "/search", JiraMethod.POST, Request, HttpStatusCode.OK );
+			var request = new Dictionary<string, object>();
+			request.Add( "jql", SearchQuery );
+			request.Add( "startAt", startAt.ToString() );
+			request.Add( "maxResults", maxResultsPerQuery.ToString() );
+			request.Add( "fields", FieldsToGet );
+			var response = JiraRequest( "/search", JiraMethod.POST, request, HttpStatusCode.OK );
 
 			// Parse the results
-			Dictionary<string, object> Results = ParseJiraResponse( Response );
-			System.Collections.ArrayList Issues = (System.Collections.ArrayList)Results["issues"];
+			var results = ParseJiraResponse( response );
+			var issues = (System.Collections.ArrayList)results["issues"];
 
 			// Process this chunk of results
-			foreach( Dictionary<string, object> Issue in Issues )
+			foreach( Dictionary<string, object> Issue in issues )
 			{
-				string Key = (string)Issue["key"];
-				Dictionary<string, object> Fields = (Dictionary<string, object>)Issue["fields"];
-				Result.Add( Key, Fields );
+				var key = (string)Issue["key"];
+				var fields = (Dictionary<string, object>)Issue["fields"];
+				result.Add( key, fields );
 			}
 
 			// Quit once we got less than the max results
-			if( Issues.Count < MaxResultsPerQuery )
+			if( issues.Count < maxResultsPerQuery )
 			{
 				break;
 			}
 		}
 
-		return Result;
+		return result;
 	}
 
 	/// <summary>
@@ -319,31 +327,48 @@ public class JiraConnection
 	/// </summary>
 	HttpWebResponse JiraRequest( string RequestUrl, JiraMethod Method, object Input )
 	{
-		// Get the username and password
-		string UserName, Password;
-		if( Credentials.TryGetValue( "jira.username", out UserName ) && Credentials.TryGetValue( "jira.password", out Password ) )
-		{
-			// Send the request
-			HttpWebRequest Request = (HttpWebRequest)WebRequest.Create( "https://jira.ol.epicgames.net/rest/api/2" + RequestUrl );
-			Request.Method = Enum.GetName( typeof( JiraMethod ), Method );
-			Request.Headers.Add( "Authorization", "Basic " + Convert.ToBase64String( UTF8Encoding.UTF8.GetBytes( UserName + ":" + Password ) ) );
-			Request.ContentType = "application/json";
-			if( Input != null )
-			{
-				using( StreamWriter RequestWriter = new StreamWriter( Request.GetRequestStream(), Encoding.ASCII ) )
-				{
-					JavaScriptSerializer Serializer = new JavaScriptSerializer();
-					RequestWriter.Write( Serializer.Serialize( Input ) );
-				}
-			}
+	    try
+	    {
 
-			// Check the response was ok
-			return (HttpWebResponse)Request.GetResponse();
-		}
-		else
-		{
-			return null;
-		}
+	        // Get the username and password
+	        string UserName, Password;
+	        if (Credentials.TryGetValue("jira.username", out UserName) &&
+	            Credentials.TryGetValue("jira.password", out Password))
+	        {
+	            // Send the request
+	            var request = (HttpWebRequest) WebRequest.Create("https://jira.it.epicgames.net/rest/api/2" + RequestUrl);
+	            request.Method = Enum.GetName(typeof (JiraMethod), Method);
+	            request.Headers.Add("Authorization",
+	                "Basic " + Convert.ToBase64String(UTF8Encoding.UTF8.GetBytes(UserName + ":" + Password)));
+	            request.ContentType = "application/json";
+	            if (Input != null)
+	            {
+	                using (var requestWriter = new StreamWriter(request.GetRequestStream(), Encoding.ASCII))
+	                {
+	                    var serializer = new JavaScriptSerializer();
+	                    requestWriter.Write(serializer.Serialize(Input));
+	                }
+	            }
+	            // Check the response was ok
+	            return (HttpWebResponse) request.GetResponse();
+	        }
+	        else
+	        {
+	            return null;
+	        }
+	    }
+	    catch (WebException ex)
+	    {
+            using( StreamReader ResponseReader = new StreamReader( ex.Response.GetResponseStream() ) )
+		    {
+			    string ResponseText = ResponseReader.ReadToEnd();
+		    }
+            return null;
+	    }
+	    catch (Exception)
+	    {
+            return null;
+	    }
 	}
 
 	/// <summary>
@@ -359,7 +384,7 @@ public class JiraConnection
 		return Response;
 	}
 
-	/// <summary>
+    /// <summary>
 	/// Parses a Json object from a web response
 	/// </summary>
 	public static Dictionary<string, object> ParseJiraResponse( HttpWebResponse Response )

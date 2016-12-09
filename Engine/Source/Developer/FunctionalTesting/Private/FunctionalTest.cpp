@@ -1,16 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FunctionalTestingPrivatePCH.h"
+#include "FunctionalTest.h"
+#include "Misc/Paths.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/LatentActionManager.h"
+#include "Components/BillboardComponent.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "UObject/ConstructorHelpers.h"
+#include "ProfilingDebugging/ProfilingHelpers.h"
+#include "Misc/AutomationTest.h"
+#include "GameFramework/PlayerController.h"
+#include "Components/TextRenderComponent.h"
+#include "Engine/Selection.h"
+#include "FuncTestManager.h"
+#include "FuncTestRenderingComponent.h"
 #include "ObjectEditorUtils.h"
 #include "VisualLogger/VisualLogger.h"
-#if WITH_EDITORONLY_DATA
-#include "FuncTestRenderingComponent.h"
-#endif // WITH_EDITORONLY_DATA
-#if WITH_EDITOR
-#include "Engine/Selection.h"
-#endif // WITH_EDITOR
-
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Engine/Texture2D.h"
 #include "DelayForFramesLatentAction.h"
+#include "Engine/DebugCameraController.h"
 
 namespace
 {
@@ -73,15 +84,16 @@ namespace
 AFunctionalTest::AFunctionalTest( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
 	, bIsEnabled(true)
+	, bWarningsAsErrors(false)
 	, Result(EFunctionalTestResult::Invalid)
 	, PreparationTimeLimit(15.0f)
 	, TimeLimit(60.0f)
 	, TimesUpMessage( NSLOCTEXT("FunctionalTest", "DefaultTimesUpMessage", "Time's up!") )
 	, TimesUpResult(EFunctionalTestResult::Failed)
 	, bIsRunning(false)
-	, bInStep(false)
-	, CurrentStepName()
 	, TotalTime(0.f)
+	, RunFrame(0)
+	, StartFrame(0)
 	, bIsReady(false)
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -92,7 +104,7 @@ AFunctionalTest::AFunctionalTest( const FObjectInitializer& ObjectInitializer )
 	SpriteComponent = CreateDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 	if (SpriteComponent)
 	{
-		SpriteComponent->bHiddenInGame = false;
+		SpriteComponent->bHiddenInGame = true;
 #if WITH_EDITORONLY_DATA
 
 		if (!IsRunningCommandlet())
@@ -137,13 +149,17 @@ AFunctionalTest::AFunctionalTest( const FObjectInitializer& ObjectInitializer )
 #endif // WITH_EDITOR
 
 #if WITH_EDITORONLY_DATA
-	TestName = CreateDefaultSubobject<UTextRenderComponent>(TEXT("TestName"));
-
-	TestName->SetHorizontalAlignment(EHTA_Center);
-	TestName->SetTextRenderColor(FColor(11, 255, 0));
-	TestName->SetRelativeLocation(FVector(0, 0, 80));
-	TestName->PostPhysicsComponentTick.bCanEverTick = false;
-	TestName->SetupAttachment(RootComponent);
+	TestName = CreateEditorOnlyDefaultSubobject<UTextRenderComponent>(TEXT("TestName"));
+	if ( TestName )
+	{
+		TestName->bHiddenInGame = true;
+		TestName->SetHorizontalAlignment(EHTA_Center);
+		TestName->SetTextRenderColor(FColor(11, 255, 0));
+		TestName->SetRelativeLocation(FVector(0, 0, 80));
+		TestName->SetRelativeRotation(FRotator(0, 0, 0));
+		TestName->PostPhysicsComponentTick.bCanEverTick = false;
+		TestName->SetupAttachment(RootComponent);
+	}
 #endif
 }
 
@@ -152,17 +168,27 @@ void AFunctionalTest::OnConstruction(const FTransform& Transform)
 	Super::OnConstruction(Transform);
 
 #if WITH_EDITOR
-	TestName->SetText(FText::FromString(GetActorLabel()));
+	if ( TestName )
+	{
+		TestName->SetText(FText::FromString(GetActorLabel()));
+	}
 #endif
 }
 
 bool AFunctionalTest::RunTest(const TArray<FString>& Params)
 {
+	FAutomationTestFramework::Get().SetTreatWarningsAsErrors(bWarningsAsErrors);
+
+	//Scalability::FQualityLevels Quality;
+	//Quality.SetDefaults();
+	//Scalability::SetQualityLevels(Quality);
+
 	FailureMessage = TEXT("");
 	
 	//Do not collect garbage during the test. We force GC at the end.
 	GetWorld()->DelayGarbageCollection();
 
+	RunFrame = GFrameNumber;
 	TotalTime = 0.f;
 	if (TimeLimit >= 0)
 	{
@@ -173,6 +199,8 @@ bool AFunctionalTest::RunTest(const TArray<FString>& Params)
 	bIsRunning = true;
 
 	GoToObservationPoint();
+
+	PrepareTest();
 
 	return true;
 }
@@ -185,6 +213,7 @@ void AFunctionalTest::PrepareTest()
 void AFunctionalTest::StartTest()
 {
 	TotalTime = 0.f;
+	StartFrame = GFrameNumber;
 
 	ReceiveStartTest();
 	OnTestStart.Broadcast();
@@ -271,7 +300,7 @@ void AFunctionalTest::FinishTest(EFunctionalTestResult TestResult, const FString
 	}
 
 	const FText ResultText = FTestResultTypeEnum->GetEnumText( (int32)TestResult );
-	const FString OutMessage = FString::Printf(TEXT("%s %s: \"%s\'")
+	const FString OutMessage = FString::Printf(TEXT("%s %s: \"%s\"")
 		, *GetName()
 		, *ResultText.ToString()
 		, Message.IsEmpty() == false ? *Message : TEXT("Test finished") );
@@ -305,6 +334,8 @@ void AFunctionalTest::FinishTest(EFunctionalTestResult TestResult, const FString
 	}
 
 	TestFinishedObserver.ExecuteIfBound(this);
+
+	FAutomationTestFramework::Get().SetTreatWarningsAsErrors(TOptional<bool>());
 }
 
 void AFunctionalTest::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -448,11 +479,31 @@ void AFunctionalTest::GoToObservationPoint()
 	UWorld* World = GetWorld();
 	if (World && World->GetGameInstance())
 	{
-		APlayerController* PC = World->GetGameInstance()->GetFirstLocalPlayerController();
-		if (PC && PC->GetPawn())
+		APlayerController* TargetPC = nullptr;
+		for (FConstPlayerControllerIterator PCIterator = World->GetPlayerControllerIterator(); PCIterator; ++PCIterator)
 		{
-			PC->GetPawn()->TeleportTo(ObservationPoint->GetActorLocation(), ObservationPoint->GetActorRotation(), /*bIsATest=*/false, /*bNoCheck=*/true);
-			PC->SetControlRotation(ObservationPoint->GetActorRotation());
+			APlayerController* PC = PCIterator->Get();
+
+			// Don't use debug camera player controllers.
+			// While it's tempting to teleport the camera if the user is debugging something then moving the camera around will them.
+			if (PC && !PC->IsA(ADebugCameraController::StaticClass()))
+			{
+				TargetPC = PC;
+				break;
+			}
+		}
+
+		if (TargetPC)
+		{
+			if (TargetPC->GetPawn())
+			{
+				TargetPC->GetPawn()->TeleportTo(ObservationPoint->GetActorLocation(), ObservationPoint->GetActorRotation(), /*bIsATest=*/false, /*bNoCheck=*/true);
+				TargetPC->SetControlRotation(ObservationPoint->GetActorRotation());
+			}
+			else
+			{
+				TargetPC->SetViewTarget(ObservationPoint);
+			}
 		}
 	}
 }
@@ -469,11 +520,11 @@ void AFunctionalTest::AssertTrue(bool Condition, FString Message, const UObject*
 {
 	if ( !Condition )
 	{
-		LogAssertFail(FString::Printf(TEXT("Assertion failed: '%s' for context '%s'"), *Message, ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("Assertion failed: '%s' for context '%s'"), *Message, ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("Assertion passed (%s)"), *Message));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("Assertion passed (%s)"), *Message));
 	}
 }
 
@@ -486,11 +537,11 @@ void AFunctionalTest::AssertIsValid(UObject* Object, FString Message, const UObj
 {
 	if ( !IsValid(Object) )
 	{
-		LogAssertFail(FString::Printf(TEXT("Invalid object: '%s' for context '%s'"), *Message, ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("Invalid object: '%s' for context '%s'"), *Message, ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("Valid object: (%s)"), *Message));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("Valid object: (%s)"), *Message));
 	}
 }
 
@@ -498,11 +549,11 @@ void AFunctionalTest::AssertValue_Int(int32 Actual, EComparisonMethod ShouldBe, 
 {
 	if ( !PerformComparison(Actual, Expected, ShouldBe) )
 	{
-		LogAssertFail(FString::Printf(TEXT("%s: expected {%d} to be %s {%d} for context '%s'"), *What, Actual, *GetComparisonAsString(ShouldBe), Expected, ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("%s: expected {%d} to be %s {%d} for context '%s'"), *What, Actual, *GetComparisonAsString(ShouldBe), Expected, ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("Int assertion passed (%s)"), *What));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("Int assertion passed (%s)"), *What));
 	}
 }
 
@@ -510,11 +561,11 @@ void AFunctionalTest::AssertValue_Float(float Actual, EComparisonMethod ShouldBe
 {
 	if ( !PerformComparison(Actual, Expected, ShouldBe) )
 	{
-		LogAssertFail(FString::Printf(TEXT("%s: expected {%f} to be %s {%f} for context '%s'"), *What, Actual, *GetComparisonAsString(ShouldBe), Expected, ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("%s: expected {%f} to be %s {%f} for context '%s'"), *What, Actual, *GetComparisonAsString(ShouldBe), Expected, ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("Float assertion passed (%s)"), *What));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("Float assertion passed (%s)"), *What));
 	}
 }
 
@@ -522,11 +573,11 @@ void AFunctionalTest::AssertValue_DateTime(FDateTime Actual, EComparisonMethod S
 {
 	if ( !PerformComparison(Actual, Expected, ShouldBe) )
 	{
-		LogAssertFail(FString::Printf(TEXT("%s: expected {%s} to be %s {%s} for context '%s'"), *What, *Actual.ToString(), *GetComparisonAsString(ShouldBe), *Expected.ToString(), ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("%s: expected {%s} to be %s {%s} for context '%s'"), *What, *Actual.ToString(), *GetComparisonAsString(ShouldBe), *Expected.ToString(), ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("DateTime assertion passed (%s)"), *What));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("DateTime assertion passed (%s)"), *What));
 	}
 }
 
@@ -535,11 +586,11 @@ void AFunctionalTest::AssertEqual_Float(const float Actual, const float Expected
 {
 	if ( !FMath::IsNearlyEqual(Actual, Expected, Tolerance) )
 	{
-		LogAssertFail(FString::Printf(TEXT("Expected '%s' to be {%f}, but it was {%f} within tolerance {%f} for context '%s'"), *What, Expected, Actual, Tolerance, ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("Expected '%s' to be {%f}, but it was {%f} within tolerance {%f} for context '%s'"), *What, Expected, Actual, Tolerance, ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("Float assertion passed (%s)"), *What));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("Float assertion passed (%s)"), *What));
 	}
 }
 
@@ -547,11 +598,11 @@ void AFunctionalTest::AssertEqual_Transform(const FTransform Actual, const FTran
 {
 	if ( !Expected.Equals(Actual) )
 	{
-		LogAssertFail(FString::Printf(TEXT("Expected '%s' to be {%s}, but it was {%s} for context '%s'"), *What, *TransformToString(Expected), *TransformToString(Actual), ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("Expected '%s' to be {%s}, but it was {%s} for context '%s'"), *What, *TransformToString(Expected), *TransformToString(Actual), ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("Transform assertion passed (%s)"), *What));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("Transform assertion passed (%s)"), *What));
 	}
 }
 
@@ -559,11 +610,11 @@ void AFunctionalTest::AssertNotEqual_Transform(const FTransform Actual, const FT
 {
 	if ( NotExpected.Equals(Actual) )
 	{
-		LogAssertFail(FString::Printf(TEXT("Expected '%s' not to be {%s} for context '%s'"), *What, *TransformToString(NotExpected), ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("Expected '%s' not to be {%s} for context '%s'"), *What, *TransformToString(NotExpected), ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("Transform assertion passed (%s)"), *What));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("Transform assertion passed (%s)"), *What));
 	}
 }
 
@@ -571,11 +622,11 @@ void AFunctionalTest::AssertEqual_Rotator(const FRotator Actual, const FRotator 
 {
 	if ( !Expected.Equals(Actual) )
 	{
-		LogAssertFail(FString::Printf(TEXT("Expected '%s' to be {%s} but it was {%s} for context '%s'"), *What, *Expected.ToString(), *Actual.ToString(), ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("Expected '%s' to be {%s} but it was {%s} for context '%s'"), *What, *Expected.ToString(), *Actual.ToString(), ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("Rotator assertion passed (%s)"), *What));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("Rotator assertion passed (%s)"), *What));
 	}
 }
 
@@ -583,11 +634,11 @@ void AFunctionalTest::AssertNotEqual_Rotator(const FRotator Actual, const FRotat
 {
 	if ( NotExpected.Equals(Actual) )
 	{
-		LogAssertFail(FString::Printf(TEXT("Expected '%s' not to be {%s} for context '%s'"), *What, *NotExpected.ToString(), ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("Expected '%s' not to be {%s} for context '%s'"), *What, *NotExpected.ToString(), ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("Rotator assertion passed (%s)"), *What));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("Rotator assertion passed (%s)"), *What));
 	}
 }
 
@@ -595,11 +646,11 @@ void AFunctionalTest::AssertEqual_Vector(const FVector Actual, const FVector Exp
 {
 	if ( !Expected.Equals(Actual, Tolerance) )
 	{
-		LogAssertFail(FString::Printf(TEXT("Expected '%s' to be {%s} but it was {%s} within tolerance {%f} for context '%s'"), *What, *Expected.ToString(), *Actual.ToString(), Tolerance, ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("Expected '%s' to be {%s} but it was {%s} within tolerance {%f} for context '%s'"), *What, *Expected.ToString(), *Actual.ToString(), Tolerance, ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("Vector assertion passed (%s)"), *What));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("Vector assertion passed (%s)"), *What));
 	}
 }
 
@@ -607,11 +658,11 @@ void AFunctionalTest::AssertNotEqual_Vector(const FVector Actual, const FVector 
 {
 	if ( NotExpected.Equals(Actual) )
 	{
-		LogAssertFail(FString::Printf(TEXT("Expected '%s' not to be {%s} for context '%s'"), *What, *NotExpected.ToString(), ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("Expected '%s' not to be {%s} for context '%s'"), *What, *NotExpected.ToString(), ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("Vector assertion passed (%s)"), *What));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("Vector assertion passed (%s)"), *What));
 	}
 }
 
@@ -619,11 +670,11 @@ void AFunctionalTest::AssertEqual_String(const FString Actual, const FString Exp
 {
 	if ( !Expected.Equals(Actual) )
 	{
-		LogAssertFail(FString::Printf(TEXT("Expected '%s' to be {%s} but it was {%s} for context '%s'"), *What, *Expected, *Actual, ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("Expected '%s' to be {%s} but it was {%s} for context '%s'"), *What, *Expected, *Actual, ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("String assertion passed (%s)"), *What));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("String assertion passed (%s)"), *What));
 	}
 }
 
@@ -631,15 +682,25 @@ void AFunctionalTest::AssertNotEqual_String(const FString Actual, const FString 
 {
 	if ( NotExpected.Equals(Actual) )
 	{
-		LogAssertFail(FString::Printf(TEXT("Expected '%s' not to be {%s} for context '%s'"), *What, *NotExpected, ContextObject ? *ContextObject->GetName() : TEXT("")));
+		LogStep(ELogVerbosity::Error, FString::Printf(TEXT("Expected '%s' not to be {%s} for context '%s'"), *What, *NotExpected, ContextObject ? *ContextObject->GetName() : TEXT("")));
 	}
 	else
 	{
-		LogAssertPass(FString::Printf(TEXT("String assertion passed (%s)"), *What));
+		LogStep(ELogVerbosity::Log, FString::Printf(TEXT("String assertion passed (%s)"), *What));
 	}
 }
 
-void AFunctionalTest::LogAssertFail(const FString& Message)
+void AFunctionalTest::AddWarning(const FString Message)
+{
+	LogStep(ELogVerbosity::Warning, Message);
+}
+
+void AFunctionalTest::AddError(const FString Message)
+{
+	LogStep(ELogVerbosity::Error, Message);
+}
+
+void AFunctionalTest::LogStep(ELogVerbosity::Type Verbosity, const FString& Message)
 {
 	FString FullMessage(Message);
 	if ( IsInStep() )
@@ -652,25 +713,49 @@ void AFunctionalTest::LogAssertFail(const FString& Message)
 		}
 		FullMessage.Append(StepName);
 	}
-	UE_VLOG(this, LogFunctionalTest, Error, TEXT("%s"), *FullMessage);
-	UE_LOG(LogFunctionalTest, Error, TEXT("%s"), *FullMessage);
+
+	switch ( Verbosity )
+	{
+		case ELogVerbosity::Log:
+			UE_VLOG(this, LogFunctionalTest, Log, TEXT("%s"), *FullMessage);
+			UE_LOG(LogFunctionalTest, Log, TEXT("%s"), *FullMessage);
+		break;
+		case ELogVerbosity::Warning:
+			UE_VLOG(this, LogFunctionalTest, Warning, TEXT("%s"), *FullMessage);
+			UE_LOG(LogFunctionalTest, Warning, TEXT("%s"), *FullMessage);
+		break;
+		case ELogVerbosity::Error:
+			UE_VLOG(this, LogFunctionalTest, Error, TEXT("%s"), *FullMessage);
+			UE_LOG(LogFunctionalTest, Error, TEXT("%s"), *FullMessage);
+		break;
+	}
 }
 
-void AFunctionalTest::LogAssertPass(const FString& Message)
+FString	AFunctionalTest::GetCurrentStepName() const
 {
-	FString FullMessage(Message);
-	if ( IsInStep() )
+	return IsInStep() ? Steps.Top() : FString();
+}
+
+void AFunctionalTest::StartStep(const FString& StepName)
+{
+	Steps.Push(StepName);
+}
+
+void AFunctionalTest::FinishStep()
+{
+	if ( Steps.Num() > 0 )
 	{
-		FullMessage.Append(TEXT(" in step: "));
-		FString StepName = TEXT("");
-		if ( StepName.IsEmpty() )
-		{
-			StepName = TEXT("<UN-NAMED STEP>");
-		}
-		FullMessage.Append(StepName);
+		Steps.Pop();
 	}
-	UE_VLOG(this, LogFunctionalTest, Log, TEXT("%s"), *FullMessage);
-	UE_LOG(LogFunctionalTest, Log, TEXT("%s"), *FullMessage);
+	else
+	{
+		AddWarning(TEXT("FinishStep was called when no steps were currently in progress."));
+	}
+}
+
+bool AFunctionalTest::IsInStep() const
+{
+	return Steps.Num() > 0;
 }
 
 //////////////////////////////////////////////////////////////////////////

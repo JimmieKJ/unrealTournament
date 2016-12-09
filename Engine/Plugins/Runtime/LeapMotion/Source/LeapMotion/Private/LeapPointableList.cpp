@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LeapMotionPrivatePCH.h"
 #include "LeapPointableList.h"
 #include "LeapPointable.h"
+#include "LeapToolList.h"
+#include "LeapFingerList.h"
 
 class FPrivatePointableList
 {

@@ -5,6 +5,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "TargetPoint.generated.h"
 
 UCLASS(MinimalAPI)

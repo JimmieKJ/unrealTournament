@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "LinkerPlaceholderExportObject.h"
-#include "LinkerPlaceholderClass.h"
-#include "BlueprintSupport.h" // for IsDeferredDependencyPlaceholder()
-#include "PropertyTag.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/AssetPtr.h"
+#include "UObject/UnrealType.h"
+#include "Blueprint/BlueprintSupport.h"
+#include "UObject/LinkerPlaceholderBase.h"
+#include "UObject/LinkerPlaceholderExportObject.h"
+#include "UObject/LinkerPlaceholderClass.h"
 
 /*-----------------------------------------------------------------------------
 	UObjectProperty.
@@ -109,6 +112,16 @@ const TCHAR* UObjectProperty::ImportText_Internal(const TCHAR* Buffer, void* Dat
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	}
 	return Result;
+}
+
+uint32 UObjectProperty::GetValueTypeHashInternal(const void* Src) const
+{
+	return GetTypeHash(GetPropertyValue(Src));
+}
+
+UObject* UObjectProperty::GetObjectPropertyValue(const void* PropertyValueAddress) const
+{
+	return GetPropertyValue(PropertyValueAddress);
 }
 
 void UObjectProperty::SetObjectPropertyValue(void* PropertyValueAddress, UObject* Value) const

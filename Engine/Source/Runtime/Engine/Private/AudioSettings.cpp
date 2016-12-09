@@ -4,9 +4,13 @@
 	PlayerInput.cpp: Unreal input system.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Sound/AudioSettings.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Sound/SoundSubmix.h"
+#include "Sound/SoundBase.h"
 #include "Sound/SoundNodeQualityLevel.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 
 #define LOCTEXT_NAMESPACE "AudioSettings"
 
@@ -78,6 +82,13 @@ void UAudioSettings::PostEditChangeChainProperty(FPropertyChangedChainEvent& Pro
 		else if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(FAudioQualitySettings, DisplayName))
 		{
 			bReconcileNodes = true;
+		}
+		else if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UAudioSettings, DefaultSoundSubmixName))
+		{
+			if (DefaultSoundSubmixName.IsValid())
+			{
+				USoundBase::DefaultSoundSubmixObject = LoadObject<USoundSubmix>(nullptr, *DefaultSoundSubmixName.ToString());
+			}
 		}
 
 		if (bReconcileNodes)

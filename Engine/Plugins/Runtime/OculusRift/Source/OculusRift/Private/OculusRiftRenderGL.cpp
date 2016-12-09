@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-//
-#include "OculusRiftPrivatePCH.h"
+
+#include "CoreMinimal.h"
+#include "IOculusRiftPlugin.h"
 #include "OculusRiftHMD.h"
 
 #if !PLATFORM_MAC
@@ -17,8 +18,6 @@
 #include "ScenePrivate.h"
 #include "PostProcess/PostProcessHMD.h"
 #include "ScreenRendering.h"
-
-#include "SlateBasics.h"
 
 class FOpenGLTexture2DSet : public FOpenGLTexture2D
 {

@@ -1,13 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "SBlueprintFavoritesPalette.h"
-#include "Engine.h"
-#include "Classes/BlueprintPaletteFavorites.h"
-#include "BlueprintActionMenuUtils.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/InputChord.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/Commands.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/SToolTip.h"
+#include "EditorStyleSet.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "BlueprintPaletteFavorites.h"
 #include "BlueprintActionMenuBuilder.h"
-#include "BlueprintActionFilter.h" // for FBlueprintActionContext
-#include "SHyperlink.h"
+#include "BlueprintActionFilter.h"
+#include "BlueprintActionMenuUtils.h"
+#include "Widgets/Input/SHyperlink.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintFavoritesPalette"
 

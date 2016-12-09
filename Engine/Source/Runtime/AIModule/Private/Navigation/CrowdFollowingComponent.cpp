@@ -1,10 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Navigation/CrowdFollowingComponent.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "AI/Navigation/RecastNavMesh.h"
+#include "VisualLogger/VisualLoggerTypes.h"
+#include "VisualLogger/VisualLogger.h"
+#include "AIModuleLog.h"
 #include "Navigation/CrowdManager.h"
-#include "AI/Navigation/NavLinkCustomInterface.h"
+#include "AI/Navigation/NavAreas/NavArea.h"
 #include "AI/Navigation/AbstractNavData.h"
+#include "AIConfig.h"
 #include "Navigation/MetaNavMeshPath.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
@@ -326,14 +331,23 @@ void UCrowdFollowingComponent::UpdateCachedDirections(const FVector& NewVelocity
 	}
 
 	// CrowdAgentMoveDirection either direction on path or aligned with current velocity
-	if (!bTraversingLink)
+	if (CharacterMovement->MovementMode != MOVE_Falling)
 	{
-		CrowdAgentMoveDirection = bRotateToVelocity && (NewVelocity.SizeSquared() > KINDA_SMALL_NUMBER) ? NewVelocity.GetSafeNormal() : MoveSegmentDirection;
+		CrowdAgentMoveDirection = (bRotateToVelocity || bTraversingLink) && (NewVelocity.SizeSquared() > KINDA_SMALL_NUMBER) ? NewVelocity.GetSafeNormal() : MoveSegmentDirection;
 	}
 }
 
 bool UCrowdFollowingComponent::ShouldTrackMovingGoal(FVector& OutGoalLocation) const
 {
+	if (bIsUsingMetaPath)
+	{
+		FMetaNavMeshPath* MetaPath = Path.IsValid() ? Path->CastPath<FMetaNavMeshPath>() : nullptr;
+		if (MetaPath && !MetaPath->IsLastSection())
+		{
+			return false;
+		}
+	}
+
 	if (bFinalPathPart && !bUpdateDirectMoveVelocity &&
 		Path.IsValid() && !Path->IsPartial() && Path->GetGoalActor())
 	{
@@ -749,7 +763,13 @@ void UCrowdFollowingComponent::SetMoveSegment(int32 SegmentStartIndex)
 	if (NavMeshPath)
 	{
 #if WITH_RECAST
-		if (NavMeshPath->PathCorridor.IsValidIndex(PathStartIndex) == false)
+		if (NavMeshPath->PathCorridor.Num() == 0)
+		{
+			UE_VLOG(GetOwner(), LogCrowdFollowing, Error, TEXT("Can't switch path segments: empty path corridor!"));
+			OnPathFinished(FPathFollowingResult(EPathFollowingResult::Aborted, FPathFollowingResultFlags::InvalidPath));
+			return;
+		}
+		else if (NavMeshPath->PathCorridor.IsValidIndex(PathStartIndex) == false)
 		{
 			// this should never matter, but just in case
 			UE_VLOG(GetOwner(), LogCrowdFollowing, Error, TEXT("SegmentStartIndex in call to UCrowdFollowingComponent::SetMoveSegment is out of path corridor array's bounds (index: %d, array size %d)")
@@ -764,27 +784,53 @@ void UCrowdFollowingComponent::SetMoveSegment(int32 SegmentStartIndex)
 		// which means, that PathPoints contains only start and end position 
 		// full path is available through PathCorridor array (poly refs)
 
-		ARecastNavMesh* RecastNavData = Cast<ARecastNavMesh>(MyNavData);
+		UCrowdManager* CrowdManager = UCrowdManager::GetCurrent(GetWorld());
+		if (CrowdManager == nullptr)
+		{
+			UE_VLOG(GetOwner(), LogCrowdFollowing, Error, TEXT("Can't switch path segments: missing crowd manager!"));
+			OnPathFinished(FPathFollowingResult(EPathFollowingResult::Aborted, FPathFollowingResultFlags::InvalidPath));
+			return;
+		}
+
+		ARecastNavMesh* RecastNavData = Cast<ARecastNavMesh>(NavMeshPath->GetNavigationDataUsed());
+		if (RecastNavData == nullptr)
+		{
+			UE_VLOG(GetOwner(), LogCrowdFollowing, Error, TEXT("Invalid navigation data in UCrowdFollowingComponent::SetMoveSegment, expected ARecastNavMesh class, got: %s"), *GetNameSafe(NavMeshPath->GetNavigationDataUsed()));
+			OnPathFinished(FPathFollowingResult(EPathFollowingResult::Aborted, FPathFollowingResultFlags::InvalidPath));
+			return;
+		}
+		else if (CrowdManager->GetNavData() != RecastNavData)
+		{
+			UE_VLOG(GetOwner(), LogCrowdFollowing, Error, TEXT("Invalid navigation data in UCrowdFollowingComponent::SetMoveSegment, expected 0x%X, got: 0x%X"), CrowdManager->GetNavData(), RecastNavData);
+			OnPathFinished(FPathFollowingResult(EPathFollowingResult::Aborted, FPathFollowingResultFlags::InvalidPath));
+			return;
+		}
 
 		const int32 PathPartSize = 15;
 		const int32 LastPolyIdx = NavMeshPath->PathCorridor.Num() - 1;
 		int32 PathPartEndIdx = FMath::Min(PathStartIndex + PathPartSize, LastPolyIdx);
+		bFinalPathPart = (PathPartEndIdx == LastPolyIdx);
 
 		FVector PtA, PtB;
 		const bool bStartIsNavLink = RecastNavData->GetLinkEndPoints(NavMeshPath->PathCorridor[PathStartIndex], PtA, PtB);
-		const bool bEndIsNavLink = RecastNavData->GetLinkEndPoints(NavMeshPath->PathCorridor[PathPartEndIdx], PtA, PtB);
 		if (bStartIsNavLink)
 		{
 			PathStartIndex = FMath::Max(0, PathStartIndex - 1);
 		}
-		if (bEndIsNavLink)
-		{
-			PathPartEndIdx = FMath::Max(0, PathPartEndIdx - 1);
-		}
 
-		bFinalPathPart = (PathPartEndIdx == LastPolyIdx);
 		if (!bFinalPathPart)
 		{
+			const bool bEndIsNavLink = RecastNavData->GetLinkEndPoints(NavMeshPath->PathCorridor[PathPartEndIdx], PtA, PtB);
+			const bool bSwitchIsNavLink = (PathPartEndIdx > 0) ? RecastNavData->GetLinkEndPoints(NavMeshPath->PathCorridor[PathPartEndIdx - 1], PtA, PtB) : false;
+			if (bEndIsNavLink)
+			{
+				PathPartEndIdx = FMath::Max(0, PathPartEndIdx - 1);
+			}
+			if (bSwitchIsNavLink)
+			{
+				PathPartEndIdx = FMath::Max(0, PathPartEndIdx - 2);
+			}
+
 			RecastNavData->GetPolyCenter(NavMeshPath->PathCorridor[PathPartEndIdx], CurrentTargetPt);
 		}
 		else if (NavMeshPath->IsPartial())
@@ -803,11 +849,7 @@ void UCrowdFollowingComponent::SetMoveSegment(int32 SegmentStartIndex)
 		UE_VLOG(GetOwner(), LogCrowdFollowing, Log, TEXT("SetMoveSegment, from:%d segments:%d%s"),
 			PathStartIndex, (PathPartEndIdx - PathStartIndex)+1, bFinalPathPart ? TEXT(" (final)") : TEXT(""));
 
-		UCrowdManager* CrowdManager = UCrowdManager::GetCurrent(GetWorld());
-		if (CrowdManager)
-		{
-			CrowdManager->SetAgentMovePath(this, NavMeshPath, PathStartIndex, PathPartEndIdx, CurrentTargetPt);
-		}
+		CrowdManager->SetAgentMovePath(this, NavMeshPath, PathStartIndex, PathPartEndIdx, CurrentTargetPt);
 #endif
 	}
 	else if (DirectPath)
@@ -878,13 +920,12 @@ void UCrowdFollowingComponent::UpdatePathSegment()
 		else if (bFinalPathPart)
 		{
 			const FVector ToTarget = (GoalLocation - MovementComp->GetActorFeetLocation());
-			const bool bDirectPath = Path->CastPath<FAbstractNavigationPath>() != NULL;
-			const float SegmentDot = FVector::DotProduct(ToTarget, bDirectPath ? MovementComp->Velocity : CrowdAgentMoveDirection);
-			const bool bMovedTooFar = bCheckMovementAngle && (SegmentDot < 0.0);
+			const bool bMovedTooFar = bCheckMovementAngle && !CrowdAgentMoveDirection.IsNearlyZero() && FVector::DotProduct(ToTarget, CrowdAgentMoveDirection) < 0.0;
 
 			// can't use HasReachedDestination here, because it will use last path point
 			// which is not set correctly for partial paths without string pulling
-			if (bMovedTooFar || HasReachedInternal(GoalLocation, 0.0f, 0.0f, CurrentLocation, AcceptanceRadius, bReachTestIncludesAgentRadius ? MinAgentRadiusPct : 0.0f))
+			const float UseAcceptanceRadius = GetFinalAcceptanceRadius(*Path, OriginalMoveRequestGoalLocation, &GoalLocation);
+			if (bMovedTooFar || HasReachedInternal(GoalLocation, 0.0f, 0.0f, CurrentLocation, UseAcceptanceRadius, bReachTestIncludesAgentRadius ? MinAgentRadiusPct : 0.0f))
 			{
 				UE_VLOG(GetOwner(), LogCrowdFollowing, Log, TEXT("Last path segment finished due to \'%s\'"), bMovedTooFar ? TEXT("Missing Last Point") : TEXT("Reaching Destination"));
 				OnPathFinished(FPathFollowingResult(EPathFollowingResult::Success, FPathFollowingResultFlags::None));
@@ -965,9 +1006,9 @@ FVector UCrowdFollowingComponent::GetMoveFocus(bool bAllowStrafe) const
 		// otherwise use the Crowd Agent Move Direction to move in the direction we're supposed to be going
 		const FVector ForwardDir = MovementComp->GetOwner() && ((Status != EPathFollowingStatus::Moving) || (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Falling)) || CrowdAgentMoveDirection.IsNearlyZero()) ?
 			MovementComp->GetOwner()->GetActorForwardVector() :
-			CrowdAgentMoveDirection;
+			CrowdAgentMoveDirection.GetSafeNormal2D();
 
-		return AgentLoc + ForwardDir * 100.0f;
+		return AgentLoc + (ForwardDir * FAIConfig::Navigation::FocalPointDistance);
 	}
 
 	return Super::GetMoveFocus(bAllowStrafe);

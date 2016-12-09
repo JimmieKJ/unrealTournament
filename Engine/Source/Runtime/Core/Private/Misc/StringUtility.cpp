@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Misc/StringUtility.h"
+#include "Logging/LogMacros.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogStringUtility, Log, All);

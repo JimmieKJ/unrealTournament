@@ -1,11 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
+#include "NUTActor.h"
+#include "Misc/CommandLine.h"
+#include "UObject/Package.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/GameMode.h"
+#include "Engine/World.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
+#include "Engine/LocalPlayer.h"
+#include "UnrealEngine.h"
+#include "HAL/PlatformNamedPipe.h"
 
 // @todo #JohnBDoc: Need to tidy up and fully document this class; not all of the code below is clear
 
-#include "NUTActor.h"
-#include "NUTUtilNet.h"
+#include "Net/NUTUtilNet.h"
 #include "NUTUtil.h"
 
 #if TARGET_UE4_CL < CL_BEACONHOST
@@ -303,18 +312,18 @@ bool ANUTActor::VerifyEventWatcher()
 {
 	bool bVerified = false;
 
-	if (EventWatcher != NULL)
+	if (EventWatcher != nullptr)
 	{
 		UWorld* CurWorld = NUTUtil::GetPrimaryWorld();
-		UNetDriver* CurDriver = (CurWorld != NULL ? NUTUtil::GetActiveNetDriver(CurWorld) : NULL);
+		UNetDriver* CurDriver = (CurWorld != nullptr ? NUTUtil::GetActiveNetDriver(CurWorld) : nullptr);
 
-		if (CurDriver->ClientConnections.Contains(EventWatcher))
+		if (CurDriver != nullptr && CurDriver->ClientConnections.Contains(EventWatcher))
 		{
 			bVerified = true;
 		}
 		else
 		{
-			EventWatcher = NULL;
+			EventWatcher = nullptr;
 			bVerified = false;
 		}
 	}
@@ -404,7 +413,7 @@ void ANUTActor::UpdateOwner()
 {
 	UWorld* CurWorld = GetWorld();
 	ENetMode CurNetMode = GEngine != NULL ? GEngine->GetNetMode(CurWorld) : NM_Standalone;
-	AGameState* GameState = CurWorld->GameState;
+	AGameStateBase* GameState = CurWorld->GetGameState();
 
 	if (GameState != NULL && GEngine != NULL && CurNetMode != NM_Client)
 	{
@@ -507,7 +516,7 @@ void ANUTActor::ServerAdmin_Implementation(const FString& Command)
 
 void ANUTActor::UnitSeamlessTravel(FString Dest/*=TEXT(" ")*/)
 {
-	AGameMode* GameMode = (GetWorld() != NULL ? GetWorld()->GetAuthGameMode() : NULL);
+	AGameMode* GameMode = (GetWorld() != NULL ? GetWorld()->GetAuthGameMode<AGameMode>() : NULL);
 
 	if (GameMode != NULL)
 	{
@@ -531,7 +540,7 @@ void ANUTActor::UnitSeamlessTravel(FString Dest/*=TEXT(" ")*/)
 
 void ANUTActor::UnitTravel(FString Dest/*=TEXT(" ")*/)
 {
-	AGameMode* GameMode = (GetWorld() != NULL ? GetWorld()->GetAuthGameMode() : NULL);
+	AGameMode* GameMode = (GetWorld() != NULL ? GetWorld()->GetAuthGameMode<AGameMode>() : NULL);
 
 	if (GameMode != NULL)
 	{
@@ -623,24 +632,27 @@ void ANUTActor::ServerClientPing_Implementation()
 	bool bNotLoaded = false;
 
 	UWorld* CurWorld = GetWorld();
-	UNetDriver* CurNetDriver = (CurWorld != NULL ? NUTUtil::GetActiveNetDriver(CurWorld) : NULL);
+	UNetDriver* CurNetDriver = (CurWorld != nullptr ? NUTUtil::GetActiveNetDriver(CurWorld) : nullptr);
 
-	for (auto CurConn : CurNetDriver->ClientConnections)
+	if (CurNetDriver != nullptr)
 	{
-		// Based on UNetDriver::IsLevelInitializeForActor
-		bNotLoaded = !(CurConn->ClientWorldPackageName == CurWorld->GetOutermost()->GetFName() &&
-									CurConn->ClientHasInitializedLevelFor(this));
-
-		// Also trigger if there is no PlayerController yet set for the connection
-		if (CurConn->OwningActor == NULL)
+		for (UNetConnection* CurConn : CurNetDriver->ClientConnections)
 		{
-			bNotLoaded = true;
-		}
+			// Based on UNetDriver::IsLevelInitializeForActor
+			bNotLoaded = !(CurConn->ClientWorldPackageName == CurWorld->GetOutermost()->GetFName() &&
+										CurConn->ClientHasInitializedLevelFor(this));
+
+			// Also trigger if there is no PlayerController yet set for the connection
+			if (CurConn->OwningActor == nullptr)
+			{
+				bNotLoaded = true;
+			}
 
 
-		if (bNotLoaded)
-		{
-			break;
+			if (bNotLoaded)
+			{
+				break;
+			}
 		}
 	}
 

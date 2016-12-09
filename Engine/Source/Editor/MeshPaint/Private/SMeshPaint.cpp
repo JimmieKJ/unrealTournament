@@ -1,18 +1,35 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MeshPaintPrivatePCH.h"
-#include "MeshPaintEdMode.h"
 #include "SMeshPaint.h"
-
-#include "SNumericEntryBox.h"
-#include "PackageTools.h"
-#include "AssetToolsModule.h"
-#include "DesktopPlatformModule.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Engine/Texture2D.h"
+#include "Components/StaticMeshComponent.h"
+#include "Misc/MessageDialog.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
 #include "ISourceControlModule.h"
-#include "SColorPicker.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/Selection.h"
-#include "Engine/StaticMesh.h"
+#include "FileHelpers.h"
+
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "PackageTools.h"
+#include "DesktopPlatformModule.h"
+#include "Widgets/Colors/SColorPicker.h"
 
 #define LOCTEXT_NAMESPACE "MeshPaint_Mode"
 
@@ -2340,9 +2357,9 @@ FReply SMeshPaint::SaveVertexPaintPackageButtonClicked()
 			StaticMeshComponent = StaticMeshActor->GetStaticMeshComponent();
 		}
 
-		if( StaticMeshComponent != NULL && StaticMeshComponent->StaticMesh != NULL )
+		if( StaticMeshComponent != nullptr && StaticMeshComponent->GetStaticMesh() != nullptr )
 		{
-			StaticMeshesToSave.Add( StaticMeshComponent->StaticMesh );
+			StaticMeshesToSave.Add( StaticMeshComponent->GetStaticMesh());
 		}
 	}
 
@@ -2469,7 +2486,7 @@ bool SMeshPaint::IsPushInstanceVertexColorsToMeshButtonEnabled() const
 				LeftStaticMeshComponent = LeftStaticMeshActor->GetStaticMeshComponent();
 			}
 
-			if( LeftStaticMeshComponent != nullptr && LeftStaticMeshComponent->StaticMesh != nullptr )
+			if( LeftStaticMeshComponent != nullptr && LeftStaticMeshComponent->GetStaticMesh() != nullptr )
 			{
 				// Check the left static mesh to the static meshes of all the other selected actors for a match
 				for( int32 RightCompareIndex = LeftCompareIndex + 1; (RightCompareIndex < SelectedActors.Num()) && bIsEnabled; ++RightCompareIndex )
@@ -2487,9 +2504,9 @@ bool SMeshPaint::IsPushInstanceVertexColorsToMeshButtonEnabled() const
 						RightStaticMeshComponent = RightStaticMeshActor->GetStaticMeshComponent();
 					}
 					
-					if(RightStaticMeshComponent != nullptr && RightStaticMeshComponent->StaticMesh != nullptr)
+					if(RightStaticMeshComponent != nullptr && RightStaticMeshComponent->GetStaticMesh() != nullptr)
 					{
-						if(LeftStaticMeshComponent->StaticMesh == RightStaticMeshComponent->StaticMesh)
+						if(LeftStaticMeshComponent->GetStaticMesh() == RightStaticMeshComponent->GetStaticMesh())
 						{
 							// We found more than one actor that point to the same static mesh so we can't perform this operation.  Disable to button.  This will
 							//  also stop our duplicate checking since the bool is used in the loop control
@@ -2517,9 +2534,9 @@ bool SMeshPaint::IsSaveVertexPaintPackageButtonEnabled() const
 			StaticMeshComponent = StaticMeshActor->GetStaticMeshComponent();
 		}
 
-		if( StaticMeshComponent != NULL && StaticMeshComponent->StaticMesh != NULL )
+		if( StaticMeshComponent != nullptr && StaticMeshComponent->GetStaticMesh() != nullptr )
 		{
-			if( StaticMeshComponent->StaticMesh->GetOutermost()->IsDirty() )
+			if( StaticMeshComponent->GetStaticMesh()->GetOutermost()->IsDirty() )
 			{
 				return true;
 			}

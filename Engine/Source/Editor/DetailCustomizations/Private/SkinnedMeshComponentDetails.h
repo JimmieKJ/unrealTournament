@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class FDetailWidgetRow;
+class IDetailLayoutBuilder;
+class UPhysicsAsset;
+
 class FSkinnedMeshComponentDetails : public IDetailCustomization
 {
 public:

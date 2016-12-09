@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FunctionalTestingPrivatePCH.h"
-#include "Modules/ModuleInterface.h"
-#include "Modules/ModuleManager.h"
+#include "FunctionalTestingModule.h"
+#include "FuncTestManager.h"
 
 #define LOCTEXT_NAMESPACE "FunctionalTesting"
 

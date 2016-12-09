@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Class.h" // for UFunction
-#include "LinkerPlaceholderBase.h"
 
-// Forward declarations
-class FObjectInitializer;
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "UObject/LinkerPlaceholderBase.h"
 
 /**  */
 class ULinkerPlaceholderFunction : public UFunction, public TLinkerImportPlaceholder<UFunction>

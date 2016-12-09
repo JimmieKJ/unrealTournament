@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SettingsPrivatePCH.h"
+#include "SettingsCategory.h"
+#include "SettingsSection.h"
 
 
 /* FSettingsCategory structors

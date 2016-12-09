@@ -1,6 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "IDocumentationPage.h"
+
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Styling/SlateTypes.h"
+
+class IDocumentationPage;
+class SBox;
+class SVerticalBox;
 
 class DOCUMENTATION_API SDocumentationToolTip : public SCompoundWidget
 {

@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "Engine/ComponentDelegateBinding.h"
 #include "K2Node_ComponentBoundEvent.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Engine/ComponentDelegateBinding.h"
 #include "Kismet2/KismetEditorUtilities.h"
 
 #define LOCTEXT_NAMESPACE "K2Node"

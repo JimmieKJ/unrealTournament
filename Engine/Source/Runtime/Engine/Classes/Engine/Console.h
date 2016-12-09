@@ -2,9 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "InputCoreTypes.h"
+#include "Engine/EngineBaseTypes.h"
 #include "ConsoleSettings.h"
+
 #include "Console.generated.h"
 
+class SWidget;
 
 /**
  * Node for storing an auto-complete tree based on each char in the command.

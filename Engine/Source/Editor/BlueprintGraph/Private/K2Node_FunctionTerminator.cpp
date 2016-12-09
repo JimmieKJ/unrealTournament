@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "K2Node_FunctionTerminator.h"
+#include "UObject/UnrealType.h"
 #include "GraphEditorSettings.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/CompilerResultsLog.h"
 
 #define LOCTEXT_NAMESPACE "K2Node"
 
@@ -96,11 +99,27 @@ void UK2Node_FunctionTerminator::PromoteFromInterfaceOverride(bool bIsPrimaryTer
 	{
 		if (Pin->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec)
 		{
-			CreateUserDefinedPin(Pin->PinName, Pin->PinType, (Pin->Direction == EGPD_Input)? EGPD_Output : EGPD_Input, false);
+			CreateUserDefinedPin(Pin->PinName, Pin->PinType, Pin->Direction, false);
 		}
 	}
 	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 	Schema->ReconstructNode(*this, true);
+}
+
+void UK2Node_FunctionTerminator::ValidateNodeDuringCompilation(FCompilerResultsLog& MessageLog) const
+{
+	Super::ValidateNodeDuringCompilation(MessageLog);
+
+	for (UEdGraphPin* Pin : Pins)
+	{
+		if (Pin && Pin->PinType.bIsWeakPointer && !Pin->PinType.IsContainer())
+		{
+			const FString ErrorString = FString::Printf(
+				*LOCTEXT("WeakPtrNotSupportedError", "Weak prointer is not supported as function parameter. Pin '%s' @@").ToString(), 
+				*Pin->GetName());
+			MessageLog.Error(*ErrorString, this);
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

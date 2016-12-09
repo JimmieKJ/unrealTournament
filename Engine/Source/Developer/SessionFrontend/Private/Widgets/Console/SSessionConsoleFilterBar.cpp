@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SessionFrontendPrivatePCH.h"
-#include "SSearchBox.h"
+#include "Widgets/Console/SSessionConsoleFilterBar.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "SSessionConsoleFilterBar"
 
@@ -100,7 +107,7 @@ void SSessionConsoleFilterBar::Construct(const FArguments& InArgs)
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 
-bool SSessionConsoleFilterBar::FilterLogMessage(const FSessionLogMessageRef& LogMessage)
+bool SSessionConsoleFilterBar::FilterLogMessage(const TSharedRef<FSessionLogMessage>& LogMessage)
 {
 	// create or update category counter
 	int32& CategoryCounter = CategoryCounters.FindOrAdd(LogMessage->Category);

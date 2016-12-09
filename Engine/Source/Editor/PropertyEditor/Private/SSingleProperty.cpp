@@ -1,16 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
 #include "SSingleProperty.h"
+#include "UObject/UnrealType.h"
+#include "AssetThumbnail.h"
 #include "IPropertyUtilities.h"
-#include "PropertyEditorHelpers.h"
+#include "PropertyNode.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
 #include "ObjectPropertyNode.h"
-#include "PropertyEditor.h"
-#include "IPropertyUtilities.h"
-#include "SPropertyEditor.h"
-#include "ScopedTransaction.h"
-#include "SResetToDefaultPropertyEditor.h"
-#include "SColorPicker.h"
+#include "PropertyEditorHelpers.h"
+#include "UserInterface/PropertyEditor/SResetToDefaultPropertyEditor.h"
+#include "Widgets/Colors/SColorPicker.h"
 
 
 class FSinglePropertyUtilities : public IPropertyUtilities
@@ -172,13 +174,16 @@ void SSingleProperty::SetObject( UObject* InObject )
 			SNew( SPropertyValueWidget, PropertyEditor, PropertyUtilities.ToSharedRef() )
 		];
 
-		HorizontalBox->AddSlot()
-		.Padding( 2.0f )
-		.AutoWidth()
-		.VAlign( VAlign_Center )
-		[
-			SNew( SResetToDefaultPropertyEditor,  PropertyEditor )
-		];
+		if (!PropertyEditor->GetPropertyHandle()->HasMetaData(TEXT("NoResetToDefault")))
+		{
+			HorizontalBox->AddSlot()
+			.Padding( 2.0f )
+			.AutoWidth()
+			.VAlign( VAlign_Center )
+			[
+				SNew( SResetToDefaultPropertyEditor,  PropertyEditor )
+			];
+		}
 	}
 	else
 	{

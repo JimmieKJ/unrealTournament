@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,16 +28,15 @@ class CefResourceBundleHandlerCToCpp
     : public CefCToCpp<CefResourceBundleHandlerCToCpp, CefResourceBundleHandler,
         cef_resource_bundle_handler_t> {
  public:
-  explicit CefResourceBundleHandlerCToCpp(cef_resource_bundle_handler_t* str)
-      : CefCToCpp<CefResourceBundleHandlerCToCpp, CefResourceBundleHandler,
-          cef_resource_bundle_handler_t>(str) {}
+  CefResourceBundleHandlerCToCpp();
 
-  // CefResourceBundleHandler methods
-  bool GetLocalizedString(int message_id, CefString& string) override;
+  // CefResourceBundleHandler methods.
+  bool GetLocalizedString(int string_id, CefString& string) override;
   bool GetDataResource(int resource_id, void*& data,
       size_t& data_size) override;
+  bool GetDataResourceForScale(int resource_id, ScaleFactor scale_factor,
+      void*& data, size_t& data_size) override;
 };
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_RESOURCE_BUNDLE_HANDLER_CTOCPP_H_
-

@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Runtime/InputCore/Classes/InputCoreTypes.h"
-#include "InputChord.h"
-#include "InputComponent.generated.h"
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
+#include "Components/ActorComponent.h"
+#include "Framework/Commands/InputChord.h"
+#include "InputComponent.generated.h"
 
 /** Utility delegate class to allow binding to either a C++ function or a blueprint script delegate */
 template<class DelegateType, class DynamicDelegateType>
@@ -62,6 +65,18 @@ struct TInputUnifiedDelegate
 	{
 		FuncDelegate.Unbind();
 		FuncDynDelegate.Unbind();
+	}
+
+	/** Returns a const reference to the Function Delegate. */
+	inline const DelegateType& GetDelegate() const
+	{
+		return FuncDelegate;
+	}
+
+	/** Returns a const reference to the Dynamic Function Delegate. */
+	inline const DynamicDelegateType& GetDynamicDelegate() const
+	{
+		return FuncDynDelegate;
 	}
 
 protected:

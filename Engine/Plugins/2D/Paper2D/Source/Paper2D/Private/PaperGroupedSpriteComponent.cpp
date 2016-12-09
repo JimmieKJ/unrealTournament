@@ -1,19 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
-#include "PaperSpriteSceneProxy.h"
-#include "PaperSpriteComponent.h"
-
 #include "PaperGroupedSpriteComponent.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/CollisionProfile.h"
+
 #include "GroupedSpriteSceneProxy.h"
-#include "NavigationSystemHelpers.h"
-#include "NavigationOctree.h"
+#include "AI/NavigationSystemHelpers.h"
+#include "AI/NavigationOctree.h"
 
-#include "PaperSprite.h"
-#include "PhysicsPublic.h"
 
-#include "MessageLog.h"
-#include "UObjectToken.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 

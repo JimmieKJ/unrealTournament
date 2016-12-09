@@ -1,12 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Commandlets/DumpHiddenCategoriesCommandlet.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/UnrealType.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 //#include "DumpHiddenCategoriesCommandlet.h"
 #include "ObjectEditorUtils.h"
-#include "KismetEditorUtilities.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "EditorCategoryUtils.h"
-#include "ScopedTimers.h"
-#include "Kismet/BlueprintFunctionLibrary.h"
+#include "ProfilingDebugging/ScopedTimers.h"
 
 /*******************************************************************************
  * Static Helpers

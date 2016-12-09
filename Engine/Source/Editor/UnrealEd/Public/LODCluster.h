@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 class AActor;
 class ALODActor;
 class ULevel;
-
+class UStaticMeshComponent;
 
 /**
  *

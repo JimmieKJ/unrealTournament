@@ -2,13 +2,15 @@
 
 //Google Play Services
 
-#include "OnlineSubsystemGooglePlayPrivatePCH.h"
+#include "OnlineSubsystemGooglePlay.h"
 #include "AndroidApplication.h"
 #include "Android/AndroidJNI.h"
 #include "OnlineAsyncTaskManagerGooglePlay.h"
 #include "OnlineAsyncTaskGooglePlayLogin.h"
 #include "OnlineAsyncTaskGooglePlayLogout.h"
 #include "OnlineAsyncTaskGooglePlayShowLoginUI.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Async/TaskGraphInterfaces.h"
 
 #include <android_native_app_glue.h>
 

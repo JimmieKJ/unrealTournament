@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "FoliageTypeObjectCustomization.h"
-#include "ProceduralFoliageSpawner.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "AssetData.h"
+#include "FoliageType_InstancedStaticMesh.h"
+#include "PropertyHandle.h"
+#include "IDetailChildrenBuilder.h"
 #include "PropertyCustomizationHelpers.h"
 
 void FFoliageTypeObjectCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils)

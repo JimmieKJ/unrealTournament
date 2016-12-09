@@ -4,6 +4,9 @@
 //~=============================================================================
 // The Basic constraint actor class.
 //~=============================================================================
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "PhysicsEngine/RigidBodyBase.h"
 #include "PhysicsConstraintActor.generated.h"
 

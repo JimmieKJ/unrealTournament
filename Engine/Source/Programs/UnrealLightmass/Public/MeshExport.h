@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/Vector2D.h"
+#include "Math/Vector4.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+//#include "Math/Vector2D.h"
+//#include "Math/Vector4.h"
+
 namespace Lightmass
 {
 

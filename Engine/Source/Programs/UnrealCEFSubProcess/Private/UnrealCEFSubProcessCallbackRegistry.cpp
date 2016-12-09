@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealCEFSubProcess.h"
 #include "UnrealCEFSubProcessCallbackRegistry.h"
+#include "UnrealCEFSubProcess.h"
 
 #if WITH_CEF3
 
@@ -15,8 +15,8 @@ FGuid FUnrealCEFSubProcessCallbackRegistry::FindOrAdd(CefRefPtr<CefV8Context> Co
 			if (! Value.bOneShot
 				&& Context->IsSame(Value.Context)
 				&& Function->IsSame(Value.Function)
-				&& (Object == nullptr && Value.Object == nullptr || Object->IsSame(Value.Object))
-				&& (OnError == nullptr && Value.OnError == nullptr || OnError->IsSame(Value.OnError)))
+				&& ( ((Object == nullptr) && (Value.Object == nullptr)) || Object->IsSame(Value.Object))
+				&& ( ((OnError == nullptr) && (Value.OnError == nullptr)) || OnError->IsSame(Value.OnError)))
 			{
 				return Iter.Key();
 			}

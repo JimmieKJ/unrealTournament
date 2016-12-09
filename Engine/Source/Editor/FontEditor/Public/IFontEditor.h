@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "Toolkits/IToolkitHost.h"
+#include "CoreMinimal.h"
+#include "Toolkits/AssetEditorToolkit.h"
 
+class UFont;
 
 /*-----------------------------------------------------------------------------
    IFontEditor

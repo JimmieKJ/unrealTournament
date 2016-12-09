@@ -2,10 +2,23 @@
 
 #pragma once
 
-#include "IDocumentation.h"
-#include "IDocumentationPage.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Layout/Geometry.h"
+#include "Animation/CurveSequence.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
 #include "EditorTutorial.h"
 #include "STutorialOverlay.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+class IDocumentationPage;
+struct FSlateBrush;
 
 /**
  * The widget which displays 'floating' content 

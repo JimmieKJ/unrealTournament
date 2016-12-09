@@ -3,11 +3,14 @@
 #ifndef __CascadeModule_h__
 #define __CascadeModule_h__
 
-#include "UnrealEd.h"
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "Toolkits/IToolkit.h"
-#include "ICascade.h"
+
+class FCascade;
+class ICascade;
+class UParticleSystem;
+
 extern const FName CascadeAppIdentifier;
 
 class FCascade;

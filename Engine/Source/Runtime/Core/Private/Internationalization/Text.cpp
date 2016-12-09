@@ -1,15 +1,21 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Internationalization/Text.h"
+#include "Misc/Parse.h"
+#include "UObject/ObjectVersion.h"
+#include "UObject/DebugSerializationFlags.h"
+#include "Internationalization/Culture.h"
+#include "Internationalization/Internationalization.h"
 
-#include "TextData.h"
-#include "TextHistory.h"
-#include "TextFormatter.h"
-#include "TextNamespaceUtil.h"
-#include "FastDecimalFormat.h"
+#include "Internationalization/TextHistory.h"
+#include "Internationalization/ITextData.h"
+#include "Internationalization/TextData.h"
+#include "Misc/Guid.h"
+#include "Internationalization/TextFormatter.h"
+#include "Internationalization/TextNamespaceUtil.h"
+#include "Internationalization/FastDecimalFormat.h"
 
-#include "DebugSerializationFlags.h"
-#include "EditorObjectVersion.h"
+#include "UObject/EditorObjectVersion.h"
 
 //DEFINE_STAT(STAT_TextFormat);
 
@@ -74,6 +80,16 @@ const FTextDisplayStringRef FTextInspector::GetSharedDisplayString(const FText& 
 uint32 FTextInspector::GetFlags(const FText& Text)
 {
 	return Text.Flags;
+}
+
+void FTextInspector::GetHistoricFormatData(const FText& Text, TArray<FHistoricTextFormatData>& OutHistoricFormatData)
+{
+	Text.GetHistoricFormatData(OutHistoricFormatData);
+}
+
+bool FTextInspector::GetHistoricNumericData(const FText& Text, FHistoricTextNumericData& OutHistoricNumericData)
+{
+	return Text.GetHistoricNumericData(OutHistoricNumericData);
 }
 
 // These default values have been duplicated to the KismetTextLibrary functions for Blueprints. Please replicate any changes there!
@@ -336,10 +352,10 @@ FText FText::TrimPrecedingAndTrailing( const FText& InText )
 			++StartPos;
 		}
 
-		int32 EndPos = TrimmedString.Len() - 1;
-		while( EndPos >= 0 )
+		int32 EndPos = TrimmedString.Len();
+		while( EndPos > StartPos )
 		{
-			if( !FText::IsWhitespace( TrimmedString[EndPos] ) )
+			if( !FText::IsWhitespace( TrimmedString[EndPos - 1] ) )
 			{
 				break;
 			}
@@ -347,7 +363,7 @@ FText FText::TrimPrecedingAndTrailing( const FText& InText )
 			--EndPos;
 		}
 
-		const int32 Len = (EndPos + 1) - StartPos;
+		const int32 Len = EndPos - StartPos;
 		TrimmedString = TrimmedString.Mid( StartPos, Len );
 	}
 
@@ -915,17 +931,22 @@ const FString& FText::GetSourceString() const
 	return TextData->GetDisplayString();
 }
 
+void FText::GetHistoricFormatData(TArray<FHistoricTextFormatData>& OutHistoricFormatData) const
+{
+	TextData->GetTextHistory().GetHistoricFormatData(*this, OutHistoricFormatData);
+}
+
+bool FText::GetHistoricNumericData(FHistoricTextNumericData& OutHistoricNumericData) const
+{
+	return TextData->GetTextHistory().GetHistoricNumericData(*this, OutHistoricNumericData);
+}
+
 bool FText::IdenticalTo( const FText& Other ) const
 {
 	// If both instances point to the same data or localized string, then both instances are considered identical.
 	// This is fast as it skips a lexical compare, however it can also return false for two instances that have identical strings, but in different pointers.
 	// For instance, this method will return false for two FText objects created from FText::FromString("Wooble") as they each have unique, non-shared instances.
 	return TextData == Other.TextData || TextData->GetLocalizedString() == Other.TextData->GetLocalizedString();
-}
-
-void FText::GetSourceTextsFromFormatHistory(TArray<FText>& OutSourceTexts) const
-{
-	TextData->GetTextHistory().GetSourceTextsFromFormatHistory(*this, OutSourceTexts);
 }
 
 FArchive& operator<<(FArchive& Ar, FFormatArgumentValue& Value)
@@ -1304,7 +1325,14 @@ bool FTextStringHelper::ReadFromString_ComplexText(const TCHAR* Buffer, FText& O
 #if USE_STABLE_LOCALIZATION_KEYS
 			if (GIsEditor && PackageNamespace && *PackageNamespace)
 			{
-				NamespaceString = TextNamespaceUtil::BuildFullNamespace(NamespaceString, PackageNamespace);
+				const FString FullNamespace = TextNamespaceUtil::BuildFullNamespace(NamespaceString, PackageNamespace);
+				if (!NamespaceString.Equals(FullNamespace, ESearchCase::CaseSensitive))
+				{
+					// We may assign a new key when importing if we don't have the correct package namespace in order to avoid identity conflicts when instancing (which duplicates without any special flags)
+					// This can happen if an asset was duplicated (and keeps the same keys) but later both assets are instanced into the same world (causing them to both take the worlds package id, and conflict with each other)
+					NamespaceString = FullNamespace;
+					KeyString = FGuid::NewGuid().ToString();
+				}
 			}
 #endif // USE_STABLE_LOCALIZATION_KEYS
 			OutValue = FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*SourceString, *NamespaceString, *KeyString);
@@ -1349,7 +1377,17 @@ bool FTextStringHelper::ReadFromString_ComplexText(const TCHAR* Buffer, FText& O
 #if USE_STABLE_LOCALIZATION_KEYS
 			if (GIsEditor && PackageNamespace && *PackageNamespace)
 			{
-				const FString NamespaceString = TextNamespaceUtil::BuildFullNamespace((TextNamespace) ? TextNamespace : TEXT(""), PackageNamespace);
+				FString NamespaceString = (TextNamespace) ? TextNamespace : TEXT("");
+
+				const FString FullNamespace = TextNamespaceUtil::BuildFullNamespace(NamespaceString, PackageNamespace);
+				if (!NamespaceString.Equals(FullNamespace, ESearchCase::CaseSensitive))
+				{
+					// We may assign a new key when importing if we don't have the correct package namespace in order to avoid identity conflicts when instancing (which duplicates without any special flags)
+					// This can happen if an asset was duplicated (and keeps the same keys) but later both assets are instanced into the same world (causing them to both take the worlds package id, and conflict with each other)
+					NamespaceString = FullNamespace;
+					KeyString = FGuid::NewGuid().ToString();
+				}
+
 				OutValue = FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*SourceString, *NamespaceString, *KeyString);
 			}
 			else

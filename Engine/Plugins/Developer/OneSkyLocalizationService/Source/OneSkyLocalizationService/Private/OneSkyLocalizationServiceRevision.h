@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Developer/LocalizationService/Public/ILocalizationServiceRevision.h"
 
 class FOneSkyLocalizationServiceRevision : public ILocalizationServiceRevision, public TSharedFromThis<FOneSkyLocalizationServiceRevision, ESPMode::ThreadSafe>

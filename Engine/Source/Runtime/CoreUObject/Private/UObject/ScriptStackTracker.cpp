@@ -3,9 +3,9 @@
 /*=============================================================================
 ScriptStackTracker.cpp: Stack Tracking within Unreal Engine.
 =============================================================================*/
-#include "CoreUObjectPrivate.h"
+#include "UObject/ScriptStackTracker.h"
+#include "UObject/Stack.h"
 
-#include "ScriptStackTracker.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogScriptStackTracker, Log, All);
 

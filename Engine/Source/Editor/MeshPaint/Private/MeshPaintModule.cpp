@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MeshPaintPrivatePCH.h"
+#include "MeshPaintModule.h"
+#include "Modules/ModuleManager.h"
+#include "Textures/SlateIcon.h"
+#include "EditorStyleSet.h"
+#include "EditorModeRegistry.h"
+#include "EditorModes.h"
 #include "MeshPaintEdMode.h"
 #include "MeshPaintAdapterFactory.h"
 #include "MeshPaintStaticMeshAdapter.h"
@@ -8,6 +13,7 @@
 
 #include "Materials/MaterialExpressionTextureBase.h"
 #include "Materials/MaterialExpressionTextureSample.h"
+#include "Materials/Material.h"
 #include "Materials/MaterialExpressionTextureCoordinate.h"
 #include "Materials/MaterialExpressionTextureSampleParameter.h"
 

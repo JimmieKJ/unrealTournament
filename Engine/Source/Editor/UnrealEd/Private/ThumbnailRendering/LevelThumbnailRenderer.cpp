@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "EngineModule.h"
-#include "RendererInterface.h"
+#include "ThumbnailRendering/LevelThumbnailRenderer.h"
+#include "EngineDefines.h"
+#include "Misc/App.h"
+#include "Engine/Level.h"
+#include "ShowFlags.h"
+#include "SceneView.h"
 #include "Engine/LevelBounds.h"
+#include "RendererInterface.h"
+#include "EngineModule.h"
 
 ULevelThumbnailRenderer::ULevelThumbnailRenderer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

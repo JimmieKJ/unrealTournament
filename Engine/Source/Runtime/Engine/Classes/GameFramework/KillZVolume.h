@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/PhysicsVolume.h"
 #include "KillZVolume.generated.h"
-
 
 /**
 * KillZVolume is a volume used to determine when actors should be killed. Killing logic is overridden in FellOutOfWorld

@@ -4,8 +4,11 @@
 	ScreenShotComparisonModule.cpp: Implements the FScreenShotComparisonModule class.
 =============================================================================*/
 
-#include "ScreenShotComparisonPrivatePCH.h"
-
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Interfaces/IScreenShotComparisonModule.h"
+#include "Widgets/SScreenShotBrowser.h"
 
 static const FName ScreenShotComparisonName("ScreenShotComparison");
 

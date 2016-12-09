@@ -4,8 +4,10 @@
 	MacServerTargetPlatformModule.cpp: Implements the FMacServerTargetPlatformModule class.
 =============================================================================*/
 
-#include "MacServerTargetPlatformPrivatePCH.h"
-
+#include "CoreMinimal.h"
+#include "GenericMacTargetPlatform.h"
+#include "Interfaces/ITargetPlatformModule.h"
+#include "Modules/ModuleManager.h"
 
 /**
  * Holds the target platform singleton.

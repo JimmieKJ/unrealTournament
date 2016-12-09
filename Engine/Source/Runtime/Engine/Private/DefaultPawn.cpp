@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "GameFramework/DefaultPawn.h"
-#include "GameFramework/FloatingPawnMovement.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/World.h"
+#include "Components/StaticMeshComponent.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/CollisionProfile.h"
+#include "Engine/StaticMesh.h"
 #include "Components/SphereComponent.h"
+#include "GameFramework/PawnMovementComponent.h"
+#include "GameFramework/FloatingPawnMovement.h"
 #include "GameFramework/PlayerInput.h"
 
 FName ADefaultPawn::MovementComponentName(TEXT("MovementComponent0"));

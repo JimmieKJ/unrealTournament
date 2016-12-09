@@ -4,7 +4,10 @@
 	UnRedirector.cpp: Object redirector implementation.
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
+#include "UObject/ObjectRedirector.h"
+#include "UObject/Package.h"
+#include "Templates/Casts.h"
+#include "UObject/PropertyPortFlags.h"
 
 /*-----------------------------------------------------------------------------
 	UObjectRedirector
@@ -35,11 +38,6 @@ void UObjectRedirector::Serialize( FArchive& Ar )
 	Super::Serialize(Ar);
 
 	Ar << DestinationObject;
-}
-
-bool UObjectRedirector::NeedsLoadForClient() const
-{
-	return false;
 }
 
 bool UObjectRedirector::NeedsLoadForEditorGame() const

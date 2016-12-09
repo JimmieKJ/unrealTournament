@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
-#include "Camera/CameraComponent.h"
-#include "Camera/CameraActor.h"
-#include "Camera/CameraAnim.h"
 #include "Camera/CameraAnimInst.h"
+#include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
+#include "Camera/CameraAnim.h"
 #include "Matinee/InterpTrackMove.h"
 #include "Matinee/InterpGroup.h"
 #include "Matinee/InterpGroupInst.h"
@@ -247,13 +246,18 @@ void UCameraAnimInst::Play(UCameraAnim* Anim, class AActor* CamActor, float InRa
 			if (Anim->bRelativeToInitialFOV)
 			{
 				InitialFOV = Anim->BaseFOV;
-				for (int32 Idx = 0; Idx < InterpGroupInst->TrackInst.Num(); ++Idx)
+			}
+			for (int32 Idx = 0; Idx < InterpGroupInst->TrackInst.Num(); ++Idx)
+			{
+				UInterpTrackFloatProp* const FloatTrack = Cast<UInterpTrackFloatProp>(CamAnim->CameraInterpGroup->InterpTracks[Idx]);
+				if (FloatTrack && (FloatTrack->PropertyName == NAME_CameraComponentFieldOfViewPropertyName))
 				{
-					UInterpTrackFloatProp* const FloatTrack = Cast<UInterpTrackFloatProp>(CamAnim->CameraInterpGroup->InterpTracks[Idx]);
-					if (FloatTrack && (FloatTrack->PropertyName == NAME_CameraComponentFieldOfViewPropertyName))
+					if (Anim->bRelativeToInitialFOV)
 					{
 						InitialFOV = FloatTrack->EvalSub(0, 0.f);
 					}
+					bHasFOVTrack = true;
+					break;
 				}
 			}
 		}
@@ -369,28 +373,31 @@ void UCameraAnimInst::ApplyToView(FMinimalViewInfo& InOutPOV) const
 			}
 
 			// fov
-			const float FOVMin = 5.f;
-			const float FOVMax = 170.f;
-			
-			// Interp the FOV toward the camera component's FOV based on Scale
-			if (CamAnim->bRelativeToInitialFOV)
+			if (bHasFOVTrack)
 			{
-				InOutPOV.FOV += (AnimatedCamActor->GetCameraComponent()->FieldOfView - InitialFOV) * Scale;
-			}
-			else
-			{
-				const int32 DesiredDirection = FMath::Sign(AnimatedCamActor->GetCameraComponent()->FieldOfView - InOutPOV.FOV);
-				const int32 InitialDirection = FMath::Sign(AnimatedCamActor->GetCameraComponent()->FieldOfView - InitialFOV);
-				if (DesiredDirection != InitialDirection)
+				const float FOVMin = 5.f;
+				const float FOVMax = 170.f;
+
+				// Interp the FOV toward the camera component's FOV based on Scale
+				if (CamAnim->bRelativeToInitialFOV)
 				{
-					InOutPOV.FOV = FMath::Clamp(InOutPOV.FOV + ((AnimatedCamActor->GetCameraComponent()->FieldOfView - InOutPOV.FOV) * Scale), InOutPOV.FOV, AnimatedCamActor->GetCameraComponent()->FieldOfView);
+					InOutPOV.FOV += (AnimatedCamActor->GetCameraComponent()->FieldOfView - InitialFOV) * Scale;
 				}
 				else
 				{
-					InOutPOV.FOV = FMath::Clamp(InOutPOV.FOV + ((AnimatedCamActor->GetCameraComponent()->FieldOfView - InitialFOV) * Scale), AnimatedCamActor->GetCameraComponent()->FieldOfView, InitialFOV);
+					const int32 DesiredDirection = FMath::Sign(AnimatedCamActor->GetCameraComponent()->FieldOfView - InOutPOV.FOV);
+					const int32 InitialDirection = FMath::Sign(AnimatedCamActor->GetCameraComponent()->FieldOfView - InitialFOV);
+					if (DesiredDirection != InitialDirection)
+					{
+						InOutPOV.FOV = FMath::Clamp(InOutPOV.FOV + ((AnimatedCamActor->GetCameraComponent()->FieldOfView - InOutPOV.FOV) * Scale), InOutPOV.FOV, AnimatedCamActor->GetCameraComponent()->FieldOfView);
+					}
+					else
+					{
+						InOutPOV.FOV = FMath::Clamp(InOutPOV.FOV + ((AnimatedCamActor->GetCameraComponent()->FieldOfView - InitialFOV) * Scale), AnimatedCamActor->GetCameraComponent()->FieldOfView, InitialFOV);
+					}
 				}
+				InOutPOV.FOV = FMath::Clamp<float>(InOutPOV.FOV, FOVMin, FOVMax);
 			}
-			InOutPOV.FOV = FMath::Clamp<float>(InOutPOV.FOV, FOVMin, FOVMax);
 		}
 	}
 }

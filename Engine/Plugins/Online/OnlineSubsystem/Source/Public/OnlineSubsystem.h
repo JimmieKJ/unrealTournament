@@ -2,14 +2,42 @@
 
 #pragma once
 
-#include "Core.h"
-#include "Ticker.h"
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Modules/ModuleManager.h"
 #include "OnlineSubsystemModule.h"
-#include "OnlineJsonSerializer.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
 #include "OnlineSubsystemNames.h"
+
+class FOnlineNotificationHandler;
+class FOnlineNotificationTransportManager;
+class IMessageSanitizer;
+class IOnlineAchievements;
+class IOnlineChat;
+class IOnlineEntitlements;
+class IOnlineEvents;
+class IOnlineExternalUI;
+class IOnlineFriends;
+class IOnlineGroups;
+class IOnlineIdentity;
+class IOnlineLeaderboards;
+class IOnlineMessage;
+class IOnlinePartySystem;
+class IOnlinePresence;
+class IOnlinePurchase;
+class IOnlineSession;
+class IOnlineSharedCloud;
+class IOnlineSharing;
+class IOnlineStore;
+class IOnlineStoreV2;
+class IOnlineTime;
+class IOnlineTitleFile;
+class IOnlineTurnBased;
+class IOnlineUser;
+class IOnlineUserCloud;
+class IOnlineVoice;
 
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnline, Display, All);
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineGame, Display, All);
@@ -78,6 +106,15 @@ typedef FOnConnectionStatusChanged::FDelegate FOnConnectionStatusChangedDelegate
  */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnOnlineEnvironmentChanged, EOnlineEnvironment::Type /*LastEnvironment*/, EOnlineEnvironment::Type /*Environment*/);
 typedef FOnOnlineEnvironmentChanged::FDelegate FOnOnlineEnvironmentChangedDelegate;
+
+/**
+* Delegate fired when the "Play Together" event is sent from the PS4 system
+*
+* @param UserIndex - User index of the player the event is for
+* @param UserIdList - list of other users in the PS4 party to send invites to
+*/
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPlayTogetherEventReceived, int32, TArray<TSharedPtr<const FUniqueNetId>>);
+typedef FOnPlayTogetherEventReceived::FDelegate FOnPlayTogetherEventReceivedDelegate;
 
 /**
  *	OnlineSubsystem - Series of interfaces to support communicating with various web/platform layer services
@@ -484,6 +521,14 @@ public:
 	 * @param Environment - current online environment
 	 */
 	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnOnlineEnvironmentChanged, EOnlineEnvironment::Type /*LastEnvironment*/, EOnlineEnvironment::Type /*Environment*/);
+
+	/**
+	* Delegate fired when the "Play Together" event is sent from the PS4 system
+	*
+	* @param UserIndex - User index of the player the event is for
+	* @param UserIdList - list of other users in the PS4 party to send invites to
+	*/
+	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnPlayTogetherEventReceived, int32, TArray<TSharedPtr<const FUniqueNetId>>);
 };
 
 /** Public references to the online subsystem pointer should use this */

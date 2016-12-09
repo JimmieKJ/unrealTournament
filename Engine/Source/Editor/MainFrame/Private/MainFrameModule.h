@@ -2,7 +2,15 @@
 
 #pragma once
 
-#include "HotReloadInterface.h"
+#include "CoreMinimal.h"
+#include "Frame/MainFrameActions.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "UnrealEdMisc.h"
+#include "Frame/MainFrameHandler.h"
+#include "Misc/CompilationResult.h"
 
 /**
  * Editor main frame module

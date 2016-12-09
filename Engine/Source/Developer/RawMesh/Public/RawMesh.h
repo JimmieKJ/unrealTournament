@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "Core.h"
-#include "CoreUObject.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Serialization/BulkData.h"
 
 enum
 {

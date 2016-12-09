@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StandaloneRendererPrivate.h"
-
-#include "OpenGL/SlateOpenGLTextureManager.h"
 #include "OpenGL/SlateOpenGLRenderingPolicy.h"
+#include "Misc/Paths.h"
+
 #include "OpenGL/SlateOpenGLTextures.h"
 #include "OpenGL/SlateOpenGLRenderer.h"
 

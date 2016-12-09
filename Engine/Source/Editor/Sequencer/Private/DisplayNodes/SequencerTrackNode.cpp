@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
-#include "IKeyArea.h"
-#include "ISequencerSection.h"
-#include "MovieSceneSection.h"
+#include "DisplayNodes/SequencerTrackNode.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Layout/SBox.h"
+#include "DisplayNodes/SequencerObjectBindingNode.h"
+#include "Framework/Commands/UIAction.h"
+#include "Textures/SlateIcon.h"
+#include "UObject/UnrealType.h"
 #include "MovieSceneTrack.h"
+#include "SSequencer.h"
 #include "MovieSceneNameableTrack.h"
-#include "Sequencer.h"
 #include "ISequencerTrackEditor.h"
+#include "ScopedTransaction.h"
 #include "SKeyNavigationButtons.h"
 
 namespace SequencerNodeConstants
@@ -102,10 +108,65 @@ void FSequencerTrackNode::FixRowIndices()
 /* FSequencerDisplayNode interface
  *****************************************************************************/
 
+namespace
+{
+	void AddBoolPropertyMenuItem(FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track, const UBoolProperty* Property, void* PropertyContainer)
+	{
+		MenuBuilder.AddMenuEntry(
+			Property->GetDisplayNameText(),
+			Property->GetToolTipText(),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateLambda([Track, Property, PropertyContainer]{
+					FScopedTransaction Transaction(FText::Format(NSLOCTEXT("Sequencer", "TrackNodeSetRoundEvaluation", "Set '{0}'"), Property->GetDisplayNameText()));
+					Track->Modify();
+
+					bool bIsSet = Property->GetPropertyValue(PropertyContainer);
+					Property->SetPropertyValue(PropertyContainer, !bIsSet);
+				}),
+				FCanExecuteAction::CreateLambda([]{ return true; }),
+				FIsActionChecked::CreateLambda([PropertyContainer, Property]{ return Property->GetPropertyValue(PropertyContainer); })
+			),
+			NAME_None,
+			EUserInterfaceActionType::Check
+		);
+	}
+}
+
 void FSequencerTrackNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 {
 	AssociatedEditor.BuildTrackContextMenu(MenuBuilder, AssociatedTrack.Get());
 	FSequencerDisplayNode::BuildContextMenu(MenuBuilder );
+
+	MenuBuilder.BeginSection("GeneralTrackOptions", NSLOCTEXT("Sequencer", "TrackNodeGeneralOptions", "Track Options"));
+	{
+		UMovieSceneTrack* Track = AssociatedTrack.Get();
+		if (!Track)
+		{
+			return;
+		}
+
+		UStruct* EvalOptionsStruct = FMovieSceneTrackEvalOptions::StaticStruct();
+
+		const UBoolProperty* NearestSectionProperty = Cast<UBoolProperty>(EvalOptionsStruct->FindPropertyByName(GET_MEMBER_NAME_CHECKED(FMovieSceneTrackEvalOptions, bEvaluateNearestSection)));
+		if (NearestSectionProperty && Track->EvalOptions.bCanEvaluateNearestSection)
+		{
+			AddBoolPropertyMenuItem(MenuBuilder, Track, NearestSectionProperty, NearestSectionProperty->ContainerPtrToValuePtr<void>(&Track->EvalOptions));
+		}
+
+		const UBoolProperty* PrerollProperty = Cast<UBoolProperty>(EvalOptionsStruct->FindPropertyByName(GET_MEMBER_NAME_CHECKED(FMovieSceneTrackEvalOptions, bEvaluateInPreroll)));
+		if (PrerollProperty)
+		{
+			AddBoolPropertyMenuItem(MenuBuilder, Track, PrerollProperty, PrerollProperty->ContainerPtrToValuePtr<void>(&Track->EvalOptions));
+		}
+
+		const UBoolProperty* PostrollProperty = Cast<UBoolProperty>(EvalOptionsStruct->FindPropertyByName(GET_MEMBER_NAME_CHECKED(FMovieSceneTrackEvalOptions, bEvaluateInPostroll)));
+		if (PostrollProperty)
+		{
+			AddBoolPropertyMenuItem(MenuBuilder, Track, PostrollProperty, PostrollProperty->ContainerPtrToValuePtr<void>(&Track->EvalOptions));
+		}
+	}
+	MenuBuilder.EndSection();
 }
 
 

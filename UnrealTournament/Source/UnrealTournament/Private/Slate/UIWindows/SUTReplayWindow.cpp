@@ -1002,9 +1002,9 @@ FString SUTReplayWindow::GetSpectatedPlayerID()
 	if (LastSpectedPlayerID > 0)
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
-		if (UTPC->GetWorld()->GameState)
+		if (UTPC->GetWorld()->GetGameState())
 		{
-			const TArray<APlayerState*>& PlayerArray = UTPC->GetWorld()->GameState->PlayerArray;
+			const TArray<APlayerState*>& PlayerArray = UTPC->GetWorld()->GetGameState()->PlayerArray;
 			for (int32 i = 0; i < PlayerArray.Num(); i++)
 			{
 				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[i]);

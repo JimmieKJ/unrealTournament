@@ -20,14 +20,21 @@ public class WebBrowser : ModuleRules
 				"Slate",
 				"SlateCore",
 				"Serialization",
-				"CEF3Utils",
 			}
 		);
 
+		if (Target.Platform == UnrealTargetPlatform.Android)
+		{
+			// We need this one on Android for URL decoding
+			PrivateDependencyModuleNames.Add("HTTP");
+		}
+
 		if (Target.Platform == UnrealTargetPlatform.Win64
 		||  Target.Platform == UnrealTargetPlatform.Win32
-		||  Target.Platform == UnrealTargetPlatform.Mac)
+		||  Target.Platform == UnrealTargetPlatform.Mac
+		||  Target.Platform == UnrealTargetPlatform.Linux)
 		{
+			PrivateDependencyModuleNames.Add("CEF3Utils");
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"CEF3"
 				);
@@ -40,6 +47,10 @@ public class WebBrowser : ModuleRules
 					RuntimeDependencies.Add(new RuntimeDependency(FilePath));
 				}
 			}
+			else if (Target.Platform == UnrealTargetPlatform.Linux)
+			{
+				RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/" + Target.Platform.ToString() + "/UnrealCEFSubProcess"));
+			}
 			else
 			{
 				RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/" + Target.Platform.ToString() + "/UnrealCEFSubProcess.exe"));
@@ -50,7 +61,7 @@ public class WebBrowser : ModuleRules
 		{
 			PrivateDependencyModuleNames.Add("OnlineSubsystem");
 		}
-		
+
 		bEnableShadowVariableWarnings = false;
 	}
 }

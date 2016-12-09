@@ -2,6 +2,8 @@
 
 #pragma once
 
+class FDragDropEvent;
+
 /** @return the content being dragged if it matched the 'OperationType'; invalid Ptr otherwise. */
 template<typename OperationType>
 TSharedPtr<OperationType> FDragDropEvent::GetOperationAs() const

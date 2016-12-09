@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "AnimGraphPrivatePCH.h"
+#include "AnimGraphNode_BlendListByInt.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #include "GraphEditorActions.h"
 #include "ScopedTransaction.h"
-#include "AnimGraphNode_BlendListByInt.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_BlendListByInt

@@ -2,6 +2,24 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "AssetData.h"
+#include "ARFilter.h"
+#include "IContentBrowserSingleton.h"
+#include "Editor/ContentBrowser/Private/SourcesData.h"
+
+class FFrontendFilter_ShowOtherDevelopers;
+class FFrontendFilter_Text;
+class FUICommandList;
+class SAssetSearchBox;
+class SAssetView;
+class SFilterList;
+enum class ECheckBoxState : uint8;
+
 /**
  * Small content browser designed to allow for asset picking
  */

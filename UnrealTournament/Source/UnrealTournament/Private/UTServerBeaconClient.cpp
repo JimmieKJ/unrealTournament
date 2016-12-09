@@ -84,7 +84,7 @@ void AUTServerBeaconClient::ServerRequestInfo_Implementation()
 		ServerInfo.CurrentMap = GetWorld()->GetMapName();
 	}
 
-	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (GameMode)
 	{
 		ServerInfo.CurrentGameMode = GameMode->StaticClass()->GetPathName();
@@ -93,7 +93,7 @@ void AUTServerBeaconClient::ServerRequestInfo_Implementation()
 	}
 
 	int32 NumInstances = 0;
-	AUTBaseGameMode* BaseGame = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
+	AUTBaseGameMode* BaseGame = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 	if (BaseGame)
 	{
 		BaseGame->GetInstanceData(Instances);

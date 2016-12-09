@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 // Tracks what debug information we have switched on
 class FDebugDisplayInfo
 {

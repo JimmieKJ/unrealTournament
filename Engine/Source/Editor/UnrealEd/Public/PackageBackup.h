@@ -7,6 +7,8 @@
 #ifndef _PACKAGEBACKUP_H
 #define _PACKAGEBACKUP_H
 
+#include "CoreMinimal.h"
+
 /**
  * Class that houses various static utility functions to allow for packages
  * to be backed-up to a special auto save/backup directory. Backups are traditionally

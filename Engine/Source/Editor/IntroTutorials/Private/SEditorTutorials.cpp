@@ -1,10 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IntroTutorialsPrivatePCH.h"
 #include "SEditorTutorials.h"
-#include "STutorialsBrowser.h"
-#include "STutorialNavigation.h"
-#include "STutorialOverlay.h"
+#include "IntroTutorials.h"
 #include "EditorTutorial.h"
 
 #define LOCTEXT_NAMESPACE "TutorialsBrowser"

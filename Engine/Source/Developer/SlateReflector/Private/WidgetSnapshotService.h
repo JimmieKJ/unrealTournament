@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "WidgetSnapshotMessages.h"
-#include "MessageEndpoint.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Helpers/MessageEndpoint.h"
+
+struct FWidgetSnapshotRequest;
+struct FWidgetSnapshotResponse;
 
 /**
  * Implements the service for handling remote widget snapshots.

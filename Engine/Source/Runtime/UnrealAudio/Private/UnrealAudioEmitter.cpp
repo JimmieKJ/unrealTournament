@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "UnrealAudioEmitter.h"
 #include "UnrealAudioPrivate.h"
-#include "UnrealAudioModule.h"
-#include "UnrealAudioEmitterInternal.h"
 
 #define UNREAL_AUDIO_EMITTER_COMMAND_QUEUE_SIZE (50)
 

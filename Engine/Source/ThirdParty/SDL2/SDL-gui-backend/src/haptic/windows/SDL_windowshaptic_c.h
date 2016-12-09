@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -42,8 +42,8 @@ struct haptic_hwdata
     Uint8 userid; /* XInput userid index for this joystick */
     SDL_Thread *thread;
     SDL_mutex *mutex;
-    volatile Uint32 stopTicks;
-    volatile int stopThread;
+    Uint32 stopTicks;
+    SDL_atomic_t stopThread;
 };
 
 

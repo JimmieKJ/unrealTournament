@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
+
+struct FForceFeedbackValues;
+enum class FForceFeedbackChannelType;
+
 /**
  * Input device interface.
  * Useful for plugins/modules to support custom external input devices.

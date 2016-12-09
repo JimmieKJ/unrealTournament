@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "Serialization/ObjectWriter.h"
+#include "UObject/LazyObjectPtr.h"
+#include "Misc/StringAssetReference.h"
+#include "UObject/AssetPtr.h"
 
 ///////////////////////////////////////////////////////
 // FObjectWriter
@@ -46,6 +49,12 @@ FArchive& FObjectWriter::operator<<(FStringAssetReference& Value)
 		Value.SetPath(MoveTemp(Path));
 	}
 
+	return *this;
+}
+
+FArchive& FObjectWriter::operator<< (struct FWeakObjectPtr& Value)
+{
+	Value.Serialize(*this);
 	return *this;
 }
 

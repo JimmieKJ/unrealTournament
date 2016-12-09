@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "IFilter.h"
-#include "FilterCollection.h"
-#include "ITreeItem.h"
+#include "CoreMinimal.h"
+#include "Misc/IFilter.h"
+#include "Misc/FilterCollection.h"
 
 #include "FolderTreeItem.h"
 #include "ActorTreeItem.h"

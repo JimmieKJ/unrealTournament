@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NUTUnrealEngine4PCH.h"
-
 #include "UnitTests/NetBitsTest.h"
+#include "Serialization/BitReader.h"
+#include "Serialization/BitWriter.h"
+#include "Engine/NetConnection.h"
+
 
 
 /**

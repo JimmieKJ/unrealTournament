@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Actions/PawnAction_Move.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
+#include "Actions/PawnActionsComponent.h"
+#include "AIController.h"
+#include "VisualLogger/VisualLogger.h"
 
 UPawnAction_Move::UPawnAction_Move(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

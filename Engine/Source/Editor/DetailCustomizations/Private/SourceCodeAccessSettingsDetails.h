@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "IDetailCustomization.h"
+#include "PropertyHandle.h"
+
+class IDetailLayoutBuilder;
+
 struct FAccessorItem
 {
 	FAccessorItem(const FText& InText, const FName& InName)

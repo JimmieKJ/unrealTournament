@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "EditorActorFolders.h"
-#include "ScopedTransaction.h"
-#include "EngineUtils.h"
+#include "GameFramework/Actor.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "EngineGlobals.h"
 #include "Engine/Selection.h"
+#include "EngineUtils.h"
+#include "Editor.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "FActorFolders"
 

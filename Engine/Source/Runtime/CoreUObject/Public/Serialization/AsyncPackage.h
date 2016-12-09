@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/UObjectGlobals.h"
+#include "Misc/Guid.h"
+
 struct FAsyncPackageDesc
 {
 	/** Handle for the caller */
@@ -22,10 +26,8 @@ struct FAsyncPackageDesc
 	EPackageFlags PackageFlags;
 	/** Package loading priority. Higher number is higher priority. */
 	TAsyncLoadPriority Priority;
-#if WITH_EDITOR
-	/** Editor only: PIE instance ID this package belongs to, INDEX_NONE otherwise */
+	/** PIE instance ID this package belongs to, INDEX_NONE otherwise */
 	int32 PIEInstanceID;
-#endif
 
 
 	FAsyncPackageDesc(int32 InRequestID, const FName& InName, FName InPackageToLoadFrom = NAME_None, const FGuid& InGuid = FGuid(), FLoadPackageAsyncDelegate InCompletionDelegate = FLoadPackageAsyncDelegate(), EPackageFlags InPackageFlags = PKG_None, int32 InPIEInstanceID = INDEX_NONE, TAsyncLoadPriority InPriority = 0)
@@ -36,9 +38,7 @@ struct FAsyncPackageDesc
 		, PackageLoadedDelegate(InCompletionDelegate)
 		, PackageFlags(InPackageFlags)
 		, Priority(InPriority)
-#if WITH_EDITOR
 		, PIEInstanceID(InPIEInstanceID)
-#endif
 	{
 		if (NameToLoad == NAME_None)
 		{

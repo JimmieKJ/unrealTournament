@@ -6,7 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "VectorField/VectorField.h"
 #include "VectorFieldAnimated.generated.h"
+
+struct FPropertyChangedEvent;
 
 /**
  * Operation used to construct the vector field from a 2D texture.

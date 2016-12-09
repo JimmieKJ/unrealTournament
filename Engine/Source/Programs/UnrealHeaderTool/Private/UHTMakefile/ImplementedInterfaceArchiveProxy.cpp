@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "ImplementedInterfaceArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/ImplementedInterfaceArchiveProxy.h"
+#include "UHTMakefile.h"
 
 FImplementedInterfaceArchiveProxy::FImplementedInterfaceArchiveProxy(FUHTMakefile& UHTMakefile, const FImplementedInterface& ImplementedInterface)
 {

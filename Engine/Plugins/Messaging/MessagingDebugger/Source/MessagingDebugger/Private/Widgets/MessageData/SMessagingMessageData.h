@@ -2,9 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/ISlateStyle.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Models/MessagingDebuggerModel.h"
+#include "Misc/NotifyHook.h"
 
 class IStructureDetailsView;
-
+class SMultiLineEditableTextBox;
+struct FPropertyChangedEvent;
 
 /**
  * Implements the message data panel.
@@ -32,11 +40,11 @@ public:
 	 * @param InModel The view model to use.
 	 * @param InStyle The visual style to use for this widget.
 	 */
-	void Construct(const FArguments& InArgs, const FMessagingDebuggerModelRef& InModel, const TSharedRef<ISlateStyle>& InStyle);
+	void Construct(const FArguments& InArgs, const TSharedRef<FMessagingDebuggerModel>& InModel, const TSharedRef<ISlateStyle>& InStyle);
 
 public:
 
-	// FNotifyHook interface
+	//~ FNotifyHook interface
 
 	virtual void NotifyPostChange(const FPropertyChangedEvent& PropertyChangedEvent, class FEditPropertyChain* PropertyThatChanged) override;
 
@@ -62,7 +70,7 @@ private:
 #endif //WITH_EDITOR
 
 	/** Holds a pointer to the view model. */
-	FMessagingDebuggerModelPtr Model;
+	TSharedPtr<FMessagingDebuggerModel> Model;
 
 	/** Holds the widget's visual style. */
 	TSharedPtr<ISlateStyle> Style;

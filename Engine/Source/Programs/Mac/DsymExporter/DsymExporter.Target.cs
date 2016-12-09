@@ -56,11 +56,4 @@ public class DsymExporterTarget : TargetRules
 		// Do NOT produce additional console app exe
 		OutLinkEnvironmentConfiguration.bIsBuildingConsoleApplication = true;
 	}
-    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
-    {
-        bInternalToolOnly = false;
-        SeparateNode = false;
-		CrossCompile = false;
-        return true;
-    }
 }

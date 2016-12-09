@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/MovementComponent.h"
 #include "ProjectileMovementComponent.generated.h"
 
@@ -293,9 +296,11 @@ protected:
 	/** Allow the projectile to track towards its homing target. */
 	virtual FVector ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime) const;
 
+public:
 	/** Compute gravity effect given current physics volume, projectile gravity scale, etc. */
 	virtual float GetGravityZ() const override;
 
+protected:
 	DEPRECATED(4.9, "GetEffectiveGravityZ() is deprecated, use GetGravityZ() instead, or UMovementComponent::GetGravityZ() if you want only the unmodified gravity.")
 	float GetEffectiveGravityZ() const;
 

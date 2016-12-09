@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Templates/SharedPointer.h"
+#include "Delegates/Delegate.h"
+#include "Misc/IFilter.h"
 
 /**
  *	A simple collection of Filters, with additional Filter specific functionality.

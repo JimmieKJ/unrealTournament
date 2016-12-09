@@ -2,7 +2,33 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Math/IntPoint.h"
+#include "Delegates/Delegate.h"
+#include "Internationalization/Text.h"
+#include "Math/Color.h"
+#include "Layout/Visibility.h"
+#include "Layout/Margin.h"
+#include "Animation/CurveHandle.h"
+#include "Animation/CurveSequence.h"
+#include "Styling/ISlateStyle.h"
+#include "Styling/SlateColor.h"
+#include "Styling/SlateWidgetStyleAsset.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Engine/GameViewportClient.h"
+#include "GameFramework/PlayerController.h"
+#include "GameMenuWidgetStyle.h"
+
 class UGameViewportClient;
+class FGameMenuPage;
+class SVerticalBox;
+class SWidget;
+struct FFocusEvent;
+struct FGeometry;
+struct FKeyEvent;
+struct FPointerEvent;
 
 namespace EPanelState
 {

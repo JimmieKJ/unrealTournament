@@ -2,9 +2,13 @@
 
 #pragma once
 
-// Forward declarations
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "BlueprintActionFilter.h"
+
+class UK2Node;
 struct FBlueprintActionMenuBuilder;
-struct FBlueprintActionContext;
 
 UENUM()
 namespace EContextTargetFlags

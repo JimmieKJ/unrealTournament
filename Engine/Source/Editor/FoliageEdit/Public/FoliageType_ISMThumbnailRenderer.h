@@ -5,7 +5,14 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ThumbnailRendering/DefaultSizedThumbnailRenderer.h"
 #include "FoliageType_ISMThumbnailRenderer.generated.h"
+
+class FCanvas;
+class FRenderTarget;
 
 UCLASS(CustomConstructor, Config=Editor)
 class UFoliageType_ISMThumbnailRenderer : public UDefaultSizedThumbnailRenderer

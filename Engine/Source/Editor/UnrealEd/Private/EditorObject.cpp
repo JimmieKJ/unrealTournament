@@ -4,17 +4,33 @@
 	EditorObject.cpp: Unreal Editor object manipulation code.
 =============================================================================*/
 
-#include "UnrealEd.h"
-#include "Factories.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
+#include "Misc/Paths.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Serialization/ArchiveReplaceObjectRef.h"
+#include "Misc/PackageName.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
+#include "Components/PrimitiveComponent.h"
+#include "Model.h"
+#include "Engine/Brush.h"
+#include "Editor/EditorEngine.h"
+#include "Factories/ModelFactory.h"
+#include "GameFramework/Volume.h"
+#include "Editor.h"
 #include "BSPOps.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 
-#include "InstancedFoliageActor.h"
 #include "FoliageType.h"
+#include "InstancedFoliageActor.h"
 #include "InstancedFoliage.h"
 #include "Components/BrushComponent.h"
-#include "Engine/StaticMesh.h"
-#include "Engine/Polys.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorObject, Log, All);
 

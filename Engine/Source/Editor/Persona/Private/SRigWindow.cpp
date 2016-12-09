@@ -1,23 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
 #include "SRigWindow.h"
-#include "ObjectTools.h"
-#include "ScopedTransaction.h"
-#include "AssetRegistryModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
-#include "WorkflowOrientedApp/SContentReference.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SWindow.h"
+#include "ReferenceSkeleton.h"
+#include "Editor.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Input/SButton.h"
+#include "ContentBrowserModule.h"
 #include "AssetNotifications.h"
 #include "Animation/Rig.h"
 #include "BoneSelectionWidget.h"
-#include "SSearchBox.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "SRigPicker.h"
-#include "AnimationRuntime.h"
 #include "BoneMappingHelper.h"
 #include "SSkeletonWidget.h"
+#include "IEditableSkeleton.h"
+
+class FPersona;
 
 #define LOCTEXT_NAMESPACE "SRigWindow"
 
@@ -48,9 +51,6 @@ public:
 		/* Widget used to display the list of retarget sources*/
 		SLATE_ARGUMENT( TSharedPtr<SBoneMappingListType>, BoneMappingListView )
 
-		/* Persona used to update the viewport when a weight slider is dragged */
-		SLATE_ARGUMENT( TWeakPtr<FPersona>, Persona )
-
 		SLATE_EVENT( FOnBoneMappingChanged, OnBoneMappingChanged)
 
 		SLATE_EVENT( FOnGetBoneMapping, OnGetBoneMapping)
@@ -74,8 +74,6 @@ private:
 	/** The name and weight of the retarget source*/
 	FDisplayedBoneMappingInfoPtr	Item;
 
-	/** Pointer back to the Persona that owns us */
-	TWeakPtr<FPersona> PersonaPtr;
 
 	// Bone tree widget delegates
 	void OnBoneSelectionChanged(FName Name);
@@ -93,8 +91,6 @@ void SBoneMappingListRow::Construct( const FArguments& InArgs, const TSharedRef<
 	BoneMappingListView = InArgs._BoneMappingListView;
 	OnBoneMappingChanged = InArgs._OnBoneMappingChanged;
 	OnGetBoneMapping = InArgs._OnGetBoneMapping;
-
-	PersonaPtr = InArgs._Persona;
 
 	check( Item.IsValid() );
 
@@ -125,8 +121,6 @@ TSharedRef< SWidget > SBoneMappingListRow::GenerateWidgetForColumn( const FName&
 	}
 	else
 	{
-		check (Item->Skeleton);
-
 		// show bone list
 		// Encase the SSpinbox in an SVertical box so we can apply padding. Setting ItemHeight on the containing SListView has no effect :-(
 		return
@@ -141,8 +135,8 @@ TSharedRef< SWidget > SBoneMappingListRow::GenerateWidgetForColumn( const FName&
 
 				+SHorizontalBox::Slot()
 				[
-					SNew(SBoneSelectionWidget, Item->Skeleton)
-					.Tooltip(FText::Format(LOCTEXT("BoneSelectinWidget", "Select Bone for node {0}"), FText::FromString(Item->GetDisplayName())))
+					SNew(SBoneSelectionWidget, Item->EditableSkeletonPtr.Pin().ToSharedRef())
+					.ToolTipText(FText::Format(LOCTEXT("BoneSelectinWidget", "Select Bone for node {0}"), FText::FromString(Item->GetDisplayName())))
 					.OnBoneSelectionChanged(this, &SBoneMappingListRow::OnBoneSelectionChanged)
 					.OnGetSelectedBone(this, &SBoneMappingListRow::GetSelectedBone)
 				]
@@ -192,22 +186,14 @@ FName SBoneMappingListRow::GetSelectedBone() const
 //////////////////////////////////////////////////////////////////////////
 // SRigWindow
 
-void SRigWindow::Construct(const FArguments& InArgs)
+void SRigWindow::Construct(const FArguments& InArgs, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnPostUndo)
 {
-	PersonaPtr = InArgs._Persona;
-	Skeleton = nullptr;
+	EditableSkeletonPtr = InEditableSkeleton;
 	bDisplayAdvanced = false;
 
-	if ( PersonaPtr.IsValid() )
-	{
-		Skeleton = PersonaPtr.Pin()->GetSkeleton();
-		PersonaPtr.Pin()->RegisterOnPostUndo(FPersona::FOnPostUndo::CreateSP( this, &SRigWindow::PostUndo ) );
-	}
+	InOnPostUndo.Add(FSimpleDelegate::CreateSP( this, &SRigWindow::PostUndo ) );
 	
-	// @todo it will crash right nwo without Skeleton
-	check (Skeleton);
-
-	Skeleton->RefreshRigConfig();
+	InEditableSkeleton->RefreshRigConfig();
 
 	// show list of skeletalmeshes that they can choose from
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
@@ -371,7 +357,6 @@ TSharedRef<ITableRow> SRigWindow::GenerateBoneMappingRow(TSharedPtr<FDisplayedBo
 
 	return
 		SNew( SBoneMappingListRow, OwnerTable )
-		.Persona( PersonaPtr )
 		.Item( InInfo )
 		.RigWindow( this )
 		.BoneMappingListView( BoneMappingListView )
@@ -383,7 +368,8 @@ void SRigWindow::CreateBoneMappingList( const FString& SearchText)
 {
 	BoneMappingList.Empty();
 
-	const URig* Rig = Skeleton->GetRig();
+	const USkeleton& Skeleton = EditableSkeletonPtr.Pin()->GetSkeleton();
+	const URig* Rig = Skeleton.GetRig();
 
 	if ( Rig )
 	{
@@ -394,7 +380,7 @@ void SRigWindow::CreateBoneMappingList( const FString& SearchText)
 		{
 			const FName& Name = Node.Name;
 			const FString& DisplayName = Node.DisplayName;
-			const FName& BoneName = Skeleton->GetRigBoneMapping(Name);
+			const FName& BoneName = Skeleton.GetRigBoneMapping(Name);
 
 			if (Node.bAdvanced == bDisplayAdvanced)
 			{
@@ -407,7 +393,7 @@ void SRigWindow::CreateBoneMappingList( const FString& SearchText)
 					}
 				}
 
-				TSharedRef<FDisplayedBoneMappingInfo> Info = FDisplayedBoneMappingInfo::Make(Name, DisplayName, Skeleton);
+				TSharedRef<FDisplayedBoneMappingInfo> Info = FDisplayedBoneMappingInfo::Make(Name, DisplayName, EditableSkeletonPtr.Pin().ToSharedRef());
 
 				BoneMappingList.Add(Info);
 			}
@@ -420,17 +406,13 @@ void SRigWindow::CreateBoneMappingList( const FString& SearchText)
 
 void SRigWindow::OnAssetSelected(UObject* Object)
 {
-	if (Skeleton)
-	{
-		AssetComboButton->SetIsOpen(false);
+	AssetComboButton->SetIsOpen(false);
 
-		const FScopedTransaction Transaction(LOCTEXT("RigAssetChanged", "Select Rig"));
-		Skeleton->Modify();
-		Skeleton->SetRigConfig(Cast<URig>(Object));
-		CreateBoneMappingList(FilterText.ToString());
+	EditableSkeletonPtr.Pin()->SetRigConfig(Cast<URig>(Object));
 
-		FAssetNotifications::SkeletonNeedsToBeSaved(Skeleton);
-	}
+	CreateBoneMappingList(FilterText.ToString());
+
+	FAssetNotifications::SkeletonNeedsToBeSaved(&EditableSkeletonPtr.Pin()->GetSkeleton());
 }
 
 /** Returns true if the asset shouldn't show  */
@@ -441,15 +423,8 @@ bool SRigWindow::ShouldFilterAsset(const class FAssetData& AssetData)
 
 URig* SRigWindow::GetRigObject() const
 {
-	return (Skeleton)? Skeleton->GetRig() : nullptr;
-}
-
-SRigWindow::~SRigWindow()
-{
-	if (PersonaPtr.IsValid())
-	{
-		PersonaPtr.Pin()->UnregisterOnPostUndo(this);
-	}
+	const USkeleton& Skeleton = EditableSkeletonPtr.Pin()->GetSkeleton();
+	return Skeleton.GetRig();
 }
 
 void SRigWindow::PostUndo()
@@ -459,15 +434,13 @@ void SRigWindow::PostUndo()
 
 void SRigWindow::OnBoneMappingChanged(FName NodeName, FName BoneName)
 {
-	const FScopedTransaction Transaction(LOCTEXT("BoneMappingChanged", "Change Bone Mapping"));
-	Skeleton->Modify();
-
-	Skeleton->SetRigBoneMapping(NodeName, BoneName);
+	EditableSkeletonPtr.Pin()->SetRigBoneMapping(NodeName, BoneName);
 }
 
 FName SRigWindow::GetBoneMapping(FName NodeName)
 {
-	return Skeleton->GetRigBoneMapping(NodeName);
+	const USkeleton& Skeleton = EditableSkeletonPtr.Pin()->GetSkeleton();
+	return Skeleton.GetRigBoneMapping(NodeName);
 }
 
 FReply SRigWindow::OnToggleAdvanced()
@@ -491,10 +464,12 @@ FText SRigWindow::GetAdvancedButtonText() const
 
 TSharedRef<SWidget> SRigWindow::MakeRigPickerWithMenu()
 {
+	const USkeleton& Skeleton = EditableSkeletonPtr.Pin()->GetSkeleton();
+
 	// rig asset picker
 	return	
 		SNew(SRigPicker)
-		.InitialObject(Skeleton->GetRig())
+		.InitialObject(Skeleton.GetRig())
 		.OnShouldFilterAsset(this, &SRigWindow::ShouldFilterAsset)
 		.OnSetReference(this, &SRigWindow::OnAssetSelected)
 		.OnClose(this, &SRigWindow::CloseComboButton );
@@ -593,14 +568,12 @@ FReply SRigWindow::OnAutoMapping()
 		}
 
 		FReferenceSkeleton RigReferenceSkeleton = Rig->GetSourceReferenceSkeleton();
-		FBoneMappingHelper Helper(RigReferenceSkeleton, Skeleton->GetReferenceSkeleton());
+		const USkeleton& Skeleton = EditableSkeletonPtr.Pin()->GetSkeleton();
+		FBoneMappingHelper Helper(RigReferenceSkeleton, Skeleton.GetReferenceSkeleton());
 		TMap<FName, FName> BestMatches;
 		Helper.TryMatch(BestMatches);
 
-		for (const TPair<FName, FName>& BestCandidate : BestMatches)
-		{
-			Skeleton->SetRigBoneMapping(BestCandidate.Key, BestCandidate.Value);
-		}
+		EditableSkeletonPtr.Pin()->SetRigBoneMappings(BestMatches);
 
 		BoneMappingListView->RequestListRefresh();
 	}
@@ -613,11 +586,14 @@ FReply SRigWindow::OnClearMapping()
 	URig* Rig = GetRigObject();
 	if (Rig)
 	{
-		const TArray<FNode> Nodes = Rig->GetNodes();
+		const TArray<FNode>& Nodes = Rig->GetNodes();
+		TMap<FName, FName> Mappings;
 		for (const auto& Node : Nodes)
 		{
-			Skeleton->SetRigBoneMapping(Node.Name, NAME_None);
+			Mappings.Add(Node.Name, NAME_None);
 		}
+
+		EditableSkeletonPtr.Pin()->SetRigBoneMappings(Mappings);
 
 		BoneMappingListView->RequestListRefresh();
 	}

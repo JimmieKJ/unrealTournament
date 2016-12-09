@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "HAL/Platform.h"
 
-class FName;
-class FString;
-class FText;
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
 
 /*-----------------------------------------------------------------------------
 	Parsing functions.

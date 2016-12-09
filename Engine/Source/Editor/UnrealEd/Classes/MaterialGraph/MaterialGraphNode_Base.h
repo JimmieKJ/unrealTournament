@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "EdGraph/EdGraphNode.h"
 #include "MaterialGraphNode_Base.generated.h"
+
+class UEdGraphPin;
+class UEdGraphSchema;
 
 UCLASS(MinimalAPI)
 class UMaterialGraphNode_Base : public UEdGraphNode
@@ -43,6 +49,7 @@ class UMaterialGraphNode_Base : public UEdGraphNode
 	//~ Begin UEdGraphNode Interface.
 	virtual void AllocateDefaultPins() override;
 	virtual void ReconstructNode() override;
+	virtual void RemovePinAt(const int32 PinIndex, const EEdGraphPinDirection PinDirection) override;
 	virtual void AutowireNewNode(UEdGraphPin* FromPin) override;
 	virtual bool CanCreateUnderSpecifiedSchema(const UEdGraphSchema* Schema) const override;
 	virtual FString GetDocumentationLink() const override;

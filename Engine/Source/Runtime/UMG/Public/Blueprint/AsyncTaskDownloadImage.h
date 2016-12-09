@@ -2,12 +2,16 @@
 
 #pragma once
 
-#include "IHttpRequest.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Interfaces/IHttpRequest.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
 
 #include "AsyncTaskDownloadImage.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDownloadImageDelegate, UTexture2D*, Texture);
+class UTexture2DDynamic;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDownloadImageDelegate, UTexture2DDynamic*, Texture);
 
 UCLASS()
 class UMG_API UAsyncTaskDownloadImage : public UBlueprintAsyncActionBase

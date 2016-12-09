@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "NavDataGenerator.h"
-#include "NavigationOctree.h"
-#if WITH_RECAST
-#include "RecastNavMeshGenerator.h"
-#endif // WITH_RECAST
 #include "AI/NavigationSystemHelpers.h"
+#include "Engine/EngineTypes.h"
+#include "CollisionQueryParams.h"
+#include "Engine/World.h"
+#include "Components/StaticMeshComponent.h"
+#include "AI/NavigationModifier.h"
+#if WITH_RECAST
+#include "AI/Navigation/RecastNavMeshGenerator.h"
+#endif // WITH_RECAST
 #include "VisualLogger/VisualLogger.h"
 #include "AI/Navigation/NavCollision.h"
 

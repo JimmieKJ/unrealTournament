@@ -60,6 +60,8 @@ struct FMetalDebugCommand
 	TArray<FMetalDebugCommand*> DebugCommands;
 	NSMutableArray<NSString*>* DebugGroup;
 	NSString* ActiveEncoder;
+	TSet<id<MTLResource>> Resources;
+	TSet<id> States;
 };
 
 /** The wrapped native command-buffer for which we collect debug information. */
@@ -67,6 +69,11 @@ struct FMetalDebugCommand
 
 /** Initialise the wrapper with the provided command-buffer. */
 -(id)initWithCommandBuffer:(id<MTLCommandBuffer>)Buffer;
+
+/** Add the resource to be tracked in this command-buffer so we can validate lifetime on failure. */
+-(void) trackResource:(id<MTLResource>)Resource;
+/** Add the state to be tracked in this command-buffer so we can validate lifetime on failure. */
+-(void) trackState:(id)State;
 
 /** Record a bgein render encoder command. */
 -(void) beginRenderCommandEncoder:(NSString*)Label withDescriptor:(MTLRenderPassDescriptor*)Desc;
@@ -95,7 +102,7 @@ struct FMetalDebugCommand
 NS_ASSUME_NONNULL_END
 
 // Debug command-buffer logging macros that simplify the calling code
-#if !UE_BUILD_SHIPPING
+#if METAL_DEBUG_OPTIONS
 #define METAL_DEBUG_COMMAND_BUFFER_DRAW_LOG(Context, LabelFormat, ...)	\
 			if (Context->GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogOperations)	\
 			{	\
@@ -121,9 +128,23 @@ NS_ASSUME_NONNULL_END
 				FMetalDebugCommandBuffer* CmdBuf = (FMetalDebugCommandBuffer*)MtlCmdBuf;	\
 				[CmdBuf blit:[NSString stringWithFormat: LabelFormat, __VA_ARGS__]];	\
 			}
+#define METAL_DEBUG_COMMAND_BUFFER_TRACK_RES(MtlCmdBuf, Resource)	\
+			if (MtlCmdBuf && Resource && GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogOperations)	\
+			{	\
+				FMetalDebugCommandBuffer* CmdBuf = (FMetalDebugCommandBuffer*)MtlCmdBuf;	\
+				[CmdBuf trackResource: Resource];	\
+			}
+#define METAL_DEBUG_COMMAND_BUFFER_TRACK_STATE(MtlCmdBuf, State)	\
+			if (MtlCmdBuf && State && GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelLogOperations)	\
+			{	\
+				FMetalDebugCommandBuffer* CmdBuf = (FMetalDebugCommandBuffer*)MtlCmdBuf;	\
+				[CmdBuf trackState: State];	\
+			}
 #else
 #define METAL_DEBUG_COMMAND_BUFFER_DRAW_LOG(Context, LabelFormat, ...)
 #define METAL_DEBUG_COMMAND_BUFFER_DISPATCH_LOG(Context, LabelFormat, ...)
 #define METAL_DEBUG_COMMAND_BUFFER_BLIT_LOG(Context, LabelFormat, ...)
 #define METAL_DEBUG_COMMAND_BUFFER_BLIT_ASYNC_LOG(Context, MtlCmdBuf, LabelFormat, ...)
+#define METAL_DEBUG_COMMAND_BUFFER_TRACK_RES(MtlCmdBuf, Resource)
+#define METAL_DEBUG_COMMAND_BUFFER_TRACK_STATE(MtlCmdBuf, State)
 #endif

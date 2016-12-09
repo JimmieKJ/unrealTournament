@@ -2,8 +2,9 @@
 
 #pragma once
 
-struct FMessageAddress;
+#include "CoreMinimal.h"
 
+struct FMessageAddress;
 
 /**
  * Interface for Portal RPC server locators.

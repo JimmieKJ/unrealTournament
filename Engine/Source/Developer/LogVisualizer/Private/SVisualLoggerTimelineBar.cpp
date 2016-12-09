@@ -1,14 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
-#if WITH_EDITOR
-#	include "Editor/UnrealEd/Public/EditorComponents.h"
-#	include "Editor/UnrealEd/Public/EditorReimportHandler.h"
-#	include "Editor/UnrealEd/Public/TexAlignTools.h"
-#	include "Editor/UnrealEd/Public/TickableEditorObject.h"
-#	include "Editor/UnrealEd/Public/Editor.h"
-#	include "Editor/UnrealEd/Public/EditorViewportClient.h"
-#endif
+#include "SVisualLoggerTimelineBar.h"
+#include "Layout/ArrangedChildren.h"
+#include "Rendering/DrawElements.h"
+#include "VisualLoggerDatabase.h"
+#include "LogVisualizerStyle.h"
+#include "LogVisualizerPrivate.h"
+#include "VisualLoggerTimeSliderController.h"
 
 FReply SVisualLoggerTimelineBar::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {

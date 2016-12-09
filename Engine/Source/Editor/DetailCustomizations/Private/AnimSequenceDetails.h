@@ -2,7 +2,25 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Animation/Skeleton.h"
 #include "PreviewScene.h"
+#include "IDetailCustomization.h"
+
+class FEditorViewportClient;
+class FSceneViewport;
+class IDetailCategoryBuilder;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class SViewport;
+class UAnimSequence;
 
 class FAnimSequenceDetails : public IDetailCustomization
 {

@@ -2,10 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/EngineTypes.h"
 #include "GameFramework/Actor.h"
-#include "CameraTypes.h"
-#include "CameraShake.h"
+#include "Camera/CameraTypes.h"
+#include "Camera/CameraShake.h"
 #include "PlayerCameraManager.generated.h"
+
+class AEmitterCameraLensEffectBase;
+class APlayerController;
+class FDebugDisplayInfo;
 
 /** 
  * Options that define how to blend when changing view targets. 
@@ -407,7 +415,54 @@ public:
 	/** Maximum view roll, in degrees. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PlayerCameraManager)
 	float ViewRollMax;
-	
+
+	/**
+	* Implementable blueprint hook to allow a PlayerCameraManager subclass to
+	* constrain or otherwise modify the camera during free-camera photography.
+	* For example, a blueprint may wish to limit the distance from the camera's
+	* original point, or forbid the camera from passing through walls.
+	* NewCameraLocation contains the proposed new camera location.
+	* PreviousCameraLocation contains the camera location in the previous frame.
+	* OriginalCameraLocation contains the camera location before the game was put
+	* into photography mode.
+	* Return ResultCameraLocation as modified according to your constraints.
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic, Category = "Photography")
+	void PhotographyCameraModify(const FVector NewCameraLocation, const FVector PreviousCameraLocation, const FVector OriginalCameraLocation, FVector& ResultCameraLocation);
+
+	/**
+	* Event triggered upon entering Photography mode (before pausing, if
+	* r.Photography.AutoPause is 1).
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic, Category = "Photography")
+	void OnPhotographySessionStart();
+
+	/**
+	* Event triggered upon leaving Photography mode (after unpausing, if
+	* r.Photography.AutoPause is 1).
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic, Category = "Photography")
+	void OnPhotographySessionEnd();
+
+	/**
+	* Event triggered upon the start of a multi-part photograph capture (i.e. a
+	* stereoscopic or 360-degree shot).  This is an ideal time to turn off
+	* rendering effects that tile badly (UI, subtitles, vignette, very aggressive
+	* bloom, etc; most of these are automatically disabled when
+	* r.Photography.AutoPostprocess is 1).
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic, Category = "Photography")
+	void OnPhotographyMultiPartCaptureStart();
+
+	/**
+	* Event triggered upon the end of a multi-part photograph capture, when manual
+	* free-roaming photographic camera control is about to be returned to the user.
+	* Here you may re-enable whatever was turned off within
+	* OnPhotographyMultiPartCaptureStart.
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic, Category = "Photography")
+	void OnPhotographyMultiPartCaptureEnd();
+
 	/** 
 	 * Blueprint hook to allow blueprints to override existing camera behavior or implement custom cameras.
 	 * If this function returns true, we will use the given returned values and skip further calculations to determine
@@ -560,6 +615,9 @@ public:
 protected:
 	/** Internal function conditionally called from UpdateCamera to do the actual work of updating the camera. */
 	virtual void DoUpdateCamera(float DeltaTime);
+
+	/** Whether to only run photography overrides */
+	bool IsOnlyPhotography() const;
 	
 	/** Internal. Applies appropriate audio fading to the audio system. */
 	virtual void ApplyAudioFade();

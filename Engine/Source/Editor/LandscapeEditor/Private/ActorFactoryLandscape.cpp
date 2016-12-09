@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
 #include "Classes/ActorFactoryLandscape.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/SceneComponent.h"
+#include "Engine/World.h"
+#include "Engine/Texture2D.h"
+#include "Components/BillboardComponent.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "LandscapeProxy.h"
+#include "LandscapeEditorObject.h"
 #include "Classes/LandscapePlaceholder.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"

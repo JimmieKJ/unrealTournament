@@ -2,9 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
 
 #define LOCTEXT_NAMESPACE "DeviceProfileEditorSelectionPanel"
 
+class UDeviceProfile;
+class UDeviceProfileManager;
 
 /** Delegate that is executed when a device profile is pinned */
 DECLARE_DELEGATE_OneParam(FOnDeviceProfilePinned, const TWeakObjectPtr< UDeviceProfile >&);

@@ -5,7 +5,7 @@
 // Output is lowpass filtered according to relative body speed at contact.
 //
 
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #include "Surface/paFunSurface.hpp"
 #include "Contact/paFunContactGen.hpp"

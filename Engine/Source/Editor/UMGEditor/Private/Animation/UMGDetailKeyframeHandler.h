@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "WidgetBlueprintEditor.h"
 #include "Editor/PropertyEditor/Public/IDetailKeyframeHandler.h"
+
+class IPropertyHandle;
 
 class FUMGDetailKeyframeHandler : public IDetailKeyframeHandler
 {

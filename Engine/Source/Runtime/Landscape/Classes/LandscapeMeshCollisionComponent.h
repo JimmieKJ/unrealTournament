@@ -3,9 +3,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "Templates/RefCounting.h"
+#include "EngineDefines.h"
+#include "Serialization/BulkData.h"
 #include "LandscapeHeightfieldCollisionComponent.h"
 
 #include "LandscapeMeshCollisionComponent.generated.h"
+
+class UPhysicalMaterial;
+struct FNavigableGeometryExport;
 
 #if WITH_PHYSX
 namespace physx

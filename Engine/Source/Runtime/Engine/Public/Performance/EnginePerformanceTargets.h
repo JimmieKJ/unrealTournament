@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 struct ENGINE_API FEnginePerformanceTargets
 {
 public:

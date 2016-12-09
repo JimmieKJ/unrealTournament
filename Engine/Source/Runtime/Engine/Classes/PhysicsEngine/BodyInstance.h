@@ -2,17 +2,27 @@
 
 #pragma once
 
-#include "PhysxUserData.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "Engine/EngineTypes.h"
 #include "CollisionQueryParams.h"
+#include "EngineDefines.h"
+#include "PhysxUserData.h"
 #include "BodyInstance.generated.h"
 
 #define UE_WITH_PHYSICS (WITH_PHYSX || WITH_BOX2D)
 
+class FPhysScene;
+class UBodySetup;
+class UPhysicalMaterial;
+class UPrimitiveComponent;
+struct FBodyInstance;
+struct FCollisionNotifyInfo;
 struct FCollisionShape;
 struct FConstraintInstance;
-class UPhysicsConstraintComponent;
-enum class ETeleportType;
-class UBodySetup;
+struct FPropertyChangedEvent;
+struct FShapeData;
 
 /** Delegate for applying custom physics forces upon the body. Can be passed to "AddCustomPhysics" so 
   * custom forces and torques can be calculated individually for every physics substep.
@@ -212,7 +222,11 @@ public:
 	/////////
 	// SIM SETTINGS
 
-	/** If true, this body will use simulation. If false, will be 'fixed' (ie kinematic) and move where it is told. */
+	/** 
+	 * If true, this body will use simulation. If false, will be 'fixed' (ie kinematic) and move where it is told. 
+	 * For a Skeletal Mesh Component, simulating requires a physics asset setup and assigned on the SkeletalMesh asset.
+	 * For a Static Mesh Component, simulating requires simple collision to be setup on the StaticMesh asset.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
 	uint32 bSimulatePhysics : 1;
 
@@ -721,17 +735,17 @@ public:
 	/** Makes sure the current kinematic state matches the simulate flag */
 	void UpdateInstanceSimulatePhysics();
 	/** Returns true if this body is simulating, false if it is fixed (kinematic) */
-	bool IsInstanceSimulatingPhysics();
+	bool IsInstanceSimulatingPhysics() const;
 	/** Should Simulate Physics **/
-	bool ShouldInstanceSimulatingPhysics();
+	bool ShouldInstanceSimulatingPhysics() const;
 	/** Returns whether this body is awake */
 	bool IsInstanceAwake() const;
 	/** Wake this body */
 	void WakeInstance();
 	/** Force this body to sleep */
 	void PutInstanceToSleep();
-	/** Gets the multiplier to the theshold where the body will go to sleep automatically. */
-	float GetSleepThresholdMultiplier();
+	/** Gets the multiplier to the threshold where the body will go to sleep automatically. */
+	float GetSleepThresholdMultiplier() const;
 	/** Add custom forces and torques on the body. The callback will be called more than once, if substepping enabled, for every substep.  */
 	void AddCustomPhysics(FCalculateCustomPhysics& CalculateCustomPhysics);
 	/** Add a force to this body */
@@ -915,15 +929,16 @@ public:
 	bool LineTrace(struct FHitResult& OutHit, const FVector& Start, const FVector& End, bool bTraceComplex, bool bReturnPhysicalMaterial = false) const;
 
 	/** 
-	 *  Trace a box against just this bodyinstance
-	 *  @param  OutHit          Information about hit against this component, if true is returned
-	 *  @param  Start           Start location of the box
-	 *  @param  End             End location of the box
-	 *  @param  CollisionShape	Collision Shape
-	 *	@param	bTraceComplex	Should we trace against complex or simple collision of this body
+	 *  Trace a shape against just this bodyinstance
+	 *  @param  OutHit          	Information about hit against this component, if true is returned
+	 *  @param  Start           	Start location of the box
+	 *  @param  End             	End location of the box
+	 *  @param  ShapeWorldRotation  The rotation applied to the collision shape in world space.
+	 *  @param  CollisionShape		Collision Shape
+	 *	@param	bTraceComplex		Should we trace against complex or simple collision of this body
 	 *  @return true if a hit is found
 	 */
-	bool Sweep(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FCollisionShape& Shape, bool bTraceComplex) const;
+	bool Sweep(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& ShapeWorldRotation, const FCollisionShape& Shape, bool bTraceComplex) const;
 
 #if WITH_PHYSX
 	/**
@@ -1041,7 +1056,9 @@ public:
 	/** 
 	 * Returns memory used by resources allocated for this body instance ( ex. Physx resources )
 	 **/
+	DEPRECATED(4.14, "GetBodyInstanceResourceSize is deprecated. Please use GetBodyInstanceResourceSizeEx instead.")
 	SIZE_T GetBodyInstanceResourceSize(EResourceSizeMode::Type Mode) const;
+	void GetBodyInstanceResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const;
 
 	/**
 	 * UObject notification by OwningComponent
@@ -1062,16 +1079,15 @@ public:
 
 private:
 	/**
-	 *  Trace a box against just this bodyinstance
+	 *  Trace a shape against just this bodyinstance
 	 *  @param  OutHit          Information about hit against this component, if true is returned
 	 *  @param  Start           Start location of the box
 	 *  @param  End             End location of the box
-	 *  @param  CollisionShape	Collision Shape
+	 *  @param  ShapeAdaptor    Adaptor containing geometry information about the shape to be swept.
 	 *  @param	bTraceComplex	Should we trace against complex or simple collision of this body
-	 *  @param	PGeom			Geometry that will sweep
 	 *  @return true if a hit is found
 	 */
-	bool InternalSweepPhysX(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FCollisionShape& Shape, bool bTraceComplex, const physx::PxRigidActor* RigidBody, const physx::PxGeometry* Geometry) const;
+	bool InternalSweepPhysX(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const struct FPhysXShapeAdaptor& ShapeAdaptor, bool bTraceComplex, const physx::PxRigidActor* RigidBody) const;
 
 	/** 
 	 * Helper function to update per shape filtering info. This should interface is not very friendly and should only be used from inside FBodyInstance
@@ -1209,12 +1225,12 @@ FORCEINLINE_DEBUGGABLE bool FBodyInstance::OverlapTestForBody(const FVector& Pos
 	return OverlapTestForBodiesImpl(Position, Rotation, InlineArray);
 }
 
-FORCEINLINE_DEBUGGABLE bool FBodyInstance::IsInstanceSimulatingPhysics()
+FORCEINLINE_DEBUGGABLE bool FBodyInstance::IsInstanceSimulatingPhysics() const
 {
 	return ShouldInstanceSimulatingPhysics() && IsValidBodyInstance();
 }
 
-FORCEINLINE_DEBUGGABLE bool FBodyInstance::ShouldInstanceSimulatingPhysics()
+FORCEINLINE_DEBUGGABLE bool FBodyInstance::ShouldInstanceSimulatingPhysics() const
 {
 	return bSimulatePhysics;
 }

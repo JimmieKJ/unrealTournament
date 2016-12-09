@@ -2,6 +2,10 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "RenderCommandFence.h"
 #include "Components/SceneCaptureComponent.h"
 #include "PlanarReflectionComponent.generated.h"
 

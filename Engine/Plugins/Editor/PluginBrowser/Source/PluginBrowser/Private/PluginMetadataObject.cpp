@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PluginBrowserPrivatePCH.h"
-#include "DetailLayoutBuilder.h"
-#include "DetailCategoryBuilder.h"
-#include "DetailWidgetRow.h"
-#include "SExternalImageReference.h"
-#include "IPluginManager.h"
 #include "PluginMetadataObject.h"
+#include "Misc/Paths.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Interfaces/IPluginManager.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "SExternalImageReference.h"
 
 UPluginMetadataObject::UPluginMetadataObject(const FObjectInitializer& ObjectInitializer)
 {

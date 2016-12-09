@@ -2,7 +2,19 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "Containers/Queue.h"
 #include "AudioThread.h"
+
+class FAudioDevice;
+class FReferenceCollector;
+class FSoundBuffer;
+class IAudioDeviceModule;
+class UAudioComponent;
+class USoundClass;
+class USoundMix;
+class USoundSubmix;
+class USoundWave;
 
 /**
 * Class for managing multiple audio devices.
@@ -25,7 +37,7 @@ public:
 	* Registers the audio device module to the audio device manager. The audio device
 	* module is responsible for creating platform-dependent audio devices.
 	*/
-	void RegisterAudioDeviceModule(class IAudioDeviceModule* AudioDeviceModuleInput);
+	void RegisterAudioDeviceModule(IAudioDeviceModule* AudioDeviceModuleInput);
 
 	struct FCreateAudioDeviceResults
 	{
@@ -35,6 +47,7 @@ public:
 
 		FCreateAudioDeviceResults();
 	};
+
 
 	/**
 	* Creates and audio device instance internally and returns a
@@ -63,13 +76,13 @@ public:
 	* Returns a ptr to the audio device associated with the handle. If the
 	* handle is invalid then a NULL device ptr will be returned.
 	*/
-	class FAudioDevice* GetAudioDevice(uint32 Handle);
+	FAudioDevice* GetAudioDevice(uint32 Handle);
 
 	/**
 	* Returns a ptr to the active audio device. If there is no active 
 	* device then it will return the main audio device.
 	*/
-	class FAudioDevice* GetActiveAudioDevice();
+	FAudioDevice* GetActiveAudioDevice();
 
 	/** Returns the current number of active audio devices. */
 	uint8 GetNumActiveAudioDevices() const;
@@ -94,6 +107,17 @@ public:
 
 	/** Initializes the sound class for all active devices. */
 	void InitSoundClasses();
+
+	/** Registers the Sound Mix for all active devices. */
+	void RegisterSoundSubmix(USoundSubmix* SoundSubmix);
+
+	/** Registers the Sound Mix for all active devices. */
+	void UnregisterSoundSubmix(USoundSubmix* SoundSubmix);
+
+	/** Initializes the sound mixes for all active devices. */
+	void InitSoundSubmixes();
+
+	void InitSoundEffectPresets();
 
 	/** Sets which audio device is the active audio device. */
 	void SetActiveDevice(uint32 InAudioDeviceHandle);
@@ -134,6 +158,9 @@ public:
 	/** Toggles 3d visualization of 3d sounds on/off */
 	void ToggleVisualize3dDebug();
 
+	/** Toggles the given debug stat bitmask for all current audio devices. */
+	void ToggleDebugStat(const uint8 StatBitMask);
+
 	/** Debug solos the given sound class name. Sounds that play with this sound class will be solo'd */
 	void SetDebugSoloSoundClass(const TCHAR* SoundClassName);
 
@@ -141,6 +168,9 @@ public:
 	void SetDebugSoloSoundWave(const TCHAR* SoundClassName);
 
 	void SetDebugSoloSoundCue(const TCHAR* SoundClassName);
+
+	/** Enables debug logging and soloing of sounds that substring match the given sound name. Only works if built with AUDIO_MIXER_ENABLE_DEBUG_MODE is turned on. */
+	void SetAudioMixerDebugSound(const TCHAR* SoundName);
 
 	/** Gets the solo sound class used for debugging sounds */
 	const FString& GetDebugSoloSoundClass() const;
@@ -151,13 +181,16 @@ public:
 	/** Gets the solo sound name used for debugging sound cues */
 	const FString& GetDebugSoloSoundCue() const;
 
+	/** Gets the audio mixer debug sound name. Returns emptry string if AUDIO_MIXER_ENABLE_DEBUG_MODE is not enabled. */
+	const FString& GetAudioMixerDebugSoundName() const;
+
 public:
 
 	/** Array of all created buffers */
-	TArray<class FSoundBuffer*>			Buffers;
+	TArray<FSoundBuffer*>			Buffers;
 
 	/** Look up associating a USoundWave's resource ID with sound buffers	*/
-	TMap<int32, class FSoundBuffer*>	WaveBufferMap;
+	TMap<int32, FSoundBuffer*>	WaveBufferMap;
 
 
 private:
@@ -168,6 +201,7 @@ private:
 		FString DebugSoloSoundClass;
 		FString DebugSoloSoundWave;
 		FString DebugSoloSoundCue;
+		FString DebugAudioMixerSoundName;
 	};
 
 	/** Call back for garbage collector, ensures no processing is happening on the thread before collecting resources */

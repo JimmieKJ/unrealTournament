@@ -1,20 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PluginBrowserPrivatePCH.h"
+#include "PluginBrowserModule.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Docking/TabManager.h"
 #include "SPluginBrowser.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
-#include "Editor/UnrealEd/Public/Features/EditorFeatures.h"
+#include "Features/IModularFeatures.h"
+#include "Features/EditorFeatures.h"
 #include "PluginMetadataObject.h"
 #include "PluginStyle.h"
 #include "PropertyEditorModule.h"
-#include "PluginBrowserModule.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "SNewPluginWizard.h"
-
+#include "Interfaces/IMainFrameModule.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Interfaces/IPluginManager.h"
 
 #define LOCTEXT_NAMESPACE "PluginsEditor"
 
-IMPLEMENT_MODULE( FPluginBrowserModule, PluginBrowserModule )
+IMPLEMENT_MODULE( FPluginBrowserModule, PluginBrowser )
 
 const FName FPluginBrowserModule::PluginsEditorTabName( TEXT( "PluginsEditor" ) );
 const FName FPluginBrowserModule::PluginCreatorTabName( TEXT( "PluginCreator" ) );
@@ -26,29 +31,12 @@ void FPluginBrowserModule::StartupModule()
 	// Register ourselves as an editor feature
 	IModularFeatures::Get().RegisterModularFeature( EditorFeatures::PluginsEditor, this );
 
-	// @todo plugedit: Should we auto-watch plugin directories and refresh the plugins editor UI with newly-dropped plugins?
-
-	struct Local
-	{
-		static TSharedRef<SDockTab> SpawnPluginsEditorTab( const FSpawnTabArgs& SpawnTabArgs )
-		{
-			const TSharedRef<SDockTab> MajorTab = 
-				SNew( SDockTab )
-				.Icon( FPluginStyle::Get()->GetBrush("Plugins.TabIcon") )
-				.TabRole( ETabRole::MajorTab );
-
-			MajorTab->SetContent( SNew( SPluginBrowser ) );
-
-			return MajorTab;
-		}
-	};
-
 	// Register the detail customization for the metadata object
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 	PropertyModule.RegisterCustomClassLayout(UPluginMetadataObject::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FPluginMetadataCustomization::MakeInstance));
 	
 	// Register a tab spawner so that our tab can be automatically restored from layout files
-	FGlobalTabmanager::Get()->RegisterTabSpawner( PluginsEditorTabName, FOnSpawnTab::CreateStatic( &Local::SpawnPluginsEditorTab ) )
+	FGlobalTabmanager::Get()->RegisterTabSpawner( PluginsEditorTabName, FOnSpawnTab::CreateRaw(this, &FPluginBrowserModule::HandleSpawnPluginBrowserTab ) )
 			.SetDisplayName( LOCTEXT( "PluginsEditorTabTitle", "Plugins" ) )
 			.SetTooltipText( LOCTEXT( "PluginsEditorTooltipText", "Open the Plugins Browser tab." ) )
 			.SetIcon(FSlateIcon(FPluginStyle::Get()->GetStyleSetName(), "Plugins.TabIcon"));
@@ -58,11 +46,45 @@ void FPluginBrowserModule::StartupModule()
 		FOnSpawnTab::CreateRaw(this, &FPluginBrowserModule::HandleSpawnPluginCreatorTab))
 		.SetDisplayName(LOCTEXT("NewPluginTabHeader", "New Plugin"))
 		.SetMenuType(ETabSpawnerMenuType::Hidden);
+
+	// Get a list of the installed plugins we've seen before
+	TArray<FString> PreviousInstalledPlugins;
+	GConfig->GetArray(TEXT("PluginBrowser"), TEXT("InstalledPlugins"), PreviousInstalledPlugins, GEditorPerProjectIni);
+
+	// Find all the plugins that are installed
+	for(const TSharedRef<IPlugin>& Plugin : IPluginManager::Get().GetDiscoveredPlugins())
+	{
+		if(Plugin->GetDescriptor().bInstalled)
+		{
+			InstalledPlugins.Add(Plugin->GetName());
+		}
+	}
+
+	// Find all the plugins which have been newly installed
+	NewlyInstalledPlugins.Reset();
+	for(const FString& InstalledPlugin : InstalledPlugins)
+	{
+		if(!PreviousInstalledPlugins.Contains(InstalledPlugin))
+		{
+			NewlyInstalledPlugins.Add(InstalledPlugin);
+		}
+	}
+
+	// Register a callback to check for new plugins on startup
+	IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+	MainFrameModule.OnMainFrameCreationFinished().AddRaw(this, &FPluginBrowserModule::OnMainFrameLoaded);
 }
 
 void FPluginBrowserModule::ShutdownModule()
 {
 	FPluginStyle::Shutdown();
+
+	// Unregister the main frame callback
+	if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
+	{
+		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+		MainFrameModule.OnMainFrameCreationFinished().RemoveAll(this);
+	}
 
 	// Unregister the tab spawner
 	FGlobalTabmanager::Get()->UnregisterTabSpawner( PluginsEditorTabName );
@@ -96,6 +118,26 @@ bool FPluginBrowserModule::HasPluginPendingEnable(const FString& PluginName) con
 	return PendingEnablePlugins.Contains(PluginName);
 }
 
+bool FPluginBrowserModule::IsNewlyInstalledPlugin(const FString& PluginName) const
+{
+	return NewlyInstalledPlugins.Contains(PluginName);
+}
+
+TSharedRef<SDockTab> FPluginBrowserModule::HandleSpawnPluginBrowserTab(const FSpawnTabArgs& SpawnTabArgs)
+{
+	const TSharedRef<SDockTab> MajorTab = 
+		SNew( SDockTab )
+		.Icon( FPluginStyle::Get()->GetBrush("Plugins.TabIcon") )
+		.TabRole( ETabRole::MajorTab );
+
+	MajorTab->SetContent( SNew( SPluginBrowser ) );
+
+	PluginBrowserTab = MajorTab;
+	UpdatePreviousInstalledPlugins();
+
+	return MajorTab;
+}
+
 TSharedRef<SDockTab> FPluginBrowserModule::HandleSpawnPluginCreatorTab(const FSpawnTabArgs& SpawnTabArgs)
 {
 	TSharedRef<SDockTab> ResultTab = SNew(SDockTab)
@@ -105,6 +147,41 @@ TSharedRef<SDockTab> FPluginBrowserModule::HandleSpawnPluginCreatorTab(const FSp
 	ResultTab->SetContent(TabContentWidget);
 
 	return ResultTab;
+}
+
+void FPluginBrowserModule::OnMainFrameLoaded(TSharedPtr<SWindow> InRootWindow, bool bIsNewProjectWindow)
+{
+	// Show a popup notification that allows the user to enable any new plugins
+	if(!bIsNewProjectWindow && NewlyInstalledPlugins.Num() > 0 && !PluginBrowserTab.IsValid())
+	{
+		FNotificationInfo Info(LOCTEXT("NewPluginsPopupTitle", "New plugins are available"));
+		Info.bFireAndForget = false;
+		Info.bUseLargeFont = true;
+		Info.bUseThrobber = false;
+		Info.FadeOutDuration = 0.5f;
+		Info.ButtonDetails.Add(FNotificationButtonInfo(LOCTEXT("NewPluginsPopupSettings", "Manage Plugins..."), LOCTEXT("NewPluginsPopupSettingsTT", "Open the plugin browser to enable plugins"), FSimpleDelegate::CreateRaw(this, &FPluginBrowserModule::OnNewPluginsPopupSettingsClicked)));
+		Info.ButtonDetails.Add(FNotificationButtonInfo(LOCTEXT("NewPluginsPopupDismiss", "Dismiss"), LOCTEXT("NewPluginsPopupDismissTT", "Dismiss this notification"), FSimpleDelegate::CreateRaw(this, &FPluginBrowserModule::OnNewPluginsPopupDismissClicked)));
+
+		NewPluginsNotification = FSlateNotificationManager::Get().AddNotification(Info);
+		NewPluginsNotification.Pin()->SetCompletionState(SNotificationItem::CS_Pending);
+	}
+}
+
+void FPluginBrowserModule::OnNewPluginsPopupSettingsClicked()
+{
+	FGlobalTabmanager::Get()->InvokeTab(PluginsEditorTabName);
+	NewPluginsNotification.Pin()->ExpireAndFadeout();
+}
+
+void FPluginBrowserModule::OnNewPluginsPopupDismissClicked()
+{
+	NewPluginsNotification.Pin()->ExpireAndFadeout();
+	UpdatePreviousInstalledPlugins();
+}
+
+void FPluginBrowserModule::UpdatePreviousInstalledPlugins()
+{
+	GConfig->SetArray(TEXT("PluginBrowser"), TEXT("InstalledPlugins"), InstalledPlugins, GEditorPerProjectIni);
 }
 
 #undef LOCTEXT_NAMESPACE

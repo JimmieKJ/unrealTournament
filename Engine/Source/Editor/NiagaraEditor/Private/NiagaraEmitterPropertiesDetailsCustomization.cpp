@@ -1,16 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
-#include "NiagaraEditorModule.h"
-#include "EditorSupportDelegates.h"
-#include "UnrealEd.h"
-#include "PropertyEditing.h"
-#include "PropertyCustomizationHelpers.h"
-#include "NiagaraEffectEditor.h"
 #include "NiagaraEmitterPropertiesDetailsCustomization.h"
-#include "ScopedTransaction.h"
+#include "NiagaraCommon.h"
+#include "NiagaraConstantSet.h"
+#include "NiagaraEmitterProperties.h"
+#include "NiagaraComponent.h"
 #include "DetailWidgetRow.h"
-#include "AssetData.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailGroup.h"
+#include "IDetailChildrenBuilder.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
+#include "PropertyCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEffectEditor"
 

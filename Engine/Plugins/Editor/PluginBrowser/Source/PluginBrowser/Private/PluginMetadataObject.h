@@ -2,9 +2,14 @@
 
 #pragma once
 
-#include "PluginDescriptor.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "IDetailCustomization.h"
 #include "PluginMetadataObject.generated.h"
+
+class IDetailLayoutBuilder;
+struct FPluginDescriptor;
 
 /**
 *	We use this object to display plugin properties using details view.

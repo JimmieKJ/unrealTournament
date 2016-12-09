@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -25,7 +25,9 @@
 #include "SDL_events.h"
 #include "SDL_events_c.h"
 #include "SDL_dropevents_c.h"
-#include "../video/SDL_sysvideo.h"
+
+#include "../video/SDL_sysvideo.h"  /* for SDL_Window internals. */
+
 
 static int
 SDL_SendDrop(SDL_Window *window, const SDL_EventType evtype, const char *data)
@@ -35,13 +37,17 @@ SDL_SendDrop(SDL_Window *window, const SDL_EventType evtype, const char *data)
 
     /* Post the event, if desired */
     if (SDL_GetEventState(evtype) == SDL_ENABLE) {
-        const SDL_bool need_begin = window ? window->is_dropping : app_is_dropping;
+        const SDL_bool need_begin = window ? !window->is_dropping : !app_is_dropping;
         SDL_Event event;
 
         if (need_begin) {
             SDL_zero(event);
             event.type = SDL_DROPBEGIN;
-            event.drop.windowID = window->id;
+
+            if (window) {
+                event.drop.windowID = window->id;
+            }
+
             posted = (SDL_PushEvent(&event) > 0);
             if (!posted) {
                 return 0;

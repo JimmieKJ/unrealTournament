@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "HandlerComponentFactory.h"
 
 #include "EngineHandlerComponentFactory.generated.h"
+
+class HandlerComponent;
 
 /**
  * Factory class for loading HandlerComponent's contained within Engine

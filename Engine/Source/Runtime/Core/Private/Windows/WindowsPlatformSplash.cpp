@@ -1,14 +1,30 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Windows/WindowsPlatformSplash.h"
+#include "HAL/PlatformMemory.h"
+#include "HAL/PlatformMisc.h"
+#include "Misc/AssertionMacros.h"
+#include "Math/UnrealMathUtility.h"
+#include "HAL/UnrealMemory.h"
+#include "CoreGlobals.h"
+#include "Misc/Parse.h"
+#include "Misc/EngineVersionBase.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/CommandLine.h"
+#include "Internationalization/Text.h"
+#include "Internationalization/Internationalization.h"
+#include "Stats/Stats.h"
 #include "Misc/App.h"
-#include "EngineVersion.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "EngineBuildSettings.h"
+#include "Misc/EngineVersion.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Misc/EngineBuildSettings.h"
 
 #include <strsafe.h>
 
-#include "wincodec.h"
+#include <wincodec.h>
 
 #pragma comment( lib, "windowscodecs.lib" )
 
@@ -390,7 +406,7 @@ uint32 WINAPI StartSplashScreenThread( LPVOID unused )
 	if(GSplashScreenBitmap)
 	{
 		BITMAP bm;
-		GetObject(GSplashScreenBitmap, sizeof(bm), &bm);
+		GetObjectW(GSplashScreenBitmap, sizeof(bm), &bm);
 
 		const int32 BorderWidth = GetSystemMetrics(SM_CXBORDER);
 		const int32 BorderHeight = GetSystemMetrics(SM_CYBORDER);
@@ -437,7 +453,7 @@ uint32 WINAPI StartSplashScreenThread( LPVOID unused )
 			{
 				LOGFONT MyFont;
 				FMemory::Memzero( &MyFont, sizeof( MyFont ) );
-				GetObject( SystemFontHandle, sizeof( MyFont ), &MyFont );
+				GetObjectW( SystemFontHandle, sizeof( MyFont ), &MyFont );
 				MyFont.lfHeight = 10;
 				// MyFont.lfQuality = ANTIALIASED_QUALITY;
 				GSplashScreenSmallTextFontHandle = CreateFontIndirect( &MyFont );
@@ -452,7 +468,7 @@ uint32 WINAPI StartSplashScreenThread( LPVOID unused )
 			{
 				LOGFONT MyFont;
 				FMemory::Memzero( &MyFont, sizeof( MyFont ) );
-				GetObject( SystemFontHandle, sizeof( MyFont ), &MyFont );
+				GetObjectW( SystemFontHandle, sizeof( MyFont ), &MyFont );
 				MyFont.lfHeight = 12;
 				// MyFont.lfQuality = ANTIALIASED_QUALITY;
 				GSplashScreenNormalTextFontHandle = CreateFontIndirect( &MyFont );
@@ -467,7 +483,7 @@ uint32 WINAPI StartSplashScreenThread( LPVOID unused )
 			{
 				LOGFONT MyFont;
 				FMemory::Memzero(&MyFont, sizeof( MyFont ));
-				GetObject(SystemFontHandle, sizeof( MyFont ), &MyFont);
+				GetObjectW(SystemFontHandle, sizeof( MyFont ), &MyFont);
 				MyFont.lfHeight = 40;
 				MyFont.lfWeight = FW_BOLD;
 				MyFont.lfQuality = ANTIALIASED_QUALITY;
@@ -692,7 +708,7 @@ void FWindowsPlatformSplash::Hide()
 		// Close the Z-Order guard window
 		if ( GSplashScreenGuard )
 		{
-			DestroyWindow(GSplashScreenGuard);
+			PostMessage(GSplashScreenGuard, WM_DESTROY, 0, 0);
 			GSplashScreenGuard = NULL;
 		}
 	}
@@ -742,4 +758,4 @@ void FWindowsPlatformSplash::SetSplashText( const SplashTextType::Type InType, c
 	}
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

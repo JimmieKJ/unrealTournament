@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Interfaces/IScreenShotManager.h"
 
 /**
  * Interface for screen shot comparison UI modules.

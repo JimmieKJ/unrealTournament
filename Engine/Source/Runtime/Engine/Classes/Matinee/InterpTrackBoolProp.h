@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrack.h"
 #include "InterpTrackBoolProp.generated.h"
+
+class UInterpTrackInst;
 
 /** Information for one event in the track. */
 USTRUCT()

@@ -6,9 +6,11 @@
 
 #pragma once
 
-#include "RenderCore.h"
-#include "TaskGraphInterfaces.h"
-#include "RenderCommandFence.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Async/TaskGraphInterfaces.h"
+
+class FRHICommandListImmediate;
 
 ////////////////////////////////////
 // Render thread API
@@ -175,6 +177,115 @@ DECLARE_STATS_GROUP(TEXT("Render Thread Commands"), STATGROUP_RenderThreadComman
 		{ \
 			RETURN_QUICK_DECLARE_CYCLE_STAT(TypeName, STATGROUP_RenderThreadCommands); \
 		}
+
+template<typename LAMBDA>
+class TEnqueueUniqueRenderCommandType : public FRenderCommand
+{
+public:
+	TEnqueueUniqueRenderCommandType(LAMBDA&& InLambda) : Lambda(Forward<LAMBDA>(InLambda)) {}
+
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+		FRHICommandListImmediate& RHICmdList = GetImmediateCommandList_ForRenderCommand();
+		Lambda(RHICmdList);
+	}
+
+	FORCEINLINE_DEBUGGABLE TStatId GetStatId() const
+	{
+#if STATS
+		FStat_EnqueueUniqueRenderCommandType::TypeName = TypeName;
+		static struct FThreadSafeStaticStat<FStat_EnqueueUniqueRenderCommandType> StatPtr_EnqueueUniqueRenderCommandType;
+		return StatPtr_EnqueueUniqueRenderCommandType.GetStatId();
+#else
+		return TStatId();
+#endif
+	}
+
+private:
+#if STATS
+	struct FStat_EnqueueUniqueRenderCommandType
+	{
+		typedef FStatGroup_STATGROUP_RenderThreadCommands TGroup;
+		static FORCEINLINE const char* GetStatName()
+		{
+			return TypeName;
+		}
+		static FORCEINLINE const TCHAR* GetDescription()
+		{
+			return ANSI_TO_TCHAR(TypeName);
+		}
+		static FORCEINLINE EStatDataType::Type GetStatType()
+		{
+			return EStatDataType::ST_int64;
+		}
+		static FORCEINLINE bool IsClearEveryFrame()
+		{
+			return true;
+		}
+		static FORCEINLINE bool IsCycleStat()
+		{
+			return true;
+		}
+		static FORCEINLINE FPlatformMemory::EMemoryCounterRegion GetMemoryRegion()
+		{
+			return FPlatformMemory::MCR_Invalid;
+		}
+
+		static const char* TypeName;
+	};
+#endif
+
+public:
+	static const char* TypeName;
+
+private:
+	LAMBDA Lambda;
+};
+
+template<typename LAMBDA> 
+const char* TEnqueueUniqueRenderCommandType<LAMBDA>::TypeName = "Undefined_TEnqueueUniqueRenderCommandType";
+
+#if STATS
+template<typename LAMBDA>
+const char* TEnqueueUniqueRenderCommandType<LAMBDA>::FStat_EnqueueUniqueRenderCommandType::TypeName = "Undefined_TEnqueueUniqueRenderCommandType";
+#endif
+
+template<typename LAMBDA>
+FORCEINLINE_DEBUGGABLE void EnqueueUniqueRenderCommand(const char* TypeName, LAMBDA&& Lambda)
+{
+	typedef TEnqueueUniqueRenderCommandType<LAMBDA> EURCType;
+	EURCType::TypeName = TypeName;
+
+#if 0 // UE_SERVER && UE_BUILD_DEBUG
+	UE_LOG(LogRHI, Warning, TEXT("Render command '%s' is being executed on a dedicated server."), ANSI_TO_TCHAR(TypeName))
+#endif
+	if (ShouldExecuteOnRenderThread())
+	{
+		CheckNotBlockedOnRenderThread();
+		TGraphTask<EURCType>::CreateTask().ConstructAndDispatchWhenReady(Forward<LAMBDA>(Lambda));
+	}
+	else
+	{
+		EURCType TempCommand(Forward<LAMBDA>(Lambda));
+		FScopeCycleCounter EURCMacro_Scope(TempCommand.GetStatId());
+		TempCommand.DoTask(ENamedThreads::GameThread, FGraphEventRef());
+	}
+}
+
+namespace Detail
+{
+	template<typename T>
+	struct FalseType
+	{
+		static CONSTEXPR const bool False = false;
+	};
+}
+
+template<typename LAMBDA>
+FORCEINLINE_DEBUGGABLE void EnqueueUniqueRenderCommand(const char* TypeName, LAMBDA& Lambda)
+{
+	static_assert(Detail::FalseType<LAMBDA>::False, "EnqueueUniqueRenderCommand enforces use of rvalue and therefore move to avoid an extra copy of the Lambda");
+}
 
 /**
  * Declares a rendering command type with 0 parameters.

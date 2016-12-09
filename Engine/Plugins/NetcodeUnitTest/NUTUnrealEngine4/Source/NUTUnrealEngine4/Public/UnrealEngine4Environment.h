@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/App.h"
 #include "UnitTestEnvironment.h"
 
+enum class EUnitTestFlags : uint32;
 
 /**
  * Implements unit test environment settings, for ShooterGame

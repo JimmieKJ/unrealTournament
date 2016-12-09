@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "MediaSoundWaveFactoryNew.h"
+#include "Factories/MediaSoundWaveFactoryNew.h"
+#include "AssetTypeCategories.h"
+#include "MediaSoundWave.h"
 
 
 /* UMediaSoundWaveFactoryNew structors

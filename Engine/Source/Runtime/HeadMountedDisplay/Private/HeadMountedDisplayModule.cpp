@@ -1,6 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HeadMountedDisplayPrivate.h"
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Templates/Casts.h"
+#include "EngineGlobals.h"
+#include "PrimitiveSceneProxy.h"
+#include "Components/PrimitiveComponent.h"
+#include "Engine/Engine.h"
+#include "IHeadMountedDisplayModule.h"
+#include "IHeadMountedDisplay.h"
 #include "PrimitiveSceneInfo.h"
 
 void IHeadMountedDisplay::GatherLateUpdatePrimitives(USceneComponent* Component, TArray<LateUpdatePrimitiveInfo>& Primitives)
@@ -80,7 +90,7 @@ class FHeadMountedDisplayModule : public IHeadMountedDisplayModule
 		return DummyVal;
 	}
 
-	FString GetModulePriorityKeyName() const
+	FString GetModuleKeyName() const
 	{
 		return FString(TEXT("Default"));
 	}

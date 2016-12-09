@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/UnrealMathUtility.h"
+#include "Math/Vector.h"
+#include "Math/Quat.h"
+#include "Math/Transform.h"
+
 /** Dual quaternion class */
 class FDualQuat
 {

@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
 #include "Camera/CameraTypes.h"
 
 #include "CameraAnimInst.generated.h"
@@ -45,6 +49,9 @@ protected:
 
 	/** True if currently blending out. */
 	uint32 bBlendingOut : 1;
+
+	/** True if this camera anim has a track modifying the FOV */
+	uint32 bHasFOVTrack : 1;
 
 	/** Time to interpolate in from zero, for smooth starts. */
 	float BlendInTime;

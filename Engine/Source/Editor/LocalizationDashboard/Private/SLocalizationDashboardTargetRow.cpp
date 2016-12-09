@@ -1,10 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationDashboardPrivatePCH.h"
-#include "LocalizationDashboard.h"
 #include "SLocalizationDashboardTargetRow.h"
-#include "SHyperlink.h"
-#include "SLocalizationTargetEditor.h"
+#include "Misc/MessageDialog.h"
+#include "Internationalization/Culture.h"
+#include "DesktopPlatformModule.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
+#include "FileHelpers.h"
+#include "LocalizationDashboard.h"
+#include "IPropertyUtilities.h"
+#include "PropertyHandle.h"
+#include "LocalizationTargetTypes.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Input/SHyperlink.h"
 #include "SLocalizationTargetStatusButton.h"
 #include "LocalizationConfigurationScript.h"
 #include "LocalizationCommandletTasks.h"
@@ -39,12 +51,6 @@ TSharedRef<SWidget> SLocalizationDashboardTargetRow::GenerateWidgetForColumn( co
 			Return = SNew(SLocalizationTargetStatusButton, *LocalizationTarget);
 		}
 	}
-	else if (ColumnName == "Cultures")
-	{
-		// Culture Names
-		Return = SNew(STextBlock)
-			.Text(this, &SLocalizationDashboardTargetRow::GetCulturesText);
-	}
 	else if(ColumnName == "WordCount")
 	{
 		// Progress Bar and Word Counts
@@ -55,153 +61,6 @@ TSharedRef<SWidget> SLocalizationDashboardTargetRow::GenerateWidgetForColumn( co
 	{
 		TSharedRef<SHorizontalBox> HorizontalBox = SNew(SHorizontalBox);
 		Return = HorizontalBox;
-
-		// Gather Text
-		HorizontalBox->AddSlot()
-			.FillWidth(1.0f)
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			[
-				SNew(SButton)
-				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText_Lambda([=]() -> FText
-				{
-					return CanGatherText() ? LOCTEXT("GatherTextButtonLabel", "Gather text for all cultures of this target.") : LOCTEXT("DisabledGatherButtonLabel", "Must have a native culture specified in order to gather.");
-				})
-				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanGatherText)
-				.OnClicked(this, &SLocalizationDashboardTargetRow::GatherText)
-				.Content()
-				[
-					SNew(SImage)
-					.Image( FEditorStyle::GetBrush("LocalizationDashboard.GatherTextTarget") )
-				]
-			];
-
-		// Import Text
-		HorizontalBox->AddSlot()
-			.FillWidth(1.0f)
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			[
-				SNew(SButton)
-				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText( LOCTEXT("ImportTextButtonLabel", "Import translations for all cultures of this target.") )
-				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanImportText)
-				.OnClicked(this, &SLocalizationDashboardTargetRow::ImportText)
-				.Content()
-				[
-					SNew(SImage)
-					.Image( FEditorStyle::GetBrush("LocalizationDashboard.ImportTextAllCultures") )
-				]
-			];
-
-		// Export Text
-		HorizontalBox->AddSlot()
-			.FillWidth(1.0f)
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			[
-				SNew(SButton)
-				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText(LOCTEXT("ExportTextButtonLabel", "Export translations for all cultures of this target."))
-				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanExportText)
-				.OnClicked(this, &SLocalizationDashboardTargetRow::ExportText)
-				.Content()
-				[
-					SNew(SImage)
-					.Image(FEditorStyle::GetBrush("LocalizationDashboard.ExportTextAllCultures"))
-				]
-			];
-
-		// Import Dialogue Script
-		HorizontalBox->AddSlot()
-			.FillWidth(1.0f)
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			[
-				SNew(SButton)
-				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText( LOCTEXT("ImportDialogueScriptButtonLabel", "Import dialogue scripts for all cultures of this target.") )
-				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanImportDialogueScript)
-				.OnClicked(this, &SLocalizationDashboardTargetRow::ImportDialogueScript)
-				.Content()
-				[
-					SNew(SImage)
-					.Image( FEditorStyle::GetBrush("LocalizationDashboard.ImportDialogueScriptAllCultures") )
-				]
-			];
-
-		// Export Dialogue Script
-		HorizontalBox->AddSlot()
-			.FillWidth(1.0f)
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			[
-				SNew(SButton)
-				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText(LOCTEXT("ExportDialogueScriptButtonLabel", "Export dialogue scripts for all cultures of this target."))
-				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanExportDialogueScript)
-				.OnClicked(this, &SLocalizationDashboardTargetRow::ExportDialogueScript)
-				.Content()
-				[
-					SNew(SImage)
-					.Image(FEditorStyle::GetBrush("LocalizationDashboard.ExportDialogueScriptAllCultures"))
-				]
-			];
-
-		// Import Dialogue
-		HorizontalBox->AddSlot()
-			.FillWidth(1.0f)
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			[
-				SNew(SButton)
-				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText( LOCTEXT("ImportDialogueButtonLabel", "Import dialogue WAV files for all cultures of this target.") )
-				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanImportDialogue)
-				.OnClicked(this, &SLocalizationDashboardTargetRow::ImportDialogue)
-				.Content()
-				[
-					SNew(SImage)
-					.Image( FEditorStyle::GetBrush("LocalizationDashboard.ImportDialogueAllCultures") )
-				]
-			];
-
-		// Count Words
-		HorizontalBox->AddSlot()
-			.FillWidth(1.0f)
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			[
-				SNew(SButton)
-				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText( LOCTEXT("RefreshWordCountButtonLabel", "Count translations for all cultures of this target.") )
-				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanCountWords)
-				.OnClicked(this, &SLocalizationDashboardTargetRow::CountWords)
-				.Content()
-				[
-					SNew(SImage)
-					.Image(FEditorStyle::GetBrush("LocalizationDashboard.CountWordsForTarget"))
-				]
-			];
-
-		// Compile Text
-		HorizontalBox->AddSlot()
-			.FillWidth(1.0f)
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			[
-				SNew(SButton)
-				.ButtonStyle( FEditorStyle::Get(), TEXT("HoverHintOnly") )
-				.ToolTipText( LOCTEXT("CompileButtonLabel", "Compile translations for all cultures of this target.") )
-				.IsEnabled(this, &SLocalizationDashboardTargetRow::CanCompileText)
-				.OnClicked(this, &SLocalizationDashboardTargetRow::CompileText)
-				.Content()
-				[
-					SNew(SImage)
-					.Image( FEditorStyle::GetBrush("LocalizationDashboard.CompileTextAllCultures") )
-				]
-			];
 
 		// Delete Target
 		HorizontalBox->AddSlot()

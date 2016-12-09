@@ -1,6 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ImageWrapperPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IImageWrapperModule.h"
+#include "JpegImageWrapper.h"
+#include "PngImageWrapper.h"
+#include "BmpImageWrapper.h"
+#include "ExrImageWrapper.h"
+#include "IcoImageWrapper.h"
+#include "IcnsImageWrapper.h"
+#include "ImageWrapperPrivate.h"
 
 
 DEFINE_LOG_CATEGORY(LogImageWrapper);

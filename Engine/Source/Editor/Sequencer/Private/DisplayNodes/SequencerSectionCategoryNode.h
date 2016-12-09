@@ -2,11 +2,9 @@
 
 #pragma once
 
-#include "SequencerDisplayNode.h"
-
-
-class FSequencerNodeTree;
-
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
 
 /**
  * A node that displays a category for other nodes

@@ -4,7 +4,12 @@
 #ifndef __DRAGTOOL_MEASURE_H__
 #define __DRAGTOOL_MEASURE_H__
 
+#include "CoreMinimal.h"
 #include "EditorDragTools.h"
+
+class FCanvas;
+class FEditorViewportClient;
+class FSceneView;
 
 /**
  * Draws a line in the current viewport and displays the distance between

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "CameraAnimFactory.generated.h"
 
 UCLASS(hidecategories=Object, MinimalAPI)

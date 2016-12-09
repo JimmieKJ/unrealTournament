@@ -534,8 +534,9 @@ fi
 if [[ $ALL -eq 1 ]]; then
   build_all
 else
-  # we need ot build hlslcc locally because using a different STL results in badness
-  Run BuildHLSLCC
+  # we should not need to build hlslcc locally because it is now using the same bundled STL
+  #Run BuildHLSLCC
+  echo "No third party libs needed to be built locally"
 fi
 
 echo

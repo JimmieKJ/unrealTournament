@@ -1,13 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CascadeModule.h"
+#include "SCascadePreviewViewport.h"
+#include "CascadeParticleSystemComponent.h"
 #include "Cascade.h"
-#include "PreviewScene.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Slate/SceneViewport.h"
 #include "CascadePreviewViewportClient.h"
 #include "SCascadePreviewToolbar.h"
-#include "SCascadePreviewViewport.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 
 

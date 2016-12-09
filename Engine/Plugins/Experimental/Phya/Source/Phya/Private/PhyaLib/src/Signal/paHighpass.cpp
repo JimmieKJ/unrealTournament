@@ -1,7 +1,7 @@
 //
 // paHighpass.cpp
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 
 #include "Signal/paHighpass.hpp"

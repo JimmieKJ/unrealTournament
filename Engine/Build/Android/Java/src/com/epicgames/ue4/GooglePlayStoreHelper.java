@@ -41,7 +41,12 @@ public class GooglePlayStoreHelper implements StoreHelper
 	private String productKey;
 
 	private final int UndefinedFailureResponse = -1;
-	
+
+	public interface PurchaseLaunchCallback
+	{
+		void launchForResult(PendingIntent pendingIntent, int requestCode);
+	}
+
 	public GooglePlayStoreHelper(String InProductKey, GameActivity InGameActivity, final Logger InLog)
 	{
 		// IAP is not ready to use until the service is instantiated.
@@ -167,14 +172,36 @@ public class GooglePlayStoreHelper implements StoreHelper
 		try
 		{
 			String devPayload = GenerateDevPayload(ProductID);
-			Bundle buyIntentBundle = mService.getBuyIntent(3, gameActivity.getPackageName(), ProductID, "inapp", devPayload);
-			int response = buyIntentBundle.getInt("RESPONSE_CODE");
+			Bundle buyIntentBundle = null;
+			int response = -1;
+
+			if (gameActivity.IsInVRMode()) {
+				Bundle bundle = new Bundle();
+				bundle.putBoolean("vr", true);
+				response =  mService.isBillingSupportedExtraParams(7, gameActivity.getPackageName(),"inapp", bundle);
+				if (response == 0) {
+					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::BeginPurchase - v7 VR purchase" + ProductID);
+					buyIntentBundle = mService.getBuyIntentExtraParams(7, gameActivity.getPackageName(), ProductID, "inapp", devPayload, bundle);
+				} else {
+					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::BeginPurchase - v3 IAB purchase:" + ProductID);
+					buyIntentBundle = mService.getBuyIntent(3, gameActivity.getPackageName(), ProductID, "inapp", devPayload);
+				}
+			} else {
+				Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::BeginPurchase - v3 IAB purchase:" + ProductID);
+				buyIntentBundle = mService.getBuyIntent(3, gameActivity.getPackageName(), ProductID, "inapp", devPayload);
+			}
+			response = buyIntentBundle.getInt("RESPONSE_CODE");
 			if (response == 0)
 			{
 				Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::BeginPurchase - Starting Intent to buy " + ProductID);
 				PendingIntent pendingIntent = buyIntentBundle.getParcelable("BUY_INTENT");
-				gameActivity.startIntentSenderForResult(pendingIntent.getIntentSender(), purchaseIntentIdentifier, new Intent(), Integer.valueOf(0), Integer.valueOf(0), Integer.valueOf(0));
-				
+				PurchaseLaunchCallback callback =  gameActivity.getPurchaseLaunchCallback();
+				if (callback != null) {
+					callback.launchForResult(pendingIntent, purchaseIntentIdentifier);
+				} else {
+					gameActivity.startIntentSenderForResult(pendingIntent.getIntentSender(), purchaseIntentIdentifier, new Intent(), Integer.valueOf(0), Integer.valueOf(0), Integer.valueOf(0));
+				}
+
 				InProgressPurchases.add(new InAppPurchase(ProductID, bConsumable));
 			}
 			else

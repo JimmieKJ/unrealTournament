@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "SlateBasics.h"
-#include "AudioDevice.h"
-#include "Scalability.h"
 #include "GameFramework/GameUserSettings.h"
-#include "Engine/GameEngine.h"
+#include "HAL/FileManager.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HAL/IConsoleManager.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Misc/App.h"
+#include "EngineGlobals.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Engine/GameViewportClient.h"
+#include "UnrealEngine.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Engine/GameEngine.h"
 
 extern EWindowMode::Type GetWindowModeType(EWindowMode::Type WindowMode);
 
@@ -224,7 +229,7 @@ void UGameUserSettings::UpdateResolutionQuality()
 
 	if (bUseDesiredScreenHeight)
 	{
-		ScalabilityQuality.ResolutionQuality = UGameUserSettings::GetDefaultResolutionScale();
+		ScalabilityQuality.ResolutionQuality = GetDefaultResolutionScale();
 	}
 	else
 	{

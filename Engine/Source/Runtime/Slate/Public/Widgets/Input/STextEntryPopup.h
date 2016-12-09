@@ -2,6 +2,13 @@
  
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Notifications/SErrorText.h"
+
+class SVerticalBox;
+
 /** Simple text entry popup, usually used within a MenuStack */
 class SLATE_API STextEntryPopup : public SCompoundWidget
 {

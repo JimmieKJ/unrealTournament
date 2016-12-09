@@ -1,7 +1,12 @@
 
 #pragma once
 
-#include "GroupedKeyArea.h"
+#include "CoreMinimal.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
+#include "DisplayNodes/SequencerSectionKeyAreaNode.h"
+#include "DisplayNodes/SequencerTrackNode.h"
+
+class FGroupedKeyArea;
 
 /** A layout element specifying the geometry required to render a key area */
 struct FSectionLayoutElement

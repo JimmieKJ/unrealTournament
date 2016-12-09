@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
 
 /**
  * Enumerates possibly states of a serialized message.
@@ -107,10 +110,3 @@ private:
 	/** Holds a delegate that is invoked when the data's state changed. */
 	FSimpleDelegate StateChangedDelegate;
 };
-
-
-/** Type definition for shared pointers to instances of FUdpSerializedMessage. */
-typedef TSharedPtr<FUdpSerializedMessage, ESPMode::ThreadSafe> FUdpSerializedMessagePtr;
-
-/** Type definition for shared references to instances of FUdpSerializedMessage. */
-typedef TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe> FUdpSerializedMessageRef;

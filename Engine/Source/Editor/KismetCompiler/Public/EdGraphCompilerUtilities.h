@@ -6,9 +6,13 @@
 
 #pragma once
 
-#include "Engine.h"
-#include "BlueprintUtilities.h"
-#include "EdGraphUtilities.h"
+#include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
+#include "EdGraph/EdGraphNode.h"
+#include "EdGraph/EdGraphPin.h"
+
+class FCompilerResultsLog;
+class UEdGraph;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -61,11 +65,6 @@ protected:
 	 * Scans a graph for a node of the specified class.  Can optionally continue scanning and print errors if additional nodes of the same category are found.
 	 */
 	UEdGraphNode* FindNodeByClass(const UEdGraph* Graph, TSubclassOf<UEdGraphNode>  NodeClass, bool bExpectedUnique) const;
-
-	/**
-	 * Scans a graph for all nodes of the specified class.
-	 */
-	void FindNodesByClass(const UEdGraph* Graph, TSubclassOf<UEdGraphNode>  NodeClass, TArray<UEdGraphNode*>& FoundNodes) const;
 
 	/** Prunes any nodes that weren't visited from the graph, printing out a warning */
 	virtual void PruneIsolatedNodes(const TArray<UEdGraphNode*>& RootSet, TArray<UEdGraphNode*>& GraphNodes);

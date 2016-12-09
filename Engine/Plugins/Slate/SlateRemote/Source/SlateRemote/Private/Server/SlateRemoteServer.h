@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/Ticker.h"
+#include "Layout/WidgetPath.h"
+
+class FInternetAddr;
+class FSocket;
+class ISocketSubsystem;
+struct FIPv4Endpoint;
+struct FSlateRemoteServerMessage;
 
 /**
  * Implements a server that listens to events from the Slate Remote iOS application.

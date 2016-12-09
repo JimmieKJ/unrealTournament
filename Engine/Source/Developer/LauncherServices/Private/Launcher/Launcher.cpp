@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LauncherServicesPrivatePCH.h"
+#include "Launcher/Launcher.h"
+#include "HAL/RunnableThread.h"
+#include "Launcher/LauncherWorker.h"
 
+/* Static class member instantiations
+*****************************************************************************/
+
+FThreadSafeCounter FLauncher::WorkerCounter;
 
 /* ILauncher overrides
  *****************************************************************************/
@@ -11,8 +17,9 @@ ILauncherWorkerPtr FLauncher::Launch( const ITargetDeviceProxyManagerRef& Device
 	if (Profile->IsValidForLaunch())
 	{
 		FLauncherWorker* LauncherWorker = new FLauncherWorker(DeviceProxyManager, Profile);
+		FString WorkerName(FString::Printf(TEXT("LauncherWorker%i"), WorkerCounter.Increment()));
 
-		if ((LauncherWorker != nullptr) && (FRunnableThread::Create(LauncherWorker, TEXT("LauncherWorker")) != nullptr))
+		if ((LauncherWorker != nullptr) && (FRunnableThread::Create(LauncherWorker, *WorkerName) != nullptr))
 		{
 			return MakeShareable(LauncherWorker);
 		}			

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "../../Classes/Debug/ReporterBase.h"
+#include "Debug/ReporterBase.h"
+#include "CanvasItem.h"
+#include "Engine/Canvas.h"
 
 #define DASH_LINE_SIZE	5.0f
 

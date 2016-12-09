@@ -1,6 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "HAL/UnrealMemory.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/Array.h"
+#include "Logging/LogMacros.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Containers/LockFreeList.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
 
 #if USE_MALLOC_PROFILER && WITH_ENGINE && IS_MONOLITHIC
 	#include "Runtime/Engine/Public/MallocProfilerEx.h"
@@ -10,13 +17,12 @@
 	Memory functions.
 -----------------------------------------------------------------------------*/
 
-#include "MallocDebug.h"
-#include "MallocProfiler.h"
-#include "MallocThreadSafeProxy.h"
-#include "MallocVerify.h"
-#include "MallocLeakDetection.h"
-#include "PlatformMallocCrash.h"
-#include "MallocPoisonProxy.h"
+#include "ProfilingDebugging/MallocProfiler.h"
+#include "HAL/MallocThreadSafeProxy.h"
+#include "HAL/MallocVerify.h"
+#include "HAL/MallocLeakDetection.h"
+#include "HAL/PlatformMallocCrash.h"
+#include "HAL/MallocPoisonProxy.h"
 
 #if MALLOC_GT_HOOKS
 
@@ -235,8 +241,35 @@ void FMemory::EnablePurgatoryTests()
 	}
 }
 
+void FMemory::EnablePoisonTests()
+{
+	if (PLATFORM_USES_FIXED_GMalloc_CLASS)
+	{
+		UE_LOG(LogMemory, Error, TEXT("Poison proxy cannot be turned on because we are using PLATFORM_USES_FIXED_GMalloc_CLASS"));
+		return;
+	}
+	static bool bOnce = false;
+	if (bOnce)
+	{
+		UE_LOG(LogMemory, Error, TEXT("Poison proxy was already turned on."));
+		return;
+	}
+	bOnce = true;
+	while (true)
+	{
+		FMalloc* LocalGMalloc = GMalloc;
+		FMalloc* Proxy = new FMallocPoisonProxy(LocalGMalloc);
+		if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)&GMalloc, Proxy, LocalGMalloc) == LocalGMalloc)
+		{
+			UE_LOG(LogConsoleResponse, Display, TEXT("Poison proxy is now on."));
+			return;
+		}
+		delete Proxy;
+	}
+}
+
 #if !UE_BUILD_SHIPPING
-#include "TaskGraphInterfaces.h"
+#include "Async/TaskGraphInterfaces.h"
 static void FMallocBinnedOverrunTest()
 {
 	const uint32 ArraySize = 64;
@@ -264,6 +297,13 @@ FAutoConsoleCommand FMallocUsePurgatoryCommand
 TEXT("Memory.UsePurgatory"),
 TEXT("Uses the purgatory malloc proxy to check if things are writing to stale pointers."),
 FConsoleCommandDelegate::CreateStatic(&FMemory::EnablePurgatoryTests)
+);
+
+FAutoConsoleCommand FMallocUsePoisonCommand
+(
+TEXT("Memory.UsePoison"),
+TEXT("Uses the poison malloc proxy to check if things are relying on uninitialized or free'd memory."),
+FConsoleCommandDelegate::CreateStatic(&FMemory::EnablePoisonTests)
 );
 #endif
 
@@ -539,5 +579,5 @@ void FUseSystemMallocForNew::operator delete[](void* Ptr)
 }
 
 #if !INLINE_FMEMORY_OPERATION && !PLATFORM_USES_FIXED_GMalloc_CLASS
-#include "FMemory.inl"
+#include "HAL/FMemory.inl"
 #endif

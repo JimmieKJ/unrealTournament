@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "SlatePrivatePCH.h"
-#include "SResponsiveGridPanel.h"
-#include "LayoutUtils.h"
+#include "Widgets/Layout/SResponsiveGridPanel.h"
+#include "Types/PaintArgs.h"
+#include "Layout/ArrangedChildren.h"
+#include "Layout/LayoutUtils.h"
 
 /**
  *  !!!!!!!!!!!!!!!!!   EXPERIMENTAL  !!!!!!!!!!!!!!!!!   

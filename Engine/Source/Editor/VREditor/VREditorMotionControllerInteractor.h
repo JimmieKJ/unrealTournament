@@ -1,10 +1,17 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
+#include "HeadMountedDisplayTypes.h"
 #include "VREditorInteractor.h"
-#include "HeadMountedDisplayTypes.h"	// For EHMDDeviceType::Type
 #include "VREditorMotionControllerInteractor.generated.h"
+
+class AActor;
+class UStaticMesh;
+class UStaticMeshSocket;
 
 /**
  * Represents the interactor in the world
@@ -19,7 +26,7 @@ public:
 	virtual ~UVREditorMotionControllerInteractor();
 	
 	// UVREditorInteractor overrides
-	virtual void Init( class FVREditorMode* InVRMode ) override;
+	virtual void Init( class UVREditorMode* InVRMode ) override;
 	/** Gets the trackpad slide delta */
 	virtual float GetSlideDelta() override;
 

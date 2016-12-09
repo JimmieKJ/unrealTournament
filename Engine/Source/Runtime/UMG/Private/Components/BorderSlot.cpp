@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/BorderSlot.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Components/Border.h"
 #include "ObjectEditorUtils.h"
 
 /////////////////////////////////////////////////////

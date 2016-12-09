@@ -1,9 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "AI/Navigation/RecastNavMesh.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType_Point.h"
 #include "EnvironmentQuery/Generators/EnvQueryGenerator_ProjectedPoints.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_Point.h"
 #include "EnvironmentQuery/EnvQueryTraceHelpers.h"
 
 UEnvQueryGenerator_ProjectedPoints::UEnvQueryGenerator_ProjectedPoints(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -25,10 +23,9 @@ void UEnvQueryGenerator_ProjectedPoints::ProjectAndFilterNavPoints(TArray<FNavLo
 	}
 
 	const UObject* Querier = QueryInstance.Owner.Get();
-	if (NavData && Querier)
+	if (NavData && Querier && (ProjectionData.TraceMode == EEnvQueryTrace::Navigation))
 	{
-		FEQSHelpers::ETraceMode Mode = (ProjectionData.TraceMode == EEnvQueryTrace::Navigation) ? FEQSHelpers::ETraceMode::Discard : FEQSHelpers::ETraceMode::Keep;
-		FEQSHelpers::RunNavProjection(*NavData, *Querier, ProjectionData, Points, Mode);
+		FEQSHelpers::RunNavProjection(*NavData, *Querier, ProjectionData, Points, FEQSHelpers::ETraceMode::Discard);
 	}
 
 	if (ProjectionData.TraceMode == EEnvQueryTrace::Geometry)

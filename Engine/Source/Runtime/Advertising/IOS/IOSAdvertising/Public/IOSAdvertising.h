@@ -2,8 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "IAdvertisingProvider.h"
-#include "Core.h"
 
 class FIOSAdvertisingProvider : public IAdvertisingProvider
 {
@@ -12,4 +12,16 @@ public:
 	virtual void HideAdBanner() override;
 	virtual void CloseAdBanner() override;
 	virtual int32 GetAdIDCount() override;
+
+	//empty functions for now, this is Android-only support until iAd is replaced by AdMob
+	virtual void LoadInterstitialAd(int32 adID) override {}
+	virtual bool IsInterstitialAdAvailable() override
+	{
+		return false;
+	}
+	virtual bool IsInterstitialAdRequested() override
+	{
+		return false;
+	}
+	virtual void ShowInterstitialAd() override {}
 };

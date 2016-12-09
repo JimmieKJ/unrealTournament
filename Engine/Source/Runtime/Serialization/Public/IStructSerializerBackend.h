@@ -2,11 +2,7 @@
 
 #pragma once
 
-
-// forward declarations
-class UProperty;
-class UStruct;
-
+#include "CoreMinimal.h"
 
 /**
  * Structure for the write state stack.

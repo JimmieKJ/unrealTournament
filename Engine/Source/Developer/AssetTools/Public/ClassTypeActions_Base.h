@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "AssetToolsModule.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "IClassTypeActions.h"
+
+class FAssetData;
 
 /** A base class for all ClassTypeActions. Provides helper functions useful for many types. Deriving from this class is optional. */
 class FClassTypeActions_Base : public IClassTypeActions

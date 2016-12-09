@@ -2,8 +2,11 @@
 
 #pragma once
 
-class FSlateShaderResource;
+#include "CoreMinimal.h"
+
 class FRenderResource;
+class FSlateShaderResource;
+struct FSlateTextureData;
 
 /**
  * An interface to deal with a slate texture that can be updated dynamically

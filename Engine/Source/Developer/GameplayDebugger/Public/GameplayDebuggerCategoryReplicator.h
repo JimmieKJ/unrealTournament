@@ -2,14 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "GameFramework/Actor.h"
 #include "GameplayDebuggerTypes.h"
 #include "GameplayDebuggerCategoryReplicator.generated.h"
 
+class AGameplayDebuggerCategoryReplicator;
 class APlayerController;
-class UInputComponent;
 class FGameplayDebuggerCategory;
 class FGameplayDebuggerExtension;
-class AGameplayDebuggerCategoryReplicator;
 class UGameplayDebuggerRenderingComponent;
 
 USTRUCT()
@@ -86,6 +89,9 @@ class GAMEPLAYDEBUGGER_API AGameplayDebuggerCategoryReplicator : public AActor
 
 	/** [ALL] send input event to extension */
 	void SendExtensionInputEvent(int32 ExtensionId, int32 HandlerId);
+
+	/** [AUTH] starts data collection */
+	void CollectCategoryData(bool bForce = false);
 
 	/** get current debug actor */
 	AActor* GetDebugActor() const { return IsValid(DebugActor.Actor) ? DebugActor.Actor : nullptr; }

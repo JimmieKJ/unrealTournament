@@ -1,9 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SteamVRControllerPrivatePCH.h"
 #include "ISteamVRControllerPlugin.h"
+#include "ISteamVRPlugin.h"
+#include "IInputDevice.h"
+#include "IHapticDevice.h"
 #include "IMotionController.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
+#include "GenericPlatform/IInputInterface.h"
 #include "../../SteamVR/Private/SteamVRHMD.h"
+
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
+
+#if STEAMVRCONTROLLER_SUPPORTED_PLATFORMS
+#include <openvr.h>
+#endif // STEAMVRCONTROLLER_SUPPORTED_PLATFORMS
 
 DEFINE_LOG_CATEGORY_STATIC(LogSteamVRController, Log, All);
 

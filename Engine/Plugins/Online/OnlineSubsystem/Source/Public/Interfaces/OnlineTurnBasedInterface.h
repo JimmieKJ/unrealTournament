@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Platform.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "OnlineTurnBasedInterface.generated.h"
 
 /** 

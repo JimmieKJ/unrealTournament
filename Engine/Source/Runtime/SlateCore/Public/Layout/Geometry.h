@@ -2,14 +2,17 @@
 
 #pragma once
 
-#include "SlateLayoutTransform.h"
-#include "SlateRenderTransform.h"
-#include "PaintGeometry.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Layout/SlateRect.h"
+#include "Math/TransformCalculus2D.h"
+#include "Rendering/SlateLayoutTransform.h"
+#include "Layout/PaintGeometry.h"
 #include "Geometry.generated.h"
 
 class FArrangedWidget;
-class SWidget;
 class FLayoutGeometry;
+class SWidget;
 
 /**
  * Represents the position, size, and absolute position of a Widget in Slate.

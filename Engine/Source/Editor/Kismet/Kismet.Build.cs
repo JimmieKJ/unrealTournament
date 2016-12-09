@@ -12,7 +12,8 @@ public class Kismet : ModuleRules
 			new string[] { 
 				"AssetRegistry", 
 				"AssetTools",
-				"ClassViewer",
+                "BlueprintRuntime",
+                "ClassViewer",
 				"EditorWidgets",
 				"Analytics",
                 "DerivedDataCache",
@@ -24,7 +25,6 @@ public class Kismet : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
                 "AppFramework",
-                "BlueprintRuntime",
 				"Core",
 				"CoreUObject",
 				"Slate",
@@ -50,13 +50,16 @@ public class Kismet : ModuleRules
 				"DesktopPlatform",
 				"HotReload",
                 "BlueprintNativeCodeGen",
-                "BlueprintProfiler"
+                "BlueprintProfiler",
+                "UMGEditor",
+                "UMG" // for SBlueprintDiff
 			}
 			);
 
         DynamicallyLoadedModuleNames.AddRange(
             new string[] {
-				"ClassViewer",
+                "BlueprintRuntime",
+                "ClassViewer",
 				"Documentation",
 				"EditorWidgets",
 				"GameProjectGeneration",
@@ -67,6 +70,7 @@ public class Kismet : ModuleRules
         CircularlyReferencedDependentModules.AddRange(
             new string[] {
                 "BlueprintGraph",
+                "UMGEditor",
             }
         ); 
 	}

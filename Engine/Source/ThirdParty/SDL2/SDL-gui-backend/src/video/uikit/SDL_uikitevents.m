@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -26,6 +26,7 @@
 
 #include "SDL_uikitvideo.h"
 #include "SDL_uikitevents.h"
+#include "SDL_uikitopengles.h"
 
 #import <Foundation/Foundation.h>
 
@@ -62,6 +63,9 @@ UIKit_PumpEvents(_THIS)
     do {
         result = CFRunLoopRunInMode((CFStringRef)UITrackingRunLoopMode, seconds, TRUE);
     } while(result == kCFRunLoopRunHandledSource);
+
+    /* See the comment in the function definition. */
+    UIKit_GL_RestoreCurrentContext();
 }
 
 #endif /* SDL_VIDEO_DRIVER_UIKIT */

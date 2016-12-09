@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Docking/WorkspaceItem.h"
+#include "Framework/Docking/TabManager.h"
+
+class FExtender;
+
 /////////////////////////////////////////////////////
 // FApplicationMode
 

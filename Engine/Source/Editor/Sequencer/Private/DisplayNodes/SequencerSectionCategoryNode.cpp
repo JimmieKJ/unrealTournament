@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
+#include "DisplayNodes/SequencerSectionCategoryNode.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBox.h"
 #include "SSequencer.h"
 #include "SKeyNavigationButtons.h"
 

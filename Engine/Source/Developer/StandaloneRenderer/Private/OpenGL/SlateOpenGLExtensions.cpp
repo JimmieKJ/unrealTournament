@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StandaloneRendererPrivate.h"
+#include "OpenGL/SlateOpenGLExtensions.h"
 
 // not needed with ES2
 #if !PLATFORM_USES_ES2
 
-#include "OpenGL/SlateOpenGLExtensions.h"
 
 #pragma warning(disable:4191)
 

@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
 #include "TileMapBlueprintLibrary.h"
-#include "PaperTileLayer.h"
+#include "PaperTileSet.h"
 
 //////////////////////////////////////////////////////////////////////////
 

@@ -11,6 +11,7 @@
 
 #pragma once
 #include "Misc/Char.h"
+#include "GenericPlatform/GenericPlatformMemory.h"
 #include "GenericPlatform/GenericPlatformStricmp.h"
 #include "GenericPlatform/GenericPlatformString.h"
 
@@ -344,6 +345,31 @@ struct FAndroidPlatformString : public FGenericPlatformString
 		return Res;
 	}
 
+	static FORCEINLINE int64 Strtoi64( const WIDECHAR* Start, WIDECHAR** End, int32 Base ) 
+	{
+		int StartLen = Strlen(Start);
+		ANSICHAR* AnsiStart = (ANSICHAR*)FMemory_Alloca(StartLen+1);
+		CopyWideToAnsi(AnsiStart, Start);
+
+		ANSICHAR* AnsiEnd = NULL;
+
+		uint64 Res = strtoll(AnsiStart, &AnsiEnd, Base);
+
+		if (End)
+		{
+			if (AnsiEnd == NULL)
+			{
+				*End = NULL;
+			}
+			else
+			{
+				*End = (WIDECHAR*)(Start + (AnsiEnd - AnsiStart));
+			}
+		}
+
+		return Res;
+	}
+
 	static FORCEINLINE uint64 Strtoui64( const WIDECHAR* Start, WIDECHAR** End, int32 Base ) 
 	{
 		int StartLen = Strlen(Start);
@@ -516,6 +542,11 @@ struct FAndroidPlatformString : public FGenericPlatformString
 	static FORCEINLINE int32 Strtoi( const ANSICHAR* Start, ANSICHAR** End, int32 Base ) 
 	{
 		return strtol( Start, End, Base ); 
+	}
+
+	static FORCEINLINE int64 Strtoi64( const ANSICHAR* Start, ANSICHAR** End, int32 Base ) 
+	{
+		return strtoll(Start, End, Base);;
 	}
 
 	static FORCEINLINE uint64 Strtoui64( const ANSICHAR* Start, ANSICHAR** End, int32 Base ) 

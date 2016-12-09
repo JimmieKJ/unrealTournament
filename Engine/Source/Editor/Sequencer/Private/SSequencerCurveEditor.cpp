@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
-#include "SCurveEditor.h"
-#include "Sequencer.h"
-#include "SequencerTimeSliderController.h"
+#include "SSequencerCurveEditor.h"
+#include "SequencerSettings.h"
+#include "SequencerCurveOwner.h"
 
 #define LOCTEXT_NAMESPACE "SequencerCurveEditor"
 

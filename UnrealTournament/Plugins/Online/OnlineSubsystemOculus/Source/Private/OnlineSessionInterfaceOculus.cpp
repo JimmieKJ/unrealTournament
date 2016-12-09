@@ -430,7 +430,7 @@ bool FOnlineSessionOculus::JoinSession(int32 PlayerNum, FName SessionName, const
 			TriggerOnJoinSessionCompleteDelegates(SessionName, FailureReason);
 			return;
 		}
-		auto RoomId = ovr_Room_GetID(Room);
+		auto LocalRoomId = ovr_Room_GetID(Room);
 		UpdateSessionFromRoom(*Session, Room);
 
 		TriggerOnJoinSessionCompleteDelegates(SessionName, EOnJoinSessionCompleteResult::Success);
@@ -520,7 +520,7 @@ bool FOnlineSessionOculus::SendSessionInviteToFriends(int32 LocalUserNum, FName 
 	FriendsInterface->ReadFriendsList(
 		LocalUserNum,
 		FOnlineFriendsOculus::FriendsListInviteableUsers,
-		FOnReadFriendsListComplete::CreateLambda([RoomId, FriendsInterface, Friends](int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorName) {
+		FOnReadFriendsListComplete::CreateLambda([RoomId, FriendsInterface, Friends](int32 InLocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorName) {
 
 		if (!bWasSuccessful)
 		{
@@ -531,7 +531,7 @@ bool FOnlineSessionOculus::SendSessionInviteToFriends(int32 LocalUserNum, FName 
 		for (auto FriendId : Friends)
 		{
 			auto Friend = FriendsInterface->GetFriend(
-				LocalUserNum,
+				InLocalUserNum,
 				FriendId.Get(),
 				ListName
 			);
@@ -755,20 +755,20 @@ void FOnlineSessionOculus::OnRoomInviteAccepted(ovrMessageHandle Message, bool b
 
 	OculusSubsystem.AddRequestDelegate(
 		ovr_Room_Get(RoomId),
-		FOculusMessageOnCompleteDelegate::CreateLambda([this, PlayerId](ovrMessageHandle Message, bool bIsError)
+		FOculusMessageOnCompleteDelegate::CreateLambda([this, PlayerId](ovrMessageHandle InMessage, bool bInIsError)
 	{
-		FOnlineSessionSearchResult SearchResult;
+		FOnlineSessionSearchResult LocalSearchResult;
 
-		if (bIsError)
+		if (bInIsError)
 		{
 			UE_LOG_ONLINE(Warning, TEXT("Could not get room details"));
-			TriggerOnSessionUserInviteAcceptedDelegates(false, 0, PlayerId, SearchResult);
+			TriggerOnSessionUserInviteAcceptedDelegates(false, 0, PlayerId, LocalSearchResult);
 			return;
 		}
 
-		auto Room = ovr_Message_GetRoom(Message);
+		auto Room = ovr_Message_GetRoom(InMessage);
 		auto Session = CreateSessionFromRoom(Room);
-		SearchResult.Session = Session.Get();
+		LocalSearchResult.Session = Session.Get();
 
 		auto RoomJoinability = ovr_Room_GetJoinability(Room);
 
@@ -776,11 +776,11 @@ void FOnlineSessionOculus::OnRoomInviteAccepted(ovrMessageHandle Message, bool b
 		if (!OnSessionUserInviteAcceptedDelegates.IsBound())
 		{
 			// No delegates are bound, just save this for later
-			PendingInviteAcceptedSessions.Add(MakeShareable(&SearchResult));
+			PendingInviteAcceptedSessions.Add(MakeShareable(&LocalSearchResult));
 			return;
 		}
 
-		TriggerOnSessionUserInviteAcceptedDelegates(true, 0, PlayerId, SearchResult);
+		TriggerOnSessionUserInviteAcceptedDelegates(true, 0, PlayerId, LocalSearchResult);
 	}));
 }
 

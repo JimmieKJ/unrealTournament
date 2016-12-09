@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "OnlineBeaconHost.h"
-#include "Net/UnrealNetwork.h"
+#include "Misc/CommandLine.h"
+#include "UObject/Package.h"
+#include "GameFramework/OnlineReplStructs.h"
+#include "Engine/World.h"
+#include "OnlineBeaconHostObject.h"
+#include "Engine/PackageMapClient.h"
+#include "Misc/NetworkVersion.h"
 #include "Net/DataChannel.h"
 #include "OnlineBeaconClient.h"
-#include "OnlineBeaconHostObject.h"
-#include "NetworkVersion.h"
 
 AOnlineBeaconHost::AOnlineBeaconHost(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)

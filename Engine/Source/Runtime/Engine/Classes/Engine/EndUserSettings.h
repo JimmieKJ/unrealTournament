@@ -9,7 +9,11 @@
 //=============================================================================
 
 #pragma once
-#include "ImportantToggleSettingInterface.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/ImportantToggleSettingInterface.h"
 #include "EndUserSettings.generated.h"
 
 UCLASS(MinimalAPI, hidecategories=Object, config=Engine, defaultconfig)

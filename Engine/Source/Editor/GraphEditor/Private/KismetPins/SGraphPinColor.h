@@ -3,6 +3,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "SGraphPin.h"
+
 class SGraphPinColor : public SGraphPin
 {
 public:

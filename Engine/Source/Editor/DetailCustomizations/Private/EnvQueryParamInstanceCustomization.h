@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "EnvironmentQuery/EnvQueryTypes.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "IPropertyTypeCustomization.h"
+
+class IPropertyHandle;
+enum class EAIParamType : uint8;
+enum class ECheckBoxState : uint8;
 
 class FEnvQueryParamInstanceCustomization : public IPropertyTypeCustomization
 {

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDeviceProfileSelectorModule.h"
 
 /**
  * Implements the Android Device Profile Selector module.

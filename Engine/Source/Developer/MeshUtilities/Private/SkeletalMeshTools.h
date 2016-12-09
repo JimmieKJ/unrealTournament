@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "PackedNormal.h"
+#include "GPUSkinPublicDefs.h"
+#include "SkeletalMeshTypes.h"
+
+class USkeletalMesh;
 
 // this is used for a sub-quadratic routine to find "equal" verts
 struct FSkeletalMeshVertIndexAndZ

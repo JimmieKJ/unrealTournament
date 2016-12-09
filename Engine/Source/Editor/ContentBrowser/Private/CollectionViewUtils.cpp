@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "ContentBrowserPCH.h"
+#include "CollectionViewUtils.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "ICollectionManager.h"
+#include "CollectionManagerModule.h"
 
 #define LOCTEXT_NAMESPACE "CollectionView"
 

@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "HapticFeedbackEffect_Base.generated.h"
+
+struct FHapticFeedbackValues;
 
 UCLASS(MinimalAPI, BlueprintType)
 class UHapticFeedbackEffect_Base : public UObject

@@ -323,7 +323,6 @@ class NavigationEntryVisitor : public CefNavigationEntryVisitor {
       EXPECT_EQ(TT_EXPLICIT, entry->GetTransitionType());
 
     EXPECT_FALSE(entry->HasPostData());
-    EXPECT_TRUE(entry->GetFrameName().empty());
     EXPECT_GT(entry->GetCompletionTime().GetTimeT(), 0);
     EXPECT_EQ(200, entry->GetHttpStatusCode());
 
@@ -348,6 +347,7 @@ class HistoryNavTestHandler : public TestHandler {
   HistoryNavTestHandler()
       : nav_(0),
         load_end_confirmation_(false),
+        load_state_change_loaded_confirmation_(false),
         renderer_confirmation_(false) {}
 
   void RunTest() override {
@@ -402,8 +402,10 @@ class HistoryNavTestHandler : public TestHandler {
   }
 
   void RunNextNavIfReady(CefRefPtr<CefBrowser> browser) {
-    if (load_end_confirmation_ && renderer_confirmation_) {
+    if (load_end_confirmation_ && load_state_change_loaded_confirmation_ &&
+        renderer_confirmation_) {
       load_end_confirmation_ = false;
+      load_state_change_loaded_confirmation_ = false;
       renderer_confirmation_ = false;
       nav_++;
       RunNav(browser);
@@ -471,6 +473,9 @@ class HistoryNavTestHandler : public TestHandler {
                             bool isLoading,
                             bool canGoBack,
                             bool canGoForward) override {
+    if (isLoading)
+      return;
+
     const NavListItem& item = kHNavList[nav_];
 
     got_loading_state_change_[nav_].yes();
@@ -479,6 +484,9 @@ class HistoryNavTestHandler : public TestHandler {
       got_correct_can_go_back_[nav_].yes();
     if (item.can_go_forward == canGoForward)
       got_correct_can_go_forward_[nav_].yes();
+
+    load_state_change_loaded_confirmation_ = true;
+    RunNextNavIfReady(browser);
   }
 
   void OnLoadStart(CefRefPtr<CefBrowser> browser,
@@ -517,11 +525,6 @@ class HistoryNavTestHandler : public TestHandler {
     if (url1 == item.target && url2 == item.target)
       got_correct_load_end_url_[nav_].yes();
 
-    if (item.can_go_back == browser->CanGoBack())
-      got_correct_can_go_back2_[nav_].yes();
-    if (item.can_go_forward == browser->CanGoForward())
-      got_correct_can_go_forward2_[nav_].yes();
-
     load_end_confirmation_ = true;
     RunNextNavIfReady(browser);
   }
@@ -550,6 +553,7 @@ class HistoryNavTestHandler : public TestHandler {
 
   int nav_;
   bool load_end_confirmation_;
+  bool load_state_change_loaded_confirmation_;
   bool renderer_confirmation_;
 
   TrackCallback got_before_browse_[NAV_LIST_SIZE()];
@@ -564,8 +568,8 @@ class HistoryNavTestHandler : public TestHandler {
   TrackCallback got_load_end_[NAV_LIST_SIZE()];
   TrackCallback got_correct_history_[NAV_LIST_SIZE()];
   TrackCallback got_correct_load_end_url_[NAV_LIST_SIZE()];
-  TrackCallback got_correct_can_go_back2_[NAV_LIST_SIZE()];
-  TrackCallback got_correct_can_go_forward2_[NAV_LIST_SIZE()];
+
+  IMPLEMENT_REFCOUNTING(HistoryNavTestHandler);
 };
 
 }  // namespace
@@ -596,8 +600,6 @@ TEST(NavigationTest, History) {
       ASSERT_TRUE(handler->got_load_end_[i]) << "i = " << i;
       ASSERT_TRUE(handler->got_correct_history_[i]) << "i = " << i;
       ASSERT_TRUE(handler->got_correct_load_end_url_[i]) << "i = " << i;
-      ASSERT_TRUE(handler->got_correct_can_go_back2_[i]) << "i = " << i;
-      ASSERT_TRUE(handler->got_correct_can_go_forward2_[i]) << "i = " << i;
     }
   }
 
@@ -826,6 +828,8 @@ class RedirectTestHandler : public TestHandler {
   TrackCallback got_nav2_redirect_;
   TrackCallback got_nav3_redirect_;
   TrackCallback got_invalid_redirect_;
+
+  IMPLEMENT_REFCOUNTING(RedirectTestHandler);
 };
 
 }  // namespace
@@ -928,7 +932,7 @@ class OrderNavLoadState {
 
       got_loading_state_start_.yes();
     } else {
-      EXPECT_TRUE(Verify(true, false, true, false));
+      EXPECT_TRUE(Verify(true, false, true, true));
 
       got_loading_state_end_.yes();
     }
@@ -944,7 +948,7 @@ class OrderNavLoadState {
   void OnLoadEnd(CefRefPtr<CefBrowser> browser,
                  CefRefPtr<CefFrame> frame,
                  int httpStatusCode) {
-    EXPECT_TRUE(Verify(true, true, true, false));
+    EXPECT_TRUE(Verify(true, false, true, false));
 
     got_load_end_.yes();
   }
@@ -1428,6 +1432,8 @@ class OrderNavTestHandler : public TestHandler {
   OrderNavLoadState state_popup_;
 
   bool got_message_;
+
+  IMPLEMENT_REFCOUNTING(OrderNavTestHandler);
 };
 
 }  // namespace
@@ -1887,6 +1893,8 @@ class LoadNavTestHandler : public TestHandler {
   TrackCallback got_load_start_;
   TrackCallback got_load_end_;
   TrackCallback got_message_;
+
+  IMPLEMENT_REFCOUNTING(LoadNavTestHandler);
 };
 
 }  // namespace
@@ -2112,6 +2120,8 @@ class PopupNavTestHandler : public TestHandler {
 
   TrackCallback got_on_before_popup_;
   TrackCallback got_popup_load_end_;
+
+  IMPLEMENT_REFCOUNTING(PopupNavTestHandler);
 };
 
 }  // namespace
@@ -2137,6 +2147,275 @@ TEST(NavigationTest, PopupDeny) {
 TEST(NavigationTest, PopupNavigateAfterCreation) {
   CefRefPtr<PopupNavTestHandler> handler =
       new PopupNavTestHandler(PopupNavTestHandler::NAVIGATE_AFTER_CREATION);
+  handler->ExecuteTest();
+  ReleaseAndWaitForDestructor(handler);
+}
+
+
+namespace {
+
+const char kSimultPopupMainUrl[] = "http://www.tests-sp.com/main.html";
+const char kSimultPopupPopupUrl[] = "http://www.tests-sp.com/popup";
+const size_t kSimultPopupCount = 5U;
+
+// Test multiple popups simultaniously.
+class PopupSimultaneousTestHandler : public TestHandler {
+ public:
+  explicit PopupSimultaneousTestHandler(bool same_url)
+      : same_url_(same_url),
+        before_popup_ct_(0U),
+        after_created_ct_(0U),
+        before_close_ct_(0U) {}
+
+  void RunTest() override {
+    std::string main_html = "<html><script>\n";
+    for (size_t i = 0; i < kSimultPopupCount; ++i) {
+      if (same_url_) {
+        popup_url_[i] = std::string(kSimultPopupPopupUrl) + ".html";
+      } else {
+        std::stringstream ss;
+        ss << kSimultPopupPopupUrl << i << ".html";
+        popup_url_[i] = ss.str();
+      }
+      main_html += "window.open('" + popup_url_[i] + "');\n";
+      AddResource(popup_url_[i], "<html>Popup " + popup_url_[i] + "</html>",
+                  "text/html");
+    }
+    main_html += "</script></html>";
+
+    AddResource(kSimultPopupMainUrl, main_html, "text/html");
+
+    // Create the browser.
+    CreateBrowser(kSimultPopupMainUrl);
+
+    // Time out the test after a reasonable period of time.
+    SetTestTimeout();
+  }
+
+  bool OnBeforePopup(CefRefPtr<CefBrowser> browser,
+                     CefRefPtr<CefFrame> frame,
+                     const CefString& target_url,
+                     const CefString& target_frame_name,
+                     cef_window_open_disposition_t target_disposition,
+                     bool user_gesture,
+                     const CefPopupFeatures& popupFeatures,
+                     CefWindowInfo& windowInfo,
+                     CefRefPtr<CefClient>& client,
+                     CefBrowserSettings& settings,
+                     bool* no_javascript_access) override {
+    const std::string& url = target_url;
+    EXPECT_LT(before_popup_ct_, kSimultPopupCount);
+    EXPECT_STREQ(popup_url_[before_popup_ct_].c_str(), url.c_str()) <<
+        before_popup_ct_;
+    before_popup_ct_++;
+    return false;
+  }
+
+  void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
+    TestHandler::OnAfterCreated(browser);
+
+    if (browser->IsPopup()) {
+      EXPECT_LT(after_created_ct_, kSimultPopupCount);
+      browser_id_[after_created_ct_] = browser->GetIdentifier();
+      after_created_ct_++;
+    }
+  }
+
+  void OnLoadingStateChange(CefRefPtr<CefBrowser> browser,
+                            bool isLoading,
+                            bool canGoBack,
+                            bool canGoForward) override {
+    if (isLoading)
+      return;
+
+    if (browser->IsPopup()) {
+      const std::string& url = browser->GetMainFrame()->GetURL();
+      for (size_t i = 0; i < kSimultPopupCount; ++i) {
+        if (browser->GetIdentifier() == browser_id_[i]) {
+          EXPECT_STREQ(popup_url_[i].c_str(), url.c_str()) << i;
+
+          got_loading_state_change_[i].yes();
+          browser->GetHost()->CloseBrowser(true);
+          return;
+        }
+      }
+      EXPECT_FALSE(true);  // Not reached.
+    }
+  }
+
+  void OnBeforeClose(CefRefPtr<CefBrowser> browser) override {
+    TestHandler::OnBeforeClose(browser);
+
+    if (browser->IsPopup()) {
+      const std::string& url = browser->GetMainFrame()->GetURL();
+      for (size_t i = 0; i < kSimultPopupCount; ++i) {
+        if (browser->GetIdentifier() == browser_id_[i]) {
+          EXPECT_STREQ(popup_url_[i].c_str(), url.c_str()) << i;
+
+          got_before_close_[i].yes();
+
+          if (++before_close_ct_ == kSimultPopupCount)
+            DestroyTest();
+          return;
+        }
+      }
+      EXPECT_FALSE(true);  // Not reached.
+    }
+  }
+
+ private:
+  void DestroyTest() override {
+    EXPECT_EQ(kSimultPopupCount, before_popup_ct_);
+    EXPECT_EQ(kSimultPopupCount, after_created_ct_);
+    EXPECT_EQ(kSimultPopupCount, before_close_ct_);
+
+    for (size_t i = 0; i < kSimultPopupCount; ++i) {
+      EXPECT_GT(browser_id_[i], 0) << i;
+      EXPECT_TRUE(got_loading_state_change_[i]) << i;
+      EXPECT_TRUE(got_before_close_[i]) << i;
+    }
+
+    TestHandler::DestroyTest();
+  }
+
+  const bool same_url_;
+  std::string popup_url_[kSimultPopupCount];
+  size_t before_popup_ct_;
+  int browser_id_[kSimultPopupCount];
+  size_t after_created_ct_;
+  TrackCallback got_loading_state_change_[kSimultPopupCount];
+  TrackCallback got_before_close_[kSimultPopupCount];
+  size_t before_close_ct_;
+
+  IMPLEMENT_REFCOUNTING(PopupSimultaneousTestHandler);
+};
+
+}  // namespace
+
+// Test simultaneous popups with different URLs.
+TEST(NavigationTest, PopupSimultaneousDifferentUrl) {
+  CefRefPtr<PopupSimultaneousTestHandler> handler =
+      new PopupSimultaneousTestHandler(false);
+  handler->ExecuteTest();
+  ReleaseAndWaitForDestructor(handler);
+}
+
+// Test simultaneous popups with the same URL.
+TEST(NavigationTest, PopupSimultaneousSameUrl) {
+  CefRefPtr<PopupSimultaneousTestHandler> handler =
+      new PopupSimultaneousTestHandler(true);
+  handler->ExecuteTest();
+  ReleaseAndWaitForDestructor(handler);
+}
+
+
+namespace {
+
+const char kPopupJSOpenMainUrl[] = "http://www.tests-pjso.com/main.html";
+const char kPopupJSOpenPopupUrl[] = "http://www.tests-pjso.com/popup.html";
+
+// Test a popup where the URL is a JavaScript URI that opens another popup.
+// See comments on CefBrowserInfoManager::FilterPendingPopupURL.
+class PopupJSWindowOpenTestHandler : public TestHandler {
+ public:
+  PopupJSWindowOpenTestHandler()
+      : before_popup_ct_(0U),
+        after_created_ct_(0U),
+        load_end_ct_(0U),
+        before_close_ct_(0U) {}
+
+  void RunTest() override {
+    AddResource(kPopupJSOpenMainUrl, "<html>Main</html>", "text/html");
+    AddResource(kPopupJSOpenPopupUrl, "<html>Popup</html>", "text/html");
+
+    // Create the browser.
+    CreateBrowser(kPopupJSOpenMainUrl);
+
+    // Time out the test after a reasonable period of time.
+    SetTestTimeout();
+  }
+
+  bool OnBeforePopup(CefRefPtr<CefBrowser> browser,
+                     CefRefPtr<CefFrame> frame,
+                     const CefString& target_url,
+                     const CefString& target_frame_name,
+                     cef_window_open_disposition_t target_disposition,
+                     bool user_gesture,
+                     const CefPopupFeatures& popupFeatures,
+                     CefWindowInfo& windowInfo,
+                     CefRefPtr<CefClient>& client,
+                     CefBrowserSettings& settings,
+                     bool* no_javascript_access) override {
+    before_popup_ct_++;
+    return false;
+  }
+
+  void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
+    TestHandler::OnAfterCreated(browser);
+
+    if (browser->IsPopup())
+      after_created_ct_++;
+  }
+
+  void OnLoadingStateChange(CefRefPtr<CefBrowser> browser,
+                            bool isLoading,
+                            bool canGoBack,
+                            bool canGoForward) override {
+    if (isLoading)
+      return;
+
+    if (browser->IsPopup()) {
+      const std::string& url = browser->GetMainFrame()->GetURL();
+      if (load_end_ct_ == 0)
+        EXPECT_TRUE(url.empty());
+      else
+        EXPECT_STREQ(kPopupJSOpenPopupUrl, url.c_str());
+
+      load_end_ct_++;
+      browser->GetHost()->CloseBrowser(true);
+    } else if (browser->GetMainFrame()->GetURL() == kPopupJSOpenMainUrl) {
+      // Load the problematic JS URI.
+      // This will result in 2 popups being created:
+      // - An empty popup
+      // - A popup that loads kPopupJSOpenPopupUrl
+      browser->GetMainFrame()->LoadURL(
+          "javascript:window.open(\"javascript:window.open('" +
+          std::string(kPopupJSOpenPopupUrl) + "')\")");
+    }
+  }
+
+  void OnBeforeClose(CefRefPtr<CefBrowser> browser) override {
+    TestHandler::OnBeforeClose(browser);
+
+    before_close_ct_++;
+    if (before_close_ct_ == 2U)
+      DestroyTest();
+  }
+
+ private:
+  void DestroyTest() override {
+    EXPECT_EQ(2U, before_popup_ct_);
+    EXPECT_EQ(2U, after_created_ct_);
+    EXPECT_EQ(2U, load_end_ct_);
+    EXPECT_EQ(2U, before_close_ct_);
+
+    TestHandler::DestroyTest();
+  }
+
+  size_t before_popup_ct_;
+  size_t after_created_ct_;
+  size_t load_end_ct_;
+  size_t before_close_ct_;
+
+  IMPLEMENT_REFCOUNTING(PopupJSWindowOpenTestHandler);
+};
+
+}  // namespace
+
+// Test a popup where the URL is a JavaScript URI that opens another popup.
+TEST(NavigationTest, PopupJSWindowOpen) {
+  CefRefPtr<PopupJSWindowOpenTestHandler> handler =
+      new PopupJSWindowOpenTestHandler();
   handler->ExecuteTest();
   ReleaseAndWaitForDestructor(handler);
 }
@@ -2284,6 +2563,8 @@ class BrowseNavTestHandler : public TestHandler {
   TrackCallback got_load_error_;
   TrackCallback got_loading_state_changed_start_;
   TrackCallback got_loading_state_changed_end_;
+
+  IMPLEMENT_REFCOUNTING(BrowseNavTestHandler);
 };
 
 }  // namespace

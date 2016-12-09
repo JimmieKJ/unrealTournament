@@ -4,15 +4,17 @@
 	PostProcessTestImage.cpp: Post processing TestImage implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessTestImage.h"
-#include "PostProcessing.h"
-#include "PostProcessHistogram.h"
-#include "PostProcessEyeAdaptation.h"
-#include "PostProcessCombineLUTs.h"
+#include "PostProcess/PostProcessTestImage.h"
+#include "StaticBoundShaderState.h"
+#include "CanvasTypes.h"
+#include "UnrealEngine.h"
+#include "RenderTargetTemp.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "SceneRenderTargetParameters.h"
+#include "PostProcess/PostProcessing.h"
+#include "PostProcess/PostProcessCombineLUTs.h"
 
 /** Encapsulates the post processing eye adaptation pixel shader. */
 class FPostProcessTestImagePS : public FGlobalShader

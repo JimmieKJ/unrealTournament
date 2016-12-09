@@ -2,10 +2,14 @@
 
 #pragma once 
 
-#include "UnrealString.h"
-#include "LocTextHelper.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Commandlets/Commandlet.h"
+#include "LocTextHelper.h"
 #include "GatherTextCommandletBase.generated.h"
+
+class FAssetData;
+class IAssetRegistry;
 
 class FWordCountReportData
 {

@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnvironmentQueryEditorPrivatePCH.h"
 #include "EnvironmentQueryFactory.h"
-#include "EnvironmentQueryEditorModule.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Settings/EditorExperimentalSettings.h"
 #include "EnvironmentQuery/EnvQuery.h"
 
 UEnvironmentQueryFactory::UEnvironmentQueryFactory(const FObjectInitializer& ObjectInitializer)

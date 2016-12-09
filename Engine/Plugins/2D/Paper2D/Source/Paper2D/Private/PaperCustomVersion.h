@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+
 // Custom serialization version for all packages containing Paper2D asset types
 struct FPaperCustomVersion
 {

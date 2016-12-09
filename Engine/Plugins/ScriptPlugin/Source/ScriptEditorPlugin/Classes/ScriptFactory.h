@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Factories/Factory.h"
 #include "ScriptBlueprint.h"
 #include "ScriptFactory.generated.h"
 

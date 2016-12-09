@@ -4,9 +4,12 @@
 	PrimitiveSceneProxy.cpp: Primitive scene proxy implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "PrimitiveSceneProxy.h"
+#include "Engine/Brush.h"
+#include "UObject/Package.h"
+#include "EngineUtils.h"
 #include "Components/BrushComponent.h"
+#include "SceneManagement.h"
 #include "PrimitiveSceneInfo.h"
 
 static TAutoConsoleVariable<int32> CVarForceSingleSampleShadowingFromStationary(
@@ -34,7 +37,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	LevelColor(FLinearColor::White)
 ,	PropertyColor(FLinearColor::White)
 ,	Mobility(InComponent->Mobility)
-,	DrawInGame(InComponent->bVisible && !InComponent->bHiddenInGame)
+,	DrawInGame(InComponent->IsVisible())
 ,	DrawInEditor(InComponent->bVisible)
 ,	bReceivesDecals(InComponent->bReceivesDecals)
 ,	bOnlyOwnerSee(InComponent->bOnlyOwnerSee)
@@ -55,7 +58,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	bTreatAsBackgroundForOcclusion(InComponent->bTreatAsBackgroundForOcclusion)
 ,	bDisableStaticPath(false)
 ,	bGoodCandidateForCachedShadowmap(true)
-,	bNeedsUnbuiltPreviewLighting(InComponent->HasStaticLighting() && !InComponent->bHasCachedStaticLighting)
+,	bNeedsUnbuiltPreviewLighting(!InComponent->IsPrecomputedLightingValid())
 ,	bHasValidSettingsForStaticLighting(InComponent->HasValidSettingsForStaticLighting(false))
 ,	bWillEverBeLit(true)
 	// Disable dynamic shadow casting if the primitive only casts indirect shadows, since dynamic shadows are always shadowing direct lighting
@@ -65,7 +68,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	bCastStaticShadow(InComponent->CastShadow && InComponent->bCastStaticShadow)
 ,	bCastVolumetricTranslucentShadow(InComponent->bCastDynamicShadow && InComponent->CastShadow && InComponent->bCastVolumetricTranslucentShadow)
 ,	bCastCapsuleDirectShadow(false)
-,	bCastCapsuleIndirectShadow(false)
+,	bCastsDynamicIndirectShadow(false)
 ,	bCastHiddenShadow(InComponent->bCastHiddenShadow)
 ,	bCastShadowAsTwoSided(InComponent->bCastShadowAsTwoSided)
 ,	bSelfShadowOnly(InComponent->bSelfShadowOnly)
@@ -93,6 +96,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	LightingChannelMask(GetLightingChannelMaskForStruct(InComponent->LightingChannels))
 ,	LpvBiasMultiplier(InComponent->LpvBiasMultiplier)
 ,	IndirectLightingCacheQuality(InComponent->IndirectLightingCacheQuality)
+,	DynamicIndirectShadowMinVisibility(0)
 ,	Scene(InComponent->GetScene())
 ,	PrimitiveComponentId(InComponent->ComponentId)
 ,	PrimitiveSceneInfo(NULL)
@@ -202,7 +206,7 @@ FPrimitiveViewRelevance FPrimitiveSceneProxy::GetViewRelevance(const FSceneView*
 
 static TAutoConsoleVariable<int32> CVarDeferUniformBufferUpdatesUntilVisible(
 	TEXT("r.DeferUniformBufferUpdatesUntilVisible"),
-	!WITH_EDITOR,
+	1,
 	TEXT("If > 0, then don't update the primitive uniform buffer until it is visible."));
 
 void FPrimitiveSceneProxy::UpdateUniformBufferMaybeLazy()
@@ -238,9 +242,10 @@ void FPrimitiveSceneProxy::UpdateUniformBuffer()
 			LocalBounds, 
 			bReceivesDecals, 
 			HasDistanceFieldRepresentation(), 
-			SupportsHeightfieldRepresentation(), 
+			HasDynamicIndirectShadowCasterRepresentation(), 
 			UseSingleSampleShadowFromStationaryLights(),
 			UseEditorDepthTest(), 
+			GetLightingChannelMask(),
 			LpvBiasMultiplier);
 	UniformBuffer.SetContents(PrimitiveUniformShaderParameters);
 	if (PrimitiveSceneInfo)
@@ -587,3 +592,41 @@ void FPrimitiveSceneProxy::DrawArrowHead(FPrimitiveDrawInterface* PDI, const FVe
 		, FVector(Tip.X + Ay.X*Size - Ax.X*Size/3, Tip.Y + Ay.Y*Size - Ax.Y*Size/3, Tip.Z + Ay.Z*Size - Ax.Z*Size/3)
 		, Color, SDPG_World, Thickness, bScreenSpace);
 }
+
+
+#if WITH_EDITORONLY_DATA
+bool FPrimitiveSceneProxy::GetPrimitiveDistance(int32 LODIndex, int32 SectionIndex, const FVector& ViewOrigin, float& PrimitiveDistance) const
+{
+	const bool bUseNewMetrics = CVarStreamingUseNewMetrics.GetValueOnRenderThread() != 0;
+
+	const FBoxSphereBounds& PrimBounds = GetBounds();
+
+	FVector ViewToObject = PrimBounds.Origin - ViewOrigin;
+
+	float DistSqMinusRadiusSq = 0;
+	if (bUseNewMetrics)
+	{
+		ViewToObject = ViewToObject.GetAbs();
+		FVector BoxViewToObject = ViewToObject.ComponentMin(PrimBounds.BoxExtent);
+		DistSqMinusRadiusSq = FVector::DistSquared(BoxViewToObject, ViewToObject);
+	}
+	else
+	{
+		float Distance = ViewToObject.Size();
+		DistSqMinusRadiusSq = FMath::Square(Distance) - FMath::Square(PrimBounds.SphereRadius);
+	}
+
+	PrimitiveDistance = FMath::Sqrt(FMath::Max<float>(1.f, DistSqMinusRadiusSq));
+	return true;
+}
+
+bool FPrimitiveSceneProxy::GetMeshUVDensities(int32 LODIndex, int32 SectionIndex, FVector4& WorldUVDensities) const 
+{ 
+	return false; 
+}
+
+bool FPrimitiveSceneProxy::GetMaterialTextureScales(int32 LODIndex, int32 SectionIndex, const FMaterialRenderProxy* MaterialRenderProxy, FVector4* OneOverScales, FIntVector4* UVChannelIndices) const 
+{ 
+	return false; 
+}
+#endif // WITH_EDITORONLY_DATA

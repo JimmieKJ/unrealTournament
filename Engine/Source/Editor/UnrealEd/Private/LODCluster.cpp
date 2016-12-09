@@ -1,24 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
 #include "LODCluster.h"
+#include "Modules/ModuleManager.h"
+#include "Engine/World.h"
+#include "Components/StaticMeshComponent.h"
+#include "GameFramework/Volume.h"
+#include "Components/InstancedStaticMeshComponent.h"
+
 
 #if WITH_EDITOR
-#include "Editor/UnrealEd/Classes/Editor/EditorEngine.h"
-#include "Editor/UnrealEd/Public/Editor.h"
 #include "Engine/LODActor.h"
-#include "Editor/UnrealEd/Classes/Factories/Factory.h"
-#include "MeshUtilities.h"
-#include "ObjectTools.h"
-#include "HierarchicalLODUtilities.h"
+#include "GameFramework/WorldSettings.h"
+#include "IHierarchicalLODUtilities.h"
 #include "HierarchicalLODUtilitiesModule.h"
 #endif // WITH_EDITOR
 
-#include "GameFramework/WorldSettings.h"
-#include "Components/InstancedStaticMeshComponent.h"
 
-#include "HierarchicalLODVolume.h"
 
 #define LOCTEXT_NAMESPACE "LODCluster"
 #define CM_TO_METER		0.01f

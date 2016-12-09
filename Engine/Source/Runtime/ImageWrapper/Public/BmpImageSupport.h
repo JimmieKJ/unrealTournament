@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+struct FBitmapFileHeader;
+struct FBitmapInfoHeader;
+
 // Bitmap compression types.
 enum EBitmapCompression
 {

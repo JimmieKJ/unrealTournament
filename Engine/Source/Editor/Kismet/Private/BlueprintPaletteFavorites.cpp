@@ -1,10 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "BlueprintPaletteFavorites.h"
+#include "UObject/UnrealType.h"
+#include "EdGraphNode_Comment.h"
+#include "K2Node.h"
+#include "EdGraphSchema_K2_Actions.h"
+#include "K2Node_Event.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_BaseMCDelegate.h"
+#include "K2Node_IfThenElse.h"
+#include "K2Node_InputAction.h"
+#include "K2Node_InputAxisEvent.h"
+#include "K2Node_InputKey.h"
+#include "K2Node_InputTouch.h"
+#include "K2Node_MacroInstance.h"
+#include "K2Node_MakeArray.h"
+#include "K2Node_SpawnActor.h"
+#include "K2Node_SpawnActorFromClass.h"
+#include "K2Node_Timeline.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionMenuItem.h"
-#include "BlueprintActionFilter.h"  // for FBlueprintActionInfo
 #include "BlueprintDragDropMenuItem.h"
 #include "BlueprintActionMenuUtils.h"
 

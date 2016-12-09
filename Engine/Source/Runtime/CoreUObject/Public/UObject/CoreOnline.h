@@ -2,9 +2,8 @@
 
 #pragma once
 
-#include "Core.h"
-#include "CoreUObject.h"
-#include "ObjectBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 
 const FName GameSessionName(TEXT("Game"));
 const FName PartySessionName(TEXT("Party"));
@@ -13,7 +12,7 @@ const FName GamePort(TEXT("GamePort"));
 const FName BeaconPort(TEXT("BeaconPort"));
 
 #if !CPP
-// Circular dependency on Core vs UHT means we have to noexport this struct so tools can build
+// Circular dependency on Core vs UHT means we have to noexport these structs so tools can build
 USTRUCT(noexport)
 struct FJoinabilitySettings
 {
@@ -41,6 +40,13 @@ struct FJoinabilitySettings
 	UPROPERTY()
 	int32 MaxPartySize;
 };
+
+USTRUCT(noexport)
+struct FUniqueNetIdWrapper
+{
+	//GENERATED_BODY()
+};
+
 #endif
 
 struct FJoinabilitySettings
@@ -105,8 +111,8 @@ protected:
 public:
 
 	/**
-	*	Comparison operator
-	*/
+	 *	Comparison operator
+	 */
 	bool operator==(const FUniqueNetId& Other) const
 	{
 		return Other.Compare(*this);
@@ -169,17 +175,27 @@ public:
 	virtual ~FUniqueNetId() {}
 };
 
-// This is not a USTRUCT due to cross module dependencies
 struct FUniqueNetIdWrapper
 {
 public:
 
 	FUniqueNetIdWrapper() 
-	: UniqueNetId()
+		: UniqueNetId()
 	{
 	}
+
+	FUniqueNetIdWrapper(const TSharedRef<const FUniqueNetId>& InUniqueNetId)
+		: UniqueNetId(InUniqueNetId)
+	{
+	}
+
 	FUniqueNetIdWrapper(const TSharedPtr<const FUniqueNetId>& InUniqueNetId)
-	: UniqueNetId(InUniqueNetId)
+		: UniqueNetId(InUniqueNetId)
+	{
+	}
+
+	FUniqueNetIdWrapper(const FUniqueNetIdWrapper& InUniqueNetId)
+		: UniqueNetId(InUniqueNetId.UniqueNetId)
 	{
 	}
 
@@ -212,6 +228,12 @@ public:
 	FString ToString() const
 	{
 		return IsValid() ? UniqueNetId->ToString() : TEXT("INVALID");
+	}
+
+	/** Convert this value to a string with additional information */
+	virtual FString ToDebugString() const
+	{
+		return IsValid() ? UniqueNetId->ToDebugString() : TEXT("INVALID");
 	}
 
 	/** Is the FUniqueNetId wrapped in this object valid */
@@ -254,5 +276,6 @@ public:
 
 protected:
 
+	// Actual unique id
 	TSharedPtr<const FUniqueNetId> UniqueNetId;
 };

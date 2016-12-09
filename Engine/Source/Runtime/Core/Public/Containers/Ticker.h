@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "Delegate.h"
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Delegates/IDelegateInstance.h"
+#include "Delegates/Delegate.h"
 
 
 /**

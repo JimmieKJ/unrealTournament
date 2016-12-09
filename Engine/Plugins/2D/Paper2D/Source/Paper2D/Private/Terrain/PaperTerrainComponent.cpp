@@ -1,14 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
+#include "PaperTerrainComponent.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Materials/Material.h"
+#include "Engine/Polys.h"
 #include "Components/SplineComponent.h"
 #include "PaperCustomVersion.h"
 
 #include "PaperRenderSceneProxy.h"
 #include "PaperGeomTools.h"
-#include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/ConvexElem.h"
-#include "PaperTerrainComponent.h"
+#include "PhysicsEngine/BoxElem.h"
+#include "PhysicsEngine/BodySetup.h"
 #include "PaperTerrainSplineComponent.h"
 #include "PaperTerrainMaterial.h"
 

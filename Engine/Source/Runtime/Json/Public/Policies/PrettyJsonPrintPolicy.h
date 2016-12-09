@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Policies/JsonPrintPolicy.h"
 
 /**
  * Template for print policies that generate human readable output.

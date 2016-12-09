@@ -2,12 +2,16 @@
 
 #pragma once
 
-#include "ProceduralFoliageInstance.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "Components/ActorComponent.h"
+#include "InstancedFoliage.h"
 #include "ProceduralFoliageComponent.generated.h"
 
+class AVolume;
 class UProceduralFoliageSpawner;
-class AProceduralFoliageLevelInfo;
-struct FDesiredFoliageInstance;
+struct FBodyInstance;
 
 /** Describes the layout of the tiles used for procedural foliage simulation */
 struct FTileLayout
@@ -63,6 +67,10 @@ class FOLIAGE_API UProceduralFoliageComponent : public UActorComponent
 	/** Whether to place foliage on translucent geometry */
 	UPROPERTY(Category = "ProceduralFoliage", BlueprintReadWrite, EditAnywhere)
 	bool bAllowTranslucent;
+
+	/** Whether to place foliage on other blocking foliage geometry */
+	UPROPERTY(Category = "ProceduralFoliage", BlueprintReadWrite, EditAnywhere)
+	bool bAllowFoliage;
 
 	/** Whether to visualize the tiles used for the foliage spawner simulation */
 	UPROPERTY(Category = "ProceduralFoliage", BlueprintReadWrite, EditAnywhere)

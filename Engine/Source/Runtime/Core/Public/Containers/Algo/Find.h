@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 namespace AlgoImpl
 {
 	template <typename RangeType, typename PredicateType>
-	typename const RangeType::ElementType* FindByPredicate(const RangeType& Range, PredicateType Predicate)
+	const typename RangeType::ElementType* FindByPredicate(const RangeType& Range, PredicateType Predicate)
 	{
 		for (const auto& Elem : Range)
 		{

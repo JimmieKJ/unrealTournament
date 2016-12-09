@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "ObjectBaseArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/ObjectBaseArchiveProxy.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectBase.h"
+#include "UHTMakefile.h"
 
 FObjectBaseArchiveProxy::FObjectBaseArchiveProxy(FUHTMakefile& UHTMakefile, const UObjectBase* ObjectBase)
 {

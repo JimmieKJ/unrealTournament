@@ -2,9 +2,6 @@
 
 #pragma once
 
-/** FName declaration of Steam subsystem */
-
-
 #include "Engine.h"
 #include "CoreUObject.h"
 #include "SocketSubsystem.h"
@@ -12,6 +9,8 @@
 
 #include "OnlineAchievementsInterfaceGooglePlay.h"
 #include "OnlineStoreInterfaceGooglePlay.h"
+#include "OnlineStoreGooglePlay.h"
+#include "OnlinePurchaseGooglePlay.h"
 
 #include "OnlineSubsystemGooglePlay.h"
 #include "OnlineSubsystemGooglePlayModule.h"

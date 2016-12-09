@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelSequenceEditorPCH.h"
-#include "LevelSequenceEditorSettings.h"
+#include "Misc/LevelSequenceEditorSettings.h"
 
 ULevelSequenceMasterSequenceSettings::ULevelSequenceMasterSequenceSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

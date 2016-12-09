@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "CsvParser.h"
+#include "Curves/CurveBase.h"
+#include "Serialization/Csv/CsvParser.h"
 #include "EditorFramework/AssetImportData.h"
 
 
@@ -166,10 +166,9 @@ void UCurveBase::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	Super::GetAssetRegistryTags(OutTags);
 }
 
-
 void UCurveBase::PostInitProperties()
 {
-	if (!HasAnyFlags(RF_ClassDefaultObject))
+	if (IsAsset())
 	{
 		AssetImportData = NewObject<UAssetImportData>(this, TEXT("AssetImportData"));
 	}
@@ -177,10 +176,15 @@ void UCurveBase::PostInitProperties()
 	Super::PostInitProperties();
 }
 
-
 void UCurveBase::PostLoad()
 {
 	Super::PostLoad();
+
+	if (!IsAsset() && AssetImportData)
+	{
+		// UCurves inside Blueprints previously created these sub objects incorrectly, so ones loaded off disk will still exist
+		AssetImportData = nullptr;
+	}
 
 	if (!ImportPath_DEPRECATED.IsEmpty() && AssetImportData)
 	{

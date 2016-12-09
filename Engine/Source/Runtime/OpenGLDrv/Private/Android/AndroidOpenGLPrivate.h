@@ -25,6 +25,7 @@ public:
 	FString GLVersion;
 	bool bSupportsFloatingPointRenderTargets;
 	bool bSupportsFrameBufferFetch;
+	bool bSupportsShaderIOBlocks;
 	TArray<FString> TargetPlatformNames;
 
 private:
@@ -106,6 +107,8 @@ private:
 			|| (bES30Support && ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_float")));
 
 		bSupportsFrameBufferFetch = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_NV_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch"));
+		bSupportsShaderIOBlocks = ExtensionsString.Contains(TEXT("GL_EXT_shader_io_blocks"));
+
 		GAndroidGPUInfoReady = true;
 	}
 };

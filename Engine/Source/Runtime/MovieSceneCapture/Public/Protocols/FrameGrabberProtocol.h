@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "FrameGrabber.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "IMovieSceneCaptureProtocol.h"
 #include "MovieSceneCaptureProtocolSettings.h"
+#include "FrameGrabber.h"
 
 #include "FrameGrabberProtocol.generated.h"
 

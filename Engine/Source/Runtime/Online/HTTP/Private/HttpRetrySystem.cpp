@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HttpPrivatePCH.h"
-
 #include "HttpRetrySystem.h"
+#include "HAL/PlatformTime.h"
+#include "Math/RandomStream.h"
+#include "HttpModule.h"
+#include "Http.h"
+
 
 FHttpRetrySystem::FRequest::FRequest(
 	FManager& InManager,
@@ -227,117 +230,118 @@ bool FHttpRetrySystem::FManager::Update(uint32* FileCount, uint32* FailingCount,
 
 		EHttpRequestStatus::Type RequestStatus = HttpRetryRequest->GetStatus();
 
-        if (!HasTimedOut(HttpRetryRequestEntry, NowAbsoluteSeconds))
+		if (HttpRetryRequestEntry.bShouldCancel)
 		{
-            if (HttpRetryRequest->Status == FHttpRetrySystem::FRequest::EStatus::NotStarted)
-			{
-				if (RequestStatus != EHttpRequestStatus::NotStarted)
-				{
-                    HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::Processing;
-				}
-			}
-
-            if (HttpRetryRequest->Status == FHttpRetrySystem::FRequest::EStatus::Processing)
-			{
-				bool forceFail = false;
-
-                // Code to simulate request failure
-                if (RequestStatus == EHttpRequestStatus::Succeeded && RandomFailureRate.bUseValue)
-				{
-					float random = temp.GetFraction();
-                    if (random < RandomFailureRate.Value)
-					{
-						forceFail = true;
-					}
-				}
-
-				// Save these for failure case retry checks if we hit a completion state
-				bool bShouldRetry = false;
-				bool bCanRetry = false;
-				if (RequestStatus == EHttpRequestStatus::Failed || RequestStatus == EHttpRequestStatus::Failed_ConnectionError || RequestStatus == EHttpRequestStatus::Succeeded)
-				{
-					bShouldRetry = ShouldRetry(HttpRetryRequestEntry);
-					bCanRetry = CanRetry(HttpRetryRequestEntry);
-				}
-
-				if (RequestStatus == EHttpRequestStatus::Failed || RequestStatus == EHttpRequestStatus::Failed_ConnectionError || forceFail || (bShouldRetry && bCanRetry))
-				{
-					bIsGreen = false;
-                    if(HttpRetryRequestEntry.bShouldCancel == false)
-                    {
-                        if (forceFail || (bShouldRetry && bCanRetry))
-					    {
-                            float lockoutPeriod = GetLockoutPeriodSeconds(HttpRetryRequestEntry);
-
-                            if(lockoutPeriod > 0.0f)
-                            {
-                                UE_LOG(LogHttp, Warning, TEXT("Lockout of %fs on %s"), lockoutPeriod, *(HttpRetryRequest->GetURL()));
-                            }
-
-                            HttpRetryRequestEntry.LockoutEndTimeAbsoluteSeconds = NowAbsoluteSeconds + lockoutPeriod;
-                            HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::ProcessingLockout;
-					    }
-					    else
-					    {
-						    UE_LOG(LogHttp, Warning, TEXT("Retry exhausted on %s"), *(HttpRetryRequest->GetURL()));
-						    if (FailedCount != nullptr)
-						    {
-							    ++(*FailedCount);
-						    }
-                            HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::FailedRetry;
-					    }
-                    }
-                    else
-                    {
-                        UE_LOG(LogHttp, Warning, TEXT("Request cancelled on %s"), *(HttpRetryRequest->GetURL()));
-                        HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::Cancelled;
-                    }
-                }
-				else if (RequestStatus == EHttpRequestStatus::Succeeded)
-				{
-					if (HttpRetryRequestEntry.CurrentRetryCount > 0)
-					{
-						UE_LOG(LogHttp, Warning, TEXT("Success on %s"), *(HttpRetryRequest->GetURL()));
-					}
-
-					if (CompletedCount != nullptr)
-					{
-						++(*CompletedCount);
-					}
-
-                    HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::Succeeded;
-				}
-			}
-
-            if (HttpRetryRequest->Status == FHttpRetrySystem::FRequest::EStatus::ProcessingLockout)
-            {
-                if (NowAbsoluteSeconds >= HttpRetryRequestEntry.LockoutEndTimeAbsoluteSeconds)
-                {
-                    // if this fails the HttpRequest's state will be failed which will cause the retry logic to kick(as expected)
-                    bool success = HttpRetryRequest->HttpRequest->ProcessRequest();
-                    if (success)
-                    {
-                        UE_LOG(LogHttp, Warning, TEXT("Retry %d on %s"), HttpRetryRequestEntry.CurrentRetryCount + 1, *(HttpRetryRequest->GetURL()));
-
-                        ++HttpRetryRequestEntry.CurrentRetryCount;
-                        HttpRetryRequest->Status = FRequest::EStatus::Processing;
-                    }
-                }
-
-                if (FailingCount != nullptr)
-                {
-                    ++(*FailingCount);
-                }
-            }
-        }
+			UE_LOG(LogHttp, Warning, TEXT("Request cancelled on %s"), *(HttpRetryRequest->GetURL()));
+			HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::Cancelled;
+		}
 		else
 		{
-			UE_LOG(LogHttp, Warning, TEXT("Timeout on retry %d: %s"), HttpRetryRequestEntry.CurrentRetryCount + 1, *(HttpRetryRequest->GetURL()));
-			bIsGreen = false;
-            HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::FailedTimeout;
-			if (FailedCount != nullptr)
+			if (!HasTimedOut(HttpRetryRequestEntry, NowAbsoluteSeconds))
 			{
-				++(*FailedCount);
+				if (HttpRetryRequest->Status == FHttpRetrySystem::FRequest::EStatus::NotStarted)
+				{
+					if (RequestStatus != EHttpRequestStatus::NotStarted)
+					{
+						HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::Processing;
+					}
+				}
+
+				if (HttpRetryRequest->Status == FHttpRetrySystem::FRequest::EStatus::Processing)
+				{
+					bool forceFail = false;
+
+					// Code to simulate request failure
+					if (RequestStatus == EHttpRequestStatus::Succeeded && RandomFailureRate.bUseValue)
+					{
+						float random = temp.GetFraction();
+						if (random < RandomFailureRate.Value)
+						{
+							forceFail = true;
+						}
+					}
+
+					// Save these for failure case retry checks if we hit a completion state
+					bool bShouldRetry = false;
+					bool bCanRetry = false;
+					if (RequestStatus == EHttpRequestStatus::Failed || RequestStatus == EHttpRequestStatus::Failed_ConnectionError || RequestStatus == EHttpRequestStatus::Succeeded)
+					{
+						bShouldRetry = ShouldRetry(HttpRetryRequestEntry);
+						bCanRetry = CanRetry(HttpRetryRequestEntry);
+					}
+
+					if (RequestStatus == EHttpRequestStatus::Failed || RequestStatus == EHttpRequestStatus::Failed_ConnectionError || forceFail || (bShouldRetry && bCanRetry))
+					{
+						bIsGreen = false;
+
+						if (forceFail || (bShouldRetry && bCanRetry))
+						{
+							float lockoutPeriod = GetLockoutPeriodSeconds(HttpRetryRequestEntry);
+
+							if (lockoutPeriod > 0.0f)
+							{
+								UE_LOG(LogHttp, Warning, TEXT("Lockout of %fs on %s"), lockoutPeriod, *(HttpRetryRequest->GetURL()));
+							}
+
+							HttpRetryRequestEntry.LockoutEndTimeAbsoluteSeconds = NowAbsoluteSeconds + lockoutPeriod;
+							HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::ProcessingLockout;
+						}
+						else
+						{
+							UE_LOG(LogHttp, Warning, TEXT("Retry exhausted on %s"), *(HttpRetryRequest->GetURL()));
+							if (FailedCount != nullptr)
+							{
+								++(*FailedCount);
+							}
+							HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::FailedRetry;
+						}
+					}
+					else if (RequestStatus == EHttpRequestStatus::Succeeded)
+					{
+						if (HttpRetryRequestEntry.CurrentRetryCount > 0)
+						{
+							UE_LOG(LogHttp, Warning, TEXT("Success on %s"), *(HttpRetryRequest->GetURL()));
+						}
+
+						if (CompletedCount != nullptr)
+						{
+							++(*CompletedCount);
+						}
+
+						HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::Succeeded;
+					}
+				}
+
+				if (HttpRetryRequest->Status == FHttpRetrySystem::FRequest::EStatus::ProcessingLockout)
+				{
+					if (NowAbsoluteSeconds >= HttpRetryRequestEntry.LockoutEndTimeAbsoluteSeconds)
+					{
+						// if this fails the HttpRequest's state will be failed which will cause the retry logic to kick(as expected)
+						bool success = HttpRetryRequest->HttpRequest->ProcessRequest();
+						if (success)
+						{
+							UE_LOG(LogHttp, Warning, TEXT("Retry %d on %s"), HttpRetryRequestEntry.CurrentRetryCount + 1, *(HttpRetryRequest->GetURL()));
+
+							++HttpRetryRequestEntry.CurrentRetryCount;
+							HttpRetryRequest->Status = FRequest::EStatus::Processing;
+						}
+					}
+
+					if (FailingCount != nullptr)
+					{
+						++(*FailingCount);
+					}
+				}
+			}
+			else
+			{
+				UE_LOG(LogHttp, Warning, TEXT("Timeout on retry %d: %s"), HttpRetryRequestEntry.CurrentRetryCount + 1, *(HttpRetryRequest->GetURL()));
+				bIsGreen = false;
+				HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::FailedTimeout;
+				if (FailedCount != nullptr)
+				{
+					++(*FailedCount);
+				}
 			}
 		}
 

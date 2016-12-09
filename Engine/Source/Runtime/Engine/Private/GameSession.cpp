@@ -4,15 +4,17 @@
 	GameSession.cpp: GameSession code.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Net/UnrealNetwork.h"
-#include "Net/OnlineEngineInterface.h"
-#include "Kismet/GameplayStatics.h"
-#include "GameFramework/PlayerState.h"
 #include "GameFramework/GameSession.h"
-#include "GameFramework/GameMode.h"
+#include "Misc/CommandLine.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/GameModeBase.h"
+#include "Engine/NetConnection.h"
+#include "Net/OnlineEngineInterface.h"
+#include "GameFramework/PlayerState.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogGameSession, Log, All);
+DEFINE_LOG_CATEGORY(LogGameSession);
 
 static TAutoConsoleVariable<int32> CVarMaxPlayersOverride( TEXT( "net.MaxPlayersOverride" ), 0, TEXT( "If greater than 0, will override the standard max players count. Useful for testing full servers." ) );
 
@@ -28,7 +30,7 @@ APlayerController* GetPlayerControllerFromNetId(UWorld* World, const FUniqueNetI
 		// Iterate through the controller list looking for the net id
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PlayerController = *Iterator;
+			APlayerController* PlayerController = Iterator->Get();
 			// Determine if this is a player with replication
 			if (PlayerController->PlayerState != NULL && PlayerController->PlayerState->UniqueId.IsValid())
 			{
@@ -61,7 +63,7 @@ void AGameSession::HandleMatchHasStarted()
 	{
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PlayerController = *Iterator;
+			APlayerController* PlayerController = Iterator->Get();
 			if (!PlayerController->IsLocalController())
 			{
 				PlayerController->ClientStartOnlineSession();
@@ -103,7 +105,7 @@ void AGameSession::HandleMatchHasEnded()
 	{
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PlayerController = *Iterator;
+			APlayerController* PlayerController = Iterator->Get();
 			if (!PlayerController->IsLocalController())
 			{
 				PlayerController->ClientEndOnlineSession();
@@ -129,14 +131,15 @@ void AGameSession::InitOptions( const FString& Options )
 {
 	UWorld* const World = GetWorld();
 	check(World);
-	AGameMode* const GameMode = World ? World->GetAuthGameMode() : nullptr;
+	AGameModeBase* const GameMode = World ? World->GetAuthGameMode() : nullptr;
 
 	MaxPlayers = UGameplayStatics::GetIntOption( Options, TEXT("MaxPlayers"), MaxPlayers );
 	MaxSpectators = UGameplayStatics::GetIntOption( Options, TEXT("MaxSpectators"), MaxSpectators );
 	
 	if (GameMode)
 	{
-		APlayerState const* const DefaultPlayerState = GetDefault<APlayerState>(GameMode->PlayerStateClass);
+		UClass* PlayerStateClass = GameMode->PlayerStateClass;
+		APlayerState const* const DefaultPlayerState = (PlayerStateClass ? GetDefault<APlayerState>(PlayerStateClass) : nullptr);
 		if (DefaultPlayerState)
 		{
 			SessionName = DefaultPlayerState->SessionName;
@@ -190,7 +193,7 @@ FString AGameSession::ApproveLogin(const FString& Options)
 	UWorld* const World = GetWorld();
 	check(World);
 
-	AGameMode* const GameMode = World->GetAuthGameMode();
+	AGameModeBase* const GameMode = World->GetAuthGameMode();
 	check(GameMode);
 
 	int32 SpectatorOnly = 0;
@@ -267,16 +270,18 @@ bool AGameSession::AtCapacity(bool bSpectator)
 		return false;
 	}
 
+	AGameModeBase* GameMode = GetWorld()->GetAuthGameMode();
+
 	if ( bSpectator )
 	{
-		return ( (GetWorld()->GetAuthGameMode()->NumSpectators >= MaxSpectators)
-		&& ((GetNetMode() != NM_ListenServer) || (GetWorld()->GetAuthGameMode()->NumPlayers > 0)) );
+		return ( (GameMode->GetNumSpectators() >= MaxSpectators)
+		&& ((GetNetMode() != NM_ListenServer) || (GameMode->GetNumPlayers() > 0)) );
 	}
 	else
 	{
 		const int32 MaxPlayersToUse = CVarMaxPlayersOverride.GetValueOnGameThread() > 0 ? CVarMaxPlayersOverride.GetValueOnGameThread() : MaxPlayers;
 
-		return ( (MaxPlayersToUse>0) && (GetWorld()->GetAuthGameMode()->GetNumPlayers() >= MaxPlayersToUse) );
+		return ( (MaxPlayersToUse>0) && (GameMode->GetNumPlayers() >= MaxPlayersToUse) );
 	}
 }
 
@@ -336,7 +341,7 @@ void AGameSession::ReturnToMainMenuHost()
 	FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator();
 	for(; Iterator; ++Iterator)
 	{
-		Controller = *Iterator;
+		Controller = Iterator->Get();
 		if (Controller && !Controller->IsLocalPlayerController() && Controller->IsPrimaryPlayer())
 		{
 			// Clients
@@ -347,35 +352,13 @@ void AGameSession::ReturnToMainMenuHost()
 	Iterator.Reset();
 	for(; Iterator; ++Iterator)
 	{
-		Controller = *Iterator;
+		Controller = Iterator->Get();
 		if (Controller && Controller->IsLocalPlayerController() && Controller->IsPrimaryPlayer())
 		{
 			Controller->ClientReturnToMainMenu(LocalReturnReason);
 			break;
 		}
 	}
-}
-
-bool AGameSession::TravelToSession(int32 ControllerId, FName InSessionName)
-{
-	UWorld* World = GetWorld();
-
-	FString URL;
-	if (UOnlineEngineInterface::Get()->GetResolvedConnectString(World, InSessionName, URL))
-	{
-		APlayerController* PC = UGameplayStatics::GetPlayerController(World, ControllerId);
-		if (PC)
-		{
-			PC->ClientTravel(URL, TRAVEL_Absolute);
-			return true;
-		}
-	}
-	else
-	{
-		UE_LOG(LogGameSession, Warning, TEXT("Failed to resolve session connect string for %s"), *InSessionName.ToString());
-	}
-
-	return false;
 }
 
 void AGameSession::PostSeamlessTravel()

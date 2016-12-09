@@ -2,9 +2,16 @@
 
 #pragma once
 
-#include "SWindowTitleBarArea.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Layout/Margin.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "Widgets/SWidget.h"
+#include "Components/ContentWidget.h"
 
 #include "WindowTitleBarArea.generated.h"
+
+class SWindowTitleBarArea;
 
 /**
 * A panel for defining a region of the UI that should allow users to drag the window on desktop platforms.
@@ -42,10 +49,6 @@ public:
 	virtual void PostLoad() override;
 	//~ End UObject Interface
 
-#if WITH_EDITOR
-	virtual const FText GetPaletteCategory() override;
-#endif
-
 protected:
 	//~ Begin UWidget Interface
 	virtual TSharedRef<SWidget> RebuildWidget() override;
@@ -66,6 +69,7 @@ protected:
 private:
 
 	bool HandleWindowAction(const TSharedRef<FGenericWindow>& PlatformWindow, EWindowAction::Type WindowAction);
+	void HandleMouseButtonDoubleClick();
 
 private:
 

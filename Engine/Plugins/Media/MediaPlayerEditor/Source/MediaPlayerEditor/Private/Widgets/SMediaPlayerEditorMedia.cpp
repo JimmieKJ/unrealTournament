@@ -1,7 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "SMediaPlayerEditorMedia.h"
+#include "Widgets/SMediaPlayerEditorMedia.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Commands/UIAction.h"
+#include "Textures/SlateIcon.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
+#include "Containers/ArrayBuilder.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "MediaSource.h"
+#include "FileMediaSource.h"
+#include "MediaPlayer.h"
+#include "MediaPlaylist.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 
 #define LOCTEXT_NAMESPACE "SMediaPlayerEditorMedia"
@@ -180,7 +196,7 @@ TSharedPtr<SWidget> SMediaPlayerEditorMedia::HandleAssetPickerGetAssetContextMen
 					FSlateIcon(FEditorStyle::GetStyleSetName(), "SystemWideCommands.FindInContentBrowser"),
 					FUIAction(
 						FExecuteAction::CreateLambda([=]() {
-							FPlatformProcess::ExploreFolder(*FileMediaSource->FilePath);
+							FPlatformProcess::ExploreFolder(*FileMediaSource->GetFilePath());
 						}),
 						FCanExecuteAction::CreateLambda([=]() -> bool {
 							return FileMediaSource->Validate();

@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "TransformCalculus2D.h"
+#include "CoreMinimal.h"
+#include "Math/TransformCalculus.h"
+#include "Math/TransformCalculus2D.h"
 
 /**
  * Represents a 2D transformation in the following order: scale then translate.

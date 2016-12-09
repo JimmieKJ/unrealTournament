@@ -2,11 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
-// forward declarations
+class Error;
 class IStructDeserializerBackend;
-class UStruct;
-
 
 /**
  * Enumerates policies for various errors during de-serialization.

@@ -2,10 +2,13 @@
 
 #pragma once
 
-#include "Persona.h"
-#include "STrack.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "SAnimTrackPanel.h"
+#include "STrack.h"
 
+class SAnimCompositeEditor;
+class SBorder;
 
 //////////////////////////////////////////////////////////////////////////
 // SAnimCompositePanel
@@ -22,7 +25,6 @@ class SAnimCompositePanel : public SAnimTrackPanel
 public:
 	SLATE_BEGIN_ARGS( SAnimCompositePanel )
 		: _Composite()
-		, _Persona()
 		, _CompositeEditor()
 		, _ViewInputMin()
 		, _ViewInputMax()
@@ -32,7 +34,6 @@ public:
 	{}
 
 	SLATE_ARGUMENT( class UAnimComposite*, Composite)
-	SLATE_ARGUMENT( TWeakPtr<FPersona>, Persona)
 	SLATE_ARGUMENT( TWeakPtr<class SAnimCompositeEditor>, CompositeEditor)
 	SLATE_ARGUMENT( float, WidgetWidth )
 	SLATE_ATTRIBUTE( float, ViewInputMin )
@@ -54,9 +55,6 @@ public:
 	void ShowSegmentInDetailsView(int32 SegmentIndex);
 
 private:
-	/** Persona reference */
-	TWeakPtr<FPersona>			Persona;
-
 	/** Reference to our editor object */
 	TWeakPtr<SAnimCompositeEditor>	CompositeEditor;
 

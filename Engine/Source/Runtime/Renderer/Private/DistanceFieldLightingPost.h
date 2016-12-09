@@ -6,6 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SceneRendering.h"
+
+class FDistanceFieldAOParameters;
+
 extern void AllocateOrReuseAORenderTarget(FRHICommandList& RHICmdList, TRefCountPtr<IPooledRenderTarget>& Target, const TCHAR* Name, bool bWithAlphaOrFP16Precision);
 
 extern void UpdateHistory(

@@ -5,10 +5,19 @@
 	Location-related particle module implementations.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Distributions/DistributionVectorConstantCurve.h"
-#include "ParticleDefinitions.h"
+#include "CoreMinimal.h"
+#include "Misc/MessageDialog.h"
+#include "Stats/Stats.h"
+#include "GameFramework/Actor.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "RawIndexBuffer.h"
+#include "ParticleHelper.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Distributions/DistributionFloatConstant.h"
+#include "Distributions/DistributionVectorConstant.h"
+#include "Distributions/DistributionVectorUniform.h"
+#include "Distributions/DistributionVectorConstantCurve.h"
+#include "Particles/Location/ParticleModuleLocationBase.h"
 #include "Particles/Location/ParticleModuleLocation.h"
 #include "Particles/Location/ParticleModuleLocationBoneSocket.h"
 #include "Particles/Location/ParticleModuleLocationDirect.h"
@@ -27,8 +36,6 @@
 #include "Particles/TypeData/ParticleModuleTypeDataGpu.h"
 #include "Particles/ParticleLODLevel.h"
 #include "Particles/ParticleModuleRequired.h"
-#include "Particles/ParticleSpriteEmitter.h"
-#include "Particles/ParticleSystemComponent.h"
 #include "Animation/SkeletalMeshActor.h"
 #include "Engine/SkeletalMeshSocket.h"
 UParticleModuleLocationBase::UParticleModuleLocationBase(const FObjectInitializer& ObjectInitializer)
@@ -114,19 +121,18 @@ void UParticleModuleLocation::SpawnEx(FParticleEmitterInstance* Owner, int32 Off
 
 	LocationOffset = Owner->EmitterToSimulation.TransformVector(LocationOffset);
 	Particle.Location += LocationOffset;
+	ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 }
 
 void UParticleModuleLocation::Render3DPreview(FParticleEmitterInstance* Owner, const FSceneView* View,FPrimitiveDrawInterface* PDI)
 {
 #if WITH_EDITOR
+	check(Owner);
+
 	// Draw the location as a wire star
 	FVector Position(0.0f);
 
-	FMatrix LocalToWorld = FMatrix::Identity;
-	if (Owner != NULL)
-	{
-		LocalToWorld = Owner->EmitterToSimulation * Owner->SimulationToWorld;
-	}
+	FMatrix LocalToWorld = Owner->EmitterToSimulation * Owner->SimulationToWorld;
 
 	if (StartLocation.Distribution)
 	{
@@ -228,6 +234,7 @@ void UParticleModuleLocationWorldOffset::SpawnEx(FParticleEmitterInstance* Owner
 		FVector StartLoc = StartLocation.GetValue(Owner->EmitterTime, Owner->Component, 0, InRandomStream);
 		Particle.Location += InvMat.TransformVector(StartLoc);
 	}
+	ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 }
 
 /*-----------------------------------------------------------------------------
@@ -337,6 +344,7 @@ void UParticleModuleLocationDirect::Spawn(FParticleEmitterInstance* Owner, int32
 	PARTICLE_ELEMENT(FVector, LocOffset);
 	LocOffset	= LocationOffset.GetValue(Owner->EmitterTime, Owner->Component);
 	Particle.Location += LocOffset;
+	ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 }
 
 void UParticleModuleLocationDirect::Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime)
@@ -369,6 +377,7 @@ void UParticleModuleLocationDirect::Update(FParticleEmitterInstance* Owner, int3
 		float InvDeltaTime = (DeltaTime > 0.0f) ? 1.0f / DeltaTime : 0.0f;
 		Particle.Velocity	 = ScaleDiffA * InvDeltaTime;
 		Particle.Location	+= ScaleDiffB;
+		ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 	}
 	END_UPDATE_LOOP;
 }
@@ -536,7 +545,10 @@ void UParticleModuleLocationEmitter::Spawn(FParticleEmitterInstance* Owner, int3
 				}
 			}
 		}
-} 
+		ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
+		ensureMsgf(!Particle.Velocity.ContainsNaN(), TEXT("NaN in Particle Velocity. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
+		ensureMsgf(!Particle.BaseVelocity.ContainsNaN(), TEXT("NaN in Particle BaseVelocity. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
+}
 
 uint32 UParticleModuleLocationEmitter::RequiredBytesPerInstance()
 {
@@ -601,6 +613,8 @@ void UParticleModuleLocationEmitterDirect::Spawn(FParticleEmitterInstance* Owner
 			Particle.OldLocation	= pkParticle->OldLocation;
 			Particle.Velocity		= pkParticle->Velocity;
 			Particle.RelativeTime	= pkParticle->RelativeTime;
+			ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
+			ensureMsgf(!Particle.Velocity.ContainsNaN(), TEXT("NaN in Particle Velocity. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 		}
 } 
 
@@ -639,6 +653,8 @@ void UParticleModuleLocationEmitterDirect::Update(FParticleEmitterInstance* Owne
 				Particle.OldLocation	= pkParticle->OldLocation;
 				Particle.Velocity		= pkParticle->Velocity;
 				Particle.RelativeTime	= pkParticle->RelativeTime;
+				ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
+				ensureMsgf(!Particle.Velocity.ContainsNaN(), TEXT("NaN in Particle Velocity. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 			}
 		}
 	END_UPDATE_LOOP;
@@ -874,6 +890,7 @@ void UParticleModuleLocationPrimitiveTriangle::SpawnEx(FParticleEmitterInstance*
 	LocationOffset = Owner->EmitterToSimulation.TransformVector(LocationOffset);
 
 	Particle.Location += LocationOffset;
+	ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Velocity. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 }
 
 void UParticleModuleLocationPrimitiveTriangle::Render3DPreview(FParticleEmitterInstance* Owner, const FSceneView* View,FPrimitiveDrawInterface* PDI)
@@ -1112,6 +1129,8 @@ void UParticleModuleLocationPrimitiveCylinder::SpawnEx(FParticleEmitterInstance*
 		Particle.Velocity		+= vVelocity;
 		Particle.BaseVelocity	+= vVelocity;
 	}
+	ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Velocity. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
+	ensureMsgf(!Particle.Velocity.ContainsNaN(), TEXT("NaN in Particle Velocity. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 }
 
 void UParticleModuleLocationPrimitiveCylinder::Render3DPreview(FParticleEmitterInstance* Owner, const FSceneView* View,FPrimitiveDrawInterface* PDI)
@@ -1352,6 +1371,8 @@ void UParticleModuleLocationPrimitiveSphere::SpawnEx(FParticleEmitterInstance* O
 		Particle.Velocity		+= vVelocity;
 		Particle.BaseVelocity	+= vVelocity;
 	}
+	ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Velocity. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
+	ensureMsgf(!Particle.Velocity.ContainsNaN(), TEXT("NaN in Particle Velocity. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 }
 
 void UParticleModuleLocationPrimitiveSphere::Render3DPreview(FParticleEmitterInstance* Owner, const FSceneView* View,FPrimitiveDrawInterface* PDI)
@@ -1616,10 +1637,12 @@ void UParticleModuleLocationBoneSocket::Spawn(FParticleEmitterInstance* Owner, i
 			FModuleLocationBoneSocketParticlePayload* ParticlePayload = (FModuleLocationBoneSocketParticlePayload*)((uint8*)&Particle + Offset);
 			ParticlePayload->SourceIndex = SourceIndex;
 			Particle.Location = SourceLocation;
+			ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 			if (InheritingBoneVelocity())
 			{
 				// Set the base velocity for this particle.
 				Particle.BaseVelocity = FMath::Lerp(Particle.BaseVelocity, InstancePayload->BoneSocketVelocities[SourceIndex], InheritVelocityScale);
+				ensureMsgf(!Particle.BaseVelocity.ContainsNaN(), TEXT("NaN in Particle Velocity. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 			}
 			if (bMeshRotationActive)
 			{
@@ -1701,6 +1724,7 @@ void UParticleModuleLocationBoneSocket::Update(FParticleEmitterInstance* Owner, 
 		if (GetParticleLocation(InstancePayload, Owner, SourceComponent, ParticlePayload->SourceIndex, SourceLocation, SourceRotation) == true)
 		{
 			Particle.Location = SourceLocation;
+			ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 			if (bMeshRotationActive)
 			{
 				FMeshRotationPayloadData* PayloadData = (FMeshRotationPayloadData*)((uint8*)&Particle + MeshRotationOffset);
@@ -2160,6 +2184,7 @@ UParticleModuleLocationSkelVertSurface::UParticleModuleLocationSkelVertSurface(c
 	SkelMeshActorParamName = ConstructorStatics.NAME_VertSurfaceActor;
 	bOrientMeshEmitters = true;
 	bEnforceNormalCheck = false;
+	InheritVelocityScale = 1.0f;
 }
 
 DEFINE_STAT(STAT_ParticleSkelMeshSurfTime);
@@ -2324,14 +2349,16 @@ void UParticleModuleLocationSkelVertSurface::Spawn(FParticleEmitterInstance* Own
 			FModuleLocationVertSurfaceParticlePayload* ParticlePayload = (FModuleLocationVertSurfaceParticlePayload*)((uint8*)&Particle + Offset);
 			ParticlePayload->SourceIndex = SourceIndex;
 			Particle.Location = SourceLocation;
-			
+			ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
+
 			// Set the base velocity
 			if(bInheritBoneVelocity && ActiveBoneIndex != INDEX_NONE)
 			{
 				const int32 VelocityIndex = InstancePayload->ValidAssociatedBoneIndices.Find(ActiveBoneIndex);
 				if(VelocityIndex != INDEX_NONE)
 				{
-					Particle.BaseVelocity = InstancePayload->BoneVelocities[VelocityIndex];
+					Particle.BaseVelocity = FMath::Lerp(Particle.BaseVelocity, InstancePayload->BoneVelocities[VelocityIndex], InheritVelocityScale);
+					ensureMsgf(!Particle.BaseVelocity.ContainsNaN(), TEXT("NaN in Particle Base Velocity. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 				}
 			}
 			
@@ -2448,6 +2475,7 @@ void UParticleModuleLocationSkelVertSurface::Update(FParticleEmitterInstance* Ow
 		if (GetParticleLocation(Owner, SourceComponent, ParticlePayload->SourceIndex, SourceLocation, SourceRotation) == true)
 		{
 			Particle.Location = SourceLocation;
+			ensureMsgf(!Particle.Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Owner->Component ? *GetNameSafe(Owner->Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Owner->Component));
 			if (bMeshRotationActive)
 			{
 				if (bOrientMeshEmitters)
@@ -2652,10 +2680,10 @@ bool UParticleModuleLocationSkelVertSurface::PerformCustomMenuEntry(int32 InEntr
 			if (EditorSkelMesh != NULL)
 			{
 				// Retrieve all the bones
-				if (EditorSkelMesh->RefSkeleton.GetNum() > 0)
+				if (EditorSkelMesh->RefSkeleton.GetRawBoneNum() > 0)
 				{
 					ValidAssociatedBones.Empty();
-					for (int32 BoneIdx = 0; BoneIdx < EditorSkelMesh->RefSkeleton.GetNum(); BoneIdx++)
+					for (int32 BoneIdx = 0; BoneIdx < EditorSkelMesh->RefSkeleton.GetRawBoneNum(); BoneIdx++)
 					{
 						int32 NewItemIdx = ValidAssociatedBones.AddZeroed();
 						ValidAssociatedBones[NewItemIdx] = EditorSkelMesh->RefSkeleton.GetBoneName(BoneIdx);

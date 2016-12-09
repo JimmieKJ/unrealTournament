@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SettingsPrivatePCH.h"
+#include "SettingsSection.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/Class.h"
 
 
 /* FSettingsSection structors

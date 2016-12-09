@@ -1,16 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
-
 #include "SAnimEditorBase.h"
-#include "GraphEditor.h"
-#include "GraphEditorModule.h"
-#include "Editor/Kismet/Public/SKismetInspector.h"
-#include "SAnimationScrubPanel.h"
-#include "SAnimNotifyPanel.h"
-#include "SAnimCurvePanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Animation/DebugSkelMeshComponent.h"
+#include "Animation/EditorAnimBaseObj.h"
+#include "Animation/AnimCompositeBase.h"
+#include "IDocumentation.h"
+
 #include "AnimPreviewInstance.h"
+#include "Animation/BlendSpaceBase.h"
 
 #define LOCTEXT_NAMESPACE "AnimEditorBase"
 
@@ -22,9 +23,10 @@ TSharedRef<SWidget> SAnimEditorBase::CreateDocumentAnchor()
 	return IDocumentation::Get()->CreateAnchor(TEXT("Engine/Animation/Sequences"));
 }
 
-void SAnimEditorBase::Construct(const FArguments& InArgs)
+void SAnimEditorBase::Construct(const FArguments& InArgs, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene)
 {
-	PersonaPtr = InArgs._Persona;
+	PreviewScenePtr = InPreviewScene;
+	OnObjectsSelected = InArgs._OnObjectsSelected;
 
 	SetInputViewRange(0, GetSequenceLength());
 
@@ -34,42 +36,24 @@ void SAnimEditorBase::Construct(const FArguments& InArgs)
 	[
 		SAssignNew(AnimVerticalBox, SVerticalBox)
 		+SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			// Header, shows name of timeline we are editing
-			SNew(SBorder)
-			. BorderImage( FEditorStyle::GetBrush( TEXT("Graph.TitleBackground") ) )
-			. HAlign(HAlign_Center)
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				. VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.Font( FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 14 ) )
-					.ColorAndOpacity( FLinearColor(1,1,1,0.5) )
-					.Text( this, &SAnimEditorBase::GetEditorObjectName )
-				]
-				+ SHorizontalBox::Slot()
-					.HAlign(HAlign_Left)
-					.VAlign(VAlign_Center)
-					[
-						CreateDocumentAnchor()
-					]
-			]
-		]
-
-		+SVerticalBox::Slot()
 		.FillHeight(1)
 		[
 			SNew(SBorder)
 			.BorderImage( FEditorStyle::GetBrush("ToolPanel.GroupBorder") )
 			[
-				SNew( SScrollBox )
-				+SScrollBox::Slot() 
+				SNew(SOverlay)
+				+SOverlay::Slot()
 				[
-					SAssignNew (EditorPanels, SVerticalBox)
+					SAssignNew(NonScrollEditorPanels, SVerticalBox)
+				]
+				+SOverlay::Slot()
+				[
+					SNew( SScrollBox )
+					.Visibility(EVisibility::SelfHitTestInvisible)
+					+SScrollBox::Slot() 
+					[
+						SAssignNew (EditorPanels, SVerticalBox)
+					]
 				]
 			]
 		]
@@ -172,32 +156,23 @@ void SAnimEditorBase::Construct(const FArguments& InArgs)
 	}
 
 	// If we are an anim sequence, add scrub panel as well
-	UAnimSequenceBase* SeqBase = Cast<UAnimSequenceBase>(GetEditorObject());
-	if (SeqBase)
-	{
-		AnimVerticalBox->AddSlot()
-		.AutoHeight()
-		.VAlign(VAlign_Bottom)
+	AnimVerticalBox->AddSlot()
+	.AutoHeight()
+	.VAlign(VAlign_Bottom)
+	[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.FillWidth(1)
 		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.FillWidth(1)
-			[
-				ConstructAnimScrubPanel()
-			]
-		];
-	}
-
+			ConstructAnimScrubPanel()
+		]
+	];
 }
 
 TSharedRef<class SAnimationScrubPanel> SAnimEditorBase::ConstructAnimScrubPanel()
 {
-	UAnimSequenceBase* AnimSeqBase = Cast<UAnimSequenceBase>(GetEditorObject());
-	check(AnimSeqBase);
-
-	return SAssignNew(AnimScrubPanel, SAnimationScrubPanel)
-		.Persona(PersonaPtr)
-		.LockedSequence(AnimSeqBase)
+	return SAssignNew( AnimScrubPanel, SAnimationScrubPanel, PreviewScenePtr.Pin().ToSharedRef() )
+		.LockedSequence(Cast<UAnimSequenceBase>(GetEditorObject()))
 		.ViewInputMin(this, &SAnimEditorBase::GetViewMinInput)
 		.ViewInputMax(this, &SAnimEditorBase::GetViewMaxInput)
 		.OnSetInputViewRange(this, &SAnimEditorBase::SetInputViewRange)
@@ -221,7 +196,10 @@ UObject* SAnimEditorBase::ShowInDetailsView( UClass* EdClass )
 		{
 			UEditorAnimBaseObj *EdObj = Cast<UEditorAnimBaseObj>(Obj);
 			InitDetailsViewEditorObject(EdObj);
-			PersonaPtr.Pin()->SetDetailObject(EdObj);
+
+			TArray<UObject*> Objects;
+			Objects.Add(EdObj);
+			OnObjectsSelected.ExecuteIfBound(Objects);
 		}
 	}
 	return Obj;
@@ -229,7 +207,8 @@ UObject* SAnimEditorBase::ShowInDetailsView( UClass* EdClass )
 
 void SAnimEditorBase::ClearDetailsView()
 {
-	PersonaPtr.Pin()->SetDetailObject(NULL);
+	TArray<UObject*> Objects;
+	OnObjectsSelected.ExecuteIfBound(Objects);
 }
 
 FText SAnimEditorBase::GetEditorObjectName() const
@@ -285,24 +264,14 @@ bool SAnimEditorBase::ClampToEndTime(float NewEndTime)
 	return (SequenceLength > 0.f && NewEndTime < SequenceLength);
 }
 
-void SAnimEditorBase::OnSelectionChanged(const FGraphPanelSelectionSet& SelectedItems)
+void SAnimEditorBase::OnSelectionChanged(const TArray<UObject*>& SelectedItems)
 {
-	if (SelectedItems.Num() == 0)
-	{
-		// If nothing is selected, unselect it instead of selecting current editor object. 
-		// That means, it shows same information as Anim Detail Panel
-		PersonaPtr.Pin()->UpdateSelectionDetails(NULL, LOCTEXT("Edit Sequence", "Edit Sequence"));
-	}
-	else
-	{
-		// Edit selected notifications
-		PersonaPtr.Pin()->FocusInspectorOnGraphSelection(SelectedItems);
-	}
+	OnObjectsSelected.ExecuteIfBound(SelectedItems);
 }
 
 class UAnimSingleNodeInstance* SAnimEditorBase::GetPreviewInstance() const
 {
-	return (PersonaPtr.Pin()->GetPreviewMeshComponent())? PersonaPtr.Pin()->GetPreviewMeshComponent()->PreviewInstance:NULL;
+	return (GetPreviewScene()->GetPreviewMeshComponent()) ? GetPreviewScene()->GetPreviewMeshComponent()->PreviewInstance : nullptr;
 }
 
 float SAnimEditorBase::GetScrubValue() const
@@ -375,26 +344,29 @@ FText SAnimEditorBase::GetCurrentPercentage() const
 FText SAnimEditorBase::GetCurrentFrame() const
 {
 	float Percentage = GetPercentageInternal();
-	float NumFrames = 0;
+	float LastFrame = 0;
 	
 	if (UAnimSequenceBase* AnimSeqBase = Cast<UAnimSequenceBase>(GetEditorObject()))
 	{
-		NumFrames = AnimSeqBase->GetNumberOfFrames();
+		LastFrame = FMath::Max(AnimSeqBase->GetNumberOfFrames() - 1, 0);
 	}
 
 	static const FNumberFormattingOptions FractionNumberFormat = FNumberFormattingOptions()
 		.SetMinimumFractionalDigits(2)
 		.SetMaximumFractionalDigits(2);
-	return FText::Format(LOCTEXT("FractionKeysFmt", "{0} / {1} (key(s))"), FText::AsNumber(NumFrames * Percentage, &FractionNumberFormat), FText::AsNumber((int32)NumFrames));
+	return FText::Format(LOCTEXT("FractionKeysFmt", "{0} / {1} Frame"), FText::AsNumber(LastFrame * Percentage, &FractionNumberFormat), FText::AsNumber((int32)LastFrame));
 }
 
 float SAnimEditorBase::GetSequenceLength() const
 {
-	UAnimSequenceBase* AnimSeqBase = Cast<UAnimSequenceBase>(GetEditorObject());
-	
-	if (AnimSeqBase)
+	if (UAnimSequenceBase* AnimSeqBase = Cast<UAnimSequenceBase>(GetEditorObject()))
 	{
 		return AnimSeqBase->SequenceLength;
+	}
+	else if (UBlendSpaceBase* BlendSpaceBase = Cast<UBlendSpaceBase>(GetEditorObject()))
+	{
+		// Blendspaces use normalized time, so we just return 1 here
+		return 1.0f;
 	}
 	
 	return 0.f;

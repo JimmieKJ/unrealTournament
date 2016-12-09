@@ -12,5 +12,6 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels.Repositories
         List<SelectListItem> GetPlatformsAsListItems();
         List<SelectListItem> GetEngineModesAsListItems();
         List<SelectListItem> GetVersionsAsListItems();
+        List<SelectListItem> GetEngineVersionsAsListItems();
     }
 }

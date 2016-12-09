@@ -1,9 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GeometryModePrivatePCH.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "Classes/GeomModifier.h"
+#include "GeometryMode.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "GeometryEdMode.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
+#include "GeomModifier.h"
 
 #define LOCTEXT_NAMESPACE "GeometryMode"
 

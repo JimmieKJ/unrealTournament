@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "Runtime/Core/Private/Features/ModularFeatures.h"
+#include "Features/ModularFeatures.h"
 
 
 IModularFeatures& IModularFeatures::Get()

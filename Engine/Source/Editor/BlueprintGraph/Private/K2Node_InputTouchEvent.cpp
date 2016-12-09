@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "K2Node_InputTouchEvent.h"
-#include "CompilerResultsLog.h"
 #include "Engine/InputTouchDelegateBinding.h"
 
 UK2Node_InputTouchEvent::UK2Node_InputTouchEvent(const FObjectInitializer& ObjectInitializer)

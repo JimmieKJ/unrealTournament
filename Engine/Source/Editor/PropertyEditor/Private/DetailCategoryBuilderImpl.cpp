@@ -1,23 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
 #include "DetailCategoryBuilderImpl.h"
+#include "ObjectPropertyNode.h"
+#include "Misc/ConfigCacheIni.h"
 
-#include "AssetSelection.h"
 
-#include "PropertyHandleImpl.h"
-#include "PropertyCustomizationHelpers.h"
-#include "IPropertyUtilities.h"
 
-#include "SPropertyEditor.h"
-#include "SPropertyEditorBool.h"
 #include "DetailCategoryGroupNode.h"
 #include "DetailItemNode.h"
 #include "DetailAdvancedDropdownNode.h"
-#include "SResetToDefaultPropertyEditor.h"
 #include "DetailPropertyRow.h"
 #include "DetailGroup.h"
-#include "DetailCustomBuilderRow.h"
 #include "StructurePropertyNode.h"
 
 namespace DetailLayoutConstants
@@ -381,6 +374,49 @@ IDetailPropertyRow* FDetailCategoryImpl::AddExternalProperty( TSharedPtr<FStruct
 	return nullptr;
 }
 
+TArray<TSharedPtr<IPropertyHandle>> FDetailCategoryImpl::AddExternalProperties( TSharedRef<FStructOnScope> StructData, EPropertyLocation::Type Location )
+{
+	TSharedPtr<FStructurePropertyNode> RootPropertyNode( new FStructurePropertyNode );
+	RootPropertyNode->SetStructure(StructData);
+
+	FPropertyNodeInitParams InitParams;
+	InitParams.ParentNode = nullptr;
+	InitParams.Property = nullptr;
+	InitParams.ArrayOffset = 0;
+	InitParams.ArrayIndex = INDEX_NONE;
+	InitParams.bAllowChildren = true;
+	InitParams.bForceHiddenPropertyVisibility = FPropertySettings::Get().ShowHiddenProperties();
+	InitParams.bCreateCategoryNodes = false;
+
+	RootPropertyNode->InitNode(InitParams);
+
+	TArray<TSharedPtr<IPropertyHandle>> Handles;
+
+	FDetailLayoutBuilderImpl& DetailLayoutBuilderRef = GetParentLayoutImpl();
+
+	const bool bForAdvanced = Location == EPropertyLocation::Advanced;
+	if( RootPropertyNode.IsValid() )
+	{
+		RootPropertyNode->RebuildChildren();
+		DetailLayoutBuilder.Pin()->AddExternalRootPropertyNode( RootPropertyNode.ToSharedRef() );
+
+		for(int32 ChildIdx = 0; ChildIdx < RootPropertyNode->GetNumChildNodes(); ++ChildIdx)
+		{
+			TSharedPtr< FPropertyNode > PropertyNode = RootPropertyNode->GetChildNode(ChildIdx);
+			if(UProperty* Property = PropertyNode->GetProperty())
+			{
+				FDetailLayoutCustomization NewCustomization;
+				NewCustomization.PropertyRow = MakeShared<FDetailPropertyRow>( PropertyNode, AsShared(), RootPropertyNode );
+				AddCustomLayout( NewCustomization, bForAdvanced);
+
+				Handles.Add(DetailLayoutBuilderRef.GetPropertyHandle(PropertyNode));
+			}
+		}
+	}
+
+	return Handles;
+}
+
 void FDetailCategoryImpl::AddPropertyNode( TSharedRef<FPropertyNode> PropertyNode, FName InstanceName )
 {
 	FDetailLayoutCustomization NewCustomization;
@@ -584,7 +620,7 @@ bool FDetailCategoryImpl::ShouldBeExpanded() const
 	else if( bRestoreExpansionState )
 	{
 		// Collapse by default if there are no simple child nodes
-		bool bShouldBeExpanded = !ContainsOnlyAdvanced();
+		bool bShouldBeExpanded = !ContainsOnlyAdvanced() && !bShouldBeInitiallyCollapsed;
 		// Save the collapsed state of this section
 		GConfig->GetBool( TEXT("DetailCategories"), *CategoryPathName, bShouldBeExpanded, GEditorPerProjectIni );
 		return bShouldBeExpanded;

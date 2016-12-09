@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EpicSurveyPrivatePCH.h"
 #include "SSurveyPage.h"
-#include "SurveyPage.h"
+#include "Widgets/SBoxPanel.h"
 #include "SQuestionBlock.h"
 
 void SSurveyPage::Construct( const FArguments& Args, const TSharedRef< FSurveyPage >& Page )

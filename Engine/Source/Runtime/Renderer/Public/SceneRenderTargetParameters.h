@@ -6,6 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
+
+class FSceneView;
+class FShaderParameterMap;
+
 namespace ESceneRenderTargetsMode
 {
 	enum Type

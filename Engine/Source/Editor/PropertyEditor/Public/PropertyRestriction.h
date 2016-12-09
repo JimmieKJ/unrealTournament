@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 class PROPERTYEDITOR_API FPropertyRestriction
 {
 public:

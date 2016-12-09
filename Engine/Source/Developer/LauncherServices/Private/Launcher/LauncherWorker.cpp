@@ -1,7 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LauncherServicesPrivatePCH.h"
+#include "Launcher/LauncherWorker.h"
+#include "HAL/PlatformTime.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Containers/Queue.h"
+#include "Modules/ModuleManager.h"
+#include "Launcher/LauncherTaskChainState.h"
+#include "Launcher/LauncherTask.h"
+#include "Launcher/LauncherUATTask.h"
+#include "Launcher/LauncherVerifyProfileTask.h"
 #include "PlatformInfo.h"
+#include "ISourceCodeAccessor.h"
 #include "ISourceCodeAccessModule.h"
 
 #define LOCTEXT_NAMESPACE "LauncherWorker"
@@ -241,7 +253,7 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 {
 	CommandStart = TEXT("");
 	FString UATCommand = TEXT(" -utf8output");
-	static FGuid SessionId(FGuid::NewGuid());
+	FGuid SessionId(FGuid::NewGuid());
 	FString InitialMap = InProfile->GetDefaultLaunchRole()->GetInitialMap();
 	if (InitialMap.IsEmpty() && InProfile->GetCookedMaps().Num() == 1)
 	{
@@ -284,7 +296,7 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 		{
 			ServerPlatforms += TEXT("+Mac");
 		}
-		else if (PlatformInfo->TargetPlatformName == FName("LinuxNoEditor"))
+		else if (PlatformInfo->TargetPlatformName == FName("LinuxNoEditor") || PlatformInfo->TargetPlatformName == FName("LinuxClient"))
 		{
 			Platforms += TEXT("+Linux");
 		}
@@ -375,7 +387,20 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 			if (DeviceProxy.IsValid())
 			{
 				AddDeviceToLaunchCommand(DeviceId, DeviceProxy, InProfile, DeviceNames, RoleCommands, bVsyncAdded);
-			}			
+
+				// also add the credentials, if necessary
+				FString DeviceUser = DeviceProxy->GetDeviceUser();
+				if (DeviceUser.Len() > 0)
+				{
+					DeviceCommand += FString::Printf(TEXT(" -deviceuser=%s"), *DeviceUser);
+				}
+
+				FString DeviceUserPassword = DeviceProxy->GetDeviceUserPassword();
+				if (DeviceUserPassword.Len() > 0)
+				{
+					DeviceCommand += FString::Printf(TEXT(" -devicepass=%s"), *DeviceUserPassword);
+				}
+			}
 		}
 	}
 
@@ -476,6 +501,11 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 				UATCommand += InProfile->GetDLCName();
 			}
 
+			if ( InProfile->IsDLCIncludingEngineContent() )
+			{
+				UATCommand += TEXT(" -DLCIncludeEngineContent");
+			}
+
 			if ( InProfile->IsGeneratingPatch() )
 			{
 				UATCommand += TEXT(" -generatepatch");
@@ -553,11 +583,11 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 		break;
 	case ELauncherProfileCookModes::OnTheFlyInEditor:
 		UATCommand += MapList;
-		UATCommand += " -skipcook -cookonthefly";
+		UATCommand += " -skipcook -cookonthefly -CookInEditor";
 		break;
 	case ELauncherProfileCookModes::ByTheBookInEditor:
 		UATCommand += MapList;
-		UATCommand += TEXT(" -skipcook"); // don't cook anything the editor is doing it ;)
+		UATCommand += TEXT(" -skipcook -CookInEditor"); // don't cook anything the editor is doing it ;)
 		break;
 	case ELauncherProfileCookModes::DoNotCook:
 		UATCommand += TEXT(" -skipcook");
@@ -574,6 +604,11 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 	if (InProfile->IsCookingIncrementally())
 	{
 		UATCommand += TEXT(" -iterativecooking");
+	}
+
+	if ( InProfile->IsIterateSharedCookedBuild() )
+	{
+		UATCommand += TEXT(" -iteratesharedcookedbuild");
 	}
 
 	if (InProfile->GetSkipCookingEditorContent())

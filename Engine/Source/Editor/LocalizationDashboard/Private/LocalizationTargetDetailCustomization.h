@@ -1,11 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
 #include "IDetailCustomization.h"
 #include "LocalizationTargetTypes.h"
 
-class SCulturePicker;
+class IDetailLayoutBuilder;
 class IPropertyHandle;
+class SComboButton;
+class SCulturePicker;
+class SEditableTextBox;
+class SErrorText;
+class ULocalizationTarget;
+class ULocalizationTargetSet;
+struct FLocalizationTargetSettings;
+enum class ELocalizationTargetLoadingPolicy : uint8;
 
 class FLocalizationTargetDetailCustomization : public IDetailCustomization
 {

@@ -1,12 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "SBlueprintRevisionMenu.h"
-#include "Developer/SourceControl/Public/ISourceControlModule.h"
-#include "SThrobber.h"
-#include "BlueprintEditorUtils.h"
-#include "IAssetTypeActions.h"	// for FRevisionInfo
+#include "Widgets/SBoxPanel.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Engine/Blueprint.h"
+#include "ISourceControlModule.h"
+#include "IAssetTypeActions.h"
+#include "Widgets/Images/SThrobber.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "SBlueprintRevisionMenu"
 

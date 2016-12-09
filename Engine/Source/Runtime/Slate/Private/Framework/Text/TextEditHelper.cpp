@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "TextEditHelper.h"
+#include "Framework/Text/TextEditHelper.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
 
 float FTextEditHelper::GetFontHeight(const FSlateFontInfo& FontInfo)
 {

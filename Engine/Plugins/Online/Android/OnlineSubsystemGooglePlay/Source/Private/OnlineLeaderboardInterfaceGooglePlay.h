@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "OnlineLeaderboardInterface.h"
 #include "AndroidRuntimeSettings.h"
 

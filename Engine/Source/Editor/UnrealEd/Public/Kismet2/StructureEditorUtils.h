@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ListenerManager.h"
-#include "Editor/UnrealEd/Classes/UserDefinedStructure/UserDefinedStructEditorData.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Engine/UserDefinedStruct.h"
+#include "Kismet2/ListenerManager.h"
+#include "UserDefinedStructure/UserDefinedStructEditorData.h"
+
+class UBlueprint;
 
 class UNREALED_API FStructureEditorUtils
 {

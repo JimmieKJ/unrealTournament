@@ -71,8 +71,11 @@ namespace UnrealBuildTool
 			// Compile the engine
 			UEBuildConfiguration.bCompileAgainstEngine = true;
 
-			// Tag it as a 'Editor' build
-			OutCPPEnvironmentConfiguration.Definitions.Add("UE_EDITOR=1");
+            //enable PerfCounters
+            UEBuildConfiguration.bWithPerfCounters = true;
+
+            // Tag it as a 'Editor' build
+            OutCPPEnvironmentConfiguration.Definitions.Add("UE_EDITOR=1");
 		}
 	}
 }

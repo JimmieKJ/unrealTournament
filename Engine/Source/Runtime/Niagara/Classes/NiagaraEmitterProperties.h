@@ -2,11 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Runtime/Niagara/NiagaraConstantSet.h"
 #include "NiagaraScript.h"
-#include "NiagaraDataSet.h"
 #include "NiagaraEmitterProperties.generated.h"
 
-class NiagaraEffectRenderer;
+class UMaterial;
+class UNiagaraEmitterProperties;
 class UNiagaraEventReceiverEmitterAction;
 
 UENUM()

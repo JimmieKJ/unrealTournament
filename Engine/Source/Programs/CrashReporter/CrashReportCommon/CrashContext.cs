@@ -8,8 +8,6 @@ using System.Collections.Generic;
 using Tools.DotNETCommon.XmlHandler;
 using System.Xml;
 using System.Linq;
-using System.Security;
-using System.Diagnostics;
 
 namespace Tools.CrashReporter.CrashReportCommon
 {
@@ -61,6 +59,7 @@ namespace Tools.CrashReporter.CrashReportCommon
 		"BaseDir"
 		"RootDir"
 		"MachineId"
+		"LoginId"
 		"EpicAccountId"
 		"CallStack"
 		"SourceContext"
@@ -303,10 +302,7 @@ namespace Tools.CrashReporter.CrashReportCommon
 		/// <returns>Unique name of this report, can be used as name of file.</returns>
 		public string GetAsFilename()
 		{
-			string EngineVersion = PrimaryCrashProperties.EngineVersion;
-
-			string Directory = string.Format( "{0}_{1}__{2}", EngineVersion, !string.IsNullOrEmpty( PrimaryCrashProperties.GameName ) ? PrimaryCrashProperties.GameName : "NO_GAMENAME", PrimaryCrashProperties.TimeofCrash.Ticks );
-			return Directory;
+			return Path.GetFileName(CrashDirectory);
 		}
 	}
 
@@ -439,6 +435,10 @@ namespace Tools.CrashReporter.CrashReportCommon
 
 		/// <summary></summary>
 		[XmlElement]
+		public string BuildVersion;
+
+		/// <summary></summary>
+		[XmlElement]
 		public string CommandLine;
 
 		/// <summary></summary>
@@ -468,6 +468,10 @@ namespace Tools.CrashReporter.CrashReportCommon
 		/// <summary></summary>
 		[XmlElement]
 		public string MachineId;
+
+		/// <summary></summary>
+		[XmlElement]
+		public string LoginId;
 
 		/// <summary></summary>
 		[XmlElement]

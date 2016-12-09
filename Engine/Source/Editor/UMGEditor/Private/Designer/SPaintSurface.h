@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Rendering/DrawElements.h"
+
+struct FOnPaintHandlerParams;
 
 struct FOnPaintHandlerParams
 {

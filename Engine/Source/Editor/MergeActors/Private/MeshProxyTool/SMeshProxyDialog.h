@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
 class FMeshProxyTool;
+enum class ECheckBoxState : uint8;
 
 /*-----------------------------------------------------------------------------
 	SMeshProxyDialog

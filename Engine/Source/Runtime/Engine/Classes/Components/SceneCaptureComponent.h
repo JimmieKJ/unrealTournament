@@ -2,8 +2,18 @@
 
 
 #pragma once
-#include "Runtime/Engine/Public/ShowFlags.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/SceneComponent.h"
+#include "SceneTypes.h"
+#include "ShowFlags.h"
+#include "Engine/GameViewportClient.h"
 #include "SceneCaptureComponent.generated.h"
+
+class AActor;
+class FSceneViewStateInterface;
+class UPrimitiveComponent;
 
 /** View state needed to create a scene capture renderer */
 struct FSceneCaptureViewInfo
@@ -28,8 +38,8 @@ struct FEngineShowFlagsSetting
 };
 
 	// -> will be exported to EngineDecalClasses.h
-UCLASS(hidecategories=(abstract, Collision, Object, Physics, SceneComponent, Mobility), MinimalAPI)
-class USceneCaptureComponent : public USceneComponent
+UCLASS(hidecategories=(abstract, Collision, Object, Physics, SceneComponent, Mobility))
+class ENGINE_API USceneCaptureComponent : public USceneComponent
 {
 	GENERATED_UCLASS_BODY()
 
@@ -75,26 +85,26 @@ public:
 
 	/** Adds the component to our list of hidden components. */
 	UFUNCTION(BlueprintCallable, Category = "Rendering|SceneCapture")
-	ENGINE_API void HideComponent(UPrimitiveComponent* InComponent);
+	void HideComponent(UPrimitiveComponent* InComponent);
 
 	/** Adds all primitive components in the actor to our list of hidden components. */
 	UFUNCTION(BlueprintCallable, Category = "Rendering|SceneCapture")
-	ENGINE_API void HideActorComponents(AActor* InActor);
+	void HideActorComponents(AActor* InActor);
 
 	/** Adds the component to our list of show-only components. */
 	UFUNCTION(BlueprintCallable, Category = "Rendering|SceneCapture")
-	ENGINE_API void ShowOnlyComponent(UPrimitiveComponent* InComponent);
+	void ShowOnlyComponent(UPrimitiveComponent* InComponent);
 
 	/** Adds all primitive components in the actor to our list of show-only components. */
 	UFUNCTION(BlueprintCallable, Category = "Rendering|SceneCapture")
-	ENGINE_API void ShowOnlyActorComponents(AActor* InActor);
+	void ShowOnlyActorComponents(AActor* InActor);
 
 	/** Returns the view state, if any, and allocates one if needed. This function can return NULL, e.g. when bCaptureEveryFrame is false. */
-	ENGINE_API FSceneViewStateInterface* GetViewState();
-	ENGINE_API FSceneViewStateInterface* GetStereoViewState();
+	FSceneViewStateInterface* GetViewState();
+	FSceneViewStateInterface* GetStereoViewState();
 
 	/** Return a boolean for whether this flag exists in the ShowFlagSettings array, and a pointer to the flag if it does exist  */
-	ENGINE_API bool GetSettingForShowFlag(FString FlagName, FEngineShowFlagsSetting** ShowFlagSettingOut);
+	bool GetSettingForShowFlag(FString FlagName, FEngineShowFlagsSetting** ShowFlagSettingOut);
 
 #if WITH_EDITOR
 	/**

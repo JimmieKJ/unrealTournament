@@ -2,12 +2,26 @@
 
 #pragma once
 
-#include "PropertyEditing.h"
-#include "PropertyCustomizationHelpers.h"
+#include "CoreMinimal.h"
+#include "Misc/PackageName.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Misc/Paths.h"
+#include "HAL/FileManager.h"
+#include "Textures/SlateIcon.h"
+#include "EditorStyleSet.h"
+#include "Framework/Commands/UIAction.h"
+#include "IDetailCustomization.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SComboButton.h"
 #include "GameModeInfoCustomizer.h"
 
 #define LOCTEXT_NAMESPACE "FLevelEditorPlaySettingsCustomization"
-
 
 /**
  * Implements a details view customization for UGameMapsSettingsCustomization objects.

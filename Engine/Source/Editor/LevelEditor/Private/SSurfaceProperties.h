@@ -1,6 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "Lightmass/LightmassPrimitiveSettingsObject.h"
+
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "UObject/GCObject.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Engine/World.h"
+#include "Misc/NotifyHook.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Engine/Channel.h"
+
+class IDetailsView;
+class SComboButton;
+class ULightmassPrimitiveSettingsObject;
 
 /** 
  * Surface Properties

@@ -1,7 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
-#include "MobilityCustomization.h"
+#include "Customizations/MobilityCustomization.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
 
 #define LOCTEXT_NAMESPACE "MobilityCustomization"
 
@@ -79,7 +90,7 @@ void FMobilityCustomization::CreateMobilityCustomization(IDetailCategoryBuilder&
 	{
 		FText StationaryTooltip = bForLight
 			? LOCTEXT("Mobility_Stationary_Tooltip", "A stationary light will only have its shadowing and bounced lighting from static geometry baked by Lightmass, all other lighting will be dynamic.  It can change color and intensity in game.\n* Can't Move\n* Allows Partially Baked Lighting\n* Dynamic Shadows from Movable objects")
-			: LOCTEXT("Mobility_Stationary_Object_Tooltip", "A stationary object can be changed in game, but enables cached lighting methods when not moving. \n* Cached Dynamic Shadows.");
+			: LOCTEXT("Mobility_Stationary_Object_Tooltip", "A stationary object can be changed in game but not moved, and enables cached lighting methods. \n* Cached Dynamic Shadows.");
 
 		ButtonOptionsPanel->AddSlot(ColumnIndex, 0)
 		[

@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetThumbnail.h"
+
+struct FPropertyChangedEvent;
+
 /**
  * Settings for property editor widgets that call up to the base container for the widgets
  * without knowing information about that container

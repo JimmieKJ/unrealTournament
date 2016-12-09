@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ExternalImagePickerPrivatePCH.h"
 #include "SExternalImagePicker.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/FileHelper.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "SResetToDefaultMenu.h"
 #include "DesktopPlatformModule.h"
-#include "IImageWrapper.h"
-#include "IImageWrapperModule.h"
-#include "EditorStyle.h"
-#include "SEnableBox.h"
+#include "Interfaces/IImageWrapperModule.h"
+#include "Widgets/Layout/SEnableBox.h"
 
 #define LOCTEXT_NAMESPACE "ExternalImagePicker"
 

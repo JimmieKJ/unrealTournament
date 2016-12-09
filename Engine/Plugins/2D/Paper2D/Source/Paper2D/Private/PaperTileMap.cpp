@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
+#include "PaperTileMap.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Materials/MaterialInterface.h"
+#include "EditorFramework/AssetImportData.h"
+#include "Paper2DModule.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/BodySetup2D.h"
 #include "PaperCustomVersion.h"
-#include "PaperTileMap.h"
+#include "PaperTileSet.h"
 #include "PaperTileLayer.h"
-#include "PaperRuntimeSettings.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 
@@ -105,6 +108,8 @@ void UPaperTileMap::PostLoad()
 #if WITH_EDITOR
 
 #include "PaperTileMapComponent.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 #include "ComponentReregisterContext.h"
 
 /** Removes all components that use the specified sprite asset from their scenes for the lifetime of the class. */

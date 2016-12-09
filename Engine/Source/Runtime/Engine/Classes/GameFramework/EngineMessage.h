@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "LocalMessage.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/LocalMessage.h"
 #include "EngineMessage.generated.h"
 
 UCLASS(abstract, MinimalAPI)

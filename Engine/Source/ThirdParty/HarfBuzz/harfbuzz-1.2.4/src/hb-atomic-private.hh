@@ -96,7 +96,7 @@ typedef int32_t hb_atomic_int_impl_t;
 #endif
 
 
-#elif !defined(HB_NO_MT) && defined(HAVE_INTEL_ATOMIC_PRIMITIVES)
+#elif !defined(HB_NO_MT) && ( defined(HAVE_INTEL_ATOMIC_PRIMITIVES) || defined(__EMSCRIPTEN__) )
 
 typedef int hb_atomic_int_impl_t;
 #define HB_ATOMIC_INT_IMPL_INIT(V) (V)

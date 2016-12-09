@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Timespan.h"
 
 /** 
  * Attempts to strip the given class name of its affixed prefix. If no prefix exists, will return a blank string.

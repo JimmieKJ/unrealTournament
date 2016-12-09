@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -13,6 +13,8 @@
 #include "libcef_dll/cpptoc/run_file_dialog_callback_cpptoc.h"
 #include "libcef_dll/transfer_util.h"
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -40,15 +42,21 @@ void CEF_CALLBACK run_file_dialog_callback_on_file_dialog_dismissed(
       file_pathsList);
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefRunFileDialogCallbackCppToC::CefRunFileDialogCallbackCppToC(
-    CefRunFileDialogCallback* cls)
-    : CefCppToC<CefRunFileDialogCallbackCppToC, CefRunFileDialogCallback,
-        cef_run_file_dialog_callback_t>(cls) {
-  struct_.struct_.on_file_dialog_dismissed =
+CefRunFileDialogCallbackCppToC::CefRunFileDialogCallbackCppToC() {
+  GetStruct()->on_file_dialog_dismissed =
       run_file_dialog_callback_on_file_dialog_dismissed;
+}
+
+template<> CefRefPtr<CefRunFileDialogCallback> CefCppToC<CefRunFileDialogCallbackCppToC,
+    CefRunFileDialogCallback, cef_run_file_dialog_callback_t>::UnwrapDerived(
+    CefWrapperType type, cef_run_file_dialog_callback_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -56,3 +64,6 @@ template<> base::AtomicRefCount CefCppToC<CefRunFileDialogCallbackCppToC,
     CefRunFileDialogCallback, cef_run_file_dialog_callback_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefRunFileDialogCallbackCppToC,
+    CefRunFileDialogCallback, cef_run_file_dialog_callback_t>::kWrapperType =
+    WT_RUN_FILE_DIALOG_CALLBACK;

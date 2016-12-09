@@ -4,19 +4,24 @@
 LandscapeLight.cpp: Static lighting for LandscapeComponents
 =============================================================================*/
 
-#include "LandscapePrivatePCH.h"
-#include "Landscape.h"
 #include "LandscapeLight.h"
+#include "Engine/EngineTypes.h"
+#include "CollisionQueryParams.h"
+#include "LandscapeProxy.h"
 #include "LandscapeInfo.h"
-#include "LandscapeRender.h"
+#include "LightMap.h"
+#include "Engine/MapBuildDataRegistry.h"
+#include "Components/LightComponent.h"
+#include "ShadowMap.h"
+#include "LandscapeComponent.h"
 #include "LandscapeDataAccess.h"
 #include "LandscapeGrassType.h"
-
 #include "UnrealEngine.h"
-#include "ComponentReregisterContext.h"
-#include "Materials/MaterialInstanceConstant.h"
+#include "Materials/Material.h"
 
 #if WITH_EDITOR
+
+#include "ComponentReregisterContext.h"
 
 #define LANDSCAPE_LIGHTMAP_UV_INDEX 1
 
@@ -38,10 +43,14 @@ FStaticLightingTextureMapping(
 {
 }
 
-void FLandscapeStaticLightingTextureMapping::Apply(FQuantizedLightmapData* QuantizedData, const TMap<ULightComponent*,FShadowMapData2D*>& ShadowMapData)
+void FLandscapeStaticLightingTextureMapping::Apply(FQuantizedLightmapData* QuantizedData, const TMap<ULightComponent*,FShadowMapData2D*>& ShadowMapData, ULevel* LightingScenario)
 {
 	//ELightMapPaddingType PaddingType = GAllowLightmapPadding ? LMPT_NormalPadding : LMPT_NoPadding;
 	ELightMapPaddingType PaddingType = LMPT_NoPadding;
+
+	ULevel* StorageLevel = LightingScenario ? LightingScenario : LandscapeComponent->GetOwner()->GetLevel();
+	UMapBuildDataRegistry* Registry = StorageLevel->GetOrCreateMapBuildData();
+	FMeshMapBuildData& MeshBuildData = Registry->AllocateMeshBuildData(LandscapeComponent->MapBuildDataId, true);
 
 	const bool bHasNonZeroData = QuantizedData != NULL && QuantizedData->HasNonZeroData();
 
@@ -52,8 +61,8 @@ void FLandscapeStaticLightingTextureMapping::Apply(FQuantizedLightmapData* Quant
 	if (bNeedsLightMap)
 	{
 		// Create a light-map for the primitive.
-		LandscapeComponent->LightMap = FLightMap2D::AllocateLightMap(
-			LandscapeComponent,
+		MeshBuildData.LightMap = FLightMap2D::AllocateLightMap(
+			Registry,
 			QuantizedData,
 			LandscapeComponent->Bounds,
 			PaddingType,
@@ -62,13 +71,13 @@ void FLandscapeStaticLightingTextureMapping::Apply(FQuantizedLightmapData* Quant
 	}
 	else
 	{
-		LandscapeComponent->LightMap = NULL;
+		MeshBuildData.LightMap = NULL;
 	}
 
 	if (ShadowMapData.Num() > 0)
 	{
-		LandscapeComponent->ShadowMap = FShadowMap2D::AllocateShadowMap(
-			LandscapeComponent,
+		MeshBuildData.ShadowMap = FShadowMap2D::AllocateShadowMap(
+			Registry,
 			ShadowMapData,
 			LandscapeComponent->Bounds,
 			PaddingType,
@@ -77,30 +86,24 @@ void FLandscapeStaticLightingTextureMapping::Apply(FQuantizedLightmapData* Quant
 	}
 	else
 	{
-		LandscapeComponent->ShadowMap = NULL;
+		MeshBuildData.ShadowMap = NULL;
 	}
 
 	// Build the list of statically irrelevant lights.
 	// TODO: This should be stored per LOD.
-	LandscapeComponent->IrrelevantLights.Empty();
 	for (int32 LightIndex = 0; LightIndex < Mesh->RelevantLights.Num(); LightIndex++)
 	{
 		const ULightComponent* Light = Mesh->RelevantLights[LightIndex];
 
 		// Check if the light is stored in the light-map.
-		const bool bIsInLightMap = LandscapeComponent->LightMap && LandscapeComponent->LightMap->LightGuids.Contains(Light->LightGuid);
+		const bool bIsInLightMap = MeshBuildData.LightMap && MeshBuildData.LightMap->LightGuids.Contains(Light->LightGuid);
 
 		// Add the light to the statically irrelevant light list if it is in the potentially relevant light list, but didn't contribute to the light-map.
 		if(!bIsInLightMap)
 		{
-			LandscapeComponent->IrrelevantLights.AddUnique(Light->LightGuid);
+			MeshBuildData.IrrelevantLights.AddUnique(Light->LightGuid);
 		}
 	}
-
-	LandscapeComponent->bHasCachedStaticLighting = true;
-
-	// Mark the primitive's package as dirty.
-	LandscapeComponent->MarkPackageDirty();
 }
 
 namespace
@@ -729,42 +732,34 @@ void ULandscapeComponent::GetLightAndShadowMapMemoryUsage( int32& LightMapMemory
 
 void ULandscapeComponent::InvalidateLightingCacheDetailed(bool bInvalidateBuildEnqueuedLighting, bool bTranslationOnly)
 {
-	if (bHasCachedStaticLighting)
+	Modify();
+
+	FComponentReregisterContext ReregisterContext(this);
+
+	// Block until the RT processes the unregister before modifying variables that it may need to access
+	FlushRenderingCommands();
+
+	Super::InvalidateLightingCacheDetailed(bInvalidateBuildEnqueuedLighting, bTranslationOnly);
+
+	// invalidate grass that has bUseLandscapeLightmap so the new lightmap is applied to the grass
+	for (auto Iter = GetLandscapeProxy()->FoliageCache.CachedGrassComps.CreateIterator(); Iter; ++Iter)
 	{
-		Modify();
+		const auto& GrassKey = Iter->Key;
+		const ULandscapeGrassType* GrassType = GrassKey.GrassType.Get();
+		const ULandscapeComponent* BasedOn = GrassKey.BasedOn.Get();
+		UHierarchicalInstancedStaticMeshComponent* GrassComponent = Iter->Foliage.Get();
 
-		FComponentReregisterContext ReregisterContext(this);
-
-		// Block until the RT processes the unregister before modifying variables that it may need to access
-		FlushRenderingCommands();
-
-		Super::InvalidateLightingCacheDetailed(bInvalidateBuildEnqueuedLighting, bTranslationOnly);
-
-		// invalidate grass that has bUseLandscapeLightmap so the new lightmap is applied to the grass
-		for (auto Iter = GetLandscapeProxy()->FoliageCache.CachedGrassComps.CreateIterator(); Iter; ++Iter)
+		if (BasedOn == this && GrassType && GrassComponent &&
+			GrassType->GrassVarieties.IsValidIndex(GrassKey.VarietyIndex) &&
+			GrassType->GrassVarieties[GrassKey.VarietyIndex].bUseLandscapeLightmap)
 		{
-			const auto& GrassKey = Iter->Key;
-			const ULandscapeGrassType* GrassType = GrassKey.GrassType.Get();
-			const ULandscapeComponent* BasedOn = GrassKey.BasedOn.Get();
-			UHierarchicalInstancedStaticMeshComponent* GrassComponent = Iter->Foliage.Get();
-
-			if (BasedOn == this && GrassType && GrassComponent &&
-				GrassType->GrassVarieties.IsValidIndex(GrassKey.VarietyIndex) &&
-				GrassType->GrassVarieties[GrassKey.VarietyIndex].bUseLandscapeLightmap)
-			{
-				// Remove this grass component from the cache, which will cause it to be replaced
-				Iter.RemoveCurrent();
-			}
+			// Remove this grass component from the cache, which will cause it to be replaced
+			Iter.RemoveCurrent();
 		}
+	}
 
-		// Discard all cached lighting.
-		IrrelevantLights.Empty();
-		LightMap = nullptr;
-		ShadowMap = nullptr;
-	}
-	else
-	{
-		Super::InvalidateLightingCacheDetailed(bInvalidateBuildEnqueuedLighting, bTranslationOnly);
-	}
+	MapBuildDataId = FGuid::NewGuid();
 }
+
 #endif
+

@@ -2,22 +2,42 @@
 
 #pragma once
 
-#include "Factories.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "EngineDefines.h"
+#include "Engine/StaticMesh.h"
 #include "MatineeExporter.h"
+#include "MovieSceneSequenceID.h"
+#include "MovieSceneFwd.h"
 #include "FbxImporter.h"
 
+class ABrush;
+class ACameraActor;
 class ALandscapeProxy;
-struct FAnimControlTrackKey;
-class USplineMeshComponent;
-class UInstancedStaticMeshComponent;
 class ALight;
-class UInterpTrackInstMove;
 class AMatineeActor;
-
-class UMovieScene;
+class ASkeletalMeshActor;
 class IMovieScenePlayer;
+class UAnimSequence;
+class UCameraComponent;
+class UInstancedStaticMeshComponent;
+class UInterpTrackFloatProp;
+class UInterpTrackInstMove;
+class UInterpTrackMove;
+class UInterpTrackMoveAxis;
+class ULightComponent;
+class UMaterialInterface;
+class UModel;
+class UMovieScene;
 class UMovieScene3DTransformTrack;
 class UMovieSceneFloatTrack;
+class USkeletalMesh;
+class USkeletalMeshComponent;
+class USplineMeshComponent;
+class UStaticMeshComponent;
+struct FAnimControlTrackKey;
+struct FExpressionInput;
+struct FRichCurve;
 
 namespace UnFbx
 {
@@ -82,7 +102,7 @@ public:
 	*
 	* @return	true, if successful
 	*/
-	bool ExportLevelSequence( UMovieScene* MovieScene, const TArray<FGuid>& InBindings, IMovieScenePlayer* MovieScenePlayer );
+	bool ExportLevelSequence( UMovieScene* MovieScene, const TArray<FGuid>& InBindings, IMovieScenePlayer* MovieScenePlayer, FMovieSceneSequenceIDRef SequenceID );
 
 	/**
 	 * Exports all the animation sequences part of a single Group in a Matinee sequence
@@ -105,7 +125,7 @@ public:
 	 * @param StaticMesh	The static mesh to export
 	 * @param MaterialOrder	Optional ordering of materials to set up correct material ID's across multiple meshes being export such as BSP surfaces which share common materials. Should be used sparingly
 	 */
-	virtual void ExportStaticMesh( UStaticMesh* StaticMesh, const TArray<UMaterialInterface*>* MaterialOrder = NULL );
+	virtual void ExportStaticMesh( UStaticMesh* StaticMesh, const TArray<FStaticMaterial>* MaterialOrder = NULL );
 
 	/**
 	 * Exports BSP
@@ -158,12 +178,16 @@ public:
 	class UNREALED_API FLevelSequenceNodeNameAdapter : public INodeNameAdapter
 	{
 	public:
-		FLevelSequenceNodeNameAdapter( UMovieScene* InMovieScene, IMovieScenePlayer* InMovieScenePlayer );
+		FLevelSequenceNodeNameAdapter( UMovieScene* InMovieScene, IMovieScenePlayer* InMovieScenePlayer, FMovieSceneSequenceIDRef InSequenceID);
 		virtual FString GetActorNodeName(const AActor* InActor) override;
 	private:
 		UMovieScene* MovieScene;
 		IMovieScenePlayer* MovieScenePlayer;
+		FMovieSceneSequenceID SequenceID;
 	};
+
+	/* Get a valid unique name from a name */
+	FString GetFbxObjectName(const FString &FbxObjectNode, INodeNameAdapter& NodeNameAdapter);
 
 private:
 	FFbxExporter();
@@ -196,6 +220,7 @@ private:
 	{
 	public:
 		/** Gets the length of the animation track. */
+		virtual float GetAnimationStart() const = 0;
 		virtual float GetAnimationLength() const = 0;
 		/** Updates the runtime state of the animation track to the specified time. */
 		virtual void UpdateAnimation( float Time ) = 0;
@@ -206,6 +231,7 @@ private:
 	{
 	public:
 		FMatineeAnimTrackAdapter( AMatineeActor* InMatineeActor );
+		virtual float GetAnimationStart() const override;
 		virtual float GetAnimationLength() const override;
 		virtual void UpdateAnimation( float Time ) override;
 
@@ -217,18 +243,20 @@ private:
 	class FLevelSequenceAnimTrackAdapter : public FFbxExporter::IAnimTrackAdapter
 	{
 	public:
-		FLevelSequenceAnimTrackAdapter( IMovieScenePlayer* InMovieScenePlayer );
+		FLevelSequenceAnimTrackAdapter( IMovieScenePlayer* InMovieScenePlayer, UMovieScene* InMovieScene );
+		virtual float GetAnimationStart() const override;
 		virtual float GetAnimationLength() const override;
 		virtual void UpdateAnimation( float Time ) override;
 
 	private:
 		IMovieScenePlayer* MovieScenePlayer;
+		UMovieScene* MovieScene;
 	};
 
 	/**
 	* Export Anim Track of the given SkeletalMeshComponent
 	*/
-	void ExportAnimTrack( IAnimTrackAdapter& AnimTrackAdapter, USkeletalMeshComponent* SkeletalMeshComponent );
+	void ExportAnimTrack( IAnimTrackAdapter& AnimTrackAdapter, AActor* Actor, USkeletalMeshComponent* SkeletalMeshComponent );
 
 	void ExportModel(UModel* Model, FbxNode* Node, const char* Name);
 	
@@ -238,6 +266,11 @@ private:
 	 */
 	FbxNode* ExportActor(AActor* Actor, bool bExportComponents, INodeNameAdapter& NodeNameAdapter);
 	
+
+#if WITH_PHYSX
+	FbxNode* ExportCollisionMesh(const UStaticMesh* StaticMesh, const TCHAR* MeshName, FbxNode* ParentActor);
+#endif
+
 	/**
 	 * Exports a static mesh
 	 * @param StaticMesh	The static mesh to export
@@ -248,7 +281,7 @@ private:
 	 * @param ColorBuffer	Vertex color overrides to export
 	 * @param MaterialOrderOverride	Optional ordering of materials to set up correct material ID's across multiple meshes being export such as BSP surfaces which share common materials. Should be used sparingly
 	 */
-	FbxNode* ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int32 ExportLOD, const TCHAR* MeshName, FbxNode* FbxActor, int32 LightmapUVChannel = -1, const FColorVertexBuffer* ColorBuffer = NULL, const TArray<UMaterialInterface*>* MaterialOrderOverride = NULL);
+	FbxNode* ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int32 ExportLOD, const TCHAR* MeshName, FbxNode* FbxActor, int32 LightmapUVChannel = -1, const FColorVertexBuffer* ColorBuffer = NULL, const TArray<FStaticMaterial>* MaterialOrderOverride = NULL);
 
 	/**
 	 * Exports a spline mesh
@@ -357,7 +390,7 @@ private:
 	/**
 	 * Exports a level sequence 3D transform track into the FBX animation stack.
 	 */
-	void ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor );
+	void ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor, const TRange<float>& InPlaybackRange );
 
 	/** 
 	 * Exports a level sequence float track into the FBX animation stack. 
@@ -374,7 +407,7 @@ private:
 	};
 
 	/** Exports an unreal rich curve to an fbx animation curve. */
-	void ExportRichCurveToFbxCurve( FRichCurve& RichCurve, FbxAnimCurve& FbxCurve, TRange<float> InterpolationRange, ERichCurveValueMode ValueMode = ERichCurveValueMode::Default );
+	void ExportRichCurveToFbxCurve(FbxAnimCurve& InFbxCurve, FRichCurve& InRichCurve, ERichCurveValueMode ValueMode = ERichCurveValueMode::Default, bool bNegative = false);
 
 	/**
 	 * Finds the given actor in the already-exported list of structures

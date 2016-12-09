@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "DelegateNodeHandlers.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_BaseMCDelegate.h"
+#include "K2Node_CallDelegate.h"
 #include "K2Node_ClearDelegate.h"
+#include "K2Node_CreateDelegate.h"
+#include "EdGraphUtilities.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "KismetCompiler.h"
 
 #define LOCTEXT_NAMESPACE "DelegateNodeHandlers"
 
@@ -42,12 +48,14 @@ struct FKCHandlerDelegateHelper
 
 		if (!BoundProperty)
 		{
-			FString const OwnerName = PropertyOwnerClass->GetName();
-			FString const PropName  = DelegateNode->GetPropertyName().ToString();
+			if (!FKismetCompilerUtilities::IsMissingMemberPotentiallyLoading(Context.Blueprint, DelegateNode->DelegateReference.GetMemberParentClass()))
+			{
+				FString const OwnerName = PropertyOwnerClass->GetName();
+				FString const PropName = DelegateNode->GetPropertyName().ToString();
 
-			FText const ErrorFormat = LOCTEXT("DelegateNotFound", "Could not find an event-dispatcher named \"%s\" in '%s'.\nMake sure '%s' has been compiled for @@");
-			MessageLog.Error(*FString::Printf(*ErrorFormat.ToString(), *PropName, *OwnerName, *OwnerName), DelegateNode);
-
+				FText const ErrorFormat = LOCTEXT("DelegateNotFound", "Could not find an event-dispatcher named \"%s\" in '%s'.\nMake sure '%s' has been compiled for @@");
+				MessageLog.Error(*FString::Printf(*ErrorFormat.ToString(), *PropName, *OwnerName, *OwnerName), DelegateNode);
+			}
 			return NULL;
 		}
 
@@ -353,7 +361,11 @@ void FKCHandler_CallDelegate::Compile(FKismetFunctionContext& Context, UEdGraphN
 	const UFunction* SignatureFunction = FindFunction(Context, Node);
 	if(!SignatureFunction)
 	{
-		CompilerContext.MessageLog.Error(*LOCTEXT("CallDelegateNoSignature_Error", "Cannot find signature function for @@").ToString(), Node);
+		UK2Node_CallDelegate* DelegateNode = CastChecked<UK2Node_CallDelegate>(Node);
+		if (!FKismetCompilerUtilities::IsMissingMemberPotentiallyLoading(Context.Blueprint, DelegateNode->DelegateReference.GetMemberParentClass()))
+		{
+			CompilerContext.MessageLog.Error(*LOCTEXT("CallDelegateNoSignature_Error", "Cannot find signature function for @@").ToString(), Node);
+		}
 		return;
 	}
 

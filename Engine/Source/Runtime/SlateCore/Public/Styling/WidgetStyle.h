@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "HAL/Platform.h"
-#include "Math/Color.h"
 
-template< typename ObjectType > class TAttribute;
+#include "CoreMinimal.h"
+
 struct FSlateColor;
+template< typename ObjectType > class TAttribute;
 
 /**
  * Contains info about those aspects of widget appearance that should be propagated hierarchically.

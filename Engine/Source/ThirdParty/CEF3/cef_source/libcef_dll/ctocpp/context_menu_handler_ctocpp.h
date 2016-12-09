@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,14 +28,15 @@ class CefContextMenuHandlerCToCpp
     : public CefCToCpp<CefContextMenuHandlerCToCpp, CefContextMenuHandler,
         cef_context_menu_handler_t> {
  public:
-  explicit CefContextMenuHandlerCToCpp(cef_context_menu_handler_t* str)
-      : CefCToCpp<CefContextMenuHandlerCToCpp, CefContextMenuHandler,
-          cef_context_menu_handler_t>(str) {}
+  CefContextMenuHandlerCToCpp();
 
-  // CefContextMenuHandler methods
+  // CefContextMenuHandler methods.
   void OnBeforeContextMenu(CefRefPtr<CefBrowser> browser,
       CefRefPtr<CefFrame> frame, CefRefPtr<CefContextMenuParams> params,
       CefRefPtr<CefMenuModel> model) override;
+  bool RunContextMenu(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
+      CefRefPtr<CefContextMenuParams> params, CefRefPtr<CefMenuModel> model,
+      CefRefPtr<CefRunContextMenuCallback> callback) override;
   bool OnContextMenuCommand(CefRefPtr<CefBrowser> browser,
       CefRefPtr<CefFrame> frame, CefRefPtr<CefContextMenuParams> params,
       int command_id, EventFlags event_flags) override;
@@ -45,4 +46,3 @@ class CefContextMenuHandlerCToCpp
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_CONTEXT_MENU_HANDLER_CTOCPP_H_
-

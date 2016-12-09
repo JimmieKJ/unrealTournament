@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
 #include "ISourceControlProvider.h"
 
 class SOURCECONTROLWINDOWS_API FSourceControlWindows

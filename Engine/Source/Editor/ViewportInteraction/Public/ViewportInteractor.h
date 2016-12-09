@@ -1,9 +1,17 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "ViewportInteractorData.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "InputCoreTypes.h"
+#include "Engine/EngineTypes.h"
+#include "ViewportInteractionTypes.h"
+#include "Editor/ViewportInteraction/ViewportInteractorData.h"
 #include "ViewportInteractor.generated.h"
+
+class AActor;
 
 /**
  * Represents the interactor in the world
@@ -169,6 +177,8 @@ public:
 	/** @return Returns whether a full press is allowed to interrupt a light press. */
 	bool AllowTriggerFullPress() const;
 
+	/** If this interactor is hovering over a type that has priority from GetHitResultFromLaserPointer */
+	bool IsHoveringOverPriorityType() const;
 
 protected:
 

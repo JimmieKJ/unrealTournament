@@ -4,11 +4,16 @@
 	GammaCorrection.cpp
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessing.h"
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
+#include "RHIStaticStates.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "GlobalShader.h"
+#include "SceneRendering.h"
+#include "PostProcess/SceneFilterRendering.h"
 
 /** Encapsulates the gamma correction pixel shader. */
 class FGammaCorrectionPS : public FGlobalShader
@@ -86,7 +91,7 @@ void FSceneRenderer::GammaCorrectToViewportRenderTarget(FRHICommandList& RHICmdL
 	// Deferred the clear until here so the garbage left in the non rendered regions by the post process effects do not show up
 	if( ViewFamily.bDeferClear )
 	{
-		RHICmdList.Clear(true, FLinearColor::Black, false, 0.0f, false, 0, FIntRect());
+		RHICmdList.ClearColorTexture(ViewFamily.RenderTarget->GetRenderTargetTexture(), FLinearColor::Black, FIntRect());
 		ViewFamily.bDeferClear = false;
 	}
 

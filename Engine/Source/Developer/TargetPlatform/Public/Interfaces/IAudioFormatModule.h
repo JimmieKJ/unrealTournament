@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class IAudioFormat;
 
 /**
  * Interface for audio format modules.

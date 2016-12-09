@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+
+class FArrangedChildren;
 
 class SZoomPan : public SCompoundWidget
 {

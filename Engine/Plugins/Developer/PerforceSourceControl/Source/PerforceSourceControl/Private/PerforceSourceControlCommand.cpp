@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PerforceSourceControlPrivatePCH.h"
 #include "PerforceSourceControlCommand.h"
+#include "Modules/ModuleManager.h"
 #include "PerforceSourceControlModule.h"
-#include "IPerforceSourceControlWorker.h"
-#include "SPerforceSourceControlSettings.h"
 
 FPerforceSourceControlCommand::FPerforceSourceControlCommand(const TSharedRef<class ISourceControlOperation, ESPMode::ThreadSafe>& InOperation, const TSharedRef<class IPerforceSourceControlWorker, ESPMode::ThreadSafe>& InWorker, const FSourceControlOperationComplete& InOperationCompleteDelegate )
 	: Operation(InOperation)

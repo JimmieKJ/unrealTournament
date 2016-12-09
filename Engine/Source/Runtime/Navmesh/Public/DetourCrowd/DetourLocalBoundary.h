@@ -22,8 +22,12 @@
 #ifndef DETOURLOCALBOUNDARY_H
 #define DETOURLOCALBOUNDARY_H
 
-#include "DetourNavMeshQuery.h"
-#include "DetourSharedBoundary.h"
+#include "CoreMinimal.h"
+#include "Detour/DetourNavMesh.h"
+
+class dtNavMeshQuery;
+class dtQueryFilter;
+class dtSharedBoundary;
 
 class NAVMESH_API dtLocalBoundary
 {

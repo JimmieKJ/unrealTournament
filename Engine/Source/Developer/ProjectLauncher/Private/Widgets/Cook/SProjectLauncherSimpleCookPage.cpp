@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
+#include "Widgets/Cook/SProjectLauncherSimpleCookPage.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Cook/SProjectLauncherCookByTheBookSettings.h"
 
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherCookPage"

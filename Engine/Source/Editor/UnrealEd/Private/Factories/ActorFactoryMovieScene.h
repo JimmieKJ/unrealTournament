@@ -2,8 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "ActorFactories/ActorFactory.h"
 #include "ActorFactoryMovieScene.generated.h"
+
+class AActor;
+class FAssetData;
+class ULevel;
 
 UCLASS()
 class UActorFactoryMovieScene : public UActorFactory

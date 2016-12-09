@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
+#include "Components/ActorComponent.h"
+
 //////////////////////////////////////////////////////////////////////////
 // List of component types
 

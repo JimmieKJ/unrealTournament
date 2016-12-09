@@ -1,7 +1,7 @@
 //
 // paBody.cpp
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #include "Body/paBody.hpp"
 #include "Surface/paSurface.hpp"

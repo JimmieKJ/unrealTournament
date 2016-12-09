@@ -5,6 +5,9 @@
 */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "xmp.h"
 #include "Sound/SoundWaveProcedural.h"
 #include "SoundModWave.generated.h"

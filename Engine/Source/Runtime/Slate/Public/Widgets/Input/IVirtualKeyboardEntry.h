@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Types/SlateEnums.h"
+
 // @todo - hook up keyboard types
 enum EKeyboardType
 {

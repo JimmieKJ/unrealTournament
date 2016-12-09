@@ -22,20 +22,17 @@
 
 struct FLightAccumulator
 {
-	// view independent lighting + view dependent lighting
-	float3 TotalSum;
+	float3 TotalLight;
 
 	// only actually used SUBSURFACE_CHANNEL_MODE == 1
 	// assumed to be compiled out otherwise (not compiled out with #if so we can use if() instead of #if for better readability and compiler error checking)
 	// input for ScreenSpaceSubsurfaceScattering
-	// view independent lighting luminance
-	float ViewIndependentLightingLuminanceSum;
+	float ScatterableLightLuma;
 
 	// only actually used SUBSURFACE_CHANNEL_MODE == 2
 	// assumed to be compiled out otherwise (not compiled out with #if so we can use if() instead of #if for better readability and compiler error checking)
 	// input for ScreenSpaceSubsurfaceScattering
-	// view independent lighting color
-	float3 ViewIndependentLightingSum;
+	float3 ScatterableLight;
 
 	// only used for development (not compiled out with #if so we can use if() instead of #if for better readability and compiler error checking)
 	// assumed to be compiled out otherwise
@@ -44,10 +41,10 @@ struct FLightAccumulator
 
 //
 // accumulate light, can be called multiple times
-void LightAccumulator_Add(inout FLightAccumulator In, float3 NonSpecularContribution, float3 SpecularContribution, float3 CommonMultiplier, const bool bNeedsSeparateSubsurfaceLightAccumulation)
+void LightAccumulator_Add(inout FLightAccumulator In, float3 TotalLight, float3 ScatterableLight, float3 CommonMultiplier, const bool bNeedsSeparateSubsurfaceLightAccumulation)
 {
-	// 3 add, 3 mad
-	In.TotalSum += (NonSpecularContribution + SpecularContribution) * CommonMultiplier;
+	// 3 mad
+	In.TotalLight += TotalLight * CommonMultiplier;
 
 	// This should ideally be evaluated statically outside of this function to avoid the branch
 	if (bNeedsSeparateSubsurfaceLightAccumulation)
@@ -56,14 +53,13 @@ void LightAccumulator_Add(inout FLightAccumulator In, float3 NonSpecularContribu
 		{
 			if (View.bCheckerboardSubsurfaceProfileRendering == 0)
 			{
-				// 3 mad
-				In.ViewIndependentLightingLuminanceSum += Luminance(NonSpecularContribution * CommonMultiplier);
+				In.ScatterableLightLuma += Luminance(ScatterableLight * CommonMultiplier);
 			}
 		}
 		else if (SUBSURFACE_CHANNEL_MODE == 2)
 		{
 			// 3 mad
-			In.ViewIndependentLightingSum += NonSpecularContribution * CommonMultiplier;
+			In.ScatterableLight += ScatterableLight * CommonMultiplier;
 		}
 	}
 }
@@ -82,45 +78,26 @@ float4 LightAccumulator_GetResult(FLightAccumulator In)
 	}
 	else
 	{
-		Ret = float4(In.TotalSum, 0);
+		Ret = float4(In.TotalLight, 0);
 
 		if (SUBSURFACE_CHANNEL_MODE == 1 )
 		{
 			if (View.bCheckerboardSubsurfaceProfileRendering == 0)
 			{
 				// RGB accumulated RGB HDR color, A: specular luminance for screenspace subsurface scattering
-				Ret.a = In.ViewIndependentLightingLuminanceSum;
+				Ret.a = In.ScatterableLightLuma;
 			}
 		}
 		else if (SUBSURFACE_CHANNEL_MODE == 2)
 		{
 			// RGB accumulated RGB HDR color, A: view independent (diffuse) luminance for screenspace subsurface scattering
 			// 3 add,  1 mul, 2 mad, can be optimized to use 2 less temporary during accumulation and remove the 3 add
-			Ret.a = Luminance(In.ViewIndependentLightingSum);
+			Ret.a = Luminance(In.ScatterableLight);
 			// todo, need second MRT for SUBSURFACE_CHANNEL_MODE==2
 		}
 	}
 
 	return Ret;
 }
-
-// @param SceneColor4 RGB:SceneColor Specular and Diffuse, A:Non Specular SceneColor Luminance
-float3 LightAccumulator_ReconstructDiffuseLighting(float4 SceneColor4)
-{
-	// add small bias to avoid div by 0 (faster than max(), assuming we don't have negatives and NaN in there)
-	float TotalSceneColorLum = Luminance(SceneColor4.rgb) + 0.000001f;
-
-	return SceneColor4.rgb * (SceneColor4.a / TotalSceneColorLum);
-}
-
-// @param SceneColor4 RGB:SceneColor Specular and Diffuse, A:Non Specular SceneColor Luminance
-float3 LightAccumulator_ReconstructNonDiffuseLighting(float4 SceneColor4)
-{
-	// add small bias to avoid div by 0 (faster than max(), assuming we don't have negatives and NaN in there)
-	float TotalSceneColorLum = Luminance(SceneColor4.rgb) + 0.000001f;
-
-	return SceneColor4.rgb * saturate(1 - SceneColor4.a / TotalSceneColorLum);
-}
-
 
 #endif // __LIGHTACCUMULATOR_COMMON__

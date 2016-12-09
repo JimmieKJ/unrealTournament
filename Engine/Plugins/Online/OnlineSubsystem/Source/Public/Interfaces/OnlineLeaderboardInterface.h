@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "OnlineSubsystemTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineDelegateMacros.h"
 #include "OnlineStats.h"
 

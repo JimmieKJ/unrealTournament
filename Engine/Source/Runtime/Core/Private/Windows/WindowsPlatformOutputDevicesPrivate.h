@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreTypes.h"
+#include "Misc/OutputDeviceError.h"
 #include "Misc/OutputDeviceConsole.h"
 
 #ifndef WANTS_WINDOWS_EVENT_LOGGING
@@ -11,8 +14,11 @@
 	#endif
 #endif
 
+class FName;
 
 #if WANTS_WINDOWS_EVENT_LOGGING
+
+#include "WindowsHWrapper.h"
 
 /**
  * Output device that writes to Windows Event Log
@@ -143,7 +149,7 @@ class CORE_API FOutputDeviceConsoleWindows : public FOutputDeviceConsole
 {
 private:
 	/** Handle to the console log window */
-	HANDLE ConsoleHandle;
+	Windows::HANDLE ConsoleHandle;
 
 	/** true if the color is currently set by the caller */
 	bool OverrideColorSet;

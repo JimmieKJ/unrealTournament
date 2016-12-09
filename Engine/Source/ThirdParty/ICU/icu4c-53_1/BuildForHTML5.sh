@@ -1,8 +1,19 @@
 #!/bin/bash
 
+SYSTEM=$(uname)
+if [[ $SYSTEM == *'_NT-'* ]]; then
+	echo "ERROR: unable to run configure from windows"
+	echo "ERROR: see Build_All_HTML5_libs.rc for details"
+	exit
+fi
+
+
+# ----------------------------------------
+ICU_HTML5=$(pwd)
+
 cd ../../HTML5/
 	. ./Build_All_HTML5_libs.rc
-cd -
+cd "$ICU_HTML5"
 
 
 # ----------------------------------------
@@ -49,7 +60,7 @@ export ac_cv_override_placement_new_ok="yes"
 # ----------------------------------------
 # MAKE
 
-build_all ()
+build_all()
 {
 	echo
 	echo BUILDING $OPTIMIZATION
@@ -61,8 +72,9 @@ build_all ()
 	cd html5_build$OPTIMIZATION
 
 	COMMONCOMPILERFLAGS="$OPTIMIZATION -DUCONFIG_NO_TRANSLITERATION=1 -DU_USING_ICU_NAMESPACE=0 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -DU_STATIC_IMPLEMENTATION -DU_OVERRIDE_CXX_ALLOCATION=1"
+	EMFLAGS="-msse -msse2 -s FULL_ES2=1 -s USE_PTHREADS=1 -std=c++11"
 
-	emconfigure ./../source/configure CFLAGS="$COMMONCOMPILERFLAGS" CXXFLAGS="$COMMONCOMPILERFLAGS -std=c++11" CPPFLAGS="$COMMONCOMPILERFLAGS" LDFLAGS="$OPTIMIZATION" ICULIBSUFFIX="$LIB_SUFFIX" AR="emcc" ARFLAGS="$OPTIMIZATION -o" RANLIB="echo" --disable-debug --enable-release --enable-static --disable-shared --disable-extras --disable-samples --disable-tools --disable-tests
+	emconfigure ./../source/configure CFLAGS="$COMMONCOMPILERFLAGS $EMFLAGS" CXXFLAGS="$COMMONCOMPILERFLAGS $EMFLAGS -std=c++11" CPPFLAGS="$COMMONCOMPILERFLAGS $EMFLAGS" LDFLAGS="$OPTIMIZATION $EMFLAGS" ICULIBSUFFIX="$LIB_SUFFIX" AR="emcc" ARFLAGS="$OPTIMIZATION $EMFLAGS -o" RANLIB="echo" --disable-debug --enable-release --enable-static --disable-shared --disable-extras --disable-samples --disable-tools --disable-tests
 
 	# for some reason ICULIBSUFFIX needs to be manually edited
 	mv icudefs.mk icudefs.mk.save

@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "TextNamespaceUtil.h"
+#include "Internationalization/TextNamespaceUtil.h"
 
 FString TextNamespaceUtil::BuildFullNamespace(const FString& InTextNamespace, const FString& InPackageNamespace, const bool bAlwaysApplyPackageNamespace)
 {

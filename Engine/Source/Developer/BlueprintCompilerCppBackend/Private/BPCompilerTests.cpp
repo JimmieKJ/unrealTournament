@@ -1,6 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintCompilerCppBackendModulePrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/Object.h"
+#include "UObject/Package.h"
+#include "UObject/UnrealType.h"
+#include "Serialization/ArchiveObjectCrc32.h"
+#include "Engine/Blueprint.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
 
 class FArchiveSkipTransientObjectCRC32 : public FArchiveObjectCrc32
 {
@@ -72,9 +83,9 @@ private:
 // Helper functions introduced to load classes (generated or native:
 static UClass* GetGeneratedClass(const TCHAR* TestFolder, const TCHAR* ClassName, FAutomationTestBase* Context, FOwnedObjectsHelper &OwnedObjects)
 {
-	FString FullName = FString::Printf(TEXT("/Engine/NotForLicensees/Automation/CompilerTests/%s/%s.%s"), TestFolder, ClassName, ClassName);
-	UBlueprint* Blueprint = LoadObject<UBlueprint>(NULL, *FullName);
-
+	FString FullName = FString::Printf(TEXT("/RuntimeTests/CompilerTests/%s/%s.%s"), TestFolder, ClassName, ClassName);
+	UBlueprint* Blueprint = LoadObject<UBlueprint>(nullptr, *FullName);
+	
 	if (!Blueprint)
 	{
 		Context->AddWarning(FString::Printf(TEXT("Missing blueprint for test: '%s'"), *FullName));
@@ -97,12 +108,12 @@ static UClass* GetNativeClass(const TCHAR* TestFolder, const TCHAR* ClassName, F
 {
 	CollectGarbage(RF_NoFlags);
 
-	FString FullName = FString::Printf(TEXT("/Engine/NotForLicensees/Automation/CompilerTests/%s/%s"), TestFolder, ClassName);
-	UPackage* NativePackage = CreatePackage(NULL, *FullName);
+	FString FullName = FString::Printf(TEXT("/RuntimeTests/CompilerTests/%s/%s"), TestFolder, ClassName);
+	UPackage* NativePackage = CreatePackage(nullptr, *FullName);
 	check(NativePackage);
 
 	const FString FStringFullPathName = FString::Printf(TEXT("%s.%s_C"), *FullName, ClassName);
-	UClass* Ret = (UClass*)ConstructDynamicType(*FStringFullPathName); //FindObjectFast<UClass>(NativePackage, *(FString(ClassName) + TEXT("_C")));
+	UClass* Ret = (UClass*)ConstructDynamicType(*FStringFullPathName, EConstructDynamicType::CallZConstructor); //FindObjectFast<UClass>(NativePackage, *(FString(ClassName) + TEXT("_C")));
 
 	if (!Ret)
 	{
@@ -190,7 +201,7 @@ static void Call(UObject* Target, const TCHAR* FunctionName, void* Args = nullpt
 }
 
 // Remove EAutomationTestFlags::Disabled to enable these tests, note that these will need to be moved into the ClientContext because we can only test cooked content:
-static const uint32 CompilerTestFlags = EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter;
+static const uint32 CompilerTestFlags = EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter;
 
 // Tests:
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerArrayTest, "Project.Blueprints.NativeBackend.ArrayTest", CompilerTestFlags)

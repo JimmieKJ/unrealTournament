@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Framework/Text/TextDecorators.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/Text/SlateImageRun.h"
 
 #if WITH_FANCY_TEXT
 
-#include "TextDecorators.h"
 
 TSharedRef< FWidgetDecorator > FWidgetDecorator::Create( FString InRunName, const FCreateWidget& InCreateWidgetDelegate )
 {

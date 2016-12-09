@@ -6,6 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "FinalPostProcessSettings.h"
+#include "ShaderParameters.h"
+
+class FShaderParameterMap;
+
 /** Pixel shader parameters needed for deferred passes. */
 class FCubemapShaderParameters
 {

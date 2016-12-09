@@ -5,7 +5,14 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Exporters/Exporter.h"
 #include "SequenceExporterT3D.generated.h"
+
+class FExportObjectInnerContext;
 
 UCLASS()
 class USequenceExporterT3D : public UExporter

@@ -1,15 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Blueprint/WidgetBlueprintGeneratedClass.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
 #include "Engine/Blueprint.h"
-#include "UserWidget.h"
-#include "WidgetAnimation.h"
-#include "DynamicPropertyPath.h"
+#include "Binding/DynamicPropertyPath.h"
+#include "Blueprint/WidgetBlueprintGeneratedClass.h"
+#include "Animation/WidgetAnimationBinding.h"
 
 #include "WidgetBlueprint.generated.h"
 
+class FCompilerResultsLog;
+class UEdGraph;
 class UMovieScene;
+class UUserWidget;
+class UWidgetAnimation;
 
 /** */
 USTRUCT()
@@ -175,12 +183,6 @@ class UMGEDITOR_API UWidgetBlueprint : public UBlueprint
 
 public:
 
-	//~ Begin UObject Interface
-	virtual bool NeedsLoadForClient() const override;
-	//~ End UObject Interface
-
-public:
-
 #if WITH_EDITORONLY_DATA
 	/** A tree of the widget templates to be created */
 	UPROPERTY()
@@ -227,6 +229,9 @@ public:
 	//~ End UBlueprint Interface
 
 	virtual void GatherDependencies(TSet<TWeakObjectPtr<UBlueprint>>& InDependencies) const override;
+
+	/** Returns true if the supplied user widget will not create a circular reference when added to this blueprint */
+	bool IsWidgetFreeFromCircularReferences(UUserWidget* UserWidget) const;
 
 	static bool ValidateGeneratedClass(const UClass* InClass);
 };

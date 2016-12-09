@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "XmppPrivatePCH.h"
 #include "XmppTests.h"
+#include "XmppPresence.h"
+#include "XmppModule.h"
+#include "XmppLog.h"
 
 FXmppTest::FXmppTest()
 	: bRunBasicPresenceTest(true)

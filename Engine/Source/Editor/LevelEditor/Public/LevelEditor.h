@@ -3,12 +3,26 @@
 #ifndef __LevelEditor_h__
 #define __LevelEditor_h__
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "Modules/ModuleInterface.h"
+#include "Framework/Docking/TabManager.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/Docking/LayoutService.h"
 #include "ILevelEditor.h"
-#include "ModuleInterface.h"
-#include "SEditorViewport.h"
-#include "Toolkits/AssetEditorToolkit.h" // For FExtensibilityManager
+#include "Toolkits/AssetEditorToolkit.h"
 #include "ViewportTypeDefinition.h"
+
+class AActor;
+class ILevelViewport;
+class IViewportLayoutEntity;
+class SLevelEditor;
+class UAnimSequence;
+class USkeletalMeshComponent;
+struct FViewportConstructionArgs;
+enum class EMapChangeType : uint8;
 
 extern const FName LevelEditorApp;
 

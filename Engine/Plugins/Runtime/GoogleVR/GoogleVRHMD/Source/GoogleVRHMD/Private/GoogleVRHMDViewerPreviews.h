@@ -15,7 +15,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IHeadMountedDisplay.h"
+#include "IGoogleVRHMDPlugin.h"
+
 #if !GOOGLEVRHMD_SUPPORTED_PLATFORMS
+
+struct FDistortionVertex;
 
 namespace GoogleCardboardViewerPreviews
 {

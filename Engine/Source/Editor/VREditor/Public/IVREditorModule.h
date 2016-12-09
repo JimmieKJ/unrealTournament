@@ -1,9 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "ModuleManager.h"
-#include "IVREditorMode.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
 /**
  * The public interface to this module
@@ -35,13 +36,6 @@ public:
 	}
 
 	/**
-	 * Gets the editor mode ID for the VREditor mode
-	 *
-	 * @return	Editor mode ID (for FEditorModeTools) of the VREditor mode
-	 */
-	virtual FEditorModeID GetVREditorModeID() const = 0;
-
-	/**
 	 * Checks whether or not editor VR features are enabled
 	 *
 	 * @return	True if VR mode is on
@@ -64,5 +58,12 @@ public:
 	 * @param	bForceWithoutHMD	If set to true, will enter VR mode without switching to HMD/stereo.  This can be useful for testing.
 	 */
 	virtual void EnableVREditor( const bool bEnable, const bool bForceWithoutHMD = false ) = 0;
+
+	/** 
+	 * Check if the VR Editor is currently running
+	 *
+	 * @return True if the VREditor is currently running 
+	 */
+	virtual bool IsVREditorModeActive() = 0;
 };
 

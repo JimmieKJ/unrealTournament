@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/NameTypes.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Stats/Stats.h"
 #include "RuntimeAssetCacheInterface.h"
 #include "RuntimeAssetCacheAsyncWorker.h"
+
+class FRuntimeAssetCacheBucket;
+class IRuntimeAssetCacheBuilder;
 
 /** Stats. */
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("RAC ASync Wait Time"), STAT_RAC_ASyncWaitTime, STATGROUP_RAC, );

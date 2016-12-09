@@ -1,12 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "AI/Navigation/NavigationSystem.h"
-#include "AI/Navigation/NavAgentInterface.h"
-#include "AI/Navigation/RecastNavMesh.h"
-#include "EnvironmentQuery/Contexts/EnvQueryContext_Querier.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
 #include "EnvironmentQuery/Tests/EnvQueryTest_PathfindingBatch.h"
+#include "Engine/World.h"
+#include "AI/Navigation/RecastNavMesh.h"
 
 #if WITH_RECAST
 #include "AI/Navigation/PImplRecastNavMesh.h"

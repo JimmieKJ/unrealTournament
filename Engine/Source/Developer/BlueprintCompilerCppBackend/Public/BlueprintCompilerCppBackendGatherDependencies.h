@@ -2,9 +2,11 @@
 
 #pragma  once
 
-#include "Engine/BlueprintGeneratedClass.h"
-#include "Engine/UserDefinedStruct.h"
-#include "Engine/UserDefinedEnum.h"
+#include "CoreMinimal.h"
+
+class UBlueprintGeneratedClass;
+class UUserDefinedEnum;
+class UUserDefinedStruct;
 
 /** The struct gathers dependencies of a converted BPGC */
 struct BLUEPRINTCOMPILERCPPBACKEND_API FGatherConvertedClassDependencies
@@ -36,8 +38,12 @@ public:
 
 	UClass* GetFirstNativeOrConvertedClass(UClass* InClass, bool bExcludeBPDataOnly = false) const;
 
+	TSet<const UObject*> AllDependencies() const;
+
 public:
 	bool WillClassBeConverted(const UBlueprintGeneratedClass* InClass) const;
+
+	static void GatherAssetReferencedByUDSDefaultValue(TSet<UObject*>& Dependencies, UUserDefinedStruct* Struct);
 
 protected:
 	void DependenciesForHeader();

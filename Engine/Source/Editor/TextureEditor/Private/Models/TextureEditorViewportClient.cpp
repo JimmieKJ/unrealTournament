@@ -1,11 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TextureEditorPrivatePCH.h"
-#include "CanvasTypes.h"
+#include "Models/TextureEditorViewportClient.h"
+#include "Widgets/Layout/SScrollBar.h"
 #include "CanvasItem.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Engine/Texture2D.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
 #include "Engine/TextureCube.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/TextureRenderTargetCube.h"
+#include "UnrealEdGlobals.h"
+#include "CubemapUnwrapUtils.h"
+#include "Slate/SceneViewport.h"
+#include "Texture2DPreview.h"
+#include "TextureEditorSettings.h"
+#include "Widgets/STextureEditorViewport.h"
+#include "CanvasTypes.h"
 #include "ImageUtils.h"
 
 

@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ITargetDeviceProxyManager.h"
+#include "Interfaces/ILauncherWorker.h"
+
+class ILauncher;
 
 /** Type definition for shared pointers to instances of ILauncher. */
 typedef TSharedPtr<class ILauncher> ILauncherPtr;

@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "CoreMinimal.h"
+#include "Containers/StringConv.h"
+#include "Containers/UnrealString.h"
+#include "CoreGlobals.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "Misc/OutputDeviceError.h"
+#include "Misc/FeedbackContext.h"
 #include "CrashReportClientApp.h"
-#include "LinuxPlatformCrashContext.h"
+#include "Linux/LinuxPlatformCrashContext.h"
 #include <locale.h>
 
 extern int32 ReportCrash(const FLinuxCrashContext& Context);	// FIXME: handle expose it someplace else?

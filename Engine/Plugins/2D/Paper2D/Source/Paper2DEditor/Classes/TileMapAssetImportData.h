@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/Texture.h"
+#include "EditorFramework/AssetImportData.h"
 #include "TileMapAssetImportData.generated.h"
+
+class UPaperTileSet;
 
 USTRUCT()
 struct FTileSetImportMapping

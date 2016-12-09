@@ -1,14 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Perception/AIPerceptionSystem.h"
+#include "EngineGlobals.h"
+#include "TimerManager.h"
+#include "Engine/Engine.h"
+#include "AISystem.h"
 #include "Perception/AISense_Hearing.h"
-#include "Perception/AISense_Sight.h"
-#include "Perception/AISense_Team.h"
-#include "Perception/AISense_Touch.h"
-#include "Perception/AISense_Prediction.h"
-#include "Perception/AISense_Damage.h"
 #include "Perception/AISenseConfig.h"
+#include "Perception/AIPerceptionComponent.h"
+#include "VisualLogger/VisualLogger.h"
 #include "Perception/AISenseEvent.h"
 
 DECLARE_CYCLE_STAT(TEXT("Perception System"),STAT_AI_PerceptionSys,STATGROUP_AI);
@@ -555,7 +555,7 @@ void UAIPerceptionSystem::RegisterAllPawnsAsSourcesForSense(FAISenseID SenseID)
 	UWorld* World = GetWorld();
 	for (auto PawnIt = World->GetPawnIterator(); PawnIt; ++PawnIt)
 	{
-		if (*PawnIt)
+		if (PawnIt->Get())
 		{
 			RegisterSource(SenseID, **PawnIt);
 		}

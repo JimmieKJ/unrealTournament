@@ -6,12 +6,17 @@
 //~=============================================================================
 
 #pragma once
-#include "Components/SceneComponent.h"
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "ParticleEmitterInstances.h"
-#include "Scalability.h"
 #include "ParticleEmitter.generated.h"
 
 class UInterpCurveEdSetup;
+class UParticleLODLevel;
+class UParticleSystemComponent;
 
 //~=============================================================================
 //	Burst emissions
@@ -209,6 +214,11 @@ class UParticleEmitter : public UObject
 	FVector2D PivotOffset;
 	int32 TypeDataOffset;
 	int32 TypeDataInstanceOffset;
+
+	/** Particle alignment overrides */
+	uint32 bRemoveHMDRollInVR : 1;
+	float MinFacingCameraBlendDistance;
+	float MaxFacingCameraBlendDistance;
 
 	// Array of modules that want emitter instance data
 	TArray<UParticleModule*> ModulesNeedingInstanceData;

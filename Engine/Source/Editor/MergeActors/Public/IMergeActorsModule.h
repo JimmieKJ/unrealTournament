@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ModuleManager.h"
-#include "IMergeActorsTool.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
+class IMergeActorsTool;
 
 /**
  * Merge Actors module interface

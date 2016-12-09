@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "VectorVM.h"
 
+struct FVectorVMContext;
 
 namespace VectorVM
 {

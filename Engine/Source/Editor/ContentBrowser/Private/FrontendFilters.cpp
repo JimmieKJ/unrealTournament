@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ContentBrowserPCH.h"
 #include "FrontendFilters.h"
+#include "Framework/Commands/UIAction.h"
+#include "Textures/SlateIcon.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "ISourceControlModule.h"
-#include "ObjectTools.h"
+#include "Editor.h"
 #include "AssetToolsModule.h"
+#include "ICollectionManager.h"
 #include "CollectionManagerModule.h"
-
+#include "ObjectTools.h"
 
 /////////////////////////////////////////
 // FFrontendFilter_Text

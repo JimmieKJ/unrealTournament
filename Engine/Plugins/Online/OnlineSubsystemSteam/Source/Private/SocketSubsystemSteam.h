@@ -2,10 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
 #include "SocketSubsystem.h"
 #include "IPAddress.h"
 #include "OnlineSubsystemSteamTypes.h"
+#include "Containers/Ticker.h"
 #include "OnlineSubsystemSteamPackage.h"
+
+class Error;
 
 /**
  * Windows specific socket subsystem implementation

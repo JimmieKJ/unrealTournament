@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "Apple/ApplePlatformFile.h"
+#include "UnrealString.h"
+
 class IFileHandle;
 class FApplePlatformFile;
 

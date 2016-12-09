@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Audio.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "SoundMix.generated.h"
+
+class USoundClass;
+struct FPropertyChangedEvent;
 
 USTRUCT()
 struct FAudioEQEffect

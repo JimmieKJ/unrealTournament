@@ -1,12 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "OnlineSubsystemPackage.h"
-#include "OnlineSubsystemTypes.h"
-#include "OnlineNotificationTransportInterface.h"
 
-// forward declarations
-class IOnlineNotificationTransport;
+#include "CoreMinimal.h"
+#include "OnlineSubsystemPackage.h"
+
+class FUniqueNetId;
 struct FOnlineNotification;
 
 /** Whether a handler function handled a particular notification */

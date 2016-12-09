@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PerforceSourceControlPrivatePCH.h"
 #include "PerforceSourceControlRevision.h"
+#include "PerforceSourceControlPrivate.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
 #include "PerforceSourceControlModule.h"
-#include "PerforceSourceControlProvider.h"
 #include "PerforceConnection.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "PerforceSourceControl"
 

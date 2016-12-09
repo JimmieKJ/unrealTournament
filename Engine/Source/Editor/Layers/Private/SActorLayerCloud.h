@@ -2,7 +2,26 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "EditorStyleSet.h"
+#include "ActorLayerCollectionViewModel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Editor/Layers/Private/ActorLayerViewModel.h"
+
 #define LOCTEXT_NAMESPACE "LayerCloud"
+
+class ULayer;
 
 /**
  *	Displays a list of Layers in a "cloud" like format to the user

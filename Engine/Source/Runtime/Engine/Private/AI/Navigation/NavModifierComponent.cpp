@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "AI/NavigationModifier.h"
 #include "AI/Navigation/NavModifierComponent.h"
+#include "GameFramework/Actor.h"
+#include "Components/PrimitiveComponent.h"
+#include "AI/NavigationModifier.h"
 #include "AI/Navigation/NavAreas/NavArea_Null.h"
 #include "AI/NavigationOctree.h"
 #include "PhysicsEngine/BodySetup.h"

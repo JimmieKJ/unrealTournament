@@ -2,9 +2,14 @@
 
 #pragma once
 
-#include "Toolkits/IToolkitHost.h"
+#include "CoreMinimal.h"
+#include "Engine/EngineBaseTypes.h"
 #include "Toolkits/AssetEditorToolkit.h"
 #include "PhysicsPublic.h"
+
+class UStaticMesh;
+class UStaticMeshComponent;
+class UStaticMeshSocket;
 
 /**
  * Public interface to Static Mesh Editor
@@ -212,6 +217,9 @@ public:
 
 	/** Unregisters a delegate to be called after an Undo operation */
 	virtual void UnregisterOnPostUndo( SWidget* Widget ) = 0;
+
+	/** Get the active view mode */
+	virtual EViewModeIndex GetViewMode() const = 0;
 };
 
 

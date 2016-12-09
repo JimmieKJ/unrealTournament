@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SocketsPrivatePCH.h"
 #include "SocketSubsystemAndroid.h"
+#include "SocketSubsystemModule.h"
+#include "IPAddress.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
 #include "ModuleManager.h"
 
 #include <sys/ioctl.h>

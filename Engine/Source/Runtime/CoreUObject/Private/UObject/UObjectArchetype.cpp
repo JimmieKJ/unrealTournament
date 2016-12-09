@@ -4,8 +4,19 @@
 	UObjectArchetype.cpp: Unreal object archetype relationship management
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
+#include "CoreMinimal.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
 
+#if !defined(USE_EVENT_DRIVEN_ASYNC_LOAD)
+#error "USE_EVENT_DRIVEN_ASYNC_LOAD must be defined"
+#endif
+
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+COREUOBJECT_API bool GIgnoreGetArchetypeFromRequiredInfo_RF_NeedsLoad = false;
+#endif
 
 UObject* UObject::GetArchetypeFromRequiredInfo(UClass* Class, UObject* Outer, FName Name, EObjectFlags ObjectFlags)
 {
@@ -33,11 +44,12 @@ UObject* UObject::GetArchetypeFromRequiredInfo(UClass* Class, UObject* Outer, FN
 			else if (!!(ObjectFlags&RF_InheritableComponentTemplate) && Outer->IsA<UClass>())
 			{
 				for (auto SuperClassArchetype = static_cast<UClass*>(Outer)->GetSuperClass();
-					SuperClassArchetype && SuperClassArchetype->HasAllClassFlags(CLASS_CompiledFromBlueprint);
+				SuperClassArchetype && SuperClassArchetype->HasAllClassFlags(CLASS_CompiledFromBlueprint);
 					SuperClassArchetype = SuperClassArchetype->GetSuperClass())
 				{
 					Result = static_cast<UObject*>(FindObjectWithOuter(SuperClassArchetype, Class, Name));
-					if (Result)
+					// We can have invalid archetypes halfway through the hierarchy, keep looking if it's pending kill or transient
+					if (Result && !Result->IsPendingKill() && !Result->HasAnyFlags(RF_Transient))
 					{
 						break;
 					}
@@ -58,6 +70,17 @@ UObject* UObject::GetArchetypeFromRequiredInfo(UClass* Class, UObject* Outer, FN
 			Result = Class->GetDefaultObject();
 		}
 	}
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+	//if (!GIgnoreGetArchetypeFromRequiredInfo_RF_NeedsLoad)
+	if (!GIsInitialLoad)
+	{
+		if (Result && Result->HasAnyFlags(RF_NeedLoad))
+		{
+			UE_LOG(LogClass, Fatal, TEXT("%s had RF_NeedLoad when being set up as an archetype of %s in %s"), *GetFullNameSafe(Result), *GetFullNameSafe(Class), *GetFullNameSafe(Outer));
+		}
+		check(!Result || !Result->HasAnyFlags(RF_NeedLoad));
+	}
+#endif
 
 	return Result;
 }

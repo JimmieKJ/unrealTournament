@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerExtension_Spectator.h"
+#include "InputCoreTypes.h"
+#include "Engine/World.h"
 #include "GameplayDebuggerPlayerManager.h"
 #include "Engine/DebugCameraController.h"
 #include "Engine/Player.h"

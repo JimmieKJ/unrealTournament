@@ -545,7 +545,8 @@ public:
 	 * in the same bucket is often not a useful comparison and skill is better
 	 */
 	int32 PingBucketSize;
-
+	/** Search hash used by the online subsystem to disambiguate search queries, stamped every time FindSession is called */
+	int32 PlatformHash;
 	/** Amount of time to wait for the search results. May not apply to all platforms. */
 	float TimeoutInSeconds;
 
@@ -555,6 +556,7 @@ public:
 		MaxSearchResults(1),
 		bIsLanQuery(false),
 		PingBucketSize(0),
+		PlatformHash(0),
 		TimeoutInSeconds(0.0f)
 	{
 		QuerySettings.Set(SETTING_MAPNAME, FString(TEXT("")), EOnlineComparisonOp::Equals);

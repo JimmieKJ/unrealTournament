@@ -2,24 +2,9 @@
 
 #pragma once
 
-
-/**
- * Default predicate class. Assumes < operator is defined for the template type.
- */
-template<typename T>
-struct TLess
-{
-	FORCEINLINE bool operator()(const T& A, const T& B) const { return A < B; }
-};
-
-/**
- * Utility predicate class. Assumes < operator is defined for the template type.
- */
-template<typename T>
-struct TGreater
-{
-	FORCEINLINE bool operator()(const T& A, const T& B) const { return B < A; }
-};
+#include "CoreTypes.h"
+#include "HAL/PlatformMath.h"
+#include "Templates/Less.h"
 
 /**
  * Helper class for dereferencing pointer types in Sort function

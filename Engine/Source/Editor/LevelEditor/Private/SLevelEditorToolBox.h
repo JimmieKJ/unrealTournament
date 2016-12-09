@@ -3,6 +3,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Textures/SlateIcon.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Editor.h"
+#include "ILevelEditor.h"
+#include "Misc/NotifyHook.h"
+
+class FExtender;
+class SBorder;
+
 /**
  * Tools for the level editor                   
  */

@@ -1,17 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
-#include "LandscapeEdMode.h"
+#include "LandscapeEditorDetailCustomization_MiscTools.h"
+#include "Widgets/Text/STextBlock.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "LandscapeEditorObject.h"
-#include "LandscapeEditorDetails.h"
-#include "LandscapeEditorDetailCustomizations.h"
 
 #include "DetailLayoutBuilder.h"
-#include "DetailCategoryBuilder.h"
-#include "IDetailPropertyRow.h"
 #include "DetailWidgetRow.h"
-#include "IDetailGroup.h"
-#include "PropertyHandle.h"
+#include "DetailCategoryBuilder.h"
 
 #include "ScopedTransaction.h"
 

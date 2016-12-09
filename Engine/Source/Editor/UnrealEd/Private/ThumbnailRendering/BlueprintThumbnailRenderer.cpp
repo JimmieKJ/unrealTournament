@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "ThumbnailRendering/BlueprintThumbnailRenderer.h"
+#include "ShowFlags.h"
+#include "SceneView.h"
+#include "Misc/App.h"
 
 // FPreviewScene derived helpers for rendering
-#include "EngineModule.h"
 #include "RendererInterface.h"
-#include "Engine/SimpleConstructionScript.h"
+#include "EngineModule.h"
 #include "Engine/SCS_Node.h"
 
 UBlueprintThumbnailRenderer::UBlueprintThumbnailRenderer(const FObjectInitializer& ObjectInitializer)
@@ -76,7 +78,15 @@ bool UBlueprintThumbnailRenderer::CanVisualizeAsset(UObject* Object)
 void UBlueprintThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32 Width, uint32 Height, FRenderTarget* RenderTarget, FCanvas* Canvas)
 {
 	UBlueprint* Blueprint = Cast<UBlueprint>(Object);
-	if (Blueprint && Blueprint->GeneratedClass)
+
+	// Strict validation - it may hopefully fix UE-35705.
+	const bool bIsBlueprintValid = IsValid(Blueprint)
+		&& IsValid(Blueprint->GeneratedClass)
+		&& Blueprint->bHasBeenRegenerated
+		//&& Blueprint->IsUpToDate() - This condition makes the thumbnail blank whenever the BP is dirty. It seems too strict.
+		&& !Blueprint->bBeingCompiled
+		&& !Blueprint->HasAnyFlags(RF_Transient);
+	if (bIsBlueprintValid)
 	{
 		TSharedRef<FBlueprintThumbnailScene> ThumbnailScene = ThumbnailScenes.EnsureThumbnailScene(Blueprint->GeneratedClass);
 

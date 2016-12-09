@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
 #include "NiagaraNode.h"
+#include "NiagaraGraph.h"
 #include "EdGraphSchema_Niagara.h"
 
 UNiagaraNode::UNiagaraNode(const FObjectInitializer& ObjectInitializer)
@@ -24,10 +24,10 @@ void UNiagaraNode::ReallocatePins()
 	for (int32 OldPinIndex = 0; OldPinIndex < OldPins.Num(); ++OldPinIndex)
 	{
 		UEdGraphPin* OldPin = OldPins[OldPinIndex];
-		if (UEdGraphPin** MatchingNewPin = Pins.FindByPredicate([&](UEdGraphPin* Pin){ return Pin->Direction == OldPin->Direction && Pin->PinName == OldPin->PinName; }))
+		UEdGraphPin** MatchingNewPin = Pins.FindByPredicate([&](UEdGraphPin* Pin){ return Pin->Direction == OldPin->Direction && Pin->PinName == OldPin->PinName; });
+		if (MatchingNewPin && *MatchingNewPin && OldPin)
 		{
-			if (*MatchingNewPin && OldPin)
-				(*MatchingNewPin)->CopyPersistentDataFromOldPin(*OldPin);
+			(*MatchingNewPin)->CopyPersistentDataFromOldPin(*OldPin);
 		}
 		OldPin->Modify();
 		OldPin->BreakAllPinLinks();

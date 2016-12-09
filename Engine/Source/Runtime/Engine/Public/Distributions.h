@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Math/RandomStream.h"
+
 /** Usually checkSlow for performance. */
 #define checkDistribution check
 

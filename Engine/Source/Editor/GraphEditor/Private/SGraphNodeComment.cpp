@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
 #include "SGraphNodeComment.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EdGraphNode_Comment.h"
+#include "GraphEditorSettings.h"
+#include "SGraphPanel.h"
+#include "SCommentBubble.h"
 //#include "TextWrapperHelpers.h"
-#include "BlueprintEditorUtils.h"
 #include "TutorialMetaData.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 namespace SCommentNodeDefs
 {

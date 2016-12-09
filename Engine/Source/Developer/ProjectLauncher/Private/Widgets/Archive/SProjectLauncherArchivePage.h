@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Models/ProjectLauncherModel.h"
+
+enum class ECheckBoxState : uint8;
 
 /**
  * Implements the profile page for the session launcher wizard.

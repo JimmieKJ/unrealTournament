@@ -2,26 +2,8 @@
 
 #pragma once
 
-class UEdGraphPin;
-
-/////////////////////////////////////////////////////
-// FGraphPinHandle
-
-/** A handle to a pin, defined by its owning node's GUID, and the pin's name. Used to reference a pin without referring to its widget */
-struct GRAPHEDITOR_API FGraphPinHandle
-{
-	/** The GUID of the node to which this pin belongs */
-	FGuid NodeGuid;
-
-	/** The GUID of the pin we are referencing */
-	FGuid PinId;
-
-	/** Constructor */
-	FGraphPinHandle(UEdGraphPin* InPin);
-
-	/** Find a pin widget in the specified panel from this handle */
-	TSharedPtr<class SGraphPin> FindInGraphPanel(const class SGraphPanel& InPanel) const;
-};
+#include "CoreMinimal.h"
+#include "SGraphPin.h"
 
 /////////////////////////////////////////////////////
 // FGraphSplineOverlapResult

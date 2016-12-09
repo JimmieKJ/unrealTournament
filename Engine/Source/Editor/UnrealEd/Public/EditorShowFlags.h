@@ -4,6 +4,12 @@
 #ifndef _EditorShowFlags_h_
 #define _EditorShowFlags_h_
 
+#include "CoreMinimal.h"
+#include "Framework/Commands/InputChord.h"
+#include "ShowFlags.h"
+
+class FLevelEditorViewportClient;
+
 /**
  * @todo Slate: Copied from wxLevelViewportToolBar.  We need both systems to work for now.                   
  */

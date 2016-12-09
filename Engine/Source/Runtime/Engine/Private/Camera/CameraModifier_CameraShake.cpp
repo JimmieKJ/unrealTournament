@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Camera/CameraModifier_CameraShake.h"
+#include "EngineGlobals.h"
+#include "Camera/CameraShake.h"
+#include "Camera/PlayerCameraManager.h"
+#include "Engine/Engine.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UCameraModifier_CameraShake

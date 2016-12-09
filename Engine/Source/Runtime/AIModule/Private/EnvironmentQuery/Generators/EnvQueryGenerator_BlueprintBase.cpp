@@ -1,12 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "EnvironmentQuery/Generators/EnvQueryGenerator_BlueprintBase.h"
+#include "GameFramework/Actor.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_ActorBase.h"
 #include "EnvironmentQuery/Contexts/EnvQueryContext_Querier.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_Point.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType_Point.h"
-#include "EnvironmentQuery/Generators/EnvQueryGenerator_BlueprintBase.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_Actor.h"
-#include "AI/Navigation/RecastNavMesh.h"
 
 #define LOCTEXT_NAMESPACE "EnvQueryGenerator"
 

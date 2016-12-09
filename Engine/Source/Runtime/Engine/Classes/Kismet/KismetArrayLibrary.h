@@ -1,7 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/Script.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/UnrealType.h"
+#include "UObject/ScriptMacros.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "KismetArrayLibrary.generated.h"
+
+class AActor;
 
 UCLASS()
 class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
@@ -117,7 +128,7 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	Index			The index in the array to get an item from
 	 *@return	The item stored at the index
 	*/
-	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Get", CompactNodeTitle = "GET", ArrayParm = "TargetArray", ArrayTypeDependentParams = "Item"), Category="Utilities|Array")
+	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Get", CompactNodeTitle = "GET", ArrayParm = "TargetArray", ArrayTypeDependentParams = "Item", BlueprintThreadSafe), Category="Utilities|Array")
 	static void Array_Get(const TArray<int32>& TargetArray, int32 Index, int32& Item);
 
 	/* 
@@ -138,7 +149,7 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	ItemToFind		The item to look for
 	 *@return	The index the item was found at, or -1 if not found
 	*/
-	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Find Item", CompactNodeTitle = "FIND", ArrayParm = "TargetArray", ArrayTypeDependentParams = "ItemToFind", AutoCreateRefTerm = "ItemToFind"), Category="Utilities|Array")
+	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Find Item", CompactNodeTitle = "FIND", ArrayParm = "TargetArray", ArrayTypeDependentParams = "ItemToFind", AutoCreateRefTerm = "ItemToFind", BlueprintThreadSafe), Category="Utilities|Array")
 	static int32 Array_Find(const TArray<int32>& TargetArray, const int32& ItemToFind);
 
 	/*  
@@ -148,7 +159,7 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	ItemToFind		The item to look for
 	 *@return	True if the item was found within the array
 	*/
-	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Contains Item", CompactNodeTitle = "CONTAINS", ArrayParm = "TargetArray", ArrayTypeDependentParams = "ItemToFind", AutoCreateRefTerm = "ItemToFind"), Category="Utilities|Array")
+	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "Contains Item", CompactNodeTitle = "CONTAINS", ArrayParm = "TargetArray", ArrayTypeDependentParams = "ItemToFind", AutoCreateRefTerm = "ItemToFind", BlueprintThreadSafe), Category="Utilities|Array")
 	static bool Array_Contains(const TArray<int32>& TargetArray, const int32& ItemToFind);
 
 	/*  
@@ -174,7 +185,7 @@ class ENGINE_API UKismetArrayLibrary : public UBlueprintFunctionLibrary
 	 *@param	IndexToTest		The Index, that we want to test for being valid
 	 *@return	True if the Index is Valid, i.e. greater than or equal to zero, and less than the number of elements in TargetArray.
 	*/
-	UFUNCTION(BlueprintPure, CustomThunk, meta = (DisplayName = "Is Valid Index", CompactNodeTitle = "IS VALID INDEX", ArrayParm = "TargetArray"), Category = "Utilities/Array")
+	UFUNCTION(BlueprintPure, CustomThunk, meta = (DisplayName = "Is Valid Index", CompactNodeTitle = "IS VALID INDEX", ArrayParm = "TargetArray", BlueprintThreadSafe), Category = "Utilities/Array")
 	static bool Array_IsValidIndex(const TArray<int32>& TargetArray, int32 IndexToTest);
 
 	// Native functions that will be called by the below custom thunk layers, which read off the property address, and call the appropriate native handler

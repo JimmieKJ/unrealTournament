@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ITargetDevice.h"
+
+class ITargetDeviceService;
 
 /** Type definition for shared pointers to instances of ITargetDeviceService. */
 typedef TSharedPtr<class ITargetDeviceService, ESPMode::ThreadSafe> ITargetDeviceServicePtr;

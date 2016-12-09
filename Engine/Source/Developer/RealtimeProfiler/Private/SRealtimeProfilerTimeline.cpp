@@ -1,13 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RealtimeProfilerPrivatePCH.h"
-#include "SlateBasics.h"
-#include "TaskGraphInterfaces.h"
-#include "VisualizerEvents.h"
 #include "SRealtimeProfilerTimeline.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Widgets/Input/SSlider.h"
 #include "STimeline.h"
 
-#include "SRealtimeProfilerVisualizer.h"
 #include "SRealtimeProfilerLineGraph.h"
 #include "RealtimeProfiler.h"
 

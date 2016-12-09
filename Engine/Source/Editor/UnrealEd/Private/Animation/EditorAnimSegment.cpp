@@ -4,9 +4,8 @@
 	AnimMontage.cpp: Montage classes that contains slots
 =============================================================================*/ 
 
-#include "UnrealEd.h"
-#include "UnrealType.h"
-#include "List.h"
+#include "Animation/EditorAnimSegment.h"
+#include "Animation/AnimMontage.h"
 
 
 

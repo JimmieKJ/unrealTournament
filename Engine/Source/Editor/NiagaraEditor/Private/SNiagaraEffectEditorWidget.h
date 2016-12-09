@@ -2,27 +2,43 @@
 
 #pragma once
 
-#include "Visibility.h"
-#include "SlateBasics.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
-#include "WorkflowOrientedApp/SContentReference.h"
-#include "SCheckBox.h"
-#include "SNameComboBox.h"
-#include "SCurveEditor.h"
-#include "AssetThumbnail.h"
-#include "SNiagaraEffectEditorViewport.h"
+#include "CoreMinimal.h"
+#include "Misc/NotifyHook.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
+#include "Materials/Material.h"
+#include "Curves/CurveVector.h"
 #include "NiagaraComponent.h"
-#include "NiagaraEffect.h"
+#include "WorkflowOrientedApp/SContentReference.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "SCurveEditor.h"
 #include "NiagaraSimulation.h"
 #include "NiagaraEffectRenderer.h"
 #include "ComponentReregisterContext.h"
-#include "SNumericEntryBox.h"
-#include "Curves/CurveVector.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "NiagaraScriptSourceBase.h"
 
 #define NGED_SECTION_BORDER SNew(SBorder).BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder")).Padding(2.0f).HAlign(HAlign_Left)
 #define NGED_SECTION_LIGHTBORDER SNew(SBorder).BorderImage(FEditorStyle::GetBrush("ToolPanel.LightGroupBorder")).Padding(2.0f).HAlign(HAlign_Left)
 #define NGED_SECTION_DARKBORDER SNew(SBorder).BorderImage(FEditorStyle::GetBrush("ToolPanel.DarkGroupBorder")).Padding(2.0f).HAlign(HAlign_Left)
+
+class FNiagaraEffectEditor;
+class FNiagaraEffectInstance;
+class IDetailsView;
+class SComboButton;
+class SScrollBox;
+class UNiagaraEffect;
 
 const FLinearColor RedCol(0.5, 0.1, 0.1);
 const FLinearColor GreenCol(0.1, 0.5, 0.1);

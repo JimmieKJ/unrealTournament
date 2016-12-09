@@ -1,9 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SettingsEditorPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "ISettingsContainer.h"
+#include "ISettingsEditorModel.h"
+#include "Models/SettingsEditorModel.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Widgets/SSettingsEditor.h"
 
 #include "ISettingsEditorModule.h"
-#include "NotificationManager.h"
 #include "ISettingsModule.h"
 #include "Engine/DeveloperSettings.h"
 

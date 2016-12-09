@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
 #include "GameplayTaskResource.generated.h"
+
+struct FPropertyChangedEvent;
 
 UCLASS(Abstract, config = "Game", hidedropdown)
 class GAMEPLAYTASKS_API UGameplayTaskResource : public UObject

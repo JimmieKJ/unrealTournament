@@ -2,8 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "AI/Navigation/NavAreas/NavArea.h"
 #include "AI/Navigation/NavAreas/NavAreaMeta.h"
 #include "NavAreaMeta_SwitchByAgent.generated.h"
+
+class AActor;
 
 /** Class containing definition of a navigation area */
 UCLASS(Abstract)

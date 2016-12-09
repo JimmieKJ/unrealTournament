@@ -1,7 +1,13 @@
 // Copyright 2015 Kite & Lightning.  All rights reserved.
 
-#include "StereoPanoramaPrivatePCH.h"
+#include "StereoPanoramaManager.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/GameModeBase.h"
+#include "Engine/World.h"
 
+#if WITH_EDITOR
+#include "Editor.h"
+#endif
 
 //Slice Controls
 IConsoleVariable* FStereoPanoramaManager::HorizontalAngularIncrement = IConsoleManager::Get().RegisterConsoleVariable(TEXT("SP.HorizontalAngularIncrement"), 1.0f, TEXT("The number of degrees per horizontal step. Must be a factor of 360."), ECVF_Default);
@@ -55,6 +61,13 @@ void FStereoPanoramaManager::PanoramicScreenshot(const TArray<FString>& Args)
 
 void FStereoPanoramaManager::PanoramicScreenshot(const int32 InStartFrame, const int32 InEndFrame, FStereoCaptureDoneDelegate& InStereoCaptureDoneDelegate)
 {
+#if WITH_EDITOR
+	if (GIsEditor)
+	{
+		FEditorDelegates::EndPIE.AddRaw(this, &FStereoPanoramaManager::EndPIE);
+	}
+#endif
+
 	// Construct a capturer that has stereo USceneCaptureComponent2D components
     SceneCapturer = NewObject<USceneCapturer>(USceneCapturer::StaticClass());
 	SceneCapturer->AddToRoot();
@@ -63,11 +76,24 @@ void FStereoPanoramaManager::PanoramicScreenshot(const int32 InStartFrame, const
 	SceneCapturer->SetInitialState(InStartFrame, InEndFrame, InStereoCaptureDoneDelegate);
 }
 
+#if WITH_EDITOR
+void FStereoPanoramaManager::EndPIE(bool bIsSimulating)
+{
+	Cleanup();
+}
+#endif
 
 void FStereoPanoramaManager::Cleanup()
 {
 	if (SceneCapturer != nullptr)
 	{
+#if WITH_EDITOR
+		if (GIsEditor)
+		{
+			FEditorDelegates::EndPIE.RemoveAll(this);
+		}
+#endif
+
 		SceneCapturer->Reset();
 		SceneCapturer->RemoveFromRoot();
 

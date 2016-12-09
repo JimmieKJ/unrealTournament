@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "LevelEditor.h"
+
 #include "HighresScreenshotUI.h"
-#include "SCaptureRegionWidget.h"
-#include "HighResScreenshot.h"
-#include "SNumericEntryBox.h"
+#include "Framework/Docking/TabManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Widgets/Input/SSlider.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 TWeakPtr<class SWindow> SHighResScreenshotDialog::CurrentWindow = NULL;
 TWeakPtr<class SHighResScreenshotDialog> SHighResScreenshotDialog::CurrentDialog = NULL;

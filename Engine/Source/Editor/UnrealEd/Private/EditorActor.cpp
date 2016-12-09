@@ -1,33 +1,60 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/GarbageCollection.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/Level.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
+#include "Engine/World.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Components/LightComponent.h"
+#include "Model.h"
+#include "Exporters/Exporter.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/Brush.h"
+#include "Editor/EditorEngine.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Factories/LevelFactory.h"
+#include "Editor/GroupActor.h"
+#include "Animation/SkeletalMeshActor.h"
+#include "Particles/Emitter.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/PropertyPortFlags.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/LevelScriptActor.h"
+#include "Engine/Light.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/ChildActorComponent.h"
+#include "Engine/Polys.h"
+#include "Kismet2/ComponentEditorUtils.h"
+#include "Engine/Selection.h"
+#include "EngineUtils.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "Dialogs/Dialogs.h"
 #include "ScopedTransaction.h"
-#include "Factories.h"
+#include "Engine/LevelStreaming.h"
 #include "LevelUtils.h"
 #include "BusyCursor.h"
 #include "BSPOps.h"
 #include "EditorLevelUtils.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "Layers/Layers.h"
+#include "LevelEditorViewport.h"
+#include "Layers/ILayers.h"
 #include "Editor/GeometryMode/Public/GeometryEdMode.h"
 #include "Editor/GeometryMode/Public/EditorGeometry.h"
 #include "ActorEditorUtils.h"
-#include "InstancedFoliageActor.h"
-#include "Animation/SkeletalMeshActor.h"
-#include "Particles/Emitter.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UnrealExporter.h"
-#include "Engine/Polys.h"
-#include "Engine/Selection.h"
-#include "Engine/LevelStreaming.h"
-#include "GameFramework/WorldSettings.h"
-#include "EngineUtils.h"
-#include "Engine/LevelScriptActor.h"
-#include "Engine/Light.h"
-#include "GameFramework/Pawn.h"
-#include "Engine/StaticMeshActor.h"
-#include "ComponentEditorUtils.h"
 #include "LevelEditor.h"
 #include "Engine/LODActor.h"
 
@@ -343,7 +370,7 @@ void UUnrealEdEngine::edactPasteSelected(UWorld* InWorld, bool bDuplicate, bool 
 			Actor->InvalidateLightingCache();
 			// Call PostEditMove to update components, etc.
 			Actor->PostEditMove(true);
-			Actor->PostDuplicate(false);
+			Actor->PostDuplicate(EDuplicateMode::Normal);
 			Actor->CheckDefaultSubobjects();
 
 			// Request saves/refreshes.
@@ -626,7 +653,7 @@ bool UUnrealEdEngine::CanDeleteSelectedActors( const UWorld* InWorld, const bool
 	return bContainsDeletable;
 }
 
-bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletionCanHappen)
+bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletionCanHappen, bool bWarnAboutReferences)
 {
 	if ( bVerifyDeletionCanHappen )
 	{
@@ -721,9 +748,14 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 		TArray<AActor*> ReferencingActors;
 		TArray<UClass*> ClassTypesToIgnore;
 		ClassTypesToIgnore.Add( ALevelScriptActor::StaticClass() );
-		FBlueprintEditorUtils::FindActorsThatReferenceActor( Actor, ClassTypesToIgnore, ReferencingActors );
+		// The delete warning is meant for actor referneces that affect gameplay.  Group actors do not affect gameplay and should not show up as a warning.
+		ClassTypesToIgnore.Add( AGroupActor::StaticClass() );
+		if( bWarnAboutReferences )
+		{
+			FBlueprintEditorUtils::FindActorsThatReferenceActor( Actor, ClassTypesToIgnore, ReferencingActors );
+		}
 
-		bool bReferencedByLevelScript = (NULL != LSB && FBlueprintEditorUtils::FindNumReferencesToActorFromLevelScript(LSB, Actor) > 0);
+		bool bReferencedByLevelScript = bWarnAboutReferences && (nullptr != LSB && FBlueprintEditorUtils::FindNumReferencesToActorFromLevelScript(LSB, Actor) > 0);
 		bool bReferencedByActor = false;
 		bool bReferencedByLODActor = false;
 		for (AActor* ReferencingActor : ReferencingActors)
@@ -1880,7 +1912,7 @@ public:
 		{
 			if ( OutStaticMeshActor.StaticMeshActor->GetStaticMeshComponent() )
 			{
-				OutStaticMeshActor.StaticMesh = OutStaticMeshActor.StaticMeshActor->GetStaticMeshComponent()->StaticMesh;
+				OutStaticMeshActor.StaticMesh = OutStaticMeshActor.StaticMeshActor->GetStaticMeshComponent()->GetStaticMesh();
 			}
 		}
 		return OutStaticMeshActor.HasStaticMesh();

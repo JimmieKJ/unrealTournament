@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "GenericPlatform/ICursor.h"
+#include "Input/ReplyBase.h"
+
+class SWidget;
 class SWindow;
 
 /**

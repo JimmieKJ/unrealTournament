@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "UnitConversion.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/DeveloperSettings.h"
+#include "Math/UnitConversion.h"
 
 #include "EditorProjectSettings.generated.h"
 
@@ -55,25 +58,25 @@ private:
 	bool bDisplayUnits;
 
 	UPROPERTY(EditAnywhere, config, Category=Units, AdvancedDisplay, meta=(DisplayName="Distance/Length", Tooltip="Choose a set of units in which to display distance/length values."))
-	TArray<TEnumAsByte<EUnit>> DistanceUnits;
+	TArray<EUnit> DistanceUnits;
 
 	UPROPERTY(EditAnywhere, config, Category=Units, AdvancedDisplay, meta=(DisplayName="Mass", Tooltip="Choose a set of units in which to display masses."))
-	TArray<TEnumAsByte<EUnit>> MassUnits;
+	TArray<EUnit> MassUnits;
 
 	UPROPERTY(EditAnywhere, config, Category=Units, AdvancedDisplay, meta=(DisplayName="Time", Tooltip="Choose the units in which to display time."))
-	TArray<TEnumAsByte<EUnit>> TimeUnits;
+	TArray<EUnit> TimeUnits;
 	
 	UPROPERTY(EditAnywhere, config, Category=Units, AdvancedDisplay, meta=(DisplayName="Angles", Tooltip="Choose the units in which to display angles.", ValidEnumValues="Degrees, Radians"))
-	TEnumAsByte<EUnit> AngleUnits;
+	EUnit AngleUnits;
 
 	UPROPERTY(EditAnywhere, config, Category=Units, AdvancedDisplay, meta=(DisplayName="Speed/Velocity", Tooltip="Choose the units in which to display speeds and velocities.", ValidEnumValues="MetersPerSecond, KilometersPerHour, MilesPerHour"))
-	TEnumAsByte<EUnit> SpeedUnits;
+	EUnit SpeedUnits;
 
 	UPROPERTY(EditAnywhere, config, Category=Units, AdvancedDisplay, meta=(DisplayName="Temperature", Tooltip="Choose the units in which to display temperatures.", ValidEnumValues="Celsius, Farenheit, Kelvin"))
-	TEnumAsByte<EUnit> TemperatureUnits;
+	EUnit TemperatureUnits;
 
 	UPROPERTY(EditAnywhere, config, Category=Units, AdvancedDisplay, meta=(DisplayName="Force", Tooltip="Choose the units in which to display forces.", ValidEnumValues="Newtons, PoundsForce, KilogramsForce"))
-	TEnumAsByte<EUnit> ForceUnits;
+	EUnit ForceUnits;
 
 public:
 	/** Deprecated properties that didn't live very long */

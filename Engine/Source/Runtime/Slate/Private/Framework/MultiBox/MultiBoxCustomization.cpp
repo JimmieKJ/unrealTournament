@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "MultiBox.h"
-#include "MultiBoxCustomization.h"
-#include "Json.h"
-#include "RemoteConfigIni.h"
-#include "UICommandDragDropOp.h"
+#include "Framework/MultiBox/MultiBoxCustomization.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Framework/Commands/InputBindingManager.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Misc/RemoteConfigIni.h"
+#include "Framework/Commands/UICommandDragDropOp.h"
 
 void SCustomToolbarPreviewWidget::Construct( const FArguments& InArgs )
 {

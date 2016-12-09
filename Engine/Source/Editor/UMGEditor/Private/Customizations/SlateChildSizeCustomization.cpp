@@ -1,17 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-
-#include "PropertyEditing.h"
-#include "ObjectEditorUtils.h"
-#include "WidgetGraphSchema.h"
-#include "ScopedTransaction.h"
-#include "BlueprintEditorUtils.h"
-
-#include "SlateChildSizeCustomization.h"
-#include "SNumericEntryBox.h"
-#include "Components/SlateWrapperTypes.h"
+#include "Customizations/SlateChildSizeCustomization.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
 #include "Widgets/Input/SCheckBox.h"
+#include "DetailWidgetRow.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

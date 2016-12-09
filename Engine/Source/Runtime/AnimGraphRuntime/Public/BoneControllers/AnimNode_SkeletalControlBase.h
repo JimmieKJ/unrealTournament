@@ -7,10 +7,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BonePose.h"
 #include "Animation/AnimNodeBase.h"
 #include "Animation/InputScaleBias.h"
 #include "AnimNode_SkeletalControlBase.generated.h"
 
+class USkeletalMeshComponent;
 
 USTRUCT()
 struct ANIMGRAPHRUNTIME_API FAnimNode_SkeletalControlBase : public FAnimNode_Base

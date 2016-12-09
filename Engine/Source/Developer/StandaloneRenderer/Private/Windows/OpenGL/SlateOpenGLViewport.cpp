@@ -4,6 +4,8 @@
 
 #include "OpenGL/SlateOpenGLRenderer.h"
 
+#include "Widgets/SWindow.h"
+
 FSlateOpenGLViewport::FSlateOpenGLViewport()
 :	bFullscreen(false)
 {

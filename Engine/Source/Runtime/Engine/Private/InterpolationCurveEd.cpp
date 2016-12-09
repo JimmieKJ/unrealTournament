@@ -4,8 +4,9 @@
 	InterpolationCurveEd.cpp: Implementation of CurveEdInterface for various track types.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
 #include "Matinee/InterpTrackMove.h"
+#include "Matinee/InterpTrackFloatBase.h"
 #include "Matinee/InterpTrackMoveAxis.h"
 #include "Matinee/InterpTrackVectorBase.h"
 #include "Matinee/InterpTrackLinearColorBase.h"

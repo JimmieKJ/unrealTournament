@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StaticMeshEditorModule.h"
-
-#include "AutomationCommon.h"
-#include "SStaticMeshEditorViewport.h"
-#include "StaticMeshEditorViewportClient.h"
+#include "CoreMinimal.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/AutomationTest.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Engine/StaticMesh.h"
+#include "Editor.h"
+#include "Toolkits/AssetEditorManager.h"
+
+#include "Tests/AutomationCommon.h"
+#include "StaticMeshEditorViewportClient.h"
 
 namespace EditorViewButtonHelper
 {
@@ -95,11 +100,13 @@ namespace EditorViewButtonHelper
 				{
 					AutomationParameters.ViewportClient->EngineShowFlags.SetVertexColors(true);
 					AutomationParameters.ViewportClient->EngineShowFlags.SetLighting(false);
+					AutomationParameters.ViewportClient->EngineShowFlags.SetIndirectLightingCache(false);
 				}
 				else
 				{
 					AutomationParameters.ViewportClient->EngineShowFlags.SetVertexColors(false);
 					AutomationParameters.ViewportClient->EngineShowFlags.SetLighting(true);
+					AutomationParameters.ViewportClient->EngineShowFlags.SetIndirectLightingCache(true);
 				}
 				break;
 			case EStaticMeshFlag::Grid:
@@ -203,9 +210,9 @@ bool FStaticMeshEditorTest::RunTest(const FString& Parameters)
 
 		//Wait for the window to load and then take the initial screen shot		
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.5f));
-		if( FAutomationTestFramework::GetInstance().IsScreenshotAllowed() )
+		if( FAutomationTestFramework::Get().IsScreenshotAllowed() )
 		{
-			AutomationCommon::GetScreenshotPath(StaticMeshTestName, WindowParameters.ScreenshotName, false);
+			AutomationCommon::GetScreenshotPath(StaticMeshTestName, WindowParameters.ScreenshotName);
 			ADD_LATENT_AUTOMATION_COMMAND(FTakeEditorScreenshotCommand(WindowParameters));
 			ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f));
 		}
@@ -218,10 +225,10 @@ bool FStaticMeshEditorTest::RunTest(const FString& Parameters)
 			ADD_LATENT_AUTOMATION_COMMAND(EditorViewButtonHelper::FPerformStaticMeshFlagToggle(AutomationParameters));
 			ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f));
 
-			if( FAutomationTestFramework::GetInstance().IsScreenshotAllowed() )
+			if( FAutomationTestFramework::Get().IsScreenshotAllowed() )
 			{
 				//Take the screenshot
-				AutomationCommon::GetScreenshotPath(StaticMeshTestName, WindowParameters.ScreenshotName, false);
+				AutomationCommon::GetScreenshotPath(StaticMeshTestName, WindowParameters.ScreenshotName);
 				ADD_LATENT_AUTOMATION_COMMAND(FTakeEditorScreenshotCommand(WindowParameters));
 
 				//Wait so the screenshots have a chance to save

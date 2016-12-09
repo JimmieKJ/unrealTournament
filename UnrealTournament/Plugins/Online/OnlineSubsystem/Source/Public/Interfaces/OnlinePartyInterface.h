@@ -805,25 +805,35 @@ public:
 	virtual bool SendInvitation(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FPartyInvitationRecipient& Recipient, const FOnlinePartyData& ClientData = FOnlinePartyData(), const FOnSendPartyInvitationComplete& Delegate = FOnSendPartyInvitationComplete()) = 0;
 
 	/**
-	* Accept an invite to a party. NOTE this does not initiate a join.
-	*
-	* @param LocalUserId - user making the request
-	* @param PartyId - id of an existing party
-	* @param Delegate - called on completion
-	*
-	* @return true if task was started
-	*/
+	 * Accept an invite to a party. NOTE this does not initiate a join.
+	 *
+	 * @param LocalUserId - user making the request
+	 * @param SenderId - id of the sender
+	 *
+	 * @return true if task was started
+	 */
 	virtual bool AcceptInvitation(const FUniqueNetId& LocalUserId, const FUniqueNetId& SenderId) = 0;
 
 	/**
-	* Reject an invite to a party
-	*
-	* @param LocalUserId - user making the request
-	* @param PartyId - id of an existing party
-	*
-	* @return true if task was started
-	*/
+	 * Reject an invite to a party
+	 *
+	 * @param LocalUserId - user making the request
+	 * @param SenderId - id of the sender
+	 *
+	 * @return true if task was started
+	 */
 	virtual bool RejectInvitation(const FUniqueNetId& LocalUserId, const FUniqueNetId& SenderId) = 0;
+
+	/**
+	 * Clear invitations from a user because the invitations were handled by the application
+	 *
+	 * @param LocalUserId - user making the request
+	 * @param SenderId - id of the sender
+	 * @param PartyId - optional, if specified will clear only the one invitation, if blank all invitations from the sender will be cleared
+	 *
+	 * @return true if task was started
+	 */
+	virtual void ClearInvitations(const FUniqueNetId& LocalUserId, const FUniqueNetId& SenderId, const FOnlinePartyId* PartyId = nullptr) = 0;
 
 	/**
 	 * Kick a user from an existing party

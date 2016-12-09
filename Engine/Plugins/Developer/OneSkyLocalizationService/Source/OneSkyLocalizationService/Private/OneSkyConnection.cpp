@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OneSkyLocalizationServicePrivatePCH.h"
-#include "OneSkyLocalizationServiceModule.h"
 #include "OneSkyConnection.h"
+#include "Modules/ModuleManager.h"
+#include "ILocalizationServiceModule.h"
+#include "OneSkyLocalizationServiceModule.h"
 #include "OneSkyLocalizationServiceCommand.h"
-#include "OneSkyLocalizationServiceProvider.h"
-#include "MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "OneSkyConnection"
 

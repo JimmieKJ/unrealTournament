@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "SAnimationGraphNode.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "AnimationNodes/SAnimationGraphNode.h"
 
 class SGraphNodeAnimationResult : public SAnimationGraphNode
 {

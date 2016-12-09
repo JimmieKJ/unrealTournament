@@ -4,14 +4,12 @@
 	LightRendering.cpp: Light rendering implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "UniformBuffer.h"
-#include "ShaderParameters.h"
 #include "LightRendering.h"
+#include "EngineGlobals.h"
+#include "DeferredShadingRenderer.h"
 #include "LightPropagationVolume.h"
-#include "SceneUtils.h"
+#include "ScenePrivate.h"
+#include "PostProcess/SceneFilterRendering.h"
 
 DECLARE_FLOAT_COUNTER_STAT(TEXT("Lights"), Stat_GPU_Lights, STATGROUP_GPU);
 
@@ -27,6 +25,12 @@ static FAutoConsoleVariableRef CVarAllowDepthBoundsTest(
 	TEXT("If true, use enable depth bounds test when rendering defered lights.")
 	);
 
+static int32 bAllowSimpleLights = 1;
+static FAutoConsoleVariableRef CVarAllowSimpleLights(
+	TEXT("r.AllowSimpleLights"),
+	bAllowSimpleLights,
+	TEXT("If true, we allow simple (ie particle) lights")
+);
 
 // Implement a version for directional lights, and a version for point / spot lights
 IMPLEMENT_SHADER_TYPE(template<>,TDeferredLightVS<false>,TEXT("DeferredLightVertexShaders"),TEXT("DirectionalVertexMain"),SF_Vertex);
@@ -333,7 +337,10 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 	SCOPE_CYCLE_COUNTER(STAT_LightRendering);
 
 	FSimpleLightArray SimpleLights;
-	GatherSimpleLights(ViewFamily, Views, SimpleLights);
+	if (bAllowSimpleLights)
+	{
+		GatherSimpleLights(ViewFamily, Views, SimpleLights);
+	}
 
 	TArray<FSortedLightSceneInfo, SceneRenderingAllocator> SortedLights;
 	SortedLights.Empty(Scene->Lights.Num());
@@ -703,7 +710,7 @@ void FDeferredShadingSceneRenderer::RenderStationaryLightOverlap(FRHICommandList
 		FSceneRenderTargets::Get(RHICmdList).BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 
 		// Clear to discard base pass values in scene color since we didn't skip that, to have valid scene depths
-		RHICmdList.Clear(true, FLinearColor::Black, false, (float)ERHIZBuffer::FarPlane, false, 0, FIntRect());
+		RHICmdList.ClearColorTexture(FSceneRenderTargets::Get(RHICmdList).GetSceneColorSurface(), FLinearColor::Black, FIntRect());
 
 		RenderLightArrayForOverlapViewmode(RHICmdList, Scene->Lights);
 
@@ -716,7 +723,11 @@ void FDeferredShadingSceneRenderer::RenderStationaryLightOverlap(FRHICommandList
 /** Sets up rasterizer and depth state for rendering bounding geometry in a deferred pass. */
 void SetBoundingGeometryRasterizerAndDepthState(FRHICommandList& RHICmdList, const FViewInfo& View, const FSphere& LightBounds)
 {
-	const bool bCameraInsideLightGeometry = ((FVector)View.ViewMatrices.ViewOrigin - LightBounds.Center).SizeSquared() < FMath::Square(LightBounds.W * 1.05f + View.NearClippingDistance * 2.0f);
+	const bool bCameraInsideLightGeometry = ((FVector)View.ViewMatrices.GetViewOrigin() - LightBounds.Center).SizeSquared() < FMath::Square(LightBounds.W * 1.05f + View.NearClippingDistance * 2.0f)
+		// Always draw backfaces in ortho
+		//@todo - accurate ortho camera / light intersection
+		|| !View.IsPerspectiveProjection();
+
 	if (bCameraInsideLightGeometry)
 	{
 		// Render backfaces with depth tests disabled since the camera is inside (or close to inside) the light geometry
@@ -796,7 +807,7 @@ static void SetShaderTemplLightingSimple(
 // Use DBT to allow work culling on shadow lights
 void CalculateLightNearFarDepthFromBounds(const FViewInfo& View, const FSphere &LightBounds, float &NearDepth, float &FarDepth)
 {
-	const FMatrix ViewProjection = View.ViewMatrices.GetViewProjMatrix();
+	const FMatrix ViewProjection = View.ViewMatrices.GetViewProjectionMatrix();
 	const FVector ViewDirection = View.GetViewDirection();
 	
 	// push camera relative bounds center along view vec by its radius
@@ -984,7 +995,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 	if (bStencilDirty)
 	{
 		// Clear the stencil buffer to 0.
-		RHICmdList.Clear(false, FColor(0, 0, 0), false, (float)ERHIZBuffer::FarPlane, true, 0, FIntRect());
+		RHICmdList.ClearDepthStencilTexture(FSceneRenderTargets::Get(RHICmdList).GetSceneDepthTexture(), EClearDepthStencil::Stencil, (float)ERHIZBuffer::FarPlane, 0, FIntRect());
 	}
 }
 

@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "EngineAnalytics.h"
-#include "EngineBuildSettings.h"
+#include "Misc/Guid.h"
+#include "Stats/Stats.h"
+#include "Misc/ConfigCacheIni.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Misc/EngineBuildSettings.h"
 #include "AnalyticsBuildType.h"
-#include "AnalyticsET.h"
+#include "AnalyticsEventAttribute.h"
 #include "IAnalyticsProviderET.h"
+#include "AnalyticsET.h"
 #include "GeneralProjectSettings.h"
 #include "EngineSessionManager.h"
+#include "Misc/EngineVersion.h"
 
 bool FEngineAnalytics::bIsInitialized;
 bool FEngineAnalytics::bIsEditorRun;
@@ -64,7 +70,7 @@ void FEngineAnalytics::Initialize()
 	bIsGameRun = !IsRunningCommandlet() && !FPlatformProperties::IsProgram() && FPlatformProperties::RequiresCookedData();
 #endif
 
-#if UE_BUILD_DEBUG
+#if UE_BUILD_DEBUG || (PLATFORM_XBOXONE && UE_BUILD_SHIPPING) // Can't allow analytics on packaged XB1 games, as per XRs (titles can opt back in on a case-by-case basis with Microsoft)
 	const bool bShouldInitAnalytics = false;
 #else
 	// Outside of the editor, the only engine analytics usage is the hardware survey
@@ -91,12 +97,12 @@ void FEngineAnalytics::Initialize()
 			const TCHAR* UE4TypeStr = bHasOverride ? *UE4TypeOverride : FEngineBuildSettings::IsPerforceBuild() ? TEXT("Perforce") : TEXT("UnrealEngine");
 			if (bIsEditorRun)
 			{
-				Config.APIKeyET = FString::Printf(TEXT("UTEditor.%s.%s"), UE4TypeStr, BuildTypeStr);
+				Config.APIKeyET = FString::Printf(TEXT("UEEditor.%s.%s"), UE4TypeStr, BuildTypeStr);
 			}
 			else
 			{
 				const UGeneralProjectSettings& ProjectSettings = *GetDefault<UGeneralProjectSettings>();
-				Config.APIKeyET = FString::Printf(TEXT("UTGame.%s.%s|%s|%s"), UE4TypeStr, BuildTypeStr, *ProjectSettings.ProjectID.ToString(), *ProjectSettings.ProjectName);
+				Config.APIKeyET = FString::Printf(TEXT("UEGame.%s.%s|%s|%s"), UE4TypeStr, BuildTypeStr, *ProjectSettings.ProjectID.ToString(), *ProjectSettings.ProjectName);
 			}
 		}
 		if (Config.APIServerET.IsEmpty())
@@ -106,6 +112,10 @@ void FEngineAnalytics::Initialize()
 		if (Config.AppEnvironment.IsEmpty())
 		{
 			Config.AppEnvironment = TEXT("datacollector-source");
+		}
+		if (Config.AppVersionET.IsEmpty())
+		{
+			Config.AppVersionET = FEngineVersion::Current().ToString();
 		}
 
 
@@ -124,11 +134,12 @@ void FEngineAnalytics::Initialize()
 					FPlatformMisc::SetStoredValue(TEXT("Epic Games"), TEXT("Unreal Engine/Privacy"), TEXT("AnonymousID"), AnonymousId);
 				}
 
-				Analytics->SetUserID(FString::Printf(TEXT("ANON-%s"), *AnonymousId));
+				// Place the anonymous user id into the first field of the UserID set, as it most closely matches the LoginID semantics.
+				Analytics->SetUserID(FString::Printf(TEXT("ANON-%s||"), *AnonymousId));
 			}
 			else
 			{
-				Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
+				Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetLoginId(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
 			}
 
 			TArray<FAnalyticsEventAttribute> StartSessionAttributes;
@@ -159,6 +170,7 @@ void FEngineAnalytics::Initialize()
 
 void FEngineAnalytics::Shutdown(bool bIsEngineShutdown)
 {
+	ensure(!Analytics.IsValid() || Analytics.IsUnique());
 	Analytics.Reset();
 	bIsInitialized = false;
 

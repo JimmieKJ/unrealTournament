@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EnvironmentQueryGraphNode.h"
 #include "EnvironmentQueryGraphNode_Option.generated.h"
+
+class UEdGraph;
 
 UCLASS()
 class UEnvironmentQueryGraphNode_Option : public UEnvironmentQueryGraphNode

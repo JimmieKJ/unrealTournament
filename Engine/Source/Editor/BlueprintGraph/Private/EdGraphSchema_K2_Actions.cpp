@@ -1,19 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "EdGraphSchema_K2_Actions.h"
+#include "Components/ActorComponent.h"
+#include "Layout/SlateRect.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "K2Node_Event.h"
+#include "K2Node_AddComponent.h"
+#include "K2Node_BaseMCDelegate.h"
+#include "K2Node_AddDelegate.h"
+#include "K2Node_CustomEvent.h"
+#include "K2Node_Literal.h"
+#include "K2Node_Timeline.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "EdGraphNode_Comment.h"
 
-#include "GraphEditorActions.h"
 #include "ScopedTransaction.h"
 #include "ComponentAssetBroker.h"
 #include "Kismet2/KismetEditorUtilities.h"
-#include "Editor/UnrealEd/Public/EdGraphUtilities.h"
-#include "EdGraph/EdGraphNode_Documentation.h"
-#include "EdGraphNode_Comment.h"
-#include "K2Node_Timeline.h"
-#include "K2Node_Literal.h"
-#include "K2Node_VariableGet.h"
-#include "K2Node_AddDelegate.h"
-#include "K2Node_CustomEvent.h"
+#include "EdGraphUtilities.h"
 
 
 #define SNAP_GRID (16) // @todo ensure this is the same as SNodePanel::GetSnapGridSize()
@@ -99,7 +105,8 @@ UEdGraphNode* FEdGraphSchemaAction_K2NewNode::PerformAction(class UEdGraph* Pare
 
 		// See if we need to recompile skeleton after adding this node, or just mark dirty
 		UK2Node* K2Node = Cast<UK2Node>(ResultNode);
-		if(K2Node != NULL && K2Node->NodeCausesStructuralBlueprintChange())
+		check(K2Node);
+		if(K2Node->NodeCausesStructuralBlueprintChange())
 		{
 			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 		}
@@ -490,13 +497,7 @@ void FEdGraphSchemaAction_K2AddCallOnActor::AddReferencedObjects( FReferenceColl
 {
 	FEdGraphSchemaAction_K2NewNode::AddReferencedObjects( Collector );
 
-	for ( int32 ActorIndex = 0; ActorIndex < LevelActors.Num(); ActorIndex++ )
-	{
-		if ( LevelActors[ActorIndex] != NULL )
-		{
-			Collector.AddReferencedObject( LevelActors[ActorIndex] );
-		}
-	}
+	Collector.AddReferencedObjects(LevelActors);
 }
 
 /////////////////////////////////////////////////////

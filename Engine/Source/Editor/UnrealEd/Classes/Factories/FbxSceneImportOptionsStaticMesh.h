@@ -5,6 +5,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "FbxSceneImportOptionsStaticMesh.generated.h"
 
 UENUM()

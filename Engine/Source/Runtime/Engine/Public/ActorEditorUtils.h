@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class AActor;
+class UActorComponent;
+
 namespace FActorEditorUtils
 {
 	/**

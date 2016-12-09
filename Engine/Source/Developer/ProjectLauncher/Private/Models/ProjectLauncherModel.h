@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/App.h"
+#include "Interfaces/ILauncherProfileManager.h"
+#include "Interfaces/ILauncher.h"
+#include "Common/GameProjectHelper.h"
+
+class FProjectLauncherModel;
+class SProjectLauncher;
 
 namespace ELauncherPanels
 {

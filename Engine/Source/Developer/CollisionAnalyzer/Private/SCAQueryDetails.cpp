@@ -1,6 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CollisionAnalyzerPCH.h"
+#include "SCAQueryDetails.h"
+#include "Components/PrimitiveComponent.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "CollisionAnalyzerStyle.h"
+#include "SCollisionAnalyzer.h"
 
 #define LOCTEXT_NAMESPACE "SCAQueryDetails"
 

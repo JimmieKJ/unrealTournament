@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
-#include "UObjectAnnotation.h"
 #include "Engine/Selection.h"
+#include "UObject/Package.h"
+#include "UObject/UObjectAnnotation.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSelection, Log, All);
 
@@ -194,12 +194,26 @@ void USelection::Serialize(FArchive& Ar)
 {
 	Super::Serialize( Ar );
 	Ar << SelectedObjects;
+
+	if(Ar.IsLoading())
+	{
+		// The set of selected objects may have changed, so make sure our annotations exactly match the list, otherwise
+		// UObject::IsSelected() could return a result that was different from the list of objects returned by GetSelectedObjects()
+		// This needs to happen in serialize because other code may check the selection state in PostEditUndo and the order of PostEditUndo is indeterminate.
+		GSelectedAnnotation.ClearAll();
+
+		for(TWeakObjectPtr<UObject>& ObjectPtr : SelectedObjects)
+		{
+			UObject* Object = ObjectPtr.Get(true);
+			GSelectedAnnotation.Set(Object);
+		}
+	}
 }
 
 bool USelection::Modify(bool bAlwaysMarkDirty/* =true */)
 {
 	// If the selection currently contains any PIE objects we should not be including it in the transaction buffer
-	for (auto ObjectPtr : SelectedObjects)
+	for (TWeakObjectPtr<UObject>& ObjectPtr : SelectedObjects)
 	{
 		UObject* Object = ObjectPtr.Get();
 		if (Object && Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor | PKG_ContainsScript | PKG_CompiledIn))
@@ -210,21 +224,3 @@ bool USelection::Modify(bool bAlwaysMarkDirty/* =true */)
 
 	return Super::Modify(bAlwaysMarkDirty);
 }
-
-#if WITH_EDITOR
-void USelection::PostEditUndo()
-{
-	Super::PostEditUndo();
-
-
-	// The set of selected objects may have changed, so make sure our annotations exactly match the list, otherwise
-	// UObject::IsSelected() could return a result that was different from the list of objects returned by GetSelectedObjects()
-	GSelectedAnnotation.ClearAll();
-
-	for (TWeakObjectPtr<UObject>& ObjectPtr : SelectedObjects)
-	{
-		UObject* Object = ObjectPtr.Get(true);
-		GSelectedAnnotation.Set(Object);
-	}
-}
-#endif

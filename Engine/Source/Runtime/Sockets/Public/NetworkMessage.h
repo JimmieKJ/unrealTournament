@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Serialization/BufferArchive.h"
+#include "Serialization/ArrayReader.h"
+
 enum
 { 
 	DEFAULT_TCP_FILE_SERVING_PORT=41899, // default port to use when making file server tcp connections (used if no protocol is specified)

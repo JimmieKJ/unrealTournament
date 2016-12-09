@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ImageCorePCH.h"
+#include "ImageCore.h"
+#include "Modules/ModuleManager.h"
 
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, ImageCore);

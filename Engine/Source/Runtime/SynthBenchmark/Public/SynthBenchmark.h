@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
-
+struct FGPUAdpater;
+struct FSynthBenchmarkResults;
 
 /**
  * The public interface to this module

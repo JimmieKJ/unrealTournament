@@ -2,8 +2,16 @@
 
 #pragma once
 
-#include "DecoratedDragDropOp.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/DragAndDrop.h"
 #include "CollectionManagerTypes.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
 
 class FCollectionDragDropOp : public FDecoratedDragDropOp
 {

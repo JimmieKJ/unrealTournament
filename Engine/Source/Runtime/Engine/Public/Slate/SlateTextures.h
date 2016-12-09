@@ -2,7 +2,14 @@
 
 #pragma once
 
-struct FSlateTextureData;
+#include "CoreMinimal.h"
+#include "RenderResource.h"
+#include "Textures/SlateTextureData.h"
+#include "RenderingThread.h"
+#include "Textures/SlateShaderResource.h"
+#include "TextureResource.h"
+#include "Engine/Texture.h"
+#include "Textures/SlateUpdatableTexture.h"
 
 /**
  * Encapsulates a Texture2DRHIRef for use by a Slate rendering implementation                   

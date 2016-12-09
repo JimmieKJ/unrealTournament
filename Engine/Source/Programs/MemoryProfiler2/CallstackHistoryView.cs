@@ -489,7 +489,7 @@ namespace MemoryProfiler2
 		{
 			if( FStreamInfo.GlobalInstance == null || GraphPoints.Count == 0 )
 			{
-				e.Graphics.DrawString( "No data to display", SnapshotFont, Pens.Black.Brush, GraphRect.Left, GraphRect.Top );
+				TextRenderer.DrawText(e.Graphics, "No data to display", SnapshotFont, new Point(GraphRect.Left, GraphRect.Top), Color.Black);
 			}
 			else
 			{
@@ -515,7 +515,7 @@ namespace MemoryProfiler2
 			// Y axis
 			MyGraphics.DrawLine( Pens.Black, GraphLeft, GraphTop, GraphLeft, GraphTop + GraphHeight );
 			int TrueGraphHeight = ( int )( VZoom * GraphHeight );
-			OwnerWindow.DrawYAxis( MyGraphics, Pens.Black, MajorTick, MainWindow.DEFAULT_MAJOR_TICK_WIDTH, MinorTick, MainWindow.DEFAULT_MINOR_TICK_WIDTH, GraphLeft, GraphTop, GraphHeight, VScrollValue, TrueGraphHeight, YAxisLabel, YAxisHeight, false, false );
+			OwnerWindow.DrawYAxis( MyGraphics, Pens.Black, Color.Black, MajorTick, MainWindow.DEFAULT_MAJOR_TICK_WIDTH, MinorTick, MainWindow.DEFAULT_MINOR_TICK_WIDTH, GraphLeft, GraphTop, GraphHeight, VScrollValue, TrueGraphHeight, YAxisLabel, YAxisHeight, false, false );
 
 			// X axis
 			MyGraphics.DrawLine( Pens.Black, GraphLeft, GraphTop + GraphHeight, GraphLeft + GraphWidth, GraphTop + GraphHeight );
@@ -563,7 +563,7 @@ namespace MemoryProfiler2
 					}
 				}
 
-				MyGraphics.DrawString( "Frames per gridline: " + FrameTick, SnapshotFont, Pens.Black.Brush, GraphLeft, GraphTop + GraphHeight + 5 );
+				TextRenderer.DrawText(MyGraphics, "Frames per gridline: " + FrameTick, SnapshotFont, new Point(GraphLeft, GraphTop + GraphHeight + 5), Color.Black);
 			}
 
 			int MinFrame = 1;
@@ -681,7 +681,7 @@ namespace MemoryProfiler2
 				{
 					if( e is OutOfMemoryException || e is ArgumentException )
 					{
-						MyGraphics.DrawString( "NOTE: Graph failed to render: Try zooming out", SnapshotFont, Brushes.Red, GraphLeft, 0 );
+						TextRenderer.DrawText(MyGraphics, "NOTE: Graph failed to render: Try zooming out", SnapshotFont, new Point(GraphLeft, 0), Color.Red);
 					}
 					else
 					{
@@ -723,18 +723,18 @@ namespace MemoryProfiler2
 						}
 
 						float PanelX = GraphLeft + SnapshotX - HScrollValue;
-						MyGraphics.DrawString( FStreamInfo.GlobalInstance.SnapshotList[ SnapshotIndex ].Description, SnapshotFont, Brushes.White, PanelX - 1, TextY - 1 );
-						MyGraphics.DrawString( FStreamInfo.GlobalInstance.SnapshotList[ SnapshotIndex ].Description, SnapshotFont, Brushes.White, PanelX - 1, TextY + 1 );
-						MyGraphics.DrawString( FStreamInfo.GlobalInstance.SnapshotList[ SnapshotIndex ].Description, SnapshotFont, Brushes.White, PanelX + 1, TextY - 1 );
-						MyGraphics.DrawString( FStreamInfo.GlobalInstance.SnapshotList[ SnapshotIndex ].Description, SnapshotFont, Brushes.White, PanelX + 1, TextY + 1 );
-						MyGraphics.DrawString( FStreamInfo.GlobalInstance.SnapshotList[ SnapshotIndex ].Description, SnapshotFont, DarkGrayPen.Brush, PanelX, TextY );
+						TextRenderer.DrawText(MyGraphics, FStreamInfo.GlobalInstance.SnapshotList[ SnapshotIndex ].Description, SnapshotFont, new Point((int)PanelX - 1, (int)TextY - 1), Color.White);
+						TextRenderer.DrawText(MyGraphics, FStreamInfo.GlobalInstance.SnapshotList[ SnapshotIndex ].Description, SnapshotFont, new Point((int)PanelX - 1, (int)TextY + 1), Color.White);
+						TextRenderer.DrawText(MyGraphics, FStreamInfo.GlobalInstance.SnapshotList[ SnapshotIndex ].Description, SnapshotFont, new Point((int)PanelX + 1, (int)TextY - 1), Color.White);
+						TextRenderer.DrawText(MyGraphics, FStreamInfo.GlobalInstance.SnapshotList[ SnapshotIndex ].Description, SnapshotFont, new Point((int)PanelX + 1, (int)TextY + 1), Color.White);
+						TextRenderer.DrawText(MyGraphics, FStreamInfo.GlobalInstance.SnapshotList[ SnapshotIndex ].Description, SnapshotFont, new Point((int)PanelX, (int)TextY), Color.DarkGray);
 					}
 				}
 			}
 
 			if( bGraphIncomplete )
 			{
-				MyGraphics.DrawString( "NOTE: This graph is incomplete", SnapshotFont, Brushes.Red, GraphLeft, 0 );
+				TextRenderer.DrawText(MyGraphics, "NOTE: This graph is incomplete", SnapshotFont, new Point(GraphLeft, 0), Color.Red);
 			}
 		}
 	}

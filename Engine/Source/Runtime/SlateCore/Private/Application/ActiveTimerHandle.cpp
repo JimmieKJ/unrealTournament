@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "ActiveTimerHandle.h"
+#include "Application/ActiveTimerHandle.h"
+#include "Types/SlateEnums.h"
 
 
 FActiveTimerHandle::FActiveTimerHandle(float InExecutionPeriod, FWidgetActiveTimerDelegate InTimerFunction, double InNextExecutionTime)

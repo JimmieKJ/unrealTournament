@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "UHTMakefile/StructArchiveProxy.h"
-#include "UHTMakefile/RepRecordArchiveProxy.h"
-#include "UHTMakefile/ImplementedInterfaceArchiveProxy.h"
+
+#include "CoreMinimal.h"
+#include "StructArchiveProxy.h"
+#include "RepRecordArchiveProxy.h"
+#include "ImplementedInterfaceArchiveProxy.h"
+
+class FUHTMakefile;
+class UClass;
+class FArchive;
 
 /* See UHTMakefile.h for overview how makefiles work. */
 struct FClassArchiveProxy : public FStructArchiveProxy

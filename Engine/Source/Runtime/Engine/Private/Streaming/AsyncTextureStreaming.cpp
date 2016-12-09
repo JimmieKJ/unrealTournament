@@ -4,10 +4,11 @@
 AsyncTextureStreaming.cpp: Definitions of classes used for texture streaming async task.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "AsyncTextureStreaming.h"
+#include "Streaming/AsyncTextureStreaming.h"
+#include "Misc/App.h"
+#include "Streaming/StreamingManagerTexture.h"
 
-void FAsyncTextureStreamingData::Init(TArray<FStreamingViewInfo> InViewInfos, float InLastUpdateTime, TArray<FLevelTextureManager>& LevelTextureManagers, FDynamicComponentTextureManager& DynamicComponentManager)
+void FAsyncTextureStreamingData::Init(TArray<FStreamingViewInfo> InViewInfos, float InLastUpdateTime, TIndirectArray<FLevelTextureManager>& LevelTextureManagers, FDynamicComponentTextureManager& DynamicComponentManager)
 {
 	ViewInfos = InViewInfos;
 	LastUpdateTime = InLastUpdateTime;
@@ -17,7 +18,10 @@ void FAsyncTextureStreamingData::Init(TArray<FStreamingViewInfo> InViewInfos, fl
 	StaticInstancesViews.Reset();
 	for (FLevelTextureManager& LevelManager : LevelTextureManagers)
 	{
-		StaticInstancesViews.Push(LevelManager.GetAsyncView());
+		if (LevelManager.IsInitialized() && LevelManager.GetLevel()->bIsVisible)
+		{
+			StaticInstancesViews.Push(LevelManager.GetAsyncView());
+		}
 	}
 }
 
@@ -477,6 +481,24 @@ void FAsyncTextureStreamingTask::UpdateLoadAndCancelationRequests_Async(int64 Me
 	}
 }
 
+void FAsyncTextureStreamingTask::UpdatePendingStreamingStatus_Async()
+{
+	TArray<FStreamingTexture>& StreamingTextures = StreamingManager.StreamingTextures;
+	const bool bIsStreamingPaused = StreamingManager.bPauseTextureStreaming;
+
+	PendingUpdateDirties.Empty();
+
+	for (int32 TextureIndex = 0; TextureIndex < StreamingTextures.Num() && !IsAborted(); ++TextureIndex)
+	{
+		const FStreamingTexture& StreamingTexture = StreamingTextures[TextureIndex];
+		if (StreamingTexture.bHasUpdatePending != StreamingTexture.HasUpdatePending(bIsStreamingPaused, HasAnyView()))
+		{
+			// The texture state are only updated on the gamethread, where we can make sure the UTextre is in sync.
+			PendingUpdateDirties.Add(TextureIndex);
+		}
+	}
+}
+
 void FAsyncTextureStreamingTask::DoWork()
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FAsyncTextureStreamingTask::DoWork"), STAT_AsyncTextureStreaming_DoWork, STATGROUP_StreamingDetails);
@@ -504,6 +526,9 @@ void FAsyncTextureStreamingTask::DoWork()
 
 	// Update load requests.
 	UpdateLoadAndCancelationRequests_Async(MemoryUsed, TempMemoryUsed);
+
+	// Update bHasStreamingUpdatePending
+	UpdatePendingStreamingStatus_Async();
 
 	STAT(UpdateStats_Async());
 }

@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphSchema.h"
 #include "EdGraphSchema_BehaviorTreeDecorator.generated.h"
+
+class UEdGraph;
 
 /** Action to add a node to the graph */
 USTRUCT()
@@ -47,7 +53,6 @@ class UEdGraphSchema_BehaviorTreeDecorator : public UEdGraphSchema
 	UPROPERTY()
 	FString PC_Boolean;
 
-	void GetBreakLinkToSubMenuActions(class FMenuBuilder& MenuBuilder, class UEdGraphPin* InGraphPin);
 	void AddPin(class UEdGraphNode* InGraphNode);
 	void RemovePin(class UEdGraphPin* InGraphPin);
 

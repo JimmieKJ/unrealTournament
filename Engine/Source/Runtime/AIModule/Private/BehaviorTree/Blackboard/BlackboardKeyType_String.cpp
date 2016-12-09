@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_String.h"
 
 const UBlackboardKeyType_String::FDataType UBlackboardKeyType_String::InvalidValue = FString();

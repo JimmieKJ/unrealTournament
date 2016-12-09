@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-
-#include "CompilerResultsLog.h"
 #include "K2Node_CallDataTableFunction.h"
+#include "EdGraphSchema_K2.h"
+
 
 UK2Node_CallDataTableFunction::UK2Node_CallDataTableFunction(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

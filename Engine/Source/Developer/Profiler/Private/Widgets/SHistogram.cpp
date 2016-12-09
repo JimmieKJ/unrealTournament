@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerPrivatePCH.h"
+#include "Widgets/SHistogram.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Misc/Paths.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/SOverlay.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorStyleSet.h"
+#include "ProfilerFPSAnalyzer.h"
+
 
 #define LOCTEXT_NAMESPACE "SHistogram"
+
 
 /*-----------------------------------------------------------------------------
 	SHistogram

@@ -6,6 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/EngineTypes.h"
+#include "Misc/StringAssetReference.h"
 #include "AutomationTestSettings.generated.h"
 
 
@@ -320,8 +325,8 @@ struct FEditorMapPerformanceTestDefinition
 	GENERATED_USTRUCT_BODY()
 	
 	/** Map to be used for the Performance Capture **/
-	UPROPERTY(config, EditAnywhere, Category = Automation, meta = (FilePathFilter = "umap"))
-	FFilePath PerformanceTestmap;
+	UPROPERTY(config, EditAnywhere, Category = Automation, meta=( AllowedClasses="World" ))
+	FStringAssetReference PerformanceTestmap;
 
 	/** How long is this test expected to run before stopping **/
 	UPROPERTY(config, EditAnywhere, Category = Automation, meta = (ToolTip = "This is the length of time in seconds that this test will run for before stopping."))
@@ -358,13 +363,13 @@ public:
 	/**
 	 * The automation test map to be used for several of the automation tests.
 	 */
-	UPROPERTY(config, EditAnywhere, Category=Automation, meta=(FilePathFilter = "umap"))
-	FFilePath AutomationTestmap;
+	UPROPERTY(config, EditAnywhere, Category = Automation, meta=( AllowedClasses="World" ))
+	FStringAssetReference AutomationTestmap;
 
 	/**
 	* The map to be used for the editor performance capture tool.
 	*/
-	UPROPERTY(config, EditAnywhere, Category = Automation, meta = (FilePathFilter = "umap"))
+	UPROPERTY(config, EditAnywhere, Category = Automation)
 	TArray<FEditorMapPerformanceTestDefinition> EditorPerformanceTestMaps;
 
 	/**
@@ -433,4 +438,9 @@ public:
 	UPROPERTY(config, EditAnywhere, Category = Automation, meta = (FilePathFilter = "umap"))
 	TArray<FLaunchOnTestSettings> LaunchOnSettings;
 
+	/**
+	 * The default resolution to take all automation screenshots at.
+	 */
+	UPROPERTY(EditAnywhere, config, Category=Screenshots)
+	FIntPoint DefaultScreenshotResolution;
 };

@@ -1,14 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
-#include "OnlineSessionInterfaceSteam.h"
 #include "OnlineSessionAsyncServerSteam.h"
-#include "OnlineSubsystemSteam.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
+#include "OnlineSubsystemUtils.h"
+#include "SocketSubsystem.h"
 #include "IPAddressSteam.h"
 #include "SteamSessionKeys.h"
 #include "SteamUtilities.h"
 
-#include "Engine.h"
 
 /** Turn on Steam filter generation output */
 #define DEBUG_STEAM_FILTERS 1
@@ -186,7 +186,7 @@ void UpdatePublishedSettings(UWorld* World, FNamedOnlineSession* Session)
 	// Update all the players names/scores
 	if (World)
 	{
-		AGameState const* const GameState = World->GameState;
+		AGameStateBase const* const GameState = World->GetGameState();
 		if (GameState)
 		{
 			for (int32 PlayerIdx=0; PlayerIdx < GameState->PlayerArray.Num(); PlayerIdx++)

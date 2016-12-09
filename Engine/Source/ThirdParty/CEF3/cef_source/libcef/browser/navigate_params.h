@@ -9,7 +9,7 @@
 
 #include <string>
 
-#include "libcef/common/upload_data.h"
+#include "libcef/common/net/upload_data.h"
 
 #include "content/public/browser/global_request_id.h"
 #include "content/public/common/referrer.h"
@@ -34,7 +34,7 @@ struct CefNavigateParams {
   content::Referrer referrer;
 
   // The frame that the request should be loaded in or -1 to use the main frame.
-  int64 frame_id;
+  int64_t frame_id;
 
   // Usually the URL of the document in the top-level window, which may be
   // checked by the third-party cookie blocking policy. Leaving it empty may

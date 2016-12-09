@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SessionFrontendPrivatePCH.h"
+#include "Widgets/Browser/SSessionBrowserCommandBar.h"
+#include "Widgets/SBoxPanel.h"
 
 
 #define LOCTEXT_NAMESPACE "SSessionBrowserCommandBar"

@@ -1,11 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "VirtualTrackArea.h"
-#include "Sequencer.h"
 #include "SSequencerTreeView.h"
-#include "SequencerHotspots.h"
-#include "MovieSceneSection.h"
+#include "GroupedKeyArea.h"
 
 FVirtualTrackArea::FVirtualTrackArea(const FSequencer& InSequencer, SSequencerTreeView& InTreeView, const FGeometry& InTrackAreaGeometry)
 	: FTimeToPixel(InTrackAreaGeometry, InSequencer.GetViewRange())

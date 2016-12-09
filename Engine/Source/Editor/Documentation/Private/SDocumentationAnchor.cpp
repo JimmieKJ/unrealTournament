@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DocumentationModulePrivatePCH.h"
 #include "SDocumentationAnchor.h"
-#include "DocumentationLink.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
 
 void SDocumentationAnchor::Construct(const FArguments& InArgs )

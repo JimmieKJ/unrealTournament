@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetRegistryPCH.h"
+#include "PathTree.h"
 
 bool FPathTree::CachePath(FName Path)
 {
@@ -32,9 +32,22 @@ bool FPathTree::CachePath(FName Path)
 		}
 	}
 
+	FName LastPath;
+
+	// Ensure an entry for the root of the path
+	{
+		static const FName PathRoot = "/";
+
+		if (!ParentPathToChildPaths.Contains(PathRoot))
+		{
+			ParentPathToChildPaths.Add(PathRoot);
+		}
+
+		LastPath = PathRoot;
+	}
+
 	// Walk each part of the path, adding known path entries if required
 	// This manipulates PathStr in-place to avoid making any string copies
-	FName LastPath;
 	TCHAR* PathCharPtr = &PathStr[1]; // Skip over the first / when scanning
 	for (;;)
 	{

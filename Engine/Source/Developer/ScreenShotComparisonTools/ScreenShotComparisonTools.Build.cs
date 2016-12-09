@@ -9,16 +9,19 @@ public class ScreenShotComparisonTools : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
+				"CoreUObject",
 			}
 		);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"AutomationMessages",
-				"CoreUObject",
 				"UnrealEdMessages",
 				"Slate",
                 "EditorStyle",
+				"ImageWrapper",
+				"Json",
+				"JsonUtilities"
 			}
 		);
 

@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "KismetCompiler.h"
+#include "CoreMinimal.h"
+#include "KismetCompilerMisc.h"
+
+class FKismetCompilerContext;
+struct FKismetFunctionContext;
 
 //////////////////////////////////////////////////////////////////////////
 // FKCHandler_EventEntry

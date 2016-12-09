@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
+#include "EdGraph/EdGraphNode.h"
+
 struct BLUEPRINTGRAPH_API FBlueprintNodeSignature
 {
 public:

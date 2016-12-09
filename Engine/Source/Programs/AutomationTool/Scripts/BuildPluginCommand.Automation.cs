@@ -86,7 +86,7 @@ class BuildPlugin : BuildCommand
 
 		// Compile the plugin for all the target platforms
 		List<UnrealTargetPlatform> HostPlatforms = ParseParam("NoHostPlatform")? new List<UnrealTargetPlatform>() : new List<UnrealTargetPlatform> { BuildHostPlatform.Current.Platform };
-		List<UnrealTargetPlatform> TargetPlatforms = Rocket.RocketBuild.GetTargetPlatforms(this, BuildHostPlatform.Current.Platform).Where(x => Rocket.RocketBuild.IsCodeTargetPlatform(BuildHostPlatform.Current.Platform, x)).ToList();
+		List<UnrealTargetPlatform> TargetPlatforms = GetTargetPlatforms(this, BuildHostPlatform.Current.Platform);
 		FileReference[] BuildProducts = CompilePlugin(HostProjectFile, HostProjectPluginFile, Plugin, HostPlatforms, TargetPlatforms, "");
 
 		// Package up the final plugin data
@@ -220,7 +220,7 @@ class BuildPlugin : BuildCommand
 		// Get the output plugin filename
 		FileReference TargetPluginFile = FileReference.Combine(TargetDir, SourcePluginFile.GetFileName());
 		PluginDescriptor NewDescriptor = PluginDescriptor.FromFile(TargetPluginFile, false);
-		NewDescriptor.bEnabledByDefault = true;
+		NewDescriptor.bEnabledByDefault = false;
 		NewDescriptor.bInstalled = true;
 		NewDescriptor.Save(TargetPluginFile.FullName, false);
 	}
@@ -252,4 +252,53 @@ class BuildPlugin : BuildCommand
 		// Apply the filter to the plugin directory
 		return Filter.ApplyToDirectory(PluginFile.Directory, true);
 	}
+
+	static List<UnrealTargetPlatform> GetTargetPlatforms(BuildCommand Command, UnrealTargetPlatform HostPlatform)
+	{
+		List<UnrealTargetPlatform> TargetPlatforms = new List<UnrealTargetPlatform>();
+		if(!Command.ParseParam("NoTargetPlatforms"))
+		{
+			// Only interested in building for Platforms that support code projects
+			TargetPlatforms = UEBuildPlatform.GetRegisteredPlatforms().Where(x => InstalledPlatformInfo.Current.IsValidPlatform(x, EProjectType.Code)).ToList();
+
+			// only build Mac on Mac
+			if (HostPlatform != UnrealTargetPlatform.Mac && TargetPlatforms.Contains(UnrealTargetPlatform.Mac))
+			{
+				TargetPlatforms.Remove(UnrealTargetPlatform.Mac);
+			}
+			// only build Windows on Windows
+			if (HostPlatform != UnrealTargetPlatform.Win64 && TargetPlatforms.Contains(UnrealTargetPlatform.Win64))
+			{
+				TargetPlatforms.Remove(UnrealTargetPlatform.Win64);
+				TargetPlatforms.Remove(UnrealTargetPlatform.Win32);
+			}
+			// build Linux on Windows and Linux
+			if (HostPlatform != UnrealTargetPlatform.Win64 && HostPlatform != UnrealTargetPlatform.Linux && TargetPlatforms.Contains(UnrealTargetPlatform.Linux))
+			{
+				TargetPlatforms.Remove(UnrealTargetPlatform.Linux);
+			}
+
+			// Remove any platforms that aren't enabled on the command line
+			string TargetPlatformFilter = Command.ParseParamValue("TargetPlatforms", null);
+			if(TargetPlatformFilter != null)
+			{
+				List<UnrealTargetPlatform> NewTargetPlatforms = new List<UnrealTargetPlatform>();
+				foreach (string TargetPlatformName in TargetPlatformFilter.Split(new char[]{ '+' }, StringSplitOptions.RemoveEmptyEntries))
+				{
+					UnrealTargetPlatform TargetPlatform;
+					if(!Enum.TryParse(TargetPlatformName, out TargetPlatform))
+					{
+						throw new AutomationException("Unknown target platform '{0}' specified on command line");
+					}
+					else if(TargetPlatforms.Contains(TargetPlatform))
+					{
+						NewTargetPlatforms.Add(TargetPlatform);
+					}
+				}
+				TargetPlatforms = NewTargetPlatforms;
+			}
+		}
+		return TargetPlatforms;
+	}
 }
+

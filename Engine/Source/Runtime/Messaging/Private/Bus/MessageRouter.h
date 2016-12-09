@@ -2,13 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "IMessageContext.h"
-#include "IMessageInterceptor.h"
-#include "IMessageSubscription.h"
+#include "Containers/Queue.h"
 #include "IMessageTracer.h"
-#include "IReceiveMessages.h"
-#include "ISendMessages.h"
+#include "Bus/MessageTracer.h"
+#include "HAL/Runnable.h"
 
+class IMessageInterceptor;
+class IMessageReceiver;
+class IMessageSubscription;
 
 /**
  * Implements a topic-based message router.
@@ -34,7 +37,7 @@ public:
 	 * @param Interceptor The interceptor to add.
 	 * @param MessageType The type of messages to intercept.
 	 */
-	FORCEINLINE void AddInterceptor(const IMessageInterceptorRef& Interceptor, const FName& MessageType)
+	FORCEINLINE void AddInterceptor(const TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe>& Interceptor, const FName& MessageType)
 	{
 		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleAddInterceptor, Interceptor, MessageType));
 	}
@@ -45,9 +48,9 @@ public:
 	 * @param Address The address of the recipient to add.
 	 * @param Recipient The recipient.
 	 */
-	FORCEINLINE void AddRecipient(const FMessageAddress& Address, const IReceiveMessagesRef& Recipient)
+	FORCEINLINE void AddRecipient(const FMessageAddress& Address, const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Recipient)
 	{
-		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleAddRecipient, Address, IReceiveMessagesWeakPtr(Recipient)));
+		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleAddRecipient, Address, TWeakPtr<IMessageReceiver, ESPMode::ThreadSafe>(Recipient)));
 	}
 
 	/**
@@ -55,7 +58,7 @@ public:
 	 *
 	 * @param Subscription The subscription to add.
 	 */
-	FORCEINLINE void AddSubscription(const IMessageSubscriptionRef& Subscription)
+	FORCEINLINE void AddSubscription(const TSharedRef<IMessageSubscription, ESPMode::ThreadSafe>& Subscription)
 	{
 		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleAddSubscriber, Subscription));
 	}
@@ -65,7 +68,7 @@ public:
 	 *
 	 * @return Weak pointer to the message tracer.
 	 */
-	FORCEINLINE IMessageTracerRef GetTracer()
+	FORCEINLINE TSharedRef<IMessageTracer, ESPMode::ThreadSafe> GetTracer()
 	{
 		return Tracer;
 	}
@@ -76,7 +79,7 @@ public:
 	 * @param Interceptor The interceptor to remove.
 	 * @param MessageType The type of messages to stop intercepting.
 	 */
-	FORCEINLINE void RemoveInterceptor(const IMessageInterceptorRef& Interceptor, const FName& MessageType)
+	FORCEINLINE void RemoveInterceptor(const TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe>& Interceptor, const FName& MessageType)
 	{
 		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleRemoveInterceptor, Interceptor, MessageType));
 	}
@@ -97,9 +100,9 @@ public:
 	 * @param Subscriber The subscriber to stop routing messages to.
 	 * @param MessageType The type of message to unsubscribe from (NAME_None = all types).
 	 */
-	FORCEINLINE void RemoveSubscription(const IReceiveMessagesRef& Subscriber, const FName& MessageType)
+	FORCEINLINE void RemoveSubscription(const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Subscriber, const FName& MessageType)
 	{
-		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleRemoveSubscriber, IReceiveMessagesWeakPtr(Subscriber), MessageType));
+		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleRemoveSubscriber, TWeakPtr<IMessageReceiver, ESPMode::ThreadSafe>(Subscriber), MessageType));
 	}
 
 	/**
@@ -107,7 +110,7 @@ public:
 	 *
 	 * @param Context The context of the message to route.
 	 */
-	FORCEINLINE void RouteMessage(const IMessageContextRef& Context)
+	FORCEINLINE void RouteMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 	{
 		Tracer->TraceSentMessage(Context);
 		EnqueueCommand(FSimpleDelegate::CreateRaw(this, &FMessageRouter::HandleRouteMessage, Context));
@@ -115,7 +118,7 @@ public:
 
 public:
 
-	// FRunnable interface
+	//~ FRunnable interface
 
 	virtual bool Init() override;
 	virtual uint32 Run() override;
@@ -157,40 +160,43 @@ protected:
 	 * @param Sender The message sender (may be nullptr if the sender has no subscriptions).
 	 * @param OutRecipients Will hold the collection of recipients.
 	 */
-	void FilterSubscriptions(TArray<IMessageSubscriptionPtr>& Subscriptions, const IMessageContextRef& Context, TArray<IReceiveMessagesPtr>& OutRecipients);
+	void FilterSubscriptions(
+		TArray<TSharedPtr<IMessageSubscription, ESPMode::ThreadSafe>>& Subscriptions,
+		const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context,
+		TArray<TSharedPtr<IMessageReceiver, ESPMode::ThreadSafe>>& OutRecipients);
 
 	/**
 	 * Dispatches a single message to its recipients.
 	 *
 	 * @param Message The message to dispatch.
 	 */
-	void DispatchMessage(const IMessageContextRef& Message);
+	void DispatchMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Message);
 
 	/** Processes all delayed messages. */
 	void ProcessDelayedMessages();
 
 private:
 
-	// Structure for delayed messages.
+	/** Structure for delayed messages. */
 	struct FDelayedMessage
 	{
-		// Holds the context of the delayed message.
+		/** Holds the context of the delayed message. */
 		IMessageContextPtr Context;
 
-		// Holds a sequence number used by the delayed message queue.
+		/** Holds a sequence number used by the delayed message queue. */
 		int64 Sequence;
 
 
-		// Default constructor.
+		/** Default constructor. */
 		FDelayedMessage() { }
 
-		// Creates and initializes a new instance.
-		FDelayedMessage(const IMessageContextRef& InContext, int64 InSequence)
+		/** Creates and initializes a new instance. */
+		FDelayedMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& InContext, int64 InSequence)
 			: Context(InContext)
 			, Sequence(InSequence)
 		{ }
 
-		// Comparison operator for heap sorting.
+		/** Comparison operator for heap sorting. */
 		bool operator<(const FDelayedMessage& Other) const
 		{
 			const FTimespan Difference = Other.Context->GetTimeSent() - Context->GetTimeSent();
@@ -207,36 +213,36 @@ private:
 private:
 
 	/** Handles adding message interceptors. */
-	void HandleAddInterceptor(IMessageInterceptorRef Interceptor, FName MessageType);
+	void HandleAddInterceptor(TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe> Interceptor, FName MessageType);
 
 	/** Handles adding message recipients. */
-	void HandleAddRecipient(FMessageAddress Address, IReceiveMessagesWeakPtr RecipientPtr);
+	void HandleAddRecipient(FMessageAddress Address, TWeakPtr<IMessageReceiver, ESPMode::ThreadSafe> RecipientPtr);
 
 	/** Handles adding of subscriptions. */
-	void HandleAddSubscriber(IMessageSubscriptionRef Subscription);
+	void HandleAddSubscriber(TSharedRef<IMessageSubscription, ESPMode::ThreadSafe> Subscription);
 
 	/** Handles the removal of message interceptors. */
-	void HandleRemoveInterceptor(IMessageInterceptorRef Interceptor, FName MessageType);
+	void HandleRemoveInterceptor(TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe> Interceptor, FName MessageType);
 
 	/** Handles the removal of message recipients. */
 	void HandleRemoveRecipient(FMessageAddress Address);
 
 	/** Handles the removal of subscribers. */
-	void HandleRemoveSubscriber(IReceiveMessagesWeakPtr SubscriberPtr, FName MessageType);
+	void HandleRemoveSubscriber(TWeakPtr<IMessageReceiver, ESPMode::ThreadSafe> SubscriberPtr, FName MessageType);
 
 	/** Handles the routing of messages. */
-	void HandleRouteMessage(IMessageContextRef Context);
+	void HandleRouteMessage(TSharedRef<IMessageContext, ESPMode::ThreadSafe> Context);
 
 private:
 
 	/** Maps message types to interceptors. */
-	TMap<FName, TArray<IMessageInterceptorPtr>> ActiveInterceptors;
+	TMap<FName, TArray<TSharedPtr<IMessageInterceptor, ESPMode::ThreadSafe>>> ActiveInterceptors;
 
 	/** Maps message addresses to recipients. */
-	TMap<FMessageAddress, IReceiveMessagesWeakPtr> ActiveRecipients;
+	TMap<FMessageAddress, TWeakPtr<IMessageReceiver, ESPMode::ThreadSafe>> ActiveRecipients;
 
 	/** Maps message types to subscriptions. */
-	TMap<FName, TArray<IMessageSubscriptionPtr>> ActiveSubscriptions;
+	TMap<FName, TArray<TSharedPtr<IMessageSubscription, ESPMode::ThreadSafe>>> ActiveSubscriptions;
 
 	/** Holds the router command queue. */
 	TQueue<CommandDelegate, EQueueMode::Mpsc> Commands;
@@ -254,7 +260,7 @@ private:
 	bool Stopping;
 
 	/** Holds the message tracer. */
-	FMessageTracerRef Tracer;
+	TSharedRef<FMessageTracer, ESPMode::ThreadSafe> Tracer;
 
 	/** Holds an event signaling that work is available. */
 	FEvent* WorkEvent;

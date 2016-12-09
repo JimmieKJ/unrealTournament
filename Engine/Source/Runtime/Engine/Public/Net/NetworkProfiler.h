@@ -6,10 +6,13 @@
 
 #pragma once
 
-#include "UnrealString.h"
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
 
+class AActor;
+class FOutBunch;
 class UNetConnection;
-class FInternetAddr;
+struct FURL;
 
 #if USE_NETWORK_PROFILER 
 

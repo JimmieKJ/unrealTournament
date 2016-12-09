@@ -1,12 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "SlateTextShaper.h"
-#include "SlateFontRenderer.h"
-#include "FontCacheFreeType.h"
-#include "FontCacheCompositeFont.h"
-#include "FontCache.h"
-#include "BreakIterator.h"
+#include "Fonts/SlateTextShaper.h"
+#include "Fonts/FontCacheCompositeFont.h"
+#include "Fonts/SlateFontRenderer.h"
+#include "Internationalization/BreakIterator.h"
 
 
 namespace
@@ -157,7 +154,7 @@ FShapedGlyphSequenceRef FSlateTextShaper::FinalizeTextShaping(TArray<FShapedGlyp
 	}
 #endif // WITH_FREETYPE
 
-	return MakeShareable(new FShapedGlyphSequence(MoveTemp(InGlyphsToRender), TextBaseline, MaxHeight, InFontInfo.FontMaterial, InSourceTextRange));
+	return MakeShareable(new FShapedGlyphSequence(MoveTemp(InGlyphsToRender), TextBaseline, MaxHeight, InFontInfo.FontMaterial, InFontInfo.OutlineSettings, InSourceTextRange));
 }
 
 #if WITH_FREETYPE

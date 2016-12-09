@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "HeaderProviderArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/HeaderProviderArchiveProxy.h"
 #include "HeaderProvider.h"
+#include "UHTMakefile.h"
 
 
 FHeaderProvider FHeaderProviderArchiveProxy::CreateHeaderProvider() const

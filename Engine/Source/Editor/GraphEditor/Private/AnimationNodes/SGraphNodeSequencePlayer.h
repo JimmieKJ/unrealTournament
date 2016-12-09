@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "SAnimationGraphNode.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SNodePanel.h"
+#include "AnimationNodes/SAnimationGraphNode.h"
+
+class SVerticalBox;
+class UAnimGraphNode_Base;
 
 class SGraphNodeSequencePlayer : public SAnimationGraphNode
 {

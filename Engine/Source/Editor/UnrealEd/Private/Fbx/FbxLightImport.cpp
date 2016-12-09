@@ -4,13 +4,17 @@
 	Light actor creation from FBX data.
 =============================================================================*/
 
-#include "UnrealEd.h"
-#include "Factories.h"
-#include "Engine.h"
-#include "FbxImporter.h"
-#include "Engine/PointLight.h"
+#include "CoreMinimal.h"
+#include "Engine/World.h"
+#include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
+#include "Components/PointLightComponent.h"
+#include "Components/SpotLightComponent.h"
+#include "Engine/Light.h"
 #include "Engine/DirectionalLight.h"
+#include "Engine/PointLight.h"
 #include "Engine/SpotLight.h"
+#include "FbxImporter.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFbxLightImport, Log, All);
 

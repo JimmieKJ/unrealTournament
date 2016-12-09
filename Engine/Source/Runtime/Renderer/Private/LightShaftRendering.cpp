@@ -3,13 +3,31 @@
 /*=============================================================================
 	FogRendering.cpp: Fog rendering implementation.
 =============================================================================*/
-#include "RendererPrivate.h"
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Misc/MemStack.h"
+#include "HAL/IConsoleManager.h"
+#include "RHIDefinitions.h"
+#include "RHI.h"
+#include "ShaderParameters.h"
+#include "RendererInterface.h"
+#include "Shader.h"
+#include "StaticBoundShaderState.h"
+#include "SceneUtils.h"
+#include "RHIStaticStates.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "LightSceneInfo.h"
+#include "GlobalShader.h"
+#include "SceneRenderTargetParameters.h"
+#include "DeferredShadingRenderer.h"
 #include "ScenePrivate.h"
 #include "ScreenRendering.h"
-#include "SceneFilterRendering.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "PostProcess/RenderingCompositionGraph.h"
+#include "PostProcess/PostProcessInput.h"
 #include "PostProcess/PostProcessing.h"
 #include "PostProcess/PostProcessTemporalAA.h"
-#include "SceneUtils.h"
 
 
 /** Tweaked values from UE3 implementation **/
@@ -31,6 +49,15 @@ static FAutoConsoleVariableRef CVarCacheLightShaftDownsampleFactor(
 	TEXT("r.LightShaftDownSampleFactor"),
 	GLightShaftDownsampleFactor,
 	TEXT("Downsample factor for light shafts. range: 1..8"),
+	ECVF_RenderThreadSafe
+	);
+
+int32 GLightShaftRenderToSeparateTranslucency = 0;
+static FAutoConsoleVariableRef CVarRenderLightshaftsToSeparateTranslucency(
+	TEXT("r.LightShaftRenderToSeparateTranslucency"),
+	GLightShaftRenderToSeparateTranslucency,
+	TEXT("If enabled, light shafts will be rendered to the separate translucency buffer.\n")
+	TEXT("This ensures postprocess materials with BL_BeforeTranslucnecy are applied before light shafts"),
 	ECVF_RenderThreadSafe
 	);
 
@@ -124,7 +151,7 @@ public:
 
 		SetShaderValue(RHICmdList, Shader, AspectRatioAndInvAspectRatioParameter, AspectRatioAndInvAspectRatio);
 
-		const FVector WorldSpaceBlurOrigin = LightSceneInfo->Proxy->GetLightPositionForLightShafts(View.ViewMatrices.ViewOrigin);
+		const FVector WorldSpaceBlurOrigin = LightSceneInfo->Proxy->GetLightPositionForLightShafts(View.ViewMatrices.GetViewOrigin());
 		// Transform into texture coordinates
 		FVector4 ProjectedBlurOrigin = View.WorldToScreen(WorldSpaceBlurOrigin);
 
@@ -159,8 +186,8 @@ public:
 			SetShaderValue(RHICmdList, Shader, SpotAnglesParameter, LightSceneInfo->Proxy->GetLightShaftConeParams());
 		}
 
-		const float DistanceFromLight = (View.ViewMatrices.ViewOrigin - WorldSpaceBlurOrigin).Size() + PointLightFadeDistanceIncrease;
-		SetShaderValue(RHICmdList, Shader, WorldSpaceCameraPositionParameter, FVector4(View.ViewMatrices.ViewOrigin, DistanceFromLight));
+		const float DistanceFromLight = (View.ViewMatrices.GetViewOrigin() - WorldSpaceBlurOrigin).Size() + PointLightFadeDistanceIncrease;
+		SetShaderValue(RHICmdList, Shader, WorldSpaceCameraPositionParameter, FVector4(View.ViewMatrices.GetViewOrigin(), DistanceFromLight));
 
 		const FIntPoint DownSampledXY = View.ViewRect.Min / DownsampleFactor;
 		const uint32 DownsampledSizeX = View.ViewRect.Width() / DownsampleFactor;
@@ -704,12 +731,12 @@ bool DoesViewFamilyAllowLightShafts(const FSceneViewFamily& ViewFamily)
 
 bool ShouldRenderLightShaftsForLight(const FViewInfo& View, const FLightSceneInfo* LightSceneInfo)
 {
-	const FVector WorldSpaceBlurOrigin = LightSceneInfo->Proxy->GetLightPositionForLightShafts(View.ViewMatrices.ViewOrigin);
+	const FVector WorldSpaceBlurOrigin = LightSceneInfo->Proxy->GetLightPositionForLightShafts(View.ViewMatrices.GetViewOrigin());
 
 	// Transform into post projection space
-	FVector4 ProjectedBlurOrigin = View.ViewProjectionMatrix.TransformPosition(WorldSpaceBlurOrigin);
+	FVector4 ProjectedBlurOrigin = View.ViewMatrices.GetViewProjectionMatrix().TransformPosition(WorldSpaceBlurOrigin);
 
-	const float DistanceToBlurOrigin = (View.ViewMatrices.ViewOrigin - WorldSpaceBlurOrigin).Size() + PointLightFadeDistanceIncrease;
+	const float DistanceToBlurOrigin = (View.ViewMatrices.GetViewOrigin() - WorldSpaceBlurOrigin).Size() + PointLightFadeDistanceIncrease;
 
 	// Don't render if the light's origin is behind the view
 	return ProjectedBlurOrigin.W > 0.0f
@@ -869,7 +896,17 @@ IMPLEMENT_SHADER_TYPE(,FApplyLightShaftsPixelShader,TEXT("LightShaftShader"),TEX
 void ApplyLightShaftBloom(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FLightSceneInfo* const LightSceneInfo, TRefCountPtr<IPooledRenderTarget>& LightShaftsSource)
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-	SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+
+	bool bUseSeparateTranslucency = false;
+	if (SceneContext.IsSeparateTranslucencyActive(View) && GLightShaftRenderToSeparateTranslucency )
+	{
+		SceneContext.BeginRenderingSeparateTranslucency(RHICmdList, View, false);
+		bUseSeparateTranslucency = true;
+	}
+	else
+	{
+		SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+	}
 
 	RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
 	RHICmdList.SetBlendState(TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_One>::GetRHI());
@@ -901,7 +938,14 @@ void ApplyLightShaftBloom(FRHICommandListImmediate& RHICmdList, const FViewInfo&
 		*ScreenVertexShader,
 		EDRF_UseTriangleOptimization);
 
-	SceneContext.FinishRenderingSceneColor(RHICmdList);
+	if ( bUseSeparateTranslucency )
+	{
+		SceneContext.FinishRenderingSeparateTranslucency(RHICmdList, View);
+	}
+	else
+	{
+		SceneContext.FinishRenderingSceneColor(RHICmdList);
+	}
 }
 
 void FSceneViewState::TrimHistoryRenderTargets(const FScene* Scene)

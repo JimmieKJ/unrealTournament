@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "CoreUObject.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Engine/EngineTypes.h"
 #include "Curves/CurveFloat.h"
 #include "SoundAttenuation.generated.h"
 

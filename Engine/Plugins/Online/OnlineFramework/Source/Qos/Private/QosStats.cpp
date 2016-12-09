@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "QosPrivatePCH.h"
 #include "QosStats.h"
-#include "IAnalyticsProvider.h"
+#include "Misc/Guid.h"
+#include "QosModule.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
 
 #define QOS_STATS_VERSION 1
 

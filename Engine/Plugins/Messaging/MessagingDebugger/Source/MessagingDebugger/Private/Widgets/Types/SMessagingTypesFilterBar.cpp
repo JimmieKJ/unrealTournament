@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessagingDebuggerPrivatePCH.h"
-#include "SMessagingTypesFilterBar.h"
-#include "SSearchBox.h"
+#include "Widgets/Types/SMessagingTypesFilterBar.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Input/SSearchBox.h"
 
 
 #define LOCTEXT_NAMESPACE "SMessagingTypesFilterBar"
@@ -11,24 +11,26 @@
 /* SMessagingTypesFilterBar interface
 *****************************************************************************/
 
-void SMessagingTypesFilterBar::Construct(const FArguments& InArgs, FMessagingDebuggerTypeFilterRef InFilter)
+void SMessagingTypesFilterBar::Construct(const FArguments& InArgs, TSharedRef<FMessagingDebuggerTypeFilter> InFilter)
 {
 	Filter = InFilter;
 
 	ChildSlot
-		[
-			SNew(SHorizontalBox)
+	[
+		SNew(SHorizontalBox)
 
-			+ SHorizontalBox::Slot()
+		+ SHorizontalBox::Slot()
 			.FillWidth(1.0f)
 			.VAlign(VAlign_Top)
 			[
 				// search box
 				SNew(SSearchBox)
-				.HintText(LOCTEXT("SearchBoxHint", "Search message types"))
-				.OnTextChanged(this, &SMessagingTypesFilterBar::HandleFilterStringTextChanged)
+					.HintText(LOCTEXT("SearchBoxHint", "Search message types"))
+					.OnTextChanged_Lambda([this](const FText& NewText) {
+						Filter->SetFilterString(NewText.ToString());
+					})
 			]
-		];
+	];
 }
 
 #undef LOCTEXT_NAMESPACE

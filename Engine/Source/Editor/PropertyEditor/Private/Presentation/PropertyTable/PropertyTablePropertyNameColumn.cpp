@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyTableCell.h"
-#include "PropertyTablePropertyNameColumn.h"
+#include "Presentation/PropertyTable/PropertyTablePropertyNameColumn.h"
+#include "Editor/EditorEngine.h"
+#include "IPropertyTableCell.h"
+#include "Presentation/PropertyTable/PropertyTableCell.h"
+#include "Presentation/PropertyTable/DataSource.h"
 
 
 #define LOCTEXT_NAMESPACE "PropertyNameColumnHeader"

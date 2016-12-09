@@ -6,8 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "SubUVAnimationFactory.generated.h"
-
 
 UCLASS(MinimalAPI)
 class USubUVAnimationFactory : public UFactory

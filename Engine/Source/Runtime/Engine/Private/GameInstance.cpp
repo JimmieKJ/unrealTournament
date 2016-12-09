@@ -1,21 +1,36 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	GameInstance.cpp: Implementation of GameInstance class
-=============================================================================*/
-
-
-#include "EnginePrivate.h"
 #include "Engine/GameInstance.h"
-#include "Engine/Engine.h"
-#include "Engine/DemoNetDriver.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/CommandLine.h"
+#include "GameMapsSettings.h"
+#include "EngineGlobals.h"
+#include "Engine/EngineTypes.h"
+#include "TimerManager.h"
 #include "Engine/LatentActionManager.h"
+#include "Engine/World.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Misc/Paths.h"
+#include "UObject/CoreOnline.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/Engine.h"
+#include "Engine/Console.h"
+#include "Engine/GameEngine.h"
+#include "GameFramework/GameModeBase.h"
+#include "Engine/DemoNetDriver.h"
 #include "Engine/NetworkObjectList.h"
+#include "Engine/LocalPlayer.h"
 #include "GameFramework/OnlineSession.h"
 #include "GameFramework/PlayerState.h"
+#include "GameFramework/GameSession.h"
+#include "Net/OnlineEngineInterface.h"
+#include "Kismet/GameplayStatics.h"
+#include "Framework/Application/SlateApplication.h"
+#include "GenericPlatform/GenericApplication.h"
 
 #if WITH_EDITOR
-#include "UnrealEd.h"
+#include "Settings/LevelEditorPlaySettings.h"
+#include "Editor/EditorEngine.h"
 #endif
 
 UGameInstance::UGameInstance(const FObjectInitializer& ObjectInitializer)
@@ -23,6 +38,7 @@ UGameInstance::UGameInstance(const FObjectInitializer& ObjectInitializer)
 , TimerManager(new FTimerManager())
 , LatentActionManager(new FLatentActionManager())
 {
+	TimerManager->SetGameInstance(this);
 }
 
 void UGameInstance::FinishDestroy()
@@ -65,7 +81,31 @@ void UGameInstance::Init()
 		{
 			OnlineSession->RegisterOnlineDelegates();
 		}
+
+		if (!IsDedicatedServerInstance())
+		{
+			TSharedPtr<GenericApplication> App = FSlateApplication::Get().GetPlatformApplication();
+			if (App.IsValid())
+			{
+				App->RegisterConsoleCommandListener(GenericApplication::FOnConsoleCommandListener::CreateUObject(this, &ThisClass::OnConsoleInput));
+			}
+		}
 	}
+}
+
+void UGameInstance::OnConsoleInput(const FString& Command)
+{
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+	UConsole* ViewportConsole = (GEngine->GameViewport != nullptr) ? GEngine->GameViewport->ViewportConsole : nullptr;
+	if (ViewportConsole)
+	{
+		ViewportConsole->ConsoleCommand(Command);
+	}
+	else
+	{
+		GEngine->Exec(GetWorld(), *Command);
+	}
+#endif
 }
 
 void UGameInstance::Shutdown()
@@ -107,21 +147,22 @@ void UGameInstance::InitializeStandalone()
 }
 
 #if WITH_EDITOR
-bool UGameInstance::InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance, bool bRunAsDedicated)
+
+FGameInstancePIEResult UGameInstance::InitializeForPlayInEditor(int32 PIEInstanceIndex, const FGameInstancePIEParameters& Params)
 {
 	UEditorEngine* const EditorEngine = CastChecked<UEditorEngine>(GetEngine());
 
 	// Look for an existing pie world context, may have been created before
-	WorldContext = EditorEngine->GetWorldContextFromPIEInstance(PIEInstance);
+	WorldContext = EditorEngine->GetWorldContextFromPIEInstance(PIEInstanceIndex);
 
 	if (!WorldContext)
 	{
 		// If not, create a new one
 		WorldContext = &EditorEngine->CreateNewWorldContext(EWorldType::PIE);
-		WorldContext->PIEInstance = PIEInstance;
+		WorldContext->PIEInstance = PIEInstanceIndex;
 	}
 
-	WorldContext->RunAsDedicated = bRunAsDedicated;
+	WorldContext->RunAsDedicated = Params.bRunAsDedicated;
 
 	WorldContext->OwningGameInstance = this;
 	
@@ -162,8 +203,7 @@ bool UGameInstance::InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance, b
 	// failed to create the world!
 	if (NewWorld == nullptr)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "Error_FailedCreateEditorPreviewWorld", "Failed to create editor preview world."));
-		return false;
+		return FGameInstancePIEResult::Failure(NSLOCTEXT("UnrealEd", "Error_FailedCreateEditorPreviewWorld", "Failed to create editor preview world."));
 	}
 
 	NewWorld->SetGameInstance(this);
@@ -172,7 +212,7 @@ bool UGameInstance::InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance, b
 
 	// make sure we can clean up this world!
 	NewWorld->ClearFlags(RF_Standalone);
-	NewWorld->bKismetScriptError = bAnyBlueprintErrors;
+	NewWorld->bKismetScriptError = Params.bAnyBlueprintErrors;
 
 	// Do a GC pass if necessary to remove any potentially unreferenced objects
 	if(bNeedsGarbageCollection)
@@ -182,10 +222,29 @@ bool UGameInstance::InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance, b
 
 	Init();
 
+	// Give the deprecated method a chance to fail as well
+	FGameInstancePIEResult InitResult = FGameInstancePIEResult::Success();
+
+	if (InitResult.IsSuccess())
+	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		InitResult = InitializePIE(Params.bAnyBlueprintErrors, PIEInstanceIndex, Params.bRunAsDedicated) ?
+			FGameInstancePIEResult::Success() :
+			FGameInstancePIEResult::Failure(NSLOCTEXT("UnrealEd", "Error_CouldntInitInstance", "The game instance failed to Play/Simulate In Editor"));
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	}
+
+	return InitResult;
+}
+
+
+bool UGameInstance::InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance, bool bRunAsDedicated)
+{
+	// DEPRECATED VERSION
 	return true;
 }
 
-bool UGameInstance::StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode)
+FGameInstancePIEResult UGameInstance::StartPlayInEditorGameInstance(ULocalPlayer* LocalPlayer, const FGameInstancePIEParameters& Params)
 {
 	UEditorEngine* const EditorEngine = CastChecked<UEditorEngine>(GetEngine());
 	ULevelEditorPlaySettings const* PlayInSettings = GetDefault<ULevelEditorPlaySettings>();
@@ -203,8 +262,7 @@ bool UGameInstance::StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimu
 		}
 		else
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(NSLOCTEXT("UnrealEd", "Error_CouldntLaunchPIEClient", "Couldn't Launch PIE Client: {0}"), FText::FromString(Error)));
-			return false;
+			return FGameInstancePIEResult::Failure(FText::Format(NSLOCTEXT("UnrealEd", "Error_CouldntLaunchPIEClient", "Couldn't Launch PIE Client: {0}"), FText::FromString(Error)));
 		}
 	}
 	else
@@ -215,7 +273,7 @@ bool UGameInstance::StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimu
 		// make a URL
 		FURL URL;
 		// If the user wants to start in spectator mode, do not use the custom play world for now
-		if (EditorEngine->UserEditedPlayWorldURL.Len() > 0 && !bStartInSpectatorMode)
+		if (EditorEngine->UserEditedPlayWorldURL.Len() > 0 && !Params.bStartInSpectatorMode)
 		{
 			// If the user edited the play world url. Verify that the map name is the same as the currently loaded map.
 			URL = FURL(NULL, *EditorEngine->UserEditedPlayWorldURL, TRAVEL_Absolute);
@@ -228,7 +286,7 @@ bool UGameInstance::StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimu
 		else
 		{
 			// The user did not edit the url, just build one from scratch.
-			URL = FURL(NULL, *EditorEngine->BuildPlayWorldURL(*PIEMapName, bStartInSpectatorMode), TRAVEL_Absolute);
+			URL = FURL(NULL, *EditorEngine->BuildPlayWorldURL(*PIEMapName, Params.bStartInSpectatorMode), TRAVEL_Absolute);
 		}
 
 		// If a start location is specified, spawn a temporary PlayerStartPIE actor at the start location and use it as the portal.
@@ -236,15 +294,13 @@ bool UGameInstance::StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimu
 		if (EditorEngine->SpawnPlayFromHereStart(PlayWorld, PlayerStart, EditorEngine->PlayWorldLocation, EditorEngine->PlayWorldRotation) == false)
 		{
 			// failed to create "play from here" playerstart
-			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "Error_FailedCreatePlayFromHerePlayerStart", "Failed to create PlayerStart at desired starting location."));
-			return false;
+			return FGameInstancePIEResult::Failure(NSLOCTEXT("UnrealEd", "Error_FailedCreatePlayFromHerePlayerStart", "Failed to create PlayerStart at desired starting location."));
 		}
 
 		if (!PlayWorld->SetGameMode(URL))
 		{
 			// Setting the game mode failed so bail 
-			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "Error_FailedCreateEditorPreviewWorld", "Failed to create editor preview world."));
-			return false;
+			return FGameInstancePIEResult::Failure(NSLOCTEXT("UnrealEd", "Error_FailedCreateEditorPreviewWorld", "Failed to create editor preview world."));
 		}
 		
 		// Make sure "always loaded" sub-levels are fully loaded
@@ -262,8 +318,7 @@ bool UGameInstance::StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimu
 			FString Error;
 			if (!LocalPlayer->SpawnPlayActor(URL.ToString(1), Error, PlayWorld))
 			{
-				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(NSLOCTEXT("UnrealEd", "Error_CouldntSpawnPlayer", "Couldn't spawn player: {0}"), FText::FromString(Error)));
-				return false;
+				return FGameInstancePIEResult::Failure(FText::Format(NSLOCTEXT("UnrealEd", "Error_CouldntSpawnPlayer", "Couldn't spawn player: {0}"), FText::FromString(Error)));
 			}
 		}
 
@@ -283,6 +338,24 @@ bool UGameInstance::StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimu
 		PlayWorld->BeginPlay();
 	}
 
+	// Give the deprecated method a chance to fail as well
+	FGameInstancePIEResult StartResult = FGameInstancePIEResult::Success();
+
+	if (StartResult.IsSuccess())
+	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		StartResult = StartPIEGameInstance(LocalPlayer, Params.bSimulateInEditor, Params.bAnyBlueprintErrors, Params.bStartInSpectatorMode) ?
+			FGameInstancePIEResult::Success() :
+			FGameInstancePIEResult::Failure(NSLOCTEXT("UnrealEd", "Error_CouldntInitInstance", "The game instance failed to Play/Simulate In Editor"));
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	}
+
+	return StartResult;
+}
+
+bool UGameInstance::StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode)
+{
+	// DEPRECATED VERSION
 	return true;
 }
 #endif
@@ -587,7 +660,7 @@ APlayerController* UGameInstance::GetFirstLocalPlayerController(UWorld* World) c
 		{
 			if (*Iterator != nullptr && (*Iterator)->IsLocalController())
 			{
-				return *Iterator;
+				return Iterator->Get();
 			}
 		}
 	}
@@ -771,33 +844,53 @@ void UGameInstance::StartRecordingReplay(const FString& Name, const FString& Fri
 		DemoURL.AddOption(*Option);
 	}
 
-	CurrentWorld->DestroyDemoNetDriver();
-
-	const FName NAME_DemoNetDriver( TEXT( "DemoNetDriver" ) );
-
-	if ( !GEngine->CreateNamedNetDriver( CurrentWorld, NAME_DemoNetDriver, NAME_DemoNetDriver ) )
+	bool bDestroyedDemoNetDriver = false;
+	if (!CurrentWorld->DemoNetDriver || !CurrentWorld->DemoNetDriver->bRecordMapChanges || !CurrentWorld->DemoNetDriver->IsRecordingPaused())
 	{
-		UE_LOG( LogDemo, Warning, TEXT( "RecordReplay: failed to create demo net driver!" ) );
-		return;
+		CurrentWorld->DestroyDemoNetDriver();
+		bDestroyedDemoNetDriver = true; 
+
+		const FName NAME_DemoNetDriver(TEXT("DemoNetDriver"));
+
+		if (!GEngine->CreateNamedNetDriver(CurrentWorld, NAME_DemoNetDriver, NAME_DemoNetDriver))
+		{
+			UE_LOG(LogDemo, Warning, TEXT("RecordReplay: failed to create demo net driver!"));
+			return;
+		}
+
+		CurrentWorld->DemoNetDriver = Cast< UDemoNetDriver >(GEngine->FindNamedNetDriver(CurrentWorld, NAME_DemoNetDriver));
 	}
 
-	CurrentWorld->DemoNetDriver = Cast< UDemoNetDriver >( GEngine->FindNamedNetDriver( CurrentWorld, NAME_DemoNetDriver ) );
-
-	check( CurrentWorld->DemoNetDriver != NULL );
+	check(CurrentWorld->DemoNetDriver != nullptr);
 
 	CurrentWorld->DemoNetDriver->SetWorld( CurrentWorld );
 
+	// Set the new demo driver as the current collection's driver
+	FLevelCollection* CurrentLevelCollection = CurrentWorld->FindCollectionByType(ELevelCollectionType::DynamicSourceLevels);
+	if (CurrentLevelCollection)
+	{
+		CurrentLevelCollection->SetDemoNetDriver(CurrentWorld->DemoNetDriver);
+	}
+
 	FString Error;
 
-	if ( !CurrentWorld->DemoNetDriver->InitListen( CurrentWorld, DemoURL, false, Error ) )
+	if (bDestroyedDemoNetDriver)
 	{
-		UE_LOG( LogDemo, Warning, TEXT( "Demo recording failed: %s" ), *Error );
+		if (!CurrentWorld->DemoNetDriver->InitListen(CurrentWorld, DemoURL, false, Error))
+		{
+			UE_LOG(LogDemo, Warning, TEXT("Demo recording - InitListen failed: %s"), *Error);
+			CurrentWorld->DemoNetDriver = NULL;
+			return;
+		}
+	}
+	else if (!CurrentWorld->DemoNetDriver->ContinueListen(DemoURL))
+	{
+		UE_LOG(LogDemo, Warning, TEXT("Demo recording - ContinueListen failed"));
 		CurrentWorld->DemoNetDriver = NULL;
+		return;
 	}
-	else
-	{
-		UE_LOG(LogDemo, Log, TEXT( "Num Network Actors: %i" ), CurrentWorld->DemoNetDriver->GetNetworkObjectList().GetObjects().Num() );
-	}
+
+	UE_LOG(LogDemo, Log, TEXT( "Num Network Actors: %i" ), CurrentWorld->DemoNetDriver->GetNetworkObjectList().GetObjects().Num() );
 }
 
 void UGameInstance::StopRecordingReplay()
@@ -895,8 +988,147 @@ bool UGameInstance::IsDedicatedServerInstance() const
 	}
 }
 
+bool UGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionName)
+{
+	UWorld* World = GetWorld();
+
+	FString URL;
+	if (UOnlineEngineInterface::Get()->GetResolvedConnectString(World, InSessionName, URL))
+	{
+		APlayerController* PC = UGameplayStatics::GetPlayerController(World, ControllerId);
+		if (PC)
+		{
+			PC->ClientTravel(URL, TRAVEL_Absolute);
+			return true;
+		}
+	}
+	else
+	{
+		UE_LOG(LogGameSession, Warning, TEXT("Failed to resolve session connect string for %s"), *InSessionName.ToString());
+	}
+
+	return false;
+}
+
 void UGameInstance::NotifyPreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel)
 {
 	OnNotifyPreClientTravel().Broadcast(PendingURL, TravelType, bIsSeamlessTravel);
 }
 
+void UGameInstance::PreloadContentForURL(FURL InURL)
+{
+	// Preload game mode and other content if needed here
+}
+
+AGameModeBase* UGameInstance::CreateGameModeForURL(FURL InURL)
+{
+	UWorld* World = GetWorld();
+	// Init the game info.
+	FString Options(TEXT(""));
+	TCHAR GameParam[256] = TEXT("");
+	FString	Error = TEXT("");
+	AWorldSettings* Settings = World->GetWorldSettings();
+	for (int32 i = 0; i < InURL.Op.Num(); i++)
+	{
+		Options += TEXT("?");
+		Options += InURL.Op[i];
+		FParse::Value(*InURL.Op[i], TEXT("GAME="), GameParam, ARRAY_COUNT(GameParam));
+	}
+
+	UGameEngine* const GameEngine = Cast<UGameEngine>(GEngine);
+
+	// Get the GameMode class. Start by using the default game type specified in the map's worldsettings.  It may be overridden by settings below.
+	TSubclassOf<AGameModeBase> GameClass = Settings->DefaultGameMode;
+
+	// If there is a GameMode parameter in the URL, allow it to override the default game type
+	if (GameParam[0])
+	{
+		FString const GameClassName = UGameMapsSettings::GetGameModeForName(FString(GameParam));
+
+		// If the gamename was specified, we can use it to fully load the pergame PreLoadClass packages
+		if (GameEngine)
+		{
+			GameEngine->LoadPackagesFully(World, FULLYLOAD_Game_PreLoadClass, *GameClassName);
+		}
+
+		// Don't overwrite the map's world settings if we failed to load the value off the command line parameter
+		TSubclassOf<AGameModeBase> GameModeParamClass = LoadClass<AGameModeBase>(nullptr, *GameClassName);
+		if (GameModeParamClass)
+		{
+			GameClass = GameModeParamClass;
+		}
+		else
+		{
+			UE_LOG(LogLoad, Warning, TEXT("Failed to load game mode '%s' specified by URL options."), *GameClassName);
+		}
+	}
+
+	// Next try to parse the map prefix
+	if (!GameClass)
+	{
+		FString MapName = InURL.Map;
+		FString MapNameNoPath = FPaths::GetBaseFilename(MapName);
+		if (MapNameNoPath.StartsWith(PLAYWORLD_PACKAGE_PREFIX))
+		{
+			const int32 PrefixLen = UWorld::BuildPIEPackagePrefix(WorldContext->PIEInstance).Len();
+			MapNameNoPath = MapNameNoPath.Mid(PrefixLen);
+		}
+
+		FString const GameClassName = UGameMapsSettings::GetGameModeForMapName(FString(MapNameNoPath));
+
+		if (!GameClassName.IsEmpty())
+		{
+			if (GameEngine)
+			{
+				GameEngine->LoadPackagesFully(World, FULLYLOAD_Game_PreLoadClass, *GameClassName);
+			}
+
+			TSubclassOf<AGameModeBase> GameModeParamClass = LoadClass<AGameModeBase>(nullptr, *GameClassName);
+			if (GameModeParamClass)
+			{
+				GameClass = GameModeParamClass;
+			}
+			else
+			{
+				UE_LOG(LogLoad, Warning, TEXT("Failed to load game mode '%s' specified by prefixed map name %s."), *GameClassName, *MapNameNoPath);
+			}
+		}
+	}
+
+	// Fall back to game default
+	if (!GameClass)
+	{
+		GameClass = LoadClass<AGameModeBase>(nullptr, *UGameMapsSettings::GetGlobalDefaultGameMode());
+	}
+
+	if (!GameClass)
+	{
+		// Fall back to raw GameMode
+		GameClass = AGameModeBase::StaticClass();
+	}
+	else
+	{
+		// See if game instance wants to override it
+		GameClass = OverrideGameModeClass(GameClass, FPaths::GetBaseFilename(InURL.Map), Options, *InURL.Portal);
+	}
+
+	// no matter how the game was specified, we can use it to load the PostLoadClass packages
+	if (GameEngine)
+	{
+		GameEngine->LoadPackagesFully(World, FULLYLOAD_Game_PostLoadClass, GameClass->GetPathName());
+		GameEngine->LoadPackagesFully(World, FULLYLOAD_Game_PostLoadClass, TEXT("LoadForAllGameModes"));
+	}
+
+	// Spawn the GameMode.
+	UE_LOG(LogLoad, Log, TEXT("Game class is '%s'"), *GameClass->GetName());
+	FActorSpawnParameters SpawnInfo;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save game modes into a map
+
+	return World->SpawnActor<AGameModeBase>(GameClass, SpawnInfo);
+}
+
+TSubclassOf<AGameModeBase> UGameInstance::OverrideGameModeClass(TSubclassOf<AGameModeBase> GameModeClass, const FString& MapName, const FString& Options, const FString& Portal) const
+{
+	 return GameModeClass;
+}

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Perception/AISenseEvent.h"
 #include "Perception/AISense_Damage.h"
 #include "AISenseEvent_Damage.generated.h"

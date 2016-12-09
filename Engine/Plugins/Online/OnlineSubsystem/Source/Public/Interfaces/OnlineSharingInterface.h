@@ -4,6 +4,9 @@
 #pragma once
 
 
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
+#include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
 
 /**

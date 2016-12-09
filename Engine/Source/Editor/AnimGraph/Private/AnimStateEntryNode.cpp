@@ -4,9 +4,8 @@
 	AnimStateNode.cpp
 =============================================================================*/
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimStateEntryNode.h"
-#include "EdGraphUtilities.h"
+#include "EdGraph/EdGraph.h"
 #include "AnimationStateMachineSchema.h"
 
 #define LOCTEXT_NAMESPACE "AnimStateEntryNode"

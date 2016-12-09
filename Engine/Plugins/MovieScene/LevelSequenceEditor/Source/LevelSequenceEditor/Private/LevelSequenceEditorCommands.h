@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Commands/Commands.h"
+
 class FLevelSequenceEditorCommands
 	: public TCommands<FLevelSequenceEditorCommands>
 {

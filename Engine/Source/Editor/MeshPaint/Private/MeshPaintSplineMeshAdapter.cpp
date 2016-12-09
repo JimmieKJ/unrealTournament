@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MeshPaintPrivatePCH.h"
 #include "MeshPaintSplineMeshAdapter.h"
 
 #include "StaticMeshResources.h"
-#include "MeshPaintEdMode.h"
 #include "Components/SplineMeshComponent.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -36,7 +34,7 @@ TSharedPtr<IMeshPaintGeometryAdapter> FMeshPaintGeometryAdapterForSplineMeshesFa
 {
 	if (USplineMeshComponent* SplineMeshComponent = Cast<USplineMeshComponent>(InComponent))
 	{
-		if (SplineMeshComponent->StaticMesh != nullptr)
+		if (SplineMeshComponent->GetStaticMesh() != nullptr)
 		{
 			TSharedRef<FMeshPaintGeometryAdapterForSplineMeshes> Result = MakeShareable(new FMeshPaintGeometryAdapterForSplineMeshes());
 			if (Result->Construct(InComponent, InPaintingMeshLODIndex, InUVChannelIndex))

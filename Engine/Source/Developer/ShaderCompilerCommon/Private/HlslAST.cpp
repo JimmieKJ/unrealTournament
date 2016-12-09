@@ -4,9 +4,6 @@
 	HlslAST.cpp - Abstract Syntax Tree implementation for HLSL.
 =============================================================================*/
 
-#include "ShaderCompilerCommonPrivatePCH.h"
-#include "ShaderCompilerCommon.h"
-#include "HlslLexer.h"
 #include "HlslAST.h"
 
 namespace CrossCompiler

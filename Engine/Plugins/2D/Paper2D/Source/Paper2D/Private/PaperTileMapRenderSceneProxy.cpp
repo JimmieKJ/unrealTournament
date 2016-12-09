@@ -1,14 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
 #include "PaperTileMapRenderSceneProxy.h"
-#include "PhysicsEngine/BodySetup.h"
+#include "Materials/Material.h"
+#include "SceneManagement.h"
 #include "PhysicsEngine/BodySetup2D.h"
 #include "EngineGlobals.h"
-#include "SceneManagement.h"
 #include "Engine/Engine.h"
 #include "PaperTileMap.h"
-#include "PaperTileLayer.h"
 #include "PaperTileMapComponent.h"
 
 DECLARE_CYCLE_STAT(TEXT("Tile Map Proxy"), STAT_TileMap_GetDynamicMeshElements, STATGROUP_Paper2D);

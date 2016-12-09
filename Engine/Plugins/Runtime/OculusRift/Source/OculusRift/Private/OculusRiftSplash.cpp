@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-//
-#include "OculusRiftPrivatePCH.h"
+
+#include "OculusRiftSplash.h"
 #include "OculusRiftHMD.h"
 
 #if OCULUS_RIFT_SUPPORTED_PLATFORMS
-
-#include "OculusRiftSplash.h"
 
 FOculusRiftSplash::FOculusRiftSplash(FOculusRiftHMD* InPlugin) : 
 	LayerMgr(MakeShareable(new OculusRift::FLayerManager(InPlugin->GetCustomPresent_Internal())))
@@ -188,7 +186,7 @@ void FOculusRiftSplash::Show(EShowType InShowType)
 					// load temporary texture (if TexturePath was specified)
 					LoadTexture(SplashScreenDescs[i]);
 				}
-				if (SplashScreenDescs[i].LoadingTexture->IsValidLowLevel())
+				if (SplashScreenDescs[i].LoadingTexture && SplashScreenDescs[i].LoadingTexture->IsValidLowLevel())
 				{
 					SplashScreenDescs[i].LoadingTexture->UpdateResource();
 					bWaitForRT = true;
@@ -200,34 +198,41 @@ void FOculusRiftSplash::Show(EShowType InShowType)
 			}
 			for (int32 i = 0; i < SplashScreenDescs.Num(); ++i)
 			{
+				FSplashDesc& CurrSplashDesc = SplashScreenDescs[i];
 				//@DBG BEGIN
-				if (!SplashScreenDescs[i].LoadingTexture->IsValidLowLevel())
+				if (CurrSplashDesc.LoadingTexture->IsValidLowLevel())
 				{
-					continue;
-				}
-				if (!SplashScreenDescs[i].LoadingTexture->Resource)
-				{
-					UE_LOG(LogHMD, Warning, TEXT("Splash, %s - no Resource"), *SplashScreenDescs[i].LoadingTexture->GetDesc());
-				}
-				else
-				{
-					UE_CLOG(!SplashScreenDescs[i].LoadingTexture->Resource->TextureRHI, LogHMD, Warning, TEXT("Splash, %s - no TextureRHI"), *SplashScreenDescs[i].LoadingTexture->GetDesc());
+					if (CurrSplashDesc.LoadingTexture->Resource && CurrSplashDesc.LoadingTexture->Resource->TextureRHI)
+					{
+						CurrSplashDesc.LoadedTexture = CurrSplashDesc.LoadingTexture->Resource->TextureRHI;
+					}
+					else
+					{
+						UE_LOG(LogHMD, Warning, TEXT("Splash, %s - no Resource"), *CurrSplashDesc.LoadingTexture->GetDesc());
+					}
 				}
 				//@DBG END
-				if (SplashScreenDescs[i].LoadingTexture->Resource && SplashScreenDescs[i].LoadingTexture->Resource->TextureRHI)
+
+				if (CurrSplashDesc.LoadedTexture)
 				{
 					FRenderSplashInfo RenSplash;
 					// use X (depth) as layers priority
-					const uint32 Prio = FHMDLayerDesc::MaxPriority - uint32(SplashScreenDescs[i].TransformInMeters.GetTranslation().X * 1000.f);
+					const uint32 Prio = FHMDLayerDesc::MaxPriority - uint32(CurrSplashDesc.TransformInMeters.GetTranslation().X * 1000.f);
 					TSharedPtr<FHMDLayerDesc> layer = LayerMgr->AddLayer(FHMDLayerDesc::Quad, Prio, FHMDLayerManager::Layer_TorsoLocked, RenSplash.SplashLID);
 					check(layer.IsValid());
-					layer->SetTexture(SplashScreenDescs[i].LoadingTexture->Resource->TextureRHI);
-					layer->SetTransform(SplashScreenDescs[i].TransformInMeters);
-					layer->SetQuadSize(SplashScreenDescs[i].QuadSizeInMeters);
+					layer->SetTexture(CurrSplashDesc.LoadedTexture);
+					layer->SetTransform(CurrSplashDesc.TransformInMeters);
+					layer->SetQuadSize(CurrSplashDesc.QuadSizeInMeters);
+					layer->SetTextureViewport(FBox2D(CurrSplashDesc.TextureOffset, CurrSplashDesc.TextureOffset + CurrSplashDesc.TextureScale));
+
+					if (CurrSplashDesc.bNoAlphaChannel)
+					{
+						layer->SetFlags(IStereoLayers::ELayerFlags::LAYER_FLAG_TEX_NO_ALPHA_CHANNEL);
+					}
 
 					ReadyToPush = true;
 
-					RenSplash.Desc = SplashScreenDescs[i];
+					RenSplash.Desc = CurrSplashDesc;
 
 					FScopeLock ScopeLock2(&RenderSplashScreensLock);
 					RenderSplashScreens.Add(RenSplash);

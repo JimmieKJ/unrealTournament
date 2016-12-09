@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -27,6 +27,8 @@ CEF_EXPORT cef_v8stack_trace_t* cef_v8stack_trace_get_current(int frame_limit) {
   return CefV8StackTraceCppToC::Wrap(_retval);
 }
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -76,15 +78,22 @@ struct _cef_v8stack_frame_t* CEF_CALLBACK v8stack_trace_get_frame(
   return CefV8StackFrameCppToC::Wrap(_retval);
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefV8StackTraceCppToC::CefV8StackTraceCppToC(CefV8StackTrace* cls)
-    : CefCppToC<CefV8StackTraceCppToC, CefV8StackTrace, cef_v8stack_trace_t>(
-        cls) {
-  struct_.struct_.is_valid = v8stack_trace_is_valid;
-  struct_.struct_.get_frame_count = v8stack_trace_get_frame_count;
-  struct_.struct_.get_frame = v8stack_trace_get_frame;
+CefV8StackTraceCppToC::CefV8StackTraceCppToC() {
+  GetStruct()->is_valid = v8stack_trace_is_valid;
+  GetStruct()->get_frame_count = v8stack_trace_get_frame_count;
+  GetStruct()->get_frame = v8stack_trace_get_frame;
+}
+
+template<> CefRefPtr<CefV8StackTrace> CefCppToC<CefV8StackTraceCppToC,
+    CefV8StackTrace, cef_v8stack_trace_t>::UnwrapDerived(CefWrapperType type,
+    cef_v8stack_trace_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -92,3 +101,5 @@ template<> base::AtomicRefCount CefCppToC<CefV8StackTraceCppToC,
     CefV8StackTrace, cef_v8stack_trace_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefV8StackTraceCppToC, CefV8StackTrace,
+    cef_v8stack_trace_t>::kWrapperType = WT_V8STACK_TRACE;

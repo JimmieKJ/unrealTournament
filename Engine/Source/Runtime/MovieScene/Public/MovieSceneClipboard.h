@@ -2,11 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "MovieSceneTrack.h"
+
 #if WITH_EDITOR
 
-#include "KeyParams.h"
-#include "MovieSceneTrack.h"
-#include "DateTime.h"
 
 namespace MovieSceneClipboard
 {

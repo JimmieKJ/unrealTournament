@@ -4,51 +4,103 @@
 	ModelComponent.cpp: Model component implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Components/ModelComponent.h"
-#include "Model.h"
+#include "Engine/MapBuildDataRegistry.h"
+#include "Materials/Material.h"
+#include "Engine/CollisionProfile.h"
+#include "UObject/RenderingObjectVersion.h"
+#include "Engine/Texture2D.h"
 #include "LightMap.h"
 #include "ShadowMap.h"
-#include "Components/ModelComponent.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "PhysicsEngine/BodySetup.h"
 
 FModelElement::FModelElement(UModelComponent* InComponent,UMaterialInterface* InMaterial):
 	Component(InComponent),
 	Material(InMaterial),
+	LegacyMapBuildData(NULL),
 	IndexBuffer(NULL),
 	FirstIndex(0),
 	NumTriangles(0),
 	MinVertexIndex(0),
 	MaxVertexIndex(0),
 	BoundingBox(ForceInitToZero)
-{}
+{
+	MapBuildDataId = FGuid::NewGuid();
+}
 
 FModelElement::FModelElement():
 	Component(NULL), 
 	Material(NULL), 
+	LegacyMapBuildData(NULL),
 	IndexBuffer(NULL), 
 	FirstIndex(0), 
 	NumTriangles(0), 
 	MinVertexIndex(0), 
 	MaxVertexIndex(0), 
 	BoundingBox(ForceInitToZero)
-{}
+{
+}
 
 FModelElement::~FModelElement()
 {}
 
+const FMeshMapBuildData* FModelElement::GetMeshMapBuildData() const
+{
+	check(Component);
+	ULevel* OwnerLevel = Cast<ULevel>(Component->GetModel()->GetOuter());
+
+	if (OwnerLevel && OwnerLevel->OwningWorld)
+	{
+		ULevel* ActiveLightingScenario = OwnerLevel->OwningWorld->GetActiveLightingScenario();
+		UMapBuildDataRegistry* MapBuildData = NULL;
+
+		if (ActiveLightingScenario && ActiveLightingScenario->MapBuildData)
+		{
+			MapBuildData = ActiveLightingScenario->MapBuildData;
+		}
+		else if (OwnerLevel->MapBuildData)
+		{
+			MapBuildData = OwnerLevel->MapBuildData;
+		}
+
+		if (MapBuildData)
+		{
+			return MapBuildData->GetMeshBuildData(MapBuildDataId);
+		}
+	}
+	
+	return NULL;
+}
 
 /**
  * Serializer.
  */
 FArchive& operator<<(FArchive& Ar,FModelElement& Element)
 {
-	Ar << Element.LightMap;
-	Ar << Element.ShadowMap;
-	
+	if (Ar.IsLoading() && Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::MapBuildDataSeparatePackage)
+	{
+		Element.LegacyMapBuildData = new FMeshMapBuildData();
+		Ar << Element.LegacyMapBuildData->LightMap;
+		Ar << Element.LegacyMapBuildData->ShadowMap;
+	}
+
+	if (Ar.CustomVer(FRenderingObjectVersion::GUID) >= FRenderingObjectVersion::FixedBSPLightmaps)
+	{
+		Ar << Element.MapBuildDataId;
+	}
+	else if (Ar.IsLoading())
+	{
+		Element.MapBuildDataId = FGuid::NewGuid();
+	}
+
 	Ar << (UObject*&)Element.Component << (UObject*&)Element.Material << Element.Nodes;
-	Ar << Element.IrrelevantLights;
+
+	if (Ar.IsLoading() && Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::MapBuildDataSeparatePackage)
+	{
+		Ar << Element.LegacyMapBuildData->IrrelevantLights;
+	}
+
 	return Ar;
 }
 
@@ -92,14 +144,6 @@ void UModelComponent::AddReferencedObjects(UObject* InThis, FReferenceCollector&
 		FModelElement& Element = This->Elements[ElementIndex];
 		Collector.AddReferencedObject( Element.Component, This );
 		Collector.AddReferencedObject( Element.Material, This );
-		if(Element.LightMap != NULL)
-		{
-			Element.LightMap->AddReferencedObjects(Collector);
-		}
-		if(Element.ShadowMap != NULL)
-		{
-			Element.ShadowMap->AddReferencedObjects(Collector);
-		}
 	}
 	Super::AddReferencedObjects( This, Collector );
 }
@@ -148,11 +192,7 @@ void UModelComponent::CommitSurfaces()
 			FModelElement& Element = Elements[ElementIndex];
 			if(Element.Material != Surf.Material)
 				continue;
-			if(Element.LightMap != OldElement->LightMap)
-				continue;
-			if(Element.ShadowMap != OldElement->ShadowMap)
-				continue;
-			if(Element.IrrelevantLights != OldElement->IrrelevantLights)
+			if(Element.MapBuildDataId != OldElement->MapBuildDataId)
 				continue;
 			// This element's material and lights match the node.
 			NewElement = &Element;
@@ -162,9 +202,7 @@ void UModelComponent::CommitSurfaces()
 		if(!NewElement)
 		{
 			NewElement = new(Elements) FModelElement(this,Surf.Material);
-			NewElement->LightMap = OldElement->LightMap;
-			NewElement->ShadowMap = OldElement->ShadowMap;
-			NewElement->IrrelevantLights = OldElement->IrrelevantLights;
+			NewElement->MapBuildDataId = OldElement->MapBuildDataId;
 		}
 
 		NewElement->Nodes.Add(It.Key());
@@ -200,6 +238,8 @@ void UModelComponent::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
+	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+
 	Ar << Model;
 
 	if( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_REMOVE_ZONES_FROM_MODEL)
@@ -210,6 +250,27 @@ void UModelComponent::Serialize(FArchive& Ar)
 	else
 	{
 		Ar << Elements;
+	}
+
+	if (Ar.IsLoading() && Elements.Num() > 0)
+	{
+		FMeshMapBuildLegacyData LegacyComponentData;
+
+		for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ElementIndex++)
+		{
+			FModelElement& Element = Elements[ElementIndex];
+
+			if (Element.LegacyMapBuildData)
+			{
+				LegacyComponentData.Data.Add(TPairInitializer<FGuid, FMeshMapBuildData*>(Element.MapBuildDataId, Element.LegacyMapBuildData));
+				Element.LegacyMapBuildData = NULL;
+			}
+		}
+
+		if (LegacyComponentData.Data.Num() > 0)
+		{
+			GComponentsWithLegacyLightmaps.AddAnnotation(this, LegacyComponentData);
+		}
 	}
 
 	Ar << ComponentIndex << Nodes;
@@ -259,17 +320,15 @@ void UModelComponent::PostEditUndo()
 }
 #endif // WITH_EDITOR
 
-SIZE_T UModelComponent::GetResourceSize(EResourceSizeMode::Type Mode)
+void UModelComponent::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	SIZE_T ResSize = Super::GetResourceSize(Mode);
+	Super::GetResourceSizeEx(CumulativeResourceSize);
 
 	// Count the bodysetup we own as well for 'inclusive' stats
-	if((Mode == EResourceSizeMode::Inclusive) && (ModelBodySetup != NULL))
+	if((CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::Inclusive) && (ModelBodySetup != NULL))
 	{
-		ResSize += ModelBodySetup->GetResourceSize(Mode);
+		ModelBodySetup->GetResourceSizeEx(CumulativeResourceSize);
 	}
-
-	return ResSize;
 }
 
 
@@ -307,6 +366,21 @@ UMaterialInterface* UModelComponent::GetMaterial(int32 MaterialIndex) const
 	}
 
 	return Material;
+}
+
+bool UModelComponent::IsPrecomputedLightingValid() const
+{
+	for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ++ElementIndex)
+	{
+		const FModelElement& Element = Elements[ElementIndex];
+
+		if (Element.GetMeshMapBuildData() != NULL)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 #if WITH_EDITOR
@@ -542,11 +616,26 @@ bool UModelComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collis
 	int32 nBadArea = 0;
 	const float AreaThreshold = UPhysicsSettings::Get()->TriangleMeshTriangleMinAreaThreshold;
 
+	// See if we should copy UVs
+	bool bCopyUVs = UPhysicsSettings::Get()->bSupportUVFromHitResults;
+	if (bCopyUVs)
+	{
+		CollisionData->UVs.AddZeroed(1); // only one UV channel
+	}
+
 	const int32 NumVerts = Model->VertexBuffer.Vertices.Num();
 	CollisionData->Vertices.AddUninitialized(NumVerts);
+	if (bCopyUVs)
+	{
+		CollisionData->UVs[0].AddUninitialized(NumVerts);
+	}
 	for(int32 i=0; i<NumVerts; i++)
 	{
 		CollisionData->Vertices[i] = Model->VertexBuffer.Vertices[i].Position;
+		if (bCopyUVs)
+		{
+			CollisionData->UVs[0][i] = Model->VertexBuffer.Vertices[i].TexCoord;
+		}
 	}
 
 	for(int32 ElementIndex = 0;ElementIndex < Elements.Num();ElementIndex++)

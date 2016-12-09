@@ -2,6 +2,48 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "UObject/GCObject.h"
+#include "UnrealWidget.h"
+#include "EditorComponents.h"
+#include "EngineGlobals.h"
+#include "EditorModeRegistry.h"
+
+class FCanvas;
+class FEditorModeTools;
+class FEditorViewportClient;
+class FModeTool;
+class FModeToolkit;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FViewport;
+class UTexture2D;
+struct FConvexVolume;
+struct FViewportClick;
+
+enum EModeTools : int8;
+class FEditorViewportClient;
+class HHitProxy;
+struct FViewportClick;
+class FModeTool;
+class FEditorViewportClient;
+struct FViewportClick;
+
+/** Outcomes when determining whether it's possible to perform an action on the edit modes*/
+namespace EEditAction
+{
+	enum Type
+	{
+		/** Can't process this action */
+		Skip		= 0,
+		/** Can process this action */
+		Process,
+		/** Stop evaluating other modes (early out) */
+		Halt,
+	};
+};
+
 /**
  * Base class for all editor modes.
  */
@@ -68,6 +110,9 @@ public:
 	/** If the EdMode is handling InputDelta (i.e., returning true from it), this allows a mode to indicated whether or not the Widget should also move. */
 	virtual bool AllowWidgetMove() { return true; }
 	
+	/** Check to see if the current widget mode can be cycled */
+	virtual bool CanCycleWidgetMode() const { return true; }
+
 	/** If the Edmode is handling its own mouse deltas, it can disable the MouseDeltaTacker */
 	virtual bool DisallowMouseDeltaTracking() const { return false; }
 
@@ -151,7 +196,7 @@ public:
 	void SelectNone();
 	virtual void SelectionChanged() {}
 
-	virtual bool HandleClick(FEditorViewportClient* InViewportClient, HHitProxy *HitProxy, const FViewportClick &Click);
+	virtual bool HandleClick(FEditorViewportClient* InViewportClient, HHitProxy* HitProxy, const FViewportClick& Click);
 
 	/** Handling SelectActor */
 	virtual bool Select( AActor* InActor, bool bInSelected ) { return 0; }
@@ -320,3 +365,21 @@ protected:
 	/** Indicates  */
 	bool bEditedPropertyIsTransform;
 };
+
+/*------------------------------------------------------------------------------
+	Default.
+------------------------------------------------------------------------------*/
+
+/**
+ * The default editing mode.  User can work with BSP and the builder brush. Vector and array properties are also visually editable.
+ */
+class FEdModeDefault : public FEdMode
+{
+public:
+	FEdModeDefault();
+
+	// FEdMode interface
+	virtual bool UsesPropertyWidgets() const override { return true; }
+	// End of FEdMode interface
+};
+

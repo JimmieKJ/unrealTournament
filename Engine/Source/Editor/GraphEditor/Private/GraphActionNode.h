@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "SGraphActionMenu.h" // for FOnRenameRequestActionNode
+#include "CoreMinimal.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "SGraphActionMenu.h"
 
 // Utility class for building menus of graph actions
 struct GRAPHEDITOR_API FGraphActionNode : TSharedFromThis<FGraphActionNode>

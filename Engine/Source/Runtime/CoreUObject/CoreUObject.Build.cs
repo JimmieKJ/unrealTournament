@@ -6,7 +6,9 @@ public class CoreUObject : ModuleRules
 {
 	public CoreUObject(TargetInfo Target)
 	{
-		SharedPCHHeaderFile = "Runtime/CoreUObject/Public/CoreUObject.h";
+		PrivatePCHHeaderFile = "Private/CoreUObjectPrivatePCH.h";
+
+		SharedPCHHeaderFile = "Public/CoreUObjectSharedPCH.h";
 
 		PrivateIncludePaths.Add("Runtime/CoreUObject/Private");
 

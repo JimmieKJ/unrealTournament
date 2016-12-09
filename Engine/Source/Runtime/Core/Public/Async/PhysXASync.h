@@ -2,6 +2,8 @@
 
 #pragma once
 
+class FEvent;
+
 #if 0
 
 /** Implements basic multi-reader and single-writer synchronization primitive. */

@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
 #include "NullNetworkReplayStreaming.h"
-#include "Paths.h"
-#include "EngineVersion.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/NetworkVersion.h"
+#include "Misc/EngineVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC( LogNullReplay, Log, All );
 

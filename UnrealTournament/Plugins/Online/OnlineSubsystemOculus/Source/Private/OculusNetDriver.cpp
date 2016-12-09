@@ -1,7 +1,5 @@
 // Copyright 2016 Oculus VR, LLC All Rights reserved.
 
-#pragma once
-
 #include "OnlineSubsystemOculusPrivatePCH.h"
 
 #include "IPAddressOculus.h"

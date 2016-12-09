@@ -2,8 +2,13 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Modules/ModuleInterface.h"
 #include "Containers/ArrayView.h"
+
+class AActor;
+class ISequenceAudioRecorder;
 
 DECLARE_DELEGATE_OneParam(FOnRecordingStarted, class UMovieSceneSequence* /*Sequence*/);
 
@@ -74,4 +79,30 @@ public:
 	 * @return the spawnable Guid
 	 */
 	virtual FGuid GetRecordingGuid(AActor* Actor) const = 0;
+
+	/**
+	 * Register a function that will return a new audio capturer for the specified parameters
+	 * @param	FactoryFunction		Function used to generate a new audio recorder
+	 * @return A handle to be passed to UnregisterAudioRecorder to unregister the recorder
+	 */
+	virtual FDelegateHandle RegisterAudioRecorder(const TFunction<TUniquePtr<ISequenceAudioRecorder>()>& FactoryFunction) = 0;
+
+	/**
+	 * Unregister a previously registered audio recorder factory function
+	 * @param	RegisteredHandle	The handle returned from RegisterAudioRecorder
+	 */
+	virtual void UnregisterAudioRecorder(FDelegateHandle RegisteredHandle) = 0;
+
+	/**
+	 * Check whether we have an audio recorder registered or not
+	 * @return true if we have an audio recorder registered, false otherwise
+	 */
+	virtual bool HasAudioRecorder() const = 0;
+
+	/**
+	 * Attempt to create an audio recorder
+	 * @param	Settings	Settings for the audio recorder
+	 * @return A valid ptr to an audio recorder or null
+	 */
+	virtual TUniquePtr<ISequenceAudioRecorder> CreateAudioRecorder() const = 0;
 };

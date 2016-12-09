@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Json.h"
+
+#include "CoreMinimal.h"
+#include "Serialization/JsonSerializerMacros.h"
 #include "OnlineKeyValuePair.h"
 
 #define BEGIN_ONLINE_JSON_SERIALIZER												BEGIN_JSON_SERIALIZER

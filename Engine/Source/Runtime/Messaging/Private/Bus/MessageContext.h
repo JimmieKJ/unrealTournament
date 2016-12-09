@@ -2,13 +2,9 @@
 
 #pragma once
 
-#include "IMessageAttachment.h"
+#include "CoreMinimal.h"
 #include "IMessageContext.h"
-
-
-// forward declarations
-class UScriptStruct;
-
+#include "IMessageAttachment.h"
 
 /**
  * Implements a message context for messages sent through the message bus.
@@ -43,7 +39,17 @@ public:
 	 * @param InExpiration The message's expiration time.
 	 * @param InSenderThread The name of the thread from which the message was sent.
 	 */
-	FMessageContext(void* InMessage, UScriptStruct* InTypeInfo, const IMessageAttachmentPtr& InAttachment, const FMessageAddress& InSender, const TArray<FMessageAddress>& InRecipients, EMessageScope InScope, const FDateTime& InTimeSent, const FDateTime& InExpiration, ENamedThreads::Type InSenderThread)
+	FMessageContext(
+		void* InMessage,
+		UScriptStruct* InTypeInfo,
+		const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& InAttachment,
+		const FMessageAddress& InSender,
+		const TArray<FMessageAddress>& InRecipients,
+		EMessageScope InScope,
+		const FDateTime& InTimeSent,
+		const FDateTime& InExpiration,
+		ENamedThreads::Type InSenderThread
+	)
 		: Attachment(InAttachment)
 		, Expiration(InExpiration)
 		, Message(InMessage)
@@ -67,7 +73,14 @@ public:
 	 * @param InTimeForwarded The time at which the message was forwarded.
 	 * @param InForwarderThread The name of the thread from which the message was forwarded.
 	 */
-	FMessageContext(const IMessageContextRef& InContext, const FMessageAddress& InForwarder, const TArray<FMessageAddress>& NewRecipients, EMessageScope NewScope, const FDateTime& InTimeForwarded, ENamedThreads::Type InForwarderThread)
+	FMessageContext(
+		const IMessageContextRef& InContext,
+		const FMessageAddress& InForwarder,
+		const TArray<FMessageAddress>& NewRecipients,
+		EMessageScope NewScope,
+		const FDateTime& InTimeForwarded,
+		ENamedThreads::Type InForwarderThread
+	)
 		: Message(nullptr)
 		, OriginalContext(InContext)
 		, Recipients(NewRecipients)
@@ -82,10 +95,10 @@ public:
 
 public:
 
-	// IMessageContext interface
+	//~ IMessageContext interface
 
 	virtual const TMap<FName, FString>& GetAnnotations() const override;
-	virtual IMessageAttachmentPtr GetAttachment() const override;
+	virtual TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe> GetAttachment() const override;
 	virtual const FDateTime& GetExpiration() const override;
 	virtual const void* GetMessage() const override;
 	virtual const TWeakObjectPtr<UScriptStruct>& GetMessageTypeInfo() const override;
@@ -103,7 +116,7 @@ private:
 	TMap<FName, FString> Annotations;
 
 	/** Holds a pointer to attached binary data. */
-	IMessageAttachmentPtr Attachment;
+	TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe> Attachment;
 
 	/** Holds the expiration time. */
 	FDateTime Expiration;

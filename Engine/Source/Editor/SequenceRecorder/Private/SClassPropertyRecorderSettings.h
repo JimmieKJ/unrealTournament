@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "PropertyHandle.h"
 #include "IDetailPropertyExtensionHandler.h"
 
 class SClassPropertyRecorderSettings : public SCompoundWidget, public IDetailPropertyExtensionHandler

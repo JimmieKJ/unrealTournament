@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetTypeActions_Base.h"
+
 class FAssetTypeActions_SubsurfaceProfile : public FAssetTypeActions_Base
 {
 public:

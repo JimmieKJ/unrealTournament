@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
+#include "Widgets/Launch/SProjectLauncherLaunchCustomRoles.h"
 
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherLaunchCustomRoles"

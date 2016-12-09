@@ -1,15 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
 #include "MovieSceneToolsProjectSettingsCustomization.h"
 #include "MovieSceneToolsProjectSettings.h"
 
-#include "PropertyEditorModule.h"
-#include "DetailLayoutBuilder.h"
-#include "DetailCategoryBuilder.h"
-#include "DetailWidgetRow.h"
-#include "IDetailPropertyRow.h"
 #include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
 
 //#include "Editor/PropertyEditor/Public/IDetailsView.h"
 //#include "IDetailCustomization.h"

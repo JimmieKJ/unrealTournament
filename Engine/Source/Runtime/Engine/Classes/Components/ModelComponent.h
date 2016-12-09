@@ -2,7 +2,21 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "UObject/ObjectMacros.h"
+#include "Model.h"
+#include "Interfaces/Interface_CollisionDataProvider.h"
+#include "Engine/TextureStreamingTypes.h"
+#include "Components/PrimitiveComponent.h"
 #include "ModelComponent.generated.h"
+
+class FLightingBuildOptions;
+class FPrimitiveSceneProxy;
+class ULightComponent;
+class UMaterialInterface;
+struct FStaticLightingPrimitiveInfo;
 
 //
 // Forward declarations
@@ -88,10 +102,12 @@ public:
 	virtual class UBodySetup* GetBodySetup() override { return ModelBodySetup; };
 	virtual int32 GetNumMaterials() const override;
 	virtual UMaterialInterface* GetMaterial(int32 MaterialIndex) const override;
+	virtual bool IsPrecomputedLightingValid() const override;
 	//~ End UPrimitiveComponent Interface.
 
 	//~ Begin UActorComponent Interface.
 	virtual void InvalidateLightingCacheDetailed(bool bInvalidateBuildEnqueuedLighting, bool bTranslationOnly) override;
+	virtual void PropagateLightingScenarioChange() override;
 	//~ End UActorComponent Interface.
 
 	//~ Begin UObject Interface.
@@ -100,7 +116,7 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditUndo() override;
 #endif // WITH_EDITOR
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	virtual bool IsNameStableForNetworking() const override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	//~ End UObject Interface.
@@ -139,8 +155,6 @@ public:
 	UModel* GetModel() const { return Model; }
 	const TIndirectArray<FModelElement>& GetElements() const { return Elements; }
 	TIndirectArray<FModelElement>& GetElements() { return Elements; }
-
-
 
 	/**
 	 * Create a new temp FModelElement element for the component, which will be applied

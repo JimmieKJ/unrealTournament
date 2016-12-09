@@ -4,24 +4,28 @@
 	AnimationStateMachineSchema.cpp
 =============================================================================*/
 
-#include "AnimGraphPrivatePCH.h"
+#include "AnimationStateMachineSchema.h"
+#include "Layout/SlateRect.h"
+#include "Animation/AnimationAsset.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EdGraph/EdGraph.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "EdGraphNode_Comment.h"
 
 #include "AnimationStateMachineGraph.h"
-#include "AnimationStateMachineSchema.h"
 #include "AnimationGraphSchema.h"
 #include "AnimStateEntryNode.h"
+#include "AnimStateNodeBase.h"
 #include "AnimStateNode.h"
 #include "AnimStateTransitionNode.h"
 #include "AnimStateConduitNode.h"
-#include "AnimStateNodeBase.h"
-
+#include "AnimGraphNode_AssetPlayerBase.h"
 #include "ScopedTransaction.h"
 #include "GraphEditorActions.h"
 
 #include "EdGraphUtilities.h"
-#include "AssetData.h"
 #include "Kismet2/KismetEditorUtilities.h"
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #define LOCTEXT_NAMESPACE "AnimationStateMachineSchema"
 
@@ -358,7 +362,7 @@ void UAnimationStateMachineSchema::GetGraphDisplayInformation(const UEdGraph& Gr
 void UAnimationStateMachineSchema::DroppedAssetsOnGraph(const TArray<FAssetData>& Assets, const FVector2D& GraphPosition, UEdGraph* Graph) const
 {
 	UAnimationAsset* Asset = FAssetData::GetFirstAsset<UAnimationAsset>(Assets);
-	if(Asset != NULL)
+	if(Asset != NULL && GetNodeClassForAsset(Asset->GetClass()))
 	{
 		// Spawn new state
 		UAnimStateNode* NewStateNode = FEdGraphSchemaAction_NewStateNode::SpawnNodeFromTemplate<UAnimStateNode>(Graph, NewObject<UAnimStateNode>(), GraphPosition);

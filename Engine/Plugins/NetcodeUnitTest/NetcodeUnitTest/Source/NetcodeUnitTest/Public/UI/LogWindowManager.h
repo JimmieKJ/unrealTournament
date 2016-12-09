@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "NetcodeUnitTest.h"
+
+class SLogWindow;
+class SWindow;
+
 /**
  * @todo #JohnBFeatureUI: Slate log windows
  *

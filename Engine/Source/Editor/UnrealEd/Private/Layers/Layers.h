@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/World.h"
 #include "Layers/ILayers.h"
+
+class FLevelEditorViewportClient;
+class UEditorEngine;
+class ULayer;
 
 class FLayers : public ILayers
 {

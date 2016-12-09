@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CinematicCameraPrivate.h"
 #include "CameraRig_Crane.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/CollisionProfile.h"
 
 #define LOCTEXT_NAMESPACE "CameraRig_Crane"
 
@@ -14,6 +17,8 @@ ACameraRig_Crane::ACameraRig_Crane(const FObjectInitializer& ObjectInitializer)
 	CraneYaw = 0.f;
 	CranePitch = 0.f;
 	CraneArmLength = 500.f;
+	bLockMountPitch = false;
+	bLockMountYaw = false;
 
 	// create the root component
 	TransformComponent = CreateDefaultSubobject<USceneComponent>(TEXT("TransformComponent"));
@@ -34,6 +39,7 @@ ACameraRig_Crane::ACameraRig_Crane(const FObjectInitializer& ObjectInitializer)
 	CraneCameraMount->RelativeLocation = FVector(CraneArmLength, 0.f, -15.f);			// negative z == underslung mount
 
 	// create preview meshes
+#if WITH_EDITORONLY_DATA
 	if (!IsRunningDedicatedServer())
 	{
 		static ConstructorHelpers::FObjectFinder<UStaticMesh> CraneBaseMesh(TEXT("/Engine/EditorMeshes/Camera/SM_CraneRig_Base.SM_CraneRig_Base"));
@@ -41,8 +47,7 @@ ACameraRig_Crane::ACameraRig_Crane(const FObjectInitializer& ObjectInitializer)
 		if (PreviewMesh_CraneBase)
 		{
 			PreviewMesh_CraneBase->SetStaticMesh(CraneBaseMesh.Object);
-			PreviewMesh_CraneBase->AlwaysLoadOnClient = false;
-			PreviewMesh_CraneBase->AlwaysLoadOnServer = false;
+			PreviewMesh_CraneBase->bIsEditorOnly = true;
 			PreviewMesh_CraneBase->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			PreviewMesh_CraneBase->bHiddenInGame = true;
 			PreviewMesh_CraneBase->CastShadow = false;
@@ -56,8 +61,7 @@ ACameraRig_Crane::ACameraRig_Crane(const FObjectInitializer& ObjectInitializer)
 		if (PreviewMesh_CraneArm)
 		{
 			PreviewMesh_CraneArm->SetStaticMesh(CraneArmMesh.Object);
-			PreviewMesh_CraneArm->AlwaysLoadOnClient = false;
-			PreviewMesh_CraneArm->AlwaysLoadOnServer = false;
+			PreviewMesh_CraneArm->bIsEditorOnly = true;
 			PreviewMesh_CraneArm->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			PreviewMesh_CraneArm->bHiddenInGame = true;
 			PreviewMesh_CraneArm->CastShadow = false;
@@ -74,8 +78,7 @@ ACameraRig_Crane::ACameraRig_Crane(const FObjectInitializer& ObjectInitializer)
 		if (PreviewMesh_CraneMount)
 		{
 			PreviewMesh_CraneMount->SetStaticMesh(CraneArmMount.Object);
-			PreviewMesh_CraneMount->AlwaysLoadOnClient = false;
-			PreviewMesh_CraneMount->AlwaysLoadOnServer = false;
+			PreviewMesh_CraneMount->bIsEditorOnly = true;
 			PreviewMesh_CraneMount->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			PreviewMesh_CraneMount->bHiddenInGame = true;
 			PreviewMesh_CraneMount->CastShadow = false;
@@ -92,8 +95,7 @@ ACameraRig_Crane::ACameraRig_Crane(const FObjectInitializer& ObjectInitializer)
 		if (PreviewMesh_CraneCounterWeight)
 		{
 			PreviewMesh_CraneCounterWeight->SetStaticMesh(CraneArmCW.Object);
-			PreviewMesh_CraneCounterWeight->AlwaysLoadOnClient = false;
-			PreviewMesh_CraneCounterWeight->AlwaysLoadOnServer = false;
+			PreviewMesh_CraneCounterWeight->bIsEditorOnly = true;
 			PreviewMesh_CraneCounterWeight->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			PreviewMesh_CraneCounterWeight->bHiddenInGame = true;
 			PreviewMesh_CraneCounterWeight->CastShadow = false;
@@ -106,6 +108,7 @@ ACameraRig_Crane::ACameraRig_Crane(const FObjectInitializer& ObjectInitializer)
 
 		UpdatePreviewMeshes();
 	}
+#endif
 }
 
 static const float CraneArmMesh_DefaultMeshSize = 29.f * 0.7f;		// size of the mesh in the dimension that will stretch (accounting for the 0.7 scale)
@@ -148,8 +151,16 @@ void ACameraRig_Crane::UpdateCraneComponents()
 
 	// zero the pitch from the camera mount component
 	// this effectively gives us bAbsoluteRotation for only pitch component of an attached camera
-	FRotator NewCameraMountWorldRot = CraneCameraMount->GetComponentRotation();
-	NewCameraMountWorldRot.Pitch = 0.f;
+	FRotator NewCameraMountWorldRot = CraneCameraMount->GetAttachParent() ? CraneCameraMount->GetAttachParent()->GetComponentRotation() : FRotator(0.f, 0.f, 0.f);
+	if (!bLockMountPitch)
+	{
+		NewCameraMountWorldRot.Pitch = 0.f;
+	}
+	if (!bLockMountYaw)
+	{
+		NewCameraMountWorldRot.Yaw = RootComponent->RelativeRotation.Yaw;
+	}
+	NewCameraMountWorldRot.Roll = 0.f;
 	CraneCameraMount->SetWorldRotation(NewCameraMountWorldRot);
 
 	UpdatePreviewMeshes();
@@ -168,6 +179,13 @@ void ACameraRig_Crane::Tick(float DeltaTime)
 void ACameraRig_Crane::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	UpdateCraneComponents();
+}
+
+void ACameraRig_Crane::PostEditUndo()
+{
+	Super::PostEditUndo();
 
 	UpdateCraneComponents();
 }

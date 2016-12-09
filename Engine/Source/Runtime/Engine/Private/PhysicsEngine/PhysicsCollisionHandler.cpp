@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "PhysicsPublic.h"
 #include "PhysicsEngine/PhysicsCollisionHandler.h"
 #include "Kismet/GameplayStatics.h"
+#include "PhysicsPublic.h"
 
 UPhysicsCollisionHandler::UPhysicsCollisionHandler(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

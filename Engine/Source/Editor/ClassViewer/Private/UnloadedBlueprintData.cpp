@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ClassViewerPrivatePCH.h"
-
 #include "UnloadedBlueprintData.h"
-#include "ClassViewerNode.h"
 #include "Engine/BlueprintGeneratedClass.h"
+
 
 FUnloadedBlueprintData::FUnloadedBlueprintData( TWeakPtr< FClassViewerNode > InClassViewerNode )
 {

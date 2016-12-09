@@ -8,6 +8,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "AnimMetaData.generated.h"
 
 UCLASS(Blueprintable, abstract, const, editinlinenew, hidecategories=Object, collapsecategories)

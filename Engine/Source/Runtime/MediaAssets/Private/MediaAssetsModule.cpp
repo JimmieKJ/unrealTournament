@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaAssetsPCH.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "MediaAssetsPrivate.h"
 #include "MediaPlayer.h"
-#include "ModuleInterface.h"
 
 
 DEFINE_LOG_CATEGORY(LogMediaAssets);

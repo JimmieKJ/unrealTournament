@@ -1,10 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PhATPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Materials/MaterialInterface.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Materials/Material.h"
+#include "Preferences/PhATSimOptions.h"
+#include "SceneManagement.h"
 #include "PhATSharedData.h"
 #include "PhATHitProxies.h"
 #include "PhATEdSkeletalMeshComponent.h"
-#include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 
@@ -48,11 +52,6 @@ UPhATEdSkeletalMeshComponent::UPhATEdSkeletalMeshComponent(const FObjectInitiali
 
 	static FName CollisionProfileName(TEXT("PhysicsActor"));
 	SetCollisionProfileName(CollisionProfileName);
-}
-
-UPhysicsAsset* UPhATEdSkeletalMeshComponent::GetPhysicsAsset() const
-{
-	return SharedData->PhysicsAsset;
 }
 
 void UPhATEdSkeletalMeshComponent::RenderAssetTools(const FSceneView* View, class FPrimitiveDrawInterface* PDI, bool bHitTest)
@@ -341,7 +340,7 @@ void UPhATEdSkeletalMeshComponent::DrawConstraint(int32 ConstraintIndex, const F
 	FTransform Con1Frame = SharedData->GetConstraintMatrix(ConstraintIndex, EConstraintFrame::Frame1, 1.f);
 	FTransform Con2Frame = SharedData->GetConstraintMatrix(ConstraintIndex, EConstraintFrame::Frame2, 1.f);
 
-	float ZoomFactor = FMath::Min<float>(View->ViewMatrices.ProjMatrix.M[0][0], View->ViewMatrices.ProjMatrix.M[1][1]);
+	float ZoomFactor = FMath::Min<float>(View->ViewMatrices.GetProjectionMatrix().M[0][0], View->ViewMatrices.GetProjectionMatrix().M[1][1]);
 	float DrawScale = View->Project(Con1Frame.GetTranslation()).W * (SharedData->EditorSimOptions->ConstraintDrawSize / ZoomFactor);
 
 	ConstraintSetup->DefaultInstance.DrawConstraint(PDI, 1.f, DrawScale, bDrawLimits, bDrawSelected, Con1Frame, Con2Frame, bDrawAsPoint);

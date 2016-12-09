@@ -49,6 +49,7 @@ enum RequestTestMode {
   REQTEST_GET_NODATA,
   REQTEST_GET_ALLOWCOOKIES,
   REQTEST_GET_REDIRECT,
+  REQTEST_GET_REFERRER,
   REQTEST_POST,
   REQTEST_POST_FILE,
   REQTEST_POST_WITHPROGRESS,
@@ -583,6 +584,7 @@ class RequestTestRunner : public base::RefCountedThreadSafe<RequestTestRunner> {
     REGISTER_TEST(REQTEST_GET_ALLOWCOOKIES, SetupGetAllowCookiesTest,
                   GenericRunTest);
     REGISTER_TEST(REQTEST_GET_REDIRECT, SetupGetRedirectTest, GenericRunTest);
+    REGISTER_TEST(REQTEST_GET_REFERRER, SetupGetReferrerTest, GenericRunTest);
     REGISTER_TEST(REQTEST_POST, SetupPostTest, GenericRunTest);
     REGISTER_TEST(REQTEST_POST_FILE, SetupPostFileTest, GenericRunTest);
     REGISTER_TEST(REQTEST_POST_WITHPROGRESS, SetupPostWithProgressTest,
@@ -675,6 +677,25 @@ class RequestTestRunner : public base::RefCountedThreadSafe<RequestTestRunner> {
     CefResponse::HeaderMap headerMap;
     headerMap.insert(std::make_pair("Location", settings_.request->GetURL()));
     settings_.redirect_response->SetHeaderMap(headerMap);
+  }
+
+  void SetupGetReferrerTest() {
+    settings_.request = CefRequest::Create();
+    settings_.request->SetURL(MakeSchemeURL("GetTest.html"));
+    settings_.request->SetMethod("GET");
+
+    // The referrer URL must be HTTP or HTTPS. This is enforced by
+    // GURL::GetAsReferrer() called from URLRequest::SetReferrer().
+    settings_.request->SetReferrer(
+        "http://tests.com/referrer.html",
+        REFERRER_POLICY_NO_REFERRER_WHEN_DOWNGRADE);
+
+    settings_.response = CefResponse::Create();
+    settings_.response->SetMimeType("text/html");
+    settings_.response->SetStatus(200);
+    settings_.response->SetStatusText("OK");
+
+    settings_.response_data = "GET TEST SUCCESS";
   }
 
   void SetupPostTest() {
@@ -1003,8 +1024,6 @@ class RequestTestHandler : public TestHandler,
 
       // Set the schemes that are allowed to store cookies.
       std::vector<CefString> supported_schemes;
-      supported_schemes.push_back("http");
-      supported_schemes.push_back("https");
       supported_schemes.push_back(kRequestScheme);
 
       // Continue the test once supported schemes has been set.
@@ -1149,6 +1168,8 @@ class RequestTestHandler : public TestHandler,
   // Only used when the test runs in the render process.
   TrackCallback got_message_;
   TrackCallback got_success_;
+
+  IMPLEMENT_REFCOUNTING(RequestTestHandler);
 };
 
 }  // namespace
@@ -1196,6 +1217,8 @@ void RegisterURLRequestCustomSchemes(
            REQTEST_GET_ALLOWCOOKIES, context_mode, true); \
   REQ_TEST(BrowserGETRedirect##suffix, \
            REQTEST_GET_REDIRECT, context_mode, true); \
+  REQ_TEST(BrowserGETReferrer##suffix, \
+           REQTEST_GET_REFERRER, context_mode, true); \
   REQ_TEST(BrowserPOST##suffix, REQTEST_POST, context_mode, true); \
   REQ_TEST(BrowserPOSTFile##suffix, REQTEST_POST_FILE, context_mode, true); \
   REQ_TEST(BrowserPOSTWithProgress##suffix, \
@@ -1208,6 +1231,8 @@ void RegisterURLRequestCustomSchemes(
            REQTEST_GET_ALLOWCOOKIES, context_mode, false); \
   REQ_TEST(RendererGETRedirect##suffix, \
            REQTEST_GET_REDIRECT, context_mode, false); \
+  REQ_TEST(RendererGETReferrer##suffix, \
+           REQTEST_GET_REFERRER, context_mode, false); \
   REQ_TEST(RendererPOST##suffix, REQTEST_POST, context_mode, false); \
   REQ_TEST(RendererPOSTWithProgress##suffix, \
            REQTEST_POST_WITHPROGRESS, context_mode, false); \

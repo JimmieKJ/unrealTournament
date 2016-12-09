@@ -1,6 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "PropertyCustomizationHelpers.h"
+#include "Widgets/Input/SMenuAnchor.h"
+
 class SPropertyAssetPicker : public SCompoundWidget
 {
 public:

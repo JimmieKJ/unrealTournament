@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "TickableEditorObject.h"
+#include "Scalability.h"
+
+class SWindow;
+
 /**
  * Helper class for a calculating a moving average. This works by maintaining an accumulator which is then sampled at regular intervals into the "Samples" array.
  */

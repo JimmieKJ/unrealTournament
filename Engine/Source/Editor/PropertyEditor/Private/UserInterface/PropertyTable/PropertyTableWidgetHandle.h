@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SPropertyTable.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "IPropertyTableWidgetHandle.h"
+#include "UserInterface/PropertyTable/SPropertyTable.h"
 
 class FPropertyTableWidgetHandle: public IPropertyTableWidgetHandle{
 public:

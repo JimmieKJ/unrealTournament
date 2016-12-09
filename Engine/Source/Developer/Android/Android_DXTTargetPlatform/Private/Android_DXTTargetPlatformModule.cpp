@@ -4,7 +4,15 @@
 	AndroidDXT_TargetPlatformModule.cpp: Implements the FAndroidDXT_TargetPlatformModule class.
 =============================================================================*/
 
-#include "Android_DXTTargetPlatformPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Android/AndroidProperties.h"
+#include "Interfaces/ITargetPlatformModule.h"
+#include "Common/TargetPlatformBase.h"
+#include "Interfaces/IAndroidDeviceDetection.h"
+#include "Interfaces/IAndroidDeviceDetectionModule.h"
+#include "AndroidTargetDevice.h"
+#include "AndroidTargetPlatform.h"
 
 #define LOCTEXT_NAMESPACE "FAndroid_DXTTargetPlatformModule" 
 

@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "MaterialGraph/MaterialGraphNode_Base.h"
 #include "MaterialGraphNode_Root.generated.h"
+
+class UEdGraphPin;
 
 UCLASS(MinimalAPI)
 class UMaterialGraphNode_Root : public UMaterialGraphNode_Base

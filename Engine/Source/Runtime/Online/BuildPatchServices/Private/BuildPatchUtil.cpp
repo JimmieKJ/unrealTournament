@@ -4,7 +4,12 @@
 	BuildPatchUtil.cpp: Implements miscellaneous utility functions.
 =============================================================================*/
 
-#include "BuildPatchServicesPrivatePCH.h"
+#include "BuildPatchUtil.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "BuildPatchError.h"
+#include "BuildPatchServicesModule.h"
+#include "BuildPatchHash.h"
 
 /* FBuildPatchUtils implementation
 *****************************************************************************/

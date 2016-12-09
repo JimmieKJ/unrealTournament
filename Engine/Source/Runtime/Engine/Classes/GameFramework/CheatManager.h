@@ -8,6 +8,13 @@
 //=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/EngineTypes.h"
+#include "UObject/ScriptMacros.h"
 #include "CheatManager.generated.h"
 
 /** Debug Trace info for capturing **/
@@ -54,7 +61,11 @@ struct FDebugTraceInfo
 
 };
 
-UCLASS(Within=PlayerController, Blueprintable)
+/** 
+	Cheat Manager is a central blueprint to implement test and debug code and actions that are not to ship with the game.
+	As the Cheat Manager is not instanced in shipping builds, it is for debugging purposes only
+*/
+UCLASS(Blueprintable, Within=PlayerController)
 class ENGINE_API UCheatManager : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -63,11 +74,8 @@ class ENGINE_API UCheatManager : public UObject
 	UPROPERTY()
 	class ADebugCameraController* DebugCameraControllerRef;
 
-	/** 
-	* Debug camera - used to have independent camera without stopping gameplay. 
-	* If the Outer PlayerController::DebugCameraClass is valid then it is used instead of default DebugCameraController class. 
-	*/
-	UPROPERTY(Category="Debug Camera", EditDefaultsOnly, BlueprintReadOnly)
+	/** Debug camera - used to have independent camera without stopping gameplay */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Debug Camera")
 	TSubclassOf<class ADebugCameraController>  DebugCameraControllerClass;
 
 	// Trace/Sweep debug start
@@ -114,43 +122,43 @@ class ENGINE_API UCheatManager : public UObject
 	int32 CurrentTracePawnIndex;
 
 	/** Pause the game for Delay seconds. */
-	UFUNCTION(exec)
+	UFUNCTION(exec,BlueprintCallable,Category="Cheat Manager")
 	virtual void FreezeFrame(float Delay);
 
 	/* Teleport to surface player is looking at. */
-	UFUNCTION(exec)
+	UFUNCTION(exec,BlueprintCallable,Category="Cheat Manager")
 	virtual void Teleport();
 
 	/* Scale the player's size to be F * default size. */
-	UFUNCTION(exec)
+	UFUNCTION(exec,BlueprintCallable,Category="Cheat Manager")
 	virtual void ChangeSize(float F);
 
 	/** Pawn can fly. */
-	UFUNCTION(exec)
+	UFUNCTION(exec,BlueprintCallable,Category="Cheat Manager")
 	virtual void Fly();
 
 	/** Return to walking movement mode from Fly or Ghost cheat. */
-	UFUNCTION(exec)
+	UFUNCTION(exec,BlueprintCallable,Category="Cheat Manager")
 	virtual void Walk();
 
 	/** Pawn no longer collides with the world, and can fly */
-	UFUNCTION(exec)
+	UFUNCTION(exec,BlueprintCallable,Category="Cheat Manager")
 	virtual void Ghost();
 
 	/** Invulnerability cheat. */
-	UFUNCTION(exec)
+	UFUNCTION(exec,BlueprintCallable,Category="Cheat Manager")
 	virtual void God();
 
 	/** Modify time dilation to change apparent speed of passage of time. e.g. "Slomo 0.1" makes everything move very slowly, while "Slomo 10" makes everything move very fast. */
-	UFUNCTION(exec)
+	UFUNCTION(exec,BlueprintCallable,Category="Cheat Manager")
 	virtual void Slomo(float NewTimeDilation);
 
 	/** Damage the actor you're looking at (sourced from the player). */
-	UFUNCTION(exec)
+	UFUNCTION(exec,BlueprintCallable,Category="Cheat Manager")
 	void DamageTarget(float DamageAmount);
 
 	/** Destroy the actor you're looking at. */
-	UFUNCTION(exec)
+	UFUNCTION(exec,BlueprintCallable,Category="Cheat Manager")
 	virtual void DestroyTarget();
 
 	/** Destroy all actors of class aClass */
@@ -170,7 +178,7 @@ class ENGINE_API UCheatManager : public UObject
 	virtual void Summon(const FString& ClassName);
 
 	/** Freeze everything in the level except for players. */
-	UFUNCTION(exec)
+	UFUNCTION(exec,BlueprintCallable,Category="Cheat Manager")
 	virtual void PlayersOnly();
 
 	/** Make controlled pawn the viewtarget again. */
@@ -350,16 +358,23 @@ class ENGINE_API UCheatManager : public UObject
 	/** streaming level debugging */
 	virtual void SetLevelStreamingStatus(FName PackageName, bool bShouldBeLoaded, bool bShouldBeVisible);
 
-	/** Called when the Cheat Manager is first initialized. */
+	/** 
+	* BP implementable event for when CheatManager is created to allow any needed initialization.  
+	*/
 	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "Init Cheat Manager", Keywords="Begin Play"))
 	void ReceiveInitCheatManager();
 
 	/** 
 	 * Called when CheatManager is created to allow any needed initialization.  
-	 * This is not an actor, so we need a stand in for PostInitializeComponents 
 	 */
 	virtual void InitCheatManager();
 
+	/**
+	* This is the End Play event for the CheatManager
+	*/
+	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "Shutdown", keywords="endplay"))
+	void ReceiveEndPlay();
+	
 	/**
 	* Called before destroying the object.  This is called immediately upon deciding to destroy the object, to allow the object to begin an
 	* asynchronous cleanup process.
@@ -374,9 +389,11 @@ protected:
 	virtual bool DoGameSpecificBugItLog(FOutputDevice& OutputFile) { return true; }
 
 	/** Switch controller to debug camera without locking gameplay and with locking local player controller input */
+	UFUNCTION(BlueprintCallable,Category="Cheat Manager")
 	virtual void EnableDebugCamera();
 	
 	/** Switch controller from debug camera back to normal controller */
+	UFUNCTION(BlueprintCallable,Category="Cheat Manager")
 	virtual void DisableDebugCamera();
 };
 

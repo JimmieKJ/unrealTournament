@@ -1,11 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SourceControlPrivatePCH.h"
 #include "SSourceControlPicker.h"
+#if SOURCE_CONTROL_WITH_SLATE
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SComboButton.h"
+#endif
+#include "ISourceControlModule.h"
 #include "SourceControlModule.h"
-#include "SSourceControlLogin.h"
 
 #if SOURCE_CONTROL_WITH_SLATE
+
+#include "SSourceControlLogin.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "SSourceControlPicker"
 

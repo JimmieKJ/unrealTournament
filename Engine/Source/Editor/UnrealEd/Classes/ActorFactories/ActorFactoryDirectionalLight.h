@@ -2,6 +2,10 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ActorFactories/ActorFactory.h"
 #include "ActorFactoryDirectionalLight.generated.h"
 
 UCLASS(MinimalAPI, config=Editor, collapsecategories, hidecategories=Object)

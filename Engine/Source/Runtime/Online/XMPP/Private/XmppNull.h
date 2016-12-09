@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Mock for when Xmpp implementation is not available on a platform */
 class FXmppNull
 {

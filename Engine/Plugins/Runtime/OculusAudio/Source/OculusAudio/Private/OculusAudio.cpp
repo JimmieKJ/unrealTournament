@@ -5,9 +5,9 @@
 #include "XAudio2Device.h"
 #include "AudioEffect.h"
 #include "XAudio2Effects.h"
-#include "Engine.h"
 #include "OculusAudioEffect.h"
 #include "Runtime/Windows/XAudio2/Private/XAudio2Support.h"
+#include "Misc/Paths.h"
 
 //---------------------------------------------------
 // Oculus Audio Plugin Implementation
@@ -39,11 +39,10 @@ static const TCHAR* GetOculusErrorString(ovrResult Result)
 		return;																							\
 	}
 
-
-class FHrtfSpatializationAlgorithm : public IAudioSpatializationAlgorithm
+class FHrtfSpatializationAlgorithmXAudio2 : public IAudioSpatializationAlgorithm
 {
 public:
-	FHrtfSpatializationAlgorithm(class FAudioDevice * AudioDevice)
+	FHrtfSpatializationAlgorithmXAudio2(class FAudioDevice * AudioDevice)
 		: bOvrContextInitialized(false)
 		, AudioDevice(AudioDevice)
 		, OvrAudioContext(nullptr)
@@ -61,11 +60,11 @@ public:
 			NewHRTFEffect->Initialize(nullptr, 0);
 			HRTFEffects.Add(NewHRTFEffect);
 
-			Params.Add(FAudioSpatializationParams());
+			Params.Add(FSpatializationParams());
 		}
 	}
 
-	~FHrtfSpatializationAlgorithm()
+	~FHrtfSpatializationAlgorithmXAudio2()
 	{
 		// Release all the effects for the oculus spatialization effect
 		for (FXAudio2HRTFEffect* Effect : HRTFEffects)
@@ -150,7 +149,7 @@ public:
 		return nullptr;
 	}
 
-	void SetSpatializationParameters(uint32 VoiceId, const FAudioSpatializationParams& InParams) override
+	void SetSpatializationParameters(uint32 VoiceId, const FSpatializationParams& InParams) override
 	{
 		check((int32)VoiceId < Params.Num());
 
@@ -158,7 +157,7 @@ public:
 		Params[VoiceId] = InParams;
 	}
 
-	void GetSpatializationParameters(uint32 VoiceId, FAudioSpatializationParams& OutParams) override
+	void GetSpatializationParameters(uint32 VoiceId, FSpatializationParams& OutParams) override
 	{
 		check((int32)VoiceId < Params.Num());
 
@@ -203,11 +202,137 @@ private:
 
 	/** Xaudio2 effects for the oculus plugin */
 	TArray<class FXAudio2HRTFEffect*> HRTFEffects;
-	TArray<FAudioSpatializationParams> Params;
+	TArray<FSpatializationParams> Params;
 
 	FCriticalSection ParamCriticalSection;
 };
 
+/**
+* FHrtfSpatializationAlgorithmAudioMixer
+* Simple implementation of the IAudioSpatializationAlgorithm interface for use with audio mixer.
+*/
+
+class FHrtfSpatializationAlgorithmAudioMixer : public IAudioSpatializationAlgorithm
+{
+public:
+	FHrtfSpatializationAlgorithmAudioMixer(class FAudioDevice * AudioDevice)
+		: bOvrContextInitialized(false)
+		, AudioDevice(AudioDevice)
+		, OvrAudioContext(nullptr)
+	{
+		uint32 MaxNumSources = AudioDevice->MaxChannels;
+		int32 SampleRate = (int32)AudioDevice->GetSampleRate();
+		int32 BufferLength = AudioDevice->GetBufferLength();
+
+		check(MaxNumSources > 0);
+		check(SampleRate > 0);
+		check(BufferLength > 0);
+
+		Params.AddDefaulted(MaxNumSources);
+
+		ovrAudioContextConfiguration ContextConfig;
+		ContextConfig.acc_Size = sizeof(ovrAudioContextConfiguration);
+
+		// First initialize the Fast algorithm context
+		ContextConfig.acc_Provider = ovrAudioSpatializationProvider_OVR_OculusHQ;
+		ContextConfig.acc_MaxNumSources = MaxNumSources;
+		ContextConfig.acc_SampleRate = SampleRate;
+		ContextConfig.acc_BufferLength = (uint32)BufferLength;
+
+		check(OvrAudioContext == nullptr);
+		// Create the OVR Audio Context with a given quality
+		ovrResult Result = ovrAudio_CreateContext(&OvrAudioContext, &ContextConfig);
+		OVR_AUDIO_CHECK(Result, "Failed to create simple context");
+
+		// Now initialize the high quality algorithm context
+		bOvrContextInitialized = true;
+	}
+
+	bool IsSpatializationEffectInitialized() const override
+	{
+		return bOvrContextInitialized;
+	}
+
+	void InitializeSpatializationEffect(uint32 BufferLength) override
+	{
+		if (bOvrContextInitialized)
+		{
+			return;
+		}
+
+		uint32 MaxNumSources = AudioDevice->MaxChannels;
+		uint32 SampleRate = AudioDevice->SampleRate;
+
+		ovrAudioContextConfiguration ContextConfig;
+		ContextConfig.acc_Size = sizeof(ovrAudioContextConfiguration);
+
+		// First initialize the Fast algorithm context
+		ContextConfig.acc_Provider = ovrAudioSpatializationProvider_OVR_OculusHQ;
+		ContextConfig.acc_MaxNumSources = MaxNumSources;
+		ContextConfig.acc_SampleRate = SampleRate;
+		ContextConfig.acc_BufferLength = BufferLength;
+
+		check(OvrAudioContext == nullptr);
+		// Create the OVR Audio Context with a given quality
+		ovrResult Result = ovrAudio_CreateContext(&OvrAudioContext, &ContextConfig);
+		OVR_AUDIO_CHECK(Result, "Failed to create simple context");
+
+		for (int32 SourceId = 0; SourceId < (int32)MaxNumSources; ++SourceId)
+		{
+			Result = ovrAudio_SetAudioSourceAttenuationMode(OvrAudioContext, SourceId, ovrAudioSourceAttenuationMode_None, 1.0f);
+			OVR_AUDIO_CHECK(Result, "Failed to set source attenuation mode");
+		}
+
+		// Now initialize the high quality algorithm context
+		bOvrContextInitialized = true;
+	}
+
+	virtual void SetSpatializationParameters(uint32 VoiceId, const FSpatializationParams& InParams)
+	{
+		Params[VoiceId] = InParams;
+	}
+
+	void ProcessSpatializationForVoice(uint32 SourceId, float* InSamples, float* OutSamples) override
+	{
+		if (OvrAudioContext)
+		{
+			// Translate the input position to OVR coordinates
+			FVector OvrPosition = ToOVRVector(Params[SourceId].EmitterPosition);
+
+			// Set the source position to current audio position
+			ovrResult Result = ovrAudio_SetAudioSourcePos(OvrAudioContext, SourceId, OvrPosition.X, OvrPosition.Y, OvrPosition.Z);
+			OVR_AUDIO_CHECK(Result, "Failed to set audio source position");
+
+			// Perform the processing
+			uint32 Status;
+			Result = ovrAudio_SpatializeMonoSourceInterleaved(OvrAudioContext, SourceId, ovrAudioSpatializationFlag_None, &Status, OutSamples, InSamples);
+			OVR_AUDIO_CHECK(Result, "Failed to spatialize mono source interleaved");
+		}
+	}
+
+private:
+
+	/** Helper function to convert from UE coords to OVR coords. */
+	FORCEINLINE FVector ToOVRVector(const FVector& InVec) const
+	{
+		return FVector(InVec.Y, -InVec.Z, -InVec.X);
+	}
+
+	/* Whether or not the OVR audio context is initialized. We defer initialization until the first audio callback.*/
+	bool bOvrContextInitialized;
+
+	TArray<FSpatializationParams> Params;
+
+	/** Ptr to parent audio device */
+	FAudioDevice* AudioDevice;
+
+	/** The OVR Audio context initialized to "Fast" algorithm. */
+	ovrAudioContext OvrAudioContext;
+};
+
+/**
+* FOculusAudioPlugin
+*/
 
 class FOculusAudioPlugin : public IOculusAudioPlugin
 {
@@ -273,7 +398,14 @@ public:
 
 	IAudioSpatializationAlgorithm* GetNewSpatializationAlgorithm(class FAudioDevice* AudioDevice) override
 	{
-		return new FHrtfSpatializationAlgorithm(AudioDevice);
+		// If we are using the audio mixer, use a new implementation
+		if (AudioDevice->IsAudioMixerEnabled())
+		{
+			return new FHrtfSpatializationAlgorithmAudioMixer(AudioDevice);
+		}
+
+		// Otherwise, use the xaudio2 implementation
+		return new FHrtfSpatializationAlgorithmXAudio2(AudioDevice);
 	}
 
 private:

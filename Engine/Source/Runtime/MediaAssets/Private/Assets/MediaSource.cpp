@@ -1,26 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaAssetsPCH.h"
 #include "MediaSource.h"
-
-
-/* UMediaSource interface
- *****************************************************************************/
-
-FString UMediaSource::GetDesiredPlayer() const
-{
-#if WITH_EDITORONLY_DATA
-	const FString RunningPlatformName(FPlatformProperties::IniPlatformName());
-	const FString* PlatformPlayer = PlatformPlayers.Find(RunningPlatformName);
-
-	if (PlatformPlayer != nullptr)
-	{
-		return *PlatformPlayer;
-	}
+#include "UObject/SequencerObjectVersion.h"
+#if WITH_EDITOR
+#include "Interfaces/ITargetPlatform.h"
 #endif
-
-	return DefaultPlayer;
-}
 
 
 /* UObject interface
@@ -48,28 +32,65 @@ void UMediaSource::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
-#if WITH_EDITORONLY_DATA
-	if (Ar.IsCooking())
-	{
-		const FString* PlatformPlayer = PlatformPlayers.Find(Ar.CookingTarget()->PlatformName());
+	Ar.UsingCustomVersion(FSequencerObjectVersion::GUID);
 
-		if (PlatformPlayer != nullptr)
+	if (Ar.IsLoading() && (Ar.CustomVer(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::RenameMediaSourcePlatformPlayers))
+	{
+#if WITH_EDITORONLY_DATA
+		if (!Ar.IsFilterEditorOnly())
 		{
-			DefaultPlayer = *PlatformPlayer;
+			TMap<FString, FString> DummyPlatformPlayers;
+			Ar << DummyPlatformPlayers;
 		}
+#endif
+
+		FString DummyDefaultPlayer;
+		Ar << DummyDefaultPlayer;
 	}
 	else
 	{
-		Ar << PlatformPlayers;
-	}
-#endif
+#if WITH_EDITORONLY_DATA
+		if (Ar.IsFilterEditorOnly())
+		{
+			if (Ar.IsSaving())
+			{
+				const FName* PlatformPlayerName = PlatformPlayerNames.Find(Ar.CookingTarget()->PlatformName());
+				PlayerName = (PlatformPlayerName != nullptr) ? *PlatformPlayerName : NAME_None;
+			}
 
-	Ar << DefaultPlayer;
+			Ar << PlayerName;
+		}
+		else
+		{
+			Ar << PlatformPlayerNames;
+		}
+#else
+		Ar << PlayerName;
+#endif
+	}
 }
 
 
 /* IMediaOptions interface
  *****************************************************************************/
+
+FName UMediaSource::GetDesiredPlayerName() const
+{
+#if WITH_EDITORONLY_DATA
+	const FString RunningPlatformName(FPlatformProperties::IniPlatformName());
+	const FName* PlatformPlayerName = PlatformPlayerNames.Find(RunningPlatformName);
+
+	if (PlatformPlayerName == nullptr)
+	{
+		return NAME_None;
+	}
+
+	return *PlatformPlayerName;
+#else
+	return PlayerName;
+#endif
+}
+
 
 bool UMediaSource::GetMediaOption(const FName& Key, bool DefaultValue) const
 {

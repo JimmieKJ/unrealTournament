@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemFacebookPrivatePCH.h"
+#include "OnlineSubsystemFacebook.h"
+#include "OnlineSubsystemFacebookPrivate.h"
 #include "IOSAppDelegate.h"
+#include "Misc/CommandLine.h"
 
 #include "OnlineSharingFacebook.h"
 #include "OnlineUserFacebook.h"

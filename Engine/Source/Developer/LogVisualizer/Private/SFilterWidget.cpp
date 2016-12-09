@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
 #include "SFilterWidget.h"
+#include "Misc/OutputDeviceHelper.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "LogVisualizerSettings.h"
+#include "LogVisualizerStyle.h"
 
 #define LOCTEXT_NAMESPACE "SFilterWidget"
 /** Constructs this widget with InArgs */

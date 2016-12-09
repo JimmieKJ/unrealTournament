@@ -1,9 +1,12 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ViewportInteractionModule.h"
 #include "VIUniformScaleGizmoHandle.h"
-#include "ViewportWorldInteraction.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "VIBaseTransformGizmo.h"
+#include "ViewportWorldInteraction.h"
 
 UUniformScaleGizmoHandleGroup::UUniformScaleGizmoHandleGroup()
 	: Super(),

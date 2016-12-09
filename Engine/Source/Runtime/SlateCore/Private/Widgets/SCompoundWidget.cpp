@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Types/PaintArgs.h"
+#include "Layout/ArrangedChildren.h"
+#include "Layout/LayoutUtils.h"
+#include "SlateGlobals.h"
+
+DECLARE_CYCLE_STAT(TEXT("Child Paint"), STAT_ChildPaint, STATGROUP_SlateVeryVerbose);
 
 int32 SCompoundWidget::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
+
 	// A CompoundWidget just draws its children
 	FArrangedChildren ArrangedChildren(EVisibility::Visible);
 	{
@@ -22,7 +29,14 @@ int32 SCompoundWidget::OnPaint( const FPaintArgs& Args, const FGeometry& Allotte
 			.BlendColorAndOpacityTint(ColorAndOpacity.Get())
 			.SetForegroundColor( GetForegroundColor() );
 
-		return TheChild.Widget->Paint( Args.WithNewParent(this), TheChild.Geometry, ChildClippingRect, OutDrawElements, LayerId + 1, CompoundedWidgetStyle, ShouldBeEnabled( bParentEnabled ) );
+		int32 Layer = 0;
+		{
+#if WITH_VERY_VERBOSE_SLATE_STATS
+			SCOPE_CYCLE_COUNTER(STAT_ChildPaint);
+#endif
+			Layer = TheChild.Widget->Paint( Args.WithNewParent(this), TheChild.Geometry, ChildClippingRect, OutDrawElements, LayerId + 1, CompoundedWidgetStyle, ShouldBeEnabled( bParentEnabled ) );
+		}
+		return Layer;
 	}
 	return LayerId;
 }

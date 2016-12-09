@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
 #include "VulkanRHIPrivate.h"
 #include "VulkanContext.h"
 
@@ -40,6 +39,10 @@ void FVulkanShaderResourceView::UpdateView()
 			if (FRHITexture2D* Tex2D = SourceTexture->GetTexture2D())
 			{
 				FVulkanTexture2D* VTex2D = ResourceCast(Tex2D);
+				if (Format == PF_X24_G8)
+				{
+					Format = PF_DepthStencil;
+				}
 				TextureView.Create(*Device, VTex2D->Surface.Image, VK_IMAGE_VIEW_TYPE_2D, VTex2D->Surface.GetPartialAspectMask(), Format, UEToVkFormat(Format, false), MipLevel, NumMips, 0, 1);
 			}
 			else
@@ -50,6 +53,46 @@ void FVulkanShaderResourceView::UpdateView()
 	}
 }
 
+void FVulkanUnorderedAccessView::UpdateView()
+{
+	// update the buffer view for dynamic VB backed buffers (or if it was never set)
+	if (SourceVertexBuffer != nullptr)
+	{
+		if (SourceVertexBuffer->IsVolatile() && VolatileLockCounter != SourceVertexBuffer->GetVolatileLockCounter())
+		{
+			BufferView = nullptr;
+			VolatileLockCounter = SourceVertexBuffer->GetVolatileLockCounter();
+		}
+
+		if (BufferView == nullptr || SourceVertexBuffer->IsDynamic())
+		{
+			SCOPE_CYCLE_COUNTER(STAT_VulkanSRVUpdateTime);
+			// thanks to ref counting, overwriting the buffer will toss the old view
+			BufferView = new FVulkanBufferView(Device);
+			BufferView->Create(SourceVertexBuffer.GetReference(), BufferViewFormat, SourceVertexBuffer->GetOffset(), SourceVertexBuffer->GetSize());
+		}
+	}
+	else
+	{
+		if (TextureView.View == VK_NULL_HANDLE)
+		{
+			EPixelFormat Format = (BufferViewFormat == PF_Unknown) ? SourceTexture->GetFormat() : BufferViewFormat;
+			if (FRHITexture2D* Tex2D = SourceTexture->GetTexture2D())
+			{
+				FVulkanTexture2D* VTex2D = ResourceCast(Tex2D);
+				if (Format == PF_X24_G8)
+				{
+					Format = PF_DepthStencil;
+				}
+				TextureView.Create(*Device, VTex2D->Surface.Image, VK_IMAGE_VIEW_TYPE_2D, VTex2D->Surface.GetPartialAspectMask(), Format, UEToVkFormat(Format, false), MipLevel, 1, 0, 1);
+			}
+			else
+			{
+				ensure(0);
+			}
+		}
+	}
+}
 
 FUnorderedAccessViewRHIRef FVulkanDynamicRHI::RHICreateUnorderedAccessView(FStructuredBufferRHIParamRef StructuredBufferRHI, bool bUseUAVCounter, bool bAppendBuffer)
 {
@@ -88,9 +131,9 @@ FUnorderedAccessViewRHIRef FVulkanDynamicRHI::RHICreateUnorderedAccessView(FText
 		ensure(0);
 	}
 #endif
-	FVulkanUnorderedAccessView* UAV = new FVulkanUnorderedAccessView;
+	FVulkanUnorderedAccessView* UAV = new FVulkanUnorderedAccessView(Device);
 	UAV->SourceTexture = TextureRHI;
-	UAV->MipIndex = MipLevel;
+	UAV->MipLevel = MipLevel;
 	return UAV;
 }
 
@@ -98,8 +141,9 @@ FUnorderedAccessViewRHIRef FVulkanDynamicRHI::RHICreateUnorderedAccessView(FVert
 {
 	FVulkanVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 
-	// create the UAV buffer to point to the structured buffer's memory
-	FVulkanUnorderedAccessView* UAV = new FVulkanUnorderedAccessView;
+	FVulkanUnorderedAccessView* UAV = new FVulkanUnorderedAccessView(Device);
+	// delay the shader view create until we use it, so we just track the source info here
+	UAV->BufferViewFormat = (EPixelFormat)Format;
 	UAV->SourceVertexBuffer = VertexBuffer;
 
 	return UAV;
@@ -192,9 +236,16 @@ FShaderResourceViewRHIRef FVulkanDynamicRHI::RHICreateShaderResourceView(FIndexB
 
 void FVulkanCommandListContext::RHIClearUAV(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const uint32* Values)
 {
-#if 0
 	FVulkanUnorderedAccessView* UnorderedAccessView = ResourceCast(UnorderedAccessViewRHI);
-#endif
-	VULKAN_SIGNAL_UNIMPLEMENTED();
+	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
+	ensure(CmdBuffer->IsOutsideRenderPass());
+	if (UnorderedAccessView->SourceVertexBuffer)
+	{
+		FVulkanVertexBuffer* VertexBuffer = UnorderedAccessView->SourceVertexBuffer;
+		VulkanRHI::vkCmdFillBuffer(CmdBuffer->GetHandle(), VertexBuffer->GetHandle(), 0, VertexBuffer->GetSize(), Values[0]);
+	}
+	else
+	{
+		ensure(0);
+	}
 }
-

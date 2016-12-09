@@ -1,6 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Engine/EngineTypes.h"
+#include "UObject/UnrealType.h"
+#include "HAL/IConsoleManager.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
+#include "Components/PrimitiveComponent.h"
+#include "Engine/MeshMerging.h"
+#include "Engine/CollisionProfile.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 
 FAttachmentTransformRules FAttachmentTransformRules::KeepRelativeTransform(EAttachmentRule::KeepRelative, false);
@@ -10,6 +19,16 @@ FAttachmentTransformRules FAttachmentTransformRules::SnapToTargetIncludingScale(
 
 FDetachmentTransformRules FDetachmentTransformRules::KeepRelativeTransform(EDetachmentRule::KeepRelative, true);
 FDetachmentTransformRules FDetachmentTransformRules::KeepWorldTransform(EDetachmentRule::KeepWorld, true);
+
+/** If true, origin rebasing is enabled in multiplayer games, meaning that servers and clients can have different local world origins. */
+int32 FRepMovement::EnableMultiplayerWorldOriginRebasing = 0;
+
+/** Console variable ref to enable multiplayer world origin rebasing. */
+FAutoConsoleVariableRef CVarEnableMultiplayerWorldOriginRebasing(
+	TEXT("p.EnableMultiplayerWorldOriginRebasing"),
+	FRepMovement::EnableMultiplayerWorldOriginRebasing,
+	TEXT("Enable world origin rebasing for multiplayer, meaning that servers and clients can have different world origin locations."),
+	ECVF_ReadOnly);
 
 void FMeshProxySettings::PostLoadDeprecated()
 {
@@ -281,4 +300,70 @@ FRepMovement::FRepMovement()
 	, VelocityQuantizationLevel(EVectorQuantization::RoundWholeNumber)
 	, RotationQuantizationLevel(ERotatorQuantization::ByteComponents)
 {
+}
+
+/** Rebase zero-origin position onto local world origin value. */
+FVector FRepMovement::RebaseOntoLocalOrigin(const struct FVector& Location, const struct FIntVector& LocalOrigin)
+{
+	if (CVarEnableMultiplayerWorldOriginRebasing->GetInt() <= 0 || LocalOrigin == FIntVector::ZeroValue)
+	{
+		return Location;
+	}
+
+	return FVector(Location.X - LocalOrigin.X, Location.Y - LocalOrigin.Y, Location.Z - LocalOrigin.Z);
+}
+
+/** Rebase local-origin position onto zero world origin value. */
+FVector FRepMovement::RebaseOntoZeroOrigin(const struct FVector& Location, const struct FIntVector& LocalOrigin)
+{
+	if (CVarEnableMultiplayerWorldOriginRebasing->GetInt() <= 0 || LocalOrigin == FIntVector::ZeroValue)
+	{
+		return Location;
+	}
+
+	return FVector(Location.X + LocalOrigin.X, Location.Y + LocalOrigin.Y, Location.Z + LocalOrigin.Z);
+}
+
+/** Rebase zero-origin position onto local world origin value based on an actor's world. */
+FVector FRepMovement::RebaseOntoLocalOrigin(const struct FVector& Location, const AActor* const WorldContextActor)
+{
+	if (WorldContextActor == nullptr || EnableMultiplayerWorldOriginRebasing <= 0)
+	{
+		return Location;
+	}
+
+	return RebaseOntoLocalOrigin(Location, WorldContextActor->GetWorld()->OriginLocation);
+}
+
+/** Rebase local-origin position onto zero world origin value based on an actor's world.*/
+FVector FRepMovement::RebaseOntoZeroOrigin(const struct FVector& Location, const AActor* const WorldContextActor)
+{
+	if (WorldContextActor == nullptr || EnableMultiplayerWorldOriginRebasing <= 0)
+	{
+		return Location;
+	}
+
+	return RebaseOntoZeroOrigin(Location, WorldContextActor->GetWorld()->OriginLocation);
+}
+
+/** Rebase zero-origin position onto local world origin value based on an actor component's world. */
+FVector FRepMovement::RebaseOntoLocalOrigin(const struct FVector& Location, const UActorComponent* const WorldContextActorComponent)
+{
+	if (WorldContextActorComponent == nullptr || EnableMultiplayerWorldOriginRebasing <= 0)
+	{
+		return Location;
+	}
+
+	return RebaseOntoLocalOrigin(Location, WorldContextActorComponent->GetWorld()->OriginLocation);
+}
+
+/** Rebase local-origin position onto zero world origin value based on an actor component's world.*/
+FVector FRepMovement::RebaseOntoZeroOrigin(const struct FVector& Location, const UActorComponent* const WorldContextActorComponent)
+{
+	if (WorldContextActorComponent == nullptr || EnableMultiplayerWorldOriginRebasing <= 0)
+	{
+		return Location;
+	}
+
+	return RebaseOntoZeroOrigin(Location, WorldContextActorComponent->GetWorld()->OriginLocation);
 }

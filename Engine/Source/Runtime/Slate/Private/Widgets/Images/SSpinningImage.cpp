@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Widgets/Images/SSpinningImage.h"
+#include "Rendering/DrawElements.h"
 
 
 void SSpinningImage::Construct(const FArguments& InArgs)

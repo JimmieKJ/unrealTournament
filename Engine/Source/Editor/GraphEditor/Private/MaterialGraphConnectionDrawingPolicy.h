@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ConnectionDrawingPolicy.h"
+
+class FSlateWindowElementList;
+class UEdGraph;
+class UMaterialGraph;
+class UMaterialGraphSchema;
 
 /////////////////////////////////////////////////////
 // FMaterialGraphConnectionDrawingPolicy

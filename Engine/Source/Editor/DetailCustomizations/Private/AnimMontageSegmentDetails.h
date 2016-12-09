@@ -2,10 +2,26 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 #include "PreviewScene.h"
-#include "AnimGraphDefinitions.h"
+#include "IDetailCustomization.h"
+#include "EditorViewportClient.h"
 #include "Editor/KismetWidgets/Public/SScrubControlPanel.h"
-#include "Editor/EditorWidgets/Public/ITransportControl.h"
+
+class FAssetData;
+class FSceneViewport;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class SEditorViewport;
+class STextBlock;
+class SViewport;
+class UAnimationAsset;
+class UAnimSequenceBase;
+class USkeleton;
 
 class FAnimMontageSegmentDetails : public IDetailCustomization
 {

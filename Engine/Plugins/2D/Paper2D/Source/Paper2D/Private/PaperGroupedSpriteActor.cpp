@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
 #include "PaperGroupedSpriteActor.h"
+#include "PaperGroupedSpriteComponent.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 

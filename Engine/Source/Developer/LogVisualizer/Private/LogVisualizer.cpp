@@ -1,15 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "LogVisualizer.h"
-#include "VisualLoggerRenderingActor.h"
+#include "EngineGlobals.h"
+#include "GameFramework/SpectatorPawn.h"
+#include "Engine/LocalPlayer.h"
+#include "EngineUtils.h"
+#include "LogVisualizerSettings.h"
+#include "VisualLoggerDatabase.h"
 #include "VisualLoggerCameraController.h"
 #if WITH_EDITOR
-#	include "Editor/UnrealEd/Public/EditorComponents.h"
-#	include "Editor/UnrealEd/Public/EditorReimportHandler.h"
-#	include "Editor/UnrealEd/Public/TexAlignTools.h"
-#	include "Editor/UnrealEd/Public/TickableEditorObject.h"
-#	include "Editor/UnrealEd/Public/Editor.h"
-#	include "Editor/UnrealEd/Public/EditorViewportClient.h"
+#include "Editor/EditorEngine.h"
+#include "EditorViewportClient.h"
 #endif
 
 TSharedPtr< struct FLogVisualizer > FLogVisualizer::StaticInstance;

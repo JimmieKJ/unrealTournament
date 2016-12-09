@@ -2,6 +2,11 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/SceneComponent.h"
+#include "CollisionQueryParams.h"
 #include "RadialForceComponent.generated.h"
 
 /**
@@ -66,6 +71,8 @@ protected:
 protected:
 	//~ Begin UActorComponent Interface.
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
+	
+	virtual void BeginPlay() override;
 	//~ End UActorComponent Interface.
 
 	//~ Begin UObject Interface.

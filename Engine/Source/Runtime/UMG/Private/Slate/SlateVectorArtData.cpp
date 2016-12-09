@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "Engine/StaticMesh.h"
+#include "Slate/SlateVectorArtData.h"
+#include "RawIndexBuffer.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "UMGPrivate.h"
 #include "StaticMeshResources.h"
-#include "SlateVectorArtData.h"
 
 static void StaticMeshToSlateRenderData(const UStaticMesh& DataSource, TArray<FSlateMeshVertex>& OutSlateVerts, TArray<uint32>& OutIndexes, FVector2D& OutExtentMin, FVector2D& OutExtentMax )
 {

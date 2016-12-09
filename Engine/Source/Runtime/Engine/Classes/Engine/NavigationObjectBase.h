@@ -2,6 +2,10 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "AI/Navigation/NavAgentInterface.h"
 #include "NavigationObjectBase.generated.h"
 

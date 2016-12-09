@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SocketsPrivatePCH.h"
 #include "SocketSubsystemIOS.h"
+#include "SocketSubsystemModule.h"
 #include "ModuleManager.h"
 #include "BSDSockets/SocketsBSD.h"
+#include "IPAddress.h"
 #include <ifaddrs.h>
 
 

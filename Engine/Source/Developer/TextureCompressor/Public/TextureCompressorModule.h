@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
 #define TEXTURE_COMPRESSOR_MODULENAME "TextureCompressor"
 
 /**

@@ -1,20 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderPrivatePCH.h"
 #include "AnimationRecorder.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Animation/AnimSequence.h"
+#include "Misc/MessageDialog.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
+#include "Editor.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimCompress.h"
 #include "Animation/AnimCompress_BitwiseCompressOnly.h"
 #include "SCreateAnimationDlg.h"
-#include "Runtime/AssetRegistry/Public/AssetRegistryModule.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "EngineLogs.h"
+#include "AssetRegistryModule.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "Animation/AnimationSettings.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
-#include "Toolkits/AssetEditorManager.h"
-#include "ActorRecording.h"
 
 #define LOCTEXT_NAMESPACE "FAnimationRecorder"
 
@@ -205,9 +208,7 @@ void FAnimationRecorder::StartRecord(USkeletalMeshComponent* Component, UAnimSeq
 	TimePassed = 0.f;
 	AnimationObject = InAnimationObject;
 
-	AnimationObject->RawAnimationData.Empty();
-	AnimationObject->TrackToSkeletonMapTable.Empty();
-	AnimationObject->AnimationTrackNames.Empty();
+	AnimationObject->RecycleAnimSequence();
 
 	GetBoneTransforms(Component, PreviousSpacesBases);
 	PreviousAnimCurves = Component->GetAnimationCurves();
@@ -225,20 +226,14 @@ void FAnimationRecorder::StartRecord(USkeletalMeshComponent* Component, UAnimSeq
 	for (int32 BoneIndex=0; BoneIndex <PreviousSpacesBases.Num(); ++BoneIndex)
 	{
 		// verify if this bone exists in skeleton
-		int32 BoneTreeIndex = AnimSkeleton->GetSkeletonBoneIndexFromMeshBoneIndex(Component->MasterPoseComponent != nullptr ? Component->MasterPoseComponent->SkeletalMesh : Component->SkeletalMesh, BoneIndex);
+		const int32 BoneTreeIndex = AnimSkeleton->GetSkeletonBoneIndexFromMeshBoneIndex(Component->MasterPoseComponent != nullptr ? Component->MasterPoseComponent->SkeletalMesh : Component->SkeletalMesh, BoneIndex);
 		if (BoneTreeIndex != INDEX_NONE)
 		{
 			// add tracks for the bone existing
 			FName BoneTreeName = AnimSkeleton->GetReferenceSkeleton().GetBoneName(BoneTreeIndex);
-			AnimationObject->AnimationTrackNames.Add(BoneTreeName);
-			// add mapping to skeleton bone track
-			AnimationObject->TrackToSkeletonMapTable.Add(FTrackToSkeletonMap(BoneTreeIndex));
+			AnimationObject->AddNewRawTrack(BoneTreeName);
 		}
 	}
-
-	int32 NumTracks = AnimationObject->AnimationTrackNames.Num();
-	// add tracks
-	AnimationObject->RawAnimationData.AddZeroed(NumTracks);
 
 	// init notifies
 	AnimationObject->InitializeNotifyTrack();
@@ -325,7 +320,8 @@ UAnimSequence* FAnimationRecorder::StopRecord(bool bShowMessage)
 						FSmartName CurveName;
 						if (SkeletonObj->GetSmartNameByUID(USkeleton::AnimCurveMappingName, UID, CurveName))
 						{
-							AnimationObject->RawCurveData.AddFloatCurveKey(CurveName, CurCurve.Flags, TimeToRecord, CurCurve.Value);
+							// give default curve flag for recording 
+							AnimationObject->RawCurveData.AddFloatCurveKey(CurveName, ACF_DefaultCurve, TimeToRecord, CurCurve.Value);
 							FloatCurveData = static_cast<FFloatCurve*>(AnimationObject->RawCurveData.GetCurveData(UID, FRawCurveTracks::FloatType));
 						}
 					}
@@ -529,7 +525,7 @@ void FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform co
 			// Find the root bone & store its transform
 			SkeletonRootIndex = INDEX_NONE;
 			USkeleton* AnimSkeleton = AnimationObject->GetSkeleton();
-			for (int32 TrackIndex = 0; TrackIndex < AnimationObject->RawAnimationData.Num(); ++TrackIndex)
+			for (int32 TrackIndex = 0; TrackIndex < AnimationObject->GetRawAnimationData().Num(); ++TrackIndex)
 			{
 				// verify if this bone exists in skeleton
 				int32 BoneTreeIndex = AnimationObject->GetSkeletonIndexFromRawDataTrackIndex(TrackIndex);
@@ -562,7 +558,7 @@ void FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform co
 		}
 
 		USkeleton* AnimSkeleton = AnimationObject->GetSkeleton();
-		for (int32 TrackIndex = 0; TrackIndex < AnimationObject->RawAnimationData.Num(); ++TrackIndex)
+		for (int32 TrackIndex = 0; TrackIndex < AnimationObject->GetRawAnimationData().Num(); ++TrackIndex)
 		{
 			// verify if this bone exists in skeleton
 			int32 BoneTreeIndex = AnimationObject->GetSkeletonIndexFromRawDataTrackIndex(TrackIndex);
@@ -595,7 +591,7 @@ void FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform co
 					}
 				}
 
-				FRawAnimSequenceTrack& RawTrack = AnimationObject->RawAnimationData[TrackIndex];
+				FRawAnimSequenceTrack& RawTrack = AnimationObject->GetRawAnimationTrack(TrackIndex);
 				RawTrack.PosKeys.Add(LocalTransform.GetTranslation());
 				RawTrack.RotKeys.Add(LocalTransform.GetRotation());
 				RawTrack.ScaleKeys.Add(LocalTransform.GetScale3D());

@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateReflectorPrivatePCH.h"
-#include "WidgetReflectorNode.h"
+#include "Models/WidgetReflectorNode.h"
+#include "Modules/ModuleManager.h"
+#include "Serialization/JsonTypes.h"
+#include "Dom/JsonValue.h"
+#include "Dom/JsonObject.h"
+#include "Layout/Visibility.h"
+#include "Layout/ArrangedChildren.h"
+#include "Layout/WidgetPath.h"
 #include "AssetRegistryModule.h"
-#include "ReflectionMetadata.h"
+#include "Types/ReflectionMetadata.h"
 
 #define LOCTEXT_NAMESPACE "WidgetReflectorNode"
 

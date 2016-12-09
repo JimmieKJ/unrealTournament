@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IFilter.h"
+#include "CoreMinimal.h"
+
+class AActor;
+class FAssetData;
+class FLevelCollectionModel;
+class FLevelDragDropOp;
+class FLevelModel;
+class ULevel;
+class ULevelStreaming;
+template< typename TItemType > class IFilter;
 
 typedef TArray<TSharedPtr<class FLevelModel>> FLevelModelList;
 class FLevelCollectionModel;
@@ -95,6 +104,11 @@ public:
 
 	/** @return Whether level is dirty */
 	bool IsDirty() const;
+
+	/** @return Whether level is a lighting scenario */
+	bool IsLightingScenario() const;
+
+	void SetIsLightingScenario(bool bNew);
 
 	/** @return Whether level has loaded content */
 	bool IsLoaded() const;

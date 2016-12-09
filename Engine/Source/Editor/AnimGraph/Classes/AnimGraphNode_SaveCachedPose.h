@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AnimGraphNode_Base.h"
+#include "EdGraph/EdGraphNodeUtils.h"
+#include "Kismet2/Kismet2NameValidators.h"
 #include "Animation/AnimNode_SaveCachedPose.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "AnimGraphNode_SaveCachedPose.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UAnimGraphNode_SaveCachedPose : public UAnimGraphNode_Base

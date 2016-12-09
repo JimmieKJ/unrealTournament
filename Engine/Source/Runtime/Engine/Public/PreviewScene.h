@@ -6,6 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "Engine/World.h"
+
+class FSceneInterface;
+
 /**
  * Encapsulates a simple scene setup for preview or thumbnail rendering.
  */
@@ -23,6 +29,7 @@ public:
 			, bCreatePhysicsScene(true)
 			, bShouldSimulatePhysics(false)
 			, bTransactional(true)
+			, bEditor(true)
 		{
 		}
 
@@ -34,6 +41,7 @@ public:
 		uint32 bCreatePhysicsScene:1;
 		uint32 bShouldSimulatePhysics:1;
 		uint32 bTransactional:1;
+		uint32 bEditor:1;
 		
 		ConstructionValues& SetLightRotation(const FRotator& Rotation) { LightRotation = Rotation; return *this; }
 		ConstructionValues& SetSkyBrightness(const float Brightness) { SkyBrightness = Brightness; return *this; }
@@ -43,6 +51,7 @@ public:
 		ConstructionValues& SetCreatePhysicsScene(const bool bCreate) { bCreatePhysicsScene = bCreate; return *this; }
 		ConstructionValues& ShouldSimulatePhysics(const bool bInShouldSimulatePhysics) { bShouldSimulatePhysics = bInShouldSimulatePhysics; return *this; }
 		ConstructionValues& SetTransactional(const bool bInTransactional) { bTransactional = bInTransactional; return *this; }
+		ConstructionValues& SetEditor(const bool bInEditor) { bEditor = bInEditor; return *this; }
 	};
 
 	// for physical correct light computations we multiply diffuse and specular lights by PI (see LABEL_RealEnergy)
@@ -52,12 +61,12 @@ public:
 	/**
 	 * Adds a component to the preview scene.  This attaches the component to the scene, and takes ownership of it.
 	 */
-	void AddComponent(class UActorComponent* Component,const FTransform& LocalToWorld);
+	virtual void AddComponent(class UActorComponent* Component,const FTransform& LocalToWorld);
 
 	/**
 	 * Removes a component from the preview scene.  This detaches the component from the scene, and returns ownership of it.
 	 */
-	void RemoveComponent(class UActorComponent* Component);
+	virtual void RemoveComponent(class UActorComponent* Component);
 
 	// Serializer.
 	void AddReferencedObjects( FReferenceCollector& Collector ) override;

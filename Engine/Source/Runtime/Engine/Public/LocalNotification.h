@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "Core.h"
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+DECLARE_LOG_CATEGORY_EXTERN(LogLocalNotification, Log, All);
 
 /**
  * Interface for local notification modules
@@ -32,6 +34,12 @@ public:
 	 * @param FireDate Returns the time the notification was activated
 	*/
 	virtual void GetLaunchNotification(bool& NotificationLaunchedApp, FString& ActivationEvent, int32& FireDate) = 0;
+
+	/** Cancel a local notification given the ActivationEvent
+	 * @param ActivationEvent The string passed into the Schedule call for the notification to be cancelled
+	*/
+	virtual void CancelLocalNotification(const FString& ActivationEvent) = 0;
+
 
 	/** Set the local notification that was used to launch the app
 	 * @param ActivationEvent Returns the name of the ActivationEvent if a notification was used to launch the app

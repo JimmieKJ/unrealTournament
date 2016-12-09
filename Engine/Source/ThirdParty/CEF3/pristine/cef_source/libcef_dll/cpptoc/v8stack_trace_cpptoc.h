@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,9 +28,8 @@ class CefV8StackTraceCppToC
     : public CefCppToC<CefV8StackTraceCppToC, CefV8StackTrace,
         cef_v8stack_trace_t> {
  public:
-  explicit CefV8StackTraceCppToC(CefV8StackTrace* cls);
+  CefV8StackTraceCppToC();
 };
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CPPTOC_V8STACK_TRACE_CPPTOC_H_
-

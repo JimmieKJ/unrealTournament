@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "OnlineDelegateMacros.h"
-#include "OnlineStoreInterfaceV2.h"
-#include "OnlineEntitlementsInterface.h"
-#include "OnlineError.h"
+
+#include "CoreMinimal.h"
+#include "Interfaces/OnlineEntitlementsInterface.h"
+#include "Interfaces/OnlineStoreInterfaceV2.h"
+
+struct FOnlineError;
 
 /**
  * Info needed for checkout

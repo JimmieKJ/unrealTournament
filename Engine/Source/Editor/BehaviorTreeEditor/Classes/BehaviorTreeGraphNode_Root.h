@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BehaviorTreeGraphNode.h"
 #include "BehaviorTreeGraphNode_Root.generated.h"
 
 /** Root node of this behavior tree, holds Blackboard data */

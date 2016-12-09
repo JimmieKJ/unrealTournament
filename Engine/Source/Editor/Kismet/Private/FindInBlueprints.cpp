@@ -1,20 +1,35 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "BlueprintEditorPrivatePCH.h"
-#include "BlueprintEditorCommands.h"
-#include "BlueprintEditor.h"
 #include "FindInBlueprints.h"
-#include "FindInBlueprintManager.h"
-#include "Editor/UnrealEd/Public/Kismet2/DebuggerCommands.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "AssetRegistryModule.h"
-#include "Json.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Notifications/SProgressBar.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Text/SMultiLineEditableText.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_Event.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_Variable.h"
+#include "K2Node_MacroInstance.h"
+#include "K2Node_VariableGet.h"
+#include "K2Node_VariableSet.h"
+#include "Engine/SCS_Node.h"
+#include "BlueprintEditor.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
-#include "SSearchBox.h"
-#include "GenericCommands.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "ImaginaryBlueprintData.h"
 #include "FiBSearchInstance.h"
 #include "BlueprintEditorTabs.h"
-#include "ToolkitManager.h"
 
 #define LOCTEXT_NAMESPACE "FindInBlueprints"
 
@@ -39,9 +54,9 @@ FText FindInBlueprintsHelpers::AsFText(int32 InValue, const TMap<int32, FText>& 
 	return LOCTEXT("FiBSerializationError", "There was an error in serialization!");
 }
 
-bool FindInBlueprintsHelpers::IsTextEqualToString(FText InText, FString InString)
+bool FindInBlueprintsHelpers::IsTextEqualToString(const FText& InText, const FString& InString)
 {
-	return InString == InText.ToString() || InString == InText.BuildSourceString();
+	return InString == InText.ToString() || InString == *FTextInspector::GetSourceString(InText);
 }
 
 FString FindInBlueprintsHelpers::GetPinTypeAsString(const FEdGraphPinType& InPinType)
@@ -373,13 +388,12 @@ void FFindInBlueprintsPin::FinalizeSearchData()
 
 	if(!SchemaName.IsEmpty())
 	{
-		UEdGraphSchema* Schema = nullptr;
 		UClass* SchemaClass = FindObject<UClass>(ANY_PACKAGE, *SchemaName, true);
 		if(SchemaClass)
 		{
-			Schema = SchemaClass->GetDefaultObject<UEdGraphSchema>();
-		} 
-		IconColor = Schema->GetPinTypeColor(PinType);
+			UEdGraphSchema* Schema = SchemaClass->GetDefaultObject<UEdGraphSchema>();
+			IconColor = Schema->GetPinTypeColor(PinType);
+		}
 
 		SchemaName.Empty();
 	}
@@ -413,7 +427,7 @@ FReply FFindInBlueprintsProperty::OnClick()
 				const TArray<USCS_Node*>& Nodes = Blueprint->SimpleConstructionScript->GetAllNodes();
 				for (USCS_Node* Node : Nodes)
 				{
-					if (Node->VariableName.ToString() == DisplayText.ToString())
+					if (Node->GetVariableName().ToString() == DisplayText.ToString())
 					{
 						UBlueprintGeneratedClass* GeneratedClass = Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass);
 						if (GeneratedClass)

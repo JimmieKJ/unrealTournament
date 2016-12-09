@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Misc/ConfigCacheIni.h"
+
 /**
  * Describes the position and size of the main window.
  */

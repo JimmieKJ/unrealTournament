@@ -2,10 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "IMovieSceneCaptureProtocol.h"
 #include "MovieSceneCaptureProtocolSettings.h"
 #include "MovieSceneCaptureProtocolRegistry.generated.h"
-
-struct IMovieSceneCaptureProtocol;
 
 /** Structure used to uniquely identify a specific capture protocol */
 USTRUCT()

@@ -2,8 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Components/PrimitiveComponent.h"
 #include "SubDSurfaceComponent.generated.h"
+
+class UMaterialInterface;
+class UStaticMeshComponent;
 
 /**
  * Subdivision Surface Component (Experimental, Early work in progress)

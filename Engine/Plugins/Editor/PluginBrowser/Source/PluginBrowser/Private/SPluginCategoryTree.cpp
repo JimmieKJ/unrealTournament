@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PluginBrowserPrivatePCH.h"
 #include "SPluginCategoryTree.h"
-#include "IPluginManager.h"
+#include "Interfaces/IPluginManager.h"
 #include "SPluginCategory.h"
 #include "SPluginBrowser.h"
 
@@ -187,6 +186,10 @@ void SPluginCategoryTree::RebuildAndFilterCategoryTree()
 		if(SelectCategory.IsValid())
 		{
 			TreeView->SetSelection(SelectCategory);
+		}
+		else if(RootCategories.Contains(InstalledCategory))
+		{
+			TreeView->SetSelection(InstalledCategory);
 		}
 		else if(RootCategories.Num() > 0 && RootCategories[0]->SubCategories.Num() > 0)
 		{

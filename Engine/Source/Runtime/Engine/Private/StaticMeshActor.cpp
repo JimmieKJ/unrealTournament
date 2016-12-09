@@ -4,14 +4,19 @@
 	StaticMeshActorBase.cpp: Static mesh actor base class implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "MessageLog.h"
-#include "StaticMeshResources.h"
-#include "UObjectToken.h"
-#include "MapErrors.h"
 #include "Engine/StaticMeshActor.h"
-#include "UObject/DevObjectVersion.h"
+#include "UObject/FrameworkObjectVersion.h"
+#include "CollisionQueryParams.h"
+#include "WorldCollision.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/CollisionProfile.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "Misc/MapErrors.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "StaticMeshResources.h"
+
 
 #define LOCTEXT_NAMESPACE "StaticMeshActor"
 
@@ -95,11 +100,18 @@ void AStaticMeshActor::PostEditChangeChainProperty(FPropertyChangedChainEvent& P
 {
 	Super::PostEditChangeChainProperty(PropertyChangedEvent);
 
-	// If we want to replicate movement, set RemoteRole to match
-	if(PropertyChangedEvent.Property != NULL && PropertyChangedEvent.Property->GetFName() == FName(TEXT("bStaticMeshReplicateMovement")))
+	if (PropertyChangedEvent.Property != nullptr)
 	{
-		bReplicateMovement = bStaticMeshReplicateMovement;
-		SetReplicates(bReplicateMovement);
+		// If we want to replicate movement, set RemoteRole to match
+		if (PropertyChangedEvent.Property->GetFName() == FName(TEXT("bStaticMeshReplicateMovement")))
+		{
+			bReplicateMovement = bStaticMeshReplicateMovement;
+			SetReplicates(bReplicateMovement);
+		}
+		else if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_STRING_CHECKED(AStaticMeshActor, StaticMeshComponent) && StaticMeshComponent->GetStaticMesh() != nullptr)
+		{
+			StaticMeshComponent->CleanUpOverrideMaterials();
+		}
 	}
 
 	// Get 'deepest' property name we changed.
@@ -116,9 +128,9 @@ bool AStaticMeshActor::GetReferencedContentObjects( TArray<UObject*>& Objects ) 
 {
 	Super::GetReferencedContentObjects(Objects);
 
-	if (StaticMeshComponent && StaticMeshComponent->StaticMesh)
+	if (StaticMeshComponent && StaticMeshComponent->GetStaticMesh())
 	{
-		Objects.Add(StaticMeshComponent->StaticMesh);
+		Objects.Add(StaticMeshComponent->GetStaticMesh());
 	}
 	return true;
 }
@@ -160,7 +172,7 @@ void AStaticMeshActor::CheckForErrors()
 			->AddToken(FTextToken::Create(LOCTEXT( "MapCheck_Message_StaticMeshComponent", "Static mesh actor has NULL StaticMeshComponent property - please delete" ) ))
 			->AddToken(FMapErrorToken::Create(FMapErrors::StaticMeshComponent));
 	}
-	else if( StaticMeshComponent->StaticMesh == NULL )
+	else if( StaticMeshComponent->GetStaticMesh() == nullptr )
 	{
 		MapCheck.Warning()
 			->AddToken(FUObjectToken::Create(this))
@@ -181,7 +193,7 @@ void AStaticMeshActor::CheckForErrors()
 			{
 				AStaticMeshActor *A = Cast<AStaticMeshActor>( CurTouchingActor );
 				if ( A && (A != this) && (A->GetActorLocation() - GetActorLocation()).IsNearlyZero() && A->StaticMeshComponent
-					&& (A->StaticMeshComponent->StaticMesh == StaticMeshComponent->StaticMesh) && (A->GetActorRotation() == GetActorRotation()) 
+					&& (A->StaticMeshComponent->GetStaticMesh() == StaticMeshComponent->GetStaticMesh()) && (A->GetActorRotation() == GetActorRotation())
 					&&  (A->StaticMeshComponent->RelativeScale3D == StaticMeshComponent->RelativeScale3D) )
 				{
 					FFormatNamedArguments Arguments;
@@ -197,11 +209,11 @@ void AStaticMeshActor::CheckForErrors()
 
 		// If this mesh has overridden vertex colors, make sure that it matches up with the original mesh
 		{
-			int32 NumLODs = StaticMeshComponent->StaticMesh->GetNumLODs();
+			int32 NumLODs = StaticMeshComponent->GetStaticMesh()->GetNumLODs();
 			for( int32 CurLODIndex = 0; CurLODIndex < NumLODs; ++CurLODIndex )
 			{
 				// Make sure the color vertex buffer's vertex count matches the rest of the mesh!
-				const FStaticMeshLODResources& LODRenderData = StaticMeshComponent->StaticMesh->RenderData->LODResources[ CurLODIndex ];
+				const FStaticMeshLODResources& LODRenderData = StaticMeshComponent->GetStaticMesh()->RenderData->LODResources[ CurLODIndex ];
 
 				// We may not have cached any LODData for this particular LODModel yet, so make sure that
 				// we're in bounds before accessing the current model's LOD info
@@ -215,7 +227,7 @@ void AStaticMeshActor::CheckForErrors()
 						FFormatNamedArguments Arguments;
 						Arguments.Add(TEXT("ActorName"), FText::FromString(GetName()));
 						Arguments.Add(TEXT("LODIndex"), CurLODIndex);
-						Arguments.Add(TEXT("StaticMeshName"), FText::FromString(StaticMeshComponent->StaticMesh->GetName()));
+						Arguments.Add(TEXT("StaticMeshName"), FText::FromString(StaticMeshComponent->GetStaticMesh()->GetName()));
 
 						// Uh oh, looks like the original mesh was changed since this instance's vertex
 						// colors were painted down

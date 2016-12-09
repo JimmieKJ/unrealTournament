@@ -1,6 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "UHTMakefile/FieldArchiveProxy.h"
+
+#include "CoreMinimal.h"
+#include "Containers/Map.h"
+#include "FieldArchiveProxy.h"
+
+class FUHTMakefile;
+class UEnum;
+class FArchive;
 
 /* See UHTMakefile.h for overview how makefiles work. */
 struct FEnumArchiveProxy : public FFieldArchiveProxy
@@ -18,5 +25,5 @@ struct FEnumArchiveProxy : public FFieldArchiveProxy
 	uint32 EnumFlags;
 	uint32 CppForm;
 	FString CppType;
-	TArray<TPair<FNameArchiveProxy, uint8>> EnumValues;
+	TArray<TPair<FNameArchiveProxy, int64>> EnumValuesX;
 };

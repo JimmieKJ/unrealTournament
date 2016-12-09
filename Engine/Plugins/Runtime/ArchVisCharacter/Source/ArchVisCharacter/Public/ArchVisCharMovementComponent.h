@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "ArchVisCharMovementComponent.generated.h"
 
 UCLASS()

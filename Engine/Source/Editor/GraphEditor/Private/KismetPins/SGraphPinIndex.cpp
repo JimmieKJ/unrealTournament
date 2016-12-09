@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphPinIndex.h"
+#include "KismetPins/SGraphPinIndex.h"
+#include "EdGraphSchema_K2.h"
 #include "SPinTypeSelector.h"
 
 void SGraphPinIndex::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)

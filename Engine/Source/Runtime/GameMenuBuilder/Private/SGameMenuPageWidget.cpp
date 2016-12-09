@@ -1,8 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameMenuBuilderPrivatePCH.h"
+#include "SGameMenuPageWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "GameMenuBuilderStyle.h"
+#include "SGameMenuItemWidget.h"
+#include "GameMenuPage.h"
 #include "Engine/Console.h"
-#include "SDPIScaler.h"
+#include "Widgets/Layout/SDPIScaler.h"
 
 
 FMenuPanel::FMenuPanel()

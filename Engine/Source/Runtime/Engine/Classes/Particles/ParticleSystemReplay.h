@@ -2,6 +2,11 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "ParticleHelper.h"
 #include "ParticleSystemReplay.generated.h"
 
 USTRUCT()

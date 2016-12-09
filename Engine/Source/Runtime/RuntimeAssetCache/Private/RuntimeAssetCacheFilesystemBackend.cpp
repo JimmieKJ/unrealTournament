@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RuntimeAssetCachePrivatePCH.h"
 #include "RuntimeAssetCacheFilesystemBackend.h"
-#include "RuntimeAssetCacheEntryMetadata.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
 #include "RuntimeAssetCacheBucket.h"
 
 FArchive* FRuntimeAssetCacheFilesystemBackend::CreateReadArchive(FName Bucket, const TCHAR* CacheKey)

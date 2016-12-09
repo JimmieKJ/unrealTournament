@@ -6,11 +6,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "RHI.h"
+#include "ShaderParameters.h"
+#include "SceneView.h"
+#include "Shader.h"
+#include "MaterialShared.h"
+#include "GlobalShader.h"
 #include "MaterialShaderType.h"
-#include "AtmosphereTextureParameters.h"
 #include "SceneRenderTargetParameters.h"
-#include "PostProcessParameters.h"
-#include "GlobalDistanceFieldParameters.h"
+
+template<typename TBufferStruct> class TUniformBufferRef;
 
 template<typename ParameterType> 
 struct TUniformParameter
@@ -120,8 +127,7 @@ public:
 		SetUniformBufferParameter(RHICmdList, ShaderRHI, BuiltinSamplersUBParameter, GBuiltinSamplersUniformBuffer.GetUniformBufferRHI());
 #endif
 
-		// Skip if instanced stereo is not enabled
-		if (View.bIsInstancedStereoEnabled && View.Family->Views.Num() > 0)
+		if (View.bShouldBindInstancedViewUB && View.Family->Views.Num() > 0)
 		{
 			// When drawing the left eye in a stereo scene, copy the right eye view values into the instanced view uniform buffer.
 			const EStereoscopicPass StereoPassIndex = (View.StereoPass != eSSP_FULL) ? eSSP_RIGHT_EYE : eSSP_FULL;
@@ -178,4 +184,8 @@ private:
 	static int32 bAllowCachedUniformExpressions;
 	/** Console variable ref to toggle cached uniform expressions. */
 	static FAutoConsoleVariableRef CVarAllowCachedUniformExpressions;
+
+#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING || !WITH_EDITOR)
+	void VerifyExpressionAndShaderMaps(const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& Material, const FUniformExpressionCache* UniformExpressionCache);
+#endif
 };

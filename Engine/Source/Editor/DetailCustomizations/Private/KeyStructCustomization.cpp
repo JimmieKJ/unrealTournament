@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "KeyStructCustomization.h"
-#include "ScopedTransaction.h"
+#include "DetailWidgetRow.h"
 #include "SKeySelector.h"
 
 #define LOCTEXT_NAMESPACE "FKeyStructCustomization"

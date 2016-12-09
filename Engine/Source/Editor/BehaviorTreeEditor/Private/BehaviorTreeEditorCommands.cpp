@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
 #include "BehaviorTreeEditorCommands.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "BehaviorTreeEditorCommands"
 

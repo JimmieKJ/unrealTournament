@@ -26,7 +26,7 @@ namespace UnrealGameSync
 		ScheduledBuild = 0x80,
 		RunAfterSync = 0x100,
 		OpenSolutionAfterSync = 0x200,
-		SkipShaders = 0x400,
+		ContentOnly = 0x400
 	}
 
 	enum WorkspaceUpdateResult
@@ -145,7 +145,6 @@ namespace UnrealGameSync
 				if(!Context.Options.HasFlag(WorkspaceUpdateOptions.SyncSingleChange))
 				{
 					CurrentChangeNumber = -1;
-					ProjectConfigFile = null;
 				}
 			}
 			Progress.Clear();
@@ -268,7 +267,7 @@ namespace UnrealGameSync
 					Filter.Exclude("..." + BuildVersionFileName);
 					Filter.Exclude("..." + VersionHeaderFileName);
 					Filter.Exclude("..." + ObjectVersionFileName);
-					if(Context.Options.HasFlag(WorkspaceUpdateOptions.SkipShaders))
+					if(Context.Options.HasFlag(WorkspaceUpdateOptions.ContentOnly))
 					{
 						Filter.Exclude("*.usf");
 					}
@@ -310,9 +309,11 @@ namespace UnrealGameSync
 						}
 					}
 
-					ConfigFile NewProjectConfigFile = null;
 					if(Context.Options.HasFlag(WorkspaceUpdateOptions.Sync))
 					{
+						// Read the new config file
+						ProjectConfigFile = ReadProjectConfigFile(LocalRootPath, SelectedLocalFileName, Log);
+
 						// Get the branch name
 						string BranchOrStreamName;
 						if(!Perforce.GetActiveStream(out BranchOrStreamName, Log))
@@ -340,11 +341,18 @@ namespace UnrealGameSync
 						}
 
 						// Get the last code change
-						int VersionChangeNumber = CodeChanges.Max(x => x.Number);
+						int VersionChangeNumber;
+						if(ProjectConfigFile.GetValue("Options.VersionToLastCodeChange", true))
+						{
+							VersionChangeNumber = CodeChanges.Max(x => x.Number);
+						}
+						else
+						{
+							VersionChangeNumber = PendingChangeNumber;
+						}
 
 						// Update the version files
-						NewProjectConfigFile = ReadProjectConfigFile(LocalRootPath, SelectedLocalFileName, Log);
-						if(NewProjectConfigFile.GetValue("Options.UseFastModularVersioning", false))
+						if(ProjectConfigFile.GetValue("Options.UseFastModularVersioning", false))
 						{
 							Dictionary<string, string> BuildVersionStrings = new Dictionary<string,string>();
 							BuildVersionStrings["\"Changelist\":"] = String.Format(" {0},", VersionChangeNumber);
@@ -435,7 +443,6 @@ namespace UnrealGameSync
 					// Update the current change number. Everything else happens for the new change.
 					if(Context.Options.HasFlag(WorkspaceUpdateOptions.Sync))
 					{
-						ProjectConfigFile = NewProjectConfigFile;
 						CurrentChangeNumber = PendingChangeNumber;
 					}
 

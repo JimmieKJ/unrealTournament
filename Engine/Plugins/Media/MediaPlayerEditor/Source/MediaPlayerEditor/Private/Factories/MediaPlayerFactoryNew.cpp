@@ -1,9 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "MediaPlayerFactoryNew.h"
-#include "MediaSoundWaveFactoryNew.h"
-#include "MediaTextureFactoryNew.h"
+#include "Factories/MediaPlayerFactoryNew.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "IAssetTools.h"
+#include "AssetToolsModule.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
+#include "MediaPlayer.h"
+#include "MediaSoundWave.h"
+#include "MediaTexture.h"
+#include "Factories/MediaSoundWaveFactoryNew.h"
+#include "Factories/MediaTextureFactoryNew.h"
 
 
 #define LOCTEXT_NAMESPACE "UMediaPlayerFactoryNew"
@@ -63,21 +83,6 @@ public:
 												[
 													SNew(STextBlock)
 														.Text(LOCTEXT("CreateSoundWaveLabel", "Audio output SoundWave asset"))
-												]
-										]
-
-									+ SVerticalBox::Slot()
-										.Padding(0.0f, 6.0f, 0.0f, 0.0f)
-										[
-											SNew(SCheckBox)
-												.IsChecked(Options->CreateImageTexture ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
-												.OnCheckStateChanged_Lambda([this](ECheckBoxState CheckBoxState) {
-													Options->CreateImageTexture = (CheckBoxState == ECheckBoxState::Checked);
-												})
-												.Content()
-												[
-													SNew(STextBlock)
-														.Text(LOCTEXT("CreateImageTextureLabel", "Still image output MediaTexture asset"))
 												]
 										]
 
@@ -167,7 +172,6 @@ UMediaPlayerFactoryNew::UMediaPlayerFactoryNew( const FObjectInitializer& Object
 
 bool UMediaPlayerFactoryNew::ConfigureProperties()
 {
-	Options.CreateImageTexture = false;
 	Options.CreateSoundWave = false;
 	Options.CreateVideoTexture = false;
 	Options.OkClicked = false;
@@ -189,26 +193,13 @@ UObject* UMediaPlayerFactoryNew::FactoryCreateNew(UClass* InClass, UObject* InPa
 {
 	auto NewMediaPlayer = NewObject<UMediaPlayer>(InParent, InClass, InName, Flags);
 
-	if ((NewMediaPlayer != nullptr) && (Options.CreateImageTexture || Options.CreateSoundWave || Options.CreateVideoTexture))
+	if ((NewMediaPlayer != nullptr) && (Options.CreateSoundWave || Options.CreateVideoTexture))
 	{
 		IAssetTools& AssetTools = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
 		const FString ParentName = InParent->GetOutermost()->GetName();
 
 		FString OutAssetName;
 		FString OutPackageName;
-
-		if (Options.CreateImageTexture)
-		{
-			AssetTools.CreateUniqueAssetName(ParentName, TEXT("_Image"), OutPackageName, OutAssetName);
-			const FString PackagePath = FPackageName::GetLongPackagePath(OutPackageName);
-			auto Factory = NewObject<UMediaTextureFactoryNew>();
-			auto ImageTexture = Cast<UMediaTexture>(AssetTools.CreateAsset(OutAssetName, PackagePath, UMediaTexture::StaticClass(), Factory));
-
-			if (ImageTexture != nullptr)
-			{
-				NewMediaPlayer->SetImageTexture(ImageTexture);
-			}
-		}
 
 		if (Options.CreateSoundWave)
 		{

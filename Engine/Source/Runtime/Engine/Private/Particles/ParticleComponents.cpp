@@ -4,27 +4,57 @@
 	UnParticleComponent.cpp: Particle component implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/CommandLine.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/FrameworkObjectVersion.h"
+#include "Misc/App.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectBaseUtility.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "EngineDefines.h"
+#include "EngineGlobals.h"
+#include "Engine/EngineTypes.h"
+#include "Components/ActorComponent.h"
+#include "Components/SceneComponent.h"
+#include "CollisionQueryParams.h"
+#include "WorldCollision.h"
+#include "Engine/CollisionProfile.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Particles/ParticleSystem.h"
+#include "Particles/Emitter.h"
+#include "ParticleHelper.h"
+#include "Distributions/DistributionFloat.h"
+#include "Particles/Orientation/ParticleModuleOrientationAxisLock.h"
+#include "ParticleEmitterInstances.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Distributions/DistributionFloatConstant.h"
+#include "Distributions/DistributionFloatUniform.h"
 #include "Distributions/DistributionVectorConstant.h"
-#include "Distributions/DistributionVectorConstantCurve.h"
 #include "Distributions/DistributionVectorUniform.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "UnrealEngine.h"
+#include "Distributions/DistributionVectorConstantCurve.h"
 #include "StaticMeshResources.h"
-#include "ParticleDefinitions.h"
 #include "Particles/EmitterCameraLensEffectBase.h"
-#include "LevelUtils.h"
-#include "ImageUtils.h"
 #include "FXSystem.h"
-#include "Net/UnrealNetwork.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "MapErrors.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "Misc/MapErrors.h"
 #if WITH_EDITOR
+#include "Engine/InterpCurveEdSetup.h"
 #include "ObjectEditorUtils.h"
 #endif
 
 #include "Particles/Camera/ParticleModuleCameraOffset.h"
 #include "Particles/Collision/ParticleModuleCollision.h"
 #include "Particles/Color/ParticleModuleColorOverLife.h"
+#include "Scalability.h"
+#include "Particles/ParticleEmitter.h"
 #include "Particles/Event/ParticleModuleEventGenerator.h"
 #include "Particles/Event/ParticleModuleEventReceiverBase.h"
 #include "Particles/Lifetime/ParticleModuleLifetimeBase.h"
@@ -35,29 +65,21 @@
 #include "Particles/Orbit/ParticleModuleOrbit.h"
 #include "Particles/Parameter/ParticleModuleParameterDynamic.h"
 #include "Particles/Size/ParticleModuleSize.h"
-#include "Particles/Spawn/ParticleModuleSpawn.h"
 #include "Particles/Spawn/ParticleModuleSpawnBase.h"
+#include "Particles/Spawn/ParticleModuleSpawn.h"
 #include "Particles/TypeData/ParticleModuleTypeDataBase.h"
 #include "Particles/TypeData/ParticleModuleTypeDataBeam2.h"
+#include "Particles/ParticleSpriteEmitter.h"
 #include "Particles/TypeData/ParticleModuleTypeDataGpu.h"
 #include "Particles/TypeData/ParticleModuleTypeDataMesh.h"
 #include "Particles/Velocity/ParticleModuleVelocity.h"
-#include "Particles/Emitter.h"
-#include "Particles/EmitterCameraLensEffectBase.h"
 #include "Particles/ParticleEventManager.h"
 #include "Particles/ParticleLODLevel.h"
-#include "Particles/ParticleModule.h"
 #include "Particles/ParticleModuleRequired.h"
-#include "Particles/ParticleSpriteEmitter.h"
-#include "Particles/ParticleSystem.h"
-#include "Particles/ParticleSystemComponent.h"
 #include "Particles/ParticleSystemReplay.h"
 #include "Distributions/DistributionFloatConstantCurve.h"
 #include "Particles/SubUV/ParticleModuleSubUV.h"
-#include "Particles/SubUVAnimation.h"
-#include "Engine/InterpCurveEdSetup.h"
 #include "GameFramework/GameState.h"
-#include "FrameworkObjectVersion.h"
 
 DECLARE_CYCLE_STAT(TEXT("ParticleComponent InitParticles"), STAT_ParticleSystemComponent_InitParticles, STATGROUP_Particles);
 DECLARE_CYCLE_STAT(TEXT("ParticleComponent SendRenderDynamicData"), STAT_ParticleSystemComponent_SendRenderDynamicData_Concurrent, STATGROUP_Particles);
@@ -279,6 +301,10 @@ void UParticleLODLevel::PostLoad()
 
 	{
 		RequiredModule->ConditionalPostLoad();
+	}
+	if ( SpawnModule )
+	{
+		SpawnModule->ConditionalPostLoad();
 	}
 
 	for (UParticleModule* ParticleModule : Modules)
@@ -2176,7 +2202,7 @@ void UParticleSystem::PostLoad()
 		UParticleEmitter* Emitter = Emitters[i];
 		if (Emitter == NULL)
 		{
-			// Empty emitter slots are ok with cooked content or on a server.
+			// Empty emitter slots are ok with cooked content.
 			if( !FPlatformProperties::RequiresCookedData() && !GIsServer)
 			{
 				UE_LOG(LogParticles, Warning, TEXT("ParticleSystem contains empty emitter slots - %s"), *GetFullName());
@@ -3414,20 +3440,20 @@ void UParticleSystemComponent::FinishDestroy()
 }
 
 
-SIZE_T UParticleSystemComponent::GetResourceSize(EResourceSizeMode::Type Mode)
+void UParticleSystemComponent::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
-	int32 ResSize = Super::GetResourceSize(Mode);
+
+	Super::GetResourceSizeEx(CumulativeResourceSize);
 	for (int32 EmitterIdx = 0; EmitterIdx < EmitterInstances.Num(); EmitterIdx++)
 	{
 		FParticleEmitterInstance* EmitterInstance = EmitterInstances[EmitterIdx];
 		if (EmitterInstance != NULL)
 		{
 			// If the data manager has the PSys, force it to report, regardless of a PSysComp scene info being present...
-			ResSize += EmitterInstance->GetResourceSize(Mode);
+			EmitterInstance->GetResourceSizeEx(CumulativeResourceSize);
 		}
 	}
-	return ResSize;
 }
 
 
@@ -4517,7 +4543,7 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 	{
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PlayerController = *Iterator;
+			APlayerController* PlayerController = Iterator->Get();
 			if (PlayerController->IsLocalPlayerController())
 			{
 				FVector POVLoc;
@@ -4551,7 +4577,7 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 		BurstEvents.Reset();
 		TotalActiveParticles = 0;
 		bNeedsFinalize = true;
-		if (!ThisTickFunction || !CanTickInAnyThread() || FXConsoleVariables::bFreezeParticleSimulation || !FXConsoleVariables::bAllowAsyncTick ||
+		if (!ThisTickFunction || !ThisTickFunction->IsCompletionHandleValid() || !CanTickInAnyThread() || FXConsoleVariables::bFreezeParticleSimulation || !FXConsoleVariables::bAllowAsyncTick ||
 			GDistributionType == 0) // this may not be absolutely required, however if you are using distributions it will be glacial anyway. If you want to get rid of this, note that some modules use this indirectly as their criteria for CanTickInAnyThread
 		{
 			bDisallowAsync = true;
@@ -4889,15 +4915,15 @@ void UParticleSystemComponent::WaitForAsyncAndFinalize(EForceAsyncWorkCompletion
 		}
 
 		float ThisTime = float(FPlatformTime::Seconds() - StartTime) * 1000.0f;
-		if (Behavior != SILENT && ThisTime >= 0.01f)
+		if (Behavior != SILENT && ThisTime >= KINDA_SMALL_NUMBER)
 		{
 			if (bDefinitelyGameThread || IsInGameThread())
 			{
-				UE_LOG(LogParticles, Warning, TEXT("Stalled gamethread waiting for particles %5.2fms '%s' '%s'"), ThisTime, *GetFullNameSafe(this), *GetFullNameSafe(Template));
+				UE_LOG(LogParticles, Warning, TEXT("Stalled gamethread waiting for particles %5.6fms '%s' '%s'"), ThisTime, *GetFullNameSafe(this), *GetFullNameSafe(Template));
 			}
 			else
 			{
-				UE_LOG(LogParticles, Warning, TEXT("Stalled worker thread waiting for particles %5.2fms '%s' '%s'"), ThisTime, *GetFullNameSafe(this), *GetFullNameSafe(Template));
+				UE_LOG(LogParticles, Warning, TEXT("Stalled worker thread waiting for particles %5.6fms '%s' '%s'"), ThisTime, *GetFullNameSafe(this), *GetFullNameSafe(Template));
 			}
 		}
 		const_cast<UParticleSystemComponent*>(this)->FinalizeTickComponent();
@@ -5525,6 +5551,11 @@ void UParticleSystemComponent::Activate(bool bReset)
 		if (bReset || ShouldActivate()==true)
 		{
 			ActivateSystem(bReset);
+
+			if (bIsActive)
+			{
+				OnComponentActivated.Broadcast(this, bReset);
+			}
 		}
 	}
 }
@@ -5535,6 +5566,11 @@ void UParticleSystemComponent::Deactivate()
 	if (ShouldActivate()==false)
 	{
 		DeactivateSystem();
+
+		if (bWasDeactivated)
+		{
+			OnComponentDeactivated.Broadcast(this);
+		}
 	}
 }
 
@@ -6185,7 +6221,7 @@ int32 UParticleSystemComponent::DetermineLODLevelForLocation(const FVector& Effe
 		{
 			for( FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator )
 			{
-				APlayerController* PlayerController = *Iterator;
+				APlayerController* PlayerController = Iterator->Get();
 				if(PlayerController->IsLocalPlayerController())
 				{
 					FVector* POVLoc = new(PlayerViewLocations) FVector;
@@ -6707,7 +6743,10 @@ void UParticleSystemComponent::GetUsedMaterials( TArray<UMaterialInterface*>& Ou
 								const UParticleModuleMeshMaterial* MaterialModule = Cast<UParticleModuleMeshMaterial>( LOD->Modules[ ModuleIdx ] );
 								if( TypeDataModule->Mesh )
 								{
-									OutMaterials.Append(TypeDataModule->Mesh->Materials);
+									for (const FStaticMaterial &StaticMaterial : TypeDataModule->Mesh->StaticMaterials)
+									{
+										OutMaterials.Add(StaticMaterial.MaterialInterface);
+									}
 								}
 							}
 						}
@@ -6846,7 +6885,7 @@ bool UParticleSystemComponent::ShouldComputeLODFromGameThread()
 
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PlayerController = *Iterator;
+			APlayerController* PlayerController = Iterator->Get();
 			if (PlayerController->IsLocalPlayerController())
 			{
 				bUseGameThread = true;
@@ -7055,6 +7094,7 @@ AEmitterCameraLensEffectBase::AEmitterCameraLensEffectBase(const FObjectInitiali
 
 	// this property is deprecated, give it the sentinel value to indicate it doesn't need to be migrated
 	DistFromCamera_DEPRECATED = TNumericLimits<float>::Max();
+	bResetWhenRetriggered = false;
 }
 
 
@@ -7103,9 +7143,9 @@ void AEmitterCameraLensEffectBase::RegisterCamera(APlayerCameraManager* C)
 void AEmitterCameraLensEffectBase::NotifyRetriggered() 
 {
 	UParticleSystemComponent* const PSC = GetParticleSystemComponent();
-	if (PSC && PSC->bWasDeactivated)
+	if (PSC && (PSC->bWasDeactivated || bResetWhenRetriggered))
 	{
-		PSC->Activate(false);
+		PSC->Activate(bResetWhenRetriggered);
 	}
 }
 
@@ -7141,15 +7181,15 @@ void AEmitterCameraLensEffectBase::ActivateLensEffect()
 	check(World);
 	if( !IsNetMode(NM_DedicatedServer) )
 	{
-		UParticleSystem* PSToActuallySpawn;
-		if( World->GameState && World->GameState->ShouldShowGore() )
+		UParticleSystem* PSToActuallySpawn = PS_CameraEffect;
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		AGameState* GameState = World->GetGameState<AGameState>();
+		if(GameState && !GameState->ShouldShowGore() )
 		{
-			PSToActuallySpawn = PS_CameraEffect;
+			PSToActuallySpawn = PS_CameraEffectNonExtremeContent_DEPRECATED;
 		}
-		else
-		{
-			PSToActuallySpawn = PS_CameraEffectNonExtremeContent;
-		}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		if( PSToActuallySpawn != NULL )
 		{
@@ -7174,7 +7214,7 @@ bool AEmitterCameraLensEffectBase::IsLooping() const
 		return true;
 	}
 
-	if ((PS_CameraEffectNonExtremeContent != nullptr) && PS_CameraEffectNonExtremeContent->IsLooping())
+	if ((PS_CameraEffectNonExtremeContent_DEPRECATED != nullptr) && PS_CameraEffectNonExtremeContent_DEPRECATED->IsLooping())
 	{
 		return true;
 	}

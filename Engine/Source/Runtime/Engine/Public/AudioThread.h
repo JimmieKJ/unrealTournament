@@ -6,7 +6,10 @@
 
 #pragma once
 
-#include "TaskGraphInterfaces.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "HAL/Runnable.h"
 
 ////////////////////////////////////
 // Audio thread API
@@ -33,16 +36,7 @@ private:
 	*/
 	static bool bIsAudioThreadRunning;
 
-	static uint32 SuspensionCount;
-
-	/**
-	* Polled by the game thread to detect crashes in the audio thread.
-	* If the audio thread crashes, it sets this variable to false.
-	*/
-	volatile static bool bIsAudioThreadHealthy;
-
-	/** If the audio thread has been terminated by an unhandled exception, this contains the error message. */
-	static FString AudioThreadError;
+	static bool bIsAudioThreadSuspended;
 
 	/** The audio thread itself. */
 	static FRunnable* AudioThreadRunnable;
@@ -75,16 +69,8 @@ public:
 	/** Execute a (presumably audio) command on the game thread. If GIsAudioThreadRunning is false the command will execute immediately */
 	static ENGINE_API void RunCommandOnGameThread(TFunction<void()> InFunction, const TStatId InStatId = TStatId());
 
-	/**
-	* Checks if the audio thread is healthy and running.
-	* If it has crashed, UE_LOG is called with the exception information.
-	*/
-	static ENGINE_API void CheckAudioThreadHealth();
-
-	/** Checks if the audio thread is healthy and running, without crashing */
-	static ENGINE_API bool IsAudioThreadHealthy();
-
 	static ENGINE_API void SetUseThreadedAudio(bool bInUseThreadedAudio);
+	static ENGINE_API bool IsUsingThreadedAudio() { return bUseThreadedAudio; }
 
 	static ENGINE_API bool IsAudioThreadRunning() { return bIsAudioThreadRunning; }
 

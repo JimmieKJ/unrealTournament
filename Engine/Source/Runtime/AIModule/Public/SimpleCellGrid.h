@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "Serialization/ArchiveBase.h"
-#include "HAL/UnrealMemory.h"
+#include "CoreMinimal.h"
+#include "Serialization/Archive.h"
 
 struct FGridSize2D
 {
@@ -22,212 +22,339 @@ struct TSimpleCellGrid
 {
 	typedef CellType FCellType;
 
-	/** *Expresses in whole unreal units */
+	// DEPRECATED, use GridCellSize instead of this
 	uint32 CellSize;
+
+	float GridCellSize;
 	FBox WorldBounds;
 	FVector Origin;
 	FVector BoundsSize;
 	FGridSize2D GridSize;
 
 protected:
-	FCellType* Cells;
+	TArray<FCellType> Cells;
 	static FCellType InvalidCell;
 
 public:
 	TSimpleCellGrid()
 		: CellSize(0)
+		, GridCellSize(0.0f)
 		, WorldBounds(EForceInit::ForceInitToZero)
 		, Origin(FLT_MAX)
 		, BoundsSize(0)
-		, Cells(nullptr)
 	{
 	}
 
-	TSimpleCellGrid(const TSimpleCellGrid& OtherMap)
+	bool Init(float InCellSize, const FBox& Bounds)
 	{
-		*this = OtherMap;
-	}
-
-	~TSimpleCellGrid()
-	{
-		FreeMemory();
-	}
-
-	TSimpleCellGrid& operator=(const TSimpleCellGrid& OtherMap)
-	{
-		CellSize = OtherMap.CellSize;
-		WorldBounds = OtherMap.WorldBounds;
-		Origin = OtherMap.Origin;
-		BoundsSize = OtherMap.BoundsSize;
-		GridSize = OtherMap.GridSize;
-
-		FreeMemory();
-
-		if (OtherMap.IsValid())
+		if (InCellSize <= 0.0f || !Bounds.IsValid)
 		{
-			AllocateMemory();
-			const uint32 MemSize = GetValuesMemorySize();
-			FMemory::Memcpy(Cells, OtherMap.Cells, MemSize);
+			return false;
 		}
+			
+		GridCellSize = InCellSize;
+		CellSize = FMath::TruncToInt(InCellSize);
 
-		return *this;
+		const FVector RealBoundsSize = Bounds.GetSize();
+		GridSize = FGridSize2D(FMath::CeilToInt(RealBoundsSize.X / InCellSize), FMath::CeilToInt(RealBoundsSize.Y / InCellSize));
+		BoundsSize = FVector(GridSize.Width * InCellSize, GridSize.Height * InCellSize, RealBoundsSize.Z);
+		Origin = FVector(Bounds.Min.X, Bounds.Min.Y, (Bounds.Min.Z + Bounds.Max.Z) * 0.5f);
+		UpdateWorldBounds();
+
+		Cells.AddDefaulted(GridSize.Width * GridSize.Height);
+
+		return true;
 	}
 
 	void UpdateWorldBounds()
 	{
-		WorldBounds = FBox(Origin - FVector(0,0,BoundsSize.Z / 2), Origin + FVector(BoundsSize.X, BoundsSize.Y, BoundsSize.Z / 2));
+		WorldBounds = FBox(Origin - FVector(0, 0, BoundsSize.Z / 2), Origin + FVector(BoundsSize.X, BoundsSize.Y, BoundsSize.Z / 2));
 	}
 
-	void Init(uint32 InCellSize, const FBox& Bounds)
+	FORCEINLINE bool IsValid() const
 	{
-		CellSize = InCellSize;
-		const FVector RealBoundsSize = Bounds.GetSize();
-		GridSize = FGridSize2D(static_cast<uint32>(FMath::CeilToInt(RealBoundsSize.X / InCellSize))
-			, static_cast<uint32>(FMath::CeilToInt(RealBoundsSize.Y / InCellSize)));
-		BoundsSize = FVector(GridSize.Width * InCellSize
-			, GridSize.Height * InCellSize
-			, RealBoundsSize.Z);
-		Origin = FVector(Bounds.Min.X, Bounds.Min.Y, Bounds.Min.Z + (Bounds.Max.Z - Bounds.Min.Z) / 2);
-		UpdateWorldBounds();
-
-		AllocateMemory();
-		Zero();
+		return Cells.Num() && GridCellSize > 0;
 	}
 
-	void Zero()
+	FORCEINLINE bool IsValidIndex(const int32 CellIndex) const
 	{
-		const uint32 MemSize = GetValuesMemorySize();
-		FMemory::Memzero(Cells, MemSize);
+		return Cells.IsValidIndex(CellIndex);
 	}
 
-	bool IsValid() const
+	FORCEINLINE bool IsValidCoord(int32 LocationX, int32 LocationY) const
 	{
-		return Cells != nullptr && CellSize > 0 && GridSize.Width > 0 && GridSize.Height > 0;
+		return (LocationX >= 0) && (LocationX < (int32)GridSize.Width) && (LocationY >= 0) && (LocationY < (int32)GridSize.Height);
 	}
 
-	bool IsValidCellIndex(const uint32 CellIndex) const
+	FORCEINLINE bool IsValidCoord(const FIntVector& CellCoords) const
 	{
-		return CellIndex < (GridSize.Height * GridSize.Width);
+		return IsValidCoord(CellCoords.X, CellCoords.Y);
 	}
 
-	uint32 GetValuesMemorySize() const { return uint32(GridSize.Width * GridSize.Height) * sizeof(FCellType); }
-	 
-	FORCEINLINE FIntVector WorldToCellCoords(const FVector& WorldLocation) const
+	FORCEINLINE uint32 GetAllocatedSize() const
 	{
-		const uint32 LocationX = uint32(WorldLocation.X - Origin.X) / CellSize;
-		const uint32 LocationY = uint32(WorldLocation.Y - Origin.Y) / CellSize;
-		return FIntVector(LocationX, LocationY, 0);
+		return Cells.GetAllocatedSize();
+	}
+
+	/** Convert world location to (X,Y) coords on grid, result can be outside grid */
+	FORCEINLINE FIntVector GetCellCoordsUnsafe(const FVector& WorldLocation) const
+	{
+		return FIntVector(
+			FMath::TruncToInt((WorldLocation.X - Origin.X) / GridCellSize),
+			FMath::TruncToInt((WorldLocation.Y - Origin.Y) / GridCellSize),
+			0);
+	}
+
+	/** Convert world location to (X,Y) coords on grid, result is clamped to grid */
+	FIntVector GetCellCoords(const FVector& WorldLocation) const
+	{
+		const FIntVector UnsafeCoords = GetCellCoordsUnsafe(WorldLocation);
+		return FIntVector(FMath::Clamp(UnsafeCoords.X, 0, (int32)GridSize.Width - 1), FMath::Clamp(UnsafeCoords.Y, 0, (int32)GridSize.Height - 1), 0);
+	}
+
+	/** Convert cell index to coord X on grid, result can be invalid */
+	FORCEINLINE int32 GetCellCoordX(int32 CellIndex) const
+	{
+		return CellIndex / GridSize.Height;
+	}
+
+	/** Convert cell index to coord Y on grid, result can be invalid */
+	FORCEINLINE int32 GetCellCoordY(int32 CellIndex) const
+	{
+		return CellIndex % GridSize.Height;
+	}
+
+	/** Convert cell index to (X,Y) coords on grid */
+	FORCEINLINE FIntVector GetCellCoords(int32 CellIndex) const
+	{
+		return FIntVector(GetCellCoordX(CellIndex), GetCellCoordY(CellIndex), 0);
+	}
+
+	/** Convert world location to cell index, result can be invalid */
+	int32 GetCellIndexUnsafe(const FVector& WorldLocation) const
+	{
+		const FIntVector CellCoords = GetCellCoordsUnsafe(WorldLocation);
+		return GetCellIndexUnsafe(CellCoords.X, CellCoords.Y);
+	}
+
+	/** Convert (X,Y) coords on grid to cell index, result can be invalid */
+	FORCEINLINE int32 GetCellIndexUnsafe(const FIntVector& CellCoords) const
+	{
+		return GetCellIndexUnsafe(CellCoords.X, CellCoords.Y);
+	}
+
+	/** Convert (X,Y) coords on grid to cell index, result can be invalid */
+	FORCEINLINE int32 GetCellIndexUnsafe(int32 LocationX, int32 LocationY) const
+	{
+		return (LocationX * GridSize.Height) + LocationY;
+	}
+
+	/** Convert (X,Y) coords on grid to cell index, returns -1 for position outside grid */
+	FORCEINLINE int32 GetCellIndex(int32 LocationX, int32 LocationY) const
+	{
+		return IsValidCoord(LocationX, LocationY) ? GetCellIndexUnsafe(LocationX, LocationY) : INDEX_NONE;
+	}
+
+	/** Convert world location to cell index, returns -1 for position outside grid */
+	int32 GetCellIndex(const FVector& WorldLocation) const
+	{
+		const FIntVector CellCoords = GetCellCoordsUnsafe(WorldLocation);
+		return GetCellIndex(CellCoords.X, CellCoords.Y);
 	}
 	
-	FORCEINLINE void WorldToCellCoords(const FVector& WorldLocation, uint32& LocationX, uint32& LocationY) const
+	FORCEINLINE FBox GetWorldCellBox(int32 CellIndex) const
 	{
-		LocationX = uint32(WorldLocation.X - Origin.X) / CellSize;
-		LocationY = uint32(WorldLocation.Y - Origin.Y) / CellSize;
+		return GetWorldCellBox(GetCellCoordX(CellIndex), GetCellCoordY(CellIndex));
 	}
 
-	FORCEINLINE uint32 WorldToCellIndex(const FVector& WorldLocation) const
+	FORCEINLINE FBox GetWorldCellBox(int32 LocationX, int32 LocationY) const
 	{
-		const uint32 LocationX = uint32(WorldLocation.X - Origin.X) / CellSize;
-		const uint32 LocationY = uint32(WorldLocation.Y - Origin.Y) / CellSize;
-		return CellCoordsToCellIndex(LocationX, LocationY);
+		return FBox(
+			Origin + FVector(LocationX * GridCellSize, LocationY * GridCellSize, -BoundsSize.Z * 0.5f), 
+			Origin + FVector((LocationX + 1) * GridCellSize, (LocationY + 1) * GridCellSize, BoundsSize.Z * 0.5f)
+			);
 	}
 
-	FORCEINLINE FIntVector CellIndexToCoords(uint32 CellIndex, uint32& LocationX, uint32& LocationY) const
+	FORCEINLINE FVector GetWorldCellCenter(int32 CellIndex) const
 	{
-		LocationX = static_cast<uint32>(FMath::FloorToInt(CellIndex / GridSize.Height));
-		LocationY = CellIndex - (LocationX * GridSize.Height);
-		return FIntVector(LocationX, LocationY, 0);
+		return GetWorldCellCenter(GetCellCoordX(CellIndex), GetCellCoordY(CellIndex));
 	}
 
-	FORCEINLINE uint32 CellCoordsToCellIndex(const int32 LocationX, const int32 LocationY) const
+	FORCEINLINE FVector GetWorldCellCenter(int32 LocationX, int32 LocationY) const
 	{
-		return LocationX * GridSize.Height + LocationY;
-	}
-	
-	FBox GetWorldCellBox(uint32 CellIndex) const
-	{
-		uint32 LocationX = 0, LocationY = 0;
-		CellIndexToCoords(CellIndex, LocationX, LocationY);
-		return GetWorldCellBox(LocationX, LocationY);
-	}
-
-	FBox GetWorldCellBox(uint32 LocationX, uint32 LocationY) const
-	{
-		const FBox Box(FVector(LocationX * CellSize, LocationY * CellSize, -BoundsSize.Z / 2) + Origin
-			, FVector((LocationX + 1)*CellSize, (LocationY + 1)*CellSize, BoundsSize.Z / 2) + Origin);
-		return Box;
+		return Origin + FVector((LocationX + 0.5f) * GridCellSize, (LocationY + 0.5f) * GridCellSize, 0);
 	}
 
 	const FCellType& GetCellAtWorldLocationUnsafe(const FVector& WorldLocation) const
 	{
-		const uint32 CellIndex = WorldToCellIndex(WorldLocation);
+		const int32 CellIndex = GetCellIndexUnsafe(WorldLocation);
 		return Cells[CellIndex];
 	}
 
-	const FCellType& GetCellAtWorldLocationSafe(const FVector& WorldLocation) const
+	const FCellType& GetCellAtWorldLocation(const FVector& WorldLocation) const
 	{
-		const uint32 CellIndex = WorldToCellIndex(WorldLocation);
-		return CellIndex < (GridSize.Height * GridSize.Width) ? Cells[CellIndex] : InvalidCell;
+		const int32 CellIndex = GetCellIndex(WorldLocation);
+		return (CellIndex == INDEX_NONE) ? InvalidCell : Cells[CellIndex];
 	}
 
-	// gets a "column" (in practice a row from cache point of view)
-	FCellType* operator[](uint32 CellX) { return &Cells[CellX * GridSize.Height]; }
+	FORCEINLINE FCellType& operator[](int32 CellIndex) { return Cells[CellIndex]; }
+	FORCEINLINE const FCellType& operator[](int32 CellIndex) const { return Cells[CellIndex]; }
 
-	/** this function puts the burden of making sure CellIndex is valid on the caller */
-	FCellType& GetCellAtIndexUnsafe(int32 CellIndex) { return Cells[CellIndex]; }
-
-	/** this function puts the burden of making sure CellIndex is valid on the caller */
-	const FCellType& GetCellAtIndexUnsafe(int32 CellIndex) const { return Cells[CellIndex]; }
+	FORCEINLINE FCellType& GetCellAtIndexUnsafe(int32 CellIndex) { return Cells.GetData()[CellIndex]; }
+	FORCEINLINE const FCellType& GetCellAtIndexUnsafe(int32 CellIndex) const { return Cells.GetData()[CellIndex]; }
 	
-	FORCEINLINE uint32 GetCellsCount() const
+	FORCEINLINE int32 GetCellsCount() const
 	{
-		return static_cast<uint32>(GridSize.Width * GridSize.Height);
+		return Cells.Num();
+	}
+
+	FORCEINLINE int32 Num() const
+	{
+		return Cells.Num();
 	}
 
 	void Serialize(FArchive& Ar)
-	{		
-		Ar << CellSize;
+	{	
+		// CellSize must act as version checking: MAX_uint32, float CellSize is used
+		uint32 VersionNum = MAX_uint32;
+		Ar << VersionNum;
+
+		if (Ar.IsLoading())
+		{
+			if (VersionNum == MAX_uint32)
+			{
+				Ar << GridCellSize;
+				CellSize = FMath::TruncToInt(GridCellSize);
+			}
+			else
+			{
+				CellSize = VersionNum;
+				GridCellSize = VersionNum * 1.0f;
+			}
+		}
+		else
+		{
+			Ar << GridCellSize;
+		}
+
 		Ar << Origin;
 		Ar << BoundsSize;
 		Ar << GridSize.Width << GridSize.Height;
 	
 		UpdateWorldBounds();
 
-		int32 DataBytesCount = sizeof(FCellType) * GridSize.Width * GridSize.Height;
-		Ar << DataBytesCount;
-
-		if (DataBytesCount > 0)
+		if (VersionNum == MAX_uint32)
 		{
-			if (Cells == nullptr)
-			{
-				// this makes sense only during loading
-				ensure(Ar.IsLoading());
-				AllocateMemory();
-			}
-			Ar.Serialize(Cells, DataBytesCount);
+			Ar << Cells;
 		}
-	}
+		else
+		{
+			int32 DataBytesCount = GetAllocatedSize();
+			Ar << DataBytesCount;
 
-	void CleanUp()
-	{
-		FreeMemory();
-		CellSize = 0;
-		Origin = FVector(FLT_MAX);
+			if (DataBytesCount > 0)
+			{
+				if (Ar.IsLoading())
+				{
+					Cells.SetNum(GridSize.Width * GridSize.Height);
+				}
+
+				Ar.Serialize(Cells.GetData(), DataBytesCount);
+			}
+		}
 	}
 
 	void AllocateMemory()
 	{
-		FreeMemory();
-		const uint32 MemSize = GetValuesMemorySize();
-		Cells = static_cast<FCellType*>(FMemory::Malloc(MemSize));
+		Cells.SetNum(GridSize.Width * GridSize.Height);
 	}
 
 	void FreeMemory()
 	{
-		if (Cells)
-		{
-			FMemory::Free(Cells);
-			Cells = nullptr;
-		}
+		Cells.Empty();
+	}
+
+	void Zero()
+	{
+		Cells.Reset();
+		Cells.AddZeroed(GridSize.Width * GridSize.Height);
+	}
+
+	void CleanUp()
+	{
+		Cells.Empty();
+		GridCellSize = 0;
+		Origin = FVector(FLT_MAX);
+	}
+
+	//////////////////////////////////////////////////////////////////////////
+	// DEPRECATED SUPPORT
+
+	DEPRECATED(4.14, "This function is now deprecated, please use the one with float CellSize argument")
+	void Init(uint32 InCellSize, const FBox& Bounds)
+	{
+		Init(1.0f * InCellSize, Bounds);
+	}
+
+	DEPRECATED(4.14, "This function is now deprecated, please use GetCellCoords instead.")
+	FIntVector WorldToCellCoords(const FVector& WorldLocation) const
+	{
+		const uint32 LocationX = FMath::TruncToInt((WorldLocation.X - Origin.X) / CellSize);
+		const uint32 LocationY = FMath::TruncToInt((WorldLocation.Y - Origin.Y) / CellSize);
+		return FIntVector(LocationX, LocationY, 0);
+	}
+
+	DEPRECATED(4.14, "This function is now deprecated, please use GetCellCoords instead.")
+	void WorldToCellCoords(const FVector& WorldLocation, uint32& LocationX, uint32& LocationY) const
+	{
+		LocationX = FMath::TruncToInt((WorldLocation.X - Origin.X) / CellSize);
+		LocationY = FMath::TruncToInt((WorldLocation.Y - Origin.Y) / CellSize);
+	}
+
+	DEPRECATED(4.14, "This function is now deprecated, please use GetCellIndex instead.")
+	uint32 WorldToCellIndex(const FVector& WorldLocation) const
+	{
+		const uint32 LocationX = FMath::TruncToInt((WorldLocation.X - Origin.X) / CellSize);
+		const uint32 LocationY = FMath::TruncToInt((WorldLocation.Y - Origin.Y) / CellSize);
+		return CellCoordsToCellIndex(LocationX, LocationY);
+	}
+
+	DEPRECATED(4.14, "This function is now deprecated, please use GetCellCoords instead.")
+	FIntVector CellIndexToCoords(uint32 CellIndex) const
+	{
+		return FIntVector(CellIndex / GridSize.Height, CellIndex % GridSize.Height, 0);
+	}
+
+	DEPRECATED(4.14, "This function is now deprecated, please use GetCellCoords instead.")
+	FIntVector CellIndexToCoords(uint32 CellIndex, uint32& LocationX, uint32& LocationY) const
+	{
+		LocationX = CellIndex / GridSize.Height;
+		LocationY = CellIndex % GridSize.Height;
+		return FIntVector(LocationX, LocationY, 0);
+	}
+
+	DEPRECATED(4.14, "This function is now deprecated, please use GetCellIndex instead.")
+	uint32 CellCoordsToCellIndex(const int32 LocationX, const int32 LocationY) const
+	{
+		return (LocationX * GridSize.Height) + LocationY;
+	}
+
+	DEPRECATED(4.14, "This function is now deprecated, please use GetCellAtWorldLocation instead.")
+	const FCellType& GetCellAtWorldLocationSafe(const FVector& WorldLocation) const
+	{
+		const uint32 CellIndex = GetCellIndex(WorldLocation);
+		return CellIndex < (GridSize.Height * GridSize.Width) ? Cells[CellIndex] : InvalidCell;
+	}
+
+	DEPRECATED(4.14, "This function is now deprecated, please use GetAllocatedSize instead.")
+	uint32 GetValuesMemorySize() const
+	{
+		return GridSize.Height * GridSize.Width * sizeof(FCellType);
+	}
+
+	DEPRECATED(4.14, "This function is now deprecated, please use IsValidIndex instead.")
+	bool IsValidCellIndex(const int32 CellIndex) const
+	{
+		return IsValidIndex(CellIndex);
 	}
 };

@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "TranslationEditorPrivatePCH.h"
 #include "ITranslationEditor.h"
-#include "Editor/TranslationEditor/Private/TranslationPickerWidget.h"
+#include "Modules/ModuleManager.h"
+#include "TranslationEditorModule.h"
+#include "TranslationPickerWidget.h"
 #include "LocalizationConfigurationScript.h"
 
 /** To keep track of what translation editors are open editing which archive files */

@@ -1,12 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "SoundDefinitions.h"
-#include "AudioDecompress.h"
-#include "TargetPlatform.h"
-#include "AudioDerivedData.h"
-#include "SubtitleManager.h"
 #include "Sound/DialogueVoice.h"
+#include "UObject/UnrealType.h"
 
 UDialogueVoice::UDialogueVoice(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

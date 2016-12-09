@@ -1,12 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "SCreateAssetFromObject.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "GameFramework/Actor.h"
+#include "AssetData.h"
+#include "Engine/Selection.h"
+#include "Editor.h"
+#include "FileHelpers.h"
+#include "IAssetTools.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "AssetToolsModule.h"
 #include "AssetRegistryModule.h"
 #include "PackageTools.h"
-#include "Engine/Selection.h"
 
 #define LOCTEXT_NAMESPACE "SCreateAssetFromActor"
 

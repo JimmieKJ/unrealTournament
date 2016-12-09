@@ -4,12 +4,10 @@
 	AnimCompress_RemoveLinearKeys.cpp: Keyframe reduction algorithm that simply removes every second key.
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
 #include "Animation/AnimCompress_RemoveLinearKeys.h"
-#include "AnimationUtils.h"
-#include "AnimEncoding.h"
 #include "AnimationCompression.h"
-
+#include "AnimEncoding.h"
+#include "Misc/FeedbackContext.h"
 
 // Define to 1 to enable timing of the meat of linear key removal done in DoReduction
 // The times are non-trivial, but the extra log spam isn't useful if one isn't optimizing DoReduction runtime
@@ -444,15 +442,15 @@ bool UAnimCompress_RemoveLinearKeys::ConvertFromRelativeSpace(UAnimSequence* Ani
 	if (bAdditiveAnimation)
 	{
 		// convert the raw tracks out of additive-space
-		const int32 NumTracks = AnimSeq->RawAnimationData.Num();
+		const int32 NumTracks = AnimSeq->GetRawAnimationData().Num();
 		for (int32 TrackIndex = 0; TrackIndex < NumTracks; ++TrackIndex)
 		{
 			// bone index of skeleton
-			int32 const BoneIndex = AnimSeq->TrackToSkeletonMapTable[TrackIndex].BoneTreeIndex;
+			int32 const BoneIndex = AnimSeq->GetRawTrackToSkeletonMapTable()[TrackIndex].BoneTreeIndex;
 			bool const bIsRootBone = (BoneIndex == 0);
 
-			FRawAnimSequenceTrack& BasePoseTrack = AnimSeq->TemporaryAdditiveBaseAnimationData[TrackIndex];
-			FRawAnimSequenceTrack& RawTrack	= AnimSeq->RawAnimationData[TrackIndex];
+			const FRawAnimSequenceTrack& BasePoseTrack = AnimSeq->GetAdditiveBaseAnimationData()[TrackIndex];
+			FRawAnimSequenceTrack& RawTrack	= AnimSeq->GetRawAnimationTrack(TrackIndex);
 
 			// @note: we only extract the first frame, as we don't want to induce motion from the base pose
 			// only the motion from the additive data should matter.
@@ -497,15 +495,15 @@ void UAnimCompress_RemoveLinearKeys::ConvertToRelativeSpace(
 {
 
 	// convert the raw tracks back to additive-space
-	const int32 NumTracks = AnimSeq->RawAnimationData.Num();
+	const int32 NumTracks = AnimSeq->GetRawAnimationData().Num();
 	for ( int32 TrackIndex = 0; TrackIndex < NumTracks; ++TrackIndex )
 	{
-		int32 const BoneIndex = AnimSeq->TrackToSkeletonMapTable[TrackIndex].BoneTreeIndex;
+		int32 const BoneIndex = AnimSeq->GetRawTrackToSkeletonMapTable()[TrackIndex].BoneTreeIndex;
 
 		bool const bIsRootBone = (BoneIndex == 0);
 
-		FRawAnimSequenceTrack& BasePoseTrack = AnimSeq->TemporaryAdditiveBaseAnimationData[TrackIndex];
-		FRawAnimSequenceTrack& RawTrack	= AnimSeq->RawAnimationData[TrackIndex];
+		const FRawAnimSequenceTrack& BasePoseTrack = AnimSeq->GetAdditiveBaseAnimationData()[TrackIndex];
+		FRawAnimSequenceTrack& RawTrack	= AnimSeq->GetRawAnimationTrack(TrackIndex);
 		// @note: we only extract the first frame, as we don't want to induce motion from the base pose
 		// only the motion from the additive data should matter.
 		const FQuat& InvRefBoneRotation = BasePoseTrack.RotKeys[0].Inverse();
@@ -1027,7 +1025,7 @@ void UAnimCompress_RemoveLinearKeys::DoReduction(UAnimSequence* AnimSeq, const T
 	TArray<FTranslationTrack> TranslationData;
 	TArray<FRotationTrack> RotationData;
 	TArray<FScaleTrack> ScaleData;
-	SeparateRawDataIntoTracks(AnimSeq->RawAnimationData, AnimSeq->SequenceLength, TranslationData, RotationData, ScaleData);
+	SeparateRawDataIntoTracks(AnimSeq->GetRawAnimationData(), AnimSeq->SequenceLength, TranslationData, RotationData, ScaleData);
 	FilterBeforeMainKeyRemoval(AnimSeq, BoneData, TranslationData, RotationData, ScaleData);
 
 	if (bRunningProcessor)

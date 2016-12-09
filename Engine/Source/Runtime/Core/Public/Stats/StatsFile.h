@@ -2,6 +2,28 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Misc/Compression.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Set.h"
+#include "Containers/Map.h"
+#include "UObject/NameTypes.h"
+#include "Logging/LogMacros.h"
+#include "Delegates/IDelegateInstance.h"
+#include "Internationalization/Text.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Stats/Stats.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Async/AsyncWork.h"
+#include "Stats/StatsData.h"
+
+class FAsyncStatsWrite;
+struct FStatsReadFile;
+
+template< typename InElementType, typename KeyFuncs , typename Allocator > class TSet;
+template<typename KeyType,typename ValueType,typename SetAllocator ,typename KeyFuncs > class TMap;
 
 #if	STATS
 

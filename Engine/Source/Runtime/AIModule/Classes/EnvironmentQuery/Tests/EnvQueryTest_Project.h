@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
 #include "EnvQueryTest_Project.generated.h"
-
-struct FEnvQueryInstance;
 
 /**
  * Projects points on navigation or geometry, will modify value of projected items.

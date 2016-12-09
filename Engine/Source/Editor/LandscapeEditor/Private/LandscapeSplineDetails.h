@@ -2,11 +2,12 @@
 
 #pragma once
 
-// Forward declarations
-class FEdModeLandscape;
-
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
 #include "IDetailCustomization.h"
 
+class FEdModeLandscape;
+class IDetailLayoutBuilder;
 
 class FLandscapeSplineDetails : public IDetailCustomization
 {

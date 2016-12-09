@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 struct FStartupPackages
 {
 	/**
@@ -25,9 +27,6 @@ struct FStartupPackages
 
 	/**
 	 * Load all startup packages. If desired preload async followed by serialization from memory.
-	 * Only native script packages are loaded from memory if we're not using the GUseSeekFreeLoading
-	 * codepath as we need to reset the loader on those packages and don't want to keep the bulk
-	 * data around. Native script packages don't have any bulk data so this doesn't matter.
 	 *
 	 * The list of additional packages can be found at Engine.StartupPackages and if seekfree loading
 	 * is enabled, the startup map is going to be preloaded as well.

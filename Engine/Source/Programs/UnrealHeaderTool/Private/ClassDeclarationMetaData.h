@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/NameTypes.h"
+#include "Containers/Map.h"
+
+class FClass;
+class FClasses;
 struct FPropertySpecifier;
 
 /** Structure that holds class meta data generated from its UCLASS declaration */

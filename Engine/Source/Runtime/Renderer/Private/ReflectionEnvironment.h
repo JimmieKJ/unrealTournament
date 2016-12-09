@@ -6,5 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RHIDefinitions.h"
+
 extern bool IsReflectionEnvironmentAvailable(ERHIFeatureLevel::Type InFeatureLevel);
 extern bool IsReflectionCaptureAvailable();

@@ -4,8 +4,16 @@
 	URL.cpp: Various file-management functions.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Net/UnrealNetwork.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "GameMapsSettings.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Engine/World.h"
+#include "AssetData.h"
 #include "AssetRegistryModule.h"
 
 /*-----------------------------------------------------------------------------
@@ -74,7 +82,14 @@ FURL::FURL( const TCHAR* LocalFilename )
 	// strip off any extension from map name
 	if (LocalFilename)
 	{
-		Map = FPaths::GetBaseFilename(LocalFilename);
+		if (FPackageName::IsValidLongPackageName(LocalFilename))
+		{
+			Map = LocalFilename;
+		}
+		else
+		{
+			Map = FPaths::GetBaseFilename(LocalFilename);
+		}
 	}
 	else
 	{

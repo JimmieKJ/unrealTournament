@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimationConduitGraphSchema.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "AnimGraphNode_TransitionResult.h"
 #include "AnimationTransitionGraph.h"
 #include "AnimStateConduitNode.h"

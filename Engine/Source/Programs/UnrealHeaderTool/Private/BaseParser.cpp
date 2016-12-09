@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "UnrealHeaderTool.h"
-
 #include "BaseParser.h"
+#include "UnrealHeaderTool.h"
+#include "UObject/NameTypes.h"
+#include "UObject/ErrorException.h"
+
+#include "ParserHelper.h"
 
 
 namespace
@@ -449,11 +451,11 @@ bool FBaseParser::GetToken( FToken& Token, bool bNoConsts/*=false*/, ESymbolPars
 		else if (bIsHex)
 		{
 			TCHAR* End = Token.Identifier + FCString::Strlen(Token.Identifier);
-			Token.SetConstInt( FCString::Strtoi(Token.Identifier,&End,0) );
+			Token.SetConstInt64( FCString::Strtoi64(Token.Identifier,&End,0) );
 		}
 		else
 		{
-			Token.SetConstInt( FCString::Atoi(Token.Identifier) );
+			Token.SetConstInt64( FCString::Atoi64(Token.Identifier) );
 		}
 		return true;
 	}
@@ -735,6 +737,29 @@ bool FBaseParser::GetConstInt(int32& Result, const TCHAR* Tag)
 	return false;
 }
 
+bool FBaseParser::GetConstInt64(int64& Result, const TCHAR* Tag)
+{
+	FToken Token;
+	if (GetToken(Token))
+	{
+		if (Token.GetConstInt64(Result))
+		{
+			return true;
+		}
+		else
+		{
+			UngetToken(Token);
+		}
+	}
+
+	if (Tag != NULL)
+	{
+		FError::Throwf(TEXT("%s: Missing constant integer"), Tag );
+	}
+
+	return false;
+}
+
 bool FBaseParser::MatchSymbol( const TCHAR* Match, ESymbolParseOption bParseTemplateClosingBracket/*=ESymbolParseOption::Normal*/ )
 {
 	FToken Token;
@@ -798,7 +823,7 @@ bool FBaseParser::MatchConstInt( const TCHAR* Match )
 	FToken Token;
 	if (GetToken(Token))
 	{
-		if( Token.TokenType==TOKEN_Const && Token.Type == CPT_Int && FCString::Stricmp(Token.Identifier,Match)==0 )
+		if( Token.TokenType==TOKEN_Const && (Token.Type == CPT_Int || Token.Type == CPT_Int64) && FCString::Stricmp(Token.Identifier,Match)==0 )
 		{
 			return true;
 		}

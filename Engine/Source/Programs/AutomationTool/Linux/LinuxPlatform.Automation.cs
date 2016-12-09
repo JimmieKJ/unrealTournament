@@ -12,11 +12,9 @@ using UnrealBuildTool;
 
 public abstract class BaseLinuxPlatform : Platform
 {
-	static Regex deviceRegex = new Regex(@"linux@([A-Za-z0-9\.\-]+)[\+]?");
-	static Regex usernameRegex = new Regex(@"\\([a-z_][a-z0-9_]{0,30})@");
-	static String keyPath = CombinePaths(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "/UE4SSHKeys");
-	static String pscpPath = CombinePaths(Environment.GetEnvironmentVariable("LINUX_ROOT"), "bin/PSCP.exe");
-	static String plinkPath = CombinePaths(Environment.GetEnvironmentVariable("LINUX_ROOT"), "bin/PLINK.exe");
+	static string PScpPath = CombinePaths(CommandUtils.RootDirectory.FullName, "\\Engine\\Extras\\ThirdPartyNotUE\\putty\\PSCP.EXE");
+	static string PlinkPath = CombinePaths(CommandUtils.RootDirectory.FullName, "\\Engine\\Extras\\ThirdPartyNotUE\\putty\\PLINK.EXE");
+	static string LaunchOnHelperShellScriptName = "LaunchOnHelper.sh";
 
 	public BaseLinuxPlatform(UnrealTargetPlatform P)
 		: base(P)
@@ -46,14 +44,12 @@ public abstract class BaseLinuxPlatform : Platform
 			++BuildProductIdx;
         }
 
-        Console.WriteLine("Staging splash screen");
-        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
+		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
 
 		// Stage the bootstrap executable
 		if (!Params.NoBootstrapExe)
-        {
-            Console.WriteLine("Staging bootstrap executable");
-            foreach (StageTarget Target in SC.StageTargets)
+		{
+			foreach (StageTarget Target in SC.StageTargets)
 			{
 				BuildProduct Executable = Target.Receipt.BuildProducts.FirstOrDefault(x => x.Type == BuildProductType.Executable);
 				if (Executable != null)
@@ -111,8 +107,8 @@ public abstract class BaseLinuxPlatform : Platform
 		StringBuilder Script = new StringBuilder();
 		string EOL = "\n";
 		Script.Append("#!/bin/sh" + EOL);
-		Script.AppendFormat("chmod +x {0}" + EOL, StagedRelativeTargetPath);
-		Script.AppendFormat("{0} {1} $@" + EOL, StagedRelativeTargetPath, StagedArguments);
+		Script.AppendFormat("chmod +x \"$(dirname $0)/{0}\"" + EOL, StagedRelativeTargetPath);
+		Script.AppendFormat("\"$(dirname $0)/{0}\" {1} $@" + EOL, StagedRelativeTargetPath, StagedArguments);
 
 		// write out the 
 		File.WriteAllText(IntermediateFile, Script.ToString());
@@ -170,53 +166,52 @@ public abstract class BaseLinuxPlatform : Platform
 	/// <param name="SC"></param>
 	public override void Deploy(ProjectParams Params, DeploymentContext SC)
 	{
-		if (!String.IsNullOrEmpty(Params.ServerDeviceAddress))
+		if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Linux)
 		{
-			string sourcePath = CombinePaths(Params.BaseStageDirectory, GetCookPlatform(Params.DedicatedServer, false));
-			string destPath = Params.DeviceUsername + "@" + Params.ServerDeviceAddress + ":.";
-			RunAndLog(CmdEnv, pscpPath, String.Format("-batch -i {0} -r {1} {2}", Params.DevicePassword, sourcePath, destPath));
+			foreach (string DeviceAddress in Params.DeviceNames)
+			{
+				string CookPlatformName = GetCookPlatform(Params.DedicatedServer, Params.Client);
+				string SourcePath = CombinePaths(Params.BaseStageDirectory, CookPlatformName);
+				string DestPath = "./" + Params.ShortProjectName;
+				List<string> Exes = GetExecutableNames(SC);
+				string BinaryName = "";
+				if (Exes.Count > 0)
+				{
+					BinaryName = Exes[0].Replace(Params.BaseStageDirectory, DestPath);
+					BinaryName = BinaryName.Replace("\\", "/");
+				}
 
-			List<string> Exes = GetExecutableNames(SC);
+				// stage a shell script that makes running easy
+				string Script = String.Format(@"#!/bin/bash
+export DISPLAY=:0
+chmod +x {0}
+{0} $@
+", BinaryName, BinaryName);
+				Script = Script.Replace("\r\n", "\n");
+				string ScriptFile = Path.Combine(SourcePath, "..", LaunchOnHelperShellScriptName);
+				File.WriteAllText(ScriptFile, Script);
 
-			string binPath = CombinePaths(GetCookPlatform(Params.DedicatedServer, false), SC.RelativeProjectRootForStage, "Binaries", SC.PlatformDir, Path.GetFileName(Exes[0])).Replace("\\", "/");
-			string iconPath = CombinePaths(GetCookPlatform(Params.DedicatedServer, false), SC.RelativeProjectRootForStage, SC.ShortProjectName + ".png").Replace("\\", "/");
+				if (!Params.IterativeDeploy)
+				{
+					// non-null input is essential, since RedirectStandardInput=true is needed for PLINK, see http://stackoverflow.com/questions/1910592/process-waitforexit-on-console-vs-windows-forms
+					RunAndLog(CmdEnv, PlinkPath, String.Format("-batch -l {0} -pw {1} {2} rm -rf {3} && mkdir -p {3}", Params.DeviceUsername, Params.DevicePassword, Params.DeviceNames[0], DestPath), Input: "");
+				}
 
-			string DesiredGLVersion = "4.3";
+				// copy the contents
+				RunAndLog(CmdEnv, PScpPath, String.Format("-batch -pw {0} -r {1} {2}", Params.DevicePassword, SourcePath, Params.DeviceUsername + "@" + DeviceAddress + ":" + DestPath));
 
-			// Begin Bash Shell Script
-			string script = String.Format(@"#!/bin/bash
-# Check for OpenGL4 support
-glarg=''
-if command -v glxinfo >/dev/null 2>&1 ; then
-    export DISPLAY="":0""
-    glversion=$(glxinfo | grep ""OpenGL version string:"" | sed 's/[^0-9.]*\([0-9.]*\).*/\1/')
-    glmatch=$(echo -e ""$glversion\n{0}"" | sort -Vr | head -1)
-    [[ ""$glmatch"" = ""$glversion"" ]] && glarg=' -opengl4'
-fi
+				// copy the helper script
+				RunAndLog(CmdEnv, PScpPath, String.Format("-batch -pw {0} -r {1} {2}", Params.DevicePassword, ScriptFile, Params.DeviceUsername + "@" + DeviceAddress + ":" + DestPath));
 
-# Create .desktop file
-cat > $HOME/Desktop/{1}.desktop << EOF
-[Desktop Entry]
-Type=Application
-Name={2}
-Comment=UE4 Game
-Exec=$HOME/{3}{4}$glarg
-Icon=$HOME/{5}
-Terminal=false
-Categories=Game;
-EOF
-
-# Set permissions
-chmod 755 $HOME/{3}
-chmod 700 $HOME/Desktop/{1}.desktop", DesiredGLVersion, SC.ShortProjectName, SC.ShortProjectName, binPath, (Params.UsePak(SC.StageTargetPlatform) ? " -pak" : ""), iconPath);
-			// End Bash Shell Script
-
-			string scriptFile = Path.GetTempFileName();
-			File.WriteAllText(scriptFile, script);
-			RunAndLog(CmdEnv, plinkPath, String.Format("-ssh -t -batch -l {0} -i {1} {2} -m {3}", Params.DeviceUsername, Params.DevicePassword, Params.ServerDeviceAddress, scriptFile));
-			File.Delete(scriptFile);
+				string RemoteScriptFile = DestPath + "/" + LaunchOnHelperShellScriptName;
+				// non-null input is essential, since RedirectStandardInput=true is needed for PLINK, see http://stackoverflow.com/questions/1910592/process-waitforexit-on-console-vs-windows-forms
+				RunAndLog(CmdEnv, PlinkPath, String.Format(" -batch -l {0} -pw {1} {2} chmod +x {3}", Params.DeviceUsername, Params.DevicePassword, Params.DeviceNames[0], RemoteScriptFile), Input: "");
+			}
 		}
 	}
+
+	// -abslog only makes sense when running on the native platform and not remotely
+	public override bool UseAbsLog { get { return BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux; } }
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
@@ -239,118 +234,71 @@ chmod 700 $HOME/Desktop/{1}.desktop", DesiredGLVersion, SC.ShortProjectName, SC.
 	/// <param name="ProjParams"></param>
 	public override void PlatformSetupParams(ref ProjectParams ProjParams)
 	{
-		Match match = deviceRegex.Match(ProjParams.ServerDevice);
-		if (match.Success)
-		{
-			ProjParams.ServerDeviceAddress = match.Groups[1].Value;
-
-			string linuxKey = null;
-			string keyID = ProjParams.ServerDeviceAddress;
-
-			// If username specified use key for that user
-			if (!String.IsNullOrEmpty(ProjParams.DeviceUsername))
+		if ((ProjParams.Deploy || ProjParams.Run) && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Linux)
+		{ 
+			// Prompt for username if not already set
+			while (String.IsNullOrEmpty(ProjParams.DeviceUsername))
 			{
-				keyID = ProjParams.DeviceUsername + "@" + keyID;
+				Console.Write("Username: ");
+				ProjParams.DeviceUsername = Console.ReadLine();
 			}
 
-			if (!DirectoryExists(keyPath))
+			// Prompty for password if not already set
+			while (String.IsNullOrEmpty(ProjParams.DevicePassword))
 			{
-				Directory.CreateDirectory(keyPath);
-			}
-
-			linuxKey = Directory.EnumerateFiles(keyPath).Where(f => f.Contains(keyID)).FirstOrDefault();
-
-			// Generate key if it doesn't exist
-			if (String.IsNullOrEmpty(linuxKey)
-				&& ((!String.IsNullOrEmpty(ProjParams.DeviceUsername) && !String.IsNullOrEmpty(ProjParams.DevicePassword))
-					|| !ProjParams.Unattended)) // Skip key generation in unattended mode if information is missing
-			{
-				Log("Configuring Linux host");
-
-				// Prompt for username if not already set
-				while (String.IsNullOrEmpty(ProjParams.DeviceUsername))
+				ProjParams.DevicePassword = String.Empty;
+				Console.Write("Password: ");
+				ConsoleKeyInfo key;
+				do
 				{
-					Console.Write("Username: ");
-					ProjParams.DeviceUsername = Console.ReadLine();
-				}
-
-				// Prompty for password if not already set
-				while (String.IsNullOrEmpty(ProjParams.DevicePassword))
-				{
-					ProjParams.DevicePassword = String.Empty;
-					Console.Write("Password: ");
-					ConsoleKeyInfo key;
-					do
+					key = Console.ReadKey(true);
+					if (key.Key != ConsoleKey.Backspace && key.Key != ConsoleKey.Enter)
 					{
-						key = Console.ReadKey(true);
-						if (key.Key != ConsoleKey.Backspace && key.Key != ConsoleKey.Enter)
+						ProjParams.DevicePassword += key.KeyChar;
+						Console.Write("*");
+					}
+					else
+					{
+						if (key.Key == ConsoleKey.Backspace && ProjParams.DevicePassword.Length > 0)
 						{
-							ProjParams.DevicePassword += key.KeyChar;
-							Console.Write("*");
+							ProjParams.DevicePassword = ProjParams.DevicePassword.Substring(0, (ProjParams.DevicePassword.Length - 1));
+							Console.Write("\b \b");
 						}
-						else
-						{
-							if (key.Key == ConsoleKey.Backspace && ProjParams.DevicePassword.Length > 0)
-							{
-								ProjParams.DevicePassword = ProjParams.DevicePassword.Substring(0, (ProjParams.DevicePassword.Length - 1));
-								Console.Write("\b \b");
-							}
-						}
+					}
 
-					} while (key.Key != ConsoleKey.Enter);
-					Console.WriteLine();
-				}
-				String Command = @"/bin/sh";
-
-				// Convienence names
-				String keyName = String.Format("UE4:{0}@{1}", Environment.UserName, Environment.MachineName);
-				String idRSA = String.Format(".ssh/id_rsa/{0}", keyName);
-				String ppk = String.Format("{0}@{1}.ppk", ProjParams.DeviceUsername, ProjParams.ServerDeviceAddress);
-
-				// Generate keys including the .ppk on Linux device
-				String Script = String.Format("mkdir -p .ssh/id_rsa && if [ ! -f {0} ] ; then ssh-keygen -t rsa -C {1} -N '' -f {0} && cat {0}.pub >> .ssh/authorized_keys ; fi && chmod -R go-w ~/.ssh && puttygen {0} -o {2}", idRSA, keyName, ppk);
-				String Args = String.Format("/c ECHO y | {0} -ssh -t -pw {1} {2}@{3} \"{4}\"", plinkPath, ProjParams.DevicePassword, ProjParams.DeviceUsername, ProjParams.ServerDeviceAddress, Script);
-				RunAndLog(CmdEnv, Command, Args);
-
-				// Retrive the .ppk
-				Command = pscpPath;
-				Args = String.Format("-batch -pw {0} -l {1} {2}:{3} {4}", ProjParams.DevicePassword, ProjParams.DeviceUsername, ProjParams.ServerDeviceAddress, ppk, keyPath);
-				RunAndLog(CmdEnv, Command, Args);
-
-				linuxKey = CombinePaths(keyPath, ppk);
-
-				// Remove the .ppk from the Linux device
-				Command = plinkPath;
-				Script = String.Format("rm {0}", ppk);
-				Args = String.Format("-batch -i {0} {1}@{2} \"{3}\"", linuxKey, ProjParams.DeviceUsername, ProjParams.ServerDeviceAddress, Script);
-				RunAndLog(CmdEnv, Command, Args);
+				} while (key.Key != ConsoleKey.Enter);
+				Console.WriteLine();
 			}
 
-			// Fail if a key couldn't be found or generated
-			if (String.IsNullOrEmpty(linuxKey))
+			// try contacting the device(s) and cache the key(s)
+			foreach(string DeviceAddress in ProjParams.DeviceNames)
 			{
-				throw new AutomationException("can't deploy/run using a Linux device without a valid SSH key");
+				RunAndLog(CmdEnv, "cmd.exe", String.Format("/c \"echo y | {0} -ssh -t -l {1} -pw {2} {3} echo All Ok\"", PlinkPath, ProjParams.DeviceUsername, ProjParams.DevicePassword, DeviceAddress));
 			}
-
-			// Set username from key
-			if (String.IsNullOrEmpty(ProjParams.DeviceUsername))
-			{
-				match = usernameRegex.Match(linuxKey);
-				if (!match.Success)
-				{
-					throw new AutomationException("can't determine username from SSH key");
-				}
-				ProjParams.DeviceUsername = match.Groups[1].Value;
-			}
-
-			// Use key as password
-			ProjParams.DevicePassword = linuxKey;
-		}
-		else if ((ProjParams.Deploy || ProjParams.Run) && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Linux)
-		{
-			throw new AutomationException("must specify device IP for remote Linux target (-serverdevice=linux@<ip>)");
 		}
 	}
+	public override IProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
+	{
+		if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Linux)
+		{
+			IProcessResult Result = null;
+			foreach (string DeviceAddress in Params.DeviceNames)
+			{
+				// Use the helper script (should already be +x - see Deploy)
+				string RemoteBasePath = "./" + Params.ShortProjectName;
+				string RemotePathToBinary = RemoteBasePath + "/" + LaunchOnHelperShellScriptName;
+				// non-null input is essential, since RedirectStandardInput=true is needed for PLINK, see http://stackoverflow.com/questions/1910592/process-waitforexit-on-console-vs-windows-forms
+				Result = Run(PlinkPath, String.Format("-batch -ssh -t -l {0} -pw {1} {2}  {3} {4}", Params.DeviceUsername, Params.DevicePassword, Params.DeviceNames[0], RemotePathToBinary, ClientCmdLine), "");
+			}
+			return Result;
+		}
+		else
+		{
+			return base.RunClient(ClientRunFlags, ClientApp, ClientCmdLine, Params);
+		}
+	}
+
+
 	public override List<string> GetDebugFileExtentions()
 	{
 		return new List<string> { };

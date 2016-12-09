@@ -1,15 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MatineeModule.h"
-#include "MatineeOptions.h"
 #include "MatineeTransaction.h"
-#include "Editor/BlueprintGraph/Classes/K2Node.h"
-#include "Editor/BlueprintGraph/Classes/K2Node_MatineeController.h"
+#include "Matinee/InterpGroup.h"
+#include "Matinee/InterpTrack.h"
+#include "MatineeOptions.h"
+#include "K2Node_MatineeController.h"
 #include "Matinee/MatineeActor.h"
 #include "Matinee/InterpData.h"
-#include "Matinee/InterpGroup.h"
 #include "Matinee/InterpGroupInst.h"
-#include "Matinee/InterpTrack.h"
 #include "Matinee/InterpTrackInst.h"
 
 /*-----------------------------------------------------------------------------

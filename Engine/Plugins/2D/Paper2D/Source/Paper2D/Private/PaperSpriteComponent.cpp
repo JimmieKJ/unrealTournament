@@ -1,15 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
-#include "PaperSpriteSceneProxy.h"
 #include "PaperSpriteComponent.h"
-#include "PaperCustomVersion.h"
-#include "Runtime/Engine/Classes/PhysicsEngine/BodySetup2D.h"
-#include "Runtime/Engine/Public/ContentStreaming.h"
-#include "Runtime/Core/Public/Logging/MessageLog.h"
-#include "Runtime/Core/Public/Misc/MapErrors.h"
-#include "Runtime/CoreUObject/Public/Misc/UObjectToken.h"
+#include "RenderingThread.h"
+#include "Engine/CollisionProfile.h"
 #include "SpriteDrawCall.h"
+#include "PaperSpriteSceneProxy.h"
+#include "PaperCustomVersion.h"
+#include "PhysicsEngine/BodySetup.h"
+#include "ContentStreaming.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/MapErrors.h"
+#include "Misc/UObjectToken.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 

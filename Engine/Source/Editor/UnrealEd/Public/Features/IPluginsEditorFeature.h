@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Runtime/Core/Public/Features/IModularFeature.h"
+#include "CoreMinimal.h"
+#include "Features/IModularFeature.h"
 
 
 /**

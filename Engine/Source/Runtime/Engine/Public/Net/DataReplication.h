@@ -6,8 +6,19 @@
 =============================================================================*/
 #pragma once
 
-class FRepState;
+#include "CoreMinimal.h"
+#include "Misc/NetworkGuid.h"
+#include "UObject/CoreNet.h"
+#include "Engine/EngineTypes.h"
+#include "UObject/UnrealType.h"
+
 class FNetFieldExportGroup;
+class FOutBunch;
+class FRepChangelistState;
+class FRepLayout;
+class FRepState;
+class UNetConnection;
+class UNetDriver;
 
 bool FORCEINLINE IsCustomDeltaProperty( const UProperty* Property )
 {
@@ -32,6 +43,31 @@ struct FReplicatedActorProperty
 	FReplicatedActorProperty(int32 InOffset, const UObjectPropertyBase* InProperty)
 		: Offset(InOffset), Property(InProperty)
 	{}
+};
+
+/** 
+ *	FReplicationChangelistMgr manages a list of change lists for a particular replicated object that have occurred since the object started replicating
+ *	Once the history is completely full, the very first changelist will then be merged with the next one (freeing a slot)
+ *		This way we always have the entire history for join in progress players
+ *	This information is then used by all connections, to share the compare work needed to determine what to send each connection
+ *	Connections will send any changelist that is new since the last time the connection checked
+ */
+class ENGINE_API FReplicationChangelistMgr
+{
+public:
+	FReplicationChangelistMgr( UNetDriver* InDriver, UObject* InObject );
+
+	~FReplicationChangelistMgr();
+
+	void Update( const UObject* InObject, const uint32 ReplicationFrame, const int32 LastCompareIndex, const FReplicationFlags& RepFlags );
+
+	FRepChangelistState* GetRepChangelistState() const { return RepChangelistState.Get(); }
+
+private:
+	UNetDriver*							Driver;
+	TSharedPtr< FRepLayout >			RepLayout;
+	TUniquePtr< FRepChangelistState >	RepChangelistState;
+	uint32								LastReplicationFrame;
 };
 
 /** FObjectReplicator
@@ -97,6 +133,8 @@ public:
 
 	TSet< FNetworkGUID >							ReferencedGuids;
 	int32											TrackedGuidMemoryBytes;
+
+	TSharedPtr< FReplicationChangelistMgr >			ChangelistMgr;
 
 	struct FRPCCallInfo 
 	{

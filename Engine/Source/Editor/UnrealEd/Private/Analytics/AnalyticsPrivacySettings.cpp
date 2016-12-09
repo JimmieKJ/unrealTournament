@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "Analytics/AnalyticsPrivacySettings.h"
-#include "IAnalyticsProvider.h"
+#include "UObject/UnrealType.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
 
 #define LOCTEXT_NAMESPACE "AnalyticsPrivacySettings"

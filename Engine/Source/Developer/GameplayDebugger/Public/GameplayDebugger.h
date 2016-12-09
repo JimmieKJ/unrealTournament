@@ -36,21 +36,13 @@
 //     PrivateDependencyModuleNames.Add("GameplayDebugger");
 //     Definitions.Add("WITH_GAMEPLAY_DEBUGGER=1");
 // }
-//
-//
-// -----------------------------------------------------------------------------------------------------
-// UPGRADE NOTES:
-// 
-// GameplayDebuggingComponent and GameplayDebuggingHUDComponent classes are no longer supported.
-// Instead of adding new project specific module, now you can create FGameplayDebuggerCategory classes
-// within project module. 
-// 
-// If you need to use old GameplayDebugger implementation, please set bEnableDeprecatedDebugger flag in GameplayDebugger.Build.cs
 // 
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
 enum class EGameplayDebuggerCategoryState : uint8
 {
@@ -58,6 +50,7 @@ enum class EGameplayDebuggerCategoryState : uint8
 	EnabledInGame,
 	EnabledInSimulate,
 	Disabled,
+	Hidden,
 };
 
 class IGameplayDebugger : public IModuleInterface
@@ -94,31 +87,4 @@ public:
 	virtual void RegisterExtension(FName ExtensionName, FOnGetExtension MakeInstanceDelegate) = 0;
 	virtual void UnregisterExtension(FName ExtensionName) = 0;
 	virtual void NotifyExtensionsChanged() = 0;
-
-#if ENABLE_OLD_GAMEPLAY_DEBUGGER
-	virtual bool CreateGameplayDebuggerForPlayerController(APlayerController* PlayerController) = 0;
-	virtual bool IsGameplayDebuggerActiveForPlayerController(APlayerController* PlayerController) = 0;
-#else
-	DEPRECATED_FORGAME(4.13, "This function is now deprecated, please check GameplayDebugger.h for details.")
-	virtual bool CreateGameplayDebuggerForPlayerController(APlayerController* PlayerController) { return false; }
-	
-	DEPRECATED_FORGAME(4.13, "This function is now deprecated, please check GameplayDebugger.h for details.")
-	virtual bool IsGameplayDebuggerActiveForPlayerController(APlayerController* PlayerController) { return false; }
-#endif
 };
-
-#if ENABLE_OLD_GAMEPLAY_DEBUGGER
-class GameplayDebugger : public IGameplayDebugger
-{
-public:
-	static inline GameplayDebugger& Get() { return FModuleManager::LoadModuleChecked< GameplayDebugger >("GameplayDebugger"); }
-	virtual void UseNewGameplayDebugger() = 0;
-};
-#else
-class DEPRECATED_FORGAME(4.13, "This module interface is now deprecated, please check GameplayDebugger.h for details.") GameplayDebugger : public IGameplayDebugger
-{
-public:
-	static inline GameplayDebugger& Get() { return FModuleManager::LoadModuleChecked< GameplayDebugger >("GameplayDebugger"); }
-	virtual void UseNewGameplayDebugger() {}
-};
-#endif

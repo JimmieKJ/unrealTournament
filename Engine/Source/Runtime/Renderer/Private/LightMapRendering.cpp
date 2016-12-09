@@ -4,8 +4,10 @@
 LightMapRendering.cpp: Light map rendering implementations.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "SceneManagement.h"
+#include "LightMapRendering.h"
+#include "Engine/LightMapTexture2D.h"
+#include "Engine/ShadowMapTexture2D.h"
+#include "ScenePrivate.h"
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FPrecomputedLightingParameters, TEXT("PrecomputedLightingBuffer"));
 
@@ -188,7 +190,7 @@ void GetPrecomputedLightingParameters(
 		Parameters.StaticShadowMapMasks = FVector4(ShadowMapInteraction.GetChannelValid(0), ShadowMapInteraction.GetChannelValid(1), ShadowMapInteraction.GetChannelValid(2), ShadowMapInteraction.GetChannelValid(3));
 		Parameters.InvUniformPenumbraSizes = ShadowMapInteraction.GetInvUniformPenumbraSize();
 		Parameters.StaticShadowTexture = ShadowMapTexture ? ShadowMapTexture->TextureReference.TextureReferenceRHI.GetReference() : GWhiteTexture->TextureRHI;
-		Parameters.StaticShadowTextureSampler = ShadowMapTexture ? ShadowMapTexture->Resource->SamplerStateRHI : GWhiteTexture->SamplerStateRHI;
+		Parameters.StaticShadowTextureSampler = (ShadowMapTexture && ShadowMapTexture->Resource) ? ShadowMapTexture->Resource->SamplerStateRHI : GWhiteTexture->SamplerStateRHI;
 	}
 	else
 	{
@@ -218,9 +220,9 @@ void GetPrecomputedLightingParameters(
 		Parameters.SkyOcclusionTexture  = SkyOcclusionTexture ? SkyOcclusionTexture->TextureReference.TextureReferenceRHI.GetReference() : GWhiteTexture->TextureRHI;
 		Parameters.AOMaterialMaskTexture  = AOMaterialMaskTexture ? AOMaterialMaskTexture->TextureReference.TextureReferenceRHI.GetReference() : GBlackTexture->TextureRHI;
 
-		Parameters.LightMapSampler = LightMapTexture ? LightMapTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
-		Parameters.SkyOcclusionSampler = SkyOcclusionTexture ? SkyOcclusionTexture->Resource->SamplerStateRHI : GWhiteTexture->SamplerStateRHI;
-		Parameters.AOMaterialMaskSampler = AOMaterialMaskTexture ? AOMaterialMaskTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
+		Parameters.LightMapSampler = (LightMapTexture && LightMapTexture->Resource) ? LightMapTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
+		Parameters.SkyOcclusionSampler = (SkyOcclusionTexture && SkyOcclusionTexture->Resource) ? SkyOcclusionTexture->Resource->SamplerStateRHI : GWhiteTexture->SamplerStateRHI;
+		Parameters.AOMaterialMaskSampler = (AOMaterialMaskTexture && AOMaterialMaskTexture->Resource) ? AOMaterialMaskTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
 
 		const uint32 NumCoef = bAllowHighQualityLightMaps ? NUM_HQ_LIGHTMAP_COEF : NUM_LQ_LIGHTMAP_COEF;
 		const FVector4* Scales = LightMapInteraction.GetScaleArray();

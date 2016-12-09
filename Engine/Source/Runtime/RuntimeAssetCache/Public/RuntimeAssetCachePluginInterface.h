@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Interface.h"
+#include "RuntimeAssetCacheInterface.h"
 #include "RuntimeAssetCachePluginInterface.generated.h"
+
+class FArchive;
 
 UINTERFACE()
 class URuntimeAssetCacheBuilder : public UInterface

@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/NameTypes.h"
+#include "Delegates/Delegate.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/WeakObjectPtr.h"
+#include "UObject/Object.h"
 #include "RuntimeAssetCacheInterface.generated.h"
+
+class IRuntimeAssetCacheBuilder;
 
 /** Forward declarations */
 class IRuntimeAssetCacheBuilder;

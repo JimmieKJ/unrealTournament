@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "NavigationTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
+#include "Serialization/BulkData.h"
+#include "AI/Navigation/NavigationTypes.h"
 #include "NavCollision.generated.h"
 
 class FPrimitiveDrawInterface;
@@ -85,7 +91,7 @@ class ENGINE_API UNavCollision : public UObject
 	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	//~ End UObject Interface.
 
 	FGuid GetGuid() const;

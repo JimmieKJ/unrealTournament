@@ -2,13 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
 #include "InputCoreTypes.h"
+#include "Types/SlateEnums.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Layout/Geometry.h"
 #include "Events.generated.h"
 
-
-class SWindow;
 class FWidgetPath;
-
+class SWidget;
+class SWindow;
 
 /**
 * Context for focus change

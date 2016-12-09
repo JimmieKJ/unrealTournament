@@ -5,24 +5,11 @@
   <Date>2016-07-26T15:50:41.3166042-04:00</Date>
   <Function>Provides a C++ API for use with Google Play Game services. </Function>
   <Justification>Allows development of C++ games on Android using Google's login, achievement, leaderboards, etc.</Justification>
-  <Platforms>
-    <Platform>PC</Platform>
-    <Platform>Android</Platform>
-  </Platforms>
-  <Products>
-    <Product>UDK4</Product>
-    <Product>UE4</Product>
-  </Products>
-  <TpsType>Source Code</TpsType>
   <Eula>https://developers.google.com/games/services/terms</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>Full EULA Text</NoticeType>
-  <Notification />
   <LicenseFolder>/Engine/Source/ThirdParty/Licenses/gpgc++sdk*</LicenseFolder>
 </TpsData>

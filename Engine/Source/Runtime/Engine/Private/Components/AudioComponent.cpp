@@ -1,13 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "SoundDefinitions.h"
+#include "Components/AudioComponent.h"
+#include "Audio.h"
+#include "Engine/Texture2D.h"
+#include "ActiveSound.h"
+#include "AudioThread.h"
+#include "AudioDevice.h"
 #include "Sound/SoundNodeAttenuation.h"
 #include "Sound/SoundCue.h"
-#include "SubtitleManager.h"
-#include "Audio.h"
-#include "AudioThread.h"
-#include "TaskGraphInterfaces.h"
+#include "Components/BillboardComponent.h"
 
 /*-----------------------------------------------------------------------------
 UAudioComponent implementation.
@@ -30,8 +31,11 @@ UAudioComponent::UAudioComponent(const FObjectInitializer& ObjectInitializer)
 #endif
 	VolumeMultiplier = 1.f;
 	bOverridePriority = false;
+	bOverrideSubtitlePriority = true;
 	bIsPreviewSound = false;
+	bIsPaused = false;
 	Priority = 1.f;
+	SubtitlePriority = DEFAULT_SUBTITLE_PRIORITY;
 	PitchMultiplier = 1.f;
 	VolumeModulationMin = 1.f;
 	VolumeModulationMax = 1.f;
@@ -42,6 +46,7 @@ UAudioComponent::UAudioComponent(const FObjectInitializer& ObjectInitializer)
 	OcclusionCheckInterval = 0.1f;
 	ActiveCount = 0;
 
+	AudioDeviceHandle = INDEX_NONE;
 	AudioComponentID = ++AudioComponentIDCounter;
 
 	// TODO: Consider only putting played/active components in to the map
@@ -57,6 +62,12 @@ UAudioComponent* UAudioComponent::GetAudioComponentFromID(uint64 AudioComponentI
 void UAudioComponent::BeginDestroy()
 {
 	Super::BeginDestroy();
+
+	if (bIsActive && Sound && Sound->IsLooping())
+	{
+		UE_LOG(LogAudio, Warning, TEXT("Audio Component is being destroyed without stopping looping sound '%s'"), *Sound->GetName());
+		Stop();
+	}
 
 	AudioIDToComponentMap.Remove(AudioComponentID);
 }
@@ -229,7 +240,15 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 			NewActiveSound.bEnableLowPassFilter = bEnableLowPassFilter;
 			NewActiveSound.LowPassFilterFrequency = LowPassFilterFrequency;
 			NewActiveSound.RequestedStartTime = FMath::Max(0.f, StartTime);
-			NewActiveSound.SubtitlePriority = SubtitlePriority;
+
+			if (bOverrideSubtitlePriority)
+			{
+				NewActiveSound.SubtitlePriority = SubtitlePriority;
+			}
+			else
+			{
+				NewActiveSound.SubtitlePriority = Sound->GetSubtitlePriority();
+			}
 
 			NewActiveSound.bShouldRemainActiveIfDropped = bShouldRemainActiveIfDropped;
 			NewActiveSound.bHandleSubtitles = (!bSuppressSubtitles || OnQueueSubtitles.IsBound());
@@ -242,6 +261,8 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 			NewActiveSound.bCenterChannelOnly = bCenterChannelOnly;
 			NewActiveSound.bIsPreviewSound = bIsPreviewSound;
 			NewActiveSound.bLocationDefined = !bPreviewComponent;
+			NewActiveSound.bIsPaused = bIsPaused;
+
 			if (NewActiveSound.bLocationDefined)
 			{
 				NewActiveSound.Transform = ComponentToWorld;
@@ -254,6 +275,8 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 				NewActiveSound.AttenuationSettings = *AttenuationSettingsToApply;
 				NewActiveSound.FocusPriorityScale = AttenuationSettingsToApply->GetFocusPriorityScale(AudioDevice->GetGlobalFocusSettings(), FocusFactor);
 			}
+
+			NewActiveSound.bUpdatePlayPercentage = OnAudioPlaybackPercentNative.IsBound() || OnAudioPlaybackPercent.IsBound();
 
 			NewActiveSound.MaxDistance = MaxDistance;
 
@@ -285,8 +308,12 @@ FAudioDevice* UAudioComponent::GetAudioDevice() const
 
 	if (GEngine)
 	{
-		UWorld* World = GetWorld();
-		if (World)
+		if (AudioDeviceHandle != INDEX_NONE)
+		{
+			FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+			AudioDevice = (AudioDeviceManager ? AudioDeviceManager->GetAudioDevice(AudioDeviceHandle) : nullptr);
+		}
+		else if (UWorld* World = GetWorld())
 		{
 			AudioDevice = World->GetAudioDevice();
 		}
@@ -383,6 +410,30 @@ void UAudioComponent::Stop()
 			{
 				AudioDevice->StopActiveSound(MyAudioComponentID);
 			}, GET_STATID(STAT_AudioStopActiveSound));
+		}
+	}
+}
+
+void UAudioComponent::SetPaused(bool bPause)
+{
+	if (bIsPaused != bPause)
+	{
+		bIsPaused = bPause;
+
+		if (bIsActive)
+		{
+			UE_LOG(LogAudio, Verbose, TEXT("%g: Pausing AudioComponent : '%s' with Sound: '%s'"), GetWorld() ? GetWorld()->GetAudioTimeSeconds() : 0.0f, *GetFullName(), Sound ? *Sound->GetName() : TEXT("nullptr"));
+
+			if (FAudioDevice* AudioDevice = GetAudioDevice())
+			{
+				DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.PauseActiveSound"), STAT_AudioPauseActiveSound, STATGROUP_AudioThreadCommands);
+
+				const uint64 MyAudioComponentID = AudioComponentID;
+				FAudioThread::RunCommandOnAudioThread([AudioDevice, MyAudioComponentID, bPause]()
+				{
+					AudioDevice->PauseActiveSound(MyAudioComponentID, bPause);
+				}, GET_STATID(STAT_AudioPauseActiveSound));
+			}
 		}
 	}
 }
@@ -533,6 +584,10 @@ void UAudioComponent::Activate(bool bReset)
 	if (bReset || ShouldActivate() == true)
 	{
 		Play();
+		if (bIsActive)
+		{
+			OnComponentActivated.Broadcast(this, bReset);
+		}
 	}
 }
 
@@ -541,6 +596,11 @@ void UAudioComponent::Deactivate()
 	if (ShouldActivate() == false)
 	{
 		Stop();
+
+		if (!bIsActive)
+		{
+			OnComponentDeactivated.Broadcast(this);
+		}
 	}
 }
 

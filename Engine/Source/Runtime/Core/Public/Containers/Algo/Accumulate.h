@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 // TPlus<T> specifically takes const T& and returns T.
 // TPlus<> (empty angle brackets) is late-binding, taking whatever is passed and returning the correct result type for (A+B)
 template<typename T = void>
@@ -32,7 +34,7 @@ namespace Algo
 	FORCEINLINE T Accumulate(const A& Input, T Init, OpT Op)
 	{
 		T Result = MoveTemp(Init);
-		for (auto&& InputElem : Input)
+		for (const auto& InputElem : Input)
 		{
 			Result = Op(MoveTemp(Result), InputElem);
 		}
@@ -67,7 +69,7 @@ namespace Algo
 	FORCEINLINE T TransformAccumulate(const A& Input, MapT MapOp, T Init, OpT Op)
 	{
 		T Result = MoveTemp(Init);
-		for (auto&& InputElem : Input)
+		for (const auto& InputElem : Input)
 		{
 			Result = Op(MoveTemp(Result), MapOp(InputElem));
 		}

@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Application/SlateApplication.h"
 
 
 FUIAction::FUIAction()

@@ -2,9 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "ActorFactories/ActorFactorySkeletalMesh.h"
 #include "ActorFactoryAnimationAsset.generated.h"
 
+class AActor;
+class FAssetData;
 class USkeletalMesh;
 
 UCLASS(MinimalAPI, config=Editor, hidecategories=Object)

@@ -1,11 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
-#include "SLogWidget.h"
-#include "LogWidgetCommands.h"
+#include "UI/SLogWidget.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "ProcessUnitTest.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "UI/LogWidgetCommands.h"
 #include "NUTUtil.h"
 
-#include "SMultiSelectTableRow.h"
+#include "UI/SMultiSelectTableRow.h"
 
 
 // @todo #JohnBFeatureUI: It would be good to have both a 'Search' filter tab, and a 'Ctrl+F Find' button for each existing tab;

@@ -1,10 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "KismetCompiler.h"
+#include "K2Node_FunctionEntry.h"
+#include "Engine/Blueprint.h"
+#include "UObject/UnrealType.h"
+#include "UObject/BlueprintsObjectVersion.h"
+#include "UObject/StructOnScope.h"
+#include "Engine/UserDefinedStruct.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "EdGraphSchema_K2.h"
 #include "K2Node_CallFunction.h"
-#include "BlueprintsObjectVersion.h"
+#include "K2Node_MakeArray.h"
+#include "K2Node_VariableSet.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "EdGraphUtilities.h"
+#include "BPTerminal.h"
+#include "UObject/PropertyPortFlags.h"
+#include "KismetCompilerMisc.h"
+#include "KismetCompiler.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_FunctionEntry"
 
@@ -403,9 +416,13 @@ void UK2Node_FunctionEntry::ExpandNode(class FKismetCompilerContext& CompilerCon
 		{
 			if (const UProperty* Property = *It)
 			{
+				const UStructProperty* PotentialUDSProperty = Cast<const UStructProperty>(Property);
+				//UDS requires default data even when the LocalVariable value is empty
+				const bool bUDSProperty = PotentialUDSProperty && Cast<const UUserDefinedStruct>(PotentialUDSProperty->Struct);
+
 				for (auto& LocalVar : LocalVariables)
 				{
-					if (LocalVar.VarName == Property->GetFName() && !LocalVar.DefaultValue.IsEmpty())
+					if (LocalVar.VarName == Property->GetFName() && (bUDSProperty || !LocalVar.DefaultValue.IsEmpty()))
 					{
 						// Add a variable set node for the local variable and hook it up immediately following the entry node or the last added local variable
 						UK2Node_VariableSet* VariableSetNode = CompilerContext.SpawnIntermediateNode<UK2Node_VariableSet>(this, SourceGraph);
@@ -496,5 +513,41 @@ void UK2Node_FunctionEntry::ExpandNode(class FKismetCompilerContext& CompilerCon
 		}
 	}
 }
+
+static void RefreshUDSValuesStoredAsString(const FEdGraphPinType& VarType, FString& Value)
+{
+	if (!Value.IsEmpty() && VarType.PinCategory == UEdGraphSchema_K2::PC_Struct)
+	{
+		UUserDefinedStruct* UDS = Cast<UUserDefinedStruct>(VarType.PinSubCategoryObject.Get());
+		if (UDS)
+		{
+			FStructOnScope StructInstance(UDS);
+			UDS->InitializeDefaultValue(StructInstance.GetStructMemory());
+			UDS->ImportText(*Value, StructInstance.GetStructMemory(), nullptr, PPF_None, GLog, FString());
+
+			Value.Reset();
+			FStructOnScope DefaultStructInstance(UDS);
+			UDS->InitializeDefaultValue(DefaultStructInstance.GetStructMemory());
+			UDS->ExportText(Value, StructInstance.GetStructMemory(), DefaultStructInstance.GetStructMemory(), nullptr, PPF_None, nullptr);
+		}
+	}
+}
+
+void UK2Node_FunctionEntry::PostReconstructNode()
+{
+	Super::PostReconstructNode();
+
+	UBlueprint* Blueprint = GetBlueprint();
+
+	// We want to refresh old UDS default values of local variables. It's enough to do this once.
+	if (Blueprint && Blueprint->bIsRegeneratingOnLoad)
+	{
+		for (FBPVariableDescription& LocalVariable : LocalVariables)
+		{
+			RefreshUDSValuesStoredAsString(LocalVariable.VarType, LocalVariable.DefaultValue);
+		}
+	}
+}
+
 
 #undef LOCTEXT_NAMESPACE

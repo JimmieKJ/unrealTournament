@@ -22,7 +22,8 @@
 			"LoadingPhase" : "Default",
 			"WhitelistPlatforms" :
 			[
-				"Win64"
+				"Win64",
+				"Mac"
 			]
 		},
 		{
@@ -31,7 +32,8 @@
 			"LoadingPhase" : "Default",
 			"WhitelistPlatforms" :
 			[
-				"Win64"
+				"Win64",
+				"Mac"
 			]
 		}
 	]

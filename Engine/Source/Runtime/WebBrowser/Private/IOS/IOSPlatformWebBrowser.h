@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #if PLATFORM_IOS
 
 #include "IWebBrowserWindow.h"
-#include "SlateCore.h"
+#include "Widgets/SWindow.h"
 #import <UIKit/UIKit.h>
 #import <UIKit/UIWebView.h>
 
@@ -91,6 +93,7 @@ public:
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
+	virtual void OnMouseLeave(const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
 	virtual void OnFocus(bool SetFocus, bool bIsPopup) override;
 	virtual void OnCaptureLost() override;
@@ -108,6 +111,15 @@ public:
 	virtual void GetSource(TFunction<void (const FString&)> Callback) const;
 	virtual int GetLoadError() override;
 	virtual void SetIsDisabled(bool bValue) override;
+	virtual TSharedPtr<SWindow> GetParentWindow() const override
+	{
+		return ParentWindow;
+	}
+
+	virtual void SetParentWindow(TSharedPtr<SWindow> Window) override
+	{
+		ParentWindow = Window;
+	}
 
 	// TODO: None of these events are actually called
 
@@ -249,6 +261,9 @@ private:
 
 	/** Delegate for dismissing all dialogs. */
 	FOnDismissAllDialogs DismissAllDialogsDelegate;
+
+	TSharedPtr<SWindow> ParentWindow;
+
 };
 
 #endif

@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ActorFactories/ActorFactoryStaticMesh.h"
 #include "ActorFactoryInteractiveFoliage.generated.h"
+
+class FAssetData;
 
 UCLASS(MinimalAPI, config=Editor)
 class UActorFactoryInteractiveFoliage : public UActorFactoryStaticMesh

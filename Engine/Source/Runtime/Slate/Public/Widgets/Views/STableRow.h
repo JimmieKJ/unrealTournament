@@ -1,10 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "TableViewTypeTraits.h"
-#include "ITypedTableView.h"
-#include "SExpanderArrow.h"
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "InputCoreTypes.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Geometry.h"
+#include "Input/Events.h"
+#include "Input/DragAndDrop.h"
+#include "Input/Reply.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Framework/Views/ITypedTableView.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Rendering/DrawElements.h"
+#include "Types/SlateStructs.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Views/SExpanderArrow.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "Framework/Views/TableViewTypeTraits.h"
+
+template <typename ItemType> class SListView;
 
 /**
  * Interface for table views to talk to their rows.
@@ -377,6 +400,7 @@ public:
 		TSharedPtr< ITypedTableView<ItemType> > OwnerWidget = OwnerTablePtr.Pin();
 		check(OwnerWidget.IsValid());
 
+		// Requires #include "Widgets/Views/STableViewBase.h"
 		TSharedRef< STableViewBase > OwnerTableViewBase = StaticCastSharedPtr< SListView<ItemType> >( OwnerWidget ).ToSharedRef();
 
 		if ( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton )
@@ -1056,53 +1080,54 @@ protected:
 		for( int32 ColumnIndex = 0; ColumnIndex < NumColumns; ++ColumnIndex )
 		{
 			const SHeaderRow::FColumn& Column = Columns[ColumnIndex];
-			const TSharedRef< SWidget >* const ExistingWidget = ColumnIdToSlotContents.Find( Column.ColumnId );
+			if (Column.ShouldGenerateWidget.Get(true))
+			{
+				TSharedRef< SWidget >* ExistingWidget = ColumnIdToSlotContents.Find(Column.ColumnId);
+				TSharedRef< SWidget > CellContents = SNullWidget::NullWidget;
+				if (ExistingWidget != nullptr)
+				{
+					CellContents = *ExistingWidget;
+				}
+				else
+				{
+					CellContents = GenerateWidgetForColumn(Column.ColumnId);
+				}
 
-			TSharedRef< SWidget > CellContents = SNullWidget::NullWidget;
-			if ( ExistingWidget != nullptr )
-			{
-				CellContents = *ExistingWidget;
-			}
-			else
-			{
-				CellContents = GenerateWidgetForColumn( Column.ColumnId );
-			}
-
-			switch(Column.SizeRule)
-			{
-			case EColumnSizeMode::Fill:
+				switch (Column.SizeRule)
+				{
+				case EColumnSizeMode::Fill:
 				{
 					TAttribute<float> WidthBinding;
-					WidthBinding.BindRaw( &Column, &SHeaderRow::FColumn::GetWidth );
+					WidthBinding.BindRaw(&Column, &SHeaderRow::FColumn::GetWidth);
 
 					SHorizontalBox::FSlot& NewSlot = Box->AddSlot()
-					.HAlign(Column.CellHAlignment)
-					.VAlign(Column.CellVAlignment)
-					.FillWidth( WidthBinding )
-					[
-						CellContents
-					];
+						.HAlign(Column.CellHAlignment)
+						.VAlign(Column.CellVAlignment)
+						.FillWidth(WidthBinding)
+						[
+							CellContents
+						];
 				}
 				break;
 
-			case EColumnSizeMode::Fixed:
+				case EColumnSizeMode::Fixed:
 				{
 					Box->AddSlot()
-					.AutoWidth()
-					[
-						SNew( SBox )
-						.WidthOverride( Column.Width.Get() )
+						.AutoWidth()
+						[
+							SNew(SBox)
+							.WidthOverride(Column.Width.Get())
 						.HAlign(Column.CellHAlignment)
 						.VAlign(Column.CellVAlignment)
 						.Content()
 						[
 							CellContents
 						]
-					];
+						];
 				}
 				break;
 
-			case EColumnSizeMode::Manual:
+				case EColumnSizeMode::Manual:
 				{
 					auto GetColumnWidthAsOptionalSize = [&Column]() -> FOptionalSize
 					{
@@ -1114,25 +1139,26 @@ protected:
 					WidthBinding.Bind(TAttribute<FOptionalSize>::FGetter::CreateLambda(GetColumnWidthAsOptionalSize));
 
 					Box->AddSlot()
-					.AutoWidth()
-					[
-						SNew( SBox )
-						.WidthOverride(WidthBinding)
+						.AutoWidth()
+						[
+							SNew(SBox)
+							.WidthOverride(WidthBinding)
 						.HAlign(Column.CellHAlignment)
 						.VAlign(Column.CellVAlignment)
 						.Content()
 						[
 							CellContents
 						]
-					];
+						];
 				}
 				break;
 
-			default:
-				break;
-			}
+				default:
+					break;
+				}
 
-			NewColumnIdToSlotContents.Add( Column.ColumnId, CellContents );
+				NewColumnIdToSlotContents.Add(Column.ColumnId, CellContents);
+			}
 		}
 
 		ColumnIdToSlotContents = NewColumnIdToSlotContents;

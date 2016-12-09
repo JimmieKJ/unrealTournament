@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "HAL/MemoryBase.h"
+#include "Logging/LogMacros.h"
+#include "CoreGlobals.h"
 
 // Only use for supported platforms
 #if PLATFORM_SUPPORTS_JEMALLOC

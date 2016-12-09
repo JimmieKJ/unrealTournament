@@ -1,42 +1,51 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
+#include "LandscapeEdMode.h"
+#include "SceneView.h"
+#include "Engine/Texture2D.h"
+#include "EditorViewportClient.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "Engine/Light.h"
+#include "Engine/Selection.h"
+#include "EditorModeManager.h"
+#include "LandscapeFileFormatInterface.h"
+#include "LandscapeEditorModule.h"
+#include "LandscapeEditorObject.h"
+#include "Landscape.h"
+#include "LandscapeStreamingProxy.h"
 
 #include "EditorSupportDelegates.h"
-#include "ObjectTools.h"
-#include "LandscapeEdMode.h"
 #include "ScopedTransaction.h"
 #include "LandscapeEdit.h"
 #include "LandscapeEditorUtils.h"
 #include "LandscapeRender.h"
 #include "LandscapeDataAccess.h"
-#include "LandscapeSplineProxies.h"
-#include "LandscapeEditorModule.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/UnrealEd/Public/Toolkits/ToolkitManager.h"
+#include "Framework/Commands/UICommandList.h"
+#include "LevelEditor.h"
+#include "Toolkits/ToolkitManager.h"
+#include "LandscapeHeightfieldCollisionComponent.h"
+#include "InstancedFoliageActor.h"
+#include "IVREditorModule.h"
+#include "ViewportWorldInteraction.h"
+#include "VREditorInteractor.h"
 #include "LandscapeEdModeTools.h"
-#include "ScopedTransaction.h"
-#include "ImageWrapper.h"
-#include "DynamicMeshBuilder.h"
+#include "LandscapeInfoMap.h"
 
 //Slate dependencies
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Editor/LevelEditor/Public/SLevelViewport.h"
+#include "Misc/FeedbackContext.h"
+#include "ILevelViewport.h"
 #include "SLandscapeEditor.h"
 
+// VR Editor
+#include "VREditorMode.h"
+#include "EditorWorldManager.h"
+
 // Classes
-#include "Landscape.h"
-#include "LandscapeLayerInfoObject.h"
-#include "LandscapeHeightfieldCollisionComponent.h"
 #include "LandscapeMaterialInstanceConstant.h"
 #include "LandscapeSplinesComponent.h"
-#include "InstancedFoliageActor.h"
 #include "ComponentReregisterContext.h"
-#include "Engine/Selection.h"
-#include "LandscapeGizmoActiveActor.h"
 #include "EngineUtils.h"
-#include "Engine/Light.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -171,6 +180,8 @@ FEdModeLandscape::FEdModeLandscape()
 	, LandscapeRenderAddCollision(nullptr)
 	, CachedLandscapeMaterial(nullptr)
 	, ToolActiveViewport(nullptr)
+	, bIsPaintingInVR(false)
+	, InteractorPainting( nullptr )
 {
 	GLayerDebugColorMaterial = LandscapeTool::CreateMaterialInstance(LoadObject<UMaterial>(nullptr, TEXT("/Engine/EditorLandscapeResources/LayerVisMaterial.LayerVisMaterial")));
 	GSelectionColorMaterial  = LandscapeTool::CreateMaterialInstance(LoadObject<UMaterialInstanceConstant>(nullptr, TEXT("/Engine/EditorLandscapeResources/SelectBrushMaterial_Selected.SelectBrushMaterial_Selected")));
@@ -238,6 +249,8 @@ FEdModeLandscape::~FEdModeLandscape()
 	GSelectionRegionMaterial = NULL;
 	GMaskRegionMaterial = NULL;
 	GLandscapeBlackTexture = NULL;
+
+	InteractorPainting = nullptr;
 }
 
 /** FGCObject interface */
@@ -335,7 +348,8 @@ void FEdModeLandscape::Enter()
 	UpdateLandscapeList();
 	UpdateTargetList();
 
-	OnWorldChangeDelegateHandle                 = FEditorSupportDelegates::WorldChange.AddRaw(this, &FEdModeLandscape::OnWorldChange);
+	OnWorldChangeDelegateHandle                 = FEditorSupportDelegates::WorldChange.AddRaw(this, &FEdModeLandscape::HandleLevelsChanged);
+	OnLevelsChangedDelegateHandle				= GetWorld()->OnLevelsChanged().AddRaw(this, &FEdModeLandscape::HandleLevelsChanged);
 	OnMaterialCompilationFinishedDelegateHandle = UMaterial::OnMaterialCompilationFinished().AddRaw(this, &FEdModeLandscape::OnMaterialCompilationFinished);
 
 	if (CurrentGizmoActor.IsValid())
@@ -384,10 +398,10 @@ void FEdModeLandscape::Enter()
 						float FracX = TexX - LX;
 						float FracY = TexY - LY;
 
-						FGizmoSelectData* Data00 = CurrentGizmoActor->SelectedData.Find(ALandscape::MakeKey(LX, LY));
-						FGizmoSelectData* Data10 = CurrentGizmoActor->SelectedData.Find(ALandscape::MakeKey(LX + 1, LY));
-						FGizmoSelectData* Data01 = CurrentGizmoActor->SelectedData.Find(ALandscape::MakeKey(LX, LY + 1));
-						FGizmoSelectData* Data11 = CurrentGizmoActor->SelectedData.Find(ALandscape::MakeKey(LX + 1, LY + 1));
+						FGizmoSelectData* Data00 = CurrentGizmoActor->SelectedData.Find(FIntPoint(LX, LY));
+						FGizmoSelectData* Data10 = CurrentGizmoActor->SelectedData.Find(FIntPoint(LX + 1, LY));
+						FGizmoSelectData* Data01 = CurrentGizmoActor->SelectedData.Find(FIntPoint(LX, LY + 1));
+						FGizmoSelectData* Data11 = CurrentGizmoActor->SelectedData.Find(FIntPoint(LX + 1, LY + 1));
 
 						TexData[X + Y*ALandscapeGizmoActiveActor::DataTexSize] = FMath::Lerp(
 							FMath::Lerp(Data00 ? Data00->Ratio : 0, Data10 ? Data10->Ratio : 0, FracX),
@@ -458,13 +472,36 @@ void FEdModeLandscape::Enter()
 	{
 		GizmoBrush->EnterBrush();
 	}
+
+	// Register to find out about VR input events
+	UViewportWorldInteraction* ViewportWorldInteraction = GEditor->GetEditorWorldManager()->GetEditorWorldWrapper(GetWorld())->GetViewportWorldInteraction();
+	if (ViewportWorldInteraction != nullptr)
+	{
+		ViewportWorldInteraction->OnViewportInteractionInputAction().RemoveAll(this);
+		ViewportWorldInteraction->OnViewportInteractionInputAction().AddRaw(this, &FEdModeLandscape::OnVRAction);
+
+		ViewportWorldInteraction->OnViewportInteractionHoverUpdate().RemoveAll(this);
+		ViewportWorldInteraction->OnViewportInteractionHoverUpdate().AddRaw(this, &FEdModeLandscape::OnVRHoverUpdate);
+	}
 }
 
 
 /** FEdMode: Called when the mode is exited */
 void FEdModeLandscape::Exit()
 {
+	// Unregister VR mode from event handlers
+	if (IVREditorModule::IsAvailable())
+	{
+		UViewportWorldInteraction* ViewportWorldInteraction = GEditor->GetEditorWorldManager()->GetEditorWorldWrapper(GetWorld())->GetViewportWorldInteraction();
+		if (ViewportWorldInteraction != nullptr)
+		{
+			ViewportWorldInteraction->OnViewportInteractionInputAction().RemoveAll(this);
+			ViewportWorldInteraction->OnViewportInteractionHoverUpdate().RemoveAll(this);
+		}
+	}
+	
 	FEditorSupportDelegates::WorldChange.Remove(OnWorldChangeDelegateHandle);
+	GetWorld()->OnLevelsChanged().Remove(OnLevelsChangedDelegateHandle);
 	UMaterial::OnMaterialCompilationFinished().Remove(OnMaterialCompilationFinishedDelegateHandle);
 
 	// Restore real-time viewport state if we changed it
@@ -497,9 +534,6 @@ void FEdModeLandscape::Exit()
 
 	LandscapeList.Empty();
 	LandscapeTargetList.Empty();
-
-	// Clear any import landscape data
-	UISettings->ClearImportLandscapeData();
 
 	// Save UI settings to config file
 	UISettings->Save();
@@ -534,6 +568,107 @@ void FEdModeLandscape::Exit()
 	FEdMode::Exit();
 }
 
+
+void FEdModeLandscape::OnVRHoverUpdate(FEditorViewportClient& ViewportClient, UViewportInteractor* Interactor, FVector& HoverImpactPoint, bool& bWasHandled)
+{
+	if( InteractorPainting != nullptr && InteractorPainting == Interactor )
+	{
+		UVREditorMode* VREditorMode = GEditor->GetEditorWorldManager()->GetEditorWorldWrapper( ViewportClient.GetWorld() )->GetVREditorMode();
+		if( VREditorMode != nullptr && VREditorMode->IsActive() && Interactor != nullptr )
+		{
+			const UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>( Interactor );
+
+			if( !VRInteractor->IsHoveringOverPriorityType() && CurrentTool && ( CurrentTool->GetSupportedTargetTypes() == ELandscapeToolTargetTypeMask::NA || CurrentToolTarget.TargetType != ELandscapeToolTargetType::Invalid ) )
+			{
+				FVector HitLocation;
+				FVector LaserPointerStart, LaserPointerEnd;
+				if( Interactor->GetLaserPointer( /* Out */ LaserPointerStart, /* Out */ LaserPointerEnd ) )
+				{
+					if( LandscapeTrace( &ViewportClient, LaserPointerStart, LaserPointerEnd, HitLocation ) )
+					{
+						if( bIsPaintingInVR && !( CurrentToolTarget.TargetType == ELandscapeToolTargetType::Weightmap && CurrentToolTarget.LayerInfo == NULL ) )
+						{
+							if( CurrentTool->BeginTool( &ViewportClient, CurrentToolTarget, HitLocation, Interactor ) )
+							{
+								ToolActiveViewport = ViewportClient.Viewport;
+							}
+						}
+
+						if( CurrentBrush )
+						{
+							// Inform the brush of the current location, to update the cursor
+							CurrentBrush->MouseMove( HitLocation.X, HitLocation.Y );
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void FEdModeLandscape::OnVRAction(FEditorViewportClient& ViewportClient, UViewportInteractor* Interactor, const struct FViewportActionKeyInput& Action, bool& bOutIsInputCaptured, bool& bWasHandled)
+{
+	UVREditorMode* VREditorMode = GEditor->GetEditorWorldManager()->GetEditorWorldWrapper(ViewportClient.GetWorld())->GetVREditorMode();
+	// Never show the traditional Unreal transform widget.  It doesn't work in VR because we don't have hit proxies.
+	ViewportClient.EngineShowFlags.SetModeWidgets(false);
+
+	if (VREditorMode != nullptr && VREditorMode->IsActive() && Interactor != nullptr)
+	{
+		if (Action.ActionType == ViewportWorldActionTypes::SelectAndMove_LightlyPressed || Action.ActionType == ViewportWorldActionTypes::SelectAndMove)
+		{
+			const UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(Interactor);
+
+			// Begin landscape brush
+			if (Action.Event == IE_Pressed && !VRInteractor->IsHoveringOverUI() && !VRInteractor->IsHoveringOverPriorityType() )
+			{
+				if (ViewportClient.Viewport != nullptr && ViewportClient.Viewport == ToolActiveViewport)
+				{
+					CurrentTool->EndTool(&ViewportClient);
+					ToolActiveViewport = nullptr;
+				}
+
+				if (CurrentTool && (CurrentTool->GetSupportedTargetTypes() == ELandscapeToolTargetTypeMask::NA || CurrentToolTarget.TargetType != ELandscapeToolTargetType::Invalid))
+				{
+					FVector HitLocation;
+					FVector LaserPointerStart, LaserPointerEnd;
+					if (Interactor->GetLaserPointer( /* Out */ LaserPointerStart, /* Out */ LaserPointerEnd))
+					{
+						if (LandscapeTrace(&ViewportClient, LaserPointerStart, LaserPointerEnd, HitLocation))
+						{
+							if (!(CurrentToolTarget.TargetType == ELandscapeToolTargetType::Weightmap && CurrentToolTarget.LayerInfo == NULL))
+							{
+								if( CurrentTool->BeginTool( &ViewportClient, CurrentToolTarget, HitLocation, Interactor ) )
+								{
+									ToolActiveViewport = ViewportClient.Viewport;
+								}
+							}
+
+							bIsPaintingInVR = true;
+							bWasHandled = true;
+							bOutIsInputCaptured = false;
+
+							InteractorPainting = Interactor;
+						}
+					}
+				}
+			}
+
+			// End landscape brush
+			else if (Action.Event == IE_Released)
+			{
+				if (CurrentTool && ViewportClient.Viewport != nullptr && ViewportClient.Viewport == ToolActiveViewport)
+				{
+					CurrentTool->EndTool(&ViewportClient);
+					ToolActiveViewport = nullptr;
+				}
+
+				bIsPaintingInVR = false;
+			}
+		}
+	}
+
+}
+
 /** FEdMode: Called once per frame */
 void FEdModeLandscape::Tick(FEditorViewportClient* ViewportClient, float DeltaTime)
 {
@@ -546,7 +681,7 @@ void FEdModeLandscape::Tick(FEditorViewportClient* ViewportClient, float DeltaTi
 
 	FViewport* const Viewport = ViewportClient->Viewport;
 
-	if (ToolActiveViewport && ToolActiveViewport == Viewport && ensure(CurrentTool))
+	if (ToolActiveViewport && ToolActiveViewport == Viewport && ensure(CurrentTool) && !bIsPaintingInVR)
 	{
 		// Require Ctrl or not as per user preference
 		const ELandscapeFoliageEditorControlType LandscapeEditorControlType = GetDefault<ULevelEditorViewportSettings>()->LandscapeEditorControlType;
@@ -606,7 +741,7 @@ bool FEdModeLandscape::MouseMove(FEditorViewportClient* ViewportClient, FViewpor
 {
 	// due to mouse capture this should only ever be called on the active viewport
 	// if it ever gets called on another viewport the mouse has been released without us picking it up
-	if (ToolActiveViewport && ensure(CurrentTool))
+	if (ToolActiveViewport && ensure(CurrentTool) && !bIsPaintingInVR)
 	{
 		// Require Ctrl or not as per user preference
 		const ELandscapeFoliageEditorControlType LandscapeEditorControlType = GetDefault<ULevelEditorViewportSettings>()->LandscapeEditorControlType;
@@ -759,7 +894,18 @@ bool FEdModeLandscape::LandscapeMouseTrace(FEditorViewportClient* ViewportClient
 
 	FVector End = Start + WORLD_MAX * BrushTraceDirection;
 
-	static FName TraceTag = FName(TEXT("LandscapeMouseTrace"));
+	return LandscapeTrace(ViewportClient, Start, End, OutHitLocation);
+}
+
+bool FEdModeLandscape::LandscapeTrace(const FEditorViewportClient* ViewportClient, const FVector& InRayOrigin, const FVector& InRayEnd, FVector& OutHitLocation)
+{
+	FVector Start = InRayOrigin;
+	FVector End = InRayEnd;
+
+	// Cache a copy of the world pointer
+	UWorld* World = ViewportClient->GetWorld();
+
+	static FName TraceTag = FName(TEXT("LandscapeTrace"));
 	TArray<FHitResult> Results;
 	// Each landscape component has 2 collision shapes, 1 of them is specific to landscape editor
 	// Trace only ECC_Visibility channel, so we do hit only Editor specific shape
@@ -834,8 +980,6 @@ bool FEdModeLandscape::LandscapePlaneTrace(FEditorViewportClient* ViewportClient
 
 bool FEdModeLandscape::LandscapePlaneTrace(FEditorViewportClient* ViewportClient, int32 MouseX, int32 MouseY, const FPlane& Plane, FVector& OutHitLocation)
 {
-	// Cache a copy of the world pointer
-	UWorld* World = ViewportClient->GetWorld();
 	// Compute a world space ray from the screen space mouse coordinates
 	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
 		ViewportClient->Viewport,
@@ -1731,7 +1875,7 @@ int32 FEdModeLandscape::UpdateLandscapeList()
 	if (World)
 	{
 		int32 Index = 0;
-		auto& LandscapeInfoMap = GetLandscapeInfoMap(World);
+		auto& LandscapeInfoMap = ULandscapeInfoMap::GetLandscapeInfoMap(World);
 
 		for (auto It = LandscapeInfoMap.Map.CreateIterator(); It; ++It)
 		{
@@ -1885,7 +2029,7 @@ void FEdModeLandscape::UpdateTargetList()
 
 FEdModeLandscape::FTargetsListUpdated FEdModeLandscape::TargetsListUpdated;
 
-void FEdModeLandscape::OnWorldChange()
+void FEdModeLandscape::HandleLevelsChanged()
 {
 	bool bHadLandscape = (NewLandscapePreviewMode == ENewLandscapePreviewMode::None);
 
@@ -1901,6 +2045,7 @@ void FEdModeLandscape::OnWorldChange()
 	// if a landscape is added somehow then switch to sculpt
 	if (!bHadLandscape && CurrentToolTarget.LandscapeInfo != nullptr)
 	{
+		SetCurrentTool("Select");
 		SetCurrentTool("Sculpt");
 	}
 }
@@ -2347,11 +2492,12 @@ void FEdModeLandscape::ActorMoveNotify()
 
 void FEdModeLandscape::PostUndo()
 {
-	OnWorldChange();
+	HandleLevelsChanged();
 }
 
 /** Forces all level editor viewports to realtime mode */
 void FEdModeLandscape::ForceRealTimeViewports(const bool bEnable, const bool bStoreCurrentState)
+
 {
 	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
 	TSharedPtr<ILevelEditor> LevelEditor = LevelEditorModule.GetFirstLevelEditor();
@@ -2366,7 +2512,17 @@ void FEdModeLandscape::ForceRealTimeViewports(const bool bEnable, const bool bSt
 				if (bEnable)
 				{
 					Viewport.SetRealtime(bEnable, bStoreCurrentState);
-					Viewport.SetGameView(false);
+
+					// @todo vreditor: Force game view to true in VREditor since we can't use hitproxies and debug objects yet
+					UVREditorMode* VREditorMode = GEditor->GetEditorWorldManager()->GetEditorWorldWrapper(Viewport.GetWorld())->GetVREditorMode();
+					if (VREditorMode != nullptr && VREditorMode->IsActive())
+					{
+						Viewport.SetGameView(true);
+					} 
+					else
+					{
+						Viewport.SetGameView(false);
+					}
 				}
 				else
 				{

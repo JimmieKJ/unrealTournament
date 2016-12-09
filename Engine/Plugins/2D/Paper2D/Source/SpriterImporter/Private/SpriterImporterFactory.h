@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "SpriterDataModel.h"
 #include "SpriterImporterFactory.generated.h"
 

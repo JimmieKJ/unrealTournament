@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PartyPrivatePCH.h"
 #include "PartyGameState.h"
+#include "Engine/LocalPlayer.h"
+#include "UnrealEngine.h"
+#include "PartyModule.h"
 #include "PartyMemberState.h"
 #include "Party.h"
 #include "PartyBeaconClient.h"
-#include "Online.h"
 #include "OnlineSubsystemUtils.h"
 
 namespace PartyConsoleVariables
@@ -112,18 +113,21 @@ void UPartyGameState::ResetLocalPlayerState()
 {
 	UWorld* World = GetWorld();
 	check(World);
-	AGameState* GameState = World->GetGameState();
-	check(GameState);
 
-	for (const APlayerState* PlayerState : GameState->PlayerArray)
+	for (FLocalPlayerIterator It(GEngine, World); It; ++It)
 	{
-		if (PlayerState && PlayerState->UniqueId.IsValid())
+		ULocalPlayer* LP = *It;
+		if (LP)
 		{
-			UPartyMemberState** LocalPartyMemberStatePtr = PartyMembersState.Find(PlayerState->UniqueId);
-			UPartyMemberState* LocalPartyMemberState = LocalPartyMemberStatePtr ? *LocalPartyMemberStatePtr : nullptr;
-			if (LocalPartyMemberState)
+			FUniqueNetIdRepl UniqueId(LP->GetPreferredUniqueNetId());
+			if (UniqueId.IsValid())
 			{
-				LocalPartyMemberState->Reset();
+				UPartyMemberState** LocalPartyMemberStatePtr = PartyMembersState.Find(UniqueId);
+				UPartyMemberState* LocalPartyMemberState = LocalPartyMemberStatePtr ? *LocalPartyMemberStatePtr : nullptr;
+				if (LocalPartyMemberState)
+				{
+					LocalPartyMemberState->Reset();
+				}
 			}
 		}
 	}
@@ -218,6 +222,7 @@ bool UPartyGameState::ResetForFrontend()
 	UE_LOG(LogParty, Verbose, TEXT("Resetting parties for frontend"));
 
 	bool bSuccess = false;
+	bool bPendingApprovalsReprocessed = false;
 
 	CleanupReservationBeacon();
 
@@ -287,6 +292,25 @@ bool UPartyGameState::ResetForFrontend()
 						ResetPartySize();
 						UpdateAcceptingMembers();
 					}
+
+					// Re-process any outstanding approval requests now that we are not connected to the reservation beacon anymore
+					bPendingApprovalsReprocessed = true;
+					if (!PendingApprovals.IsEmpty())
+					{
+						UE_LOG(LogParty, Verbose, TEXT("Reprocessing pending approvals as we are no longer connected to the reservation beacon"));
+						FPendingMemberApproval PendingApproval;
+						TQueue<FPendingMemberApproval> ExistingPendingApprovals;
+						while (PendingApprovals.Dequeue(PendingApproval))
+						{
+							ExistingPendingApprovals.Enqueue(PendingApproval);
+						}
+
+						while (ExistingPendingApprovals.Dequeue(PendingApproval))
+						{
+							HandlePartyJoinRequestReceived(*PendingApproval.RecipientId, *PendingApproval.SenderId);
+						}
+
+					}
 				}
 				else
 				{
@@ -306,6 +330,12 @@ bool UPartyGameState::ResetForFrontend()
 	else
 	{
 		UE_LOG(LogParty, Warning, TEXT("Invalid party info during reset!"));
+	}
+
+	if (!bPendingApprovalsReprocessed && !PendingApprovals.IsEmpty())
+	{
+		UE_LOG(LogParty, Verbose, TEXT("Rejecting pending approvals as we are no longer connected to the reservation beacon"));
+		RejectAllPendingJoinRequests();
 	}
 
 	if (!bSuccess)
@@ -1174,7 +1204,7 @@ void UPartyGameState::SendLocalPlayerPartyData()
 
 	for (FLocalPlayerIterator It(GEngine, World); It; ++It)
 	{
-		ULocalPlayer* LP = Cast<ULocalPlayer>(*It);
+		ULocalPlayer* LP = *It;
 		if (LP)
 		{
 			const UPartyMemberState* MemberStatePtr = InitPartyMemberStateFromLocalPlayer(LP);

@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CascadeModule.h"
 #include "CascadeActions.h"
-#include "Cascade.h"
 
 #define LOCTEXT_NAMESPACE "CascadeCommands"
 

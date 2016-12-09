@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** 
  *	An identifier for an element in the octree. 
  */

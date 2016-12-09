@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "IDetailCustomization.h"
+#include "PropertyHandle.h"
+
+class IDetailLayoutBuilder;
+class SComboButton;
+class SEditableText;
 
 DECLARE_DELEGATE_OneParam(FOnCollectParameterGroups, TArray<FString>*);
 

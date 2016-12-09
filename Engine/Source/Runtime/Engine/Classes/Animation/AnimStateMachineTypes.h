@@ -2,8 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "AlphaBlend.h"
 #include "AnimStateMachineTypes.generated.h"
+
+class UBlendProfile;
+class UCurveFloat;
 
 //@TODO: Document
 UENUM()

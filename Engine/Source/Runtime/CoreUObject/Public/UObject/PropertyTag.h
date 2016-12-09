@@ -6,9 +6,8 @@
 
 #pragma once
 
-#include "DebugSerializationFlags.h"
-
-class UProperty;
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
 
 /**
  *  A tag describing a class property, to aid in serialization.
@@ -20,11 +19,12 @@ struct FPropertyTag
 	uint8	BoolVal;	// a boolean property's value (never need to serialize data for bool properties except here)
 	FName	Name;		// Name of property.
 	FName	StructName;	// Struct name if UStructProperty.
-	FName	EnumName;	// Enum name if UByteProperty
-	FName InnerType; // Inner type if UArrayProperty
-	int32		Size;       // Property size.
-	int32		ArrayIndex;	// Index if an array; else 0.
-	int64		SizeOffset;	// location in stream of tag size member
+	FName	EnumName;	// Enum name if UByteProperty or UEnumProperty
+	FName	InnerType;	// Inner type if UArrayProperty, USetProperty, or UMapProperty
+	FName	ValueType;	// Value type if UMapPropery
+	int32	Size;       // Property size.
+	int32	ArrayIndex;	// Index if an array; else 0.
+	int64	SizeOffset;	// location in stream of tag size member
 	FGuid	StructGuid;
 	uint8	HasPropertyGuid;
 	FGuid	PropertyGuid;

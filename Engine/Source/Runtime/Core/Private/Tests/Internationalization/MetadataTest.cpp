@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "AutomationTest.h"
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Misc/AutomationTest.h"
 #include "Internationalization/InternationalizationMetadata.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMetadataTest, "System.Core.Misc.Internationalization Metadata", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::SmokeFilter)
+
+BEGIN_FUNCTION_BUILD_OPTIMIZATION
 
 bool FMetadataTest::RunTest( const FString& Parameters )
 {
@@ -366,5 +370,7 @@ bool FMetadataTest::RunTest( const FString& Parameters )
 
 	return true;
 }
+
+END_FUNCTION_BUILD_OPTIMIZATION
 
 #endif //WITH_DEV_AUTOMATION_TESTS

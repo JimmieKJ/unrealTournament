@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -28,6 +28,12 @@
 #include "SDL_egl.h"
 
 #include "SDL_sysvideo.h"
+
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    #define SDL_EGL_MAX_DEVICES     8
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
 typedef struct SDL_EGL_VideoData
 {
@@ -79,7 +85,36 @@ typedef struct SDL_EGL_VideoData
     
     EGLBoolean(EGLAPIENTRY *eglBindAPI)(EGLenum);
 
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    EGLenum(EGLAPIENTRY *eglQueryAPI)(void);
+    EGLSurface(EGLAPIENTRY *eglCreatePbufferSurface) (EGLDisplay dpy,
+                                            EGLConfig config,
+                                            EGLint const* attrib_list);
+    EGLBoolean(EGLAPIENTRY *eglQueryDevicesEXT)(EGLint max_devices,
+                                            EGLDeviceEXT* devices,
+                                            EGLint* num_devices);
+    EGLDisplay(EGLAPIENTRY *eglGetPlatformDisplayEXT)(EGLenum platform,
+                                            void* native_display,
+                                            const EGLint* attrib_list);
+    /* whether EGL display was offscreen */
+    int is_offscreen;
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG BEGIN */
+
 } SDL_EGL_VideoData;
+
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+typedef struct SDL_EGL_Context
+{
+    EGLContext context;
+    EGLenum api;
+} SDL_EGL_Context;
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG BEGIN */
+
+typedef SDL_EGL_Context* SDL_EGLContext;
 
 /* OpenGLES functions */
 extern int SDL_EGL_GetAttribute(_THIS, SDL_GLattr attrib, int *value);
@@ -91,6 +126,14 @@ extern int SDL_EGL_SetSwapInterval(_THIS, int interval);
 extern int SDL_EGL_GetSwapInterval(_THIS);
 extern void SDL_EGL_DeleteContext(_THIS, SDL_GLContext context);
 extern EGLSurface *SDL_EGL_CreateSurface(_THIS, NativeWindowType nw);
+/* EG BEGIN */
+extern int SDL_EGL_LoadLibraryOnly(_THIS, const char *path);
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+extern EGLSurface SDL_EGL_CreateOffscreenSurface(_THIS, int width, int height);
+/* Assumes that LoadLibraryOnly() has succeeded */
+extern int SDL_EGL_InitializeOffscreen(_THIS, int device);
+#endif // SDL_WITH_EPIC_EXTENSIONS
+/* EG END */
 extern void SDL_EGL_DestroySurface(_THIS, EGLSurface egl_surface);
 
 /* These need to be wrapped to get the surface for the window by the platform GLES implementation */

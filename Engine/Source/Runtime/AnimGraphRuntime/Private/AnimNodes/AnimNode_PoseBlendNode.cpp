@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
 #include "AnimNodes/AnimNode_PoseBlendNode.h"
+#include "AnimationRuntime.h"
 #include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////

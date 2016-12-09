@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class IToolkit;
 
 /**
  * Singleton that managers instances of editor toolkits

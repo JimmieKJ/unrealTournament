@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "GatherableTextData.h"
+#include "CoreMinimal.h"
+#include "Misc/EnumClassFlags.h"
+#include "Internationalization/GatherableTextData.h"
 
 enum class EPropertyLocalizationGathererTextFlags : uint8
 {

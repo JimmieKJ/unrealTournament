@@ -2,16 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AITypes.h"
 #include "GenericTeamAgentInterface.h"
-#include "AITypes.h"
 #include "AIPerceptionTypes.generated.h"
 
-class UAISense;
-class UAISenseEvent;
-class UAISenseConfig;
 class UAIPerceptionComponent;
-class UWorld;
+class UAISense;
 
 //////////////////////////////////////////////////////////////////////////
 struct AIMODULE_API FAISenseCounter : FAIBasicCounter<uint8>
@@ -124,14 +122,6 @@ struct FPerceptionChannelWhitelist
 			FindNextAcceptedChannel();
 		}
 	};
-};
-
-struct FPerceptionChannelFilter : public FPerceptionChannelWhitelist
-{
-	DEPRECATED(4.5, "FPerceptionChannelFilter has been renamed to FPerceptionChannelWhitelist. Please use that instead.")
-	FPerceptionChannelFilter()
-	{
-	}
 };
 
 USTRUCT(BlueprintType)

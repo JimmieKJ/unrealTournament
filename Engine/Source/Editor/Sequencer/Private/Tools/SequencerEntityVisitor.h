@@ -2,11 +2,14 @@
 
 #pragma once
 
-class FSequencerDisplayNode;
-class UMovieSceneSection;
+#include "CoreMinimal.h"
+#include "Curves/KeyHandle.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
+#include "DisplayNodes/SequencerSectionKeyAreaNode.h"
+#include "ISequencerSection.h"
+
+class FSequencerTrackNode;
 class IKeyArea;
-class FSequencerSectionKeyAreaNode;
-class ISequencerSection;
 
 /** Enum of different types of entities that are available in the sequencer */
 namespace ESequencerEntity

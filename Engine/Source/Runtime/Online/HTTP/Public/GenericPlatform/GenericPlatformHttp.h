@@ -2,10 +2,10 @@
 
 
 #pragma once
-#include "HAL/Platform.h"
+
+#include "CoreMinimal.h"
 
 class FHttpManager;
-class FString;
 class IHttpRequest;
 
 /**

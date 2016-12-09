@@ -4,6 +4,10 @@
 #ifndef __SGraphNodeDefault_h__
 #define __SGraphNodeDefault_h__
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SGraphNode.h"
+
 class SGraphNodeDefault : public SGraphNode
 {
 public:

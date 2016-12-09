@@ -2,8 +2,18 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionFloat.h"
+#include "Distributions/DistributionVector.h"
 #include "Particles/Color/ParticleModuleColorBase.h"
 #include "ParticleModuleColorOverLife.generated.h"
+
+class UInterpCurveEdSetup;
+class UParticleEmitter;
+struct FCurveEdEntry;
+struct FParticleEmitterInstance;
 
 UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "Color Over Life"))
 class UParticleModuleColorOverLife : public UParticleModuleColorBase

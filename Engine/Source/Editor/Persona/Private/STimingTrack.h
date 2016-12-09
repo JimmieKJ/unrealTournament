@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "STrack.h"
+
+class FArrangedChildren;
 
 //////////////////////////////////////////////////////////////////////////
 // Specialised anim track which arranges overlapping nodes into groups

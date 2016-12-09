@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SerializationPrivatePCH.h"
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
 
 //DEFINE_LOG_CATEGORY(LogSerialization);

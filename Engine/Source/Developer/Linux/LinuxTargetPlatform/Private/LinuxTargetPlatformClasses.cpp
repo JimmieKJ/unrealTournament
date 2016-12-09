@@ -4,8 +4,10 @@
 	LinuxTargetPlatformClasses.cpp: Implements the module's UClasses.
 =============================================================================*/
 
-#include "LinuxTargetPlatformPrivatePCH.h"
-
+#include "CoreMinimal.h"
+#include "LinuxTargetSettings.h"
+#include "LinuxTargetDevice.h"
+#include "LinuxTargetPlatform.h"
 
 
 /* UAndroidTargetSettings structors

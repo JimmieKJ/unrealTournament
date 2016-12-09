@@ -6,7 +6,12 @@
 
 #pragma once
 
-#include "RenderingCompositionGraph.h"
+#include "CoreMinimal.h"
+#include "RendererInterface.h"
+#include "ShaderParameters.h"
+#include "PostProcess/RenderingCompositionGraph.h"
+
+class UTexture;
 
 bool UseVolumeTextureLUT(EShaderPlatform Platform);
 

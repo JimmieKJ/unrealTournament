@@ -2,8 +2,16 @@
 
 #pragma once
 
-class UEditorTutorial;
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "IIntroTutorials.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "UObject/GCObject.h"
+#include "Widgets/SWindow.h"
+
 class SEditorTutorials;
+class UEditorTutorial;
 
 /**
  * The widget which simply monitors windows in its tick function to see if we need to attach

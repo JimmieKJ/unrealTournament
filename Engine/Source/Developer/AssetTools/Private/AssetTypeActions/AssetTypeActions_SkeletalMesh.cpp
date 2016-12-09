@@ -1,20 +1,37 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "Toolkits/AssetEditorManager.h"
-#include "Editor/UnrealEd/Public/ObjectTools.h"
-#include "Editor/UnrealEd/Public/PackageTools.h"
+#include "AssetTypeActions/AssetTypeActions_SkeletalMesh.h"
+#include "Animation/Skeleton.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Misc/PackageName.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Misc/MessageDialog.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Factories/SkeletonFactory.h"
+#include "EditorFramework/AssetImportData.h"
+#include "ThumbnailRendering/SceneThumbnailInfo.h"
+#include "PhysicsAssetUtils.h"
+#include "AssetTools.h"
 #include "AssetRegistryModule.h"
-#include "Editor/UnrealEd/Public/SSkeletonWidget.h"
+#include "SSkeletonWidget.h"
 #include "Editor/PhAT/Public/PhATModule.h"
-#include "Editor/Persona/Public/PersonaModule.h"
-#include "AnimationEditorUtils.h"
-
+#include "PersonaModule.h"
 #include "ContentBrowserModule.h"
-#include "AssetToolsModule.h"
-#include "Editor/UnrealEd/Public/FbxMeshUtils.h"
-#include "Editor/UnrealEd/Public/AssetNotifications.h"
+#include "AnimationEditorUtils.h"
+#include "Preferences/PersonaOptions.h"
+
+#include "FbxMeshUtils.h"
+#include "AssetNotifications.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "ISkeletalMeshEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -337,14 +354,13 @@ FDlgMergeSkeleton::EResult FDlgMergeSkeleton::ShowModal()
 
 	// Make a list of all skeleton bone list
 	const FReferenceSkeleton& RefSkeleton = Skeleton->GetReferenceSkeleton();
-	const TArray<FBoneNode>& BoneTree = Skeleton->GetBoneTree();
-	for ( int32 BoneTreeId=0; BoneTreeId<RefSkeleton.GetNum(); ++BoneTreeId )
+	for ( int32 BoneTreeId=0; BoneTreeId<RefSkeleton.GetRawBoneNum(); ++BoneTreeId )
 	{
 		const FName& BoneName = RefSkeleton.GetBoneName(BoneTreeId);
 		BoneIndicesMap.Add(BoneName, BoneTreeId);
 	}
 
-	for ( int32 RefBoneId=0 ; RefBoneId< Mesh->RefSkeleton.GetNum() ; ++RefBoneId )
+	for ( int32 RefBoneId=0 ; RefBoneId< Mesh->RefSkeleton.GetRawBoneNum() ; ++RefBoneId )
 	{
 		const FName& BoneName = Mesh->RefSkeleton.GetBoneName(RefBoneId);
 		// if I can't find this from Skeleton
@@ -361,7 +377,7 @@ FDlgMergeSkeleton::EResult FDlgMergeSkeleton::ShowModal()
 	{
 		// it's all identical, but still need to return RequiredBones
 		// for the case, where they'd like to replace the one exactly same hierarchy but different skeleton 
-		for ( int32 RefBoneId= 0 ; RefBoneId< Mesh->RefSkeleton.GetNum() ; ++RefBoneId )
+		for ( int32 RefBoneId= 0 ; RefBoneId< Mesh->RefSkeleton.GetRawBoneNum() ; ++RefBoneId )
 		{
 			const FName& BoneName = Mesh->RefSkeleton.GetBoneName(RefBoneId);
 			RequiredBones.Add(RefBoneId);
@@ -378,7 +394,7 @@ FDlgMergeSkeleton::EResult FDlgMergeSkeleton::ShowModal()
 
 	if(UserResponse == EResult::Confirm)
 	{
-		for ( int32 RefBoneId= 0 ; RefBoneId< Mesh->RefSkeleton.GetNum() ; ++RefBoneId )
+		for ( int32 RefBoneId= 0 ; RefBoneId< Mesh->RefSkeleton.GetRawBoneNum() ; ++RefBoneId )
 		{
 			if ( DialogWidget->IsBoneIncluded(RefBoneId) )
 			{
@@ -442,15 +458,10 @@ void FAssetTypeActions_SkeletalMesh::FillCreateMenu(FMenuBuilder& MenuBuilder, c
 {
 	MenuBuilder.BeginSection("CreatePhysicsAsset", LOCTEXT("CreatePhysicsAssetMenuHeading", "Physics Asset"));
 	{
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("SkeletalMesh_NewPhysicsAsset", "Physics Asset"),
-			LOCTEXT("SkeletalMesh_NewPhysicsAssetTooltip", "Creates a new physics asset for each of the selected meshes."),
-			FSlateIcon(),
-			FUIAction(
-				FExecuteAction::CreateSP(this, &FAssetTypeActions_SkeletalMesh::ExecuteNewPhysicsAsset, Meshes),
-				FCanExecuteAction()
-				)
-			);
+		MenuBuilder.AddSubMenu(
+			LOCTEXT("SkeletalMesh_NewPhysicsAssetMenu", "Physics Asset"),
+			LOCTEXT("SkeletalMesh_NewPhysicsAssetMenu_ToolTip", "Options for creating new physics assets from the selected meshes."),
+			FNewMenuDelegate::CreateSP(this, &FAssetTypeActions_SkeletalMesh::GetPhysicsAssetMenu, Meshes));
 	}
 	MenuBuilder.EndSection();
 
@@ -516,17 +527,15 @@ void FAssetTypeActions_SkeletalMesh::OpenAssetEditor( const TArray<UObject*>& In
 
 			if ( Mesh->Skeleton != NULL )
 			{
-				const bool bBringToFrontIfOpen = false;
-				if( IAssetEditorInstance* EditorInstance =  FAssetEditorManager::Get().FindEditorForAsset( Mesh->Skeleton, bBringToFrontIfOpen ) )
+				const bool bBringToFrontIfOpen = true;
+				if (IAssetEditorInstance* EditorInstance = FAssetEditorManager::Get().FindEditorForAsset(Mesh, bBringToFrontIfOpen))
 				{
-					// The skeleton is already open in an editor.
-					// Tell persona that a mesh was requested
 					EditorInstance->FocusWindow(Mesh);
 				}
 				else
 				{
-					FPersonaModule& PersonaModule = FModuleManager::LoadModuleChecked<FPersonaModule>( "Persona" );
-					PersonaModule.CreatePersona( Mode, EditWithinLevelEditor, Mesh->Skeleton, NULL, NULL, Mesh );
+					ISkeletalMeshEditorModule& SkeletalMeshEditorModule = FModuleManager::LoadModuleChecked<ISkeletalMeshEditorModule>("SkeletalMeshEditor");
+					SkeletalMeshEditorModule.CreateSkeletalMeshEditor(Mode, EditWithinLevelEditor, Mesh);
 				}
 			}
 		}
@@ -568,18 +577,33 @@ void FAssetTypeActions_SkeletalMesh::GetLODMenu(class FMenuBuilder& MenuBuilder,
 
 		MenuBuilder.AddMenuEntry(	Description, 
 									ToolTip, FSlateIcon(),
-									FUIAction(FExecuteAction::CreateStatic( &FbxMeshUtils::ImportMeshLODDialog, Cast<UObject>(SkeletalMesh), LOD) )) ;
+									FUIAction(FExecuteAction::CreateStatic( &FAssetTypeActions_SkeletalMesh::ExecuteImportMeshLOD, Cast<UObject>(SkeletalMesh), LOD) )) ;
 	}
 }
 
-void FAssetTypeActions_SkeletalMesh::ExecuteNewPhysicsAsset(TArray<TWeakObjectPtr<USkeletalMesh>> Objects)
+void FAssetTypeActions_SkeletalMesh::GetPhysicsAssetMenu(FMenuBuilder& MenuBuilder, TArray<TWeakObjectPtr<USkeletalMesh>> Objects)
+{
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("PhysAsset_Create", "Create"),
+		LOCTEXT("PhysAsset_Create_ToolTip", "Create new physics assets without assigning it to the selected meshes"),
+		FSlateIcon(),
+		FUIAction(FExecuteAction::CreateSP(this, &FAssetTypeActions_SkeletalMesh::ExecuteNewPhysicsAsset, Objects, false)));
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("PhysAsset_CreateAssign", "Create and Assign"),
+		LOCTEXT("PhysAsset_CreateAssign_ToolTip", "Create new physics assets and assign it to each of the selected meshes"),
+		FSlateIcon(),
+		FUIAction(FExecuteAction::CreateSP(this, &FAssetTypeActions_SkeletalMesh::ExecuteNewPhysicsAsset, Objects, true)));
+}
+
+void FAssetTypeActions_SkeletalMesh::ExecuteNewPhysicsAsset(TArray<TWeakObjectPtr<USkeletalMesh>> Objects, bool bSetAssetToMesh)
 {
 	for (auto ObjIt = Objects.CreateConstIterator(); ObjIt; ++ObjIt)
 	{
 		auto Object = (*ObjIt).Get();
 		if ( Object )
 		{
-			CreatePhysicsAssetFromMesh(Object);
+			CreatePhysicsAssetFromMesh(Object, bSetAssetToMesh);
 		}
 	}
 }
@@ -675,6 +699,11 @@ void FAssetTypeActions_SkeletalMesh::ExecuteFindSkeleton(TArray<TWeakObjectPtr<U
 }
 
 
+void FAssetTypeActions_SkeletalMesh::ExecuteImportMeshLOD(UObject* Mesh, int32 LOD)
+{
+	FbxMeshUtils::ImportMeshLODDialog(Mesh, LOD);
+}
+
 void FAssetTypeActions_SkeletalMesh::FillSkeletonMenu(FMenuBuilder& MenuBuilder, const TArray<TWeakObjectPtr<USkeletalMesh>> Meshes) const
 {
 	MenuBuilder.BeginSection("SkeletonMenu", LOCTEXT("SkeletonMenuHeading", "Skeleton"));
@@ -709,7 +738,7 @@ void FAssetTypeActions_SkeletalMesh::FillSkeletonMenu(FMenuBuilder& MenuBuilder,
 		);
 }
 
-void FAssetTypeActions_SkeletalMesh::CreatePhysicsAssetFromMesh(USkeletalMesh* SkelMesh) const
+void FAssetTypeActions_SkeletalMesh::CreatePhysicsAssetFromMesh(USkeletalMesh* SkelMesh, bool bSetToMesh) const
 {
 	// Get a unique package and asset name
 	FString Name;
@@ -739,7 +768,7 @@ void FAssetTypeActions_SkeletalMesh::CreatePhysicsAssetFromMesh(USkeletalMesh* S
 		{
 			// Do automatic asset generation.
 			FText ErrorMessage;
-			bool bSuccess = FPhysicsAssetUtils::CreateFromSkeletalMesh(NewAsset, SkelMesh, NewBodyData, ErrorMessage);
+			bool bSuccess = FPhysicsAssetUtils::CreateFromSkeletalMesh(NewAsset, SkelMesh, NewBodyData, ErrorMessage, bSetToMesh);
 			if(bSuccess)
 			{
 				NewAsset->MarkPackageDirty();
@@ -748,9 +777,12 @@ void FAssetTypeActions_SkeletalMesh::CreatePhysicsAssetFromMesh(USkeletalMesh* S
 				// Notify the asset registry
 				FAssetRegistryModule::AssetCreated(NewAsset);
 
-				// auto-link source skelmesh to the new physasset and recreate physics state if needed
-				RefreshSkelMeshOnPhysicsAssetChange(SkelMesh);
-				SkelMesh->MarkPackageDirty();
+				if(bSetToMesh)
+				{
+					// auto-link source skelmesh to the new physasset and recreate physics state if needed
+					RefreshSkelMeshOnPhysicsAssetChange(SkelMesh);
+					SkelMesh->MarkPackageDirty();
+				}
 			}
 			else
 			{

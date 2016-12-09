@@ -1,6 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintStatsPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Templates/Greater.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/Blueprint.h"
+#include "EdGraph/EdGraph.h"
 #include "IBlueprintStatsModule.h"
 #include "BlueprintStats.h"
 

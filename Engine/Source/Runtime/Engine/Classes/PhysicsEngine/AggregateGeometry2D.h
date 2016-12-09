@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AggregateGeometry2D.generated.h"
 
+class FMaterialRenderProxy;
 
 /** One convex hull, used for simplified collision. */
 USTRUCT()

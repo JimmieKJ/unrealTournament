@@ -29,7 +29,7 @@ void SUTAspectPanel::OnArrangeChildren(const FGeometry& AllottedGeometry, FArran
 		FVector2D FinalOffset(0, 0);
 		float Aspect = ActualGeometrySize.Y / ActualGeometrySize.X;
 		float Scale = 1.0f;
-		if (AllottedGeometry.Size != DesiredDrawSize)
+		if (AllottedGeometry.Size != DesiredDrawSize && !DesiredDrawSize.IsZero())
 		{
 			// Attempt to scale us with a best fit.
 

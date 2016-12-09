@@ -4,9 +4,15 @@
 
 #pragma once
 
-#include "Engine/EngineBaseTypes.h"
-#include "TimerManager.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "GameFramework/Actor.h"
 #include "MatineeActor.generated.h"
+
+class APlayerController;
+class UActorChannel;
+class UInterpGroupInst;
 
 /** Signature of function to handle a matinee event track key */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnMatineeEvent);

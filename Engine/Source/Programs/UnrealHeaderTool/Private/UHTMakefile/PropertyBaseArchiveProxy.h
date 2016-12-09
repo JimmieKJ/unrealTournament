@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "MakefileHelpers.h"
 #include "ParserHelper.h"
+
+class FArchive;
+
 /* See UHTMakefile.h for overview how makefiles work. */
 
 class FPropertyBase;

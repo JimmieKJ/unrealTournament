@@ -1,40 +1,40 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
 #include "Tickable.h"
+
 
 /**
  * This class provides common registration for gamethread editor only tickable objects. It is an
- * abstract base class requiring you to implement the Tick() method.
+ * abstract base class requiring you to implement the GetStatId, IsTickable, and Tick methods.
  */
 class FTickableEditorObject : public FTickableObjectBase
 {
 public:
-	static void TickObjects( float DeltaSeconds )
+
+	static void TickObjects(float DeltaSeconds)
 	{
 		const TArray<FTickableEditorObject*>& TickableObjects = GetTickableObjects();
 
-		for( int32 ObjectIndex=0; ObjectIndex < TickableObjects.Num(); ++ObjectIndex)
+		for (int32 ObjectIndex=0; ObjectIndex < TickableObjects.Num(); ++ObjectIndex)
 		{
 			FTickableEditorObject* TickableObject = TickableObjects[ObjectIndex];
-			if ( TickableObject->IsTickable() )
+			if (TickableObject->IsTickable())
 			{
 				TickableObject->Tick(DeltaSeconds);
 			}
 		}
 	}
 
-	/**
-	 * Registers this instance with the static array of tickable objects.	
-	 */
+	/** Registers this instance with the static array of tickable objects. */
 	FTickableEditorObject()
 	{
-		GetTickableObjects().Add( this );
+		GetTickableObjects().Add(this);
 	}
 
-	/**
-	 * Removes this instance from the static array of tickable objects.
-	 */
+	/** Removes this instance from the static array of tickable objects. */
 	virtual ~FTickableEditorObject()
 	{
 		UnregisterTickableObject(this);
@@ -44,7 +44,9 @@ private:
 
 	/**
 	 * Class that avoids crashes when unregistering a tickable editor object too late.
-	 * Some tickable objects can outlive the collection (global/static destructor order is unpredictable).
+	 *
+	 * Some tickable objects can outlive the collection
+	 * (global/static destructor order is unpredictable).
 	 */
 	class TTickableObjectsCollection : public TArray<FTickableEditorObject*>
 	{

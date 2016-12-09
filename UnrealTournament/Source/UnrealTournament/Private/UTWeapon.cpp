@@ -191,7 +191,7 @@ void AUTWeapon::InstanceMuzzleFlashArray(AActor* Weap, TArray<UParticleSystemCom
 				{
 					if (Cast<UParticleSystemComponent>(ConstructionNodes[j]->ComponentTemplate) == MFArray[k])
 					{
-						MFArray[k] = Cast<UParticleSystemComponent>((UObject*)FindObjectWithOuter(Weap, ConstructionNodes[j]->ComponentTemplate->GetClass(), ConstructionNodes[j]->VariableName));
+						MFArray[k] = Cast<UParticleSystemComponent>((UObject*)FindObjectWithOuter(Weap, ConstructionNodes[j]->ComponentTemplate->GetClass(), ConstructionNodes[j]->GetVariableName()));
 					}
 				}
 			}
@@ -3006,7 +3006,7 @@ bool AUTWeapon::CanSwitchTo()
 void AUTWeapon::RegisterAllComponents()
 {
 	// in editor and preview, just register all the components right now
-	if (GetWorld()->WorldType == EWorldType::Editor || GetWorld()->WorldType == EWorldType::Preview)
+	if (GetWorld()->WorldType == EWorldType::Editor || GetWorld()->WorldType == EWorldType::EditorPreview || GetWorld()->WorldType == EWorldType::GamePreview)
 	{
 		Super::RegisterAllComponents();
 		return;

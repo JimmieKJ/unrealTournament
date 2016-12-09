@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/EngineTypes.h"
 #include "ProjectPackagingSettings.generated.h"
-
 
 /**
  * Enumerates the available build configurations for project packaging.
@@ -25,7 +28,7 @@ enum EProjectPackagingBuildConfigurations
  * Enumerates the the available internationalization data presets for project packaging.
  */
 UENUM()
-enum class EProjectPackagingInternationalizationPresets
+enum class EProjectPackagingInternationalizationPresets : uint8
 {
 	/** English only. */
 	English,
@@ -86,6 +89,10 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Experimental)
 	bool bNativizeBlueprintAssets;
 
+	/** WHen nativization is enabled, only Blueprints with "Nativize" set true will be converted to C++. */
+	UPROPERTY(config, EditAnywhere, Category = Experimental)
+	bool bNativizeOnlySelectedBlueprints;
+
 	/** If enabled, all content will be put into a single .pak file instead of many individual files (default = enabled). */
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
 	bool UsePakFile;
@@ -139,7 +146,7 @@ public:
 
 	/** Predefined sets of culture whose internationalization data should be packaged. */
 	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Internationalization Support"))
-	TEnumAsByte<EProjectPackagingInternationalizationPresets> InternationalizationPreset;
+	EProjectPackagingInternationalizationPresets InternationalizationPreset;
 
 	/** Cultures whose data should be cooked, staged, and packaged. */
 	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Localizations to Package"))
@@ -176,9 +183,9 @@ public:
 
 	
 	/**
-	* Skip editor content
+	* Don't include content in any editor folders when cooking.  This can cause issues with missing content in cooked games if the content is being used. 
 	*/
-	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Do not include editor content in this package may cause game to crash / error if you are using this content."))
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Exclude editor content when cooking"))
 	bool bSkipEditorContent;
 
 	/**

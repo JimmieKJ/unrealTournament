@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/SlateRect.h"
+#include "Input/Reply.h"
+#include "SNodePanel.h"
+#include "SGraphNodeResizable.h"
+
 class SGraphNodeComment : public SGraphNodeResizable
 {
 public:

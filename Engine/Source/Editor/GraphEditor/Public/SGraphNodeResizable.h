@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/SlateRect.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "SGraphNode.h"
+
+class FScopedTransaction;
+
 class SGraphNodeResizable : public SGraphNode
 {
 public:

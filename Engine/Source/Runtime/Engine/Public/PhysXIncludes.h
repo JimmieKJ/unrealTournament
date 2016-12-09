@@ -3,7 +3,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EngineDefines.h"
+
 #if WITH_PHYSX
+
+#ifdef PHYSX_API
+#undef PHYSX_API	//Our build system treats PhysX as a module and automatically defines this. PhysX has its own way of defining this.
+#endif
 
 MSVC_PRAGMA(warning(push))
 MSVC_PRAGMA(warning(disable : 4946)) // reinterpret_cast used between related classes
@@ -22,14 +29,7 @@ PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "PxRenderBuffer.h"
 #include "PxExtensionsAPI.h"
 #include "PxCollectionExt.h"
-#include "PxVisualDebuggerExt.h"
-
-// vehicle related header files
-#include "PxVehicleSDK.h"
-#include "PxVehicleNoDrive.h"
-#include "PxVehicleDrive4W.h"
-//#include "PxVehicleSuspLimitConstraintShader.h"
-//#include "PxVehicleUtils.h"
+#include "PxPvd.h"
 
 // utils
 #include "PxGeometryQuery.h"
@@ -39,28 +39,32 @@ PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 // APEX
 #if WITH_APEX
 
+#ifdef APEX_API
+#undef APEX_API	//Our build system treats PhysX as a module and automatically defines this. PhysX has its own way of defining this.
+#endif
+
 // Framework
-#include "NxApex.h"
+#include "Apex.h"
 
 // Modules
 
-#include "NxModuleDestructible.h"
-#include "NxDestructibleAsset.h"
-#include "NxDestructibleActor.h"
+#include "ModuleDestructible.h"
+#include "DestructibleAsset.h"
+#include "destructible/DestructibleActor.h"
 
 #if WITH_APEX_CLOTHING
-#include "NxModuleClothing.h"
-#include "NxClothingAsset.h"
-#include "NxClothingActor.h"
-#include "NxClothingCollision.h"
+#include "ModuleClothing.h"
+#include "ClothingAsset.h"
+#include "ClothingActor.h"
+#include "ClothingCollision.h"
 #endif
 
 #if WITH_APEX_LEGACY
-#include "NxModuleLegacy.h"
+#include "ModuleLegacy.h"
 #endif
 
 // Utilities
-#include "NxParamUtils.h"
+#include "NvParamUtils.h"
 
 #endif // #if WITH_APEX
 

@@ -2,7 +2,16 @@
 
 #pragma once
 
-#include "PListNode.h"
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Editor/PListEditor/Private/PListNode.h"
+
+class ITableRow;
+class SEditableTextBox;
+class SPListEditorPanel;
+class STableViewBase;
+class SWidget;
+struct FSlateBrush;
 
 /** A Node representing a string value */
 class FPListNodeString : public IPListNode

@@ -5,7 +5,7 @@
 FPrimitiveSceneProxy* UUTNavMeshRenderingComponent::CreateSceneProxy()
 {
 #if WITH_RECAST && WITH_EDITOR
-	FPrimitiveSceneProxy* NewSceneProxy = NULL;
+	FNavMeshSceneProxy* NewSceneProxy = NULL;
 	ARecastNavMesh* NavMesh = Cast<ARecastNavMesh>(GetOwner());
 	if (IsVisible() && NavMesh != NULL && !NavMesh->IsPendingKillPending())
 	{
@@ -29,6 +29,13 @@ FPrimitiveSceneProxy* UUTNavMeshRenderingComponent::CreateSceneProxy()
 
 		NewSceneProxy = new FNavMeshSceneProxy(this, &ProxyData);
 		ProxyData.Reset();
+#if WITH_RECAST && !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+		if (NewSceneProxy)
+		{
+			NavMeshDebugDrawDelgateManager.InitDelegateHelper(NewSceneProxy);
+			NavMeshDebugDrawDelgateManager.ReregisterDebugDrawDelgate();
+		}
+#endif
 	}
 	return NewSceneProxy;
 #else

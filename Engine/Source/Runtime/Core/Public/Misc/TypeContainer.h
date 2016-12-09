@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Templates/PointerIsConvertibleFromTo.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/AreTypesEqual.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Containers/UnrealString.h"
+#include "Templates/Function.h"
+#include "Containers/Map.h"
+#include "Templates/SharedPointer.h"
+#include "HAL/TlsAutoCleanup.h"
+#include "Misc/ScopeLock.h"
 
 /**
  * Enumerates the scopes for instance creation in type containers.

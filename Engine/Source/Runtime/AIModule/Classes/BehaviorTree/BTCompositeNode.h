@@ -1,18 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "BehaviorTree/BehaviorTreeTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "BehaviorTree/BTNode.h"
 #include "BTCompositeNode.generated.h"
 
-class UBTNode;
-class UBTTaskNode;
 class UBTCompositeNode;
 class UBTDecorator;
 class UBTService;
-class UBehaviorTreeComponent;
-struct FBehaviorTreeSearchData;
-struct FBTNodeIndex;
+class UBTTaskNode;
 
 DECLARE_DELEGATE_RetVal_ThreeParams(int32, FGetNextChildDelegate, FBehaviorTreeSearchData& /*search data*/, int32 /*last child index*/, EBTNodeResult::Type /*last result*/);
 
@@ -26,7 +23,7 @@ struct FBTCompositeMemory
 };
 
 UENUM()
-enum class EBTChildIndex
+enum class EBTChildIndex : uint8
 {
 	FirstNode,
 	TaskNode,

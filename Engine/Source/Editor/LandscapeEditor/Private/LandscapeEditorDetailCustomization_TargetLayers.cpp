@@ -1,30 +1,41 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
-#include "LandscapeEdMode.h"
+#include "LandscapeEditorDetailCustomization_TargetLayers.h"
+#include "IDetailChildrenBuilder.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "Brushes/SlateColorBrush.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Notifications/SErrorText.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "LandscapeEditorModule.h"
 #include "LandscapeEditorObject.h"
-#include "LandscapeEditorDetails.h"
-#include "LandscapeEditorDetailCustomizations.h"
 
 #include "DetailLayoutBuilder.h"
-#include "DetailCategoryBuilder.h"
 #include "IDetailPropertyRow.h"
-#include "DetailWidgetRow.h"
-#include "IDetailGroup.h"
-#include "PropertyHandle.h"
+#include "DetailCategoryBuilder.h"
 #include "PropertyCustomizationHelpers.h"
 
 #include "SLandscapeEditor.h"
-#include "DlgPickAssetPath.h"
-#include "PackageTools.h"
+#include "Dialogs/DlgPickAssetPath.h"
 #include "ObjectTools.h"
 #include "ScopedTransaction.h"
 #include "DesktopPlatformModule.h"
-#include "MainFrame.h"
 #include "AssetRegistryModule.h"
 
 #include "LandscapeRender.h"
-#include "LandscapeLayerInfoObject.h"
 #include "Materials/MaterialExpressionLandscapeVisibilityMask.h"
 #include "LandscapeEdit.h"
 
@@ -535,10 +546,6 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnExportLayer(const TShared
 	if (LandscapeEdMode)
 	{
 		IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		check(MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid());
-		void* ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
 
 		ULandscapeInfo* LandscapeInfo = Target->LandscapeInfo.Get();
 		ULandscapeLayerInfoObject* LayerInfoObj = Target->LayerInfoObj.Get(); // NULL for heightmaps
@@ -566,7 +573,7 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnExportLayer(const TShared
 		// Prompt the user for the filenames
 		TArray<FString> SaveFilenames;
 		bool bOpened = DesktopPlatform->SaveFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			*SaveDialogTitle,
 			*LandscapeEdMode->UISettings->LastImportPath,
 			*DefaultFileName,
@@ -601,10 +608,6 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnImportLayer(const TShared
 	if (LandscapeEdMode)
 	{
 		IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		check(MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid());
-		void* ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
 
 		ULandscapeInfo* LandscapeInfo = Target->LandscapeInfo.Get();
 		ULandscapeLayerInfoObject* LayerInfoObj = Target->LayerInfoObj.Get(); // NULL for heightmaps
@@ -632,7 +635,7 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnImportLayer(const TShared
 		// Prompt the user for the filenames
 		TArray<FString> OpenFilenames;
 		bool bOpened = DesktopPlatform->OpenFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			*OpenDialogTitle,
 			*LandscapeEdMode->UISettings->LastImportPath,
 			*DefaultFileName,

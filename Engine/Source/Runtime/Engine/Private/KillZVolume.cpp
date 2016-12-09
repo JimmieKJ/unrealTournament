@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "GameFramework/KillZVolume.h"
 #include "GameFramework/DamageType.h"
+#include "Engine/World.h"
+#include "GameFramework/WorldSettings.h"
 
 AKillZVolume::AKillZVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

@@ -1,11 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlutilityPrivatePCH.h"
+#include "EditorUtilityBlueprintFactory.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SWindow.h"
+#include "Engine/Blueprint.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "EditorUtilityBlueprint.h"
+#include "GlobalEditorUtilityBase.h"
+#include "PlacedEditorUtilityBase.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/SClassPickerDialog.h"
-#include "Engine/BlueprintGeneratedClass.h"
 
 class FBlutilityBlueprintFactoryFilter : public IClassViewerFilter
 {

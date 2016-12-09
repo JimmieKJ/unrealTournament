@@ -1,15 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "EdModeTileMap.h"
+#include "TileMapEditing/TileMapEdModeToolkit.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
 #include "PaperTileMapComponent.h"
-#include "PaperTileSet.h"
+#include "PaperTileMap.h"
 
-#include "TileMapEdModeToolkit.h"
+#include "Toolkits/AssetEditorToolkit.h"
 #include "TileSetEditor/TileSetSelectorViewport.h"
-#include "SContentReference.h"
-#include "TileMapEditorCommands.h"
-#include "Engine/Selection.h"
+#include "WorkflowOrientedApp/SContentReference.h"
+#include "PaperStyle.h"
+#include "TileMapEditing/TileMapEditorCommands.h"
 #include "SAssetDropTarget.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"

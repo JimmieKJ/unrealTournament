@@ -1,15 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MergeActorsPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "IMergeActorsModule.h"
 #include "SMergeActorsToolbar.h"
-#include "ModuleManager.h"
+#include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
-#include "MeshMergingTool.h"
-#include "MeshProxyTool.h"
-#include "SDockTab.h"
+#include "MeshUtilities.h"
+#include "MeshMergingTool/MeshMergingTool.h"
+#include "MeshProxyTool/MeshProxyTool.h"
+#include "Widgets/Docking/SDockTab.h"
 
-#include "SMeshMergingDialog.h"
-#include "PropertyEditing.h"
 
 #define LOCTEXT_NAMESPACE "MergeActorsModule"
 

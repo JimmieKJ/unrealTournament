@@ -6,6 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/ScopeLock.h"
+#include "HAL/ThreadSafeBool.h"
+
 /** Locks all UObject hash tables when performing GC */
 class FGCScopeLock
 {

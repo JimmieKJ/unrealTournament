@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
 
 /**
  * @brief CommonLinuxMain - executes common startup code for Linux programs/engine
@@ -11,4 +11,4 @@
  * @param RealMain - the next main routine to call in chain
  * @return error code to return to the OS
  */
-int CommonLinuxMain(int argc, char *argv[], int (*RealMain)(const TCHAR * CommandLine));
+int LINUXCOMMONSTARTUP_API CommonLinuxMain(int argc, char *argv[], int (*RealMain)(const TCHAR * CommandLine));

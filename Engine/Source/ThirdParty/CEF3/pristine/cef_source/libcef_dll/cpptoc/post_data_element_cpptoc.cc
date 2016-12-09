@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -25,6 +25,8 @@ CEF_EXPORT cef_post_data_element_t* cef_post_data_element_create() {
   return CefPostDataElementCppToC::Wrap(_retval);
 }
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -157,20 +159,27 @@ size_t CEF_CALLBACK post_data_element_get_bytes(
   return _retval;
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefPostDataElementCppToC::CefPostDataElementCppToC(CefPostDataElement* cls)
-    : CefCppToC<CefPostDataElementCppToC, CefPostDataElement,
-        cef_post_data_element_t>(cls) {
-  struct_.struct_.is_read_only = post_data_element_is_read_only;
-  struct_.struct_.set_to_empty = post_data_element_set_to_empty;
-  struct_.struct_.set_to_file = post_data_element_set_to_file;
-  struct_.struct_.set_to_bytes = post_data_element_set_to_bytes;
-  struct_.struct_.get_type = post_data_element_get_type;
-  struct_.struct_.get_file = post_data_element_get_file;
-  struct_.struct_.get_bytes_count = post_data_element_get_bytes_count;
-  struct_.struct_.get_bytes = post_data_element_get_bytes;
+CefPostDataElementCppToC::CefPostDataElementCppToC() {
+  GetStruct()->is_read_only = post_data_element_is_read_only;
+  GetStruct()->set_to_empty = post_data_element_set_to_empty;
+  GetStruct()->set_to_file = post_data_element_set_to_file;
+  GetStruct()->set_to_bytes = post_data_element_set_to_bytes;
+  GetStruct()->get_type = post_data_element_get_type;
+  GetStruct()->get_file = post_data_element_get_file;
+  GetStruct()->get_bytes_count = post_data_element_get_bytes_count;
+  GetStruct()->get_bytes = post_data_element_get_bytes;
+}
+
+template<> CefRefPtr<CefPostDataElement> CefCppToC<CefPostDataElementCppToC,
+    CefPostDataElement, cef_post_data_element_t>::UnwrapDerived(
+    CefWrapperType type, cef_post_data_element_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -178,3 +187,6 @@ template<> base::AtomicRefCount CefCppToC<CefPostDataElementCppToC,
     CefPostDataElement, cef_post_data_element_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefPostDataElementCppToC,
+    CefPostDataElement, cef_post_data_element_t>::kWrapperType =
+    WT_POST_DATA_ELEMENT;

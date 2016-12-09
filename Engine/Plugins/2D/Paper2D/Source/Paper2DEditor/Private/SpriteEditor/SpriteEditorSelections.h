@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UnrealWidget.h"
+#include "SpriteEditorOnlyTypes.h"
+#include "Paper2DModule.h"
 #include "PaperEditorShared/AssetEditorSelectedItem.h"
 #include "PaperSprite.h"
 

@@ -4,9 +4,16 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Dependencies
  *****************************************************************************/
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
 
 
 /* Private includes

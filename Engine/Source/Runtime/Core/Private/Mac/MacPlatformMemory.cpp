@@ -4,11 +4,16 @@
 	MacPlatformMemory.cpp: Mac platform memory functions
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "MacPlatformMemory.h"
+#include "HAL/PlatformMemory.h"
 #include "MallocTBB.h"
 #include "MallocAnsi.h"
 #include "MallocBinned.h"
+#include "MallocBinned2.h"
 #include "MallocStomp.h"
+#include "Misc/AssertionMacros.h"
+#include "Misc/CoreStats.h"
+#include "CoreGlobals.h"
 
 #include <sys/param.h>
 #include <sys/mount.h>
@@ -25,6 +30,9 @@ void FMacPlatformMemory::Init()
 		float(MemoryConstants.TotalVirtual/1024.0/1024.0/1024.0) );
 }
 
+// Set rather to use BinnedMalloc2 for binned malloc, can be overridden below
+#define USE_MALLOC_BINNED2 (0)
+
 FMalloc* FMacPlatformMemory::BaseAllocator()
 {
 	bool bIsMavericks = false;
@@ -40,22 +48,51 @@ FMalloc* FMacPlatformMemory::BaseAllocator()
 		}
 	}
 
-	if(getenv("UE4_FORCE_MALLOC_ANSI") != nullptr || bIsMavericks)
+	if (FORCE_ANSI_ALLOCATOR || IS_PROGRAM)
 	{
-		return new FMallocAnsi();
+		AllocatorToUse = EMemoryAllocatorToUse::Ansi;
+	}
+	else if (USE_MALLOC_STOMP)
+	{
+		AllocatorToUse = EMemoryAllocatorToUse::Stomp;
+	}
+	else if ((WITH_EDITORONLY_DATA || IS_PROGRAM) && TBB_ALLOCATOR_ALLOWED)
+	{
+		AllocatorToUse = EMemoryAllocatorToUse::TBB;
+	}
+	else if (USE_MALLOC_BINNED2)
+	{
+		AllocatorToUse = EMemoryAllocatorToUse::Binned2;
 	}
 	else
 	{
-#if FORCE_ANSI_ALLOCATOR || IS_PROGRAM
-		return new FMallocAnsi();
-#elif USE_MALLOC_STOMP
-		return new FMallocStomp();
-#elif (WITH_EDITORONLY_DATA || IS_PROGRAM) && TBB_ALLOCATOR_ALLOWED
-		return new FMallocTBB();
-#else
-		return new FMallocBinned((uint32)(GetConstants().PageSize&MAX_uint32), 0x100000000);
-#endif
+		AllocatorToUse = EMemoryAllocatorToUse::Binned;
 	}
+
+	// Force ansi malloc in some cases
+	if(getenv("UE4_FORCE_MALLOC_ANSI") != nullptr || bIsMavericks)
+	{
+		AllocatorToUse = EMemoryAllocatorToUse::Ansi;
+	}
+
+	switch (AllocatorToUse)
+	{
+	case EMemoryAllocatorToUse::Ansi:
+		return new FMallocAnsi();
+#if USE_MALLOC_STOMP
+	case EMemoryAllocatorToUse::Stomp:
+		return new FMallocStomp();
+#endif
+	case EMemoryAllocatorToUse::TBB:
+		return new FMallocTBB();
+	case EMemoryAllocatorToUse::Binned2:
+		return new FMallocBinned2();
+
+	default:	// intentional fall-through
+	case EMemoryAllocatorToUse::Binned:
+		return new FMallocBinned((uint32)(GetConstants().PageSize&MAX_uint32), 0x100000000);
+	}
+
 }
 
 FPlatformMemoryStats FMacPlatformMemory::GetStats()

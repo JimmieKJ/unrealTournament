@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LobbyPrivatePCH.h"
 #include "LobbyModule.h"
 
 IMPLEMENT_MODULE(FLobbyModule, Lobby);

@@ -7,34 +7,41 @@ public class DX11 : ModuleRules
 	{
 		Type = ModuleType.External;
 
-		Definitions.Add("WITH_D3DX_LIBS=1");
-
 		string DirectXSDKDir = UEBuildConfiguration.UEThirdPartySourceDirectory + "Windows/DirectX";
 		PublicSystemIncludePaths.Add(DirectXSDKDir + "/include");
 
-		if (Target.Platform == UnrealTargetPlatform.Win64)
+		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
 		{
-			PublicLibraryPaths.Add(DirectXSDKDir + "/Lib/x64");
-		}
-		else if (Target.Platform == UnrealTargetPlatform.Win32)
-		{
-			PublicLibraryPaths.Add(DirectXSDKDir + "/Lib/x86");
-		}
+			Definitions.Add("WITH_D3DX_LIBS=1");
 
-		PublicAdditionalLibraries.AddRange(
-			new string[] {
+			if (Target.Platform == UnrealTargetPlatform.Win64)
+			{
+				PublicLibraryPaths.Add(DirectXSDKDir + "/Lib/x64");
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Win32)
+			{
+				PublicLibraryPaths.Add(DirectXSDKDir + "/Lib/x86");
+			}
+
+			PublicAdditionalLibraries.AddRange(
+				new string[] {
 				"dxgi.lib",
 				"d3d9.lib",
 				"d3d11.lib",
 				"dxguid.lib",
 				"d3dcompiler.lib",
-                (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT) ? "d3dx11d.lib" : "d3dx11.lib",				
+				(Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT) ? "d3dx11d.lib" : "d3dx11.lib",
 				"dinput8.lib",
 				"X3DAudio.lib",
 				"xapobase.lib",
 				"XAPOFX.lib"
-			}
-			);
+				}
+				);
+		}
+		else if (Target.Platform == UnrealTargetPlatform.XboxOne)
+		{
+			Definitions.Add("WITH_D3DX_LIBS=0");
+		}
 	}
 }
 

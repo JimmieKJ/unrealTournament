@@ -4,7 +4,8 @@
 	WeakObjectPtr.cpp: Weak pointer to UObject
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
+#include "UObject/WeakObjectPtr.h"
+#include "UObject/Object.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogWeakObjectPtr, Log, All);
 
@@ -96,32 +97,25 @@ UObject* FWeakObjectPtr::GetEvenIfUnreachable() const
 	return Result;
 }
 
-
-/**
- * Weak object pointer serialization.  Weak object pointers only have weak references to objects and
- * won't serialize the object when gathering references for garbage collection.  So in many cases, you
- * don't need to bother serializing weak object pointers.  However, serialization is required if you
- * want to load and save your object.
- */
-FArchive& operator<<( FArchive& Ar, FWeakObjectPtr& WeakObjectPtr )
+void FWeakObjectPtr::Serialize(FArchive& Ar)
 {
+	// NOTE: When changing this function, make sure to update the SavePackage.cpp version in the import and export tagger.
+
 	// We never serialize our reference while the garbage collector is harvesting references
 	// to objects, because we don't want weak object pointers to keep objects from being garbage
 	// collected.  That would defeat the whole purpose of a weak object pointer!
 	// However, when modifying both kinds of references we want to serialize and writeback the updated value.
-	if( !Ar.IsObjectReferenceCollector() || Ar.IsModifyingWeakAndStrongReferences() )
+	if (!Ar.IsObjectReferenceCollector() || Ar.IsModifyingWeakAndStrongReferences())
 	{
 		// Downcast from UObjectBase to UObject
-		UObject* Object = static_cast< UObject* >( WeakObjectPtr.Get(true) );
+		UObject* Object = static_cast<UObject*>(Get(true));
 
 		Ar << Object;
 
-		if( Ar.IsLoading() || Ar.IsModifyingWeakAndStrongReferences() )
+		if (Ar.IsLoading() || Ar.IsModifyingWeakAndStrongReferences())
 		{
-			WeakObjectPtr = Object;
+			*this = Object;
 		}
 	}
-
-	return Ar;
 }
 

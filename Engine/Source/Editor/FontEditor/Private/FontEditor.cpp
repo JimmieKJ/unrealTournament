@@ -1,19 +1,38 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "FontEditor.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EngineGlobals.h"
+#include "Engine/Texture2D.h"
+#include "Framework/Commands/Commands.h"
+#include "Engine/Engine.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/FileHelper.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "EditorReimportHandler.h"
+#include "Exporters/Exporter.h"
+#include "Engine/FontImportOptions.h"
+#include "Engine/Font.h"
+#include "Engine/FontFace.h"
+#include "Editor.h"
+#include "Factories/FontFactory.h"
+#include "Factories/TextureFactory.h"
+#include "Factories/TrueTypeFontFactory.h"
+#include "Exporters/TextureExporterTGA.h"
+#include "Dialogs/Dialogs.h"
 #include "FontEditorModule.h"
-#include "Factories.h"
-#include "Toolkits/IToolkitHost.h"
-#include "SColorPicker.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Colors/SColorPicker.h"
 #include "SFontEditorViewport.h"
 #include "SCompositeFontEditor.h"
-#include "FontEditor.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "MainFrame.h"
 #include "DesktopPlatformModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "SDockTab.h"
-#include "Engine/Font.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "Engine/Selection.h"
 
 #define LOCTEXT_NAMESPACE "FontEditor"
@@ -121,6 +140,13 @@ void FFontEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InT
 	InTabManager->UnregisterTabSpawner( PagePropertiesTabId );
 }
 
+FFontEditor::FFontEditor()
+	: Font(nullptr)
+	, TGAExporter(nullptr)
+	, Factory(nullptr)
+{
+}
+
 FFontEditor::~FFontEditor()
 {
 	FReimportManager::Instance()->OnPostReimport().RemoveAll(this);
@@ -139,6 +165,8 @@ void FFontEditor::InitFontEditor(const EToolkitMode::Type Mode, const TSharedPtr
 
 	// Register to be notified when an object is reimported.
 	GEditor->OnObjectReimported().AddSP(this, &FFontEditor::OnObjectReimported);
+
+	FCoreUObjectDelegates::OnObjectPropertyChanged.AddSP(this, &FFontEditor::OnObjectPropertyChanged);
 
 	Font = CastChecked<UFont>(ObjectToEdit);
 
@@ -695,17 +723,8 @@ void FFontEditor::OnUpdate()
 		bool bOpened = false;
 		if ( DesktopPlatform )
 		{
-			void* ParentWindowWindowHandle = NULL;
-
-			IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-			const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-			if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-			{
-				ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-			}
-
 			bOpened = DesktopPlatform->OpenFileDialog(
-				ParentWindowWindowHandle,
+				FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 				LOCTEXT("ImportDialogTitle", "Import").ToString(),
 				LastPath,
 				TEXT(""),
@@ -751,19 +770,10 @@ void FFontEditor::OnUpdateAll()
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if ( DesktopPlatform )
 	{
-		void* ParentWindowWindowHandle = NULL;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		FString FolderName;
 		const FString Title = FText::Format( NSLOCTEXT("UnrealEd", "Save_F", "Save: {0}"), FText::FromString(Font->GetName()) ).ToString();
 		const bool bFolderSelected = DesktopPlatform->OpenDirectoryDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			Title,
 			LastPath,
 			FolderName
@@ -815,19 +825,10 @@ void FFontEditor::OnExport()
 		IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 		if ( DesktopPlatform )
 		{
-			void* ParentWindowWindowHandle = NULL;
-
-			IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-			const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-			if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-			{
-				ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-			}
-
 			FString FolderName;
 			const FString Title = FText::Format( NSLOCTEXT("UnrealEd", "Save_F", "Save: {0}"), FText::FromString(Font->GetName()) ).ToString();
 			const bool bFolderSelected = DesktopPlatform->OpenDirectoryDialog(
-				ParentWindowWindowHandle,
+				FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 				Title,
 				LastPath,
 				FolderName
@@ -857,19 +858,10 @@ void FFontEditor::OnExportAll()
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if ( DesktopPlatform )
 	{
-		void* ParentWindowWindowHandle = NULL;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		FString FolderName;
 		const FString Title = FText::Format( NSLOCTEXT("UnrealEd", "Save_F", "Save: {0}"), FText::FromString(Font->GetName()) ).ToString();
 		const bool bFolderSelected = DesktopPlatform->OpenDirectoryDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			Title,
 			LastPath,
 			FolderName
@@ -958,6 +950,15 @@ void FFontEditor::OnPostReimport(UObject* InObject, bool bSuccess)
 	{
 		FontViewport->RefreshViewport();
 		FontPreviewWidget->RefreshViewport();
+	}
+}
+
+void FFontEditor::OnObjectPropertyChanged(UObject* InObject, struct FPropertyChangedEvent& InPropertyChangedEvent)
+{
+	if (Cast<UFontFace>(InObject))
+	{
+		// Refresh the composite font editor when a font face is changed as it may affect our preview
+		CompositeFontEditor->Refresh();
 	}
 }
 

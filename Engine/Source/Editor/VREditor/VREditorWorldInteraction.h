@@ -1,47 +1,44 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "ViewportWorldInteraction.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "AssetData.h"
 #include "VREditorWorldInteraction.generated.h"
+
+class UActorComponent;
+class UViewportInteractor;
+class UViewportWorldInteraction;
+class UVREditorMode;
+struct FViewportActionKeyInput;
 
 /**
  * VR Editor interaction with the 3D world
  */
 UCLASS()
-class UVREditorWorldInteraction : public UViewportWorldInteraction
+class UVREditorWorldInteraction : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
 public:
 
-	// UViewportWorldInteraction overrides
-	virtual void Shutdown() override;
-	virtual bool IsInteractableComponent( const UActorComponent* Component ) const override;
-	virtual void StopDragging( class UViewportInteractor* Interactor ) override;
+	/** Registers to events and sets initial values */
+	void Init( UVREditorMode* NewOwner, UViewportWorldInteraction* ViewportWorldInteraction );
+	
+	/** Removes registered event */
+	void Shutdown();
 
-	/** Sets the owner of this system */
-	void SetOwner( class FVREditorMode* NewOwner )
-	{
-		Owner = NewOwner;
-	}
+	/** If this component is interactable by an interactor */
+	bool IsInteractableComponent( const UActorComponent* Component ) const;
 
-	/** Gets the owner of this system */
-	class FVREditorMode& GetOwner()
-	{
-		return *Owner;
-	}
-
-	/** Gets the owner of this system (const) */
-	const class FVREditorMode& GetOwner() const
-	{
-		return *Owner;
-	}
-
-		/** Snaps the selected objects to the ground */
+	/** Snaps the selected objects to the ground */
 	void SnapSelectedActorsToGround();
 
 protected:
+	/** When an interactor stops dragging */
+	void StopDragging( UViewportInteractor* Interactor );
 
 	/** Starts dragging a material, allowing the user to drop it on an object in the scene to place it */
 	void StartDraggingMaterialOrTexture( UViewportInteractor* Interactor, const FViewportActionKeyInput& Action, const FVector HitLocation, UObject* MaterialOrTextureAsset );
@@ -55,7 +52,12 @@ protected:
 protected:
 
 	/** Owning object */
-	FVREditorMode* Owner;
+	UPROPERTY()
+	UVREditorMode* Owner;
+
+	/** The actual ViewportWorldInteraction */
+	UPROPERTY()
+	UViewportWorldInteraction* ViewportWorldInteraction;
 
 	/** Sound for dropping materials and textures */
 	UPROPERTY()

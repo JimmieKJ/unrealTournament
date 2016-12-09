@@ -7,6 +7,7 @@
 #include "VulkanRHIPrivate.h"
 #include "VulkanDevice.h"
 #include "VulkanContext.h"
+#include "Containers/ResourceArray.h"
 
 static TMap<FVulkanResourceMultiBuffer*, VulkanRHI::FPendingBufferLock> GPendingLockIBs;
 static FCriticalSection GPendingLockIBsMutex;
@@ -25,13 +26,15 @@ FVulkanResourceMultiBuffer::FVulkanResourceMultiBuffer(FVulkanDevice* InDevice, 
 		const bool bVolatile = (InUEUsage & BUF_Volatile) != 0;
 		const bool bShaderResource = (InUEUsage & BUF_ShaderResource) != 0;
 		const bool bIsUniformBuffer = (InBufferUsageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) != 0;
+		const bool bUAV = (InUEUsage & BUF_UnorderedAccess) != 0;
 
 		BufferUsageFlags |= bVolatile ? 0 : VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 		BufferUsageFlags |= (bShaderResource && !bIsUniformBuffer) ? VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT : 0;
+		BufferUsageFlags |= bUAV ? VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT : 0;
 
 		if (!bVolatile)
 		{
-			check(bStatic || bDynamic);
+			check(bStatic || bDynamic || bUAV);
 			VkDevice VulkanDevice = InDevice->GetInstanceHandle();
 
 			NumBuffers = bDynamic ? NUM_RENDER_BUFFERS : 1;
@@ -69,6 +72,7 @@ void* FVulkanResourceMultiBuffer::Lock(EResourceLockMode LockMode, uint32 Size, 
 	const bool bDynamic = (UEUsage & BUF_Dynamic) != 0;
 	const bool bVolatile = (UEUsage & BUF_Volatile) != 0;
 	const bool bCPUReadable = (UEUsage & BUF_KeepCPUAccessible) != 0;
+	const bool bUAV = (UEUsage & BUF_UnorderedAccess) != 0;
 
 	if (bVolatile)
 	{
@@ -87,7 +91,7 @@ void* FVulkanResourceMultiBuffer::Lock(EResourceLockMode LockMode, uint32 Size, 
 	}
 	else
 	{
-		check(bStatic || bDynamic);
+		check(bStatic || bDynamic || bUAV);
 
 		VulkanRHI::FPendingBufferLock PendingLock;
 		PendingLock.Offset = Offset;

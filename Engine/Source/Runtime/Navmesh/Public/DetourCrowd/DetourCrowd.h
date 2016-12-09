@@ -22,13 +22,15 @@
 #ifndef DETOURCROWD_H
 #define DETOURCROWD_H
 
-#include "DetourNavMeshQuery.h"
-#include "DetourObstacleAvoidance.h"
-#include "DetourLocalBoundary.h"
-#include "DetourSharedBoundary.h"
-#include "DetourPathCorridor.h"
-#include "DetourProximityGrid.h"
-#include "DetourPathQueue.h"
+#include "CoreMinimal.h"
+#include "Detour/DetourNavMeshQuery.h"
+#include "DetourCrowd/DetourObstacleAvoidance.h"
+#include "DetourCrowd/DetourSharedBoundary.h"
+#include "DetourCrowd/DetourLocalBoundary.h"
+#include "DetourCrowd/DetourPathCorridor.h"
+#include "DetourCrowd/DetourPathQueue.h"
+
+class dtProximityGrid;
 
 /// The maximum number of neighbors that a crowd agent can take into account
 /// for steering decisions.
@@ -251,6 +253,9 @@ class NAVMESH_API dtCrowd
 	// [UE4] time between attempts to restore agents state
 	float m_agentStateCheckInterval;
 
+	// [UE4] separation filter
+	float m_separationDirFilter;
+
 	int m_velocitySampleCount;
 
 	dtNavMeshQuery* m_navquery;
@@ -464,6 +469,9 @@ public:
 	void setPruneStartedOffmeshConnections(bool bRemoveFromCorridor);
 
 	void setEarlyReachTestOptimization(bool bEnable);
+
+	/// [UE4] Set separation filter param
+	void setSeparationFilter(float InFilter);
 
 	/// [UE4] Check if agent moved away from its path corridor
 	bool isOutsideCorridor(const int idx) const;

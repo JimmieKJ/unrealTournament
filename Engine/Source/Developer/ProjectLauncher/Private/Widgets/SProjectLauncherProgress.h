@@ -2,9 +2,42 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Layout/Margin.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Misc/Paths.h"
+#include "Interfaces/ILauncherWorker.h"
+#include "HAL/FileManager.h"
+#include "Types/SlateStructs.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Views/STableRow.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/ScopeLock.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Notifications/SProgressBar.h"
+#include "DesktopPlatformModule.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Framework/Layout/Overscroll.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/SProjectLauncherTaskListRow.h"
+#include "Widgets/SProjectLauncherMessageListRow.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Layout/SScrollBox.h"
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherProgress"
 
+class Error;
 
 /**
  * Implements the launcher's progress page.
@@ -41,6 +74,13 @@ public:
 		OnCloseClicked = InArgs._OnCloseClicked;
 		OnRerunClicked = InArgs._OnRerunClicked;
 
+		TSharedRef<SScrollBar> HorizontalScrollBar = SNew(SScrollBar)
+			.Orientation(EOrientation::Orient_Horizontal)
+			.AlwaysShowScrollbar(true);
+		TSharedRef<SScrollBar> VerticalScrollBar = SNew(SScrollBar)
+			.Orientation(EOrientation::Orient_Vertical)
+			.AlwaysShowScrollbar(true);
+
 		ChildSlot
 		[
 			SNew(SVerticalBox)
@@ -50,6 +90,14 @@ public:
 			.Padding(8.0, 16.0, 16.0, 0.0)
 			[
 				SNew(SVerticalBox)
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "LargeText")
+					.Text(this, &SProjectLauncherProgress::GetSelectedProfileNameText)
+				]
 
 				+ SVerticalBox::Slot()
 				.AutoHeight()
@@ -68,62 +116,116 @@ public:
 			]
 
 			+ SVerticalBox::Slot()
-			.FillHeight(0.5)
-			.Padding(0.0, 32.0, 8.0, 0.0)
+			.Padding(0.0, 8.0, 0.0, 0.0)
 			[
-				SNew(SBorder)
-				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
-				.Padding(0.0f)
+				SNew(SSplitter)
+				.Orientation(Orient_Vertical)
+				
+				+ SSplitter::Slot()
+				.Value(0.33f)
 				[
-					SAssignNew(TaskListView, SListView<ILauncherTaskPtr>)
-					.HeaderRow
-					(
-						SNew(SHeaderRow)
+					SNew(SBorder)
+					.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+					.Padding(0.0f)
+					[
+						SAssignNew(TaskListView, SListView<ILauncherTaskPtr>)
+						.HeaderRow
+						(
+							SNew(SHeaderRow)
 
-						+ SHeaderRow::Column("Icon")
-						.DefaultLabel(LOCTEXT("TaskListIconColumnHeader", " "))
-						.FixedWidth(20.0)
+							+ SHeaderRow::Column("Icon")
+							.DefaultLabel(LOCTEXT("TaskListIconColumnHeader", " "))
+							.FixedWidth(20.0)
 
-						+ SHeaderRow::Column("Task")
-						.DefaultLabel(LOCTEXT("TaskListTaskColumnHeader", "Task"))
-						.FillWidth(1.0)
+							+ SHeaderRow::Column("Task")
+							.DefaultLabel(LOCTEXT("TaskListTaskColumnHeader", "Task"))
+							.FillWidth(1.0)
 
-						+ SHeaderRow::Column("Duration")
-						.DefaultLabel(LOCTEXT("TaskListDurationColumnHeader", "Duration"))
-						.FixedWidth(64.0)
+							+ SHeaderRow::Column("Warnings")
+							.DefaultLabel(LOCTEXT("TaskListWarningsColumnHeader", "Warnings"))
+							.FixedWidth(64.0)
 
-						+ SHeaderRow::Column("Status")
-						.DefaultLabel(LOCTEXT("TaskListStatusColumnHeader", "Status"))
-						.FixedWidth(80.0)
-					)
-					.ListItemsSource(&TaskList)
-					.OnGenerateRow(this, &SProjectLauncherProgress::HandleTaskListViewGenerateRow)
-					.ItemHeight(24.0)
-					.SelectionMode(ESelectionMode::Single)
+							+ SHeaderRow::Column("Errors")
+							.DefaultLabel(LOCTEXT("TaskListErrorsColumnHeader", "Errors"))
+							.FixedWidth(64.0)
+
+							+ SHeaderRow::Column("Duration")
+							.DefaultLabel(LOCTEXT("TaskListDurationColumnHeader", "Duration"))
+							.FixedWidth(64.0)
+
+							+ SHeaderRow::Column("Status")
+							.DefaultLabel(LOCTEXT("TaskListStatusColumnHeader", "Status"))
+							.FixedWidth(80.0)
+						)
+						.ListItemsSource(&TaskList)
+						.OnGenerateRow(this, &SProjectLauncherProgress::HandleTaskListViewGenerateRow)
+						.ItemHeight(24.0)
+						.SelectionMode(ESelectionMode::Single)
+					]
 				]
-			]
 
-			//content area for the log
-			+ SVerticalBox::Slot()
-			.FillHeight(0.5)
-			.Padding(0.0, 32.0, 8.0, 0.0)
-			[
-				SNew(SBorder)
-				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
-				.Padding(0.0f)
+				//content area for the log
+				+ SSplitter::Slot()
+				.Value(0.66f)
 				[
-					SAssignNew(MessageListView, SListView< TSharedPtr<FProjectLauncherMessage> >)
-					.HeaderRow
-					(
-						SNew(SHeaderRow)
-						+ SHeaderRow::Column("Status")
-						.DefaultLabel(LOCTEXT("TaskListStatusColumnHeader", "Status"))
-						.FillWidth(1.0)
-					)
-					.ListItemsSource(&MessageList)
-					.OnGenerateRow(this, &SProjectLauncherProgress::HandleMessageListViewGenerateRow)
-					.ItemHeight(24.0)
-					.SelectionMode(ESelectionMode::Multi)
+					SNew(SBorder)
+					.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+					.Padding(0.0f)
+					[
+						SNew(SGridPanel)
+						.FillColumn(0, 1.f)
+						.FillRow(1, 1.f)
+						+ SGridPanel::Slot(0, 0)
+						[
+							SNew(SHeaderRow)
+							+ SHeaderRow::Column("Status")
+							.DefaultLabel(LOCTEXT("TaskListOutputLogColumnHeader", "Output Log"))
+							.FillWidth(1.0)
+						]
+						+ SGridPanel::Slot(1, 0)
+						[
+							SNew(SHeaderRow)
+						]
+						+ SGridPanel::Slot(0, 1)
+						[
+							SNew(SScrollBox)
+							.Orientation(EOrientation::Orient_Horizontal)
+							.ExternalScrollbar(HorizontalScrollBar)
+							+ SScrollBox::Slot()
+							[
+								SAssignNew(MessageListView, SListView< TSharedPtr<FProjectLauncherMessage> >)
+								.HeaderRow
+								(
+									SNew(SHeaderRow)
+									.Visibility(EVisibility::Collapsed)
+									+ SHeaderRow::Column("Status")
+									.DefaultLabel(LOCTEXT("TaskListOutputLogColumnHeader", "Output Log"))
+								)
+								.ListItemsSource(&MessageList)
+								.OnGenerateRow(this, &SProjectLauncherProgress::HandleMessageListViewGenerateRow)
+								.ItemHeight(24.0)
+								.SelectionMode(ESelectionMode::Multi)
+								.ExternalScrollbar(VerticalScrollBar)
+								.AllowOverscroll(EAllowOverscroll::No)
+							]
+						]
+						+ SGridPanel::Slot(1, 1)
+						[
+							SNew(SBox)
+							.WidthOverride(FOptionalSize(16))
+							[
+								VerticalScrollBar
+							]
+						]
+						+ SGridPanel::Slot(0, 2)
+						[
+							SNew(SBox)
+							.HeightOverride(FOptionalSize(16))
+							[
+								HorizontalScrollBar
+							]
+						]
+					]
 				]
 			]
 
@@ -235,7 +337,12 @@ public:
 			}
 			PendingMessages.Reset();
 			MessageListView->RequestListRefresh();
-			MessageListView->RequestScrollIntoView(MessageList.Last());
+
+			// only scroll when at the end of the listview
+			if (MessageListView->GetScrollDistanceRemaining().Y <= 0.0f)
+			{
+				MessageListView->RequestScrollIntoView(MessageList.Last());
+			}
 		}
 		SaveButton->SetEnabled(MessageList.Num() > 0);
 		ClearButton->SetEnabled(MessageList.Num() > 0);
@@ -556,6 +663,20 @@ private:
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("SaveLogDialogUnsupportedError", "Saving is not supported on this platform!"));
 		}
+	}
+
+	FText GetSelectedProfileNameText() const
+	{
+		ILauncherWorkerPtr LauncherWorkerPtr = LauncherWorker.Pin();
+		if (LauncherWorkerPtr.IsValid())
+		{
+			const ILauncherProfilePtr& ProfilePtr = LauncherWorkerPtr->GetLauncherProfile();
+			if (ProfilePtr.IsValid())
+			{
+				return FText::FromString(ProfilePtr->GetName());
+			}
+		}
+		return FText::GetEmpty();
 	}
 
 private:

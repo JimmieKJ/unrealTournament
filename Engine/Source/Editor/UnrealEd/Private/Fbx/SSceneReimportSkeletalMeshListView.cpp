@@ -1,15 +1,19 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "SSceneReimportSkeletalMeshListView.h"
-#include "SlateIconFinder.h"
-#include "Dialogs/DlgPickAssetPath.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
+#include "Fbx/SSceneReimportSkeletalMeshListView.h"
+#include "UObject/Package.h"
+#include "Widgets/SOverlay.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Factories/FbxSceneImportData.h"
+#include "Styling/SlateIconFinder.h"
+#include "Fbx/SSceneImportNodeTreeView.h"
 #include "SFbxSceneOptionWindow.h"
 #include "FbxImporter.h"
-#include "STextComboBox.h"
-#include "PackageTools.h"
-#include "STextEntryPopup.h"
 
 #define LOCTEXT_NAMESPACE "SFbxReimportSceneSkeletalMeshListView"
 

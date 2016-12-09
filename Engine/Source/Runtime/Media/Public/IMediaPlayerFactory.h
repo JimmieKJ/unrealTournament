@@ -2,10 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 class IMediaOptions;
 class IMediaPlayer;
-
 
 /**
  * Interface for media player factories.

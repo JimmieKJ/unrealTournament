@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
+#include "Containers/Array.h"
 
 // General identifiers for potential force feedback channels. These will be mapped according to the
 // platform specific implementation.

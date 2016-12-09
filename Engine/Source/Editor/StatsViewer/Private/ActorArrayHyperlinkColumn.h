@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IPropertyTableColumn.h"
+#include "IPropertyTableUtilities.h"
 #include "IPropertyTableCustomColumn.h"
+
+class IPropertyTableCell;
+class IPropertyTableCellPresenter;
 
 /**
  * A property table custom column used to display names of objects

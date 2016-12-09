@@ -4,7 +4,9 @@
 	LightSceneInfo.cpp: Light scene info implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
+#include "LightSceneInfo.h"
+#include "Components/LightComponent.h"
+#include "SceneCore.h"
 #include "ScenePrivate.h"
 #include "DistanceFieldLightingShared.h"
 
@@ -39,8 +41,8 @@ FLightSceneInfo::FLightSceneInfo(FLightSceneProxy* InProxy, bool InbVisible)
 	, DynamicInteractionOftenMovingPrimitiveList(NULL)
 	, DynamicInteractionStaticPrimitiveList(NULL)
 	, Id(INDEX_NONE)
-	, TileIntersectionResources(NULL)
-	, bPrecomputedLightingIsValid(InProxy->GetLightComponent()->bPrecomputedLightingIsValid)
+	, TileIntersectionResources(nullptr)
+	, bPrecomputedLightingIsValid(InProxy->GetLightComponent()->IsPrecomputedLightingValid())
 	, bVisible(InbVisible)
 	, bEnableLightShaftBloom(InProxy->GetLightComponent()->bEnableLightShaftBloom)
 	, BloomScale(InProxy->GetLightComponent()->BloomScale)

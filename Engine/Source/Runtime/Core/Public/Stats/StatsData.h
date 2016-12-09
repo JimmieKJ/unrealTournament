@@ -2,6 +2,23 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/UnrealTemplate.h"
+#include "Math/NumericLimits.h"
+#include "Containers/Array.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Set.h"
+#include "Containers/Map.h"
+#include "Misc/Parse.h"
+#include "UObject/NameTypes.h"
+#include "Delegates/Delegate.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Containers/IndirectArray.h"
+#include "Stats/Stats.h"
+
+struct FEventData;
 
 #if STATS
 

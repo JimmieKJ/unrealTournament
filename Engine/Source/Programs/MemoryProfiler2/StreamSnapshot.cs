@@ -11,24 +11,139 @@ using System.Linq;
 
 namespace MemoryProfiler2
 {
-	/// <summary> Helper struct encapsulating information for a callstack and associated allocation size. Shared with stream parser. </summary>
-	public struct FCallStackAllocationInfo
+	/// <summary> Holds the size and callstack associated with a live allocation. </summary>
+	public struct FLiveAllocationInfo
+	{
+		/// <summary> Size of allocation. </summary>
+		public readonly long Size;
+
+		/// <summary> Index of callstack that performed allocation. </summary>
+		public readonly int CallStackIndex;
+
+		/// <summary> Tags index associated with this allocation. </summary>
+		public readonly int TagsIndex;
+
+		/// <summary> Constructor, initializing all member variables to passed in values. </summary>
+		public FLiveAllocationInfo(long InSize, int InCallStackIndex, int InTagsIndex)
+		{
+			Size = InSize;
+			CallStackIndex = InCallStackIndex;
+			TagsIndex = InTagsIndex;
+		}
+	}
+
+	/// <summary> Holds the allocation size and count associated with a given group of tags. </summary>
+	public struct FCallStackTagsAllocationInfo
 	{
 		/// <summary> Size of allocation. </summary>
 		public long Size;
-
-		/// <summary> Index of callstack that performed allocation. </summary>
-		public int CallStackIndex;
 
 		/// <summary> Number of allocations. </summary>
 		public int Count;
 
 		/// <summary> Constructor, initializing all member variables to passed in values. </summary>
-		public FCallStackAllocationInfo( long InSize, int InCallStackIndex, int InCount )
+		public FCallStackTagsAllocationInfo(long InSize, int InCount)
 		{
 			Size = InSize;
-			CallStackIndex = InCallStackIndex;
 			Count = InCount;
+		}
+
+		public static FCallStackTagsAllocationInfo operator+(FCallStackTagsAllocationInfo LHS, FCallStackTagsAllocationInfo RHS)
+		{
+			return new FCallStackTagsAllocationInfo(LHS.Size + RHS.Size, LHS.Count + RHS.Count);
+		}
+
+		public static FCallStackTagsAllocationInfo operator-(FCallStackTagsAllocationInfo LHS, FCallStackTagsAllocationInfo RHS)
+		{
+			return new FCallStackTagsAllocationInfo(LHS.Size - RHS.Size, LHS.Count - RHS.Count);
+		}
+	}
+
+	/// <summary> Helper class encapsulating information for a callstack and associated allocation size. Shared with stream parser. </summary>
+	public class FCallStackAllocationInfo
+	{
+		/// <summary> Index of callstack that performed allocation. </summary>
+		public readonly int CallStackIndex;
+
+		/// <summary> Allocation info not associated with any tags. </summary>
+		FCallStackTagsAllocationInfo UntaggedAllocationInfo;
+
+		/// <summary> Mapping between a tags index and the associated allocation info. </summary>
+		Dictionary<int, FCallStackTagsAllocationInfo> TaggedAllocationInfo;
+
+		/// <summary> Total size of allocation. </summary>
+		public long TotalSize
+		{
+			get
+			{
+				long TotalSize = UntaggedAllocationInfo.Size;
+				if (TaggedAllocationInfo != null)
+				{
+					foreach (var TaggedAllocationInfoPair in TaggedAllocationInfo)
+					{
+						TotalSize += TaggedAllocationInfoPair.Value.Size;
+					}
+				}
+				return TotalSize;
+			}
+		}
+
+		/// <summary> Total number of allocations. </summary>
+		public int TotalCount
+		{
+			get
+			{
+				int TotalCount = UntaggedAllocationInfo.Count;
+				if (TaggedAllocationInfo != null)
+				{
+					foreach (var TaggedAllocationInfoPair in TaggedAllocationInfo)
+					{
+						TotalCount += TaggedAllocationInfoPair.Value.Count;
+					}
+				}
+				return TotalCount;
+			}
+		}
+
+		/// <summary> Constructor, initializing all member variables to passed in values. </summary>
+		public FCallStackAllocationInfo( long InSize, int InCallStackIndex, int InCount, int InTagsIndex )
+		{
+			CallStackIndex = InCallStackIndex;
+			UntaggedAllocationInfo = new FCallStackTagsAllocationInfo(0, 0);
+			TaggedAllocationInfo = null;
+
+			if (InTagsIndex == -1)
+			{
+				UntaggedAllocationInfo += new FCallStackTagsAllocationInfo(InSize, InCount);
+			}
+			else
+			{
+				EnsureTaggedAllocationsAvailable();
+				TaggedAllocationInfo.Add(InTagsIndex, new FCallStackTagsAllocationInfo(InSize, InCount));
+			}
+		}
+
+		/// <summary> Private constructor used by DeepCopy. </summary>
+		private FCallStackAllocationInfo( int InCallStackIndex, FCallStackTagsAllocationInfo InUntaggedAllocationInfo, Dictionary<int, FCallStackTagsAllocationInfo> InTaggedAllocationInfo )
+		{
+			CallStackIndex = InCallStackIndex;
+			UntaggedAllocationInfo = InUntaggedAllocationInfo;
+			TaggedAllocationInfo = InTaggedAllocationInfo;
+		}
+
+		/// <summary> Performs a deep copy of the relevant data structures. </summary>
+		public FCallStackAllocationInfo DeepCopy()
+		{
+			return new FCallStackAllocationInfo( CallStackIndex, UntaggedAllocationInfo, TaggedAllocationInfo != null ? new Dictionary<int, FCallStackTagsAllocationInfo>(TaggedAllocationInfo) : null );
+		}
+
+		/// <summary> Call prior to adding data to TaggedAllocationInfo. </summary>
+		private void EnsureTaggedAllocationsAvailable()
+		{
+			if (TaggedAllocationInfo == null)
+			{
+				TaggedAllocationInfo = new Dictionary<int, FCallStackTagsAllocationInfo>(16);
+			}
 		}
 
 		/// <summary>
@@ -36,73 +151,157 @@ namespace MemoryProfiler2
 		/// </summary>
 		/// <param name="SizeToAdd"> Size to add </param>
 		/// <param name="CountToAdd"> Count to add </param>
-		public FCallStackAllocationInfo Add( long SizeToAdd, int CountToAdd )
+		/// <param name="InTagsIndex"> Index of the tags associated with the allocation </param>
+		public void Add( long SizeToAdd, int CountToAdd, int InTagsIndex )
         {
-			return new FCallStackAllocationInfo( Size + SizeToAdd, CallStackIndex, Count + CountToAdd );
-        }
+			if (InTagsIndex == -1)
+			{
+				UntaggedAllocationInfo += new FCallStackTagsAllocationInfo(SizeToAdd, CountToAdd);
+			}
+			else
+			{
+				EnsureTaggedAllocationsAvailable();
+
+				FCallStackTagsAllocationInfo CurrentTagsAllocationInfo;
+				if (!TaggedAllocationInfo.TryGetValue(InTagsIndex, out CurrentTagsAllocationInfo))
+				{
+					CurrentTagsAllocationInfo = new FCallStackTagsAllocationInfo(0, 0);
+				}
+				TaggedAllocationInfo[InTagsIndex] = CurrentTagsAllocationInfo + new FCallStackTagsAllocationInfo(SizeToAdd, CountToAdd);
+			}
+		}
+
+		/// <summary>
+		/// Adds the passed callstack info to this callstack info.
+		/// </summary>
+		/// <param name="InOther"> Callstack info to add </param>
+		public void Add(FCallStackAllocationInfo InOther)
+		{
+			if (CallStackIndex != InOther.CallStackIndex)
+			{
+				throw new InvalidDataException();
+			}
+
+			UntaggedAllocationInfo += InOther.UntaggedAllocationInfo;
+
+			if (InOther.TaggedAllocationInfo != null)
+			{
+				EnsureTaggedAllocationsAvailable();
+
+				foreach (var TaggedAllocationInfoPair in InOther.TaggedAllocationInfo)
+				{
+					FCallStackTagsAllocationInfo CurrentTagsAllocationInfo;
+					if (!TaggedAllocationInfo.TryGetValue(TaggedAllocationInfoPair.Key, out CurrentTagsAllocationInfo))
+					{
+						CurrentTagsAllocationInfo = new FCallStackTagsAllocationInfo(0, 0);
+					}
+					TaggedAllocationInfo[TaggedAllocationInfoPair.Key] = CurrentTagsAllocationInfo + TaggedAllocationInfoPair.Value;
+				}
+			}
+		}
 
 		/// <summary>
 		/// Diffs the two passed in callstack infos and returns the difference.
 		/// </summary>
 		/// <param name="New"> Newer callstack info to subtract older from </param>
 		/// <param name="Old"> Older callstack info to subtract from older </param>
-        public static FCallStackAllocationInfo Diff( FCallStackAllocationInfo New, FCallStackAllocationInfo Old )
+		public static FCallStackAllocationInfo Diff( FCallStackAllocationInfo New, FCallStackAllocationInfo Old )
         {
             if( New.CallStackIndex != Old.CallStackIndex )
             {
                 throw new InvalidDataException();
             }
-            return new FCallStackAllocationInfo( New.Size - Old.Size, New.CallStackIndex, New.Count - Old.Count );
+
+			FCallStackAllocationInfo DiffData = New.DeepCopy();
+
+			DiffData.UntaggedAllocationInfo -= Old.UntaggedAllocationInfo;
+
+			if (Old.TaggedAllocationInfo != null)
+			{
+				DiffData.EnsureTaggedAllocationsAvailable();
+
+				foreach (var TaggedAllocationInfoPair in Old.TaggedAllocationInfo)
+				{
+					FCallStackTagsAllocationInfo CurrentTagsAllocationInfo;
+					if (!DiffData.TaggedAllocationInfo.TryGetValue(TaggedAllocationInfoPair.Key, out CurrentTagsAllocationInfo))
+					{
+						CurrentTagsAllocationInfo = new FCallStackTagsAllocationInfo(0, 0);
+					}
+					DiffData.TaggedAllocationInfo[TaggedAllocationInfoPair.Key] = CurrentTagsAllocationInfo - TaggedAllocationInfoPair.Value;
+				}
+			}
+
+			return DiffData;
         }
+
+		/// <summary>
+		/// Get a new callstack info that only contains information about allocations that match the given tags (note: this removes any tag information from the resultant object).
+		/// </summary>
+		/// <param name="InActiveTags"> Tags to filter on </param>
+		/// <param name="bInclusiveFilter"> true to include alloctions that match the tags, false to include allocations that don't match the tags </param>
+		public FCallStackAllocationInfo GetAllocationInfoForTags(ISet<FAllocationTag> InActiveTags, bool bInclusiveFilter)
+		{
+			long TagsSize;
+			int TagsCount;
+			GetSizeAndCountForTags(InActiveTags, bInclusiveFilter, out TagsSize, out TagsCount);
+			return new FCallStackAllocationInfo(TagsSize, CallStackIndex, TagsCount, -1);
+		}
+
+		public void GetSizeAndCountForTags(ISet<FAllocationTag> InActiveTags, bool bInclusiveFilter, out long OutSize, out int OutCount)
+		{
+			OutSize = 0;
+			OutCount = 0;
+
+			if (AllocationMatchesTagFilter(FStreamInfo.GlobalInstance.TagHierarchy.GetUntaggedNode().GetTag().Value, InActiveTags, bInclusiveFilter))
+			{
+				OutSize += UntaggedAllocationInfo.Size;
+				OutCount += UntaggedAllocationInfo.Count;
+			}
+
+			if (TaggedAllocationInfo != null)
+			{
+				foreach (var TaggedAllocationInfoPair in TaggedAllocationInfo)
+				{
+					if (AllocationMatchesTagFilter(TaggedAllocationInfoPair.Key, InActiveTags, bInclusiveFilter))
+					{
+						OutSize += TaggedAllocationInfoPair.Value.Size;
+						OutCount += TaggedAllocationInfoPair.Value.Count;
+					}
+				}
+			}
+		}
+
+		private bool AllocationMatchesTagFilter(FAllocationTag InTag, ISet<FAllocationTag> InActiveTags, bool bInclusiveFilter)
+		{
+			if (InActiveTags == null || InActiveTags.Count == 0)
+			{
+				// No filter, so match anything
+				return true;
+			}
+
+			return InActiveTags.Contains(InTag) ? bInclusiveFilter : !bInclusiveFilter;
+		}
+
+		private bool AllocationMatchesTagFilter(int InTagsIndex, ISet<FAllocationTag> InActiveTags, bool bInclusiveFilter)
+		{
+			if (InActiveTags == null || InActiveTags.Count == 0)
+			{
+				// No filter, so match anything
+				return true;
+			}
+
+			// Inclusive filter will pass if we match ANY tag
+			// Exclusive filter will pass if we match NO tags
+			foreach (var AllocTag in FStreamInfo.GlobalInstance.TagsArray[InTagsIndex].Tags)
+			{
+				if (InActiveTags.Contains(AllocTag))
+				{
+					return bInclusiveFilter;
+				}
+			}
+			return !bInclusiveFilter;
+		}
 	}
-
-	/// <summary> Additional memory statistics. </summary>
-    public enum ESnapshotMetricV3
-    {
-		/// <summary> Memory profiling overhead. </summary>
-		MemoryProfilingOverhead,
-
-		/// <summary> Memory allocated from OS. PS3 only. </summary>
-		AllocatedFromOS,
-
-		/// <summary> Maximum amount of memory allocated from OS. PS3 only. </summary>
-		MaxAllocatedFromOS, 
-
-		/// <summary> Memory requested by game. PS3 only. </summary>
-		AllocateFromGame,
-
-		/// <summary> Total used chunks by the allocator. </summary>
-		TotalUsedChunks,
-
-		/// <summary> Lightmap memory. </summary>
-		TextureLightmapMemory,
-
-		/// <summary> Shadowmap memory. </summary>
-		TextureShadowmapMemory,
-
-		/// <summary> Last item used as a count. </summary>
-		Count,
-    }
-
-	/// <summary> State of total memory at a specific moment in time. </summary>
-	public enum ESliceTypesV3
-	{
-		TotalUsed,
-		TotalAllocated,
-		CPUUsed,
-		CPUSlack,
-		CPUWaste,
-		GPUUsed,
-		GPUSlack,
-		GPUWaste,
-		OSOverhead,
-		ImageSize,
-		HostUsed,
-		HostSlack,
-		HostWaste,
-		OverallAllocatedMemory,
-		Count
-	};
 
 	public enum ESliceTypesV4
 	{
@@ -121,43 +320,15 @@ namespace MemoryProfiler2
 
 		public FMemorySlice( FStreamSnapshot Snapshot )
 		{
-			if( FStreamToken.Version >= 4 )
+			MemoryInfo = new long[]
 			{
-				MemoryInfo = new long[]
-				{
-					Snapshot.MemoryAllocationStats4[FMemoryAllocationStatsV4.PlatformUsedPhysical],
-					Snapshot.MemoryAllocationStats4[FMemoryAllocationStatsV4.BinnedWasteCurrent],
-					Snapshot.MemoryAllocationStats4[FMemoryAllocationStatsV4.BinnedUsedCurrent],
-					Snapshot.MemoryAllocationStats4[FMemoryAllocationStatsV4.BinnedSlackCurrent],
-					Snapshot.MemoryAllocationStats4[FMemoryAllocationStatsV4.MemoryProfilingOverhead],
-					Snapshot.AllocationSize,
-				};
-			}
-			else
-			{
-				MemoryInfo = new long[]
-				{
-					Snapshot.MemoryAllocationStats3.TotalUsed,
-					Snapshot.MemoryAllocationStats3.TotalAllocated,
-					Snapshot.MemoryAllocationStats3.CPUUsed,
-					Snapshot.MemoryAllocationStats3.CPUSlack,
-					Snapshot.MemoryAllocationStats3.CPUWaste,
-					Snapshot.MemoryAllocationStats3.GPUUsed,
-					Snapshot.MemoryAllocationStats3.GPUSlack,
-					Snapshot.MemoryAllocationStats3.GPUWaste,
-					Snapshot.MemoryAllocationStats3.OSOverhead,
-					Snapshot.MemoryAllocationStats3.ImageSize,
-					Snapshot.MemoryAllocationStats3.HostUsed,
-					Snapshot.MemoryAllocationStats3.HostSlack,
-					Snapshot.MemoryAllocationStats3.HostWaste,
-					Snapshot.AllocationSize,
-				};
-			}
-		}
-
-		public long GetSliceInfoV3( ESliceTypesV3 SliceType )
-		{
-			return ( MemoryInfo[(int)SliceType] );
+				Snapshot.MemoryAllocationStats4[FMemoryAllocationStatsV4.PlatformUsedPhysical],
+				Snapshot.MemoryAllocationStats4[FMemoryAllocationStatsV4.BinnedWasteCurrent],
+				Snapshot.MemoryAllocationStats4[FMemoryAllocationStatsV4.BinnedUsedCurrent],
+				Snapshot.MemoryAllocationStats4[FMemoryAllocationStatsV4.BinnedSlackCurrent],
+				Snapshot.MemoryAllocationStats4[FMemoryAllocationStatsV4.MemoryProfilingOverhead],
+				Snapshot.AllocationSize,
+			};
 		}
 
 		public long GetSliceInfoV4( ESliceTypesV4 SliceType )
@@ -206,9 +377,6 @@ namespace MemoryProfiler2
 		public List<string> LoadedLevelNames = new List<string>();
 
 		/// <summary> Generic memory allocation stats. </summary>
-		public FMemoryAllocationStatsV3 MemoryAllocationStats3 = new FMemoryAllocationStatsV3();
-
-		/// <summary> Generic memory allocation stats. </summary>
 		public FMemoryAllocationStatsV4 MemoryAllocationStats4 = new FMemoryAllocationStatsV4();
 
 		/// <summary> Running count of number of allocations. </summary>
@@ -235,13 +403,13 @@ namespace MemoryProfiler2
             LifetimeCallStackList = new List<FCallStackAllocationInfo>( FStreamInfo.GlobalInstance.CallStackArray.Count );
             for( int CallStackIndex=0; CallStackIndex<FStreamInfo.GlobalInstance.CallStackArray.Count; CallStackIndex++ )
             {
-                LifetimeCallStackList.Add( new FCallStackAllocationInfo( 0, CallStackIndex, 0 ) );
+                LifetimeCallStackList.Add( new FCallStackAllocationInfo( 0, CallStackIndex, 0, -1 ) );
             }
 			OverallMemorySlice = new List<FMemorySlice>();
 		}
 
 		/// <summary> Performs a deep copy of the relevant data structures. </summary>
-		public FStreamSnapshot DeepCopy( Dictionary<ulong, FCallStackAllocationInfo> PointerToPointerInfoMap )
+		public FStreamSnapshot DeepCopy( Dictionary<ulong, FLiveAllocationInfo> PointerToPointerInfoMap )
 		{
 			// Create new snapshot object.
 			FStreamSnapshot Snapshot = new FStreamSnapshot( "Copy" );
@@ -249,8 +417,7 @@ namespace MemoryProfiler2
 			// Manually perform a deep copy of LifetimeCallstackList
 			foreach( FCallStackAllocationInfo AllocationInfo in LifetimeCallStackList )
 			{
-				Snapshot.LifetimeCallStackList[ AllocationInfo.CallStackIndex ]
-					= new FCallStackAllocationInfo( AllocationInfo.Size, AllocationInfo.CallStackIndex, AllocationInfo.Count );
+				Snapshot.LifetimeCallStackList[ AllocationInfo.CallStackIndex ] = AllocationInfo.DeepCopy();
 			}
 
 			Snapshot.AllocationCount = AllocationCount;
@@ -263,35 +430,29 @@ namespace MemoryProfiler2
 			return Snapshot;
 		}
 
-		public void FillActiveCallStackList( Dictionary<ulong, FCallStackAllocationInfo> PointerToPointerInfoMap )
+		public void FillActiveCallStackList( Dictionary<ulong, FLiveAllocationInfo> PointerToPointerInfoMap )
 		{
 			ActiveCallStackList.Clear();
 			ActiveCallStackList.Capacity = LifetimeCallStackList.Count;
 
-			foreach( KeyValuePair<ulong, FCallStackAllocationInfo> PointerData in PointerToPointerInfoMap )
+			foreach( var PointerData in PointerToPointerInfoMap )
 			{
-				int CallStackIndex = PointerData.Value.CallStackIndex;
-				long Size = PointerData.Value.Size;
-
 				// make sure allocationInfoList is big enough
-				while( CallStackIndex >= ActiveCallStackList.Count )
+				while(PointerData.Value.CallStackIndex >= ActiveCallStackList.Count )
 				{
-					ActiveCallStackList.Add( new FCallStackAllocationInfo( 0, ActiveCallStackList.Count, 0 ) );
+					ActiveCallStackList.Add( new FCallStackAllocationInfo( 0, ActiveCallStackList.Count, 0, -1 ) );
 				}
 
-				FCallStackAllocationInfo NewAllocInfo = ActiveCallStackList[ CallStackIndex ];
-				NewAllocInfo.Size += Size;
-				NewAllocInfo.Count++;
-				ActiveCallStackList[ CallStackIndex ] = NewAllocInfo;
+				ActiveCallStackList[PointerData.Value.CallStackIndex].Add(PointerData.Value.Size, 1, PointerData.Value.TagsIndex);
 			}
 
 			// strip out any callstacks with no allocations
-			ActiveCallStackList.RemoveAll(Item => Item.Count == 0);
+			ActiveCallStackList.RemoveAll(Item => Item.TotalCount == 0);
 			ActiveCallStackList.TrimExcess();
 		}
 
 		/// <summary> Convert "callstack to allocation" mapping (either passed in or generated from pointer map) to callstack info list. </summary>
-		public void FinalizeSnapshot( Dictionary<ulong, FCallStackAllocationInfo> PointerToPointerInfoMap )
+		public void FinalizeSnapshot( Dictionary<ulong, FLiveAllocationInfo> PointerToPointerInfoMap )
 		{
 			FillActiveCallStackList( PointerToPointerInfoMap );
 		}
@@ -314,8 +475,6 @@ namespace MemoryProfiler2
 					ResultSnapshot.MetricArray.Add( New.MetricArray[ CallstackIndex ] - Old.MetricArray[ CallstackIndex ] );
 				}
 
-				
-				ResultSnapshot.MemoryAllocationStats3 = FMemoryAllocationStatsV3.Diff( Old.MemoryAllocationStats3, New.MemoryAllocationStats3 );
 				ResultSnapshot.MemoryAllocationStats4 = FMemoryAllocationStatsV4.Diff( Old.MemoryAllocationStats4, New.MemoryAllocationStats4 );
 
 				ResultSnapshot.StreamIndex = New.StreamIndex;
@@ -342,12 +501,12 @@ namespace MemoryProfiler2
 
 					if( OldAllocInfo.CallStackIndex == NewAllocInfo.CallStackIndex )
 					{
-						long ResultSize = NewAllocInfo.Size - OldAllocInfo.Size;
-						int ResultCount = NewAllocInfo.Count - OldAllocInfo.Count;
+						long ResultSize = NewAllocInfo.TotalSize - OldAllocInfo.TotalSize;
+						int ResultCount = NewAllocInfo.TotalCount - OldAllocInfo.TotalCount;
 
 						if( ResultSize != 0 || ResultCount != 0 )
 						{
-							ResultActiveCallStackList.Add( new FCallStackAllocationInfo( ResultSize, NewAllocInfo.CallStackIndex, ResultCount ) );
+							ResultActiveCallStackList.Add( new FCallStackAllocationInfo( ResultSize, NewAllocInfo.CallStackIndex, ResultCount, -1 ) );
 						}
 
 						OldIndex++;
@@ -360,7 +519,7 @@ namespace MemoryProfiler2
 					}
 					else // OldAllocInfo.CallStackIndex < NewAllocInfo.CallStackIndex
 					{
-						ResultActiveCallStackList.Add( new FCallStackAllocationInfo( -OldAllocInfo.Size, OldAllocInfo.CallStackIndex, -OldAllocInfo.Count ) );
+						ResultActiveCallStackList.Add( new FCallStackAllocationInfo( -OldAllocInfo.TotalSize, OldAllocInfo.CallStackIndex, -OldAllocInfo.TotalCount, -1 ) );
 						OldIndex++;
 					}
 
@@ -443,10 +602,10 @@ namespace MemoryProfiler2
 			foreach( FCallStackAllocationInfo AllocationInfo in CallStackList )
 			{
                 // Skip callstacks with no contribution in this snapshot.
-                if( AllocationInfo.Count > 0 )
+                if( AllocationInfo.TotalCount > 0 )
                 {
 				    // Dump size first, followed by count.
-				    CSVWriter.Write(AllocationInfo.Size + "," + AllocationInfo.Count + ",");
+				    CSVWriter.Write(AllocationInfo.TotalSize + "," + AllocationInfo.TotalCount + ",");
 
 				    // Iterate over ach address in callstack and dump to CSV.
 				    FCallStack CallStack = FStreamInfo.GlobalInstance.CallStackArray[AllocationInfo.CallStackIndex];
@@ -458,14 +617,7 @@ namespace MemoryProfiler2
 					    // Write out function followed by filename and then line number if valid
 					    if( SymbolFunctionName != "" || SymbolFileName != "" )
 					    {
-							if( FStreamInfo.GlobalInstance.Platform == EPlatformType.PS3 )
-							{
-								CSVWriter.Write( SymbolFunctionName + "," );
-							}
-							else
-							{
-								CSVWriter.Write( SymbolFunctionName + " @ " + SymbolFileName + ":" + Address.LineNumber + "," );
-							}
+							CSVWriter.Write( SymbolFunctionName + " @ " + SymbolFileName + ":" + Address.LineNumber + "," );
 					    }
 					    else
 					    {
@@ -520,32 +672,6 @@ namespace MemoryProfiler2
 			//public int SnapshotIndex;
 			StrBuilder.AppendLine( "Snapshot Index: " + SnapshotIndex );
 
-			///// <summary> Platform dependent memory metrics. </summary>
-			//public List<long> Metrics;
-			StrBuilder.AppendLine( "Metrics: " );
-			if( MetricArray.Count > 0 )
-			{
-				if( FStreamToken.Version >= 4 )
-				{
-					// Just ignore
-				}
-				else if( FStreamToken.Version > 2 && MetricArray.Count == (int)ESnapshotMetricV3.Count )
-				{
-					string[] MetricNames = Enum.GetNames( typeof( ESnapshotMetricV3 ) );
-					for( int MetricIndex = 0; MetricIndex < MetricNames.Length - 1; MetricIndex++ )
-					{
-						string MetricName = MetricNames[ MetricIndex ];
-						long MetricData = MetricArray[ MetricIndex ];
-						if( MetricData != 0 )
-						{
-							string MetricValue = ( MetricName == "TotalUsedChunks" ) ? MetricData.ToString() : MainWindow.FormatSizeString2( MetricData );
-							string Metric = "	" + MetricName + ": " + MetricValue;
-							StrBuilder.AppendLine( Metric );
-						}
-					}	
-				}
-			}
-
 			///// <summary> Array of names of all currently loaded levels formated for usage in details view tab. </summary>
 			//public List<string> LoadedLevelNames = new List<string>();
 			StrBuilder.AppendLine( "Loaded Levels: " + LoadedLevels.Count );
@@ -557,20 +683,12 @@ namespace MemoryProfiler2
 			///// <summary> Generic memory allocation stats. </summary>
 			//public FMemoryAllocationStats MemoryAllocationStats = new FMemoryAllocationStats();
 
-			if( FStreamToken.Version >= 4 )
-			{
-				StrBuilder.AppendLine( "Memory Allocation Stats: " );
-				StrBuilder.Append( MemoryAllocationStats4.ToString() );
-			}
-			else
-			{
-				StrBuilder.AppendLine( "Memory Allocation Stats: " );
-				StrBuilder.Append( MemoryAllocationStats3.ToString() );
-			}
+			StrBuilder.AppendLine( "Memory Allocation Stats: " );
+			StrBuilder.Append( MemoryAllocationStats4.ToString() );
 			
 			///// <summary> Running count of number of allocations. </summary>
 			//public long AllocationCount = 0;
-			StrBuilder.AppendLine( "Allocation Count: " + AllocationCount );
+			StrBuilder.AppendLine( "Allocation Count: " + AllocationCount.ToString("N0") );
 
 			///// <summary> Running total of size of allocations. </summary>
 			//public long AllocationSize = 0;

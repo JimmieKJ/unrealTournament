@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "OnlineBlueprintCallProxyBase.h"
-#include "OnlineSessionInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "OnlineSessionSettings.h"
+#include "Net/OnlineBlueprintCallProxyBase.h"
+#include "FindSessionsCallbackProxy.h"
 #include "JoinSessionCallbackProxy.generated.h"
+
+class APlayerController;
 
 UCLASS(MinimalAPI)
 class UJoinSessionCallbackProxy : public UOnlineBlueprintCallProxyBase

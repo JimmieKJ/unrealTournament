@@ -7,13 +7,14 @@
 #include "VulkanRHIPrivate.h"
 #include "VulkanSwapChain.h"
 
-FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& InDevice, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height, 
+FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevice, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height,
 	uint32* InOutDesiredNumBackBuffers, TArray<VkImage>& OutImages)
 	: SwapChain(VK_NULL_HANDLE)
 	, Device(InDevice)
 	, Surface(VK_NULL_HANDLE)
 	, CurrentImageIndex(-1)
 	, SemaphoreIndex(0)
+	, Instance(InInstance)
 {
 #if PLATFORM_WINDOWS
 	VkWin32SurfaceCreateInfoKHR SurfaceCreateInfo;
@@ -38,12 +39,12 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& InDevice,
 	FMemory::Memzero(CurrFormat);
 	{
 		uint32 NumFormats;
-		VERIFYVULKANRESULT_EXPANDED(vkGetPhysicalDeviceSurfaceFormatsKHR(Device.GetPhysicalHandle(), Surface, &NumFormats, nullptr));
+		VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkGetPhysicalDeviceSurfaceFormatsKHR(Device.GetPhysicalHandle(), Surface, &NumFormats, nullptr));
 		check(NumFormats > 0);
 
 		TArray<VkSurfaceFormatKHR> Formats;
 		Formats.AddZeroed(NumFormats);
-		VERIFYVULKANRESULT_EXPANDED(vkGetPhysicalDeviceSurfaceFormatsKHR(Device.GetPhysicalHandle(), Surface, &NumFormats, Formats.GetData()));
+		VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkGetPhysicalDeviceSurfaceFormatsKHR(Device.GetPhysicalHandle(), Surface, &NumFormats, Formats.GetData()));
 
 		if (Formats.Num() == 1 && Formats[0].format == VK_FORMAT_UNDEFINED && InOutPixelFormat == PF_Unknown)
 		{
@@ -85,7 +86,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& InDevice,
 
 	//#todo-rco: Check multiple Gfx Queues?
 	VkBool32 bSupportsPresent = VK_FALSE;
-	VERIFYVULKANRESULT(vkGetPhysicalDeviceSurfaceSupportKHR(Device.GetPhysicalHandle(), Device.GetQueue()->GetFamilyIndex(), Surface, &bSupportsPresent));
+	VERIFYVULKANRESULT(VulkanRHI::vkGetPhysicalDeviceSurfaceSupportKHR(Device.GetPhysicalHandle(), Device.GetQueue()->GetFamilyIndex(), Surface, &bSupportsPresent));
 	//#todo-rco: Find separate present queue if the gfx one doesn't support presents
 	check(bSupportsPresent);
 
@@ -94,12 +95,12 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& InDevice,
 #if !PLATFORM_ANDROID
 	{
 		uint32 NumFoundPresentModes = 0;
-		VERIFYVULKANRESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(Device.GetPhysicalHandle(), Surface, &NumFoundPresentModes, nullptr));
+		VERIFYVULKANRESULT(VulkanRHI::vkGetPhysicalDeviceSurfacePresentModesKHR(Device.GetPhysicalHandle(), Surface, &NumFoundPresentModes, nullptr));
 		check(NumFoundPresentModes > 0);
 
 		TArray<VkPresentModeKHR> FoundPresentModes;
 		FoundPresentModes.AddZeroed(NumFoundPresentModes);
-		VERIFYVULKANRESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(Device.GetPhysicalHandle(), Surface, &NumFoundPresentModes, FoundPresentModes.GetData()));
+		VERIFYVULKANRESULT(VulkanRHI::vkGetPhysicalDeviceSurfacePresentModesKHR(Device.GetPhysicalHandle(), Surface, &NumFoundPresentModes, FoundPresentModes.GetData()));
 
 		bool bFoundDesiredMode = false;
 		for (size_t i = 0; i < NumFoundPresentModes; i++)
@@ -121,7 +122,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& InDevice,
 	// Check the surface properties and formats
 	
 	VkSurfaceCapabilitiesKHR SurfProperties;
-	VERIFYVULKANRESULT_EXPANDED(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(Device.GetPhysicalHandle(),
+	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(Device.GetPhysicalHandle(),
 		Surface,
 		&SurfProperties));
 	VkSurfaceTransformFlagBitsKHR PreTransform;
@@ -133,7 +134,8 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& InDevice,
 	{
 		PreTransform = SurfProperties.currentTransform;
 	}
-	uint32 DesiredNumBuffers = FMath::Clamp(*InOutDesiredNumBackBuffers, SurfProperties.minImageCount, SurfProperties.maxImageCount);
+	// 0 means no limit, so use the requested number
+	uint32 DesiredNumBuffers = SurfProperties.maxImageCount > 0 ? FMath::Clamp(*InOutDesiredNumBackBuffers, SurfProperties.minImageCount, SurfProperties.maxImageCount) : *InOutDesiredNumBackBuffers;
 	
 	VkSwapchainCreateInfoKHR SwapChainInfo;
 	FMemory::Memzero(SwapChainInfo);
@@ -144,7 +146,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& InDevice,
 	SwapChainInfo.imageColorSpace = CurrFormat.colorSpace;
 	SwapChainInfo.imageExtent.width = PLATFORM_ANDROID ? Width : (SurfProperties.currentExtent.width == -1 ? Width : SurfProperties.currentExtent.width);
 	SwapChainInfo.imageExtent.height = PLATFORM_ANDROID ? Height : (SurfProperties.currentExtent.height == -1 ? Height : SurfProperties.currentExtent.height);
-	SwapChainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	SwapChainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	SwapChainInfo.preTransform = PreTransform;
 	SwapChainInfo.imageArrayLayers = 1;
 	SwapChainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -163,6 +165,17 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance Instance, FVulkanDevice& InDevice,
 	OutImages.AddUninitialized(NumSwapChainImages);
 	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkGetSwapchainImagesKHR(Device.GetInstanceHandle(), SwapChain, &NumSwapChainImages, OutImages.GetData()));
 
+	ImageAcquiredFences.AddUninitialized(NumSwapChainImages);
+	VulkanRHI::FFenceManager& FenceMgr = Device.GetFenceManager();
+	for (uint32 BufferIndex = 0; BufferIndex < NumSwapChainImages; ++BufferIndex)
+	{
+		VkFenceCreateInfo FenceInfo;
+		FMemory::Memzero(FenceInfo);
+		FenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		FenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+		VERIFYVULKANRESULT(VulkanRHI::vkCreateFence(Device.GetInstanceHandle(), &FenceInfo, nullptr, &ImageAcquiredFences[BufferIndex]));
+	}
+
 	ImageAcquiredSemaphore.AddUninitialized(DesiredNumBuffers);
 	for (uint32 BufferIndex = 0; BufferIndex < DesiredNumBuffers; ++BufferIndex)
 	{
@@ -175,11 +188,20 @@ void FVulkanSwapChain::Destroy()
 	VulkanRHI::vkDestroySwapchainKHR(Device.GetInstanceHandle(), SwapChain, nullptr);
 	SwapChain = VK_NULL_HANDLE;
 
+	VulkanRHI::FFenceManager& FenceMgr = Device.GetFenceManager();
+	for (int32 Index = 0; Index < ImageAcquiredFences.Num(); ++Index)
+	{
+		VulkanRHI::vkDestroyFence(Device.GetInstanceHandle(), ImageAcquiredFences[Index], nullptr);
+	}
+
 	//#todo-rco: Enqueue for deletion as we first need to destroy the cmd buffers and queues otherwise validation fails
 	for (int BufferIndex = 0; BufferIndex < ImageAcquiredSemaphore.Num(); ++BufferIndex)
 	{
 		delete ImageAcquiredSemaphore[BufferIndex];
 	}
+
+	VulkanRHI::vkDestroySurfaceKHR(Instance, Surface, nullptr);
+	Surface = VK_NULL_HANDLE;
 }
 
 int32 FVulkanSwapChain::AcquireImageIndex(FVulkanSemaphore** OutSemaphore)
@@ -189,14 +211,25 @@ int32 FVulkanSwapChain::AcquireImageIndex(FVulkanSemaphore** OutSemaphore)
 	// The ImageAcquiredSemaphore[ImageAcquiredSemaphoreIndex] will get signaled when the image is ready (upon function return).
 	uint32 ImageIndex = 0;
 	SemaphoreIndex = (SemaphoreIndex + 1) % ImageAcquiredSemaphore.Num();
-	*OutSemaphore = ImageAcquiredSemaphore[SemaphoreIndex];
+
+	//#todo-rco: Is this the right place?
+	// Make sure the CPU doesn't get too ahead of the GPU
+	{
+		SCOPE_CYCLE_COUNTER(STAT_VulkanWaitSwapchain);
+		VERIFYVULKANRESULT(VulkanRHI::vkWaitForFences(Device.GetInstanceHandle(), 1, &ImageAcquiredFences[SemaphoreIndex], VK_TRUE, UINT32_MAX));
+	}
+	VERIFYVULKANRESULT(VulkanRHI::vkResetFences(Device.GetInstanceHandle(), 1, &ImageAcquiredFences[SemaphoreIndex]));
+
 	VkResult Result = VulkanRHI::vkAcquireNextImageKHR(
 		Device.GetInstanceHandle(),
 		SwapChain,
 		UINT64_MAX,
 		ImageAcquiredSemaphore[SemaphoreIndex]->GetHandle(),
-		VK_NULL_HANDLE,	// Currently no fence needed
+		ImageAcquiredFences[SemaphoreIndex],	// Currently no fence needed
 		&ImageIndex);
+
+	*OutSemaphore = ImageAcquiredSemaphore[SemaphoreIndex];
+
 	checkf(Result == VK_SUCCESS || Result == VK_SUBOPTIMAL_KHR, TEXT("AcquireNextImageKHR failed Result = %d"), int32(Result));
 	CurrentImageIndex = (int32)ImageIndex;
 	check(CurrentImageIndex == ImageIndex);

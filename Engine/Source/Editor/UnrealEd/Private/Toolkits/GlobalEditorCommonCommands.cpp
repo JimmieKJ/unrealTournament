@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "GlobalEditorCommonCommands.h"
+#include "Toolkits/GlobalEditorCommonCommands.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
 #include "OutputLogModule.h"
 #include "LevelEditor.h"
-#include "SDockTab.h"
-#include "SGlobalOpenAssetDialog.h"
-#include "SGlobalTabSwitchingDialog.h"
-#include "IMenu.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Toolkits/SGlobalOpenAssetDialog.h"
+#include "Toolkits/SGlobalTabSwitchingDialog.h"
 
 #define LOCTEXT_NAMESPACE "GlobalEditorCommonCommands"
 
@@ -135,7 +141,7 @@ void FGlobalEditorCommonCommands::OnSummonedConsoleCommandBox()
 {
 	TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().GetActiveTopLevelWindow();
 	
-	if( ParentWindow.IsValid() )
+	if( ParentWindow.IsValid() && ParentWindow->GetType() == EWindowType::Normal )
 	{
 		TSharedRef<SWindow> WindowRef = ParentWindow.ToSharedRef();
 		FOutputLogModule& OutputLogModule = FModuleManager::LoadModuleChecked< FOutputLogModule >(TEXT("OutputLog"));

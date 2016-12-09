@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PrivatePCH.h"
 #include "Parent.h"
+#include "TestPALLog.h"
 
 FParent::FParent(int InNumTotalChildren, int InMaxChildrenAtOnce)
 	:	NumTotalChildren(InNumTotalChildren)

@@ -1,15 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealFrontendPrivatePCH.h"
-#include "AutomationController.h"
+#include "UserInterfaceCommand.h"
+#include "IAutomationControllerModule.h"
 #include "ISlateReflectorModule.h"
-#include "Projects.h"
-#include "SlateBasics.h"
+#include "Interfaces/IPluginManager.h"
 #include "StandaloneRenderer.h"
 #include "TaskGraphInterfaces.h"
-#include "UserInterfaceCommand.h"
 #include "ISourceCodeAccessModule.h"
-
+#include "Containers/Ticker.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Framework/Docking/TabManager.h"
+#include "Framework/Docking/LayoutService.h"
+#include "Framework/Application/SlateApplication.h"
+#include "HAL/PlatformProcess.h"
 
 #define IDEAL_FRAMERATE 60;
 
@@ -115,11 +119,13 @@ void FUserInterfaceCommand::InitializeSlateApplication( const FString& LayoutIni
 		}
 	}
 
+	const float DPIScaleFactor = FPlatformMisc::GetDPIScaleFactorAtPoint(10.0f, 10.0f);
+
 	// restore application layout
 	TSharedRef<FTabManager::FLayout> NewLayout = FTabManager::NewLayout("SessionFrontendLayout_v1.1")
 		->AddArea
 		(
-			FTabManager::NewArea(1280.f, 720.0f)
+			FTabManager::NewArea(1280.f * DPIScaleFactor, 720.0f * DPIScaleFactor)
 				->Split
 				(
 					FTabManager::NewStack()
@@ -131,8 +137,8 @@ void FUserInterfaceCommand::InitializeSlateApplication( const FString& LayoutIni
 		)
 		->AddArea
 		(
-			FTabManager::NewArea(600.0f, 600.0f)
-				->SetWindow(FVector2D(10.0f, 10.0f), false)
+			FTabManager::NewArea(600.0f * DPIScaleFactor, 600.0f * DPIScaleFactor)
+				->SetWindow(FVector2D(10.0f * DPIScaleFactor, 10.0f * DPIScaleFactor), false)
 				->Split
 				(
 					FTabManager::NewStack()->AddTab("WidgetReflector", bAllowDebugTools ? ETabState::OpenedTab : ETabState::ClosedTab)

@@ -1,15 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
+#include "TileMapEditing/STileLayerList.h"
+#include "PaperTileLayer.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Misc/NotifyHook.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Views/SListView.h"
+#include "Exporters/Exporter.h"
+#include "Editor.h"
 #include "PaperTileMapComponent.h"
-#include "STileLayerList.h"
-#include "STileLayerItem.h"
+#include "TileMapEditing/STileLayerItem.h"
 #include "PaperStyle.h"
 
 #include "ScopedTransaction.h"
 
-#include "TileMapEditorCommands.h"
-#include "GenericCommands.h"
+#include "TileMapEditing/TileMapEditorCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #include "UnrealExporter.h"
 #include "Factories.h"

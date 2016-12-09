@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Components/BrushComponent.h"
 #include "GameFramework/PhysicsVolume.h"
+#include "Engine/World.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/BrushComponent.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 
 APhysicsVolume::APhysicsVolume(const FObjectInitializer& ObjectInitializer)

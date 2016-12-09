@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "SProfilerOverview.h"
-#include "BPProfilerStatisticWidgets.h"
+#include "Profiler/SProfilerOverview.h"
+#include "EditorStyleSet.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "BlueprintProfilerModule.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SProfilerOverview

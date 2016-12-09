@@ -1,17 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
 #include "FoliagePaletteItem.h"
-#include "FoliageEdMode.h"
-#include "SFoliagePalette.h"
-#include "FoliageType.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
 
-#include "LevelEditor.h"
-#include "Editor/UnrealEd/Public/AssetThumbnail.h"
-#include "Engine/StaticMesh.h"
-#include "AssetToolsModule.h"
+#include "FoliageType.h"
 #include "FoliageType_InstancedStaticMesh.h"
+
+#include "AssetThumbnail.h"
+#include "IAssetTools.h"
+#include "IAssetTypeActions.h"
+#include "AssetToolsModule.h"
 
 #define LOCTEXT_NAMESPACE "FoliageEd_Mode"
 

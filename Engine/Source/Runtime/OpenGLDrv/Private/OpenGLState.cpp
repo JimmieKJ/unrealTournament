@@ -4,8 +4,11 @@
 	OpenGLState.cpp: OpenGL state implementation.
 =============================================================================*/
 
-#include "OpenGLDrvPrivate.h"
+#include "CoreMinimal.h"
+#include "Serialization/MemoryWriter.h"
+#include "RHI.h"
 #include "ShaderCache.h"
+#include "OpenGLDrv.h"
 
 GLint GMaxOpenGLTextureFilterAnisotropic = 1;
 
@@ -64,8 +67,8 @@ static GLenum TranslateCullMode(ERasterizerCullMode CullMode)
 {
 	switch(CullMode)
 	{
-	case CM_CW: return GL_FRONT;
-	case CM_CCW: return GL_BACK;
+	case CM_CW: return FOpenGL::SupportsClipControl() ? GL_BACK : GL_FRONT;
+	case CM_CCW: return FOpenGL::SupportsClipControl() ? GL_FRONT : GL_BACK;
 	default: return GL_NONE;
 	};
 }

@@ -5,6 +5,9 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/PawnMovementComponent.h"
 #include "FloatingPawnMovement.generated.h"
 

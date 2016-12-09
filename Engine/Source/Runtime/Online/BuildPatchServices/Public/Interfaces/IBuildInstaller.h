@@ -6,6 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "BuildPatchState.h"
+
+class IBuildInstaller;
+
 typedef TSharedPtr< class IBuildInstaller, ESPMode::ThreadSafe > IBuildInstallerPtr;
 typedef TSharedRef< class IBuildInstaller, ESPMode::ThreadSafe > IBuildInstallerRef;
 
@@ -239,37 +244,37 @@ public:
 	 * Get whether the install has complete
 	 * @return	true if the thread completed
 	 */
-	virtual bool IsComplete() = 0;
+	virtual bool IsComplete() const = 0;
 
 	/**
 	 * Get whether the install was canceled. Only valid if complete.
 	 * @return	true if installation was canceled
 	 */
-	virtual bool IsCanceled() = 0;
+	virtual bool IsCanceled() const = 0;
 
 	/**
 	 * Get whether the install is currently paused.
 	 * @return	true if installation is paused
 	 */
-	virtual bool IsPaused() = 0;
+	virtual bool IsPaused() const = 0;
 
 	/**
 	 * Get whether the install can be resumed.
 	 * @return	true if installation is resumable
 	 */
-	virtual bool IsResumable() = 0;
+	virtual bool IsResumable() const = 0;
 
 	/**
 	 * Get whether the install failed. Only valid if complete.
 	 * @return	true if installation was a failure
 	 */
-	virtual bool HasError() = 0;
+	virtual bool HasError() const = 0;
 
 	/**
 	 * Get the type of error for a failure that has occurred.
 	 * @return	the enum representing the type of error
 	 */
-	virtual EBuildPatchInstallError GetErrorType() = 0;
+	virtual EBuildPatchInstallError GetErrorType() const = 0;
 
 	/**
 	 * This is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]
@@ -277,7 +282,7 @@ public:
 	 * Get the percentage complete text for the current process
 	 * @return	percentage complete text progress
 	 */
-	virtual FText GetPercentageText() = 0;
+	virtual FText GetPercentageText() const = 0;
 
 	/**
 	 * This is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]
@@ -285,43 +290,52 @@ public:
 	 * Get the download speed text for the current process
 	 * @return	download speed text progress
 	 */
-	virtual FText GetDownloadSpeedText()  = 0;
+	virtual FText GetDownloadSpeedText() const = 0;
 
 	/**
 	 * Get the download speed for the current process
 	 * @return	download speed progress
 	 */
-	virtual double GetDownloadSpeed() const  = 0;
+	virtual double GetDownloadSpeed() const = 0;
 
 	/**
 	 * Get the initial download size
 	 * @return	the initial download size
 	 */
-	virtual int64 GetInitialDownloadSize() const  = 0;
+	virtual int64 GetInitialDownloadSize() const = 0;
 
 	/**
-	* Get the total currently downloaded
-	* @return	the total currently downloaded
+	 * Get the total currently downloaded
+	 * @return	the total currently downloaded
 	 */
 	virtual int64 GetTotalDownloaded() const = 0;
 
 	/**
+	 * Get the status of the install process.
+	 * @return Status of the install process.
+	 */
+	virtual BuildPatchServices::EBuildPatchState GetState() const = 0;
+
+	/**
+	 * This is deprecated and redundant [2016/06/12 leigh.swift]
+	 * Instead, you can BuildPatchServices::StateToText(Installer->GetState()).
+	 *
 	 * Get the text for status of the install process.
 	 * @return Status of the install process.
 	 */
-	virtual FText GetStatusText() = 0;
+	virtual FText GetStatusText() const = 0;
 
 	/**
 	 * Get the update progress
 	 * @return	A float describing progress: Between 0 and 1 for known progress, or less than 0 for unknown progress.
 	 */
-	virtual float GetUpdateProgress() = 0;
+	virtual float GetUpdateProgress() const = 0;
 
 	/**
 	 * Get the build stats for the process. This should only be called after the install has completed
 	 * @return	A struct containing information about the build
 	 */
-	virtual FBuildInstallStats GetBuildStatistics() = 0;
+	virtual FBuildInstallStats GetBuildStatistics() const = 0;
 
 	/**
 	 * Get the current download health rating.
@@ -333,7 +347,14 @@ public:
 	 * Get the display text for the error that occurred. Only valid to call after completion
 	 * @return	display error text
 	 */
-	virtual FText GetErrorText() = 0;
+	virtual FText GetErrorText() const = 0;
+
+	/**
+	 * Get the installation error code. This includes the failure type as well as specific code associated. The value is alphanumeric.
+	 * This is only guaranteed to be set once the installation has completed.
+	 * @returns the code as a string.
+	 */
+	virtual FString GetErrorCode() const = 0;
 
 	/**
 	 * Cancel the current install
@@ -345,12 +366,4 @@ public:
 	 * @return true if the installer is now paused
 	 */
 	virtual bool TogglePauseInstall() = 0;
-
-	/**
-	 * Get the installation error code. This includes the failure type as well as specific code associated. The value is alphanumeric.
-	 * This is only guaranteed to be set once the installation has completed.
-	 * @returns the code as a string.
-	 */
-	virtual FString GetErrorCode() = 0;
 };
-

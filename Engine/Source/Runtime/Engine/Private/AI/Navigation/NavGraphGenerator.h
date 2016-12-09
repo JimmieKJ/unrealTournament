@@ -2,6 +2,8 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "GameFramework/Volume.h"
 #include "AI/NavDataGenerator.h"
 
 class ANavigationGraph;

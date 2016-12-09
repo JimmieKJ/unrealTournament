@@ -1,10 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MaterialEditorModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditing.h"
-#include "MaterialEditor.h"
 #include "MaterialEditorDetailCustomization.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableText.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/SListView.h"
+#include "Materials/Material.h"
 #include "Materials/MaterialParameterCollection.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
 #include "Materials/MaterialExpressionScalarParameter.h"
 
 #define LOCTEXT_NAMESPACE "MaterialEditor"

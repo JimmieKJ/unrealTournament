@@ -4,6 +4,6 @@
 #ifndef __UnrealFileServer_h__
 #define __UnrealFileServer_h__
 
-#include "Core.h"
+#include "CoreMinimal.h"
 
 #endif		// __UnrealFileServer_h__

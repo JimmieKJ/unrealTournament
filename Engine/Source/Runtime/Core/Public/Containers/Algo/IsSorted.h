@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 namespace AlgoImpl
 {
 	template <typename T, typename PredType>

@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "LeapMotionPublicPCH.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
 #include "LeapBaseObject.generated.h"
 
 /**

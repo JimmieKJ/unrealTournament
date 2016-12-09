@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Components/BrushComponent.h"
 #include "Engine/PostProcessVolume.h"
+#include "Engine/CollisionProfile.h"
+#include "Components/BrushComponent.h"
 
 APostProcessVolume::APostProcessVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "BehaviorTreeTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "BehaviorTree/BTAuxiliaryNode.h"
 #include "BTService.generated.h"
 

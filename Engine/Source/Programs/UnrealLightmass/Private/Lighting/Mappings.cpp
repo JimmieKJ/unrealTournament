@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
+#include "Mappings.h"
 #include "Importer.h"
-
+#include "StaticMesh.h"
 
 namespace Lightmass
 {

@@ -2,7 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
 #include "GameplayTagContainer.generated.h"
+
+class UEditableGameplayTagQuery;
+struct FGameplayTagContainer;
+struct FPropertyTag;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogGameplayTags, Log, All);
 
@@ -12,9 +21,9 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("FGameplayTagContainer::HasTag"), STAT_FGameplayT
 DECLARE_CYCLE_STAT_EXTERN(TEXT("FGameplayTagContainer::DoesTagContainerMatch"), STAT_FGameplayTagContainer_DoesTagContainerMatch, STATGROUP_GameplayTags, GAMEPLAYTAGS_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("UGameplayTagsManager::GameplayTagsMatch"), STAT_UGameplayTagsManager_GameplayTagsMatch, STATGROUP_GameplayTags, GAMEPLAYTAGS_API);
 
+struct FGameplayTagContainer;
 
-#define CHECK_TAG_OPTIMIZATIONS (0)
-
+// DEPRECATED ENUMS
 UENUM(BlueprintType)
 namespace EGameplayTagMatchType
 {
@@ -35,7 +44,8 @@ enum class EGameplayContainerMatchType : uint8
 typedef uint16 FGameplayTagNetIndex;
 #define INVALID_TAGNETINDEX MAX_uint16
 
-USTRUCT(BlueprintType)
+/** A single gameplay tag, which represents a hierarchical name of the form x.y that is registered in the GameplayTagsManager */
+USTRUCT(BlueprintType, meta = (HasNativeMake = "GameplayTags.BlueprintGameplayTagLibrary.MakeLiteralGameplayTag", HasNativeBreak = "GameplayTags.BlueprintGameplayTagLibrary.GetTagName"))
 struct GAMEPLAYTAGS_API FGameplayTag
 {
 	GENERATED_USTRUCT_BODY()
@@ -44,80 +54,116 @@ struct GAMEPLAYTAGS_API FGameplayTag
 	FGameplayTag()
 	{
 	}
+
+	/**
+	 * Gets the FGameplayTag that corresponds to the TagName
+	 *
+	 * @param TagName The Name of the tag to search for
+	 * 
+	 * @param ErrorIfNotfound: ensure() that tag exists.
+	 * 
+	 * @return Will return the corresponding FGameplayTag or an empty one if not found.
+	 */
+	static FGameplayTag RequestGameplayTag(FName TagName, bool ErrorIfNotFound=true);
+
 	/** Operators */
-	FORCEINLINE_DEBUGGABLE bool operator==(FGameplayTag const& Other) const
+	FORCEINLINE bool operator==(FGameplayTag const& Other) const
 	{
 		return TagName == Other.TagName;
 	}
 
-	FORCEINLINE_DEBUGGABLE bool operator!=(FGameplayTag const& Other) const
+	FORCEINLINE bool operator!=(FGameplayTag const& Other) const
 	{
 		return TagName != Other.TagName;
 	}
 
-	FORCEINLINE_DEBUGGABLE bool operator<(FGameplayTag const& Other) const
+	FORCEINLINE bool operator<(FGameplayTag const& Other) const
 	{
 		return TagName < Other.TagName;
 	}
-	
+
 	/**
-	 * Check to see if two FGameplayTags match
-	 *
-	 * @param MatchTypeOne	How we compare this tag, Explicitly or a match with any parents as well
-	 * @param Other			The second tag to compare against
-	 * @param MatchTypeTwo	How we compare Other tag, Explicitly or a match with any parents as well
+	 * Determine if this tag matches TagToCheck, expanding our parent tags
+	 * "A.1".MatchesTag("A") will return True, "A".MatchesTag("A.1") will return False
+	 * If TagToCheck is not Valid it will always return False
 	 * 
-	 * @return True if there is a match according to the specified match types; false if not
+	 * @return True if this tag matches TagToCheck
 	 */
-	FORCEINLINE_DEBUGGABLE bool Matches(TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& Other, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const
+	bool MatchesTag(const FGameplayTag& TagToCheck) const;
+
+	/**
+	 * Determine if TagToCheck is valid and exactly matches this tag
+	 * "A.1".MatchesTagExact("A") will return False
+	 * If TagToCheck is not Valid it will always return False
+	 * 
+	 * @return True if TagToCheck is Valid and is exactly this tag
+	 */
+	FORCEINLINE bool MatchesTagExact(const FGameplayTag& TagToCheck) const
 	{
-		bool bResult;
-		if (MatchTypeOne == EGameplayTagMatchType::Explicit && MatchTypeTwo == EGameplayTagMatchType::Explicit)
+		if (!TagToCheck.IsValid())
 		{
-			bResult = TagName == Other.TagName;
+			return false;
 		}
-		else
-		{
-			bResult = ComplexMatches(MatchTypeOne, Other, MatchTypeTwo);
-		}
-#if CHECK_TAG_OPTIMIZATIONS
-		check(bResult == MatchesOriginal(MatchTypeOne, Other, MatchTypeTwo));
-#endif
-		return bResult;
+		// Only check check explicit tag list
+		return TagName == TagToCheck.TagName;
 	}
+
 	/**
-	 * Check to see if two FGameplayTags match
+	 * Check to see how closely two FGameplayTags match. Higher values indicate more matching terms in the tags.
 	 *
-	 * @param MatchTypeOne	How we compare this tag, Explicitly or a match with any parents as well
-	 * @param Other			The second tag to compare against
-	 * @param MatchTypeTwo	How we compare Other tag, Explicitly or a match with any parents as well
-	 * 
-	 * @return True if there is a match according to the specified match types; false if not
+	 * @param TagToCheck	Tag to match against
+	 *
+	 * @return The depth of the match, higher means they are closer to an exact match
 	 */
-	bool ComplexMatches(TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& Other, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const;
-#if CHECK_TAG_OPTIMIZATIONS
-	bool MatchesOriginal(TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& Other, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const;
-#endif
+	int32 MatchesTagDepth(const FGameplayTag& TagToCheck) const;
+
+	/**
+	 * Checks if this tag matches ANY of the tags in the specified container, also checks against our parent tags
+	 * "A.1".MatchesAny({"A","B"}) will return True, "A".MatchesAny({"A.1","B"}) will return False
+	 * If ContainerToCheck is empty/invalid it will always return False
+	 *
+	 * @return True if this tag matches ANY of the tags of in ContainerToCheck
+	 */
+	bool MatchesAny(const FGameplayTagContainer& ContainerToCheck) const;
+
+	/**
+	 * Checks if this tag matches ANY of the tags in the specified container, only allowing exact matches
+	 * "A.1".MatchesAny({"A","B"}) will return False
+	 * If ContainerToCheck is empty/invalid it will always return False
+	 *
+	 * @return True if this tag matches ANY of the tags of in ContainerToCheck exactly
+	 */
+	bool MatchesAnyExact(const FGameplayTagContainer& ContainerToCheck) const;
+
 	/** Returns whether the tag is valid or not; Invalid tags are set to NAME_None and do not exist in the game-specific global dictionary */
 	FORCEINLINE bool IsValid() const
 	{
 		return (TagName != NAME_None);
 	}
 
-	/** Used so we can have a TMap of this struct*/
-	friend uint32 GetTypeHash(const FGameplayTag& Tag)
+	/** Returns reference to a GameplayTagContainer containing only this tag */
+	const FGameplayTagContainer& GetSingleTagContainer() const;
+
+	/** Returns direct parent GameplayTag of this GameplayTag, calling on x.y will return x */
+	FGameplayTag RequestDirectParent() const;
+
+	/** Returns a new container explicitly containing the tags of this tag */
+	FGameplayTagContainer GetGameplayTagParents() const;
+
+	/** Used so we can have a TMap of this struct */
+	FORCEINLINE friend uint32 GetTypeHash(const FGameplayTag& Tag)
 	{
 		return ::GetTypeHash(Tag.TagName);
 	}
 
 	/** Displays gameplay tag as a string for blueprint graph usage */
-	FString ToString() const
+	FORCEINLINE FString ToString() const
 	{
 		return TagName.ToString();
 	}
 
 	/** Get the tag represented as a name */
-	FName GetTagName() const
+	FORCEINLINE FName GetTagName() const
 	{
 		return TagName;
 	}
@@ -127,9 +173,6 @@ struct GAMEPLAYTAGS_API FGameplayTag
 		Ar << GameplayTag.TagName;
 		return Ar;
 	}
-
-	/** Returns direct parent GameplayTag of this GameplayTag */
-	FGameplayTag RequestDirectParent() const;
 
 	/** Overridden for fast serialize */
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
@@ -141,8 +184,55 @@ struct GAMEPLAYTAGS_API FGameplayTag
 	/** Used to upgrade a Name property to a GameplayTag struct property */
 	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
 
+	/** Sets from a ImportText string, used in asset registry */
+	void FromExportString(FString ExportString);
+
 	/** Handles importing tag strings without (TagName=) in it */
 	bool ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText);
+
+	/** An empty Gameplay Tag */
+	static const FGameplayTag EmptyTag;
+
+	// DEPRECATED
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
+	/**
+	 * Check to see if two FGameplayTags match with explicit match types
+	 *
+	 * @param MatchTypeOne	How we compare this tag, Explicitly or a match with any parents as well
+	 * @param Other			The second tag to compare against
+	 * @param MatchTypeTwo	How we compare Other tag, Explicitly or a match with any parents as well
+	 * 
+	 * @return True if there is a match according to the specified match types; false if not
+	 */
+	DEPRECATED(4.15, "Deprecated in favor of MatchesTag")
+	FORCEINLINE_DEBUGGABLE bool Matches(TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& Other, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const
+	{
+		bool bResult = false;
+		if (MatchTypeOne == EGameplayTagMatchType::Explicit && MatchTypeTwo == EGameplayTagMatchType::Explicit)
+		{
+			bResult = TagName == Other.TagName;
+		}
+		else
+		{
+			bResult = ComplexMatches(MatchTypeOne, Other, MatchTypeTwo);
+		}
+		return bResult;
+	}
+	/**
+	 * Check to see if two FGameplayTags match
+	 *
+	 * @param MatchTypeOne	How we compare this tag, Explicitly or a match with any parents as well
+	 * @param Other			The second tag to compare against
+	 * @param MatchTypeTwo	How we compare Other tag, Explicitly or a match with any parents as well
+	 * 
+	 * @return True if there is a match according to the specified match types; false if not
+	 */
+	DEPRECATED(4.15, "Deprecated in favor of MatchesTag")
+	bool ComplexMatches(TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& Other, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const;
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 private:
 
@@ -155,6 +245,7 @@ private:
 
 	friend class UGameplayTagsManager;
 	friend struct FGameplayTagContainer;
+	friend struct FGameplayTagNode;
 };
 
 template<>
@@ -169,8 +260,8 @@ struct TStructOpsTypeTraits< FGameplayTag > : public TStructOpsTypeTraitsBase
 	};
 };
 
-/** Simple struct for a gameplay tag container */
-USTRUCT(BlueprintType)
+/** A Tag Container holds a collection of FGameplayTags, tags are included explicitly by adding them, and implicitly from adding child tags */
+USTRUCT(BlueprintType, meta = (HasNativeMake = "GameplayTags.BlueprintGameplayTagLibrary.MakeGameplayTagContainerFromArray", HasNativeBreak = "GameplayTags.BlueprintGameplayTagLibrary.BreakGameplayTagContainer"))
 struct GAMEPLAYTAGS_API FGameplayTagContainer
 {
 	GENERATED_USTRUCT_BODY()
@@ -179,23 +270,37 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 	FGameplayTagContainer()
 	{
 	}
+
 	FGameplayTagContainer(FGameplayTagContainer const& Other)
 	{
 		*this = Other;
 	}
 
-	FGameplayTagContainer(const FGameplayTag& Tag)
+	/** Explicit to prevent people from accidentally using the wrong type of operation */
+	explicit FGameplayTagContainer(const FGameplayTag& Tag)
 	{
 		AddTag(Tag);
 	}
 
 	FGameplayTagContainer(FGameplayTagContainer&& Other)
 		: GameplayTags(MoveTemp(Other.GameplayTags))
+		, ParentTags(MoveTemp(Other.ParentTags))
 	{
 
 	}
+
 	~FGameplayTagContainer()
 	{
+	}
+
+	/** Creates a container from an array of tags, this is more efficient than adding them all individually */
+	template<class AllocatorType>
+	static FGameplayTagContainer CreateFromArray(const TArray<FGameplayTag, AllocatorType>& SourceTags)
+	{
+		FGameplayTagContainer Container;
+		Container.GameplayTags.Append(SourceTags);
+		Container.FillParentTags();
+		return Container;
 	}
 
 	/** Assignment/Equality operators */
@@ -204,63 +309,170 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 	bool operator==(FGameplayTagContainer const& Other) const;
 	bool operator!=(FGameplayTagContainer const& Other) const;
 
-	template<class AllocatorType>
-	static FGameplayTagContainer CreateFromArray(TArray<FGameplayTag, AllocatorType>& SourceTags)
+	/**
+	 * Determine if TagToCheck is present in this container, also checking against parent tags
+	 * {"A.1"}.HasTag("A") will return True, {"A"}.HasTag("A.1") will return False
+	 * If TagToCheck is not Valid it will always return False
+	 * 
+	 * @return True if TagToCheck is in this container, false if it is not
+	 */
+	FORCEINLINE_DEBUGGABLE bool HasTag(const FGameplayTag& TagToCheck) const
 	{
-		FGameplayTagContainer Container;
-		Container.GameplayTags.Append(SourceTags);
-		return Container;
+		if (!TagToCheck.IsValid())
+		{
+			return false;
+		}
+		// Check explicit and parent tag list 
+		return GameplayTags.Contains(TagToCheck) || ParentTags.Contains(TagToCheck);
 	}
 
-	/**  Returns a new container containing all of the tags of this container, as well as all of their parent tags */
+	/**
+	 * Determine if TagToCheck is explicitly present in this container, only allowing exact matches
+	 * {"A.1"}.HasTagExact("A") will return False
+	 * If TagToCheck is not Valid it will always return False
+	 * 
+	 * @return True if TagToCheck is in this container, false if it is not
+	 */
+	FORCEINLINE_DEBUGGABLE bool HasTagExact(const FGameplayTag& TagToCheck) const
+	{
+		if (!TagToCheck.IsValid())
+		{
+			return false;
+		}
+		// Only check check explicit tag list
+		return GameplayTags.Contains(TagToCheck);
+	}
+
+	/**
+	 * Checks if this container contains ANY of the tags in the specified container, also checks against parent tags
+	 * {"A.1"}.HasAny({"A","B"}) will return True, {"A"}.HasAny({"A.1","B"}) will return False
+	 * If ContainerToCheck is empty/invalid it will always return False
+	 *
+	 * @return True if this container has ANY of the tags of in ContainerToCheck
+	 */
+	FORCEINLINE_DEBUGGABLE bool HasAny(const FGameplayTagContainer& ContainerToCheck) const
+	{
+		if (ContainerToCheck.IsEmpty())
+		{
+			return false;
+		}
+		for (const FGameplayTag& OtherTag : ContainerToCheck.GameplayTags)
+		{
+			if (GameplayTags.Contains(OtherTag) || ParentTags.Contains(OtherTag))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Checks if this container contains ANY of the tags in the specified container, only allowing exact matches
+	 * {"A.1"}.HasAny({"A","B"}) will return False
+	 * If ContainerToCheck is empty/invalid it will always return False
+	 *
+	 * @return True if this container has ANY of the tags of in ContainerToCheck
+	 */
+	FORCEINLINE_DEBUGGABLE bool HasAnyExact(const FGameplayTagContainer& ContainerToCheck) const
+	{
+		if (ContainerToCheck.IsEmpty())
+		{
+			return false;
+		}
+		for (const FGameplayTag& OtherTag : ContainerToCheck.GameplayTags)
+		{
+			if (GameplayTags.Contains(OtherTag))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Checks if this container contains ALL of the tags in the specified container, also checks against parent tags
+	 * {"A.1","B.1"}.HasAll({"A","B"}) will return True, {"A","B"}.HasAll({"A.1","B.1"}) will return False
+	 * If ContainerToCheck is empty/invalid it will always return True, because there were no failed checks
+	 *
+	 * @return True if this container has ALL of the tags of in ContainerToCheck, including if ContainerToCheck is empty
+	 */
+	FORCEINLINE_DEBUGGABLE bool HasAll(const FGameplayTagContainer& ContainerToCheck) const
+	{
+		if (ContainerToCheck.IsEmpty())
+		{
+			return true;
+		}
+		for (const FGameplayTag& OtherTag : ContainerToCheck.GameplayTags)
+		{
+			if (!GameplayTags.Contains(OtherTag) && !ParentTags.Contains(OtherTag))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Checks if this container contains ALL of the tags in the specified container, only allowing exact matches
+	 * {"A.1","B.1"}.HasAll({"A","B"}) will return False
+	 * If ContainerToCheck is empty/invalid it will always return True, because there were no failed checks
+	 *
+	 * @return True if this container has ALL of the tags of in ContainerToCheck, including if ContainerToCheck is empty
+	 */
+	FORCEINLINE_DEBUGGABLE bool HasAllExact(const FGameplayTagContainer& ContainerToCheck) const
+	{
+		if (ContainerToCheck.IsEmpty())
+		{
+			return true;
+		}
+		for (const FGameplayTag& OtherTag : ContainerToCheck.GameplayTags)
+		{
+			if (!GameplayTags.Contains(OtherTag))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** Returns the number of explicitly added tags */
+	FORCEINLINE int32 Num() const
+	{
+		return GameplayTags.Num();
+	}
+
+	/** Returns whether the container has any valid tags */
+	FORCEINLINE bool IsValid() const
+	{
+		return GameplayTags.Num() > 0;
+	}
+
+	/** Returns true if container is empty */
+	FORCEINLINE bool IsEmpty() const
+	{
+		return GameplayTags.Num() == 0;
+	}
+
+	/** Returns a new container explicitly containing the tags of this container and all of their parent tags */
 	FGameplayTagContainer GetGameplayTagParents() const;
 
 	/**
-	 * Returns a filtered version of this container, as if the container were filtered by matches from the parameter container
+	 * Returns a filtered version of this container, returns all tags that match against any of the tags in OtherContainer, expanding parents
 	 *
 	 * @param OtherContainer		The Container to filter against
-	 * @param TagMatchType			Type of match to use for the tags in this container
-	 * @param OtherTagMatchType		Type of match to use for the tags in the OtherContainer param
 	 *
 	 * @return A FGameplayTagContainer containing the filtered tags
 	 */
-	FGameplayTagContainer Filter(const FGameplayTagContainer& OtherContainer, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType, TEnumAsByte<EGameplayTagMatchType::Type> OtherTagMatchType) const;
+	FGameplayTagContainer Filter(const FGameplayTagContainer& OtherContainer) const;
 
 	/**
-	 * Checks if this container matches ANY of the tags in the specified container. Performs matching by expanding this container out
-	 * to include its parent tags.
+	 * Returns a filtered version of this container, returns all tags that match exactly one in OtherContainer
 	 *
-	 * @param Other					Container we are checking against
-	 * @param bCountEmptyAsMatch	If true, the parameter tag container will count as matching even if it's empty
+	 * @param OtherContainer		The Container to filter against
 	 *
-	 * @return True if this container has ANY the tags of the passed in container
+	 * @return A FGameplayTagContainer containing the filtered tags
 	 */
-	FORCEINLINE_DEBUGGABLE bool MatchesAny(const FGameplayTagContainer& Other, bool bCountEmptyAsMatch) const
-	{
-		if (Other.Num() == 0)
-		{
-			return bCountEmptyAsMatch;
-		}
-		return DoesTagContainerMatch(Other, EGameplayTagMatchType::IncludeParentTags, EGameplayTagMatchType::Explicit, EGameplayContainerMatchType::Any);
-	}
-
-	/**
-	* Checks if this container matches ALL of the tags in the specified container. Performs matching by expanding this container out to
-	* include its parent tags.
-	*
-	* @param Other				Container we are checking against
-	* @param bCountEmptyAsMatch	If true, the parameter tag container will count as matching even if it's empty
-	* 
-	* @return True if this container has ALL the tags of the passed in container
-	*/
-	FORCEINLINE_DEBUGGABLE bool MatchesAll(const FGameplayTagContainer& Other, bool bCountEmptyAsMatch) const
-	{
-		if (Other.Num() == 0)
-		{
-			return bCountEmptyAsMatch;
-		}
-		return DoesTagContainerMatch(Other, EGameplayTagMatchType::IncludeParentTags, EGameplayTagMatchType::Explicit, EGameplayContainerMatchType::All);
-	}
+	FGameplayTagContainer FilterExact(const FGameplayTagContainer& OtherContainer) const;
 
 	/** 
 	 * Checks if this container matches the given query.
@@ -270,60 +482,6 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 	 * @return True if this container matches the query, false otherwise.
 	 */
 	bool MatchesQuery(const struct FGameplayTagQuery& Query) const;
-
-
-	/**
-	 * Determine if the container has the specified tag. This forces an explicit match. 
-	 * This function exists for convenience and brevity. We do not wish to use default values for ::HasTag match type parameters, to avoid confusion on what the default behavior is. (E.g., we want people to think and use the right match type).
-	 * 
-	 * @param TagToCheck			Tag to check if it is present in the container
-	 * 
-	 * @return True if the tag is in the container, false if it is not
-	 */
-	FORCEINLINE_DEBUGGABLE bool HasTagExplicit(FGameplayTag const& TagToCheck) const
-	{
-		return HasTag(TagToCheck, EGameplayTagMatchType::Explicit, EGameplayTagMatchType::Explicit);
-	}
-
-	/**
-	 * Determine if the container has the specified tag
-	 * 
-	 * @param TagToCheck			Tag to check if it is present in the container
-	 * @param TagMatchType			Type of match to use for the tags in this container
-	 * @param TagToCheckMatchType	Type of match to use for the TagToCheck Param
-	 * 
-	 * @return True if the tag is in the container, false if it is not
-	 */
-	FORCEINLINE_DEBUGGABLE bool HasTag(FGameplayTag const& TagToCheck, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType=EGameplayTagMatchType::Explicit, TEnumAsByte<EGameplayTagMatchType::Type> TagToCheckMatchType=EGameplayTagMatchType::Explicit) const
-	{
-		SCOPE_CYCLE_COUNTER(STAT_FGameplayTagContainer_HasTag);
-		bool bResult;
-		if (TagMatchType == EGameplayTagMatchType::Explicit && TagToCheckMatchType == EGameplayTagMatchType::Explicit)
-		{
-			bResult = GameplayTags.Contains(TagToCheck);
-		}
-		else
-		{
-			bResult = ComplexHasTag(TagToCheck, TagMatchType, TagToCheckMatchType);
-		}
-#if CHECK_TAG_OPTIMIZATIONS
-		check(bResult == HasTagOriginal(TagToCheck, TagMatchType, TagToCheckMatchType));
-#endif
-		return bResult;
-	}
-	/**
-	 * Determine if the container has the specified tag
-	 * 
-	 * @param TagToCheck			Tag to check if it is present in the container
-	 * @param TagMatchType			Type of match to use for the tags in this container
-	 * @param TagToCheckMatchType	Type of match to use for the TagToCheck Param
-	 * 
-	 * @return True if the tag is in the container, false if it is not
-	 */
-	bool ComplexHasTag(FGameplayTag const& TagToCheck, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType, TEnumAsByte<EGameplayTagMatchType::Type> TagToCheckMatchType) const;
-#if CHECK_TAG_OPTIMIZATIONS
-	bool HasTagOriginal(FGameplayTag const& TagToCheck, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType, TEnumAsByte<EGameplayTagMatchType::Type> TagToCheckMatchType) const;
-#endif
 
 	/** 
 	 * Adds all the tags from one container to this container 
@@ -335,7 +493,7 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 	/** 
 	 * Adds all the tags that match between the two specified containers to this container 
 	 *
-	 * @param OtherA TagContainer that has the matching tags you want to add to this container 
+	 * @param OtherA TagContainer that has the matching tags you want to add to this container, these tags have their parents expanded
 	 * @param OtherB TagContainer used to check for matching tags
 	 */
 	void AppendMatchingTags(FGameplayTagContainer const& OtherA, FGameplayTagContainer const& OtherB);
@@ -357,6 +515,15 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 	void AddTagFast(const FGameplayTag& TagToAdd);
 
 	/**
+	 * Adds a tag to the container and removes any direct parents, wont add if child already exists
+	 *
+	 * @param Tag			The tag to try and add to this container
+	 * 
+	 * @return True if tag was added
+	 */
+	bool AddLeafTag(const FGameplayTag& TagToAdd);
+
+	/**
 	 * Tag to remove from the container
 	 * 
 	 * @param TagToRemove	Tag to remove from the container
@@ -364,49 +531,41 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 	bool RemoveTag(FGameplayTag TagToRemove);
 
 	/**
-	* Removes all tags in TagsToRemove from this container
-	*
-	* @param TagsToRemove	Tags to remove from the container
-	*/
+	 * Removes all tags in TagsToRemove from this container
+	 *
+	 * @param TagsToRemove	Tags to remove from the container
+	 */
 	void RemoveTags(FGameplayTagContainer TagsToRemove);
 
-	/** Remove all tags from the container */
-	void RemoveAllTags(int32 Slack=0);
-
-	void RemoveAllTagsKeepSlack()
-	{
-		RemoveAllTags(GameplayTags.Num());
-	}
-
-	void Reset()
-	{
-		GameplayTags.Reset();
-	}
-
-	/**
-	 * Serialize the tag container
-	 *
-	 * @param Ar	Archive to serialize to
-	 *
-	 * @return True if the container was serialized
-	 */
+	/** Remove all tags from the container. Will maintain slack by default */
+	void Reset(int32 Slack = 0);
+	
+	/** Serialize the tag container */
 	bool Serialize(FArchive& Ar);
 
-	/**
-	 * Returns the Tag Count
-	 *
-	 * @return The number of tags
-	 */
-	int32 Num() const;
+	/** Efficient network serialize, takes advantage of the dictionary */
+	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
-	/** Returns human readable Tag list */
+	/** Handles fixup after importing from text */
+	bool ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText);
+
+	/** Returns string version of container in ImportText format */
 	FString ToString() const;
+
+	/** Sets from a ImportText string, used in asset registry */
+	void FromExportString(FString ExportString);
 
 	/** Returns abbreviated human readable Tag list without parens or property names */
 	FString ToStringSimple() const;
 
-	// Returns human readable description of what match is being looked for on the readable tag list.
+	/** Returns human readable description of what match is being looked for on the readable tag list. */
 	FText ToMatchingText(EGameplayContainerMatchType MatchType, bool bInvertCondition) const;
+
+	/** Gets the explicit list of gameplay tags */
+	void GetGameplayTagArray(TArray<FGameplayTag>& InOutGameplayTags) const
+	{
+		InOutGameplayTags = GameplayTags;
+	}
 
 	/** Creates a const iterator for the contents of this array */
 	TArray<FGameplayTag>::TConstIterator CreateConstIterator() const
@@ -414,12 +573,12 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 		return GameplayTags.CreateConstIterator();
 	}
 
-	bool IsValidIndex(int32 Index)
+	bool IsValidIndex(int32 Index) const
 	{
 		return GameplayTags.IsValidIndex(Index);
 	}
 
-	FGameplayTag GetByIndex(int32 Index)
+	FGameplayTag GetByIndex(int32 Index) const
 	{
 		if (IsValidIndex(Index))
 		{
@@ -440,62 +599,199 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 
 	/** An empty Gameplay Tag Container */
 	static const FGameplayTagContainer EmptyContainer;
-		
-	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
+
+	// DEPRECATED FUNCTIONALITY
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
+	DEPRECATED(4.15, "Deprecated in favor of Reset")
+		void RemoveAllTags(int32 Slack = 0)
+	{
+		Reset(Slack);
+	}
+
+	DEPRECATED(4.15, "Deprecated in favor of Reset")
+		void RemoveAllTagsKeepSlack()
+	{
+		Reset();
+	}
 
 	/**
-	* Returns true if the tags in this container match the tags in OtherContainer for the specified matching types.
-	*
-	* @param OtherContainer		The Container to filter against
-	* @param TagMatchType			Type of match to use for the tags in this container
-	* @param OtherTagMatchType		Type of match to use for the tags in the OtherContainer param
-	* @param ContainerMatchType	Type of match to use for filtering
-	*
-	* @return Returns true if ContainerMatchType is Any and any of the tags in OtherContainer match the tags in this or ContainerMatchType is All and all of the tags in OtherContainer match at least one tag in this. Returns false otherwise.
-	*/
+	 * Determine if the container has the specified tag. This forces an explicit match. 
+	 * This function exists for convenience and brevity. We do not wish to use default values for ::HasTag match type parameters, to avoid confusion on what the default behavior is. (E.g., we want people to think and use the right match type).
+	 * 
+	 * @param TagToCheck			Tag to check if it is present in the container
+	 * 
+	 * @return True if the tag is in the container, false if it is not
+	 */
+	DEPRECATED(4.15, "Deprecated in favor of HasTagExact")
+	FORCEINLINE_DEBUGGABLE bool HasTagExplicit(FGameplayTag const& TagToCheck) const
+	{
+		return HasTag(TagToCheck, EGameplayTagMatchType::Explicit, EGameplayTagMatchType::Explicit);
+	}
+
+	/**
+	 * Determine if the container has the specified tag
+	 * 
+	 * @param TagToCheck			Tag to check if it is present in the container
+	 * @param TagMatchType			Type of match to use for the tags in this container
+	 * @param TagToCheckMatchType	Type of match to use for the TagToCheck Param
+	 * 
+	 * @return True if the tag is in the container, false if it is not
+	 */
+	DEPRECATED(4.15, "Deprecated in favor of HasTag with no parameters")
+	FORCEINLINE_DEBUGGABLE bool HasTag(FGameplayTag const& TagToCheck, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType, TEnumAsByte<EGameplayTagMatchType::Type> TagToCheckMatchType) const
+	{
+		SCOPE_CYCLE_COUNTER(STAT_FGameplayTagContainer_HasTag);
+		if (!TagToCheck.IsValid())
+		{
+			return false;
+		}
+
+		return HasTagFast(TagToCheck, TagMatchType, TagToCheckMatchType);
+	}
+
+	/** Version of above that is called from conditions where you know tag is valid */
+	FORCEINLINE_DEBUGGABLE bool HasTagFast(FGameplayTag const& TagToCheck, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType, TEnumAsByte<EGameplayTagMatchType::Type> TagToCheckMatchType) const
+	{
+		bool bResult;
+		if (TagToCheckMatchType == EGameplayTagMatchType::Explicit)
+		{
+			// Always check explicit
+			bResult = GameplayTags.Contains(TagToCheck);
+
+			if (!bResult && TagMatchType == EGameplayTagMatchType::IncludeParentTags)
+			{
+				// Check parent tags as well
+				bResult = ParentTags.Contains(TagToCheck);
+			}
+		}
+		else
+		{
+			bResult = ComplexHasTag(TagToCheck, TagMatchType, TagToCheckMatchType);
+		}
+		return bResult;
+	}
+
+	/**
+	 * Determine if the container has the specified tag
+	 * 
+	 * @param TagToCheck			Tag to check if it is present in the container
+	 * @param TagMatchType			Type of match to use for the tags in this container
+	 * @param TagToCheckMatchType	Type of match to use for the TagToCheck Param
+	 * 
+	 * @return True if the tag is in the container, false if it is not
+	 */
+	bool ComplexHasTag(FGameplayTag const& TagToCheck, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType, TEnumAsByte<EGameplayTagMatchType::Type> TagToCheckMatchType) const;
+
+	/**
+	 * Checks if this container matches ANY of the tags in the specified container. Performs matching by expanding this container out
+	 * to include its parent tags.
+	 *
+	 * @param Other					Container we are checking against
+	 * @param bCountEmptyAsMatch	If true, the parameter tag container will count as matching even if it's empty
+	 *
+	 * @return True if this container has ANY the tags of the passed in container
+	 */
+	DEPRECATED(4.15, "Deprecated in favor of HasAny")
+	FORCEINLINE_DEBUGGABLE bool MatchesAny(const FGameplayTagContainer& Other, bool bCountEmptyAsMatch) const
+	{
+		if (Other.IsEmpty())
+		{
+			return bCountEmptyAsMatch;
+		}
+		return DoesTagContainerMatch(Other, EGameplayTagMatchType::IncludeParentTags, EGameplayTagMatchType::Explicit, EGameplayContainerMatchType::Any);
+	}
+
+	/**
+	 * Checks if this container matches ALL of the tags in the specified container. Performs matching by expanding this container out to
+	 * include its parent tags.
+	 *
+	 * @param Other				Container we are checking against
+	 * @param bCountEmptyAsMatch	If true, the parameter tag container will count as matching even if it's empty
+	 * 
+	 * @return True if this container has ALL the tags of the passed in container
+	 */
+	DEPRECATED(4.15, "Deprecated in favor of HasAll")
+	FORCEINLINE_DEBUGGABLE bool MatchesAll(const FGameplayTagContainer& Other, bool bCountEmptyAsMatch) const
+	{
+		if (Other.IsEmpty())
+		{
+			return bCountEmptyAsMatch;
+		}
+		return DoesTagContainerMatch(Other, EGameplayTagMatchType::IncludeParentTags, EGameplayTagMatchType::Explicit, EGameplayContainerMatchType::All);
+	}
+
+	/**
+	 * Returns true if the tags in this container match the tags in OtherContainer for the specified matching types.
+	 *
+	 * @param OtherContainer		The Container to filter against
+	 * @param TagMatchType			Type of match to use for the tags in this container
+	 * @param OtherTagMatchType		Type of match to use for the tags in the OtherContainer param
+	 * @param ContainerMatchType	Type of match to use for filtering
+	 *
+	 * @return Returns true if ContainerMatchType is Any and any of the tags in OtherContainer match the tags in this or ContainerMatchType is All and all of the tags in OtherContainer match at least one tag in this. Returns false otherwise.
+	 */
 	FORCEINLINE_DEBUGGABLE bool DoesTagContainerMatch(const FGameplayTagContainer& OtherContainer, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType, TEnumAsByte<EGameplayTagMatchType::Type> OtherTagMatchType, EGameplayContainerMatchType ContainerMatchType) const
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FGameplayTagContainer_DoesTagContainerMatch);
 		bool bResult;
-		if (ContainerMatchType == EGameplayContainerMatchType::Any && TagMatchType == EGameplayTagMatchType::Explicit && OtherTagMatchType == EGameplayTagMatchType::Explicit)
+		if (OtherTagMatchType == EGameplayTagMatchType::Explicit)
 		{
-			bResult = false;
-			for (TArray<FGameplayTag>::TConstIterator OtherIt(OtherContainer.GameplayTags); OtherIt; ++OtherIt)
+			// Start true for all, start false for any
+			bResult = (ContainerMatchType == EGameplayContainerMatchType::All);
+			for (const FGameplayTag& OtherTag : OtherContainer.GameplayTags)
 			{
-				if (GameplayTags.Contains(*OtherIt))
+				if (HasTagFast(OtherTag, TagMatchType, OtherTagMatchType))
 				{
-					bResult = true;
+					if (ContainerMatchType == EGameplayContainerMatchType::Any)
+					{
+						bResult = true;
+						break;
+					}
+				}
+				else if (ContainerMatchType == EGameplayContainerMatchType::All)
+				{
+					bResult = false;
 					break;
 				}
 			}			
 		}
 		else
 		{
-			bResult = DoesTagContainerMatchComplex(OtherContainer, TagMatchType, OtherTagMatchType, ContainerMatchType);
+			FGameplayTagContainer OtherExpanded = OtherContainer.GetGameplayTagParents();
+			return DoesTagContainerMatch(OtherExpanded, TagMatchType, EGameplayTagMatchType::Explicit, ContainerMatchType);
 		}
-#if CHECK_TAG_OPTIMIZATIONS
-		// the complex version is the original
-		check(bResult == DoesTagContainerMatchComplex(OtherContainer, TagMatchType, OtherTagMatchType, ContainerMatchType));
-#endif
 		return bResult;
 	}
+
+	/**
+	 * Returns a filtered version of this container, as if the container were filtered by matches from the parameter container
+	 *
+	 * @param OtherContainer		The Container to filter against
+	 * @param TagMatchType			Type of match to use for the tags in this container
+	 * @param OtherTagMatchType		Type of match to use for the tags in the OtherContainer param
+	 *
+	 * @return A FGameplayTagContainer containing the filtered tags
+	 */
+	DEPRECATED(4.15, "Deprecated in favor of HasAll")
+	FGameplayTagContainer Filter(const FGameplayTagContainer& OtherContainer, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType, TEnumAsByte<EGameplayTagMatchType::Type> OtherTagMatchType) const;
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
 protected:
 
 	/**
-	* Returns true if the tags in this container match the tags in OtherContainer for the specified matching types.
-	*
-	* @param OtherContainer		The Container to filter against
-	* @param TagMatchType			Type of match to use for the tags in this container
-	* @param OtherTagMatchType		Type of match to use for the tags in the OtherContainer param
-	* @param ContainerMatchType	Type of match to use for filtering
-	*
-	* @return Returns true if ContainerMatchType is Any and any of the tags in OtherContainer match the tags in this or ContainerMatchType is All and all of the tags in OtherContainer match at least one tag in this. Returns false otherwise.
-	*/
+	 * Returns true if the tags in this container match the tags in OtherContainer for the specified matching types.
+	 *
+	 * @param OtherContainer		The Container to filter against
+	 * @param TagMatchType			Type of match to use for the tags in this container
+	 * @param OtherTagMatchType		Type of match to use for the tags in the OtherContainer param
+	 * @param ContainerMatchType	Type of match to use for filtering
+	 *
+	 * @return Returns true if ContainerMatchType is Any and any of the tags in OtherContainer match the tags in this or ContainerMatchType is All and all of the tags in OtherContainer match at least one tag in this. Returns false otherwise.
+	 */
 	bool DoesTagContainerMatchComplex(const FGameplayTagContainer& OtherContainer, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType, TEnumAsByte<EGameplayTagMatchType::Type> OtherTagMatchType, EGameplayContainerMatchType ContainerMatchType) const;
-
-	/** Array of gameplay tags */
-	UPROPERTY(BlueprintReadWrite, Category=GameplayTags)
-	TArray<FGameplayTag> GameplayTags;
 
 	/**
 	 * If a Tag with the specified tag name explicitly exists, it will remove that tag and return true.  Otherwise, it 
@@ -506,17 +802,27 @@ protected:
 	 */
 	bool RemoveTagByExplicitName(const FName& TagName);
 
-	// Allow the redirection helper class access to RemoveTagByExplicitName.  It can then (through friendship) allow
-	// access to others without exposing everything the Container has privately to everyone.
-	friend class FGameplayTagRedirectHelper;
-	friend struct FGameplayTagQuery;
-	friend struct FGameplayTagQueryExpression;
+	/** Adds parent tags for a single tag */
+	void AddParentsForTag(const FGameplayTag& Tag);
 
-private:
+	/** Fills in ParentTags from GameplayTags */
+	void FillParentTags();
 
 	/** Array of gameplay tags */
-	UPROPERTY()
-	TArray<FName> Tags_DEPRECATED;
+	UPROPERTY(BlueprintReadWrite, Category=GameplayTags) // Change to VisibleAnywhere after fixing up games
+	TArray<FGameplayTag> GameplayTags;
+
+	/** Array of expanded parent tags, in addition to GameplayTags. Used to accelerate parent searches. May contain duplicates in some cases */
+	UPROPERTY(Transient)
+	TArray<FGameplayTag> ParentTags;
+
+	friend class UGameplayTagsManager;
+	friend struct FGameplayTagQuery;
+	friend struct FGameplayTagQueryExpression;
+	friend struct FGameplayTagNode;
+	friend struct FGameplayTag;
+	
+private:
 
 	/**
 	 * DO NOT USE DIRECTLY
@@ -527,15 +833,14 @@ private:
 	FORCEINLINE friend TArray<FGameplayTag>::TConstIterator end(const FGameplayTagContainer& Array) { return TArray<FGameplayTag>::TConstIterator(Array.GameplayTags, Array.GameplayTags.Num()); }
 };
 
-// This helper class exists to keep FGameplayTagContainers protected and private fields appropriately private while
-// exposing only necessary features to the GameplayTagsManager.
-class FGameplayTagRedirectHelper
+FORCEINLINE bool FGameplayTag::MatchesAnyExact(const FGameplayTagContainer& ContainerToCheck) const
 {
-private:
-	FORCEINLINE static bool RemoveTagByExplicitName(FGameplayTagContainer& Container, const FName& TagName) { return Container.RemoveTagByExplicitName(TagName); }
-
-	friend class UGameplayTagsManager;
-};
+	if (ContainerToCheck.IsEmpty())
+	{
+		return false;
+	}
+	return ContainerToCheck.GameplayTags.Contains(*this);
+}
 
 template<>
 struct TStructOpsTypeTraits<FGameplayTagContainer> : public TStructOpsTypeTraitsBase
@@ -545,6 +850,7 @@ struct TStructOpsTypeTraits<FGameplayTagContainer> : public TStructOpsTypeTraits
 		WithSerializer = true,
 		WithIdenticalViaEquality = true,
 		WithNetSerializer = true,
+		WithImportTextItem = true,
 		WithCopy = true
 	};
 };
@@ -592,14 +898,14 @@ namespace EGameplayTagQueryStreamVersion
  *	Q.BuildQuery(
  *		FGameplayTagQueryExpression()
  * 		.AllTagsMatch()
- *		.AddTag(IGameplayTagsModule::RequestGameplayTag(FName(TEXT("Animal.Mammal.Dog.Corgi"))))
- *		.AddTag(IGameplayTagsModule::RequestGameplayTag(FName(TEXT("Plant.Tree.Spruce"))))
+ *		.AddTag(FGameplayTag::RequestGameplayTag(FName(TEXT("Animal.Mammal.Dog.Corgi"))))
+ *		.AddTag(FGameplayTag::RequestGameplayTag(FName(TEXT("Plant.Tree.Spruce"))))
  *		);
  * 
  * Queries are internally represented as a byte stream that is memory-efficient and can be evaluated quickly at runtime.
  * Note: these have an extensive details and graph pin customization for editing, so there is no need to expose the internals to Blueprints.
  */
-USTRUCT(BlueprintType, meta=(HasNativeMake="GameplayTags.UBlueprintGameplayTagLibrary.MakeGameplayTagQuery"))
+USTRUCT(BlueprintType, meta=(HasNativeMake="GameplayTags.BlueprintGameplayTagLibrary.MakeGameplayTagQuery"))
 struct GAMEPLAYTAGS_API FGameplayTagQuery
 {
 	GENERATED_BODY();

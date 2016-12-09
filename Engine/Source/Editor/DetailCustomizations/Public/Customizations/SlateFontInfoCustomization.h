@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "IPropertyTypeCustomization.h"
+#include "Widgets/Input/SComboBox.h"
+
+class FAssetData;
+class IPropertyHandle;
+
 /** Customize the appearance of an FSlateFontInfo */
 class DETAILCUSTOMIZATIONS_API FSlateFontInfoStructCustomization : public IPropertyTypeCustomization
 {

@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "Engine/Blueprint.h"
 #include "AnimBlueprint.generated.h"
+
+class SWidget;
+class UAnimationAsset;
 
 USTRUCT()
 struct FAnimGroupInfo
@@ -63,6 +70,22 @@ class ENGINE_API UAnimBlueprint : public UBlueprint
 	// List of animation sync groups
 	UPROPERTY()
 	TArray<FAnimGroupInfo> Groups;
+
+	/**
+	 * Allows this anim Blueprint to update its native update, blend tree, montages and asset players on
+	 * a worker thread. The compiler will attempt to pick up any issues that may occur with threaded update.
+	 * For updates to run in multiple threads both this flag and the project setting "Allow Multi Threaded 
+	 * Animation Update" should be set.
+	 */
+	UPROPERTY(EditAnywhere, Category = Optimization)
+	bool bUseMultiThreadedAnimationUpdate;
+
+	/**
+	 * Selecting this option will cause the compiler to emit warnings whenever a call into Blueprint
+	 * is made from the animation graph. This can help track down optimizations that need to be made.
+	 */
+	UPROPERTY(EditAnywhere, Category = Optimization)
+	bool bWarnAboutBlueprintUsage;
 
 	// @todo document
 	class UAnimBlueprintGeneratedClass* GetAnimBlueprintGeneratedClass() const;

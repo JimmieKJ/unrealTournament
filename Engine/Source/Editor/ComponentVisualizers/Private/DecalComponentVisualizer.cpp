@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ComponentVisualizersPrivatePCH.h"
-
 #include "DecalComponentVisualizer.h"
+#include "SceneManagement.h"
+#include "Components/DecalComponent.h"
+
 
 
 void FDecalComponentVisualizer::DrawVisualization( const UActorComponent* Component, const FSceneView* View, FPrimitiveDrawInterface* PDI )

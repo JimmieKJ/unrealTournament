@@ -3,5 +3,4 @@
 #pragma once
 
 #include "InputCoreModule.h"
-#include "../Classes/InputCoreTypes.h"
 #include "InputCoreTypes.h"

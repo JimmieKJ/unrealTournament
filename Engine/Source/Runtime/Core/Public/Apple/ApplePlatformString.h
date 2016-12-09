@@ -9,7 +9,7 @@
 #include "StandardPlatformString.h"
 #include "AssertionMacros.h"
 #include "OutputDevice.h"
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
 
 #if PLATFORM_MAC
 #include "Mac/MacSystemIncludes.h"

@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
-#include "SHyperlink.h"
+#include "Widgets/Deploy/SProjectLauncherSimpleDeviceListView.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SScrollBorder.h"
+#include "Framework/Docking/TabManager.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Deploy/SProjectLauncherSimpleDeviceListRow.h"
+#include "Widgets/Input/SHyperlink.h"
 
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherSimpleDeviceListView"

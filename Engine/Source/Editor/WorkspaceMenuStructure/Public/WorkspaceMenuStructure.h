@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Docking/WorkspaceItem.h"
+
 /**
  * Describes the workspace menu from which tabs are summoned
  *
@@ -51,9 +54,6 @@ public:
 
 	/** See diagram above */
 	virtual TSharedRef<FWorkspaceItem> GetDeveloperToolsMiscCategory() const = 0;
-
-	/** See diagram above */
-	virtual TSharedRef<FWorkspaceItem> GetAutomationCategory() const = 0;
 
 	/** See diagram above */
 	virtual TSharedRef<FWorkspaceItem> GetAutomationToolsCategory() const = 0;

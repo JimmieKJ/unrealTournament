@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Styling/SlateStyle.h"
 
 class FSlateFileDialogsStyle
 {

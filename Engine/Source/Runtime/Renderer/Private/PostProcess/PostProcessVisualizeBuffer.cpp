@@ -4,14 +4,15 @@
 	PostProcessVisualizeBuffer.cpp: Post processing VisualizeBuffer implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessVisualizeBuffer.h"
-#include "PostProcessing.h"
-#include "PostProcessHistogram.h"
-#include "PostProcessEyeAdaptation.h"
+#include "PostProcess/PostProcessVisualizeBuffer.h"
+#include "StaticBoundShaderState.h"
+#include "CanvasTypes.h"
+#include "UnrealEngine.h"
+#include "RenderTargetTemp.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "SceneRenderTargetParameters.h"
+#include "PostProcess/PostProcessing.h"
 
 /** Encapsulates the post processing Buffer visualization pixel shader. */
 template<bool bDrawingTile>

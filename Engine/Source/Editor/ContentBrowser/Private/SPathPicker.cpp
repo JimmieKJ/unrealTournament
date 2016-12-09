@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "ContentBrowserPCH.h"
+#include "SPathPicker.h"
+#include "Framework/Commands/UIAction.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "ContentBrowserUtils.h"
+#include "SPathView.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 

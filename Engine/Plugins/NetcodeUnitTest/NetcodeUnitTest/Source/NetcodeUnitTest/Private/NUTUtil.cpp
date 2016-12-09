@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
-
 #include "NUTUtil.h"
 
+
 #include "UnitTest.h"
+#include "ProcessUnitTest.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 #include "ClientUnitTest.h"
 
 

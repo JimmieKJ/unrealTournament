@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RuntimeAssetCachePrivatePCH.h"
 #include "RuntimeAssetCacheBuilders.h"
-#include "EngineMinimal.h"
+#include "Serialization/BufferWriter.h"
+#include "RuntimeAssetCacheModule.h"
+#include "TextureResource.h"
+#include "Engine/Texture.h"
+#include "Engine/Texture2D.h"
 
 void URuntimeAssetCacheBuilder_ObjectBase::SaveNewAssetToCache(UObject* NewAsset)
 {
@@ -232,8 +235,8 @@ void UExampleTextureCacheBuilder::OnAssetPostLoad()
 int64 UExampleTextureCacheBuilder::GetSerializedDataSizeEstimate()
 {
 	int64 DataSize = sizeof(FTexturePlatformData);
-	DataSize += sizeof(FString) + (sizeof(TCHAR) * 12);						// Guess the size of the pixel format string (most are less than 12 characters, but we don't need to be exact)
-	DataSize += Texture->GetResourceSize(EResourceSizeMode::Exclusive);		// Size of all the mips
+	DataSize += sizeof(FString) + (sizeof(TCHAR) * 12);							// Guess the size of the pixel format string (most are less than 12 characters, but we don't need to be exact)
+	DataSize += Texture->GetResourceSizeBytes(EResourceSizeMode::Exclusive);	// Size of all the mips
 	DataSize += (sizeof(int32) * 3) * Texture->GetNumMips();					// Each mip stores its X and Y size, and its BulkDataSize
 	return DataSize;
 }

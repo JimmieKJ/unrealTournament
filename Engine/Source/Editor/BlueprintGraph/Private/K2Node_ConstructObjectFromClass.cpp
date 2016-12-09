@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "KismetCompiler.h"
-#include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
+#include "K2Node_ConstructObjectFromClass.h"
+#include "UObject/UnrealType.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
 #include "BlueprintActionDatabaseRegistrar.h"
@@ -35,7 +36,7 @@ bool UK2Node_ConstructObjectFromClass::UseWorldContext() const
 {
 	auto BP = GetBlueprint();
 	const UClass* ParentClass = BP ? BP->ParentClass : nullptr;
-	return ParentClass ? ParentClass->HasMetaData(FBlueprintMetadata::MD_ShowWorldContextPin) : false;
+	return ParentClass ? ParentClass->HasMetaDataHierarchical(FBlueprintMetadata::MD_ShowWorldContextPin) != nullptr : false;
 }
 
 void UK2Node_ConstructObjectFromClass::AllocateDefaultPins()

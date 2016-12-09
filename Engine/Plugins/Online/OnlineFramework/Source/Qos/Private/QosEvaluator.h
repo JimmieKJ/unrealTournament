@@ -2,12 +2,19 @@
 
 #pragma once
 
-#include "OnlineSessionInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/WeakObjectPtr.h"
+#include "OnlineSessionSettings.h"
 #include "QosRegionManager.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "QosEvaluator.generated.h"
 
 class AQosBeaconClient;
 class FQosDatacenterStats;
+class FTimerManager;
+class IAnalyticsProvider;
 struct FIcmpEchoResult;
 enum class EQosResponseType : uint8;
 

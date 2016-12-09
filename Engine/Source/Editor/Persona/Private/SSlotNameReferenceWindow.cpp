@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PersonaPrivatePCH.h"
 #include "SSlotNameReferenceWindow.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
 #include "AnimGraphNode_Slot.h"
-#include "Persona.h"
+#include "EdGraph/EdGraph.h"
+#include "BlueprintEditor.h"
 
 #define LOCTEXT_NAMESPACE "SkeletonSlotNames"
 
@@ -177,7 +182,7 @@ FReply SBlueprintReferenceListRow::OnOpenAssetClicked()
 {
 	FAssetEditorManager::Get().OpenEditorForAsset(ReferenceInfo->AnimBlueprint);
 	
-	FPersona* BPEditor = static_cast<FPersona*>(FAssetEditorManager::Get().FindEditorForAsset(ReferenceInfo->AnimBlueprint, true));
+	FBlueprintEditor* BPEditor = static_cast<FBlueprintEditor*>(FAssetEditorManager::Get().FindEditorForAsset(ReferenceInfo->AnimBlueprint, true));
 	if(BPEditor)
 	{
 		// Should only ever get an FPersona object back for an animBP.

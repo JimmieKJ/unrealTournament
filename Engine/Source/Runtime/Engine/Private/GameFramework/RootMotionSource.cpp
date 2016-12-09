@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "GameFramework/RootMotionSource.h"
+#include "DrawDebugHelpers.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Curves/CurveVector.h"
@@ -1652,23 +1652,24 @@ void FRootMotionSourceGroup::RemoveRootMotionSourceByID(uint16 RootMotionSourceI
 
 void FRootMotionSourceGroup::UpdateStateFrom(const FRootMotionSourceGroup& GroupToTakeStateFrom, bool bMarkForSimulatedCatchup)
 {
+	bIsAdditiveVelocityApplied = GroupToTakeStateFrom.bIsAdditiveVelocityApplied;
+	LastPreAdditiveVelocity = GroupToTakeStateFrom.LastPreAdditiveVelocity;
+
 	// For each matching Source in GroupToTakeStateFrom, move state over to this group's Sources
 	// Can do all matching with LocalID only, since anything passed into this function should have
 	// already been "matched" to LocalIDs
-	for (const auto& TakeFromRootMotionSource : GroupToTakeStateFrom.RootMotionSources)
+	for (const TSharedPtr<FRootMotionSource>& TakeFromRootMotionSource : GroupToTakeStateFrom.RootMotionSources)
 	{
-		if (TakeFromRootMotionSource.IsValid() && TakeFromRootMotionSource->LocalID != (uint16)ERootMotionSourceID::Invalid)
+		if (TakeFromRootMotionSource.IsValid() && (TakeFromRootMotionSource->LocalID != (uint16)ERootMotionSourceID::Invalid))
 		{
-			for (const auto& RootMotionSource : RootMotionSources)
+			for (const TSharedPtr<FRootMotionSource>& RootMotionSource : RootMotionSources)
 			{
-				if (RootMotionSource.IsValid() && RootMotionSource->LocalID == TakeFromRootMotionSource->LocalID)
+				if (RootMotionSource.IsValid() && (RootMotionSource->LocalID == TakeFromRootMotionSource->LocalID))
 				{
-					if (!RootMotionSource->Matches(TakeFromRootMotionSource.Get()))
-					{
-						// If we hit this case, we have an issue with Matches() and/or LocalIDs being mapped to invalid "partners"
-						checkf(false, TEXT("FRootMotionSource has the same LocalID as a non-matching Source!"));
-						break;
-					}
+					// We rely on the 'Matches' rule to be exact, verify that it is still correct here.
+					// If not, we're matching different root motion sources, or we're using properties that change over time for matching.
+					ensureMsgf(RootMotionSource->Matches(TakeFromRootMotionSource.Get()), TEXT("UpdateStateFrom RootMotionSource(%s) has the same LocalID(%d) as a non-matching TakeFromRootMotionSource(%s)!"),
+						*RootMotionSource->ToSimpleString(), RootMotionSource->LocalID, *TakeFromRootMotionSource->ToSimpleString());
 
 					const bool bSuccess = RootMotionSource->UpdateStateFrom(TakeFromRootMotionSource.Get(), bMarkForSimulatedCatchup);
 					if (bSuccess)
@@ -1825,6 +1826,14 @@ FRootMotionSourceGroup& FRootMotionSourceGroup::operator=(const FRootMotionSourc
 
 bool FRootMotionSourceGroup::operator==(const FRootMotionSourceGroup& Other) const
 {
+	if (bHasAdditiveSources != Other.bHasAdditiveSources || 
+		bHasOverrideSources != Other.bHasOverrideSources ||
+		bIsAdditiveVelocityApplied != Other.bIsAdditiveVelocityApplied ||
+		!LastPreAdditiveVelocity.Equals(Other.LastPreAdditiveVelocity, 1.f))
+	{
+		return false;
+	}
+
 	// Both invalid structs or both valid and Pointer compare (???) // deep comparison equality
 	if (RootMotionSources.Num() != Other.RootMotionSources.Num())
 	{

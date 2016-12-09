@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "AndOr.h"
-#include "IsPODType.h"
+#include "CoreTypes.h"
+#include "Templates/AndOrNot.h"
+#include "Templates/IsPODType.h"
 
 /**
  * Traits class which tests if a type has a trivial copy assignment operator.

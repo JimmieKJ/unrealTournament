@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "TileSetEditorSettings.generated.h"
 
 // Settings for the Paper2D tile set editor

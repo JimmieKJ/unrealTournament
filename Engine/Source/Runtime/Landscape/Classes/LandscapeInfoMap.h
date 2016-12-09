@@ -2,9 +2,14 @@
 
 #pragma once
 
-#include "LandscapeInfo.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
 
 #include "LandscapeInfoMap.generated.h"
+
+class ULandscapeInfo;
 
 UCLASS()
 class ULandscapeInfoMap : public UObject
@@ -18,4 +23,16 @@ public:
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 
 	TMap<FGuid, ULandscapeInfo*> Map;
+
+
+#if WITH_EDITORONLY_DATA
+	/**
+	* Gets landscape-specific data for given world.
+	*
+	* @param World A pointer to world that return data should be associated with.
+	*
+	* @returns Landscape-specific data associated with given world.
+	*/
+	LANDSCAPE_API static ULandscapeInfoMap& GetLandscapeInfoMap(UWorld* World);
+#endif // WITH_EDITORONLY_DATA
 };

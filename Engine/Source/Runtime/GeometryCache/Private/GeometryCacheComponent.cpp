@@ -1,13 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GeometryCacheModulePrivatePCH.h"
 #include "GeometryCacheComponent.h"
-#include "MessageLog.h"
+#include "GeometryCache.h"
+#include "Logging/MessageLog.h"
 #include "ContentStreaming.h"
 
-#include "GeometryCacheSceneProxy.h"
 #include "GeometryCacheTrack.h"
-#include "GeometryCacheTrackFlipbookAnimation.h"
+#include "GeometryCacheMeshData.h"
 
 #define LOCTEXT_NAMESPACE "GeometryCacheComponent"
 
@@ -68,8 +67,9 @@ void UGeometryCacheComponent::SetupTrackData()
 			FGeometryCacheMeshData* MeshData = nullptr;
 
 			// Retrieve the matrix/mesh data and the appropriate sample indices
-			Track->UpdateMatrixData(ElapsedTime + StartTimeOffset, bLooping, MatrixSampleIndex, WorldMatrix);
-			Track->UpdateMeshData(ElapsedTime + StartTimeOffset, bLooping, MeshSampleIndex, MeshData);
+			const float ClampedStartTimeOffset = FMath::Clamp(StartTimeOffset, -14400.0f, 14400.0f);
+			Track->UpdateMatrixData(ElapsedTime + ClampedStartTimeOffset, bLooping, MatrixSampleIndex, WorldMatrix);
+			Track->UpdateMeshData(ElapsedTime + ClampedStartTimeOffset, bLooping, MeshSampleIndex, MeshData);
 
 			// First time so create rather than update the mesh sections
 			CreateTrackSection(TrackIndex, WorldMatrix, MeshData);
@@ -100,9 +100,9 @@ void UGeometryCacheComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 	if (GeometryCache && bRunning)
 	{
 		// Increase total elapsed time since BeginPlay according to PlayDirection and speed
-		ElapsedTime += (DeltaTime * PlayDirection * PlaybackSpeed);
+		ElapsedTime += (DeltaTime * PlayDirection * GetPlaybackSpeed());
 
-		if (ElapsedTime < 0.0f)
+		if (ElapsedTime < 0.0f && bLooping)
 		{
 			ElapsedTime += Duration;
 		}
@@ -113,9 +113,9 @@ void UGeometryCacheComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 			UGeometryCacheTrack* Track = GeometryCache->Tracks[TrackIndex];
 			FMatrix WorldMatrix;
 			FGeometryCacheMeshData* MeshData = nullptr;
-
-			const bool bUpdateMatrix = Track->UpdateMatrixData(ElapsedTime + StartTimeOffset, bLooping, TrackMatrixSampleIndices[TrackIndex], WorldMatrix);
-			const bool bUpdateMesh = Track->UpdateMeshData(ElapsedTime + StartTimeOffset, bLooping, TrackMeshSampleIndices[TrackIndex], MeshData);
+			const float ClampedStartTimeOffset = FMath::Clamp(StartTimeOffset, -14400.0f, 14400.0f);
+			const bool bUpdateMatrix = Track->UpdateMatrixData(ElapsedTime + ClampedStartTimeOffset, bLooping, TrackMatrixSampleIndices[TrackIndex], WorldMatrix);
+			const bool bUpdateMesh = Track->UpdateMeshData(ElapsedTime + ClampedStartTimeOffset, bLooping, TrackMeshSampleIndices[TrackIndex], MeshData);
 
 			// Update sections according what is required
 			if (bUpdateMatrix)
@@ -311,8 +311,9 @@ void UGeometryCacheComponent::OnObjectReimported(UGeometryCache* ImportedGeometr
 				FGeometryCacheMeshData* MeshData = nullptr;
 
 				// Retrieve the matrix/mesh data and the appropriate sample indices
-				Track->UpdateMatrixData(ElapsedTime + StartTimeOffset, bLooping, MatrixSampleIndex, WorldMatrix);
-				Track->UpdateMeshData(ElapsedTime + StartTimeOffset, bLooping, MeshSampleIndex, MeshData);
+				const float ClampedStartTimeOffset = FMath::Clamp(StartTimeOffset, -14400.0f, 14400.0f);
+				Track->UpdateMatrixData(ElapsedTime + ClampedStartTimeOffset, bLooping, MatrixSampleIndex, WorldMatrix);
+				Track->UpdateMeshData(ElapsedTime + ClampedStartTimeOffset, bLooping, MeshSampleIndex, MeshData);
 
 				// First time so create rather than update the mesh sections
 				CreateTrackSection(TrackIndex, WorldMatrix, MeshData);
@@ -375,13 +376,13 @@ bool UGeometryCacheComponent::IsPlayingReversed() const
 
 float UGeometryCacheComponent::GetPlaybackSpeed() const
 {
-	return PlaybackSpeed;
+	return FMath::Clamp(PlaybackSpeed, -512.0f, 512.0f);
 }
 
 void UGeometryCacheComponent::SetPlaybackSpeed(const float NewPlaybackSpeed)
 {
 	// Currently only positive play back speeds are supported
-	PlaybackSpeed = fabs( NewPlaybackSpeed );
+	PlaybackSpeed = FMath::Clamp( NewPlaybackSpeed, -512.0f, 512.0f );
 }
 
 bool UGeometryCacheComponent::SetGeometryCache(UGeometryCache* NewGeomCache)

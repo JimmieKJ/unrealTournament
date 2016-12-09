@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "VertexFactory.h"
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
 #include "Components.h"
+#include "VertexFactory.h"
+
+class FMaterial;
+class FSceneView;
+struct FMeshBatchElement;
 
 /*=============================================================================
 	LocalVertexFactory.h: Local vertex factory definitions.

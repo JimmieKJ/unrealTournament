@@ -4,6 +4,9 @@
 	OpenGL3.cpp: OpenGL 3.2 implementation.
 =============================================================================*/
 
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "OpenGLDrv.h"
 #include "OpenGLDrvPrivate.h"
 
 #if OPENGL_ESDEFERRED

@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
 #include "MacMallocZone.h"
 #include "MacPlatformMisc.h"
 #include "MacPlatformCrashContext.h"
+#include "HAL/PlatformTLS.h"
+#include "HAL/PlatformProcess.h"
 #include <malloc/malloc.h>
 
 FMacMallocZone::FMacMallocZone( uint64 const InitialSize )

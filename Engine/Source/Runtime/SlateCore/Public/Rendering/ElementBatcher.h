@@ -2,8 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Rendering/RenderingCommon.h"
 
+class FSlateBatchData;
+class FSlateDrawElement;
+class FSlateDrawLayer;
+class FSlateElementBatch;
+class FSlateRenderingPolicy;
 class FSlateShaderResource;
+class FSlateWindowElementList;
+struct FShaderParams;
 
 /**
  * A class which batches Slate elements for rendering
@@ -27,13 +36,16 @@ public:
 	 */
 	bool RequiresVsync() const { return bRequiresVsync; }
 
+	/** Whether or not any post process passes were batched */
+	bool HasFXPassses() const { return NumPostProcessPasses > 0;}
+
 	/** 
 	 * Resets all stored data accumulated during the batching process
 	 */
 	void ResetBatches();
 
 private:
-	void AddElements(FSlateDrawLayer& InDrawLayer);
+	void AddElements(const FSlateWindowElementList& ElementList, FSlateDrawLayer& InDrawLayer);
 	
 	FColor PackVertexColor(const FLinearColor& InLinearColor);
 
@@ -100,6 +112,8 @@ private:
 
 	void AddLayer(const FSlateDrawElement& DrawElement);
 
+	void AddPostProcessPass(const FSlateDrawElement& DrawElement, const FVector2D& WindowSize);
+
 	/** 
 	 * Finds an batch for an element based on the passed in parameters
 	 * Elements with common parameters and layers will batched together.
@@ -137,6 +151,9 @@ private:
 
 	/** Track the number of drawn texts from the previous frame to report to stats. */
 	int32 NumDrawnTextsStat;
+
+	/** How many post process passes are needed */
+	int32 NumPostProcessPasses;
 
 	/** Offset to use when supporting 1:1 texture to pixel snapping */
 	const float PixelCenterOffset;

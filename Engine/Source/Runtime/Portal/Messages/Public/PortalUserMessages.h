@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Account/IPortalUser.h"
 #include "RpcMessage.h"
-#include "IPortalUser.h"
 #include "PortalUserMessages.generated.h"
-
 
 USTRUCT()
 struct FPortalUserGetUserDetailsRequest

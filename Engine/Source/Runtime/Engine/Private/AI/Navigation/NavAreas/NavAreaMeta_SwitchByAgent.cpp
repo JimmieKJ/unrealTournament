@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "AI/Navigation/NavAreas/NavArea_Default.h"
 #include "AI/Navigation/NavAreas/NavAreaMeta_SwitchByAgent.h"
+#include "UObject/UnrealType.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "AI/Navigation/NavAreas/NavArea_Default.h"
 
 UNavAreaMeta_SwitchByAgent::UNavAreaMeta_SwitchByAgent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

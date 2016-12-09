@@ -2,10 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "WidgetBlueprint.h"
 #include "KismetCompiler.h"
-
-class UWidgetBlueprint;
-class UWidgetBlueprintGeneratedClass;
 
 //////////////////////////////////////////////////////////////////////////
 // FWidgetBlueprintCompiler

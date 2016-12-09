@@ -1,19 +1,46 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-
 #include "FindInBlueprintManager.h"
-#include "FindInBlueprints.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "AssetRegistryModule.h"
-#include "FiBSearchInstance.h"
-#include "HotReloadInterface.h"
-#include "ImaginaryBlueprintData.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/ScopeLock.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/UnrealType.h"
+#include "Misc/PackageName.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
+#include "Serialization/JsonReader.h"
+#include "Policies/PrettyJsonPrintPolicy.h"
+#include "Serialization/JsonSerializer.h"
+#include "Types/SlateEnums.h"
+#include "EditorStyleSettings.h"
+#include "Engine/Level.h"
+#include "Components/ActorComponent.h"
+#include "AssetData.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "ISourceControlModule.h"
+#include "Editor.h"
+#include "FileHelpers.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_FunctionEntry.h"
 
-#include "JsonUtilities.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
 #include "Engine/SimpleConstructionScript.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "ARFilter.h"
+#include "AssetRegistryModule.h"
+#include "ImaginaryBlueprintData.h"
+#include "FiBSearchInstance.h"
+#include "Misc/HotReloadInterface.h"
+
+#include "JsonObjectConverter.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "FindInBlueprintManager"
 
@@ -361,64 +388,22 @@ namespace BlueprintSearchMetaDataHelpers
 			this->PreviousTokenWritten = EJsonToken::SquareOpen;
 		}
 
-		void WriteValue( const FText& Identifier, const bool Value )
-		{
-			check( this->Stack.Top() == EJson::Object );
-			WriteIdentifier( Identifier );
+		using TJsonStringWriter<PrintPolicy>::WriteValueOnly;
 
-			PrintPolicy::WriteSpace(this->Stream);
-			this->WriteBoolValue( Value );
-			this->PreviousTokenWritten = Value ? EJsonToken::True : EJsonToken::False;
+		EJsonToken WriteValueOnly(const FText& Value)
+		{
+			WriteTextValue(Value);
+			return EJsonToken::String;
 		}
 
-		void WriteValue( const FText& Identifier, const double Value )
+		template <class FValue>
+		void WriteValue( const FText& Identifier, FValue Value )
 		{
 			check( this->Stack.Top() == EJson::Object );
 			WriteIdentifier( Identifier );
 
 			PrintPolicy::WriteSpace(this->Stream);
-			this->WriteNumberValue( Value );
-			this->PreviousTokenWritten = EJsonToken::Number;
-		}
-
-		void WriteValue( const FText& Identifier, const int32 Value )
-		{
-			check( this->Stack.Top() == EJson::Object );
-			WriteIdentifier( Identifier );
-
-			PrintPolicy::WriteSpace(this->Stream);
-			this->WriteIntegerValue( Value );
-			this->PreviousTokenWritten = EJsonToken::Number;
-		}
-
-		void WriteValue( const FText& Identifier, const int64 Value )
-		{
-			check( this->Stack.Top() == EJson::Object );
-			WriteIdentifier( Identifier );
-
-			PrintPolicy::WriteSpace(this->Stream);
-			this->WriteIntegerValue( Value );
-			this->PreviousTokenWritten = EJsonToken::Number;
-		}
-
-		void WriteValue( const FText& Identifier, const FString& Value )
-		{
-			check( this->Stack.Top() == EJson::Object );
-			WriteIdentifier( Identifier );
-
-			PrintPolicy::WriteSpace(this->Stream);
-			WriteStringValue( Value );
-			this->PreviousTokenWritten = EJsonToken::String;
-		}
-
-		void WriteValue( const FText& Identifier, const FText& Value )
-		{
-			check( this->Stack.Top() == EJson::Object );
-			WriteIdentifier( Identifier );
-
-			PrintPolicy::WriteSpace(this->Stream);
-			WriteTextValue( Value );
-			this->PreviousTokenWritten = EJsonToken::String;
+			this->PreviousTokenWritten = this->WriteValueOnly( Value );
 		}
 
 		/** Converts the lookup table of ints (which are stored as identifiers and string values in the Json) and the FText's they represent to an FString. */

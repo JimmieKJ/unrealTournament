@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "Kismet2/CompilerResultsLog.h"
+#include "CoreMinimal.h"
+#include "EdGraph/EdGraphNode.h"
+#include "EdGraph/EdGraphPin.h"
+
+class FCompilerResultsLog;
+class SGraphNode;
+class SGraphPin;
+class UEdGraph;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -123,6 +130,27 @@ public:
 
 		void TraverseNodes(UEdGraphNode* Node);
 	};
+
+	/** returns true if the ParameterName is marked as a SetParam in the relevant Function */
+	static bool IsSetParam(const UFunction* Function, const FString& ParameterName);
+
+	/** returns true if the ParameterName is marked as a MapParam, MapKeyParam, or MapValueParam in the relevant Function */
+	static bool IsMapParam(const UFunction* Function, const FString& ParameterName);
+
+	/** returns true if the ParameterName is marked as ArrayTypeDependentParams */
+	static bool IsArrayDependentParam(const UFunction* Function, const FString& ParameterName );
+
+	/** returns the first pin marked as an ArrayParam, usually returning nullptr */
+	static UEdGraphPin* FindArrayParamPin(const UFunction* Function, const UEdGraphNode* Node);
+
+	/** returns the first pin marked as an SetParam, usually returning nullptr */
+	static UEdGraphPin* FindSetParamPin(const UFunction* Function, const UEdGraphNode* Node);
+	
+	/** returns the first pin marked as an MapParam, usually returning nullptr */
+	static UEdGraphPin* FindMapParamPin(const UFunction* Function, const UEdGraphNode* Node);
+
+	/** returns the first pin referred to in a , and | deliniated list of pin names */
+	static UEdGraphPin* FindPinFromMetaData(const UFunction* Function, const UEdGraphNode* Node, FName MetaData );
 
 private:
 	static TArray< TSharedPtr<FGraphPanelNodeFactory> > VisualNodeFactories;

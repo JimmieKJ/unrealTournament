@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetTypeActions_Base.h"
 #include "Animation/Rig.h"
 
 class FAssetTypeActions_Rig : public FAssetTypeActions_Base

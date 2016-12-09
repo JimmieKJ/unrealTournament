@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "SequencerDisplayNode.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Widgets/SWidget.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
+
+class FMenuBuilder;
+struct FSlateBrush;
 
 /** Enumeration specifying what kind of object binding this is */
 enum class EObjectBindingType

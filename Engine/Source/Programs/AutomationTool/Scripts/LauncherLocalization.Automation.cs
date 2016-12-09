@@ -132,13 +132,18 @@ class LauncherLocalization : BuildCommand
 	{
 		foreach (var culture in cultures)
 		{
-            string finalCulture = culture;
-            if (culture == "es-ES")
-            {
-                finalCulture = "es";
-            }
+			string finalCulture = culture;
+			if (culture == "es")
+			{
+				// we no longer export es, instead replacing it with es-ES
+				continue;
+			}
+			else if (culture == "es-ES")
+			{
+				finalCulture = "es";
+			}
 
-            var cultureDirectory = new DirectoryInfo(Path.Combine(destination.FullName, finalCulture));
+			var cultureDirectory = new DirectoryInfo(Path.Combine(destination.FullName, finalCulture));
 			if (!cultureDirectory.Exists)
 			{
 				cultureDirectory.Create();
@@ -148,23 +153,23 @@ class LauncherLocalization : BuildCommand
 			{
 				var exportFile = new FileInfo(Path.Combine(cultureDirectory.FullName, file.Filename));
 
-                var exportTranslationState = file.ExportTranslation(finalCulture, memoryStream).Result;
+				var exportTranslationState = file.ExportTranslation(culture, memoryStream).Result;
 				if (exportTranslationState == UploadedFile.ExportTranslationState.Success)
 				{
 					memoryStream.Position = 0;
-					using (Stream fileStream = File.OpenWrite(exportFile.FullName))
+					using (Stream fileStream = File.Open(exportFile.FullName, FileMode.Create))
 					{
 						memoryStream.CopyTo(fileStream);
-                        Console.WriteLine("[SUCCESS] Exporting: " + exportFile.FullName + " Locale: " + finalCulture);
+						Console.WriteLine("[SUCCESS] Exporting: " + exportFile.FullName + " Source Locale: " + culture + " Target Locale: " + finalCulture);
 					}
 				}
 				else if (exportTranslationState == UploadedFile.ExportTranslationState.NoContent)
 				{
-                    Console.WriteLine("[WARNING] Exporting: " + exportFile.FullName + " Locale: " + finalCulture + " has no translations!");
+						Console.WriteLine("[WARNING] Exporting: " + exportFile.FullName + " Source Locale: " + culture + " Target Locale: " + finalCulture + " has no translations!");
 				}
 				else
 				{
-                    Console.WriteLine("[FAILED] Exporting: " + exportFile.FullName + " Locale: " + finalCulture);
+						Console.WriteLine("[FAILED] Exporting: " + exportFile.FullName + " Source Locale: " + culture + " Target Locale: " + finalCulture);
 				}
 			}
 		}

@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GeometryCacheEdModulePublicPCH.h"
 #include "AssetTypeActions_GeometryCache.h"
+#include "EditorFramework/AssetImportData.h"
+#include "ThumbnailRendering/SceneThumbnailInfo.h"
+#include "GeometryCache.h"
 
 FText FAssetTypeActions_GeometryCache::GetName() const
 {

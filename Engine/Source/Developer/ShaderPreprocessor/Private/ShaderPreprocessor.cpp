@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ShaderPreprocessorPrivatePCH.h"
 #include "ShaderPreprocessor.h"
-#include "ModuleManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopeLock.h"
+#include "Modules/ModuleManager.h"
 #include "PreprocessorPrivate.h"
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, ShaderPreprocessor);

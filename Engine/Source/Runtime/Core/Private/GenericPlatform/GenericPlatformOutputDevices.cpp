@@ -1,10 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "HAL/FeedbackContextAnsi.h"
+#include "GenericPlatform/GenericPlatformOutputDevices.h"
+#include "HAL/PlatformOutputDevices.h"
+#include "CoreGlobals.h"
+#include "Misc/Parse.h"
+#include "Templates/ScopedPointer.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Misc/OutputDeviceMemory.h"
+#include "Misc/OutputDeviceFile.h"
+#include "Misc/OutputDeviceDebug.h"
+#include "Misc/OutputDeviceAnsiError.h"
 #include "Misc/App.h"
+#include "HAL/FeedbackContextAnsi.h"
 #include "Misc/OutputDeviceConsole.h"
-#include "HAL/OutputDeviceMemory.h"
+#include "UniquePtr.h"
 
 void FGenericPlatformOutputDevices::SetupOutputDevices()
 {
@@ -39,37 +49,57 @@ FString FGenericPlatformOutputDevices::GetAbsoluteLogFilename()
 
 	if (!Filename[0])
 	{
-		// The Editor requires a fully qualified directory to not end up putting the log in various directories.
-		FCString::Strcpy(Filename, *FPaths::GameLogDir());
+		FCString::Strcpy(Filename, ARRAY_COUNT(Filename), *FPaths::GameLogDir());
+		FString LogFilename;
+		if (!FParse::Value(FCommandLine::Get(), TEXT("LOG="), LogFilename))
+		{
+			if (FParse::Value(FCommandLine::Get(), TEXT("ABSLOG="), LogFilename))
+			{
+				Filename[0] = 0;
+			}
+		}
 
-		if(	!FParse::Value(FCommandLine::Get(), TEXT("LOG="), Filename+FCString::Strlen(Filename), ARRAY_COUNT(Filename)-FCString::Strlen(Filename) )
-			&&	!FParse::Value(FCommandLine::Get(), TEXT("ABSLOG="), Filename, ARRAY_COUNT(Filename) ) )
+		FString Extension(FPaths::GetExtension(LogFilename));
+		if (Extension != TEXT("log") && Extension != TEXT("txt"))
+		{
+			// Ignoring the specified log filename because it doesn't have a .log extension			
+			LogFilename.Empty();
+		}
+
+		if (LogFilename.Len() == 0)
 		{
 			if (FCString::Strlen(FApp::GetGameName()) != 0)
 			{
-				FCString::Strcat(Filename, FApp::GetGameName());
+				LogFilename = FApp::GetGameName();
 			}
 			else
 			{
-				FCString::Strcat( Filename, TEXT("UE4") );
+				LogFilename = TEXT("UE4");
 			}
-			FCString::Strcat( Filename, TEXT(".log") );
+
+			LogFilename += TEXT(".log");
 		}
+
+		FCString::Strcat(Filename, ARRAY_COUNT(Filename) - FCString::Strlen(Filename), *LogFilename);
 	}
 
 	return Filename;
 }
 
+#ifndef WITH_LOGGING_TO_MEMORY
+	#define WITH_LOGGING_TO_MEMORY 0
+#endif
 
 class FOutputDevice* FGenericPlatformOutputDevices::GetLog()
 {
 	static struct FLogOutputDeviceInitializer
 	{
-		TAutoPtr<FOutputDevice> LogDevice;
+		TUniquePtr<FOutputDevice> LogDevice;
 		FLogOutputDeviceInitializer()
 		{
+#if WITH_LOGGING_TO_MEMORY
 #if !IS_PROGRAM && !WITH_EDITORONLY_DATA
-			if (!LogDevice.IsValid() 
+			if (!LogDevice
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 				 && FParse::Param(FCommandLine::Get(), TEXT("LOGTOMEMORY")) 
 #else
@@ -77,18 +107,19 @@ class FOutputDevice* FGenericPlatformOutputDevices::GetLog()
 #endif
 				 )
 			{
-				LogDevice = new FOutputDeviceMemory();
+				LogDevice = MakeUnique<FOutputDeviceMemory>();
 			}
-#endif
-			if (!LogDevice.IsValid())
+#endif // !IS_PROGRAM && !WITH_EDITORONLY_DATA
+#endif // WITH_LOGGING_TO_MEMORY
+			if (!LogDevice)
 			{
-				LogDevice = new FOutputDeviceFile();
+				LogDevice = MakeUnique<FOutputDeviceFile>();
 			}
 		}
 
 	} Singleton;
 
-	return Singleton.LogDevice.GetOwnedPointer();
+	return Singleton.LogDevice.Get();
 }
 
 

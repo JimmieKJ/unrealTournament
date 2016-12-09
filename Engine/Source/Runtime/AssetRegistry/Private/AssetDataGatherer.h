@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "PackageDependencyData.h"
+#include "HAL/FileManager.h"
+#include "HAL/Runnable.h"
+#include "Runtime/AssetRegistry/Private/DiskCachedAssetData.h"
+
 /**
  * Minimal amount of information needed about a discovered asset file
  */

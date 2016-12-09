@@ -4,8 +4,10 @@
 	FixupNeedsLoadForEditorGameCommandlet.cpp: Fixes outdated NeedsLoadForEditorGame flags on exports
 ====================================================================================================*/
 
-#include "UnrealEd.h"
 #include "Commandlets/FixupNeedsLoadForEditorGameCommandlet.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "UObject/LinkerLoad.h"
 
 int32 UFixupNeedsLoadForEditorGameCommandlet::InitializeResaveParameters(const TArray<FString>& Tokens, TArray<FString>& MapPathNames)
 {

@@ -5,7 +5,8 @@
  */
 
 #pragma once 
-#include "NetworkFilePrivatePCH.h"
+
+#include "CoreMinimal.h"
 
 class ITransport 
 {

@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ReferenceViewerPrivatePCH.h"
-#include "AssetThumbnail.h"
+#include "ReferenceViewerSchema.h"
+#include "Textures/SlateIcon.h"
+#include "Misc/Attribute.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "CollectionManagerTypes.h"
 #include "ReferenceViewerActions.h"
-#include "GlobalEditorCommonCommands.h"
+#include "Toolkits/GlobalEditorCommonCommands.h"
 
-#include "Editor/GraphEditor/Public/ConnectionDrawingPolicy.h"
+#include "ConnectionDrawingPolicy.h"
 
 
 static const FLinearColor RiceFlower = FLinearColor(FColor(236, 252, 227));

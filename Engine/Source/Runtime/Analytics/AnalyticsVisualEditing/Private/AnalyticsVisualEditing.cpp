@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Analytics.h"
-#include "CoreUObject.h"
-#include "Engine/DeveloperSettings.h"
 #include "AnalyticsVisualEditing.h"
+#include "Modules/ModuleManager.h"
+#include "Analytics.h"
 #include "AnalyticsSettings.h"
 
 IMPLEMENT_MODULE( FAnalyticsVisualEditingModule, AnalyticsVisualEditing );

@@ -1,13 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HierarchicalLODOutlinerPrivatePCH.h"
 #include "HLODTreeWidgetItem.h"
-#include "ITreeItem.h"
-#include "HLODOutlinerDragDrop.h"
-#include "LODLevelItem.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/STreeView.h"
+#include "EditorStyleSet.h"
+#include "HierarchicalLODType.h"
+#include "DragAndDrop/ActorDragDropGraphEdOp.h"
 #include "LODActorItem.h"
-#include "StaticMeshActorItem.h"
-#include "HLODOutliner.h"
 
 #define LOCTEXT_NAMESPACE "HLODTreeWidgetItem"
 

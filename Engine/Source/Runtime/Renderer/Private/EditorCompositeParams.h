@@ -5,6 +5,13 @@ EditorCompositeParams.h: Manages shader parameters required for editor's composi
 =============================================================================*/
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
+
+class FMaterial;
+class FSceneView;
+class FShaderParameterMap;
+
 class FEditorCompositingParameters
 {
 public:

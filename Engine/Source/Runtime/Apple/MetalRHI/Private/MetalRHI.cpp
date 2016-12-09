@@ -5,6 +5,9 @@
 =============================================================================*/
 
 #include "MetalRHIPrivate.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "RenderUtils.h"
 #if PLATFORM_IOS
 #include "IOSAppDelegate.h"
 #elif PLATFORM_MAC
@@ -20,6 +23,47 @@
 
 DEFINE_LOG_CATEGORY(LogMetal)
 
+static void ValidateTargetedRHIFeatureLevelExists(EShaderPlatform Platform)
+{
+	bool bSupportsShaderPlatform = false;
+#if PLATFORM_MAC
+	TArray<FString> TargetedShaderFormats;
+	GConfig->GetArray(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("TargetedRHIs"), TargetedShaderFormats, GEngineIni);
+	
+	for (FString Name : TargetedShaderFormats)
+	{
+		FName ShaderFormatName(*Name);
+		if (ShaderFormatToLegacyShaderPlatform(ShaderFormatName) == Platform)
+		{
+			bSupportsShaderPlatform = true;
+			break;
+		}
+	}
+#else
+	if (Platform == SP_METAL)
+	{
+		GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetal"), bSupportsShaderPlatform, GEngineIni);
+	}
+	else if (Platform == SP_METAL_MRT)
+	{
+		GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetalMRT"), bSupportsShaderPlatform, GEngineIni);
+	}
+#endif
+	
+	if (!bSupportsShaderPlatform && !WITH_EDITOR)
+	{
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("ShaderPlatform"), FText::FromString(LegacyShaderPlatformToShaderFormat(Platform).ToString()));
+		FText LocalizedMsg = FText::Format(NSLOCTEXT("MetalRHI", "ShaderPlatformUnavailable","Shader platform: {ShaderPlatform} was not cooked! Please enable this shader platform in the project's target settings."),Args);
+		
+		FText Title = NSLOCTEXT("MetalRHI", "ShaderPlatformUnavailableTitle","Shader Platform Unavailable");
+		FMessageDialog::Open(EAppMsgType::Ok, LocalizedMsg, &Title);
+		FPlatformMisc::RequestExit(true);
+		
+		UE_LOG(LogMetal, Fatal, TEXT("Shader platform: %s was not cooked! Please enable this shader platform in the project's target settings."), *LegacyShaderPlatformToShaderFormat(Platform).ToString());
+	}
+}
+
 bool FMetalDynamicRHIModule::IsSupported()
 {
 	return true;
@@ -27,12 +71,12 @@ bool FMetalDynamicRHIModule::IsSupported()
 
 FDynamicRHI* FMetalDynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 {
-	return new FMetalDynamicRHI();
+	return new FMetalDynamicRHI(RequestedFeatureLevel);
 }
 
 IMPLEMENT_MODULE(FMetalDynamicRHIModule, MetalRHI);
 
-FMetalDynamicRHI::FMetalDynamicRHI()
+FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 : FMetalRHICommandContext(nullptr, FMetalDeviceContext::CreateDeviceContext())
 , AsyncComputeContext(nullptr)
 {
@@ -48,6 +92,8 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 	GRHIAdapterName = TEXT("Metal");
 	GRHIVendorId = 1; // non-zero to avoid asserts
 	
+	bool const bRequestedFeatureLevel = (RequestedFeatureLevel != ERHIFeatureLevel::Num);
+	
 #if PLATFORM_IOS
 	// get the device to ask about capabilities
 	id<MTLDevice> Device = [IOSAppDelegate GetDelegate].IOSView->MetalDevice;
@@ -62,21 +108,28 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 
     bool bProjectSupportsMRTs = false;
     GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetalMRT"), bProjectSupportsMRTs, GEngineIni);
-    
+	
+	bool const bRequestedMetalMRT = ((RequestedFeatureLevel == ERHIFeatureLevel::SM4) || (!bRequestedFeatureLevel && FParse::Param(FCommandLine::Get(),TEXT("metalmrt"))));
+	
     // only allow GBuffers, etc on A8s (A7s are just not going to cut it)
-    if (bProjectSupportsMRTs && bCanUseWideMRTs && FParse::Param(FCommandLine::Get(),TEXT("metalmrt")))
+    if (bProjectSupportsMRTs && bCanUseWideMRTs && bRequestedMetalMRT)
     {
+		ValidateTargetedRHIFeatureLevelExists(SP_METAL_MRT);
+		
         GMaxRHIFeatureLevel = ERHIFeatureLevel::SM4;
         GMaxRHIShaderPlatform = SP_METAL_MRT;
-		GSupportsMultipleRenderTargets = true;
     }
     else
-    {
+	{
+		if (bRequestedMetalMRT)
+		{
+			UE_LOG(LogMetal, Warning, TEXT("Metal MRT support requires an iOS or tvOS device with an A8 processor or later. Falling back to Metal ES 3.1."));
+		}
+		
+		ValidateTargetedRHIFeatureLevelExists(SP_METAL);
+		
         GMaxRHIFeatureLevel = ERHIFeatureLevel::ES3_1;
         GMaxRHIShaderPlatform = SP_METAL;
-		// disable MRTs completely, because there is code in the engine that assumes the ability to use
-		// 32 bytes of pixel storage (like the 2 VERY WIDE ones in GPU particles)
-		GSupportsMultipleRenderTargets = false;
 	}
 	
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_METAL;
@@ -97,17 +150,62 @@ FMetalDynamicRHI::FMetalDynamicRHI()
     bool bCanUseWideMRTs = true;
     bool bCanUseASTC = false;
 	bool bSupportsD24S8 = false;
-    bool bSupportsD16 = false;
-
-	// Default to Metal SM5 on 10.11.5 or later. Earlier versions should still be running SM4.
-	bool const bTenElevenFiveOrLater = (FPlatformMisc::MacOSXVersionCompare(10,11,5) >= 0);
-	if(!FParse::Param(FCommandLine::Get(),TEXT("metal")) && (bTenElevenFiveOrLater || FParse::Param(FCommandLine::Get(),TEXT("metalsm5"))))
+	bool bSupportsD16 = false;
+	
+	GRHIAdapterName = FString(Device.name);
+	
+	// However they don't all support other features depending on the version of the OS.
+	bool bSupportsPointLights = false;
+	bool bSupportsTiledReflections = false;
+	bool bSupportsDistanceFields = false;
+	bool bSupportsRHIThread = false;
+	if(GRHIAdapterName.Contains("Nvidia"))
 	{
+		bSupportsPointLights = true;
+		GRHIVendorId = 0x10DE;
+		bSupportsTiledReflections = true;
+		bSupportsDistanceFields = (FPlatformMisc::MacOSXVersionCompare(10,11,4) >= 0);
+		bSupportsRHIThread = (FPlatformMisc::MacOSXVersionCompare(10,12,0) >= 0);
+	}
+	else if(GRHIAdapterName.Contains("ATi") || GRHIAdapterName.Contains("AMD"))
+	{
+		bSupportsPointLights = true;
+		GRHIVendorId = 0x1002;
+		if((FPlatformMisc::MacOSXVersionCompare(10,12,0) < 0) && GPUDesc.GPUVendorId == GRHIVendorId)
+		{
+			GRHIAdapterName = FString(GPUDesc.GPUName);
+		}
+		bSupportsTiledReflections = true;
+		bSupportsDistanceFields = (FPlatformMisc::MacOSXVersionCompare(10,11,4) >= 0);
+		bSupportsRHIThread = true;
+	}
+	else if(GRHIAdapterName.Contains("Intel"))
+	{
+		bSupportsTiledReflections = false;
+		bSupportsPointLights = (FPlatformMisc::MacOSXVersionCompare(10,11,4) >= 0);
+		GRHIVendorId = 0x8086;
+		bSupportsRHIThread = true;
+	}
+
+	// Default to Metal SM5 on 10.11.5 or later. Earlier versions should still be running SM4. Apparently so will Intel GPUs - as of 10.12.1 and UE4 4.14 the Intel drivers can't compile our compute shaders.
+	bool const bTenElevenFiveOrLater = (FPlatformMisc::MacOSXVersionCompare(10,11,5) >= 0);
+	bool const bRequestedSM5 = (RequestedFeatureLevel == ERHIFeatureLevel::SM5 || (!bRequestedFeatureLevel && FParse::Param(FCommandLine::Get(),TEXT("metalsm5"))));
+	if(bTenElevenFiveOrLater && !IsRHIDeviceIntel() && bRequestedSM5)
+	{
+		ValidateTargetedRHIFeatureLevelExists(SP_METAL_SM5);
+		
 		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM5;
 		GMaxRHIShaderPlatform = SP_METAL_SM5;
 	}
 	else
 	{
+		if (bRequestedSM5)
+		{
+			UE_LOG(LogMetal, Warning, TEXT("Metal Shader Model 5 support requires Mac OS X El Capitan 10.11.5 or later & an AMD or Nvidia GPU. Falling back to Metal Shader Model 4."));
+		}
+		
+		ValidateTargetedRHIFeatureLevelExists(SP_METAL_SM4);
+		
 		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM4;
 		GMaxRHIShaderPlatform = SP_METAL_SM4;
 	}
@@ -117,38 +215,8 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_METAL_SM4;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5) ? GMaxRHIShaderPlatform : SP_NumPlatforms;
 	
-	GRHIAdapterName = FString(Device.name);
-	
 	// Mac GPUs support layer indexing.
 	GSupportsVolumeTextureRendering = true;
-	
-	// However they don't all support other features depending on the version of the OS.
-	bool bSupportsPointLights = false;
-	bool bSupportsTiledReflections = false;
-	bool bSupportsDistanceFields = false;
-	if(GRHIAdapterName.Contains("Nvidia"))
-	{
-		bSupportsPointLights = true;
-		GRHIVendorId = 0x10DE;
-		bSupportsTiledReflections = true;
-		bSupportsDistanceFields = (FPlatformMisc::MacOSXVersionCompare(10,11,4) >= 0);
-	}
-	else if(GRHIAdapterName.Contains("ATi") || GRHIAdapterName.Contains("AMD"))
-	{
-		bSupportsPointLights = true;
-		GRHIVendorId = 0x1002;
-		if(GPUDesc.GPUVendorId == GRHIVendorId)
-		{
-			GRHIAdapterName = FString(GPUDesc.GPUName);
-		}
-		bSupportsTiledReflections = true;
-		bSupportsDistanceFields = (FPlatformMisc::MacOSXVersionCompare(10,11,4) >= 0);
-	}
-	else if(GRHIAdapterName.Contains("Intel"))
-	{
-		bSupportsPointLights = (FPlatformMisc::MacOSXVersionCompare(10,11,4) >= 0);
-		GRHIVendorId = 0x8086;
-	}
 	
 	// Make sure the vendors match - the assumption that order in IORegistry is the order in Metal may not hold up forever.
 	if(GPUDesc.GPUVendorId == GRHIVendorId)
@@ -221,9 +289,9 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 	{
 #if METAL_SUPPORTS_PARALLEL_RHI_EXECUTE
 #if WITH_EDITORONLY_DATA
-		GRHISupportsRHIThread = !GIsEditor;
+		GRHISupportsRHIThread = (!GIsEditor && bSupportsRHIThread);
 #else
-		GRHISupportsRHIThread = true;
+		GRHISupportsRHIThread = bSupportsRHIThread;
 #endif
 		GRHISupportsParallelRHIExecute = GRHISupportsRHIThread;
 #endif
@@ -270,7 +338,7 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 	GMaxTextureArrayLayers = 2048;
 	GMaxShadowDepthBufferSizeX = 16384;
 	GMaxShadowDepthBufferSizeY = 16384;
-    bSupportsD16 = FParse::Param(FCommandLine::Get(),TEXT("metalv2")) || [Device supportsFeatureSet:MTLFeatureSet_OSX_GPUFamily1_v2];
+    bSupportsD16 = !FParse::Param(FCommandLine::Get(),TEXT("nometalv2")) && [Device supportsFeatureSet:MTLFeatureSet_OSX_GPUFamily1_v2];
 #else
 #if PLATFORM_TVOS
 	GRHISupportsBaseVertexIndex = false;
@@ -446,7 +514,7 @@ FMetalDynamicRHI::FMetalDynamicRHI()
 	GDynamicRHI = this;
 	
 #if PLATFORM_DESKTOP
-	if (GMaxRHIFeatureLevel < ERHIFeatureLevel::SM5)
+	if (!GRHISupportsRHIThread) // Can't use the shader cache with RHI thread yet, but SM5 is not a problem.
 	{
 		static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.Optimize"));
 		
@@ -516,6 +584,9 @@ uint64 FMetalDynamicRHI::RHICalcTextureCubePlatformSize(uint32 Size, uint8 Forma
 void FMetalDynamicRHI::Init()
 {
 	GIsRHIInitialized = true;
+#if PLATFORM_DESKTOP
+	FShaderCache::LoadBinaryCache();
+#endif
 }
 
 void FMetalDynamicRHI::RHIBeginFrame()
@@ -573,7 +644,10 @@ void FMetalRHICommandContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 	Profiler->PushEvent(Name, Color);
 #endif
 	// @todo zebra : this was "[NSString stringWithTCHARString:Name]", an extension only on ios for some reason, it should be on Mac also
-	Context->GetCommandEncoder().PushDebugGroup([NSString stringWithCString:TCHAR_TO_UTF8(Name) encoding:NSUTF8StringEncoding]);
+	@autoreleasepool
+	{
+		Context->GetCommandEncoder().PushDebugGroup([NSString stringWithCString:TCHAR_TO_UTF8(Name) encoding:NSUTF8StringEncoding]);
+	}
 #endif
 }
 

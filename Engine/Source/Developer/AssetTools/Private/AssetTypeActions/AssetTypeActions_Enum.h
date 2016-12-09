@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Engine/UserDefinedEnum.h"
+
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
 #include "AssetTypeActions_Base.h"
+#include "Engine/UserDefinedEnum.h"
 
 class FAssetTypeActions_Enum : public FAssetTypeActions_Base
 {

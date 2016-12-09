@@ -4,8 +4,9 @@
 	MallocTTB.cpp: IntelTTB Malloc
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
-#include "MallocTBB.h"
+#include "HAL/MallocTBB.h"
+#include "Math/UnrealMathUtility.h"
+#include "HAL/UnrealMemory.h"
 
 // Only use for supported platforms
 #if PLATFORM_SUPPORTS_TBB && TBB_ALLOCATOR_ALLOWED

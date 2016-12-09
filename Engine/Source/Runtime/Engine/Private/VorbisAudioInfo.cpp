@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "VorbisAudioInfo.h"
-#include "IAudioFormat.h"
+#include "Misc/Paths.h"
+#include "Interfaces/IAudioFormat.h"
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
 
 #if WITH_OGGVORBIS
 

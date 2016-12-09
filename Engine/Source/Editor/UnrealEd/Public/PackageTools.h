@@ -7,7 +7,9 @@
 
 #pragma once
 
-class FLocalizationExportFilter;
+#include "CoreMinimal.h"
+
+class ULevel;
 
 namespace PackageTools
 {
@@ -117,7 +119,7 @@ namespace PackageTools
 	 * @param	OutObjectsWithExternalRefs		List of objects gathered from within the given ULevel that have external references
 	 * @return	true if PackagesToCheck has references to an externally loaded package
 	 */
-	UNREALED_API bool CheckForReferencesToExternalPackages(const TArray<UPackage*>* PackagesToCheck, TArray<UPackage*>* OutPackagesWithExternalRefs, class ULevel* LevelToCheck=NULL, TArray<UObject*>* OutObjectsWithExternalRefs=NULL );
+	UNREALED_API bool CheckForReferencesToExternalPackages(const TArray<UPackage*>* PackagesToCheck, TArray<UPackage*>* OutPackagesWithExternalRefs, ULevel* LevelToCheck=NULL, TArray<UObject*>* OutObjectsWithExternalRefs=NULL );
 
 	/**
 	 * Checks if the package has only one asset which shares its name

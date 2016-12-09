@@ -1,7 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ViewportInteractionModule.h"
-#include "VIPivotTransformGizmo.h"
+#include "Gizmo/VIPivotTransformGizmo.h"
+#include "Engine/World.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/StaticMesh.h"
+#include "GameFramework/WorldSettings.h"
 #include "VIStretchGizmoHandle.h"
 #include "VIUniformScaleGizmoHandle.h"
 

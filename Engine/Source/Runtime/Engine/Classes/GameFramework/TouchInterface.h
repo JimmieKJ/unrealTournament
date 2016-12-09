@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "InputCoreTypes.h"
 #include "TouchInterface.generated.h"
 
-class SVirtualJoystick;
+class UTexture2D;
 
 USTRUCT()
 struct FTouchInputControl

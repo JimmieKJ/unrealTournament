@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Editor/PropertyEditor/Public/PropertyHandle.h"
+
 /**
  * Delegate fired when picking a new image.
  * @param	InChosenImage	The path to the image that has been picked by the user.

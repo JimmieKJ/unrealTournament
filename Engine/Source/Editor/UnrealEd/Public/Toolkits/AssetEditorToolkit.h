@@ -2,23 +2,22 @@
 
 #pragma once
 
-#include "BaseToolkit.h"
-#include "LayoutService.h"
-#include "TabManager.h"
-#include "Toolkits/AssetEditorManager.h"		// For IAssetEditorInstance derive
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "UObject/GCObject.h"
+#include "Framework/Docking/TabManager.h"
+#include "Toolkits/IToolkit.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/Docking/LayoutService.h"
+#include "Toolkits/IToolkitHost.h"
+#include "Toolkits/BaseToolkit.h"
 
-
-class FExtender;
-class FUICommandList;
-class IToolkit;
-class IToolkitHost;
+class FAssetEditorModeManager;
+class FMenuBuilder;
 class SBorder;
 class SStandaloneAssetEditorToolkitHost;
-class SWidget;
-class UObject;
-struct FSlateBrush;
-struct FTabId;
-
 
 DECLARE_DELEGATE_RetVal( bool, FRequestAssetEditorClose );
 
@@ -182,6 +181,12 @@ public:
 	 */
 	static FText GetToolTipTextForObject(const UObject* InObject);
 
+	/** Get the asset editor mode manager we are using */
+	class FAssetEditorModeManager* GetAssetEditorModeManager() const;
+
+	/** Set the asset editor mode manager we are using */
+	void SetAssetEditorModeManager(class FAssetEditorModeManager* InModeManager);
+
 protected:
 
 	/**	Returns the single object currently being edited. Asserts if currently editing no object or multiple objects */
@@ -303,6 +308,9 @@ protected:
 
 	/** Whether only dirty assets should be prompted about on save - otherwise all edited assets will be prompted to the user for save/check-out */
 	bool bCheckDirtyOnAssetSave;
+
+	/** The asset editor mode manager */
+	FAssetEditorModeManager* AssetEditorModeManager;
 
 private:
 	/** The toolkit standalone host; may be nullptr */

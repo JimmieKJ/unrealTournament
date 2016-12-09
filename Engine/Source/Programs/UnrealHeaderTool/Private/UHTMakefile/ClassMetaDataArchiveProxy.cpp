@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+#include "ClassMetaDataArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/ClassMetaDataArchiveProxy.h"
+#include "ParserHelper.h"
 
 FClassMetaDataArchiveProxy::FClassMetaDataArchiveProxy(const FUHTMakefile& UHTMakefile, const FClassMetaData* ClassMetaData)
 {
@@ -33,11 +34,11 @@ void FClassMetaDataArchiveProxy::AddReferencedNames(const FClassMetaData* ClassM
 	}
 }
 
-TScopedPointer<FClassMetaData> FClassMetaDataArchiveProxy::CreateClassMetaData() const
+TUniquePtr<FClassMetaData> FClassMetaDataArchiveProxy::CreateClassMetaData() const
 {
-	FClassMetaData* ClassMetaData = new FClassMetaData();
-	PostConstruct(ClassMetaData);
-	return TScopedPointer<FClassMetaData>(ClassMetaData);
+	TUniquePtr<FClassMetaData> ClassMetaData = MakeUnique<FClassMetaData>();
+	PostConstruct(ClassMetaData.Get());
+	return ClassMetaData;
 }
 
 void FClassMetaDataArchiveProxy::PostConstruct(FClassMetaData* ClassMetaData) const

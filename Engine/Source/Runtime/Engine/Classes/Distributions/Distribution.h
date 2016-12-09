@@ -2,7 +2,11 @@
 
 
 #pragma once
-#include "Math/CurveEdInterface.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Distributions.h"
 #include "Distribution.generated.h"
 
 extern ENGINE_API uint32 GDistributionType;

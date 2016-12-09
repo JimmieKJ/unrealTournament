@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "FbxErrors.h"
+#include "Misc/FbxErrors.h"
 	
 /** Generic */
 FName FFbxErrors::Generic_ImportingNewObjectFailed(TEXT("Generic_ImportingNewObjectFailed"));
@@ -19,6 +18,8 @@ FName FFbxErrors::Generic_CannotDeleteReferenced(TEXT("Generic_CannotDeleteRefer
 FName FFbxErrors::Generic_FBXFileParseFailed(TEXT("Generic_FBXFileParseFailed"));
 
 FName FFbxErrors::Generic_MeshNotFound(TEXT("Generic_MeshNotFound"));
+
+FName FFbxErrors::Generic_CannotDetectImportType(TEXT("Generic_CannotDetectImportType"));
 
 /** Mesh Generic **/
 

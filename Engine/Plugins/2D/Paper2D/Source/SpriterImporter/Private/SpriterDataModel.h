@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
 #include "SpriterDataModel.generated.h"
 
 // This file contains the definition of various Spriter data types

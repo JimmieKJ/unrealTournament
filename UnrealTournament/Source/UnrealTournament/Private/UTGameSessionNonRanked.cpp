@@ -492,7 +492,7 @@ void AUTGameSessionNonRanked::EndMatch()
 		{
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				APlayerController* PlayerController = *Iterator;
+				APlayerController* PlayerController = Iterator->Get();
 				if (!PlayerController->IsLocalController())
 				{
 					PlayerController->ClientEndOnlineSession();

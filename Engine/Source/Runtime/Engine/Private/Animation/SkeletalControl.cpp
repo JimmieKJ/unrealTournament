@@ -4,10 +4,11 @@
 	SkeletalControl.cpp: SkeletalControl code and related.
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "BoneContainer.h"
+#include "Animation/Skeleton.h"
 #include "Animation/AnimData/BoneMaskFilter.h"
-#include "AnimationUtils.h"
-#include "AnimationRuntime.h"
+#include "EngineLogs.h"
 
 DEFINE_LOG_CATEGORY(LogSkeletalControl);
 
@@ -27,6 +28,7 @@ bool FBoneReference::Initialize(const FBoneContainer& RequiredBones)
 	BoneName = *BoneName.ToString().Trim().TrimTrailing();
 	BoneIndex = RequiredBones.GetPoseBoneIndexForBoneName(BoneName);
 
+	bUseSkeletonIndex = false;
 	// If bone name is not found, look into the master skeleton to see if it's found there.
 	// SkeletalMeshes can exclude bones from the master skeleton, and that's OK.
 	// If it's not found in the master skeleton, the bone does not exist at all! so we should report it as a warning.
@@ -51,6 +53,7 @@ bool FBoneReference::Initialize(const USkeleton* Skeleton)
 	{
 		BoneName = *BoneName.ToString().Trim().TrimTrailing();
 		BoneIndex = Skeleton->GetReferenceSkeleton().FindBoneIndex(BoneName);
+		bUseSkeletonIndex = true;
 	}
 	else
 	{

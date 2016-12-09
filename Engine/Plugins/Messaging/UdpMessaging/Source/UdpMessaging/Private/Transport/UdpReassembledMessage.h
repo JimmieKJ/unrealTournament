@@ -2,13 +2,8 @@
 
 #pragma once
 
-
-/** Type definition for shared pointers to instances of FUdpMessage. */
-typedef TSharedPtr<class FReassembledUdpMessage, ESPMode::ThreadSafe> FUdpReassembledMessagePtr;
-
-/** Type definition for shared references to instances of FUdpMessage. */
-typedef TSharedRef<class FReassembledUdpMessage, ESPMode::ThreadSafe> FUdpReassembledMessageRef;
-
+#include "CoreMinimal.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
 
 /**
  * Implements a reassembled message.

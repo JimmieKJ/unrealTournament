@@ -1,9 +1,10 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.IO;
 
 namespace UnrealBuildTool
 {
@@ -39,6 +40,9 @@ namespace UnrealBuildTool
 
 		// List of plugins for this project (may be enabled/disabled)
 		public PluginReferenceDescriptor[] Plugins;
+
+        // List of additional plugin directories to scan for available plugins
+        public List<DirectoryReference> AdditionalPluginDirectories;
 
 		// Array of platforms that this project is targeting
 		public string[] TargetPlatforms;
@@ -106,11 +110,34 @@ namespace UnrealBuildTool
 					Descriptor.Plugins = Array.ConvertAll(PluginsArray, x => PluginReferenceDescriptor.FromJsonObject(x));
 				}
 
-				// Read the target platforms
-				RawObject.TryGetStringArrayField("TargetPlatforms", out Descriptor.TargetPlatforms);
+                string[] Dirs;
+                Descriptor.AdditionalPluginDirectories = new List<DirectoryReference>();
+                // Read the additional plugin directories
+                if (RawObject.TryGetStringArrayField("AdditionalPluginDirectories", out Dirs))
+                {
+                    for (int Index = 0; Index < Dirs.Length; Index++)
+                    {
+                        if (Path.IsPathRooted(Dirs[Index]))
+                        {
+                            // Absolute path so create in place
+                            Descriptor.AdditionalPluginDirectories.Add(new DirectoryReference(Dirs[Index]));
+                            Log.TraceVerbose("Project ({0}) : Added additional absolute plugin directory ({1})", FileName, Dirs[Index]);
+                        }
+                        else
+                        {
+                            // This path is relative to the project path so build that out
+                            string RelativePath = Path.Combine(Path.GetDirectoryName(FileName), Dirs[Index]);
+                            Descriptor.AdditionalPluginDirectories.Add(new DirectoryReference(RelativePath));
+                            Log.TraceVerbose("Project ({0}) : Added additional relative plugin directory ({1})", FileName, Dirs[Index]);
+                        }
+                    }
+                }
 
-				// Get the sample name hash
-				RawObject.TryGetUnsignedIntegerField("EpicSampleNameHash", out Descriptor.EpicSampleNameHash);
+                // Read the target platforms
+                RawObject.TryGetStringArrayField("TargetPlatforms", out Descriptor.TargetPlatforms);
+
+                // Get the sample name hash
+                RawObject.TryGetUnsignedIntegerField("EpicSampleNameHash", out Descriptor.EpicSampleNameHash);
 
 				// Read the pre and post-build steps
 				CustomBuildSteps.TryRead(RawObject, "PreBuildSteps", out Descriptor.PreBuildSteps);

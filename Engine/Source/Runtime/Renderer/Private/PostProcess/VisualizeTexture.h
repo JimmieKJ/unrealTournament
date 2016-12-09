@@ -6,7 +6,10 @@
 
 #pragma once
 
-struct IPooledRenderTarget;
+#include "CoreMinimal.h"
+#include "RendererInterface.h"
+
+class FSceneView;
 class FViewInfo;
 
 class FVisualizeTexture

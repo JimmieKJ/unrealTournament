@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SDPIScaler.h"
+#include "Widgets/Layout/SDPIScaler.h"
+#include "Layout/ArrangedChildren.h"
 
 SDPIScaler::SDPIScaler()
 : ChildSlot()

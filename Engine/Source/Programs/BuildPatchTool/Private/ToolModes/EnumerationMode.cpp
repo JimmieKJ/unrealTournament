@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PrivatePch.h"
-#include "BuildPatchTool.h"
 #include "EnumerationMode.h"
+#include "Interfaces/IBuildPatchServicesModule.h"
+#include "BuildPatchTool.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+
 using namespace BuildPatchTool;
 
 class FEnumerationToolMode : public IToolMode

@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AddContentDialogPCH.h"
+#include "ContentSourceDragDropOp.h"
+#include "ViewModels/ContentSourceViewModel.h"
 
 TSharedRef<FContentSourceDragDropOp> FContentSourceDragDropOp::CreateShared(TSharedPtr<FContentSourceViewModel> InContentSource)
 {

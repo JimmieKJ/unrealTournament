@@ -6,6 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ScreenShotBaseNode.h"
+#include "ScreenShotDataItem.h"
+#include "Misc/FilterCollection.h"
+
 class FScreenShotPlatformNode : public FScreenShotBaseNode
 {
 public:

@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RenderResource.h"
 #include "TickableObjectRenderThread.h"
 
 /** A templated pool for resources that can only be freed at a 'safe' point in the frame. */

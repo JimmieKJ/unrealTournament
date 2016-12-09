@@ -1,22 +1,41 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
+#include "AnimTransitionNodeDetails.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "EditorStyleSet.h"
+#include "Animation/AnimInstance.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
+#include "IDetailsView.h"
+#include "Modules/ModuleManager.h"
 
 #include "AnimationTransitionGraph.h"
-#include "AnimGraphDefinitions.h"
 #include "AnimGraphNode_TransitionResult.h"
 #include "AnimStateConduitNode.h"
-#include "AnimStateNodeBase.h"
 #include "AnimStateTransitionNode.h"
-#include "AnimTransitionNodeDetails.h"
-#include "KismetEditorUtilities.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "SKismetLinearExpression.h"
-#include "STextEntryPopup.h"
-#include "SExpandableArea.h"
-#include "BlueprintEditorUtils.h"
-#include "SBlendProfilePicker.h"
+#include "Widgets/Input/STextEntryPopup.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "Animation/BlendProfile.h"
-
+#include "BlendProfilePicker.h"
+#include "ISkeletonEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "FAnimStateNodeDetails"
 
@@ -167,6 +186,13 @@ void FAnimTransitionNodeDetails::CustomizeDetails( IDetailLayoutBuilder& DetailB
 			BlendProfileHandle->GetValue(BlendProfilePropertyValue);
 			UBlendProfile* CurrentProfile = Cast<UBlendProfile>(BlendProfilePropertyValue);
 
+			ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+
+			FBlendProfilePickerArgs Args;
+			Args.InitialProfile = CurrentProfile;
+			Args.OnBlendProfileSelected = FOnBlendProfileSelected::CreateSP(this, &FAnimTransitionNodeDetails::OnBlendProfileChanged, BlendProfileHandle);
+			Args.bAllowNew = false;
+
 			CrossfadeCategory.AddProperty(BlendProfileHandle).CustomWidget(true)
 				.NameContent()
 				[
@@ -174,11 +200,7 @@ void FAnimTransitionNodeDetails::CustomizeDetails( IDetailLayoutBuilder& DetailB
 				]
 				.ValueContent()
 				[
-					SNew(SBlendProfilePicker)
-					.TargetSkeleton(TargetSkeleton)
-					.AllowNew(false)
-					.OnBlendProfileSelected(this, &FAnimTransitionNodeDetails::OnBlendProfileChanged, BlendProfileHandle)
-					.InitialProfile(CurrentProfile)
+					SkeletonEditorModule.CreateBlendProfilePicker(TargetSkeleton, Args)
 				];
 		}
 

@@ -2,10 +2,15 @@
 
 #pragma once
 
-#include "NavigationReply.h"
-#include "NavigationMetaData.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Types/NavigationMetaData.h"
 
 #include "WidgetNavigation.generated.h"
+
+class UWidget;
 
 /**
  *

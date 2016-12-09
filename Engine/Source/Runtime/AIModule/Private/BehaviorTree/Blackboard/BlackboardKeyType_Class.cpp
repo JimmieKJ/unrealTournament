@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Class.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Templates/Casts.h"
 
 const UBlackboardKeyType_Class::FDataType UBlackboardKeyType_Class::InvalidValue = nullptr;
 

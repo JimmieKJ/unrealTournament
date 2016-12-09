@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "PaperSprite.h"
 #include "PaperSpriteSheet.generated.h"
 
 UCLASS(BlueprintType, meta = (DisplayThumbnail = "true"))

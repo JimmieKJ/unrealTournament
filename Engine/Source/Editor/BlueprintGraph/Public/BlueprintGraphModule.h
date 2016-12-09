@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
-// Forward declarations
-class  FBlueprintActionFilter;
+class FBlueprintActionFilter;
 struct FBlueprintActionInfo;
 
 class FBlueprintGraphModule : public IModuleInterface

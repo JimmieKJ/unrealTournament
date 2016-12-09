@@ -1,9 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerPrivatePCH.h"
-#include "SProfilerSettings.h"
+#include "Widgets/SProfilerSettings.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Misc/Paths.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "ProfilerManager.h"
+
 
 #define LOCTEXT_NAMESPACE "SProfilerSettings"
+
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SProfilerSettings::Construct( const FArguments& InArgs )

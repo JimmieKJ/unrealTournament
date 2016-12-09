@@ -1,10 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "SkyLightComponentDetails.h"
-#include "Components/LightComponentBase.h"
+#include "Components/SceneComponent.h"
 #include "Engine/SkyLight.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Components/LightComponentBase.h"
+#include "Engine/World.h"
 #include "Components/SkyLightComponent.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "IDetailsView.h"
 
 #define LOCTEXT_NAMESPACE "SkyLightComponentDetails"
 

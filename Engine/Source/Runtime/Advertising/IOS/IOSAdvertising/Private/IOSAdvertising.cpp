@@ -2,6 +2,8 @@
 
 #include "IOSAdvertising.h"
 #include "IOSAppDelegate.h"
+#include "Modules/ModuleManager.h"
+#include "IOS/IOSAsyncTask.h"
 
 #import <iAd/ADBannerView.h>
 

@@ -4,13 +4,14 @@
 	WorldCollision.cpp: UWorld collision implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "PhysicsPublic.h"
+#include "WorldCollision.h"
+#include "Misc/CoreMisc.h"
+#include "EngineDefines.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/CollisionProfile.h"
+#include "Framework/Docking/TabManager.h"
 #include "Collision.h"
-
-#if WITH_PHYSX
-	#include "../PhysicsEngine/PhysXSupport.h"
-#endif
 
 #if WITH_BOX2D
 	#include "../PhysicsEngine2D/Box2DIntegration.h"
@@ -18,9 +19,7 @@
 	#include "PhysicsEngine/AggregateGeometry2D.h"
 #endif
 
-#include "PhysXCollision.h"
-#include "CollisionConversions.h"
-#include "CollisionDebugDrawing.h"
+#include "Collision/PhysXCollision.h"
 
 DEFINE_LOG_CATEGORY(LogCollision);
 
@@ -38,6 +37,7 @@ DEFINE_STAT(STAT_Collision_GeomOverlapSingle);
 DEFINE_STAT(STAT_Collision_GeomOverlapMultiple);
 DEFINE_STAT(STAT_Collision_FBodyInstance_OverlapMulti);
 DEFINE_STAT(STAT_Collision_FBodyInstance_OverlapTest);
+DEFINE_STAT(STAT_Collision_FBodyInstance_LineTrace);
 DEFINE_STAT(STAT_Collision_PreFilter);
 DEFINE_STAT(STAT_Collision_PostFilter);
 
@@ -515,7 +515,6 @@ bool UWorld::ComponentSweepMulti(TArray<struct FHitResult>& OutHits, class UPrim
 
 #if ENABLE_COLLISION_ANALYZER
 
-#include "CollisionAnalyzerModule.h"
 
 static class FCollisionExec : private FSelfRegisteringExec
 {
@@ -535,5 +534,4 @@ public:
 } CollisionExec;
 
 #endif // ENABLE_COLLISION_ANALYZER
-
 

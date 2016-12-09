@@ -2,20 +2,28 @@
  
 #pragma once
 
-/*-----------------------------------------------------------------------------
-	Basic structures
------------------------------------------------------------------------------*/
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Misc/ConfigCacheIni.h"
+#include "IProfilerClient.h"
+#include "ISessionManager.h"
+#include "ProfilerDataSource.h"
+#include "ProfilerSession.h"
+#include "ProfilerCommands.h"
+
+class SProfilerWindow;
 
 /** Contains all settings for the profiler, accessible through the profiler manager. */
 class FProfilerSettings
 {
 public:
-	FProfilerSettings( bool bInIsDefault = false )
-		: bShowCoalescedViewModesInEventGraph( true )
-		, bIsEditing( false )
-		, bIsDefault( bInIsDefault )
+	FProfilerSettings(bool bInIsDefault = false)
+		: bShowCoalescedViewModesInEventGraph(true)
+		, bIsEditing(false)
+		, bIsDefault(bInIsDefault)
 	{
-		if( !bIsDefault )
+		if(!bIsDefault)
 		{
 			LoadFromConfig();
 		}
@@ -23,7 +31,7 @@ public:
 
 	~FProfilerSettings()
 	{
-		if( !bIsDefault )
+		if(!bIsDefault)
 		{
 			SaveToConfig();
 		}
@@ -33,13 +41,13 @@ public:
 	{
 		FConfigCacheIni::LoadGlobalIniFile(ProfilerSettingsIni, TEXT("ProfilerSettings"));
 
-		GConfig->GetBool( TEXT("Profiler.ProfilerOptions"), TEXT("bShowCoalescedViewModesInEventGraph"), bShowCoalescedViewModesInEventGraph, ProfilerSettingsIni );
+		GConfig->GetBool(TEXT("Profiler.ProfilerOptions"), TEXT("bShowCoalescedViewModesInEventGraph"), bShowCoalescedViewModesInEventGraph, ProfilerSettingsIni);
 	}
 
 	void SaveToConfig()
 	{
-		GConfig->SetBool( TEXT("Profiler.ProfilerOptions"), TEXT("bShowCoalescedViewModesInEventGraph"), bShowCoalescedViewModesInEventGraph, ProfilerSettingsIni );
-		GConfig->Flush( false, ProfilerSettingsIni );
+		GConfig->SetBool(TEXT("Profiler.ProfilerOptions"), TEXT("bShowCoalescedViewModesInEventGraph"), bShowCoalescedViewModesInEventGraph, ProfilerSettingsIni);
+		GConfig->Flush(false, ProfilerSettingsIni);
 	}
 
 	void EnterEditMode()
@@ -63,7 +71,8 @@ public:
 	}
 
 //protected:
-	/** Contains default settings. */
+
+/** Contains default settings. */
 	static FProfilerSettings Defaults;
 
 	/** Profiler setting filename ini. */
@@ -81,35 +90,38 @@ public:
 
 
 /** Contains basic information about tracked stat. */
-class FTrackedStat : public FNoncopyable, public TSharedFromThis<FTrackedStat>
+class FTrackedStat
+	: public FNoncopyable
+	, public TSharedFromThis<FTrackedStat>
 {
 public:
+
 	/**
 	 * Initialization constructor.
 	 *
-	 * @param InGraphDataSource - Data source
-	 * @param InGraphColor - color used to draw the average value
-	 * @param InStatID - the ID of the stat which will be tracked
+	 * @param InGraphDataSource Data source
+	 * @param InGraphColor Color used to draw the average value
+	 * @param InStatID The ID of the stat which will be tracked
 	 *
 	 */
 	FTrackedStat
 	(
-		FGraphDataSourceRefConst InGraphDataSource,
+		TSharedRef<const FGraphDataSource> InGraphDataSource,
 		const FLinearColor InGraphColor,
 		const uint32 InStatID	
 	)
-		: GraphDataSource( InGraphDataSource )
-		, GraphColor( InGraphColor )
-		, StatID( InStatID )
-	{}
+		: GraphDataSource(InGraphDataSource)
+		, GraphColor(InGraphColor)
+		, StatID(InStatID)
+	{ }
 
 	/** Destructor. */
-	~FTrackedStat()
-	{}
+	~FTrackedStat() { }
 
 //protected:
+
 	/** A shared reference to the graph data source for active profiler session for the specified stat ID. */
-	FGraphDataSourceRefConst GraphDataSource;
+	TSharedRef<const FGraphDataSource> GraphDataSource;
 
 	/** A color to visualize graph value for the data graph. */
 	const FLinearColor GraphColor;
@@ -118,22 +130,17 @@ public:
 	const uint32 StatID;
 };
 
-/*-----------------------------------------------------------------------------
-	FProfilerManager
------------------------------------------------------------------------------*/
 
-namespace EProfilerViewMode
+enum class EProfilerViewMode
 {
-	enum Type
-	{
-		/** Regular line graphs, for the regular stats file. */
-		LineIndexBased,
-		/** Thread view graph, for the raw stats file. */
-		ThreadViewTimeBased,
-		/** Invalid enum type, may be used as a number of enumerations. */
-		InvalidOrMax,
-	};
-}
+	/** Regular line graphs, for the regular stats file. */
+	LineIndexBased,
+	/** Thread view graph, for the raw stats file. */
+	ThreadViewTimeBased,
+	/** Invalid enum type, may be used as a number of enumerations. */
+	InvalidOrMax,
+};
+
 
 /** 
  ** This class manages following areas:
@@ -153,10 +160,10 @@ public:
 	/**
 	 * Creates a profiler manager, only one instance can exist.
 	 *
-	 * @param InSessionManager	- the session manager to use
+	 * @param InSessionManager The session manager to use
 	 *
 	 */
-	FProfilerManager( const ISessionManagerRef& InSessionManager );
+	FProfilerManager(const TSharedRef<ISessionManager>& InSessionManager);
 
 	/** Virtual destructor. */
 	virtual ~FProfilerManager();
@@ -164,21 +171,22 @@ public:
 	/**
 	 * Creates an instance of the profiler manager and initializes global instance with the previously created instance of the profiler manager.
 	 *
-	 * @param InSessionManager	- the session manager to use
-	 *
+	 * @param InSessionManager The session manager to use
 	 */
-	static TSharedPtr<FProfilerManager> Initialize( const ISessionManagerRef& SessionManager )
+	static TSharedPtr<FProfilerManager> Initialize(const TSharedRef<ISessionManager>& SessionManager)
 	{
 		if (FProfilerManager::Instance.IsValid())
 		{
 			FProfilerManager::Instance.Reset();
 		}
-		FProfilerManager::Instance = MakeShareable( new FProfilerManager(SessionManager) );
+
+		FProfilerManager::Instance = MakeShareable(new FProfilerManager(SessionManager));
 		FProfilerManager::Instance->PostConstructor();
+
 		return FProfilerManager::Instance;
 	}
 
-	void AssignProfilerWindow( const TSharedRef<class SProfilerWindow>& InProfilerWindow )
+	void AssignProfilerWindow(const TSharedRef<SProfilerWindow>& InProfilerWindow)
 	{
 		ProfilerWindow = InProfilerWindow;
 	}
@@ -206,62 +214,44 @@ public:
 	 *		IProfilerModule& ProfilerModule = FModuleManager::Get().LoadModuleChecked<IProfilerModule>("Profiler");
 	 *		ProfilerModule.GetProfilerManager();
 	 */
-	static TSharedPtr<FProfilerManager> Get()
-	{
-		return FProfilerManager::Instance;
-	}
+	static TSharedPtr<FProfilerManager> Get();
 
 	/**
 	 * @return an instance of the profiler action manager.
 	 */
-	static FProfilerActionManager& GetActionManager()
-	{
-		return FProfilerManager::Instance->ProfilerActionManager;
-	}
+	static FProfilerActionManager& GetActionManager();
 
 	/**
 	 * @return an instance of the profiler settings.
 	 */
-	static FProfilerSettings& GetSettings()
-	{
-		return FProfilerManager::Instance->Settings;
-	}
+	static FProfilerSettings& GetSettings();
 
 	/** @returns UI command list for the profiler manager. */
-	const TSharedRef< FUICommandList > GetCommandList() const
-	{
-		return CommandList;
-	}
+	const TSharedRef< FUICommandList > GetCommandList() const;
 
 	/**
 	 * @return an instance of the profiler commands.
 	 */
-	static const FProfilerCommands& GetCommands()
-	{
-		return FProfilerCommands::Get();
-	}
+	static const FProfilerCommands& GetCommands();
 
 	/**
 	 * @return an instance of the profiler session.
 	 */
-	FProfilerSessionPtr GetProfilerSession()
-	{
-		return ProfilerSession;
-	}
+	TSharedPtr<FProfilerSession> GetProfilerSession();
 
 	/*-----------------------------------------------------------------------------
 		Stat tracking, Session instance management
 	-----------------------------------------------------------------------------*/
 
-	bool TrackStat( const uint32 StatID );
-	bool UntrackStat( const uint32 StatID );
+	bool TrackStat(const uint32 StatID);
+	bool UntrackStat(const uint32 StatID);
 	void TrackDefaultStats();
 	void ClearStatsAndInstances();
 
 	/**
 	 * @return true, if the specified stat is currently tracked by the profiler.
 	 */
-	const bool IsStatTracked( const uint32 StatID ) const;
+	const bool IsStatTracked(const uint32 StatID) const;
 
 	/**
 	 * @return True, if the profiler has at least one fully processed capture file
@@ -303,7 +293,7 @@ public:
 	 * @param bRequestedDataPreviewState - data preview state that should be set
 	 *
 	 */
-	void SetDataPreview( const bool bRequestedDataPreviewState );
+	void SetDataPreview(const bool bRequestedDataPreviewState);
 
 	/** @return true, if all sessions instances are capturing data to a file, only valid if profiler is connected to network based session */
 	const bool IsDataCapturing() const;
@@ -314,30 +304,30 @@ public:
 	 * @param bRequestedDataCaptureState - data capture state that should be set
 	 *
 	 */
-	void SetDataCapture( const bool bRequestedDataCaptureState );
+	void SetDataCapture(const bool bRequestedDataCaptureState);
 
-	void ProfilerSession_OnCaptureFileProcessed( const FGuid ProfilerInstanceID );
-	void ProfilerSession_OnAddThreadTime( int32 FrameIndex, const TMap<uint32, float>& ThreadMS, const FProfilerStatMetaDataRef& StatMetaData );
+	void ProfilerSession_OnCaptureFileProcessed(const FGuid ProfilerInstanceID);
+	void ProfilerSession_OnAddThreadTime(int32 FrameIndex, const TMap<uint32, float>& ThreadMS, const TSharedRef<FProfilerStatMetaData>& StatMetaData);
 
 	/*-----------------------------------------------------------------------------
 		Event graphs management
 	-----------------------------------------------------------------------------*/
 
-	void CreateEventGraphTab( const FGuid ProfilerInstanceID );
+	void CreateEventGraphTab(const FGuid ProfilerInstanceID);
 	void CloseAllEventGraphTabs();
 
 	/*-----------------------------------------------------------------------------
 		Data graphs management
 	-----------------------------------------------------------------------------*/
 
-	void DataGraph_OnSelectionChangedForIndex( uint32 FrameStartIndex, uint32 FrameEndIndex );
+	void DataGraph_OnSelectionChangedForIndex(uint32 FrameStartIndex, uint32 FrameEndIndex);
 
 	/*-----------------------------------------------------------------------------
 		Events declarations
 	-----------------------------------------------------------------------------*/
 	
 public:
-	DECLARE_EVENT_OneParam( FProfilerManager, FViewModeChangedEvent, EProfilerViewMode::Type /*NewViewMode*/ );
+	DECLARE_EVENT_OneParam(FProfilerManager, FViewModeChangedEvent, EProfilerViewMode /*NewViewMode*/);
 	FViewModeChangedEvent& OnViewModeChanged()
 	{
 		return OnViewModeChangedEvent;
@@ -349,13 +339,8 @@ protected:
 	
 
 public:
-	/**
-	 * The event to execute when the status of specified tracked stat has changed.
-	 *
-	 * @param const FTrackedStatPtr& - a reference to the tracked stat whose status has changed, this reference is valid only within the scope of function
-	 * @param bool bIsTracked - true, if stat has been added for tracking, false, if stat has been removed from tracking
-	 */
-	DECLARE_EVENT_TwoParams( FProfilerManager, FTrackedStatChangedEvent, const FTrackedStatPtr&, bool );
+	/** The event to execute when the status of specified tracked stat has changed. */
+	DECLARE_EVENT_TwoParams(FProfilerManager, FTrackedStatChangedEvent, const TSharedPtr<FTrackedStat>& /*TrackedStat*/, bool /*IsTracked*/);
 	FTrackedStatChangedEvent& OnTrackedStatChanged()
 	{
 		return TrackedStatChangedEvent;
@@ -371,9 +356,9 @@ public:
 	/**
 	 * The event to execute when a new frame has been added to the specified profiler session instance.
 	 *
-	 * @param const FProfilerSessionPtr& - a shared pointer to the profiler session instance which received a new frame
+	 * @param const TSharedPtr<FProfilerSession>& - a shared pointer to the profiler session instance which received a new frame
 	 */
-	DECLARE_EVENT_OneParam( FProfilerManager, FFrameAddedEvent, const FProfilerSessionPtr& );
+	DECLARE_EVENT_OneParam(FProfilerManager, FFrameAddedEvent, const TSharedPtr<FProfilerSession>&);
 	FFrameAddedEvent& OnFrameAdded()
 	{
 		return FrameAddedEvent;
@@ -383,7 +368,7 @@ public:
 	/**
 	 * The event to be invoked once per second, for example to update the data graph.
 	 */
-	DECLARE_EVENT( FProfilerManager, FOneSecondPassedEvent );
+	DECLARE_EVENT(FProfilerManager, FOneSecondPassedEvent);
 	FOneSecondPassedEvent& OnOneSecondPassed()
 	{
 		return OneSecondPassedEvent;
@@ -398,7 +383,7 @@ public:
 	/**
 	 * The event to execute when the list of session instances have changed.
 	 */
-	DECLARE_EVENT( FProfilerManager, FOnSessionsUpdatedEvent );
+	DECLARE_EVENT(FProfilerManager, FOnSessionsUpdatedEvent);
 	FOnSessionsUpdatedEvent& OnSessionInstancesUpdated()
 	{
 		return SessionInstancesUpdatedEvent;
@@ -413,7 +398,7 @@ public:
 	/**
 	 * The event to execute when the filter and presets widget should be updated with the latest data.
 	 */
-	DECLARE_EVENT( FProfilerManager, FRequestFilterAndPresetsUpdateEvent );
+	DECLARE_EVENT(FProfilerManager, FRequestFilterAndPresetsUpdateEvent);
 	FRequestFilterAndPresetsUpdateEvent& OnRequestFilterAndPresetsUpdate()
 	{
 		return RequestFilterAndPresetsUpdateEvent;
@@ -430,30 +415,28 @@ public:
 	 *
 	 * @param ProfilerCaptureFilepath	- The path to the file containing a captured session instance
 	 */
-	void LoadProfilerCapture( const FString& ProfilerCaptureFilepath );
+	void LoadProfilerCapture(const FString& ProfilerCaptureFilepath);
 
 	/** Creates a new profiler session instance and load a raw stats file from the specified location. */
-	void LoadRawStatsFile( const FString& RawStatsFileFileath );
+	void LoadRawStatsFile(const FString& RawStatsFileFileath);
 
 protected:
-	void ProfilerClient_OnProfilerData( const FGuid& InstanceID, const FProfilerDataFrame& Content );
-	void ProfilerClient_OnClientConnected( const FGuid& SessioID, const FGuid& InstanceID );
-	void ProfilerClient_OnClientDisconnected( const FGuid& SessionID, const FGuid& InstanceID );
-	void ProfilerClient_OnMetaDataUpdated( const FGuid& InstanceID, const FStatMetaData& MetaData );
-	void ProfilerClient_OnLoadCompleted( const FGuid& InstanceID );
-	void ProfilerClient_OnLoadCancelled( const FGuid& InstanceID );
-	void ProfilerClient_OnLoadStarted( const FGuid& InstanceID );
-
-	void ProfilerClient_OnProfilerFileTransfer( const FString& Filename, int64 FileProgress, int64 FileSize );
-
-	void SessionManager_OnInstanceSelectionChanged( const TSharedPtr<ISessionInstanceInfo>& Instance, bool Selected );
+	void ProfilerClient_OnProfilerData(const FGuid& InstanceID, const FProfilerDataFrame& Content);
+	void ProfilerClient_OnClientConnected(const FGuid& SessioID, const FGuid& InstanceID);
+	void ProfilerClient_OnClientDisconnected(const FGuid& SessionID, const FGuid& InstanceID);
+	void ProfilerClient_OnMetaDataUpdated(const FGuid& InstanceID, const FStatMetaData& MetaData);
+	void ProfilerClient_OnLoadCompleted(const FGuid& InstanceID);
+	void ProfilerClient_OnLoadCancelled(const FGuid& InstanceID);
+	void ProfilerClient_OnLoadStarted(const FGuid& InstanceID);
+	void ProfilerClient_OnProfilerFileTransfer(const FString& Filename, int64 FileProgress, int64 FileSize);
+	void SessionManager_OnInstanceSelectionChanged(const TSharedPtr<ISessionInstanceInfo>& Instance, bool Selected);
 
 public:
-	const FLinearColor& GetColorForStatID( const uint32 StatID ) const;
+	const FLinearColor& GetColorForStatID(const uint32 StatID) const;
 
 protected:
 	/** Updates this manager, done through FCoreTicker. */
-	bool Tick( float DeltaTime );
+	bool Tick(float DeltaTime);
 
 public:
 
@@ -467,7 +450,7 @@ public:
 	}
 
 	/** Sets a new view mode for the profiler. */
-	void SetViewMode( EProfilerViewMode::Type NewViewMode );
+	void SetViewMode(EProfilerViewMode NewViewMode);
 
 protected:
 	/** The delegate to be invoked when this profiler manager ticks. */
@@ -480,19 +463,19 @@ protected:
 	TWeakPtr<class SProfilerWindow> ProfilerWindow;
 
 	/** A shared pointer to the session manager. */
-	ISessionManagerPtr SessionManager;
+	TSharedPtr<ISessionManager> SessionManager;
 
 	/** A shared pointer to the currently selected session in the session browser. */
-	ISessionInfoPtr ActiveSession;
+	TSharedPtr<ISessionInfo> ActiveSession;
 
 	/** A shared pointer to the currently selected instance in the session browser. */
-	FGuid/*ISessionInstanceInfoPtr*/ ActiveInstanceID;
+	FGuid/*TSharedPtr<ISessionInstanceInfo>*/ ActiveInstanceID;
 
 	/** Profiler session, to be removed from here. */
-	FProfilerSessionPtr ProfilerSession;
+	TSharedPtr<FProfilerSession> ProfilerSession;
 
 	/** A shared pointer to the profiler client, which is used to deliver all profiler data from the active session. */
-	IProfilerClientPtr ProfilerClient;
+	TSharedPtr<IProfilerClient> ProfilerClient;
 
 	/** List of UI commands for the profiler manager. This will be filled by this and corresponding classes. */
 	TSharedRef< FUICommandList > CommandList;
@@ -514,7 +497,7 @@ protected:
 	FFrameAddedEvent FrameAddedEvent;
 
 	/** Contains all currently tracked stats, stored as StatID -> FTrackedStat. */
-	TMap<uint32, FTrackedStatPtr> TrackedStats;
+	TMap<uint32, TSharedPtr<FTrackedStat>> TrackedStats;
 
 	
 	/*-----------------------------------------------------------------------------
@@ -522,10 +505,10 @@ protected:
 	-----------------------------------------------------------------------------*/
 
 	/** Profiler session type that is currently initialized. */
-	EProfilerSessionTypes::Type ProfilerType;
+	EProfilerSessionTypes ProfilerType;
 
 	/** Profiler view mode. */
-	EProfilerViewMode::Type ViewMode;
+	EProfilerViewMode ViewMode;
 
 	// TODO: Bool should be replaces with type similar to ECheckBoxState {Checked,Unchecked,Undertermined}
 

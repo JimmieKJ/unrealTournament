@@ -1,6 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/Guid.h"
+
 // Custom serialization version for changes made in Dev-Blueprints stream
 struct CORE_API FBlueprintsObjectVersion
 {
@@ -13,6 +16,8 @@ struct CORE_API FBlueprintsObjectVersion
 		ArrayGetByRefUpgrade,
 		EdGraphPinOptimized,
 		AllowDeletionConformed,
+		AdvancedContainerSupport,
+		SCSHasComponentTemplateClass,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

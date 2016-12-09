@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Commands/UIAction.h"
+#include "AssetTypeCategories.h"
+
+class FMenuBuilder;
+
 class FNewAssetOrClassContextMenu
 {
 public:

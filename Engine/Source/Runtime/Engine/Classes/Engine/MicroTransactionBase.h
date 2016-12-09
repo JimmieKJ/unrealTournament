@@ -6,6 +6,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/PlatformInterfaceBase.h"
 #include "MicroTransactionBase.generated.h"
 
 /** All the types of delegate callbacks that a MicroTransaction subclass may receive from C++. */

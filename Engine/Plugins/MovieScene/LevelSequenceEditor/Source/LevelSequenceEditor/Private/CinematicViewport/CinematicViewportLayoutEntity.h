@@ -2,9 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Application/SlateApplication.h"
 #include "LevelViewportLayout.h"
-#include "SCinematicLevelViewport.h"
-#include "UnrealEd.h"
+#include "SLevelViewport.h"
+#include "CinematicViewport/SCinematicLevelViewport.h"
+#include "Editor/UnrealEdEngine.h"
+#include "UnrealEdGlobals.h"
 
 class FCinematicViewportLayoutEntity : public IViewportLayoutEntity
 {

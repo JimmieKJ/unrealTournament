@@ -73,6 +73,8 @@ public:
 
 	virtual void AdjustCachedSize( FVector2D& Size ) const override;
 
+	virtual float GetDPIScaleFactor() const override;
+
 	/**
 	 * Sets the window text - usually the title but can also be text content for things like controls
 	 *

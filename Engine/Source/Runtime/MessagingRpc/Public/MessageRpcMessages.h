@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "MessageRpcMessages.generated.h"
-
 
 /** Message for canceling an RPC call. */
 USTRUCT()

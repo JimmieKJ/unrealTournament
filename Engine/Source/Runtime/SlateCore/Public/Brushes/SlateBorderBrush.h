@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateBrush.h"
 
 /**
  * Similar to FSlateBoxBrush but has no middle and the sides tile instead of stretching.

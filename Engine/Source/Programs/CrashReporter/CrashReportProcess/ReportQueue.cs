@@ -6,7 +6,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using Tools.CrashReporter.CrashReportCommon;
 using Tools.DotNETCommon.XmlHandler;
 
@@ -55,10 +54,13 @@ namespace Tools.CrashReporter.CrashReportProcess
 
 		// METHODS
 
-		protected ReportQueueBase(string InQueueName, string LandingZonePath)
+		protected ReportQueueBase(string InQueueName, string LandingZonePath, int InDecimateWaitingCountStart, int InDecimateWaitingCountEnd)
 		{
 			QueueName = InQueueName;
 			LandingZone = LandingZonePath;
+			DecimateWaitingCountStart = InDecimateWaitingCountStart;
+			DecimateWaitingCountEnd = InDecimateWaitingCountEnd;
+			CrashReporterProcessServicer.StatusReporter.AlertOnLowDisk(LandingZonePath, Config.Default.DiskSpaceAlertPercent);
 		}
 
 		/// <summary>
@@ -77,6 +79,8 @@ namespace Tools.CrashReporter.CrashReportProcess
 				{
 					var NewReportPath = "";
 					var ReportsInLandingZone = new ReportIdSet();
+
+					CrashReporterProcessServicer.StatusReporter.AlertOnLowDisk(LandingZone, Config.Default.DiskSpaceAlertPercent);
 
 					DirectoryInfo[] DirectoriesInLandingZone;
 					if (GetCrashesFromLandingZone(out DirectoriesInLandingZone))
@@ -108,7 +112,7 @@ namespace Tools.CrashReporter.CrashReportProcess
 							}
 							catch (Exception Ex)
 							{
-								CrashReporterProcessServicer.WriteException("CheckForNewReportsInner: " + Ex.ToString());
+								CrashReporterProcessServicer.WriteException("CheckForNewReportsInner: " + Ex, Ex);
 								ReportProcessor.MoveReportToInvalid(NewReportPath, "NEWRECORD_FAIL_" + DateTime.Now.Ticks);
 							}
 						}
@@ -128,7 +132,7 @@ namespace Tools.CrashReporter.CrashReportProcess
 			}
 			catch (Exception Ex)
 			{
-				CrashReporterProcessServicer.WriteException("CheckForNewReportsOuter: " + Ex.ToString());
+				CrashReporterProcessServicer.WriteException("CheckForNewReportsOuter: " + Ex, Ex);
 			}
 
 			return GetTotalWaitingCount();
@@ -162,7 +166,7 @@ namespace Tools.CrashReporter.CrashReportProcess
 					try
 					{
 						string ReportName = Path.GetFileName(NewCrashContexts.Peek().CrashDirectory);
-						ReportIndex.TryRemoveReport(ReportName);
+						CrashReporterProcessServicer.ReportIndex.TryRemoveReport(ReportName);
 					}
 					finally
 					{
@@ -230,6 +234,7 @@ namespace Tools.CrashReporter.CrashReportProcess
 			OutCrashContext.PrimaryCrashProperties.PlatformFullName = ReportData.Platform;
 			OutCrashContext.PrimaryCrashProperties.EngineMode = ReportData.EngineMode;
 			OutCrashContext.PrimaryCrashProperties.EngineVersion = ReportData.GetEngineVersion();
+			OutCrashContext.PrimaryCrashProperties.BuildVersion = ReportData.BuildVersion;
 			OutCrashContext.PrimaryCrashProperties.CommandLine = ReportData.CommandLine;
 			// 			OutCrashContext.PrimaryCrashProperties.LanguageLCID
 
@@ -489,9 +494,10 @@ namespace Tools.CrashReporter.CrashReportProcess
 			// This WILL happen when running multiple, non-mutually exclusive crash sources (e.g. Receiver + Data Router)
 			// This can be safely discontinued when all crashes come from the same SQS
 			// This DOES NOT scale to multiple CRP instances
+			// ReportIndex can be disabled by leaving the path empty in config
 			lock (ReportIndexLock)
 			{
-				if (!ReportIndex.TryAddNewReport(ReportName))
+				if (!CrashReporterProcessServicer.ReportIndex.TryAddNewReport(ReportName))
 				{
 					// Crash report not accepted by index
 					CrashReporterProcessServicer.WriteEvent(string.Format(
@@ -500,6 +506,14 @@ namespace Tools.CrashReporter.CrashReportProcess
 					ReportProcessor.CleanReport(new DirectoryInfo(NewReportPath));
 					return false;
 				}
+			}
+
+			if (ShouldDecimateNextReport())
+			{
+				CrashReporterProcessServicer.WriteEvent(string.Format("EnqueueNewReport: Discarding Report due to backlog of {0} in queue {1}: Path={2}", GetTotalWaitingCount(), QueueName, NewReportPath));
+				CrashReporterProcessServicer.StatusReporter.IncrementCount(StatusReportingEventNames.ReportDiscarded);
+				ReportProcessor.CleanReport(new DirectoryInfo(NewReportPath));
+				return false;
 			}
 
 			lock (NewReportsLock)
@@ -605,7 +619,55 @@ namespace Tools.CrashReporter.CrashReportProcess
 			}
 		}
 
-        public static string GetSafeFilename(string UnsafeName)
+		private bool ShouldDecimateNextReport()
+		{
+			bool bShouldDecimate;
+
+			int TotalWaiting = GetTotalWaitingCount();
+
+			if (TotalWaiting < DecimateWaitingCountStart)
+			{
+				// Under lower threshold - keep all crashes
+				bShouldDecimate = false;
+			}
+			else if (TotalWaiting >= DecimateWaitingCountEnd)
+			{
+				// Over upper threshold - discard all crashes
+				bShouldDecimate = true;
+			}
+			else
+			{
+				// Between the upper and lower queue sizes we will keep crashes in proportion with the queue size
+				// e.g. Half way between the upper and lower limit - we will keep 50% of the crashes
+
+				float Range = DecimateWaitingCountEnd - DecimateWaitingCountStart;
+				float Value = TotalWaiting - DecimateWaitingCountStart;
+
+				DecimationCounter += Value / Range;
+
+				if (DecimationCounter > 1.0f)
+				{
+					DecimationCounter -= 1.0f;
+					bShouldDecimate = true;
+				}
+				else
+				{
+					bShouldDecimate = false;
+				}
+			}
+
+			if (bShouldDecimate)
+			{
+				CrashReporterProcessServicer.StatusReporter.Alert("ShouldDecimateNextReport - " + QueueName,
+				                                                  "Large backlog in " + QueueName + " queue is causing crashes to be discarded.",
+				                                                  Config.Default.SlackDecimateAlertRepeatMinimumMinutes);
+			}
+
+			return bShouldDecimate;
+		}
+
+
+		public static string GetSafeFilename(string UnsafeName)
         {
             return string.Join("X", UnsafeName.Split(Path.GetInvalidFileNameChars()));
         }
@@ -632,6 +694,18 @@ namespace Tools.CrashReporter.CrashReportProcess
 		private readonly EventCounter EnqueueCounter = new EventCounter(TimeSpan.FromMinutes(90), 20);
 
 		protected static Object ReportIndexLock = new Object();
+
+		/// <summary>
+		/// The number of waiting reports needed to trigger decimation (discarding a fraction of the incoming reports to stop runaway backlog)
+		/// </summary>
+		private readonly int DecimateWaitingCountStart = Int32.MaxValue;
+
+		/// <summary>
+		/// The number of waiting reports needed to cause all reports to be discarded
+		/// </summary>
+		private readonly int DecimateWaitingCountEnd = Int32.MaxValue;
+
+		private float DecimationCounter;
 	}
 }
 

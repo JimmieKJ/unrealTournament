@@ -2,12 +2,14 @@
 
 #pragma once
 
-#include "FloatPropertyTrackEditor.h"
-
-
-class ISequencer;
-class UMovieSceneTrack;
-
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
+#include "ISequencer.h"
+#include "MovieSceneTrack.h"
+#include "ISequencerSection.h"
+#include "ISequencerTrackEditor.h"
+#include "TrackEditors/PropertyTrackEditors/FloatPropertyTrackEditor.h"
 
 /**
 * A property track editor for fade control.
@@ -36,12 +38,9 @@ public:
 
 public:
 
-	//~ FPropertyTrackEditor interface
-
-	virtual TSharedRef<FPropertySection> MakePropertySectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track) override;
-
 	// ISequencerTrackEditor interface
 
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
 	virtual void BuildAddTrackMenu(FMenuBuilder& MenuBuilder) override;
 	virtual bool SupportsType(TSubclassOf<UMovieSceneTrack> Type) const override;
 	virtual const FSlateBrush* GetIconBrush() const override;

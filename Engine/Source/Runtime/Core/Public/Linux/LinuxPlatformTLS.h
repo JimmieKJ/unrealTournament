@@ -6,11 +6,13 @@
 ==============================================================================================*/
 
 #pragma once
+
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
 #include "GenericPlatform/GenericPlatformTLS.h"
-#include "Linux/LinuxSystemIncludes.h"
 
 #if defined(_GNU_SOURCE)
-	#include <sys/syscall.h>	// SYS_gettid
+	#include <sys/syscall.h>
 #endif // _GNU_SOURCE
 
 /**

@@ -1,6 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CollisionAnalyzerPCH.h"
+#include "CollisionAnalyzer.h"
+#include "HAL/FileManager.h"
+#include "Serialization/NameAsStringProxyArchive.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "DrawDebugHelpers.h"
+#include "SCollisionAnalyzer.h"
+#include "CollisionAnalyzerLog.h"
 #include "CollisionDebugDrawingPublic.h"
 
 

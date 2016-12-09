@@ -6,9 +6,11 @@
 
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "DynamicMeshBuilder.h"
 #include "DebugRenderSceneProxy.h"
+#include "SceneManagement.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Engine/Canvas.h"
 #include "Debug/DebugDrawService.h"
 
 // FPrimitiveSceneProxy interface.
@@ -23,17 +25,35 @@ FDebugRenderSceneProxy::FDebugRenderSceneProxy(const UPrimitiveComponent* InComp
 {
 }
 
-void FDebugRenderSceneProxy::RegisterDebugDrawDelgate()
+void FDebugDrawDelegateHelper::RegisterDebugDrawDelgate()
 {
-	DebugTextDrawingDelegate = FDebugDrawDelegate::CreateRaw(this, &FDebugRenderSceneProxy::DrawDebugLabels);
-	DebugTextDrawingDelegateHandle = UDebugDrawService::Register(*ViewFlagName, DebugTextDrawingDelegate);
+	ensureMsgf(State != RegisteredState, TEXT("RegisterDebugDrawDelgate is already Registered!"));
+	if (State == InitializedState)
+	{
+		DebugTextDrawingDelegate = FDebugDrawDelegate::CreateRaw(this, &FDebugDrawDelegateHelper::DrawDebugLabels);
+		DebugTextDrawingDelegateHandle = UDebugDrawService::Register(*ViewFlagName, DebugTextDrawingDelegate);
+		State = RegisteredState;
+	}
 }
 
-void FDebugRenderSceneProxy::UnregisterDebugDrawDelgate()
+void FDebugDrawDelegateHelper::UnregisterDebugDrawDelgate()
 {
-	if (DebugTextDrawingDelegate.IsBound())
+	ensureMsgf(State != InitializedState, TEXT("UnegisterDebugDrawDelgate is in an invalid State: %i !"), State);
+	if (State == RegisteredState)
 	{
+		check(DebugTextDrawingDelegate.IsBound());
 		UDebugDrawService::Unregister(DebugTextDrawingDelegateHandle);
+		State = InitializedState;
+	}
+}
+
+void  FDebugDrawDelegateHelper::ReregisterDebugDrawDelgate()
+{
+	ensureMsgf(State != UndefinedState, TEXT("ReregisterDebugDrawDelgate is in an invalid State: %i !"), State);
+	if (State == RegisteredState)
+	{
+		UnregisterDebugDrawDelgate();
+		RegisterDebugDrawDelgate();
 	}
 }
 
@@ -51,7 +71,7 @@ uint32 FDebugRenderSceneProxy::GetAllocatedSize(void) const
 }
 
 
-void FDebugRenderSceneProxy::DrawDebugLabels(UCanvas* Canvas, APlayerController*)
+void FDebugDrawDelegateHelper::DrawDebugLabels(UCanvas* Canvas, APlayerController*)
 {
 	const FColor OldDrawColor = Canvas->DrawColor;
 	const FFontRenderInfo FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
@@ -64,10 +84,10 @@ void FDebugRenderSceneProxy::DrawDebugLabels(UCanvas* Canvas, APlayerController*
 	const FSceneView* View = Canvas->SceneView;
 	for (auto It = Texts.CreateConstIterator(); It; ++It)
 	{
-		if (PointInView(It->Location, View))
+		if (FDebugRenderSceneProxy::PointInView(It->Location, View))
 		{
 			const FVector ScreenLoc = Canvas->Project(It->Location);
-			const FFontRenderInfo& FontInfo = TextWithoutShadowDistance >= 0 ? (PointInRange(It->Location, View, TextWithoutShadowDistance) ? FontRenderInfoWithShadow : FontRenderInfo) : FontRenderInfo;
+			const FFontRenderInfo& FontInfo = TextWithoutShadowDistance >= 0 ? (FDebugRenderSceneProxy::PointInRange(It->Location, View, TextWithoutShadowDistance) ? FontRenderInfoWithShadow : FontRenderInfo) : FontRenderInfo;
 			Canvas->DrawText(RenderFont, It->Text, ScreenLoc.X, ScreenLoc.Y, 1, 1, FontInfo);
 		}
 	}

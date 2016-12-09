@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "KismetCompiler.h"
-#include "K2Node_CallArrayFunction.h"
 #include "K2Node_Message.h"
-#include "Kismet/KismetArrayLibrary.h"
+#include "Engine/LevelScriptActor.h"
+#include "Engine/LevelStreaming.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_AssignmentStatement.h"
+#include "K2Node_CallArrayFunction.h"
+#include "K2Node_DynamicCast.h"
 #include "K2Node_TemporaryVariable.h"
+#include "KismetCompilerMisc.h"
+#include "KismetCompiler.h"
+#include "Kismet/KismetArrayLibrary.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_Message"
 

@@ -2,6 +2,22 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/UnrealTemplate.h"
+#include "Math/UnrealMathUtility.h"
+#include "Serialization/Archive.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Parse.h"
+#include "Logging/LogMacros.h"
+#include "Misc/DateTime.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/IPlatformFileLogWrapper.h"
+#include "UniquePtr.h"
+
+class IAsyncReadFileHandle;
+
 class CORE_API FCachedFileHandle : public IFileHandle
 {
 public:
@@ -195,7 +211,7 @@ private:
 		}
 	}
 
-	TAutoPtr<IFileHandle>	FileHandle;
+	TUniquePtr<IFileHandle>	FileHandle;
 	int64					FilePos; /* Desired position in the file stream, this can be different to FilePos due to the cache */
 	int64					TellPos; /* Actual position in the file,  this can be different to FilePos */
 	int64					FileSize;
@@ -229,8 +245,11 @@ public:
 	}
 	virtual bool ShouldBeUsed(IPlatformFile* Inner, const TCHAR* CmdLine) const override
 	{
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+		return false; // this stuff is awful for the EDL
+#else
 		// Default to false on platforms that already do platform file level caching
-		bool bResult = !PLATFORM_PS4 && !PLATFORM_WINDOWS && !PLATFORM_IOS && !PLATFORM_ANDROID && FPlatformProperties::RequiresCookedData();
+		bool bResult = !PLATFORM_PS4 && !PLATFORM_WINDOWS && FPlatformProperties::RequiresCookedData();
 
 		// Allow a choice between shorter load times or less memory on desktop platforms.
 		// Note: this cannot be in config since they aren't read at that point.
@@ -249,6 +268,7 @@ public:
 		}
 #endif
 		return bResult;
+#endif
 	}
 	IPlatformFile* GetLowerLevel() override
 	{
@@ -353,9 +373,9 @@ public:
 	{
 		return LowerLevel->DeleteDirectoryRecursively(Directory);
 	}
-	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From) override
+	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags = EPlatformFileRead::None, EPlatformFileWrite WriteFlags = EPlatformFileWrite::None) override
 	{
-		return LowerLevel->CopyFile(To, From);
+		return LowerLevel->CopyFile(To, From, ReadFlags, WriteFlags);
 	}
 	virtual bool		CreateDirectoryTree(const TCHAR* Directory) override
 	{

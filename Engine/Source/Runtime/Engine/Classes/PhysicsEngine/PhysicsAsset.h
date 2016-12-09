@@ -2,11 +2,16 @@
 
 #pragma once
 
-#include "RigidBodyIndexPair.h"
-#include "PhysicalAnimationComponent.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "PhysicsEngine/RigidBodyIndexPair.h"
+#include "Engine/SkeletalMesh.h"
+#include "PhysicsEngine/PhysicalAnimationComponent.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsAsset.generated.h"
 
+class FMeshElementCollector;
 class USkeletalBodySetup;
 
 /**
@@ -89,7 +94,7 @@ public:
 	virtual void PostLoad() override;
 	virtual FString GetDesc() override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 #if WITH_EDITOR
 	virtual void PostEditUndo() override;
 

@@ -5,6 +5,7 @@
 #include "BlueprintContextBase.h"
 #include "Online/UTPartyGameState.h"
 #include "Online/UTPartyMemberState.h"
+#include "OnlineSubsystem.h"
 
 class IGameAndPartyService;
 class IChatNotificationService;

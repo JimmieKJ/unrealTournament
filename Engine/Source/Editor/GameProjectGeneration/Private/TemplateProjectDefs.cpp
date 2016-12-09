@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GameProjectGenerationPrivatePCH.h"
+#include "TemplateProjectDefs.h"
+#include "Internationalization/Culture.h"
 
 namespace
 {

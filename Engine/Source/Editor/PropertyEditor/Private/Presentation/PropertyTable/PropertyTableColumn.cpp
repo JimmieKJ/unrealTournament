@@ -1,164 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyTableColumn.h"
-#include "IPropertyTableRow.h"
-#include "IPropertyTable.h"
-#include "PropertyTableCell.h"
-#include "DataSource.h"
-#include "PropertyPath.h"
+#include "Presentation/PropertyTable/PropertyTableColumn.h"
+#include "Editor/EditorEngine.h"
+#include "IPropertyTableCell.h"
+#include "UObject/TextProperty.h"
+#include "ObjectPropertyNode.h"
+#include "Presentation/PropertyTable/PropertyTableCell.h"
+#include "Presentation/PropertyTable/DataSource.h"
 #include "PropertyEditorHelpers.h"
 
 #define LOCTEXT_NAMESPACE "PropertyTableColumn"
-
-template< typename UPropertyType >
-struct FCompareUObjectByPropertyAscending
-{
-public:
-
-	FCompareUObjectByPropertyAscending( const TWeakObjectPtr< UPropertyType >& InUProperty )
-		: Property( InUProperty )
-	{}
-
-	FCompareUObjectByPropertyAscending( const UPropertyType* const InUProperty )
-		: Property( InUProperty )
-	{}
-
-	FCompareUObjectByPropertyAscending( const TWeakObjectPtr< UProperty >& InUProperty )
-		: Property( Cast< UPropertyType >( InUProperty.Get() ) )
-	{}
-
-	FCompareUObjectByPropertyAscending( const UProperty* const InUProperty )
-		: Property( Cast< UPropertyType >( InUProperty ) )
-	{}
-
-	FORCEINLINE bool operator()( const TWeakObjectPtr< UObject >& Lhs, const TWeakObjectPtr< UObject >& Rhs ) const
-	{
-		const bool LhsObjectValid = Lhs.IsValid();
-		if ( !LhsObjectValid )
-		{
-			return true;
-		}
-
-		const bool RhsObjectValid = Rhs.IsValid();
-		if ( !RhsObjectValid )
-		{
-			return false;
-		}
-
-		const UStruct* const PropertyTargetType = Property->GetOwnerStruct();
-		const UClass* const LhsClass = Lhs->GetClass();
-
-		if ( !LhsClass->IsChildOf( PropertyTargetType ) )
-		{
-			return true;
-		}
-
-		const UClass* const RhsClass = Rhs->GetClass();
-
-		if ( !RhsClass->IsChildOf( PropertyTargetType ) )
-		{
-			return false;
-		}
-
-		typename UPropertyType::TCppType LhsValue = Property->GetPropertyValue_InContainer(Lhs.Get());
-		typename UPropertyType::TCppType RhsValue = Property->GetPropertyValue_InContainer(Rhs.Get());
-
-		return ComparePropertyValue( LhsValue, RhsValue );
-	}
-
-
-private:
-
-	FORCEINLINE bool ComparePropertyValue( const typename UPropertyType::TCppType& LhsValue, const typename UPropertyType::TCppType& RhsValue ) const
-	{
-		return LhsValue < RhsValue;
-	}
-
-
-private:
-
-	const TWeakObjectPtr< UPropertyType > Property;
-};
-
-// UByteProperty objects may in fact represent Enums - so they need special handling for alphabetic Enum vs. numerical Byte sorting.
-template<>
-FORCEINLINE bool FCompareUObjectByPropertyAscending<UByteProperty>::ComparePropertyValue( const uint8& LhsValue, const uint8& RhsValue ) const
-{
-	// Bytes are trivially sorted numerically
-	UEnum* PropertyEnum = Property->GetIntPropertyEnum();
-	if( PropertyEnum == NULL )
-	{
-		return LhsValue < RhsValue;
-	}
-	else
-	{
-		// But Enums are sorted alphabetically based on the full enum entry name - must be sure that values are within Enum bounds!
-		bool bLhsEnumValid = LhsValue < PropertyEnum->NumEnums();
-		bool bRhsEnumValid = RhsValue < PropertyEnum->NumEnums();
-		if(bLhsEnumValid && bRhsEnumValid)
-		{
-			FName LhsEnumName( PropertyEnum->GetEnum( LhsValue ) );
-			FName RhsEnumName( PropertyEnum->GetEnum( RhsValue ) );
-			return LhsEnumName.Compare( RhsEnumName ) < 0;
-		}
-		else if(bLhsEnumValid)
-		{
-			return true;
-		}
-		else if(bRhsEnumValid)
-		{
-			return false;
-		}
-		else
-		{
-			return LhsValue < RhsValue;
-		}
-	}
-}
-
-template<>
-FORCEINLINE bool FCompareUObjectByPropertyAscending<UNameProperty>::ComparePropertyValue( const FName& LhsValue, const FName& RhsValue ) const
-{
-	return LhsValue.Compare( RhsValue ) < 0;
-}
-
-template<>
-FORCEINLINE bool FCompareUObjectByPropertyAscending<UTextProperty>::ComparePropertyValue( const FText& LhsValue, const FText& RhsValue ) const
-{
-	return LhsValue.CompareTo( RhsValue ) < 0;
-}
-
-template< typename UPropertyType >
-struct FCompareUObjectByPropertyDescending
-{
-public:
-
-	FCompareUObjectByPropertyDescending( const TWeakObjectPtr< UPropertyType >& InUProperty )
-		: Compare( InUProperty )
-	{}
-
-	FCompareUObjectByPropertyDescending( const UPropertyType* const InUProperty )
-		: Compare( InUProperty )
-	{}
-
-	FCompareUObjectByPropertyDescending( const TWeakObjectPtr< UProperty >& InUProperty )
-		: Compare( InUProperty )
-	{}
-
-	FCompareUObjectByPropertyDescending( const UProperty* const InUProperty )
-		: Compare( InUProperty )
-	{}
-
-	FORCEINLINE bool operator()( const TWeakObjectPtr< UObject >& Lhs, const TWeakObjectPtr< UObject >& Rhs ) const
-	{
-		return !Compare(Lhs, Rhs);
-	}
-
-private:
-
-	const FCompareUObjectByPropertyAscending< UPropertyType > Compare;
-};
 
 template< typename UPropertyType >
 struct FCompareRowByColumnAscending
@@ -243,6 +94,42 @@ private:
 	const FCompareRowByColumnAscending< UPropertyType > Comparer;
 };
 
+
+template<>
+FORCEINLINE bool FCompareRowByColumnAscending<UEnumProperty>::ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
+{
+	// Get the basic uint8 values
+	uint8 LhsValue; 
+	LhsPropertyHandle->GetValue( LhsValue );
+
+	uint8 RhsValue; 
+	RhsPropertyHandle->GetValue( RhsValue );
+
+	// Bytes are trivially sorted numerically
+	UEnum* PropertyEnum = Property->GetEnum();
+
+	// Enums are sorted alphabetically based on the full enum entry name - must be sure that values are within Enum bounds!
+	bool bLhsEnumValid = LhsValue < PropertyEnum->NumEnums();
+	bool bRhsEnumValid = RhsValue < PropertyEnum->NumEnums();
+	if(bLhsEnumValid && bRhsEnumValid)
+	{
+		FName LhsEnumName( PropertyEnum->GetEnum( LhsValue ) );
+		FName RhsEnumName( PropertyEnum->GetEnum( RhsValue ) );
+		return LhsEnumName.Compare( RhsEnumName ) < 0;
+	}
+	else if(bLhsEnumValid)
+	{
+		return true;
+	}
+	else if(bRhsEnumValid)
+	{
+		return false;
+	}
+	else
+	{
+		return LhsValue < RhsValue;
+	}
+}
 
 // UByteProperty objects may in fact represent Enums - so they need special handling for alphabetic Enum vs. numerical Byte sorting.
 template<>
@@ -535,6 +422,7 @@ bool FPropertyTableColumn::CanSortBy() const
 		return Property->IsA( UByteProperty::StaticClass() )  ||
 			Property->IsA( UIntProperty::StaticClass() )   ||
 			Property->IsA( UBoolProperty::StaticClass() )  ||
+			Property->IsA( UEnumProperty::StaticClass() )  ||
 			Property->IsA( UFloatProperty::StaticClass() ) ||
 			Property->IsA( UNameProperty::StaticClass() )  ||
 			Property->IsA( UStrProperty::StaticClass() )   ||
@@ -561,7 +449,25 @@ void FPropertyTableColumn::Sort( TArray< TSharedRef< class IPropertyTableRow > >
 		Property = Path->GetLeafMostProperty().Property.Get();
 	}
 
-	if ( Property->IsA( UByteProperty::StaticClass() ) )
+	if (!Property)
+	{
+		return;
+	}
+
+	if ( Property->IsA( UEnumProperty::StaticClass() ) )
+	{
+		TWeakObjectPtr<UEnumProperty> EnumProperty( Cast< UEnumProperty >( Property ) );
+
+		if ( SortMode == EColumnSortMode::Ascending )
+		{
+			Rows.Sort( FCompareRowByColumnAscending< UEnumProperty >( SharedThis( this ), EnumProperty ) );
+		}
+		else
+		{
+			Rows.Sort( FCompareRowByColumnDescending< UEnumProperty >( SharedThis( this ), EnumProperty ) );
+		}
+	}
+	else if ( Property->IsA( UByteProperty::StaticClass() ) )
 	{
 		TWeakObjectPtr<UByteProperty> ByteProperty( Cast< UByteProperty >( Property ) );
 

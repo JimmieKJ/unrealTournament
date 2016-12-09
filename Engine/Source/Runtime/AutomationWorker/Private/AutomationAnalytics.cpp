@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationWorkerPrivatePCH.h"
 #include "AutomationAnalytics.h"
-#include "EngineBuildSettings.h"
-#include "IAnalyticsProvider.h"
-#include "AnalyticsET.h"
+#include "Misc/CommandLine.h"
+#include "Misc/App.h"
+#include "Misc/EngineVersion.h"
+#include "Interfaces/IAutomationWorkerModule.h"
+#include "AutomationWorkerMessages.h"
+#include "AutomationWorkerPrivate.h"
+#include "AnalyticsEventAttribute.h"
 #include "IAnalyticsProviderET.h"
+#include "AnalyticsET.h"
 
 DEFINE_LOG_CATEGORY(LogAutomationAnalytics);
 
@@ -33,7 +37,7 @@ void FAutomationAnalytics::Initialize()
 	Analytics = FAnalyticsET::Get().CreateAnalyticsProvider(FAnalyticsET::Config(FString::Printf(TEXT("AutomationAnalytics.%s"), GInternalGameName), TEXT("https://datarouter.ol.epicgames.com/")));
 	if (Analytics.IsValid())
 	{
-		Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
+		Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetLoginId(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
 		Analytics->StartSession();
 
 		MachineSpec = FParse::Param(FCommandLine::Get(), TEXT("60hzmin")) 

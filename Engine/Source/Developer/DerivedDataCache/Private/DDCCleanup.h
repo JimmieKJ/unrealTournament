@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "HAL/Runnable.h"
+
+struct FFilesystemInfo;
+
 /** 
  * DDC Filesystem Cache cleanup thread.
  */

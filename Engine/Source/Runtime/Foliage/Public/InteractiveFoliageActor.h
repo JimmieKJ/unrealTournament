@@ -4,8 +4,13 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Engine/StaticMeshActor.h"
 #include "InteractiveFoliageActor.generated.h"
+
+class UPrimitiveComponent;
 
 UCLASS(MinimalAPI)
 class AInteractiveFoliageActor : public AStaticMeshActor

@@ -5,23 +5,11 @@
   <Date>2016-06-10T17:34:31.6827923-04:00</Date>
   <Function>The algorithm finds the minimum area rectangle that encompasses a convex polygon</Function>
   <Justification> I added the function to help Sid in his “Paintbrush” ability prototype for Orion</Justification>
-  <Platforms>
-    <Platform>PC</Platform>
-  </Platforms>
-  <Products>
-    <Product>UDK4</Product>
-    <Product>UE4</Product>
-  </Products>
-  <TpsType>Source Code</TpsType>
   <Eula>http://www.geometrictools.com/Documentation/MinimumAreaRectangle.pdf</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
   <LicenseFolder>None</LicenseFolder>
 </TpsData>

@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DesktopPlatformPrivatePCH.h"
-#include "LinuxApplication.h"
-#include "FeedbackContextMarkup.h"
+#include "Linux/DesktopPlatformLinux.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "DesktopPlatformPrivate.h"
+#include "Modules/ModuleManager.h"
+#include "Linux/LinuxApplication.h"
+#include "Misc/FeedbackContextMarkup.h"
 #include "HAL/ThreadHeartBeat.h"
 
 //#include "LinuxNativeFeedbackContext.h"
@@ -10,9 +17,8 @@
 #if WITH_LINUX_NATIVE_DIALOGS
 	#include "UNativeDialogs.h"
 #else
-	#include "SlateFileDialogs.h"
+	#include "ISlateFileDialogModule.h"
 #endif // WITH_LINUX_NATIVE_DIALOGS
-#include "SDL.h"
 
 #define LOCTEXT_NAMESPACE "DesktopPlatform"
 #define MAX_FILETYPES_STR 4096
@@ -326,7 +332,7 @@ bool FDesktopPlatformLinux::RegisterEngineInstallation(const FString &RootDir, F
 		ConfigFile.Read(ConfigPath);
 
 		FConfigSection &Section = ConfigFile.FindOrAdd(TEXT("Installations"));
-		OutIdentifier = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
+		OutIdentifier = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphensInBraces);
 		Section.AddUnique(*OutIdentifier, RootDir);
 
 		ConfigFile.Dirty = true;
@@ -357,21 +363,42 @@ void FDesktopPlatformLinux::EnumerateEngineInstallations(TMap<FString, FString> 
 	ConfigFile.Read(ConfigPath);
 
 	FConfigSection &Section = ConfigFile.FindOrAdd(TEXT("Installations"));
+	// Remove invalid entries
+	// @todo The installations list might contain multiple keys for the same value. Do we have to remove them?
+	TArray<FName> KeysToRemove;
+	for (auto It : Section)
+	{
+		const FString& EngineDir = It.Value.GetValue();
+		// We remove entries pointing to a folder that doesn't exist or was using the wrong path.
+		if (EngineDir.Contains(FPaths::EngineDir()) || !IFileManager::Get().DirectoryExists(*EngineDir))
+		{
+			KeysToRemove.Add(It.Key);
+			ConfigFile.Dirty = true;
+		}
+	}
+	for (auto Key : KeysToRemove)
+	{
+		Section.Remove(Key);
+	}
 
 	// @todo: currently we can enumerate only this installation
-	FString EngineDir = FPaths::EngineDir();
+	FString EngineDir = FPaths::RootDir();
+	FPaths::NormalizeDirectoryName(EngineDir);
+	FPaths::CollapseRelativeDirectories(EngineDir);
 
 	FString EngineId;
 	const FName* Key = Section.FindKey(EngineDir);
 	if (Key)
 	{
-		EngineId = Key->ToString();
+		FGuid IdGuid;
+		FGuid::Parse(Key->ToString(), IdGuid);
+		EngineId = IdGuid.ToString(EGuidFormats::DigitsWithHyphensInBraces);;
 	}
 	else
 	{
 		if (!OutInstallations.FindKey(EngineDir))
 		{
-			EngineId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
+			EngineId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphensInBraces);
 			Section.AddUnique(*EngineId, EngineDir);
 			ConfigFile.Dirty = true;
 		}
@@ -436,11 +463,12 @@ bool FDesktopPlatformLinux::RunUnrealBuildTool(const FText& Description, const F
 	Warn->Logf(TEXT("Running %s %s"), *UnrealBuildToolPath, *Arguments);
 
 	// launch UBT with Mono
-	FString CmdLineParams = FString::Printf(TEXT("\"%s\" %s"), *UnrealBuildToolPath, *Arguments);
+	FString ScriptPath = FPaths::ConvertRelativePathToFull(RootDir / TEXT("Engine/Build/BatchFiles/Linux/RunMono.sh"));
+	FString CmdLineParams = FString::Printf(TEXT("\"%s\" \"%s\" %s"), *ScriptPath, *UnrealBuildToolPath, *Arguments);
 
-	// Spawn it
+	// Spawn it with bash (and not sh) because of pushd
 	int32 ExitCode = 0;
-	return FFeedbackContextMarkup::PipeProcessOutput(Description, TEXT("/usr/bin/mono"), CmdLineParams, Warn, &ExitCode) && ExitCode == 0;
+	return FFeedbackContextMarkup::PipeProcessOutput(Description, TEXT("/bin/bash"), CmdLineParams, Warn, &ExitCode) && ExitCode == 0;
 }
 
 bool FDesktopPlatformLinux::IsUnrealBuildToolRunning()

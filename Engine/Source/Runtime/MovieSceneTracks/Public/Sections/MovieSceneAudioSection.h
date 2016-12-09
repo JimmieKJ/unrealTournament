@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
 #include "MovieSceneAudioSection.generated.h"
 
+class USoundBase;
 
 /**
  * Audio section, for use in the master audio, or by attached audio objects
@@ -21,13 +25,13 @@ public:
 	void SetSound(class USoundBase* InSound) {Sound = InSound;}
 
 	/** Gets the sound for this section */
-	class USoundBase* GetSound() {return Sound;}
+	class USoundBase* GetSound() const {return Sound;}
 	
 	/** Sets the time that the sound is supposed to be played at */
 	void SetAudioStartTime(float InAudioStartTime) {AudioStartTime = InAudioStartTime;}
 	
 	/** Gets the (absolute) time that the sound is supposed to be played at */
-	float GetAudioStartTime() {return AudioStartTime;}
+	float GetAudioStartTime() const {return AudioStartTime;}
 	
 	/**
 	 * @return The range of times that the sound plays, truncated by the section limits
@@ -81,6 +85,14 @@ public:
 	}
 #endif
 
+	/**
+	 * @return Whether subtitles should be suppressed
+	 */
+	bool GetSuppressSubtitles() const
+	{
+		return bSuppressSubtitles;
+	}
+
 public:
 
 	// MovieSceneSection interface
@@ -91,6 +103,7 @@ public:
 	virtual void GetSnapTimes(TArray<float>& OutSnapTimes, bool bGetSectionBorders) const override;
 	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override { return TOptional<float>(); }
 	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override { }
+	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
 
 private:
 
@@ -115,4 +128,7 @@ private:
 	UPROPERTY(EditAnywhere, Category="Audio")
 	bool bShowIntensity;
 #endif
+
+	UPROPERTY(EditAnywhere, Category="Audio")
+	bool bSuppressSubtitles;
 };

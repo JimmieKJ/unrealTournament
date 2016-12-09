@@ -6,7 +6,8 @@
 
 #pragma once
 
-#include "HlslLexer.h"
+#include "CoreMinimal.h"
+#include "HlslUtils.h"
 
 namespace CrossCompiler
 {

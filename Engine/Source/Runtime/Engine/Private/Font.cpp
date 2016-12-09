@@ -4,13 +4,15 @@
 	Font.cpp: Unreal font code.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Engine/Font.h"
-#include "Engine/FontImportOptions.h"
-#include "SlateBasics.h"
+#include "Engine/Texture2D.h"
+#include "Fonts/FontBulkData.h"
+#include "Fonts/FontCache.h"
+#include "Framework/Application/SlateApplication.h"
 #include "EngineFontServices.h"
-
 #include "EditorFramework/AssetImportData.h"
+#include "Engine/FontFace.h"
+#include "HAL/FileManager.h"
 
 UFontImportOptions::UFontImportOptions(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -22,12 +24,6 @@ UFont::UFont(const FObjectInitializer& ObjectInitializer)
 {
 	ScalingFactor = 1.0f;
 	LegacyFontSize = 9;
-
-	// Don't integrate this out of //UT/Main
-	if (!IsTemplate())
-	{
-		AddToRoot();
-	}
 }
 
 UFont::~UFont()
@@ -47,34 +43,6 @@ void UFont::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
 	Ar << CharRemap;
-
-	// Update any composite font data to use bulk data with us as its outer
-	if( Ar.UE4Ver() < VER_UE4_SLATE_BULK_FONT_DATA )
-	{
-		auto UpgradeFontDataToBulk = [this](FFontData& InFontData)
-		{
-			if( InFontData.FontData_DEPRECATED.Num() > 0 )
-			{
-				UFontBulkData* FontBulkData = NewObject<UFontBulkData>(this);
-				FontBulkData->Initialize(InFontData.FontData_DEPRECATED.GetData(), InFontData.FontData_DEPRECATED.Num());
-				InFontData.BulkDataPtr = FontBulkData;					
-				InFontData.FontData_DEPRECATED.Empty();
-			}
-		};
-
-		for( FTypefaceEntry& TypefaceEntry : CompositeFont.DefaultTypeface.Fonts )
-		{
-			UpgradeFontDataToBulk(TypefaceEntry.Font);
-		}
-
-		for( FCompositeSubFont& SubFont : CompositeFont.SubTypefaces )
-		{
-			for( FTypefaceEntry& TypefaceEntry : SubFont.Typeface.Fonts )
-			{
-				UpgradeFontDataToBulk(TypefaceEntry.Font);
-			}
-		}
-	}
 }
 
 void UFont::PostLoad()
@@ -101,32 +69,46 @@ void UFont::PostLoad()
 			}
 		}
 	}
-}
 
 #if WITH_EDITORONLY_DATA
-void UFont::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
-{
-	FAssetImportInfo ImportInfo;
-
-	// Add all the font filenames
-	for( const FTypefaceEntry& TypefaceEntry : CompositeFont.DefaultTypeface.Fonts )
+	if (FontCacheType == EFontCacheType::Runtime)
 	{
-		ImportInfo.Insert(FAssetImportInfo::FSourceFile(TypefaceEntry.Font.FontFilename));
-	}
-
-	for( const FCompositeSubFont& SubFont : CompositeFont.SubTypefaces )
-	{
-		for( const FTypefaceEntry& TypefaceEntry : SubFont.Typeface.Fonts )
+		auto UpgradeLegacyData = [this](const int32 InTypefaceIndex, const FName InTypefaceName, FFontData& InFontData)
 		{
-			ImportInfo.Insert(FAssetImportInfo::FSourceFile(TypefaceEntry.Font.FontFilename));
+			if (!InFontData.HasLegacyData())
+			{
+				return;
+			}
+
+			// Need to give these things useful and unique names, as they will be used as the .ufont name when cooking
+			const FString FontFaceObjectDisplayName = FString::Printf(TEXT("%s_%d_%s"), *GetName(), InTypefaceIndex, *InTypefaceName.ToString());
+			FName FontFaceObjectName = MakeObjectNameFromDisplayLabel(FontFaceObjectDisplayName, NAME_None);
+			if (FindObject<UFontFace>(this, *FontFaceObjectName.ToString()))
+			{
+				FontFaceObjectName = MakeUniqueObjectName(this, UFontFace::StaticClass(), FontFaceObjectName);
+			}
+
+			InFontData.ConditionalUpgradeFontDataToBulkData(this);
+			InFontData.ConditionalUpgradeBulkDataToFontFace(this, UFontFace::StaticClass(), FontFaceObjectName);
+		};
+
+		int32 TypefaceIndex = 0;
+		for (FTypefaceEntry& TypefaceEntry : CompositeFont.DefaultTypeface.Fonts)
+		{
+			UpgradeLegacyData(TypefaceIndex, TypefaceEntry.Name, TypefaceEntry.Font);
+		}
+
+		for (FCompositeSubFont& SubFont : CompositeFont.SubTypefaces)
+		{
+			++TypefaceIndex;
+			for (FTypefaceEntry& TypefaceEntry : SubFont.Typeface.Fonts)
+			{
+				UpgradeLegacyData(TypefaceIndex, TypefaceEntry.Name, TypefaceEntry.Font);
+			}
 		}
 	}
-
-	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), ImportInfo.ToJson(), FAssetRegistryTag::TT_Hidden) );
-
-	Super::GetAssetRegistryTags(OutTags);
+#endif // WITH_EDITORONLY_DATA
 }
-#endif
 
 void UFont::CacheCharacterCountAndMaxCharHeight()
 {
@@ -369,9 +351,9 @@ void UFont::GetStringHeightAndWidth( const TCHAR *Text, int32& Height, int32& Wi
 	Height = FMath::CeilToInt( TotalHeight );
 }
 
-SIZE_T UFont::GetResourceSize(EResourceSizeMode::Type Mode)
+void UFont::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	int32 ResourceSize = 0;
+	Super::GetResourceSizeEx(CumulativeResourceSize);
 
 	switch(FontCacheType)
 	{
@@ -381,7 +363,7 @@ SIZE_T UFont::GetResourceSize(EResourceSizeMode::Type Mode)
 			{
 				if (Texture)
 				{
-					ResourceSize += Texture->GetResourceSize(Mode);
+					Texture->GetResourceSizeEx(CumulativeResourceSize);
 				}
 			}
 		}
@@ -389,58 +371,41 @@ SIZE_T UFont::GetResourceSize(EResourceSizeMode::Type Mode)
 
 	case EFontCacheType::Runtime:
 		{
-			auto GetTypefaceResourceSize = [](const FTypeface& Typeface) -> int32
+			auto GetTypefaceResourceSize = [&CumulativeResourceSize](const FTypeface& Typeface)
 			{
-				int32 TypefaceResourceSize = 0;
 				for (const FTypefaceEntry& TypefaceEntry : Typeface.Fonts)
 				{
-					if (TypefaceEntry.Font.BulkDataPtr)
+#if WITH_EDITORONLY_DATA
+					const UFontFace* FontFace = Cast<const UFontFace>(TypefaceEntry.Font.GetFontFaceAsset());
+					if (FontFace)
 					{
-						// We use GetBulkDataSizeOnDisk since that will be the resident size once the bulk data has been decompressed
-						TypefaceResourceSize += TypefaceEntry.Font.BulkDataPtr->GetBulkDataSizeOnDisk();
+						const_cast<UFontFace*>(FontFace)->GetResourceSizeEx(CumulativeResourceSize);
+					}
+					else if (TypefaceEntry.Font.GetLoadingPolicy() == EFontLoadingPolicy::PreLoad)
+#endif // WITH_EDITORONLY_DATA
+					{
+						const int64 FileSize = IFileManager::Get().FileSize(*TypefaceEntry.Font.GetFontFilename());
+						if (FileSize > 0)
+						{
+							CumulativeResourceSize.AddDedicatedSystemMemoryBytes(FileSize);
+						}
 					}
 				}
-				return TypefaceResourceSize;
 			};
 
-			// Sum the contained font data sizes
-			ResourceSize += GetTypefaceResourceSize(CompositeFont.DefaultTypeface);
-			for (const FCompositeSubFont& SubTypeface : CompositeFont.SubTypefaces)
+			if (CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::Inclusive)
 			{
-				ResourceSize += GetTypefaceResourceSize(SubTypeface.Typeface);
+				// Sum the contained font data sizes
+				GetTypefaceResourceSize(CompositeFont.DefaultTypeface);
+				for (const FCompositeSubFont& SubTypeface : CompositeFont.SubTypefaces)
+				{
+					GetTypefaceResourceSize(SubTypeface.Typeface);
+				}
 			}
 		}
 		break;
 
 	default:
 		break;
-	}
-
-	return ResourceSize;
-}
-
-void UFont::ForceLoadFontData()
-{
-	if (FontCacheType == EFontCacheType::Runtime)
-	{
-		auto LoadFontDataForTypeface = [](const FTypeface& InTypeface)
-		{
-			for (const FTypefaceEntry& TypefaceEntry : InTypeface.Fonts)
-			{
-				// Somewhat evil, but ideally this will eventually be replaced by just having the font cache reference the bulk data directly
-				// rather than have the need to unload it to save memory, and then cause potential issues with render-thread loads
-				UFontBulkData* FontData = const_cast<UFontBulkData*>(TypefaceEntry.Font.BulkDataPtr);
-				if (FontData)
-				{
-					FontData->ForceLoadBulkData();
-				}
-			}
-		};
-
-		LoadFontDataForTypeface(CompositeFont.DefaultTypeface);
-		for (const FCompositeSubFont& SubTypeface : CompositeFont.SubTypefaces)
-		{
-			LoadFontDataForTypeface(SubTypeface.Typeface);
-		}
 	}
 }

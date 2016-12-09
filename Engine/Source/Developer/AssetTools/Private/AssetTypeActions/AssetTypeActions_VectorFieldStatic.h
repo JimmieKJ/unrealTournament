@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AssetTypeActions/AssetTypeActions_VectorField.h"
+
+#include "CoreMinimal.h"
+#include "AssetTypeActions_Base.h"
 #include "VectorField/VectorFieldStatic.h"
 
 class FAssetTypeActions_VectorFieldStatic : public FAssetTypeActions_Base

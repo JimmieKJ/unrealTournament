@@ -1,16 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
-#include "Sequencer.h"
 #include "SSequencerSection.h"
-#include "IKeyArea.h"
-#include "ISequencerSection.h"
-#include "MovieSceneSection.h"
-#include "MovieSceneToolHelpers.h"
-#include "CommonMovieSceneTools.h"
-#include "SequencerHotspots.h"
-#include "ScopedTransaction.h"
+#include "Rendering/DrawElements.h"
+#include "EditorStyleSet.h"
+#include "SequencerSelectionPreview.h"
+#include "GroupedKeyArea.h"
+#include "SequencerSettings.h"
+#include "Editor.h"
+#include "Sequencer.h"
 #include "SequencerSectionPainter.h"
+#include "CommonMovieSceneTools.h"
+#include "ISequencerEditTool.h"
+#include "ISequencerHotspot.h"
+#include "SequencerHotspots.h"
 
 double SSequencerSection::SelectionThrobEndTime = 0;
 
@@ -252,7 +254,6 @@ FSequencerSelectedKey SSequencerSection::CreateKeyUnderMouse( const FVector2D& M
 				KeyTime = TimeToPixelConverter.PixelToTime(LocalSpaceMousePosition.X);
 			}
 
-			FScopedTransaction CreateKeyTransaction(NSLOCTEXT("Sequencer", "CreateKey_Transaction", "Create Key"));
 			if (Section.TryModify())
 			{
 				// If the pressed key exists, offset the new key and look for it in the newly laid out key areas
@@ -288,7 +289,7 @@ FSequencerSelectedKey SSequencerSection::CreateKeyUnderMouse( const FVector2D& M
 				}
 				else
 				{
-					KeyArea->AddKeyUnique(KeyTime, GetSequencer().GetKeyInterpolation());
+					KeyArea->AddKeyUnique(KeyTime, GetSequencer().GetKeyInterpolation(), KeyTime);
 					Layout = FSectionLayout(*ParentSectionArea, SectionIndex);
 						
 					return GetKeyUnderMouse(MousePosition, AllottedGeometry);
@@ -853,6 +854,8 @@ FReply SSequencerSection::OnMouseButtonDown( const FGeometry& MyGeometry, const 
 
 	if (MouseEvent.GetEffectingButton() == EKeys::MiddleMouseButton)
 	{
+		GEditor->BeginTransaction(NSLOCTEXT("Sequencer", "CreateKey_Transaction", "Create Key"));
+
 		// Generate a key and set it as the PressedKey
 		FSequencerSelectedKey NewKey = CreateKeyUnderMouse(MouseEvent.GetScreenSpacePosition(), MyGeometry, HoveredKey);
 
@@ -922,7 +925,17 @@ FReply SSequencerSection::OnMouseMove( const FGeometry& MyGeometry, const FPoint
 
 	return FReply::Unhandled();
 }
+	
+FReply SSequencerSection::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	if (MouseEvent.GetEffectingButton() == EKeys::MiddleMouseButton)
+	{
+		GEditor->EndTransaction();
 
+		return FReply::Handled();
+	}
+	return FReply::Unhandled();
+}
 
 void SSequencerSection::OnMouseLeave( const FPointerEvent& MouseEvent )
 {

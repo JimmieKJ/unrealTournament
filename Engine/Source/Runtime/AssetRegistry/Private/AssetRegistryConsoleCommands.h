@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/PackageName.h"
+#include "AssetData.h"
+#include "AssetRegistryModule.h"
+#include "Misc/Paths.h"
+#include "Runtime/AssetRegistry/Private/AssetRegistryPrivate.h"
+
 #define LOCTEXT_NAMESPACE "AssetRegistry"
 
 class FAssetRegistryConsoleCommands

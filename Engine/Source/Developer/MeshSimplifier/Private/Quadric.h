@@ -3,18 +3,33 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+// [ Hoppe 1999, "New Quadric Metric for Simplifying Meshes with Appearance Attributes" ]
+// [ Hoppe 2000, "Efficient minimization of new quadric metric for simplifying meshes with appearance attributes" ]
+
+// doubles needed for precision
+
 #define WEIGHT_BY_AREA		1
 #define VOLUME_CONSTRAINT	1
 
 bool CalcGradient( double grad[4], const FVector& p0, const FVector& p1, const FVector& p2, const FVector& n, float a0, float a1, float a2 );
+bool CalcGradientMatrix( double* __restrict GradMatrix, const FVector& p0, const FVector& p1, const FVector& p2, const FVector& n );
+
+FORCEINLINE void CalcGradient( double* __restrict GradMatrix, double grad[4], float a0, float a1, float a2 )
+{
+	grad[0] = - GradMatrix[ 0] * a0 + GradMatrix[ 4] * a1 + GradMatrix[ 8] * a2;
+	grad[1] = + GradMatrix[ 1] * a0 - GradMatrix[ 5] * a1 - GradMatrix[ 9] * a2;
+	grad[2] = - GradMatrix[ 2] * a0 + GradMatrix[ 6] * a1 + GradMatrix[10] * a2;
+	grad[3] = + GradMatrix[ 3] * a0 - GradMatrix[ 7] * a1 - GradMatrix[11] * a2;
+}
 
 // returns length
 FORCEINLINE float NormalizeSelf( FVector& V )
 {
 	float Length2 = V.SizeSquared();
-	float InvLength = FMath::InvSqrt( Length2 );
-	V *= InvLength;
-	float Length = Length2 * FMath::InvSqrt( Length2 );
+	float Length = FMath::Sqrt( Length2 );
+	V /= Length;
 	return Length;
 }
 
@@ -57,20 +72,34 @@ inline FQuadric::FQuadric( const FVector& p0, const FVector& p1, const FVector& 
 {
 	FVector n = ( p2 - p0 ) ^ ( p1 - p0 );
 	float Length = NormalizeSelf(n);
-	float area = 0.5f * Length;
-	double dist = -( n | p0 );
+	if( Length == 0.0f )
+	{
+		Zero();
+		return;
+	}
 
-	nxx = n.X * n.X;
-	nyy = n.Y * n.Y;
-	nzz = n.Z * n.Z;
+	checkSlow( FMath::IsFinite( n.X ) );
+	checkSlow( FMath::IsFinite( n.Y ) );
+	checkSlow( FMath::IsFinite( n.Z ) );
 
-	nxy = n.X * n.Y;
-	nxz = n.X * n.Z;
-	nyz = n.Y * n.Z;
+	double nX = n.X;
+	double nY = n.Y;
+	double nZ = n.Z;
+	
+	double area = 0.5f * Length;
+	double dist = -( nX * p0.X + nY * p0.Y + nZ * p0.Z );
 
-	dnx = dist * n.X;
-	dny = dist * n.Y;
-	dnz = dist * n.Z;
+	nxx = nX * nX;
+	nyy = nY * nY;
+	nzz = nZ * nZ;
+
+	nxy = nX * nY;
+	nxz = nX * nZ;
+	nyz = nY * nZ;
+
+	dnx = dist * nX;
+	dny = dist * nY;
+	dnz = dist * nZ;
 
 	d2 = dist * dist;
 
@@ -97,26 +126,44 @@ inline FQuadric::FQuadric( const FVector& p0, const FVector& p1, const FVector& 
 
 inline FQuadric::FQuadric( const FVector& p0, const FVector& p1, const FVector& faceNormal, const float edgeWeight )
 {
+	if( !faceNormal.IsNormalized() )
+	{
+		Zero();
+		return;
+	}
+
 	FVector edge = p1 - p0;
 
 	FVector n = edge ^ faceNormal;
-	NormalizeSelf(n);
+	float Length = NormalizeSelf(n);
+	if( Length == 0.0f )
+	{
+		Zero();
+		return;
+	}
 
-	double dist = -( n | p0 );
+	checkSlow( FMath::IsFinite( n.X ) );
+	checkSlow( FMath::IsFinite( n.Y ) );
+	checkSlow( FMath::IsFinite( n.Z ) );
 
+	double nX = n.X;
+	double nY = n.Y;
+	double nZ = n.Z;
+
+	double dist = -( nX * p0.X + nY * p0.Y + nZ * p0.Z );
 	double weight = edgeWeight * edge.Size();
 
-	nxx = weight * n.X * n.X;
-	nyy = weight * n.Y * n.Y;
-	nzz = weight * n.Z * n.Z;
+	nxx = weight * nX * nX;
+	nyy = weight * nY * nY;
+	nzz = weight * nZ * nZ;
 
-	nxy = weight * n.X * n.Y;
-	nxz = weight * n.X * n.Z;
-	nyz = weight * n.Y * n.Z;
+	nxy = weight * nX * nY;
+	nxz = weight * nX * nZ;
+	nyz = weight * nY * nZ;
 
-	dnx = weight * dist * n.X;
-	dny = weight * dist * n.Y;
-	dnz = weight * dist * n.Z;
+	dnx = weight * dist * nX;
+	dny = weight * dist * nY;
+	dnz = weight * dist * nZ;
 
 	d2 = weight * dist * dist;
 	
@@ -203,7 +250,9 @@ inline float FQuadric::Evaluate( const FVector& Point ) const
 
 	// Q(v) = vt*A*v + 2*bt*v + c
 	double Q = vAv + 2.0 * btv + d2;
-	//assert( Q > -1.0 );
+	
+	//check( Q > -1.0 );
+	check( FMath::IsFinite( Q ) );
 
 	return Q;
 }
@@ -267,43 +316,83 @@ inline TQuadricAttr< NumAttributes >::TQuadricAttr(
 {
 	FVector n = ( p2 - p0 ) ^ ( p1 - p0 );
 	float Length = NormalizeSelf(n);
-	float area = 0.5f * Length;
-	double dist = -( n | p0 );
+	if( Length == 0.0f )
+	{
+		Zero();
+		return;
+	}
 
-	nxx = n.X * n.X;
-	nyy = n.Y * n.Y;
-	nzz = n.Z * n.Z;
+	checkSlow( FMath::IsFinite( n.X ) );
+	checkSlow( FMath::IsFinite( n.Y ) );
+	checkSlow( FMath::IsFinite( n.Z ) );
 
-	nxy = n.X * n.Y;
-	nxz = n.X * n.Z;
-	nyz = n.Y * n.Z;
+	double nX = n.X;
+	double nY = n.Y;
+	double nZ = n.Z;
 
-	dnx = dist * n.X;
-	dny = dist * n.Y;
-	dnz = dist * n.Z;
+	double area = 0.5f * Length;
+	double dist = -( nX * p0.X + nY * p0.Y + nZ * p0.Z );
+
+	nxx = nX * nX;
+	nyy = nY * nY;
+	nzz = nZ * nZ;
+
+	nxy = nX * nY;
+	nxz = nX * nZ;
+	nyz = nY * nZ;
+
+	dnx = dist * nX;
+	dny = dist * nY;
+	dnz = dist * nZ;
 
 	d2 = dist * dist;
 
 #if VOLUME_CONSTRAINT
-	nvx = n.X * ( area / 3.0 );
-	nvy = n.Y * ( area / 3.0 );
-	nvz = n.Z * ( area / 3.0 );
+	nvx = nX * ( area / 3.0 );
+	nvy = nY * ( area / 3.0 );
+	nvz = nZ * ( area / 3.0 );
 	dv = dist * ( area / 3.0 );
 #endif
+
+	double GradMatrix[12];
+	bool bInvertable = CalcGradientMatrix( GradMatrix, p0, p1, p2, n );
 	
 	for( uint32 i = 0; i < NumAttributes; i++ )
 	{
+		if( AttributeWeights[i] == 0.0f )
+		{
+			g[i][0] = 0.0;
+			g[i][1] = 0.0;
+			g[i][2] = 0.0;
+			d[i] = 0.0;
+			continue;
+		}
+		
 		float a0 = AttributeWeights[i] * attr0[i];
 		float a1 = AttributeWeights[i] * attr1[i];
 		float a2 = AttributeWeights[i] * attr2[i];
 
 		double grad[4];
-		if( !CalcGradient( grad, p0, p1, p2, n, a0, a1, a2 ) )
+		//if( !CalcGradient( grad, p0, p1, p2, n, a0, a1, a2 ) )
+		if( !bInvertable )
 		{
 			grad[0] = 0.0;
 			grad[1] = 0.0;
 			grad[2] = 0.0;
 			grad[3] = ( a0 + a1 + a2 ) / 3.0;
+		}
+		else
+		{
+			a0 = FMath::IsFinite( a0 ) ? a0 : 0.0f;
+			a1 = FMath::IsFinite( a1 ) ? a1 : 0.0f;
+			a2 = FMath::IsFinite( a2 ) ? a2 : 0.0f;
+
+			CalcGradient( GradMatrix, grad, a0, a1, a2 );
+
+			checkSlow( !FMath::IsNaN( grad[0] ) );
+			checkSlow( !FMath::IsNaN( grad[1] ) );
+			checkSlow( !FMath::IsNaN( grad[2] ) );
+			checkSlow( !FMath::IsNaN( grad[3] ) );
 		}
 
 		//double t0 = grad[0] * p0.x + grad[1] * p0.y + grad[2] * p0.z + grad[3];
@@ -523,7 +612,8 @@ inline float TQuadricAttr< NumAttributes >::Evaluate( const FVector& Point, cons
 	// Q(v) = vt*A*v + 2*bt*v + c
 	double Q = vAv + 2.0 * btv + d2;
 
-	//assert( Q > -1.0 );
+	//check( Q > -1.0 );
+	check( FMath::IsFinite( Q ) );
 
 	return Q;
 }
@@ -537,8 +627,15 @@ inline void TQuadricAttr< NumAttributes >::CalcAttributes( const FVector& Point,
 
 	for( uint32 i = 0; i < NumAttributes; i++ )
 	{
-		double s = g[i][0] * px + g[i][1] * py + g[i][2] * pz + d[i];
-		Attributes[i] = s / ( a * AttributeWeights[i] );
+		if( AttributeWeights[i] != 0.0f )
+		{
+			double s = g[i][0] * px + g[i][1] * py + g[i][2] * pz + d[i];
+			Attributes[i] = s / ( a * AttributeWeights[i] );
+		}
+		else
+		{
+			Attributes[i] = 0.0f;
+		}
 	}
 }
 
@@ -725,99 +822,105 @@ inline bool TQuadricAttrOptimizer< NumAttributes >::Optimize( FVector& Point ) c
 	double aBddnz = ia * Bdz - dnz;
 
 #if VOLUME_CONSTRAINT
-	/*
-	float4x4 M =
+	// Only use the volume constraint if it is well conditioned
+	if( nvx*nvx + nvy*nvy + nvz*nvz > 1e-8 )
 	{
-		Mxx, Mxy, Mxz, nvx,
-		Mxy, Myy, Myz, nvy,
-		Mxz, Myz, Mzz, nvz,
-		nvx, nvy, nvz, 0
-	};
-	float4 b = { aBddnx, aBddny, aBddnz, -dv };
-	p = ( Inverse(M) * b ).xyz;
-	*/
+		/*
+		float4x4 M =
+		{
+			Mxx, Mxy, Mxz, nvx,
+			Mxy, Myy, Myz, nvy,
+			Mxz, Myz, Mzz, nvz,
+			nvx, nvy, nvz, 0
+		};
+		float4 b = { aBddnx, aBddny, aBddnz, -dv };
+		p = ( Inverse(M) * b ).xyz;
+		*/
 
-	// 4x4 matrix inverse
+		// 4x4 matrix inverse
 
-	// 2x2 sub-determinants required to calculate 4x4 determinant
-	double det2_01_01 = Mxx * Myy - Mxy * Mxy;
-	double det2_01_02 = Mxx * Myz - Mxz * Mxy;
-	double det2_01_12 = Mxy * Myz - Mxz * Myy;
-	double det2_01_03 = Mxx * nvy - nvx * Mxy;
-	double det2_01_13 = Mxy * nvy - nvx * Myy;
-	double det2_01_23 = Mxz * nvy - nvx * Myz;
+		// 2x2 sub-determinants required to calculate 4x4 determinant
+		double det2_01_01 = Mxx * Myy - Mxy * Mxy;
+		double det2_01_02 = Mxx * Myz - Mxz * Mxy;
+		double det2_01_12 = Mxy * Myz - Mxz * Myy;
+		double det2_01_03 = Mxx * nvy - nvx * Mxy;
+		double det2_01_13 = Mxy * nvy - nvx * Myy;
+		double det2_01_23 = Mxz * nvy - nvx * Myz;
 
-	// 3x3 sub-determinants required to calculate 4x4 determinant
-	double iNvx = Mzz * det2_01_13 - Myz * det2_01_23 - nvz * det2_01_12;
-	double iNvy = Mxz * det2_01_23 - Mzz * det2_01_03 + nvz * det2_01_02;
-	double iNvz = Myz * det2_01_03 - Mxz * det2_01_13 - nvz * det2_01_01;
+		// 3x3 sub-determinants required to calculate 4x4 determinant
+		double iNvx = Mzz * det2_01_13 - Myz * det2_01_23 - nvz * det2_01_12;
+		double iNvy = Mxz * det2_01_23 - Mzz * det2_01_03 + nvz * det2_01_02;
+		double iNvz = Myz * det2_01_03 - Mxz * det2_01_13 - nvz * det2_01_01;
 
-	double det = iNvx * nvx + iNvy * nvy + iNvz * nvz;
+		double det = iNvx * nvx + iNvy * nvy + iNvz * nvz;
 
-	if( FMath::Abs( det ) < 1e-8 )
-	{
-		return false;
+		if( FMath::Abs( det ) < 1e-8 )
+		{
+			return false;
+		}
+
+		double invDet = 1.0 / det;
+
+		// remaining 2x2 sub-determinants
+		double det2_03_02 = Mxx * nvz - Mxz * nvx;
+		double det2_03_12 = Mxy * nvz - Mxz * nvy;
+		double det2_13_12 = Myy * nvz - Myz * nvy;
+
+		double det2_03_03 = -nvx * nvx;
+		double det2_03_13 = -nvx * nvy;
+		double det2_03_23 = -nvx * nvz;
+
+		double det2_13_13 = -nvy * nvy;
+		double det2_13_23 = -nvy * nvz;
+
+		// remaining 3x3 sub-determinants
+		double iMxx = Mzz * det2_13_13 - Myz * det2_13_23 - nvz * det2_13_12;
+		double iMxy = Myz * det2_03_23 - Mzz * det2_03_13 + nvz * det2_03_12;
+		double iMyy = Mzz * det2_03_03 - Mxz * det2_03_23 - nvz * det2_03_02;
+
+		double iMxz = nvy * det2_01_23 - nvz * det2_01_13;
+		double iMyz = nvz * det2_01_03 - nvx * det2_01_23;
+		double iMzz = nvx * det2_01_13 - nvy * det2_01_03;
+
+		Point.X = invDet * ( aBddnx * iMxx + aBddny * iMxy + aBddnz * iMxz - iNvx * dv );
+		Point.Y = invDet * ( aBddnx * iMxy + aBddny * iMyy + aBddnz * iMyz - iNvy * dv );
+		Point.Z = invDet * ( aBddnx * iMxz + aBddny * iMyz + aBddnz * iMzz - iNvz * dv );
 	}
-
-	double invDet = 1.0 / det;
-
-	// remaining 2x2 sub-determinants
-	double det2_03_02 = Mxx * nvz - Mxz * nvx;
-	double det2_03_12 = Mxy * nvz - Mxz * nvy;
-	double det2_13_12 = Myy * nvz - Myz * nvy;
-
-	double det2_03_03 = -nvx * nvx;
-	double det2_03_13 = -nvx * nvy;
-	double det2_03_23 = -nvx * nvz;
-
-	double det2_13_13 = -nvy * nvy;
-	double det2_13_23 = -nvy * nvz;
-
-	// remaining 3x3 sub-determinants
-	double iMxx = Mzz * det2_13_13 - Myz * det2_13_23 - nvz * det2_13_12;
-	double iMxy = Myz * det2_03_23 - Mzz * det2_03_13 + nvz * det2_03_12;
-	double iMyy = Mzz * det2_03_03 - Mxz * det2_03_23 - nvz * det2_03_02;
-
-	double iMxz = nvy * det2_01_23 - nvz * det2_01_13;
-	double iMyz = nvz * det2_01_03 - nvx * det2_01_23;
-	double iMzz = nvx * det2_01_13 - nvy * det2_01_03;
-
-	Point.X = invDet * ( aBddnx * iMxx + aBddny * iMxy + aBddnz * iMxz - iNvx * dv );
-	Point.Y = invDet * ( aBddnx * iMxy + aBddny * iMyy + aBddnz * iMyz - iNvy * dv );
-	Point.Z = invDet * ( aBddnx * iMxz + aBddny * iMyz + aBddnz * iMzz - iNvz * dv );
-#else
-	/*
-	float3x3 M =
-	{
-		Mxx, Mxy, Mxz,
-		Mxy, Myy, Myz,
-		Mxz, Myz, Mzz
-	};
-	float3 b = { aBddnx, aBddny, aBddnz };
-	p = Inverse(M) * b;
-	*/
-
-	double iMxx = Myy * Mzz - Myz * Myz;
-	double iMxy = Mxz * Myz - Mzz * Mxy;
-	double iMxz = Mxy * Myz - Myy * Mxz;
-
-	double det = Mxx * iMxx + Mxy * iMxy + Mxz * iMxz;
-
-	if( abs( det ) < 1e-8 )
-	{
-		return false;
-	}
-
-	double invDet = 1.0 / det;
-
-	double iMyy = Mxx * Mzz - Mxz * Mxz;
-	double iMyz = Mxy * Mxz - Mxx * Myz;
-	double iMzz = Mxx * Myy - Mxy * Mxy;
-
-	Point.x = invDet * ( aBddnx * iMxx + aBddny * iMxy + aBddnz * iMxz );
-	Point.y = invDet * ( aBddnx * iMxy + aBddny * iMyy + aBddnz * iMyz );
-	Point.z = invDet * ( aBddnx * iMxz + aBddny * iMyz + aBddnz * iMzz );
+	else
 #endif
+	{
+		/*
+		float3x3 M =
+		{
+			Mxx, Mxy, Mxz,
+			Mxy, Myy, Myz,
+			Mxz, Myz, Mzz
+		};
+		float3 b = { aBddnx, aBddny, aBddnz };
+		p = Inverse(M) * b;
+		*/
+
+		double iMxx = Myy * Mzz - Myz * Myz;
+		double iMxy = Mxz * Myz - Mzz * Mxy;
+		double iMxz = Mxy * Myz - Myy * Mxz;
+
+		double det = Mxx * iMxx + Mxy * iMxy + Mxz * iMxz;
+
+		if( FMath::Abs( det ) < 1e-8 )
+		{
+			return false;
+		}
+
+		double invDet = 1.0 / det;
+
+		double iMyy = Mxx * Mzz - Mxz * Mxz;
+		double iMyz = Mxy * Mxz - Mxx * Myz;
+		double iMzz = Mxx * Myy - Mxy * Mxy;
+
+		Point.X = invDet * ( aBddnx * iMxx + aBddny * iMxy + aBddnz * iMxz );
+		Point.Y = invDet * ( aBddnx * iMxy + aBddny * iMyy + aBddnz * iMyz );
+		Point.Z = invDet * ( aBddnx * iMxz + aBddny * iMyz + aBddnz * iMzz );
+	}
 
 	return true;
 }

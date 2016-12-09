@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "CoreMinimal.h"
+#include "Serialization/ArchiveUObject.h"
+#include "UObject/LazyObjectPtr.h"
+#include "Misc/StringAssetReference.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/UnrealType.h"
+#include "Serialization/DuplicatedObject.h"
+#include "Serialization/DuplicatedDataReader.h"
 #include "UObject/UObjectThreadContext.h"
-#include "TextPackageNamespaceUtil.h"
+#include "Internationalization/TextPackageNamespaceUtil.h"
 
 /*----------------------------------------------------------------------------
 	FDuplicateDataReader.

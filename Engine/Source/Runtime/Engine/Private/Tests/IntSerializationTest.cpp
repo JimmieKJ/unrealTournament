@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "AutomationTest.h"
-#include "Runtime/Engine/Classes/Engine/IntSerialization.h"
+#include "CoreMinimal.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "Misc/AutomationTest.h"
+#include "Engine/IntSerialization.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

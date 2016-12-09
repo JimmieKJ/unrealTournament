@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+
 class FAttenuationSettingsCustomization : public IPropertyTypeCustomization
 {
 public:

@@ -25,7 +25,7 @@ public class LinuxServerTargetPlatform : ModuleRules
             );
 
             PrivateIncludePathModuleNames.Add("TextureCompressor");
-        }
+       }
 
         PrivateIncludePaths.AddRange(
             new string[] {

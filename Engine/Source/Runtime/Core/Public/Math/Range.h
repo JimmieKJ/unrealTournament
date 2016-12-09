@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/Array.h"
+#include "Misc/DateTime.h"
+#include "Math/RangeBound.h"
 
 /**
  * Template for ranges.
@@ -138,13 +143,13 @@ public:
 			return false;
 		}
 
-		if (UpperBound.GetValue() == Other.LowerBound.GetValue())
+		if (!UpperBound.IsOpen() && !Other.LowerBound.IsOpen() && UpperBound.GetValue() == Other.LowerBound.GetValue())
 		{
 			return ((UpperBound.IsInclusive() && Other.LowerBound.IsExclusive()) ||
 					(UpperBound.IsExclusive() && Other.LowerBound.IsInclusive()));
 		}
 		
-		if (Other.UpperBound.GetValue() == LowerBound.GetValue())
+		if (!Other.UpperBound.IsOpen() && !LowerBound.IsOpen() && Other.UpperBound.GetValue() == LowerBound.GetValue())
 		{
 			return ((Other.UpperBound.IsInclusive() && LowerBound.IsExclusive()) ||
 					(Other.UpperBound.IsExclusive() && LowerBound.IsInclusive()));
@@ -506,12 +511,12 @@ public:
 	{
 		if (X.IsEmpty())
 		{
-			return Y;
+			return TRange::Empty();
 		}
 
 		if (Y.IsEmpty())
 		{
-			return X;
+			return TRange::Empty();
 		}
 
 		return TRange(BoundsType::MaxLower(X.LowerBound, Y.LowerBound), BoundsType::MinUpper(X.UpperBound, Y.UpperBound));

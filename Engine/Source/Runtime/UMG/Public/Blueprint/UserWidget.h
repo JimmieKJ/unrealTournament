@@ -2,20 +2,32 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Geometry.h"
+#include "Input/CursorReply.h"
+#include "Input/Events.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Margin.h"
 #include "Components/SlateWrapperTypes.h"
 #include "Components/Widget.h"
-#include "Geometry.h"
-#include "Engine/GameInstance.h"
-#include "Layout/Anchors.h"
-#include "NamedSlotInterface.h"
+#include "Components/NamedSlotInterface.h"
+#include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
 #include "Engine/LocalPlayer.h"
+#include "Widgets/Layout/Anchors.h"
 #include "Logging/MessageLog.h"
 
 #include "UserWidget.generated.h"
 
-class UWidget;
+class Error;
+class FSlateWindowElementList;
+class UDragDropOperation;
+class UTexture2D;
+class UUMGSequencePlayer;
 class UWidgetAnimation;
-struct FLocalPlayerContext;
 
 /**
  * The state passed into OnPaint that we can expose as a single painting structure to blueprints to
@@ -145,8 +157,12 @@ public:
 	//~ End UObject Interface
 
 	virtual bool Initialize();
-	virtual void CustomNativeInitilize() {}
 
+protected:
+	/** THe function is implemented only in nativized widgets (automatically converted from BP to c++) */
+	virtual void InitializeNativeClassData() {}
+
+public:
 	//UVisual interface
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
 	//~ End UVisual Interface
@@ -235,7 +251,7 @@ public:
 	ULocalPlayer* GetOwningLocalPlayer() const;
 
 	/**
-	 * Sets the local player associated with this UI.
+	 * Sets the player associated with this UI via LocalPlayer reference.
 	 * @param LocalPlayer The local player you want to be the conceptual owner of this UI.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Player")
@@ -247,6 +263,13 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Player")
 	class APlayerController* GetOwningPlayer() const;
+
+	/**
+	 * Sets the local player associated with this UI via PlayerController reference.
+	 * @param LocalPlayerController The PlayerController of the local player you want to be the conceptual owner of this UI.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Player")
+	void SetOwningPlayer(APlayerController* LocalPlayerController);
 
 	/**
 	 * Gets the player pawn associated with this UI.
@@ -706,7 +729,7 @@ public:
 	 * @param PlayMode Specifies the playback mode
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "User Interface|Animation")
-	void PlayAnimation(const UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f);
+	void PlayAnimation(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f);
 
 	/**
 	 * Plays an animation in this widget a specified number of times stoping at a specified time
@@ -719,7 +742,7 @@ public:
 	 * @param PlayMode Specifies the playback mode
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="User Interface|Animation")
-	void PlayAnimationTo(const UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, float EndAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f);
+	void PlayAnimationTo(UWidgetAnimation* InAnimation, float StartAtTime = 0.0f, float EndAtTime = 0.0f, int32 NumLoopsToPlay = 1, EUMGSequencePlayMode::Type PlayMode = EUMGSequencePlayMode::Forward, float PlaybackSpeed = 1.0f);
 
 	/**
 	 * Stops an already running animation in this widget
@@ -916,6 +939,11 @@ public:
 
 protected:
 
+	/** Has this widget been initialized by its class yet? */
+	bool bInitialized : 1;
+
+protected:
+
 	/** Adds the widget to the screen, either to the viewport or to the player's screen depending on if the LocalPlayer is null. */
 	virtual void AddToScreen(ULocalPlayer* LocalPlayer, int32 ZOrder);
 
@@ -980,7 +1008,7 @@ protected:
 
 	void RemoveObsoleteBindings(const TArray<FName>& NamedSlots);
 
-	UUMGSequencePlayer* GetOrAddPlayer(const UWidgetAnimation* InAnimation);
+	UUMGSequencePlayer* GetOrAddPlayer(UWidgetAnimation* InAnimation);
 	void Invalidate();
 	
 	/**
@@ -1048,12 +1076,14 @@ private:
 
 	/** Get World calls can be expensive for Widgets, we speed them up by caching the last found world until it goes away. */
 	mutable TWeakObjectPtr<UWorld> CachedWorld;
-
-	/** Has this widget been initialized by its class yet? */
-	bool bInitialized;
 };
 
 #define LOCTEXT_NAMESPACE "UMG"
+
+namespace CreateWidgetHelpers
+{
+	UMG_API bool ValidateUserWidgetClass(UClass* UserWidgetClass);
+}
 
 template< class T >
 T* CreateWidget(UWorld* World, UClass* UserWidgetClass  = T::StaticClass() )
@@ -1064,15 +1094,8 @@ T* CreateWidget(UWorld* World, UClass* UserWidgetClass  = T::StaticClass() )
 		return nullptr;
 	}
 
-	if ( !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) )
+	if (!CreateWidgetHelpers::ValidateUserWidgetClass(UserWidgetClass))
 	{
-		FMessageLog("PIE").Error(LOCTEXT("NotUserWidget", "CreateWidget can only be used on UUserWidget children."));
-		return nullptr;
-	}
-
-	if ( UserWidgetClass->HasAnyClassFlags(CLASS_Abstract | CLASS_NewerVersionExists | CLASS_Deprecated) )
-	{
-		FMessageLog("PIE").Error(LOCTEXT("NotValidClass", "Abstract, Deprecated or Replaced classes are not allowed to be used to construct a user widget."));
 		return nullptr;
 	}
 
@@ -1099,27 +1122,26 @@ T* CreateWidget(APlayerController* OwningPlayer, UClass* UserWidgetClass = T::St
 		return nullptr;
 	}
 
-	if ( !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) )
+	if (!CreateWidgetHelpers::ValidateUserWidgetClass(UserWidgetClass))
 	{
-		FMessageLog("PIE").Error(LOCTEXT("NotUserWidget", "CreateWidget can only be used on UUserWidget children."));
-		return nullptr;
-	}
-
-	if ( UserWidgetClass->HasAnyClassFlags(CLASS_Abstract | CLASS_NewerVersionExists | CLASS_Deprecated) )
-	{
-		FMessageLog("PIE").Error(LOCTEXT("NotValidClass", "Abstract, Deprecated or Replaced classes are not allowed to be used to construct a user widget."));
 		return nullptr;
 	}
 
 	if ( !OwningPlayer->IsLocalPlayerController() )
 	{
-		FMessageLog("PIE").Error(LOCTEXT("NotLocalPlayer", "Only Local Player Controllers can be assigned to widgets."));
+		const FText FormatPattern = LOCTEXT("NotLocalPlayer", "Only Local Player Controllers can be assigned to widgets. {PlayerController} is not a Local Player Controller.");
+		FFormatNamedArguments FormatPatternArgs;
+		FormatPatternArgs.Add(TEXT("PlayerController"), FText::FromName(OwningPlayer->GetFName()));
+		FMessageLog("PIE").Error(FText::Format(FormatPattern, FormatPatternArgs));
 		return nullptr;
 	}
 
 	if (!OwningPlayer->Player)
 	{
-		FMessageLog("PIE").Error(LOCTEXT("NoPLayer", "CreateWidget cannot be used on Player Controller with no attached player."));
+		const FText FormatPattern = LOCTEXT("NoPlayer", "CreateWidget cannot be used on Player Controller with no attached player. {PlayerController} has no Player attached.");
+		FFormatNamedArguments FormatPatternArgs;
+		FormatPatternArgs.Add(TEXT("PlayerController"), FText::FromName(OwningPlayer->GetFName()));
+		FMessageLog("PIE").Error(FText::Format(FormatPattern, FormatPatternArgs));
 		return nullptr;
 	}
 
@@ -1142,16 +1164,9 @@ T* CreateWidget(UGameInstance* OwningGame, UClass* UserWidgetClass = T::StaticCl
 		FMessageLog("PIE").Error(LOCTEXT("GameNull", "Unable to create a widget outered to a null game instance."));
 		return nullptr;
 	}
-
-	if ( !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) )
+	
+	if (!CreateWidgetHelpers::ValidateUserWidgetClass(UserWidgetClass))
 	{
-		FMessageLog("PIE").Error(LOCTEXT("NotUserWidget", "CreateWidget can only be used on UUserWidget children."));
-		return nullptr;
-	}
-
-	if ( UserWidgetClass->HasAnyClassFlags(CLASS_Abstract | CLASS_NewerVersionExists | CLASS_Deprecated) )
-	{
-		FMessageLog("PIE").Error(LOCTEXT("NotValidClass", "Abstract, Deprecated or Replaced classes are not allowed to be used to construct a user widget."));
 		return nullptr;
 	}
 

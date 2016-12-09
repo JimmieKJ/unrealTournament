@@ -5,8 +5,14 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/Actor.h"
 #include "GroupActor.generated.h"
+
+class FLevelEditorViewportClient;
+class FViewport;
 
 UCLASS(hidedropdown,MinimalAPI, notplaceable, NotBlueprintable)
 class AGroupActor : public AActor
@@ -31,10 +37,6 @@ class AGroupActor : public AActor
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditUndo() override;
 	virtual bool Modify( bool bAlwaysMarkDirty=true ) override;
-	virtual bool NeedsLoadForClient() const override
-	{ 
-		return false; 
-	}
 	//~ End UObject Interface
 
 	//~ Begin AActor Interface

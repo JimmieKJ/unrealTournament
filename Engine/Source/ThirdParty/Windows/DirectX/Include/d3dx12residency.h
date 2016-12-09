@@ -656,7 +656,7 @@ namespace D3DX12Residency
 				cStartEvicted(false),
 				CurrentSyncPointGeneration(0),
 				NumQueuesSeen(0),
-				NodeMask(0),
+				NodeIndex(0),
 				CurrentAsyncWorkloadHead(0),
 				CurrentAsyncWorkloadTail(0),
 				cMinEvictionGracePeriod(1.0f),
@@ -671,10 +671,10 @@ namespace D3DX12Residency
 				Internal::InitializeListHead(&InFlightSyncPointsHead);
 			};
 
-			HRESULT Initialize(ID3D12Device* ParentDevice, UINT DeviceNodeMask, IDXGIAdapter3* ParentAdapter, UINT32 MaxLatency)
+			HRESULT Initialize(ID3D12Device* ParentDevice, UINT DeviceNodeIndex, IDXGIAdapter3* ParentAdapter, UINT32 MaxLatency)
 			{
 				Device = ParentDevice;
-				NodeMask = DeviceNodeMask;
+				NodeIndex = DeviceNodeIndex;
 				Adapter = ParentAdapter;
 				MaxSoftwareQueueLatency = MaxLatency;
 
@@ -919,7 +919,7 @@ namespace D3DX12Residency
 						hr = QueueFence->Initialize(Device);
 						Internal::InsertTailList(&QueueFencesListHead, &QueueFence->ListEntry);
 
-						InterlockedIncrement(&NumQueuesSeen);
+						FPlatformAtomics::InterlockedIncrement(&NumQueuesSeen);
 
 						if (SUCCEEDED(hr))
 						{
@@ -1256,7 +1256,7 @@ namespace D3DX12Residency
 
 			void GetCurrentBudget(DXGI_QUERY_VIDEO_MEMORY_INFO* InfoOut, DXGI_MEMORY_SEGMENT_GROUP Segment)
 			{
-				RESIDENCY_CHECK_RESULT(Adapter->QueryVideoMemoryInfo(NodeMask, Segment, InfoOut));
+				RESIDENCY_CHECK_RESULT(Adapter->QueryVideoMemoryInfo(NodeIndex, Segment, InfoOut));
 			}
 
 			HRESULT EnqueueSyncPoint()
@@ -1368,7 +1368,7 @@ namespace D3DX12Residency
 			}
 
 			LIST_ENTRY QueueFencesListHead;
-			UINT32 NumQueuesSeen;
+			int32 NumQueuesSeen;
 			Internal::Fence AsyncThreadFence;
 
 			LIST_ENTRY InFlightSyncPointsHead;
@@ -1378,7 +1378,7 @@ namespace D3DX12Residency
 			HANDLE AsyncThreadWorkCompletionEvent;
 
 			ID3D12Device* Device;
-			UINT NodeMask;
+			UINT NodeIndex;
 			IDXGIAdapter3* Adapter;
 			Internal::LRUCache LRU;
 
@@ -1410,9 +1410,9 @@ namespace D3DX12Residency
 		{
 		}
 
-		FORCEINLINE HRESULT Initialize(ID3D12Device* ParentDevice, UINT DeviceNodeMask, IDXGIAdapter3* ParentAdapter, UINT32 MaxLatency)
+		FORCEINLINE HRESULT Initialize(ID3D12Device* ParentDevice, UINT DeviceNodeIndex, IDXGIAdapter3* ParentAdapter, UINT32 MaxLatency)
 		{
-			return Manager.Initialize(ParentDevice, DeviceNodeMask, ParentAdapter, MaxLatency);
+			return Manager.Initialize(ParentDevice, DeviceNodeIndex, ParentAdapter, MaxLatency);
 		}
 
 		FORCEINLINE void Destroy()

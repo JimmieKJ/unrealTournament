@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Async/AsyncWork.h"
 
 /**
  * Represents an internet address. All data is in network byte order

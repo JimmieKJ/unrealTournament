@@ -9,7 +9,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RHIDefinitions.h"
 
+class FRHICommandList;
+class UTextureRenderTarget2D;
 
 namespace MeshPaintRendering
 {

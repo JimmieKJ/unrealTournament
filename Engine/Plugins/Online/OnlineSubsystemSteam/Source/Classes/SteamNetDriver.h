@@ -5,8 +5,14 @@
 //
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "IpNetDriver.h"
 #include "SteamNetDriver.generated.h"
+
+class Error;
+class FNetworkNotify;
 
 UCLASS(transient, config=Engine)
 class USteamNetDriver : public UIpNetDriver

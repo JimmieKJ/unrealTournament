@@ -1,12 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "Slate/SlateBrushAsset.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
+#include "Materials/MaterialInterface.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "Engine/Texture2D.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Engine/Font.h"
+#include "Brushes/SlateNoResource.h"
+#include "Rendering/DrawElements.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Slate/UMGDragDropOp.h"
-#include "WidgetBlueprintLibrary.h"
+#include "Slate/SlateBrushAsset.h"
 #include "EngineGlobals.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Engine/Engine.h"
+
+//For PIE error messages
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -80,6 +94,12 @@ void UWidgetBlueprintLibrary::SetInputMode_UIOnlyEx(APlayerController* Target, U
 		}
 		Target->SetInputMode(InputMode);
 	}
+	#if WITH_EDITOR 
+	else
+	{ 
+		FMessageLog("PIE").Error(LOCTEXT("UMG WidgetBlueprint Library: SetInputMode_UIOnly", "SetInputMode_UIOnly expects a valid player controller as target"));
+	}
+	#endif // WITH_EDITOR
 }
 
 void UWidgetBlueprintLibrary::SetInputMode_GameAndUI(APlayerController* Target, UWidget* InWidgetToFocus, bool bLockMouseToViewport, bool bHideCursorDuringCapture)
@@ -101,6 +121,13 @@ void UWidgetBlueprintLibrary::SetInputMode_GameAndUIEx(APlayerController* Target
 		}
 		Target->SetInputMode(InputMode);
 	}
+	#if WITH_EDITOR 
+	else
+	{
+		FMessageLog("PIE").Error(LOCTEXT("UMG WidgetBlueprint Library: SetInputMode_GameAndUI", "SetInputMode_GameAndUI expects a valid player controller as target"));	
+	}
+	#endif // WITH_EDITOR
+	
 }
 
 void UWidgetBlueprintLibrary::SetInputMode_GameOnly(APlayerController* Target)
@@ -110,6 +137,12 @@ void UWidgetBlueprintLibrary::SetInputMode_GameOnly(APlayerController* Target)
 		FInputModeGameOnly InputMode;
 		Target->SetInputMode(InputMode);
 	}
+	#if WITH_EDITOR 
+	else
+	{
+		FMessageLog("PIE").Error(LOCTEXT("UMG WidgetBlueprint Library: SetInputMode_GameOnly", "SetInputMode_GameOnly expects a valid player controller as target"));
+	}
+	#endif // WITH_EDITOR
 }
 
 void UWidgetBlueprintLibrary::SetFocusToGameViewport()

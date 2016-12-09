@@ -1,9 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
-#include "BSPOps.h"
+#include "CoreMinimal.h"
+#include "Misc/MemStack.h"
+#include "UObject/Object.h"
+#include "UObject/Package.h"
+#include "Engine/Level.h"
+#include "Components/ActorComponent.h"
+#include "Model.h"
+#include "Editor/Transactor.h"
+#include "Editor/TransBuffer.h"
+#include "Components/ModelComponent.h"
 #include "Engine/BlueprintGeneratedClass.h"
+#include "BSPOps.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorTransaction, Log, All);
 

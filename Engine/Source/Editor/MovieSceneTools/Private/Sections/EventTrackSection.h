@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ISequencerSection.h"
 
+class FSequencerSectionPainter;
+class ISequencer;
 class UMovieSceneEventSection;
-
 
 /**
  * Event track section, which paints and ticks the appropriate section.

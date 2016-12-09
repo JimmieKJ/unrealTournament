@@ -10,7 +10,14 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Builders/EditorBrushBuilder.h"
 #include "CylinderBuilder.generated.h"
+
+class ABrush;
 
 UCLASS(MinimalAPI, autoexpandcategories=BrushSettings, EditInlineNew, meta=(DisplayName="Cylinder"))
 class UCylinderBuilder : public UEditorBrushBuilder

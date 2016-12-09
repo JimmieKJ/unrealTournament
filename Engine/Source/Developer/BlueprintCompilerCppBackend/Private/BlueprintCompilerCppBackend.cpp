@@ -1,11 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintCompilerCppBackendModulePrivatePCH.h"
 #include "BlueprintCompilerCppBackend.h"
+#include "UObject/UnrealType.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "UObject/Interface.h"
+#include "Engine/LatentActionManager.h"
+#include "Engine/UserDefinedEnum.h"
+#include "K2Node.h"
+#include "K2Node_Event.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_ExecutionSequence.h"
+#include "K2Node_FunctionEntry.h"
+#include "KismetCompilerMisc.h"
+#include "KismetCompiler.h"
 #include "BlueprintCompilerCppBackendUtils.h"
-#include "EdGraphSchema_K2.h"
 #include "Kismet/KismetNodeHelperLibrary.h"
 #include "Kismet/KismetArrayLibrary.h"
+#include "UniquePtr.h"
 
 // Generates single "if" scope. Its condition checks context of given term.
 struct FSafeContextScopedEmmitter
@@ -444,10 +455,10 @@ FString FBlueprintCompilerCppBackend::EmitSwitchValueStatmentInner(FEmitterLocal
 		| EPropertyExportCPPFlags::CPPF_BlueprintCppBackend;
 
 	check(IndexTerm && IndexTerm->AssociatedVarProperty);
-	const FString IndexDeclaration = EmitterContext.ExportCppDeclaration(IndexTerm->AssociatedVarProperty, EExportedDeclaration::Local, CppTemplateTypeFlags, true);
+	const FString IndexDeclaration = EmitterContext.ExportCppDeclaration(IndexTerm->AssociatedVarProperty, EExportedDeclaration::Local, CppTemplateTypeFlags, FEmitterLocalContext::EPropertyNameInDeclaration::Skip);
 
 	check(DefaultValueTerm && DefaultValueTerm->AssociatedVarProperty);
-	const FString ValueDeclaration = EmitterContext.ExportCppDeclaration(DefaultValueTerm->AssociatedVarProperty, EExportedDeclaration::Local, CppTemplateTypeFlags, true);
+	const FString ValueDeclaration = EmitterContext.ExportCppDeclaration(DefaultValueTerm->AssociatedVarProperty, EExportedDeclaration::Local, CppTemplateTypeFlags, FEmitterLocalContext::EPropertyNameInDeclaration::Skip);
 
 	FString Result = FString::Printf(TEXT("TSwitchValue<%s, %s>(%s, %s, %d")
 		, *IndexDeclaration
@@ -460,17 +471,31 @@ FString FBlueprintCompilerCppBackend::EmitSwitchValueStatmentInner(FEmitterLocal
 	{
 		auto TermToRef = [&](const FBPTerminal* Term) -> FString
 		{
+			const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
+			check(Schema);
+
+			FString BeginCast;
+			FString EndCast;
+			FEdGraphPinType LType;
+			if (Schema->ConvertPropertyToPinType(DefaultValueTerm->AssociatedVarProperty, LType))
+			{
+				FEmitHelper::GenerateAutomaticCast(EmitterContext, LType, Term->Type, BeginCast, EndCast, true);
+			}
+
 			const FString TermEvaluation = TermToText(EmitterContext, Term, ENativizedTermUsage::UnspecifiedOrReference); //should bGetter be false ?
+			const FString CastedTerm = FString::Printf(TEXT("%s%s%s"), *BeginCast, *TermEvaluation, *EndCast);
 			if (Term->bIsLiteral) //TODO it should be done for every term, that cannot be handled as reference.
 			{
 				const FString LocalVarName = EmitterContext.GenerateUniqueLocalName();
-				EmitterContext.AddLine(FString::Printf(TEXT("%s %s = %s;"), *ValueDeclaration, *LocalVarName, *TermEvaluation));
+				EmitterContext.AddLine(FString::Printf(TEXT("%s %s = %s;"), *ValueDeclaration, *LocalVarName, *CastedTerm));
 				return LocalVarName;
 			}
-			return TermEvaluation;
+			return CastedTerm;
 		};
+
 		const FString Term0_Index = TermToText(EmitterContext, Statement.RHS[TermIndex], ENativizedTermUsage::UnspecifiedOrReference);
 		const FString Term1_Ref = TermToRef(Statement.RHS[TermIndex + 1]);
+
 		Result += FString::Printf(TEXT(", TSwitchPair<%s, %s>(%s, %s)")
 			, *IndexDeclaration
 			, *ValueDeclaration
@@ -483,10 +508,65 @@ FString FBlueprintCompilerCppBackend::EmitSwitchValueStatmentInner(FEmitterLocal
 	return Result;
 }
 
+struct FCastWildCard
+{
+	TArray<FString> TypeDependentPinNames;
+	int32 ArrayParamIndex = -1;
+	const FBlueprintCompiledStatement& Statement;
+
+	FCastWildCard(const FBlueprintCompiledStatement& InStatement) : ArrayParamIndex(-1), Statement(InStatement)
+	{
+		const FString DependentPinMetaData = Statement.FunctionToCall->GetMetaData(FBlueprintMetadata::MD_ArrayDependentParam);
+		DependentPinMetaData.ParseIntoArray(TypeDependentPinNames, TEXT(","), true);
+
+		FString ArrayPointerMetaData = Statement.FunctionToCall->GetMetaData(FBlueprintMetadata::MD_ArrayParam);
+		TArray<FString> ArrayPinComboNames;
+		ArrayPointerMetaData.ParseIntoArray(ArrayPinComboNames, TEXT(","), true);
+
+		int32 LocNumParams = 0;
+		if (ArrayPinComboNames.Num() == 1)
+		{
+			for (TFieldIterator<UProperty> PropIt(Statement.FunctionToCall); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
+			{
+				if (!PropIt->HasAnyPropertyFlags(CPF_ReturnParm))
+				{
+					if (PropIt->GetName() == ArrayPinComboNames[0])
+					{
+						ArrayParamIndex = LocNumParams;
+						break;
+					}
+					LocNumParams++;
+				}
+			}
+		}
+	}
+
+	bool FillWildcardType(const UProperty* FuncParamProperty, FEdGraphPinType& LType)
+	{
+		if ((FuncParamProperty->HasAnyPropertyFlags(CPF_ConstParm) || !FuncParamProperty->HasAnyPropertyFlags(CPF_OutParm)) // it's pointless(?) and unsafe(?) to cast Output parameter
+			&& (ArrayParamIndex >= 0)
+			&& ((LType.PinCategory == UEdGraphSchema_K2::PC_Wildcard) || (LType.PinCategory == UEdGraphSchema_K2::PC_Int))
+			&& TypeDependentPinNames.Contains(FuncParamProperty->GetName()))
+		{
+			FBPTerminal* ArrayTerm = Statement.RHS[ArrayParamIndex];
+			check(ArrayTerm);
+			LType.PinCategory = ArrayTerm->Type.PinCategory;
+			LType.PinSubCategory = ArrayTerm->Type.PinSubCategory;
+			LType.PinSubCategoryObject = ArrayTerm->Type.PinSubCategoryObject;
+			LType.PinSubCategoryMemberReference = ArrayTerm->Type.PinSubCategoryMemberReference;
+			return true;
+		}
+		return false;
+	}
+};
+
 FString FBlueprintCompilerCppBackend::EmitMethodInputParameterList(FEmitterLocalContext& EmitterContext, FBlueprintCompiledStatement& Statement)
 {
+	FCastWildCard CastWildCard(Statement);
+
 	FString Result;
 	int32 NumParams = 0;
+
 	for (TFieldIterator<UProperty> PropIt(Statement.FunctionToCall); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
 	{
 		UProperty* FuncParamProperty = *PropIt;
@@ -530,6 +610,8 @@ FString FBlueprintCompilerCppBackend::EmitMethodInputParameterList(FEmitterLocal
 				ENativizedTermUsage TermUsage = ENativizedTermUsage::UnspecifiedOrReference;
 				if (Schema->ConvertPropertyToPinType(FuncParamProperty, LType))
 				{
+					CastWildCard.FillWildcardType(FuncParamProperty, LType);
+
 					FEmitHelper::GenerateAutomaticCast(EmitterContext, LType, Term->Type, BeginCast, CloseCast);
 					TermUsage = LType.bIsReference ? ENativizedTermUsage::UnspecifiedOrReference : ENativizedTermUsage::Getter;
 				}
@@ -538,7 +620,7 @@ FString FBlueprintCompilerCppBackend::EmitMethodInputParameterList(FEmitterLocal
 				VarName += CloseCast;
 			}
 
-			if (FuncParamProperty->HasAnyPropertyFlags(CPF_OutParm))
+			if (FuncParamProperty->HasAnyPropertyFlags(CPF_OutParm) && !FuncParamProperty->HasAnyPropertyFlags(CPF_ConstParm))
 			{
 				Result += TEXT("/*out*/ ");
 			}
@@ -621,16 +703,40 @@ FString FBlueprintCompilerCppBackend::EmitCallStatmentInner(FEmitterLocalContext
 		return TEXT("/*This function cannot be called from BP. See bIsValidFunction in UObject::CallFunction*/");
 	}
 
+	if (Statement.FunctionToCall->HasAllFunctionFlags(FUNC_Native))
+	{
+		// Cloned logic from: FScriptBytecodeWriter::EmitFunctionCall
+		// Array output parameters are cleared, in case the native function doesn't clear them before filling.
+		int32 NumParams = 0;
+		for (TFieldIterator<UProperty> PropIt(Statement.FunctionToCall); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
+		{
+			UProperty* Param = *PropIt;
+			if (ensure(Param) && !Param->HasAnyPropertyFlags(CPF_ReturnParm))
+			{
+				const bool bShouldParameterBeCleared = Param->IsA<UArrayProperty>()
+					&& Param->HasAllPropertyFlags(CPF_Parm | CPF_OutParm)
+					&& !Param->HasAnyPropertyFlags(CPF_ReferenceParm | CPF_ConstParm | CPF_ReturnParm);
+				if (bShouldParameterBeCleared)
+				{
+					FBPTerminal* Term = Statement.RHS[NumParams];
+					const FString TermStr = ensure(Term != nullptr) ? TermToText(EmitterContext, Term, ENativizedTermUsage::UnspecifiedOrReference) : FString();
+					EmitterContext.AddLine(FString::Printf(TEXT("(%s).Reset();"), *TermStr));
+				}
+				NumParams++;
+			}
+		}
+	}
+
 	FString Result;
 	FString CloseCast;
-	TAutoPtr<FSetterExpressionBuilder> SetterExpression;
+	TUniquePtr<FSetterExpressionBuilder> SetterExpression;
 	if (!bInline)
 	{
 		// Handle the return value of the function being called
 		UProperty* FuncToCallReturnProperty = Statement.FunctionToCall->GetReturnProperty();
 		if (FuncToCallReturnProperty && ensure(Statement.LHS))
 		{
-			SetterExpression = new FSetterExpressionBuilder(*this, EmitterContext, Statement.LHS);
+			SetterExpression = MakeUnique<FSetterExpressionBuilder>(*this, EmitterContext, Statement.LHS);
 			Result += SetterExpression->BuildStart();
 
 			FString BeginCast;
@@ -668,6 +774,8 @@ FString FBlueprintCompilerCppBackend::EmitCallStatmentInner(FEmitterLocalContext
 	const bool bIsSpecialCase = HandleSpeciallyNativizedFunction();
 	if (!bIsSpecialCase)
 	{
+		FNativizationSummaryHelper::FunctionUsed(CurrentClass, Statement.FunctionToCall);
+
 		// Emit object to call the method on
 		if (bInterfaceCallExecute)
 		{
@@ -709,6 +817,10 @@ FString FBlueprintCompilerCppBackend::EmitCallStatmentInner(FEmitterLocalContext
 			{
 				Result += TEXT("Super::");
 			}
+			else if (!bUnconvertedClass && !bStaticCall && FunctionOwner && !OwnerBPGC && Statement.FunctionToCall->HasAnyFunctionFlags(FUNC_Final))
+			{
+				Result += FString::Printf(TEXT("%s::"), *FEmitHelper::GetCppName(FunctionOwner));
+			}
 			Result += FunctionToCallOriginalName;
 
 			if (bIsCustomThunk)
@@ -735,7 +847,7 @@ FString FBlueprintCompilerCppBackend::EmitCallStatmentInner(FEmitterLocalContext
 	}
 
 	Result += CloseCast;
-	if (SetterExpression.IsValid())
+	if (SetterExpression)
 	{
 		Result += SetterExpression->BuildEnd(false);
 	}
@@ -796,6 +908,31 @@ FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterCo
 	}
 	else
 	{
+		auto GenerateDefaultLocalVariable = [&](const FBPTerminal* InTerm) -> FString
+		{
+			const FString DefaultValueVariable = EmitterContext.GenerateUniqueLocalName();
+			const uint32 PropertyExportFlags = EPropertyExportCPPFlags::CPPF_CustomTypeName | EPropertyExportCPPFlags::CPPF_BlueprintCppBackend | EPropertyExportCPPFlags::CPPF_NoConst;
+			const FString CppType = Term->AssociatedVarProperty
+				? EmitterContext.ExportCppDeclaration(Term->AssociatedVarProperty, EExportedDeclaration::Local, PropertyExportFlags, FEmitterLocalContext::EPropertyNameInDeclaration::Skip)
+				: FEmitHelper::PinTypeToNativeType(Term->Type);
+
+			const FString DefaultValueConstructor = (!Term->Type.bIsArray)
+				? FEmitHelper::LiteralTerm(EmitterContext, Term->Type, FString(), nullptr, &FText::GetEmpty())
+				: FString::Printf(TEXT("%s{}"), *CppType);
+
+			EmitterContext.AddLine(*FString::Printf(TEXT("%s %s = %s;"), *CppType, *DefaultValueVariable, *DefaultValueConstructor));
+
+			return DefaultValueVariable;
+		};
+
+		if (Term->AssociatedVarProperty && Term->AssociatedVarProperty->HasAnyPropertyFlags(CPF_EditorOnly))
+		{
+			UE_LOG(LogK2Compiler, Warning, TEXT("C++ backend cannot cannot use EditorOnly property: %s"), *GetPathNameSafe(Term->AssociatedVarProperty));
+			EmitterContext.AddLine(*FString::Printf(TEXT("// EDITOR-ONLY Variable: %s"), *FEmitHelper::GetCppName(Term->AssociatedVarProperty)));
+			const FString DefaultValueVariable = GenerateDefaultLocalVariable(Term);
+			return DefaultValueVariable;
+		}
+
 		FString ContextStr;
 		if ((Term->Context != nullptr) && (Term->Context->Name != PSC_Self))
 		{
@@ -840,6 +977,8 @@ FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterCo
 		}
 		else if (Term->AssociatedVarProperty)
 		{
+			FNativizationSummaryHelper::PropertyUsed(EmitterContext.GetCurrentlyGeneratedClass(), Term->AssociatedVarProperty);
+
 			const bool bSelfContext = (!Term->Context) || (Term->Context->Name == PSC_Self);
 			const bool bPropertyOfParent = EmitterContext.Dependencies.GetActualStruct()->IsChildOf(Term->AssociatedVarProperty->GetOwnerStruct());
 			bIsAccessible &= !Term->AssociatedVarProperty->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPrivate)
@@ -893,49 +1032,34 @@ FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterCo
 			ResultPath = Term->Name;
 		}
 
-		if (Term->Type.bIsWeakPointer && bGetter)
+		const bool bUseWeakPtrGetter = Term->Type.bIsWeakPointer && bGetter;
+		const TCHAR* WeakPtrGetter = TEXT(".Get()");
+		if (bUseWeakPtrGetter)
 		{
-			ResultPath += TEXT(".Get()");
+			ResultPath += WeakPtrGetter;
 		}
 
 		const bool bNativeConstTemplateArg = Term->AssociatedVarProperty && Term->AssociatedVarProperty->HasMetaData(FName(TEXT("NativeConstTemplateArg")));
-		if ((bNativeConst || bNativeConstTemplateArg) && bIsAccessible && bGetter)
+		if (Term->Type.bIsArray && bNativeConstTemplateArg && bIsAccessible && bGetter)
 		{
-			if (Term->Type.bIsArray && bNativeConstTemplateArg)
-			{
-				FEdGraphPinType InnerType = Term->Type;
-				InnerType.bIsArray = false;
-				InnerType.bIsConst = false;
-				const FString CppType = FEmitHelper::PinTypeToNativeType(InnerType);
-				ResultPath = FString::Printf(TEXT("TArrayCaster<const %s>(%s).Get<%s>()"), *CppType, *ResultPath, *CppType);
-			}
-			else
-			{
-				const FString CppType = FEmitHelper::PinTypeToNativeType(Term->Type);
-				ResultPath = FString::Printf(TEXT("const_cast<%s>(%s)"), *CppType, *ResultPath);
-			}
+			FEdGraphPinType InnerType = Term->Type;
+			InnerType.bIsArray = false;
+			InnerType.bIsConst = false;
+			const FString CppType = FEmitHelper::PinTypeToNativeType(InnerType);
+			ResultPath = FString::Printf(TEXT("TArrayCaster<const %s>(%s).Get<%s>()"), *CppType, *ResultPath, *CppType);
+		}
+		else if ((bNativeConst || bNativeConstTemplateArg) && bIsAccessible && bGetter) //Why only getters?
+		{
+			const FString CppType = FEmitHelper::PinTypeToNativeType(Term->Type);
+			ResultPath = FString::Printf(TEXT("const_cast<%s>(%s)"), *CppType, *ResultPath);
 		}
 
-		FString Conditions;
-		if (bUseSafeContext)
-		{
-			Conditions = FSafeContextScopedEmmitter::ValidationChain(EmitterContext, Term->Context, *this);
-		}
-
+		const FString Conditions = bUseSafeContext ? FSafeContextScopedEmmitter::ValidationChain(EmitterContext, Term->Context, *this) : FString();
 		if (!Conditions.IsEmpty())
 		{
-			const FString DefaultValueVariable = EmitterContext.GenerateUniqueLocalName();
-			const uint32 PropertyExportFlags = EPropertyExportCPPFlags::CPPF_CustomTypeName | EPropertyExportCPPFlags::CPPF_BlueprintCppBackend | EPropertyExportCPPFlags::CPPF_NoConst;
-			const FString CppType = Term->AssociatedVarProperty 
-				? EmitterContext.ExportCppDeclaration(Term->AssociatedVarProperty, EExportedDeclaration::Local, PropertyExportFlags, true)
-				: FEmitHelper::PinTypeToNativeType(Term->Type);
-
-			const FString DefaultValueConstructor = (!Term->Type.bIsArray)
-				? FEmitHelper::LiteralTerm(EmitterContext, Term->Type, FString(), nullptr, &FText::GetEmpty())
-				: FString::Printf(TEXT("%s{}"), *CppType);
-
-			EmitterContext.AddLine(*FString::Printf(TEXT("%s %s = %s;"), *CppType, *DefaultValueVariable, *DefaultValueConstructor));
-			return FString::Printf(TEXT("((%s) ? (%s) : (%s))"), *Conditions, *ResultPath, *DefaultValueVariable);
+			const FString DefaultValueVariable = GenerateDefaultLocalVariable(Term);
+			const FString DefaultExpression = bUseWeakPtrGetter ? (DefaultValueVariable + WeakPtrGetter) : DefaultValueVariable;
+			return FString::Printf(TEXT("((%s) ? (%s) : (%s))"), *Conditions, *ResultPath, *DefaultExpression);
 		}
 		return ResultPath; 
 	}
@@ -978,7 +1102,7 @@ FString FBlueprintCompilerCppBackend::LatentFunctionInfoTermToText(FEmitterLocal
 	return FEmitHelper::LiteralTerm(EmitterContext, Term->Type, StructValues, nullptr);
 }
 
-void FBlueprintCompilerCppBackend::InnerFunctionImplementation(FKismetFunctionContext& FunctionContext, FEmitterLocalContext& EmitterContext, int32 ExecutionGroup)
+bool FBlueprintCompilerCppBackend::InnerFunctionImplementation(FKismetFunctionContext& FunctionContext, FEmitterLocalContext& EmitterContext, int32 ExecutionGroup)
 {
 	EmitterContext.ResetPropertiesForInaccessibleStructs();
 
@@ -1058,7 +1182,7 @@ void FBlueprintCompilerCppBackend::InnerFunctionImplementation(FKismetFunctionCo
 		}
 	}
 
-	EmitAllStatements(FunctionContext, ExecutionGroup, EmitterContext, *ActualLinearExecutionList);
+	const bool bIsNotReducible = EmitAllStatements(FunctionContext, ExecutionGroup, EmitterContext, *ActualLinearExecutionList);
 
 	if (bUseGotoState)
 	{
@@ -1077,6 +1201,8 @@ void FBlueprintCompilerCppBackend::InnerFunctionImplementation(FKismetFunctionCo
 		EmitterContext.DecreaseIndent();
 		EmitterContext.AddLine(TEXT("} while( CurrentState != -1 );"));
 	}
+
+	return bIsNotReducible;
 }
 
 bool FBlueprintCompilerCppBackend::SortNodesInUberGraphExecutionGroup(FKismetFunctionContext &FunctionContext, UEdGraphNode* TheOnlyEntryPoint, int32 ExecutionGroup, TArray<UEdGraphNode*> &LocalLinearExecutionList)
@@ -1247,10 +1373,12 @@ void FBlueprintCompilerCppBackend::EmitStatement(FBlueprintCompiledStatement &St
 	};
 }
 
-void FBlueprintCompilerCppBackend::EmitAllStatements(FKismetFunctionContext &FunctionContext, int32 ExecutionGroup, FEmitterLocalContext &EmitterContext, const TArray<UEdGraphNode*>& LinearExecutionList)
+bool FBlueprintCompilerCppBackend::EmitAllStatements(FKismetFunctionContext &FunctionContext, int32 ExecutionGroup, FEmitterLocalContext &EmitterContext, const TArray<UEdGraphNode*>& LinearExecutionList)
 {
 	ensure(!bUseExecutionGroup || FunctionContext.UnsortedSeparateExecutionGroups.IsValidIndex(ExecutionGroup));
 	bool bFirsCase = true;
+
+	bool bAnyNonReducableStatement = false;
 	// Emit code in the order specified by the linear execution list (the first node is always the entry point for the function)
 	for (int32 NodeIndex = 0; NodeIndex < LinearExecutionList.Num(); ++NodeIndex)
 	{
@@ -1286,9 +1414,11 @@ void FBlueprintCompilerCppBackend::EmitAllStatements(FKismetFunctionContext &Fun
 					EmitterContext.IncreaseIndent();
 				}
 				EmitStatement(Statement, EmitterContext, FunctionContext);
+				bAnyNonReducableStatement |= !FKismetCompilerUtilities::IsStatementReducible(Statement.Type);
 			}
 		}
 	}
+	return bAnyNonReducableStatement;
 }
 
 bool FBlueprintCompilerCppBackend::PrepareToUseExecutionGroupWithoutGoto(FKismetFunctionContext &FunctionContext, int32 ExecutionGroup, UEdGraphNode* &TheOnlyEntryPoint)

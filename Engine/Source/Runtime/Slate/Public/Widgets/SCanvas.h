@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "SlotBase.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Children.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SPanel.h"
+
+class FArrangedChildren;
+class FPaintArgs;
+class FSlateWindowElementList;
 
 /**
  * Canvas is a layout widget that allows you to arbitrary position and size child widgets in a relative coordinate space

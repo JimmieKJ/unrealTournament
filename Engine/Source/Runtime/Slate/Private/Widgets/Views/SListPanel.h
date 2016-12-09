@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  
 #pragma once
- 
- 
+
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "SlotBase.h"
+#include "Layout/Children.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SPanel.h"
+#include "Widgets/Views/STableViewBase.h"
+
+class FArrangedChildren;
+
 /**
  * A really simple panel that arranges its children in a vertical list with no spacing.
  * Items in this panel have a uniform height.

@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_Tunnel.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_Composite.generated.h"
+
+class INameValidatorInterface;
 
 UCLASS(MinimalAPI)
 class UK2Node_Composite : public UK2Node_Tunnel

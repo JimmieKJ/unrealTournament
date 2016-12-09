@@ -2,6 +2,22 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "Widgets/Input/SComboBox.h"
+
+class IDetailCategoryBuilder;
+class IDetailGroup;
+class IDetailLayoutBuilder;
+class UCollisionProfile;
+class UPrimitiveComponent;
+class UStaticMeshComponent;
+
 struct FCollisionChannelInfo
 {
 	FString				DisplayName;

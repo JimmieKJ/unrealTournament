@@ -2,9 +2,10 @@
 
 #pragma once
 
-class IMessageContext;
-class IMessageRpcReturn;
+#include "CoreMinimal.h"
+#include "IMessageContext.h"
 
+class IMessageRpcReturn;
 
 /**
  * Interface for RPC request handlers.

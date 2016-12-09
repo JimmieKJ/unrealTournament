@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "AssetTypeActions/AssetTypeActions_AnimationAsset.h"
 #include "Animation/BlendSpace1D.h"
-#include "AssetTypeActions_AnimationAsset.h"
 
 class FAssetTypeActions_BlendSpace1D : public FAssetTypeActions_AnimationAsset
 {

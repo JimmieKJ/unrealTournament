@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PortalServicesPrivatePCH.h"
 #include "PortalServiceLocator.h"
+#include "Misc/WildcardString.h"
+#include "Modules/ModuleManager.h"
 #include "IPortalServiceLocator.h"
 #include "IPortalServiceProvider.h"
-#include "ModuleManager.h"
-#include "TypeContainer.h"
 
 class FPortalServiceLocatorImpl
 	: public IPortalServiceLocator

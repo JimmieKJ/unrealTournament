@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Actions/PawnAction.h"
 #include "PawnAction_BlueprintBase.generated.h"
+
+class APawn;
 
 UCLASS(abstract, Blueprintable)
 class AIMODULE_API UPawnAction_BlueprintBase : public UPawnAction

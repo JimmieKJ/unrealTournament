@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "WidgetReference.h"
 #include "DesignerExtension.h"
 
 class FGridSlotExtension : public FDesignerExtension

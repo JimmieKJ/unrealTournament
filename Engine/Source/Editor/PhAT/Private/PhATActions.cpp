@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PhATPrivatePCH.h"
 #include "PhATActions.h"
-#include "PhAT.h"
 
 #define LOCTEXT_NAMESPACE "PhATCommands"
 

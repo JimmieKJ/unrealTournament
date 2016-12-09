@@ -1,19 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "BlueprintActionMenuBuilder.h"
+#include "UObject/UnrealType.h"
+#include "EditorStyleSettings.h"
+#include "Engine/Blueprint.h"
+#include "Editor/EditorEngine.h"
+#include "BlueprintNodeBinder.h"
 #include "BlueprintActionMenuItem.h"
-#include "BlueprintDragDropMenuItem.h"
 #include "BlueprintActionFilter.h"
+#include "BlueprintDragDropMenuItem.h"
 #include "BlueprintActionDatabase.h"
 #include "BlueprintNodeSpawner.h"
-#include "BlueprintFunctionNodeSpawner.h"
 #include "BlueprintDelegateNodeSpawner.h"
 #include "BlueprintVariableNodeSpawner.h"
-#include "BlueprintEditor.h"			// for GetMyBlueprintWidget(), and GetIsContextSensitive()
-#include "SMyBlueprint.h"				// for SelectionAsVar()
-#include "BlueprintEditorUtils.h"		// for FindBlueprintForGraphChecked()
-#include "BlueprintEditor.h"			// for GetFocusedGraph()
 #include "EditorCategoryUtils.h"
 #include "ObjectEditorUtils.h"
 

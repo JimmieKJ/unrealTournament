@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Engine/CullDistanceVolume.h"
+#include "Engine/CollisionProfile.h"
+#include "Engine/World.h"
 #include "Components/BrushComponent.h"
 
 ACullDistanceVolume::ACullDistanceVolume(const FObjectInitializer& ObjectInitializer)
@@ -31,22 +32,22 @@ void ACullDistanceVolume::Destroyed()
 void ACullDistanceVolume::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-	GetWorld()->UpdateCullDistanceVolumes();
+	GetWorld()->bDoDelayedUpdateCullDistanceVolumes = true;
 }
 
 void ACullDistanceVolume::PostEditMove(bool bFinished)
 {
 	Super::PostEditMove(bFinished);
-	if( bFinished )
+	if (bFinished)
 	{
-		GetWorld()->UpdateCullDistanceVolumes();
+		GetWorld()->bDoDelayedUpdateCullDistanceVolumes = true;
 	}
 }
 #endif // WITH_EDITOR
 
 bool ACullDistanceVolume::CanBeAffectedByVolumes( UPrimitiveComponent* PrimitiveComponent )
 {
-	AActor* Owner = PrimitiveComponent ? PrimitiveComponent->GetOwner() : NULL;
+	AActor* Owner = PrimitiveComponent ? PrimitiveComponent->GetOwner() : nullptr;
 
 	// Require an owner so we can use its location
 	if(	Owner
@@ -74,42 +75,38 @@ void ACullDistanceVolume::GetPrimitiveMaxDrawDistances(TMap<UPrimitiveComponent*
 	// Nothing to do if there is no brush component or no cull distances are set
 	if (GetBrushComponent() && CullDistances.Num() > 0 && bEnabled)
 	{
-		for (auto It(OutCullDistances.CreateIterator()); It; ++It)
+		for (TPair<UPrimitiveComponent*, float>& PrimitiveMaxDistancePair : OutCullDistances)
 		{
-			UPrimitiveComponent* PrimitiveComponent = It.Key();
+			UPrimitiveComponent* PrimitiveComponent = PrimitiveMaxDistancePair.Key;
 
-			// Check whether primitive can be affected by cull distance volumes.
-			if( ACullDistanceVolume::CanBeAffectedByVolumes( PrimitiveComponent ) )
-			{
-				// Check whether primitive supports cull distance volumes and its center point is being encompassed by this volume.
-				if( EncompassesPoint( PrimitiveComponent->GetComponentLocation() ) )
-				{		
-					// Find best match in CullDistances array.
-					float PrimitiveSize			= PrimitiveComponent->Bounds.SphereRadius * 2;
-					float CurrentError			= FLT_MAX;
-					float CurrentCullDistance	= 0;
-					for( int32 CullDistanceIndex=0; CullDistanceIndex<CullDistances.Num(); CullDistanceIndex++ )
+			// Check whether primitive supports cull distance volumes and its center point is being encompassed by this volume.
+			if (EncompassesPoint(PrimitiveComponent->GetComponentLocation()))
+			{		
+				// Find best match in CullDistances array.
+				const float PrimitiveSize = PrimitiveComponent->Bounds.SphereRadius * 2;
+				float CurrentError = FLT_MAX;
+				float CurrentCullDistance = 0.f;
+				for (const FCullDistanceSizePair& CullDistancePair : CullDistances)
+				{
+					const float Error = FMath::Abs( PrimitiveSize - CullDistancePair.Size );
+					if (Error < CurrentError)
 					{
-						const FCullDistanceSizePair& CullDistancePair = CullDistances[CullDistanceIndex];
-						if( FMath::Abs( PrimitiveSize - CullDistancePair.Size ) < CurrentError )
-						{
-							CurrentError		= FMath::Abs( PrimitiveSize - CullDistancePair.Size );
-							CurrentCullDistance = CullDistancePair.CullDistance;
-						}
+						CurrentError = Error;
+						CurrentCullDistance = CullDistancePair.CullDistance;
 					}
+				}
 
-					float& CullDistance = It.Value();
+				float& CullDistance = PrimitiveMaxDistancePair.Value;
 
-					// LD or other volume specified cull distance, use minimum of current and one used for this volume.
-					if (CullDistance > 0)
-					{
-						CullDistance = FMath::Min(CullDistance, CurrentCullDistance);
-					}
-					// LD didn't specify cull distance, use current setting directly.
-					else
-					{
-						CullDistance = CurrentCullDistance;
-					}
+				// LD or other volume specified cull distance, use minimum of current and one used for this volume.
+				if (CullDistance > 0.f)
+				{
+					CullDistance = FMath::Min(CullDistance, CurrentCullDistance);
+				}
+				// LD didn't specify cull distance, use current setting directly.
+				else
+				{
+					CullDistance = CurrentCullDistance;
 				}
 			}
 		}

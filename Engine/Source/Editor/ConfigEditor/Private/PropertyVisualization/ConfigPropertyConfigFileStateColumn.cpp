@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ConfigEditorPCH.h"
-#include "ConfigPropertyConfigFileStateColumn.h"
+#include "PropertyVisualization/ConfigPropertyConfigFileStateColumn.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "PropertyPath.h"
+#include "IPropertyTable.h"
+#include "IPropertyTableCell.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/PropertyHandle.h"
-#include "Editor/PropertyEditor/Public/PropertyPath.h"
-#include "Editor/PropertyEditor/Public/IPropertyTable.h"
 
 
 #define LOCTEXT_NAMESPACE "ConfigEditor"

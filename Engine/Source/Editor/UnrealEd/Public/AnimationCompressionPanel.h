@@ -2,7 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 #include "AnimationCompressionPanel.generated.h"
+
+class SAnimationCompressionPanel;
+class SWindow;
+class UAnimSequence;
 
 UCLASS()
 class UCompressionHolder : public UObject

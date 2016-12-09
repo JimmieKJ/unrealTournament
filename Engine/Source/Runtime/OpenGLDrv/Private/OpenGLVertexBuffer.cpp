@@ -4,7 +4,10 @@
 	OpenGLVertexBuffer.cpp: OpenGL vertex buffer RHI implementation.
 =============================================================================*/
 
-#include "OpenGLDrvPrivate.h"
+#include "CoreMinimal.h"
+#include "Containers/ResourceArray.h"
+#include "HAL/IConsoleManager.h"
+#include "OpenGLDrv.h"
 
 namespace OpenGLConsoleVariables
 {

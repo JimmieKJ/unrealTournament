@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "WidgetBlueprintLibrary.h"
-#include "WidgetBinding.h"
+#include "Binding/WidgetBinding.h"
+#include "Components/Widget.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

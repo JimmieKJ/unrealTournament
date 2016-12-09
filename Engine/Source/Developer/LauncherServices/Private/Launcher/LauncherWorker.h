@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ITargetDeviceProxyManager.h"
+#include "Interfaces/ILauncherWorker.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/Runnable.h"
+
+class FLauncherTask;
 
 struct FCommandDesc
 {
@@ -78,6 +85,11 @@ public:
 	virtual FOnLaunchCanceledDelegate& OnCanceled() override
 	{
 		return LaunchCanceled;
+	}
+
+	virtual ILauncherProfilePtr GetLauncherProfile() const override
+	{
+		return Profile;
 	}
 
 protected:

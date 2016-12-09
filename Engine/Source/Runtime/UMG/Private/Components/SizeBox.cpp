@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "Slate/SlateBrushAsset.h"
+#include "Components/SizeBox.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Layout/SBox.h"
+#include "Components/SizeBoxSlot.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

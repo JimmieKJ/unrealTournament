@@ -4,7 +4,7 @@
 	CurveFloat.cpp
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Curves/CurveFloat.h"
 
 FRuntimeFloatCurve::FRuntimeFloatCurve()
 	: ExternalCurve(NULL)

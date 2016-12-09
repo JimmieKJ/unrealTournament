@@ -11,6 +11,7 @@
 #include "libcef/common/cef_messages.h"
 #include "libcef/common/content_client.h"
 #include "libcef/common/process_message_impl.h"
+#include "libcef/common/request_impl.h"
 #include "libcef/common/response_manager.h"
 #include "libcef/renderer/content_renderer_client.h"
 #include "libcef/renderer/dom_document_impl.h"
@@ -19,14 +20,12 @@
 
 #include "base/strings/string16.h"
 #include "base/strings/string_util.h"
-#include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "content/public/renderer/document_state.h"
 #include "content/public/renderer/navigation_state.h"
 #include "content/public/renderer/render_view.h"
 #include "content/renderer/navigation_state_impl.h"
 #include "content/renderer/render_view_impl.h"
-#include "net/http/http_util.h"
 #include "third_party/WebKit/public/platform/WebString.h"
 #include "third_party/WebKit/public/platform/WebURL.h"
 #include "third_party/WebKit/public/platform/WebURLError.h"
@@ -45,19 +44,6 @@ using blink::WebScriptSource;
 using blink::WebString;
 using blink::WebURL;
 using blink::WebView;
-
-namespace {
-
-blink::WebString FilePathStringToWebString(
-    const base::FilePath::StringType& str) {
-#if defined(OS_POSIX)
-  return base::WideToUTF16(base::SysNativeMBToWide(str));
-#elif defined(OS_WIN)
-  return base::WideToUTF16(str);
-#endif
-}
-
-}  // namespace
 
 
 // CefBrowserImpl static methods.
@@ -305,68 +291,8 @@ void CefBrowserImpl::LoadRequest(const CefMsg_LoadRequest_Params& params) {
 
   WebFrame* web_frame = framePtr->web_frame();
 
-  blink::WebURLRequest request(params.url);
-
-  if (!params.method.empty())
-    request.setHTTPMethod(base::ASCIIToUTF16(params.method));
-
-  if (params.referrer.is_valid()) {
-    WebString referrer = blink::WebSecurityPolicy::generateReferrerHeader(
-        static_cast<blink::WebReferrerPolicy>(params.referrer_policy),
-        params.url,
-        WebString::fromUTF8(params.referrer.spec()));
-    if (!referrer.isEmpty())
-      request.setHTTPHeaderField(WebString::fromUTF8("Referer"), referrer);
-  }
-
-  if (params.first_party_for_cookies.is_valid())
-    request.setFirstPartyForCookies(params.first_party_for_cookies);
-
-  if (!params.headers.empty()) {
-    for (net::HttpUtil::HeadersIterator i(params.headers.begin(),
-                                          params.headers.end(), "\n");
-         i.GetNext(); ) {
-      request.addHTTPHeaderField(WebString::fromUTF8(i.name()),
-                                 WebString::fromUTF8(i.values()));
-    }
-  }
-
-  if (params.upload_data.get()) {
-    base::string16 method = request.httpMethod();
-    if (method == base::ASCIIToUTF16("GET") ||
-        method == base::ASCIIToUTF16("HEAD")) {
-      request.setHTTPMethod(base::ASCIIToUTF16("POST"));
-    }
-
-    if (request.httpHeaderField(
-            base::ASCIIToUTF16("Content-Type")).length() == 0) {
-      request.setHTTPHeaderField(
-          base::ASCIIToUTF16("Content-Type"),
-          base::ASCIIToUTF16("application/x-www-form-urlencoded"));
-    }
-
-    blink::WebHTTPBody body;
-    body.initialize();
-
-    const ScopedVector<net::UploadElement>& elements =
-        params.upload_data->elements();
-    ScopedVector<net::UploadElement>::const_iterator it =
-        elements.begin();
-    for (; it != elements.end(); ++it) {
-      const net::UploadElement& element = **it;
-      if (element.type() == net::UploadElement::TYPE_BYTES) {
-        blink::WebData data;
-        data.assign(element.bytes(), element.bytes_length());
-        body.appendData(data);
-      } else if (element.type() == net::UploadElement::TYPE_FILE) {
-        body.appendFile(FilePathStringToWebString(element.file_path().value()));
-      } else {
-        NOTREACHED();
-      }
-    }
-
-    request.setHTTPBody(body);
-  }
+  blink::WebURLRequest request;
+  CefRequestImpl::Get(params, request);
 
   web_frame->loadRequest(request);
 }
@@ -393,7 +319,7 @@ bool CefBrowserImpl::SendProcessMessage(CefProcessId target_process,
 CefRefPtr<CefFrameImpl> CefBrowserImpl::GetWebFrameImpl(
     blink::WebFrame* frame) {
   DCHECK(frame);
-  int64 frame_id = webkit_glue::GetIdentifier(frame);
+  int64_t frame_id = webkit_glue::GetIdentifier(frame);
 
   // Frames are re-used between page loads. Only add the frame to the map once.
   FrameMap::const_iterator it = frames_.find(frame_id);
@@ -403,7 +329,7 @@ CefRefPtr<CefFrameImpl> CefBrowserImpl::GetWebFrameImpl(
   CefRefPtr<CefFrameImpl> framePtr(new CefFrameImpl(this, frame));
   frames_.insert(std::make_pair(frame_id, framePtr));
 
-  int64 parent_id = frame->parent() == NULL ?
+  int64_t parent_id = frame->parent() == NULL ?
       webkit_glue::kInvalidFrameId :
       webkit_glue::GetIdentifier(frame->parent());
   base::string16 name = frame->uniqueName();
@@ -414,7 +340,7 @@ CefRefPtr<CefFrameImpl> CefBrowserImpl::GetWebFrameImpl(
   return framePtr;
 }
 
-CefRefPtr<CefFrameImpl> CefBrowserImpl::GetWebFrameImpl(int64 frame_id) {
+CefRefPtr<CefFrameImpl> CefBrowserImpl::GetWebFrameImpl(int64_t frame_id) {
   if (frame_id == webkit_glue::kInvalidFrameId) {
     if (render_view()->GetWebView() && render_view()->GetWebView()->mainFrame())
       return GetWebFrameImpl(render_view()->GetWebView()->mainFrame());
@@ -442,7 +368,7 @@ CefRefPtr<CefFrameImpl> CefBrowserImpl::GetWebFrameImpl(int64 frame_id) {
   return NULL;
 }
 
-void CefBrowserImpl::AddFrameObject(int64 frame_id,
+void CefBrowserImpl::AddFrameObject(int64_t frame_id,
                                     CefTrackNode* tracked_object) {
   CefRefPtr<CefTrackManager> manager;
 
@@ -527,7 +453,7 @@ void CefBrowserImpl::DidCommitProvisionalLoad(blink::WebLocalFrame* frame,
 }
 
 void CefBrowserImpl::FrameDetached(WebFrame* frame) {
-  int64 frame_id = webkit_glue::GetIdentifier(frame);
+  int64_t frame_id = webkit_glue::GetIdentifier(frame);
 
   if (!frames_.empty()) {
     // Remove the frame from the map.
@@ -668,10 +594,10 @@ void CefBrowserImpl::OnRequest(const Cef_Request_Params& params) {
         params.arguments.GetString(0, &command);
         DCHECK(!command.empty());
 
-        if (LowerCaseEqualsASCII(command, "getsource")) {
+        if (base::LowerCaseEqualsASCII(command, "getsource")) {
           response = web_frame->contentAsMarkup().utf8();
           success = true;
-        } else if (LowerCaseEqualsASCII(command, "gettext")) {
+        } else if (base::LowerCaseEqualsASCII(command, "gettext")) {
           response = webkit_glue::DumpDocumentText(web_frame);
           success = true;
         } else if (web_frame->executeCommand(base::UTF8ToUTF16(command))) {

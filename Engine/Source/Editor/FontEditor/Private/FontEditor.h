@@ -2,10 +2,22 @@
 
 #pragma once
 
-#include "Toolkits/AssetEditorToolkit.h"
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "Toolkits/IToolkitHost.h"
+#include "IFontEditor.h"
+#include "Misc/NotifyHook.h"
 #include "EditorUndoClient.h"
-#include "Engine/Font.h"
 
+class IDetailsView;
+class SCompositeFontEditor;
+class SEditableTextBox;
+class SFontEditorViewport;
+class UFont;
+class UTextureExporterTGA;
+class UTextureFactory;
+struct FPropertyChangedEvent;
+enum class EFontCacheType : uint8;
 
 /*-----------------------------------------------------------------------------
    FFontEditor
@@ -14,6 +26,8 @@
 class FFontEditor : public IFontEditor, public FGCObject, public FNotifyHook, public FEditorUndoClient
 {
 public:
+	FFontEditor();
+
 	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
 	virtual void UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
 
@@ -87,6 +101,7 @@ private:
 	void OnForegroundColor();
 	bool OnForegroundColorEnabled() const;
 	void OnPostReimport(UObject* InObject, bool bSuccess);
+	void OnObjectPropertyChanged(UObject* InObject, struct FPropertyChangedEvent& InPropertyChangedEvent);
 
 	/** Common method for replacing a font page with a new texture */
 	bool ImportPage(int32 PageNum, const TCHAR* FileName);

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 /**
  * TRemoveCV<type> will remove any const/volatile qualifiers from a type.
  * (based on std::remove_cv<>

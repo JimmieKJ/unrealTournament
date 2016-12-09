@@ -1,14 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
+#include "NUTUtilDebug.h"
 
 #include "ClientUnitTest.h"
 #include "NUTActor.h"
 
-#include "Net/UnitTestNetConnection.h"
-
-#include "NUTUtilDebug.h"
 #include "Net/NUTUtilNet.h"
+
 
 
 /**
@@ -102,12 +100,12 @@ FScopedLog::~FScopedLog()
 	{
 		Cmd = TEXT("Log ") + LogCategories[i] + TEXT(" Default");
 
-		GEngine->Exec((UnitTest != NULL ? UnitTest->UnitWorld : NULL), *Cmd);
+		GEngine->Exec((UnitTest != nullptr ? UnitTest->UnitWorld : nullptr), *Cmd);
 	}
 
 
 	// Reset remote logging (and flush immediately)
-	if (bRemoteLogging)
+	if (bRemoteLogging && UnitTest != nullptr)
 	{
 		FOutBunch* ControlChanBunch = NUTNet::CreateChannelBunch(UnitTest->ControlBunchSequence, UnitConn, CHTYPE_Control, 0);
 

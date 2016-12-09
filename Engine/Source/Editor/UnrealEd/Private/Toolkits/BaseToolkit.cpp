@@ -1,12 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "Toolkits/BaseToolkit.h"
-#include "Toolkits/IToolkitHost.h"
 #include "Toolkits/ToolkitManager.h"
-#include "SDockableTab.h"
-#include "SDockTabStack.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockableTab.h"
+#include "Widgets/Docking/SDockTabStack.h"
 
 #define LOCTEXT_NAMESPACE "BaseToolkit"
 

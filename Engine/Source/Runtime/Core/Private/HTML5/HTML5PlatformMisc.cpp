@@ -4,8 +4,9 @@
 	HTML5Misc.cpp: HTML5 implementations of misc functions
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "HTML5PlatformMisc.h"
 #include "HTML5Application.h"
+#include "HTML5PlatformProcess.h"
 
 #if PLATFORM_HTML5_BROWSER
 #include "HTML5JavaScriptFx.h"
@@ -13,16 +14,9 @@
 
 #include "trace.h"
 
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(push)
-	#pragma warning(disable:28251)
-	#pragma warning(disable:28252)
-	#pragma warning(disable:28253)
-#endif
+THIRD_PARTY_INCLUDES_START
 	#include "unicode/locid.h"
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(pop)
-#endif
+THIRD_PARTY_INCLUDES_END
 #include "GenericPlatformCrashContext.h"
 #include <SDL.h>
 #include <ctime>

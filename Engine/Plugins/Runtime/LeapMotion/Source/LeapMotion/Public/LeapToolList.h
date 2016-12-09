@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
 #include "LeapEnums.h"
 #include "LeapForwardDeclaration.h"
 #include "LeapFinger.h"

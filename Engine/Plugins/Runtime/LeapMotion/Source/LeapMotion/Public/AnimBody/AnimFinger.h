@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "AnimBone.h"
 #include "LeapEnums.h"
 #include "AnimFinger.generated.h"

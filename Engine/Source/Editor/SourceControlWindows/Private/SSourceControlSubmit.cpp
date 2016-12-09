@@ -1,12 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SourceControlWindowsPCH.h"
-#include "AssetToolsModule.h"
-#include "MessageLog.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "FileHelpers.h"
 #include "SSourceControlSubmit.h"
+#include "Misc/MessageDialog.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
+#include "SourceControlWindows.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Notifications/SErrorText.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlModule.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "FileHelpers.h"
 
 
 IMPLEMENT_MODULE( FDefaultModuleImpl, SourceControlWindows );
@@ -450,6 +469,7 @@ void FSourceControlWindows::ChoosePackagesToCheckInCompleted(const TArray<UPacka
 		PendingDeletePaths.Add(FPaths::ConvertRelativePathToFull(FPaths::EngineContentDir()));
 		PendingDeletePaths.Add(FPaths::ConvertRelativePathToFull(FPaths::GameContentDir()));
 		PendingDeletePaths.Add(FPaths::ConvertRelativePathToFull(FPaths::GameConfigDir()));
+		PendingDeletePaths.Add(FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()));
 
 		const bool bUseSourceControlStateCache = true;
 		PromptForCheckin(bUseSourceControlStateCache, PackageNames, PendingDeletePaths, ConfigFiles);
@@ -537,6 +557,7 @@ void FSourceControlWindows::ChoosePackagesToCheckIn()
 			Filenames.Add(FPaths::ConvertRelativePathToFull(FPaths::EngineContentDir()));
 			Filenames.Add(FPaths::ConvertRelativePathToFull(FPaths::GameContentDir()));
 			Filenames.Add(FPaths::ConvertRelativePathToFull(FPaths::GameConfigDir()));
+			Filenames.Add(FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()));
 
 			ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
 			FSourceControlOperationRef Operation = ISourceControlOperation::Create<FUpdateStatus>();

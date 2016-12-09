@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SGraphNode.h"
+
+class FGraphNodeMetaData;
+class UMaterialGraphNode_Root;
+
 class SGraphNodeMaterialResult : public SGraphNode
 {
 public:

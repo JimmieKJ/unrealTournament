@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+
 /** ClassTypeActions provide actions and other information about asset types that host classes */
 class IClassTypeActions : public TSharedFromThis<IClassTypeActions>
 {

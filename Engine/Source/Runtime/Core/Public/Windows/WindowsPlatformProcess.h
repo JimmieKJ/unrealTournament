@@ -2,14 +2,15 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformProcess.h"
-#include "Windows/WindowsSystemIncludes.h"
+#include "WindowsSystemIncludes.h"
 
-#include <tlhelp32.h>
-
+class FEvent;
+class FRunnableThread;
 
 /** Windows implementation of the process handle. */
-struct FProcHandle : public TProcHandle<HANDLE, nullptr>
+struct FProcHandle : public TProcHandle<Windows::HANDLE, nullptr>
 {
 public:
 	/** Default constructor. */
@@ -43,10 +44,10 @@ struct CORE_API FWindowsPlatformProcess
 		virtual void	Unlock();
 
 		/** Returns the OS handle */
-		HANDLE			GetSemaphore() { return Semaphore; }
+		Windows::HANDLE GetSemaphore() { return Semaphore; }
 
 		/** Constructor */
-		FWindowsSemaphore(const FString& InName, HANDLE InSemaphore);
+		FWindowsSemaphore(const FString& InName, Windows::HANDLE InSemaphore);
 
 		/** Destructor */
 		virtual ~FWindowsSemaphore();
@@ -54,7 +55,7 @@ struct CORE_API FWindowsPlatformProcess
 	protected:
 
 		/** OS handle */
-		HANDLE			Semaphore;
+		Windows::HANDLE Semaphore;
 	};
 
 	struct FProcEnumInfo;
@@ -84,10 +85,10 @@ struct CORE_API FWindowsPlatformProcess
 		bool MoveNext();
 	private:
 		// Process info structure for current process.
-		PROCESSENTRY32 CurrentEntry;
+		Windows::PROCESSENTRY32* CurrentEntry;
 
 		// Processes state snapshot handle.
-		HANDLE SnapshotHandle;
+		Windows::HANDLE SnapshotHandle;
 	};
 
 	/**
@@ -97,6 +98,9 @@ struct CORE_API FWindowsPlatformProcess
 	{
 		friend FProcEnumInfo FProcEnumerator::GetCurrent() const;
 	public:
+		// Destructor
+		~FProcEnumInfo();
+
 		// Gets process PID.
 		uint32 GetPID() const;
 
@@ -111,10 +115,10 @@ struct CORE_API FWindowsPlatformProcess
 
 	private:
 		// Private constructor.
-		FProcEnumInfo(const PROCESSENTRY32& InInfo);
+		FProcEnumInfo(const Windows::PROCESSENTRY32& InInfo);
 
 		// Process info structure.
-		PROCESSENTRY32 Info;
+		Windows::PROCESSENTRY32* Info;
 	};
 
 public:
@@ -147,6 +151,7 @@ public:
 	static const TCHAR* GetBinariesSubdirectory();
 	static void LaunchURL( const TCHAR* URL, const TCHAR* Parms, FString* Error );
 	static FProcHandle CreateProc( const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWriteChild, void * PipeReadChild = nullptr);
+	static FProcHandle OpenProcess(uint32 ProcessID);
 	static bool IsProcRunning( FProcHandle & ProcessHandle );
 	static void WaitForProc( FProcHandle & ProcessHandle );
 	static void CloseProc( FProcHandle & ProcessHandle );
@@ -175,7 +180,6 @@ public:
 	static FSemaphore* NewInterprocessSynchObject(const FString& Name, bool bCreate, uint32 MaxLocks = 1);
 	static bool DeleteInterprocessSynchObject(FSemaphore * Object);
 	static bool Daemonize();
-	static FProcHandle OpenProcess(uint32 ProcessID);
 protected:
 
 	/**
@@ -185,7 +189,7 @@ protected:
 	 * @param InPipes The pipes to read from.
 	 * @param PipeCount The number of pipes.
 	 */
-	static void ReadFromPipes(FString* OutStrings[], HANDLE InPipes[], int32 PipeCount);
+	static void ReadFromPipes(FString* OutStrings[], Windows::HANDLE InPipes[], int32 PipeCount);
 
 private:
 
@@ -199,6 +203,43 @@ private:
 	 * All the DLL directories we want to load from. 
 	 */
 	static TArray<FString> DllDirectories;
+
+	/**
+	 * Replacement implementation of the Win32 LoadLibrary function which searches the given list of directories for dependent imports, and attempts
+	 * to load them from the correct location first. The normal LoadLibrary function (pre-Win8) only searches a limited list of locations. 
+	 *
+	 * @param FileName Path to the library to load
+	 * @param SearchPaths Search directories to scan for imports
+	 */
+	static void* LoadLibraryWithSearchPaths(const FString& FileName, const TArray<FString>& SearchPaths);
+
+	/**
+	 * Resolve all the imports for the given library, searching through a set of directories.
+	 *
+	 * @param FileName Path to the library to load
+	 * @param SearchPaths Search directories to scan for imports
+	 * @param ImportFileNames Array which is filled with a list of the resolved imports found in the given search directories
+	 * @param VisitedImportNames Array which stores a list of imports which have been checked
+	 */
+	static void ResolveImportsRecursive(const FString& FileName, const TArray<FString>& SearchPaths, TArray<FString>& ImportFileNames, TArray<FString>& VisitedImportNames);
+
+	/**
+	 * Resolve an individual import.
+	 *
+	 * @param ImportName Name of the imported module
+	 * @param SearchPaths Search directories to scan for imports
+	 * @param OutFileName On success, receives the path to the imported file
+	 * @return true if an import was found.
+	 */
+	static bool ResolveImport(const FString& ImportName, const TArray<FString>& SearchPaths, FString& OutFileName);
+
+	/**
+	 * Reads a list of import names from a portable executable file.
+	 *
+	 * @param FileName Path to the library
+	 * @param ImportNames Array to receive the list of imported PE file names
+	 */
+	static bool ReadLibraryImports(const TCHAR* FileName, TArray<FString>& ImportNames);
 };
 
 
@@ -214,7 +255,3 @@ inline bool FProcHandle::Close()
 	return false;
 }
 
-#include "WindowsCriticalSection.h"
-
-typedef FWindowsCriticalSection FCriticalSection;
-typedef FWindowsSystemWideCriticalSection FSystemWideCriticalSection;

@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "K2Node_SetFieldsInStruct.h"
+#include "UObject/StructOnScope.h"
+#include "EdGraphSchema_K2.h"
+#include "EdGraphUtilities.h"
 #include "MakeStructHandler.h"
-#include "CompilerResultsLog.h"
 #include "KismetCompiler.h"
-#include "Editor/PropertyEditor/Public/PropertyCustomizationHelpers.h"
 #include "BlueprintEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_MakeStruct"
@@ -248,6 +248,14 @@ void UK2Node_SetFieldsInStruct::RemoveFieldPins(const UEdGraphPin* Pin, EPinsToR
 
 bool UK2Node_SetFieldsInStruct::AllPinsAreShown() const
 {
+	UEdGraphPin* InputPin = FindPinChecked(SetFieldsInStructHelper::StructRefPinName(), EGPD_Input);
+
+	// If the input struct pin is currently split, don't allow option to restore members
+	if (InputPin != nullptr && InputPin->SubPins.Num() > 0)
+	{
+		return true;
+	}
+
 	for (const FOptionalPinFromProperty& OptionalProperty : ShowPinForProperties)
 	{
 		if (!OptionalProperty.bShowPin)
@@ -295,5 +303,30 @@ bool UK2Node_SetFieldsInStruct::IsConnectionDisallowed(const UEdGraphPin* MyPin,
 
 	return Super::IsConnectionDisallowed(MyPin, OtherPin, OutReason);
 }
+
+bool UK2Node_SetFieldsInStruct::CanSplitPin(const UEdGraphPin* Pin) const
+{
+	if (Super::CanSplitPin(Pin))
+	{
+		UEdGraphPin* InputPin = FindPinChecked(SetFieldsInStructHelper::StructRefPinName(), EGPD_Input);
+		if (Pin == InputPin)
+		{
+			for (const FOptionalPinFromProperty& OptionalProperty : ShowPinForProperties)
+			{
+				if (OptionalProperty.bShowPin)
+				{
+					return false;
+				}
+			}
+		}
+
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 
 #undef LOCTEXT_NAMESPACE

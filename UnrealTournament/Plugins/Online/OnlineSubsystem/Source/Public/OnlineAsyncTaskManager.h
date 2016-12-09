@@ -166,6 +166,44 @@ private:
 	CallableType CallableObject;
 };
 
+/**
+* An async task that can execute any callable type with no parameters.
+* For example, l lambda, or an object with an operator().
+* Useful for calling simple functions that need to run on the ONLINE thread.
+*/
+template<class CallableType>
+class FOnlineAsyncTaskThreadedGenericCallable : public FOnlineAsyncTask
+{
+public:
+	/**
+	* Constructor.
+	*
+	* @param InCallable any object that can be called with no parameters, usually a lambda
+	*/
+	explicit FOnlineAsyncTaskThreadedGenericCallable(const CallableType& InCallable)
+		: bHasTicked(false)
+		, CallableObject(InCallable)
+	{
+	}
+
+	virtual void Tick() override
+	{
+		CallableObject();
+		bHasTicked = true;
+	}
+
+	virtual FString ToString() const override { return FString("FOnlineAsyncTaskThreadedGenericCallable"); }
+
+	virtual bool IsDone() override { return bHasTicked; }
+	virtual bool WasSuccessful() override { return true; }
+
+private:
+	/** True after it has ticked once and run the Callable on the online thred */
+	bool bHasTicked;
+	/** Stored copy of the object to invoke on the game thread. */
+	CallableType CallableObject;
+};
+
 template<class T>
 class FOnlineAsyncTaskBasic : public FOnlineAsyncTask
 {
@@ -179,7 +217,7 @@ PACKAGE_SCOPE:
 	volatile bool bWasSuccessful;
 
 	/** Hidden on purpose */
-	FOnlineAsyncTaskBasic() 
+	FOnlineAsyncTaskBasic()
 		: Subsystem(NULL)
 		, bIsComplete(false)
 		, bWasSuccessful(false)
@@ -188,7 +226,7 @@ PACKAGE_SCOPE:
 
 public:
 
-	FOnlineAsyncTaskBasic(T* InSubsystem) 
+	FOnlineAsyncTaskBasic(T* const InSubsystem)
 		: Subsystem(InSubsystem)
 		, bIsComplete(false)
 		, bWasSuccessful(false)
@@ -344,6 +382,22 @@ public:
 	void AddGenericToInQueue(const CallableType& InCallable)
 	{
 		AddToInQueue(new FOnlineAsyncTaskGenericCallable<CallableType>(InCallable));
+	}
+
+	/**
+	* Add a new item to the in queue that will call InCallable on the ONLINE thread.
+	* Very useful when passing in lambdas as parameters, since this function will
+	* automatically deduce the template parameter type for FOnlineAsyncItemGenericCallable.
+	*
+	* Unlike AddGenericToInQueue, this version runs the task on the online thread in Tick(), 
+	* instead of Finalize on the game thread.
+	*
+	* @param InCallable the callable object to execute on the game thread.
+	*/
+	template<class CallableType>
+	void AddGenericToInQueueOnlineThread(const CallableType& InCallable)
+	{
+		AddToInQueue(new FOnlineAsyncTaskThreadedGenericCallable<CallableType>(InCallable));
 	}
 
 	/**

@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EpicSurveyPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "IEpicSurveyModule.h"
 #include "EpicSurvey.h"
-#include "MainFrame.h"
+#include "Interfaces/IMainFrameModule.h"
 
 class FEpicSurveyModule : public IEpicSurveyModule
 {

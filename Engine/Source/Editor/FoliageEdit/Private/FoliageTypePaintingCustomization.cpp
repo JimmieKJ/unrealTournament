@@ -1,12 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "UnrealEd.h"
-#include "FoliageEditModule.h"
-#include "PropertyEditing.h"
+
+#include "FoliageTypePaintingCustomization.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "PropertyHandle.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
 #include "FoliageType.h"
 #include "FoliageEdMode.h"
-#include "FoliageTypePaintingCustomization.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Customizations/MobilityCustomization.h"
+#include "DetailLayoutBuilder.h"
 #include "FoliageTypeCustomizationHelpers.h"
-#include "MobilityCustomization.h"
 
 #define LOCTEXT_NAMESPACE "FoliageEd_Mode"
 

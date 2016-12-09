@@ -2,13 +2,12 @@
 
 #pragma once
 
-#include "SlateEnums.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Widgets/SWidget.h"
 #include "ITypedTableView.generated.h"
 
-
 class ITableRow;
-struct FPointerEvent;
-
 
 UENUM()
 namespace ESelectionMode

@@ -2,8 +2,25 @@
 
 #pragma once
 
-#include "LandscapeEditorDetailCustomization_Base.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Editor/LandscapeEditor/Private/LandscapeEdMode.h"
+#include "IDetailCustomNodeBuilder.h"
+#include "IDetailCustomization.h"
+#include "AssetThumbnail.h"
+#include "Framework/SlateDelegates.h"
+#include "Editor/LandscapeEditor/Private/LandscapeEditorDetailCustomization_Base.h"
 
+class FDetailWidgetRow;
+class IDetailChildrenBuilder;
+class IDetailLayoutBuilder;
 
 /**
  * Slate widgets customizer for the target layers list in the Landscape Editor

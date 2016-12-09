@@ -1,14 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PluginBrowserPrivatePCH.h"
-#include "PluginStyle.h"
 #include "SPluginBrowser.h"
-#include "SPluginTileList.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "UnrealEdMisc.h"
+#include "Interfaces/IPluginManager.h"
+#include "PluginStyle.h"
+#include "Widgets/Navigation/SBreadcrumbTrail.h"
 #include "SPluginCategoryTree.h"
-#include "SSearchBox.h"
+#include "Widgets/Input/SSearchBox.h"
 #include "PluginBrowserModule.h"
+#include "IDirectoryWatcher.h"
 #include "DirectoryWatcherModule.h"
-#include "IProjectManager.h"
+#include "Interfaces/IProjectManager.h"
+#include "ProjectDescriptor.h"
 #include "GameProjectGenerationModule.h"
 
 #define LOCTEXT_NAMESPACE "PluginsEditor"
@@ -32,6 +43,14 @@ void SPluginBrowser::Construct( const FArguments& Args )
 	if(FApp::HasGameName())
 	{
 		WatchDirectoryNames.Add(FPaths::GamePluginsDir());
+		const FProjectDescriptor* Project = IProjectManager::Get().GetCurrentProject();
+		if (Project != nullptr)
+		{
+			for (const FString& Path : Project->GetAdditionalPluginDirectories())
+			{
+				WatchDirectoryNames.Add(Path);
+			}
+		}
 	}
 
 	// Add watchers for any change events on those directories
@@ -153,13 +172,7 @@ void SPluginBrowser::Construct( const FArguments& Args )
 		]
 	];
 
-	// Don't create new plugin button in content only projects as they won't compile
-	const FProjectDescriptor* CurrentProject = IProjectManager::Get().GetCurrentProject();
-	bool bIsContentOnlyProject = CurrentProject == nullptr || CurrentProject->Modules.Num() == 0 || !FGameProjectGenerationModule::Get().ProjectHasCodeFiles();
-
-	const FText NewPluginTooltip = bIsContentOnlyProject ?
-		LOCTEXT("NewPluginDisabled", "To be able to add a new plugin, first convert the project to a code project by adding at least one C++ class.") :
-		LOCTEXT("NewPluginEnabled", "Click here to open the Plugin Creator dialog.");
+	const FText NewPluginTooltip = LOCTEXT("NewPluginEnabled", "Click here to open the Plugin Creator dialog.");
 
 	MainContent->AddSlot()
 	.AutoHeight()
@@ -168,7 +181,7 @@ void SPluginBrowser::Construct( const FArguments& Args )
 	[
 		SNew(SButton)
 		.ContentPadding(5)
-		.IsEnabled(!bIsContentOnlyProject)
+		.IsEnabled(true)
 		.ToolTip(SNew(SToolTip).Text(NewPluginTooltip))
 		.TextStyle(FEditorStyle::Get(), "LargeText")
 		.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")

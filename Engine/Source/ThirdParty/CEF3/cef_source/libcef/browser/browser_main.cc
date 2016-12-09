@@ -4,6 +4,8 @@
 
 #include "libcef/browser/browser_main.h"
 
+#include <stdint.h>
+
 #include <string>
 
 #include "libcef/browser/browser_context_impl.h"
@@ -12,17 +14,26 @@
 #include "libcef/browser/content_browser_client.h"
 #include "libcef/browser/context.h"
 #include "libcef/browser/devtools_delegate.h"
+#include "libcef/browser/extensions/browser_context_keyed_service_factories.h"
+#include "libcef/browser/extensions/extensions_browser_client.h"
+#include "libcef/browser/extensions/extension_system_factory.h"
 #include "libcef/browser/thread_util.h"
-#include "libcef/common/net_resource_provider.h"
+#include "libcef/common/extensions/extensions_client.h"
+#include "libcef/common/extensions/extensions_util.h"
+#include "libcef/common/net/net_resource_provider.h"
 
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/message_loop/message_loop.h"
 #include "base/strings/string_number_conversions.h"
+#include "chrome/browser/plugins/plugin_finder.h"
 #include "content/browser/webui/content_web_ui_controller_factory.h"
+#include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/gpu_data_manager.h"
 #include "content/public/browser/web_ui_controller_factory.h"
 #include "content/public/common/content_switches.h"
+#include "extensions/browser/extension_system.h"
+#include "extensions/common/constants.h"
 #include "net/base/net_module.h"
 #include "ui/base/resource/resource_bundle.h"
 
@@ -74,7 +85,6 @@ void CefBrowserMainParts::ToolkitInitialized() {
 #if defined(USE_AURA)
   CHECK(aura::Env::GetInstance());
 
-  DCHECK(!views::ViewsDelegate::views_delegate);
   new views::DesktopTestViewsDelegate;
 
 #if defined(OS_WIN)
@@ -93,11 +103,16 @@ void CefBrowserMainParts::PostMainMessageLoopStart() {
 #if defined(OS_LINUX)
   printing::PrintingContextLinux::SetCreatePrintDialogFunction(
       &CefPrintDialogLinux::CreatePrintDialog);
+  printing::PrintingContextLinux::SetPdfPaperSizeFunction(
+      &CefPrintDialogLinux::GetPdfPaperSize);
 #endif
 }
 
 int CefBrowserMainParts::PreCreateThreads() {
+#if defined(OS_WIN)
   PlatformInitialize();
+#endif
+
   net::NetModule::SetResourceProvider(&NetResourceProvider);
 
   // Initialize the GpuDataManager before IO access restrictions are applied and
@@ -109,15 +124,24 @@ int CefBrowserMainParts::PreCreateThreads() {
                                  views::CreateDesktopScreen());
 #endif
 
-  // Initialize user preferences.
-  pref_store_ = new CefBrowserPrefStore();
-  pref_store_->SetInitializationCompleted();
-  pref_service_ = pref_store_->CreateService().Pass();
-
   return 0;
 }
 
 void CefBrowserMainParts::PreMainMessageLoopRun() {
+  if (extensions::ExtensionsEnabled()) {
+    // Initialize extension global objects before creating the global
+    // BrowserContext.
+    extensions_client_.reset(new extensions::CefExtensionsClient());
+    extensions::ExtensionsClient::Set(extensions_client_.get());
+    extensions_browser_client_.reset(new extensions::CefExtensionsBrowserClient);
+    extensions::ExtensionsBrowserClient::Set(extensions_browser_client_.get());
+
+    // Register additional KeyedService factories here. See
+    // ChromeBrowserMainExtraPartsProfiles for details.
+    extensions::cef::EnsureBrowserContextKeyedServiceFactoriesBuilt();
+    extensions::CefExtensionSystemFactory::GetInstance();
+  }
+
   CefRequestContextSettings settings;
   CefContext::Get()->PopulateRequestContextSettings(&settings);
 
@@ -133,14 +157,26 @@ void CefBrowserMainParts::PreMainMessageLoopRun() {
     int port;
     if (base::StringToInt(port_str, &port) && port > 0 && port < 65535) {
       devtools_delegate_ =
-          new CefDevToolsDelegate(static_cast<uint16>(port));
+          new CefDevToolsDelegate(static_cast<uint16_t>(port));
     } else {
       LOG(WARNING) << "Invalid http debugger port number " << port;
     }
   }
+
+  // Triggers initialization of the singleton instance on UI thread.
+  PluginFinder::GetInstance()->Init();
+
+#if defined(OS_WIN)
+  PlatformPreMainMessageLoopRun();
+#endif
 }
 
 void CefBrowserMainParts::PostMainMessageLoopRun() {
+  if (extensions::ExtensionsEnabled()) {
+    extensions::ExtensionsBrowserClient::Set(NULL);
+    extensions_browser_client_.reset();
+  }
+
   if (devtools_delegate_) {
     devtools_delegate_->Stop();
     devtools_delegate_ = NULL;
@@ -157,13 +193,13 @@ void CefBrowserMainParts::PostMainMessageLoopRun() {
 void CefBrowserMainParts::PostDestroyThreads() {
 #if defined(USE_AURA)
   aura::Env::DeleteInstance();
-  delete views::ViewsDelegate::views_delegate;
+
+  // Delete the DesktopTestViewsDelegate.
+  delete views::ViewsDelegate::GetInstance();
 #endif
 
 #ifndef NDEBUG
   // No CefURLRequestContext instances should exist at this point.
   DCHECK_EQ(0, CefURLRequestContext::DebugObjCt);
 #endif
-
-  PlatformCleanup();
 }

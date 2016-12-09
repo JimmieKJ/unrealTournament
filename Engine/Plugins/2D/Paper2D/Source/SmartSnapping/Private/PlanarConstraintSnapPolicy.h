@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ISnappingPolicy.h"
+
+class FPrimitiveDrawInterface;
+class FSceneView;
+
 //////////////////////////////////////////////////////////////////////////
 // FPlanarConstraintSnapPolicy
 

@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealCodeAnalyzerTestsPCH.h"
 #include "UseClassWithNonStaticField.h"
 
 static void Function_UseClassWithNonStaticField()

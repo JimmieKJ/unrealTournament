@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RenderCorePrivatePCH.h"
-#include "RenderCore.h"
 #include "RenderUtils.h"
-#include "RHI.h"
+#include "Containers/ResourceArray.h"
+#include "Containers/DynamicRHIResourceArray.h"
 #include "RenderResource.h"
 
 const uint16 GCubeIndices[12*3] =

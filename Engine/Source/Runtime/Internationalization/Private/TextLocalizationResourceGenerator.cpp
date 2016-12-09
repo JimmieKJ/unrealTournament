@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "InternationalizationPrivatePCH.h"
 #include "TextLocalizationResourceGenerator.h"
+#include "Misc/Paths.h"
+#include "Internationalization/Culture.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Internationalization/InternationalizationManifest.h"
+#include "LocTextHelper.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogTextLocalizationResourceGenerator, Log, All);

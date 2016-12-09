@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/DefaultPawn.h"
 #include "LatentActions.h"
+#include "Engine/LatentActionManager.h"
 #include "StereoCapturePawn.generated.h"
 
 

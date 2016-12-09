@@ -1,6 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "SHyperlink.h"
+
+#include "CoreMinimal.h"
+#include "SlateGlobals.h"
+#include "Input/Reply.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Input/SHyperlink.h"
+
+class FWidgetViewModel;
+enum class ETextShapingMethod : uint8;
 
 #if WITH_FANCY_TEXT
 

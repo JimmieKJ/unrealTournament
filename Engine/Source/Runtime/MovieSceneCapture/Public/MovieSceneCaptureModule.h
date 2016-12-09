@@ -2,11 +2,14 @@
 
 #pragma once
 
-#include "ModuleManager.h"
-#include "IMovieSceneCapture.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 #include "MovieSceneCaptureHandle.h"
 
 class FMovieSceneCaptureProtocolRegistry;
+class FSceneViewport;
+class IMovieSceneCaptureInterface;
 
 class IMovieSceneCaptureModule : public IModuleInterface
 {

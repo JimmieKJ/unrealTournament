@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Widgets/Layout/SConstraintCanvas.h"
+#include "Types/PaintArgs.h"
+#include "Layout/ArrangedChildren.h"
 
-#include "SConstraintCanvas.h"
-#include "LayoutUtils.h"
 
 
 /* SConstraintCanvas interface

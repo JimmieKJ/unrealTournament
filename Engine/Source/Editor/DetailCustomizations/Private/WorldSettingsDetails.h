@@ -2,8 +2,20 @@
 
 #pragma once
 
-#include "GameModeInfoCustomizer.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "IDetailCustomization.h"
+#include "PropertyHandle.h"
+#include "UnrealClient.h"
+#include "AssetThumbnail.h"
+#include "IDetailCustomNodeBuilder.h"
+#include "IDetailChildrenBuilder.h"
 
+class FDetailWidgetRow;
+class FGameModeInfoCustomizer;
+class IDetailCategoryBuilder;
+class IDetailLayoutBuilder;
 
 /**
  * Implements details panel customizations for AWorldSettings fields.

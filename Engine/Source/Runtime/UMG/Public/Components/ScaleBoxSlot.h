@@ -2,9 +2,15 @@
 
 #pragma once
 
-#include "SlateWrapperTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptMacros.h"
+#include "Layout/Margin.h"
+#include "Components/PanelSlot.h"
 
 #include "ScaleBoxSlot.generated.h"
+
+class SScaleBox;
 
 /** The Slot for the UScaleBoxSlot, contains the widget displayed in a button's single slot */
 UCLASS()

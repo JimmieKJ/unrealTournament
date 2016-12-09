@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetTypeActions_Base.h"
 #include "LandscapeGrassType.h"
 
 class FAssetTypeActions_LandscapeGrassType : public FAssetTypeActions_Base

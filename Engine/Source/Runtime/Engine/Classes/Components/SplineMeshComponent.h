@@ -2,10 +2,17 @@
 
 #pragma once
 
-#include "Components/StaticMeshComponent.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
+#include "Components/StaticMeshComponent.h"
 
 #include "SplineMeshComponent.generated.h"
+
+class FPrimitiveSceneProxy;
+class ULightComponent;
+struct FNavigableGeometryExport;
 
 UENUM(BlueprintType)
 namespace ESplineMeshAxis
@@ -333,7 +340,8 @@ public:
 	/** Returns a vector which, when componentwise-multiplied by another vector, will zero all the components not corresponding to the supplied ESplineMeshAxis */
 	inline static FVector GetAxisMask(ESplineMeshAxis::Type InAxis);
 
-	virtual bool GetStreamingTextureFactors(float& OutWorldTexelFactor, float& OutWorldLightmapFactor) const override;
+	virtual float GetTextureStreamingTransformScale() const override;
+
 };
 
 const float& USplineMeshComponent::GetAxisValue(const FVector& InVector, ESplineMeshAxis::Type InAxis)

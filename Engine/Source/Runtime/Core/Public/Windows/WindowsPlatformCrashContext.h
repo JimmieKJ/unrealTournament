@@ -2,20 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformCrashContext.h"
-
-#include "AllowWindowsPlatformTypes.h"
-#include "DbgHelp.h"
-#include "HideWindowsPlatformTypes.h"
 
 struct CORE_API FWindowsPlatformCrashContext : public FGenericCrashContext
 {
-	/** Platform specific constants. */
-	enum EConstants
-	{
-		UE4_MINIDUMP_CRASHCONTEXT = LastReservedStream + 1,
-	};
-
 	FWindowsPlatformCrashContext() {}
 
 	FWindowsPlatformCrashContext(bool bInIsEnsure)

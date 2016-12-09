@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
 #include "VisualLoggerHUD.h"
+#include "CollisionQueryParams.h"
+#include "CanvasItem.h"
+#include "Engine/Canvas.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "DrawDebugHelpers.h"
 #include "VisualLoggerCameraController.h"
-#include "VisualLogger/VisualLogger.h"
 
 #define LOCTEXT_NAMESPACE "AVisualLoggerHUD"
 

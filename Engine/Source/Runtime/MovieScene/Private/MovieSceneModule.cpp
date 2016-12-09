@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieScenePrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "IMovieSceneModule.h"
+#include "MovieScene.h"
 
 
 DEFINE_LOG_CATEGORY(LogMovieScene);

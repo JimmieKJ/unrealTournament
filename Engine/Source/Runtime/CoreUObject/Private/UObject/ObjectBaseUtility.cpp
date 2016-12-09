@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Serialization/CustomVersion.h"
+#include "UObject/UObjectBaseUtility.h"
+#include "UObject/Package.h"
+#include "UObject/LinkerLoad.h"
 
 /**
  * Returns the UE4 version of the linker for this object.

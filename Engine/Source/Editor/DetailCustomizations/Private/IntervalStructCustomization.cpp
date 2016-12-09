@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "IntervalStructCustomization.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Editor.h"
+#include "Widgets/Layout/SBox.h"
+#include "DetailWidgetRow.h"
+#include "DetailLayoutBuilder.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 
 #define LOCTEXT_NAMESPACE "IntervalStructCustomization"

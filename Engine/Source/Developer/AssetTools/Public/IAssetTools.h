@@ -2,15 +2,15 @@
 
 #pragma once
 
-#include "CoreUObject.h"
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "UObject/Package.h"
 #include "AssetTypeCategories.h"
 
-
+class FAssetData;
 class IAssetTypeActions;
 class IClassTypeActions;
-class FAssetData;
 class UFactory;
-
 
 struct FAssetRenameData
 {
@@ -130,7 +130,12 @@ public:
 	/** Event issued at the end of the rename process */
 	virtual FAssetPostRenameEvent& OnAssetPostRename() = 0;
 
-	/** Opens a file open dialog to choose files to import to the destination path. */
+	/** 
+	 * Opens a file open dialog to choose files to import to the destination path.
+	 * 
+	 * @param DestinationPath	Path to import files to
+	 * @return list of sucessfully imported assets
+	 */
 	virtual TArray<UObject*> ImportAssets(const FString& DestinationPath) = 0;
 
 	/** 
@@ -140,8 +145,17 @@ public:
 	 * @param DestinationPath	destination path for imported files
 	 * @param ChosenFactory		Specific factory to use for object creation
 	 * @param bSyncToBrowser	If true sync content browser to first imported asset after import
+	 * @return list of sucessfully imported assets
 	 */
-	virtual TArray<UObject*> ImportAssets(const TArray<FString>& Files, const FString& DestinationPath, UFactory* ChosenFactory = NULL, bool bSyncToBrowser = true) const = 0;
+	virtual TArray<UObject*> ImportAssets(const TArray<FString>& Files, const FString& DestinationPath, UFactory* ChosenFactory = NULL, bool bSyncToBrowser = true, TArray<TPair<FString, FString>> *FilesAndDestinations = nullptr) const = 0;
+
+	/**
+	 * Imports assets using data specified completely up front.  Does not ever ask any questions of the user or show any modal error messages
+	 *
+	 * @param AutomatedImportData	Data that specifies how to import each file
+	 * @return list of sucessfully imported assets
+	 */
+	virtual TArray<UObject*> ImportAssetsAutomated(const class UAutomatedAssetImportData& ImportData) const = 0;
 
 	/** Creates a unique package and asset name taking the form InBasePackageName+InSuffix */
 	virtual void CreateUniqueAssetName(const FString& InBasePackageName, const FString& InSuffix, FString& OutPackageName, FString& OutAssetName) const = 0;

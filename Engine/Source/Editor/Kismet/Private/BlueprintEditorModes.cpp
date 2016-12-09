@@ -1,34 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "ScopedTransaction.h"
-#include "BlueprintUtilities.h"
-#include "StructureEditorUtils.h"
-#include "EdGraphUtilities.h"
-#include "Toolkits/IToolkitHost.h"
-
-#include "BlueprintEditorCommands.h"
-#include "BlueprintEditor.h"
-#include "BlueprintEditorModule.h"
 #include "BlueprintEditorModes.h"
+#include "Settings/EditorExperimentalSettings.h"
+
 
 // Core kismet tabs
 #include "SSCSEditor.h"
 #include "SSCSEditorViewport.h"
-#include "STimelineEditor.h"
 #include "SKismetInspector.h"
-#include "SBlueprintPalette.h"
 #include "SMyBlueprint.h"
 // End of core kismet tabs
 
 // Debugging
-#include "Debugging/SKismetDebuggingView.h"
-#include "Debugging/KismetDebugCommands.h"
 // End of debugging
 
 #include "SBlueprintEditorToolbar.h"
-#include "FindInBlueprints.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 #include "BlueprintEditorTabs.h"
 #include "BlueprintEditorTabFactories.h"
 #include "BlueprintEditorSharedTabFactories.h"

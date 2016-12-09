@@ -1,14 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
-#include "SequencerSnapField.h"
-#include "SSequencerTreeView.h"
-#include "Sequencer.h"
-#include "SSequencer.h"
-#include "MovieSceneSection.h"
-#include "SequencerEntityVisitor.h"
-#include "MovieSceneSequence.h"
+#include "Tools/SequencerSnapField.h"
 #include "MovieScene.h"
+#include "SSequencer.h"
+#include "SSequencerTreeView.h"
+#include "MovieSceneSequence.h"
 
 struct FSnapGridVisitor : ISequencerEntityVisitor
 {
@@ -70,7 +66,7 @@ FSequencerSnapField::FSequencerSnapField(const ISequencer& InSequencer, ISequenc
 	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::PlaybackRange, PlaybackRange.GetUpperBoundValue() });
 
 	// Add the current time as a potential snap candidate
-	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::CurrentTime, InSequencer.GetGlobalTime() });
+	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::CurrentTime, InSequencer.GetLocalTime() });
 
 	// Add the selection range bounds as a potential snap candidate
 	TRange<float> SelectionRange = InSequencer.GetFocusedMovieSceneSequence()->GetMovieScene()->GetSelectionRange();

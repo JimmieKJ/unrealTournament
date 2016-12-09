@@ -1,16 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AppFrameworkPrivatePCH.h"
-#include "SComplexGradient.h"
-#include "SSimpleGradient.h"
-#include "SColorValueSlider.h"
-#include "SEyeDropperButton.h"
-#include "SColorPicker.h"
-#include "SColorWheel.h"
-#include "SColorSpectrum.h"
-#include "SColorThemes.h"
-#include "SExpandableArea.h"
-
+#include "Widgets/Colors/SColorPicker.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/CoreDelegates.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Input/SSlider.h"
+#include "Widgets/Colors/SComplexGradient.h"
+#include "Widgets/Colors/SSimpleGradient.h"
+#include "Widgets/Colors/SEyeDropperButton.h"
+#include "Widgets/Colors/SColorWheel.h"
+#include "Widgets/Colors/SColorSpectrum.h"
+#include "Widgets/Colors/SColorThemes.h"
+#include "Widgets/Layout/SExpandableArea.h"
 
 #define LOCTEXT_NAMESPACE "ColorPicker"
 
@@ -81,6 +96,7 @@ void SColorPicker::Construct( const FArguments& InArgs )
 	bColorPickerIsInlineVersion = InArgs._DisplayInlineVersion;
 	bIsInteractive = false;
 	bPerfIsTooSlowToUpdate = false;
+	
 
 	BackupColors();
 
@@ -1728,7 +1744,6 @@ bool OpenColorPicker(const FColorPickerArgs& Args)
 		//hold on to the window created for external use...
 		ColorPickerWindow = Window;
 	}
-	
 #endif
 
 	return Result;
@@ -1743,7 +1758,14 @@ void DestroyColorPicker()
 {
 	if (ColorPickerWindow.IsValid())
 	{
-		ColorPickerWindow.Pin()->RequestDestroyWindow();
+		if (SColorPicker::OnColorPickerDestroyOverride.IsBound())
+		{
+			SColorPicker::OnColorPickerDestroyOverride.Execute();
+		}
+		else
+		{
+			ColorPickerWindow.Pin()->RequestDestroyWindow();
+		}
 		ColorPickerWindow.Reset();
 	}
 }

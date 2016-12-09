@@ -1,10 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "NavigationOctree.h"
-#include "RecastHelpers.h"
-#include "AI/Navigation/NavRelevantComponent.h"
-#include "RecastNavMeshGenerator.h"
+#include "AI/NavigationOctree.h"
+#include "AI/Navigation/NavRelevantInterface.h"
 
 //----------------------------------------------------------------------//
 // FNavigationOctree

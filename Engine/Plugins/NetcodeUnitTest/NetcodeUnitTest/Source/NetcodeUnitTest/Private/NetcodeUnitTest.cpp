@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
+#include "NetcodeUnitTest.h"
+#include "Modules/ModuleManager.h"
+#include "Engine/World.h"
 
-#include "LogWidgetCommands.h"
-#include "SLogWidget.h"
+#include "UI/LogWidgetCommands.h"
 
 #include "INetcodeUnitTest.h"
 #include "NUTUtil.h"
@@ -30,7 +31,7 @@ TMap<void*, InternalProcessEventCallback> ActiveProcessEventCallbacks;
  */
 
 DEFINE_LOG_CATEGORY(LogUnitTest);
-DEFINE_LOG_CATEGORY(None);
+DEFINE_LOG_CATEGORY(NetCodeTestNone);
 
 
 /**

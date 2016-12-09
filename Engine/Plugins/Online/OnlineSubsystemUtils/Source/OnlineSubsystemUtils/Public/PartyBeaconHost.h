@@ -1,14 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "OnlineBeaconHostObject.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "GameFramework/OnlineReplStructs.h"
 #include "PartyBeaconState.h"
+#include "OnlineBeaconHostObject.h"
 #include "PartyBeaconHost.generated.h"
 
-class FUniqueNetId;
-class UNetConnection;
-class UPartyBeaconState;
-class AOnlineBeaconClient;
 class APartyBeaconClient;
 
 /**

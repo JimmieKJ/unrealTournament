@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DesktopPlatformPrivatePCH.h"
 #include "MacNativeFeedbackContext.h"
 #include "MacApplication.h"
 #include "CocoaThread.h"
+#include "Misc/OutputDeviceHelper.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/OutputDeviceRedirector.h"
 
 @implementation FMacNativeFeedbackContextWindowController
 

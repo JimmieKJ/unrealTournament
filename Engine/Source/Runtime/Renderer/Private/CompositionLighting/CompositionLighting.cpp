@@ -4,23 +4,16 @@
 	CompositionLighting.cpp: The center for all deferred lighting activities.
 =============================================================================*/
 
-#include "RendererPrivate.h"
+#include "CompositionLighting/CompositionLighting.h"
 #include "ScenePrivate.h"
-#include "CompositionLighting.h"
-#include "PostProcessing.h"					// FPostprocessContext
-#include "PostProcessInput.h"
-#include "PostProcessAmbient.h"
-#include "PostProcessLpvIndirect.h"
-#include "PostProcessAmbientOcclusion.h"
-#include "PostProcessDeferredDecals.h"
-#include "BatchedElements.h"
-#include "ScreenRendering.h"
-#include "PostProcessPassThrough.h"
-#include "ScreenSpaceReflections.h"
-#include "PostProcessWeightedSampleSum.h"
-#include "PostProcessTemporalAA.h"
-#include "PostProcessSubsurface.h"
-#include "SceneUtils.h"
+#include "PostProcess/RenderingCompositionGraph.h"
+#include "PostProcess/PostProcessInput.h"
+#include "PostProcess/PostProcessing.h"
+#include "CompositionLighting/PostProcessAmbient.h"
+#include "CompositionLighting/PostProcessLpvIndirect.h"
+#include "CompositionLighting/PostProcessAmbientOcclusion.h"
+#include "CompositionLighting/PostProcessDeferredDecals.h"
+#include "PostProcess/PostProcessSubsurface.h"
 #include "LightPropagationVolumeBlendable.h"
 
 /** The global center for all deferred lighting activities. */

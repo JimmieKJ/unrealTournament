@@ -2,10 +2,13 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "ModuleManager.h"		// For inline LoadModuleChecked()
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
-
+#include "CoreMinimal.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
+#include "Features/IModularFeatures.h"
+#include "Features/IModularFeature.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "IInputDevice.h"
 
 /**
  * The public interface of the InputDeviceModule

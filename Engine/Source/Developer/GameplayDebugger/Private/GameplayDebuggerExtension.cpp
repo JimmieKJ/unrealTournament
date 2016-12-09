@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerExtension.h"
-#include "GameplayDebuggerPlayerManager.h"
+#include "GameplayDebuggerCategoryReplicator.h"
 
 void FGameplayDebuggerExtension::OnGameplayDebuggerActivated()
 {

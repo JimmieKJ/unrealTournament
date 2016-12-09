@@ -1,13 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "ActiveSound.h"
+#include "EngineDefines.h"
+#include "Misc/App.h"
+#include "AudioThread.h"
 #include "AudioDevice.h"
 #include "Sound/SoundCue.h"
 #include "Sound/SoundWave.h"
 #include "Sound/SoundNodeAttenuation.h"
 #include "SubtitleManager.h"
-#include "AudioThread.h"
 
 
 FActiveSound::FActiveSound()
@@ -21,13 +22,14 @@ FActiveSound::FActiveSound()
 	, ConcurrencyGeneration(0)
 	, ConcurrencySettings(nullptr)
 	, SoundClassOverride(nullptr)
+	, SoundSubmixOverride(nullptr)
 	, bHasCheckedOcclusion(false)
-	, bIsTraceDelegateBound(false)
 	, bAllowSpatialization(true)
 	, bHasAttenuationSettings(false)
 	, bShouldRemainActiveIfDropped(false)
 	, bFadingOut(false)
 	, bFinished(false)
+	, bIsPaused(false)
 	, bShouldStopDueToMaxConcurrency(false)
 	, bRadioFilterSelected(false)
 	, bApplyRadioFilter(false)
@@ -47,8 +49,7 @@ FActiveSound::FActiveSound()
 	, bWarnedAboutOrphanedLooping(false)
 #endif
 	, bEnableLowPassFilter(false)
-	, bOcclusionAsyncTrace(true)
-	, bIsAudible(true)
+	, bUpdatePlayPercentage(false)
 	, UserIndex(0)
 	, bIsOccluded(false)
 	, bAsyncOcclusionPending(false)
@@ -70,8 +71,10 @@ FActiveSound::FActiveSound()
 	, FocusDistanceScale(1.0f)
 	, VolumeConcurrency(0.0f)
 	, OcclusionCheckInterval(0.f)
-	, LastOcclusionCheckTime(0.f)
+	, LastOcclusionCheckTime(TNumericLimits<float>::Lowest())
 	, MaxDistance(WORLD_MAX)
+	, Azimuth(0.0f)
+	, AbsoluteAzimuth(0.0f)
 	, LastLocation(FVector::ZeroVector)
 	, AudioVolumeID(0)
 	, LastUpdateTime(0.f)
@@ -190,12 +193,25 @@ USoundClass* FActiveSound::GetSoundClass() const
 		return SoundClassOverride;
 	}
 	else if (Sound)
-		{
+	{
 		return Sound->GetSoundClass();
-		}
+	}
 
 	return nullptr;
+}
+
+USoundSubmix* FActiveSound::GetSoundSubmix() const
+{
+	if (SoundSubmixOverride)
+	{
+		return SoundSubmixOverride;
 	}
+	else if (Sound)
+	{
+		return Sound->GetSoundSubmix();
+	}
+	return nullptr;
+}
 
 int32 FActiveSound::FindClosestListener( const TArray<FListener>& InListeners ) const
 {
@@ -226,7 +242,6 @@ uint32 FActiveSound::GetSoundConcurrencyObjectID() const
 		return Sound->GetSoundConcurrencyObjectID();
 	}
 }
-
 
 void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances, const float DeltaTime )
 {
@@ -262,9 +277,6 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 	// The apparent max distance factors the actual max distance of the sound scaled with the distance scale due to focus effects
 	float ApparentMaxDistance = MaxDistance * FocusDistanceScale;
 
-	// Update whether or not his sound is out of range
-	bIsAudible = AudioDevice->LocationIsAudible(Transform.GetTranslation(), ClosestListenerPtr->Transform, ApparentMaxDistance);
-
 	FSoundParseParameters ParseParams;
 	ParseParams.Transform = Transform;
 	ParseParams.StartTime = RequestedStartTime;
@@ -276,21 +288,20 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 	UpdateAdjustVolumeMultiplier(DeltaTime);
 
 	// If the sound is a preview sound, then ignore the transient master volume and application volume
-	float MasterVolume = AudioDevice->GetTransientMasterVolume(); 
-	float ApplicationVolume = FApp::GetVolumeMultiplier();
-	if (bIsPreviewSound)
+	if (!bIsPreviewSound)
 	{
-		MasterVolume = 1.0f;
-		ApplicationVolume = 1.0f;
+		ParseParams.VolumeApp = AudioDevice->GetTransientMasterVolume() * FApp::GetVolumeMultiplier();
 	}
 
-	ParseParams.VolumeMultiplier = VolumeMultiplier * Sound->GetVolumeMultiplier() * CurrentAdjustVolumeMultiplier * MasterVolume * ApplicationVolume * ConcurrencyVolumeScale;
+	ParseParams.VolumeMultiplier = VolumeMultiplier * Sound->GetVolumeMultiplier() * CurrentAdjustVolumeMultiplier * ConcurrencyVolumeScale;
 
 	ParseParams.Priority = Priority;
 	ParseParams.Pitch *= PitchMultiplier * Sound->GetPitchMultiplier();
 	ParseParams.bEnableLowPassFilter = bEnableLowPassFilter;
 	ParseParams.LowPassFilterFrequency = LowPassFilterFrequency;
 	ParseParams.SoundClass = GetSoundClass();
+	ParseParams.SoundSubmix = GetSoundSubmix();
+	ParseParams.bIsPaused = bIsPaused;
 
 	if (bApplyInteriorVolumes)
 	{
@@ -342,7 +353,7 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 			VolumeConcurrency = 0.0f;
 			for (const FWaveInstance* WaveInstance : ThisSoundsWaveInstances)
 			{
-				const float WaveInstanceVolume = WaveInstance->GetActualVolume();
+				const float WaveInstanceVolume = WaveInstance->GetVolume();
 				if (WaveInstanceVolume > VolumeConcurrency)
 				{
 					VolumeConcurrency = WaveInstanceVolume;
@@ -434,25 +445,31 @@ void FActiveSound::UpdateOcclusion(const FAttenuationSettings* AttenuationSettin
 		CurrentOcclusionVolumeAttenuation.Set(1.0f, InterpolationTime);
 	}
 
-	UWorld* WorldPtr = World.Get();
-	CurrentOcclusionFilterFrequency.Update(WorldPtr->DeltaTimeSeconds);
-	CurrentOcclusionVolumeAttenuation.Update(WorldPtr->DeltaTimeSeconds);
+	const float DeltaTime = FApp::GetDeltaTime();
+	CurrentOcclusionFilterFrequency.Update(DeltaTime);
+	CurrentOcclusionVolumeAttenuation.Update(DeltaTime);
 }
 
 void FActiveSound::OcclusionTraceDone(const FTraceHandle& TraceHandle, FTraceDatum& TraceDatum)
 {
 	// Look for any results that resulted in a blocking hit
-	bIsOccluded = false;
+	bool bFoundBlockingHit = false;
 	for (const FHitResult& HitResult : TraceDatum.OutHits)
 	{
 		if (HitResult.bBlockingHit)
 		{
-			bIsOccluded = true;
+			bFoundBlockingHit = true;
 			break;
 		}
 	}
 
-	bAsyncOcclusionPending = false;
+	FActiveSound* ActiveSound = this;
+
+	FAudioThread::RunCommandOnAudioThread([ActiveSound, bFoundBlockingHit]()
+	{
+		ActiveSound->bIsOccluded = bFoundBlockingHit;
+		ActiveSound->bAsyncOcclusionPending = false;
+	});
 }
 
 void FActiveSound::CheckOcclusion(const FVector ListenerLocation, const FVector SoundLocation, const FAttenuationSettings* AttenuationSettingsPtr)
@@ -460,49 +477,52 @@ void FActiveSound::CheckOcclusion(const FVector ListenerLocation, const FVector 
 	check(AttenuationSettingsPtr);
 	check(AttenuationSettingsPtr->bEnableOcclusion);
 
-	UWorld* WorldPtr = World.Get();
-	float WorldTime = WorldPtr->GetTimeSeconds();
-
-	if ((WorldTime - LastOcclusionCheckTime) > OcclusionCheckInterval)
+	if (!bAsyncOcclusionPending && (PlaybackTime - LastOcclusionCheckTime) > OcclusionCheckInterval)
 	{
-		LastOcclusionCheckTime = WorldTime;
+		LastOcclusionCheckTime = PlaybackTime;
 		static FName NAME_SoundOcclusion = FName(TEXT("SoundOcclusion"));
 
-		FCollisionQueryParams Params(NAME_SoundOcclusion, AttenuationSettingsPtr->bUseComplexCollisionForOcclusion);
-		if (OwnerID > 0)
-		{
-			Params.AddIgnoredActor(OwnerID);
-		}
+		const bool bUseComplexCollisionForOcclusion = AttenuationSettingsPtr->bUseComplexCollisionForOcclusion;
+		const ECollisionChannel OcclusionTraceChannel = AttenuationSettingsPtr->OcclusionTraceChannel;
 
-		if (bOcclusionAsyncTrace)
+		if (!OcclusionTraceDelegate.IsBound())
 		{
-			ECollisionChannel OcclusionTraceChannel = AttenuationSettingsPtr->OcclusionTraceChannel;
+			OcclusionTraceDelegate.BindRaw(this, &FActiveSound::OcclusionTraceDone);
 
-			// If the audio thread is running, then only do a sync trace
-			if (FAudioThread::IsAudioThreadRunning())
+			FCollisionQueryParams Params(NAME_SoundOcclusion, bUseComplexCollisionForOcclusion);
+			if (OwnerID > 0)
 			{
+				Params.AddIgnoredActor(OwnerID);
+			}
+
+			if (UWorld* WorldPtr = World.Get())
+			{
+				// LineTraceTestByChannel is generally threadsafe, but there is a very narrow race condition here 
+				// if World goes invalid before the scene lock and queries begin.
 				bIsOccluded = WorldPtr->LineTraceTestByChannel(SoundLocation, ListenerLocation, OcclusionTraceChannel, Params);
 			}
-			else
+		}
+		else
+		{
+			bAsyncOcclusionPending = true;
+
+			const uint32 SoundOwnerID = OwnerID;
+			FTraceDelegate* TraceDelegate = &OcclusionTraceDelegate;
+			TWeakObjectPtr<UWorld> SoundWorld = World;
+
+			FAudioThread::RunCommandOnGameThread([SoundWorld, SoundLocation, ListenerLocation, OcclusionTraceChannel, SoundOwnerID, bUseComplexCollisionForOcclusion, TraceDelegate]
 			{
-				// Check if we've not already bound our trace delegate
-				if (!bIsTraceDelegateBound)
+				if (UWorld* WorldPtr = SoundWorld.Get())
 				{
-					bIsTraceDelegateBound = true;
+					FCollisionQueryParams Params(NAME_SoundOcclusion, bUseComplexCollisionForOcclusion);
+					if (SoundOwnerID > 0)
+					{
+						Params.AddIgnoredActor(SoundOwnerID);
+					}
 
-					// Bind our async occlusion trace delegate (so next update we'll have it bound)
-					OcclusionTraceDelegate.BindRaw(this, &FActiveSound::OcclusionTraceDone);
-
-					// Only do async occlusion trace if we've already made one. The first trace must be synchronous to avoid issues with sounds starting playing as occluded
-					bIsOccluded = WorldPtr->LineTraceTestByChannel(SoundLocation, ListenerLocation, OcclusionTraceChannel, Params);
+					WorldPtr->AsyncLineTraceByChannel(EAsyncTraceType::Test, SoundLocation, ListenerLocation, OcclusionTraceChannel, Params, FCollisionResponseParams::DefaultResponseParam, TraceDelegate);
 				}
-				// don't need to do another async trace if we've already got one pending
-				else if (!bAsyncOcclusionPending)
-				{
-					bAsyncOcclusionPending = true;
-					WorldPtr->AsyncLineTraceByChannel(EAsyncTraceType::Test, SoundLocation, ListenerLocation, OcclusionTraceChannel, Params, FCollisionResponseParams::DefaultResponseParam, &OcclusionTraceDelegate);
-				}
-			}
+			});
 		}
 	}
 
@@ -723,7 +743,7 @@ void FActiveSound::SetBoolParameter( const FName InName, const bool InBool )
 	}
 }
 
-int32 FActiveSound::GetIntParameter( const FName InName, int32& OutInt ) const
+bool FActiveSound::GetIntParameter( const FName InName, int32& OutInt ) const
 {
 	// Always fail if we pass in no name.
 	if( InName != NAME_None )
@@ -818,29 +838,39 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 
 	FAttenuationListenerData ListenerData;
 
-	// Get the current focus factor
-	const float FocusFactor = AudioDevice->GetFocusFactor(ListenerData, Sound, SoundTransform, *Settings, &Listener.Transform);
-
 	// Reset distance and priority scale to 1.0 in case changed in editor
 	FocusDistanceScale = 1.0f;
 	FocusPriorityScale = 1.0f;
-	
-	// Computer the focus factor if needed
+
 	check(Sound);
-	if (Settings->bSpatialize && Settings->bEnableListenerFocus && !Sound->bIgnoreFocus)
+
+	if (Settings->bSpatialize)
 	{
+		// Compute the azimuth of the active sound
 		const FGlobalFocusSettings& FocusSettings = AudioDevice->GetGlobalFocusSettings();
 
-		// Get the volume scale to apply the volume calculation based on the focus factor
-		const float FocusVolumeAttenuation = Settings->GetFocusAttenuation(FocusSettings, FocusFactor);
-		Volume *= FocusVolumeAttenuation;
+		AudioDevice->GetAzimuth(ListenerData, Sound, SoundTransform, *Settings, Listener.Transform, Azimuth, AbsoluteAzimuth);
 
-		// Scale the volume-weighted priority scale value we use for sorting this sound for voice-stealing
-		FocusPriorityScale = Settings->GetFocusPriorityScale(FocusSettings, FocusFactor);
-		ParseParams.Priority *= FocusPriorityScale;
+		ParseParams.AttenuationDistance = ListenerData.AttenuationDistance;
 
-		// Get the distance scale to use when computing distance-calculations for 3d attenuation
-		FocusDistanceScale = Settings->GetFocusDistanceScale(FocusSettings, FocusFactor);
+		ParseParams.AbsoluteAzimuth = AbsoluteAzimuth;
+
+		if (Settings->bEnableListenerFocus && !Sound->bIgnoreFocus)
+		{
+			// Get the current focus factor
+			const float FocusFactor = AudioDevice->GetFocusFactor(ListenerData, Sound, Azimuth, *Settings);
+
+			// Get the volume scale to apply the volume calculation based on the focus factor
+			const float FocusVolumeAttenuation = Settings->GetFocusAttenuation(FocusSettings, FocusFactor);
+			Volume *= FocusVolumeAttenuation;
+
+			// Scale the volume-weighted priority scale value we use for sorting this sound for voice-stealing
+			FocusPriorityScale = Settings->GetFocusPriorityScale(FocusSettings, FocusFactor);
+			ParseParams.Priority *= FocusPriorityScale;
+
+			// Get the distance scale to use when computing distance-calculations for 3d attenuation
+			FocusDistanceScale = Settings->GetFocusDistanceScale(FocusSettings, FocusFactor);
+		}
 	}
 
 	// Attenuate the volume based on the model

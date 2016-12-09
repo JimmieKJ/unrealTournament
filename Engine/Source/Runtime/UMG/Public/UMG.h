@@ -3,6 +3,13 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Public Dependencies
  *****************************************************************************/
 
@@ -13,8 +20,8 @@
 #include "SlateBasics.h"
 #include "SlateCore.h"
 
-#include "Anchors.h"
-#include "SConstraintCanvas.h"
+#include "Widgets/Layout/Anchors.h"
+#include "Widgets/Layout/SConstraintCanvas.h"
 
 #include "Slate/SlateBrushAsset.h"
 
@@ -22,127 +29,128 @@
  *****************************************************************************/
 
 // Slate Types
-#include "SlateWrapperTypes.h"
+#include "Components/SlateWrapperTypes.h"
 
 // Binding
-#include "DynamicPropertyPath.h"
-#include "PropertyBinding.h"
+#include "Binding/DynamicPropertyPath.h"
+#include "Binding/PropertyBinding.h"
 
 // Components
-#include "DragDropOperation.h"
+#include "Blueprint/DragDropOperation.h"
 
-#include "Visual.h"
+#include "Components/Visual.h"
 
-#include "PanelSlot.h"
+#include "Components/PanelSlot.h"
 
-#include "WidgetNavigation.h"
-#include "Widget.h"
+#include "Blueprint/WidgetNavigation.h"
+#include "Slate/WidgetTransform.h"
+#include "Components/Widget.h"
 
-#include "PanelWidget.h"
-#include "ContentWidget.h"
+#include "Components/PanelWidget.h"
+#include "Components/ContentWidget.h"
 
-#include "NamedSlot.h"
-#include "NamedSlotInterface.h"
+#include "Components/NamedSlot.h"
+#include "Components/NamedSlotInterface.h"
 
-#include "CanvasPanelSlot.h"
-#include "CanvasPanel.h"
+#include "Components/CanvasPanelSlot.h"
+#include "Components/CanvasPanel.h"
 
-#include "HorizontalBoxSlot.h"
-#include "HorizontalBox.h"
+#include "Components/HorizontalBoxSlot.h"
+#include "Components/HorizontalBox.h"
 
-#include "VerticalBoxSlot.h"
-#include "VerticalBox.h"
+#include "Components/VerticalBoxSlot.h"
+#include "Components/VerticalBox.h"
 
-#include "WrapBoxSlot.h"
-#include "WrapBox.h"
+#include "Components/WrapBoxSlot.h"
+#include "Components/WrapBox.h"
 
-#include "UniformGridSlot.h"
-#include "UniformGridPanel.h"
+#include "Components/UniformGridSlot.h"
+#include "Components/UniformGridPanel.h"
 
-#include "GridSlot.h"
-#include "GridPanel.h"
+#include "Components/GridSlot.h"
+#include "Components/GridPanel.h"
 
-#include "OverlaySlot.h"
-#include "Overlay.h"
+#include "Components/OverlaySlot.h"
+#include "Components/Overlay.h"
 
-#include "ScrollBoxSlot.h"
-#include "ScrollBox.h"
+#include "Components/ScrollBoxSlot.h"
+#include "Components/ScrollBox.h"
 
-#include "WidgetSwitcherSlot.h"
-#include "WidgetSwitcher.h"
+#include "Components/WidgetSwitcherSlot.h"
+#include "Components/WidgetSwitcher.h"
 
-#include "BorderSlot.h"
-#include "Border.h"
+#include "Components/BorderSlot.h"
+#include "Components/Border.h"
 
-#include "ButtonSlot.h"
-#include "Button.h"
+#include "Components/ButtonSlot.h"
+#include "Components/Button.h"
 
-#include "SizeBoxSlot.h"
-#include "SizeBox.h"
+#include "Components/SizeBoxSlot.h"
+#include "Components/SizeBox.h"
 
-#include "TextWidgetTypes.h"
-#include "TextBlock.h"
+#include "Components/TextWidgetTypes.h"
+#include "Components/TextBlock.h"
 
-#include "CheckBox.h"
-#include "Image.h"
+#include "Components/CheckBox.h"
+#include "Components/Image.h"
 
-#include "SpinBox.h"
+#include "Components/SpinBox.h"
 
-#include "EditableText.h"
-#include "EditableTextBox.h"
+#include "Components/EditableText.h"
+#include "Components/EditableTextBox.h"
 
-#include "MultiLineEditableText.h"
-#include "MultiLineEditableTextBox.h"
+#include "Components/MultiLineEditableText.h"
+#include "Components/MultiLineEditableTextBox.h"
 
-#include "Slider.h"
-#include "ProgressBar.h"
+#include "Components/Slider.h"
+#include "Components/ProgressBar.h"
 
-#include "ComboBox.h"
-#include "ComboBoxString.h"
+#include "Components/ComboBox.h"
+#include "Components/ComboBoxString.h"
 
-#include "SScaleBox.h"
-#include "ScaleBoxSlot.h"
-#include "ScaleBox.h"
+#include "Widgets/Layout/SScaleBox.h"
+#include "Components/ScaleBoxSlot.h"
+#include "Components/ScaleBox.h"
 
-#include "ExpandableArea.h"
+#include "Components/ExpandableArea.h"
 
-#include "Spacer.h"
-#include "MenuAnchor.h"
-#include "ScrollBar.h"
+#include "Components/Spacer.h"
+#include "Components/MenuAnchor.h"
+#include "Components/ScrollBar.h"
 
-#include "Throbber.h"
-#include "CircularThrobber.h"
+#include "Components/Throbber.h"
+#include "Components/CircularThrobber.h"
 
-#include "TableViewBase.h"
-#include "ListView.h"
-#include "TileView.h"
+#include "Components/TableViewBase.h"
+#include "Components/ListView.h"
+#include "Components/TileView.h"
 
-#include "Viewport.h"
+#include "Components/Viewport.h"
 
-#include "NativeWidgetHost.h"
+#include "Components/NativeWidgetHost.h"
 
-#include "InputKeySelector.h"
+#include "Components/InputKeySelector.h"
 
-#include "WindowTitleBarArea.h"
-#include "WindowTitleBarAreaSlot.h"
+#include "Components/WindowTitleBarArea.h"
+#include "Components/WindowTitleBarAreaSlot.h"
 
 // Slate
-#include "SObjectWidget.h"
+#include "Slate/SObjectWidget.h"
 
 // Blueprint
-#include "WidgetTree.h"
-#include "UserWidget.h"
+#include "Blueprint/WidgetTree.h"
+#include "Blueprint/UserWidget.h"
 
-#include "WidgetBlueprintGeneratedClass.h"
+#include "Blueprint/WidgetBlueprintGeneratedClass.h"
 
 // Interfaces
 #include "IUMGModule.h"
 
 // Animation 
-#include "MovieScene2DTransformSection.h"
-#include "MovieScene2DTransformTrack.h"
-#include "MovieSceneMarginSection.h"
-#include "MovieSceneMarginTrack.h"
-#include "UMGSequencePlayer.h"
-#include "WidgetAnimation.h"
-#include "WidgetAnimationBinding.h"
+#include "Animation/MovieScene2DTransformSection.h"
+#include "Animation/MovieScene2DTransformTrack.h"
+#include "Animation/MovieSceneMarginSection.h"
+#include "Animation/MovieSceneMarginTrack.h"
+#include "Animation/UMGSequencePlayer.h"
+#include "Animation/WidgetAnimation.h"
+#include "Animation/WidgetAnimationBinding.h"

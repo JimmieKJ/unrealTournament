@@ -2,9 +2,16 @@
 
 #pragma once
 
-#include "LandscapeProxy.h" // for ELandscapeLayerPaintingRestriction
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "LandscapeProxy.h"
+#include "Editor/LandscapeEditor/Private/LandscapeEdMode.h"
 #include "LandscapeFileFormatInterface.h"
 #include "LandscapeEditorObject.generated.h"
+
+class ULandscapeMaterialInstanceConstant;
+class UTexture2D;
 
 UENUM()
 namespace ELandscapeToolFlattenMode
@@ -133,6 +140,10 @@ enum class ELandscapeMirrorOperation : uint8
 	PlusXToMinusX UMETA(DisplayName="+X to -X"),
 	MinusYToPlusY UMETA(DisplayName="-Y to +Y"),
 	PlusYToMinusY UMETA(DisplayName="+Y to -Y"),
+	RotateMinusXToPlusX UMETA(DisplayName="Rotate -X to +X"),
+	RotatePlusXToMinusX UMETA(DisplayName="Rotate +X to -X"),
+	RotateMinusYToPlusY UMETA(DisplayName="Rotate -Y to +Y"),
+	RotatePlusYToMinusY UMETA(DisplayName="Rotate +Y to -Y"),
 };
 
 USTRUCT()
@@ -416,6 +427,10 @@ class ULandscapeEditorObject : public UObject
 	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(DisplayName="Operation", ShowForTools="Mirror"))
 	ELandscapeMirrorOperation MirrorOp;
 
+	// Number of vertices either side of the mirror plane to smooth over
+	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(DisplayName="Smoothing Width", ShowForTools="Mirror", ClampMin="0", UIMin="0", UIMax="20"))
+	int32 MirrorSmoothingWidth;
+
 	// Resize Landscape Tool
 
 	// Number of quads per landscape component section
@@ -481,8 +496,11 @@ class ULandscapeEditorObject : public UObject
 	uint32 ImportLandscape_Width;
 	UPROPERTY(NonTransactional)
 	uint32 ImportLandscape_Height;
+
+private:
 	UPROPERTY(NonTransactional)
 	TArray<uint16> ImportLandscape_Data;
+public:
 
 	// Whether the imported alpha maps are to be interpreted as "layered" or "additive" (UE4 uses additive internally)
 	UPROPERTY(Category="New Landscape", EditAnywhere, NonTransactional, meta=(DisplayName="Layer Alphamap Type", ShowForTools="NewLandscape"))
@@ -585,9 +603,10 @@ class ULandscapeEditorObject : public UObject
 	// New Landscape
 	FString LastImportPath;
 
-	const TArray<uint16>& GetImportLandscapeData();
+	const TArray<uint16>& GetImportLandscapeData() const { return ImportLandscape_Data; }
 	void ClearImportLandscapeData() { ImportLandscape_Data.Empty(); }
 
+	void ImportLandscapeData();
 	void RefreshImportLayersList();
 	
 	void UpdateComponentLayerWhitelist();

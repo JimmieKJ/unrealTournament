@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Math/TransformCalculus2D.h"
+#include "Rendering/SlateRenderTransform.h"
 #include "WidgetTransform.generated.h"
 
 /**

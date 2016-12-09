@@ -5,6 +5,11 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Factories/Factory.h"
 #include "BlueprintFactory.generated.h"
 
 UCLASS(hidecategories=Object, collapsecategories)

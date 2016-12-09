@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SMenuOwner.h"
+#include "Widgets/Layout/SMenuOwner.h"
 
 void SMenuOwner::Construct(const FArguments& InArgs)
 {

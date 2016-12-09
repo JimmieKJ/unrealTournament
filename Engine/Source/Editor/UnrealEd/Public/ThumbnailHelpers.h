@@ -3,12 +3,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Blueprint.h"
 #include "PreviewScene.h"
 #include "Animation/SkeletalMeshActor.h"
 #include "ThumbnailHelpers.generated.h"
 
 class FSceneViewFamily;
-class USCS_Node;
+class USceneThumbnailInfo;
 
 class UNREALED_API FThumbnailPreviewScene : public FPreviewScene
 {

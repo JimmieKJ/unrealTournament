@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "ParameterSection.h"
-#include "MovieSceneParameterSection.h"
+#include "Sections/ParameterSection.h"
+#include "ISectionLayoutBuilder.h"
+#include "ScopedTransaction.h"
+#include "Sections/MovieSceneParameterSection.h"
 #include "FloatCurveKeyArea.h"
 
 

@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
-#include "BlueprintGraphDefinitions.h"
-#include "GraphEditorSettings.h"
-
 #include "NiagaraNodeInput.h"
+#include "UObject/UnrealType.h"
+#include "INiagaraCompiler.h"
+#include "NiagaraGraph.h"
+
 #include "EdGraphSchema_Niagara.h"
 
 UNiagaraNodeInput::UNiagaraNodeInput(const FObjectInitializer& ObjectInitializer)

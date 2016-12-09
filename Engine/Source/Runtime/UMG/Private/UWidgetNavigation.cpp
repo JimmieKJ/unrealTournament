@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Types/SlateEnums.h"
+#include "Input/NavigationReply.h"
+#include "Types/NavigationMetaData.h"
+#include "Blueprint/WidgetNavigation.h"
+#include "Blueprint/WidgetTree.h"
 
 /////////////////////////////////////////////////////
 // UWidgetNavigation

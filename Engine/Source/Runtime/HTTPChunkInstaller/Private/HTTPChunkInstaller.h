@@ -4,7 +4,6 @@
 
 #include "GenericPlatformChunkInstall.h"
 #include "UniquePtr.h"
-#include "BuildPatchServices.h"
 #include "OnlineSubsystemTypes.h"
 #include "OnlineSubsystem.h"
 #include "ChunkInstall.h"

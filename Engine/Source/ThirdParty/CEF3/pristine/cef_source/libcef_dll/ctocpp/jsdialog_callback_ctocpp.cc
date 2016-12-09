@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -17,7 +17,8 @@
 
 void CefJSDialogCallbackCToCpp::Continue(bool success,
     const CefString& user_input) {
-  if (CEF_MEMBER_MISSING(struct_, cont))
+  cef_jsdialog_callback_t* _struct = GetStruct();
+  if (CEF_MEMBER_MISSING(_struct, cont))
     return;
 
   // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
@@ -25,14 +26,29 @@ void CefJSDialogCallbackCToCpp::Continue(bool success,
   // Unverified params: user_input
 
   // Execute
-  struct_->cont(struct_,
+  _struct->cont(_struct,
       success,
       user_input.GetStruct());
 }
 
+
+// CONSTRUCTOR - Do not edit by hand.
+
+CefJSDialogCallbackCToCpp::CefJSDialogCallbackCToCpp() {
+}
+
+template<> cef_jsdialog_callback_t* CefCToCpp<CefJSDialogCallbackCToCpp,
+    CefJSDialogCallback, cef_jsdialog_callback_t>::UnwrapDerived(
+    CefWrapperType type, CefJSDialogCallback* c) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
+}
 
 #ifndef NDEBUG
 template<> base::AtomicRefCount CefCToCpp<CefJSDialogCallbackCToCpp,
     CefJSDialogCallback, cef_jsdialog_callback_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCToCpp<CefJSDialogCallbackCToCpp,
+    CefJSDialogCallback, cef_jsdialog_callback_t>::kWrapperType =
+    WT_JSDIALOG_CALLBACK;

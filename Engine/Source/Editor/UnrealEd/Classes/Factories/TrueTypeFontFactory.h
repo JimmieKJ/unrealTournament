@@ -5,7 +5,15 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EditorReimportHandler.h"
+#include "Factories/TextureFactory.h"
 #include "TrueTypeFontFactory.generated.h"
+
+class UFont;
+class UTexture2D;
 
 UCLASS(hidecategories=Object, collapsecategories)
 class UNREALED_API UTrueTypeFontFactory : public UTextureFactory, public FReimportHandler
@@ -59,7 +67,7 @@ class UNREALED_API UTrueTypeFontFactory : public UTextureFactory, public FReimpo
 	 *
 	 * @return Returns the newly created texture, if successful, otherwise NULL
 	 */
-	UTexture2D* CreateTextureFromDC( UFont* Font, HDC dc, int32 RowHeight, int32 TextureNum );
+	UTexture2D* CreateTextureFromDC( UFont* Font, Windows::HDC dc, int32 RowHeight, int32 TextureNum );
 #endif
 
 #if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX

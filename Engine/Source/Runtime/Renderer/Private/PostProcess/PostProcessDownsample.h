@@ -6,8 +6,9 @@
 
 #pragma once
 
-#include "RenderingCompositionGraph.h"
-#include "PostProcessing.h"
+#include "CoreMinimal.h"
+#include "RendererInterface.h"
+#include "PostProcess/RenderingCompositionGraph.h"
 
 // derives from TRenderingCompositePassBase<InputCount, OutputCount>
 // ePId_Input0: Color input

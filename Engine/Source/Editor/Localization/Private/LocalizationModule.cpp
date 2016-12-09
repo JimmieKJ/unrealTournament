@@ -1,8 +1,6 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationPrivatePCH.h"
 #include "LocalizationModule.h"
-#include "LocalizationTargetTypes.h"
 #include "LocalizationSettings.h"
 
 ULocalizationTarget* FLocalizationModule::GetLocalizationTargetByName(FString TargetName, bool bIsEngineTarget)

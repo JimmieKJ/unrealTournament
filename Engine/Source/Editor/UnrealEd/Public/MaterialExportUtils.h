@@ -1,6 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Math/IntPoint.h"
+#include "Misc/Guid.h"
+#include "Math/Color.h"
+#include "SceneTypes.h"
+#include "Engine/Texture.h"
+
+class UWorld;
+class UMaterialInterface;
+class UTextureRenderTarget2D;
+class UMaterial;
+class UPackage;
+class FString;
+class UObject;
+class UTexture2D;
+
 // Forward declarations
 class ALandscapeProxy;
 class ULandscapeComponent;

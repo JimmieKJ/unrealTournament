@@ -2,9 +2,16 @@
 
 
 #pragma once
-#include "ParticleHelper.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
 
 #include "ParticleSystem.generated.h"
+
+enum class EParticleSignificanceLevel : uint8;
+enum class EParticleSystemInsignificanceReaction: uint8;
 
 /**
  *	ParticleSystemUpdateMode

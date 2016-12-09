@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
+#include "AnimGraphNode_LayeredBoneBlend.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #include "GraphEditorActions.h"
 #include "ScopedTransaction.h"
-#include "AnimGraphNode_LayeredBoneBlend.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_LayeredBoneBlend

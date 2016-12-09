@@ -18,6 +18,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
         {
             this.Crashes = new HashSet<Crash>();
             this.UserGroups = new HashSet<UserGroup>();
+            this.Crashes1 = new HashSet<Crash>();
         }
     
         public int Id { get; set; }
@@ -38,5 +39,6 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
         public virtual CallStackPattern CallStackPattern { get; set; }
         public virtual ICollection<Crash> Crashes { get; set; }
         public virtual ICollection<UserGroup> UserGroups { get; set; }
+        public virtual ICollection<Crash> Crashes1 { get; set; }
     }
 }

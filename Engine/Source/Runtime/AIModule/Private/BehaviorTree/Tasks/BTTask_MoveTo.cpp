@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Tasks/BTTask_MoveTo.h"
-#include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/BlackboardComponent.h"
+#include "GameFramework/Actor.h"
+#include "AISystem.h"
+#include "Navigation/PathFollowingComponent.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Vector.h"
+#include "VisualLogger/VisualLogger.h"
+#include "AIController.h"
+#include "BehaviorTree/BlackboardComponent.h"
 #include "Tasks/AITask_MoveTo.h"
 
 UBTTask_MoveTo::UBTTask_MoveTo(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)

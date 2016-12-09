@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "OnlineAsyncTaskManager.h"
 #include "OnlineAsyncTaskGooglePlayAuthAction.h"
 #include "OnlineSubsystemGooglePlayPackage.h"

@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "BlueprintFunctionLibrary.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "KismetStringLibrary.generated.h"
 
-UCLASS()
+UCLASS(meta=(BlueprintThreadSafe))
 class ENGINE_API UKismetStringLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
@@ -28,6 +31,10 @@ class ENGINE_API UKismetStringLibrary : public UBlueprintFunctionLibrary
 	/** Converts a vector value to a string, in the form 'X= Y= Z=' */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (Vector)", CompactNodeTitle = "->", BlueprintAutocast), Category="Utilities|String")
 	static FString Conv_VectorToString(FVector InVec);
+
+	/** Converts an IntVector value to a string, in the form 'X= Y= Z=' */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (IntVector)", CompactNodeTitle = "->", BlueprintAutocast), Category="Utilities|String")
+	static FString Conv_IntVectorToString(FIntVector InIntVec);
 
 	/** Converts a vector2d value to a string, in the form 'X= Y=' */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (vector2d)", CompactNodeTitle = "->", BlueprintAutocast), Category="Utilities|String")
@@ -125,6 +132,16 @@ class ENGINE_API UKismetStringLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "BuildString (vector)"), Category="Utilities|String")
 	static FString BuildString_Vector(const FString& AppendTo, const FString& Prefix, FVector InVector, const FString& Suffix);
 
+	/**
+	 * Converts an IntVector->string, creating a new string in the form AppendTo+Prefix+InIntVector+Suffix
+	 * @param AppendTo - An existing string to use as the start of the conversion string
+	 * @param Prefix - A string to use as a prefix, after the AppendTo string
+	 * @param InIntVector - The intVector value to convert. Uses the standard FVector::ToString conversion
+	 * @param Suffix - A suffix to append to the end of the conversion string
+	 * @return A new string built from the passed parameters
+	 */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "BuildString (IntVector)"), Category = "Utilities|String")
+	static FString BuildString_IntVector(const FString& AppendTo, const FString& Prefix, FIntVector InIntVector, const FString& Suffix);
 	/** 
 	 * Converts a vector2d->string, creating a new string in the form AppendTo+Prefix+InVector2d+Suffix
 	 * @param AppendTo - An existing string to use as the start of the conversion string

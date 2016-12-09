@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Model/MessageLogListingModel.h"
+
 /**
  * Holds a series of message log listings that can be written to.
  */

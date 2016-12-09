@@ -3,7 +3,7 @@
 #pragma once
 
 namespace EOnlineServerConnectionStatus {
-	enum Type : unsigned int;
+	enum Type : uint8;
 }
 
 /** Generic Error response for OSS calls */
@@ -43,4 +43,7 @@ public:
 
 	/** Suitable for display to end user. Guaranteed to be in the current locale (or empty) */
 	FText ErrorMessage;
+
+	/** Numeric error code provided by the backend expected to correspond to error stored in ErrorCode */
+	int32 NumericErrorCode;
 };

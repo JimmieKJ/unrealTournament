@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "OnlineBeaconHostObject.h"
 #include "TestBeaconHost.generated.h"
+
+class AOnlineBeaconClient;
 
 /**
  * A beacon host used for taking reservations for an existing game session

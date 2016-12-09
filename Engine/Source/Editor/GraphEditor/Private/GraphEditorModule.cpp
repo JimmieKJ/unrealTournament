@@ -1,14 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-
-#include "GraphEditor.h"
 #include "GraphEditorModule.h"
+#include "Modules/ModuleManager.h"
+
 #include "GraphEditorActions.h"
-#include "ScopedTransaction.h"
-#include "SGraphEditorActionMenu.h"
-#include "EdGraphUtilities.h"
 #include "SGraphEditorImpl.h"
 
 IMPLEMENT_MODULE(FGraphEditorModule, GraphEditor);

@@ -1,18 +1,37 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Kismet2/KismetDebugUtilities.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "GameFramework/Actor.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Text/SMultiLineEditableText.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "EditorStyleSet.h"
+#include "Engine/Blueprint.h"
+#include "EdGraph/EdGraph.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
+#include "UnrealEdGlobals.h"
 #include "Engine/Breakpoint.h"
 #include "ActorEditorUtils.h"
-#include "BlueprintUtilities.h"
-#include "AnimGraphDefinitions.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "K2Node_Tunnel.h"
+#include "K2Node_FunctionEntry.h"
+#include "K2Node_MacroInstance.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "Kismet2/KismetDebugUtilities.h"
-#include "Editor/Kismet/Public/BlueprintEditorModule.h"
-#include "Toolkits/ToolkitManager.h"
-#include "Editor/KismetCompiler/Public/KismetCompilerModule.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 #include "AnimGraphNode_Base.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintDebugging"
@@ -868,7 +887,7 @@ UBreakpoint* FKismetDebugUtilities::FindBreakpointForNode(UBlueprint* Blueprint,
 		{
 			Blueprint->Breakpoints.RemoveAtSwap(Index);
 			Blueprint->MarkPackageDirty();
-			UE_LOG(LogBlueprintDebug, Warning, TEXT("Encountered a blueprint breakpoint in %s without an associated node (this should not happen... if you know how your blueprint got in this state, then please notify the Engine-Blueprints team)"), *Blueprint->GetPathName());
+			UE_LOG(LogBlueprintDebug, Display, TEXT("Encountered a blueprint breakpoint in %s without an associated node. The blueprint has been remoevd"), *Blueprint->GetPathName());
 			continue;
 		}
 

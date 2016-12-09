@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Margin.h"
+#include "Layout/Visibility.h"
+#include "Layout/SlateRect.h"
+#include "Layout/ArrangedChildren.h"
+
 struct AlignmentArrangeResult
 {
 	AlignmentArrangeResult( float InOffset, float InSize )

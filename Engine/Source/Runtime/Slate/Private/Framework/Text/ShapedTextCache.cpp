@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "ShapedTextCache.h"
-#include "BreakIterator.h"
+#include "Framework/Text/ShapedTextCache.h"
+#include "Fonts/FontCache.h"
+#include "Internationalization/IBreakIterator.h"
+#include "Internationalization/BreakIterator.h"
 
 FShapedGlyphSequencePtr FShapedTextCache::FindShapedText(const FCachedShapedTextKey& InKey) const
 {

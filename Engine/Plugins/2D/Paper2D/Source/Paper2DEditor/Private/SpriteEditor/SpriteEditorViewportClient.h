@@ -2,16 +2,17 @@
 
 #pragma once
 
-#include "PaperSpriteComponent.h"
-#include "SpriteEditor.h"
-#include "SSingleObjectDetailsPanel.h"
-#include "SceneViewport.h"
-#include "PaperEditorViewportClient.h"
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
 #include "PreviewScene.h"
-#include "ScopedTransaction.h"
-#include "SpriteEditorSelections.h"
 #include "AssetData.h"
-#include "PaperEditorShared/SpriteGeometryEditing.h"
+#include "SpriteEditor/SpriteEditor.h"
+#include "SpriteEditor/SpriteEditorSelections.h"
+#include "SEditorViewport.h"
+#include "PaperEditorViewportClient.h"
+
+class FCanvas;
+class UPaperSpriteComponent;
 
 //////////////////////////////////////////////////////////////////////////
 // FRelatedSprite

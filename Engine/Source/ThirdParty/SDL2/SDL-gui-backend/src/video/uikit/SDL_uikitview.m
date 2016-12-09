@@ -1,6 +1,6 @@
  /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -45,7 +45,9 @@
         self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         self.autoresizesSubviews = YES;
 
+#if !TARGET_OS_TV
         self.multipleTouchEnabled = YES;
+#endif
 
         touchId = 1;
         SDL_AddTouch(touchId, "");
@@ -62,6 +64,7 @@
         return;
     }
 
+    /* Remove ourself from the old window. */
     if (sdlwindow) {
         SDL_uikitview *view = nil;
         data = (__bridge SDL_WindowData *) sdlwindow->driverdata;
@@ -71,9 +74,7 @@
         [self removeFromSuperview];
 
         /* Restore the next-oldest view in the old window. */
-        if (data.views.count > 0) {
-            view = data.views[data.views.count - 1];
-        }
+        view = data.views.lastObject;
 
         data.viewcontroller.view = view;
 
@@ -83,6 +84,7 @@
         [data.uiwindow layoutIfNeeded];
     }
 
+    /* Add ourself to the new window. */
     if (window) {
         data = (__bridge SDL_WindowData *) window->driverdata;
 
@@ -123,39 +125,56 @@
     return point;
 }
 
+- (float)pressureForTouch:(UITouch *)touch
+{
+#ifdef __IPHONE_9_0
+    if ([touch respondsToSelector:@selector(force)]) {
+        return (float) touch.force;
+    }
+#endif
+
+    return 1.0f;
+}
+
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
 {
     for (UITouch *touch in touches) {
+        float pressure = [self pressureForTouch:touch];
+
         if (!firstFingerDown) {
             CGPoint locationInView = [self touchLocation:touch shouldNormalize:NO];
+            int clicks = (int) touch.tapCount;
 
             /* send mouse moved event */
             SDL_SendMouseMotion(sdlwindow, SDL_TOUCH_MOUSEID, 0, locationInView.x, locationInView.y);
 
             /* send mouse down event */
-            SDL_SendMouseButton(sdlwindow, SDL_TOUCH_MOUSEID, SDL_PRESSED, SDL_BUTTON_LEFT);
+            SDL_SendMouseButtonClicks(sdlwindow, SDL_TOUCH_MOUSEID, SDL_PRESSED, SDL_BUTTON_LEFT, clicks);
 
             firstFingerDown = touch;
         }
 
         CGPoint locationInView = [self touchLocation:touch shouldNormalize:YES];
         SDL_SendTouch(touchId, (SDL_FingerID)((size_t)touch),
-                      SDL_TRUE, locationInView.x, locationInView.y, 1.0f);
+                      SDL_TRUE, locationInView.x, locationInView.y, pressure);
     }
 }
 
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
 {
     for (UITouch *touch in touches) {
+        float pressure = [self pressureForTouch:touch];
+
         if (touch == firstFingerDown) {
             /* send mouse up */
-            SDL_SendMouseButton(sdlwindow, SDL_TOUCH_MOUSEID, SDL_RELEASED, SDL_BUTTON_LEFT);
+            int clicks = (int) touch.tapCount;
+            SDL_SendMouseButtonClicks(sdlwindow, SDL_TOUCH_MOUSEID, SDL_RELEASED, SDL_BUTTON_LEFT, clicks);
             firstFingerDown = nil;
         }
 
         CGPoint locationInView = [self touchLocation:touch shouldNormalize:YES];
         SDL_SendTouch(touchId, (SDL_FingerID)((size_t)touch),
-                      SDL_FALSE, locationInView.x, locationInView.y, 1.0f);
+                      SDL_FALSE, locationInView.x, locationInView.y, pressure);
     }
 }
 
@@ -167,6 +186,8 @@
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
 {
     for (UITouch *touch in touches) {
+        float pressure = [self pressureForTouch:touch];
+
         if (touch == firstFingerDown) {
             CGPoint locationInView = [self touchLocation:touch shouldNormalize:NO];
 
@@ -176,9 +197,72 @@
 
         CGPoint locationInView = [self touchLocation:touch shouldNormalize:YES];
         SDL_SendTouchMotion(touchId, (SDL_FingerID)((size_t)touch),
-                            locationInView.x, locationInView.y, 1.0f);
+                            locationInView.x, locationInView.y, pressure);
     }
 }
+
+#if TARGET_OS_TV || defined(__IPHONE_9_1)
+- (SDL_Scancode)scancodeFromPressType:(UIPressType)presstype
+{
+    switch (presstype) {
+    case UIPressTypeUpArrow:
+        return SDL_SCANCODE_UP;
+    case UIPressTypeDownArrow:
+        return SDL_SCANCODE_DOWN;
+    case UIPressTypeLeftArrow:
+        return SDL_SCANCODE_LEFT;
+    case UIPressTypeRightArrow:
+        return SDL_SCANCODE_RIGHT;
+    case UIPressTypeSelect:
+        /* HIG says: "primary button behavior" */
+        return SDL_SCANCODE_SELECT;
+    case UIPressTypeMenu:
+        /* HIG says: "returns to previous screen" */
+        return SDL_SCANCODE_MENU;
+    case UIPressTypePlayPause:
+        /* HIG says: "secondary button behavior" */
+        return SDL_SCANCODE_PAUSE;
+    default:
+        return SDL_SCANCODE_UNKNOWN;
+    }
+}
+
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
+{
+    for (UIPress *press in presses) {
+        SDL_Scancode scancode = [self scancodeFromPressType:press.type];
+        SDL_SendKeyboardKey(SDL_PRESSED, scancode);
+    }
+
+    [super pressesBegan:presses withEvent:event];
+}
+
+- (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
+{
+    for (UIPress *press in presses) {
+        SDL_Scancode scancode = [self scancodeFromPressType:press.type];
+        SDL_SendKeyboardKey(SDL_RELEASED, scancode);
+    }
+
+    [super pressesEnded:presses withEvent:event];
+}
+
+- (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
+{
+    for (UIPress *press in presses) {
+        SDL_Scancode scancode = [self scancodeFromPressType:press.type];
+        SDL_SendKeyboardKey(SDL_RELEASED, scancode);
+    }
+
+    [super pressesCancelled:presses withEvent:event];
+}
+
+- (void)pressesChanged:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
+{
+    /* This is only called when the force of a press changes. */
+    [super pressesChanged:presses withEvent:event];
+}
+#endif /* TARGET_OS_TV || defined(__IPHONE_9_1) */
 
 @end
 

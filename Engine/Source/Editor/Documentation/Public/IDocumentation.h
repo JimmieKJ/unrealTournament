@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Modules/ModuleManager.h"
 #include "IDocumentationModule.h"
-#include "IDocumentationPage.h"
+
+template< typename ObjectType > class TAttribute;
 
 /** Invoked when someone clicks on a hyperlink. */
 DECLARE_DELEGATE_OneParam( FOnNavigate, const FString& )

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/SecureHash.h"
 #include "AssetImportData.generated.h"
 
 /** Struct that is used to store an array of asset import data as an asset registry tag */
@@ -62,6 +66,9 @@ class ENGINE_API UAssetImportData : public UObject
 public:
 	GENERATED_UCLASS_BODY()
 
+	/** Only valid in the editor */
+	virtual bool IsEditorOnly() const override { return true; }
+
 #if WITH_EDITORONLY_DATA
 
 	/** Path to the resource used to construct this static mesh. Relative to the object's package, BaseDir() or absolute */
@@ -83,6 +90,11 @@ public:
 
 	/** Update this import data using the specified file. Called when an asset has been imported from a file. */
 	void Update(const FString& AbsoluteFilename, FMD5Hash *Md5Hash = nullptr);
+
+	//@third party BEGIN SIMPLYGON
+	/** Update this import data using the specified filename and Precomputed Hash. */
+	void Update(const FString& AbsoluteFileName, const FMD5Hash PreComputedHash);
+	//@third party END SIMPLYGON
 
 	/** Update this import data using the specified filename. Will not update the imported timestamp or MD5 (so we can update files when they move). */
 	void UpdateFilenameOnly(const FString& InPath);

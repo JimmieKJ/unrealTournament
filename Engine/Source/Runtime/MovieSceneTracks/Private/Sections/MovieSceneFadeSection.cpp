@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneFadeSection.h"
+#include "Sections/MovieSceneFadeSection.h"
 
 
 /* UMovieSceneFadeSection structors
@@ -13,4 +12,6 @@ UMovieSceneFadeSection::UMovieSceneFadeSection()
 	, bFadeAudio(false)
 {
 	SetIsInfinite(true);
+
+	EvalOptions.EnableAndSetCompletionMode(EMovieSceneCompletionMode::RestoreState);
 }

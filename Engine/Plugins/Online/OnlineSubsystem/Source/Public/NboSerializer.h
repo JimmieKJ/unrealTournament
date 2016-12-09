@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
 #include "OnlineKeyValuePair.h"
 #include "OnlineSessionSettings.h"
-#include "Sockets.h"
+#include "IPAddress.h"
 
 /**
  * Serializes data in network byte order form into a buffer

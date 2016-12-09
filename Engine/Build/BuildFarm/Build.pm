@@ -236,12 +236,12 @@ sub check_for_changes
 # runs uat to build the list of steps for this build 
 sub build_setup
 {
-	my ($workspace, $change, $code_change, $build_script, $target, $trigger, $temp_storage_dir, $pass_through_arguments) = @_;
+	my ($workspace, $change, $code_change, $build_script, $target, $trigger, $token_signature, $temp_storage_dir, $pass_through_arguments) = @_;
 	
 	my $uat_arguments;
 	$uat_arguments = "BuildGraph -Script=".quote_argument($build_script)." -Target=".quote_argument($target)." -Export=".quote_argument(join_paths(getcwd(), "job.json"))." -SharedStorageDir=".quote_argument($temp_storage_dir);
 	$uat_arguments .= " -Trigger=".quote_argument($trigger) if $trigger;
-	$uat_arguments .= " -TokenSignature=".quote_argument(ec_get_full_url("/commander/link/jobDetails/jobs/$ENV{COMMANDER_JOBID}"));
+	$uat_arguments .= " -TokenSignature=".quote_argument($token_signature);
 	$uat_arguments .= " $pass_through_arguments" if $pass_through_arguments;
 	$uat_arguments .= " CopyUAT -WithLauncher -TargetDir=".quote_argument(join_paths(getcwd(), "UAT"));
 	run_uat($workspace, $change, $code_change, $uat_arguments);
@@ -250,7 +250,7 @@ sub build_setup
 # configures the ec job from the job definition created by build_setup.
 sub build_job_setup
 {
-	my ($ec, $ec_project, $ec_job, $ec_update, $settings, $workspace, $change, $build_script, $target, $shared_storage_block, $arguments, $pass_through_arguments, $optional_arguments) = @_;
+	my ($ec, $ec_project, $ec_job, $ec_update, $settings, $workspace, $change, $build_script, $target, $token_signature, $shared_storage_block, $arguments, $pass_through_arguments, $optional_arguments) = @_;
 
 	# Read the job definition
 	my $job_definition = read_json('job.json');
@@ -365,27 +365,24 @@ sub build_job_setup
 	
 		# create all the preconditions. we wait for all the external nodes to be complete, OR their parent procedure (in case its preconditions fail)
 		my @preconditions = ();
-		my @runconditions = ();
 		foreach my $group_dependency_name (keys %group_name_to_node_dependency_names)
 		{
 			my $node_dependency_names = $group_name_to_node_dependency_names{$group_dependency_name};
 		
 			my @node_preconditions;
-			my @node_runconditions;
 			foreach my $node_dependency_name (keys %{$node_dependency_names})
 			{
 				my $jobstep = $node_name_to_jobstep->{$node_dependency_name};
 				push(@node_preconditions, "getProperty('$jobstep/status') == 'completed'");
-				push(@node_runconditions, "(getProperty('$jobstep/outcome') == 'success' || getProperty('$jobstep/outcome') == 'warning')");
 			}
 
 			my $group_jobstep = get_group_jobstep($ec_job, $group_dependency_name);
 			push(@preconditions, "(getProperty('$group_jobstep/status') == 'completed' || (".join(' && ', @node_preconditions).'))');
-			push(@runconditions, join(' && ', @node_runconditions));
 		}
 
 		# get the command line arguments for this group
 		my $group_arguments = "--group=".quote_argument($group_name)." --agent-type=$group_agent_type --build-script=\"$build_script\"";
+		$group_arguments .= " --token-signature=".quote_argument($token_signature);
 		$group_arguments .= " --shared-storage-dir=".quote_argument(get_shared_storage_dir($workspace->{'stream'}, $settings, $group_agent_type, $shared_storage_block));
 		foreach my $argument_key (keys(%{$arguments}))
 		{
@@ -405,7 +402,6 @@ sub build_job_setup
 		$jobstep_arguments->{'subprocedure'} = 'Build Agent Setup';
 		$jobstep_arguments->{'parallel'} = '1';
 		$jobstep_arguments->{'actualParameter'} = [{ actualParameterName => 'Arguments', value => $group_arguments }, { actualParameterName => 'Resource Pool', value => $group_resource_pool }, { actualParameterName => 'Dependent Triggers', value => join(' ', keys %dependent_trigger_names) }];
-		$jobstep_arguments->{'condition'} = format_javascript_condition(join(' && ', @runconditions)) if $#runconditions >= 0;
 		$jobstep_arguments->{'precondition'} = format_javascript_condition(join(' && ', @preconditions)) if $#preconditions >= 0;
 		push(@jobstep_arguments_array, $jobstep_arguments);
 	}
@@ -481,6 +477,7 @@ sub build_job_setup
 		$arguments .= " --report-name=\"$report_definition->{'Name'}\"";
 		$arguments .= " --shared-storage-block=\"$shared_storage_block\"";
 		$arguments .= " --email-only=$optional_arguments->{'email_only'}" if $optional_arguments->{'email_only'};
+		$arguments .= " --token-signature=".quote_argument($token_signature);
 		$arguments .= " --ec-update";
 
 		# create the procedure
@@ -507,7 +504,7 @@ sub build_job_setup
 # create all the job steps for a gubp agent sharing group.
 sub build_agent_setup
 {
-	my ($ec, $ec_job, $workspace, $change, $code_change, $build_script, $target, $group, $resource_name, $shared_storage_dir, $ec_update, $optional_arguments) = @_;
+	my ($ec, $ec_job, $workspace, $change, $code_change, $build_script, $target, $group, $token_signature, $resource_name, $shared_storage_dir, $ec_update, $optional_arguments) = @_;
 
 	my $start_time = time;
 	print "Creating agent job steps...\n";
@@ -575,17 +572,17 @@ sub build_agent_setup
 				$command .= "ec-perl Main.pl BuildSingleNode";
 				$command .= " --stream=$workspace->{'stream'}";
 				$command .= " --change=$change";
+				$command .= " --build-script=".quote_argument($build_script);
 				$command .= " --workspace-name=".quote_argument($workspace->{'name'});
 				$command .= " --workspace-dir=".quote_argument($workspace->{'dir'});
 				$command .= " --node=".quote_argument($node_name);
+				$command .= " --token-signature=".quote_argument($token_signature);
 				$command .= " --fake-build" if $optional_arguments->{'fake_build'};
 				$command .= " --fake-fail=$optional_arguments->{'fake_fail'}" if $optional_arguments->{'fake_fail'};
 				$command .= " --ec-update" if $ec_update;
 				$command .= " --autosdk" if $optional_arguments->{'autosdk'};
 				$command .= " --email-only=$optional_arguments->{'email_only'}" if $optional_arguments->{'email_only'};
 				$command .= " --";
-				$command .= " -NoCompile";
-				$command .= " -Script=".quote_argument($build_script);
 				$command .= " -Target=".quote_argument($target);
 				$command .= " -SharedStorageDir=".quote_argument($shared_storage_dir);
 				$command .= " $optional_arguments->{'pass_through_arguments'}" if $optional_arguments->{'pass_through_arguments'};
@@ -633,7 +630,7 @@ sub build_agent_setup
 # execute a buildgraph node
 sub build_single_node
 {
-	my ($ec, $ec_project, $ec_job, $ec_jobstep, $stream, $change_number, $workspace_name, $workspace_dir, $node, $ec_update, $optional_arguments) = @_;
+	my ($ec, $ec_project, $ec_job, $ec_jobstep, $stream, $change_number, $workspace_name, $workspace_dir, $build_script, $node, $token_signature, $ec_update, $optional_arguments) = @_;
 
 	# print out the log folder we'll be using right at the start. it's often vital for follow-up debugging.
 	my $target_log_folder = join_paths('UAT Logs', $node);
@@ -658,9 +655,11 @@ sub build_single_node
 
 	# get the UAT command line
 	my $command;
-	$command = "Build";
+	$command = "BuildGraph";
+	$command .= " -NoCompile";
+	$command .= " -Script=".quote_argument($build_script);
 	$command .= " -SingleNode=".quote_argument($node);
-	$command .= " -TokenSignature=".quote_argument(ec_get_full_url("/commander/link/jobDetails/jobs/$ENV{COMMANDER_JOBID}"));
+	$command .= " -TokenSignature=".quote_argument($token_signature);
 	$command .= " $optional_arguments->{'pass_through_arguments'}" if $optional_arguments->{'pass_through_arguments'};
 	$command .= " -Telemetry=\"$telemetry_file\"";
 
@@ -706,8 +705,13 @@ sub build_single_node
 	# get the jobstep properties
 	my $jobstep = ec_get_jobstep($ec, $ec_jobstep);
 
+	# create the command line to reproduce this build locally
+	my $repro_steps = "";
+	$repro_steps .= is_windows()? "Engine\\Build\\BatchFiles\\RunUAT.bat" : "Engine/Build/BatchFiles/RunUAT.sh";
+	$repro_steps .= " BuildGraph -Script=".quote_argument($build_script)." -Target=".quote_argument($node)." -ClearHistory -P4";
+
 	# get the notification settings
-	my $notifications = get_jobstep_notifications($ec, $ec_project, $job_definition, $jobstep, $workspace_name, $workspace_dir, {});
+	my $notifications = get_jobstep_notifications($ec, $ec_project, $job_definition, $jobstep, $workspace_name, $workspace_dir, $repro_steps);
 	if($notifications)
 	{
 		# get the standard recipients
@@ -805,7 +809,7 @@ sub set_latest_build
 # evaluate the conditions for a trigger
 sub build_report_setup
 {
-	my ($ec, $ec_job, $stream, $change, $report_name, $temp_storage_block, $ec_update, $optional_arguments) = @_;
+	my ($ec, $ec_job, $stream, $change, $report_name, $token_signature, $temp_storage_block, $ec_update, $optional_arguments) = @_;
 
 	# get the job details
 	my $job = ec_get_job($ec, $ec_job);
@@ -843,7 +847,7 @@ sub build_report_setup
 		# create the link to start the trigger
 		if($result)
 		{
-			my $trigger_url = get_trigger_url($ec, $ec_job, $change, $temp_storage_block, $report_name);
+			my $trigger_url = get_trigger_url($ec, $ec_job, $change, $token_signature, $temp_storage_block, $report_name);
 			ec_set_property($ec, "/myJob/report-urls/Trigger: $report_name", $trigger_url, $ec_update);
 			print "Trigger is ready to run ($trigger_url)\n";
 		}
@@ -885,7 +889,7 @@ sub build_report_setup
 # gets the url required to start a downstream job from the current one. copies all the same parameters (with the exception of the current trigger parameter)
 sub get_trigger_url
 {
-	my ($ec, $ec_job, $change, $temp_storage_block, $trigger_name) = @_;
+	my ($ec, $ec_job, $change, $token_signature, $temp_storage_block, $trigger_name) = @_;
 	
 	# get the root parent job
 	my $original_job = $ec_job;
@@ -923,7 +927,7 @@ sub get_trigger_url
 		}
 	
 		# insert the trigger parameters into the arguments
-		$parameters->{'Arguments'} = "--trigger=\"$trigger_name\" --shared-storage-block=\"$temp_storage_block\" $parameters->{'Arguments'}";
+		$parameters->{'Arguments'} = "--trigger=\"$trigger_name\" --shared-storage-block=\"$temp_storage_block\" --token-signature=\"$token_signature\" $parameters->{'Arguments'}";
 		
 		# add the trigger name to the end of the build name
 		$parameters->{'Job Name'} = "$parameters->{'Job Name'} - $trigger_name";
@@ -1231,6 +1235,12 @@ sub get_uat_exit_code
 
 	print "\n";
 	chdir $initial_dir;
+	
+	# kill any zombie ADB processes left over. ADB spawns a server which can keep a handle to stdout and prevent postp from terminating after a build finishes.
+	if(is_windows())
+	{
+		system("cmd.exe /c taskkill /IM adb.exe /F /T 2>nul:");
+	}
 	
 	$result;
 }

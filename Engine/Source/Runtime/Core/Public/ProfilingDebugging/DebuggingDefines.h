@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 // compiles out code used for debugging issues with distributed cooking
 #define DEBUG_DISTRIBUTED_COOKING 0
 

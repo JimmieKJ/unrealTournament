@@ -1,13 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "Components/SceneComponent.h"
 #include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicsConstraintComponent.generated.h"
+
+class AActor;
+class UPrimitiveComponent;
+struct FBodyInstance;
 
 /**
  *	This is effectively a joint that allows you to connect 2 rigid bodies together. You can create different types of joints using the various parameters of this component.
  */
-UCLASS(ClassGroup=Physics, MinimalAPI, meta=(BlueprintSpawnableComponent), HideCategories=(Activation,"Components|Activation", Physics, Mobility), ShowCategories=("Physics|Components|PhysicsConstraint"))
-class UPhysicsConstraintComponent : public USceneComponent
+UCLASS(ClassGroup=Physics, meta=(BlueprintSpawnableComponent), HideCategories=(Activation,"Components|Activation", Physics, Mobility), ShowCategories=("Physics|Components|PhysicsConstraint"))
+class ENGINE_API UPhysicsConstraintComponent : public USceneComponent
 {
 	GENERATED_UCLASS_BODY()
 
@@ -78,10 +87,10 @@ public:
 	//~ End SceneComponent Interface
 
 	/** Get the body frame. Works without constraint being created */
-	ENGINE_API FTransform GetBodyTransform(EConstraintFrame::Type Frame) const;
+	FTransform GetBodyTransform(EConstraintFrame::Type Frame) const;
 	
 	/** Get body bounding box. Works without constraint being created */
-	ENGINE_API FBox GetBodyBox(EConstraintFrame::Type Frame) const;
+	FBox GetBodyBox(EConstraintFrame::Type Frame) const;
 
 	/** Initialize the frames and creates constraint */
 	void InitComponentConstraint();
@@ -91,11 +100,11 @@ public:
 
 	/** Directly specify component to connect. Will update frames based on current position. */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsConstraint")
-	ENGINE_API void SetConstrainedComponents(UPrimitiveComponent* Component1, FName BoneName1, UPrimitiveComponent* Component2, FName BoneName2);
+	void SetConstrainedComponents(UPrimitiveComponent* Component1, FName BoneName1, UPrimitiveComponent* Component2, FName BoneName2);
 
 	/** Break this constraint */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsConstraint")
-	ENGINE_API void BreakConstraint();
+	void BreakConstraint();
 
 	/** Enables/Disables linear position drive 
 	 *	
@@ -104,7 +113,7 @@ public:
 	 *	@param bEnableDriveZ	Indicates whether the drive for the Z-Axis should be enabled
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsConstraint")
-	ENGINE_API void SetLinearPositionDrive(bool bEnableDriveX, bool bEnableDriveY, bool bEnableDriveZ);
+	void SetLinearPositionDrive(bool bEnableDriveX, bool bEnableDriveY, bool bEnableDriveZ);
 
 	/** Enables/Disables linear position drive 
 	 *	
@@ -113,7 +122,7 @@ public:
 	 *	@param bEnableDriveZ	Indicates whether the drive for the Z-Axis should be enabled
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsConstraint")
-	ENGINE_API void SetLinearVelocityDrive(bool bEnableDriveX, bool bEnableDriveY, bool bEnableDriveZ);
+	void SetLinearVelocityDrive(bool bEnableDriveX, bool bEnableDriveY, bool bEnableDriveZ);
 
 	/** Enables/Disables angular orientation drive 
 	 *	
@@ -121,7 +130,7 @@ public:
 	 *	@param bEnableTwistDrive	Indicates whether the drive for the twist axis should be enabled
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsConstraint")
-	ENGINE_API void SetAngularOrientationDrive(bool bEnableSwingDrive, bool bEnableTwistDrive);
+	void SetAngularOrientationDrive(bool bEnableSwingDrive, bool bEnableTwistDrive);
 
 	/** Enables/Disables angular velocity drive 
 	 *	
@@ -129,19 +138,19 @@ public:
 	 *	@param bEnableTwistDrive	Indicates whether the drive for the twit axis should be enabled
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsConstraint")
-	ENGINE_API void SetAngularVelocityDrive(bool bEnableSwingDrive, bool bEnableTwistDrive);
+	void SetAngularVelocityDrive(bool bEnableSwingDrive, bool bEnableTwistDrive);
 
 	/** Sets the target position for the linear drive. 
 	 *	@param InPosTarget		Target position
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsConstraint")
-	ENGINE_API void	SetLinearPositionTarget(const FVector& InPosTarget);
+	void SetLinearPositionTarget(const FVector& InPosTarget);
 	
 	/** Sets the target velocity for the linear drive. 
 	 *	@param InVelTarget		Target velocity
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsConstraint")
-	ENGINE_API void	SetLinearVelocityTarget(const FVector& InVelTarget);
+	void SetLinearVelocityTarget(const FVector& InVelTarget);
 
 	/** Sets the drive params for the linear drive. 
 	 *	@param InSpring		Spring force for the drive
@@ -149,20 +158,20 @@ public:
 	 *	@param InForceLimit	Max force applied by the drive
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsConstraint")
-	ENGINE_API void	SetLinearDriveParams(float InSpring, float InDamping, float InForceLimit);
+	void SetLinearDriveParams(float InSpring, float InDamping, float InForceLimit);
 
 	/** Sets the target orientation for the angular drive. 
 	 *	@param InPosTarget		Target orientation
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsConstraint")
-	ENGINE_API void	SetAngularOrientationTarget(const FRotator& InPosTarget);
+	void SetAngularOrientationTarget(const FRotator& InPosTarget);
 
 	
 	/** Sets the target velocity for the angular drive. 
 	 *	@param InVelTarget		Target velocity
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsConstraint")
-	ENGINE_API void	SetAngularVelocityTarget(const FVector& InVelTarget);
+	void SetAngularVelocityTarget(const FVector& InVelTarget);
 
 	/** Sets the drive params for the angular drive. 
 	 *	@param InSpring		Spring force for the drive
@@ -170,7 +179,7 @@ public:
 	 *	@param InForceLimit	Max force applied by the drive
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsConstraint")
-	ENGINE_API void	SetAngularDriveParams(float InSpring, float InDamping, float InForceLimit);
+	void SetAngularDriveParams(float InSpring, float InDamping, float InForceLimit);
 
 
 	/** Sets the LinearX Motion Type
@@ -178,85 +187,85 @@ public:
 	*	@param LimitSize		Size of limit
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API void	SetLinearXLimit(ELinearConstraintMotion ConstraintType, float LimitSize);
+	void SetLinearXLimit(ELinearConstraintMotion ConstraintType, float LimitSize);
 
 	/** Sets the LinearY Motion Type
 	*	@param ConstraintType	New Constraint Type
 	*	@param LimitSize		Size of limit
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API void	SetLinearYLimit(ELinearConstraintMotion ConstraintType, float LimitSize);
+	void SetLinearYLimit(ELinearConstraintMotion ConstraintType, float LimitSize);
 
 	/** Sets the LinearZ Motion Type
 	*	@param ConstraintType	New Constraint Type
 	*	@param LimitSize		Size of limit
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API void	SetLinearZLimit(ELinearConstraintMotion ConstraintType, float LimitSize);
+	void SetLinearZLimit(ELinearConstraintMotion ConstraintType, float LimitSize);
 
 	/** Sets the Angular Swing1 Motion Type
 	*	@param ConstraintType	New Constraint Type
 	*	@param Swing1LimitAngle	Size of limit in degrees
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API void	SetAngularSwing1Limit(EAngularConstraintMotion MotionType, float Swing1LimitAngle);
+	void SetAngularSwing1Limit(EAngularConstraintMotion MotionType, float Swing1LimitAngle);
 
 	/** Sets the Angular Swing2 Motion Type
 	*	@param ConstraintType	New Constraint Type
 	*	@param Swing2LimitAngle	Size of limit in degrees
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API void	SetAngularSwing2Limit(EAngularConstraintMotion MotionType, float Swing2LimitAngle);
+	void SetAngularSwing2Limit(EAngularConstraintMotion MotionType, float Swing2LimitAngle);
 
 	/** Sets the Angular Twist Motion Type
 	*	@param ConstraintType	New Constraint Type
 	*	@param TwistLimitAngle	Size of limit in degrees
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API void	SetAngularTwistLimit(EAngularConstraintMotion ConstraintType, float TwistLimitAngle);
+	void SetAngularTwistLimit(EAngularConstraintMotion ConstraintType, float TwistLimitAngle);
 
 
 	/** Gets the current Angular Twist of the constraint */
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API float GetCurrentTwist() const;
+	float GetCurrentTwist() const;
 
 	/** Gets the current Swing1 of the constraint */
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API float GetCurrentSwing1() const;
+	float GetCurrentSwing1() const;
 
 	/** Gets the current Swing2 of the constraint */
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API float GetCurrentSwing2() const;
+	float GetCurrentSwing2() const;
 
 	/** 
 	 *	Update the reference frames held inside the constraint that indicate the joint location in the reference frame 
 	 *	of the two connected bodies. You should call this whenever the constraint or either Component moves, or if you change
 	 *	the connected Components. This function does nothing though once the joint has been initialized.
 	 */
-	ENGINE_API void UpdateConstraintFrames();
+	void UpdateConstraintFrames();
 
 	// Pass in reference frame in. If the constraint is currently active, this will set its active local pose. Otherwise the change will take affect in InitConstraint. 
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API void SetConstraintReferenceFrame(EConstraintFrame::Type Frame, const FTransform& RefFrame);
+	void SetConstraintReferenceFrame(EConstraintFrame::Type Frame, const FTransform& RefFrame);
 	
 	// Pass in reference position in (maintains reference orientation). If the constraint is currently active, this will set its active local pose. Otherwise the change will take affect in InitConstraint.
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API void SetConstraintReferencePosition(EConstraintFrame::Type Frame, const FVector& RefPosition);
+	void SetConstraintReferencePosition(EConstraintFrame::Type Frame, const FVector& RefPosition);
 	
 	// Pass in reference orientation in (maintains reference position). If the constraint is currently active, this will set its active local pose. Otherwise the change will take affect in InitConstraint.
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API void SetConstraintReferenceOrientation(EConstraintFrame::Type Frame, const FVector& PriAxis, const FVector& SecAxis);
+	void SetConstraintReferenceOrientation(EConstraintFrame::Type Frame, const FVector& PriAxis, const FVector& SecAxis);
 
 	// If true, the collision between the two rigid bodies of the constraint will be disabled.
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API void SetDisableCollision(bool bDisableCollision);
+	void SetDisableCollision(bool bDisableCollision);
 	
 	// Retrieve the constraint force most recently applied to maintain this constraint. Returns 0 forces if the constraint is not initialized or broken.
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
-	ENGINE_API void GetConstraintForce(FVector& OutLinearForce, FVector& OutAngularForce);
+	void GetConstraintForce(FVector& OutLinearForce, FVector& OutAngularForce);
 
 #if WITH_EDITOR
-	ENGINE_API void UpdateSpriteTexture();
+	void UpdateSpriteTexture();
 #endif
 
 protected:
@@ -264,7 +273,7 @@ protected:
 	friend class FConstraintComponentVisualizer;
 
 	/** Get the body instance that we want to constrain to */
-	ENGINE_API FBodyInstance* GetBodyInstance(EConstraintFrame::Type Frame) const;
+	FBodyInstance* GetBodyInstance(EConstraintFrame::Type Frame) const;
 
 	/** Internal util to get body transform from actor/component name/bone name information */
 	FTransform GetBodyTransformInternal(EConstraintFrame::Type Frame, FName InBoneName) const;

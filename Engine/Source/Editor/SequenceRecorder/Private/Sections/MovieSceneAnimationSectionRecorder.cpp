@@ -1,15 +1,14 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderPrivatePCH.h"
-#include "MovieSceneAnimationSectionRecorder.h"
-#include "MovieSceneSkeletalAnimationTrack.h"
-#include "MovieSceneSkeletalAnimationSection.h"
+#include "Sections/MovieSceneAnimationSectionRecorder.h"
+#include "AnimationRecorder.h"
+#include "Tracks/MovieSceneSkeletalAnimationTrack.h"
+#include "Sections/MovieSceneSkeletalAnimationSection.h"
 #include "MovieScene.h"
+#include "AssetRegistryModule.h"
 #include "SequenceRecorderUtils.h"
 #include "SequenceRecorderSettings.h"
-#include "Runtime/AssetRegistry/Public/AssetRegistryModule.h"
 #include "ActorRecording.h"
-#include "Animation/AnimSequence.h"
 
 TSharedPtr<IMovieSceneSectionRecorder> FMovieSceneAnimationSectionRecorderFactory::CreateSectionRecorder(const FActorRecordingSettings& InActorRecordingSettings) const
 {
@@ -80,6 +79,7 @@ void FMovieSceneAnimationSectionRecorder::CreateSection(UObject* InObjectToRecor
 
 				FString AssetName = Settings->SequenceName.Len() > 0 ? Settings->SequenceName : TEXT("RecordedSequence");
 				AssetName += TEXT("_");
+				check(Actor);
 				AssetName += Actor->GetActorLabel();
 
 				AnimSequence = SequenceRecorderUtils::MakeNewAsset<UAnimSequence>(AssetPath, AssetName);

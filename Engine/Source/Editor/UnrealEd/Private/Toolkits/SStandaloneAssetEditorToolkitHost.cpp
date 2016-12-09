@@ -1,13 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Toolkits/IToolkit.h"
-#include "Toolkits/ToolkitManager.h"
 #include "Toolkits/SStandaloneAssetEditorToolkitHost.h"
-#include "Toolkits/AssetEditorToolkit.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorStyleSet.h"
+#include "Toolkits/ToolkitManager.h"
 #include "SuperSearchModule.h"
-#include "MainFrame.h"
-#include "SDockTab.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "StandaloneAssetEditorToolkit"
 

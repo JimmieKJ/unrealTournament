@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "UHTMakefile/ObjectBaseArchiveProxy.h"
 
+#include "CoreMinimal.h"
+#include "Containers/Map.h"
+#include "ObjectBaseArchiveProxy.h"
+
+class UMetaData;
+class FArchive;
 class FUHTMakefile;
 
 /* See UHTMakefile.h for overview how makefiles work. */

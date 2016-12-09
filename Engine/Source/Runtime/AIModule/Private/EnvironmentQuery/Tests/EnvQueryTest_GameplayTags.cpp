@@ -1,53 +1,82 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "EnvironmentQuery/Tests/EnvQueryTest_GameplayTags.h"
+#include "GameFramework/Actor.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_ActorBase.h"
+#include "BehaviorTree/BTNode.h"
 #include "GameplayTagAssetInterface.h"
 
-UEnvQueryTest_GameplayTags::UEnvQueryTest_GameplayTags(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
+UEnvQueryTest_GameplayTags::UEnvQueryTest_GameplayTags(const FObjectInitializer& ObjectInitializer) :
+	Super(ObjectInitializer)
 {
 	Cost = EEnvTestCost::Low;
 	SetWorkOnFloatValues(false);
+	bUpdatedToUseQuery = false;
 
 	// To search for GameplayTags, currently we require the item type to be an actor.  Certainly it must at least be a
 	// class of some sort to be able to find the interface required.
 	ValidItemType = UEnvQueryItemType_ActorBase::StaticClass();
 }
 
+void UEnvQueryTest_GameplayTags::PreSave(const class ITargetPlatform* TargetPlatform)
+{
+	// If this is a new object, it's already converted to new format.  If it was old, this should've already been set to
+	// true in PostLoad.  This prevents us from erroneously trying to import old data multiple times and so obliterating
+	// current data.
+	bUpdatedToUseQuery = true;
+
+	Super::PreSave(TargetPlatform);
+}
+
+void UEnvQueryTest_GameplayTags::PostLoad()
+{	// Backwards compatability with old format.  Converts to new query setup.
+	if (!bUpdatedToUseQuery)
+	{
+		bUpdatedToUseQuery = true;
+
+		// This should never happen except if we are loading from an old format version of the file, but just in case,
+		// make sure the query is empty.  If it's not, we don't want to overwrite it with old data.
+		if (TagQueryToMatch.IsEmpty())
+		{
+			FGameplayTagQueryExpression TagExpression;
+			switch  (TagsToMatch)
+			{
+				case EGameplayContainerMatchType::All:
+					TagExpression.AllTagsMatch();
+					break;
+
+				case EGameplayContainerMatchType::Any:
+					TagExpression.AnyTagsMatch();
+					break;
+
+				default:
+					check(false); // TODO: Fix with message
+					break;
+			}
+
+			TagExpression.AddTags(GameplayTags);
+			TagQueryToMatch = FGameplayTagQuery::BuildQuery(TagExpression);
+
+			// Clear out old data so we don't keep serializing unneeded junk.
+			GameplayTags.Reset();
+		}
+	}
+
+	Super::PostLoad();
+}
+
 bool UEnvQueryTest_GameplayTags::SatisfiesTest(IGameplayTagAssetInterface* ItemGameplayTagAssetInterface) const
 {
 	// Currently we're requiring that the test only be run on items that implement the interface.  In theory, we could
 	// (instead of checking) support correctly passing or failing on items that don't implement the interface or
-	// just have a NULL item by testing them as though they have the interface with no gameplay tags.  However, that
+	// just have a nullptr item by testing them as though they have the interface with no gameplay tags.  However, that
 	// seems potentially confusing, since certain tests could actually pass.
-	check(ItemGameplayTagAssetInterface != NULL);
-// 	if (GameplayTags.Num() == 0)
-// 	{
-// 		return true;
-// 	}
-// 
-// 	if (ItemGameplayTagAssetInterface == NULL)
-// 	{
-// 		return false;
-// 	}
-	
-	switch (TagsToMatch)
-	{
-		case EGameplayContainerMatchType::All:
-			return ItemGameplayTagAssetInterface->HasAllMatchingGameplayTags(GameplayTags);
+	check(ItemGameplayTagAssetInterface != nullptr);
 
-		case EGameplayContainerMatchType::Any:
-			return ItemGameplayTagAssetInterface->HasAnyMatchingGameplayTags(GameplayTags);
+	FGameplayTagContainer OwnedGameplayTags;
+	ItemGameplayTagAssetInterface->GetOwnedGameplayTags(OwnedGameplayTags);
 
-		default:
-		{
-			UE_LOG(LogBehaviorTree, Warning, TEXT("Invalid value for TagsToMatch (EGameplayContainerMatchType) %d.  Should only be Any or All."), static_cast<int32>(TagsToMatch));
-			return false;
-		}
-	}
-
-	return false;
+	return OwnedGameplayTags.MatchesQuery(TagQueryToMatch);
 }
 
 void UEnvQueryTest_GameplayTags::RunTest(FEnvQueryInstance& QueryInstance) const
@@ -83,5 +112,5 @@ void UEnvQueryTest_GameplayTags::RunTest(FEnvQueryInstance& QueryInstance) const
 
 FText UEnvQueryTest_GameplayTags::GetDescriptionDetails() const
 {
-	return GameplayTags.ToMatchingText(TagsToMatch, !BoolValue.DefaultValue);
+	return FText::FromString(TagQueryToMatch.GetDescription());
 }

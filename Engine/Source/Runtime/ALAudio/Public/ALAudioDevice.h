@@ -6,15 +6,9 @@
 
 #pragma  once
 
-/*------------------------------------------------------------------------------------
-	Dependencies, helpers & forward declarations.
-------------------------------------------------------------------------------------*/
-
-class FALAudioDevice;
-
-#include "Engine.h"
-#include "SoundDefinitions.h"
-#include "AudioEffect.h"
+#include "CoreMinimal.h"
+#include "Audio.h"
+#include "AudioDevice.h"
 
 #if SUPPORTS_PRAGMA_PACK
 #pragma pack (push,8)
@@ -26,6 +20,15 @@ class FALAudioDevice;
 #if SUPPORTS_PRAGMA_PACK
 #pragma pack (pop)
 #endif
+
+class FALAudioDevice;
+class USoundWave;
+
+/*------------------------------------------------------------------------------------
+	Dependencies, helpers & forward declarations.
+------------------------------------------------------------------------------------*/
+
+class FALAudioDevice;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogALAudio, Log, All);
 

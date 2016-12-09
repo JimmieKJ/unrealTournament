@@ -2,11 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IMessageInterceptor.h"
 
-struct FMessageAddress;
-class IMessageInterceptor;
-class IReceiveMessages;
-
+class IMessageReceiver;
 
 /**
  * Interface for classes that authorize message subscriptions.
@@ -22,7 +21,7 @@ public:
 	 * @param MessageType The type of messages to intercept.
 	 * @return true if the request was authorized, false otherwise.
 	 */
-	virtual bool AuthorizeInterceptor( const TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe>& Interceptor, const FName& MessageType ) = 0;
+	virtual bool AuthorizeInterceptor(const TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe>& Interceptor, const FName& MessageType) = 0;
 
 	/**
 	 * Authorizes a request to register the specified recipient.
@@ -31,7 +30,7 @@ public:
 	 * @param Address The recipient's address.
 	 * @return true if the request was authorized, false otherwise.
 	 */
-	virtual bool AuthorizeRegistration( const TSharedRef<IReceiveMessages, ESPMode::ThreadSafe>& Recipient, const FMessageAddress& Address ) = 0;
+	virtual bool AuthorizeRegistration(const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Recipient, const FMessageAddress& Address) = 0;
 
 	/**
 	 * Authorizes a request to add a subscription for the specified topic pattern.
@@ -40,7 +39,7 @@ public:
 	 * @param TopicPattern The message topic pattern to subscribe to.
 	 * @return true if the request is authorized, false otherwise.
 	 */
-	virtual bool AuthorizeSubscription( const TSharedRef<IReceiveMessages, ESPMode::ThreadSafe>& Subscriber, const FName& TopicPattern ) = 0;
+	virtual bool AuthorizeSubscription(const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Subscriber, const FName& TopicPattern) = 0;
 
 	/**
 	 * Authorizes a request to unregister the specified recipient.
@@ -48,7 +47,7 @@ public:
 	 * @param Address The address of the recipient to unregister.
 	 * @return true if the request was authorized, false otherwise.
 	 */
-	virtual bool AuthorizeUnregistration( const FMessageAddress& Address ) = 0;
+	virtual bool AuthorizeUnregistration(const FMessageAddress& Address) = 0;
 
 	/**
 	 * Authorizes a request to remove a subscription for the specified topic pattern.
@@ -57,17 +56,10 @@ public:
 	 * @param TopicPattern The message topic pattern to unsubscribe from.
 	 * @return true if the request is authorized, false otherwise.
 	 */
-	virtual bool AuthorizeUnsubscription( const TSharedRef<IReceiveMessages, ESPMode::ThreadSafe>& Subscriber, const FName& TopicPattern ) = 0;
+	virtual bool AuthorizeUnsubscription(const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Subscriber, const FName& TopicPattern) = 0;
 
 public:
 
 	/** Virtual destructor. */
 	virtual ~IAuthorizeMessageRecipients() { }
 };
-
-
-/** Type definition for shared pointers to instances of IAuthorizeMessageRecipients. */
-typedef TSharedPtr<IAuthorizeMessageRecipients> IAuthorizeMessageRecipientsPtr;
-
-/** Type definition for shared references to instances of IAuthorizeMessageRecipients. */
-typedef TSharedRef<IAuthorizeMessageRecipients> IAuthorizeMessageRecipientsRef;

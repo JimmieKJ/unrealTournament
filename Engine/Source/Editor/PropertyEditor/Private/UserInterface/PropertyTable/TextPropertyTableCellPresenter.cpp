@@ -1,25 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "TextPropertyTableCellPresenter.h"
-#include "PropertyTableConstants.h"
-#include "ItemPropertyNode.h"
-#include "PropertyEditor.h"
+#include "UserInterface/PropertyTable/TextPropertyTableCellPresenter.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
 #include "IPropertyTableUtilities.h"
 #include "PropertyEditorHelpers.h"
 
-#include "SPropertyEditor.h"
-#include "SPropertyEditorTitle.h"
-#include "SResetToDefaultPropertyEditor.h"
-#include "SPropertyEditorNumeric.h"
-#include "SPropertyEditorArray.h"
-#include "SPropertyEditorCombo.h"
-#include "SPropertyEditorEditInline.h"
-#include "SPropertyEditorText.h"
-#include "SPropertyEditorBool.h"
-#include "SPropertyEditorColor.h"
-#include "SPropertyEditorArrayItem.h"
-#include "SPropertyEditorDateTime.h"
+#include "UserInterface/PropertyEditor/SPropertyEditor.h"
+#include "UserInterface/PropertyEditor/SResetToDefaultPropertyEditor.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorNumeric.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorCombo.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorEditInline.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorText.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorBool.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorColor.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorDateTime.h"
 
 
 FTextPropertyTableCellPresenter::FTextPropertyTableCellPresenter( const TSharedRef< class FPropertyEditor >& InPropertyEditor, const TSharedRef< class IPropertyTableUtilities >& InPropertyUtilities, FSlateFontInfo InFont /*= FEditorStyle::GetFontStyle( PropertyTableConstants::NormalFontStyle ) */ )
@@ -34,7 +32,7 @@ FTextPropertyTableCellPresenter::FTextPropertyTableCellPresenter( const TSharedR
 
 TSharedRef< class SWidget > FTextPropertyTableCellPresenter::ConstructDisplayWidget()
 {
-	return SNew( SHorizontalBox )
+	TSharedRef<SHorizontalBox> HorizontalBox = SNew( SHorizontalBox )
 		+SHorizontalBox::Slot()
 		.FillWidth( 1.0 )
 		.VAlign( VAlign_Center )
@@ -44,14 +42,20 @@ TSharedRef< class SWidget > FTextPropertyTableCellPresenter::ConstructDisplayWid
 			.Text( PropertyEditor->GetValueAsText() )
 			.ToolTipText( PropertyEditor->GetToolTipText() )
 			.Font( Font )
-		]
-	+SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign( VAlign_Center )
-		.Padding( FMargin( 0, 0, 2, 0 ) )
-		[
-			SNew( SResetToDefaultPropertyEditor, PropertyEditor )
 		];
+
+	if (!PropertyEditor->GetPropertyHandle()->HasMetaData(TEXT("NoResetToDefault")))
+	{
+		HorizontalBox->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(FMargin(0, 0, 2, 0))
+		[
+			SNew(SResetToDefaultPropertyEditor, PropertyEditor)
+		];
+	}
+	
+	return HorizontalBox;
 }
 
 bool FTextPropertyTableCellPresenter::RequiresDropDown()

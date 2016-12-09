@@ -2,13 +2,17 @@
 
 #pragma once
 
-#include "AIPerceptionTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "Perception/AIPerceptionTypes.h"
+#include "Perception/AISense.h"
 #include "AISenseConfig.generated.h"
 
-class UAISenseImplementation;
-class UCanvas;
-class UAIPerceptionComponent;
 class FGameplayDebuggerCategory;
+class UAIPerceptionComponent;
 
 UCLASS(ClassGroup = AI, abstract, EditInlineNew, config=Game)
 class AIMODULE_API UAISenseConfig : public UObject

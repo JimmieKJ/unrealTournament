@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Animation/CurveHandle.h"
+#include "Animation/CurveSequence.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "OutputLogModule.h"
+
+class SEditableTextBox;
 
 /**
  * Debug console widget, designed to be summoned on top of a viewport or window

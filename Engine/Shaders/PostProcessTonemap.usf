@@ -7,7 +7,6 @@
 #include "Common.usf"
 #include "PostProcessCommon.usf"
 #include "TonemapCommon.usf"
-#include "GammaCorrectionCommon.usf"
 #include "EyeAdaptationCommon.usf"
 
 // 0 / 1(slower, visualize multiple internals side by side for the same image portion, see DebugTile)
@@ -43,10 +42,8 @@ half GrainFromUV(float2 GrainUV)
 	return Grain;
 }
 
-uint InvertTonemapping;
-uint ACESInversion;
-
 uint OutputDevice;
+uint EncodeHDROutput;
 
 uint GetOutputDevice()
 {
@@ -269,12 +266,12 @@ float3 InvertACESTonemapping( float3 OutColor )
 	// FIXME: Workaround for UE-29935, pushing all colors with a 0 component to black output
 	// Workaround in PostProcessCombineLUTs.usf mean that the output color is always in the
 	// sRGB gamut. Once that is resolved, the matrix multiply above should be re-enabled.
-	Approach1 = PseudoLinearColor;
+	//Approach1 = PseudoLinearColor;
 
-	Approach1 = InverseACESOutputTransformsRGBD65( Approach1 );
-	Approach1 = max(0, mul( sRGB_2_Output, Approach1 ));
+	//Approach1 = InverseACESOutputTransformsRGBD65( Approach1 );
+	//Approach1 = max(0, mul( sRGB_2_Output, Approach1 ));
 
-	return lerp(Approach0, Approach1, ACESInversion);
+	return Approach0;//lerp(Approach0, Approach1, ACESInversion);
 }
 
 float max4(float4 x)
@@ -520,6 +517,12 @@ void MainPS(
 			// Post-tonemap linearization. Used when writing out EXRs
 			OutColor.rgb = InvertACESTonemapping( OutColor.rgb );
 		#endif
+
+		BRANCH
+		if (EncodeHDROutput)
+		{
+			OutColor.xyz = ST2084ToScRGB(OutColor.xyz, GetOutputDevice());
+		}
 	#endif
 
 
@@ -722,26 +725,7 @@ void MainPS_ES2(
 
 		#if USE_32BPP_HDR
 		{
-			// TODO: Support odd frame inversion of mosaic pattern?
-			#if 0
-				half3 SceneColorE = PostprocessInput0.Sample(PostprocessInput0Sampler, InTexCoords[1].xy).rgb;
-				SceneColor.rgb = HdrDemosaic(SceneColor.rgb, SceneColorE, SvPosition.xy);
-			#endif
-			#if 1
-				// Higher quality path.
-				half3 SceneColorN = PostprocessInput0.Sample(PostprocessInput0Sampler, InTexCoords[0].xy).rgb;
-				half3 SceneColorE = PostprocessInput0.Sample(PostprocessInput0Sampler, InTexCoords[1].xy).rgb;
-				half3 SceneColorW = PostprocessInput0.Sample(PostprocessInput0Sampler, InTexCoords[2].xy).rgb;
-				half3 SceneColorS = PostprocessInput0.Sample(PostprocessInput0Sampler, InTexCoords[3].xy).rgb;
-				half3 SceneColorV = SceneColorN * 0.5 + SceneColorS * 0.5;
-				half3 SceneColorH = SceneColorW * 0.5 + SceneColorE * 0.5;
-				if(abs(SceneColorN.g - SceneColorS.g) < abs(SceneColorW.g - SceneColorE.g)) 
-				{
-					SceneColorH = SceneColorV;
-				}
-				SceneColor.rgb = Decode32BPPHDR(SceneColor, SceneColorH, SvPosition.xy).rgb;
-				SceneColor.a = 0.0;
-			#endif
+			SceneColor = Decode32BPPHDR(SceneColor, SvPosition, PostprocessInput0, PostprocessInput0Sampler, InTexCoords);
 		}
 		#endif
 

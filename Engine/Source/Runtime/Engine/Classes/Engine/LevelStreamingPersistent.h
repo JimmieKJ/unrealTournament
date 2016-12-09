@@ -8,6 +8,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/LevelStreaming.h"
 #include "LevelStreamingPersistent.generated.h"
 
 UCLASS(transient)

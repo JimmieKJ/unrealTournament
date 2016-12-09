@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "EnvironmentQuery/Tests/EnvQueryTest_Random.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType.h"
+#include "AISystem.h"
 
 UEnvQueryTest_Random::UEnvQueryTest_Random(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -29,7 +28,7 @@ void UEnvQueryTest_Random::RunTest(FEnvQueryInstance& QueryInstance) const
 	// loop through all items
 	for (FEnvQueryInstance::ItemIterator It(this, QueryInstance); It; ++It)
 	{
-		It.SetScore(TestPurpose, FilterType, FMath::FRand(), MinThresholdValue, MaxThresholdValue);
+		It.SetScore(TestPurpose, FilterType, UAISystem::GetRandomStream().FRand(), MinThresholdValue, MaxThresholdValue);
 	}
 }
 

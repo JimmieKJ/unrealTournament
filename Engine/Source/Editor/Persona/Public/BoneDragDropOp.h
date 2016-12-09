@@ -1,6 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/DragAndDrop.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+
+class IEditableSkeleton;
+
 //////////////////////////////////////////////////////////////////////////
 // FBoneDragDropOp
 class FBoneDragDropOp : public FDragDropOperation
@@ -8,7 +19,7 @@ class FBoneDragDropOp : public FDragDropOperation
 public:	
 	DRAG_DROP_OPERATOR_TYPE(FBoneDragDropOp, FDragDropOperation)
 	
-	USkeleton* TargetSkeleton;
+	TWeakPtr<class IEditableSkeleton> EditableSkeleton;
 	FName BoneName;
 
 	/** The widget decorator to use */
@@ -50,11 +61,11 @@ public:
 		CurrentIconBrush = InIcon;
 	}
 
-	static TSharedRef<FBoneDragDropOp> New(USkeleton* Skeleton, const FName& InBoneName)
+	static TSharedRef<FBoneDragDropOp> New(TSharedRef<class IEditableSkeleton> EditableSkeleton, const FName& InBoneName)
 	{
 		TSharedRef<FBoneDragDropOp> Operation = MakeShareable(new FBoneDragDropOp);
 		Operation->BoneName = InBoneName;
-		Operation->TargetSkeleton = Skeleton;
+		Operation->EditableSkeleton = EditableSkeleton;
 		Operation->SetIcon( FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error")) );
 		Operation->Construct();
 		return Operation;

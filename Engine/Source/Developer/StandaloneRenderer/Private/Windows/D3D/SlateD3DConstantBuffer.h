@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/RefCounting.h"
+#include "StandaloneRendererPlatformHeaders.h"
+
 template<typename BufferType>
 class FSlateD3DConstantBuffer
 {

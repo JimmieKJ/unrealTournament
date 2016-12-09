@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SScissorRectBox.h"
+#include "Widgets/Layout/SScissorRectBox.h"
+#include "Types/PaintArgs.h"
+#include "Layout/ArrangedChildren.h"
+#include "Rendering/RenderingCommon.h"
 
 SScissorRectBox::SScissorRectBox()
 {

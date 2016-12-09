@@ -1,8 +1,16 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Widgets/SWidget.h"
+#include "Components/ContentWidget.h"
 #include "RetainerBox.generated.h"
+
+class SRetainerWidget;
+class UMaterialInstanceDynamic;
+class UMaterialInterface;
 
 /**
  * The Retainer Box renders children widgets to a render target first before
@@ -74,6 +82,10 @@ protected:
 	/**
 	 * The effect to optionally apply to the render target.  We will set the texture sampler based on the name
 	 * set in the @TextureParameter property.
+	 * 
+	 * If you want to adjust transparency of the final image, make sure you set Blend Mode to AlphaComposite (Pre-Multiplied Alpha)
+	 * and make sure to multiply the alpha you're apply across the surface to the color and the alpha of the render target, otherwise
+	 * you won't see the expected color.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Effect")
 	UMaterialInterface* EffectMaterial;

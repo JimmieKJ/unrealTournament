@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Templates/SharedPointer.h"
+
+class FRegexMatcherImplementation;
 class FRegexPatternImplementation;
 
 class CORE_API FRegexPattern

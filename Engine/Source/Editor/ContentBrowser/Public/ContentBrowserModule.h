@@ -3,8 +3,13 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "IContentBrowserSingleton.h"
+#include "CoreMinimal.h"
+#include "AssetData.h"
+#include "Modules/ModuleInterface.h"
+#include "ContentBrowserDelegates.h"
+
+class IContentBrowserSingleton;
+struct FARFilter;
 
 /**
  * Content browser module

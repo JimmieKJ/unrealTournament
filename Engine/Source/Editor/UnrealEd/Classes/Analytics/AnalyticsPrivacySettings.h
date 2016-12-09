@@ -8,6 +8,10 @@
 //=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "Engine/ImportantToggleSettingInterface.h"
 #include "AnalyticsPrivacySettings.generated.h"
 

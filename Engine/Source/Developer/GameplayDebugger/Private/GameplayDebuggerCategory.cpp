@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
+#include "GameplayDebuggerCategory.h"
+#include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
+#include "GameplayDebuggerCategoryReplicator.h"
 
 FGameplayDebuggerCategory::FGameplayDebuggerCategory() :
 	CollectDataInterval(0.0f),
@@ -30,8 +33,9 @@ void FGameplayDebuggerCategory::DrawData(APlayerController* OwnerPC, FGameplayDe
 	// empty in base class
 }
 
-FDebugRenderSceneProxy* FGameplayDebuggerCategory::CreateSceneProxy(const UPrimitiveComponent* InComponent)
+FDebugRenderSceneProxy* FGameplayDebuggerCategory::CreateDebugSceneProxy(const UPrimitiveComponent* InComponent, FDebugDrawDelegateHelper*& OutDelegateHelper)
 {
+	OutDelegateHelper = nullptr;
 	// empty in base class
 	return nullptr;
 }

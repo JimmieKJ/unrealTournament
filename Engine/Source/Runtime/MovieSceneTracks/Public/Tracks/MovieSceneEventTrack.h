@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "MovieSceneNameableTrack.h"
+#include "Tracks/MovieSceneSpawnTrack.h"
 #include "MovieSceneEventTrack.generated.h"
 
+struct FMovieSceneEvaluationTrack;
 
 /**
  * Implements a movie scene track that triggers discrete events during playback.
@@ -29,32 +33,13 @@ public:
 
 public:
 
-	/**
-	 * Adds an event to the appropriate section.
-	 *
-	 * This method will create a new section if no appropriate one exists.
-	 *
-	 * @param Time The time at which the event should be triggered.
-	 * @param EventName The name of the event to be triggered.
-	 * @param KeyParams The keying parameters
-	 */
-	bool AddKeyToSection(float Time, FName EventName, FKeyParams KeyParams);
-
-	/**
-	 * Trigger the events that fall into the given time range.
-	 *
-	 * @param Position The current position in time.
-	 * @param LastPosition The time at the last update.
-	 * @param Player The movie scene player that has the event contexts where the events should be invoked from.
-	 */
-	void TriggerEvents(float Position, float LastPosition, IMovieScenePlayer& Player);
+	static uint16 GetEvaluationPriority() { return UMovieSceneSpawnTrack::GetEvaluationPriority() - 100; }
 
 public:
 
 	// UMovieSceneTrack interface
 
 	virtual void AddSection(UMovieSceneSection& Section) override;
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
 	virtual TRange<float> GetSectionBoundaries() const override;
@@ -62,12 +47,14 @@ public:
 	virtual bool IsEmpty() const override;
 	virtual void RemoveAllAnimationData() override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
+	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
+	virtual void PostCompile(FMovieSceneEvaluationTrack& Track, const FMovieSceneTrackCompilerArgs& Args) const override;
 
 #if WITH_EDITORONLY_DATA
 	virtual FText GetDefaultDisplayName() const override;
 #endif
 
-private:
+public:
 
 	/** If events should be fired when passed playing the sequence forwards. */
 	UPROPERTY(EditAnywhere, Category=TrackEvent)
@@ -77,6 +64,8 @@ private:
 	UPROPERTY(EditAnywhere, Category=TrackEvent)
 	uint32 bFireEventsWhenBackwards:1;
 
+private:
+	
 	/** The track's sections. */
 	UPROPERTY()
 	TArray<UMovieSceneSection*> Sections;

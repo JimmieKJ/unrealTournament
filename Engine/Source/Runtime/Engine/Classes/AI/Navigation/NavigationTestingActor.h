@@ -1,8 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "GameFramework/Actor.h"
+#include "AI/Navigation/NavigationTypes.h"
+#include "AI/Navigation/NavAgentInterface.h"
+#include "AI/Navigation/NavigationData.h"
 #include "Tickable.h"
-#include "NavPathObserverInterface.h"
+#include "AI/Navigation/NavPathObserverInterface.h"
 #include "NavigationTestingActor.generated.h"
 
 class ANavigationTestingActor;

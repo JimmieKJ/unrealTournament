@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/StringAssetReference.h"
+#include "Misc/StringClassReference.h"
 #include "GameMapsSettings.generated.h"
-
 
 /** Ways the screen can be split with two players. */
 UENUM()
@@ -28,6 +32,20 @@ namespace EThreePlayerSplitScreenType
 	};
 }
 
+/** Helper structure, used to associate GameModes with shortcut names. */
+USTRUCT()
+struct FGameModeName
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Abbreviation/prefix that can be used as an alias for the class name */
+	UPROPERTY(EditAnywhere, Category = DefaultModes, meta = (MetaClass = "GameModeBase"))
+	FString Name;
+
+	/** GameMode class to load */
+	UPROPERTY(EditAnywhere, Category = DefaultModes, meta = (MetaClass = "GameModeBase"))
+	FStringClassReference GameMode;
+};
 
 UCLASS(config=Engine, defaultconfig)
 class ENGINESETTINGS_API UGameMapsSettings
@@ -50,6 +68,20 @@ class ENGINESETTINGS_API UGameMapsSettings
 	 * @return the proper global default game type
 	 */
 	static const FString& GetGlobalDefaultGameMode( );
+
+	/**
+	 * Searches the GameModeClassAliases list for a named game mode, if not found will return passed in string
+	 * 
+	 * @return the proper game type class path to load
+	 */
+	static FString GetGameModeForName( const FString& GameModeName );
+
+	/**
+	 * Searches the GameModeMapPrefixes list for a named game mode, if not found will return passed in string
+	 * 
+	 * @return the proper game type class path to load, or empty if not found
+	 */
+	static FString GetGameModeForMapName( const FString& MapName );
 
 	/**
 	 * Set the default map to use (see GameDefaultMap below)
@@ -116,13 +148,21 @@ private:
 	FStringAssetReference ServerDefaultMap;
 
 	/** GameMode to use if not specified in any other way. (e.g. per-map DefaultGameMode or on the URL). */
-	UPROPERTY(config, noclear, EditAnywhere, Category=DefaultModes, meta=(MetaClass="GameMode", DisplayName="Default GameMode"))
+	UPROPERTY(config, noclear, EditAnywhere, Category=DefaultModes, meta=(MetaClass="GameModeBase", DisplayName="Default GameMode"))
 	FStringClassReference GlobalDefaultGameMode;
 
 	/**
 	 * GameMode to use if not specified in any other way. (e.g. per-map DefaultGameMode or on the URL) (DEDICATED SERVERS)
 	 * If not set, the GlobalDefaultGameMode value will be used.
 	 */
-	UPROPERTY(config, EditAnywhere, Category=DefaultModes, meta=(MetaClass="GameMode"), AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category=DefaultModes, meta=(MetaClass="GameModeBase"), AdvancedDisplay)
 	FStringClassReference GlobalDefaultServerGameMode;
+
+	/** Overrides the GameMode to use when loading a map that starts with a specific prefix */
+	UPROPERTY(config, EditAnywhere, Category = DefaultModes, AdvancedDisplay)
+	TArray<FGameModeName> GameModeMapPrefixes;
+
+	/** List of GameModes to load when game= is specified in the URL (e.g. "DM" could be an alias for "MyProject.MyGameModeMP_DM") */
+	UPROPERTY(config, EditAnywhere, Category = DefaultModes, AdvancedDisplay)
+	TArray<FGameModeName> GameModeClassAliases;
 };

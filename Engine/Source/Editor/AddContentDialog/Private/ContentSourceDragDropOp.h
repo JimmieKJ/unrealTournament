@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "DecoratedDragDropOp.h"
+#include "CoreMinimal.h"
+#include "Input/DragAndDrop.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
 
 class FContentSourceViewModel;
 

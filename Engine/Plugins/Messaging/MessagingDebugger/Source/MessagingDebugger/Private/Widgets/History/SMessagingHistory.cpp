@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessagingDebuggerPrivatePCH.h"
-#include "SHyperlink.h"
+#include "Widgets/History/SMessagingHistory.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/History/SMessagingHistoryFilterBar.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/History/SMessagingHistoryTableRow.h"
+#include "Widgets/Input/SHyperlink.h"
 
 
 #define LOCTEXT_NAMESPACE "SMessagingHistory"
@@ -29,7 +34,7 @@ SMessagingHistory::~SMessagingHistory()
  *****************************************************************************/
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-void SMessagingHistory::Construct( const FArguments& InArgs, const FMessagingDebuggerModelRef& InModel, const TSharedRef<ISlateStyle>& InStyle, const IMessageTracerRef& InTracer )
+void SMessagingHistory::Construct(const FArguments& InArgs, const TSharedRef<FMessagingDebuggerModel>& InModel, const TSharedRef<ISlateStyle>& InStyle, const TSharedRef<IMessageTracer, ESPMode::ThreadSafe>& InTracer)
 {
 	Filter = MakeShareable(new FMessagingDebuggerMessageFilter());
 	Model = InModel;
@@ -62,7 +67,7 @@ void SMessagingHistory::Construct( const FArguments& InArgs, const FMessagingDeb
 					.Padding(0.0f)
 					[
 						// message list
-						SAssignNew(MessageListView, SListView<FMessageTracerMessageInfoPtr>)
+						SAssignNew(MessageListView, SListView<TSharedPtr<FMessageTracerMessageInfo>>)
 							.ItemHeight(24.0f)
 							.ListItemsSource(&MessageList)
 							.SelectionMode(ESelectionMode::Single)
@@ -180,7 +185,7 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 /* SMessagingHistory implementation
  *****************************************************************************/
 
-void SMessagingHistory::AddMessage( const FMessageTracerMessageInfoRef& MessageInfo )
+void SMessagingHistory::AddMessage(const TSharedRef<FMessageTracerMessageInfo>& MessageInfo)
 {
 	++TotalMessages;
 
@@ -204,13 +209,13 @@ void SMessagingHistory::ReloadMessages()
 	MessageList.Reset();
 	TotalMessages = 0;
 	
-	TArray<FMessageTracerMessageInfoPtr> Messages;
+	TArray<TSharedPtr<FMessageTracerMessageInfo>> Messages;
 
 	if (Tracer->GetMessages(Messages) > 0)
 	{
-		for (TArray<FMessageTracerMessageInfoPtr>::TConstIterator It(Messages); It; ++It)
+		for (const auto& Message : Messages)
 		{
-			AddMessage(It->ToSharedRef());
+			AddMessage(Message.ToSharedRef());
 		}
 	}
 
@@ -227,7 +232,7 @@ void SMessagingHistory::HandleFilterChanged()
 }
 
 
-TSharedRef<ITableRow> SMessagingHistory::HandleMessageListGenerateRow( FMessageTracerMessageInfoPtr MessageInfo, const TSharedRef<STableViewBase>& OwnerTable )
+TSharedRef<ITableRow> SMessagingHistory::HandleMessageListGenerateRow(TSharedPtr<FMessageTracerMessageInfo> MessageInfo, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(SMessagingHistoryTableRow, OwnerTable)
 		.HighlightText(this, &SMessagingHistory::HandleMessageListGetHighlightText)
@@ -243,13 +248,13 @@ FText SMessagingHistory::HandleMessageListGetHighlightText() const
 }
 
 
-void SMessagingHistory::HandleMessageListItemDoubleClick( FMessageTracerMessageInfoPtr Item )
+void SMessagingHistory::HandleMessageListItemDoubleClick(TSharedPtr<FMessageTracerMessageInfo> Item)
 {
 
 }
 
 
-void SMessagingHistory::HandleMessageListItemScrolledIntoView( FMessageTracerMessageInfoPtr Item, const TSharedPtr<ITableRow>& TableRow )
+void SMessagingHistory::HandleMessageListItemScrolledIntoView(TSharedPtr<FMessageTracerMessageInfo> Item, const TSharedPtr<ITableRow>& TableRow)
 {
 	if (MessageList.Num() > 0)
 	{
@@ -262,7 +267,7 @@ void SMessagingHistory::HandleMessageListItemScrolledIntoView( FMessageTracerMes
 }
 
 
-void SMessagingHistory::HandleMessageListSelectionChanged( FMessageTracerMessageInfoPtr InItem, ESelectInfo::Type SelectInfo )
+void SMessagingHistory::HandleMessageListSelectionChanged(TSharedPtr<FMessageTracerMessageInfo> InItem, ESelectInfo::Type SelectInfo)
 {
 	Model->SelectMessage(InItem);
 }
@@ -332,7 +337,7 @@ FText SMessagingHistory::HandleStatusBarText() const
 }
 
 
-void SMessagingHistory::HandleTracerMessageAdded( FMessageTracerMessageInfoRef MessageInfo )
+void SMessagingHistory::HandleTracerMessageAdded(TSharedRef<FMessageTracerMessageInfo> MessageInfo)
 {
 	AddMessage(MessageInfo);
 

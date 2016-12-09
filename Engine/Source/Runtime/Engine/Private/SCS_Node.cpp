@@ -1,13 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "BlueprintUtilities.h"
-#include "LatentActions.h"
-#if WITH_EDITOR
-#include "Kismet2/BlueprintEditorUtils.h"
-#endif
 #include "Engine/SCS_Node.h"
-#include "Engine/SimpleConstructionScript.h"
+#include "UObject/LinkerLoad.h"
+#include "Engine/Blueprint.h"
+#include "Misc/SecureHash.h"
+#include "UObject/PropertyPortFlags.h"
 #include "Engine/InheritableComponentHandler.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -39,7 +36,7 @@ UActorComponent* USCS_Node::GetActualComponentTemplate(UBlueprintGeneratedClass*
 			
 			do
 			{
-				auto InheritableComponentHandler = ActualBPGC->GetInheritableComponentHandler();
+				UInheritableComponentHandler* InheritableComponentHandler = ActualBPGC->GetInheritableComponentHandler();
 				if (InheritableComponentHandler)
 				{
 					OverridenComponentTemplate = InheritableComponentHandler->GetOverridenComponentTemplate(ComponentKey);
@@ -66,7 +63,7 @@ const FBlueprintCookedComponentInstancingData* USCS_Node::GetActualComponentTemp
 			
 			do
 			{
-				auto InheritableComponentHandler = ActualBPGC->GetInheritableComponentHandler();
+				UInheritableComponentHandler* InheritableComponentHandler = ActualBPGC->GetInheritableComponentHandler();
 				if (InheritableComponentHandler)
 				{
 					OverridenComponentTemplateData = InheritableComponentHandler->GetOverridenComponentTemplateData(ComponentKey);
@@ -88,23 +85,36 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 
 	// Create a new component instance based on the template
 	UActorComponent* NewActorComp = nullptr;
-	auto ActualBPGC = Cast<UBlueprintGeneratedClass>(Actor->GetClass());
-	auto ActualComponentTemplateData = FPlatformProperties::RequiresCookedData() ? GetActualComponentTemplateData(ActualBPGC) : nullptr;
+	UBlueprintGeneratedClass* ActualBPGC = Cast<UBlueprintGeneratedClass>(Actor->GetClass());
+	const FBlueprintCookedComponentInstancingData* ActualComponentTemplateData = FPlatformProperties::RequiresCookedData() ? GetActualComponentTemplateData(ActualBPGC) : nullptr;
 	if (ActualComponentTemplateData && ActualComponentTemplateData->bIsValid)
 	{
 		// Use cooked instancing data if valid (fast path).
-		NewActorComp = Actor->CreateComponentFromTemplateData(ActualComponentTemplateData, VariableName);
+		NewActorComp = Actor->CreateComponentFromTemplateData(ActualComponentTemplateData, InternalVariableName);
 	}
 	else if (UActorComponent* ActualComponentTemplate = GetActualComponentTemplate(ActualBPGC))
 	{
-		NewActorComp = Actor->CreateComponentFromTemplate(ActualComponentTemplate, VariableName);
+		NewActorComp = Actor->CreateComponentFromTemplate(ActualComponentTemplate, InternalVariableName);
 	}
 
 	if(NewActorComp != nullptr)
 	{
 		NewActorComp->CreationMethod = EComponentCreationMethod::SimpleConstructionScript;
+
 		// SCS created components are net addressable
 		NewActorComp->SetNetAddressable();
+
+		if (!NewActorComp->HasBeenCreated())
+		{
+			// Call function to notify component it has been created
+			NewActorComp->OnComponentCreated();
+		}
+
+		if (NewActorComp->GetIsReplicated())
+		{
+			// Make sure this component is added to owning actor's replicated list.
+			NewActorComp->SetIsReplicated(true);
+		}
 
 		// Special handling for scene components
 		USceneComponent* NewSceneComp = Cast<USceneComponent>(NewActorComp);
@@ -123,25 +133,26 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 				}
 				NewSceneComp->SetWorldTransform(WorldTransform);
 				Actor->SetRootComponent(NewSceneComp);
+
+				// This will be true if we deferred the RegisterAllComponents() call at spawn time. In that case, we can call it now since we have set a scene root.
+				if (Actor->HasDeferredComponentRegistration())
+				{
+					// Register the root component along with any components whose registration may have been deferred pending SCS execution in order to establish a root.
+					Actor->RegisterAllComponents();
+				}
 			}
 			// Otherwise, attach to parent component passed in
 			else
 			{
 				NewSceneComp->SetupAttachment(ParentComponent, AttachToName);
 			}
-		}
 
-		// Call function to notify component it has been created
-		NewActorComp->OnComponentCreated();
-
-		if (NewActorComp->GetIsReplicated())
-		{
-			// Make sure this component is added to owning actor's replicated list.
-			NewActorComp->SetIsReplicated(true);
+			// Register SCS scene components now (if necessary). Non-scene SCS component registration is deferred until after SCS execution, as there can be dependencies on the scene hierarchy.
+			USimpleConstructionScript::RegisterInstancedComponent(NewSceneComp);
 		}
 
 		// If we want to save this to a property, do it here
-		FName VarName = GetVariableName();
+		FName VarName = InternalVariableName;
 		if (VarName != NAME_None)
 		{
 			UClass* ActorClass = Actor->GetClass();
@@ -151,7 +162,7 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 			}
 			else
 			{
-				UE_LOG(LogBlueprint, Log, TEXT("ExecuteNodeOnActor: Couldn't find property '%s' on '%s"), *VarName.ToString(), *Actor->GetName());
+				UE_LOG(LogBlueprint, Log, TEXT("ExecuteNodeOnActor: Couldn't find property '%s' on '%s'"), *VarName.ToString(), *Actor->GetName());
 #if WITH_EDITOR
 				// If we're constructing editable components in the SCS editor, set the component instance corresponding to this node for editing purposes
 				USimpleConstructionScript* SCS = GetSCS();
@@ -319,36 +330,63 @@ bool USCS_Node::IsRootNode() const
 	return(SCS->GetRootNodes().Contains(const_cast<USCS_Node*>(this)));
 }
 
-FName USCS_Node::GetVariableName() const
+void USCS_Node::RenameComponentTemplate(UActorComponent* ComponentTemplate, const FName& NewName)
 {
-	// Name specified
-	if(VariableName != NAME_None)
+	if (ComponentTemplate != nullptr && ComponentTemplate->HasAllFlags(RF_ArchetypeObject))
 	{
-		return VariableName;
+		// Gather all instances of the template (archetype)
+		TArray<UObject*> ArchetypeInstances;
+		ComponentTemplate->GetArchetypeInstances(ArchetypeInstances);
+
+		// Rename the component template (archetype) - note that this can be called during compile-on-load, so we include the flag not to reset the BPGC's package loader.
+		const FString NewComponentName = NewName.ToString();
+		ComponentTemplate->Rename(*(NewComponentName + USimpleConstructionScript::ComponentTemplateNameSuffix), nullptr, REN_DontCreateRedirectors | REN_ForceNoResetLoaders);
+
+		// Rename all component instances to match the updated variable name
+		for (UObject* ArchetypeInstance : ArchetypeInstances)
+		{
+			// Recursively handle inherited component template overrides. In the SCS case, this is because we must also handle these before the SCS key's variable name is changed.
+			if (ArchetypeInstance->HasAllFlags(RF_ArchetypeObject | RF_InheritableComponentTemplate))
+			{
+				RenameComponentTemplate(CastChecked<UActorComponent>(ArchetypeInstance), NewName);
+			}
+			else
+			{
+				// If this is an instanced component (i.e. owned by an Actor), ensure that we have no conflict with another instanced component belonging to the same Actor instance.
+				if (AActor* Actor = Cast<AActor>(ArchetypeInstance->GetOuter()))
+				{
+					Actor->CheckComponentInstanceName(NewName);
+				}
+
+				ArchetypeInstance->Rename(*NewComponentName, nullptr, REN_DontCreateRedirectors | REN_ForceNoResetLoaders);
+			}
+		}
 	}
-	// Not specified, make variable based on template name
-	// Note that since SCS_Nodes should all have auto generated names, this code shouldn't be hit unless
-	// the auto naming code fails.
-	else if(ComponentTemplate != NULL)
+}
+
+void USCS_Node::SetVariableName(const FName& NewName, bool bRenameTemplate)
+{
+	// We need to ensure that component object names stay in sync with the variable name; this is done for 2 reasons:
+	//	1) This ensures existing instances can successfully route back to the archetype (template) object through the variable name.
+	//	2) This prevents new SCS nodes for the same component type from recycling an existing template with the original (base) name.
+	if (bRenameTemplate && ComponentTemplate != nullptr)
 	{
-		FString VarString = FString::Printf(TEXT("%s_Var"), *ComponentTemplate->GetName());
-		return FName(*VarString);
+		// This must be called BEFORE we change the internal variable name; otherwise it will fail to find any instances of the archetype!
+		RenameComponentTemplate(ComponentTemplate, NewName);
 	}
-	else
-	{
-		return NAME_None;
-	}
+
+	InternalVariableName = NewName;
+
+	// >>> Backwards Compatibility: Support existing projects/tools that might be reading the variable name directly. This can be removed in a future release.
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	VariableName = InternalVariableName;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	// <<< End Backwards Compatibility
 }
 
 void USCS_Node::NameWasModified()
 {
-	if(ComponentTemplate != nullptr)
-	{
-		// Ensure that the template name stays in sync with the variable name; otherwise, new SCS nodes for the same component type will recycle the subobject rather than create a new instance.
-		ComponentTemplate->Rename(*(VariableName.ToString() + TEXT("_GEN_VARIABLE")), nullptr, REN_DontCreateRedirectors|REN_ForceNoResetLoaders);
-	}
-
-	OnNameChangedExternal.ExecuteIfBound(VariableName);
+	OnNameChangedExternal.ExecuteIfBound(InternalVariableName);
 }
 
 void USCS_Node::SetOnNameChanged( const FSCSNodeNameChanged& OnChange )
@@ -397,6 +435,30 @@ void USCS_Node::RemoveMetaData(const FName& Key)
 	}
 }
 
+void USCS_Node::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading())
+	{
+		if (Ar.IsPersistent() && !Ar.HasAnyPortFlags(PPF_Duplicate | PPF_DuplicateForPIE))
+		{
+			// >>> Backwards Compatibility: Support existing projects/tools that might be reading the variable name directly. This can be removed in a future release.
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+			VariableName = InternalVariableName;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+			// <<< End Backwards Compatibility
+
+			// Fix up the component class property, if it has not already been set.
+			// Note: This is done here, instead of in PostLoad(), because it needs to be set before Blueprint class compilation.
+			if (ComponentClass == nullptr && ComponentTemplate != nullptr)
+			{
+				ComponentClass = ComponentTemplate->GetClass();
+			}
+		}
+	}
+}
+
 void USCS_Node::PostLoad()
 {
 	Super::PostLoad();
@@ -412,27 +474,33 @@ void USCS_Node::PostLoad()
 	}
 }
 
+
 #if WITH_EDITOR
 void USCS_Node::SetParent(USCS_Node* InParentNode)
 {
-	check(InParentNode != NULL);
-	check(InParentNode->GetSCS() != NULL);
-	check(InParentNode->GetSCS()->GetBlueprint() != NULL);
-	check(InParentNode->GetSCS()->GetBlueprint()->GeneratedClass != NULL);
+	ensure(InParentNode);
+	USimpleConstructionScript* ParentSCS = InParentNode ? InParentNode->GetSCS() : nullptr;
+	ensure(ParentSCS);
+	UBlueprint* ParentBlueprint = ParentSCS ? ParentSCS->GetBlueprint() : nullptr;
+	ensure(ParentBlueprint);
+	UClass* ParentBlueprintGeneratedClass = ParentBlueprint ? ParentBlueprint->GeneratedClass : nullptr;
 
-	const FName NewParentComponentOrVariableName = InParentNode->VariableName;
-	const FName NewParentComponentOwnerClassName = InParentNode->GetSCS()->GetBlueprint()->GeneratedClass->GetFName();
-
-	// Only modify if it differs from current
-	if(bIsParentComponentNative
-		|| ParentComponentOrVariableName != NewParentComponentOrVariableName
-		|| ParentComponentOwnerClassName != NewParentComponentOwnerClassName)
+	if (ParentBlueprintGeneratedClass && InParentNode)
 	{
-		Modify();
+		const FName NewParentComponentOrVariableName = InParentNode->GetVariableName();
+		const FName NewParentComponentOwnerClassName = ParentBlueprintGeneratedClass->GetFName();
 
-		bIsParentComponentNative = false;
-		ParentComponentOrVariableName = NewParentComponentOrVariableName;
-		ParentComponentOwnerClassName = NewParentComponentOwnerClassName;
+		// Only modify if it differs from current
+		if (bIsParentComponentNative
+			|| ParentComponentOrVariableName != NewParentComponentOrVariableName
+			|| ParentComponentOwnerClassName != NewParentComponentOwnerClassName)
+		{
+			Modify();
+
+			bIsParentComponentNative = false;
+			ParentComponentOrVariableName = NewParentComponentOrVariableName;
+			ParentComponentOwnerClassName = NewParentComponentOwnerClassName;
+		}
 	}
 }
 
@@ -474,9 +542,8 @@ USceneComponent* USCS_Node::GetParentComponentTemplate(UBlueprint* InBlueprint) 
 				TInlineComponentArray<USceneComponent*> Components;
 				CDO->GetComponents(Components);
 
-				for(auto CompIt = Components.CreateIterator(); CompIt; ++CompIt)
+				for (USceneComponent* CompTemplate : Components)
 				{
-					USceneComponent* CompTemplate = *CompIt;
 					if(CompTemplate->GetFName() == ParentComponentOrVariableName)
 					{
 						// Found a match; this is our parent, we're done
@@ -506,7 +573,7 @@ USceneComponent* USCS_Node::GetParentComponentTemplate(UBlueprint* InBlueprint) 
 					for(int32 ParentNodeIndex = 0; ParentNodeIndex < ParentSCSNodes.Num(); ++ParentNodeIndex)
 					{
 						USceneComponent* CompTemplate = Cast<USceneComponent>(ParentSCSNodes[ParentNodeIndex]->ComponentTemplate);
-						if(CompTemplate != NULL && ParentSCSNodes[ParentNodeIndex]->VariableName == ParentComponentOrVariableName)
+						if(CompTemplate != NULL && ParentSCSNodes[ParentNodeIndex]->GetVariableName() == ParentComponentOrVariableName)
 						{
 							// Found a match; this is our parent, we're done
 							ParentComponentTemplate = Cast<USceneComponent>(ParentSCSNodes[ParentNodeIndex]->GetActualComponentTemplate(Cast<UBlueprintGeneratedClass>(InBlueprint->GeneratedClass)));
@@ -526,9 +593,9 @@ void USCS_Node::ValidateGuid()
 	// Backward compatibility:
 	// The guid for the node should be always the same (event when it's not saved). 
 	// The guid is created in an deterministic way using persistent name.
-	if (!VariableGuid.IsValid() && (VariableName != NAME_None))
+	if (!VariableGuid.IsValid() && (InternalVariableName != NAME_None))
 	{
-		const FString HashString = VariableName.ToString();
+		const FString HashString = InternalVariableName.ToString();
 		ensure(HashString.Len());
 
 		const uint32 BufferLength = HashString.Len() * sizeof(HashString[0]);

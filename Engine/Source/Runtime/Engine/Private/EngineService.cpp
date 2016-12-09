@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "EngineService.h"
+#include "Misc/App.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 #include "EngineServiceMessages.h"
-#include "MessageEndpoint.h"
-#include "MessageEndpointBuilder.h"
-#include "NetworkVersion.h"
+#include "Helpers/MessageEndpoint.h"
+#include "Helpers/MessageEndpointBuilder.h"
+#include "Misc/NetworkVersion.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogEngineService, Log, All)

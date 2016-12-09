@@ -8,7 +8,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Interfaces/IHttpRequest.h"
+
 class FHttpServiceTracker;
+class IAnalyticsProvider;
 struct FAnalyticsEventAttribute;
 
 /**

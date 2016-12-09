@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LayersPrivatePCH.h"
 #include "SLayersViewRow.h"
-#include "SInlineEditableTextBlock.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
+#include "DragAndDrop/ActorDragDropGraphEdOp.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 #define LOCTEXT_NAMESPACE "LayersView"
 

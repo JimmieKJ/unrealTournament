@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
+#include "Utils.h"
+#include "EditorViewportClient.h"
 
 #if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
 // Needed for showing balloon messages
 #include "AllowWindowsPlatformTypes.h"
 		#include <ShellAPI.h>
@@ -57,7 +59,7 @@ void HWidgetUtilProxy::CalcVectors(FSceneView* SceneView, const FViewportClick& 
 	}
 
 	// Transform world-space drag dir to screen space.
-	FVector ScreenDir = SceneView->ViewMatrices.ViewMatrix.TransformVector(WorldDragDir);
+	FVector ScreenDir = SceneView->ViewMatrices.GetViewMatrix().TransformVector(WorldDragDir);
 	ScreenDir.Z = 0.0f;
 
 	if( ScreenDir.IsZero() )
@@ -87,7 +89,7 @@ void FUnrealEdUtils::DrawWidget(const FSceneView* View,FPrimitiveDrawInterface* 
 	const FVector WidgetOrigin = WidgetMatrix.GetOrigin();
 
 	// Calculate size to draw widget so it takes up the same screen space.
-	const float ZoomFactor = FMath::Min<float>(View->ViewMatrices.ProjMatrix.M[0][0], View->ViewMatrices.ProjMatrix.M[1][1]);
+	const float ZoomFactor = FMath::Min<float>(View->ViewMatrices.GetProjectionMatrix().M[0][0], View->ViewMatrices.GetProjectionMatrix().M[1][1]);
 	const float WidgetRadius = View->Project(WidgetOrigin).W * (UnrealEd_WidgetSize / ZoomFactor);
 
 	// Choose its color. Highlight manipulated axis in yellow.

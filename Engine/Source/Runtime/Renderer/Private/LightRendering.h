@@ -6,7 +6,12 @@
 
 #pragma once
 
-#include "UniformBuffer.h"
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "GlobalShader.h"
+#include "ShadowRendering.h"
+#include "SceneRendering.h"
 
 template<typename ShaderRHIParamRef>
 void SetSimpleDeferredLightParameters(
@@ -102,7 +107,7 @@ public:
 		FGlobalShader::SetParameters(RHICmdList, GetVertexShader(),View);
 
 		FVector4 StencilingSpherePosAndScale;
-		StencilingGeometry::GStencilSphereVertexBuffer.CalcTransform(StencilingSpherePosAndScale, LightBounds, View.ViewMatrices.PreViewTranslation);
+		StencilingGeometry::GStencilSphereVertexBuffer.CalcTransform(StencilingSpherePosAndScale, LightBounds, View.ViewMatrices.GetPreViewTranslation());
 		StencilingGeometryParameters.Set(RHICmdList, this, StencilingSpherePosAndScale);
 	}
 

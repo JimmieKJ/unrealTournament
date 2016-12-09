@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "Interface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Interface.h"
 #include "Engine/Texture.h"
-#include "Math/Vector2D.h"
 #include "SlateTextureAtlasInterface.generated.h"
 
 /**

@@ -2,20 +2,34 @@
 
 #pragma once
 
-#include "Toolkits/AssetEditorToolkit.h"
-#include "IDistCurveEditor.h"
-#include "CascadeConfiguration.h"
-#include "CascadeParticleSystemComponent.h"
-#include "Particles/ParticleEmitter.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/GCObject.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/Application/IMenu.h"
+#include "Toolkits/IToolkitHost.h"
+#include "Misc/NotifyHook.h"
+#include "TickableEditorObject.h"
 #include "Particles/ParticleModule.h"
 #include "EditorUndoClient.h"
+#include "ICascade.h"
+#include "IDistCurveEditor.h"
+#include "Particles/ParticleEmitter.h"
 
-class SCascadePreviewViewport;
+class FFXSystemInterface;
+class IDetailsView;
 class SCascadeEmitterCanvas;
-class UCascadeParticleSystemComponent;
+class SCascadePreviewViewport;
+class SDockableTab;
 class UCascadeConfiguration;
+class UCascadeOptions;
+class UCascadeParticleSystemComponent;
+class UParticleLODLevel;
+class UParticleSystem;
+class UParticleSystemComponent;
 class UVectorFieldComponent;
-
+struct FCurveEdEntry;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogCascade, Log, All);
 
@@ -27,6 +41,8 @@ DECLARE_LOG_CATEGORY_EXTERN(LogCascade, Log, All);
 class FCascade : public ICascade, public FGCObject, public FTickableEditorObject, public FNotifyHook, public FCurveEdNotifyInterface, public FEditorUndoClient
 {
 public:
+	FCascade();
+
 	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
 	virtual void UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
 	TSharedRef<SDockTab> SpawnTab(const FSpawnTabArgs& SpawnTabArgs, FName TabIdentifier);

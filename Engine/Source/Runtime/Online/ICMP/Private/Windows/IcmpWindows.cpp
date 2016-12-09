@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IcmpPrivatePCH.h"
 #include "Icmp.h"
+#include "IcmpPrivate.h"
+#include "IcmpModule.h"
+#include "SocketSubsystem.h"
 
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include "WinSock2.h"
@@ -17,6 +20,8 @@ typedef ICMP_ECHO_REPLY FIcmpEchoReply;
 #elif PLATFORM_64BITS
 typedef ICMP_ECHO_REPLY32 FIcmpEchoReply;
 #endif
+
+#define ICMP_MAX_REPLIES 10
 
 uint16 NtoHS(uint16 val)
 {
@@ -69,7 +74,8 @@ FIcmpEchoResult IcmpEchoImpl(ISocketSubsystem* SocketSub, const FString& TargetA
 	}
 	Result.ResolvedAddress = ResolvedAddress;
 
-	static const SIZE_T ReplyBufferSize = (sizeof(ICMP_ECHO_REPLY) + IcmpWindows::IcmpPayloadSize);
+	// Allow for up to ICMP_MAX_REPLIES replies in case we get any bogus replies from other nodes
+	static const SIZE_T ReplyBufferSize = (sizeof(FIcmpEchoReply) + IcmpWindows::IcmpPayloadSize) * ICMP_MAX_REPLIES;
 	uint8 ReplyBuffer[ReplyBufferSize];
 
 	uint32 Ip = inet_addr(TCHAR_TO_UTF8(*ResolvedAddress));
@@ -89,27 +95,41 @@ FIcmpEchoResult IcmpEchoImpl(ISocketSubsystem* SocketSub, const FString& TargetA
 	uint32 RetVal = IcmpSendEcho(IcmpSocket, Ip, const_cast<uint8*>(&IcmpWindows::IcmpPayload[0]), IcmpWindows::IcmpPayloadSize, nullptr, ReplyBuffer, ReplyBufferSize, int(Timeout * 1000));
 	if (RetVal > 0)
 	{
-		FIcmpEchoReply* EchoReply = reinterpret_cast<FIcmpEchoReply*>(ReplyBuffer);
-		Result.Time = float(EchoReply->RoundTripTime) / 1000.0;
-		Result.ReplyFrom = IcmpWindows::IpToString(reinterpret_cast<void*>(&EchoReply->Address));
-		switch (EchoReply->Status)
+		FIcmpEchoReply* EchoReplies = reinterpret_cast<FIcmpEchoReply*>(ReplyBuffer);
+		bool bDone = false;
+
+		// Default to Timeout, unless other statuses are seen in the replies
+		Result.Status = EIcmpResponseStatus::Timeout;
+		for(uint32 I=0; I<RetVal && !bDone; ++I)
 		{
-			case IP_SUCCESS:
-				Result.Status = EIcmpResponseStatus::Success;
-				break;
-			case IP_DEST_HOST_UNREACHABLE:
-			case IP_DEST_NET_UNREACHABLE:
-			case IP_DEST_PROT_UNREACHABLE:
-			case IP_DEST_PORT_UNREACHABLE:
-				Result.Status = EIcmpResponseStatus::Unreachable;
-				break;
-			case IP_REQ_TIMED_OUT:
-				Result.Status = EIcmpResponseStatus::Timeout;
-				Result.Time = Timeout;
-				break;
-			default:
-				// Treating all other errors as internal ones
-				break;
+			Result.Time = float(EchoReplies[I].RoundTripTime) / 1000.0;
+			Result.ReplyFrom = IcmpWindows::IpToString(reinterpret_cast<void*>(&EchoReplies[I].Address));
+			switch (EchoReplies[I].Status)
+			{
+				case IP_SUCCESS:
+					// Only accept a successful reply comming from the resolved IP address, otherwise keep looping through the results
+					if (Result.ReplyFrom == Result.ResolvedAddress)
+					{
+						Result.Status = EIcmpResponseStatus::Success;
+						bDone = true;
+					}
+					break;
+				case IP_DEST_HOST_UNREACHABLE:
+				case IP_DEST_NET_UNREACHABLE:
+				case IP_DEST_PROT_UNREACHABLE:
+				case IP_DEST_PORT_UNREACHABLE:
+					Result.Status = EIcmpResponseStatus::Unreachable;
+					// Keep looping through the results, in case we received both an unreachable error and a valid reply
+					break;
+				case IP_REQ_TIMED_OUT:
+					// Simply ignore, if there are other reply packets use the status from them instead, otherwise we already default to Timeout.
+					// (Is this actually possible btw?)
+					break;
+				default:
+					// Treating all other errors as internal ones, but keep looking in case there are multiple replies
+					Result.Status = EIcmpResponseStatus::InternalError;
+					break;
+			}
 		}
 	}
 	else if (GetLastError() == IP_REQ_TIMED_OUT)

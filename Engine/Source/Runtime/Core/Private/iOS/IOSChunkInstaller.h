@@ -4,6 +4,7 @@
 
 #include <Foundation/NSBundle.h>
 #include "GenericPlatformChunkInstall.h"
+#include "Containers/Map.h"
 
 struct FIOSChunkStatus
 {

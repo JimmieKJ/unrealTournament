@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LeapMotionPrivatePCH.h"
+#include "LeapHand.h"
+#include "LeapFrame.h"
+#include "LeapFingerList.h"
+#include "LeapInterfaceUtility.h"
+#include "LeapArm.h"
+#include "Leap_NoPI.h"
 
 class FPrivateHand
 {

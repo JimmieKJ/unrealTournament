@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BuildPatchServicesPrivatePCH.h"
+#include "Generation/StatsCollector.h"
+#include "HAL/PlatformTime.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/OutputDeviceRedirector.h"
 
-#include "StatsCollector.h"
 
 
 namespace BuildPatchServices
@@ -13,8 +15,8 @@ namespace BuildPatchServices
 	uint64 FStatsCollector::GetCycles()
 	{
 #if PLATFORM_WINDOWS
-		LARGE_INTEGER Cycles;
-		QueryPerformanceCounter(&Cycles);
+		Windows::LARGE_INTEGER Cycles;
+		Windows::QueryPerformanceCounter(&Cycles);
 		return Cycles.QuadPart;
 #elif PLATFORM_MAC
 		uint64 Cycles = mach_absolute_time();
@@ -39,27 +41,27 @@ namespace BuildPatchServices
 		TempValue = FStatsCollector::GetCycles();
 	}
 
-	void FStatsCollector::AccumulateTimeEnd(volatile int64* Stat, uint64& TempValue)
+	void FStatsCollector::AccumulateTimeEnd(volatile FAtomicValue* Stat, uint64& TempValue)
 	{
-		FPlatformAtomics::InterlockedAdd(Stat, FStatsCollector::GetCycles() - TempValue);
+		FPlatformAtomics::InterlockedAdd(Stat, FAtomicValue(FStatsCollector::GetCycles() - TempValue));
 	}
 
-	void FStatsCollector::Accumulate(volatile int64* Stat, int64 Amount)
+	void FStatsCollector::Accumulate(volatile FAtomicValue* Stat, int64 Amount)
 	{
-		FPlatformAtomics::InterlockedAdd(Stat, Amount);
+		FPlatformAtomics::InterlockedAdd(Stat, FAtomicValue(Amount));
 	}
 
-	void FStatsCollector::Set(volatile int64* Stat, int64 Value)
+	void FStatsCollector::Set(volatile FAtomicValue* Stat, int64 Value)
 	{
-		FPlatformAtomics::InterlockedExchange(Stat, Value);
+		FPlatformAtomics::InterlockedExchange(Stat, FAtomicValue(Value));
 	}
 
-	void FStatsCollector::SetAsPercentage(volatile int64* Stat, double Value)
+	void FStatsCollector::SetAsPercentage(volatile FAtomicValue* Stat, double Value)
 	{
-		FPlatformAtomics::InterlockedExchange(Stat, int64(Value * ToPercentage));
+		FPlatformAtomics::InterlockedExchange(Stat, FAtomicValue(Value * ToPercentage));
 	}
 
-	double FStatsCollector::GetAsPercentage(volatile int64* Stat)
+	double FStatsCollector::GetAsPercentage(volatile FAtomicValue* Stat)
 	{
 		return *Stat * FromPercentage;
 	}
@@ -71,14 +73,14 @@ namespace BuildPatchServices
 		FStatsCollectorImpl();
 		virtual ~FStatsCollectorImpl();
 
-		virtual volatile int64* CreateStat(const FString& Name, EStatFormat Type, int64 InitialValue = 0) override;
+		virtual volatile FStatsCollector::FAtomicValue* CreateStat(const FString& Name, EStatFormat Type, FAtomicValue InitialValue = 0) override;
 		virtual void LogStats(float TimeBetweenLogs = 0.0f) override;
 
 	private:
 		FCriticalSection DataCS;
-		TMap<FString, volatile int64*> AddedStats;
-		TMap<int64*, FString> AtomicNameMap;
-		TMap<int64*, EStatFormat> AtomicFormatMap;
+		TMap<FString, volatile FAtomicValue*> AddedStats;
+		TMap<FAtomicValue*, FString> AtomicNameMap;
+		TMap<FAtomicValue*, EStatFormat> AtomicFormatMap;
 		uint64 LastLogged;
 		int32 LongestName;
 		FNumberFormattingOptions PercentageFormattingOptions;
@@ -104,15 +106,15 @@ namespace BuildPatchServices
 		AtomicFormatMap.Empty();
 	}
 
-	volatile int64* FStatsCollectorImpl::CreateStat(const FString& Name, EStatFormat Type, int64 InitialValue)
+	volatile FStatsCollector::FAtomicValue* FStatsCollectorImpl::CreateStat(const FString& Name, EStatFormat Type, FStatsCollector::FAtomicValue InitialValue)
 	{
 		FScopeLock ScopeLock(&DataCS);
 		if (AddedStats.Contains(Name) == false)
 		{
-			volatile int64* NewInteger = new volatile int64(InitialValue);
+			volatile FStatsCollector::FAtomicValue* NewInteger = new volatile FStatsCollector::FAtomicValue(InitialValue);
 			AddedStats.Add(Name, NewInteger);
-			AtomicNameMap.Add((int64*)NewInteger, Name + TEXT(": "));
-			AtomicFormatMap.Add((int64*)NewInteger, Type);
+			AtomicNameMap.Add((FStatsCollector::FAtomicValue*)NewInteger, Name + TEXT(": "));
+			AtomicFormatMap.Add((FStatsCollector::FAtomicValue*)NewInteger, Type);
 			LongestName = FMath::Max<uint32>(LongestName, Name.Len() + 2);
 			for (auto& Stat : AtomicNameMap)
 			{
@@ -135,7 +137,7 @@ namespace BuildPatchServices
 			GLog->Log(TEXT("/-------- FStatsCollector Log ---------------------"));
 			for (auto& Stat : AddedStats)
 			{
-				int64* NameLookup = (int64*)Stat.Value;
+				FStatsCollector::FAtomicValue* NameLookup = (FStatsCollector::FAtomicValue*)Stat.Value;
 				switch (AtomicFormatMap[NameLookup])
 				{
 				case EStatFormat::Timer:

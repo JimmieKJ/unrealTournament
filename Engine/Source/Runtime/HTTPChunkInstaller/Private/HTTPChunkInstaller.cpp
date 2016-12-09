@@ -4,8 +4,9 @@
 #	define PLACEHOLDER_DLC_WORK 0
 #endif
 
-#include "HTTPChunkInstallerPrivatePCH.h"
 #include "HTTPChunkInstaller.h"
+#include "HTTPChunkInstallerLog.h"
+#include "IBuildPatchServicesModule.h"
 #include "ChunkInstall.h"
 #include "UniquePtr.h"
 #include "LocalTitleFile.h"

@@ -1,9 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPrivatePCH.h"
-#include "OnlineNotificationHandler.h"
 #include "OnlineNotificationTransportManager.h"
-#include "OnlineNotificationTransportInterface.h"
 
 
 bool FOnlineNotificationTransportManager::SendNotification(FNotificationTransportId TransportType, const FOnlineNotification& Notification)

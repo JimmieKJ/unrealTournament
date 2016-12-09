@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IPropertyTypeCustomization.h"
+
 /** Struct customization for FTutorialContent */
 class FTutorialContentCustomization : public IPropertyTypeCustomization
 {

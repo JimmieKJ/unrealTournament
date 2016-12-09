@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MatineeModule.h"
-#include "ModuleManager.h"
+#include "IMatinee.h"
 #include "Matinee.h"
 #include "Matinee/MatineeActor.h"
 

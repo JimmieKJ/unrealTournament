@@ -5,6 +5,9 @@
 #ifndef CPUSOLVER_H
 #define CPUSOLVER_H
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+
 namespace Lightmass
 {
 

@@ -7,8 +7,14 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
 #include "Exporter.generated.h"
 
+class FExportObjectInnerContext;
 class UActorComponent;
 
 UCLASS(abstract, transient, MinimalAPI)

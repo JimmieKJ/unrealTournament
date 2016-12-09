@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "AssetTypeActions/AssetTypeActions_Texture.h"
 #include "Engine/TextureCube.h"
-#include "AssetTypeActions_Texture.h"
 
 class FAssetTypeActions_TextureCube : public FAssetTypeActions_Texture
 {

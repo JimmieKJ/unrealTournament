@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "SPropertyEditorArrayItem.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorArrayItem.h"
+#include "UObject/UnrealType.h"
 #include "PropertyNode.h"
-#include "PropertyEditor.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
 
 void SPropertyEditorArrayItem::Construct( const FArguments& InArgs, const TSharedRef< class FPropertyEditor>& InPropertyEditor )
 {

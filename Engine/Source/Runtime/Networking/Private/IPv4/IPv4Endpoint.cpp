@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetworkingPrivatePCH.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
 
 
 /* FIPv4Endpoint static initialization

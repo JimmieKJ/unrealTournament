@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "Editor/UnrealEdTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
 
 #include "DEditorParameterValue.generated.h"
 

@@ -15,14 +15,28 @@ namespace MemoryProfiler2
 		/// <summary> Global public stream info so we don't need to pass it around. </summary>
 		public static FStreamInfo GlobalInstance = null;
 
-		/// <summary> If True console symbol parser will ask user to locate the file containing symbols. </summary>
-		public static bool bLoadDefaultSymbols = false;
-
 		/// <summary> File name associated with this stream. </summary>
 		public string FileName;
 
+		/// <summary> Meta-data associated with this stream. </summary>
+		public Dictionary<string, string> MetaData;
+
+		/// <summary> Array of unique tags. Code has fixed indexes into it. </summary>
+		public List<FAllocationTags> TagsArray;
+
+		/// <summary> Hierarchy of tags built as they are parsed. </summary>
+		public FAllocationTagHierarchy TagHierarchy = new FAllocationTagHierarchy();
+
 		/// <summary> Array of unique names. Code has fixed indexes into it. </summary>
-		public List<string> NameArray;
+		private List<string> InternalNameArray;
+		private Dictionary<string, int> InternalNameIndexLookupMap;
+		public IList<string> NameArray
+		{
+			get
+			{
+				return InternalNameArray.AsReadOnly();
+			}
+		}
 
 		/// <summary> Array of unique names used for script, object types, etc... (FName table from runtime). </summary>
 		public List<string> ScriptNameArray;
@@ -34,7 +48,7 @@ namespace MemoryProfiler2
 		public List<FCallStackAddress> CallStackAddressArray;
 
 		/// <summary> Proper symbol parser will be created based on platform. </summary>
-		public ISymbolParser ConsoleSymbolParser = null;
+		public ISymbolParser SymbolParser = null;
 
 		/// <summary> Memory pool ranges for all pools. </summary>
 		public FMemoryPoolInfoCollection MemoryPoolInfo = new FMemoryPoolInfoCollection();
@@ -48,9 +62,6 @@ namespace MemoryProfiler2
 
 		/// <summary> List of snapshots created by parser and used by various visualizers and dumping tools. </summary>
 		public List<FStreamSnapshot> SnapshotList = new List<FStreamSnapshot>();
-
-		/// <summary> Platform on which these statistics were collected V3. </summary>
-		public EPlatformType Platform;
 
 		/// <summary> Platform that was captured V4. </summary>
 		public string PlatformName;
@@ -96,29 +107,35 @@ namespace MemoryProfiler2
 		/// <summary> Initializes and sizes the arrays. Size is known as soon as header is serialized. </summary>
 		public void Initialize( FProfileDataHeader Header )
 		{
-			Platform = Header.Platform;
 			PlatformName = Header.PlatformName;
-			NameArray = new List<string>( (int)Header.NameTableEntries );
+			MetaData = new Dictionary<string, string>( (int)Header.MetaDataTableEntries );
+			TagsArray = new List<FAllocationTags>( (int)Header.TagsTableEntries );
+			InternalNameArray = new List<string>( (int)Header.NameTableEntries );
+			InternalNameIndexLookupMap = new Dictionary<string, int>( (int)Header.NameTableEntries );
 			CallStackArray = new List<FCallStack>( (int)Header.CallStackTableEntries );
 			CallStackAddressArray = new List<FCallStackAddress>( (int)Header.CallStackAddressTableEntries );
 		}
 
 		/// <summary> 
 		/// Returns index of the name, if the name doesn't exit creates a new one if bCreateIfNonExistent is true
-		/// NOTE: this is slow because it has to do a reverse lookup into NameArray
 		/// </summary>
 		public int GetNameIndex( string Name, bool bCreateIfNonExistent )
 		{
 			// This is the only method where there should be concurrent access of NameArray, so
 			// don't worry about locking it anywhere else.
-			lock( NameArray )
+			lock(InternalNameArray)
 			{
-				int NameIndex = NameArray.IndexOf( Name );
-
-				if( NameIndex == -1 && bCreateIfNonExistent )
+				int NameIndex;
+				if (!InternalNameIndexLookupMap.TryGetValue(Name, out NameIndex))
 				{
-					NameArray.Add( Name );
-					NameIndex = NameArray.Count - 1;
+					NameIndex = -1;
+				}
+
+				if (NameIndex == -1 && bCreateIfNonExistent)
+				{
+					InternalNameArray.Add(Name);
+					NameIndex = InternalNameArray.Count - 1;
+					InternalNameIndexLookupMap.Add(Name, NameIndex);
 				}
 
 				return NameIndex;
@@ -135,11 +152,11 @@ namespace MemoryProfiler2
 		{
 			// This is the only method where there should be concurrent access of NameArray, so
 			// don't worry about locking it anywhere else.
-			lock( NameArray )
+			lock(InternalNameArray)
 			{
-				for( int NameIndex = 0; NameIndex < NameArray.Count; NameIndex ++ )
+				for( int NameIndex = 0; NameIndex < InternalNameArray.Count; NameIndex ++ )
 				{
-					if( NameArray[NameIndex].Contains( PartialName ) )
+					if(InternalNameArray[NameIndex].Contains( PartialName ) )
 					{
 						return NameIndex;
 					}
@@ -153,34 +170,7 @@ namespace MemoryProfiler2
 		public static int GetMemoryBankSize( int BankIndex )
 		{
 			Debug.Assert( BankIndex >= 0 );
-
-			if( FStreamToken.Version >= 4 )
-			{
-				return BankIndex == 0 ? 512 : 0;
-			}
-			else
-			{
-				//private static int[][] MEMORY_BANK_SIZE = new int[][] { new int[] { 512, 1 }, new int[] { 180, 256 } };
-				//private static int[][] MEMORY_BANK_SIZE_FOR_RENDERED_GRAPHS = new int[][] { new int[] { 512 * 1024 * 1024, 1 }, new int[] { 256 * 1024 * 1024, 256 * 1024 * 1024 } };
-				if( GlobalInstance.Platform == EPlatformType.Xbox360 || GlobalInstance.Platform == EPlatformType.IPhone )
-				{
-					return BankIndex == 0 ? 512 : 0;
-				}
-				else if( GlobalInstance.Platform == EPlatformType.PS3 )
-				{
-					return BankIndex < 2 ? 256 : 0;
-				}
-				else if( ( GlobalInstance.Platform & EPlatformType.AnyWindows ) != EPlatformType.Unknown )
-				{
-					// Technically could be much larger, but the graph becomes unusable
-					// if the scale is too large.
-					return BankIndex == 0 ? 512 : 0;
-				}
-				else
-				{
-					throw new Exception( "Unsupported platform" );
-				}
-			}
+			return BankIndex == 0 ? 512 : 0;
 		}
 
 		/// <summary> Returns a frame number based on the stream index. </summary>
@@ -195,12 +185,13 @@ namespace MemoryProfiler2
 			// The only case where these can be equal is if they are both 0.
 			Debug.Assert( StreamIndex >= FrameStreamIndices[ StartFrame - 1 ] );
 
-			while( StreamIndex > FrameStreamIndices[ StartFrame ] && StartFrame + 1 < FrameStreamIndices.Count )
+			int FoundFrame = FrameStreamIndices.BinarySearch(StartFrame, FrameStreamIndices.Count - StartFrame, StreamIndex, null);
+			if (FoundFrame < 0)
 			{
-				StartFrame++;
+				FoundFrame = ~FoundFrame;
 			}
 
-			return StartFrame;
+			return FoundFrame;
 		}
 
 		/// <summary> Returns the time of the stream index. </summary>
@@ -247,9 +238,9 @@ namespace MemoryProfiler2
 
 		public void Shutdown()
 		{
-			if( ConsoleSymbolParser is IDisplayCallback )
+			if (SymbolParser != null)
 			{
-				( ( IDisplayCallback )ConsoleSymbolParser ).Shutdown();
+				SymbolParser.ShutdownSymbolService();
 			}
 		}
 	}

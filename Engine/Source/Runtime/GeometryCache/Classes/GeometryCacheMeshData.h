@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ProfilingDebugging/ResourceSize.h"
 #include "DynamicMeshBuilder.h"
 
-#include "Box.h"
 #include "GeometryCacheMeshData.generated.h"
 
 /** Stores per-batch data used for rendering */
@@ -85,18 +87,28 @@ struct FGeometryCacheMeshData
 		return Ar;
 	}
 
+	DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
 	SIZE_T GetResourceSize() const
 	{
-		// Calculate resource size according to what is actually serialized
-		SIZE_T Size = 0;
-		Size += Vertices.Num() * sizeof(FDynamicMeshVertex);
-		Size += BatchesInfo.Num() * sizeof(FGeometryCacheMeshBatchInfo);
-		Size += sizeof(Vertices);
-		Size += sizeof(BatchesInfo);
-		Size += sizeof(BoundingBox);
-		Size += Indices.Num() * sizeof(uint32);
-		Size += sizeof(Indices);
+		return GetResourceSizeBytes();
+	}
 
-		return Size;
+	void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const
+	{
+		// Calculate resource size according to what is actually serialized
+		CumulativeResourceSize.AddUnknownMemoryBytes(Vertices.Num() * sizeof(FDynamicMeshVertex));
+		CumulativeResourceSize.AddUnknownMemoryBytes(BatchesInfo.Num() * sizeof(FGeometryCacheMeshBatchInfo));
+		CumulativeResourceSize.AddUnknownMemoryBytes(sizeof(Vertices));
+		CumulativeResourceSize.AddUnknownMemoryBytes(sizeof(BatchesInfo));
+		CumulativeResourceSize.AddUnknownMemoryBytes(sizeof(BoundingBox));
+		CumulativeResourceSize.AddUnknownMemoryBytes(Indices.Num() * sizeof(uint32));
+		CumulativeResourceSize.AddUnknownMemoryBytes(sizeof(Indices));
+	}
+
+	SIZE_T GetResourceSizeBytes() const
+	{
+		FResourceSizeEx ResSize;
+		GetResourceSizeEx(ResSize);
+		return ResSize.GetTotalMemoryBytes();
 	}
 };

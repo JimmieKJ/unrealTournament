@@ -2,7 +2,17 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Layout/Margin.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class IUMGDesigner;
+class UCanvasPanelSlot;
+class UPanelSlot;
 
 namespace ETransformDirection
 {

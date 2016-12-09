@@ -1,17 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessageLogPrivatePCH.h"
 #include "MessageLogModule.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "TokenizedMessage.h"
-#include "SDockTab.h"
-#include "SMessageLog.h"
-#include "SMessageLogListing.h"
-#include "MessageLogModel.h"
-#include "MessageLogViewModel.h"
-#include "MessageLogListingModel.h"
-#include "MessageLogListingViewModel.h"
-#include "MessageLog.h"
+#include "Logging/IMessageLog.h"
+#include "IMessageLogListing.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "UserInterface/SMessageLog.h"
+#include "Model/MessageLogListingModel.h"
+#include "Presentation/MessageLogListingViewModel.h"
+#include "UserInterface/SMessageLogListing.h"
+#include "Model/MessageLogModel.h"
+#include "Presentation/MessageLogViewModel.h"
+#include "Logging/MessageLog.h"
+
+#if WITH_EDITOR
+	#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructure.h"
+	#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
+#endif
 
 IMPLEMENT_MODULE( FMessageLogModule, MessageLog );
 

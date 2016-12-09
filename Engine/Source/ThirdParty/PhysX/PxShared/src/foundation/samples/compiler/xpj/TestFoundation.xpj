@@ -1,0 +1,279 @@
+<XPJ version="4">
+	<Project name="TestFoundation" version="1">
+
+		<Export platform="win32" tool="vc11">../VS2012_WIN32</Export>
+		<Export platform="win64" tool="vc11">../VS2012_WIN64</Export>
+
+		<Export platform="linux32" tool="make">../linux32</Export>
+		<Export platform="linux64" tool="make">../linux64</Export>
+
+		<Export platform="android" tool="vc11">../VS2012_ANDROID</Export>
+
+		<Target name="TestFoundation">
+
+			<Export platform="win32" tool="vc11">../VS2012_WIN32</Export>
+			<Export platform="win64" tool="vc11">../VS2012_WIN64</Export>
+
+			<Export platform="linux32" tool="make">../linux32</Export>
+			<Export platform="linux64" tool="make">../linux64</Export>
+
+			<Export platform="android" tool="vc11">../VS2012_ANDROID</Export>
+
+			<Files name="src" root="../../TestFoundation" type="source">
+				*.cpp
+				*.h
+			</Files>
+
+			<Files name="include" root="${env:PX_SHARED}/include/foundation" type="source">
+				*.h
+			</Files>
+
+			<Files name="include" platform="win32" root="${env:PX_SHARED}/include/foundation" type="source">
+				windows/*.h
+			</Files>
+
+			<Files name="include" platform="win64" root="${env:PX_SHARED}/include/foundation" type="source">
+				windows/*.h
+			</Files>
+
+			<Files name="include" platform="linux32" root="${env:PX_SHARED}/include/foundation" type="source">
+				unix/*.h
+			</Files>
+
+			<Files name="include" platform="linux64" root="${env:PX_SHARED}/include/foundation" type="source">
+				unix/*.h
+			</Files>
+
+			<Files name="include" platform="android" root="${env:PX_SHARED}/include/foundation" type="source">
+				unix/*.h
+			</Files>
+			
+			<Files name="src" root="${env:PX_SHARED}/src/foundation" type="source">
+				include/*.h
+				src/*.cpp
+			</Files>
+
+			<Files name="src" platform="win32" root="${env:PX_SHARED}/src/foundation" type="source">
+				include/windows/*.h
+				src/windows/*.cpp
+			</Files>
+
+			<Files name="src" platform="win64" root="${env:PX_SHARED}/src/foundation" type="source">
+				include/windows/*.h
+				src/windows/*.cpp
+			</Files>
+
+			<Files name="src" platform="linux32" root="${env:PX_SHARED}/src/foundation" type="source">
+				include/unix/*.h
+				src/unix/*.cpp
+			</Files>
+
+			<Files name="src" platform="linux64" root="${env:PX_SHARED}/src/foundation" type="source">
+				include/unix/*.h
+				src/unix/*.cpp
+			</Files>
+
+			<Files name="src" platform="android" root="${env:PX_SHARED}/src/foundation" type="source">
+				include/unix/*.h
+				src/unix/*.cpp
+				externals/src/android/*.c
+			</Files>
+
+			<Preprocessor type="define" platform="win32">
+				 WIN32
+			</Preprocessor>
+
+			<Preprocessor type="define" platform="win64">
+				 WIN64
+			</Preprocessor>
+
+			<Preprocessor type="define" platform="linux32">
+				 LINUX
+			</Preprocessor>
+
+			<Preprocessor type="define" platform="linux64">
+				 LINUX
+			</Preprocessor>
+
+			<Preprocessor type="define" platform="android">
+				 LINUX
+				 android
+				 ANDROID
+			</Preprocessor>
+
+			<Configuration name="default" type="console">
+				<Preprocessor type="define">
+					_WINDOWS
+					_CRT_SECURE_NO_DEPRECATE
+					UNICODE=1
+					PX_FOUNDATION_DLL=0
+				</Preprocessor>
+
+				<conditional value="${xpj:TOOL}" match="vc11">
+					<SearchPaths type="header">
+					 $(WindowsSDK_IncludePath)
+					</SearchPaths>
+				</conditional>
+
+				<SearchPaths type="header">
+					${env:PX_SHARED}/include/foundation
+					${env:PX_SHARED}/src/foundation/include
+				</SearchPaths>
+
+				<SearchPaths type="library">
+				</SearchPaths>
+
+				<Libraries platform="win32">
+					winmm.lib
+				</Libraries>
+
+				<Libraries platform="win64">
+					winmm.lib
+				</Libraries>
+
+				<Libraries platform="linux32">
+					pthread
+				</Libraries>
+
+				<Libraries platform="linux64">
+					pthread
+				</Libraries>
+
+				<Libraries platform="android">
+					android
+				</Libraries>
+
+			</Configuration>
+
+			<Configuration name="debug" platform="win32">
+				<OutDir>${env:PX_SHARED}/bin/win32</OutDir>
+				<IntDir>../Intermediate/${xpj:TOOL}win32/debug</IntDir>
+				<OutFile>TestFoundationDEBUG.exe</OutFile>
+				<CFlags>/fp:fast /W4 /WX /MTd /Zi</CFlags>
+				<LFlags>/DEBUG</LFlags>
+				<Preprocessor type="define">
+					_DEBUG
+				</Preprocessor>
+				<Libraries>
+				</Libraries>
+			</Configuration>
+
+			<Configuration name="release" platform="win32">
+				<OutDir>${env:PX_SHARED}/bin/win32</OutDir>
+				<IntDir>../Intermediate/${xpj:TOOL}win32/release</IntDir>
+				<OutFile>TestFoundation.exe</OutFile>
+				<CFlags>/fp:fast /WX /W4 /MT /Zi /O2</CFlags>
+				<LFlags>/DEBUG</LFlags>
+				<Preprocessor type="define">NDEBUG</Preprocessor>
+				<Libraries>
+				</Libraries>
+			</Configuration>
+
+			<Configuration name="debug" platform="win64">
+				<OutDir>${env:PX_SHARED}/bin/win64</OutDir>
+				<IntDir>../Intermediate/${xpj:TOOL}win64/debug</IntDir>
+				<OutFile>TestFoundationDEBUG.exe</OutFile>
+				<CFlags>/fp:fast /W4 /WX /MTd /Zi</CFlags>
+				<LFlags>/DEBUG</LFlags>
+				<Preprocessor type="define">
+					_DEBUG
+				</Preprocessor>
+				<Libraries>
+				</Libraries>
+			</Configuration>
+
+			<Configuration name="release" platform="win64">
+				<OutDir>${env:PX_SHARED}/bin/win64</OutDir>
+				<IntDir>../Intermediate/${xpj:TOOL}win64/release</IntDir>
+				<OutFile>TestFoundation.exe</OutFile>
+				<CFlags>/fp:fast /WX /W4 /MT /Zi /O2</CFlags>
+				<LFlags>/DEBUG</LFlags>
+				<Preprocessor type="define">
+					NDEBUG
+			 	</Preprocessor>
+				<Libraries>
+				</Libraries>
+			</Configuration>
+
+			<Configuration name="debug" platform="linux32">
+				<OutDir>${env:PX_SHARED}/bin/linux32</OutDir>
+				<IntDir>../Intermediate/${xpj:TOOL}linux32/debug</IntDir>
+				<OutFile>TestFoundationDEBUG.exe</OutFile>
+				<CFlags>-g</CFlags>
+				<LFlags>-static</LFlags>
+				<Preprocessor type="define">
+				</Preprocessor>
+				<Libraries>
+				</Libraries>
+			</Configuration>
+
+			<Configuration name="release" platform="linux32">
+				<OutDir>${env:PX_SHARED}/bin/linux32</OutDir>
+				<IntDir>../Intermediate/${xpj:TOOL}linux32/release</IntDir>
+				<OutFile>TestFoundation.exe</OutFile>
+				<CFlags>-O2</CFlags>
+				<LFlags>-static</LFlags>
+				<Preprocessor type="define">NDEBUG</Preprocessor>
+				<Libraries>
+				</Libraries>
+			</Configuration>
+
+			<Configuration name="debug" platform="linux64">
+				<OutDir>${env:PX_SHARED}/bin/linux64</OutDir>
+				<IntDir>../Intermediate/${xpj:TOOL}linux64/debug</IntDir>
+				<OutFile>TestFoundationDEBUG.exe</OutFile>
+				<CFlags>-g</CFlags>
+				<LFlags>-static</LFlags>
+				<Preprocessor type="define">
+					_DEBUG
+				</Preprocessor>
+				<Libraries>
+				</Libraries>
+			</Configuration>
+
+			<Configuration name="release" platform="linux64">
+				<OutDir>${env:PX_SHARED}/bin/linux64</OutDir>
+				<IntDir>../Intermediate/${xpj:TOOL}linux64/release</IntDir>
+				<OutFile>TestFoundation.exe</OutFile>
+				<CFlags>-O2</CFlags>
+				<LFlags>-static</LFlags>
+				<Preprocessor type="define">
+					NDEBUG
+			 	</Preprocessor>
+				<Libraries>
+				</Libraries>
+			</Configuration>
+
+			<Configuration name="debug" platform="android">
+				<OutDir>${env:PX_SHARED}/bin/android</OutDir>
+				<IntDir>../Intermediate/${xpj:TOOL}android/debug</IntDir>
+				<OutFile>TestFoundationDEBUG</OutFile>
+				<CFlags>-g -fPIE</CFlags>
+				<LFlags>-fPIE -pie</LFlags>
+				<VSAndroidSkipAntStep>true</VSAndroidSkipAntStep>
+				<AndroidAPILevel>14</AndroidAPILevel>
+				<Preprocessor type="define">
+					_DEBUG
+				</Preprocessor>
+				<Libraries>
+				</Libraries>
+			</Configuration>
+
+			<Configuration name="release" platform="android">
+				<OutDir>${env:PX_SHARED}/bin/android</OutDir>
+				<IntDir>../Intermediate/${xpj:TOOL}android/release</IntDir>
+				<OutFile>TestFoundation</OutFile>
+				<CFlags>-O2 -fPIE</CFlags>
+				<LFlags>-fPIE -pie</LFlags>
+				<VSAndroidSkipAntStep>true</VSAndroidSkipAntStep>
+				<AndroidAPILevel>14</AndroidAPILevel>
+				<Preprocessor type="define">
+					NDEBUG
+			 	</Preprocessor>
+				<Libraries>
+				</Libraries>
+			</Configuration>
+
+		</Target>
+	</Project>
+</XPJ>

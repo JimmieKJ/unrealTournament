@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LaunchPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "LaunchEngineLoop.h"
 #include "LinuxCommonStartup.h"
 
 extern int32 GuardedMain( const TCHAR* CmdLine );
@@ -14,7 +15,7 @@ extern int32 GuardedMain( const TCHAR* CmdLine );
  *
  * If you change the prototype here, update CommonLinuxMain() too!
  */
-void LaunchLinux_FEngineLoop_AppExit()
+void LAUNCH_API LaunchLinux_FEngineLoop_AppExit()
 {
 	return FEngineLoop::AppExit();
 }

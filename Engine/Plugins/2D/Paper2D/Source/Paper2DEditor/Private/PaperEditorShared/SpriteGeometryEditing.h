@@ -2,7 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/EngineBaseTypes.h"
+#include "UObject/GCObject.h"
+
+class FCanvas;
+class FPrimitiveDrawInterface;
+class FSceneView;
 class FSelectedItem;
+class FViewport;
+class UMaterial;
 struct FSpriteGeometryCollection;
 
 //////////////////////////////////////////////////////////////////////////

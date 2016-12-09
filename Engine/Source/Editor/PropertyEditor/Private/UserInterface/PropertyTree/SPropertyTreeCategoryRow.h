@@ -1,7 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "PropertyEditorConstants.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/Margin.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
+#include "UserInterface/PropertyEditor/PropertyEditorConstants.h"
+
+class FPropertyNode;
 
 class SPropertyTreeCategoryRow : public STableRow< TSharedPtr< class FPropertyNode* > >
 {

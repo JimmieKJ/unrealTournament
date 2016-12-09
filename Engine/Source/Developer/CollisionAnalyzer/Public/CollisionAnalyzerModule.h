@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "ICollisionAnalyzer.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
-#include "SlateBasics.h"
+class FSpawnTabArgs;
+class ICollisionAnalyzer;
 
 class FCollisionAnalyzerModule : public IModuleInterface
 {

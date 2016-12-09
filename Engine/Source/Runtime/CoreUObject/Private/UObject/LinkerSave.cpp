@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "TextPackageNamespaceUtil.h"
+#include "UObject/LinkerSave.h"
+#include "HAL/FileManager.h"
+#include "Serialization/LargeMemoryWriter.h"
+#include "UObject/Package.h"
+#include "UObject/Class.h"
+#include "Templates/Casts.h"
+#include "UObject/LazyObjectPtr.h"
+#include "Misc/StringAssetReference.h"
+#include "UObject/AssetPtr.h"
+#include "Internationalization/TextPackageNamespaceUtil.h"
 
 /*----------------------------------------------------------------------------
 	FLinkerSave.
@@ -171,6 +179,40 @@ FPackageIndex FLinkerSave::MapObject( const UObject* Object ) const
 		const FPackageIndex *Found = ObjectIndicesMap.Find(Object);
 		if (Found)
 		{
+			if (IsEventDrivenLoaderEnabledInCookedBuilds() &&
+				IsCooking() && CurrentlySavingExport.IsExport() &&
+				!Object->GetOutermost()->HasAllPackagesFlags(PKG_CompiledIn) && 
+				*Found != CurrentlySavingExport) // would be weird, but I can't be a dependency on myself
+			{
+				const FObjectExport& SavingExport = Exp(CurrentlySavingExport);
+				bool bFoundDep = false;
+				if (SavingExport.FirstExportDependency >= 0)
+				{
+					int32 NumDeps = SavingExport.CreateBeforeCreateDependencies + SavingExport.CreateBeforeSerializationDependencies + SavingExport.SerializationBeforeCreateDependencies + SavingExport.SerializationBeforeSerializationDependencies;
+					for (int32 DepIndex = SavingExport.FirstExportDependency; DepIndex < SavingExport.FirstExportDependency + NumDeps; DepIndex++)
+					{
+						if (DepListForErrorChecking[DepIndex] == *Found)
+						{
+							bFoundDep = true;
+						}
+					}
+				}
+				if (!bFoundDep)
+				{
+					if (SavingExport.Object && SavingExport.Object->IsA(UClass::StaticClass()) && CastChecked<UClass>(SavingExport.Object)->GetDefaultObject() == Object)
+					{
+						bFoundDep = true; // the class is saving a ref to the CDO...which doesn't really work or do anything useful, but it isn't an error
+					}
+				}
+				if (!bFoundDep)
+				{
+					UE_LOG(LogLinker, Fatal, TEXT("Attempt to map an object during save that was not listed as a dependency. Saving Export %d %s in %s. Missing Dep on %s %s."),
+						CurrentlySavingExport.ForDebugging(), *SavingExport.ObjectName.ToString(), *GetArchiveName(),
+						Found->IsExport() ? TEXT("Export") : TEXT("Import"), *ImpExp(*Found).ObjectName.ToString()
+						);
+				}
+			}
+
 			return *Found;
 		}
 	}

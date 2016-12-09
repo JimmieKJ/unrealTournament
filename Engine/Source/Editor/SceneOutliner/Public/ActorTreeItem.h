@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
 #include "ITreeItem.h"
-#include "ObjectKey.h"
+#include "UObject/ObjectKey.h"
 
 namespace SceneOutliner
 {

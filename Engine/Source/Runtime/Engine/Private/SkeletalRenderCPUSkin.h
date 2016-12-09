@@ -6,19 +6,16 @@
 
 #pragma once
 
-#include "SkeletalRender.h"
-#include "SkeletalRenderPublic.h"
+#include "CoreMinimal.h"
+#include "ProfilingDebugging/ResourceSize.h"
+#include "RenderResource.h"
 #include "LocalVertexFactory.h"
+#include "Components/SkinnedMeshComponent.h"
+#include "SkeletalRenderPublic.h"
+#include "ClothSimData.h"
 
-/** data for a single skinned skeletal mesh vertex */
-struct FFinalSkinVertex
-{
-	FVector			Position;
-	FPackedNormal	TangentX;
-	FPackedNormal	TangentZ;
-	float			U;
-	float			V;
-};
+class FPrimitiveDrawInterface;
+class UMorphTarget;
 
 /**
  * Skeletal mesh vertices which have been skinned to their final positions 
@@ -104,6 +101,9 @@ public:
 	{
 	}
 
+	/** Local to world transform, used for cloth as sim data is in world space */
+	FMatrix WorldToLocal;
+
 	/** ref pose to local space transforms */
 	TArray<FMatrix> ReferenceToLocal;
 
@@ -121,18 +121,38 @@ public:
 	/** Morph Weights to blend when skinning verts */
 	TArray<float> MorphTargetWeights;
 
+	/** data for updating cloth section */
+	TMap<int32, FClothSimulData> ClothSimulUpdateData;
+
+	/** a weight factor to blend between simulated positions and skinned positions */
+	float ClothBlendWeight;
+
 	/**
 	* Returns the size of memory allocated by render data
 	*/
-	virtual SIZE_T GetResourceSize()
+	DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
+	SIZE_T GetResourceSize()
+	{
+		return GetResourceSizeBytes();
+	}
+
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
  	{
-		SIZE_T ResourceSize = sizeof(*this);
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(*this));
  		
- 		ResourceSize += ReferenceToLocal.GetAllocatedSize();
- 		ResourceSize += ActiveMorphTargets.GetAllocatedSize();
- 		
-		return ResourceSize;
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(ReferenceToLocal.GetAllocatedSize());
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(ActiveMorphTargets.GetAllocatedSize());
  	}
+
+	SIZE_T GetResourceSizeBytes()
+	{
+		FResourceSizeEx ResSize;
+		GetResourceSizeEx(ResSize);
+		return ResSize.GetTotalMemoryBytes();
+	}
+
+	/** Update Simulated Positions & Normals from APEX Clothing actor */
+	bool UpdateClothSimulationData(USkinnedMeshComponent* InMeshComponent);
 };
 
 /**
@@ -151,8 +171,8 @@ public:
 	virtual void ReleaseResources() override;
 	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetsWeights) override;
 	void UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectDataCPUSkin* InDynamicData, uint32 FrameNumberToPrepare);
-	virtual void UpdateRecomputeTangent(int32 MaterialIndex, bool bRecomputeTangent) override;
-	virtual void EnableBlendWeightRendering(bool bEnabled, const TArray<int32>& InBonesOfInterest) override;
+	virtual void UpdateRecomputeTangent(int32 MaterialIndex, int32 LODIndex, bool bRecomputeTangent) override;
+	virtual void EnableOverlayRendering(bool bEnabled, const TArray<int32>* InBonesOfInterest, const TArray<UMorphTarget*>* InMorphTargetOfInterest) override;
 	virtual void CacheVertices(int32 LODIndex, bool bForce) const override;
 	virtual bool IsCPUSkinned() const override { return true; }
 	virtual const FVertexFactory* GetSkinVertexFactory(const FSceneView* View, int32 LODIndex, int32 ChunkIdx) const override;
@@ -176,31 +196,32 @@ public:
 		return ( DynamicData!=NULL ); 
 	}
 
-	virtual SIZE_T GetResourceSize() override
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override
 	{
-		SIZE_T ResourceSize=sizeof(*this);
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(*this));
 
 		if(DynamicData)
 		{
-			ResourceSize += DynamicData->GetResourceSize();
+			DynamicData->GetResourceSizeEx(CumulativeResourceSize);
 		}
 
-		ResourceSize += LODs.GetAllocatedSize(); 
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(LODs.GetAllocatedSize()); 
 
 		// include extra data from LOD
 		for (int32 I=0; I<LODs.Num(); ++I)
 		{
-			ResourceSize += LODs[I].GetResourceSize();
+			LODs[I].GetResourceSizeEx(CumulativeResourceSize);
 		}
 
-		ResourceSize += CachedFinalVertices.GetAllocatedSize();
-		ResourceSize += BonesOfInterest.GetAllocatedSize();
-
-		return ResourceSize;
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(CachedFinalVertices.GetAllocatedSize());
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(BonesOfInterest.GetAllocatedSize());
 	}
 
 	virtual void DrawVertexElements(FPrimitiveDrawInterface* PDI, const FTransform& ToWorldSpace, bool bDrawNormals, bool bDrawTangents, bool bDrawBinormals) const override;
 	//~ End FSkeletalMeshObject Interface
+
+	/** Access cached final vertices */
+	const TArray<FFinalSkinVertex>& GetCachedFinalVertices() const { return CachedFinalVertices; }
 
 private:
 	/** vertex data for rendering a single LOD */
@@ -235,9 +256,22 @@ private:
 		/**
 	 	 * Get Resource Size : return the size of Resource this allocates
 	 	 */
+		DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
 		SIZE_T GetResourceSize()
 		{
-			return VertexBuffer.GetResourceSize();
+			return GetResourceSizeBytes();
+		}
+
+		void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
+		{
+			CumulativeResourceSize.AddUnknownMemoryBytes(VertexBuffer.GetResourceSize());
+		}
+
+		SIZE_T GetResourceSizeBytes()
+		{
+			FResourceSizeEx ResSize;
+			GetResourceSizeEx(ResSize);
+			return ResSize.GetTotalMemoryBytes();
 		}
 	};
 
@@ -250,13 +284,14 @@ private:
  	/** Index of LOD level's vertices that are currently stored in CachedFinalVertices */
  	mutable int32	CachedVertexLOD;
 
- 	/** Cached skinned vertices. Only updated/accessed by the rendering thread */
+ 	/** Cached skinned vertices. Only updated/accessed by the rendering thread and exporters */
  	mutable TArray<FFinalSkinVertex> CachedFinalVertices;
 
 	/** Array of bone's to render bone weights for */
 	TArray<int32> BonesOfInterest;
+	TArray<UMorphTarget*> MorphTargetOfInterest;
 
 	/** Bone weight viewing in editor */
-	bool bRenderBoneWeight;
+	bool bRenderOverlayMaterial;
 };
 

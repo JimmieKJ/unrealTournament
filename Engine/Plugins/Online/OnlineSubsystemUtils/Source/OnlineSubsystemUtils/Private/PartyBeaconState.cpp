@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
-#include "OnlineBeacon.h"
 #include "PartyBeaconState.h"
+#include "OnlineBeacon.h"
 
 namespace ETeamAssignmentMethod
 {

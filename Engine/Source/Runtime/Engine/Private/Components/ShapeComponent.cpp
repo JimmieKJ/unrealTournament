@@ -1,13 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
+#include "Components/ShapeComponent.h"
 #include "AI/Navigation/NavAreas/NavArea_Obstacle.h"
 #include "AI/NavigationOctree.h"
+#include "PhysicsEngine/BoxElem.h"
+#include "PhysicsEngine/SphereElem.h"
+#include "PhysicsEngine/SphylElem.h"
 #include "PhysicsEngine/BodySetup.h"
 
 #if WITH_PHYSX
-	#include "PhysicsEngine/PhysXSupport.h"
+	#include "PhysXPublic.h"
 #endif // WITH_PHYSX
 
 
@@ -108,7 +111,7 @@ void UShapeComponent::CreateShapeBodySetupIfNeeded()
 {
 	if (ShapeBodySetup == nullptr || ShapeBodySetup->IsPendingKill())
 	{
-		ShapeBodySetup = NewObject<UBodySetup>(this);
+		ShapeBodySetup = NewObject<UBodySetup>(this, NAME_None, RF_Transient);
 		if (GUObjectArray.IsDisregardForGC(this))
 		{
 			ShapeBodySetup->AddToRoot();

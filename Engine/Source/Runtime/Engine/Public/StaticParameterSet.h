@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+
+class FSHA1;
+
 /**
 * Holds the information for a static switch parameter
 */

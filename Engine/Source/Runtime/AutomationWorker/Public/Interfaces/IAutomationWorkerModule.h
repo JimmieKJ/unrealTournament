@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
 /**
  * Wraps up useful performance capture data for automation tests.  These are usually triggered at

@@ -4,7 +4,15 @@
 	HTML5File.cpp: HTML5 platform implementations of File functions
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "CoreTypes.h"
+#include "HAL/PlatformMath.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/DateTime.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/Function.h"
+#include "Containers/UnrealString.h"
+#include "Containers/StringConv.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -120,7 +128,7 @@ public:
 		while (BytesToRead)
 		{
 			check(BytesToRead >= 0);
-			int64 ThisSize = FMath::Min<int64>(READWRITE_SIZE, BytesToRead);
+			int64 ThisSize = FPlatformMath::Min<int64>(READWRITE_SIZE, BytesToRead);
 			check(Destination);
 			if (read(FileHandle, Destination, ThisSize) != ThisSize)
 			{
@@ -138,7 +146,7 @@ public:
 		while (BytesToWrite)
 		{
 			check(BytesToWrite >= 0);
-			int64 ThisSize = FMath::Min<int64>(READWRITE_SIZE, BytesToWrite);
+			int64 ThisSize = FPlatformMath::Min<int64>(READWRITE_SIZE, BytesToWrite);
 			check(Source);
 			if (write(FileHandle, Source, ThisSize) != ThisSize)
 			{

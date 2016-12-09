@@ -11,7 +11,7 @@ class FVulkanQueue;
 class FVulkanSwapChain
 {
 public:
-	FVulkanSwapChain(VkInstance Instance, FVulkanDevice& InDevice, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height,
+	FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevice, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height,
 		uint32* InOutDesiredNumBackBuffers, TArray<VkImage>& OutImages);
 
 	void Destroy();
@@ -26,7 +26,9 @@ protected:
 
 	int32 CurrentImageIndex;
 	int32 SemaphoreIndex;
+	VkInstance Instance;
 	TArray<FVulkanSemaphore*> ImageAcquiredSemaphore;
+	TArray<VkFence> ImageAcquiredFences;
 
 	int32 AcquireImageIndex(FVulkanSemaphore** OutSemaphore);
 

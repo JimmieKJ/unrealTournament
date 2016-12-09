@@ -5,10 +5,11 @@
 	<Property Name="ConfidentialExceptions" Value=".../EpicInternal/...;.../CarefullyRedist/...;.../NotForLicensees/...;.../NoRedist/..."/>
 	<Property Name="ConfidentialExceptions" Value="$(ConfidentialExceptions);.../PS4/..." If="'$(WithPS4)' != true"/>
 	<Property Name="ConfidentialExceptions" Value="$(ConfidentialExceptions);.../XboxOne/..." If="'$(WithXboxOne)' != true"/>
+	<Property Name="ConfidentialExceptions" Value="$(ConfidentialExceptions);.../Switch/...;.../Wolf/...;.../WolfPlat/..." If="'$(WithSwitch)' != true"/>
 
 	<!-- List of file types to be stripped and signed for different platforms -->
 	<Property Name="Win64StripFilter" Value="*.pdb"/>
-	<Property Name="Win64StripExceptions" Value="Engine\Binaries\Win64\UE4Editor*.pdb;Engine\Plugins\2D\Paper2D\Binaries\Win64\UE4Editor*.pdb"/>
+	<Property Name="Win64StripExceptions" Value="Engine\Binaries\Win64\UE4Editor*.pdb;Engine\Plugins\...\Binaries\Win64\UE4Editor*.pdb"/>
 	<Property Name="Win32StripFilter" Value="*.pdb"/>
 	<Property Name="MacStripFilter" Value="*.a;"/>
 	<Property Name="AndroidStripFilter" Value="*.a;*.so"/>
@@ -31,7 +32,7 @@
 	<Property Name="ProjectsToBuildDDC" Value="$(ProjectsToBuildDDC);Templates/TP_PuzzleBP/TP_PuzzleBP.uproject"/>
 	<Property Name="ProjectsToBuildDDC" Value="$(ProjectsToBuildDDC);Templates/TP_2DSideScrollerBP/TP_2DSideScrollerBP.uproject"/>
 	<Property Name="ProjectsToBuildDDC" Value="$(ProjectsToBuildDDC);Templates/TP_VehicleAdvBP/TP_VehicleAdvBP.uproject"/>
-	<Property Name="ProjectsToBuildDDC" Value="$(ProjectsToBuildDDC);Templates/TP_VirtualRealityBP/TP_VirtualRealityBP.uproject" If="'$(HostPlatform)' != 'Mac'"/>
+	<Property Name="ProjectsToBuildDDC" Value="$(ProjectsToBuildDDC);Templates/TP_VirtualRealityBP/TP_VirtualRealityBP.uproject" If="'$(HostPlatform)' != 'Mac' and '$(HostPlatform)' != 'Linux'"/>
 	<Property Name="ProjectsToBuildDDC" Value="$(ProjectsToBuildDDC);Samples/StarterContent/StarterContent.uproject"/>
 	<Property Name="ProjectsToBuildDDC" Value="$(ProjectsToBuildDDC);Samples/MobileStarterContent/MobileStarterContent.uproject"/>
 	
@@ -47,6 +48,7 @@
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Documentation/CHM/API.chm" If="Exists('Engine/Documentation/CHM/API.chm')"/>
 	<!-- In-editor documentation -->
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Documentation/Source/Shared/..."/>
+	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Documentation/Extras/..."/>
 
 	<!-- Content folders -->
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Content/..."/>
@@ -79,8 +81,15 @@
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Source/Editor/..."/>
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Source/ThirdParty/.../*.Build.cs"/>
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Source/ThirdParty/Licenses/..."/>
+	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Source/Programs/AutomationTool/..."/>
+	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Source/Programs/AutomationToolLauncher/..."/>
+	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Source/Programs/DotNETCommon/..."/>
+	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Source/Programs/UnrealBuildTool/..."/>
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Source/Programs/UnrealHeaderTool/..."/>
 	<Property Name="CopyEditorExceptions" Value="$(CopyEditorExceptions);Engine/Source/Runtime/SQLiteSupport/..."/>
+
+	<!-- Third Party Software description files -->
+	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/.../*.tps"/>
 
 	<!-- Shaders -->
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Shaders/..."/>
@@ -88,8 +97,11 @@
 	<!-- Exclude all the intermediate files in the Engine/Saved folder -->
 	<Property Name="CopyEditorExceptions" Value="$(CopyEditorExceptions);Engine/Saved/..."/>
 	
-	<!-- Exclude generated config files from Engine/Programs folder -->
+	<!-- Exclude generated config files/intermediates from Engine/Programs folder -->
+	<Property Name="CopyEditorExceptions" Value="$(CopyEditorExceptions);Engine/Programs/AutomationTool/..."/>
 	<Property Name="CopyEditorExceptions" Value="$(CopyEditorExceptions);Engine/Programs/UnrealBuildTool/..."/>
+	<Property Name="CopyEditorExceptions" Value="$(CopyEditorExceptions);Engine/Programs/UnrealHeaderTool/Intermediate/..."/>
+	<Property Name="CopyEditorExceptions" Value="$(CopyEditorExceptions);Engine/Programs/UnrealHeaderTool/Saved/..."/>
 
 	<!-- Starter content -->
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Samples/StarterContent/Content/..."/>
@@ -120,7 +132,7 @@
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Templates/TP_2DSideScrollerBP/..."/>
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Templates/TP_VehicleAdv/..."/>
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Templates/TP_VehicleAdvBP/..."/>
-	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Templates/TP_VirtualRealityBP/..." If="'$(HostPlatform)' != 'Mac'"/>
+	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Templates/TP_VirtualRealityBP/..." If="'$(HostPlatform)' != 'Mac' and '$(HostPlatform)' != 'Linux'"/>
 	<!-- shared template resources -->
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Templates/TemplateResources/..."/>
 	<!-- exclude intermediates and other files not needed in installed build-->
@@ -132,7 +144,7 @@
 	<Property Name="CopyEditorExceptions" Value="$(CopyEditorExceptions);Templates/*/manifest.json"/>
 	<Property Name="CopyEditorExceptions" Value="$(CopyEditorExceptions);Templates/*/contents.txt"/>
 	<!-- exclude VR feature pack on Mac -->
-	<Property Name="CopyEditorExceptions" Value="$(CopyEditorExceptions);FeaturePacks/TP_VirtualRealityBP.upack" If="'$(HostPlatform)' == 'Mac'"/>
+	<Property Name="CopyEditorExceptions" Value="$(CopyEditorExceptions);FeaturePacks/TP_VirtualRealityBP.upack" If="'$(HostPlatform)' == 'Mac' or '$(HostPlatform)' == 'Linux'"/>
 
 	<!-- Build files -->
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Build/Build.version"/>
@@ -151,7 +163,7 @@
 		<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Build/BatchFiles/Clean.bat"/>
 		<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Build/BatchFiles/Rebuild.bat"/>
 		<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Build/BatchFiles/RunUAT.bat"/>
-		<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Build/BatchFiles/GetVSComnToolsPath.bat"/>
+		<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Build/BatchFiles/GetMSBuildPath.bat"/>
 
 		<!-- Binaries which are explicitly staged by UAT rather than listing runtime dependencies -->
 		<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Binaries/ThirdParty/OpenSSL/..."/>
@@ -247,6 +259,11 @@
 		<Property Name="CopyAndroidFilter" Value="$(CopyAndroidFilter);Engine/Extras/AndroidWorks/Mac/*.dmg"/>
 	</Do>
 
+	<!-- Linux Specific -->
+	<Do If="'$(HostPlatform)' == 'Linux'">
+		<Property Name="CopyAndroidFilter" Value="$(CopyAndroidFilter);Engine/Extras/AndroidWorks/Linux/*.run"/>
+	</Do>
+
 	<!-- IOS -->
 	<Property Name="CopyIOSFilter" Value=""/>
 	<Property Name="CopyIOSExceptions" Value=""/>
@@ -314,13 +331,23 @@
 	<Property Name="CopyPS4Exceptions" Value=""/>
 
 	<!-- Build Files -->
-	<Property Name="CopyPS4Filter" Value="$(CopyHTML5Filter);Engine/Build/PS4/..."/>
+	<Property Name="CopyPS4Filter" Value="$(CopyPS4Filter);Engine/Build/PS4/..."/>
 
 	<!-- XboxOne -->
 	<Property Name="CopyXboxOneFilter" Value=""/>
 	<Property Name="CopyXboxOneExceptions" Value=""/>
 
 	<!-- Build Files -->
-	<Property Name="CopyXboxOneFilter" Value="$(CopyHTML5Filter);Engine/Build/XboxOne/..."/>
+	<Property Name="CopyXboxOneFilter" Value="$(CopyXboxOneFilter);Engine/Build/XboxOne/..."/>
+
+	<!-- Additional Binaries -->
+	<Property Name="CopyXboxOneFilter" Value="$(CopyXboxOneFilter);Engine/Binaries/Win64/XboxOne/XboxOnePackageNameUtil.exe"/>
+	
+	<!-- Switch -->
+	<Property Name="CopySwitchFilter" Value=""/>
+	<Property Name="CopySwitchExceptions" Value=""/>
+	
+	<!-- Build Files -->
+	<Property Name="CopySwitchFilter" Value="$(CopySwitchFilter);Engine/Build/Switch/..."/>
 
 </BuildGraph>

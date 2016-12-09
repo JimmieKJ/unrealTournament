@@ -1,11 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Components/DrawSphereComponent.h"
-#if WITH_EDITOR
-#include "ShowFlags.h"
-#include "ConvexVolume.h"
-#endif
+#include "Engine/CollisionProfile.h"
 
 UDrawSphereComponent::UDrawSphereComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

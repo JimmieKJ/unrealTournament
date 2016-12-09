@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IntroTutorialsPrivatePCH.h"
 #include "TutorialImageDecorator.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/Paths.h"
+#include "Misc/PackageName.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Text/SlateImageRun.h"
 
 TSharedRef< FTutorialImageDecorator > FTutorialImageDecorator::Create()
 {

@@ -2,10 +2,11 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
 #include "UnrealAudioTypes.h"
-#include "UnrealAudioVoice.h"
+#include "Containers/Queue.h"
 #include "UnrealAudioVoiceInternal.h"
-#include "UnrealAudioUtilities.h"
 #include "UnrealAudioDecode.h"
 #include "UnrealAudioSampleRateConverter.h"
 

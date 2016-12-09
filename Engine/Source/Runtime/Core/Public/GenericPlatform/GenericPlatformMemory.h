@@ -6,14 +6,13 @@
 ==============================================================================================*/
 
 #pragma once
-#include "HAL/Platform.h"
-#include "HAL/PlatformCodeAnalysis.h"
+
+#include "CoreTypes.h"
+#include "CoreFwd.h"
 #include <wchar.h>
 #include <string.h>
 
-class FMalloc;
-class FOutputDevice;
-class FString;
+struct FPlatformMemoryStats;
 
 /** Holds generic memory stats, internally implemented as a map. */
 struct FGenericMemoryStats;
@@ -150,6 +149,21 @@ struct CORE_API FGenericPlatformMemory
 		MCR_MAX
 	};
 
+	/** Which allocator is being used */
+	enum EMemoryAllocatorToUse
+	{
+		Ansi, // Default C allocator
+		Stomp, // Allocator to check for memory stomping
+		TBB, // Thread Building Blocks malloc
+		Jemalloc, // Linux/FreeBSD malloc
+		Binned, // Older binned malloc
+		Binned2, // Newer binned malloc
+		Platform, // Custom platform specific allocator
+	};
+
+	/** Current allocator */
+	static EMemoryAllocatorToUse AllocatorToUse;
+
 	/**
 	 * Flags used for shared memory creation/open
 	 */
@@ -209,11 +223,12 @@ struct CORE_API FGenericPlatformMemory
 
 	
 	/**
-	 * @return whether platform supports memory pools for crash reporting.
+	 * @return how much memory the platform should pre-allocate for crash handling (this will be allocated ahead of time, and freed when system runs out of memory).
 	 */
-	static bool SupportBackupMemoryPool()
+	static uint32 GetBackMemoryPoolSize()
 	{
-		return false;
+		// by default, don't create a backup memory buffer
+		return 0;
 	}
 
 	/**

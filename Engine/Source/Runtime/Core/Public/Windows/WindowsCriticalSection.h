@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/Timespan.h"
+#include "HAL/PlatformMemory.h"
+
+class FString;
+
 /**
  * This is the Windows version of a critical section. It uses an aggregate
  * CRITICAL_SECTION to implement its locking.
@@ -11,7 +17,7 @@ class FWindowsCriticalSection
 	/**
 	 * The windows specific critical section
 	 */
-	CRITICAL_SECTION CriticalSection;
+	Windows::CRITICAL_SECTION CriticalSection;
 
 public:
 
@@ -21,8 +27,8 @@ public:
 	FORCEINLINE FWindowsCriticalSection()
 	{
 		CA_SUPPRESS(28125);
-		InitializeCriticalSection(&CriticalSection);
-		SetCriticalSectionSpinCount(&CriticalSection,4000);
+		Windows::InitializeCriticalSection(&CriticalSection);
+		Windows::SetCriticalSectionSpinCount(&CriticalSection,4000);
 	}
 
 	/**
@@ -30,7 +36,7 @@ public:
 	 */
 	FORCEINLINE ~FWindowsCriticalSection()
 	{
-		DeleteCriticalSection(&CriticalSection);
+		Windows::DeleteCriticalSection(&CriticalSection);
 	}
 
 	/**
@@ -39,9 +45,9 @@ public:
 	FORCEINLINE void Lock()
 	{
 		// Spin first before entering critical section, causing ring-0 transition and context switch.
-		if( TryEnterCriticalSection(&CriticalSection) == 0 )
+		if(Windows::TryEnterCriticalSection(&CriticalSection) == 0 )
 		{
-			EnterCriticalSection(&CriticalSection);
+			Windows::EnterCriticalSection(&CriticalSection);
 		}
 	}
 
@@ -52,10 +58,10 @@ public:
 	 */
 	FORCEINLINE bool TryLock()
 	{
-		if (TryEnterCriticalSection(&CriticalSection))
+		if (Windows::TryEnterCriticalSection(&CriticalSection))
 		{
 			return true;
-		};
+		}
 		return false;
 	}
 
@@ -64,7 +70,7 @@ public:
 	 */
 	FORCEINLINE void Unlock()
 	{
-		LeaveCriticalSection(&CriticalSection);
+		Windows::LeaveCriticalSection(&CriticalSection);
 	}
 
 private:
@@ -77,7 +83,7 @@ class CORE_API FWindowsSystemWideCriticalSection
 {
 public:
 	/** Construct a named, system-wide critical section and attempt to get access/ownership of it */
-	explicit FWindowsSystemWideCriticalSection(const FString& InName, FTimespan InTimeout = FTimespan::Zero());
+	explicit FWindowsSystemWideCriticalSection(const class FString& InName, FTimespan InTimeout = FTimespan::Zero());
 
 	/** Destructor releases system-wide critical section if it is currently owned */
 	~FWindowsSystemWideCriticalSection();
@@ -97,5 +103,8 @@ private:
 	FWindowsSystemWideCriticalSection& operator=(const FWindowsSystemWideCriticalSection&);
 
 private:
-	HANDLE Mutex;
+	Windows::HANDLE Mutex;
 };
+
+typedef FWindowsCriticalSection FCriticalSection;
+typedef FWindowsSystemWideCriticalSection FSystemWideCriticalSection;

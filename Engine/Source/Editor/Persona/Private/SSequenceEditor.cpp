@@ -1,15 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
-
 #include "SSequenceEditor.h"
-#include "GraphEditor.h"
-#include "GraphEditorModule.h"
-#include "Editor/Kismet/Public/SKismetInspector.h"
-#include "SAnimationScrubPanel.h"
+#include "Animation/AnimSequence.h"
+
 #include "SAnimNotifyPanel.h"
-#include "SAnimCurvePanel.h"
 #include "SAnimTrackCurvePanel.h"
 
 #define LOCTEXT_NAMESPACE "AnimSequenceEditor"
@@ -17,24 +12,24 @@
 //////////////////////////////////////////////////////////////////////////
 // SSequenceEditor
 
-void SSequenceEditor::Construct(const FArguments& InArgs)
+void SSequenceEditor::Construct(const FArguments& InArgs, TSharedRef<class IPersonaPreviewScene> InPreviewScene, TSharedRef<class IEditableSkeleton> InEditableSkeleton, FSimpleMulticastDelegate& OnPostUndo, FSimpleMulticastDelegate& OnCurvesChanged)
 {
 	SequenceObj = InArgs._Sequence;
 	check(SequenceObj);
+	PreviewScenePtr = InPreviewScene;
 
 	SAnimEditorBase::Construct( SAnimEditorBase::FArguments()
-		.Persona(InArgs._Persona)
-		);
+		.OnObjectsSelected(InArgs._OnObjectsSelected), 
+		InPreviewScene );
 
-	PersonaPtr.Pin()->RegisterOnPostUndo(FPersona::FOnPostUndo::CreateSP( this, &SSequenceEditor::PostUndo ) );
-	PersonaPtr.Pin()->RegisterOnChangeTrackCurves(FPersona::FOnTrackCurvesChanged::CreateSP( this, &SSequenceEditor::OnTrackCurveChanged ) );
-
+	OnPostUndo.Add(FSimpleDelegate::CreateSP( this, &SSequenceEditor::PostUndo ) );
+	OnCurvesChanged.Add(FSimpleDelegate::CreateSP( this, &SSequenceEditor::HandleCurvesChanged) );
+	
 	EditorPanels->AddSlot()
 	.AutoHeight()
 	.Padding(0, 10)
 	[
-		SAssignNew( AnimNotifyPanel, SAnimNotifyPanel )
-		.Persona(InArgs._Persona)
+		SAssignNew( AnimNotifyPanel, SAnimNotifyPanel, OnPostUndo)
 		.Sequence(SequenceObj)
 		.WidgetWidth(S2ColumnWidget::DEFAULT_RIGHT_COLUMN_WIDTH)
 		.ViewInputMin(this, &SAnimEditorBase::GetViewMinInput)
@@ -44,14 +39,15 @@ void SSequenceEditor::Construct(const FArguments& InArgs)
 		.OnSetInputViewRange(this, &SAnimEditorBase::SetInputViewRange)
 		.OnGetScrubValue(this, &SAnimEditorBase::GetScrubValue)
 		.OnSelectionChanged(this, &SAnimEditorBase::OnSelectionChanged)
+		.OnAnimNotifiesChanged(InArgs._OnAnimNotifiesChanged)
+		.OnInvokeTab(InArgs._OnInvokeTab)
 	];
 
 	EditorPanels->AddSlot()
 	.AutoHeight()
 	.Padding(0, 10)
 	[
-		SAssignNew( AnimCurvePanel, SAnimCurvePanel )
-		.Persona(InArgs._Persona)
+		SAssignNew( AnimCurvePanel, SAnimCurvePanel, InEditableSkeleton )
 		.Sequence(SequenceObj)
 		.WidgetWidth(S2ColumnWidget::DEFAULT_RIGHT_COLUMN_WIDTH)
 		.ViewInputMin(this, &SAnimEditorBase::GetViewMinInput)
@@ -60,6 +56,7 @@ void SSequenceEditor::Construct(const FArguments& InArgs)
 		.InputMax(this, &SAnimEditorBase::GetMaxInput)
 		.OnSetInputViewRange(this, &SAnimEditorBase::SetInputViewRange)
 		.OnGetScrubValue(this, &SAnimEditorBase::GetScrubValue)
+		.OnCurvesChanged(InArgs._OnCurvesChanged)
 	];
 
 	UAnimSequence * AnimSeq = Cast<UAnimSequence>(SequenceObj);
@@ -69,8 +66,7 @@ void SSequenceEditor::Construct(const FArguments& InArgs)
 		.AutoHeight()
 		.Padding(0, 10)
 		[
-			SAssignNew(AnimTrackCurvePanel, SAnimTrackCurvePanel)
-			.Persona(InArgs._Persona)
+			SAssignNew(AnimTrackCurvePanel, SAnimTrackCurvePanel, InPreviewScene)
 			.Sequence(AnimSeq)
 			.WidgetWidth(S2ColumnWidget::DEFAULT_RIGHT_COLUMN_WIDTH)
 			.ViewInputMin(this, &SAnimEditorBase::GetViewMinInput)
@@ -79,26 +75,14 @@ void SSequenceEditor::Construct(const FArguments& InArgs)
 			.InputMax(this, &SAnimEditorBase::GetMaxInput)
 			.OnSetInputViewRange(this, &SAnimEditorBase::SetInputViewRange)
 			.OnGetScrubValue(this, &SAnimEditorBase::GetScrubValue)
+			.OnCurvesChanged(InArgs._OnCurvesChanged)
 		];
-	}
-}
-
-SSequenceEditor::~SSequenceEditor()
-{
-	if (PersonaPtr.IsValid())
-	{
-		PersonaPtr.Pin()->UnregisterOnPostUndo(this);
-		PersonaPtr.Pin()->UnregisterOnChangeTrackCurves(this);
 	}
 }
 
 void SSequenceEditor::PostUndo()
 {
-	TSharedPtr<FPersona> SharedPersona = PersonaPtr.Pin();
-	if(SharedPersona.IsValid())
-	{
-		SharedPersona->SetPreviewAnimationAsset(SequenceObj);
-	}
+	GetPreviewScene()->SetPreviewAnimationAsset(SequenceObj);
 
 	if( SequenceObj )
 	{
@@ -113,7 +97,7 @@ void SSequenceEditor::PostUndo()
 	}
 }
 
-void SSequenceEditor::OnTrackCurveChanged()
+void SSequenceEditor::HandleCurvesChanged()
 {
 	if (AnimTrackCurvePanel.IsValid())
 	{

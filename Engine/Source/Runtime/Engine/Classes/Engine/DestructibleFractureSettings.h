@@ -2,24 +2,29 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "EngineDefines.h"
 #include "DestructibleFractureSettings.generated.h"
 
+class UMaterialInterface;
 
 #if WITH_APEX
 
 // Forward declares
-namespace physx
+namespace nvidia
 {
 	namespace apex
 	{
-		struct NxFractureMaterialDesc;
-		class NxDestructibleChunkDesc;
-		class NxDestructibleGeometryDesc;
-		class NxDestructibleAsset;
-		class NxDestructibleAssetAuthoring;
-		struct NxExplicitRenderTriangle;
-		struct NxExplicitSubmeshData;
-		class NxDestructibleAssetCookingDesc;
+		struct FractureMaterialDesc;
+		class DestructibleChunkDesc;
+		class DestructibleGeometryDesc;
+		class DestructibleAsset;
+		class DestructibleAssetAuthoring;
+		struct ExplicitRenderTriangle;
+		struct ExplicitSubmeshData;
+		class DestructibleAssetCookingDesc;
 	};
 };
 #endif // WITH_APEX
@@ -92,7 +97,7 @@ struct FFractureMaterial
 
 	//~ Begin FFractureMaterial Interface
 #if WITH_APEX
-	void	FillNxFractureMaterialDesc(physx::apex::NxFractureMaterialDesc& PFractureMaterialDesc);
+	void	FillNxFractureMaterialDesc(nvidia::apex::FractureMaterialDesc& PFractureMaterialDesc);
 #endif // WITH_APEX
 	//~ End FFractureMaterial Interface
 };
@@ -190,13 +195,13 @@ class UDestructibleFractureSettings
 	
 #if WITH_APEX
 	/** ApexDestructibleAsset is a pointer to the Apex asset interface for this destructible asset */
-	physx::apex::NxDestructibleAssetAuthoring*	ApexDestructibleAssetAuthoring;
+	nvidia::apex::DestructibleAssetAuthoring*	ApexDestructibleAssetAuthoring;
 
 	/** Per-chunk information used to build a destructible asset.  */
-	TArray<physx::apex::NxDestructibleChunkDesc>	ChunkDescs;
+	TArray<nvidia::apex::DestructibleChunkDesc>	ChunkDescs;
 
 	/** Per-part (part = geometry = graphics + collision) information used to build a destructible asset.  This is not necessarily 1-1 with chunks, as chunks may instance parts. */
-	TArray<physx::apex::NxDestructibleGeometryDesc>	GeometryDescs;
+	TArray<nvidia::apex::DestructibleGeometryDesc>	GeometryDescs;
 #endif // WITH_APEX
 
 	//~ Begin UObject Interface.
@@ -213,7 +218,7 @@ class UDestructibleFractureSettings
 	 *
 	 * @param NxDestructibleAssetCookingDesc - The NxDestructibleAssetCookingDesc to be filled in
 	 */
-	ENGINE_API	void					BuildDestructibleAssetCookingDesc(physx::apex::NxDestructibleAssetCookingDesc& DestructibleAssetCookingDesc);
+	ENGINE_API	void					BuildDestructibleAssetCookingDesc(nvidia::apex::DestructibleAssetCookingDesc& DestructibleAssetCookingDesc);
 
 	/**
 	 * Sets authoring mesh for fracturing
@@ -229,7 +234,7 @@ class UDestructibleFractureSettings
 	 *
 	 * @returns true if successful
 	 */
-	ENGINE_API	bool					SetRootMesh(const TArray<physx::apex::NxExplicitRenderTriangle>& MeshTriangles, const TArray<UMaterialInterface*>& Materials, const TArray<physx::apex::NxExplicitSubmeshData>& SubmeshData, const TArray<uint32>& MeshPartition = TArray<uint32>(),
+	ENGINE_API	bool					SetRootMesh(const TArray<nvidia::apex::ExplicitRenderTriangle>& MeshTriangles, const TArray<UMaterialInterface*>& Materials, const TArray<nvidia::apex::ExplicitSubmeshData>& SubmeshData, const TArray<uint32>& MeshPartition = TArray<uint32>(),
 													bool bFirstPartitionIsDepthZero = false);
 	/**
 	 * Creates a root mesh from an NxDestructibleAsset.  This is useful when importing an NxDestructibleAsset.
@@ -239,7 +244,7 @@ class UDestructibleFractureSettings
 	 *
 	 * @returns true if successful
 	 */
-	ENGINE_API	bool					BuildRootMeshFromApexDestructibleAsset(physx::apex::NxDestructibleAsset& ApexDestructibleAsset, EDestructibleImportOptions::Type Options = EDestructibleImportOptions::None);
+	ENGINE_API	bool					BuildRootMeshFromApexDestructibleAsset(nvidia::apex::DestructibleAsset& ApexDestructibleAsset, EDestructibleImportOptions::Type Options = EDestructibleImportOptions::None);
 
 	/**
 	 * Build set of Voronoi sites internal to the root mesh
@@ -258,7 +263,7 @@ class UDestructibleFractureSettings
 	 *
 	 * @param NxDestructibleAssetCookingDesc - The NxDestructibleAssetCookingDesc to used to create the NxDestructibleAsset
 	 */
-	ENGINE_API	physx::apex::NxDestructibleAsset*	CreateApexDestructibleAsset(const physx::apex::NxDestructibleAssetCookingDesc& DestructibleAssetCookingDesc);
+	ENGINE_API	nvidia::apex::DestructibleAsset*	CreateApexDestructibleAsset(const nvidia::apex::DestructibleAssetCookingDesc& DestructibleAssetCookingDesc);
 #endif // WITH_APEX
 	//~ End UDestructibleFractureSettings Interface
 };

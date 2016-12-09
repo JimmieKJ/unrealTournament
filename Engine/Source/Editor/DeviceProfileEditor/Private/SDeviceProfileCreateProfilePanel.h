@@ -2,10 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
 #include "DeviceProfiles/DeviceProfile.h"
+#include "Widgets/Input/SComboBox.h"
 
 #define LOCTEXT_NAMESPACE "DeviceProfileCreateProfilePanel"
 
+class SCheckBox;
+class SEditableTextBox;
+class UDeviceProfileManager;
 
 /**
  * Slate widget to allow users to create a new device profile

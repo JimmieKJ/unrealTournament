@@ -2,11 +2,19 @@
 
 #pragma once
 
-#include "SlateFwd.h"
-#include "SCheckBox.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Types/SlateStructs.h"
+#include "Layout/Visibility.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/Input/SCheckBox.h"
 
-// Forward declarations
 class INotificationWidget;
+class SVerticalBox;
+class SWindow;
 
 /**
  * Interface class for an item in the event message list.

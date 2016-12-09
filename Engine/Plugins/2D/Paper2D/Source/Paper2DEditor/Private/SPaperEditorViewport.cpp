@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
 #include "SPaperEditorViewport.h"
-#include "PaperEditorViewportClient.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SViewport.h"
+#include "Application/ThrottleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
 #include "PaperStyle.h"
 
 const int32 DefaultZoomLevel = 7;

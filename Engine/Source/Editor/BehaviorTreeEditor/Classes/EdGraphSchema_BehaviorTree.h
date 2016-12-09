@@ -2,8 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "AIGraphTypes.h"
 #include "AIGraphSchema.h"
 #include "EdGraphSchema_BehaviorTree.generated.h"
+
+class FSlateRect;
+class UEdGraph;
 
 /** Action to auto arrange the graph */
 USTRUCT()
@@ -23,6 +30,22 @@ struct FBehaviorTreeSchemaAction_AutoArrange : public FEdGraphSchemaAction
 	//~ End FEdGraphSchemaAction Interface
 };
 
+USTRUCT()
+struct FBehaviorTreeSchemaAction_AddComment : public FEdGraphSchemaAction
+{
+	GENERATED_BODY()
+	
+	FBehaviorTreeSchemaAction_AddComment() : FEdGraphSchemaAction() {}
+	FBehaviorTreeSchemaAction_AddComment(const FText& InDescription, const FString& InToolTip)
+		: FEdGraphSchemaAction(FText(), InDescription, InToolTip, 0)
+	{
+	}
+
+	// FEdGraphSchemaAction interface
+	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override final;
+	// End of FEdGraphSchemaAction interface
+};
+
 UCLASS(MinimalAPI)
 class UEdGraphSchema_BehaviorTree : public UAIGraphSchema
 {
@@ -40,6 +63,7 @@ class UEdGraphSchema_BehaviorTree : public UAIGraphSchema
 	virtual bool IsCacheVisualizationOutOfDate(int32 InVisualizationCacheID) const override;
 	virtual int32 GetCurrentVisualizationCacheID() const override;
 	virtual void ForceVisualizationCacheClear() const override;
+	virtual TSharedPtr<FEdGraphSchemaAction> GetCreateCommentAction() const override;
 	//~ End EdGraphSchema Interface
 
 	virtual void GetGraphNodeContextActions(FGraphContextMenuBuilder& ContextMenuBuilder, int32 SubNodeFlags) const override;

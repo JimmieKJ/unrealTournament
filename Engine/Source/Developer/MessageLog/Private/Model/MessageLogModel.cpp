@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessageLogPrivatePCH.h"
-#include "MessageLogModel.h"
-#include "MessageLogListingModel.h"
+#include "Model/MessageLogModel.h"
 
 FMessageLogModel::~FMessageLogModel()
 {

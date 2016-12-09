@@ -1,8 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "StatsData.h"
-#include "TaskGraphInterfaces.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/UnrealTemplate.h"
+#include "Containers/Array.h"
+#include "Misc/CString.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Parse.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/SingleThreadRunnable.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/CommandLine.h"
+#include "Containers/Map.h"
+#include "Stats/Stats.h"
+#include "Async/AsyncWork.h"
+#include "Containers/Ticker.h"
+#include "Stats/StatsData.h"
+#include "HAL/IConsoleManager.h"
+#include "Async/TaskGraphInterfaces.h"
 
 /*-----------------------------------------------------------------------------
 	Global
@@ -281,10 +301,7 @@ check(InStatId != NAME_None);
 
 #if STATS
 
-#include "TaskGraphInterfaces.h"
-#include "StatsData.h"
-#include "StatsFile.h"
-#include "StatsMallocProfilerProxy.h"
+#include "Stats/StatsMallocProfilerProxy.h"
 
 TStatIdData TStatId::TStatId_NAME_None;
 

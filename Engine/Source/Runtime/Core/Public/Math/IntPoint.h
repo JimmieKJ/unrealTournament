@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Math/UnrealMathUtility.h"
 #include "Containers/UnrealString.h"
-#include "HAL/Platform.h"
-
+#include "Templates/TypeHash.h"
 
 /**
  * Structure for integer points in 2-d space.

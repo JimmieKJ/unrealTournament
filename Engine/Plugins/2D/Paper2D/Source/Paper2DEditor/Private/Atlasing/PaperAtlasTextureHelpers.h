@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "PaperSpriteAtlas.h"
 
 struct FPaperAtlasTextureHelpers

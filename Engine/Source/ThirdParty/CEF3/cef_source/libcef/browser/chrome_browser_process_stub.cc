@@ -25,7 +25,8 @@ void ChromeBrowserProcessStub::EndSession() {
   NOTIMPLEMENTED();
 };
 
-MetricsServicesManager* ChromeBrowserProcessStub::GetMetricsServicesManager() {
+metrics_services_manager::MetricsServicesManager*
+    ChromeBrowserProcessStub::GetMetricsServicesManager() {
   NOTIMPLEMENTED();
   return NULL;
 }
@@ -66,13 +67,14 @@ net::URLRequestContextGetter*
   return NULL;
 }
 
-chrome_variations::VariationsService*
+variations::VariationsService*
   ChromeBrowserProcessStub::variations_service() {
   NOTIMPLEMENTED();
   return NULL;
 }
 
-PromoResourceService* ChromeBrowserProcessStub::promo_resource_service() {
+web_resource::PromoResourceService*
+ChromeBrowserProcessStub::promo_resource_service() {
   NOTIMPLEMENTED();
   return NULL;
 }
@@ -127,7 +129,7 @@ GpuModeManager* ChromeBrowserProcessStub::gpu_mode_manager() {
 void ChromeBrowserProcessStub::CreateDevToolsHttpProtocolHandler(
     chrome::HostDesktopType host_desktop_type,
     const std::string& ip,
-    uint16 port) {
+    uint16_t port) {
 }
 
 unsigned int ChromeBrowserProcessStub::AddRefModule() {
@@ -201,7 +203,8 @@ StatusTray* ChromeBrowserProcessStub::status_tray() {
   return NULL;
 }
 
-SafeBrowsingService* ChromeBrowserProcessStub::safe_browsing_service() {
+safe_browsing::SafeBrowsingService*
+    ChromeBrowserProcessStub::safe_browsing_service() {
   NOTIMPLEMENTED();
   return NULL;
 }
@@ -217,15 +220,14 @@ void ChromeBrowserProcessStub::StartAutoupdateTimer() {
 }
 #endif
 
-ChromeNetLog* ChromeBrowserProcessStub::net_log() {
+net_log::ChromeNetLog* ChromeBrowserProcessStub::net_log() {
   NOTIMPLEMENTED();
   return NULL;
 }
 
 component_updater::ComponentUpdateService*
     ChromeBrowserProcessStub::component_updater() {
-  NOTIMPLEMENTED();
-  return NULL;
+  return CefContext::Get()->component_updater();
 }
 
 CRLSetFetcher* ChromeBrowserProcessStub::crl_set_fetcher() {
@@ -270,6 +272,17 @@ network_time::NetworkTimeTracker*
 }
 
 gcm::GCMDriver* ChromeBrowserProcessStub::gcm_driver() {
+  NOTIMPLEMENTED();
+  return NULL;
+}
+
+ShellIntegration::DefaultWebClientState
+ChromeBrowserProcessStub::CachedDefaultWebClientState() {
+  NOTIMPLEMENTED();
+  return ShellIntegration::UNKNOWN_DEFAULT;
+}
+
+memory::TabManager* ChromeBrowserProcessStub::GetTabManager() {
   NOTIMPLEMENTED();
   return NULL;
 }

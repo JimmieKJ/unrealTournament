@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "DragAndDrop.h"
+
+#include "CoreMinimal.h"
+#include "Input/DragAndDrop.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Animation/DebugSkelMeshComponent.h"
 #include "Engine/SkeletalMeshSocket.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FSocketDragDropOp

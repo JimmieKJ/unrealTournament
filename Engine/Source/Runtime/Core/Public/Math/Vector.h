@@ -2,6 +2,21 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Math/NumericLimits.h"
+#include "Misc/Crc.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Parse.h"
+#include "Math/Color.h"
+#include "Math/IntPoint.h"
+#include "Logging/LogMacros.h"
+#include "Math/Vector2D.h"
+#include "Misc/ByteSwap.h"
+#include "Internationalization/Text.h"
+#include "Internationalization/Internationalization.h"
+#include "Math/IntVector.h"
 
 /**
  * A vector in 3-D space composed of components (X, Y, Z) with floating point precision.
@@ -665,7 +680,7 @@ public:
 	 * @return FRotator from the Vector's direction.
 	 * @see ToOrientationRotator(), ToOrientationQuat()
 	 */
-	FRotator Rotation() const;
+	CORE_API FRotator Rotation() const;
 
 	/**
 	 * Find good arbitrary axis vectors to represent U and V axes of a plane,
@@ -996,19 +1011,6 @@ FORCEINLINE FVector operator*(float Scale, const FVector& V)
 FORCEINLINE uint32 GetTypeHash(const FVector& Vector)
 {
 	// Note: this assumes there's no padding in FVector that could contain uncompared data.
-	return FCrc::MemCrc_DEPRECATED(&Vector,sizeof(Vector));
-}
-
-
-/**
- * Creates a hash value from a FVector2D. 
- *
- * @param Vector the vector to create a hash value for
- * @return The hash value from the components
- */
-FORCEINLINE uint32 GetTypeHash(const FVector2D& Vector)
-{
-	// Note: this assumes there's no padding in FVector2D that could contain uncompared data.
 	return FCrc::MemCrc_DEPRECATED(&Vector,sizeof(Vector));
 }
 
@@ -1960,3 +1962,73 @@ FORCEINLINE FVector ClampVector(const FVector& V, const FVector& Min, const FVec
 }
 
 template <> struct TIsPODType<FVector> { enum { Value = true }; };
+
+/* FMath inline functions
+ *****************************************************************************/
+
+inline FVector FMath::LinePlaneIntersection
+	(
+	const FVector &Point1,
+	const FVector &Point2,
+	const FVector &PlaneOrigin,
+	const FVector &PlaneNormal
+	)
+{
+	return
+		Point1
+		+	(Point2-Point1)
+		*	(((PlaneOrigin - Point1)|PlaneNormal) / ((Point2 - Point1)|PlaneNormal));
+}
+
+inline bool FMath::LineSphereIntersection(const FVector& Start,const FVector& Dir,float Length,const FVector& Origin,float Radius)
+{
+	const FVector	EO = Start - Origin;
+	const float		v = (Dir | (Origin - Start));
+	const float		disc = Radius * Radius - ((EO | EO) - v * v);
+
+	if(disc >= 0.0f)
+	{
+		const float	Time = (v - Sqrt(disc)) / Length;
+
+		if(Time >= 0.0f && Time <= 1.0f)
+			return 1;
+		else
+			return 0;
+	}
+	else
+		return 0;
+}
+
+inline FVector FMath::VRand()
+{
+	FVector Result;
+
+	float L;
+
+	do
+	{
+		// Check random vectors in the unit sphere so result is statistically uniform.
+		Result.X = FRand() * 2.f - 1.f;
+		Result.Y = FRand() * 2.f - 1.f;
+		Result.Z = FRand() * 2.f - 1.f;
+		L = Result.SizeSquared();
+	}
+	while(L > 1.0f || L < KINDA_SMALL_NUMBER);
+
+	return Result * (1.0f / Sqrt(L));
+}
+
+
+/* FVector2D inline functions
+ *****************************************************************************/
+
+FORCEINLINE FVector2D::FVector2D( const FVector& V )
+	: X(V.X), Y(V.Y)
+{ 
+}
+
+inline FVector FVector2D::SphericalToUnitCartesian() const
+{
+	const float SinTheta = FMath::Sin(X);
+	return FVector(FMath::Cos(Y) * SinTheta, FMath::Sin(Y) * SinTheta, FMath::Cos(X));
+}

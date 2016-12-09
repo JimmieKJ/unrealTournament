@@ -2,13 +2,24 @@
 
 #pragma once
 
-#include "ProjectTargetPlatformEditor.h"
-#include "IProjectManager.h"
+#include "CoreMinimal.h"
+#include "Misc/AssertionMacros.h"
+#include "Internationalization/Text.h"
+#include "Internationalization/Internationalization.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "GameProjectGenerationModule.h"
+#include "PlatformInfo.h"
+#include "Frame/MainFrameActions.h"
+#include "Interfaces/IProjectTargetPlatformEditorModule.h"
+#include "Interfaces/IProjectManager.h"
 #include "InstalledPlatformInfo.h"
 
 
 #define LOCTEXT_NAMESPACE "FCookContentMenu"
 
+class FMenuBuilder;
 
 /**
  * Static helper class for populating the "Cook Content" menu.

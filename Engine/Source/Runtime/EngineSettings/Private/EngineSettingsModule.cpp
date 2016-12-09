@@ -1,6 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EngineSettingsPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UnrealType.h"
+#include "ConsoleSettings.h"
+#include "GameNetworkManagerSettings.h"
+#include "GameMapsSettings.h"
+#include "GameSessionSettings.h"
+#include "GeneralEngineSettings.h"
+#include "GeneralProjectSettings.h"
+#include "HudSettings.h"
+#include "Misc/ConfigCacheIni.h"
 
 
 /**
@@ -58,7 +69,12 @@ UGeneralEngineSettings::UGeneralEngineSettings( const FObjectInitializer& Object
 UGeneralProjectSettings::UGeneralProjectSettings( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
 	, bShouldWindowPreserveAspectRatio(true)
+	, bUseBorderlessWindow(false)
 	, bStartInVR(false)
+	, bAllowWindowResize(true)
+	, bAllowClose(true)
+	, bAllowMaximize(true)
+	, bAllowMinimize(true)
 { }
 
 
@@ -87,6 +103,92 @@ const FString& UGameMapsSettings::GetGlobalDefaultGameMode( )
 		: GameMapsSettings->GlobalDefaultGameMode.ToString();
 }
 
+FString UGameMapsSettings::GetGameModeForName(const FString& GameModeName)
+{
+	UGameMapsSettings* GameMapsSettings = Cast<UGameMapsSettings>(UGameMapsSettings::StaticClass()->GetDefaultObject());
+
+	// Look to see if this should be remapped from a shortname to full class name
+	for (const FGameModeName& Alias : GameMapsSettings->GameModeClassAliases)
+	{
+		if (GameModeName == Alias.Name)
+		{
+			// switch GameClassName to the full name
+			return Alias.GameMode.ToString();
+		}
+	}
+
+	// Check deprecated config
+	FConfigSection* GameModeSection = GConfig->GetSectionPrivate(TEXT("/Script/Engine.GameMode"), false, true, GGameIni);
+	
+	if (GameModeSection)
+	{
+		TArray<FString> ConfigLines;
+		GameModeSection->MultiFind(TEXT("GameModeClassAliases"), ConfigLines);
+
+		if (ConfigLines.Num())
+		{
+			UE_LOG(LogLoad, Warning, TEXT("GameMode::GameModeClassAliases are deprecated, move to GameMapsSettings"));
+
+			for (FString& ConfigString : ConfigLines)
+			{
+				FString ModeName, ModePath;
+				if (FParse::Value(*ConfigString, TEXT("ShortName="), ModeName) && FParse::Value(*ConfigString, TEXT("GameClassName="), ModePath))
+				{
+					if (ModeName == GameModeName)
+					{
+						return ModePath;
+					}
+				}
+			}
+
+		}
+	}
+
+	return GameModeName;
+}
+
+FString UGameMapsSettings::GetGameModeForMapName(const FString& MapName)
+{
+	UGameMapsSettings* GameMapsSettings = Cast<UGameMapsSettings>(UGameMapsSettings::StaticClass()->GetDefaultObject());
+
+	// See if we have a per-prefix default specified
+	for (const FGameModeName& Prefix : GameMapsSettings->GameModeMapPrefixes)
+	{
+		if ((Prefix.Name.Len() > 0) && MapName.StartsWith(Prefix.Name))
+		{
+			return Prefix.GameMode.ToString();
+		}
+	}
+
+	// Check deprecated config
+	FConfigSection* GameModeSection = GConfig->GetSectionPrivate(TEXT("/Script/Engine.WorldSettings"), false, true, GGameIni);
+
+	if (GameModeSection)
+	{
+		TArray<FString> ConfigLines;
+		GameModeSection->MultiFind(TEXT("DefaultMapPrefixes"), ConfigLines);
+
+		if (ConfigLines.Num())
+		{
+			UE_LOG(LogLoad, Warning, TEXT("GameMode::DefaultMapPrefixes are deprecated, move to GameMapsSettings::GameModeMapPrefixes"));
+
+			for (FString& ConfigString : ConfigLines)
+			{
+				FString Prefix, ModePath;
+				if (FParse::Value(*ConfigString, TEXT("Prefix="), Prefix) && FParse::Value(*ConfigString, TEXT("GameMode="), ModePath))
+				{
+					if (MapName.StartsWith(Prefix))
+					{
+						return ModePath;
+					}
+				}
+			}
+
+		}
+	}
+
+	return FString();
+}
 
 void UGameMapsSettings::SetGameDefaultMap( const FString& NewMap )
 {

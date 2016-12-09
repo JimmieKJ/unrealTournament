@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerExtension_HUD.h"
-#include "GameFramework/HUD.h"
+#include "InputCoreTypes.h"
+#include "Engine/Engine.h"
 #include "GameFramework/PlayerController.h"
+#include "EngineGlobals.h"
+#include "GameFramework/HUD.h"
 
 FGameplayDebuggerExtension_HUD::FGameplayDebuggerExtension_HUD()
 {

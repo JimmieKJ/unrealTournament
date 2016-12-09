@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "AI/AISystemBase.h"
 #if WITH_EDITOR
 #include "Developer/AssetTools/Public/AssetTypeCategories.h"

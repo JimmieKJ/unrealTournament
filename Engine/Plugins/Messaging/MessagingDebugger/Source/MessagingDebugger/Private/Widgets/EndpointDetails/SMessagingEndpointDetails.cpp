@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessagingDebuggerPrivatePCH.h"
+#include "Widgets/EndpointDetails/SMessagingEndpointDetails.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/EndpointDetails/SMessagingAddressTableRow.h"
 
 
 #define LOCTEXT_NAMESPACE "SMessagingEndpointDetails"
@@ -9,7 +13,7 @@
 /* SMessagingEndpointDetails interface
  *****************************************************************************/
 
-void SMessagingEndpointDetails::Construct( const FArguments& InArgs, const FMessagingDebuggerModelRef& InModel, const TSharedRef<ISlateStyle>& InStyle )
+void SMessagingEndpointDetails::Construct(const FArguments& InArgs, const TSharedRef<FMessagingDebuggerModel>& InModel, const TSharedRef<ISlateStyle>& InStyle)
 {
 	Model = InModel;
 	Style = InStyle;
@@ -65,7 +69,7 @@ void SMessagingEndpointDetails::Construct( const FArguments& InArgs, const FMess
 					.Padding(0.0f)
 					[
 						// address list
-						SAssignNew(AddressListView, SListView<FMessageTracerAddressInfoPtr>)
+						SAssignNew(AddressListView, SListView<TSharedPtr<FMessageTracerAddressInfo>>)
 							.ItemHeight(24.0f)
 							.ListItemsSource(&AddressList)
 							.SelectionMode(ESelectionMode::None)
@@ -99,7 +103,7 @@ void SMessagingEndpointDetails::Construct( const FArguments& InArgs, const FMess
 /* SCompoundWidget overrides
  *****************************************************************************/
 
-void SMessagingEndpointDetails::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+void SMessagingEndpointDetails::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	RefreshAddressInfo();
 }
@@ -110,7 +114,7 @@ void SMessagingEndpointDetails::Tick( const FGeometry& AllottedGeometry, const d
 
 void SMessagingEndpointDetails::RefreshAddressInfo()
 {
-	FMessageTracerEndpointInfoPtr SelectedEndpoint = Model->GetSelectedEndpoint();
+	TSharedPtr<FMessageTracerEndpointInfo> SelectedEndpoint = Model->GetSelectedEndpoint();
 
 	if (SelectedEndpoint.IsValid())
 	{
@@ -128,7 +132,7 @@ void SMessagingEndpointDetails::RefreshAddressInfo()
 /* SMessagingEndpointDetails event handlers
  *****************************************************************************/
 
-TSharedRef<ITableRow> SMessagingEndpointDetails::HandleAddressListGenerateRow( FMessageTracerAddressInfoPtr AddressInfo, const TSharedRef<STableViewBase>& OwnerTable )
+TSharedRef<ITableRow> SMessagingEndpointDetails::HandleAddressListGenerateRow(TSharedPtr<FMessageTracerAddressInfo> AddressInfo, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(SMessagingAddressTableRow, OwnerTable, Model.ToSharedRef())
 		.AddressInfo(AddressInfo)
@@ -138,7 +142,7 @@ TSharedRef<ITableRow> SMessagingEndpointDetails::HandleAddressListGenerateRow( F
 
 FText SMessagingEndpointDetails::HandleEndpointDetailsReceivedMessagesText() const
 {
-	FMessageTracerEndpointInfoPtr SelectedEndpoint = Model->GetSelectedEndpoint();
+	TSharedPtr<FMessageTracerEndpointInfo> SelectedEndpoint = Model->GetSelectedEndpoint();
 
 	if (SelectedEndpoint.IsValid())
 	{
@@ -151,7 +155,7 @@ FText SMessagingEndpointDetails::HandleEndpointDetailsReceivedMessagesText() con
 
 FText SMessagingEndpointDetails::HandleEndpointDetailsSentMessagesText() const
 {
-	FMessageTracerEndpointInfoPtr SelectedEndpoint = Model->GetSelectedEndpoint();
+	TSharedPtr<FMessageTracerEndpointInfo> SelectedEndpoint = Model->GetSelectedEndpoint();
 
 	if (SelectedEndpoint.IsValid())
 	{

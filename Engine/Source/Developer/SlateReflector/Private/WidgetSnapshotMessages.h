@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "WidgetSnapshotMessages.generated.h"
 
 
@@ -14,11 +17,11 @@ struct FWidgetSnapshotRequest
 	GENERATED_USTRUCT_BODY()
 
 	/** The instance ID of the remote target we want to receive a snapshot from */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid TargetInstanceId;
 
 	/** The request ID of this snapshot (used to identify the correct response from the target) */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid SnapshotRequestId;
 };
 
@@ -32,10 +35,10 @@ struct FWidgetSnapshotResponse
 	GENERATED_USTRUCT_BODY()
 
 	/** The request ID of this snapshot (used to identify the correct response from the target) */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid SnapshotRequestId;
 
 	/** The snapshot data, to be used by FWidgetSnapshotData::LoadSnapshotFromBuffer */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	TArray<uint8> SnapshotData;
 };

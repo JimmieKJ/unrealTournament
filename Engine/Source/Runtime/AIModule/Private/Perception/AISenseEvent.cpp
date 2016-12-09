@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Perception/AISenseEvent.h"
+#include "Perception/AISense.h"
+#include "Perception/AISense_Hearing.h"
 #include "Perception/AISenseEvent_Hearing.h"
-#include "Perception/AISenseEvent_Damage.h"
 #include "Perception/AISense_Damage.h"
+#include "Perception/AISenseEvent_Damage.h"
 
 //----------------------------------------------------------------------//
 // UAISenseEvent_Hearing

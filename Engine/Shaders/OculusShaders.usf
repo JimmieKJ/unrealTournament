@@ -1,0 +1,40 @@
+#include "Common.usf"
+
+void MainVertexShader(
+	float4 InPosition : ATTRIBUTE0,
+	float2 InUV : ATTRIBUTE1,
+	out float2 OutUV : TEXCOORD0,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	OutPosition = InPosition;
+	OutUV = InUV;
+}
+
+Texture2D<uint> TextureParameter;
+ 
+void MainWhiteShader(
+	out float4 OutColor : SV_Target0
+	)
+{
+	OutColor = float4(1, 1, 1, 1);
+}
+
+void MainBlackShader(
+	out float4 OutColor : SV_Target0
+	)
+{
+	OutColor = float4(0, 0, 0, 0);
+}
+
+Texture2D InTexture;
+SamplerState InTextureSampler;
+
+void MainAlphaInverseShader(
+	in float2 uv : TEXCOORD0,
+	out float4 OutColor : SV_Target0
+	)
+{
+	float InverseAlpha = 1 - Texture2DSample(InTexture, InTextureSampler, uv).a;
+	OutColor = float4(0, 0, 0, InverseAlpha);
+}

@@ -4,6 +4,10 @@
 #ifndef __REFERENCEDASSETSBROWSER_H__
 #define __REFERENCEDASSETSBROWSER_H__
 
+#include "CoreMinimal.h"
+#include "Serialization/ArchiveUObject.h"
+#include "UObject/GCObject.h"
+
 typedef TMap< UObject*, TSet<UObject*> >	ObjectReferenceGraph;
 typedef TMap< UObject*, FString >			ObjectNameMap;
 

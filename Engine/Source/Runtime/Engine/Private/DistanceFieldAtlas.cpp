@@ -4,10 +4,16 @@
 	DistanceFieldAtlas.cpp
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "StaticMeshResources.h"
 #include "DistanceFieldAtlas.h"
-#include "CookStats.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/Runnable.h"
+#include "Misc/App.h"
+#include "Serialization/MemoryReader.h"
+#include "Serialization/MemoryWriter.h"
+#include "Modules/ModuleManager.h"
+#include "StaticMeshResources.h"
+#include "ProfilingDebugging/CookStats.h"
+#include "UniquePtr.h"
 
 #if WITH_EDITOR
 #include "DerivedDataCacheInterface.h"
@@ -222,7 +228,16 @@ void FDistanceFieldVolumeTextureAtlas::UpdateAllocations()
 		PendingAllocations.Empty();
 	}	
 }
-	
+
+FDistanceFieldVolumeTexture::~FDistanceFieldVolumeTexture()
+{
+	if (FApp::CanEverRender())
+	{
+		// Make sure we have been properly removed from the atlas before deleting
+		check(!bReferencedByAtlas);
+	}
+}
+
 void FDistanceFieldVolumeTexture::Initialize()
 {
 	if (IsValidDistanceFieldVolume())
@@ -269,7 +284,7 @@ FDistanceFieldAsyncQueue* GDistanceFieldAsyncQueue = NULL;
 
 #if WITH_EDITORONLY_DATA
 
-void FDistanceFieldVolumeData::CacheDerivedData(const FString& InDDCKey, UStaticMesh* Mesh, UStaticMesh* GenerateSource, float DistanceFieldResolutionScale, bool bGenerateDistanceFieldAsIfTwoSided)
+void FDistanceFieldVolumeData::CacheDerivedData(const FString& InDDCKey, UStaticMesh* Mesh, UStaticMesh* GenerateSource, float DistanceFieldResolutionScale, float DistanceFieldBias, bool bGenerateDistanceFieldAsIfTwoSided)
 {
 	TArray<uint8> DerivedData;
 
@@ -289,17 +304,18 @@ void FDistanceFieldVolumeData::CacheDerivedData(const FString& InDDCKey, UStatic
 		NewTask->StaticMesh = Mesh;
 		NewTask->GenerateSource = GenerateSource;
 		NewTask->DistanceFieldResolutionScale = DistanceFieldResolutionScale;
+		NewTask->DistanceFieldBias = FMath::Max<float>(DistanceFieldBias, 0.0f);
 		NewTask->bGenerateDistanceFieldAsIfTwoSided = bGenerateDistanceFieldAsIfTwoSided;
 		NewTask->GeneratedVolumeData = new FDistanceFieldVolumeData();
 
-		for (int32 MaterialIndex = 0; MaterialIndex < Mesh->Materials.Num(); MaterialIndex++)
+		for (int32 MaterialIndex = 0; MaterialIndex < Mesh->StaticMaterials.Num(); MaterialIndex++)
 		{
 			// Default material blend mode
 			EBlendMode BlendMode = BLEND_Opaque;
 
-			if (Mesh->Materials[MaterialIndex])
+			if (Mesh->StaticMaterials[MaterialIndex].MaterialInterface)
 			{
-				BlendMode = Mesh->Materials[MaterialIndex]->GetBlendMode();
+				BlendMode = Mesh->StaticMaterials[MaterialIndex].MaterialInterface->GetBlendMode();
 			}
 
 			NewTask->MaterialBlendModes.Add(BlendMode);
@@ -328,7 +344,7 @@ public:
 		)
 		: NextThreadIndex(0)
 		, AsyncQueue(*InAsyncQueue)
-		, Thread(NULL)
+		, Thread(nullptr)
 		, bIsRunning(false)
 		, bForceFinish(false)
 	{}
@@ -349,7 +365,7 @@ public:
 		check(!bIsRunning);
 
 		bForceFinish = false;
-		Thread = FRunnableThread::Create(this, *FString::Printf(TEXT("BuildDistanceFieldThread%u"), NextThreadIndex), 0, TPri_Normal, FPlatformAffinity::GetPoolThreadMask());
+		Thread.Reset(FRunnableThread::Create(this, *FString::Printf(TEXT("BuildDistanceFieldThread%u"), NextThreadIndex), 0, TPri_Normal, FPlatformAffinity::GetPoolThreadMask()));
 		NextThreadIndex++;
 	}
 
@@ -362,9 +378,9 @@ private:
 	FDistanceFieldAsyncQueue& AsyncQueue;
 
 	/** The runnable thread */
-	TScopedPointer<FRunnableThread> Thread;
+	TUniquePtr<FRunnableThread> Thread;
 
-	TScopedPointer<FQueuedThreadPool> WorkerThreadPool;
+	TUniquePtr<FQueuedThreadPool> WorkerThreadPool;
 
 	volatile bool bIsRunning;
 	volatile bool bForceFinish;
@@ -391,7 +407,7 @@ uint32 FBuildDistanceFieldThreadRunnable::Run()
 		{
 			if (!WorkerThreadPool)
 			{
-				WorkerThreadPool = CreateWorkerThreadPool();
+				WorkerThreadPool.Reset(CreateWorkerThreadPool());
 			}
 
 			AsyncQueue.Build(Task, *WorkerThreadPool);
@@ -403,10 +419,20 @@ uint32 FBuildDistanceFieldThreadRunnable::Run()
 		}
 	}
 
-	WorkerThreadPool = NULL;
+	WorkerThreadPool = nullptr;
 
 	return 0;
 }
+
+FAsyncDistanceFieldTask::FAsyncDistanceFieldTask()
+	: StaticMesh(nullptr)
+	, GenerateSource(nullptr)
+	, DistanceFieldResolutionScale(0.0f)
+	, bGenerateDistanceFieldAsIfTwoSided(false)
+	, GeneratedVolumeData(nullptr)
+{
+}
+
 
 FDistanceFieldAsyncQueue::FDistanceFieldAsyncQueue() 
 {
@@ -414,7 +440,7 @@ FDistanceFieldAsyncQueue::FDistanceFieldAsyncQueue()
 	MeshUtilities = NULL;
 #endif
 
-	ThreadRunnable = new FBuildDistanceFieldThreadRunnable(this);
+	ThreadRunnable = MakeUnique<FBuildDistanceFieldThreadRunnable>(this);
 }
 
 FDistanceFieldAsyncQueue::~FDistanceFieldAsyncQueue()
@@ -442,7 +468,7 @@ void FDistanceFieldAsyncQueue::AddTask(FAsyncDistanceFieldTask* Task)
 	}
 	else
 	{
-		TScopedPointer<FQueuedThreadPool> WorkerThreadPool(CreateWorkerThreadPool());
+		TUniquePtr<FQueuedThreadPool> WorkerThreadPool(CreateWorkerThreadPool());
 		Build(Task, *WorkerThreadPool);
 	}
 #else
@@ -515,6 +541,7 @@ void FDistanceFieldAsyncQueue::Build(FAsyncDistanceFieldTask* Task, FQueuedThrea
 		Task->MaterialBlendModes,
 		Task->GenerateSource->RenderData->Bounds,
 		Task->DistanceFieldResolutionScale,
+		Task->DistanceFieldBias,
 		Task->bGenerateDistanceFieldAsIfTwoSided,
 		*Task->GeneratedVolumeData);
 

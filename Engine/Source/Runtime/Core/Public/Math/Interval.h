@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Templates/IsArithmetic.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Math/NumericLimits.h"
+#include "Math/UnrealMathUtility.h"
 
 /**
  * Template for numeric interval

@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashDebugHelperPrivatePCH.h"
 #include "CrashDebugHelperWindows.h"
+#include "CrashDebugHelperPrivate.h"
 #include "WindowsPlatformStackWalkExt.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
 
 #include "EngineVersion.h"
 #include "ISourceControlModule.h"
 
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 #include <DbgHelp.h>
 
@@ -36,59 +39,68 @@ bool FCrashDebugHelperWindows::CreateMinidumpDiagnosticReport( const FString& In
 			WindowsStackWalkExt.GetExeFileVersionAndModuleList(ExeFileVersion);
 
 			// Init Symbols
+			bool bInitSymbols = false;
 			if (CrashInfo.bMutexPDBCache && !CrashInfo.PDBCacheLockName.IsEmpty())
 			{
 				// Scoped lock
-				FSystemWideCriticalSection PDBCacheLock(CrashInfo.PDBCacheLockName, FTimespan(0, 0, 3, 0, 0));
+				UE_LOG(LogCrashDebugHelper, Log, TEXT("Locking for InitSymbols()"));
+				FSystemWideCriticalSection PDBCacheLock(CrashInfo.PDBCacheLockName, FTimespan(0, 0, 10, 0, 0));
 				if (PDBCacheLock.IsValid())
 				{
-					InitSymbols(WindowsStackWalkExt, bSyncSymbols);
+					bInitSymbols = InitSymbols(WindowsStackWalkExt, bSyncSymbols);
+				}
+				UE_LOG(LogCrashDebugHelper, Log, TEXT("Unlocking after InitSymbols()"));
+			}
+			else
+			{
+				bInitSymbols = InitSymbols(WindowsStackWalkExt, bSyncSymbols);
+			}
+
+			if (bInitSymbols)
+			{
+				// Get all the info we should ever need about the modules
+				WindowsStackWalkExt.GetModuleInfoDetailed();
+
+				// Get info about the system that created the minidump
+				WindowsStackWalkExt.GetSystemInfo();
+
+				// Get all the thread info
+				WindowsStackWalkExt.GetThreadInfo();
+
+				// Get exception info
+				WindowsStackWalkExt.GetExceptionInfo();
+
+				// Get the callstacks for each thread
+				bHasAtLeastThreeValidFunctions = WindowsStackWalkExt.GetCallstacks(!bNoTrim) >= 3;
+
+				// Sync the source file where the crash occurred
+				if (CrashInfo.SourceFile.Len() > 0)
+				{
+					const bool bMutexSourceSync = FParse::Param(FCommandLine::Get(), TEXT("MutexSourceSync"));
+					FString SourceSyncLockName;
+					FParse::Value(FCommandLine::Get(), TEXT("SourceSyncLock="), SourceSyncLockName);
+
+					if (bMutexSourceSync && !SourceSyncLockName.IsEmpty())
+					{
+						// Scoped lock
+						UE_LOG(LogCrashDebugHelper, Log, TEXT("Locking for SyncAndReadSourceFile()"));
+						const FTimespan GlobalLockWaitTimeout(0, 0, 0, 30, 0);
+						FSystemWideCriticalSection SyncSourceLock(SourceSyncLockName, GlobalLockWaitTimeout);
+						if (SyncSourceLock.IsValid())
+						{
+							SyncAndReadSourceFile(bSyncSymbols, bAnnotate, CrashInfo.BuiltFromCL);
+						}
+						UE_LOG(LogCrashDebugHelper, Log, TEXT("Unlocking after SyncAndReadSourceFile()"));
+					}
+					else
+					{
+						SyncAndReadSourceFile(bSyncSymbols, bAnnotate, CrashInfo.BuiltFromCL);
+					}
 				}
 			}
 			else
 			{
-				InitSymbols(WindowsStackWalkExt, bSyncSymbols);
-			}
-
-			// Set the symbol path based on the loaded modules
-			WindowsStackWalkExt.SetSymbolPathsFromModules();
-
-			// Get all the info we should ever need about the modules
-			WindowsStackWalkExt.GetModuleInfoDetailed();
-
-			// Get info about the system that created the minidump
-			WindowsStackWalkExt.GetSystemInfo();
-
-			// Get all the thread info
-			WindowsStackWalkExt.GetThreadInfo();
-
-			// Get exception info
-			WindowsStackWalkExt.GetExceptionInfo();
-
-			// Get the callstacks for each thread
-			bHasAtLeastThreeValidFunctions = WindowsStackWalkExt.GetCallstacks(!bNoTrim) >= 3;
-
-			// Sync the source file where the crash occurred
-			if( CrashInfo.SourceFile.Len() > 0 )
-			{
-				const bool bMutexSourceSync = FParse::Param(FCommandLine::Get(), TEXT("MutexSourceSync"));
-				FString SourceSyncLockName;
-				FParse::Value(FCommandLine::Get(), TEXT("SourceSyncLock="), SourceSyncLockName);
-
-				if (bMutexSourceSync && !SourceSyncLockName.IsEmpty())
-				{
-					// Scoped lock
-					const FTimespan GlobalLockWaitTimeout(0, 0, 0, 30, 0);
-					FSystemWideCriticalSection SyncSourceLock(SourceSyncLockName, GlobalLockWaitTimeout);
-					if (SyncSourceLock.IsValid())
-					{
-						SyncAndReadSourceFile(bSyncSymbols, bAnnotate, CrashInfo.BuiltFromCL);
-					}	
-				}
-				else
-				{
-					SyncAndReadSourceFile(bSyncSymbols, bAnnotate, CrashInfo.BuiltFromCL);
-				}
+				UE_LOG(LogCrashDebugHelper, Warning, TEXT("InitSymbols failed"));
 			}
 		}
 		else
@@ -116,11 +128,23 @@ bool FCrashDebugHelperWindows::InitSymbols(FWindowsPlatformStackWalkExt& Windows
 	{
 		FindSymbolsAndBinariesStorage();
 
-		const bool bSynced = SyncModules();
+		bool bPDBCacheEntryValid = false;
+		const bool bSynced = SyncModules(bPDBCacheEntryValid);
 		// Without symbols we can't decode the provided minidump.
 		if (!bSynced)
 		{
 			return false;
+		}
+
+		if (!bPDBCacheEntryValid)
+		{
+			// early-out option
+			const bool bForceUsePDBCache = FParse::Param(FCommandLine::Get(), TEXT("ForceUsePDBCache"));
+			if (bForceUsePDBCache)
+			{
+				UE_LOG(LogCrashDebugHelper, Log, TEXT("No cached symbols available. Exiting due to -ForceUsePDBCache."));
+				return false;
+			}
 		}
 	}
 

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/SlateRect.h"
+
 /**
  * A convenient representation of a marquee selection
  */

@@ -1,16 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "SequencerEdMode.h"
+#include "EditorViewportClient.h"
+#include "Curves/KeyHandle.h"
+#include "ISequencer.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
 #include "Sequencer.h"
+#include "Framework/Application/SlateApplication.h"
+#include "DisplayNodes/SequencerObjectBindingNode.h"
+#include "DisplayNodes/SequencerTrackNode.h"
+#include "SequencerCommonHelpers.h"
 #include "MovieSceneHitProxy.h"
 #include "Tracks/MovieScene3DTransformTrack.h"
 #include "Sections/MovieScene3DTransformSection.h"
+#include "SubtitleManager.h"
 
 const FEditorModeID FSequencerEdMode::EM_SequencerMode(TEXT("EM_SequencerMode"));
 
-FSequencerEdMode::FSequencerEdMode() :
-	Sequencer(nullptr)
+FSequencerEdMode::FSequencerEdMode()
 {
 	FSequencerEdModeTool* SequencerEdModeTool = new FSequencerEdModeTool(this);
 
@@ -29,7 +36,7 @@ void FSequencerEdMode::Enter()
 
 void FSequencerEdMode::Exit()
 {
-	Sequencer = NULL;
+	SequencerPtr.Reset();
 
 	FEdMode::Exit();
 }
@@ -42,7 +49,9 @@ bool FSequencerEdMode::IsCompatibleWith(FEditorModeID OtherModeID) const
 
 bool FSequencerEdMode::InputKey( FEditorViewportClient* ViewportClient, FViewport* Viewport, FKey Key, EInputEvent Event )
 {
-	if (Sequencer == nullptr)
+	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
+
+	if (!Sequencer.IsValid())
 	{
 		return false;
 	}
@@ -62,7 +71,9 @@ bool FSequencerEdMode::InputKey( FEditorViewportClient* ViewportClient, FViewpor
 
 void FSequencerEdMode::Render(const FSceneView* View, FViewport* Viewport, FPrimitiveDrawInterface* PDI)
 {
-	if (Sequencer == nullptr)
+	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
+
+	if (!Sequencer.IsValid())
 	{
 		return;
 	}
@@ -77,13 +88,38 @@ void FSequencerEdMode::Render(const FSceneView* View, FViewport* Viewport, FPrim
 #endif
 }
 
+void FSequencerEdMode::DrawHUD(FEditorViewportClient* ViewportClient,FViewport* Viewport,const FSceneView* View,FCanvas* Canvas)
+{
+	FEdMode::DrawHUD(ViewportClient,Viewport,View,Canvas);
+
+	if( ViewportClient->AllowsCinematicPreview() )
+	{
+		// Get the size of the viewport
+		const int32 SizeX = Viewport->GetSizeXY().X;
+		const int32 SizeY = Viewport->GetSizeXY().Y;
+
+		// Draw subtitles (toggle is handled internally)
+		FVector2D MinPos(0.f, 0.f);
+		FVector2D MaxPos(1.f, .9f);
+		FIntRect SubtitleRegion(FMath::TruncToInt(SizeX * MinPos.X), FMath::TruncToInt(SizeY * MinPos.Y), FMath::TruncToInt(SizeX * MaxPos.X), FMath::TruncToInt(SizeY * MaxPos.Y));
+		FSubtitleManager::GetSubtitleManager()->DisplaySubtitles( Canvas, SubtitleRegion, ViewportClient->GetWorld()->GetAudioTimeSeconds() );
+	}
+}
+
 void FSequencerEdMode::OnKeySelected(FViewport* Viewport, HMovieSceneKeyProxy* KeyProxy)
 {
+	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
+
+	if (!Sequencer.IsValid())
+	{
+		return;
+	}
+
 	bool bCtrlDown = Viewport->KeyState(EKeys::LeftControl) || Viewport->KeyState(EKeys::RightControl);
 	bool bAltDown = Viewport->KeyState(EKeys::LeftAlt) || Viewport->KeyState(EKeys::RightAlt);
 	bool bShiftDown = Viewport->KeyState(EKeys::LeftShift) || Viewport->KeyState(EKeys::RightShift);
 
-	Sequencer->SetGlobalTimeDirectly(KeyProxy->Time);
+	Sequencer->SetLocalTimeDirectly(KeyProxy->Time);
 	Sequencer->SelectTrackKeys(KeyProxy->MovieSceneSection, KeyProxy->Time, bShiftDown, bCtrlDown);
 }
 
@@ -352,6 +388,13 @@ void FSequencerEdMode::DrawTracks3D(const FSceneView* View, FPrimitiveDrawInterf
 	// Map between object binding nodes and selection
 	TMap<TSharedRef<FSequencerDisplayNode>, bool > ObjectBindingNodesSelectionMap;
 
+	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
+
+	if (!Sequencer.IsValid())
+	{
+		return;
+	}
+
 	for (auto ObjectBinding : Sequencer->GetNodeTree()->GetObjectBindingMap() )
 	{
 		if (ObjectBinding.Value.IsValid())
@@ -388,7 +431,10 @@ void FSequencerEdMode::DrawTracks3D(const FSceneView* View, FPrimitiveDrawInterf
 		FGuid ObjectBinding = StaticCastSharedRef<FSequencerObjectBindingNode>(ObjectBindingNode.Key)->GetObjectBinding();
 
 		TArray<TWeakObjectPtr<UObject>> BoundObjects;
-		Sequencer->GetRuntimeObjects(Sequencer->GetFocusedMovieSceneSequenceInstance(), ObjectBinding, BoundObjects);
+		for (TWeakObjectPtr<> Ptr : Sequencer->FindObjectsInCurrentSequence(ObjectBinding))
+		{
+			BoundObjects.Add(Ptr);
+		}
 
 		for (auto DisplayNode : AllNodes)
 		{

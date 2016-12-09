@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "Delegate.h"
-
+#include "CoreTypes.h"
+#include "Templates/Function.h"
+#include "Templates/SharedPointer.h"
+#include "Delegates/Delegate.h"
 
 /**
  * Attribute object

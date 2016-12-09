@@ -2,37 +2,35 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Misc/CoreMisc.h"
+#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "AI/Navigation/NavigationTypes.h"
+#include "GenericOctreePublic.h"
 #include "AI/Navigation/NavigationData.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "GenericOctreePublic.h"
 #include "NavigationSystem.generated.h"
 
 #define NAVSYS_DEBUG (0 && UE_BUILD_DEBUG)
 
 #define NAV_USE_MAIN_NAVIGATION_DATA NULL
 
-class UNavigationPath;
-class ANavigationData;
-class UNavigationQueryFilter;
-class UWorld;
-class UCrowdManager;
-struct FNavDataConfig;
-struct FPathFindingResult;
-class UActorComponent;
-class USceneComponent;
-class AActor;
-class UEnum;
 class AController;
-class UCrowdManager;
-class UNavArea;
+class ANavMeshBoundsVolume;
+class AWorldSettings;
+class FEdMode;
+class FNavDataGenerator;
+class FNavigationOctree;
 class INavLinkCustomInterface;
 class INavRelevantInterface;
-class FNavigationOctree;
-class ANavMeshBoundsVolume;
-class FNavDataGenerator;
-class AWorldSettings;
+class UCrowdManager;
+class UNavArea;
+class UNavigationPath;
 struct FNavigationRelevantData;
-class UNavigationSystem;
+
 #if WITH_EDITOR
 class FEdMode;
 #endif // WITH_EDITOR
@@ -709,6 +707,9 @@ public:
 		return (NavBuildingLockFlags & ~ENavigationBuildLock::InitialLock) != 0; 
 	}
 
+	/** check if navigation octree updates are currently ignored */
+	FORCEINLINE bool IsNavigationOctreeLocked() const { return bNavOctreeLock; }
+
 	// @todo document
 	UFUNCTION(BlueprintCallable, Category = "AI|Navigation")
 	void OnNavigationBoundsUpdated(ANavMeshBoundsVolume* NavVolume);
@@ -752,6 +753,8 @@ public:
 
 	FORCEINLINE void AddNavigationBuildLock(uint8 Flags) { NavBuildingLockFlags |= Flags; }
 	void RemoveNavigationBuildLock(uint8 Flags, bool bSkipRebuildInEditor = false);
+
+	void SetNavigationOctreeLock(bool bLock) { bNavOctreeLock = bLock; }
 
 #if WITH_EDITOR
 	/** allow editor to toggle whether seamless navigation building is enabled */
@@ -857,6 +860,9 @@ protected:
 
 	/** set of locking flags applied on startup of navigation system */
 	uint8 InitialNavBuildingLockFlags;
+
+	/** if set, navoctree updates are ignored, use with caution! */
+	uint8 bNavOctreeLock : 1;
 
 	uint8 bInitialSetupHasBeenPerformed : 1;
 	uint8 bInitialLevelsAdded : 1;

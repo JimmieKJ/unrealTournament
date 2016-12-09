@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
+#include "CPUSolver.h"
 #include "LightmassScene.h"
 #include "Importer.h"
 #include "Exporter.h"
 #include "LightmassSwarm.h"
-#include "CPUSolver.h"
 #include "LightingSystem.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/FileManager.h"
+#include "UnrealLightmass.h"
+#include "Misc/OutputDeviceRedirector.h"
 
 namespace Lightmass
 {

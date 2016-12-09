@@ -6,6 +6,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RenderResource.h"
+#include "Serialization/BulkData.h"
+#include "RendererInterface.h"
+
+class FScene;
+class FSceneViewFamily;
+class FShader;
+class FViewInfo;
+class UAtmosphericFogComponent;
+
 namespace EAtmosphereRenderFlag
 {
 	enum Type

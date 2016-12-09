@@ -7,6 +7,7 @@
 #ifndef __MAINMRUFAVORITESLIST_H__
 #define __MAINMRUFAVORITESLIST_H__
 
+#include "CoreMinimal.h"
 #include "MRUList.h"
 
 /** Simple class to represent a combined MRU and favorite map list */

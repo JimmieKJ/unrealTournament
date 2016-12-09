@@ -2,13 +2,46 @@
 
 #pragma once
 
-#include "AnimInstanceProxy.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimTypes.h"
+#include "Animation/AnimationAsset.h"
+#include "Animation/AnimInstanceProxy.h"
+#include "Animation/AnimNodeBase.h"
 #include "AnimSingleNodeInstanceProxy.generated.h"
+
+struct FAnimSingleNodeInstanceProxy;
+
+/** 
+ * Local anim node for extensible processing. 
+ * Cant be used outside of this context as it has no graph node counterpart 
+ */
+USTRUCT()
+struct FAnimNode_SingleNode : public FAnimNode_Base
+{
+	friend struct FAnimSingleNodeInstanceProxy;
+
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Links)
+	FPoseLink SourcePose;
+
+	// FAnimNode_Base interface
+	virtual void Evaluate(FPoseContext& Output) override;
+	virtual void Update(const FAnimationUpdateContext& Context) override;
+	// End of FAnimNode_Base interface
+
+private:
+	/** Parent proxy */
+	FAnimSingleNodeInstanceProxy* Proxy;
+};
 
 /** Proxy override for this UAnimInstance-derived class */
 USTRUCT()
 struct ENGINE_API FAnimSingleNodeInstanceProxy : public FAnimInstanceProxy
 {
+	friend struct FAnimNode_SingleNode;
+
 	GENERATED_BODY()
 
 public:
@@ -32,6 +65,8 @@ public:
 		, bPlaying(true)
 		, bReverse(false)
 	{
+		SingleNode.Proxy = this;
+
 #if WITH_EDITOR
 		bCanProcessAdditiveAnimations = false;
 #endif
@@ -121,6 +156,9 @@ public:
 
 	void SetPreviewCurveOverride(const FName& PoseName, float Value, bool bRemoveIfZero);
 
+	// Update internal weight structures for supplied slot name
+	void UpdateMontageWeightForSlot(const FName CurrentSlotNodeName, float InGlobalNodeWeight);
+
 private:
 	void InternalBlendSpaceEvaluatePose(class UBlendSpaceBase* BlendSpace, TArray<FBlendSampleData>& BlendSampleDataCache, FPoseContext& OutContext);
 
@@ -136,6 +174,9 @@ protected:
 
 	/** Current Asset being played. Note that this will be nullptr outside of pre/post update **/
 	UAnimationAsset* CurrentAsset;
+
+	/** The internal anim node that does our processing */
+	FAnimNode_SingleNode SingleNode;
 
 private:
 	/** Random cached values to play each asset **/
@@ -161,10 +202,7 @@ private:
 	FMarkerTickRecord MarkerTickRecord;
 
 	float PlayRate;
-
-	uint32 bLooping:1;
-
-	uint32 bPlaying:1;
-
-	uint32 bReverse:1;
+	bool bLooping;
+	bool bPlaying;
+	bool bReverse;
 };

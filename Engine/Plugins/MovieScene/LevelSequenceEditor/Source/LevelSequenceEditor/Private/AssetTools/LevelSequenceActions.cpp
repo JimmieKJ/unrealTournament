@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelSequenceEditorPCH.h"
-#include "IAssetTools.h"
-#include "ISequencerModule.h"
-#include "Toolkits/IToolkit.h"
+#include "AssetTools/LevelSequenceActions.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "LevelSequence.h"
+#include "LevelSequenceEditorToolkit.h"
 
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"

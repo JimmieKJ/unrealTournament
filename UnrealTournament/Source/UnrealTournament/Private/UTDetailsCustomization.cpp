@@ -8,6 +8,7 @@
 #include "IDetailCustomNodeBuilder.h"
 #include "DetailCategoryBuilder.h"
 #include "IDetailPropertyRow.h"
+#include "IDetailChildrenBuilder.h"
 #include "DetailWidgetRow.h"
 #include "PropertyHandle.h"
 #include "IDetailsView.h"
@@ -207,7 +208,7 @@ void FUTDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailLayou
 					{
 						if (ConstructionNodes[j]->ComponentTemplate == PSC)
 						{
-							DisplayName = ConstructionNodes[j]->VariableName;
+							DisplayName = ConstructionNodes[j]->GetVariableName();
 							break;
 						}
 					}

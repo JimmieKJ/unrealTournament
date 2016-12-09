@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
 #include "StateMachineConnectionDrawingPolicy.h"
-#include "AnimationStateNodes/SGraphNodeAnimTransition.h"
+#include "Rendering/DrawElements.h"
+#include "AnimStateNodeBase.h"
 #include "AnimStateTransitionNode.h"
+#include "AnimationStateNodes/SGraphNodeAnimTransition.h"
 #include "AnimStateEntryNode.h"
 
 /////////////////////////////////////////////////////

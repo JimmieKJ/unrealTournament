@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#if ENABLE_VISUAL_LOG
-#include "VisualLogger/VisualLogger.h"
-#endif
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "EngineDefines.h"
+#include "VisualLogger/VisualLoggerTypes.h"
 #include "VisualLoggerExtension.generated.h"
 
-class UWorld;
 class AActor;
+class UCanvas;
+class UEQSRenderingComponent;
+struct FLogEntryItem;
 
 namespace EVisLogTags
 {

@@ -1,14 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
-#include "LogVisualizerStyle.h"
-#include "VisualLoggerRenderingActor.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Docking/TabManager.h"
+#include "ILogVisualizer.h"
 #include "LogVisualizerSettings.h"
+#include "VisualLoggerDatabase.h"
+#include "LogVisualizerStyle.h"
+#include "SVisualLogger.h"
+#include "VisualLoggerCommands.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "LogVisualizerPrivate.h"
+#include "Features/IModularFeatures.h"
 #if WITH_EDITOR
-#include "Editor/EditorEngine.h"
 #include "ISettingsModule.h"
-#include "LevelEditor.h"
+#include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
 #endif // WITH_EDITOR
 

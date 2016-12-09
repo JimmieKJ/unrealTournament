@@ -1,19 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CascadeModule.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+#include "Framework/Commands/InputChord.h"
+#include "Factories/ParticleSystemFactoryNew.h"
+#include "Particles/ParticleSystem.h"
+#include "Distributions/DistributionVectorUniform.h"
+#include "Toolkits/AssetEditorManager.h"
 
 //Automation
 #include "Tests/AutomationTestSettings.h"
-#include "AutomationEditorCommon.h"
-#include "AutomationEditorPromotionCommon.h"
+#include "AssetRegistryModule.h"
+#include "Tests/AutomationEditorPromotionCommon.h"
 
 //Particle system
-#include "Particles/ParticleSystem.h"
 #include "Particles/ParticleEmitter.h"
 #include "Particles/ParticleLODLevel.h"
 #include "Particles/Size/ParticleModuleSize.h"
 
-#include "ScopedTransaction.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

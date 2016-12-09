@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CollectionManagerPrivatePCH.h"
+#include "CollectionManager.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Containers/Ticker.h"
+#include "CollectionManagerLog.h"
 #include "FileCache.h"
-#include "Ticker.h"
 
 #define LOCTEXT_NAMESPACE "CollectionManager"
 

@@ -2,12 +2,32 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "UnrealWidget.h"
+#include "LandscapeProxy.h"
+#include "EdMode.h"
 #include "LandscapeToolInterface.h"
+#include "Materials/MaterialInstanceConstant.h"
 #include "LandscapeInfo.h"
 #include "LandscapeLayerInfoObject.h"
-#include "LandscapeProxy.h"
 #include "LandscapeGizmoActiveActor.h"
-#include "LevelEditorViewport.h"
+
+class ALandscape;
+class FCanvas;
+class FEditorViewportClient;
+class FLandscapeToolSplines;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FUICommandList;
+class FViewport;
+class ULandscapeComponent;
+class ULandscapeEditorObject;
+class UViewportInteractor;
+struct FHeightmapToolTarget;
+struct FViewportActionKeyInput;
+struct FViewportClick;
+template<class ToolTarget> class FLandscapeToolCopyPaste;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogLandscapeEdMode, Log, All);
 
@@ -15,6 +35,8 @@ DECLARE_LOG_CATEGORY_EXTERN(LogLandscapeEdMode, Log, All);
 class ULandscapeEditorObject;
 class ULandscapeLayerInfoObject;
 class FLandscapeToolSplines;
+class UViewportInteractor;
+struct FViewportActionKeyInput;
 
 struct FHeightmapToolTarget;
 template<typename TargetType> class FLandscapeToolCopyPaste;
@@ -107,7 +129,7 @@ struct FLandscapeTargetListInfo
 			}
 			else
 			{
-				int32 Index = Proxy->EditorLayerSettings.Add(LayerInfoObj.Get());
+				int32 Index = Proxy->EditorLayerSettings.Add(FLandscapeEditorLayerSettings(LayerInfoObj.Get()));
 				return &Proxy->EditorLayerSettings[Index];
 			}
 		}
@@ -399,6 +421,9 @@ public:
 	bool LandscapePlaneTrace(FEditorViewportClient* ViewportClient, const FPlane& Plane, FVector& OutHitLocation);
 	bool LandscapePlaneTrace(FEditorViewportClient* ViewportClient, int32 MouseX, int32 MouseY, const FPlane& Plane, FVector& OutHitLocation);
 
+	/** Trace under the specified laser start and direction and return the landscape hit and the hit location (in landscape quad space) */
+	bool LandscapeTrace(const FEditorViewportClient* ViewportClient, const FVector& InRayOrigin, const FVector& InRayEnd, FVector& OutHitLocation);
+
 	void SetCurrentToolMode(FName ToolModeName, bool bRestoreCurrentTool = true);
 
 	/** Change current tool */
@@ -422,7 +447,13 @@ public:
 	DECLARE_EVENT(FEdModeLandscape, FTargetsListUpdated);
 	static FTargetsListUpdated TargetsListUpdated;
 
-	void OnWorldChange();
+	/** Called when the user presses a button on their motion controller device */
+	void OnVRAction(FEditorViewportClient& ViewportClient, UViewportInteractor* Interactor, const FViewportActionKeyInput& Action, bool& bOutIsInputCaptured, bool& bWasHandled);
+
+	void OnVRHoverUpdate(FEditorViewportClient& ViewportClient, UViewportInteractor* Interactor, FVector& HoverImpactPoint, bool& bWasHandled);
+
+	/** Handle notification that visible levels may have changed and we should update the editable landscapes list */
+	void HandleLevelsChanged();
 
 	void OnMaterialCompilationFinished(UMaterialInterface* MaterialInterface);
 
@@ -458,5 +489,12 @@ private:
 	const FViewport* ToolActiveViewport;
 
 	FDelegateHandle OnWorldChangeDelegateHandle;
+	FDelegateHandle OnLevelsChangedDelegateHandle;
 	FDelegateHandle OnMaterialCompilationFinishedDelegateHandle;
+
+	/** Check if we are painting using the VREditor */
+	bool bIsPaintingInVR;
+
+	/** The interactor that is currently painting, prevents multiple interactors from sculpting when one actually is */
+	class UViewportInteractor* InteractorPainting;
 };

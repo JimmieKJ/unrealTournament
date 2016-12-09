@@ -1,8 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "EditorModes.h"
+
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Modules/ModuleInterface.h"
 #include "EditorModeTools.h"
+#include "EdMode.h"
+
+class FCanvas;
+class FEditorViewportClient;
+class FGeomBase;
+class FGeomEdge;
+class FGeomObject;
+class FGeomPoly;
+class FGeomVertex;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FViewport;
+class UGeomModifier;
+struct FConvexVolume;
 
 typedef FName FEditorModeID;
 class FGeomPoly;

@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintCompilerCppBackendModulePrivatePCH.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/UnrealType.h"
 #include "BlueprintCompilerCppBackendUtils.h"
-#include "WidgetBlueprintGeneratedClass.h"
-#include "WidgetAnimation.h"
-#include "WidgetTree.h"
+#include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetBlueprintGeneratedClass.h"
+#include "Animation/WidgetAnimation.h"
+#include "Blueprint/WidgetTree.h"
 
 void FBackendHelperUMG::WidgetFunctionsInHeader(FEmitterLocalContext& Context)
 {
@@ -12,7 +15,7 @@ void FBackendHelperUMG::WidgetFunctionsInHeader(FEmitterLocalContext& Context)
 	{
 		Context.Header.AddLine(FString::Printf(TEXT("virtual void %s(TArray<FName>& SlotNames) const override;"), GET_FUNCTION_NAME_STRING_CHECKED(UUserWidget, GetSlotNames)));
 		Context.Header.AddLine(FString::Printf(TEXT("virtual void %s(const class ITargetPlatform* TargetPlatform) override;"), GET_FUNCTION_NAME_STRING_CHECKED(UUserWidget, PreSave)));
-		Context.Header.AddLine(FString::Printf(TEXT("virtual void %s() override;"), GET_FUNCTION_NAME_STRING_CHECKED(UUserWidget, CustomNativeInitilize)));
+		Context.Header.AddLine(TEXT("virtual void InitializeNativeClassData() override;"));
 	}
 }
 
@@ -55,7 +58,7 @@ void FBackendHelperUMG::EmitWidgetInitializationFunctions(FEmitterLocalContext& 
 			const FString NativeName = InContext.GenerateUniqueLocalName();
 			
 			const uint32 CppTemplateTypeFlags = EPropertyExportCPPFlags::CPPF_CustomTypeName | EPropertyExportCPPFlags::CPPF_BlueprintCppBackend | EPropertyExportCPPFlags::CPPF_NoConst | EPropertyExportCPPFlags::CPPF_NoRef;
-			const FString Target = InContext.ExportCppDeclaration(InProperty, EExportedDeclaration::Local, CppTemplateTypeFlags, true);
+			const FString Target = InContext.ExportCppDeclaration(InProperty, EExportedDeclaration::Local, CppTemplateTypeFlags, FEmitterLocalContext::EPropertyNameInDeclaration::Skip);
 
 			InContext.AddLine(FString::Printf(TEXT("%s %s;"), *Target, *NativeName));
 			FEmitDefaultValueHelper::InnerGenerate(InContext, InProperty, NativeName, DataPtr, nullptr, true);
@@ -74,8 +77,8 @@ void FBackendHelperUMG::EmitWidgetInitializationFunctions(FEmitterLocalContext& 
 			Context.AddLine(TEXT("}"));
 		}
 
-		{	// CustomNativeInitilize
-			Context.AddLine(FString::Printf(TEXT("void %s::%s()"), *CppClassName, GET_FUNCTION_NAME_STRING_CHECKED(UUserWidget, CustomNativeInitilize)));
+		{	// InitializeNativeClassData
+			Context.AddLine(FString::Printf(TEXT("void %s::InitializeNativeClassData()"), *CppClassName));
 			Context.AddLine(TEXT("{"));
 			Context.IncreaseIndent();
 

@@ -35,7 +35,7 @@ public partial class Project : CommandUtils
 	/// <summary>
 	/// Process for the server, can be set by the cook command when a cook on the fly server is used
 	/// </summary>
-	public static ProcessResult ServerProcess;
+	public static IProcessResult ServerProcess;
 
 	#endregion
 
@@ -213,7 +213,7 @@ public partial class Project : CommandUtils
 
 				string AllClientOutput = "";
 				int LastAutoFailIndex = -1;
-				ProcessResult ClientProcess = null;
+				IProcessResult ClientProcess = null;
 				FileStream ClientProcessLog = null;
 				StreamReader ClientLogReader = null;
 				Log("Starting Client for unattended test....");
@@ -351,7 +351,7 @@ public partial class Project : CommandUtils
 		else
 		{
 			var SC = DeployContextList[0];
-			ProcessResult ClientProcess = SC.StageTargetPlatform.RunClient(ClientRunFlags, ClientApp, ClientCmdLine, Params);
+			IProcessResult ClientProcess = SC.StageTargetPlatform.RunClient(ClientRunFlags, ClientApp, ClientCmdLine, Params);
 			if (ClientProcess != null)
 			{
 				// If the client runs without StdOut redirect we're going to read the log output directly from log file on
@@ -380,10 +380,10 @@ public partial class Project : CommandUtils
 		}
 	}
 
-	private static void RunClientWithServer(List<DeploymentContext> DeployContextList, string ServerLogFile, ProcessResult ServerProcess, string ClientApp, string ClientCmdLine, ERunOptions ClientRunFlags, string ClientLogFile, ProjectParams Params)
+	private static void RunClientWithServer(List<DeploymentContext> DeployContextList, string ServerLogFile, IProcessResult ServerProcess, string ClientApp, string ClientCmdLine, ERunOptions ClientRunFlags, string ClientLogFile, ProjectParams Params)
 	{
-		ProcessResult ClientProcess = null;
-		var OtherClients = new List<ProcessResult>();
+		IProcessResult ClientProcess = null;
+		var OtherClients = new List<IProcessResult>();
 
 		bool WelcomedCorrectly = false;
 		int NumClients = Params.NumClients;
@@ -548,7 +548,7 @@ public partial class Project : CommandUtils
 							for (int i = 1; i < NumClients; i++)
 							{
 								Log("Starting Extra Client....");
-								ProcessResult NewClient = SC.StageTargetPlatform.RunClient(ClientRunFlags | ERunOptions.NoWaitForExit, ClientApp, ClientCmdLine, Params);
+								IProcessResult NewClient = SC.StageTargetPlatform.RunClient(ClientRunFlags | ERunOptions.NoWaitForExit, ClientApp, ClientCmdLine, Params);
 								OtherClients.Add(NewClient);
 							}
 						}
@@ -861,7 +861,7 @@ public partial class Project : CommandUtils
 		{
 			TempCmdLine += "-abslog=" + CommandUtils.MakePathSafeToUseWithCommandLine(ClientLogFile) + " ";
 		}
-		if (SC.StageTargetPlatform.PlatformType != UnrealTargetPlatform.IOS)
+		if (SC.StageTargetPlatform.PlatformType != UnrealTargetPlatform.IOS && SC.StageTargetPlatform.PlatformType != UnrealTargetPlatform.Linux)
 		{
 			TempCmdLine += "-Messaging -nomcp -Windowed ";
 		}
@@ -914,7 +914,7 @@ public partial class Project : CommandUtils
 	{
 		var Args = ArgsContainer as object[];
 		var ClientLogFile = (string)Args[0];
-		var ClientProcess = (ProcessResult)Args[1];
+		var ClientProcess = (IProcessResult)Args[1];
 		LogFileReaderProcess(ClientLogFile, ClientProcess, (string Output) =>
 		{
 			if (String.IsNullOrEmpty(Output) == false)
@@ -929,7 +929,7 @@ public partial class Project : CommandUtils
 
 	#region Servers
 
-	private static ProcessResult RunDedicatedServer(ProjectParams Params, string ServerLogFile, string AdditionalCommandLine)
+	private static IProcessResult RunDedicatedServer(ProjectParams Params, string ServerLogFile, string AdditionalCommandLine)
 	{
 		ProjectParams ServerParams = new ProjectParams(Params);
 		ServerParams.Devices = new ParamList<string>(Params.ServerDevice);
@@ -981,7 +981,19 @@ public partial class Project : CommandUtils
 			{
 				Map += "?fake";
 			}
-			Args += String.Format("{0} -server -abslog={1}  -unattended -FORCELOGFLUSH -log -Messaging -nomcp", Map, CommandUtils.MakePathSafeToUseWithCommandLine(ServerLogFile));
+
+			Args += String.Format("{0} -server -abslog={1}  -unattended -FORCELOGFLUSH -log -Messaging", Map, CommandUtils.MakePathSafeToUseWithCommandLine(ServerLogFile));
+
+			// Do not blindly add -nomcp, only do so if the client is using it
+			if (Params.RunCommandline.Contains("-nomcp"))
+			{
+				Args += " -nomcp";
+			}
+
+			if (Params.ServerCommandline.Length > 0)
+			{
+				Args += " " + Params.ServerCommandline;
+			}
 		}
 
 		if (ServerParams.UsePak(SC.StageTargetPlatform))
@@ -1015,7 +1027,7 @@ public partial class Project : CommandUtils
 		return Result;
 	}
 
-	private static ProcessResult RunCookOnTheFlyServer(FileReference ProjectName, string ServerLogFile, string TargetPlatform, string AdditionalCommandLine)
+	private static IProcessResult RunCookOnTheFlyServer(FileReference ProjectName, string ServerLogFile, string TargetPlatform, string AdditionalCommandLine)
 	{
 		var ServerApp = HostPlatform.Current.GetUE4ExePath("UE4Editor.exe");
 		var Args = String.Format("{0} -run=cook -cookonthefly -unattended -CrashForUAT -FORCELOGFLUSH -log",
@@ -1037,7 +1049,7 @@ public partial class Project : CommandUtils
 		return Result;
 	}
 
-	private static ProcessResult RunFileServer(ProjectParams Params, string ServerLogFile, string AdditionalCommandLine)
+	private static IProcessResult RunFileServer(ProjectParams Params, string ServerLogFile, string AdditionalCommandLine)
 	{
 #if false
 		// this section of code would provide UFS with a more accurate file mapping

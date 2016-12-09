@@ -6,7 +6,7 @@
 //
 //! Future - Would like repeating random functions aswell, using indexed random variables.
 
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #include "Utility/paRnd.hpp"
 #include "Contact/paFunContactGen.hpp"

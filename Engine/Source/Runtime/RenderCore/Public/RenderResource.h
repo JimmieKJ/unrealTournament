@@ -6,9 +6,10 @@
 
 #pragma once
 
-#include "RenderCore.h"
+#include "CoreMinimal.h"
+#include "Containers/List.h"
 #include "RHI.h"
-#include "RenderingThread.h"
+#include "RenderCore.h"
 
 /**
  * A rendering resource which is owned by the rendering thread.

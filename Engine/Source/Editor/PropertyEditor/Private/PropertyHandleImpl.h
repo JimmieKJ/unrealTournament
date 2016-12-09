@@ -2,7 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/SWidget.h"
 #include "PropertyHandle.h"
+#include "AssetData.h"
+#include "PropertyNode.h"
+
+class FNotifyHook;
+class FPropertyRestriction;
 
 class FObjectBaseAddress
 {
@@ -22,7 +30,6 @@ public:
 	uint8*		BaseAddress;
 	bool		bIsStruct;
 };
-
 
 /**
  * Encapsulates a property node (and property) and provides functionality to read and write to that node     
@@ -171,18 +178,20 @@ public:
 	 * Get the value of a property as a formatted string.
 	 * Each UProperty has a specific string format that it sets
 	 *
-	 * @param OutValue The formatted string value to set
+	 * @param OutValue	The formatted string value to set
+	 * @param PortFlags	Determines how the property's value is accessed. Defaults to PPF_PropertyWindow
 	 * @return The result of attempting to get the value
 	 */
-	FPropertyAccess::Result GetValueAsString( FString& OutString ) const;
+	FPropertyAccess::Result GetValueAsString( FString& OutString, EPropertyPortFlags PortFlags = PPF_PropertyWindow ) const;
 
 	/**
 	 * Get the value of a property as a formatted string, possibly using an alternate form more suitable for display in the UI
 	 *
-	 * @param OutValue The formatted string value to set
+	 * @param OutValue	The formatted string value to set
+	 * @param PortFlags	Determines how the property's value is accessed. Defaults to PPF_PropertyWindow
 	 * @return The result of attempting to get the value
 	 */
-	FPropertyAccess::Result GetValueAsDisplayString( FString& OutString ) const;
+	FPropertyAccess::Result GetValueAsDisplayString( FString& OutString, EPropertyPortFlags PortFlags ) const;
 
 	/**
 	 * Get the value of a property as FText.
@@ -244,6 +253,15 @@ public:
 	TSharedPtr<FPropertyNode> GetChildNode( int32 ChildIndex ) const ;
 
 	/**
+	 * Gets a child of the property node that has the given array index
+	 *
+	 * @param ChildArrayIndex	The array index we're searching for. This is not necessarily the same value as the index where the child is stored
+	 * @param OutChildNode		The child property node whose array index matches ChildArrayIndex, or nullptr if it could not be found
+	 * @return True if a matching child property node was found, false otherwise
+	 */
+	bool GetChildNode(const int32 ChildArrayIndex, TSharedPtr<FPropertyNode>& OutChildNode) const;
+
+	/**
 	 * Rests the value to its default value
 	 */
 	void ResetToDefault() ;
@@ -264,42 +282,42 @@ public:
 	FText GetResetToDefaultLabel() const;
 
 	/**
-	 * Adds a child to the property node (arrays only)
+	 * Adds a child to the property node (container properties only)
 	 */
 	void AddChild();
 
 	/**
-	 * Removes all children from the property node (arrays only)
+	 * Removes all children from the property node (container properties only)
 	 */
 	void ClearChildren();
 
 	/** 
-	 * Inserts a child at Index
+	 * Inserts a child at Index (arrays only)
 	 */ 
 	void InsertChild( int32 Index );
 
 	/**
-	 * Inserts a child at the index provided by the child node                                                            
+	 * Inserts a child at the index provided by the child node (arrays only)
 	 */
 	void InsertChild( TSharedPtr<FPropertyNode> ChildNodeToInsertAfter );
 
 	/** 
-	 * Duplicates the child at Index (arrays only)
+	 * Duplicates the child at Index (containers only)
 	 */ 
 	void DuplicateChild( int32 Index );
 
 	/**
-	 * Duplicates the provided child (arrays only)                                                             
+	 * Duplicates the provided child (containers only)                                                             
 	 */
 	void DuplicateChild( TSharedPtr<FPropertyNode> ChildNodeToDuplicate );
 
 	/** 
-	 * Deletes the child at Index
+	 * Deletes the child at Index (containers only)
 	 */ 
 	void DeleteChild( int32 Index );
 
 	/** 
-	 * Deletes the provided child
+	 * Deletes the provided child (containers only)
 	 */ 
 	void DeleteChild( TSharedPtr<FPropertyNode> ChildNodeToDelete );
 
@@ -318,15 +336,19 @@ public:
 	FNotifyHook* GetNotifyHook() const { return NotifyHook; }
 
 	TSharedPtr<IPropertyUtilities> GetPropertyUtilities() const { return PropertyUtilities.Pin(); }
+
+	void ShowInvalidOperationError(const FText& ErrorText);
+
 protected:
 	/**
 	 * 
-	 * @param InPropertyNode	The property to get value from
-	 * @param OutText			The property formatted in a string
-	 * @param bAllowAlternateDisplayValue Allow the function to potentially use an alternate form more suitable for display in the UI
+	 * @param InPropertyNode				The property to get value from
+	 * @param OutText						The property formatted in a string
+	 * @param bAllowAlternateDisplayValue	Allow the function to potentially use an alternate form more suitable for display in the UI
+	 * @param PortFlags						Determines how the property's value is accessed. Defaults to PPF_PropertyWindow
 	 * @return true if the value was retrieved successfully
 	 */
-	FPropertyAccess::Result GetPropertyValueString( FString& OutString, FPropertyNode* InPropertyNode, const bool bAllowAlternateDisplayValue ) const;
+	FPropertyAccess::Result GetPropertyValueString( FString& OutString, FPropertyNode* InPropertyNode, const bool bAllowAlternateDisplayValue , EPropertyPortFlags PortFlags = PPF_PropertyWindow ) const;
 
 	/**
 	 * @param InPropertyNode	The property to get value from
@@ -344,6 +366,9 @@ protected:
 	FNotifyHook* NotifyHook;
 	/** Set true if a change was made with bFinished=false */
 	bool bInteractiveChangeInProgress;
+
+private:
+	TWeakPtr<class SNotificationItem> InvalidOperationError;
 };
 
 #define DECLARE_PROPERTY_ACCESSOR( ValueType ) \
@@ -371,6 +396,7 @@ public:
 	DECLARE_PROPERTY_ACCESSOR( uint32 )
 	DECLARE_PROPERTY_ACCESSOR( uint64 )
 	DECLARE_PROPERTY_ACCESSOR( float )
+	DECLARE_PROPERTY_ACCESSOR( double )
 	DECLARE_PROPERTY_ACCESSOR( FString )
 	DECLARE_PROPERTY_ACCESSOR( FText )
 	DECLARE_PROPERTY_ACCESSOR( FName )
@@ -398,8 +424,8 @@ public:
 	virtual void SetOnPropertyValueChanged( const FSimpleDelegate& InOnPropertyValueChanged ) override;
 	virtual void SetOnChildPropertyValueChanged( const FSimpleDelegate& InOnPropertyValueChanged ) override;
 	virtual int32 GetIndexInArray() const override;
-	virtual FPropertyAccess::Result GetValueAsFormattedString( FString& OutValue ) const override;
-	virtual FPropertyAccess::Result GetValueAsDisplayString( FString& OutValue ) const override;
+	virtual FPropertyAccess::Result GetValueAsFormattedString( FString& OutValue, EPropertyPortFlags PortFlags = PPF_PropertyWindow ) const override;
+	virtual FPropertyAccess::Result GetValueAsDisplayString( FString& OutValue, EPropertyPortFlags PortFlags = PPF_PropertyWindow) const override;
 	virtual FPropertyAccess::Result GetValueAsFormattedText( FText& OutValue ) const override;
 	virtual FPropertyAccess::Result GetValueAsDisplayText( FText& OutValue ) const override;
 	virtual FPropertyAccess::Result SetValueFromFormattedString( const FString& InValue,  EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
@@ -415,6 +441,8 @@ public:
 	virtual void GetOuterPackages(TArray<UPackage*>& OuterPackages) const override;
 	virtual FPropertyAccess::Result GetNumChildren( uint32& OutNumChildren ) const override;
 	virtual TSharedPtr<IPropertyHandleArray> AsArray() override { return nullptr; }
+	virtual TSharedPtr<IPropertyHandleSet> AsSet() override { return nullptr; }
+	virtual TSharedPtr<IPropertyHandleMap> AsMap() override { return nullptr; }
 	virtual const UClass* GetPropertyClass() const override;
 	virtual UProperty* GetProperty() const override;
 	virtual UProperty* GetMetaDataProperty() const override;
@@ -428,6 +456,9 @@ public:
 	virtual const FString* GetInstanceMetaData(const FName& Key) const override;
 	virtual FText GetToolTipText() const override;
 	virtual void SetToolTipText(const FText& ToolTip) override;
+	virtual bool HasDocumentation() override { return false; }
+	virtual FString GetDocumentationLink() override { return FString(); }
+	virtual FString GetDocumentationExcerptName() override { return FString(); }
 	virtual int32 GetNumPerObjectValues() const override;
 	virtual FPropertyAccess::Result SetPerObjectValues( const TArray<FString>& InPerObjectValues,  EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
 	virtual FPropertyAccess::Result GetPerObjectValues( TArray<FString>& OutPerObjectValues ) const override;
@@ -486,6 +517,15 @@ public:
 	virtual FPropertyAccess::Result SetValue( const float& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
 };
 
+class FPropertyHandleDouble : public FPropertyHandleBase
+{
+public:
+	FPropertyHandleDouble( TSharedRef<FPropertyNode> PropertyNode, FNotifyHook* NotifyHook, TSharedPtr<IPropertyUtilities> PropertyUtilities );
+	static bool Supports( TSharedRef<FPropertyNode> PropertyNode );
+	virtual FPropertyAccess::Result GetValue( double& OutValue ) const override;
+	virtual FPropertyAccess::Result SetValue( const double& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
+};
+
 class FPropertyHandleBool : public FPropertyHandleBase
 {
 public:
@@ -527,7 +567,7 @@ public:
 	virtual FPropertyAccess::Result SetValue( const UObject* const& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
 	virtual FPropertyAccess::Result GetValue( FAssetData& OutValue ) const override;
 	virtual FPropertyAccess::Result SetValue( const FAssetData& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
-
+	virtual FPropertyAccess::Result SetValueFromFormattedString(const FString& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
 };
 
 class FPropertyHandleVector : public FPropertyHandleBase
@@ -604,4 +644,52 @@ public:
 	virtual FPropertyAccess::Result SetValue(const FText& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
 
 	virtual FPropertyAccess::Result SetValue(const FString& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
+};
+
+class FPropertyHandleSet : public FPropertyHandleBase, public IPropertyHandleSet, public TSharedFromThis<FPropertyHandleSet>
+{
+public:
+	FPropertyHandleSet(TSharedRef<FPropertyNode> PropertyNode, FNotifyHook* NotifyHook, TSharedPtr<IPropertyUtilities> PropertyUtilities);
+	static bool Supports(TSharedRef<FPropertyNode> PropertyNode);
+	virtual TSharedPtr<IPropertyHandleSet> AsSet() override;
+
+	/** IPropertyHandleSet Interface */
+	virtual bool HasDefaultElement() override;
+	virtual FPropertyAccess::Result AddItem() override;
+	virtual FPropertyAccess::Result Empty() override;
+	virtual FPropertyAccess::Result DeleteItem(int32 Index) override;
+	virtual FPropertyAccess::Result GetNumElements(uint32& OutNumElements) override;
+	virtual void SetOnNumElementsChanged(FSimpleDelegate& InOnNumElementsChanged) override;
+	virtual bool HasDocumentation() override { return true; }
+	virtual FString GetDocumentationLink() override { return FString("Programming/UnrealArchitecture/Reference/Properties/"); }	// @todo: needs a better documentation page
+	virtual FString GetDocumentationExcerptName() override { return FString("Sets"); }
+private:
+	/**
+	 * @return Whether or not the set is editable
+	 */
+	bool IsEditable() const;
+};
+
+class FPropertyHandleMap : public FPropertyHandleBase, public IPropertyHandleMap, public TSharedFromThis<FPropertyHandleMap>
+{
+public:
+	FPropertyHandleMap(TSharedRef<FPropertyNode> PropertyNode, FNotifyHook* NotifyHook, TSharedPtr<IPropertyUtilities> PropertyUtilities);
+	static bool Supports(TSharedRef<FPropertyNode> PropertyNode);
+	virtual TSharedPtr<IPropertyHandleMap> AsMap() override;
+
+	/** IPropertyHandleMap Interface */
+	virtual bool HasDefaultKey() override;
+	virtual FPropertyAccess::Result AddItem() override;
+	virtual FPropertyAccess::Result Empty() override;
+	virtual FPropertyAccess::Result DeleteItem(int32 Index) override;
+	virtual FPropertyAccess::Result GetNumElements(uint32& OutNumElements) override;
+	virtual void SetOnNumElementsChanged(FSimpleDelegate& InOnNumElementsChanged) override;
+	virtual bool HasDocumentation() override { return true; }
+	virtual FString GetDocumentationLink() override { return FString("Programming/UnrealArchitecture/TMap"); }
+	virtual FString GetDocumentationExcerptName() override { return FString("Maps"); }
+private:
+	/**
+	 * @return Whether or not the map is editable
+	 */
+	bool IsEditable() const;
 };

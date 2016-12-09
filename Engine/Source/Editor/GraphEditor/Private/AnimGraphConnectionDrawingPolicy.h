@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "BlueprintConnectionDrawingPolicy.h"
+
+class FSlateWindowElementList;
+class UEdGraph;
 
 /////////////////////////////////////////////////////
 // FAnimGraphConnectionDrawingPolicy

@@ -1,14 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IBreakIterator.h"
-#include "TextRunRenderer.h"
-#include "TextLineHighlight.h"
-#include "ILineHighlighter.h"
-#include "ShapedTextCacheFwd.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "Framework/Text/TextRange.h"
+#include "Framework/Text/TextRunRenderer.h"
+#include "Framework/Text/TextLineHighlight.h"
+#include "Framework/Text/IRun.h"
 #include "TextLayout.generated.h"
 
 #define TEXT_LAYOUT_DEBUG 0
+
+class IBreakIterator;
+class ILayoutBlock;
+class ILineHighlighter;
+class IRunRenderer;
+enum class ETextHitPoint : uint8;
+enum class ETextShapingMethod : uint8;
 
 UENUM( BlueprintType )
 namespace ETextJustify
@@ -484,6 +494,8 @@ public:
 	bool RemoveLine(int32 LineIndex);
 
 	bool IsEmpty() const;
+
+	int32 GetLineCount() const;
 
 	void GetAsText(FString& DisplayText, FTextOffsetLocations* const OutTextOffsetLocations = nullptr) const;
 

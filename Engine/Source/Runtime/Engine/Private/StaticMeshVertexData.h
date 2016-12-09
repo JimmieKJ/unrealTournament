@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/DynamicRHIResourceArray.h"
 #include "StaticMeshResources.h"
 
 /** The implementation of the static mesh vertex data storage type. */

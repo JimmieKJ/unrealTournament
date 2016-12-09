@@ -4,13 +4,13 @@
 	PostProcessCombineLUTs.cpp: Post processing tone mapping implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessCombineLUTs.h"
-#include "PostProcessing.h"
-#include "ScreenRendering.h"
+#include "PostProcess/PostProcessCombineLUTs.h"
+#include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
+#include "TranslucentRendering.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "PostProcess/PostProcessing.h"
+#include "ScreenRendering.h"
 
 
 // CVars
@@ -178,6 +178,9 @@ public:
 		ColorGainHighlights.Bind(Initializer.ParameterMap, TEXT("ColorGainHighlights"));
 		ColorOffsetHighlights.Bind(Initializer.ParameterMap, TEXT("ColorOffsetHighlights"));
 
+		ColorCorrectionShadowsMax.Bind(Initializer.ParameterMap, TEXT("ColorCorrectionShadowsMax"));
+		ColorCorrectionHighlightsMin.Bind(Initializer.ParameterMap, TEXT("ColorCorrectionHighlightsMin"));
+
 		FilmSlope.Bind(		Initializer.ParameterMap,TEXT("FilmSlope") );
 		FilmToe.Bind(		Initializer.ParameterMap,TEXT("FilmToe") );
 		FilmShoulder.Bind(	Initializer.ParameterMap,TEXT("FilmShoulder") );
@@ -186,7 +189,6 @@ public:
 
 		OutputDevice.Bind(Initializer.ParameterMap, TEXT("OutputDevice"));
 		OutputGamut.Bind(Initializer.ParameterMap, TEXT("OutputGamut"));
-		ACESInversion.Bind(Initializer.ParameterMap, TEXT("ACESInversion"));
 
 		ColorMatrixR_ColorCurveCd1.Bind(Initializer.ParameterMap, TEXT("ColorMatrixR_ColorCurveCd1"));
 		ColorMatrixG_ColorCurveCd3Cm3.Bind(Initializer.ParameterMap, TEXT("ColorMatrixG_ColorCurveCd3Cm3"));
@@ -253,6 +255,9 @@ public:
 		SetShaderValue(RHICmdList, ShaderRHI, ColorGainHighlights, Settings.ColorGainHighlights);
 		SetShaderValue(RHICmdList, ShaderRHI, ColorOffsetHighlights, Settings.ColorOffsetHighlights);
 
+		SetShaderValue(RHICmdList, ShaderRHI, ColorCorrectionShadowsMax, Settings.ColorCorrectionShadowsMax);
+		SetShaderValue(RHICmdList, ShaderRHI, ColorCorrectionHighlightsMin, Settings.ColorCorrectionHighlightsMin);
+
 		// Film
 		SetShaderValue( RHICmdList, ShaderRHI, FilmSlope,		Settings.FilmSlope );
 		SetShaderValue( RHICmdList, ShaderRHI, FilmToe,			Settings.FilmToe );
@@ -261,38 +266,28 @@ public:
 		SetShaderValue( RHICmdList, ShaderRHI, FilmWhiteClip,	Settings.FilmWhiteClip );
 
 		{
-			static TConsoleVariableData<int32>* CVar709 = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Tonemapper709"));
-			static TConsoleVariableData<float>* CVarGamma = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.TonemapperGamma"));
-			static TConsoleVariableData<int32>* CVar2084 = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Tonemapper2084"));
+			static TConsoleVariableData<int32>* CVarOutputDevice = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.HDR.Display.OutputDevice"));
+			static TConsoleVariableData<float>* CVarOutputGamma = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.TonemapperGamma"));
 
-			int32 Rec709 = CVar709->GetValueOnRenderThread();
-			int32 ST2084 = CVar2084->GetValueOnRenderThread();
-			float Gamma = CVarGamma->GetValueOnRenderThread();
+			int32 OutputDeviceValue = CVarOutputDevice->GetValueOnRenderThread();
+			float Gamma = CVarOutputGamma->GetValueOnRenderThread();
 
 			if (PLATFORM_APPLE && Gamma == 0.0f)
 			{
 				Gamma = 2.2f;
 			}
+	
+			if (Gamma > 0.0f)
+			{
+				// Enforce user-controlled ramp over sRGB or Rec709
+				OutputDeviceValue = FMath::Max(OutputDeviceValue, 2);
+			}
 
-			int32 Value = 0;						// sRGB
-			Value = Rec709 ? 1 : Value;	// Rec709
-			Value = Gamma != 0.0f ? 2 : Value;	// Explicit gamma
-			// ST-2084 (Dolby PQ) options 
-			// 1 = ACES
-			// 2 = Vanilla PQ for 200 nit input
-			// 3 = Unreal FilmToneMap + Inverted ACES + PQ
-			Value = ST2084 >= 1 ? ST2084 + 2 : Value;
+			SetShaderValue(RHICmdList, ShaderRHI, OutputDevice, OutputDeviceValue);
 
-			SetShaderValue(RHICmdList, ShaderRHI, OutputDevice, Value);
-
-			static TConsoleVariableData<int32>* CVarOutputGamut = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.TonemapperOutputGamut"));
+			static TConsoleVariableData<int32>* CVarOutputGamut = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.HDR.Display.ColorGamut"));
 			int32 OutputGamutValue = CVarOutputGamut->GetValueOnRenderThread();
 			SetShaderValue(RHICmdList, ShaderRHI, OutputGamut, OutputGamutValue);
-
-			// The approach to use when applying the inverse ACES Output Transform
-			static TConsoleVariableData<int32>* CVarACESInversion = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.TonemapperACESInversion"));
-			int32 ACESInversionValue = CVarACESInversion->GetValueOnRenderThread();
-			SetShaderValue(RHICmdList, ShaderRHI, ACESInversion, ACESInversionValue);
 
 			FVector InvDisplayGammaValue;
 			InvDisplayGammaValue.X = 1.0f / ViewFamily.RenderTarget->GetDisplayGamma();
@@ -476,9 +471,11 @@ public:
 		Ar << ColorGainHighlights;
 		Ar << ColorOffsetHighlights;
 
+		Ar << ColorCorrectionShadowsMax;
+		Ar << ColorCorrectionHighlightsMin;
+
 		Ar << OutputDevice;
 		Ar << OutputGamut;
-		Ar << ACESInversion;
 
 		Ar << FilmSlope;
 		Ar << FilmToe;
@@ -530,6 +527,9 @@ private: // ---------------------------------------------------
 	FShaderParameter ColorGainHighlights;
 	FShaderParameter ColorOffsetHighlights;
 
+	FShaderParameter ColorCorrectionShadowsMax;
+	FShaderParameter ColorCorrectionHighlightsMin;
+
 	FShaderParameter FilmSlope;
 	FShaderParameter FilmToe;
 	FShaderParameter FilmShoulder;
@@ -538,7 +538,6 @@ private: // ---------------------------------------------------
 
 	FShaderParameter OutputDevice;
 	FShaderParameter OutputGamut;
-	FShaderParameter ACESInversion;
 
 	// Legacy
 	FShaderParameter ColorMatrixR_ColorCurveCd1;
@@ -558,7 +557,7 @@ IMPLEMENT_SHADER_TYPE(template<>,FLUTBlenderPS<3>,TEXT("PostProcessCombineLUTs")
 IMPLEMENT_SHADER_TYPE(template<>,FLUTBlenderPS<4>,TEXT("PostProcessCombineLUTs"),TEXT("MainPS"),SF_Pixel);
 IMPLEMENT_SHADER_TYPE(template<>,FLUTBlenderPS<5>,TEXT("PostProcessCombineLUTs"),TEXT("MainPS"),SF_Pixel);
 
-void SetLUTBlenderShader(FRenderingCompositePassContext& Context, uint32 BlendCount, FTexture* Texture[], float Weights[], const FVolumeBounds& VolumeBounds)
+static void SetLUTBlenderShader(FRenderingCompositePassContext& Context, uint32 BlendCount, FTexture* Texture[], float Weights[], const FVolumeBounds& VolumeBounds)
 {
 	check(BlendCount > 0);
 
@@ -743,8 +742,6 @@ uint32 FRCPassPostProcessCombineLUTs::GenerateFinalTable(const FFinalPostProcess
 
 void FRCPassPostProcessCombineLUTs::Process(FRenderingCompositePassContext& Context)
 {
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessCombineLUTs, TEXT("PostProcessCombineLUTs %dx%dx%d"), GLUTSize, GLUTSize, GLUTSize);
-
 	FTexture* LocalTextures[GMaxLUTBlendCount];
 	float LocalWeights[GMaxLUTBlendCount];
 
@@ -761,6 +758,8 @@ void FRCPassPostProcessCombineLUTs::Process(FRenderingCompositePassContext& Cont
 	{
 		LocalCount = GenerateFinalTable(Context.View.FinalPostProcessSettings, LocalTextures, LocalWeights, GMaxLUTBlendCount);
 	}
+
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessCombineLUTs, TEXT("PostProcessCombineLUTs [%d] %dx%dx%d"), LocalCount, GLUTSize, GLUTSize, GLUTSize);
 
 	// for a 3D texture, the viewport is 16x16 (per slice), for a 2D texture, it's unwrapped to 256x16
 	FIntPoint DestSize(UseVolumeTextureLUT(ShaderPlatform) ? GLUTSize : GLUTSize * GLUTSize, GLUTSize);

@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "KismetCompiler.h"
+#include "CoreMinimal.h"
+#include "KismetCompilerMisc.h"
 
-struct FBlueprintCompiledStatement;
+class FKismetCompilerContext;
 class UK2Node_MathExpression;
 struct FKismetFunctionContext;
 

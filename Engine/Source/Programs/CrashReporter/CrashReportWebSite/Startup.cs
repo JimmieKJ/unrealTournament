@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
-
-using Hangfire;
+﻿using Hangfire;
 using Microsoft.Owin;
 using Owin;
-using Tools.CrashReporter.CrashReportCommon;
 using Tools.CrashReporter.CrashReportWebSite;
 
 [assembly: OwinStartup(typeof(Startup))]

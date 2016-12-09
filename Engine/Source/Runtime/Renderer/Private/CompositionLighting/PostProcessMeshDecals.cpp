@@ -4,15 +4,22 @@
 	PostProcessDeferredMeshDecals.cpp: Deferred Decals implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessing.h"
-#include "PostProcessDeferredDecals.h"
-#include "ScreenRendering.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "RHI.h"
+#include "HitProxies.h"
+#include "Shader.h"
 #include "SceneUtils.h"
-#include "DecalRenderingShared.h"
-
+#include "RHIStaticStates.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "MaterialShaderType.h"
+#include "DrawingPolicy.h"
+#include "MeshMaterialShader.h"
+#include "ShaderBaseClasses.h"
+#include "DepthRendering.h"
+#include "DecalRenderingCommon.h"
+#include "CompositionLighting/PostProcessDeferredDecals.h"
+#include "SceneRendering.h"
 
 
 /**
@@ -57,7 +64,7 @@ public:
 		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View->GetFeatureLevel()), *View, View->ViewUniformBuffer, ESceneRenderTargetsMode::SetTextures);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
@@ -144,7 +151,7 @@ public:
 		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneRenderTargetsMode::SetTextures);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
@@ -181,8 +188,8 @@ public:
 		const FVertexFactory* InVertexFactory,
 		const FMaterialRenderProxy* InMaterialRenderProxy,
 		const FMaterial& MaterialResouce,
-//		EDebugViewShaderMode InDebugViewShaderMode,
-		ERHIFeatureLevel::Type InFeatureLevel
+		ERHIFeatureLevel::Type InFeatureLevel,
+		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings
 		);
 
 	// FMeshDrawingPolicy interface.
@@ -199,7 +206,7 @@ public:
 	* @param CI - The command interface to execute the draw commands on.
 	* @param View - The view of the scene being drawn.
 	*/
-	void SetSharedState(FRHICommandList& RHICmdList, const FSceneView* View, const ContextDataType PolicyContext) const;
+	void SetSharedState(FRHICommandList& RHICmdList, const FSceneView* View, const ContextDataType PolicyContext, FDrawingPolicyRenderState& DrawRenderState) const;
 	
 	/** 
 	* Create bound shader state using the vertex decl from the mesh draw policy
@@ -220,8 +227,7 @@ public:
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
-		bool bBackFace,
-		const FMeshDrawingRenderState& DrawRenderState,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const;
@@ -237,8 +243,9 @@ FMeshDecalsDrawingPolicy::FMeshDecalsDrawingPolicy(
 	const FVertexFactory* InVertexFactory,
 	const FMaterialRenderProxy* InMaterialRenderProxy,
 	const FMaterial& InMaterialResource,
-	ERHIFeatureLevel::Type InFeatureLevel)
-	: FMeshDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource)
+	ERHIFeatureLevel::Type InFeatureLevel,
+	const FMeshDrawingPolicyOverrideSettings& InOverrideSettings)
+	: FMeshDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource, InOverrideSettings)
 {
 	HullShader = NULL;
 	DomainShader = NULL;
@@ -273,11 +280,12 @@ FDrawingPolicyMatchResult FMeshDecalsDrawingPolicy::Matches(
 void FMeshDecalsDrawingPolicy::SetSharedState(
 	FRHICommandList& RHICmdList, 
 	const FSceneView* View,
-	const ContextDataType PolicyContext
+	const ContextDataType PolicyContext,
+	FDrawingPolicyRenderState& DrawRenderState
 	) const
 {
 	// Set shared mesh resources
-	FMeshDrawingPolicy::SetSharedState(RHICmdList, View, PolicyContext);
+	FMeshDrawingPolicy::SetSharedState(RHICmdList, View, PolicyContext, DrawRenderState);
 
 	// Set the translucent shader parameters for the material instance
 	VertexShader->SetParameters(RHICmdList, VertexFactory,MaterialRenderProxy,View);
@@ -312,8 +320,7 @@ void FMeshDecalsDrawingPolicy::SetMeshRenderState(
 	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 	const FMeshBatch& Mesh,
 	int32 BatchElementIndex,
-	bool bBackFace,
-	const FMeshDrawingRenderState& DrawRenderState,
+	const FDrawingPolicyRenderState& DrawRenderState,
 	const ElementDataType& ElementData,
 	const ContextDataType PolicyContext
 	) const
@@ -329,9 +336,10 @@ void FMeshDecalsDrawingPolicy::SetMeshRenderState(
 		DomainShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
 	}	
 
+	const bool bReverseCulling = !!(DrawRenderState.GetViewOverrideFlags() & EDrawingPolicyOverrideFlags::ReverseCullMode);
 	RHICmdList.SetRasterizerState(GetStaticRasterizerState<true>(
 		(Mesh.bWireframe || IsWireframe()) ? FM_Wireframe : FM_Solid,
-		IsTwoSided() ? CM_None : (XOR( XOR(View.bReverseCulling,bBackFace), Mesh.ReverseCulling) ? CM_CCW : CM_CW)));
+		IsTwoSided() ? CM_None : (XOR(bReverseCulling, Mesh.ReverseCulling) ? CM_CCW : CM_CW)));
 }
 
 
@@ -361,7 +369,7 @@ public:
 		{
 		}
 
-		void SetState(const FMaterial* Material)
+		void SetState(const FMaterial* Material, FDrawingPolicyRenderState& DrawRenderState)
 		{
 			FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
 			const FViewInfo& View = Context.View;
@@ -377,7 +385,7 @@ public:
 				LastRenderTargetMode = RenderTargetMode;
 				RenderTargetManager.SetRenderTargetMode(RenderTargetMode, bHasNormal);
 
-				RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_DepthNearOrEqual>::GetRHI());
+				DrawRenderState.SetDepthStencilState(RHICmdList, TStaticDepthStencilState<false,CF_DepthNearOrEqual>::GetRHI());
 
 				Context.SetViewportAndCallRHI(View.ViewRect);
 			}
@@ -388,7 +396,7 @@ public:
 	
 				const ERHIFeatureLevel::Type FeatureLevel = View.GetFeatureLevel();
 
-				SetDecalBlendState(RHICmdList, FeatureLevel, CurrentDecalStage, DecalBlendMode, bHasNormal);
+				SetDecalBlendState(RHICmdList, DrawRenderState, FeatureLevel, CurrentDecalStage, DecalBlendMode, bHasNormal);
 			}
 		}
 	};
@@ -398,8 +406,8 @@ public:
 		const FViewInfo& View,
 		ContextType DrawingContext,
 		const FMeshBatch& Mesh,
-		bool bBackFace,
 		bool bPreFog,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId, 
 		const bool bIsInstancedStereo = false, 
@@ -411,9 +419,8 @@ public:
 			DrawingContext,
 			Mesh,
 			Mesh.Elements.Num()==1 ? 1 : (1<<Mesh.Elements.Num())-1,	// 1 bit set for each mesh element
-			bBackFace,
-			FMeshDrawingRenderState(),
 			bPreFog,
+			DrawRenderState,
 			PrimitiveSceneProxy,
 			HitProxyId, 
 			bIsInstancedStereo, 
@@ -428,7 +435,7 @@ public:
 		const FStaticMesh& StaticMesh,
 		const uint64& BatchElementMask,
 		bool bPreFog,
-		const FMeshDrawingRenderState& DrawRenderState,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId, 
 		const bool bNeedsInstancedStereoBias = false
@@ -440,9 +447,8 @@ public:
 			DrawingContext,
 			StaticMesh,
 			BatchElementMask,
-			false,
-			DrawRenderState,
 			bPreFog,
+			DrawRenderState,
 			PrimitiveSceneProxy,
 			HitProxyId, 
 			false, 
@@ -460,9 +466,8 @@ private:
 		ContextType DrawingContext,
 		const FMeshBatch& Mesh,
 		const uint64& BatchElementMask,
-		bool bBackFace,
-		const FMeshDrawingRenderState& DrawRenderState,
 		bool bPreFog,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId, 
 		const bool bIsInstancedStereo = false, 
@@ -475,7 +480,7 @@ private:
 		const FMaterialRenderProxy* MaterialRenderProxy = Mesh.MaterialRenderProxy;
 		const FMaterial* Material = MaterialRenderProxy->GetMaterialNoFallback(FeatureLevel);
 
-		if (Material != nullptr && Material->IsDeferredDecal())
+		if (Material && Material->IsDeferredDecal())
 		{
 			// We have no special engine material for decals since we don't want to eat the compilation & memory cost, so just skip if it failed to compile
 			if (Material->GetRenderingThreadShaderMap())
@@ -485,11 +490,12 @@ private:
 				// can be optimized (ranges for different decal stages or separate lists)
 				if (DrawingContext.CurrentDecalStage == LocalDecalRenderStage)
 				{
-					DrawingContext.SetState(Material);
+					FDrawingPolicyRenderState DrawRenderStateLocal(&RHICmdList, DrawRenderState);
+					DrawingContext.SetState(Material, DrawRenderStateLocal);
 
-					FMeshDecalsDrawingPolicy DrawingPolicy(Mesh.VertexFactory, MaterialRenderProxy, *Material, View.GetFeatureLevel());
+					FMeshDecalsDrawingPolicy DrawingPolicy(Mesh.VertexFactory, MaterialRenderProxy, *Material, View.GetFeatureLevel(), ComputeMeshOverrideSettings(Mesh));
 					RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
-					DrawingPolicy.SetSharedState(RHICmdList, &View, FDepthDrawingPolicy::ContextDataType(bIsInstancedStereo, bNeedsInstancedStereoBias));
+					DrawingPolicy.SetSharedState(RHICmdList, &View, FDepthDrawingPolicy::ContextDataType(bIsInstancedStereo, bNeedsInstancedStereoBias), DrawRenderStateLocal);
 
 					int32 BatchElementIndex = 0;
 					uint64 Mask = BatchElementMask;
@@ -500,7 +506,7 @@ private:
 							TDrawEvent<FRHICommandList> MeshEvent;
 							BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent);
 
-							DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, bBackFace, DrawRenderState, FMeshDrawingPolicy::ElementDataType(), FDepthDrawingPolicy::ContextDataType());
+							DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, DrawRenderStateLocal, FMeshDrawingPolicy::ElementDataType(), FDepthDrawingPolicy::ContextDataType());
 							DrawingPolicy.DrawMesh(RHICmdList, Mesh, BatchElementIndex, bIsInstancedStereo);
 						}
 						Mask >>= 1;
@@ -518,7 +524,7 @@ private:
 };
 
 
-void RenderPrimitive(FRenderingCompositePassContext& Context, FDecalDrawingPolicyFactory::ContextType& DrawContext, FPrimitiveSceneInfo* PrimitiveSceneInfo)
+void RenderPrimitive(FRenderingCompositePassContext& Context, FDecalDrawingPolicyFactory::ContextType& DrawContext, const FDrawingPolicyRenderState& DrawRenderState, FPrimitiveSceneInfo* PrimitiveSceneInfo)
 {
 	FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
@@ -548,7 +554,7 @@ void RenderPrimitive(FRenderingCompositePassContext& Context, FDecalDrawingPolic
 					DrawContext,
 					MeshBatch,
 					false,
-					false,
+					DrawRenderState,
 					MeshBatchAndRelevance.PrimitiveSceneProxy,
 					MeshBatch.BatchHitProxyId);
 			}
@@ -566,7 +572,8 @@ void RenderPrimitive(FRenderingCompositePassContext& Context, FDecalDrawingPolic
 				if (View.StaticMeshVisibilityMap[StaticMesh.Id]
 					&& StaticMesh.IsDecal(View.FeatureLevel))
 				{
-					const FMeshDrawingRenderState DrawRenderState(View.GetDitheredLODTransitionState(StaticMesh));
+					FDrawingPolicyRenderState DrawRenderStateLocal(&RHICmdList, DrawRenderState);
+					FMeshDrawingPolicy::OnlyApplyDitheredLODTransitionState(RHICmdList, DrawRenderStateLocal, View, StaticMesh, false);
 
 					FDecalDrawingPolicyFactory::DrawStaticMesh(
 						RHICmdList,
@@ -575,7 +582,7 @@ void RenderPrimitive(FRenderingCompositePassContext& Context, FDecalDrawingPolic
 						StaticMesh,
 						StaticMesh.Elements.Num() == 1 ? 1 : View.StaticMeshBatchVisibility[StaticMesh.Id],
 						false,
-						DrawRenderState,
+						DrawRenderStateLocal,
 						PrimitiveSceneInfo->Proxy,
 						StaticMesh.BatchHitProxyId);
 				}
@@ -584,7 +591,7 @@ void RenderPrimitive(FRenderingCompositePassContext& Context, FDecalDrawingPolic
 	}
 }
 
-void RenderMeshDecals(FRenderingCompositePassContext& Context, EDecalRenderStage CurrentDecalStage)
+void RenderMeshDecals(FRenderingCompositePassContext& Context, const FDrawingPolicyRenderState& DrawRenderState, EDecalRenderStage CurrentDecalStage)
 {
 	FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
@@ -599,6 +606,6 @@ void RenderMeshDecals(FRenderingCompositePassContext& Context, EDecalRenderStage
 	{
 		FPrimitiveSceneInfo* PrimitiveSceneInfo = View.MeshDecalPrimSet.Prims[PrimIdx].PrimitiveSceneInfo;
 
-		RenderPrimitive(Context, DrawContext, PrimitiveSceneInfo);
+		RenderPrimitive(Context,  DrawContext, DrawRenderState, PrimitiveSceneInfo);
 	}
 }

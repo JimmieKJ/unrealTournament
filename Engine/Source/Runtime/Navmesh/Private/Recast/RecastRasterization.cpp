@@ -19,13 +19,11 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
+#include "CoreMinimal.h"
 #define _USE_MATH_DEFINES
-#include <math.h>
-#include <stdio.h>
-#include "Recast.h"
-#include "RecastAlloc.h"
-#include "RecastAssert.h"
+#include "Recast/Recast.h"
+#include "Recast/RecastAlloc.h"
+#include "Recast/RecastAssert.h"
 
 inline bool overlapBounds(const float* amin, const float* amax, const float* bmin, const float* bmax)
 {

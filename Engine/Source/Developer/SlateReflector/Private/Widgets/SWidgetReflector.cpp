@@ -1,22 +1,45 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateReflectorPrivatePCH.h"
+#include "Widgets/SWidgetReflector.h"
+#include "Rendering/DrawElements.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Views/STreeView.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Framework/Docking/TabManager.h"
+#include "Models/WidgetReflectorNode.h"
+#include "Widgets/SWidgetReflectorTreeWidgetItem.h"
+#include "Widgets/SWidgetReflectorToolTipWidget.h"
 #include "ISlateReflectorModule.h"
-#include "SlateStats.h"
-#include "SInvalidationPanel.h"
-#include "SDockTab.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "SWidgetSnapshotVisualizer.h"
+#include "Stats/SlateStats.h"
+#include "Widgets/SInvalidationPanel.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Widgets/SWidgetSnapshotVisualizer.h"
 #include "WidgetSnapshotService.h"
+#include "Widgets/Input/SNumericDropDown.h"
 
 #if SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
 #include "DesktopPlatformModule.h"
 #endif // SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
 
 #if SLATE_REFLECTOR_HAS_SESSION_SERVICES
-#include "ISessionInfo.h"
-#include "ISessionInstanceInfo.h"
 #include "ISessionManager.h"
 #include "ISessionServicesModule.h"
 #endif // SLATE_REFLECTOR_HAS_SESSION_SERVICES
@@ -262,6 +285,9 @@ private:
 	/** Callback for clicking the "Take Snapshot" button. */
 	FReply HandleTakeSnapshotButtonClicked();
 
+	/** Takes a snapshot of the current state of the snapshot target. */
+	void TakeSnapshot();
+
 	/** Used as a callback for the "snapshot pending" notification item buttons, called when we should give up on a snapshot request */
 	void OnCancelPendingRemoteSnapshot();
 
@@ -345,11 +371,17 @@ private:
 	void UpdateStats();
 	TSharedRef<ITableRow> GenerateStatRow(TSharedRef<FStatItem> StatItem, const TSharedRef<STableViewBase>& OwnerTable);
 #endif
+
+
 private:
 	// DEMO MODE
 	bool bEnableDemoMode;
 	double LastMouseClickTime;
 	FVector2D CursorPingPosition;
+
+	float SnapshotDelay;
+	bool bIsPendingDelayedSnapshot;
+	double TimeOfScheduledSnapshot;
 };
 
 
@@ -359,7 +391,6 @@ SWidgetReflector::~SWidgetReflector()
 	TabManager->UnregisterTabSpawner(WidgetReflectorTabID::SlateStats);
 	TabManager->UnregisterTabSpawner(WidgetReflectorTabID::SnapshotWidgetPicker);
 }
-
 
 void SWidgetReflector::Construct( const FArguments& InArgs )
 {
@@ -371,14 +402,18 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 	bIsPicking = false;
 
 	bEnableDemoMode = false;
-	LastMouseClickTime = -1;
+	LastMouseClickTime = -1.0;
 	CursorPingPosition = FVector2D::ZeroVector;
+
+	SnapshotDelay = 0.0f;
+	bIsPendingDelayedSnapshot = false;
+	TimeOfScheduledSnapshot = -1.0;
 
 	WidgetSnapshotService = InArgs._WidgetSnapshotService;
 
 #if SLATE_REFLECTOR_HAS_SESSION_SERVICES
 	{
-		ISessionManagerRef SessionManager = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionManager();
+		TSharedRef<ISessionManager> SessionManager = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionManager();
 		SessionManager->OnSessionsUpdated().AddSP(this, &SWidgetReflector::OnAvailableSnapshotTargetsChanged);
 	}
 #endif // SLATE_REFLECTOR_HAS_SESSION_SERVICES
@@ -686,6 +721,9 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 
 TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetHierarchyTab(const FSpawnTabArgs& Args)
 {
+	TArray<SNumericDropDown<float>::FNamedValue> NamedValuesForSnapshotDelay;
+	NamedValuesForSnapshotDelay.Add(SNumericDropDown<float>::FNamedValue(0.0f, LOCTEXT("NoDelayValueName", "None"), LOCTEXT("NoDelayValueDescription", "Snapshot will be taken immediately upon clickng to take the snapshot.")));
+
 	TSharedRef<SDockTab> SpawnedTab = SNew(SDockTab)
 		.Label(LOCTEXT("WidgetHierarchyTab", "Widget Hierarchy"))
 		//.OnCanCloseTab_Lambda([]() { return false; }) // Can't prevent this as it stops the editor from being able to close while the widget reflector is open
@@ -718,6 +756,7 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetHierarchyTab(const FSpawnTabAr
 				[
 					// Check box that controls PICKING A WIDGET TO INSPECT
 					SNew(SButton)
+					.IsEnabled_Lambda([this]() { return !bIsPendingDelayedSnapshot; })
 					.OnClicked(this, &SWidgetReflector::HandlePickButtonClicked)
 					.ButtonColorAndOpacity(this, &SWidgetReflector::HandlePickButtonColorAndOpacity)
 					[
@@ -746,8 +785,21 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetHierarchyTab(const FSpawnTabAr
 						.OnClicked(this, &SWidgetReflector::HandleTakeSnapshotButtonClicked)
 						[
 							SNew(STextBlock)
-							.Text(LOCTEXT("TakeSnapshotButtonText", "Take Snapshot"))
+							.Text_Lambda([this]() { return bIsPendingDelayedSnapshot ? LOCTEXT("CancelSnapshotButtonText", "Cancel Snapshot") : LOCTEXT("TakeSnapshotButtonText", "Take Snapshot"); })
 						]
+					]
+
+					+SHorizontalBox::Slot()
+					.Padding(FMargin(4.0f, 0.0f))
+					.AutoWidth()
+					[
+						SNew(SNumericDropDown<float>)
+						.LabelText(LOCTEXT("DelayLabel", "Delay:"))
+						.bShowNamedValue(true)
+						.DropDownValues(NamedValuesForSnapshotDelay)
+						.IsEnabled_Lambda([this]() { return !bIsPendingDelayedSnapshot; })
+						.Value_Lambda([this]() { return SnapshotDelay; })
+						.OnValueChanged_Lambda([this](const float InValue) { SnapshotDelay = FMath::Max(0.0f, InValue); })
 					]
 
 					+SHorizontalBox::Slot()
@@ -774,6 +826,7 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetHierarchyTab(const FSpawnTabAr
 				[
 					// Button that controls loading a saved snapshot
 					SNew(SButton)
+					.IsEnabled_Lambda([this]() { return !bIsPendingDelayedSnapshot; })
 					.OnClicked(this, &SWidgetReflector::HandleLoadSnapshotButtonClicked)
 					[
 						SNew(STextBlock)
@@ -1084,8 +1137,18 @@ void SWidgetReflector::Tick( const FGeometry& AllottedGeometry, const double InC
 #if SLATE_STATS
 	UpdateStats();
 #endif
-}
 
+	if (bIsPendingDelayedSnapshot && FSlateApplication::Get().GetCurrentTime() > TimeOfScheduledSnapshot)
+	{
+		// TakeSnapshot leads to the widget being ticked indirectly recursively,
+		// so the recursion of this tick mustn't trigger a recursive snapshot.
+		// Immediately clear the pending snapshot flag.
+		bIsPendingDelayedSnapshot = false;
+		TimeOfScheduledSnapshot = -1.0;
+
+		TakeSnapshot();
+	}
+}
 
 void SWidgetReflector::OnEventProcessed( const FInputEvent& Event, const FReplyBase& InReply )
 {
@@ -1348,6 +1411,11 @@ FText SWidgetReflector::HandlePickButtonText() const
 
 bool SWidgetReflector::IsSnapshotTargetComboEnabled() const
 {
+	if (bIsPendingDelayedSnapshot)
+	{
+		return false;
+	}
+
 #if SLATE_REFLECTOR_HAS_SESSION_SERVICES
 	return !RemoteSnapshotRequestId.IsValid();
 #else
@@ -1363,6 +1431,29 @@ bool SWidgetReflector::IsTakeSnapshotButtonEnabled() const
 
 
 FReply SWidgetReflector::HandleTakeSnapshotButtonClicked()
+{
+	if (!bIsPendingDelayedSnapshot)
+	{
+		if (SnapshotDelay > 0.0f)
+		{
+			bIsPendingDelayedSnapshot = true;
+			TimeOfScheduledSnapshot = FSlateApplication::Get().GetCurrentTime() + SnapshotDelay;
+		}
+		else
+		{
+			TakeSnapshot();
+		}
+	}
+	else
+	{
+		bIsPendingDelayedSnapshot = false;
+		TimeOfScheduledSnapshot = -1.0f;
+	}
+
+	return FReply::Handled();
+}
+
+void SWidgetReflector::TakeSnapshot()
 {
 	// Local snapshot?
 	if (SelectedSnapshotTargetInstanceId == FApp::GetInstanceId())
@@ -1385,10 +1476,10 @@ FReply SWidgetReflector::HandleTakeSnapshotButtonClicked()
 
 		// Add the buttons with text, tooltip and callback
 		Info.ButtonDetails.Add(FNotificationButtonInfo(
-			LOCTEXT("CancelPendingSnapshotButtonText", "Cancel"), 
-			LOCTEXT("CancelPendingSnapshotButtonToolTipText", "Cancel the pending widget snapshot request."), 
+			LOCTEXT("CancelPendingSnapshotButtonText", "Cancel"),
+			LOCTEXT("CancelPendingSnapshotButtonToolTipText", "Cancel the pending widget snapshot request."),
 			FSimpleDelegate::CreateSP(this, &SWidgetReflector::OnCancelPendingRemoteSnapshot)
-			));
+		));
 
 		// We will be keeping track of this ourselves
 		Info.bFireAndForget = false;
@@ -1417,10 +1508,7 @@ FReply SWidgetReflector::HandleTakeSnapshotButtonClicked()
 			}
 		}
 	}
-
-	return FReply::Handled();
 }
-
 
 void SWidgetReflector::OnCancelPendingRemoteSnapshot()
 {
@@ -1515,7 +1603,7 @@ void SWidgetReflector::UpdateAvailableSnapshotTargets()
 
 #if SLATE_REFLECTOR_HAS_SESSION_SERVICES
 	{
-		ISessionManagerRef SessionManager = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionManager();
+		TSharedRef<ISessionManager> SessionManager = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionManager();
 
 		TArray<TSharedPtr<ISessionInfo>> AvailableSessions;
 		SessionManager->GetSessions(AvailableSessions);

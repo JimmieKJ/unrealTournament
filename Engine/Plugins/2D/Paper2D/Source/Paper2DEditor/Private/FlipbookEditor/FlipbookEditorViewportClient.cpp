@@ -1,14 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "FlipbookEditorViewportClient.h"
-#include "SceneViewport.h"
+#include "FlipbookEditor/FlipbookEditorViewportClient.h"
+#include "PaperFlipbookComponent.h"
+#include "CanvasItem.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
+#include "Engine/CollisionProfile.h"
+#include "Utils.h"
 
-#include "PreviewScene.h"
-#include "ScopedTransaction.h"
 #include "CanvasTypes.h"
 #include "PaperEditorShared/SocketEditing.h"
-#include "FlipbookEditorSettings.h"
+#include "FlipbookEditor/FlipbookEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "FlipbookEditor"
 

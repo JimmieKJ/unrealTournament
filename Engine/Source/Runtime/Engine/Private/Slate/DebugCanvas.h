@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Rendering/RenderingCommon.h"
+
+class FCanvas;
 class FCanvasProxy;
+class FRHICommandListImmediate;
 
 /**
  * Custom Slate drawer to render a debug canvas on top of a Slate window

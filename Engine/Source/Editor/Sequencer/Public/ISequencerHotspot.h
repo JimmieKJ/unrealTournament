@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/CursorReply.h"
 
+class FMenuBuilder;
 class ISequencer;
 class ISequencerEditToolDragOperation;
-
 
 enum class ESequencerHotspot
 {

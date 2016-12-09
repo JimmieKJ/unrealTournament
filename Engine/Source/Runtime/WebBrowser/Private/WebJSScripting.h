@@ -1,140 +1,52 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "CoreUObject.h"
-#include "WebJSFunction.h"
 
-#if WITH_CEF3
-#if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
-#endif
-#pragma push_macro("OVERRIDE")
-#undef OVERRIDE // cef headers provide their own OVERRIDE macro
-#include "include/cef_client.h"
-#include "include/cef_values.h"
-#pragma pop_macro("OVERRIDE")
-#if PLATFORM_WINDOWS
-#include "HideWindowsPlatformTypes.h"
-#endif
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "WebJSFunction.h"
+#include "UObject/GCObject.h"
+
+class Error;
 
 /**
  * Implements handling of bridging UObjects client side with JavaScript renderer side.
  */
 class FWebJSScripting
 	: public FGCObject
-	, public TSharedFromThis<FWebJSScripting>
 {
 public:
-	FWebJSScripting(CefRefPtr<CefBrowser> Browser)
+	FWebJSScripting(bool bInJSBindingToLoweringEnabled)
 		: BaseGuid(FGuid::NewGuid())
-		, InternalCefBrowser(Browser)
+		, bJSBindingToLoweringEnabled(bInJSBindingToLoweringEnabled)
 	{}
 
-	void UnbindCefBrowser();
+	virtual void BindUObject(const FString& Name, UObject* Object, bool bIsPermanent = true) =0;
+	virtual void UnbindUObject(const FString& Name, UObject* Object = nullptr, bool bIsPermanent = true) =0;
 
-	void BindUObject(const FString& Name, UObject* Object, bool bIsPermanent = true);
-	void UnbindUObject(const FString& Name, UObject* Object = nullptr, bool bIsPermanent = true);
 
-	/**
-	 * Called when a message was received from the renderer process.
-	 *
-	 * @param Browser The CefBrowser for this window.
-	 * @param SourceProcess The process id of the sender of the message. Currently always PID_RENDERER.
-	 * @param Message The actual message.
-	 * @return true if the message was handled, else false.
-	 */
-	bool OnProcessMessageReceived(CefRefPtr<CefBrowser> Browser, CefProcessId SourceProcess, CefRefPtr<CefProcessMessage> Message);
+	virtual void InvokeJSFunction(FGuid FunctionId, int32 ArgCount, FWebJSParam Arguments[], bool bIsError=false) =0;
+	virtual void InvokeJSErrorResult(FGuid FunctionId, const FString& Error) =0;
 
-	/**
-	 * Sends a message to the renderer process. 
-	 * See https://bitbucket.org/chromiumembedded/cef/wiki/GeneralUsage#markdown-header-inter-process-communication-ipc for more information.
-	 *
-	 * @param Message the message to send to the renderer process
-	 */
-	void SendProcessMessage(CefRefPtr<CefProcessMessage> Message);
 
-	CefRefPtr<CefDictionaryValue> ConvertStruct(UStruct* TypeInfo, const void* StructPtr);
-	CefRefPtr<CefDictionaryValue> ConvertObject(UObject* Object);
-	CefRefPtr<CefDictionaryValue> ConvertObject(const FGuid& Key);
-
-	// Works for CefListValue and CefDictionaryValues
-	template<typename ContainerType, typename KeyType>
-	bool SetConverted(CefRefPtr<ContainerType> Container, KeyType Key, FWebJSParam& Param)
+	FString GetBindingName(const UField* Property) const
 	{
-		switch (Param.Tag)
-		{
-			case FWebJSParam::PTYPE_NULL:
-				return Container->SetNull(Key);
-			case FWebJSParam::PTYPE_BOOL:
-				return Container->SetBool(Key, Param.BoolValue);
-			case FWebJSParam::PTYPE_DOUBLE:
-				return Container->SetDouble(Key, Param.DoubleValue);
-			case FWebJSParam::PTYPE_INT:
-				return Container->SetInt(Key, Param.IntValue);
-			case FWebJSParam::PTYPE_STRING:
-			{
-				CefString ConvertedString = **Param.StringValue;
-				return Container->SetString(Key, ConvertedString);
-			}
-			case FWebJSParam::PTYPE_OBJECT:
-			{
-				if (Param.ObjectValue == nullptr)
-				{
-					return Container->SetNull(Key);
-				}
-				else
-				{
-					CefRefPtr<CefDictionaryValue> ConvertedObject = ConvertObject(Param.ObjectValue);
-					return Container->SetDictionary(Key, ConvertedObject);
-				}
-			}
-			case FWebJSParam::PTYPE_STRUCT:
-			{
-				CefRefPtr<CefDictionaryValue> ConvertedStruct = ConvertStruct(Param.StructValue->GetTypeInfo(), Param.StructValue->GetData());
-				return Container->SetDictionary(Key, ConvertedStruct);
-			}
-			case FWebJSParam::PTYPE_ARRAY:
-			{
-				CefRefPtr<CefListValue> ConvertedArray = CefListValue::Create();
-				for(int i=0; i < Param.ArrayValue->Num(); ++i)
-				{
-					SetConverted(ConvertedArray, i, (*Param.ArrayValue)[i]);
-				}
-				return Container->SetList(Key, ConvertedArray);
-			}
-			case FWebJSParam::PTYPE_MAP:
-			{
-				CefRefPtr<CefDictionaryValue> ConvertedMap = CefDictionaryValue::Create();
-				for(auto& Pair : *Param.MapValue)
-				{
-					SetConverted(ConvertedMap, *Pair.Key, Pair.Value);
-				}
-				return Container->SetDictionary(Key, ConvertedMap);
-			}
-			default:
-				return false;
-		}
+		return bJSBindingToLoweringEnabled ? Property->GetName().ToLower() : Property->GetName();
 	}
-
-	CefRefPtr<CefDictionaryValue> GetPermanentBindings();
-
-	void InvokeJSFunction(FGuid FunctionId, int32 ArgCount, FWebJSParam Arguments[], bool bIsError=false);
-	void InvokeJSFunction(FGuid FunctionId, const CefRefPtr<CefListValue>& FunctionArguments, bool bIsError=false);
-	void InvokeJSErrorResult(FGuid FunctionId, const FString& Error);
 
 public:
 
 	// FGCObject API
-	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
-
-private:
-	bool ConvertStructArgImpl(uint8* Args, UProperty* Param, CefRefPtr<CefListValue> List, int32 Index);
-
-	bool IsValid()
+	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override
 	{
-		return InternalCefBrowser.get() != nullptr;
+		// Ensure bound UObjects are not garbage collected as long as this object is valid.
+		for (auto& Binding : BoundObjects)
+		{
+			Collector.AddReferencedObject(Binding.Key);
+		}
 	}
 
+protected:
 	// Creates a reversible memory addres -> psuedo-guid mapping.
 	// This is done by xoring the address with the first 64 bits of a base guid owned by the instance.
 	// Used to identify UObjects from the render process withough exposing internal pointers.
@@ -209,13 +121,6 @@ private:
 		}
 	}
 
-	/** Message handling helpers */
-
-	bool HandleExecuteUObjectMethodMessage(CefRefPtr<CefListValue> MessageArguments);
-	bool HandleReleaseUObjectMessage(CefRefPtr<CefListValue> MessageArguments);
-
-private:
-
 	struct ObjectBinding
 	{
 		bool bIsPermanent;
@@ -225,15 +130,12 @@ private:
 	/** Private data */
 	FGuid BaseGuid;
 
-	/** Pointer to the CEF Browser for this window. */
-	CefRefPtr<CefBrowser> InternalCefBrowser;
-
 	/** UObjects currently visible on the renderer side. */
 	TMap<UObject*, ObjectBinding> BoundObjects;
 
 	/** Reverse lookup for permanent bindings */
 	TMap<FString, UObject*> PermanentUObjectsByName;
 
+	/** The to-lowering option enable for the binding names. */
+	const bool bJSBindingToLoweringEnabled;
 };
-
-#endif

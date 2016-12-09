@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "OnlineKeyValuePair.h"
+
+class FUniqueNetId;
+
 typedef FOnlineKeyValuePairs< FName, FVariantData > FOnlineEventParms;
 
 /**

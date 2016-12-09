@@ -10,6 +10,17 @@ FSkeletalMeshMerge
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "ReferenceSkeleton.h"
+
+class FStaticLODModel;
+class UMaterialInterface;
+class USkeletalMesh;
+class USkeletalMeshSocket;
+class USkeleton;
+struct FSkelMeshSection;
+
 struct FRefPoseOverride
 {
  public:
@@ -230,7 +241,7 @@ private:
 	* Creates a new LOD model and adds the new merged sections to it. Modifies the MergedMesh.
 	* @param LODIdx - current LOD to process
 	*/
-	template<typename VertexDataType, bool bExtraBoneInfluencesT>
+	template<typename VertexDataType>
 	void GenerateLODModel( int32 LODIdx );
 
 	/**
@@ -254,18 +265,18 @@ private:
 	/**
 	 * Builds a new 'RefSkeleton' from the reference skeletons in the 'SourceMeshList'.
 	 */
-	static void BuildReferenceSkeleton(const TArray<USkeletalMesh*>& SourceMeshList, FReferenceSkeleton& RefSkeleton);
+	static void BuildReferenceSkeleton(const TArray<USkeletalMesh*>& SourceMeshList, FReferenceSkeleton& RefSkeleton, const USkeleton* SkeletonAsset);
 
 	/**
 	 * Overrides the 'TargetSkeleton' bone poses with the bone poses specified in the 'PoseOverrides' array.
 	 */
-	static void OverrideReferenceSkeletonPose(const TArray<FRefPoseOverride>& PoseOverrides, FReferenceSkeleton& TargetSkeleton);
+	static void OverrideReferenceSkeletonPose(const TArray<FRefPoseOverride>& PoseOverrides, FReferenceSkeleton& TargetSkeleton, const USkeleton* SkeletonAsset);
 
 	/**
 	 * Override the 'TargetSkeleton' bone pose with the pose from from the 'SourceSkeleton'.
 	 * @return 'true' if the override was successful; 'false' otherwise.
 	 */
-	static bool OverrideReferenceBonePose(int32 SourceBoneIndex, const FReferenceSkeleton& SourceSkeleton, FReferenceSkeleton& TargetSkeleton);
+	static bool OverrideReferenceBonePose(int32 SourceBoneIndex, const FReferenceSkeleton& SourceSkeleton, FReferenceSkeletonModifier& TargetSkeleton);
 
 	/**
 	 * Releases any resources the 'MergeMesh' is currently holding.
@@ -304,4 +315,10 @@ private:
 	 * Overrides the sockets of overridden bones.
 	 */
 	void OverrideMergedSockets(const TArray<FRefPoseOverride>& PoseOverrides);
+
+	/*
+	 * Copy Vertex Buffer from Source LOD Model - templatized per SourceLODModel extra bone influence
+	 */
+	template<typename VertexDataType, bool bHasExtraBoneInfluences>
+	void CopyVertexFromSource(VertexDataType& DestVert, const FStaticLODModel& SrcLODModel, int32 SourceVertIdx, const FMergeSectionInfo& MergeSectionInfo);
 };

@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "BlueprintEditor.h"
+
 class KISMET_API SBlueprintEditorSelectedDebugObjectWidget : public SCompoundWidget
 {
 public:

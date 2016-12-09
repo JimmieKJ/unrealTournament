@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/Runnable.h"
+#include "Containers/Queue.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "HAL/RunnableThread.h"
+#include "Sockets.h"
 
 /**
  * Asynchronously sends data to an UDP socket.

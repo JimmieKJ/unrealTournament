@@ -14,9 +14,12 @@ import android.os.Bundle;
 import android.util.Log;
 
 import android.os.Vibrator;
+import android.os.SystemClock;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.PendingIntent;
+import android.app.AlarmManager;
 import android.widget.EditText;
 import android.text.Editable;
 import android.text.InputType;
@@ -32,6 +35,9 @@ import android.content.IntentSender.SendIntentException;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.FeatureInfo;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 
 import android.media.AudioManager;
 import android.util.DisplayMetrics;
@@ -53,6 +59,9 @@ import android.widget.PopupWindow;
 
 import android.media.AudioManager;
 
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+
 import com.google.android.gms.auth.GoogleAuthUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.GooglePlayServicesUtil;
@@ -63,11 +72,18 @@ import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdView;
 import com.google.android.gms.ads.AdSize;
 import com.google.android.gms.ads.AdListener;
+import com.google.android.gms.ads.InterstitialAd;
 
 import com.google.android.gms.plus.Plus;
 
 import java.net.URL;
 import java.net.HttpURLConnection;
+
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.TimeZone;
 
 import com.epicgames.ue4.GooglePlayStoreHelper;
 import com.epicgames.ue4.GooglePlayLicensing;
@@ -150,6 +166,10 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	private boolean adInit = false;
 	private LinearLayout adLayout;
 	private int adGravity = Gravity.TOP;
+	private InterstitialAd interstitialAd;
+	private boolean isInterstitialAdLoaded = false;
+	private boolean isInterstitialAdRequested = false;
+	private AdRequest interstitialAdRequest;
 
 	// layout required by popups, e.g ads, native controls
 	LinearLayout activityLayout;
@@ -188,11 +208,26 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	/** Whether this application is for distribution */
 	private boolean IsForDistribution = false;
 
+	/** Whether we are in VRMode */
+	private boolean IsInVRMode = false;
+
+	/** Implement this if app wants to handle IAB activity launch. For e.g use DaydreamApi for transitions **/
+	GooglePlayStoreHelper.PurchaseLaunchCallback purchaseLaunchCallback = null;
+
 	/** Used for SurfaceHolder.setFixedSize buffer scaling workaround on early Amazon devices and some others */
 	private boolean bUseSurfaceView = false;
 	private SurfaceView MySurfaceView;
 	private int DesiredHolderWidth = 0;
 	private int DesiredHolderHeight = 0;
+
+	/** Discovered Vulkan Version and Level from getSystemAvailableFeatures() */
+	private int VulkanVersion = 0;
+	private int VulkanLevel = 0;
+
+	/** Used for LocalNotification support*/
+	private boolean localNotificationAppLaunched = false;
+	private String	localNotificationLaunchActivationEvent = "";
+	private int		localNotificationLaunchFireDate = 0;
 	
 	enum EAlertDialogType
 	{
@@ -202,6 +237,16 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	}
 	private EAlertDialogType CurrentDialogType = EAlertDialogType.None;
 	
+	public boolean IsInVRMode()
+	{
+		return IsInVRMode;
+	}
+
+	public GooglePlayStoreHelper.PurchaseLaunchCallback getPurchaseLaunchCallback()
+	{
+		return purchaseLaunchCallback;
+	}
+
 	/** Access singleton activity for game. **/
 	public static GameActivity Get()
 	{
@@ -376,7 +421,54 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 
 		// tell Android that we want volume controls to change the media volume, aka music
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
-		
+
+		// Look for Vulkan support if Nougat or later
+		if (ANDROID_BUILD_VERSION >= 24)
+		{
+			FeatureInfo[] features = getPackageManager().getSystemAvailableFeatures();
+			for (FeatureInfo feature : features) {
+				if (feature.name != null)
+				{
+					if (feature.name.equals("android.hardware.vulkan.level"))
+					{
+						// since we may not be compiled against android-24 or higher, use .toString to get the version field
+						String dump = feature.toString();
+						int index = dump.indexOf("v=");
+						if (index >= 0)
+						{
+							dump = dump.substring(index+2);
+							index = dump.indexOf(" ");
+							if (index >= 0)
+							{
+								VulkanLevel = Integer.parseInt(dump.substring(0, index));
+								Log.debug("Vulkan level: " + VulkanLevel);
+							}
+						}
+					}
+					else
+					if (feature.name.equals("android.hardware.vulkan.version"))
+					{
+						// since we may not be compiled against android-24 or higher, use .toString to get the version field
+						String dump = feature.toString();
+						int index = dump.indexOf("v=");
+						if (index >= 0)
+						{
+							dump = dump.substring(index+2);
+							index = dump.indexOf(" ");
+							if (index >= 0)
+							{
+								VulkanVersion = Integer.parseInt(dump.substring(0, index));
+								int VersionMajor = (VulkanVersion >> 22) & 0x03ff;
+								int VersionMinor = (VulkanVersion >> 12) & 0x03ff;
+								int VersionPatch = VulkanVersion & 0x0fff;
+								Log.debug("Vulkan version: " + VersionMajor + "." + VersionMinor + "." + VersionPatch);
+							}
+						}
+					}
+				}
+			}
+		}
+
 		// is this a native landscape device (tablet, tv)?
 		if ( getDeviceDefaultOrientation() == Configuration.ORIENTATION_LANDSCAPE )
 		{
@@ -798,6 +890,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 			}
 		}
 
+		LocalNotificationCheckAppOpen();
+
 //$${gameActivityOnResumeAdditions}$$
 		Log.debug("==============> GameActive.onResume complete!");
 	}
@@ -831,6 +925,13 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		}
 //$${gameActivityOnPauseAdditions}$$
 		Log.debug("==============> GameActive.onPause complete!");
+	}
+
+	@Override
+	public void onNewIntent(Intent newIntent)
+	{
+		super.onNewIntent(newIntent);
+		setIntent(newIntent);
 	}
 
 	@Override
@@ -1022,6 +1123,29 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 					Log.debug("Console not showing yet");
 					consoleAlert.show(); 
 					CurrentDialogType = EAlertDialogType.Console;
+				}
+			}
+		});
+	}
+
+	public void AndroidThunkJava_HideVirtualKeyboardInput()
+	{
+		if (virtualKeyboardAlert.isShowing() == false)
+		{
+			Log.debug("Virtual keyboard already hidden.");
+			return;
+		}
+
+		_activity.runOnUiThread(new Runnable()
+		{
+			public void run()
+			{
+				if (virtualKeyboardAlert.isShowing() == true)
+				{
+					Log.debug("Virtual keyboard hiding");
+					virtualKeyboardInputBox.setText(" ");
+					virtualKeyboardAlert.dismiss();
+					CurrentDialogType = EAlertDialogType.None;
 				}
 			}
 		});
@@ -1235,6 +1359,72 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 				updateAdVisibility(true);
 			}
 		});
+	}
+	
+	public void AndroidThunkJava_LoadInterstitialAd(String AdMobAdUnitID)
+	{
+		interstitialAdRequest = new AdRequest.Builder().build();
+
+		interstitialAd = new InterstitialAd(this);
+		isInterstitialAdLoaded = false;
+		isInterstitialAdRequested = true;
+		interstitialAd.setAdUnitId(AdMobAdUnitID);
+
+		_activity.runOnUiThread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				interstitialAd.loadAd(interstitialAdRequest);				
+			}
+		});
+		
+		interstitialAd.setAdListener(new AdListener()
+		{
+			@Override
+			public void onAdFailedToLoad(int errorCode) 
+			{
+				Log.debug("Interstitial Ad failed to load, errocode: " + errorCode);
+				isInterstitialAdLoaded = false;
+				isInterstitialAdRequested = false;
+			}
+			@Override
+			public void onAdLoaded() 
+			{
+				//track if the ad is loaded since we can only called interstitialAd.isLoaded() from the uiThread				
+				isInterstitialAdLoaded = true;
+				isInterstitialAdRequested = false;
+			}    
+		});
+	}
+
+	public boolean AndroidThunkJava_IsInterstitialAdAvailable()
+	{
+		return interstitialAd != null && isInterstitialAdLoaded;
+	}
+
+	public boolean AndroidThunkJava_IsInterstitialAdRequested()
+	{
+		return interstitialAd != null && isInterstitialAdRequested;
+	}
+
+	public void AndroidThunkJava_ShowInterstitialAd()
+	{
+		if(isInterstitialAdLoaded)
+		{
+			_activity.runOnUiThread(new Runnable()
+			{
+				@Override
+				public void run()
+				{					
+					interstitialAd.show();
+				}
+			});
+		}
+		else
+		{
+			Log.debug("Interstitial Ad is not available to show - call LoadInterstitialAd or wait for it to finish loading");
+		}
 	}
 
 	public void AndroidThunkJava_GoogleClientConnect()
@@ -1581,6 +1771,239 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		}
 	}
 
+	private void LocalNotificationCheckAppOpen()
+	{
+		Intent launchIntent = getIntent();
+		if (launchIntent != null)
+		{	
+			Bundle extrasBundle = launchIntent.getExtras();
+
+			localNotificationAppLaunched = launchIntent.getBooleanExtra("localNotificationAppLaunched", false);
+
+			if(localNotificationAppLaunched)
+			{
+				localNotificationLaunchActivationEvent = extrasBundle.get("localNotificationLaunchActivationEvent").toString();
+				int notificationID = extrasBundle.getInt("localNotificationID");
+
+				LocalNotificationRemoveID(notificationID);
+
+				// TODO
+				localNotificationLaunchFireDate = 0; 
+			}
+		}
+		else
+		{
+			localNotificationAppLaunched = false;
+			localNotificationLaunchActivationEvent = "";
+			localNotificationLaunchFireDate = 0;
+		}
+	}
+
+	private int LocalNotificationGetID()
+	{
+		SharedPreferences preferences = getApplicationContext().getSharedPreferences("LocalNotificationPreferences", MODE_PRIVATE);
+		SharedPreferences.Editor editor = preferences.edit();
+		String notificationIDs = preferences.getString("notificationIDs", "");
+
+		int idToReturn = 1;
+		if(notificationIDs.length() == 0)
+		{
+			editor.putString("notificationIDs", Integer.toString(idToReturn));
+		}
+		else
+		{
+			String[] parts = notificationIDs.split("-");
+			ArrayList<Integer> iParts = new ArrayList<Integer>();
+			for(String part : parts)
+			{
+				if(part.length() > 0)
+				{
+					iParts.add(Integer.parseInt(part));
+				}
+			}
+			while(true)
+			{
+				if(!iParts.contains(idToReturn))
+				{
+					break;
+				}
+				idToReturn++;
+			}
+			editor.putString("notificationIDs", notificationIDs + "-" + idToReturn);
+		}
+
+		notificationIDs = preferences.getString("notificationIDs", "");
+
+		editor.commit();
+
+		return idToReturn;
+	}
+
+	private ArrayList<Integer> LocalNotificationGetIDList()
+	{
+		SharedPreferences preferences = getApplicationContext().getSharedPreferences("LocalNotificationPreferences", MODE_PRIVATE);
+		SharedPreferences.Editor editor = preferences.edit();
+		String notificationIDs = preferences.getString("notificationIDs", "");
+		ArrayList<Integer> iParts = new ArrayList<Integer>();
+
+		String[] parts = notificationIDs.split("-");
+		for(String part : parts)
+		{
+			if(part.length() > 0)
+			{
+				iParts.add(Integer.parseInt(part));
+			}
+		}
+
+		return iParts;
+	}
+
+	private void LocalNotificationRemoveID(int notificationID)
+	{
+		SharedPreferences preferences = getApplicationContext().getSharedPreferences("LocalNotificationPreferences", MODE_PRIVATE);
+		SharedPreferences.Editor editor = preferences.edit();
+		String notificationIDs = preferences.getString("notificationIDs", null);
+
+		ArrayList<String> iParts = new ArrayList<String>();
+
+		if(notificationIDs.length() == 0)
+		{
+			return;
+		}
+		else
+		{
+			String[] parts = notificationIDs.split("-");
+			for(String part : parts)
+			{
+				if(part.length() > 0)
+				{
+					iParts.add(part);
+				}
+			}
+			iParts.remove(Integer.toString(notificationID));
+		}
+
+		String newNotificationIDs = "";
+		for(String notifID : iParts)
+		{
+			if(newNotificationIDs.length() == 0)
+			{
+				newNotificationIDs = notifID;
+			}
+			else
+			{
+				newNotificationIDs += "-" + notifID;
+			}
+		}
+
+		editor.putString("notificationIDs", newNotificationIDs);
+		editor.commit();
+	}
+
+	public void AndroidThunkJava_LocalNotificationScheduleAtTime(String targetDateTime, boolean localTime, String title, String body, String action, String activationEvent) 
+	{
+		int notificationID = LocalNotificationGetID();
+
+		// Create callback for PendingIntent
+		Intent notificationIntent = new Intent(this, LocalNotificationReceiver.class); 
+
+		// Add user-provided data
+		notificationIntent.putExtra("local-notification-ID", notificationID);
+		notificationIntent.putExtra("local-notification-title", title);
+		notificationIntent.putExtra("local-notification-body", body);
+		notificationIntent.putExtra("local-notification-action", action);
+		notificationIntent.putExtra("local-notification-activationEvent", activationEvent);
+		
+		// Designate the callback as a PendingIntent
+		PendingIntent pendingIntent = PendingIntent.getBroadcast(this, notificationID, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+		TimeZone targetTimeZone = TimeZone.getTimeZone("UTC");
+
+		if(localTime) 
+		{
+			targetTimeZone = TimeZone.getDefault();
+		}
+
+		DateFormat targetDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		targetDateFormat.setTimeZone(targetTimeZone);
+
+		Date targetDate = new Date();
+
+		try 
+		{
+			targetDate = targetDateFormat.parse(targetDateTime);
+		} 
+
+		catch (ParseException e) 
+		{
+			e.printStackTrace();
+			return;
+		}
+
+		Date currentDate = new Date();
+
+		long msDiff = targetDate.getTime() - currentDate.getTime();
+
+		if(msDiff < 0)
+		{
+			return;
+		}
+
+		long futureTimeInMillis = SystemClock.elapsedRealtime() + msDiff;//Calculate the time to run the callback
+		AlarmManager alarmManager = (AlarmManager)getSystemService(Context.ALARM_SERVICE);
+
+		//Schedule the operation by using AlarmService
+		alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, futureTimeInMillis, pendingIntent);
+	}
+
+	public class LaunchNotification {
+		public boolean	used;
+		public String	event;
+		public int		fireDate;
+
+		LaunchNotification(boolean inUsed, String inEvent, int inFireDate)
+		{
+			used = inUsed;
+			event = inEvent;
+			fireDate = inFireDate;
+		}
+	}
+
+	public LaunchNotification AndroidThunkJava_LocalNotificationGetLaunchNotification()
+	{
+		return new LaunchNotification(localNotificationAppLaunched, localNotificationLaunchActivationEvent, localNotificationLaunchFireDate);
+	}
+
+	public void AndroidThunkJava_LocalNotificationClearAll()
+	{
+		ArrayList<Integer> idList = LocalNotificationGetIDList(); 
+
+		for(int curID : idList)
+		{
+			AlarmManager alarmManager = (AlarmManager)getSystemService(Context.ALARM_SERVICE);
+			PendingIntent pendingIntent = PendingIntent.getBroadcast(this, curID, new Intent(this, LocalNotificationReceiver.class), PendingIntent.FLAG_UPDATE_CURRENT);
+			pendingIntent.cancel();
+			alarmManager.cancel(pendingIntent);
+		}
+	}
+
+	/*
+	// Returns true only if the scheduled notification exists and gets destoyed successfully
+	public boolean AndroidThunkJava_LocalNotificationDestroyIfExists(int notificationId)
+	{
+		if (AndroidThunkJava_ScheduledNotificationExists(notificationId))
+		{
+			//Cancel the intent itself as well as from the alarm manager
+			AlarmManager alarmManager = (AlarmManager)getSystemService(Context.ALARM_SERVICE);
+			PendingIntent pendingIntent = PendingIntent.getBroadcast(this, notificationId, new Intent(this, ScheduledNotificationReceiver.class), PendingIntent.FLAG_UPDATE_CURRENT);
+			pendingIntent.cancel();
+			alarmManager.cancel(pendingIntent);
+			return true;
+		}
+		return false;
+	}
+	*/
+
 	// List of vendor/product ids
 	private static final DeviceInfoData[] DeviceInfoList = {
 		new DeviceInfoData(0x04e8, 0xa000, "Samsung Game Pad EI-GP20"),
@@ -1699,6 +2122,37 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		}
 	}
 
+	public boolean AndroidThunkJava_IsGamepadAttached()
+	{
+		int[] deviceIds = InputDevice.getDeviceIds();
+		for (int deviceIndex=0; deviceIndex < deviceIds.length; deviceIndex++)
+		{
+			InputDevice inputDevice = InputDevice.getDevice(deviceIds[deviceIndex]);
+			// is it a joystick, dpad, or gamepad?
+			if (((inputDevice.getSources() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD)
+                || ((inputDevice.getSources() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK)
+				|| ((inputDevice.getSources() & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public boolean AndroidThunkJava_HasActiveWiFiConnection()
+	{
+		ConnectivityManager cm = (ConnectivityManager)this.getSystemService(Context.CONNECTIVITY_SERVICE);
+		NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+		
+		boolean isConnected = (activeNetwork != null && activeNetwork.isConnectedOrConnecting());
+		if (isConnected)
+		{
+			return (activeNetwork.getType() == ConnectivityManager.TYPE_WIFI);
+		}
+		return false;
+	}
+	
 	public boolean AndroidThunkJava_HasMetaDataKey(String key)
 	{
 		if (_bundle == null || key == null)
@@ -1719,6 +2173,15 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 
 	public int AndroidThunkJava_GetMetaDataInt(String key)
 	{
+		if (key.equals("android.hardware.vulkan.version"))
+		{
+			return VulkanVersion;
+		}
+		else
+		if (key.equals("android.hardware.vulkan.level"))
+		{
+			return VulkanLevel;
+		}
 		if (_bundle == null || key == null)
 		{
 			return 0;

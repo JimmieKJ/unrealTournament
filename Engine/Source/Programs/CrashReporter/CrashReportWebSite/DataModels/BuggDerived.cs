@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
+using Newtonsoft.Json;
 using Tools.CrashReporter.CrashReportCommon;
 
 namespace Tools.CrashReporter.CrashReportWebSite.DataModels
@@ -71,6 +72,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
         /// <summary>The CL of the oldest build when this bugg is occurring</summary>
         int ToJiraFirstCLAffected { get; set; }
 
+        public string JiraProject { get; set; }
+
         /// <summary></summary>
         public string GetCrashTypeAsString()
         {
@@ -92,108 +95,102 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
         /// <summary>
         /// Prepares Bugg for JIRA
         /// </summary>
-        /// <param name="CrashesForBugg"></param>
-        public void PrepareBuggForJira(List<Crash> CrashesForBugg)
+        /// <param name="crashesForBugg"></param>
+        public void PrepareBuggForJira(List<Crash> crashesForBugg)
         {
-            var JC = JiraConnection.Get();
+            var jiraConnection = JiraConnection.Get();
 
             this.AffectedVersions = new SortedSet<string>();
             this.AffectedMajorVersions = new SortedSet<string>(); // 4.4, 4.5 and so
             this.BranchesFoundIn = new SortedSet<string>();
             this.AffectedPlatforms = new SortedSet<string>();
-            this.CrashesInTimeFrameAll = CrashesForBugg.Count;
-            this.CrashesInTimeFrameGroup = CrashesForBugg.Count;
-            var HashSetDescriptions = new HashSet<string>();
+            var hashSetDescriptions = new HashSet<string>();
 
-            HashSet<string> MachineIds = new HashSet<string>();
-            int FirstCLAffected = int.MaxValue;
+            var machineIds = new HashSet<string>();
+            var firstClAffected = int.MaxValue;
 
-            foreach (var Crash in CrashesForBugg)
+            foreach (var crash in crashesForBugg)
             {
                 // Only add machine if the number has 32 characters
-                if (Crash.ComputerName != null && Crash.ComputerName.Length == 32)
+                if (crash.ComputerName != null && crash.ComputerName.Length == 32)
                 {
-                    MachineIds.Add(Crash.ComputerName);
-                    if (Crash.Description.Length > 4)
+                    machineIds.Add(crash.ComputerName);
+                    if (crash.Description.Length > 4)
                     {
-                        HashSetDescriptions.Add(Crash.Description);
+                        hashSetDescriptions.Add(crash.Description);
                     }
                 }
 
-                // @TODO Ignore bad build versions.
+                if (!string.IsNullOrEmpty(crash.BuildVersion))
                 {
-                    if (!string.IsNullOrEmpty(Crash.BuildVersion))
-                    {
-                        this.AffectedVersions.Add(Crash.BuildVersion);
-                    }
-                    // Depot || Stream
-                    if (!string.IsNullOrEmpty(Crash.Branch))
-                    {
-                        this.BranchesFoundIn.Add(Crash.Branch);
-                    }
+                    this.AffectedVersions.Add(crash.BuildVersion);
+                }
+                // Depot || Stream
+                if (!string.IsNullOrEmpty(crash.Branch))
+                {
+                    this.BranchesFoundIn.Add(crash.Branch);
+                }
 
-                    int CrashBuiltFromCL = 0;
-                    int.TryParse(Crash.ChangeListVersion, out CrashBuiltFromCL);
-                    if (CrashBuiltFromCL > 0)
-                    {
-                        FirstCLAffected = Math.Min(FirstCLAffected, CrashBuiltFromCL);
-                    }
+                var crashBuiltFromCl = 0;
+                int.TryParse(crash.ChangeListVersion, out crashBuiltFromCl);
+                if (crashBuiltFromCl > 0)
+                {
+                    firstClAffected = Math.Min(firstClAffected, crashBuiltFromCl);
+                }
 
-                    if (!string.IsNullOrEmpty(Crash.PlatformName))
+                if (!string.IsNullOrEmpty(crash.PlatformName))
+                {
+                    // Platform = "Platform [Desc]";
+                    var platSubs = crash.PlatformName.Split(" ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+                    if (platSubs.Length >= 1)
                     {
-                        // Platform = "Platform [Desc]";
-                        var PlatSubs = Crash.PlatformName.Split(" ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-                        if (PlatSubs.Length >= 1)
-                        {
-                            this.AffectedPlatforms.Add(PlatSubs[0]);
-                        }
+                        this.AffectedPlatforms.Add(platSubs[0]);
                     }
                 }
             }
 
             // CopyToJira 
-            foreach (var Line in HashSetDescriptions)
+            foreach (var line in hashSetDescriptions)
             {
-                string ListItem = "- " + HttpUtility.HtmlEncode(Line);
-                ToJiraDescriptions.Add(ListItem);
+                var listItem = "- " + HttpUtility.HtmlEncode(line);
+                ToJiraDescriptions.Add(listItem);
             }
 
-            this.ToJiraFirstCLAffected = FirstCLAffected;
-
+            this.ToJiraFirstCLAffected = firstClAffected;
             if (this.AffectedVersions.Count > 0)
             {
                 this.BuildVersion = this.AffectedVersions.Last();	// Latest Version Affected
             }
 
-            foreach (var AffectedBuild in this.AffectedVersions)
+            foreach (var affectedBuild in this.AffectedVersions)
             {
-                var Subs = AffectedBuild.Split(".".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-                if (Subs.Length >= 2)
+                var subs = affectedBuild.Split(".".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+                if (subs.Length >= 2)
                 {
-                    string MajorVersion = Subs[0] + "." + Subs[1];
-                    this.AffectedMajorVersions.Add(MajorVersion);
+                    var majorVersion = subs[0] + "." + subs[1];
+                    this.AffectedMajorVersions.Add(majorVersion);
                 }
             }
 
-            string BV = this.BuildVersion;
-            this.NumberOfUniqueMachines = MachineIds.Count;		// # Affected Users
-            string LatestCLAffected = CrashesForBugg.				// CL of the latest build
-                Where(Crash => Crash.BuildVersion == BV).
-                Max(Crash => Crash.ChangeListVersion);
+            var bv = this.BuildVersion;
+            this.NumberOfUniqueMachines = machineIds.Distinct().Count();// # Affected Users
+            var latestClAffected = crashesForBugg.				// CL of the latest build
+                Where(crash => crash.BuildVersion == bv).
+                Max(crash => crash.ChangeListVersion);
 
-            int ILatestCLAffected = -1;
-            int.TryParse(LatestCLAffected, out ILatestCLAffected);
+            var ILatestCLAffected = -1;
+            int.TryParse(latestClAffected, out ILatestCLAffected);
             this.LatestCLAffected = ILatestCLAffected;			// Latest CL Affected
 
-            string LatestOSAffected = CrashesForBugg.OrderByDescending(Crash => Crash.TimeOfCrash).First().PlatformName;
-            this.LatestOSAffected = LatestOSAffected;			// Latest Environment Affected
+            var latestOsAffected = crashesForBugg.OrderByDescending(crash => crash.TimeOfCrash).First().PlatformName;
+            this.LatestOSAffected = latestOsAffected;			// Latest Environment Affected
 
             // ToJiraSummary
-            var FunctionCalls = new CallStackContainer(CrashesForBugg.First()).GetFunctionCallsForJira();
-            if (FunctionCalls.Count > 0)
+            var functionCalls = new CallStackContainer(crashesForBugg.First()).GetFunctionCallsForJira();
+            if (functionCalls.Count > 0)
             {
-                this.ToJiraSummary = FunctionCalls[0];
-                this.ToJiraFunctionCalls = FunctionCalls;
+                this.ToJiraSummary = functionCalls[0];
+                this.ToJiraFunctionCalls = functionCalls;
             }
             else
             {
@@ -203,30 +200,30 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
 
             // ToJiraVersions
             this.ToJiraVersions = new List<object>();
-            foreach (var Version in this.AffectedMajorVersions)
+            foreach (var version in this.AffectedMajorVersions)
             {
-                bool bValid = JC.GetNameToVersions().ContainsKey(Version);
+                var bValid = jiraConnection.GetNameToVersions().ContainsKey(version);
                 if (bValid)
                 {
-                    this.ToJiraVersions.Add(JC.GetNameToVersions()[Version]);
+                    this.ToJiraVersions.Add(jiraConnection.GetNameToVersions()[version]);
                 }
             }
 
             // ToJiraBranches
             this.ToJiraBranches = new HashSet<string>();
-            foreach (var BranchName in this.BranchesFoundIn)
+            foreach (var branchName in this.BranchesFoundIn)
             {
-                if (!string.IsNullOrEmpty(BranchName))
+                if (!string.IsNullOrEmpty(branchName))
                 {
                     // Stream
-                    if (BranchName.StartsWith("//"))
+                    if (branchName.StartsWith("//"))
                     {
-                        this.ToJiraBranches.Add(BranchName);
+                        this.ToJiraBranches.Add(branchName);
                     }
                     // Depot
                     else
                     {
-                        this.ToJiraBranches.Add(CrashReporterConstants.P4_DEPOT_PREFIX + BranchName);
+                        this.ToJiraBranches.Add(CrashReporterConstants.P4_DEPOT_PREFIX + branchName);
                     }
                 }
             }
@@ -235,10 +232,10 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
             this.ToJiraPlatforms = new List<object>();
             foreach (var platform in this.AffectedPlatforms)
             {
-                bool bValid = JC.GetNameToPlatform().ContainsKey(platform);
+                bool bValid = jiraConnection.GetNameToPlatform().ContainsKey(platform);
                 if (bValid)
                 {
-                    this.ToJiraPlatforms.Add(JC.GetNameToPlatform()[platform]);
+                    this.ToJiraPlatforms.Add(jiraConnection.GetNameToPlatform()[platform]);
                 }
             }
 
@@ -246,39 +243,45 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
             this.ToBranchName = new List<object>();
             foreach (var BranchName in this.BranchesFoundIn)
             {
-                bool bValid = JC.GetNameToBranch().ContainsKey(BranchName);
+                bool bValid = jiraConnection.GetNameToBranch().ContainsKey(BranchName);
                 if (bValid)
                 {
-                    this.ToBranchName.Add(JC.GetNameToBranch()[BranchName]);
+                    this.ToBranchName.Add(jiraConnection.GetNameToBranch()[BranchName]);
                 }
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         public void CopyToJira()
         {
             var jc = JiraConnection.Get();
             Dictionary<string, object> issueFields;
 
-            if (BranchesFoundIn.Any(data => data.ToLower().Contains("//fort")))
+            switch (this.JiraProject)
             {
-                issueFields = CreateFortniteIssue(jc);
-            }
-            //else if (BranchesFoundIn.Any(data => data.ToLower().Contains("//orion")))
-            //{
-            //    issueFields = CreateOrionIssue();
-            //}
-            else
-            {
-                issueFields = CreateGeneralIssue(jc);
+                case "UE":
+                    issueFields = CreateGeneralIssue(jc);
+                    break;
+                case "FORT":
+                    issueFields = CreateFortniteIssue(jc);
+                    break;
+                case "ORION":
+                    issueFields = CreateOrionIssue(jc);
+                    break;
+                default:
+                    issueFields = CreateGeneralIssue(jc);
+                    break;
             }
 
             if (jc.CanBeUsed() && string.IsNullOrEmpty(this.TTPID))
             {
                 // Additional Info URL / Link to Crash/Bugg
-                string Key = jc.AddJiraTicket(issueFields);
-                if (!string.IsNullOrEmpty(Key))
+                var key = jc.AddJiraTicket(issueFields);
+                if (!string.IsNullOrEmpty(key))
                 {
-                    TTPID = Key;
+                    TTPID = key;
                 }
             }
         }
@@ -304,7 +307,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
             var SupportComponent = jc.GetNameToComponents()["Support"];
             fields.Add("components", new object[] { SupportComponent });
 
-            // ToJiraVersions			
+            // ToJiraVersions
             fields.Add("versions", ToJiraVersions);
 
             // ToJiraBranches
@@ -312,7 +315,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
 
             // ToJiraPlatforms
             fields.Add("customfield_11203", ToJiraPlatforms);
-
+            
             // Callstack customfield_11807
             string JiraCallstack = "{noformat}" + string.Join("\r\n", ToJiraFunctionCalls) + "{noformat}";
             fields.Add("customfield_11807", JiraCallstack);								// Callstack
@@ -342,13 +345,10 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
             //fields.Add("customfield_11500", th );
 
             //Platforms - required = false
-            fields.Add("customfield_11203", new List<object>() { new Dictionary<string, object>() { { "self", "https://jira.ol.epicgames.net/rest/api/2/customFieldOption/11425" }, { "value", "PC" } } });
+            fields.Add("customfield_11203", new List<object>() { new Dictionary<string, object>() { { "self", "https://jira.it.epicgames.net/rest/api/2/customFieldOption/11425" }, { "value", "PC" } } });
 
             //repro rate required = false
             //fields.Add("customfield_11900", this.Buggs_Crashes.Count);
-
-            // ToJiraVersions	
-            fields.Add("assignee", new Dictionary<string, object> { { "name", "fortnite.coretech" } });// assignee
 
             // Callstack customfield_11807
             string JiraCallstack = "{noformat}" + string.Join("\r\n", ToJiraFunctionCalls) + "{noformat}";
@@ -357,18 +357,31 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
             return fields;
         }
 
-        /// <summary> Returns concatenated string of fields from the specified JIRA list. </summary>
-        public string GetFieldsFrom(List<object> JiraList, string FieldName)
+        public Dictionary<string, object> CreateOrionIssue(JiraConnection jc)
         {
-            string Results = "";
+            var fields = new Dictionary<string, object>();
 
-            foreach (var Obj in JiraList)
+            fields.Add("summary", "[CrashReport] " + ToJiraSummary); // Call Stack, Line 1
+            fields.Add("description", string.Join("\r\n", ToJiraDescriptions)); // Description
+            fields.Add("project", new Dictionary<string, object> { { "id", 10700 } });
+            fields.Add("issuetype", new Dictionary<string, object> { { "id", "1" } }); // Bug
+            fields.Add("components", new object[]{new Dictionary<string, object>{{"id", "14604"}}});
+
+            return fields;
+        } 
+
+        /// <summary> Returns concatenated string of fields from the specified JIRA list. </summary>
+        public string GetFieldsFrom(List<object> jiraList, string fieldName)
+        {
+            var results = "";
+
+            foreach (var obj in jiraList)
             {
-                Dictionary<string, object> Dict = (Dictionary<string, object>)Obj;
+                var dict = (Dictionary<string, object>)obj;
                 try
                 {
-                    Results += (string)Dict[FieldName];
-                    Results += " ";
+                    results += (string)dict[fieldName];
+                    results += " ";
                 }
                 catch (System.Exception /*E*/ )
                 {
@@ -376,7 +389,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
                 }
             }
 
-            return Results;
+            return results;
         }
 
         /// <summary> Creates a previews of the bugg, for verifying JIRA's fields. </summary>

@@ -7,9 +7,26 @@
 #pragma once
 
 
-#include "LevelEditor.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/World.h"
+#include "Widgets/SWindow.h"
+#include "SLevelViewport.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/Docking/TabManager.h"
+#include "Toolkits/IToolkit.h"
+#include "AssetThumbnail.h"
+#include "ILevelEditor.h"
+#include "LevelViewportTabContent.h"
 
+class IAssetEditorInstance;
+class IDetailsView;
+class SActorDetails;
+class SBorder;
+class SLevelEditorModeContent;
+class SLevelEditorToolBox;
 
 /**
  * Unreal editor level editor Slate widget

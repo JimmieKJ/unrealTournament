@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
 #include "OnlineSubsystem.h"
+#include "Containers/Queue.h"
 #include "OnlineSubsystemPackage.h"
 
 DECLARE_DELEGATE(FNextTickDelegate);

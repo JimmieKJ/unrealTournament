@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneParticleSection.h"
-#include "MovieSceneParticleTrack.h"
-#include "IMovieScenePlayer.h"
-#include "MovieSceneParticleTrackInstance.h"
+#include "Tracks/MovieSceneParticleTrack.h"
+#include "MovieSceneCommonHelpers.h"
+#include "Sections/MovieSceneParticleSection.h"
 
 
 #define LOCTEXT_NAMESPACE "MovieSceneParticleTrack"
@@ -16,12 +14,6 @@ UMovieSceneParticleTrack::UMovieSceneParticleTrack( const FObjectInitializer& Ob
 #if WITH_EDITORONLY_DATA
 	TrackTint = FColor(255,255,255,160);
 #endif
-}
-
-
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneParticleTrack::CreateInstance()
-{
-	return MakeShareable( new FMovieSceneParticleTrackInstance( *this ) ); 
 }
 
 

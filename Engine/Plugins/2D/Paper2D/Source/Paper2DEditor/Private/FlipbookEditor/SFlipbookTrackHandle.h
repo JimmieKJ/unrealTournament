@@ -2,7 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "InputCoreTypes.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "PaperFlipbook.h"
+#include "Framework/Application/SlateApplication.h"
+#include "PaperStyle.h"
+#include "Widgets/Images/SImage.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SFlipbookTrackHandle

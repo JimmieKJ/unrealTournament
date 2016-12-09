@@ -1,17 +1,38 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelSequenceEditorPCH.h"
+#include "Misc/LevelSequenceEditorHelpers.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/GCObject.h"
+#include "LevelSequence.h"
+#include "Factories/Factory.h"
+#include "AssetData.h"
+#include "IAssetTools.h"
+#include "AssetToolsModule.h"
+#include "Layout/Margin.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "LevelSequenceEditorModule.h"
+#include "Framework/Docking/TabManager.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "Misc/LevelSequenceEditorSettings.h"
+#include "Widgets/Layout/SScrollBox.h"
 
 #include "AssetRegistryModule.h"
-#include "AssetToolsModule.h"
-#include "DlgPickPath.h"
 #include "IDetailsView.h"
-#include "MovieScene.h"
 #include "MovieSceneToolsProjectSettings.h"
 #include "PropertyEditorModule.h"
-#include "SDockTab.h"
-#include "UObjectGlobals.h"
-#include "Factories/Factory.h"
+#include "Widgets/Docking/SDockTab.h"
 
 /* LevelSequenceEditorHelpers
  *****************************************************************************/
@@ -60,15 +81,18 @@ class SMasterSequenceSettings : public SCompoundWidget, public FGCObject
 			SNew(SVerticalBox)
 
 			+ SVerticalBox::Slot()
-			.AutoHeight()
+			.FillHeight(1.0f)
+			.Padding(4, 4, 4, 4)
 			[
-				Details1View.ToSharedRef()
-			]
-
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				Details2View.ToSharedRef()
+				SNew(SScrollBox)
+				+SScrollBox::Slot()
+				[
+					Details1View.ToSharedRef()
+				]
+				+SScrollBox::Slot()
+				[
+					Details2View.ToSharedRef()
+				]
 			]
 
 			+ SVerticalBox::Slot()
@@ -211,7 +235,7 @@ void LevelSequenceEditorHelpers::OpenMasterSequenceDialog(const TSharedRef<FTabM
 			.HasCloseButton(true)
 			.SupportsMaximize(false)
 			.SupportsMinimize(false)
-			.ClientSize(FVector2D(600, 540));
+			.ClientSize(FVector2D(600, 600));
 
 		TSharedPtr<SDockTab> OwnerTab = TabManager->GetOwnerTab();
 		TSharedPtr<SWindow> RootWindow = OwnerTab.IsValid() ? OwnerTab->GetParentWindow() : TSharedPtr<SWindow>();

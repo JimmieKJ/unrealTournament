@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "GameFramework/FloatingPawnMovement.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/Controller.h"
+#include "GameFramework/WorldSettings.h"
 
 UFloatingPawnMovement::UFloatingPawnMovement(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

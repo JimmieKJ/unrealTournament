@@ -2,7 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "ILocalizationServiceOperation.h"
+#include "ILocalizationServiceState.h"
 #include "ILocalizationServiceProvider.h"
+
+class IDetailCategoryBuilder;
+class ULocalizationTarget;
+class ULocalizationTargetSet;
 
 /**
  * Default localization service provider implementation - "None"

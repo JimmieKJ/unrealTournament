@@ -32,7 +32,7 @@ public:
 			if (!OnlineSub->Init())
 			{
 				UE_LOG_ONLINE(Warning, TEXT("Oculus API failed to initialize!"));
-				OnlineSub->Shutdown();
+				// Shutdown already called in Init() when this failed
 				OnlineSub = nullptr;
 			}
 		}

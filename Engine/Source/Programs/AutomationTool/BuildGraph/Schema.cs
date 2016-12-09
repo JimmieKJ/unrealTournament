@@ -673,11 +673,18 @@ namespace AutomationTool
 		/// <returns>Type definition for a property</returns>
 		static XmlSchemaType CreatePropertyType()
 		{
+			XmlSchemaSimpleContentExtension Extension = new XmlSchemaSimpleContentExtension();
+			Extension.BaseTypeName = StringTypeName;
+			Extension.Attributes.Add(CreateSchemaAttribute("Name", ScriptSchemaStandardType.Name, XmlSchemaUse.Required));
+			Extension.Attributes.Add(CreateSchemaAttribute("Value", StringTypeName, XmlSchemaUse.Optional));
+			Extension.Attributes.Add(CreateSchemaAttribute("If", ScriptSchemaStandardType.BalancedString, XmlSchemaUse.Optional));
+
+			XmlSchemaSimpleContent ContentModel = new XmlSchemaSimpleContent();
+			ContentModel.Content = Extension;
+
 			XmlSchemaComplexType PropertyType = new XmlSchemaComplexType();
 			PropertyType.Name = GetTypeName(ScriptSchemaStandardType.Property);
-			PropertyType.Attributes.Add(CreateSchemaAttribute("Name", ScriptSchemaStandardType.Name, XmlSchemaUse.Required));
-			PropertyType.Attributes.Add(CreateSchemaAttribute("Value", StringTypeName, XmlSchemaUse.Required));
-			PropertyType.Attributes.Add(CreateSchemaAttribute("If", ScriptSchemaStandardType.BalancedString, XmlSchemaUse.Optional));
+			PropertyType.ContentModel = ContentModel;
 			return PropertyType;
 		}
 

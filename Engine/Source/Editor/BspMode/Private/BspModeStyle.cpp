@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BspModePrivatePCH.h"
+#include "BspModeStyle.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Styling/SlateTypes.h"
+#include "EditorStyleSet.h"
 
-#include "SlateBasics.h"
-#include "SlateStyle.h"
 
 TSharedPtr< FSlateStyleSet > FBspModeStyle::StyleSet = nullptr;
 

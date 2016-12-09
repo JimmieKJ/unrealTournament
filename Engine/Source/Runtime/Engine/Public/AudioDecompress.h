@@ -6,12 +6,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Async/AsyncWork.h"
 #include "Sound/SoundWave.h"
+#include "Misc/ScopeLock.h"
 
 // 186ms of 44.1KHz data
 // 372ms of 22KHz data
 #define MONO_PCM_BUFFER_SAMPLES		8192
 #define MONO_PCM_BUFFER_SIZE		( MONO_PCM_BUFFER_SAMPLES * sizeof( int16 ) )
+
+struct FSoundQualityInfo;
 
 /**
  * Interface class to decompress various types of audio data
@@ -116,6 +122,124 @@ public:
 	virtual int32 GetCurrentChunkOffset() const {return -1;}
 };
 
+/** 
+ * Default implementation of a streamed compressed audio format.
+ * Can be subclassed to support streaming of a specific asset format. Handles all 
+ * the platform independent aspects of file format streaming for you (dealing with UE4 streamed assets)
+ */
+class IStreamedCompressedInfo : public ICompressedAudioInfo
+{
+public:
+	IStreamedCompressedInfo();
+	virtual ~IStreamedCompressedInfo() {}
+
+	//~ Begin ICompressedInfo Interface
+	ENGINE_API virtual bool ReadCompressedInfo(const uint8* InSrcBufferData, uint32 InSrcBufferDataSize, FSoundQualityInfo* QualityInfo) override;
+	ENGINE_API virtual bool ReadCompressedData(uint8* Destination, bool bLooping, uint32 BufferSize) override;
+	ENGINE_API virtual void SeekToTime(const float SeekTime) override {};
+	ENGINE_API virtual void ExpandFile(uint8* DstBuffer, struct FSoundQualityInfo* QualityInfo) override;
+	ENGINE_API virtual void EnableHalfRate(bool HalfRate) override {};
+	virtual uint32 GetSourceBufferSize() const override { return SrcBufferDataSize; }
+	virtual bool UsesVorbisChannelOrdering() const override { return false; }
+	virtual int GetStreamBufferSize() const override { return  MONO_PCM_BUFFER_SIZE; }
+	virtual bool SupportsStreaming() const override { return true; }
+	virtual bool StreamCompressedInfo(USoundWave* Wave, FSoundQualityInfo* QualityInfo) override;
+	virtual bool StreamCompressedData(uint8* Destination, bool bLooping, uint32 BufferSize) override;
+	virtual int32 GetCurrentChunkIndex() const override { return CurrentChunkIndex; }
+	virtual int32 GetCurrentChunkOffset() const override { return SrcBufferOffset; }
+	//~ End ICompressedInfo Interface
+
+	/** Parse the header information from the input source buffer data. This is dependent on compression format. */
+	virtual bool ParseHeader(const uint8* InSrcBufferData, uint32 InSrcBufferDataSize, FSoundQualityInfo* QualityInfo) = 0;
+
+	/** Create the compression format dependent decoder object. */
+	virtual bool CreateDecoder() = 0;
+
+	/** Decode the input compressed frame data into output PCMData buffer. */
+	virtual int32 Decode(const uint8* FrameData, uint16 FrameSize, int16* OutPCMData, int32 SampleSize) = 0;
+
+	/** Optional method to allow decoder to prepare to loop. */
+	virtual void PrepareToLoop() {}
+
+	/** Return the size of the current compression frame */
+	virtual uint32 GetFrameSize() = 0;
+
+	/** The size of the decode PCM buffer size. */
+	virtual uint32 GetMaxFrameSizeSamples() const = 0;
+
+protected:
+
+	/** Reads from the internal source audio buffer stream of the given data size. */
+	uint32	Read(void *Outbuffer, uint32 DataSize);
+
+	/**
+	* Decompresses a frame of Opus data to PCM buffer
+	*
+	* @param FrameSize Size of the frame in bytes
+	* @return The amount of samples that were decompressed (< 0 indicates error)
+	*/
+	int32 DecompressToPCMBuffer(uint16 FrameSize);
+
+	/**
+	* Adds to the count of samples that have currently been decoded
+	*
+	* @param NewSamples	How many samples have been decoded
+	* @return How many samples were actually part of the true sample count
+	*/
+	uint32 IncrementCurrentSampleCount(uint32 NewSamples);
+
+	/**
+	* Writes data from decoded PCM buffer, taking into account whether some PCM has been written before
+	*
+	* @param Destination	Where to place the decoded sound
+	* @param BufferSize	Size of the destination buffer in bytes
+	* @return				How many bytes were written
+	*/
+	uint32	WriteFromDecodedPCM(uint8* Destination, uint32 BufferSize);
+
+	/**
+	* Zeroes the contents of a buffer
+	*
+	* @param Destination	Buffer to zero
+	* @param BufferSize	Size of the destination buffer in bytes
+	* @return				How many bytes were zeroed
+	*/
+	uint32	ZeroBuffer(uint8* Destination, uint32 BufferSize);
+
+	/** Ptr to the current streamed chunk. */
+	const uint8* SrcBufferData;
+	/** Size of the current streamed chunk. */
+	uint32 SrcBufferDataSize;
+	/** What byte we're currently reading in the streamed chunk. */
+	uint32 SrcBufferOffset;
+	/** Where the actual audio data starts in the current streamed chunk. Accounts for header offset. */
+	uint32 AudioDataOffset;
+	/** Sample rate of the source file */
+	uint16 SampleRate;
+	/** The total sample count of the source file. */
+	uint32 TrueSampleCount;
+	/** How many samples we've currently read in the source file. */
+	uint32 CurrentSampleCount;
+	/** Number of channels (left/right) in th esource file. */
+	uint8 NumChannels;
+	/** The maximum number of samples per decode frame. */
+	uint32 MaxFrameSizeSamples;
+	/** The number of bytes per interleaved sample (NumChannels * sizeof(int16)). */
+	uint32 SampleStride;
+	/** The decoded PCM byte array from the last decoded frame. */
+	TArray<uint8> LastDecodedPCM;
+	/** The amount of PCM data in bytes was decoded last. */
+	uint32 LastPCMByteSize;
+	/** The current offset in the last decoded PCM buffer. */
+	uint32 LastPCMOffset;
+	/** If we're currently reading the final buffer. */
+	bool bStoringEndOfFile;
+    /** Ptr to the sound wave currently streaming. */
+	USoundWave* StreamingSoundWave;
+	/** The current chunk index in the streamed chunks. */
+	int32 CurrentChunkIndex;
+};
+
 
 /**
  * Asynchronous audio decompression
@@ -186,7 +310,7 @@ public:
 		, bLoopingMode(false)
 		, bLooped(false)
 	{
-		check(AudioBuffer && AudioBuffer->DecompressionState);
+		check(AudioBuffer);
 		check(WaveData);
 	}
 
@@ -198,7 +322,7 @@ public:
 		, bLoopingMode(bInLoopingMode)
 		, bLooped(false)
 	{
-		check(AudioBuffer && AudioBuffer->DecompressionState);
+		check(AudioBuffer);
 		check(AudioData);
 	}
 
@@ -288,7 +412,6 @@ public:
 	{
 		Task = new FAsyncTask<FAsyncRealtimeAudioTaskWorker<T>>(InAudioBuffer, InAudioData, bInLoopingMode, bInSkipFirstBuffer);
 	}
-
 	FAsyncRealtimeAudioTaskProxy(USoundWave* InWaveData, uint8* InAudioData, int32 InMaxSamples)
 	{
 		Task = new FAsyncTask<FAsyncRealtimeAudioTaskWorker<T>>(InWaveData, InAudioData, InMaxSamples);

@@ -1,20 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetworkFilePrivatePCH.h"
+#include "HTTPTransport.h"
+#include "Serialization/BufferArchive.h"
 
 #if ENABLE_HTTP_FOR_NFS
 
 #include "HTTPTransport.h"
 #include "NetworkMessage.h"
 
-#if PLATFORM_HTML5_WIN32 
+#if PLATFORM_HTML5_WIN32
 #include "WinHttp.h"
-#endif 
+#endif
 
 #if PLATFORM_HTML5_BROWSER
 #include "HTML5JavaScriptFx.h"
-#include <emscripten.h>
-#endif 
+#include <emscripten/emscripten.h>
+#endif
 
 
 FHTTPTransport::FHTTPTransport()
@@ -42,32 +43,32 @@ bool FHTTPTransport::Initialize(const TCHAR* InHostIp)
 	FCString::Sprintf(Url, *HostIp);
 
 #if !PLATFORM_HTML5
-	HttpRequest = FHttpModule::Get().CreateRequest(); 
+	HttpRequest = FHttpModule::Get().CreateRequest();
 	HttpRequest->SetURL(Url);
-#endif 
+#endif
 
 #if PLATFORM_HTML5_WIN32
 	HTML5Win32::NFSHttp::Init(TCHAR_TO_ANSI(Url));
-#endif 
+#endif
 
 #if PLATFORM_HTML5_BROWSER
-	emscripten_log(EM_LOG_CONSOLE , "Unreal File Server URL : %s ", TCHAR_TO_ANSI(Url)); 
-#endif 
+	emscripten_log(EM_LOG_CONSOLE , "Unreal File Server URL : %s ", TCHAR_TO_ANSI(Url));
+#endif
 
-	TArray<uint8> In,Out; 
-	bool RetResult = SendPayloadAndReceiveResponse(In,Out); 
-	return RetResult; 
+	TArray<uint8> In,Out;
+	bool RetResult = SendPayloadAndReceiveResponse(In,Out);
+	return RetResult;
 }
 
 bool FHTTPTransport::SendPayloadAndReceiveResponse(TArray<uint8>& In, TArray<uint8>& Out)
 {
 	RecieveBuffer.Empty();
-	ReadPtr = 0; 
+	ReadPtr = 0;
 
 #if !PLATFORM_HTML5
-	
-	if (GIsRequestingExit) // We have already lost HTTP Module. 
-		return false; 
+
+	if (GIsRequestingExit) // We have already lost HTTP Module.
+		return false;
 
 	class HTTPRequestHandler
 	{
@@ -75,14 +76,14 @@ bool FHTTPTransport::SendPayloadAndReceiveResponse(TArray<uint8>& In, TArray<uin
 	public:
 		HTTPRequestHandler(TArray<uint8>& InOut)
 			:Out(InOut)
-		{} 
+		{}
 		void HttpRequestComplete(	FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
 		{
 			if (HttpResponse.IsValid())
 				Out.Append(HttpResponse->GetContent());
 		}
-	private: 
-		TArray<uint8>& Out; 
+	private:
+		TArray<uint8>& Out;
 	};
 
 	HTTPRequestHandler Handler(RecieveBuffer);
@@ -92,9 +93,9 @@ bool FHTTPTransport::SendPayloadAndReceiveResponse(TArray<uint8>& In, TArray<uin
 	{
 		HttpRequest->SetVerb("POST");
 
-		FBufferArchive Ar; 
-		Ar << Guid; 
-		Ar.Append(In); 
+		FBufferArchive Ar;
+		Ar << Guid;
+		Ar.Append(In);
 
 		HttpRequest->SetContent(Ar);
 	}
@@ -105,47 +106,47 @@ bool FHTTPTransport::SendPayloadAndReceiveResponse(TArray<uint8>& In, TArray<uin
 
 	HttpRequest->ProcessRequest();
 
-	FDateTime StartTime; 
-	FTimespan Span = FDateTime::UtcNow() - StartTime; 
+	FDateTime StartTime;
+	FTimespan Span = FDateTime::UtcNow() - StartTime;
 
 	while( HttpRequest->GetStatus() <= EHttpRequestStatus::Processing &&  Span.GetSeconds() < 10 )
 	{
 		HttpRequest->Tick(0);
-		Span = FDateTime::UtcNow() - StartTime; 
+		Span = FDateTime::UtcNow() - StartTime;
 	}
 
 
 	if (HttpRequest->GetStatus() == EHttpRequestStatus::Succeeded)
-		return true; 
+		return true;
 
 	HttpRequest->CancelRequest();
 
-	return false; 
+	return false;
 #else  // PLATFORM_HTML5
 
-	FBufferArchive Ar; 
+	FBufferArchive Ar;
 	if ( In.Num() )
 	{
-		Ar << Guid; 
+		Ar << Guid;
 	}
 
-	Ar.Append(In); 
-	unsigned char *OutData = NULL; 
-	unsigned int OutSize= 0; 
+	Ar.Append(In);
+	unsigned char *OutData = NULL;
+	unsigned int OutSize= 0;
 
-	bool RetVal = true; 
+	bool RetVal = true;
 
 #if PLATFORM_HTML5_WIN32
 	RetVal = HTML5Win32::NFSHttp::SendPayLoadAndRecieve(Ar.GetData(), Ar.Num(), &OutData, OutSize);
-#endif 
+#endif
 #if PLATFORM_HTML5_BROWSER
 	UE_SendAndRecievePayLoad(TCHAR_TO_ANSI(Url),(char*)Ar.GetData(),Ar.Num(),(char**)&OutData,(int*)&OutSize);
-#endif 
+#endif
 
 	if (!Ar.Num())
 	{
 		uint32 Size = OutSize;
-		uint32 Marker = 0xDeadBeef; 
+		uint32 Marker = 0xDeadBeef;
 		RecieveBuffer.Append((uint8*)&Marker,sizeof(uint32));
 		RecieveBuffer.Append((uint8*)&Size,sizeof(uint32));
 	}
@@ -153,38 +154,38 @@ bool FHTTPTransport::SendPayloadAndReceiveResponse(TArray<uint8>& In, TArray<uin
 
 	if (OutSize)
 	{
-		RecieveBuffer.Append(OutData,OutSize); 
+		RecieveBuffer.Append(OutData,OutSize);
 
 #if PLATFORM_HTML5_WIN32
-		free (OutData); 
-#endif 
+		free (OutData);
+#endif
 #if PLATFORM_HTML5_BROWSER
-		// don't go through the Unreal Memory system. 
+		// don't go through the Unreal Memory system.
 		::free(OutData);
-#endif 
+#endif
 
 	}
 
-	return RetVal & ReceiveResponse(Out); 
-#endif 
+	return RetVal & ReceiveResponse(Out);
+#endif
 }
 
 bool FHTTPTransport::ReceiveResponse(TArray<uint8> &Out)
 {
 	// Read one Packet from Receive Buffer.
-	// read the size. 
+	// read the size.
 
-	uint32 Marker = *(uint32*)(RecieveBuffer.GetData() + ReadPtr); 
+	uint32 Marker = *(uint32*)(RecieveBuffer.GetData() + ReadPtr);
 	uint32 Size = *(uint32*)(RecieveBuffer.GetData() + ReadPtr + sizeof(uint32));
 
-	// make sure we have the right amount of data available in the buffer. 
+	// make sure we have the right amount of data available in the buffer.
 	check( (ReadPtr + Size + 2*sizeof(uint32)) <= RecieveBuffer.Num());
 
 	Out.Append(RecieveBuffer.GetData() + ReadPtr + 2*sizeof(uint32),Size);
 
-	ReadPtr += 2*sizeof(uint32) + Size; 
+	ReadPtr += 2*sizeof(uint32) + Size;
 
 	return true;
 }
 
-#endif 
+#endif

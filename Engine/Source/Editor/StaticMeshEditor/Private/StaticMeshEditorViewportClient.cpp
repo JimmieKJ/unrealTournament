@@ -1,20 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StaticMeshEditorModule.h"
-#include "StaticMeshEditorActions.h"
-
-#include "MouseDeltaTracker.h"
-#include "ISocketManager.h"
 #include "StaticMeshEditorViewportClient.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
+#include "EngineGlobals.h"
+#include "RawIndexBuffer.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Engine/StaticMesh.h"
+#include "Editor.h"
+#include "CanvasItem.h"
+#include "CanvasTypes.h"
+#include "Engine/Canvas.h"
+#include "ThumbnailRendering/SceneThumbnailInfo.h"
+#include "Engine/StaticMeshSocket.h"
+#include "Utils.h"
+#include "IStaticMeshEditor.h"
+
 #include "StaticMeshResources.h"
 #include "RawMesh.h"
 #include "DistanceFieldAtlas.h"
-#include "StaticMeshEditor.h"
-#include "BusyCursor.h"
-#include "MeshBuild.h"
-#include "PreviewScene.h"
-#include "ObjectTools.h"
+#include "SEditorViewport.h"
+#include "AdvancedPreviewScene.h"
 #include "SStaticMeshEditorViewport.h"
 
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
@@ -22,15 +26,7 @@
 #include "AI/Navigation/NavCollision.h"
 #include "PhysicsEngine/BodySetup.h"
 
-#if WITH_PHYSX
-#include "Editor/UnrealEd/Private/EditorPhysXSupport.h"
-#endif
-#include "CanvasTypes.h"
 #include "Engine/AssetUserData.h"
-#include "Engine/StaticMeshSocket.h"
-#include "CanvasItem.h"
-#include "Engine/Canvas.h"
-#include "Engine/TextureCube.h"
 
 #include "AssetViewerSettings.h"
 
@@ -49,8 +45,8 @@ namespace {
 	static float AmbientCubemapIntensity = 0.4f;
 }
 
-FStaticMeshEditorViewportClient::FStaticMeshEditorViewportClient(TWeakPtr<IStaticMeshEditor> InStaticMeshEditor, const TSharedRef<SStaticMeshEditorViewport>& InStaticMeshEditorViewport, FAdvancedPreviewScene& InPreviewScene, UStaticMesh* InPreviewStaticMesh, UStaticMeshComponent* InPreviewStaticMeshComponent)
-	: FEditorViewportClient(nullptr, &InPreviewScene, StaticCastSharedRef<SEditorViewport>(InStaticMeshEditorViewport))
+FStaticMeshEditorViewportClient::FStaticMeshEditorViewportClient(TWeakPtr<IStaticMeshEditor> InStaticMeshEditor, const TSharedRef<SStaticMeshEditorViewport>& InStaticMeshEditorViewport, const TSharedRef<FAdvancedPreviewScene>& InPreviewScene, UStaticMesh* InPreviewStaticMesh, UStaticMeshComponent* InPreviewStaticMeshComponent)
+	: FEditorViewportClient(nullptr, &InPreviewScene.Get(), StaticCastSharedRef<SEditorViewport>(InStaticMeshEditorViewport))
 	, StaticMeshEditorPtr(InStaticMeshEditor)
 	, StaticMeshEditorViewportPtr(InStaticMeshEditorViewport)
 {
@@ -744,7 +740,7 @@ void FStaticMeshEditorViewportClient::DrawCanvas( FViewport& InViewport, FSceneV
 	int32 CurrentLODLevel = StaticMeshEditor->GetCurrentLODLevel();
 	if (CurrentLODLevel == 0)
 	{
-		CurrentLODLevel = ComputeStaticMeshLOD(StaticMesh->RenderData, StaticMeshComponent->Bounds.Origin, StaticMeshComponent->Bounds.SphereRadius, View, StaticMesh->MinLOD);
+		CurrentLODLevel = ComputeStaticMeshLOD(StaticMesh->RenderData.Get(), StaticMeshComponent->Bounds.Origin, StaticMeshComponent->Bounds.SphereRadius, View, StaticMesh->MinLOD);
 	}
 	else
 	{
@@ -833,7 +829,7 @@ void FStaticMeshEditorViewportClient::DrawUVsForMesh(FViewport* InViewport, FCan
 
 	int32 UVChannel = StaticMeshEditorPtr.Pin()->GetCurrentUVChannel();
 
-	DrawUVs(InViewport, InCanvas, InTextYPos, LODLevel, UVChannel, SelectedEdgeTexCoords[UVChannel], StaticMeshComponent->StaticMesh->RenderData, NULL);
+	DrawUVs(InViewport, InCanvas, InTextYPos, LODLevel, UVChannel, SelectedEdgeTexCoords[UVChannel], StaticMeshComponent->GetStaticMesh()->RenderData.Get(), NULL);
 }
 
 void FStaticMeshEditorViewportClient::MouseMove(FViewport* InViewport,int32 x, int32 y)
@@ -986,9 +982,9 @@ void FStaticMeshEditorViewportClient::ProcessClick(class FSceneView& InView, cla
 				TArray< int32 > ClosestEdgeIndices;
 				FVector ClosestEdgeVertices[ 2 ];
 
-				const uint32 LODLevel = FMath::Clamp( StaticMeshComponent->ForcedLodModel - 1, 0, StaticMeshComponent->StaticMesh->GetNumLODs() - 1 );
+				const uint32 LODLevel = FMath::Clamp( StaticMeshComponent->ForcedLodModel - 1, 0, StaticMeshComponent->GetStaticMesh()->GetNumLODs() - 1 );
 				FRawMesh RawMesh;
-				StaticMeshComponent->StaticMesh->SourceModels[LODLevel].RawMeshBulkData->LoadRawMesh(RawMesh);
+				StaticMeshComponent->GetStaticMesh()->SourceModels[LODLevel].RawMeshBulkData->LoadRawMesh(RawMesh);
 
 				const int32 RawEdgeCount = RawMesh.WedgeIndices.Num() - 1; 
 				const int32 NumFaces = RawMesh.WedgeIndices.Num() / 3;
@@ -1017,7 +1013,7 @@ void FStaticMeshEditorViewportClient::ProcessClick(class FSceneView& InView, cla
 						const FVector TriangleNormal = (CA ^ BA).GetSafeNormal();
 
 						// Transform the view position from world to component space
-						const FVector ComponentSpaceViewOrigin = StaticMeshComponent->ComponentToWorld.InverseTransformPosition( View->ViewMatrices.ViewOrigin);
+						const FVector ComponentSpaceViewOrigin = StaticMeshComponent->ComponentToWorld.InverseTransformPosition( View->ViewMatrices.GetViewOrigin());
 								
 						// Determine which side of the triangle's plane that the view position lies on.
 						bIsBackFacing = (FVector::PointPlaneDist( ComponentSpaceViewOrigin,  A, TriangleNormal)  < 0.0f);
@@ -1226,8 +1222,8 @@ void FStaticMeshEditorViewportClient::SetAdvancedShowFlagsForScene()
 
 void FStaticMeshEditorViewportClient::SetFloorAndEnvironmentVisibility(const bool bVisible)
 {
-	AdvancedPreviewScene->SetFloorVisibility(bVisible);
-	AdvancedPreviewScene->SetEnvironmentVisibility(bVisible);
+	AdvancedPreviewScene->SetFloorVisibility(bVisible, true);
+	AdvancedPreviewScene->SetEnvironmentVisibility(bVisible, true);
 }
 
 void FStaticMeshEditorViewportClient::SetPreviewMesh(UStaticMesh* InStaticMesh, UStaticMeshComponent* InStaticMeshComponent)

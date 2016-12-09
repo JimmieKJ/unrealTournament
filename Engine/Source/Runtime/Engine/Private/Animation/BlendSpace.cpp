@@ -4,28 +4,18 @@
 	BlendSpace.cpp: 2D BlendSpace functionality
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "Animation/BlendSpaceBase.h"
 #include "Animation/BlendSpace.h"
-#include "AnimationUtils.h"
 
 UBlendSpace::UBlendSpace(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	NumOfDimension = 2;
 }
 
 void UBlendSpace::GetGridSamplesFromBlendInput(const FVector &BlendInput, FGridBlendSample & LeftBottom, FGridBlendSample & RightBottom, FGridBlendSample & LeftTop, FGridBlendSample& RightTop) const
 {
-	FVector NormalizedBlendInput = GetNormalizedBlendInput(BlendInput);
-	
-	FVector GridIndex;
-	GridIndex.X = FMath::TruncToFloat(NormalizedBlendInput.X);
-	GridIndex.Y = FMath::TruncToFloat(NormalizedBlendInput.Y);
-	GridIndex.Z = 0.f;
-
-	FVector Remainder = NormalizedBlendInput - GridIndex;
-
+	const FVector NormalizedBlendInput = GetNormalizedBlendInput(BlendInput);	
+	const FVector GridIndex(FMath::TruncToFloat(NormalizedBlendInput.X), FMath::TruncToFloat(NormalizedBlendInput.Y), 0.f);
+	const FVector Remainder = NormalizedBlendInput - GridIndex;
 	// bi-linear very simple interpolation
 	const FEditorElement* EleLT = GetEditorElement(GridIndex.X, GridIndex.Y+1);
 	if (EleLT)
@@ -91,49 +81,90 @@ const FEditorElement* UBlendSpace::GetEditorElement(int32 XIndex, int32 YIndex) 
 	return GetGridSampleInternal(Index);
 }
 
-FVector2D UBlendSpace::CalculateThreshold() const
+bool UBlendSpace::IsValidAdditiveType(EAdditiveAnimationType AdditiveType) const
 {
-	FVector2D GridSize(BlendParameters[0].GridNum, BlendParameters[1].GridNum);
-	FVector GridMin(BlendParameters[0].Min, BlendParameters[1].Min, 0.f);
-	FVector GridMax(BlendParameters[0].Max, BlendParameters[1].Max, 0.f);
-	FBox GridDim(GridMin, GridMax);
-	FVector2D CoordDim (GridDim.GetSize());
-
-	// it does not make sense to put a lot of samples between grid
-	// since grid is the sample points at the end, you don't like to have too many samples within the grid. 
-	// make sure it has enough space between - also it avoids tiny triangles
-	return CoordDim/GridSize*0.3f;
+	return (AdditiveType == AAT_LocalSpaceBase || AdditiveType == AAT_RotationOffsetMeshSpace || AdditiveType == AAT_None);
 }
 
-bool UBlendSpace::IsValidAdditive()  const
+bool UBlendSpace::IsValidAdditive() const
 {
-	return IsValidAdditiveInternal(AAT_LocalSpaceBase) || IsValidAdditiveInternal(AAT_RotationOffsetMeshSpace);
+	return ContainsMatchingSamples(AAT_LocalSpaceBase) || ContainsMatchingSamples(AAT_RotationOffsetMeshSpace);
 }
 
-void UBlendSpace::SnapToBorder(FBlendSample& Sample) const
+void UBlendSpace::SnapSamplesToClosestGridPoint()
 {
-	FVector& SampleValue = Sample.SampleValue;
+	TArray<FVector> GridPoints;
+	TArray<int32> ClosestSampleToGridPoint;
+	TArray<bool> SampleDataOnPoints;
 
-	FVector2D Threshold = CalculateThreshold();
-	FVector GridMin(BlendParameters[0].Min, BlendParameters[1].Min, 0.f);
-	FVector GridMax(BlendParameters[0].Max, BlendParameters[1].Max, 0.f);
+	const FVector GridMin(BlendParameters[0].Min, BlendParameters[1].Min, 0.0f);
+	const FVector GridMax(BlendParameters[0].Max, BlendParameters[1].Max, 0.0f);
+	const FVector GridRange(GridMax.X - GridMin.X, GridMax.Y - GridMin.Y, 0.0f);
+	const FIntPoint NumGridPoints(BlendParameters[0].GridNum + 1, BlendParameters[1].GridNum + 1);
+	const FVector GridStep(GridRange.X / BlendParameters[0].GridNum, GridRange.Y / BlendParameters[1].GridNum, 0.0f);
+	
+	// First mark all samples as invalid
+	for (FBlendSample& BlendSample : SampleData)
+{
+		BlendSample.bIsValid = false;
+}
 
-	if (SampleValue.X != GridMax.X && SampleValue.X+Threshold.X > GridMax.X)
+	for (int32 GridY = 0; GridY < NumGridPoints.Y; ++GridY)
 	{
-		SampleValue.X = GridMax.X;
-	}
-	if (SampleValue.X != GridMin.X && SampleValue.X-Threshold.X < GridMin.X)
-	{
-		SampleValue.X = GridMin.X;
+		for (int32 GridX = 0; GridX < NumGridPoints.X; ++GridX)
+{
+			const FVector GridPoint((GridX * GridStep.X) + GridMin.X, (GridY * GridStep.Y) + GridMin.Y, 0.0f);
+			GridPoints.Add(GridPoint);
+		}
 	}
 
-	if (SampleValue.Y != GridMax.Y && SampleValue.Y+Threshold.Y > GridMax.Y)
+	ClosestSampleToGridPoint.Init(INDEX_NONE, GridPoints.Num());
+
+	// Find closest sample to grid point
+	for (int32 PointIndex = 0; PointIndex < GridPoints.Num(); ++PointIndex)
 	{
-		SampleValue.Y = GridMax.Y;
+		const FVector& GridPoint = GridPoints[PointIndex];
+		float SmallestDistance = FLT_MAX;
+		int32 Index = INDEX_NONE;
+
+		for (int32 SampleIndex = 0; SampleIndex < SampleData.Num(); ++SampleIndex)
+		{
+			FBlendSample& BlendSample = SampleData[SampleIndex];
+			const float Distance = (GridPoint - BlendSample.SampleValue).SizeSquared2D();
+			if (Distance < SmallestDistance)
+			{
+				Index = SampleIndex;
+				SmallestDistance = Distance;
+			}
 	}
-	if (SampleValue.Y != GridMin.Y && SampleValue.Y-Threshold.Y < GridMin.Y)
+
+		ClosestSampleToGridPoint[PointIndex] = Index;
+	}
+
+	// Find closest grid point to sample
+	for (int32 SampleIndex = 0; SampleIndex < SampleData.Num(); ++SampleIndex)
 	{
-		SampleValue.Y = GridMin.Y;
+		FBlendSample& BlendSample = SampleData[SampleIndex];
+
+		// Find closest grid point
+		float SmallestDistance = FLT_MAX;
+		int32 Index = INDEX_NONE;
+		for (int32 PointIndex = 0; PointIndex < GridPoints.Num(); ++PointIndex)
+		{
+			const float Distance = (GridPoints[PointIndex] - BlendSample.SampleValue).SizeSquared2D();
+			if (Distance < SmallestDistance)
+			{
+				Index = PointIndex;
+				SmallestDistance = Distance;
+			}
+	}
+
+		// Only move the sample if it is also closest to the grid point
+		if (Index != INDEX_NONE && ClosestSampleToGridPoint[Index] == SampleIndex)
+	{
+			BlendSample.SampleValue = GridPoints[Index];
+			BlendSample.bIsValid = true;
+	}
 	}
 }
 
@@ -144,7 +175,5 @@ EBlendSpaceAxis UBlendSpace::GetAxisToScale() const
 
 bool UBlendSpace::IsSameSamplePoint(const FVector& SamplePointA, const FVector& SamplePointB) const
 {
-	FVector2D Threshold = CalculateThreshold();
-	FVector Diff = (SamplePointA-SamplePointB).GetAbs();
-	return (Diff.X < Threshold.X) && (Diff.Y < Threshold.Y);
+	return FMath::IsNearlyEqual(SamplePointA.X, SamplePointB.X) && FMath::IsNearlyEqual(SamplePointA.Y, SamplePointB.Y);
 }

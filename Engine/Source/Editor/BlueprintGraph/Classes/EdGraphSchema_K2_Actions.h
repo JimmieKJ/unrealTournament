@@ -1,8 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "K2Node.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/UnrealType.h"
+#include "Engine/Blueprint.h"
+#include "EdGraph/EdGraphSchema.h"
 #include "EdGraphSchema_K2_Actions.generated.h"
+
+class UEdGraph;
+class UK2Node;
 
 /*******************************************************************************
 * FEdGraphSchemaAction_K2NewNode
@@ -422,10 +431,12 @@ struct BLUEPRINTGRAPH_API FEdGraphSchemaAction_K2Enum : public FEdGraphSchemaAct
 
 	FEdGraphSchemaAction_K2Enum() 
 		: FEdGraphSchemaAction()
+		, Enum(nullptr)
 	{}
 
 	FEdGraphSchemaAction_K2Enum (const FText& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
 		: FEdGraphSchemaAction(InNodeCategory, InMenuDesc, InToolTip, InGrouping)
+		, Enum(nullptr)
 	{}
 };
 

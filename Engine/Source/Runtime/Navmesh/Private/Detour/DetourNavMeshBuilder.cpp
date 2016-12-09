@@ -19,17 +19,9 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <float.h>
-#include "DetourNavMesh.h"
-#include "DetourCommon.h"
-#include "DetourNavMeshBuilder.h"
-#include "DetourAlloc.h"
-#include "DetourAssert.h"
+#include "Detour/DetourNavMeshBuilder.h"
+#include "Detour/DetourNavMesh.h"
+#include "Detour/DetourCommon.h"
 
 static unsigned short MESH_NULL_IDX = 0xffff;
 

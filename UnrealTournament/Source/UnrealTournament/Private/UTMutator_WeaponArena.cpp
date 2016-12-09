@@ -32,7 +32,7 @@ void AUTMutator_WeaponArena::BeginPlay()
 {
 	Super::BeginPlay();
 
-	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (GameMode != NULL && ArenaWeaponType != NULL)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "IMessageContext.h"
+#include "Misc/ScopeLock.h"
 
 /**
  * Implements an address book that maps message addresses to remote nodes.

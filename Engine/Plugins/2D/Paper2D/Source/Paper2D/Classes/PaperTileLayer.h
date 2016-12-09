@@ -2,11 +2,15 @@
 
 #pragma once
 
-#include "PaperTileSet.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 
 #include "PaperTileLayer.generated.h"
 
+class UBodySetup;
 class UPaperTileMap;
+class UPaperTileSet;
 
 // Flags used in the packed tile index
 enum class EPaperTileFlags : uint32

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #if USE_SERVER_PERF_COUNTERS
 
 	#include "PerfCountersModule.h"

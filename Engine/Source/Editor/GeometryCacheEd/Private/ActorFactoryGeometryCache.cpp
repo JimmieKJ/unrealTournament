@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GeometryCacheEdModulePublicPCH.h"
 #include "ActorFactoryGeometryCache.h"
+#include "AssetData.h"
 #include "GeometryCache.h"
-#include "GeometryCacheActor.h"
 #include "GeometryCacheComponent.h"
+#include "GeometryCacheActor.h"
 
 UActorFactoryGeometryCache::UActorFactoryGeometryCache(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

@@ -15,6 +15,36 @@ namespace UnrealGameSync
 {
 	static class Utility
 	{
+		public static string GetPathWithCorrectCase(FileInfo Info)
+		{
+			DirectoryInfo ParentInfo = Info.Directory;
+			if(Info.Exists)
+			{
+				return Path.Combine(GetPathWithCorrectCase(ParentInfo), ParentInfo.GetFiles(Info.Name)[0].Name); 
+			}
+			else
+			{
+				return Path.Combine(GetPathWithCorrectCase(ParentInfo), Info.Name);
+			}
+		}
+
+		public static string GetPathWithCorrectCase(DirectoryInfo Info)
+		{
+			DirectoryInfo ParentInfo = Info.Parent;
+			if(ParentInfo == null)
+			{
+				return Info.FullName.ToUpperInvariant();
+			}
+			else if(Info.Exists)
+			{
+				return Path.Combine(GetPathWithCorrectCase(ParentInfo), ParentInfo.GetDirectories(Info.Name)[0].Name);
+			}
+			else
+			{
+				return Path.Combine(GetPathWithCorrectCase(ParentInfo), Info.Name);
+			}
+		}
+
 		public static void ForceDeleteFile(string FileName)
 		{
 			if(File.Exists(FileName))

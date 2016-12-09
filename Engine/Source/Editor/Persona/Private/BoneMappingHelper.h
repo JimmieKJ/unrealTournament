@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Persona.h"
+#include "CoreMinimal.h"
+#include "ReferenceSkeleton.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FBoneDescription

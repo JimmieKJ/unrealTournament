@@ -1,13 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Slate/SGameLayerManager.h"
+#include "Widgets/SOverlay.h"
+#include "Engine/LocalPlayer.h"
+#include "Slate/SceneViewport.h"
+#include "EngineGlobals.h"
+#include "SceneView.h"
+#include "Engine/Engine.h"
+#include "Types/NavigationMetaData.h"
 
-#include "SGameLayerManager.h"
 
 #include "Engine/UserInterfaceSettings.h"
-#include "Slate/SceneViewport.h"
 
-#include "STooltipPresenter.h"
+#include "Widgets/LayerManager/STooltipPresenter.h"
 #include "Widgets/Layout/SScissorRectBox.h"
 #include "Widgets/Layout/SDPIScaler.h"
 #include "Widgets/Layout/SPopup.h"

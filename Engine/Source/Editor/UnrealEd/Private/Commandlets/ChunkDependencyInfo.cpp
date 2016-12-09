@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "ChunkDependencyInfo.h"
+#include "Commandlets/ChunkDependencyInfo.h"
 
 UChunkDependencyInfo::UChunkDependencyInfo(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

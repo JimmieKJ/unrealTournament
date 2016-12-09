@@ -2,7 +2,23 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/UnrealMathUtility.h"
+#include "Math/Color.h"
+#include "Math/Vector2D.h"
+#include "Containers/EnumAsByte.h"
+#include "Math/Vector.h"
+#include "Math/Vector4.h"
+#include "Math/Box.h"
+#include "Math/Matrix.h"
+#include "Math/SHMath.h"
+#include "Misc/Guid.h"
 #include "MeshExport.h"
+#if UE_LIGHTMASS
+#include "Misc/LMHelpers.h"
+#endif
+
+struct FSplineMeshParams;
 
 namespace Lightmass
 {

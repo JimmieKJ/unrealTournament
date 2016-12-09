@@ -2,11 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "MovieSceneKeyStruct.generated.h"
 
-
 struct FPropertyChangedEvent;
-
 
 /**
  * Base class for movie scene section key structs that need to manually
@@ -23,4 +23,6 @@ struct FMovieSceneKeyStruct
 	 * @param ChangeEvent The property change event.
 	 */
 	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) { };
+
+	virtual ~FMovieSceneKeyStruct() {};
 };

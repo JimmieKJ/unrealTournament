@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/IAutomationReport.h"
+#include "AutomationWorkerMessages.h"
+#include "IMessageContext.h"
 
 /**
  * Managers groups of devices for job distribution

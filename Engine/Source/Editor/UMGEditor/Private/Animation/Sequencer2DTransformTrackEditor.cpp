@@ -1,9 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "Sequencer2DTransformTrackEditor.h"
-#include "MovieScene2DTransformSection.h"
-#include "MovieScene2DTransformTrack.h"
+#include "Animation/Sequencer2DTransformTrackEditor.h"
 #include "PropertySection.h"
 #include "ISectionLayoutBuilder.h"
 #include "FloatCurveKeyArea.h"
@@ -20,8 +17,10 @@ class F2DTransformSection
 {
 public:
 
-	F2DTransformSection( UMovieSceneSection& InSectionObject, const FText& SectionName )
-		: FPropertySection(InSectionObject, SectionName) {}
+	F2DTransformSection(ISequencer* InSequencer, FGuid InObjectBinding, FName InPropertyName, const FString& InPropertyPath, UMovieSceneSection& InSectionObject, const FText& SectionName)
+		: FPropertySection(InSequencer, InObjectBinding, InPropertyName, InPropertyPath, InSectionObject, SectionName)
+	{
+	}
 
 	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override
 	{
@@ -30,79 +29,103 @@ public:
 
 		UMovieScene2DTransformSection* TransformSection = Cast<UMovieScene2DTransformSection>(&SectionObject);
 
-		TranslationXKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetTranslationCurve(EAxis::X), TransformSection, RedKeyAreaColor));
-		TranslationYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetTranslationCurve(EAxis::Y), TransformSection, GreenKeyAreaColor));
+		// Translation
+		TAttribute<TOptional<float>> TranslationXExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F2DTransformSection::GetTranslationXValue));
+		TSharedRef<FFloatCurveKeyArea> TranslationXKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetTranslationCurve(EAxis::X), TranslationXExternalValue, TransformSection, RedKeyAreaColor));
 
-		RotationKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetRotationCurve(), TransformSection));
+		TAttribute<TOptional<float>> TranslationYExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F2DTransformSection::GetTranslationYValue));
+		TSharedRef<FFloatCurveKeyArea> TranslationYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetTranslationCurve(EAxis::Y), TranslationYExternalValue, TransformSection, GreenKeyAreaColor));
 
-		ScaleXKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetScaleCurve(EAxis::X), TransformSection, RedKeyAreaColor));
-		ScaleYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetScaleCurve(EAxis::Y), TransformSection, GreenKeyAreaColor));
+		// Rotation
+		TAttribute<TOptional<float>> RotationExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F2DTransformSection::GetRotationValue));
+		TSharedRef<FFloatCurveKeyArea> RotationKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetRotationCurve(), RotationExternalValue, TransformSection));
 
-		ShearXKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetSheerCurve(EAxis::X), TransformSection, RedKeyAreaColor));
-		ShearYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetSheerCurve(EAxis::Y), TransformSection, GreenKeyAreaColor));
+		// Scale
+		TAttribute<TOptional<float>> ScaleXExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F2DTransformSection::GetScaleXValue));
+		TSharedRef<FFloatCurveKeyArea> ScaleXKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetScaleCurve(EAxis::X), ScaleXExternalValue, TransformSection, RedKeyAreaColor));
+
+		TAttribute<TOptional<float>> ScaleYExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F2DTransformSection::GetScaleYValue));
+		TSharedRef<FFloatCurveKeyArea> ScaleYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetScaleCurve(EAxis::Y), ScaleYExternalValue, TransformSection, GreenKeyAreaColor));
+
+		// Shear
+		TAttribute<TOptional<float>> ShearXExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F2DTransformSection::GetShearXValue));
+		TSharedRef<FFloatCurveKeyArea> ShearXKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetShearCurve(EAxis::X), ShearXExternalValue, TransformSection, RedKeyAreaColor));
+
+		TAttribute<TOptional<float>> ShearYExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F2DTransformSection::GetShearYValue));
+		TSharedRef<FFloatCurveKeyArea> ShearYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetShearCurve(EAxis::Y), ShearYExternalValue, TransformSection, GreenKeyAreaColor));
 
 		// This generates the tree structure for the transform section
 		LayoutBuilder.PushCategory("Translation", NSLOCTEXT("F2DTransformSection", "TranslationArea", "Translation"));
-			LayoutBuilder.AddKeyArea("Translation.X", NSLOCTEXT("F2DTransformSection", "TransXArea", "X"), TranslationXKeyArea.ToSharedRef());
-			LayoutBuilder.AddKeyArea("Translation.Y", NSLOCTEXT("F2DTransformSection", "TransYArea", "Y"), TranslationYKeyArea.ToSharedRef());
+			LayoutBuilder.AddKeyArea("Translation.X", NSLOCTEXT("F2DTransformSection", "TransXArea", "X"), TranslationXKeyArea);
+			LayoutBuilder.AddKeyArea("Translation.Y", NSLOCTEXT("F2DTransformSection", "TransYArea", "Y"), TranslationYKeyArea);
 		LayoutBuilder.PopCategory();
 
 		LayoutBuilder.PushCategory("Rotation", NSLOCTEXT("F2DTransformSection", "RotationArea", "Rotation"));
-			LayoutBuilder.AddKeyArea("Rotation.Angle", NSLOCTEXT("F2DTransformSection", "AngleArea", "Angle"), RotationKeyArea.ToSharedRef());
+			LayoutBuilder.AddKeyArea("Rotation.Angle", NSLOCTEXT("F2DTransformSection", "AngleArea", "Angle"), RotationKeyArea);
 		LayoutBuilder.PopCategory();
 
 		LayoutBuilder.PushCategory("Scale", NSLOCTEXT("F2DTransformSection", "ScaleArea", "Scale"));
-			LayoutBuilder.AddKeyArea("Scale.X", NSLOCTEXT("F2DTransformSection", "ScaleXArea", "X"), ScaleXKeyArea.ToSharedRef());
-			LayoutBuilder.AddKeyArea("Scale.Y", NSLOCTEXT("F2DTransformSection", "ScaleYArea", "Y"), ScaleYKeyArea.ToSharedRef());
+			LayoutBuilder.AddKeyArea("Scale.X", NSLOCTEXT("F2DTransformSection", "ScaleXArea", "X"), ScaleXKeyArea);
+			LayoutBuilder.AddKeyArea("Scale.Y", NSLOCTEXT("F2DTransformSection", "ScaleYArea", "Y"), ScaleYKeyArea);
 		LayoutBuilder.PopCategory();
 
 		LayoutBuilder.PushCategory("Shear", NSLOCTEXT("F2DTransformSection", "ShearArea", "Shear"));
-			LayoutBuilder.AddKeyArea("Shear.X", NSLOCTEXT("F2DTransformSection", "SheerXArea", "X"), ShearXKeyArea.ToSharedRef());
-			LayoutBuilder.AddKeyArea("Shear.Y", NSLOCTEXT("F2DTransformSection", "SheerYArea", "Y"), ShearYKeyArea.ToSharedRef());
+			LayoutBuilder.AddKeyArea("Shear.X", NSLOCTEXT("F2DTransformSection", "SheerXArea", "X"), ShearXKeyArea);
+			LayoutBuilder.AddKeyArea("Shear.Y", NSLOCTEXT("F2DTransformSection", "SheerYArea", "Y"), ShearYKeyArea);
 		LayoutBuilder.PopCategory();
 	}
 
-	virtual void SetIntermediateValue( FPropertyChangedParams PropertyChangedParams ) override
-	{
-		FWidgetTransform Transform = PropertyChangedParams.GetPropertyValue<FWidgetTransform>();
-
-		TranslationXKeyArea->SetIntermediateValue(Transform.Translation.X);
-		TranslationYKeyArea->SetIntermediateValue(Transform.Translation.Y);
-
-		RotationKeyArea->SetIntermediateValue(Transform.Angle);
-
-		ScaleXKeyArea->SetIntermediateValue(Transform.Scale.X);
-		ScaleYKeyArea->SetIntermediateValue(Transform.Scale.Y);
-
-		ShearXKeyArea->SetIntermediateValue(Transform.Shear.X);
-		ShearYKeyArea->SetIntermediateValue(Transform.Shear.Y);
-	}
-
-	virtual void ClearIntermediateValue() override
-	{
-		TranslationXKeyArea->ClearIntermediateValue();
-		TranslationYKeyArea->ClearIntermediateValue();
-
-		RotationKeyArea->ClearIntermediateValue();
-
-		ScaleXKeyArea->ClearIntermediateValue();
-		ScaleYKeyArea->ClearIntermediateValue();
-
-		ShearXKeyArea->ClearIntermediateValue();
-		ShearYKeyArea->ClearIntermediateValue();
-	}
-
 private:
-	mutable TSharedPtr<FFloatCurveKeyArea> TranslationXKeyArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> TranslationYKeyArea;
 
-	mutable TSharedPtr<FFloatCurveKeyArea> ScaleXKeyArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> ScaleYKeyArea;
+	TOptional<float> GetTranslationXValue() const
+	{
+		TOptional<FWidgetTransform> Transform = GetPropertyValue<FWidgetTransform>();
+		return Transform.IsSet() ? TOptional<float>(Transform.GetValue().Translation.X) : TOptional<float>();
+	}
 
-	mutable TSharedPtr<FFloatCurveKeyArea> ShearXKeyArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> ShearYKeyArea;
+	TOptional<float> GetTranslationYValue() const
+	{
+		TOptional<FWidgetTransform> Transform = GetPropertyValue<FWidgetTransform>();
+		return Transform.IsSet() ? TOptional<float>(Transform.GetValue().Translation.Y) : TOptional<float>();
+	}
 
-	mutable TSharedPtr<FFloatCurveKeyArea> RotationKeyArea;
+	TOptional<float> GetRotationValue() const
+	{
+		TOptional<FWidgetTransform> Transform = GetPropertyValue<FWidgetTransform>();
+		return Transform.IsSet() ? TOptional<float>(Transform.GetValue().Angle) : TOptional<float>();
+	}
+
+	TOptional<float> GetScaleXValue() const
+	{
+		TOptional<FWidgetTransform> Transform = GetPropertyValue<FWidgetTransform>();
+		return Transform.IsSet() ? TOptional<float>(Transform.GetValue().Scale.X) : TOptional<float>();
+	}
+
+	TOptional<float> GetScaleYValue() const
+	{
+		TOptional<FWidgetTransform> Transform = GetPropertyValue<FWidgetTransform>();
+		return Transform.IsSet() ? TOptional<float>(Transform.GetValue().Scale.Y) : TOptional<float>();
+	}
+
+	TOptional<float> GetShearXValue() const
+	{
+		TOptional<FWidgetTransform> Transform = GetPropertyValue<FWidgetTransform>();
+		return Transform.IsSet() ? TOptional<float>(Transform.GetValue().Shear.X) : TOptional<float>();
+	}
+
+	TOptional<float> GetShearYValue() const
+	{
+		TOptional<FWidgetTransform> Transform = GetPropertyValue<FWidgetTransform>();
+		return Transform.IsSet() ? TOptional<float>(Transform.GetValue().Shear.Y) : TOptional<float>();
+	}
+
 };
 
 
@@ -112,12 +135,11 @@ TSharedRef<ISequencerTrackEditor> F2DTransformTrackEditor::CreateTrackEditor( TS
 }
 
 
-TSharedRef<FPropertySection> F2DTransformTrackEditor::MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
+TSharedRef<ISequencerSection> F2DTransformTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
 {
-	check( SupportsType( SectionObject.GetOuter()->GetClass() ) );
-
-	UClass* SectionClass = SectionObject.GetOuter()->GetClass();
-	return MakeShareable(new F2DTransformSection(SectionObject, Track.GetDisplayName()));
+	UMovieScenePropertyTrack* PropertyTrack = Cast<UMovieScenePropertyTrack>(&Track);
+	checkf(PropertyTrack != nullptr, TEXT("Incompatible track in F2DTransformTrackEditor"));
+	return MakeShareable(new F2DTransformSection(GetSequencer().Get(), ObjectBinding, PropertyTrack->GetPropertyName(), PropertyTrack->GetPropertyPath(), SectionObject, Track.GetDisplayName()));
 }
 
 

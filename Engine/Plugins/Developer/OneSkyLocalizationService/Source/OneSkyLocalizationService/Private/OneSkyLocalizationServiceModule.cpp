@@ -1,13 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OneSkyLocalizationServicePrivatePCH.h"
 #include "OneSkyLocalizationServiceModule.h"
-#include "ModuleManager.h"
-#include "Developer/LocalizationService/Public/ILocalizationServiceModule.h"
+#include "Misc/App.h"
 #include "OneSkyLocalizationServiceOperations.h"
-#include "OneSkyLocalizationServiceState.h"
-#include "OneSkyLocalizationServiceSettings.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "Features/IModularFeatures.h"
 
 #define LOCTEXT_NAMESPACE "OneSkyTranslationService"
 

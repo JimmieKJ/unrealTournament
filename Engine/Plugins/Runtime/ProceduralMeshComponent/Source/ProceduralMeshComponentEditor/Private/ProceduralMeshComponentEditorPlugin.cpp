@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProceduralMeshComponentEditorPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "PropertyEditorModule.h"
+#include "ProceduralMeshComponent.h"
+#include "IProceduralMeshComponentEditorPlugin.h"
+#include "ProceduralMeshComponentDetails.h"
 
 
 

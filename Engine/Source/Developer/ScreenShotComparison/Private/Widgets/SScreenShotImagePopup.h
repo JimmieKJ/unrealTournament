@@ -6,6 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
 /**
  * A widget to show a screen shot image as a pop up window
  */

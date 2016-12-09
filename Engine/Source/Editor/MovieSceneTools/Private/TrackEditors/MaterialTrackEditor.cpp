@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "MaterialTrackEditor.h"
-#include "MovieSceneMaterialTrack.h"
-#include "ParameterSection.h"
-#include "MovieSceneParameterSection.h"
+#include "TrackEditors/MaterialTrackEditor.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Components/PrimitiveComponent.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialInstance.h"
+#include "Sections/MovieSceneParameterSection.h"
+#include "Tracks/MovieSceneMaterialTrack.h"
+#include "Sections/ParameterSection.h"
 #include "SequencerUtilities.h"
 
 
@@ -17,7 +20,7 @@ FMaterialTrackEditor::FMaterialTrackEditor( TSharedRef<ISequencer> InSequencer )
 }
 
 
-TSharedRef<ISequencerSection> FMaterialTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
+TSharedRef<ISequencerSection> FMaterialTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding )
 {
 	UMovieSceneParameterSection* ParameterSection = Cast<UMovieSceneParameterSection>(&SectionObject);
 	checkf( ParameterSection != nullptr, TEXT("Unsupported section type.") );
@@ -121,8 +124,7 @@ UMaterial* FMaterialTrackEditor::GetMaterialForTrack( FGuid ObjectBinding, UMovi
 
 void FMaterialTrackEditor::AddScalarParameter( FGuid ObjectBinding, UMovieSceneMaterialTrack* MaterialTrack, FName ParameterName )
 {
-	UMovieSceneSequence* MovieSceneSequence = GetMovieSceneSequence();
-	float KeyTime = GetTimeForKey( MovieSceneSequence );
+	float KeyTime = GetTimeForKey();
 
 	UMaterial* Material = GetMaterialForTrack(ObjectBinding, MaterialTrack);
 	if (Material != nullptr)
@@ -139,8 +141,7 @@ void FMaterialTrackEditor::AddScalarParameter( FGuid ObjectBinding, UMovieSceneM
 
 void FMaterialTrackEditor::AddColorParameter( FGuid ObjectBinding, UMovieSceneMaterialTrack* MaterialTrack, FName ParameterName )
 {
-	UMovieSceneSequence* MovieSceneSequence = GetMovieSceneSequence();
-	float KeyTime = GetTimeForKey( MovieSceneSequence );
+	float KeyTime = GetTimeForKey();
 
 	UMaterial* Material = GetMaterialForTrack( ObjectBinding, MaterialTrack );
 	if ( Material != nullptr )

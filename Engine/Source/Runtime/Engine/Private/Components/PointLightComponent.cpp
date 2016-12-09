@@ -4,7 +4,11 @@
 	PointLightComponent.cpp: PointLightComponent implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Components/PointLightComponent.h"
+#include "UObject/ConstructorHelpers.h"
+#include "RenderingThread.h"
+#include "Engine/Texture2D.h"
+#include "SceneManagement.h"
 #include "PointLightSceneProxy.h"
 
 static int32 GAllowPointLightCubemapShadows = 1;

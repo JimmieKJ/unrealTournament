@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AITestSuitePrivatePCH.h"
+#include "CoreMinimal.h"
+#include "AITypes.h"
+#include "Tests/AITestsCommon.h"
+#include "Actions/TestPawnAction_Log.h"
 
 //----------------------------------------------------------------------//
 // 

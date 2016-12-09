@@ -2,12 +2,14 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "UObject/NameTypes.h"
 
-
-class FString;
 struct FGenericCrashContext;
-
+struct FProgramCounterSymbolInfoEx;
 
 /**
  * This is used to capture all of the module information needed to load pdb's.
@@ -237,6 +239,14 @@ struct CORE_API FGenericPlatformStackWalk
 	{
 		return 0;
 	}
+
+	/**
+	 * Gets the meta-data associated with all symbols of this target.
+	 * This may include things that are needed to perform further offline processing of symbol information (eg, the source binary).
+	 *
+	 * @return	A map containing the meta-data (if any).
+	 */
+	static TMap<FName, FString> GetSymbolMetaData();
 
 protected:
 

@@ -2,8 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "MeshPaintModule.h"
+#include "GenericOctreePublic.h"
+#include "RawIndexBuffer.h"
+#include "Components/StaticMeshComponent.h"
 #include "GenericOctree.h"
+
+class UBodySetup;
+class UStaticMesh;
+class UTexture;
+struct FStaticMeshLODResources;
 
 //////////////////////////////////////////////////////////////////////////
 // FMeshPaintGeometryAdapterForStaticMeshes
@@ -18,7 +27,7 @@ public:
 	virtual bool Initialize() override;
 	virtual void OnAdded() override;
 	virtual void OnRemoved() override;
-	virtual bool IsValid() const override { return StaticMeshComponent && StaticMeshComponent->StaticMesh == ReferencedStaticMesh; }
+	virtual bool IsValid() const override { return StaticMeshComponent && StaticMeshComponent->GetStaticMesh() == ReferencedStaticMesh; }
 	virtual int32 GetNumTexCoords() const override;
 	virtual void GetTriangleInfo(int32 TriIndex, struct FTexturePaintTriangleInfo& OutTriInfo) const override;
 	virtual bool SupportsTexturePaint() const override { return true; }

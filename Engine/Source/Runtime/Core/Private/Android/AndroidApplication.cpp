@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
 #include "AndroidApplication.h"
 #include "AndroidInputInterface.h"
 #include "AndroidWindow.h"
 #include "IInputDeviceModule.h"
+#include "HAL/OutputDevices.h"
+#include "Misc/AssertionMacros.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAndroidApplication, Log, All);
 
@@ -93,6 +94,18 @@ IInputInterface* FAndroidApplication::GetInputInterface()
 {
 	// NOTE: This does not increase the reference count, so don't cache the result
 	return InputInterface.Get();
+}
+
+bool FAndroidApplication::IsGamepadAttached() const
+{
+	FAndroidInputInterface* AndroidInputInterface = (FAndroidInputInterface*)InputInterface.Get();
+
+	if (AndroidInputInterface)
+	{
+		return AndroidInputInterface->IsGamepadAttached();
+	}
+
+	return false;
 }
 
 void FDisplayMetrics::GetDisplayMetrics( FDisplayMetrics& OutDisplayMetrics )

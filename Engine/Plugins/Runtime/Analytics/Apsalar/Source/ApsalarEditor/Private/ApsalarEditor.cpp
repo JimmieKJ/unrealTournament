@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ApsalarEditorPrivatePCH.h"
-
 #include "ApsalarEditor.h"
+
+#include "Modules/ModuleManager.h"
 #include "ApsalarSettings.h"
 #include "Analytics.h"
 

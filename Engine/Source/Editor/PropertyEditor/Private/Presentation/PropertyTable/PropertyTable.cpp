@@ -1,20 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
+#include "Presentation/PropertyTable/PropertyTable.h"
+#include "Misc/FeedbackContext.h"
+#include "Editor/EditorPerProjectUserSettings.h"
 
-#include "PropertyTable.h"
-#include "IPropertyTableColumn.h"
-#include "IPropertyTableRow.h"
-#include "IPropertyTableCell.h"
 
-#include "PropertyTableColumn.h"
-#include "PropertyTableRow.h"
-#include "PropertyTableRowHeaderColumn.h"
-#include "PropertyTableObjectNameColumn.h"
-#include "PropertyTablePropertyNameColumn.h"
-#include "PropertyPath.h"
+#include "Presentation/PropertyTable/PropertyTableColumn.h"
+#include "Presentation/PropertyTable/PropertyTableRow.h"
+#include "Presentation/PropertyTable/PropertyTableRowHeaderColumn.h"
+#include "Presentation/PropertyTable/PropertyTableObjectNameColumn.h"
+#include "Presentation/PropertyTable/PropertyTablePropertyNameColumn.h"
 
-#include "ObjectPropertyNode.h"
 
 #define LOCTEXT_NAMESPACE "PropertyTable"
 

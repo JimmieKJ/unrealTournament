@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateReflectorPrivatePCH.h"
-#include "SAtlasVisualizer.h"
-#include "ScrollyZoomy.h"
+#include "Widgets/SAtlasVisualizer.h"
+#include "Textures/TextureAtlas.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SViewport.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Framework/Layout/ScrollyZoomy.h"
 
 #define LOCTEXT_NAMESPACE "AtlasVisualizer"
 

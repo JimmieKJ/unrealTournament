@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
+#include "BehaviorTree/BehaviorTreeTypes.h"
 #include "BehaviorTree/BTDecorator.h"
 #include "BTDecorator_BlackboardBase.generated.h"
 
+class UBehaviorTree;
 class UBlackboardComponent;
 
 UCLASS(Abstract)
@@ -12,9 +18,6 @@ class AIMODULE_API UBTDecorator_BlackboardBase : public UBTDecorator
 
 	/** initialize any asset related data */
 	virtual void InitializeFromAsset(UBehaviorTree& Asset) override;
-
-	DEPRECATED(4.8, "OnBlackboardChange has been deprecated. Please switch over to using OnBlackboardKeyValueChange, it's different just by a return type.")
-	virtual void OnBlackboardChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID);
 
 	/** notify about change in blackboard keys */
 	virtual EBlackboardNotificationResult OnBlackboardKeyValueChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID);

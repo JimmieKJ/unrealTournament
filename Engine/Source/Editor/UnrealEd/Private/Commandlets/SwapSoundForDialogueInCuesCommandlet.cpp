@@ -1,12 +1,17 @@
-#include "UnrealEd.h"
 #include "Commandlets/SwapSoundForDialogueInCuesCommandlet.h"
-#include "Commandlets/GatherTextCommandletBase.h" // We use some of the nice wrapper and util functions from the loc commandlet
-#include "AssetRegistryModule.h"
-#include "Sound/DialogueWave.h"
+#include "Modules/ModuleManager.h"
+#include "Commandlets/GatherTextCommandletBase.h"
+#include "SoundCueGraph/SoundCueGraph.h"
+#include "SoundCueGraph/SoundCueGraphNode.h"
+#include "AssetData.h"
 #include "Sound/SoundWave.h"
-#include "Sound/SoundNode.h"
+#include "Sound/DialogueWave.h"
+#include "Sound/SoundCue.h"
+#include "ARFilter.h"
+#include "AssetRegistryModule.h"
 #include "Sound/SoundNodeDialoguePlayer.h"
 #include "Sound/SoundNodeWavePlayer.h"
+#include "AudioEditorModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSwapSoundForDialogueInCuesCommandlet, Log, All);
 
@@ -137,37 +142,8 @@ int32 USwapSoundForDialogueInCuesCommandlet::Main(const FString& Params)
 					continue;
 				}
 
-				// Replace any sound nodes in the graph.
-				TArray<USoundCueGraphNode*> GraphNodesToRemove;
-				for (USoundNode* const SoundNode : NodesToReplace)
-				{
-					// Create the new dialogue wave player.
-					USoundNodeDialoguePlayer* DialoguePlayer = SoundCue->ConstructSoundNode<USoundNodeDialoguePlayer>();
-					DialoguePlayer->SetDialogueWave(DialogueWave);
-					DialoguePlayer->DialogueWaveParameter.Context = ContextMapping.Context;
-
-					// We won't need the newly created graph node as we're about to move the dialogue wave player onto the original node.
-					GraphNodesToRemove.Add(DialoguePlayer->GetGraphNode());
-
-					// Swap out the sound wave player in the graph node with the new dialogue wave player.
-					USoundCueGraphNode* SoundGraphNode = SoundNode->GetGraphNode();
-					SoundGraphNode->SetSoundNode(DialoguePlayer);
-				}
-
-				for (USoundCueGraphNode* const SoundGraphNode : GraphNodesToRemove)
-				{
-					SoundCue->GetGraph()->RemoveNode(SoundGraphNode);
-				}
-
-				// Make sure the cue is updated to match its graph.
-				SoundCue->CompileSoundNodesFromGraphNodes();
-				
-				for (USoundNode* const SoundNode : NodesToReplace)
-				{
-					// Remove the old node from the list of available nodes.
-					SoundCue->AllNodes.Remove(SoundNode);
-				}
-				SoundCue->MarkPackageDirty();
+				IAudioEditorModule* AudioEditorModule = &FModuleManager::LoadModuleChecked<IAudioEditorModule>("AudioEditor");
+				AudioEditorModule->ReplaceSoundNodesInGraph(SoundCue, DialogueWave, NodesToReplace, ContextMapping);
 
 				// Execute save.
 				if (!FLocalizedAssetSCCUtil::SaveAssetWithSCC(SourceControlInfo, SoundCue))

@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "AllowWindowsPlatformTypes.h"
+#include "CoreTypes.h"
+#include "HAL/Event.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 
 /**
@@ -56,4 +59,4 @@ private:
 };
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

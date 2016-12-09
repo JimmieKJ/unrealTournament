@@ -1,6 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Framework/Commands/UICommandList.h"
 #include "EditorUndoClient.h"
+#include "Layers/ILayers.h"
+
+class AActor;
+class FLayerViewModel;
+class UEditorEngine;
+class ULayer;
+template< typename ItemType > class TFilterCollection;
+template< typename TItemType > class IFilter;
 
 typedef TFilterCollection< const TSharedPtr< FLayerViewModel >& > LayerFilterCollection;
 typedef IFilter< const TSharedPtr< FLayerViewModel >& > LayerFilter;

@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class Error;
+class FXmppServer;
+class FXmppUserJid;
+class IXmppConnection;
+
 /**
  * Create a new Xmpp connection 
  * And run some basic tests for login/presence/pubsub/chat

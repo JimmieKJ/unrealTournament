@@ -1,11 +1,38 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AppFrameworkPrivatePCH.h"
-#include "STableViewTesting.h"
+#include "Framework/Testing/STableViewTesting.h"
+#include "Layout/Margin.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/CoreStyle.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Widgets/Views/SExpanderArrow.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Views/STileView.h"
+#include "Widgets/Views/STreeView.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Input/SComboBox.h"
 
 #if !UE_BUILD_SHIPPING
 
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 #define LOCTEXT_NAMESPACE "STableViewTesting"
 

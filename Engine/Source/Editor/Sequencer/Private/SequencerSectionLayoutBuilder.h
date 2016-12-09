@@ -2,9 +2,11 @@
 
 #pragma once
 
-class ISequencerSection;
-class FSequencerTrackNode;
-
+#include "CoreMinimal.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
+#include "IKeyArea.h"
+#include "DisplayNodes/SequencerTrackNode.h"
+#include "ISectionLayoutBuilder.h"
 
 class FSequencerSectionLayoutBuilder
 	: public ISectionLayoutBuilder

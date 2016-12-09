@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Engine/NetConnection.h"
+#include "OVR_Platform.h"
 #include "OculusNetConnection.generated.h"
 
 /**

@@ -2,12 +2,19 @@
 
 #pragma once
 
-#include "BlueprintNodeBinder.h"  // for IBlueprintNodeBinder::FBindingSet
-#include "BlueprintGraphModule.h" // for FActionMenuRejectionTest
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/UnrealType.h"
+#include "EdGraph/EdGraphNode.h"
+#include "BlueprintNodeBinder.h"
+#include "BlueprintGraphModule.h"
 
-// Forward declarations
-class UBlueprintNodeSpawner;
 class UBlueprint;
+class UBlueprintNodeSpawner;
+class UEdGraph;
+class UEdGraphPin;
 
 /*******************************************************************************
  * FBlueprintActionContext

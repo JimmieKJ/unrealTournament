@@ -7,6 +7,8 @@ public class SPL : ModuleRules
     {
         Type = ModuleType.External;
 
+		bOutputPubliclyDistributable = true;
+
         string SPLDirectory = UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees/SPL/";
         string SPLLibPath = SPLDirectory;
         PublicIncludePaths.Add(SPLDirectory + "Public/Include");

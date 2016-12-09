@@ -1,19 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
-#include "Debug/ReporterGraph.h"
-#include "MainFrame.h"
-#include "DesktopPlatformModule.h"
-#include "Editor/UnrealEd/Classes/Editor/EditorEngine.h"
-#include "Editor/UnrealEd/Public/EditorComponents.h"
-#include "Editor/UnrealEd/Public/EditorReimportHandler.h"
-#include "Editor/UnrealEd/Public/TexAlignTools.h"
-#include "Editor/UnrealEd/Public/TickableEditorObject.h"
-#include "Editor/UnrealEd/Public/Editor.h"
-#include "Editor/UnrealEd/Public/EditorViewportClient.h"
-#include "VisualLoggerTypes.h"
 #include "SVisualLoggerReport.h"
-#include "SSearchBox.h"
+#include "SlateOptMacros.h"
+#include "LogVisualizerStyle.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "SVisualLoggerReport"
 

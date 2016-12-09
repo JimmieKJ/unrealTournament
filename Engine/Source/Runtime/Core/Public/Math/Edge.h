@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/Vector.h"
 
 /**
  * Implements an edge consisting of two vertices.

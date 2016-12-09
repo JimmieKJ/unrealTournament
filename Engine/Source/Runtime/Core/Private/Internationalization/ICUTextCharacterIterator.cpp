@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Internationalization/ICUTextCharacterIterator.h"
+#include "Internationalization/Text.h"
 
 #if UE_ENABLE_ICU
 
-#include "ICUTextCharacterIterator.h"
-#include "ICUUtilities.h"
+#include "Internationalization/ICUUtilities.h"
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(FICUTextCharacterIterator_NativeUTF16)
 
@@ -68,6 +68,18 @@ FICUTextCharacterIterator_NativeUTF16& FICUTextCharacterIterator_NativeUTF16::op
 	return *this;
 }
 
+int32 FICUTextCharacterIterator_NativeUTF16::InternalIndexToSourceIndex(const int32 InInternalIndex) const
+{
+	// If the UTF-16 variant is being used, then FString must be UTF-16 so no conversion is required
+	return InInternalIndex;
+}
+
+int32 FICUTextCharacterIterator_NativeUTF16::SourceIndexToInternalIndex(const int32 InSourceIndex) const
+{
+	// If the UTF-16 variant is being used, then FString must be UTF-16 so no conversion is required
+	return InSourceIndex;
+}
+
 icu::CharacterIterator* FICUTextCharacterIterator_NativeUTF16::clone() const
 {
 	return new FICUTextCharacterIterator_NativeUTF16(*this);
@@ -76,33 +88,67 @@ icu::CharacterIterator* FICUTextCharacterIterator_NativeUTF16::clone() const
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(FICUTextCharacterIterator_ConvertToUnicodeString)
 
+FICUTextCharacterIterator_ConvertToUnicodeStringPrivate::FICUTextCharacterIterator_ConvertToUnicodeStringPrivate(const FString& InString)
+	: SourceString(InString)
+	, InternalString(ICUUtilities::ConvertString(SourceString))
+{
+}
+
+FICUTextCharacterIterator_ConvertToUnicodeStringPrivate::FICUTextCharacterIterator_ConvertToUnicodeStringPrivate(FString&& InString)
+	: SourceString(MoveTemp(InString))
+	, InternalString(ICUUtilities::ConvertString(SourceString))
+{
+}
+
+FICUTextCharacterIterator_ConvertToUnicodeStringPrivate::FICUTextCharacterIterator_ConvertToUnicodeStringPrivate(const FICUTextCharacterIterator_ConvertToUnicodeStringPrivate& Other)
+	: SourceString(Other.SourceString)
+	, InternalString(Other.InternalString)
+{
+}
+
+FICUTextCharacterIterator_ConvertToUnicodeStringPrivate& FICUTextCharacterIterator_ConvertToUnicodeStringPrivate::operator=(const FICUTextCharacterIterator_ConvertToUnicodeStringPrivate& Other)
+{
+	if (this != &Other)
+	{
+		SourceString = Other.SourceString;
+		InternalString = Other.InternalString;
+	}
+	return *this;
+}
+
 FICUTextCharacterIterator_ConvertToUnicodeString::FICUTextCharacterIterator_ConvertToUnicodeString(const FText& InText)
-	: icu::StringCharacterIterator(ICUUtilities::ConvertString(InText.ToString()))
+	: FICUTextCharacterIterator_ConvertToUnicodeStringPrivate(InText.ToString())
+	, icu::StringCharacterIterator(InternalString)
 {
 }
 
 FICUTextCharacterIterator_ConvertToUnicodeString::FICUTextCharacterIterator_ConvertToUnicodeString(const FString& InString)
-	: icu::StringCharacterIterator(ICUUtilities::ConvertString(InString))
+	: FICUTextCharacterIterator_ConvertToUnicodeStringPrivate(InString)
+	, icu::StringCharacterIterator(InternalString)
 {
 }
 
 FICUTextCharacterIterator_ConvertToUnicodeString::FICUTextCharacterIterator_ConvertToUnicodeString(const TCHAR* const InString, const int32 InStringLength)
-	: icu::StringCharacterIterator(ICUUtilities::ConvertString(FString(InString, InStringLength)))
+	: FICUTextCharacterIterator_ConvertToUnicodeStringPrivate(FString(InString, InStringLength))
+	, icu::StringCharacterIterator(InternalString)
 {
 }
 
 FICUTextCharacterIterator_ConvertToUnicodeString::FICUTextCharacterIterator_ConvertToUnicodeString(FString&& InString)
-	: icu::StringCharacterIterator(ICUUtilities::ConvertString(InString))
+	: FICUTextCharacterIterator_ConvertToUnicodeStringPrivate(MoveTemp(InString))
+	, icu::StringCharacterIterator(InternalString)
 {
 }
 
 FICUTextCharacterIterator_ConvertToUnicodeString::FICUTextCharacterIterator_ConvertToUnicodeString(const FString* const InString)
-	: icu::StringCharacterIterator(ICUUtilities::ConvertString(*InString))
+	: FICUTextCharacterIterator_ConvertToUnicodeStringPrivate(*InString)
+	, icu::StringCharacterIterator(InternalString)
 {
 }
 
 FICUTextCharacterIterator_ConvertToUnicodeString::FICUTextCharacterIterator_ConvertToUnicodeString(const FICUTextCharacterIterator_ConvertToUnicodeString& Other)
-	: icu::StringCharacterIterator(Other)
+	: FICUTextCharacterIterator_ConvertToUnicodeStringPrivate(Other)
+	, icu::StringCharacterIterator(Other)
 {
 }
 
@@ -114,9 +160,22 @@ FICUTextCharacterIterator_ConvertToUnicodeString& FICUTextCharacterIterator_Conv
 {
 	if(this != &Other)
 	{
+		FICUTextCharacterIterator_ConvertToUnicodeStringPrivate::operator=(Other);
 		icu::StringCharacterIterator::operator=(Other);
 	}
 	return *this;
+}
+
+int32 FICUTextCharacterIterator_ConvertToUnicodeString::InternalIndexToSourceIndex(const int32 InInternalIndex) const
+{
+	// Convert from the ICU UTF-16 index to whatever FString needs
+	return InInternalIndex == INDEX_NONE ? INDEX_NONE : ICUUtilities::GetNativeStringLength(InternalString, 0, InInternalIndex);
+}
+
+int32 FICUTextCharacterIterator_ConvertToUnicodeString::SourceIndexToInternalIndex(const int32 InSourceIndex) const
+{
+	// Convert from whatever FString is to ICU UTF-16
+	return InSourceIndex == INDEX_NONE ? INDEX_NONE : ICUUtilities::GetUnicodeStringLength(*SourceString, 0, InSourceIndex);
 }
 
 icu::CharacterIterator* FICUTextCharacterIterator_ConvertToUnicodeString::clone() const

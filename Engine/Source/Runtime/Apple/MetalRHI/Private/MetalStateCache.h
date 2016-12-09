@@ -26,7 +26,7 @@ public:
 	void SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRenderTargets, id<MTLBuffer> const QueryBuffer, bool const bReset);
 	void SetHasValidRenderTarget(bool const bIsValid);
 	void SetViewport(const MTLViewport& InViewport);
-	void SetVertexBuffer(uint32 const Index, id<MTLBuffer> Buffer, uint32 const Stride, uint32 const Offset);
+	void SetVertexStream(uint32 const Index, id<MTLBuffer> Buffer, NSData* Bytes, uint32 const Stride, uint32 const Offset);
 #if PLATFORM_MAC
 	void SetPrimitiveTopology(MTLPrimitiveTopologyClass PrimitiveType);
 #endif
@@ -58,8 +58,8 @@ public:
 	bool GetHasValidRenderTarget() const { return bHasValidRenderTarget; }
 	bool GetHasValidColorTarget() const { return bHasValidColorTarget; }
 	const MTLViewport& GetViewport() const { return Viewport; }
-	id<MTLBuffer> GetVertexBuffer(uint32 const Index) { check(Index < MaxMetalStreams); return VertexBuffers[Index]; }
-	uint32 GetVertexStride(uint32 const Index) { check(Index < MaxMetalStreams); return VertexStrides[Index]; }
+	uint32 GetVertexBufferSize(uint32 const Index);
+	uint32 GetVertexStride(uint32 const Index) { check(Index < MaxVertexElementCount); return VertexStrides[Index]; }
 	uint32 GetRenderTargetArraySize() const { return RenderTargetArraySize; }
 	TArray<TRefCountPtr<FRHIUniformBuffer>>& GetBoundUniformBuffers(EShaderFrequency const Freq) { return BoundUniformBuffers[Freq]; }
 	uint32 GetDirtyUniformBuffers(EShaderFrequency const Freq) const { return DirtyUniformBuffers[Freq]; }
@@ -82,8 +82,9 @@ private:
 	/** Bitfield for which uniform buffers are dirty */
 	uint64 DirtyUniformBuffers[SF_NumFrequencies];
 	
-	id<MTLBuffer> VertexBuffers[MaxMetalStreams];
-	uint32 VertexStrides[MaxMetalStreams];
+	id<MTLBuffer> VertexBuffers[MaxVertexElementCount];
+	uint32 VertexStrides[MaxVertexElementCount];
+	NSData* VertexBytes[MaxVertexElementCount];
 
 	id<MTLBuffer> VisibilityResults;
 	

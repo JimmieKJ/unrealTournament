@@ -2,10 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ISourceCodeAccessModule.h"
 #include "DefaultSourceCodeAccessor.h"
-#include "ModuleInterface.h"
-
 
 /**
  * Implementation of ISourceCodeAccessModule.

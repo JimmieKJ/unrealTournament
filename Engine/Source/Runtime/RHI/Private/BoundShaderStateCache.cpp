@@ -4,9 +4,8 @@
 	BoundShaderStateCache.cpp: Bound shader state cache implementation.
 =============================================================================*/
 
-#include "RHIPrivatePCH.h"
-#include "RHI.h"
 #include "BoundShaderStateCache.h"
+#include "Misc/ScopeLock.h"
 
 
 typedef TMap<FBoundShaderStateKey,FCachedBoundShaderStateLink*> FBoundShaderStateCache;

@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "SlateBasics.h"
-#include "SCompoundWidget.h"
-#include "SWindow.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class SWindow;
 
 class STutorialLoading : public SCompoundWidget
 {

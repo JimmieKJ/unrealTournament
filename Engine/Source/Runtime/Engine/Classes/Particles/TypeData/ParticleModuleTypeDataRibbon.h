@@ -7,8 +7,15 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/TypeData/ParticleModuleTypeDataBase.h"
 #include "ParticleModuleTypeDataRibbon.generated.h"
+
+class UParticleEmitter;
+class UParticleSystemComponent;
+struct FParticleEmitterInstance;
 
 UENUM()
 enum ETrailsRenderAxisOption

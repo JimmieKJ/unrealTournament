@@ -2,45 +2,34 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "MovieSceneSection.h"
+#include "Camera/CameraTypes.h"
 #include "MovieSceneCameraAnimSection.generated.h"
 
-/**
- *
- */
-UCLASS(MinimalAPI)
-class UMovieSceneCameraAnimSection : public UMovieSceneSection
+class UCameraAnim;
+
+USTRUCT()
+struct FMovieSceneCameraAnimSectionData
 {
 	GENERATED_BODY()
 
-public:
-	// ctor
-	UMovieSceneCameraAnimSection(const FObjectInitializer& ObjectInitializer);
+	FMovieSceneCameraAnimSectionData()
+		: CameraAnim(nullptr)
+		, PlayRate(1.f)
+		, PlayScale(1.f)
+		, BlendInTime(0.f)
+		, BlendOutTime(0.f)
+		, bLooping(false)
+		, bRandomStartTime(false)
+	{
+	}
 
-	/** Sets the CameraAnim for this section */
-	void SetCameraAnim(UCameraAnim* InCameraAnim) { CameraAnim = InCameraAnim; }
-	
-	/** Gets the CameraAnim for this section */
-	class UCameraAnim* GetCameraAnim() const { return CameraAnim; }
-	
-	/** MovieSceneSection interface */
-	virtual void MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual void DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
-	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override;
-	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override;
-
-	/** #todo */
-//	MOVIESCENETRACKS_API FRichCurve& GetAnimWeightCurve() { return AnimWeightCurve; }
-
-private:
-// 	UPROPERTY(EditAnywhere, Category="Camera Anim")
-// 	FRichCurve AnimWeightCurve;
-
+	/** The camera anim to play */
 	UPROPERTY(EditAnywhere, Category = "Camera Anim")
 	UCameraAnim* CameraAnim;
 
-public:
 	/** How fast to play back the animation. */
 	UPROPERTY(EditAnywhere, Category = "Camera Anim")
 	float PlayRate;
@@ -58,15 +47,47 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Camera Anim")
 	bool bLooping;
 	
+// @todo: Why is this not EditAnywhere?
 // 	UPROPERTY(EditAnywhere, Category = "Camera Anim")
- 	bool bRandomStartTime;
+	bool bRandomStartTime;
+};
+
+/**
+ *
+ */
+UCLASS(MinimalAPI)
+class UMovieSceneCameraAnimSection : public UMovieSceneSection
+{
+	GENERATED_BODY()
+
+public:
+
+	UMovieSceneCameraAnimSection(const FObjectInitializer& ObjectInitializer);
+
+	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
+	virtual void PostLoad() override;
+
+	UPROPERTY(EditAnywhere, Category="Camera Anim", meta=(ShowOnlyInnerProperties))
+	FMovieSceneCameraAnimSectionData AnimData;
+
+private:
+
+	/** Deprecated members */
+	UPROPERTY()
+	UCameraAnim* CameraAnim_DEPRECATED;
+
+	UPROPERTY()
+	float PlayRate_DEPRECATED;
 	
-// 	UPROPERTY(EditAnywhere, Category = "Camera Anim")
-// 	float Duration;
+	UPROPERTY()
+	float PlayScale_DEPRECATED;
 	
-	UPROPERTY(EditAnywhere, Category = "Camera Anim")
-	TEnumAsByte<ECameraAnimPlaySpace::Type> PlaySpace;
+	UPROPERTY()
+	float BlendInTime_DEPRECATED;
 	
-	UPROPERTY(EditAnywhere, Category = "Camera Anim")
-	FRotator UserDefinedPlaySpace;
+	UPROPERTY()
+	float BlendOutTime_DEPRECATED;
+	
+	UPROPERTY()
+	bool bLooping_DEPRECATED;
 };

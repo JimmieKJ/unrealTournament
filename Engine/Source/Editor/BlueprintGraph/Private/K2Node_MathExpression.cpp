@@ -1,12 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "K2Node_MathExpression.h"
-#include "Kismet2NameValidators.h"
+#include "UObject/UnrealType.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/MemberReference.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
+#include "EdGraphSchema_K2.h"
+#include "EdGraphSchema_K2_Actions.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_MacroInstance.h"
+#include "K2Node_VariableGet.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/Kismet2NameValidators.h"
 #include "EdGraphUtilities.h"
 #include "BasicTokenParser.h"
-#include "UnrealMathUtility.h"
-#include "BlueprintEditorUtils.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 #include "DiffResults.h"
 #include "MathExpressionHandler.h"
@@ -2688,7 +2696,7 @@ void UK2Node_MathExpression::ValidateNodeDuringCompilation(FCompilerResultsLog& 
 			// If the source object is a MacroInstance, we need to look elsewhere for the original MathExpression
 			if(Cast<UK2Node_MacroInstance>(SourceObject))
 			{
-				MathExpression = CastChecked<UK2Node_MathExpression>(MessageLog.FinalNodeBackToMacroSourceMap.FindSourceObject(this));
+				MathExpression = CastChecked<UK2Node_MathExpression>(MessageLog.GetSourceTunnelNode(this));
 			}
 			else
 			{

@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieScene3DTransformSection.h"
-#include "MovieScene3DTransformTrack.h"
-
+#include "Sections/MovieScene3DTransformSection.h"
+#include "UObject/StructOnScope.h"
+#include "Evaluation/MovieScene3DTransformTemplate.h"
 
 /* FMovieScene3DLocationKeyStruct interface
  *****************************************************************************/
@@ -95,39 +94,42 @@ UMovieScene3DTransformSection::UMovieScene3DTransformSection(const FObjectInitia
 #if WITH_EDITORONLY_DATA
 	, Show3DTrajectory(EShow3DTrajectory::EST_OnlyWhenSelected)
 #endif
-{ }
+{
+	EvalOptions.EnableAndSetCompletionMode(EMovieSceneCompletionMode::KeepState);
+}
 
 
 /* UMovieScene3DTransformSection interface
  *****************************************************************************/
-void UMovieScene3DTransformSection::EvalTranslation(float Time, FVector& OutTranslation) const
+void UMovieScene3DTransformSection::EvalTranslation(float Time, FVector& InOutTranslation) const
 {
-	OutTranslation.X = Translation[0].Eval(Time);
-	OutTranslation.Y = Translation[1].Eval(Time);
-	OutTranslation.Z = Translation[2].Eval(Time);
+	InOutTranslation.X = Translation[0].Eval(Time, InOutTranslation.X);
+	InOutTranslation.Y = Translation[1].Eval(Time, InOutTranslation.Y);
+	InOutTranslation.Z = Translation[2].Eval(Time, InOutTranslation.Z);
 }
 
 
-void UMovieScene3DTransformSection::EvalRotation(float Time, FRotator& OutRotation) const
+void UMovieScene3DTransformSection::EvalRotation(float Time, FRotator& InOutRotation) const
 {
-	OutRotation.Roll = Rotation[0].Eval(Time);
-	OutRotation.Pitch = Rotation[1].Eval(Time);
-	OutRotation.Yaw = Rotation[2].Eval(Time);
+	InOutRotation.Roll = Rotation[0].Eval(Time, InOutRotation.Roll);
+	InOutRotation.Pitch = Rotation[1].Eval(Time, InOutRotation.Pitch);
+	InOutRotation.Yaw = Rotation[2].Eval(Time, InOutRotation.Yaw);
 }
 
 
-void UMovieScene3DTransformSection::EvalScale(float Time, FVector& OutScale) const
+void UMovieScene3DTransformSection::EvalScale(float Time, FVector& InOutScale) const
 {
-	OutScale.X = Scale[0].Eval(Time);
-	OutScale.Y = Scale[1].Eval(Time);
-	OutScale.Z = Scale[2].Eval(Time);
+	InOutScale.X = Scale[0].Eval(Time, InOutScale.X);
+	InOutScale.Y = Scale[1].Eval(Time, InOutScale.Y);
+	InOutScale.Z = Scale[2].Eval(Time, InOutScale.Z);
 }
 
 
 /**
  * Chooses an appropriate curve from an axis and a set of curves
  */
-static FRichCurve* ChooseCurve(EAxis::Type Axis, FRichCurve* Curves)
+template<typename T>
+static T* ChooseCurve(EAxis::Type Axis, T* Curves)
 {
 	switch(Axis)
 	{
@@ -153,13 +155,31 @@ FRichCurve& UMovieScene3DTransformSection::GetTranslationCurve(EAxis::Type Axis)
 }
 
 
+const FRichCurve& UMovieScene3DTransformSection::GetTranslationCurve(EAxis::Type Axis) const
+{
+	return *ChooseCurve(Axis, Translation);
+}
+
+
 FRichCurve& UMovieScene3DTransformSection::GetRotationCurve(EAxis::Type Axis)
 {
 	return *ChooseCurve(Axis, Rotation);
 }
 
 
+const FRichCurve& UMovieScene3DTransformSection::GetRotationCurve(EAxis::Type Axis) const
+{
+	return *ChooseCurve(Axis, Rotation);
+}
+
+
 FRichCurve& UMovieScene3DTransformSection::GetScaleCurve(EAxis::Type Axis)
+{
+	return *ChooseCurve(Axis, Scale);
+}
+
+
+const FRichCurve& UMovieScene3DTransformSection::GetScaleCurve(EAxis::Type Axis) const
 {
 	return *ChooseCurve(Axis, Scale);
 }
@@ -548,4 +568,23 @@ void UMovieScene3DTransformSection::SetDefault(const FTransformKey& TransformKey
 {
 	FRichCurve* KeyCurve = GetCurveForChannelAndAxis(TransformKey.Channel, TransformKey.Axis, Translation, Rotation, Scale);
 	SetCurveDefault(*KeyCurve, TransformKey.Value);
+}
+
+
+void UMovieScene3DTransformSection::ClearDefaults()
+{
+	Translation[0].ClearDefaultValue();
+	Translation[1].ClearDefaultValue();
+	Translation[2].ClearDefaultValue();
+	Rotation[0].ClearDefaultValue();
+	Rotation[1].ClearDefaultValue();
+	Rotation[2].ClearDefaultValue();
+	Scale[0].ClearDefaultValue();
+	Scale[1].ClearDefaultValue();
+	Scale[2].ClearDefaultValue();
+}
+
+FMovieSceneEvalTemplatePtr UMovieScene3DTransformSection::GenerateTemplate() const
+{
+	return FMovieScene3DTransformSectionTemplate(*this);
 }

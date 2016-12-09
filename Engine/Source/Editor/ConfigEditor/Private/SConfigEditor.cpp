@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ConfigEditorPCH.h"
-#include "ConfigPropertyHelper.h"
 #include "SConfigEditor.h"
+#include "UObject/UnrealType.h"
+#include "ConfigPropertyHelper.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "SlateOptMacros.h"
+#include "IDetailsView.h"
 
 #include "PropertyEditorModule.h"
 

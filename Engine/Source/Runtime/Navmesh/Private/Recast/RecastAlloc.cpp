@@ -19,10 +19,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include <stdlib.h>
-#include <string.h>
-#include "RecastAlloc.h"
+#include "Recast/RecastAlloc.h"
 
 static void *rcAllocDefault(int size, rcAllocHint)
 {

@@ -1,22 +1,30 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "ThumbnailHelpers.h"
-#include "FXSystem.h"
-#include "Animation/SkeletalMeshActor.h"
-#include "Particles/ParticleSystem.h"
+#include "FinalPostProcessSettings.h"
+#include "SceneView.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Animation/DebugSkelMeshComponent.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Animation/AnimBlueprint.h"
+#include "ThumbnailRendering/SceneThumbnailInfo.h"
+#include "ThumbnailRendering/SceneThumbnailInfoWithPrimitive.h"
 #include "Particles/ParticleSystemComponent.h"
-#include "ContentStreaming.h"
-#include "Components/DirectionalLightComponent.h"
-#include "Engine/StaticMeshActor.h"
-#include "Animation/AnimSingleNodeInstance.h"
-#include "Animation/BlendSpaceBase.h"
-#include "Engine/SCS_Node.h"
-#include "Engine/SimpleConstructionScript.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Components/DestructibleComponent.h"
+#include "UnrealEdGlobals.h"
+#include "FXSystem.h"
+#include "ContentStreaming.h"
+#include "Materials/Material.h"
+#include "Animation/AnimSingleNodeInstance.h"
 #include "Engine/TextureCube.h"
 #include "Engine/DestructibleMesh.h"
 #include "PhysicsEngine/DestructibleActor.h"
+#include "Animation/BlendSpace1D.h"
 
 /*
 ***************************************************************
@@ -42,11 +50,11 @@ FThumbnailPreviewScene::FThumbnailPreviewScene()
 
 	// Add additional lights
 	UDirectionalLightComponent* DirectionalLight2 = NewObject<UDirectionalLightComponent>();
-	DirectionalLight->Intensity = 5.0f;
+	DirectionalLight2->Intensity = 5.0f;
 	AddComponent(DirectionalLight2, FTransform( FRotator(-40,-144.678, 0) ));
 
 	UDirectionalLightComponent* DirectionalLight3 = NewObject<UDirectionalLightComponent>();
-	DirectionalLight->Intensity = 1.0f;
+	DirectionalLight3->Intensity = 1.0f;
 	AddComponent(DirectionalLight3, FTransform( FRotator(299.235,144.993, 0) ));
 
 	// Add an infinite plane
@@ -564,7 +572,7 @@ void FStaticMeshThumbnailScene::GetViewMatrixParameters(const float InFOVDegrees
 {
 	check(PreviewActor);
 	check(PreviewActor->GetStaticMeshComponent());
-	check(PreviewActor->GetStaticMeshComponent()->StaticMesh);
+	check(PreviewActor->GetStaticMeshComponent()->GetStaticMesh());
 
 	const float HalfFOVRadians = FMath::DegreesToRadians<float>(InFOVDegrees) * 0.5f;
 	// Add extra size to view slightly outside of the sphere to compensate for perspective
@@ -572,7 +580,7 @@ void FStaticMeshThumbnailScene::GetViewMatrixParameters(const float InFOVDegrees
 	const float BoundsZOffset = GetBoundsZOffset(PreviewActor->GetStaticMeshComponent()->Bounds);
 	const float TargetDistance = HalfMeshSize / FMath::Tan(HalfFOVRadians);
 
-	USceneThumbnailInfo* ThumbnailInfo = Cast<USceneThumbnailInfo>(PreviewActor->GetStaticMeshComponent()->StaticMesh->ThumbnailInfo);
+	USceneThumbnailInfo* ThumbnailInfo = Cast<USceneThumbnailInfo>(PreviewActor->GetStaticMeshComponent()->GetStaticMesh()->ThumbnailInfo);
 	if ( ThumbnailInfo )
 	{
 		if ( TargetDistance + ThumbnailInfo->OrbitZoom < 0 )
@@ -775,7 +783,8 @@ bool FBlendSpaceThumbnailScene::SetBlendSpace(class UBlendSpaceBase* InBlendSpac
 				if (AnimInstance)
 				{
 					FVector BlendInput(0.f);
-					for (int32 i = 0; i < InBlendSpace->NumOfDimension; ++i)
+					const int32 NumDimensions = InBlendSpace->IsA<UBlendSpace1D>() ? 1 : 2;
+					for (int32 i = 0; i < NumDimensions; ++i)
 					{
 						const FBlendParameter& Param = InBlendSpace->GetBlendParameter(i);
 						BlendInput[i] = (Param.GetRange() / 2.f) + Param.Min;
@@ -1042,7 +1051,7 @@ bool FClassActorThumbnailScene::IsValidComponentForVisualization(UActorComponent
 	if ( PrimComp && PrimComp->IsVisible() && !PrimComp->bHiddenInGame )
 	{
 		UStaticMeshComponent* StaticMeshComp = Cast<UStaticMeshComponent>(Component);
-		if ( StaticMeshComp && StaticMeshComp->StaticMesh )
+		if ( StaticMeshComp && StaticMeshComp->GetStaticMesh())
 		{
 			return true;
 		}

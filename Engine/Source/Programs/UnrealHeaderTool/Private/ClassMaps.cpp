@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "ClassMaps.h"
 #include "UnrealHeaderTool.h"
 
-#include "ClassMaps.h"
-#include "UnrealSourceFile.h"
 #include "UnrealTypeDefinitionInfo.h"
 #include "UHTMakefile/UHTMakefile.h"
 
@@ -17,7 +16,7 @@ TSet<FUnrealSourceFile*> GExportedSourceFiles;
 TMap<UProperty*, FString> GArrayDimensions;
 TMap<UPackage*,  const FManifestModule*> GPackageToManifestModuleMap;
 TMap<UField*, uint32> GGeneratedCodeCRCs;
-TMap<UEnum*,  EPropertyType> GEnumUnderlyingTypes;
+TMap<UEnum*,  EUnderlyingEnumType> GEnumUnderlyingTypes;
 TMap<FName, TSharedRef<FClassDeclarationMetaData> > GClassDeclarations;
 TSet<UProperty*> GUnsizedProperties;
 

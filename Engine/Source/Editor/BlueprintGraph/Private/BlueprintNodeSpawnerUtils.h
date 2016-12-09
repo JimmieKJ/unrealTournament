@@ -2,8 +2,10 @@
 
 #pragma once
 
-// Forward declarations
-class UBlueprintNodeSpawner;
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
+#include "BlueprintNodeSpawner.h"
 
 struct FBlueprintNodeSpawnerUtils
 {

@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EpicSurveyPrivatePCH.h"
 #include "SurveyTitleLocalStorage.h"
-#include "OnlineSubsystemTypes.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
 
 IOnlineTitleFilePtr FSurveyTitleLocalStorage::Create( const FString& RootDirectory )
 {

@@ -4,7 +4,8 @@
 	HitProxies.cpp: Hit proxy implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "HitProxies.h"
+#include "Misc/ScopeLock.h"
 
 IMPLEMENT_HIT_PROXY_BASE( HHitProxy, NULL );
 IMPLEMENT_HIT_PROXY(HObject,HHitProxy);

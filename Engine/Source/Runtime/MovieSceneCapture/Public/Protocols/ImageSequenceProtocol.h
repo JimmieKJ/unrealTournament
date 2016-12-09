@@ -2,13 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "MovieSceneCaptureProtocolSettings.h"
+#include "HAL/Runnable.h"
+#include "HAL/ThreadSafeBool.h"
+
 #if WITH_EDITOR
-	#include "IImageWrapper.h"
+	#include "Interfaces/IImageWrapper.h"
 #endif
 
-#include "FrameGrabberProtocol.h"
-#include "MovieSceneCaptureProtocolSettings.h"
+#include "FrameGrabber.h"
+#include "Protocols/FrameGrabberProtocol.h"
 #include "ImageSequenceProtocol.generated.h"
+
+struct FMovieSceneCaptureSettings;
 
 UCLASS(config=EditorPerProjectUserSettings, DisplayName="Image Encoding")
 class MOVIESCENECAPTURE_API UBmpImageCaptureSettings : public UMovieSceneCaptureProtocolSettings

@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "VoiceInterface.h"
-#include "VoicePacketImpl.h"
+#include "CoreMinimal.h"
 #include "OnlineSubsystemTypes.h"
+#include "Interfaces/VoiceInterface.h"
+#include "Net/VoiceDataCommon.h"
+#include "VoicePacketImpl.h"
 #include "OnlineSubsystemUtilsPackage.h"
 
 /**

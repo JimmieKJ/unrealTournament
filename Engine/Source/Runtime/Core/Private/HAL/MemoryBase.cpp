@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "MemoryMisc.h"
+#include "HAL/MemoryBase.h"
+#include "Stats/Stats.h"
+#include "HAL/MemoryMisc.h"
 
 /** Memory allocator base stats. */
 DECLARE_DWORD_COUNTER_STAT(TEXT("Malloc calls"),			STAT_MallocCalls,STATGROUP_MemoryAllocator);

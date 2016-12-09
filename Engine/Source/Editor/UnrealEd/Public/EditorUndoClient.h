@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /**
  * Interface for tools wanting to handle undo/redo operations
  */

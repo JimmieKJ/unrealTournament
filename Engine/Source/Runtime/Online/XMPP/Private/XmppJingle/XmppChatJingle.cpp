@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "XmppPrivatePCH.h"
-#include "XmppJingle.h"
-#include "XmppConnectionJingle.h"
-#include "XmppChatJingle.h"
+#include "XmppJingle/XmppChatJingle.h"
+#include "XmppJingle/XmppConnectionJingle.h"
+#include "XmppPresence.h"
+#include "XmppLog.h"
 
 #if WITH_XMPP_JINGLE
 
@@ -185,6 +185,10 @@ protected:
 
 		Result->AddAttr(buzz::QN_TO, ToJid.Str());
 		Result->AddAttr(buzz::QN_TYPE, ChatType);
+
+		// Add CorrelationID for tracking purposes
+		FXmppJingle::AddCorrIdToStanza(*Result);
+
 		buzz::XmlElement* Body = new buzz::XmlElement(buzz::QN_BODY);
 		Body->SetBodyText(Message.Body);
 		Result->AddElement(Body);

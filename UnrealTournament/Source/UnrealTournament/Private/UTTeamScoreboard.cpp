@@ -287,7 +287,7 @@ AUTPlayerState* UUTTeamScoreboard::FindTopTeamSPMFor(uint8 TeamNum)
 
 	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
 	{
-		float ElapsedTime = A.GetWorld()->GetGameState()->ElapsedTime;
+		float ElapsedTime = A.GetWorld()->GetGameState<AGameState>()->ElapsedTime;
 		if (A.StartTime == ElapsedTime)
 		{
 			return false;

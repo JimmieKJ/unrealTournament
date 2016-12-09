@@ -2,9 +2,14 @@
 
 #pragma once
 
-class SDistributionCurveEditor;
-class SCurveEditorViewport;
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "UnrealClient.h"
+
+class FCanvas;
 class FCurveEditorSharedData;
+class SCurveEditorViewport;
+class SDistributionCurveEditor;
 struct FCurveEdEntry;
 
 /*-----------------------------------------------------------------------------

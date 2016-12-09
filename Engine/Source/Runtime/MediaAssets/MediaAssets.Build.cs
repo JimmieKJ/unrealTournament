@@ -12,7 +12,8 @@ namespace UnrealBuildTool.Rules
 					"CoreUObject",
 					"Engine",
                     "Media",
-                }
+					"MediaUtils",
+				}
             );
 
 			PrivateDependencyModuleNames.AddRange(

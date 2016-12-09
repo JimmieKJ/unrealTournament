@@ -2,12 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
 #include "PropertySection.h"
-
-
-class FByteKeyArea;
-class UMovieSceneSection;
-
 
 /**
  * An implementation of byte property sections
@@ -17,21 +14,31 @@ class FBytePropertySection
 {
 public:
 
-	FBytePropertySection(UMovieSceneSection& InSectionObject, const FText& InSectionName, UEnum* InEnum)
-		: FPropertySection(InSectionObject, InSectionName)
-		, Enum( InEnum )
-	{ }
+	/**
+	* Creates a new byte property section.
+	*
+	* @param InSequencer The sequencer which is controlling this property section.
+	* @param InObjectBinding The object binding for the object which owns the property that this section is animating.
+	* @param InPropertyName The name of the property which is animated by this section.
+	* @param InPropertyPath A string representing the path to the property which is animated by this section.
+	* @param InSectionObject The section object which is being displayed and edited.
+	* @param InDisplayName A display name for the section being displayed and edited.
+	* @param InEnum An optional enum parameter for byte tracks representing enum properties which is used display and populate the enum UI.
+	*/
+	FBytePropertySection(ISequencer* InSequencer, FGuid InObjectBinding, FName InPropertyName, const FString& InPropertyPath, UMovieSceneSection& InSectionObject, const FText& InDisplayName, UEnum* InEnum = nullptr)
+		: FPropertySection(InSequencer, InObjectBinding, InPropertyName, InPropertyPath, InSectionObject, InDisplayName)
+		, Enum(InEnum)
+	{
+	}
 
 public:
 
 	// FPropertySection interface
 
 	virtual void GenerateSectionLayout(class ISectionLayoutBuilder& LayoutBuilder) const override;
-	virtual void SetIntermediateValue(FPropertyChangedParams PropertyChangedParams) override;
-	virtual void ClearIntermediateValue() override;
 
 private:
 
-	mutable TSharedPtr<FByteKeyArea> KeyArea;
+	/** An optional UEnum for byte sections which animate an enum property. */
 	UEnum* Enum;
 };

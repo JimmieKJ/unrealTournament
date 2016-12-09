@@ -1,15 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "Kismet2NameValidators.h"
+#include "K2Node_LocalVariable.h"
+#include "Engine/Blueprint.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_AssignmentStatement.h"
+#include "K2Node_FunctionEntry.h"
+#include "K2Node_VariableGet.h"
+#include "K2Node_VariableSet.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "ScopedTransaction.h"
 
-#include "K2Node_FunctionEntry.h"
-#include "K2Node_LocalVariable.h"
-#include "K2Node_AssignmentStatement.h"
-#include "K2Node_VariableSet.h"
-#include "K2Node_VariableGet.h"
 
 UDEPRECATED_K2Node_LocalVariable::UDEPRECATED_K2Node_LocalVariable(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

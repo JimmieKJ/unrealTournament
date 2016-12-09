@@ -2,8 +2,12 @@
 
 #pragma once
 
-class UActorComponent;
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+
 class AActor;
+class UActorComponent;
+class USceneComponent;
 enum class EComponentCreationMethod : uint8;
 
 /** At what point in the rerun construction script process is ApplyToActor being called for */

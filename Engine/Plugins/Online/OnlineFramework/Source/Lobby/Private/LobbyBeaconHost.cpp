@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LobbyPrivatePCH.h"
 #include "LobbyBeaconHost.h"
+#include "GameFramework/GameModeBase.h"
+#include "Engine/NetConnection.h"
+#include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/GameSession.h"
+#include "OnlineBeaconHost.h"
 #include "LobbyBeaconClient.h"
 #include "LobbyBeaconState.h"
 #include "LobbyBeaconPlayerState.h"
-#include "OnlineBeaconHost.h"
 #include "OnlineSubsystemUtils.h"
 
 
@@ -79,8 +83,6 @@ ALobbyBeaconPlayerState* ALobbyBeaconHost::HandlePlayerLogin(ALobbyBeaconClient*
 {
 	UWorld* World = GetWorld();
 	check(World);
-	AGameMode* GameMode = World->GetAuthGameMode();
-	check(GameMode);
 
 	FString NewPlayerName = UGameplayStatics::ParseOption(Options, TEXT("Name")).Left(20);
 	if (NewPlayerName.IsEmpty())
@@ -288,7 +290,7 @@ void ALobbyBeaconHost::NotifyClientDisconnected(AOnlineBeaconClient* LeavingClie
 			UWorld* World = GetWorld();
 			check(World);
 
-			AGameMode* GameMode = World->GetAuthGameMode();
+			AGameModeBase* GameMode = World->GetAuthGameMode();
 			check(GameMode);
 			check(GameMode->GameSession);
 

@@ -4,7 +4,6 @@
 	UObjectThreadContext.cpp: Unreal object globals
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
 #include "UObject/UObjectThreadContext.h"
 
 DEFINE_LOG_CATEGORY(LogUObjectThreadContext);
@@ -23,4 +22,5 @@ FUObjectThreadContext::FUObjectThreadContext()
 , SerializedImportLinker(nullptr)
 , SerializedExportIndex(INDEX_NONE)
 , SerializedExportLinker(nullptr)
+, AsyncPackage(nullptr)
 {}

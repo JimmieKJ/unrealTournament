@@ -1,13 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapePrivatePCH.h"
-#include "Landscape.h"
+#include "LandscapeDataAccess.h"
+#include "LandscapeComponent.h"
 
 #if WITH_EDITOR
 
-#include "LandscapeDataAccess.h"
-#include "LandscapeComponent.h"
-#include "LandscapeInfo.h"
 
 LANDSCAPE_API FLandscapeComponentDataInterface::FLandscapeComponentDataInterface(ULandscapeComponent* InComponent, int32 InMipLevel) :
 	Component(InComponent),

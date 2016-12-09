@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "MultiBox.h"
-#include "SGroupMarkerBlock.h"
+#include "Framework/MultiBox/SGroupMarkerBlock.h"
 
 /**
  * Constructor

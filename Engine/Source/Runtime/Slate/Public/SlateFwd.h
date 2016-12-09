@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 
 class SSearchBox;
 class SVolumeControl;

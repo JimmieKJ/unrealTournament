@@ -1,6 +1,5 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationPrivatePCH.h"
 #include "LocalizationConfigurationScript.h"
 #include "LocalizationTargetTypes.h"
 #include "LocalizationSettings.h"
@@ -280,6 +279,11 @@ namespace LocalizationConfigurationScript
 			for (const auto& FileExtension : Target->Settings.GatherFromPackages.FileExtensions)
 			{
 				ConfigSection.Add( TEXT("PackageFileNameFilters"), FString::Printf( TEXT("*.%s"), *FileExtension.Pattern) );
+			}
+
+			for (const auto& CollectionName : Target->Settings.GatherFromPackages.Collections)
+			{
+				ConfigSection.Add( TEXT("CollectionFilters"), CollectionName.ToString() );
 			}
 
 			ConfigSection.Add( TEXT("ShouldGatherFromEditorOnlyData"), Target->Settings.GatherFromPackages.ShouldGatherFromEditorOnlyData ? TEXT("true") : TEXT("false") );

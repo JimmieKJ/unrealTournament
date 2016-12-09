@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "IAnalyticsProvider.h"
+
+#include "CoreMinimal.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
+
+class Error;
 
 class FAnalyticsProviderFileLogging :
 	public IAnalyticsProvider

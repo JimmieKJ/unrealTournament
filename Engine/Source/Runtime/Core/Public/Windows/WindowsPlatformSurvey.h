@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformSurvey.h"
 
 
@@ -23,11 +24,6 @@ private:
 	static void TickSurveyHardware( FHardwareSurveyResults& Results );
 
 	/**
-	 * Helper writes the Windows version labels to the results e.g. "Windows 7" & "Home Premium Edition"
-	 */
-	static void GetOSVersionLabels( const SYSTEM_INFO& SystemInfo, FHardwareSurveyResults& Results );
-
-	/**
 	 * Helper returns the dxdiag output text filepath used by the survey
 	 */
 	static class FString GetDxDiagOutputFilepath();
@@ -43,11 +39,6 @@ private:
 	 * @return True if the line is found and the function has written the following string to OutString
 	 */
 	static bool GetLineFollowing(const FString& Token, const TArray<FString>& Lines, FString& OutString, int32 NthHit = 0);
-
-	/**
-	 * Safely write strings into the fixed length TCHAR buffers of a FHardwareSurveyResults member
-	 */
-	static void WriteFStringToResults(TCHAR* OutBuffer, const FString& InString);
 
 	/**
 	 * Look for a section of a file beginning with SectionName

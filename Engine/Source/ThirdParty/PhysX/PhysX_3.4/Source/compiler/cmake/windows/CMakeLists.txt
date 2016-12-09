@@ -1,0 +1,75 @@
+cmake_minimum_required(VERSION 3.3)
+include(../common/CMakeLists.txt)
+
+
+IF(NOT DEFINED TARGET_BUILD_PLATFORM) # Not defined, default to Windows
+	SET(TARGET_BUILD_PLATFORM "Windows")
+ENDIF()
+
+SET(PLATFORM_LIST Windows)
+
+IF (NOT ${TARGET_BUILD_PLATFORM} IN_LIST PLATFORM_LIST)
+	MESSAGE(FATAL_ERROR "Invalid platform:" ${TARGET_BUILD_PLATFORM})
+ENDIF()
+
+SET(CMAKE_CXX_FLAGS "/Wall /wd4514 /wd4820 /wd4127 /wd4710 /wd4711 /wd4577 /d2Zi+ /MP /WX /W4 /GF /GS- /GR- /Gd /fp:fast")
+
+SET(CMAKE_CXX_FLAGS_DEBUG "/Od /MDd /RTCu /Zi")
+SET(CMAKE_CXX_FLAGS_CHECKED "/Ox /MD /Zi")
+SET(CMAKE_CXX_FLAGS_PROFILE "/Ox /MD /Zi")
+SET(CMAKE_CXX_FLAGS_RELEASE "/Ox /MD /Zi")
+
+# test code
+# ADD_DEFINITIONS(-DPX_SIMD_DISABLED)
+
+# Build PDBs for all configurations
+SET(CMAKE_SHARED_LINKER_FLAGS "/DEBUG")
+
+IF(CMAKE_CL_64)
+	ADD_DEFINITIONS(-DWIN64)
+ENDIF(CMAKE_CL_64)				
+
+# Controls PX_NVTX for all projects on windows
+SET(PHYSX_WINDOWS_ENABLE_NVTX 0)
+
+# Disable cuda and dx for all projects on windows
+SET(PHYSX_WINDOWS_COMPILE_DEFS DISABLE_COMPUTE_PHYSX;WIN32;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;_WINSOCK_DEPRECATED_NO_WARNINGS)
+SET(PHYSX_WINDOWS_DEBUG_COMPILE_DEFS _DEBUG;PX_DEBUG=1;PX_CHECKED=1;PX_NVTX=${PHYSX_WINDOWS_ENABLE_NVTX};PX_SUPPORT_PVD=1)
+SET(PHYSX_WINDOWS_CHECKED_COMPILE_DEFS NDEBUG;PX_CHECKED=1;PX_NVTX=${PHYSX_WINDOWS_ENABLE_NVTX};PX_SUPPORT_PVD=1)
+SET(PHYSX_WINDOWS_PROFILE_COMPILE_DEFS NDEBUG;PX_PROFILE=1;PX_NVTX=${PHYSX_WINDOWS_ENABLE_NVTX};PX_SUPPORT_PVD=1)
+SET(PHYSX_WINDOWS_RELEASE_COMPILE_DEFS NDEBUG;PX_SUPPORT_PVD=0)
+
+IF(CMAKE_CL_64)
+	SET(LIBPATH_SUFFIX "x64")
+ELSE(CMAKE_CL_64)
+	SET(LIBPATH_SUFFIX "x86")
+ENDIF(CMAKE_CL_64)				
+
+SET(CMAKE_DEBUG_POSTFIX "${CMAKE_DEBUG_POSTFIX}_${LIBPATH_SUFFIX}")
+SET(CMAKE_PROFILE_POSTFIX "${CMAKE_PROFILE_POSTFIX}_${LIBPATH_SUFFIX}")
+SET(CMAKE_CHECKED_POSTFIX "${CMAKE_CHECKED_POSTFIX}_${LIBPATH_SUFFIX}")
+SET(CMAKE_RELEASE_POSTFIX "${CMAKE_RELEASE_POSTFIX}_${LIBPATH_SUFFIX}")
+
+FIND_PACKAGE(PxShared REQUIRED)
+
+# Include the PxShared-exports.cmake file that PxShared created. There's other ways to do this, but there's a bunch of issues with it in a CI environment
+#  such as - we don't want to be installing any built artifacts on this server, etc. So for now we hack it.
+
+# Add PxShared as a dependency so that we can use project references
+ADD_SUBDIRECTORY(${PXSHARED_ROOT_DIR}/src/compiler/cmake/windows "${CMAKE_CURRENT_BINARY_DIR}/pxshared_bin")
+
+# Include all of the projects
+INCLUDE(LowLevel.cmake)
+INCLUDE(LowLevelAABB.cmake)
+INCLUDE(LowLevelCloth.cmake)
+INCLUDE(LowLevelDynamics.cmake)
+INCLUDE(LowLevelParticles.cmake)
+INCLUDE(PhysX.cmake)
+INCLUDE(PhysXCharacterKinematic.cmake)
+INCLUDE(PhysXCommon.cmake)
+INCLUDE(PhysXCooking.cmake)
+INCLUDE(PhysXExtensions.cmake)
+INCLUDE(PhysXVehicle.cmake)
+INCLUDE(SceneQuery.cmake)
+INCLUDE(SimulationController.cmake)
+# INCLUDE(PhysXGpu.cmake)

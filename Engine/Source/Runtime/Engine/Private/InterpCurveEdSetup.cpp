@@ -4,9 +4,11 @@
 	InterpCurveEdSetup.cpp: Implementation of distribution classes.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Matinee/InterpTrack.h"
 #include "Engine/InterpCurveEdSetup.h"
+#include "Templates/Casts.h"
+#include "Distributions/DistributionFloat.h"
+#include "Distributions/DistributionVector.h"
+#include "Matinee/InterpTrack.h"
 
 
 void UInterpCurveEdSetup::PostLoad()

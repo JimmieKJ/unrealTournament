@@ -6,8 +6,12 @@
 
 #pragma once
 
-#include "DeviceProfile.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "DeviceProfileManager.generated.h"
+
+class UDeviceProfile;
 
 // Delegate used to refresh the UI when the profiles change
 DECLARE_MULTICAST_DELEGATE( FOnDeviceProfileManagerUpdated );
@@ -26,7 +30,7 @@ public:
 	 * Startup and select the active device profile
 	 * Then Init the CVars from this profile and it's Device profile parent tree.
 	 */
-	static void InitializeCVarsForActiveDeviceProfile();
+	static void InitializeCVarsForActiveDeviceProfile(bool bPushSettings=false);
 
 	/**
 	 * Create a copy of a device profile from a copy.
@@ -36,7 +40,7 @@ public:
 	 *
 	 * @return the created profile.
 	 */
-	UDeviceProfile& CreateProfile( const FString& ProfileName, const FString& ProfileType, const FString& ParentName = TEXT("") );
+	UDeviceProfile* CreateProfile( const FString& ProfileName, const FString& ProfileType, const FString& ParentName = TEXT("") );
 
 	/**
 	 * Delete a profile.
@@ -51,7 +55,7 @@ public:
 	 * @param ProfileName - The profile name to find.
 	 * @return The found profile.
 	 */
-	UDeviceProfile& FindProfile( const FString& ProfileName );
+	UDeviceProfile* FindProfile( const FString& ProfileName );
 
 	/**
 	 * Get the device profile .ini name.
@@ -92,6 +96,7 @@ public:
 	*/
 	void GetAllPossibleParentProfiles(const UDeviceProfile* ChildProfile, OUT TArray<UDeviceProfile*>& PossibleParentProfiles) const;
 
+	
 private:
 
 	/**
@@ -109,6 +114,13 @@ private:
 	 */
 	void SetActiveDeviceProfile( UDeviceProfile* DeviceProfile );
 
+	/**
+	* Override CVar value change callback
+	*/
+	void HandleDeviceProfileOverrideChange();
+
+	/** Handle restoing CVars set in HandleDeviceProfileOverrideChange */
+	void HandleDeviceProfileOverridePop();
 
 public:
 
@@ -131,4 +143,7 @@ private:
 
 	// Holds the device profile .ini location
 	static FString DeviceProfileFileName;
+
+	// values of CVars set in HandleDeviceProfileOverrideChange, to be popped later
+	TMap<FString, FString> PushedSettings;
 };

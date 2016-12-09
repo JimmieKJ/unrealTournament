@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieScene3DAttachSection.h"
-#include "MovieScene3DAttachTrack.h"
-#include "IMovieScenePlayer.h"
-#include "MovieScene3DAttachTrackInstance.h"
+#include "Tracks/MovieScene3DAttachTrack.h"
+#include "Sections/MovieScene3DAttachSection.h"
+#include "Evaluation/MovieScene3DAttachTemplate.h"
+#include "Evaluation/MovieSceneEvaluationTrack.h"
+#include "Templates/Casts.h"
 
 
 #define LOCTEXT_NAMESPACE "MovieScene3DAttachTrack"
@@ -14,12 +14,10 @@ UMovieScene3DAttachTrack::UMovieScene3DAttachTrack( const FObjectInitializer& Ob
 	: Super( ObjectInitializer )
 { }
 
-
-TSharedPtr<IMovieSceneTrackInstance> UMovieScene3DAttachTrack::CreateInstance()
+FMovieSceneEvalTemplatePtr UMovieScene3DAttachTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
 {
-	return MakeShareable( new FMovieScene3DAttachTrackInstance( *this ) ); 
+	return FMovieScene3DAttachSectionTemplate(*CastChecked<UMovieScene3DAttachSection>(&InSection));
 }
-
 
 void UMovieScene3DAttachTrack::AddConstraint(float KeyTime, float ConstraintEndTime, const FName SocketName, const FName ComponentName, const FGuid& ConstraintId)
 {

@@ -1,14 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MoviePlayerPrivatePCH.h"
 #include "MoviePlayer.h"
+#include "Misc/CommandLine.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
 
-#include "Engine.h"
-#include "SlateBasics.h"
-#include "SpinLock.h"
 #include "NullMoviePlayer.h"
 #include "DefaultGameMoviePlayer.h"
-#include "SThrobber.h"
+#include "Widgets/Images/SThrobber.h"
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, MoviePlayer);
 

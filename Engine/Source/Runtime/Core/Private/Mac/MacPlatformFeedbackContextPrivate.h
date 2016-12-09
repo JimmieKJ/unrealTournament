@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/FeedbackContext.h"
+#include "Misc/OutputDeviceConsole.h"
+
 /**
  * Feedback context implementation for Mac.
  */
@@ -60,7 +64,7 @@ public:
 			}
 		}
 
-		if( GLogConsole && IsRunningCommandlet() )
+		if( GLogConsole && IsRunningCommandlet() && !GLog->IsRedirectingTo(GLogConsole) )
 			GLogConsole->Serialize( V, Verbosity, Category );
 		if( !GLog->IsRedirectingTo( this ) )
 			GLog->Serialize( V, Verbosity, Category );

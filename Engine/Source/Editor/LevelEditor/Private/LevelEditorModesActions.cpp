@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelEditor.h"
 #include "LevelEditorModesActions.h"
+#include "EditorModeRegistry.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LevelEditorModesActions, Log, All);
 

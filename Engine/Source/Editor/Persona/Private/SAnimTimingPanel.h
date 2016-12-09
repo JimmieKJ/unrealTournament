@@ -2,12 +2,16 @@
 
 #pragma once
 
-#include "Persona.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
 #include "SAnimTrackPanel.h"
-#include "SWidget.h"
 #include "STrack.h"
 
-// Forward declarations
+class SBorder;
+class UAnimMontage;
 class UAnimSequenceBase;
 
 //////////////////////////////////////////////////////////////////////////
@@ -166,8 +170,7 @@ class SAnimTimingPanel : public SAnimTrackPanel
 public:
 
 	SLATE_BEGIN_ARGS(SAnimTimingPanel)
-		: _InWeakPersona()
-		, _InSequence(nullptr)
+		: _InSequence(nullptr)
 		, _WidgetWidth(0)
 		, _CurrentPosition(0)
 		, _ViewInputMin(0)
@@ -177,7 +180,6 @@ public:
 		, _OnSetInputViewRange()
 	{}
 
-	SLATE_ARGUMENT(TWeakPtr<FPersona>, InWeakPersona)
 	SLATE_ARGUMENT(UAnimSequenceBase*, InSequence)
 	SLATE_ARGUMENT(float, WidgetWidth)
 	SLATE_ATTRIBUTE(float, CurrentPosition)
@@ -189,11 +191,9 @@ public:
 
 	SLATE_END_ARGS()
 
-	virtual ~SAnimTimingPanel();
-
 	// Construct the panel
 	// @param InArgs - Slate arguments
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnAnimNotifiesChanged, FSimpleMulticastDelegate& OnSectionsChanged);
 
 	// Updates panel widgets
 	void Update();
@@ -227,8 +227,6 @@ protected:
 
 	// Observed timing elements
 	TArray<TSharedPtr<FTimingRelevantElementBase>> Elements;
-	// Toolkit reference
-	TWeakPtr<FPersona> WeakPersona;
 	// Anim sequence that contains the timing elements we are observing
 	UAnimSequenceBase* AnimSequence;
 	// Main panel widget

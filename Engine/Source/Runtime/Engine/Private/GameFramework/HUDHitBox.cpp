@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "GameFramework/HUDHitBox.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "CanvasItem.h"
+#include "CanvasTypes.h"
 
 FHUDHitBox::FHUDHitBox(FVector2D InCoords, FVector2D InSize, const FName& InName, bool bInConsumesInput, int32 InPriority)
 	: Coords(InCoords)

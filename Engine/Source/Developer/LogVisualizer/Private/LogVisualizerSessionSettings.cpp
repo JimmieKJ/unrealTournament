@@ -1,11 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
-#include "Misc/CoreMisc.h"
 #include "LogVisualizerSessionSettings.h"
 #if WITH_EDITOR
-#include "Editor/EditorEngine.h"
-#include "ISettingsModule.h"
 #include "UnrealEdMisc.h"
 #endif // WITH_EDITOR
 

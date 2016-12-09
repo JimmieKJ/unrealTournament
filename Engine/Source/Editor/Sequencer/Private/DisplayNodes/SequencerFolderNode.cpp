@@ -1,13 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
+#include "DisplayNodes/SequencerFolderNode.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Views/STableRow.h"
+#include "EditorStyleSet.h"
+#include "Engine/Engine.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EngineGlobals.h"
+#include "MovieScene.h"
+#include "ISequencer.h"
+#include "DisplayNodes/SequencerObjectBindingNode.h"
+#include "DisplayNodes/SequencerTrackNode.h"
+#include "SSequencer.h"
 #include "MovieSceneFolder.h"
 #include "SequencerUtilities.h"
-#include "MovieScene.h"
 #include "MovieSceneSequence.h"
 #include "SequencerDisplayNodeDragDropOp.h"
 #include "ScopedTransaction.h"
-#include "SColorPicker.h"
+#include "Widgets/Colors/SColorPicker.h"
 
 #define LOCTEXT_NAMESPACE "SequencerFolderNode"
 

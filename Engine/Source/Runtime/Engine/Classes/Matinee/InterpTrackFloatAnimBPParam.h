@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Matinee/InterpTrackFloatBase.h"
 #include "InterpTrackFloatAnimBPParam.generated.h"
+
+class UAnimInstance;
+class UInterpTrackInst;
+struct FPropertyChangedEvent;
 
 UCLASS(meta=( DisplayName = "Float Anim BP Parameter Track" ) )
 class UInterpTrackFloatAnimBPParam : public UInterpTrackFloatBase

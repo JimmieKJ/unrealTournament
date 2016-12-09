@@ -2,13 +2,21 @@
 
 #pragma once
 
-#if WITH_PHYSX && (WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR)
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "EngineDefines.h"
+#include "PhysXIncludes.h"
 
+#if WITH_PHYSX && (WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR)
 #include "DerivedDataPluginInterface.h"
-#include "DerivedDataCacheInterface.h"
-#include "TargetPlatform.h"
-#include "PhysXSupport.h"
 #include "IPhysXFormat.h"
+#endif
+
+class UBodySetup;
+struct FBodyInstance;
+struct FBodySetupUVInfo;
+
+#if WITH_PHYSX && (WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR)
 
 //////////////////////////////////////////////////////////////////////////
 // PhysX Cooker
@@ -22,13 +30,13 @@ private:
 	bool bGenerateNormalMesh;
 	bool bGenerateMirroredMesh;
 	bool bGenerateUVInfo;
-	int32 RuntimeCookFlags;
+	EPhysXMeshCookFlags RuntimeCookFlags;
 	const class IPhysXFormat* Cooker;
 	FGuid DataGuid;
 	FString MeshId;
 
 public:
-	FDerivedDataPhysXCooker(FName InFormat, int32 InRuntimeCookFlags, UBodySetup* InBodySetup);
+	FDerivedDataPhysXCooker(FName InFormat, EPhysXMeshCookFlags InRuntimeCookFlags, UBodySetup* InBodySetup);
 
 	virtual const TCHAR* GetPluginName() const override
 	{
@@ -40,7 +48,7 @@ public:
 		// This is a version string that mimics the old versioning scheme. If you
 		// want to bump this version, generate a new guid using VS->Tools->Create GUID and
 		// return it here. Ex.
-		return TEXT("6FF6F996840F4A23995CD1B9DD0D80B7");
+		return TEXT("E0ABF0F6AB54442DB426ADA8972E7237");
 	}
 
 	virtual FString GetPluginSpecificCacheKeySuffix() const override
@@ -84,8 +92,8 @@ public:
 private:
 
 	void InitCooker();
-	int32 BuildConvex( TArray<uint8>& OutData, bool InMirrored );
-	int32 BuildTriMesh( TArray<uint8>& OutData, bool InUseAllTriData, FBodySetupUVInfo* UVInfo);
+	bool BuildConvex( TArray<uint8>& OutData, bool InMirrored, int32& NumConvexCooked );
+	bool BuildTriMesh( TArray<uint8>& OutData, bool InUseAllTriData, FBodySetupUVInfo* UVInfo, int32& NumTriMeshCooked);
 	bool ShouldGenerateTriMeshData(bool InUseAllTriData);
 };
 

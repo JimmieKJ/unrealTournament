@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Text/TextLayout.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+
 class FTextJustifyCustomization : public IPropertyTypeCustomization
 {
 public:

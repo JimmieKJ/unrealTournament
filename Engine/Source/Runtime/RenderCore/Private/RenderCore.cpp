@@ -4,10 +4,10 @@
 	RenderCore.h: Render core module implementation.
 =============================================================================*/
 
-#include "RenderCorePrivatePCH.h"
 #include "RenderCore.h"
+#include "HAL/IConsoleManager.h"
 #include "UniformBuffer.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, RenderCore);
 

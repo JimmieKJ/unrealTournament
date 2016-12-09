@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ModuleInterface.h"
-#include "UnrealEd.h"
+#pragma once 
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class SWidget;
 
 namespace HLODOutliner { class SHLODOutliner; };
 

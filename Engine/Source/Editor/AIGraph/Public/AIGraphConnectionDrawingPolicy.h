@@ -2,8 +2,13 @@
 
 #pragma once
 
-#include "GraphEditorCommon.h"
+#include "CoreMinimal.h"
+#include "Layout/ArrangedWidget.h"
+#include "Widgets/SWidget.h"
 #include "ConnectionDrawingPolicy.h"
+
+class FSlateWindowElementList;
+class UEdGraph;
 
 class AIGRAPH_API FAIGraphConnectionDrawingPolicy : public FConnectionDrawingPolicy
 {

@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneBoolSection.h"
+#include "Sections/MovieSceneBoolSection.h"
 
 
 UMovieSceneBoolSection::UMovieSceneBoolSection( const FObjectInitializer& ObjectInitializer )
@@ -20,9 +19,9 @@ void UMovieSceneBoolSection::PostLoad()
 	Super::PostLoad();
 }
 
-bool UMovieSceneBoolSection::Eval( float Position ) const
+bool UMovieSceneBoolSection::Eval( float Position, bool DefaultValue ) const
 {
-	return !!BoolCurve.Evaluate(Position);
+	return !!BoolCurve.Evaluate(Position, DefaultValue);
 }
 
 
@@ -90,19 +89,25 @@ void UMovieSceneBoolSection::AddKey( float Time, const bool& Value, EMovieSceneK
 
 void UMovieSceneBoolSection::SetDefault( const bool& Value )
 {
-	if (TryModify())
+	uint8 NewValue = Value ? 1 : 0;
+	if (BoolCurve.GetDefaultValue() != NewValue && TryModify())
 	{
-		BoolCurve.SetDefaultValue(Value ? 1 : 0);
+		BoolCurve.SetDefaultValue(NewValue);
 	}
 }
 
 
 bool UMovieSceneBoolSection::NewKeyIsNewData( float Time, const bool& Value ) const
 {
-	return Eval(Time) != Value;
+	return Eval(Time, Value) != Value;
 }
 
 bool UMovieSceneBoolSection::HasKeys( const bool& Value ) const
 {
 	return BoolCurve.GetNumKeys() != 0;
+}
+
+void UMovieSceneBoolSection::ClearDefaults()
+{
+	BoolCurve.ClearDefaultValue();
 }

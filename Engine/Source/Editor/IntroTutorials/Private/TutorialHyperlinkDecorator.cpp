@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IntroTutorialsPrivatePCH.h"
 #include "TutorialHyperlinkDecorator.h"
+#include "Styling/CoreStyle.h"
 #include "TutorialHyperlinkRun.h"
 
 TSharedRef< FTutorialHyperlinkDecorator > FTutorialHyperlinkDecorator::Create( FString Id, const FSlateHyperlinkRun::FOnClick& NavigateDelegate, const FSlateHyperlinkRun::FOnGetTooltipText& InToolTipTextDelegate, const FSlateHyperlinkRun::FOnGenerateTooltip& InToolTipDelegate )

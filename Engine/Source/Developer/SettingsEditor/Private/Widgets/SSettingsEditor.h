@@ -2,17 +2,21 @@
 
 #pragma once
 
-#include "NotifyHook.h"
-#include "SNotificationList.h"
+#include "CoreMinimal.h"
+#include "Misc/NotifyHook.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SOverlay.h"
+#include "ISettingsCategory.h"
+#include "ISettingsContainer.h"
+#include "ISettingsEditorModel.h"
+#include "ISettingsSection.h"
 
-
-// forward declarations
-class FEditPropertyChain;
-struct FPropertyChangedEvent;
 class IDetailsView;
-class SSettingsEditorCheckoutNotice;
-class UObject;
-
+class SVerticalBox;
+struct FPropertyChangedEvent;
 
 /**
  * Implements an editor widget for settings.

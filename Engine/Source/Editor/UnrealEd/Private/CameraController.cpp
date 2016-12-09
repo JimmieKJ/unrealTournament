@@ -4,8 +4,9 @@
 	CameraController.cpp: Implements controls for a camera with pseudo-physics
 =============================================================================*/
 
-#include "UnrealEd.h"
 #include "CameraController.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
 
 
 /** Constructor */

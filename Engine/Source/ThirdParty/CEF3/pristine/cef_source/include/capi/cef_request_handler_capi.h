@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Marshall A. Greenblatt. All rights reserved.
+// Copyright (c) 2016 Marshall A. Greenblatt. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -45,8 +45,8 @@
 #include "include/capi/cef_request_capi.h"
 #include "include/capi/cef_resource_handler_capi.h"
 #include "include/capi/cef_response_capi.h"
+#include "include/capi/cef_response_filter_capi.h"
 #include "include/capi/cef_ssl_info_capi.h"
-#include "include/capi/cef_web_plugin_capi.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -164,12 +164,37 @@ typedef struct _cef_request_handler_t {
       struct _cef_request_t* request, struct _cef_response_t* response);
 
   ///
+  // Called on the IO thread to optionally filter resource response content.
+  // |request| and |response| represent the request and response respectively
+  // and cannot be modified in this callback.
+  ///
+  struct _cef_response_filter_t* (CEF_CALLBACK *get_resource_response_filter)(
+      struct _cef_request_handler_t* self, struct _cef_browser_t* browser,
+      struct _cef_frame_t* frame, struct _cef_request_t* request,
+      struct _cef_response_t* response);
+
+  ///
+  // Called on the IO thread when a resource load has completed. |request| and
+  // |response| represent the request and response respectively and cannot be
+  // modified in this callback. |status| indicates the load completion status.
+  // |received_content_length| is the number of response bytes actually read.
+  ///
+  void (CEF_CALLBACK *on_resource_load_complete)(
+      struct _cef_request_handler_t* self, struct _cef_browser_t* browser,
+      struct _cef_frame_t* frame, struct _cef_request_t* request,
+      struct _cef_response_t* response, cef_urlrequest_status_t status,
+      int64 received_content_length);
+
+  ///
   // Called on the IO thread when the browser needs credentials from the user.
   // |isProxy| indicates whether the host is a proxy server. |host| contains the
-  // hostname and |port| contains the port number. Return true (1) to continue
-  // the request and call cef_auth_callback_t::cont() either in this function or
-  // at a later time when the authentication information is available. Return
-  // false (0) to cancel the request immediately.
+  // hostname and |port| contains the port number. |realm| is the realm of the
+  // challenge and may be NULL. |scheme| is the authentication scheme used, such
+  // as "basic" or "digest", and will be NULL if the source of the request is an
+  // FTP server. Return true (1) to continue the request and call
+  // cef_auth_callback_t::cont() either in this function or at a later time when
+  // the authentication information is available. Return false (0) to cancel the
+  // request immediately.
   ///
   int (CEF_CALLBACK *get_auth_credentials)(struct _cef_request_handler_t* self,
       struct _cef_browser_t* browser, struct _cef_frame_t* frame, int isProxy,
@@ -204,23 +229,14 @@ typedef struct _cef_request_handler_t {
   // Called on the UI thread to handle requests for URLs with an invalid SSL
   // certificate. Return true (1) and call cef_request_tCallback::cont() either
   // in this function or at a later time to continue or cancel the request.
-  // Return false (0) to cancel the request immediately. If |callback| is NULL
-  // the error cannot be recovered from and the request will be canceled
-  // automatically. If CefSettings.ignore_certificate_errors is set all invalid
-  // certificates will be accepted without calling this function.
+  // Return false (0) to cancel the request immediately. If
+  // CefSettings.ignore_certificate_errors is set all invalid certificates will
+  // be accepted without calling this function.
   ///
   int (CEF_CALLBACK *on_certificate_error)(struct _cef_request_handler_t* self,
       struct _cef_browser_t* browser, cef_errorcode_t cert_error,
       const cef_string_t* request_url, struct _cef_sslinfo_t* ssl_info,
       struct _cef_request_callback_t* callback);
-
-  ///
-  // Called on the browser process IO thread before a plugin is loaded. Return
-  // true (1) to block loading of the plugin.
-  ///
-  int (CEF_CALLBACK *on_before_plugin_load)(struct _cef_request_handler_t* self,
-      struct _cef_browser_t* browser, const cef_string_t* url,
-      const cef_string_t* policy_url, struct _cef_web_plugin_info_t* info);
 
   ///
   // Called on the browser process UI thread when a plugin has crashed.

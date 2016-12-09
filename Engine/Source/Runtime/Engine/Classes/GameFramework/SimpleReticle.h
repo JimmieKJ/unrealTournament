@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /**
  * Simple reticle. A very simple crosshair reticle that can be draw on the HUD canvas. 
  *

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "FrontendFilterBase.h"
 #include "ContentBrowserFrontEndFilterExtension.generated.h"
 
 // Override this class in order to make an additional front-end filter available in the Content Browser

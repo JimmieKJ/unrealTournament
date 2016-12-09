@@ -2,7 +2,21 @@
 
 #pragma once
 
-#include "../Public/ClassViewerModule.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Input/Reply.h"
+#include "ClassViewerModule.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+
+class FClassViewerNode;
+class FMenuBuilder;
+class FTextFilterExpressionEvaluator;
+class UBlueprint;
 
 //////////////////////////////////////////////////////////////////////////
 // SClassViewer

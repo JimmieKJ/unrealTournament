@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class ISourceControlRevision;
+class ISourceControlState;
+
 typedef TSharedRef<class ISourceControlState, ESPMode::ThreadSafe> FSourceControlStateRef;
 typedef TSharedPtr<class ISourceControlState, ESPMode::ThreadSafe> FSourceControlStatePtr;
 

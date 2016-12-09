@@ -627,6 +627,7 @@ bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float 
 	FVector HeadLocation = GetHeadLocation();
 	bool bHeadShot = FMath::PointDistToLine(HeadLocation, ShotDirection, HitLocation) < HeadRadius * HeadScale * WeaponHeadScaling;
 
+#if ENABLE_DRAW_DEBUG
 	if (CVarDebugHeadshots.GetValueOnGameThread() != 0)
 	{
 		DrawDebugLine(GetWorld(), HitLocation + (ShotDirection * 1000.f), HitLocation - (ShotDirection * 1000.f), FColor::White, true);
@@ -639,6 +640,8 @@ bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float 
 			DrawDebugSphere(GetWorld(), HeadLocation, HeadRadius * HeadScale * WeaponHeadScaling, 10, FColor::Red, true);
 		}
 	}
+#endif // ENABLE_DRAW_DEBUG
+
 	return bHeadShot;
 }
 
@@ -881,7 +884,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 						// K2 notification for this actor
 						if (ActualDamage != 0.f)
 						{
-							ReceivePointDamage(ActualDamage, DamageTypeCDO, PointDamageEvent->HitInfo.ImpactPoint, PointDamageEvent->HitInfo.ImpactNormal, PointDamageEvent->HitInfo.Component.Get(), PointDamageEvent->HitInfo.BoneName, PointDamageEvent->ShotDirection, EventInstigator, DamageCauser);
+							ReceivePointDamage(ActualDamage, DamageTypeCDO, PointDamageEvent->HitInfo.ImpactPoint, PointDamageEvent->HitInfo.ImpactNormal, PointDamageEvent->HitInfo.Component.Get(), PointDamageEvent->HitInfo.BoneName, PointDamageEvent->ShotDirection, EventInstigator, DamageCauser, PointDamageEvent->HitInfo);
 							OnTakePointDamage.Broadcast(this, ActualDamage, EventInstigator, PointDamageEvent->HitInfo.ImpactPoint, PointDamageEvent->HitInfo.Component.Get(), PointDamageEvent->HitInfo.BoneName, PointDamageEvent->ShotDirection, DamageTypeCDO, DamageCauser);
 						}
 					}
@@ -983,7 +986,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				{
 					// intentionally always apply to root because that replicates better, and damp to prevent excessive team boost
 					// @TODO FIXMESTEVE - want to always apply to correct bone
-					AUTGameState* GS = EventInstigator ? Cast<AUTGameState>(GetWorld()->GetGameState()) : NULL;
+					AUTGameState* GS = EventInstigator ? GetWorld()->GetGameState<AUTGameState>() : NULL;
 					float PushScaling = (GS && GS->OnSameTeam(this, EventInstigator)) ? 0.5f : 1.f;
 					GetMesh()->AddImpulseAtLocation(PushScaling*ResultMomentum*GetMesh()->GetMass() *0.01f, GetMesh()->GetComponentLocation());
 				}
@@ -1393,7 +1396,7 @@ void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 				// if teammate nearby, have them announce - send replicated function so client can verify last rendered time
 				for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 				{
-					AController* C = *Iterator;
+					AController* C = Iterator->Get();
 					AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
 					if (TeamPS && (TeamPS != UTPlayerState) && C->GetPawn() && GS->OnSameTeam(this, C) && (bBaseWarning || C->LineOfSightTo(this)))
 					{
@@ -5820,7 +5823,7 @@ void AUTCharacter::CascadeGroupTaunt()
 	bool bStartingPawnFound = false;
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (IsValid(*It))
+		if (IsValid(It->Get()))
 		{
 			AUTCharacter* UTChar = Cast<AUTCharacter>(*It);
 			if (UTChar)

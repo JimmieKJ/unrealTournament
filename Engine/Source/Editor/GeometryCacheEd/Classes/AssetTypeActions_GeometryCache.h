@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "GeometryCache.h"
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
 #include "AssetTypeActions_Base.h"
-#include "Classes/ThumbnailRendering/SceneThumbnailInfo.h"
+
+class FMenuBuilder;
 
 /** Type-actions class for GeometryCache assets*/
 class FAssetTypeActions_GeometryCache : public FAssetTypeActions_Base

@@ -19,11 +19,17 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Misc/NetworkGuid.h"
+#include "UObject/CoreNet.h"
 #include "Net/DataBunch.h"
 #include "PackageMapClient.generated.h"
 
-class FRepLayout;
-class FOutBunch;
+class UNetConnection;
+class UNetDriver;
 
 class ENGINE_API FNetFieldExport
 {
@@ -145,11 +151,18 @@ class ENGINE_API FNetGUIDCache
 public:
 	FNetGUIDCache( UNetDriver * InDriver );
 
-	enum ENetworkChecksumMode
+	enum class ENetworkChecksumMode
 	{
-		NETCHECKSUM_None			= 0,
-		NETCHECKSUM_SaveAndUse		= 1,
-		NETCHECKSUM_SaveButIgnore	= 2,
+		None			= 0,		// Don't use checksums
+		SaveAndUse		= 1,		// Save checksums in stream, and use to validate while loading packages
+		SaveButIgnore	= 2,		// Save checksums in stream, but ignore when loading packages
+	};
+
+	enum class EAsyncLoadMode
+	{
+		UseCVar			= 0,		// Use CVar (net.AllowAsyncLoading) to determine if we should async load
+		ForceDisable	= 1,		// Disable async loading
+		ForceEnable		= 2,		// Force enable async loading
 	};
 
 	void			CleanReferences();
@@ -174,6 +187,8 @@ public:
 	uint32			GetClassNetworkChecksum( const UClass* Class );
 	uint32			GetNetworkChecksum( const UObject* Obj );
 	void			SetNetworkChecksumMode( const ENetworkChecksumMode NewMode );
+	void			SetAsyncLoadMode( const EAsyncLoadMode NewMode );
+	bool			ShouldAsyncLoad() const;
 
 	void			AsyncPackageCallback(const FName& PackageName, UPackage * Package, EAsyncLoadingResult::Type Result);
 	
@@ -190,6 +205,7 @@ public:
 	TMap< FName, FNetworkGUID >						PendingAsyncPackages;
 
 	ENetworkChecksumMode							NetworkChecksumMode;
+	EAsyncLoadMode									AsyncLoadMode;
 
 	/** Maps net field export group name to the respective FNetFieldExportGroup */
 	TMap < FString, TSharedPtr< FNetFieldExportGroup > >	NetFieldExportGroupMap;

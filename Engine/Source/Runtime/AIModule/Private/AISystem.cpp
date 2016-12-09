@@ -1,18 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "EngineUtils.h"
-#include "StringClassReference.h"
+#include "AISystem.h"
+#include "Modules/ModuleManager.h"
+#include "AIController.h"
+#include "Perception/AIPerceptionSystem.h"
 #include "BehaviorTree/BehaviorTreeManager.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "EnvironmentQuery/EnvQueryManager.h"
-#include "Perception/AIPerceptionSystem.h"
 #include "GameFramework/PlayerController.h"
 #include "HotSpots/AIHotSpotManager.h"
 #include "BehaviorTree/BlackboardData.h"
-#include "AISystem.h"
+#include "Navigation/NavLocalGridManager.h"
+#include "Misc/CommandLine.h"
 
 DEFINE_STAT(STAT_AI_Overall);
+
+FRandomStream UAISystem::RandomStream;
 
 UAISystem::UAISystem(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -30,8 +33,22 @@ UAISystem::UAISystem(const FObjectInitializer& ObjectInitializer)
 	{
 		UWorld* WorldOuter = Cast<UWorld>(GetOuter());
 		UObject* ManagersOuter = WorldOuter != NULL ? (UObject*)WorldOuter : (UObject*)this;
+		
 		BehaviorTreeManager = NewObject<UBehaviorTreeManager>(ManagersOuter);
 		EnvironmentQueryManager = NewObject<UEnvQueryManager>(ManagersOuter);
+		NavLocalGrids = NewObject<UNavLocalGridManager>(ManagersOuter);
+	}
+	else
+	{
+		// game-wise config
+		if (FParse::Param(FCommandLine::Get(), TEXT("FixedSeed")) == false)
+		{
+			// by default FRandomStream is initialized with 0
+			// only if not configured with commandline we should 
+			// initialize the random stream.
+			const int32 Seed = ((int32)(FDateTime::Now().GetTicks() % (int64)MAX_int32));
+			RandomStream.Initialize(Seed);
+		}
 	}
 }
 

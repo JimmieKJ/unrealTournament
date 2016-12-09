@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SlateTextUnderlineLineHighlighter.h"
+#include "Framework/Text/SlateTextUnderlineLineHighlighter.h"
+#include "Rendering/SlateLayoutTransform.h"
+#include "Rendering/DrawElements.h"
+#include "Fonts/FontCache.h"
+#include "Framework/Application/SlateApplication.h"
 
 FSlateTextUnderlineLineHighlighter::FSlateTextUnderlineLineHighlighter(const FSlateBrush& InUnderlineBrush, const FSlateFontInfo& InFontInfo, const FSlateColor InColorAndOpacity, const FVector2D InShadowOffset, const FLinearColor InShadowColorAndOpacity)
 	: UnderlineBrush(InUnderlineBrush)

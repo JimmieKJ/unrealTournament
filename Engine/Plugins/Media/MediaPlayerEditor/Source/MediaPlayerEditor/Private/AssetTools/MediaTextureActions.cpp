@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "MediaTextureActions.h"
-
+#include "AssetTools/MediaTextureActions.h"
+#include "Engine/Texture.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Misc/PackageName.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
+#include "EditorStyleSet.h"
+#include "Materials/Material.h"
+#include "Factories/MaterialFactoryNew.h"
+#include "MediaTexture.h"
+#include "Interfaces/ITextureEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

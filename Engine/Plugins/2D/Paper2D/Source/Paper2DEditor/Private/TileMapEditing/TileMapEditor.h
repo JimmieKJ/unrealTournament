@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "WorkflowCentricApplication.h"
-#include "SPaperEditorViewport.h"
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Toolkits/IToolkitHost.h"
+#include "Toolkits/AssetEditorToolkit.h"
+
+class STileMapEditorViewport;
+class UPaperTileMap;
 
 //////////////////////////////////////////////////////////////////////////
 // FTileMapEditor
@@ -11,6 +17,8 @@
 class FTileMapEditor : public FAssetEditorToolkit, public FGCObject
 {
 public:
+	FTileMapEditor();
+
 	// IToolkit interface
 	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
 	virtual void UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;

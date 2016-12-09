@@ -124,6 +124,7 @@ void AUTPainVolume::PostUnregisterAllComponents()
 	}
 }
 
+// @note: This is a duplicate function from UnrealClient.cpp - should be refactored
 void UTInsertVolume(IInterface_PostProcessVolume* Volume, TArray< IInterface_PostProcessVolume* >& VolumeArray)
 {
 	const int32 NumVolumes = VolumeArray.Num();

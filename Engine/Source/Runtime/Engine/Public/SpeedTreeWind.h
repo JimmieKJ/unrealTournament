@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
 #include "UniformBuffer.h"
 
 ///////////////////////////////////////////////////////////////////////  

@@ -1,8 +1,8 @@
 
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "RendererPrivate.h"
 #include "WideCustomResolveShaders.h"
+#include "StaticBoundShaderState.h"
 #include "ShaderParameterUtils.h"
 
 IMPLEMENT_SHADER_TYPE(, FWideCustomResolveVS, TEXT("WideCustomResolveShaders"), TEXT("WideCustomResolveVS"), SF_Vertex);

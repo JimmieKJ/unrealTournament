@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/SharedPointer.h"
+#include "Delegates/Delegate.h"
+#include "Misc/IFilter.h"
 
 /**
  *	A generic filter designed to call a predicate provided on construction to filter

@@ -2,8 +2,33 @@
 
 
 #include "UnrealHeaderTool.h"
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "Logging/LogMacros.h"
+#include "CoreGlobals.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/CompilationResult.h"
+#include "UnrealHeaderToolGlobals.h"
 
 #include "RequiredProgramMainCPPInclude.h"
+
+
+//#define COMPILER_WARNING(x) GCC warning x
+//#define COMPILER_ERROR(x) GCC error x
+
+//#define DO_WARNING(x) _Pragma(#x)
+//#define DO_WARNING_2(x) DO_WARNING(GCC warning x)
+
+//DO_WARNING_2("hello")
+
+//#pragma GCC warning "this is a warning"
+//#pragma GCC error "this is an error"
+
+//COMPILER_WARNING("this is a warning")
+//COMPILER_ERROR("this is an error")
 
 IMPLEMENT_APPLICATION(UnrealHeaderTool, "UnrealHeaderTool");
 

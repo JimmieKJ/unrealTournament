@@ -2,48 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IMessageContext.h"
 
-class IMessageContext;
+struct FMessageTracerEndpointInfo;
+struct FMessageTracerMessageInfo;
+struct FMessageTracerTypeInfo;
 
-
-/** Type definition for shared pointers to instances of FMessageTracerAddressInfo. */
-typedef TSharedPtr<struct FMessageTracerAddressInfo> FMessageTracerAddressInfoPtr;
-
-/** Type definition for shared references to instances of FMessageTracerAddressInfo. */
-typedef TSharedRef<struct FMessageTracerAddressInfo> FMessageTracerAddressInfoRef;
-
-/** Type definition for shared pointers to instances of FMessageTracerDispatchState. */
-typedef TSharedPtr<struct FMessageTracerDispatchState> FMessageTracerDispatchStatePtr;
-
-/** Type definition for shared references to instances of FMessageTracerDispatchState. */
-typedef TSharedRef<struct FMessageTracerDispatchState> FMessageTracerDispatchStateRef;
-
-/** Type definition for shared pointers to instances of FMessageTracerEndpointInfo. */
-typedef TSharedPtr<struct FMessageTracerEndpointInfo> FMessageTracerEndpointInfoPtr;
-
-/** Type definition for shared references to instances of FMessageTracerEndpointInfo. */
-typedef TSharedRef<struct FMessageTracerEndpointInfo> FMessageTracerEndpointInfoRef;
-
-/** Type definition for shared pointers to instances of FMessageTracerInterceptorInfo. */
-typedef TSharedPtr<struct FMessageTracerInterceptorInfo> FMessageTracerInterceptorInfoPtr;
-
-/** Type definition for shared references to instances of FMessageTracerInterceptorInfo. */
-typedef TSharedRef<struct FMessageTracerInterceptorInfo> FMessageTracerInterceptorInfoRef;
-
-/** Type definition for shared pointers to instances of FMessageTracerMessageInfo. */
-typedef TSharedPtr<struct FMessageTracerMessageInfo> FMessageTracerMessageInfoPtr;
-
-/** Type definition for shared references to instances of FMessageTracerMessageInfo. */
-typedef TSharedRef<struct FMessageTracerMessageInfo> FMessageTracerMessageInfoRef;
-
-/** Type definition for shared pointers to instances of FMessageTracerTypeInfo. */
-typedef TSharedPtr<struct FMessageTracerTypeInfo> FMessageTracerTypeInfoPtr;
-
-/** Type definition for shared references to instances of FMessageTracerTypeInfo. */
-typedef TSharedRef<struct FMessageTracerTypeInfo> FMessageTracerTypeInfoRef;
-
-
-/** Enumerates tracer breakpoint states. */
+/**
+ * Enumerates tracer breakpoint states.
+ */
 enum class EMessageTracerBreakpointState
 {
 	/** The breakpoint is disabled. */
@@ -107,7 +75,7 @@ struct FMessageTracerDispatchState
 	EMessageTracerDispatchTypes DispatchType;
 
 	/** Holds the endpoint to which the message was or is being dispatched. */
-	FMessageTracerEndpointInfoPtr EndpointInfo;
+	TSharedPtr<FMessageTracerEndpointInfo> EndpointInfo;
 
 	/** The thread on which the endpoint receives messages. */
 	ENamedThreads::Type RecipientThread;
@@ -142,19 +110,19 @@ struct FMessageTracerAddressInfo
 struct FMessageTracerEndpointInfo
 {
 	/** Holds the recipient's address information. */
-	TMap<FMessageAddress, FMessageTracerAddressInfoPtr> AddressInfos;
+	TMap<FMessageAddress, TSharedPtr<FMessageTracerAddressInfo>> AddressInfos;
 
 	/** Holds the recipient's human readable name. */
 	FName Name;
 
 	/** Holds the list of messages received by this recipient. */
-	TArray<FMessageTracerMessageInfoPtr> ReceivedMessages;
+	TArray<TSharedPtr<FMessageTracerMessageInfo>> ReceivedMessages;
 
 	/** Holds a flag indicating whether this is a remote recipient. */
 	bool Remote;
 
 	/** Holds the list of messages sent by this recipient. */
-	TArray<FMessageTracerMessageInfoPtr> SentMessages;
+	TArray<TSharedPtr<FMessageTracerMessageInfo>> SentMessages;
 };
 
 
@@ -167,7 +135,7 @@ struct FMessageTracerInterceptorInfo
 	FName Name;
 
 	/** Holds the list of messages intercepted by this interceptor. */
-	TArray<FMessageTracerMessageInfoPtr> InterceptedMessages;
+	TArray<TSharedPtr<FMessageTracerMessageInfo>> InterceptedMessages;
 
 	/** Holds the time at which this interceptor was registered. */
 	double TimeRegistered;
@@ -186,13 +154,13 @@ struct FMessageTracerMessageInfo
 	IMessageContextPtr Context;
 
 	/** Holds the message's dispatch states per endpoint. */
-	TMap<FMessageTracerEndpointInfoPtr, FMessageTracerDispatchStatePtr> DispatchStates;
+	TMap<TSharedPtr<FMessageTracerEndpointInfo>, TSharedPtr<FMessageTracerDispatchState>> DispatchStates;
 
 	/** Whether the message was intercepted. */
 	bool Intercepted;
 
 	/** Pointer to the sender's endpoint information. */
-	FMessageTracerEndpointInfoPtr SenderInfo;
+	TSharedPtr<FMessageTracerEndpointInfo> SenderInfo;
 
 	/** Holds the time at which the message was routed (0.0 = pending). */
 	double TimeRouted;
@@ -201,7 +169,7 @@ struct FMessageTracerMessageInfo
 	double TimeSent;
 
 	/** Pointer to the message's type information. */
-	FMessageTracerTypeInfoPtr TypeInfo;
+	TSharedPtr<FMessageTracerTypeInfo> TypeInfo;
 };
 
 
@@ -211,7 +179,7 @@ struct FMessageTracerMessageInfo
 struct FMessageTracerTypeInfo
 {
 	/** Holds the collection of messages of this type. */
-	TArray<FMessageTracerMessageInfoPtr> Messages;
+	TArray<TSharedPtr<FMessageTracerMessageInfo>> Messages;
 
 	/** Holds a name of the message type. */
 	FName TypeName;
@@ -292,14 +260,14 @@ public:
 	 * @param OutEndpoints Will contain the list of endpoints.
 	 * @return The number of endpoints returned.
 	 */
-	virtual int32 GetEndpoints(TArray<FMessageTracerEndpointInfoPtr>& OutEndpoints) const = 0;
+	virtual int32 GetEndpoints(TArray<TSharedPtr<FMessageTracerEndpointInfo>>& OutEndpoints) const = 0;
 
 	/**
 	 * Gets the collection of known messages.
 	 *
 	 * @return The messages.
 	 */
-	virtual int32 GetMessages(TArray<FMessageTracerMessageInfoPtr>& OutMessages) const = 0;
+	virtual int32 GetMessages(TArray<TSharedPtr<FMessageTracerMessageInfo>>& OutMessages) const = 0;
 
 	/**
 	 * Gets the list of known message types filtered by name.
@@ -308,7 +276,7 @@ public:
 	 * @param OutTypes Will contain the list of message types.
 	 * @return The number of message types returned.
 	 */
-	virtual int32 GetMessageTypes(TArray<FMessageTracerTypeInfoPtr>& OutTypes) const = 0;
+	virtual int32 GetMessageTypes(TArray<TSharedPtr<FMessageTracerTypeInfo>>& OutTypes) const = 0;
 
 	/**
 	 * Checks whether there are any messages in the history.
@@ -318,6 +286,9 @@ public:
 	virtual bool HasMessages() const = 0;
 
 public:
+
+	typedef TSharedRef<FMessageTracerMessageInfo> FMessageTracerMessageInfoRef;
+	typedef TSharedRef<FMessageTracerTypeInfo> FMessageTracerTypeInfoRef;
 
 	/**
 	 * A delegate that is executed when the collection of known messages has changed.
@@ -348,10 +319,3 @@ protected:
 	/** Hidden destructor. The life time of a message tracer is managed by the message bus. */
 	virtual ~IMessageTracer() { }
 };
-
-
-/** Type definition for shared pointers to instances of IMessageTracer. */
-typedef TSharedPtr<IMessageTracer, ESPMode::ThreadSafe> IMessageTracerPtr;
-
-/** Type definition for shared references to instances of IMessageTracer. */
-typedef TSharedRef<IMessageTracer, ESPMode::ThreadSafe> IMessageTracerRef;

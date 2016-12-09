@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "IPerforceSourceControlWorker.h"
 #include "PerforceSourceControlState.h"
+
+class FPerforceSourceControlRevision;
 
 class FPerforceConnectWorker : public IPerforceSourceControlWorker
 {

@@ -1,6 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameMenuBuilderPrivatePCH.h"
+#include "SGameMenuItemWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Slate/SlateGameResources.h"
+#include "GameMenuBuilderStyle.h"
+#include "SGameMenuPageWidget.h"
+#include "GameMenuPage.h"
+#include "Engine/World.h"
 
 void SGameMenuItemWidget::Construct(const FArguments& InArgs)
 {

@@ -5,26 +5,11 @@
   <Date>2016-06-07T17:32:36.486913-04:00</Date>
   <Function>Compresses textures</Function>
   <Justification>We need to compress textures, and would like to replace the ATI Compressonator. .libs checked into perforce and distributed to licensees reasonably soon so that we can check it into perforce</Justification>
-  <Platforms>
-    <Platform>PC</Platform>
-    <Platform>Mac</Platform>
-    <Platform>Android</Platform>
-    <Platform>iOS</Platform>
-  </Platforms>
-  <Products>
-    <Product>UDK4</Product>
-    <Product>UE4</Product>
-  </Products>
-  <TpsType>lib</TpsType>
-  <Eula>See installer EULA</Eula>
+  <Eula>See installer EULA: https://developer.qualcomm.com/software/adreno-gpu-sdk/tools</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
   <LicenseFolder>None</LicenseFolder>
 </TpsData>

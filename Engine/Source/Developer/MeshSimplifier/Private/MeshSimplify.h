@@ -3,26 +3,14 @@
 
 #pragma once
 
-// 1:on, 0:off, might not be working, could save performance
-#define SIMP_CACHE	0
+#include "CoreMinimal.h"
 
-// Notes:
-// * Algorithm is doing edge collapse, not vertex pair collapse (objects don't combine up)
-// * Vertices/triangles/... are referenced by pointers and there will be no reallocation
-// * double floating point computations are needed for quality
-// * Reference for the algorithm (variable names match the notations in the paper) http://research.microsoft.com/en-us/um/people/hoppe/proj/minqem/
-// * Potential Optimization (see below): if edge collapse would clean up the data structures properly the safe but slow global fixup would not be needed O(n) inside n loop -> O(n*n)
-// * Vertices can be locked, currently this is limited to boundaries through SetBoundaryLocked()
-// * ComputeNewVerts() is moving the vert
-// * SetAttributeWeights() should be called to define weight for UV/color/pos
-// * Magic numbers: "degreeLimit"  is number of adjacent triangles, unlikely it needs to be tweaked, same for "degreePenalty"
+#define SIMP_CACHE	1
 
-
-
-#include "HashTable.h"
-#include "BinaryHeap.h"
-#include "MeshSimplifyElements.h"
-#include "Quadric.h"
+#include "Developer/MeshSimplifier/Private/HashTable.h"
+#include "Developer/MeshSimplifier/Private/BinaryHeap.h"
+#include "Developer/MeshSimplifier/Private/MeshSimplifyElements.h"
+#include "Developer/MeshSimplifier/Private/Quadric.h"
 //#include "Cache.h"
 
 template< typename T, uint32 NumAttributes >
@@ -40,7 +28,7 @@ public:
 
 	void				InitCosts();
 
-	void				SimplifyMesh( float maxError, int minTris );
+	float				SimplifyMesh( float maxErrorLimit, int minTris );
 
 	int					GetNumVerts() const { return numVerts; }
 	int					GetNumTris() const { return numTris; }
@@ -53,10 +41,6 @@ protected:
 
 	void				LockTriFlags( uint32 flag );
 	void				UnlockTriFlags( uint32 flag );
-
-	void				UpdateVert( TSimpVert<T>* vert );
-	void				UpdateTri( TSimpTri<T>* tri );
-	void				UpdateEdge( TSimpEdge<T>* edge );
 
 	void				GatherUpdates( TSimpVert<T>* v );
 
@@ -81,10 +65,13 @@ protected:
 	void				ReplaceEdgeVert( const TSimpVert<T>* oldV, const TSimpVert<T>* otherV, TSimpVert<T>* newV );
 	void				CollapseEdgeVert( const TSimpVert<T>* oldV, const TSimpVert<T>* otherV, TSimpVert<T>* newV );
 
-	void				UpdateEdgeCosts( TSimpVert<T>* vert );
 	float				ComputeNewVerts( TSimpEdge<T>* edge, T* newVerts );
 	float				ComputeEdgeCollapseCost( TSimpEdge<T>* edge );
 	void				Collapse( TSimpEdge<T>* edge );
+
+	void				UpdateTris();
+	void				UpdateVerts();
+	void				UpdateEdges();
 
 	uint32				vertFlagLock;
 	uint32				triFlagLock;
@@ -104,18 +91,19 @@ protected:
 	FHashTable				edgeHash;
 	FBinaryHeap<float>		edgeHeap;
 
-	// TODO switch to TArray
-	uint32		updateVertsNum;
-	uint32		updateTrisNum;
-	uint32		updateEdgesNum;
-
-	TSimpVert<T>*		updateVerts[1024];
-	TSimpTri<T>*		updateTris[1024];
-	TSimpEdge<T>*		updateEdges[1024];
+	TArray< TSimpVert<T>* >	updateVerts;
+	TArray< TSimpTri<T>* >	updateTris;
+	TArray< TSimpEdge<T>* >	updateEdges;
 
 #if SIMP_CACHE
-	TCacheDirect< QuadricType, 1024 >	vertCache;
-	TCacheDirect< QuadricType, 1024 >	triCache;
+	TBitArray<>				VertQuadricsValid;
+	TArray< QuadricType >	VertQuadrics;
+
+	TBitArray<>				TriQuadricsValid;
+	TArray< QuadricType >	TriQuadrics;
+
+	TBitArray<>				EdgeQuadricsValid;
+	TArray< FQuadric >		EdgeQuadrics;
 #endif
 };
 
@@ -130,10 +118,6 @@ TMeshSimplifier<T, NumAttributes>::TMeshSimplifier( const T* Verts, uint32 NumVe
 	vertFlagLock = 0;
 	triFlagLock = 0;
 
-	updateVertsNum = 0;
-	updateTrisNum = 0;
-	updateEdgesNum = 0;
-
 	for( uint32 i = 0; i < NumAttributes; i++ )
 	{
 		attributeWeights[i] = 1.0f;
@@ -147,6 +131,17 @@ TMeshSimplifier<T, NumAttributes>::TMeshSimplifier( const T* Verts, uint32 NumVe
 
 	sVerts = new TSimpVert<T>[ numSVerts ];
 	sTris = new TSimpTri<T>[ numSTris ];
+
+#if SIMP_CACHE
+	VertQuadricsValid.Init( false, numSVerts );
+	VertQuadrics.SetNum( numSVerts );
+
+	TriQuadricsValid.Init( false, numSTris );
+	TriQuadrics.SetNum( numSTris );
+
+	EdgeQuadricsValid.Init( false, numSVerts );
+	EdgeQuadrics.SetNum( numSVerts );
+#endif
 
 	for( int i = 0; i < numSVerts; i++ )
 	{
@@ -165,7 +160,7 @@ TMeshSimplifier<T, NumAttributes>::TMeshSimplifier( const T* Verts, uint32 NumVe
 	GroupVerts();
 
 	int maxEdgeSize = FMath::Min( 3 * numSTris, 3 * numSVerts - 6 );
-	edges.SetNum( maxEdgeSize );
+	edges.Empty( maxEdgeSize );
 	for( int i = 0; i < numSVerts; i++ )
 	{
 		InitVert( &sVerts[i] );
@@ -201,59 +196,51 @@ void TMeshSimplifier<T, NumAttributes>::SetAttributeWeights( const float* weight
 template< typename T, uint32 NumAttributes >
 void TMeshSimplifier<T, NumAttributes>::SetBoundaryLocked()
 {
+	TArray< TSimpVert<T>*, TInlineAllocator<64> > adjVerts;
+
 	for( int i = 0; i < numSVerts; i++ )
 	{
 		TSimpVert<T>* v0 = &sVerts[i];
 		check( v0->adjTris.Num() > 0 );
 
-		LockVertFlags( SIMP_MARK1 );
+		adjVerts.Reset();
+		v0->FindAdjacentVertsGroup( adjVerts );
 
-		[this, v0]()
+		for( TSimpVert<T>* v1 : adjVerts )
 		{
-			TSimpVert<T>** adjVerts = (TSimpVert<T>**)FMemory_Alloca( 2 * v0->NumAdjTrisGroup() * sizeof( TSimpVert<T>* ) );
-			check(adjVerts);
-			int numAdjVerts;
-			v0->FindAdjacentVertsGroup( adjVerts, numAdjVerts );
-
-			UnlockVertFlags( SIMP_MARK1 );
-
-			for( int a = 0; a < numAdjVerts; a++ )
+			if( v0 < v1 )
 			{
-				TSimpVert<T>* v1 = adjVerts[a];
-				if( v0 < v1 )
+				LockTriFlags( SIMP_MARK1 );
+
+				// set if this edge is boundary
+				// find faces that share v0 and v1
+				v0->EnableAdjTriFlagsGroup( SIMP_MARK1 );
+				v1->DisableAdjTriFlagsGroup( SIMP_MARK1 );
+
+				int faceCount = 0;
+				TSimpVert<T>* vert = v0;
+				do
 				{
-					LockTriFlags( SIMP_MARK1 );
-
-					// set if this edge is boundary
-					// find faces that share v0 and v1
-					v0->EnableAdjTriFlagsGroup( SIMP_MARK1 );
-					v1->DisableAdjTriFlagsGroup( SIMP_MARK1 );
-
-					int faceCount = 0;
-					TSimpVert<T>* vert = v0;
-					do
+					for( TriIterator j = vert->adjTris.Begin(); j != vert->adjTris.End(); ++j )
 					{
-						for( TriIterator j = vert->adjTris.Begin(); j != vert->adjTris.End(); ++j )
-						{
-							TSimpTri<T>* tri = *j;
-							faceCount += tri->TestFlags( SIMP_MARK1 ) ? 0 : 1;
-						}
-						vert = vert->next;
-					} while( vert != v0 );
-
-					v0->DisableAdjTriFlagsGroup( SIMP_MARK1 );
-
-					if( faceCount == 1 )
-					{
-						// only one face on this edge
-						v0->EnableFlagsGroup( SIMP_LOCKED );
-						v1->EnableFlagsGroup( SIMP_LOCKED );
+						TSimpTri<T>* tri = *j;
+						faceCount += tri->TestFlags( SIMP_MARK1 ) ? 0 : 1;
 					}
+					vert = vert->next;
+				} while( vert != v0 );
 
-					UnlockTriFlags( SIMP_MARK1 );
+				v0->DisableAdjTriFlagsGroup( SIMP_MARK1 );
+
+				if( faceCount == 1 )
+				{
+					// only one face on this edge
+					v0->EnableFlagsGroup( SIMP_LOCKED );
+					v1->EnableFlagsGroup( SIMP_LOCKED );
 				}
+
+				UnlockTriFlags( SIMP_MARK1 );
 			}
-		}();
+		}
 	}
 }
 
@@ -285,70 +272,22 @@ FORCEINLINE void TMeshSimplifier<T, NumAttributes>::UnlockTriFlags( uint32 f )
 }
 
 template< typename T, uint32 NumAttributes >
-FORCEINLINE void TMeshSimplifier<T, NumAttributes>::UpdateVert( TSimpVert<T>* vert )
-{
-	// TODO add unique
-	if( vert->TestFlags( SIMP_UPDATE ) )
-		return;
-
-	vert->EnableFlags( SIMP_UPDATE );
-
-	checkSlow( updateVertsNum < 1024 );
-	updateVerts[ updateVertsNum++ ] = vert;
-}
-
-template< typename T, uint32 NumAttributes >
-FORCEINLINE void TMeshSimplifier<T, NumAttributes>::UpdateTri( TSimpTri<T>* tri )
-{
-	// TODO add unique
-	if( tri->TestFlags( SIMP_UPDATE ) )
-	{
-		return;
-	}
-
-	tri->EnableFlags( SIMP_UPDATE );
-
-	checkSlow( updateTrisNum < 1024 );
-	updateTris[ updateTrisNum++ ] = tri;
-}
-
-template< typename T, uint32 NumAttributes >
-FORCEINLINE void TMeshSimplifier<T, NumAttributes>::UpdateEdge( TSimpEdge<T>* edge )
-{
-	// TODO add unique
-	if( edge->TestFlags( SIMP_UPDATE ) )
-	{
-		return;
-	}
-
-	edge->EnableFlags( SIMP_UPDATE );
-
-	checkSlow( updateEdgesNum < 1024 );
-	updateEdges[ updateEdgesNum++ ] = edge;
-}
-
-template< typename T, uint32 NumAttributes >
 void TMeshSimplifier<T, NumAttributes>::InitVert( TSimpVert<T>* v )
 {
 	check( v->adjTris.Num() > 0 );
 
-	LockVertFlags( SIMP_MARK1 );
-
-	TSimpVert<T>** adjVerts = (TSimpVert<T>**)FMemory_Alloca( 2 * v->adjTris.Num() * sizeof( TSimpVert<T>* ) );
-	check(adjVerts);
-	int numAdjVerts;
-	v->FindAdjacentVerts( adjVerts, numAdjVerts );
-
-	UnlockVertFlags( SIMP_MARK1 );
+	TArray< TSimpVert<T>*, TInlineAllocator<64> > adjVerts;
+	v->FindAdjacentVerts( adjVerts );
 
 	TSimpVert<T>* v0 = v;
-	for( int i = 0; i < numAdjVerts; i++ )
+	for( TSimpVert<T>* v1 : adjVerts )
 	{
-		TSimpVert<T>* v1 = adjVerts[i];
 		if( v0 < v1 )
 		{
+			check( v0->GetMaterialIndex() == v1->GetMaterialIndex() );
+			
 			// add edge
-			edges.AddUninitialized();
+			edges.AddDefaulted();
 			TSimpEdge<T>& edge = edges.Last();
 			edge.v0 = v0;
 			edge.v1 = v1;
@@ -459,6 +398,7 @@ void TMeshSimplifier<T, NumAttributes>::InitCosts()
 	for( int i = 0; i < edges.Num(); i++ )
 	{
 		float cost = ComputeEdgeCollapseCost( &edges[i] );
+		check( FMath::IsFinite( cost ) );
 		edgeHeap.Add( cost, i );
 	}
 }
@@ -467,11 +407,10 @@ template< typename T, uint32 NumAttributes >
 TQuadricAttr< NumAttributes > TMeshSimplifier<T, NumAttributes>::GetQuadric( TSimpVert<T>* v )
 {
 #if SIMP_CACHE
-	uint32 vertKey = GetVertIndex( v );
-	QuadricType* found = vertCache.Find( vertKey );
-	if( found )
+	uint32 VertIndex = GetVertIndex( v );
+	if( VertQuadricsValid[ VertIndex ] )
 	{
-		return *found;
+		return VertQuadrics[ VertIndex ];
 	}
 #endif
 
@@ -483,11 +422,10 @@ TQuadricAttr< NumAttributes > TMeshSimplifier<T, NumAttributes>::GetQuadric( TSi
 	{
 		TSimpTri<T>* tri = *i;
 #if SIMP_CACHE
-		uint32 triKey = GetTriIndex( tri );
-		QuadricType* f = triCache.Find( triKey );
-		if( f )
+		uint32 TriIndex = GetTriIndex( tri );
+		if( TriQuadricsValid[ TriIndex ] )
 		{
-			vertQuadric += *f;
+			vertQuadric += TriQuadrics[ TriIndex ];
 		}
 		else
 		{
@@ -495,8 +433,10 @@ TQuadricAttr< NumAttributes > TMeshSimplifier<T, NumAttributes>::GetQuadric( TSi
 				tri->verts[0]->GetPos(),		tri->verts[1]->GetPos(),		tri->verts[2]->GetPos(),
 				tri->verts[0]->GetAttributes(),	tri->verts[1]->GetAttributes(),	tri->verts[2]->GetAttributes(),
 				attributeWeights );
-			triCache.Add( triKey, triQuadric );
 			vertQuadric += triQuadric;
+			
+			TriQuadricsValid[ TriIndex ] = true;
+			TriQuadrics[ TriIndex ] = triQuadric;
 		}
 #else
 		QuadricType triQuadric(
@@ -508,7 +448,8 @@ TQuadricAttr< NumAttributes > TMeshSimplifier<T, NumAttributes>::GetQuadric( TSi
 	}
 
 #if SIMP_CACHE
-	vertCache.Add( vertKey, vertQuadric );
+	VertQuadricsValid[ VertIndex ] = true;
+	VertQuadrics[ VertIndex ] = vertQuadric;
 #endif
 
 	return vertQuadric;
@@ -517,25 +458,25 @@ TQuadricAttr< NumAttributes > TMeshSimplifier<T, NumAttributes>::GetQuadric( TSi
 template< typename T, uint32 NumAttributes >
 FQuadric TMeshSimplifier<T, NumAttributes>::GetEdgeQuadric( TSimpVert<T>* v )
 {
+#if SIMP_CACHE
+	uint32 VertIndex = GetVertIndex( v );
+	if( EdgeQuadricsValid[ VertIndex ] )
+	{
+		return EdgeQuadrics[ VertIndex ];
+	}
+#endif
+
 	FQuadric vertQuadric;
 	vertQuadric.Zero();
 
-	LockVertFlags( SIMP_MARK1 );
-
-	TSimpVert<T>** adjVerts = (TSimpVert<T>**)FMemory_Alloca( 2 * v->adjTris.Num() * sizeof( TSimpVert<T>* ) );
-	check(adjVerts);
-	int numAdjVerts;
-	v->FindAdjacentVerts( adjVerts, numAdjVerts );
-
-	UnlockVertFlags( SIMP_MARK1 );
+	TArray< TSimpVert<T>*, TInlineAllocator<64> > adjVerts;
+	v->FindAdjacentVerts( adjVerts );
 
 	LockTriFlags( SIMP_MARK1 );
 	v->EnableAdjTriFlags( SIMP_MARK1 );
 	
-	for( int i = 0; i < numAdjVerts; i++ )
+	for( TSimpVert<T>* vert : adjVerts )
 	{
-		TSimpVert<T>* vert = adjVerts[i];
-
 		TSimpTri<T>* face = NULL;
 		int faceCount = 0;
 		for( TriIterator j = vert->adjTris.Begin(); j != vert->adjTris.End(); ++j )
@@ -551,13 +492,18 @@ FQuadric TMeshSimplifier<T, NumAttributes>::GetEdgeQuadric( TSimpVert<T>* v )
 		if( faceCount == 1 )
 		{
 			// only one face on this edge
-			FQuadric edgeQuadric( v->GetPos(), vert->GetPos(), face->GetNormal(), 16.0f );
+			FQuadric edgeQuadric( v->GetPos(), vert->GetPos(), face->GetNormal(), 256.0f );
 			vertQuadric += edgeQuadric;
 		}
 	}
 
 	v->DisableAdjTriFlags( SIMP_MARK1 );
 	UnlockTriFlags( SIMP_MARK1 );
+
+#if SIMP_CACHE
+	EdgeQuadricsValid[ VertIndex ] = true;
+	EdgeQuadrics[ VertIndex ] = vertQuadric;
+#endif
 
 	return vertQuadric;
 }
@@ -586,20 +532,24 @@ FORCEINLINE uint32 TMeshSimplifier<T, NumAttributes>::GetEdgeIndex( const TSimpE
 template< typename T, uint32 NumAttributes >
 FORCEINLINE uint32 TMeshSimplifier<T, NumAttributes>::HashPoint( const FVector& p ) const
 {
-	uint32 hash;
-	hash  = FMath::MortonCode3( (uint32)p[0] );
-	hash |= FMath::MortonCode3( (uint32)p[1] ) << 1;
-	hash |= FMath::MortonCode3( (uint32)p[2] ) << 2;
-	return hash;
+	union { float f; uint32 i; } x;
+	union { float f; uint32 i; } y;
+	union { float f; uint32 i; } z;
+
+	x.f = p.X;
+	y.f = p.Y;
+	z.f = p.Z;
+
+	return ( 73856093 * x.i ) ^ ( 15485867 * y.i ) ^ ( 83492791 * z.i );
 }
 
 template< typename T, uint32 NumAttributes >
 FORCEINLINE uint32 TMeshSimplifier<T, NumAttributes>::HashEdge( const TSimpVert<T>* u, const TSimpVert<T>* v ) const
 {
-	// TODO change to index
-	UPTRINT ui = reinterpret_cast< UPTRINT >( u ) / sizeof( TSimpVert<T> );
-	UPTRINT vi = reinterpret_cast< UPTRINT >( v ) / sizeof( TSimpVert<T> );
-	return (ui + vi) & 0xffffffff;		// must be symmetrical
+	uint32 ui = GetVertIndex( u );
+	uint32 vi = GetVertIndex( v );
+	// must be symmetrical
+	return ( 73856093 * FMath::Min( ui, vi ) ) ^ ( 83492791 * FMath::Max( ui, vi ) );
 }
 
 template< typename T, uint32 NumAttributes >
@@ -665,6 +615,13 @@ void TMeshSimplifier<T, NumAttributes>::ReplaceEdgeVert( const TSimpVert<T>* old
 	TSimpEdge<T>* edge = &edges[ index ];
 	
 	edgeHash.Remove( hash, index );
+
+	TSimpEdge<T>* ExistingEdge = FindEdge( newV, otherV );
+	if( ExistingEdge )
+	{
+		// Not entirely sure why this happens. I believe these are invalid edges from bridge tris.
+		RemoveEdge( ExistingEdge );
+	}
 
 	if( newV )
 	{
@@ -757,37 +714,31 @@ void TMeshSimplifier<T, NumAttributes>::CollapseEdgeVert( const TSimpVert<T>* ol
 template< typename T, uint32 NumAttributes >
 void TMeshSimplifier<T, NumAttributes>::GatherUpdates( TSimpVert<T>* v )
 {
-	LockVertFlags( SIMP_MARK1 );
-
 	// update the costs of all edges connected to any face adjacent to v
-	TSimpVert<T>** adjVerts = (TSimpVert<T>**)FMemory_Alloca( 2 * v->adjTris.Num() * sizeof( TSimpVert<T>* ) );
-	check(adjVerts);
-	int numAdjVerts;
-	v->FindAdjacentVerts( adjVerts, numAdjVerts );
-
-	UnlockVertFlags( SIMP_MARK1 );
+	TArray< TSimpVert<T>*, TInlineAllocator<64> > adjVerts;
+	v->FindAdjacentVerts( adjVerts );
 
 	LockVertFlags( SIMP_MARK1 | SIMP_MARK2 );
 
-	for( int i = 0; i < numAdjVerts; i++ )
+	for( int i = 0, Num = adjVerts.Num(); i < Num; i++ )
 		adjVerts[i]->EnableFlags( SIMP_MARK2 );
 
-	for( int i = 0; i < numAdjVerts; i++ )
+	for( int i = 0, Num = adjVerts.Num(); i < Num; i++ )
 	{
 		adjVerts[i]->EnableAdjVertFlags( SIMP_MARK1 );
 
 		for( TriIterator j = adjVerts[i]->adjTris.Begin(); j != adjVerts[i]->adjTris.End(); ++j )
 		{
 			TSimpTri<T>* tri = *j;
-			UpdateTri( tri );
+			updateTris.AddUnique( tri );
 			for( int k = 0; k < 3; k++ )
 			{
 				TSimpVert<T>* vert = tri->verts[k];
-				UpdateVert( vert );
+				updateVerts.AddUnique( vert );
 				if( vert->TestFlags( SIMP_MARK1 ) && !vert->TestFlags( SIMP_MARK2 ) )
 				{
 					TSimpEdge<T>* edge = FindEdge( adjVerts[i], vert );
-					UpdateEdge( edge );
+					updateEdges.AddUnique( edge );
 				}
 				vert->DisableFlags( SIMP_MARK1 );
 			}
@@ -799,124 +750,28 @@ void TMeshSimplifier<T, NumAttributes>::GatherUpdates( TSimpVert<T>* v )
 }
 
 template< typename T, uint32 NumAttributes >
-void TMeshSimplifier<T, NumAttributes>::UpdateEdgeCosts( TSimpVert<T>* vert ) {
-	uint32	edgeListNum = 0;
-	TSimpEdge<T>*	edgeList[1024];
-
-#if 0
-	LockVertFlags( SIMP_MARK1 );
-
-	// update the costs of all edges connected to any face adjacent to v
-	TSimpVert<T>** adjVerts = (TSimpVert<T>**)FMemory_Alloca( 2 * vert->NumAdjTrisGroup() * sizeof( TSimpVert<T>* ) );
-	int numAdjVerts;
-	vert->FindAdjacentVertsGroup( adjVerts, numAdjVerts );
-
-	UnlockVertFlags( SIMP_MARK1 );
-
-	LockVertFlags( SIMP_MARK1 | SIMP_MARK2 );
-
-	for( int i = 0; i < numAdjVerts; i++ )
-		adjVerts[i]->EnableFlagsGroup( SIMP_MARK2 );
-
-	for( int i = 0; i < numAdjVerts; i++ ) {
-		TSimpVert<T>* v = adjVerts[i];
-		do {
-			v->EnableAdjTriFlags( SIMP_MARK1 );
-
-			for( TriIterator j = v->adjTris.Begin(); j != v->adjTris.End(); ++j ) {
-				TSimpTri<T>* tri = *j;
-				for( int k = 0; k < 3; k++ ) {
-					TSimpVert<T>* vert = tri->verts[k];
-					if( vert->TestFlags( SIMP_MARK1 ) && !vert->TestFlags( SIMP_MARK2 ) ) {
-						TSimpEdge<T>* edge = FindEdge( v, vert );
-						if( !edge->TestFlags( SIMP_MARK1 ) ) {
-							edge->EnableFlags( SIMP_MARK1 );
-							edgeList[ edgeListNum++ ] = edge;
-						}
-					}
-					vert->DisableFlags( SIMP_MARK1 );
-				}
-			}
-
-			v = v->next;
-		} while( v != adjVerts[i] );
-	}
-
-	for( int i = 0; i < numAdjVerts; i++ )
-		adjVerts[i]->DisableFlagsGroup( SIMP_MARK2 );
-
-	UnlockVertFlags( SIMP_MARK1 | SIMP_MARK2 );
-#else
-	TSimpVert<T>* v = vert;
-	do {
-		LockVertFlags( SIMP_MARK1 );
-
-		// update the costs of all edges connected to any face adjacent to v
-		TSimpVert<T>** adjVerts = (TSimpVert<T>**)FMemory_Alloca( 2 * v->adjTris.Num() * sizeof( TSimpVert<T>* ) );
-		int numAdjVerts;
-		v->FindAdjacentVerts( adjVerts, numAdjVerts );
-
-		UnlockVertFlags( SIMP_MARK1 );
-
-		LockVertFlags( SIMP_MARK1 | SIMP_MARK2 );
-
-		for( int i = 0; i < numAdjVerts; i++ )
-			adjVerts[i]->EnableFlags( SIMP_MARK2 );
-
-		for( int i = 0; i < numAdjVerts; i++ ) {
-			adjVerts[i]->EnableAdjVertFlags( SIMP_MARK1 );
-
-			for( TriIterator j = adjVerts[i]->adjTris.Begin(); j != adjVerts[i]->adjTris.End(); ++j ) {
-				TSimpTri<T>* tri = *j;
-				for( int k = 0; k < 3; k++ ) {
-					TSimpVert<T>* simpVert = tri->verts[k];
-					if (simpVert->TestFlags(SIMP_MARK1) && !simpVert->TestFlags(SIMP_MARK2)) {
-						TSimpEdge<T>* edge = FindEdge(adjVerts[i], simpVert);
-						if( !edge->TestFlags( SIMP_MARK1 ) ) {
-							edge->EnableFlags( SIMP_MARK1 );
-							edgeList[ edgeListNum++ ] = edge;
-						}
-					}
-					simpVert->DisableFlags(SIMP_MARK1);
-				}
-			}
-			adjVerts[i]->DisableFlags( SIMP_MARK2 );
-		}
-
-		UnlockVertFlags( SIMP_MARK1 | SIMP_MARK2 );
-
-		v = v->next;
-	} while( v != vert );
-#endif
-	
-	checkSlow( edgeListNum <= 1024 );
-
-	for( uint32 i = 0; i < edgeListNum; i++ ) {
-		edgeList[i]->DisableFlags( SIMP_MARK1 );
-
-		float cost = ComputeEdgeCollapseCost( edgeList[i] );
-
-		TSimpEdge<T>* e = edgeList[i];
-		do {
-			uint32 EdgeIndex = GetEdgeIndex(e);
-			if( edgeHeap.IsPresent( EdgeIndex ) )
-			{
-				edgeHeap.Update( cost, EdgeIndex );
-			}
-			e = e->next;
-		} while( e != edgeList[i] );
-	}
-}
-
-CA_SUPPRESS(6262); // warning C6262: Function uses '121180' bytes of stack:  exceeds /analyze:stacksize '81940'.  Consider moving some data to heap.
-template< typename T, uint32 NumAttributes >
 float TMeshSimplifier<T, NumAttributes>::ComputeNewVerts( TSimpEdge<T>* edge, T* newVerts )
 {
 	TSimpEdge<T>* e;
 	TSimpVert<T>* v;
 	uint32 i = 0;
 
+// Avoid warning C6262: Function uses '121180' bytes of stack:  exceeds /analyze:stacksize '81940'.  Consider moving some data to heap.
+// as suppression doesn't seem to work on VS2015 Update 2.
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	QuadricType* quadrics = new QuadricType[256];
+	struct FDeleteQuadrics
+	{
+		~FDeleteQuadrics()
+		{
+			delete [] quadrics;
+		}
+
+		QuadricType* quadrics;
+	} DeleteQuadrics = { quadrics };
+#else
 	QuadricType quadrics[256];
+#endif
 
 	TQuadricAttrOptimizer< NumAttributes > optimizer;
 	FVector newPos;
@@ -932,6 +787,7 @@ float TMeshSimplifier<T, NumAttributes>::ComputeNewVerts( TSimpEdge<T>* edge, T*
 		checkSlow( e == FindEdge( e->v0, e->v1 ) );
 		checkSlow( e->v0->adjTris.Num() > 0 );
 		checkSlow( e->v1->adjTris.Num() > 0 );
+		checkSlow( e->v0->GetMaterialIndex() == e->v1->GetMaterialIndex() );
 
 		newVerts[i]  = e->v0->vert;
 		quadrics[i]  = GetQuadric( e->v0 );
@@ -947,7 +803,8 @@ float TMeshSimplifier<T, NumAttributes>::ComputeNewVerts( TSimpEdge<T>* edge, T*
 	// add remainder verts
 	v = edge->v0;
 	do {
-		if( v->TestFlags( SIMP_MARK1 ) ) {
+		if( v->TestFlags( SIMP_MARK1 ) )
+		{
 			newVerts[i] = v->vert;
 			quadrics[i] = GetQuadric( v );
 			optimizer.AddQuadric( quadrics[ i++ ] );
@@ -959,7 +816,8 @@ float TMeshSimplifier<T, NumAttributes>::ComputeNewVerts( TSimpEdge<T>* edge, T*
 
 	v = edge->v1;
 	do {
-		if( v->TestFlags( SIMP_MARK1 ) ) {
+		if( v->TestFlags( SIMP_MARK1 ) )
+		{
 			newVerts[i] = v->vert;
 			quadrics[i] = GetQuadric( v );
 			optimizer.AddQuadric( quadrics[ i++ ] );
@@ -994,7 +852,7 @@ float TMeshSimplifier<T, NumAttributes>::ComputeNewVerts( TSimpEdge<T>* edge, T*
 	{
 		bool bLocked0 = edge->v0->TestFlags( SIMP_LOCKED );
 		bool bLocked1 = edge->v1->TestFlags( SIMP_LOCKED );
-		checkSlow( !bLocked0 || !bLocked1 );
+		//checkSlow( !bLocked0 || !bLocked1 );
 
 		// find position
 		if( bLocked0 )
@@ -1017,23 +875,22 @@ float TMeshSimplifier<T, NumAttributes>::ComputeNewVerts( TSimpEdge<T>* edge, T*
 				newPos = ( edge->v0->GetPos() + edge->v1->GetPos() ) * 0.5f;
 			}
 		}
-
-		// calculate vert attributes from the new position
-		for( i = 0; i < numQuadrics; i++ )
-		{
-			newVerts[i].GetPos() = newPos;
-			if( quadrics[i].a > 1e-8 )
-			{
-				quadrics[i].CalcAttributes( newVerts[i].GetPos(), newVerts[i].GetAttributes(), attributeWeights );
-				newVerts[i].Correct();
-			}
-		}
 	}
-
-	// sum cost of new verts
+	
 	float cost = 0.0f;
+
 	for( i = 0; i < numQuadrics; i++ )
 	{
+		newVerts[i].GetPos() = newPos;
+
+		if( quadrics[i].a > 1e-8 )
+		{
+			// calculate vert attributes from the new position
+			quadrics[i].CalcAttributes( newVerts[i].GetPos(), newVerts[i].GetAttributes(), attributeWeights );
+			newVerts[i].Correct();
+		}
+
+		// sum cost of new verts
 		cost += quadrics[i].Evaluate( newVerts[i].GetPos(), newVerts[i].GetAttributes(), attributeWeights );
 	}
 
@@ -1043,7 +900,8 @@ float TMeshSimplifier<T, NumAttributes>::ComputeNewVerts( TSimpEdge<T>* edge, T*
 }
 
 template< typename T, uint32 NumAttributes >
-float TMeshSimplifier<T, NumAttributes>::ComputeEdgeCollapseCost( TSimpEdge<T>* edge ) {
+float TMeshSimplifier<T, NumAttributes>::ComputeEdgeCollapseCost( TSimpEdge<T>* edge )
+{
 	T newVerts[256];
 	float cost = ComputeNewVerts( edge, newVerts );
 
@@ -1057,60 +915,66 @@ float TMeshSimplifier<T, NumAttributes>::ComputeEdgeCollapseCost( TSimpEdge<T>* 
 
 	float penalty = 0.0f;
 
-	const int degreeLimit = 24;
-	const float degreePenalty = 10.0f;
+	{
+		const int degreeLimit = 24;
+		const float degreePenalty = 100.0f;
 
-	int degree = 0;
+		int degree = 0;
 
-	// u
-	vert = u;
-	do {
-		degree += vert->adjTris.Num();
-		vert = vert->next;
-	} while( vert != u );
+		// u
+		vert = u;
+		do {
+			degree += vert->adjTris.Num();
+			vert = vert->next;
+		} while( vert != u );
 
-	// v
-	vert = v;
-	do {
-		degree += vert->adjTris.Num();
-		vert = vert->next;
-	} while( vert != v );
+		// v
+		vert = v;
+		do {
+			degree += vert->adjTris.Num();
+			vert = vert->next;
+		} while( vert != v );
 
-	if( degree > degreeLimit )
-		penalty += degreePenalty * ( degree - degreeLimit );
+		if( degree > degreeLimit )
+			penalty += degreePenalty * ( degree - degreeLimit );
+	}
 
-	// Penalty to prevent edge folding 
-	const float invalidPenalty = 1000000.0f;
+	{
+		// Penalty to prevent edge folding 
+		const float invalidPenalty = 1000000.0f;
 
-	LockTriFlags( SIMP_MARK1 );
+		LockTriFlags( SIMP_MARK1 );
 	
-	v->EnableAdjTriFlagsGroup( SIMP_MARK1 );
+		v->EnableAdjTriFlagsGroup( SIMP_MARK1 );
 
-	// u
-	vert = u;
-	do {
-		for( TriIterator i = vert->adjTris.Begin(); i != vert->adjTris.End(); ++i ) {
-			TSimpTri<T>* tri = *i;
-			if( !tri->TestFlags( SIMP_MARK1 ) )
-				penalty += tri->ReplaceVertexIsValid( vert, newPos ) ? 0.0f : invalidPenalty;
-			tri->DisableFlags( SIMP_MARK1 );
-		}
-		vert = vert->next;
-	} while( vert != u );
+		// u
+		vert = u;
+		do {
+			for( TriIterator i = vert->adjTris.Begin(); i != vert->adjTris.End(); ++i )
+			{
+				TSimpTri<T>* tri = *i;
+				if( !tri->TestFlags( SIMP_MARK1 ) )
+					penalty += tri->ReplaceVertexIsValid( vert, newPos ) ? 0.0f : invalidPenalty;
+				tri->DisableFlags( SIMP_MARK1 );
+			}
+			vert = vert->next;
+		} while( vert != u );
 
-	// v
-	vert = v;
-	do {
-		for( TriIterator i = vert->adjTris.Begin(); i != vert->adjTris.End(); ++i ) {
-			TSimpTri<T>* tri = *i;
-			if( tri->TestFlags( SIMP_MARK1 ) )
-				penalty += tri->ReplaceVertexIsValid( vert, newPos ) ? 0.0f : invalidPenalty;
-			tri->DisableFlags( SIMP_MARK1 );
-		}
-		vert = vert->next;
-	} while( vert != v );
+		// v
+		vert = v;
+		do {
+			for( TriIterator i = vert->adjTris.Begin(); i != vert->adjTris.End(); ++i )
+			{
+				TSimpTri<T>* tri = *i;
+				if( tri->TestFlags( SIMP_MARK1 ) )
+					penalty += tri->ReplaceVertexIsValid( vert, newPos ) ? 0.0f : invalidPenalty;
+				tri->DisableFlags( SIMP_MARK1 );
+			}
+			vert = vert->next;
+		} while( vert != v );
 
-	UnlockTriFlags( SIMP_MARK1 );
+		UnlockTriFlags( SIMP_MARK1 );
+	}
 
 	return cost + penalty;
 }
@@ -1126,11 +990,10 @@ void TMeshSimplifier<T, NumAttributes>::Collapse( TSimpEdge<T>* edge )
 	checkSlow( edge == FindEdge( u, v ) );
 	checkSlow( u->adjTris.Num() > 0 );
 	checkSlow( v->adjTris.Num() > 0 );
+	checkSlow( u->GetMaterialIndex() == v->GetMaterialIndex() );
 
 	if( u->TestFlags( SIMP_LOCKED ) )
-	{
 		v->EnableFlags( SIMP_LOCKED );
-	}
 
 	LockVertFlags( SIMP_MARK1 );
 
@@ -1140,7 +1003,8 @@ void TMeshSimplifier<T, NumAttributes>::Collapse( TSimpEdge<T>* edge )
 
 	if( u->TestFlags( SIMP_MARK1 ) )
 	{
-		// invalid edge, results from collapsing a bridge tri
+		// Invalid edge, results from collapsing a bridge tri
+		// There are no actual triangles connecting these verts
 		u->DisableAdjVertFlags( SIMP_MARK1 );
 		UnlockVertFlags( SIMP_MARK1 );
 		return;
@@ -1194,7 +1058,7 @@ void TMeshSimplifier<T, NumAttributes>::Collapse( TSimpEdge<T>* edge )
 			numTris--;
 			tri->EnableFlags( SIMP_REMOVED );
 #if SIMP_CACHE
-			triCache.Remove( GetTriIndex( tri ) );
+			TriQuadricsValid[ GetTriIndex( tri ) ] = false;
 #endif
 
 			// remove references to tri
@@ -1231,14 +1095,14 @@ void TMeshSimplifier<T, NumAttributes>::Collapse( TSimpEdge<T>* edge )
 	for( TriIterator i = v->adjTris.Begin(); i != v->adjTris.End(); ++i )
 	{
 		TSimpTri<T>* tri = *i;
-		triCache.Remove( GetTriIndex( tri ) );
+		TriQuadricsValid[ GetTriIndex( tri ) ] = false;
 
 		for( int j = 0; j < 3; j++ )
 		{
 			TSimpVert<T>* vert = tri->verts[j];
 			if( vert->TestFlags( SIMP_MARK1 ) )
 			{
-				vertCache.Remove( GetVertIndex( vert ) );
+				VertQuadricsValid[ GetVertIndex( vert ) ] = false;
 				vert->DisableFlags( SIMP_MARK1 );
 			}
 		}
@@ -1253,10 +1117,206 @@ void TMeshSimplifier<T, NumAttributes>::Collapse( TSimpEdge<T>* edge )
 }
 
 template< typename T, uint32 NumAttributes >
-void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTris )
+void TMeshSimplifier<T, NumAttributes>::UpdateTris()
+{
+	// remove degenerate triangles
+	// not sure why this happens
+	for( TSimpTri<T>* tri : updateTris )
+	{
+		if( tri->TestFlags( SIMP_REMOVED ) )
+			continue;
+
+#if SIMP_CACHE
+		// TODO Likely overkill. Only invalidate tris touching collapse edge.
+		TriQuadricsValid[ GetTriIndex( tri ) ] = false;
+#endif
+
+		const FVector& p0 = tri->verts[0]->GetPos();
+		const FVector& p1 = tri->verts[1]->GetPos();
+		const FVector& p2 = tri->verts[2]->GetPos();
+		const FVector n = ( p2 - p0 ) ^ ( p1 - p0 );
+
+		if( n.SizeSquared() == 0.0f )
+		{
+			numTris--;
+			tri->EnableFlags( SIMP_REMOVED );
+
+			//Sys_DebugPrintf( "%08x, %08x, %08x\n", (uint32)tri->verts[0], (uint32)tri->verts[1], (uint32)tri->verts[2] );
+			//FPlatformMisc::LowLevelOutputDebugStringf( TEXT("%08x, %08x, %08x\n"), (uint32)tri->verts[0], (uint32)tri->verts[1], (uint32)tri->verts[2] );
+
+			// remove references to tri
+			for( int j = 0; j < 3; j++ )
+			{
+				TSimpVert<T>* vert = tri->verts[j];
+				vert->adjTris.Remove( tri );
+				// orphaned verts are removed below
+			}
+		}
+	}
+	updateTris.Reset();
+}
+
+template< typename T, uint32 NumAttributes >
+void TMeshSimplifier<T, NumAttributes>::UpdateVerts()
+{
+	// remove orphaned verts
+	for( TSimpVert<T>* vert : updateVerts )
+	{
+		if( vert->TestFlags( SIMP_REMOVED ) )
+			continue;
+
+#if SIMP_CACHE
+		// TODO Likely overkill. Only invalidate verts from tris adjacent to collapsed edge
+		VertQuadricsValid[ GetVertIndex( vert ) ] = false;
+		EdgeQuadricsValid[ GetVertIndex( vert ) ] = false;
+#endif
+
+		if( vert->adjTris.Num() == 0 )
+		{
+			numVerts--;
+			vert->EnableFlags( SIMP_REMOVED );
+
+			// ungroup
+			vert->prev->next = vert->next;
+			vert->next->prev = vert->prev;
+			vert->next = vert;
+			vert->prev = vert;
+		}
+	}
+	updateVerts.Reset();
+}
+
+template< typename T, uint32 NumAttributes >
+void TMeshSimplifier<T, NumAttributes>::UpdateEdges()
+{
+	uint32 NumEdges = updateEdges.Num();
+
+	// add all grouped edges
+	for( uint32 i = 0; i < NumEdges; i++ )
+	{
+		TSimpEdge<T>* edge = updateEdges[i];
+
+		if( edge->TestFlags( SIMP_REMOVED ) )
+			continue;
+
+		TSimpEdge<T>* e = edge;
+		do {
+			updateEdges.AddUnique(e);
+			e = e->next;
+		} while( e != edge );
+	}
+		
+	// remove dead edges
+	for( uint32 i = 0, Num = updateEdges.Num(); i < Num; i++ )
+	{
+		TSimpEdge<T>* edge = updateEdges[i];
+
+		if( edge->TestFlags( SIMP_REMOVED ) )
+			continue;
+
+		if( edge->v0->TestFlags( SIMP_REMOVED ) ||
+			edge->v1->TestFlags( SIMP_REMOVED ) )
+		{
+			RemoveEdge( edge );
+			continue;
+		}
+	}
+
+	// Fix edge groups
+	{
+		FHashTable HashTable( 4096, NumEdges );
+
+		// ungroup edges
+		for( uint32 i = 0, Num = updateEdges.Num(); i < Num; i++ )
+		{
+			TSimpEdge<T>* edge = updateEdges[i];
+
+			if( edge->TestFlags( SIMP_REMOVED ) )
+				continue;
+				
+			edge->next = edge;
+			edge->prev = edge;
+				
+			HashTable.Add( HashPoint( edge->v0->GetPos() ) ^ HashPoint( edge->v1->GetPos() ), i );
+		}
+
+		// regroup edges
+		for( uint32 i = 0, Num = updateEdges.Num(); i < Num; i++ )
+		{
+			TSimpEdge<T>* edge = updateEdges[i];
+
+			if( edge->TestFlags( SIMP_REMOVED ) )
+				continue;
+
+			// already grouped
+			if( edge->next != edge )
+				continue;
+
+			// find any matching edges
+			uint32 hash = HashPoint( edge->v0->GetPos() ) ^ HashPoint( edge->v1->GetPos() );
+			for( uint32 j = HashTable.First( hash ); HashTable.IsValid(j); j = HashTable.Next( j ) )
+			{
+				TSimpEdge<T>* e1 = updateEdges[i];
+				TSimpEdge<T>* e2 = updateEdges[j];
+
+				if( e1 == e2 )
+					continue;
+
+				bool m1 =	e1->v0->GetPos() == e2->v0->GetPos() &&
+							e1->v1->GetPos() == e2->v1->GetPos();
+
+				bool m2 =	e1->v0->GetPos() == e2->v1->GetPos() &&
+							e1->v1->GetPos() == e2->v0->GetPos();
+
+				// backwards
+				if( m2 )
+					Swap( e2->v0, e2->v1 );
+
+				// link
+				if( m1 || m2 )
+				{
+					checkSlow( e2->next == e2 );
+					checkSlow( e2->prev == e2 );
+
+					e2->next = e1->next;
+					e2->prev = e1;
+					e2->next->prev = e2;
+					e2->prev->next = e2;
+				}
+			}
+		}
+	}
+
+	// update edges
+	for( uint32 i = 0; i < NumEdges; i++ )
+	{
+		TSimpEdge<T>* edge = updateEdges[i];
+
+		if( edge->TestFlags( SIMP_REMOVED ) )
+			continue;
+
+		float cost = ComputeEdgeCollapseCost( edge );
+
+		TSimpEdge<T>* e = edge;
+		do {
+			uint32 EdgeIndex = GetEdgeIndex(e);
+			if( edgeHeap.IsPresent( EdgeIndex ) )
+			{
+				edgeHeap.Update( cost, EdgeIndex );
+			}
+			e = e->next;
+		} while( e != edge );
+	}
+	updateEdges.Reset();
+}
+
+template< typename T, uint32 NumAttributes >
+float TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxErrorLimit, int minTris )
 {
 	TSimpVert<T>* v;
 	TSimpEdge<T>* e;
+
+	float maxError = 0.0f;
 
 	while( edgeHeap.Num() > 0 )
 	{
@@ -1266,10 +1326,12 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 		// get the next vertex to collapse
 		uint32 TopIndex = edgeHeap.Top();
 
-		if( edgeHeap.GetKey( TopIndex ) > maxError )
+		float error = edgeHeap.GetKey( TopIndex );
+		if( error > maxErrorLimit )
 		{
 			break;
 		}
+		maxError = FMath::Max( maxError, error );
 		
 		edgeHeap.Pop();
 
@@ -1284,6 +1346,8 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 			edge = edge->next;
 		} while( edge != top );
 
+		check(top);
+
 		// skip locked edges
 		bool locked = false;
 		for( int i = 0; i < numEdges; i++ )
@@ -1295,9 +1359,7 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 			}
 		}
 		if( locked )
-		{
 			continue;
-		}
 
 		v = top->v0;
 		do {
@@ -1311,16 +1373,19 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 			v = v->next;
 		} while( v != top->v1 );
 
-#if 0
+#if 1
 		// remove edges with already removed verts
 		// not sure why this happens
-		for( int i = 0; i < numEdges; i++ ) {
+		for( int i = 0; i < numEdges; i++ )
+		{
 			if( edgeList[i]->v0->adjTris.Num() == 0 ||
 				edgeList[i]->v1->adjTris.Num() == 0 )
 			{
 				RemoveEdge( edgeList[i] );
 				edgeList[i] = NULL;
-			} else {
+			}
+			else
+			{
 				checkSlow( !edgeList[i]->TestFlags( SIMP_REMOVED ) );
 			}
 		}
@@ -1348,6 +1413,7 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 				checkSlow( e == FindEdge( e->v0, e->v1 ) );
 				checkSlow( e->v0->adjTris.Num() > 0 );
 				checkSlow( e->v1->adjTris.Num() > 0 );
+				checkSlow( e->v0->GetMaterialIndex() == e->v1->GetMaterialIndex() );
 
 				e->v1->vert = newVerts[ i++ ];
 				e->v0->DisableFlags( SIMP_MARK1 );
@@ -1359,7 +1425,8 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 			// remainder verts
 			v = edge->v0;
 			do {
-				if( v->TestFlags( SIMP_MARK1 ) ) {
+				if( v->TestFlags( SIMP_MARK1 ) )
+				{
 					v->vert = newVerts[ i++ ];
 					v->DisableFlags( SIMP_MARK1 );
 				}
@@ -1415,10 +1482,11 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 
 			check( vertListNum <= 256 );
 			
-			for( uint32 i = 0; i < vertListNum; i++ ) {
+			for( uint32 i = 0; i < vertListNum; i++ )
+			{
 				v = vertList[i];
-
-				if( v->TestFlags( SIMP_REMOVED ) ) {
+				if( v->TestFlags( SIMP_REMOVED ) )
+				{
 					// ungroup
 					v->prev->next = v->next;
 					v->next->prev = v->prev;
@@ -1445,163 +1513,15 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 			} while( v != top->v1 );
 		}
 
-		// update tris
-		// remove degenerate triangles
-		// not sure why this happens
-		for( uint32 i = 0; i < updateTrisNum; i++ ) {
-			TSimpTri<T>* tri = updateTris[i];
-
-			tri->DisableFlags( SIMP_UPDATE );
-
-			if( tri->TestFlags( SIMP_REMOVED ) )
-				continue;
-
-			const FVector& p0 = tri->verts[0]->GetPos();
-			const FVector& p1 = tri->verts[1]->GetPos();
-			const FVector& p2 = tri->verts[2]->GetPos();
-			const FVector n = ( p2 - p0 ) ^ ( p1 - p0 );
-
-			if( n.SizeSquared() == 0.0f )
-			{
-				numTris--;
-				tri->EnableFlags( SIMP_REMOVED );
-
-				//Sys_DebugPrintf( "%08x, %08x, %08x\n", (uint32)tri->verts[0], (uint32)tri->verts[1], (uint32)tri->verts[2] );
-
-				// remove references to tri
-				for( int j = 0; j < 3; j++ ) {
-					TSimpVert<T>* vert = tri->verts[j];
-					vert->adjTris.Remove( tri );
-					// orphaned verts are removed below
-				}
-			}
-		}
-		updateTrisNum = 0;
-
-		// update verts
-		// remove orphaned verts
-		for( uint32 i = 0; i < updateVertsNum; i++ ) {
-			TSimpVert<T>* vert = updateVerts[i];
-			
-			vert->DisableFlags( SIMP_UPDATE );
-
-			if( vert->TestFlags( SIMP_REMOVED ) )
-				continue;
-
-			if( vert->adjTris.Num() == 0 ) {
-				numVerts--;
-				vert->EnableFlags( SIMP_REMOVED );
-
-				// ungroup
-				vert->prev->next = vert->next;
-				vert->next->prev = vert->prev;
-				vert->next = vert;
-				vert->prev = vert;
-			}
-		}
-		updateVertsNum = 0;
-		
-#if 1
-		// Potential Optimization, see top of file
-
-		// remove dead edges
-		for( int i = 0; i < edges.Num(); i++ ) {
-			edge = &edges[i];
-
-			if( edge->TestFlags( SIMP_REMOVED ) )
-				continue;
-
-			if( edge->v0->TestFlags( SIMP_REMOVED ) ||
-				edge->v1->TestFlags( SIMP_REMOVED ) )
-			{
-				RemoveEdge( edge );
-			}
-		}
-
-		{
-			FHashTable HashTable( 4096, edges.Num() );
-
-			for( int i = 0; i < edges.Num(); i++ ) {
-				edge = &edges[i];
-
-				if( edge->TestFlags( SIMP_REMOVED ) )
-					continue;
-				
-				edge->next = edge;
-				edge->prev = edge;
-				
-				HashTable.Add( HashPoint( edge->v0->GetPos() ) ^ HashPoint( edge->v1->GetPos() ), i );
-			}
-
-			for( int i = 0; i < edges.Num(); i++ ) {
-				if( edges[i].TestFlags( SIMP_REMOVED ) )
-					continue;
-
-				// already grouped
-				if( edges[i].next != &edges[i] )
-					continue;
-
-				// find any matching edges
-				uint32 hash = HashPoint( edges[i].v0->GetPos() ) ^ HashPoint( edges[i].v1->GetPos() );
-				for( uint32 j = HashTable.First( hash ); HashTable.IsValid(j); j = HashTable.Next( j ) ) {
-					TSimpEdge<T>* e1 = &edges[i];
-					TSimpEdge<T>* e2 = &edges[j];
-
-					if( e1 == e2 )
-						continue;
-
-					bool m1 =	e1->v0->GetPos() == e2->v0->GetPos() &&
-								e1->v1->GetPos() == e2->v1->GetPos();
-
-					bool m2 =	e1->v0->GetPos() == e2->v1->GetPos() &&
-								e1->v1->GetPos() == e2->v0->GetPos();
-
-					// backwards
-					if( m2 )
-						Swap( e2->v0, e2->v1 );
-
-					// link
-					if( m1 || m2 ) {
-						checkSlow( e2->next == e2 );
-						checkSlow( e2->prev == e2 );
-
-						e2->next = e1->next;
-						e2->prev = e1;
-						e2->next->prev = e2;
-						e2->prev->next = e2;
-					}
-				}
-			}
-		}
-#endif
-
-		// update edges
-		for( uint32 i = 0; i < updateEdgesNum; i++ ) {
-			edge = updateEdges[i];
-
-			edge->DisableFlags( SIMP_UPDATE );
-
-			if( edge->TestFlags( SIMP_REMOVED ) )
-				continue;
-
-			float cost = ComputeEdgeCollapseCost( edge );
-
-			e = edge;
-			do {
-				uint32 EdgeIndex = GetEdgeIndex(e);
-				if( edgeHeap.IsPresent( EdgeIndex ) )
-				{
-					edgeHeap.Update( cost, EdgeIndex );
-				}
-				e = e->next;
-			} while( e != edge );
-		}
-		updateEdgesNum = 0;
+		UpdateTris();
+		UpdateVerts();
+		UpdateEdges();
 	}
 
 	// remove degenerate triangles
 	// not sure why this happens
-	for( int i = 0; i < numSTris; i++ ) {
+	for( int i = 0; i < numSTris; i++ )
+	{
 		TSimpTri<T>* tri = &sTris[i];
 
 		if( tri->TestFlags( SIMP_REMOVED ) )
@@ -1618,7 +1538,8 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 			tri->EnableFlags( SIMP_REMOVED );
 
 			// remove references to tri
-			for( int j = 0; j < 3; j++ ) {
+			for( int j = 0; j < 3; j++ )
+			{
 				TSimpVert<T>* vert = tri->verts[j];
 				vert->adjTris.Remove( tri );
 				// orphaned verts are removed below
@@ -1627,24 +1548,27 @@ void TMeshSimplifier<T, NumAttributes>::SimplifyMesh( float maxError, int minTri
 	}
 
 	// remove orphaned verts
-	for( int i = 0; i < numSVerts; i++ ) {
+	for( int i = 0; i < numSVerts; i++ )
+	{
 		TSimpVert<T>* vert = &sVerts[i];
 
 		if( vert->TestFlags( SIMP_REMOVED ) )
 			continue;
 
-		if( vert->adjTris.Num() == 0 ) {
+		if( vert->adjTris.Num() == 0 )
+		{
 			numVerts--;
 			vert->EnableFlags( SIMP_REMOVED );
 		}
 	}
 
-	//common->Printf( "simplified numVerts %i, numTris %i\n", numVerts, numTris );
+	return maxError;
 }
 
 template< typename T, uint32 NumAttributes >
-void TMeshSimplifier<T, NumAttributes>::OutputMesh( T* verts, uint32* indexes ) {
-	FHashTable hashTable( 1024, GetNumVerts() );
+void TMeshSimplifier<T, NumAttributes>::OutputMesh( T* verts, uint32* indexes )
+{
+	FHashTable HashTable( 4096, GetNumVerts() );
 
 #if 1
 	int count = 0;
@@ -1657,7 +1581,8 @@ void TMeshSimplifier<T, NumAttributes>::OutputMesh( T* verts, uint32* indexes ) 
 	int numV = 0;
 	int numI = 0;
 
-	for( int i = 0; i < numSTris; i++ ) {
+	for( int i = 0; i < numSTris; i++ )
+	{
 		if( sTris[i].TestFlags( SIMP_REMOVED ) )
 			continue;
 
@@ -1671,14 +1596,14 @@ void TMeshSimplifier<T, NumAttributes>::OutputMesh( T* verts, uint32* indexes ) 
 			const FVector& p = vert->GetPos();
 			uint32 hash = HashPoint( p );
 			uint32 f;
-			for( f = hashTable.First( hash ); hashTable.IsValid(f); f = hashTable.Next( f ) )
+			for( f = HashTable.First( hash ); HashTable.IsValid(f); f = HashTable.Next( f ) )
 			{
 				if( vert->vert == verts[f] )
 					break;
 			}
-			if( !hashTable.IsValid(f) )
+			if( !HashTable.IsValid(f) )
 			{
-				hashTable.Add( hash, numV );
+				HashTable.Add( hash, numV );
 				verts[ numV ] = vert->vert;
 				indexes[ numI++ ] = numV;
 				numV++;

@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Widgets/SToolTip.h"
+#include "HAL/IConsoleManager.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
 
 
 static TAutoConsoleVariable<float> StaticToolTipWrapWidth(
 	TEXT( "Slate.ToolTipWrapWidth" ),
-	500.0f,
+	1000.0f,
 	TEXT( "Width of Slate tool-tips before we wrap the tool-tip text" ) );
 
 

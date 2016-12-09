@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Differences found within a graph */
 namespace EDiffType
 {
@@ -24,6 +26,7 @@ namespace EDiffType
 		TIMELINE_LENGTH,
 		TIMELINE_AUTOPLAY,
 		TIMELINE_LOOP,
+		TIMELINE_IGNOREDILATION,
 		TIMELINE_NUM_TRACKS,
 		TIMELINE_TRACK_MODIFIED,
 		NODE_PIN_COUNT,

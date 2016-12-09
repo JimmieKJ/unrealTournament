@@ -8,6 +8,8 @@
 #ifndef __MRULIST_H__
 #define __MRULIST_H__
 
+#include "CoreMinimal.h"
+
 /**
  * An MRU list of files.
  */

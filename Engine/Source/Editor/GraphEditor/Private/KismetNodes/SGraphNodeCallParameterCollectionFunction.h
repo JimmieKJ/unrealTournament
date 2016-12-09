@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "KismetNodes/SGraphNodeK2Default.h"
+
+class SGraphPin;
+
 class SGraphNodeCallParameterCollectionFunction : public SGraphNodeK2Default
 {
 protected:

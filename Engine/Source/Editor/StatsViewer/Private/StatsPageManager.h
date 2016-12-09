@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IStatsPage.h"
 
 /**
  * A class which manages a the collection of known stats pages           

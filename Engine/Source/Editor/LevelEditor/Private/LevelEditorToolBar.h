@@ -7,8 +7,10 @@
 #pragma once
 
 
-#include "LevelEditor.h"
-
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Editor/LevelEditor/Private/SLevelEditor.h"
 
 /**
  * Unreal level editor main toolbar

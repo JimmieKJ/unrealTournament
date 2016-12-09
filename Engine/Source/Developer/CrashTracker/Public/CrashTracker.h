@@ -3,13 +3,20 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Dependencies
  *****************************************************************************/
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 
 /* Interfaces
  *****************************************************************************/
 
-#include "ICrashTrackerModule.h"
+#include "Interfaces/ICrashTrackerModule.h"

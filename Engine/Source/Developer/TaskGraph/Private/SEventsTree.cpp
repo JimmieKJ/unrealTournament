@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TaskGraphPrivatePCH.h"
-#include "SlateBasics.h"
-#include "TaskGraphInterfaces.h"
-#include "VisualizerEvents.h"
 #include "SEventsTree.h"
-#include "SSearchBox.h"
+#include "SlateOptMacros.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "SEventsTree"
 

@@ -1,18 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "GameFramework/Actor.h"
-#include "DebugTextInfo.h"
-#include "HUDHitBox.h"
+#include "GameFramework/HUDHitBox.h"
+#include "GameFramework/DebugTextInfo.h"
 #include "HUD.generated.h"
 
-class FCanvasTextItem;
-class UTexture;
-class AActor;
-class UCanvas;
-class APlayerController;
-class UFont;
 class AHUD;
+class APawn;
+class APlayerController;
+class FCanvas;
+class FDebugDisplayInfo;
+class UCanvas;
+class UFont;
+class UMaterialInterface;
+class UTexture;
 
 DECLARE_MULTICAST_DELEGATE_FiveParams(FOnShowDebugInfo, AHUD* /* HUD */, UCanvas* /* Canvas */, const FDebugDisplayInfo& /* DisplayInfo */, float& /* YL */, float& /* YPos */);
 

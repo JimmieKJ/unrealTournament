@@ -2,15 +2,23 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HttpManager.h"
+
+class FHttpThread;
+
 #if WITH_LIBCURL
 #if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 #endif
 	#include "curl/curl.h"
 #if PLATFORM_WINDOWS
 #include "HideWindowsPlatformTypes.h"
 #endif
-#include "HttpManager.h"
+
+struct x509_st;
+typedef struct x509_st X509;
 
 class FCurlHttpManager : public FHttpManager
 {

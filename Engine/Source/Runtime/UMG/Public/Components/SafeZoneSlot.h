@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "Layout/SSafeZone.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/PanelSlot.h"
+#include "Layout/Margin.h"
 
 #include "SafeZoneSlot.generated.h"
 

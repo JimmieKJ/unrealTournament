@@ -7,6 +7,7 @@
 #include "MetalRHIPrivate.h"
 #include "MetalProfiler.h"
 #include "MetalCommandBuffer.h"
+#include "Containers/ResourceArray.h"
 
 /** Constructor */
 FMetalIndexBuffer::FMetalIndexBuffer(uint32 InStride, uint32 InSize, uint32 InUsage)
@@ -18,11 +19,13 @@ FMetalIndexBuffer::FMetalIndexBuffer(uint32 InStride, uint32 InSize, uint32 InUs
 	MTLStorageMode Mode = BUFFER_STORAGE_MODE;
 	FMetalPooledBuffer Buf = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), InSize, Mode));
 	Buffer = [Buf.Buffer retain];
+	INC_DWORD_STAT_BY(STAT_MetalIndexMemAlloc, InSize);
 	INC_MEMORY_STAT_BY(STAT_MetalWastedPooledBufferMem, Buffer.length - GetSize());
 }
 
 FMetalIndexBuffer::~FMetalIndexBuffer()
 {
+	INC_DWORD_STAT_BY(STAT_MetalIndexMemFreed, GetSize());
 	DEC_MEMORY_STAT_BY(STAT_MetalWastedPooledBufferMem, Buffer.length - GetSize());
 	SafeReleasePooledBuffer(Buffer);
 	[Buffer release];
@@ -35,6 +38,9 @@ void* FMetalIndexBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, uint32 
 	// In order to properly synchronise the buffer access, when a dynamic buffer is locked for writing, discard the old buffer & create a new one. This prevents writing to a buffer while it is being read by the GPU & thus causing corruption. This matches the logic of other RHIs.
 	if ((GetUsage() & BUFFER_DYNAMIC_REALLOC) && LockMode == RLM_WriteOnly)
 	{
+		INC_MEMORY_STAT_BY(STAT_MetalIndexMemAlloc, GetSize());
+		INC_MEMORY_STAT_BY(STAT_MetalIndexMemFreed, GetSize());
+		
 		id<MTLBuffer> OldBuffer = Buffer;
 		MTLStorageMode Mode = BUFFER_STORAGE_MODE;
 		FMetalPooledBuffer Buf = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), GetSize(), Mode));
@@ -57,6 +63,7 @@ void* FMetalIndexBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, uint32 
 		id<MTLBlitCommandEncoder> Blitter = GetMetalDeviceContext().GetBlitContext();
 		METAL_DEBUG_COMMAND_BUFFER_BLIT_LOG((&GetMetalDeviceContext()), @"SynchronizeResource(IndexBuffer %p)", this);
 		[Blitter synchronizeResource:Buffer];
+		METAL_DEBUG_COMMAND_BUFFER_TRACK_RES(GetMetalDeviceContext().GetCurrentCommandBuffer(), Buffer);
 		
 		//kick the current command buffer.
 		GetMetalDeviceContext().SubmitCommandBufferAndWait();

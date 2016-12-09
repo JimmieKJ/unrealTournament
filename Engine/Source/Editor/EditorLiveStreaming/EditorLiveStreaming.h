@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "Rendering/SlateRenderer.h"
+#include "Widgets/SWindow.h"
 #include "IEditorLiveStreaming.h"
-
 
 /**
  * Handles broadcasting of the editor to a live internet stream

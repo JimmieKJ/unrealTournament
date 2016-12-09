@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateBrush.h"
+
 /** Struct describing a single template project */
 struct FTemplateItem
 {

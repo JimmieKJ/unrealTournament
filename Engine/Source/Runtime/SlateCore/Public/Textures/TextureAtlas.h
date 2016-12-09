@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/List.h"
+
 /** 
  * Specifies how to handle texture atlas padding (when specified for the atlas). 
  * We only support one pixel of padding because we don't support mips or aniso filtering on atlas textures right now.

@@ -1,14 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Kismet/BlueprintFunctionLibrary.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/EngineBaseTypes.h"
+#include "UObject/Interface.h"
+#include "Input/Events.h"
+#include "Styling/SlateBrush.h"
 #include "Components/SlateWrapperTypes.h"
+#include "Blueprint/DragDropOperation.h"
+#include "Blueprint/UserWidget.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "WidgetBlueprintLibrary.generated.h"
 
-class UDragDropOperation;
+class UFont;
+class UMaterialInstanceDynamic;
+class UMaterialInterface;
 class USlateBrushAsset;
-
-struct FPaintContext;
+class UTexture2D;
 
 UCLASS()
 class UMG_API UWidgetBlueprintLibrary : public UBlueprintFunctionLibrary

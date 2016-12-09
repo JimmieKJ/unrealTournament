@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "AlembicLibraryPublicPCH.h"
+#include "CoreMinimal.h"
+#include "Materials/Material.h"
 
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
+
+THIRD_PARTY_INCLUDES_START
 #include <Alembic/AbcCoreHDF5/All.h>
 #include <Alembic/AbcCoreOgawa/All.h>
 #include <Alembic/AbcCoreFactory/All.h>
@@ -11,9 +17,11 @@
 #include <Alembic/AbcCoreHDF5/All.h>
 #include <Alembic/Abc/All.h>
 #include <Alembic/AbcGeom/All.h>
+THIRD_PARTY_INCLUDES_END
 
 class FAbcImporter;
 class UAbcImportSettings;
+class UMaterial;
 
 /** TODO
 - Refactor MatrixSamples, TimeSamples into one structure
@@ -104,6 +112,11 @@ struct FAbcPolyMeshObject
 	TArray<FAbcMeshSample*> MeshSamples;
 	/** Array of face set names found for this object */
 	TArray<FString> FaceSetNames;
+	
+	/** Time of first frame containing data */
+	float StartFrameTime;
+	/** Frame index of first frame containing data */
+	uint32 StartFrameIndex;
 
 	/** GUID identifying the hierarchy for this object (parent structure) */
 	FGuid HierarchyGuid;
@@ -150,6 +163,11 @@ struct FAbcTransformObject
 
 	/** GUID identifying the hierarchy for this object (parent structure) */
 	FGuid HierarchyGuid;
+
+	/** Time of first frame containing data */
+	float StartFrameTime;
+	/** Frame index of first frame containing data */
+	uint32 StartFrameIndex;
 
 	/** Matrix samples taken for this object */
 	TArray<FMatrix> MatrixSamples;
@@ -204,6 +222,8 @@ public:
 		, SecondsPerFrame(0.0f)
 		, MinTime(TNumericLimits<float>::Max())
 		, MaxTime(TNumericLimits<float>::Min())
+		, MinFrameIndex(TNumericLimits<uint32>::Max())
+		, MaxFrameIndex(TNumericLimits<uint32>::Min())
 		, NumTotalMaterials(0)
 		, ImportSettings(nullptr)
 	{		
@@ -246,6 +266,12 @@ public:
 	/** Min and maximum time found in the Alembic file*/
 	float MinTime;
 	float MaxTime;
+	/** Final length (in seconds)_of sequence we are importing */
+	float ImportLength;
+
+	/** Min and maximum frame index which contain actual data in the Alembic file*/
+	uint32 MinFrameIndex;
+	uint32 MaxFrameIndex;
 
 	/** File path for the ABC file that is (currently being) imported */
 	FString FilePath;

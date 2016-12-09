@@ -7,10 +7,20 @@
 ================================================================================*/
 
 #pragma once
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/PointerIsConvertibleFromTo.h"
+#include "Templates/TypeWrapper.h"
+#include "Templates/AreTypesEqual.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Templates/RemoveReference.h"
+#include "Delegates/Tuple.h"
 #include "Delegates/DelegateInstanceInterface.h"
 #include "UObject/NameTypes.h"
 
-class UFunction;
+class FDelegateBase;
+class FDelegateHandle;
+enum class ESPMode;
 
 /* Macros for function parameter and delegate payload lists
  *****************************************************************************/

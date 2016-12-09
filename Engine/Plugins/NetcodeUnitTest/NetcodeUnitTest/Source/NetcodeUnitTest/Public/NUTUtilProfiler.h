@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "NetcodeUnitTest.h"
+
 #if STATS
 /**
  * Uses the inbuilt UE4 profiler, to probe the specified profiling events performance,

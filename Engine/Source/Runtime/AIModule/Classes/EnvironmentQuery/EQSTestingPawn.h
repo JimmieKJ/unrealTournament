@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "GameFramework/Character.h"
-#include "EnvironmentQuery/EQSQueryResultSourceInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
+#include "EnvironmentQuery/EQSQueryResultSourceInterface.h"
+#include "GameFramework/Character.h"
 #include "EQSTestingPawn.generated.h"
 
 class UEnvQuery;

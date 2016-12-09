@@ -10,8 +10,7 @@ UUTNavGraphRenderingComponent::UUTNavGraphRenderingComponent(const FObjectInitia
 : Super(ObjectInitializer)
 {
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-	AlwaysLoadOnClient = false;
-	AlwaysLoadOnServer = false;
+	bIsEditorOnly = true;
 	bSelectable = false;
 }
 

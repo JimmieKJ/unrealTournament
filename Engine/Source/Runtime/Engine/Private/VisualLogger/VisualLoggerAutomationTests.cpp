@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-
-#include "VisualLogger/VisualLogger.h"
 #include "VisualLogger/VisualLoggerAutomationTests.h"
-#include "VisualLogger/VisualLoggerBinaryFileDevice.h"
+#include "Misc/AutomationTest.h"
+#include "EngineDefines.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+
+#include "VisualLogger/VisualLoggerTypes.h"
+#include "VisualLogger/VisualLogger.h"
 
 namespace
 {

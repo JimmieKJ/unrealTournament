@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LobbyPrivatePCH.h"
 #include "LobbyBeaconState.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
+#include "Net/UnrealNetwork.h"
 #include "LobbyBeaconPlayerState.h"
 #include "LobbyBeaconClient.h"
 

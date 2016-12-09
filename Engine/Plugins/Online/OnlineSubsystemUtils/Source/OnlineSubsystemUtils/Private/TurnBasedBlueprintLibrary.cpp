@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "TurnBasedBlueprintLibrary.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "OnlineSubsystem.h"
+#include "OnlineSubsystemBPCallHelper.h"
 #include "Interfaces/OnlineTurnBasedInterface.h"
 
 UTurnBasedBlueprintLibrary::UTurnBasedBlueprintLibrary(const FObjectInitializer& ObjectInitializer)

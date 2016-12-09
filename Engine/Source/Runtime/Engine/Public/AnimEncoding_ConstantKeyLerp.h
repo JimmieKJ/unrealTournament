@@ -6,7 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "AnimEncoding.h"
+#include "AnimationCompression.h"
+
+class FMemoryWriter;
 
 /**
  * Base class for all Animation Encoding Formats using consistently-spaced key interpolation.

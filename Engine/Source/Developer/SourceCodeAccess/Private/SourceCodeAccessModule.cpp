@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SourceCodeAccessPrivatePCH.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
-#include "ISettingsModule.h"
-#include "ModuleManager.h"
 #include "SourceCodeAccessModule.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Features/IModularFeatures.h"
+#include "ISettingsModule.h"
 #include "SourceCodeAccessSettings.h"
 
 

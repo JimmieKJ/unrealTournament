@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Serialization/BufferArchive.h"
+#include "NetworkMessage.h"
+#include "Misc/ScopedEvent.h"
+#include "Misc/ScopeLock.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/Runnable.h"
+#include "MultichannelTcpGlobals.h"
+
+class Error;
+class FSocket;
 
 /**
  * Declares a delegate to be invoked when checking if bandwidth permits sending a packet

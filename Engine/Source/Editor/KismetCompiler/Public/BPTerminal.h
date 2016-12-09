@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EdGraph/EdGraphPin.h"
+
+struct FBlueprintCompiledStatement;
+
 //////////////////////////////////////////////////////////////////////////
 
 struct FBlueprintCompiledStatement;

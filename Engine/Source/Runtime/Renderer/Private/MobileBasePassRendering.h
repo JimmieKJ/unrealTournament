@@ -6,16 +6,32 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "RHI.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "HitProxies.h"
+#include "RHIStaticStates.h"
+#include "SceneManagement.h"
+#include "PrimitiveSceneInfo.h"
+#include "DrawingPolicy.h"
+#include "PostProcess/SceneRenderTargets.h"
 #include "LightMapRendering.h"
-#include "ShaderBaseClasses.h"
+#include "MeshMaterialShaderType.h"
+#include "MeshMaterialShader.h"
+#include "DebugViewModeRendering.h"
+#include "FogRendering.h"
 #include "EditorCompositeParams.h"
+#include "PlanarReflectionRendering.h"
+#include "BasePassRendering.h"
 
-class FMobileBasePassDynamicPointLightInfo;
+class FPlanarReflectionSceneProxy;
+class FScene;
 
 enum EOutputFormat
 {
 	LDR_GAMMA_32,
-	HDR_LINEAR_32,
 	HDR_LINEAR_64,
 };
 
@@ -38,13 +54,10 @@ static bool ShouldCacheShaderByPlatformAndOutputFormat(EShaderPlatform Platform,
 {
 	bool bSupportsMobileHDR = IsMobileHDR();
 	bool bShaderUsesLDR = (OutputFormat == LDR_GAMMA_32);
-	bool bShaderUsesHDR = !bShaderUsesLDR;
-	// Android ES2 uses intrinsic_GetHDR32bppEncodeModeES2 so doesn't need a HDR_LINEAR_32 permutation
-	bool bIsAndroid32bpp = (OutputFormat == HDR_LINEAR_32) && (Platform == SP_OPENGL_ES2_ANDROID || Platform == SP_OPENGL_ES3_1_ANDROID);
 
 	// only cache this shader if the LDR/HDR output matches what we currently support.  IsMobileHDR can't change, so we don't need
-	// the LDR shaders if we are doing HDR, and vice-versa.	Android doesn't need HDR_LINEAR_32 as it
-	return (bShaderUsesLDR && !bSupportsMobileHDR) || (bShaderUsesHDR && bSupportsMobileHDR && !bIsAndroid32bpp);
+	// the LDR shaders if we are doing HDR, and vice-versa.
+	return (bShaderUsesLDR && !bSupportsMobileHDR) || (!bShaderUsesLDR && bSupportsMobileHDR);
 }
 
 /**
@@ -62,6 +75,7 @@ protected:
 	{
 		VertexParametersType::Bind(Initializer.ParameterMap);
 		HeightFogParameters.Bind(Initializer.ParameterMap);
+		MobileMultiViewMaskParameter.Bind(Initializer.ParameterMap, TEXT("MobileMultiViewMask"));
 	}
 
 public:
@@ -78,11 +92,12 @@ public:
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		VertexParametersType::Serialize(Ar);
 		Ar << HeightFogParameters;
+		Ar << MobileMultiViewMaskParameter;
 		return bShaderHasOutdatedParameters;
 	}
 
 	void SetParameters(
-		FRHICommandList& RHICmdList, 
+		FRHICommandList& RHICmdList,
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FVertexFactory* VertexFactory,
 		const FMaterial& InMaterialResource,
@@ -92,15 +107,30 @@ public:
 	{
 		HeightFogParameters.Set(RHICmdList, GetVertexShader(), &View);
 		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(),MaterialRenderProxy,InMaterialResource,View,View.ViewUniformBuffer,TextureMode);
+
+		if (MobileMultiViewMaskParameter.IsBound())
+		{
+			// Default is no masking
+			SetShaderValue(RHICmdList, GetVertexShader(), MobileMultiViewMaskParameter, -1);
+		}
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
+	void SetMobileMultiViewMask(FRHICommandList& RHICmdList, const int32 EyeIndex)
+	{
+		if (EyeIndex >= 0 && MobileMultiViewMaskParameter.IsBound())
+		{
+			SetShaderValue(RHICmdList, GetVertexShader(), MobileMultiViewMaskParameter, EyeIndex);
+		}
+	}
+
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
 
 private:
 	FHeightFogShaderParameters HeightFogParameters;
+	FShaderParameter MobileMultiViewMaskParameter;
 };
 
 template<typename LightMapPolicyType>
@@ -228,7 +258,7 @@ public:
 		EditorCompositeParams.SetParameters(RHICmdList, MaterialResource, View, bEnableEditorPrimitveDepthTest, GetPixelShader());
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FRHIPixelShader* PixelShader = GetPixelShader();
 		FPrimitiveSceneInfo* PrimitiveSceneInfo = Proxy ? Proxy->GetPrimitiveSceneInfo() : NULL;
@@ -407,7 +437,6 @@ public:
 	{		
 		TMobileBasePassPSBaseType<LightMapPolicyType, NumDynamicPointLights>::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("ENABLE_SKY_LIGHT"), bEnableSkyLight);
-		OutEnvironment.SetDefine(TEXT("USE_32BPP_HDR"), OutputFormat == HDR_LINEAR_32);
 		OutEnvironment.SetDefine(TEXT("OUTPUT_GAMMA_SPACE"), OutputFormat == LDR_GAMMA_32);
 	}
 	
@@ -436,20 +465,7 @@ struct GetMobileBasePassShaders
 	TMobileBasePassPSPolicyParamType<typename LightMapPolicyType::PixelParametersType, NumDynamicPointLights>*& PixelShader
 	)
 	{
-		if (IsMobileHDR32bpp() && !GSupportsHDR32bppEncodeModeIntrinsic)
-		{
-			VertexShader = Material.GetShader<TMobileBasePassVS<LightMapPolicyType, HDR_LINEAR_64> >(VertexFactoryType);
-
-			if (bEnableSkyLight)
-			{
-				PixelShader = Material.GetShader< TMobileBasePassPS<LightMapPolicyType, HDR_LINEAR_32, true, NumDynamicPointLights> >(VertexFactoryType);
-			}
-			else
-			{
-				PixelShader = Material.GetShader< TMobileBasePassPS<LightMapPolicyType, HDR_LINEAR_32, false, NumDynamicPointLights> >(VertexFactoryType);
-			}
-		}
-		else if (IsMobileHDR())
+		if (IsMobileHDR())
 		{
 			VertexShader = Material.GetShader<TMobileBasePassVS<LightMapPolicyType, HDR_LINEAR_64> >(VertexFactoryType);
 
@@ -501,20 +517,7 @@ void GetUniformMobileBasePassShaders(
 	TMobileBasePassPSPolicyParamType<FUniformLightMapPolicyShaderParametersType, NumDynamicPointLights>*& PixelShader
 	)
 {
-	if (IsMobileHDR32bpp() && !GSupportsHDR32bppEncodeModeIntrinsic)
-	{
-		VertexShader = Material.GetShader<TMobileBasePassVS<TUniformLightMapPolicy<Policy>, HDR_LINEAR_64> >(VertexFactoryType);
-
-		if (bEnableSkyLight)
-		{
-			PixelShader = Material.GetShader< TMobileBasePassPS<TUniformLightMapPolicy<Policy>, HDR_LINEAR_32, true, NumDynamicPointLights> >(VertexFactoryType);
-		}
-		else
-		{
-			PixelShader = Material.GetShader< TMobileBasePassPS<TUniformLightMapPolicy<Policy>, HDR_LINEAR_32, false, NumDynamicPointLights> >(VertexFactoryType);
-		}
-	}
-	else if (IsMobileHDR())
+	if (IsMobileHDR())
 	{
 		VertexShader = Material.GetShader<TMobileBasePassVS<TUniformLightMapPolicy<Policy>, HDR_LINEAR_64> >(VertexFactoryType);
 
@@ -630,12 +633,13 @@ public:
 		EBlendMode InBlendMode,
 		ESceneRenderTargetsMode::Type InSceneTextureMode,
 		bool bInEnableSkyLight,
+		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
 		EDebugViewShaderMode InDebugViewShaderMode,
 		ERHIFeatureLevel::Type FeatureLevel,
 		bool bInEnableEditorPrimitiveDepthTest = false,
 		bool bInEnableReceiveDecalOutput = false
 		):
-		FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource,InDebugViewShaderMode),
+		FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
 		LightMapPolicy(InLightMapPolicy),
 		BlendMode(InBlendMode),
 		SceneTextureMode(InSceneTextureMode),
@@ -673,7 +677,12 @@ public:
 		DRAWING_POLICY_MATCH_END
 	}
 
-	void SetSharedState(FRHICommandList& RHICmdList, const FViewInfo* View, const ContextDataType PolicyContext) const
+	void SetMobileMultiViewMask(FRHICommandList& RHICmdList, const int32 EyeIndex)
+	{
+		VertexShader->SetMobileMultiViewMask(RHICmdList, EyeIndex);
+	}
+
+	void SetSharedState(FRHICommandList& RHICmdList, const FViewInfo* View, const ContextDataType PolicyContext, const FDrawingPolicyRenderState& DrawRenderState) const
 	{
 		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, VertexFactory, *MaterialResource, *View, SceneTextureMode);
 
@@ -761,8 +770,7 @@ public:
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
-		bool bBackFace,
-		const FMeshDrawingRenderState& DrawRenderState,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const
@@ -821,7 +829,7 @@ public:
 			SetUniformBufferParameter(RHICmdList, PixelShader->GetPixelShader(), MobileDirectionalLightParam, View.MobileDirectionalLightUniformBuffers[UniformBufferIndex]);
 		}
 
-		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,DrawRenderState,FMeshDrawingPolicy::ElementDataType(),PolicyContext);
+		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,DrawRenderState,FMeshDrawingPolicy::ElementDataType(),PolicyContext);
 	}
 
 	friend int32 CompareDrawingPolicy(const TMobileBasePassDrawingPolicy& A,const TMobileBasePassDrawingPolicy& B)
@@ -874,8 +882,8 @@ public:
 		const FViewInfo& View,
 		ContextType DrawingContext,
 		const FMeshBatch& Mesh,
-		bool bBackFace,
 		bool bPreFog,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId
 		);
@@ -887,9 +895,9 @@ private:
 		FRHICommandList& RHICmdList,
 		const FViewInfo& View,
 		ContextType DrawingContext,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const FMeshBatch& Mesh,
 		const FMaterial* Material,
-		bool bBackFace,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId
 		);

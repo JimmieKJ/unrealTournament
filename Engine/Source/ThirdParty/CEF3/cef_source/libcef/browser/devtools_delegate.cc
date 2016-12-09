@@ -3,11 +3,12 @@
 // governed by a BSD-style license that can be found in the LICENSE file.
 
 #include "libcef/browser/devtools_delegate.h"
-#include "libcef/browser/devtools_scheme_handler.h"
-#include "libcef/common/content_client.h"
 
 #include <algorithm>
 #include <string>
+
+#include "libcef/browser/net/devtools_scheme_handler.h"
+#include "libcef/common/content_client.h"
 
 #include "base/command_line.h"
 #include "base/md5.h"
@@ -17,8 +18,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "base/time/time.h"
-#include "content/public/browser/devtools_http_handler.h"
-#include "content/public/browser/devtools_target.h"
+#include "components/devtools_discovery/basic_target_descriptor.h"
+#include "components/devtools_discovery/devtools_discovery_manager.h"
+#include "content/public/browser/devtools_frontend_host.h"
 #include "content/public/browser/favicon_status.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_view_host.h"
@@ -35,16 +37,12 @@
 
 namespace {
 
-const char kTargetTypePage[] = "page";
-const char kTargetTypeServiceWorker[] = "service_worker";
-const char kTargetTypeOther[] = "other";
-
 const int kBackLog = 10;
 
 class TCPServerSocketFactory
-    : public content::DevToolsHttpHandler::ServerSocketFactory {
+    : public devtools_http_handler::DevToolsHttpHandler::ServerSocketFactory {
  public:
-  TCPServerSocketFactory(const std::string& address, uint16 port)
+  TCPServerSocketFactory(const std::string& address, uint16_t port)
       : address_(address), port_(port) {
   }
 
@@ -60,88 +58,31 @@ class TCPServerSocketFactory
   }
 
   std::string address_;
-  uint16 port_;
+  uint16_t port_;
 
   DISALLOW_COPY_AND_ASSIGN(TCPServerSocketFactory);
 };
 
-scoped_ptr<content::DevToolsHttpHandler::ServerSocketFactory>
-    CreateSocketFactory(uint16 port) {
-  return scoped_ptr<content::DevToolsHttpHandler::ServerSocketFactory>(
-      new TCPServerSocketFactory("127.0.0.1", port));
-}
-
-class Target : public content::DevToolsTarget {
- public:
-  explicit Target(scoped_refptr<content::DevToolsAgentHost> agent_host);
-
-  std::string GetId() const override { return agent_host_->GetId(); }
-  std::string GetParentId() const override { return std::string(); }
-  std::string GetType() const override {
-    switch (agent_host_->GetType()) {
-      case content::DevToolsAgentHost::TYPE_WEB_CONTENTS:
-        return kTargetTypePage;
-      case content::DevToolsAgentHost::TYPE_SERVICE_WORKER:
-        return kTargetTypeServiceWorker;
-      default:
-        break;
-    }
-    return kTargetTypeOther;
-  }
-  std::string GetTitle() const override {
-    return agent_host_->GetTitle();
-  }
-  std::string GetDescription() const override { return std::string(); }
-  GURL GetURL() const override { return agent_host_->GetURL(); }
-  GURL GetFaviconURL() const override { return favicon_url_; }
-  base::TimeTicks GetLastActivityTime() const override {
-    return last_activity_time_;
-  }
-  bool IsAttached() const override {
-    return agent_host_->IsAttached();
-  }
-  scoped_refptr<content::DevToolsAgentHost> GetAgentHost() const
-      override {
-    return agent_host_;
-  }
-  bool Activate() const override;
-  bool Close() const override;
-
- private:
-  scoped_refptr<content::DevToolsAgentHost> agent_host_;
-  GURL favicon_url_;
-  base::TimeTicks last_activity_time_;
-};
-
-Target::Target(scoped_refptr<content::DevToolsAgentHost> agent_host)
-    : agent_host_(agent_host) {
-  if (content::WebContents* web_contents = agent_host_->GetWebContents()) {
-    content::NavigationController& controller = web_contents->GetController();
-    content::NavigationEntry* entry = controller.GetActiveEntry();
-    if (entry != NULL && entry->GetURL().is_valid())
-      favicon_url_ = entry->GetFavicon().url;
-    last_activity_time_ = web_contents->GetLastActiveTime();
-  }
-}
-
-bool Target::Activate() const {
-  return agent_host_->Activate();
-}
-
-bool Target::Close() const {
-  return agent_host_->Close();
+scoped_ptr<devtools_http_handler::DevToolsHttpHandler::ServerSocketFactory>
+    CreateSocketFactory(uint16_t port) {
+  return scoped_ptr<
+      devtools_http_handler::DevToolsHttpHandler::ServerSocketFactory>(
+          new TCPServerSocketFactory("127.0.0.1", port));
 }
 
 }  // namespace
 
 // CefDevToolsDelegate
 
-CefDevToolsDelegate::CefDevToolsDelegate(uint16 port) {
-  devtools_http_handler_.reset(content::DevToolsHttpHandler::Start(
+CefDevToolsDelegate::CefDevToolsDelegate(uint16_t port) {
+  devtools_http_handler_.reset(new devtools_http_handler::DevToolsHttpHandler(
       CreateSocketFactory(port),
       std::string(),
       this,
-      base::FilePath()));
+      base::FilePath(),
+      base::FilePath(),
+      std::string(),
+      CefContentClient::Get()->GetUserAgent()));
 }
 
 CefDevToolsDelegate::~CefDevToolsDelegate() {
@@ -152,7 +93,8 @@ void CefDevToolsDelegate::Stop() {
   // Release the reference before deleting the handler. Deleting the handler
   // will delete |this| and no members of |this| should be accessed after that
   // call.
-  content::DevToolsHttpHandler* handler = devtools_http_handler_.release();
+  devtools_http_handler::DevToolsHttpHandler* handler =
+      devtools_http_handler_.release();
   delete handler;
 }
 
@@ -161,16 +103,22 @@ std::string CefDevToolsDelegate::GetDiscoveryPageHTML() {
       IDR_CEF_DEVTOOLS_DISCOVERY_PAGE, ui::SCALE_FACTOR_NONE).as_string();
 }
 
-bool CefDevToolsDelegate::BundlesFrontendResources() {
-  return true;
+std::string CefDevToolsDelegate::GetPageThumbnailData(const GURL& url) {
+  return std::string();
 }
 
-base::FilePath CefDevToolsDelegate::GetDebugFrontendDir() {
-  return base::FilePath();
+std::string CefDevToolsDelegate::GetFrontendResource(
+    const std::string& path) {
+  return content::DevToolsFrontendHost::GetFrontendResource(path).as_string();
+}
+
+content::DevToolsExternalAgentProxyDelegate*
+CefDevToolsDelegate::HandleWebSocketConnection(const std::string& path) {
+  return nullptr;
 }
 
 std::string CefDevToolsDelegate::GetChromeDevToolsURL() {
-  return base::StringPrintf("%s://%s/devtools.html",
+  return base::StringPrintf("%s://%s/inspector.html",
       content::kChromeDevToolsScheme, scheme::kChromeDevToolsHost);
 }
 
@@ -186,25 +134,4 @@ base::DictionaryValue* CefDevToolsManagerDelegate::HandleCommand(
     content::DevToolsAgentHost* agent_host,
     base::DictionaryValue* command) {
   return NULL;
-}
-
-std::string CefDevToolsManagerDelegate::GetPageThumbnailData(
-    const GURL& url) {
-  return std::string();
-}
-
-scoped_ptr<content::DevToolsTarget>
-CefDevToolsManagerDelegate::CreateNewTarget(const GURL& url) {
-  return scoped_ptr<content::DevToolsTarget>();
-}
-
-void CefDevToolsManagerDelegate::EnumerateTargets(TargetCallback callback) {
-  TargetList targets;
-  content::DevToolsAgentHost::List agents =
-      content::DevToolsAgentHost::GetOrCreateAll();
-  for (content::DevToolsAgentHost::List::iterator it = agents.begin();
-       it != agents.end(); ++it) {
-    targets.push_back(new Target(*it));
-  }
-  callback.Run(targets);
 }

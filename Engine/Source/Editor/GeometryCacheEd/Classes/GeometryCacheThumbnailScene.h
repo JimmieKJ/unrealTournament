@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "GeometryCacheEdModulePublicPCH.h"
+#include "CoreMinimal.h"
 #include "ThumbnailHelpers.h"
 
-class UGeometryCache;
 class AGeometryCacheActor;
+class UGeometryCache;
 
 class FGeometryCacheThumbnailScene : public FThumbnailPreviewScene
 {

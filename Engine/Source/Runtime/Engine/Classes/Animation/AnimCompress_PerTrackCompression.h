@@ -7,6 +7,11 @@
  * well as choosing the best bitwise compression for each track independently.
  *
  */
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimSequence.h"
+#include "AnimationUtils.h"
 #include "Animation/AnimCompress_RemoveLinearKeys.h"
 #include "AnimCompress_PerTrackCompression.generated.h"
 

@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "ComponentVisualizer.h"
+#include "GameFramework/Actor.h"
 #include "ActorEditorUtils.h"
 
 IMPLEMENT_HIT_PROXY(HComponentVisProxy, HHitProxy);

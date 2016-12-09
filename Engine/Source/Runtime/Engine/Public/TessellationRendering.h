@@ -6,6 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RHIDefinitions.h"
+
+class FVertexFactoryType;
+class UMaterialInterface;
+
 /** Returns true if the Material and Vertex Factory combination require adjacency information.
   * Game thread version that looks at the material settings. Will not change answer during a shader compile */
 ENGINE_API bool MaterialSettingsRequireAdjacencyInformation_GameThread(UMaterialInterface* Material, const FVertexFactoryType* VertexFactoryType, ERHIFeatureLevel::Type InFeatureLevel);

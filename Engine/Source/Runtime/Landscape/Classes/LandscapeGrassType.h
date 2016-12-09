@@ -2,7 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/EngineTypes.h"
 #include "LandscapeGrassType.generated.h"
+
+class UStaticMesh;
+struct FPropertyChangedEvent;
 
 UENUM()
 enum class EGrassScaling : uint8

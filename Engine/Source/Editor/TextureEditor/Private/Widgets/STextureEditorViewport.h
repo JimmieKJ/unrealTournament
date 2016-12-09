@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Models/TextureEditorViewportClient.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Interfaces/ITextureEditorToolkit.h"
+
+class FSceneViewport;
+class SScrollBar;
+class SViewport;
 
 /**
  * Implements the texture editor's view port.

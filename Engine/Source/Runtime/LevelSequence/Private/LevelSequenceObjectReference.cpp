@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelSequencePCH.h"
 #include "LevelSequenceObjectReference.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
+#include "UObject/Package.h"
 
 FLevelSequenceObjectReference::FLevelSequenceObjectReference(UObject* InObject, UObject* InContext)
 {
@@ -32,12 +34,8 @@ UObject* FLevelSequenceObjectReference::Resolve(UObject* InContext) const
 {
 	if (ObjectId.IsValid() && InContext != nullptr)
 	{
-	#if WITH_EDITOR
 		int32 PIEInstanceID = InContext->GetOutermost()->PIEInstanceID;
 		FUniqueObjectGuid FixedUpId = PIEInstanceID == -1 ? ObjectId : ObjectId.FixupForPIE(PIEInstanceID);
-	#else
-		FUniqueObjectGuid FixedUpId = ObjectId;
-	#endif
 		
 
 		FLazyObjectPtr LazyPtr;

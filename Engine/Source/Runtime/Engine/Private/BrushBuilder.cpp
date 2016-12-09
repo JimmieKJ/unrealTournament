@@ -4,7 +4,6 @@
 	UBrushBuilder.cpp: UnrealEd brush builder.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Engine/BrushBuilder.h"
 
 /*-----------------------------------------------------------------------------

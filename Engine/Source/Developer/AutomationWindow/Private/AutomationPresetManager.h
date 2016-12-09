@@ -2,39 +2,47 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Paths.h"
+#include "AutomationPresetManager.generated.h"
+
+struct FAutomationTestPreset;
 
 /** Type definition for shared pointers to instances of FAutomationTestPreset. */
-typedef TSharedPtr<class FAutomationTestPreset> AutomationPresetPtr;
+typedef TSharedPtr<struct FAutomationTestPreset> AutomationPresetPtr;
 
 /** Type definition for shared references to instances of FAutomationTestPreset. */
-typedef TSharedRef<class FAutomationTestPreset> AutomationPresetRef;
-
-//Increment this number if the Preset serialization changes.
-#define AUTOMATION_PRESETVERSION 1
-
+typedef TSharedRef<struct FAutomationTestPreset> AutomationPresetRef;
 
 /**
  * Class that holds preset data for the automation window
  */
-class FAutomationTestPreset
+USTRUCT()
+struct FAutomationTestPreset
 {
+	GENERATED_BODY()
+
 public:
 
 	/** Default constructor. */
-	FAutomationTestPreset() :
-		Id(FGuid::NewGuid())
-	{ }
+	FAutomationTestPreset()
+	{
+	}
+
+	/** New Preset constructor. */
+	FAutomationTestPreset(FName NewPresetId)
+		: Id(NewPresetId)
+	{
+	}
 
 	/** Destructor. */
 	virtual ~FAutomationTestPreset( ) { }
 
 	/**
-	 * Gets the GUid for this preset.
-	 *
-	 * @return The preset's unique identifier.
-	 * @see GetPresetName
+	 * Gets the unique preset id for this preset.
 	 */
-	const FGuid GetID()
+	FName GetID() const
 	{
 		return Id;
 	}
@@ -45,9 +53,9 @@ public:
 	 * @return The preset's name.
 	 * @see GetID, SetPresetName
 	 */
-	const FText& GetPresetName( ) const
+	const FText& GetName() const
 	{
-		return PresetName;
+		return Name;
 	}
 
 	/**
@@ -56,9 +64,9 @@ public:
 	 * @param InPresetName The name to set.
 	 * @see GetPresetName
 	 */
-	void SetPresetName(const FText& InPresetName)
+	void SetName(const FText& InPresetName)
 	{
-		PresetName = InPresetName;
+		Name = InPresetName;
 	}
 
 	/**
@@ -83,38 +91,18 @@ public:
 		EnabledTests = NewEnabledTests;
 	}
 
-	/**
-	 * Handles saving / loading the preset data to an archive (file).
-	 *
-	 * @param Archive The archive to serialize from/to.
-	 */
-	virtual bool Serialize( FArchive& Archive )
-	{
-		int32 Version = AUTOMATION_PRESETVERSION;
-
-		Archive	<< Version;
-
-		if (Version != AUTOMATION_PRESETVERSION)
-		{
-			return false;
-		}
-
-		Archive << Id;
-		Archive << PresetName;
-		Archive << EnabledTests;
-
-		return true;
-	}
-
 private:
 
-	/** A unique ID for this preset. (Used for the filename because the PresetName may have invalid characters). */
-	FGuid Id;
+	/** The unique name for this preset. */
+	UPROPERTY()
+	FName Id;
 
 	/** The name of this preset. */
-	FText PresetName;
+	UPROPERTY()
+	FText Name;
 
 	/** The list of enabled test names. */
+	UPROPERTY()
 	TArray<FString> EnabledTests;
 };
 
@@ -130,16 +118,11 @@ public:
 	virtual ~FAutomationTestPresetManager() { }
 
 	/**
-	 * Creates a new empty preset.
-	 */
-	virtual AutomationPresetRef AddNewPreset( );
-
-	/**
 	 * Creates a new preset with the given name and enabled tests.
 	 * @param PresetName The name of the new preset.
 	 * @param SelectedTests The list of enabled tests.
 	 */
-	virtual AutomationPresetRef AddNewPreset( const FText& PresetName, const TArray<FString>& SelectedTests );
+	virtual AutomationPresetPtr AddNewPreset( const FText& PresetName, const TArray<FString>& SelectedTests );
 
 	/**
 	 * Returns a reference to the list that holds the presets.
@@ -179,21 +162,13 @@ protected:
 	AutomationPresetPtr LoadPreset( FArchive& Archive );
 
 	/**
-	 * Writes the Preset data to the archive.
-	 *
-	 * @param Preset The preset to serialize.
-	 * @param Archive The stream to write the preset data to.
-	 */
-	void SavePreset( const AutomationPresetRef Preset, FArchive& Archive );
-
-	/**
 	 * Gets the folder in which preset files are stored.
 	 *
 	 * @return The folder path.
 	 */
-	static FString GetPresetFolder( )
+	static FString GetPresetFolder()
 	{
-		return FPaths::EngineSavedDir() / TEXT("Automation");
+		return FPaths::GameConfigDir() / TEXT("Automation/Presets");
 	}
 
 private:

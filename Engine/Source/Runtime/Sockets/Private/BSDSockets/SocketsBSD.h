@@ -2,12 +2,14 @@
 
 #pragma once
 
-#include "Platform.h"
+#include "CoreMinimal.h"
+#include "BSDSockets/SocketSubsystemBSDPrivate.h"
+
+class FInternetAddr;
 
 #if PLATFORM_HAS_BSD_SOCKETS
 
 #include "Sockets.h"
-#include "IPAddress.h"
 
 
 /**

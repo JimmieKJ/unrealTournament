@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "TransformCalculus.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/AreTypesEqual.h"
+#include "Math/UnrealMathUtility.h"
+#include "Math/Vector2D.h"
+#include "Math/TransformCalculus.h"
 
+class FMatrix2x2;
 
 //////////////////////////////////////////////////////////////////////////
 // Transform calculus for 2D types. UE4 already has a 2D Vector class that we

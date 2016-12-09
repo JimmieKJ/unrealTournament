@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TargetPlatformPrivatePCH.h"
 #include "InstalledPlatformInfo.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/App.h"
 #include "PlatformInfo.h"
+#include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
 
 #define LOCTEXT_NAMESPACE "InstalledPlatformInfo"

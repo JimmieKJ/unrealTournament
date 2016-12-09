@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "GameFramework/MovementComponent.h"
-#include "Components/SplineComponent.h"
-#include "InterpToMovementComponent.generated.h"
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/MovementComponent.h"
+#include "InterpToMovementComponent.generated.h"
 
 /**
  * Controls the movement behaviour

@@ -11,12 +11,11 @@
 	Audio includes.
 ------------------------------------------------------------------------------------*/
 
-#include "XAudio2PrivatePCH.h"
 #include "XAudio2Device.h"
 #include "XAudio2Effects.h"
-#include "Engine.h"
 #include "XAudio2Support.h"
 #include "IAudioExtensionPlugin.h"
+#include "ActiveSound.h"
 
 /*------------------------------------------------------------------------------------
 	For muting user soundtracks during cinematics
@@ -40,7 +39,6 @@ FXAudio2SoundSource::FXAudio2SoundSource(FAudioDevice* InAudioDevice)
 	, Source(nullptr)
 	, MaxEffectChainChannels(0)
 	, RealtimeAsyncTask(nullptr)
-	, VoiceId(-1)
 	, CurrentBuffer(0)
 	, bLoopCallback(false)
 	, bIsFinished(false)
@@ -66,6 +64,11 @@ FXAudio2SoundSource::FXAudio2SoundSource(FAudioDevice* InAudioDevice)
 
 	FMemory::Memzero( XAudio2Buffers, sizeof( XAudio2Buffers ) );
 	FMemory::Memzero( XAudio2BufferXWMA, sizeof( XAudio2BufferXWMA ) );
+
+	if (!InAudioDevice->bIsAudioDeviceHardwareInitialized)
+	{
+		bIsVirtual = true;
+	}
 }
 
 /**
@@ -96,7 +99,6 @@ void FXAudio2SoundSource::FreeResources( void )
 		AudioDevice->DeviceProperties->ReleaseSourceVoice(Source, XAudio2Buffer->PCM, MaxEffectChainChannels);
 		Source = nullptr;
 	}
-	
 
 	if (XAudio2Buffer && XAudio2Buffer->RealtimeAsyncHeaderParseTask)
 	{
@@ -117,7 +119,8 @@ void FXAudio2SoundSource::FreeResources( void )
 
 	if (bResourcesNeedFreeing && Buffer)
 	{
-		check(Buffer->ResourceID == 0);
+		// If we failed to initialize, then we will have a non-zero resource ID, but still need to delete the buffer
+		check(!bInitialized || Buffer->ResourceID == 0);
 		delete Buffer;
 	}
 
@@ -358,17 +361,25 @@ bool FXAudio2SoundSource::CreateSource( void )
 {
 	SCOPE_CYCLE_COUNTER( STAT_AudioSourceCreateTime );
 
+	// No need to create a hardware voice if we're virtual
+	if (bIsVirtual)
+	{
+		return true;
+	}
+
 	uint32 NumSends = 0;
 
 	// Create a source that goes to the spatialisation code and reverb effect
 	Destinations[NumSends].pOutputVoice = Effects->DryPremasterVoice;
 
-	// EQFilter Causes sound devices on AMD boards to lag and starve important game threads. Hack disable for AMD until a long term solution is put into place.
-	static const bool bIsAMD = (FPlatformMisc::GetCPUVendor() == TEXT("AuthenticAMD"));
-	if (!bIsAMD && IsEQFilterApplied())
+	// EQFilter Causes some sound devices to lag and starve important game threads. Hack disable until a long term solution is put into place.
+#if 0
+	if (IsEQFilterApplied())
 	{
 		Destinations[NumSends].pOutputVoice = Effects->EQPremasterVoice;
 	}
+#endif
+
 	NumSends++;
 
 	if( bReverbApplied )
@@ -447,6 +458,20 @@ bool FXAudio2SoundSource::CreateSource( void )
 
 bool FXAudio2SoundSource::PrepareForInitialization(FWaveInstance* InWaveInstance)
 {
+	// If the headphones have been unplugged, set this voice to be virtual
+	if (!AudioDevice->DeviceProperties->bAllowNewVoices)
+	{
+		bIsVirtual = true;
+	}
+
+	// If virtual only need wave instance data and no need to load source data
+	if (bIsVirtual)
+	{
+		WaveInstance = InWaveInstance;
+		bIsFinished = false;
+		return true;
+	}
+
 	// Reset so next instance will warn if algorithm changes inflight
 	bEditorWarnedChangedSpatialization = false;
 
@@ -500,11 +525,19 @@ bool FXAudio2SoundSource::PrepareForInitialization(FWaveInstance* InWaveInstance
 
 bool FXAudio2SoundSource::IsPreparedToInit()
 {
-	return (XAudio2Buffer && XAudio2Buffer->IsRealTimeSourceReady());
+	return bIsVirtual || (XAudio2Buffer && XAudio2Buffer->IsRealTimeSourceReady());
 }
 
 bool FXAudio2SoundSource::Init(FWaveInstance* InWaveInstance)
 {
+	FSoundSource::InitCommon();
+
+	if (bIsVirtual)
+	{
+		bInitialized = true;
+		return true;
+	}
+
 	check(XAudio2Buffer);
 	check(XAudio2Buffer->IsRealTimeSourceReady());
 	check(Buffer);
@@ -554,13 +587,33 @@ bool FXAudio2SoundSource::Init(FWaveInstance* InWaveInstance)
 
 			Update();
 
+			// Initialize the total  number of frames of audio for this sound source
+			int32 NumBytes = InWaveInstance->WaveData->RawPCMDataSize;
+			NumTotalFrames = NumBytes / (Buffer->NumChannels * sizeof(int16));
+			StartFrame = 0;
+
+			if (InWaveInstance->StartTime > 0.0f)
+			{
+				const float StartFraction = InWaveInstance->StartTime / InWaveInstance->WaveData->GetDuration();
+				StartFrame = StartFraction * NumTotalFrames;
+			}
+
 			// Now set the source state to initialized so it can be played
 			// Initialization succeeded.
 			return true;
 		}
-		else
+		else if (AudioDevice->DeviceProperties->bAllowNewVoices)
 		{
 			UE_LOG(LogXAudio2, Warning, TEXT("Failed to init sound source for wave instance '%s' due to being unable to create an IXAudio2SourceVoice."), *InWaveInstance->GetName());
+		}
+		else
+		{
+			// The audio device was unplugged after init was declared, we're actually virtual now
+			bIsVirtual = true;
+
+			// Set that we've actually successfully initialized
+			bInitialized = true;
+			return true;
 		}
 	}
 	else
@@ -578,6 +631,8 @@ bool FXAudio2SoundSource::Init(FWaveInstance* InWaveInstance)
  */
 void FXAudio2SoundSource::GetChannelVolumes(float ChannelVolumes[CHANNEL_MATRIX_COUNT], float AttenuatedVolume)
 {
+	check(!bIsVirtual);
+
 	if (AudioDevice->IsAudioDeviceMuted())
 	{
 		for( int32 i = 0; i < CHANNELOUT_COUNT; i++ )
@@ -667,7 +722,7 @@ void FXAudio2SoundSource::GetMonoChannelVolumes(float ChannelVolumes[CHANNEL_MAT
 		}
 		check(AudioDevice->SpatializeProcessor != nullptr);
 
-		AudioDevice->SpatializeProcessor->SetSpatializationParameters(VoiceId, FAudioSpatializationParams(SpatializationParams.EmitterPosition, WaveInstance->Location));
+		AudioDevice->SpatializeProcessor->SetSpatializationParameters(VoiceId, SpatializationParams);
 		GetStereoChannelVolumes(ChannelVolumes, AttenuatedVolume);
 	}
 	else // Spatialize the mono stream using the normal 3d audio algorithm
@@ -837,7 +892,7 @@ void FXAudio2SoundSource::GetHexChannelVolumes(float ChannelVolumes[CHANNEL_MATR
 /** 
  * Maps a sound with a given number of channels to to expected speakers
  */
-void FXAudio2SoundSource::RouteDryToSpeakers(float ChannelVolumes[CHANNEL_MATRIX_COUNT])
+void FXAudio2SoundSource::RouteDryToSpeakers(float ChannelVolumes[CHANNEL_MATRIX_COUNT], const float InVolume)
 {
 	// Only need to account to the special cases that are not a simple match of channel to speaker
 	switch( Buffer->NumChannels )
@@ -859,6 +914,8 @@ void FXAudio2SoundSource::RouteDryToSpeakers(float ChannelVolumes[CHANNEL_MATRIX
 		break;
 
 		default:
+			// For all other channel counts, just apply the volume and let XAudio2 handle doing downmixing of the source
+			Source->SetVolume(InVolume);
 			break;
 	};
 }
@@ -1091,7 +1148,7 @@ void FXAudio2SoundSource::RouteToRadio(float ChannelVolumes[CHANNEL_MATRIX_COUNT
 
 			// Mono sounds map 1 channel to 6 speakers.
 			AudioDevice->ValidateAPICall( TEXT( "SetOutputMatrix (Mono radio)" ), 
-				Source->SetOutputMatrix( Destinations[Index].pOutputVoice, 1, SPEAKER_COUNT, OutputMatrix ) );
+				Source->SetOutputMatrix( Destinations[Index].pOutputVoice, 1, SPEAKER_COUNT, OutputMatrix) );
 		}
 		break;
 
@@ -1110,7 +1167,7 @@ void FXAudio2SoundSource::RouteToRadio(float ChannelVolumes[CHANNEL_MATRIX_COUNT
 
 			// Stereo sounds map 2 channels to 6 speakers.
 			AudioDevice->ValidateAPICall( TEXT( "SetOutputMatrix (Stereo radio)" ), 
-				Source->SetOutputMatrix( Destinations[Index].pOutputVoice, 2, SPEAKER_COUNT, OutputMatrix ) );
+				Source->SetOutputMatrix( Destinations[Index].pOutputVoice, 2, SPEAKER_COUNT, OutputMatrix) );
 		}
 		break;
 	}
@@ -1252,91 +1309,132 @@ FString FXAudio2SoundSource::Describe_Internal(bool bUseLongName, bool bIncludeC
 
 void FXAudio2SoundSource::Update()
 {
-	SCOPE_CYCLE_COUNTER( STAT_AudioUpdateSources );
+	SCOPE_CYCLE_COUNTER(STAT_AudioUpdateSources);
 
-	if (!WaveInstance || !Source || Paused || !bInitialized)
+	if (!WaveInstance || (!bIsVirtual && !Source) || Paused || !bInitialized)
 	{	
 		return;
 	}
 
-	float Pitch = WaveInstance->Pitch;
+	FSoundSource::UpdateCommon();
 
-	// Don't apply global pitch scale to UI sounds
-	if (!WaveInstance->bIsUISound)
+	// If the headphones have been unplugged after playing, set this voice to be virtual
+	if (!AudioDevice->DeviceProperties->bAllowNewVoices)
 	{
-		Pitch *= AudioDevice->GetGlobalPitchScale().GetValue();
+		bIsVirtual = true;
 	}
 
-	Pitch = FMath::Clamp<float>(Pitch, MIN_PITCH, MAX_PITCH);
-
-	AudioDevice->ValidateAPICall( TEXT( "SetFrequencyRatio" ), 
-		Source->SetFrequencyRatio( Pitch ) );
-
-	// Set whether to bleed to the rear speakers
-	SetStereoBleed();
-
-	// Set the amount to bleed to the LFE speaker
-	SetLFEBleed();
-
-	// Set the low pass filter frequency value
-	SetFilterFrequency();
-
-	if (LastLPFFrequency != LPFFrequency)
+	// If this is a virtual source, then do any notification on completion
+	if (bIsVirtual)
 	{
-		// Apply the low pass filter
-		XAUDIO2_FILTER_PARAMETERS LPFParameters = { LowPassFilter, 1.0f, AudioDevice->GetLowPassFilterResonance() };
-
-		check(AudioDevice->SampleRate > 0.0f);
-
-		// Convert the frequency value to normalized radian frequency values where 0.0f to 2.0f sweeps 0.0hz to sample rate
-		// and 1.0f is the nyquist frequency. A normalized frequency of 1.0f is an effective bypass.
-		LPFParameters.Frequency = FMath::Clamp(2.0f * LPFFrequency / AudioDevice->SampleRate, 0.0f, 1.0f);
-
-		AudioDevice->ValidateAPICall(TEXT("SetFilterParameters"),
-									 Source->SetFilterParameters(&LPFParameters));
-
-		LastLPFFrequency = LPFFrequency;
+		if (PlaybackTime >= WaveInstance->WaveData->GetDuration())
+		{
+			if (WaveInstance->LoopingMode == LOOP_Never)
+			{
+				bIsFinished = true;
+			}
+			else
+			{
+				// This will trigger a loop callback notification
+				bLoopCallback = true;
+			}
+		}
 	}
-
-	// Initialize channel volumes
-	float ChannelVolumes[CHANNEL_MATRIX_COUNT] = { 0.0f };
-
-	const float Volume = FSoundSource::GetDebugVolume(WaveInstance->GetActualVolume());
-
-	GetChannelVolumes( ChannelVolumes, Volume );
-
-	// Send to the 5.1 channels
-	RouteDryToSpeakers( ChannelVolumes );
-
-	// Send to the reverb channel
-	if( bReverbApplied )
+	else
 	{
-		RouteToReverb( ChannelVolumes );
-	}
+			// Set the pitch on the xaudio2 source
+		AudioDevice->ValidateAPICall( TEXT( "SetFrequencyRatio" ), 
+			Source->SetFrequencyRatio( Pitch) );
 
-	// If this audio can have radio distortion applied, 
-	// send the volumes to the radio distortion voice. 
-	if( WaveInstance->bApplyRadioFilter )
-	{
-		RouteToRadio( ChannelVolumes );
+		// Set whether to bleed to the rear speakers
+		SetStereoBleed();
+
+		// Set the amount to bleed to the LFE speaker
+		SetLFEBleed();
+
+		// Set the low pass filter frequency value
+		SetFilterFrequency();
+
+		if (LastLPFFrequency != LPFFrequency)
+		{
+			// Apply the low pass filter
+			XAUDIO2_FILTER_PARAMETERS LPFParameters = { LowPassFilter, 1.0f, AudioDevice->GetLowPassFilterResonance() };
+
+			check(AudioDevice->SampleRate > 0.0f);
+
+			// Convert the frequency value to normalized radian frequency values where 0.0f to 2.0f sweeps 0.0hz to sample rate
+			// and 1.0f is the nyquist frequency. A normalized frequency of 1.0f is an effective bypass.
+			LPFParameters.Frequency = FMath::Clamp(2.0f * LPFFrequency / AudioDevice->SampleRate, 0.0f, 1.0f);
+
+			AudioDevice->ValidateAPICall(TEXT("SetFilterParameters"),
+										 Source->SetFilterParameters(&LPFParameters));
+
+			LastLPFFrequency = LPFFrequency;
+		}
+
+		// Get the current xaudio2 source voice state to determine the number of frames played
+		XAUDIO2_VOICE_STATE VoiceState;
+		Source->GetState(&VoiceState);
+
+		// XAudio2's "samples" appear to actually be frames (1 interleaved time-slice)
+		NumFramesPlayed = VoiceState.SamplesPlayed;
+
+		// Initialize channel volumes
+		float ChannelVolumes[CHANNEL_MATRIX_COUNT] = { 0.0f };
+
+		const float Volume = FSoundSource::GetDebugVolume(WaveInstance->GetActualVolume());
+
+		GetChannelVolumes( ChannelVolumes, Volume );
+
+		// Send to the 5.1 channels
+		RouteDryToSpeakers(ChannelVolumes, Volume);
+
+		// Send to the reverb channel
+		if( bReverbApplied )
+		{
+			RouteToReverb( ChannelVolumes );
+		}
+
+		// If this audio can have radio distortion applied, 
+		// send the volumes to the radio distortion voice. 
+		if( WaveInstance->bApplyRadioFilter )
+		{
+			RouteToRadio( ChannelVolumes );
+		}
 	}
 
 	FSoundSource::DrawDebugInfo();
 
 }
 
+float FXAudio2SoundSource::GetPlaybackPercent() const
+{
+	// If we didn't compute NumTotalFrames then there's no playback percent
+	if (NumTotalFrames == 0)
+	{
+		return 0.0f;
+	}
+
+	const int32 CurrentFrame = StartFrame + NumFramesPlayed;
+
+	// Compute the percent based on frames played and total frames
+	const float Percent = (float)CurrentFrame / NumTotalFrames;
+
+	if (WaveInstance->LoopingMode == LOOP_Never)
+	{
+		return FMath::Clamp(Percent, 0.0f, 1.0f);
+	}
+	else
+	{
+		// Wrap the playback percent for looping sounds
+		return FMath::Fmod(Percent, 1.0f);
+	}
+}
+
 void FXAudio2SoundSource::Play()
 {
 	if (WaveInstance)
 	{
-		if (!Playing)
-		{
-			if (Buffer->NumChannels >= SPEAKER_COUNT)
-			{
-				XMPHelper.CinematicAudioStarted();
-			}
-		}
-
 		// It's possible if Pause and Play are called while a sound is async initializing. In this case
 		// we'll just not actually play the source here. Instead we'll call play when the sound finishes loading.
 		if (Source && bInitialized)
@@ -1358,25 +1456,8 @@ void FXAudio2SoundSource::Stop()
 	
 	if( WaveInstance )
 	{	
-		if( Playing )
-		{
-			if( Buffer->NumChannels >= SPEAKER_COUNT )
-			{
-				XMPHelper.CinematicAudioStopped();
-			}
-		}
-
 		Paused = false;
 		Playing = false;
-
-		if (Source && Playing)
-		{
-			AudioDevice->ValidateAPICall(TEXT("FlushSourceBuffers"),
-										 Source->FlushSourceBuffers());
-
-			AudioDevice->ValidateAPICall(TEXT("Stop"),
-										 Source->Stop(0));
-		}
 
 		// Free resources
 		FreeResources();
@@ -1512,26 +1593,28 @@ bool FXAudio2SoundSource::IsFinished()
 	// A paused source is not finished.
 	if (Paused || !bInitialized)
 	{
-		return(false);
-	}
-
-	if (WaveInstance && Source)
-	{
-		if (bIsFinished)
-		{
-			WaveInstance->NotifyFinished();
-			return true;
-		}
-
-		if (bLoopCallback && WaveInstance->LoopingMode == LOOP_WithNotification)
-		{
-			WaveInstance->NotifyFinished();
-			bLoopCallback = false;
-		}
-
 		return false;
 	}
-	return true;
+
+
+	if (!WaveInstance || (!bIsVirtual && !Source))
+	{
+		return true;
+	}
+
+	if (bIsFinished)
+	{
+		WaveInstance->NotifyFinished();
+		return true;
+	}
+
+	if (bLoopCallback && WaveInstance->LoopingMode == LOOP_WithNotification)
+	{
+		WaveInstance->NotifyFinished();
+		bLoopCallback = false;
+	}
+
+	return false;
 }
 
 bool FXAudio2SoundSource::IsUsingHrtfSpatializer()

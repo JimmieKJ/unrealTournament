@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HttpPrivatePCH.h"
 #include "WindowsPlatformHttp.h"
 #include "HttpWinInet.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Curl/CurlHttp.h"
 #include "Curl/CurlHttpManager.h"
 

@@ -2,9 +2,11 @@
 
 #pragma once
 
-class UBehaviorTreeComponent;
-class UBehaviorTree;
+#include "CoreMinimal.h"
+
 class APawn;
+class UBehaviorTree;
+class UBehaviorTreeComponent;
 
 struct AIMODULE_API FBehaviorTreeDelegates
 {

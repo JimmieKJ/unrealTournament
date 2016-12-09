@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Docking/TabManager.h"
+#include "BehaviorTreeEditor.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
 #include "WorkflowOrientedApp/ApplicationMode.h"
 
 /** Application mode for main behavior tree editing mode */

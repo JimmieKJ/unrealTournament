@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GitSourceControlPrivatePCH.h"
 #include "GitSourceControlOperations.h"
-#include "GitSourceControlState.h"
-#include "GitSourceControlCommand.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlModule.h"
 #include "GitSourceControlModule.h"
+#include "GitSourceControlCommand.h"
 #include "GitSourceControlUtils.h"
 
 #define LOCTEXT_NAMESPACE "GitSourceControl"
@@ -55,7 +57,7 @@ bool FGitCheckInWorker::Execute(FGitSourceControlCommand& InCommand)
 	TSharedRef<FCheckIn, ESPMode::ThreadSafe> Operation = StaticCastSharedRef<FCheckIn>(InCommand.Operation);
 
 	// make a temp file to place our commit message in
-	FScopedTempFile CommitMsgFile(Operation->GetDescription());
+	FGitScopedTempFile CommitMsgFile(Operation->GetDescription());
 	if(CommitMsgFile.GetFilename().Len() > 0)
 	{
 		TArray<FString> Parameters;

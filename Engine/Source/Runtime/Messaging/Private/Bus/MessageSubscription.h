@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "IMessageContext.h"
+#include "CoreMinimal.h"
 #include "IMessageSubscription.h"
-#include "IReceiveMessages.h"
 
+class IMessageReceiver;
 
 /**
  * Implements a message subscription.
@@ -27,7 +27,7 @@ public:
 	 * @param InReceivingThread The thread on which to receive messages on.
 	 * @param InScopeRange The message scope range to subscribe to.
 	 */
-	FMessageSubscription(const IReceiveMessagesRef& InSubscriber, const FName& InMessageType, const FMessageScopeRange& InScopeRange)
+	FMessageSubscription(const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& InSubscriber, const FName& InMessageType, const FMessageScopeRange& InScopeRange)
 		: Enabled(true)
 		, MessageType(InMessageType)
 		, ScopeRange(InScopeRange)
@@ -36,7 +36,7 @@ public:
 
 public:
 
-	// IMessageSubscription interface
+	//~ IMessageSubscription interface
 
 	virtual void Disable() override
 	{
@@ -58,7 +58,7 @@ public:
 		return ScopeRange;
 	}
 
-	virtual const IReceiveMessagesWeakPtr& GetSubscriber() override
+	virtual const TWeakPtr<IMessageReceiver, ESPMode::ThreadSafe>& GetSubscriber() override
 	{
 		return Subscriber;
 	}
@@ -80,5 +80,5 @@ private:
 	FMessageScopeRange ScopeRange;
 
 	/** Holds the subscriber. */
-	IReceiveMessagesWeakPtr Subscriber;
+	TWeakPtr<IMessageReceiver, ESPMode::ThreadSafe> Subscriber;
 };

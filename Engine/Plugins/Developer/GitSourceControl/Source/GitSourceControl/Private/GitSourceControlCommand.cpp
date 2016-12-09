@@ -1,11 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GitSourceControlPrivatePCH.h"
 #include "GitSourceControlCommand.h"
+#include "Modules/ModuleManager.h"
 #include "GitSourceControlModule.h"
-#include "GitSourceControlProvider.h"
-#include "IGitSourceControlWorker.h"
-#include "SGitSourceControlSettings.h"
 
 FGitSourceControlCommand::FGitSourceControlCommand(const TSharedRef<class ISourceControlOperation, ESPMode::ThreadSafe>& InOperation, const TSharedRef<class IGitSourceControlWorker, ESPMode::ThreadSafe>& InWorker, const FSourceControlOperationComplete& InOperationCompleteDelegate)
 	: Operation(InOperation)

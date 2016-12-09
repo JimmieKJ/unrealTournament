@@ -1,18 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapePrivatePCH.h"
-#include "Landscape.h"
+#include "LandscapeGizmoActor.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/FileHelper.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/ConstructorHelpers.h"
+#include "EngineDefines.h"
+#include "RHI.h"
+#include "PrimitiveViewRelevance.h"
+#include "PrimitiveSceneProxy.h"
+#include "MaterialShared.h"
+#include "LandscapeInfo.h"
+#include "Engine/Texture2D.h"
+#include "LandscapeLayerInfoObject.h"
+#include "LandscapeInfoMap.h"
 #include "LandscapeDataAccess.h"
 #include "LandscapeRender.h"
 #include "LandscapeGizmoActiveActor.h"
 #include "LandscapeGizmoRenderComponent.h"
-#include "Landscape.h"
-#include "LandscapeInfo.h"
-#include "LandscapeLayerInfoObject.h"
 #include "DynamicMeshBuilder.h"
 #include "Engine/CollisionProfile.h"
 #include "EngineUtils.h"
+#include "Materials/Material.h"
 #include "Materials/MaterialInstanceConstant.h"
+#include "Components/BillboardComponent.h"
 
 namespace
 {
@@ -345,8 +356,7 @@ ULandscapeGizmoRenderComponent::ULandscapeGizmoRenderComponent(const FObjectInit
 	: Super(ObjectInitializer)
 {
 	bHiddenInGame = true;
-	AlwaysLoadOnClient = false;
-	AlwaysLoadOnServer = false;
+	bIsEditorOnly = true;
 	SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 }
 
@@ -619,19 +629,16 @@ void ALandscapeGizmoActiveActor::SetTargetLandscape(ULandscapeInfo* LandscapeInf
 	ULandscapeInfo* PrevInfo = TargetLandscapeInfo;
 	if (!LandscapeInfo || LandscapeInfo->HasAnyFlags(RF_BeginDestroyed))
 	{
-		TargetLandscapeInfo = NULL;
+		TargetLandscapeInfo = nullptr;
 		if (GetWorld())
 		{
-			for (auto It = GetLandscapeInfoMap(GetWorld()).Map.CreateIterator(); It; ++It)
+			for (const TPair<FGuid, ULandscapeInfo*>& InfoMapPair : ULandscapeInfoMap::GetLandscapeInfoMap(GetWorld()).Map)
 			{
-				LandscapeInfo = It.Value();
-				if (LandscapeInfo && !LandscapeInfo->HasAnyFlags(RF_BeginDestroyed))
+				ULandscapeInfo* CandidateInfo = InfoMapPair.Value;
+				if (CandidateInfo && !CandidateInfo->HasAnyFlags(RF_BeginDestroyed) && CandidateInfo->GetLandscapeProxy() != nullptr)
 				{
-					//if (LandscapeInfo->LandscapeProxy && !LandscapeInfo->LandscapeProxy->HasAnyFlags(RF_BeginDestroyed) )
-					{
-						TargetLandscapeInfo = LandscapeInfo;
-						break;
-					}
+					TargetLandscapeInfo = CandidateInfo;
+					break;
 				}
 			}
 		}
@@ -680,7 +687,8 @@ void ALandscapeGizmoActiveActor::FitToSelection()
 	if (TargetLandscapeInfo)
 	{
 		// Find fit size
-		int32 MinX = MAX_int32, MinY = MAX_int32, MaxX = MIN_int32, MaxY = MIN_int32;
+		int32 MinX = MAX_int32, MinY = MAX_int32;
+		int32 MaxX = MIN_int32, MaxY = MIN_int32;
 		TargetLandscapeInfo->GetSelectedExtent(MinX, MinY, MaxX, MaxY);
 		if (MinX != MAX_int32)
 		{
@@ -838,10 +846,10 @@ void ALandscapeGizmoActiveActor::SampleData(int32 SizeX, int32 SizeY)
 				float FracX = TexX - LX;
 				float FracY = TexY - LY;
 
-				FGizmoSelectData* Data00 = SelectedData.Find(ALandscape::MakeKey(LX, LY));
-				FGizmoSelectData* Data10 = SelectedData.Find(ALandscape::MakeKey(LX+1, LY));
-				FGizmoSelectData* Data01 = SelectedData.Find(ALandscape::MakeKey(LX, LY+1));
-				FGizmoSelectData* Data11 = SelectedData.Find(ALandscape::MakeKey(LX+1, LY+1));
+				FGizmoSelectData* Data00 = SelectedData.Find(FIntPoint(LX, LY));
+				FGizmoSelectData* Data10 = SelectedData.Find(FIntPoint(LX+1, LY));
+				FGizmoSelectData* Data01 = SelectedData.Find(FIntPoint(LX, LY+1));
+				FGizmoSelectData* Data11 = SelectedData.Find(FIntPoint(LX+1, LY+1));
 
 				// Invert Tex Data to show selected region more visible
 				TexData[X + Y*GizmoTexSizeX] = 255 - FMath::Lerp(
@@ -920,7 +928,7 @@ LANDSCAPE_API void ALandscapeGizmoActiveActor::Import( int32 VertsX, int32 Verts
 			{
 				Data.WeightDataMap.Add( ImportLayerInfos[i], LayerDataPointers[i][X + Y*VertsX] );
 			}
-			SelectedData.Add(ALandscape::MakeKey(X, Y), Data);
+			SelectedData.Add(FIntPoint(X, Y), Data);
 		}
 	}
 
@@ -948,15 +956,15 @@ void ALandscapeGizmoActiveActor::Export(int32 Index, TArray<FString>& Filenames)
 
 	if (TargetLandscapeInfo)
 	{
-		int32 MinX = MAX_int32, MinY = MAX_int32, MaxX = MIN_int32, MaxY = MIN_int32;
-		for (auto It = SelectedData.CreateConstIterator(); It; ++It )
+		int32 MinX = MAX_int32, MinY = MAX_int32;
+		int32 MaxX = MIN_int32, MaxY = MIN_int32;
+		for (const TPair<FIntPoint, FGizmoSelectData>& SelectedDataPair : SelectedData)
 		{
-			int32 X, Y;
-			ALandscape::UnpackKey(It.Key(), X, Y);
-			if (MinX > X) MinX = X;
-			if (MaxX < X) MaxX = X;
-			if (MinY > Y) MinY = Y;
-			if (MaxY < Y) MaxY = Y;
+			const FIntPoint Key = SelectedDataPair.Key;
+			if (MinX > Key.X) MinX = Key.X;
+			if (MaxX < Key.X) MaxX = Key.X;
+			if (MinY > Key.Y) MinY = Key.Y;
+			if (MaxY < Key.Y) MaxY = Key.Y;
 		}
 
 		if (MinX != MAX_int32)
@@ -985,7 +993,7 @@ void ALandscapeGizmoActiveActor::Export(int32 Index, TArray<FString>& Filenames)
 			{
 				for (int32 X = MinX; X <= MaxX; ++X)
 				{
-					const FGizmoSelectData* Data = SelectedData.Find(ALandscape::MakeKey(X, Y));
+					const FGizmoSelectData* Data = SelectedData.Find(FIntPoint(X, Y));
 					if (Data)
 					{
 						int32 Idx = (X-MinX) + Y *(1+MaxX-MinX);
@@ -1050,23 +1058,22 @@ void ALandscapeGizmoActiveActor::ExportToClipboard()
 
 		ClipboardString += FString::Printf(TEXT("LayerInfos= "));
 
-		for (auto It = LayerInfos.CreateConstIterator(); It; ++It)
+		for (ULandscapeLayerInfoObject* LayerInfo : LayerInfos)
 		{
-			ClipboardString += FString::Printf(TEXT("%s "), *(*It)->GetPathName() );
+			ClipboardString += FString::Printf(TEXT("%s "), *LayerInfo->GetPathName() );
 		}
 
 		ClipboardString += FString::Printf(TEXT("Region= "));
 
-		for (auto It = SelectedData.CreateConstIterator(); It; ++It )
+		for (const TPair<FIntPoint, FGizmoSelectData>& SelectedDataPair : SelectedData)
 		{
-			int32 X, Y;
-			ALandscape::UnpackKey(It.Key(), X, Y);
-			const FGizmoSelectData& Data = It.Value();
-			ClipboardString += FString::Printf(TEXT("%d %d %d %d %d "), X, Y, *(int32*)(&Data.Ratio), *(int32*)(&Data.HeightData), Data.WeightDataMap.Num());
+			const FIntPoint Key = SelectedDataPair.Key;
+			const FGizmoSelectData& Data = SelectedDataPair.Value;
+			ClipboardString += FString::Printf(TEXT("%d %d %d %d %d "), Key.X, Key.Y, *(int32*)(&Data.Ratio), *(int32*)(&Data.HeightData), Data.WeightDataMap.Num());
 
-			for (auto It2 = Data.WeightDataMap.CreateConstIterator(); It2; ++It2)
+			for (const TPair<ULandscapeLayerInfoObject*, float>& WeightDataPair : Data.WeightDataMap)
 			{
-				ClipboardString += FString::Printf(TEXT("%d %d "), LayerInfos.Find(It2.Key()), *(int32*)(&It2.Value()));
+				ClipboardString += FString::Printf(TEXT("%d %d "), LayerInfos.Find(WeightDataPair.Key), *(int32*)(&WeightDataPair.Value));
 			}
 		}
 
@@ -1233,7 +1240,7 @@ void ALandscapeGizmoActiveActor::ImportFromClipboard()
 						FParse::Next(&Str);
 						Data.WeightDataMap.Add(LayerInfos[LayerIndex], Weight);
 					}
-					SelectedData.Add(ALandscape::MakeKey(X, Y), Data);
+					SelectedData.Add(FIntPoint(X, Y), Data);
 				}
 			}
 		}

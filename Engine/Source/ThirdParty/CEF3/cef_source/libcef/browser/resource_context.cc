@@ -3,12 +3,13 @@
 // found in the LICENSE file.
 
 #include "libcef/browser/resource_context.h"
-#include "libcef/browser/url_request_context_getter.h"
+
+#include "libcef/browser/net/url_request_context_getter.h"
 
 #include "base/logging.h"
 #include "content/public/browser/browser_thread.h"
 
-#if defined(USE_NSS)
+#if defined(USE_NSS_CERTS)
 #include "net/ssl/client_cert_store_nss.h"
 #endif
 
@@ -20,7 +21,13 @@
 #include "net/ssl/client_cert_store_mac.h"
 #endif
 
-CefResourceContext::CefResourceContext() {
+CefResourceContext::CefResourceContext(
+    bool is_off_the_record,
+    extensions::InfoMap* extension_info_map,
+    CefRefPtr<CefRequestContextHandler> handler)
+    : is_off_the_record_(is_off_the_record),
+      extension_info_map_(extension_info_map),
+      handler_(handler) {
 }
 
 CefResourceContext::~CefResourceContext() {
@@ -48,7 +55,7 @@ net::URLRequestContext* CefResourceContext::GetRequestContext() {
 }
 
 scoped_ptr<net::ClientCertStore> CefResourceContext::CreateClientCertStore() {
-#if defined(USE_NSS)
+#if defined(USE_NSS_CERTS)
   return scoped_ptr<net::ClientCertStore>(new net::ClientCertStoreNSS(
       net::ClientCertStoreNSS::PasswordDelegateFactory()));
 #elif defined(OS_WIN)

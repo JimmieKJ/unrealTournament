@@ -1,12 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ConfigEditorPCH.h"
-#include "ConfigPropertyColumn.h"
-#include "ConfigPropertyCellPresenter.h"
+#include "PropertyVisualization/ConfigPropertyColumn.h"
+#include "Widgets/Text/STextBlock.h"
+#include "IPropertyTable.h"
+#include "IPropertyTableCell.h"
+#include "PropertyVisualization/ConfigPropertyCellPresenter.h"
 
-#include "Editor/PropertyEditor/Public/PropertyHandle.h"
-#include "Editor/PropertyEditor/Public/PropertyPath.h"
-#include "Editor/PropertyEditor/Public/IPropertyTable.h"
 
 
 #define LOCTEXT_NAMESPACE "ConfigEditor"

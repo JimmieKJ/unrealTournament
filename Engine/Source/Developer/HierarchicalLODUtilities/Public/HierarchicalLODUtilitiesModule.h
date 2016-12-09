@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
 class FHierarchicalLODProxyProcessor;
 class IHierarchicalLODUtilities;

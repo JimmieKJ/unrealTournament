@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "AssetTypeActions/AssetTypeActions_TextureRenderTarget2D.h"
 #include "Engine/CanvasRenderTarget2D.h"
-#include "AssetTypeActions_TextureRenderTarget2D.h"
 
 class FAssetTypeActions_CanvasRenderTarget2D : public FAssetTypeActions_TextureRenderTarget2D
 {

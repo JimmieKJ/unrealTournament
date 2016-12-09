@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PhyaPluginPrivatePCH.h"
+#include "PhyaCollisionHandler.h"
+#include "Components/AudioComponent.h"
+#include "Audio.h"
 #include "PhysicsPublic.h"
-#include "Phya.hpp"
+#include "PhyaLib/include/Phya.hpp"
 #include "Sound/SoundWaveProcedural.h"
 
 #define N_BODIES 5

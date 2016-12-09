@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "SlateEnums.generated.h"
 
 
@@ -103,6 +105,19 @@ enum class EUINavigation : uint8
 	Num,
 	/** Denotes an invalid navigation, more important used to denote no specified navigation*/
 	Invalid
+};
+
+/**
+ * Context for focus change
+ */
+UENUM()
+enum class ENavigationSource : uint8
+{
+	/** Navigate from the focused widget */
+	FocusedWidget,
+	
+	/** Navigate from the widget under the cursor */
+	WidgetUnderCursor,
 };
 
 /**

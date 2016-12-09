@@ -1,18 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Perception/AISense.h"
+#include "Perception/AIPerceptionSystem.h"
+#include "Perception/AISenseConfig.h"
+#include "VisualLogger/VisualLogger.h"
 #include "Perception/AISenseConfig_Blueprint.h"
 #include "Perception/AISenseConfig_Hearing.h"
 #include "Perception/AISenseConfig_Prediction.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "Perception/AISenseConfig_Team.h"
 #include "Perception/AISenseConfig_Touch.h"
+#include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISense_Blueprint.h"
 #include "Perception/AISense_Prediction.h"
 #include "Perception/AISense_Touch.h"
 
 #if WITH_GAMEPLAY_DEBUGGER
+#include "GameplayDebuggerTypes.h"
 #include "GameplayDebuggerCategory.h"
 #endif
 

@@ -2,11 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
 #include "MathStructCustomizations.h"
 
-
+class FDetailWidgetRow;
 class SColorPicker;
-
 
 /**
  * Base class for color struct customization (FColor,FLinearColor).

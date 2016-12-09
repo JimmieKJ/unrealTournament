@@ -6,6 +6,18 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "CoreFwd.h"
+
+class FBoxCenterAndExtent;
+class FOctreeChildNodeRef;
+class FOctreeChildNodeSubset;
+class FOctreeElementId;
+class FOctreeNodeContext;
+struct FMath;
+template<typename ElementType,typename OctreeSemantics> class TOctree;
+template<typename T> struct TTypeTraits;
+
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogGenericOctree, Log, All);
 
 FORCEINLINE bool FOctreeChildNodeSubset::Contains(FOctreeChildNodeRef ChildRef) const

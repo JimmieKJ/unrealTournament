@@ -2,9 +2,17 @@
 
 #pragma once
 
-#include "PaperSprite.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/TextureStreamingTypes.h"
+#include "Components/MeshComponent.h"
 
 #include "PaperSpriteComponent.generated.h"
+
+class FPrimitiveSceneProxy;
+class UPaperSprite;
+class UTexture;
 
 /**
  * A component that handles rendering and collision for a single instance of a UPaperSprite asset.

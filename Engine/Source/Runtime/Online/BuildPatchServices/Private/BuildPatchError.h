@@ -9,6 +9,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+enum class EBuildPatchInstallError;
+
 // Protect against namespace collision.
 namespace BuildPatchConstants
 {
@@ -19,6 +23,8 @@ namespace BuildPatchConstants
 	{
 		static const TCHAR* MissingStageDirectory = TEXT("01");
 		static const TCHAR* MissingInstallDirectory = TEXT("02");
+		static const TCHAR* MissingCompleteDelegate = TEXT("03");
+		static const TCHAR* InvalidInstallTags = TEXT("04");
 	}
 
 	/**
@@ -116,6 +122,9 @@ private:
 	// The current error code for the error type.
 	static FString ErrorCode;
 
+	// The current error text for the error type.
+	static FText ErrorText;
+
 public:
 	/**
 	 * Static function to reset the state.
@@ -157,14 +166,15 @@ public:
 	 * Static function to get a localized error text for UI. These are for example, and it is recommended to look up your own based on GetErrorState() or GetErrorCode().
 	 * @return The error text.
 	 */
-	static const FText& GetErrorText();
+	static FText GetErrorText();
 
 	/**
 	 * Static function allowing any worker to set fatal error.
 	 * @param ErrorType     The error type value.
 	 * @param ErrorCode     String with specific error code for this error type.
+	 * @param ErrorText     Optional override for error text. Can be provided if more specific information is available.
 	 */
-	static void SetFatalError(const EBuildPatchInstallError& ErrorType, const FString& ErrorCode);
+	static void SetFatalError(const EBuildPatchInstallError& ErrorType, const FString& ErrorCode, const FText& ErrorText = FText::GetEmpty());
 
 	/**
 	 * Returns the string representation of the specified FBuildPatchInstallError value. Used for logging only.

@@ -2,13 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Serialization/JsonReader.h"
 #include "IStructDeserializerBackend.h"
-#include "Json.h"
-
-
-// forward declarations
-class UProperty;
-
 
 /**
  * Implements a reader for UStruct deserialization using Json.
@@ -43,6 +39,22 @@ public:
 	virtual bool ReadProperty( UProperty* Property, UProperty* Outer, void* Data, int32 ArrayIndex ) override;
 	virtual void SkipArray() override;
 	virtual void SkipStructure() override;
+
+protected:
+	FString& GetLastIdentifier()
+	{
+		return LastIdentifier;
+	}
+
+	EJsonNotation GetLastNotation()
+	{
+		return LastNotation;
+	}
+
+	TSharedRef<TJsonReader<UCS2CHAR>>& GetReader()
+	{
+		return JsonReader;
+	}
 
 private:
 

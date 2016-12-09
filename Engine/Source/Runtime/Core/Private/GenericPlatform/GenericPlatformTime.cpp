@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "GenericPlatform/GenericPlatformTime.h"
+#include "HAL/PlatformTime.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Parse.h"
+#include "Delegates/IDelegateInstance.h"
+#include "Containers/Ticker.h"
+#include "HAL/IConsoleManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenericPlatformTime, Log, All);
 
@@ -15,8 +21,7 @@ double FGenericPlatformTime::GetSecondsPerCycle64()
 
 #if PLATFORM_HAS_BSD_TIME 
 
-#include <sys/time.h>
-#include <sched.h>  // maybe the BSD time and sched.h need to be independent, but they are normally available together
+#include <sched.h>
 
 double FGenericPlatformTime::InitTiming()
 {

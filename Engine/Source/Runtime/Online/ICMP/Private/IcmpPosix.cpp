@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IcmpPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "HAL/PlatformTime.h"
+#include "Misc/ScopeLock.h"
+#include "IcmpPrivate.h"
 #include "Icmp.h"
 
 #if PLATFORM_USES_POSIX_IMCP
 
-#include "SocketSubsystem.h"
-#include "IPAddress.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -127,10 +128,13 @@ FIcmpEchoResult IcmpEchoImpl(ISocketSubsystem* SocketSub, const FString& TargetA
 				int NumReady = poll(PollData, 1, int(TimeLeft * 1000.0));
 				if (NumReady == 0)
 				{
-					// timeout
-					Result.Status = EIcmpResponseStatus::Timeout;
-					Result.ReplyFrom.Empty();
-					Result.Time = Timeout;
+					// timeout - if we've received an 'Unreachable' result earlier, return that result instead.
+					if (Result.Status != EIcmpResponseStatus::Unreachable)
+					{
+						Result.Status = EIcmpResponseStatus::Timeout;
+						Result.Time = Timeout;
+						Result.ReplyFrom.Empty();
+					}
 					bDone = true;
 				}
 				else if (NumReady == 1)
@@ -167,7 +171,8 @@ FIcmpEchoResult IcmpEchoImpl(ISocketSubsystem* SocketSub, const FString& TargetA
 									break;
 								case ICMP_UNREACH:
 									Result.Status = EIcmpResponseStatus::Unreachable;
-									bDone = true;
+									// If there is still time left, try waiting for another result.
+									// If we run out of time, we'll return Unreachable instead of Timeout.
 									break;
 								default:
 									break;

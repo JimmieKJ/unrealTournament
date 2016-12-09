@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -29,11 +29,9 @@ class CefDragHandlerCToCpp
     : public CefCToCpp<CefDragHandlerCToCpp, CefDragHandler,
         cef_drag_handler_t> {
  public:
-  explicit CefDragHandlerCToCpp(cef_drag_handler_t* str)
-      : CefCToCpp<CefDragHandlerCToCpp, CefDragHandler, cef_drag_handler_t>(
-          str) {}
+  CefDragHandlerCToCpp();
 
-  // CefDragHandler methods
+  // CefDragHandler methods.
   bool OnDragEnter(CefRefPtr<CefBrowser> browser,
       CefRefPtr<CefDragData> dragData, DragOperationsMask mask) override;
   void OnDraggableRegionsChanged(CefRefPtr<CefBrowser> browser,
@@ -42,4 +40,3 @@ class CefDragHandlerCToCpp
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_DRAG_HANDLER_CTOCPP_H_
-

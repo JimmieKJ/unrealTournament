@@ -1,30 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "MovieScene.h"
-#include "MovieSceneSection.h"
-#include "ISequencerSection.h"
-#include "PropertyEditorModule.h"
-#include "PropertyHandle.h"
-#include "MovieSceneTrack.h"
-#include "MovieSceneAudioTrack.h"
-#include "ScopedTransaction.h"
-#include "ISequencerObjectChangeListener.h"
-#include "ISectionLayoutBuilder.h"
-#include "IKeyArea.h"
-#include "MovieSceneTrackEditor.h"
-#include "AudioTrackEditor.h"
-#include "MovieSceneAudioSection.h"
-#include "CommonMovieSceneTools.h"
-#include "SoundDefinitions.h"
-#include "Sound/SoundNodeWavePlayer.h"
-#include "Runtime/Engine/Public/Slate/SlateTextures.h"
-#include "ObjectTools.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "Runtime/Engine/Public/AudioDecompress.h"
+#include "TrackEditors/AudioTrackEditor.h"
+#include "Textures/SlateTextureData.h"
+#include "Rendering/RenderingCommon.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "RenderUtils.h"
+#include "Modules/ModuleManager.h"
+#include "Audio.h"
 #include "Sound/SoundBase.h"
 #include "Sound/SoundWave.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "SequencerSectionPainter.h"
+#include "EditorStyleSet.h"
+#include "Editor/UnrealEdEngine.h"
 #include "Sound/SoundCue.h"
+#include "UnrealEdGlobals.h"
+#include "Tracks/MovieSceneAudioTrack.h"
+#include "Sections/MovieSceneAudioSection.h"
+#include "CommonMovieSceneTools.h"
+#include "AudioDevice.h"
+#include "Sound/SoundNodeWavePlayer.h"
+#include "Slate/SlateTextures.h"
+#include "AudioDecompress.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "SequencerUtilities.h"
 #include "AssetRegistryModule.h"
@@ -825,7 +826,7 @@ const FSlateBrush* FAudioTrackEditor::GetIconBrush() const
 	return FEditorStyle::GetBrush("Sequencer.Tracks.Audio");
 }
 
-TSharedRef<ISequencerSection> FAudioTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
+TSharedRef<ISequencerSection> FAudioTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding )
 {
 	check( SupportsType( SectionObject.GetOuter()->GetClass() ) );
 	
@@ -855,8 +856,11 @@ bool FAudioTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& TargetObje
 		
 		if (TargetObjectGuid.IsValid())
 		{
-			TArray<TWeakObjectPtr<UObject>> OutObjects;
-			GetSequencer()->GetRuntimeObjects(GetSequencer()->GetFocusedMovieSceneSequenceInstance(), TargetObjectGuid, OutObjects);
+			TArray<TWeakObjectPtr<>> OutObjects;
+			for (TWeakObjectPtr<> Object : GetSequencer()->FindObjectsInCurrentSequence(TargetObjectGuid))
+			{
+				OutObjects.Add(Object);
+			}
 
 			AnimatablePropertyChanged( FOnKeyProperty::CreateRaw(this, &FAudioTrackEditor::AddNewAttachedSound, Sound, OutObjects));
 		}
@@ -996,7 +1000,7 @@ void FAudioTrackEditor::OnAudioAssetSelected(const FAssetData& AssetData, UMovie
 			auto AudioTrack = Cast<UMovieSceneAudioTrack>(Track);
 			AudioTrack->Modify();
 
-			float KeyTime = GetSequencer()->GetGlobalTime();
+			float KeyTime = GetSequencer()->GetLocalTime();
 			AudioTrack->AddNewSound( NewSound, KeyTime );
 
 			GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );

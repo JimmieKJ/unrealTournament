@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "Visual.generated.h"
 
 /** The base class for elements in UMG: slots and widgets. */
@@ -15,5 +18,6 @@ public:
 
 	//~ Begin UObject Interface
 	virtual void BeginDestroy() override;
+	virtual bool NeedsLoadForServer() const override;
 	//~ End UObject Interface
 };

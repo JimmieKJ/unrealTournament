@@ -12,6 +12,8 @@
 #include "IOSAppDelegate.h"
 #endif
 
+extern int32 GMetalSupportsIntermediateBackBuffer;
+
 #if PLATFORM_MAC
 
 @implementation FMetalView
@@ -43,57 +45,94 @@ FMetalViewport::FMetalViewport(void* WindowHandle, uint32 InSizeX,uint32 InSizeY
 : Drawable(nil)
 {
 #if PLATFORM_MAC
-	FCocoaWindow* Window = (FCocoaWindow*)WindowHandle;
-	const NSRect ContentRect = NSMakeRect(0, 0, InSizeX, InSizeY);
-	View = [[FMetalView alloc] initWithFrame:ContentRect];
-	[View setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-	[View setWantsLayer:YES];
+	MainThreadCall(^{
+		FCocoaWindow* Window = (FCocoaWindow*)WindowHandle;
+		const NSRect ContentRect = NSMakeRect(0, 0, InSizeX, InSizeY);
+		View = [[FMetalView alloc] initWithFrame:ContentRect];
+		[View setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+		[View setWantsLayer:YES];
 
-	CAMetalLayer* Layer = [CAMetalLayer new];
+		CAMetalLayer* Layer = [CAMetalLayer new];
 
-	CGFloat bgColor[] = { 0.0, 0.0, 0.0, 0.0 };
-	Layer.edgeAntialiasingMask = 0;
-	Layer.masksToBounds = YES;
-	Layer.backgroundColor = CGColorCreate(CGColorSpaceCreateDeviceRGB(), bgColor);
-	Layer.presentsWithTransaction = NO;
-	Layer.anchorPoint = CGPointMake(0.5, 0.5);
-	Layer.frame = ContentRect;
-	Layer.magnificationFilter = kCAFilterNearest;
-	Layer.minificationFilter = kCAFilterNearest;
-//	Layer.drawsAsynchronously = YES; // @todo zebra: do we need and/or want this on Mac?
+		CGFloat bgColor[] = { 0.0, 0.0, 0.0, 0.0 };
+		Layer.edgeAntialiasingMask = 0;
+		Layer.masksToBounds = YES;
+		Layer.backgroundColor = CGColorCreate(CGColorSpaceCreateDeviceRGB(), bgColor);
+		Layer.presentsWithTransaction = NO;
+		Layer.anchorPoint = CGPointMake(0.5, 0.5);
+		Layer.frame = ContentRect;
+		Layer.magnificationFilter = kCAFilterNearest;
+		Layer.minificationFilter = kCAFilterNearest;
 
-	[Layer setDevice:GetMetalDeviceContext().GetDevice()];
-	[Layer setPixelFormat:MTLPixelFormatBGRA8Unorm];
-	[Layer setFramebufferOnly:NO];
-	[Layer removeAllAnimations];
+		[Layer setDevice:GetMetalDeviceContext().GetDevice()];
+		[Layer setPixelFormat:MTLPixelFormatBGRA8Unorm];
+		[Layer setFramebufferOnly:NO];
+		[Layer removeAllAnimations];
 
-	[View setLayer:Layer];
+		[View setLayer:Layer];
 
-	[Window setContentView:View];
-	[[Window standardWindowButton:NSWindowCloseButton] setAction:@selector(performClose:)];
-
-	Resize(InSizeX, InSizeY, bInIsFullscreen);
-#else
-	Resize(InSizeX, InSizeY, bInIsFullscreen);
+		[Window setContentView:View];
+		[[Window standardWindowButton:NSWindowCloseButton] setAction:@selector(performClose:)];
+	}, NSDefaultRunLoopMode, true);
 #endif
+	Resize(InSizeX, InSizeY, bInIsFullscreen);
 }
 
 FMetalViewport::~FMetalViewport()
 {
-	BackBuffer.SafeRelease();	// when the rest of the engine releases it, its framebuffers will be released too (those the engine knows about)
-	check(!IsValidRef(BackBuffer));
+	BackBuffer[0].SafeRelease();	// when the rest of the engine releases it, its framebuffers will be released too (those the engine knows about)
+	BackBuffer[1].SafeRelease();
+	check(!IsValidRef(BackBuffer[0]));
+	check(!IsValidRef(BackBuffer[1]));
+}
+
+void FMetalViewport::BeginDrawingViewport()
+{
+	FScopeLock Lock(&Mutex);
+	if (BackBuffersQueue.Num() > 0)
+	{
+		uint32 Index = GetViewportIndex(EMetalViewportAccessRHI);
+		BackBuffer[Index] = BackBuffersQueue.Pop(false);
+	}
+}
+
+uint32 FMetalViewport::GetViewportIndex(EMetalViewportAccessFlag Accessor) const
+{
+	switch(Accessor)
+	{
+		case EMetalViewportAccessRHI:
+			check(IsInRHIThread() || IsInRenderingThread());
+			return Accessor;
+		case EMetalViewportAccessRenderer:
+			check(IsInRenderingThread());
+			return Accessor;
+		case EMetalViewportAccessGame:
+			check(IsInGameThread());
+			return EMetalViewportAccessRenderer;
+		default:
+			check(false);
+			return EMetalViewportAccessRenderer;
+	}
 }
 
 void FMetalViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen)
 {
-	FRHIResourceCreateInfo CreateInfo;
-	BackBuffer.SafeRelease();	// when the rest of the engine releases it, its framebuffers will be released too (those the engine knows about)
+	uint32 Index = GetViewportIndex(EMetalViewportAccessGame);
 	
-#if PLATFORM_MAC // @todo zebra: ios
-	BackBuffer = (FMetalTexture2D*)(FTexture2DRHIParamRef)GDynamicRHI->RHICreateTexture2D(InSizeX, InSizeY, PF_B8G8R8A8, 1, 1, TexCreate_RenderTargetable, CreateInfo);
+	FRHIResourceCreateInfo CreateInfo;
+	if (GMetalSupportsIntermediateBackBuffer)
+	{
+		BackBuffer[Index] = (FMetalTexture2D*)(FTexture2DRHIParamRef)GDynamicRHI->RHICreateTexture2D(InSizeX, InSizeY, PF_B8G8R8A8, 1, 1, TexCreate_RenderTargetable, CreateInfo);
+	}
+	else
+	{
+		BackBuffer[Index] = (FMetalTexture2D*)(FTexture2DRHIParamRef)GDynamicRHI->RHICreateTexture2D(InSizeX, InSizeY, PF_B8G8R8A8, 1, 1, TexCreate_RenderTargetable | TexCreate_Presentable, CreateInfo);
+	}
+#if PLATFORM_MAC
+	MainThreadCall(^{
 	((CAMetalLayer*)View.layer).drawableSize = CGSizeMake(InSizeX, InSizeY);
+	}, NSDefaultRunLoopMode, true);
 #else
-	BackBuffer = (FMetalTexture2D*)(FTexture2DRHIParamRef)GDynamicRHI->RHICreateTexture2D(InSizeX, InSizeY, PF_B8G8R8A8, 1, 1, TexCreate_RenderTargetable | TexCreate_Presentable, CreateInfo);
 	IOSAppDelegate* AppDelegate = [IOSAppDelegate GetDelegate];
 	FIOSView* GLView = AppDelegate.IOSView;
 	[GLView UpdateRenderWidth:InSizeX andHeight:InSizeY];
@@ -104,10 +143,21 @@ void FMetalViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 	check(FMath::TruncToInt(ScalingFactor * ViewFrame.size.width) == InSizeX &&
 		  FMath::TruncToInt(ScalingFactor * ViewFrame.size.height) == InSizeY);
 #endif
-	BackBuffer->Surface.Viewport = this;
+	BackBuffer[Index]->Surface.Viewport = this;
+	{
+		FScopeLock Lock(&Mutex);
+		BackBuffersQueue.Insert(BackBuffer[Index], 0);
+	}
 }
 
-id<MTLDrawable> FMetalViewport::GetDrawable()
+FMetalTexture2D* FMetalViewport::GetBackBuffer(EMetalViewportAccessFlag Accessor) const
+{
+	uint32 Index = GetViewportIndex(Accessor);
+	check(IsValidRef(BackBuffer[Index]));
+	return BackBuffer[Index];
+}
+
+id<MTLDrawable> FMetalViewport::GetDrawable(EMetalViewportAccessFlag Accessor)
 {
 	if (!Drawable)
 	{
@@ -121,7 +171,12 @@ id<MTLDrawable> FMetalViewport::GetDrawable()
 	#else
 			Drawable = [[[IOSAppDelegate GetDelegate].IOSView MakeDrawable] retain];
 	#endif
-			
+#if PLATFORM_MAC && METAL_DEBUG_OPTIONS
+			if (CurrentLayer.drawableSize.width != BackBuffer[GetViewportIndex(Accessor)]->GetSizeX() || CurrentLayer.drawableSize.height != BackBuffer[GetViewportIndex(Accessor)]->GetSizeY())
+			{
+				UE_LOG(LogMetal, Display, TEXT("Viewport Size Mismatch: Drawable W:%f H:%f, Viewport W:%u H:%u"), CurrentLayer.drawableSize.width, CurrentLayer.drawableSize.height, BackBuffer[GetViewportIndex(Accessor)]->GetSizeX(), BackBuffer[GetViewportIndex(Accessor)]->GetSizeY());
+			}
+#endif
 			GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUPresent] += FPlatformTime::Cycles() - IdleStart;
 			GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUPresent]++;
 		}
@@ -129,9 +184,22 @@ id<MTLDrawable> FMetalViewport::GetDrawable()
 	return Drawable;
 }
 
-id<MTLTexture> FMetalViewport::GetDrawableTexture()
+id<MTLTexture> FMetalViewport::GetDrawableTexture(EMetalViewportAccessFlag Accessor)
 {
-	id<CAMetalDrawable> CurrentDrawable = (id<CAMetalDrawable>)GetDrawable();
+	id<CAMetalDrawable> CurrentDrawable = (id<CAMetalDrawable>)GetDrawable(Accessor);
+	@autoreleasepool
+	{
+#if PLATFORM_MAC && METAL_DEBUG_OPTIONS
+		CAMetalLayer* CurrentLayer = (CAMetalLayer*)[View layer];
+		
+		uint32 Index = GetViewportIndex(Accessor);
+		CGSize Size = CurrentLayer.drawableSize;
+		if (CurrentDrawable.texture.width != BackBuffer[Index]->GetSizeX() || CurrentDrawable.texture.height != BackBuffer[Index]->GetSizeY())
+		{
+			UE_LOG(LogMetal, Display, TEXT("Viewport Size Mismatch: Drawable W:%f H:%f, Texture W:%llu H:%llu, Viewport W:%u H:%u"), Size.width, Size.height, CurrentDrawable.texture.width, CurrentDrawable.texture.height, BackBuffer[Index]->GetSizeX(), BackBuffer[Index]->GetSizeY());
+		}
+#endif
+	}
 	return CurrentDrawable.texture;
 }
 
@@ -142,9 +210,10 @@ void FMetalViewport::ReleaseDrawable()
 		[Drawable release];
 		Drawable = nil;
 	}
-#if !PLATFORM_MAC
-	BackBuffer->Surface.Texture = nil;
-#endif
+	if (!GMetalSupportsIntermediateBackBuffer && IsValidRef(BackBuffer[GetViewportIndex(EMetalViewportAccessRHI)]))
+	{
+		BackBuffer[GetViewportIndex(EMetalViewportAccessRHI)]->Surface.Texture = nil;
+	}
 }
 
 #if PLATFORM_MAC
@@ -188,10 +257,9 @@ void FMetalRHICommandContext::RHIBeginDrawingViewport(FViewportRHIParamRef Viewp
 void FMetalDynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI, FTextureRHIParamRef RenderTargetRHI)
 {
 	FMetalViewport* Viewport = ResourceCast(ViewportRHI);
-	
 	check(Viewport);
 
-	check(Viewport);
+	Viewport->BeginDrawingViewport();
 	
 	((FMetalDeviceContext*)Context)->BeginDrawingViewport(Viewport);
 
@@ -203,7 +271,7 @@ void FMetalDynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI,
 	}
 	else
 	{
-		FRHIRenderTargetView RTV(Viewport->GetBackBuffer());
+		FRHIRenderTargetView RTV(Viewport->GetBackBuffer(EMetalViewportAccessRHI));
 		RHISetRenderTargets(1, &RTV, nullptr, 0, NULL);
 	}
 }
@@ -228,7 +296,7 @@ void FMetalDynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bo
 FTexture2DRHIRef FMetalDynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef ViewportRHI)
 {
 	FMetalViewport* Viewport = ResourceCast(ViewportRHI);
-	return Viewport->GetBackBuffer();
+	return Viewport->GetBackBuffer(EMetalViewportAccessRenderer);
 }
 
 void FMetalDynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer()

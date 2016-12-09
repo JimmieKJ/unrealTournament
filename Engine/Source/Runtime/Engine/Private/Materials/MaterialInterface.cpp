@@ -4,8 +4,18 @@
 	MaterialInterface.cpp: UMaterialInterface implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Materials/MaterialInterface.h"
+#include "RenderingThread.h"
+#include "PrimitiveViewRelevance.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/Texture2D.h"
 #include "Engine/SubsurfaceProfile.h"
+#include "Engine/TextureStreamingTypes.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Components.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -27,6 +37,7 @@ void FMaterialRelevance::SetPrimitiveViewRelevance(FPrimitiveViewRelevance& OutV
 	OutViewRelevance.bUsesWorldPositionOffset = bUsesWorldPositionOffset;
 	OutViewRelevance.bDecal = bDecal;
 	OutViewRelevance.bTranslucentSurfaceLighting = bTranslucentSurfaceLighting;
+	OutViewRelevance.bUsesSceneDepth = bUsesSceneDepth;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -96,6 +107,7 @@ FMaterialRelevance UMaterialInterface::GetRelevance_Internal(const UMaterial* Ma
 			MaterialRelevance.bUsesWorldPositionOffset = MaterialResource->UsesWorldPositionOffset_GameThread();
 			ETranslucencyLightingMode TranslucencyLightingMode = MaterialResource->GetTranslucencyLightingMode();
 			MaterialRelevance.bTranslucentSurfaceLighting = bIsTranslucent && (TranslucencyLightingMode == TLM_SurfacePerPixelLighting || TranslucencyLightingMode == TLM_Surface);
+			MaterialRelevance.bUsesSceneDepth = MaterialResource->MaterialUsesSceneDepthLookup_GameThread();
 		}
 		return MaterialRelevance;
 	}
@@ -307,6 +319,11 @@ bool UMaterialInterface::IsDitheredLODTransition() const
 	return false;
 }
 
+bool UMaterialInterface::IsTranslucencyWritingCustomDepth() const
+{
+	return false;
+}
+
 bool UMaterialInterface::IsMasked() const
 {
 	return false;
@@ -399,3 +416,176 @@ void UMaterialInterface::UpdateMaterialRenderProxy(FMaterialRenderProxy& Proxy)
 		});
 	}
 }
+
+namespace Algo
+{
+	template<typename T, typename PredType>
+	int32 BinarySearch(const TArray<T>& Container, PredType Pred)
+	{
+		int32 Min = 0; // Min is included
+		int32 Max = Container.Num(); // Max is excluded
+
+		while (Min != Max)
+		{
+			const int32 Curr = (Min + Max) / 2;
+			const int32 Comp = Pred(Container[Curr]);
+			if (Comp < 0) // Pred < Ele
+			{
+				Max = Curr;
+			}
+			else if (Comp > 0) // Pred > Ele
+			{
+				Min = Curr + 1;
+			}
+			else // Pred == Ele
+			{
+				return Curr;
+			}
+		}
+		return INDEX_NONE;
+	}
+}
+
+bool FMaterialTextureInfo::IsValid(bool bCheckTextureIndex) const
+{ 
+#if WITH_EDITORONLY_DATA
+	if (bCheckTextureIndex && (TextureIndex < 0 || TextureIndex >= TEXSTREAM_MAX_NUM_TEXTURES_PER_MATERIAL))
+	{
+		return false;
+	}
+#endif
+	return TextureName != NAME_None && SamplingScale > SMALL_NUMBER && UVChannelIndex >= 0 && UVChannelIndex < TEXSTREAM_MAX_NUM_UVCHANNELS; 
+}
+
+void UMaterialInterface::SortTextureStreamingData(bool bForceSort, bool bFinalSort)
+{
+#if WITH_EDITORONLY_DATA
+	// In cook that was already done in the save.
+	if (!FPlatformProperties::RequiresCookedData() && (!bTextureStreamingDataSorted || bForceSort))
+	{
+		for (int32 Index = 0; Index < TextureStreamingData.Num(); ++Index)
+		{
+			FMaterialTextureInfo& TextureData = TextureStreamingData[Index];
+			UObject* Texture = TextureData.TextureReference.TryLoad();
+
+			// In the final data it must also be a streaming texture, to make the data leaner.
+			if (Texture && (!bFinalSort || IsStreamingTexture(Cast<UTexture2D>(Texture))))
+			{
+				TextureData.TextureName = Texture->GetFName();
+			}
+			else if (bFinalSort) // In the final sort we remove null names as they will never match.
+			{
+				TextureStreamingData.RemoveAtSwap(Index);
+				--Index;
+			}
+			else
+			{
+				TextureData.TextureName = NAME_None;
+			}
+		}
+		// Sort by name to be compatible with FindTextureStreamingDataIndexRange
+		TextureStreamingData.Sort([](const FMaterialTextureInfo& Lhs, const FMaterialTextureInfo& Rhs) { return Lhs.TextureName < Rhs.TextureName; });
+		bTextureStreamingDataSorted = true;
+	}
+#endif
+}
+
+extern 	TAutoConsoleVariable<int32> CVarStreamingUseMaterialData;
+
+bool UMaterialInterface::FindTextureStreamingDataIndexRange(FName TextureName, int32& LowerIndex, int32& HigherIndex) const
+{
+	struct FNameSearch
+	{
+		FName Name;
+		FNameSearch(FName InName) : Name(InName) {}
+		FORCEINLINE int32 operator()(const FMaterialTextureInfo& Rhs) const { return Name.Compare(Rhs.TextureName); }
+	};
+
+#if WITH_EDITORONLY_DATA
+	// Because of redirectors (when textures are renammed), the texture names might be invalid and we need to udpate the data at every load.
+	// Normally we would do that in the post load, but since the process needs to resolve the StringAssetReference, this is forbidden at that place.
+	// As a workaround, we do it on demand. Note that this is not required in cooked build as it is done in the presave.
+	const_cast<UMaterialInterface*>(this)->SortTextureStreamingData(false, false);
+#endif
+
+#if !UE_BUILD_SHIPPING
+	if (CVarStreamingUseMaterialData.GetValueOnGameThread() == 0)
+	{
+		return false;
+	}
+#endif
+
+	const int32 MatchingIndex = Algo::BinarySearch(TextureStreamingData, FNameSearch(TextureName));
+	if (MatchingIndex != INDEX_NONE)
+	{
+		// Find the range of entries for this texture. 
+		// This is possible because the same texture could be bound to several register and also be used with different sampling UV.
+		LowerIndex = MatchingIndex;
+		HigherIndex = MatchingIndex;
+		while (LowerIndex > 0 && TextureStreamingData[LowerIndex - 1].TextureName == TextureName)
+		{
+			--LowerIndex;
+		}
+		while (HigherIndex + 1 < TextureStreamingData.Num() && TextureStreamingData[HigherIndex + 1].TextureName == TextureName)
+		{
+			++HigherIndex;
+		}
+		return true;
+	}
+	return false;
+}
+
+void UMaterialInterface::SetTextureStreamingData(const TArray<FMaterialTextureInfo>& InTextureStreamingData)
+{
+	TextureStreamingData = InTextureStreamingData;
+	SortTextureStreamingData(true, false);
+}
+
+float UMaterialInterface::GetTextureDensity(FName TextureName, const FMeshUVChannelInfo& UVChannelData) const
+{
+	ensure(UVChannelData.bInitialized);
+
+	int32 LowerIndex = INDEX_NONE;
+	int32 HigherIndex = INDEX_NONE;
+	if (FindTextureStreamingDataIndexRange(TextureName, LowerIndex, HigherIndex))
+	{
+		// Compute the max, at least one entry will be valid. 
+		float MaxDensity = 0;
+		for (int32 Index = LowerIndex; Index <= HigherIndex; ++Index)
+		{
+			const FMaterialTextureInfo& MatchingData = TextureStreamingData[Index];
+			ensure(MatchingData.IsValid() && MatchingData.TextureName == TextureName);
+			MaxDensity = FMath::Max<float>(UVChannelData.LocalUVDensities[MatchingData.UVChannelIndex] / MatchingData.SamplingScale, MaxDensity);
+		}
+		return MaxDensity;
+	}
+
+	// Otherwise return 0 to indicate the data is not found.
+	return 0;
+}
+
+bool UMaterialInterface::UseAnyStreamingTexture() const
+{
+	TArray<UTexture*> Textures;
+	GetUsedTextures(Textures, EMaterialQualityLevel::Num, true, ERHIFeatureLevel::Num, true);
+
+	for (UTexture* Texture : Textures)
+	{
+		if (IsStreamingTexture(Cast<UTexture2D>(Texture)))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void UMaterialInterface::PreSave(const class ITargetPlatform* TargetPlatform)
+{
+	Super::PreSave(TargetPlatform);
+
+	if (TargetPlatform && TargetPlatform->RequiresCookedData())
+	{
+		SortTextureStreamingData(true, true);
+	}
+}
+

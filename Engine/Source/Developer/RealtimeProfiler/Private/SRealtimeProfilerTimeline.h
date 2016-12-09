@@ -2,13 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Geometry.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "VisualizerEvents.h"
 
-class SRealtimeProfilerVisualizer;
 class SRealtimeProfilerLineGraph;
+class SRealtimeProfilerVisualizer;
+class SScrollBar;
+class STextBlock;
 class STimeline;
-
 struct FRealtimeProfilerFPSChartFrame;
-struct VisualizerEvents;
 
 class SRealtimeProfilerTimeline : public SCompoundWidget
 {

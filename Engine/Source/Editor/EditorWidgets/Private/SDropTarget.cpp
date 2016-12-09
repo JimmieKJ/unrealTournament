@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EditorWidgetsPrivatePCH.h"
-
 #include "SDropTarget.h"
-#include "AssetDragDropOp.h"
-#include "ActorDragDropOp.h"
-#include "AssetSelection.h"
-#include "SScaleBox.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/SOverlay.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SBox.h"
+
 
 #define LOCTEXT_NAMESPACE "EditorWidgets"
 

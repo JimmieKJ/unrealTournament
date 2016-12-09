@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SColumnHeader.h"
-#include "SRowHeaderCell.h"
-#include "IPropertyTableUtilities.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
+#include "UserInterface/PropertyTable/SColumnHeader.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "IPropertyTableCell.h"
+#include "UserInterface/PropertyTable/SRowHeaderCell.h"
 
 class SRowHeaderColumnHeader : public SColumnHeader
 {

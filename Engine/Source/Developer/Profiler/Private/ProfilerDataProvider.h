@@ -2,17 +2,23 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ProfilerCommon.h"
+#include "ProfilerSample.h"
+
 /*-----------------------------------------------------------------------------
 	Declarations
 -----------------------------------------------------------------------------*/
 
 /** Data provider interface, acts as a container for profiler samples. */
-class IDataProvider : public TSharedFromThis<IDataProvider>
+class IDataProvider
+	: public TSharedFromThis<IDataProvider>
 {
 	friend class FGraphDataSource;
 	friend class FEventGraphData;
 
 public:
+
 	/** Default constructor. */
 	IDataProvider()
 		: ElapsedTimeMS( 0.0f )
@@ -23,14 +29,16 @@ public:
 	{}
 
 	/** Virtual destructor. */
-	virtual ~IDataProvider()
-	{}
+	virtual ~IDataProvider() { }
 
 protected:
+
 	/**
 	 * Method for creating a duplicated copy of this data provider instance with a particular group of frames.
+	 *
 	 * Data is stored in the instance of FArrayDataProvider class.
 	 * Data source for the SEventGraph widget.
+	 *
 	 * @return A shared reference with a new instance of the data provider.
 	 */
 	template< class TDataProviderType >
@@ -45,7 +53,7 @@ protected:
 		const uint32 FrameEndIndex = FrameStartIndex + NumFrames;
 		check( FrameEndIndex <= TotalNumFrames );
 
-		IDataProviderRef DataProvider = MakeShareable( new TDataProviderType );
+		TSharedRef<IDataProvider> DataProvider = MakeShareable( new TDataProviderType );
 		InternalDuplicate( DataProvider, FrameStartIndex, FrameEndIndex );
 
 		return DataProvider;
@@ -53,19 +61,19 @@ protected:
 
 protected:
 	/** Helper method used to create a copy of a specified data provider. Removes the template parameters, so can be implemented in the source file. */
-	void InternalDuplicate( const IDataProviderRef& DataProvider, const uint32 FrameStartIndex, const uint32 FrameEndIndex ) const;
+	void InternalDuplicate( const TSharedRef<IDataProvider>& DataProvider, const uint32 FrameStartIndex, const uint32 FrameEndIndex ) const;
 
 public:
 	/**
 	 * Adds a new hierarchical sample to the data provider.
 	 *
-	 * @param InThreadID		- The ID of the thread that this profiler sample was captured on
-	 * @param InGroupID			- The ID of the stat group that this profiler sample belongs to
-	 * @param InStatID			- The ID of the stat of this profiler sample
-	 * @param InStartMS			- The start time of this profiler sample, in milliseconds
-	 * @param InDurationMS		- The duration of this profiler sample, in milliseconds
-	 * @param InCallsPerFrame	- The number of times this counter was called in the frame it was captured in
-	 * @param InParentIndex		- The parent of this profiler sample, as an index to a profiler sample
+	 * @param InThreadID The ID of the thread that this profiler sample was captured on
+	 * @param InGroupID The ID of the stat group that this profiler sample belongs to
+	 * @param InStatID The ID of the stat of this profiler sample
+	 * @param InStartMS The start time of this profiler sample, in milliseconds
+	 * @param InDurationMS The duration of this profiler sample, in milliseconds
+	 * @param InCallsPerFrame The number of times this counter was called in the frame it was captured in
+	 * @param InParentIndex The parent of this profiler sample, as an index to a profiler sample
 	 *
 	 */
 	virtual const uint32 AddHierarchicalSample
@@ -81,10 +89,10 @@ public:
 	/**
 	 * Adds a new non-hierarchical sample to the data provider.
 	 *
-	 * @param InGroupID				- The ID of the stat group that this profiler sample belongs to
-	 * @param InStatID				- The ID of the stat of this profiler sample
-	 * @param InCounter				- The counter value for this profiler sample
-	 * @param InProfilerSampleType	- The profiler sample type of this profiler sample
+	 * @param InGroupID The ID of the stat group that this profiler sample belongs to
+	 * @param InStatID The ID of the stat of this profiler sample
+	 * @param InCounter The counter value for this profiler sample
+	 * @param InProfilerSampleType The profiler sample type of this profiler sample
 	 *
 	 */
 	virtual void AddCounterSample
@@ -96,10 +104,11 @@ public:
 	) = 0;
 
 protected:
+
 	/**  
 	 * Adds a sample to the data provider.
 	 * 
-	 * @return	An index to the newly created profiler sample.
+	 * @return An index to the newly created profiler sample.
 	 */
 	virtual const uint32 AddDuplicatedSample
 	( 
@@ -107,6 +116,7 @@ protected:
 	) = 0;
 
 public:
+
 	/**
 	 * @return a reference to the collection where all the profiler samples are stored.
 	 */
@@ -142,25 +152,7 @@ public:
 		return AccumulatedFrameCounters[ SecondIndex ];
 	}
 
-	const FIntPoint GetClosestSamplesIndicesForTime( const float StartTimeMS, const float EndTimeMS ) const
-	{
-		// Find the first sample that start time is less or equal.
-		const int StartIndex = FBinaryFindIndex::LessEqual( ElapsedFrameTimes, StartTimeMS );
-		int32 EndIndex = StartIndex;
-
-		// Find the first sample that start time is greater or equal, usually the next sample. 
-		// More efficient then using binary search again.
-		for( ; EndIndex < ElapsedFrameTimes.Num(); ++EndIndex )
-		{
-			const float NextIndexTimeMS = ElapsedFrameTimes[EndIndex];
-			if( NextIndexTimeMS >= EndTimeMS )
-			{
-				break;
-			}
-		}
-
-		return FIntPoint( StartIndex, FMath::Min(ElapsedFrameTimes.Num(),EndIndex+1) );
-	}
+	const FIntPoint GetClosestSamplesIndicesForTime( const float StartTimeMS, const float EndTimeMS ) const;
 
 	/**
 	 * @return An instance of FIntPoint 
@@ -187,6 +179,7 @@ public:
 	virtual const SIZE_T GetMemoryUsage() const = 0;
 		
 protected:
+
 	/** An array of indices to the frame's range. */
 	TArray<FIntPoint> FrameIndices;
 
@@ -206,6 +199,7 @@ protected:
 	double ElapsedTimeMS;
 
 private:
+
 	/** Accumulates frame times until it reaches a value of one second. */
 	float LastSecondFrameTimeMS;
 
@@ -219,19 +213,23 @@ private:
 	bool bHasAddedSecondStartMarker;
 };
 
+
 /** Implements the data provider interface where samples are stored in the instance of the TArray class. */
-class FArrayDataProvider : public IDataProvider
+class FArrayDataProvider
+	: public IDataProvider
 {
 public:
+
 	FArrayDataProvider()
 		: IDataProvider()
 		, ChildrenIndicesMemoryUsage( 0 )
 	{}
 
-	virtual ~FArrayDataProvider()
-	{
+	virtual ~FArrayDataProvider() { }
 
-	}
+public:
+
+	//~ IDataProvider interface
 
 	virtual const uint32 AddHierarchicalSample
 	( 
@@ -263,6 +261,7 @@ public:
 	}
 
 protected:
+
 	/** Profiler samples stored in TArray. */
 	FProfilerSampleArray Collection;
 

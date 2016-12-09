@@ -4,19 +4,20 @@
 	Shader.cpp: Shader implementation.
 =============================================================================*/
 
-#include "ShaderCorePrivatePCH.h"
-#include "ShaderCore.h"
 #include "Shader.h"
+#include "Misc/CoreMisc.h"
+#include "Stats/StatsMisc.h"
+#include "Serialization/MemoryWriter.h"
 #include "VertexFactory.h"
-#include "DiagnosticTable.h"
-#include "DerivedDataCacheInterface.h"
-#include "ModuleManager.h"
-#include "TargetPlatform.h"
-#include "RHICommandList.h"
+#include "ProfilingDebugging/DiagnosticTable.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
 #include "ShaderCache.h"
 
 
 DEFINE_LOG_CATEGORY(LogShaders);
+
+static const ECompressionFlags ShaderCompressionFlag = ECompressionFlags::COMPRESS_ZLIB;
 
 static TAutoConsoleVariable<int32> CVarUsePipelines(
 	TEXT("r.ShaderPipelines"),
@@ -285,10 +286,10 @@ FArchive& operator<<(FArchive& Ar,FShaderType*& Ref)
 }
 
 
-TRefCountPtr<FShader> FShaderType::FindShaderById(const FShaderId& Id)
+FShader* FShaderType::FindShaderById(const FShaderId& Id)
 {
 	check(IsInGameThread());
-	TRefCountPtr<FShader> Result = ShaderIdMap.FindRef(Id);
+	FShader* Result = ShaderIdMap.FindRef(Id);
 	return Result;
 }
 
@@ -368,8 +369,7 @@ FShaderResource::FShaderResource(const FShaderCompilerOutput& Output, FShaderTyp
 	
 {
 	Target = Output.Target;
-	// todo: can we avoid the memcpy?
-	Code = Output.ShaderCode.GetReadAccess();
+	CompressCode(Output.ShaderCode.GetReadAccess());
 
 	check(Code.Num() > 0);
 
@@ -399,6 +399,35 @@ FShaderResource::~FShaderResource()
 }
 
 
+void FShaderResource::UncompressCode(TArray<uint8>& UncompressedCode) const
+{
+	if (Code.Num() != UncompressedCodeSize && RHISupportsShaderCompression((EShaderPlatform)Target.Platform))
+	{
+		UncompressedCode.SetNum(UncompressedCodeSize);
+		auto bSucceed = FCompression::UncompressMemory(ShaderCompressionFlag, UncompressedCode.GetData(), UncompressedCodeSize, Code.GetData(), Code.Num());
+		check(bSucceed);
+	}
+	else
+	{
+		UncompressedCode = Code;
+	}
+}
+
+void FShaderResource::CompressCode(const TArray<uint8>& UncompressedCode)
+{
+	UncompressedCodeSize = UncompressedCode.Num();
+	Code = UncompressedCode;
+	if (RHISupportsShaderCompression((EShaderPlatform)Target.Platform))
+	{
+		auto CompressedSize = Code.Num();
+		if (FCompression::CompressMemory(ShaderCompressionFlag, Code.GetData(), CompressedSize, UncompressedCode.GetData(), UncompressedCode.Num()))
+		{
+			Code.SetNum(CompressedSize);
+		}
+		Code.Shrink();
+	}
+}
+
 void FShaderResource::Register()
 {
 	check(IsInGameThread());
@@ -415,6 +444,11 @@ void FShaderResource::Serialize(FArchive& Ar)
 	Ar << NumInstructions;
 	Ar << NumTextureSamplers;
 	
+	if (Ar.UE4Ver() >= VER_UE4_COMPRESSED_SHADER_RESOURCES)
+	{
+		Ar << UncompressedCodeSize;
+	}
+
 	if (Ar.IsLoading())
 	{
 		INC_DWORD_STAT_BY_FName(GetMemoryStatType((EShaderFrequency)Target.Frequency).GetName(), (int64)Code.Num());
@@ -460,10 +494,10 @@ void FShaderResource::Release()
 }
 
 
-TRefCountPtr<FShaderResource> FShaderResource::FindShaderResourceById(const FShaderResourceId& Id)
+FShaderResource* FShaderResource::FindShaderResourceById(const FShaderResourceId& Id)
 {
 	check(IsInGameThread());
-	TRefCountPtr<FShaderResource> Result = ShaderResourceIdMap.FindRef(Id);
+	FShaderResource* Result = ShaderResourceIdMap.FindRef(Id);
 	return Result;
 }
 
@@ -472,10 +506,13 @@ FShaderResource* FShaderResource::FindOrCreateShaderResource(const FShaderCompil
 {
 	const FShaderResourceId ResourceId(Output, SpecificType ? SpecificType->GetName() : NULL);
 	FShaderResource* Resource = FindShaderResourceById(ResourceId);
-
 	if (!Resource)
 	{
 		Resource = new FShaderResource(Output, SpecificType);
+	}
+	else
+	{
+		check(Resource->Canary == FShader::ShaderMagic_Initialized);
 	}
 
 	return Resource;
@@ -545,6 +582,9 @@ void FShaderResource::InitRHI()
 {
 	checkf(Code.Num() > 0, TEXT("FShaderResource::InitRHI was called with empty bytecode, which can happen if the resource is initialized multiple times on platforms with no editor data."));
 
+	TArray<uint8> UncompressedCode;
+	UncompressCode(UncompressedCode);
+
 	// we can't have this called on the wrong platform's shaders
 	if (!ArePlatformsCompatible(GMaxRHIShaderPlatform, (EShaderPlatform)Target.Platform))
  	{
@@ -565,11 +605,11 @@ void FShaderResource::InitRHI()
 	{
 		if (ShaderCache)
 		{
-			VertexShader = ShaderCache->GetVertexShader((EShaderPlatform)Target.Platform, OutputHash, Code);
+			VertexShader = ShaderCache->GetVertexShader((EShaderPlatform)Target.Platform, OutputHash, UncompressedCode);
 		}
 		else
 		{
-			VertexShader = RHICreateVertexShader(Code);
+			VertexShader = RHICreateVertexShader(UncompressedCode);
 			SafeAssignHash(VertexShader, OutputHash);
 		}
 	}
@@ -577,11 +617,11 @@ void FShaderResource::InitRHI()
 	{
 		if (ShaderCache)
 		{
-			PixelShader = ShaderCache->GetPixelShader((EShaderPlatform)Target.Platform, OutputHash, Code);
+			PixelShader = ShaderCache->GetPixelShader((EShaderPlatform)Target.Platform, OutputHash, UncompressedCode);
 		}
 		else
 		{
-			PixelShader = RHICreatePixelShader(Code);
+			PixelShader = RHICreatePixelShader(UncompressedCode);
 			SafeAssignHash(PixelShader, OutputHash);
 		}
 	}
@@ -589,11 +629,11 @@ void FShaderResource::InitRHI()
 	{
 		if (ShaderCache)
 		{
-			HullShader = ShaderCache->GetHullShader((EShaderPlatform)Target.Platform, OutputHash, Code);
+			HullShader = ShaderCache->GetHullShader((EShaderPlatform)Target.Platform, OutputHash, UncompressedCode);
 		}
 		else
 		{
-			HullShader = RHICreateHullShader(Code);
+			HullShader = RHICreateHullShader(UncompressedCode);
 			SafeAssignHash(HullShader, OutputHash);
 		}
 	}
@@ -601,11 +641,11 @@ void FShaderResource::InitRHI()
 	{
 		if (ShaderCache)
 		{
-			DomainShader = ShaderCache->GetDomainShader((EShaderPlatform)Target.Platform, OutputHash, Code);
+			DomainShader = ShaderCache->GetDomainShader((EShaderPlatform)Target.Platform, OutputHash, UncompressedCode);
 		}
 		else
 		{
-			DomainShader = RHICreateDomainShader(Code);
+			DomainShader = RHICreateDomainShader(UncompressedCode);
 			SafeAssignHash(DomainShader, OutputHash);
 		}
 	}
@@ -620,17 +660,17 @@ void FShaderResource::InitRHI()
 			checkf(ElementList.Num(), *FString::Printf(TEXT("Shader type %s was given GetStreamOutElements implementation that had no elements!"), SpecificType->GetName()));
 
 			//@todo - not using the cache
-			GeometryShader = RHICreateGeometryShaderWithStreamOutput(Code, ElementList, StreamStrides.Num(), StreamStrides.GetData(), RasterizedStream);
+			GeometryShader = RHICreateGeometryShaderWithStreamOutput(UncompressedCode, ElementList, StreamStrides.Num(), StreamStrides.GetData(), RasterizedStream);
 		}
 		else
 		{
 			if (ShaderCache)
 			{
-				GeometryShader = ShaderCache->GetGeometryShader((EShaderPlatform)Target.Platform, OutputHash, Code);
+				GeometryShader = ShaderCache->GetGeometryShader((EShaderPlatform)Target.Platform, OutputHash, UncompressedCode);
 			}
 			else
 			{
-				GeometryShader = RHICreateGeometryShader(Code);
+				GeometryShader = RHICreateGeometryShader(UncompressedCode);
 				SafeAssignHash(GeometryShader, OutputHash);
 			}
 		}
@@ -639,11 +679,11 @@ void FShaderResource::InitRHI()
 	{
 		if (ShaderCache)
 		{
-			ComputeShader = ShaderCache->GetComputeShader((EShaderPlatform)Target.Platform, Code);
+			ComputeShader = ShaderCache->GetComputeShader((EShaderPlatform)Target.Platform, UncompressedCode);
 		}
 		else
 		{
-			ComputeShader = RHICreateComputeShader(Code);
+			ComputeShader = RHICreateComputeShader(UncompressedCode);
 		}
 		SafeAssignHash(ComputeShader, OutputHash);
 	}
@@ -932,7 +972,7 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 			ResourceId.SpecificShaderTypeName = Type->LimitShaderResourceToThisType() ? Type->GetName() : NULL;
 
 			// use it to look up in the registered resource map
-			TRefCountPtr<FShaderResource> ExistingResource = FShaderResource::FindShaderResourceById(ResourceId);
+			FShaderResource* ExistingResource = FShaderResource::FindShaderResourceById(ResourceId);
 			SetResource(ExistingResource);
 		}
 	}
@@ -999,7 +1039,7 @@ void FShader::RegisterSerializedResource()
 {
 	if (SerializedResource)
 	{
-		TRefCountPtr<FShaderResource> ExistingResource = FShaderResource::FindShaderResourceById(SerializedResource->GetId());
+		FShaderResource* ExistingResource = FShaderResource::FindShaderResourceById(SerializedResource->GetId());
 
 		// Reuse an existing shader resource if a matching one already exists in memory
 		if (ExistingResource)
@@ -1662,9 +1702,13 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 	{
 		static const auto CVarInstancedStereo = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.InstancedStereo"));
 		static const auto CVarMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MultiView"));
+		static const auto CVarMobileMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView"));
 
 		const bool bIsInstancedStereo = ((Platform == EShaderPlatform::SP_PCD3D_SM5 || Platform == EShaderPlatform::SP_PS4) && (CVarInstancedStereo && CVarInstancedStereo->GetValueOnGameThread() != 0));
 		const bool bIsMultiView = (Platform == EShaderPlatform::SP_PS4 && (CVarMultiView && CVarMultiView->GetValueOnGameThread() != 0));
+
+		const bool bIsAndroidGLES = (Platform == EShaderPlatform::SP_OPENGL_ES3_1_ANDROID || Platform == EShaderPlatform::SP_OPENGL_ES2_ANDROID);
+		const bool bIsMobileMultiView = (bIsAndroidGLES && (CVarMobileMultiView && CVarMobileMultiView->GetValueOnGameThread() != 0));
 
 		if (bIsInstancedStereo)
 		{
@@ -1674,6 +1718,11 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 			{
 				KeyString += TEXT("_MVIEW");
 			}
+		}
+
+		if (bIsMobileMultiView)
+		{
+			KeyString += TEXT("_MMVIEW");
 		}
 	}
 
@@ -1730,6 +1779,12 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 		}
 	}
 
+	if (IsMobilePlatform(Platform))
+	{
+		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Mobile.DisableVertexFog"));
+		KeyString += (CVar && CVar->GetInt() != 0) ? TEXT("_NoVFog") : TEXT("");
+	}
+
 	if (Platform == SP_PS4)
 	{
 		{
@@ -1774,10 +1829,26 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 	}
 
 	{
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SceneAlpha"));
+		if (CVar && CVar->GetValueOnAnyThread() > 0)
+		{
+			KeyString += TEXT("_SA");
+		}
+	}
+
+	{
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VertexFoggingForOpaque"));
 		if (CVar && CVar->GetValueOnAnyThread() > 0)
 		{
 			KeyString += TEXT("_VFO");
+		}
+	}
+
+	{
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.EarlyZPassOnlyMaterialMasking"));
+		if (CVar && CVar->GetValueOnAnyThread() > 0)
+		{
+			KeyString += TEXT("_EZPMM");
 		}
 	}
 }

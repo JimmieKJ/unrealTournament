@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 #include <pthread.h>
 #include <errno.h>
 

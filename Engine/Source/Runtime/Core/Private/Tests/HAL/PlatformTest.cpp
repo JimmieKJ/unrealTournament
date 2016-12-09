@@ -1,6 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "GenericPlatform/GenericPlatformMath.h"
+#include "Math/UnrealMathUtility.h"
+#include "Templates/AlignOf.h"
+#include "Templates/UnrealTemplate.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Misc/AutomationTest.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

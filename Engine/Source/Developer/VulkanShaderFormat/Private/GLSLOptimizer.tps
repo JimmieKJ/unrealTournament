@@ -9,8 +9,6 @@
   <Products />
   <Eula />
   <RedistributeTo />
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
   <Notification>
 Redirect: ../../../ThirdParty/hlslcc/hlslcc/src/hlslcc_lib/GLSLOptimizer.tps
 Notes:

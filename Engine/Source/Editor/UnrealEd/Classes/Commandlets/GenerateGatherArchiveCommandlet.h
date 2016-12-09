@@ -2,11 +2,10 @@
 
 #pragma once 
 
-#include "Internationalization/InternationalizationArchive.h"
-#include "Internationalization/InternationalizationManifest.h"
-#include "Commandlets/Commandlet.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Commandlets/GatherTextCommandletBase.h"
 #include "GenerateGatherArchiveCommandlet.generated.h"
-
 
 /**
  *	UGenerateGatherArchiveCommandlet: Generates a localisation archive; generally used as a gather step.

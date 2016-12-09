@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/Runnable.h"
+#include "IPAddress.h"
+#include "SocketSubsystem.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "HAL/RunnableThread.h"
+#include "Serialization/ArrayReader.h"
+#include "Sockets.h"
 
 /**
  * Temporary fix for concurrency crashes. This whole class will be redesigned.

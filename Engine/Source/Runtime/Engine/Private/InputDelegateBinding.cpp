@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "BlueprintUtilities.h"
 #include "Engine/InputDelegateBinding.h"
+#include "UObject/Class.h"
+#include "Engine/BlueprintGeneratedClass.h"
 #include "Engine/InputActionDelegateBinding.h"
 #include "Engine/InputAxisDelegateBinding.h"
 #include "Engine/InputKeyDelegateBinding.h"

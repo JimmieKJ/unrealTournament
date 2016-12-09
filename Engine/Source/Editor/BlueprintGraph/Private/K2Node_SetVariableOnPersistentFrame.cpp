@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "K2Node_SetVariableOnPersistentFrame.h"
+#include "EdGraphSchema_K2.h"
+#include "EdGraphUtilities.h"
+#include "BPTerminal.h"
+#include "KismetCompilerMisc.h"
+#include "Engine/BlueprintGeneratedClass.h"
 #include "KismetCompiler.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_SetVariableOnPersistentFrame"

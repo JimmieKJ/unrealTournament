@@ -2,9 +2,11 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "NiagaraScriptSourceBase.h"
 #include "NiagaraScriptSource.generated.h"
-
 
 UCLASS(MinimalAPI)
 class UNiagaraScriptSource : public UNiagaraScriptSourceBase

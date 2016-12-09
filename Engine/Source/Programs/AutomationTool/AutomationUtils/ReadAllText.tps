@@ -5,24 +5,11 @@
   <Date>2016-06-07T18:50:36.785967-04:00</Date>
   <Function>To read all the text in a single file quickly</Function>
   <Justification>To read all the text in a single file quickly</Justification>
-  <Platforms>
-    <Platform>PC</Platform>
-  </Platforms>
-  <Products>
-    <Product>UE3</Product>
-    <Product>UDK4</Product>
-    <Product>UE4</Product>
-  </Products>
-  <TpsType>Source Code</TpsType>
   <Eula>http://dotnetperls.com/file-handling</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
   <LicenseFolder>None</LicenseFolder>
 </TpsData>

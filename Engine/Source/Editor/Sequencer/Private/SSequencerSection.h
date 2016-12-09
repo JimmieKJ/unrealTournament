@@ -2,9 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Geometry.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "SequencerSelectedKey.h"
+#include "Rendering/RenderingCommon.h"
+#include "DisplayNodes/SequencerTrackNode.h"
 #include "SectionLayout.h"
 
+class FPaintArgs;
+class FSequencer;
 class FSequencerSectionPainter;
+class FSlateWindowElementList;
+struct ISequencerHotspot;
 
 class SSequencerSection : public SCompoundWidget
 {
@@ -66,6 +78,7 @@ private:
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonDoubleClick( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
+	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual void OnMouseLeave( const FPointerEvent& MouseEvent ) override;
 
 	/**

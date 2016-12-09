@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/Paths.h"
 #include "NetworkMessage.h"
 #include "NetworkPlatformFile.h"
-
 
 DECLARE_LOG_CATEGORY_EXTERN(LogStreamingPlatformFile, Log, All);
 
@@ -191,7 +193,7 @@ public:
 	virtual bool IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override;
 	virtual bool IterateDirectoryRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override;
 	virtual bool DeleteDirectoryRecursively(const TCHAR* Directory) override;
-	virtual bool CopyFile(const TCHAR* To, const TCHAR* From) override;
+	virtual bool CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags = EPlatformFileRead::None, EPlatformFileWrite WriteFlags = EPlatformFileWrite::None) override;
 	virtual FString ConvertToAbsolutePathForExternalAppForRead( const TCHAR* Filename ) override;
 	virtual FString ConvertToAbsolutePathForExternalAppForWrite( const TCHAR* Filename ) override;
 

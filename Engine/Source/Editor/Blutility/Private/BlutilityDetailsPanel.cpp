@@ -1,9 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlutilityPrivatePCH.h"
 #include "BlutilityDetailsPanel.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorUtilityBlueprint.h"
+#include "UObject/UnrealType.h"
+#include "GlobalEditorUtilityBase.h"
+#include "PlacedEditorUtilityBase.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditing.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "IDetailsView.h"
 
 #include "ScopedTransaction.h"
 

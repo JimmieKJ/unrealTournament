@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Misc/ConfigManifest.h"
+#include "Misc/EngineVersionBase.h"
+#include "Containers/UnrealString.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Containers/StringConv.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/App.h"
 
-#include "ConfigManifest.h"
-#include "RemoteConfigIni.h"
-#include "EngineVersion.h"
+#include "Misc/EngineVersion.h"
 
 #include "Runtime/Launch/Resources/Version.h"
 

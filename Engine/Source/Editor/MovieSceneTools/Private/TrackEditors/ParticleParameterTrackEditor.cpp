@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "ParticleParameterTrackEditor.h"
-#include "MovieSceneParticleParameterTrack.h"
-#include "ParameterSection.h"
-#include "MovieSceneParameterSection.h"
+#include "TrackEditors/ParticleParameterTrackEditor.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Particles/Emitter.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Sections/MovieSceneParameterSection.h"
+#include "Tracks/MovieSceneParticleParameterTrack.h"
+#include "Sections/ParameterSection.h"
 #include "SequencerUtilities.h"
 
 
@@ -24,7 +26,7 @@ TSharedRef<ISequencerTrackEditor> FParticleParameterTrackEditor::CreateTrackEdit
 }
 
 
-TSharedRef<ISequencerSection> FParticleParameterTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
+TSharedRef<ISequencerSection> FParticleParameterTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding )
 {
 	UMovieSceneParameterSection* ParameterSection = Cast<UMovieSceneParameterSection>(&SectionObject);
 	checkf( ParameterSection != nullptr, TEXT("Unsupported section type.") );
@@ -139,20 +141,24 @@ void FParticleParameterTrackEditor::AddParticleParameterTrack( FGuid ObjectBindi
 
 void FParticleParameterTrackEditor::AddScalarParameter( FGuid ObjectBinding, UMovieSceneParticleParameterTrack* ParticleParameterTrack, FName ParameterName )
 {
-	UMovieSceneSequence* MovieSceneSequence = GetMovieSceneSequence();
-	float KeyTime = GetTimeForKey( MovieSceneSequence );
+	float KeyTime = GetTimeForKey();
 
-	UObject* Object = GetSequencer()->GetFocusedMovieSceneSequenceInstance()->FindObject( ObjectBinding, *GetSequencer() );
-	AEmitter* Emitter = Cast<AEmitter>(Object);
-	if ( Emitter != nullptr )
+	const FScopedTransaction Transaction( LOCTEXT( "AddScalarParameter", "Add scalar parameter" ) );
+
+	for (TWeakObjectPtr<> Object : GetSequencer()->FindObjectsInCurrentSequence(ObjectBinding))
 	{
+		AEmitter* Emitter = Cast<AEmitter>(Object.Get());
+		if ( !Emitter )
+		{
+			continue;
+		}
+
 		UParticleSystemComponent* ParticleSystemComponent = Emitter->GetParticleSystemComponent();
 		if ( ParticleSystemComponent != nullptr )
 		{
 			float Value;
 			ParticleSystemComponent->GetFloatParameter( ParameterName, Value );
 
-			const FScopedTransaction Transaction( LOCTEXT( "AddScalarParameter", "Add scalar parameter" ) );
 			ParticleParameterTrack->Modify();
 			ParticleParameterTrack->AddScalarParameterKey( ParameterName, KeyTime, Value );
 		}
@@ -163,20 +169,23 @@ void FParticleParameterTrackEditor::AddScalarParameter( FGuid ObjectBinding, UMo
 
 void FParticleParameterTrackEditor::AddVectorParameter( FGuid ObjectBinding, UMovieSceneParticleParameterTrack* ParticleParameterTrack, FName ParameterName )
 {
-	UMovieSceneSequence* MovieSceneSequence = GetMovieSceneSequence();
-	float KeyTime = GetTimeForKey( MovieSceneSequence );
+	float KeyTime = GetTimeForKey();
 
-	UObject* Object = GetSequencer()->GetFocusedMovieSceneSequenceInstance()->FindObject( ObjectBinding, *GetSequencer() );
-	AEmitter* Emitter = Cast<AEmitter>( Object );
-	if ( Emitter != nullptr )
+	const FScopedTransaction Transaction( LOCTEXT( "AddVectorParameter", "Add vector parameter" ) );
+	for (TWeakObjectPtr<> Object : GetSequencer()->FindObjectsInCurrentSequence(ObjectBinding))
 	{
+		AEmitter* Emitter = Cast<AEmitter>(Object.Get());
+		if ( !Emitter )
+		{
+			continue;
+		}
+		
 		UParticleSystemComponent* ParticleSystemComponent = Emitter->GetParticleSystemComponent();
 		if ( ParticleSystemComponent != nullptr )
 		{
 			FVector Value;
 			ParticleSystemComponent->GetVectorParameter( ParameterName, Value );
 
-			const FScopedTransaction Transaction( LOCTEXT( "AddVectorParameter", "Add vector parameter" ) );
 			ParticleParameterTrack->Modify();
 			ParticleParameterTrack->AddVectorParameterKey( ParameterName, KeyTime, Value );
 		}
@@ -187,20 +196,24 @@ void FParticleParameterTrackEditor::AddVectorParameter( FGuid ObjectBinding, UMo
 
 void FParticleParameterTrackEditor::AddColorParameter( FGuid ObjectBinding, UMovieSceneParticleParameterTrack* ParticleParameterTrack, FName ParameterName )
 {
-	UMovieSceneSequence* MovieSceneSequence = GetMovieSceneSequence();
-	float KeyTime = GetTimeForKey( MovieSceneSequence );
+	float KeyTime = GetTimeForKey();
 
-	UObject* Object = GetSequencer()->GetFocusedMovieSceneSequenceInstance()->FindObject( ObjectBinding, *GetSequencer() );
-	AEmitter* Emitter = Cast<AEmitter>( Object );
-	if ( Emitter != nullptr )
+	const FScopedTransaction Transaction( LOCTEXT( "AddColorParameter", "Add color parameter" ) );
+
+	for (TWeakObjectPtr<> Object : GetSequencer()->FindObjectsInCurrentSequence(ObjectBinding))
 	{
+		AEmitter* Emitter = Cast<AEmitter>(Object.Get());
+		if (!Emitter)
+		{
+			continue;
+		}
+
 		UParticleSystemComponent* ParticleSystemComponent = Emitter->GetParticleSystemComponent();
 		if ( ParticleSystemComponent != nullptr )
 		{
 			FLinearColor Value;
 			ParticleSystemComponent->GetColorParameter( ParameterName, Value );
 
-			const FScopedTransaction Transaction( LOCTEXT( "AddColorParameter", "Add color parameter" ) );
 			ParticleParameterTrack->Modify();
 			ParticleParameterTrack->AddColorParameterKey( ParameterName, KeyTime, Value );
 		}

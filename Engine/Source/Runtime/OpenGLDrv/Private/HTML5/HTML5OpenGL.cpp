@@ -3,8 +3,8 @@
 #include "OpenGLDrvPrivate.h"
 #include <SDL.h>
 #if !PLATFORM_HTML5_WIN32
-#include <emscripten.h>
-#include <html5.h>
+#include <emscripten/emscripten.h>
+#include <emscripten/html5.h>
 #endif
 #if PLATFORM_HTML5_BROWSER
 #include "HTML5JavascriptFX.h"
@@ -28,7 +28,7 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsVertexHalfFloat = false;//ExtensionsString.Contains(TEXT("GL_OES_vertex_half_float"));
 	bSupportsTextureFloat = ExtensionsString.Contains(TEXT("GL_OES_texture_float"));
 	bSupportsTextureHalfFloat = ExtensionsString.Contains(TEXT("GL_OES_texture_half_float")) &&
-        ExtensionsString.Contains(TEXT("GL_OES_texture_half_float_linear"));
+		ExtensionsString.Contains(TEXT("GL_OES_texture_half_float_linear"));
 	bSupportsSGRB = ExtensionsString.Contains(TEXT("GL_EXT_sRGB"));
 	bSupportsColorBufferHalfFloat = ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_half_float"));
 	bSupportsShaderFramebufferFetch = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_NV_shader_framebuffer_fetch"));
@@ -47,7 +47,7 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsDiscardFrameBuffer = ExtensionsString.Contains(TEXT("GL_EXT_discard_framebuffer"));
 	bSupportsNVFrameBufferBlit = ExtensionsString.Contains(TEXT("GL_NV_framebuffer_blit"));
 	bSupportsShaderTextureLod = ExtensionsString.Contains(TEXT("GL_EXT_shader_texture_lod"));
-    bSupportsTextureCubeLodEXT = bSupportsShaderTextureLod;
+	bSupportsTextureCubeLodEXT = bSupportsShaderTextureLod;
 
 	// This never exists in WebGL (ANGLE exports this, so we want to force it to false)
 	bSupportsRGBA8 = false;
@@ -56,17 +56,17 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsBGRA8888RenderTarget = false;
 	// ANGLE/WEBGL_depth_texture is sort of like OES_depth_texture, you just can't upload bulk data to it (via Tex*Image2D); that should be OK?
 	bSupportsDepthTexture =
-        ExtensionsString.Contains(TEXT("WEBGL_depth_texture")) ||    // Catch "WEBGL_depth_texture", "MOZ_WEBGL_depth_texture" and "WEBKIT_WEBGL_depth_texture".
-        ExtensionsString.Contains(TEXT("GL_ANGLE_depth_texture")) || // for HTML5_WIN32 build with ANGLE
-        ExtensionsString.Contains(TEXT("GL_OES_depth_texture"));     // for a future HTML5 build without ANGLE
+		ExtensionsString.Contains(TEXT("WEBGL_depth_texture")) ||    // Catch "WEBGL_depth_texture", "MOZ_WEBGL_depth_texture" and "WEBKIT_WEBGL_depth_texture".
+		ExtensionsString.Contains(TEXT("GL_ANGLE_depth_texture")) || // for HTML5_WIN32 build with ANGLE
+		ExtensionsString.Contains(TEXT("GL_OES_depth_texture"));     // for a future HTML5 build without ANGLE
 
 #if PLATFORM_HTML5_BROWSER
-    // The core WebGL spec has a combined GL_DEPTH_STENCIL_ATTACHMENT, unlike the core GLES2 spec.
+	// The core WebGL spec has a combined GL_DEPTH_STENCIL_ATTACHMENT, unlike the core GLES2 spec.
 	bCombinedDepthStencilAttachment = true;
-    // Note that WebGL always supports packed depth stencil renderbuffers (DEPTH_STENCIL renderbuffor format), but for textures
-    // needs WEBGL_depth_texture (at which point it's DEPTH_STENCIL + UNSIGNED_INT_24_8)
-    // @todo: if we can always create PF_DepthStencil as DEPTH_STENCIL renderbuffers, we could remove the dependency
-    bSupportsPackedDepthStencil = bSupportsDepthTexture;
+	// Note that WebGL always supports packed depth stencil renderbuffers (DEPTH_STENCIL renderbuffor format), but for textures
+	// needs WEBGL_depth_texture (at which point it's DEPTH_STENCIL + UNSIGNED_INT_24_8)
+	// @todo: if we can always create PF_DepthStencil as DEPTH_STENCIL renderbuffers, we could remove the dependency
+	bSupportsPackedDepthStencil = bSupportsDepthTexture;
 #else
 	bCombinedDepthStencilAttachment = false;
 	bSupportsPackedDepthStencil = ExtensionsString.Contains(TEXT("GL_OES_packed_depth_stencil"));
@@ -76,42 +76,42 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
 		UE_LOG(LogRHI, Warning, TEXT("This browser does not support WEBGL_depth_texture. Rendering will not function since fallback code is not available."));
 	}
 
-    if (bSupportsTextureHalfFloat && !bSupportsColorBufferHalfFloat) {
-        // Initial implementations of WebGL's texture_float screwed up, and allowed
-        // rendering to fp textures, even though the underlying EXT_texture_float doesn't
-        // explicitly allow anything such.  FP rendering without explicit
-        // EXT_color_buffer_half_float may be possible, so we test for that here
-        // by checking for framebuffer completeness.  The spec is "wrong" as far as
-        // clamping and the like (which WEBGL_color_buffer_float/EXT_color_buffer_half_float
-        // fixes, but in practice it might "just work").
-        //
-        // See http://www.khronos.org/webgl/public-mailing-list/archives/1211/msg00133.html
-        // for more information.
+	if (bSupportsTextureHalfFloat && !bSupportsColorBufferHalfFloat) {
+		// Initial implementations of WebGL's texture_float screwed up, and allowed
+		// rendering to fp textures, even though the underlying EXT_texture_float doesn't
+		// explicitly allow anything such.  FP rendering without explicit
+		// EXT_color_buffer_half_float may be possible, so we test for that here
+		// by checking for framebuffer completeness.  The spec is "wrong" as far as
+		// clamping and the like (which WEBGL_color_buffer_float/EXT_color_buffer_half_float
+		// fixes, but in practice it might "just work").
+		//
+		// See http://www.khronos.org/webgl/public-mailing-list/archives/1211/msg00133.html
+		// for more information.
 
 		UE_LOG(LogRHI, Warning, TEXT("Trying to enable fp rendering without explicit EXT_color_buffer_half_float by checking for framebuffer completeness"));
 
-        GLenum err = glGetError();
-        if (err != GL_NO_ERROR) {
-            UE_LOG(LogRHI, Warning, TEXT("Detected OpenGL error 0x%04x before checking for implicit half-float fb support"), err);
-        }
+		GLenum err = glGetError();
+		if (err != GL_NO_ERROR) {
+			UE_LOG(LogRHI, Warning, TEXT("Detected OpenGL error 0x%04x before checking for implicit half-float fb support"), err);
+		}
 
-        GLuint tex, fb;
+		GLuint tex, fb;
 #if PLATFORM_HTML5_WIN32
 		glClearColor( 1.0, 0.5, 0.0,1.0);
 		glClear( GL_COLOR_BUFFER_BIT );
 #endif
-        glGenTextures(1, &tex);
-        glBindTexture(GL_TEXTURE_2D, tex);
+		glGenTextures(1, &tex);
+		glBindTexture(GL_TEXTURE_2D, tex);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 32, 32, 0, GL_RGBA, GL_HALF_FLOAT_OES, NULL);
-        glGenFramebuffers(1, &fb);
-        glBindFramebuffer(GL_FRAMEBUFFER, fb);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 32, 32, 0, GL_RGBA, GL_HALF_FLOAT_OES, NULL);
+		glGenFramebuffers(1, &fb);
+		glBindFramebuffer(GL_FRAMEBUFFER, fb);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
 
-        GLenum fbstatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		GLenum fbstatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 
 #if PLATFORM_HTML5_WIN32
 		// keep glReadPixel out of floating point tests for HTML5 Browser builds, glReadPixels doesn't work consistently across browser and is
@@ -125,21 +125,21 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
 		err = glGetError();
 		UE_LOG(LogRHI, Log, TEXT(" %f %f %f %f"), Data[0].R,Data[0].G,Data[0].B,Data[0].A);
 #endif
-        bSupportsColorBufferHalfFloat = fbstatus == GL_FRAMEBUFFER_COMPLETE && err == GL_NO_ERROR;
+		bSupportsColorBufferHalfFloat = fbstatus == GL_FRAMEBUFFER_COMPLETE && err == GL_NO_ERROR;
 
-        if (bSupportsColorBufferHalfFloat)
+		if (bSupportsColorBufferHalfFloat)
 		{
-            UE_LOG(LogRHI, Log, TEXT("Enabling implicit ColorBufferHalfFloat after checking fb completeness"));
-        }
+			UE_LOG(LogRHI, Log, TEXT("Enabling implicit ColorBufferHalfFloat after checking fb completeness"));
+		}
 		else
 		{
 			UE_LOG(LogRHI, Log, TEXT("Could not enable implicit ColorBufferHalfFloat after checking fb completeness"));
 		}
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glDeleteFramebuffers(1, &fb);
-        glDeleteTextures(1, &tex);
-    }
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glDeleteFramebuffers(1, &fb);
+		glDeleteTextures(1, &tex);
+	}
 
 	// Report shader precision
 	int Range[2];
@@ -210,6 +210,11 @@ struct FPlatformOpenGLDevice
 FPlatformOpenGLDevice* PlatformCreateOpenGLDevice()
 {
 	return new FPlatformOpenGLDevice;
+}
+
+bool PlatformCanEnableGPUCapture()
+{
+	return false;
 }
 
 void PlatformReleaseOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGLContext* Context)

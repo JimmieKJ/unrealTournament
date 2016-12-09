@@ -6,7 +6,11 @@
 
 #pragma once
 
-#include "ThumbnailManager.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/StringAssetReference.h"
+#include "ThumbnailRendering/SceneThumbnailInfo.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
 
 #include "SceneThumbnailInfoWithPrimitive.generated.h"
 

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Curves/KeyHandle.h"
+#include "MovieSceneSection.h"
 #include "MovieSceneLevelVisibilitySection.generated.h"
 
 
@@ -9,7 +13,7 @@
  * Visibility options for the level visibility section.
  */
 UENUM()
-enum class ELevelVisibility
+enum class ELevelVisibility : uint8
 {
 	/** The streamed levels should be visible. */
 	Visible,
@@ -34,11 +38,12 @@ public:
 	void SetVisibility(ELevelVisibility InVisibility);
 
 	TArray<FName>* GetLevelNames();
+	const TArray<FName>& GetLevelNames() const { return LevelNames; }
 
 public:
 
 	//~ UMovieSceneSection interface
-
+	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
 	virtual TOptional<float> GetKeyTime(FKeyHandle KeyHandle) const override;
 	virtual void SetKeyTime(FKeyHandle KeyHandle, float Time) override;
 
@@ -46,7 +51,7 @@ private:
 
 	/** Whether or not the levels in this section should be visible or hidden. */
 	UPROPERTY(EditAnywhere, Category = LevelVisibility)
-	TEnumAsByte<ELevelVisibility> Visibility;
+	ELevelVisibility Visibility;
 
 	/** The short names of the levels who's visibility is controlled by this section. */
 	UPROPERTY(EditAnywhere, Category = LevelVisibility)

@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "EditorUndoClient.h"
+#include "GraphEditor.h"
 
 class AIGRAPH_API FAIGraphEditor : public FEditorUndoClient
 {

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
 #include "MovieScene3DConstraintSection.generated.h"
 

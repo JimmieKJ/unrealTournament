@@ -1,17 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Perception/AIPerceptionComponent.h"
-#include "DrawDebugHelpers.h"
-#include "Engine/Canvas.h"
+#include "GameFramework/Controller.h"
+#include "AIController.h"
+#include "Perception/AISenseConfig.h"
+#include "VisualLogger/VisualLogger.h"
 
 #if WITH_GAMEPLAY_DEBUGGER
+#include "GameplayDebuggerTypes.h"
 #include "GameplayDebuggerCategory.h"
 #endif
 
-#include "Perception/AISense_Sight.h"
-#include "Perception/AISense_Hearing.h"
-#include "Perception/AISense_Damage.h"
 
 
 DECLARE_CYCLE_STAT(TEXT("Requesting UAIPerceptionComponent::RemoveDeadData call from within a const function"),
@@ -95,6 +94,11 @@ UAISenseConfig* UAIPerceptionComponent::GetSenseConfig(const FAISenseID& SenseID
 void UAIPerceptionComponent::PostInitProperties() 
 {
 	Super::PostInitProperties();
+
+	if (DominantSense)
+	{
+		DominantSenseID = UAISense::GetSenseID(DominantSense);
+	}
 }
 
 void UAIPerceptionComponent::ConfigureSense(UAISenseConfig& Config)
@@ -584,6 +588,17 @@ bool UAIPerceptionComponent::HasAnyActiveStimulus(const AActor& Source) const
 	}
 
 	return Info->HasAnyKnownStimulus();
+}
+
+bool UAIPerceptionComponent::HasAnyCurrentStimulus(const AActor& Source) const
+{
+	const FActorPerceptionInfo* Info = GetActorInfo(Source);
+	if (Info == NULL)
+	{
+		return false;
+	}
+
+	return Info->HasAnyCurrentStimulus();
 }
 
 bool UAIPerceptionComponent::HasActiveStimulus(const AActor& Source, FAISenseID Sense) const

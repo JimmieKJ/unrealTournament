@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MobileLauncherProfileWizardPrivatePCH.h"
-#include "LauncherServices.h"
 #include "IOSProfileWizard.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/Paths.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
 #include "SProfileWizardUI.h"
 
 #define LOCTEXT_NAMESPACE "MobileLauncherProfileWizard"
@@ -82,6 +86,7 @@ static void SetupIOSDLCProfile(ILauncherProfileRef& DLCProfile, const FProfilePa
 	DLCProfile->SetBuildUAT(true);
 	// App build configuration
 	DLCProfile->SetBuildGame(false);
+	DLCProfile->SetBuildConfiguration(Params.BuildConfiguration);
 	
 	//// Cooking
 	DLCProfile->SetCookMode(ELauncherProfileCookModes::ByTheBook);
@@ -190,3 +195,5 @@ void FIOSProfileWizard::HandleCreateLauncherProfile(const ILauncherProfileManage
 	AddProfileWindow->SetContent(ProfilesDialog);
 	FSlateApplication::Get().AddWindow(AddProfileWindow);
 }
+
+#undef LOCTEXT_NAMESPACE

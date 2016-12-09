@@ -1,0 +1,13 @@
+diff --git raw_channel_win.cc raw_channel_win.cc
+index b25453f..8b3fa8a 100644
+--- raw_channel_win.cc
++++ raw_channel_win.cc
+@@ -53,7 +53,7 @@ class VistaOrHigherFunctions {
+ };
+ 
+ VistaOrHigherFunctions::VistaOrHigherFunctions()
+-    : is_vista_or_higher_(base::win::GetVersion() >= base::win::VERSION_VISTA),
++    : is_vista_or_higher_(false), //base::win::GetVersion() >= base::win::VERSION_VISTA),
+       set_file_completion_notification_modes_(nullptr),
+       cancel_io_ex_(nullptr) {
+   if (!is_vista_or_higher_)

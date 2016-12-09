@@ -1,15 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "ScopedTransaction.h"
+#include "BehaviorTreeGraphNode.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "BehaviorTree/BTNode.h"
+#include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTree/BTService.h"
+#include "BehaviorTreeEditorTypes.h"
+#include "BehaviorTreeGraph.h"
+#include "BehaviorTreeGraphNode_CompositeDecorator.h"
+#include "BehaviorTreeGraphNode_Decorator.h"
+#include "EdGraphSchema_BehaviorTree.h"
 #include "SGraphEditorActionMenuAI.h"
-#include "BlueprintNodeHelpers.h"
 #include "BehaviorTree/BehaviorTree.h"
-#include "AssetData.h"
 #include "GraphDiffControl.h"
-#include "BehaviorTree/Decorators/BTDecorator_BlueprintBase.h"
-#include "BehaviorTree/Services/BTService_BlueprintBase.h"
-#include "BehaviorTree/Tasks/BTTask_BlueprintBase.h"
 
 #define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
 

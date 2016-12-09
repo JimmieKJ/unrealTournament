@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "IDetailCustomization.h"
 
+class IDetailLayoutBuilder;
 
 /**
  * Implements a details view customization for the UMediaSoundWave class.

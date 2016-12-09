@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class FPropertyRestriction;
+class IDetailLayoutBuilder;
+
 typedef TArray<TSharedRef<const class FPropertyRestriction>> TRestrictionList;
 
 class FParticleModuleDetailsBase : public IDetailCustomization

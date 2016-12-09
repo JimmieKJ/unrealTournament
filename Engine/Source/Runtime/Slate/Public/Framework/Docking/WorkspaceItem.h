@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Textures/SlateIcon.h"
+
 struct FTabSpawnerEntry;
 
 class FWorkspaceItem : public TSharedFromThis<FWorkspaceItem>

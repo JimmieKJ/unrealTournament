@@ -4,7 +4,6 @@
 	 GestureRecognizer - handles detecting when gestures happen
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "GestureRecognizer.h"
 #include "GameFramework/PlayerInput.h"
 

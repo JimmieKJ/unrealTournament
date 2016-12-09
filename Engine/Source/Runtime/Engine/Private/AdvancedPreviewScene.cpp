@@ -1,36 +1,40 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "AdvancedPreviewScene.h"
+#include "UnrealClient.h"
+
 #if WITH_EDITOR
 
-#include "EnginePrivate.h"
-#include "AdvancedPreviewScene.h"
 #include "Components/PostProcessComponent.h"
-#include "Engine/Scene.h"
+#include "Engine/Texture.h"
 #include "Engine/TextureCube.h"
+#include "Materials/Material.h"
 #include "Materials/MaterialInstanceConstant.h"
+#include "UObject/Package.h"
 
-#include "UnrealClient.h"
 #include "Editor/EditorPerProjectUserSettings.h"
 
 #include "Components/DirectionalLightComponent.h"
-#include "Components/SphereReflectionCaptureComponent.h"
 #include "Components/SkyLightComponent.h"
+#include "Components/StaticMeshComponent.h"
 
 #include "AssetViewerSettings.h"
+
+#include "Engine/StaticMesh.h"
 
 FAdvancedPreviewScene::FAdvancedPreviewScene(ConstructionValues CVS, float InFloorOffset)
 	: FPreviewScene(CVS)
 {
 	DefaultSettings = UAssetViewerSettings::Get();
 	CurrentProfileIndex = DefaultSettings->Profiles.IsValidIndex(CurrentProfileIndex) ? GetDefault<UEditorPerProjectUserSettings>()->AssetViewerProfileIndex : 0;
-	ensureMsgf(DefaultSettings && DefaultSettings->Profiles.IsValidIndex(CurrentProfileIndex), TEXT("Invalid default settings pointer or current profile index"));
+	ensureMsgf(DefaultSettings->Profiles.IsValidIndex(CurrentProfileIndex), TEXT("Invalid default settings pointer or current profile index"));
 	FPreviewSceneProfile& Profile = DefaultSettings->Profiles[CurrentProfileIndex];
 
 	const FTransform Transform(FRotator(0, 0, 0), FVector(0, 0, 0), FVector(1));
 	
 	// Add and set up sky light using the set cube map texture
 	SkyLightComponent = NewObject<USkyLightComponent>();
-	SkyLightComponent->Cubemap = Profile.EnvironmentCubeMap;
+	SkyLightComponent->Cubemap = Profile.EnvironmentCubeMap.Get();
 	SkyLightComponent->SourceType = ESkyLightSourceType::SLS_SpecifiedCubemap;
 	SkyLightComponent->Mobility = EComponentMobility::Movable;
 	SkyLightComponent->bLowerHemisphereIsBlack = false;
@@ -54,7 +58,7 @@ FAdvancedPreviewScene::FAdvancedPreviewScene(ConstructionValues CVS, float InFlo
 	InstancedSkyMaterial->Parent = SkyMaterial;		
 
 	UTextureCube* DefaultTexture = LoadObject<UTextureCube>(NULL, TEXT("/Engine/MapTemplates/Sky/SunsetAmbientCubemap.SunsetAmbientCubemap"));
-	InstancedSkyMaterial->SetTextureParameterValueEditorOnly(FName("SkyBox"), ( Profile.EnvironmentCubeMap != nullptr ) ? Profile.EnvironmentCubeMap : DefaultTexture );
+	InstancedSkyMaterial->SetTextureParameterValueEditorOnly(FName("SkyBox"), ( Profile.EnvironmentCubeMap.Get() != nullptr ) ? Profile.EnvironmentCubeMap.Get() : DefaultTexture );
 	InstancedSkyMaterial->SetScalarParameterValueEditorOnly(FName("CubemapRotation"), Profile.LightingRigRotation / 360.0f);
 	InstancedSkyMaterial->SetScalarParameterValueEditorOnly(FName("Intensity"), Profile.SkyLightIntensity);
 	InstancedSkyMaterial->PostLoad();
@@ -66,7 +70,7 @@ FAdvancedPreviewScene::FAdvancedPreviewScene(ConstructionValues CVS, float InFlo
 	PostProcessComponent->bUnbound = true;
 	AddComponent(PostProcessComponent, Transform);
 
-	UStaticMesh* FloorMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/EditorMeshes/PhAT_FloorBox.PhAT_FloorBox"), NULL, LOAD_None, NULL);
+	UStaticMesh* FloorMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/EditorMeshes/AssetViewer/Floor_Mesh.Floor_Mesh"), NULL, LOAD_None, NULL);
 	check(FloorMesh);
 	FloorMeshComponent = NewObject<UStaticMeshComponent>(GetTransientPackage());
 	FloorMeshComponent->SetStaticMesh(FloorMesh);
@@ -106,12 +110,14 @@ void FAdvancedPreviewScene::UpdateScene(FPreviewSceneProfile& Profile, bool bUpd
 		static const FName SkyBoxName("SkyBox");
 		static const FName CubeMapRotationName("CubemapRotation");
 
-		UTexture* Texture = Profile.EnvironmentCubeMap;
+		UTextureCube* EnvironmentTexture = Profile.EnvironmentCubeMap.LoadSynchronous();
+		UTexture* Texture = Cast<UTexture>(EnvironmentTexture);
 		InstancedSkyMaterial->GetTextureParameterValue(SkyBoxName, Texture);
-		if (Texture != Profile.EnvironmentCubeMap)
+
+		if (Texture != EnvironmentTexture)
 		{
-			InstancedSkyMaterial->SetTextureParameterValueEditorOnly(SkyBoxName, Profile.EnvironmentCubeMap);
-			SkyLightComponent->Cubemap = Profile.EnvironmentCubeMap;
+			InstancedSkyMaterial->SetTextureParameterValueEditorOnly(SkyBoxName, EnvironmentTexture);
+			SkyLightComponent->Cubemap = EnvironmentTexture;
 			bSkyChanged = true;
 		}
 		
@@ -276,24 +282,42 @@ const bool FAdvancedPreviewScene::HandleInputKey(FViewport* InViewport, int32 Co
 	return bResult;
 }
 
-void FAdvancedPreviewScene::SetFloorVisibility(const bool bVisible)
+void FAdvancedPreviewScene::SetFloorVisibility(const bool bVisible, const bool bDirect)
 {
-	FName PropertyName("bShowFloor");
+	// If not direct set visibility in profile and refresh the scene
+	if (!bDirect)
+	{
+		FName PropertyName("bShowFloor");
 
-	UProperty* FloorProperty = FindField<UProperty>(FPreviewSceneProfile::StaticStruct(), PropertyName);
-	DefaultSettings->Profiles[CurrentProfileIndex].bShowFloor = bVisible;
+		UProperty* FloorProperty = FindField<UProperty>(FPreviewSceneProfile::StaticStruct(), PropertyName);
+		DefaultSettings->Profiles[CurrentProfileIndex].bShowFloor = bVisible;
 
-	FPropertyChangedEvent PropertyEvent(FloorProperty);
-	DefaultSettings->PostEditChangeProperty(PropertyEvent);
+		FPropertyChangedEvent PropertyEvent(FloorProperty);
+		DefaultSettings->PostEditChangeProperty(PropertyEvent);
+	}
+	else
+	{
+		// Otherwise set visiblity directly on the component
+		FloorMeshComponent->SetVisibility(bVisible ? DefaultSettings->Profiles[CurrentProfileIndex].bShowFloor : bVisible);
+	}
 }
 
-void FAdvancedPreviewScene::SetEnvironmentVisibility(const bool bVisible)
+void FAdvancedPreviewScene::SetEnvironmentVisibility(const bool bVisible, const bool bDirect)
 {
-	UProperty* EnvironmentProperty = FindField<UProperty>(FPreviewSceneProfile::StaticStruct(), GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, bShowEnvironment));
-	DefaultSettings->Profiles[CurrentProfileIndex].bShowEnvironment = bVisible;
+	// If not direct set visibility in profile and refresh the scene
+	if (!bDirect)
+	{
+		UProperty* EnvironmentProperty = FindField<UProperty>(FPreviewSceneProfile::StaticStruct(), GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, bShowEnvironment));
+		DefaultSettings->Profiles[CurrentProfileIndex].bShowEnvironment = bVisible;
 
-	FPropertyChangedEvent PropertyEvent(EnvironmentProperty);
-	DefaultSettings->PostEditChangeProperty(PropertyEvent);
+		FPropertyChangedEvent PropertyEvent(EnvironmentProperty);
+		DefaultSettings->PostEditChangeProperty(PropertyEvent);
+	}
+	else
+	{
+		// Otherwise set visiblity directly on the component
+		SkyComponent->SetVisibility(bVisible ? DefaultSettings->Profiles[CurrentProfileIndex].bShowEnvironment : bVisible);
+	}
 }
 
 const float FAdvancedPreviewScene::GetSkyRotation() const

@@ -2,7 +2,15 @@
 
 #pragma once
 
-#include "Editor/SceneOutliner/Public/ISceneOutlinerColumn.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "ActorTreeItem.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "ISceneOutlinerColumn.h"
+#include "Editor/Layers/Private/LayerViewModel.h"
+
+template<typename ItemType> class STableRow;
 
 /**
  * A custom column for the SceneOutliner which allows the user to remove actors from

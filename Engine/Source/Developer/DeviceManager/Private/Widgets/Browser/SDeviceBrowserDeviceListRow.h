@@ -2,9 +2,30 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Margin.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/StyleDefaults.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Views/STableRow.h"
+#include "Interfaces/ITargetDeviceService.h"
+#include "SlateOptMacros.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Images/SImage.h"
+#include "PlatformInfo.h"
+#include "HAL/PlatformProcess.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Interfaces/ITargetDeviceProxy.h"
 
 #define LOCTEXT_NAMESPACE "SDeviceBrowserDeviceListRow"
-
 
 /**
  * Implements a row widget for the device list view.

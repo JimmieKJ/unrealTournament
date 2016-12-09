@@ -1,9 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
+#include "BlueprintWarningsConfigurationPanel.h"
+#include "Misc/Paths.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "Widgets/Views/STableRow.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Package.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SComboBox.h"
+#include "EditorStyleSet.h"
 
 #include "BlueprintRuntime.h"
-#include "BlueprintWarningsConfigurationPanel.h"
+#include "Blueprint/BlueprintSupport.h"
+#include "BlueprintRuntimeSettings.h"
 #include "SSettingsEditorCheckoutNotice.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintWarningConfigurationPanel"
@@ -109,7 +124,13 @@ private:
 
 void SBlueprintWarningsConfigurationPanel::Construct(const FArguments& InArgs)
 {
-	UBlueprintRuntimeSettings* RuntimeSettings = GetMutableDefault<UBlueprintRuntimeSettings>();
+	IBlueprintRuntime* SettingsModule = FModuleManager::GetModulePtr<IBlueprintRuntime>("BlueprintRuntime");
+	if (!SettingsModule)
+	{
+		return;
+	}
+
+	UBlueprintRuntimeSettings* RuntimeSettings = SettingsModule->GetMutableBlueprintRuntimeSettings();
 
 	const TArray<FBlueprintWarningDeclaration>& Warnings = FBlueprintSupport::GetBlueprintWarnings();
 	for (const FBlueprintWarningDeclaration& Warning : Warnings )
@@ -206,17 +227,23 @@ void SBlueprintWarningsConfigurationPanel::Construct(const FArguments& InArgs)
 
 void SBlueprintWarningsConfigurationPanel::UpdateSelectedWarningBehaviors(EBlueprintWarningBehavior NewBehavior, const FBlueprintWarningDeclaration& AlteredWarning)
 {
-	UBlueprintRuntimeSettings* RuntimeSettings = GetMutableDefault<UBlueprintRuntimeSettings>();
+	IBlueprintRuntime* SettingsModule = FModuleManager::GetModulePtr<IBlueprintRuntime>("BlueprintRuntime");
+	if (!SettingsModule)
+	{
+		return;
+	}
+
+	UBlueprintRuntimeSettings* RuntimeSettings = SettingsModule->GetMutableBlueprintRuntimeSettings();
 
 	// no TArray.ForEach makes this the most convenient pattern:
-	for( const TSharedPtr<FBlueprintWarningDeclaration>& Declaration : CachedBlueprintWarningData )
+	for (const TSharedPtr<FBlueprintWarningDeclaration>& Declaration : CachedBlueprintWarningData)
 	{
-		if( ListView->IsItemSelected(Declaration) || Declaration->WarningIdentifier == AlteredWarning.WarningIdentifier)
+		if (ListView->IsItemSelected(Declaration) || Declaration->WarningIdentifier == AlteredWarning.WarningIdentifier)
 		{
 			// update config data:
 			FName CurrentIdentifer = Declaration->WarningIdentifier;
-			FBlueprintWarningSettings* WarningEntry = RuntimeSettings->WarningSettings.FindByPredicate( 
-				[CurrentIdentifer]( const FBlueprintWarningSettings& Entry ) -> bool
+			FBlueprintWarningSettings* WarningEntry = RuntimeSettings->WarningSettings.FindByPredicate(
+				[CurrentIdentifer](const FBlueprintWarningSettings& Entry) -> bool
 				{
 					return Entry.WarningIdentifier == CurrentIdentifer;
 				}
@@ -226,7 +253,7 @@ void SBlueprintWarningsConfigurationPanel::UpdateSelectedWarningBehaviors(EBluep
 			case EBlueprintWarningBehavior::Warn:
 				if( WarningEntry )
 				{
-					RuntimeSettings->WarningSettings.RemoveAtSwap( WarningEntry - &(RuntimeSettings->WarningSettings[0]) );
+					RuntimeSettings->WarningSettings.RemoveAtSwap(WarningEntry - &(RuntimeSettings->WarningSettings[0]));
 				}
 				break;
 			case EBlueprintWarningBehavior::Error:
@@ -251,10 +278,7 @@ void SBlueprintWarningsConfigurationPanel::UpdateSelectedWarningBehaviors(EBluep
 	}
 
 	// make sure runtime behavior matches config data:
-	if (IBlueprintRuntime* SettingsModule = FModuleManager::GetModulePtr<IBlueprintRuntime>("BlueprintRuntime"))
-	{
-		SettingsModule->PropagateWarningSettings();
-	}
+	SettingsModule->PropagateWarningSettings();
 }
 
 #undef LOCTEXT_NAMESPACE

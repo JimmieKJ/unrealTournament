@@ -6,7 +6,11 @@
  * Playable sound object for spoken dialogue 
  */
 
-#include "DialogueTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Sound/DialogueTypes.h"
 
 #include "DialogueVoice.generated.h"
 

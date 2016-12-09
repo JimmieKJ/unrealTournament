@@ -6,6 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HitProxies.h"
+
+class FMaterialRenderProxy;
+class FRHICommandListImmediate;
+
 class FTileRenderer
 {
 public:

@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Styling/SlateStyle.h"
 
 /**  */
 class UMG_API FUMGStyle

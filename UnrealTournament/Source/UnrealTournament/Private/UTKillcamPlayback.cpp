@@ -426,7 +426,7 @@ void UUTKillcamPlayback::OnCoolMomentCamReady(bool bWasSuccessful, FUniqueNetIdR
 		return;
 	}
 
-	if (KillcamWorld == nullptr || KillcamWorld->DemoNetDriver == nullptr || KillcamWorld->GameState == nullptr)
+	if (KillcamWorld == nullptr || KillcamWorld->DemoNetDriver == nullptr || KillcamWorld->GetGameState() == nullptr)
 	{
 		// Cancel killcam
 		KillcamStop();
@@ -442,11 +442,11 @@ void UUTKillcamPlayback::OnCoolMomentCamReady(bool bWasSuccessful, FUniqueNetIdR
 	}
 	
 	APlayerState* PS = nullptr;
-	for (int32 i = 0; i < KillcamWorld->GameState->PlayerArray.Num(); i++)
+	for (int32 i = 0; i < KillcamWorld->GetGameState()->PlayerArray.Num(); i++)
 	{
-		if (KillcamWorld->GameState->PlayerArray[i]->UniqueId == InCoolMomentViewTargetNetId)
+		if (KillcamWorld->GetGameState()->PlayerArray[i]->UniqueId == InCoolMomentViewTargetNetId)
 		{
-			PS = KillcamWorld->GameState->PlayerArray[i];
+			PS = KillcamWorld->GetGameState()->PlayerArray[i];
 		}
 	}
 

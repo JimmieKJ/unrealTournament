@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "CoreUObject.h"
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+
+class UEnum;
+class UScriptStruct;
+class UDelegateFunction;
 
 // Forward declarations.
 class UStruct;

@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerPrivatePCH.h"
+#include "Widgets/SProfilerThreadView.h"
+#include "Brushes/SlateColorBrush.h"
+#include "EditorStyleSet.h"
 
-#define LOCTEXT_NAMESPACE "SProfilerThreadView"
-
-// SProfilerThreadView
-#undef LOCTEXT_NAMESPACE
 
 SProfilerThreadView::SProfilerThreadView()
 {
@@ -655,9 +653,98 @@ void SProfilerThreadView::BindCommands()
 
 }
 
+
+/* SProfilerThreadView interface
+ *****************************************************************************/
+
+void SProfilerThreadView::SetPositionXToByScrollBar( double ScrollOffset ) 
+{
+	SetPositionX( ScrollOffset*TotalRangeXMS );
+}
+
+
+void SProfilerThreadView::SetPositionX( double NewPositionXMS )
+{
+	const double ClampedPositionXMS = FMath::Clamp( NewPositionXMS, 0.0, TotalRangeXMS - RangeXMS );
+	SetTimeRange( ClampedPositionXMS, ClampedPositionXMS + RangeXMS, true );
+}
+
+
+void SProfilerThreadView::SetPositonYTo( double ScrollOffset )
+{
+
+}
+
+
+void SProfilerThreadView::SetTimeRange( double StartTimeMS, double EndTimeMS, bool bBroadcast )
+{
+	check( EndTimeMS > StartTimeMS );
+
+	PositionXMS = StartTimeMS;
+	RangeXMS = EndTimeMS - StartTimeMS;
+	FramesIndices = ProfilerStream->GetFramesIndicesForTimeRange( StartTimeMS, EndTimeMS );
+
+	bUpdateData = true;
+		
+	//UE_LOG( LogTemp, Log, TEXT( "StartTimeMS=%f, EndTimeMS=%f, bBroadcast=%1i FramesIndices=%3i,%3i" ), StartTimeMS, EndTimeMS, (int)bBroadcast, FramesIndices.X, FramesIndices.Y );
+	if( bBroadcast )
+	{
+		ViewPositionXChangedEvent.Broadcast( StartTimeMS, EndTimeMS, TotalRangeXMS, FramesIndices.X, FramesIndices.Y );
+	}
+}
+
+
+void SProfilerThreadView::SetFrameRange(int32 FrameStart, int32 FrameEnd)
+{
+	const double EndTimeMS = ProfilerStream->GetElapsedFrameTimeMS(FrameEnd);
+	const double StartTimeMS = ProfilerStream->GetElapsedFrameTimeMS(FrameStart) - ProfilerStream->GetFrameTimeMS(FrameStart);
+	SetTimeRange(StartTimeMS, EndTimeMS, true);
+}
+
+
+void SProfilerThreadView::AttachProfilerStream(const FProfilerStream& InProfilerStream)
+{
+	ProfilerStream = &InProfilerStream;
+
+	TotalRangeXMS = ProfilerStream->GetElapsedTime();
+	TotalRangeY = ProfilerStream->GetNumThreads()*FProfilerUIStream::DEFAULT_VISIBLE_THREAD_DEPTH;
+
+	// Display the first frame.
+	const FProfilerFrame* ProfilerFrame = ProfilerStream->GetProfilerFrame(0);
+	SetTimeRange(ProfilerFrame->Root->CycleCounterStartTimeMS, ProfilerFrame->Root->CycleCounterEndTimeMS);
+}
+
+
+/* SProfilerThreadView implementation
+ *****************************************************************************/
+
 void SProfilerThreadView::ProcessData()
 {
 	//	SCOPE_LOG_TIME_FUNC();
 
 	ProfilerUIStream.GenerateUIStream( *ProfilerStream, PositionXMS, PositionXMS + RangeXMS, ZoomFactorX, NumMillisecondsPerWindow, NumPixelsPerMillisecond, NumMillisecondsPerSample );
+}
+
+
+bool SProfilerThreadView::IsReady() const
+{
+	return ProfilerStream && ProfilerStream->GetNumFrames() > 0;
+}
+
+
+bool SProfilerThreadView::ShouldUpdateData()
+{
+	return bUpdateData;
+}
+
+
+void SProfilerThreadView::UpdateInternalConstants()
+{
+	ZoomFactorX = (double)NUM_MILLISECONDS_PER_WINDOW / RangeXMS;
+	RangeY = FMath::RoundToFloat(ThisGeometry.Size.Y / (double)NUM_PIXELS_PER_ROW);
+
+	const double Aspect = ThisGeometry.Size.X / NUM_MILLISECONDS_PER_WINDOW * ZoomFactorX;
+	NumMillisecondsPerWindow = (double)ThisGeometry.Size.X / Aspect;
+	NumPixelsPerMillisecond = (double)ThisGeometry.Size.X / NumMillisecondsPerWindow;
+	NumMillisecondsPerSample = NumMillisecondsPerWindow / (double)ThisGeometry.Size.X * (double)MIN_NUM_PIXELS_PER_SAMPLE;
 }

@@ -1,20 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Misc/CoreMisc.h"
-#include "EngineDefines.h"
-#include "Engine/EngineTypes.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/StringClassReference.h"
 #include "Engine/World.h"
 #include "AI/AISystemBase.h"
+#include "Math/RandomStream.h"
 #include "AISystem.generated.h"
 
-class UBehaviorTreeManager;
-class UEnvQueryManager;
-class UAIPerceptionSystem;
 class UAIAsyncTaskBlueprintProxy;
 class UAIHotSpotManager;
-class UBlackboardData;
+class UAIPerceptionSystem;
+class UAISystem;
+class UBehaviorTreeManager;
 class UBlackboardComponent;
+class UBlackboardData;
+class UEnvQueryManager;
+class UNavLocalGridManager;
 
 #define GET_AI_CONFIG_VAR(a) (GetDefault<UAISystem>()->a)
 
@@ -90,12 +94,18 @@ protected:
 	UPROPERTY(Transient)
 	UAIHotSpotManager* HotSpotManager;
 
+	UPROPERTY(Transient)
+	UNavLocalGridManager* NavLocalGrids;
+
 	typedef TMultiMap<TWeakObjectPtr<UBlackboardData>, TWeakObjectPtr<UBlackboardComponent> > FBlackboardDataToComponentsMap;
 
 	/** UBlackboardComponent instances that reference the blackboard data definition */
 	FBlackboardDataToComponentsMap BlackboardDataToComponentsMap;
 
 	FDelegateHandle ActorSpawnedDelegateHandle;
+
+	/** random number stream to be used by all things AI. WIP */
+	static FRandomStream RandomStream;
 	
 public:
 	UAISystem(const FObjectInitializer& ObjectInitializer);
@@ -126,6 +136,9 @@ public:
 
 	FORCEINLINE UAIHotSpotManager* GetHotSpotManager() { return HotSpotManager; }
 	FORCEINLINE const UAIHotSpotManager* GetHotSpotManager() const { return HotSpotManager; }
+
+	FORCEINLINE UNavLocalGridManager* GetNavLocalGridManager() { return NavLocalGrids; }
+	FORCEINLINE const UNavLocalGridManager* GetNavLocalGridManager() const { return NavLocalGrids; }
 
 	FORCEINLINE static UAISystem* GetCurrentSafe(UWorld* World) 
 	{ 
@@ -229,6 +242,9 @@ public:
 	FBlackboardDataToComponentsIterator CreateBlackboardDataToComponentsIterator(class UBlackboardData& BlackboardAsset);
 
 	virtual void ConditionalLoadDebuggerPlugin();
+
+	static const FRandomStream& GetRandomStream() { return RandomStream; }
+	static void SeedRandomStream(const int32 Seed) { return RandomStream.Initialize(Seed); }
 
 protected:
 	virtual void OnActorSpawned(AActor* SpawnedActor);

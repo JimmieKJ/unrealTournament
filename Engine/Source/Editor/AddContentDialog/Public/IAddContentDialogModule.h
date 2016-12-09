@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Widgets/SWindow.h"
 
 class FContentSourceProviderManager;
 

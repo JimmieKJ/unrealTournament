@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "../Classes/Factories/FbxMeshImportData.h"
+#include "Factories/FbxMeshImportData.h"
+#include "UObject/UnrealType.h"
 
 UFbxMeshImportData::UFbxMeshImportData(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

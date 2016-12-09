@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LaunchPrivatePCH.h"
 #include "GameLaunchDaemonMessageHandler.h"
+#include "HAL/PlatformProcess.h"
+#include "Helpers/MessageEndpointBuilder.h"
 #import <TargetConditionals.h>
 
 void FGameLaunchDaemonMessageHandler::Init()

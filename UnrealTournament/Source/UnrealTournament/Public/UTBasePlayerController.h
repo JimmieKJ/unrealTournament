@@ -3,6 +3,7 @@
 #pragma once
 
 #include "UTTeamInterface.h"
+#include "OnlineSessionInterface.h"
 #include "UTBasePlayerController.generated.h"
 
 class UUTGameViewportClient;

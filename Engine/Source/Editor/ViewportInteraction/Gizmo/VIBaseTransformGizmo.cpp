@@ -1,10 +1,11 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ViewportInteractionModule.h"
 #include "VIBaseTransformGizmo.h"
-#include "UnitConversion.h"
+#include "Misc/App.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/StaticMeshComponent.h"
+#include "Materials/Material.h"
 #include "VIGizmoHandle.h"
-#include "ViewportWorldInteraction.h"
 
 namespace VREd
 {

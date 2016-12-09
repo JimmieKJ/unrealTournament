@@ -9,6 +9,10 @@
     # Set ENABLE_PRINTING=1 ENABLE_BASIC_PRINTING=1.
     'enable_basic_printing': 1,
     'enable_print_preview': 0,
+    # Enable support for Widevine CDM.
+    'enable_widevine': 1,
+    # Disable support for plugin installation.
+    'enable_plugin_installation': 0,
     'conditions': [
       # Directory for CEF source files.
       [ 'OS=="win"', {
@@ -20,6 +24,11 @@
         # Strip symbols and create dSYM files for the Release target.
         'mac_strip_release': 1,
       }],
+      ['os_posix==1 and OS!="mac" and OS!="android"', {
+        # Disable theme support on Linux so we don't need to implement
+        # ThemeService[Factory] classes.
+        'enable_themes': 0,
+      }]
     ]
   }, 'conditions': [
     ['os_posix==1 and OS!="mac" and OS!="android"', {

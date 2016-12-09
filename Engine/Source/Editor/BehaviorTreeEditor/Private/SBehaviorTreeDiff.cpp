@@ -1,27 +1,39 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
 #include "SBehaviorTreeDiff.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "EdGraph/EdGraph.h"
+#include "SlateOptMacros.h"
+#include "Framework/Commands/Commands.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+#include "DiffResults.h"
+#include "BehaviorTreeGraphNode.h"
+#include "PropertyEditorModule.h"
 #include "GraphDiffControl.h"
 #include "EdGraphUtilities.h"
 #include "BehaviorTreeEditorUtils.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
 #include "BehaviorTree/BehaviorTree.h"
-#include "GenericCommands.h"
-#include "ISourceControlModule.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #define LOCTEXT_NAMESPACE "SBehaviorTreeDiff"
 
 //////////////////////////////////////////////////////////////////////////
-// FDiffResultItem
+// FTreeDiffResultItem
 
-struct FDiffResultItem: public TSharedFromThis<FDiffResultItem>
+struct FTreeDiffResultItem : public TSharedFromThis<FTreeDiffResultItem>
 {
 	/**
 	 * Constructor
 	 * @param InResult A difference result 
 	 */
-	FDiffResultItem(const FDiffSingleResult& InResult): Result(InResult){}
+	FTreeDiffResultItem(const FDiffSingleResult& InResult): Result(InResult){}
 
 	/**
 	 * GenerateWidget for the diff item
@@ -257,7 +269,7 @@ void SBehaviorTreeDiff::BuildDiffSourceArray()
 	DiffListSource.Empty();
 	for (auto DiffIt(FoundDiffs.CreateConstIterator()); DiffIt; ++DiffIt)
 	{
-		DiffListSource.Add(FSharedDiffOnGraph(new FDiffResultItem(*DiffIt)));
+		DiffListSource.Add(FSharedDiffOnGraph(new FTreeDiffResultItem(*DiffIt)));
 	}
 }
 

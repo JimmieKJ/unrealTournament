@@ -530,7 +530,7 @@ namespace UnrealGameSync
 				using(SqlConnection Connection = new SqlConnection(SqlConnectionString))
 				{
 					Connection.Open();
-					using (SqlCommand Command = new SqlCommand("SELECT Id, Changelist, UserName, Verdict, Project FROM dbo.UserVotes WHERE Id > @param1", Connection))
+					using (SqlCommand Command = new SqlCommand("SELECT Id, Changelist, UserName, Verdict, Project FROM dbo.UserVotes WHERE Id > @param1 ORDER BY Id", Connection))
 					{
 						Command.Parameters.AddWithValue("@param1", LastEventId);
 						using (SqlDataReader Reader = Command.ExecuteReader())
@@ -553,7 +553,7 @@ namespace UnrealGameSync
 							}
 						}
 					}
-					using(SqlCommand Command = new SqlCommand("SELECT Id, ChangeNumber, UserName, Text, Project FROM dbo.Comments WHERE Id > @param1", Connection))
+					using(SqlCommand Command = new SqlCommand("SELECT Id, ChangeNumber, UserName, Text, Project FROM dbo.Comments WHERE Id > @param1 ORDER BY Id", Connection))
 					{
 						Command.Parameters.AddWithValue("@param1", LastCommentId);
 						using (SqlDataReader Reader = Command.ExecuteReader())
@@ -574,7 +574,7 @@ namespace UnrealGameSync
 							}
 						}
 					}
-					using(SqlCommand Command = new SqlCommand("SELECT Id, ChangeNumber, BuildType, Result, Url, Project FROM dbo.CIS WHERE Id > @param1", Connection))
+					using(SqlCommand Command = new SqlCommand("SELECT Id, ChangeNumber, BuildType, Result, Url, Project FROM dbo.CIS WHERE Id > @param1 ORDER BY Id", Connection))
 					{
 						Command.Parameters.AddWithValue("@param1", LastBuildId);
 						using (SqlDataReader Reader = Command.ExecuteReader())

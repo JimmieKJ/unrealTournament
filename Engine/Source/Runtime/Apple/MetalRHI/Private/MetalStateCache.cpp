@@ -61,6 +61,7 @@ FMetalStateCache::FMetalStateCache(FMetalCommandEncoder& InCommandEncoder)
 	Scissor.x = Scissor.y = Scissor.width = Scissor.height;
 	
 	FMemory::Memzero(VertexBuffers, sizeof(VertexBuffers));
+	FMemory::Memzero(VertexBytes, sizeof(VertexBytes));
 	FMemory::Memzero(VertexStrides, sizeof(VertexStrides));	
 	FMemory::Memzero(RenderTargetsInfo);	
 	FMemory::Memzero(DirtyUniformBuffers);
@@ -114,6 +115,7 @@ void FMetalStateCache::Reset(void)
 	FMemory::Memzero(DirtyUniformBuffers);
 	
 	FMemory::Memzero(VertexBuffers, sizeof(VertexBuffers));
+	FMemory::Memzero(VertexBytes, sizeof(VertexBytes));
 	FMemory::Memzero(VertexStrides, sizeof(VertexStrides));
 	
 	VisibilityResults = nil;
@@ -661,29 +663,37 @@ void FMetalStateCache::SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRe
 			}
 		}
 		
-		// Retain and/or release the depth-stencil surface in case it is a temporary surface for a draw call that writes to depth without a depth/stencil buffer bound.
-		DepthStencilSurface = RenderTargetsInfo.DepthStencilRenderTarget.Texture;
-		
-		// Assert that the render target state is valid because there appears to be a bug where it isn't.
-		check(bHasValidRenderTarget);
-	
-		// update hash for the depth/stencil buffer & sample count
-		PipelineDesc.SetHashValue(Offset_DepthFormat, NumBits_DepthFormat, DepthFormatKey);
-		PipelineDesc.SetHashValue(Offset_StencilFormat, NumBits_StencilFormat, StencilFormatKey);
-		PipelineDesc.SetHashValue(Offset_SampleCount, NumBits_SampleCount, PipelineDesc.SampleCount);
-	
 		// commit pending commands on the old render target
 		if(CommandEncoder.IsRenderCommandEncoderActive() || CommandEncoder.IsBlitCommandEncoderActive() || CommandEncoder.IsComputeCommandEncoderActive())
 		{
 			CommandEncoder.EndEncoding();
 		}
 	
-		// Set render to the framebuffer
-		CommandEncoder.SetRenderPassDescriptor(RenderPass, bReset);
-		
-		if (bNeedsClear || !PLATFORM_MAC || IsRHIDeviceNVIDIA() || IsRHIDeviceIntel())
+		// Only start encoding if the render target state is valid
+		if (bHasValidRenderTarget)
 		{
+			// Retain and/or release the depth-stencil surface in case it is a temporary surface for a draw call that writes to depth without a depth/stencil buffer bound.
+			DepthStencilSurface = RenderTargetsInfo.DepthStencilRenderTarget.Texture;
+			
+			// update hash for the depth/stencil buffer & sample count
+			PipelineDesc.SetHashValue(Offset_DepthFormat, NumBits_DepthFormat, DepthFormatKey);
+			PipelineDesc.SetHashValue(Offset_StencilFormat, NumBits_StencilFormat, StencilFormatKey);
+			PipelineDesc.SetHashValue(Offset_SampleCount, NumBits_SampleCount, PipelineDesc.SampleCount);
+		
+			// Set render to the framebuffer
+			CommandEncoder.SetRenderPassDescriptor(RenderPass, bReset);
+			
+			// Remove the lazy-encoder instantiation - until there are no bugs that cause unnecessary clears.
 			CommandEncoder.BeginRenderCommandEncoding();
+		}
+		else
+		{
+			// update hash for the depth/stencil buffer & sample count
+			PipelineDesc.SetHashValue(Offset_DepthFormat, NumBits_DepthFormat, 0);
+			PipelineDesc.SetHashValue(Offset_StencilFormat, NumBits_StencilFormat, 0);
+			PipelineDesc.SetHashValue(Offset_SampleCount, NumBits_SampleCount, 0);
+			
+			DepthStencilSurface.SafeRelease();
 		}
 		
 		if (bReset)
@@ -696,8 +706,10 @@ void FMetalStateCache::SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRe
 		}
 	}
 	
+#if PLATFORM_MAC
 	// Ensure that the RenderPassDesc is valid in the CommandEncoder.
-	check(CommandEncoder.IsRenderPassDescriptorValid());
+	check(!bHasValidRenderTarget || CommandEncoder.IsRenderPassDescriptorValid());
+#endif
 }
 
 void FMetalStateCache::SetHasValidRenderTarget(bool InHasValidRenderTarget)
@@ -723,15 +735,41 @@ void FMetalStateCache::SetViewport(const MTLViewport& InViewport)
 	}
 }
 
-void FMetalStateCache::SetVertexBuffer(uint32 const Index, id<MTLBuffer> Buffer, uint32 const Stride, uint32 const Offset)
+void FMetalStateCache::SetVertexStream(uint32 const Index, id<MTLBuffer> Buffer, NSData* Bytes, uint32 const Stride, uint32 const Offset)
 {
-	check(Index < MaxMetalStreams);
+	check(Index < MaxVertexElementCount);
+	check(UNREAL_TO_METAL_BUFFER_INDEX(Index) < MaxMetalStreams);
+
 	VertexBuffers[Index] = Buffer;
-	VertexStrides[Index] = Buffer ? Stride : 0;
+	VertexStrides[Index] = (Buffer || Bytes) ? Stride : 0;
+	VertexBytes[Index] = Bytes;
+
 	if (Buffer != NULL)
 	{
-		CommandEncoder.SetShaderBuffer(SF_Vertex, Buffer, Offset, Index);
+		CommandEncoder.SetShaderBuffer(SF_Vertex, Buffer, Offset, UNREAL_TO_METAL_BUFFER_INDEX(Index));
 	}
+	else if (Bytes != nil)
+	{
+       CommandEncoder.SetShaderBytes(SF_Vertex, Bytes, Offset, UNREAL_TO_METAL_BUFFER_INDEX(Index));
+	}
+}
+
+uint32 FMetalStateCache::GetVertexBufferSize(uint32 const Index)
+{
+	check(Index < MaxVertexElementCount);
+	check(UNREAL_TO_METAL_BUFFER_INDEX(Index) < MaxMetalStreams);
+	uint32 Size = 0;
+	
+	if (VertexBuffers[Index])
+	{
+		Size = VertexBuffers[Index].length;
+	}
+	else if (VertexBytes[Index])
+	{
+		Size = VertexBytes[Index].length;
+	}
+	
+	return Size;
 }
 
 #if PLATFORM_MAC

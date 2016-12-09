@@ -2,13 +2,15 @@
 
 #pragma once
 
-#include "OnlineBeaconClient.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
 #include "PartyBeaconState.h"
+#include "TimerManager.h"
+#include "OnlineBeaconClient.h"
 
 #include "PartyBeaconClient.generated.h"
 
-struct FUniqueNetIdRepl;
-struct FPartyReservation;
 class FOnlineSessionSearchResult;
 
 /**

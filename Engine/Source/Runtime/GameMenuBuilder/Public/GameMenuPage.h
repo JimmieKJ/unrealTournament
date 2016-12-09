@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Delegates/Delegate.h"
+#include "Internationalization/Text.h"
+#include "GameFramework/PlayerController.h"
+#include "GameMenuItem.h"
+
+class FString;
+class SGameMenuItemWidget;
+class SGameMenuPageWidget;
+class UGameViewportClient;
+
 class GAMEMENUBUILDER_API FGameMenuPage : public TSharedFromThis<FGameMenuPage>
 {
 public:

@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SessionServicesPrivatePCH.h"
+#include "SessionInfo.h"
+#include "EngineServiceMessages.h"
+#include "SessionServiceMessages.h"
+#include "SessionInstanceInfo.h"
 
 
 /* FSessionInfo structors
  *****************************************************************************/
 
-FSessionInfo::FSessionInfo( const FGuid& InSessionId, const IMessageBusRef& InMessageBus )
+FSessionInfo::FSessionInfo(const FGuid& InSessionId, const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InMessageBus)
 	: MessageBusPtr(InMessageBus)
 	, SessionId(InSessionId)
 { }
@@ -15,7 +18,7 @@ FSessionInfo::FSessionInfo( const FGuid& InSessionId, const IMessageBusRef& InMe
 /* FSessionInfo interface
  *****************************************************************************/
 
-void FSessionInfo::UpdateFromMessage( const FEngineServicePong& Message, const IMessageContextRef& Context )
+void FSessionInfo::UpdateFromMessage(const FEngineServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
 	if (Message.SessionId != SessionId)
 	{
@@ -41,7 +44,7 @@ void FSessionInfo::UpdateFromMessage( const FEngineServicePong& Message, const I
 }
 
 
-void FSessionInfo::UpdateFromMessage( const FSessionServicePong& Message, const IMessageContextRef& Context )
+void FSessionInfo::UpdateFromMessage(const FSessionServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
 	if (Message.SessionId != SessionId)
 	{
@@ -62,7 +65,7 @@ void FSessionInfo::UpdateFromMessage( const FSessionServicePong& Message, const 
 	}
 	else
 	{
-		IMessageBusPtr MessageBus = MessageBusPtr.Pin();
+		auto MessageBus = MessageBusPtr.Pin();
 
 		if (MessageBus.IsValid())
 		{
@@ -81,7 +84,7 @@ void FSessionInfo::UpdateFromMessage( const FSessionServicePong& Message, const 
 /* ISessionInfo interface
  *****************************************************************************/
 
-void FSessionInfo::GetInstances( TArray<ISessionInstanceInfoPtr>& OutInstances ) const
+void FSessionInfo::GetInstances(TArray<TSharedPtr<ISessionInstanceInfo>>& OutInstances) const
 {
 	OutInstances.Empty();
 
@@ -140,7 +143,7 @@ void FSessionInfo::Terminate()
 /* FSessionInfo callbacks
  *****************************************************************************/
 
-void FSessionInfo::HandleLogReceived( const ISessionInstanceInfoRef& Instance, const FSessionLogMessageRef& LogMessage )
+void FSessionInfo::HandleLogReceived(const TSharedRef<ISessionInstanceInfo>& Instance, const TSharedRef<FSessionLogMessage>& LogMessage)
 {
 	LogReceivedEvent.Broadcast(AsShared(), Instance, LogMessage);
 }

@@ -1,6 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/Guid.h"
+
 // Custom serialization version for changes made in Dev-Editor stream
 struct CORE_API FEditorObjectVersion
 {
@@ -20,6 +23,12 @@ struct CORE_API FEditorObjectVersion
 		TextFormatArgumentDataIsVariant,
 		// Changes to SplineComponent
 		SplineComponentCurvesInStruct,
+		// Updated ComboBox to support toggling the menu open, better controller support
+		ComboBoxControllerSupportUpdate,
+		// Refactor mesh editor materials
+		RefactorMeshEditorMaterials,
+		// Added UFontFace assets
+		AddedFontFaceAssets,
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

@@ -90,10 +90,15 @@ public class MacPlatform : Platform
 				AppBundlePath = CombinePaths("Engine/Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe) + ".app");
 			}
 
-			// Copy the custom icon
+			// Copy the custom icon and Steam dylib, if needed
 			if (!string.IsNullOrEmpty(AppBundlePath))
 			{
 				SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Build/Mac"), "Application.icns", false, null, CombinePaths(AppBundlePath, "Contents/Resources"), true);
+
+				if (Params.bUsesSteam)
+				{
+					SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Source/ThirdParty/Steamworks/Steamv132/sdk/redistributable_bin/osx32"), "libsteam_api.dylib", false, null, CombinePaths(AppBundlePath, "Contents/MacOS"), true);
+				}
 			}
 		}
 
@@ -351,7 +356,7 @@ public class MacPlatform : Platform
 		}
 	}
 
-	public override ProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
+	public override IProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
 	{
 		if (!File.Exists(ClientApp))
 		{
@@ -369,7 +374,7 @@ public class MacPlatform : Platform
 
 		PushDir(Path.GetDirectoryName(ClientApp));
 		// Always start client process and don't wait for exit.
-		ProcessResult ClientProcess = Run(ClientApp, ClientCmdLine, null, ClientRunFlags | ERunOptions.NoWaitForExit);
+		IProcessResult ClientProcess = Run(ClientApp, ClientCmdLine, null, ClientRunFlags | ERunOptions.NoWaitForExit);
 		PopDir();
 
 		return ClientProcess;

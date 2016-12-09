@@ -120,18 +120,33 @@ namespace AutomationTool
 	}
 
 	/// <summary>
+	/// Proxy to handle executing multiple tasks simultaneously (such as compile tasks). If a task supports simultaneous execution, it can return a separate
+	/// executor an executor instance from GetExecutor() callback. If not, it must implement Execute().
+	/// </summary>
+	public interface ITaskExecutor
+	{
+		/// <summary>
+		/// Adds another task to this executor
+		/// </summary>
+		/// <param name="Task">Task to add</param>
+		/// <returns>True if the task could be added, false otherwise</returns>
+		bool Add(CustomTask Task);
+
+		/// <summary>
+		/// Execute all the tasks added to this executor.
+		/// </summary>
+		/// <param name="Job">Information about the current job</param>
+		/// <param name="BuildProducts">Set of build products produced by this node.</param>
+		/// <param name="TagNameToFileSet">Mapping from tag names to the set of files they include</param>
+		/// <returns>Whether the task succeeded or not. Exiting with an exception will be caught and treated as a failure.</returns>
+		bool Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet);
+	}
+
+	/// <summary>
 	/// Base class for all custom build tasks
 	/// </summary>
 	public abstract class CustomTask
 	{
-		/// <summary>
-		/// Allow this task to merge with other tasks within the same node if it can. This can be useful to allow tasks to execute in parallel.
-		/// </summary>
-		/// <param name="OtherTasks">Other tasks that this task can merge with. If a merge takes place, the other tasks should be removed from the list.</param>
-		public virtual void Merge(List<CustomTask> OtherTasks)
-		{
-		}
-
 		/// <summary>
 		/// Execute this node.
 		/// </summary>
@@ -140,6 +155,15 @@ namespace AutomationTool
 		/// <param name="TagNameToFileSet">Mapping from tag names to the set of files they include</param>
 		/// <returns>Whether the task succeeded or not. Exiting with an exception will be caught and treated as a failure.</returns>
 		public abstract bool Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet);
+
+		/// <summary>
+		/// Creates a proxy to execute this node.
+		/// </summary>
+		/// <returns>New proxy instance if one is available to execute this task, otherwise null.</returns>
+		public virtual ITaskExecutor GetExecutor()
+		{
+			return null;
+		}
 
 		/// <summary>
 		/// Output this task out to an XML writer.

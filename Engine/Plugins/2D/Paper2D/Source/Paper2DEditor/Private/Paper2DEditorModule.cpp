@@ -1,31 +1,43 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
 #include "Paper2DEditorModule.h"
+#include "Paper2DEditorLog.h"
+#include "Engine/Texture2D.h"
+#include "Editor.h"
+#include "EditorModeRegistry.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
 
 #include "AssetToolsModule.h"
 #include "PropertyEditorModule.h"
 #include "PaperStyle.h"
 #include "PaperEditorCommands.h"
+#include "PaperSprite.h"
 #include "PaperEditorShared/SpriteGeometryEditMode.h"
+#include "PaperTileSet.h"
 
-#include "AssetEditorToolkit.h"
-#include "ModuleManager.h"
 #include "ContentBrowserExtensions/ContentBrowserExtensions.h"
 #include "LevelEditorMenuExtensions/Paper2DLevelEditorExtensions.h"
+#include "PaperTileMap.h"
 #include "PaperImporterSettings.h"
 
 // Sprite support
+#include "IAssetTypeActions.h"
 #include "SpriteAssetTypeActions.h"
+#include "ComponentAssetBroker.h"
+#include "PaperSpriteComponent.h"
 #include "PaperSpriteAssetBroker.h"
 #include "PaperSpriteThumbnailRenderer.h"
 #include "SpriteEditor/SpriteDetailsCustomization.h"
 #include "SpriteEditor/SpriteComponentDetailsCustomization.h"
-#include "SpriteEditor/SpritePolygonCollectionCustomization.h"
 #include "SpriteEditor/SpriteEditorSettings.h"
 
 // Flipbook support
 #include "FlipbookAssetTypeActions.h"
+#include "PaperFlipbookComponent.h"
+#include "PaperFlipbook.h"
 #include "PaperFlipbookAssetBroker.h"
 #include "PaperFlipbookThumbnailRenderer.h"
 #include "FlipbookEditor/FlipbookComponentDetailsCustomization.h"
@@ -39,6 +51,7 @@
 
 // Tile map support
 #include "TileMapEditing/TileMapAssetTypeActions.h"
+#include "PaperTileMapComponent.h"
 #include "TileMapEditing/PaperTileMapAssetBroker.h"
 #include "TileMapEditing/EdModeTileMap.h"
 #include "TileMapEditing/PaperTileMapDetailsCustomization.h"
@@ -58,9 +71,9 @@
 #include "ISettingsModule.h"
 
 // Intro tutorials
-#include "Editor/IntroTutorials/Public/IIntroTutorials.h"
 
 // Mesh paint adapters
+#include "MeshPaintModule.h"
 #include "MeshPainting/MeshPaintSpriteAdapter.h"
 
 DEFINE_LOG_CATEGORY(LogPaper2DEditor);

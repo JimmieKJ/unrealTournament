@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AddContentDialogPCH.h"
+#include "ContentSourceProviders/FeaturePack/FeaturePackContentSourceProvider.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Modules/ModuleManager.h"
 
-#include "FeaturePackContentSourceProvider.h"
+#include "DirectoryWatcherModule.h"
 #include "FeaturePackContentSource.h"
 
-#include "ModuleManager.h"
 
 class FFillArrayDirectoryVisitor : public IPlatformFile::FDirectoryVisitor
 {

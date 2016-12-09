@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Animation/PreviewAssetAttachComponent.h"
 
 void FPreviewAssetAttachContainer::AddAttachedObject( UObject* AttachObject, FName AttachPointName )
@@ -9,6 +8,22 @@ void FPreviewAssetAttachContainer::AddAttachedObject( UObject* AttachObject, FNa
 	Pair.AttachedTo = AttachPointName;
 	Pair.SetAttachedObject(AttachObject);
 	AttachedObjects.Add( Pair );
+}
+
+void FPreviewAssetAttachContainer::AddUniqueAttachedObject(UObject* AttachObject, FName AttachPointName)
+{
+	for (const FPreviewAttachedObjectPair& AttachedObject : AttachedObjects)
+	{
+		if (AttachedObject.AttachedTo == AttachPointName)
+		{
+			return;
+		}
+	}
+
+	FPreviewAttachedObjectPair Pair;
+	Pair.AttachedTo = AttachPointName;
+	Pair.SetAttachedObject(AttachObject);
+	AttachedObjects.Add(Pair);
 }
 
 void FPreviewAssetAttachContainer::RemoveAttachedObject( UObject* ObjectToRemove, FName AttachName )
@@ -48,6 +63,11 @@ int32 FPreviewAssetAttachContainer::Num() const
 }
 
 FPreviewAttachedObjectPair& FPreviewAssetAttachContainer::operator []( int32 i )
+{
+	return AttachedObjects[i];
+}
+
+const FPreviewAttachedObjectPair& FPreviewAssetAttachContainer::operator [](int32 i) const
 {
 	return AttachedObjects[i];
 }

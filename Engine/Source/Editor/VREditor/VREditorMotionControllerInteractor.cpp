@@ -1,12 +1,24 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "VREditorModule.h"
 #include "VREditorMotionControllerInteractor.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
+#include "Misc/App.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Components/StaticMeshComponent.h"
+#include "GenericPlatform/IInputInterface.h"
+#include "Components/PointLightComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Materials/MaterialInstance.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Engine/StaticMeshSocket.h"
 #include "ViewportWorldInteraction.h"
 #include "VREditorMode.h"
 #include "VREditorUISystem.h"
 #include "VREditorFloatingText.h"
 #include "VREditorDockableWindow.h"
+#include "UObject/Package.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
 
 #include "IMotionController.h"
 #include "IHeadMountedDisplay.h"
@@ -108,11 +120,12 @@ UVREditorMotionControllerInteractor::~UVREditorMotionControllerInteractor()
 }
 
 
-void UVREditorMotionControllerInteractor::Init( class FVREditorMode* InVRMode )
+void UVREditorMotionControllerInteractor::Init( class UVREditorMode* InVRMode )
 {
 	Super::Init( InVRMode );
 	bHaveMotionController = true;
 
+	const EHMDDeviceType::Type HMDDeviceType = GetVRMode().GetHMDDeviceType();
 	// Setup keys
 	if ( ControllerHandSide == EControllerHand::Left )
 	{
@@ -127,13 +140,14 @@ void UVREditorMotionControllerInteractor::Init( class FVREditorMode* InVRMode )
 		AddKeyAction( EKeys::MotionController_Left_Thumbstick_Y, FViewportActionKeyInput( UVREditorMotionControllerInteractor::TrackpadPositionY ) );
 		AddKeyAction( EKeys::MotionController_Left_Thumbstick, FViewportActionKeyInput( VRActionTypes::ConfirmRadialSelection ) );
 
-		if ( GetVRMode().GetHMDDeviceType() == EHMDDeviceType::DT_SteamVR )
+		if ( HMDDeviceType == EHMDDeviceType::DT_SteamVR )
 		{
 			AddKeyAction( EKeys::MotionController_Left_Shoulder, FViewportActionKeyInput( VRActionTypes::Modifier ) );
 		}
-		else
+		else if( HMDDeviceType == EHMDDeviceType::DT_OculusRift )
 		{
 			AddKeyAction( EKeys::MotionController_Left_FaceButton1, FViewportActionKeyInput( VRActionTypes::Modifier ) );
+			AddKeyAction( EKeys::MotionController_Left_FaceButton2, FViewportActionKeyInput( VRActionTypes::Modifier2 ) );
 		}
 	}
 	else if ( ControllerHandSide == EControllerHand::Right )
@@ -141,21 +155,20 @@ void UVREditorMotionControllerInteractor::Init( class FVREditorMode* InVRMode )
 		AddKeyAction( EKeys::MotionController_Right_Grip1, FViewportActionKeyInput( ViewportWorldActionTypes::WorldMovement ) );
 		AddKeyAction( UVREditorMotionControllerInteractor::MotionController_Right_FullyPressedTriggerAxis, FViewportActionKeyInput( ViewportWorldActionTypes::SelectAndMove ) );
 		AddKeyAction( UVREditorMotionControllerInteractor::MotionController_Right_LightlyPressedTriggerAxis, FViewportActionKeyInput( ViewportWorldActionTypes::SelectAndMove_LightlyPressed ) );
-		AddKeyAction( EKeys::MotionController_Right_Thumbstick, FViewportActionKeyInput( VRActionTypes::ConfirmRadialSelection ) );
-
 		AddKeyAction( SteamVRControllerKeyNames::Touch1, FViewportActionKeyInput( VRActionTypes::Touch ) );
 		AddKeyAction( EKeys::MotionController_Right_TriggerAxis, FViewportActionKeyInput( UVREditorMotionControllerInteractor::TriggerAxis ) );
 		AddKeyAction( EKeys::MotionController_Right_Thumbstick_X, FViewportActionKeyInput( UVREditorMotionControllerInteractor::TrackpadPositionX ) );
 		AddKeyAction( EKeys::MotionController_Right_Thumbstick_Y, FViewportActionKeyInput( UVREditorMotionControllerInteractor::TrackpadPositionY ) );
 		AddKeyAction( EKeys::MotionController_Right_Thumbstick, FViewportActionKeyInput( VRActionTypes::ConfirmRadialSelection ) );
 
-		if ( GetVRMode().GetHMDDeviceType() == EHMDDeviceType::DT_SteamVR )
+		if ( HMDDeviceType == EHMDDeviceType::DT_SteamVR )
 		{
 			AddKeyAction( EKeys::MotionController_Right_Shoulder, FViewportActionKeyInput( VRActionTypes::Modifier ) );
 		}
-		else
+		else if ( HMDDeviceType == EHMDDeviceType::DT_OculusRift )
 		{
 			AddKeyAction( EKeys::MotionController_Right_FaceButton1, FViewportActionKeyInput( VRActionTypes::Modifier ) );
+			AddKeyAction( EKeys::MotionController_Right_FaceButton2, FViewportActionKeyInput( VRActionTypes::Modifier2 ) );
 		}
 	}
 }
@@ -418,7 +431,7 @@ void UVREditorMotionControllerInteractor::Tick( const float DeltaTime )
 
 	// Updating laser colors for both hands
 	{
-		FVREditorMode::EColors ResultColorType = FVREditorMode::EColors::DefaultColor;
+		UVREditorMode::EColors ResultColorType = UVREditorMode::EColors::DefaultColor;
 		float CrawlSpeed = 0.0f;
 		float CrawlFade = 0.0f;
 
@@ -431,7 +444,7 @@ void UVREditorMotionControllerInteractor::Tick( const float DeltaTime )
 
 		if ( bIsDraggingWorldWithTwoHands )
 		{
-			ResultColorType = FVREditorMode::EColors::WorldDraggingColor_TwoHands;
+			ResultColorType = UVREditorMode::EColors::WorldDraggingColor_TwoHands;
 		}
 		else if ( DraggingMode == EViewportInteractionDraggingMode::World )
 		{
@@ -445,7 +458,7 @@ void UVREditorMotionControllerInteractor::Tick( const float DeltaTime )
 			// We can teleport in this mode, so animate the laser a bit
 			CrawlFade = 1.0f;
 			CrawlSpeed = 5.0f;
-			ResultColorType = FVREditorMode::EColors::WorldDraggingColor_OneHand;
+			ResultColorType = UVREditorMode::EColors::WorldDraggingColor_OneHand;
 			//			}
 		}
 		else if ( DraggingMode == EViewportInteractionDraggingMode::ActorsAtLaserImpact ||
@@ -456,7 +469,7 @@ void UVREditorMotionControllerInteractor::Tick( const float DeltaTime )
 			DraggingMode == EViewportInteractionDraggingMode::Interactable ||
 			( GetVRMode().GetUISystem().IsInteractorDraggingDockUI( this ) && GetVRMode().GetUISystem().IsDraggingDockUI() ) )
 		{
-			ResultColorType = FVREditorMode::EColors::SelectionColor;
+			ResultColorType = UVREditorMode::EColors::SelectionColor;
 		}
 
 		const FLinearColor ResultColor = GetVRMode().GetColor( ResultColorType );
@@ -957,9 +970,15 @@ void UVREditorMotionControllerInteractor::ApplyButtonPressColors( const FViewpor
 	}
 
 	// Modifier
-	if ( ActionType == VRActionTypes::Modifier )
+	if( ActionType == VRActionTypes::Modifier )
 	{
 		static FName StaticModifierParameter( "B4" );
+		SetMotionControllerButtonPressedVisuals( Event, StaticModifierParameter, PressStrength );
+	}
+
+	if( GetVRMode().GetHMDDeviceType() == EHMDDeviceType::DT_OculusRift && ActionType == VRActionTypes::Modifier2 )
+	{
+		static FName StaticModifierParameter( "B5" );
 		SetMotionControllerButtonPressedVisuals( Event, StaticModifierParameter, PressStrength );
 	}
 }
@@ -1004,7 +1023,7 @@ void UVREditorMotionControllerInteractor::ShowHelpForHand( const bool bShowIt )
 				const FKey Key = KeyToAction.Key;
 				const FViewportActionKeyInput& Action = KeyToAction.Value;
 
-				UStaticMeshSocket* Socket = FindMeshSocketForKey( HandMeshComponent->StaticMesh, Key );
+				UStaticMeshSocket* Socket = FindMeshSocketForKey( HandMeshComponent->GetStaticMesh(), Key );
 				if ( Socket != nullptr )
 				{
 					FText LabelText;
@@ -1118,7 +1137,7 @@ void UVREditorMotionControllerInteractor::UpdateHelpLabels()
 			const FKey Key = KeyAndValue.Key;
 			AFloatingText* FloatingText = KeyAndValue.Value;
 
-			UStaticMeshSocket* Socket = FindMeshSocketForKey( HandMeshComponent->StaticMesh, Key );
+			UStaticMeshSocket* Socket = FindMeshSocketForKey( HandMeshComponent->GetStaticMesh(), Key );
 			check( Socket != nullptr );
 			FTransform SocketRelativeTransform( Socket->RelativeRotation, Socket->RelativeLocation, Socket->RelativeScale );
 

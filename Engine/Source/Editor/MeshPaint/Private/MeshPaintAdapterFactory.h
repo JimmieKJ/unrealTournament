@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "MeshPaintModule.h"
+
+class UMeshComponent;
 
 class FMeshPaintAdapterFactory
 {

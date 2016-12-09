@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #include "MoviePlayer.h"
 
-#include "SlateBasics.h"
 #include "Slate/SlateTextures.h"
 
 #import <AVFoundation/AVFoundation.h>

@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
+#include "BehaviorTree/Tasks/BTTask_BlackboardBase.h"
 #include "BTTask_RunEQSQuery.generated.h"
 
+class UBehaviorTree;
 class UEnvQuery;
 
 struct FBTEnvQueryTaskMemory

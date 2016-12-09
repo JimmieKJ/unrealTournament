@@ -2,11 +2,18 @@
 
 
 #pragma once
-#include "Particles/TypeData/ParticleModuleTypeDataBase.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Math/RandomStream.h"
+#include "Distributions/DistributionVector.h"
 #include "Particles/Orientation/ParticleModuleOrientationAxisLock.h"
+#include "Particles/TypeData/ParticleModuleTypeDataBase.h"
 #include "ParticleModuleTypeDataMesh.generated.h"
 
 class UParticleEmitter;
+class UParticleSystemComponent;
+struct FParticleEmitterInstance;
 
 UENUM()
 enum EMeshScreenAlignment

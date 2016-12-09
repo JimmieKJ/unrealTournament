@@ -4,18 +4,27 @@
 	Main implementation of FFbxImporter : import FBX data to Unreal
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Misc/SecureHash.h"
+#include "Factories/FbxSkeletalMeshImportData.h"
+#include "Factories/FbxTextureImportData.h"
 
-#include "Factories.h"
-#include "Engine.h"
+#include "Materials/MaterialInterface.h"
 #include "SkelImport.h"
-#include "FbxErrors.h"
+#include "Logging/TokenizedMessage.h"
+#include "Misc/FbxErrors.h"
 #include "FbxImporter.h"
 #include "FbxOptionWindow.h"
-#include "FbxErrors.h"
-#include "MainFrame.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "EngineAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
 
 DEFINE_LOG_CATEGORY(LogFbx);
 
@@ -28,7 +37,7 @@ TSharedPtr<FFbxImporter> FFbxImporter::StaticInstance;
 
 
 
-FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, const FString& FullPath, bool& OutOperationCanceled, bool& bOutImportAll, bool bIsObjFormat, bool bForceImportType, EFBXImportType ImportType )
+FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& bOutImportAll, bool bIsObjFormat, bool bForceImportType, EFBXImportType ImportType )
 {
 	OutOperationCanceled = false;
 
@@ -67,6 +76,9 @@ FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImport
 		ImportUI->bImportMesh = ImportUI->MeshTypeToImport != FBXIT_Animation;
 		ImportUI->bIsObjImport = bIsObjFormat;
 
+		//This option must always be the same value has the skeletalmesh one.
+		ImportUI->AnimSequenceImportData->bImportMeshesInBoneHierarchy = ImportUI->SkeletalMeshImportData->bImportMeshesInBoneHierarchy;
+
 		TSharedPtr<SWindow> ParentWindow;
 
 		if( FModuleManager::Get().IsModuleLoaded( "MainFrame" ) )
@@ -100,6 +112,15 @@ FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImport
 			ImportOptions->bBakePivotInVertex = false;
 			ImportUI->SkeletalMeshImportData->bTransformVertexToAbsolute = true;
 			ImportOptions->bTransformVertexToAbsolute = true;
+			//when user import animation only we must get duplicate "bImportMeshesInBoneHierarchy" option from ImportUI anim sequence data
+			if (!ImportUI->bImportMesh && ImportUI->bImportAnimations)
+			{
+				ImportUI->SkeletalMeshImportData->bImportMeshesInBoneHierarchy = ImportUI->AnimSequenceImportData->bImportMeshesInBoneHierarchy;
+			}
+			else
+			{
+				ImportUI->AnimSequenceImportData->bImportMeshesInBoneHierarchy = ImportUI->SkeletalMeshImportData->bImportMeshesInBoneHierarchy;
+			}
 		}
 
 		ImportUI->SaveConfig();
@@ -139,7 +160,7 @@ FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImport
 			OutOperationCanceled = true;
 		}
 	}
-	else if (GIsAutomationTesting)
+	else if (bIsAutomated)
 	{
 		//Automation tests set ImportUI settings directly.  Just copy them over
 		UnFbx::FBXImportOptions* ImportOptions = FbxImporter->GetImportOptions();
@@ -162,9 +183,21 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 	check(ImportUI);
 	InOutImportOptions.bImportMaterials = ImportUI->bImportMaterials;
 	InOutImportOptions.bInvertNormalMap = ImportUI->TextureImportData->bInvertNormalMaps;
+	UMaterialInterface* BaseMaterialInterface = Cast<UMaterialInterface>(ImportUI->TextureImportData->BaseMaterialName.TryLoad());
+	if (BaseMaterialInterface) {
+		InOutImportOptions.BaseMaterial = BaseMaterialInterface;
+		InOutImportOptions.BaseColorName = ImportUI->TextureImportData->BaseColorName;
+		InOutImportOptions.BaseDiffuseTextureName = ImportUI->TextureImportData->BaseDiffuseTextureName;
+		InOutImportOptions.BaseNormalTextureName = ImportUI->TextureImportData->BaseNormalTextureName;
+		InOutImportOptions.BaseEmmisiveTextureName = ImportUI->TextureImportData->BaseEmmisiveTextureName;
+		InOutImportOptions.BaseSpecularTextureName = ImportUI->TextureImportData->BaseSpecularTextureName;
+		InOutImportOptions.BaseEmissiveColorName = ImportUI->TextureImportData->BaseEmissiveColorName;
+	}
 	InOutImportOptions.bImportTextures = ImportUI->bImportTextures;
 	InOutImportOptions.bUsedAsFullName = ImportUI->bOverrideFullName;
 	InOutImportOptions.bConvertScene = ImportUI->bConvertScene;
+	InOutImportOptions.bForceFrontXAxis = ImportUI->bForceFrontXAxis;
+	InOutImportOptions.bConvertSceneUnit = ImportUI->bConvertSceneUnit;
 	InOutImportOptions.bImportAnimations = ImportUI->bImportAnimations;
 	InOutImportOptions.SkeletonForAnimation = ImportUI->Skeleton;
 
@@ -948,26 +981,47 @@ bool FFbxImporter::ImportFromFile(const FString& Filename, const FString& Type, 
 			// The imported axis system is unknown for obj files
 			if( !Type.Equals( Obj, ESearchCase::IgnoreCase ) )
 			{
-				if (GetImportOptions()->bConvertScene)
+				const FBXImportOptions* ImportOption = GetImportOptions();
+				if (ImportOption->bConvertScene)
 				{
 					// we use -Y as forward axis here when we import. This is odd considering our forward axis is technically +X
 					// but this is to mimic Maya/Max behavior where if you make a model facing +X facing, 
 					// when you import that mesh, you want +X facing in engine. 
 					// only thing that doesn't work is hand flipping because Max/Maya is RHS but UE is LHS
 					// On the positive note, we now have import transform set up you can do to rotate mesh if you don't like default setting
+					FbxAxisSystem::ECoordSystem CoordSystem = FbxAxisSystem::eRightHanded;
+					FbxAxisSystem::EUpVector UpVector = FbxAxisSystem::eZAxis;
 					FbxAxisSystem::EFrontVector FrontVector = (FbxAxisSystem::EFrontVector) - FbxAxisSystem::eParityOdd;
-					const FbxAxisSystem UnrealZUp(FbxAxisSystem::eZAxis, FrontVector, FbxAxisSystem::eRightHanded);
-					const FbxAxisSystem SourceSetup = Scene->GetGlobalSettings().GetAxisSystem();
-
-					if(SourceSetup != UnrealZUp)
+					if (ImportOption->bForceFrontXAxis)
 					{
-						// Converts the FBX data to Z-up, X-forward, Y-left.  Unreal is the same except with Y-right, 
-						// but the conversion to left-handed coordinates is not working properly
-
-						// convert axis to Z-up
-						FbxRootNodeUtility::RemoveAllFbxRoots(Scene);
-						UnrealZUp.ConvertScene(Scene);
+						FrontVector = FbxAxisSystem::eParityEven;
 					}
+					
+					
+					FbxAxisSystem UnrealImportAxis(UpVector, FrontVector, CoordSystem);
+					
+					FbxAxisSystem SourceSetup = Scene->GetGlobalSettings().GetAxisSystem();
+
+					if (SourceSetup != UnrealImportAxis)
+					{
+						FbxRootNodeUtility::RemoveAllFbxRoots(Scene);
+						UnrealImportAxis.ConvertScene(Scene);
+						FbxAMatrix JointOrientationMatrix;
+						JointOrientationMatrix.SetIdentity();
+						if (ImportOption->bForceFrontXAxis)
+						{
+							JointOrientationMatrix.SetR(FbxVector4(-90.0, -90.0, 0.0));
+						}
+						FFbxDataConverter::SetJointPostConversionMatrix(JointOrientationMatrix);
+					}
+				}
+
+				// Convert the scene's units to what is used in this program, if needed.
+				// The base unit used in both FBX and Unreal is centimeters.  So unless the units 
+				// are already in centimeters (ie: scalefactor 1.0) then it needs to be converted
+				if (ImportOption->bConvertSceneUnit && Scene->GetGlobalSettings().GetSystemUnit() != FbxSystemUnit::cm)
+				{
+					FbxSystemUnit::cm.ConvertScene(Scene);
 				}
 
 				// do analytics on getting Fbx data
@@ -999,14 +1053,6 @@ bool FFbxImporter::ImportFromFile(const FString& Filename, const FString& Type, 
 					}
 				}
 			}
-
-			// Convert the scene's units to what is used in this program, if needed.
-			// The base unit used in both FBX and Unreal is centimeters.  So unless the units 
-			// are already in centimeters (ie: scalefactor 1.0) then it needs to be converted
-			//if( FbxScene->GetGlobalSettings().GetSystemUnit().GetScaleFactor() != 1.0 )
-			//{
-			//	KFbxSystemUnit::cm.ConvertScene( FbxScene );
-			//}
 
 			//Warn the user if there is some geometry that cannot be imported because they are not reference by any scene node attribute
 			ValidateAllMeshesAreReferenceByNodeAttribute();
@@ -1553,6 +1599,8 @@ void FFbxImporter::ApplyTransformSettingsToFbxNode(FbxNode* Node, UFbxAssetImpor
 	Node->LclTranslation.Set(NewTranslation);
 	Node->LclRotation.Set(NewRotation);
 	Node->LclScaling.Set(NewScaling);
+	//Reset all the transform evaluation cache since we change some node transform
+	Scene->GetAnimationEvaluator()->Reset();
 }
 
 
@@ -1581,6 +1629,8 @@ void FFbxImporter::RemoveTransformSettingsFromFbxNode(FbxNode* Node, UFbxAssetIm
 	Node->LclTranslation.Set(NewTranslation);
 	Node->LclRotation.Set(NewRotation);
 	Node->LclScaling.Set(NewScaling);
+	//Reset all the transform evaluation cache since we change some node transform
+	Scene->GetAnimationEvaluator()->Reset();
 }
 
 

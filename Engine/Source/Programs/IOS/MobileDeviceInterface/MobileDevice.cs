@@ -1,4 +1,4 @@
-﻿// Software License Agreement (BSD License)
+// Software License Agreement (BSD License)
 // 
 // Copyright (c) 2007, Peter Dennis Bartok <PeterDennisBartok@gmail.com>
 // All rights reserved.
@@ -112,6 +112,133 @@ namespace Manzana
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void DeviceInstallationCallback(IntPtr/*CFDictionary*/ UntypedStatusDict, IntPtr UserData);
 
+	public interface ICoreFoundationRunLoop
+	{
+		int RunLoopInMode(IntPtr mode, double seconds, int returnAfterSourceHandled);
+		IntPtr DefaultMode();
+	}
+
+	internal class CoreFoundationRunLoopOSX : ICoreFoundationRunLoop
+	{
+		public int RunLoopInMode(IntPtr mode, double seconds, int returnAfterSourceHandled)
+		{
+			return CFRunLoopRunInMode(mode, seconds, returnAfterSourceHandled);
+		}
+
+		public IntPtr DefaultMode()
+		{
+			return kCFRunLoopDefaultMode;
+		}
+
+		[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+		public extern static IntPtr CFStringCreateWithCString(IntPtr allocator, string value, int encoding);
+
+		[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+		public extern static void CFRunLoopRun();
+
+		[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+		public extern static IntPtr CFRunLoopGetMain();
+
+		[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+		public extern static IntPtr CFRunLoopGetCurrent();
+
+		[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+		public extern static int CFRunLoopRunInMode(IntPtr mode, double seconds, int returnAfterSourceHandled);
+
+		public static IntPtr kCFRunLoopDefaultMode = CFStringCreateWithCString(IntPtr.Zero, "kCFRunLoopDefaultMode", 0);
+	}
+
+	internal class CoreFoundationRunLoopWin32 : ICoreFoundationRunLoop
+	{
+		static CoreFoundationRunLoopWin32()
+		{
+		}
+
+		public int RunLoopInMode(IntPtr mode, double seconds, int returnAfterSourceHandled)
+		{
+			return CFRunLoopRunInMode(mode, seconds, returnAfterSourceHandled);
+		}
+
+		public IntPtr DefaultMode()
+		{
+			return kCFRunLoopDefaultMode;
+		}
+
+		[DllImport("CoreFoundation.dll")]
+		public extern static IntPtr CFStringCreateWithCString(IntPtr allocator, string value, int encoding);
+
+		[DllImport("CoreFoundation.dll")]
+		public extern static void CFRunLoopRun();
+
+		[DllImport("CoreFoundation.dll")]
+		public extern static IntPtr CFRunLoopGetMain();
+
+		[DllImport("CoreFoundation.dll")]
+		public extern static IntPtr CFRunLoopGetCurrent();
+
+		[DllImport("CoreFoundation.dll")]
+		public extern static int CFRunLoopRunInMode(IntPtr mode, double seconds, int returnAfterSourceHandled);
+
+		public static IntPtr kCFRunLoopDefaultMode = CFStringCreateWithCString(IntPtr.Zero, "kCFRunLoopDefaultMode", 0);
+	}
+	
+	public class CoreFoundationRunLoop
+	{
+		static public ICoreFoundationRunLoop CoreImpl;
+
+		static CoreFoundationRunLoop()
+		{
+			if (Environment.OSVersion.Platform == PlatformID.MacOSX || Environment.OSVersion.Platform == PlatformID.Unix)
+			{
+				CoreImpl = new CoreFoundationRunLoopOSX();
+			}
+			else
+			{
+				List<string> PathBits = new List<string>();
+				PathBits.Add(Environment.GetEnvironmentVariable("Path"));
+
+				// Try to add the paths from the registry (they aren't always available on newer iTunes installs though)
+				object RegistrySupportDir = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Apple Inc.\Apple Application Support", "InstallDir", Environment.CurrentDirectory);
+				if (RegistrySupportDir != null)
+				{
+					DirectoryInfo ApplicationSupportDirectory = new DirectoryInfo(RegistrySupportDir.ToString());
+
+					if (ApplicationSupportDirectory.Exists)
+					{
+						PathBits.Add(ApplicationSupportDirectory.FullName);
+					}
+				}
+
+				// Add some guesses as well
+				DirectoryInfo AppleMobileDeviceSupport = new DirectoryInfo(Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFiles) + @"\Apple\Mobile Device Support");
+				if (AppleMobileDeviceSupport.Exists)
+				{
+					PathBits.Add(AppleMobileDeviceSupport.FullName);
+				}
+
+				DirectoryInfo AppleMobileDeviceSupportX86 = new DirectoryInfo(Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFilesX86) + @"\Apple\Mobile Device Support");
+				if ((AppleMobileDeviceSupport != AppleMobileDeviceSupportX86) && (AppleMobileDeviceSupportX86.Exists))
+				{
+					PathBits.Add(AppleMobileDeviceSupportX86.FullName);
+				}
+
+				// Set the path from all the individual bits
+				Environment.SetEnvironmentVariable("Path", string.Join(";", PathBits));
+				CoreImpl = new CoreFoundationRunLoopWin32();
+			}
+		}
+
+		public static int RunLoopRunInMode(IntPtr mode, double seconds, int returnAfterSourceHandled)
+		{
+			return CoreImpl.RunLoopInMode(mode, seconds, returnAfterSourceHandled);
+		}
+
+		public static IntPtr kCFRunLoopDefaultMode()
+		{
+			return CoreImpl.DefaultMode();
+		}
+	}
+
 	internal interface MobileDeviceImpl
 	{
 		int NotificationSubscribe(DeviceNotificationCallback DeviceCallbackHandle);
@@ -129,6 +256,8 @@ namespace Manzana
 		int StopSession(TypedPtr<AppleMobileDeviceConnection> device);
 		int StartHouseArrestService(TypedPtr<AppleMobileDeviceConnection> device, TypedPtr<CFString> bundleName, IntPtr unknown1, ref IntPtr handle, int unknown2);
 		int StartService(TypedPtr<AppleMobileDeviceConnection> device, TypedPtr<CFString> serviceName, ref IntPtr handle, IntPtr unknown);
+		int SecureStartService(TypedPtr<AppleMobileDeviceConnection> device, TypedPtr<CFString> serviceName, int flagsPassInZero, ref IntPtr handle);
+		string ServiceConnectionReceive(IntPtr handle);
 		int RestoreRegisterForDeviceNotifications(
 			DeviceRestoreNotificationCallback dfu_connect,
 			DeviceRestoreNotificationCallback recovery_connect,
@@ -262,6 +391,16 @@ namespace Manzana
 		public int StartService(TypedPtr<AppleMobileDeviceConnection> device, TypedPtr<CFString> serviceName, ref IntPtr handle, IntPtr unknown)
 		{
 			return AMDeviceMethods.StartService((IntPtr)device, (IntPtr)serviceName, ref handle, unknown);
+		}
+
+		public int SecureStartService(TypedPtr<AppleMobileDeviceConnection> device, TypedPtr<CFString> serviceName, int flagsPassInZero, ref IntPtr handle)
+		{
+			return AMDeviceMethods.SecureStartService((IntPtr)device, (IntPtr)serviceName, flagsPassInZero, ref handle);
+		}
+		
+		public string ServiceConnectionReceive(IntPtr handle)
+		{
+			return AMDeviceMethods.ServiceConnectionReceive(handle);
 		}
 
 		public int RestoreRegisterForDeviceNotifications(
@@ -503,6 +642,18 @@ namespace Manzana
 				return AMDeviceStartService((IntPtr)device, (IntPtr)serviceName, ref handle, unknown);
 			}
 
+			public static int SecureStartService(TypedPtr<AppleMobileDeviceConnection> device, TypedPtr<CFString> serviceName, int flagsPassInZero, ref IntPtr handle)
+			{
+				return AMDeviceSecureStartService((IntPtr)device, (IntPtr)serviceName, flagsPassInZero, ref handle);
+			}
+		
+			public static string ServiceConnectionReceive(IntPtr handle)
+			{
+				StringBuilder sb = new StringBuilder("", 1024);
+				AMDServiceConnectionReceive(handle, sb, sb.Capacity, 0);
+				return sb.ToString();
+			}
+			
 			public static int UninstallApplication(
 				TypedPtr<AppleMobileDeviceConnection> device,
 				TypedPtr<CFString> ApplicationIdentifier,
@@ -610,6 +761,12 @@ namespace Manzana
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AMDeviceStartService(IntPtr/*AppleMobileDeviceConnection*/ device, IntPtr/*CFString*/ serviceName, ref IntPtr handle, IntPtr unknown);
+
+			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
+			private extern static int AMDeviceSecureStartService(IntPtr/*AppleMobileDeviceConnection*/ device, IntPtr/*CFString*/ serviceName, int flagsPassInZero, ref IntPtr handle);
+
+			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
+			private extern static int AMDServiceConnectionReceive(IntPtr handle, StringBuilder buffer, int bufferLen, int unknown);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AMDeviceStartSession(IntPtr/*AppleMobileDeviceConnection*/ device);
@@ -1029,6 +1186,16 @@ namespace Manzana
 			return AMDeviceMethods.StartService((IntPtr)device, (IntPtr)serviceName, ref handle, unknown);
 		}
 
+		public int SecureStartService(TypedPtr<AppleMobileDeviceConnection> device, TypedPtr<CFString> serviceName, int flagsPassInZero, ref IntPtr handle)
+		{
+			return AMDeviceMethods.SecureStartService((IntPtr)device, (IntPtr)serviceName, flagsPassInZero, ref handle);
+		}
+		
+		public string ServiceConnectionReceive(IntPtr handle)
+		{
+			return AMDeviceMethods.ServiceConnectionReceive(handle);
+		}
+
 		public int RestoreRegisterForDeviceNotifications(
 			DeviceRestoreNotificationCallback dfu_connect,
 			DeviceRestoreNotificationCallback recovery_connect,
@@ -1268,6 +1435,18 @@ namespace Manzana
 				return AMDeviceStartService((IntPtr)device, (IntPtr)serviceName, ref handle, unknown);
 			}
 
+			public static int SecureStartService(TypedPtr<AppleMobileDeviceConnection> device, TypedPtr<CFString> serviceName, int flagsPassInZero, ref IntPtr handle)
+			{
+				return AMDeviceSecureStartService((IntPtr)device, (IntPtr)serviceName, flagsPassInZero, ref handle);
+			}
+		
+			public static string ServiceConnectionReceive(IntPtr handle)
+			{
+				StringBuilder sb = new StringBuilder(1024);
+				AMDServiceConnectionReceive(handle, sb, sb.Capacity, 0);
+				return sb.ToString();
+			}
+
 			public static int UninstallApplication(
 				TypedPtr<AppleMobileDeviceConnection> device,
 				TypedPtr<CFString> ApplicationIdentifier,
@@ -1375,6 +1554,12 @@ namespace Manzana
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AMDeviceStartService(IntPtr/*AppleMobileDeviceConnection*/ device, IntPtr/*CFString*/ serviceName, ref IntPtr handle, IntPtr unknown);
+
+			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
+			private extern static int AMDeviceSecureStartService(IntPtr/*AppleMobileDeviceConnection*/ device, IntPtr/*CFString*/ serviceName, int flagsPassInZero, ref IntPtr handle);
+
+			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
+			private extern static int AMDServiceConnectionReceive(IntPtr handle, StringBuilder buffer, int bufferLen, int unknown);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AMDeviceStartSession(IntPtr/*AppleMobileDeviceConnection*/ device);
@@ -1794,6 +1979,16 @@ namespace Manzana
 			return AMDeviceMethods.StartService((IntPtr)device, (IntPtr)serviceName, ref handle, unknown);
 		}
 
+		public int SecureStartService(TypedPtr<AppleMobileDeviceConnection> device, TypedPtr<CFString> serviceName, int flagsPassInZero, ref IntPtr handle)
+		{
+			return AMDeviceMethods.SecureStartService((IntPtr)device, (IntPtr)serviceName, flagsPassInZero, ref handle);
+		}
+		
+		public string ServiceConnectionReceive(IntPtr handle)
+		{
+			return AMDeviceMethods.ServiceConnectionReceive(handle);
+		}
+
 		public int RestoreRegisterForDeviceNotifications(
 			DeviceRestoreNotificationCallback dfu_connect,
 			DeviceRestoreNotificationCallback recovery_connect,
@@ -2033,6 +2228,18 @@ namespace Manzana
 				return AMDeviceStartService((IntPtr)device, (IntPtr)serviceName, ref handle, unknown);
 			}
 
+			public static int SecureStartService(TypedPtr<AppleMobileDeviceConnection> device, TypedPtr<CFString> serviceName, int flagsPassInZero, ref IntPtr handle)
+			{
+				return AMDeviceSecureStartService((IntPtr)device, (IntPtr)serviceName, flagsPassInZero, ref handle);
+			}
+		
+			public static string ServiceConnectionReceive(IntPtr handle)
+			{
+				StringBuilder sb = new StringBuilder(1024);
+				AMDServiceConnectionReceive(handle, sb, sb.Capacity, 0);
+				return sb.ToString();
+			}
+
 			public static int UninstallApplication(
 				TypedPtr<AppleMobileDeviceConnection> device,
 				TypedPtr<CFString> ApplicationIdentifier,
@@ -2140,6 +2347,12 @@ namespace Manzana
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AMDeviceStartService(IntPtr/*AppleMobileDeviceConnection*/ device, IntPtr/*CFString*/ serviceName, ref IntPtr handle, IntPtr unknown);
+
+			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
+			private extern static int AMDeviceSecureStartService(IntPtr/*AppleMobileDeviceConnection*/ device, IntPtr/*CFString*/ serviceName, int flagsPassInZero, ref IntPtr handle);
+
+			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
+			private extern static int AMDServiceConnectionReceive(IntPtr handle, StringBuilder buffer, int bufferLen, int unknown);
 
 			[DllImport(DLLName, CallingConvention = CallingConvention.Cdecl)]
 			private extern static int AMDeviceStartSession(IntPtr/*AppleMobileDeviceConnection*/ device);

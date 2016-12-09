@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraphSchema_K2.h"
 #include "AnimationTransitionSchema.generated.h"
+
+class UAnimStateNode;
+class UAnimStateTransitionNode;
+struct FAnimBlueprintDebugData;
 
 // This class is the schema for transition rule graphs in animation state machines
 UCLASS(MinimalAPI)

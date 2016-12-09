@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "VoicePackage.h"
+
+class Error;
 
 /**
  * Possible states related to voice capture

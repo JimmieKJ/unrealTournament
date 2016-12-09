@@ -4,8 +4,12 @@
 	Polygon.cpp: FPoly implementation (Editor polygons).
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/MemStack.h"
+#include "EngineDefines.h"
+#include "Engine/EngineTypes.h"
 #include "Model.h"
+#include "Engine/Brush.h"
 
 #include "GeomTools.h"
 #include "Engine/Polys.h"

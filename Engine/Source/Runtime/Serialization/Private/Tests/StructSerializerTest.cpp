@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SerializationPrivatePCH.h"
-#include "AutomationTest.h"
-#include "JsonStructDeserializerBackend.h"
-#include "JsonStructSerializerBackend.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "Misc/AutomationTest.h"
+#include "Templates/SubclassOf.h"
+#include "Backends/JsonStructDeserializerBackend.h"
+#include "Backends/JsonStructSerializerBackend.h"
 #include "StructDeserializer.h"
 #include "StructSerializer.h"
-#include "StructSerializerTestTypes.h"
+#include "Tests/StructSerializerTestTypes.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -74,6 +78,7 @@ namespace StructSerializerTest
 
 		// test maps
 		Test.TestTrue(TEXT("Maps.IntToStr must be the same before and after de-/serialization"), TestStruct.Maps.IntToStr.OrderIndependentCompareEqual(TestStruct2.Maps.IntToStr));
+		Test.TestTrue(TEXT("Maps.StrToStr must be the same before and after de-/serialization"), TestStruct.Maps.StrToStr.OrderIndependentCompareEqual(TestStruct2.Maps.StrToStr));
 		Test.TestTrue(TEXT("Maps.StrToVec must be the same before and after de-/serialization"), TestStruct.Maps.StrToVec.OrderIndependentCompareEqual(TestStruct2.Maps.StrToVec));
 	}
 }

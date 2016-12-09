@@ -1,26 +1,36 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "ScopedTransaction.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "BlueprintUtilities.h"
-
-#include "SCurveEditor.h"
-
 #include "STimelineEditor.h"
-#include "PackageTools.h"
-#include "AssetRegistryModule.h"
-#include "AssetToolsModule.h"
-#include "DlgPickAssetPath.h"
-#include "SInlineEditableTextBlock.h"
-#include "GenericCommands.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
 #include "Engine/TimelineTemplate.h"
+#include "Modules/ModuleManager.h"
+#include "SlateOptMacros.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SSlider.h"
+#include "EditorStyleSet.h"
 #include "Curves/CurveFloat.h"
 #include "Curves/CurveLinearColor.h"
 #include "Curves/CurveVector.h"
+#include "Editor.h"
+#include "K2Node_Timeline.h"
+#include "ScopedTransaction.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+
+
+#include "BlueprintEditor.h"
+#include "AssetRegistryModule.h"
+#include "IAssetTools.h"
+#include "AssetToolsModule.h"
+#include "Dialogs/DlgPickAssetPath.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "Engine/Selection.h"
 
 #define LOCTEXT_NAMESPACE "STimelineEditor"
@@ -1001,6 +1011,19 @@ void STimelineEditor::Construct(const FArguments& InArgs, TSharedPtr<FBlueprintE
 					.AddMetaData<FTagMetaData>(TEXT("TimelineEditor.Replicated"))
 				]
 			]
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(2.f)
+			[
+				// Ignore Time Dilation check box
+				SAssignNew(IgnoreTimeDilationCheckBox, SCheckBox)
+				.IsChecked( this, &STimelineEditor::IsIgnoreTimeDilationChecked )
+				.OnCheckStateChanged( this, &STimelineEditor::OnIgnoreTimeDilationChanged )
+				[
+					SNew(STextBlock) .Text( LOCTEXT( "IgnoreTimeDilation", "Ignore Time Dilation" ) )
+					.AddMetaData<FTagMetaData>(TEXT("TimelineEditor.IgnoreTimeDilation"))
+				]
+			]
 		]
 		+SVerticalBox::Slot()
 		.FillHeight(1)
@@ -1396,7 +1419,7 @@ void STimelineEditor::OnReplicatedChanged(ECheckBoxState NewType)
 	{
 		TimelineObj->bReplicated = (NewType == ECheckBoxState::Checked) ? true : false;
 
-		// Refresh the node that owns this timeline template to cache play status
+		// Refresh the node that owns this timeline template to cache replicated status
 		TSharedPtr<FBlueprintEditor> Kismet2 = Kismet2Ptr.Pin();
 		UBlueprint* Blueprint = Kismet2->GetBlueprintObj();
 		UK2Node_Timeline* TimelineNode = FBlueprintEditorUtils::FindNodeForTimeline(Blueprint, TimelineObj);
@@ -1417,6 +1440,29 @@ void STimelineEditor::OnUseLastKeyframeChanged(ECheckBoxState NewType)
 	if(TimelineObj)
 	{
 		TimelineObj->LengthMode = (NewType == ECheckBoxState::Checked) ? ETimelineLengthMode::TL_LastKeyFrame : ETimelineLengthMode::TL_TimelineLength;
+	}
+}
+
+
+ECheckBoxState STimelineEditor::IsIgnoreTimeDilationChecked() const
+{
+	return (TimelineObj && TimelineObj->bIgnoreTimeDilation) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void STimelineEditor::OnIgnoreTimeDilationChanged(ECheckBoxState NewType)
+{
+	if (TimelineObj)
+	{
+		TimelineObj->bIgnoreTimeDilation = (NewType == ECheckBoxState::Checked) ? true : false;
+
+		// Refresh the node that owns this timeline template to cache play status
+		TSharedPtr<FBlueprintEditor> Kismet2 = Kismet2Ptr.Pin();
+		UBlueprint* Blueprint = Kismet2->GetBlueprintObj();
+		UK2Node_Timeline* TimelineNode = FBlueprintEditorUtils::FindNodeForTimeline(Blueprint, TimelineObj);
+		if (TimelineNode)
+		{
+			TimelineNode->bIgnoreTimeDilation = TimelineObj->bIgnoreTimeDilation;
+		}
 	}
 }
 

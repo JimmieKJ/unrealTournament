@@ -2,11 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Components/PrimitiveComponent.h"
-#include "PrimitiveSceneProxy.h"
 #include "SplineComponent.generated.h"
 
-
+class FPrimitiveSceneProxy;
 
 /** Permitted spline point types for SplineComponent. */
 UENUM()

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -527,6 +527,19 @@ DirectFB_AdjustWindowSurface(SDL_Window * window)
    }
   error:
     return;
+}
+
+int
+DirectFB_SetWindowOpacity(_THIS, SDL_Window * window, float opacity)
+{
+    const Uint8 alpha = (Uint8) ((unsigned int) (opacity * 255.0f));
+    SDL_DFB_WINDOWDATA(window);
+    SDL_DFB_CHECKERR(windata->dfbwin->SetOpacity(windata->dfbwin, alpha));
+    windata->opacity = alpha;
+    return 0;
+
+error:
+    return -1;
 }
 
 #endif /* SDL_VIDEO_DRIVER_DIRECTFB */

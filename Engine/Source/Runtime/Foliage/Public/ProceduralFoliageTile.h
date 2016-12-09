@@ -2,15 +2,18 @@
 
 #pragma once
 
-#include "ProceduralFoliageBroadphase.h"
-#include "ProceduralFoliageInstance.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Math/RandomStream.h"
 #include "InstancedFoliage.h"
+#include "ProceduralFoliageInstance.h"
+#include "ProceduralFoliageBroadphase.h"
 #include "ProceduralFoliageTile.generated.h"
 
-struct FProceduralFoliageInstance;
-struct FProceduralFoliageOverlap;
-class UProceduralFoliageSpawner;
 class UFoliageType_InstancedStaticMesh;
+class UProceduralFoliageSpawner;
+struct FBodyInstance;
 
 /**
  *	Procedurally determines where to spawn foliage meshes within a discrete area.
@@ -63,7 +66,7 @@ class FOLIAGE_API UProceduralFoliageTile : public UObject
 	void InitSimulation(const UProceduralFoliageSpawner* InFoliageSpawner, const int32 InRandomSeed);
 
 	// UObject interface
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	virtual void BeginDestroy() override;
 
 private:

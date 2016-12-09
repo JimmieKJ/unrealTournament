@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "SequenceRecorderBlueprintLibrary.generated.h"
+
+class AActor;
 
 UCLASS()
 class SEQUENCERECORDER_API USequenceRecorderBlueprintLibrary : public UBlueprintFunctionLibrary

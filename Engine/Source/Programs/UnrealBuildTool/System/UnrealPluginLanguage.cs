@@ -60,9 +60,11 @@ namespace UnrealBuildTool
 	 *	<setInt result="" value=""/>
 	 *	<setString result="" value=""/>
 	 *	<setElement result="" value=""/>
+	 *	<setElement result="" value="" text=""/>
 	 *	<setElement result="" xml=""/>
 	 *	
 	 * <setElement> with value creates an empty XML element with the tag set to value.
+	 * <setElement> with value and text creates an XML element with tag set to value of unparsed text.
 	 * <setElement> with xml will parse the XML provided.  Remember to escape any special characters!
 	 * 
 	 * Variables may also be set from a property in an ini file:
@@ -222,6 +224,7 @@ namespace UnrealBuildTool
 	 * Nodes for inserting text into the section are as follows:
 	 * 
 	 *	<insert> body </insert>
+	 *	<insertNewline/>
 	 *	<insertValue value=""/>
 	 *	<loadLibrary name="" failmsg=""/>
 	 *	
@@ -1479,6 +1482,10 @@ namespace UnrealBuildTool
 						}
 						break;
 
+					case "insertNewline":
+						GlobalContext.StringVariables["Output"] += "\n";
+						break;
+
 					case "insertValue":
 						{
 							string Value = GetAttribute(CurrentContext, Node, "value");
@@ -1992,7 +1999,12 @@ namespace UnrealBuildTool
 								ConfigCacheIni_UPL ConfigIni = GetConfigCacheIni_UPL(Ini);
 								if (ConfigIni != null)
 								{
-									ConfigIni.GetString(Section, Property, out Value);
+									if (!ConfigIni.GetString(Section, Property, out Value))
+									{
+										// If the string was not found in the config, Value will have been set to an empty string
+										// Set it back to the DefaultVal
+										Value = DefaultVal;
+									}
 								}
 								if (Result == "Output")
 								{
@@ -2076,12 +2088,18 @@ namespace UnrealBuildTool
 						{
 							string Result = GetAttribute(CurrentContext, Node, "result");
 							string Value = GetAttribute(CurrentContext, Node, "value", true, false);
+							string Text = GetAttribute(CurrentContext, Node, "text", true, false);
 							string Parse = GetAttribute(CurrentContext, Node, "xml", true, false);
 							if (Result != null)
 							{
 								if (Value != null)
 								{
-									CurrentContext.ElementVariables[Result] = new XElement(Value);
+									XElement NewElement = new XElement(Value);
+									if (Text != null)
+									{
+										NewElement.Value = Text;
+									}
+									CurrentContext.ElementVariables[Result] = NewElement;
 								}
 								else if (Parse != null)
 								{
@@ -2107,11 +2125,12 @@ namespace UnrealBuildTool
 			return GlobalContext.StringVariables["Output"];
 		}
 
-		public void Init(List<string> Architectures, bool bDistribution, string EngineDirectory, string BuildDirectory)
+		public void Init(List<string> Architectures, bool bDistribution, string EngineDirectory, string BuildDirectory, string ProjectDirectory)
 		{
 			GlobalContext.BoolVariables["Distribution"] = bDistribution;
 			GlobalContext.StringVariables["EngineDir"] = EngineDirectory;
 			GlobalContext.StringVariables["BuildDir"] = BuildDirectory;
+			GlobalContext.StringVariables["ProjectDir"] = ProjectDirectory;
 
 			foreach (string Arch in Architectures)
 			{

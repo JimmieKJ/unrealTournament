@@ -2,11 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
 #include "MediaPlaylist.generated.h"
 
-
 class UMediaSource;
-
 
 /**
  * Implements a media play list.

@@ -1,15 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
-#include "CoreMisc.h"
+#include "CoreMinimal.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
+#include "Misc/ConfigCacheIni.h"
 #include "ImageCore.h"
-#include "ImageWrapper.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
-#include "TargetPlatform.h"
+#include "Interfaces/IImageWrapperModule.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/ITextureFormat.h"
+#include "Interfaces/ITextureFormatModule.h"
 #include "TextureCompressorModule.h"
 #include "PixelFormat.h"
-#include "GenericPlatformProcess.h"
 
 #if PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_MAC
 	#define SUPPORTS_ISPC_ASTC	1

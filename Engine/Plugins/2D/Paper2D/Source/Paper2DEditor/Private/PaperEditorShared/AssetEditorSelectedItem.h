@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HitProxies.h"
+#include "UnrealWidget.h"
+
 //////////////////////////////////////////////////////////////////////////
 // FSelectedItem
 

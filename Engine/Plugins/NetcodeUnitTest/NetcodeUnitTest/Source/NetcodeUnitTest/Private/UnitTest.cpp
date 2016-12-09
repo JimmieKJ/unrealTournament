@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
-
 #include "UnitTest.h"
+#include "Containers/ArrayBuilder.h"
+#include "Misc/OutputDeviceHelper.h"
+#include "Misc/FeedbackContext.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+
 #include "UnitTestManager.h"
 
-#include "SLogWidget.h"
-#include "SLogWindow.h"
+#include "UI/SLogWidget.h"
+#include "UI/SLogWindow.h"
 
 
 FUnitTestEnvironment* UUnitTest::UnitEnv = NULL;

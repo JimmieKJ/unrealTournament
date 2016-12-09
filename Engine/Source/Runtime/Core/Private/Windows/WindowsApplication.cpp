@@ -1,15 +1,22 @@
 ﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "WindowsApplication.h"
-#include "WindowsWindow.h"
-#include "WindowsCursor.h"
-#include "GenericApplicationMessageHandler.h"
+#include "Windows/WindowsApplication.h"
+#include "Containers/StringConv.h"
+#include "Templates/ScopedPointer.h"
+#include "CoreGlobals.h"
+#include "Internationalization/Text.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
+#include "Windows/WindowsWindow.h"
+#include "Windows/WindowsCursor.h"
 #include "XInputInterface.h"
+#include "Features/IModularFeatures.h"
 #include "IInputDeviceModule.h"
 #include "IInputDevice.h"
 #include "IHapticDevice.h"
 #include "HAL/ThreadHeartBeat.h"
+#include "UniquePtr.h"
 
 #if WITH_EDITOR
 #include "ModuleManager.h"
@@ -17,11 +24,10 @@
 #endif
 
 // Allow Windows Platform types in the entire file.
-#include "AllowWindowsPlatformTypes.h"
-#include "Ole2.h"
-#include <shlobj.h>
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include <ShlObj.h>
 #include <objbase.h>
-#include <SetupApi.h>
+#include <SetupAPI.h>
 #include <devguid.h>
 #include <dwmapi.h>
 #include <cfgmgr32.h>
@@ -34,6 +40,10 @@
 // This might not be defined by Windows when maintaining backwards-compatibility to pre-Vista builds
 #ifndef WM_MOUSEHWHEEL
 #define WM_MOUSEHWHEEL                  0x020E
+#endif
+
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED                   0x02E0
 #endif
 
 DEFINE_LOG_CATEGORY(LogWindowsDesktop);
@@ -72,6 +82,8 @@ FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON
 	// This is a hack.  A more permanent solution is to make our slow tasks not block the editor for so long
 	// that message pumping doesn't occur (which causes these messages).
 	::DisableProcessWindowsGhosting();
+
+	FWindowsPlatformMisc::SetHighDPIMode();
 
 	// Register the Win32 class for Slate windows and assign the application instance and icon
 	const bool bClassRegistered = RegisterClass( InstanceHandle, IconHandle );
@@ -536,11 +548,36 @@ inline bool GetSizeForDevID(const FString& TargetDevID, int32& Width, int32& Hei
 	return bRes;
 }
 
+static BOOL CALLBACK MonitorEnumProc(HMONITOR Monitor, HDC MonitorDC, LPRECT Rect, LPARAM UserData)
+{
+	MONITORINFOEX MonitorInfoEx;
+	MonitorInfoEx.cbSize = sizeof(MonitorInfoEx);
+	GetMonitorInfo(Monitor, &MonitorInfoEx);
+
+	FMonitorInfo* Info = (FMonitorInfo*)UserData;
+	if (Info->Name == MonitorInfoEx.szDevice)
+	{
+		Info->DisplayRect.Bottom = MonitorInfoEx.rcMonitor.bottom;
+		Info->DisplayRect.Left = MonitorInfoEx.rcMonitor.left;
+		Info->DisplayRect.Right = MonitorInfoEx.rcMonitor.right;
+		Info->DisplayRect.Top = MonitorInfoEx.rcMonitor.top;
+
+		Info->WorkArea.Bottom = MonitorInfoEx.rcWork.bottom;
+		Info->WorkArea.Left = MonitorInfoEx.rcWork.left;
+		Info->WorkArea.Right = MonitorInfoEx.rcWork.right;
+		Info->WorkArea.Top = MonitorInfoEx.rcWork.top;
+
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 /**
  * Extract hardware information about connect monitors
  * @param OutMonitorInfo - Reference to an array for holding records about each detected monitor
  **/
-void GetMonitorInfo(TArray<FMonitorInfo>& OutMonitorInfo)
+static void GetMonitorsInfo(TArray<FMonitorInfo>& OutMonitorInfo)
 {
 	DISPLAY_DEVICE DisplayDevice;
 	DisplayDevice.cb = sizeof(DisplayDevice);
@@ -565,6 +602,9 @@ void GetMonitorInfo(TArray<FMonitorInfo>& OutMonitorInfo)
 					!(Monitor.StateFlags & DISPLAY_DEVICE_MIRRORING_DRIVER))
 				{
 					FMonitorInfo Info;
+
+					Info.Name = DisplayDevice.DeviceName;
+					EnumDisplayMonitors(nullptr, nullptr, MonitorEnumProc, (LPARAM)&Info);
 
 					Info.ID = FString::Printf(TEXT("%s"), Monitor.DeviceID);
 					Info.Name = Info.ID.Mid (8, Info.ID.Find (TEXT("\\"), ESearchCase::CaseSensitive, ESearchDir::FromStart, 9) - 8);
@@ -619,7 +659,7 @@ void FDisplayMetrics::GetDisplayMetrics(struct FDisplayMetrics& OutDisplayMetric
 	OutDisplayMetrics.VirtualDisplayRect.Bottom = OutDisplayMetrics.VirtualDisplayRect.Top + ::GetSystemMetrics( SM_CYVIRTUALSCREEN );
 
 	// Get connected monitor information
-	GetMonitorInfo(OutDisplayMetrics.MonitorInfo);
+	GetMonitorsInfo(OutDisplayMetrics.MonitorInfo);
 
 	// Apply the debug safe zones
 	OutDisplayMetrics.ApplyDefaultSafeZones();
@@ -733,6 +773,23 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 			return Result;
 		}();
 
+		bool bMessageExternallyHandled = false;
+		int32 ExternalMessageHandlerResult = 0;
+
+		// give others a chance to handle messages
+		for (IWindowsMessageHandler* Handler : MessageHandlers)
+		{
+			int32 HandlerResult = 0;
+			if (Handler->ProcessMessage(hwnd, msg, wParam, lParam, HandlerResult))
+			{
+				if (!bMessageExternallyHandled)
+				{
+					bMessageExternallyHandled = true;
+					ExternalMessageHandlerResult = HandlerResult;
+				}
+			}
+		}
+
 		switch(msg)
 		{
 		case WM_INPUTLANGCHANGEREQUEST:
@@ -801,6 +858,9 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 		case WM_NCMOUSEMOVE:
 		case WM_MOUSEMOVE:
 		case WM_MOUSEWHEEL:
+#if WINVER >= 0x0601
+		case WM_TOUCH:
+#endif
 			{
 				DeferMessage( CurrentNativeEventWindowPtr, hwnd, msg, wParam, lParam );
 				// Handled
@@ -829,11 +889,11 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 				uint32 Size = 0;
 				::GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &Size, sizeof(RAWINPUTHEADER));
 
-				TScopedPointer<uint8> RawData(new uint8[Size]);
+				TUniquePtr<uint8[]> RawData = MakeUnique<uint8[]>(Size);
 
-				if (::GetRawInputData((HRAWINPUT)lParam, RID_INPUT, RawData.GetOwnedPointer(), &Size, sizeof(RAWINPUTHEADER)) == Size )
+				if (::GetRawInputData((HRAWINPUT)lParam, RID_INPUT, RawData.Get(), &Size, sizeof(RAWINPUTHEADER)) == Size )
 				{
-					const RAWINPUT* const Raw = (const RAWINPUT* const)RawData.GetOwnedPointer();
+					const RAWINPUT* const Raw = (const RAWINPUT* const)RawData.Get();
 
 					if (Raw->header.dwType == RIM_TYPEMOUSE) 
 					{
@@ -921,6 +981,14 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 		case WM_SIZE:
 			{
 				DeferMessage( CurrentNativeEventWindowPtr, hwnd, msg, wParam, lParam );
+
+				const bool bWasMaximized = (wParam == SIZE_MAXIMIZED);
+				const bool bWasRestored = (wParam == SIZE_RESTORED);
+
+				if (bWasMaximized || bWasRestored)
+				{
+					MessageHandler->OnWindowAction(CurrentNativeEventWindow, bWasMaximized ? EWindowAction::Maximize : EWindowAction::Restore);
+				}
 
 				return 0;
 			}
@@ -1192,7 +1260,7 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 					break;
 				case SC_CLOSE:
 					{
-						DeferMessage(CurrentNativeEventWindowPtr, hwnd, WM_CLOSE, 16,0);
+						DeferMessage(CurrentNativeEventWindowPtr, hwnd, WM_CLOSE, 0, 0);
 						return 1;
 					}
 					break;
@@ -1287,6 +1355,10 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 			}
 			break;
 
+		case WM_DPICHANGED:
+			DeferMessage(CurrentNativeEventWindowPtr, hwnd, msg, wParam, lParam);
+			break;
+
 		case WM_GETDLGCODE:
 			{
 				// Slate wants all keys and messages.
@@ -1302,19 +1374,12 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 				XInput->SetNeedsControllerStateUpdate(); 
 				QueryConnectedMice();
 			}
+			break;
 
 		default:
+			if (bMessageExternallyHandled)
 			{
-				int32 HandlerResult = 0;
-
-				// give others a chance to handle unprocessed messages
-				for (auto Handler : MessageHandlers)
-				{
-					if (Handler->ProcessMessage(hwnd, msg, wParam, lParam, HandlerResult))
-					{
-						return HandlerResult;
-					}
-				}
+				return ExternalMessageHandlerResult;
 			}
 		}
 	}
@@ -1702,6 +1767,66 @@ int32 FWindowsApplication::ProcessDeferredMessage( const FDeferredWindowsMessage
 			}
 			break;
 
+#if WINVER >= 0x0601
+		case WM_TOUCH:
+			{
+				UINT InputCount = LOWORD( wParam );
+				if ( InputCount > 0 )
+				{
+					TUniquePtr<TOUCHINPUT[]> Inputs = MakeUnique<TOUCHINPUT[]>( InputCount );
+					if ( GetTouchInputInfo( (HTOUCHINPUT)lParam, InputCount, Inputs.Get(), sizeof(TOUCHINPUT) ) )
+					{
+						for ( uint32 i = 0; i < InputCount; i++ )
+						{
+							TOUCHINPUT Input = Inputs[i];
+							FVector2D Location( Input.x / 100.0f, Input.y / 100.0f );
+							if ( Input.dwFlags & TOUCHEVENTF_DOWN )
+							{
+								int32 TouchIndex = GetTouchIndexForID( Input.dwID );
+								if (TouchIndex < 0)
+								{
+									TouchIndex = GetFirstFreeTouchIndex();
+									if (TouchIndex >= 0)
+									{
+										TouchIDs[TouchIndex] = TOptional<int32>( Input.dwID );
+										MessageHandler->OnTouchStarted( CurrentNativeEventWindowPtr, Location, TouchIndex + 1, 0 );
+									}
+									else
+									{
+										// TODO: Error handling for more than 10 touches?
+									}
+								}
+							}
+							else if ( Input.dwFlags & TOUCHEVENTF_MOVE )
+							{
+								int32 TouchIndex = GetTouchIndexForID( Input.dwID );
+								if ( TouchIndex >= 0 )
+								{
+									MessageHandler->OnTouchMoved( Location, TouchIndex + 1, 0 );
+								}
+							}
+							else if ( Input.dwFlags & TOUCHEVENTF_UP )
+							{
+								int32 TouchIndex = GetTouchIndexForID( Input.dwID );
+								if ( TouchIndex >= 0 )
+								{
+									TouchIDs[TouchIndex] = TOptional<int32>();
+									MessageHandler->OnTouchEnded( Location, TouchIndex + 1, 0 );
+								}
+								else
+								{
+									// TODO: Error handling.
+								}
+							}
+						}
+						CloseTouchInputHandle( (HTOUCHINPUT)lParam );
+						return 0;
+					}
+				}
+				break;
+			}
+#endif
+
 			// Window focus and activation
 		case WM_MOUSEACTIVATE:
 			{
@@ -1867,6 +1992,19 @@ int32 FWindowsApplication::ProcessDeferredMessage( const FDeferredWindowsMessage
 			}
 			break;
 #endif
+
+		case WM_DPICHANGED:
+			{
+				if( CurrentNativeEventWindowPtr.IsValid() )
+				{
+					CurrentNativeEventWindowPtr->SetDPIScaleFactor(LOWORD(wParam) / 96.0f);
+
+
+					LPRECT NewRect = (LPRECT)lParam;
+					SetWindowPos(hwnd, nullptr, NewRect->left, NewRect->top, NewRect->right - NewRect->left, NewRect->bottom - NewRect->top, SWP_NOZORDER | SWP_NOACTIVATE);
+				}
+			}
+			break;
 		}
 	}
 
@@ -2247,19 +2385,19 @@ void FWindowsApplication::QueryConnectedMice()
 	for (const auto& Device : DeviceList)
 	{
 		UINT NameLen = 0;
-		TAutoPtr<char> Name;
+		TUniquePtr<char[]> Name;
 		if (Device.dwType != RIM_TYPEMOUSE)
 			continue;
 		//Force the use of ANSI versions of these calls
 		if (GetRawInputDeviceInfoA(Device.hDevice, RIDI_DEVICENAME, nullptr, &NameLen) == static_cast<UINT>(-1))
 			continue;
 
-		Name.Reset(new char[NameLen+1]);
-		if (GetRawInputDeviceInfoA(Device.hDevice, RIDI_DEVICENAME, Name.GetOwnedPointer(), &NameLen) == static_cast<UINT>(-1))
+		Name = MakeUnique<char[]>(NameLen+1);
+		if (GetRawInputDeviceInfoA(Device.hDevice, RIDI_DEVICENAME, Name.Get(), &NameLen) == static_cast<UINT>(-1))
 			continue;
 
 		Name[NameLen] = 0;
-		FString WName = ANSI_TO_TCHAR(Name);
+		FString WName = ANSI_TO_TCHAR(Name.Get());
 		WName.ReplaceInline(TEXT("#"), TEXT("\\"), ESearchCase::CaseSensitive);
 		/*
 		 * Name XP starts with \??\, vista+ starts \\?\ 
@@ -2276,6 +2414,32 @@ void FWindowsApplication::QueryConnectedMice()
 
 	bIsMouseAttached = MouseCount > 0;
 }
+
+#if WINVER >= 0x0601
+uint32 FWindowsApplication::GetTouchIndexForID( int32 TouchID )
+{
+	for ( int i = 0; i < MaxTouches; i++ )
+	{
+		if ( TouchIDs[i].IsSet() && TouchIDs[i].GetValue() == TouchID )
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
+uint32 FWindowsApplication::GetFirstFreeTouchIndex()
+{
+	for ( int i = 0; i < MaxTouches; i++ )
+	{
+		if ( TouchIDs[i].IsSet() == false )
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+#endif
 
 void FTaskbarList::Initialize()
 {
@@ -2342,4 +2506,4 @@ TSharedRef<FTaskbarList> FTaskbarList::Create()
 // Restore the windowsx.h macro for IsMaximized
 #pragma pop_macro("IsMaximized")
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

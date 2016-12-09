@@ -1,6 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UndoHistoryPrivatePCH.h"
+#include "Widgets/SUndoHistory.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/SUndoHistoryTableRow.h"
 
 
 #define LOCTEXT_NAMESPACE "SUndoHistory"

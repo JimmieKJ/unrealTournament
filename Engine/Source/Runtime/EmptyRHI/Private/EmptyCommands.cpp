@@ -425,3 +425,15 @@ void FEmptyDynamicRHI::RHIExecuteCommandList(FRHICommandList* CmdList)
 void FEmptyDynamicRHI::RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth)
 {
 }
+
+void FEmptyDynamicRHI::RHIClearColor(const FLinearColor& Color, FIntRect ExcludeRect)
+{
+}
+
+void FEmptyDynamicRHI::RHIClearDepthStencilTexture(FTextureRHIParamRef Texture, EClearDepthStencil ClearDepthStencil, float Depth, uint32 Stencil, FIntRect ExcludeRect)
+{
+}
+
+void FEmptyDynamicRHI::RHIClearColor(int32 NumClearColors, const FLinearColor* ColorArray, FIntRect ExcludeRect)
+{
+}

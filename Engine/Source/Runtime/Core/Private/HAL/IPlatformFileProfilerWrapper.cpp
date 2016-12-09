@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "IPlatformFileProfilerWrapper.h"
+#include "HAL/IPlatformFileProfilerWrapper.h"
+#include "Stats/Stats.h"
+#include "Containers/Ticker.h"
 
 #if !UE_BUILD_SHIPPING
 

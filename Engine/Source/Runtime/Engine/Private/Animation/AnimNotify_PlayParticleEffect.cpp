@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Animation/AnimNotifies/AnimNotify_PlayParticleEffect.h"
-#include "Animation/AnimSequenceBase.h"
-#include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystem.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "ParticleHelper.h"
+#include "Kismet/GameplayStatics.h"
+#include "Animation/AnimSequenceBase.h"
 
 /////////////////////////////////////////////////////
 // UAnimNotify_PlayParticleEffect

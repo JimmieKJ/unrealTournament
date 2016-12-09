@@ -40,8 +40,7 @@ SeparableSSS.cpp: Computing the kernel for the Separable Screen Space Subsurface
  */
 
 
-#include "EnginePrivate.h"
-#include "SeparableSSS.h"
+#include "Rendering/SeparableSSS.h"
 
 // helper function for ComputeMirroredSSSKernel
 inline FVector SeparableSSS_Gaussian(float variance, float r, FLinearColor FalloffColor)

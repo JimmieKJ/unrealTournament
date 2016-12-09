@@ -2,12 +2,13 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "Toolkits/IToolkit.h"	// For EAssetEditorMode
-#include "Toolkits/AssetEditorToolkit.h" // For FExtensibilityManager
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
+#include "Toolkits/AssetEditorToolkit.h"
 #include "ICurveAssetEditor.h"
+#include "Modules/ModuleInterface.h"
 
-class IDataTableEditor;
+class UCurveBase;
 
 /** DataTable Editor module */
 class FCurveAssetEditorModule : public IModuleInterface,

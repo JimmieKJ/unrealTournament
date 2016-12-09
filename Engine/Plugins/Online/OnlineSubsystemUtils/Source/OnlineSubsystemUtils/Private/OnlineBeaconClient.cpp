@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "OnlineBeaconClient.h"
-#include "OnlineBeaconHost.h"
+#include "TimerManager.h"
+#include "GameFramework/OnlineReplStructs.h"
 #include "OnlineBeaconHostObject.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "PacketHandlers/StatelessConnectHandlerComponent.h"
+#include "Engine/PackageMapClient.h"
+#include "Engine/LocalPlayer.h"
 #include "Net/DataChannel.h"
-#include "Net/UnrealNetwork.h"
-#include "NetworkVersion.h"
+#include "Misc/NetworkVersion.h"
 
 #define BEACON_RPC_TIMEOUT 15.0f
 

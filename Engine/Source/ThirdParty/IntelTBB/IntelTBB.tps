@@ -5,24 +5,11 @@
   <Date>2016-06-10T12:21:41.3359453-04:00</Date>
   <Function>Used in the engine as an optimised 64 bit memory allocator</Function>
   <Justification>Used in the engine as an optimised 64 bit memory allocator</Justification>
-  <Platforms>
-    <Platform>PC</Platform>
-  </Platforms>
-  <Products>
-    <Product>UE3</Product>
-    <Product>UDK4</Product>
-    <Product>UE4</Product>
-  </Products>
-  <TpsType>Source Code</TpsType>
-  <Eula>Custom license with Intel</Eula>
+  <Eula>Custom agreement between Epic/Intel</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
   <LicenseFolder>None</LicenseFolder>
 </TpsData>

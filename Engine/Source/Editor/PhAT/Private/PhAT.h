@@ -2,13 +2,31 @@
 
 #pragma once
 
-#include "Toolkits/AssetEditorToolkit.h"
-#include "PhATSharedData.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Widgets/SWidget.h"
+#include "UObject/GCObject.h"
+#include "Textures/SlateIcon.h"
+#include "Editor/UnrealEdTypes.h"
+#include "UnrealWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "TickableEditorObject.h"
 #include "EditorUndoClient.h"
+#include "Toolkits/IToolkitHost.h"
+#include "IPhAT.h"
+#include "Editor/PhAT/Private/PhATSharedData.h"
 #include "PhysicsEngine/BodySetupEnums.h"
 
-class SPhATPreviewViewport;
+class FAssetData;
 class FPhATTreeInfo;
+class IDetailsView;
+class SComboButton;
+class SDockableTab;
+class SPhATPreviewViewport;
+class UAnimationAsset;
+class UPhysicsAsset;
 
 typedef TSharedPtr<FPhATTreeInfo> FTreeElemPtr;
 
@@ -145,7 +163,7 @@ private:
 	bool ShouldFilterAssetBasedOnSkeleton(const FAssetData& AssetData);
 
 	/** Constraint editing helper methods */
-	void SnapConstraintToBone(int32 ConstraintIndex, const FTransform& WParentFrame);
+	void SnapConstraintToBone(const FPhATSharedData::FSelection* Constraint);
 	void CreateOrConvertConstraint(EPhATConstraintType ConstraintType);
 	
 	/** Collision editing helper methods */
@@ -158,6 +176,7 @@ private:
 	bool IsEditBodyMode() const;
 	bool IsSelectedEditBodyMode() const;
 	bool IsEditConstraintMode() const;
+	bool CanEditConstraintProperties() const;
 	bool IsSelectedEditConstraintMode() const;
 	bool CanStartSimulation() const;
 	void OnChangeDefaultMesh();

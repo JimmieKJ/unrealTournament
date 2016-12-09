@@ -2,10 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Types/SlateStructs.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "Toolkits/IToolkitHost.h"
 #include "ICurveTableEditor.h"
-#include "Toolkits/AssetEditorToolkit.h"
-
-class UCurveTable;
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "CurveTableEditorHandle.h"
 
 struct FCurveTableEditorColumnHeaderData
 {
@@ -29,6 +34,19 @@ struct FCurveTableEditorRowListViewData
 
 	/** Array corresponding to each cell in this row */
 	TArray<FText> CellData;
+
+	/** Handle to the row */
+	FCurveTableEditorHandle RowHandle;
+};
+
+/** The manner in which curve tables are displayed */
+enum class ECurveTableViewMode : int32
+{
+	/** Displays values in a spreadsheet-like table */
+	Grid,
+
+	/** Displays values as curves */
+	CurveTable,
 };
 
 typedef TSharedPtr<FCurveTableEditorColumnHeaderData> FCurveTableEditorColumnHeaderDataPtr;
@@ -39,6 +57,7 @@ class FCurveTableEditor :
 	public ICurveTableEditor
 {
 	friend class SCurveTableListViewRow;
+	friend class SCurveTableCurveViewRow;
 
 public:
 	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
@@ -68,7 +87,16 @@ public:
 	/**	Spawns the tab with the curve table inside */
 	TSharedRef<SDockTab> SpawnTab_CurveTable( const FSpawnTabArgs& Args );
 
+	/** Get the mode that we are displaying data in */
+	ECurveTableViewMode GetViewMode() const { return ViewMode; }
+
 private:
+
+	/** Add extra menu items */
+	void ExtendMenu();
+
+	/** Bind commands to delegates */
+	void BindCommands();
 
 	/** Update the cached state of this curve table, and then reflect that new state in the UI */
 	void RefreshCachedCurveTable();
@@ -85,6 +113,9 @@ private:
 	/** Make the widget for a cell entry in the data table row list view */
 	TSharedRef<SWidget> MakeCellWidget(FCurveTableEditorRowListViewDataPtr InRowDataPtr, const int32 InRowIndex, const FName& InColumnId);
 
+	/** Make the curve widget for a row entry in the data table row list view */
+	TSharedRef<SWidget> MakeCurveWidget(FCurveTableEditorRowListViewDataPtr InRowDataPtr, const int32 InRowIndex);
+
 	/** Called when the row names list is scrolled - used to keep the two list views in sync */
 	void OnRowNamesListViewScrolled(double InScrollOffset);
 
@@ -96,6 +127,18 @@ private:
 
 	/** Called when an asset has finished being imported */
 	void OnPostReimport(UObject* InObject, bool);
+
+	/** Control control visibility based on view mode */
+	EVisibility GetGridViewControlsVisibility() const;
+
+	/** Control control visibility based on view mode */
+	EVisibility GetCurveViewControlsVisibility() const;
+
+	/** Toggle between curve & grid view */
+	void ToggleViewMode();
+
+	/** Get whether the curve view checkbox should be toggled on */
+	bool IsCurveViewChecked() const;
 
 	/** Array of the columns that are available for editing */
 	TArray<FCurveTableEditorColumnHeaderDataPtr> AvailableColumns;
@@ -112,6 +155,9 @@ private:
 	/** List view responsible for showing the rows from AvailableColumns */
 	TSharedPtr<SListView<FCurveTableEditorRowListViewDataPtr>> CellsListView;
 
+	/** Menu extender */
+	TSharedPtr<FExtender> MenuExtender;
+
 	/** Width of the row name column */
 	float RowNameColumnWidth;
 
@@ -120,4 +166,7 @@ private:
 
 	/** The column id for the row name list view column */
 	static const FName RowNameColumnId;
+
+	/** The manner in which curve tables are displayed */
+	ECurveTableViewMode ViewMode;
 };

@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "SGraphPin.h"
-#include "SGraphPinString.h"
-#include "SGraphPinNum.h"
-#include "SGraphPinInteger.h"
-#include "DefaultValueHelper.h"
-#include "Editor/UnrealEd/Public/ScopedTransaction.h"
+#include "KismetPins/SGraphPinInteger.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SComboButton.h"
+#include "EdGraphSchema_K2.h"
+#include "Misc/DefaultValueHelper.h"
+#include "ScopedTransaction.h"
 
 void SGraphPinInteger::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {

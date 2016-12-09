@@ -2,9 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "GameFramework/Actor.h"
+#include "Curves/KeyHandle.h"
+#include "MovieSceneSequenceID.h"
 #include "MovieSceneSection.h"
+#include "Evaluation/MovieSceneSectionParameters.h"
 #include "MovieSceneSubSection.generated.h"
-
 
 class UMovieSceneSequence;
 
@@ -33,6 +39,16 @@ public:
 	 */
 	UMovieSceneSequence* GetSequence() const;
 
+	/**
+	 * Get the path name to this sub section from the outer moviescene
+	 */
+	FString GetPathNameInMovieScene() const;
+
+	/**
+	 * Get this sub section's sequence ID
+	 */
+	FMovieSceneSequenceID GetSequenceID() const;
+
 public:
 
 	/**
@@ -54,6 +70,8 @@ public:
 
 	/** Check if we are primed for recording */
 	static bool IsSetAsRecording();
+
+	virtual void PostLoad() override;
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -103,17 +121,19 @@ public:
 
 public:
 
-	/** Number of seconds to skip at the beginning of the sub-sequence. */
-	UPROPERTY(EditAnywhere, Category="Clipping")
-	float StartOffset;
+	UPROPERTY(EditAnywhere, Category="General", meta=(ShowOnlyInnerProperties))
+	FMovieSceneSectionParameters Parameters;
 
-	/** Playback time scaling factor. */
-	UPROPERTY(EditAnywhere, Category="Timing")
-	float TimeScale;
+private:
 
-	/** Preroll time. */
-	UPROPERTY(EditAnywhere, Category="Timing")
-	float PrerollTime;
+	UPROPERTY()
+	float StartOffset_DEPRECATED;
+
+	UPROPERTY()
+	float TimeScale_DEPRECATED;
+
+	UPROPERTY()
+	float PrerollTime_DEPRECATED;
 
 protected:
 

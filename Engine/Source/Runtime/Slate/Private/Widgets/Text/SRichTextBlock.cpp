@@ -1,15 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Widgets/Text/SRichTextBlock.h"
 
 #if WITH_FANCY_TEXT
 
-#include "TextLayoutEngine.h"
-#include "TextBlockLayout.h"
-#include "IRichTextMarkupParser.h"
-#include "RichTextMarkupProcessing.h"
-#include "RichTextLayoutMarshaller.h"
-#include "ReflectionMetadata.h"
+#include "Widgets/Text/TextBlockLayout.h"
+#include "Framework/Text/RichTextMarkupProcessing.h"
+#include "Framework/Text/RichTextLayoutMarshaller.h"
+#include "Types/ReflectionMetadata.h"
 
 SRichTextBlock::SRichTextBlock()
 {
@@ -95,7 +93,7 @@ void SRichTextBlock::SetText( const TAttribute<FText>& InTextAttr )
 void SRichTextBlock::SetHighlightText( const TAttribute<FText>& InHighlightText )
 {
 	HighlightText = InHighlightText;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void SRichTextBlock::SetTextShapingMethod(const TOptional<ETextShapingMethod>& InTextShapingMethod)
@@ -113,37 +111,37 @@ void SRichTextBlock::SetTextFlowDirection(const TOptional<ETextFlowDirection>& I
 void SRichTextBlock::SetWrapTextAt(const TAttribute<float>& InWrapTextAt)
 {
 	WrapTextAt = InWrapTextAt;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void SRichTextBlock::SetAutoWrapText(const TAttribute<bool>& InAutoWrapText)
 {
 	AutoWrapText = InAutoWrapText;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void SRichTextBlock::SetWrappingPolicy(const TAttribute<ETextWrappingPolicy>& InWrappingPolicy)
 {
 	WrappingPolicy = InWrappingPolicy;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void SRichTextBlock::SetLineHeightPercentage(const TAttribute<float>& InLineHeightPercentage)
 {
 	LineHeightPercentage = InLineHeightPercentage;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void SRichTextBlock::SetMargin(const TAttribute<FMargin>& InMargin)
 {
 	Margin = InMargin;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void SRichTextBlock::SetJustification(const TAttribute<ETextJustify::Type>& InJustification)
 {
 	Justification = InJustification;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void SRichTextBlock::SetTextStyle(const FTextBlockStyle& InTextStyle)
@@ -155,7 +153,7 @@ void SRichTextBlock::SetTextStyle(const FTextBlockStyle& InTextStyle)
 void SRichTextBlock::SetMinDesiredWidth(const TAttribute<float>& InMinDesiredWidth)
 {
 	MinDesiredWidth = InMinDesiredWidth;
-	Invalidate(EInvalidateWidget::Layout);
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void SRichTextBlock::Refresh()
@@ -166,7 +164,16 @@ void SRichTextBlock::Refresh()
 
 bool SRichTextBlock::ComputeVolatility() const
 {
-	return SWidget::ComputeVolatility() || BoundText.IsBound();
+	return SWidget::ComputeVolatility() 
+		|| BoundText.IsBound()
+		|| HighlightText.IsBound()
+		|| WrapTextAt.IsBound()
+		|| AutoWrapText.IsBound()
+		|| WrappingPolicy.IsBound()
+		|| Margin.IsBound()
+		|| Justification.IsBound()
+		|| LineHeightPercentage.IsBound()
+		|| MinDesiredWidth.IsBound();
 }
 
 #endif //WITH_FANCY_TEXT

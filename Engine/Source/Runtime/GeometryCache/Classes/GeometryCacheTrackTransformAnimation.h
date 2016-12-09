@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptMacros.h"
+#include "GeometryCacheTrack.h"
 #include "GeometryCacheMeshData.h"
 
 #include "GeometryCacheTrackTransformAnimation.generated.h"
@@ -12,7 +16,7 @@ class GEOMETRYCACHE_API UGeometryCacheTrack_TransformAnimation : public UGeometr
 	GENERATED_UCLASS_BODY()
 		
 	//~ Begin UObject Interface.
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	virtual void Serialize(FArchive& Ar) override;
 	//~ End UObject Interface.
 	

@@ -5,6 +5,7 @@
 #include "libcef/browser/pepper/browser_pepper_host_factory.h"
 
 #include "libcef/browser/pepper/pepper_flash_browser_host.h"
+#include "libcef/browser/pepper/pepper_isolated_file_system_message_filter.h"
 
 #include "build/build_config.h"
 #include "chrome/browser/renderer_host/pepper/pepper_flash_clipboard_message_filter.h"
@@ -56,5 +57,21 @@ scoped_ptr<ResourceHost> CefBrowserPepperHostFactory::CreateResourceHost(
     }
   }
 
+  // Permissions for the following interfaces will be checked at the
+  // time of the corresponding instance's methods calls (because
+  // permission check can be performed only on the UI
+  // thread). Currently these interfaces are available only for
+  // whitelisted apps which may not have access to the other private
+  // interfaces.
+  if (message.type() == PpapiHostMsg_IsolatedFileSystem_Create::ID) {
+    PepperIsolatedFileSystemMessageFilter* isolated_fs_filter =
+        PepperIsolatedFileSystemMessageFilter::Create(instance, host_);
+    if (!isolated_fs_filter)
+      return scoped_ptr<ResourceHost>();
+    return scoped_ptr<ResourceHost>(
+        new MessageFilterHost(host, instance, resource, isolated_fs_filter));
+  }
+
+  NOTREACHED() << "Unhandled message type: " << message.type();
   return scoped_ptr<ResourceHost>();
 }

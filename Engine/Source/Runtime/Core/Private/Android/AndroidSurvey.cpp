@@ -3,7 +3,8 @@
 /*=============================================================================
 	AndroidSurvey.cpp: HardwareSurvey implementation
 =============================================================================*/
-#include "CorePrivatePCH.h"
+
+#include "AndroidSurvey.h"
 #include "AndroidWindow.h"
 
 bool FAndroidPlatformSurvey::GetSurveyResults(FHardwareSurveyResults& OutResults, bool bWait)

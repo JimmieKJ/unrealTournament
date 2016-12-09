@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Perception/AISense_Blueprint.h"
+#include "BlueprintNodeHelpers.h"
+#include "Perception/AIPerceptionComponent.h"
 #if WITH_EDITOR
 #include "Kismet2/KismetEditorUtilities.h"
 #endif // WITH_EDITOR

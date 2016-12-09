@@ -6,7 +6,6 @@
 # If it's a "///" or "/**" (Doxygen's "comment" code), ignore it.
 # Otherwise, transform it into the appropriate Doxygen "comment" code.
 # For .cpp files, ignore all comment-modification code as it's causing undesired comments (e.g. copyright notices) to be captured.
-# Turn enum classes into regular enums, also remove the storage type specifier if it's there. This is due to our use of an old, customized Doxygen.
 
 my $line = "";
 my $commentposition;
@@ -47,22 +46,5 @@ while (<FILE1>)
 			#}
 		}
 	}
-	print fixenums($line);
-}
-
-# The version of Doxygen we have does not recognize "enum class", but we now use them a lot. Rephrasing these as regular enums seems to fix the issue.
-# Since enum classes are stricter than enums, changing to the looser type should never cause a problem, and Doxygen should never know the difference.
-# We are also dropping the storage type specification from the end, as Doxygen seems not to understand that, either.
-sub fixenums
-{
-	my $newline = $_[0];
-	if ($newline =~ m/\s*enum\s+class\s+/)
-	{
-		$newline =~ s/\s*enum\s+class\s+/enum /;
-	}
-	if ($newline =~ m/.*:(\s)*(u)?int(8|16|32)/)
-	{
-		$newline =~ s/:(\s)*(u)?int(8|16|32)/ /;
-	}
-	return $newline;
+	print $line;
 }

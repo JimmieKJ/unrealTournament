@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+
 struct FFileChangeData
 {
 	enum EFileChangeAction

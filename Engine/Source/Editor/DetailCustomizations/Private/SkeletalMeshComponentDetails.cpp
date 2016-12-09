@@ -1,14 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "SkeletalMeshComponentDetails.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SComboButton.h"
+#include "EditorStyleSet.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimBlueprint.h"
+#include "Editor.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
 #include "PropertyCustomizationHelpers.h"
-#include "AssetData.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
 #include "Engine/Selection.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
-#include "Animation/AnimInstance.h"
 
 #define LOCTEXT_NAMESPACE "SkeletalMeshComponentDetails"
 

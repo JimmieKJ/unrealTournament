@@ -2,7 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
+#include "Engine/Scene.h"
 #include "CameraModifier.generated.h"
+
+class AActor;
+class APlayerCameraManager;
 
 //=============================================================================
 /**

@@ -1,13 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PixelInspectorPrivatePCH.h"
 #include "PixelInspectorDetailsCustomization.h"
 #include "PixelInspectorView.h"
-#include "IDetailCustomization.h"
-#include "DetailLayoutBuilder.h"
-#include "DetailCategoryBuilder.h"
-#include "DetailWidgetRow.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Colors/SColorBlock.h"
 #include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
 #include "PixelInspectorModule.h"
 
 #define LOCTEXT_NAMESPACE "PixelInspector"

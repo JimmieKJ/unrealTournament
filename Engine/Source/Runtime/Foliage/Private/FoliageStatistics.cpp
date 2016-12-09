@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FoliagePrivate.h"
 #include "FoliageStatistics.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "EngineUtils.h"
+#include "InstancedFoliageActor.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UFoliageStatics

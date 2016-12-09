@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "UProjectInfo.h"
-#include "AssertionMacros.h"
+#include "Misc/UProjectInfo.h"
+#include "Logging/LogMacros.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogUProjectInfo, Verbose, All);
 DEFINE_LOG_CATEGORY(LogUProjectInfo);

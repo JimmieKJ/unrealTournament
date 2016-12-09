@@ -6,102 +6,62 @@
 
 #pragma once
 
-class SceneRenderingAllocator;
-class USceneCaptureComponent;
-class UTextureRenderTarget;
-
-class SceneRenderingBitArrayAllocator
-	: public TInlineAllocator<4,SceneRenderingAllocator>
-{
-};
-
-class SceneRenderingSparseArrayAllocator
-	: public TSparseArrayAllocator<SceneRenderingAllocator,SceneRenderingBitArrayAllocator>
-{
-};
-
-class SceneRenderingSetAllocator
-	: public TSetAllocator<SceneRenderingSparseArrayAllocator,TInlineAllocator<1,SceneRenderingAllocator> >
-{
-};
-
-typedef TBitArray<SceneRenderingBitArrayAllocator> FSceneBitArray;
-typedef TConstSetBitIterator<SceneRenderingBitArrayAllocator> FSceneSetBitIterator;
-typedef TConstDualSetBitIterator<SceneRenderingBitArrayAllocator,SceneRenderingBitArrayAllocator> FSceneDualSetBitIterator;
-
-// Forward declarations.
-class FScene;
-
-class FOcclusionQueryHelpers
-{
-public:
-
-	enum
-	{
-		MaxBufferedOcclusionFrames = 2
-	};
-
-	// get the system-wide number of frames of buffered occlusion queries.
-	static int32 GetNumBufferedFrames();
-
-	// get the index of the oldest query based on the current frame and number of buffered frames.
-	static uint32 GetQueryLookupIndex(int32 CurrentFrame, int32 NumBufferedFrames)
-	{
-		// queries are currently always requested earlier in the frame than they are issued.
-		// thus we can always overwrite the oldest query with the current one as we never need them
-		// to coexist.  This saves us a buffer entry.
-		const uint32 QueryIndex = CurrentFrame % NumBufferedFrames;
-		return QueryIndex;
-	}
-
-	// get the index of the query to overwrite for new queries.
-	static uint32 GetQueryIssueIndex(int32 CurrentFrame, int32 NumBufferedFrames)
-	{
-		// queries are currently always requested earlier in the frame than they are issued.
-		// thus we can always overwrite the oldest query with the current one as we never need them
-		// to coexist.  This saves us a buffer entry.
-		const uint32 QueryIndex = CurrentFrame % NumBufferedFrames;
-		return QueryIndex;
-	}
-};
-
-
-
 // Dependencies.
-#include "StaticBoundShaderState.h"
-#include "BatchedElements.h"
-#include "PostProcess/SceneRenderTargets.h"
-#include "GenericOctree.h"
+
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Math/RandomStream.h"
+#include "Engine/EngineTypes.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "RenderingThread.h"
+#include "SceneTypes.h"
+#include "UniformBuffer.h"
+#include "SceneInterface.h"
+#include "SceneView.h"
+#include "RendererInterface.h"
+#include "SceneUtils.h"
+#include "SceneManagement.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "TextureLayout3d.h"
+#include "ScenePrivateBase.h"
+#include "PostProcess/RenderTargetPool.h"
 #include "SceneCore.h"
 #include "PrimitiveSceneInfo.h"
 #include "LightSceneInfo.h"
-#include "ShaderBaseClasses.h"
-#include "DrawingPolicy.h"
 #include "DepthRendering.h"
 #include "SceneHitProxyRendering.h"
-#include "DebugViewModeRendering.h"
-#include "ShaderComplexityRendering.h"
 #include "ShadowRendering.h"
+#include "TextureLayout.h"
 #include "SceneRendering.h"
 #include "StaticMeshDrawList.h"
-#include "DeferredShadingRenderer.h"
-#include "FogRendering.h"
+#include "LightMapRendering.h"
+#include "VelocityRendering.h"
 #include "BasePassRendering.h"
 #include "MobileBasePassRendering.h"
-#include "DynamicPrimitiveDrawing.h"
-#include "TranslucentRendering.h"
-#include "VelocityRendering.h"
-#include "LightMapDensityRendering.h"
-#include "TextureLayout.h"
-#include "TextureLayout3d.h"
-#include "ScopedPointer.h"
-#include "ClearQuad.h"
-#include "AtmosphereRendering.h"
-#include "GlobalDistanceFieldParameters.h"
-#include "LightPropagationVolume.h"
+#include "VolumeRendering.h"
 
 /** Factor by which to grow occlusion tests **/
 #define OCCLUSION_SLOP (1.0f)
+
+class AWorldSettings;
+class FAtmosphericFogSceneInfo;
+class FLightPropagationVolume;
+class FMaterialParameterCollectionInstanceResource;
+class FPrecomputedLightVolume;
+class FScene;
+class UAtmosphericFogComponent;
+class UDecalComponent;
+class UExponentialHeightFogComponent;
+class ULightComponent;
+class UPlanarReflectionComponent;
+class UPrimitiveComponent;
+class UReflectionCaptureComponent;
+class USkyLightComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
+class UTextureCube;
+class UWindDirectionalSourceComponent;
 
 /** Holds information about a single primitive's occlusion. */
 class FPrimitiveOcclusionHistory
@@ -233,31 +193,6 @@ struct FPrimitiveOcclusionHistoryKeyFuncs : BaseKeyFuncs<FPrimitiveOcclusionHist
 	}
 };
 
-
-/**
- * A pool of render (e.g. occlusion/timer) queries which are allocated individually, and returned to the pool as a group.
- */
-class FRenderQueryPool
-{
-public:
-	FRenderQueryPool(ERenderQueryType InQueryType) :QueryType(InQueryType) { }
-	virtual ~FRenderQueryPool();
-
-	/** Releases all the render queries in the pool. */
-	void Release();
-
-	/** Allocates an render query from the pool. */
-	FRenderQueryRHIRef AllocateQuery();
-
-	/** De-reference an render query, returning it to the pool instead of deleting it when the refcount reaches 0. */
-	void ReleaseQuery(FRenderQueryRHIRef &Query);
-
-private:
-	/** Container for available render queries. */
-	TArray<FRenderQueryRHIRef> Queries;
-
-	ERenderQueryType QueryType;
-};
 
 class FIndividualOcclusionHistory
 {
@@ -546,6 +481,9 @@ public:
 
 	TMap<int32, FIndividualOcclusionHistory> PlanarReflectionOcclusionHistories;
 
+	// Array of ClipmapIndex
+	TArray<int32> DeferredGlobalDistanceFieldUpdates;
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** Are we currently in the state of freezing rendering? (1 frame where we gather what was rendered) */
 	uint32 bIsFreezing : 1;
@@ -686,6 +624,8 @@ public:
 
 	FVertexBufferRHIRef IndirectShadowCapsuleShapesVertexBuffer;
 	FShaderResourceViewRHIRef IndirectShadowCapsuleShapesSRV;
+	FVertexBufferRHIRef IndirectShadowMeshDistanceFieldCasterIndicesVertexBuffer;
+	FShaderResourceViewRHIRef IndirectShadowMeshDistanceFieldCasterIndicesSRV;
 	FVertexBufferRHIRef IndirectShadowLightDirectionVertexBuffer;
 	FShaderResourceViewRHIRef IndirectShadowLightDirectionSRV;
 	FRWBuffer CapsuleTileIntersectionCountsBuffer;
@@ -925,6 +865,8 @@ public:
 
 		IndirectShadowCapsuleShapesVertexBuffer.SafeRelease();
 		IndirectShadowCapsuleShapesSRV.SafeRelease();
+		IndirectShadowMeshDistanceFieldCasterIndicesVertexBuffer.SafeRelease();
+		IndirectShadowMeshDistanceFieldCasterIndicesSRV.SafeRelease();
 		IndirectShadowLightDirectionVertexBuffer.SafeRelease();
 		IndirectShadowLightDirectionSRV.SafeRelease();
 		CapsuleTileIntersectionCountsBuffer.Release();
@@ -943,12 +885,8 @@ public:
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
-		uint32 Count = MIDPool.Num();
-
-		for(uint32 i = 0; i < Count; ++i)
+		for(UMaterialInstanceDynamic*& MID : MIDPool)
 		{
-			UMaterialInstanceDynamic* MID = MIDPool[i];
-
 			Collector.AddReferencedObject(MID);
 		}
 	}
@@ -1118,6 +1056,13 @@ public:
 	 * This reallocates the resource but does not copy over the old contents. 
 	 */
 	void UpdateMaxCubemaps(uint32 InMaxCubemaps, int32 CubemapSize);
+
+	/**
+	* Updates the maximum number of cubemaps that this array is allocated for.
+	* This reallocates the resource and copies over the old contents, preserving indices
+	*/
+	void ResizeCubemapArrayGPU(uint32 InMaxCubemaps, int32 CubemapSize, const TArray<int32>& IndexRemapping);
+
 	int32 GetMaxCubemaps() const { return MaxCubemaps; }
 	int32 GetCubemapSize() const { return CubemapSize; }
 	bool IsValid() const { return IsValidRef(ReflectionEnvs); }
@@ -1169,6 +1114,9 @@ public:
 	 */
 	FReflectionEnvironmentCubemapArray CubemapArray;
 
+	/** We track the cubemaps removed since the last reallocation to allow us to remap them reallocating the array */
+	TArray<uint32> CubemapIndicesRemovedSinceLastRealloc;
+
 	/** Rendering thread map from component to scene state.  This allows storage of RT state that needs to persist through a component re-register. */
 	TMap<const UReflectionCaptureComponent*, FCaptureComponentSceneState> AllocatedReflectionCaptureState;
 
@@ -1186,6 +1134,9 @@ public:
 		CubemapArray(InFeatureLevel),
 		MaxAllocatedReflectionCubemapsGameThread(0)
 	{}
+
+
+	void ResizeCubemapArrayGPU(uint32 InMaxCubemaps, int32 InCubemapSize);
 };
 
 class FPrimitiveAndInstance
@@ -1341,7 +1292,7 @@ public:
 	/** Used to detect atlas reallocations, since objects store UVs into the atlas and need to be updated when it changes. */
 	int32 AtlasGeneration;
 
-	bool bTrackPrimitives;
+	bool bTrackAllPrimitives;
 };
 
 /** Stores data for an allocation in the FIndirectLightingCache. */
@@ -1434,7 +1385,7 @@ public:
 	void FinalizeCacheUpdates(FScene* Scene, FSceneRenderer& Renderer, FILCUpdatePrimTaskData& TaskData);
 
 	/** Force all primitive allocations to be re-interpolated. */
-	void SetLightingCacheDirty();
+	void SetLightingCacheDirty(FScene* Scene, const FPrecomputedLightVolume* Volume);
 
 	// Accessors
 	FSceneRenderTargetItem& GetTexture0() { return Texture0->GetRenderTargetItem(); }
@@ -1444,6 +1395,8 @@ public:
 private:
 	/** Internal helper to determine if indirect lighting is enabled at all */
 	bool IndirectLightingAllowed(FScene* Scene, FSceneRenderer& Renderer) const;
+
+	void ProcessPrimitiveUpdate(FScene* Scene, FViewInfo& View, int32 PrimitiveIndex, bool bAllowUnbuiltPreview, TMap<FIntVector, FBlockUpdateInfo>& OutBlocksToUpdate, TArray<FIndirectLightingCacheAllocation*>& OutTransitionsOverTimeToUpdate);
 
 	/** Internal helper to perform the work of updating the cache primitives.  Can be done on any thread as a task */
 	void UpdateCachePrimitivesInternal(FScene* Scene, FSceneRenderer& Renderer, bool bAllowUnbuiltPreview, TMap<FIntVector, FBlockUpdateInfo>& OutBlocksToUpdate, TArray<FIndirectLightingCacheAllocation*>& OutTransitionsOverTimeToUpdate);
@@ -1680,6 +1633,12 @@ public:
 	bool IsActive() const { return (SceneNodes.Num() > 0); }
 
 private:
+
+	void ResetHLODDistanceScaleApplication()
+	{
+		LastHLODDistanceScale = -1.0f;
+	}
+
 	/** Scene this Tree belong to */
 	FScene* Scene;
 
@@ -1873,7 +1832,7 @@ public:
 	TSparseArray<FDeferredDecalProxy*> Decals;
 
 	/** Potential capsule shadow casters registered to the scene. */
-	TArray<FPrimitiveSceneInfo*> CapsuleIndirectCasterPrimitives; 
+	TArray<FPrimitiveSceneInfo*> DynamicIndirectCasterPrimitives; 
 
 	TArray<class FPlanarReflectionSceneProxy*> PlanarReflections;
 	TArray<class UPlanarReflectionComponent*> PlanarReflections_GameThread;
@@ -1919,6 +1878,9 @@ public:
 	/** The wind sources in the scene. */
 	TArray<class FWindSourceSceneProxy*> WindSources;
 
+	/** Wind source components, tracked so the game thread can also access wind parameters */
+	TArray<UWindDirectionalSourceComponent*> WindComponents_GameThread;
+
 	/** SpeedTree wind objects in the scene. FLocalVertexFactoryShaderParameters needs to lookup by FVertexFactory, but wind objects are per tree (i.e. per UStaticMesh)*/
 	TMap<const UStaticMesh*, struct FSpeedTreeWindComputation*> SpeedTreeWindComputationMap;
 	TMap<FVertexFactory*, const UStaticMesh*> SpeedTreeVertexFactoryMap;
@@ -1955,6 +1917,8 @@ public:
 	float DefaultMaxDistanceFieldOcclusionDistance;
 
 	float GlobalDistanceFieldViewDistance;
+
+	float DynamicIndirectShadowsSelfShadowingIntensity;
 
 	FReadOnlyCVARCache ReadOnlyCVARCache;
 
@@ -2011,6 +1975,7 @@ public:
 	virtual void RemoveWindSource(UWindDirectionalSourceComponent* WindComponent) override;
 	virtual const TArray<FWindSourceSceneProxy*>& GetWindSources_RenderThread() const override;
 	virtual void GetWindParameters(const FVector& Position, FVector& OutDirection, float& OutSpeed, float& OutMinGustAmt, float& OutMaxGustAmt) const override;
+	virtual void GetWindParameters_GameThread(const FVector& Position, FVector& OutDirection, float& OutSpeed, float& OutMinGustAmt, float& OutMaxGustAmt) const override;
 	virtual void GetDirectionalWindParameters(FVector& OutDirection, float& OutSpeed, float& OutMinGustAmt, float& OutMaxGustAmt) const override;
 	virtual void AddSpeedTreeWind(FVertexFactory* VertexFactory, const UStaticMesh* StaticMesh) override;
 	virtual void RemoveSpeedTreeWind(FVertexFactory* VertexFactory, const UStaticMesh* StaticMesh) override;
@@ -2116,7 +2081,7 @@ public:
 
 	virtual void ApplyWorldOffset(FVector InOffset) override;
 
-	virtual void OnLevelAddedToWorld(FName InLevelName) override;
+	virtual void OnLevelAddedToWorld(FName InLevelName, UWorld* InWorld, bool bIsLightingScenario) override;
 
 	virtual bool HasAnyLights() const override 
 	{ 

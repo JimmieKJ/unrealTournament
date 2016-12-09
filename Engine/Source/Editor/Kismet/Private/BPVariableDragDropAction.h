@@ -2,8 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
+#include "Input/DragAndDrop.h"
+#include "Input/Reply.h"
+#include "Engine/Blueprint.h"
 #include "BlueprintEditor.h"
-#include "Editor/GraphEditor/Public/GraphEditorDragDropAction.h"
+#include "GraphEditorDragDropAction.h"
+
+class UEdGraph;
 
 /** DragDropAction class for dropping a Variable onto a graph */
 class KISMET_API FKismetVariableDragDropAction : public FGraphEditorDragDropAction

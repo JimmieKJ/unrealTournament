@@ -1,10 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HttpPrivatePCH.h"
-#include "Runtime/Online/HTTP/Public/Interfaces/IHttpBase.h"
-#include "Runtime/Online/HTTP/Public/Interfaces/IHttpRequest.h"
-#include "Runtime/Online/HTTP/Public/Interfaces/IHttpResponse.h"
-#include "StringConv.h"
+#include "GenericPlatform/GenericPlatformHttp.h"
+#include "Interfaces/IHttpRequest.h"
 
 
 /**

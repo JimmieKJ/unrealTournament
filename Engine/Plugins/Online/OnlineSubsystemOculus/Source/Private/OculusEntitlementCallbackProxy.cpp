@@ -1,10 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemOculusPrivatePCH.h"
+#include "OculusEntitlementCallbackProxy.h"
+#include "OnlineSubsystemOculusPrivate.h"
 #include "Online.h"
 #include "OnlineIdentityOculus.h"
-
-#include "OculusEntitlementCallbackProxy.h"
 
 UOculusEntitlementCallbackProxy::UOculusEntitlementCallbackProxy(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer)

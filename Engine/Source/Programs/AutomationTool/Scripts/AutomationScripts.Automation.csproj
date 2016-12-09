@@ -2,7 +2,7 @@
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Configuration Condition=" '$(Configuration)' == '' ">Development</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{8AA00D65-0954-4A27-AC0D-FB8B1106120F}</ProjectGuid>
     <OutputType>Library</OutputType>
@@ -38,7 +38,7 @@
       <HintPath>..\..\..\..\Binaries\DotNET\Ionic.Zip.Reduced.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="OneSky, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="OneSky">
       <HintPath>..\..\..\..\Binaries\DotNET\OneSky.dll</HintPath>
       <SpecificVersion>False</SpecificVersion>
       <Private>False</Private>
@@ -53,6 +53,10 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
+    <Reference Include="Localization.Automation">
+      <HintPath>..\..\..\..\Binaries\DotNET\AutomationScripts\Localization.Automation.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\DotNETCommon\MetaData.cs">
@@ -64,12 +68,13 @@
     <Compile Include="BuildCommonTools.Automation.cs" />
     <Compile Include="BuildCookRun.Automation.cs" />
     <Compile Include="BuildDerivedDataCache.Automation.cs" />
-    <Compile Include="BuildDocumentation.Automation.cs" />
     <Compile Include="BuildForUGS.Automation.cs" />
+    <Compile Include="BuildPhysX.Automation.cs" />
     <Compile Include="BuildPluginCommand.Automation.cs" />
     <Compile Include="BuildProjectCommand.Automation.cs" />
     <Compile Include="BuildTargetCommand.Automation.cs" />
     <Compile Include="BuildThirdPartyLibs.Automation.cs" />
+    <Compile Include="CleanFormalBuilds.Automation.cs" />
     <Compile Include="CodeSurgery.Automation.cs" />
     <Compile Include="CookCommand.Automation.cs" />
     <Compile Include="CookTargetCommand.Automation.cs" />
@@ -81,7 +86,7 @@
     <Compile Include="InstalledBuild.cs" />
     <Compile Include="ListThirdPartySoftware.Automation.cs" />
     <Compile Include="RebuildLightMapsCommand.Automation.cs" />
-    <Compile Include="RocketBuild.Automation.cs" />
+    <Compile Include="ResavePackagesCommand.Automation.cs" />
     <Compile Include="IPhonePackager.Automation.cs" />
     <Compile Include="LauncherLocalization.Automation.cs" />
     <Compile Include="ListMobileDevices.Automation.cs">
@@ -94,11 +99,13 @@
     <Compile Include="RunProjectCommand.Automation.cs" />
     <Compile Include="StageTargetCommand.Automation.cs" />
     <Compile Include="StreamCopyDescription.Automation.cs" />
+    <Compile Include="SubmitUtililzationReportToEC.Automation.cs" />
     <Compile Include="Tests.Automation.cs" />
     <Compile Include="TestSnippet.Automation.cs" />
     <Compile Include="UE4BuildUtils.cs" />
     <Compile Include="UnrealSync.Automation.cs" />
     <Compile Include="UpdateLocalVersion.Automation.cs" />
+    <Compile Include="ZipUtils.Automation.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\UnrealBuildTool\UnrealBuildTool.csproj">
@@ -109,11 +116,6 @@
     <ProjectReference Include="..\AutomationUtils\AutomationUtils.Automation.csproj">
       <Project>{2c96a7f2-b1a3-4258-8e0a-e588ff41a53e}</Project>
       <Name>AutomationUtils.Automation</Name>
-      <Private>False</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\GUBP\GUBP.Automation.csproj">
-      <Project>{9a1a118b-37fc-4f33-bbf4-b431b6e3b3ac}</Project>
-      <Name>GUBP.Automation</Name>
       <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="..\Localization\Localization.Automation.csproj">

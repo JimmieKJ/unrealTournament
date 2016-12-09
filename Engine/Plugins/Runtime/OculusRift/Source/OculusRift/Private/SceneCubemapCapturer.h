@@ -2,9 +2,16 @@
 
 #pragma once
 
-#include "ImageWrapper.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "IOculusRiftPlugin.h"
+#include "Interfaces/IImageWrapper.h"
+#include "Tickable.h"
+#include "PixelFormat.h"
 
 #include "SceneCubemapCapturer.generated.h"
+
+class USceneCaptureComponent2D;
 
 UCLASS()
 class USceneCubemapCapturer : public UObject, public FTickableGameObject

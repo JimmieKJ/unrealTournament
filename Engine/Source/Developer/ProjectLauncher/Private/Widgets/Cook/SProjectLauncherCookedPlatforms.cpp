@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
-#include "SProjectLauncherCookedPlatforms.h"
-#include "SHyperlink.h"
+#include "Widgets/Cook/SProjectLauncherCookedPlatforms.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Cook/SProjectLauncherPlatformListRow.h"
+#include "Widgets/Input/SHyperlink.h"
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherCookedPlatforms"
 

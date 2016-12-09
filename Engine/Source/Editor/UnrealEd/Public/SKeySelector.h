@@ -2,8 +2,22 @@
 
 #pragma once
 
-struct FKey;
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Misc/Attribute.h"
+#include "InputCoreTypes.h"
+#include "Types/SlateStructs.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "EditorStyleSet.h"
+
 class FKeyTreeInfo;
+class SComboButton;
 
 DECLARE_DELEGATE_OneParam(FOnKeyChanged, TSharedPtr<FKey>)
 

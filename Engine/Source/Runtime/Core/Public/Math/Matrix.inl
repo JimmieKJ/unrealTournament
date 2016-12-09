@@ -6,9 +6,12 @@
 
 #pragma once
 
-#include "OutputDevices.h"
-#include "AssertionMacros.h"
+#include "CoreTypes.h"
+#include "CoreFwd.h"
 
+struct FBasisVectorMatrix;
+struct FLookAtMatrix;
+struct FMath;
 
 /**
  * FMatrix inline functions.
@@ -262,8 +265,7 @@ inline FMatrix FMatrix::InverseFast() const
 		GetScaledAxis( EAxis::Y ).IsNearlyZero(SMALL_NUMBER) && 
 		GetScaledAxis( EAxis::Z ).IsNearlyZero(SMALL_NUMBER) ) 
 	{
-		UE_LOG(LogUnrealMath, Error, TEXT("FMatrix::InverseFast(), trying to invert a NIL matrix, this results in NaNs! Use Inverse() instead."));
-		ensureMsgf(false, TEXT("FMatrix::InverseFast(), trying to invert a NIL matrix, this results in NaNs! Use Inverse() instead."));
+		ErrorEnsure(TEXT("FMatrix::InverseFast(), trying to invert a NIL matrix, this results in NaNs! Use Inverse() instead."));
 	}
 #endif
 	FMatrix Result;
@@ -757,5 +759,65 @@ inline FArchive& operator<<(FArchive& Ar,FMatrix& M)
 	Ar << M.M[2][0] << M.M[2][1] << M.M[2][2] << M.M[2][3];
 	Ar << M.M[3][0] << M.M[3][1] << M.M[3][2] << M.M[3][3];
 	return Ar;
+}
+
+
+/**
+ * FPlane inline functions.
+ */
+
+inline FPlane FPlane::TransformBy( const FMatrix& M ) const
+{
+	const FMatrix tmpTA = M.TransposeAdjoint();
+	const float DetM = M.Determinant();
+	return this->TransformByUsingAdjointT(M, DetM, tmpTA);
+}
+
+inline FPlane FPlane::TransformByUsingAdjointT( const FMatrix& M, float DetM, const FMatrix& TA ) const
+{
+	FVector newNorm = TA.TransformVector(*this).GetSafeNormal();
+
+	if(DetM < 0.f)
+	{
+		newNorm *= -1.0f;
+	}
+
+	return FPlane(M.TransformPosition(*this * W), newNorm);
+}
+
+
+FORCEINLINE FBasisVectorMatrix::FBasisVectorMatrix(const FVector& XAxis,const FVector& YAxis,const FVector& ZAxis,const FVector& Origin)
+{
+	for(uint32 RowIndex = 0;RowIndex < 3;RowIndex++)
+	{
+		M[RowIndex][0] = (&XAxis.X)[RowIndex];
+		M[RowIndex][1] = (&YAxis.X)[RowIndex];
+		M[RowIndex][2] = (&ZAxis.X)[RowIndex];
+		M[RowIndex][3] = 0.0f;
+	}
+	M[3][0] = Origin | XAxis;
+	M[3][1] = Origin | YAxis;
+	M[3][2] = Origin | ZAxis;
+	M[3][3] = 1.0f;
+}
+
+
+FORCEINLINE FLookAtMatrix::FLookAtMatrix(const FVector& EyePosition, const FVector& LookAtPosition, const FVector& UpVector)
+{
+	const FVector ZAxis = (LookAtPosition - EyePosition).GetSafeNormal();
+	const FVector XAxis = (UpVector ^ ZAxis).GetSafeNormal();
+	const FVector YAxis = ZAxis ^ XAxis;
+
+	for (uint32 RowIndex = 0; RowIndex < 3; RowIndex++)
+	{
+		M[RowIndex][0] = (&XAxis.X)[RowIndex];
+		M[RowIndex][1] = (&YAxis.X)[RowIndex];
+		M[RowIndex][2] = (&ZAxis.X)[RowIndex];
+		M[RowIndex][3] = 0.0f;
+	}
+	M[3][0] = -EyePosition | XAxis;
+	M[3][1] = -EyePosition | YAxis;
+	M[3][2] = -EyePosition | ZAxis;
+	M[3][3] = 1.0f;
 }
 

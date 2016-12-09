@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
 #include "GameMenuBuilderModule.h"
 
 #include "SlateBasics.h"
@@ -11,15 +14,3 @@
 #include "SGameMenuItemWidget.h"
 #include "GameMenuItem.h"
 #include "GameMenuPage.h"
-
-class FGameMenuBuilderModule : public IGameMenuBuilderModule
-{
-	virtual void StartupModule() override
-	{
-		
-	}
-	void SetStyleName()
-	{
-	}
-
-};

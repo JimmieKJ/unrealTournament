@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "ProceduralFoliageSpawnerFactory.h"
-#include "IAssetTypeActions.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "AssetTypeCategories.h"
 #include "ProceduralFoliageSpawner.h"
 
 UProceduralFoliageSpawnerFactory::UProceduralFoliageSpawnerFactory(const FObjectInitializer& ObjectInitializer)

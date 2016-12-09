@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
 #include "EditorUndoClient.h"
+#include "Layers/ILayers.h"
 #include "Layers/Layer.h"
 
+class AActor;
+class UEditorEngine;
 
 /**
  * The non-UI solution specific presentation logic for a single Layer

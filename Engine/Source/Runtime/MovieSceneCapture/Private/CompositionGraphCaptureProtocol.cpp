@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneCapturePCH.h"
-#include "CompositionGraphCaptureProtocol.h"
+#include "Protocols/CompositionGraphCaptureProtocol.h"
+#include "Misc/CommandLine.h"
+#include "HAL/IConsoleManager.h"
+#include "EngineGlobals.h"
+#include "Engine/Scene.h"
+#include "Materials/MaterialInterface.h"
+#include "SceneView.h"
+#include "Engine/Engine.h"
 #include "SceneViewExtension.h"
+#include "Materials/Material.h"
 #include "BufferVisualizationData.h"
-#include "SceneViewport.h"
 #include "MovieSceneCaptureSettings.h"
-#include "MovieSceneCaptureModule.h"
 
 struct FSceneViewExtension : ISceneViewExtension
 {
@@ -24,7 +29,7 @@ struct FSceneViewExtension : ISceneViewExtension
 		CVarDumpFrames = IConsoleManager::Get().FindConsoleVariable(TEXT("r.BufferVisualizationDumpFrames"));
 		CVarDumpFramesAsHDR = IConsoleManager::Get().FindConsoleVariable(TEXT("r.BufferVisualizationDumpFramesAsHDR"));
 		CVarHDRCompressionQuality = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SaveEXR.CompressionQuality"));
-		CVarDumpGamut = IConsoleManager::Get().FindConsoleVariable(TEXT("r.TonemapperOutputGamut"));
+		CVarDumpGamut = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.ColorGamut"));
 
 		Disable();
 	}

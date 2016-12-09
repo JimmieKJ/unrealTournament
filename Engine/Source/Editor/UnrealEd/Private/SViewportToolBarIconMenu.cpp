@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "MultiBox.h"
 #include "SViewportToolBarIconMenu.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
 
 void SViewportToolBarIconMenu::Construct( const FArguments& InArgs )
 {

@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "Editor/UnrealEd/Public/SCommonEditorViewportToolbarBase.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "SCommonEditorViewportToolbarBase.h"
 
 // In-viewport toolbar widget used in the sprite editor
 class SSpriteEditorViewportToolbar : public SCommonEditorViewportToolbarBase

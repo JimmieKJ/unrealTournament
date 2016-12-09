@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/PlatformTime.h"
+
+class FWildcardString;
+
 DEFINE_LOG_CATEGORY_STATIC(LogFileCache, Log, All);
 
 namespace DirectoryWatcher

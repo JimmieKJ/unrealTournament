@@ -1,14 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SlateStyle.h"
-#include "GCObject.h"
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "Styling/StyleDefaults.h"
+#include "Styling/ISlateStyle.h"
+#include "Styling/SlateStyle.h"
 
 class FAssetData;
-class UObject;
 class UCurveFloat;
-class UCurveVector;
 class UCurveLinearColor;
+class UCurveVector;
+struct FSlateWidgetStyle;
 
 class ENGINE_API FSlateGameResources : public FSlateStyleSet, public FGCObject
 {

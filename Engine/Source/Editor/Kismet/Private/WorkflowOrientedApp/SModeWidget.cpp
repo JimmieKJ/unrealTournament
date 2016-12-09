@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "SModeWidget.h"
+#include "WorkflowOrientedApp/SModeWidget.h"
+#include "Misc/Paths.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "EditorStyleSet.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SModeWidget

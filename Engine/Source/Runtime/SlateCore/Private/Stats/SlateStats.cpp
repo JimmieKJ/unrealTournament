@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
+#include "Stats/SlateStats.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "HAL/IConsoleManager.h"
+#include "SlateGlobals.h"
 
-#include "SlateStats.h"
 
 #if SLATE_STATS
 

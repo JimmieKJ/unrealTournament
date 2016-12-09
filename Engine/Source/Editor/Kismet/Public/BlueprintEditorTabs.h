@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 struct KISMET_API FBlueprintEditorTabs
 {
 	// Tab identifiers

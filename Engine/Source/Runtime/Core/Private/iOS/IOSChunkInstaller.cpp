@@ -1,11 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#ifndef PLACEHOLDER_DLC_WORK
-#	define PLACEHOLDER_DLC_WORK 0
-#endif
-
-#include "CorePrivatePCH.h"
 #include "IOSChunkInstaller.h"
+#include "Misc/CallbackDevice.h"
 
 
 

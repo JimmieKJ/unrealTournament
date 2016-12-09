@@ -1,13 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SharedSettingsWidgetsPrivatePCH.h"
 #include "SExternalImageReference.h"
+#include "HAL/FileManager.h"
 
-#include "AssetSelection.h"
-#include "EditorStyle.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "SExternalImageReference"
 

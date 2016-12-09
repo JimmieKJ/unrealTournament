@@ -7,6 +7,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/PlatformInterfaceBase.h"
 #include "InGameAdManager.generated.h"
 
 UENUM()

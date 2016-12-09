@@ -2,6 +2,8 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
 /** 
  * Interface for data deriving backends
  * This API will not be called concurrently, except that Build might be called on different instances if IsBuildThreadsafe.

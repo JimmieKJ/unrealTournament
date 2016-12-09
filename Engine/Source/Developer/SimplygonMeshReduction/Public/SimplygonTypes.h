@@ -2,10 +2,9 @@
 
 #pragma once
 
-#include "Core.h"
-#include "CoreUObject.h"
-#include "Engine.h"
+#include "CoreMinimal.h"
 #include "Containers/EnumAsByte.h" 
+#include "Engine/MaterialMerging.h"
 #include "SimplygonSDK.h"
 
 #include "SimplygonTypes.generated.h"
@@ -42,7 +41,7 @@ static const char* GetSimplygonMaterialChannel(ESimplygonMaterialChannel::Type c
 	else if (channel == ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_ROUGHNESS)
 		return SimplygonSDK::SG_MATERIAL_CHANNEL_ROUGHNESS;
 	else if (channel == ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_METALLIC)
-		return SimplygonSDK::SG_MATERIAL_CHANNEL_METALLIC;
+		return SimplygonSDK::SG_MATERIAL_CHANNEL_METALNESS;
 	else if (channel == ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_NORMALS)
 		return SimplygonSDK::SG_MATERIAL_CHANNEL_NORMALS;
 	else if (channel == ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_OPACITY)

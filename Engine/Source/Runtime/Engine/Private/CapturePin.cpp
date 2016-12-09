@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "CapturePin.h"
-#include "CaptureSource.h"
 #include "AVIWriter.h"
-#include "ScopeExit.h"
-
+#include "Misc/ScopeExit.h"
+#include "CaptureSource.h"
 
 DEFINE_LOG_CATEGORY(LogMovieCapture);
 

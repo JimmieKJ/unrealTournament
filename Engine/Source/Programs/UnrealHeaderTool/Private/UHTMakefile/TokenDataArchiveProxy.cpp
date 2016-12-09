@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+#include "TokenDataArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/TokenArchiveProxy.h"
-#include "UHTMakefile/TokenDataArchiveProxy.h"
 #include "ParserHelper.h"
+#include "UHTMakefile.h"
+#include "TokenArchiveProxy.h"
 
 FTokenDataArchiveProxy::FTokenDataArchiveProxy(const FUHTMakefile& UHTMakefile, const FTokenData* TokenData)
 {

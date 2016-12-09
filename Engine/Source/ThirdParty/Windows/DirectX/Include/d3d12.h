@@ -1807,6 +1807,8 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS1
     _Out_  UINT WaveLaneCountMin;
     _Out_  UINT WaveLaneCountMax;
     _Out_  UINT TotalLaneCount;
+    _Out_  BOOL ExpandedComputeResourceStates;
+    _Out_  BOOL Int64ShaderOps;
     } 	D3D12_FEATURE_DATA_D3D12_OPTIONS1;
 
 typedef 

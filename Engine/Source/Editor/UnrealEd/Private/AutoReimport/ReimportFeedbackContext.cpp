@@ -1,13 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "AutoReimport/ReimportFeedbackContext.h"
+#include "Animation/CurveSequence.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Modules/ModuleManager.h"
+#include "Layout/LayoutUtils.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Notifications/SProgressBar.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
 
-#include "ReimportFeedbackContext.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
-#include "INotificationWidget.h"
+#include "FileCacheUtilities.h"
 #include "MessageLogModule.h"
-#include "SHyperlink.h"
+#include "Widgets/Input/SHyperlink.h"
 
 #define LOCTEXT_NAMESPACE "ReimportContext"
 

@@ -4,13 +4,12 @@
 	LandscapeBlueprintSupport.cpp: Landscape blueprint functions
   =============================================================================*/
 
-#include "LandscapePrivatePCH.h"
-#include "Landscape.h"
-#include "LandscapeSplineRaster.h"
+#include "CoreMinimal.h"
+#include "Engine/World.h"
 #include "LandscapeProxy.h"
+#include "LandscapeSplineSegment.h"
 #include "LandscapeSplineRaster.h"
 #include "Components/SplineComponent.h"
-#include "LandscapeSplineSegment.h"
 
 void ALandscapeProxy::EditorApplySpline(USplineComponent* InSplineComponent, float StartWidth, float EndWidth, float StartSideFalloff, float EndSideFalloff, float StartRoll, float EndRoll, int32 NumSubdivisions, bool bRaiseHeights, bool bLowerHeights, ULandscapeLayerInfoObject* PaintLayer)
 {

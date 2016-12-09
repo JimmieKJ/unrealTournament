@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "BlueprintMergeData.h" // for IMergeControl
-#include "MergeUtils.h" // for EMergeAssetId
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "IAssetTypeActions.h"
+#include "MergeUtils.h"
 
-class SMergeAssetPickerPanel;
+struct FBlueprintMergeData;
 
 /*******************************************************************************
  * FAssetRevisionInfo

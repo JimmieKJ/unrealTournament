@@ -1,19 +1,52 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GameProjectGenerationPrivatePCH.h"
-#include "MainFrame.h"
+#include "SProjectBrowser.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "Misc/Paths.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/UnrealType.h"
+#include "Misc/EngineVersion.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "SlateOptMacros.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Framework/Layout/Overscroll.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STileView.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "EditorDirectories.h"
+#include "ProjectDescriptor.h"
+#include "Interfaces/IProjectManager.h"
+#include "GameProjectUtils.h"
+#include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
 #include "SVerbChoiceDialog.h"
-#include "UProjectInfo.h"
+#include "Misc/UProjectInfo.h"
 #include "SourceCodeNavigation.h"
-#include "TargetPlatform.h"
 #include "PlatformInfo.h"
-#include "SSearchBox.h"
+#include "Widgets/Input/SSearchBox.h"
 #include "Settings/EditorSettings.h"
 #include "AnalyticsEventAttribute.h"
 #include "EngineAnalytics.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "ProjectBrowser"
 
@@ -1245,17 +1278,8 @@ FReply SProjectBrowser::OnBrowseToProjectClicked()
 	bool bOpened = false;
 	if ( DesktopPlatform )
 	{
-		void* ParentWindowWindowHandle = NULL;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		bOpened = DesktopPlatform->OpenFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(AsShared()),
 			LOCTEXT("OpenProjectBrowseTitle", "Open Project").ToString(),
 			DefaultFolder,
 			TEXT(""),

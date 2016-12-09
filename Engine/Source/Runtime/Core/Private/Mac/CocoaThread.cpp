@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
 #include "CocoaThread.h"
 #include "LockFreeList.h"
+#include "Templates/RefCounting.h"
+#include "Misc/OutputDeviceRedirector.h"
 
 #define MAC_SEPARATE_GAME_THREAD 1 // Separate the main & game threads so that we better handle the interaction between the Cocoa's event delegates and UE4's event polling.
 

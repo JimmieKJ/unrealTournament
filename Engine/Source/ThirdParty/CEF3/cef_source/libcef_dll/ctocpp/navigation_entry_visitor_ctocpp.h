@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -30,15 +30,12 @@ class CefNavigationEntryVisitorCToCpp
     : public CefCToCpp<CefNavigationEntryVisitorCToCpp,
         CefNavigationEntryVisitor, cef_navigation_entry_visitor_t> {
  public:
-  explicit CefNavigationEntryVisitorCToCpp(cef_navigation_entry_visitor_t* str)
-      : CefCToCpp<CefNavigationEntryVisitorCToCpp, CefNavigationEntryVisitor,
-          cef_navigation_entry_visitor_t>(str) {}
+  CefNavigationEntryVisitorCToCpp();
 
-  // CefNavigationEntryVisitor methods
+  // CefNavigationEntryVisitor methods.
   bool Visit(CefRefPtr<CefNavigationEntry> entry, bool current, int index,
       int total) override;
 };
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_NAVIGATION_ENTRY_VISITOR_CTOCPP_H_
-

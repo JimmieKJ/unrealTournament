@@ -1,10 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
+#include "SVisualLoggerFilters.h"
+#include "EngineGlobals.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SComboButton.h"
+#include "LogVisualizerSettings.h"
+#include "VisualLoggerDatabase.h"
+#include "LogVisualizerStyle.h"
 #include "SFilterWidget.h"
-#include "SSearchBox.h"
+#include "Widgets/Input/SSearchBox.h"
 #if WITH_EDITOR
-#include "Editor.h"
+#include "Editor/EditorEngine.h"
 #include "EditorViewportClient.h"
 #endif
 
@@ -194,7 +204,7 @@ TSharedRef<SWidget> SVisualLoggerFilters::MakeGraphsFilterMenu()
 		SNew(SVerticalBox)
 
 		+ SVerticalBox::Slot()
-		.MaxHeight(DisplaySize.Y * 0.5)
+		.MaxHeight(DisplaySize.Y * 0.9)
 		[
 			MenuBuilder.MakeWidget()
 		];

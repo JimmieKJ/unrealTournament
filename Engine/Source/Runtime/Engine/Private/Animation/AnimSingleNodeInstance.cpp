@@ -5,16 +5,9 @@
 	Only plays one animation at a time. 
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "Animation/AnimNodeBase.h"
 #include "Animation/AnimSingleNodeInstance.h"
-#include "AnimationRuntime.h"
-#include "Animation/BlendSpace.h"
 #include "Animation/BlendSpaceBase.h"
-#include "Animation/AnimComposite.h"
-#include "Animation/AimOffsetBlendSpace.h"
-#include "Animation/AimOffsetBlendSpace1D.h"
-#include "Animation/AnimMontage.h"
+#include "Animation/BlendSpace.h"
 #include "Animation/AnimSingleNodeInstanceProxy.h"
 
 /////////////////////////////////////////////////////
@@ -41,7 +34,7 @@ void UAnimSingleNodeInstance::SetAnimationAsset(class UAnimationAsset* NewAsset,
 #endif
 		NewAsset && NewAsset->IsValidAdditive())
 	{
-		UE_LOG(LogAnimation, Warning, TEXT("Setting an additive animation (%s) on an AnimSingleNodeInstance is not allowed. This will not function correctly in cooked builds!"), *NewAsset->GetName());
+		UE_LOG(LogAnimation, Warning, TEXT("Setting an additive animation (%s) on an AnimSingleNodeInstance (%s) is not allowed. This will not function correctly in cooked builds!"), *NewAsset->GetName(), *GetFullName());
 	}
 
 	USkeletalMeshComponent* MeshComponent = GetSkelMeshComponent();
@@ -151,6 +144,15 @@ void UAnimSingleNodeInstance::SetMontageLoop(UAnimMontage* Montage, bool bIsLoop
 void UAnimSingleNodeInstance::UpdateMontageWeightForTimeSkip(float TimeDifference)
 {
 	Montage_UpdateWeight(TimeDifference);
+	if (UAnimMontage * Montage = Cast<UAnimMontage>(CurrentAsset))
+	{
+		FAnimSingleNodeInstanceProxy& Proxy = GetProxyOnGameThread<FAnimSingleNodeInstanceProxy>();
+
+		UpdateMontageEvaluationData();
+
+		const FName CurrentSlotNodeName = Montage->SlotAnimTracks[0].SlotName;
+		Proxy.UpdateMontageWeightForSlot(CurrentSlotNodeName, 1.f);
+	}
 }
 
 void UAnimSingleNodeInstance::UpdateBlendspaceSamples(FVector InBlendInput)
@@ -375,10 +377,10 @@ void UAnimSingleNodeInstance::StepForward()
 	if (UAnimSequence* Sequence = Cast<UAnimSequence>(CurrentAsset))
 	{
 		FAnimSingleNodeInstanceProxy& Proxy = GetProxyOnGameThread<FAnimSingleNodeInstanceProxy>();
-
-		float KeyLength = Sequence->SequenceLength/Sequence->NumFrames+SMALL_NUMBER;
+		const FAnimKeyHelper Helper(Sequence->SequenceLength, Sequence->NumFrames);
+		float KeyLength = Helper.TimePerKey() + SMALL_NUMBER;
 		float Fraction = (Proxy.GetCurrentTime()+KeyLength)/Sequence->SequenceLength;
-		int32 Frames = FMath::Clamp<int32>((float)(Sequence->NumFrames*Fraction), 0, Sequence->NumFrames);
+		int32 Frames = FMath::Clamp<int32>((float)(Helper.LastKey()*Fraction), 0, Helper.LastKey());
 		SetPosition(Frames*KeyLength);
 	}	
 }
@@ -389,9 +391,10 @@ void UAnimSingleNodeInstance::StepBackward()
 	{
 		FAnimSingleNodeInstanceProxy& Proxy = GetProxyOnGameThread<FAnimSingleNodeInstanceProxy>();
 
-		float KeyLength = Sequence->SequenceLength/Sequence->NumFrames+SMALL_NUMBER;
+		const FAnimKeyHelper Helper(Sequence->SequenceLength, Sequence->NumFrames);
+		float KeyLength = Helper.TimePerKey() + SMALL_NUMBER;
 		float Fraction = (Proxy.GetCurrentTime()-KeyLength)/Sequence->SequenceLength;
-		int32 Frames = FMath::Clamp<int32>((float)(Sequence->NumFrames*Fraction), 0, Sequence->NumFrames);
+		int32 Frames = FMath::Clamp<int32>((float)(Helper.LastKey()*Fraction), 0, Helper.LastKey());
 		SetPosition(Frames*KeyLength);
 	}
 }

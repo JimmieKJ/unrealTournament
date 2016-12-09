@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "TextReferenceCollector.h"
+#include "Serialization/TextReferenceCollector.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectHash.h"
+#include "Serialization/ArchiveUObject.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
 
 class FTextReferencesArchive : public FArchiveUObject
 {

@@ -2,12 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "Async/AsyncWork.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "StaticMeshResources.h"
 
 #include "HierarchicalInstancedStaticMeshComponent.generated.h"
 
 class FClusterBuilder;
+class FStaticLightingTextureMapping_InstancedStaticMesh;
 
 USTRUCT()
 struct FClusterNode
@@ -190,10 +195,7 @@ public:
 protected:
 	/** Removes a single instance without extra work such as rebuilding the tree or marking render state dirty. */
 	void RemoveInstanceInternal(int32 InstanceIndex);
-
-	void UpdateInstanceTreeBoundsInternal(int32 InstanceIndex, const FBox& NewBounds);
-	static void UpdateInstanceTreeBoundsInternal_RenderThread(TArray<FClusterNode>& ClusterTree, int32 InstanceIndex, const FBox& NewBounds);
-
+	
 	/** Gets and approximate number of verts for each LOD to generate heuristics **/
 	int32 GetVertsForLOD(int32 LODIndex);
 	/** Average number of instances per leaf **/

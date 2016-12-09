@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Styling/ISlateStyle.h"
+#include "Framework/Commands/UICommandInfo.h"
+
+class SToolTip;
+class SWidget;
 
 /**
  * Types of MultiBoxes

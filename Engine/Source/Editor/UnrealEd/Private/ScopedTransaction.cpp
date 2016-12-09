@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "ScopedTransaction.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Editor.h"
 
 FScopedTransaction::FScopedTransaction(const FText& SessionName, const bool bShouldActuallyTransact )
 {

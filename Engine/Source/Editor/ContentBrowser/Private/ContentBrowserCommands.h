@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EditorStyleSet.h"
+#include "Framework/Commands/Commands.h"
 
 class FContentBrowserCommands
 	: public TCommands<FContentBrowserCommands>
@@ -25,4 +28,6 @@ public:
 	TSharedPtr<FUICommandInfo> DirectoryUp;
 	TSharedPtr<FUICommandInfo> OpenAssetsOrFolders;
 	TSharedPtr<FUICommandInfo> PreviewAssets;
+	TSharedPtr<FUICommandInfo> SaveSelectedAsset;
+	TSharedPtr<FUICommandInfo> SaveAllCurrentFolder;
 };

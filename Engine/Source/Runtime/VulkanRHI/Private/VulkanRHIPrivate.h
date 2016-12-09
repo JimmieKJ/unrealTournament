@@ -7,13 +7,23 @@
 #pragma once
 
 // Dependencies
+#include "CoreMinimal.h"
+#include "Misc/ScopeLock.h"
+#include "RHI.h"
+#include "RenderUtils.h"
 #include "VulkanConfiguration.h"
-#include "Engine.h"
+
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
 
 DECLARE_LOG_CATEGORY_EXTERN(LogVulkanRHI, Log, All);
 
 /** How many back buffers to cycle through */
-#define NUM_RENDER_BUFFERS 2
+enum
+{
+	NUM_RENDER_BUFFERS = 3,
+};
 
 #ifndef VK_PROTOTYPES
 #define VK_PROTOTYPES	1
@@ -27,20 +37,54 @@ DECLARE_LOG_CATEGORY_EXTERN(LogVulkanRHI, Log, All);
 #endif
 
 #if PLATFORM_ANDROID
-#include "VulkanLoader.h"
-#define VULKAN_COMMANDWRAPPERS_ENABLE 0
+	#define VULKAN_COMMANDWRAPPERS_ENABLE VULKAN_ENABLE_API_DUMP
+	#define VULKAN_DYNAMICALLYLOADED 1
 #else
-#include <vulkan/vulkan.h>
-#define VULKAN_COMMANDWRAPPERS_ENABLE 1
+	#define VULKAN_COMMANDWRAPPERS_ENABLE 1
+	#define VULKAN_DYNAMICALLYLOADED 0
 #endif
+
+#if PLATFORM_WINDOWS
+#include "AllowWindowsPlatformTypes.h"
+#endif
+
+#if VULKAN_DYNAMICALLYLOADED
+	#include "VulkanLoader.h"
+#else
+	#include <vulkan.h>
+#endif
+
+#if PLATFORM_WINDOWS
+#include "HideWindowsPlatformTypes.h"
+#endif
+
+#if VULKAN_COMMANDWRAPPERS_ENABLE
+	#if VULKAN_DYNAMICALLYLOADED
+		// Vulkan API is defined in VulkanDynamicAPI namespace.
+		#define VULKANAPINAMESPACE VulkanDynamicAPI
+	#else
+		// Vulkan API is in the global namespace.
+		#define VULKANAPINAMESPACE
+	#endif
+	#include "VulkanCommandWrappers.h"
+#else
+	#if VULKAN_DYNAMICALLYLOADED
+		// Bring functions from VulkanDynamicAPI to VulkanRHI
+		#define VK_DYNAMICAPI_TO_VULKANRHI(Type,Func) using VulkanDynamicAPI::Func;
+		namespace VulkanRHI
+		{
+			ENUM_VK_ENTRYPOINTS_ALL(VK_DYNAMICAPI_TO_VULKANRHI);
+		}
+	#else
+		#error "Statically linked vulkan api must be wrapped!"
+	#endif
+#endif
+
 
 #include "VulkanRHI.h"
 #include "VulkanGlobalUniformBuffer.h"
 #include "RHI.h"
 
-#if VULKAN_COMMANDWRAPPERS_ENABLE
-#include "VulkanCommandWrappers.h"
-#endif
 using namespace VulkanRHI;
 
 // Default is 1 (which is aniso off), the number is adjusted after the limits are queried.
@@ -53,10 +97,10 @@ class FVulkanDescriptorSetsLayout;
 class FVulkanBlendState;
 class FVulkanDepthStencilState;
 class FVulkanBoundShaderState;
-class FVulkanPipeline;
+class FVulkanGfxPipeline;
 class FVulkanRenderPass;
 class FVulkanCommandBufferManager;
-class FVulkanPendingState;
+class FVulkanPendingGfxState;
 
 inline VkShaderStageFlagBits UEFrequencyToVKStageBit(EShaderFrequency InStage)
 {
@@ -193,51 +237,52 @@ public:
 	}
 
 	TArray<VkImageView> AttachmentViews;
+	TArray<VkImageView> AttachmentViewsToDelete;
 	TArray<VkImageSubresourceRange> SubresourceRanges;
 
-	void InsertWriteBarriers(FVulkanCmdBuffer* CmdBuffer);
-
-	// Returns the backbuffer render target if used by this framebuffer
-	FVulkanBackBuffer* GetBackBuffer()
+	inline bool ContainsRenderTarget(FRHITexture* Texture) const
 	{
-		return BackBuffer;
-	}
-
-	inline bool ContainsRenderTarget(const FRHITexture* Texture) const
-	{
-		for (int32 Index = 0; Index < RTInfo.NumColorRenderTargets; ++Index)
+		ensure(Texture);
+		for (int32 Index = 0; Index < FMath::Min((int32)NumColorAttachments, RTInfo.NumColorRenderTargets); ++Index)
 		{
-			FRHITexture* RHITexture = RTInfo.ColorRenderTarget[Index].Texture;
-			if (Texture == RHITexture)
+			if (RTInfo.ColorRenderTarget[Index].Texture == Texture)
 			{
 				return true;
 			}
 		}
 
-		return Texture == (FVulkanTexture2D*)RTInfo.DepthStencilRenderTarget.Texture;
+		if (RTInfo.DepthStencilRenderTarget.Texture == Texture)
+		{
+			return true;
+		}
+
+		return false;
 	}
 
-	inline bool ContainsRenderTarget(const FVulkanTextureBase* Texture) const
+	inline bool ContainsRenderTarget(VkImage Image) const
 	{
-		check(Texture);
+		ensure(Image != VK_NULL_HANDLE);
 		for (int32 Index = 0; Index < FMath::Min((int32)NumColorAttachments, RTInfo.NumColorRenderTargets); ++Index)
 		{
 			FRHITexture* RHITexture = RTInfo.ColorRenderTarget[Index].Texture;
-			if (RHITexture->GetTexture2D() && Texture == (FVulkanTextureBase*)(FVulkanTexture2D*)RHITexture)
+			if (RHITexture)
 			{
-				return true;
-			}
-			else if (RHITexture->GetTextureCube() && Texture == (FVulkanTextureBase*)(FVulkanTextureCube*)RHITexture)
-			{
-				return true;
-			}
-			else if (RHITexture->GetTexture3D() && Texture == (FVulkanTextureBase*)(FVulkanTexture3D*)RHITexture)
-			{
-				return true;
+				FVulkanTextureBase* Base = (FVulkanTextureBase*)RHITexture->GetTextureBaseRHI();
+				if (Image == Base->Surface.Image)
+				{
+					return true;
+				}
 			}
 		}
 
-		return Texture == (FVulkanTexture2D*)RTInfo.DepthStencilRenderTarget.Texture;
+		FVulkanTexture2D* Depth = (FVulkanTexture2D*)RTInfo.DepthStencilRenderTarget.Texture;
+		if (Depth)
+		{
+			ensure(RTInfo.DepthStencilRenderTarget.Texture->GetTexture2D());
+			return Depth && Depth->Surface.Image == Image;
+		}
+
+		return false;
 	}
 
 	inline uint32 GetWidth() const
@@ -259,10 +304,12 @@ private:
 	const FRHISetRenderTargetsInfo RTInfo;
 	uint32 NumColorAttachments;
 
-	FVulkanBackBuffer* BackBuffer;
-
 	// Predefined set of barriers, when executes ensuring all writes are finished
 	TArray<VkImageMemoryBarrier> WriteBarriers;
+
+#if VULKAN_KEEP_CREATE_INFO
+	VkFramebufferCreateInfo CreateInfo;
+#endif
 };
 
 class FVulkanRenderPass
@@ -272,7 +319,7 @@ public:
 	VkRenderPass GetHandle() const { check(RenderPass != VK_NULL_HANDLE); return RenderPass; }
 
 private:
-	friend class FVulkanPendingState;
+	friend class FVulkanPendingGfxState;
 	friend class FVulkanCommandListContext;
 
 #if VULKAN_ENABLE_PIPELINE_CACHE
@@ -286,6 +333,12 @@ private:
 	FVulkanRenderTargetLayout Layout;
 	VkRenderPass RenderPass;
 	FVulkanDevice& Device;
+
+#if VULKAN_KEEP_CREATE_INFO
+	const FVulkanRenderTargetLayout& RTLayout;
+	VkSubpassDescription SubpassDesc;
+	VkRenderPassCreateInfo CreateInfo;
+#endif
 };
 
 class FVulkanDescriptorSetsLayout
@@ -299,7 +352,7 @@ public:
 	// Can be called only once, the idea is that the Layout remains fixed.
 	void Compile();
 
-	inline const TArray<VkDescriptorSetLayout> GetHandles() const
+	inline const TArray<VkDescriptorSetLayout>& GetHandles() const
 	{
 		return LayoutHandles;
 	}
@@ -336,9 +389,22 @@ public:
 	FVulkanDescriptorPool(FVulkanDevice* InDevice);
 	~FVulkanDescriptorPool();
 
-	VkDescriptorPool GetHandle() const
+	inline VkDescriptorPool GetHandle() const
 	{
 		return DescriptorPool;
+	}
+
+	inline bool CanAllocate(const FVulkanDescriptorSetsLayout& Layout) const
+	{
+		for (uint32 TypeIndex = VK_DESCRIPTOR_TYPE_BEGIN_RANGE; TypeIndex < VK_DESCRIPTOR_TYPE_END_RANGE; ++TypeIndex)
+		{
+			if (NumAllocatedTypes[TypeIndex] +	(int32)Layout.GetTypesUsed((VkDescriptorType)TypeIndex) > MaxAllocatedTypes[TypeIndex])
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	void TrackAddUsage(const FVulkanDescriptorSetsLayout& Layout);
@@ -357,6 +423,7 @@ private:
 	uint32 PeakAllocatedDescriptorSets;
 
 	// Tracks number of allocated types, to ensure that we are not exceeding our allocated limit
+	int32 MaxAllocatedTypes[VK_DESCRIPTOR_TYPE_RANGE_SIZE];
 	int32 NumAllocatedTypes[VK_DESCRIPTOR_TYPE_RANGE_SIZE];
 	int32 PeakAllocatedTypes[VK_DESCRIPTOR_TYPE_RANGE_SIZE];
 
@@ -365,33 +432,40 @@ private:
 
 struct FVulkanDescriptorSets
 {
-	const TArray<VkDescriptorSet>& GetHandles() const
+	~FVulkanDescriptorSets();
+
+	inline const TArray<VkDescriptorSet>& GetHandles() const
 	{
 		return Sets;
 	}
 
-	void Bind(FVulkanCmdBuffer* Cmd, FVulkanBoundShaderState* State);
+	inline void Bind(FVulkanCmdBuffer* Cmd, VkPipelineLayout PipelineLayout, VkPipelineBindPoint BindPoint)
+	{
+		VulkanRHI::vkCmdBindDescriptorSets(Cmd->GetHandle(),
+			BindPoint,
+			PipelineLayout,
+			0, Sets.Num(), Sets.GetData(),
+			0, nullptr);
+	}
 
 private:
 	friend class FVulkanDescriptorPool;
-	friend class FVulkanPendingState;
+	friend class FVulkanShaderState;
 
-	FVulkanDescriptorSets(FVulkanDevice* InDevice, const FVulkanBoundShaderState* InState, FVulkanCommandListContext* InContext);
-	~FVulkanDescriptorSets();
+	FVulkanDescriptorSets(FVulkanDevice* InDevice, const FVulkanDescriptorSetsLayout& InLayout, FVulkanCommandListContext* InContext);
 
 	FVulkanDevice* Device;
 	FVulkanDescriptorPool* Pool;
 	const FVulkanDescriptorSetsLayout& Layout;
 	TArray<VkDescriptorSet> Sets;
 
-	friend class FVulkanBoundShaderState;
 	friend class FVulkanCommandListContext;
 };
 
 
 namespace VulkanRHI
 {
-	inline void SetupBarrier(VkImageMemoryBarrier& Barrier, const FVulkanSurface& Surface, VkAccessFlags SrcMask, VkImageLayout SrcLayout, VkAccessFlags DstMask, VkImageLayout DstLayout)
+	inline void SetupImageBarrier(VkImageMemoryBarrier& Barrier, const FVulkanSurface& Surface, VkAccessFlags SrcMask, VkImageLayout SrcLayout, VkAccessFlags DstMask, VkImageLayout DstLayout, uint32 NumLayers = 1)
 	{
 		Barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		Barrier.srcAccessMask = SrcMask;
@@ -403,15 +477,31 @@ namespace VulkanRHI
 		Barrier.subresourceRange.levelCount = Surface.GetNumMips();
 		//#todo-rco: Cubemaps?
 		//Barriers[Index].subresourceRange.baseArrayLayer = 0;
-		Barrier.subresourceRange.layerCount = 1;
+		Barrier.subresourceRange.layerCount = NumLayers;
 		Barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		Barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	}
 
-	inline void SetupAndZeroBarrier(VkImageMemoryBarrier& Barrier, const FVulkanSurface& Surface, VkAccessFlags SrcMask, VkImageLayout SrcLayout, VkAccessFlags DstMask, VkImageLayout DstLayout)
+	inline void SetupBufferBarrier(VkBufferMemoryBarrier& Barrier, VkAccessFlags SrcAccess, VkAccessFlags DstAccess, VkBuffer Buffer, uint32 Offset, VkDeviceSize Size)
+	{
+		Barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+		Barrier.srcAccessMask = SrcAccess;
+		Barrier.dstAccessMask = DstAccess;
+		Barrier.buffer = Buffer;
+		Barrier.offset = Offset;
+		Barrier.size = Size;
+	}
+
+	inline void SetupAndZeroImageBarrier(VkImageMemoryBarrier& Barrier, const FVulkanSurface& Surface, VkAccessFlags SrcMask, VkImageLayout SrcLayout, VkAccessFlags DstMask, VkImageLayout DstLayout)
 	{
 		FMemory::Memzero(Barrier);
-		SetupBarrier(Barrier, Surface, SrcMask, SrcLayout, DstMask, DstLayout);
+		SetupImageBarrier(Barrier, Surface, SrcMask, SrcLayout, DstMask, DstLayout);
+	}
+
+	inline void SetupAndZeroBufferBarrier(VkBufferMemoryBarrier& Barrier, VkAccessFlags SrcAccess, VkAccessFlags DstAccess, VkBuffer Buffer, uint32 Offset, VkDeviceSize Size)
+	{
+		FMemory::Memzero(Barrier);
+		SetupBufferBarrier(Barrier, SrcAccess, DstAccess, Buffer, Offset, Size);
 	}
 }
 
@@ -427,7 +517,6 @@ inline void VulkanSetImageLayoutSimple(VkCommandBuffer CmdBuffer, VkImage Image,
 void VulkanResolveImage(VkCommandBuffer Cmd, FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI);
 
 // Stats
-#include "Engine.h"
 #include "Stats2.h"
 DECLARE_STATS_GROUP(TEXT("Vulkan RHI"), STATGROUP_VulkanRHI, STATCAT_Advanced);
 //DECLARE_STATS_GROUP(TEXT("Vulkan RHI Verbose"), STATGROUP_VulkanRHIVERBOSE, STATCAT_Advanced);
@@ -437,7 +526,9 @@ DECLARE_STATS_GROUP(TEXT("Vulkan RHI"), STATGROUP_VulkanRHI, STATCAT_Advanced);
 //DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Textures Allocated"), STAT_VulkanTexturesAllocated, STATGROUP_VulkanRHI, );
 //DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Textures Released"), STAT_VulkanTexturesReleased, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Draw call time"), STAT_VulkanDrawCallTime, STATGROUP_VulkanRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Dispatch call time"), STAT_VulkanDispatchCallTime, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Draw call prep time"), STAT_VulkanDrawCallPrepareTime, STATGROUP_VulkanRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Dispatch call prep time"), STAT_VulkanDispatchCallPrepareTime, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Create uniform buffer time"), STAT_VulkanCreateUniformBufferTime, STATGROUP_VulkanRHI, );
 //DECLARE_CYCLE_STAT_EXTERN(TEXT("Update uniform buffer"), STAT_VulkanUpdateUniformBufferTime, STATGROUP_VulkanRHI, );
 //DECLARE_CYCLE_STAT_EXTERN(TEXT("GPU Flip Wait Time"), STAT_VulkanGPUFlipWaitTime, STATGROUP_VulkanRHI, );
@@ -458,6 +549,9 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("SRV Update Time"), STAT_VulkanSRVUpdateTime, STA
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Deletion Queue"), STAT_VulkanDeletionQueue, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Queue Submit"), STAT_VulkanQueueSubmit, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Queue Present"), STAT_VulkanQueuePresent, STATGROUP_VulkanRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Wait For Query"), STAT_VulkanWaitQuery, STATGROUP_VulkanRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Reset Queries"), STAT_VulkanResetQuery, STATGROUP_VulkanRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Wait For Swapchain"), STAT_VulkanWaitSwapchain, STATGROUP_VulkanRHI, );
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Apply DS Shader Resources"), STAT_VulkanApplyDSResources, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Update DescriptorSets"), STAT_VulkanUpdateDescriptorSets, STATGROUP_VulkanRHI, );
@@ -520,6 +614,8 @@ namespace VulkanRHI
 			Flags = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+			Flags = VK_ACCESS_MEMORY_READ_BIT;
+			break;
 		case VK_IMAGE_LAYOUT_GENERAL:
 		case VK_IMAGE_LAYOUT_UNDEFINED:
 			Flags = 0;
@@ -561,7 +657,8 @@ static inline VkAttachmentStoreOp RenderTargetStoreActionToVulkan(ERenderTargetS
 	switch (InStoreAction)
 	{
 	case ERenderTargetStoreAction::EStore:		OutStoreAction = VK_ATTACHMENT_STORE_OP_STORE;		break;
-	case ERenderTargetStoreAction::ENoAction:	OutStoreAction = VK_ATTACHMENT_STORE_OP_DONT_CARE;	break;
+	//#todo-rco: Temp until we have a better RenderPass system
+	case ERenderTargetStoreAction::ENoAction:	OutStoreAction = VK_ATTACHMENT_STORE_OP_STORE/*DONT_CARE*/;	break;
 	default:																						break;
 	}
 
@@ -577,13 +674,38 @@ inline VkFormat UEToVkFormat(EPixelFormat UEFormat, const bool bIsSRGB)
 	{
 		switch (Format)
 		{
-		case VK_FORMAT_B8G8R8A8_UNORM:			Format = VK_FORMAT_B8G8R8A8_SRGB; break;
-		case VK_FORMAT_R8G8B8A8_UNORM:			Format = VK_FORMAT_R8G8B8A8_SRGB; break;
-		case VK_FORMAT_BC1_RGB_UNORM_BLOCK:		Format = VK_FORMAT_BC1_RGB_SRGB_BLOCK; break;
-		case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:	Format = VK_FORMAT_BC1_RGBA_SRGB_BLOCK; break;
-		case VK_FORMAT_BC2_UNORM_BLOCK:			Format = VK_FORMAT_BC2_SRGB_BLOCK; break;
-		case VK_FORMAT_BC3_UNORM_BLOCK:			Format = VK_FORMAT_BC3_SRGB_BLOCK; break;
-		case VK_FORMAT_BC7_UNORM_BLOCK:			Format = VK_FORMAT_BC7_SRGB_BLOCK; break;
+		case VK_FORMAT_B8G8R8A8_UNORM:				Format = VK_FORMAT_B8G8R8A8_SRGB; break;
+		case VK_FORMAT_A8B8G8R8_UNORM_PACK32:		Format = VK_FORMAT_A8B8G8R8_SRGB_PACK32; break;
+		case VK_FORMAT_R8_UNORM:					Format = VK_FORMAT_R8_SRGB; break;
+		case VK_FORMAT_R8G8_UNORM:					Format = VK_FORMAT_R8G8_SRGB; break;
+		case VK_FORMAT_R8G8B8_UNORM:				Format = VK_FORMAT_R8G8B8_SRGB; break;
+		case VK_FORMAT_R8G8B8A8_UNORM:				Format = VK_FORMAT_R8G8B8A8_SRGB; break;
+		case VK_FORMAT_BC1_RGB_UNORM_BLOCK:			Format = VK_FORMAT_BC1_RGB_SRGB_BLOCK; break;
+		case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:		Format = VK_FORMAT_BC1_RGBA_SRGB_BLOCK; break;
+		case VK_FORMAT_BC2_UNORM_BLOCK:				Format = VK_FORMAT_BC2_SRGB_BLOCK; break;
+		case VK_FORMAT_BC3_UNORM_BLOCK:				Format = VK_FORMAT_BC3_SRGB_BLOCK; break;
+		case VK_FORMAT_BC7_UNORM_BLOCK:				Format = VK_FORMAT_BC7_SRGB_BLOCK; break;
+		case VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK:		Format = VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK; break;
+		case VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK:	Format = VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK; break;
+		case VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK:	Format = VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_4x4_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_4x4_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_5x4_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_5x4_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_5x5_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_5x5_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_6x5_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_6x5_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_6x6_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_6x6_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_8x5_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_8x5_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_8x6_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_8x6_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_8x8_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_8x8_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_10x5_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_10x5_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_10x6_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_10x6_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_10x8_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_10x8_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_10x10_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_10x10_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_12x10_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_12x10_SRGB_BLOCK; break;
+		case VK_FORMAT_ASTC_12x12_UNORM_BLOCK:		Format = VK_FORMAT_ASTC_12x12_SRGB_BLOCK; break;
+//		case VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG:	Format = VK_FORMAT_PVRTC1_2BPP_SRGB_BLOCK_IMG; break;
+//		case VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG:	Format = VK_FORMAT_PVRTC1_4BPP_SRGB_BLOCK_IMG; break;
+//		case VK_FORMAT_PVRTC2_2BPP_UNORM_BLOCK_IMG:	Format = VK_FORMAT_PVRTC2_2BPP_SRGB_BLOCK_IMG; break;
+//		case VK_FORMAT_PVRTC2_4BPP_UNORM_BLOCK_IMG:	Format = VK_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG; break;
 		default:	break;
 		}
 	}

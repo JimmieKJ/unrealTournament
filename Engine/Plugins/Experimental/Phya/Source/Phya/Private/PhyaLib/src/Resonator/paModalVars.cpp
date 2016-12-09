@@ -1,7 +1,7 @@
 //
 // paModalVars.cpp
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 //! Would like dynamic modal data space allocation.
 

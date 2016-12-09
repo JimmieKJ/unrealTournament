@@ -1,18 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RealtimeProfilerPrivatePCH.h"
-#include "SlateBasics.h"
-#include "EditorStyle.h"
 #include "SRealtimeProfilerVisualizer.h"
-#include "TaskGraphInterfaces.h"
-#include "STaskGraph.h"
-#include "SGraphBar.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "EditorStyleSet.h"
 #include "SBarVisualizer.h"
 #include "SEventsTree.h"
-#include "STimeline.h"
-#include "RealtimeProfiler.h"
 #include "SRealtimeProfilerTimeline.h"
-#include "VisualizerEvents.h"	
 
 
 void SRealtimeProfilerVisualizer::Construct( const FArguments& InArgs )

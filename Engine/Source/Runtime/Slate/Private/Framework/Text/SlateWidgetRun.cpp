@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Framework/Text/SlateWidgetRun.h"
+#include "Layout/ArrangedChildren.h"
+#include "Framework/Text/DefaultLayoutBlock.h"
 
 #if WITH_FANCY_TEXT
 
-#include "SlateWidgetRun.h"
-#include "RunUtils.h"
+#include "Framework/Text/RunUtils.h"
 
 TSharedRef< FSlateWidgetRun > FSlateWidgetRun::Create(const TSharedRef<class FTextLayout>& TextLayout, const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FWidgetRunInfo& InWidgetInfo)
 {

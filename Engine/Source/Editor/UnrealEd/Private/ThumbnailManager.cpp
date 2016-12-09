@@ -1,14 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
-#include "SoundDefinitions.h"
-#include "BlueprintUtilities.h"
-#include "ImageUtils.h"
-
+#include "ThumbnailRendering/ThumbnailManager.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Materials/Material.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
 #include "Engine/StaticMesh.h"
+#include "UnrealClient.h"
 #include "Engine/TextureCube.h"
+
+#include "ImageUtils.h"
+
 
 DEFINE_LOG_CATEGORY_STATIC(LogThumbnailManager, Log, All);
 

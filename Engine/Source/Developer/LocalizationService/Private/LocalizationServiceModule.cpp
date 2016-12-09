@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationServicePrivatePCH.h"
 #include "LocalizationServiceModule.h"
-#include "LocalizationServiceSettings.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
-#include "Developer/MessageLog/Public/MessageLogModule.h"
+
+#if WITH_UNREAL_DEVELOPER_TOOLS
+#include "MessageLogModule.h"
+#endif
+ 
+#include "Features/IModularFeatures.h"
 
 DEFINE_LOG_CATEGORY(LogLocalizationService);
 

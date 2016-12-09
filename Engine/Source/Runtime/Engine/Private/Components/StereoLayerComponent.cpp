@@ -1,18 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "IHeadMountedDisplay.h"
 #include "Components/StereoLayerComponent.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "TextureResource.h"
+#include "Engine/Texture.h"
+#include "IStereoLayers.h"
+#include "IHeadMountedDisplay.h"
 
 UStereoLayerComponent::UStereoLayerComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, bLiveTexture(false)
+	, bSupportsDepth(false)
 	, bNoAlphaChannel(false)
 	, Texture(nullptr)
+	, LeftTexture(nullptr)
 	, bQuadPreserveTextureRatio(false)
 	, QuadSize(FVector2D(100.0f, 100.0f))
 	, UVRect(FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f)))
+	, CylinderRadius(100)
+	, CylinderOverlayArc(100)
+	, CylinderHeight(50)
 	, StereoLayerType(SLT_FaceLocked)
+	, StereoLayerShape(SLSH_QuadLayer)
 	, Priority(0)
 	, bIsDirty(true)
 	, bTextureNeedsUpdate(false)
@@ -85,22 +95,49 @@ void UStereoLayerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 			LayerDsec.QuadSize = QuadSize;
 			LayerDsec.UVRect = UVRect;
 			LayerDsec.Transform = Transform;
-			LayerDsec.Texture = Texture->Resource->TextureRHI;
+			if (Texture)
+			{
+				LayerDsec.Texture = Texture->Resource->TextureRHI;
+			}
+			if (LeftTexture)
+			{
+				LayerDsec.LeftTexture = LeftTexture->Resource->TextureRHI;
+			}
+			LayerDsec.CylinderSize = FVector2D(CylinderRadius, CylinderOverlayArc);
+			LayerDsec.CylinderHeight = CylinderHeight;
 			
 			LayerDsec.Flags |= (bLiveTexture) ? IStereoLayers::LAYER_FLAG_TEX_CONTINUOUS_UPDATE : 0;
 			LayerDsec.Flags |= (bNoAlphaChannel) ? IStereoLayers::LAYER_FLAG_TEX_NO_ALPHA_CHANNEL : 0;
 			LayerDsec.Flags |= (bQuadPreserveTextureRatio) ? IStereoLayers::LAYER_FLAG_QUAD_PRESERVE_TEX_RATIO : 0;
+			LayerDsec.Flags |= (bSupportsDepth) ? IStereoLayers::LAYER_FLAG_SUPPORT_DEPTH : 0;
 
 			switch (StereoLayerType)
 			{
 			case SLT_WorldLocked:
-				LayerDsec.Type = IStereoLayers::WorldLocked;
+				LayerDsec.PositionType = IStereoLayers::WorldLocked;
 				break;
 			case SLT_TrackerLocked:
-				LayerDsec.Type = IStereoLayers::TrackerLocked;
+				LayerDsec.PositionType = IStereoLayers::TrackerLocked;
 				break;
 			case SLT_FaceLocked:
-				LayerDsec.Type = IStereoLayers::FaceLocked;
+				LayerDsec.PositionType = IStereoLayers::FaceLocked;
+				break;
+			}
+
+			switch (StereoLayerShape)
+			{
+			case SLSH_QuadLayer:
+				LayerDsec.ShapeType = IStereoLayers::QuadLayer;
+				break;
+
+			case SLSH_CylinderLayer:
+				LayerDsec.ShapeType = IStereoLayers::CylinderLayer;
+				break;
+
+			case SLSH_CubemapLayer:
+				LayerDsec.ShapeType = IStereoLayers::CubemapLayer;
+				break;
+			default:
 				break;
 			}
 

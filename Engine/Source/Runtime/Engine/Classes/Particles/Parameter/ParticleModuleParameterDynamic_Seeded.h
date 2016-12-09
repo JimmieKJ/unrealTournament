@@ -2,6 +2,9 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/Parameter/ParticleModuleParameterDynamic.h"
 #include "ParticleModuleParameterDynamic_Seeded.generated.h"
 

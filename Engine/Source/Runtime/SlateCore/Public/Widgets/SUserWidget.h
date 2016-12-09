@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
 /**
  * Use SUserWidget as a base class to build aggregate widgets that are not meant
  * to serve as low-level building blocks. Examples include: a main menu, a user card,

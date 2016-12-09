@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "MapErrors.h"
+#include "Misc/MapErrors.h"
 	
 FName FMapErrors::MatchingLightGUID(TEXT("MatchingLightGUID"));
 FName FMapErrors::ActorLargeShadowCaster(TEXT("ActorLargeShadowCaster"));

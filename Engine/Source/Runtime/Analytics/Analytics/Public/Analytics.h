@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 #include "AnalyticsProviderConfigurationDelegate.h"
 #include "AnalyticsBuildType.h"
-#include "ModuleManager.h"
-#include "AnalyticsEventAttribute.h"
 
 class IAnalyticsProvider;
 

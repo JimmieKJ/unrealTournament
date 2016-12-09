@@ -1,6 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/SWidget.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "Toolkits/AssetEditorToolkit.h"
+#include "WorkflowOrientedApp/WorkflowTabFactory.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
+#include "EdGraph/EdGraph.h"
+#include "GraphEditor.h"
+#include "BlueprintEditor.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "WorkflowOrientedApp/WorkflowUObjectDocuments.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "Engine/TimelineTemplate.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintEditor"

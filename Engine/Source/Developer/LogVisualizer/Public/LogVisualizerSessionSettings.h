@@ -6,6 +6,9 @@ GameplayDebuggerSettings.h: Declares the UGameplayDebuggerSettings class.
 #pragma once
 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "LogVisualizerSessionSettings.generated.h"
 
 UCLASS()

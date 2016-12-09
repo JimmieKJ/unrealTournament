@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "HittestGrid.h"
+#include "Input/HittestGrid.h"
+#include "Rendering/RenderingCommon.h"
+#include "SlateGlobals.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogHittestDebug, Display, All);
 

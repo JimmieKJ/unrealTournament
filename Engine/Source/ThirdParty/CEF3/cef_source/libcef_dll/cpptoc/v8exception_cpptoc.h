@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,9 +28,8 @@ class CefV8ExceptionCppToC
     : public CefCppToC<CefV8ExceptionCppToC, CefV8Exception,
         cef_v8exception_t> {
  public:
-  explicit CefV8ExceptionCppToC(CefV8Exception* cls);
+  CefV8ExceptionCppToC();
 };
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CPPTOC_V8EXCEPTION_CPPTOC_H_
-

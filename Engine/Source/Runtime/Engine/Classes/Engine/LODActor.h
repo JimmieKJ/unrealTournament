@@ -2,10 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "HAL/IConsoleManager.h"
+#include "Engine/MaterialMerging.h"
 #include "GameFramework/Actor.h"
+#include "Components/StaticMeshComponent.h"
 #include "LODActor.generated.h"
 
-class UStaticMeshComponent;
 class UStaticMesh;
 
 /**
@@ -58,6 +62,7 @@ public:
 	/** Sets StaticMesh and IsPreviewActor to true if InStaticMesh equals nullptr */
 	void SetStaticMesh(UStaticMesh* InStaticMesh);
 
+	const bool IsBuilt() { return StaticMeshComponent->GetStaticMesh() != nullptr;  }
 
 #if WITH_EDITOR
 	/**
@@ -130,6 +135,7 @@ public:
 #if WITH_EDITOR
 	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void Serialize(FArchive& Ar) override;
 #endif // WITH_EDITOR	
 	//~ End UObject Interface.		
 protected:
@@ -160,7 +166,11 @@ public:
 	UPROPERTY(EditAnywhere, Category = HierarchicalLODSettings)
 	bool bOverrideTransitionScreenSize;
 
-	/** Override transition screen size value, determines the screen size / draw distance at which the proxy mesh is visible */
+	/** 
+	 * Override transition screen size value, determines the screen size at which the proxy is visible 
+	 * The screen size is based around the projected diameter of the bounding 
+	 * sphere of the model. i.e. 0.5 means half the screen's maximum dimension.
+	 */
 	UPROPERTY(EditAnywhere, Category = HierarchicalLODSettings, meta = (editcondition = "bOverrideTransitionScreenSize"))
 	float TransitionScreenSize;
 
@@ -168,7 +178,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = HierarchicalLODSettings)
 	bool bOverrideScreenSize;
 
-	/** Override screen size value, used when creating the proxy mesh */
+	/** Override screen size value used in mesh reduction, when creating the proxy mesh */
 	UPROPERTY(EditAnywhere, Category = HierarchicalLODSettings, meta = (editcondition = "bOverrideScreenSize"))
 	int32 ScreenSize;
 #endif // WITH_EDITORONLY_DATA
@@ -189,6 +199,12 @@ private:
 private:
  	// Have we already tried to register components? (a cache to avoid having to query the owning world when the global HLOD max level setting is changed)
  	uint8 bHasActorTriedToRegisterComponents : 1;
+
+	/**
+	 * If true on post load we need to calculate resolution independent Display Factors from the
+	 * loaded LOD screen sizes.
+	 */
+	uint8 bRequiresLODScreenSizeConversion : 1;
 
 	// Sink for when CVars are changed to check to see if the maximum HLOD level value has changed
 	static FAutoConsoleVariableSink CVarSink;

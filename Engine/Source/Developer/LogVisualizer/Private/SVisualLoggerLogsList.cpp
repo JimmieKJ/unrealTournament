@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
-#include "SVisualLoggerView.h"
-#include "ITimeSlider.h"
-#include "SSearchBox.h"
 #include "SVisualLoggerLogsList.h"
+#include "Misc/OutputDeviceHelper.h"
+#include "Widgets/Text/STextBlock.h"
 #include "LogVisualizerSettings.h"
+#include "VisualLoggerDatabase.h"
+#include "LogVisualizerStyle.h"
+#include "Widgets/Views/SListView.h"
 
 #define LOCTEXT_NAMESPACE "SVisualLoggerLogsList"
 

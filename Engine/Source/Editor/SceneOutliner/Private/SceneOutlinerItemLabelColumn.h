@@ -2,10 +2,14 @@
 
 #pragma once
 
-#include "SceneOutlinerFwd.h"
-
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Views/SHeaderRow.h"
 #include "ISceneOutliner.h"
+#include "SceneOutlinerPublicTypes.h"
 #include "ISceneOutlinerColumn.h"
+
+template<typename ItemType> class STableRow;
 
 namespace SceneOutliner
 {

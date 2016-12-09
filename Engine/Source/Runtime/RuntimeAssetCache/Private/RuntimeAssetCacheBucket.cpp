@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RuntimeAssetCachePrivatePCH.h"
 #include "RuntimeAssetCacheBucket.h"
+#include "Misc/DateTime.h"
 #include "RuntimeAssetCacheEntryMetadata.h"
 
 const int32 FRuntimeAssetCacheBucket::DefaultBucketSize = 5 * 1024 * 1024;

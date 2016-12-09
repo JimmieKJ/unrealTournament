@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "MessageLog.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Misc/Paths.h"
+#include "HAL/IConsoleManager.h"
+#include "UnrealEdMisc.h"
 #include "BlueprintPaletteFavorites.h"
 
 #define LOCTEXT_NAMESPACE "EditorPerProjectUserSettings"
@@ -17,8 +19,10 @@ UEditorPerProjectUserSettings::UEditorPerProjectUserSettings(const FObjectInitia
 	AssetViewerProfileIndex = 0;
 
 	SimplygonServerIP = "127.0.0.1";
-	SimplygonSwarmDelay = 500;
+	SimplygonSwarmDelay = 5000;
 	bEnableSwarmDebugging = false;
+	SwarmNumOfConcurrentJobs = 16;
+	SwarmMaxUploadChunkSizeInMB = 100;
 	SwarmIntermediateFolder = FPaths::ConvertRelativePathToFull(FPaths::GameIntermediateDir() + TEXT("Simplygon/"));
 }
 

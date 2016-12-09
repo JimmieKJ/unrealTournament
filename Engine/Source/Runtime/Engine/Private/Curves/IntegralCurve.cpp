@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Curves/IntegralCurve.h"
 
 
@@ -156,6 +155,26 @@ float FIntegralCurve::GetKeyTime(FKeyHandle KeyHandle) const
 	}
 
 	return GetKey(KeyHandle).Time;
+}
+
+
+void FIntegralCurve::SetKeyValue(FKeyHandle KeyHandle, int32 NewValue)
+{
+	if (IsKeyHandleValid(KeyHandle))
+	{
+		GetKey(KeyHandle).Value = NewValue;
+	}
+}
+
+
+int32 FIntegralCurve::GetKeyValue(FKeyHandle KeyHandle) const
+{
+	if (!IsKeyHandleValid(KeyHandle))
+	{
+		return 0.f;
+	}
+
+	return GetKey(KeyHandle).Value;
 }
 
 

@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StandaloneRendererPrivate.h"
-
 #include "Windows/D3D/SlateD3DTextureManager.h"
 #include "Windows/D3D/SlateD3DRenderer.h"
 
-#include "ModuleManager.h"
-#include "ImageWrapper.h"
+#include "StandaloneRendererPrivate.h"
+#include "Misc/FileHelper.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IImageWrapperModule.h"
+
+#include "Styling/SlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSlateD3D, Log, All);
 

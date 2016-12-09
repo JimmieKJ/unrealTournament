@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "MovieSceneSection.h"
-
+#include "CoreMinimal.h"
+#include "Curves/KeyHandle.h"
 
 class IKeyArea;
-
+class UMovieSceneSection;
 
 /**
  * Represents a selected key in the sequencer

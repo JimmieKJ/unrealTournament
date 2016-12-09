@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -27,18 +27,16 @@
 class CefURLRequestCToCpp
     : public CefCToCpp<CefURLRequestCToCpp, CefURLRequest, cef_urlrequest_t> {
  public:
-  explicit CefURLRequestCToCpp(cef_urlrequest_t* str)
-      : CefCToCpp<CefURLRequestCToCpp, CefURLRequest, cef_urlrequest_t>(str) {}
+  CefURLRequestCToCpp();
 
-  // CefURLRequest methods
-  virtual CefRefPtr<CefRequest> GetRequest() OVERRIDE;
-  virtual CefRefPtr<CefURLRequestClient> GetClient() OVERRIDE;
-  virtual Status GetRequestStatus() OVERRIDE;
-  virtual ErrorCode GetRequestError() OVERRIDE;
-  virtual CefRefPtr<CefResponse> GetResponse() OVERRIDE;
-  virtual void Cancel() OVERRIDE;
+  // CefURLRequest methods.
+  CefRefPtr<CefRequest> GetRequest() OVERRIDE;
+  CefRefPtr<CefURLRequestClient> GetClient() OVERRIDE;
+  Status GetRequestStatus() OVERRIDE;
+  ErrorCode GetRequestError() OVERRIDE;
+  CefRefPtr<CefResponse> GetResponse() OVERRIDE;
+  void Cancel() OVERRIDE;
 };
 
 #endif  // USING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_URLREQUEST_CTOCPP_H_
-

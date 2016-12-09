@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "UObject/UObjectThreadContext.h"
 #include "Engine/CanvasRenderTarget2D.h"
+#include "Misc/App.h"
+#include "UObject/Package.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "CanvasTypes.h"
+#include "Engine/Canvas.h"
+#include "UObject/UObjectThreadContext.h"
+#include "TextureResource.h"
 
 UCanvasRenderTarget2D::UCanvasRenderTarget2D( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer),

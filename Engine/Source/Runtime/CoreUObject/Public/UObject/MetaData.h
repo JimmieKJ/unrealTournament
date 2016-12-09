@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "ObjectBase.h"
-#include "WorldCompositionUtility.h"
-#include "GatherableTextData.h"
-#include "PropertyLocalizationDataGathering.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/WeakObjectPtr.h"
 
 /*-----------------------------------------------------------------------------
 	UMetaData.
@@ -123,15 +123,14 @@ public:
 
 	// UObject interface
 	virtual void Serialize(FArchive& Ar) override;
-	virtual bool NeedsLoadForClient() const override;
 	virtual bool NeedsLoadForEditorGame() const override;
 	virtual bool IsAsset() const override { return false; }
 	// End of UObject interface
 
-#if HACK_HEADER_GENERATOR
 	// Returns the remapped key name, or NAME_None was not remapped.
 	static FName GetRemappedKeyName(FName OldKey);
 
+#if HACK_HEADER_GENERATOR
 	// Required by UHT makefiles for internal data serialization.
 	friend struct FMetadataArchiveProxy;
 #endif

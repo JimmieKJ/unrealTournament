@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "KismetCompiler.h"
+#include "CoreMinimal.h"
+#include "KismetCompilerMisc.h"
+#include "K2Node_CallFunction.h"
+
+class FKismetCompilerContext;
+struct FKismetFunctionContext;
 
 //////////////////////////////////////////////////////////////////////////
 // FKCHandler_CallFunction

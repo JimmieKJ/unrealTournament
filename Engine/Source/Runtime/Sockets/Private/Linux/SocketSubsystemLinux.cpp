@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SocketsPrivatePCH.h"
-#include "SocketSubsystemLinux.h"
-#include "ModuleManager.h"
+#include "Linux/SocketSubsystemLinux.h"
+#include "Misc/CommandLine.h"
+#include "SocketSubsystemModule.h"
+#include "IPAddress.h"
 
-#include <sys/ioctl.h>
 #include <net/if.h>
 
 FSocketSubsystemLinux* FSocketSubsystemLinux::SocketSingleton = NULL;

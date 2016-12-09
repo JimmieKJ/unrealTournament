@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "MovieSceneMarginSection.h"
-#include "MovieSceneMarginTrack.h"
+#include "Animation/MovieSceneMarginSection.h"
 
 UMovieSceneMarginSection::UMovieSceneMarginSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
@@ -115,15 +113,6 @@ void UMovieSceneMarginSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
 }
 
 
-FMargin UMovieSceneMarginSection::Eval( float Position, const FMargin& DefaultValue ) const
-{
-	return FMargin(	LeftCurve.Eval(Position, DefaultValue.Left),
-					TopCurve.Eval(Position, DefaultValue.Top),
-					RightCurve.Eval(Position, DefaultValue.Right),
-					BottomCurve.Eval(Position, DefaultValue.Bottom));
-}
-
-
 template<typename CurveType>
 CurveType* GetCurveForChannel( EKeyMarginChannel Channel, CurveType* LeftCurve, CurveType* TopCurve, CurveType* RightCurve, CurveType* BottomCurve )
 {
@@ -168,3 +157,10 @@ void UMovieSceneMarginSection::SetDefault( const FMarginKey& Key )
 	SetCurveDefault( *KeyCurve, Key.Value );
 }
 
+void UMovieSceneMarginSection::ClearDefaults()
+{
+	LeftCurve.ClearDefaultValue();
+	TopCurve.ClearDefaultValue();
+	RightCurve.ClearDefaultValue();
+	BottomCurve.ClearDefaultValue();
+}

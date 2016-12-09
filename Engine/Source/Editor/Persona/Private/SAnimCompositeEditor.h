@@ -3,11 +3,15 @@
 
 #pragma once
 
-#include "Persona.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SAnimCurvePanel.h"
 #include "SAnimEditorBase.h"
 #include "Animation/AnimComposite.h"
+#include "SAnimCompositePanel.h"
 
-class UAnimComposite;
+class SAnimNotifyPanel;
 
 //////////////////////////////////////////////////////////////////////////
 // SAnimCompositeEditor
@@ -22,20 +26,17 @@ class SAnimCompositeEditor : public SAnimEditorBase
 {
 public:
 	SLATE_BEGIN_ARGS( SAnimCompositeEditor )
-		: _Persona()
-		, _Composite(NULL)
+		: _Composite(NULL)
 		{}
 
-		SLATE_ARGUMENT( TSharedPtr<FPersona>,	Persona )
-		SLATE_ARGUMENT( UAnimComposite*,		Composite)
+		SLATE_ARGUMENT( UAnimComposite*, Composite)
+		SLATE_EVENT(FOnObjectsSelected, OnObjectsSelected)
+		SLATE_EVENT(FSimpleDelegate, OnAnimNotifiesChanged)
+		SLATE_EVENT(FOnInvokeTab, OnInvokeTab)
+
 	SLATE_END_ARGS()
 
-	~SAnimCompositeEditor();
-
 private:
-	/** Persona reference **/
-	TWeakPtr<FPersona> PersonaPtr;
-
 	/** Slate editor panels */
 	TSharedPtr<class SAnimCompositePanel> AnimCompositePanel;
 	TSharedPtr<class SAnimNotifyPanel> AnimNotifyPanel;
@@ -55,7 +56,7 @@ protected:
 	virtual void InitDetailsViewEditorObject(class UEditorAnimBaseObj* EdObj) override;
 
 public:
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& OnPostUndo);
 	
 	/** Return the animation composite being edited */
 	UAnimComposite* GetCompositeObj() const { return CompositeObj; }

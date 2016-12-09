@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameProjectGenerationPrivatePCH.h"
-#include "ModuleManager.h"
 #include "GameProjectGenerationModule.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "EditorStyleSet.h"
+#include "GameProjectGenerationLog.h"
+#include "GameProjectUtils.h"
+#include "SGameProjectDialog.h"
+#include "SNewClassDialog.h"
 #include "TemplateCategory.h"
 #include "SourceCodeNavigation.h"
 
-#include "MainFrame.h"
 
 IMPLEMENT_MODULE( FGameProjectGenerationModule, GameProjectGeneration );
 DEFINE_LOG_CATEGORY(LogGameProjectGeneration);

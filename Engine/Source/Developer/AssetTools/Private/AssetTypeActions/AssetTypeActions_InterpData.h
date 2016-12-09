@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetTypeActions_Base.h"
 #include "Matinee/InterpData.h"
 
 class FAssetTypeActions_InterpData : public FAssetTypeActions_Base

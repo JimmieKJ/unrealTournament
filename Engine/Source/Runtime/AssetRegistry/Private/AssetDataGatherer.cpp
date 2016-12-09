@@ -1,10 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetRegistryPCH.h"
+#include "AssetDataGatherer.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/ScopeLock.h"
+#include "AssetRegistryPrivate.h"
+#include "NameTableArchive.h"
+#include "PackageReader.h"
+#include "AssetRegistry.h"
 
 namespace AssetDataGathererConstants
 {
-	static const int32 CacheSerializationVersion = 7;
+	static const int32 CacheSerializationVersion = 8;
 	static const int32 MaxFilesToDiscoverBeforeFlush = 2500;
 	static const int32 MaxFilesToGatherBeforeFlush = 250;
 	static const int32 MaxFilesToProcessBeforeCacheWrite = 50000;

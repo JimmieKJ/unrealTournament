@@ -1,17 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetData.h"
+#include "Input/Reply.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Widgets/SToolTip.h"
 #include "Developer/AssetTools/Public/IAssetTypeActions.h"
-#include "Runtime/AssetRegistry/Public/ARFilter.h"
 
-
-class FAssetData;
-class FDragDropOperation;
-class FExtender;
-class FReply;
-class SToolTip;
+struct FARFilter;
 struct FCollectionNameType;
 
+/** Called when a "Find in Asset Tree" is requested */
+DECLARE_DELEGATE_OneParam(FOnFindInAssetTreeRequested, const TArray<FAssetData>& /*AssetsToFind*/);
+
+/** Called when the user has committed a rename of one or more assets */
+DECLARE_DELEGATE_OneParam(FOnAssetRenameCommitted, const TArray<FAssetData>& /*Assets*/);
 
 /** Called when a collection is selected in the collections view */
 DECLARE_DELEGATE_OneParam( FOnCollectionSelected, const FCollectionNameType& /*SelectedCollection*/);

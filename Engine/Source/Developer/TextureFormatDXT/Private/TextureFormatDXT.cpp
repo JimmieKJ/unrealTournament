@@ -1,14 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "Misc/ScopeLock.h"
+#include "Containers/IndirectArray.h"
+#include "Stats/Stats.h"
+#include "Async/AsyncWork.h"
+#include "HAL/IConsoleManager.h"
 #include "ImageCore.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
-#include "TargetPlatform.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/ITextureFormat.h"
+#include "Interfaces/ITextureFormatModule.h"
 #include "TextureCompressorModule.h"
 #include "PixelFormat.h"
 #include "nvtt/nvtt.h"
-#include "IConsoleManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTextureFormatDXT, Log, All);
 

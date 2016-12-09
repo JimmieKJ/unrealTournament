@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationServicePrivatePCH.h"
 #include "LocalizationServiceSettings.h"
-#include "ILocalizationServiceModule.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
+#include "ILocalizationServiceProvider.h"
 #include "LocalizationServiceHelpers.h"
 
 namespace LocalizationServiceSettingsConstants

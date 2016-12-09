@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WebBrowserPrivatePCH.h"
+#include "WebBrowserModule.h"
+#include "WebBrowserLog.h"
 #include "WebBrowserSingleton.h"
-#include "ModuleManager.h"
-#include "CEF3Utils.h"
+#if WITH_CEF3
+#	include "CEF3Utils.h"
+#endif
 
 DEFINE_LOG_CATEGORY(LogWebBrowser);
 

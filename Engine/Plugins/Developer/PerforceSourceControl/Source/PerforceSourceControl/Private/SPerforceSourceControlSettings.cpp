@@ -1,9 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PerforceSourceControlPrivatePCH.h"
 #include "SPerforceSourceControlSettings.h"
+#include "PerforceSourceControlPrivate.h"
+#include "Widgets/Views/STableRow.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SComboBox.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlModule.h"
 #include "PerforceSourceControlModule.h"
-#include "SThrobber.h"
+#include "Widgets/Images/SThrobber.h"
 
 TWeakPtr<SEditableTextBox> SPerforceSourceControlSettings::PasswordTextBox;
 

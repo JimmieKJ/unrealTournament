@@ -1,10 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Engine/World.h"
+#include "TickableEditorObject.h"
+#include "DragAndDrop/LevelDragDropOp.h"
+#include "Misc/IFilter.h"
 #include "LevelModel.h"
 
-#include "IFilter.h"
-#include "FilterCollection.h"
+#include "Misc/FilterCollection.h"
+
+class FMenuBuilder;
+class IDetailsView;
+class UEditorEngine;
+class UMaterialInterface;
 
 typedef IFilter< const FLevelModel* >				LevelFilter;
 typedef TFilterCollection< const FLevelModel* >		LevelFilterCollection;
@@ -204,6 +215,11 @@ public:
 	
 	/** @return whether currently only one level selected and it is editable */
 	bool IsSelectedLevelEditable() const;
+
+	/** @return whether currently only one level selected and a lighting scenario */
+	bool IsNewLightingScenarioState(bool bExistingState) const;
+
+	void SetIsLightingScenario(bool bNewLightingScenario);
 
 	/** @return whether any of the currently selected levels is dirty */
 	bool AreAnySelectedLevelsDirty() const;

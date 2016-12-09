@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PerforceSourceControlPrivatePCH.h"
 #include "PerforceSourceControlLabel.h"
+#include "PerforceSourceControlPrivate.h"
+#include "Modules/ModuleManager.h"
 #include "PerforceSourceControlRevision.h"
 #include "PerforceSourceControlModule.h"
-#include "PerforceSourceControlProvider.h"
 #include "PerforceConnection.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 
 const FString& FPerforceSourceControlLabel::GetName() const
 {

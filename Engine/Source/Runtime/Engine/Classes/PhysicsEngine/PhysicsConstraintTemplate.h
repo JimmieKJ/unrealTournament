@@ -10,7 +10,10 @@
 
 #pragma once 
 
-#include "ConstraintInstance.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicsConstraintTemplate.generated.h"
 
 USTRUCT()

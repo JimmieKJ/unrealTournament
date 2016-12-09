@@ -40,4 +40,3 @@ struct CORE_API FAndroidPlatformProcess : public FGenericPlatformProcess
 
 typedef FAndroidPlatformProcess FPlatformProcess;
 
-typedef FSystemWideCriticalSectionNotImplemented FSystemWideCriticalSection;

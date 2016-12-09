@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
+#include "KismetPins/SGraphPinCollisionProfile.h"
 #include "SNameComboBox.h"
-#include "SGraphPinCollisionProfile.h"
-#include "Editor/UnrealEd/Public/ScopedTransaction.h"
+#include "Engine/CollisionProfile.h"
+#include "ScopedTransaction.h"
 
 void SGraphPinCollisionProfile::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {

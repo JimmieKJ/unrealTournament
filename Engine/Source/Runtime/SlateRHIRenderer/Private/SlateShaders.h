@@ -3,10 +3,11 @@
 
 #pragma once
 
-#include "Engine.h"
-#include "GlobalShader.h"
+#include "CoreMinimal.h"
+#include "RenderResource.h"
 #include "ShaderParameters.h"
-#include "UniformBuffer.h"
+#include "Shader.h"
+#include "GlobalShader.h"
 #include "ShaderParameterUtils.h"
 #include "Rendering/RenderingCommon.h"
 
@@ -241,6 +242,102 @@ public:
 	}
 private:
 };
+
+const int32 MAX_BLUR_SAMPLES = 127;
+
+class FSlatePostProcessBlurPS : public FSlateElementPS
+{
+	DECLARE_SHADER_TYPE(FSlatePostProcessBlurPS, Global);
+public:
+	/** Indicates that this shader should be cached */
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		return true;
+	}
+
+	FSlatePostProcessBlurPS()
+	{
+	}
+
+	/** Constructor.  Binds all parameters used by the shader */
+	FSlatePostProcessBlurPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FSlateElementPS(Initializer)
+	{
+		BufferSizeAndDirection.Bind(Initializer.ParameterMap, TEXT("BufferSizeAndDirection"));
+		WeightAndOffsets.Bind(Initializer.ParameterMap, TEXT("WeightAndOffsets"));
+		SampleCount.Bind(Initializer.ParameterMap, TEXT("SampleCount"));
+		UVBounds.Bind(Initializer.ParameterMap, TEXT("UVBounds"));
+	}
+
+	void SetBufferSizeAndDirection(FRHICommandList& RHICmdList, const FVector2D& InBufferSize, const FVector2D& InDir)
+	{
+		SetShaderValue(RHICmdList, GetPixelShader(), BufferSizeAndDirection, FVector4(InBufferSize, InDir));
+	}
+
+	void SetWeightsAndOffsets(FRHICommandList& RHICmdList, const TArray<FVector4>& InWeightsAndOffsets, int32 NumSamples )
+	{
+		check(InWeightsAndOffsets.Num() <= MAX_BLUR_SAMPLES);
+		SetShaderValueArray<FPixelShaderRHIParamRef, FVector4>(RHICmdList, GetPixelShader(), WeightAndOffsets, InWeightsAndOffsets.GetData(), InWeightsAndOffsets.Num() );
+		SetShaderValue(RHICmdList, GetPixelShader(), SampleCount, NumSamples);
+	}
+
+	void SetUVBounds(FRHICommandList& RHICmdList, const FVector4& InUVBounds)
+	{
+		SetShaderValue(RHICmdList, GetPixelShader(), UVBounds, InUVBounds);
+	}
+
+	
+	virtual bool Serialize(FArchive& Ar) override
+	{
+		Ar << BufferSizeAndDirection;
+		Ar << WeightAndOffsets;
+		Ar << SampleCount;	
+		Ar << UVBounds;
+		return FSlateElementPS::Serialize(Ar);
+	}
+private:
+	FShaderParameter BufferSizeAndDirection;
+	FShaderParameter WeightAndOffsets;
+	FShaderParameter SampleCount;
+	FShaderParameter UVBounds;
+};
+
+
+class FSlatePostProcessDownsamplePS : public FSlateElementPS
+{
+	DECLARE_SHADER_TYPE(FSlatePostProcessDownsamplePS, Global);
+public:
+	/** Indicates that this shader should be cached */
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		return true;
+	}
+
+	FSlatePostProcessDownsamplePS()
+	{
+	}
+
+	/** Constructor.  Binds all parameters used by the shader */
+	FSlatePostProcessDownsamplePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FSlateElementPS(Initializer)
+	{
+		UVBounds.Bind(Initializer.ParameterMap, TEXT("UVBounds"));
+	}
+
+	void SetUVBounds(FRHICommandList& RHICmdList, const FVector4& InUVBounds)
+	{
+		SetShaderValue(RHICmdList, GetPixelShader(), UVBounds, InUVBounds);
+	}
+
+	virtual bool Serialize(FArchive& Ar) override
+	{
+		Ar << UVBounds;
+		return FSlateElementPS::Serialize(Ar);
+	}
+private:
+	FShaderParameter UVBounds;
+};
+
 
 /** The simple element vertex declaration. */
 extern TGlobalResource<FSlateVertexDeclaration> GSlateVertexDeclaration;

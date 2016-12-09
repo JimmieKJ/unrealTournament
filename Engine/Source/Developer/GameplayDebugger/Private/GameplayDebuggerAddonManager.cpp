@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
-#include "GameplayDebuggerExtension.h"
 #include "GameplayDebuggerAddonManager.h"
+#include "Engine/World.h"
+#include "GameplayDebuggerCategoryReplicator.h"
+#include "GameplayDebuggerExtension.h"
 #include "GameplayDebuggerConfig.h"
 
 FGameplayDebuggerAddonManager::FGameplayDebuggerAddonManager()
 {
+	NumVisibleCategories = 0;
 }
 
 void FGameplayDebuggerAddonManager::RegisterCategory(FName CategoryName, IGameplayDebugger::FOnGetCategory MakeInstanceDelegate, EGameplayDebuggerCategoryState CategoryState, int32 SlotIdx)
@@ -51,6 +53,11 @@ void FGameplayDebuggerAddonManager::NotifyCategoriesChanged()
 	int32 CategoryId = 0;
 	for (auto It : CategoryMap)
 	{
+		if (It.Value.CategoryState == EGameplayDebuggerCategoryState::Hidden)
+		{
+			continue;
+		}
+
 		const int32 SanitizedSlotIdx = (It.Value.SlotIdx < 0) ? INDEX_NONE : FMath::Min(100, It.Value.SlotIdx);
 
 		FSlotInfo SlotInfo;
@@ -67,6 +74,7 @@ void FGameplayDebuggerAddonManager::NotifyCategoriesChanged()
 		}
 	}
 
+	NumVisibleCategories = AssignList.Num();
 	AssignList.Sort();
 
 	int32 MaxSlotIdx = 0;
@@ -121,6 +129,10 @@ void FGameplayDebuggerAddonManager::CreateCategories(AGameplayDebuggerCategoryRe
 	for (auto It : CategoryMap)
 	{
 		FGameplayDebuggerInputHandlerConfig::CurrentCategoryName = It.Key;
+		if (It.Value.CategoryState == EGameplayDebuggerCategoryState::Hidden)
+		{
+			continue;
+		}
 
 		TSharedRef<FGameplayDebuggerCategory> CategoryObjectRef = It.Value.MakeInstanceDelegate.Execute();
 		FGameplayDebuggerCategory& CategoryObject = CategoryObjectRef.Get();

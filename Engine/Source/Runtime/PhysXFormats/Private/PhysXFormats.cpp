@@ -1,14 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
-#include "Engine.h"
-#include "PhysicsPublic.h"
-#include "TargetPlatform.h"
+#include "PhysXFormats.h"
+#include "Serialization/MemoryWriter.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/Interface_CollisionDataProvider.h"
 #include "IPhysXFormat.h"
 #include "IPhysXFormatModule.h"
-#include "PhysXFormats.h"
 #include "PhysicsEngine/PhysXSupport.h"
 
 static_assert(WITH_PHYSX, "No point in compiling PhysX cooker, if we don't have PhysX.");
@@ -84,7 +81,7 @@ public:
 		OutFormats.Add(NAME_PhysXPS4);
 	}
 
-	virtual EPhysXCookingResult CookConvex(FName Format, int32 RuntimeCookFlags, const TArray<FVector>& SrcBuffer, TArray<uint8>& OutBuffer, bool bDeformableMesh = false) const override
+	virtual EPhysXCookingResult CookConvex(FName Format, EPhysXMeshCookFlags CookFlags, const TArray<FVector>& SrcBuffer, TArray<uint8>& OutBuffer) const override
 	{
 		EPhysXCookingResult CookResult = EPhysXCookingResult::Failed;
 
@@ -100,16 +97,16 @@ public:
 		PConvexMeshDesc.flags = PxConvexFlag::eCOMPUTE_CONVEX;
 
 		// Set up cooking
-		const PxCookingParams Params = PhysXCooking->getParams();
-		PxCookingParams NewParams = Params;
+		const PxCookingParams CurrentParams = PhysXCooking->getParams();
+		PxCookingParams NewParams = CurrentParams;
 		NewParams.targetPlatform = PhysXFormat;
 
-		if(RuntimeCookFlags & ERuntimePhysxCookOptimizationFlags::SuppressFaceRemapTable)
+		if(!!(CookFlags & EPhysXMeshCookFlags::SuppressFaceRemapTable))
 		{
 			NewParams.suppressTriangleMeshRemapTable = true;
 		}
 
-		if (bDeformableMesh)
+		if (!!(CookFlags & EPhysXMeshCookFlags::DeformableMesh))
 		{
 			// Meshes which can be deformed need different cooking parameters to inhibit vertex welding and add an extra skin around the collision mesh for safety.
 			// We need to set the meshWeldTolerance to zero, even when disabling 'clean mesh' as PhysX will attempt to perform mesh cleaning anyway according to this meshWeldTolerance
@@ -117,12 +114,18 @@ public:
 			// Set the skin thickness as a proportion of the overall size of the mesh as PhysX's internal tolerances also use the overall size to calculate the epsilon used.
 			const FBox Bounds(SrcBuffer);
 			const float MaxExtent = (Bounds.Max - Bounds.Min).Size();
-			NewParams.skinWidth = MaxExtent / 512.0f;
+
 			NewParams.meshPreprocessParams = PxMeshPreprocessingFlags(PxMeshPreprocessingFlag::eDISABLE_CLEAN_MESH);
-			NewParams.areaTestEpsilon = 0.0f;
 			NewParams.meshWeldTolerance = 0.0f;
-			PhysXCooking->setParams(NewParams);
 		}
+
+		// Do we want to do a 'fast' cook on this mesh, may slow down collision performance at runtime
+		if (!!(CookFlags & EPhysXMeshCookFlags::FastCook))
+		{
+			NewParams.meshCookingHint = PxMeshCookingHint::eCOOKING_PERFORMANCE;
+		}
+
+		PhysXCooking->setParams(NewParams);
 
 		// Cook the convex mesh to a temp buffer
 		TArray<uint8> CookedMeshBuffer;
@@ -146,10 +149,7 @@ public:
 		}
 
 		// Return default cooking params to normal
-		if (bDeformableMesh)
-		{
-			PhysXCooking->setParams(Params);
-		}
+		PhysXCooking->setParams(CurrentParams);
 
 		if (CookedMeshBuffer.Num() == 0)
 		{
@@ -166,7 +166,7 @@ public:
 		return CookResult;
 	}
 
-	virtual bool CookTriMesh(FName Format, int32 RuntimeCookFlags, const TArray<FVector>& SrcVertices, const TArray<FTriIndices>& SrcIndices, const TArray<uint16>& SrcMaterialIndices, const bool FlipNormals, TArray<uint8>& OutBuffer, bool bDeformableMesh = false) const override
+	virtual bool CookTriMesh(FName Format, EPhysXMeshCookFlags CookFlags, const TArray<FVector>& SrcVertices, const TArray<FTriIndices>& SrcIndices, const TArray<uint16>& SrcMaterialIndices, const bool FlipNormals, TArray<uint8>& OutBuffer) const override
 	{
 #if WITH_PHYSX
 		PxPlatform::Enum PhysXFormat = PxPlatform::ePC;
@@ -185,17 +185,16 @@ public:
 		PTriMeshDesc.flags = FlipNormals ? PxMeshFlag::eFLIPNORMALS : (PxMeshFlags)0;
 
 		// Set up cooking
-		const PxCookingParams& Params = PhysXCooking->getParams();
-		PxCookingParams NewParams = Params;
+		const PxCookingParams CurrentParams = PhysXCooking->getParams();
+		PxCookingParams NewParams = CurrentParams;
 		NewParams.targetPlatform = PhysXFormat;
-		PxMeshPreprocessingFlags OldCookingFlags = NewParams.meshPreprocessParams;
 
-		if (RuntimeCookFlags & ERuntimePhysxCookOptimizationFlags::SuppressFaceRemapTable)
+		if (!!(CookFlags & EPhysXMeshCookFlags::SuppressFaceRemapTable))
 		{
 			NewParams.suppressTriangleMeshRemapTable = true;
 		}
 
-		if (bDeformableMesh)
+		if (!!(CookFlags & EPhysXMeshCookFlags::DeformableMesh))
 		{
 			// In the case of a deformable mesh, we have to change the cook params
 			NewParams.meshPreprocessParams = PxMeshPreprocessingFlag::eDISABLE_CLEAN_MESH;
@@ -207,19 +206,16 @@ public:
 		// Cook TriMesh Data
 		FPhysXOutputStream Buffer(&OutBuffer);
 		bool Result = PhysXCooking->cookTriangleMesh(PTriMeshDesc, Buffer);
-		
-		if (bDeformableMesh)	//restore old params
-		{
-			NewParams.meshPreprocessParams = OldCookingFlags;
-			PhysXCooking->setParams(NewParams);
-		}
+
+		// Restore cooking params
+		PhysXCooking->setParams(CurrentParams);
 		return Result;
 #else
 		return false;
 #endif		// WITH_PHYSX
 	}
 
-	virtual bool CookHeightField(FName Format, FIntPoint HFSize, float Thickness, const void* Samples, uint32 SamplesStride, TArray<uint8>& OutBuffer) const override
+	virtual bool CookHeightField(FName Format, FIntPoint HFSize, const void* Samples, uint32 SamplesStride, TArray<uint8>& OutBuffer) const override
 	{
 #if WITH_PHYSX
 		PxPlatform::Enum PhysXFormat = PxPlatform::ePC;
@@ -233,7 +229,6 @@ public:
 		HFDesc.samples.data = Samples;
 		HFDesc.samples.stride = SamplesStride;
 		HFDesc.flags = PxHeightFieldFlag::eNO_BOUNDARY_EDGES;
-		HFDesc.thickness = Thickness;
 
 		// Set up cooking
 		const PxCookingParams& Params = PhysXCooking->getParams();

@@ -2,13 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/UnrealType.h"
+#include "BehaviorTree/BehaviorTreeTypes.h"
+#include "BehaviorTree/BlackboardData.h"
 #include "BehaviorTree/BehaviorTree.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Bool.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Int.h"
 #include "BehaviorTree/Composites/BTComposite_Selector.h"
 #include "BehaviorTree/Composites/BTComposite_Sequence.h"
 #include "BehaviorTree/Composites/BTComposite_SimpleParallel.h"
 #include "BehaviorTree/Decorators/BTDecorator_Blackboard.h"
 #include "BehaviorTree/Decorators/BTDecorator_Loop.h"
-#include "BehaviorTree/Decorators/BTDecorator_ForceSuccess.h"
 #include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
 
 #include "BehaviorTree/TestBTTask_Log.h"

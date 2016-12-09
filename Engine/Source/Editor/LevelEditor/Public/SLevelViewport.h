@@ -3,12 +3,31 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Animation/CurveSequence.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Commands/UICommandInfo.h"
+#include "EditorViewportClient.h"
+#include "Widgets/SWindow.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "SEditorViewport.h"
+#include "EditorModeManager.h"
 #include "ILevelViewport.h"
-#include "Editor/UnrealEd/Public/SEditorViewport.h"
 
-class SActorPreview;
-class SGameLayerManager;
+class FLevelEditorViewportClient;
+class FLevelViewportLayout;
+class FSceneViewport;
+class FUICommandList;
 class ILevelEditor;
+class SActorPreview;
+class SCaptureRegionWidget;
+class SGameLayerManager;
+class UFoliageType;
+enum class EMapChangeType : uint8;
 
 /**
  * Encapsulates an SViewport and an SLevelViewportToolBar
@@ -81,7 +100,7 @@ public:
 	const TSharedPtr<FUICommandList>& GetCommandList() const { return CommandList; }
 
 	/** Saves this viewport's config to ULevelEditorViewportSettings */
-	void SaveConfig(const FString& ConfigName);
+	void SaveConfig(const FString& ConfigName) const;
 
 	/** ILevelViewport Interface */
 	virtual void StartPlayInEditorSession( UGameViewportClient* PlayClient, const bool bInSimulateInEditor ) override;

@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #include "hlslcc.h"
-#include "ir.h"
+THIRD_PARTY_INCLUDES_START
+	#include "ir.h"
+THIRD_PARTY_INCLUDES_END
 #include "PackUniformBuffers.h"
 #include "CustomStdAllocator.h"
 

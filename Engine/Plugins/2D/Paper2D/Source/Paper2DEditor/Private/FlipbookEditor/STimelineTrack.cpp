@@ -1,12 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "STimelineTrack.h"
-#include "GenericCommands.h"
-#include "FlipbookEditorCommands.h"
-#include "SFlipbookTrackHandle.h"
-#include "AssetDragDropOp.h"
+#include "FlipbookEditor/STimelineTrack.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "AssetData.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "PaperStyle.h"
+#include "FlipbookEditor/FlipbookEditorCommands.h"
+#include "FlipbookEditor/SFlipbookTrackHandle.h"
+#include "DragAndDrop/AssetDragDropOp.h"
+#include "Editor.h"
 #include "PropertyCustomizationHelpers.h"
+#include "PaperSprite.h"
+#include "Toolkits/AssetEditorManager.h"
 
 #define LOCTEXT_NAMESPACE "FlipbookEditor"
 
@@ -273,6 +287,7 @@ void SFlipbookKeyframeWidget::OpenSpritePickerMenu(FMenuBuilder& MenuBuilder)
 
 	TSharedRef<SWidget> AssetPickerWidget = PropertyCustomizationHelpers::MakeAssetPickerWithMenu(CurrentAssetData,
 		bAllowClear,
+		false,
 		AllowedClasses,
 		PropertyCustomizationHelpers::GetNewAssetFactoriesForClasses(AllowedClasses),
 		FOnShouldFilterAsset(),

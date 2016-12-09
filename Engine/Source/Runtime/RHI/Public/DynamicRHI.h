@@ -1,12 +1,56 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	DynamicRHI.h: Dynamically bound Render Hardware Interface definitions.
+DynamicRHI.h: Dynamically bound Render Hardware Interface definitions.
 =============================================================================*/
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Math/Color.h"
+#include "Math/IntPoint.h"
+#include "Math/IntRect.h"
+#include "Math/Box2D.h"
+#include "Math/PerspectiveMatrix.h"
+#include "Math/TranslationMatrix.h"
+#include "Math/ScaleMatrix.h"
+#include "Math/Float16Color.h"
+#include "Modules/ModuleInterface.h"
+
+class FBlendStateInitializerRHI;
+class FGraphicsPipelineStateInitializer;
+class FLastRenderTimeContainer;
+class FReadSurfaceDataFlags;
+class FRHICommandList;
+class FRHIComputeFence;
+class FRHIDepthRenderTargetView;
+class FRHIGraphicsPipelineStateFallBack;
+class FRHIRenderTargetView;
+class FRHISetRenderTargetsInfo;
+struct FDepthStencilStateInitializerRHI;
+struct FRasterizerStateInitializerRHI;
+struct FResolveParams;
+struct FRHIResourceCreateInfo;
+struct FRHIResourceInfo;
+struct FRHIUniformBufferLayout;
+struct FSamplerStateInitializerRHI;
+struct FTextureMemoryStats;
+struct FViewportBounds;
+struct Rect;
+enum class EAsyncComputeBudget;
+enum class EClearDepthStencil;
+enum class EResourceTransitionAccess;
+enum class EResourceTransitionPipeline;
+
+FORCEINLINE FBoundShaderStateRHIRef RHICreateBoundShaderState(
+	FVertexDeclarationRHIParamRef VertexDeclaration,
+	FVertexShaderRHIParamRef VertexShader,
+	FHullShaderRHIParamRef HullShader,
+	FDomainShaderRHIParamRef DomainShader,
+	FPixelShaderRHIParamRef PixelShader,
+	FGeometryShaderRHIParamRef GeometryShader
+	);
 
 //
 // Statically bound RHI resource reference type definitions for the dynamically bound RHI.
@@ -251,6 +295,39 @@ public:
 	 */
 	virtual void RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderState) = 0;
 
+	/**
+	* This will set most relevant pipeline state. Legacy APIs are expected to set corresponding disjoint state as well.
+	* @param GraphicsShaderState - the graphics pipeline state
+	* This implementation is only in place while we transition/refactor.
+	*/
+	virtual void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState)
+	{
+		FRHIGraphicsPipelineStateFallBack* FallbackGraphicsState = static_cast<FRHIGraphicsPipelineStateFallBack*>(GraphicsState);
+
+		auto& PsoInit = FallbackGraphicsState->Initializer;
+
+		// Fragmented state setting APIs required setting the state and StencilRef/BlendFactor together.
+		// When using the fallback path we must unsure the new high level PSO setting still specified StencilRef/BlendFactor so we
+		// can actaully use the fragmented state setting API.
+		checkSlow(FallbackGraphicsState->Initializer.GetOptionalSetState() & FGraphicsPipelineStateInitializer::OptionalState::OS_SetStencilRef);
+		checkSlow(FallbackGraphicsState->Initializer.GetOptionalSetState() & FGraphicsPipelineStateInitializer::OptionalState::OS_SetBlendFactor);
+
+		RHISetBoundShaderState(
+			RHICreateBoundShaderState(
+				PsoInit.BoundShaderState.VertexDeclarationRHI,
+				PsoInit.BoundShaderState.VertexShaderRHI,
+				PsoInit.BoundShaderState.HullShaderRHI,
+				PsoInit.BoundShaderState.DomainShaderRHI,
+				PsoInit.BoundShaderState.PixelShaderRHI,
+				PsoInit.BoundShaderState.GeometryShaderRHI
+				).GetReference()
+			);
+
+		RHISetDepthStencilState(FallbackGraphicsState->Initializer.DepthStencilState, FallbackGraphicsState->Initializer.GetStencilRef());
+		RHISetRasterizerState(FallbackGraphicsState->Initializer.RasterizerState);
+		RHISetBlendState(FallbackGraphicsState->Initializer.BlendState, FallbackGraphicsState->Initializer.GetBlendFactor());
+	}
+
 	/** Set the shader resource view of a surface.  This is used for binding TextureMS parameter types that need a multi sampled view. */
 	virtual void RHISetShaderTexture(FVertexShaderRHIParamRef VertexShader, uint32 TextureIndex, FTextureRHIParamRef NewTexture) = 0;
 
@@ -372,9 +449,13 @@ public:
 
 	virtual void RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewState, uint32 StencilRef) = 0;
 
+	virtual void RHISetStencilRef(uint32 StencilRef) {}
+
 	// Allows to set the blend state, parameter can be created with RHICreateBlendState()
 	virtual void RHISetBlendState(FBlendStateRHIParamRef NewState, const FLinearColor& BlendFactor) = 0;
 
+	virtual void RHISetBlendFactor(const FLinearColor& BlendFactor) {}
+	
 	virtual void RHISetRenderTargets(uint32 NumSimultaneousRenderTargets, const FRHIRenderTargetView* NewRenderTargets, const FRHIDepthRenderTargetView* NewDepthStencilTarget, uint32 NumUAVs, const FUnorderedAccessViewRHIParamRef* UAVs) = 0;
 
 	virtual void RHISetRenderTargetsAndClear(const FRHISetRenderTargetsInfo& RenderTargetsInfo) = 0;
@@ -430,16 +511,17 @@ public:
 	virtual void RHIEndDrawIndexedPrimitiveUP() = 0;
 
 	/*
-	 * This method clears all MRT's, but to only one color value
-	 * @param ExcludeRect within the viewport in pixels, is only a hint to optimize - if a fast clear can be done this is preferred
-	 */
-	virtual void RHIClear(bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) = 0;
+	* This method clears all MRT's, but to only one color value
+	* @param ExcludeRect within the viewport in pixels, is only a hint to optimize - if a fast clear can be done this is preferred
+	*/
+	virtual void RHIClearColorTexture(FTextureRHIParamRef Texture, const FLinearColor& Color, FIntRect ExcludeRect) = 0;
+
+	virtual void RHIClearDepthStencilTexture(FTextureRHIParamRef Texture, EClearDepthStencil ClearDepthStencil, float Depth, uint32 Stencil, FIntRect ExcludeRect) = 0;
 
 	/*
-	 * This method clears all MRT's to potentially different color values
-	 * @param ExcludeRect within the viewport in pixels, is only a hint to optimize - if a fast clear can be done this is preferred
-	 */
-	virtual void RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) = 0;
+	* @param ExcludeRect within the viewport in pixels, is only a hint to optimize - if a fast clear can be done this is preferred
+	*/
+	virtual void RHIClearColorTextures(int32 NumTextures, FTextureRHIParamRef* Textures, const FLinearColor* ColorArray, FIntRect ExcludeRect) = 0;
 
 	/**
 	 * Enabled/Disables Depth Bounds Testing with the given min/max depth.
@@ -530,26 +612,37 @@ public:
 	}
 
 	/**
-	 * Creates a bound shader state instance which encapsulates a decl, vertex shader, hull shader, domain shader and pixel shader
-	 * CAUTION: Even though this is marked as threadsafe, it is only valid to call from the render thread or the RHI thread. It need not be threadsafe unless the RHI support parallel translation.
-	 * CAUTION: Platforms that support RHIThread but don't actually have a threadsafe implementation must flush internally with FScopedRHIThreadStaller StallRHIThread(FRHICommandListExecutor::GetImmediateCommandList()); when the call is from the render thread
-	 * @param VertexDeclaration - existing vertex decl
-	 * @param VertexShader - existing vertex shader
-	 * @param HullShader - existing hull shader
-	 * @param DomainShader - existing domain shader
-	 * @param GeometryShader - existing geometry shader
-	 * @param PixelShader - existing pixel shader
-	 */
+	* Creates a bound shader state instance which encapsulates a decl, vertex shader, hull shader, domain shader and pixel shader
+	* CAUTION: Even though this is marked as threadsafe, it is only valid to call from the render thread or the RHI thread. It need not be threadsafe unless the RHI support parallel translation.
+	* CAUTION: Platforms that support RHIThread but don't actually have a threadsafe implementation must flush internally with FScopedRHIThreadStaller StallRHIThread(FRHICommandListExecutor::GetImmediateCommandList()); when the call is from the render thread
+	* @param VertexDeclaration - existing vertex decl
+	* @param VertexShader - existing vertex shader
+	* @param HullShader - existing hull shader
+	* @param DomainShader - existing domain shader
+	* @param GeometryShader - existing geometry shader
+	* @param PixelShader - existing pixel shader
+	*/
 	// FlushType: Thread safe, but varies depending on the RHI
 	virtual FBoundShaderStateRHIRef RHICreateBoundShaderState(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader) = 0;
 
 	/**
-	 * Creates a uniform buffer.  The contents of the uniform buffer are provided in a parameter, and are immutable.
-	 * CAUTION: Even though this is marked as threadsafe, it is only valid to call from the render thread or the RHI thread. Thus is need not be threadsafe on platforms that do not support or aren't using an RHIThread
-	 * @param Contents - A pointer to a memory block of size NumBytes that is copied into the new uniform buffer.
-	 * @param NumBytes - The number of bytes the uniform buffer should contain.
-	 * @return The new uniform buffer.
-	 */
+	* CAUTION: Even though this is marked as threadsafe, it is only valid to call from the render thread or the RHI thread. It need not be threadsafe unless the RHI support parallel translation.
+	* CAUTION: Platforms that support RHIThread but don't actually have a threadsafe implementation must flush internally with FScopedRHIThreadStaller StallRHIThread(FRHICommandListExecutor::GetImmediateCommandList()); when the call is from the render thread
+	*/
+	// FlushType: Thread safe
+	// TODO: [PSO API] Make pure virtual
+	virtual FGraphicsPipelineStateRHIRef RHICreateGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Initializer)
+	{
+		return new FRHIGraphicsPipelineStateFallBack(Initializer);
+	}
+
+	/**
+	* Creates a uniform buffer.  The contents of the uniform buffer are provided in a parameter, and are immutable.
+	* CAUTION: Even though this is marked as threadsafe, it is only valid to call from the render thread or the RHI thread. Thus is need not be threadsafe on platforms that do not support or aren't using an RHIThread
+	* @param Contents - A pointer to a memory block of size NumBytes that is copied into the new uniform buffer.
+	* @param NumBytes - The number of bytes the uniform buffer should contain.
+	* @return The new uniform buffer.
+	*/
 	// FlushType: Thread safe, but varies depending on the RHI
 	virtual FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage) = 0;
 
@@ -563,8 +656,8 @@ public:
 	virtual void RHIUnlockIndexBuffer(FIndexBufferRHIParamRef IndexBuffer) = 0;
 
 	/**
-	 * @param ResourceArray - An optional pointer to a resource array containing the resource's data.
-	 */
+	* @param ResourceArray - An optional pointer to a resource array containing the resource's data.
+	*/
 	// FlushType: Wait RHI Thread
 	virtual FVertexBufferRHIRef RHICreateVertexBuffer(uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo) = 0;
 
@@ -579,8 +672,8 @@ public:
 	virtual void RHICopyVertexBuffer(FVertexBufferRHIParamRef SourceBuffer, FVertexBufferRHIParamRef DestBuffer) = 0;
 
 	/**
-	 * @param ResourceArray - An optional pointer to a resource array containing the resource's data.
-	 */
+	* @param ResourceArray - An optional pointer to a resource array containing the resource's data.
+	*/
 	// FlushType: Wait RHI Thread
 	virtual FStructuredBufferRHIRef RHICreateStructuredBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo) = 0;
 
@@ -615,16 +708,16 @@ public:
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FIndexBufferRHIParamRef Buffer) = 0;
 
 	/**
-	 * Computes the total size of a 2D texture with the specified parameters.
-	 *
-	 * @param SizeX - width of the texture to compute
-	 * @param SizeY - height of the texture to compute
-	 * @param Format - EPixelFormat texture format
-	 * @param NumMips - number of mips to compute or 0 for full mip pyramid
-	 * @param NumSamples - number of MSAA samples, usually 1
-	 * @param Flags - ETextureCreateFlags creation flags
-	 * @param OutAlign - Alignment required for this texture.  Output parameter.
-	 */
+	* Computes the total size of a 2D texture with the specified parameters.
+	*
+	* @param SizeX - width of the texture to compute
+	* @param SizeY - height of the texture to compute
+	* @param Format - EPixelFormat texture format
+	* @param NumMips - number of mips to compute or 0 for full mip pyramid
+	* @param NumSamples - number of MSAA samples, usually 1
+	* @param Flags - ETextureCreateFlags creation flags
+	* @param OutAlign - Alignment required for this texture.  Output parameter.
+	*/
 	// FlushType: Thread safe
 	virtual uint64 RHICalcTexture2DPlatformSize(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, uint32& OutAlign) = 0;
 
@@ -653,23 +746,23 @@ public:
 	virtual uint64 RHICalcTextureCubePlatformSize(uint32 Size, uint8 Format, uint32 NumMips, uint32 Flags, uint32& OutAlign) = 0;
 
 	/**
-	 * Retrieves texture memory stats.
-	 * safe to call on the main thread
-	 */
+	* Retrieves texture memory stats.
+	* safe to call on the main thread
+	*/
 	// FlushType: Thread safe
 	virtual void RHIGetTextureMemoryStats(FTextureMemoryStats& OutStats) = 0;
 
 	/**
-	 * Fills a texture with to visualize the texture pool memory.
-	 *
-	 * @param	TextureData		Start address
-	 * @param	SizeX			Number of pixels along X
-	 * @param	SizeY			Number of pixels along Y
-	 * @param	Pitch			Number of bytes between each row
-	 * @param	PixelSize		Number of bytes each pixel represents
-	 *
-	 * @return true if successful, false otherwise
-	 */
+	* Fills a texture with to visualize the texture pool memory.
+	*
+	* @param	TextureData		Start address
+	* @param	SizeX			Number of pixels along X
+	* @param	SizeY			Number of pixels along Y
+	* @param	Pitch			Number of bytes between each row
+	* @param	PixelSize		Number of bytes each pixel represents
+	*
+	* @return true if successful, false otherwise
+	*/
 	// FlushType: Flush Immediate
 	virtual bool RHIGetTextureMemoryVisualizeData(FColor* TextureData, int32 SizeX, int32 SizeY, int32 Pitch, int32 PixelSize) = 0;
 
@@ -689,7 +782,7 @@ public:
 	virtual FTexture2DRHIRef RHICreateTexture2D(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, FRHIResourceCreateInfo& CreateInfo) = 0;
 
 	/**
-	* Creates an FStructuredBuffer for the RT write mask of a render target 
+	* Creates an FStructuredBuffer for the RT write mask of a render target
 	* @param RenderTarget - the RT to create the buffer for
 	*/
 	virtual FStructuredBufferRHIRef RHICreateRTWriteMaskBuffer(FTexture2DRHIParamRef RenderTarget)
@@ -698,28 +791,28 @@ public:
 	}
 
 	/**
-	 * Thread-safe function that can be used to create a texture outside of the
-	 * rendering thread. This function can ONLY be called if GRHISupportsAsyncTextureCreation
-	 * is true.  Cannot create rendertargets with this method.
-	 * @param SizeX - width of the texture to create
-	 * @param SizeY - height of the texture to create
-	 * @param Format - EPixelFormat texture format
-	 * @param NumMips - number of mips to generate or 0 for full mip pyramid
-	 * @param Flags - ETextureCreateFlags creation flags
-	 * @param InitialMipData - pointers to mip data with which to create the texture
-	 * @param NumInitialMips - how many mips are provided in InitialMipData
-	 * @returns a reference to a 2D texture resource
-	 */
+	* Thread-safe function that can be used to create a texture outside of the
+	* rendering thread. This function can ONLY be called if GRHISupportsAsyncTextureCreation
+	* is true.  Cannot create rendertargets with this method.
+	* @param SizeX - width of the texture to create
+	* @param SizeY - height of the texture to create
+	* @param Format - EPixelFormat texture format
+	* @param NumMips - number of mips to generate or 0 for full mip pyramid
+	* @param Flags - ETextureCreateFlags creation flags
+	* @param InitialMipData - pointers to mip data with which to create the texture
+	* @param NumInitialMips - how many mips are provided in InitialMipData
+	* @returns a reference to a 2D texture resource
+	*/
 	// FlushType: Thread safe
 	virtual FTexture2DRHIRef RHIAsyncCreateTexture2D(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 Flags, void** InitialMipData, uint32 NumInitialMips) = 0;
 
 	/**
-	 * Copies shared mip levels from one texture to another. The textures must have
-	 * full mip chains, share the same format, and have the same aspect ratio. This
-	 * copy will not cause synchronization with the GPU.
-	 * @param DestTexture2D - destination texture
-	 * @param SrcTexture2D - source texture
-	 */
+	* Copies shared mip levels from one texture to another. The textures must have
+	* full mip chains, share the same format, and have the same aspect ratio. This
+	* copy will not cause synchronization with the GPU.
+	* @param DestTexture2D - destination texture
+	* @param SrcTexture2D - source texture
+	*/
 	// FlushType: Flush RHI Thread
 	virtual void RHICopySharedMips(FTexture2DRHIParamRef DestTexture2D, FTexture2DRHIParamRef SrcTexture2D) = 0;
 
@@ -748,8 +841,8 @@ public:
 	virtual FTexture3DRHIRef RHICreateTexture3D(uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo) = 0;
 
 	/**
-	 * @param Ref may be 0
-	 */
+	* @param Ref may be 0
+	*/
 	// FlushType: Thread safe
 	virtual void RHIGetResourceInfo(FTextureRHIParamRef Ref, FRHIResourceInfo& OutInfo) = 0;
 
@@ -795,55 +888,55 @@ public:
 	virtual void RHIGenerateMips(FTextureRHIParamRef Texture) = 0;
 
 	/**
-	 * Computes the size in memory required by a given texture.
-	 *
-	 * @param	TextureRHI		- Texture we want to know the size of, 0 is safely ignored
-	 * @return					- Size in Bytes
-	 */
+	* Computes the size in memory required by a given texture.
+	*
+	* @param	TextureRHI		- Texture we want to know the size of, 0 is safely ignored
+	* @return					- Size in Bytes
+	*/
 	// FlushType: Thread safe
 	virtual uint32 RHIComputeMemorySize(FTextureRHIParamRef TextureRHI) = 0;
 
 	/**
-	 * Starts an asynchronous texture reallocation. It may complete immediately if the reallocation
-	 * could be performed without any reshuffling of texture memory, or if there isn't enough memory.
-	 * The specified status counter will be decremented by 1 when the reallocation is complete (success or failure).
-	 *
-	 * Returns a new reference to the texture, which will represent the new mip count when the reallocation is complete.
-	 * RHIFinalizeAsyncReallocateTexture2D() must be called to complete the reallocation.
-	 *
-	 * @param Texture2D		- Texture to reallocate
-	 * @param NewMipCount	- New number of mip-levels
-	 * @param NewSizeX		- New width, in pixels
-	 * @param NewSizeY		- New height, in pixels
-	 * @param RequestStatus	- Will be decremented by 1 when the reallocation is complete (success or failure).
-	 * @return				- New reference to the texture, or an invalid reference upon failure
-	 */
+	* Starts an asynchronous texture reallocation. It may complete immediately if the reallocation
+	* could be performed without any reshuffling of texture memory, or if there isn't enough memory.
+	* The specified status counter will be decremented by 1 when the reallocation is complete (success or failure).
+	*
+	* Returns a new reference to the texture, which will represent the new mip count when the reallocation is complete.
+	* RHIFinalizeAsyncReallocateTexture2D() must be called to complete the reallocation.
+	*
+	* @param Texture2D		- Texture to reallocate
+	* @param NewMipCount	- New number of mip-levels
+	* @param NewSizeX		- New width, in pixels
+	* @param NewSizeY		- New height, in pixels
+	* @param RequestStatus	- Will be decremented by 1 when the reallocation is complete (success or failure).
+	* @return				- New reference to the texture, or an invalid reference upon failure
+	*/
 	// FlushType: Flush RHI Thread
 	// NP: Note that no RHI currently implements this as an async call, we should simplify the API.
 	virtual FTexture2DRHIRef RHIAsyncReallocateTexture2D(FTexture2DRHIParamRef Texture2D, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus) = 0;
 
 	/**
-	 * Finalizes an async reallocation request.
-	 * If bBlockUntilCompleted is false, it will only poll the status and finalize if the reallocation has completed.
-	 *
-	 * @param Texture2D				- Texture to finalize the reallocation for
-	 * @param bBlockUntilCompleted	- Whether the function should block until the reallocation has completed
-	 * @return						- Current reallocation status:
-	 *	TexRealloc_Succeeded	Reallocation succeeded
-	 *	TexRealloc_Failed		Reallocation failed
-	 *	TexRealloc_InProgress	Reallocation is still in progress, try again later
-	 */
+	* Finalizes an async reallocation request.
+	* If bBlockUntilCompleted is false, it will only poll the status and finalize if the reallocation has completed.
+	*
+	* @param Texture2D				- Texture to finalize the reallocation for
+	* @param bBlockUntilCompleted	- Whether the function should block until the reallocation has completed
+	* @return						- Current reallocation status:
+	*	TexRealloc_Succeeded	Reallocation succeeded
+	*	TexRealloc_Failed		Reallocation failed
+	*	TexRealloc_InProgress	Reallocation is still in progress, try again later
+	*/
 	// FlushType: Wait RHI Thread
 	virtual ETextureReallocationStatus RHIFinalizeAsyncReallocateTexture2D(FTexture2DRHIParamRef Texture2D, bool bBlockUntilCompleted) = 0;
 
 	/**
-	 * Cancels an async reallocation for the specified texture.
-	 * This should be called for the new texture, not the original.
-	 *
-	 * @param Texture				Texture to cancel
-	 * @param bBlockUntilCompleted	If true, blocks until the cancellation is fully completed
-	 * @return						Reallocation status
-	 */
+	* Cancels an async reallocation for the specified texture.
+	* This should be called for the new texture, not the original.
+	*
+	* @param Texture				Texture to cancel
+	* @param bBlockUntilCompleted	If true, blocks until the cancellation is fully completed
+	* @return						Reallocation status
+	*/
 	// FlushType: Wait RHI Thread
 	virtual ETextureReallocationStatus RHICancelAsyncReallocateTexture2D(FTexture2DRHIParamRef Texture2D, bool bBlockUntilCompleted) = 0;
 
@@ -959,9 +1052,9 @@ public:
 	virtual void RHIBindDebugLabelName(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const TCHAR* Name) {}
 
 	/**
-	 * Reads the contents of a texture to an output buffer (non MSAA and MSAA) and returns it as a FColor array.
-	 * If the format or texture type is unsupported the OutData array will be size 0
-	 */
+	* Reads the contents of a texture to an output buffer (non MSAA and MSAA) and returns it as a FColor array.
+	* If the format or texture type is unsupported the OutData array will be size 0
+	*/
 	// FlushType: Flush Immediate (seems wrong)
 	virtual void RHIReadSurfaceData(FTextureRHIParamRef Texture, FIntRect Rect, TArray<FColor>& OutData, FReadSurfaceDataFlags InFlags) = 0;
 
@@ -998,8 +1091,8 @@ public:
 	virtual void RHIAdvanceFrameForGetViewportBackBuffer() = 0;
 
 	/*
-	 * Acquires or releases ownership of the platform-specific rendering context for the calling thread
-	 */
+	* Acquires or releases ownership of the platform-specific rendering context for the calling thread
+	*/
 	// FlushType: Flush RHI Thread
 	virtual void RHIAcquireThreadOwnership() = 0;
 
@@ -1011,8 +1104,8 @@ public:
 	virtual void RHIFlushResources() = 0;
 
 	/*
-	 * Returns the total GPU time taken to render the last frame. Same metric as FPlatformTime::Cycles().
-	 */
+	* Returns the total GPU time taken to render the last frame. Same metric as FPlatformTime::Cycles().
+	*/
 	// FlushType: Thread safe
 	virtual uint32 RHIGetGPUFrameCycles() = 0;
 
@@ -1023,6 +1116,12 @@ public:
 	//  must be called from the main thread.
 	// FlushType: Thread safe
 	virtual void RHIResizeViewport(FViewportRHIParamRef Viewport, uint32 SizeX, uint32 SizeY, bool bIsFullscreen) = 0;
+
+	virtual void RHIResizeViewport(FViewportRHIParamRef Viewport, uint32 SizeX, uint32 SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
+	{
+		// Default implementation for RHIs that cannot change formats on the fly
+		RHIResizeViewport(Viewport, SizeX, SizeY, bIsFullscreen);
+	}
 
 	//  must be called from the main thread.
 	// FlushType: Thread safe
@@ -1039,6 +1138,10 @@ public:
 	// Blocks the CPU until the GPU catches up and goes idle.
 	// FlushType: Flush Immediate (seems wrong)
 	virtual void RHIBlockUntilGPUIdle() = 0;
+
+	// Kicks the current frame and makes sure GPU is actively working on them
+	// FlushType: Flush Immediate (copied from RHIBlockUntilGPUIdle)
+	virtual void RHISubmitCommandsAndFlushGPU() {};
 
 	// Operations to suspend title rendering and yield control to the system
 	// FlushType: Thread safe
@@ -1058,38 +1161,38 @@ public:
 	virtual void RHIRecreateRecursiveBoundShaderStates() {}
 
 	/**
-	 *	Retrieve available screen resolutions.
-	 *
-	 *	@param	Resolutions			TArray<FScreenResolutionRHI> parameter that will be filled in.
-	 *	@param	bIgnoreRefreshRate	If true, ignore refresh rates.
-	 *
-	 *	@return	bool				true if successfully filled the array
-	 */
+	*	Retrieve available screen resolutions.
+	*
+	*	@param	Resolutions			TArray<FScreenResolutionRHI> parameter that will be filled in.
+	*	@param	bIgnoreRefreshRate	If true, ignore refresh rates.
+	*
+	*	@return	bool				true if successfully filled the array
+	*/
 	// FlushType: Thread safe
 	virtual bool RHIGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool bIgnoreRefreshRate) = 0;
 
 	/**
-	 * Returns a supported screen resolution that most closely matches input.
-	 * @param Width - Input: Desired resolution width in pixels. Output: A width that the platform supports.
-	 * @param Height - Input: Desired resolution height in pixels. Output: A height that the platform supports.
-	 */
+	* Returns a supported screen resolution that most closely matches input.
+	* @param Width - Input: Desired resolution width in pixels. Output: A width that the platform supports.
+	* @param Height - Input: Desired resolution height in pixels. Output: A height that the platform supports.
+	*/
 	// FlushType: Thread safe
 	virtual void RHIGetSupportedResolution(uint32& Width, uint32& Height) = 0;
 
 	/**
-	 * Function that is used to allocate / free space used for virtual texture mip levels.
-	 * Make sure you also update the visible mip levels.
-	 * @param Texture - the texture to update, must have been created with TexCreate_Virtual
-	 * @param FirstMip - the first mip that should be in memory
-	 */
+	* Function that is used to allocate / free space used for virtual texture mip levels.
+	* Make sure you also update the visible mip levels.
+	* @param Texture - the texture to update, must have been created with TexCreate_Virtual
+	* @param FirstMip - the first mip that should be in memory
+	*/
 	// FlushType: Wait RHI Thread
 	virtual void RHIVirtualTextureSetFirstMipInMemory(FTexture2DRHIParamRef Texture, uint32 FirstMip) = 0;
 
 	/**
-	 * Function that can be used to update which is the first visible mip to the GPU.
-	 * @param Texture - the texture to update, must have been created with TexCreate_Virtual
-	 * @param FirstMip - the first mip that should be visible to the GPU
-	 */
+	* Function that can be used to update which is the first visible mip to the GPU.
+	* @param Texture - the texture to update, must have been created with TexCreate_Virtual
+	* @param FirstMip - the first mip that should be visible to the GPU
+	*/
 	// FlushType: Wait RHI Thread
 	virtual void RHIVirtualTextureSetFirstMipVisible(FTexture2DRHIParamRef Texture, uint32 FirstMip) = 0;
 
@@ -1097,8 +1200,8 @@ public:
 	virtual void RHIExecuteCommandList(FRHICommandList* CmdList) = 0;
 
 	/**
-	 * Provides access to the native device. Generally this should be avoided but is useful for third party plugins.
-	 */
+	* Provides access to the native device. Generally this should be avoided but is useful for third party plugins.
+	*/
 	// FlushType: Flush RHI Thread
 	virtual void* RHIGetNativeDevice() = 0;
 
@@ -1133,9 +1236,10 @@ public:
 	virtual void* LockIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef IndexBuffer, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode);
 	virtual void UnlockIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef IndexBuffer);
 	virtual FVertexDeclarationRHIRef CreateVertexDeclaration_RenderThread(class FRHICommandListImmediate& RHICmdList, const FVertexDeclarationElementList& Elements);
-	virtual void UpdateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData);
 	virtual void* LockTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, EResourceLockMode LockMode, uint32& DestStride, bool bLockWithinMiptail, bool bNeedsDefaultRHIFlush = true);
 	virtual void UnlockTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, bool bLockWithinMiptail, bool bNeedsDefaultRHIFlush = true);
+	virtual void UpdateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData);
+	virtual void UpdateTexture3D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture3DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion3D& UpdateRegion, uint32 SourceRowPitch, uint32 SourceDepthPitch, const uint8* SourceData);
 
 	virtual FTexture2DRHIRef RHICreateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, FRHIResourceCreateInfo& CreateInfo);
 	virtual FTexture2DArrayRHIRef RHICreateTexture2DArray_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo);
@@ -1190,6 +1294,11 @@ FORCEINLINE FBoundShaderStateRHIRef RHICreateBoundShaderState(FVertexDeclaration
 	return GDynamicRHI->RHICreateBoundShaderState(VertexDeclaration, VertexShader, HullShader, DomainShader, PixelShader, GeometryShader);
 }
 
+FORCEINLINE FGraphicsPipelineStateRHIRef RHICreateGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Initializer)
+{
+	return GDynamicRHI->RHICreateGraphicsPipelineState(Initializer);
+}
+
 FORCEINLINE FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
 {
 	return GDynamicRHI->RHICreateUniformBuffer(Contents, Layout, Usage);
@@ -1212,7 +1321,7 @@ FORCEINLINE uint64 RHICalcTextureCubePlatformSize(uint32 Size, uint8 Format, uin
 
 FORCEINLINE void RHIGetTextureMemoryStats(FTextureMemoryStats& OutStats)
 {
-	 GDynamicRHI->RHIGetTextureMemoryStats(OutStats);
+	GDynamicRHI->RHIGetTextureMemoryStats(OutStats);
 }
 
 FORCEINLINE void RHIGetResourceInfo(FTextureRHIParamRef Ref, FRHIResourceInfo& OutInfo)
@@ -1227,7 +1336,7 @@ FORCEINLINE uint32 RHIComputeMemorySize(FTextureRHIParamRef TextureRHI)
 
 FORCEINLINE void RHIBindDebugLabelName(FTextureRHIParamRef Texture, const TCHAR* Name)
 {
-	 GDynamicRHI->RHIBindDebugLabelName(Texture, Name);
+	GDynamicRHI->RHIBindDebugLabelName(Texture, Name);
 }
 
 FORCEINLINE void RHIBindDebugLabelName(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const TCHAR* Name)
@@ -1260,24 +1369,24 @@ FORCEINLINE FViewportRHIRef RHICreateViewport(void* WindowHandle, uint32 SizeX, 
 	return GDynamicRHI->RHICreateViewport(WindowHandle, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
 }
 
-FORCEINLINE void RHIResizeViewport(FViewportRHIParamRef Viewport, uint32 SizeX, uint32 SizeY, bool bIsFullscreen)
+FORCEINLINE void RHIResizeViewport(FViewportRHIParamRef Viewport, uint32 SizeX, uint32 SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
 {
-	 GDynamicRHI->RHIResizeViewport(Viewport, SizeX, SizeY, bIsFullscreen);
+	GDynamicRHI->RHIResizeViewport(Viewport, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
 }
 
 FORCEINLINE void RHITick(float DeltaTime)
 {
-	 GDynamicRHI->RHITick(DeltaTime);
+	GDynamicRHI->RHITick(DeltaTime);
 }
 
 FORCEINLINE void RHISuspendRendering()
 {
-	 GDynamicRHI->RHISuspendRendering();
+	GDynamicRHI->RHISuspendRendering();
 }
 
 FORCEINLINE void RHIResumeRendering()
 {
-	 GDynamicRHI->RHIResumeRendering();
+	GDynamicRHI->RHIResumeRendering();
 }
 
 FORCEINLINE bool RHIGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool bIgnoreRefreshRate)
@@ -1287,7 +1396,7 @@ FORCEINLINE bool RHIGetAvailableResolutions(FScreenResolutionArray& Resolutions,
 
 FORCEINLINE void RHIGetSupportedResolution(uint32& Width, uint32& Height)
 {
-	 GDynamicRHI->RHIGetSupportedResolution(Width, Height);
+	GDynamicRHI->RHIGetSupportedResolution(Width, Height);
 }
 
 FORCEINLINE class IRHICommandContext* RHIGetDefaultContext()
@@ -1312,20 +1421,20 @@ FORCEINLINE class IRHICommandContextContainer* RHIGetCommandContextContainer()
 
 
 /**
- * Defragment the texture pool.
- */
+* Defragment the texture pool.
+*/
 inline void appDefragmentTexturePool() {}
 
 /**
- * Checks if the texture data is allocated within the texture pool or not.
- */
-inline bool appIsPoolTexture( FTextureRHIParamRef TextureRHI ) { return false; }
+* Checks if the texture data is allocated within the texture pool or not.
+*/
+inline bool appIsPoolTexture(FTextureRHIParamRef TextureRHI) { return false; }
 
 /**
- * Log the current texture memory stats.
- *
- * @param Message	This text will be included in the log
- */
+* Log the current texture memory stats.
+*
+* @param Message	This text will be included in the log
+*/
 inline void appDumpTextureMemoryStats(const TCHAR* /*Message*/) {}
 
 
@@ -1342,8 +1451,8 @@ public:
 };
 
 /**
- *	Each platform that utilizes dynamic RHIs should implement this function
- *	Called to create the instance of the dynamic RHI.
- */
+*	Each platform that utilizes dynamic RHIs should implement this function
+*	Called to create the instance of the dynamic RHI.
+*/
 FDynamicRHI* PlatformCreateDynamicRHI();
 

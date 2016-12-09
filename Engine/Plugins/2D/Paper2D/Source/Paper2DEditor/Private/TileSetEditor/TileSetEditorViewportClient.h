@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "PaperEditorViewportClient.h"
 
+class FCanvas;
 class UPaperTileSet;
 
 //////////////////////////////////////////////////////////////////////////

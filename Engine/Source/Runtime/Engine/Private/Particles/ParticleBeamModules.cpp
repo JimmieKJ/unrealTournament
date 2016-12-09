@@ -4,21 +4,24 @@
 	ParticleBeamModules.cpp: Particle module implementations for beams.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Particles/ParticleSystem.h"
+#include "ParticleHelper.h"
+#include "Particles/ParticleModule.h"
+#include "ParticleEmitterInstances.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Distributions/DistributionFloatConstant.h"
 #include "Distributions/DistributionVectorConstant.h"
-#include "ParticleDefinitions.h"
 #include "Particles/Beam/ParticleModuleBeamBase.h"
 #include "Particles/Beam/ParticleModuleBeamModifier.h"
 #include "Particles/Beam/ParticleModuleBeamNoise.h"
 #include "Particles/Beam/ParticleModuleBeamSource.h"
 #include "Particles/Beam/ParticleModuleBeamTarget.h"
 #include "Particles/TypeData/ParticleModuleTypeDataBeam2.h"
-#include "Particles/ParticleSystem.h"
-#include "Particles/ParticleSystemComponent.h"
 #include "Particles/ParticleEmitter.h"
 #include "Particles/ParticleLODLevel.h"
-#include "Engine/InterpCurveEdSetup.h"
 #include "Distributions/DistributionFloatConstantCurve.h"
+#include "Engine/InterpCurveEdSetup.h"
 
 /*-----------------------------------------------------------------------------
 	Abstract base modules used for categorization.

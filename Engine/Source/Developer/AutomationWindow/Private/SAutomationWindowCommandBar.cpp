@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationWindowPrivatePCH.h"
+#include "SAutomationWindowCommandBar.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "SAutomationExportMenu.h"
 
 #define LOCTEXT_NAMESPACE "SAutomationWindowCommandBar"
 

@@ -7,17 +7,14 @@
 #include "MetalRHIPrivate.h"
 #include "MetalProfiler.h"
 
-#define NUM_POOL_BUCKETS 29
+#define NUM_POOL_BUCKETS 18
 
 static const uint32 RequestedUniformBufferSizeBuckets[NUM_POOL_BUCKETS] =
 {
-	256, 512, 768, 1024,		// 256-byte increments
-	1280, 1536, 1792, 2048,		// 256-byte increments
-	2560, 3072, 3584, 4096,		// 512-byte increments
-	5120, 6144, 7168, 8192,		// 1024-byte increments
-	10240, 12288, 14336, 16384,	// 2048-byte increments
-	20480, 24576, 28672, 32768,	// 4096-byte increments
-	40960, 49152, 57344, 65536,	// 8192-byte increments
+	4096, 5120, 6144, 7168, 8192,	// 1024-byte increments
+	10240, 12288, 14336, 16384,		// 2048-byte increments
+	20480, 24576, 28672, 32768,		// 4096-byte increments
+	40960, 49152, 57344, 65536,		// 8192-byte increments
 
 	// 65536 is current max uniform buffer size for Mac OS X.
 
@@ -90,6 +87,12 @@ TArray<FPooledUniformBuffer> SafeUniformBufferPools[NUM_SAFE_FRAMES][NUM_POOL_BU
 
 static FCriticalSection GMutex;
 
+#if METAL_DEBUG_OPTIONS
+extern int32 GMetalBufferScribble;
+extern int32 GMetalBufferZeroFill;
+extern void ScribbleBuffer(id<MTLBuffer> Buffer);
+#endif
+
 // Does per-frame global updating for the uniform buffer pool.
 void InitFrame_UniformBufferPoolCleanup()
 {
@@ -108,6 +111,16 @@ void InitFrame_UniformBufferPoolCleanup()
 	// Merge the bucket into the free pool array
 	for (int32 BucketIndex = 0; BucketIndex < NUM_POOL_BUCKETS; BucketIndex++)
 	{
+#if METAL_DEBUG_OPTIONS
+		if (GMetalBufferScribble)
+		{
+			for (FPooledUniformBuffer UB : SafeUniformBufferPools[SafeFrameIndex][BucketIndex])
+			{
+				ScribbleBuffer(UB.Buffer);
+			}
+		}
+#endif
+		
 		UniformBufferPool[BucketIndex].Append(SafeUniformBufferPools[SafeFrameIndex][BucketIndex]);
 		SafeUniformBufferPools[SafeFrameIndex][BucketIndex].Reset();
 	}
@@ -164,6 +177,7 @@ id<MTLBuffer> SuballocateUB(uint32 Size, uint32& OutOffset)
 FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage InUsage)
 	: FRHIUniformBuffer(Layout)
 	, Buffer(nil)
+	, Data(nil)
 	, Offset(0)
 	, Size(Layout.ConstantBufferSize)
 	, Usage(InUsage)
@@ -172,60 +186,77 @@ FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniform
 	{
 		if(Layout.ConstantBufferSize <= 65536)
 		{
-			// for single use buffers, allocate from the ring buffer to avoid thrashing memory
-			if (Usage == UniformBuffer_SingleDraw && !GUseRHIThread) // @todo Make this properly RHIThread safe.
+			INC_DWORD_STAT_BY(STAT_MetalUniformMemAlloc, Layout.ConstantBufferSize);
+
+			// Anything less than the buffer page size - currently 4Kb - is better off going through the set*Bytes API if available.
+			if (Layout.ConstantBufferSize < MetalBufferPageSize)
 			{
-				// use a bit of the ring buffer
-				Offset = GetMetalDeviceContext().AllocateFromRingBuffer(Layout.ConstantBufferSize);
-				Buffer = GetMetalDeviceContext().GetRingBuffer();
+				Data = [[NSData alloc] initWithBytes:Contents length:Layout.ConstantBufferSize];
 			}
 			else
 			{
-				// Find the appropriate bucket based on size
-				if(GUseRHIThread)
+				// for single use buffers, allocate from the ring buffer to avoid thrashing memory
+				if (Usage == UniformBuffer_SingleDraw && !GUseRHIThread) // @todo Make this properly RHIThread safe.
 				{
-					GMutex.Lock();
-				}
-
-				const uint32 BucketIndex = GetPoolBucketIndex(Layout.ConstantBufferSize);
-				TArray<FPooledUniformBuffer>& PoolBucket = UniformBufferPool[BucketIndex];
-				if (PoolBucket.Num() > 0)
-				{
-					// Reuse the last entry in this size bucket
-					FPooledUniformBuffer FreeBufferEntry = PoolBucket.Pop();
-					DEC_DWORD_STAT(STAT_MetalNumFreeUniformBuffers);
-					DEC_MEMORY_STAT_BY(STAT_MetalFreeUniformBufferMemory, FreeBufferEntry.CreatedSize);
-
-					// reuse the one
-					Buffer = FreeBufferEntry.Buffer;
-					Offset = FreeBufferEntry.Offset;
+					// use a bit of the ring buffer
+					Offset = GetMetalDeviceContext().AllocateFromRingBuffer(Layout.ConstantBufferSize);
+					Buffer = GetMetalDeviceContext().GetRingBuffer();
 				}
 				else
 				{
-					// Nothing usable was found in the free pool, create a new uniform buffer (full size, not NumBytes)
-					uint32 BufferSize = UniformBufferSizeBuckets[BucketIndex];
-					Buffer = SuballocateUB(BufferSize, Offset);
+					// Find the appropriate bucket based on size
+					if(GUseRHIThread)
+					{
+						GMutex.Lock();
+					}
+	
+					const uint32 BucketIndex = GetPoolBucketIndex(Layout.ConstantBufferSize);
+					TArray<FPooledUniformBuffer>& PoolBucket = UniformBufferPool[BucketIndex];
+					if (PoolBucket.Num() > 0)
+					{
+						// Reuse the last entry in this size bucket
+						FPooledUniformBuffer FreeBufferEntry = PoolBucket.Pop();
+						DEC_DWORD_STAT(STAT_MetalNumFreeUniformBuffers);
+						DEC_MEMORY_STAT_BY(STAT_MetalFreeUniformBufferMemory, FreeBufferEntry.CreatedSize);
+	
+						// reuse the one
+						Buffer = FreeBufferEntry.Buffer;
+						Offset = FreeBufferEntry.Offset;
+					}
+					else
+					{
+						// Nothing usable was found in the free pool, create a new uniform buffer (full size, not NumBytes)
+						uint32 BufferSize = UniformBufferSizeBuckets[BucketIndex];
+						Buffer = SuballocateUB(BufferSize, Offset);
+					}
+					
+#if METAL_DEBUG_OPTIONS
+					if (GMetalBufferZeroFill)
+					{
+						FMemory::Memset([Buffer contents], 0x0, Buffer.length);
+					}
+#endif
+					
+					if(GUseRHIThread)
+					{
+						GMutex.Unlock();
+					}
 				}
 				
-				if(GUseRHIThread)
+				// copy the contents
+				FMemory::Memcpy(((uint8*)[Buffer contents]) + Offset, Contents, Layout.ConstantBufferSize);
+#if METAL_API_1_1 && PLATFORM_MAC
+				if(Buffer.storageMode == MTLStorageModeManaged)
 				{
-					GMutex.Unlock();
+					[Buffer didModifyRange:NSMakeRange(Offset, Layout.ConstantBufferSize)];
 				}
+#endif
 			}
 		}
 		else
 		{
 			UE_LOG(LogMetal, Fatal, TEXT("Trying to allocated a uniform layout of size %d that is greater than the maximum permitted 64k."), Size);
 		}
-
-		// copy the contents
-		FMemory::Memcpy(((uint8*)[Buffer contents]) + Offset, Contents, Layout.ConstantBufferSize);
-#if METAL_API_1_1 && PLATFORM_MAC
-		if(Buffer.storageMode == MTLStorageModeManaged)
-		{
-			[Buffer didModifyRange:NSMakeRange(Offset, Layout.ConstantBufferSize)];
-		}
-#endif
 	}
 
 	// set up an SRT-style uniform buffer
@@ -245,11 +276,33 @@ FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniform
 
 FMetalUniformBuffer::~FMetalUniformBuffer()
 {
+	INC_DWORD_STAT_BY(STAT_MetalUniformMemFreed, Size);
+	
 	// don't need to free the ring buffer!
 	if (GIsRHIInitialized && Buffer != nil && !(Usage == UniformBuffer_SingleDraw && !GUseRHIThread))
 	{
 		check(Size <= 65536);
 		AddNewlyFreedBufferToUniformBufferPool(Buffer, Offset, Size);
+	}
+	if (Data)
+	{
+		SafeReleaseMetalResource(Data);
+	}
+}
+
+void const* FMetalUniformBuffer::GetData()
+{
+	if (Data)
+	{
+		return Data.bytes;
+	}
+	else if (Buffer)
+	{
+		return [Buffer contents];
+	}
+	else
+	{
+		return nullptr;
 	}
 }
 

@@ -2,10 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
 
-struct FMovieSceneTrackLabels;
 class UMovieScene;
-
+struct FMovieSceneTrackLabels;
 
 class FSequencerLabelManager
 {

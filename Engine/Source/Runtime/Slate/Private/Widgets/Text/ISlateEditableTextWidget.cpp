@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "ISlateEditableTextWidget.h"
+#include "Widgets/Text/ISlateEditableTextWidget.h"
 
 FMoveCursor FMoveCursor::Cardinal(ECursorMoveGranularity Granularity, FIntPoint Direction, ECursorAction Action)
 {

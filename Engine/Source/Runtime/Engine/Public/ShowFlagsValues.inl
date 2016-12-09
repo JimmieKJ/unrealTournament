@@ -106,6 +106,8 @@ SHOWFLAG_ALWAYS_ACCESSIBLE(Specular, SFG_LightingComponents, LOCTEXT("SpecularSF
 SHOWFLAG_FIXED_IN_SHIPPING(0, SelectionOutline, SFG_Hidden, LOCTEXT("SelectionOutlineSF", "Selection Outline"))
 /** If screen space reflections are enabled, for now SHOWFLAG_ALWAYS_ACCESSIBLE because it's exposed in SceneCapture */
 SHOWFLAG_ALWAYS_ACCESSIBLE(ScreenSpaceReflections, SFG_LightingFeatures, LOCTEXT("ScreenSpaceReflectionsSF", "Screen Space Reflections"))
+/** If Screen space contact shadows are enabled. */
+SHOWFLAG_ALWAYS_ACCESSIBLE(ContactShadows, SFG_LightingFeatures, LOCTEXT("ContactShadows", "Screen Space Contact Shadows"))
 /** If Screen Space Subsurface Scattering enabled */
 SHOWFLAG_FIXED_IN_SHIPPING(1, SubsurfaceScattering, SFG_LightingFeatures, LOCTEXT("SubsurfaceScatteringSF", "Subsurface Scattering (Screen Space)"))
 /** If Screen Space Subsurface Scattering visualization is enabled */
@@ -296,13 +298,17 @@ SHOWFLAG_FIXED_IN_SHIPPING(0, HLODColoration, SFG_Hidden, LOCTEXT("VisualizeHLOD
 SHOWFLAG_FIXED_IN_SHIPPING(0, QuadOverdraw, SFG_Hidden, LOCTEXT("QuadOverdrawSF", "Quad Overdraw"))
 /** Visualize the overhead of material quads */
 SHOWFLAG_FIXED_IN_SHIPPING(0, ShaderComplexityWithQuadOverdraw, SFG_Hidden, LOCTEXT("ShaderComplexityWithQuadOverdraw", "Shader Complexity With Quad Overdraw"))
-/** Visualize the accuracy of the CPU primitive distance when compared with the GPU value */
+/** Visualize the accuracy of the primitive distance computed for texture streaming */
 SHOWFLAG_FIXED_IN_SHIPPING(0, PrimitiveDistanceAccuracy, SFG_Hidden, LOCTEXT("PrimitiveDistanceAccuracy", "Primitive Distance Accuracy"))
-/** Visualize the accuracy of the CPU mesh texture coordinate size when compared to the GPU value */
-SHOWFLAG_FIXED_IN_SHIPPING(0, MeshTexCoordSizeAccuracy, SFG_Hidden, LOCTEXT("MeshTexCoordSizeAccuracy", "Mesh Texture Coordinate Size Accuracy"))
-/** Visualize the accuracy of CPU material texture coordinate scales when compared to the GPU values */
-SHOWFLAG_FIXED_IN_SHIPPING(0, MaterialTexCoordScalesAccuracy, SFG_Hidden, LOCTEXT("MaterialTexCoordScalesAccuracy", "Material Texture Coordinate Scales Accuracy"))
-/** Outputs the material texture coordinate scales. */
-SHOWFLAG_FIXED_IN_SHIPPING(0, MaterialTexCoordScalesAnalysis, SFG_Hidden, LOCTEXT("MaterialTexCoordScalesAnalysis", "Material Texture Coordinate Scales Analysis"))
+/** Visualize the accuracy of the mesh UV density computed for texture streaming */
+SHOWFLAG_FIXED_IN_SHIPPING(0, MeshUVDensityAccuracy, SFG_Hidden, LOCTEXT("MeshUVDensityAccuracy", "Mesh UV Densities Accuracy"))
+/** Visualize the accuracy of CPU material texture scales when compared to the GPU values */
+SHOWFLAG_FIXED_IN_SHIPPING(0, MaterialTextureScaleAccuracy, SFG_Hidden, LOCTEXT("MaterialTextureScaleAccuracy", "Material Texture Scales Accuracy"))
+/** Outputs the material texture scales. */
+SHOWFLAG_FIXED_IN_SHIPPING(0, OutputMaterialTextureScales, SFG_Hidden, LOCTEXT("OutputMaterialTextureScales", "Output Material Texture Scales"))
+/** Compare the required texture resolution to the actual resolution. */
+SHOWFLAG_FIXED_IN_SHIPPING(0, RequiredTextureResolution, SFG_Hidden, LOCTEXT("RequiredTextureResolution", "Required Texture Resolution"))
+/** If WidgetComponents should be rendered in the scene */
+SHOWFLAG_ALWAYS_ACCESSIBLE(WidgetComponents, SFG_Normal, LOCTEXT("WidgetComponentsSF", "Widget Components"))
 #undef SHOWFLAG_ALWAYS_ACCESSIBLE
 #undef SHOWFLAG_FIXED_IN_SHIPPING

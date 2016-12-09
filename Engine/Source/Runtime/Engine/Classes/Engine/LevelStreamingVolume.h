@@ -6,6 +6,9 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/Volume.h"
 #include "LevelStreamingVolume.generated.h"
 

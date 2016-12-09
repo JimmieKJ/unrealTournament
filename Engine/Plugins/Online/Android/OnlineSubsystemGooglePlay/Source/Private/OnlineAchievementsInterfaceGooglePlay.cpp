@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemGooglePlayPrivatePCH.h"
+#include "OnlineAchievementsInterfaceGooglePlay.h"
 #include "OnlineAsyncTaskManagerGooglePlay.h"
 #include "Online.h"
 #include "Android/AndroidJNI.h"
 #include "OnlineAsyncTaskGooglePlayQueryAchievements.h"
+#include "OnlineSubsystemGooglePlay.h"
+#include "UObject/Class.h"
 
 using namespace gpg;
 

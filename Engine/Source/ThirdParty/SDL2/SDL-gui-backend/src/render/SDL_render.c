@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -158,14 +158,16 @@ SDL_RendererEventWatch(void *userdata, SDL_Event *event)
                 }
             } else if (event->window.event == SDL_WINDOWEVENT_MINIMIZED) {
                 renderer->hidden = SDL_TRUE;
-            } else if (event->window.event == SDL_WINDOWEVENT_RESTORED) {
+            } else if (event->window.event == SDL_WINDOWEVENT_RESTORED || 
+                       event->window.event == SDL_WINDOWEVENT_MAXIMIZED) {
                 if (!(SDL_GetWindowFlags(window) & SDL_WINDOW_HIDDEN)) {
                     renderer->hidden = SDL_FALSE;
                 }
             }
         }
     } else if (event->type == SDL_MOUSEMOTION) {
-        if (renderer->logical_w) {
+        SDL_Window *window = SDL_GetWindowFromID(event->motion.windowID);
+        if (renderer->logical_w && window == renderer->window) {
             event->motion.x -= renderer->viewport.x;
             event->motion.y -= renderer->viewport.y;
             event->motion.x = (int)(event->motion.x / renderer->scale.x);
@@ -183,7 +185,8 @@ SDL_RendererEventWatch(void *userdata, SDL_Event *event)
         }
     } else if (event->type == SDL_MOUSEBUTTONDOWN ||
                event->type == SDL_MOUSEBUTTONUP) {
-        if (renderer->logical_w) {
+        SDL_Window *window = SDL_GetWindowFromID(event->button.windowID);
+        if (renderer->logical_w && window == renderer->window) {
             event->button.x -= renderer->viewport.x;
             event->button.y -= renderer->viewport.y;
             event->button.x = (int)(event->button.x / renderer->scale.x);
@@ -455,7 +458,7 @@ SDL_CreateTexture(SDL_Renderer * renderer, Uint32 format, int access, int w, int
     if (IsSupportedFormat(renderer, format)) {
         if (renderer->CreateTexture(renderer, texture) < 0) {
             SDL_DestroyTexture(texture);
-            return 0;
+            return NULL;
         }
     } else {
         texture->native = SDL_CreateTexture(renderer,
@@ -820,7 +823,9 @@ SDL_UpdateTexture(SDL_Texture * texture, const SDL_Rect * rect,
         rect = &full_rect;
     }
 
-    if (texture->yuv) {
+    if ((rect->w == 0) || (rect->h == 0)) {
+        return 0;  /* nothing to do. */
+    } else if (texture->yuv) {
         return SDL_UpdateTextureYUV(texture, rect, pixels, pitch);
     } else if (texture->native) {
         return SDL_UpdateTextureNative(texture, rect, pixels, pitch);
@@ -1149,7 +1154,19 @@ UpdateLogicalSize(SDL_Renderer *renderer)
     /* Clear the scale because we're setting viewport in output coordinates */
     SDL_RenderSetScale(renderer, 1.0f, 1.0f);
 
-    if (SDL_fabs(want_aspect-real_aspect) < 0.0001) {
+    if (renderer->integer_scale) {
+        if (want_aspect > real_aspect) {
+            scale = (float)(w / renderer->logical_w);
+        } else {
+            scale = (float)(h / renderer->logical_h);
+        }
+        viewport.w = (int)SDL_ceil(renderer->logical_w * scale);
+        viewport.x = (w - viewport.w) / 2;
+        viewport.h = (int)SDL_ceil(renderer->logical_h * scale);
+        viewport.y = (h - viewport.h) / 2;
+
+        SDL_RenderSetViewport(renderer, &viewport);
+    } else if (SDL_fabs(want_aspect-real_aspect) < 0.0001) {
         /* The aspect ratios are the same, just scale appropriately */
         scale = (float)w / renderer->logical_w;
         SDL_RenderSetViewport(renderer, NULL);
@@ -1208,6 +1225,24 @@ SDL_RenderGetLogicalSize(SDL_Renderer * renderer, int *w, int *h)
     if (h) {
         *h = renderer->logical_h;
     }
+}
+
+int
+SDL_RenderSetIntegerScale(SDL_Renderer * renderer, SDL_bool enable)
+{
+    CHECK_RENDERER_MAGIC(renderer, -1);
+
+    renderer->integer_scale = enable;
+
+    return UpdateLogicalSize(renderer);
+}
+
+SDL_bool
+SDLCALL SDL_RenderGetIntegerScale(SDL_Renderer * renderer)
+{
+    CHECK_RENDERER_MAGIC(renderer, SDL_FALSE);
+
+    return renderer->integer_scale;
 }
 
 int
@@ -1729,6 +1764,10 @@ SDL_RenderCopyEx(SDL_Renderer * renderer, SDL_Texture * texture,
     SDL_Point real_center;
     SDL_FRect frect;
     SDL_FPoint fcenter;
+
+    if (flip == SDL_FLIP_NONE && angle == 0) { /* fast path when we don't need rotation or flipping */
+        return SDL_RenderCopy(renderer, texture, srcrect, dstrect);
+    }
 
     CHECK_RENDERER_MAGIC(renderer, -1);
     CHECK_TEXTURE_MAGIC(texture, -1);

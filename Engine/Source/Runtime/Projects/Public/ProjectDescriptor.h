@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ModuleDescriptor.h"
-#include "PluginDescriptor.h"
 #include "CustomBuildSteps.h"
+#include "PluginDescriptor.h"
+
+class FJsonObject;
 
 /**
  * Version numbers for project descriptors.
@@ -107,14 +110,43 @@ struct PROJECTS_API FProjectDescriptor
 	bool Load(const FString& FileName, FText& OutFailReason);
 
 	/** Reads the descriptor from the given JSON object */
-	bool Read(const FJsonObject& Object, FText& OutFailReason);
+	bool Read(const FJsonObject& Object, const FString& PathToProject, FText& OutFailReason);
 
 	/** Saves the descriptor to the given file. */
 	bool Save(const FString& FileName, FText& OutFailReason);
 
 	/** Writes the descriptor to the given JSON object */
-	void Write(TJsonWriter<>& Writer) const;
+	void Write(TJsonWriter<>& Writer, const FString& PathToProject) const;
 
 	/** Returns the extension used for project descriptors (uproject) */
 	static FString GetExtension();
+
+	/** @return - Access to the additional plugin directories */
+	const TArray<FString>& GetAdditionalPluginDirectories() const
+	{
+		return AdditionalPluginDirectories;
+	}
+
+	/**
+	 * Adds a directory to the additional plugin directories list. 
+	 *
+	 * @param Dir - the new directory to add
+	 */
+	void AddPluginDirectory(const FString& Dir);
+	/**
+	 * Removes the directory from the list to scan
+	 *
+	 * @param Dir the directory to remove
+	 */
+	void RemovePluginDirectory(const FString& Dir);
+
+private:
+	/** @return the path relative to this project if possible */
+	const FString MakePathRelativeToProject(const FString& Dir, const FString& PathToProject) const;
+
+	/**
+	 * List of additional directories to scan for plugins.
+	 * Paths are in memory as absolute paths. Conversion to/from path relative happens during Save/Load
+	 */
+	TArray<FString> AdditionalPluginDirectories;
 };

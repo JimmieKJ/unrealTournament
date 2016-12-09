@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UdpMessagingPrivatePCH.h"
+#include "Tunnel/UdpMessageTunnel.h"
+#include "Misc/ScopeLock.h"
+#include "Common/TcpSocketBuilder.h"
+#include "Common/TcpListener.h"
+#include "Common/UdpSocketBuilder.h"
+#include "Shared/UdpMessageSegment.h"
+#include "UdpMessagingPrivate.h"
 
 #if PLATFORM_DESKTOP
+
+
 
 /* FUdpMessageTunnel structors
  *****************************************************************************/
@@ -134,7 +142,7 @@ bool FUdpMessageTunnel::Connect(const FIPv4Endpoint& RemoteEndpoint)
 }
 
 
-int32 FUdpMessageTunnel::GetConnections(TArray<IUdpMessageTunnelConnectionPtr>& OutConnections)
+int32 FUdpMessageTunnel::GetConnections(TArray<TSharedPtr<IUdpMessageTunnelConnection>>& OutConnections)
 {
 	FScopeLock Lock(&CriticalSection);
 

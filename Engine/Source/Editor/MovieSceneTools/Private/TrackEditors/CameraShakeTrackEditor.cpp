@@ -1,15 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "MovieScene.h"
-#include "MovieSceneSection.h"
-#include "MovieSceneCameraShakeTrack.h"
-#include "MovieSceneCameraShakeSection.h"
-#include "ISequencerSection.h"
-#include "ISectionLayoutBuilder.h"
-#include "MovieSceneTrackEditor.h"
-#include "CameraShakeTrackEditor.h"
+#include "TrackEditors/CameraShakeTrackEditor.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Blueprint.h"
+#include "AssetData.h"
+#include "ReferenceSkeleton.h"
+#include "Modules/ModuleManager.h"
+#include "Camera/CameraComponent.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "SequencerSectionPainter.h"
+#include "MovieSceneCommonHelpers.h"
+#include "Sections/MovieSceneCameraShakeSection.h"
+#include "Tracks/MovieSceneCameraShakeTrack.h"
+#include "ARFilter.h"
 #include "AssetRegistryModule.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "SequencerUtilities.h"
 
@@ -40,7 +50,7 @@ public:
 	virtual FText GetSectionTitle() const override
 	{
 		UMovieSceneCameraShakeSection const* const ShakeSection = Cast<UMovieSceneCameraShakeSection>(&Section);
-		UClass const* const Shake = ShakeSection ? ShakeSection->GetCameraShakeClass() : nullptr;
+		UClass const* const Shake = ShakeSection ? ShakeSection->ShakeData.ShakeClass : nullptr;
 		if (Shake)
 		{
 			return FText::FromString(Shake->GetName());
@@ -84,7 +94,7 @@ bool FCameraShakeTrackEditor::SupportsType(TSubclassOf<UMovieSceneTrack> Type) c
 }
 
 
-TSharedRef<ISequencerSection> FCameraShakeTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track)
+TSharedRef<ISequencerSection> FCameraShakeTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
 {
 	check(SupportsType(SectionObject.GetOuter()->GetClass()));
 	return MakeShareable(new FCameraShakeSection(SectionObject));
@@ -125,8 +135,11 @@ bool FCameraShakeTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& Targ
 		{
 			TSubclassOf<UCameraShake> const ShakeClass = *(SelectedObject->GeneratedClass);
 
-			TArray<TWeakObjectPtr<UObject>> OutObjects;
-			GetSequencer()->GetRuntimeObjects(GetSequencer()->GetFocusedMovieSceneSequenceInstance(), TargetObjectGuid, OutObjects);
+			TArray<TWeakObjectPtr<>> OutObjects;
+			for (TWeakObjectPtr<> Object : GetSequencer()->FindObjectsInCurrentSequence(TargetObjectGuid))
+			{
+				OutObjects.Add(Object);
+			}
 			AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FCameraShakeTrackEditor::AddKeyInternal, OutObjects, ShakeClass));
 
 			return true;
@@ -227,9 +240,11 @@ void FCameraShakeTrackEditor::OnCameraShakeAssetSelected(const FAssetData& Asset
 	{
 		TSubclassOf<UCameraShake> const ShakeClass = *(SelectedObject->GeneratedClass);
 
-		TArray<TWeakObjectPtr<UObject>> OutObjects;
-
-		GetSequencer()->GetRuntimeObjects(GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectBinding, OutObjects);
+		TArray<TWeakObjectPtr<>> OutObjects;
+		for (TWeakObjectPtr<> Object : GetSequencer()->FindObjectsInCurrentSequence(ObjectBinding))
+		{
+			OutObjects.Add(Object);
+		}
 		AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FCameraShakeTrackEditor::AddKeyInternal, OutObjects, ShakeClass));
 	}
 }
@@ -267,13 +282,10 @@ bool FCameraShakeTrackEditor::AddKeyInternal(float KeyTime, const TArray<TWeakOb
 
 UCameraComponent* FCameraShakeTrackEditor::AcquireCameraComponentFromObjectGuid(const FGuid& Guid)
 {
-	TArray<TWeakObjectPtr<UObject>> OutObjects;
-	GetSequencer()->GetRuntimeObjects(GetSequencer()->GetFocusedMovieSceneSequenceInstance(), Guid, OutObjects);
-
 	USkeleton* Skeleton = nullptr;
-	for (int32 i = 0; i < OutObjects.Num(); ++i)
+	for (TWeakObjectPtr<> WeakObject : GetSequencer()->FindObjectsInCurrentSequence(Guid))
 	{
-		UObject* const Obj = OutObjects[i].Get();
+		UObject* const Obj = WeakObject.Get();
 		if (AActor* const Actor = Cast<AActor>(Obj))
 		{
 			UCameraComponent* const CameraComp = MovieSceneHelpers::CameraComponentFromActor(Actor);

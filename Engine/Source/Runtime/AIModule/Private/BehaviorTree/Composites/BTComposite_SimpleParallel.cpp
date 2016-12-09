@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Composites/BTComposite_SimpleParallel.h"
+#include "GameFramework/Actor.h"
+#include "VisualLogger/VisualLogger.h"
+#include "BehaviorTree/BTTaskNode.h"
+#include "BehaviorTree/BTAuxiliaryNode.h"
 
 UBTComposite_SimpleParallel::UBTComposite_SimpleParallel(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

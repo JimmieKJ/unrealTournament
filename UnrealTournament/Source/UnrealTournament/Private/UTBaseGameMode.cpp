@@ -316,7 +316,7 @@ void AUTBaseGameMode::ChangeName(AController* Other, const FString& S, bool bNam
 	}
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
-		AController* Controller = *Iterator;
+		AController* Controller = Iterator->Get();
 		if (Controller->PlayerState && (Controller->PlayerState != PS) && (FCString::Stricmp(*Controller->PlayerState->PlayerName, *ClampedName) == 0))
 		{
 			if (bNameMatchesAccount)

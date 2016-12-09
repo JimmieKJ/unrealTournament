@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "PaperExtractSpritesSettings.h"
+#include "ExtractSprites/PaperExtractSpritesSettings.h"
 
 UPaperExtractSpritesSettings::UPaperExtractSpritesSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

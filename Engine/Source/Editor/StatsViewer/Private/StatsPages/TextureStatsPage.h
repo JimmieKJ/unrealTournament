@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IStatsViewer.h"
+#include "StatsPage.h"
 #include "TextureStats.h"
 
 /** Stats page representing texture stats */

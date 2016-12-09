@@ -5,7 +5,14 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "SkeletonFactory.generated.h"
+
+class FAssetData;
+class SWindow;
 
 UCLASS(HideCategories=Object,MinimalAPI)
 class USkeletonFactory : public UFactory

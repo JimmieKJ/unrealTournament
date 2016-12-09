@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
 
+#include "CoreTypes.h"
+#include "Containers/Map.h"
+#include "UObject/NameTypes.h"
+#include "Delegates/Delegate.h"
+#include "Features/IModularFeatures.h"
+
+class IModularFeature;
 
 /**
  * Private implementation of modular features interface

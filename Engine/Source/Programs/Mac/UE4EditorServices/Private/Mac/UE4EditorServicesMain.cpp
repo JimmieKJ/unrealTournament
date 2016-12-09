@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
+#include "CoreMinimal.h"
 #include "RequiredProgramMainCPPInclude.h"
 #include "ModuleManager.h"
 #include "UE4EditorServicesAppDelegate.h"
+#include "Misc/CommandLine.h"
 
 #import <Cocoa/Cocoa.h>
 

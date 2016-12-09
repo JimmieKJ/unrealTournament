@@ -4,21 +4,12 @@
 	DistanceFieldLightingPost.cpp
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "UniformBuffer.h"
-#include "ShaderParameters.h"
-#include "PostProcessing.h"
-#include "SceneFilterRendering.h"
+#include "DistanceFieldLightingPost.h"
+#include "PostProcess/PostProcessing.h"
+#include "PostProcess/SceneFilterRendering.h"
 #include "DistanceFieldLightingShared.h"
 #include "DistanceFieldSurfaceCacheLighting.h"
-#include "DistanceFieldGlobalIllumination.h"
-#include "PostProcessAmbientOcclusion.h"
-#include "RHICommandList.h"
-#include "SceneUtils.h"
-#include "OneColorShader.h"
-#include "BasePassRendering.h"
-#include "HeightfieldLighting.h"
+#include "CompositionLighting/PostProcessAmbientOcclusion.h"
 
 int32 GAOFillGaps = 1;
 FAutoConsoleVariableRef CVarAOFillGaps(

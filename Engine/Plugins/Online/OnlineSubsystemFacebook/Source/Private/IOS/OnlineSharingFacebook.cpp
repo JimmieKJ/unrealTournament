@@ -2,8 +2,8 @@
 
 
 // Module includes
-#include "OnlineSubsystemFacebookPrivatePCH.h"
 #include "OnlineSharingFacebook.h"
+#include "OnlineSubsystemFacebookPrivate.h"
 #include "ImageCore.h"
 
 #import <FBSDKCoreKit/FBSDKCoreKit.h>

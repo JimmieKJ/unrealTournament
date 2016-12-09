@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
-#include "ModuleManager.h"
-#include "TestFriendsInterface.h"
-#include "OnlinePresenceInterface.h"
+#include "Tests/TestFriendsInterface.h"
+#include "OnlineSubsystemNames.h"
+#include "OnlineSubsystemUtils.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

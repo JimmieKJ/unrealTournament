@@ -1,30 +1,37 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Windows/WindowsPlatformSurvey.h"
+#include "HAL/PlatformMisc.h"
+#include "HAL/PlatformProcess.h"
+#include "Logging/LogMacros.h"
+#include "HAL/PlatformTime.h"
+#include "Math/UnrealMathUtility.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/UnrealTemplate.h"
+#include "HAL/FileManager.h"
+#include "Containers/UnrealString.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "CoreGlobals.h"
 
 #define USING_WINSAT_API	1
 #define USING_POWRPROF		1
 
-#include "AllowWindowsPlatformTypes.h"
-	#include <shlobj.h>					// Shell32.lib currently a global linked lib
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+	#include <ShlObj.h>
 #if USING_WINSAT_API
-	#include <winsatcominterfacei.h>	// Uses Winsatapi.dll on Windows Vista and later versions only
+	#include <winsatcominterfacei.h>
 #endif
 #if USING_POWRPROF
-	#include <PowrProf.h>				// Uses PowrProf.lib on Windows XP and later versions only
+	#include <powrprof.h>
 	#pragma comment( lib, "PowrProf.lib" )
 #endif
 
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(push)
-	#pragma warning(disable:28251)
-#endif
-#include <subauth.h>
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(pop)
-#endif
+THIRD_PARTY_INCLUDES_START
+	#include <subauth.h>
+THIRD_PARTY_INCLUDES_END
 
-#include "UnrealString.h"
 #include "SynthBenchmark.h"
 
 #ifndef PROCESSOR_POWER_INFORMATION
@@ -49,6 +56,9 @@ bool FWindowsPlatformSurvey::bSurveyComplete = false;
 bool FWindowsPlatformSurvey::bSurveyFailed = false;
 double FWindowsPlatformSurvey::SurveyStartTimeSeconds = 0.0;
 FHardwareSurveyResults FWindowsPlatformSurvey::Results;
+
+void GetOSVersionLabels(const SYSTEM_INFO& SystemInfo, FHardwareSurveyResults& OutResults);
+void WriteFStringToResults(TCHAR* OutBuffer, const FString& InString);
 
 bool FWindowsPlatformSurvey::GetSurveyResults( FHardwareSurveyResults& OutResults, bool bWait )
 {
@@ -679,7 +689,7 @@ bool FWindowsPlatformSurvey::GetSubComponentIndex( IProvideWinSATResultsInfo* Wi
 	return bSuccess;
 }
 
-void FWindowsPlatformSurvey::GetOSVersionLabels(const SYSTEM_INFO& SystemInfo, FHardwareSurveyResults& OutResults)
+void GetOSVersionLabels(const SYSTEM_INFO& SystemInfo, FHardwareSurveyResults& OutResults)
 {
 	FString OSVersionLabel;
 	FString OSSubVersionLabel;
@@ -738,7 +748,7 @@ bool FWindowsPlatformSurvey::GetLineFollowing(const FString& Token, const TArray
 	return false;
 }
 
-void FWindowsPlatformSurvey::WriteFStringToResults(TCHAR* OutBuffer, const FString& InString)
+void WriteFStringToResults(TCHAR* OutBuffer, const FString& InString)
 {
 	FMemory::Memset( OutBuffer, 0, sizeof(TCHAR) * FHardwareSurveyResults::MaxStringLength );
 	TCHAR* Cursor = OutBuffer;
@@ -794,4 +804,4 @@ bool FWindowsPlatformSurvey::GetNamedSection(FString SectionName, const TArray<F
 	return 0 < OutSectionLines.Num();
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

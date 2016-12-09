@@ -2,6 +2,22 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Misc/Parse.h"
+#include "Logging/LogMacros.h"
+#include "Templates/SharedPointer.h"
+#include "Misc/DateTime.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/PlatformTime.h"
+#include "Templates/ScopedPointer.h"
+#include "Misc/ScopeLock.h"
+#include "UniquePtr.h"
+
+class IAsyncReadFileHandle;
 
 #if !UE_BUILD_SHIPPING
 
@@ -137,7 +153,7 @@ struct FProfiledFileStatsFileSimple : public FProfiledFileStatsFileBase
 template< typename StatType >
 class TProfiledFileHandle : public IFileHandle
 {
-	TAutoPtr<IFileHandle> FileHandle;
+	TUniquePtr<IFileHandle> FileHandle;
 	FString Filename;
 	StatType* FileStats;
 
@@ -459,11 +475,11 @@ public:
 		OpStat->Duration += FPlatformTime::Seconds() * 1000.0 - OpStat->LastOpTime;
 		return Result;
 	}
-	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From) override
+	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags = EPlatformFileRead::None, EPlatformFileWrite WriteFlags = EPlatformFileWrite::None) override
 	{
 		StatsType* FileStat = CreateStat( From );
 		FProfiledFileStatsOp* OpStat = FileStat->CreateOpStat( FProfiledFileStatsOp::EOpType::Copy );
-		bool Result = LowerLevel->CopyFile( To, From );
+		bool Result = LowerLevel->CopyFile( To, From, ReadFlags, WriteFlags);
 		OpStat->Duration += FPlatformTime::Seconds() * 1000.0 - OpStat->LastOpTime;
 		return Result;
 	}
@@ -491,7 +507,7 @@ inline const TCHAR* TProfiledPlatformFile<FProfiledFileStatsFileSimple>::GetType
 
 class FPlatformFileReadStatsHandle : public IFileHandle
 {
-	TAutoPtr<IFileHandle> FileHandle;
+	TUniquePtr<IFileHandle> FileHandle;
 	FString Filename;
 	volatile int32* BytesPerSecCounter;
 	volatile int32* BytesReadCounter;
@@ -671,9 +687,9 @@ public:
 	{
 		return LowerLevel->DeleteDirectoryRecursively( Directory );
 	}
-	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From) override
+	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags = EPlatformFileRead::None, EPlatformFileWrite WriteFlags = EPlatformFileWrite::None) override
 	{
-		return LowerLevel->CopyFile( To, From );
+		return LowerLevel->CopyFile( To, From, ReadFlags, WriteFlags );
 	}
 #if USE_NEW_ASYNC_IO
 	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename) override

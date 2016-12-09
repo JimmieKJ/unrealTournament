@@ -88,6 +88,11 @@
 	#error UBT should always define WITH_PLUGIN_SUPPORT to be 0 or 1
 #endif
 
+ /** Enable perf counters */
+#ifndef WITH_PERFCOUNTERS
+	#define WITH_PERFCOUNTERS		0
+#endif
+
 /**
  * Unreal Header Tool requires extra data stored in the structure of a few core files. This enables some ifdef hacks to make this work. 
  * Set via UBT, do not modify directly
@@ -130,7 +135,7 @@
 * Whether we support hot-reload. Currently requires a non-monolithic build and non-shipping configuration.
 */
 #ifndef WITH_HOT_RELOAD
-	#define WITH_HOT_RELOAD (!IS_MONOLITHIC && !UE_BUILD_SHIPPING && !UE_BUILD_TEST && !UE_GAME)
+	#define WITH_HOT_RELOAD (!IS_MONOLITHIC && !UE_BUILD_SHIPPING && !UE_BUILD_TEST && !UE_GAME && !UE_SERVER)
 #endif
 
 /**
@@ -147,7 +152,7 @@
  * Checks to see if pure virtual has actually been implemented, this is normally run as a CIS process and is set (indirectly) by UBT
  *
  * @see Core.h
- * @see ObjectBase.h
+ * @see ObjectMacros.h
  **/
 #ifndef CHECK_PUREVIRTUALS
 	#define CHECK_PUREVIRTUALS 0
@@ -181,21 +186,21 @@
 #if UE_BUILD_DEBUG
 	#define DO_GUARD_SLOW									1
 	#define DO_CHECK										1
-	#define STATS											(!UE_BUILD_MINIMAL || !WITH_EDITORONLY_DATA || USE_STATS_WITHOUT_ENGINE)
+	#define STATS											(!UE_BUILD_MINIMAL || !WITH_EDITORONLY_DATA || USE_STATS_WITHOUT_ENGINE || USE_MALLOC_PROFILER)
 	#define ALLOW_DEBUG_FILES								1
 	#define ALLOW_CONSOLE									1
 	#define NO_LOGGING										0
 #elif UE_BUILD_DEVELOPMENT
 	#define DO_GUARD_SLOW									0
 	#define DO_CHECK										1
-	#define STATS											(!UE_BUILD_MINIMAL || !WITH_EDITORONLY_DATA || USE_STATS_WITHOUT_ENGINE)
+	#define STATS											(!UE_BUILD_MINIMAL || !WITH_EDITORONLY_DATA || USE_STATS_WITHOUT_ENGINE || USE_MALLOC_PROFILER)
 	#define ALLOW_DEBUG_FILES								1
 	#define ALLOW_CONSOLE									1
 	#define NO_LOGGING										0
 #elif UE_BUILD_TEST
 	#define DO_GUARD_SLOW									0
 	#define DO_CHECK										USE_CHECKS_IN_SHIPPING
-	#define STATS											1
+	#define STATS											(USE_MALLOC_PROFILER)
 	#define ALLOW_DEBUG_FILES								1
 	#define ALLOW_CONSOLE									1
 	#define NO_LOGGING										!USE_LOGGING_IN_SHIPPING
@@ -254,6 +259,6 @@
 #define USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS (USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING && 0)
 
 // 0 (default), set this to 1 to get draw events with "TOGGLEDRAWEVENTS" "r.ShowMaterialDrawEvents" and the "ProfileGPU" command working in test
-#define ALLOW_PROFILEGPU_IN_TEST 1
+#define ALLOW_PROFILEGPU_IN_TEST 0
 // draw events with "TOGGLEDRAWEVENTS" "r.ShowMaterialDrawEvents" (for ProfileGPU, Pix, Razor, RenderDoc, ...) and the "ProfileGPU" command are normally compiled out for TEST and SHIPPING
 #define WITH_PROFILEGPU (!(UE_BUILD_SHIPPING || UE_BUILD_TEST) || (UE_BUILD_TEST && ALLOW_PROFILEGPU_IN_TEST))

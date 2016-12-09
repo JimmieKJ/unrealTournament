@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "EditorFramework/AssetImportData.h"
 #include "FbxAssetImportData.generated.h"
+
+class UFbxSceneImportData;
 
 /**
  * Base class for import data and options used when importing any asset from FBX
@@ -25,10 +29,6 @@ class UNREALED_API UFbxAssetImportData : public UAssetImportData
 	/* Use by the reimport factory to answer CanReimport, if true only factory for scene reimport will return true */
 	UPROPERTY()
 	bool bImportAsScene;
-
-	/* If check the material indexes will be reimport from the fbx file and materials and texture will be create if they don't exist */
-	UPROPERTY(EditDefaultsOnly, Category = ImportSettings)
-	bool bImportMaterials;
 
 	/* Use by the reimport factory to answer CanReimport, if true only factory for scene reimport will return true */
 	UPROPERTY()

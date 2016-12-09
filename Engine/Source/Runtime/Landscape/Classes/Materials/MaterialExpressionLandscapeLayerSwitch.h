@@ -2,8 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "MaterialExpressionIO.h"
 #include "Materials/MaterialExpression.h"
 #include "MaterialExpressionLandscapeLayerSwitch.generated.h"
+
+class UTexture;
 
 UCLASS(collapsecategories, hidecategories=Object)
 class LANDSCAPE_API UMaterialExpressionLandscapeLayerSwitch : public UMaterialExpression
@@ -36,7 +43,7 @@ public:
 	//~ Begin UMaterialExpression Interface
 #if WITH_EDITOR
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override;
-	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
+	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 #endif
 	virtual UTexture* GetReferencedTexture() override;

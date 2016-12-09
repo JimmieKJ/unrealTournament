@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Factories/FbxAnimSequenceImportData.h"
 #include "Animation/AnimSequence.h"
 
 UFbxAnimSequenceImportData::UFbxAnimSequenceImportData(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bImportMeshesInBoneHierarchy(true)
 	, bImportCustomAttribute(true)
 	, bRemoveRedundantKeys(true)
 	, bDoNotImportCurveWithZero(true)

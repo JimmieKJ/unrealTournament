@@ -2,11 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Misc/Attribute.h"
+#include "Widgets/SWidget.h"
+
 class ISequencer;
-class FMovieSceneSequenceInstance;
-class IMovieScenePlayer;
-class UMovieSceneSection;
 class UMovieScene;
+class UMovieSceneSection;
 
 DECLARE_DELEGATE_TwoParams(FOnEnumSelectionChanged, int32 /*Selection*/, ESelectInfo::Type /*SelectionType*/);
 
@@ -97,7 +100,7 @@ public:
 	 * @param OnSelectionChanged Delegate fired when selection is changed
 	 * @return The new widget
 	 */
-	static TSharedRef<SWidget> MakeEnumComboBox(const UEnum* Enum, TAttribute<int32> CurrentValue, FOnEnumSelectionChanged OnSelectionChanged, TAttribute<TOptional<uint8>> InIntermediateValue);
+	static TSharedRef<SWidget> MakeEnumComboBox(const UEnum* Enum, TAttribute<int32> CurrentValue, FOnEnumSelectionChanged OnSelectionChanged);
 
 
 	/**
@@ -116,9 +119,10 @@ public:
 	 * @param InMovieScene The movie scene with the cinematic shot track and audio tracks to export
 	 * @param InFrameRate The frame rate to export the EDL at
 	 * @param InSaveDirectory Optional directory path to save to. If none given, a dialog will pop up to prompt the user
+	 * @param InHandleFrames The number of handle frames to include for each shot.
 	 * @return Whether the export was successful
 	 */
-	static bool ShowExportEDLDialog(const UMovieScene* InMovieScene, float InFrameRate, FString InSaveDirectory = TEXT(""));
+	static bool ShowExportEDLDialog(const UMovieScene* InMovieScene, float InFrameRate, FString InSaveDirectory = TEXT(""), int32 InHandleFrames = 8);
 
 	/**
 	 * Import FBX
@@ -127,5 +131,5 @@ public:
 	 * @param InObjectBindingNameMap The object binding to name map to map import fbx animation onto
 	 * @return Whether the import was successful
 	 */
-	static bool ImportFBX(UMovieScene* InMovieScene, FMovieSceneSequenceInstance& InSequence, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingNameMap);
+	static bool ImportFBX(UMovieScene* InMovieScene, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingNameMap);
 };

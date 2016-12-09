@@ -5,7 +5,16 @@
 //
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/NetDriver.h"
 #include "IpNetDriver.generated.h"
+
+class Error;
+class FInternetAddr;
+class FNetworkNotify;
+class FSocket;
 
 UCLASS(transient, config=Engine)
 class ONLINESUBSYSTEMUTILS_API UIpNetDriver : public UNetDriver

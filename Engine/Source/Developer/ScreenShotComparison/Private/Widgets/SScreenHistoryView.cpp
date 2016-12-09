@@ -3,7 +3,12 @@
 /*=============================================================================
 	SScreenHistoryView.cpp: Implements the SScreenHistoryView class.
 =============================================================================*/
-#include "ScreenShotComparisonPrivatePCH.h"
+#include "Widgets/SScreenHistoryView.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SSlider.h"
+#include "Interfaces/IScreenShotData.h"
+#include "Widgets/SScreenShotItem.h"
 
 
 void SScreenHistoryView::Construct( const FArguments& InArgs )

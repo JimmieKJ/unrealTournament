@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Editor/UnrealEdTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "MaterialEditor/DEditorParameterValue.h"
 
 #include "DEditorStaticComponentMaskParameterValue.generated.h"
 

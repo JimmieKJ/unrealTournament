@@ -8,7 +8,10 @@
  */
 
 #pragma once
-#include "LevelStreaming.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/LevelStreaming.h"
 #include "LevelStreamingKismet.generated.h"
 
 UCLASS(MinimalAPI, BlueprintType)
@@ -47,7 +50,6 @@ class ULevelStreamingKismet : public ULevelStreaming
 
 	//~ Begin ULevelStreaming Interface
 	virtual bool ShouldBeLoaded() const override;
-	virtual bool ShouldBeVisible() const override;
 	//~ End ULevelStreaming Interface
 
 private:

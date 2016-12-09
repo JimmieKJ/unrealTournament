@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "PhysicsEngine/PhysicalAnimationComponent.h"
+#include "SceneManagement.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "PhysicsEngine/PhysicsAsset.h"
-#include "PhysXSupport.h"
+#include "PhysXPublic.h"
 
 const FConstraintProfileProperties UPhysicalAnimationComponent::PhysicalAnimationProfile = []()
 {
@@ -135,8 +136,7 @@ void UPhysicalAnimationComponent::ApplyPhysicalAnimationProfileBelow(FName BodyN
 		bool bNeedsUpdating = false;
 		SkeletalMeshComponent->ForEachBodyBelow(BodyName, bIncludeSelf, /*bSkipCustomType=*/false, [bClearNotFound, ProfileName, PhysAsset, &NewDriveData, &bNeedsUpdating](const FBodyInstance* BI)
 		{
-			USkeletalBodySetup* BodySetup = Cast<USkeletalBodySetup>(BI->BodySetup.Get());
-			if(ensure(BodySetup))
+			if(USkeletalBodySetup* BodySetup = Cast<USkeletalBodySetup>(BI->BodySetup.Get()))
 			{
 				const FName IterBodyName = PhysAsset->SkeletalBodySetups[BI->InstanceBodyIndex]->BoneName;
 				if(FPhysicalAnimationProfile* Profile = BodySetup->FindPhysicalAnimationProfile(ProfileName))
@@ -216,10 +216,11 @@ void UPhysicalAnimationComponent::TickComponent(float DeltaTime, enum ELevelTick
 				if(PxRigidDynamic* TargetActor = InstanceData.TargetActor)
 				{
 					const int32 BoneIdx = RefSkeleton.FindBoneIndex(PhysAnimData.BodyName);
-					check(BoneIdx != INDEX_NONE);	//If we've created the actor the bone name should exist
-
-					const FTransform TargetTM =	ComputeTargetTM(PhysAnimData, *SkeletalMeshComponent, *PhysAsset, SpaceBases, BoneIdx);
-					TargetActor->setKinematicTarget(U2PTransform(TargetTM));	//TODO: this doesn't work with sub-stepping!
+					if(BoneIdx != INDEX_NONE)	//It's possible the skeletal mesh has changed out from under us. In that case we should probably reset, but at the very least don't do work on non-existent bones
+					{
+						const FTransform TargetTM = ComputeTargetTM(PhysAnimData, *SkeletalMeshComponent, *PhysAsset, SpaceBases, BoneIdx);
+						TargetActor->setKinematicTarget(U2PTransform(TargetTM));	//TODO: this doesn't work with sub-stepping!
+					}
 				}
 			}
 		}
@@ -300,7 +301,7 @@ void UPhysicalAnimationComponent::UpdatePhysicsEngine()
 
 							// Create kinematic actor we are going to create joint with. This will be moved around with calls to SetLocation/SetRotation.
 							PxRigidDynamic* KineActor = Scene->getPhysics().createRigidDynamic(U2PTransform(TargetTM));
-							KineActor->setRigidDynamicFlag(PxRigidDynamicFlag::eKINEMATIC, true);
+							KineActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
 							KineActor->setMass(1.0f);
 							KineActor->setMassSpaceInertiaTensor(PxVec3(1.0f, 1.0f, 1.0f));
 

@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "ArrayView.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Containers/ArrayView.h"
+#include "Misc/Paths.h"
+
+class Error;
 
 struct FLandscapeFileTypeInfo
 {

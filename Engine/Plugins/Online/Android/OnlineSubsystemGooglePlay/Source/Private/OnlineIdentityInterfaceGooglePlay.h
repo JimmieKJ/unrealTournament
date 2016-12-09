@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "OnlineIdentityInterface.h"
 #include "OnlineSubsystemGooglePlayPackage.h"
 

@@ -2,13 +2,13 @@
 
 #pragma once
 
-class IDetailCategoryBuilder;
-class IPropertyHandle;
-
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AnimGraphNode_SkeletalControlBase.h"
 #include "BoneControllers/AnimNode_TwistCorrectiveNode.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTitleTextTable
 #include "AnimGraphNode_TwistCorrectiveNode.generated.h"
+
+class FCompilerResultsLog;
 
 /**
  * This is the 'source version' of a bone driven controller, which maps part of the state from one bone to another (e.g., 2 * source.x -> target.z)

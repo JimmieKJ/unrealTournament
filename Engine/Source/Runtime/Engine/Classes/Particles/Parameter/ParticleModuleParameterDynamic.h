@@ -6,12 +6,20 @@
  */
 
 #pragma once
-#include "Particles/Parameter/ParticleModuleParameterBase.h"
-#include "Particles/ParticleSystemComponent.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Particles/ParticleModule.h"
 #include "Distributions/DistributionFloatConstant.h"
+#include "Particles/Parameter/ParticleModuleParameterBase.h"
+#include "ParticleEmitterInstances.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "ParticleModuleParameterDynamic.generated.h"
 
-class UDistributionFloatConstant;
+class UInterpCurveEdSetup;
+class UParticleEmitter;
+class UParticleLODLevel;
+class UParticleModuleTypeDataBase;
 
 /**
  *	EmitterDynamicParameterValue

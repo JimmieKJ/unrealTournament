@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnvironmentQueryEditorPrivatePCH.h"
-#include "EnvDirectionCustomization.h"
+#include "DetailCustomizations/EnvDirectionCustomization.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/Text/STextBlock.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailLayoutBuilder.h"
 
 #define LOCTEXT_NAMESPACE "FEnvQueryCustomization"
 

@@ -2,11 +2,13 @@
 
 #pragma once
 
-#include "AutoReimportUtilities.h"
+#include "CoreMinimal.h"
+#include "AssetData.h"
 #include "FileCache.h"
-#include "MessageLog.h"
 
 class FReimportFeedbackContext;
+class IAssetRegistry;
+class UFactory;
 
 /** Class responsible for watching a specific content directory for changes */
 class FContentDirectoryMonitor

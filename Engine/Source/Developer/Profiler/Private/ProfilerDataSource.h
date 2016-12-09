@@ -2,9 +2,18 @@
 
 #pragma once
 
-/*-----------------------------------------------------------------------------
-Event graph related type definitions
------------------------------------------------------------------------------*/
+#include "CoreMinimal.h"
+#include "HAL/ThreadSingleton.h"
+#include "Containers/ChunkedArray.h"
+#include "Misc/Guid.h"
+#include "ProfilerCommon.h"
+#include "ProfilerSample.h"
+
+class FEventGraphData;
+class FEventGraphSample;
+class FProfilerAggregatedStat;
+class FProfilerSession;
+class IDataProvider;
 
 /** Type definition for shared pointers to instances of FEventGraphSample. */
 typedef TSharedPtr<class FEventGraphSample> FEventGraphSamplePtr;
@@ -20,6 +29,7 @@ typedef TSharedPtr<class FEventGraphData, ESPMode::ThreadSafe> FEventGraphDataPt
 
 /** Type definition for shared references to instances of FEventGraphData. */
 typedef TSharedRef<class FEventGraphData, ESPMode::ThreadSafe> FEventGraphDataRef;
+
 
 /** Scratch buffers for multithreaded usage. */
 struct FProfilerScratchArea : public TThreadSingleton<FProfilerScratchArea>
@@ -470,7 +480,7 @@ protected:
 	 * @param InStatID			- the ID of the stat that this graph data source will be created for
 	 *
 	 */
-	FGraphDataSource( const FProfilerSessionRef& InProfilerSession, const uint32 InStatID  );
+	FGraphDataSource( const TSharedRef<FProfilerSession>& InProfilerSession, const uint32 InStatID  );
 
 public:
 	/** Virtual destructor. */
@@ -497,7 +507,7 @@ public:
 
 	const float GetTotalTimeMS() const;
 
-	const IDataProviderRef GetDataProvider() const;
+	const TSharedRef<IDataProvider> GetDataProvider() const;
 
 	/**
 	 * @return a session instance ID to the profiler session that owns this graph data source. 
@@ -527,7 +537,7 @@ protected:
 	const TGraphDataType GetUncachedValueFromTimeRange( const float StartTimeMS, const float EndTimeMS ) const;
 	
 	/** A reference to the profiler session that owns this graph data source. */
-	const FProfilerSessionRef ProfilerSession;
+	const TSharedRef<FProfilerSession> ProfilerSession;
 
 	// @TODO: This needs to be moved to 'filters and presets' filtering options.
 	float Scale;
@@ -584,7 +594,7 @@ public:
 		return bIsRegistered;
 	}
 
-	void RegisterWithProfilerSession( const FGuid& SessionInstanceID, const FGraphDataSourceRefConst& GraphDataSource )
+	void RegisterWithProfilerSession( const FGuid& SessionInstanceID, const TSharedRef<const FGraphDataSource>& GraphDataSource )
 	{
 		GraphDataSources.Add( SessionInstanceID, GraphDataSource );
 		ThisCachedDataByTime::ClearCache();
@@ -605,7 +615,7 @@ public:
 		return MemoryUsage;
 	}
 
-	const TMap<FGuid,FGraphDataSourceRefConst>::TConstIterator GetSourcesIterator() const
+	const TMap<FGuid,TSharedRef<const FGraphDataSource>>::TConstIterator GetSourcesIterator() const
 	{
 		return GraphDataSources.CreateConstIterator();
 	}
@@ -615,10 +625,10 @@ public:
 		return GraphDataSources.Num();
 	}
 
-	const FGraphDataSourceRefConst* GetFirstSource() const
+	const TSharedRef<const FGraphDataSource>* GetFirstSource() const
 	{
 		// TODO: Add global accessible Null FGraphDataSourceRef, and other instances used in the profiler to avoid returning empty pointer.
-		const FGraphDataSourceRefConst* Result = NULL;
+		const TSharedRef<const FGraphDataSource>* Result = nullptr;
 		if( GetSourcesNum() > 0 )
 		{
 			Result = &GetSourcesIterator().Value();
@@ -646,7 +656,7 @@ public:
 
 			for( auto It = GetSourcesIterator(); It; ++It )
 			{
-				const FGraphDataSourceRefConst& GraphDataSource = It.Value();
+				const TSharedRef<const FGraphDataSource>& GraphDataSource = It.Value();
 				MinTotalTime = FMath::Min( MinTotalTime, GraphDataSource->GetTotalTimeMS() );
 			}
 
@@ -672,7 +682,7 @@ protected:
 	const FVector GetUncachedValueFromTimeRange( const float StartTimeMS, const float EndTimeMS ) const;
 
 	/** A map of graph data sources for all active profiler session instances for the specified stat ID. */
-	TMap<FGuid,FGraphDataSourceRefConst> GraphDataSources;
+	TMap<FGuid,TSharedRef<const FGraphDataSource>> GraphDataSources;
 };
 
 /*-----------------------------------------------------------------------------
@@ -680,90 +690,84 @@ protected:
 -----------------------------------------------------------------------------*/
 
 /** Enumerates event graph columns index. */
-namespace EEventPropertyIndex
+enum EEventPropertyIndex
 {
-	enum Type
-	{
-		/** Stat name must be the first column, because of the expander arrow. */
-		StatName,
-		InclusiveTimeMS,
-		InclusiveTimePct,
-		ExclusiveTimeMS,
-		ExclusiveTimePct,
-		NumCallsPerFrame,
-		/** Special name used for unknown property. */
-		None,
+	/** Stat name must be the first column, because of the expander arrow. */
+	StatName,
+	InclusiveTimeMS,
+	InclusiveTimePct,
+	ExclusiveTimeMS,
+	ExclusiveTimePct,
+	NumCallsPerFrame,
+	/** Special name used for unknown property. */
+	None,
 
-		MinInclusiveTimeMS,
-		MaxInclusiveTimeMS,
-		AvgInclusiveTimeMS,	
-		MinNumCallsPerFrame,
-		MaxNumCallsPerFrame,
-		AvgNumCallsPerFrame,
-		ThreadName,
-		ThreadDurationMS,
-		FrameDurationMS,
-		ThreadPct,
-		FramePct,
-		ThreadToFramePct,
-		GroupName,
+	MinInclusiveTimeMS,
+	MaxInclusiveTimeMS,
+	AvgInclusiveTimeMS,	
+	MinNumCallsPerFrame,
+	MaxNumCallsPerFrame,
+	AvgNumCallsPerFrame,
+	ThreadName,
+	ThreadDurationMS,
+	FrameDurationMS,
+	ThreadPct,
+	FramePct,
+	ThreadToFramePct,
+	GroupName,
 		
-		// Booleans
-		bIsHotPath,
-		bIsFiltered,
-		bIsCulled,
+	// Booleans
+	bIsHotPath,
+	bIsFiltered,
+	bIsCulled,
 
-		// Booleans internal
-		bNeedNotCulledChildrenUpdate,
+	// Booleans internal
+	bNeedNotCulledChildrenUpdate,
 
-		/** Invalid enum type, may be used as a number of enumerations. */
-		InvalidOrMax,
-	};
-}
+	/** Invalid enum type, may be used as a number of enumerations. */
+	InvalidOrMax,
+};
+
 
 /** Enumerates event graph sample value formatting types, usually match with event graph widget's columns. */
-namespace EEventPropertyFormatters
+enum class EEventPropertyFormatters
 {
-	enum Type
-	{
-		/** Name, stored as a string, displayed as a regular string. */
-		Name,
+	/** Name, stored as a string, displayed as a regular string. */
+	Name,
 
-		/** Time in milliseconds, stored as a double, displayed as ".3f ms" */
-		TimeMS,
+	/** Time in milliseconds, stored as a double, displayed as ".3f ms" */
+	TimeMS,
 
-		/** Time as percent, stored as a double, displayed as ".1f %" */
-		TimePct,
+	/** Time as percent, stored as a double, displayed as ".1f %" */
+	TimePct,
 
-		/** Number of calls, store as a double, displayed as ".1f" */
-		Number,
+	/** Number of calls, store as a double, displayed as ".1f" */
+	Number,
 
-		/** Boolean value, store as a bool, displaying is not supported yet. */
-		Bool,
+	/** Boolean value, store as a bool, displaying is not supported yet. */
+	Bool,
 
-		/** Invalid enum type, may be used as a number of enumerations. */
-		InvalidOrMax,
-	};
-}
+	/** Invalid enum type, may be used as a number of enumerations. */
+	InvalidOrMax,
+};
+
 
 /** Enumerates . */
-namespace EEventPropertyTypes
+enum class EEventPropertyTypes
 {
-	enum Type
-	{
-		/** double. */
-		Double,
+	/** double. */
+	Double,
 
-		/** FName. */
-		Name,
+	/** FName. */
+	Name,
 
-		/** bool. */
-		Bool,
+	/** bool. */
+	Bool,
 
-		/** Invalid enum type, may be used as a number of enumerations. */
-		InvalidOrMax,
-	};
-}
+	/** Invalid enum type, may be used as a number of enumerations. */
+	InvalidOrMax,
+};
+
 
 //namespace NEventProp
 //{
@@ -773,10 +777,10 @@ namespace EEventPropertyTypes
 	protected:
 		FEventProperty
 		( 
-			const EEventPropertyIndex::Type PropertyIndex, 
+			const EEventPropertyIndex PropertyIndex, 
 			const FName PropertyName, 
 			const uint32 PropertyOffset, 
-			const EEventPropertyFormatters::Type PropertyFormatter
+			const EEventPropertyFormatters PropertyFormatter
 		)
 			:
 			Index( PropertyIndex ),
@@ -786,7 +790,7 @@ namespace EEventPropertyTypes
 			Type( GetTypeFromFormatter(PropertyFormatter) )
 		{}
 
-		EEventPropertyTypes::Type GetTypeFromFormatter( const EEventPropertyFormatters::Type PropertyFormatter ) const
+		EEventPropertyTypes GetTypeFromFormatter( const EEventPropertyFormatters PropertyFormatter ) const
 		{
 			switch( PropertyFormatter )
 			{
@@ -824,11 +828,11 @@ namespace EEventPropertyTypes
 		}
 
 	public:
-		const EEventPropertyIndex::Type Index;
+		const EEventPropertyIndex Index;
 		const FName Name;
 		const uint32 Offset;
-		const EEventPropertyFormatters::Type Formatter;
-		const EEventPropertyTypes::Type Type;
+		const EEventPropertyFormatters Formatter;
+		const EEventPropertyTypes Type;
 	};
 
 	template< typename Type >
@@ -890,7 +894,7 @@ namespace EEventPropertyTypes
 
 namespace NEventFormatter
 {
-	template< EEventPropertyFormatters::Type PropertyType >
+	template< EEventPropertyFormatters PropertyType >
 	FORCEINLINE FString ToString( const FEventGraphSample& Event, const FEventProperty& EventProperty )
 	{
 		check(0);
@@ -952,9 +956,9 @@ public:
 	/** Initializes the minimal property manager for the event graph sample. */
 	static void InitializePropertyManagement();
 
-	static FORCEINLINE_DEBUGGABLE const FEventProperty& GetEventPropertyByIndex( const EEventPropertyIndex::Type PropertyIndex )
+	static FORCEINLINE_DEBUGGABLE const FEventProperty& GetEventPropertyByIndex( const EEventPropertyIndex PropertyIndex )
 	{
-		return Properties[PropertyIndex];
+		return Properties[(const int32)PropertyIndex];
 	}
 
 	static FORCEINLINE_DEBUGGABLE const FEventProperty& GetEventPropertyByName( const FName PropertyName )
@@ -1023,7 +1027,7 @@ protected:
 		const double InInclusiveTimeMS,
 		const double InNumCallsPerFrame,
 
-		const FEventGraphSamplePtr InParentPtr = NULL
+		const FEventGraphSamplePtr InParentPtr = nullptr
 	)
 		: _ParentPtr( InParentPtr )
 		, _RootPtr( nullptr )
@@ -1611,7 +1615,7 @@ public:
 #endif // 0
 
 public:
-	double& PropertyValueAsDouble( const EEventPropertyIndex::Type PropertyIndex )
+	double& PropertyValueAsDouble( const EEventPropertyIndex PropertyIndex )
 	{
 		const FEventProperty& EventProperty = GetEventPropertyByIndex(PropertyIndex);
 		// In case if you want to get FName/bool as a double.
@@ -1620,7 +1624,7 @@ public:
 		return Value.GetPropertyValueRef();
 	}
 
-	FName& PropertyValueAsFName( const EEventPropertyIndex::Type PropertyIndex )
+	FName& PropertyValueAsFName( const EEventPropertyIndex PropertyIndex )
 	{
 		const FEventProperty& EventProperty = GetEventPropertyByIndex(PropertyIndex);
 		// In case if you want to get a double/bool as FName.
@@ -1629,7 +1633,7 @@ public:
 		return Value.GetPropertyValueRef();
 	}
 
-	bool& PropertyValueAsBool( const EEventPropertyIndex::Type PropertyIndex )
+	bool& PropertyValueAsBool( const EEventPropertyIndex PropertyIndex )
 	{
 		const FEventProperty& EventProperty = GetEventPropertyByIndex(PropertyIndex);
 		// In case if you want to get a double/FName as a bool.
@@ -1638,7 +1642,7 @@ public:
 		return Value.GetPropertyValueRef();
 	}
 
-	const FString GetPropertyValueAsString( const EEventPropertyIndex::Type PropertyIndex ) const
+	const FString GetPropertyValueAsString( const EEventPropertyIndex PropertyIndex ) const
 	{
 		const FEventProperty& EventProperty = GetEventPropertyByIndex(PropertyIndex);
 		// In case if you want to get a double/bool as FName.
@@ -1647,7 +1651,7 @@ public:
 		return Value.GetPropertyValueRef().GetPlainNameString();
 	}
 
-	const FString GetFormattedValue( EEventPropertyIndex::Type PropertyIndex ) const
+	const FString GetFormattedValue( EEventPropertyIndex PropertyIndex ) const
 	{
 		const FEventProperty& EventProperty = GetEventPropertyByIndex(PropertyIndex);
 
@@ -1689,7 +1693,7 @@ public:
 	};
 
  public:
-	template< const EEventPropertyIndex::Type BooleanPropertyIndex >
+	template< const EEventPropertyIndex BooleanPropertyIndex >
 	void SetBooleanStateForAllChildren( const bool bValue )
 	{
 		//static_assert(false, "Method not supported.");
@@ -1716,7 +1720,7 @@ public:
 public:
 
 	/** Not used, optimized version @see SetBooleanStateForAllChildren. */
-	void SetBooleanStateForAllChildren_Recurrent( const EEventPropertyIndex::Type BooleanPropertyIndex, const bool bValue )
+	void SetBooleanStateForAllChildren_Recurrent( const EEventPropertyIndex BooleanPropertyIndex, const bool bValue )
 	{
 		PropertyValueAsBool(BooleanPropertyIndex) = bValue;
 		const int32 NumChildren = _ChildrenPtr.Num();
@@ -1850,14 +1854,14 @@ namespace EEventCompareOps
 namespace EventGraphPrivate
 {
 	/** Helper class used to during sorting the events. */
-	template< const EEventPropertyTypes::Type PropType, const EEventCompareOps::Type CompareOp >
+	template< const EEventPropertyTypes PropType, const EEventCompareOps::Type CompareOp >
 	struct TCompareByProperty
 	{
 	private:
-		const EEventPropertyIndex::Type PropertyIndex;
+		const EEventPropertyIndex PropertyIndex;
 
 	public:
-		FORCEINLINE TCompareByProperty( const EEventPropertyIndex::Type InPropertyIndex )
+		FORCEINLINE TCompareByProperty( const EEventPropertyIndex InPropertyIndex )
 			: PropertyIndex( InPropertyIndex )
 		{}
 	};
@@ -1866,10 +1870,10 @@ namespace EventGraphPrivate
 	struct TCompareByProperty<EEventPropertyTypes::Name,EEventCompareOps::Greater>
 	{
 	private:
-		const EEventPropertyIndex::Type PropertyIndex;
+		const EEventPropertyIndex PropertyIndex;
 
 	public:
-		FORCEINLINE TCompareByProperty( const EEventPropertyIndex::Type InPropertyIndex )
+		FORCEINLINE TCompareByProperty( const EEventPropertyIndex InPropertyIndex )
 			: PropertyIndex( InPropertyIndex )
 		{}
 
@@ -1883,10 +1887,10 @@ namespace EventGraphPrivate
 	struct TCompareByProperty<EEventPropertyTypes::Double,EEventCompareOps::Greater>
 	{
 	private:
-		const EEventPropertyIndex::Type PropertyIndex;
+		const EEventPropertyIndex PropertyIndex;
 
 	public:
-		FORCEINLINE TCompareByProperty( const EEventPropertyIndex::Type InPropertyIndex )
+		FORCEINLINE TCompareByProperty( const EEventPropertyIndex InPropertyIndex )
 			: PropertyIndex( InPropertyIndex )
 		{}
 
@@ -1900,10 +1904,10 @@ namespace EventGraphPrivate
 	struct TCompareByProperty<EEventPropertyTypes::Name,EEventCompareOps::Less>
 	{
 	private:
-		const EEventPropertyIndex::Type PropertyIndex;
+		const EEventPropertyIndex PropertyIndex;
 
 	public:
-		FORCEINLINE TCompareByProperty( const EEventPropertyIndex::Type InPropertyIndex )
+		FORCEINLINE TCompareByProperty( const EEventPropertyIndex InPropertyIndex )
 			: PropertyIndex( InPropertyIndex )
 		{}
 
@@ -1917,10 +1921,10 @@ namespace EventGraphPrivate
 	struct TCompareByProperty<EEventPropertyTypes::Double,EEventCompareOps::Less>
 	{
 	private:
-		const EEventPropertyIndex::Type PropertyIndex;
+		const EEventPropertyIndex PropertyIndex;
 
 	public:
-		FORCEINLINE TCompareByProperty( const EEventPropertyIndex::Type InPropertyIndex )
+		FORCEINLINE TCompareByProperty( const EEventPropertyIndex InPropertyIndex )
 			: PropertyIndex( InPropertyIndex )
 		{}
 
@@ -1946,9 +1950,9 @@ public:
 	static void ExecuteOperation
 	( 
 		FEventGraphSamplePtr DestPtr, 
-		const EEventPropertyIndex::Type DestPropertyIndex, 
+		const EEventPropertyIndex DestPropertyIndex, 
 		const FEventGraphSamplePtr SrcPtr, 
-		const EEventPropertyIndex::Type SrcPropertyIndex, 
+		const EEventPropertyIndex SrcPropertyIndex, 
 		const EEventCompareOps::Type OpType
 	)
 	{
@@ -1986,7 +1990,7 @@ public:
 	}
 
 private:
-	template < const EEventPropertyTypes::Type PropType, const EEventCompareOps::Type CompareOp >
+	template < const EEventPropertyTypes PropType, const EEventCompareOps::Type CompareOp >
 	static void ExecuteOperationInternal
 	( 
 		TArray< FEventGraphSamplePtr >& DestEvents, 
@@ -2050,7 +2054,7 @@ public:
 	}
 
 private:
-	template< const EEventPropertyTypes::Type PropType, const EEventCompareOps::Type CompareOp >
+	template< const EEventPropertyTypes PropType, const EEventCompareOps::Type CompareOp >
 	static void SortInternal( TArray< FEventGraphSamplePtr >& ChildrenToSort, const EventGraphPrivate::TCompareByProperty<PropType,CompareOp>& CompareInstance )
 	{
 		ChildrenToSort.Sort( CompareInstance );
@@ -2170,7 +2174,7 @@ protected:
 		const FProfilerSession * const ProfilerSession,
 		const FEventGraphSamplePtr ParentEvent, 
 		const FProfilerSample& ParentSample, 
-		const IDataProviderRef DataProvider
+		const TSharedRef<IDataProvider> DataProvider
 	);
 
 public:

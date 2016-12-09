@@ -1,11 +1,11 @@
 @echo off
-set LINUX_ARCHITECTURE=arm-unknown-linux-gnueabihf
+set LINUX_ARCHITECTURE=aarch64-unknown-linux-gnueabi
 rem x86_64-unknown-linux-gnu 
 rem arm-unknown-linux-gnueabihf
 
 echo Quick hack bat file for cross-compiling libelf without cygwin.
 echo You need to have Linux toolchain installed, and its absolute path to be set in LINUX_ROOT environment variable
-echo Your LINUX_ROOT='%LINUX_ROOT%'
+echo Your LINUX_MULTIARCH_ROOT='%LINUX_MULTIARCH_ROOT%'
 echo Your LINUX_ARCHITECTURE='%LINUX_ARCHITECTURE%'
 
 set OUTPUT_LIB=libelf.a
@@ -13,9 +13,9 @@ set CXXFLAGS= -g -O2 -D__offsetof=offsetof -ffunction-sections -funwind-tables -
 
 rem neeeds to be absolute
 rem set M4=%LINUX_ROOT%/bin/m4.exe
-set CC=%LINUX_ROOT%/bin/clang.exe
-set AR_RC=%LINUX_ROOT%/bin/%LINUX_ARCHITECTURE%-ar.exe rc
-set RANLIB=%LINUX_ROOT%/bin/%LINUX_ARCHITECTURE%-ranlib.exe
+set CC=%LINUX_MULTIARCH_ROOT%%LINUX_ARCHITECTURE%/bin/clang.exe
+set AR_RC=%LINUX_MULTIARCH_ROOT%%LINUX_ARCHITECTURE%/bin/%LINUX_ARCHITECTURE%-ar.exe rc
+set RANLIB=%LINUX_MULTIARCH_ROOT%%LINUX_ARCHITECTURE%/bin/%LINUX_ARCHITECTURE%-ranlib.exe
 
 rem	m4 -D SRCDIR=${.CURDIR} ${.IMPSRC} > ${.TARGET}
 

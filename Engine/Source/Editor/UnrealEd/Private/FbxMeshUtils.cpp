@@ -1,24 +1,32 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "StaticMeshResources.h"
-#include "Factories.h"
-
 #include "FbxMeshUtils.h"
-#include "FbxExporter.h"
+#include "EngineDefines.h"
+#include "Misc/Paths.h"
+#include "UObject/Package.h"
+#include "Engine/SkeletalMesh.h"
+#include "Factories/FbxAssetImportData.h"
+#include "Factories/FbxSkeletalMeshImportData.h"
+#include "Factories/FbxStaticMeshImportData.h"
+#include "Factories/FbxImportUI.h"
+#include "Engine/StaticMesh.h"
+#include "EditorDirectories.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Misc/MessageDialog.h"
 
-#include "MainFrame.h"
+#include "Logging/TokenizedMessage.h"
+#include "FbxImporter.h"
+
 #include "DesktopPlatformModule.h"
 
 #if WITH_APEX_CLOTHING
 	#include "ApexClothingUtils.h"
 #endif // #if WITH_APEX_CLOTHING
 
-#include "ComponentReregisterContext.h"
 
-#include "FbxErrors.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Misc/FbxErrors.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogExportMeshUtils, Log, All);
 
@@ -69,8 +77,10 @@ namespace FbxMeshUtils
 		}
 	}
 
-	void ImportStaticMeshLOD( UStaticMesh* BaseStaticMesh, const FString& Filename, int32 LODLevel)
+	bool ImportStaticMeshLOD( UStaticMesh* BaseStaticMesh, const FString& Filename, int32 LODLevel)
 	{
+		bool bSuccess = false;
+
 		UE_LOG(LogExportMeshUtils, Log, TEXT("Fbx LOD loading"));
 		// logger for all error/warnings
 		// this one prints all messages that are stored in FFbxImporter
@@ -91,8 +101,8 @@ namespace FbxMeshUtils
 			ReimportUI->StaticMeshImportData = ImportData;
 			ApplyImportUIToImportOptions(ReimportUI, *ImportOptions);
 
-			ImportOptions->bImportMaterials = ImportData->bImportMaterials;
-			ImportOptions->bImportTextures = ImportData->bImportMaterials;
+			ImportOptions->bImportMaterials = false;
+			ImportOptions->bImportTextures = false;
 		}
 
 		if ( !FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ) ) )
@@ -132,7 +142,7 @@ namespace FbxMeshUtils
 					FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Error, FText(LOCTEXT("Prompt_NoMeshFound", "No meshes were found in file."))), FFbxErrors::Generic_Mesh_MeshNotFound);
 
 					FFbxImporter->ReleaseScene();
-					return;
+					return bSuccess;
 				}
 			}
 
@@ -144,9 +154,8 @@ namespace FbxMeshUtils
 			}
 			else
 			{
-				// Import mesh
 				UStaticMesh* TempStaticMesh = NULL;
-				TempStaticMesh = (UStaticMesh*)FFbxImporter->ImportStaticMeshAsSingle(BaseStaticMesh->GetOutermost(), *(LODNodeList[bUseLODs? LODLevel: 0]), NAME_None, RF_NoFlags, ImportData, BaseStaticMesh, LODLevel);
+				TempStaticMesh = (UStaticMesh*)FFbxImporter->ImportStaticMeshAsSingle(BaseStaticMesh->GetOutermost(), *(LODNodeList[bUseLODs? LODLevel: 0]), NAME_None, RF_NoFlags, ImportData, BaseStaticMesh, LODLevel, nullptr);
 
 				// Add imported mesh to existing model
 				if( TempStaticMesh )
@@ -159,6 +168,8 @@ namespace FbxMeshUtils
 					NotificationInfo.Text = FText::Format(LOCTEXT("LODImportSuccessful", "Mesh for LOD {0} imported successfully!"), FText::AsNumber(LODLevel));
 					NotificationInfo.ExpireDuration = 5.0f;
 					FSlateNotificationManager::Get().AddNotification(NotificationInfo);
+
+					bSuccess = true;
 				}
 				else
 				{
@@ -167,6 +178,8 @@ namespace FbxMeshUtils
 					NotificationInfo.Text = FText::Format(LOCTEXT("LODImportFail", "Failed to import mesh for LOD {0}!"), FText::AsNumber( LODLevel ));
 					NotificationInfo.ExpireDuration = 5.0f;
 					FSlateNotificationManager::Get().AddNotification(NotificationInfo);
+
+					bSuccess = false;
 				}
 			}
 
@@ -177,10 +190,14 @@ namespace FbxMeshUtils
 			}
 		}
 		FFbxImporter->ReleaseScene();
+
+		return bSuccess;
 	}
 
-	void ImportSkeletalMeshLOD( class USkeletalMesh* SelectedSkelMesh, const FString& Filename, int32 LODLevel)
+	bool ImportSkeletalMeshLOD( class USkeletalMesh* SelectedSkelMesh, const FString& Filename, int32 LODLevel)
 	{
+		bool bSuccess = false;
+
 		// Check the file extension for FBX. Anything that isn't .FBX is rejected
 		const FString FileExtension = FPaths::GetExtension(Filename);
 		const bool bIsFBX = FCString::Stricmp(*FileExtension, TEXT("FBX")) == 0;
@@ -199,6 +216,9 @@ namespace FbxMeshUtils
 			UnFbx::FFbxImporter* FFbxImporter = UnFbx::FFbxImporter::GetInstance();
 			// don't import material and animation
 			UnFbx::FBXImportOptions* ImportOptions = FFbxImporter->GetImportOptions();
+			
+			//Set the skeletal mesh import data from the base mesh, this make sure the import rotation transform is use when importing a LOD
+			UFbxSkeletalMeshImportData* TempAssetImportData = NULL;
 
 			UFbxAssetImportData *FbxAssetImportData = Cast<UFbxAssetImportData>(SelectedSkelMesh->AssetImportData);
 			if (FbxAssetImportData != nullptr)
@@ -206,6 +226,7 @@ namespace FbxMeshUtils
 				UFbxSkeletalMeshImportData* ImportData = Cast<UFbxSkeletalMeshImportData>(FbxAssetImportData);
 				if (ImportData)
 				{
+					TempAssetImportData = ImportData;
 					UnFbx::FBXImportOptions::ResetOptions(ImportOptions);
 					// Prepare the import options
 					UFbxImportUI* ReimportUI = NewObject<UFbxImportUI>();
@@ -219,8 +240,8 @@ namespace FbxMeshUtils
 					ReimportUI->SkeletalMeshImportData->bTransformVertexToAbsolute = true;
 					ApplyImportUIToImportOptions(ReimportUI, *ImportOptions);
 				}
-				ImportOptions->bImportMaterials = FbxAssetImportData->bImportMaterials;
-				ImportOptions->bImportTextures = FbxAssetImportData->bImportMaterials;
+				ImportOptions->bImportMaterials = false;
+				ImportOptions->bImportTextures = false;
 			}
 			ImportOptions->bImportAnimations = false;
 
@@ -245,7 +266,7 @@ namespace FbxMeshUtils
 				{
 					FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Error, LOCTEXT("FBXImport_NoMesh", "No meshes were found in file.")), FFbxErrors::Generic_MeshNotFound);
 					FFbxImporter->ReleaseScene();
-					return;
+					return false;
 				}
 
 				MeshObject = MeshArray[0];
@@ -321,15 +342,29 @@ namespace FbxMeshUtils
 
 					// Import mesh
 					USkeletalMesh* TempSkelMesh = NULL;
-					// @todo AssetImportData does this temp skeletal mesh need import data?
-					UFbxSkeletalMeshImportData* TempAssetImportData = NULL;
-					TempSkelMesh = (USkeletalMesh*)FFbxImporter->ImportSkeletalMesh(SelectedSkelMesh->GetOutermost(), bUseLODs? SkelMeshNodeArray: *MeshObject, NAME_None, RF_Transient, TempAssetImportData, LODLevel);
+					TArray<FName> OrderedMaterialNames;
+					{
+						int32 NoneNameCount = 0;
+						for (const FSkeletalMaterial &Material : SelectedSkelMesh->Materials)
+						{
+							if (Material.ImportedMaterialSlotName == NAME_None)
+								NoneNameCount++;
+
+							OrderedMaterialNames.Add(Material.ImportedMaterialSlotName);
+						}
+						if (NoneNameCount >= OrderedMaterialNames.Num())
+						{
+							OrderedMaterialNames.Empty();
+						}
+					}
+					
+					TempSkelMesh = (USkeletalMesh*)FFbxImporter->ImportSkeletalMesh(SelectedSkelMesh->GetOutermost(), bUseLODs? SkelMeshNodeArray: *MeshObject, NAME_None, RF_Transient, TempAssetImportData, LODLevel, nullptr, nullptr, nullptr, true, OrderedMaterialNames.Num() > 0 ? &OrderedMaterialNames : nullptr);
 
 					// Add imported mesh to existing model
-					bool bImportSucceeded = false;
+					bool bMeshImportSuccess = false;
 					if( TempSkelMesh )
 					{
-						bImportSucceeded = FFbxImporter->ImportSkeletalMeshLOD(TempSkelMesh, SelectedSkelMesh, SelectedLOD);
+						bMeshImportSuccess = FFbxImporter->ImportSkeletalMeshLOD(TempSkelMesh, SelectedSkelMesh, SelectedLOD);
 
 						// Mark package containing skeletal mesh as dirty.
 						SelectedSkelMesh->MarkPackageDirty();
@@ -340,8 +375,12 @@ namespace FbxMeshUtils
 						FFbxImporter->ImportFbxMorphTarget(SkelMeshNodeArray, SelectedSkelMesh, SelectedSkelMesh->GetOutermost(), SelectedLOD);
 					}
 
-					if (bImportSucceeded)
+					if (bMeshImportSuccess)
 					{
+						bSuccess = true;
+						// Set LOD source filename
+						SelectedSkelMesh->LODInfo[SelectedLOD].SourceImportFilename = Filename;
+
 						// Notification of success
 						FNotificationInfo NotificationInfo(FText::GetEmpty());
 						NotificationInfo.Text = FText::Format(NSLOCTEXT("UnrealEd", "LODImportSuccessful", "Mesh for LOD {0} imported successfully!"), FText::AsNumber(SelectedLOD));
@@ -374,51 +413,29 @@ namespace FbxMeshUtils
 			ApexClothingUtils::ReImportClothingSectionsFromClothingAsset(SelectedSkelMesh);
 #endif// #if WITH_APEX_CLOTHING
 		}
+
+		return bSuccess;
 	}
 
-	void ImportMeshLODDialog( class UObject* SelectedMesh, int32 LODLevel)
+	FString PromptForLODImportFile(const FText& PromptTitle)
 	{
-		if(!SelectedMesh)
-		{
-			return;
-		}
-
-		USkeletalMesh* SkeletonMesh = Cast<USkeletalMesh>(SelectedMesh);
-		UStaticMesh* StaticMesh = Cast<UStaticMesh>(SelectedMesh);
-
-		if( !SkeletonMesh && !StaticMesh )
-		{
-			return;
-		}
+		FString ChosenFilname("");
 
 		FString ExtensionStr;
-
 		ExtensionStr += TEXT("All model files|*.fbx;*.obj|");
-
 		ExtensionStr += TEXT("FBX files|*.fbx|");
-
 		ExtensionStr += TEXT("Object files|*.obj|");
-
 		ExtensionStr += TEXT("All files|*.*");
 
 		// First, display the file open dialog for selecting the file.
 		TArray<FString> OpenFilenames;
 		IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 		bool bOpen = false;
-		if ( DesktopPlatform )
+		if(DesktopPlatform)
 		{
-			void* ParentWindowWindowHandle = NULL;
-
-			IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-			const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-			if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-			{
-				ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-			}
-
 			bOpen = DesktopPlatform->OpenFileDialog(
-				ParentWindowWindowHandle,
-				FText::Format( NSLOCTEXT("UnrealEd", "ImportMeshLOD", "Failed to import mesh for LOD {0}!"), FText::AsNumber( LODLevel ) ).ToString(),
+				FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
+				PromptTitle.ToString(),
 				*FEditorDirectories::Get().GetLastDirectory(ELastDirectory::FBX),
 				TEXT(""),
 				*ExtensionStr,
@@ -426,11 +443,11 @@ namespace FbxMeshUtils
 				OpenFilenames
 				);
 		}
-			
+
 		// Only continue if we pressed OK and have only one file selected.
-		if( bOpen )
+		if(bOpen)
 		{
-			if( OpenFilenames.Num() == 0)
+			if(OpenFilenames.Num() == 0)
 			{
 				UnFbx::FFbxImporter* FFbxImporter = UnFbx::FFbxImporter::GetInstance();
 				FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Error, LOCTEXT("NoFileSelectedForLOD", "No file was selected for the LOD.")), FFbxErrors::Generic_Mesh_LOD_NoFileSelected);
@@ -442,19 +459,102 @@ namespace FbxMeshUtils
 			}
 			else
 			{
-				FString Filename = OpenFilenames[0];
-				FEditorDirectories::Get().SetLastDirectory(ELastDirectory::FBX, FPaths::GetPath(Filename)); // Save path as default for next time.
+				ChosenFilname = OpenFilenames[0];
+				FEditorDirectories::Get().SetLastDirectory(ELastDirectory::FBX, FPaths::GetPath(ChosenFilname)); // Save path as default for next time.
+			}
+		}
+		
+		return ChosenFilname;
+	}
 
-				if( SkeletonMesh )
+	bool ImportMeshLODDialog(class UObject* SelectedMesh, int32 LODLevel)
+	{
+		if(!SelectedMesh)
+		{
+			return false;
+		}
+
+		USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(SelectedMesh);
+		UStaticMesh* StaticMesh = Cast<UStaticMesh>(SelectedMesh);
+
+		if( !SkeletalMesh && !StaticMesh )
+		{
+			return false;
+		}
+
+		FString FilenameToImport("");
+
+		if(SkeletalMesh)
+		{
+			if(SkeletalMesh->LODInfo.IsValidIndex(LODLevel))
+			{
+				FSkeletalMeshLODInfo& SkelLodInfo = SkeletalMesh->LODInfo[LODLevel];
+				FilenameToImport = SkelLodInfo.SourceImportFilename;
+			}
+		}
+
+		// Check the file exists first
+		const bool bSourceFileExists = FPaths::FileExists(FilenameToImport);
+		// We'll give the user a chance to choose a new file if a previously set file fails to import
+		const bool bPromptOnFail = bSourceFileExists;
+		
+		if(!bSourceFileExists || FilenameToImport.IsEmpty())
+		{
+			FText PromptTitle;
+
+			if(FilenameToImport.IsEmpty())
+			{
+				PromptTitle = FText::Format(LOCTEXT("LODImportPrompt_NoSource", "Choose a file to import for LOD {0}"), FText::AsNumber(LODLevel));
+			}
+			else if(!bSourceFileExists)
+			{
+				PromptTitle = FText::Format(LOCTEXT("LODImportPrompt_SourceNotFound", "LOD {0} Source file not found. Choose new file."), FText::AsNumber(LODLevel));
+			}
+
+			FilenameToImport = PromptForLODImportFile(PromptTitle);
+		}
+		
+		bool bImportSuccess = false;
+
+		if(!FilenameToImport.IsEmpty())
+		{
+			if(SkeletalMesh)
+			{
+				bImportSuccess = ImportSkeletalMeshLOD(SkeletalMesh, FilenameToImport, LODLevel);
+			}
+			else if(StaticMesh)
+			{
+				bImportSuccess = ImportStaticMeshLOD(StaticMesh, FilenameToImport, LODLevel);
+			}
+		}
+
+		if(!bImportSuccess && bPromptOnFail)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("LODImport_SourceMissingDialog", "Failed to import LOD{0} as the source file failed to import, please select a new source file."), FText::AsNumber(LODLevel)));
+
+			FText PromptTitle = FText::Format(LOCTEXT("LODImportPrompt_SourceFailed", "Failed to import source file for LOD {0}, choose a new file"), FText::AsNumber(LODLevel));
+			FilenameToImport = PromptForLODImportFile(PromptTitle);
+
+			if(FilenameToImport.Len() > 0 && FPaths::FileExists(FilenameToImport))
+			{
+				if(SkeletalMesh)
 				{
-					ImportSkeletalMeshLOD(SkeletonMesh, Filename, LODLevel);
+					bImportSuccess = ImportSkeletalMeshLOD(SkeletalMesh, FilenameToImport, LODLevel);
 				}
-				else if( StaticMesh )
+				else if(StaticMesh)
 				{
-					ImportStaticMeshLOD(StaticMesh, Filename, LODLevel);
+					bImportSuccess = ImportStaticMeshLOD(StaticMesh, FilenameToImport, LODLevel);
 				}
 			}
 		}
+
+		if(!bImportSuccess)
+		{
+			// Failed to import a LOD, even after retries (if applicable)
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("LODImport_Failure", "Failed to import LOD{0}"), FText::AsNumber(LODLevel)));
+		}
+
+		return bImportSuccess;
 	}
 
 	void SetImportOption(UFbxImportUI* ImportUI)

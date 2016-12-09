@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Shared/SDeviceQuickInfo.h"
 
 #define LOCTEXT_NAMESPACE "SDeviceBrowserTooltip"
 

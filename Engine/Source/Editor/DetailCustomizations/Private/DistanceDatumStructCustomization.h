@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+
+class FDetailWidgetRow;
+class IDetailChildrenBuilder;
 
 /**
  * Customizes a Distance Datum struct to improve naming when used as a parameter

@@ -497,7 +497,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 	{
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PlayerController = *Iterator;
+			APlayerController* PlayerController = Iterator->Get();
 			if (PlayerController && PlayerController->IsLocalPlayerController() && PlayerController->GetViewTarget())
 			{
 				FVector Dir = GetActorLocation() - PlayerController->GetViewTarget()->GetActorLocation();

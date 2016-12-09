@@ -1,6 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+#include "DerivedDataBackendInterface.h"
+#include "ProfilingDebugging/CookStats.h"
+#include "DerivedDataCacheUsageStats.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/FileHelper.h"
+
+class Error;
+
 /**
  * FDerivedDataBackendVerifyWrapper, a wrapper for derived data that verifies the cache is bit-wise identical by failing all gets and verifying the puts
 **/

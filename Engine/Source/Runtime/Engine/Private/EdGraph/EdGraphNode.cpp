@@ -1,17 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "EdGraph/EdGraphNode.h"
+#include "UObject/BlueprintsObjectVersion.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Textures/SlateIcon.h"
 #include "EdGraph/EdGraph.h"
-#include "BlueprintsObjectVersion.h"
-#include "BlueprintUtilities.h"
 #if WITH_EDITOR
-#include "Editor/UnrealEd/Public/CookerSettings.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "SlateBasics.h"
+#include "CookerSettings.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/PropertyPortFlags.h"
 #include "ScopedTransaction.h"
-#include "Editor/UnrealEd/Public/Kismet2/Kismet2NameValidators.h"
-#include "Editor/Kismet/Public/FindInBlueprintManager.h"
-#include "EditorStyle.h"
+#include "FindInBlueprintManager.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "EdGraph"
@@ -48,6 +48,7 @@ UEdGraphNode::UEdGraphNode(const FObjectInitializer& ObjectInitializer)
 	, EnabledState(ENodeEnabledState::Enabled)
 	, bUserSetEnabledState(false)
 	, bIsNodeEnabled_DEPRECATED(true)
+	, bAllowSplitPins_DEPRECATED(false)
 {
 
 #if WITH_EDITORONLY_DATA
@@ -199,6 +200,35 @@ void UEdGraphNode::DestroyNode()
 
 	// Remove the node - this will break all links. Will be GC'd after this.
 	ParentGraph->RemoveNode(this);
+}
+
+void UEdGraphNode::RemovePinAt(const int32 PinIndex, const EEdGraphPinDirection PinDirection)
+{
+	Modify();
+
+	// Map requested input to actual pin index
+	int32 ActualPinIndex = INDEX_NONE;
+	int32 MatchingPinCount = 0;
+
+	for (int32 Index = 0; Index < Pins.Num(); Index++)
+	{
+		if (Pins[Index]->Direction == PinDirection)
+		{
+			if (PinIndex == MatchingPinCount)
+			{
+				ActualPinIndex = Index;
+			}
+			++MatchingPinCount;
+		}
+	}
+
+	checkf(ActualPinIndex != INDEX_NONE && ActualPinIndex < Pins.Num(), TEXT("Tried to remove a non-existent pin."));
+
+	UEdGraphPin* OldPin = Pins[ActualPinIndex];
+	OldPin->BreakAllPinLinks();
+	RemovePin(OldPin);
+
+	GetGraph()->NotifyGraphChanged();
 }
 
 const class UEdGraphSchema* UEdGraphNode::GetSchema() const
@@ -405,7 +435,7 @@ void UEdGraphNode::ImportCustomProperties(const TCHAR* SourceText, FFeedbackCont
 	if (FParse::Command(&SourceText, TEXT("Pin")))
 	{
 		UEdGraphPin* NewPin = UEdGraphPin::CreatePin(this);
-		const bool bParseSuccess = NewPin->ImportTextItem(SourceText, PPF_Delimited, nullptr, GWarn);
+		const bool bParseSuccess = NewPin->ImportTextItem(SourceText, PPF_Delimited, this, GWarn);
 		if (bParseSuccess)
 		{
 			Pins.Add(NewPin);

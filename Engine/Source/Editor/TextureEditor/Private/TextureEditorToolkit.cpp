@@ -1,20 +1,39 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TextureEditorPrivatePCH.h"
-#include "Factories.h"
-#include "ISettingsModule.h"
-#include "SDockTab.h"
-#include "SNumericEntryBox.h"
-#include "Engine/TextureCube.h"
-#include "Engine/TextureRenderTarget.h"
-#include "Engine/TextureRenderTargetCube.h"
-#include "Engine/TextureRenderTarget2D.h"
+#include "TextureEditorToolkit.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Engine/Texture.h"
 #include "Engine/Texture2D.h"
-#include "DeviceProfiles/DeviceProfile.h"
+#include "Editor.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "EditorReimportHandler.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
 #include "Engine/LightMapTexture2D.h"
 #include "Engine/ShadowMapTexture2D.h"
 #include "Engine/Texture2DDynamic.h"
-#include "DeviceProfiles/DeviceProfileManager.h"
+#include "Engine/TextureCube.h"
+#include "Engine/TextureRenderTarget.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Engine/TextureRenderTargetCube.h"
+#include "Interfaces/ITextureEditorModule.h"
+#include "TextureEditor.h"
+#include "Slate/SceneViewport.h"
+#include "PropertyEditorModule.h"
+#include "TextureEditorConstants.h"
+#include "Models/TextureEditorCommands.h"
+#include "Widgets/STextureEditorViewport.h"
+#include "ISettingsModule.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "DeviceProfiles/DeviceProfile.h"
 
 #define LOCTEXT_NAMESPACE "FTextureEditorToolkit"
 
@@ -33,10 +52,16 @@ const FName FTextureEditorToolkit::PropertiesTabId(TEXT("TextureEditor_Propertie
 /* FTextureEditorToolkit structors
  *****************************************************************************/
 
+FTextureEditorToolkit::FTextureEditorToolkit()
+	: Texture(nullptr)
+{
+}
+
 FTextureEditorToolkit::~FTextureEditorToolkit( )
 {
 	FReimportManager::Instance()->OnPreReimport().RemoveAll(this);
 	FReimportManager::Instance()->OnPostReimport().RemoveAll(this);
+	FEditorDelegates::OnAssetPostImport.RemoveAll(this);
 
 	GEditor->UnregisterForUndo(this);
 }
@@ -83,6 +108,7 @@ void FTextureEditorToolkit::InitTextureEditor( const EToolkitMode::Type Mode, co
 {
 	FReimportManager::Instance()->OnPreReimport().AddRaw(this, &FTextureEditorToolkit::HandleReimportManagerPreReimport);
 	FReimportManager::Instance()->OnPostReimport().AddRaw(this, &FTextureEditorToolkit::HandleReimportManagerPostReimport);
+	FEditorDelegates::OnAssetPostImport.AddRaw(this, &FTextureEditorToolkit::HandleAssetPostImport);
 
 	Texture = CastChecked<UTexture>(ObjectToEdit);
 
@@ -363,7 +389,7 @@ void FTextureEditorToolkit::PopulateQuickInfo( )
 	CalculateEffectiveTextureDimensions(MipLevel, PreviewEffectiveTextureWidth, PreviewEffectiveTextureHeight);
 
 	// Texture asset size
-	const uint32 Size = (Texture->GetResourceSize(EResourceSizeMode::Exclusive) + 512) / 1024;
+	const uint32 Size = (Texture->GetResourceSizeBytes(EResourceSizeMode::Exclusive) + 512) / 1024;
 
 	FNumberFormattingOptions SizeOptions;
 	SizeOptions.UseGrouping = false;
@@ -1125,6 +1151,14 @@ void FTextureEditorToolkit::HandleReimportManagerPreReimport( UObject* InObject 
 	TextureViewport->DisableRendering();
 }
 
+void FTextureEditorToolkit::HandleAssetPostImport(UFactory* InFactory, UObject* InObject)
+{
+	if (Cast<UTexture>(InObject) != nullptr && InObject == Texture)
+	{
+		// Refresh this object within the details panel
+		TexturePropertiesWidget->SetObject(InObject);
+	}
+}
 
 void FTextureEditorToolkit::HandleDesaturationChannelActionExecute( )
 {

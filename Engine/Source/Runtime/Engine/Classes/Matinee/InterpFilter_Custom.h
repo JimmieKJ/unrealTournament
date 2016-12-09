@@ -7,6 +7,9 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Matinee/InterpFilter.h"
 #include "InterpFilter_Custom.generated.h"
 

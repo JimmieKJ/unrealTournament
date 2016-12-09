@@ -2,16 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "AITypes.h"
 #include "BrainComponent.h"
 #include "PawnAction.generated.h"
 
-class APawn;
 class AController;
+class APawn;
 class UPawnAction;
 class UPawnActionsComponent;
-class UBrainComponent;
 struct FPawnActionStack;
-struct FAIMessage;
 
 UENUM()
 namespace EPawnSubActionTriggeringPolicy

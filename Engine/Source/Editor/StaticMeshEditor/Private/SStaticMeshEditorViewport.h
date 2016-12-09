@@ -2,9 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "UObject/GCObject.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "EditorViewportClient.h"
+#include "Editor/StaticMeshEditor/Private/StaticMeshEditorViewportClient.h"
 #include "AdvancedPreviewScene.h"
 #include "SEditorViewport.h"
 #include "Editor/UnrealEd/Public/SCommonEditorViewportToolbarBase.h"
+
+class IStaticMeshEditor;
+class SVerticalBox;
+class UStaticMesh;
+class UStaticMeshComponent;
 
 /**
  * StaticMesh Editor Preview viewport widget
@@ -90,7 +102,7 @@ public:
 	// End of ICommonEditorViewportToolbarInfoProvider interface
 
 	/** Returns the preview scene being renderd in the viewport */
-	FAdvancedPreviewScene& GetPreviewScene() { return PreviewScene; }
+	TSharedRef<FAdvancedPreviewScene> GetPreviewScene() { return PreviewScene.ToSharedRef(); }
 protected:
 	/** SEditorViewport interface */
 	virtual TSharedRef<FEditorViewportClient> MakeEditorViewportClient() override;
@@ -129,7 +141,7 @@ private:
 	TWeakPtr<IStaticMeshEditor> StaticMeshEditorPtr;
 
 	/** The scene for this viewport. */
-	FAdvancedPreviewScene PreviewScene;
+	TSharedPtr<FAdvancedPreviewScene> PreviewScene;
 
 	/** Editor viewport client */
 	TSharedPtr<class FStaticMeshEditorViewportClient> EditorViewportClient;

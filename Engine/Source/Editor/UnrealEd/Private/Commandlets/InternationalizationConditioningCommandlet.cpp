@@ -1,11 +1,9 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Internationalization/InternationalizationArchive.h"
-#include "Internationalization/InternationalizationManifest.h"
-#include "JsonInternationalizationArchiveSerializer.h"
-#include "JsonInternationalizationManifestSerializer.h"
-#include "ConfigCacheIni.h"
+#include "Commandlets/InternationalizationConditioningCommandlet.h"
+#include "HAL/FileManager.h"
+#include "Serialization/JsonInternationalizationArchiveSerializer.h"
+#include "Serialization/JsonInternationalizationManifestSerializer.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogInternationalizationConditioningCommandlet, Log, All);
 

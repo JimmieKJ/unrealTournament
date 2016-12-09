@@ -2,7 +2,15 @@
 
 #pragma once
 
-#include "BlueprintActionDatabase.h" // for FActionRegistry
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "EdGraph/EdGraphNode.h"
+#include "AssetData.h"
+#include "BlueprintActionDatabase.h"
+
+class UBlueprintNodeSpawner;
 
 /**
  * From the BlueprintActionDatabase, passed around to all UK2Nodes, giving each 

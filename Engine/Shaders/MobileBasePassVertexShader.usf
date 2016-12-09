@@ -17,6 +17,10 @@
 #include "VertexFactory.usf"
 #include "HeightFogCommon.usf"
 
+#if MOBILE_MULTI_VIEW
+int MobileMultiViewMask;
+#endif
+
 struct FMobileShadingBasePassVSToPS
 {
 	FVertexFactoryInterpolantsVSToPS FactoryInterpolants;
@@ -29,11 +33,28 @@ struct FMobileShadingBasePassVSToPS
 
 /** Entry point for the base pass vertex shader. */
 void Main(
-	FVertexFactoryInput Input,
-	out FMobileShadingBasePassVSOutput Output
+	FVertexFactoryInput Input
+	, out FMobileShadingBasePassVSOutput Output
+#if MOBILE_MULTI_VIEW
+	, in uint ViewId : SV_ViewID
+#endif
 	)
 {
+#if MOBILE_MULTI_VIEW
+	const int MultiViewId = int(ViewId);
+	// Early out with a degenerate vertex to be clipped if the view is masked
+	BRANCH
+	if (MultiViewId == MobileMultiViewMask)
+	{
+		Output.Position = vec4(0.0);	
+		return;
+	}
+
+	ResolvedView = ResolveView(uint(MultiViewId));
+	Output.BasePassInterpolants.MultiViewId = float(MultiViewId);
+#else
 	ResolvedView = ResolveView();
+#endif
 
 #if PACK_INTERPOLANTS
 	float4 PackedInterps[NUM_VF_PACKED_INTERPOLANTS];
@@ -63,11 +84,15 @@ void Main(
 	Output.BasePassInterpolants.PixelPositionExcludingWPO = WorldPositionExcludingWPO.xyz;
 #endif
 
+#if USE_PS_CLIP_PLANE
+	Output.BasePassInterpolants.OutClipDistance = dot(ResolvedView.GlobalClippingPlane, float4(WorldPosition.xyz - ResolvedView.PreViewTranslation.xyz, 1));
+#endif
+
 #if USE_VERTEX_FOG
 #if PACK_INTERPOLANTS
-	PackedInterps[0] = CalculateVertexHeightFog(WorldPosition.xyz - float4(ResolvedView.TranslatedWorldCameraOrigin, 1));
+	PackedInterps[0] = CalculateVertexHeightFog(WorldPosition.xyz - ResolvedView.TranslatedWorldCameraOrigin);
 #else
-	Output.BasePassInterpolants.VertexFog = CalculateVertexHeightFog(WorldPosition.xyz - float4(ResolvedView.TranslatedWorldCameraOrigin, 1));
+	Output.BasePassInterpolants.VertexFog = CalculateVertexHeightFog(WorldPosition.xyz - ResolvedView.TranslatedWorldCameraOrigin);
 #endif // PACK_INTERPOLANTS
 #endif
 

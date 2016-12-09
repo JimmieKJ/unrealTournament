@@ -2,10 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "Widgets/SNullWidget.h"
 #include "SlotBase.h"
-#include "Margin.h"
-
-class SWidget;
+#include "Widgets/SWidget.h"
 
 /**
  * FChildren is an interface that must be implemented by all child containers.
@@ -211,6 +214,7 @@ private:
 
 public:
 	TPanelChildren()
+		: bEmptying(false)
 	{
 	}
 	
@@ -231,22 +235,38 @@ public:
 
 	int32 Add( SlotType* Slot )
 	{
+		if ( bEmptying )
+		{
+			return INDEX_NONE;
+		}
+
 		return TIndirectArray< SlotType >::Add(Slot);
 	}
 
 	void RemoveAt( int32 Index )
 	{
-		TIndirectArray< SlotType >::RemoveAt(Index);
+		if ( !bEmptying )
+		{
+			TIndirectArray< SlotType >::RemoveAt(Index);
+		}
 	}
 
 	void Empty()
 	{
-		TIndirectArray< SlotType >::Empty();
+		if ( !bEmptying )
+		{
+			TGuardValue<bool> GuardEmptying(bEmptying, true);
+
+			TIndirectArray< SlotType >::Empty();
+		}
 	}
 
 	void Insert(SlotType* Item, int32 Index)
 	{
-		TIndirectArray< SlotType >::Insert(Item, Index);
+		if(!bEmptying)
+		{
+			TIndirectArray< SlotType >::Insert(Item, Index);
+		}
 	}
 
 	void Reserve( int32 NumToReserve )
@@ -273,6 +293,9 @@ public:
 	{
 		TIndirectArray< SlotType >::Swap(IndexA, IndexB);
 	}
+
+private:
+	bool bEmptying;
 };
 
 /**

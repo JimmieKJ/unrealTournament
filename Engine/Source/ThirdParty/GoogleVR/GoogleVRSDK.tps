@@ -5,24 +5,11 @@
   <Date>2016-06-07T11:13:40.4185335-04:00</Date>
   <Function>Allows development of apps for Google Daydream and Cardboard hardware.</Function>
   <Justification />
-  <Platforms>
-    <Platform>PC</Platform>
-    <Platform>Android</Platform>
-  </Platforms>
-  <Products>
-    <Product>UDK4</Product>
-    <Product>UE4</Product>
-  </Products>
-  <TpsType>Source Code</TpsType>
   <Eula>https://github.com/googlevr/gvr-android-sdk/blob/master/LICENSE</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
   <LicenseFolder>/Engine/Source/ThirdParty/Licenses/GoogleVRSDK_License.txt</LicenseFolder>
 </TpsData>

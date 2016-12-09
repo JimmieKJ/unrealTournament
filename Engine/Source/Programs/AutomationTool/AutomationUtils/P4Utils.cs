@@ -614,7 +614,7 @@ namespace AutomationTool
 		/// <param name="Input">Stdin</param>
 		/// <param name="AllowSpew">true for spew</param>
 		/// <returns>Exit code</returns>
-        public ProcessResult P4(string CommandLine, string Input = null, bool AllowSpew = true, bool WithClient = true, bool SpewIsVerbose = false)
+        public IProcessResult P4(string CommandLine, string Input = null, bool AllowSpew = true, bool WithClient = true, bool SpewIsVerbose = false)
 		{
 			CheckP4Enabled();
 			CommandUtils.ERunOptions RunOptions = AllowSpew ? CommandUtils.ERunOptions.AllowSpew : CommandUtils.ERunOptions.NoLoggingOfRunCommand;
@@ -641,7 +641,7 @@ namespace AutomationTool
             var Result = P4(CommandLine, Input, AllowSpew, WithClient);
 
 			Output = Result.Output;
-			return Result == 0;
+			return Result.ExitCode == 0;
 		}
 
 		/// <summary>
@@ -684,7 +684,7 @@ namespace AutomationTool
 			CommandUtils.WriteToFile(LogPath, CommandLine + "\n");
 			CommandUtils.WriteToFile(LogPath, Result.Output);
 			Output = Result.Output;
-			return Result == 0;
+			return Result.ExitCode == 0;
 		}
 
 		/// <summary>
@@ -740,7 +740,7 @@ namespace AutomationTool
             try
             {
                 var P4Result = P4(String.Format("user -o {0}", User), AllowSpew: false);
-			    if (P4Result == 0)
+			    if (P4Result.ExitCode == 0)
 			    {
 				    var Tags = ParseTaggedP4Output(P4Result.Output);
                     Tags.TryGetValue("Email", out Result);
@@ -2446,7 +2446,7 @@ namespace AutomationTool
 		{
 			P4ClientInfo Info = new P4ClientInfo();
             var P4Result = P4(String.Format("client -o {0}", ClientName), AllowSpew: false, WithClient: false);
-			if (P4Result == 0)
+			if (P4Result.ExitCode == 0)
 			{
 				var Tags = ParseTaggedP4Output(P4Result.Output);
                 Info.Name = ClientName;
@@ -2523,7 +2523,7 @@ namespace AutomationTool
 
 			// Get all clients for this user
             var P4Result = P4(String.Format("clients -u {0}", UserName), AllowSpew: false, WithClient: false);
-			if (P4Result != 0)
+			if (P4Result.ExitCode != 0)
 			{
 				throw new AutomationException("p4 clients -u {0} failed.", UserName);
 			}
@@ -2623,7 +2623,7 @@ namespace AutomationTool
 			CheckP4Enabled();
 			var DirsCmdLine = String.Format("dirs {0}", CommandLine);
 			var P4Result = P4(DirsCmdLine, AllowSpew: false);
-			if (P4Result != 0)
+			if (P4Result.ExitCode != 0)
 			{
 				throw new AutomationException("{0} failed.", DirsCmdLine);
 			}
@@ -2648,8 +2648,8 @@ namespace AutomationTool
 		{
 			CheckP4Enabled();
 			string FilesCmdLine = String.Format("files {0}", CommandLine);
-			ProcessResult P4Result = P4(FilesCmdLine, AllowSpew: false);
-			if (P4Result != 0)
+			IProcessResult P4Result = P4(FilesCmdLine, AllowSpew: false);
+			if (P4Result.ExitCode != 0)
 			{
 				throw new AutomationException("{0} failed.", FilesCmdLine);
 			}

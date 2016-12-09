@@ -2,6 +2,41 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IAssetTools.h"
+#include "IAssetTypeActions.h"
+#include "AssetData.h"
+#include "AssetRenameManager.h"
+
+class FAssetFixUpRedirectors;
+class FMenuBuilder;
+class IClassTypeActions;
+class UAutomatedAssetImportData;
+class UFactory;
+
+/** Parameters for importing specific set of files */
+struct FAssetImportParams
+{
+	FAssetImportParams()
+		: SpecifiedFactory(nullptr)
+		, ImportData(nullptr)
+		, bSyncToBrowser(true)
+		, bForceOverrideExisting(false)
+		, bAutomated(false)
+	{}
+
+	/** Factory to use for importing files */
+	UFactory* SpecifiedFactory;
+	/** Data used to determine rules for importing assets through the automated command line interface */
+	const UAutomatedAssetImportData* ImportData;
+	/** Whether or not to sync the content browser to the assets after import */
+	bool bSyncToBrowser : 1;
+	/** Whether or not we are forcing existing assets to be overriden without asking */
+	bool bForceOverrideExisting : 1;
+	/** Whether or not this is an automated import */
+	bool bAutomated : 1;
+};
+
 class FAssetTools : public IAssetTools
 {
 public:
@@ -28,7 +63,8 @@ public:
 	virtual UObject* DuplicateAssetWithDialog(const FString& AssetName, const FString& PackagePath, UObject* OriginalObject) override;
 	virtual void RenameAssets(const TArray<FAssetRenameData>& AssetsAndNames) const override;
 	virtual TArray<UObject*> ImportAssets(const FString& DestinationPath) override;
-	virtual TArray<UObject*> ImportAssets(const TArray<FString>& Files, const FString& DestinationPath, UFactory* ChosenFactory, bool bSyncToBrowser = true) const override;
+	virtual TArray<UObject*> ImportAssets(const TArray<FString>& Files, const FString& DestinationPath, UFactory* ChosenFactory, bool bSyncToBrowser = true, TArray<TPair<FString, FString>> *FilesAndDestinations = nullptr) const override;
+	virtual TArray<UObject*> ImportAssetsAutomated(const UAutomatedAssetImportData& ImportData) const override;
 	virtual void CreateUniqueAssetName(const FString& InBasePackageName, const FString& InSuffix, FString& OutPackageName, FString& OutAssetName) const override;
 	virtual bool AssetUsesGenericThumbnail( const FAssetData& AssetData ) const override;
 	virtual void DiffAgainstDepot(UObject* InObject, const FString& InPackagePath, const FString& InPackageName) const override;
@@ -68,6 +104,9 @@ private:
 
 	/** Records what assets users are creating */
 	static void OnNewCreateRecord(UClass* AssetType, bool bDuplicated);
+
+	/** Internal method that performs the actual asset importing */
+	TArray<UObject*> ImportAssetsInternal(const TArray<FString>& Files, const FString& RootDestinationPath, TArray<TPair<FString, FString>> *FilesAndDestinationsPtr, const FAssetImportParams& ImportParams) const;
 
 private:
 	/** The manager to handle renaming assets */

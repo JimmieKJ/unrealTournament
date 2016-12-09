@@ -19,15 +19,12 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include "DetourCommon.h"
-#include "DetourStatus.h"
-#include "DetourAssert.h"
-#include "DetourTileCacheBuilder.h"
-#include <string.h>
-#include <float.h>
+#include "CoreMinimal.h"
+#include "Detour/DetourCommon.h"
+#include "Detour/DetourAssert.h"
+#include "Detour/DetourAlloc.h"
+#include "DetourTileCache/DetourTileCacheBuilder.h"
 #define _USE_MATH_DEFINES
-#include <math.h>
 
 static const unsigned DT_UNSET_PATCH_HEIGHT = 0xffff;
 static const unsigned DT_UNSET_LAYER_HEIGHT = 0xffff;

@@ -23,6 +23,7 @@ public class MoviePlayer : ModuleRules
                     "RHI",
                     "Slate",
 					"SlateCore",
+                    "HeadMountedDisplay"
 				}
         );
 	}

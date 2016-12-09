@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TargetDeviceServicesPrivatePCH.h"
+#include "TargetDeviceProxyManager.h"
+#include "HAL/PlatformProcess.h"
+#include "Helpers/MessageEndpointBuilder.h"
+#include "TargetDeviceServiceMessages.h"
 
+/** Defines the interval in seconds in which devices are being pinged by the proxy manager. */
+#define TARGET_DEVICE_SERVICES_PING_INTERVAL 2.5f
 
 /* FTargetDeviceProxyManager structors
  *****************************************************************************/

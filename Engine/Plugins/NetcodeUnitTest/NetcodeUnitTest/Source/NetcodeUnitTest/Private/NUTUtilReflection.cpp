@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
-
 #include "NUTUtilReflection.h"
+#include "Containers/ArrayBuilder.h"
+#include "UObject/StructOnScope.h"
+#include "UObject/EnumProperty.h"
+#include "UObject/TextProperty.h"
+#include "UObject/PropertyPortFlags.h"
+#include "NetcodeUnitTest.h"
+
 
 
 /**
@@ -172,6 +177,7 @@ FVMReflection& FVMReflection::operator ->*(const ANSICHAR* InPropertyName)
 		static const TArray<UClass*> SupportedTypes = TArrayBuilder<UClass*>()
 														.Add(UClass::StaticClass())
 														.Add(UByteProperty::StaticClass())
+														.Add(UEnumProperty::StaticClass())
 														.Add(UUInt16Property::StaticClass())
 														.Add(UUInt32Property::StaticClass())
 														.Add(UUInt64Property::StaticClass())
@@ -387,6 +393,47 @@ FVMReflection& FVMReflection::operator [](const ANSICHAR* InFieldType)
 			FIELD_TYPE_CHECK(TEXT("uint64"), UUInt64Property)
 			FIELD_TYPE_CHECK(TEXT("FString"), UStrProperty)
 			FIELD_TYPE_CHECK(TEXT("FText"), UTextProperty)
+			else if (ActualFieldType->IsA(UEnumProperty::StaticClass()))
+			{
+				const UProperty* UnderlyingActualFieldType = static_cast<const UEnumProperty*>(ActualFieldType)->GetUnderlyingProperty();
+				if (ExpectedFieldType == "uint8" && UnderlyingActualFieldType->IsA<UByteProperty>())
+				{
+					bTypeValid = true;
+				}
+				else if (ExpectedFieldType == "int16" && UnderlyingActualFieldType->IsA<UInt16Property>())
+				{
+					bTypeValid = true;
+				}
+				else if (ExpectedFieldType == "int64" && UnderlyingActualFieldType->IsA<UInt64Property>())
+				{
+					bTypeValid = true;
+				}
+				else if (ExpectedFieldType == "int8" && UnderlyingActualFieldType->IsA<UInt8Property>())
+				{
+					bTypeValid = true;
+				}
+				else if (ExpectedFieldType == "int32" && UnderlyingActualFieldType->IsA<UIntProperty>())
+				{
+					bTypeValid = true;
+				}
+				else if (ExpectedFieldType == "uint16" && UnderlyingActualFieldType->IsA<UUInt16Property>())
+				{
+					bTypeValid = true;
+				}
+				else if (ExpectedFieldType == "uint32" && UnderlyingActualFieldType->IsA<UUInt32Property>())
+				{
+					bTypeValid = true;
+				}
+				else if (ExpectedFieldType == "uint64" && UnderlyingActualFieldType->IsA<UUInt64Property>())
+				{
+					bTypeValid = true;
+				}
+				else
+				{
+					SetError(FString::Printf(TEXT("Tried to verify %s as being of type '%s', but it has underlying type '%s' instead."),
+								CheckType, *ExpectedFieldType, *UnderlyingActualFieldType->GetClass()->GetName()));
+				}
+			}
 			// UObject and subclasses
 			else if (ExpectedFieldType.Len() > 2 &&
 						(ExpectedFieldType.Left(1) == TEXT("U") || ExpectedFieldType.Left(1) == TEXT("A")) &&
@@ -546,6 +593,10 @@ InType* FVMReflection::GetWritableCast(const TCHAR* InTypeStr, bool bDoingUpCast
 		{
 			ReturnVal = (InType*)FieldAddress;
 		}
+		else if (FieldInstance->IsA<UEnumProperty>() && static_cast<const UEnumProperty*>(FieldInstance)->GetUnderlyingProperty()->IsA(InTypeClass::StaticClass()))
+		{
+			ReturnVal = (InType*)FieldAddress;
+		}
 		else if (!bDoingUpCast)
 		{
 			FString Error = FString::Printf(TEXT("Tried to cast type '%s' to type '%s'."), *FieldInstance->GetClass()->GetName(),
@@ -616,6 +667,59 @@ InType FVMReflection::GetNumericTypeCast(const TCHAR* InTypeStr, const TArray<UC
 			NUMERIC_UPCAST(int16, UInt16Property)
 			NUMERIC_UPCAST(int32, UIntProperty)
 			NUMERIC_UPCAST(float, UFloatProperty)
+			else if (FieldInstance->IsA(UEnumProperty::StaticClass()))
+			{
+				const UEnumProperty* EnumFieldInstance = static_cast<const UEnumProperty*>(FieldInstance);
+				const UNumericProperty* UnderlyingProp = EnumFieldInstance->GetUnderlyingProperty();
+				const UClass* UnderlyingPropClass = UnderlyingProp->GetClass();
+				if (SupportedUpCasts.Contains(UnderlyingPropClass))
+				{
+					if (UnderlyingPropClass == UByteProperty::StaticClass())
+					{
+						ReturnVal = (InType)(GetTypeCast<uint8>(InTypeStr));
+					}
+					else if (UnderlyingPropClass == UUInt16Property::StaticClass())
+					{
+						ReturnVal = (InType)(GetTypeCast<uint16>(InTypeStr));
+					}
+					else if (UnderlyingPropClass == UUInt32Property::StaticClass())
+					{
+						ReturnVal = (InType)(GetTypeCast<uint32>(InTypeStr));
+					}
+					else if (UnderlyingPropClass == UUInt64Property::StaticClass())
+					{
+						ReturnVal = (InType)(GetTypeCast<uint64>(InTypeStr));
+					}
+					else if (UnderlyingPropClass == UInt8Property::StaticClass())
+					{
+						ReturnVal = (InType)(GetTypeCast<int8>(InTypeStr));
+					}
+					else if (UnderlyingPropClass == UInt16Property::StaticClass())
+					{
+						ReturnVal = (InType)(GetTypeCast<int16>(InTypeStr));
+					}
+					else if (UnderlyingPropClass == UIntProperty::StaticClass())
+					{
+						ReturnVal = (InType)(GetTypeCast<int32>(InTypeStr));
+					}
+					else if (UnderlyingPropClass == UInt64Property::StaticClass())
+					{
+						ReturnVal = (InType)(GetTypeCast<int64>(InTypeStr));
+					}
+					else
+					{
+						FString Error = FString::Printf(TEXT("Enum property with underlying type '%s' does not support upcasting to type '%s'."),
+											*UnderlyingPropClass->GetName(), *InTypeClass::StaticClass()->GetName());
+						SetCastError(Error);
+					}
+				}
+				else
+				{
+					FString Error = FString::Printf(TEXT("Type '%s' does not support upcasting to type '%s'."),
+										*FieldInstance->GetClass()->GetName(), *InTypeClass::StaticClass()->GetName());
+					SetCastError(Error);
+				}
+			}
 			else
 			{
 				FString Error = FString::Printf(TEXT("No upcast possible from type '%s' to type '%s'."),

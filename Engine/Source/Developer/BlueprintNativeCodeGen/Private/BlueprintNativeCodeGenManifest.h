@@ -2,11 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/StringAssetReference.h"
 #include "BlueprintNativeCodeGenManifest.generated.h"
 
-// Forward declarations
-struct FNativeCodeGenCommandlineParams;
-class  FAssetData;
+class FAssetData;
 struct FBlueprintNativeCodeGenPaths;
 
 /*******************************************************************************

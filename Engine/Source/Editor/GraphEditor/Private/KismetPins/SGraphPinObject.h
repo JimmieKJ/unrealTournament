@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "SGraphPin.h"
+
+class SButton;
+
 class SGraphPinObject : public SGraphPin
 {
 public:

@@ -4,16 +4,17 @@
 
 {
   'variables': {
-    'pkg-config': 'pkg-config',
     'chromium_code': 1,
     'grit_out_dir': '<(SHARED_INTERMEDIATE_DIR)/cef',
-    'about_credits_file': '<(SHARED_INTERMEDIATE_DIR)/about_credits.html',
     'framework_name': 'Chromium Embedded Framework',
     'commit_number': '<!(python tools/commit_number.py)',
     'chrome_version': '<!(python ../build/util/version.py -f ../chrome/VERSION -t "@MAJOR@.@MINOR@.@BUILD@.@PATCH@")',
     # Need to be creative to match dylib version formatting requirements.
     'version_mac_dylib':
         '<!(python ../build/util/version.py -f VERSION -f ../chrome/VERSION -t "@CEF_MAJOR@<(commit_number).@BUILD_HI@.@BUILD_LO@" -e "BUILD_HI=int(BUILD)/256" -e "BUILD_LO=int(BUILD)%256")',
+    # For some reason we don't get the 'use_sysroot' default from common.gypi so
+    # set it here as well.
+    'use_sysroot%': 0,
   },
   'includes': [
     # Bring in the source file lists.
@@ -153,22 +154,6 @@
               'action': ['../build/mac/tweak_info_plist.py',
                          '--scm=1'],
             },
-            {
-              # This postbuid step is responsible for creating the following
-              # helpers:
-              #
-              # cefclient Helper EH.app and cefclient Helper NP.app are created
-              # from cefclient Helper.app.
-              #
-              # The EH helper is marked for an executable heap. The NP helper
-              # is marked for no PIE (ASLR).
-              'postbuild_name': 'Make More Helpers',
-              'action': [
-                '../build/mac/make_more_helpers.sh',
-                'Frameworks',
-                'cefclient',
-              ],
-            },
           ],
           'link_settings': {
             'libraries': [
@@ -181,7 +166,10 @@
             '<@(cefclient_sources_mac)',
           ],
         }],
-        [ 'OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
+        [ '(OS=="linux" or OS=="freebsd" or OS=="openbsd") and use_sysroot==0', {
+          # Required packages are not available when using the default sysroot
+          # environment. Consequently the cefclient target cannot be built with
+          # use_sysroot==1.
           'dependencies': [
             'gtk',
             'gtkglext',
@@ -337,22 +325,6 @@
               'action': ['../build/mac/tweak_info_plist.py',
                          '--scm=1'],
             },
-            {
-              # This postbuid step is responsible for creating the following
-              # helpers:
-              #
-              # cefsimple Helper EH.app and cefsimple Helper NP.app are created
-              # from cefsimple Helper.app.
-              #
-              # The EH helper is marked for an executable heap. The NP helper
-              # is marked for no PIE (ASLR).
-              'postbuild_name': 'Make More Helpers',
-              'action': [
-                '../build/mac/make_more_helpers.sh',
-                'Frameworks',
-                'cefsimple',
-              ],
-            },
           ],
           'link_settings': {
             'libraries': [
@@ -409,6 +381,8 @@
         'tests/cefclient/renderer/client_app_renderer.cc',
         'tests/cefclient/renderer/client_app_renderer.h',
         'tests/cefclient/resources/osr_test.html',
+        'tests/cefclient/resources/pdf.html',
+        'tests/cefclient/resources/pdf.pdf',
         'tests/unittests/browser_info_map_unittest.cc',
         'tests/unittests/command_line_unittest.cc',
         'tests/unittests/cookie_unittest.cc',
@@ -425,6 +399,8 @@
         'tests/unittests/navigation_unittest.cc',
         'tests/unittests/os_rendering_unittest.cc',
         'tests/unittests/parser_unittest.cc',
+        'tests/unittests/plugin_unittest.cc',
+        'tests/unittests/preference_unittest.cc',
         'tests/unittests/print_unittest.cc',
         'tests/unittests/process_message_unittest.cc',
         'tests/unittests/request_context_unittest.cc',
@@ -447,6 +423,7 @@
         'tests/unittests/test_util.cc',
         'tests/unittests/test_util.h',
         'tests/unittests/tracing_unittest.cc',
+        'tests/unittests/translator_unittest.cc',
         'tests/unittests/urlrequest_unittest.cc',
         'tests/unittests/v8_unittest.cc',
         'tests/unittests/values_unittest.cc',
@@ -456,6 +433,8 @@
       ],
       'mac_bundle_resources': [
         'tests/cefclient/resources/osr_test.html',
+        'tests/cefclient/resources/pdf.html',
+        'tests/cefclient/resources/pdf.pdf',
         'tests/unittests/mac/unittests.icns',
         'tests/unittests/mac/English.lproj/InfoPlist.strings',
         'tests/unittests/mac/English.lproj/MainMenu.xib',
@@ -551,22 +530,6 @@
               'action': ['../build/mac/tweak_info_plist.py',
                          '--scm=1'],
             },
-            {
-              # This postbuid step is responsible for creating the following
-              # helpers:
-              #
-              # cefclient Helper EH.app and cefclient Helper NP.app are created
-              # from cefclient Helper.app.
-              #
-              # The EH helper is marked for an executable heap. The NP helper
-              # is marked for no PIE (ASLR).
-              'postbuild_name': 'Make More Helpers',
-              'action': [
-                '../build/mac/make_more_helpers.sh',
-                'Frameworks',
-                'cef_unittests',
-              ],
-            },
           ],
           'link_settings': {
             'libraries': [
@@ -594,6 +557,8 @@
               'destination': '<(PRODUCT_DIR)/files',
               'files': [
                 'tests/cefclient/resources/osr_test.html',
+                'tests/cefclient/resources/pdf.html',
+                'tests/cefclient/resources/pdf.pdf',
               ],
             },
           ],
@@ -652,9 +617,11 @@
       'target_name': 'cef_locales',
       'type': 'none',
       'dependencies': [
-        '<(DEPTH)/ui/strings/ui_strings.gyp:ui_strings',
+        '<(DEPTH)/chrome/chrome_resources.gyp:platform_locale_settings',
         '<(DEPTH)/components/components_strings.gyp:components_strings',
         '<(DEPTH)/content/app/strings/content_strings.gyp:content_strings',
+        '<(DEPTH)/extensions/extensions_strings.gyp:extensions_strings',
+        '<(DEPTH)/ui/strings/ui_strings.gyp:ui_strings',
         'cef_strings',
       ],
       'actions': [
@@ -678,46 +645,14 @@
       ],
     },
     {
-      'target_name': 'about_credits',
-      'type': 'none',
-      'actions': [
-        {
-          'variables': {
-            'generator_path': '../tools/licenses.py',
-          },
-          'action_name': 'generate_about_credits',
-          'inputs': [
-            # TODO(phajdan.jr): make licenses.py print inputs too.
-            '<(generator_path)',
-          ],
-          'outputs': [
-            '<(about_credits_file)',
-          ],
-          'hard_dependency': 1,
-          'action': ['python',
-                     '<(generator_path)',
-                     'credits',
-                     '<(about_credits_file)',
-          ],
-          'message': 'Generating about:credits.',
-        },
-      ],
-    },
-    {
       # Create the pack file for CEF resources.
       'target_name': 'cef_resources',
       'type': 'none',
-      'dependencies': [
-        'about_credits',
-      ],
       'actions': [
         {
           'action_name': 'cef_resources',
           'variables': {
             'grit_grd_file': 'libcef/resources/cef_resources.grd',
-            'grit_additional_defines': [
-              '-E', 'about_credits_file=<(about_credits_file)',
-            ],
           },
           'includes': [ '../build/grit_action.gypi' ],
         },
@@ -733,6 +668,59 @@
       ],
     },
     {
+      # Create the pack file for component extension resources.
+      'target_name': 'component_extension_resources',
+      'type': 'none',
+      'actions': [
+        {
+          'action_name': 'component_extension_resources',
+          'variables': {
+            'grit_grd_file': '../chrome/browser/resources/component_extension_resources.grd',
+          },
+          'includes': [ '../build/grit_action.gypi' ],
+        },
+      ],
+      'includes': [ '../build/grit_target.gypi' ],
+      'copies': [
+        {
+          'destination': '<(PRODUCT_DIR)',
+          'files': [
+            '<(grit_out_dir)/component_extension_resources.pak'
+          ],
+        },
+      ],
+    },
+    {
+      # Combine all extensions-related non-localized pack file resources into a
+      # single CEF pack file. Scaled resources are still in cef_pak.
+      'target_name': 'cef_extensions_pak',
+      'type': 'none',
+      'dependencies': [
+        '<(DEPTH)/extensions/extensions_resources.gyp:extensions_resources',
+        '<(DEPTH)/extensions/extensions_strings.gyp:extensions_strings',
+        '<(DEPTH)/ui/resources/ui_resources.gyp:ui_resources',
+        'component_extension_resources',
+      ],
+      'variables': {
+        'make_pack_header_path': 'tools/make_pack_header.py',
+      },
+      'actions': [
+        {
+          'action_name': 'repack_cef_extensions_pack',
+          'variables': {
+            'pak_inputs': [
+              '<(SHARED_INTERMEDIATE_DIR)/extensions/extensions_renderer_resources.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/extensions/extensions_resources.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/ui/resources/webui_resources.pak',
+              '<(grit_out_dir)/component_extension_resources.pak',
+            ],
+            'pak_output': '<(PRODUCT_DIR)/cef_extensions.pak',
+          },
+          'includes': [ '../build/repack_action.gypi' ],
+        },
+      ],
+    },
+    {
       # Combine all non-localized pack file resources into a single CEF pack file.
       'target_name': 'cef_pak',
       'type': 'none',
@@ -744,6 +732,8 @@
         '<(DEPTH)/content/browser/devtools/devtools_resources.gyp:devtools_resources',
         '<(DEPTH)/net/net.gyp:net_resources',
         '<(DEPTH)/ui/resources/ui_resources.gyp:ui_resources',
+        '<(DEPTH)/ui/views/resources/views_resources.gyp:views_resources',
+        'cef_extensions_pak',
         'cef_locales',
         'cef_resources',
       ],
@@ -772,7 +762,9 @@
               '<(SHARED_INTERMEDIATE_DIR)/blink/public/resources/blink_image_resources_100_percent.pak',
               '<(SHARED_INTERMEDIATE_DIR)/components/components_resources_100_percent.pak',
               '<(SHARED_INTERMEDIATE_DIR)/content/app/resources/content_resources_100_percent.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/extensions/extensions_browser_resources_100_percent.pak',
               '<(SHARED_INTERMEDIATE_DIR)/ui/resources/ui_resources_100_percent.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/ui/views/resources/views_resources_100_percent.pak',
             ],
             'pak_output': '<(PRODUCT_DIR)/cef_100_percent.pak',
           },
@@ -785,7 +777,9 @@
               '<(SHARED_INTERMEDIATE_DIR)/blink/public/resources/blink_image_resources_200_percent.pak',
               '<(SHARED_INTERMEDIATE_DIR)/components/components_resources_200_percent.pak',
               '<(SHARED_INTERMEDIATE_DIR)/content/app/resources/content_resources_200_percent.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/extensions/extensions_browser_resources_200_percent.pak',
               '<(SHARED_INTERMEDIATE_DIR)/ui/resources/ui_resources_200_percent.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/ui/views/resources/views_resources_200_percent.pak',
             ],
             'pak_output': '<(PRODUCT_DIR)/cef_200_percent.pak',
           },
@@ -798,9 +792,15 @@
               '<(SHARED_INTERMEDIATE_DIR)/blink/grit/devtools_resources.h',
               '<(SHARED_INTERMEDIATE_DIR)/blink/public/resources/grit/blink_resources.h',
               '<(SHARED_INTERMEDIATE_DIR)/content/grit/content_resources.h',
+              '<(SHARED_INTERMEDIATE_DIR)/extensions/grit/extensions_browser_resources.h',
+              '<(SHARED_INTERMEDIATE_DIR)/extensions/grit/extensions_renderer_resources.h',
+              '<(SHARED_INTERMEDIATE_DIR)/extensions/grit/extensions_resources.h',
               '<(SHARED_INTERMEDIATE_DIR)/net/grit/net_resources.h',
               '<(SHARED_INTERMEDIATE_DIR)/ui/resources/grit/ui_resources.h',
+              '<(SHARED_INTERMEDIATE_DIR)/ui/resources/grit/webui_resources.h',
+              '<(SHARED_INTERMEDIATE_DIR)/ui/views/resources/grit/views_resources.h',
               '<(grit_out_dir)/grit/cef_resources.h',
+              '<(grit_out_dir)/grit/component_extension_resources.h',
             ],
           },
           'inputs': [
@@ -817,8 +817,10 @@
           'action_name': 'make_pack_strings_header',
           'variables': {
             'header_inputs': [
+              '<(SHARED_INTERMEDIATE_DIR)/chrome/grit/platform_locale_settings.h',
               '<(SHARED_INTERMEDIATE_DIR)/components/strings/grit/components_strings.h',
               '<(SHARED_INTERMEDIATE_DIR)/content/app/strings/grit/content_strings.h',
+              '<(SHARED_INTERMEDIATE_DIR)/extensions/strings/grit/extensions_strings.h',
               '<(SHARED_INTERMEDIATE_DIR)/ui/strings/grit/ui_strings.h',
               '<(grit_out_dir)/grit/cef_strings.h',
             ],
@@ -857,10 +859,12 @@
         '<(DEPTH)/third_party/WebKit/public/web',
         # CEF grit resource includes
         '<(DEPTH)/cef/libcef/resources/grit_stub',
+        '<(DEPTH)/cef/libcef/resources/grit_stub/chrome',
         '<(grit_out_dir)',
+        '<(SHARED_INTERMEDIATE_DIR)/chrome',
+        '<(SHARED_INTERMEDIATE_DIR)/components',
         '<(SHARED_INTERMEDIATE_DIR)/ui/resources',
         '<(SHARED_INTERMEDIATE_DIR)/ui/strings',
-        '<(SHARED_INTERMEDIATE_DIR)/webkit',
       ],
       'dependencies': [
         '<(DEPTH)/base/base.gyp:base',
@@ -872,16 +876,41 @@
         # Generate chrome/common/safe_browsing/csd.pb.h required by
         # zip_analyzer_results.h via chrome_utility_messages.h
         '<(DEPTH)/chrome/chrome.gyp:safe_browsing_proto',
-        '<(DEPTH)/components/components.gyp:crash_component_breakpad_mac_to_be_deleted',
+        # Generate chrome/common/features.h required by Chrome code that uses
+        # the BUILDFLAG() macro.
+        '<(DEPTH)/chrome/chrome_features.gyp:chrome_common_features',
+        # Generate chrome/common/chrome_version.h required by
+        # chrome/common/chrome_contants.cc
+        '<(DEPTH)/chrome/common_constants.gyp:version_header',
+        '<(DEPTH)/components/components.gyp:cdm_renderer',
+        '<(DEPTH)/components/components.gyp:component_updater',
+        '<(DEPTH)/components/components.gyp:content_settings_core_browser',
+        '<(DEPTH)/components/components.gyp:content_settings_core_common',
+        '<(DEPTH)/components/components.gyp:crash_component_breakpad_to_be_deleted',
+        '<(DEPTH)/components/components.gyp:crx_file',
+        '<(DEPTH)/components/components.gyp:data_use_measurement_core',
+        '<(DEPTH)/components/components.gyp:devtools_discovery',
+        '<(DEPTH)/components/components.gyp:devtools_http_handler',
         '<(DEPTH)/components/components.gyp:keyed_service_content',
         '<(DEPTH)/components/components.gyp:keyed_service_core',
         '<(DEPTH)/components/components.gyp:navigation_interception',
+        '<(DEPTH)/components/components.gyp:pdf_browser',
         '<(DEPTH)/components/components.gyp:pdf_renderer',
+        '<(DEPTH)/components/components.gyp:plugins_renderer',
         '<(DEPTH)/components/components.gyp:pref_registry',
+        '<(DEPTH)/components/components.gyp:printing_browser',
         '<(DEPTH)/components/components.gyp:printing_common',
         '<(DEPTH)/components/components.gyp:printing_renderer',
+        '<(DEPTH)/components/components.gyp:proxy_config',
+        '<(DEPTH)/components/components.gyp:ssl_config',
+        '<(DEPTH)/components/components.gyp:update_client',
         '<(DEPTH)/components/components.gyp:user_prefs',
+        '<(DEPTH)/components/components.gyp:version_info',
+        '<(DEPTH)/components/components.gyp:visitedlink_browser',
+        '<(DEPTH)/components/components.gyp:visitedlink_common',
+        '<(DEPTH)/components/components.gyp:visitedlink_renderer',
         '<(DEPTH)/components/components.gyp:web_cache_renderer',
+        '<(DEPTH)/components/url_formatter/url_formatter.gyp:url_formatter',
         '<(DEPTH)/content/content.gyp:content_app_both',
         '<(DEPTH)/content/content.gyp:content_browser',
         '<(DEPTH)/content/content.gyp:content_common',
@@ -892,6 +921,14 @@
         '<(DEPTH)/content/content.gyp:content_resources',
         '<(DEPTH)/content/content.gyp:content_utility',
         '<(DEPTH)/crypto/crypto.gyp:crypto',
+        '<(DEPTH)/device/core/core.gyp:device_core',
+        '<(DEPTH)/device/hid/hid.gyp:device_hid',
+        '<(DEPTH)/extensions/browser/api/api_registration.gyp:extensions_api_registration',
+        '<(DEPTH)/extensions/common/api/api.gyp:extensions_api',
+        '<(DEPTH)/extensions/extensions.gyp:extensions_browser',
+        '<(DEPTH)/extensions/extensions.gyp:extensions_renderer',
+        '<(DEPTH)/extensions/extensions.gyp:extensions_utility',
+        '<(DEPTH)/extensions/extensions_resources.gyp:extensions_resources',
         '<(DEPTH)/gpu/gpu.gyp:gpu',
         '<(DEPTH)/ipc/ipc.gyp:ipc',
         '<(DEPTH)/media/blink/media_blink.gyp:media_blink',
@@ -899,6 +936,7 @@
         '<(DEPTH)/net/net.gyp:net',
         '<(DEPTH)/net/net.gyp:net_browser_services',
         '<(DEPTH)/net/net.gyp:net_with_v8',
+        '<(DEPTH)/pdf/pdf.gyp:pdf',
         '<(DEPTH)/skia/skia.gyp:skia',
         '<(DEPTH)/storage/storage_browser.gyp:storage',
         '<(DEPTH)/sync/sync.gyp:sync',
@@ -906,6 +944,8 @@
         '<(DEPTH)/third_party/libxml/libxml.gyp:libxml',
         '<(DEPTH)/third_party/WebKit/public/blink.gyp:blink',
         '<(DEPTH)/third_party/WebKit/Source/core/core.gyp:webcore',
+        '<(DEPTH)/third_party/widevine/cdm/widevine_cdm.gyp:widevinecdmadapter',
+        '<(DEPTH)/third_party/widevine/cdm/widevine_cdm.gyp:widevine_cdm_version_h',
         '<(DEPTH)/third_party/zlib/zlib.gyp:minizip',
         '<(DEPTH)/ui/gl/gl.gyp:gl',
         '<(DEPTH)/ui/base/ime/ui_base_ime.gyp:ui_base_ime',
@@ -913,6 +953,9 @@
         '<(DEPTH)/v8/tools/gyp/v8.gyp:v8',
         # Necessary to generate the grit include files.
         'cef_pak',
+        # Necessary to generate API bindings for extensions.
+        'libcef/browser/extensions/api/api_registration.gyp:cef_api_registration',
+        'libcef/common/extensions/api/api.gyp:cef_api',
       ],
       'sources': [
         '<@(includes_common)',
@@ -926,22 +969,25 @@
         'libcef/browser/browser_host_impl.h',
         'libcef/browser/browser_info.cc',
         'libcef/browser/browser_info.h',
+        'libcef/browser/browser_info_manager.cc',
+        'libcef/browser/browser_info_manager.h',
         'libcef/browser/browser_main.cc',
         'libcef/browser/browser_main.h',
         'libcef/browser/browser_message_filter.cc',
         'libcef/browser/browser_message_filter.h',
         'libcef/browser/browser_message_loop.cc',
         'libcef/browser/browser_message_loop.h',
-        'libcef/browser/browser_pref_store.cc',
-        'libcef/browser/browser_pref_store.h',
-        'libcef/browser/browser_settings.cc',
-        'libcef/browser/browser_settings.h',
+        'libcef/browser/browser_platform_delegate.cc',
+        'libcef/browser/browser_platform_delegate.h',
+        'libcef/browser/browser_platform_delegate_create.cc',
         'libcef/browser/browser_urlrequest_impl.cc',
         'libcef/browser/browser_urlrequest_impl.h',
         'libcef/browser/chrome_browser_process_stub.cc',
         'libcef/browser/chrome_browser_process_stub.h',
-        'libcef/browser/chrome_scheme_handler.cc',
-        'libcef/browser/chrome_scheme_handler.h',
+        'libcef/browser/chrome_profile_stub.cc',
+        'libcef/browser/chrome_profile_stub.h',
+        'libcef/browser/component_updater/cef_component_updater_configurator.cc',
+        'libcef/browser/component_updater/cef_component_updater_configurator.h',
         'libcef/browser/content_browser_client.cc',
         'libcef/browser/content_browser_client.h',
         'libcef/browser/context.cc',
@@ -950,46 +996,130 @@
         'libcef/browser/context_menu_params_impl.h',
         'libcef/browser/cookie_manager_impl.cc',
         'libcef/browser/cookie_manager_impl.h',
-        'libcef/browser/cookie_store_proxy.cc',
-        'libcef/browser/cookie_store_proxy.h',
         'libcef/browser/devtools_delegate.cc',
         'libcef/browser/devtools_delegate.h',
         'libcef/browser/devtools_frontend.cc',
         'libcef/browser/devtools_frontend.h',
-        'libcef/browser/devtools_scheme_handler.cc',
-        'libcef/browser/devtools_scheme_handler.h',
         'libcef/browser/download_item_impl.cc',
         'libcef/browser/download_item_impl.h',
         'libcef/browser/download_manager_delegate.cc',
         'libcef/browser/download_manager_delegate.h',
+        'libcef/browser/extensions/api/streams_private/streams_private_api.cc',
+        'libcef/browser/extensions/api/streams_private/streams_private_api.h',
+        'libcef/browser/extensions/browser_context_keyed_service_factories.cc',
+        'libcef/browser/extensions/browser_context_keyed_service_factories.h',
+        'libcef/browser/extensions/browser_extensions_util.cc',
+        'libcef/browser/extensions/browser_extensions_util.h',
+        'libcef/browser/extensions/component_extension_resource_manager.cc',
+        'libcef/browser/extensions/component_extension_resource_manager.h',
+        'libcef/browser/extensions/event_router_forwarder.cc',
+        'libcef/browser/extensions/event_router_forwarder.h',
+        'libcef/browser/extensions/extensions_api_client.cc',
+        'libcef/browser/extensions/extensions_api_client.h',
+        'libcef/browser/extensions/extensions_browser_client.cc',
+        'libcef/browser/extensions/extensions_browser_client.h',
+        'libcef/browser/extensions/extension_system.cc',
+        'libcef/browser/extensions/extension_system.h',
+        'libcef/browser/extensions/extension_system_factory.cc',
+        'libcef/browser/extensions/extension_system_factory.h',
+        'libcef/browser/extensions/extension_web_contents_observer.cc',
+        'libcef/browser/extensions/extension_web_contents_observer.h',
+        'libcef/browser/extensions/mime_handler_view_guest_delegate.cc',
+        'libcef/browser/extensions/mime_handler_view_guest_delegate.h',
+        'libcef/browser/extensions/pdf_extension_util.cc',
+        'libcef/browser/extensions/pdf_extension_util.h',
+        'libcef/browser/extensions/pdf_web_contents_helper_client.cc',
+        'libcef/browser/extensions/pdf_web_contents_helper_client.h',
+        'libcef/browser/extensions/url_request_util.cc',
+        'libcef/browser/extensions/url_request_util.h',
+        'libcef/browser/file_dialog_runner.h',
+        'libcef/browser/file_dialog_manager.cc',
+        'libcef/browser/file_dialog_manager.h',
         'libcef/browser/frame_host_impl.cc',
         'libcef/browser/frame_host_impl.h',
         'libcef/browser/geolocation_impl.cc',
-        'libcef/browser/internal_scheme_handler.cc',
-        'libcef/browser/internal_scheme_handler.h',
-        'libcef/browser/javascript_dialog.h',
+        'libcef/browser/javascript_dialog_runner.h',
         'libcef/browser/javascript_dialog_manager.cc',
         'libcef/browser/javascript_dialog_manager.h',
         'libcef/browser/media_capture_devices_dispatcher.cc',
         'libcef/browser/media_capture_devices_dispatcher.h',
-        'libcef/browser/menu_creator.cc',
-        'libcef/browser/menu_creator.h',
+        'libcef/browser/menu_manager.cc',
+        'libcef/browser/menu_manager.h',
         'libcef/browser/menu_model_impl.cc',
         'libcef/browser/menu_model_impl.h',
+        'libcef/browser/menu_runner.h',
+        'libcef/browser/native/browser_platform_delegate_native.cc',
+        'libcef/browser/native/browser_platform_delegate_native.h',
         'libcef/browser/navigate_params.cc',
         'libcef/browser/navigate_params.h',
         'libcef/browser/navigation_entry_impl.cc',
         'libcef/browser/navigation_entry_impl.h',
+        'libcef/browser/net/chrome_scheme_handler.cc',
+        'libcef/browser/net/chrome_scheme_handler.h',
+        'libcef/browser/net/cookie_store_proxy.cc',
+        'libcef/browser/net/cookie_store_proxy.h',
+        'libcef/browser/net/devtools_scheme_handler.cc',
+        'libcef/browser/net/devtools_scheme_handler.h',
+        'libcef/browser/net/internal_scheme_handler.cc',
+        'libcef/browser/net/internal_scheme_handler.h',
+        'libcef/browser/net/network_delegate.cc',
+        'libcef/browser/net/network_delegate.h',
+        'libcef/browser/net/resource_request_job.cc',
+        'libcef/browser/net/resource_request_job.h',
+        'libcef/browser/net/response_filter_wrapper.cc',
+        'libcef/browser/net/response_filter_wrapper.h',
+        'libcef/browser/net/scheme_handler.cc',
+        'libcef/browser/net/scheme_handler.h',
+        'libcef/browser/net/url_request_context.cc',
+        'libcef/browser/net/url_request_context.h',
+        'libcef/browser/net/url_request_context_getter.h',
+        'libcef/browser/net/url_request_context_getter_impl.cc',
+        'libcef/browser/net/url_request_context_getter_impl.h',
+        'libcef/browser/net/url_request_context_getter_proxy.cc',
+        'libcef/browser/net/url_request_context_getter_proxy.h',
+        'libcef/browser/net/url_request_context_impl.h',
+        'libcef/browser/net/url_request_context_proxy.cc',
+        'libcef/browser/net/url_request_context_proxy.h',
+        'libcef/browser/net/url_request_interceptor.cc',
+        'libcef/browser/net/url_request_interceptor.h',
+        'libcef/browser/net/url_request_manager.cc',
+        'libcef/browser/net/url_request_manager.h',
+        'libcef/browser/net/url_request_user_data.cc',
+        'libcef/browser/net/url_request_user_data.h',
         'libcef/browser/origin_whitelist_impl.cc',
         'libcef/browser/origin_whitelist_impl.h',
+        'libcef/browser/osr/browser_platform_delegate_osr.cc',
+        'libcef/browser/osr/browser_platform_delegate_osr.h',
+        'libcef/browser/osr/osr_util.cc',
+        'libcef/browser/osr/osr_util.h',
+        'libcef/browser/osr/render_widget_host_view_osr.cc',
+        'libcef/browser/osr/render_widget_host_view_osr.h',
+        'libcef/browser/osr/software_output_device_osr.cc',
+        'libcef/browser/osr/software_output_device_osr.h',
+        'libcef/browser/osr/web_contents_view_osr.cc',
+        'libcef/browser/osr/web_contents_view_osr.h',
         'libcef/browser/path_util_impl.cc',
         'libcef/browser/pepper/browser_pepper_host_factory.cc',
         'libcef/browser/pepper/browser_pepper_host_factory.h',
         'libcef/browser/pepper/pepper_flash_browser_host.cc',
         'libcef/browser/pepper/pepper_flash_browser_host.h',
+        'libcef/browser/pepper/pepper_isolated_file_system_message_filter.cc',
+        'libcef/browser/pepper/pepper_isolated_file_system_message_filter.h',
         'libcef/browser/pepper/device_id_fetcher.cc',
-        'libcef/browser/permission_manager.cc',
-        'libcef/browser/permission_manager.h',
+        'libcef/browser/permissions/permission_context.cc',
+        'libcef/browser/permissions/permission_context.h',
+        'libcef/browser/permissions/permission_manager.cc',
+        'libcef/browser/permissions/permission_manager.h',
+        'libcef/browser/permissions/permission_util.cc',
+        'libcef/browser/permissions/permission_util.h',
+        'libcef/browser/plugins/plugin_info_message_filter.cc',
+        'libcef/browser/plugins/plugin_info_message_filter.h',
+        'libcef/browser/plugins/plugin_service_filter.cc',
+        'libcef/browser/plugins/plugin_service_filter.h',
+        'libcef/browser/prefs/browser_prefs.cc',
+        'libcef/browser/prefs/browser_prefs.h',
+        'libcef/browser/prefs/renderer_prefs.cc',
+        'libcef/browser/prefs/renderer_prefs.h',
         'libcef/browser/print_settings_impl.cc',
         'libcef/browser/print_settings_impl.h',
         'libcef/browser/printing/printing_message_filter.cc',
@@ -1000,21 +1130,13 @@
         'libcef/browser/printing/print_view_manager_base.h',
         'libcef/browser/process_util_impl.cc',
         'libcef/browser/proxy_stubs.cc',
-        'libcef/browser/render_widget_host_view_osr.cc',
-        'libcef/browser/render_widget_host_view_osr.h',
         'libcef/browser/resource_context.cc',
         'libcef/browser/resource_context.h',
         'libcef/browser/resource_dispatcher_host_delegate.cc',
         'libcef/browser/resource_dispatcher_host_delegate.h',
-        'libcef/browser/resource_request_job.cc',
-        'libcef/browser/resource_request_job.h',
         'libcef/browser/request_context_impl.cc',
         'libcef/browser/request_context_impl.h',
-        'libcef/browser/scheme_handler.cc',
-        'libcef/browser/scheme_handler.h',
         'libcef/browser/scheme_impl.cc',
-        'libcef/browser/software_output_device_osr.cc',
-        'libcef/browser/software_output_device_osr.h',
         'libcef/browser/speech_recognition_manager_delegate.cc',
         'libcef/browser/speech_recognition_manager_delegate.h',
         'libcef/browser/ssl_cert_principal_impl.cc',
@@ -1029,26 +1151,6 @@
         'libcef/browser/trace_subscriber.cc',
         'libcef/browser/trace_subscriber.h',
         'libcef/browser/thread_util.h',
-        'libcef/browser/url_network_delegate.cc',
-        'libcef/browser/url_network_delegate.h',
-        'libcef/browser/url_request_context.cc',
-        'libcef/browser/url_request_context.h',
-        'libcef/browser/url_request_context_getter.h',
-        'libcef/browser/url_request_context_getter_impl.cc',
-        'libcef/browser/url_request_context_getter_impl.h',
-        'libcef/browser/url_request_context_getter_proxy.cc',
-        'libcef/browser/url_request_context_getter_proxy.h',
-        'libcef/browser/url_request_context_impl.h',
-        'libcef/browser/url_request_context_proxy.cc',
-        'libcef/browser/url_request_context_proxy.h',
-        'libcef/browser/url_request_manager.cc',
-        'libcef/browser/url_request_manager.h',
-        'libcef/browser/url_request_interceptor.cc',
-        'libcef/browser/url_request_interceptor.h',
-        'libcef/browser/url_request_user_data.cc',
-        'libcef/browser/url_request_user_data.h',
-        'libcef/browser/web_contents_view_osr.cc',
-        'libcef/browser/web_contents_view_osr.h',
         'libcef/browser/web_plugin_impl.cc',
         'libcef/browser/web_plugin_impl.h',
         'libcef/browser/xml_reader_impl.cc',
@@ -1070,26 +1172,36 @@
         'libcef/common/crash_reporter_client.h',
         'libcef/common/drag_data_impl.cc',
         'libcef/common/drag_data_impl.h',
-        'libcef/common/http_header_utils.cc',
-        'libcef/common/http_header_utils.h',
+        'libcef/common/extensions/extensions_client.cc',
+        'libcef/common/extensions/extensions_client.h',
+        'libcef/common/extensions/extensions_util.cc',
+        'libcef/common/extensions/extensions_util.h',
         'libcef/common/json_impl.cc',
         'libcef/common/main_delegate.cc',
         'libcef/common/main_delegate.h',
-        'libcef/common/net_resource_provider.cc',
-        'libcef/common/net_resource_provider.h',
+        'libcef/common/net/http_header_utils.cc',
+        'libcef/common/net/http_header_utils.h',
+        'libcef/common/net/net_resource_provider.cc',
+        'libcef/common/net/net_resource_provider.h',
+        'libcef/common/net/scheme_registration.cc',
+        'libcef/common/net/scheme_registration.h',
+        'libcef/common/net/upload_data.cc',
+        'libcef/common/net/upload_data.h',
+        'libcef/common/net/upload_element.cc',
+        'libcef/common/net/upload_element.h',
         'libcef/common/parser_impl.cc',
         'libcef/common/process_message_impl.cc',
         'libcef/common/process_message_impl.h',
         'libcef/common/request_impl.cc',
         'libcef/common/request_impl.h',
+        'libcef/common/resource_bundle_impl.cc',
+        'libcef/common/resource_bundle_impl.h',
         'libcef/common/response_impl.cc',
         'libcef/common/response_impl.h',
         'libcef/common/response_manager.cc',
         'libcef/common/response_manager.h',
         'libcef/common/scheme_registrar_impl.cc',
         'libcef/common/scheme_registrar_impl.h',
-        'libcef/common/scheme_registration.cc',
-        'libcef/common/scheme_registration.h',
         'libcef/common/string_list_impl.cc',
         'libcef/common/string_map_impl.cc',
         'libcef/common/string_multimap_impl.cc',
@@ -1097,6 +1209,7 @@
         'libcef/common/task_impl.cc',
         'libcef/common/task_runner_impl.cc',
         'libcef/common/task_runner_impl.h',
+        'libcef/common/test/translator_test_impl.cc',
         'libcef/common/time_impl.cc',
         'libcef/common/time_util.h',
         'libcef/common/tracker.cc',
@@ -1106,10 +1219,6 @@
         'libcef/common/value_base.h',
         'libcef/common/values_impl.cc',
         'libcef/common/values_impl.h',
-        'libcef/common/upload_data.cc',
-        'libcef/common/upload_data.h',
-        'libcef/common/upload_element.cc',
-        'libcef/common/upload_element.h',
         'libcef/renderer/browser_impl.cc',
         'libcef/renderer/browser_impl.h',
         'libcef/renderer/content_renderer_client.cc',
@@ -1118,12 +1227,25 @@
         'libcef/renderer/dom_document_impl.h',
         'libcef/renderer/dom_node_impl.cc',
         'libcef/renderer/dom_node_impl.h',
+        'libcef/renderer/extensions/extensions_dispatcher_delegate.cc',
+        'libcef/renderer/extensions/extensions_dispatcher_delegate.h',
+        'libcef/renderer/extensions/extensions_renderer_client.cc',
+        'libcef/renderer/extensions/extensions_renderer_client.h',
+        'libcef/renderer/extensions/print_web_view_helper_delegate.cc',
+        'libcef/renderer/extensions/print_web_view_helper_delegate.h',
         'libcef/renderer/frame_impl.cc',
         'libcef/renderer/frame_impl.h',
+        'libcef/renderer/media/cef_key_systems.cc',
+        'libcef/renderer/media/cef_key_systems.h',
         'libcef/renderer/pepper/pepper_helper.cc',
         'libcef/renderer/pepper/pepper_helper.h',
+        'libcef/renderer/pepper/pepper_uma_host.cc',
         'libcef/renderer/pepper/renderer_pepper_host_factory.cc',
         'libcef/renderer/pepper/renderer_pepper_host_factory.h',
+        'libcef/renderer/plugins/cef_plugin_placeholder.cc',
+        'libcef/renderer/plugins/cef_plugin_placeholder.h',
+        'libcef/renderer/plugins/plugin_preroller.cc',
+        'libcef/renderer/plugins/plugin_preroller.h',
         'libcef/renderer/render_frame_observer.cc',
         'libcef/renderer/render_frame_observer.h',
         'libcef/renderer/render_message_filter.cc',
@@ -1142,24 +1264,10 @@
         '<(DEPTH)/chrome/common/chrome_switches.cc',
         '<(DEPTH)/chrome/common/chrome_switches.h',
         # Include sources for proxy support.
-        '<(DEPTH)/base/prefs/testing_pref_store.cc',
-        '<(DEPTH)/base/prefs/testing_pref_store.h',
-        '<(DEPTH)/chrome/browser/net/pref_proxy_config_tracker.cc',
-        '<(DEPTH)/chrome/browser/net/pref_proxy_config_tracker.h',
-        '<(DEPTH)/chrome/browser/net/pref_proxy_config_tracker_impl.cc',
-        '<(DEPTH)/chrome/browser/net/pref_proxy_config_tracker_impl.h',
         '<(DEPTH)/chrome/browser/net/proxy_service_factory.cc',
         '<(DEPTH)/chrome/browser/net/proxy_service_factory.h',
         '<(DEPTH)/chrome/browser/net/utility_process_mojo_proxy_resolver_factory.cc',
         '<(DEPTH)/chrome/browser/net/utility_process_mojo_proxy_resolver_factory.h',
-        '<(DEPTH)/chrome/browser/prefs/command_line_pref_store.cc',
-        '<(DEPTH)/chrome/browser/prefs/command_line_pref_store.h',
-        '<(DEPTH)/chrome/browser/prefs/proxy_config_dictionary.cc',
-        '<(DEPTH)/chrome/browser/prefs/proxy_config_dictionary.h',
-        '<(DEPTH)/chrome/browser/prefs/proxy_prefs.cc',
-        '<(DEPTH)/chrome/browser/prefs/proxy_prefs.h',
-        '<(DEPTH)/chrome/common/pref_names.cc',
-        '<(DEPTH)/chrome/common/pref_names.h',
         '<(DEPTH)/components/data_reduction_proxy/core/common/data_reduction_proxy_switches.cc',
         '<(DEPTH)/components/data_reduction_proxy/core/common/data_reduction_proxy_switches.h',
         '<(DEPTH)/components/data_reduction_proxy/core/common/data_reduction_proxy_pref_names.cc',
@@ -1180,8 +1288,6 @@
         '<(DEPTH)/chrome/browser/printing/printer_query.h',
         '<(DEPTH)/chrome/common/extensions/extension_constants.cc',
         '<(DEPTH)/chrome/common/extensions/extension_constants.h',
-        '<(DEPTH)/extensions/common/constants.cc',
-        '<(DEPTH)/extensions/common/constants.h',
         # Include header for stub creation (BrowserProcess) so print_job_worker can
         # determine the current locale.
         '<(DEPTH)/chrome/browser/browser_process.cc',
@@ -1250,49 +1356,131 @@
         '<(DEPTH)/chrome/renderer/pepper/pepper_flash_menu_host.h',
         '<(DEPTH)/chrome/renderer/pepper/pepper_flash_renderer_host.cc',
         '<(DEPTH)/chrome/renderer/pepper/pepper_flash_renderer_host.h',
+        # Include sources required by chrome_utility_messages.h.
+        '<(DEPTH)/chrome/common/safe_browsing/zip_analyzer_results.h',
+        '<(DEPTH)/chrome/common/safe_browsing/zip_analyzer_results.cc',
+        # Include sources for pepper PDF support.
+        '<(DEPTH)/chrome/child/pdf_child_init.cc',
+        '<(DEPTH)/chrome/child/pdf_child_init.h',
+        '<(DEPTH)/chrome/renderer/pepper/chrome_pdf_print_client.cc',
+        '<(DEPTH)/chrome/renderer/pepper/chrome_pdf_print_client.h',
+        # Include sources for extensions support.
+        '<(DEPTH)/chrome/common/extensions/chrome_manifest_url_handlers.cc',
+        '<(DEPTH)/chrome/common/extensions/chrome_manifest_url_handlers.h',
+        '<(DEPTH)/chrome/common/extensions/extension_process_policy.cc',
+        '<(DEPTH)/chrome/common/extensions/extension_process_policy.h',
+        '<(DEPTH)/chrome/common/pepper_permission_util.cc',
+        '<(DEPTH)/chrome/common/pepper_permission_util.h',
+        '<(DEPTH)/chrome/common/url_constants.cc',
+        '<(DEPTH)/chrome/common/url_constants.h',
+        '<(DEPTH)/chrome/renderer/extensions/resource_request_policy.cc',
+        '<(DEPTH)/chrome/renderer/extensions/resource_request_policy.h',
+        '<(DEPTH)/extensions/shell/browser/shell_display_info_provider.cc',
+        '<(DEPTH)/extensions/shell/browser/shell_display_info_provider.h',
+        '<(DEPTH)/extensions/shell/browser/shell_web_contents_modal_dialog_manager.cc',
+        '<(grit_out_dir)/grit/component_extension_resources_map.cc',
+        # Include sources for component-updater support.
+        '<(DEPTH)/chrome/browser/component_updater/widevine_cdm_component_installer.cc',
+        '<(DEPTH)/chrome/browser/component_updater/widevine_cdm_component_installer.h',
+        # Include sources for widevine support.
+        '<(DEPTH)/chrome/common/widevine_cdm_constants.cc',
+        '<(DEPTH)/chrome/common/widevine_cdm_constants.h',
+        # Include sources for plugin placeholder support.
+        '<(DEPTH)/chrome/browser/plugins/plugin_finder.cc',
+        '<(DEPTH)/chrome/browser/plugins/plugin_finder.h',
+        '<(DEPTH)/chrome/browser/plugins/plugin_metadata.cc',
+        '<(DEPTH)/chrome/browser/plugins/plugin_metadata.h',
+        '<(DEPTH)/chrome/renderer/plugins/power_saver_info.cc',
+        '<(DEPTH)/chrome/renderer/plugins/power_saver_info.h',
+        '<(DEPTH)/components/nacl/common/nacl_constants.cc',
+        '<(DEPTH)/components/nacl/common/nacl_constants.h',
+        # Include sources for preferences support.
+        '<(DEPTH)/base/prefs/testing_pref_store.cc',
+        '<(DEPTH)/base/prefs/testing_pref_store.h',
+        '<(DEPTH)/chrome/browser/accessibility/animation_policy_prefs.cc',
+        '<(DEPTH)/chrome/browser/accessibility/animation_policy_prefs.h',
+        '<(DEPTH)/chrome/browser/character_encoding.cc',
+        '<(DEPTH)/chrome/browser/character_encoding.h',
+        '<(DEPTH)/chrome/browser/defaults.cc',
+        '<(DEPTH)/chrome/browser/defaults.h',
+        '<(DEPTH)/chrome/browser/extensions/extension_webkit_preferences.cc',
+        '<(DEPTH)/chrome/browser/extensions/extension_webkit_preferences.h',
+        '<(DEPTH)/chrome/browser/font_family_cache.cc',
+        '<(DEPTH)/chrome/browser/font_family_cache.h',
+        '<(DEPTH)/chrome/browser/prefs/command_line_pref_store.cc',
+        '<(DEPTH)/chrome/browser/prefs/command_line_pref_store.h',
+        '<(DEPTH)/chrome/browser/renderer_preferences_util.cc',
+        '<(DEPTH)/chrome/browser/renderer_preferences_util.h',
+        '<(DEPTH)/chrome/browser/ui/prefs/prefs_tab_helper.cc',
+        '<(DEPTH)/chrome/browser/ui/prefs/prefs_tab_helper.h',
+        '<(DEPTH)/chrome/browser/ui/zoom/chrome_zoom_level_prefs.cc',
+        '<(DEPTH)/chrome/browser/ui/zoom/chrome_zoom_level_prefs.h',
+        '<(DEPTH)/chrome/common/pref_font_webkit_names.h',
+        '<(DEPTH)/chrome/common/pref_names.cc',
+        '<(DEPTH)/chrome/common/pref_names.h',
+        '<(DEPTH)/chrome/common/pref_names_util.cc',
+        '<(DEPTH)/chrome/common/pref_names_util.h',
+        # Include sources for permissions support.
+        '<(DEPTH)/chrome/browser/permissions/permission_request_id.h',
+        '<(DEPTH)/chrome/browser/permissions/permission_request_id.cc',
       ],
       'conditions': [
         ['OS=="win"', {
-          'dependencies': [
-            # For printing using PDF.
-            '<(DEPTH)/pdf/pdf.gyp:pdf',
-          ],
           'sources': [
             '<@(includes_win)',
-            'libcef/browser/browser_host_impl_win.cc',
             'libcef/browser/browser_main_win.cc',
-            'libcef/browser/javascript_dialog_win.cc',
-            'libcef/browser/menu_creator_runner_win.cc',
-            'libcef/browser/menu_creator_runner_win.h',
-            'libcef/browser/render_widget_host_view_osr_win.cc',
+            'libcef/browser/native/browser_platform_delegate_native_win.cc',
+            'libcef/browser/native/browser_platform_delegate_native_win.h',
+            'libcef/browser/native/file_dialog_runner_win.cc',
+            'libcef/browser/native/file_dialog_runner_win.h',
+            'libcef/browser/native/javascript_dialog_runner_win.cc',
+            'libcef/browser/native/javascript_dialog_runner_win.h',
+            'libcef/browser/native/menu_2.cc',
+            'libcef/browser/native/menu_2.h',
+            'libcef/browser/native/menu_runner_win.cc',
+            'libcef/browser/native/menu_runner_win.h',
+            'libcef/browser/native/menu_wrapper.h',
+            'libcef/browser/native/native_menu_win.cc',
+            'libcef/browser/native/native_menu_win.h',
+            'libcef/browser/osr/browser_platform_delegate_osr_win.cc',
+            'libcef/browser/osr/browser_platform_delegate_osr_win.h',
+            'libcef/browser/osr/render_widget_host_view_osr_win.cc',
             # Include sources for printing using PDF.
             'libcef/utility/printing_handler.cc',
             'libcef/utility/printing_handler.h',
             '<(DEPTH)/chrome/browser/printing/pdf_to_emf_converter.cc',
             '<(DEPTH)/chrome/browser/printing/pdf_to_emf_converter.h',
             '<(DEPTH)/chrome/common/chrome_utility_printing_messages.h',
+            # Include sources for font cache.
+            '<(DEPTH)/chrome/utility/font_cache_handler_win.cc',
+            '<(DEPTH)/chrome/utility/font_cache_handler_win.h',
           ],
         }],
         [ 'OS=="mac"', {
           'sources': [
             '<@(includes_mac)',
-            'libcef/browser/browser_host_impl_mac.mm',
-            'libcef/browser/browser_main_mac.mm',
-            'libcef/browser/javascript_dialog_mac.mm',
-            'libcef/browser/menu_creator_runner_mac.h',
-            'libcef/browser/menu_creator_runner_mac.mm',
-            'libcef/browser/render_widget_host_view_osr_mac.mm',
-            'libcef/browser/text_input_client_osr_mac.mm',
-            'libcef/browser/text_input_client_osr_mac.h',
+            'libcef/browser/native/browser_platform_delegate_native_mac.h',
+            'libcef/browser/native/browser_platform_delegate_native_mac.mm',
+            'libcef/browser/native/file_dialog_runner_mac.h',
+            'libcef/browser/native/file_dialog_runner_mac.mm',
+            'libcef/browser/native/javascript_dialog_runner_mac.h',
+            'libcef/browser/native/javascript_dialog_runner_mac.mm',
+            'libcef/browser/native/menu_runner_mac.h',
+            'libcef/browser/native/menu_runner_mac.mm',
+            'libcef/browser/osr/browser_platform_delegate_osr_mac.h',
+            'libcef/browser/osr/browser_platform_delegate_osr_mac.mm',
+            'libcef/browser/osr/render_widget_host_view_osr_mac.mm',
+            'libcef/browser/osr/text_input_client_osr_mac.mm',
+            'libcef/browser/osr/text_input_client_osr_mac.h',
             'libcef/common/util_mac.h',
             'libcef/common/util_mac.mm',
             # Include sources for spell checking support.
-            '<(DEPTH)/chrome/browser/spellchecker/spellcheck_message_filter_mac.cc',
-            '<(DEPTH)/chrome/browser/spellchecker/spellcheck_message_filter_mac.h',
-            '<(DEPTH)/chrome/browser/spellchecker/spellcheck_platform_mac.h',
+            '<(DEPTH)/chrome/browser/spellchecker/spellcheck_message_filter_platform.h',
+            '<(DEPTH)/chrome/browser/spellchecker/spellcheck_message_filter_platform_mac.cc',
+            '<(DEPTH)/chrome/browser/spellchecker/spellcheck_platform.h',
             '<(DEPTH)/chrome/browser/spellchecker/spellcheck_platform_mac.mm',
-            '<(DEPTH)/chrome/renderer/spellchecker/cocoa_spelling_engine_mac.cc',
-            '<(DEPTH)/chrome/renderer/spellchecker/cocoa_spelling_engine_mac.h',
+            '<(DEPTH)/chrome/renderer/spellchecker/platform_spelling_engine.cc',
+            '<(DEPTH)/chrome/renderer/spellchecker/platform_spelling_engine.h',
             # Include sources for pepper flash support.
             '<(DEPTH)/chrome/browser/renderer_host/pepper/monitor_finder_mac.h',
             '<(DEPTH)/chrome/browser/renderer_host/pepper/monitor_finder_mac.mm',
@@ -1301,21 +1489,27 @@
         [ 'OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
           'sources': [
             '<@(includes_linux)',
-            'libcef/browser/browser_host_impl_linux.cc',
-            'libcef/browser/browser_main_linux.cc',
-            'libcef/browser/javascript_dialog_linux.cc',
-            'libcef/browser/menu_creator_runner_linux.cc',
-            'libcef/browser/menu_creator_runner_linux.h',
+            'libcef/browser/native/browser_platform_delegate_native_linux.cc',
+            'libcef/browser/native/browser_platform_delegate_native_linux.h',
+            'libcef/browser/native/menu_runner_linux.cc',
+            'libcef/browser/native/menu_runner_linux.h',
+            'libcef/browser/osr/browser_platform_delegate_osr_linux.cc',
+            'libcef/browser/osr/browser_platform_delegate_osr_linux.h',
+            'libcef/browser/osr/render_widget_host_view_osr_linux.cc',
             'libcef/browser/printing/print_dialog_linux.cc',
             'libcef/browser/printing/print_dialog_linux.h',
-            'libcef/browser/render_widget_host_view_osr_linux.cc',
-            'libcef/browser/window_x11.cc',
-            'libcef/browser/window_x11.h',
+            'libcef/browser/native/window_x11.cc',
+            'libcef/browser/native/window_x11.h',
           ],
         }],
-        ['os_posix == 1 and OS != "mac" and android_webview_build != 1', {
+        ['os_posix == 1 and OS != "mac"', {
           'dependencies': [
             '<(DEPTH)/components/components.gyp:breakpad_host',
+          ],
+        }],
+        ['cld_version==2', {
+          'dependencies': [
+            '<(DEPTH)/third_party/cld_2/cld_2.gyp:cld2_platform_impl',
           ],
         }],
         ['use_aura==1', {
@@ -1324,8 +1518,8 @@
             '<(DEPTH)/ui/views/views.gyp:views',
           ],
           'sources': [
-            'libcef/browser/window_delegate_view.cc',
-            'libcef/browser/window_delegate_view.h',
+            'libcef/browser/native/window_delegate_view.cc',
+            'libcef/browser/native/window_delegate_view.h',
             '<(DEPTH)/ui/views/test/desktop_test_views_delegate.h',
             '<(DEPTH)/ui/views/test/desktop_test_views_delegate_aura.cc',
             '<(DEPTH)/ui/views/test/test_views_delegate.h',
@@ -1336,7 +1530,7 @@
     },
   ],
   'conditions': [
-    ['os_posix==1 and OS!="mac" and OS!="android" and gcc_version>=46', {
+    ['os_posix==1 and OS!="mac" and OS!="android"', {
       'target_defaults': {
         # Disable warnings about c++0x compatibility, as some names (such
         # as nullptr) conflict with upcoming c++0x types.
@@ -1354,10 +1548,12 @@
             '<(PRODUCT_DIR)/cef.pak',
             '<(PRODUCT_DIR)/cef_100_percent.pak',
             '<(PRODUCT_DIR)/cef_200_percent.pak',
+            '<(PRODUCT_DIR)/cef_extensions.pak',
             '<(PRODUCT_DIR)/devtools_resources.pak',
             '<(PRODUCT_DIR)/icudtl.dat',
             '<(PRODUCT_DIR)/natives_blob.bin',
             '<(PRODUCT_DIR)/snapshot_blob.bin',
+            '<(PRODUCT_DIR)/widevinecdmadapter.plugin',
             'libcef/resources/framework-Info.plist',
           ],
           'mac_bundle_resources!': [
@@ -1413,13 +1609,6 @@
             },
           ],
           'copies': [
-            {
-              # Copy binaries for HTML5 audio/video support.
-              'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Libraries',
-              'files': [
-                '<(PRODUCT_DIR)/ffmpegsumo.so',
-              ],
-            },
             {
               # Copy binaries for breakpad support.
               'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Resources',
@@ -1604,6 +1793,9 @@
           'sources': [
             'tests/cefclient/browser/client_app_browser.cc',
             'tests/cefclient/browser/client_app_browser.h',
+            'tests/cefclient/browser/resource_util.h',
+            'tests/cefclient/browser/resource_util_mac.mm',
+            'tests/cefclient/browser/resource_util_posix.cc',
             'tests/cefclient/common/client_app.cc',
             'tests/cefclient/common/client_app.h',
             'tests/cefclient/common/client_app_other.cc',
@@ -1619,6 +1811,8 @@
             'tests/unittests/frame_unittest.cc',
             'tests/unittests/message_router_unittest.cc',
             'tests/unittests/navigation_unittest.cc',
+            'tests/unittests/plugin_unittest.cc',
+            'tests/unittests/preference_unittest.cc',
             'tests/unittests/process_message_unittest.cc',
             'tests/unittests/request_handler_unittest.cc',
             'tests/unittests/request_unittest.cc',
@@ -1723,7 +1917,6 @@
               '<@(includes_win)',
               # TODO(cef): Remove ui_unscaled_resources.rc once custom cursor
               # resources can be loaded via ResourceBundle. See crbug.com/147663.
-              '<(SHARED_INTERMEDIATE_DIR)/content/content_resources.rc',
               '<(SHARED_INTERMEDIATE_DIR)/ui/resources/ui_unscaled_resources.rc',
               'libcef_dll/libcef_dll.rc',
             ],
@@ -1752,7 +1945,10 @@
         ],
       }],
     }],  # OS!="mac"
-    [ 'OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
+    [ '(OS=="linux" or OS=="freebsd" or OS=="openbsd") and use_sysroot==0', {
+      # Required packages are not available when using the default sysroot
+      # environment. Consequently the cefclient target cannot be built with
+      # use_sysroot==1.
       'targets': [
         {
           'target_name': 'gtk',
@@ -1764,15 +1960,15 @@
           },
           'direct_dependent_settings': {
             'cflags': [
-              '<!@(pkg-config --cflags <(gtk_packages))',
+              '<!@(<(pkg-config) --cflags <(gtk_packages))',
             ],
           },
           'link_settings': {
             'ldflags': [
-              '<!@(pkg-config --libs-only-L --libs-only-other <(gtk_packages))',
+              '<!@(<(pkg-config) --libs-only-L --libs-only-other <(gtk_packages))',
             ],
             'libraries': [
-              '<!@(pkg-config --libs-only-l <(gtk_packages))',
+              '<!@(<(pkg-config) --libs-only-l <(gtk_packages))',
             ],
           },
         },
@@ -1785,20 +1981,20 @@
           },
           'direct_dependent_settings': {
             'cflags': [
-              '<!@(pkg-config --cflags <(gtk_packages))',
+              '<!@(<(pkg-config) --cflags <(gtk_packages))',
             ],
           },
           'link_settings': {
             'ldflags': [
-              '<!@(pkg-config --libs-only-L --libs-only-other <(gtk_packages))',
+              '<!@(<(pkg-config) --libs-only-L --libs-only-other <(gtk_packages))',
             ],
             'libraries': [
-              '<!@(pkg-config --libs-only-l <(gtk_packages))',
+              '<!@(<(pkg-config) --libs-only-l <(gtk_packages))',
             ],
           },
         },
       ],
-    }],  # OS=="linux" or OS=="freebsd" or OS=="openbsd"
+    }],  # (OS=="linux" or OS=="freebsd" or OS=="openbsd") and use_sysroot==0
     [ 'OS=="win"', {
       'targets': [
         {

@@ -60,7 +60,7 @@ public:
     }
 
     virtual void LoadOSVRClientKitModule() = 0;
-    virtual OSVREntryPoint* GetEntryPoint() = 0;
+    virtual TSharedPtr<class OSVREntryPoint, ESPMode::ThreadSafe> GetEntryPoint() = 0;
     virtual TSharedPtr<FOSVRHMD, ESPMode::ThreadSafe> GetHMD() = 0;
 };
 

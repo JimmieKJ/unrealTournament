@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "IInputInterface.h"
+#include "GameFramework/ForceFeedbackEffect.h"
+#include "GenericPlatform/IInputInterface.h"
 
 UForceFeedbackEffect::UForceFeedbackEffect(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

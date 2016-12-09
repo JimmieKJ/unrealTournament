@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
+#include "CoreMinimal.h"
 #include "LightingSystem.h"
+#include "HAL/RunnableThread.h"
 #include "MonteCarlo.h"
 #include "LightmassSwarm.h"
 #include "ExceptionHandling.h"

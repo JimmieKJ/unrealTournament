@@ -4,8 +4,10 @@
 	UnAsyncLoading.cpp: Unreal async messsage log.
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
 #include "Serialization/DeferredMessageLog.h"
+#include "Misc/ScopeLock.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
 
 TMap<FName, TArray<TSharedRef<FTokenizedMessage>>*> FDeferredMessageLog::Messages;
 FCriticalSection FDeferredMessageLog::MessagesCritical;

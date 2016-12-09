@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
 #include "SVisualLoggerTimeline.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SMenuAnchor.h"
 #include "LogVisualizerSettings.h"
+#include "VisualLoggerDatabase.h"
+#include "LogVisualizerStyle.h"
+#include "LogVisualizerPrivate.h"
+#include "SVisualLoggerTimelinesContainer.h"
+#include "SVisualLoggerTimelineBar.h"
 
 class STimelineLabelAnchor : public SMenuAnchor
 {

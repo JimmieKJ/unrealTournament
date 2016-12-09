@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PrivatePch.h"
-#include "BuildPatchTool.h"
 #include "PatchGenerationMode.h"
+#include "Interfaces/IBuildPatchServicesModule.h"
+#include "BuildPatchTool.h"
 #include "DefaultValueHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/CommandLine.h"
+
 using namespace BuildPatchTool;
 
 namespace Constants
@@ -104,7 +107,7 @@ public:
 		BpsInterface->SetCloudDirectory(CloudDir);
 
 		// Setup and run
-		FBuildPatchSettings Settings;
+		BuildPatchServices::FGenerationConfiguration Settings;
 		Settings.RootDirectory = BuildRoot;
 		Settings.AppId = TCString<TCHAR>::Atoi64(*AppId);
 		Settings.AppName = AppName;

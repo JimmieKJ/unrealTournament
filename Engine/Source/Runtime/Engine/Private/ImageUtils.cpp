@@ -4,11 +4,12 @@
 ImageUtils.cpp: Image utility functions.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "ImageUtils.h"
-#include "Runtime/Engine/Classes/Engine/TextureRenderTarget2D.h"
+#include "Engine/Texture2D.h"
+#include "Misc/ObjectThumbnail.h"
+#include "Engine/TextureRenderTarget2D.h"
 #include "CubemapUnwrapUtils.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogImageUtils, Log, All);
 
@@ -237,14 +238,17 @@ void FImageUtils::CropAndScaleImage( int32 SrcWidth, int32 SrcHeight, int32 Desi
 	FImageUtils::ImageResize( MaxWidth, MaxHeight, CroppedData, DesiredWidth, DesiredHeight, DstData, true );
 }
 
-void FImageUtils::CompressImageArray( int32 ImageWidth, int32 ImageHeight, TArray<FColor> &SrcData, TArray<uint8> &DstData )
+void FImageUtils::CompressImageArray( int32 ImageWidth, int32 ImageHeight, const TArray<FColor> &SrcData, TArray<uint8> &DstData )
 {
-	// PNGs are saved as RGBA but FColors are stored as BGRA. An option to swap the order upon compression may be added at some point. At the moment, manually swapping Red and Blue 
+	TArray<FColor> MutableSrcData = SrcData;
+
+	// PNGs are saved as RGBA but FColors are stored as BGRA. An option to swap the order upon compression may be added at 
+	// some point. At the moment, manually swapping Red and Blue 
 	for ( int32 Index = 0; Index < ImageWidth*ImageHeight; Index++ )
 	{
-		uint8 TempRed = SrcData[Index].R;
-		SrcData[Index].R = SrcData[Index].B;
-		SrcData[Index].B = TempRed;
+		uint8 TempRed = MutableSrcData[Index].R;
+		MutableSrcData[Index].R = MutableSrcData[Index].B;
+		MutableSrcData[Index].B = TempRed;
 	}
 
 	FObjectThumbnail TempThumbnail;
@@ -254,7 +258,7 @@ void FImageUtils::CompressImageArray( int32 ImageWidth, int32 ImageHeight, TArra
 	// Copy scaled image into destination thumb
 	int32 MemorySize = ImageWidth*ImageHeight*sizeof(FColor);
 	ThumbnailByteArray.AddUninitialized(MemorySize);
-	FMemory::Memcpy(ThumbnailByteArray.GetData(), SrcData.GetData(), MemorySize);
+	FMemory::Memcpy(ThumbnailByteArray.GetData(), MutableSrcData.GetData(), MemorySize);
 
 	// Compress data - convert into a .png
 	TempThumbnail.CompressImageData();

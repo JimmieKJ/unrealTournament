@@ -2,9 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_CallFunction.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTitleTextTable
 #include "K2Node_Message.generated.h"
+
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UK2Node_Message : public UK2Node_CallFunction

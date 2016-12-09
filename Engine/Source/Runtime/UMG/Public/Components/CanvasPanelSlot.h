@@ -2,8 +2,13 @@
 
 #pragma once
 
-#include "Anchors.h"
-#include "SConstraintCanvas.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptMacros.h"
+#include "Layout/Margin.h"
+#include "Layout/Geometry.h"
+#include "Widgets/Layout/Anchors.h"
+#include "Widgets/Layout/SConstraintCanvas.h"
 #include "Components/PanelSlot.h"
 
 #include "CanvasPanelSlot.generated.h"

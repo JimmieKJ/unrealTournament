@@ -1,11 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "SlateFontRenderer.h"
-#include "SlateTextShaper.h"
-#include "FontCacheCompositeFont.h"
-#include "LegacySlateFontInfoCache.h"
+#include "Fonts/SlateFontRenderer.h"
+#include "Fonts/FontCacheCompositeFont.h"
+#include "Fonts/SlateTextShaper.h"
+#include "Fonts/LegacySlateFontInfoCache.h"
+#include "HAL/IConsoleManager.h"
 
+/**
+ * Method for rendering fonts with the possibility of an outline.
+ * 0 = freetype does everything and generates a bitmap for the base glyph. 
+ * 1 = We override the freetype rasterizer.  Can help with some rendering anomalies on complicated fonts when freetype generates a wildly different stroke from the base glyph
+ * Note: The font cache must be flushed if changing this in the middle of a running instance
+ */ 
+static int32 OutlineFontRenderMethod = 0;
+FAutoConsoleVariableRef CVarOutlineFontRenderMethod(
+	TEXT("Slate.OutlineFontRenderMethod"),
+	OutlineFontRenderMethod,
+	TEXT("Changes the render method for outline fonts.  0 = freetype does everything and generates a bitmap for the base glyph (default).  1 = We override the freetype rasterizer.  Can help with some rendering anomalies on complicated fonts."));
 
 namespace SlateFontRendererUtils
 {
@@ -17,7 +28,7 @@ void AppendGlyphFlags(const FFontData& InFontData, uint32& InOutGlyphFlags)
 	// Setup additional glyph flags
 	InOutGlyphFlags |= GlobalGlyphFlags;
 
-	switch(InFontData.Hinting)
+	switch(InFontData.GetHinting())
 	{
 	case EFontHinting::Auto:		InOutGlyphFlags |= FT_LOAD_FORCE_AUTOHINT; break;
 	case EFontHinting::AutoLight:	InOutGlyphFlags |= FT_LOAD_TARGET_LIGHT; break;
@@ -58,7 +69,9 @@ uint16 FSlateFontRenderer::GetMaxHeight(const FSlateFontInfo& InFontInfo, const 
 		FFreeTypeGlyphCache::FCachedGlyphData CachedGlyphData;
 		if (FTGlyphCache->FindOrCache(FaceGlyphData.FaceAndMemory->GetFace(), FaceGlyphData.GlyphIndex, FaceGlyphData.GlyphFlags, InFontInfo.Size, InScale, CachedGlyphData))
 		{
-			return static_cast<uint16>(FreeTypeUtils::Convert26Dot6ToRoundedPixel<int32>(FT_MulFix(CachedGlyphData.Height, CachedGlyphData.SizeMetrics.y_scale)) * InScale);
+			// Adjust the height by the size of the outline that was applied.  The outline is counted twice since it surrounds the font on top and bottom
+			const float HeightAdjustment = InFontInfo.OutlineSettings.OutlineSize * 2;
+			return static_cast<uint16>((FreeTypeUtils::Convert26Dot6ToRoundedPixel<int32>(FT_MulFix(CachedGlyphData.Height, CachedGlyphData.SizeMetrics.y_scale)) + HeightAdjustment) * InScale);
 		}
 	}
 
@@ -81,7 +94,9 @@ int16 FSlateFontRenderer::GetBaseline(const FSlateFontInfo& InFontInfo, const fl
 		FFreeTypeGlyphCache::FCachedGlyphData CachedGlyphData;
 		if (FTGlyphCache->FindOrCache(FaceGlyphData.FaceAndMemory->GetFace(), FaceGlyphData.GlyphIndex, FaceGlyphData.GlyphFlags, InFontInfo.Size, InScale, CachedGlyphData))
 		{
-			return static_cast<int16>(FreeTypeUtils::Convert26Dot6ToRoundedPixel<int32>(CachedGlyphData.SizeMetrics.descender) * InScale);
+			// Adjust the height by the size of the outline that was applied.  The outline is counted twice since it surrounds the font on top and bottom
+			const float HeightAdjustment = InFontInfo.OutlineSettings.OutlineSize * 2;
+			return static_cast<int16>((FreeTypeUtils::Convert26Dot6ToRoundedPixel<int32>(CachedGlyphData.SizeMetrics.descender) + HeightAdjustment) * InScale);
 		}
 	}
 
@@ -232,7 +247,7 @@ FFreeTypeFaceGlyphData FSlateFontRenderer::GetFontFaceForCharacter(const FFontDa
 
 #endif // WITH_FREETYPE
 
-bool FSlateFontRenderer::GetRenderData(const FFontData& InFontData, const int32 InSize, TCHAR Char, FCharacterRenderData& OutRenderData, const float InScale, EFontFallback* OutFallbackLevel) const
+bool FSlateFontRenderer::GetRenderData(const FFontData& InFontData, const int32 InSize, const FFontOutlineSettings& InOutlineSettings, TCHAR Char, FCharacterRenderData& OutRenderData, const float InScale, EFontFallback* OutFallbackLevel) const
 {
 #if WITH_FREETYPE
 	FFreeTypeFaceGlyphData FaceGlyphData = GetFontFaceForCharacter(InFontData, Char, EFontFallback::FF_Max);
@@ -251,19 +266,20 @@ bool FSlateFontRenderer::GetRenderData(const FFontData& InFontData, const int32 
 		check(Error == 0);
 
 		OutRenderData.Char = Char;
-		return GetRenderData(FaceGlyphData, InScale, OutRenderData);
+		return GetRenderData(FaceGlyphData, InScale, InOutlineSettings, OutRenderData);
 	}
 #endif // WITH_FREETYPE
 	return false;
 }
 
-bool FSlateFontRenderer::GetRenderData(const FShapedGlyphEntry& InShapedGlyph, FCharacterRenderData& OutRenderData) const
+bool FSlateFontRenderer::GetRenderData(const FShapedGlyphEntry& InShapedGlyph, const FFontOutlineSettings& InOutlineSettings, FCharacterRenderData& OutRenderData) const
 {
 #if WITH_FREETYPE
 	FFreeTypeFaceGlyphData FaceGlyphData;
 	FaceGlyphData.FaceAndMemory = InShapedGlyph.FontFaceData->FontFace.Pin();
 	FaceGlyphData.GlyphIndex = InShapedGlyph.GlyphIndex;
 	FaceGlyphData.GlyphFlags = InShapedGlyph.FontFaceData->GlyphFlags;
+
 	if (FaceGlyphData.FaceAndMemory.IsValid())
 	{
 		check(FaceGlyphData.FaceAndMemory->IsValid());
@@ -272,7 +288,7 @@ bool FSlateFontRenderer::GetRenderData(const FShapedGlyphEntry& InShapedGlyph, F
 		check(Error == 0);
 
 		OutRenderData.Char = 0;
-		return GetRenderData(FaceGlyphData, InShapedGlyph.FontFaceData->FontScale, OutRenderData);
+		return GetRenderData(FaceGlyphData, InShapedGlyph.FontFaceData->FontScale, InOutlineSettings, OutRenderData);
 	}
 #endif // WITH_FREETYPE
 	return false;
@@ -280,62 +296,260 @@ bool FSlateFontRenderer::GetRenderData(const FShapedGlyphEntry& InShapedGlyph, F
 
 #if WITH_FREETYPE
 
-bool FSlateFontRenderer::GetRenderData(const FFreeTypeFaceGlyphData& InFaceGlyphData, const float InScale, FCharacterRenderData& OutRenderData) const
+/**
+ * Represents one or more pixels of a rasterized glyph that have the same coverage (filled amount)
+ */
+struct FRasterizerSpan
+{
+	/** Start x location of the span */
+	int32 X;
+	/** Start y location of the span  */
+	int32 Y;
+	
+	/** Length of the span */
+	int32 Width;
+	
+	/** How "filled" the span is where 0 is completely transparent and 255 is completely opaque */
+	uint8 Coverage;
+
+	FRasterizerSpan(int32 InX, int32 InY, int32 InWidth, uint8 InCoverage)
+		: X(InX)
+		, Y(InY)
+		, Width(InWidth)
+		, Coverage(InCoverage)
+	{}
+};
+
+/**
+ * Represents a single rasterized glyph
+ */
+struct FRasterizerSpanList
+{
+	/** List of spans in the glyph */
+	TArray<FRasterizerSpan> Spans;
+	/** Bounds around the glyph */
+	FBox2D BoundingBox;
+
+	FRasterizerSpanList()
+		: BoundingBox(0)
+	{}
+};
+
+
+/**
+ * Rasterizes a font glyph
+ */
+void RenderOutlineRows(FT_Library Library, FT_Outline* Outline, FRasterizerSpanList& OutSpansListOuter)
+{
+	auto RasterizerCallback = [](const int32 Y, const int32 Count, const FT_Span* const Spans, void* const UserData)
+	{
+		FRasterizerSpanList& UserDataSpanList = *static_cast<FRasterizerSpanList*>(UserData);
+
+		TArray<FRasterizerSpan>& UserDataSpans = UserDataSpanList.Spans;
+		FBox2D& BoundingBox = UserDataSpanList.BoundingBox;
+
+		UserDataSpans.Reserve(UserDataSpans.Num() + Count);
+		for(int32 SpanIndex = 0; SpanIndex < Count; ++SpanIndex)
+		{
+			const FT_Span& Span = Spans[SpanIndex];
+
+			BoundingBox += FVector2D(Span.x, Y);
+			BoundingBox += FVector2D(Span.x + Span.len - 1, Y);
+
+			UserDataSpans.Add(FRasterizerSpan(Span.x, Y, Span.len, Span.coverage));
+		}
+	};
+
+	FT_Raster_Params RasterParams;
+	FMemory::Memzero<FT_Raster_Params>(RasterParams);
+	RasterParams.flags = FT_RASTER_FLAG_AA | FT_RASTER_FLAG_DIRECT;
+	RasterParams.gray_spans = RasterizerCallback;
+	RasterParams.user = &OutSpansListOuter;
+
+	FT_Outline_Render(Library, Outline, &RasterParams);
+
+}
+
+bool FSlateFontRenderer::GetRenderData(const FFreeTypeFaceGlyphData& InFaceGlyphData, const float InScale, const FFontOutlineSettings& InOutlineSettings, FCharacterRenderData& OutRenderData) const
 {
 	FT_Face Face = InFaceGlyphData.FaceAndMemory->GetFace();
 
-	// Get the slot for the glyph.  This contains measurement info
-	FT_GlyphSlot Slot = Face->glyph;
-		
-	FT_Render_Glyph(Slot, FT_RENDER_MODE_NORMAL);
-
-	// one byte per pixel 
-	const uint32 GlyphPixelSize = 1;
-
 	FT_Bitmap* Bitmap = nullptr;
 
-	FT_Bitmap NewBitmap;
-	if (Slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
-	{
-		FT_Bitmap_New(&NewBitmap);
-		// Convert the mono font to 8bbp from 1bpp
-		FT_Bitmap_Convert(FTLibrary->GetLibrary(), &Slot->bitmap, &NewBitmap, 4);
+	// Get the lot for the glyph.  This contains measurement info
+	FT_GlyphSlot Slot = Face->glyph;
 
-		Bitmap = &NewBitmap;
-	}
-	else
+	float ScaledOutlineSize = FMath::RoundToFloat(InOutlineSettings.OutlineSize * InScale);
+
+	if( (ScaledOutlineSize > 0 || OutlineFontRenderMethod == 1) && Slot->format == FT_GLYPH_FORMAT_OUTLINE)
 	{
-		Bitmap = &Slot->bitmap;
-	}
+		// Render the filled area first
+		FRasterizerSpanList FillSpans;
+		RenderOutlineRows(FTLibrary->GetLibrary(), &Slot->outline, FillSpans);
+
+		FRasterizerSpanList OutlineSpans;
 		
-	OutRenderData.RawPixels.Reset();
-	OutRenderData.RawPixels.AddUninitialized(Bitmap->rows * Bitmap->width);
+		FT_Stroker Stroker = nullptr;
+		FT_Glyph Glyph = nullptr;
 
-	// Nothing to do for zero width or height glyphs
-	if (OutRenderData.RawPixels.Num())
-	{
-		// Copy the rendered bitmap to our raw pixels array
-		if (Slot->bitmap.pixel_mode != FT_PIXEL_MODE_MONO)
+		// If there is an outline, render it second after applying a border stroke to the font to produce an outline
+		if(ScaledOutlineSize > 0)
 		{
-			for (uint32 Row = 0; Row < (uint32)Bitmap->rows; ++Row)
-			{
-				// Copy a single row. Note Bitmap.pitch contains the offset (in bytes) between rows.  Not always equal to Bitmap.width!
-				FMemory::Memcpy(&OutRenderData.RawPixels[Row*Bitmap->width], &Bitmap->buffer[Row*Bitmap->pitch], Bitmap->width*GlyphPixelSize);
-			}
+			FT_Stroker_New(FTLibrary->GetLibrary(), &Stroker);
+			FT_Stroker_Set(Stroker, FMath::TruncToInt(FreeTypeUtils::ConvertPixelTo26Dot6<float>(ScaledOutlineSize)), FT_STROKER_LINECAP_ROUND, FT_STROKER_LINEJOIN_ROUND, 0);
 
+			FT_Get_Glyph(Slot, &Glyph);
+
+			bool bInner = false;
+			FT_Glyph_StrokeBorder(&Glyph, Stroker, bInner ? 1 : 0, 0);
+
+			FT_Outline* Outline = &reinterpret_cast<FT_OutlineGlyph>(Glyph)->outline;
+
+			RenderOutlineRows(FTLibrary->GetLibrary(), Outline, OutlineSpans);
 		}
-		else
+
+		const FBox2D BoundingBox = FillSpans.BoundingBox + OutlineSpans.BoundingBox;
+
+		FVector2D Size = BoundingBox.GetSize();
+
+		//Note: we add 1 to width and height because we need full pixels
+		int32 Width = FMath::TruncToInt(Size.X)+1;
+		int32 Height = FMath::TruncToInt(Size.Y)+1;
+
+		OutRenderData.RawPixels.Reset();
+
+		OutRenderData.MeasureInfo.SizeX = Width;
+		OutRenderData.MeasureInfo.SizeY = Height;
+
+		OutRenderData.RawPixels.AddZeroed(OutRenderData.MeasureInfo.SizeX * OutRenderData.MeasureInfo.SizeY);
+
+		int32 XMin = BoundingBox.Min.X;
+		int32 YMin = BoundingBox.Min.Y;
+
+		// Compute and copy the pixels for the total filled area of the glyph. 
+
+		// Copy the outline area first
+		const TArray<FRasterizerSpan>& FirstSpanList = OutlineSpans.Spans;
 		{
-			// In Mono a value of 1 means the pixel is drawn and a value of zero means it is not. 
-			// So we must check each pixel and convert it to a color.
-			for (uint32 Height = 0; Height < (uint32)Bitmap->rows; ++Height )
+			for(const FRasterizerSpan& Span : FirstSpanList)
 			{
-				for (uint32 Width = 0; Width < (uint32)Bitmap->width; ++Width)
+				for(int32 W = 0; W < Span.Width; ++W)
 				{
-					OutRenderData.RawPixels[Height*Bitmap->width+Width] = Bitmap->buffer[Height*Bitmap->pitch+Width] == 1 ? 255 : 0;
+					OutRenderData.RawPixels[((int32)((Height - 1 - (Span.Y - YMin)) * Width + Span.X - XMin + W))] = Span.Coverage;
+
 				}
 			}
 		}
+
+		// If there is an outline, it was rasterized by freetype with the filled area included
+		// This code will eliminate the filled area if the user requests an outline with separate translucency for the fill area
+		const TArray<FRasterizerSpan>& SecondSpanList = FillSpans.Spans;
+		{
+			if(ScaledOutlineSize > 0)
+			{
+				for (const FRasterizerSpan& Span : SecondSpanList)
+				{
+					for (int32 W = 0; W < Span.Width; ++W)
+					{
+						uint8& Src = OutRenderData.RawPixels[((int32)((Height - 1 - (Span.Y - YMin)) * Width + Span.X - XMin + W))];
+
+						if(InOutlineSettings.bSeparateFillAlpha)
+						{
+							// this method is better for transparent fill areas
+							Src = Span.Coverage ? FMath::Abs(Src - Span.Coverage) : 0;
+						}
+						else
+						{
+							// This method is better for opaque fill areas 
+							Src = Span.Coverage == 255 ? Span.Coverage : Src;
+						}
+					}
+				}
+			}
+			else
+			{
+				for (const FRasterizerSpan& Span : SecondSpanList)
+				{
+					for (int32 w = 0; w < Span.Width; ++w)
+					{
+						OutRenderData.RawPixels[((int32)((Height - 1 - (Span.Y - YMin)) * Width + Span.X - XMin + w))] = Span.Coverage;
+					}
+				}
+			}
+		}
+
+		FT_Stroker_Done(Stroker);
+		FT_Done_Glyph(Glyph);
+
+		// Note: in order to render the stroke properly AND to get proper measurements this must be done after rendering the stroke
+		FT_Render_Glyph(Slot, FT_RENDER_MODE_NORMAL);
+
+	}
+	else
+	{
+		// This path renders a standard font with no outline.  This may occur if the outline failed to generate
+
+		FT_Render_Glyph(Slot, FT_RENDER_MODE_NORMAL);
+
+		// one byte per pixel 
+		const uint32 GlyphPixelSize = 1;
+
+		FT_Bitmap NewBitmap;
+		if(Slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
+		{
+			FT_Bitmap_New(&NewBitmap);
+			// Convert the mono font to 8bbp from 1bpp
+			FT_Bitmap_Convert(FTLibrary->GetLibrary(), &Slot->bitmap, &NewBitmap, 4);
+
+			Bitmap = &NewBitmap;
+		}
+		else
+		{
+			Bitmap = &Slot->bitmap;
+		}
+
+		OutRenderData.RawPixels.Reset();
+		OutRenderData.RawPixels.AddUninitialized(Bitmap->rows * Bitmap->width);
+
+
+		// Nothing to do for zero width or height glyphs
+		if(OutRenderData.RawPixels.Num())
+		{
+			// Copy the rendered bitmap to our raw pixels array
+			if(Bitmap->pixel_mode != FT_PIXEL_MODE_MONO)
+			{
+				for(uint32 Row = 0; Row < (uint32)Bitmap->rows; ++Row)
+				{
+					// Copy a single row. Note Bitmap.pitch contains the offset (in bytes) between rows.  Not always equal to Bitmap.width!
+					FMemory::Memcpy(&OutRenderData.RawPixels[Row*Bitmap->width], &Bitmap->buffer[Row*Bitmap->pitch], Bitmap->width*GlyphPixelSize);
+				}
+
+			}
+			else
+			{
+				// In Mono a value of 1 means the pixel is drawn and a value of zero means it is not. 
+				// So we must check each pixel and convert it to a color.
+				for(uint32 Height = 0; Height < (uint32)Bitmap->rows; ++Height)
+				{
+					for(uint32 Width = 0; Width < (uint32)Bitmap->width; ++Width)
+					{
+						OutRenderData.RawPixels[Height*Bitmap->width+Width] = Bitmap->buffer[Height*Bitmap->pitch+Width] == 1 ? 255 : 0;
+					}
+				}
+			}
+		}
+
+		if(Bitmap->pixel_mode == FT_PIXEL_MODE_MONO)
+		{
+			FT_Bitmap_Done(FTLibrary->GetLibrary(), Bitmap);
+
+		}
+		OutRenderData.MeasureInfo.SizeX = Bitmap->width;
+		OutRenderData.MeasureInfo.SizeY = Bitmap->rows;
+
+		// Reset the outline to zero.  If we are in this path, either the outline failed to generate because the font supported or there is no outline
+		// We do not want to take it into account if it failed to generate
+		ScaledOutlineSize = 0;
 	}
 
 	const int32 Height = static_cast<int32>(FreeTypeUtils::Convert26Dot6ToRoundedPixel<int32>(FT_MulFix(Face->height, Face->size->metrics.y_scale)) * InScale);
@@ -343,8 +557,7 @@ bool FSlateFontRenderer::GetRenderData(const FFreeTypeFaceGlyphData& InFaceGlyph
 	// Set measurement info for this character
 	OutRenderData.GlyphIndex = InFaceGlyphData.GlyphIndex;
 	OutRenderData.HasKerning = FT_HAS_KERNING(Face) != 0;
-	OutRenderData.MeasureInfo.SizeX = Bitmap->width;
-	OutRenderData.MeasureInfo.SizeY = Bitmap->rows;
+
 	OutRenderData.MaxHeight = Height;
 
 	// Ascender is not scaled by freetype.  Scale it now. 
@@ -354,12 +567,8 @@ bool FSlateFontRenderer::GetRenderData(const FFreeTypeFaceGlyphData& InFaceGlyph
 	// Note we use Slot->advance instead of Slot->metrics.horiAdvance because Slot->Advance contains transformed position (needed if we scale)
 	OutRenderData.MeasureInfo.XAdvance = FreeTypeUtils::Convert26Dot6ToRoundedPixel<int16>(Slot->advance.x);
 	OutRenderData.MeasureInfo.HorizontalOffset = Slot->bitmap_left;
-	OutRenderData.MeasureInfo.VerticalOffset = Slot->bitmap_top;
+	OutRenderData.MeasureInfo.VerticalOffset = Slot->bitmap_top + ScaledOutlineSize;
 
-	if (Slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
-	{
-		FT_Bitmap_Done(FTLibrary->GetLibrary(), Bitmap);
-	}
 
 	return true;
 }

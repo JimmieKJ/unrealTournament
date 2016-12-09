@@ -7,8 +7,8 @@
 */
 
 // Core includes.
-#include "CorePrivatePCH.h"
-#include "ABTesting.h"
+#include "ProfilingDebugging/ABTesting.h"
+#include "HAL/IConsoleManager.h"
 
 #if ENABLE_ABTEST
 

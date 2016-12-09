@@ -50,15 +50,19 @@ class TestOnlineGameSettings : public FOnlineSessionSettings
 			const FString MapName = InWorld->GetMapName();
 			Set(SETTING_MAPNAME, MapName, EOnlineDataAdvertisementType::ViaOnlineService);
 
-			AGameMode const* const GameMode = InWorld->GetAuthGameMode();
+			AGameModeBase const* const GameModeBase = InWorld->GetAuthGameMode();
+			AGameMode const* const GameMode = Cast<AGameMode>(GameModeBase);
+			if (GameModeBase != NULL)
+			{
+				// Game type
+				FString GameModeStr = GameModeBase->GetClass()->GetName();
+				Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
+			}
+
 			if (GameMode != NULL)
 			{
 				// Bot count
 				Set(SETTING_NUMBOTS, GameMode->NumBots, EOnlineDataAdvertisementType::ViaOnlineService);
-
-				// Game type
-				FString GameModeStr = GameMode->GetClass()->GetName();
-				Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
 			}
 		}
 	}

@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Stats/Stats.h"
+#include "TickableEditorObject.h"
 
 /** Notification class for asynchronous shader compiling. */
 class FNavigationBuildingNotificationImpl

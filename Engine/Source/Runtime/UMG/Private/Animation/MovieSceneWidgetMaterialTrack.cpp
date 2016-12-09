@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "MovieSceneWidgetMaterialTrack.h"
-#include "MovieSceneWidgetMaterialTrackInstance.h"
-#include "WidgetMaterialTrackUtilities.h"
-
+#include "Animation/MovieSceneWidgetMaterialTrack.h"
+#include "Animation/WidgetMaterialTrackUtilities.h"
+#include "Animation/MovieSceneWidgetMaterialTemplate.h"
 
 UMovieSceneWidgetMaterialTrack::UMovieSceneWidgetMaterialTrack( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
@@ -12,9 +10,9 @@ UMovieSceneWidgetMaterialTrack::UMovieSceneWidgetMaterialTrack( const FObjectIni
 }
 
 
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneWidgetMaterialTrack::CreateInstance()
+FMovieSceneEvalTemplatePtr UMovieSceneWidgetMaterialTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
 {
-	return MakeShareable(new FMovieSceneWidgetMaterialTrackInstance(*this));
+	return FMovieSceneWidgetMaterialSectionTemplate(*CastChecked<UMovieSceneParameterSection>(&InSection), *this);
 }
 
 

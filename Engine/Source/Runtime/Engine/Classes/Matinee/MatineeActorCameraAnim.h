@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Matinee/MatineeActor.h"
 #include "MatineeActorCameraAnim.generated.h"
 
@@ -17,11 +20,4 @@ class AMatineeActorCameraAnim : public AMatineeActor
 	/** The camera anim we are editing */
 	UPROPERTY(Transient)
 	UCameraAnim* CameraAnim;
-
-	//~ Begin UObject Interface
-	virtual bool NeedsLoadForClient() const override
-	{ 
-		return false; 
-	}
-	//~ End UObject Interface
 };

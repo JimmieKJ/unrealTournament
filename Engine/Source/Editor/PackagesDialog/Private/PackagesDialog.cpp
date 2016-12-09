@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
 #include "PackagesDialog.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SWindow.h"
+#include "Editor.h"
 #include "SPackagesDialog.h"
+#include "Widgets/Views/SListView.h"
 
 IMPLEMENT_MODULE( FPackagesDialogModule, PackagesDialog );
 

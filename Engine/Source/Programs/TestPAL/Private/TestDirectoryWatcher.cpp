@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PrivatePCH.h"
+#include "TestDirectoryWatcher.h"
 #include "IDirectoryWatcher.h"
 #include "DirectoryWatcherModule.h"
-#include "TestDirectoryWatcher.h"
 #include "LaunchEngineLoop.h"	// GEngineLoop
 #include "ModuleManager.h"
+#include "TestPALLog.h"
+#include "HAL/PlatformFile.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/PlatformProcess.h"
 
 struct FChangeDetector
 {

@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "OnlineAsyncTaskManager.h"
+#include "OnlineStats.h"
 
 #include "gpg/leaderboard_manager.h"
 

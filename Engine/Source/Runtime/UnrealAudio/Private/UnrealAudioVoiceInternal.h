@@ -2,12 +2,11 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
 #include "UnrealAudioTypes.h"
-#include "UnrealAudioVoice.h"
-#include "UnrealAudioPrivate.h"
-#include "UnrealAudioEntityManager.h"
 #include "UnrealAudioEmitterInternal.h"
-#include "UnrealAudioUtilities.h"
+
+class Error;
 
 #if ENABLE_UNREAL_AUDIO
 

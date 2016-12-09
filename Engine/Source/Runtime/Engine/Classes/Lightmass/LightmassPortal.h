@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "LightmassPortal.generated.h"
+
+class UBillboardComponent;
 
 UCLASS(hidecategories=(Collision, Attachment, Actor), MinimalAPI)
 class ALightmassPortal : public AActor

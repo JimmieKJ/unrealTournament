@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "DockingPrivate.h"
+#include "Framework/Docking/SDockingTarget.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/Docking/FDockingDragOperation.h"
 
 
 static const FSlateBrush* BorderBrushFromDockDirection(SDockingNode::RelativeDirection DockDirection)

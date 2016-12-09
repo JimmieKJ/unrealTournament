@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "SlateWrapperTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptMacros.h"
+#include "Layout/Margin.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Components/PanelSlot.h"
 
 #include "ScrollBoxSlot.generated.h"
 

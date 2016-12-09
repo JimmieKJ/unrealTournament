@@ -1,34 +1,64 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneCaptureDialogModule.h"
+#include "Dom/JsonValue.h"
+#include "Dom/JsonObject.h"
+#include "Layout/Visibility.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Input/Reply.h"
+#include "UObject/GCObject.h"
+#include "Widgets/SWidget.h"
+#include "Misc/Paths.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/Docking/TabManager.h"
+
+#include "HAL/IConsoleManager.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "Misc/App.h"
+#include "Serialization/ObjectWriter.h"
+#include "Serialization/ObjectReader.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/GameViewportClient.h"
+#include "GameFramework/GameModeBase.h"
+#include "Slate/SceneViewport.h"
 #include "MovieSceneCapture.h"
 
-#include "UnrealEdMisc.h"
+#include "Serialization/JsonSerializer.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Input/SButton.h"
+#include "Settings/LevelEditorPlaySettings.h"
+#include "Editor.h"
 
-#include "SlateBasics.h"
-#include "SlateExtras.h"
-#include "SceneViewport.h"
+#include "Widgets/Input/SHyperlink.h"
+#include "Widgets/Images/SThrobber.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "AudioDevice.h"
 
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "JsonObjectConverter.h"
-#include "INotificationWidget.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Notifications/INotificationWidget.h"
 
-#include "EditorStyle.h"
-#include "Editor.h"
-#include "PropertyEditing.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
 #include "FileHelpers.h"
 
-#include "ISessionServicesModule.h"
-#include "ISessionInstanceInfo.h"
-#include "ISessionInfo.h"
 #include "ISessionManager.h"
+#include "ISessionServicesModule.h"
 
 #include "ErrorCodes.h"
 
-#include "SLevelViewport.h"
+#include "GameFramework/WorldSettings.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCaptureDialog"
 
@@ -85,6 +115,8 @@ class SRenderMovieSceneSettings : public SCompoundWidget, public FGCObject
 			]
 			
 		];
+
+		MovieSceneCapture = nullptr;
 
 		if (InArgs._InitialObject)
 		{
@@ -487,6 +519,12 @@ private:
 					
 					Window->Resize(PreviewWindowSize);
 
+					if (CaptureObject->Settings.GameModeOverride != nullptr)
+					{
+						CachedGameMode = CapturingFromWorld->GetWorldSettings()->DefaultGameMode;
+						CapturingFromWorld->GetWorldSettings()->DefaultGameMode = CaptureObject->Settings.GameModeOverride;
+					}
+
 					CaptureObject->Initialize(SlatePlayInEditorSession->SlatePlayInEditorWindowViewport, Context.PIEInstance);
 					OnStarted();
 				}
@@ -518,6 +556,11 @@ private:
 			{
 				CVarUseFixedPoolSize->Set(BackedUpUseFixedPoolSize, ECVF_SetByConsole);
 			}
+		}
+
+		if (CaptureObject->Settings.GameModeOverride != nullptr)
+		{
+			CapturingFromWorld->GetWorldSettings()->DefaultGameMode = CachedGameMode;
 		}
 
 		FObjectReader(GetMutableDefault<ULevelEditorPlaySettings>(), BackedUpPlaySettings);
@@ -556,6 +599,8 @@ private:
 	int32 BackedUpUseFixedPoolSize;
 	TArray<uint8> BackedUpPlaySettings;
 	UMovieSceneCapture* CaptureObject;
+
+	TSubclassOf<AGameModeBase> CachedGameMode;
 };
 
 class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule

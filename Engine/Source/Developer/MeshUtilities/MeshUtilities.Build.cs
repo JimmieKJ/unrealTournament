@@ -10,30 +10,39 @@ public class MeshUtilities : ModuleRules
 
         PublicDependencyModuleNames.AddRange(
             new string[] {
-                "MaterialUtilities"
-            }
+				"MaterialUtilities",
+
+			}
         );
 
 		PrivateDependencyModuleNames.AddRange(
-			new string [] {
+			new string[] {
 				"Core",
 				"CoreUObject",
 				"Engine",
 				"RawMesh",
 				"RenderCore", // For FPackedNormal
 				"SlateCore",
-				"MaterialUtilities", 
-                "MeshBoneReduction",		
-                "UnrealEd",
-                "RHI",                
-                "HierarchicalLODUtilities",
-                "Landscape"
-			}
+				"Slate",
+				"MaterialUtilities",
+				"MeshBoneReduction",
+				"UnrealEd",
+				"RHI",
+				"HierarchicalLODUtilities",
+				"Landscape",
+				"LevelEditor",
+				"AnimationBlueprintEditor",
+				"AnimationEditor",
+				"SkeletalMeshEditor",
+				"SkeletonEditor",
+				"PropertyEditor",
+				"EditorStyle",
+            }
 		);
 
         AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTriStrip");
         AddEngineThirdPartyPrivateStaticDependencies(Target, "ForsythTriOptimizer");
-        AddEngineThirdPartyPrivateStaticDependencies(Target, "MeshSimplifier");
+        AddEngineThirdPartyPrivateStaticDependencies(Target, "QuadricMeshReduction");
         AddEngineThirdPartyPrivateStaticDependencies(Target, "MikkTSpace");
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTessLib");
 

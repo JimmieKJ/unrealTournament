@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Developer/LocalizationService/Public/ILocalizationServiceProvider.h"
-#include "OneSkyLocalizationServiceCommand.h"
+
+struct FOneSkyConnectionInfo;
 
 class FOneSkyConnection
 {

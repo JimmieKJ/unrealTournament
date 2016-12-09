@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealFrontendPrivatePCH.h"
+#include "CoreMinimal.h"
 #include "UnrealFrontendMain.h"
 #include "RequiredProgramMainCPPInclude.h"
 #include "LinuxCommonStartup.h"

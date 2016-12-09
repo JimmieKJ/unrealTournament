@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node_InputAxisKeyEvent.h"
 #include "K2Node_InputVectorAxisEvent.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UDynamicBlueprintBinding;
 
 UCLASS(MinimalAPI)
 class UK2Node_InputVectorAxisEvent : public UK2Node_InputAxisKeyEvent

@@ -1,8 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Developer/AssetTools/Public/IAssetTypeActions.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
 #include "GraphEditor.h"
+#include "IAssetTypeActions.h"
+#include "IDetailsView.h"
+
+class UEdGraph;
+struct FTreeDiffResultItem;
+template <typename ItemType> class SListView;
 
 class SBehaviorTreeDiff: public SCompoundWidget
 {
@@ -93,7 +105,7 @@ private:
 	};
 
 	// Type def for our Table item
-	typedef TSharedPtr<struct FDiffResultItem> FSharedDiffOnGraph;
+	typedef TSharedPtr<struct FTreeDiffResultItem> FSharedDiffOnGraph;
 
 	// Type def of our Table Type
 	typedef SListView<FSharedDiffOnGraph > SListViewType;

@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SlatePasswordRun.h"
-#include "ShapedTextCache.h"
-#include "RunUtils.h"
+#include "Framework/Text/SlatePasswordRun.h"
+#include "Rendering/DrawElements.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Text/RunUtils.h"
 
 TSharedRef< FSlatePasswordRun > FSlatePasswordRun::Create(const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FTextBlockStyle& Style)
 {

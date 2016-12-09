@@ -2,11 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
-#include "IKeyframeSection.h"
+#include "Sections/IKeyframeSection.h"
 #include "Curves/StringCurve.h"
 #include "MovieSceneStringSection.generated.h"
-
 
 /**
  * A single string section
@@ -37,6 +39,10 @@ public:
 	{
 		return StringCurve;
 	}
+	const FStringCurve& GetStringCurve() const
+	{
+		return StringCurve;
+	}
 
 public:
 
@@ -46,6 +52,7 @@ public:
 	virtual bool HasKeys( const FString& KeyData ) const;
 	virtual void AddKey( float Time, const FString& KeyData, EMovieSceneKeyInterpolation KeyInterpolation );
 	virtual void SetDefault( const FString& KeyData );
+	virtual void ClearDefaults() override;
 
 public:
 

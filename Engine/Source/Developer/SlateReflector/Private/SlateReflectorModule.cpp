@@ -1,10 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateReflectorPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/Docking/TabManager.h"
+#include "Widgets/SWidgetReflector.h"
 #include "ISlateReflectorModule.h"
-#include "SDockTab.h"
-#include "ModuleManager.h"
-#include "SAtlasVisualizer.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/SAtlasVisualizer.h"
 #include "WidgetSnapshotService.h"
 
 

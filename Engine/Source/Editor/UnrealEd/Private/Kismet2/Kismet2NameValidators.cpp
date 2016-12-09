@@ -1,15 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "SlateBasics.h"
-#include "Kismet2NameValidators.h"
-#include "AnimGraphDefinitions.h"
+#include "Kismet2/Kismet2NameValidators.h"
+#include "UObject/Object.h"
+#include "UObject/UnrealType.h"
+#include "K2Node_FunctionEntry.h"
 #include "AnimStateTransitionNode.h"
 #include "AnimationStateMachineGraph.h"
-#include "KismetEditorUtilities.h"
-#include "KismetDebugUtilities.h"
-#include "BlueprintEditorUtils.h"
-#include "StructureEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "KismetNameValidators"
 

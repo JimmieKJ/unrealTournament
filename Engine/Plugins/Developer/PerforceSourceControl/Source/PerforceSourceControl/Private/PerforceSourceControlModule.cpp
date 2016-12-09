@@ -1,13 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PerforceSourceControlPrivatePCH.h"
 #include "PerforceSourceControlModule.h"
-#include "ModuleManager.h"
-#include "ISourceControlModule.h"
+#include "Misc/App.h"
 #include "PerforceSourceControlOperations.h"
-#include "PerforceSourceControlState.h"
-#include "PerforceSourceControlSettings.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "Features/IModularFeatures.h"
 
 #define LOCTEXT_NAMESPACE "PerforceSourceControl"
 

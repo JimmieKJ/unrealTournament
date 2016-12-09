@@ -1,11 +1,36 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintCompilerCppBackendModulePrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "UObject/StructOnScope.h"
+#include "UObject/UnrealType.h"
+#include "UObject/UObjectHash.h"
+#include "Misc/PackageName.h"
+#include "Engine/Blueprint.h"
+#include "Components/ActorComponent.h"
+#include "Components/SceneComponent.h"
+#include "Engine/LatentActionManager.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "Components/PrimitiveComponent.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/TimelineTemplate.h"
+#include "Engine/UserDefinedEnum.h"
+#include "Engine/UserDefinedStruct.h"
+#include "EdGraphSchema_K2.h"
+#include "KismetCompiler.h"
+#include "BlueprintCompilerCppBackend.h"
+#include "BlueprintCompilerCppBackendGatherDependencies.h"
+#include "IBlueprintCompilerCppBackendModule.h"
 #include "BlueprintCompilerCppBackendUtils.h"
-#include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
+#include "Kismet2/StructureEditorUtils.h"
+#include "Engine/SCS_Node.h"
 #include "Engine/InheritableComponentHandler.h"
 #include "Engine/DynamicBlueprintBinding.h"
-#include "Runtime/Core/Public/Math/Box2D.h"
+#include "Blueprint/BlueprintSupport.h"
 
 void FEmitDefaultValueHelper::OuterGenerate(FEmitterLocalContext& Context
 	, const UProperty* Property
@@ -52,6 +77,8 @@ void FEmitDefaultValueHelper::OuterGenerate(FEmitterLocalContext& Context
 			|| ((Property->PropertyFlags & CPF_Config) != 0) 
 			|| (!Property->Identical_InContainer(DataContainer, OptionalDefaultDataContainer, ArrayIndex) && !IsInstancedSubobjectLambda(ArrayIndex)))
 		{
+			FNativizationSummaryHelper::PropertyUsed(Context.GetCurrentlyGeneratedClass(), Property);
+
 			FString PathToMember;
 			UBlueprintGeneratedClass* PropertyOwnerAsBPGC = Cast<UBlueprintGeneratedClass>(Property->GetOwnerClass());
 			UScriptStruct* PropertyOwnerAsScriptStruct = Cast<UScriptStruct>(Property->GetOwnerStruct());
@@ -159,7 +186,7 @@ void FEmitDefaultValueHelper::InnerGenerate(FEmitterLocalContext& Context, const
 			}
 			else if (ValueStr.IsEmpty())
 			{
-				UE_LOG(LogK2Compiler, Error, TEXT("FEmitDefaultValueHelper Cannot generate initilization: %s"), *LocalProperty->GetPathName());
+				UE_LOG(LogK2Compiler, Error, TEXT("FEmitDefaultValueHelper Cannot generate initialization: %s"), *LocalProperty->GetPathName());
 			}
 		}
 		OutSingleLine += ValueStr;
@@ -647,7 +674,7 @@ FString FEmitDefaultValueHelper::HandleNonNativeComponent(FEmitterLocalContext& 
 	UBlueprintGeneratedClass* BPGC = CastChecked<UBlueprintGeneratedClass>(Context.GetCurrentlyGeneratedClass());
 	if (UActorComponent* ComponentTemplate = Node->GetActualComponentTemplate(BPGC))
 	{
-		const FString VariableCleanName = Node->VariableName.ToString();
+		const FString VariableCleanName = Node->GetVariableName().ToString();
 
 		const UObjectProperty* VariableProperty = FindField<UObjectProperty>(BPGC, *VariableCleanName);
 		if (VariableProperty)
@@ -693,7 +720,7 @@ FString FEmitDefaultValueHelper::HandleNonNativeComponent(FEmitterLocalContext& 
 				FString ParentVariableName;
 				if (ParentNode)
 				{
-					const FString CleanParentVariableName = ParentNode->VariableName.ToString();
+					const FString CleanParentVariableName = ParentNode->GetVariableName().ToString();
 					const UObjectProperty* ParentVariableProperty = FindField<UObjectProperty>(BPGC, *CleanParentVariableName);
 					ParentVariableName = ParentVariableProperty ? FEmitHelper::GetCppName(ParentVariableProperty) : CleanParentVariableName;
 				}
@@ -765,37 +792,144 @@ public:
 	}
 };
 
-void FEmitDefaultValueHelper::AddStaticFunctionsForDependencies(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies)
+struct FFakeImportTableHelper
 {
+	TSet<UObject*> SerializeBeforeSerializeClassDependencies;
 
+	TSet<UObject*> SerializeBeforeCreateCDODependencies;
 
-	// 0.ALL ASSETS TO LIST
-	TSet<const UObject*> StaticDependenciesAssets;
+	FFakeImportTableHelper(UClass* SourceClass, UClass* OriginalClass, FEmitterLocalContext& Context)
 	{
-		for (UObject* LocAsset : Context.Dependencies.Assets)
+		if (ensure(SourceClass) && ensure(OriginalClass))
 		{
-			if (ParentDependencies.IsValid() && ParentDependencies->Assets.Contains(LocAsset))
+			auto GatherDependencies = [&](UClass* InClass)
 			{
-				continue;
-			}
-			StaticDependenciesAssets.Add(LocAsset);
-		}
-		for (UBlueprintGeneratedClass* LocAsset : Context.Dependencies.ConvertedClasses)
-		{
-			if (ParentDependencies.IsValid() && (ParentDependencies->ConvertedClasses.Contains(LocAsset) || ParentDependencies->Assets.Contains(LocAsset)))
-			{
-				continue;
-			}
-			StaticDependenciesAssets.Add(LocAsset);
+				check(InClass);
+				{
+					SerializeBeforeSerializeClassDependencies.Add(InClass->GetSuperClass());
+
+					for (const FImplementedInterface& ImplementedInterface : InClass->Interfaces)
+					{
+						SerializeBeforeSerializeClassDependencies.Add(ImplementedInterface.Class);
+					}
+
+					TArray<UObject*> ObjectsInsideClass;
+					GetObjectsWithOuter(InClass, ObjectsInsideClass, true);
+					for (UObject* Obj : ObjectsInsideClass)
+					{
+						UProperty* Property = Cast<UProperty>(Obj);
+						if (!Property)
+						{
+							continue;
+						}
+						const UProperty* OwnerProperty = Property->GetOwnerProperty();
+						if (!ensure(IsValid(OwnerProperty)))
+						{
+							continue;
+						}
+						
+						// TODO:
+						// Let UDS_A contain UDS_B. Let UDS_B contain an array or a set of UDS_A. It causes a cyclic dependency. 
+						// Should we try to fix it at this stage?
+
+						const bool bIsParam = (0 != (OwnerProperty->PropertyFlags & CPF_Parm)) && OwnerProperty->IsIn(InClass);
+						const bool bIsMemberVariable = (OwnerProperty->GetOuter() == InClass);
+						if (bIsParam || bIsMemberVariable) // Affects the class signature. It is necessary while ZCOnstructor/linking.
+						{
+							TArray<UObject*> LocalPreloadDependencies;
+							Property->GetPreloadDependencies(LocalPreloadDependencies);
+							for (UObject* Dependency : LocalPreloadDependencies)
+							{
+								const bool bDependencyMustBeSerializedBeforeClassIsLinked = Dependency
+									&& (Dependency->IsA<UScriptStruct>() || Dependency->IsA<UEnum>());
+								if (bDependencyMustBeSerializedBeforeClassIsLinked)
+								{
+									SerializeBeforeSerializeClassDependencies.Add(Dependency);
+								}
+							}
+						}
+					}
+				}
+
+				{
+					SerializeBeforeCreateCDODependencies.Add(InClass->GetSuperClass()->GetDefaultObject());
+					auto GetClassesOfSubobjects = [&](TMap<UObject*, FString>& SubobjectsMap)
+					{
+						TArray<UObject*> Subobjects;
+						SubobjectsMap.GetKeys(Subobjects);
+						for (UObject* Subobject : Subobjects)
+						{
+							if (Subobject)
+							{
+								SerializeBeforeCreateCDODependencies.Add(Subobject->GetClass());
+							}
+						}
+					};
+					GetClassesOfSubobjects(Context.ClassSubobjectsMap);
+					GetClassesOfSubobjects(Context.CommonSubobjectsMap);
+				}
+			};
 		}
 	}
 
-	// 1. USED ASSETS LIST
+	void FillDependencyData(const UObject* Asset, FCompactBlueprintDependencyData& CompactDataRef) const
+	{
+		ensure(Asset);
+
+		{
+			//Dynamic Class requires no non-native class, owner, archetype..
+			CompactDataRef.ClassDependency.bSerializationBeforeCreateDependency = false;
+			CompactDataRef.ClassDependency.bCreateBeforeCreateDependency = false;
+
+			const bool bDependencyNecessaryForLinking = SerializeBeforeSerializeClassDependencies.Contains(const_cast<UObject*>(Asset));
+
+			// Super Class, Interfaces, ScriptStructs, Enums..
+			CompactDataRef.ClassDependency.bSerializationBeforeSerializationDependency = bDependencyNecessaryForLinking;
+
+			// Everything else
+			CompactDataRef.ClassDependency.bCreateBeforeSerializationDependency = !bDependencyNecessaryForLinking;
+		}
+
+		{
+			//everything was created for class
+			CompactDataRef.CDODependency.bCreateBeforeCreateDependency = false; 
+
+			// Classes of subobjects, created while CDO construction
+			CompactDataRef.CDODependency.bSerializationBeforeCreateDependency = SerializeBeforeCreateCDODependencies.Contains(const_cast<UObject*>(Asset));
+
+			// CDO is not serialized
+			CompactDataRef.CDODependency.bCreateBeforeSerializationDependency = false;
+			CompactDataRef.CDODependency.bSerializationBeforeSerializationDependency = false;
+		}
+	}
+};
+
+void FEmitDefaultValueHelper::AddStaticFunctionsForDependencies(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies)
+{
+	// 1. GATHER UDS DEFAULT VALUE DEPENDENCIES
+	{
+		TSet<UObject*> References;
+		for (UUserDefinedStruct* UDS : Context.StructsWithDefaultValuesUsed)
+		{
+			FGatherConvertedClassDependencies::GatherAssetReferencedByUDSDefaultValue(References, UDS);
+		}
+		for (UObject* Obj : References)
+		{
+			Context.UsedObjectInCurrentClass.AddUnique(Obj);
+		}
+	}
+
+	// 2. ALL ASSETS TO LIST
+	TSet<const UObject*> AllDependenciesToHandle = Context.Dependencies.AllDependencies();
+	AllDependenciesToHandle.Append(Context.UsedObjectInCurrentClass);
+	
+	// HELPERS
 	auto SourceClass = Context.GetCurrentlyGeneratedClass();
 	auto OriginalClass = Context.Dependencies.FindOriginalClass(SourceClass);
-	const FString CppClassName = FEmitHelper::GetCppName(OriginalClass);
+	const FString CppClassName = FEmitHelper::GetCppName(SourceClass);
+	FFakeImportTableHelper FakeImportTableHelper(SourceClass, OriginalClass, Context);
 
-	auto CreateAssetToLoadString = [&](const UObject* AssetObj, const FString& LongPathVariable) -> FString
+	auto CreateAssetToLoadString = [&](const UObject* AssetObj) -> FString
 	{
 		UClass* AssetType = AssetObj->GetClass();
 		if (AssetType->IsChildOf<UUserDefinedEnum>())
@@ -811,118 +945,99 @@ void FEmitDefaultValueHelper::AddStaticFunctionsForDependencies(FEmitterLocalCon
 			AssetType = UDynamicClass::StaticClass();
 		}
 
-		return FString::Printf(TEXT("FBlueprintDependencyData(%s, TEXT(\"%s\"), TEXT(\"%s\"), TEXT(\"%s\"), TEXT(\"%s\")),")
-			, *LongPathVariable
+		const FString LongPackagePath = FPackageName::GetLongPackagePath(AssetObj->GetOutermost()->GetPathName());
+		return FString::Printf(TEXT("FBlueprintDependencyObjectRef(TEXT(\"%s\"), TEXT(\"%s\"), TEXT(\"%s\"), TEXT(\"%s\"), TEXT(\"%s\")),")
+			, *LongPackagePath
 			, *FPackageName::GetShortName(AssetObj->GetOutermost()->GetPathName())
 			, *AssetObj->GetName()
 			, *AssetType->GetOutermost()->GetPathName()
 			, *AssetType->GetName());
 	};
 
-	auto AddAssetArray = [&](TArray<const UObject*>& Assets)
+	auto CreateDependencyRecord = [&](const UObject* InAsset) -> FCompactBlueprintDependencyData
 	{
-		TMap<FString, FString> PrefixToLocalVariable;
-		for (const UObject* LocAsset : Assets)
+		ensure(InAsset);
+		FNativizationSummary::FDependencyRecord& DependencyRecord = FDependenciesGlobalMapHelper::FindDependencyRecord(InAsset);
+		ensure(DependencyRecord.Index >= 0);
+		if (DependencyRecord.NativeLine.IsEmpty())
 		{
-			FString LongPackagePath = FPackageName::GetLongPackagePath(LocAsset->GetOutermost()->GetPathName());
-			if (!PrefixToLocalVariable.Find(LongPackagePath))
-			{
-				FString VariableName = Context.GenerateUniqueLocalName();
-				Context.AddLine(FString::Printf(TEXT("const TCHAR* %s = TEXT(\"%s\");"), *VariableName, *LongPackagePath));
-				PrefixToLocalVariable.Add(LongPackagePath, VariableName);
-			}
+			DependencyRecord.NativeLine = CreateAssetToLoadString(InAsset);
 		}
 
+		FCompactBlueprintDependencyData Result;
+		Result.ObjectRefIndex = static_cast<int16>(DependencyRecord.Index);
+		FakeImportTableHelper.FillDependencyData(InAsset, Result);
+		return Result;
+	};
+
+	auto AddAssetArray = [&](const TArray<const UObject*>& Assets)
+	{
 		if (Assets.Num())
 		{
-			Context.AddLine(TEXT("FBlueprintDependencyData LocAssets[] ="));
+			Context.AddLine(TEXT("const FCompactBlueprintDependencyData LocCompactBlueprintDependencyData[] ="));
 			Context.AddLine(TEXT("{"));
 			Context.IncreaseIndent();
 		}
 
+		auto BlueprintDependencyTypeToString = [](FBlueprintDependencyType DependencyType) -> FString
+		{
+			return FString::Printf(TEXT("FBlueprintDependencyType(%s, %s, %s, %s)")
+				, DependencyType.bSerializationBeforeSerializationDependency ? TEXT("true") : TEXT("false")
+				, DependencyType.bCreateBeforeSerializationDependency ? TEXT("true") : TEXT("false")
+				, DependencyType.bSerializationBeforeCreateDependency ? TEXT("true") : TEXT("false")
+				, DependencyType.bCreateBeforeCreateDependency ? TEXT("true") : TEXT("false"));
+		};
+
 		for (const UObject* LocAsset : Assets)
 		{
-			FString* LongPathVar = PrefixToLocalVariable.Find(FPackageName::GetLongPackagePath(LocAsset->GetOutermost()->GetPathName()));
-			check(LongPathVar);
-			Context.AddLine(CreateAssetToLoadString(LocAsset, *LongPathVar));
+			const FCompactBlueprintDependencyData DependencyRecord = CreateDependencyRecord(LocAsset);
+			Context.AddLine(FString::Printf(TEXT("{%d, %s, %s},  // %s ")
+				, DependencyRecord.ObjectRefIndex
+				, *BlueprintDependencyTypeToString(DependencyRecord.ClassDependency)
+				, *BlueprintDependencyTypeToString(DependencyRecord.CDODependency)
+				, *LocAsset->GetFullName()));
 		}
 
 		if (Assets.Num())
 		{
 			Context.DecreaseIndent();
 			Context.AddLine(TEXT("};"));
-			Context.AddLine(TEXT("for(auto& LocAsset : LocAssets) { AssetsToLoad.Add(LocAsset); } "));
+			Context.AddLine(TEXT("for(const FCompactBlueprintDependencyData CompactData : LocCompactBlueprintDependencyData)"));
+			Context.AddLine(TEXT("{"));
+			Context.AddLine(TEXT("\tAssetsToLoad.Add(FBlueprintDependencyData("));
+			Context.AddLine(TEXT("\t\tF__NativeDependencies::Get(CompactData.ObjectRefIndex)"));
+			Context.AddLine(TEXT("\t\t,CompactData.ClassDependency"));
+			Context.AddLine(TEXT("\t\t,CompactData.CDODependency"));
+			Context.AddLine(TEXT("\t));"));
+			Context.AddLine(TEXT("} "));
 		}
 	};
 
-	int32 UsedAssetIndex = 0;
-	// 1. COMMON DEPENDENCIES ASSETS - USED BOTH BY __StaticDependenciesAssets and __StaticDependencies_DirectlyUsedAssets
+	// 3. LIST OF UsedAssets
 	{
-		Context.AddLine(FString::Printf(TEXT("void %s::__StaticDependencies_CommonAssets(TArray<FBlueprintDependencyData>& AssetsToLoad)"), *CppClassName));
-		Context.AddLine(TEXT("{"));
-		Context.IncreaseIndent();
-
-		TArray<const UObject*> AssetsToAdd;
-		for (;UsedAssetIndex < Context.UsedObjectInCurrentClass.Num(); ++UsedAssetIndex)
-		{
-			const UObject* LocAsset = Context.UsedObjectInCurrentClass[UsedAssetIndex];
-			if (!StaticDependenciesAssets.Contains(LocAsset))
-			{
-				break;
-			}
-			StaticDependenciesAssets.Remove(LocAsset);
-			AssetsToAdd.Add(LocAsset);
-		}
-		AddAssetArray(AssetsToAdd);
-
-		Context.DecreaseIndent();
-		Context.AddLine(TEXT("}"));
-	}
-
-	//
-	{
-		// __StaticDependencies_DirectlyUsedAssets
 		Context.AddLine(FString::Printf(TEXT("void %s::__StaticDependencies_DirectlyUsedAssets(TArray<FBlueprintDependencyData>& AssetsToLoad)"), *CppClassName));
 		Context.AddLine(TEXT("{"));
 		Context.IncreaseIndent();
-
-		Context.AddLine(FString(TEXT("__StaticDependencies_CommonAssets(AssetsToLoad);")));
-
 		TArray<const UObject*> AssetsToAdd;
-		for (; UsedAssetIndex < Context.UsedObjectInCurrentClass.Num(); ++UsedAssetIndex)
+		for (int32 UsedAssetIndex = 0; UsedAssetIndex < Context.UsedObjectInCurrentClass.Num(); ++UsedAssetIndex)
 		{
 			const UObject* LocAsset = Context.UsedObjectInCurrentClass[UsedAssetIndex];
-			ensure(!StaticDependenciesAssets.Contains(LocAsset));
+			ensure(AllDependenciesToHandle.Contains(LocAsset));
 			AssetsToAdd.Add(LocAsset);
+			AllDependenciesToHandle.Remove(LocAsset);
 		}
 		AddAssetArray(AssetsToAdd);
-
 		Context.DecreaseIndent();
 		Context.AddLine(TEXT("}"));
 	}
 
-	// 2. REMAINING DEPENDENCIES
-	// __StaticDependenciesAssets
+	// 4. REMAINING DEPENDENCIES
 	{
 		Context.AddLine(FString::Printf(TEXT("void %s::__StaticDependenciesAssets(TArray<FBlueprintDependencyData>& AssetsToLoad)"), *CppClassName));
 		Context.AddLine(TEXT("{"));
 		Context.IncreaseIndent();
-
-		UBlueprintGeneratedClass* ParentBPGC = Cast<UBlueprintGeneratedClass>(SourceClass->GetSuperClass());
-		ensure(ParentDependencies.IsValid() == !!ParentBPGC);
-		if (ParentBPGC)
-		{
-			Context.AddLine(FString::Printf(TEXT("%s::__StaticDependenciesAssets(AssetsToLoad);"), *FEmitHelper::GetCppName(ParentBPGC)));
-		}
-		Context.AddLine(FString(TEXT("__StaticDependencies_CommonAssets(AssetsToLoad);")));
-
-		TArray<const UObject*> AssetsToAdd;
-		for (const UObject* LocAsset : StaticDependenciesAssets)
-		{
-			AssetsToAdd.Add(LocAsset);
-		}
-		AddAssetArray(AssetsToAdd);
-
+		Context.AddLine(FString(TEXT("__StaticDependencies_DirectlyUsedAssets(AssetsToLoad);")));
+		AddAssetArray(AllDependenciesToHandle.Array());
 		Context.DecreaseIndent();
 		Context.AddLine(TEXT("}"));
 	}
@@ -932,7 +1047,7 @@ void FEmitDefaultValueHelper::AddRegisterHelper(FEmitterLocalContext& Context)
 {
 	auto SourceClass = Context.GetCurrentlyGeneratedClass();
 	auto OriginalClass = Context.Dependencies.FindOriginalClass(SourceClass);
-	const FString CppClassName = FEmitHelper::GetCppName(OriginalClass);
+	const FString CppClassName = FEmitHelper::GetCppName(SourceClass);
 
 	const FString RegisterHelperName = FString::Printf(TEXT("FRegisterHelper__%s"), *CppClassName);
 	Context.AddLine(FString::Printf(TEXT("struct %s"), *RegisterHelperName));
@@ -957,19 +1072,6 @@ void FEmitDefaultValueHelper::AddRegisterHelper(FEmitterLocalContext& Context)
 	Context.AddLine(TEXT("};"));
 
 	Context.AddLine(FString::Printf(TEXT("%s %s::Instance;"), *RegisterHelperName, *RegisterHelperName));
-}
-
-
-void FEmitDefaultValueHelper::FillCommonUsedAssets(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies)
-{
-	ensure(0 == Context.UsedObjectInCurrentClass.Num());
-	for (auto LocAsset : Context.Dependencies.Assets)
-	{
-		if (!ParentDependencies.IsValid() || !ParentDependencies->Assets.Contains(LocAsset))
-		{
-			Context.UsedObjectInCurrentClass.Add(LocAsset);
-		}
-	}
 }
 
 void FEmitDefaultValueHelper::GenerateCustomDynamicClassInitialization(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies)
@@ -1060,13 +1162,13 @@ void FEmitDefaultValueHelper::GenerateCustomDynamicClassInitialization(FEmitterL
 
 	Context.AddLine(TEXT("FConvertedBlueprintsDependencies::FillUsedAssetsInDynamicClass(InDynamicClass, &__StaticDependencies_DirectlyUsedAssets);"));
 
-	auto CreateAndInitializeClassSubobjects = [&](bool bCreate, bool bInitilize)
+	auto CreateAndInitializeClassSubobjects = [&](bool bCreate, bool bInitialize)
 	{
 		for (auto ComponentTemplate : ActorComponentTempatesOwnedByClass)
 		{
 			if (ComponentTemplate)
 			{
-				HandleClassSubobject(Context, ComponentTemplate, FEmitterLocalContext::EClassSubobjectList::ComponentTemplates, bCreate, bInitilize);
+				HandleClassSubobject(Context, ComponentTemplate, FEmitterLocalContext::EClassSubobjectList::ComponentTemplates, bCreate, bInitialize);
 			}
 		}
 
@@ -1074,7 +1176,7 @@ void FEmitDefaultValueHelper::GenerateCustomDynamicClassInitialization(FEmitterL
 		{
 			if (TimelineTemplate)
 			{
-				HandleClassSubobject(Context, TimelineTemplate, FEmitterLocalContext::EClassSubobjectList::Timelines, bCreate, bInitilize);
+				HandleClassSubobject(Context, TimelineTemplate, FEmitterLocalContext::EClassSubobjectList::Timelines, bCreate, bInitialize);
 			}
 		}
 
@@ -1082,10 +1184,10 @@ void FEmitDefaultValueHelper::GenerateCustomDynamicClassInitialization(FEmitterL
 		{
 			if (DynamicBindingObject)
 			{
-				HandleClassSubobject(Context, DynamicBindingObject, FEmitterLocalContext::EClassSubobjectList::DynamicBindingObjects, bCreate, bInitilize);
+				HandleClassSubobject(Context, DynamicBindingObject, FEmitterLocalContext::EClassSubobjectList::DynamicBindingObjects, bCreate, bInitialize);
 			}
 		}
-		FBackendHelperUMG::CreateClassSubobjects(Context, bCreate, bInitilize);
+		FBackendHelperUMG::CreateClassSubobjects(Context, bCreate, bInitialize);
 	};
 	CreateAndInitializeClassSubobjects(true, false);
 	CreateAndInitializeClassSubobjects(false, true);
@@ -1281,7 +1383,7 @@ void FEmitDefaultValueHelper::GenerateConstructor(FEmitterLocalContext& Context)
 	Context.AddLine(TEXT("}"));
 }
 
-FString FEmitDefaultValueHelper::HandleClassSubobject(FEmitterLocalContext& Context, UObject* Object, FEmitterLocalContext::EClassSubobjectList ListOfSubobjectsType, bool bCreate, bool bInitilize)
+FString FEmitDefaultValueHelper::HandleClassSubobject(FEmitterLocalContext& Context, UObject* Object, FEmitterLocalContext::EClassSubobjectList ListOfSubobjectsType, bool bCreate, bool bInitialize)
 {
 	ensure(Context.CurrentCodeType == FEmitterLocalContext::EGeneratedCodeType::SubobjectsOfClass);
 
@@ -1291,7 +1393,7 @@ FString FEmitDefaultValueHelper::HandleClassSubobject(FEmitterLocalContext& Cont
 		FString OuterStr = Context.FindGloballyMappedObject(Object->GetOuter());
 		if (OuterStr.IsEmpty())
 		{
-			OuterStr = HandleClassSubobject(Context, Object->GetOuter(), ListOfSubobjectsType, bCreate, bInitilize);
+			OuterStr = HandleClassSubobject(Context, Object->GetOuter(), ListOfSubobjectsType, bCreate, bInitialize);
 			if (OuterStr.IsEmpty())
 			{
 				return FString();
@@ -1325,7 +1427,7 @@ FString FEmitDefaultValueHelper::HandleClassSubobject(FEmitterLocalContext& Cont
 		}
 	}
 
-	if (bInitilize)
+	if (bInitialize)
 	{
 		if (LocalNativeName.IsEmpty())
 		{
@@ -1414,7 +1516,7 @@ FString FEmitDefaultValueHelper::HandleInstancedSubobject(FEmitterLocalContext& 
 	}
 	else
 	{
-		const FString OuterStr = Context.FindGloballyMappedObject(Object);
+		const FString OuterStr = Context.FindGloballyMappedObject(Object->GetOuter());
 		if (OuterStr.IsEmpty())
 		{
 			ensure(false);

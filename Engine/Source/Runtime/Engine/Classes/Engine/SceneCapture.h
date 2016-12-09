@@ -6,6 +6,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "SceneCapture.generated.h"
 
 UCLASS(abstract, hidecategories=(Collision, Attachment, Actor), MinimalAPI)

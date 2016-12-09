@@ -1,23 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "PaperFlipbookComponent.h"
-#include "FlipbookEditor.h"
+#include "FlipbookEditor/FlipbookEditor.h"
+#include "EditorViewportClient.h"
+#include "UObject/Package.h"
+#include "Modules/ModuleManager.h"
+#include "EditorStyleSet.h"
 #include "SSingleObjectDetailsPanel.h"
-#include "SceneViewport.h"
 
-#include "GraphEditor.h"
 
-#include "FlipbookEditorViewportClient.h"
-#include "FlipbookEditorCommands.h"
 #include "SEditorViewport.h"
-#include "WorkspaceMenuStructureModule.h"
+#include "ScopedTransaction.h"
+#include "PaperFlipbookComponent.h"
+#include "FlipbookEditor/FlipbookEditorViewportClient.h"
+#include "FlipbookEditor/FlipbookEditorCommands.h"
 #include "Paper2DEditorModule.h"
-#include "SFlipbookEditorViewportToolbar.h"
-#include "Editor/KismetWidgets/Public/SScrubControlPanel.h"
-#include "SFlipbookTimeline.h"
-#include "SDockTab.h"
-#include "GenericCommands.h"
+#include "SCommonEditorViewportToolbarBase.h"
+#include "FlipbookEditor/SFlipbookEditorViewportToolbar.h"
+#include "SScrubControlPanel.h"
+#include "FlipbookEditor/SFlipbookTimeline.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #define LOCTEXT_NAMESPACE "FlipbookEditor"
 
@@ -206,6 +208,7 @@ public:
 // FFlipbookEditor
 
 FFlipbookEditor::FFlipbookEditor()
+	: FlipbookBeingEdited(nullptr)
 {
 }
 

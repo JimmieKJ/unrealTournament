@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DeviceProfileEditorPCH.h"
+#include "SDeviceProfileSelectionPanel.h"
+#include "Templates/Casts.h"
 #include "DeviceProfiles/DeviceProfile.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
-#include "PropertyEditorModule.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "EditorStyleSet.h"
 
 
 #define LOCTEXT_NAMESPACE "DeviceProfileEditorSelectionPanel"

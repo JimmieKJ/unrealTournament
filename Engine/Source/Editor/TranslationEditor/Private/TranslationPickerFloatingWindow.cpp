@@ -1,10 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TranslationEditorPrivatePCH.h"
 #include "TranslationPickerFloatingWindow.h"
-#include "Editor/Documentation/Public/SDocumentationToolTip.h"
+#include "Internationalization/Culture.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Input/SEditableText.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Framework/Docking/TabManager.h"
+#include "SDocumentationToolTip.h"
 #include "TranslationPickerEditWindow.h"
-#include "Editor/TranslationEditor/Private/TranslationPickerWidget.h"
+#include "TranslationPickerWidget.h"
 
 #define LOCTEXT_NAMESPACE "TranslationPicker"
 
@@ -236,25 +246,41 @@ FText STranslationPickerFloatingWindow::GetTextFromWidget(TSharedRef<SWidget> Wi
 	if (!OriginalText.IsEmpty())
 	{
 		// Search the text from this widget's FText::Format history to find any source text
-		TArray<FText> FormattingSourceTexts;
-		OriginalText.GetSourceTextsFromFormatHistory(FormattingSourceTexts);
+		TArray<FHistoricTextFormatData> HistoricFormatData;
+		FTextInspector::GetHistoricFormatData(OriginalText, HistoricFormatData);
 
-		for (FText FormattingSourceText : FormattingSourceTexts)
+		auto PickedTextsContains = [&](const FText& InTextToTest)
 		{
-			// Don't show the same text twice
-			bool bAlreadyPicked = false;
-			for (FText PickedText : PickedTexts)
+			return PickedTexts.ContainsByPredicate([&](const FText& InPickedText)
 			{
-				if (FormattingSourceText.EqualTo(PickedText))
+				return InTextToTest.EqualTo(InPickedText);
+			});
+		};
+
+		if (HistoricFormatData.Num() > 0)
+		{
+			for (const FHistoricTextFormatData& HistoricFormatDataItem : HistoricFormatData)
+			{
+				if (!PickedTextsContains(HistoricFormatDataItem.SourceFmt.GetSourceText()))
 				{
-					bAlreadyPicked = true;
-					break;
+					PickedTexts.Add(HistoricFormatDataItem.SourceFmt.GetSourceText());
+				}
+
+				for (auto It = HistoricFormatDataItem.Arguments.CreateConstIterator(); It; ++It)
+				{
+					const FFormatArgumentValue& ArgumentValue = It.Value();
+					if (ArgumentValue.GetType() == EFormatArgumentType::Text && !PickedTextsContains(ArgumentValue.GetTextValue()))
+					{
+						PickedTexts.Add(ArgumentValue.GetTextValue());
+					}
 				}
 			}
-
-			if (!bAlreadyPicked)
+		}
+		else
+		{
+			if (!PickedTextsContains(OriginalText))
 			{
-				PickedTexts.Add(FormattingSourceText);
+				PickedTexts.Add(OriginalText);
 			}
 		}
 	}

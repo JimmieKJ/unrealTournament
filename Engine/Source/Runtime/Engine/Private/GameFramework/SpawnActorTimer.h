@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/PlatformTime.h"
+
 // Define that controls compilation of this feature
 #if (!UE_BUILD_SHIPPING && 1)
 #define ENABLE_SPAWNACTORTIMER 1

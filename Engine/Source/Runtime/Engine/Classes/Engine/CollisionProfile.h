@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
 #include "Engine/DeveloperSettings.h"
 
 /**
@@ -11,6 +14,9 @@
 
 #include "CollisionProfile.generated.h"
 
+struct FBodyInstance;
+struct FCollisionResponseParams;
+struct FPropertyChangedEvent;
 
 USTRUCT(BlueprintType)
 struct FCollisionProfileName
@@ -19,7 +25,11 @@ struct FCollisionProfileName
 
 	FCollisionProfileName()
 		: Name(NAME_None)
-	{ }
+	{}
+
+	FCollisionProfileName(const FName InName)
+		: Name(InName)
+	{}
 
 	UPROPERTY(EditAnywhere, Category = Collision)
 	FName Name;

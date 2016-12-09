@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/SharedPointer.h"
+
 // Forward declarations.
 class FUnrealSourceFile;
 

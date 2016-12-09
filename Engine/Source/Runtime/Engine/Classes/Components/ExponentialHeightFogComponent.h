@@ -2,6 +2,10 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/SceneComponent.h"
 #include "ExponentialHeightFogComponent.generated.h"
 
 /**
@@ -18,6 +22,25 @@ class ENGINE_API UExponentialHeightFogComponent : public USceneComponent
 
 	UPROPERTY(BlueprintReadOnly, interp, Category=ExponentialHeightFogComponent)
 	FLinearColor FogInscatteringColor;
+
+	/** 
+	 * Cubemap that can be specified for fog color, which is useful to make distant, heavily fogged scene elements match the sky.
+	 * When the cubemap is specified, FogInscatteringColor is ignored and Directional inscattering is disabled. 
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=InscatteringTexture)
+	class UTextureCube* InscatteringColorCubemap;
+
+	/** Tint color used when InscatteringColorCubemap is specified, for quick edits without having to reimport InscatteringColorCubemap. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=InscatteringTexture)
+	FLinearColor InscatteringTextureTint;
+
+	/** Distance at which InscatteringColorCubemap should be used directly for the Inscattering Color. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=InscatteringTexture, meta=(UIMin = "1000", UIMax = "1000000"))
+	float FullyDirectionalInscatteringColorDistance;
+
+	/** Distance at which only the average color of InscatteringColorCubemap should be used as Inscattering Color. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=InscatteringTexture, meta=(UIMin = "1000", UIMax = "1000000"))
+	float NonDirectionalInscatteringColorDistance;
 
 	/** 
 	 * Controls the size of the directional inscattering cone, which is used to approximate inscattering from a directional light.  
@@ -59,6 +82,9 @@ class ENGINE_API UExponentialHeightFogComponent : public USceneComponent
 	UPROPERTY(BlueprintReadOnly, interp, Category=ExponentialHeightFogComponent, meta=(UIMin = "0", UIMax = "5000"))
 	float StartDistance;
 
+	/** Scene elements past this distance will not have fog applied.  This is useful for excluding skyboxes which already have fog baked in. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ExponentialHeightFogComponent, meta=(UIMin = "100000", UIMax = "20000000"))
+	float FogCutoffDistance;
 	
 public:
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|ExponentialHeightFog")
@@ -66,6 +92,18 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|ExponentialHeightFog")
 	void SetFogInscatteringColor(FLinearColor Value);
+
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|ExponentialHeightFog")
+	void SetInscatteringColorCubemap(UTextureCube* Value);
+
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|ExponentialHeightFog")
+	void SetFullyDirectionalInscatteringColorDistance(float Value);
+
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|ExponentialHeightFog")
+	void SetNonDirectionalInscatteringColorDistance(float Value);
+
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|ExponentialHeightFog")
+	void SetInscatteringTextureTint(FLinearColor Value);
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|ExponentialHeightFog")
 	void SetDirectionalInscatteringExponent(float Value);
@@ -85,6 +123,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|ExponentialHeightFog")
 	void SetStartDistance(float Value);
 
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|ExponentialHeightFog")
+	void SetFogCutoffDistance(float Value);
+
 protected:
 	//~ Begin UActorComponent Interface.
 	virtual void CreateRenderState_Concurrent() override;
@@ -97,6 +138,7 @@ protected:
 public:
 	//~ Begin UObject Interface
 #if WITH_EDITOR
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostInterpChange(UProperty* PropertyThatChanged) override;

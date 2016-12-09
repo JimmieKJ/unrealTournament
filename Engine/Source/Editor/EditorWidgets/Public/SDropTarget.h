@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "EditorStyleSet.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+
 /** 
  * A widget that displays a hover cue and handles dropping assets of allowed types onto this widget
  */

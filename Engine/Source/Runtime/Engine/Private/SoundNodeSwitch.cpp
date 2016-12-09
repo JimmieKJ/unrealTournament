@@ -1,13 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
-#include "SoundDefinitions.h"
 #include "Sound/SoundNodeSwitch.h"
-
-#if WITH_EDITOR
-#include "UnrealEd.h"
-#endif
+#include "ActiveSound.h"
+#include "Sound/SoundCue.h"
 
 #define LOCTEXT_NAMESPACE "SoundNodeSwitch"
 
@@ -47,19 +43,9 @@ void USoundNodeSwitch::CreateStartingConnectors()
 #if WITH_EDITOR
 void USoundNodeSwitch::RenamePins()
 {
-	TArray<class UEdGraphPin*> InputPins;
-
 #if WITH_EDITORONLY_DATA
-	GetGraphNode()->GetInputPins(InputPins);
+	USoundCue::GetSoundCueAudioEditor()->RenameNodePins(this);
 #endif
-
-	for (int32 i = 0; i < InputPins.Num(); i++)
-	{
-		if (InputPins[i])
-		{
-			InputPins[i]->PinName = GetInputPinName(i).ToString();
-		}
-	}
 }
 
 FText USoundNodeSwitch::GetInputPinName(int32 PinIndex) const

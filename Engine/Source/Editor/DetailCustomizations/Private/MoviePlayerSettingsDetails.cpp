@@ -1,11 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "MoviePlayerSettingsDetails.h"
+#include "Misc/Paths.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "EditorStyleSet.h"
+#include "EditorDirectories.h"
+#include "Dialogs/Dialogs.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailChildrenBuilder.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
+#include "PropertyCustomizationHelpers.h"
 #include "SourceControlHelpers.h"
-#include "SFilePathPicker.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Input/SFilePathPicker.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 
 #define LOCTEXT_NAMESPACE "MoviePlayerSettingsDetails"

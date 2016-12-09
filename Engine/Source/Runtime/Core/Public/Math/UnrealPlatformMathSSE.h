@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "HAL/PlatformMisc.h"
+
 // Code including this header is responsible for including the correct platform-specific header for SSE intrinsics.
 
 

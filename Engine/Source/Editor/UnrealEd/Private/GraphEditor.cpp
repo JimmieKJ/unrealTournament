@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "GraphEditor.h"
-#include "Editor/GraphEditor/Public/GraphEditorModule.h"
-#include "BlueprintUtilities.h"
-#include "SMissingWidget.h"
+#include "EdGraph/EdGraph.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Layout/SBox.h"
+#include "GraphEditorModule.h"
+#include "Widgets/Layout/SMissingWidget.h"
 
 // List of all active GraphEditor wrappers
 TArray< TWeakPtr<SGraphEditor> > SGraphEditor::AllInstances;

@@ -40,7 +40,7 @@ public partial class Project : CommandUtils
 					//@todo UAT: Consolidate running of external applications like UFE (See 'RunProjectCommand' for other instances)
 					PushDir(Path.GetDirectoryName(ClientApp));
 					// Always start client process and don't wait for exit.
-					ProcessResult ClientProcess = Run(ClientApp, ClientCmdLine, null, ERunOptions.NoWaitForExit);
+					IProcessResult ClientProcess = Run(ClientApp, ClientCmdLine, null, ERunOptions.NoWaitForExit);
 					PopDir();
 					if (ClientProcess != null)
 					{

@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "Misc/OutputDevice.h"
+#include "Misc/OutputDeviceError.h"
+
 /**
  * Generic Output device that writes to Windows Event Log
  */

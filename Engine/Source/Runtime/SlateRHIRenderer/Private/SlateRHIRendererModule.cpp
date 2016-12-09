@@ -1,6 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateRHIRendererPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "Fonts/FontTypes.h"
+#include "Fonts/FontCache.h"
+#include "Rendering/RenderingCommon.h"
+#include "Rendering/DrawElements.h"
+#include "Rendering/SlateRenderer.h"
+#include "Interfaces/ISlate3DRenderer.h"
+#include "Interfaces/ISlateRHIRendererModule.h"
+#include "SlateRHIFontTexture.h"
+#include "SlateRHIResourceManager.h"
+#include "SlateRHIRenderer.h"
 #include "Slate3DRenderer.h"
 #include "SlateUpdatableBuffer.h"
 

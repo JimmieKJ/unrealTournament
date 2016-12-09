@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "StatsPage.h"
 #include "LightingBuildInfo.h"
 
 /** Stats page representing lighting build info */

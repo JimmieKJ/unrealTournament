@@ -2,11 +2,14 @@
 
 #pragma once
 
-#include "Editor.h" // for FEditorModeID
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "Widgets/SWindow.h"
+#include "Editor.h"
 
 class FPerformanceAnalyticsStats;
 class FTickableEditorObject;
-
+class FUICommandInfo;
 
 enum class EMapChangeType : uint8
 {
@@ -211,7 +214,13 @@ public:
 	/** Returns the editor executable to use to execute commandlets */
 	FString GetExecutableForCommandlets() const;
 
-private:
+	/** 
+	 * Opens the Unreal Engine Launcher marketplace page
+	 *
+	 * @param CustomLocation	Optional custom location within the marketplace to navigate to.  If not specified the launcher will open to the root marketplace page
+	 */
+	void OpenMarketplace(const FString& CustomLocation = TEXT(""));
+
 	/** Constructor, private - use Get() function */
 	FUnrealEdMisc();
 

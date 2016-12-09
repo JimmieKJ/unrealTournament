@@ -4,6 +4,8 @@
 	DeferredLightPixelShaders.usf: 
 =============================================================================*/
 
+#define SUPPORT_CONTACT_SHADOWS 1
+
 #include "Common.usf"
 #include "DeferredShadingCommon.usf"
 #include "DeferredLightingCommon.usf"
@@ -96,7 +98,10 @@ void RadialPixelMain(
 		)
 	{
 		float SceneDepth = CalcSceneDepth(ScreenUV);
-		float4 HomogeneousWorldPosition = mul(float4(InScreenPosition.xy / InScreenPosition.w * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+		// With a perspective projection, the clip space position is NDC * Clip.w
+		// With an orthographic projection, clip space is the same as NDC
+		float2 ClipPosition = InScreenPosition.xy / InScreenPosition.w * (View.ViewToClip[3][3] < 1.0f ? SceneDepth : 1.0f);
+		float4 HomogeneousWorldPosition = mul(float4(ClipPosition, SceneDepth, 1), View.ScreenToWorld);
 		float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
 		float3 CameraVector = normalize(WorldPosition - View.WorldCameraOrigin);
 

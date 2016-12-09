@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateStyle.h"
 
 /**
  * Style data for STreeMap

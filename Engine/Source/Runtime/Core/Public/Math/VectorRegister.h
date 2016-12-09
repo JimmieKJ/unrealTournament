@@ -2,13 +2,16 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/UnrealMathUtility.h"
+
 // Platform specific vector intrinsics include.
 #if WITH_DIRECTXMATH
 #define SIMD_ALIGNMENT (16)
 #include "UnrealMathDirectX.h"
 #elif PLATFORM_ENABLE_VECTORINTRINSICS
 #define SIMD_ALIGNMENT (16)
-#include "UnrealMathSSE.h"
+#include "Math/UnrealMathSSE.h"
 #elif PLATFORM_ENABLE_VECTORINTRINSICS_NEON
 #define SIMD_ALIGNMENT (16)
 #include "UnrealMathNeon.h"
@@ -18,7 +21,7 @@
 #endif
 
 // 'Cross-platform' vector intrinsics (built on the platform-specific ones defined above)
-#include "UnrealMathVectorCommon.h"
+#include "Math/UnrealMathVectorCommon.h"
 
 /** Vector that represents (1/255,1/255,1/255,1/255) */
 extern CORE_API const VectorRegister VECTOR_INV_255;

@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidMediaPCH.h"
-#include "AndroidMediaPlayer.h"
+#include "CoreMinimal.h"
+#include "Player/AndroidMediaPlayer.h"
 #include "IAndroidMediaModule.h"
+#include "Modules/ModuleManager.h"
 
 
-DEFINE_LOG_CATEGORY(LogAndroidMedia);
 
 #define LOCTEXT_NAMESPACE "FAndroidMediaModule"
 

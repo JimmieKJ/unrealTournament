@@ -6,7 +6,13 @@
  * Factory for utility blueprints
  */
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Factories/Factory.h"
 #include "EditorUtilityBlueprintFactory.generated.h"
+
+class SWindow;
 
 UCLASS()
 class UEditorUtilityBlueprintFactory : public UFactory

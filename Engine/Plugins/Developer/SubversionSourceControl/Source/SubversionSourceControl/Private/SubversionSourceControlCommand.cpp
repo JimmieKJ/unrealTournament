@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SubversionSourceControlPrivatePCH.h"
 #include "SubversionSourceControlCommand.h"
+#include "Modules/ModuleManager.h"
 #include "SubversionSourceControlModule.h"
-#include "SubversionSourceControlProvider.h"
-#include "ISubversionSourceControlWorker.h"
 #include "SSubversionSourceControlSettings.h"
 
 FSubversionSourceControlCommand::FSubversionSourceControlCommand(const TSharedRef<class ISourceControlOperation, ESPMode::ThreadSafe>& InOperation, const TSharedRef<class ISubversionSourceControlWorker, ESPMode::ThreadSafe>& InWorker, const FSourceControlOperationComplete& InOperationCompleteDelegate )

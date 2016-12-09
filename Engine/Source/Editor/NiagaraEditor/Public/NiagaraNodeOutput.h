@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "NiagaraCommon.h"
+#include "NiagaraEditorCommon.h"
 #include "NiagaraNode.h"
 #include "NiagaraNodeOutput.generated.h"
 

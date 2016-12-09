@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // ApplicationLifecycleComponent.cpp: Component to handle receiving notifications from the OS about application state (activated, suspended, termination, etc)
 
-#include "EnginePrivate.h"
 #include "Components/ApplicationLifecycleComponent.h"
-#include "CallbackDevice.h"
+#include "Misc/CoreDelegates.h"
 
 UApplicationLifecycleComponent::UApplicationLifecycleComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

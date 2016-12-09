@@ -1,16 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "EdGraph/EdGraphPin.h"
+#include "UObject/BlueprintsObjectVersion.h"
+#include "UObject/UnrealType.h"
+#include "UObject/TextProperty.h"
 #include "EdGraph/EdGraph.h"
 #include "EdGraph/EdGraphSchema.h"
-#include "BlueprintUtilities.h"
 #include "Tickable.h"
+#include "EngineLogs.h"
 #if WITH_EDITOR
 #include "Editor/EditorEngine.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "SlateBasics.h"
-#include "ScopedTransaction.h"
-#include "Editor/UnrealEd/Public/Kismet2/Kismet2NameValidators.h"
+#include "Misc/ConfigCacheIni.h"
 #include "TickableEditorObject.h"
 #endif
 
@@ -57,6 +57,29 @@ FPinDeletionQueue* PinDeletionQueue = new FPinDeletionQueue();;
 TArray<TPair<UEdGraphPin*, FString>> PinAllocationTracking;
 #endif //TRACK_PINS
 
+FArchive& operator<<(FArchive& Ar, FEdGraphTerminalType& T)
+{
+	Ar << T.TerminalCategory;
+	Ar << T.TerminalSubCategory;
+
+	// See: FArchive& operator<<( FArchive& Ar, FWeakObjectPtr& WeakObjectPtr )
+	// The PinSubCategoryObject should be serialized into the package.
+	if (!Ar.IsObjectReferenceCollector() || Ar.IsModifyingWeakAndStrongReferences() || Ar.IsPersistent())
+	{
+		UObject* Object = T.TerminalSubCategoryObject.Get(true);
+		Ar << Object;
+		if (Ar.IsLoading() || Ar.IsModifyingWeakAndStrongReferences())
+		{
+			T.TerminalSubCategoryObject = Object;
+		}
+	}
+
+	Ar << T.bTerminalIsConst;
+	Ar << T.bTerminalIsWeakPointer;
+
+	return Ar;
+}
+
 /////////////////////////////////////////////////////
 // FEdGraphPinType
 
@@ -80,6 +103,17 @@ bool FEdGraphPinType::Serialize(FArchive& Ar)
 		{
 			PinSubCategoryObject = Object;
 		}
+	}
+
+	Ar.UsingCustomVersion(FBlueprintsObjectVersion::GUID);
+	if (Ar.CustomVer(FBlueprintsObjectVersion::GUID) >= FBlueprintsObjectVersion::AdvancedContainerSupport)
+	{
+		Ar << bIsMap;
+		if (bIsMap)
+		{
+			Ar << PinValueType;
+		}
+		Ar << bIsSet;
 	}
 
 	Ar << bIsArray;
@@ -163,6 +197,14 @@ enum class EPinResolveType : uint8
 	ReferencePassThroughConnection
 };
 
+enum class EPinResolveResult : uint8
+{
+	FailedParse, // failed to even parse the text buffer, meaning we have to bail out
+	FailedSafely, // simply failed to resolve the object referenced by the text buffer, meaning we have to disconnect
+	Deferred, // owning object was found, but referenced pin is not presenet yet
+	Suceeded // immediately resolved
+};
+
 struct FUnresolvedPinData
 {
 	UEdGraphPin* ReferencingPin;
@@ -238,6 +280,7 @@ namespace PinHelpers
 	// Don't need bDisplayAsMutableRef's name because it is transient
 	// Don't need bWasTrashed's name because it is transient
 #endif
+	static EPinResolveResult ImportText_PinReference(const TCHAR*& Buffer, UEdGraphPin*& PinRef, int32 ArrayIdx, UEdGraphPin* RequestingPin, EPinResolveType ResolveType);
 }
 
 /////////////////////////////////////////////////////
@@ -778,29 +821,29 @@ bool UEdGraphPin::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, class UO
 		bool bParseSuccess = false;
 		if (PropertyToken == PinHelpers::PinIdName)
 		{
-			bParseSuccess = PinId.ImportTextItem(Buffer, PortFlags, nullptr, ErrorText);
+			bParseSuccess = PinId.ImportTextItem(Buffer, PortFlags, Parent, ErrorText);
 		}
 		else if (PropertyToken == PinHelpers::PinNameName)
 		{
-			Buffer = StrPropCDO->ImportText(Buffer, &PinName, PortFlags, nullptr, ErrorText);
+			Buffer = StrPropCDO->ImportText(Buffer, &PinName, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 		}
 #if WITH_EDITORONLY_DATA
 		else if (PropertyToken == PinHelpers::PinFriendlyNameName)
 		{
-			Buffer = TextPropCDO->ImportText(Buffer, &PinFriendlyName, PortFlags, nullptr, ErrorText);
+			Buffer = TextPropCDO->ImportText(Buffer, &PinFriendlyName, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 		}
 #endif //WITH_EDITORONLY_DATA
 		else if (PropertyToken == PinHelpers::PinToolTipName)
 		{
-			Buffer = StrPropCDO->ImportText(Buffer, &PinToolTip, PortFlags, nullptr, ErrorText);
+			Buffer = StrPropCDO->ImportText(Buffer, &PinToolTip, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 		}
 		else if (PropertyToken == PinHelpers::DirectionName)
 		{
 			FString DirectionString;
-			Buffer = StrPropCDO->ImportText(Buffer, &DirectionString, PortFlags, nullptr, ErrorText);
+			Buffer = StrPropCDO->ImportText(Buffer, &DirectionString, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 			if (bParseSuccess)
 			{
@@ -826,7 +869,7 @@ bool UEdGraphPin::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, class UO
 				if (FoundProp)
 				{
 					uint8* PropertyAddr = FoundProp->ContainerPtrToValuePtr<uint8>(&PinType);
-					Buffer = FoundProp->ImportText(Buffer, PropertyAddr, PortFlags, nullptr, ErrorText);
+					Buffer = FoundProp->ImportText(Buffer, PropertyAddr, PortFlags, Parent, ErrorText);
 					bParseSuccess = (Buffer != nullptr);
 				}
 				else
@@ -843,18 +886,18 @@ bool UEdGraphPin::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, class UO
 		}
 		else if (PropertyToken == PinHelpers::DefaultValueName)
 		{
-			Buffer = StrPropCDO->ImportText(Buffer, &DefaultValue, PortFlags, nullptr, ErrorText);
+			Buffer = StrPropCDO->ImportText(Buffer, &DefaultValue, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 		}
 		else if (PropertyToken == PinHelpers::AutogeneratedDefaultValueName)
 		{
-			Buffer = StrPropCDO->ImportText(Buffer, &AutogeneratedDefaultValue, PortFlags, nullptr, ErrorText);
+			Buffer = StrPropCDO->ImportText(Buffer, &AutogeneratedDefaultValue, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 		}
 		else if (PropertyToken == PinHelpers::DefaultObjectName)
 		{
 			FString DefaultObjectString;
-			Buffer = StrPropCDO->ImportText(Buffer, &DefaultObjectString, PortFlags, nullptr, ErrorText);
+			Buffer = StrPropCDO->ImportText(Buffer, &DefaultObjectString, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 			if (bParseSuccess)
 			{
@@ -863,7 +906,7 @@ bool UEdGraphPin::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, class UO
 		}
 		else if (PropertyToken == PinHelpers::DefaultTextValueName)
 		{
-			Buffer = TextPropCDO->ImportText(Buffer, &DefaultTextValue, PortFlags, nullptr, ErrorText);
+			Buffer = TextPropCDO->ImportText(Buffer, &DefaultTextValue, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 		}
 		else if (PropertyToken == PinHelpers::LinkedToName)
@@ -876,42 +919,42 @@ bool UEdGraphPin::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, class UO
 		}
 		else if (PropertyToken == PinHelpers::ParentPinName)
 		{
-			bParseSuccess = UEdGraphPin::ImportText_PinReference(Buffer, ParentPin, INDEX_NONE, this, EPinResolveType::ParentPin);
+			bParseSuccess = PinHelpers::ImportText_PinReference(Buffer, ParentPin, INDEX_NONE, this, EPinResolveType::ParentPin) != EPinResolveResult::FailedParse;
 		}
 		else if (PropertyToken == PinHelpers::ReferencePassThroughConnectionName)
 		{
-			bParseSuccess = UEdGraphPin::ImportText_PinReference(Buffer, ReferencePassThroughConnection, INDEX_NONE, this, EPinResolveType::ReferencePassThroughConnection);
+			bParseSuccess = PinHelpers::ImportText_PinReference(Buffer, ReferencePassThroughConnection, INDEX_NONE, this, EPinResolveType::ReferencePassThroughConnection) != EPinResolveResult::FailedParse;
 		}
 #if WITH_EDITORONLY_DATA
 		else if (PropertyToken == PinHelpers::PersistentGuidName)
 		{
-			bParseSuccess = PersistentGuid.ImportTextItem(Buffer, PortFlags, nullptr, ErrorText);
+			bParseSuccess = PersistentGuid.ImportTextItem(Buffer, PortFlags, Parent, ErrorText);
 		}
 		else if (PropertyToken == PinHelpers::bHiddenName)
 		{
 			bool LocalHidden = bHidden;
-			Buffer = BoolPropCDO->ImportText(Buffer, &LocalHidden, PortFlags, nullptr, ErrorText);
+			Buffer = BoolPropCDO->ImportText(Buffer, &LocalHidden, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 			bHidden = LocalHidden;
 		}
 		else if (PropertyToken == PinHelpers::bNotConnectableName)
 		{
 			bool LocalNotConnectable = bNotConnectable;
-			Buffer = BoolPropCDO->ImportText(Buffer, &LocalNotConnectable, PortFlags, nullptr, ErrorText);
+			Buffer = BoolPropCDO->ImportText(Buffer, &LocalNotConnectable, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 			bNotConnectable = LocalNotConnectable;
 		}
 		else if (PropertyToken == PinHelpers::bDefaultValueIsReadOnlyName)
 		{
 			bool LocalDefaultValueIsReadOnly = bDefaultValueIsReadOnly;
-			Buffer = BoolPropCDO->ImportText(Buffer, &LocalDefaultValueIsReadOnly, PortFlags, nullptr, ErrorText);
+			Buffer = BoolPropCDO->ImportText(Buffer, &LocalDefaultValueIsReadOnly, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 			bDefaultValueIsReadOnly = LocalDefaultValueIsReadOnly;
 		}
 		else if (PropertyToken == PinHelpers::bDefaultValueIsIgnoredName)
 		{
 			bool LocalDefaultValueIsIgnored = bDefaultValueIsIgnored;
-			Buffer = BoolPropCDO->ImportText(Buffer, &LocalDefaultValueIsIgnored, PortFlags, nullptr, ErrorText);
+			Buffer = BoolPropCDO->ImportText(Buffer, &LocalDefaultValueIsIgnored, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 			bDefaultValueIsIgnored = LocalDefaultValueIsIgnored;
 		}
@@ -919,7 +962,7 @@ bool UEdGraphPin::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, class UO
 		else if (PropertyToken == PinHelpers::bAdvancedViewName)
 		{
 			bool LocalAdvancedView = bAdvancedView;
-			Buffer = BoolPropCDO->ImportText(Buffer, &LocalAdvancedView, PortFlags, nullptr, ErrorText);
+			Buffer = BoolPropCDO->ImportText(Buffer, &LocalAdvancedView, PortFlags, Parent, ErrorText);
 			bParseSuccess = (Buffer != nullptr);
 			bAdvancedView = LocalAdvancedView;
 		}
@@ -953,9 +996,20 @@ bool UEdGraphPin::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, class UO
 	}
 
 	// Someone might have been waiting for this pin to be created. Let them know that this pin now exists.
-	ResolveReferencesToPin(this, false);
+	ResolveReferencesToPin(this);
 
 	return true;
+}
+
+FEdGraphTerminalType UEdGraphPin::GetPrimaryTerminalType() const
+{
+	FEdGraphTerminalType TerminalType;
+	TerminalType.TerminalCategory = PinType.PinCategory;
+	TerminalType.TerminalSubCategory = PinType.PinSubCategory;
+	TerminalType.TerminalSubCategoryObject = PinType.PinSubCategoryObject;
+	TerminalType.bTerminalIsConst = PinType.bIsConst;
+	TerminalType.bTerminalIsWeakPointer = PinType.bIsWeakPointer;
+	return TerminalType;
 }
 
 void UEdGraphPin::MarkPendingKill()
@@ -1571,7 +1625,7 @@ FString UEdGraphPin::ExportText_PinArray(const TArray<UEdGraphPin*>& PinArray)
 	return RetVal;
 }
 
-bool UEdGraphPin::ImportText_PinReference(const TCHAR*& Buffer, UEdGraphPin*& PinRef, int32 ArrayIdx, UEdGraphPin* RequestingPin, EPinResolveType ResolveType)
+EPinResolveResult PinHelpers::ImportText_PinReference(const TCHAR*& Buffer, UEdGraphPin*& PinRef, int32 ArrayIdx, UEdGraphPin* RequestingPin, EPinResolveType ResolveType)
 {
 	const TCHAR* BufferStart = Buffer;
 	while (*Buffer != PinHelpers::ExportTextPropDelimiter && *Buffer != ')')
@@ -1579,7 +1633,7 @@ bool UEdGraphPin::ImportText_PinReference(const TCHAR*& Buffer, UEdGraphPin*& Pi
 		if (*Buffer == 0)
 		{
 			// Parse error
-			return false;
+			return EPinResolveResult::FailedParse;
 		}
 
 		Buffer++;
@@ -1600,17 +1654,20 @@ bool UEdGraphPin::ImportText_PinReference(const TCHAR*& Buffer, UEdGraphPin*& Pi
 				if (ExistingPin)
 				{
 					PinRef = *ExistingPin;
+					return EPinResolveResult::Suceeded;
 				}
 				else
 				{
 					TArray<FUnresolvedPinData>& UnresolvedPinData = PinHelpers::UnresolvedPins.FindOrAdd(FPinResolveId(PinGuid, LocalOwningNode));
 					UnresolvedPinData.Add(FUnresolvedPinData(RequestingPin, ResolveType, ArrayIdx));
+					return EPinResolveResult::Deferred;
 				}
 			}
 		}
+		
 	}
 
-	return true;
+	return EPinResolveResult::FailedSafely;
 }
 
 bool UEdGraphPin::ImportText_PinArray(const TCHAR*& Buffer, TArray<UEdGraphPin*>& ArrayRef, UEdGraphPin* RequestingPin, EPinResolveType ResolveType)
@@ -1631,10 +1688,16 @@ bool UEdGraphPin::ImportText_PinArray(const TCHAR*& Buffer, TArray<UEdGraphPin*>
 			}
 
 			int32 NewItemIdx = ArrayRef.Add(nullptr);
-			bool bParseSuccess = ImportText_PinReference(Buffer, ArrayRef[NewItemIdx], NewItemIdx, RequestingPin, ResolveType);
-			if (!bParseSuccess)
+			EPinResolveResult ResolveResult = PinHelpers::ImportText_PinReference(Buffer, ArrayRef[NewItemIdx], NewItemIdx, RequestingPin, ResolveType);
+
+			if (ResolveResult == EPinResolveResult::FailedParse)
 			{
+				ArrayRef.Pop();
 				return false;
+			}
+			else if (ResolveResult == EPinResolveResult::FailedSafely)
+			{
+				ArrayRef.Pop();
 			}
 
 			if (*Buffer == PinHelpers::ExportTextPropDelimiter)

@@ -1,9 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "Navigation/NavFilter_AIControllerDefault.h"
 #include "GameFramework/Pawn.h"
 #include "AIController.h"
-#include "Navigation/NavFilter_AIControllerDefault.h"
 
 UNavFilter_AIControllerDefault::UNavFilter_AIControllerDefault(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
-#include "Animation/AnimTypes.h"
-#include "AnimNode_CopyBoneDelta.h"
+#include "BoneControllers/AnimNode_CopyBoneDelta.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "AnimationRuntime.h"
 
 FAnimNode_CopyBoneDelta::FAnimNode_CopyBoneDelta()
 	: bCopyTranslation(false)
@@ -44,7 +44,7 @@ void FAnimNode_CopyBoneDelta::EvaluateBoneTransforms(USkeletalMeshComponent* Ske
 	FAnimationRuntime::ConvertCSTransformToBoneSpace(SkelComp, MeshBases, TargetTM, TargetBoneIndex, BCS_ParentBoneSpace);
 
 	// Ref pose transform
-	FTransform RefLSTransform = SkelComp->SkeletalMesh->RefSkeleton.GetRefBonePose()[SourceBone.GetMeshPoseIndex().GetInt()];
+	FTransform RefLSTransform = SkelComp->SkeletalMesh->RefSkeleton.GetRefBonePose()[SourceBone.GetMeshPoseIndex(BoneContainer).GetInt()];
 
 	// Get transform relative to ref pose
 	SourceTM.SetToRelativeTransform(RefLSTransform);

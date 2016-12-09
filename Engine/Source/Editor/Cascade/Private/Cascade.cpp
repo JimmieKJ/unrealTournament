@@ -1,56 +1,68 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CascadeModule.h"
-#include "FXSystem.h"
-#include "ObjectTools.h"
-#include "Toolkits/IToolkitHost.h"
-#include "PreviewScene.h"
-#include "DistCurveEditorModule.h"
-#include "IDistCurveEditor.h"
-#include "CascadePreviewViewportClient.h"
-#include "CascadeEmitterCanvasClient.h"
-#include "SCascadePreviewViewport.h"
-#include "SCascadeEmitterCanvas.h"
-#include "CascadeActions.h"
 #include "Cascade.h"
-#include "PhysicsPublic.h"
-#include "SColorPicker.h"
-
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-
-#include "Particles/Event/ParticleModuleEventGenerator.h"
-#include "Particles/Parameter/ParticleModuleParameterDynamic.h"
-#include "Particles/Spawn/ParticleModuleSpawn.h"
-#include "Particles/TypeData/ParticleModuleTypeDataMesh.h"
-#include "Particles/VectorField/ParticleModuleVectorFieldLocal.h"
-#include "Particles/ParticleEmitter.h"
-#include "Particles/ParticleLODLevel.h"
-#include "Particles/ParticleModuleRequired.h"
-#include "Particles/ParticleSpriteEmitter.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Components/StaticMeshComponent.h"
+#include "Editor.h"
+#include "Components/VectorFieldComponent.h"
+#include "Engine/InterpCurveEdSetup.h"
+#include "CascadeConfiguration.h"
 #include "Particles/ParticleSystem.h"
 #include "Particles/ParticleSystemComponent.h"
-
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#include "EngineAnalytics.h"
-#include "SDockTab.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "SNumericEntryBox.h"
-#include "STextEntryPopup.h"
-#include "GenericCommands.h"
-#include "Components/VectorFieldComponent.h"
-#include "Engine/StaticMesh.h"
-#include "Engine/InterpCurveEdSetup.h"
-#include "Engine/Selection.h"
-#include "Particles/ParticleModule.h"
+#include "CascadeParticleSystemComponent.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "EditorStyleSet.h"
+#include "Preferences/CascadeOptions.h"
 #include "Distributions/DistributionFloatUniform.h"
 #include "Distributions/DistributionFloatUniformCurve.h"
 #include "Distributions/DistributionVectorUniform.h"
 #include "Distributions/DistributionVectorUniformCurve.h"
+#include "UObject/UObjectHash.h"
+#include "Engine/Selection.h"
+#include "CascadeModule.h"
+#include "FXSystem.h"
+#include "ObjectTools.h"
+#include "DistCurveEditorModule.h"
+#include "CascadePreviewViewportClient.h"
+#include "SCascadeEmitterCanvas.h"
+#include "CascadeEmitterCanvasClient.h"
+#include "SCascadePreviewViewport.h"
+#include "CascadeActions.h"
+#include "PhysicsPublic.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/Colors/SColorPicker.h"
+
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
+
+#include "Particles/Event/ParticleModuleEventGenerator.h"
+#include "Particles/Parameter/ParticleModuleParameterDynamic.h"
+#include "Particles/Spawn/ParticleModuleSpawn.h"
+#include "Particles/TypeData/ParticleModuleTypeDataBase.h"
+#include "Particles/TypeData/ParticleModuleTypeDataMesh.h"
+#include "Particles/VectorField/ParticleModuleVectorFieldLocal.h"
+#include "Particles/ParticleLODLevel.h"
+#include "Particles/ParticleSpriteEmitter.h"
+#include "Particles/ParticleModuleRequired.h"
+
+#include "Runtime/Analytics/Analytics/Public/AnalyticsEventAttribute.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "EngineAnalytics.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Input/STextEntryPopup.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "UnrealEngine.h"
-#include "IMenu.h"
 
 static const FName Cascade_PreviewViewportTab("Cascade_PreviewViewport");
 static const FName Cascade_EmmitterCanvasTab("Cascade_EmitterCanvas");
@@ -58,6 +70,20 @@ static const FName Cascade_PropertiesTab("Cascade_Properties");
 static const FName Cascade_CurveEditorTab("Cascade_CurveEditor");
 
 DEFINE_LOG_CATEGORY(LogCascade);
+
+FCascade::FCascade()
+	: ParticleSystem(nullptr)
+	, ParticleSystemComponent(nullptr)
+	, LocalVectorFieldPreviewComponent(nullptr)
+	, EditorOptions(nullptr)
+	, EditorConfig(nullptr)
+	, SelectedModule(nullptr)
+	, SelectedEmitter(nullptr)
+	, CopyModule(nullptr)
+	, CopyEmitter(nullptr)
+	, CurveToReplace(nullptr)
+{
+}
 
 void FCascade::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
@@ -142,11 +168,11 @@ FCascade::~FCascade()
 			EditorOptions->FloorRotation = FloorComponent->RelativeRotation;
 			EditorOptions->FloorScale3D = FloorComponent->RelativeScale3D;
 
-			if (FloorComponent->StaticMesh)
+			if (FloorComponent->GetStaticMesh())
 			{
-				if (FloorComponent->StaticMesh->GetOuter())
+				if (FloorComponent->GetStaticMesh()->GetOuter())
 				{
-					EditorOptions->FloorMesh = FloorComponent->StaticMesh->GetOuter()->GetName();
+					EditorOptions->FloorMesh = FloorComponent->GetStaticMesh()->GetOuter()->GetName();
 					EditorOptions->FloorMesh += TEXT(".");
 				}
 				else
@@ -155,7 +181,7 @@ FCascade::~FCascade()
 					EditorOptions->FloorMesh = TEXT("");
 				}
 
-				EditorOptions->FloorMesh += FloorComponent->StaticMesh->GetName();
+				EditorOptions->FloorMesh += FloorComponent->GetStaticMesh()->GetName();
 			}
 			else
 			{
@@ -1481,8 +1507,16 @@ void FCascade::AddReferencedObjects(FReferenceCollector& Collector)
 		PreviewViewport->GetViewportClient()->GetPreviewScene().AddReferencedObjects(Collector);
 	}
 
+	Collector.AddReferencedObject(ParticleSystem);
+	Collector.AddReferencedObject(ParticleSystemComponent);
+	Collector.AddReferencedObject(LocalVectorFieldPreviewComponent);
 	Collector.AddReferencedObject(EditorOptions);
 	Collector.AddReferencedObject(EditorConfig);
+	Collector.AddReferencedObject(SelectedModule);
+	Collector.AddReferencedObject(SelectedEmitter);
+	Collector.AddReferencedObject(CopyModule);
+	Collector.AddReferencedObject(CopyEmitter);
+	Collector.AddReferencedObject(CurveToReplace);
 }
 
 void FCascade::Tick(float DeltaTime)
@@ -5205,7 +5239,7 @@ bool UCascadeParticleSystemComponent::ParticleLineCheck(FHitResult& Hit, AActor*
 		if (CascadePreviewViewportPtr && CascadePreviewViewportPtr->GetFloorComponent() && CascadePreviewViewportPtr->GetFloorComponent()->IsVisibleInEditor())
 		{
 			Hit = FHitResult(1.f);
-			return CascadePreviewViewportPtr->GetFloorComponent()->SweepComponent( Hit, Start, End, FCollisionShape::MakeBox(Extent) );
+			return CascadePreviewViewportPtr->GetFloorComponent()->SweepComponent( Hit, Start, End, FQuat::Identity, FCollisionShape::MakeBox(Extent) );
 		}
 	}
 

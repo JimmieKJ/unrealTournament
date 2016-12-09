@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "KismetCompilerMisc.h"
+
+class FKismetCompilerContext;
+struct FKismetFunctionContext;
+
 //////////////////////////////////////////////////////////////////////////
 // FKCHandler_VariableSet
 

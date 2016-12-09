@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -143,7 +143,7 @@ namespace UnrealBuildTool
 
 			// Note: header is the same for all architectures so just use arch-arm
 			string NDKPath = Environment.GetEnvironmentVariable("NDKROOT");
-			string NDKVulkanIncludePath = NDKPath + "/android-24/arch-arm/usr/include/vulkan";
+			string NDKVulkanIncludePath = NDKPath + "/platforms/android-24/arch-arm/usr/include/vulkan";
 
 			// Use NDK Vulkan header if discovered, or VulkanSDK if available
 			if (File.Exists(NDKVulkanIncludePath + "/vulkan.h"))
@@ -1107,6 +1107,33 @@ namespace UnrealBuildTool
 				}
 			}
 		}
+		
+		private void PackageForDaydream(string UE4BuildPath)
+        {
+            ConfigCacheIni Ini = GetConfigCacheIni("Engine");
+            bool bPackageForDaydream;
+            Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bPackageForDaydream", out bPackageForDaydream);
+
+            if (!bPackageForDaydream)
+            {
+                // If this isn't a Daydream App, we need to make sure to remove
+                // Daydream specific assets.
+
+                // Remove the Daydream app  tile background.
+                string AppTileBackgroundPath = UE4BuildPath + "/res/drawable-nodpi/vr_icon_background.png";
+                if (File.Exists(AppTileBackgroundPath))
+                {
+                    File.Delete(AppTileBackgroundPath);
+                }
+
+                // Remove the Daydream app tile icon.
+                string AppTileIconPath = UE4BuildPath + "/res/drawable-nodpi/vr_icon.png";
+                if (File.Exists(AppTileIconPath))
+                {
+                    File.Delete(AppTileIconPath);
+                }
+            }
+        }
 
 		private void PickSplashScreenOrientation(string UE4BuildPath, bool bNeedPortrait, bool bNeedLandscape)
 		{
@@ -1115,9 +1142,11 @@ namespace UnrealBuildTool
 			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bShowLaunchImage", out bShowLaunchImage);
 			bool bPackageForGearVR;
 			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bPackageForGearVR", out bPackageForGearVR);
-
-			//override the parameters if we are not showing a launch image or are packaging for GearVR
-			if (bPackageForGearVR || !bShowLaunchImage)
+			bool bPackageForDaydream;
+            Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bPackageForDaydream", out bPackageForDaydream);
+			
+			//override the parameters if we are not showing a launch image or are packaging for GearVR and Daydream
+			if (bPackageForGearVR || bPackageForDaydream || !bShowLaunchImage)
 			{
 				bNeedPortrait = bNeedLandscape = false;
 			}
@@ -1201,7 +1230,7 @@ namespace UnrealBuildTool
 
 
 
-		private string GenerateManifest(AndroidToolChain ToolChain, string ProjectName, bool bIsForDistribution, bool bPackageDataInsideApk, string GameBuildFilesPath, bool bHasOBBFiles, bool bDisableVerifyOBBOnStartUp, string UE4Arch, string GPUArch)
+		private string GenerateManifest(AndroidToolChain ToolChain, string ProjectName, bool bIsForDistribution, bool bPackageDataInsideApk, string GameBuildFilesPath, bool bHasOBBFiles, bool bDisableVerifyOBBOnStartUp, string UE4Arch, string GPUArch, string CookFlavor)
 		{
 			string Arch = GetNDKArch(UE4Arch);
 			int NDKLevelInt = ToolChain.GetNdkApiLevelInt();
@@ -1248,12 +1277,8 @@ namespace UnrealBuildTool
 			Ini.GetArray("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "ExtraPermissions", out ExtraPermissions);
 			bool bPackageForGearVR;
 			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bPackageForGearVR", out bPackageForGearVR);
-			bool bSupportsVulkan;
-			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bSupportsVulkan", out bSupportsVulkan);
-			if (bSupportsVulkan)
-			{
-				bSupportsVulkan = IsVulkanSDKAvailable();
-			}
+			bool bPackageForDaydream;
+            Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bPackageForDaydream", out bPackageForDaydream);
 			bool bEnableIAP = false;
 			Ini.GetBool("OnlineSubsystemGooglePlay.Store", "bSupportsInAppPurchasing", out bEnableIAP);
 			bool bShowLaunchImage = false;
@@ -1301,6 +1326,61 @@ namespace UnrealBuildTool
 				{
 					Log.TraceInformation("Disabling Show Launch Image for GearVR enabled application");
 					bShowLaunchImage = false;
+				}
+			}
+
+			// disable splash screen for daydream
+			if (bPackageForDaydream)
+			{
+				if (bShowLaunchImage)
+				{
+					Log.TraceInformation("Disabling Show Launch Image for Daydream enabled application");
+					bShowLaunchImage = false;
+				}
+			}
+
+			//figure out which texture compressions are supported
+			bool bETC1Enabled, bETC2Enabled, bDXTEnabled, bATCEnabled, bPVRTCEnabled, bASTCEnabled;
+			bETC1Enabled = bETC2Enabled = bDXTEnabled = bATCEnabled = bPVRTCEnabled = bASTCEnabled = false;
+			if (CookFlavor.Length < 1)
+			{
+				//All values supproted
+				bETC1Enabled = bETC2Enabled = bDXTEnabled = bATCEnabled = bPVRTCEnabled = bASTCEnabled = true;
+			}
+			else
+			{
+				switch(CookFlavor)
+				{
+					case "_Multi":
+						//need to check ini to determine which are supported
+						Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bMultiTargetFormat_ETC1", out bETC1Enabled);
+						Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bMultiTargetFormat_ETC2", out bETC2Enabled);
+						Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bMultiTargetFormat_DXT", out bDXTEnabled);
+						Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bMultiTargetFormat_ATC", out bATCEnabled);
+						Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bMultiTargetFormat_PVRTC", out bPVRTCEnabled);
+						Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bMultiTargetFormat_ASTC", out bASTCEnabled);
+						break;
+					case "_ETC1":
+						bETC1Enabled = true;
+						break;
+					case "_ETC2":
+						bETC2Enabled = true;
+						break;
+					case "_DXT":
+						bDXTEnabled = true;
+						break;
+					case "_ATC":
+						bATCEnabled = true;
+						break;
+					case "_PVRTC":
+						bPVRTCEnabled = true;
+						break;
+					case "_ASTC":
+						bASTCEnabled = true;
+						break;
+					default:
+						Log.TraceWarning("Invalid or unknown CookFlavor used in GenerateManifest: {0}", CookFlavor);
+						break;
 				}
 			}
 
@@ -1413,7 +1493,6 @@ namespace UnrealBuildTool
 			Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.bShouldHideUI\" android:value=\"{0}\"/>", EnableFullScreen ? "true" : "false"));
 			Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.ProjectName\" android:value=\"{0}\"/>", ProjectName));
 			Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.bHasOBBFiles\" android:value=\"{0}\"/>", bHasOBBFiles ? "true" : "false"));
-            Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.bSupportsVulkan\" android:value=\"{0}\"/>", bSupportsVulkan ? "true" : "false"));
 			Text.AppendLine("\t\t<meta-data android:name=\"com.google.android.gms.games.APP_ID\"");
 			Text.AppendLine("\t\t           android:value=\"@string/app_id\" />");
 			Text.AppendLine("\t\t<meta-data android:name=\"com.google.android.gms.version\"");
@@ -1437,9 +1516,11 @@ namespace UnrealBuildTool
 				}
 			}
 
-            // Required for OBB download support
-            Text.AppendLine("\t\t<service android:name=\"OBBDownloaderService\" />");
-            Text.AppendLine("\t\t<receiver android:name=\"AlarmReceiver\" />");
+			// Required for OBB download support
+			Text.AppendLine("\t\t<service android:name=\"OBBDownloaderService\" />");
+			Text.AppendLine("\t\t<receiver android:name=\"AlarmReceiver\" />");
+
+			Text.AppendLine("\t\t<receiver android:name=\"com.epicgames.ue4.LocalNotificationReceiver\" />");
 
 			Text.AppendLine("\t</application>");
 
@@ -1490,6 +1571,36 @@ namespace UnrealBuildTool
 					{
 						Text.AppendLine("\t" + Line);
 					}
+				}
+
+				Text.AppendLine("\t<!-- Supported texture compression formats (cooked) -->");
+				if (bETC1Enabled)
+				{
+					Text.AppendLine("\t<supports-gl-texture android:name=\"GL_OES_compressed_ETC1_RGB8_texture\" />");
+				}
+				if (bETC2Enabled)
+				{
+					Text.AppendLine("\t<supports-gl-texture android:name=\"GL_COMPRESSED_RGB8_ETC2\" />");
+					Text.AppendLine("\t<supports-gl-texture android:name=\"GL_COMPRESSED_RGBA8_ETC2_EAC\" />");
+				}
+				if (bATCEnabled)
+				{
+					Text.AppendLine("\t<supports-gl-texture android:name=\"GL_AMD_compressed_ATC_texture\" />");
+					Text.AppendLine("\t<supports-gl-texture android:name=\"GL_ATI_texture_compression_atitc\" />");
+				}
+				if (bDXTEnabled)
+				{
+					Text.AppendLine("\t<supports-gl-texture android:name=\"GL_EXT_texture_compression_dxt1\" />");
+					Text.AppendLine("\t<supports-gl-texture android:name=\"GL_EXT_texture_compression_s3tc\" />");
+					Text.AppendLine("\t<supports-gl-texture android:name=\"GL_NV_texture_compression_s3tc\" />");
+				}
+				if (bPVRTCEnabled)
+				{
+					Text.AppendLine("\t<supports-gl-texture android:name=\"GL_IMG_texture_compression_pvrtc\" />");
+				}
+				if (bASTCEnabled)
+				{
+					Text.AppendLine("\t<supports-gl-texture android:name=\"GL_KHR_texture_compression_astc_ldr\" />");
 				}
 			}
 
@@ -1856,7 +1967,7 @@ namespace UnrealBuildTool
 					NDKArches.Add(NDKArch);
 				}
 			}
-			UPL.Init(NDKArches, bForDistribution, EngineDirectory, UE4BuildPath);
+			UPL.Init(NDKArches, bForDistribution, EngineDirectory, UE4BuildPath, ProjectDirectory);
 
 			IEnumerable<Tuple<string, string, string>> BuildList = null;
 
@@ -1864,7 +1975,7 @@ namespace UnrealBuildTool
 			{
 				BuildList = from Arch in Arches
 							from GPUArch in GPUArchitectures
-							let manifest = GenerateManifest(ToolChain, ProjectName, bForDistribution, bPackageDataInsideApk, GameBuildFilesPath, RequiresOBB(bDisallowPackagingDataInApk, ObbFileLocation), bDisableVerifyOBBOnStartUp, Arch, GPUArch)
+							let manifest = GenerateManifest(ToolChain, ProjectName, bForDistribution, bPackageDataInsideApk, GameBuildFilesPath, RequiresOBB(bDisallowPackagingDataInApk, ObbFileLocation), bDisableVerifyOBBOnStartUp, Arch, GPUArch, CookFlavor)
 							select Tuple.Create(Arch, GPUArch, manifest);
 			}
 			else
@@ -1872,7 +1983,7 @@ namespace UnrealBuildTool
 				BuildList = from Arch in Arches
 							from GPUArch in GPUArchitectures
 							let manifestFile = Path.Combine(IntermediateAndroidPath, Arch + "_" + GPUArch + "_AndroidManifest.xml")
-							let manifest = GenerateManifest(ToolChain, ProjectName, bForDistribution, bPackageDataInsideApk, GameBuildFilesPath, RequiresOBB(bDisallowPackagingDataInApk, ObbFileLocation), bDisableVerifyOBBOnStartUp, Arch, GPUArch)
+							let manifest = GenerateManifest(ToolChain, ProjectName, bForDistribution, bPackageDataInsideApk, GameBuildFilesPath, RequiresOBB(bDisallowPackagingDataInApk, ObbFileLocation), bDisableVerifyOBBOnStartUp, Arch, GPUArch, CookFlavor)
 							let OldManifest = File.Exists(manifestFile) ? File.ReadAllText(manifestFile) : ""
 							where manifest != OldManifest
 							select Tuple.Create(Arch, GPUArch, manifest);
@@ -1957,7 +2068,10 @@ namespace UnrealBuildTool
 
 			//Now keep the splash screen images matching orientation requested
 			PickSplashScreenOrientation(UE4BuildPath, bNeedPortrait, bNeedLandscape);
-
+			
+			//Now package the app based on Daydream packaging settings 
+            PackageForDaydream(UE4BuildPath);
+			
 			//Similarly, keep only the downloader screen image matching the orientation requested
 			PickDownloaderScreenOrientation(UE4BuildPath, bNeedPortrait, bNeedLandscape);
 

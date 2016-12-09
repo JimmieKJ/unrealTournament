@@ -7,6 +7,10 @@
 //=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "CascadeConfiguration.generated.h"
 
 /** Module-to-TypeData mapping helper. */

@@ -1,8 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IFilter.h"
-#include "TextFilterExpressionEvaluator.h"
+#include "CoreTypes.h"
+#include "HAL/PlatformAtomics.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/RemoveReference.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Templates/SharedPointer.h"
+#include "Delegates/Delegate.h"
+#include "Internationalization/Text.h"
+#include "Misc/TextFilterExpressionEvaluator.h"
+#include "Misc/IFilter.h"
 
 /**
  *	A generic filter specialized for text restrictions

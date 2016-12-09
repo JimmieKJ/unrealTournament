@@ -1,10 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessageLogPrivatePCH.h"
-#include "SMessageLogListing.h"
-#include "IMessageLogListing.h"
-#include "SMessageLogMessageListRow.h"
-#include "GenericCommands.h"
+#include "UserInterface/SMessageLogListing.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "UserInterface/SMessageLogMessageListRow.h"
+#include "Framework/Commands/GenericCommands.h"
 
 
 #define LOCTEXT_NAMESPACE "Developer.MessageLog"

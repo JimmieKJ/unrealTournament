@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "CoreUObject.h"
-#include "EnableIf.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
 #include "WebJSFunction.generated.h"
+
+class FWebJSScripting;
 
 struct WEBBROWSER_API FWebJSParam
 {

@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "HittestGrid.h"
+#include "Widgets/SViewport.h"
+#include "Rendering/DrawElements.h"
+#include "Brushes/SlateColorBrush.h"
+#include "Application/SlateApplicationBase.h"
+#include "Framework/Application/SlateApplication.h"
 
 DECLARE_CYCLE_STAT(TEXT("Game UI Tick/Paint"), STAT_ViewportUpdateTime, STATGROUP_Slate);
 

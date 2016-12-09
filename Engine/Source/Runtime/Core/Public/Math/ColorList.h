@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/Exec.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Math/Color.h"
 
 class CORE_API FColorList
 	: public FExec

@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
-#include "SlateFontInfoCustomization.h"
-#include "AssetData.h"
+#include "Customizations/SlateFontInfoCustomization.h"
 #include "Engine/Font.h"
+#include "PropertyHandle.h"
+#include "IDetailChildrenBuilder.h"
+#include "AssetData.h"
+#include "PropertyCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "SlateFontInfo"
 
@@ -84,7 +86,9 @@ void FSlateFontInfoStructCustomization::CustomizeHeader(TSharedRef<IPropertyHand
 
 void FSlateFontInfoStructCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> InStructPropertyHandle, IDetailChildrenBuilder& InStructBuilder, IPropertyTypeCustomizationUtils& InStructCustomizationUtils)
 {
-	InStructBuilder.AddChildProperty( InStructPropertyHandle->GetChildHandle( TEXT("FontMaterial") ).ToSharedRef() );
+	InStructBuilder.AddChildProperty(InStructPropertyHandle->GetChildHandle( TEXT("FontMaterial")).ToSharedRef());
+
+	InStructBuilder.AddChildProperty(InStructPropertyHandle->GetChildHandle(TEXT("OutlineSettings")).ToSharedRef());
 }
 
 bool FSlateFontInfoStructCustomization::OnFilterFontAsset(const FAssetData& InAssetData)

@@ -3,8 +3,13 @@
 
 #pragma once
 
-// Forward declarations.
+#include "CoreMinimal.h"
+
+class FCanvas;
+class FEditorModeTools;
 class FEditorViewportClient;
+class FPrimitiveDrawInterface;
+class FSceneView;
 
 /**
  * The base class that all drag tools inherit from.

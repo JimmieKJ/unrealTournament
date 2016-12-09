@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "LevelEditor.h"
+
 #include "SCaptureRegionWidget.h"
-#include "HighresScreenshotUI.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Misc/Paths.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Slate/SceneViewport.h"
+#include "HighResScreenshot.h"
 
 void SCaptureRegionWidget::Construct( const FArguments& InArgs )
 {

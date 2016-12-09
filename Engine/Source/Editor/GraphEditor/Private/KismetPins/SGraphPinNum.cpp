@@ -1,12 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphPin.h"
-#include "SGraphPinString.h"
-#include "SGraphPinNum.h"
-#include "DefaultValueHelper.h"
-#include "Editor/UnrealEd/Public/ScopedTransaction.h"
+#include "KismetPins/SGraphPinNum.h"
+#include "Misc/DefaultValueHelper.h"
+#include "ScopedTransaction.h"
 
 void SGraphPinNum::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {

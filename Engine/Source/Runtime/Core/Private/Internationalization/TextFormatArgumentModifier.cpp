@@ -1,8 +1,10 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "TextFormatArgumentModifier.h"
-#include "TextFormatter.h"
+#include "Internationalization/TextFormatArgumentModifier.h"
+#include "Misc/Parse.h"
+#include "Internationalization/Culture.h"
+#include "Internationalization/Internationalization.h"
+#include "Internationalization/TextFormatter.h"
 
 bool ITextFormatArgumentModifier::ParseKeyValueArgs(const FTextFormatString& InArgsString, TMap<FTextFormatString, FTextFormatString>& OutArgKeyValues, const TCHAR InValueSeparator, const TCHAR InArgSeparator)
 {

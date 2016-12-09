@@ -6,6 +6,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Editor/UnrealEdTypes.h"
+
+class FExtender;
+class FMenuBuilder;
+class SLevelEditor;
+class SWidget;
+
 /** Enum to describe what a menu should be built for */
 enum class LevelEditorMenuContext
 {

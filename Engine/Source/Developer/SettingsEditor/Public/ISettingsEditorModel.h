@@ -2,10 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
-// forward declarations
+class ISettingsContainer;
 class ISettingsSection;
-
 
 /**
  * Interface for settings editor view models.

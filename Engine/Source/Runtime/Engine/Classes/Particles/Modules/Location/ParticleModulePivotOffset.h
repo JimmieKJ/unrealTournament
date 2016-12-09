@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/Location/ParticleModuleLocationBase.h"
 #include "ParticleModulePivotOffset.generated.h"
+
+class UParticleLODLevel;
 
 UCLASS(editinlinenew, hidecategories=Object, DisplayName="Pivot Offset")
 class ENGINE_API UParticleModulePivotOffset : public UParticleModuleLocationBase

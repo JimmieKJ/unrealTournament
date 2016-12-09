@@ -95,6 +95,18 @@
 			"Enabled": false
 		},
 		{
+	            	"Name": "GearVR",
+	            	"Enabled": false
+	        },
+	        {
+	            	"Name": "GoogleVRHMD",
+	            	"Enabled": false
+	        },
+	        {
+	           	"Name": "GoogleVRController",
+	            	"Enabled": false
+	        },
+		{
 			"Name": "LevelSequenceEditor",
 			"Enabled": true
 		},

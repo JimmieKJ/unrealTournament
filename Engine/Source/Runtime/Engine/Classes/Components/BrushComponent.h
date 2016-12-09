@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/PrimitiveComponent.h"
 #include "BrushComponent.generated.h"
 
-struct FEngineShowFlags;
+class FPrimitiveSceneProxy;
+class UMaterialInterface;
 struct FConvexVolume;
+struct FEngineShowFlags;
 
 /** 
  *	A brush component defines a shape that can be modified within the editor. They are used both as part of BSP building, and for volumes. 
@@ -29,7 +35,7 @@ class UBrushComponent : public UPrimitiveComponent
 
 	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	//~ End UObject Interface
 
 	//~ Begin USceneComponent Interface
@@ -44,6 +50,7 @@ public:
 	virtual class UBodySetup* GetBodySetup() override { return BrushBodySetup; };
 	virtual void GetUsedMaterials( TArray<UMaterialInterface*>& OutMaterials ) const override;
 	virtual uint8 GetStaticDepthPriorityGroup() const override;
+	virtual bool IsEditorOnly() const override;
 #if WITH_EDITOR
 	virtual bool ComponentIsTouchingSelectionBox(const FBox& InSelBBox, const FEngineShowFlags& ShowFlags, const bool bConsiderOnlyBSP, const bool bMustEncompassEntireComponent) const override;
 	virtual bool ComponentIsTouchingSelectionFrustum(const FConvexVolume& InFrustum, const FEngineShowFlags& ShowFlags, const bool bConsiderOnlyBSP, const bool bMustEncompassEntireComponent) const override;

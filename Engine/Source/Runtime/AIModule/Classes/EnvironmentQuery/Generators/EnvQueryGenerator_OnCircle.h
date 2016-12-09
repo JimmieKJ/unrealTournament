@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "AI/Navigation/NavigationTypes.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
+#include "DataProviders/AIDataProvider.h"
 #include "EnvironmentQuery/Generators/EnvQueryGenerator_ProjectedPoints.h"
 #include "EnvQueryGenerator_OnCircle.generated.h"
 
-struct FEnvQueryInstance;
+class AActor;
 
 UENUM()
 enum class EPointOnCircleSpacingMethod :uint8

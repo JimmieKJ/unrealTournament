@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Interfaces/IAutomationControllerManager.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SCompoundWidget.h"
+
+class SVerticalBox;
 
 /**
  * The different supported items we can display on the test item

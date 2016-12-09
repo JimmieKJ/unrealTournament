@@ -6,11 +6,14 @@
 
 #pragma once
 
-#include "PhysicsSettingsEnums.h"
-#include "BodySetupEnums.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "Templates/Casts.h"
 #include "Engine/DeveloperSettings.h"
+#include "PhysicsEngine/PhysicsSettingsEnums.h"
+#include "PhysicsEngine/BodySetupEnums.h"
 #include "PhysicsSettings.generated.h"
-
 
 /**
  * Structure that represents the name of physical surfaces.
@@ -90,7 +93,7 @@ class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 	UPROPERTY(config, EditAnywhere, Category = Constants)
 	float DefaultFluidFriction;
 	
-	/** Amount of memory to reserve for PhysX simulate(), this is per pxscene */
+	/** Amount of memory to reserve for PhysX simulate(), this is per pxscene and will be rounded up to the next 16K boundary */
 	UPROPERTY(config, EditAnywhere, Category = Constants, meta = (ClampMin = "0", UIMin = "0"))
 	int32 SimulateScratchMemorySize;
 
@@ -184,13 +187,13 @@ class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 	bool bSuppressFaceRemapTable;
 
 	/** If true, store extra information to allow FindCollisionUV to derive UV info from a line trace hit result, using the FindCollisionUV utility */
-	UPROPERTY(config, EditAnywhere, Category = Optimization, meta = (DisplayName = "Support UV From Hit Results"))
+	UPROPERTY(config, EditAnywhere, Category = Optimization, meta = (DisplayName = "Support UV From Hit Results", ConfigRestartRequired = true))
 	bool bSupportUVFromHitResults;
 
 	/**
 	* If true, physx will not update unreal with any bodies that have moved during the simulation. This should only be used if you have no physx simulation or you are manually updating the unreal data via polling physx.  */
 	UPROPERTY(config, EditAnywhere, Category = Optimization)
-	bool bDisableActiveTransforms;
+	bool bDisableActiveActors;
 
 	/**
 	*  If true CCD will be ignored. This is an optimization when CCD is never used which removes the need for physx to check it internally. */

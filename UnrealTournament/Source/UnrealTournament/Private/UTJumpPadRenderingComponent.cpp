@@ -93,8 +93,7 @@ UUTJumpPadRenderingComponent::UUTJumpPadRenderingComponent(const class FObjectIn
 
 	BodyInstance.SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 
-	AlwaysLoadOnClient = false;
-	AlwaysLoadOnServer = false;
+	bIsEditorOnly = true;
 	bHiddenInGame = true;
 	bGenerateOverlapEvents = false;
 

@@ -1,24 +1,43 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+#include "Misc/OutputDeviceFile.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/App.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
+#include "UObject/ScriptStackTracker.h"
+#include "EngineStats.h"
+#include "EngineGlobals.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/Level.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
+#include "CollisionQueryParams.h"
+#include "WorldCollision.h"
+#include "Engine/World.h"
+#include "Components/PrimitiveComponent.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/Brush.h"
+#include "UObject/LinkerLoad.h"
+#include "UObject/CoreOnline.h"
+#include "GameFramework/OnlineReplStructs.h"
+#include "Engine/Engine.h"
+#include "Engine/LevelStreaming.h"
+#include "ContentStreaming.h"
 #include "EditorSupportDelegates.h"
-#include "Net/UnrealNetwork.h"
-#include "Collision.h"
+#include "GameFramework/GameModeBase.h"
 #include "Engine/DemoNetDriver.h"
 #include "AudioDeviceManager.h"
-#include "MessageLog.h"
-#include "MapErrors.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/MapErrors.h"
 
-#if WITH_PHYSX
-	#include "PhysicsEngine/PhysXSupport.h"
-#endif // WITH_PHYSX
-
-#include "Components/SphereComponent.h"
-#include "Components/CapsuleComponent.h"
 #include "Components/BoxComponent.h"
 #include "GameFramework/MovementComponent.h"
-#include "GameFramework/GameMode.h"
 
 #define LOCTEXT_NAMESPACE "LevelActor"
 
@@ -358,14 +377,7 @@ AActor* UWorld::SpawnActor( UClass* Class, FTransform const* UserTransformPtr, c
 
 	FTransform const UserTransform = UserTransformPtr ? *UserTransformPtr : FTransform::Identity;
 
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS;
-	// handle existing (but deprecated) uses of bNoCollisionFail where user set it to true
 	ESpawnActorCollisionHandlingMethod CollisionHandlingOverride = SpawnParameters.SpawnCollisionHandlingOverride;
-	if ((CollisionHandlingOverride == ESpawnActorCollisionHandlingMethod::Undefined) && SpawnParameters.bNoCollisionFail)
-	{
-		CollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	}
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS;
 
 	// "no fail" take preedence over collision handling settings that include fails
 	if (SpawnParameters.bNoFail)
@@ -440,11 +452,11 @@ AActor* UWorld::SpawnActor( UClass* Class, FTransform const* UserTransformPtr, c
 	// tell the actor what method to use, in case it was overridden
 	Actor->SpawnCollisionHandlingMethod = CollisionHandlingMethod;
 
-	Actor->PostSpawnInitialize(UserTransform, SpawnParameters.Owner, SpawnParameters.Instigator, SpawnParameters.bRemoteOwned, SpawnParameters.bNoFail, SpawnParameters.bDeferConstruction);
+	Actor->PostSpawnInitialize(UserTransform, SpawnParameters.Owner, SpawnParameters.Instigator, SpawnParameters.IsRemoteOwned(), SpawnParameters.bNoFail, SpawnParameters.bDeferConstruction);
 
 	if (Actor->IsPendingKill() && !SpawnParameters.bNoFail)
 	{
-		UE_LOG(LogSpawn, Verbose, TEXT("SpawnActor failed because the spawned actor %s IsPendingKill"), *Actor->GetPathName());
+		UE_LOG(LogSpawn, Log, TEXT("SpawnActor failed because the spawned actor %s IsPendingKill"), *Actor->GetPathName());
 		return NULL;
 	}
 
@@ -684,7 +696,7 @@ APlayerController* UWorld::SpawnPlayActor(UPlayer* NewPlayer, ENetRole RemoteRol
 		Options += InURL.Op[i];
 	}
 
-	AGameMode* GameMode = GetAuthGameMode();
+	AGameModeBase* GameMode = GetAuthGameMode();
 
 	// Give the GameMode a chance to accept the login
 	APlayerController* const NewPlayerController = GameMode->Login(NewPlayer, RemoteRole, *InURL.Portal, Options, UniqueId, Error);
@@ -742,6 +754,7 @@ bool UWorld::FindTeleportSpot(AActor* TestActor, FVector& TestLocation, FRotator
 	if (!FMath::IsNearlyZero(Adjust.X) || !FMath::IsNearlyZero(Adjust.Y))
 	{
 		const FVector OriginalTestLocation = TestLocation;
+		const FVector OriginalAdjust = Adjust;
 		// If initially spawning allow testing a few permutations (though this needs improvement).
 		// During play only test the first adjustment, permuting axes could put the location on other sides of geometry.
 		const int32 Iterations = (TestActor->HasActorBegunPlay() ? 1 : 8);
@@ -754,7 +767,9 @@ bool UWorld::FindTeleportSpot(AActor* TestActor, FVector& TestLocation, FRotator
 				return true;
 			}
 
+			// Restore original location and adjust, previous iterations should not affect the next test
 			TestLocation = OriginalTestLocation;
+			Adjust = OriginalAdjust;
 		}
 	}
 
@@ -1159,6 +1174,8 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
 
 							// Keep reference to prevent garbage collection.
 							check( LoadedWorld->PersistentLevel );
+
+							LoadedWorld->PersistentLevel->HandleLegacyMapBuildData();
 
 							ULevel* NewLoadedLevel = LoadedWorld->PersistentLevel;
 							NewLoadedLevel->OwningWorld = this;

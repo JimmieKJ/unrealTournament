@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ISessionInstanceInfo.h"
+#include "ISessionInfo.h"
 
 enum class ESessionBrowserTreeNodeType
 {

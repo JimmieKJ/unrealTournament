@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "TrackEditorThumbnail.h"
-#include "TrackEditorThumbnailPool.h"
+#include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
+#include "TrackEditorThumbnail/TrackEditorThumbnail.h"
+#include "Framework/Application/SlateApplication.h"
+#include "ISequencer.h"
 
 
 /* FShotSequencerSection structors

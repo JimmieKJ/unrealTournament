@@ -2,11 +2,21 @@
 
 #pragma once
 
-#include "PreviewScene.h"
-#include "AnimGraphDefinitions.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Framework/SlateDelegates.h"
 #include "IDetailCustomization.h"
 
+class IDetailCategoryBuilder;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
 class UAnimStateTransitionNode;
+class UBlendProfile;
+class UEdGraph;
 
 class FAnimTransitionNodeDetails : public IDetailCustomization
 {

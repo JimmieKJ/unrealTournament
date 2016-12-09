@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Components/ActorComponent.h"
 #include "AnimHand.h"
 #include "AnimBody.generated.h"
+
+class UAnimBone;
 
 //NB: this is a limited class used only for leap anim, full class will have full body
 

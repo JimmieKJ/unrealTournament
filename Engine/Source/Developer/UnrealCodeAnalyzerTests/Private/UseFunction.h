@@ -2,4 +2,6 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 void TestFunction();

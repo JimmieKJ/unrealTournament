@@ -101,13 +101,13 @@ public:
 	//Replacements for CustomThunk functions from UKismetArrayLibrary
 
 	template<typename T, typename U>
-	static int32 Array_Add(TArray<T>& TargetArray, const U& NewItem)
+	static int32 Array_Add(const TArray<T>& TargetArray, const U& NewItem)
 	{
-		return TargetArray.Add(NewItem);
+		return const_cast<TArray<T>*>(&TargetArray)->Add(NewItem);
 	}
 
 	template<typename T>
-	static void Array_Shuffle(TArray<T>& TargetArray)
+	static void Array_Shuffle(const TArray<T>& TargetArray)
 	{
 		int32 LastIndex = TargetArray.Num() - 1;
 		for (int32 i = 0; i < LastIndex; ++i)
@@ -115,23 +115,23 @@ public:
 			int32 Index = FMath::RandRange(0, LastIndex);
 			if (i != Index)
 			{
-				TargetArray.Swap(i, Index);
+				const_cast<TArray<T>*>(&TargetArray)->Swap(i, Index);
 			}
 		}
 	}
 
 	template<typename T, typename U>
-	static void Array_Append(TArray<T>& TargetArray, const TArray<U>& SourceArray)
+	static void Array_Append(const TArray<T>& TargetArray, const TArray<U>& SourceArray)
 	{
-		TargetArray.Append(SourceArray);
+		const_cast<TArray<T>*>(&TargetArray)->Append(SourceArray);
 	}
 
 	template<typename T, typename U>
-	static void Array_Insert(TArray<T>& TargetArray, const U& NewItem, int32 Index)
+	static void Array_Insert(const TArray<T>& TargetArray, const U& NewItem, int32 Index)
 	{
 		if ((Index >= 0) && (Index <= TargetArray.Num()))
 		{
-			TargetArray.Insert(NewItem, Index);
+			const_cast<TArray<T>*>(&TargetArray)->Insert(NewItem, Index);
 		}
 		else
 		{
@@ -140,11 +140,11 @@ public:
 	}
 
 	template<typename T>
-	static void Array_Remove(TArray<T>& TargetArray, int32 IndexToRemove)
+	static void Array_Remove(const TArray<T>& TargetArray, int32 IndexToRemove)
 	{
 		if (TargetArray.IsValidIndex(IndexToRemove))
 		{
-			TargetArray.RemoveAt(IndexToRemove);
+			const_cast<TArray<T>*>(&TargetArray)->RemoveAt(IndexToRemove);
 		}
 		else
 		{
@@ -201,72 +201,72 @@ public:
 	}
 
 	template<typename T, typename U>
-	static int32 Array_AddUnique(TArray<T>& TargetArray, const U& NewItem)
+	static int32 Array_AddUnique(const TArray<T>& TargetArray, const U& NewItem)
 	{
-		return TargetArray.AddUnique(NewItem);
+		return const_cast<TArray<T>*>(&TargetArray)->AddUnique(NewItem);
 	}
 
 	template<typename T>
-	static int32 Array_AddUnique_Struct(TArray<T>& TargetArray, const T& NewItem)
+	static int32 Array_AddUnique_Struct(const TArray<T>& TargetArray, const T& NewItem)
 	{
 		int32 Index = Array_Find_Struct<T>(TargetArray, NewItem);
 		if (Index != INDEX_NONE)
 		{
 			return Index;
 		}
-		return TargetArray.Add(NewItem);
+		return const_cast<TArray<T>*>(&TargetArray)->Add(NewItem);
 	}
 
-	static int32 Array_AddUnique_FText(TArray<FText>& TargetArray, const FText& NewItem)
+	static int32 Array_AddUnique_FText(const TArray<FText>& TargetArray, const FText& NewItem)
 	{
 		int32 Index = Array_Find_FText(TargetArray, NewItem);
 		if (Index != INDEX_NONE)
 		{
 			return Index;
 		}
-		return TargetArray.Add(NewItem);
+		return const_cast<TArray<FText>*>(&TargetArray)->Add(NewItem);
 	}
 
 	template<typename T, typename U>
-	static bool Array_RemoveItem(TArray<T>& TargetArray, const U& Item)
+	static bool Array_RemoveItem(const TArray<T>& TargetArray, const U& Item)
 	{
-		return TargetArray.Remove(Item) != 0;
+		return const_cast<TArray<T>*>(&TargetArray)->Remove(Item) != 0;
 	}
 
 	template<typename T>
-	static bool Array_RemoveItem_Struct(TArray<T>& TargetArray, const T& Item)
+	static bool Array_RemoveItem_Struct(const TArray<T>& TargetArray, const T& Item)
 	{
 		TargetArray.CheckAddress(&Item);
 
 		auto ScriptStruct = T::StaticStruct();
-		return TargetArray.RemoveAll([&](const T& Element) -> bool
+		return const_cast<TArray<T>*>(&TargetArray)->RemoveAll([&](const T& Element) -> bool
 		{
 			return ScriptStruct->CompareScriptStruct(&Element, &Item, 0);
 		}) != 0;
 	}
 
-	static bool Array_RemoveItem_FText(TArray<FText>& TargetArray, const FText& Item)
+	static bool Array_RemoveItem_FText(const TArray<FText>& TargetArray, const FText& Item)
 	{
 		TargetArray.CheckAddress(&Item);
 
-		return TargetArray.RemoveAll([&](const FText& Element) -> bool
+		return const_cast<TArray<FText>*>(&TargetArray)->RemoveAll([&](const FText& Element) -> bool
 		{
 			return UTextProperty::Identical_Implementation(Element, Item, 0);
 		}) != 0;
 	}
 
 	template<typename T>
-	static void Array_Clear(TArray<T>& TargetArray)
+	static void Array_Clear(const TArray<T>& TargetArray)
 	{
-		TargetArray.Empty();
+		const_cast<TArray<T>*>(&TargetArray)->Empty();
 	}
 
 	template<typename T>
-	static void Array_Resize(TArray<T>& TargetArray, int32 Size)
+	static void Array_Resize(const TArray<T>& TargetArray, int32 Size)
 	{
 		if (Size >= 0)
 		{
-			TargetArray.SetNum(Size);
+			const_cast<TArray<T>*>(&TargetArray)->SetNum(Size);
 		}
 		else
 		{
@@ -287,11 +287,11 @@ public:
 	}
 
 	template<typename T, typename U>
-	static void Array_Get(TArray<T>& TargetArray, int32 Index, U& Item)
+	static void Array_Get(const TArray<T>& TargetArray, int32 Index, U& Item)
 	{
 		if (TargetArray.IsValidIndex(Index))
 		{
-			Item = TargetArray[Index];
+			Item = (*const_cast<TArray<T>*>(&TargetArray))[Index];
 		}
 		else
 		{
@@ -302,16 +302,16 @@ public:
 	}
 
 	template<typename T, typename U>
-	static void Array_Set(TArray<T>& TargetArray, int32 Index, const U& Item, bool bSizeToFit)
+	static void Array_Set(const TArray<T>& TargetArray, int32 Index, const U& Item, bool bSizeToFit)
 	{
 		if (!TargetArray.IsValidIndex(Index) && bSizeToFit && (Index >= 0))
 		{
-			TargetArray.SetNum(Index + 1);
+			const_cast<TArray<T>*>(&TargetArray)->SetNum(Index + 1);
 		}
 
 		if (TargetArray.IsValidIndex(Index))
 		{
-			TargetArray[Index] = Item;
+			(*const_cast<TArray<T>*>(&TargetArray))[Index] = Item;
 		}
 		else
 		{

@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CEF3UtilsPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #if WITH_CEF3
 #import <objc/runtime.h>

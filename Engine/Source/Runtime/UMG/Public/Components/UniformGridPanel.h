@@ -2,7 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Layout/Margin.h"
+#include "Widgets/SWidget.h"
+#include "Components/PanelWidget.h"
 #include "UniformGridPanel.generated.h"
+
+class SUniformGridPanel;
+class UUniformGridSlot;
 
 /**
  * A panel that evenly divides up available space between all of its children.

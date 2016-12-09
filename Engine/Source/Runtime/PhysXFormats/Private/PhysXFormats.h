@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EngineDefines.h"
+
 #if WITH_PHYSX
 
 #if _MSC_VER
@@ -25,7 +28,7 @@
 #include "PxPhysicsAPI.h"
 #include "PxRenderBuffer.h"
 #include "PxExtensionsAPI.h"
-#include "PxVisualDebuggerExt.h"
+#include "PxPvd.h"
 #include "PxCollectionExt.h"
 //#include "PxDefaultCpuDispatcher.h"
 

@@ -2,9 +2,23 @@
 
 #pragma once
 
-/*-----------------------------------------------------------------------------
-	Type definitions
------------------------------------------------------------------------------*/
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Misc/Guid.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "ProfilerManager.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/Layout/SSplitter.h"
+
+class FActiveTimerHandle;
+class SFiltersAndPresets;
+class SMultiDumpBrowser;
+class SProfilerGraphPanel;
+class SProfilerMiniView;
+class SVerticalBox;
 
 /** Type definition for shared pointers to instances of SNotificationItem. */
 typedef TSharedPtr<class SNotificationItem> SNotificationItemPtr;
@@ -15,9 +29,6 @@ typedef TSharedRef<class SNotificationItem> SNotificationItemRef;
 /** Type definition for weak references to instances of SNotificationItem. */
 typedef TWeakPtr<class SNotificationItem> SNotificationItemWeak;
 
-/*-----------------------------------------------------------------------------
-	SProfilerWindow class
------------------------------------------------------------------------------*/
 
 /**
  * Implements the profiler window.
@@ -42,7 +53,7 @@ public:
 	void ManageEventGraphTab( const FGuid ProfilerInstanceID, const bool bCreateFakeTab, const FString TabName );
 	void UpdateEventGraph( const FGuid ProfilerInstanceID, const FEventGraphDataRef AverageEventGraph, const FEventGraphDataRef MaximumEventGraph, bool bInitial );
 
-	void ManageLoadingProgressNotificationState( const FString& Filename, const EProfilerNotificationTypes::Type NotificatonType, const ELoadingProgressStates::Type ProgressState, const float DataLoadingProgress );
+	void ManageLoadingProgressNotificationState( const FString& Filename, const EProfilerNotificationTypes NotificatonType, const ELoadingProgressStates ProgressState, const float DataLoadingProgress );
 
 	void OpenProfilerSettings();
 	void CloseProfilerSettings();
@@ -58,7 +69,7 @@ protected:
 
 	void SendingServiceSideCapture_Load( const FString Filename );
 
-	void ProfilerManager_OnViewModeChanged( EProfilerViewMode::Type NewViewMode );
+	void ProfilerManager_OnViewModeChanged( EProfilerViewMode NewViewMode );
 
 private:
 

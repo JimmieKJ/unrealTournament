@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "AssetDragDropOp.h"
+#include "DragAndDrop/AssetDragDropOp.h"
+#include "Engine/Level.h"
+#include "ActorFactories/ActorFactory.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/Layout/SBox.h"
+#include "AssetThumbnail.h"
+#include "ClassIconFinder.h"
 
 TSharedRef<FAssetDragDropOp> FAssetDragDropOp::New(const FAssetData& InAssetData, UActorFactory* ActorFactory /*= NULL*/)
 {

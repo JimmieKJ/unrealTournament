@@ -1,8 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "ContentBrowserModule.h"
+#include "AssetTypeActions/AssetTypeActions_AnimSequence.h"
 #include "Animation/AnimSequence.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "EditorReimportHandler.h"
+#include "Animation/AnimMontage.h"
+#include "Factories/AnimCompositeFactory.h"
+#include "Factories/AnimMontageFactory.h"
+#include "Factories/PoseAssetFactory.h"
+#include "EditorFramework/AssetImportData.h"
+#include "Animation/AnimComposite.h"
+#include "Animation/PoseAsset.h"
+#include "AssetTools.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
 
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"

@@ -2,10 +2,11 @@
 
 #pragma once
 
-#include "Templates/TypeHash.h"
-#include "CompositeFont.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "Fonts/CompositeFont.h"
 #include "SlateFontInfo.generated.h"
-
 
 /**
  * Sets the maximum font fallback level, for when a character can't be found in the selected font set.
@@ -27,6 +28,61 @@ enum class EFontFallback : uint8
 };
 
 /**
+ * Settings for applying an outline to a font
+ */
+USTRUCT()
+struct SLATECORE_API FFontOutlineSettings
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Size of the outline in slate units (at 1.0 font scale this unit is a pixel)*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OutlineSettings, meta=(ClampMin="0"))
+	int32 OutlineSize;
+
+	/** Optional material to apply to the outline */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SlateStyleRules, meta=(AllowedClasses="MaterialInterface"))
+	UObject* OutlineMaterial;
+
+	/** The color of the outline for any character in this font */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OutlineSettings)
+	FLinearColor OutlineColor;
+
+	/** 
+	 * If checked, the outline will be completely translucent where the filled area will be.  This allows for a separate fill alpha value
+	 * The trade off when enabling this is slightly worse quality for completely opaque fills where the inner outline border meets the fill area
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OutlineSettings)
+	bool bSeparateFillAlpha;
+
+	FFontOutlineSettings()
+		: OutlineSize(0)
+		, OutlineMaterial(nullptr)
+		, OutlineColor(FColor::Black)
+		, bSeparateFillAlpha(false)
+	{}
+
+	bool operator==(const FFontOutlineSettings& Other) const
+	{
+		return OutlineSize == Other.OutlineSize
+			&& OutlineMaterial == Other.OutlineMaterial
+			&& OutlineColor == Other.OutlineColor
+			&& bSeparateFillAlpha == Other.bSeparateFillAlpha;
+	}
+
+	friend inline uint32 GetTypeHash(const FFontOutlineSettings& OutlineSettings)
+	{
+		uint32 Hash = 0;
+		Hash = HashCombine(Hash, GetTypeHash(OutlineSettings.OutlineMaterial));
+		Hash = HashCombine(Hash, GetTypeHash(OutlineSettings.OutlineSize));
+		Hash = HashCombine(Hash, GetTypeHash(OutlineSettings.OutlineColor));
+		Hash = HashCombine(Hash, GetTypeHash(OutlineSettings.bSeparateFillAlpha));
+		return Hash;
+	}
+
+	static FFontOutlineSettings NoOutline;
+};
+
+/**
  * A representation of a font in Slate.
  */
 USTRUCT(BlueprintType)
@@ -40,7 +96,11 @@ struct SLATECORE_API FSlateFontInfo
 
 	/** The material to use when rendering this font */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SlateStyleRules, meta=(AllowedClasses="MaterialInterface"))
-	const UObject* FontMaterial;
+	UObject* FontMaterial;
+
+	/** Settings for applying an outline to a font */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SlateStyleRules)
+	FFontOutlineSettings OutlineSettings;
 
 	/** The composite font data to use (valid when used with a Slate style set in C++) */
 	TSharedPtr<const FCompositeFont> CompositeFont;
@@ -139,7 +199,8 @@ public:
 	{
 		return FontObject == Other.FontObject
 			&& FontMaterial == Other.FontMaterial
-			&& CompositeFont == Other.CompositeFont 
+			&& OutlineSettings == Other.OutlineSettings
+			&& CompositeFont == Other.CompositeFont
 			&& TypefaceFontName == Other.TypefaceFontName
 			&& Size == Other.Size;
 	}
@@ -180,6 +241,7 @@ public:
 		uint32 Hash = 0;
 		Hash = HashCombine(Hash, GetTypeHash(FontInfo.FontObject));
 		Hash = HashCombine(Hash, GetTypeHash(FontInfo.FontMaterial));
+		Hash = HashCombine(Hash, GetTypeHash(FontInfo.OutlineSettings));
 		Hash = HashCombine(Hash, GetTypeHash(FontInfo.CompositeFont));
 		Hash = HashCombine(Hash, GetTypeHash(FontInfo.TypefaceFontName));
 		Hash = HashCombine(Hash, GetTypeHash(FontInfo.Size));

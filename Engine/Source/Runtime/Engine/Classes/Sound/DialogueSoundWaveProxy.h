@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Sound/SoundBase.h"
 #include "DialogueSoundWaveProxy.generated.h"
 
+class USoundWave;
+struct FActiveSound;
+struct FSoundParseParameters;
 
 UCLASS()
 class UDialogueSoundWaveProxy : public USoundBase

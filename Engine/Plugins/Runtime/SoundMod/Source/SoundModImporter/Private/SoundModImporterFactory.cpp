@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SoundModImporterPrivatePCH.h"
-#include "AssetToolsModule.h"
-#include "AssetRegistryModule.h"
-#include "PackageTools.h"
-#include "SoundDefinitions.h"
+#include "SoundModImporterFactory.h"
+#include "EngineGlobals.h"
+#include "Editor.h"
+#include "SoundMod.h"
 #include "xmp.h"
 #include "Components/AudioComponent.h"
 

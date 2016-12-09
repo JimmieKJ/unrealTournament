@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
 
 /* Custom run-loop modes for UE4 that process only certain kinds of events to simulate Windows event ordering. */
 extern NSString* UE4NilEventMode; /* Process only mandatory events */

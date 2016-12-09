@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "PerforceConnectionInfo.h"
 
 class FPerforceSourceControlSettings

@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeEditorPrivatePCH.h"
 #include "CodeProjectItem.h"
+#include "Misc/Paths.h"
+#include "UObject/WeakObjectPtr.h"
+#include "UObject/Package.h"
+#include "IDirectoryWatcher.h"
 #include "DirectoryScanner.h"
 
 UCodeProjectItem::UCodeProjectItem(const FObjectInitializer& ObjectInitializer)

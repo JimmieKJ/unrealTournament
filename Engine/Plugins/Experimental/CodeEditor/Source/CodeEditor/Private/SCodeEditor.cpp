@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeEditorPrivatePCH.h"
 #include "SCodeEditor.h"
-#include "SMultiLineEditableText.h"
+#include "Misc/FileHelper.h"
+#include "Framework/Text/TextLayout.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "CodeEditorStyle.h"
+#include "CodeProjectItem.h"
 #include "CPPRichTextSyntaxHighlighterTextLayoutMarshaller.h"
 #include "SCodeEditableText.h"
 

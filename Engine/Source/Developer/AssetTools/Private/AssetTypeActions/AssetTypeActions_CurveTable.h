@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
 #include "Engine/CurveTable.h"
 #include "AssetTypeActions_CSVAssetBase.h"
+
+class FMenuBuilder;
 
 class FAssetTypeActions_CurveTable : public FAssetTypeActions_CSVAssetBase
 {

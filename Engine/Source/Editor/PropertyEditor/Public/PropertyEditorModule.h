@@ -1,13 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Toolkits/AssetEditorToolkit.h"
-#include "Toolkits/IToolkit.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SWindow.h"
+#include "Modules/ModuleInterface.h"
+#include "UObject/StructOnScope.h"
+#include "Toolkits/IToolkitHost.h"
 
 #include "PropertyEditorDelegates.h"
-#include "IDetailCustomization.h"
 #include "IPropertyTypeCustomization.h"
-#include "IDetailChildrenBuilder.h"
+
+class FAssetEditorToolkit;
+class FNotifyHook;
+class IDetailsView;
+class IPropertyHandle;
+class IPropertyTable;
+class IPropertyTableCellPresenter;
+class ISinglePropertyView;
+class SDetailsView;
+class SPropertyTreeViewImpl;
+class SSingleProperty;
 
 /**
  * The location of a property name relative to its editor widget                   

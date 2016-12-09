@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Launcher/LauncherTask.h"
 
 /**
  * Implements a launcher task for verifying the profile settings.

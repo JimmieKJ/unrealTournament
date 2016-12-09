@@ -1,10 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "PropertyEditorConstants.h"
-#include "CategoryPropertyNode.h"
-#include "ItemPropertyNode.h"
-#include "PropertyEditor.h"
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "PropertyNode.h"
+#include "Fonts/SlateFontInfo.h"
+#include "EditorStyleSet.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
+#include "UserInterface/PropertyEditor/PropertyEditorConstants.h"
+#include "Widgets/Text/STextBlock.h"
+
+class FCategoryPropertyNode;
+class FItemPropertyNode;
 
 class SPropertyEditorTitle : public SCompoundWidget
 {

@@ -135,7 +135,7 @@
 // Annotate a function indicating the caller must examine the return value.
 // Use like:
 //   int foo() WARN_UNUSED_RESULT;
-// To explicitly ignore a result, see |ignore_result()| in <base/basictypes.h>.
+// To explicitly ignore a result, see |ignore_result()| in <base/macros.h>.
 #ifndef WARN_UNUSED_RESULT
 #if defined(COMPILER_GCC)
 #define WARN_UNUSED_RESULT __attribute__((warn_unused_result))
@@ -175,7 +175,10 @@
 // C++11 support may not be enabled in client applications. CEF internal classes
 // should use the `override` keyword directly.
 #ifndef OVERRIDE
-#if defined(__clang__) || defined(COMPILER_MSVC)
+#if defined(__clang__)
+#define OVERRIDE override
+#elif defined(COMPILER_MSVC) && _MSC_VER >= 1600
+// Visual Studio 2010 and later support override.
 #define OVERRIDE override
 #elif defined(COMPILER_GCC) && __cplusplus >= 201103 && \
       (__GNUC__ * 10000 + __GNUC_MINOR__ * 100) >= 40700

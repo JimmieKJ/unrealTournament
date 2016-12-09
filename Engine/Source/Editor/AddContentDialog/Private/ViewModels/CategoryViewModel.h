@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+struct FSlateBrush;
+enum class EContentSourceCategory:uint8;
+
 /** A view model for displaying a content source category in the UI. */
 class FCategoryViewModel
 {

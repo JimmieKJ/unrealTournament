@@ -1,17 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "PropertyEditorHelpers.h"
-#include "IPropertyTableUtilities.h"
-#include "PropertyNode.h"
-#include "ItemPropertyNode.h"
-#include "ObjectPropertyNode.h"
-#include "PropertyEditor.h"
-
-#include "IPropertyTableColumn.h"
-#include "IPropertyTableRow.h"
-#include "IPropertyTableCell.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Layout/SBorder.h"
 #include "IPropertyTable.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "Widgets/SOverlay.h"
+#include "PropertyEditorHelpers.h"
+#include "IPropertyTableCell.h"
+#include "Widgets/Layout/SBox.h"
 
 class SRowHeaderCell : public SCompoundWidget
 {

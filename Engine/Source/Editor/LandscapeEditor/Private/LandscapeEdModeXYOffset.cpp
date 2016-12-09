@@ -1,17 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
-#include "ObjectTools.h"
+#include "CoreMinimal.h"
+#include "LandscapeToolInterface.h"
 #include "LandscapeEdMode.h"
-#include "ScopedTransaction.h"
-#include "LandscapeEdit.h"
-#include "LandscapeRender.h"
-#include "LandscapeDataAccess.h"
-#include "LandscapeSplineProxies.h"
-#include "LandscapeEditorModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "LandscapeEdModeTools.h"
+#include "LandscapeEditorObject.h"
 #include "Landscape.h"
+#include "LandscapeDataAccess.h"
+#include "LandscapeEdModeTools.h"
 
 namespace
 {
@@ -59,7 +54,7 @@ public:
 	{
 	}
 
-	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolMousePosition>& MousePositions)
+	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolInteractorPosition>& InteractorPositions)
 	{
 		if (!LandscapeInfo)
 		{
@@ -69,7 +64,7 @@ public:
 		// Get list of verts to update
 		// TODO - only retrieve bounds as we don't need the data
 		// or use the brush data?
-		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(MousePositions);
+		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(InteractorPositions);
 		if (!BrushInfo)
 		{
 			return;

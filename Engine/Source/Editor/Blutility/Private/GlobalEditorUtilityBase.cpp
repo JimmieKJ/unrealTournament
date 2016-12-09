@@ -1,12 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlutilityPrivatePCH.h"
 #include "GlobalEditorUtilityBase.h"
-#include "ScopedTransaction.h"
-#include "ContentBrowserModule.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "GameFramework/Actor.h"
+#include "Editor/EditorPerProjectUserSettings.h"
 #include "AssetData.h"
-#include "AssetToolsModule.h"
 #include "Engine/Selection.h"
+#include "Editor.h"
+#include "ScopedTransaction.h"
+#include "IAssetTools.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
+#include "AssetToolsModule.h"
 
 /////////////////////////////////////////////////////
 

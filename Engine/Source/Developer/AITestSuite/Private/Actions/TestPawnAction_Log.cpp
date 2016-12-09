@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AITestSuitePrivatePCH.h"
+#include "Actions/TestPawnAction_Log.h"
+#include "TestLogger.h"
+#include "Engine/World.h"
 
 UTestPawnAction_Log::UTestPawnAction_Log(const FObjectInitializer& ObjectInitializer) 
 	: Super(ObjectInitializer)

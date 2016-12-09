@@ -1,14 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "EventPool.h"
-#include "EngineVersion.h"
-#include "Templates/Function.h"
+#include "GenericPlatform/GenericPlatformProcess.h"
+#include "Misc/Timespan.h"
+#include "HAL/PlatformProcess.h"
+#include "GenericPlatform/GenericPlatformCriticalSection.h"
+#include "Logging/LogMacros.h"
+#include "CoreGlobals.h"
+#include "HAL/FileManager.h"
+#include "Misc/Parse.h"
+#include "Misc/SingleThreadEvent.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Stats/Stats.h"
+#include "Misc/CoreStats.h"
+#include "Misc/EventPool.h"
+#include "Misc/EngineVersion.h"
 
 
 #if PLATFORM_HAS_BSD_TIME 
-	#include <unistd.h> // for usleep
-	#include <sched.h>  // for sched_yield
+	#include <unistd.h>
+	#include <sched.h>
 #endif
 
 DEFINE_STAT(STAT_Sleep);
@@ -195,6 +206,12 @@ FProcHandle FGenericPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* 
 	return FProcHandle();
 }
 
+FProcHandle FGenericPlatformProcess::OpenProcess(uint32 ProcessID)
+{
+	UE_LOG(LogHAL, Fatal, TEXT("FGenericPlatformProcess::OpenProcess not implemented on this platform"));
+	return FProcHandle();
+}
+
 bool FGenericPlatformProcess::IsProcRunning( FProcHandle & ProcessHandle )
 {
 	UE_LOG(LogHAL, Fatal, TEXT("FGenericPlatformProcess::IsProcRunning not implemented on this platform"));
@@ -323,7 +340,7 @@ void FGenericPlatformProcess::ConditionalSleep(TFunctionRef<bool()> Condition, f
 
 #if PLATFORM_USE_PTHREADS
 
-#include "PThreadEvent.h"
+#include "HAL/PThreadEvent.h"
 
 bool FPThreadEvent::Wait(uint32 WaitTime, const bool bIgnoreThreadIdleStats /*= false*/)
 {
@@ -457,7 +474,7 @@ void FGenericPlatformProcess::ReturnSynchEventToPool(FEvent* Event)
 
 
 #if PLATFORM_USE_PTHREADS
-	#include "../HAL/PThreadRunnableThread.h"
+	#include "HAL/PThreadRunnableThread.h"
 #endif
 
 FRunnableThread* FGenericPlatformProcess::CreateRunnableThread()

@@ -46,24 +46,18 @@ public class UnrealTournamentTarget : TargetRules
         }
         OutExtraModuleNames.Add("OnlineSubsystemNull");
 	}
+
+    public override void SetupGlobalEnvironment(
+		TargetInfo Target,
+		ref LinkEnvironmentConfiguration OutLinkEnvironmentConfiguration,
+		ref CPPEnvironmentConfiguration OutCPPEnvironmentConfiguration
+		)
+	{
+		UEBuildConfiguration.bWithPerfCounters = true;
+    }
     
     public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
     {
         return false;
-    }
-
-    public override List<UnrealTargetPlatform> GUBP_GetPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
-    {
-        if (HostPlatform == UnrealTargetPlatform.Mac)
-        {
-            return new List<UnrealTargetPlatform> { UnrealTargetPlatform.Mac };
-        }
-        return new List<UnrealTargetPlatform> { UnrealTargetPlatform.Win32, UnrealTargetPlatform.Win64, UnrealTargetPlatform.Linux };
-    }
-
-    public override List<UnrealTargetConfiguration> GUBP_GetConfigs_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform Platform)
-    {
-        // ORDER HERE MATTERS, THE FIRST ENTRY IS PUT IN Manifest_NonUFSFiles.txt AND THE FOLLOWING ARE PUT IN Manifest_DebugFiles.txt
-        return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Shipping, UnrealTargetConfiguration.Test };
     }
 }

@@ -2,10 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "MeshPaintModule.h"
 
+class FReferenceCollector;
 class UMeshComponent;
 class UPaperSpriteComponent;
+class UTexture;
 
 //////////////////////////////////////////////////////////////////////////
 // FMeshPaintSpriteAdapter

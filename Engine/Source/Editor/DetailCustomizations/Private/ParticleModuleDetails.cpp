@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "ParticleModuleDetails.h"
-#include "SharedPointer.h"
-#include "PropertyRestriction.h"
 #include "Particles/ParticleModule.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "PropertyRestriction.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogParticleModuleDetails, Log, All);
 

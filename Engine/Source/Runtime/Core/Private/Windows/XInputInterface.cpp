@@ -1,14 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "WindowsApplication.h"
 #include "XInputInterface.h"
+#include "HAL/PlatformTime.h"
+#include "Misc/CoreDelegates.h"
+#include "Windows/WindowsApplication.h"
 #include "GenericPlatform/GenericApplication.h"
 
 #pragma pack (push,8)
-#include "AllowWindowsPlatformTypes.h"
-#include <xinput.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include <XInput.h>
+#include "Windows/HideWindowsPlatformTypes.h"
 #pragma pack (pop)
 
 
@@ -87,7 +88,7 @@ XInputInterface::XInputInterface( const TSharedRef< FGenericApplicationMessageHa
 }
 
 
-float ShortToNormalizedFloat(SHORT AxisVal)
+float ShortToNormalizedFloat(int16 AxisVal)
 {
 	// normalize [-32768..32767] -> [-1..1]
 	const float Norm = (AxisVal <= 0 ? 32768.f : 32767.f);

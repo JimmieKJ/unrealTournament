@@ -1,13 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ContentBrowserPCH.h"
 #include "NativeClassHierarchy.h"
-#include "KismetEditorUtilities.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
+#include "ContentBrowserLog.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "GameProjectGenerationModule.h"
-#include "IProjectManager.h"
-#include "HotReloadInterface.h"
+#include "Misc/HotReloadInterface.h"
 #include "SourceCodeNavigation.h"
-#include "IPluginManager.h"
+#include "Interfaces/IPluginManager.h"
 
 TSharedRef<FNativeClassHierarchyNode> FNativeClassHierarchyNode::MakeFolderEntry(FName InEntryName, FString InEntryPath)
 {

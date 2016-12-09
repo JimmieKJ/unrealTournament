@@ -70,7 +70,7 @@ namespace VulkanRHI
 		{
 		}
 
-		inline FVulkanDevice* GetParent() const
+		inline FVulkanDevice* GetParent()
 		{
 			// Has to have one if we are asking for it...
 			check(Device);
@@ -269,11 +269,13 @@ namespace VulkanRHI
 		{
 			VkDeviceSize TotalSize;
 			VkDeviceSize UsedSize;
+			VkDeviceSize PeakSize;
 			TArray<FDeviceMemoryAllocation*> Allocations;
 
 			FHeapInfo() :
 				TotalSize(0),
-				UsedSize(0)
+				UsedSize(0),
+				PeakSize(0)
 			{
 			}
 		};
@@ -299,6 +301,11 @@ namespace VulkanRHI
 		inline uint32 GetSize() const
 		{
 			return RequestedSize;
+		}
+
+		inline uint32 GetAllocationSize()
+		{
+			return AllocationSize;
 		}
 
 		inline uint32 GetOffset() const
@@ -351,6 +358,19 @@ namespace VulkanRHI
 		friend class FOldResourceHeapPage;
 	};
 
+	struct FRange
+	{
+		uint32 Offset;
+		uint32 Size;
+
+		inline bool operator<(const FRange& In) const
+		{
+			return Offset < In.Offset;
+		}
+
+		static void JoinConsecutiveRanges(TArray<FRange>& Ranges);
+	};
+
 	// One device allocation that is shared amongst different resources
 	class FOldResourceHeapPage
 	{
@@ -369,7 +389,7 @@ namespace VulkanRHI
 
 		void ReleaseAllocation(FOldResourceAllocation* Allocation);
 
-		FOldResourceHeap* GetOwner()
+		inline FOldResourceHeap* GetOwner()
 		{
 			return Owner;
 		}
@@ -385,22 +405,13 @@ namespace VulkanRHI
 
 		bool JoinFreeBlocks();
 
-		struct FPair
-		{
-			uint32 Offset;
-			uint32 Size;
-
-			bool operator<(const FPair& In) const
-			{
-				return Offset < In.Offset;
-			}
-		};
-		TArray<FPair> FreeList;
+		TArray<FRange> FreeList;
 		friend class FOldResourceHeap;
 	};
 
 	class FBufferAllocation;
 
+	// This holds the information for a SubAllocation (a range); does NOT hold any information about what the object type is
 	class FResourceSuballocation : public FRefCount
 	{
 	public:
@@ -430,6 +441,7 @@ namespace VulkanRHI
 		uint32 AllocationOffset;
 	};
 
+	// Suballocation of a VkBuffer
 	class FBufferSuballocation : public FResourceSuballocation
 	{
 	public:
@@ -449,11 +461,12 @@ namespace VulkanRHI
 			return Handle;
 		}
 
-		FBufferAllocation* GetBufferAllocation()
+		inline FBufferAllocation* GetBufferAllocation()
 		{
 			return Owner;
 		}
 
+		// Returns the pointer to the mapped data for this SubAllocation, not the full buffer!
 		void* GetMappedPointer();
 
 	protected:
@@ -462,6 +475,7 @@ namespace VulkanRHI
 		VkBuffer Handle;
 	};
 
+	// Generically mantains/manages sub-allocations; doesn't know what the object type is
 	class FSubresourceAllocator
 	{
 	public:
@@ -477,10 +491,10 @@ namespace VulkanRHI
 			, UsedSize(0)
 		{
 			MaxSize = InDeviceMemoryAllocation->GetSize();
-			FPair Pair;
-			Pair.Offset = 0;
-			Pair.Size = MaxSize;
-			FreeList.Add(Pair);
+			FRange FullRange;
+			FullRange.Offset = 0;
+			FullRange.Size = MaxSize;
+			FreeList.Add(FullRange);
 		}
 
 		virtual ~FSubresourceAllocator() {}
@@ -496,12 +510,12 @@ namespace VulkanRHI
 			return TryAllocateNoLocking(InSize, InAlignment, File, Line);
 		}
 
-		uint32 GetAlignment() const
+		inline uint32 GetAlignment() const
 		{
 			return Alignment;
 		}
 
-		void* GetMappedPointer()
+		inline void* GetMappedPointer()
 		{
 			return MemoryAllocation->GetMappedPointer();
 		}
@@ -517,22 +531,15 @@ namespace VulkanRHI
 		int64 UsedSize;
 		static FCriticalSection CS;
 
-		struct FPair
-		{
-			uint32 Offset;
-			uint32 Size;
+		// List of free ranges
+		TArray<FRange> FreeList;
 
-			bool operator<(const FPair& In) const
-			{
-				return Offset < In.Offset;
-			}
-		};
-		TArray<FPair> FreeList;
-
+		// Active sub-allocations
 		TArray<FResourceSuballocation*> Suballocations;
 		bool JoinFreeBlocks();
 	};
 
+	// Manages/maintains sub-allocations of a VkBuffer; assumes it was created elsewhere, but it does destroy it
 	class FBufferAllocation : public FSubresourceAllocator
 	{
 	public:
@@ -643,6 +650,16 @@ namespace VulkanRHI
 			return Owner;
 		}
 
+		inline bool IsHostCachedSupported() const
+		{
+			return bIsHostCachedSupported;
+		}
+
+		inline bool IsLazilyAllocatedSupported() const
+		{
+			return bIsLazilyAllocatedSupported;
+		}
+
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 		void DumpMemory();
 #endif
@@ -650,6 +667,9 @@ namespace VulkanRHI
 	protected:
 		FResourceHeapManager* Owner;
 		uint32 MemoryTypeIndex;
+
+		bool bIsHostCachedSupported;
+		bool bIsLazilyAllocatedSupported;
 
 		uint32 DefaultPageSize;
 		uint32 PeakPageSize;
@@ -676,7 +696,10 @@ namespace VulkanRHI
 		void Init();
 		void Deinit();
 
+		// Returns a sub-allocation, as there can be space inside a previously allocated VkBuffer to be reused; to release a sub allocation, just delete the pointer
 		FBufferSuballocation* AllocateBuffer(uint32 Size, VkBufferUsageFlags BufferUsageFlags, VkMemoryPropertyFlags MemoryPropertyFlags, const char* File, uint32 Line);
+
+		// Release a whole allocation; this is only called from within a FBufferAllocation
 		void ReleaseBuffer(FBufferAllocation* BufferAllocation);
 #if 0
 		FImageSuballocation* AllocateImage(uint32 Size, VkImageUsageFlags ImageUsageFlags, VkMemoryPropertyFlags MemoryPropertyFlags, const char* File, uint32 Line);
@@ -687,6 +710,10 @@ namespace VulkanRHI
 			uint32 TypeIndex = 0;
 			VERIFYVULKANRESULT(DeviceMemoryManager->GetMemoryTypeFromProperties(MemoryReqs.memoryTypeBits, MemoryPropertyFlags, &TypeIndex));
 			bool bMapped = (MemoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+			if (!ResourceTypeHeaps[TypeIndex])
+			{
+				UE_LOG(LogVulkanRHI, Fatal, TEXT("Missing memory type index %d, MemSize %d, MemPropTypeBits %u, MemPropertyFlags %u, %s(%d)"), TypeIndex, (uint32)MemoryReqs.size, (uint32)MemoryReqs.memoryTypeBits, (uint32)MemoryPropertyFlags, ANSI_TO_TCHAR(File), Line);
+			}
 			FOldResourceAllocation* Allocation = ResourceTypeHeaps[TypeIndex]->AllocateResource(MemoryReqs.size, MemoryReqs.alignment, true, bMapped, File, Line);
 			if (!Allocation)
 			{
@@ -706,6 +733,20 @@ namespace VulkanRHI
 			{
 				UE_LOG(LogVulkanRHI, Fatal, TEXT("Missing memory type index %d, MemSize %d, MemPropTypeBits %u, MemPropertyFlags %u, %s(%d)"), TypeIndex, (uint32)MemoryReqs.size, (uint32)MemoryReqs.memoryTypeBits, (uint32)MemoryPropertyFlags, ANSI_TO_TCHAR(File), Line);
 			}
+
+			if (!ResourceTypeHeaps[TypeIndex]->IsHostCachedSupported())
+			{
+				//remove host cached bit if device does not support it
+				//it should only affect perf
+				MemoryPropertyFlags = MemoryPropertyFlags & ~VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+			}
+			if (!ResourceTypeHeaps[TypeIndex]->IsLazilyAllocatedSupported())
+			{
+				//remove lazily bit if device does not support it
+				//it should only affect perf
+				MemoryPropertyFlags = MemoryPropertyFlags & ~VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT;
+			}
+
 			FOldResourceAllocation* Allocation = ResourceTypeHeaps[TypeIndex]->AllocateResource(MemoryReqs.size, MemoryReqs.alignment, false, bMapped, File, Line);
 			if (!Allocation)
 			{
@@ -770,6 +811,21 @@ namespace VulkanRHI
 		inline void* GetMappedPointer()
 		{
 			return ResourceAllocation->GetMappedPointer();
+		}
+
+		inline uint32 GetAllocationOffset() const
+		{
+			return ResourceAllocation->GetOffset();
+		}
+
+		inline uint32 GetDeviceMemoryAllocationSize() const
+		{
+			return ResourceAllocation->GetAllocationSize();
+		}
+
+		inline VkDeviceMemory GetDeviceMemoryHandle() const
+		{
+			return ResourceAllocation->GetHandle();
 		}
 
 	protected:
@@ -940,7 +996,8 @@ namespace VulkanRHI
 		template <typename T>
 		inline void EnqueueResource(EType Type, T Handle)
 		{
-			EnqueueGenericResource(Type, (void*)Handle);
+			static_assert(sizeof(T) <= sizeof(uint64), "Vulkan resource handle type size too large.");
+			EnqueueGenericResource(Type, (uint64)Handle);
 		}
 
 		void ReleaseResources(bool bDeleteImmediately = false);
@@ -964,13 +1021,13 @@ namespace VulkanRHI
 	private:
 		//TQueue<FAsyncTask<FVulkanAsyncDeletionWorker>*> DeleteTasks;
 
-		void EnqueueGenericResource(EType Type, void* Handle);
+		void EnqueueGenericResource(EType Type, uint64 Handle);
 
 		struct FEntry
 		{
 			uint64 FenceCounter;
 			FVulkanCmdBuffer* CmdBuffer;
-			void* Handle;
+			uint64 Handle;
 			EType StructureType;
 
 			//FRefCount* Resource;

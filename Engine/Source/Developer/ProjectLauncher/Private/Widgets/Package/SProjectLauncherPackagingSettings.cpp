@@ -1,7 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
-#include "SExpandableArea.h"
+#include "Widgets/Package/SProjectLauncherPackagingSettings.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "DesktopPlatformModule.h"
 
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherPackagingSettings"
@@ -62,6 +72,7 @@ void SProjectLauncherPackagingSettings::Construct( const FArguments& InArgs, con
 										.IsEnabled(this, &SProjectLauncherPackagingSettings::IsEditable)
 										.OnTextCommitted(this, &SProjectLauncherPackagingSettings::OnTextCommitted)
 										.OnTextChanged(this, &SProjectLauncherPackagingSettings::OnTextChanged)
+										.HintText(this, &SProjectLauncherPackagingSettings::HandleHintPathText)
 									]
 
 								+ SHorizontalBox::Slot()
@@ -86,15 +97,16 @@ void SProjectLauncherPackagingSettings::Construct( const FArguments& InArgs, con
 							[
 
 								SNew(SCheckBox)
-								.IsChecked(this, &SProjectLauncherPackagingSettings::HandleForDistributionCheckBoxIsChecked)
-							.OnCheckStateChanged(this, &SProjectLauncherPackagingSettings::HandleForDistributionCheckBoxCheckStateChanged)
-							.Padding(FMargin(4.0f, 0.0f))
-							.ToolTipText(LOCTEXT("ForDistributionCheckBoxTooltip", "If checked the build will be marked as for release to the public (distribution)."))
-							.Content()
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("ForDistributionCheckBoxText", "Is this build for distribution to the public"))
-							]
+									.IsEnabled(this, &SProjectLauncherPackagingSettings::IsEditable)
+									.IsChecked(this, &SProjectLauncherPackagingSettings::HandleForDistributionCheckBoxIsChecked)
+									.OnCheckStateChanged(this, &SProjectLauncherPackagingSettings::HandleForDistributionCheckBoxCheckStateChanged)
+									.Padding(FMargin(4.0f, 0.0f))
+									.ToolTipText(LOCTEXT("ForDistributionCheckBoxTooltip", "If checked the build will be marked as for release to the public (distribution)."))
+									.Content()
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("ForDistributionCheckBoxText", "Is this build for distribution to the public"))
+									]
 							]
 					]
 			]
@@ -169,6 +181,19 @@ FText SProjectLauncherPackagingSettings::HandleDirectoryPathText() const
 		}
 	}
 
+	return FText::GetEmpty();
+}
+
+FText SProjectLauncherPackagingSettings::HandleHintPathText() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid() && SelectedProfile->GetPackagingMode() == ELauncherProfilePackagingModes::Locally && !SelectedProfile->GetProjectBasePath().IsEmpty())
+	{
+		const FString ProjectPathWithoutExtension = FPaths::GetPath(SelectedProfile->GetProjectPath());
+		return FText::FromString(ProjectPathWithoutExtension / "Saved" / "StagedBuilds");
+	}
+	
 	return FText::GetEmpty();
 }
 

@@ -14,7 +14,8 @@
 // limitations under the License.
 //
 
-#include "OSVRPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "OSVRPrivate.h"
 #include "InputCoreTypes.h"
 #include "GameFramework/InputSettings.h"
 
@@ -29,15 +30,20 @@ class FOSVR : public IOSVR
 private:
     TSharedPtr<FOSVRHMD, ESPMode::ThreadSafe> hmd;
     FCriticalSection mModuleMutex;
-    TSharedPtr< class OSVREntryPoint > EntryPoint;
+    TSharedPtr<class OSVREntryPoint, ESPMode::ThreadSafe> EntryPoint;
     bool bModulesLoaded = false;
+    bool bHmdCreationAttempted = false;
 public:
     /** IModuleInterface implementation */
     virtual void StartupModule() override;
     virtual void ShutdownModule() override;
 
     /** IHeadMountedDisplayModule implementation */
-    virtual TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > CreateHeadMountedDisplay() override;
+	FString GetModuleKeyName() const override
+	{
+		return FString(TEXT("OSVR"));
+	}
+    virtual TSharedPtr<class IHeadMountedDisplay, ESPMode::ThreadSafe> CreateHeadMountedDisplay() override;
 #if OSVR_UNREAL_4_12
     virtual bool IsHMDConnected() override;
 #endif
@@ -45,21 +51,35 @@ public:
     // Pre-init the HMD module (optional).
     //virtual void PreInit() override;
 
-    virtual OSVREntryPoint* GetEntryPoint() override;
+    virtual TSharedPtr<OSVREntryPoint, ESPMode::ThreadSafe> GetEntryPoint() override;
     virtual TSharedPtr<FOSVRHMD, ESPMode::ThreadSafe> GetHMD() override;
     virtual void LoadOSVRClientKitModule() override;
 };
 
 IMPLEMENT_MODULE(FOSVR, OSVR)
 
-OSVREntryPoint* FOSVR::GetEntryPoint()
+TSharedPtr<class OSVREntryPoint, ESPMode::ThreadSafe> FOSVR::GetEntryPoint()
 {
-    return EntryPoint.Get();
+    return EntryPoint;
 }
 
 TSharedPtr<FOSVRHMD, ESPMode::ThreadSafe> FOSVR::GetHMD()
 {
-    return hmd;
+    if (bHmdCreationAttempted)
+    {
+        return hmd;
+    }
+    if (EntryPoint->IsOSVRConnected())
+    {
+        TSharedPtr< FOSVRHMD, ESPMode::ThreadSafe > OSVRHMD(new FOSVRHMD(EntryPoint));
+        bHmdCreationAttempted = true;
+        if (OSVRHMD->IsInitialized() && OSVRHMD->IsHMDConnected())
+        {
+            hmd = OSVRHMD;
+            return OSVRHMD;
+        }
+    }
+    return nullptr;
 }
 
 void FOSVR::LoadOSVRClientKitModule()
@@ -127,16 +147,7 @@ void FOSVR::LoadOSVRClientKitModule()
 
 TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > FOSVR::CreateHeadMountedDisplay()
 {
-    if (EntryPoint->IsOSVRConnected())
-    {
-        TSharedPtr< FOSVRHMD, ESPMode::ThreadSafe > OSVRHMD(new FOSVRHMD());
-        if (OSVRHMD->IsInitialized() && OSVRHMD->IsHMDConnected())
-        {
-            hmd = OSVRHMD;
-            return OSVRHMD;
-        }
-    }
-    return nullptr;
+    return GetHMD();
 }
 
 #if OSVR_UNREAL_4_12

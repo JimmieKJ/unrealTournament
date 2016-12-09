@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "LayoutUtils.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Layout/LayoutUtils.h"
 
 SUniformGridPanel::SUniformGridPanel()
 : Children()

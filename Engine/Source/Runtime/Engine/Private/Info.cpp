@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "GameFramework/Info.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/BillboardComponent.h"
+#include "Engine/Texture2D.h"
 
 AInfo::AInfo(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 #if WITH_EDITORONLY_DATA
 	SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
+	RootComponent = SpriteComponent;
 	if (!IsRunningCommandlet() && (SpriteComponent != nullptr))
 	{
 		// Structure to hold one-time initialization
@@ -29,7 +33,6 @@ AInfo::AInfo(const FObjectInitializer& ObjectInitializer)
 		SpriteComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Info;
 		SpriteComponent->bIsScreenSizeScaled = true;	
 
-		RootComponent = SpriteComponent;
 	}
 #endif // WITH_EDITORONLY_DATA
 

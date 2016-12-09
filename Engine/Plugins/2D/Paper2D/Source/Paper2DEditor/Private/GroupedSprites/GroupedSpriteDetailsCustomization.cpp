@@ -1,12 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "GroupedSpriteDetailsCustomization.h"
+#include "GroupedSprites/GroupedSpriteDetailsCustomization.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Editor.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
 
-#include "PaperSpriteActor.h"
-#include "PaperSpriteComponent.h"
 #include "PaperGroupedSpriteComponent.h"
-#include "PaperGroupedSpriteUtilities.h"
+#include "GroupedSprites/PaperGroupedSpriteUtilities.h"
 #include "ScopedTransaction.h"
 
 #include "Engine/RendererSettings.h"

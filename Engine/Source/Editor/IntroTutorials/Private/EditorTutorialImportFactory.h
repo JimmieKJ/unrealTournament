@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EditorReimportHandler.h"
+#include "Factories/Factory.h"
 #include "EditorTutorialImportFactory.generated.h"
+
+class UEditorTutorial;
 
 UCLASS(hidecategories=Object, collapsecategories)
 class UEditorTutorialImportFactory : public UFactory, public FReimportHandler

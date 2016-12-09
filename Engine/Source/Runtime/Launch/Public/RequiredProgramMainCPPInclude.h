@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
 #include "LaunchEngineLoop.h"
 
 // this is highly sketchy, but we need some stuff from launchengineloop.cpp
-#include "LaunchEngineLoop.cpp"
+#include "Runtime/Launch/Private/LaunchEngineLoop.cpp"

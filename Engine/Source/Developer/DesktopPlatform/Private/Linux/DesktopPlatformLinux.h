@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "../DesktopPlatformBase.h"
+#include "CoreMinimal.h"
+#include "DesktopPlatformBase.h"
 
 class FDesktopPlatformLinux : public FDesktopPlatformBase
 {

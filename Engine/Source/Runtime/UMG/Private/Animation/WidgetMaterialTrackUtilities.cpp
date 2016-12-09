@@ -1,12 +1,126 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UMGPrivatePCH.h"
-#include "WidgetMaterialTrackUtilities.h"
+#include "Animation/WidgetMaterialTrackUtilities.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UnrealType.h"
+#include "Materials/MaterialInterface.h"
+#include "Styling/SlateBrush.h"
+#include "Components/Widget.h"
+#include "Fonts/SlateFontInfo.h"
 
-const FString SlateBrushStructName = "SlateBrush";
 
-FSlateBrush* GetPropertyValueByPath( void* DataObject, UStruct* PropertySource, const TArray<FName>& PropertyPath, int32 PathIndex )
+template<typename T> struct TMaterialStructType
+{
+	static FName GetTypeName()
+	{
+		static_assert(!sizeof(T), "TMaterialStructType trait must be specialized for this type.");
+		return NAME_None;
+	}
+};
+
+
+template<> struct TMaterialStructType<FSlateBrush>
+{
+	static FName GetTypeName()
+	{
+		static const FName TypeName = "SlateBrush";
+		return TypeName;
+	}
+
+	static UMaterialInterface* GetMaterial(void* Data)
+	{
+		FSlateBrush* Brush = (FSlateBrush*)Data;
+		return Cast<UMaterialInterface>(Brush->GetResourceObject());
+	}
+
+	static void SetMaterial(void* Data, UMaterialInterface* Material)
+	{
+		FSlateBrush* Brush = (FSlateBrush*)Data;
+		Brush->SetResourceObject(Material);
+	}
+};
+
+template<> struct TMaterialStructType<FSlateFontInfo>
+{
+	static FName GetTypeName()
+	{
+		static const FName TypeName = "SlateFontInfo";
+		return TypeName;
+	}
+
+	static UMaterialInterface* GetMaterial(void* Data)
+	{
+		FSlateFontInfo* Font = (FSlateFontInfo*)Data;
+		return Cast<UMaterialInterface>(Font->FontMaterial);
+	}
+
+	static void SetMaterial(void* Data, UMaterialInterface* Material)
+	{
+		FSlateFontInfo* Font = (FSlateFontInfo*)Data;
+		Font->FontMaterial = Material;
+	}
+};
+
+template<> struct TMaterialStructType<FFontOutlineSettings>
+{
+	static FName GetTypeName()
+	{
+		static const FName TypeName = "FontOutlineSettings";
+		return TypeName;
+	}
+
+	static UMaterialInterface* GetMaterial(void* Data)
+	{
+		FFontOutlineSettings* OutlineSettings = (FFontOutlineSettings*)Data;
+		return Cast<UMaterialInterface>(OutlineSettings->OutlineMaterial);
+	}
+
+	static void SetMaterial(void* Data, UMaterialInterface* Material)
+	{
+		FFontOutlineSettings* OutlineSettings = (FFontOutlineSettings*)Data;
+		OutlineSettings->OutlineMaterial = Material;
+	}
+};
+
+UMaterialInterface* FWidgetMaterialHandle::GetMaterial() const
+{
+	if(TypeName == TMaterialStructType<FSlateFontInfo>::GetTypeName())
+	{
+		return TMaterialStructType<FSlateFontInfo>::GetMaterial(Data);
+	}
+	else if(TypeName == TMaterialStructType<FSlateBrush>::GetTypeName())
+	{
+		return TMaterialStructType<FSlateBrush>::GetMaterial(Data);
+	}
+	else if(TypeName == TMaterialStructType<FFontOutlineSettings>::GetTypeName())
+	{
+		return TMaterialStructType<FFontOutlineSettings>::GetMaterial(Data);
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+void FWidgetMaterialHandle::SetMaterial(UMaterialInterface* InMaterial)
+{
+	if(TypeName == TMaterialStructType<FSlateFontInfo>::GetTypeName())
+	{
+		return TMaterialStructType<FSlateFontInfo>::SetMaterial(Data, InMaterial);
+	}
+	else if(TypeName == TMaterialStructType<FSlateBrush>::GetTypeName())
+	{
+		return TMaterialStructType<FSlateBrush>::SetMaterial(Data, InMaterial);
+	}
+	else if(TypeName == TMaterialStructType<FFontOutlineSettings>::GetTypeName())
+	{
+		return TMaterialStructType<FFontOutlineSettings>::SetMaterial(Data, InMaterial);
+	}
+}
+
+
+FWidgetMaterialHandle GetPropertyValueByPath(void* DataObject, UStruct* PropertySource, const TArray<FName>& PropertyPath, int32 PathIndex )
 {
 	if ( DataObject != nullptr && PathIndex < PropertyPath.Num() )
 	{
@@ -19,36 +133,38 @@ FSlateBrush* GetPropertyValueByPath( void* DataObject, UStruct* PropertySource, 
 				UStructProperty* StructProperty = Cast<UStructProperty>( Property );
 				if ( StructProperty == nullptr )
 				{
-					return nullptr;
+					return FWidgetMaterialHandle();
 				}
 
 				if ( PathIndex == PropertyPath.Num() - 1 )
 				{
-					if ( StructProperty->Struct->GetName() == SlateBrushStructName )
+					const FName StructName = StructProperty->Struct->GetFName();
+					if (StructName == TMaterialStructType<FSlateFontInfo>::GetTypeName() ||
+						StructName == TMaterialStructType<FSlateBrush>::GetTypeName() ||
+						StructName == TMaterialStructType<FFontOutlineSettings>::GetTypeName() )
 					{
-						return Property->ContainerPtrToValuePtr<FSlateBrush>( DataObject );
+						FWidgetMaterialHandle Handle(StructName, StructProperty->ContainerPtrToValuePtr<void>(DataObject));
+						return Handle;
 					}
 					else
 					{
-						return nullptr;
+						return FWidgetMaterialHandle();
 					}
 				}
 				else
 				{
-					return GetPropertyValueByPath( Property->ContainerPtrToValuePtr<void>( DataObject ), StructProperty->Struct, PropertyPath, PathIndex + 1 );
+					return GetPropertyValueByPath(Property->ContainerPtrToValuePtr<void>( DataObject ), StructProperty->Struct, PropertyPath, PathIndex + 1 );
 				}
 			}
 		}
 	}
-	return nullptr;
+	return FWidgetMaterialHandle();
 }
 
-
-FSlateBrush* WidgetMaterialTrackUtilities::GetBrush( UWidget* Widget, const TArray<FName>& BrushPropertyNamePath )
+FWidgetMaterialHandle WidgetMaterialTrackUtilities::GetMaterialHandle(UWidget* Widget, const TArray<FName>& BrushPropertyNamePath)
 {
-	return GetPropertyValueByPath( Widget, Widget->GetClass(), BrushPropertyNamePath, 0 );
+	return GetPropertyValueByPath(Widget, Widget->GetClass(), BrushPropertyNamePath, 0);
 }
-
 
 void GetMaterialBrushPropertyPathsRecursive(void* DataObject, UStruct* PropertySource, TArray<UProperty*>& PropertyPath, TArray<TArray<UProperty*>>& MaterialBrushPropertyPaths )
 {
@@ -64,14 +180,28 @@ void GetMaterialBrushPropertyPathsRecursive(void* DataObject, UStruct* PropertyS
 				UStructProperty* StructProperty = Cast<UStructProperty>( Property );
 				if ( StructProperty != nullptr )
 				{
-					if ( StructProperty->Struct->GetName() == SlateBrushStructName )
+					const FName StructName = StructProperty->Struct->GetFName();
+					void* Data = Property->ContainerPtrToValuePtr<void>(DataObject);
+
+					UMaterialInterface* MaterialInterface = nullptr;
+
+					if(StructName == TMaterialStructType<FSlateFontInfo>::GetTypeName())
 					{
-						FSlateBrush* SlateBrush = Property->ContainerPtrToValuePtr<FSlateBrush>( DataObject );
-						UMaterialInterface* MaterialInterface = Cast<UMaterialInterface>( SlateBrush->GetResourceObject() );
-						if ( MaterialInterface != nullptr )
-						{
-							MaterialBrushPropertyPaths.Add( PropertyPath );
-						}
+						MaterialInterface = TMaterialStructType<FSlateFontInfo>::GetMaterial(Data);
+					}
+					else if(StructName == TMaterialStructType<FSlateBrush>::GetTypeName())
+					{
+						MaterialInterface =TMaterialStructType<FSlateBrush>::GetMaterial(Data);
+					}
+					else if(StructName == TMaterialStructType<FFontOutlineSettings>::GetTypeName())
+					{
+						MaterialInterface =TMaterialStructType<FFontOutlineSettings>::GetMaterial(Data);
+
+					}
+
+					if(MaterialInterface)
+					{
+						MaterialBrushPropertyPaths.Add(PropertyPath);
 					}
 					else
 					{
@@ -108,3 +238,4 @@ FName WidgetMaterialTrackUtilities::GetTrackNameFromPropertyNamePath( const TArr
 
 	return FName( *TrackName );
 }
+

@@ -1,14 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DataTableEditorPrivatePCH.h"
-
 #include "SRowEditor.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+
 #include "PropertyEditorModule.h"
 #include "IStructureDetailsView.h"
 #include "IDetailsView.h"
-#include "DataTableUtils.h"
-#include "DataTableEditorUtils.h"
-#include "Engine/UserDefinedStruct.h"
 
 #define LOCTEXT_NAMESPACE "SRowEditor"
 

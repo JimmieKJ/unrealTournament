@@ -4,8 +4,12 @@
 	ScriptDisassembler.cpp: Disassembler for Kismet bytecode.
 =============================================================================*/
 
-#include "UnrealEd.h"
 #include "ScriptDisassembler.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/UnrealType.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogScriptDisassembler, Log, All);
 
@@ -46,7 +50,7 @@ void FKismetBytecodeDisassembler::DisassembleAllFunctionsInClasses(FOutputDevice
 		UClass* Class = *ClassIter;
 
 		FString ClassName = Class->GetName();
-		if (FCString::Strfind(*ClassName, *ClassnameSubstring))
+		if (FCString::Strifind(*ClassName, *ClassnameSubstring))
 		{
 			Ar.Logf(TEXT("Processing class %s"), *ClassName);
 
@@ -904,6 +908,9 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 					break;
 				case EScriptInstrumentation::PopState:
 					Ar.Logf(TEXT("%s $%X: .. pop execution state .."), *Indents, (int32)Opcode);
+					break;
+				case EScriptInstrumentation::TunnelEndOfThread:
+					Ar.Logf(TEXT("%s $%X: .. tunnel end of thread .."), *Indents, (int32)Opcode);
 					break;
 			}
 			break;

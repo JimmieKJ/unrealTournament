@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "SpriteEditorSettings.generated.h"
 
 // Settings for the Paper2D sprite editor

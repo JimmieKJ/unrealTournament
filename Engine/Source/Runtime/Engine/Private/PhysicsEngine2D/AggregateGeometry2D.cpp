@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "PhysicsEngine/AggregateGeometry2D.h"
+#include "SceneManagement.h"
 
 static const int32 DrawCollisionSides2D = 16;
 

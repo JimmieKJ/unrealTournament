@@ -4,7 +4,10 @@
 	AndroidString.cpp: Android implementations of string functions
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "AndroidString.h"
+#include "Containers/StringConv.h"
+#include <stdlib.h>
+#include <cwchar>
 
 // This is a full copy of iswspace function from Android sources
 // For some reason function from libc does not work correctly for some korean characters like: 0xBE0C

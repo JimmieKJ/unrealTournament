@@ -2,8 +2,11 @@
 
 #pragma once
 
-class IAnalyticsProviderET;
+#include "CoreMinimal.h"
+
 class FEngineSessionManager;
+class IAnalyticsProvider;
+class IAnalyticsProviderET;
 
 /**
  * The public interface for the engine's analytics provider singleton.

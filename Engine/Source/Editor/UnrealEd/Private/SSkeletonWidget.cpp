@@ -1,18 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Animation/AnimSet.h"
 #include "SSkeletonWidget.h"
-#include "AssetData.h"
-#include "MainFrame.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
+#include "Modules/ModuleManager.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimationAsset.h"
+#include "Animation/DebugSkelMeshComponent.h"
+#include "Settings/DestructableMeshEditorSettings.h"
+#include "Animation/AnimBlueprint.h"
+#include "Editor.h"
+#include "Animation/AnimSet.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
 #include "IDocumentation.h"
 #include "Animation/Rig.h"
-#include "Editor/AnimGraph/Classes/AnimPreviewInstance.h"
-#include "SceneViewport.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "AnimPreviewInstance.h"
 #include "AssetRegistryModule.h"
+#include "AnimationRuntime.h"
 
 #define LOCTEXT_NAMESPACE "SkeletonWidget"
 
@@ -297,7 +307,7 @@ void SSkeletonSelectorWindow::ConstructWindowFromMesh(USkeletalMesh* InSkeletalM
 {
 	TArray<FName>  BoneNames;
 
-	for (int32 I=0; I<InSkeletalMesh->RefSkeleton.GetNum(); ++I)
+	for (int32 I=0; I<InSkeletalMesh->RefSkeleton.GetRawBoneNum(); ++I)
 	{
 		BoneNames.Add(InSkeletalMesh->RefSkeleton.GetBoneName(I));
 	}

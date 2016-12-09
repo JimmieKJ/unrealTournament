@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "EventTrackEditor.h"
-#include "EventTrackSection.h"
-#include "MovieSceneEventTrack.h"
+#include "TrackEditors/EventTrackEditor.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "GameFramework/Actor.h"
+#include "EditorStyleSet.h"
+#include "Tracks/MovieSceneEventTrack.h"
+#include "Sections/EventTrackSection.h"
 
 
 #define LOCTEXT_NAMESPACE "FEventTrackEditor"
@@ -59,7 +61,7 @@ void FEventTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, c
 }
 
 
-TSharedRef<ISequencerSection> FEventTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track)
+TSharedRef<ISequencerSection> FEventTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
 {
 	return MakeShareable(new FEventTrackSection(SectionObject, GetSequencer()));
 }
@@ -90,11 +92,11 @@ void FEventTrackEditor::HandleAddEventTrackMenuEntryExecute()
 	const FScopedTransaction Transaction(NSLOCTEXT("Sequencer", "AddEventTrack_Transaction", "Add Event Track"));
 	FocusedMovieScene->Modify();
 	
-	auto NewTrack = FocusedMovieScene->AddMasterTrack<UMovieSceneEventTrack>();
-	ensure(NewTrack);
+	UMovieSceneEventTrack* NewTrack = FocusedMovieScene->AddMasterTrack<UMovieSceneEventTrack>();
+	check(NewTrack);
 
 	UMovieSceneSection* NewSection = NewTrack->CreateNewSection();
-	ensure(NewSection);
+	check(NewSection);
 
 	NewTrack->AddSection(*NewSection);
 	NewTrack->SetDisplayName(LOCTEXT("TrackName", "Events"));

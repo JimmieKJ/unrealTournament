@@ -1,17 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HierarchicalLODUtilitiesModulePrivatePCH.h"
 #include "HierarchicalLODProxyProcessor.h"
-#include "HierarchicalLODUtilities.h"
-#include "UnrealEd.h"
-#include "Classes/Engine/LODActor.h"
+#include "Misc/ScopeLock.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/LODActor.h"
+#include "IHierarchicalLODUtilities.h"
+#include "HierarchicalLODUtilitiesModule.h"
+#include "Editor.h"
 
-#include "Internationalization/Internationalization.h"
-#include "IProjectManager.h"
+#include "Interfaces/IProjectManager.h"
 #include "StaticMeshResources.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "MapErrors.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 
 FHierarchicalLODProxyProcessor::FHierarchicalLODProxyProcessor()
 {

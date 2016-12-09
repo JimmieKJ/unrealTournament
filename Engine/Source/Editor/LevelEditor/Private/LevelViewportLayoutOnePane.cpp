@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelEditor.h"
 #include "LevelViewportLayoutOnePane.h"
-#include "SLevelViewport.h"
-#include "SLevelEditor.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Docking/LayoutService.h"
+#include "ShowFlags.h"
+#include "Editor.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "LevelEditor.h"
 
 // FLevelViewportLayoutOnePane /////////////////////////////
 

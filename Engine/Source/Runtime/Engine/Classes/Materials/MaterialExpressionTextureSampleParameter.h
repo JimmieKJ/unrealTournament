@@ -2,8 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "MaterialExpressionTextureSampleParameter.generated.h"
+
+class UTexture;
 
 UCLASS(collapsecategories, abstract, hidecategories=Object)
 class ENGINE_API UMaterialExpressionTextureSampleParameter : public UMaterialExpressionTextureSample
@@ -23,7 +29,7 @@ class ENGINE_API UMaterialExpressionTextureSampleParameter : public UMaterialExp
 
 	//~ Begin UMaterialExpression Interface
 #if WITH_EDITOR
-	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
+	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 #endif
 	virtual bool MatchesSearchQuery(const TCHAR* SearchQuery) override;

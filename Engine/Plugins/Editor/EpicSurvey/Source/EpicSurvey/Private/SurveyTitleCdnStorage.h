@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "OnlineTitleFileInterface.h"
+#include "CoreMinimal.h"
+#include "Containers/Queue.h"
+#include "OnlineSubsystemTypes.h"
+#include "Interfaces/OnlineTitleFileInterface.h"
 
-#include "IHttpBase.h"
-#include "IHttpRequest.h"
-#include "IHttpResponse.h"
+#include "Interfaces/IHttpRequest.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogEpicSurvey, Display, All);
 

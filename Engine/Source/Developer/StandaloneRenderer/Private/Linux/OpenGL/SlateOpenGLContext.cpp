@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StandaloneRendererPrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/CommandLine.h"
+#include "OpenGL/SlateOpenGLExtensions.h"
+#include "StandaloneRendererLog.h"
 #include "OpenGL/SlateOpenGLRenderer.h"
 
 #if defined(GL_ARB_debug_output) || defined(GL_KHR_debug)

@@ -2,8 +2,15 @@
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BoneContainer.h"
+#include "Curves/CurveFloat.h"
+#include "BonePose.h"
+#include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "AnimNode_Trail.generated.h"
+
+class USkeletalMeshComponent;
 
 // in the future, we might use this for stretch set up as well
 // for now this is unserializable, and transient only

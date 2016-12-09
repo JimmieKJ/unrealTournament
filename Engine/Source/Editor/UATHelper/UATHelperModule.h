@@ -2,5 +2,3 @@
 
 #pragma once
 
-#include "UnrealEd.h"
-#include "IUATHelperModule.h"

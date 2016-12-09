@@ -1,13 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "PhysXSupport.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
-#include "PhysicsEngine/ConstraintUtils.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/Texture2D.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "PhysicsEngine/ConstraintUtils.h"
+#include "Components/BillboardComponent.h"
 
 #define LOCTEXT_NAMESPACE "ConstraintComponent"
 

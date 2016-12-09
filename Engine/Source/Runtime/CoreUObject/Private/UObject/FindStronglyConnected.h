@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Data structure and algorithm to find all cycles in a UObject directed graph **/
 struct FFindStronglyConnected
 {

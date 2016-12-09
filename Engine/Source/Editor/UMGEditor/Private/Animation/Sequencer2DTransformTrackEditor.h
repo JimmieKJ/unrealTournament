@@ -2,10 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "ISequencer.h"
+#include "ISequencerSection.h"
+#include "ISequencerTrackEditor.h"
 #include "PropertyTrackEditor.h"
-#include "MovieScene2DTransformTrack.h"
-#include "MovieScene2DTransformSection.h"
-
+#include "Animation/MovieScene2DTransformTrack.h"
+#include "Animation/MovieScene2DTransformSection.h"
 
 class F2DTransformTrackEditor
 	: public FPropertyTrackEditor<UMovieScene2DTransformTrack, UMovieScene2DTransformSection, F2DTransformKey>
@@ -29,11 +33,13 @@ public:
 	 */
 	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer );
 
+	//~ ISequencerTrackEditor Interface
+
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
+
 protected:
 
 	// FPropertyTrackEditor interface
-
-	virtual TSharedRef<FPropertySection> MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track ) override;
 
 	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<F2DTransformKey>& NewGeneratedKeys, TArray<F2DTransformKey>& DefaultGeneratedKeys ) override;
 

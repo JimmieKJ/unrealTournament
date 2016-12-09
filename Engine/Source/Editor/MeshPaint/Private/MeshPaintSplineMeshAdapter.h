@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "MeshPaintModule.h"
+#include "CoreMinimal.h"
 #include "MeshPaintStaticMeshAdapter.h"
 
 //////////////////////////////////////////////////////////////////////////

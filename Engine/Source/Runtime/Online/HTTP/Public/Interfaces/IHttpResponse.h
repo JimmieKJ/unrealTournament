@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "IHttpBase.h"
+#include "CoreMinimal.h"
+#include "Interfaces/IHttpBase.h"
 
 namespace EHttpResponseCodes
 {

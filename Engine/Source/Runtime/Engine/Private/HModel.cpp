@@ -4,11 +4,12 @@
 	HModel.cpp: HModel implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Model.h"
 #include "HModel.h"
+#include "SceneView.h"
+#include "Model.h"
 #include "Raster.h"
 #include "Engine/Polys.h"
+#include "Engine/Brush.h"
 
 IMPLEMENT_HIT_PROXY(HModel,HHitProxy);
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -27,14 +27,12 @@
 class CefCallbackCToCpp
     : public CefCToCpp<CefCallbackCToCpp, CefCallback, cef_callback_t> {
  public:
-  explicit CefCallbackCToCpp(cef_callback_t* str)
-      : CefCToCpp<CefCallbackCToCpp, CefCallback, cef_callback_t>(str) {}
+  CefCallbackCToCpp();
 
-  // CefCallback methods
-  virtual void Continue() OVERRIDE;
-  virtual void Cancel() OVERRIDE;
+  // CefCallback methods.
+  void Continue() OVERRIDE;
+  void Cancel() OVERRIDE;
 };
 
 #endif  // USING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_CALLBACK_CTOCPP_H_
-

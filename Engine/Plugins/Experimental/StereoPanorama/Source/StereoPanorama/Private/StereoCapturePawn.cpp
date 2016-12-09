@@ -1,7 +1,10 @@
 // Copyright 2015 Kite & Lightning.  All rights reserved.
 
-#include "StereoPanoramaPrivatePCH.h"
-
+#include "StereoCapturePawn.h"
+#include "StereoPanorama.h"
+#include "StereoPanoramaManager.h"
+#include "Engine/Texture2D.h"
+#include "Engine/Engine.h"
 
 void AStereoCapturePawn::UpdateStereoAtlas(UObject* WorldContextObject, struct FLatentActionInfo LatentInfo)
 {

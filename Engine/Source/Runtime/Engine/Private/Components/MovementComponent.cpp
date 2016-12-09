@@ -1,13 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "GameFramework/MovementComponent.h"
-#include "GameFramework/PhysicsVolume.h"
-#include "Components/SceneComponent.h"
+#include "CollisionQueryParams.h"
+#include "Engine/World.h"
 #include "Components/PrimitiveComponent.h"
-#include "MessageLog.h"
+#include "GameFramework/PhysicsVolume.h"
+#include "Logging/MessageLog.h"
 #include "PhysicsEngine/PhysicsSettings.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 
 #define LOCTEXT_NAMESPACE "MovementComponent"
 DEFINE_LOG_CATEGORY_STATIC(LogMovement, Log, All);
@@ -89,22 +91,23 @@ void UMovementComponent::InitializeComponent()
 	TGuardValue<bool> InInitializeComponentGuard(bInInitializeComponent, true);
 	Super::InitializeComponent();
 
-	USceneComponent* NewUpdatedComponent = NULL;
-	if (UpdatedComponent != NULL)
-	{
-		NewUpdatedComponent = UpdatedComponent;
-	}
-	else if (bAutoRegisterUpdatedComponent)
+	// RootComponent is null in OnRegister for blueprint (non-native) root components.
+	if (!UpdatedComponent && bAutoRegisterUpdatedComponent)
 	{
 		// Auto-register owner's root component if found.
-		AActor* MyActor = GetOwner();
-		if (MyActor)
+		if (AActor* MyActor = GetOwner())
 		{
-			NewUpdatedComponent = MyActor->GetRootComponent();
+			if (USceneComponent* NewUpdatedComponent = MyActor->GetRootComponent())
+			{
+				SetUpdatedComponent(NewUpdatedComponent);
+			}
 		}
 	}
 
-	SetUpdatedComponent(NewUpdatedComponent);
+	if (bSnapToPlaneAtStart)
+	{
+		SnapUpdatedComponentToPlane();
+	}
 }
 
 
@@ -124,11 +127,19 @@ void UMovementComponent::OnRegister()
 	if (MyWorld && MyWorld->IsGameWorld())
 	{
 		PlaneConstraintNormal = PlaneConstraintNormal.GetSafeNormal();
-	}
 
-	if (bSnapToPlaneAtStart)
-	{
-		SnapUpdatedComponentToPlane();
+		USceneComponent* NewUpdatedComponent = UpdatedComponent;
+		if (!UpdatedComponent && bAutoRegisterUpdatedComponent)
+		{
+			// Auto-register owner's root component if found.
+			AActor* MyActor = GetOwner();
+			if (MyActor)
+			{
+				NewUpdatedComponent = MyActor->GetRootComponent();
+			}
+		}
+
+		SetUpdatedComponent(NewUpdatedComponent);
 	}
 
 #if WITH_EDITOR
@@ -495,6 +506,20 @@ bool UMovementComponent::K2_MoveUpdatedComponent(FVector Delta, FRotator NewRota
 }
 
 
+// Typically we want to depenetrate regardless of direction, so we can get all the way out of penetration quickly.
+// Our rules for "moving with depenetration normal" only get us so far out of the object. We'd prefer to pop out by the full MTD amount.
+// Depenetration moves (in ResolvePenetration) then ignore blocking overlaps to be able to move out by the MTD amount.
+static int32 MoveIgnoreFirstBlockingOverlap = 0;
+
+static FAutoConsoleVariableRef CVarMoveIgnoreFirstBlockingOverlap(
+	TEXT("p.MoveIgnoreFirstBlockingOverlap"),
+	MoveIgnoreFirstBlockingOverlap,
+	TEXT("Whether to ignore the first blocking overlap in SafeMoveUpdatedComponent (if moving out from object and starting in penetration).\n")
+	TEXT("The 'p.InitialOverlapTolerance' setting determines the 'move out' rules, but by default we always try to depenetrate first (not ignore the hit).\n")
+	TEXT("0: Disable (do not ignore), 1: Enable (ignore)"),
+	ECVF_Default);
+
+
 bool UMovementComponent::SafeMoveUpdatedComponent(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult& OutHit, ETeleportType Teleport)
 {
 	if (UpdatedComponent == NULL)
@@ -503,7 +528,14 @@ bool UMovementComponent::SafeMoveUpdatedComponent(const FVector& Delta, const FQ
 		return false;
 	}
 
-	bool bMoveResult = MoveUpdatedComponent(Delta, NewRotation, bSweep, &OutHit, Teleport);
+	bool bMoveResult = false;
+
+	// Scope for move flags
+	{
+		// Conditionally ignore blocking overlaps (based on CVar)
+		TGuardValue<EMoveComponentFlags> ScopedFlagRestore(MoveComponentFlags, MoveIgnoreFirstBlockingOverlap ? MoveComponentFlags : (MoveComponentFlags | MOVECOMP_NeverIgnoreBlockingOverlaps));
+		bMoveResult = MoveUpdatedComponent(Delta, NewRotation, bSweep, &OutHit, Teleport);
+	}
 
 	// Handle initial penetrations
 	if (OutHit.bStartPenetrating && UpdatedComponent)

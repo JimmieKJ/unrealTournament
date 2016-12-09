@@ -2,9 +2,11 @@
 
 #pragma once
 
-// Forward declarations
-class UEdGraphNode;
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/WeakObjectPtr.h"
 
+class UEdGraphNode;
 
 class IBlueprintNodeBinder
 {

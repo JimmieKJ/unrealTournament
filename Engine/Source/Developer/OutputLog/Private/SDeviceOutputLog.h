@@ -2,9 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "SOutputLog.h"
-#include "TargetDeviceId.h"
-#include "ITargetDevice.h"
+#include "Interfaces/TargetDeviceId.h"
+#include "Interfaces/ITargetDevice.h"
+
+class SComboButton;
 
 struct FTargetDeviceEntry
 {
@@ -50,8 +56,9 @@ protected:
 
 	void AddDeviceEntry(ITargetDeviceRef TargetDevice);
 
-	void OnDeviceSelectionChanged(FTargetDeviceEntryPtr DeviceEntry, ESelectInfo::Type SelectInfo);
-	TSharedRef<SWidget> GenerateWidgetForDeviceComboBox(FTargetDeviceEntryPtr DeviceEntry) const;
+	void OnDeviceSelectionChanged(FTargetDeviceEntryPtr DeviceEntry);
+	TSharedRef<SWidget> MakeDeviceComboButtonMenu();
+	TSharedRef<SWidget> GenerateWidgetForDeviceComboBox(const FTargetDeviceEntryPtr& DeviceEntry) const;
 
 	FText GetTargetDeviceText(FTargetDeviceEntryPtr DeviceEntry) const;
 	FText GetSelectedTargetDeviceText() const;
@@ -61,10 +68,10 @@ protected:
 		
 private:
 	TArray<FTargetDeviceEntryPtr>			DeviceList;
-	ITargetDeviceWeakPtr					CurrentDevicePtr;
+	FTargetDeviceEntryPtr					CurrentDevicePtr;
 	ITargetDeviceOutputPtr					CurrentDeviceOutputPtr;
 
-	TSharedPtr<SComboBox<FTargetDeviceEntryPtr>> TargetDeviceComboBox;
+	TSharedPtr<SComboButton> TargetDeviceComboButton;
 		
 	/** Synchronization object for access to buffered lines */
 	FCriticalSection		BufferedLinesSynch;

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+
 #if !UE_BUILD_SHIPPING
 
 /** @return a new Drag and Drop test widget */

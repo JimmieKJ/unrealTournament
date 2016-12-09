@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "ClassArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/ClassArchiveProxy.h"
+#include "UHTMakefile.h"
 
 FClassArchiveProxy::FClassArchiveProxy(FUHTMakefile& UHTMakefile, const UClass* Class)
 	: FStructArchiveProxy(UHTMakefile, Class)

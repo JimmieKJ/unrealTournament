@@ -1,12 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-
-#include "DesignerTabSummoner.h"
-#include "SDesignerView.h"
-#include "SScissorRectBox.h"
+#include "TabFactory/DesignerTabSummoner.h"
+#include "Designer/SDesignerView.h"
+#include "Widgets/Layout/SScissorRectBox.h"
 #include "UMGStyle.h"
-#include "WidgetBlueprintEditor.h"
+
 #define LOCTEXT_NAMESPACE "UMG"
 
 const FName FDesignerTabSummoner::TabID(TEXT("SlatePreview"));

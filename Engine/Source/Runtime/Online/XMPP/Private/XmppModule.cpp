@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "XmppPrivatePCH.h"
+#include "XmppModule.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "XmppMessages.h"
+#include "XmppPubSub.h"
+#include "XmppLog.h"
 #include "XmppTests.h"
 #include "XmppNull.h"
 #if WITH_XMPP_JINGLE

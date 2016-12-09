@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "ModuleManager.h"		// For inline LoadModuleChecked()
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Features/IModularFeatures.h"
+#include "Features/IModularFeature.h"
+
+class IHeadMountedDisplay;
 
 /**
  * The public interface of the MotionControlsModule
@@ -19,13 +23,13 @@ public:
 	}
 
 	/** Returns the key into the HMDPluginPriority section of the config file for this module */
-	virtual FString GetModulePriorityKeyName() const = 0;
+	virtual FString GetModuleKeyName() const = 0;
 	
 	/** Returns the priority of this module from INI file configuration */
 	float GetModulePriority() const
 	{
 		float ModulePriority = 0.f;
-		FString KeyName = GetModulePriorityKeyName();
+		FString KeyName = GetModuleKeyName();
 		GConfig->GetFloat(TEXT("HMDPluginPriority"), (!KeyName.IsEmpty() ? *KeyName : TEXT("Default")), ModulePriority, GEngineIni);
 		return ModulePriority;
 	}

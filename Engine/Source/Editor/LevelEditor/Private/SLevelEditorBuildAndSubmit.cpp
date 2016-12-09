@@ -1,17 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelEditor.h"
-#include "ISourceControlModule.h"
-#include "LevelEditorActions.h"
 #include "SLevelEditorBuildAndSubmit.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlModule.h"
+#include "FileHelpers.h"
 #include "LevelEditorActions.h"
 #include "EditorBuildUtils.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 #include "LightingBuildOptions.h"
 
-#include "AssetToolsModule.h"
-#include "SDockTab.h"
-#include "SExpandableArea.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Layout/SExpandableArea.h"
 
 #define LOCTEXT_NAMESPACE "SLevelEditorBuildAndSubmit"
 

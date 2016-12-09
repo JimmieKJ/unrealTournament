@@ -2,9 +2,20 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/GCObject.h"
+#include "Misc/StringClassReference.h"
+#include "Engine/World.h"
 #include "SignificanceManager.generated.h"
 
+class AHUD;
+class FDebugDisplayInfo;
+class UCanvas;
 class USignificanceManager;
 
 DECLARE_STATS_GROUP(TEXT("Significance Manager"), STATGROUP_SignificanceManager, STATCAT_Advanced);

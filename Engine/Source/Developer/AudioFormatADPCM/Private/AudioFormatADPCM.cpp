@@ -1,21 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
-#include "TargetPlatform.h"
+#include "AudioFormatADPCM.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Math/UnrealMathUtility.h"
+#include "UObject/NameTypes.h"
+#include "Logging/LogMacros.h"
+#include "Serialization/MemoryWriter.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IAudioFormat.h"
+#include "Interfaces/IAudioFormatModule.h"
+#include "AudioDecompress.h"
+#include "Audio.h"
+#include "ADPCMAudioInfo.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAudioFormatADPCM, Log, All);
 
 #define UE_MAKEFOURCC(ch0, ch1, ch2, ch3)\
 	((uint32)(uint8)(ch0) | ((uint32)(uint8)(ch1) << 8) |\
 	((uint32)(uint8)(ch2) << 16) | ((uint32)(uint8)(ch3) << 24 ))
-
-#define NUM_ADAPTATION_TABLE 16
-#define NUM_ADAPTATION_COEFF 7
-
-#define WAVE_FORMAT_LPCM  1
-#define WAVE_FORMAT_ADPCM 2
 
 static FName NAME_ADPCM(TEXT("ADPCM"));
 
@@ -27,23 +30,6 @@ namespace
 		uint32 DataSize;
 		uint8* Data;
 	};
-
-#if PLATFORM_SUPPORTS_PRAGMA_PACK
-#pragma pack(push, 2)
-#endif
-	struct WaveFormatHeader
-	{
-		uint16 wFormatTag;      // Format type: 1 = PCM, 2 = ADPCM
-		uint16 nChannels;       // Number of channels (i.e. mono, stereo...).
-		uint32 nSamplesPerSec;  // Sample rate. 44100 or 22050 or 11025  Hz.
-		uint32 nAvgBytesPerSec; // For buffer estimation  = sample rate * BlockAlign.
-		uint16 nBlockAlign;     // Block size of data = Channels times BYTES per sample.
-		uint16 wBitsPerSample;  // Number of bits per sample of mono data.
-		uint16 cbSize;          // The count in bytes of the size of extra information (after cbSize).
-	};
-#if PLATFORM_SUPPORTS_PRAGMA_PACK
-#pragma pack(pop)
-#endif
 
 	template <uint32 N>
 	void GenerateWaveFile(RiffDataChunk(& RiffDataChunks)[N], TArray<uint8>& CompressedDataStore)
@@ -202,23 +188,6 @@ namespace ADPCM
 		FMemory::Memcpy(&OutAdaptationTable, AdaptationTable, sizeof(AdaptationTable));
 	}
 
-	template <typename T>
-	static void GetAdaptationCoefficients(T(& OutAdaptationCoefficient1)[NUM_ADAPTATION_COEFF], T(& OutAdaptationCoefficient2)[NUM_ADAPTATION_COEFF])
-	{
-		// Magic values as specified by standard
-		static T AdaptationCoefficient1[] =
-		{
-			256, 512, 0, 192, 240, 460, 392
-		};
-		static T AdaptationCoefficient2[] =
-		{
-			0, -256, 0,  64, 0, -208, -232
-		};
-
-		FMemory::Memcpy(&OutAdaptationCoefficient1, AdaptationCoefficient1, sizeof(AdaptationCoefficient1));
-		FMemory::Memcpy(&OutAdaptationCoefficient2, AdaptationCoefficient2, sizeof(AdaptationCoefficient2));
-	}
-
 	struct FAdaptationContext
 	{
 	public:
@@ -244,34 +213,6 @@ namespace ADPCM
 			GetAdaptationCoefficients(AdaptationCoefficient1, AdaptationCoefficient2);
 		}
 	};
-
-#if PLATFORM_SUPPORTS_PRAGMA_PACK
-#pragma pack(push, 2)
-#endif
-	struct ADPCMFormatHeader
-	{
-		WaveFormatHeader BaseFormat;
-		uint16           wSamplesPerBlock;
-		uint16           wNumCoef;
-		int16            aCoef[2 * NUM_ADAPTATION_COEFF];
-
-		ADPCMFormatHeader()
-		{
-			int16 AdaptationCoefficient1[NUM_ADAPTATION_COEFF];
-			int16 AdaptationCoefficient2[NUM_ADAPTATION_COEFF];
-			GetAdaptationCoefficients(AdaptationCoefficient1, AdaptationCoefficient2);
-
-			// Interlace the coefficients as pairs
-			for (int32 Coeff = 0, WriteIndex = 0; Coeff < NUM_ADAPTATION_COEFF; Coeff++)
-			{
-				aCoef[WriteIndex++] = AdaptationCoefficient1[Coeff];
-				aCoef[WriteIndex++] = AdaptationCoefficient2[Coeff];
-			}
-		}
-	};
-#if PLATFORM_SUPPORTS_PRAGMA_PACK
-#pragma pack(pop)
-#endif
 
 	/**
 	* Encodes a 16-bit PCM sample to a 4-bit ADPCM sample.
@@ -346,13 +287,7 @@ namespace ADPCM
 		const int32 BlockSize = 512;
 		const int32 PreambleSize = 2 * PreambleSamples + 3;
 		const int32 CompressedSamplesPerBlock = (BlockSize - PreambleSize) * CompressedNumSamplesPerByte + PreambleSamples;
-		int32 NumBlocksPerChannel = SourceNumSamplesPerChannel / CompressedSamplesPerBlock;
-
-		// If our storage didn't exactly line up with the number of samples, we need an extra block
-		if (NumBlocksPerChannel * CompressedSamplesPerBlock != SourceNumSamplesPerChannel)
-		{
-			NumBlocksPerChannel++;
-		}
+		int32 NumBlocksPerChannel = (SourceNumSamplesPerChannel + CompressedSamplesPerBlock - 1) / CompressedSamplesPerBlock;
 
 		const uint32 EncodedADPCMDataSize = NumBlocksPerChannel * BlockSize * QualityInfo.NumChannels;
 		uint8* EncodedADPCMData = static_cast<uint8*>(FMemory::Malloc(EncodedADPCMDataSize));
@@ -388,6 +323,7 @@ namespace ADPCM
 		Format.wSamplesPerBlock = static_cast<uint16>(CompressedSamplesPerBlock);
 		Format.BaseFormat.nAvgBytesPerSec = ((Format.BaseFormat.nSamplesPerSec / Format.wSamplesPerBlock) * Format.BaseFormat.nBlockAlign);
 		Format.wNumCoef = NUM_ADAPTATION_COEFF;
+		Format.SamplesPerChannel = SourceNumSamplesPerChannel;
 		Format.BaseFormat.cbSize = sizeof(Format) - sizeof(Format.BaseFormat);
 
 		RiffDataChunk RiffDataChunks[2];
@@ -460,6 +396,106 @@ public:
 
 		// Recompress is only necessary during editor previews
 		return 0;
+	}
+
+	virtual bool SplitDataForStreaming(const TArray<uint8>& SrcBuffer, TArray<TArray<uint8>>& OutBuffers) const override
+	{
+		uint8 const*	SrcData = SrcBuffer.GetData();
+		uint32			SrcSize = SrcBuffer.Num();
+		uint32			bytesProcessed = 0;
+		
+		FWaveModInfo	waveInfo;
+		waveInfo.ReadWaveInfo((uint8*)SrcData, SrcSize);
+		
+		// Choose a chunk size that is much larger then the number of samples that the os audio render callback will ask for so that the chunk system has time to load new data before its needed
+		// The audio render callback will typically ask for a power of 2 number of samples. However, there is not a power of 2 number of samples in the uncompressed block.
+		// The ADPCM block size is 512 bytes which will contain 1012 samples (since the first 2 samples of the block are uncompressed and there are some preamble bytes).
+		// Going with MONO_PCM_BUFFER_SIZE bytes per chunk should ensure that new sample data will always be available for the audio render callback
+		// the audio render callback will not be an even multiple of uncompressed samples
+		// Also, the first 78 odd bytes of the buffer is for the header so the first chunk is 78 bytes bigger then the rest. This needs to be accounted for when using chunk 0.
+
+		// The incoming data is organized by channel (all samples for channel 0 then all samples for channel 1, etc) but for streaming we need the channels interlaced by compressed blocks
+		// so that each chunk contains an even number of copmressed blocks per channel, ie channels can not span one chunk
+		
+		const int32	NumChannels = *waveInfo.pChannels;
+		
+		if(*waveInfo.pFormatTag == WAVE_FORMAT_ADPCM)
+		{
+			int32 BlockSize = *waveInfo.pBlockAlign;
+			const int32 NumBlocksPerChannel = (waveInfo.SampleDataSize + BlockSize * NumChannels - 1) / (BlockSize * NumChannels);
+			
+			// Ensure chunk size is an even multiple of block size and channel number, ie (ChunkSize % (BlockSize * NumChannels)) == 0
+			int32 ChunkSize = ((MONO_PCM_BUFFER_SIZE + BlockSize * NumChannels - 1) / (BlockSize * NumChannels)) * (BlockSize * NumChannels);
+			
+			// Add the first chunk and the header data
+			AddNewChunk(OutBuffers, ChunkSize + waveInfo.SampleDataStart - SrcData);	// Add the first chunk with enough reserve room for the header data
+			AddChunkData(OutBuffers, SrcData, waveInfo.SampleDataStart - SrcData);
+			
+			int32	CurChunkDataSize = 0;	// Don't include the header size here since we want the first chunk to include both the header data and a full ChunkSize of data
+			
+			for(int32 blockItr = 0; blockItr < NumBlocksPerChannel; ++blockItr)
+			{
+				for(int32 channelItr = 0; channelItr < NumChannels; ++channelItr)
+				{
+					if(CurChunkDataSize >= ChunkSize)
+					{
+						AddNewChunk(OutBuffers, ChunkSize);
+						CurChunkDataSize = 0;
+					}
+					
+					AddChunkData(OutBuffers, waveInfo.SampleDataStart + (channelItr * NumBlocksPerChannel + blockItr) * BlockSize, BlockSize);
+					CurChunkDataSize += BlockSize;
+				}
+			}
+		}
+		else if(*waveInfo.pFormatTag == WAVE_FORMAT_LPCM)
+		{
+			int32 ChunkSize = MONO_PCM_BUFFER_SIZE * 4;	// Use an extra big buffer for uncompressed data since uncompressed uses about x4 amount of data
+			int32	FrameSize = sizeof(uint16) * NumChannels;
+			
+			ChunkSize = (ChunkSize + FrameSize - 1) / FrameSize * FrameSize;
+			
+			// Add the first chunk and the header data
+			AddNewChunk(OutBuffers, ChunkSize + 128);	// Add the first chunk with enough reserve room for the header data
+			AddChunkData(OutBuffers, SrcData, waveInfo.SampleDataStart - SrcData);
+			SrcSize -= waveInfo.SampleDataStart - SrcData;
+			SrcData = waveInfo.SampleDataStart;
+			
+			while(SrcSize > 0)
+			{
+				int32	CurChunkDataSize = FMath::Min<uint32>(SrcSize, ChunkSize);
+				
+				AddChunkData(OutBuffers, SrcData, CurChunkDataSize);
+				
+				SrcSize -= CurChunkDataSize;
+				SrcData += CurChunkDataSize;
+				
+				if(SrcSize > 0)
+				{
+					AddNewChunk(OutBuffers, ChunkSize);
+				}
+			}
+		}
+		else
+		{
+			return false;
+		}
+		
+		return true;
+	}
+	
+	// Add a new chunk and reserve ChunkSize bytes in it
+	void AddNewChunk(TArray<TArray<uint8>>& OutBuffers, int32 ChunkReserveSize) const
+	{
+		TArray<uint8>& NewBuffer = *new (OutBuffers) TArray<uint8>;
+		NewBuffer.Empty(ChunkReserveSize);
+	}
+	
+	// Add data to the current chunk
+	void AddChunkData(TArray<TArray<uint8>>& OutBuffers, const uint8* ChunkData, int32 ChunkDataSize) const
+	{
+		TArray<uint8>& TargetBuffer = OutBuffers[OutBuffers.Num() - 1];
+		TargetBuffer.Append(ChunkData, ChunkDataSize);
 	}
 };
 

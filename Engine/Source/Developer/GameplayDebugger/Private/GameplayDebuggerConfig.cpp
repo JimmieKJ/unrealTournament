@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
-#include "GameplayDebugger.h"
 #include "GameplayDebuggerConfig.h"
+#include "GameplayDebugger.h"
 #include "GameplayDebuggerAddonManager.h"
 
 UGameplayDebuggerConfig::UGameplayDebuggerConfig(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -66,11 +65,14 @@ void UGameplayDebuggerConfig::UpdateCategoryConfig(const FName CategoryName, int
 		
 		const bool bDefaultActiveInGame = (EnumState == EGameplayDebuggerCategoryState::EnabledInGame) || (EnumState == EGameplayDebuggerCategoryState::EnabledInGameAndSimulate);
 		const bool bDefaultActiveInSimulate = (EnumState == EGameplayDebuggerCategoryState::EnabledInSimulate) || (EnumState == EGameplayDebuggerCategoryState::EnabledInGameAndSimulate);
+		const bool bDefaultHidden = (EnumState == EGameplayDebuggerCategoryState::Hidden);
 		
 		const bool bActiveInGame = (ConfigData.ActiveInGame == EGameplayDebuggerOverrideMode::UseDefault) ? bDefaultActiveInGame : (ConfigData.ActiveInGame == EGameplayDebuggerOverrideMode::Enable);
 		const bool bActiveInSimulate = (ConfigData.ActiveInSimulate == EGameplayDebuggerOverrideMode::UseDefault) ? bDefaultActiveInSimulate : (ConfigData.ActiveInSimulate == EGameplayDebuggerOverrideMode::Enable);
+		const bool bIsHidden = (ConfigData.Hidden == EGameplayDebuggerOverrideMode::UseDefault) ? bDefaultHidden : (ConfigData.Hidden == EGameplayDebuggerOverrideMode::Enable);
 
 		CategoryState = (uint8)(
+			bIsHidden ? EGameplayDebuggerCategoryState::Hidden :
 			bActiveInGame && bActiveInSimulate ? EGameplayDebuggerCategoryState::EnabledInGameAndSimulate :
 			bActiveInGame ? EGameplayDebuggerCategoryState::EnabledInGame :
 			bActiveInSimulate ? EGameplayDebuggerCategoryState::EnabledInSimulate :

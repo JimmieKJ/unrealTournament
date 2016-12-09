@@ -34,6 +34,10 @@ float4 LightColorAndFalloffExponent[MAX_DYNAMIC_POINT_LIGHTS];
 #define MOBILE_QL_FORCE_LQ_REFLECTIONS 0
 #endif
 
+#ifndef MOBILE_CSM_QUALITY
+#define MOBILE_CSM_QUALITY 2
+#endif
+
 #define FULLY_ROUGH (MATERIAL_FULLY_ROUGH || MOBILE_QL_FORCE_FULLY_ROUGH)
 #define NONMETAL (MATERIAL_NONMETAL || MOBILE_QL_FORCE_NONMETAL)
 #define HQ_REFLECTIONS (MATERIAL_HQ_FORWARD_REFLECTIONS && !MOBILE_QL_FORCE_LQ_REFLECTIONS)
@@ -182,7 +186,7 @@ half3 BlendReflectionCapture(FMaterialPixelParameters MaterialParameters, half R
 half3 BlendReflectionCaptures(FMaterialPixelParameters MaterialParameters, half Roughness)
 {
 	// Compute fractional mip from roughness
-	half AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness, View.ReflectionCubemapMaxMip);
+	half AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness, ResolvedView.ReflectionCubemapMaxMip);
 
 	half3 SpecularIBL = half3(0, 0, 0);
 	half BlendFactor = 1;
@@ -209,7 +213,7 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 	half3 ProjectedCaptureVector = MaterialParameters.ReflectionVector;	
 
 	// Compute fractional mip from roughness
-	half AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness, View.ReflectionCubemapMaxMip);
+	half AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness, ResolvedView.ReflectionCubemapMaxMip);
 	// Fetch from cubemap and convert to linear HDR
 	half3 SpecularIBL = RGBMDecode(ReflectionCubemap.SampleLevel(ReflectionCubemapSampler, ProjectedCaptureVector, AbsoluteSpecularMip), 16.0f);
 	SpecularIBL = SpecularIBL * SpecularIBL * InvReflectionCubemapAverageBrightness.x;
@@ -242,10 +246,10 @@ float ClipForEditorPrimitives(FMaterialPixelParameters MaterialParameters)
 	BRANCH
 		if (bEnableEditorPrimitiveDepthTest)
 		{
-			bool bIsPerspective = (View.ViewToClip._m33 < 1.0f);
+			bool bIsPerspective = (ResolvedView.ViewToClip._m33 < 1.0f);
 
 			// dejitter the sample position and make a filtered lookup - for planes this allows to reconstruct a much less jittery depth comparison function, it however doesn't fix silhuetes
-			float DeviceZ = Texture2DSampleLevel(FilteredSceneDepthTexture, FilteredSceneDepthTextureSampler, (MaterialParameters.SvPosition.xy - View.TemporalAAParams.zw) * View.BufferSizeAndInvSize.zw, 0).r;
+			float DeviceZ = Texture2DSampleLevel(FilteredSceneDepthTexture, FilteredSceneDepthTextureSampler, (MaterialParameters.SvPosition.xy - ResolvedView.TemporalAAParams.zw) * ResolvedView.BufferSizeAndInvSize.zw, 0).r;
 
 			float PixelDeviceZ = MaterialParameters.SvPosition.z;
 
@@ -289,14 +293,22 @@ half3 FrameBufferBlendOp(half4 Source)
 }
 
 void Main( 
-	FVertexFactoryInterpolantsVSToPS Interpolants,
-	FMobileBasePassInterpolantsVSToPS BasePassInterpolants,
-	in float4 SvPosition : SV_Position
-	OPTIONAL_IsFrontFace,
-	out half4 OutColor	: SV_Target0
+	FVertexFactoryInterpolantsVSToPS Interpolants
+	, FMobileBasePassInterpolantsVSToPS BasePassInterpolants
+	, in float4 SvPosition : SV_Position
+	OPTIONAL_IsFrontFace
+	, out half4 OutColor	: SV_Target0
 	)
 {
+#if MOBILE_MULTI_VIEW
+	ResolvedView = ResolveView(uint(BasePassInterpolants.MultiViewId));
+#else
 	ResolvedView = ResolveView();
+#endif
+
+#if USE_PS_CLIP_PLANE
+	clip(BasePassInterpolants.OutClipDistance);
+#endif
 
 #if PACK_INTERPOLANTS
 	float4 PackedInterpolants[NUM_VF_PACKED_INTERPOLANTS];
@@ -305,13 +317,13 @@ void Main(
 
 #if ES2_PROFILE && OUTPUT_GAMMA_SPACE && !MOBILE_EMULATION
 	// LDR ES2 needs screen vertical flipped
-	SvPosition.y = View.BufferSizeAndInvSize.y - SvPosition.y - 1;
+	SvPosition.y = ResolvedView.BufferSizeAndInvSize.y - SvPosition.y - 1;
 #endif
 
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, SvPosition);
 	FPixelMaterialInputs PixelMaterialInputs;
 	{
-		float4 ScreenPosition = SvPositionToScreenPosition(SvPosition);
+		float4 ScreenPosition = SvPositionToResolvedScreenPosition(SvPosition);
 		float3 WorldPosition = BasePassInterpolants.PixelPosition;
 		float3 WorldPositionExcludingWPO = BasePassInterpolants.PixelPosition;
 		#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
@@ -362,8 +374,8 @@ void Main(
 #if MOBILE_EMULATION
 	{
 		// this feature is only needed for development/editor - we can compile it out for a shipping build (see r.CompileShadersForDevelopment cvar help)
-		DiffuseColor = DiffuseColor * View.DiffuseOverrideParameter.w + View.DiffuseOverrideParameter.xyz;
-		SpecularColor = SpecularColor * View.SpecularOverrideParameter.w + View.SpecularOverrideParameter.xyz;
+		DiffuseColor = DiffuseColor * ResolvedView.DiffuseOverrideParameter.w + ResolvedView.DiffuseOverrideParameter.xyz;
+		SpecularColor = SpecularColor * ResolvedView.SpecularOverrideParameter.w + ResolvedView.SpecularOverrideParameter.xyz;
 	}
 #endif
 	
@@ -419,8 +431,7 @@ void Main(
 
 	#if !MATERIAL_SHADINGMODEL_UNLIT
 		half Shadow = GetPrimaryPrecomputedShadowMask(Interpolants).r;
-			
-		#if DIRECTIONAL_LIGHT_CSM
+		#if DIRECTIONAL_LIGHT_CSM && !MOBILE_MULTI_VIEW
 		// Cascaded Shadow Map
 		{
 			FPCFSamplerSettings Settings;
@@ -448,10 +459,14 @@ void Main(
 			float LightSpacePixelDepthForOpaque = min(ShadowPosition.z, 0.99999f);
 			Settings.SceneDepth = LightSpacePixelDepthForOpaque;
 
-			#if 0
+			#if MOBILE_CSM_QUALITY == 0
+				half ShadowMap = ManualNoFiltering(ShadowPosition.xy, Settings);
+			#elif MOBILE_CSM_QUALITY == 1
 				half ShadowMap = Manual1x1PCF(ShadowPosition.xy, Settings);
-			#else
+			#elif MOBILE_CSM_QUALITY == 2
 				half ShadowMap = Manual2x2PCF(ShadowPosition.xy, Settings);
+			#else
+				#error Unsupported MOBILE_CSM_QUALITY value.
 			#endif
 
 			#if MOVABLE_DIRECTIONAL_LIGHT
@@ -486,13 +501,13 @@ void Main(
 		#if ENABLE_SKY_LIGHT
 			//@mw todo
 			// TODO: Also need to do specular.
-			Color += GetSkySHDiffuseSimple(MaterialParameters.WorldNormal) * View.SkyLightColor.rgb * DiffuseColor;    
+			Color += GetSkySHDiffuseSimple(MaterialParameters.WorldNormal) * ResolvedView.SkyLightColor.rgb * DiffuseColor;    
 		#endif
 
 		#if MAX_DYNAMIC_POINT_LIGHTS > 0
 			#if VARIABLE_NUM_DYNAMIC_POINT_LIGHTS
-			#if WEBGL
-			// webgl needs a constant loop counter
+			#if WEBGL || ES2_PROFILE
+			// webgl and ES2 needs a constant loop counter
 			UNROLL
 			for (int i = 0; i < MAX_DYNAMIC_POINT_LIGHTS; i++)
 			{
@@ -555,10 +570,12 @@ void Main(
 #endif
 
 #if !MATERIAL_SHADINGMODEL_UNLIT && MOBILE_EMULATION
-	Color = lerp(Color, DiffuseColor + SpecularColor, View.UnlitViewmodeMask);
+	Color = lerp(Color, DiffuseColor + SpecularColor, ResolvedView.UnlitViewmodeMask);
 #endif
 
-	#if MATERIALBLENDING_TRANSLUCENT
+	#if MATERIALBLENDING_ALPHACOMPOSITE
+		OutColor = half4(Color * VertexFog.a + VertexFog.rgb * Opacity, Opacity);
+	#elif MATERIALBLENDING_TRANSLUCENT
 		OutColor = half4(Color * VertexFog.a + VertexFog.rgb, Opacity);
 	#elif MATERIALBLENDING_ADDITIVE
 		OutColor = half4(Color * (VertexFog.a * Opacity.x), 0.0f);
@@ -583,13 +600,20 @@ void Main(
 	#if !MATERIALBLENDING_MODULATE
 		// The exposure scale is just a scalar but needs to be a float4 to workaround a driver bug on IOS.
 		// After 4.2 we can put the workaround in the cross compiler.
-		OutColor.rgba *= View.ExposureScale.xyzw;
+		OutColor.rgba *= ResolvedView.ExposureScale.xyzw;
 	#endif
 
-	#if OUTPUT_GAMMA_SPACE
-		OutColor.rgb = sqrt( OutColor.rgb );
+#if USE_EDITOR_COMPOSITING && (MOBILE_EMULATION)
+	// Editor primitive depth testing
+	OutColor.a = 1.0;
+	#if MATERIALBLENDING_MASKED
+		// some material might have an opacity value
+		OutColor.a = GetMaterialMaskInputRaw(PixelMaterialInputs);
 	#endif
-
+		// we output premultiplied alpha to we have to darken all 4 channels
+	OutColor *= ClipForEditorPrimitives(MaterialParameters);
+	clip(OutColor.a - GetMaterialOpacityMaskClipValue());
+#else
 	#if ES2_PROFILE && !OUTPUT_GAMMA_SPACE
 		float Mode = GetHDR32bppEncodeMode();
 		if (Mode != HDR_ENCODE_NONE)
@@ -601,15 +625,8 @@ void Main(
 			OutColor = Encode32BPPHDR(OutColor, SvPosition.xy);
 		}
 	#endif
-
-	// Editor primitive depth testing
-	#if USE_EDITOR_COMPOSITING && (MOBILE_EMULATION)
-		#if MATERIALBLENDING_MASKED
-			// some material might have a opacity value
-			OutColor.a = GetMaterialMaskInputRaw(PixelMaterialInputs);
-		#endif
-		// we output premultiplied alpha to we have to darken all 4 channels
-		OutColor *= ClipForEditorPrimitives(MaterialParameters);
-		clip(OutColor.a - GetMaterialOpacityMaskClipValue());
+	#if OUTPUT_GAMMA_SPACE
+		OutColor.rgb = sqrt(OutColor.rgb);
 	#endif
+#endif
 }

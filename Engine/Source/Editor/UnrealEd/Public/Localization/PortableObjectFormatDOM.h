@@ -2,9 +2,7 @@
 
 #pragma once 
 
-#include "Commandlets/Commandlet.h"
-
-class FCulture;
+#include "CoreMinimal.h"
 
 /**
 * Class for handling language codes used in the Portable Object format.

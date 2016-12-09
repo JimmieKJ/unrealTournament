@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
 #include "LandscapeEditorDetailWidgets.h"
-#include "SToolBarButtonBlock.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBox.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SComboButton.h"
+#include "EditorStyleSet.h"
+#include "Framework/MultiBox/SToolBarButtonBlock.h"
 
 
 // Based on a stripped-down FToolBarComboButtonBlock

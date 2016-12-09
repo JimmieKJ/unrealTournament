@@ -6,7 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
 #include "HlslUtils.h"
+
+class Error;
 
 namespace CrossCompiler
 {

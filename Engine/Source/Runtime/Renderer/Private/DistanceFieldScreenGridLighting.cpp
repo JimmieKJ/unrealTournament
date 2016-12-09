@@ -4,23 +4,26 @@
 	DistanceFieldScreenGridLighting.cpp
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "UniformBuffer.h"
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "RHI.h"
 #include "ShaderParameters.h"
-#include "PostProcessing.h"
-#include "SceneFilterRendering.h"
+#include "RendererInterface.h"
+#include "RHIStaticStates.h"
+#include "GlobalDistanceFieldParameters.h"
+#include "Shader.h"
+#include "StaticBoundShaderState.h"
+#include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "GlobalShader.h"
+#include "SceneRenderTargetParameters.h"
+#include "DeferredShadingRenderer.h"
+#include "PostProcess/PostProcessing.h"
+#include "PostProcess/SceneFilterRendering.h"
 #include "DistanceFieldLightingShared.h"
 #include "DistanceFieldSurfaceCacheLighting.h"
 #include "DistanceFieldLightingPost.h"
-#include "DistanceFieldGlobalIllumination.h"
 #include "GlobalDistanceField.h"
-#include "PostProcessAmbientOcclusion.h"
-#include "RHICommandList.h"
-#include "SceneUtils.h"
-#include "OneColorShader.h"
-#include "BasePassRendering.h"
-#include "HeightfieldLighting.h"
 
 int32 GAOUseJitter = 1;
 FAutoConsoleVariableRef CVarAOUseJitter(

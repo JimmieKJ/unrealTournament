@@ -19,17 +19,12 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include "DetourTileCache.h"
-#include "DetourTileCacheBuilder.h"
-#include "DetourNavMeshBuilder.h"
-#include "DetourNavMesh.h"
-#include "DetourCommon.h"
-#include "DetourAlloc.h"
-#include "DetourAssert.h"
-#include <math.h>
-#include <string.h>
-#include <new>
+#include "DetourTileCache/DetourTileCache.h"
+#include "DetourTileCache/DetourTileCacheBuilder.h"
+#include "Detour/DetourNavMeshBuilder.h"
+#include "Detour/DetourNavMesh.h"
+#include "Detour/DetourCommon.h"
+#include "Detour/DetourAssert.h"
 
 /// Region partitioning methods
 /// @see rcConfig

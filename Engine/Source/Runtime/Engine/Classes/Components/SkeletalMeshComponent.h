@@ -2,32 +2,44 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Components/SceneComponent.h"
+#include "EngineDefines.h"
+#include "CollisionQueryParams.h"
+#include "SkeletalMeshTypes.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimationAsset.h"
+#include "Animation/AnimCurveTypes.h"
 #include "Components/SkinnedMeshComponent.h"
-#include "AnimCurveTypes.h"
 #include "ClothSimData.h"
 #include "SingleAnimationPlayData.h"
+#include "Animation/PoseSnapshot.h"
 #include "SkeletalMeshComponent.generated.h"
 
-
-
+class Error;
+class FPhysScene;
+class FPrimitiveDrawInterface;
 class UAnimInstance;
-struct FEngineShowFlags;
-struct FConvexVolume;
-struct FClothingAssetData;
-struct FRootMotionMovementParams;
-struct FApexClothCollisionVolumeData;
+class UPhysicalMaterial;
+class UPhysicsAsset;
+class USkeletalMeshComponent;
+struct FConstraintInstance;
+struct FNavigableGeometryExport;
 
 DECLARE_MULTICAST_DELEGATE(FOnSkelMeshPhysicsCreatedMultiCast);
 typedef FOnSkelMeshPhysicsCreatedMultiCast::FDelegate FOnSkelMeshPhysicsCreated;
 
-namespace physx
+namespace nvidia
 { 
 	namespace apex 
 	{
-		class NxClothingAsset;
-		class NxClothingActor;
-		class NxClothingCollision;
+		class ClothingAsset;
+		class ClothingActor;
+		class ClothingCollision;
 	}
 }
 
@@ -60,9 +72,9 @@ public:
 	 * to check whether this actor is valid or not 
 	 * because clothing asset can be changed by editing 
 	 */
-	physx::apex::NxClothingAsset*	ParentClothingAsset;
+	nvidia::apex::ClothingAsset*	ParentClothingAsset;
 	/** APEX clothing actor is created from APEX clothing asset for cloth simulation */
-	physx::apex::NxClothingActor*		ApexClothingActor;
+	nvidia::apex::ClothingActor*		ApexClothingActor;
 
 	/** The corresponding clothing asset index */
 	int32 ParentClothingAssetIndex;
@@ -142,7 +154,7 @@ struct FAnimationEvaluationContext
 		BoneSpaceTransforms.Reset();
 		BoneSpaceTransforms.Append(Other.BoneSpaceTransforms);
 		RootBoneTranslation = Other.RootBoneTranslation;
-		Curve.InitFrom(Other.Curve);
+		Curve.CopyFrom(Other.Curve);
 		bDoInterpolation = Other.bDoInterpolation;
 		bDoEvaluation = Other.bDoEvaluation;
 		bDoUpdate = Other.bDoUpdate;
@@ -154,7 +166,6 @@ struct FAnimationEvaluationContext
 	{
 		AnimInstance = NULL;
 		SkeletalMesh = NULL;
-		Curve.Empty();
 	}
 
 };
@@ -216,7 +227,7 @@ struct FApexClothCollisionInfo
 	/** To verify validation of collision info. */
 	uint32 Revision;
 	/** ClothingCollisions will be all released when clothing doesn't intersect with this component anymore. */
-	TArray<physx::apex::NxClothingCollision*> ClothingCollisions;			
+	TArray<nvidia::apex::ClothingCollision*> ClothingCollisions;
 };
 #endif // #if WITH_CLOTH_COLLISION_DETECTION
 
@@ -266,10 +277,10 @@ enum class EAllowKinematicDeferral
 class USkeletalMeshComponent;
 
 /**
-* Tick function that does post physics work on skeletal mesh component
+* Tick function that does post physics work on skeletal mesh component. This executes in EndPhysics (after physics is done)
 **/
 USTRUCT()
-struct FSkeletalMeshComponentPostPhysicsTickFunction : public FTickFunction
+struct FSkeletalMeshComponentEndPhysicsTickFunction : public FTickFunction
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -373,11 +384,17 @@ public:
 
 	/** The active animation graph program instance. */
 	UPROPERTY(transient)
-	class UAnimInstance* AnimScriptInstance;
+	UAnimInstance* AnimScriptInstance;
 
 	/** Any running sub anim instances that need to be updates on the game thread */
 	UPROPERTY(transient)
 	TArray<UAnimInstance*> SubInstances;
+
+	/** An instance created from the PostPhysicsBlueprint property of the skeletal mesh we're using,
+	 *  Runs after physics has been blended
+	 */
+	UPROPERTY(transient)
+	UAnimInstance* PostProcessAnimInstance;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Animation, meta=(ShowOnlyInnerProperties))
 	struct FSingleAnimationPlayData AnimationData;
@@ -385,6 +402,9 @@ public:
 	/** Temporary array of local-space (relative to parent bone) rotation/translation for each bone. */
 	TArray<FTransform> BoneSpaceTransforms;
 	
+	/** Temporary storage for curves */
+	FBlendedHeapCurve AnimCurves;
+
 	// Update Rate
 
 	/** Cached BoneSpaceTransforms for Update Rate optimization. */
@@ -556,7 +576,11 @@ public:
 	/** If true TickPose() will not be called from the Component's TickComponent function.
 	* It will instead be called from Autonomous networking updates. See ACharacter. */
 	UPROPERTY(Transient)
-	uint32 bAutonomousTickPose : 1;
+	uint32 bOnlyAllowAutonomousTickPose : 1;
+
+	/** True if calling TickPose() from Autonomous networking updates. See ACharacter. */
+	UPROPERTY(Transient)
+	uint32 bIsAutonomousTickPose : 1;
 
 	/** If true, force the mesh into the reference pose - is an optimization. */
 	UPROPERTY()
@@ -587,12 +611,15 @@ public:
 	UPROPERTY()
 	uint32 bEnableLineCheckWithBounds:1;
 
+	/** Cache AnimCurveUidVersion from Skeleton and this will be used to identify if it needs to be updated */
+	UPROPERTY(transient)
+	uint16 CachedAnimCurveUidVersion;
+	
 	/** If bEnableLineCheckWithBounds is true, scale the bounds by this value before doing line check. */
 	UPROPERTY()
 	FVector LineCheckBoundsScale;
 
 	/** Threshold for physics asset bodies above which we use an aggregate for broadphase collisions */
-	UPROPERTY()
 	int32 RagdollAggregateThreshold;
 
 	/** Notification when constraint is broken. */
@@ -605,9 +632,17 @@ public:
 	/** 
 	 * Returns the animation instance that is driving the class (if available). This is typically an instance of
 	 * the class set as AnimBlueprintGeneratedClass (generated by an animation blueprint)
+	 * Since this instance is transient, it is not safe to be used during construction script
 	 */
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh", meta=(Keywords = "AnimBlueprint"))
+	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh", meta=(Keywords = "AnimBlueprint", UnsafeDuringActorConstruction = "true"))
 	class UAnimInstance * GetAnimInstance() const;
+
+	/**
+	 * Returns the active post process instance is one is available. This is set on the mesh that this
+	 * component is using, and is evaluated immediately after the main instance.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh", meta = (Keywords = "AnimBlueprint"))
+	UAnimInstance* GetPostProcessInstance() const;
 
 	/** Below are the interface to control animation when animation mode, not blueprint mode **/
 	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
@@ -616,32 +651,95 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
 	EAnimationMode::Type GetAnimationMode() const;
 
-	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
+	/* Animation play functions
+	 *
+	 * These changes status of animation instance, which is transient data, which means it won't serialize with this compoennt
+	 * Becuase of that reason, it is not safe to be used during construction script
+	 * Please use OverrideAnimationDatat for construction script. That will override AnimationData to be serialized 
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation", UnsafeDuringActorConstruction = "true"))
 	void PlayAnimation(class UAnimationAsset* NewAnimToPlay, bool bLooping);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
+	/* Animation play functions
+	*
+	* These changes status of animation instance, which is transient data, which means it won't serialize with this compoennt
+	* Becuase of that reason, it is not safe to be used during construction script
+	* Please use OverrideAnimationDatat for construction script. That will override AnimationData to be serialized
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation", UnsafeDuringActorConstruction = "true"))
 	void SetAnimation(class UAnimationAsset* NewAnimToPlay);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
+	/* Animation play functions
+	*
+	* These changes status of animation instance, which is transient data, which means it won't serialize with this compoennt
+	* Becuase of that reason, it is not safe to be used during construction script
+	* Please use OverrideAnimationDatat for construction script. That will override AnimationData to be serialized
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation", UnsafeDuringActorConstruction = "true"))
 	void Play(bool bLooping);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
+	/* Animation play functions
+	*
+	* These changes status of animation instance, which is transient data, which means it won't serialize with this compoennt
+	* Becuase of that reason, it is not safe to be used during construction script
+	* Please use OverrideAnimationDatat for construction script. That will override AnimationData to be serialized
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation", UnsafeDuringActorConstruction = "true"))
 	void Stop();
 
-	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
+	/* Animation play functions
+	*
+	* These changes status of animation instance, which is transient data, which means it won't serialize with this compoennt
+	* Becuase of that reason, it is not safe to be used during construction script
+	* Please use OverrideAnimationDatat for construction script. That will override AnimationData to be serialized
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation", UnsafeDuringActorConstruction = "true"))
 	bool IsPlaying() const;
 
-	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
+	/* Animation play functions
+	*
+	* These changes status of animation instance, which is transient data, which means it won't serialize with this compoennt
+	* Becuase of that reason, it is not safe to be used during construction script
+	* Please use OverrideAnimationDatat for construction script. That will override AnimationData to be serialized
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation", UnsafeDuringActorConstruction = "true"))
 	void SetPosition(float InPos, bool bFireNotifies = true);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
+	/* Animation play functions
+	*
+	* These changes status of animation instance, which is transient data, which means it won't serialize with this compoennt
+	* Becuase of that reason, it is not safe to be used during construction script
+	* Please use OverrideAnimationDatat for construction script. That will override AnimationData to be serialized
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation", UnsafeDuringActorConstruction = "true"))
 	float GetPosition() const;
 
-	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
+	/* Animation play functions
+	*
+	* These changes status of animation instance, which is transient data, which means it won't serialize with this compoennt
+	* Becuase of that reason, it is not safe to be used during construction script
+	* Please use OverrideAnimationDatat for construction script. That will override AnimationData to be serialized
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation", UnsafeDuringActorConstruction = "true"))
 	void SetPlayRate(float Rate);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
+	/* Animation play functions
+	*
+	* These changes status of animation instance, which is transient data, which means it won't serialize with this compoennt
+	* Becuase of that reason, it is not safe to be used during construction script
+	* Please use OverrideAnimationDatat for construction script. That will override AnimationData to be serialized
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation", UnsafeDuringActorConstruction = "true"))
 	float GetPlayRate() const;
+
+	/**
+	 * This overrides current AnimationData parameter in the SkeletalMeshComponent. This will serialize when the component serialize
+	 * so it can be used during construction script. However note that this will override current existing data
+	 * This can be useful if you'd like to make a blueprint with custom default animation per component
+	 * This sets single player mode, which means you can't use AnimBlueprint with it
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Components|Animation", meta = (Keywords = "Animation"))
+	void OverrideAnimationData(UAnimationAsset* InAnimToPlay, bool bIsLooping = true, bool bIsPlaying = true, float Position = 0.f, float PlayRate = 1.f);
 
 	/**
 	 * Set Morph Target with Name and Value(0-1)
@@ -662,6 +760,14 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
 	float GetMorphTarget(FName MorphTargetName) const;
+
+	/**
+	 * Takes a snapshot of this skeletal mesh component's pose and saves it to the specified snapshot.
+	 * The snapshot is taken at the current LOD, so if for example you took the snapshot at LOD1 
+	 * and then used it at LOD0 any bones not in LOD1 will use the reference pose 
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Pose")
+	void SnapshotPose(UPARAM(ref) FPoseSnapshot& Snapshot);
 
 	/**
 	 * Get/Set the max distance scale of clothing mesh vertices
@@ -824,9 +930,9 @@ public:
 	/** increase every tick to update clothing collision  */
 	uint32 ClothingCollisionRevision;
 
-	TArray<physx::apex::NxClothingCollision*>	ParentCollisions;
-	TArray<physx::apex::NxClothingCollision*>	EnvironmentCollisions;
-	TArray<physx::apex::NxClothingCollision*>	ChildrenCollisions;
+	TArray<nvidia::apex::ClothingCollision*>	ParentCollisions;
+	TArray<nvidia::apex::ClothingCollision*>	EnvironmentCollisions;
+	TArray<nvidia::apex::ClothingCollision*>	ChildrenCollisions;
 
 	TMap<TWeakObjectPtr<UPrimitiveComponent>, FApexClothCollisionInfo> ClothOverlappedComponentsMap;
 	#endif // WITH_CLOTH_COLLISION_DETECTION
@@ -919,6 +1025,12 @@ public:
 	 */
 	void RecalcRequiredBones(int32 LODIndex);
 
+	/**
+	* Recalculates the AnimCurveUids array in RequiredBone of this SkeletalMeshComponent based on current required bone set
+	* Is called when Skeleton->IsRequiredCurvesUpToDate() = false
+	*/
+	void RecalcRequiredCurves();
+
 public:
 	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
@@ -939,7 +1051,7 @@ public:
 	virtual void LoadedFromAnotherClass(const FName& OldClassName) override;
 	virtual void UpdateCollisionProfile() override;
 #endif // WITH_EDITOR
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	//~ End UObject Interface.
 
 	//~ Begin UActorComponent Interface.
@@ -955,8 +1067,10 @@ public:
 	virtual void InitializeComponent() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
+	//Handle registering our end physics tick function
+	void RegisterEndPhysicsTick(bool bRegister);
+
 	//Handle registering our pre cloth tick function
-	void RegisterPostPhysicsTick(bool bRegister);
 	void RegisterClothTick(bool bRegister);
 
 	//~ End UActorComponent Interface.
@@ -995,6 +1109,7 @@ public:
 	virtual void SetAllPhysicsAngularVelocity(FVector const& NewVel, bool bAddToCurrent = false) override;
 	virtual void SetAllPhysicsPosition(FVector NewPos) override;
 	virtual void SetAllPhysicsRotation(FRotator NewRot) override;
+	virtual void SetAllPhysicsRotation(const FQuat& NewRot) override;
 	virtual void WakeAllRigidBodies() override;
 	virtual void PutAllRigidBodiesToSleep() override;
 	virtual bool IsAnyRigidBodyAwake() override;
@@ -1057,7 +1172,7 @@ public:
 	bool K2_GetClosestPointOnPhysicsAsset(const FVector& WorldPosition, FVector& ClosestWorldPosition, FVector& Normal, FName& BoneName, float& Distance) const;
 
 	virtual bool LineTraceComponent( FHitResult& OutHit, const FVector Start, const FVector End, const FCollisionQueryParams& Params ) override;
-	virtual bool SweepComponent( FHitResult& OutHit, const FVector Start, const FVector End, const FCollisionShape& CollisionShape, bool bTraceComplex=false) override;
+    virtual bool SweepComponent( FHitResult& OutHit, const FVector Start, const FVector End, const FQuat& ShapRotation, const FCollisionShape& CollisionShape, bool bTraceComplex=false) override;
 	virtual bool OverlapComponent(const FVector& Pos, const FQuat& Rot, const FCollisionShape& CollisionShape) override;
 	virtual void SetSimulatePhysics(bool bEnabled) override;
 	virtual void AddRadialImpulse(FVector Origin, float Radius, float Strength, ERadialImpulseFalloff Falloff, bool bVelChange=false) override;
@@ -1065,6 +1180,23 @@ public:
 	virtual void SetAllPhysicsLinearVelocity(FVector NewVel,bool bAddToCurrent = false) override;
 	virtual void SetAllMassScale(float InMassScale = 1.f) override;
 	virtual float GetMass() const override;
+
+	/**
+	*	Returns the mass (in kg) of the given bone
+	*
+	*	@param BoneName		Name of the body to return. 'None' indicates root body.
+	*	@param bScaleMass	If true, the mass is scaled by the bone's MassScale.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Physics")
+	float GetBoneMass(FName BoneName = NAME_None, bool bScaleMass = true) const;
+
+	/**
+	*	Returns the center of mass of the skeletal mesh, instead of the root body's location
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Physics")
+	FVector GetSkeletalCenterOfMass() const;
+
+
 	virtual float CalculateMass(FName BoneName = NAME_None) override;
 	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
 
@@ -1138,7 +1270,13 @@ public:
 	* @param	OutCurves				Blended Curve
 	*/
 	void PerformAnimationEvaluation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutSpaceBases, TArray<FTransform>& OutBoneSpaceTransforms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve) const;
-	void PostAnimEvaluation( FAnimationEvaluationContext& EvaluationContext );
+
+	/**
+	 * Evaluates the post process instance from the skeletal mesh this component is using.
+	 */
+	void EvaluatePostProcessMeshInstance(TArray<FTransform>& OutBoneSpaceTransforms, FBlendedHeapCurve& OutCurve, const USkeletalMesh* InSkeletalMesh, FVector& OutRootBoneTranslation) const;
+
+	void PostAnimEvaluation(FAnimationEvaluationContext& EvaluationContext);
 
 	/**
 	 * Blend of Physics Bones with PhysicsWeight and Animated Bones with (1-PhysicsWeight)
@@ -1351,7 +1489,7 @@ public:
 	* create only if became invalid
 	* BlendedData : added for cloth morph target but not used commonly
 	*/
-	bool CreateClothingActor(int32 AssetIndex, physx::apex::NxClothingAsset* ClothingAsset, TArray<FVector>* BlendedDelta = NULL);
+	bool CreateClothingActor(int32 AssetIndex, nvidia::apex::ClothingAsset* ClothingAsset, TArray<FVector>* BlendedDelta = NULL);
 	/** should call this method if occurred any changes in clothing assets */
 	void RecreateClothingActors();
 	/** add bounding box for cloth */
@@ -1395,7 +1533,7 @@ public:
 	void DrawDebugClothCollisions();
 	/** draws a convex from planes for debug info */
 	void DrawDebugConvexFromPlanes(FClothCollisionPrimitive& CollisionPrimitive, FColor& Color, bool bDrawWithPlanes=true);
-	void ReleaseClothingCollision(physx::apex::NxClothingCollision* Collision);
+	void ReleaseClothingCollision(nvidia::apex::ClothingCollision* Collision);
 	/** create new collisions when newly added  */
 	FApexClothCollisionInfo* CreateNewClothingCollsions(UPrimitiveComponent* PrimitiveComponent);
 
@@ -1420,7 +1558,7 @@ public:
 	/** find if this component has collisions for clothing and return the results calculated by bone transforms */
 	void FindClothCollisions(TArray<FApexClothCollisionVolumeData>& OutCollisions);
 	/** create Apex clothing collisions from input collision info and add them to clothing actors */
-	void CreateInternalClothCollisions(TArray<FApexClothCollisionVolumeData>& InCollisions, TArray<physx::apex::NxClothingCollision*>& OutCollisions);
+	void CreateInternalClothCollisions(TArray<FApexClothCollisionVolumeData>& InCollisions, TArray<nvidia::apex::ClothingCollision*>& OutCollisions);
 
 #endif // WITH_CLOTH_COLLISION_DETECTION
 
@@ -1433,14 +1571,15 @@ public:
 
 protected:
 	bool NeedToSpawnAnimScriptInstance() const;
-	
+	bool NeedToSpawnPostPhysicsInstance() const;
+
 private:
 
-	FSkeletalMeshComponentPostPhysicsTickFunction PostPhysicsTickFunction;
-	friend struct FSkeletalMeshComponentPostPhysicsTickFunction;
+	FSkeletalMeshComponentEndPhysicsTickFunction EndPhysicsTickFunction;
+	friend struct FSkeletalMeshComponentEndPhysicsTickFunction;
 
 	/** Update systems after physics sim is done */
-	void PostPhysicsTickComponent(FSkeletalMeshComponentPostPhysicsTickFunction& ThisTickFunction);
+	void EndPhysicsTickComponent(FSkeletalMeshComponentEndPhysicsTickFunction& ThisTickFunction);
 
 	/** Evaluate Anim System **/
 	void EvaluateAnimation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutBoneSpaceTransforms, FVector& OutRootBoneTranslation, FBlendedHeapCurve& OutCurve) const;
@@ -1462,7 +1601,7 @@ private:
 
 #if WITH_APEX_CLOTHING
 	void GetWindForCloth_GameThread(FVector& WindVector, float& WindAdaption) const;
-	static void ApplyWindForCloth_Concurrent(physx::apex::NxClothingActor& ClothingActor, const FVector& WindVector, float WindAdaption);
+	static void ApplyWindForCloth_Concurrent(nvidia::apex::ClothingActor& ClothingActor, const FVector& WindVector, float WindAdaption);
 #endif
 	
 	//Data for parallel evaluation of animation
@@ -1491,21 +1630,21 @@ public:
 
 	friend class FSkeletalMeshComponentDetails;
 
-	/** Returns array containing cachec animation curve mapping UIDs (which are copied over from USkeleton) */
-	TArray<FSmartNameMapping::UID> const * GetCachedAnimCurveMappingNameUids();
-
 	/** Apply animation curves to this component */
 	void ApplyAnimationCurvesToComponent(const TMap<FName, float>* InMaterialParameterCurves, const TMap<FName, float>* InAnimationMorphCurves);
 	
 private:
+	/** Override USkinnedMeshComponent */
+	virtual void AddSlavePoseComponent(USkinnedMeshComponent* SkinnedMeshComponent) override;
+
 	// Returns whether we need to run the Pre Cloth Tick or not
-	bool ShouldRunPostPhysicsTick() const;
+	bool ShouldRunEndPhysicsTick() const;
 
 	// Returns whether we need to run the Cloth Tick or not
 	bool ShouldRunClothTick() const;
 
 	// Handles registering/unregistering the pre cloth tick as it is needed
-	void UpdatePostPhysicsTickRegisteredState();
+	void UpdateEndPhysicsTickRegisteredState();
 
 	// Handles registering/unregistering the cloth tick as it is needed
 	void UpdateClothTickRegisteredState();
@@ -1561,16 +1700,15 @@ private:
 	UPROPERTY()
 	float DefaultPlayRate_DEPRECATED;
 	
-	/** Caches the anim curve mapping smart name UIDs, by copying cached data from the Skeleton */
-	void UpdateCachedAnimCurveMappingNameUids();
-
-	/** Cached animation curves smart name mapping UIDs, only at runtime, not serialized. (used for FBlendedCurve::InitFrom) */
-	TArray<FSmartNameMapping::UID> CachedAnimCurveMappingNameUids;
 
 	/*
-	 * Update MorphTargetCurves - these are not animation curves, but SetMorphTarget and similar functions that can set to this mesh component
+	 * Update MorphTargetCurves from mesh - these are not animation curves, but SetMorphTarget and similar functions that can set to this mesh component
 	 */
-	void UpdateMorphTargetCurves();
+	void UpdateMorphTargetOverrideCurves();
+	/*
+	 * Reset MorphTarget Curves - Reset all morphtarget curves
+	 */
+	void ResetMorphTargetCurves();
 
 public:
 	/** Keep track of when animation has been ticked to ensure it is ticked only once per frame. */
@@ -1613,4 +1751,15 @@ private:
 
 	/** Multicaster fired when this component creates physics state (in case external objects rely on physics state)*/
 	FOnSkelMeshPhysicsCreatedMultiCast OnSkelMeshPhysicsCreated;
+
+	/** Mark current anim UID version to up-to-date. Called when it's recalcualted */
+	void MarkRequiredCurveUpToDate();
+	
+	/* This will check if the required curves are up-to-date by checking version number with skeleton. 
+	 * Skeleton's curve list changes whenever newer is added or deleted. 
+	 * This still has to happen in editor as well as in game as 
+	 * There is no guarantee of Skeleton having all curves as we've seen over and over again. 
+	 * Cooking does not guarantee skeleton containing all names
+	 */
+	bool AreRequiredCurvesUpToDate() const;
 };

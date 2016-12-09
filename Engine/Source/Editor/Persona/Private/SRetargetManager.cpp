@@ -1,19 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
 #include "SRetargetManager.h"
-#include "ObjectTools.h"
+#include "Misc/MessageDialog.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Input/SButton.h"
+#include "Animation/DebugSkelMeshComponent.h"
+#include "Widgets/SToolTip.h"
+#include "IDocumentation.h"
 #include "ScopedTransaction.h"
-#include "AssetRegistryModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
-#include "AssetNotifications.h"
-#include "Animation/Rig.h"
-#include "BoneSelectionWidget.h"
 #include "SRetargetSourceWindow.h"
 #include "SRigWindow.h"
-#include "Editor/AnimGraph/Classes/AnimPreviewInstance.h"
+#include "AnimPreviewInstance.h"
+#include "IEditableSkeleton.h"
 
 #define LOCTEXT_NAMESPACE "SRetargetManager"
 
@@ -21,16 +23,11 @@
 //////////////////////////////////////////////////////////////////////////
 // SRetargetManager
 
-void SRetargetManager::Construct(const FArguments& InArgs)
+void SRetargetManager::Construct(const FArguments& InArgs, const TSharedRef<IEditableSkeleton>& InEditableSkeleton, const TSharedRef<IPersonaPreviewScene>& InPreviewScene, FSimpleMulticastDelegate& InOnPostUndo)
 {
-	PersonaPtr = InArgs._Persona;
-	Skeleton = NULL;
-
-	if ( PersonaPtr.IsValid() )
-	{
-		Skeleton = PersonaPtr.Pin()->GetSkeleton();
-		PersonaPtr.Pin()->RegisterOnPostUndo(FPersona::FOnPostUndo::CreateSP( this, &SRetargetManager::PostUndo ) );
-	}
+	EditableSkeletonPtr = InEditableSkeleton;
+	PreviewScenePtr = InPreviewScene;
+	InOnPostUndo.Add(FSimpleDelegate::CreateSP(this, &SRetargetManager::PostUndo));
 
 	const FString DocLink = TEXT("Shared/Editors/Persona");
 	ChildSlot
@@ -41,11 +38,11 @@ void SRetargetManager::Construct(const FArguments& InArgs)
 		.Padding(5, 5)
 		.AutoHeight()
 		[
-			// explainint this is retarget source window
+			// explain this is retarget source window
 			// and what it is
 			SNew(STextBlock)
 			.TextStyle( FEditorStyle::Get(), "Persona.RetargetManager.ImportantText" )
-			.Text(LOCTEXT("RetargetSource_Title", "Manager Retarget Source"))
+			.Text(LOCTEXT("RetargetSource_Title", "Manage Retarget Source"))
 		]
 
 		+ SVerticalBox::Slot()
@@ -61,9 +58,9 @@ void SRetargetManager::Construct(const FArguments& InArgs)
 																			DocLink,
 																			TEXT("RetargetSource")))
 			.Font(FEditorStyle::GetFontStyle(TEXT("Persona.RetargetManager.FilterFont")))
-			.Text(LOCTEXT("RetargetSource_Description", "You can add/rename/delete Retarget Sources. When you have different proportional meshes per skeleton, you can use this settings to indicate if this animation is from different source. \
-														For example, if your default skeleton is from small guy, and if you have animation for big guy, you can create Retarget Source from the big guy and set it for the animation. \
-														Retargeting system will use this information when extracting animation. "))
+			.Text(LOCTEXT("RetargetSource_Description", "You can add/rename/delete Retarget Sources. When you have different proportional meshes per skeleton, you can use this setting to indicate if this animation is from a different source." \
+														"For example, if your default skeleton is from a small guy, and if you have an animation for a big guy, you can create a Retarget Source from the big guy and set it for the animation." \
+														"The Retargeting system will use this information when extracting animation. "))
 		]
 
 		+ SVerticalBox::Slot()
@@ -71,8 +68,7 @@ void SRetargetManager::Construct(const FArguments& InArgs)
 		.FillHeight(0.5)
 		[
 			// construct retarget source window
-			SNew(SRetargetSourceWindow)
-			.Persona(PersonaPtr)
+			SNew(SRetargetSourceWindow, InEditableSkeleton, InOnPostUndo)
 		]
 
 		+SVerticalBox::Slot()
@@ -107,7 +103,7 @@ void SRetargetManager::Construct(const FArguments& InArgs)
 																			DocLink,
 																			TEXT("RigSetup")))
 			.Font(FEditorStyle::GetFontStyle(TEXT("Persona.RetargetManager.FilterFont")))
-			.Text(LOCTEXT("RigTemplate_Description", "You can set up Rig for this skeleton, then when you retarget animation to different skeleton with the same Rig, it will use the information to convert data. "))
+			.Text(LOCTEXT("RigTemplate_Description", "You can set up a Rig for this skeleton, then when you retarget the animation to a different skeleton with the same Rig, it will use the information to convert data. "))
 		]
 
 		+ SVerticalBox::Slot()
@@ -115,8 +111,7 @@ void SRetargetManager::Construct(const FArguments& InArgs)
 		.Padding(2, 5)
 		[
 			// construct rig manager window
-			SNew(SRigWindow)
-			.Persona(PersonaPtr)
+			SNew(SRigWindow, InEditableSkeleton, InOnPostUndo)
 		]
 
 		+SVerticalBox::Slot()
@@ -151,8 +146,8 @@ void SRetargetManager::Construct(const FArguments& InArgs)
 																			DocLink,
 																			TEXT("SetupBasePose")))
 			.Font(FEditorStyle::GetFontStyle(TEXT("Persona.RetargetManager.FilterFont")))
-			.Text(LOCTEXT("BasePose_Description", "This information is used when retargeting assets to different skeleton. You need to make sure the ref pose of both mesh is same when retargeting, so you can see the pose and \
-											edit using bone transform widget, and click Save button below. "))
+			.Text(LOCTEXT("BasePose_Description", "This information is used when retargeting assets to a different skeleton. You need to make sure the ref pose of both meshes is the same when retargeting, so you can see the pose and" \
+											" edit using the bone transform widget, and click the Save button below. "))
 		]
 
 		+ SVerticalBox::Slot()
@@ -203,17 +198,9 @@ void SRetargetManager::Construct(const FArguments& InArgs)
 	];
 }
 
-SRetargetManager::~SRetargetManager()
-{
-	if (PersonaPtr.IsValid())
-	{
-		PersonaPtr.Pin()->UnregisterOnPostUndo(this);
-	}
-}
-
 FReply SRetargetManager::OnViewRetargetBasePose()
 {
-	UDebugSkelMeshComponent * PreviewMeshComp = PersonaPtr.Pin()->GetPreviewMeshComponent();
+	UDebugSkelMeshComponent * PreviewMeshComp = PreviewScenePtr.Pin()->GetPreviewMeshComponent();
 	if (PreviewMeshComp && PreviewMeshComp->PreviewInstance)
 	{
 		const FScopedTransaction Transaction(LOCTEXT("ViewRetargetBasePose_Action", "Edit Retarget Base Pose"));
@@ -233,12 +220,12 @@ FReply SRetargetManager::OnViewRetargetBasePose()
 
 FReply SRetargetManager::OnSaveRetargetBasePose()
 {
-	UDebugSkelMeshComponent * PreviewMeshComp = PersonaPtr.Pin()->GetPreviewMeshComponent();
+	UDebugSkelMeshComponent * PreviewMeshComp = PreviewScenePtr.Pin()->GetPreviewMeshComponent();
 	if (PreviewMeshComp && PreviewMeshComp->SkeletalMesh)
 	{
 		USkeletalMesh * PreviewMesh = PreviewMeshComp->SkeletalMesh;
 
-		check(PreviewMesh && Skeleton == PreviewMesh->Skeleton);
+		check(PreviewMesh && &EditableSkeletonPtr.Pin()->GetSkeleton() == PreviewMesh->Skeleton);
 
 		if (PreviewMesh)
 		{
@@ -288,12 +275,12 @@ FReply SRetargetManager::OnResetRetargetBasePose()
 	EAppReturnType::Type Response = FMessageDialog::Open(EAppMsgType::OkCancel, Message);
 	if(Response == EAppReturnType::Ok)
 	{
-		UDebugSkelMeshComponent * PreviewMeshComp = PersonaPtr.Pin()->GetPreviewMeshComponent();
+		UDebugSkelMeshComponent * PreviewMeshComp = PreviewScenePtr.Pin()->GetPreviewMeshComponent();
 		if(PreviewMeshComp && PreviewMeshComp->SkeletalMesh)
 		{
 			USkeletalMesh * PreviewMesh = PreviewMeshComp->SkeletalMesh;
 
-			check(PreviewMesh && Skeleton == PreviewMesh->Skeleton);
+			check(PreviewMesh && &EditableSkeletonPtr.Pin()->GetSkeleton() == PreviewMesh->Skeleton);
 
 			if(PreviewMesh)
 			{
@@ -316,7 +303,7 @@ void SRetargetManager::PostUndo()
 
 FText SRetargetManager::GetToggleRetargetBasePose() const
 {
-	UDebugSkelMeshComponent * PreviewMeshComp = PersonaPtr.Pin()->GetPreviewMeshComponent();
+	UDebugSkelMeshComponent * PreviewMeshComp = PreviewScenePtr.Pin()->GetPreviewMeshComponent();
 	if(PreviewMeshComp && PreviewMeshComp->PreviewInstance)
 	{
 		if (PreviewMeshComp->PreviewInstance->GetForceRetargetBasePose())

@@ -1,29 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "SpriteEditorViewportClient.h"
-#include "SceneViewport.h"
-
-#include "PreviewScene.h"
+#include "SpriteEditor/SpriteEditorViewportClient.h"
+#include "Modules/ModuleManager.h"
+#include "CanvasItem.h"
+#include "Utils.h"
+#include "PaperSpriteComponent.h"
+#include "AssetEditorModeManager.h"
 #include "ScopedTransaction.h"
-#include "Runtime/Engine/Public/ComponentReregisterContext.h"
 
+#include "ComponentReregisterContext.h"
+
+#include "IAssetTools.h"
 #include "AssetToolsModule.h"
+#include "ARFilter.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "AssetRegistryModule.h"
 #include "CanvasTypes.h"
-#include "CanvasItem.h"
 #include "PaperEditorShared/SocketEditing.h"
 
 #include "PaperEditorShared/SpriteGeometryEditMode.h"
 
-#include "PhysicsEngine/BodySetup2D.h"
-#include "SEditorViewport.h"
 
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
-#include "SpriteEditorSettings.h"
+#include "SpriteEditor/SpriteEditorSettings.h"
 #include "PaperSpriteFactory.h"
 
 #define LOCTEXT_NAMESPACE "SpriteEditor"

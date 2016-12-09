@@ -2,11 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "CameraRig_Rail.generated.h"
 
-class USceneComponent;
 class USplineComponent;
 class USplineMeshComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
 
 /** 
  * 
@@ -30,6 +34,7 @@ public:
 #if WITH_EDITOR
 	virtual class USceneComponent* GetDefaultAttachComponent() const override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditUndo() override;
 #endif
 
 	/** Returns the spline component that defines the rail path */

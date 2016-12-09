@@ -1,9 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#if ENABLE_HTTP_FOR_NFS
-
-#include "NetworkFileSystemPrivatePCH.h"
 #include "NetworkFileServerHttp.h"
+#include "NetworkFileServerConnection.h"
+#include "NetworkFileSystemLog.h"
+#include "NetworkMessage.h"
+#include "HAL/RunnableThread.h"
+#include "SocketSubsystem.h"
+#include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
+#include "IPAddress.h"
+#include "Serialization/MemoryReader.h"
+
+#if ENABLE_HTTP_FOR_NFS
 
 class FNetworkFileServerClientConnectionHTTP : public FNetworkFileServerClientConnection
 {
@@ -54,17 +62,18 @@ struct PerSessionData
 
 
 // protocol array.
-static struct libwebsocket_protocols Protocols[] = {
+static struct lws_protocols Protocols[] = {
 	/* first protocol must always be HTTP handler */
 	{
 			"http-only",                           // name
 			FNetworkFileServerHttp::CallBack_HTTP, // callback
 			sizeof(PerSessionData),                // per_session_data_size
-			15 * 1024,
-			15 * 1024
+			15 * 1024,                             // rx_buffer_size
+			0,                                     // id
+			NULL
 	},
 	{
-		NULL, NULL, 0   /* End of list */
+		NULL, NULL, 0, 0, 0, NULL   /* End of list */
 	}
 };
 //////////////////////////////////////////////////////////////////////////
@@ -112,19 +121,17 @@ bool FNetworkFileServerHttp::IsItReadyToAcceptConnections(void) const
 }
 
 #if UE_BUILD_DEBUG
-void libwebsocket_debugLog(int level, const char *line)
+void lws_debugLog(int level, const char *line)
 {
 	UE_LOG(LogFileServer, Warning, TEXT(" LibWebsocket: %s"), ANSI_TO_TCHAR(line));
 }
 #endif
 
-FNetworkFileServerHttp* user_space_patch = NULL;
-
 bool FNetworkFileServerHttp::Init()
 {
 	// setup log level.
 #if UE_BUILD_DEBUG
-	lws_set_log_level( LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_DEBUG , libwebsocket_debugLog);
+	lws_set_log_level( LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_DEBUG , lws_debugLog);
 #endif
 
 	struct lws_context_creation_info Info;
@@ -144,7 +151,7 @@ bool FNetworkFileServerHttp::Init()
 	// tack on this object.
 	Info.user = this;
 
-	Context = libwebsocket_create_context(&Info);
+	Context = lws_create_context(&Info);
 
 	Port = Info.port;
 
@@ -152,20 +159,6 @@ bool FNetworkFileServerHttp::Init()
 		UE_LOG(LogFileServer, Fatal, TEXT(" Could not create a libwebsocket content for port : %d"), Port);
 		return false;
 	}
-
-	// ========================================
-	// March 11 2016 - nick.shin
-	// libwebsocket_create_context() above is not setting the user_space pointer properly
-	// this can be corrected with the following two code changes:
-//#include "private-libwebsockets.h" // put this in NetworkFileServerHttp.h
-//	Context->user_space = this;
-	// but this fails in UE4 frontend with multiple defined symbols...
-
-	// i will continue to analyze this problem after today's ZBR day
-
-	// since, there's only one of 'this' object -- for now...
-	user_space_patch = this;
-	// ========================================
 
 	Ready.Set(true);
 	return true;
@@ -221,8 +214,8 @@ uint32 FNetworkFileServerHttp::Run()
 	while(!StopRequested.GetValue())
 	{
 		// service libwebsocket, have a slight delay so it doesn't spin on zero load.
-		libwebsocket_service(Context, 10);
-		libwebsocket_callback_on_writable_all_protocol(&Protocols[0]);
+		lws_service(Context, 10);
+		lws_callback_on_writable_all_protocol(Context, &Protocols[0]);
 	}
 
 	UE_LOG(LogFileServer, Display, TEXT("Unreal Network File Http Server is now Shutting down "));
@@ -239,7 +232,7 @@ void FNetworkFileServerHttp::Exit()
 {
 	// let's start shutting down.
 	// fires a LWS_CALLBACK_PROTOCOL_DESTROY callback, we clean up after ourselves there.
-	libwebsocket_context_destroy(Context);
+	lws_context_destroy(Context);
 	Context = NULL;
 }
 
@@ -292,19 +285,18 @@ void FNetworkFileServerHttp::Process(FArchive& In, TArray<uint8>&Out, FNetworkFi
 	}
 }
 
-// This static function handles all callbacks coming in and when context is services via libwebsocket_service
+// This static function handles all callbacks coming in and when context is services via lws_service
 // return value of -1, closes the connection.
 int FNetworkFileServerHttp::CallBack_HTTP(
-			struct libwebsocket_context *Context,
-			struct libwebsocket *Wsi,
-			enum libwebsocket_callback_reasons Reason,
+			struct lws *Wsi,
+			enum lws_callback_reasons Reason,
 			void *User,
 			void *In,
 			size_t Len)
 {
+	struct lws_context *Context = lws_get_context(Wsi);
 	PerSessionData* BufferInfo = (PerSessionData*)User;
-//	FNetworkFileServerHttp* Server = (FNetworkFileServerHttp*)libwebsocket_context_user(Context);
-	FNetworkFileServerHttp* Server = user_space_patch; // see Init() for details...
+	FNetworkFileServerHttp* Server = (FNetworkFileServerHttp*)lws_context_user(Context);
 
 	switch (Reason)
 	{
@@ -312,7 +304,7 @@ int FNetworkFileServerHttp::CallBack_HTTP(
 	case LWS_CALLBACK_HTTP:
 
 		// hang on to socket even if there's no data for atleast 60 secs.
-		libwebsocket_set_timeout(Wsi, NO_PENDING_TIMEOUT, 60);
+		lws_set_timeout(Wsi, NO_PENDING_TIMEOUT, 60);
 
 		/* if it was not legal POST URL, let it continue and accept data */
 		if (!lws_hdr_total_length(Wsi, WSI_TOKEN_POST_URI))
@@ -337,7 +329,7 @@ int FNetworkFileServerHttp::CallBack_HTTP(
 					);
 
 				// very small data being sent, its fine to just send.
-				libwebsocket_write(Wsi,(unsigned char*)TCHAR_TO_ANSI(Buffer),FCStringAnsi::Strlen(TCHAR_TO_ANSI(Buffer)), LWS_WRITE_HTTP);
+				lws_write(Wsi,(unsigned char*)TCHAR_TO_ANSI(Buffer),FCStringAnsi::Strlen(TCHAR_TO_ANSI(Buffer)), LWS_WRITE_HTTP);
 			}
 			else
 			{
@@ -378,7 +370,7 @@ int FNetworkFileServerHttp::CallBack_HTTP(
 									"Server: Unreal File Server\x0d\x0a"
 									"Connection: close\x0d\x0a";
 
-					libwebsocket_write(Wsi,(unsigned char*)Header,FCStringAnsi::Strlen(Header), LWS_WRITE_HTTP);
+					lws_write(Wsi,(unsigned char*)Header,FCStringAnsi::Strlen(Header), LWS_WRITE_HTTP);
 					// chug along, client will close the connection.
 					break;
 				}
@@ -412,13 +404,13 @@ int FNetworkFileServerHttp::CallBack_HTTP(
 				BufferInfo->Out.Append((uint8*)TCHAR_TO_ANSI(Header),Length);
 				BufferInfo->Out.Append(FileData);
 				// we need to write back to the client, queue up a write callback.
-				libwebsocket_callback_on_writable(Context, Wsi);
+				lws_callback_on_writable(Wsi);
 			}
 		}
 		else
 		{
 			// we got a post request!, queue up a write callback.
-			libwebsocket_callback_on_writable(Context, Wsi);
+			lws_callback_on_writable(Wsi);
 		}
 
 		break;
@@ -428,7 +420,7 @@ int FNetworkFileServerHttp::CallBack_HTTP(
 			UE_LOG(LogFileServer, Log, TEXT("Incoming HTTP Partial Body Size %d, total size  %d"),Len, Len+ BufferInfo->In.Num());
 			BufferInfo->In.Append((uint8*)In,Len);
 			// we received some data - update time out.
-			libwebsocket_set_timeout(Wsi, NO_PENDING_TIMEOUT, 60);
+			lws_set_timeout(Wsi, NO_PENDING_TIMEOUT, 60);
 		}
 		break;
 	case LWS_CALLBACK_HTTP_BODY_COMPLETION:
@@ -459,8 +451,8 @@ int FNetworkFileServerHttp::CallBack_HTTP(
 			BufferInfo->Out.Append(Writer);
 
 			// we have enqueued data increase timeout and push a writable callback.
-			libwebsocket_set_timeout(Wsi, NO_PENDING_TIMEOUT, 60);
-			libwebsocket_callback_on_writable(Context, Wsi);
+			lws_set_timeout(Wsi, NO_PENDING_TIMEOUT, 60);
+			lws_callback_on_writable(Wsi);
 
 		}
 		break;
@@ -486,7 +478,7 @@ int FNetworkFileServerHttp::CallBack_HTTP(
 		// we have data o send out.
 		if (BufferInfo->Out.Num())
 		{
-			int SentSize = libwebsocket_write(Wsi,(unsigned char*)BufferInfo->Out.GetData(),BufferInfo->Out.Num(), LWS_WRITE_HTTP);
+			int SentSize = lws_write(Wsi,(unsigned char*)BufferInfo->Out.GetData(),BufferInfo->Out.Num(), LWS_WRITE_HTTP);
 			// get rid of the data that has been sent.
 			BufferInfo->Out.RemoveAt(0,SentSize);
 		}

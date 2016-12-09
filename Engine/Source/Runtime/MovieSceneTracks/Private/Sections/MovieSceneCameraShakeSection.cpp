@@ -1,67 +1,51 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneCameraShakeSection.h"
-#include "MovieSceneCameraShakeTrack.h"
+#include "Sections/MovieSceneCameraShakeSection.h"
+#include "Tracks/MovieSceneCameraShakeTrack.h"
+#include "Evaluation/MovieSceneCameraAnimTemplate.h"
 
 
 UMovieSceneCameraShakeSection::UMovieSceneCameraShakeSection(const FObjectInitializer& ObjectInitializer)
- 	: Super( ObjectInitializer )
+	: Super( ObjectInitializer )
 {
-	PlayScale = 1.f;
-	PlaySpace = ECameraAnimPlaySpace::CameraLocal;
-	UserDefinedPlaySpace = FRotator::ZeroRotator;
+	ShakeClass_DEPRECATED = nullptr;
+	PlayScale_DEPRECATED = 1.f;
+	PlaySpace_DEPRECATED = ECameraAnimPlaySpace::CameraLocal;
+	UserDefinedPlaySpace_DEPRECATED = FRotator::ZeroRotator;
+
+	EvalOptions.EnableAndSetCompletionMode(EMovieSceneCompletionMode::RestoreState);
 }
 
-void UMovieSceneCameraShakeSection::MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles)
+void UMovieSceneCameraShakeSection::PostLoad()
 {
-	Super::MoveSection( DeltaPosition, KeyHandles );
-
-	// Move the curve
-//	ShakeWeightCurve.ShiftCurve(DeltaPosition, KeyHandles);
-}
-
-
-void UMovieSceneCameraShakeSection::DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles)
-{	
-	Super::DilateSection(DilationFactor, Origin, KeyHandles);
-	
-//	ShakeWeightCurve.ScaleCurve(Origin, DilationFactor, KeyHandles);
-}
-
-
-void UMovieSceneCameraShakeSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
-{
-	if (!TimeRange.Overlaps(GetRange()))
+	if (ShakeClass_DEPRECATED != nullptr)
 	{
-		return;
+		ShakeData.ShakeClass = ShakeClass_DEPRECATED;
 	}
 
-// 	for (auto It(ShakeWeightCurve.GetKeyHandleIterator()); It; ++It)
-// 	{
-// 		float Time = ShakeWeightCurve.GetKeyTime(It.Key());
-// 		if (TimeRange.Contains(Time))
-// 		{
-// 			KeyHandles.Add(It.Key());
-// 		}
-// 	}
+	if (PlayScale_DEPRECATED != 1.f)
+	{
+		ShakeData.PlayScale = PlayScale_DEPRECATED;
+	}
+
+	if (PlaySpace_DEPRECATED != ECameraAnimPlaySpace::CameraLocal)
+	{
+		ShakeData.PlaySpace = PlaySpace_DEPRECATED;
+	}
+
+	if (UserDefinedPlaySpace_DEPRECATED != FRotator::ZeroRotator)
+	{
+		ShakeData.UserDefinedPlaySpace = UserDefinedPlaySpace_DEPRECATED;
+	}
+
+	Super::PostLoad();
 }
 
-
-TOptional<float> UMovieSceneCameraShakeSection::GetKeyTime( FKeyHandle KeyHandle ) const
+FMovieSceneEvalTemplatePtr UMovieSceneCameraShakeSection::GenerateTemplate() const
 {
-	//if ( ShakeWeightCurve.IsKeyHandleValid( KeyHandle ) )
-	//{
-	//	return TOptional<float>( ShakeWeightCurve.GetKeyTime( KeyHandle ) );
-	//}
-	return TOptional<float>();
-}
-
-
-void UMovieSceneCameraShakeSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
-{
-	//if ( ShakeWeightCurve.IsKeyHandleValid( KeyHandle ) )
-	//{
-	//	ShakeWeightCurve.SetKeyTime( KeyHandle, Time );
-	//}
+	if (*ShakeData.ShakeClass)
+	{
+		return FMovieSceneCameraShakeSectionTemplate(*this);
+	}
+	return FMovieSceneEvalTemplatePtr();
 }

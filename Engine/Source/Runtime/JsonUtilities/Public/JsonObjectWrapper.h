@@ -2,10 +2,14 @@
 
 #pragma once
 
-#include "Json.h"
-#include "JsonObjectConverter.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
 
 #include "JsonObjectWrapper.generated.h"
+
+class FJsonObject;
 
 /** UStruct that holds a JsonObject, can be used by structs passed to JsonObjectConverter to pass through JsonObjects directly */
 USTRUCT()
@@ -33,4 +37,9 @@ struct TStructOpsTypeTraits<FJsonObjectWrapper> : public TStructOpsTypeTraitsBas
 		WithExportTextItem = true,
 		WithPostSerialize = true,
 	};
+};
+UCLASS()
+class UJsonUtilitiesDummyObject : public UObject
+{
+	GENERATED_BODY()
 };

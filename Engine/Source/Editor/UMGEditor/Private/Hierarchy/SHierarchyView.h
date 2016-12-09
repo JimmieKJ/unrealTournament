@@ -2,15 +2,19 @@
 
 #pragma once
 
-#include "BlueprintEditor.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "WidgetBlueprintEditor.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
 #include "Misc/TextFilter.h"
-#include "SCompoundWidget.h"
-#include "SHierarchyViewItem.h"
 #include "TreeFilterHandler.h"
-#include "WidgetBlueprintEditorUtils.h"
 
-class FWidgetBlueprintEditor;
-class UWidget;
+class FHierarchyModel;
+class FMenuBuilder;
+class USimpleConstructionScript;
 class UWidgetBlueprint;
 
 /**
@@ -91,8 +95,15 @@ private:
 	/** Restores the state of expanded items based on the saved expanded item state, then clears the expanded state cache. */
 	void RestoreExpandedItems();
 
+	enum class EExpandBehavior : uint8
+	{
+		NeverExpand,
+		AlwaysExpand,
+		RestoreFromPrevious,
+	};
+
 	/** Recursively expands the models based on the expansion set. */
-	void RecursiveExpand(TSharedPtr<FHierarchyModel>& Model, bool InShouldExpandItem = true);
+	void RecursiveExpand(TSharedPtr<FHierarchyModel>& Model, EExpandBehavior ExpandBehavior = EExpandBehavior::AlwaysExpand);
 
 	/**  */
 	void RestoreSelectedItems();
@@ -102,6 +113,9 @@ private:
 
 	/** Handler for recursively expanding/collapsing items */
 	void SetItemExpansionRecursive(TSharedPtr<FHierarchyModel> Model, bool bInExpansionState);
+
+	/** Find and store the names of all currently expanded nodes in the hierarchy view. Should only be called when rebuilding the tree */
+	void FindExpandedItemNames();
 
 private:
 
@@ -126,6 +140,9 @@ private:
 	/** The widget hierarchy slate treeview widget */
 	TSharedPtr< STreeView< TSharedPtr<FHierarchyModel> > > WidgetTreeView;
 
+	/** The unique names of all nodes expanded in the tree view */
+	TSet< FName > ExpandedItemNames;
+
 	/** The search box used to update the filter text */
 	TSharedPtr<class SSearchBox> SearchBoxPtr;
 
@@ -140,4 +157,7 @@ private:
 
 	/** Flag to ignore selections while the hierarchy view is updating the selection. */
 	bool bIsUpdatingSelection;
+
+	/** Should all nodes in the tree be expanded? */
+	bool bExpandAllNodes;
 };

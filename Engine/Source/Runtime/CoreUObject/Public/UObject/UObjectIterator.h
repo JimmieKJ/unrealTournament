@@ -6,7 +6,12 @@
 
 #pragma once
 
-#include "Class.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectArray.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
 
 /**
  * Class for iterating through all objects, including class default objects, unreachable objects...all UObjects
@@ -197,7 +202,9 @@ public:
 	 * Iterator dereference
 	 * @return	the object pointer pointed at by the iterator
 	 */
-	FORCEINLINE T* operator* () const
+	FUNCTION_NON_NULL_RETURN_START
+		FORCEINLINE T* operator* () const
+	FUNCTION_NON_NULL_RETURN_END
 	{
 		return (T*)GetObject();
 	}
@@ -205,7 +212,9 @@ public:
 	 * Iterator dereference
 	 * @return	the object pointer pointed at by the iterator
 	 */
-	FORCEINLINE T* operator-> () const
+	FUNCTION_NON_NULL_RETURN_START
+		FORCEINLINE T* operator-> () const
+	FUNCTION_NON_NULL_RETURN_END
 	{
 		return (T*)GetObject();
 	}

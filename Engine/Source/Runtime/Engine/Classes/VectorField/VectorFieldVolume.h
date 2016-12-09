@@ -6,7 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "VectorFieldVolume.generated.h"
+
+class UBillboardComponent;
 
 UCLASS(hidecategories=(Object, Advanced, Collision), MinimalAPI)
 class AVectorFieldVolume : public AActor

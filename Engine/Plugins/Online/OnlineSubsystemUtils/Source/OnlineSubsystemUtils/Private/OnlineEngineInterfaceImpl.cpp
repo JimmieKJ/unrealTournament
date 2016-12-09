@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "OnlineEngineInterfaceImpl.h"
+#include "OnlineSubsystem.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "OnlineSubsystemUtils.h"
 
 UOnlineEngineInterfaceImpl::UOnlineEngineInterfaceImpl(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -150,12 +152,20 @@ void UOnlineEngineInterfaceImpl::StartSession(UWorld* World, FName SessionName, 
 	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
 	if (SessionInt.IsValid())
 	{
-		FName OnlineIdentifier = GetOnlineIdentifier(World);
+		FNamedOnlineSession* Session = SessionInt->GetNamedSession(SessionName);
+		if (Session && (Session->SessionState == EOnlineSessionState::Pending || Session->SessionState == EOnlineSessionState::Ended))
+		{
+			FName OnlineIdentifier = GetOnlineIdentifier(World);
 
-		FDelegateHandle StartSessionCompleteHandle = SessionInt->AddOnStartSessionCompleteDelegate_Handle(FOnStartSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnStartSessionComplete, OnlineIdentifier, InCompletionDelegate));
-		OnStartSessionCompleteDelegateHandles.Add(OnlineIdentifier, StartSessionCompleteHandle);
-		
-		SessionInt->StartSession(SessionName);
+			FDelegateHandle StartSessionCompleteHandle = SessionInt->AddOnStartSessionCompleteDelegate_Handle(FOnStartSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnStartSessionComplete, OnlineIdentifier, InCompletionDelegate));
+			OnStartSessionCompleteDelegateHandles.Add(OnlineIdentifier, StartSessionCompleteHandle);
+
+			SessionInt->StartSession(SessionName);
+		}
+		else
+		{
+			InCompletionDelegate.ExecuteIfBound(SessionName, false);
+		}
 	}
 	else
 	{
@@ -465,6 +475,11 @@ void UOnlineEngineInterfaceImpl::DumpChatState(UWorld* World)
 bool UOnlineEngineInterfaceImpl::SupportsOnlinePIE()
 {
 	return Online::GetUtils()->SupportsOnlinePIE();
+}
+
+void UOnlineEngineInterfaceImpl::SetShouldTryOnlinePIE(bool bShouldTry)
+{
+	Online::GetUtils()->SetShouldTryOnlinePIE(bShouldTry);
 }
 
 int32 UOnlineEngineInterfaceImpl::GetNumPIELogins()

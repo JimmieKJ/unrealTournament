@@ -2,6 +2,10 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+
+class Error;
+
 /** Represents the state of the video recorder */
 enum class EVideoRecordingState
 {

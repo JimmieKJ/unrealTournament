@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BlueprintNodeSignature.h"
 #include "AnimGraphNode_BlendSpaceBase.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "AnimNodes/AnimNode_RotationOffsetBlendSpace.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTitleTextTable
 #include "AnimGraphNode_RotationOffsetBlendSpace.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
 
 UCLASS(MinimalAPI)
 class UAnimGraphNode_RotationOffsetBlendSpace: public UAnimGraphNode_BlendSpaceBase

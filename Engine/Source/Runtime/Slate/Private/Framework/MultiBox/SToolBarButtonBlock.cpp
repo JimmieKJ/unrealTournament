@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "MultiBox.h"
-#include "SToolBarButtonBlock.h"
+#include "Framework/MultiBox/SToolBarButtonBlock.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Input/SCheckBox.h"
 
 
 FToolBarButtonBlock::FToolBarButtonBlock( const TSharedPtr< const FUICommandInfo > InCommand, TSharedPtr< const FUICommandList > InCommandList, const TAttribute<FText>& InLabelOverride, const TAttribute<FText>& InToolTipOverride, const TAttribute<FSlateIcon>& InIconOverride )
@@ -309,8 +314,7 @@ FReply SToolBarButtonBlock::OnClicked()
 	const bool ClosingMenu = MultiBox->ShouldCloseWindowAfterMenuSelection();
 	if( ClosingMenu )
 	{
-		TSharedRef<SWindow> ParentContextMenuWindow = FSlateApplication::Get().FindWidgetWindow( AsShared() ).ToSharedRef();
-		FSlateApplication::Get().RequestDestroyWindow( ParentContextMenuWindow );
+		FSlateApplication::Get().DismissMenuByWidget(AsShared());
 	}
 
 	return FReply::Handled();

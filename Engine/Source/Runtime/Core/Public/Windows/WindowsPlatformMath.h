@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformMath.h"
-#include "HAL/Platform.h"
 
 // This implementation is used by both Windows and XBoxOne
 #if PLATFORM_WINDOWS
-#include "Windows/WindowsSystemIncludes.h"
+#include <intrin.h>
 #elif PLATFORM_XBOXONE
 #include "XboxOne/XboxOneSystemIncludes.h"
 #endif
@@ -80,7 +81,7 @@ struct FWindowsPlatformMath : public FGenericPlatformMath
 	static FORCEINLINE uint32 FloorLog2(uint32 Value) 
 	{
 		// Use BSR to return the log2 of the integer
-		DWORD Log2;
+		unsigned long Log2;
 		if(_BitScanReverse(&Log2, Value) != 0)
 		{
 			return Log2;
@@ -91,7 +92,7 @@ struct FWindowsPlatformMath : public FGenericPlatformMath
 	static FORCEINLINE uint32 CountLeadingZeros(uint32 Value)
 	{
 		// Use BSR to return the log2 of the integer
-		DWORD Log2;
+		unsigned long Log2;
 		if(_BitScanReverse(&Log2, Value) != 0)
 		{
 			return 31 - Log2;
@@ -105,8 +106,8 @@ struct FWindowsPlatformMath : public FGenericPlatformMath
 		{
 			return 32;
 		}
-		uint32 BitIndex;	// 0-based, where the LSB is 0 and MSB is 31
-		_BitScanForward( (::DWORD *)&BitIndex, Value );	// Scans from LSB to MSB
+		unsigned long BitIndex;	// 0-based, where the LSB is 0 and MSB is 31
+		_BitScanForward( &BitIndex, Value );	// Scans from LSB to MSB
 		return BitIndex;
 	}
 	static FORCEINLINE uint32 CeilLogTwo( uint32 Arg )
@@ -118,6 +119,25 @@ struct FWindowsPlatformMath : public FGenericPlatformMath
 	{
 		return 1 << CeilLogTwo(Arg);
 	}
+#if PLATFORM_64BITS
+	static FORCEINLINE uint64 CeilLogTwo64(uint64 Arg)
+	{
+		int64 Bitmask = ((int64)(CountLeadingZeros64(Arg) << 57)) >> 63;
+		return (64 - CountLeadingZeros64(Arg - 1)) & (~Bitmask);
+	}
+	static FORCEINLINE uint64 CountLeadingZeros64(uint64 Value)
+	{
+		// Use BSR to return the log2 of the integer
+		unsigned long Log2;
+		if (_BitScanReverse64(&Log2, Value) != 0)
+		{
+			return 63 - Log2;
+		}
+
+		return 64;
+	}
+#endif
+
 #endif
 };
 

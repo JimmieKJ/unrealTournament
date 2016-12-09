@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Factories.h"
 
 class FLandscapeSplineTextObjectFactory : protected FCustomizableTextObjectFactory

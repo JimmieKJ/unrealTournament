@@ -1,31 +1,36 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PropertyEditorPrivatePCH.h"
-#include "AssetSelection.h"
+#include "PropertyEditorModule.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Engine/UserDefinedEnum.h"
+#include "Engine/UserDefinedStruct.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
+#include "SSingleProperty.h"
+#include "IDetailsView.h"
+#include "SDetailsView.h"
+#include "IPropertyTableWidgetHandle.h"
+#include "IPropertyTable.h"
+#include "UserInterface/PropertyTable/SPropertyTable.h"
+#include "UserInterface/PropertyTable/PropertyTableWidgetHandle.h"
+#include "IAssetTools.h"
 #include "AssetToolsModule.h"
 #include "SPropertyTreeViewImpl.h"
-#include "SlateBasics.h"
-#include "PropertyNode.h"
-#include "ItemPropertyNode.h"
-#include "CategoryPropertyNode.h"
-#include "ObjectPropertyNode.h"
-#include "PropertyNode.h"
-#include "SDetailsView.h"
-#include "SSingleProperty.h"
-#include "Editor/MainFrame/Public/MainFrame.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "IPropertyChangeListener.h"
 #include "PropertyChangeListener.h"
+#include "Toolkits/AssetEditorToolkit.h"
 #include "PropertyEditorToolkit.h"
 
-#include "PropertyTable.h"
-#include "SPropertyTable.h"
-#include "TextPropertyTableCellPresenter.h"
+#include "Presentation/PropertyTable/PropertyTable.h"
+#include "IPropertyTableCellPresenter.h"
+#include "UserInterface/PropertyTable/TextPropertyTableCellPresenter.h"
 
-#include "PropertyTableConstants.h"
 #include "SStructureDetailsView.h"
-#include "SColorPicker.h"
-#include "EngineUtils.h"
-#include "Engine/UserDefinedStruct.h"
+#include "Widgets/Colors/SColorPicker.h"
 
 
 IMPLEMENT_MODULE( FPropertyEditorModule, PropertyEditor );
@@ -608,10 +613,21 @@ FPropertyTypeLayoutCallback FPropertyEditorModule::GetPropertyTypeCustomization(
 		const bool bUserDefinedStruct = bStructProperty && StructProperty->Struct->IsA<UUserDefinedStruct>();
 		bStructProperty &= !bUserDefinedStruct;
 
-		const UByteProperty* ByteProperty = Cast<UByteProperty>(Property);
-		bool bEnumProperty = ByteProperty && ByteProperty->Enum;
-		const bool bUserDefinedEnum = bEnumProperty && ByteProperty->Enum->IsA<UUserDefinedEnum>();
-		bEnumProperty &= !bUserDefinedEnum;
+		const UEnum* Enum = nullptr;
+
+		if (const UByteProperty* ByteProperty = Cast<UByteProperty>(Property))
+		{
+			Enum = ByteProperty->Enum;
+		}
+		else if (const UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+		{
+			Enum = EnumProperty->GetEnum();
+		}
+
+		if (Enum && Enum->IsA<UUserDefinedEnum>())
+		{
+			Enum = nullptr;
+		}
 
 		const UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Property);
 		const bool bObjectProperty = ObjectProperty != NULL && ObjectProperty->PropertyClass != NULL;
@@ -621,9 +637,9 @@ FPropertyTypeLayoutCallback FPropertyEditorModule::GetPropertyTypeCustomization(
 		{
 			PropertyTypeName = StructProperty->Struct->GetFName();
 		}
-		else if( bEnumProperty )
+		else if( Enum )
 		{
-			PropertyTypeName = ByteProperty->Enum->GetFName();
+			PropertyTypeName = Enum->GetFName();
 		}
 		else if ( bObjectProperty )
 		{
@@ -682,7 +698,13 @@ TSharedRef<class IStructureDetailsView> FPropertyEditorModule::CreateStructureDe
 		static bool PassesFilter( const FPropertyAndParent& PropertyAndParent, const FStructureDetailsViewArgs InStructureDetailsViewArgs )
 		{
 			const auto ArrayProperty = Cast<UArrayProperty>(&PropertyAndParent.Property);
-			const auto PropertyToTest = ArrayProperty ? ArrayProperty->Inner : &PropertyAndParent.Property;
+			const auto SetProperty = Cast<USetProperty>(&PropertyAndParent.Property);
+			const auto MapProperty = Cast<UMapProperty>(&PropertyAndParent.Property);
+
+			// If the property is a container type, the filter should test against the type of the container's contents
+			const UProperty* PropertyToTest = ArrayProperty ? ArrayProperty->Inner : &PropertyAndParent.Property;
+			PropertyToTest = SetProperty ? SetProperty->ElementProp : PropertyToTest;
+			PropertyToTest = MapProperty ? MapProperty->ValueProp : PropertyToTest;
 
 			if( InStructureDetailsViewArgs.bShowClasses && (PropertyToTest->IsA<UClassProperty>() || PropertyToTest->IsA<UAssetClassProperty>()) )
 			{

@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "EnvironmentQuery/EnvQueryTypes.h"
-#include "EnvironmentQuery/EnvQueryNode.h"
-#include "DataProviders/AIDataProvider.h"
-#include "EnvQueryGenerator.generated.h"
 
-class UEnvQueryItemType;
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType.h"
+#include "EnvironmentQuery/EnvQueryNode.h"
+#include "EnvQueryGenerator.generated.h"
 
 namespace EnvQueryGeneratorVersion
 {

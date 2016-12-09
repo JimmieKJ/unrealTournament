@@ -7,10 +7,25 @@
 
 #pragma once
 
-#include "PhysxUserData.h"
-#include "DynamicMeshBuilder.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Engine/EngineTypes.h"
+#include "Misc/CoreMisc.h"
+#include "EngineDefines.h"
+#include "RenderResource.h"
+#include "PhysicsEngine/BodyInstance.h"
 #include "LocalVertexFactory.h"
-#include "PhysicsEngine/RigidBodyIndexPair.h"
+#include "DynamicMeshBuilder.h"
+
+class AActor;
+class ULineBatchComponent;
+class UPhysicalMaterial;
+class UPhysicsAsset;
+class UPrimitiveComponent;
+class USkeletalMeshComponent;
+struct FConstraintInstance;
+struct FPendingApexDamageManager;
+
 /**
  * Physics stats
  */
@@ -33,28 +48,47 @@ namespace physx
 	struct PxActiveTransform;
 	class PxActor;
 	class PxRigidActor;
-	
+}
+
 #if WITH_APEX
+namespace nvidia
+{
 	namespace apex
 	{
-		class NxDestructibleAsset;
-		class NxApexScene;
-		struct NxApexDamageEventReportData;
-		class NxApexSDK;
-		class NxModuleDestructible;
-		class NxDestructibleActor;
-		class NxModuleClothing;
-		class NxModule;
-		class NxClothingActor;
-		class NxClothingAsset;
-		class NxApexInterface;
+		class DestructibleAsset;
+		class Scene;
+		struct DamageEventReportData;
+		class ApexSDK;
+		class ModuleDestructible;
+		class DestructibleActor;
+		class ModuleClothing;
+		class Module;
+		class ClothingActor;
+		class ClothingAsset;
+		class ApexInterface;
 	}
-#endif // WITH_APEX
 }
+#endif // WITH_APEX
+
+struct FConstraintInstance;
+class UPhysicsAsset;
+
+struct FConstraintBrokenDelegateData
+{
+	FConstraintBrokenDelegateData(FConstraintInstance* ConstraintInstance);
+
+	void DispatchOnBroken()
+	{
+		OnConstraintBrokenDelegate.ExecuteIfBound(ConstraintIndex);
+	}
+
+	FOnConstraintBroken OnConstraintBrokenDelegate;
+	int32 ConstraintIndex;
+};
 
 using namespace physx;
 #if WITH_APEX
-	using namespace physx::apex;
+using namespace nvidia;
 #endif	//WITH_APEX
 
 /** Pointer to PhysX SDK object */
@@ -69,25 +103,25 @@ extern ENGINE_API class FPhysCommandHandler* GPhysCommandHandler;
 
 #if WITH_APEX
 
-namespace NxParameterized
+namespace NvParameterized
 {
 	class Interface;
 }
 
 /** Pointer to APEX SDK object */
-extern ENGINE_API NxApexSDK*			GApexSDK;
+extern ENGINE_API apex::ApexSDK*			GApexSDK;
 /** Pointer to APEX Destructible module object */
-extern ENGINE_API NxModuleDestructible*	GApexModuleDestructible;
+extern ENGINE_API apex::ModuleDestructible*	GApexModuleDestructible;
 /** Pointer to APEX legacy module object */
-extern ENGINE_API NxModule* 			GApexModuleLegacy;
+extern ENGINE_API apex::Module* 			GApexModuleLegacy;
 #if WITH_APEX_CLOTHING
 /** Pointer to APEX Clothing module object */
-extern ENGINE_API NxModuleClothing*		GApexModuleClothing;
+extern ENGINE_API apex::ModuleClothing*		GApexModuleClothing;
 #endif //WITH_APEX_CLOTHING
 
 #else
 
-namespace NxParameterized
+namespace NvParameterized
 {
 	typedef void Interface;
 };
@@ -175,7 +209,7 @@ public:
 
 #if WITH_APEX
 	/** enqueues a command to release destructible actor once apex has finished simulating */
-	void ENGINE_API DeferredRelease(physx::apex::NxApexInterface* ApexInterface);
+	void ENGINE_API DeferredRelease(apex::ApexInterface* ApexInterface);
 #endif
 
 #if WITH_PHYSX
@@ -192,8 +226,8 @@ private:
 		union
 		{
 #if WITH_APEX
-			physx::apex::NxApexInterface * ApexInterface;
-			physx::apex::NxDestructibleActor * DestructibleActor;
+			apex::ApexInterface * ApexInterface;
+			apex::DestructibleActor * DestructibleActor;
 #endif
 #if WITH_PHYSX
 			physx::PxScene * PScene;
@@ -272,6 +306,15 @@ public:
 	/** Gets the array of collision notifications, pending execution at the end of the physics engine run. */
 	TArray<FCollisionNotifyInfo>& GetPendingCollisionNotifies(int32 SceneType){ return PendingCollisionData[SceneType].PendingCollisionNotifies; }
 
+
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnPhysScenePreTick, FPhysScene*, uint32 /*SceneType*/, float /*DeltaSeconds*/);
+	FOnPhysScenePreTick OnPhysScenePreTick;
+
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnPhysSceneStep, FPhysScene*, uint32 /*SceneType*/, float /*DeltaSeconds*/);
+	FOnPhysSceneStep OnPhysSceneStep;
+
+
+
 private:
 	/** World that owns this physics scene */
 	UWorld*							OwningWorld;
@@ -282,7 +325,7 @@ public:
 	UWorld* GetOwningWorld(){ return OwningWorld; }
 	const UWorld* GetOwningWorld() const { return OwningWorld; }
 
-	/** These indices are used to get the actual PxScene or NxApexScene from the GPhysXSceneMap. */
+	/** These indices are used to get the actual PxScene or ApexScene from the GPhysXSceneMap. */
 	int16								PhysXSceneIndex[PST_MAX];
 
 	/** Whether or not the given scene is between its execute and sync point. */
@@ -299,8 +342,10 @@ public:
 	float							FrameTimeSmoothingFactor[PST_MAX];
 
 #if WITH_PHYSX
-	/** Flush the deferred actor and instance arrays, either adding or removing from the scene */
-	void FlushDeferredActors();
+	bool IsFlushNeededForDeferredActors_AssumesLocked(EPhysicsSceneType SceneType) const
+	{
+		return DeferredSceneData[SceneType].IsFlushNeeded_AssumesLocked();
+	}
 
 	/** Defer the addition of an actor to a scene, this will actually be performed before the *next*
 	 *  Physics tick
@@ -313,21 +358,35 @@ public:
 	/** Defer the addition of a group of actors to a scene, this will actually be performed before the *next*
 	 *  Physics tick. 
 	 *
-	 *	@param OwningInstance - The FBodyInstance that owns the actor
-	 *	@param Actor - The actual PhysX actor to add
+	 *	@param OwningInstances - The FBodyInstance that owns the actor
+	 *	@param Actors - The actual PhysX actor to add
 	 *	@param SceneType - The scene type to add the actor to
 	 */
-	void DeferAddActors(TArray<FBodyInstance*>& OwningInstances, TArray<PxActor*>& Actors, EPhysicsSceneType SceneType);
+	void DeferAddActors(const TArray<FBodyInstance*>& OwningInstances, const TArray<PxActor*>& Actors, EPhysicsSceneType SceneType);
 
 	/** Defer the removal of an actor to a scene, this will actually be performed before the *next*
 	 *  Physics tick
 	 *	@param OwningInstance - The FBodyInstance that owns the actor
-	 *	@param Actor - The actual PhysX actor to add
-	 *	@param SceneType - The scene type to add the actor to
+	 *	@param Actor - The actual PhysX actor to remove
+	 *	@param SceneType - The scene type to remove the actor from
 	 */
 	void DeferRemoveActor(FBodyInstance* OwningInstance, PxActor* Actor, EPhysicsSceneType SceneType);
 
+	/** Defer the removal of actors from a scene, this will actually be performed before the *next*
+	*  Physics tick
+	*	@param OwningInstances - The FBodyInstance that owns the actor
+	*	@param Actors - The actual PhysX actor to remove
+	*	@param SceneType - The scene type to remove the actor from
+	*/
+	void DeferRemoveActors(const TArray<FBodyInstance*>& OwningInstances, const TArray<PxActor*>& Actors, EPhysicsSceneType SceneType);
+
+	/** Flushes deferred actors to ensure they are in the physics scene. Note if this is called while the simulation is still running we use a slower insertion/removal path */
+	void FlushDeferredActors(EPhysicsSceneType SceneType);
+
 	void AddPendingSleepingEvent(PxActor* Actor, SleepEvent::Type SleepEventType, int32 SceneType);
+
+	/** Pending constraint break events */
+	void AddPendingOnConstraintBreak(FConstraintInstance* ConstraintInstance, int32 SceneType);
 #endif
 
 private:
@@ -351,12 +410,17 @@ private:
 	// for the calls to PxScene::simulate to save it calling into the OS to allocate during simulation
 	FSimulationScratchBuffer SimScratchBuffers[PST_MAX];
 
+	// Boundary value for PhysX scratch buffers (currently PhysX requires the buffer length be a multiple of 16K)
+	static const int32 SimScratchBufferBoundary = 16 * 1024;
+
 #if WITH_PHYSX
 
 	struct FDeferredSceneData
 	{
-		/** The PhysX scene index used*/
-		int32 SceneIndex;
+		FDeferredSceneData();
+
+		/** Whether the physx scene is currently simulating. */
+		bool bIsSimulating;
 
 		/** Body instances awaiting scene add */
 		TArray<FBodyInstance*> AddInstances;
@@ -368,23 +432,24 @@ private:
 		/** PhysX Actors awaiting scene remove */
 		TArray<PxActor*> RemoveActors;
 
-		void FlushDeferredActors();
-		void DeferAddActor(FBodyInstance* OwningInstance, PxActor* Actor);
-		void DeferAddActors(TArray<FBodyInstance*>& OwningInstances, TArray<PxActor*>& Actors);
-		void DeferRemoveActor(FBodyInstance* OwningInstance, PxActor* Actor);
+		void FlushDeferredActors_AssumesLocked(PxScene* Scene);
+		void DeferAddActor_AssumesLocked(FBodyInstance* OwningInstance, PxActor* Actor);
+		void DeferAddActors_AssumesLocked(const TArray<FBodyInstance*>& OwningInstances, const TArray<PxActor*>& Actors);
+		void DeferRemoveActor_AssumesLocked(FBodyInstance* OwningInstance, PxActor* Actor);
+		void DeferRemoveActors_AssumesLocked(const TArray<FBodyInstance*>& OwningInstances, const TArray<PxActor*>& Actors);
+
+		bool IsFlushNeeded_AssumesLocked() const
+		{
+			return AddInstances.Num() > 0 || RemoveInstances.Num() > 0;
+		}
 	};
 
 	FDeferredSceneData DeferredSceneData[PST_MAX];
-
 
 	/** Dispatcher for CPU tasks */
 	class PxCpuDispatcher*			CPUDispatcher[PST_MAX];
 	/** Simulation event callback object */
 	physx::PxSimulationEventCallback*			SimEventCallback[PST_MAX];
-#if WITH_VEHICLE
-	/** Vehicle scene */
-	class FPhysXVehicleManager*			VehicleManager;
-#endif
 #endif	//
 
 	struct FPendingCollisionData
@@ -394,6 +459,14 @@ private:
 	};
 
 	FPendingCollisionData PendingCollisionData[PST_MAX];
+
+	struct FPendingConstraintData
+	{
+		/** Array of constraint broken notifications, pending execution at the end of the physics engine run. */
+		TArray<FConstraintBrokenDelegateData> PendingConstraintBroken;
+	};
+
+	FPendingConstraintData PendingConstraintData[PST_MAX];
 
 public:
 
@@ -406,15 +479,11 @@ public:
 	/** Utility for looking up the PxScene of the given EPhysicsSceneType associated with this FPhysScene.  SceneType must be in the range [0,PST_MAX). */
 	ENGINE_API physx::PxScene*					GetPhysXScene(uint32 SceneType);
 
-#if WITH_VEHICLE
-	/** Get the vehicle manager */
-	FPhysXVehicleManager*						GetVehicleManager();
-#endif
 #endif
 
 #if WITH_APEX
-	/** Utility for looking up the NxApexScene of the given EPhysicsSceneType associated with this FPhysScene.  SceneType must be in the range [0,PST_MAX). */
-	physx::apex::NxApexScene*				GetApexScene(uint32 SceneType);
+	/** Utility for looking up the ApexScene of the given EPhysicsSceneType associated with this FPhysScene.  SceneType must be in the range [0,PST_MAX). */
+	nvidia::apex::Scene*				GetApexScene(uint32 SceneType);
 #endif
 	ENGINE_API FPhysScene();
 	ENGINE_API ~FPhysScene();
@@ -573,7 +642,7 @@ public:
 
 #if WITH_APEX
 	/** Adds a damage event to be fired when fetchResults is done */
-	void AddPendingDamageEvent(class UDestructibleComponent* DestructibleComponent, const NxApexDamageEventReportData& DamageEvent);
+	void AddPendingDamageEvent(class UDestructibleComponent* DestructibleComponent, const apex::DamageEventReportData& DamageEvent);
 #endif
 
 	/** Add this SkeletalMeshComponent to the list needing kinematic bodies updated before simulating physics */
@@ -809,3 +878,20 @@ void	ListAwakeRigidBodies(bool bIncludeKinematic, UWorld* world);
 FTransform FindBodyTransform(AActor* Actor, FName BoneName);
 FBox	FindBodyBox(AActor* Actor, FName BoneName);
 
+/** Set of delegates to allowing hooking different parts of the physics engine */
+class ENGINE_API FPhysicsDelegates
+{
+public:
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnUpdatePhysXMaterial, UPhysicalMaterial*);
+	static FOnUpdatePhysXMaterial OnUpdatePhysXMaterial;
+
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPhysicsAssetChanged, const UPhysicsAsset*);
+	static FOnPhysicsAssetChanged OnPhysicsAssetChanged;
+
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPhysSceneInit, FPhysScene*, EPhysicsSceneType);
+	static FOnPhysSceneInit OnPhysSceneInit;
+
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPhysSceneTerm, FPhysScene*, EPhysicsSceneType);
+	static FOnPhysSceneTerm OnPhysSceneTerm;
+
+};

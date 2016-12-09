@@ -2,6 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Input/NavigationReply.h"
+#include "Input/PopupMethodReply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Rendering/RenderingCommon.h"
+#include "Widgets/SWindow.h"
+
+class FActiveTimerHandle;
+class FPaintArgs;
+class FSlateWindowElementList;
 
 class SLATE_API SViewport
 	: public SCompoundWidget

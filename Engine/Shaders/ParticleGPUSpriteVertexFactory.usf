@@ -168,32 +168,52 @@ void GetSpriteTangents(
 	float3 ParticleWorldDirection )
 {
 	// Select camera up/right vectors.
-	float3 CameraRight = lerp(ResolvedView.ViewRight, EmitterDynamicUniforms.AxisLockRight.xyz, EmitterDynamicUniforms.AxisLockRight.w);
-	float3 CameraUp = lerp(-ResolvedView.ViewUp, EmitterDynamicUniforms.AxisLockUp.xyz, EmitterDynamicUniforms.AxisLockUp.w);
+	float3 ResolvedViewRight = lerp(ResolvedView.ViewRight, ResolvedView.HMDViewNoRollRight, EmitterUniforms.RemoveHMDRoll);
+	float3 ResolvedViewUp = lerp(ResolvedView.ViewUp, ResolvedView.HMDViewNoRollUp, EmitterUniforms.RemoveHMDRoll);
+
+	float3 CameraRight = lerp(ResolvedViewRight, EmitterDynamicUniforms.AxisLockRight.xyz, EmitterDynamicUniforms.AxisLockRight.w);
+	float3 CameraUp = lerp(-ResolvedViewUp, EmitterDynamicUniforms.AxisLockUp.xyz, EmitterDynamicUniforms.AxisLockUp.w);
 
 	// Determine the vector from the particle to the camera and the particle's movement direction.
 	float3 CameraDirection	= SafeNormalize(ResolvedView.TranslatedWorldCameraOrigin - ParticleTranslatedWorldPosition.xyz);
 	float3 RightVector = CameraRight.xyz;
 	float3 UpVector = CameraUp.xyz;
 
-	FLATTEN
-	if (EmitterUniforms.TangentSelector.y > 0)
+	BRANCH
+	if (EmitterUniforms.CameraFacingBlend.x > 0.f)
 	{
-		// Tangent vectors for PSA_Velocity.
-		RightVector	= SafeNormalize(cross(CameraDirection, ParticleWorldDirection));
-		UpVector = -ParticleWorldDirection;
+		// Blend between PSA_FacingCamera and PSA_Square over distance
+		float3 CameraVector = ResolvedView.TranslatedWorldCameraOrigin.xyz - ParticleTranslatedWorldPosition.xyz;
+		float CameraDistanceSq = dot(CameraVector, CameraVector);
+		float AlignmentMode = saturate(CameraDistanceSq * EmitterUniforms.CameraFacingBlend.y - EmitterUniforms.CameraFacingBlend.z);
+
+		float3 CameraFacingRight = SafeNormalize(cross(CameraDirection, float3(0,0,1)));
+		float3 CameraFacingUp = cross(CameraDirection, CameraFacingRight);
+
+		RightVector = normalize(lerp(RightVector, CameraFacingRight, AlignmentMode));
+		UpVector = normalize(lerp(UpVector, CameraFacingUp, AlignmentMode));
 	}
-	else if (EmitterUniforms.TangentSelector.z > 0)
+	else
 	{
-		// Tangent vectors for rotation locked about an axis.
-		RightVector = EmitterDynamicUniforms.AxisLockRight.xyz;
-		UpVector = -SafeNormalize(cross(RightVector,CameraDirection));
-	}
-	else if (EmitterUniforms.TangentSelector.w > 0)
-	{
-		// Tangent vectors for camera facing position.
-		RightVector = SafeNormalize(cross(CameraDirection,float3(0,0,1)));
-		UpVector = cross(CameraDirection, RightVector);
+		FLATTEN
+		if (EmitterUniforms.TangentSelector.y > 0)
+		{
+			// Tangent vectors for PSA_Velocity.
+			RightVector	= SafeNormalize(cross(CameraDirection, ParticleWorldDirection));
+			UpVector = -ParticleWorldDirection;
+		}
+		else if (EmitterUniforms.TangentSelector.z > 0)
+		{
+			// Tangent vectors for rotation locked about an axis.
+			RightVector = EmitterDynamicUniforms.AxisLockRight.xyz;
+			UpVector = -SafeNormalize(cross(RightVector,CameraDirection));
+		}
+		else if (EmitterUniforms.TangentSelector.w > 0)
+		{
+			// Tangent vectors for camera facing position.
+			RightVector = SafeNormalize(cross(CameraDirection,float3(0,0,1)));
+			UpVector = cross(CameraDirection, RightVector);
+		}
 	}
 
 	// Determine the angle of rotation.
@@ -467,6 +487,8 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.VertexColor = 1;
 	Result.TangentToWorld = mul(TangentToLocal, GetLocalToWorld3x3()); 
 	Result.Particle.MacroUV = EmitterDynamicUniforms.MacroUVParameters;
+	Result.PreSkinnedPosition = WorldPosition.xyz;
+	Result.PreSkinnedNormal = TangentToLocal[2].xyz;
 
 #if USE_PARTICLE_TIME
 	Result.Particle.RelativeTime = Intermediates.RelativeTime;

@@ -201,7 +201,7 @@ void AUTGameSessionRanked::OnVerifyAuthComplete(bool bWasSuccessful, const class
 			bool bDidFindClient = false;
 			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 			{
-				APlayerController* PC = *It;
+				APlayerController* PC = It->Get();
 				if (PC != nullptr &&
 					PC->PlayerState != nullptr &&
 					PC->PlayerState->UniqueId.IsValid() &&
@@ -903,7 +903,7 @@ void AUTGameSessionRanked::UpdateSession(FName InSessionName, FOnlineSessionSett
 void AUTGameSessionRanked::CheckForPossibleRestart()
 {
 	UWorld* const World = GetWorld();
-	AGameMode* const GameMode = World->GetAuthGameMode();
+	AUTBaseGameMode* const GameMode = World->GetAuthGameMode<AUTBaseGameMode>();
 	check(GameMode);
 
 	UE_LOG(LogOnlineGame, Log, TEXT("[AUTGameSession::CheckForPossibleRestart] Checking for possible restart..."));

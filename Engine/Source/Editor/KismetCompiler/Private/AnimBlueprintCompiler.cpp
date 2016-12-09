@@ -1,14 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "KismetCompilerPrivatePCH.h"
-#include "KismetEditorUtilities.h"
-
 #include "AnimBlueprintCompiler.h"
-#include "../../../Runtime/Engine/Classes/Kismet/KismetArrayLibrary.h"
-#include "../../../Runtime/Engine/Classes/Kismet/KismetMathLibrary.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "Editor/UnrealEd/Public/Kismet2/KismetReinstanceUtilities.h"
+#include "UObject/UObjectHash.h"
+#include "Animation/AnimInstance.h"
+#include "EdGraphUtilities.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_StructMemberGet.h"
+#include "K2Node_BreakStruct.h"
+#include "K2Node_CallArrayFunction.h"
+#include "K2Node_CustomEvent.h"
+#include "K2Node_Knot.h"
+#include "K2Node_StructMemberSet.h"
+#include "K2Node_VariableGet.h"
+#include "K2Node_VariableSet.h"
+
 #include "AnimationGraphSchema.h"
+#include "K2Node_TransitionRuleGetter.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
+#include "Kismet/KismetArrayLibrary.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/KismetReinstanceUtilities.h"
+#include "AnimStateNodeBase.h"
 #include "AnimStateNode.h"
 #include "AnimStateConduitNode.h"
 #include "AnimStateEntryNode.h"
@@ -18,24 +31,21 @@
 #include "AnimationStateMachineGraph.h"
 #include "AnimationStateMachineSchema.h"
 #include "AnimationTransitionGraph.h"
-#include "AnimGraphNode_Base.h"
-#include "AnimGraphNode_CustomTransitionResult.h"
 #include "AnimGraphNode_Root.h"
+#include "AnimGraphNode_CustomTransitionResult.h"
+#include "Animation/AnimNode_UseCachedPose.h"
+#include "AnimGraphNode_SaveCachedPose.h"
 #include "AnimGraphNode_UseCachedPose.h"
 #include "AnimGraphNode_StateMachineBase.h"
 #include "AnimGraphNode_StateResult.h"
-#include "AnimGraphNode_SaveCachedPose.h"
 #include "AnimGraphNode_SequencePlayer.h"
 #include "AnimGraphNode_TransitionPoseEvaluator.h"
 #include "AnimGraphNode_TransitionResult.h"
-#include "K2Node_TransitionRuleGetter.h"
 #include "K2Node_AnimGetter.h"
 #include "AnimGraphNode_StateMachine.h"
-#include "AnimGraphNode_SubInput.h"
 #include "Animation/AnimNode_SubInstance.h"
 #include "AnimGraphNode_SubInstance.h"
 #include "AnimGraphNode_Slot.h"
-#include "EdGraph/EdGraphPin.h"
 #include "AnimationEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "AnimBlueprintCompiler"
@@ -605,7 +615,6 @@ void FAnimBlueprintCompiler::ProcessSubInstance(UAnimGraphNode_SubInstance* SubI
 		if(NewProperty)
 		{
 			NewProperty->SetMetaData(TEXT("Category"), TEXT("SubInstance"));
-			NewProperty->SetPropertyFlags(CPF_Edit | CPF_BlueprintVisible);
 			FKismetCompilerUtilities::LinkAddedProperty(NewAnimBlueprintClass, NewProperty);
 
 			// Add mappings to the node
@@ -1759,9 +1768,12 @@ void FAnimBlueprintCompiler::PostCompile()
 	UAnimBlueprintGeneratedClass* AnimBlueprintGeneratedClass = CastChecked<UAnimBlueprintGeneratedClass>(NewClass);
 
 	UAnimInstance* DefaultAnimInstance = CastChecked<UAnimInstance>(AnimBlueprintGeneratedClass->GetDefaultObject());
-	DefaultAnimInstance->bCanUseParallelUpdateAnimation = DefaultAnimInstance->bRunUpdatesInWorkerThreads;
 
-	if(DefaultAnimInstance->bCanUseParallelUpdateAnimation)
+	// copy threaded update flag to CDO
+	DefaultAnimInstance->bUseMultiThreadedAnimationUpdate = AnimBlueprint->bUseMultiThreadedAnimationUpdate;
+
+	// Verify thread-safety
+	if(GetDefault<UEngine>()->bAllowMultiThreadedAnimationUpdate && DefaultAnimInstance->bUseMultiThreadedAnimationUpdate)
 	{
 		// iterate all properties to determine validity
 		for (UStructProperty* Property : TFieldRange<UStructProperty>(AnimBlueprintGeneratedClass, EFieldIteratorFlags::IncludeSuper))
@@ -1771,26 +1783,81 @@ void FAnimBlueprintCompiler::PostCompile()
 				FAnimNode_Base* AnimNode = Property->ContainerPtrToValuePtr<FAnimNode_Base>(DefaultAnimInstance);
 				if(!AnimNode->CanUpdateInWorkerThread())
 				{
-					DefaultAnimInstance->bCanUseParallelUpdateAnimation = false;
-					if(DefaultAnimInstance->bRunUpdatesInWorkerThreads)
-					{
-						MessageLog.Warning(*FText::Format(LOCTEXT("HasIncompatibleNode", "Found incompatible node \"{0}\" in blend graph. Parallel update will be disabled."), FText::FromName(Property->Struct->GetFName())).ToString());
-					}
+					MessageLog.Warning(*FText::Format(LOCTEXT("HasIncompatibleNode", "Found incompatible node \"{0}\" in blend graph. Disable threaded update or use member variable access."), FText::FromName(Property->Struct->GetFName())).ToString())
+						->AddToken(FDocumentationToken::Create(TEXT("Engine/Animation/AnimBlueprints/AnimGraph")));;
 				}
 			}
 		}
 
-		for(auto& EvaluationHandler : ValidEvaluationHandlerList)
+		if (FunctionList.Num() > 0)
 		{
-			for(auto& Property : EvaluationHandler.ServicedProperties)
+			// check the assumption that the ubergraph is the first function
+			check(FunctionList[0].Function->GetName().StartsWith(TEXT("ExecuteUbergraph")));
+			FKismetFunctionContext& UbergraphFunctionContext = FunctionList[0];
+
+			// run through the per-node compiled statements looking for struct-sets used by anim nodes
+			for (auto& StatementPair : UbergraphFunctionContext.StatementsPerNode)
 			{
-				if(Property.Value.SimpleCopyPropertyName == NAME_None && !Property.Value.bHasOnlyMemberAccess)
+				if (UK2Node_StructMemberSet* StructMemberSetNode = Cast<UK2Node_StructMemberSet>(StatementPair.Key))
 				{
-					DefaultAnimInstance->bCanUseParallelUpdateAnimation = false;
-					if(DefaultAnimInstance->bRunUpdatesInWorkerThreads)
+					UObject* SourceNode = MessageLog.FindSourceObject(StructMemberSetNode);
+
+					if (SourceNode && StructMemberSetNode->StructType->IsChildOf(FAnimNode_Base::StaticStruct()))
 					{
-						UEdGraphNode* Node = Property.Value.ArrayPins.Num() > 0 ? Property.Value.ArrayPins[0]->GetOwningNode() : Property.Value.SinglePin->GetOwningNode();
-						MessageLog.Warning(*LOCTEXT("HasNonNativeMemberAccess", "Found non-native or non-member access in node @@ in blend graph. Parallel update will be disabled.").ToString(), Node);
+						for (FBlueprintCompiledStatement* Statement : StatementPair.Value)
+						{
+							if (Statement->Type == KCST_CallFunction && Statement->FunctionToCall)
+							{
+								// pure function?
+								const bool bPureFunctionCall = Statement->FunctionToCall->HasAnyFunctionFlags(FUNC_BlueprintPure);
+
+								// function called on something other than function library or anim instance?
+								UClass* FunctionClass = CastChecked<UClass>(Statement->FunctionToCall->GetOuter());
+								const bool bFunctionLibraryCall = FunctionClass->IsChildOf<UBlueprintFunctionLibrary>();
+								const bool bAnimInstanceCall = FunctionClass->IsChildOf<UAnimInstance>();
+
+								// Whitelisted/blacklisted? Some functions are not really 'pure', so we give people the opportunity to mark them up.
+								// Mark up the class if it is generally thread safe, then unsafe functions can be marked up individually. We assume
+								// that classes are unsafe by default, as well as if they are marked up NotBlueprintThreadSafe.
+								const bool bClassThreadSafe = FunctionClass->HasMetaData(TEXT("BlueprintThreadSafe"));
+								const bool bClassNotThreadSafe = FunctionClass->HasMetaData(TEXT("NotBlueprintThreadSafe")) || !FunctionClass->HasMetaData(TEXT("BlueprintThreadSafe"));
+								const bool bFunctionThreadSafe = Statement->FunctionToCall->HasMetaData(TEXT("BlueprintThreadSafe"));
+								const bool bFunctionNotThreadSafe = Statement->FunctionToCall->HasMetaData(TEXT("NotBlueprintThreadSafe"));
+
+								const bool bThreadSafe = (bClassThreadSafe && !bFunctionNotThreadSafe) || (bClassNotThreadSafe && bFunctionThreadSafe);
+
+								const bool bValidForUsage = bPureFunctionCall && bThreadSafe && (bFunctionLibraryCall || bAnimInstanceCall);
+
+								if (!bValidForUsage)
+								{
+									UEdGraphNode* FunctionNode = nullptr;
+									if (Statement->FunctionContext && Statement->FunctionContext->SourcePin)
+									{
+										FunctionNode = Statement->FunctionContext->SourcePin->GetOwningNode();
+									}
+									else if (Statement->LHS && Statement->LHS->SourcePin)
+									{
+										FunctionNode = Statement->LHS->SourcePin->GetOwningNode();
+									}
+
+									if (FunctionNode)
+									{
+										MessageLog.Warning(*LOCTEXT("NotThreadSafeWarningNodeContext", "Node @@ uses potentially thread-unsafe call @@. Disable threaded update or use a thread-safe call. Function may need BlueprintThreadSafe metadata adding.").ToString(), SourceNode, FunctionNode)
+											->AddToken(FDocumentationToken::Create(TEXT("Engine/Animation/AnimBlueprints/AnimGraph")));
+									}
+									else if(Statement->FunctionToCall)
+									{
+										MessageLog.Warning(*FText::Format(LOCTEXT("NotThreadSafeWarningFunctionContext", "Node @@ uses potentially thread-unsafe call {0}. Disable threaded update or use a thread-safe call. Function may need BlueprintThreadSafe metadata adding."), Statement->FunctionToCall->GetDisplayNameText()).ToString(), SourceNode)
+											->AddToken(FDocumentationToken::Create(TEXT("Engine/Animation/AnimBlueprints/AnimGraph")));
+									}
+									else
+									{
+										MessageLog.Warning(*LOCTEXT("NotThreadSafeWarningUnknownContext", "Node @@ uses potentially thread-unsafe call. Disable threaded update or use a thread-safe call.").ToString(), SourceNode)
+											->AddToken(FDocumentationToken::Create(TEXT("Engine/Animation/AnimBlueprints/AnimGraph")));
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -1815,7 +1882,7 @@ void FAnimBlueprintCompiler::PostCompile()
 			FExposedValueHandler* HandlerPtr = EvaluationHandler.EvaluationHandlerProperty->ContainerPtrToValuePtr<FExposedValueHandler>(EvaluationHandler.NodeVariableProperty->ContainerPtrToValuePtr<void>(DefaultAnimInstance));
 			TrueNode->BlueprintUsage = HandlerPtr->BoundFunction != NAME_None ? EBlueprintUsage::UsesBlueprint : EBlueprintUsage::DoesNotUseBlueprint;
 
-			if(TrueNode->BlueprintUsage == EBlueprintUsage::UsesBlueprint && DefaultAnimInstance->bWarnAboutBlueprintUsage)
+			if(TrueNode->BlueprintUsage == EBlueprintUsage::UsesBlueprint && AnimBlueprint->bWarnAboutBlueprintUsage)
 			{
 				MessageLog.Warning(*LOCTEXT("BlueprintUsageWarning", "Node @@ uses Blueprint to update its values, access member variables directly or use a constant value for better performance.").ToString(), Node);
 			}
@@ -2571,16 +2638,25 @@ static UEdGraphNode* FollowKnots(UEdGraphPin* FromPin, UEdGraphPin*& DestPin)
 
 void FAnimBlueprintCompiler::FEvaluationHandlerRecord::RegisterPin(UEdGraphPin* SourcePin, UProperty* AssociatedProperty, int32 AssociatedPropertyArrayIndex)
 {
-	FAnimNodeSinglePropertyHandler& Handler = ServicedProperties.FindOrAdd(AssociatedProperty->GetFName());
+	bool bAddedNew = false;
+	FAnimNodeSinglePropertyHandler* HandlerPtr = ServicedProperties.Find(AssociatedProperty->GetFName());
+	if (HandlerPtr == nullptr)
+	{
+		HandlerPtr = &ServicedProperties.Add(AssociatedProperty->GetFName());
+		bAddedNew = true;
+	}
+
+	FAnimNodeSinglePropertyHandler& Handler = *HandlerPtr;
 
 	bool bIsMultiPropertyToArrayCopy = false;
 	if (AssociatedPropertyArrayIndex != INDEX_NONE)
 	{
-		if (Handler.SimpleCopyPropertyName != NAME_None)
+		if (!bAddedNew)
 		{
 			// already-existing handler with a simple copy into an array, so we will need multiple copy records. 
 			// For now we just fall back to slow path
 			Handler.SimpleCopyPropertyName = NAME_None;
+			Handler.bHasOnlyMemberAccess = false;
 			bIsMultiPropertyToArrayCopy = true;
 		}
 		Handler.ArrayPins.Add(AssociatedPropertyArrayIndex, SourcePin);
@@ -2611,16 +2687,6 @@ void FAnimBlueprintCompiler::FEvaluationHandlerRecord::RegisterPin(UEdGraphPin* 
 		}
 
 		CheckForMemberOnlyAccess(Handler, SourcePin);
-
-		// we cant copy non-POD structs, so zero-out the name here if we are trying to
-		if (AssociatedProperty && AssociatedProperty->IsA<UStructProperty>())
-		{
-			UStructProperty* SourceStructProperty = CastChecked<UStructProperty>(AssociatedProperty);
-			if (SourceStructProperty->Struct->GetCppStructOps() && !SourceStructProperty->Struct->GetCppStructOps()->IsPlainOldData())
-			{
-				Handler.SimpleCopyPropertyName = NAME_None;
-			}
-		}
 	}
 }
 

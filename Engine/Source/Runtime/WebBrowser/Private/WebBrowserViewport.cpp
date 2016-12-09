@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WebBrowserPrivatePCH.h"
 #include "WebBrowserViewport.h"
+#include "Textures/SlateShaderResource.h"
+#include "Widgets/SWidget.h"
 #include "IWebBrowserWindow.h"
+#include "Layout/WidgetPath.h"
 
 FIntPoint FWebBrowserViewport::GetSize() const
 {
@@ -75,6 +77,7 @@ void FWebBrowserViewport::OnMouseEnter(const FGeometry& MyGeometry, const FPoint
 
 void FWebBrowserViewport::OnMouseLeave(const FPointerEvent& MouseEvent)
 {
+	WebBrowserWindow->OnMouseLeave(MouseEvent);
 }
 
 FReply FWebBrowserViewport::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)

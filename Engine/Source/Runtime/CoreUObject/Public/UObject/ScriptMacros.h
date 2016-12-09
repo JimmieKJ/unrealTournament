@@ -6,6 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Script.h"
+#include "UObject/ScriptInterface.h"
+#include "UObject/UnrealType.h"
+#include "UObject/Stack.h"
+
 /*-----------------------------------------------------------------------------
 	Macros.
 -----------------------------------------------------------------------------*/
@@ -71,6 +77,9 @@ enum {MAX_VARIABLE_SIZE = 0x0FFF };
 
 #define P_GET_ARRAY(ElementType,ParamName)			ElementType ParamName[(MAX_VARIABLE_SIZE/sizeof(ElementType))+1];		Stack.StepCompiledIn<UProperty>(ParamName);
 #define P_GET_ARRAY_REF(ElementType,ParamName)		ElementType ParamName##Temp[(MAX_VARIABLE_SIZE/sizeof(ElementType))+1]; ElementType* ParamName = Stack.StepCompiledInRef<UProperty, ElementType*>(ParamName##Temp);
+
+#define P_GET_ENUM(EnumType,ParamName)				EnumType ParamName = (EnumType)0; Stack.StepCompiledIn<UEnumProperty>(&ParamName);
+#define P_GET_ENUM_REF(EnumType,ParamName)			PARAM_PASSED_BY_REF_ZEROED(ParamName, UEnumProperty, EnumType)
 
 #define P_FINISH									Stack.Code += !!Stack.Code; /* increment the code ptr unless it is null */
 

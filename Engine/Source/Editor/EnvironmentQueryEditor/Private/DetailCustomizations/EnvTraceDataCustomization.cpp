@@ -1,8 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnvironmentQueryEditorPrivatePCH.h"
-#include "EnvTraceDataCustomization.h"
+#include "DetailCustomizations/EnvTraceDataCustomization.h"
+#include "Engine/EngineTypes.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Input/SComboButton.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailLayoutBuilder.h"
 
 #define LOCTEXT_NAMESPACE "EnvTraceDataCustomization"
 
@@ -138,6 +150,10 @@ void FEnvTraceDataCustomization::CacheTraceModes(TSharedRef<class IPropertyHandl
 	{
 		TraceModes.Add(FTextIntPair(TraceModeEnum->GetEnumText(EEnvQueryTrace::Geometry), EEnvQueryTrace::Geometry));
 	}
+	if (bCanGeometry && bCanNavMesh && !bCanShowProjection)
+	{
+		TraceModes.Add(FTextIntPair(TraceModeEnum->GetEnumText(EEnvQueryTrace::NavigationOverLedges), EEnvQueryTrace::NavigationOverLedges));
+	}
 
 	ActiveMode = EEnvQueryTrace::None;
 	PropTraceMode->GetValue(ActiveMode);
@@ -203,6 +219,10 @@ FText FEnvTraceDataCustomization::GetShortDescription() const
 		Desc = LOCTEXT("TraceNav","navmesh trace");
 		break;
 
+	case EEnvQueryTrace::NavigationOverLedges:
+		Desc = LOCTEXT("TraceNavAndGeo", "navmesh trace, ignore hitting ledges");
+		break;
+
 	case EEnvQueryTrace::None:
 		Desc = LOCTEXT("TraceNone","trace disabled");
 		break;
@@ -215,12 +235,12 @@ FText FEnvTraceDataCustomization::GetShortDescription() const
 
 EVisibility FEnvTraceDataCustomization::GetGeometryVisibility() const
 {
-	return (ActiveMode == EEnvQueryTrace::Geometry) ? EVisibility::Visible : EVisibility::Collapsed;
+	return (ActiveMode == EEnvQueryTrace::Geometry || ActiveMode == EEnvQueryTrace::NavigationOverLedges) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 EVisibility FEnvTraceDataCustomization::GetNavigationVisibility() const
 {
-	return (ActiveMode == EEnvQueryTrace::Navigation) ? EVisibility::Visible : EVisibility::Collapsed;
+	return (ActiveMode == EEnvQueryTrace::Navigation || ActiveMode == EEnvQueryTrace::NavigationOverLedges) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 EVisibility FEnvTraceDataCustomization::GetProjectionVisibility() const
@@ -230,7 +250,7 @@ EVisibility FEnvTraceDataCustomization::GetProjectionVisibility() const
 
 EVisibility FEnvTraceDataCustomization::GetExtentX() const
 {
-	if (ActiveMode == EEnvQueryTrace::Navigation)
+	if (ActiveMode == EEnvQueryTrace::Navigation || (ActiveMode == EEnvQueryTrace::NavigationOverLedges && bCanShowProjection == false))
 	{
 		// radius
 		return EVisibility::Visible;
@@ -248,7 +268,7 @@ EVisibility FEnvTraceDataCustomization::GetExtentX() const
 
 EVisibility FEnvTraceDataCustomization::GetExtentY() const
 {
-	if (ActiveMode == EEnvQueryTrace::Geometry)
+	if (ActiveMode == EEnvQueryTrace::Geometry || (ActiveMode == EEnvQueryTrace::NavigationOverLedges && bCanShowProjection == false))
 	{
 		uint8 EnumValue;
 		PropTraceShape->GetValue(EnumValue);
@@ -261,7 +281,7 @@ EVisibility FEnvTraceDataCustomization::GetExtentY() const
 
 EVisibility FEnvTraceDataCustomization::GetExtentZ() const
 {
-	if (ActiveMode == EEnvQueryTrace::Geometry)
+	if (ActiveMode == EEnvQueryTrace::Geometry || (ActiveMode == EEnvQueryTrace::NavigationOverLedges && bCanShowProjection == false))
 	{
 		uint8 EnumValue;
 		PropTraceShape->GetValue(EnumValue);

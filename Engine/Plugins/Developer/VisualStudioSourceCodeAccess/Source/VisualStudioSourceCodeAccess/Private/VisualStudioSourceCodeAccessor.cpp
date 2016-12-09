@@ -1,48 +1,69 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "VisualStudioSourceCodeAccessPrivatePCH.h"
 #include "VisualStudioSourceCodeAccessor.h"
 #include "VisualStudioSourceCodeAccessModule.h"
 #include "ISourceCodeAccessModule.h"
 #include "ModuleManager.h"
+#include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopeLock.h"
+#include "HAL/PlatformTime.h"
 
 #if WITH_EDITOR
 #include "Developer/HotReload/Public/IHotReload.h"
 #endif
 
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
+#include "AllowWindowsPlatformAtomics.h"
+#include <unknwn.h>
+#include "Windows/COMPointer.h"
 #if VSACCESSOR_HAS_DTE
+	#pragma warning(push)
 	#pragma warning(disable: 4278)
 	#pragma warning(disable: 4146)
 	#pragma warning(disable: 4191)
-
-	// atltransactionmanager.h doesn't use the W equivalent functions, use this workaround
-	#ifndef DeleteFile
-		#define DeleteFile DeleteFileW
-	#endif
-	#ifndef MoveFile
-		#define MoveFile MoveFileW
-	#endif
-	#include "atlbase.h"
-	#undef DeleteFile
-	#undef MoveFile
+	#pragma warning(disable: 6244)
 
 	// import EnvDTE
 	#import "libid:80cc9f66-e7d8-4ddd-85b6-d9e6cd0e93e2" version("8.0") lcid("0") raw_interfaces_only named_guids
 
-	#pragma warning(default: 4191)
-	#pragma warning(default: 4146)
-	#pragma warning(default: 4278)
+	#pragma warning(pop)
 #endif
 	#include <tlhelp32.h>
 	#include <wbemidl.h>
 	#pragma comment(lib, "wbemuuid.lib")
+#include "HideWindowsPlatformAtomics.h"
 #include "HideWindowsPlatformTypes.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogVSAccessor, Log, All);
 
 #define LOCTEXT_NAMESPACE "VisualStudioSourceCodeAccessor"
+
+// Wrapper class for COM BSTRs, similar to CComBSTR from ATL
+class FComBSTR : FNoncopyable
+{
+public:
+	FComBSTR(const FString& Other)
+	{
+		String = SysAllocString(*Other);
+	}
+
+	~FComBSTR()
+	{
+		SysFreeString(String);
+	}
+
+	operator BSTR()
+	{
+		return String;
+	}
+
+private:
+	BSTR String;
+};
 
 /** The VS query in progress message */
 TWeakPtr<class SNotificationItem> VSNotificationPtr = NULL;
@@ -69,7 +90,9 @@ void OnModuleCompileStarted(bool bIsAsyncCompile)
 
 int32 GetVisualStudioVersionForCompiler()
 {
-#if _MSC_VER == 1900
+#if _MSC_VER >= 1910
+	return 15; // Visual Studio 2017
+#elif _MSC_VER == 1900
 	return 14; // Visual Studio 2015
 #elif _MSC_VER == 1800
 	return 12; // Visual Studio 2013
@@ -124,6 +147,7 @@ void FVisualStudioSourceCodeAccessor::RefreshAvailability()
 {
 	Locations.Reset();
 
+	AddVisualStudioVersion(15); // Visual Studio 2017
 	AddVisualStudioVersion(14); // Visual Studio 2015
 	AddVisualStudioVersion(12); // Visual Studio 2013
 }
@@ -155,7 +179,7 @@ bool IsVisualStudioDTEMoniker(const FString& InName, const TArray<FVisualStudioS
 }
 
 /** Accesses the correct visual studio instance if possible. */
-EAccessVisualStudioResult AccessVisualStudioViaDTE(CComPtr<EnvDTE::_DTE>& OutDTE, const FString& InSolutionPath, const TArray<FVisualStudioSourceCodeAccessor::VisualStudioLocation>& InLocations)
+EAccessVisualStudioResult AccessVisualStudioViaDTE(TComPtr<EnvDTE::_DTE>& OutDTE, const FString& InSolutionPath, const TArray<FVisualStudioSourceCodeAccessor::VisualStudioLocation>& InLocations)
 {
 	EAccessVisualStudioResult AccessResult = EAccessVisualStudioResult::VSInstanceIsNotOpen;
 
@@ -178,31 +202,37 @@ EAccessVisualStudioResult AccessVisualStudioViaDTE(CComPtr<EnvDTE::_DTE>& OutDTE
 				{
 					if(IsVisualStudioDTEMoniker(FString(OutName), InLocations))
 					{
-						CComPtr<IUnknown> ComObject;
+						TComPtr<IUnknown> ComObject;
 						if(SUCCEEDED(RunningObjectTable->GetObject(CurrentMoniker, &ComObject)))
 						{
-							CComPtr<EnvDTE::_DTE> TempDTE;
-							TempDTE = ComObject;
-
-							// Get the solution path for this instance
-							// If it equals the solution we would have opened above in RunVisualStudio(), we'll take that
-							CComPtr<EnvDTE::_Solution> Solution;
-							LPOLESTR OutPath;
-							if (SUCCEEDED(TempDTE->get_Solution(&Solution)) &&
-								SUCCEEDED(Solution->get_FullName(&OutPath)))
+							TComPtr<EnvDTE::_DTE> TempDTE;
+							if (SUCCEEDED(TempDTE.FromQueryInterface(__uuidof(EnvDTE::_DTE), ComObject)))
 							{
-								FString Filename(OutPath);
-								FPaths::NormalizeFilename(Filename);
-
-								if( Filename == InSolutionPath )
+								// Get the solution path for this instance
+								// If it equals the solution we would have opened above in RunVisualStudio(), we'll take that
+								TComPtr<EnvDTE::_Solution> Solution;
+								LPOLESTR OutPath;
+								if (SUCCEEDED(TempDTE->get_Solution(&Solution)) &&
+									SUCCEEDED(Solution->get_FullName(&OutPath)))
 								{
-									OutDTE = TempDTE;
-									AccessResult = EAccessVisualStudioResult::VSInstanceIsOpen;
+									FString Filename(OutPath);
+									FPaths::NormalizeFilename(Filename);
+
+									if (Filename == InSolutionPath)
+									{
+										OutDTE = TempDTE;
+										AccessResult = EAccessVisualStudioResult::VSInstanceIsOpen;
+									}
+								}
+								else
+								{
+									UE_LOG(LogVSAccessor, Warning, TEXT("Visual Studio is open but could not be queried - it may be blocked by a modal operation"));
+									AccessResult = EAccessVisualStudioResult::VSInstanceIsBlocked;
 								}
 							}
 							else
 							{
-								UE_LOG(LogVSAccessor, Warning, TEXT("Visual Studio is open but could not be queried - it may be blocked by a modal operation"));
+								UE_LOG(LogVSAccessor, Warning, TEXT("Could not get DTE interface from returned Visual Studio instance"));
 								AccessResult = EAccessVisualStudioResult::VSInstanceIsBlocked;
 							}
 						}
@@ -250,14 +280,14 @@ bool FVisualStudioSourceCodeAccessor::OpenVisualStudioSolutionViaDTE()
 
 	bool bSuccess = false;
 
-	CComPtr<EnvDTE::_DTE> DTE;
+	TComPtr<EnvDTE::_DTE> DTE;
 	const FString SolutionPath = GetSolutionPath();
 	switch (AccessVisualStudioViaDTE(DTE, SolutionPath, GetPrioritizedVisualStudioVersions(SolutionPath)))
 	{
 	case EAccessVisualStudioResult::VSInstanceIsOpen:
 		{
 			// Set Focus on Visual Studio
-			CComPtr<EnvDTE::Window> MainWindow;
+			TComPtr<EnvDTE::Window> MainWindow;
 			if (SUCCEEDED(DTE->get_MainWindow(&MainWindow)) &&
 				SUCCEEDED(MainWindow->Activate()))
 			{
@@ -304,19 +334,19 @@ bool FVisualStudioSourceCodeAccessor::OpenVisualStudioFilesInternalViaDTE(const 
 	}
 	
 	bool bDefer = false, bSuccess = false;
-	CComPtr<EnvDTE::_DTE> DTE;
+	TComPtr<EnvDTE::_DTE> DTE;
 	const FString SolutionPath = GetSolutionPath();
 	switch (AccessVisualStudioViaDTE(DTE, SolutionPath, GetPrioritizedVisualStudioVersions(SolutionPath)))
 	{
 	case EAccessVisualStudioResult::VSInstanceIsOpen:
 		{
 			// Set Focus on Visual Studio
-			CComPtr<EnvDTE::Window> MainWindow;
+			TComPtr<EnvDTE::Window> MainWindow;
 			if (SUCCEEDED(DTE->get_MainWindow(&MainWindow)) &&
 				SUCCEEDED(MainWindow->Activate()))
 			{
 				// Get ItemOperations
-				CComPtr<EnvDTE::ItemOperations> ItemOperations;
+				TComPtr<EnvDTE::ItemOperations> ItemOperations;
 				if (SUCCEEDED(DTE->get_ItemOperations(&ItemOperations)))
 				{
 					for ( const FileOpenRequest& Request : Requests )
@@ -331,9 +361,9 @@ bool FVisualStudioSourceCodeAccessor::OpenVisualStudioFilesInternalViaDTE(const 
 
 						// Open File
 						auto ANSIPath = StringCast<ANSICHAR>(*Request.FullPath);
-						CComBSTR COMStrFileName(ANSIPath.Get());
-						CComBSTR COMStrKind(EnvDTE::vsViewKindTextView);
-						CComPtr<EnvDTE::Window> Window;
+						FComBSTR COMStrFileName(ANSIPath.Get());
+						FComBSTR COMStrKind(EnvDTE::vsViewKindTextView);
+						TComPtr<EnvDTE::Window> Window;
 						if ( SUCCEEDED(ItemOperations->OpenFile(COMStrFileName, COMStrKind, &Window)) )
 						{
 							// If we've made it this far - we've opened the file.  it doesn't matter if
@@ -341,9 +371,9 @@ bool FVisualStudioSourceCodeAccessor::OpenVisualStudioFilesInternalViaDTE(const 
 							bSuccess |= true;
 
 							// Scroll to Line Number
-							CComPtr<EnvDTE::Document> Document;
-							CComPtr<IDispatch> SelectionDispatch;
-							CComPtr<EnvDTE::TextSelection> Selection;
+							TComPtr<EnvDTE::Document> Document;
+							TComPtr<IDispatch> SelectionDispatch;
+							TComPtr<EnvDTE::TextSelection> Selection;
 							if ( SUCCEEDED(DTE->get_ActiveDocument(&Document)) &&
 								 SUCCEEDED(Document->get_Selection(&SelectionDispatch)) &&
 								 SUCCEEDED(SelectionDispatch->QueryInterface(&Selection)) &&
@@ -465,12 +495,12 @@ bool FVisualStudioSourceCodeAccessor::SaveAllOpenDocuments() const
 		return bSuccess;
 	}
 	
-	CComPtr<EnvDTE::_DTE> DTE;
+	TComPtr<EnvDTE::_DTE> DTE;
 	const FString SolutionPath = GetSolutionPath();
 	if (AccessVisualStudioViaDTE(DTE, SolutionPath, GetPrioritizedVisualStudioVersions(SolutionPath)) == EAccessVisualStudioResult::VSInstanceIsOpen)
 	{
 		// Save all documents
-		CComPtr<EnvDTE::Documents> Documents;
+		TComPtr<EnvDTE::Documents> Documents;
 		if (SUCCEEDED(DTE->get_Documents(&Documents)) &&
 			SUCCEEDED(Documents->SaveAll()))
 		{
@@ -900,11 +930,11 @@ bool FVisualStudioSourceCodeAccessor::AddSourceFiles(const TArray<FString>& Abso
 		}
 	}
 
-	CComPtr<EnvDTE::_DTE> DTE;
+	TComPtr<EnvDTE::_DTE> DTE;
 	const FString SolutionPath = GetSolutionPath();
 	if (AccessVisualStudioViaDTE(DTE, SolutionPath, GetPrioritizedVisualStudioVersions(SolutionPath)) == EAccessVisualStudioResult::VSInstanceIsOpen)
 	{
-		CComPtr<EnvDTE::_Solution> Solution;
+		TComPtr<EnvDTE::_Solution> Solution;
 		if (SUCCEEDED(DTE->get_Solution(&Solution)) && Solution)
 		{
 			// Process each module
@@ -914,13 +944,13 @@ bool FVisualStudioSourceCodeAccessor::AddSourceFiles(const TArray<FString>& Abso
 
 				const FString& ModuleBuildFilePath = ModuleNewSourceFiles.ModuleNameAndPath.ModuleBuildFilePath;
 				auto ANSIModuleBuildFilePath = StringCast<ANSICHAR>(*ModuleBuildFilePath);
-				CComBSTR COMStrModuleBuildFilePath(ANSIModuleBuildFilePath.Get());
+				FComBSTR COMStrModuleBuildFilePath(ANSIModuleBuildFilePath.Get());
 
-				CComPtr<EnvDTE::ProjectItem> BuildFileProjectItem;
+				TComPtr<EnvDTE::ProjectItem> BuildFileProjectItem;
 				if (SUCCEEDED(Solution->FindProjectItem(COMStrModuleBuildFilePath, &BuildFileProjectItem)) && BuildFileProjectItem)
 				{
 					// We found the .Build.cs file in the existing solution - now we need its parent ProjectItems as that's what we'll be adding new content to
-					CComPtr<EnvDTE::ProjectItems> ModuleProjectFolder;
+					TComPtr<EnvDTE::ProjectItems> ModuleProjectFolder;
 					if (SUCCEEDED(BuildFileProjectItem->get_Collection(&ModuleProjectFolder)) && ModuleProjectFolder)
 					{
 						for (const FString& SourceFile : AbsoluteSourcePaths)
@@ -936,7 +966,7 @@ bool FVisualStudioSourceCodeAccessor::AddSourceFiles(const TArray<FString>& Abso
 								continue;
 							}
 
-							CComPtr<EnvDTE::ProjectItems> CurProjectItems = ModuleProjectFolder;
+							TComPtr<EnvDTE::ProjectItems> CurProjectItems = ModuleProjectFolder;
 
 							// Firstly we need to make sure that all the folders we need exist - this also walks us down to the correct place to add the file
 							for (int32 FilePartIndex = 0; FilePartIndex < SourceFileParts.Num() - 1 && CurProjectItems; ++FilePartIndex)
@@ -944,13 +974,13 @@ bool FVisualStudioSourceCodeAccessor::AddSourceFiles(const TArray<FString>& Abso
 								const FString& SourceFilePart = SourceFileParts[FilePartIndex];
 
 								auto ANSIPart = StringCast<ANSICHAR>(*SourceFilePart);
-								CComBSTR COMStrFilePart(ANSIPart.Get());
+								FComBSTR COMStrFilePart(ANSIPart.Get());
 
 								::VARIANT vProjectItemName;
 								vProjectItemName.vt = VT_BSTR;
 								vProjectItemName.bstrVal = COMStrFilePart;
 
-								CComPtr<EnvDTE::ProjectItem> ProjectItem;
+								TComPtr<EnvDTE::ProjectItem> ProjectItem;
 								if (SUCCEEDED(CurProjectItems->Item(vProjectItemName, &ProjectItem)) && !ProjectItem)
 								{
 									// Add this part
@@ -976,8 +1006,8 @@ bool FVisualStudioSourceCodeAccessor::AddSourceFiles(const TArray<FString>& Abso
 
 							// Now we add the file to the project under the last folder we found along its path
 							auto ANSIPath = StringCast<ANSICHAR>(*SourceFile);
-							CComBSTR COMStrFileName(ANSIPath.Get());
-							CComPtr<EnvDTE::ProjectItem> FileProjectItem;
+							FComBSTR COMStrFileName(ANSIPath.Get());
+							TComPtr<EnvDTE::ProjectItem> FileProjectItem;
 							if (SUCCEEDED(CurProjectItems->AddFromFile(COMStrFileName, &FileProjectItem)))
 							{
 								bSuccess &= true;
@@ -985,7 +1015,7 @@ bool FVisualStudioSourceCodeAccessor::AddSourceFiles(const TArray<FString>& Abso
 						}
 
 						// Save the updated project to avoid a message when closing VS
-						CComPtr<EnvDTE::Project> Project;
+						TComPtr<EnvDTE::Project> Project;
 						if (SUCCEEDED(ModuleProjectFolder->get_ContainingProject(&Project)) && Project)
 						{
 							Project->Save(nullptr);

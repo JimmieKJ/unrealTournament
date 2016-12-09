@@ -6,6 +6,7 @@
 
 #include "VulkanRHIPrivate.h"
 
+#if 0
 const int NUM_SAFE_FRAMES = 5;
 static TArray<TRefCountPtr<FVulkanBuffer>> GUBPool[NUM_SAFE_FRAMES];
 
@@ -27,6 +28,7 @@ void CleanupUniformBufferPool()
 	int32 BufferIndex = (GFrameNumberRenderThread  + 1) % NUM_SAFE_FRAMES;
 	GUBPool[BufferIndex].Reset(0);
 }
+#endif
 
 /*-----------------------------------------------------------------------------
 	Uniform buffer RHI object
@@ -68,7 +70,7 @@ FVulkanUniformBuffer::FVulkanUniformBuffer(FVulkanDevice& Device, const FRHIUnif
 		static TConsoleVariableData<int32>* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
 		if (CVar && CVar->GetValueOnAnyThread() != 0)
 		{
-			check(0);
+			ensure(0);
 			//#todo-rco:...
 #if 0
 			Buffer = AllocateBufferFromPool(Device, InLayout.ConstantBufferSize, Usage);
@@ -188,4 +190,32 @@ FPooledUniformBufferRef& FVulkanGlobalUniformPool::GetGlobalUniformBufferFromPoo
     }
 
     return UsedGlobalUniformBuffers[UsedBucketIndex][NewIndex];
+}
+
+
+FVulkanUniformBufferUploader::FVulkanUniformBufferUploader(FVulkanDevice* InDevice, uint64 TotalSize)
+	: VulkanRHI::FDeviceChild(InDevice)
+	, CPUBuffer(nullptr)
+	, GPUBuffer(nullptr)
+{
+	if (Device->HasUnifiedMemory())
+	{
+		CPUBuffer = new FVulkanRingBuffer(InDevice, VULKAN_UB_RING_BUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		GPUBuffer = CPUBuffer;
+	}
+	else
+	{
+		CPUBuffer = new FVulkanRingBuffer(InDevice, VULKAN_UB_RING_BUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		GPUBuffer = new FVulkanRingBuffer(InDevice, VULKAN_UB_RING_BUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	}
+}
+
+FVulkanUniformBufferUploader::~FVulkanUniformBufferUploader()
+{
+	if (!Device->HasUnifiedMemory())
+	{
+		delete GPUBuffer;
+	}
+
+	delete CPUBuffer;
 }

@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "BreakIterator.h"
-#include "ShapedTextCache.h"
+#include "Framework/Text/TextLayout.h"
+#include "Fonts/FontCache.h"
+#include "HAL/IConsoleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Text/TextHitPoint.h"
+#include "Framework/Text/ILayoutBlock.h"
+#include "Internationalization/BreakIterator.h"
+#include "Framework/Text/ShapedTextCache.h"
 
 
 static TAutoConsoleVariable<int32> CVarDefaultTextFlowDirection(
@@ -886,11 +891,11 @@ void FTextLayout::FlowHighlights()
 							LineViewHighlight.OffsetX += Run->Measure(BlockTextRange.BeginIndex, IntersectedRange.BeginIndex, Scale, RunTextContext).X;
 						}
 						else
-						{
-							LineViewHighlight.OffsetX += Run->Measure(IntersectedRange.EndIndex, BlockTextRange.EndIndex, Scale, RunTextContext).X;
-						}
+					{
+						LineViewHighlight.OffsetX += Run->Measure(IntersectedRange.EndIndex, BlockTextRange.EndIndex, Scale, RunTextContext).X;
 					}
 				}
+			}
 			}
 
 			AppendLineViewHighlight(LineViewHighlight);
@@ -991,12 +996,6 @@ ETextJustify::Type FTextLayout::CalculateLineViewVisualJustification(const FLine
 
 void FTextLayout::CreateWrappingCache()
 {
-	const bool IsWrapping = WrappingWidth > 0.0f;
-	if (!IsWrapping)
-	{
-		return;
-	}
-
 	for (FLineModel& LineModel : LineModels)
 	{
 		CreateLineWrappingCache(LineModel);
@@ -1010,18 +1009,24 @@ void FTextLayout::CreateLineWrappingCache(FLineModel& LineModel)
 		return;
 	}
 
-	// If we've not yet been provided with a custom line break iterator, then just use the default one
-	if (!LineBreakIterator.IsValid())
-	{
-		LineBreakIterator = FBreakIterator::CreateLineBreakIterator();
-	}
-
 	LineModel.BreakCandidates.Empty();
 	LineModel.DirtyFlags &= ~ELineModelDirtyState::WrappingInformation;
 
 	for (int32 RunIndex = 0; RunIndex < LineModel.Runs.Num(); RunIndex++)
 	{
-		LineModel.Runs[ RunIndex ].ClearCache();
+		LineModel.Runs[RunIndex].ClearCache();
+	}
+
+	const bool IsWrapping = WrappingWidth > 0.0f;
+	if (!IsWrapping)
+	{
+		return;
+	}
+
+	// If we've not yet been provided with a custom line break iterator, then just use the default one
+	if (!LineBreakIterator.IsValid())
+	{
+		LineBreakIterator = FBreakIterator::CreateLineBreakIterator();
 	}
 
 	LineBreakIterator->SetString( **LineModel.Text );
@@ -2158,6 +2163,11 @@ bool FTextLayout::IsEmpty() const
 	return (LineModels.Num() == 0 || (LineModels.Num() == 1 && LineModels[0].Text->Len() == 0));
 }
 
+int32 FTextLayout::GetLineCount() const
+{
+	return LineModels.Num();
+}
+
 void FTextLayout::GetAsText(FString& DisplayText, FTextOffsetLocations* const OutTextOffsetLocations) const
 {
 	GetAsTextAndOffsets(&DisplayText, OutTextOffsetLocations);
@@ -2380,7 +2390,7 @@ void FTextLayout::SetLineBreakIterator( TSharedPtr<IBreakIterator> InLineBreakIt
 
 	// Changing the line break iterator will affect the wrapping information for *all lines*
 	// Clear out the entire cache so it gets regenerated on the text call to FlowLayout
-	DirtyAllLineModels(ELineModelDirtyState::WrappingInformation | ELineModelDirtyState::ShapingCache);
+	DirtyAllLineModels(ELineModelDirtyState::WrappingInformation);
 }
 
 void FTextLayout::SetMargin( const FMargin& InMargin )
@@ -2463,10 +2473,20 @@ void FTextLayout::SetLineHeightPercentage( float Value )
 
 void FTextLayout::SetWrappingWidth( float Value )
 {
+	const bool WasWrapping = WrappingWidth > 0.0f;
+	const bool IsWrapping = Value > 0.0f;
+
 	if ( WrappingWidth != Value )
 	{
 		WrappingWidth = Value; 
 		DirtyFlags |= ETextLayoutDirtyState::Layout;
+
+		if ( WasWrapping != IsWrapping )
+		{
+			// Changing from wrapping/not-wrapping will affect the wrapping information for *all lines*
+			// Clear out the entire cache so it gets regenerated on the text call to FlowLayout
+			DirtyAllLineModels(ELineModelDirtyState::WrappingInformation);
+		}
 	}
 }
 

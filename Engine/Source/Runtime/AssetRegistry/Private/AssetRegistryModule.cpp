@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "AssetRegistryPCH.h"
 #include "AssetRegistryModule.h"
+#include "AssetRegistry.h"
 #include "AssetRegistryConsoleCommands.h"
 
 IMPLEMENT_MODULE( FAssetRegistryModule, AssetRegistry );

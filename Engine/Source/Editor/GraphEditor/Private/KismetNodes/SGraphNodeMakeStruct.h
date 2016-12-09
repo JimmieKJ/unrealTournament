@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "KismetNodes/SGraphNodeK2Base.h"
+
+class SGraphPin;
+class UK2Node_MakeStruct;
+struct FOptionalPinFromProperty;
+
 struct FOptionalPinOverrideState
 {
 	/** Display text to display for this item in the selection widget */

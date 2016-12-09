@@ -10,14 +10,27 @@
 
 #pragma once
 
-#include "Components.h"
-#include "GPUSkinPublicDefs.h"
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "RenderResource.h"
+#include "PackedNormal.h"
+#include "PrimitiveViewRelevance.h"
 #include "PrimitiveSceneProxy.h"
+#include "Components.h"
 #include "Materials/MaterialInterface.h"
+#include "Containers/DynamicRHIResourceArray.h"
 #include "ReferenceSkeleton.h"
+#include "GPUSkinPublicDefs.h"
+#include "Serialization/BulkData.h"
 
-class FRawStaticIndexBuffer16or32Interface;
+class FMaterialRenderProxy;
+class FMeshElementCollector;
 class FPrimitiveDrawInterface;
+class FRawStaticIndexBuffer16or32Interface;
+class UMorphTarget;
+class UPrimitiveComponent;
+class USkeletalMesh;
+class USkinnedMeshComponent;
 
 /** 
 * A pair of bone indices
@@ -81,14 +94,17 @@ template <> struct TIsPODType<FMeshWedge> { enum { Value = true }; };
 
 struct FMeshFace
 {
-	uint32		iWedge[3];			// Textured Vertex indices.
-	uint16		MeshMaterialIndex;	// Source Material (= texture plus unique flags) index.
+	// Textured Vertex indices.
+	uint32		iWedge[3];
+	// Source Material (= texture plus unique flags) index.
+	uint16		MeshMaterialIndex;
 
 	FVector	TangentX[3];
 	FVector	TangentY[3];
 	FVector	TangentZ[3];
 
-	uint32   SmoothingGroups; // 32-bit flag for smoothing groups.
+	// 32-bit flag for smoothing groups.
+	uint32   SmoothingGroups;
 };
 template <> struct TIsPODType<FMeshFace> { enum { Value = true }; };
 
@@ -97,7 +113,8 @@ struct VJointPos
 {
 	FTransform	Transform;
 
-	float       Length;       //  For collision testing / debugging drawing...
+	// For collision testing / debug drawing...
+	float       Length;
 	float       XSize;
 	float       YSize;
 	float       ZSize;
@@ -112,10 +129,14 @@ template <> struct TIsPODType<VJointPos> { enum { Value = true }; };
 // Textured triangle.
 struct VTriangle
 {
-	uint32   WedgeIndex[3];	 // Point to three vertices in the vertex list.
-	uint8    MatIndex;	     // Materials can be anything.
-	uint8    AuxMatIndex;     // Second material from exporter (unused)
-	uint32   SmoothingGroups; // 32-bit flag for smoothing groups.
+	// Point to three vertices in the vertex list.
+	uint32   WedgeIndex[3];
+	// Materials can be anything.
+	uint8    MatIndex;
+	// Second material from exporter (unused)
+	uint8    AuxMatIndex;
+	// 32-bit flag for smoothing groups.
+	uint32   SmoothingGroups;
 
 	FVector	TangentX[3];
 	FVector	TangentY[3];
@@ -180,11 +201,18 @@ struct FSkelMeshExtraInfluenceImportData
 struct FSoftSkinVertex
 {
 	FVector			Position;
-	FPackedNormal	TangentX,	// Tangent, U-direction
-					TangentY,	// Binormal, V-direction
-					TangentZ;	// Normal
-	FVector2D		UVs[MAX_TEXCOORDS]; // UVs
-	FColor			Color;		// VertexColor
+	
+	// Tangent, U-direction
+	FPackedNormal	TangentX;
+	// Binormal, V-direction
+	FPackedNormal	TangentY;
+	// Normal
+	FPackedNormal	TangentZ;
+	
+	// UVs
+	FVector2D		UVs[MAX_TEXCOORDS];
+	// VertexColor
+	FColor			Color;
 	uint8			InfluenceBones[MAX_TOTAL_INFLUENCES];
 	uint8			InfluenceWeights[MAX_TOTAL_INFLUENCES];
 
@@ -219,7 +247,7 @@ struct FApexClothPhysToRenderVertData
 	FVector4 NormalBaryCoordsAndDist;
 	FVector4 TangentBaryCoordsAndDist;
 	uint16	 SimulMeshVertIndices[4];
-	//dummy for alignment 16 bytes
+	// Dummy for alignment (16 bytes)
 	uint32	 Padding[2];
 
 	/**
@@ -256,13 +284,15 @@ struct FApexClothCollisionVolumeData
 	*/
 
 	int32	BoneIndex;
-	// for convexes
+	// For convexes
 	uint32	ConvexVerticesCount;
+	// For convexes
 	uint32	ConvexVerticesStart;
 	TArray<FVector> BoneVertices;
 	TArray<FPlane>  BonePlanes;
-	// for capsules
+	// For capsules
 	float	CapsuleRadius;
+	// For capsules
 	float	CapsuleHeight;
 	FMatrix LocalPose;
 
@@ -337,11 +367,14 @@ struct FSkelMeshSection
 	/** This section will recompute tangent in runtime */
 	bool bRecomputeTangent;
 
+	/** This section will cast shadow */
+	bool bCastShadow;
+
 	/** This Section can be disabled for cloth simulation and corresponding Cloth Section will be enabled*/
 	bool bDisabled;
 	
 	/** Corresponding Section Index will be enabled when this section is disabled 
-		because corresponding cloth section will be showed instead of this
+		because corresponding cloth section will be shown instead of this
 		or disabled section index when this section is enabled for cloth simulation
 	*/
 	int16 CorrespondClothSectionIndex;
@@ -387,6 +420,7 @@ struct FSkelMeshSection
 		, TriangleSorting(0)
 		, bSelected(false)
 		, bRecomputeTangent(false)
+		, bCastShadow(true)
 		, bDisabled(false)
 		, CorrespondClothSectionIndex(-1)
 		, BaseVertexIndex(0)
@@ -454,8 +488,10 @@ struct TGPUSkinVertexBase
 	{
 		NumInfluences = bExtraBoneInfluences ? MAX_TOTAL_INFLUENCES : MAX_INFLUENCES_PER_STREAM,
 	};
-	FPackedNormal	TangentX,	// Tangent, U-direction
-					TangentZ;	// Normal	
+	// Tangent, U-direction
+	FPackedNormal	TangentX;
+	// Normal
+	FPackedNormal	TangentZ;
 	uint8			InfluenceBones[NumInfluences];
 	uint8			InfluenceWeights[NumInfluences];
 
@@ -724,7 +760,7 @@ public:
 	*/
 	friend FArchive& operator<<(FArchive& Ar,FSkeletalMeshVertexBuffer& VertexBuffer);
 
-	// FRenderResource interface.
+	//~ Begin FRenderResource interface.
 
 	/**
 	* Initialize the RHI resource for this vertex buffer
@@ -738,7 +774,9 @@ public:
 	*/
 	virtual FString GetFriendlyName() const override;
 
-	// Vertex data accessors.
+	//~ End FRenderResource interface.
+
+	//~ Vertex data accessors.
 
 	/** 
 	* Const access to entry in vertex data array
@@ -753,7 +791,7 @@ public:
 		return (TGPUSkinVertexBase<bExtraBoneInfluencesT>*)(Data + VertexIndex * Stride);
 	}
 	/** 
-	* Non=Const access to entry in vertex data array
+	* Non-Const access to entry in vertex data array
 	*
 	* @param VertexIndex - index into the vertex buffer
 	* @return pointer to vertex data cast to base vertex type
@@ -845,7 +883,7 @@ public:
 		return GetVertexPositionFast<bExtraBoneInfluencesT>((const TGPUSkinVertexBase<bExtraBoneInfluencesT>*)(Data + VertexIndex * Stride));
 	}
 
-	// Other accessors.
+	//~ Other accessors.
 
 	/** 
 	* @return true if using 32 bit floats for UVs 
@@ -1101,7 +1139,7 @@ public:
 	 */
 	friend FArchive& operator<<(FArchive& Ar,FSkeletalMeshVertexColorBuffer& VertexBuffer);
 
-	// FRenderResource interface.
+	//~ Begin FRenderResource interface.
 
 	/**
 	 * Initialize the RHI resource for this vertex buffer
@@ -1112,6 +1150,8 @@ public:
 	 * @return text description for the resource type
 	 */
 	virtual FString GetFriendlyName() const override;
+
+	//~ End FRenderResource interface.
 
 	/** 
 	 * @return number of vertices in this vertex buffer
@@ -1231,7 +1271,7 @@ public:
 	 */
 	friend FArchive& operator<<(FArchive& Ar,FSkeletalMeshVertexAPEXClothBuffer& VertexBuffer);
 
-	// FRenderResource interface.
+	//~ Begin FRenderResource interface.
 
 	/**
 	 * Initialize the RHI resource for this vertex buffer
@@ -1243,7 +1283,10 @@ public:
 	 */
 	virtual FString GetFriendlyName() const override;
 
-	// Vertex data accessors.
+	//~ End FRenderResource interface.
+
+	//~ Vertex data accessors.
+	
 	FORCEINLINE FApexClothPhysToRenderVertData& MappingData(uint32 VertexIndex)
 	{
 		checkSlow(VertexIndex < GetNumVertices());
@@ -1333,9 +1376,11 @@ public:
 	};
 
 protected:
-	// Transient data used while creating the vertex buffers, gets deleted as soon as VB get initialized
+	// Transient data used while creating the vertex buffers, gets deleted as soon as VB gets initialized.
 	TArray<FPerVertexInfo> PerVertexInfoList;
+	// Transient data used while creating the vertex buffers, gets deleted as soon as VB gets initialized.
 	TArray<FFlattenedDelta> FlattenedDeltaList;
+	// Transient data used while creating the vertex buffers, gets deleted as soon as VB gets initialized.
 	uint32 NumInfluencedVerticesByMorphs;
 
 	friend class FStaticLODModel;
@@ -1466,7 +1511,7 @@ public:
 
 	// Index Buffer (MultiSize: 16bit or 32bit)
 	FMultiSizeIndexContainer	MultiSizeIndexContainer; 
-	//
+
 	uint32						NumVertices;
 	/** The number of unique texture coordinate sets in this lod */
 	uint32						NumTexCoords;
@@ -1622,7 +1667,7 @@ public:
 
 		for(int32 i=0; i < NumSections; i++)
 		{
-			//if found the start section of clothing, return that index which means # of non-clothing
+			// If we have found the start of the clothing section, return that index, since it is equal to the number of non-clothing entries.
 			if((Sections[i].bDisabled == false)
 			&& (Sections[i].CorrespondClothSectionIndex >= 0))
 			{
@@ -1675,7 +1720,10 @@ public:
 	/**
 	 * Get Resource Size
 	 */
+	DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
 	SIZE_T GetResourceSize() const;
+	void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const;
+	SIZE_T GetResourceSizeBytes() const;
 
 	/** Rebuild index buffer for everything **/
 #if WITH_EDITOR
@@ -1719,7 +1767,17 @@ public:
 	/** 
 	 *	Return the resource size
 	 */
+	DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
 	SIZE_T GetResourceSize();
+	void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize);
+	SIZE_T GetResourceSizeBytes();
+
+#if WITH_EDITORONLY_DATA
+	/** UV data used for streaming accuracy debug view modes. In sync for rendering thread */
+	TArray<FMeshUVChannelInfo> UVChannelDataPerMaterial;
+
+	void SyncUVChannelData(const TArray<struct FSkeletalMaterial>& ObjectData);
+#endif
 
 private:
 	/** True if the resource has been initialized. */
@@ -1756,7 +1814,6 @@ public:
 	 */
 	FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Component, FSkeletalMeshResource* InSkelMeshResource);
 
-	// FPrimitiveSceneProxy interface.
 #if WITH_EDITOR
 	virtual HHitProxy* CreateHitProxies(UPrimitiveComponent* Component, TArray<TRefCountPtr<HHitProxy> >& OutHitProxies) override;
 #endif
@@ -1764,7 +1821,7 @@ public:
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 	virtual bool CanBeOccluded() const override;
 	
-	virtual bool HasDistanceFieldRepresentation() const override;
+	virtual bool HasDynamicIndirectShadowCasterRepresentation() const override;
 	virtual void GetShadowShapes(TArray<FCapsuleShape>& CapsuleShapes) const override;
 
 	/** Returns a pre-sorted list of shadow capsules's bone indicies */
@@ -1808,7 +1865,9 @@ public:
 
 
 #if WITH_EDITORONLY_DATA
-	virtual const FStreamingSectionBuildInfo* GetStreamingSectionData(float& OutComponentExtraScale, float& OutMeshExtraScale, int32 LODIndex, int32 ElementIndex) const override;
+	virtual bool GetPrimitiveDistance(int32 LODIndex, int32 SectionIndex, const FVector& ViewOrigin, float& PrimitiveDistance) const override;
+	virtual bool GetMeshUVDensities(int32 LODIndex, int32 SectionIndex, FVector4& WorldUVDensities) const override;
+	virtual bool GetMaterialTextureScales(int32 LODIndex, int32 SectionIndex, const FMaterialRenderProxy* MaterialRenderProxy, FVector4* OneOverScales, FIntVector4* UVChannelIndices) const override;
 #endif
 
 	friend class FSkeletalMeshSectionIter;
@@ -1877,8 +1936,6 @@ protected:
 #if WITH_EDITORONLY_DATA
 	/** The component streaming distance multiplier */
 	float StreamingDistanceMultiplier;
-	/** The mesh streaming texel factor (fallback) */
-	float StreamingTexelFactor;
 #endif
 
 	void GetDynamicElementsSection(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap,

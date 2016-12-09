@@ -6,8 +6,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "FXSystem.h"
-#include "../VectorField.h"
+#include "VectorField.h"
+
+class FCanvas;
+class FGlobalDistanceFieldParameterData;
+class FParticleSimulationGPU;
+class FParticleSimulationResources;
+class UVectorFieldComponent;
+struct FGPUSpriteEmitterInfo;
+struct FParticleEmitterInstance;
 
 /*-----------------------------------------------------------------------------
 	Forward declarations.

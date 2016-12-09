@@ -1,22 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeLiteSourceCodeAccessPrivatePCH.h"
 #include "CodeLiteSourceCodeAccessor.h"
-#include "CodeLiteSourceCodeAccessModule.h"
-#include "ISourceCodeAccessModule.h"
-#include "ModuleManager.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/Paths.h"
 #include "DesktopPlatformModule.h"
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <sys/types.h>
-
-#if WITH_EDITOR
-#include "Developer/HotReload/Public/IHotReload.h"
-#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogCodeLiteAccessor, Log, All);
 

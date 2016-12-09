@@ -6,7 +6,15 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ThumbnailRendering/DefaultSizedThumbnailRenderer.h"
 #include "WorldThumbnailRenderer.generated.h"
+
+class FCanvas;
+class FRenderTarget;
+class FSceneViewFamily;
 
 UCLASS(config=Editor)
 class UWorldThumbnailRenderer : public UDefaultSizedThumbnailRenderer

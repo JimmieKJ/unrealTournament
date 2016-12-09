@@ -1,12 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TranslationEditorPrivatePCH.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/PropertyPath.h"
-#include "Editor/PropertyEditor/Public/IPropertyTableCell.h"
-#include "Editor/PropertyEditor/Public/PropertyHandle.h"
-#include "Editor/PropertyEditor/Public/IPropertyTable.h"
 #include "CustomFontColumn.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "IPropertyTable.h"
 
 #define LOCTEXT_NAMESPACE "PropertyTable.CustomFontColumn"
 

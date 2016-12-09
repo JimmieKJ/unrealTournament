@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "LMQueue.h"
+#include "Misc/ScopeLock.h"
+
 #if PLATFORM_USE_PTHREADS
 #include <pthread.h>
 #endif
@@ -59,7 +63,7 @@ protected:
 	 * The handle to the semaphore
 	 */
 #if PLATFORM_WINDOWS
-	HANDLE Semaphore;
+	Windows::HANDLE Semaphore;
 #else
 	pthread_mutex_t Guard;
 	pthread_cond_t	Condition;

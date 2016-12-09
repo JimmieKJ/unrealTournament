@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reservekd.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "PoseAssetDetails.h"
-#include "Runtime/Engine/Classes/Animation/AnimSequence.h"
+#include "Misc/MessageDialog.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Animation/AnimSequence.h"
+#include "AssetData.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "IDetailsView.h"
+#include "PropertyCustomizationHelpers.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE	"PoseAssetDetails"

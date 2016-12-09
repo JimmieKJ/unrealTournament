@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "SCSDiff.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "GameFramework/Actor.h"
 #include "SKismetInspector.h"
 #include "SSCSEditor.h"
 #include "IDetailsView.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #include <vector>
 

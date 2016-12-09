@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectsPrivatePCH.h"
 #include "LocalizationDescriptor.h"
+#include "Misc/App.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Dom/JsonObject.h"
 
 #define LOCTEXT_NAMESPACE "LocalizationDescriptor"
 

@@ -4,10 +4,27 @@
 	Renderer.cpp: Renderer module implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "AssertionMacros.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
+#include "Stats/Stats.h"
+#include "Modules/ModuleManager.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "EngineDefines.h"
+#include "EngineGlobals.h"
+#include "RenderingThread.h"
+#include "RHIStaticStates.h"
+#include "SceneView.h"
+#include "PostProcess/RenderTargetPool.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "SceneCore.h"
+#include "SceneHitProxyRendering.h"
+#include "SceneRendering.h"
+#include "BasePassRendering.h"
+#include "MobileBasePassRendering.h"
+#include "TranslucentRendering.h"
+#include "RendererModule.h"
 #include "GPUBenchmark.h"
+#include "SystemSettings.h"
 
 DEFINE_LOG_CATEGORY(LogRenderer);
 
@@ -23,13 +40,13 @@ IMPLEMENT_MODULE(FRendererModule, Renderer);
 void FRendererModule::ReallocateSceneRenderTargets()
 {
 	FLightPrimitiveInteraction::InitializeMemoryPool();
-	FSceneRenderTargets::Get_Todo_PassContext().UpdateRHI();
+	FSceneRenderTargets::GetGlobalUnsafe().UpdateRHI();
 }
 
 void FRendererModule::SceneRenderTargetsSetBufferSize(uint32 SizeX, uint32 SizeY)
 {
-	FSceneRenderTargets::Get_Todo_PassContext().SetBufferSize(SizeX, SizeY);
-	FSceneRenderTargets::Get_Todo_PassContext().UpdateRHI();
+	FSceneRenderTargets::GetGlobalUnsafe().SetBufferSize(SizeX, SizeY);
+	FSceneRenderTargets::GetGlobalUnsafe().UpdateRHI();
 }
 
 void FRendererModule::InitializeSystemTextures(FRHICommandListImmediate& RHICmdList)
@@ -46,6 +63,9 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, const F
 		FViewInfo View(&SceneView);
 		View.InitRHIResources();
 
+		//TODO ResetState
+		FDrawingPolicyRenderState DrawRenderState(&RHICmdList, SceneView);
+
 		const auto FeatureLevel = View.GetFeatureLevel();
 	
 		const FMaterial* Material = Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel);
@@ -57,37 +77,37 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, const F
 		GSystemTextures.InitializeTextures(RHICmdList, FeatureLevel);
 
 		// handle translucent material blend modes, not relevant in MaterialTexCoordScalesAnalysis since it outputs the scales.
-		if (IsTranslucentBlendMode(MaterialBlendMode) && View.Family->GetDebugViewShaderMode() != DVSM_MaterialTexCoordScalesAnalysis)
+		if (IsTranslucentBlendMode(MaterialBlendMode) && View.Family->GetDebugViewShaderMode() != DVSM_OutputMaterialTextureScales)
 		{
 			if (FeatureLevel >= ERHIFeatureLevel::SM4)
 			{
-				FTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FTranslucencyDrawingPolicyFactory::ContextType(nullptr, ETranslucencyPass::TPT_AllTranslucency, true), Mesh, false, false, NULL, HitProxyId);
+				FTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FTranslucencyDrawingPolicyFactory::ContextType(nullptr, ETranslucencyPass::TPT_AllTranslucency, true), Mesh, false, DrawRenderState, NULL, HitProxyId);
 			}
 			else
 			{
-				FMobileTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FMobileTranslucencyDrawingPolicyFactory::ContextType(false), Mesh, false, false, NULL, HitProxyId);
+				FMobileTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FMobileTranslucencyDrawingPolicyFactory::ContextType(false), Mesh, false, DrawRenderState, NULL, HitProxyId);
 			}
 		}
 		// handle opaque materials
 		else
 		{
 			// make sure we are doing opaque drawing
-			RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
+			DrawRenderState.SetBlendState(RHICmdList, TStaticBlendState<>::GetRHI());
 
 			// draw the mesh
 			if (bIsHitTesting)
 			{
-				FHitProxyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FHitProxyDrawingPolicyFactory::ContextType(), Mesh, false, false, NULL, HitProxyId);
+				FHitProxyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FHitProxyDrawingPolicyFactory::ContextType(), Mesh, false, DrawRenderState, NULL, HitProxyId);
 			}
 			else
 			{
 				if (FeatureLevel >= ERHIFeatureLevel::SM4)
 				{
-					FBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FBasePassOpaqueDrawingPolicyFactory::ContextType(false, ESceneRenderTargetsMode::DontSet), Mesh, false, false, NULL, HitProxyId);
+					FBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FBasePassOpaqueDrawingPolicyFactory::ContextType(false, ESceneRenderTargetsMode::DontSet), Mesh, false, DrawRenderState, NULL, HitProxyId);
 				}
 				else
 				{
-					FMobileBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FMobileBasePassOpaqueDrawingPolicyFactory::ContextType(false, ESceneRenderTargetsMode::DontSet), Mesh, false, false, NULL, HitProxyId);
+					FMobileBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FMobileBasePassOpaqueDrawingPolicyFactory::ContextType(false, ESceneRenderTargetsMode::DontSet), Mesh, false, DrawRenderState, NULL, HitProxyId);
 				}
 			}
 		}	

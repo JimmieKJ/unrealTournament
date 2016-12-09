@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "SKeySelector.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SComboBox.h"
 #include "ScopedTransaction.h"
+#include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
+#include "Widgets/Input/SSearchBox.h"
 #include "SListViewSelectorDropdownMenu.h"
-#include "SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "KeySelector"
 

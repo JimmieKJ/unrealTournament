@@ -1,11 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MergePrivatePCH.h"
-
-#include "DetailsDiff.h"
-#include "ObjectEditorUtils.h"
-#include "SBlueprintDiff.h"
 #include "SMergeDetailsView.h"
+#include "Widgets/Layout/SSplitter.h"
+
 
 void SMergeDetailsView::Construct(const FArguments InArgs
 	, const FBlueprintMergeData& InData

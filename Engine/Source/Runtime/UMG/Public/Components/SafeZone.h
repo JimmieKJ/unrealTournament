@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Widgets/SWidget.h"
+#include "Components/ContentWidget.h"
+#include "Widgets/Layout/SSafeZone.h"
 #include "SafeZone.generated.h"
 
 UCLASS()
@@ -20,6 +25,22 @@ public:
 	virtual UClass* GetSlotClass() const override;
 
 	void UpdateWidgetProperties();
+
+	/** If this safe zone should pad for the left side of the screen's safe zone */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SafeZone")
+	bool PadLeft;
+
+	/** If this safe zone should pad for the right side of the screen's safe zone */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SafeZone")
+	bool PadRight;
+
+	/** If this safe zone should pad for the top side of the screen's safe zone */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SafeZone")
+	bool PadTop;
+
+	/** If this safe zone should pad for the bottom side of the screen's safe zone */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SafeZone")
+	bool PadBottom;
 
 protected:
 	// UWidget interface

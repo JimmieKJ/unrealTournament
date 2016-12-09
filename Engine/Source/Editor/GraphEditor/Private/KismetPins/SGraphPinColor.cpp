@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "NodeFactory.h"
 #include "KismetPins/SGraphPinColor.h"
-#include "SColorPicker.h"
-#include "Editor/UnrealEd/Public/ScopedTransaction.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
+#include "Widgets/Colors/SColorPicker.h"
+#include "ScopedTransaction.h"
 
 
 void SGraphPinColor::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)

@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/App.h"
+#include "Textures/SlateShaderResource.h"
+#include "TextureResource.h"
+#include "Engine/Texture.h"
+
 /** A resource for rendering a UTexture object in Slate */
 class FSlateBaseUTextureResource : public FSlateShaderResource
 {

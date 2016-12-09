@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
-#include "Importer.h"
 #include "Landscape.h"
+#include "Importer.h"
 
 namespace Lightmass
 {

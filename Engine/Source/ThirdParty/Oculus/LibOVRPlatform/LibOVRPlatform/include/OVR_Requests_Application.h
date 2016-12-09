@@ -8,6 +8,11 @@
 
 #include "OVR_ApplicationVersion.h"
 
+/// \file
+/// *** Application Overview:
+/// An application is what you're writing! These requests/methods will allow you to
+/// pull basic metadata about your application.
+
 /// Requests version information, including the currently installed and latest
 /// available version name and version code.
 ///

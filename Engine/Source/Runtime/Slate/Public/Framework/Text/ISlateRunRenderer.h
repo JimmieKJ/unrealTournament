@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-class ISlateRun;
-class ILayoutBlock;
+#include "CoreMinimal.h"
+#include "Framework/Text/TextLayout.h"
+#include "Framework/Text/IRunRenderer.h"
+#include "Framework/Text/ILayoutBlock.h"
+#include "Framework/Text/ISlateRun.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+struct FTextBlockStyle;
 
 class SLATE_API ISlateRunRenderer : public IRunRenderer
 {

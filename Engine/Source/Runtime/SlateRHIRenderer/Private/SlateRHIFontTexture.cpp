@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateRHIRendererPrivatePCH.h"
+#include "SlateRHIFontTexture.h"
+#include "Rendering/SlateRenderer.h"
+#include "RenderingThread.h"
+#include "RenderUtils.h"
 
 FSlateFontTextureRHIResource::FSlateFontTextureRHIResource(uint32 InWidth, uint32 InHeight)
 	: Width( InWidth )

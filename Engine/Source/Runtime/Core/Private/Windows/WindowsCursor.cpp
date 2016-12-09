@@ -1,8 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "WindowsCursor.h"
-#include "WindowsWindow.h"
+#include "Windows/WindowsCursor.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Paths.h"
+#include "Misc/CoreMisc.h"
+#include "Math/Vector2D.h"
+#include "Windows/WindowsWindow.h"
+#include "Windows/WindowsHWrapper.h"
+#include "HAL/PlatformProcess.h"
+
+#include "Windows/AllowWindowsPlatformTypes.h"
+	#include <Ole2.h>
+	#include <oleidl.h>
+#include "Windows/HideWindowsPlatformTypes.h"
 
 FWindowsCursor::FWindowsCursor()
 {
@@ -132,11 +143,6 @@ FWindowsCursor::~FWindowsCursor()
 	}
 }
 
-void FWindowsCursor::SetCustomShape( HCURSOR CursorHandle )
-{
-	CursorHandles[EMouseCursor::Custom] = CursorHandle;
-}
-
 FVector2D FWindowsCursor::GetPosition() const
 {
 	POINT CursorPos;
@@ -181,5 +187,12 @@ void FWindowsCursor::Show( bool bShow )
 void FWindowsCursor::Lock( const RECT* const Bounds )
 {
 	// Lock/Unlock the cursor
-	::ClipCursor( Bounds );
+	::ClipCursor(Bounds);
+	// If the cursor is not visible and we're running game, assume we're in a mode where the mouse is controlling the camera and lock it to the center of the widget.
+}
+
+void FWindowsCursor::SetCustomShape(void* InCursorHandle)
+{
+	HCURSOR CursorHandle = (HCURSOR)InCursorHandle;
+	CursorHandles[EMouseCursor::Custom] = CursorHandle;
 }

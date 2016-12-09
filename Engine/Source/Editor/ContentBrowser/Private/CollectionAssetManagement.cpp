@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ContentBrowserPCH.h"
 #include "CollectionAssetManagement.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+#include "ICollectionManager.h"
 #include "CollectionManagerModule.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 

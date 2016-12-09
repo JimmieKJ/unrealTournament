@@ -43,6 +43,8 @@ class RootWindowGtk : public RootWindow,
   void Hide() OVERRIDE;
   void SetBounds(int x, int y, size_t width, size_t height) OVERRIDE;
   void Close(bool force) OVERRIDE;
+  void SetDeviceScaleFactor(float device_scale_factor) OVERRIDE;
+  float GetDeviceScaleFactor() const OVERRIDE;
   CefRefPtr<CefBrowser> GetBrowser() const OVERRIDE;
   ClientWindowHandle GetWindowHandle() const OVERRIDE;
 
@@ -55,6 +57,7 @@ class RootWindowGtk : public RootWindow,
   void OnBrowserWindowDestroyed() OVERRIDE;
   void OnSetAddress(const std::string& url) OVERRIDE;
   void OnSetTitle(const std::string& title) OVERRIDE;
+  void OnSetFullscreen(bool fullscreen) OVERRIDE;
   void OnSetLoadingState(bool isLoading,
                          bool canGoBack,
                          bool canGoForward) OVERRIDE;

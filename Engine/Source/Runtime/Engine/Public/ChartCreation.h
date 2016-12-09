@@ -7,106 +7,275 @@
 
 #pragma once
 
-#define DO_CHARTING 1
-#if DO_CHARTING
+#include "CoreMinimal.h"
+#include "ProfilingDebugging/Histogram.h"
 
-/*-----------------------------------------------------------------------------
-	FPS chart support.
------------------------------------------------------------------------------*/
+//////////////////////////////////////////////////////////////////////
 
-/** Helper structure for FPS chart entries. */
-struct FFPSChartEntry
+// What kind of hitch was detected (if any)
+enum class EFrameHitchType : uint8
 {
-	/** Number of frames in bucket. */
-	int32		Count;
-	/** Cumulative time spent in bucket. */
-	double	CummulativeTime;
+	// We didn't hitch
+	NoHitch,
 
-	FFPSChartEntry()
-		: Count(0)
-		, CummulativeTime(0.0)
+	// We hitched but couldn't isolate which unit caused it
+	UnknownUnit,
+
+	// Hitched and it was likely caused by the game thread
+	GameThread,
+
+	// Hitched and it was likely caused by the render thread
+	RenderThread,
+
+	// Hitched and it was likely caused by the GPU
+	GPU
+};
+
+
+//////////////////////////////////////////////////////////////////////
+// IPerformanceDataConsumer
+
+// This is an interface for any consumer of per-frame performance data
+// such as FPS charts, PerfCounters, analytics, etc...
+
+class IPerformanceDataConsumer
+{
+public:
+	struct FFrameData
 	{
-	}
+		// Estimate of how long the last frame was (this is either TrueDeltaSeconds or TrueDeltaSeconds - IdleSeconds, depending on the cvar t.FPSChart.ExcludeIdleTime)
+		double DeltaSeconds;
+
+		// Time elapsed since the last time the performance tracking system ran
+		double TrueDeltaSeconds;
+
+		// How long did we burn idling until this frame (e.g., when running faster than a frame rate target on a dedicated server)
+		double IdleSeconds;
+
+		// Duration of each of the major functional units (GPU time is frequently inferred rather than actual)
+		double GameThreadTimeSeconds;
+		double RenderThreadTimeSeconds;
+		double GPUTimeSeconds;
+
+		// Should this frame be considered for histogram generation (controlled by t.FPSChart.MaxFrameDeltaSecsBeforeDiscarding)
+		bool bBinThisFrame;
+
+		// Was this frame bound in one of the major functional units (only set if bBinThisFrame is true and the frame was longer than FEnginePerformanceTargets::GetTargetFrameTimeThresholdMS) 
+		bool bGameThreadBound;
+		bool bRenderThreadBound;
+		bool bGPUBound;
+
+		// Did we hitch?
+		EFrameHitchType HitchStatus;
+
+		// If a hitch, how was it bound
+		//@TODO: This uses different logic to the three bools above but probably shouldn't (though it also ignores the MaxFrameDeltaSecsBeforeDiscarding)
+
+		FFrameData()
+			: DeltaSeconds(0.0)
+			, TrueDeltaSeconds(0.0)
+			, IdleSeconds(0.0)
+			, GameThreadTimeSeconds(0.0)
+			, RenderThreadTimeSeconds(0.0)
+			, GPUTimeSeconds(0.0)
+			, bBinThisFrame(false)
+			, bGameThreadBound(false)
+			, bRenderThreadBound(false)
+			, bGPUBound(false)
+			, HitchStatus(EFrameHitchType::NoHitch)
+		{
+		}
+	};
+
+	virtual void StartCharting()=0;
+	virtual void ProcessFrame(const FFrameData& FrameData)=0;
+	virtual void StopCharting()=0;
+	virtual ~IPerformanceDataConsumer() {}
 };
 
-//@todo this is a leftover from the old stats system, which used enums
-enum FPSChartStats
+//////////////////////////////////////////////////////////////////////
+// FPerformanceTrackingChart
+
+ // Chart for a single portion of gameplay (e.g., gameplay or in-game-shop or settings menu open)
+class ENGINE_API FPerformanceTrackingChart : public IPerformanceDataConsumer
 {
-	STAT_FPSChartFirstStat,
-	STAT_FPSChart_0_5 = STAT_FPSChartFirstStat,
-	STAT_FPSChart_5_10,
-	STAT_FPSChart_10_15,
-	STAT_FPSChart_15_20,
-	STAT_FPSChart_20_25,
-	STAT_FPSChart_25_30,
-	STAT_FPSChart_30_40,
-	STAT_FPSChart_40_50,
-	STAT_FPSChart_50_60,
-	STAT_FPSChart_60_70,
-	STAT_FPSChart_70_80,
-	STAT_FPSChart_80_90,
-	STAT_FPSChart_90_100,
-	STAT_FPSChart_100_110,
-	STAT_FPSChart_110_120,
-	STAT_FPSChart_120_INF,
-	STAT_FPSChartLastBucketStat,
+public:
+	// The mode being tracked by this chart
+	FString ChartLabel;
 
-	/** Hitch stats */
-	STAT_FPSChart_FirstHitchStat,
-	STAT_FPSChart_Hitch_5000_Plus = STAT_FPSChart_FirstHitchStat,
-	STAT_FPSChart_Hitch_2500_5000,
-	STAT_FPSChart_Hitch_2000_2500,
-	STAT_FPSChart_Hitch_1500_2000,
-	STAT_FPSChart_Hitch_1000_1500,
-	STAT_FPSChart_Hitch_750_1000,
-	STAT_FPSChart_Hitch_500_750,
-	STAT_FPSChart_Hitch_300_500,
-	STAT_FPSChart_Hitch_200_300,
-	STAT_FPSChart_Hitch_150_200,
-	STAT_FPSChart_Hitch_100_150,
-	STAT_FPSChart_Hitch_60_100,
-	STAT_FPSChart_Hitch_30_60,
-	STAT_FPSChart_LastHitchBucketStat,
-	STAT_FPSChart_TotalHitchCount,
-};
+	// Frame rate histogram (thresholds in frames/second, values in seconds)
+	FHistogram FramerateHistogram;
 
-/** Start time of current FPS chart.										*/
-extern ENGINE_API double GFPSChartStartTime;
-/** FPS chart information. Time spent for each bucket and count.			*/
-extern ENGINE_API FFPSChartEntry GFPSChart[STAT_FPSChartLastBucketStat - STAT_FPSChartFirstStat];
-/** The total GPU time taken to render all frames. In seconds.				*/
-extern ENGINE_API double GTotalGPUTime;
+	// Hitch time histogram (in seconds)
+	FHistogram HitchTimeHistogram;
 
-/** Helper structure for hitch entries. */
-struct FHitchChartEntry
-{
-	/** Number of hitches */
-	int32 HitchCount;
+	/** Number of frames for each time of <boundtype> **/
+	uint32 NumFramesBound_GameThread;
+	uint32 NumFramesBound_RenderThread;
+	uint32 NumFramesBound_GPU;
 
-	/** How many hitches were bound by the game thread? */
-	int32 GameThreadBoundHitchCount;
+	/** Time spent bound on each kind of thing (in seconds) */
+	double TotalFramesBoundTime_GameThread;
+	double TotalFramesBoundTime_RenderThread;
+	double TotalFramesBoundTime_GPU;
 
-	/** How many hitches were bound by the render thread? */
-	int32 RenderThreadBoundHitchCount;
+	/** Total time spent on each thread (in seconds) */
+	double TotalFrameTime_GameThread;
+	double TotalFrameTime_RenderThread;
+	double TotalFrameTime_GPU;
 
-	/** How many hitches were bound by the GPU? */
-	int32 GPUBoundHitchCount;
+	/** Total number of hitches bound by each kind of thing */
+	int32 TotalGameThreadBoundHitchCount;
+	int32 TotalRenderThreadBoundHitchCount;
+	int32 TotalGPUBoundHitchCount;
 
-	/** Time spent hitching */
-	double FrameTimeSpentInBucket;
+	/** Start time of the capture */
+	const FDateTime CaptureStartTime;
 
-	FHitchChartEntry()
-		: HitchCount(0)
-		, GameThreadBoundHitchCount(0)
-		, RenderThreadBoundHitchCount(0)
-		, GPUBoundHitchCount(0)
-		, FrameTimeSpentInBucket(0.0)
+	/** Total accumulated raw (including idle) time spent with the chart registered */
+	double AccumulatedChartTime;
+
+public:
+	FPerformanceTrackingChart(const FDateTime& InStartTime, const FString& InChartLabel);
+
+	double GetAvgHitchesPerMinute() const
 	{
+		const double TotalTime = FramerateHistogram.GetSumOfAllMeasures();
+		const int32 TotalHitchCount = HitchTimeHistogram.GetNumMeasurements();
+
+		return (TotalTime > 0.0) ? (TotalHitchCount / (TotalTime / 60.0f)) : 0.0;
 	}
+
+	double GetAvgHitchFrameLength() const
+	{
+		const double TotalTime = FramerateHistogram.GetSumOfAllMeasures();
+		const int32 TotalHitchFrameTime = HitchTimeHistogram.GetSumOfAllMeasures();
+
+		return (TotalTime > 0.0) ? (TotalHitchFrameTime / TotalTime) : 0.0;
+	}
+
+	void ChangeLabel(const FString& NewLabel)
+	{
+		ChartLabel = NewLabel;
+	}
+
+	void DumpFPSChart(const FString& InMapName);
+
+	// Dumps the FPS chart information to an analytic event param array.
+	void DumpChartToAnalyticsParams(const FString& InMapName, TArray<struct FAnalyticsEventAttribute>& InParamArray, bool bIncludeClientHWInfo);
+
+
+	// Dumps the FPS chart information to the log.
+	static void DumpChartsToOutputLog(double WallClockElapsed, const TArray<const FPerformanceTrackingChart*>& Charts, const FString& InMapName);
+
+#if ALLOW_DEBUG_FILES
+	// Dumps the FPS chart information to HTML.
+	static void DumpChartsToHTML(double WallClockElapsed, const TArray<const FPerformanceTrackingChart*>& Charts, const FString& InMapName, const FString& HTMLFilename);
+
+	// Dumps the FPS chart information to the special stats log file.
+	static void DumpChartsToLogFile(double WallClockElapsed, const TArray<const FPerformanceTrackingChart*>& Charts, const FString& InMapName, const FString& LogFileName);
+#endif
+
+	// IPerformanceDataConsumer interface
+	virtual void StartCharting() override;
+	virtual void ProcessFrame(const FFrameData& FrameData) override;
+	virtual void StopCharting() override;
+	// End of IPerformanceDataConsumer interface
 };
 
+//////////////////////////////////////////////////////////////////////
+// FFineGrainedPerformanceTracker
 
-/** Hitch histogram.  How many times the game experienced hitches of various lengths. */
-extern ENGINE_API FHitchChartEntry GHitchChart[ STAT_FPSChart_LastHitchBucketStat - STAT_FPSChart_FirstHitchStat ];
+#if ALLOW_DEBUG_FILES
 
-#endif // DO_CHARTING
+// Fine-grained tracking (records the frame time of each frame rather than just a histogram)
+class ENGINE_API FFineGrainedPerformanceTracker : public IPerformanceDataConsumer
+{
+public:
+	FFineGrainedPerformanceTracker(const FDateTime& InStartTime);
+
+	/** Resets the fine-grained tracker, allocating enough memory to hold NumFrames frames (it can track more, but this avoids extra allocations when the length is short enough) */
+	void Presize(int32 NumFrames);
+
+	/**
+	 * Dumps the timings for each frame to a .csv
+	 */
+	void DumpFrameTimesToStatsLog(const FString& FrameTimeFilename);
+
+	/**
+	 * Finds a percentile value in an array.
+	 *
+	 * @param Array array of values to look for (needs to be writable, will be modified)
+	 * @param Percentile number between 0-99
+	 * @return percentile value or -1 if no samples
+	 */
+	static float GetPercentileValue(TArray<float>& Samples, int32 Percentile);
+
+	// IPerformanceDataConsumer interface
+	virtual void StartCharting() override;
+	virtual void ProcessFrame(const FFrameData& FrameData) override;
+	virtual void StopCharting() override;
+	// End of IPerformanceDataConsumer interface
+
+public:
+	/** Arrays of render/game/GPU and total frame times. Captured and written out if FPS charting is enabled and bFPSChartRecordPerFrameTimes is true */
+	TArray<float> RenderThreadFrameTimes;
+	TArray<float> GameThreadFrameTimes;
+	TArray<float> GPUFrameTimes;
+	TArray<float> FrameTimes;
+	TArray<int32> ActiveModes;
+
+	/** Start time of the capture */
+	const FDateTime CaptureStartTime;
+
+	/** Current context (user-specified integer stored per frame, could be used to signal game mode changes without doing discrete captures */
+	int32 CurrentModeContext;
+};
+
+#endif
+
+//////////////////////////////////////////////////////////////////////
+// FPerformanceTrackingSystem
+
+// Overall state of the built-in performance tracking
+struct ENGINE_API FPerformanceTrackingSystem
+{
+public:
+	FPerformanceTrackingSystem();
+
+	IPerformanceDataConsumer::FFrameData AnalyzeFrame(float DeltaSeconds);
+	void StartCharting();
+	void StopCharting();
+
+	/**
+	 * This will create the file name for the file we are saving out.
+	 *
+	 * @param ChartType	the type of chart we are making 
+	 * @param InMapName	the name of the map
+	 * @param FileExtension	the filename extension to append
+	 **/
+	static FString CreateFileNameForChart(const FString& ChartType, const FString& InMapName, const FString& FileExtension);
+
+	/** This will create the folder name for the output directory for FPS charts (and actually create the directory). */
+	static FString CreateOutputDirectory(const FDateTime& CaptureStartTime);
+
+	// Should we subtract off idle time spent waiting (due to running above target framerate) before thresholding into bins?
+	// (controlled by t.FPSChart.ExcludeIdleTime)
+	static bool ShouldExcludeIdleTimeFromCharts();
+
+private:
+	/** Start time of current FPS chart */
+	double FPSChartStartTime;
+
+	/** Stop time of current FPS chart */
+	double FPSChartStopTime;
+
+	/** We can't trust delta seconds if frame time clamping is enabled or if we're benchmarking so we simply calculate it ourselves. */
+	double LastTimeChartCreationTicked;
+
+	/** Keep track of our previous frame's statistics */
+	float LastDeltaSeconds;
+
+	/** Keep track of the last time we saw a hitch (used to suppress knock on hitches for a short period) */
+	double LastHitchTime;
+};

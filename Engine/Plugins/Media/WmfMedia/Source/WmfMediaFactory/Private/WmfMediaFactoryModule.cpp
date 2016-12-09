@@ -1,9 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WmfMediaFactoryPCH.h"
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/WeakObjectPtr.h"
+#include "IMediaModule.h"
+#include "IWmfMediaModule.h"
+#include "WmfMediaFactoryPrivate.h"
+#include "IMediaOptions.h"
 #include "IMediaPlayerFactory.h"
-#include "ModuleInterface.h"
+#include "WmfMediaSettings.h"
 
+#if WITH_EDITOR
+	#include "ISettingsModule.h"
+	#include "ISettingsSection.h"
+#endif
 
 DEFINE_LOG_CATEGORY(LogWmfMediaFactory);
 
@@ -142,6 +155,20 @@ public:
 		SupportedUriSchemes.Add(TEXT("rtspt"));
 		SupportedUriSchemes.Add(TEXT("rtspu"));
 
+#if WITH_EDITOR
+		// register settings
+		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
+
+		if (SettingsModule != nullptr)
+		{
+			ISettingsSectionPtr SettingsSection = SettingsModule->RegisterSettings("Project", "Plugins", "WmfMedia",
+				LOCTEXT("WmfMediaSettingsName", "WMF Media"),
+				LOCTEXT("WmfMediaSettingsDescription", "Configure the WMF Media plug-in."),
+				GetMutableDefault<UWmfMediaSettings>()
+			);
+		}
+#endif //WITH_EDITOR
+
 		// register player factory
 		auto MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
 
@@ -160,6 +187,16 @@ public:
 		{
 			MediaModule->UnregisterPlayerFactory(*this);
 		}
+
+#if WITH_EDITOR
+		// unregister settings
+		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
+
+		if (SettingsModule != nullptr)
+		{
+			SettingsModule->UnregisterSettings("Project", "Plugins", "WmfMedia");
+		}
+#endif //WITH_EDITOR
 	}
 
 private:

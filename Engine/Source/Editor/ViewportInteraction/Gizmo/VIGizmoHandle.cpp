@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ViewportInteractionModule.h"
 #include "VIGizmoHandle.h"
-#include "Public/VIBaseTransformGizmo.h"
+#include "Components/StaticMeshComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "GameFramework/WorldSettings.h"
+#include "VIBaseTransformGizmo.h"
 #include "ViewportWorldInteraction.h"
 
 UGizmoHandleGroup::UGizmoHandleGroup()

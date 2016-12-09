@@ -2,10 +2,14 @@
 
 #pragma once
 
-#include "BlueprintFunctionLibrary.h"
-#include "GenericPlatformMisc.h"
-#include "LocalNotification.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/TextProperty.h"
+#include "Engine/GameInstance.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "BlueprintPlatformLibrary.generated.h"
+
+class ILocalNotificationService;
 
 /**
  * The list of possible device/screen orientation for mobile devices
@@ -47,7 +51,7 @@ class ENGINE_API UPlatformGameInstance : public UGameInstance
 public:
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FPlatformDelegate);
-	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlatformRegisteredForRemoteNotificationsDelegate, TArray<uint8>, inArray);
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlatformRegisteredForRemoteNotificationsDelegate, const TArray<uint8>&, inArray);
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlatformRegisteredForUserNotificationsDelegate, int32, inInt);
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlatformFailedToRegisterForRemoteNotificationsDelegate, FString, inString);
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlatformReceivedRemoteNotificationDelegate, FString, inString);
@@ -159,7 +163,13 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category="Platform|LocalNotification")
 	static void ScheduleLocalNotificationFromNow(int32 inSecondsFromNow, const FText& Title, const FText& Body, const FText& Action, const FString& ActivationEvent);
-       
+    
+	/** Cancel a local notification given the ActivationEvent
+	 * @param ActivationEvent The string passed into the Schedule call for the notification to be cancelled
+	*/
+	UFUNCTION(BlueprintCallable, Category="Platform|LocalNotification")
+	static void CancelLocalNotification(const FString& ActivationEvent);
+
 	/** Get the local notification that was used to launch the app
 	 * @param NotificationLaunchedApp Return true if a notification was used to launch the app
 	 * @param ActivationEvent Returns the name of the ActivationEvent if a notification was used to launch the app

@@ -1,14 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "IMessageContext.h"
+#include "IMessageRpcHandler.h"
 #include "IMessageRpcServer.h"
-#include "MessageRpcMessages.h"
 
-class IMessageRpcHandler;
-class IMessageRpcReturn;
-class IMessageContext;
 class FMessageEndpoint;
 class FMessagingRpcModule;
+class IAsyncProgress;
+class IAsyncTask;
+struct FMessageRpcCancel;
 
 /**
  * Implements an RPC server.

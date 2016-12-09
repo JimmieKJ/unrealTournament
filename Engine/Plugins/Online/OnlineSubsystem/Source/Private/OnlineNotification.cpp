@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPrivatePCH.h"
 #include "OnlineNotification.h"
+#include "Serialization/JsonTypes.h"
 #include "JsonObjectConverter.h"
 
 FOnlineNotification::FOnlineNotification() :

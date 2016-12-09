@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "UObject/Script.h"
+#include "Misc/StringAssetReference.h"
+#include "EngineGlobals.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
+#include "Engine/Engine.h"
 
 #if WITH_EDITOR
-#include "Settings/LevelEditorPlaySettings.h" // for GetRunUnderOneProcess()
+#include "Settings/LevelEditorPlaySettings.h"
 #endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogBlueprintFuncLibrary, Log, All);

@@ -1,18 +1,40 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PluginBrowserPrivatePCH.h"
 #include "SNewPluginWizard.h"
-#include "SListView.h"
+#include "Misc/Paths.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/App.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "ModuleDescriptor.h"
+#include "PluginDescriptor.h"
+#include "Interfaces/IPluginManager.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
 #include "PluginStyle.h"
 #include "PluginHelpers.h"
 #include "DesktopPlatformModule.h"
-#include "SDockTab.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "GameProjectGenerationModule.h"
 #include "GameProjectUtils.h"
 #include "PluginBrowserModule.h"
 #include "SFilePathBlock.h"
-#include "IMainFrameModule.h"
+#include "Interfaces/IProjectManager.h"
+#include "ProjectDescriptor.h"
 
 DEFINE_LOG_CATEGORY(LogPluginWizard);
 
@@ -24,6 +46,7 @@ SNewPluginWizard::SNewPluginWizard()
 	, bIsEnginePlugin(false)
 {
 	const FText BlankTemplateName = LOCTEXT("BlankLabel", "Blank");
+	const FText ContentOnlyTemplateName = LOCTEXT("ContentOnlyLabel", "Content Only");
 	const FText BasicTemplateName = LOCTEXT("BasicTemplateTabLabel", "Toolbar Button");
 	const FText AdvancedTemplateName = LOCTEXT("AdvancedTemplateTabLabel", "Standalone Window");
 	const FText BlueprintLibTemplateName = LOCTEXT("BlueprintLibTemplateLabel", "Blueprint Library");
@@ -31,19 +54,28 @@ SNewPluginWizard::SNewPluginWizard()
 	const FText ThirdPartyTemplateName = LOCTEXT("ThirdPartyTemplateLabel", "Third Party Library");
 
 	const FText BlankDescription = LOCTEXT("BlankTemplateDesc", "Create a blank plugin with a minimal amount of code.\n\nChoose this if you want to set everything up from scratch or are making a non-visual plugin.\nA plugin created with this template will appear in the Editor's plugin list but will not register any buttons or menu entries.");
+	const FText ContentOnlyDescription = LOCTEXT("ContentOnlyTemplateDesc", "Create a blank plugin that can only contain content.");
 	const FText BasicDescription = LOCTEXT("BasicTemplateDesc", "Create a plugin that will add a button to the toolbar in the Level Editor.\n\nStart by implementing something in the created \"OnButtonClick\" event.");
 	const FText AdvancedDescription = LOCTEXT("AdvancedTemplateDesc", "Create a plugin that will add a button to the toolbar in the Level Editor that summons an empty standalone tab window when clicked.");
 	const FText BlueprintLibDescription = LOCTEXT("BPLibTemplateDesc", "Create a plugin that will contain Blueprint Function Library.\n\nChoose this if you want to create static blueprint nodes.");
 	const FText EditorModeDescription = LOCTEXT("EditorModeDesc", "Create a plugin that will have an editor mode.\n\nThis will include a toolkit example to specify UI that will appear in \"Modes\" tab (next to Foliage, Landscape etc).\nIt will also include very basic UI that demonstrates editor interaction and undo/redo functions usage.");
 	const FText ThirdPartyDescription = LOCTEXT("ThirdPartyDesc", "Create a plugin that uses an included third party library.\n\nThis can be used as an example of how to include, load and use a third party library yourself.");
 
-	Templates.Add(MakeShareable(new FPluginTemplateDescription(BlankTemplateName, BlankDescription, TEXT("Blank"))));
-	Templates.Add(MakeShareable(new FPluginTemplateDescription(BasicTemplateName, BasicDescription, TEXT("Basic"))));
-	Templates.Add(MakeShareable(new FPluginTemplateDescription(AdvancedTemplateName, AdvancedDescription, TEXT("Advanced"))));
-	Templates.Add(MakeShareable(new FPluginTemplateDescription(BlueprintLibTemplateName, BlueprintLibDescription, TEXT("BlueprintLibrary"))));
-	Templates.Add(MakeShareable(new FPluginTemplateDescription(EditorModeTemplateName, EditorModeDescription, TEXT("EditorMode"))));
-	Templates.Add(MakeShareable(new FPluginTemplateDescription(ThirdPartyTemplateName, ThirdPartyDescription, TEXT("ThirdPartyLibrary"))));
-
+    // Don't create new plugin button in content only projects as they won't compile
+    const FProjectDescriptor* CurrentProject = IProjectManager::Get().GetCurrentProject();
+    bool bIsContentOnlyProject = CurrentProject == nullptr || CurrentProject->Modules.Num() == 0 || !FGameProjectGenerationModule::Get().ProjectHasCodeFiles();
+    
+    Templates.Add(MakeShareable(new FPluginTemplateDescription(ContentOnlyTemplateName, ContentOnlyDescription, TEXT("ContentOnly"), true)));
+    if (!bIsContentOnlyProject)
+    {
+        Templates.Add(MakeShareable(new FPluginTemplateDescription(BlankTemplateName, BlankDescription, TEXT("Blank"))));
+        Templates.Add(MakeShareable(new FPluginTemplateDescription(BasicTemplateName, BasicDescription, TEXT("Basic"))));
+        Templates.Add(MakeShareable(new FPluginTemplateDescription(AdvancedTemplateName, AdvancedDescription, TEXT("Advanced"))));
+        Templates.Add(MakeShareable(new FPluginTemplateDescription(BlueprintLibTemplateName, BlueprintLibDescription, TEXT("BlueprintLibrary"))));
+        Templates.Add(MakeShareable(new FPluginTemplateDescription(EditorModeTemplateName, EditorModeDescription, TEXT("EditorMode"))));
+        Templates.Add(MakeShareable(new FPluginTemplateDescription(ThirdPartyTemplateName, ThirdPartyDescription, TEXT("ThirdPartyLibrary"))));
+    }
+    
 	AbsoluteGamePluginPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*FPaths::GamePluginsDir());
 	FPaths::MakePlatformFilename(AbsoluteGamePluginPath);
 	AbsoluteEnginePluginPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*FPaths::EnginePluginsDir());
@@ -239,19 +271,10 @@ FReply SNewPluginWizard::OnBrowseButtonClicked()
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if (DesktopPlatform)
 	{
-		void* ParentWindowWindowHandle = NULL;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if (MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid())
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		FString FolderName;
 		const FString Title = LOCTEXT("NewPluginBrowseTitle", "Choose a plugin location").ToString();
 		const bool bFolderSelected = DesktopPlatform->OpenDirectoryDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(AsShared()),
 			Title,
 			LastBrowsePath,
 			FolderName
@@ -290,8 +313,7 @@ void SNewPluginWizard::ValidateFullPluginPath()
 			bFoundValidPath = true;
 			bIsEnginePlugin = false;
 		}
-
-		if (!bFoundValidPath && !FApp::IsEngineInstalled())
+		else if (!bFoundValidPath && !FApp::IsEngineInstalled())
 		{
 			if (AbsolutePath.StartsWith(AbsoluteEnginePluginPath))
 			{
@@ -299,18 +321,9 @@ void SNewPluginWizard::ValidateFullPluginPath()
 				bIsEnginePlugin = true;
 			}
 		}
-
-		bIsNewPathValid = bFoundValidPath;
-		if (!bFoundValidPath)
+		else
 		{
-			if (FApp::IsEngineInstalled())
-			{
-				FolderPathError = LOCTEXT("InstalledPluginFolderPathError", "Plugins can only be created within your Project's Plugins folder");
-			}
-			else
-			{
-				FolderPathError = LOCTEXT("PluginFolderPathError", "Plugins can only be created within the Engine Plugins folder or your Project's Plugins folder");
-			}
+			// This path will be added to the additional plugin directories for the project when created
 		}
 	}
 
@@ -459,12 +472,21 @@ FReply SNewPluginWizard::OnCreatePluginClicked()
 
 	bool bSucceeded = true;
 
+	bool bHasModules = false;
+
+	FString PluginSourcePath = TemplateFolderName / TEXT("Source");
+	if ( FPaths::DirectoryExists(PluginSourcePath) )
+	{
+		bHasModules = true;
+	}
+
 	// Save descriptor file as .uplugin file
 	const FString UPluginFilePath = GetPluginFilenameWithPath();
-	bSucceeded = bSucceeded && WritePluginDescriptor(AutoPluginName, UPluginFilePath);
+	bSucceeded = bSucceeded && WritePluginDescriptor(AutoPluginName, UPluginFilePath, CurrentTemplate->CanContainContent, bHasModules);
 
 	// Main plugin dir
-	const FString PluginFolder = GetPluginDestinationPath().ToString() / AutoPluginName;
+	const FString BasePluginFolder = GetPluginDestinationPath().ToString();
+	const FString PluginFolder = BasePluginFolder / AutoPluginName;
 
 	// Resource folder
 	const FString ResourcesFolder = PluginFolder / TEXT("Resources");
@@ -497,6 +519,12 @@ FReply SNewPluginWizard::OnCreatePluginClicked()
 		if (!bIsEnginePlugin)
 		{
 			PluginBrowserModule.SetPluginPendingEnableState(AutoPluginName, false, true);
+			// If this path isn't in the Engine/Plugins dir and isn't in Project/Plugins dir,
+			// add the directory to the list of ones we additionally scan
+			if (!BasePluginFolder.StartsWith(FPaths::GameDir()))
+			{
+				GameProjectUtils::UpdateAdditionalPluginDirectory(BasePluginFolder, true);
+			}
 		}
 
 		FText DialogTitle = LOCTEXT("PluginCreatedTitle", "New Plugin Created");
@@ -533,7 +561,7 @@ bool SNewPluginWizard::CopyFile(const FString& DestinationFile, const FString& S
 	}
 }
 
-bool SNewPluginWizard::WritePluginDescriptor(const FString& PluginModuleName, const FString& UPluginFilePath)
+bool SNewPluginWizard::WritePluginDescriptor(const FString& PluginModuleName, const FString& UPluginFilePath, bool CanContainContent, bool HasModules)
 {
 	FPluginDescriptor Descriptor;
 
@@ -541,7 +569,11 @@ bool SNewPluginWizard::WritePluginDescriptor(const FString& PluginModuleName, co
 	Descriptor.Version = 1;
 	Descriptor.VersionName = TEXT("1.0");
 	Descriptor.Category = TEXT("Other");
-	Descriptor.Modules.Add(FModuleDescriptor(*PluginModuleName, EHostType::Developer));
+	if ( HasModules )
+	{
+		Descriptor.Modules.Add(FModuleDescriptor(*PluginModuleName, EHostType::Developer));
+	}
+	Descriptor.bCanContainContent = CanContainContent;
 
 	FText FailReason;
 	if (!Descriptor.Save(UPluginFilePath, false, FailReason))

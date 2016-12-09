@@ -4,7 +4,6 @@
 	CurveEdPresetCurve.cpp: Preset curve implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Curves/CurveEdPresetCurve.h"
 /**
  *	UCurveEdPresetCurve

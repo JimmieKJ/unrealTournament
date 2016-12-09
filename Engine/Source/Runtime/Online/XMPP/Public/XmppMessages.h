@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "XmppConnection.h"
+
 /**
  * Message received from Xmpp user/admin
  */

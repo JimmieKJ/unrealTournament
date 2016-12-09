@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "StructScriptLoader.h"
+#include "UObject/StructScriptLoader.h"
+#include "HAL/ThreadSingleton.h"
+#include "Misc/CoreMisc.h"
+#include "UObject/LinkerLoad.h"
+#include "Serialization/ArchiveScriptReferenceCollector.h"
 
 /*******************************************************************************
  * FDeferredScriptTracker

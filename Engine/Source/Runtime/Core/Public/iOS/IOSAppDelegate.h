@@ -5,6 +5,9 @@
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVAudioSession.h>
 #import <GameKit/GKGameCenterViewController.h>
+#include "Delegates/Delegate.h"
+#include "Logging/LogMacros.h"
+#include "Containers/UnrealString.h"
 
 class CORE_API FIOSCoreDelegates
 {

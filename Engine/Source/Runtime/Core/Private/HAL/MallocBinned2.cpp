@@ -4,11 +4,14 @@
 	MallocBinned.cpp: Binned memory allocator
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "HAL/MallocBinned2.h"
+#include "Logging/LogMacros.h"
+#include "Misc/ScopeLock.h"
+#include "Templates/Function.h"
+#include "GenericPlatform/GenericPlatformProcess.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
 
-#include "MallocBinned2.h"
-#include "MemoryMisc.h"
-#include "HAL/PlatformAtomics.h"
 
 #if BINNED2_ALLOW_RUNTIME_TWEAKING
 
@@ -96,6 +99,11 @@ private:	uint32      AllocSize;      // Number of bytes allocated
  public:	FFreeBlock* FirstFreeBlock; // Pointer to first free memory in this pool or the OS Allocation Size in bytes if this allocation is not binned
  public:	FPoolInfo*  Next;           // Pointer to next pool
  public:	FPoolInfo** PtrToPrevNext;  // Pointer to whichever pointer points to this pool
+
+#if PLATFORM_32BITS
+/** Explicit padding for 32 bit builds */
+private: uint8 Padding[12]; // 32
+#endif
 
 public:
 	FPoolInfo()
@@ -888,7 +896,7 @@ void FMallocBinned2::FlushCurrentThreadCache()
 	}
 }
 
-#include "TaskGraphInterfaces.h"
+#include "Async/TaskGraphInterfaces.h"
 
 void FMallocBinned2::Trim()
 {
@@ -902,7 +910,8 @@ void FMallocBinned2::Trim()
 		{
 			FlushCurrentThreadCache();
 		};
-		FTaskGraphInterface::BroadcastSlow_OnlyUseForSpecialPurposes(false, Broadcast);
+		// Skip task threads on desktop platforms as it is too slow and they don't have much memory
+		FTaskGraphInterface::BroadcastSlow_OnlyUseForSpecialPurposes(!PLATFORM_DESKTOP, false, Broadcast);
 		//UE_LOG(LogTemp, Display, TEXT("Trim Broadcast = %6.2fms"), 1000.0f * float(FPlatformTime::Seconds() - StartTime));
 	}
 	{

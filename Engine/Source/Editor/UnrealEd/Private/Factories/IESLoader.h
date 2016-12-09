@@ -3,6 +3,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class Error;
+
 /**
  * To load the IES file image format. IES files exist for many real world lights. The file stores how much light is emitted in a specific direction.
  * The data is usually measured but tools to paint IES files exist.

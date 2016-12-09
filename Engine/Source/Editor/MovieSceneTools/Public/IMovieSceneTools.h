@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
 /**
  * The public interface of the MovieSceneTools module

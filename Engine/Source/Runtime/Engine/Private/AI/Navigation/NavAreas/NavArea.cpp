@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "AI/Navigation/NavAreas/NavArea.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Modules/ModuleManager.h"
+
 
 UNavArea::UNavArea(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

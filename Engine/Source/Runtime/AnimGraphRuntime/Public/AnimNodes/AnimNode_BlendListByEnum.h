@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "AnimNode_BlendListBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AnimNodes/AnimNode_BlendListBase.h"
 #include "AnimNode_BlendListByEnum.generated.h"
 
 // Blend List by Enum, it changes based on enum input that enters

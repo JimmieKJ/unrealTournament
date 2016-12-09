@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Windows/WindowsPlatformAtomics.h"
+#include "Misc/AssertionMacros.h"
+#include "Logging/LogMacros.h"
+#include "Templates/UnrealTemplate.h"
+#include "CoreGlobals.h"
 
 
 void FWindowsPlatformAtomics::HandleAtomicsFailure( const TCHAR* InFormat, ... )

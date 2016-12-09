@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
 #include "IPlacementMode.h"
+
+class FEditorViewportClient;
+class FViewport;
+class UActorFactory;
+struct FViewportClick;
 
 class FPlacementMode : public IPlacementMode
 {

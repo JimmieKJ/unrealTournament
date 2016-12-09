@@ -1,7 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/SProjectLauncherSettings.h"
+#include "Widgets/SBoxPanel.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "EditorStyleSet.h"
+#include "Models/ProjectLauncherCommands.h"
+#include "Widgets/Shared/SProjectLauncherProfileNameDescEditor.h"
+#include "Widgets/Project/SProjectLauncherProjectPage.h"
+#include "Widgets/Build/SProjectLauncherBuildPage.h"
+#include "Widgets/Cook/SProjectLauncherCookPage.h"
+#include "Widgets/Deploy/SProjectLauncherDeployPage.h"
+#include "Widgets/Launch/SProjectLauncherLaunchPage.h"
+#include "Widgets/Package/SProjectLauncherPackagePage.h"
+#include "Widgets/Archive/SProjectLauncherArchivePage.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherSettings"
 

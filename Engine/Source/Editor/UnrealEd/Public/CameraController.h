@@ -9,6 +9,7 @@
 #ifndef __CameraController_h__
 #define __CameraController_h__
 
+#include "CoreMinimal.h"
 
 /**
  * FCameraControllerUserImpulseData

@@ -5,6 +5,9 @@
  * Primarily exists to be able to ignore time dilation during tick.
  */
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/FloatingPawnMovement.h"
 #include "SpectatorPawnMovement.generated.h"
 

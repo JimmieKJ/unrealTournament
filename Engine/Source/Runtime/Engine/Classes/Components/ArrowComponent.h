@@ -2,7 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/PrimitiveComponent.h"
 #include "ArrowComponent.generated.h"
+
+class FPrimitiveSceneProxy;
+struct FConvexVolume;
+struct FEngineShowFlags;
 
 /** 
  * A simple arrow rendered using lines. Useful for indicating which way an object is facing.

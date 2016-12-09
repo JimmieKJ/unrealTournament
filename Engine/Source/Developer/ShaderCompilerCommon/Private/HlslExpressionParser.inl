@@ -5,9 +5,14 @@
 =============================================================================*/
 
 #pragma once
-#include "ShaderCompilerCommon.h"
-#include "HlslParser.h"
-#include "HlslAST.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Set.h"
+#include "Developer/ShaderCompilerCommon/Private/HlslParser.h"
+#include "Developer/ShaderCompilerCommon/Private/HlslAST.h"
+
+class Error;
 
 namespace CrossCompiler
 {

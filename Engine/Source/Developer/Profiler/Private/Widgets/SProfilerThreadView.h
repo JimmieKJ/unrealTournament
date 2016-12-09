@@ -2,17 +2,26 @@
 
 #pragma once
 
-/*-----------------------------------------------------------------------------
-	Basic structures
------------------------------------------------------------------------------*/
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+#include "Layout/SlateRect.h"
+#include "Layout/Geometry.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "ProfilerStream.h"
 
 
-/*-----------------------------------------------------------------------------
-	Declarations
------------------------------------------------------------------------------*/
 
-/** Widget used to present thread data in the mini-view. */
-class SProfilerThreadView : public SCompoundWidget
+/**
+ * Widget used to present thread data in the mini-view.
+ */
+class SProfilerThreadView
+	: public SCompoundWidget
 {
 	enum 
 	{
@@ -163,67 +172,26 @@ public:
 	 *	Changes the position-x of the thread view.
 	 *	Called by the horizontal scroll bar.
 	 */
-	void SetPositionXToByScrollBar( double ScrollOffset ) 
-	{
-		SetPositionX( ScrollOffset*TotalRangeXMS );
-	}
-
-	void SetPositionX( double NewPositionXMS )
-	{
-		const double ClampedPositionXMS = FMath::Clamp( NewPositionXMS, 0.0, TotalRangeXMS - RangeXMS );
-		SetTimeRange( ClampedPositionXMS, ClampedPositionXMS + RangeXMS, true );
-	}
+	void SetPositionXToByScrollBar( double ScrollOffset );
+	void SetPositionX( double NewPositionXMS );
 
 	/**
 	 *	Changes the position-y of the thread view.
 	 *	Called by the external code.
 	 */
-	void SetPositonYTo( double ScrollOffset )
-	{
-
-	}
+	void SetPositonYTo( double ScrollOffset );
 
 	/** Changes the position-x and range-x of the thread view. */
-	void SetTimeRange( double StartTimeMS, double EndTimeMS, bool bBroadcast = true )
-	{
-		check( EndTimeMS > StartTimeMS );
-
-		PositionXMS = StartTimeMS;
-		RangeXMS = EndTimeMS - StartTimeMS;
-		FramesIndices = ProfilerStream->GetFramesIndicesForTimeRange( StartTimeMS, EndTimeMS );
-
-		bUpdateData = true;
-		
-		//UE_LOG( LogTemp, Log, TEXT( "StartTimeMS=%f, EndTimeMS=%f, bBroadcast=%1i FramesIndices=%3i,%3i" ), StartTimeMS, EndTimeMS, (int)bBroadcast, FramesIndices.X, FramesIndices.Y );
-		if( bBroadcast )
-		{
-			ViewPositionXChangedEvent.Broadcast( StartTimeMS, EndTimeMS, TotalRangeXMS, FramesIndices.X, FramesIndices.Y );
-		}
-	}
+	void SetTimeRange( double StartTimeMS, double EndTimeMS, bool bBroadcast = true );
 
 	/**
 	 *	Changes the position-x and range-x of the thread view. 
 	 *	Called by the mini-view.
 	 */
-	void SetFrameRange( int32 FrameStart, int32 FrameEnd )
-	{
-		const double EndTimeMS = ProfilerStream->GetElapsedFrameTimeMS( FrameEnd );
-		const double StartTimeMS = ProfilerStream->GetElapsedFrameTimeMS( FrameStart ) - ProfilerStream->GetFrameTimeMS( FrameStart );
-		SetTimeRange( StartTimeMS, EndTimeMS, true );
-	}
+	void SetFrameRange( int32 FrameStart, int32 FrameEnd );
 
 	/** Attaches profiler stream to the thread-view widgets and displays the first frame of data. */
-	void AttachProfilerStream( const FProfilerStream& InProfilerStream )
-	{
-		ProfilerStream = &InProfilerStream;
-
-		TotalRangeXMS = ProfilerStream->GetElapsedTime();
-		TotalRangeY = ProfilerStream->GetNumThreads()*FProfilerUIStream::DEFAULT_VISIBLE_THREAD_DEPTH;
-
-		// Display the first frame.
-		const FProfilerFrame* ProfilerFrame = ProfilerStream->GetProfilerFrame( 0 );
-		SetTimeRange( ProfilerFrame->Root->CycleCounterStartTimeMS, ProfilerFrame->Root->CycleCounterEndTimeMS );
-	}
+	void AttachProfilerStream( const FProfilerStream& InProfilerStream );
 
 public:
 	/** The event to execute when the position-x of the thread view has been changed. */
@@ -249,33 +217,15 @@ protected:
 	/** The event to execute when the position-y of the thread view has been changed. */
 	FViewPositionYChangedEvent ViewPositionYChangedEvent;
 
-
 protected:
-	void UpdateInternalConstants()
-	{
-		ZoomFactorX = (double)NUM_MILLISECONDS_PER_WINDOW / RangeXMS;
-		RangeY = FMath::RoundToFloat( ThisGeometry.Size.Y / (double)NUM_PIXELS_PER_ROW );
-		
-		const double Aspect = ThisGeometry.Size.X / NUM_MILLISECONDS_PER_WINDOW * ZoomFactorX;
-		NumMillisecondsPerWindow = (double)ThisGeometry.Size.X / Aspect;
-		NumPixelsPerMillisecond = (double)ThisGeometry.Size.X / NumMillisecondsPerWindow;
-		NumMillisecondsPerSample = NumMillisecondsPerWindow / (double)ThisGeometry.Size.X * (double)MIN_NUM_PIXELS_PER_SAMPLE;	
-	}
 	
-	void ProcessData();
-
 	/**
 	 * @return True, if the widget is ready to use, also means that contains at least one frame of the thread data.
 	 */
-	bool IsReady() const
-	{
-		return ProfilerStream && ProfilerStream->GetNumFrames() > 0;
-	}
-
-	bool ShouldUpdateData()
-	{
-		return bUpdateData;
-	}
+	bool IsReady() const;
+	void ProcessData();
+	bool ShouldUpdateData();
+	void UpdateInternalConstants();
 
 protected:
 

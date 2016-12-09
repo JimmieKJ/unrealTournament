@@ -4,18 +4,9 @@
 	DistanceFieldGlobalIllumination.cpp
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "UniformBuffer.h"
-#include "ShaderParameters.h"
-#include "PostProcessing.h"
-#include "SceneFilterRendering.h"
-#include "DistanceFieldLightingShared.h"
-#include "DistanceFieldSurfaceCacheLighting.h"
 #include "DistanceFieldGlobalIllumination.h"
-#include "RHICommandList.h"
-#include "SceneUtils.h"
-#include "DistanceFieldAtlas.h"
+#include "DistanceFieldLightingShared.h"
+#include "UniquePtr.h"
 
 int32 GDistanceFieldGI = 0;
 FAutoConsoleVariableRef CVarDistanceFieldGI(
@@ -376,7 +367,7 @@ private:
 
 IMPLEMENT_SHADER_TYPE(,FCullVPLsForViewCS,TEXT("DistanceFieldGlobalIllumination"),TEXT("CullVPLsForViewCS"),SF_Compute);
 
-TScopedPointer<FLightTileIntersectionResources> GVPLPlacementTileIntersectionResources;
+TUniquePtr<FLightTileIntersectionResources> GVPLPlacementTileIntersectionResources;
 
 void PlaceVPLs(
 	FRHICommandListImmediate& RHICmdList,
@@ -426,7 +417,7 @@ void PlaceVPLs(
 			{
 				ShadowBounds = DirectionalLightProxy->GetShadowSplitBoundsDepthRange(
 					View, 
-					View.ViewMatrices.ViewOrigin,
+					View.ViewMatrices.GetViewOrigin(),
 					View.NearClippingDistance, 
 					GVPLPlacementCameraRadius, 
 					&CascadeSettings);
@@ -466,7 +457,7 @@ void PlaceVPLs(
 			}
 			else
 			{
-				ShadowBounds = FSphere(View.ViewMatrices.ViewOrigin, GVPLPlacementCameraRadius);
+				ShadowBounds = FSphere(View.ViewMatrices.GetViewOrigin(), GVPLPlacementCameraRadius);
 
 				FSphere SubjectBounds(FVector::ZeroVector, ShadowBounds.W);
 
@@ -526,7 +517,7 @@ void PlaceVPLs(
 			TShaderMapRef<FVPLPlacementCS> ComputeShader(View.ShaderMap);
 
 			RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
-			ComputeShader->SetParameters(RHICmdList, View, DirectionalLightProxy, FVector2D(1.0f / GVPLGridDimension, 1.0f / GVPLGridDimension), DirectionalLightShadowToWorld, DirectionalLightShadowToWorld.InverseFast(), GVPLPlacementTileIntersectionResources);
+			ComputeShader->SetParameters(RHICmdList, View, DirectionalLightProxy, FVector2D(1.0f / GVPLGridDimension, 1.0f / GVPLGridDimension), DirectionalLightShadowToWorld, DirectionalLightShadowToWorld.InverseFast(), GVPLPlacementTileIntersectionResources.Get());
 			DispatchComputeShader(RHICmdList, *ComputeShader, FMath::DivideAndRoundUp<int32>(GVPLGridDimension, GDistanceFieldAOTileSizeX), FMath::DivideAndRoundUp<int32>(GVPLGridDimension, GDistanceFieldAOTileSizeY), 1);
 
 			ComputeShader->UnsetParameters(RHICmdList);
@@ -821,11 +812,11 @@ void UpdateVPLs(
 
 					{
 						const float ConeExpandDistance = Parameters.ObjectMaxOcclusionDistance;
-						const float TanHalfFOV = 1.0f / View.ViewMatrices.ProjMatrix.M[0][0];
+						const float TanHalfFOV = 1.0f / View.ViewMatrices.GetProjectionMatrix().M[0][0];
 						const float VertexPullbackLength = ConeExpandDistance / TanHalfFOV;
 
 						// Pull back cone vertex to contain VPLs outside of the view
-						const FVector ViewConeVertex = View.ViewMatrices.ViewOrigin - View.GetViewDirection() * VertexPullbackLength;
+						const FVector ViewConeVertex = View.ViewMatrices.GetViewOrigin() - View.GetViewDirection() * VertexPullbackLength;
 
 						//@todo - expand by AOObjectMaxDistance
 						ShadowBounds = DirectionalLightProxy->GetShadowSplitBoundsDepthRange(
@@ -880,7 +871,7 @@ void UpdateVPLs(
 				{
 					TShaderMapRef<FLightVPLsCS> ComputeShader(View.ShaderMap);
 					RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
-					ComputeShader->SetParameters(RHICmdList, View, DirectionalLightProxy, DirectionalLightWorldToShadow, Parameters, GVPLPlacementTileIntersectionResources);
+					ComputeShader->SetParameters(RHICmdList, View, DirectionalLightProxy, DirectionalLightWorldToShadow, Parameters, GVPLPlacementTileIntersectionResources.Get());
 					DispatchIndirectComputeShader(RHICmdList, *ComputeShader, GAOCulledObjectBuffers.Buffers.ObjectIndirectDispatch.Buffer, 0);
 					ComputeShader->UnsetParameters(RHICmdList);
 				}

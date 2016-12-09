@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EditorStylePrivatePCH.h"
+#include "EditorFontGlyphs.h"
 
 FText FEditorFontGlyphs::_500Px(FText::FromString(FString(TEXT("\xf26e"))));
 FText FEditorFontGlyphs::Adjust(FText::FromString(FString(TEXT("\xf042"))));

@@ -2,8 +2,18 @@
 
 #pragma once
 
-#include "SBreadcrumbTrail.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "SPluginTileList.h"
+#include "PluginBrowserPrivate.h"
 #include "SPluginCategory.h"
+
+class FActiveTimerHandle;
+class SPluginCategoryTree;
 
 /**
  * Implementation of main plugin editor Slate widget

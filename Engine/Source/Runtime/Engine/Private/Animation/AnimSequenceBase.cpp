@@ -1,16 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Animation/AnimSequenceBase.h"
 #include "AnimationUtils.h"
 #include "AnimationRuntime.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
-#include "Animation/AnimSequenceBase.h"
+#include "Animation/AnimNotifies/AnimNotifyState.h"
 #include "Animation/AnimInstance.h"
-
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "UObject/FrameworkObjectVersion.h"
 
 DEFINE_LOG_CATEGORY(LogAnimMarkerSync);
 
-
+#define LOCTEXT_NAMESPACE "AnimSequenceBase"
 /////////////////////////////////////////////////////
 
 UAnimSequenceBase::UAnimSequenceBase(const FObjectInitializer& ObjectInitializer)
@@ -39,9 +41,6 @@ void UAnimSequenceBase::PostLoad()
 		}
 	}
 
-	// Ensure notifies are sorted.
-	SortNotifies();
-
 #if WITH_EDITOR
 	InitializeNotifyTrack();
 #endif
@@ -65,6 +64,25 @@ void UAnimSequenceBase::PostLoad()
 #if WITH_EDITOR
 		VerifyCurveNames<FTransformCurve>(MySkeleton, USkeleton::AnimTrackCurveMappingName, RawCurveData.TransformCurves);
 #endif
+
+		// this should continue to add if skeleton hasn't been saved either 
+		// we don't wipe out data, so make sure you add back in if required
+		if (GetLinkerCustomVersion(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::MoveCurveTypesToSkeleton
+			|| MySkeleton->GetLinkerCustomVersion(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::MoveCurveTypesToSkeleton)
+		{
+			// fix up curve flags to skeleton
+			for (const FFloatCurve& Curve : RawCurveData.FloatCurves)
+			{
+				bool bMorphtargetSet = Curve.GetCurveTypeFlag(ACF_DriveMorphTarget_DEPRECATED);
+				bool bMaterialSet = Curve.GetCurveTypeFlag(ACF_DriveMaterial_DEPRECATED);
+
+				// only add this if that has to 
+				if (bMorphtargetSet || bMaterialSet)
+				{
+					MySkeleton->AccumulateCurveMetaData(Curve.Name.DisplayName, bMaterialSet, bMorphtargetSet);
+				}
+			}
+		}
 
 		RawCurveData.SortFloatCurvesByUID();
 	}
@@ -198,6 +216,8 @@ void UAnimSequenceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimN
 		MoveDelta = PlayRate * DeltaTime;
 
 		Context.SetLeaderDelta(MoveDelta);
+		Context.SetPreviousAnimationPositionRatio(PreviousTime / SequenceLength);
+
 		if (MoveDelta != 0.f)
 		{
 			if (Instance.bCanUseMarkerSync && Context.CanUseMarkerPosition())
@@ -232,6 +252,7 @@ void UAnimSequenceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimN
 		}
 		else
 		{
+			PreviousTime = Context.GetPreviousAnimationPositionRatio() * SequenceLength;
 			CurrentTime = Context.GetAnimationPositionRatio() * SequenceLength;
 			UE_LOG(LogAnimMarkerSync, Log, TEXT("Follower (%s) (normalized position advance) - PreviousTime (%0.2f), CurrentTime (%0.2f), MoveDelta (%0.2f), Looping (%d) "), *GetName(), PreviousTime, CurrentTime, MoveDelta, Instance.bLooping ? 1 : 0);
 		}
@@ -284,32 +305,115 @@ void UAnimSequenceBase::TickByMarkerAsLeader(FMarkerTickRecord& Instance, FMarke
 	UE_LOG(LogAnimMarkerSync, Log, TEXT("Leader (%s) - PreviousTime (%0.2f), CurrentTime (%0.2f), MoveDelta (%0.2f), Looping(%d) "), *GetName(), OutPreviousTime, CurrentTime, MoveDelta, bLooping ? 1 : 0);
 }
 
+bool CanNotifyUseTrack(const FAnimNotifyTrack& Track, const FAnimNotifyEvent& Notify)
+{
+	for (const FAnimNotifyEvent* Event : Track.Notifies)
+	{
+		if (FMath::IsNearlyEqual(Event->GetTime(), Notify.GetTime()))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+FAnimNotifyTrack& AddNewTrack(TArray<FAnimNotifyTrack>& Tracks)
+{
+	const int32 Index = Tracks.Add(FAnimNotifyTrack(*FString::FromInt(Tracks.Num() + 1), FLinearColor::White));
+	return Tracks[Index];
+}
+
 void UAnimSequenceBase::RefreshCacheData()
 {
-#if WITH_EDITOR
 	SortNotifies();
 
-	for (int32 TrackIndex=0; TrackIndex<AnimNotifyTracks.Num(); ++TrackIndex)
+#if WITH_EDITOR
+	for (int32 TrackIndex = 0; TrackIndex < AnimNotifyTracks.Num(); ++TrackIndex)
 	{
 		AnimNotifyTracks[TrackIndex].Notifies.Empty();
 	}
 
-	for (int32 NotifyIndex = 0; NotifyIndex<Notifies.Num(); ++NotifyIndex)
+	for (FAnimNotifyEvent& Notify : Notifies)
 	{
-		int32 TrackIndex = Notifies[NotifyIndex].TrackIndex;
-		if (AnimNotifyTracks.IsValidIndex(TrackIndex))
+		// Handle busted track indices
+		if (!AnimNotifyTracks.IsValidIndex(Notify.TrackIndex))
 		{
-			AnimNotifyTracks[TrackIndex].Notifies.Add(&Notifies[NotifyIndex]);
+			// This really shouldn't happen, but try to handle it
+			ensureMsgf(0, TEXT("AnimNotifyTrack: Anim (%s) has notify (%s) with track index (%i) that does not exist"), *GetFullName(), *Notify.NotifyName.ToString(), Notify.TrackIndex);
+
+			// Don't create lots of extra tracks if we are way off supporting this track
+			if (Notify.TrackIndex < 0 || Notify.TrackIndex > 20)
+			{
+				Notify.TrackIndex = 0;
+			}
+			else
+			{
+				while (!AnimNotifyTracks.IsValidIndex(Notify.TrackIndex))
+				{
+					AddNewTrack(AnimNotifyTracks);
+				}
+			}
 		}
-		else
+
+		// Handle overlapping notifies
+		FAnimNotifyTrack* TrackToUse = nullptr;
+		for (int32 TrackOffset = 0; TrackOffset < AnimNotifyTracks.Num(); ++TrackOffset)
 		{
-			// this notifyindex isn't valid, delete
-			// this should not happen, but if it doesn, find best place to add
-			ensureMsgf(0, TEXT("AnimNotifyTrack: Wrong indices found"));
-			AnimNotifyTracks[0].Notifies.Add(&Notifies[NotifyIndex]);
+			const int32 TrackIndex = (Notify.TrackIndex + TrackOffset) % AnimNotifyTracks.Num();
+			if (CanNotifyUseTrack(AnimNotifyTracks[TrackIndex], Notify))
+			{
+				TrackToUse = &AnimNotifyTracks[TrackIndex];
+				break;
+			}
 		}
+
+		if (TrackToUse == nullptr)
+		{
+			TrackToUse = &AddNewTrack(AnimNotifyTracks);
+		}
+
+		check(TrackToUse);
+
+		TrackToUse->Notifies.Add(&Notify);
 	}
 
+	// this is a separate loop of checkin if they contains valid notifies
+	for (int32 NotifyIndex = 0; NotifyIndex < Notifies.Num(); ++NotifyIndex)
+	{
+		const FAnimNotifyEvent& Notify = Notifies[NotifyIndex];
+		// make sure if they can be placed in editor
+		if (Notify.Notify)
+		{
+			if (Notify.Notify->CanBePlaced(this) == false)
+			{
+				static FName NAME_LoadErrors("LoadErrors");
+				FMessageLog LoadErrors(NAME_LoadErrors);
+
+				TSharedRef<FTokenizedMessage> Message = LoadErrors.Error();
+				Message->AddToken(FTextToken::Create(LOCTEXT("InvalidAnimNotify1", "The Animation ")));
+				Message->AddToken(FAssetNameToken::Create(GetPathName(), FText::FromString(GetNameSafe(this))));
+				Message->AddToken(FTextToken::Create(LOCTEXT("InvalidAnimNotify2", " contains invalid notify ")));
+				Message->AddToken(FAssetNameToken::Create(Notify.Notify->GetPathName(), FText::FromString(GetNameSafe(Notify.Notify))));
+				LoadErrors.Open();
+			}
+		}
+
+		if (Notify.NotifyStateClass)
+		{
+			if (Notify.NotifyStateClass->CanBePlaced(this) == false)
+			{
+				static FName NAME_LoadErrors("LoadErrors");
+				FMessageLog LoadErrors(NAME_LoadErrors);
+
+				TSharedRef<FTokenizedMessage> Message = LoadErrors.Error();
+				Message->AddToken(FTextToken::Create(LOCTEXT("InvalidAnimNotify1", "The Animation ")));
+				Message->AddToken(FAssetNameToken::Create(GetPathName(), FText::FromString(GetNameSafe(this))));
+				Message->AddToken(FTextToken::Create(LOCTEXT("InvalidAnimNotify2", " contains invalid notify ")));
+				Message->AddToken(FAssetNameToken::Create(Notify.NotifyStateClass->GetPathName(), FText::FromString(GetNameSafe(Notify.NotifyStateClass))));
+				LoadErrors.Open();
+			}
+		}
+	}
 	// notification broadcast
 	OnNotifyChanged.Broadcast();
 #endif //WITH_EDITOR
@@ -447,6 +551,63 @@ uint8* UAnimSequenceBase::FindArrayProperty(const TCHAR* PropName, UArrayPropert
 	}
 	return NULL;
 }
+
+void UAnimSequenceBase::RefreshParentAssetData()
+{
+	Super::RefreshParentAssetData();
+
+	check(ParentAsset);
+
+	UAnimSequenceBase* ParentSeqBase = CastChecked<UAnimSequenceBase>(ParentAsset);
+
+	// should do deep copy because notify contains outer
+	Notifies = ParentSeqBase->Notifies;
+
+	// update notify
+	for (int32 NotifyIdx = 0; NotifyIdx < Notifies.Num(); ++NotifyIdx)
+	{
+		FAnimNotifyEvent& NotifyEvent = Notifies[NotifyIdx];
+		if (NotifyEvent.Notify)
+		{
+			class UAnimNotify* NewNotifyClass = DuplicateObject(NotifyEvent.Notify, this);
+			NotifyEvent.Notify = NewNotifyClass;
+		}
+		if (NotifyEvent.NotifyStateClass)
+		{
+			class UAnimNotifyState* NewNotifyStateClass = DuplicateObject(NotifyEvent.NotifyStateClass, this);
+			NotifyEvent.NotifyStateClass = (NewNotifyStateClass);
+		}
+
+		NotifyEvent.Link(this, NotifyEvent.GetTime(), NotifyEvent.GetSlotIndex());
+		NotifyEvent.EndLink.Link(this, NotifyEvent.GetTime() + NotifyEvent.Duration, NotifyEvent.GetSlotIndex());
+	}
+
+	SequenceLength = ParentSeqBase->SequenceLength;
+	RateScale = ParentSeqBase->RateScale;
+	RawCurveData = ParentSeqBase->RawCurveData;
+
+#if WITH_EDITORONLY_DATA
+	// if you change Notifies array, this will need to be rebuilt
+	AnimNotifyTracks = ParentSeqBase->AnimNotifyTracks;
+
+	// fix up notify links, brute force and ugly code
+	for (FAnimNotifyTrack& Track : AnimNotifyTracks)
+	{
+		for (FAnimNotifyEvent*& Notify : Track.Notifies)
+		{
+			for (int32 ParentNotifyIdx = 0; ParentNotifyIdx < ParentSeqBase->Notifies.Num(); ++ParentNotifyIdx)
+			{
+				if (Notify == &ParentSeqBase->Notifies[ParentNotifyIdx])
+				{
+					Notify = &Notifies[ParentNotifyIdx];
+					break;
+				}
+			}
+		}
+	}
+#endif // WITH_EDITORONLY_DATA
+
+}
 #endif	//WITH_EDITOR
 
 
@@ -458,17 +619,12 @@ void UAnimSequenceBase::EvaluateCurveData(FBlendedCurve& OutCurve, float Current
 
 void UAnimSequenceBase::Serialize(FArchive& Ar)
 {
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+
 	Super::Serialize(Ar);
 
 	// fix up version issue and so on
 	RawCurveData.PostSerialize(Ar);
-}
-
-void UAnimSequenceBase::OnAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, class UAnimInstance* InAnimInstance) const
-{
-	// @todo: remove after deprecation
-	// forward to non-deprecated version
-	HandleAssetPlayerTickedInternal(Context, PreviousTime, MoveDelta, Instance, InAnimInstance->NotifyQueue);
 }
 
 void UAnimSequenceBase::HandleAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, struct FAnimNotifyQueue& NotifyQueue) const
@@ -481,3 +637,4 @@ void UAnimSequenceBase::HandleAssetPlayerTickedInternal(FAnimAssetTickContext &C
 		NotifyQueue.AddAnimNotifies(AnimNotifies, Instance.EffectiveBlendWeight);
 	}
 }
+#undef LOCTEXT_NAMESPACE 

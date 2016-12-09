@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "PropertyEditorConstants.h"
+#include "CoreMinimal.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Fonts/SlateFontInfo.h"
+#include "EditorStyleSet.h"
+#include "UserInterface/PropertyEditor/PropertyEditorConstants.h"
 
-class UProperty;
+class FPropertyEditor;
+class IPropertyHandle;
 
 class SPropertyEditorArrayItem : public SCompoundWidget
 {

@@ -93,20 +93,27 @@ namespace AutomationTool
 			ScriptCommands = new CaselessDictionary<Type>();
 			foreach (var CompiledScripts in ScriptAssemblies)
 			{
-				foreach (var ClassType in CompiledScripts.GetTypes())
+				try
 				{
-					if (ClassType.IsSubclassOf(typeof(BuildCommand)) && ClassType.IsAbstract == false)
+					foreach (var ClassType in CompiledScripts.GetTypes())
 					{
-						if (ScriptCommands.ContainsKey(ClassType.Name) == false)
+						if (ClassType.IsSubclassOf(typeof(BuildCommand)) && ClassType.IsAbstract == false)
 						{
-							ScriptCommands.Add(ClassType.Name, ClassType);
-						}
-						else
-						{
-							Log.TraceWarning("Unable to add command {0} twice. Previous: {1}, Current: {2}", ClassType.Name,
-								ClassType.AssemblyQualifiedName, ScriptCommands[ClassType.Name].AssemblyQualifiedName);
+							if (ScriptCommands.ContainsKey(ClassType.Name) == false)
+							{
+								ScriptCommands.Add(ClassType.Name, ClassType);
+							}
+							else
+							{
+								Log.TraceWarning("Unable to add command {0} twice. Previous: {1}, Current: {2}", ClassType.Name,
+									ClassType.AssemblyQualifiedName, ScriptCommands[ClassType.Name].AssemblyQualifiedName);
+							}
 						}
 					}
+				}
+				catch (Exception Ex)
+				{
+					throw new AutomationException("Failed to add commands from {0}. {1}", CompiledScripts, Ex);
 				}
 			}
 		}

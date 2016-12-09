@@ -138,7 +138,11 @@ struct limits <char>
     static char			epsilon()	{return 1;}
     static bool			isIntegral()	{return true;}
     // BEGIN EPIC MOD
+#ifdef _MSC_VER
     static bool			isSigned()	{ CA_SUPPRESS(6326); return (char) ~0 < 0;}
+#else
+	static bool			isSigned()	{ return (char) ~0 < 0;}
+#endif
     // END EPIC MOD
 };
 

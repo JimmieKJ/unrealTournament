@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DirectoryWatcherPrivatePCH.h"
 #include "FileCache.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "HAL/Runnable.h"
+#include "Misc/ScopeLock.h"
+#include "Serialization/CustomVersion.h"
 #include "DirectoryWatcherModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 namespace DirectoryWatcher
 {

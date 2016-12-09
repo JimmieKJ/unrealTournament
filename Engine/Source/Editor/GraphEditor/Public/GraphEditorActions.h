@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Framework/Commands/Commands.h"
 #include "EditorStyleSet.h"
 
 class FGraphEditorCommandsImpl : public TCommands<FGraphEditorCommandsImpl>
@@ -117,6 +118,10 @@ public:
 	// options for blendspace sequence/evaluator converter
 	TSharedPtr< FUICommandInfo > ConvertToBSEvaluator;
 	TSharedPtr< FUICommandInfo > ConvertToBSPlayer;
+
+	// options for aimoffset converter
+	TSharedPtr< FUICommandInfo > ConvertToAimOffsetLookAt;
+	TSharedPtr< FUICommandInfo > ConvertToAimOffsetSimple;
 
 	// options for sequence/evaluator converter
 	TSharedPtr< FUICommandInfo > ConvertToPoseBlender;

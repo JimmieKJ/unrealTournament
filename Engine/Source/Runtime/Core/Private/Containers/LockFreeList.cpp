@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "LockFreeList.h"
+#include "Containers/LockFreeList.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/IConsoleManager.h"
 
 
 DEFINE_LOG_CATEGORY(LogLockFreeList);

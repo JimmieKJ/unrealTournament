@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "VoicePrivatePCH.h"
 #include "VoiceModule.h"
-#include "VoiceCapture.h"
-#include "VoiceCodec.h"
+#include "Misc/ConfigCacheIni.h"
+#include "VoicePrivate.h"
 
 IMPLEMENT_MODULE(FVoiceModule, Voice);
 

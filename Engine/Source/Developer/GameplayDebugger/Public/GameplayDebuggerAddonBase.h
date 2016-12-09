@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "GameplayDebuggerTypes.h"
-#include "GameplayDebuggerCategoryReplicator.h"
+
+class AActor;
+class AGameplayDebuggerCategoryReplicator;
 
 class GAMEPLAYDEBUGGER_API FGameplayDebuggerAddonBase : public TSharedFromThis<FGameplayDebuggerAddonBase>
 {

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 struct UMG_API FSlateVectorArtInstanceData
 {

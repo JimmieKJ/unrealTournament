@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
-#include "AnimNode_AnimDynamics.h"
+#include "BoneControllers/AnimNode_AnimDynamics.h"
+#include "GameFramework/WorldSettings.h"
 #include "Animation/AnimInstanceProxy.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 
@@ -135,47 +135,6 @@ void FAnimNode_AnimDynamics::EvaluateBoneTransforms(USkeletalMeshComponent* Skel
 
 		if (bDoUpdate && NextTimeStep > 0.0f)
 		{
-			// Wind / Force update
-			if(CVarEnableWind.GetValueOnAnyThread() == 1 && bEnableWind)
-			{
-				SCOPE_CYCLE_COUNTER(STAT_AnimDynamicsWindData);
-
-				for(FAnimPhysRigidBody* Body : BaseBodyPtrs)
-				{
-					if(SkelComp && SkelComp->GetWorld())
-					{
-						Body->bWindEnabled = bEnableWind;
-
-						if(Body->bWindEnabled)
-						{
-							UWorld* World = SkelComp->GetWorld();
-							FSceneInterface* Scene = World->Scene;
-
-							// Unused by our simulation but needed for the call to GetWindParameters below
-							float WindMinGust;
-							float WindMaxGust;
-
-							// Setup wind data
-							Body->bWindEnabled = true;
-							Scene->GetWindParameters(SkelComp->ComponentToWorld.TransformPosition(Body->Pose.Position), Body->WindData.WindDirection, Body->WindData.WindSpeed, WindMinGust, WindMaxGust);
-
-							Body->WindData.WindDirection = SkelComp->ComponentToWorld.Inverse().TransformVector(Body->WindData.WindDirection);
-							Body->WindData.WindAdaption = FMath::FRandRange(0.0f, 2.0f);
-							Body->WindData.BodyWindScale = WindScale;
-						}
-					}
-				}
-			}
-			else
-			{
-				SCOPE_CYCLE_COUNTER(STAT_AnimDynamicsWindData);
-				// Disable wind.
-				for(FAnimPhysRigidBody* Body : BaseBodyPtrs)
-				{
-					Body->bWindEnabled = false;
-				}
-			}
-
 			FVector OrientedExternalForce = ExternalForce;
 			if(!OrientedExternalForce.IsNearlyZero())
 			{
@@ -316,7 +275,7 @@ void FAnimNode_AnimDynamics::GatherDebugData(FNodeDebugData& DebugData)
 	DebugLine += FString::Printf(TEXT("(Alpha: %.1f%%)"), ActualBiasedAlpha*100.f);
 
 	DebugData.AddDebugItem(DebugLine);
-	ComponentPose.GatherDebugData(DebugData.BranchFlow(1.f));
+	ComponentPose.GatherDebugData(DebugData);
 }
 
 bool FAnimNode_AnimDynamics::IsValidToEvaluate(const USkeleton* Skeleton, const FBoneContainer& RequiredBones)
@@ -515,6 +474,7 @@ void FAnimNode_AnimDynamics::InitPhysics(USkeletalMeshComponent* Component, FCSP
 		}
 
 		PhysicsBody.GravityScale = GravityScale;
+		PhysicsBody.bWindEnabled = bWindWasEnabled;
 
 		// Link to parent
 		if (Bodies.Num() > 0)
@@ -730,6 +690,45 @@ void FAnimNode_AnimDynamics::PreUpdate(const UAnimInstance* InAnimInstance)
 	const UWorld* World = SkelComp->GetWorld();
 	check(World->GetWorldSettings());
 	CurrentTimeDilation = World->GetWorldSettings()->GetEffectiveTimeDilation();
+	if(CVarEnableWind.GetValueOnAnyThread() == 1 && bEnableWind)
+	{
+		SCOPE_CYCLE_COUNTER(STAT_AnimDynamicsWindData);
+
+		for(FAnimPhysRigidBody* Body : BaseBodyPtrs)
+		{
+			if(SkelComp && SkelComp->GetWorld())
+			{
+				Body->bWindEnabled = bEnableWind;
+
+				if(Body->bWindEnabled)
+				{
+					FSceneInterface* Scene = World->Scene;
+
+					// Unused by our simulation but needed for the call to GetWindParameters below
+					float WindMinGust;
+					float WindMaxGust;
+
+					// Setup wind data
+					Body->bWindEnabled = true;
+					Scene->GetWindParameters_GameThread(SkelComp->ComponentToWorld.TransformPosition(Body->Pose.Position), Body->WindData.WindDirection, Body->WindData.WindSpeed, WindMinGust, WindMaxGust);
+
+					Body->WindData.WindDirection = SkelComp->ComponentToWorld.Inverse().TransformVector(Body->WindData.WindDirection);
+					Body->WindData.WindAdaption = FMath::FRandRange(0.0f, 2.0f);
+					Body->WindData.BodyWindScale = WindScale;
+				}
+			}
+		}
+	}
+	else if (bWindWasEnabled)
+	{
+		SCOPE_CYCLE_COUNTER(STAT_AnimDynamicsWindData);
+	
+		bWindWasEnabled = false;
+		for(FAnimPhysRigidBody* Body : BaseBodyPtrs)
+		{
+			Body->bWindEnabled = false;
+		}
+	}
 }
 
 FTransform FAnimNode_AnimDynamics::GetBoneTransformInSimSpace(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, const FCompactPoseBoneIndex& BoneIndex)

@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+enum class ECheckBoxState : uint8;
+
 /* FMacShaderFormatsPropertyDetails
  *****************************************************************************/
 

@@ -2,6 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "BspModeModule.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Misc/NotifyHook.h"
+
+class IDetailsView;
+class ITableRow;
+class STableViewBase;
+class UBrushBuilder;
+struct FSlateBrush;
+enum class ECheckBoxState : uint8;
+
 class SBspPalette : public SCompoundWidget, public FNotifyHook
 {
 public:

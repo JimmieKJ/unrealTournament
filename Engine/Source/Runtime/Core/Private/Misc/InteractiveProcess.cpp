@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
 #include "Misc/InteractiveProcess.h"
+#include "HAL/RunnableThread.h"
+
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
 
 static FORCEINLINE bool CreatePipeWrite(void*& ReadPipe, void*& WritePipe)
 {

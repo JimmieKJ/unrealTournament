@@ -1,23 +1,37 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
-
 #include "SAnimNotifyPanel.h"
-#include "ScopedTransaction.h"
-#include "SCurveEditor.h"
-#include "Editor/KismetWidgets/Public/SScrubWidget.h"
-#include "AssetRegistryModule.h"
-#include "Editor/UnrealEd/Public/AssetNotifications.h"
-#include "AssetSelection.h"
-#include "STextEntryPopup.h"
-#include "SExpandableArea.h"
+#include "Rendering/DrawElements.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Animation/AnimSequence.h"
 #include "Toolkits/AssetEditorManager.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Widgets/Input/SButton.h"
+#include "Animation/AnimMontage.h"
+#include "Animation/EditorNotifyObject.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "ScopedTransaction.h"
+#include "AssetRegistryModule.h"
+#include "AssetSelection.h"
+#include "Widgets/Input/STextEntryPopup.h"
+#include "Widgets/Layout/SExpandableArea.h"
 #include "BlueprintActionDatabase.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
-#include "Animation/AnimSequence.h"
-#include "SAnimTimingPanel.h"
+#include "TabSpawners.h"
 
 // Track Panel drawing
 const float NotificationTrackHeight = 20.0f;
@@ -581,8 +595,7 @@ class SAnimNotifyTrack : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS( SAnimNotifyTrack )
-		: _Persona()
-		, _Sequence(NULL)
+		: _Sequence(NULL)
 		, _ViewInputMin()
 		, _ViewInputMax()
 		, _TrackIndex()
@@ -608,7 +621,6 @@ public:
 		, _OnSetInputViewRange()
 		{}
 
-		SLATE_ARGUMENT( TSharedPtr<FPersona>,	Persona )
 		SLATE_ARGUMENT( class UAnimSequenceBase*, Sequence )
 		SLATE_ARGUMENT( TArray<FAnimNotifyEvent *>, AnimNotifies )
 		SLATE_ARGUMENT( TArray<FAnimSyncMarker *>, AnimSyncMarkers)
@@ -639,6 +651,7 @@ public:
 		SLATE_EVENT(FPasteNodes, OnPasteNodes)
 		SLATE_EVENT( FOnSetInputViewRange, OnSetInputViewRange )
 		SLATE_EVENT( FOnGetTimingNodeVisibility, OnGetTimingNodeVisibility )
+		SLATE_EVENT(FOnInvokeTab, OnInvokeTab)
 		SLATE_END_ARGS()
 public:
 
@@ -741,6 +754,7 @@ protected:
 	// "Replace with... " commands
 	void ReplaceSelectedWithBlueprintNotify(FString NewNotifyName, FString BlueprintPath);
 	void ReplaceSelectedWithNotify(FString NewNotifyName, UClass* NotifyClass);
+	bool IsValidToPlace(UClass* NotifyClass) const;
 	void OnSetNodeTimeClicked(int32 NodeIndex);
 	void SetNodeTime(const FText& NodeTimeText, ETextCommit::Type CommitInfo, int32 NodeIndex);
 	void OnSetNodeFrameClicked(int32 NodeIndex);
@@ -821,6 +835,7 @@ private:
 	{
 		FString NotifyName;
 		FString BlueprintPath;
+		UClass* BaseClass;
 	};
 
 	// Format notify asset data into the information needed for menu display
@@ -894,8 +909,9 @@ protected:
 	FReplaceWithNotify						OnReplaceSelectedWithNotify;
 	FReplaceWithBlueprintNotify				OnReplaceSelectedWithBlueprintNotify;
 
+	FOnInvokeTab							OnInvokeTab;
+
 	TSharedPtr<SBorder>						TrackArea;
-	TWeakPtr<FPersona>						PersonaPtr;
 
 	/** Cache the SOverlay used to store all this tracks nodes */
 	TSharedPtr<SOverlay> NodeSlots;
@@ -965,6 +981,7 @@ public:
 	SLATE_EVENT( FPasteNodes, OnPasteNodes )
 	SLATE_EVENT( FOnSetInputViewRange, OnSetInputViewRange )
 	SLATE_EVENT( FOnGetTimingNodeVisibility, OnGetTimingNodeVisibility )
+	SLATE_EVENT(FOnInvokeTab, OnInvokeTab)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
@@ -2051,7 +2068,6 @@ void SAnimNotifyTrack::Construct(const FArguments& InArgs)
 	FAnimSequenceEditorCommands::Register();
 	CreateCommands();
 
-	PersonaPtr = InArgs._Persona;
 	Sequence = InArgs._Sequence;
 	ViewInputMin = InArgs._ViewInputMin;
 	ViewInputMax = InArgs._ViewInputMax;
@@ -2080,6 +2096,7 @@ void SAnimNotifyTrack::Construct(const FArguments& InArgs)
 	OnPasteNodes = InArgs._OnPasteNodes;
 	OnSetInputViewRange = InArgs._OnSetInputViewRange;
 	OnGetTimingNodeVisibility = InArgs._OnGetTimingNodeVisibility;
+	OnInvokeTab = InArgs._OnInvokeTab;
 
 	this->ChildSlot
 	[
@@ -2119,12 +2136,14 @@ int32 SAnimNotifyTrack::OnPaint(const FPaintArgs& Args, const FGeometry& Allotte
 
 	// draw line for every 1/4 length
 	FTrackScaleInfo ScaleInfo(ViewInputMin.Get(), ViewInputMax.Get(), 0.f, 0.f, AllottedGeometry.Size);
-	if (Sequence->GetNumberOfFrames() > 0 )
+	const int32 NumOfFrames = Sequence->GetNumberOfFrames();
+	if (NumOfFrames > 0)
 	{
 		int32 Divider = SScrubWidget::GetDivider( ViewInputMin.Get(), ViewInputMax.Get(), AllottedGeometry.Size, Sequence->SequenceLength, Sequence->GetNumberOfFrames());
+		const FAnimKeyHelper Helper(Sequence->SequenceLength, NumOfFrames);
 
-		float TimePerKey = Sequence->SequenceLength/(float)Sequence->GetNumberOfFrames();
-		for (int32 I=1; I<Sequence->GetNumberOfFrames(); ++I)
+		float TimePerKey = Helper.TimePerKey();
+		for (int32 I=1; I<Helper.GetNumKeys(); ++I)
 		{
 			if ( I % Divider == 0 )
 			{
@@ -2294,6 +2313,9 @@ void SAnimNotifyTrack::FillNewNotifyStateMenu(FMenuBuilder& MenuBuilder, bool bI
 				this, &SAnimNotifyTrack::CreateNewBlueprintNotifyAtCursor,
 				NotifyData.NotifyName,
 				NotifyData.BlueprintPath);
+			UIAction.CanExecuteAction.BindRaw(
+				this, &SAnimNotifyTrack::IsValidToPlace,
+				NotifyData.BaseClass);
 		}
 		else
 		{
@@ -2302,6 +2324,9 @@ void SAnimNotifyTrack::FillNewNotifyStateMenu(FMenuBuilder& MenuBuilder, bool bI
 				this, &SAnimNotifyTrack::ReplaceSelectedWithBlueprintNotify,
 				NotifyData.NotifyName,
 				NotifyData.BlueprintPath);
+			UIAction.CanExecuteAction.BindRaw(
+				this, &SAnimNotifyTrack::IsValidToPlace,
+				NotifyData.BaseClass);
 		}
 
 		MenuBuilder.AddMenuEntry(LabelText, Description, FSlateIcon(), UIAction);
@@ -2327,12 +2352,18 @@ void SAnimNotifyTrack::FillNewNotifyStateMenu(FMenuBuilder& MenuBuilder, bool bI
 					this, &SAnimNotifyTrack::CreateNewNotifyAtCursor,
 					Label,
 					Class);
+				UIAction.CanExecuteAction.BindRaw(
+					this, &SAnimNotifyTrack::IsValidToPlace,
+					Class);
 			}
 			else
 			{
 				UIAction.ExecuteAction.BindRaw(
 					this, &SAnimNotifyTrack::ReplaceSelectedWithNotify,
 					Label,
+					Class);
+				UIAction.CanExecuteAction.BindRaw(
+					this, &SAnimNotifyTrack::IsValidToPlace,
 					Class);
 			}
 
@@ -2366,6 +2397,9 @@ void SAnimNotifyTrack::FillNewNotifyMenu(FMenuBuilder& MenuBuilder, bool bIsRepl
 				this, &SAnimNotifyTrack::CreateNewBlueprintNotifyAtCursor,
 				NotifyData.NotifyName,
 				NotifyData.BlueprintPath);
+			UIAction.CanExecuteAction.BindRaw(
+				this, &SAnimNotifyTrack::IsValidToPlace,
+				NotifyData.BaseClass);
 		}
 		else
 		{
@@ -2374,6 +2408,9 @@ void SAnimNotifyTrack::FillNewNotifyMenu(FMenuBuilder& MenuBuilder, bool bIsRepl
 				this, &SAnimNotifyTrack::ReplaceSelectedWithBlueprintNotify,
 				NotifyData.NotifyName,
 				NotifyData.BlueprintPath);
+			UIAction.CanExecuteAction.BindRaw(
+				this, &SAnimNotifyTrack::IsValidToPlace,
+				NotifyData.BaseClass);
 		}
 		
 		MenuBuilder.AddMenuEntry(LabelText, Description, FSlateIcon(), UIAction);
@@ -2400,6 +2437,9 @@ void SAnimNotifyTrack::FillNewNotifyMenu(FMenuBuilder& MenuBuilder, bool bIsRepl
 					this, &SAnimNotifyTrack::CreateNewNotifyAtCursor,
 					Label,
 					Class);
+				UIAction.CanExecuteAction.BindRaw(
+					this, &SAnimNotifyTrack::IsValidToPlace,
+					Class);
 			}
 			else
 			{
@@ -2407,6 +2447,9 @@ void SAnimNotifyTrack::FillNewNotifyMenu(FMenuBuilder& MenuBuilder, bool bIsRepl
 				UIAction.ExecuteAction.BindRaw(
 					this, &SAnimNotifyTrack::ReplaceSelectedWithNotify,
 					Label,
+					Class);
+				UIAction.CanExecuteAction.BindRaw(
+					this, &SAnimNotifyTrack::IsValidToPlace,
 					Class);
 			}
 
@@ -2600,6 +2643,22 @@ void SAnimNotifyTrack::ReplaceSelectedWithNotify(FString NewNotifyName, UClass* 
 	OnReplaceSelectedWithNotify.ExecuteIfBound(NewNotifyName, NotifyClass);
 }
 
+bool SAnimNotifyTrack::IsValidToPlace(UClass* NotifyClass) const
+{
+	if (NotifyClass && NotifyClass->IsChildOf(UAnimNotify::StaticClass()))
+	{
+		UAnimNotify* DefaultNotify = NotifyClass->GetDefaultObject<UAnimNotify>();
+		return DefaultNotify->CanBePlaced(Sequence);
+	}
+
+	if (NotifyClass && NotifyClass->IsChildOf(UAnimNotifyState::StaticClass()))
+	{
+		UAnimNotifyState* DefaultNotifyState = NotifyClass->GetDefaultObject<UAnimNotifyState>();
+		return DefaultNotifyState->CanBePlaced(Sequence);
+	}
+
+	return true;
+}
 
 TSubclassOf<UObject> SAnimNotifyTrack::GetBlueprintClassFromPath(FString BlueprintPath)
 {
@@ -2982,11 +3041,7 @@ void SAnimNotifyTrack::OnPasteNotifyClicked(ENotifyPasteMode::Type PasteMode, EN
 
 void SAnimNotifyTrack::OnManageNotifies()
 {
-	TSharedPtr< FPersona > PersonalPin = PersonaPtr.Pin();
-	if( PersonalPin.IsValid() )
-	{
-		PersonalPin->GetTabManager()->InvokeTab( FPersonaTabs::SkeletonAnimNotifiesID );
-	}
+	OnInvokeTab.ExecuteIfBound(FPersonaTabs::SkeletonAnimNotifiesID);
 }
 
 void SAnimNotifyTrack::OnOpenNotifySource(UBlueprint* InSourceBlueprint) const
@@ -3493,10 +3548,12 @@ void SAnimNotifyTrack::PasteSingleNotify(FString& NotifyString, float PasteTime)
 		NewNotify.TriggerTimeOffset = GetTriggerTimeOffsetForType(Sequence->CalculateOffsetForNotify(NewNotify.GetTime()));
 		NewNotify.TrackIndex = TrackIndex;
 
+		bool bValidNotify = true;
 		if(NewNotify.Notify)
 		{
 			UAnimNotify* NewNotifyObject = Cast<UAnimNotify>(StaticDuplicateObject(NewNotify.Notify, Sequence));
 			check(NewNotifyObject);
+			bValidNotify = NewNotifyObject->CanBePlaced(Sequence);
 			NewNotify.Notify = NewNotifyObject;
 		}
 		else if(NewNotify.NotifyStateClass)
@@ -3504,11 +3561,19 @@ void SAnimNotifyTrack::PasteSingleNotify(FString& NotifyString, float PasteTime)
 			UAnimNotifyState* NewNotifyStateObject = Cast<UAnimNotifyState>(StaticDuplicateObject(NewNotify.NotifyStateClass, Sequence));
 			check(NewNotifyStateObject);
 			NewNotify.NotifyStateClass = NewNotifyStateObject;
-
+			bValidNotify = NewNotifyStateObject->CanBePlaced(Sequence);
 			// Clamp duration into the sequence
 			NewNotify.SetDuration(FMath::Clamp(NewNotify.GetDuration(), 1 / 30.0f, Sequence->SequenceLength - NewNotify.GetTime()));
 			NewNotify.EndTriggerTimeOffset = GetTriggerTimeOffsetForType(Sequence->CalculateOffsetForNotify(NewNotify.GetTime() + NewNotify.GetDuration()));
 			NewNotify.EndLink.Link(Sequence, NewNotify.EndLink.GetTime());
+		}
+
+		if (!bValidNotify)
+		{
+			// Paste failed, remove the notify
+			Sequence->Notifies.RemoveAt(NewIdx);
+
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("FailedToPaste", "The notify is not allowed to be in this asset."));
 		}
 	}
 	else
@@ -3629,6 +3694,15 @@ void SAnimNotifyTrack::GetNotifyMenuData(TArray<FAssetData>& NotifyAssetData, TA
 
 		MenuInfo.BlueprintPath = NotifyData.ObjectPath.ToString();
 		MenuInfo.NotifyName = MakeBlueprintNotifyName(NotifyData);
+		// this functionality is only available in native class
+		// so we don't have to call BP function but just call native on the check of validity
+		FString NativeParentClassName;
+		if (NotifyData.GetTagValue("NativeParentClass", NativeParentClassName))
+		{
+			UObject* Outer = nullptr;
+			ResolveName(Outer, NativeParentClassName, false, false);
+			MenuInfo.BaseClass = FindObject<UClass>(ANY_PACKAGE, *NativeParentClassName);
+		}
 	}
 
 	OutNotifyMenuData.Sort([](const BlueprintNotifyMenuInfo& A, const BlueprintNotifyMenuInfo& B)
@@ -3681,6 +3755,7 @@ void SAnimNotifyTrack::SetNodeTime(const FText& NodeTimeText, ETextCommit::Type 
 					Event->RefreshEndTriggerOffset(Sequence->CalculateOffsetForNotify(Event->GetTime() + Event->GetDuration()));
 				}
 			}
+			OnUpdatePanel.ExecuteIfBound();
 		}
 	}
 
@@ -3735,6 +3810,7 @@ void SAnimNotifyTrack::SetNodeFrame(const FText& NodeFrameText, ETextCommit::Typ
 					Event->RefreshEndTriggerOffset(Sequence->CalculateOffsetForNotify(Event->GetTime() + Event->GetDuration()));
 				}
 			}
+			OnUpdatePanel.ExecuteIfBound();
 		}
 	}
 
@@ -3792,7 +3868,6 @@ void SNotifyEdTrack::Construct(const FArguments& InArgs)
 			[
 				// Notification editor panel
 				SAssignNew(NotifyTrack, SAnimNotifyTrack)
-				.Persona(PanelRef->GetPersona().Pin())
 				.Sequence(Sequence)
 				.TrackIndex(TrackIndex)
 				.AnimNotifies(Track.Notifies)
@@ -3821,6 +3896,7 @@ void SNotifyEdTrack::Construct(const FArguments& InArgs)
 				.OnPasteNodes(InArgs._OnPasteNodes)
 				.OnSetInputViewRange(InArgs._OnSetInputViewRange)
 				.OnGetTimingNodeVisibility(InArgs._OnGetTimingNodeVisibility)
+				.OnInvokeTab(InArgs._OnInvokeTab)
 			]
 
 			+SHorizontalBox::Slot()
@@ -3882,7 +3958,7 @@ void FAnimNotifyPanelCommands::RegisterCommands()
 //////////////////////////////////////////////////////////////////////////
 // SAnimNotifyPanel
 
-void SAnimNotifyPanel::Construct(const FArguments& InArgs)
+void SAnimNotifyPanel::Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnPostUndo)
 {
 	SAnimTrackPanel::Construct( SAnimTrackPanel::FArguments()
 		.WidgetWidth(InArgs._WidgetWidth)
@@ -3892,9 +3968,10 @@ void SAnimNotifyPanel::Construct(const FArguments& InArgs)
 		.InputMax(InArgs._InputMax)
 		.OnSetInputViewRange(InArgs._OnSetInputViewRange));
 
-	PersonaPtr = InArgs._Persona;
 	Sequence = InArgs._Sequence;
 	MarkerBars = InArgs._MarkerBars;
+	OnAnimNotifiesChanged = InArgs._OnAnimNotifiesChanged;
+	OnInvokeTab = InArgs._OnInvokeTab;
 
 	FAnimNotifyPanelCommands::Register();
 	BindCommands();
@@ -3904,8 +3981,8 @@ void SAnimNotifyPanel::Construct(const FArguments& InArgs)
 	// the function name in that case will need to change
 	Sequence->InitializeNotifyTrack();
 	Sequence->RegisterOnNotifyChanged(UAnimSequenceBase::FOnNotifyChanged::CreateSP( this, &SAnimNotifyPanel::RefreshNotifyTracks )  );
-	PersonaPtr.Pin()->RegisterOnPostUndo(FPersona::FOnPostUndo::CreateSP( this, &SAnimNotifyPanel::PostUndo ) );
-	PersonaPtr.Pin()->RegisterOnGenericDelete(FPersona::FOnDeleteGeneric::CreateSP(this, &SAnimNotifyPanel::OnDeletePressed));
+
+	OnPostUndo.Add(FSimpleDelegate::CreateSP( this, &SAnimNotifyPanel::PostUndo ) );
 
 	CurrentPosition = InArgs._CurrentPosition;
 	OnSelectionChanged = InArgs._OnSelectionChanged;
@@ -3975,11 +4052,6 @@ void SAnimNotifyPanel::Construct(const FArguments& InArgs)
 SAnimNotifyPanel::~SAnimNotifyPanel()
 {
 	Sequence->UnregisterOnNotifyChanged(this);
-	if (PersonaPtr.IsValid())
-	{
-		PersonaPtr.Pin()->UnregisterOnPostUndo(this);
-		PersonaPtr.Pin()->UnregisterOnGenericDelete(this);
-	}
 
 	FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(OnPropertyChangedHandleDelegateHandle);
 }
@@ -4072,7 +4144,8 @@ void SAnimNotifyPanel::Update()
 	{
 		Sequence->RefreshCacheData();
 	}
-	PersonaPtr.Pin()->OnAnimNotifiesChanged.Broadcast();
+
+	OnAnimNotifiesChanged.ExecuteIfBound();
 }
 
 void SAnimNotifyPanel::RefreshNotifyTracks()
@@ -4226,8 +4299,8 @@ void SAnimNotifyPanel::DeleteSelectedNodeObjects()
 	}
 
 	// clear selection and update the panel
-	FGraphPanelSelectionSet ObjectSet;
-	OnSelectionChanged.ExecuteIfBound(ObjectSet);
+	TArray<UObject*> Objects;
+	OnSelectionChanged.ExecuteIfBound(Objects);
 
 	Update();
 }
@@ -4248,8 +4321,7 @@ void SAnimNotifyPanel::SetSequence(class UAnimSequenceBase *	InSequence)
 void SAnimNotifyPanel::OnTrackSelectionChanged()
 {
 	// Need to collect selection info from all tracks
-	FGraphPanelSelectionSet SelectionSet;
-	TArray<UEditorNotifyObject*> NotifyObjects;
+	TArray<UObject*> NotifyObjects;
 
 	for(int32 TrackIdx = 0 ; TrackIdx < NotifyAnimTracks.Num() ; ++TrackIdx)
 	{
@@ -4264,12 +4336,12 @@ void SAnimNotifyPanel::OnTrackSelectionChanged()
 				UEditorNotifyObject* NewNotifyObject = NewObject<UEditorNotifyObject>(GetTransientPackage(), FName(*ObjName), RF_Public | RF_Standalone | RF_Transient);
 				NewNotifyObject->InitFromAnim(Sequence, FOnAnimObjectChange::CreateSP(this, &SAnimNotifyPanel::OnNotifyObjectChanged));
 				NewNotifyObject->InitialiseNotify(NotifyAnimTracks.Num() - TrackIdx - 1, Idx);
-				SelectionSet.Add(NewNotifyObject);
+				NotifyObjects.AddUnique(NewNotifyObject);
 			}
 		}
 	}
 
-	OnSelectionChanged.ExecuteIfBound(SelectionSet);
+	OnSelectionChanged.ExecuteIfBound(NotifyObjects);
 }
 
 void SAnimNotifyPanel::DeselectAllNotifies()
@@ -4280,11 +4352,7 @@ void SAnimNotifyPanel::DeselectAllNotifies()
 	}
 
 	// Broadcast the change so the editor can update
-	TSharedPtr<FPersona> SharedPersona = PersonaPtr.Pin();
-	if(SharedPersona.IsValid())
-	{
-		SharedPersona->OnAnimNotifiesChanged.Broadcast();
-	}
+	OnAnimNotifiesChanged.ExecuteIfBound();
 
 	OnTrackSelectionChanged();
 }
@@ -4436,8 +4504,8 @@ void SAnimNotifyPanel::OnReplaceSelectedWithNotify(FString NewNotifyName, UClass
 	}
 
 	// clear selection  
-	FGraphPanelSelectionSet ObjectSet;
-	OnSelectionChanged.ExecuteIfBound(ObjectSet);
+	TArray<UObject*> Objects;
+	OnSelectionChanged.ExecuteIfBound(Objects);
 	// TODO: set selection to new notifies?
 	// update the panel
 	Update();
@@ -4560,11 +4628,7 @@ void SAnimNotifyPanel::OnPropertyChanged(UObject* ChangedObject, FPropertyChange
 		}
 
 		// Broadcast the change so the editor can update
-		TSharedPtr<FPersona> SharedPersona = PersonaPtr.Pin();
-		if(SharedPersona.IsValid())
-		{
-			SharedPersona->OnAnimNotifiesChanged.Broadcast();
-		}
+		OnAnimNotifiesChanged.ExecuteIfBound();
 	}
 }
 
@@ -4819,11 +4883,7 @@ void SAnimNotifyPanel::OnNotifyObjectChanged(UObject* EditorBaseObj, bool bRebui
 		}
 
 		// Broadcast the change so the editor can update
-		TSharedPtr<FPersona> SharedPersona = PersonaPtr.Pin();
-		if(SharedPersona.IsValid())
-		{
-			SharedPersona->OnAnimNotifiesChanged.Broadcast();
-		}
+		OnAnimNotifiesChanged.ExecuteIfBound();
 	}
 }
 

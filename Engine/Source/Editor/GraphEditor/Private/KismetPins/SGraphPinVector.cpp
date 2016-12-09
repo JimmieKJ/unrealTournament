@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphPinVector.h"
-#include "SNumericEntryBox.h"
-#include "Editor/UnrealEd/Public/ScopedTransaction.h"
+#include "KismetPins/SGraphPinVector.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "VectorTextBox"
 

@@ -2,10 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 
 class FCascade;
 class FCascadeEmitterCanvasClient;
-
+class FSceneViewport;
+class SScrollBar;
+class SViewport;
 
 /*-----------------------------------------------------------------------------
    SCascadeViewport

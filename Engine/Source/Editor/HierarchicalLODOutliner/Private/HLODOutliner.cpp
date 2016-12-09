@@ -1,34 +1,42 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HierarchicalLODOutlinerPrivatePCH.h"
 #include "HLODOutliner.h"
-
-#include "Engine.h"
-#include "Engine/LODActor.h"
+#include "GameFramework/Actor.h"
+#include "Widgets/SOverlay.h"
+#include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
-#include "HierarchicalLOD.h"
-#include "HierarchicalLODVolume.h"
-
+#include "Components/DrawSphereComponent.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Misc/CoreDelegates.h"
+#include "Modules/ModuleManager.h"
+#include "SlateOptMacros.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SSlider.h"
+#include "EditorStyleSet.h"
+#include "Engine/MeshMerging.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/Selection.h"
 #include "Editor.h"
-#include "EditorModeManager.h"
+
+#include "Engine/LODActor.h"
+#include "HierarchicalLOD.h"
+
+#include "EngineGlobals.h"
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
-#include "SListView.h"
 #include "ScopedTransaction.h"
-#include "BSPOps.h"
 
-#include "ITreeItem.h"
 #include "LODActorItem.h"
 #include "LODLevelItem.h"
 #include "StaticMeshActorItem.h"
 #include "HLODTreeWidgetItem.h"
 #include "HLODSelectionActor.h"
-#include "TreeItemID.h"
 
-#include "MessageLog.h"
-#include "UObjectToken.h"
+#include "Logging/MessageLog.h"
 
-#include "HierarchicalLODUtilities.h"
+#include "IHierarchicalLODUtilities.h"
 #include "HierarchicalLODUtilitiesModule.h"
 
 #define LOCTEXT_NAMESPACE "HLODOutliner"
@@ -447,6 +455,7 @@ namespace HLODOutliner
 		{
 			DestroySelectionActors();
 			CurrentWorld->HierarchicalLODBuilder->BuildMeshesForLODActors();
+			SetForcedLODLevel(ForcedLODLevel);
 		}
 
 		FMessageLog("HLODResults").Open();		
@@ -694,6 +703,7 @@ namespace HLODOutliner
 				}
 			}
 			
+			SetForcedLODLevel(ForcedLODLevel);
 			TreeView->RequestScrollIntoView(SelectedItems[0]);
 		}
 		
@@ -726,6 +736,7 @@ namespace HLODOutliner
 				}
 			}
 
+			SetForcedLODLevel(ForcedLODLevel);
 			TreeView->RequestScrollIntoView(SelectedItems[0]);
 		}
 
@@ -1237,7 +1248,7 @@ namespace HLODOutliner
 
 	void SHLODOutliner::OnLevelActorsAdded(AActor* InActor)
 	{
-		if (!InActor->IsA<AHLODSelectionActor>() && !InActor->IsA<AWorldSettings>())
+		if (InActor->GetWorld() == CurrentWorld && !InActor->IsA<AHLODSelectionActor>() && !InActor->IsA<AWorldSettings>())
 		{
 			FullRefresh();
 		}	

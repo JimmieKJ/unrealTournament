@@ -6,11 +6,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "PackedNormal.h"
+#include "HitProxies.h"
 #include "RenderUtils.h"
-#include "SceneManagement.h"
 
-class FPrimitiveDrawInterface;
 class FMaterialRenderProxy;
+class FMeshElementCollector;
+class FPrimitiveDrawInterface;
 
 /** The vertex type used for dynamic meshes. */
 struct FDynamicMeshVertex

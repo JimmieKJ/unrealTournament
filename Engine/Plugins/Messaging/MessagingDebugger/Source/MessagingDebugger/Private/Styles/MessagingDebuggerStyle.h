@@ -2,12 +2,23 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Margin.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Styling/SlateTypes.h"
+#include "Misc/Paths.h"
+#include "Brushes/SlateBorderBrush.h"
+#include "Brushes/SlateBoxBrush.h"
+#include "Brushes/SlateImageBrush.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Styling/SlateStyle.h"
 
-#define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush(RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
-#define BOX_BRUSH( RelativePath, ... ) FSlateBoxBrush(RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
-#define BORDER_BRUSH( RelativePath, ... ) FSlateBorderBrush(RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
-#define TTF_FONT( RelativePath, ... ) FSlateFontInfo(RootToContentDir(RelativePath, TEXT(".ttf")), __VA_ARGS__)
-#define OTF_FONT( RelativePath, ... ) FSlateFontInfo(RootToContentDir(RelativePath, TEXT(".otf")), __VA_ARGS__)
+
+#define IMAGE_BRUSH(RelativePath, ...) FSlateImageBrush(RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
+#define BOX_BRUSH(RelativePath, ...) FSlateBoxBrush(RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
+#define BORDER_BRUSH(RelativePath, ...) FSlateBorderBrush(RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
+#define TTF_FONT(RelativePath, ...) FSlateFontInfo(RootToContentDir(RelativePath, TEXT(".ttf")), __VA_ARGS__)
+#define OTF_FONT(RelativePath, ...) FSlateFontInfo(RootToContentDir(RelativePath, TEXT(".otf")), __VA_ARGS__)
 
 
 /**
@@ -46,38 +57,38 @@ public:
 		Set("ToolbarTabIcon", new IMAGE_BRUSH("icon_tab_Toolbar_16x", Icon16x16));
 
 		// toolbar icons
-		Set("MessagingDebugger.BreakDebugger", new IMAGE_BRUSH( "icon_debugger_break_40x", Icon40x40));
-		Set("MessagingDebugger.BreakDebugger.Small", new IMAGE_BRUSH( "icon_debugger_break_40x", Icon20x20));
-		Set("MessagingDebugger.ClearHistory", new IMAGE_BRUSH( "icon_history_clear_40x", Icon40x40));
-		Set("MessagingDebugger.ClearHistory.Small", new IMAGE_BRUSH( "icon_history_clear_40x", Icon20x20));
-		Set("MessagingDebugger.ContinueDebugger", new IMAGE_BRUSH( "icon_debugger_continue_40x", Icon40x40));
-		Set("MessagingDebugger.ContinueDebugger.Small", new IMAGE_BRUSH( "icon_debugger_continue_40x", Icon20x20));
-		Set("MessagingDebugger.StartDebugger", new IMAGE_BRUSH( "icon_debugger_start_40x", Icon40x40));
-		Set("MessagingDebugger.StartDebugger.Small", new IMAGE_BRUSH( "icon_debugger_start_40x", Icon20x20));
-		Set("MessagingDebugger.StepDebugger", new IMAGE_BRUSH( "icon_debugger_step_40x", Icon40x40));
-		Set("MessagingDebugger.StepDebugger.Small", new IMAGE_BRUSH( "icon_debugger_step_40x", Icon20x20));
-		Set("MessagingDebugger.StopDebugger", new IMAGE_BRUSH( "icon_debugger_stop_40x", Icon40x40));
-		Set("MessagingDebugger.StopDebugger.Small", new IMAGE_BRUSH( "icon_debugger_stop_40x", Icon20x20));
+		Set("MessagingDebugger.BreakDebugger", new IMAGE_BRUSH("icon_debugger_break_40x", Icon40x40));
+		Set("MessagingDebugger.BreakDebugger.Small", new IMAGE_BRUSH("icon_debugger_break_40x", Icon20x20));
+		Set("MessagingDebugger.ClearHistory", new IMAGE_BRUSH("icon_history_clear_40x", Icon40x40));
+		Set("MessagingDebugger.ClearHistory.Small", new IMAGE_BRUSH("icon_history_clear_40x", Icon20x20));
+		Set("MessagingDebugger.ContinueDebugger", new IMAGE_BRUSH("icon_debugger_continue_40x", Icon40x40));
+		Set("MessagingDebugger.ContinueDebugger.Small", new IMAGE_BRUSH("icon_debugger_continue_40x", Icon20x20));
+		Set("MessagingDebugger.StartDebugger", new IMAGE_BRUSH("icon_debugger_start_40x", Icon40x40));
+		Set("MessagingDebugger.StartDebugger.Small", new IMAGE_BRUSH("icon_debugger_start_40x", Icon20x20));
+		Set("MessagingDebugger.StepDebugger", new IMAGE_BRUSH("icon_debugger_step_40x", Icon40x40));
+		Set("MessagingDebugger.StepDebugger.Small", new IMAGE_BRUSH("icon_debugger_step_40x", Icon20x20));
+		Set("MessagingDebugger.StopDebugger", new IMAGE_BRUSH("icon_debugger_stop_40x", Icon40x40));
+		Set("MessagingDebugger.StopDebugger.Small", new IMAGE_BRUSH("icon_debugger_stop_40x", Icon20x20));
 
 		// misc icons
-		Set("Break", new IMAGE_BRUSH( "icon_break_16x", Icon16x16));
-		Set("BreakColumn", new IMAGE_BRUSH( "BreakpointBorder", Icon16x16));
-		Set("BreakDisabled", new IMAGE_BRUSH( "icon_break_disabled_16x", Icon16x16));
-		Set("BreakIn", new IMAGE_BRUSH( "icon_break_in_16x", Icon16x16));
-		Set("BreakOut", new IMAGE_BRUSH( "icon_break_out_16x", Icon16x16));
-		Set("BreakInOut", new IMAGE_BRUSH( "icon_break_inout_16x", Icon16x16));
-		Set("DispatchDirect", new IMAGE_BRUSH( "icon_dispatch_direct_16x", Icon16x16));
-		Set("DispatchPending", new IMAGE_BRUSH( "icon_dispatch_pending_16x", Icon16x16));
-		Set("DispatchTaskGraph", new IMAGE_BRUSH( "icon_dispatch_taskgraph_16x", Icon16x16));
-		Set("DeadMessage", new IMAGE_BRUSH( "icon_message_dead_16x", Icon16x16));
-		Set("ForwardedMessage", new IMAGE_BRUSH( "icon_message_forwarded_16x", Icon16x16));
-		Set("InboundMessage", new IMAGE_BRUSH( "icon_message_inbound_16x", Icon16x16));
-		Set("LocalEndpoint", new IMAGE_BRUSH( "icon_endpoint_local_16x", Icon16x16));
-		Set("OutboundMessage", new IMAGE_BRUSH( "icon_message_outbound_16x", Icon16x16));
-		Set("PublishedMessage", new IMAGE_BRUSH( "icon_message_published_16x", Icon16x16));
-		Set("RemoteEndpoint", new IMAGE_BRUSH( "icon_endpoint_remote_16x", Icon16x16));
-		Set("SentMessage", new IMAGE_BRUSH( "icon_message_sent_16x", Icon16x16));
-		Set("Visibility", new IMAGE_BRUSH( "icon_visible_16x", Icon16x16));
+		Set("Break", new IMAGE_BRUSH("icon_break_16x", Icon16x16));
+		Set("BreakColumn", new IMAGE_BRUSH("BreakpointBorder", Icon16x16));
+		Set("BreakDisabled", new IMAGE_BRUSH("icon_break_disabled_16x", Icon16x16));
+		Set("BreakIn", new IMAGE_BRUSH("icon_break_in_16x", Icon16x16));
+		Set("BreakOut", new IMAGE_BRUSH("icon_break_out_16x", Icon16x16));
+		Set("BreakInOut", new IMAGE_BRUSH("icon_break_inout_16x", Icon16x16));
+		Set("DispatchDirect", new IMAGE_BRUSH("icon_dispatch_direct_16x", Icon16x16));
+		Set("DispatchPending", new IMAGE_BRUSH("icon_dispatch_pending_16x", Icon16x16));
+		Set("DispatchTaskGraph", new IMAGE_BRUSH("icon_dispatch_taskgraph_16x", Icon16x16));
+		Set("DeadMessage", new IMAGE_BRUSH("icon_message_dead_16x", Icon16x16));
+		Set("ForwardedMessage", new IMAGE_BRUSH("icon_message_forwarded_16x", Icon16x16));
+		Set("InboundMessage", new IMAGE_BRUSH("icon_message_inbound_16x", Icon16x16));
+		Set("LocalEndpoint", new IMAGE_BRUSH("icon_endpoint_local_16x", Icon16x16));
+		Set("OutboundMessage", new IMAGE_BRUSH("icon_message_outbound_16x", Icon16x16));
+		Set("PublishedMessage", new IMAGE_BRUSH("icon_message_published_16x", Icon16x16));
+		Set("RemoteEndpoint", new IMAGE_BRUSH("icon_endpoint_remote_16x", Icon16x16));
+		Set("SentMessage", new IMAGE_BRUSH("icon_message_sent_16x", Icon16x16));
+		Set("Visibility", new IMAGE_BRUSH("icon_visible_16x", Icon16x16));
 
 		Set("VisibilityCheckbox", FCheckBoxStyle()
 			.SetCheckBoxType(ESlateCheckBoxType::CheckBox)

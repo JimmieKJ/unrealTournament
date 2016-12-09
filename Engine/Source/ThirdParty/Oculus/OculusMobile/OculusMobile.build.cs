@@ -14,21 +14,37 @@ public class OculusMobile : ModuleRules
 		// current version of the OculusMobile Oculus SDK
 		Type = ModuleType.External;
 
-		string VrApiVersion = SDK_Product + "_" + SDK_Major + "_" + SDK_Minor;
-		string OculusThirdPartyDirectory = UEBuildConfiguration.UEThirdPartySourceDirectory + "Oculus/OculusMobile/SDK_" + VrApiVersion;
+		string SdkVersion = "SDK_" + SDK_Product + "_" + SDK_Major + "_" + SDK_Minor;
+		string SourceDirectory = UEBuildConfiguration.UEThirdPartySourceDirectory + "Oculus/OculusMobile/" + SdkVersion + "/";
+		string BinariesDirectory = UEBuildConfiguration.UEThirdPartyBinariesDirectory + "Oculus/OculusMobile/" + SdkVersion + "/";
+
+		PublicSystemIncludePaths.Add(SourceDirectory + "Include");
+		PublicSystemIncludePaths.Add(SourceDirectory + "Include/VrApi");
+		PublicSystemIncludePaths.Add(SourceDirectory + "Include/Kernel");
+		PublicSystemIncludePaths.Add(SourceDirectory + "Include/SystemUtils");
 
 		if (Target.Platform == UnrealTargetPlatform.Android)
 		{
-			PublicLibraryPaths.Add(OculusThirdPartyDirectory + "/Libs/armeabi-v7a/");
+			PublicLibraryPaths.Add(SourceDirectory + "Libs/armeabi-v7a/");
 
 			PublicAdditionalLibraries.Add("vrapi");
 			PublicAdditionalLibraries.Add("ovrkernel");
 			PublicAdditionalLibraries.Add("systemutils");
 			PublicAdditionalLibraries.Add("openglloader");
-
-			PublicSystemIncludePaths.Add(OculusThirdPartyDirectory + "/Include/VrApi");
-			PublicSystemIncludePaths.Add(OculusThirdPartyDirectory + "/Include/Kernel");
-			PublicSystemIncludePaths.Add(OculusThirdPartyDirectory + "/Include/SystemUtils");
+		}
+		if (Target.Platform == UnrealTargetPlatform.Win64)
+		{
+			PublicLibraryPaths.Add(SourceDirectory + "Libs/Win64/");
+			PublicAdditionalLibraries.Add("VrApiShim.lib");
+			PublicDelayLoadDLLs.Add("VrApiShim.dll");
+			RuntimeDependencies.Add(new RuntimeDependency(BinariesDirectory + "Win64/VrApiShim.dll"));
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Win32 )
+		{
+			PublicLibraryPaths.Add(SourceDirectory + "Libs/Win32/");
+			PublicAdditionalLibraries.Add("VrApiShim.lib");
+			PublicDelayLoadDLLs.Add("VrApiShim.dll");
+			RuntimeDependencies.Add(new RuntimeDependency(BinariesDirectory + "Win32/VrApiShim.dll"));
 		}
 	}
 }

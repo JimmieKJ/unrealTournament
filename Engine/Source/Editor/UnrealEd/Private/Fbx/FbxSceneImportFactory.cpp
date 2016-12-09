@@ -1,32 +1,58 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Factories.h"
-#include "BusyCursor.h"
-#include "SSkeletonWidget.h"
-#include "Dialogs/DlgPickPath.h"
-
+#include "Factories/FbxSceneImportFactory.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/Paths.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Engine/EngineTypes.h"
+#include "Components/SceneComponent.h"
+#include "Materials/MaterialInterface.h"
+#include "Components/StaticMeshComponent.h"
+#include "ActorFactories/ActorFactoryEmptyActor.h"
+#include "Engine/SkeletalMesh.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Materials/Material.h"
+#include "Engine/Texture.h"
+#include "Factories/FbxAnimSequenceImportData.h"
+#include "Factories/FbxSkeletalMeshImportData.h"
+#include "Factories/FbxStaticMeshImportData.h"
+#include "Factories/FbxTextureImportData.h"
+#include "Factories/FbxSceneImportData.h"
+#include "Factories/FbxSceneImportOptions.h"
+#include "Factories/FbxSceneImportOptionsSkeletalMesh.h"
+#include "Factories/FbxSceneImportOptionsStaticMesh.h"
+#include "EngineGlobals.h"
+#include "Camera/CameraComponent.h"
 #include "Components/PointLightComponent.h"
-#include "Components/DirectionalLightComponent.h"
 #include "Components/SpotLightComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/DirectionalLightComponent.h"
+#include "AssetData.h"
+#include "Editor.h"
+#include "FileHelpers.h"
+
 
 #include "AssetSelection.h"
 
+#include "Logging/TokenizedMessage.h"
 #include "FbxImporter.h"
-#include "FbxErrors.h"
+#include "Misc/FbxErrors.h"
 #include "AssetRegistryModule.h"
-#include "Engine/StaticMesh.h"
-#include "Animation/SkeletalMeshActor.h"
-#include "PackageTools.h"
 
+#include "Fbx/SSceneImportNodeTreeView.h"
 #include "SFbxSceneOptionWindow.h"
-#include "MainFrame.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "PackageTools.h"
 
-#include "Editor/KismetCompiler/Public/KismetCompilerModule.h"
 #include "Kismet2/KismetEditorUtilities.h"
 
-#include "OutputDevice.h"
 
 #define LOCTEXT_NAMESPACE "FBXSceneImportFactory"
 
@@ -92,6 +118,8 @@ bool GetFbxSceneImportOptions(UnFbx::FFbxImporter* FbxImporter
 	GlobalImportSettings->ImportUniformScale = 1.0f;
 
 	GlobalImportSettings->bConvertScene = true;
+	GlobalImportSettings->bForceFrontXAxis = false;
+	GlobalImportSettings->bConvertSceneUnit = true;
 
 	GlobalImportSettings->bBakePivotInVertex = SceneImportOptions->bBakePivotInVertex;
 	GlobalImportSettings->bInvertNormalMap = SceneImportOptions->bInvertNormalMaps;
@@ -194,7 +222,7 @@ static void ExtractPropertyTextures(FbxSurfaceMaterial *FbxMaterial, TSharedPtr<
 		int32 LayeredTextureCount = FbxProperty.GetSrcObjectCount<FbxLayeredTexture>();
 		if (LayeredTextureCount == 0)
 		{
-			int32 TextureCount = FbxProperty.GetSrcObjectCount<FbxTexture>();
+			int32 TextureCount = FbxProperty.GetSrcObjectCount<FbxFileTexture>();
 			if (TextureCount > 0)
 			{
 				for (int32 TextureIndex = 0; TextureIndex < TextureCount; ++TextureIndex)
@@ -393,9 +421,7 @@ void FetchFbxLightInScene(UnFbx::FFbxImporter *FbxImporter, FbxNode* ParentNode,
 				LightInfo->Type = 4;
 				break;
 			}
-			LightInfo->Color.R = (uint8)(LightAttribute->Color.Get()[0] * 255.0);
-			LightInfo->Color.G = (uint8)(LightAttribute->Color.Get()[1] * 255.0);
-			LightInfo->Color.B = (uint8)(LightAttribute->Color.Get()[2] * 255.0);
+			LightInfo->Color = FFbxDataConverter::ConvertColor(LightAttribute->Color);
 			LightInfo->Intensity = (float)(LightAttribute->Intensity.Get());
 			switch (LightAttribute->DecayType.Get())
 			{
@@ -414,9 +440,7 @@ void FetchFbxLightInScene(UnFbx::FFbxImporter *FbxImporter, FbxNode* ParentNode,
 			}
 			LightInfo->CastLight = LightAttribute->CastLight.Get();
 			LightInfo->CastShadow = LightAttribute->CastShadows.Get();
-			LightInfo->ShadowColor.R = (uint8)(LightAttribute->ShadowColor.Get()[0] * 255.0);
-			LightInfo->ShadowColor.G = (uint8)(LightAttribute->ShadowColor.Get()[1] * 255.0);
-			LightInfo->ShadowColor.B = (uint8)(LightAttribute->ShadowColor.Get()[2] * 255.0);
+			LightInfo->ShadowColor = FFbxDataConverter::ConvertColor(LightAttribute->ShadowColor);
 
 			LightInfo->InnerAngle = (float)(LightAttribute->InnerAngle.Get());
 			LightInfo->OuterAngle = (float)(LightAttribute->OuterAngle.Get());
@@ -854,6 +878,8 @@ FFeedbackContext*	Warn
 	
 	//Always convert the scene
 	GlobalImportSettings->bConvertScene = true;
+	GlobalImportSettings->bForceFrontXAxis = false;
+	GlobalImportSettings->bConvertSceneUnit = true;
 
 	//Set the import option in importscene mode
 	GlobalImportSettings->bImportScene = true;
@@ -944,15 +970,12 @@ FFeedbackContext*	Warn
 
 	//We are a scene import set the flag for the reimport factory for both static mesh and skeletal mesh
 	StaticMeshImportData->bImportAsScene = true;
-	StaticMeshImportData->bImportMaterials = GlobalImportSettings->bImportMaterials;
 	StaticMeshImportData->FbxSceneImportDataReference = ReimportData;
 
 	SkeletalMeshImportData->bImportAsScene = true;
-	SkeletalMeshImportData->bImportMaterials = GlobalImportSettings->bImportMaterials;
 	SkeletalMeshImportData->FbxSceneImportDataReference = ReimportData;
 
 	AnimSequenceImportData->bImportAsScene = true;
-	AnimSequenceImportData->bImportMaterials = GlobalImportSettings->bImportMaterials;
 	AnimSequenceImportData->FbxSceneImportDataReference = ReimportData;
 
 	//Get the scene root node
@@ -981,16 +1004,19 @@ FFeedbackContext*	Warn
 	for (auto ItAsset = AllNewAssets.CreateIterator(); ItAsset; ++ItAsset)
 	{
 		UObject *AssetObject = ItAsset.Value();
-		if (AssetObject && ReturnObject == nullptr)
+		if (AssetObject)
 		{
-			//Set the first import object as the return object to prevent false error from the caller of this factory
-			ReturnObject = AssetObject;
-		}
-		if (AssetObject->IsA(UStaticMesh::StaticClass()) || AssetObject->IsA(USkeletalMesh::StaticClass()))
-		{
-			//Mark the mesh as modified so the render will draw the mesh correctly
-			AssetObject->Modify();
-			AssetObject->PostEditChange();
+			if (ReturnObject == nullptr)
+			{
+				//Set the first import object as the return object to prevent false error from the caller of this factory
+				ReturnObject = AssetObject;
+			}
+			if (AssetObject->IsA(UStaticMesh::StaticClass()) || AssetObject->IsA(USkeletalMesh::StaticClass()))
+			{
+				//Mark the mesh as modified so the render will draw the mesh correctly
+				AssetObject->Modify();
+				AssetObject->PostEditChange();
+			}
 		}
 	}
 
@@ -1058,8 +1084,8 @@ FFeedbackContext*	Warn
 bool UFbxSceneImportFactory::SetStaticMeshComponentOverrideMaterial(UStaticMeshComponent* StaticMeshComponent, TSharedPtr<FFbxNodeInfo> NodeInfo)
 {
 	bool bOverrideMaterial = false;
-	UStaticMesh *StaticMesh = StaticMeshComponent->StaticMesh;
-	if (StaticMesh->Materials.Num() == NodeInfo->Materials.Num())
+	UStaticMesh *StaticMesh = StaticMeshComponent->GetStaticMesh();
+	if (StaticMesh->StaticMaterials.Num() == NodeInfo->Materials.Num())
 	{
 		for (int32 MaterialIndex = 0; MaterialIndex < NodeInfo->Materials.Num(); ++MaterialIndex)
 		{

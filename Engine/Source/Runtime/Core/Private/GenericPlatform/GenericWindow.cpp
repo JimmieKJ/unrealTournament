@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "GenericWindow.h"
+#include "GenericPlatform/GenericWindow.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenericPlatformWindow, Log, All);
 
@@ -166,4 +165,9 @@ const FGenericWindowDefinition& FGenericWindow::GetDefinition() const
 
 void FGenericWindow::AdjustCachedSize( FVector2D& Size ) const
 {
+}
+
+float FGenericWindow::GetDPIScaleFactor() const
+{
+	return 1.0f;
 }

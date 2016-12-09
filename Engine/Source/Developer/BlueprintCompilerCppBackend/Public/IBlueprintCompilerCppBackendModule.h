@@ -2,11 +2,46 @@
 
 #pragma once
 
-#include "Editor/KismetCompiler/Public/BlueprintCompilerCppBackendInterface.h"
+#include "CoreMinimal.h"
+#include "Misc/StringAssetReference.h"
+#include "BlueprintCompilerCppBackendInterface.h"
+
+class UBlueprint;
 
 struct FNativizationSummary
 {
 	TMap<FStringAssetReference, int32> InaccessiblePropertyStat;
+
+	struct FAnimBlueprintDetails
+	{
+		int32 Functions; //Number of functions or events
+		int32 ReducibleFunctions; //Number of empty functions
+		int32 Variables; // Number of new BlueprintReadWrite properties
+		int32 Children; // Number of nativized children
+		int32 FunctionUsage; //How many times a function (introduced in the BP) was used by unrelated nativized BP
+		int32 VariableUsage; //How many times a variable (introduced in the BP) was used by unrelated nativized BP
+
+		FAnimBlueprintDetails()
+			: Functions(0), ReducibleFunctions(0), Variables(0), Children(0), FunctionUsage(0), VariableUsage(0)
+		{}
+	};
+
+	TMap<FStringAssetReference, FAnimBlueprintDetails> AnimBlueprintStat;
+
+	int32 MemberVariablesFromGraph;
+
+	// The NativeLine is stored and the key is String-Reference, so the object doesn't need to be loaded.
+	struct FDependencyRecord
+	{
+		FString NativeLine;
+		int32 Index;
+
+		FDependencyRecord() : Index(-1) {}
+	};
+
+	TMap<FStringAssetReference, FDependencyRecord> DependenciesGlobalMap;
+
+	FNativizationSummary() : MemberVariablesFromGraph(0) {}
 };
 
 /**
@@ -64,5 +99,8 @@ public:
 	BLUEPRINTCOMPILERCPPBACKEND_API static TArray<class UFunction*> CollectBoundFunctions(class UBlueprint* BP);
 
 	virtual TSharedPtr<FNativizationSummary>& NativizationSummary() = 0;
+
+	virtual FString DependenciesGlobalMapHeaderCode() = 0;
+	virtual FString DependenciesGlobalMapBodyCode() = 0;
 };
 

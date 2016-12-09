@@ -4,13 +4,32 @@
 	SceneVisibility.cpp: Scene visibility determination.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "Engine.h"
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Stats/Stats.h"
+#include "Misc/MemStack.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/App.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "EngineDefines.h"
+#include "EngineGlobals.h"
+#include "RHIDefinitions.h"
+#include "SceneTypes.h"
+#include "SceneInterface.h"
+#include "RendererInterface.h"
+#include "PrimitiveViewRelevance.h"
+#include "MaterialShared.h"
+#include "SceneManagement.h"
+#include "ScenePrivateBase.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "SceneCore.h"
+#include "LightSceneInfo.h"
+#include "SceneRendering.h"
+#include "DeferredShadingRenderer.h"
+#include "DynamicPrimitiveDrawing.h"
 #include "ScenePrivate.h"
 #include "FXSystem.h"
-#include "SceneUtils.h"
-#include "PostProcessing.h"
-#include "PlanarReflectionSceneProxy.h"
+#include "PostProcess/PostProcessing.h"
 
 /*------------------------------------------------------------------------------
 	Globals
@@ -294,7 +313,7 @@ static int32 FrustumCull(const FScene* Scene, FViewInfo& View)
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_FrustumCull_Loop);
 			const int32 BitArrayNumInner = View.PrimitiveVisibilityMap.Num();
-			FVector ViewOriginForDistanceCulling = View.ViewMatrices.ViewOrigin;
+			FVector ViewOriginForDistanceCulling = View.ViewMatrices.GetViewOrigin();
 			float FadeRadius = GDisableLODFade ? 0.0f : GDistanceFadeMaxTravel;
 			uint8 CustomVisibilityFlags = EOcclusionFlags::CanBeOccluded | EOcclusionFlags::HasPrecomputedVisibility;
 
@@ -793,7 +812,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 					{
 						// Transform parallel near plane
 						static_assert((int32)ERHIZBuffer::IsInverted != 0, "Check equation for culling!");
-						bAllowBoundsTest = View.WorldToScreen(OcclusionBounds.Origin).Z - View.ViewMatrices.ProjMatrix.M[2][2] * OcclusionBounds.SphereRadius < 1;
+						bAllowBoundsTest = View.WorldToScreen(OcclusionBounds.Origin).Z - View.ViewMatrices.GetProjectionMatrix().M[2][2] * OcclusionBounds.SphereRadius < 1;
 					}
 					else
 					{
@@ -851,7 +870,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 
 							if (bRunQuery)
 							{
-								const FVector BoundOrigin = OcclusionBounds.Origin + View.ViewMatrices.PreViewTranslation;
+								const FVector BoundOrigin = OcclusionBounds.Origin + View.ViewMatrices.GetPreViewTranslation();
 								const FVector BoundExtent = OcclusionBounds.BoxExtent;
 
 								if (bSingleThreaded)
@@ -1338,7 +1357,7 @@ struct FMarkRelevantStaticMeshesForViewData
 
 	FMarkRelevantStaticMeshesForViewData(FViewInfo& View)
 	{
-		ViewOrigin = View.ViewMatrices.ViewOrigin;
+		ViewOrigin = View.ViewMatrices.GetViewOrigin();
 
 		MaxDrawDistanceScaleSquared = GetCachedScalabilityCVars().ViewDistanceScaleSquared;
 
@@ -1401,6 +1420,7 @@ struct FRelevancePacket
 	bool bUsesGlobalDistanceField;
 	bool bUsesLightingChannels;
 	bool bTranslucentSurfaceLighting;
+	bool bUsesSceneDepth;
 
 	FRelevancePacket(
 		FRHICommandListImmediate& InRHICmdList,
@@ -1426,6 +1446,7 @@ struct FRelevancePacket
 		, bUsesGlobalDistanceField(false)
 		, bUsesLightingChannels(false)
 		, bTranslucentSurfaceLighting(false)
+		, bUsesSceneDepth(false)
 	{
 	}
 
@@ -1516,6 +1537,7 @@ struct FRelevancePacket
 			bUsesGlobalDistanceField |= ViewRelevance.bUsesGlobalDistanceField;
 			bUsesLightingChannels |= ViewRelevance.bUsesLightingChannels;
 			bTranslucentSurfaceLighting |= ViewRelevance.bTranslucentSurfaceLighting;
+			bUsesSceneDepth |= ViewRelevance.bUsesSceneDepth;
 
 			if (ViewRelevance.bRenderCustomDepth)
 			{
@@ -1710,6 +1732,7 @@ struct FRelevancePacket
 		WriteView.bUsesGlobalDistanceField |= bUsesGlobalDistanceField;
 		WriteView.bUsesLightingChannels |= bUsesLightingChannels;
 		WriteView.bTranslucentSurfaceLighting |= bTranslucentSurfaceLighting;
+		WriteView.bUsesSceneDepth |= bUsesSceneDepth;
 		VisibleEditorPrimitives.AppendTo(WriteView.VisibleEditorPrimitives);
 		VisibleDynamicPrimitives.AppendTo(WriteView.VisibleDynamicPrimitives);
 		WriteView.TranslucentPrimSet.AppendScenePrimitives(TranslucencyPrims.Prims, TranslucencyPrims.NumPrims, TranslucencyPrimCount);
@@ -1910,7 +1933,7 @@ void FSceneRenderer::GatherDynamicMeshElements(
 			Collector.AddViewMeshArrays(&InViews[ViewIndex], &InViews[ViewIndex].DynamicMeshElements, &InViews[ViewIndex].SimpleElementCollector, InViewFamily.GetFeatureLevel());
 		}
 
-		const bool bIsInstancedStereo = (ViewCount > 0) ? InViews[0].IsInstancedStereoPass() : false;
+		const bool bIsInstancedStereo = (ViewCount > 0) ? (InViews[0].IsInstancedStereoPass() || InViews[0].bIsMobileMultiViewEnabled) : false;
 
 		for (int32 PrimitiveIndex = 0; PrimitiveIndex < NumPrimitives; ++PrimitiveIndex)
 		{
@@ -1981,11 +2004,11 @@ static void MarkAllPrimitivesForReflectionProxyUpdate(FScene* Scene)
 static bool IsLargeCameraMovement(FSceneView& View, const FMatrix& PrevViewMatrix, const FVector& PrevViewOrigin, float CameraRotationThreshold, float CameraTranslationThreshold)
 {
 	float RotationThreshold = FMath::Cos(CameraRotationThreshold * PI / 180.0f);
-	float ViewRightAngle = View.ViewMatrices.ViewMatrix.GetColumn(0) | PrevViewMatrix.GetColumn(0);
-	float ViewUpAngle = View.ViewMatrices.ViewMatrix.GetColumn(1) | PrevViewMatrix.GetColumn(1);
-	float ViewDirectionAngle = View.ViewMatrices.ViewMatrix.GetColumn(2) | PrevViewMatrix.GetColumn(2);
+	float ViewRightAngle = View.ViewMatrices.GetViewMatrix().GetColumn(0) | PrevViewMatrix.GetColumn(0);
+	float ViewUpAngle = View.ViewMatrices.GetViewMatrix().GetColumn(1) | PrevViewMatrix.GetColumn(1);
+	float ViewDirectionAngle = View.ViewMatrices.GetViewMatrix().GetColumn(2) | PrevViewMatrix.GetColumn(2);
 
-	FVector Distance = FVector(View.ViewMatrices.ViewOrigin) - PrevViewOrigin;
+	FVector Distance = FVector(View.ViewMatrices.GetViewOrigin()) - PrevViewOrigin;
 	return 
 		ViewRightAngle < RotationThreshold ||
 		ViewUpAngle < RotationThreshold ||
@@ -2173,47 +2196,39 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 				}
 				else
 				{
-					static auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.TemporalAASharpness"));
-					float Scale = ( 2.0f - CVar->GetFloat() ) * 0.3f;
-
-					// More than 8 samples can improve quality.
 					ViewState->OnFrameRenderingSetup(TemporalAASamples, ViewFamily);
 					uint32 Index = ViewState->GetCurrentTemporalAASampleIndex();
 
 					float u1 = Halton( Index + 1, 2 );
 					float u2 = Halton( Index + 1, 3 );
 
-					// Gaussian sample
-					float phi = 2.0f * PI * u2;
-					float r = Scale * FMath::Sqrt( -2.0f * FMath::Loge( FMath::Max( u1, 1e-6f ) ) );
-					SampleX = r * FMath::Cos( phi );
-					SampleY = r * FMath::Sin( phi );
+					// Generates samples in normal distribution
+					// exp( x^2 / Sigma^2 )
+					
+					static auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.TemporalAAFilterSize"));
+					float FilterSize = CVar->GetFloat();
+
+					// Scale distribution to set non-unit variance
+					// Variance = Sigma^2
+					float Sigma = 0.47f * FilterSize;
+
+					// Window to [-0.5, 0.5] output
+					// Without windowing we could generate samples far away on the infinite tails.
+					float OutWindow = 0.5f;
+					float InWindow = FMath::Exp( -0.5 * FMath::Square( OutWindow / Sigma ) );
+					
+					// Box-Muller transform
+					float Theta = 2.0f * PI * u2;
+					float r = Sigma * FMath::Sqrt( -2.0f * FMath::Loge( (1.0f - u1) * InWindow + u1 ) );
+					
+					SampleX = r * FMath::Cos( Theta );
+					SampleY = r * FMath::Sin( Theta );
 				}
 
 				View.TemporalJitterPixelsX = SampleX;
 				View.TemporalJitterPixelsY = SampleY;
 
-				View.ViewMatrices.TemporalAAProjJitter.X = SampleX * 2.0f / View.ViewRect.Width();
-				View.ViewMatrices.TemporalAAProjJitter.Y = SampleY * 2.0f / View.ViewRect.Height();
-				View.ViewMatrices.ProjMatrix.M[2][0] += View.ViewMatrices.TemporalAAProjJitter.X;
-				View.ViewMatrices.ProjMatrix.M[2][1] += View.ViewMatrices.TemporalAAProjJitter.Y;
-
-				// Compute the view projection matrix and its inverse.
-				View.ViewProjectionMatrix = View.ViewMatrices.ViewMatrix * View.ViewMatrices.ProjMatrix;
-				View.InvViewProjectionMatrix = View.ViewMatrices.GetInvProjMatrix() * View.InvViewMatrix;
-
-				// Compute a transform from view origin centered world-space to clip space.
-				if( View.ViewMatrices.PreViewTranslation.IsNearlyZero() )
-				{
-					View.ViewMatrices.TranslatedViewProjectionMatrix = View.ViewProjectionMatrix;
-					View.ViewMatrices.InvTranslatedViewProjectionMatrix = View.InvViewProjectionMatrix;
-				}
-				else
-				{
-					ensure( View.ViewMatrices.TranslatedViewMatrix.GetOrigin().IsNearlyZero() );
-					View.ViewMatrices.TranslatedViewProjectionMatrix = View.ViewMatrices.TranslatedViewMatrix * View.ViewMatrices.ProjMatrix;
-					View.ViewMatrices.InvTranslatedViewProjectionMatrix = View.ViewMatrices.GetInvProjMatrix() * View.ViewMatrices.TranslatedViewMatrix.GetTransposed();
-				}
+				View.ViewMatrices.HackAddTemporalAAProjectionJitter(FVector2D(SampleX * 2.0f / View.ViewRect.Width(), SampleY * -2.0f / View.ViewRect.Height()));
 			}
 		}
 		else if(ViewState)
@@ -2251,14 +2266,14 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 				View.bIgnoreExistingQueries = true;
 				View.bDisableDistanceBasedFadeTransitions = true;
 			}
-			ViewState->PrevViewMatrixForOcclusionQuery = View.ViewMatrices.ViewMatrix;
-			ViewState->PrevViewOriginForOcclusionQuery = View.ViewMatrices.ViewOrigin;
+			ViewState->PrevViewMatrixForOcclusionQuery = View.ViewMatrices.GetViewMatrix();
+			ViewState->PrevViewOriginForOcclusionQuery = View.ViewMatrices.GetViewOrigin();
 				
 			// store old view matrix and detect conditions where we should reset motion blur 
 			{
 				bool bResetCamera = bFirstFrameOrTimeWasReset
 					|| View.bCameraCut
-					|| IsLargeCameraMovement(View, ViewState->PrevViewMatrices.ViewMatrix, ViewState->PrevViewMatrices.ViewOrigin, 45.0f, 10000.0f);
+					|| IsLargeCameraMovement(View, ViewState->PrevViewMatrices.GetViewMatrix(), ViewState->PrevViewMatrices.GetViewOrigin(), 45.0f, 10000.0f);
 
 				if (bResetCamera)
 				{
@@ -2300,9 +2315,6 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 				}
 
 				View.PrevViewMatrices = ViewState->PrevViewMatrices;
-
-				View.PrevViewProjMatrix = ViewState->PrevViewMatrices.GetViewProjMatrix();
-				View.PrevViewRotationProjMatrix = ViewState->PrevViewMatrices.GetViewRotationProjMatrix();
 			}
 
 			ViewState->PrevFrameNumber = ViewState->PendingPrevFrameNumber;
@@ -2531,7 +2543,7 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 		// This is important for performance in the editor because wireframe disables any kind of occlusion culling
 		if (View.Family->EngineShowFlags.Wireframe)
 		{
-			float ScreenSizeScale = FMath::Max(View.ViewMatrices.ProjMatrix.M[0][0] * View.ViewRect.Width(), View.ViewMatrices.ProjMatrix.M[1][1] * View.ViewRect.Height());
+			float ScreenSizeScale = FMath::Max(View.ViewMatrices.GetProjectionMatrix().M[0][0] * View.ViewRect.Width(), View.ViewMatrices.GetProjectionMatrix().M[1][1] * View.ViewRect.Height());
 			for (FSceneSetBitIterator BitIt(View.PrimitiveVisibilityMap); BitIt; ++BitIt)
 			{
 				if (ScreenSizeScale * Scene->PrimitiveBounds[BitIt.GetIndex()].SphereRadius <= GWireframeCullThreshold)
@@ -2675,13 +2687,20 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 
 				if (View.ViewFrustum.IntersectSphere(Proxy->GetOrigin(), Radius))
 				{
-					FSphere Bounds = Proxy->GetBoundingSphere();
-					float DistanceSquared = (Bounds.Center - View.ViewMatrices.ViewOrigin).SizeSquared();
-					float MaxDistSquared = Proxy->GetMaxDrawDistance() * Proxy->GetMaxDrawDistance();
-					const bool bDrawLight = (FMath::Square(FMath::Min(0.0002f, GMinScreenRadiusForLights / Bounds.W) * View.LODDistanceFactor) * DistanceSquared < 1.0f)
-												& (MaxDistSquared == 0 || DistanceSquared < MaxDistSquared);
+					if (View.IsPerspectiveProjection())
+					{
+						FSphere Bounds = Proxy->GetBoundingSphere();
+						float DistanceSquared = (Bounds.Center - View.ViewMatrices.GetViewOrigin()).SizeSquared();
+						float MaxDistSquared = Proxy->GetMaxDrawDistance() * Proxy->GetMaxDrawDistance();
+						const bool bDrawLight = (FMath::Square(FMath::Min(0.0002f, GMinScreenRadiusForLights / Bounds.W) * View.LODDistanceFactor) * DistanceSquared < 1.0f)
+													&& (MaxDistSquared == 0 || DistanceSquared < MaxDistSquared);
 							
-					VisibleLightViewInfo.bInViewFrustum = bDrawLight;
+						VisibleLightViewInfo.bInViewFrustum = bDrawLight;
+					}
+					else
+					{
+						VisibleLightViewInfo.bInViewFrustum = true;
+					}
 				}
 			}
 			else
@@ -2703,7 +2722,7 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 					// Transform into post projection space
 					FVector4 ProjectedBlurOrigin = View.WorldToScreen(WorldSpaceBlurOrigin);
 
-					const float DistanceToBlurOrigin = (View.ViewMatrices.ViewOrigin - WorldSpaceBlurOrigin).Size() + PointLightFadeDistanceIncrease;
+					const float DistanceToBlurOrigin = (View.ViewMatrices.GetViewOrigin() - WorldSpaceBlurOrigin).Size() + PointLightFadeDistanceIncrease;
 
 					// Don't render if the light's origin is behind the view
 					if(ProjectedBlurOrigin.W >= 0.0f
@@ -2734,7 +2753,7 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 				&& Proxy->GetMinRoughness() < 1.0f)
 			{
 				FVector Origin = Proxy->GetOrigin();
-				FVector ToLight = Origin - View.ViewMatrices.ViewOrigin;
+				FVector ToLight = Origin - View.ViewMatrices.GetViewOrigin();
 				float DistanceSqr = ToLight | ToLight;
 				float Radius = Proxy->GetRadius();
 
@@ -2764,17 +2783,20 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 						float Quantized = ( FMath::RoundToFloat( Projected * (0.5f * CubemapSize) - 0.5f ) + 0.5f ) / (0.5f * CubemapSize);
 						ToLight[ (MaxComponent + k) % 3 ] = Quantized * Scale[ MaxComponent ];
 					}
-					Origin = ToLight + View.ViewMatrices.ViewOrigin;
+					Origin = ToLight + View.ViewMatrices.GetViewOrigin();
 				
 					FLinearColor Color( ColorAndFalloffExponent );
 
+					// Scale by visible area
+					Color /= PI * FMath::Square( SourceRadius );
+
 					if( Proxy->IsInverseSquared() )
 					{
-						float LightRadiusMask = FMath::Square( 1.0f - FMath::Square( DistanceSqr * FMath::Square( PositionAndInvRadius.W ) ) );
-						Color *= LightRadiusMask;
-						
 						// Correction for lumen units
 						Color *= 16.0f;
+						
+						float LightRadiusMask = FMath::Square( 1.0f - FMath::Square( DistanceSqr * FMath::Square( PositionAndInvRadius.W ) ) );
+						Color.A = LightRadiusMask;
 					}
 					else
 					{
@@ -2782,18 +2804,12 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 						Color *= DistanceSqr + 1.0f;
 
 						// Apply falloff
-						Color *= FMath::Pow( 1.0f - DistanceSqr * FMath::Square( PositionAndInvRadius.W ), ColorAndFalloffExponent.W ); 
+						Color.A = FMath::Pow( 1.0f - DistanceSqr * FMath::Square( PositionAndInvRadius.W ), ColorAndFalloffExponent.W ); 
 					}
-
+					
 					// Spot falloff
 					FVector L = ToLight.GetSafeNormal();
-					Color *= FMath::Square( FMath::Clamp( ( (L | Direction) - SpotAngles.X ) * SpotAngles.Y, 0.0f, 1.0f ) );
-
-					// Scale by visible area
-					Color /= PI * FMath::Square( SourceRadius );
-				
-					// Always opaque
-					Color.A = 1.0f;
+					Color.A *= FMath::Square( FMath::Clamp( ( (L | Direction) - SpotAngles.X ) * SpotAngles.Y, 0.0f, 1.0f ) );
 				
 					FViewElementPDI LightPDI( &View, NULL );
 					FMaterialRenderProxy* const ColoredMeshInstance = new(FMemStack::Get()) FColoredMaterialRenderProxy( GEngine->DebugMeshMaterial->GetRenderProxy(false), Color );
@@ -2845,7 +2861,7 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{		
 		FViewInfo& View = Views[ViewIndex];
-		AverageViewPosition += View.ViewMatrices.ViewOrigin / Views.Num();
+		AverageViewPosition += View.ViewMatrices.GetViewOrigin() / Views.Num();
 	}
 
 	if (FApp::ShouldUseThreadingForPerformance() && CVarParallelInitViews.GetValueOnRenderThread() > 0)
@@ -2883,7 +2899,7 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_InitViews_OnStartFrame);
-		OnStartFrame();
+		OnStartFrame(RHICmdList);
 	}
 
 	return bDoInitViewAftersPrepass;
@@ -2947,6 +2963,8 @@ void FLODSceneTree::AddChildNode(const FPrimitiveComponentId NodeId, FPrimitiveS
 			{
 				Node->SceneInfo = Scene->Primitives[ParentIndex];
 			}
+			//new nodes that will need distance scale, reset since we don't keep stateful data about this per node.
+			ResetHLODDistanceScaleApplication();
 		}
 
 		Node->AddChild(ChildSceneInfo);
@@ -3028,7 +3046,7 @@ void FLODSceneTree::UpdateAndApplyVisibilityStates(FViewInfo& View)
 				}
 			}
 
-			const float DistanceSquared = (Bounds.Origin - View.ViewMatrices.ViewOrigin).SizeSquared();
+			const float DistanceSquared = (Bounds.Origin - View.ViewMatrices.GetViewOrigin()).SizeSquared();
 			const bool bIsInDrawRange = DistanceSquared >= Bounds.MinDrawDistanceSq;
 
 			const bool bWasFadingPreUpdate = Node.bIsFading;

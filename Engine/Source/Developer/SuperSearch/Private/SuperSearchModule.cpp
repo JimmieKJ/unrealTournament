@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SuperSearchPrivatePCH.h"
+#include "SuperSearchModule.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Application/SlateWindowHelper.h"
 #include "SSuperSearch.h"
 
 IMPLEMENT_MODULE( FSuperSearchModule,SuperSearch );
@@ -10,9 +12,9 @@ namespace SuperSearchModule
 	static const FName FNameSuperSearchApp = FName(TEXT("SuperSearchApp"));
 }
 
-FSearchEntry* FSearchEntry::MakeCategoryEntry(const FString & InTitle)
+FSearchEntry * FSearchEntry::MakeCategoryEntry(const FString & InTitle)
 {
-	FSearchEntry* SearchEntry = new FSearchEntry();
+	FSearchEntry * SearchEntry = new FSearchEntry();
 	SearchEntry->Title = InTitle;
 	SearchEntry->bCategory = true;
 
@@ -46,7 +48,7 @@ void FSuperSearchModule::SetSearchEngine(ESearchEngine InSearchEngine)
 	}
 }
 
-TSharedRef<SWidget> FSuperSearchModule::MakeSearchBox(TSharedPtr< SEditableTextBox >& OutExposedEditableTextBox, const TOptional<const FSearchBoxStyle*> InStyle) const
+TSharedRef< SWidget > FSuperSearchModule::MakeSearchBox(TSharedPtr< SEditableTextBox >& OutExposedEditableTextBox, const TOptional<const FSuperSearchStyle*> InStyle) const
 {
 	// Remove any search box that has expired.
 	for ( int32 i = SuperSearchBoxes.Num() - 1; i >= 0; i-- )

@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -12,6 +12,8 @@
 
 #include "libcef_dll/cpptoc/delete_cookies_callback_cpptoc.h"
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -28,14 +30,20 @@ void CEF_CALLBACK delete_cookies_callback_on_complete(
       num_deleted);
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefDeleteCookiesCallbackCppToC::CefDeleteCookiesCallbackCppToC(
-    CefDeleteCookiesCallback* cls)
-    : CefCppToC<CefDeleteCookiesCallbackCppToC, CefDeleteCookiesCallback,
-        cef_delete_cookies_callback_t>(cls) {
-  struct_.struct_.on_complete = delete_cookies_callback_on_complete;
+CefDeleteCookiesCallbackCppToC::CefDeleteCookiesCallbackCppToC() {
+  GetStruct()->on_complete = delete_cookies_callback_on_complete;
+}
+
+template<> CefRefPtr<CefDeleteCookiesCallback> CefCppToC<CefDeleteCookiesCallbackCppToC,
+    CefDeleteCookiesCallback, cef_delete_cookies_callback_t>::UnwrapDerived(
+    CefWrapperType type, cef_delete_cookies_callback_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -43,3 +51,6 @@ template<> base::AtomicRefCount CefCppToC<CefDeleteCookiesCallbackCppToC,
     CefDeleteCookiesCallback, cef_delete_cookies_callback_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefDeleteCookiesCallbackCppToC,
+    CefDeleteCookiesCallback, cef_delete_cookies_callback_t>::kWrapperType =
+    WT_DELETE_COOKIES_CALLBACK;

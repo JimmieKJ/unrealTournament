@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
+#include "SNodePanel.h"
+
+class UBlueprint;
+
 // Context used to aid debugging displays for nodes
 struct FKismetNodeInfoContext : public FNodeInfoContext
 {

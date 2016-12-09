@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class UBehaviorTreeGraphNode_CompositeDecorator;
+class UBTDecorator;
+
 namespace BehaviorTreeEditorUtils
 {
 	struct FPropertySelectionInfo

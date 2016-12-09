@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "CloudEnumeration.h"
-#include "StatsCollector.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Generation/CloudEnumeration.h"
 
 namespace BuildPatchServices
 {

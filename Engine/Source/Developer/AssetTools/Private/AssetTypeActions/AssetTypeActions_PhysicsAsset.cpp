@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "Toolkits/AssetEditorManager.h"
+#include "AssetTypeActions/AssetTypeActions_PhysicsAsset.h"
 #include "Editor/PhAT/Public/PhATModule.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 

@@ -458,6 +458,10 @@ struct FHUDRenderObject
 		RenderOpacity = 1.0f;
 	};
 
+	virtual ~FHUDRenderObject()
+	{
+	}
+
 public:
 	virtual float GetWidth() { return Size.X * RenderScale; }
 	virtual float GetHeight() { return Size.Y * RenderScale; }
@@ -511,6 +515,10 @@ struct FHUDRenderObject_Texture : public FHUDRenderObject
 		bUseTeamColors = false;
 		bIsBorderElement = false;
 		Rotation = 0.0f;
+	}
+
+	virtual ~FHUDRenderObject_Texture()
+	{
 	}
 
 public:
@@ -594,6 +602,10 @@ struct FHUDRenderObject_Text : public FHUDRenderObject
 		HorzPosition = ETextHorzPos::Left;
 		VertPosition = ETextVertPos::Top;
 		BackgroundColor = FLinearColor(0.0f,0.0f,0.0f,0.0f);
+	}
+
+	virtual ~FHUDRenderObject_Text()
+	{
 	}
 
 public:

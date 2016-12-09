@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SWindow.h"
+
+class SUniformGridPanel;
 
 class SApexClothingOptionWindow : public SCompoundWidget
 {

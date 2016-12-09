@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Matinee/InterpTrackVectorBase.h"
 #include "InterpTrackSound.generated.h"
+
+class FCanvas;
+class UInterpGroup;
+class UInterpTrackInst;
 
 /**
  *	A track that plays sounds on the groups Actor.

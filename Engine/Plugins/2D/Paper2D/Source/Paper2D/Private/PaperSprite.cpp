@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
 #include "PaperSprite.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Materials/MaterialInterface.h"
+#include "Engine/CollisionProfile.h"
+#include "PhysicsEngine/ConvexElem.h"
+#include "PhysicsEngine/BoxElem.h"
+#include "PhysicsEngine/SphereElem.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "PhysicsEngine/AggregateGeometry2D.h"
 #include "PhysicsEngine/BodySetup2D.h"
 
 #include "PaperCustomVersion.h"
@@ -11,9 +17,13 @@
 #include "PaperFlipbookComponent.h"
 #include "PaperGroupedSpriteComponent.h"
 #include "SpriteDrawCall.h"
+#include "PaperFlipbook.h"
+#include "Paper2DModule.h"
+#include "Paper2DPrivate.h"
 
 #if WITH_EDITOR
-#include "UnrealEd.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 #endif
 
 #if WITH_EDITOR
@@ -55,7 +65,7 @@ static void UpdateGeometryToBeBoxPositionRelative(FSpriteGeometryCollection& Geo
 #if WITH_EDITOR
 
 #include "PaperSpriteAtlas.h"
-#include "GeomTools.h"
+#include "AlphaBitmap.h"
 #include "BitmapUtils.h"
 #include "ComponentReregisterContext.h"
 #include "PaperRuntimeSettings.h"
@@ -796,6 +806,7 @@ void UPaperSprite::RebuildCollisionData()
 
 	if (SpriteCollisionDomain != ESpriteCollisionMode::None)
 	{
+		check(BodySetup);
 		BodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
 		switch (CollisionGeometry.GeometryType)
 		{
@@ -1652,7 +1663,11 @@ void UPaperSprite::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) cons
 
 FSlateAtlasData UPaperSprite::GetSlateAtlasData() const
 {
-	if ( BakedSourceTexture == nullptr )
+	if ( SourceTexture == nullptr && BakedSourceTexture == nullptr )
+	{
+		return FSlateAtlasData(nullptr, FVector2D::ZeroVector, FVector2D::ZeroVector);
+	}
+	else if ( BakedSourceTexture == nullptr )
 	{
 		const FVector2D ImportedSize = FVector2D(SourceTexture->GetImportedSize());
 

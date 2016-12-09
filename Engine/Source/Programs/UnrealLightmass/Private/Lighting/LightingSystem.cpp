@@ -1,17 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
+#include "LightingSystem.h"
 #include "Exporter.h"
 #include "LightmassSwarm.h"
 #include "CPUSolver.h"
-#include "LightingSystem.h"
 #include "MonteCarlo.h"
+#include "Misc/ScopeLock.h"
+#include "UnrealLightmass.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "ExceptionHandling.h"
 #if USE_LOCAL_SWARM_INTERFACE
-#include "Messaging.h"
+#include "IMessagingModule.h"
+#include "Async/TaskGraphInterfaces.h"
 #endif
 
 #if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 	#include <psapi.h>
 #include "HideWindowsPlatformTypes.h"
@@ -736,11 +742,11 @@ FBoxSphereBounds FStaticLightingSystem::GetImportanceBounds(bool bClampToScene) 
 }
 
 /** Returns true if the specified position is inside any of the importance volumes. */
-bool FStaticLightingSystem::IsPointInImportanceVolume(const FVector4& Position) const
+bool FStaticLightingSystem::IsPointInImportanceVolume(const FVector4& Position, float Tolerance) const
 {
 	if (Scene.ImportanceVolumes.Num() > 0)
 	{
-		return Scene.IsPointInImportanceVolume(Position);
+		return Scene.IsPointInImportanceVolume(Position, Tolerance);
 	}
 	else
 	{

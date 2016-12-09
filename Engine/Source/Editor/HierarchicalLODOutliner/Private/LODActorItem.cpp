@@ -1,15 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HierarchicalLODOutlinerPrivatePCH.h"
-#include "LevelEditor.h"
 #include "LODActorItem.h"
-#include "Engine/LODActor.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Modules/ModuleManager.h"
 #include "HLODOutliner.h"
-#include "HierarchicalLODUtilities.h"
+#include "IHierarchicalLODUtilities.h"
 #include "HierarchicalLODUtilitiesModule.h"
-#include "ScopedTransaction.h"
-#include "SlateBasics.h"
-#include "TreeItemID.h"
 
 #define LOCTEXT_NAMESPACE "LODActorItem"
 

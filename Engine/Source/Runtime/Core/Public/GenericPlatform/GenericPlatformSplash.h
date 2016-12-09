@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
-
+#include "CoreTypes.h"
+#include "Containers/ContainersFwd.h"
 
 /**
  * SplashTextType defines the types of text on the splash screen

@@ -6,9 +6,14 @@
 
 #pragma once
 
-#include "ShaderCore.h"
+#include "CoreMinimal.h"
+#include "RHI.h"
 #include "ShaderParameters.h"
-#include "RHICommandList.h"
+#include "ShaderCore.h"
+#include "Misc/App.h"
+
+template<typename TBufferStruct> class TUniformBuffer;
+template<typename TBufferStruct> class TUniformBufferRef;
 
 /**
  * Sets the value of a  shader parameter.  Template'd on shader type
@@ -80,6 +85,20 @@ void SetShaderValueOnContext(
 template<typename ShaderRHIParamRef>
 void SetShaderValue(
 	FRHICommandList& RHICmdList, 
+	ShaderRHIParamRef Shader,
+	const FShaderParameter& Parameter,
+	const bool& Value,
+	uint32 ElementIndex = 0
+	)
+{
+	const uint32 BoolValue = Value;
+	SetShaderValue(RHICmdList, Shader, Parameter, BoolValue, ElementIndex);
+}
+
+/** Specialization of the above for C++ bool type. */
+template<typename ShaderRHIParamRef>
+void SetShaderValue(
+	FRHIAsyncComputeCommandList& RHICmdList,
 	ShaderRHIParamRef Shader,
 	const FShaderParameter& Parameter,
 	const bool& Value,

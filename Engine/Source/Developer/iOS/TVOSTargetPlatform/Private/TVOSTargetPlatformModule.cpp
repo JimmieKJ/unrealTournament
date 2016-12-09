@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TVOSTargetPlatformPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "IOSTargetPlatform.h"
+#include "Interfaces/ITargetPlatformModule.h"
 
 /**
  * Holds the target platform singleton.

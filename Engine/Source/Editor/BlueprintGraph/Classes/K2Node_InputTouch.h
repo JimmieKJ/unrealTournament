@@ -2,8 +2,17 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Textures/SlateIcon.h"
 #include "K2Node.h"
 #include "K2Node_InputTouch.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class FKismetCompilerContext;
+class UEdGraph;
+class UEdGraphPin;
 
 UCLASS(MinimalAPI)
 class UK2Node_InputTouch : public UK2Node

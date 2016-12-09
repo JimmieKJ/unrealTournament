@@ -1,6 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
 #include "EditorUndoClient.h"
+#include "Layers/ILayers.h"
+
+class AActor;
+class FActorLayerViewModel;
+class UEditorEngine;
+class ULayer;
 
 /**
  * The non-UI solution specific presentation logic for a collection of layers that belong to a collection of actors

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Animation/AnimNodeBase.h"
 #include "Animation/InputScaleBias.h"
 #include "AnimNode_TwoWayBlend.generated.h"
@@ -25,9 +27,24 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings)
 	FInputScaleBias AlphaScaleBias;
 
+protected:
+	UPROPERTY(Transient)
+	mutable float InternalBlendAlpha;
+
+	UPROPERTY(Transient)
+	mutable bool bAIsRelevant;
+
+	UPROPERTY(Transient)
+	mutable bool bBIsRelevant;
+
+	/** This reinitializes child pose when re-activated. For example, when active child changes */
+	UPROPERTY(EditAnywhere, Category = Option)
+	bool bResetChildOnActivation;
+
 public:
 	FAnimationNode_TwoWayBlend()
 		: Alpha(0.0f)
+		, bResetChildOnActivation(false)
 	{
 	}
 

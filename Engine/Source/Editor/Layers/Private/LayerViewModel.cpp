@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LayersPrivatePCH.h"
-#include "Layers/Layer.h"
+#include "LayerViewModel.h"
+#include "Editor/EditorEngine.h"
+#include "ScopedTransaction.h"
+#include "Misc/DelegateFilter.h"
 
 #define LOCTEXT_NAMESPACE "Layer"
 

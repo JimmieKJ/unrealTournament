@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 #include "BlueprintMergeData.h"
+#include "DiffUtils.h"
 #include "DetailsDiff.h"
 
 class SMergeDetailsView : public SCompoundWidget

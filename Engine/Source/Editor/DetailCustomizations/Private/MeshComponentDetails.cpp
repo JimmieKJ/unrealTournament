@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "MeshComponentDetails.h"
+#include "Components/MeshComponent.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "IDetailsView.h"
 #include "AssetSelection.h"
 
 TSharedRef<IDetailCustomization> FMeshComponentDetails::MakeInstance()

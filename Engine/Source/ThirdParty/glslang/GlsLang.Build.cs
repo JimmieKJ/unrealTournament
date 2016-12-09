@@ -47,10 +47,12 @@ public class GlsLang : ModuleRules
 			if (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT)
 			{
 				PublicAdditionalLibraries.Add(LibPath + "Mac/libglslangd.a");
+				PublicAdditionalLibraries.Add(LibPath + "Mac/libOSDependentd.a");
 			}
 			else
 			{
 				PublicAdditionalLibraries.Add(LibPath + "Mac/libglslang.a");
+				PublicAdditionalLibraries.Add(LibPath + "Mac/libOSDependent.a");
 			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Linux)

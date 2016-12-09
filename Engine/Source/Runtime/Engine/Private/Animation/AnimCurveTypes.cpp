@@ -1,10 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "AnimCurveTypes.h"
-#include "Animation/AnimInstance.h"
-#include "AnimationRuntime.h"
-#include "FrameworkObjectVersion.h"
+#include "Animation/AnimCurveTypes.h"
+#include "UObject/FrameworkObjectVersion.h"
 
 DECLARE_CYCLE_STAT(TEXT("AnimSeq EvalCurveData"), STAT_AnimSeq_EvalCurveData, STATGROUP_Anim);
 
@@ -13,7 +10,7 @@ DECLARE_CYCLE_STAT(TEXT("AnimSeq EvalCurveData"), STAT_AnimSeq_EvalCurveData, ST
 
 void FAnimCurveBase::PostSerialize(FArchive& Ar)
 {
-	FSmartNameMapping::UID CurveUid = FSmartNameMapping::MaxUID;
+	SmartName::UID_Type CurveUid = SmartName::MaxUID;
 	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
 
 	if ((Ar.IsLoading()))
@@ -35,7 +32,7 @@ void FAnimCurveBase::PostSerialize(FArchive& Ar)
 	}
 }
 
-void FAnimCurveBase::SetCurveTypeFlag(EAnimCurveFlags InFlag, bool bValue)
+void FAnimCurveBase::SetCurveTypeFlag(EAnimAssetCurveFlags InFlag, bool bValue)
 {
 	if (bValue)
 	{
@@ -47,13 +44,13 @@ void FAnimCurveBase::SetCurveTypeFlag(EAnimCurveFlags InFlag, bool bValue)
 	}
 }
 
-void FAnimCurveBase::ToggleCurveTypeFlag(EAnimCurveFlags InFlag)
+void FAnimCurveBase::ToggleCurveTypeFlag(EAnimAssetCurveFlags InFlag)
 {
 	bool Current = GetCurveTypeFlag(InFlag);
 	SetCurveTypeFlag(InFlag, !Current);
 }
 
-bool FAnimCurveBase::GetCurveTypeFlag(EAnimCurveFlags InFlag) const
+bool FAnimCurveBase::GetCurveTypeFlag(EAnimAssetCurveFlags InFlag) const
 {
 	return (CurveTypeFlags & InFlag) != 0;
 }
@@ -189,7 +186,7 @@ void FRawCurveTracks::EvaluateCurveData( FBlendedCurve& Curves, float CurrentTim
 	for(auto CurveIter = FloatCurves.CreateConstIterator(); CurveIter; ++CurveIter)
 	{
 		const FFloatCurve& Curve = *CurveIter;
-		Curves.Set(Curve.Name.UID, Curve.Evaluate(CurrentTime), Curve.GetCurveTypeFlags());
+		Curves.Set(Curve.Name.UID, Curve.Evaluate(CurrentTime));
 	}
 }
 
@@ -490,6 +487,6 @@ void FAnimCurveParam::Initialize(USkeleton* Skeleton)
 	else
 	{
 		// invalidate current UID
-		UID = FSmartNameMapping::MaxUID;
+		UID = SmartName::MaxUID;
 	}
 }

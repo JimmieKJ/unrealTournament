@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "CoreMinimal.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/Paths.h"
+#include "HAL/ThreadSafeBool.h"
+#include "HAL/PlatformFile.h"
+#include "UnrealAudioTypes.h"
+#include "Tests/UnrealAudioTestGenerators.h"
 #include "UnrealAudioPrivate.h"
-#include "UnrealAudioModule.h"
-#include "UnrealAudioDeviceModule.h"
-#include "UnrealAudioTests.h"
-#include "UnrealAudioTestGenerators.h"
-#include "UnrealAudioSoundFile.h"
 
 #if ENABLE_UNREAL_AUDIO & WITH_DEV_AUTOMATION_TESTS
 

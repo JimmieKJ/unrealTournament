@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "GenericPlatform/GenericPlatformString.h"
+#include "HAL/UnrealMemory.h"
+#include "Misc/Char.h"
+#include "Containers/UnrealString.h"
+#include "Logging/LogMacros.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenericPlatformString, Log, All);

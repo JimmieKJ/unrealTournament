@@ -1,13 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "Engine/NetSerialization.h"
 #include "Animation/AnimationAsset.h"
 #include "RootMotionSource.generated.h"
 
 class ACharacter;
 class UCharacterMovementComponent;
-class UCurveVector;
 class UCurveFloat;
+class UCurveVector;
 
 /** 
  * Enumeration for RootMotionSource accumulation mode
@@ -121,6 +126,8 @@ enum class ERootMotionFinishVelocityMode : uint8
 	MaintainLastRootMotionVelocity = 0,
 	// Set Velocity to the specified value (for example, 0,0,0 to stop the character)
 	SetVelocity,
+	// Clamp velocity magnitude to the specified value 
+	ClampVelocity,
 };
 
 

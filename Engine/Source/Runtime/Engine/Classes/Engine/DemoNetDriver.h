@@ -2,11 +2,24 @@
 
 #pragma once
 
-#include "NetDriver.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Serialization/BitReader.h"
+#include "Misc/NetworkGuid.h"
+#include "Engine/EngineBaseTypes.h"
+#include "GameFramework/Actor.h"
+#include "Misc/EngineVersion.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/NetDriver.h"
+#include "Engine/PackageMapClient.h"
+#include "Misc/NetworkVersion.h"
 #include "NetworkReplayStreaming.h"
-#include "PackageMapClient.h"
-#include "DemoNetConnection.h"
+#include "Engine/DemoNetConnection.h"
 #include "DemoNetDriver.generated.h"
+
+class Error;
+class FNetworkNotify;
+class UDemoNetDriver;
 
 DECLARE_LOG_CATEGORY_EXTERN( LogDemo, Log, All );
 
@@ -49,39 +62,75 @@ public:
 	float		TimeSeconds;
 };
 
-typedef TArray< FReplayExternalData > FReplayExternalDataArray;
+// Using an indirect array here since FReplayExternalData stores an FBitReader, and it's not safe to store an FArchive directly in a TArray.
+typedef TIndirectArray< FReplayExternalData > FReplayExternalDataArray;
 
 struct FPlaybackPacket
 {
 	TArray< uint8 > Data;
 	float			TimeSeconds;
+	int32			LevelIndex;
 };
 
 enum ENetworkVersionHistory
 {
-	HISTORY_INITIAL				= 1,
-	HISTORY_SAVE_ABS_TIME_MS	= 2,			// We now save the abs demo time in ms for each frame (solves accumulation errors)
-	HISTORY_INCREASE_BUFFER		= 3,			// Increased buffer size of packets, which invalidates old replays
-	HISTORY_SAVE_ENGINE_VERSION	= 4,			// Now saving engine net version + InternalProtocolVersion
-	HISTORY_EXTRA_VERSION		= 5				// We now save engine/game protocol version, checksum, and changelist
+	HISTORY_INITIAL							= 1,
+	HISTORY_SAVE_ABS_TIME_MS				= 2,			// We now save the abs demo time in ms for each frame (solves accumulation errors)
+	HISTORY_INCREASE_BUFFER					= 3,			// Increased buffer size of packets, which invalidates old replays
+	HISTORY_SAVE_ENGINE_VERSION				= 4,			// Now saving engine net version + InternalProtocolVersion
+	HISTORY_EXTRA_VERSION					= 5,			// We now save engine/game protocol version, checksum, and changelist
+	HISTORY_MULTIPLE_LEVELS					= 6,			// Replays support seamless travel between levels
+	HISTORY_MULTIPLE_LEVELS_TIME_CHANGES	= 7,				// Save out the time that level changes happen
+	HISTORY_DELETED_STARTUP_ACTORS			= 8				// Save DeletedNetStartupActors inside checkpoints
 };
 
+static const uint32 MIN_SUPPORTED_VERSION = HISTORY_EXTRA_VERSION;
+
 static const uint32 NETWORK_DEMO_MAGIC				= 0x2CF5A13D;
-static const uint32 NETWORK_DEMO_VERSION			= HISTORY_EXTRA_VERSION;
+static const uint32 NETWORK_DEMO_VERSION			= HISTORY_DELETED_STARTUP_ACTORS;
+static const uint32 MIN_NETWORK_DEMO_VERSION		= HISTORY_EXTRA_VERSION;
 
 static const uint32 NETWORK_DEMO_METADATA_MAGIC		= 0x3D06B24E;
 static const uint32 NETWORK_DEMO_METADATA_VERSION	= 0;
 
+USTRUCT()
+struct FLevelNameAndTime
+{
+	GENERATED_USTRUCT_BODY()
+
+	FLevelNameAndTime()
+		: LevelChangeTimeInMS(0)
+	{}
+
+	FLevelNameAndTime(const FString& InLevelName, uint32 InLevelChangeTimeInMS)
+		: LevelName(InLevelName)
+		, LevelChangeTimeInMS(InLevelChangeTimeInMS)
+	{}
+
+	UPROPERTY()
+	FString LevelName;
+
+	UPROPERTY()
+	uint32 LevelChangeTimeInMS;
+
+	friend FArchive& operator<<(FArchive& Ar, FLevelNameAndTime& LevelNameAndTime)
+	{
+		Ar << LevelNameAndTime.LevelName;
+		Ar << LevelNameAndTime.LevelChangeTimeInMS;
+		return Ar;
+	}
+};
+
 struct FNetworkDemoHeader
 {
-	uint32	Magic;							// Magic to ensure we're opening the right file.
-	uint32	Version;						// Version number to detect version mismatches.
-	uint32	NetworkChecksum;				// Network checksum
-	uint32	EngineNetworkProtocolVersion;	// Version of the engine internal network format
-	uint32	GameNetworkProtocolVersion;		// Version of the game internal network format
-	uint32	Changelist;						// Engine changelist built from
-	FString LevelName;						// Name of level loaded for demo
-	TArray<FString> GameSpecificData;		// Area for subclasses to write stuff
+	uint32	Magic;									// Magic to ensure we're opening the right file.
+	uint32	Version;								// Version number to detect version mismatches.
+	uint32	NetworkChecksum;						// Network checksum
+	uint32	EngineNetworkProtocolVersion;			// Version of the engine internal network format
+	uint32	GameNetworkProtocolVersion;				// Version of the game internal network format
+	uint32	Changelist;								// Engine changelist built from
+	TArray<FLevelNameAndTime> LevelNamesAndTimes;	// Name and time changes of levels loaded for demo
+	TArray<FString> GameSpecificData;				// Area for subclasses to write stuff
 
 	FNetworkDemoHeader() :
 		Magic( NETWORK_DEMO_MAGIC ),
@@ -108,9 +157,9 @@ struct FNetworkDemoHeader
 		Ar << Header.Version;
 
 		// Check version
-		if ( Header.Version != NETWORK_DEMO_VERSION )
+		if ( Header.Version < MIN_NETWORK_DEMO_VERSION )
 		{
-			UE_LOG( LogDemo, Error, TEXT( "Header.Version != NETWORK_DEMO_VERSION" ) );
+			UE_LOG( LogDemo, Error, TEXT( "Header.Version < MIN_NETWORK_DEMO_VERSION. Header.Version: %i, MIN_NETWORK_DEMO_VERSION: %i" ), Header.Version, MIN_NETWORK_DEMO_VERSION );
 			Ar.SetError();
 			return Ar;
 		}
@@ -120,12 +169,46 @@ struct FNetworkDemoHeader
 		Ar << Header.GameNetworkProtocolVersion;
 		Ar << Header.Changelist;
 
-		Ar << Header.LevelName;
+		if (Header.Version < HISTORY_MULTIPLE_LEVELS)
+		{
+			FString LevelName;
+			Ar << LevelName;
+			Header.LevelNamesAndTimes.Add(FLevelNameAndTime(LevelName, 0));
+		}
+		else if (Header.Version == HISTORY_MULTIPLE_LEVELS)
+		{
+			TArray<FString> LevelNames;
+			Ar << LevelNames;
+
+			for (const FString& LevelName : LevelNames)
+			{
+				Header.LevelNamesAndTimes.Add(FLevelNameAndTime(LevelName, 0));
+			}
+		}
+		else
+		{
+			Ar << Header.LevelNamesAndTimes;
+		}
 
 		Ar << Header.GameSpecificData;
 
 		return Ar;
 	}
+};
+
+/** Information about net startup actors that need to be rolled back by being destroyed and re-created */
+USTRUCT()
+struct FRollbackNetStartupActorInfo
+{
+	GENERATED_BODY()
+
+	FName		Name;
+	UPROPERTY()
+	UObject*	Archetype;
+	FVector		Location;
+	FRotator	Rotation;
+	UPROPERTY()
+	ULevel*		Level;
 };
 
 /**
@@ -157,6 +240,9 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 	/** True if as have paused all of the channels */
 	bool bChannelsArePaused;
 
+	/** Index of LevelNames that is currently loaded */
+	int32 CurrentLevelIndex;
+
 	/** This is our spectator controller that is used to view the demo world from */
 	APlayerController* SpectatorController;
 
@@ -177,17 +263,29 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 	/** When we save a checkpoint, we remember all of the actors that need a checkpoint saved out by adding them to this list */
 	TSet< TWeakObjectPtr< AActor > > PendingCheckpointActors;
 
+	/** Net startup actors that need to be destroyed after checkpoints are loaded */
+	TSet< FString >									DeletedNetStartupActors;
+
+	/** 
+	 * Net startup actors that need to be rolled back during scrubbing by being destroyed and re-spawned 
+	 * NOTE - DeletedNetStartupActors will take precedence here, and destroy the actor instead
+	 */
+	UPROPERTY(transient)
+	TMap< FString, FRollbackNetStartupActorInfo >	RollbackNetStartupActors;
+
 	/** Checkpoint state */
 	FPackageMapAckState CheckpointAckState;					// Current ack state of packagemap for the current checkpoint being saved
 	double				TotalCheckpointSaveTimeSeconds;		// Total time it took to save checkpoint across all frames
 	int32				TotalCheckpointSaveFrames;			// Total number of frames used to save a checkpoint
 	double				LastCheckpointTime;					// Last time a checkpoint was saved
 
+	void		RespawnNecessaryNetStartupActors();
+
 	virtual bool ShouldSaveCheckpoint();
 
 	void		SaveCheckpoint();
 	void		TickCheckpoint();
-	void		LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 GotoCheckpointSkipExtraTimeInMS );
+	bool		LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 GotoCheckpointSkipExtraTimeInMS );
 
 	void		SaveExternalData( FArchive& Ar );
 	void		LoadExternalData( FArchive& Ar, const float TimeSeconds );
@@ -208,6 +306,8 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 
 	/** Streaming levels waiting to be saved next frame */
 	TArray< UObject* >					NewStreamingLevelsThisFrame;
+
+	bool bRecordMapChanges;
 
 private:
 	bool		bIsFastForwarding;
@@ -240,6 +340,12 @@ private:
 	/** Optional time quota for actor replication during recording. Going over this limit effectively lowers the net update frequency of the remaining actors. Negative values are considered unlimited. */
 	float MaxDesiredRecordTimeMS;
 
+	/**
+	 * Maximum time allowed each frame to spend on saving a checkpoint. If 0, it will save the checkpoint in a single frame, regardless of how long it takes.
+	 * See also demo.CheckpointSaveMaxMSPerFrameOverride.
+	 */
+	float CheckpointSaveMaxMSPerFrame;
+
 	/** A player controller that this driver should consider its viewpoint for actor prioritization purposes. */
 	TWeakObjectPtr<APlayerController> ViewerOverride;
 
@@ -249,10 +355,23 @@ private:
 	/** If true, recording will prioritize replicating actors based on the value that AActor::GetReplayPriority returns. */
 	bool bPrioritizeActors;
 
-
-
 	/** If true, will skip recording, but leaves the replay open so that recording can be resumed again. */
 	bool bPauseRecording;
+
+	/** List of levels used in the current replay */
+	TArray<FLevelNameAndTime> LevelNamesAndTimes;
+
+	/** Does the actual work of TickFlush, either on the main thread or in a task thread in parallel with Slate. */
+	void TickFlushInternal(float DeltaSeconds);
+
+	/** Returns true if TickFlush can be called in parallel with the Slate tick. */
+	bool ShouldTickFlushAsyncEndOfFrame() const;
+
+	/** Returns either CheckpointSaveMaxMSPerFrame or the value of demo.CheckpointSaveMaxMSPerFrameOverride if it's >= 0. */
+	float GetCheckpointSaveMaxMSPerFrame() const;
+
+	/** Adds a new level to the level list */
+	void AddNewLevel(const FString& NewLevelName);
 
 public:
 
@@ -277,6 +396,9 @@ public:
 	virtual AActor* GetActorForGUID(FNetworkGUID InGUID) const override;
 	virtual bool ShouldReceiveRepNotifiesForObject(UObject* Object) const override;
 
+	/** Called when we are already recording but have traveled to a new map to start recording again */
+	bool ContinueListen(FURL& ListenURL);
+
 	/** 
 	 * Scrubs playback to the given time. 
 	 * 
@@ -298,6 +420,14 @@ public:
 
 	/** Enable or disable prioritization of actors for recording. */
 	void SetActorPrioritizationEnabled(const bool bInPrioritizeActors) { bPrioritizeActors = bInPrioritizeActors; }
+
+	/** Sets CheckpointSaveMaxMSPerFrame. */
+	void SetCheckpointSaveMaxMSPerFrame(const float InCheckpointSaveMaxMSPerFrame) { CheckpointSaveMaxMSPerFrame = InCheckpointSaveMaxMSPerFrame; }
+
+	/** Called by a task thread if the engine is doing async end of frame tasks in parallel with Slate. */
+	void TickFlushAsyncEndOfFrame(float DeltaSeconds);
+
+	const TArray<FLevelNameAndTime>& GetLevelNameAndTimeList() { return LevelNamesAndTimes; }
 
 public:
 
@@ -373,6 +503,11 @@ public:
 	/** Read the streaming level information from the metadata after the level is loaded */
 	void PendingNetGameLoadMapCompleted();
 
+	virtual void NotifyActorDestroyed( AActor* ThisActor, bool IsSeamlessTravel=false ) override;
+
+	/** Call this function during playback to track net startup actors that need a hard reset when scrubbing, which is done by destroying and then re-spawning */
+	virtual void QueueNetStartupActorForRollbackViaDeletion( AActor* Actor );
+
 protected:
 	/** allows subclasses to write game specific data to demo header which is then handled by ProcessGameSpecificDemoHeader */
 	virtual void WriteGameSpecificDemoHeader(TArray<FString>& GameSpecificData)
@@ -384,4 +519,12 @@ protected:
 	{
 		return true;
 	}
+
+	void ProcessClientTravelFunction(class AActor* Actor, class UFunction* Function, void* Parameters, struct FOutParmRec* OutParms, struct FFrame* Stack, class UObject* SubObject);
+
+	bool WriteNetworkDemoHeader(FString& Error);
+
+	void ProcessSeamlessTravel(int32 LevelIndex);
+
+	TArray<FQueuedDemoPacket> QueuedPacketsBeforeTravel;
 };

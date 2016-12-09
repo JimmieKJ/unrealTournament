@@ -1,7 +1,12 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Widgets/SWidget.h"
+#include "Components/ContentWidget.h"
+#include "Widgets/Layout/SScaleBox.h"
 #include "ScaleBox.generated.h"
 
 /**

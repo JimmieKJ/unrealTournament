@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "EndTurnCallbackProxy.h"
-#include "GameFramework/Actor.h"
-#include "RepLayout.h"
+#include "Serialization/BitWriter.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "OnlineSubsystemBPCallHelper.h"
+#include "Interfaces/OnlineTurnBasedInterface.h"
+#include "OnlineSubsystem.h"
+#include "GameFramework/PlayerController.h"
+#include "Net/RepLayout.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UTurnBasedMatchEndTurnCallbackProxy

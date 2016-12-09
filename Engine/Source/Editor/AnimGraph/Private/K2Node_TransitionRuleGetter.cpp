@@ -1,16 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
+#include "K2Node_TransitionRuleGetter.h"
+#include "Animation/AnimBlueprint.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "AnimationGraphSchema.h"
 #include "AnimationTransitionSchema.h"
 #include "AnimGraphNode_Base.h"
 #include "AnimStateNode.h"
 #include "AnimStateTransitionNode.h"
+#include "BlueprintNodeBinder.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "BlueprintActionFilter.h"
 #include "BlueprintNodeSpawner.h"
-#include "BlueprintUtilities.h"
-#include "K2Node_TransitionRuleGetter.h"
 
 
 /////////////////////////////////////////////////////

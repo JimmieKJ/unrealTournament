@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Containers/Map.h"
+#include "MakefileHelpers.h"
 #include "HeaderProviderArchiveProxy.h"
 #include "SimplifiedParsingClassInfo.h"
 
+class FArchive;
 class FUHTMakefile;
 class FUnrealSourceFile;
 

@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "BlueprintEditor.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
+#include "WorkflowOrientedApp/WorkflowCentricApplication.h"
+#include "Framework/Application/SlateApplication.h"
+#include "WorkflowOrientedApp/WorkflowTabFactory.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
+#include "WorkflowOrientedApp/ApplicationMode.h"
 
 #define LOCTEXT_NAMESPACE "WorkflowCentricApplication"
 

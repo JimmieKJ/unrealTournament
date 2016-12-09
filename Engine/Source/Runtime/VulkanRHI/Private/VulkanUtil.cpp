@@ -7,7 +7,6 @@
 #include "VulkanRHIPrivate.h"
 #include "VulkanUtil.h"
 #include "VulkanPendingState.h"
-#include "VulkanManager.h"
 #include "VulkanContext.h"
 #include "VulkanMemory.h"
 
@@ -23,7 +22,9 @@ void FVulkanGPUTiming::PlatformStaticInitialize(void* UserData)
 
 	if (GTimestampQueryPool)
 	{
+#if 0
 		GTimingFrequency = (uint64)(GTimestampQueryPool->GetTimeStampsPerSecond());
+#endif
 	}
 }
 
@@ -39,9 +40,10 @@ void FVulkanGPUTiming::Initialize()
 	// Now initialize the queries for this timing object.
 	if ( GIsSupported )
 	{
+#if 0
 		StartTimestamp = GTimestampQueryPool->AllocateUserQuery();
 		EndTimestamp = GTimestampQueryPool->AllocateUserQuery();
-
+#endif
 		//// Initialize to 0 so we can tell when the GPU has written to it (completed the query)
 		//*((uint64*)StartTimestamp.GetPointer()) = 0;
 		//*((uint64*)EndTimestamp.GetPointer()) = 0;
@@ -109,13 +111,14 @@ void FVulkanGPUTiming::EndTiming()
  */
 uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 {
+#if 0
 	if ( GIsSupported )
 	{
 		if (StartTimestamp >= 0 && EndTimestamp >= 0)
 		{
 			if (bGetCurrentResultsAndBlock)
 			{
-				GTimestampQueryPool->Device->WaitUntilIdle();
+				GTimestampQueryPool->GetParent()->WaitUntilIdle();
 
 				// Block until the GPU has finished the last query
 				while (!IsComplete())
@@ -129,7 +132,7 @@ uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 			return GTimestampQueryPool->CalculateTimeFromUserQueries(StartTimestamp, EndTimestamp, false);
 		}
 	}
-
+#endif
 	return 0;
 }
 
@@ -194,7 +197,7 @@ float FVulkanEventNode::GetTiming()
 void FVulkanGPUProfiler::BeginFrame(FVulkanCommandListContext* InCmdList, FVulkanTimestampQueryPool* InTimestampQueryPool)
 {
 	GTimestampQueryPool = InTimestampQueryPool;
-
+#if 0
 	bCommandlistSubmitted = false;
 	CurrentEventNode = NULL;
 	check(!bTrackingEvents);
@@ -246,7 +249,7 @@ void FVulkanGPUProfiler::BeginFrame(FVulkanCommandListContext* InCmdList, FVulka
 		GEmitDrawEvents = bOriginalGEmitDrawEvents;
 	}
 	bPreviousLatchedGProfilingGPUHitches = bLatchedGProfilingGPUHitches;
-
+#endif
 	if (GEmitDrawEvents)
 	{
 		PushEvent(TEXT("FRAME"), FColor(0, 255, 0, 255));
@@ -304,6 +307,7 @@ void FVulkanGPUProfiler::EndFrame()
 #include "RHIStaticStates.h"
 #include "OneColorShader.h"
 #include "VulkanRHI.h"
+#include "StaticBoundShaderState.h"
 
 static FGlobalBoundShaderState LongGPUTaskBoundShaderState;
 
@@ -446,7 +450,9 @@ namespace VulkanRHI
 }
 
 DEFINE_STAT(STAT_VulkanDrawCallTime);
+DEFINE_STAT(STAT_VulkanDispatchCallTime);
 DEFINE_STAT(STAT_VulkanDrawCallPrepareTime);
+DEFINE_STAT(STAT_VulkanDispatchCallPrepareTime);
 DEFINE_STAT(STAT_VulkanGetOrCreatePipeline);
 DEFINE_STAT(STAT_VulkanGetDescriptorSet);
 DEFINE_STAT(STAT_VulkanCreateUniformBufferTime);
@@ -465,6 +471,9 @@ DEFINE_STAT(STAT_VulkanSRVUpdateTime);
 DEFINE_STAT(STAT_VulkanDeletionQueue);
 DEFINE_STAT(STAT_VulkanQueueSubmit);
 DEFINE_STAT(STAT_VulkanQueuePresent);
+DEFINE_STAT(STAT_VulkanWaitQuery);
+DEFINE_STAT(STAT_VulkanResetQuery);
+DEFINE_STAT(STAT_VulkanWaitSwapchain);
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 DEFINE_STAT(STAT_VulkanApplyDSResources);
 DEFINE_STAT(STAT_VulkanUpdateDescriptorSets);

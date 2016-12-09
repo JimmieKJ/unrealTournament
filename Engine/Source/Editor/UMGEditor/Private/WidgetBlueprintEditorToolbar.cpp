@@ -1,13 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "IDocumentation.h"
 #include "WidgetBlueprintEditorToolbar.h"
+#include "Types/ISlateMetaData.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSpacer.h"
+
+#if WITH_EDITOR
+	#include "EditorStyleSet.h"
+#endif // WITH_EDITOR
+#include "Widgets/SToolTip.h"
+#include "IDocumentation.h"
+#include "BlueprintEditor.h"
+
 
 #include "WidgetBlueprintEditor.h"
-#include "SModeWidget.h"
+#include "WorkflowOrientedApp/SModeWidget.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "WidgetBlueprintApplicationModes.h"
+#include "BlueprintModes/WidgetBlueprintApplicationModes.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WebBrowserPrivatePCH.h"
+#include "IOSPlatformWebBrowser.h"
 
 #if PLATFORM_IOS
-#include "IOSPlatformWebBrowser.h"
 #include "IOSView.h"
 #include "IOSAppDelegate.h"
+#include "Widgets/SLeafWidget.h"
 
 #import <UIKit/UIKit.h>
 
@@ -296,6 +296,10 @@ FReply FWebBrowserWindow::OnMouseButtonDoubleClick(const FGeometry& MyGeometry, 
 FReply FWebBrowserWindow::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup)
 {
 	return FReply::Unhandled();
+}
+
+void FWebBrowserWindow::OnMouseLeave(const FPointerEvent& MouseEvent)
+{
 }
 
 FReply FWebBrowserWindow::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup)

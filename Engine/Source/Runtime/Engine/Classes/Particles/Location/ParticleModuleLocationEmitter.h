@@ -9,8 +9,13 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/Location/ParticleModuleLocationBase.h"
 #include "ParticleModuleLocationEmitter.generated.h"
+
+struct FParticleEmitterInstance;
 
 UENUM()
 enum ELocationEmitterSelectionMethod

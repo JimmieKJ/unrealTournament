@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -33,6 +33,9 @@
 
 #if SDL_VIDEO_DRIVER_X11_XCURSOR
 #include <X11/Xcursor/Xcursor.h>
+#endif
+#if SDL_VIDEO_DRIVER_X11_XDBE
+#include <X11/extensions/Xdbe.h>
 #endif
 #if SDL_VIDEO_DRIVER_X11_XINERAMA
 #include <X11/extensions/Xinerama.h>
@@ -93,6 +96,9 @@ typedef struct SDL_VideoData
     Atom _NET_WM_STATE_MAXIMIZED_VERT;
     Atom _NET_WM_STATE_MAXIMIZED_HORZ;
     Atom _NET_WM_STATE_FULLSCREEN;
+    Atom _NET_WM_STATE_ABOVE;
+    Atom _NET_WM_STATE_SKIP_TASKBAR;
+    Atom _NET_WM_STATE_SKIP_PAGER;
     Atom _NET_WM_ALLOWED_ACTIONS;
     Atom _NET_WM_ACTION_FULLSCREEN;
     Atom _NET_WM_NAME;
@@ -100,10 +106,9 @@ typedef struct SDL_VideoData
     Atom _NET_WM_ICON;
     Atom _NET_WM_PING;
     Atom _NET_WM_WINDOW_OPACITY;
-    Atom _NET_WM_STATE_ABOVE;
-    Atom _NET_WM_STATE_SKIP_TASKBAR;
-    Atom _NET_WM_STATE_SKIP_PAGER;
+    Atom _NET_WM_USER_TIME;
     Atom _NET_ACTIVE_WINDOW;
+    Atom _NET_FRAME_EXTENTS;
     Atom UTF8_STRING;
     Atom PRIMARY;
     Atom XdndEnter;
@@ -114,6 +119,7 @@ typedef struct SDL_VideoData
     Atom XdndDrop;
     Atom XdndFinished;
     Atom XdndSelection;
+    Atom XKLAVIER_STATE;
 
     SDL_Scancode key_layout[256];
     SDL_bool selection_waiting;

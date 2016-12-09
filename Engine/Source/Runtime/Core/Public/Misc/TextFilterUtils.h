@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+
 /** Defines the comparison operators that can be used for a complex (key->value) comparison */
 enum class ETextFilterComparisonOperation : uint8
 {

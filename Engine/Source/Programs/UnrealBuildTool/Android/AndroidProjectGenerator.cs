@@ -20,7 +20,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Check to see if a recent enough version of Nsight is installed.
 		/// </summary>
-		bool IsNsightInstalled()
+		bool IsNsightInstalled(VCProjectFileFormat ProjectFileFormat)
 		{
 			// cache the results since this gets called a number of times
 			if (CheckedForNsight)
@@ -35,7 +35,7 @@ namespace UnrealBuildTool
 
 			string ProgramFilesPath = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
 
-			string PlatformToolsetVersion = VCProjectFileGenerator.ProjectFilePlatformToolsetVersionString;
+			string PlatformToolsetVersion = VCProjectFileGenerator.GetProjectFilePlatformToolsetVersionString(ProjectFileFormat);
 			if (String.IsNullOrEmpty(PlatformToolsetVersion))
 			{
 				// future maintainer: add toolset version and verify that the rest of the msbuild path, version, and location in ProgramFiles(x86) is still valid
@@ -108,10 +108,10 @@ namespace UnrealBuildTool
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
 		/// <returns>bool    true if native VisualStudio support (or custom VSI) is available</returns>
-		public override bool HasVisualStudioSupport(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
+		public override bool HasVisualStudioSupport(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFileFormat ProjectFileFormat)
 		{
 			// Debugging, etc. are dependent on the TADP being installed
-			return IsNsightInstalled();
+			return IsNsightInstalled(ProjectFileFormat);
 		}
 
 		/// <summary>
@@ -135,11 +135,11 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
-		public override string GetAdditionalVisualStudioPropertyGroups(UnrealTargetPlatform InPlatform)
+		public override string GetAdditionalVisualStudioPropertyGroups(UnrealTargetPlatform InPlatform, VCProjectFileFormat ProjectFileFormat)
 		{
-			if (!IsNsightInstalled())
+			if (!IsNsightInstalled(ProjectFileFormat))
 			{
-				return base.GetAdditionalVisualStudioPropertyGroups(InPlatform);
+				return base.GetAdditionalVisualStudioPropertyGroups(InPlatform, ProjectFileFormat);
 			}
 
 			return "	<PropertyGroup Label=\"NsightTegraProject\">" + ProjectFileGenerator.NewLine +
@@ -152,11 +152,11 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
-		public override string GetVisualStudioPlatformConfigurationType(UnrealTargetPlatform InPlatform)
+		public override string GetVisualStudioPlatformConfigurationType(UnrealTargetPlatform InPlatform, VCProjectFileFormat ProjectFileFormat)
 		{
-			if (!IsNsightInstalled())
+			if (!IsNsightInstalled(ProjectFileFormat))
 			{
-				return base.GetVisualStudioPlatformConfigurationType(InPlatform);
+				return base.GetVisualStudioPlatformConfigurationType(InPlatform, ProjectFileFormat);
 			}
 
 			return "ExternalBuildSystem";
@@ -168,14 +168,14 @@ namespace UnrealBuildTool
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
 		/// <returns>string    The custom configuration section for the project file; Empty string if it doesn't require one</returns>
-		public override string GetVisualStudioPlatformToolsetString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFile InProjectFile)
+		public override string GetVisualStudioPlatformToolsetString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFileFormat InProjectFileFormat)
 		{
-			if (!IsNsightInstalled())
+			if (!IsNsightInstalled(InProjectFileFormat))
 			{
-				return "\t\t<PlatformToolset>" + VCProjectFileGenerator.ProjectFilePlatformToolsetVersionString + "</PlatformToolset>" + ProjectFileGenerator.NewLine;
+				return "\t\t<PlatformToolset>" + VCProjectFileGenerator.GetProjectFilePlatformToolsetVersionString(InProjectFileFormat) + "</PlatformToolset>" + ProjectFileGenerator.NewLine;
 			}
 
-			return "\t\t<PlatformToolset>" + VCProjectFileGenerator.ProjectFilePlatformToolsetVersionString + "</PlatformToolset>" + ProjectFileGenerator.NewLine
+			return "\t\t<PlatformToolset>" + VCProjectFileGenerator.GetProjectFilePlatformToolsetVersionString(InProjectFileFormat) + "</PlatformToolset>" + ProjectFileGenerator.NewLine
 				+ "\t\t<AndroidNativeAPI>UseTarget</AndroidNativeAPI>" + ProjectFileGenerator.NewLine;
 		}
 
@@ -186,11 +186,11 @@ namespace UnrealBuildTool
 		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
 		/// <param name="TargetType">  The type of target (game or program)</param>
 		/// <returns>string    The custom path lines for the project file; Empty string if it doesn't require one</returns>
-		public override string GetVisualStudioPathsEntries(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, TargetRules.TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath)
+		public override string GetVisualStudioPathsEntries(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, TargetRules.TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath, VCProjectFileFormat InProjectFileFormat)
 		{
-			if (!IsNsightInstalled())
+			if (!IsNsightInstalled(InProjectFileFormat))
 			{
-				return base.GetVisualStudioPathsEntries(InPlatform, InConfiguration, TargetType, TargetRulesPath, ProjectFilePath, NMakeOutputPath);
+				return base.GetVisualStudioPathsEntries(InPlatform, InConfiguration, TargetType, TargetRulesPath, ProjectFilePath, NMakeOutputPath, InProjectFileFormat);
 			}
 
 			// NOTE: We are intentionally overriding defaults for these paths with empty strings.  We never want Visual Studio's

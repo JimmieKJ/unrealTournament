@@ -2,6 +2,15 @@
  
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Input/SComboBox.h"
+
+class SButton;
+
 DECLARE_DELEGATE_OneParam( FOnTextChosen, const FString& );
 
 /** Simple box containing a combobox of strings to pick from, usually used within a MenuStack */

@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "UHTMakefile/UHTMakefileHeaderDescriptor.h"
 
+#include "CoreMinimal.h"
+#include "Templates/TypeHash.h"
+#include "Containers/Map.h"
+#include "UHTMakefileHeaderDescriptor.h"
+
+class UPackage;
+class FUnrealSourceFile;
+class FArchive;
 class FUHTMakefile;
 struct FManifestModule;
 

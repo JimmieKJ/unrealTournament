@@ -1,14 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelEditor.h"
 #include "LevelViewportTabContent.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Framework/Docking/LayoutService.h"
 #include "LevelViewportLayout2x2.h"
 #include "LevelViewportLayoutOnePane.h"
 #include "LevelViewportLayoutTwoPanes.h"
 #include "LevelViewportLayoutThreePanes.h"
 #include "LevelViewportLayoutFourPanes.h"
-#include "SLevelViewport.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 
 // FLevelViewportTabContent ///////////////////////////

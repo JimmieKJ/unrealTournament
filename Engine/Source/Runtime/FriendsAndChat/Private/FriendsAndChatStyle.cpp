@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FriendsAndChatPrivatePCH.h"
+#include "FriendsAndChatStyle.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Framework/Application/SlateApplication.h"
 
 const FName FFriendsAndChatStyle::TypeName( TEXT("FFriendsAndChatStyle") );
 

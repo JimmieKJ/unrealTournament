@@ -1,20 +1,40 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "EngineGlobals.h"
+#include "HAL/IConsoleManager.h"
+#include "Components/SceneComponent.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/MeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/Engine.h"
+#include "GameFramework/Volume.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/ShapeComponent.h"
+#include "Engine/CollisionProfile.h"
+#include "SceneManagement.h"
 #include "PhysicsPublic.h"
 #include "Collision.h"
 #include "PhysicsEngine/ConstraintInstance.h"
+#include "PhysicsEngine/ShapeElem.h"
+#include "PhysicsEngine/ConvexElem.h"
+#include "PhysicsEngine/BoxElem.h"
+#include "PhysicsEngine/SphereElem.h"
+#include "PhysicsEngine/SphylElem.h"
 #include "PhysicsEngine/BodySetup.h"
 
-#include "MessageLog.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 
 #if WITH_PHYSX
-	#include "PhysXSupport.h"
-	#include "../Collision/PhysXCollision.h"
-	#include "../Collision/CollisionConversions.h"
+	#include "PhysXPublic.h"
+	#include "Physics/PhysicsFiltering.h"
+	#include "PhysicsEngine/PhysXSupport.h"
+	#include "Collision/PhysXCollision.h"
+	#include "Collision/CollisionConversions.h"
 #endif // WITH_PHYSX
 
-#include "PhysDerivedData.h"
 #include "PhysicsSerializer.h"
 
 #define LOCTEXT_NAMESPACE "BodyInstance"
@@ -896,8 +916,10 @@ void FBodyInstance::UpdatePhysicsShapeFilterData(uint32 ComponentID, bool bUseCo
 						PxRigidBody* PBody = PActor->is<PxRigidBody>();
 						if (PBody)
 						{
-							const bool bNewCcd = IsNonKinematic() && bSimCollision && !bPhysicsStatic && bUseCCD;
-							PBody->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, bNewCcd);
+							const bool bIsKinematic = (IsNonKinematic() == false);
+							const bool bWantsCcd = bSimCollision && !bPhysicsStatic && bUseCCD;
+							PBody->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, bWantsCcd && !bIsKinematic);
+							PBody->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD, bWantsCcd && bIsKinematic);
 						}
 					}
 				}
@@ -1234,7 +1256,7 @@ struct FInitBodiesHelper
 
 			if(!Instance->ShouldInstanceSimulatingPhysics())
 			{
-				PNewDynamic->setRigidDynamicFlag(PxRigidDynamicFlag::eKINEMATIC, true);
+				PNewDynamic->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
 			}
 
 			PxActorFlags ActorFlags = PNewDynamic->getActorFlags();
@@ -1458,7 +1480,7 @@ struct FInitBodiesHelper
 				bDynamicsUseAsyncScene = Instance->UseAsyncScene(PhysScene);
 			}
 
-			if (IsStatic() || bCanDefer)
+			if (bCanDefer)
 			{
 				if (!IsStatic() && PNewDynamic)
 				{
@@ -1568,7 +1590,7 @@ struct FInitBodiesHelper
 		bool bDynamicsUseAsync = false;
 		if (CreateShapesAndActors_PhysX(PSyncActors, PAsyncActors, PDynamicActors, bCanDefer, bDynamicsUseAsync))
 		{
-			if (!IsStatic() && !bCanDefer)
+			if (!bCanDefer)
 			{
 				const bool bAddingToSyncScene = (PSyncActors.Num() || (PDynamicActors.Num() && !bDynamicsUseAsync)) && PSyncScene;
 				const bool bAddingToAsyncScene = (PAsyncActors.Num() || (PDynamicActors.Num() && bDynamicsUseAsync)) && PAsyncScene;
@@ -1578,8 +1600,15 @@ struct FInitBodiesHelper
 
 				AddActorsToScene_PhysX_AssumesLocked(PSyncActors, PAsyncActors, PDynamicActors, bDynamicsUseAsync ? PAsyncScene : PSyncScene);
 			}
-
-			PhysScene->FlushDeferredActors();	//For now we do not actually defer over multiple frames. This needs better profiling to determine how useful it actually is.
+			else
+			{
+				//For now we do not actually defer over multiple frames. To support this we need better automatic flushing when read locks are obtained
+				PhysScene->FlushDeferredActors(PST_Sync);
+				if (PhysScene->HasAsyncScene())
+				{
+					PhysScene->FlushDeferredActors(PST_Async);
+				}
+			}
 		}
 
 		PSyncActors.Reset();
@@ -1951,8 +1980,6 @@ void TermBodyHelper(int16& SceneIndex, PxRigidActor*& PRigidActor, FBodyInstance
 
 			if (PRigidActor)
 			{
-
-
 				// Let FPhysScene know
 				FPhysScene* PhysScene = FPhysxUserData::Get<FPhysScene>(PScene->userData);
 				if (PhysScene)
@@ -2240,7 +2267,12 @@ namespace EScaleMode
 //computes the relative scaling vectors based on scale mode used
 void ComputeScalingVectors(EScaleMode::Type ScaleMode, const FVector& InScale3D, FVector& OutScale3D, FVector& OutScale3DAbs)
 {
-	const FVector NewScale3D = InScale3D.IsNearlyZero() ? FVector(KINDA_SMALL_NUMBER) : InScale3D;	//min scale
+	// Ensure no zeroes in any dimension
+	FVector NewScale3D;
+	NewScale3D.X = FMath::IsNearlyZero(InScale3D.X) ? KINDA_SMALL_NUMBER : InScale3D.X;
+	NewScale3D.Y = FMath::IsNearlyZero(InScale3D.Y) ? KINDA_SMALL_NUMBER : InScale3D.Y;
+	NewScale3D.Z = FMath::IsNearlyZero(InScale3D.Z) ? KINDA_SMALL_NUMBER : InScale3D.Z;
+
 	const FVector NewScale3DAbs = NewScale3D.GetAbs();
 	switch (ScaleMode)
 	{
@@ -2543,7 +2575,13 @@ bool FBodyInstance::UpdateBodyScale(const FVector& InScale3D, bool bForceUpdate)
 			}
 			else if (bInvalid)
 			{
-				UE_LOG(LogPhysics, Warning, TEXT("Scale '%s' is not valid on object '%s'."), *AdjustedScale3D.ToString(), *GetBodyDebugName());
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+				FMessageLog("PIE").Warning()
+					->AddToken(FTextToken::Create(LOCTEXT("InvalidScaleStart", "Applying invalid scale")))
+					->AddToken(FTextToken::Create(AdjustedScale3D.ToCompactText()))
+					->AddToken(FTextToken::Create(LOCTEXT("InvalidScaleMid", "to body")))
+					->AddToken(FUObjectToken::Create(OwnerComponent.Get()));
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 			}
 		}
 	});
@@ -2578,26 +2616,28 @@ void FBodyInstance::UpdateInstanceSimulatePhysics()
 	// This might be 'and'ing us with ourself, but thats fine.
 	const bool bUseSimulate = IsInstanceSimulatingPhysics();
 	bool bInitialized = false;
+
 #if WITH_PHYSX
 	ExecuteOnPxRigidDynamicReadWrite(this, [&](PxRigidDynamic* PRigidDynamic)
 	{
 		bInitialized = true;
 		// If we want it fixed, and it is currently not kinematic
 		const bool bNewKinematic = (bUseSimulate == false);
-		const bool bNewCcd = !bNewKinematic && bUseCCD;
 		{
 			// TODO: Set flags with sanatization.
 			// If we're enabling Kinematic, ensure CCD is disabled first.
 			if (bNewKinematic)
 			{
-				PRigidDynamic->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, bNewCcd);
-				PRigidDynamic->setRigidDynamicFlag(PxRigidDynamicFlag::eKINEMATIC, true);
+				PRigidDynamic->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, false);
+				PRigidDynamic->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
+				PRigidDynamic->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD, bUseCCD);
 			}
 			// If we're enabling CCD, ensure Kinematic is disabled first.
 			else
 			{
-				PRigidDynamic->setRigidDynamicFlag(PxRigidDynamicFlag::eKINEMATIC, false);
-				PRigidDynamic->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, bNewCcd);
+				PRigidDynamic->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD, false);
+				PRigidDynamic->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, false);
+				PRigidDynamic->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, bUseCCD);
 			}
 
 			//if wake when level starts is true, calling this function automatically wakes body up
@@ -2609,13 +2649,13 @@ void FBodyInstance::UpdateInstanceSimulatePhysics()
 				}
 
 				//Make sure to refresh filtering and generate contact points if we're already overlapping with an object
-				if(PxScene* PScene = PRigidDynamic->getScene())
+				//NOTE: waiting on fix from physx for refiltering on aggregates. For now we use supress to ensure this is not needed
+				/*if(PxScene* PScene = PRigidDynamic->getScene())
 				{
 					PScene->resetFiltering(*PRigidDynamic);
-				}
+				}*/
 			}
 		}
-		
 	});
 #endif
 
@@ -3221,7 +3261,7 @@ PxRigidDynamic* FBodyInstance::GetPxRigidDynamic_AssumesLocked() const
 	// The logic below works because dynamic actors are non-NULL in only one scene.
 	// If this assumption changes, the logic needs to change.
 	PxRigidActor* RigidActor = RigidActorSync ? RigidActorSync : RigidActorAsync;
-	return RigidActor ? RigidActor->isRigidDynamic() : nullptr;
+	return RigidActor ? RigidActor->is<PxRigidDynamic>() : nullptr;
 }
 
 PxRigidBody* FBodyInstance::GetPxRigidBody_AssumesLocked() const
@@ -3229,7 +3269,7 @@ PxRigidBody* FBodyInstance::GetPxRigidBody_AssumesLocked() const
 	// The logic below works because dynamic actors are non-NULL in only one scene.
 	// If this assumption changes, the logic needs to change.
 	PxRigidActor* RigidActor = RigidActorSync ? RigidActorSync : RigidActorAsync;
-	return RigidActor ? RigidActor->isRigidBody() : nullptr;
+	return RigidActor ? RigidActor->is<PxRigidBody>() : nullptr;
 }
 #endif // WITH_PHYSX
 
@@ -3565,7 +3605,9 @@ void FBodyInstance::WakeInstance()
 #if WITH_PHYSX
 	ExecuteOnPxRigidDynamicReadWrite(this, [&](PxRigidDynamic* PRigidDynamic)
 	{
-		if (!IsRigidBodyKinematic_AssumesLocked(PRigidDynamic))
+		// Only do the wake if we are not kinematic and we have a scene. If a body is not in a
+		// scene yet (could have been defered) then it will wake when it is added to the scene
+		if (PRigidDynamic->getScene() && !IsRigidBodyKinematic_AssumesLocked(PRigidDynamic))
 		{
 			PRigidDynamic->wakeUp();
 		}
@@ -3600,7 +3642,7 @@ void FBodyInstance::PutInstanceToSleep()
 #endif
 }
 
-float FBodyInstance::GetSleepThresholdMultiplier()
+float FBodyInstance::GetSleepThresholdMultiplier() const
 {
 	if (SleepFamily == ESleepFamily::Sensitive)
 	{
@@ -4079,7 +4121,7 @@ FString FBodyInstance::GetBodyDebugName() const
 
 bool FBodyInstance::LineTrace(struct FHitResult& OutHit, const FVector& Start, const FVector& End, bool bTraceComplex, bool bReturnPhysicalMaterial) const
 {
-	SCOPE_CYCLE_COUNTER(STAT_Collision_RaycastAny);
+	SCOPE_CYCLE_COUNTER(STAT_Collision_FBodyInstance_LineTrace);
 
 	OutHit.TraceStart = Start;
 	OutHit.TraceEnd = End;
@@ -4097,7 +4139,7 @@ bool FBodyInstance::LineTrace(struct FHitResult& OutHit, const FVector& Start, c
 		if ((RigidBody != NULL) && (RigidBody->getNbShapes() != 0))
 		{
 			// Create filter data used to filter collisions, should always return eTOUCH for LineTraceComponent		
-			PxSceneQueryFlags POutputFlags = PxSceneQueryFlag::eIMPACT | PxSceneQueryFlag::eNORMAL | PxSceneQueryFlag::eDISTANCE;
+			PxHitFlags PHitFlags = PxHitFlag::ePOSITION | PxHitFlag::eNORMAL | PxHitFlag::eDISTANCE | PxHitFlag::eFACE_INDEX;
 
 			PxRaycastHit BestHit;
 			float BestHitDistance = BIG_NUMBER;
@@ -4123,10 +4165,8 @@ bool FBodyInstance::LineTrace(struct FHitResult& OutHit, const FVector& Start, c
 				const bool bShapeIsSimple = (ShapeFilter.word3 & EPDF_SimpleCollision) != 0;
 				if ((bTraceComplex && bShapeIsComplex) || (!bTraceComplex && bShapeIsSimple))
 				{
-					const int32 ArraySize = ARRAY_COUNT(PHits);
-					// only care about one hit - not closest hit			
-					const PxI32 NumHits = PxGeometryQuery::raycast(U2PVector(Start), U2PVector(Delta / DeltaMag), PShape->getGeometry().any(), PxShapeExt::getGlobalPose(*PShape, *RigidBody), DeltaMag, POutputFlags, ArraySize, PHits, true);
-
+					const int32 ArraySize = ARRAY_COUNT(PHits);		
+					const PxI32 NumHits = PxGeometryQuery::raycast(U2PVector(Start), U2PVector(Delta / DeltaMag), PShape->getGeometry().any(), PxShapeExt::getGlobalPose(*PShape, *RigidBody), DeltaMag, PHitFlags, ArraySize, PHits);
 
 					if (ensure(NumHits <= ArraySize))
 					{
@@ -4155,7 +4195,7 @@ bool FBodyInstance::LineTrace(struct FHitResult& OutHit, const FVector& Start, c
 
 				PxTransform PStartTM(U2PVector(Start));
 				const UPrimitiveComponent* OwnerComponentInst = OwnerComponent.Get();
-				ConvertQueryImpactHit(OwnerComponentInst ? OwnerComponentInst->GetWorld() : nullptr, BestHit, OutHit, DeltaMag, QueryFilter, Start, End, NULL, PStartTM, false, bReturnPhysicalMaterial);
+				ConvertQueryImpactHit(OwnerComponentInst ? OwnerComponentInst->GetWorld() : nullptr, BestHit, OutHit, DeltaMag, QueryFilter, Start, End, NULL, PStartTM, true, bReturnPhysicalMaterial);
 				bHitSomething = true;
 			}
 		}
@@ -4174,7 +4214,7 @@ bool FBodyInstance::LineTrace(struct FHitResult& OutHit, const FVector& Start, c
 	return bHitSomething;
 }
 
-bool FBodyInstance::Sweep(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FCollisionShape& CollisionShape, bool bTraceComplex) const
+bool FBodyInstance::Sweep(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& ShapeWorldRotation, const FCollisionShape& CollisionShape, bool bTraceComplex) const
 {
 	if (CollisionShape.IsNearlyZero())
 	{
@@ -4191,11 +4231,11 @@ bool FBodyInstance::Sweep(struct FHitResult& OutHit, const FVector& Start, const
 		{
 			const PxRigidActor* RigidBody = WeldParent ? WeldParent->GetPxRigidActor_AssumesLocked() : GetPxRigidActor_AssumesLocked();
 
-		if ((RigidBody != NULL) && (RigidBody->getNbShapes() != 0) && (OwnerComponent != NULL))
-		{
-			FPhysXShapeAdaptor ShapeAdaptor(FQuat::Identity, CollisionShape);
-			bSweepHit = InternalSweepPhysX(OutHit, Start, End, CollisionShape, bTraceComplex, RigidBody, &ShapeAdaptor.GetGeometry());
-		}
+            if ((RigidBody != NULL) && (RigidBody->getNbShapes() != 0) && (OwnerComponent != NULL))
+            {
+                FPhysXShapeAdaptor ShapeAdaptor(ShapeWorldRotation, CollisionShape);
+                bSweepHit = InternalSweepPhysX(OutHit, Start, End, ShapeAdaptor, bTraceComplex, RigidBody);
+            }
 		});
 		
 #endif //WITH_PHYSX
@@ -4212,18 +4252,16 @@ bool FBodyInstance::Sweep(struct FHitResult& OutHit, const FVector& Start, const
 }
 
 #if WITH_PHYSX
-bool FBodyInstance::InternalSweepPhysX(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FCollisionShape& Shape, bool bTraceComplex, const PxRigidActor* RigidBody, const PxGeometry* Geometry) const
+bool FBodyInstance::InternalSweepPhysX(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FPhysXShapeAdaptor& ShapeAdaptor, bool bTraceComplex, const PxRigidActor* RigidBody) const
 {
 	const FVector Delta = End - Start;
 	const float DeltaMag = Delta.Size();
 	if(DeltaMag > KINDA_SMALL_NUMBER)
 	{
-		PxSceneQueryFlags POutputFlags = PxSceneQueryFlag::eIMPACT | PxSceneQueryFlag::eNORMAL | PxSceneQueryFlag::eDISTANCE | PxSceneQueryFlag::eMTD;
-		
-		PxQuat PGeomRot = PxQuat::createIdentity();
+		PxHitFlags POutputFlags = PxHitFlag::ePOSITION | PxHitFlag::eNORMAL | PxHitFlag::eDISTANCE | PxHitFlag::eFACE_INDEX | PxHitFlag::eMTD;
 
 		UPrimitiveComponent* OwnerComponentInst = OwnerComponent.Get();
-		PxTransform PStartTM(U2PVector(Start), PGeomRot);
+		PxTransform PStartTM(U2PVector(Start), ShapeAdaptor.GetGeomOrientation());
 		PxTransform PCompTM(U2PTransform(OwnerComponentInst->ComponentToWorld));
 
 		PxVec3 PDir = U2PVector(Delta/DeltaMag);
@@ -4254,7 +4292,8 @@ bool FBodyInstance::InternalSweepPhysX(struct FHitResult& OutHit, const FVector&
 
 				if (PGeom)
 				{
-					if(PxGeometryQuery::sweep(PDir, DeltaMag, *Geometry, PStartTM, *PGeom, PGlobalPose, PHit, POutputFlags))
+                    const PxGeometry& Geometry = ShapeAdaptor.GetGeometry();
+					if(PxGeometryQuery::sweep(PDir, DeltaMag, Geometry, PStartTM, *PGeom, PGlobalPose, PHit, POutputFlags))
 					{
 						// we just like to make sure if the hit is made
 						PxFilterData QueryFilter;
@@ -4264,6 +4303,7 @@ bool FBodyInstance::InternalSweepPhysX(struct FHitResult& OutHit, const FVector&
 						PHit.shape = PShape;
 						PHit.actor = HasSharedShapes() ? RigidActorSync : PShape->getActor();	//in the case of shared shapes getActor will return null. Since the shape is shared we just return the sync actor
 						PxTransform PStartTransform(U2PVector(Start));
+						PHit.faceIndex = FindFaceIndex(PHit, PDir);
 						ConvertQueryImpactHit(OwnerComponentInst->GetWorld(), PHit, OutHit, DeltaMag, QueryFilter, Start, End, NULL, PStartTransform, false, false);
 						return true;
 					}
@@ -4481,7 +4521,7 @@ bool FBodyInstance::OverlapMulti(TArray<struct FOverlapResult>& InOutOverlaps, c
 
 		ExecuteOnPhysicsReadOnly([&]
 		{
-			// Get all the shapes from the actor
+		// Get all the shapes from the actor
 			FInlinePxShapeArray PShapes;
 			const int32 NumShapes = FillInlinePxShapeArray(PShapes, *PRigidActor);
 
@@ -4651,22 +4691,25 @@ void FBodyInstance::LoadProfileData(bool bVerifyProfile)
 
 SIZE_T FBodyInstance::GetBodyInstanceResourceSize(EResourceSizeMode::Type Mode) const
 {
-	SIZE_T ResSize = 0;
+	FResourceSizeEx ResSize = FResourceSizeEx(Mode);
+	GetBodyInstanceResourceSizeEx(ResSize);
+	return ResSize.GetTotalMemoryBytes();
+}
 
+void FBodyInstance::GetBodyInstanceResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const
+{
 #if WITH_PHYSX
 	// Get size of PhysX data, skipping contents of 'shared data'
 	if (RigidActorSync != NULL)
 	{
-		ResSize += GetPhysxObjectSize(RigidActorSync, FPhysxSharedData::Get().GetCollection());
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(GetPhysxObjectSize(RigidActorSync, FPhysxSharedData::Get().GetCollection()));
 	}
 
 	if (RigidActorAsync != NULL)
 	{
-		ResSize += GetPhysxObjectSize(RigidActorAsync, FPhysxSharedData::Get().GetCollection());
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(GetPhysxObjectSize(RigidActorAsync, FPhysxSharedData::Get().GetCollection()));
 	}
 #endif
-
-	return ResSize;
 }
 
 void FBodyInstance::FixupData(class UObject* Loader)
@@ -4825,11 +4868,13 @@ bool FBodyInstance::ValidateTransform(const FTransform &Transform, const FString
 		return false;
 	}
 
+#if !(UE_BUILD_SHIPPING)
 	if(Transform.ContainsNaN())
 	{
 		UE_LOG(LogPhysics, Warning, TEXT("Initialising Body : Bad transform - %s %s\n%s"), *DebugName, *Setup->BoneName.ToString(), *Transform.ToString());
 		return false;
 	}
+#endif
 
 	return true;
 }
@@ -4895,6 +4940,7 @@ void FBodyInstance::InitDynamicProperties_AssumesLocked()
 			if(!bStartAwake && !bWokenExternally)
 			{
 				RigidActor->setWakeCounter(0.f);
+				RigidActor->putToSleep();
 			}
 		}
 	}
@@ -5113,8 +5159,10 @@ void FBodyInstance::SetShapeFlags_AssumesLocked(TEnumAsByte<ECollisionEnabled::T
 				PxRigidBody* PBody = GetPxRigidActor_AssumesLocked()->is<PxRigidBody>();
 				if (PBody)
 				{
-					const bool bNewCcd = IsNonKinematic() && bSimCollision && !bPhysicsStatic && bUseCCD;
-					PBody->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, bNewCcd);
+					const bool bIsKinematic = (IsNonKinematic() == false);
+					const bool bWantsCcd = bSimCollision && !bPhysicsStatic && bUseCCD;
+					PBody->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD, bWantsCcd && !bIsKinematic);
+					PBody->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD, bWantsCcd && bIsKinematic);
 				}
 			}
 		}
@@ -5193,11 +5241,20 @@ void FBodyInstance::GetShapeFlags_AssumesLocked(FShapeData& ShapeData, TEnumAsBy
 					ShapeData.SyncBodyFlags |= PxRigidBodyFlag::eKINEMATIC;
 					ShapeData.AsyncBodyFlags |= PxRigidBodyFlag::eKINEMATIC;
 				}
+
 				// Only enable CCD if Kinematic is not enabled.
-				else if (bUseCCD)
+				if (bUseCCD)
 				{
-					ShapeData.SyncBodyFlags |= PxRigidBodyFlag::eENABLE_CCD;
-					ShapeData.AsyncBodyFlags |= PxRigidBodyFlag::eENABLE_CCD;
+					if (bSimulatePhysics)
+					{
+						ShapeData.SyncBodyFlags |= PxRigidBodyFlag::eENABLE_CCD;
+						ShapeData.AsyncBodyFlags |= PxRigidBodyFlag::eENABLE_CCD;
+					}
+					else
+					{
+						ShapeData.SyncBodyFlags |= PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD;
+						ShapeData.AsyncBodyFlags |= PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD;
+					}
 				}
 			}
 		}

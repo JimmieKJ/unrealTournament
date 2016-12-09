@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+#include "StructDataArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/StructDataArchiveProxy.h"
 
 FStructDataArchiveProxy::FStructDataArchiveProxy(const FUHTMakefile& UHTMakefile, const FStructData* InStructData)
 {

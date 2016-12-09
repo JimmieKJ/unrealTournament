@@ -6,6 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ScreenShotFilterCollection.h"
+
+class IScreenShotData;
+struct FScreenShotDataItem;
 
 /** Flags for specifying the screen shot data type */
 namespace EScreenShotDataType

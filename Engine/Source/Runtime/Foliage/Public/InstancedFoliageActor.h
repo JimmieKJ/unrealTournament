@@ -3,22 +3,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "GameFramework/Actor.h"
-#include "Templates/UniqueObj.h"
-#include "Components/InstancedStaticMeshComponent.h"
+#include "FoliageType_InstancedStaticMesh.h"
 #include "FoliageInstanceBase.h"
 
 #include "InstancedFoliageActor.generated.h"
 
-// Forward declarations
-class UFoliageType;
+class UProceduralFoliageComponent;
+struct FDesiredFoliageInstance;
+struct FFoliageInstance;
 struct FFoliageInstancePlacementInfo;
 struct FFoliageMeshInfo;
-class UFoliageType_InstancedStaticMesh;
-class UProceduralFoliageComponent;
-struct FFoliageInstance;
-struct FHitResult;
-struct FDesiredFoliageInstance;
 
 // Function for filtering out hit components during FoliageTrace
 typedef TFunction<bool(const UPrimitiveComponent*)> FFoliageTraceFilterFunc;
@@ -101,10 +99,10 @@ public:
 	*/
 	static FOLIAGE_API AInstancedFoliageActor* GetInstancedFoliageActorForLevel(ULevel* Level, bool bCreateIfNone = false);
 
+#if WITH_EDITOR
 	static FOLIAGE_API bool FoliageTrace(const UWorld* InWorld, FHitResult& OutHit, const FDesiredFoliageInstance& DesiredInstance, FName InTraceTag = NAME_None, bool InbReturnFaceIndex = false, const FFoliageTraceFilterFunc& FilterFunc = FFoliageTraceFilterFunc());
 	static FOLIAGE_API bool CheckCollisionWithWorld(const UWorld* InWorld, const UFoliageType* Settings, const FFoliageInstance& Inst, const FVector& HitNormal, const FVector& HitLocation);
 
-#if WITH_EDITOR
 	virtual void PostEditUndo() override;
 	virtual bool ShouldExport() override;
 	virtual bool ShouldImport(FString* ActorPropString, bool IsMovingLevel) override;

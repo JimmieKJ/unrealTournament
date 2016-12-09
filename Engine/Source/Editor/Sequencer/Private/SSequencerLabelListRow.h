@@ -2,8 +2,20 @@
 
 #pragma once
 
-#include "SEditableLabel.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Margin.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Input/SEditableLabel.h"
 
+struct FSequencerLabelTreeNode;
 
 /** Delegate that is executed whenever a label has been renamed. */
 DECLARE_DELEGATE_TwoParams(FOnSequencerLabelRenamed, TSharedPtr<FSequencerLabelTreeNode> /*Node*/, const FString& /*NewLabel*/);

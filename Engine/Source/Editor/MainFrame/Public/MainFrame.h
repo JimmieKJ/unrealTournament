@@ -3,14 +3,21 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Public Dependencies
  *****************************************************************************/
 
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
 #include "SlateBasics.h"
 
 
 /* Public Includes
  *****************************************************************************/
 
-#include "IMainFrameModule.h"
+#include "Interfaces/IMainFrameModule.h"

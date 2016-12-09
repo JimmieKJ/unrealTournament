@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FSlateRenderer;
 
 /**
  * Single function to create the standalone renderer for the running platform

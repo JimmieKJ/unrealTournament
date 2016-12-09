@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "Toolkits/IToolkitHost.h"
+#include "CoreMinimal.h"
+#include "SceneTypes.h"
+#include "Toolkits/AssetEditorToolkit.h"
 
+class UTexture;
 
 /**
  * Interface for texture editor tool kits.

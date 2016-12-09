@@ -2,16 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "MediaSource.h"
 #include "PlatformMediaSource.generated.h"
-
 
 /**
  * A media source that selects other media sources based on target platform.
  *
  * Use this asset to override media sources on a per-platform basis.
  */
-UCLASS(BlueprintType)
+UCLASS(BlueprintType, hidecategories=(Overrides))
 class MEDIAASSETS_API UPlatformMediaSource
 	: public UMediaSource
 {
@@ -19,19 +20,11 @@ class MEDIAASSETS_API UPlatformMediaSource
 
 public:
 
-	/**
-	 * Default media source.
-	 *
-	 * This media source will be used if no source was specified for a target platform.
-	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=Sources)
-	UMediaSource* DefaultSource;
-
 #if WITH_EDITORONLY_DATA
 
 	/** Media sources per platform. */
-	UPROPERTY(EditAnywhere, Category=Sources)
-	TMap<FString, UMediaSource*> MediaSources;
+	UPROPERTY(EditAnywhere, Category=Sources, Meta=(DisplayName="Media Sources"))
+	TMap<FString, UMediaSource*> PlatformMediaSources;
 
 #endif
 
@@ -53,4 +46,23 @@ public:
 	virtual FString GetMediaOption(const FName& Key, const FString& DefaultValue) const override;
 	virtual FText GetMediaOption(const FName& Key, const FText& DefaultValue) const override;
 	virtual bool HasMediaOption(const FName& Key) const override;
+
+private:
+
+	/**
+	 * Get the media source for the running target platform.
+	 *
+	 * @return The media source, or nullptr if not set.
+	 */
+	UMediaSource* GetMediaSource() const;
+
+private:
+
+	/**
+	 * Default media source.
+	 *
+	 * This media source will be used if no source was specified for a target platform.
+	 */
+	UPROPERTY()
+	UMediaSource* MediaSource;
 };

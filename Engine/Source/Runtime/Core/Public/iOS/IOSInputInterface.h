@@ -2,12 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "IInputInterface.h"
 #include "IForceFeedbackSystem.h"
 #if !PLATFORM_TVOS
 #import <CoreMotion/CoreMotion.h>
 #endif
 #import <GameController/GameController.h>
+#include "Misc/CoreMisc.h"
+#include "Math/Quat.h"
+#include "Math/Vector.h"
+#include "Math/Color.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 
 
 #define KEYCODE_ENTER 1000

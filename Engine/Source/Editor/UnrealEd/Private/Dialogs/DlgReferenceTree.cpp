@@ -1,12 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
 #include "Dialogs/DlgReferenceTree.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Editor.h"
+#include "UnrealEdGlobals.h"
+
 #include "Toolkits/AssetEditorManager.h"
 #include "ObjectTools.h"
-#include "AssetSelection.h"
-#include "Engine/Polys.h"
 
 FArchiveGenerateReferenceGraph::FArchiveGenerateReferenceGraph( FReferenceGraph& OutGraph ) 
 	: CurrentObject(NULL),

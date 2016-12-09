@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "OnlineDelegateMacros.h"
 #include "OnlineSubsystemTypes.h"
 
 /** List of known friends list types */

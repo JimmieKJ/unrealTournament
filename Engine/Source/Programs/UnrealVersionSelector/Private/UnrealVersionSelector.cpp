@@ -246,7 +246,7 @@ int Main(const TArray<FString>& Arguments)
 	int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int ShowCmd)
 	{
 		int ArgC;
-		LPWSTR* ArgV = ::CommandLineToArgvW(GetCommandLine(), &ArgC);
+		LPWSTR* ArgV = ::CommandLineToArgvW(GetCommandLineW(), &ArgC);
 
 		FCommandLine::Set(TEXT(""));
 

@@ -4,7 +4,7 @@
 // ShaderCompileWorker.cpp : Defines the entry point for the console application.
 //
 
-#include "Core.h"
+#include "CoreMinimal.h"
 #include "RequiredProgramMainCPPInclude.h"
 #include "ShaderCore.h"
 #include "ExceptionHandling.h"
@@ -22,15 +22,40 @@ const int32 ShaderCompileWorkerSingleJobHeader = 'S';
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerPipelineJobHeader = 'P';
 
+enum class ESCWErrorCode
+{
+	Success,
+	GeneralCrash,
+	BadShaderFormatVersion,
+	BadInputVersion,
+	BadSingleJobHeader,
+	BadPipelineJobHeader,
+	CantDeleteInputFile,
+	CantSaveOutputFile,
+	NoTargetShaderFormatsFound,
+	CantCompileForSpecificFormat,
+};
+
 double LastCompileTime = 0.0;
 
 static bool GShaderCompileUseXGE = false;
-static bool GFailedDueToShaderFormatVersion = false;
+static ESCWErrorCode GFailedErrorCode = ESCWErrorCode::Success;
 
 static void WriteXGESuccessFile(const TCHAR* WorkingDirectory)
 {
 	// To signal compilation completion, create a zero length file in the working directory.
 	delete IFileManager::Get().CreateFileWriter(*FString::Printf(TEXT("%s/Success"), WorkingDirectory), FILEWRITE_EvenIfReadOnly);
+}
+
+#if USING_CODE_ANALYSIS
+	FUNCTION_NO_RETURN_START static inline void ExitWithoutCrash(ESCWErrorCode ErrorCode, const FString& Message) FUNCTION_NO_RETURN_END;
+#endif
+
+static inline void ExitWithoutCrash(ESCWErrorCode ErrorCode, const FString& Message)
+{
+	GFailedErrorCode = ErrorCode;
+	FCString::Snprintf(GErrorExceptionDescription, sizeof(GErrorExceptionDescription), TEXT("%s"), *Message);
+	UE_LOG(LogShaders, Fatal, TEXT("%s"), *Message);
 }
 
 static const TArray<const IShaderFormat*>& GetShaderFormats()
@@ -48,7 +73,7 @@ static const TArray<const IShaderFormat*>& GetShaderFormats()
 
 		if (!Modules.Num())
 		{
-			UE_LOG(LogShaders, Error, TEXT("No target shader formats found!"));
+			ExitWithoutCrash(ESCWErrorCode::NoTargetShaderFormatsFound, TEXT("No target shader formats found!"));
 		}
 
 		for (int32 Index = 0; Index < Modules.Num(); Index++)
@@ -89,7 +114,7 @@ static void ProcessCompilationJob(const FShaderCompilerInput& Input,FShaderCompi
 	const IShaderFormat* Compiler = FindShaderFormat(Input.ShaderFormat);
 	if (!Compiler)
 	{
-		UE_LOG(LogShaders, Fatal, TEXT("Can't compile shaders for format %s"), *Input.ShaderFormat.ToString());
+		ExitWithoutCrash(ESCWErrorCode::CantCompileForSpecificFormat, FString::Printf(TEXT("Can't compile shaders for format %s"), *Input.ShaderFormat.ToString()));
 	}
 
 	// Compile the shader directly through the platform dll (directly from the shader dir as the working directory)
@@ -212,12 +237,9 @@ private:
 			auto* Found = FormatVersionMap.Find(Pair.Key);
 			if (Found)
 			{
-				GFailedDueToShaderFormatVersion = true;
 				if (Pair.Value != *Found)
 				{
-					FCString::Snprintf(GErrorExceptionDescription, sizeof(GErrorExceptionDescription), TEXT("Mismatched shader version for format %s; did you forget to build ShaderCompilerWorker?"), *Pair.Key, *Found, Pair.Value);
-
-					checkf(Pair.Value == *Found, TEXT("Exiting due to mismatched shader version for format %s, version %d from ShaderCompilerWorker, received %d! Did you forget to build ShaderCompilerWorker?"), *Pair.Key, *Found, Pair.Value);
+					ExitWithoutCrash(ESCWErrorCode::BadShaderFormatVersion, FString::Printf(TEXT("Mismatched shader version for format %s; did you forget to build ShaderCompilerWorker?"), *Pair.Key, *Found, Pair.Value));
 				}
 			}
 		}
@@ -228,7 +250,10 @@ private:
 		FArchive& InputFile = *InputFilePtr;
 		int32 InputVersion;
 		InputFile << InputVersion;
-		checkf(ShaderCompileWorkerInputVersion == InputVersion, TEXT("Exiting due to ShaderCompilerWorker expecting input version %d, got %d instead! Did you forget to build ShaderCompilerWorker?"), ShaderCompileWorkerInputVersion, InputVersion);
+		if (ShaderCompileWorkerInputVersion != InputVersion)
+		{
+			ExitWithoutCrash(ESCWErrorCode::BadInputVersion, FString::Printf(TEXT("Exiting due to ShaderCompilerWorker expecting input version %d, got %d instead! Did you forget to build ShaderCompilerWorker?"), ShaderCompileWorkerInputVersion, InputVersion));
+		}
 
 		TMap<FString, uint16> ReceivedFormatVersionMap;
 		InputFile << ReceivedFormatVersionMap;
@@ -239,7 +264,10 @@ private:
 		{
 			int32 SingleJobHeader = ShaderCompileWorkerSingleJobHeader;
 			InputFile << SingleJobHeader;
-			checkf(ShaderCompileWorkerSingleJobHeader == SingleJobHeader, TEXT("Exiting due to ShaderCompilerWorker expecting job header %d, got %d instead! Did you forget to build ShaderCompilerWorker?"), ShaderCompileWorkerSingleJobHeader, SingleJobHeader);
+			if (ShaderCompileWorkerSingleJobHeader != SingleJobHeader)
+			{
+				ExitWithoutCrash(ESCWErrorCode::BadSingleJobHeader, FString::Printf(TEXT("Exiting due to ShaderCompilerWorker expecting job header %d, got %d instead! Did you forget to build ShaderCompilerWorker?"), ShaderCompileWorkerSingleJobHeader, SingleJobHeader));
+			}
 
 			int32 NumBatches = 0;
 			InputFile << NumBatches;
@@ -274,7 +302,10 @@ private:
 		{
 			int32 PipelineJobHeader = ShaderCompileWorkerPipelineJobHeader;
 			InputFile << PipelineJobHeader;
-			checkf(ShaderCompileWorkerPipelineJobHeader == PipelineJobHeader, TEXT("Exiting due to ShaderCompilerWorker expecting pipeline job header %d, got %d instead! Did you forget to build ShaderCompilerWorker?"), ShaderCompileWorkerSingleJobHeader, PipelineJobHeader);
+			if (ShaderCompileWorkerPipelineJobHeader != PipelineJobHeader)
+			{
+				ExitWithoutCrash(ESCWErrorCode::BadPipelineJobHeader, FString::Printf(TEXT("Exiting due to ShaderCompilerWorker expecting pipeline job header %d, got %d instead! Did you forget to build ShaderCompilerWorker?"), ShaderCompileWorkerSingleJobHeader, PipelineJobHeader));
+			}
 
 			int32 NumPipelines = 0;
 			InputFile << NumPipelines;
@@ -375,7 +406,7 @@ private:
 
 			if (!bResult)
 			{
-				UE_LOG(LogShaders, Fatal,TEXT("Couldn't delete input file %s, is it readonly?"), *InputFilePath);
+				ExitWithoutCrash(ESCWErrorCode::CantDeleteInputFile, FString::Printf(TEXT("Couldn't delete input file %s, is it readonly?"), *InputFilePath));
 			}
 		}
 
@@ -399,7 +430,7 @@ private:
 			
 		if (!OutputFilePtr)
 		{
-			UE_LOG(LogShaders, Fatal,TEXT("Couldn't save output file %s"), *TempFilePath);
+			ExitWithoutCrash(ESCWErrorCode::CantSaveOutputFile, FString::Printf(TEXT("Couldn't save output file %s"), *TempFilePath));
 		}
 
 		return OutputFilePtr;
@@ -412,7 +443,7 @@ private:
 		int32 OutputVersion = ShaderCompileWorkerOutputVersion;
 		OutputFile << OutputVersion;
 
-		int32 ErrorCode = 0;
+		int32 ErrorCode = (int32)ESCWErrorCode::Success;
 		OutputFile << ErrorCode;
 
 		int32 ErrorStringLength = 0;
@@ -550,7 +581,7 @@ static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
 static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
 static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID"));
 static FName NAME_VULKAN_ES3_1(TEXT("SF_VULKAN_ES31"));
-static FName NAME_VULKAN_ES3_1_UB(TEXT("SF_VULKAN_ES31_UB"));
+static FName NAME_VULKAN_SM4_UB(TEXT("SF_VULKAN_SM4_UB"));
 static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
 static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
 static FName NAME_SF_METAL_SM4(TEXT("SF_METAL_SM4"));
@@ -582,7 +613,7 @@ static EShaderPlatform FormatNameToEnum(FName ShaderFormat)
 	if (ShaderFormat == NAME_VULKAN_SM5)			return SP_VULKAN_SM5;
 	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID)	return SP_VULKAN_ES3_1_ANDROID;
 	if (ShaderFormat == NAME_VULKAN_ES3_1)			return SP_VULKAN_PCES3_1;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_UB)		return SP_VULKAN_PCES3_1;
+	if (ShaderFormat == NAME_VULKAN_SM4_UB)		return SP_VULKAN_SM4;
 	if (ShaderFormat == NAME_SF_METAL_SM4)		return SP_METAL_SM4;
 	if (ShaderFormat == NAME_SF_METAL_MACES3_1)	return SP_METAL_MACES3_1;
 	if (ShaderFormat == NAME_GLSL_ES3_1_ANDROID) return SP_OPENGL_ES3_1_ANDROID;
@@ -679,6 +710,79 @@ static void CompileDirect(const TArray<const class IShaderFormat*>& ShaderFormat
 	Input.Target.Platform =  FormatNameToEnum(FormatName);
 	Input.Target.Frequency = Frequency;
 	Input.bSkipPreprocessedCache = true;
+
+	auto AddResourceTableEntry = [](TMap<FString, FResourceTableEntry>& Map, const FString& Name, const FString& UBName, int32 Type, int32 ResourceIndex)
+	{
+		FResourceTableEntry LambdaEntry;
+		LambdaEntry.UniformBufferName = UBName;
+		LambdaEntry.Type = Type;
+		LambdaEntry.ResourceIndex = ResourceIndex;
+		Map.Add(Name, LambdaEntry);
+	};
+
+	// Sample setup for Uniform Buffers as SCW does not rely on the Engine/Renderer. These change quite unfrequently...
+	Input.Environment.ResourceTableLayoutHashes.Add(TEXT("View"), 178850472);
+	Input.Environment.ResourceTableLayoutHashes.Add(TEXT("InstancedView"), 178257920);
+	Input.Environment.ResourceTableLayoutHashes.Add(TEXT("BuiltinSamplers"), 134219776);
+	Input.Environment.ResourceTableLayoutHashes.Add(TEXT("Primitive"), 18874368);
+	Input.Environment.ResourceTableLayoutHashes.Add(TEXT("DrawRectangleParameters"), 3145728);
+	Input.Environment.ResourceTableLayoutHashes.Add(TEXT("SpeedTreeData"), 39845888);
+	Input.Environment.ResourceTableLayoutHashes.Add(TEXT("GBuffers"), 16842752);
+	Input.Environment.ResourceTableLayoutHashes.Add(TEXT("PrimitiveFade"), 1048576);
+	Input.Environment.ResourceTableLayoutHashes.Add(TEXT("VectorFieldVis"), 9437184);
+	Input.Environment.ResourceTableLayoutHashes.Add(TEXT("Material"), 6815848);
+
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_GlobalDistanceFieldTexture0_UB"), TEXT("View"), 9, 0);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_GlobalDistanceFieldSampler0_UB"), TEXT("View"), 8, 1);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_GlobalDistanceFieldTexture1_UB"), TEXT("View"), 9, 2);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_GlobalDistanceFieldSampler1_UB"), TEXT("View"), 8, 3);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_GlobalDistanceFieldTexture2_UB"), TEXT("View"), 9, 4);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_GlobalDistanceFieldSampler2_UB"), TEXT("View"), 8, 5);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_GlobalDistanceFieldTexture3_UB"), TEXT("View"), 9, 6);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_GlobalDistanceFieldSampler3_UB"), TEXT("View"), 8, 7);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_AtmosphereTransmittanceTexture_UB"), TEXT("View"), 9, 8);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_AtmosphereTransmittanceTextureSampler_UB"), TEXT("View"), 8, 9);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_AtmosphereIrradianceTexture_UB"), TEXT("View"), 9, 10);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_AtmosphereIrradianceTextureSampler_UB"), TEXT("View"), 8, 11);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_AtmosphereInscatterTexture_UB"), TEXT("View"), 9, 12);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_AtmosphereInscatterTextureSampler_UB"), TEXT("View"), 8, 13);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_PerlinNoiseGradientTexture"), TEXT("View"), 9, 14);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_PerlinNoiseGradientTextureSampler"), TEXT("View"), 8, 15);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_PerlinNoise3DTexture"), TEXT("View"), 9, 16);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("View_PerlinNoise3DTextureSampler"), TEXT("View"), 8, 17);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("BuiltinSamplers_Bilinear"), TEXT("BuiltinSamplers"), 8, 0);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("BuiltinSamplers_BilinearClamped"), TEXT("BuiltinSamplers"), 8, 1);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("BuiltinSamplers_Point"), TEXT("BuiltinSamplers"), 8, 2);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("BuiltinSamplers_PointClamped"), TEXT("BuiltinSamplers"), 8, 3);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("BuiltinSamplers_Trilinear"), TEXT("BuiltinSamplers"), 8, 4);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("BuiltinSamplers_TrilinearClamped"), TEXT("BuiltinSamplers"), 8, 5);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferATexture"), TEXT("GBuffers"), 9, 0);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferBTexture"), TEXT("GBuffers"), 9, 1);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferCTexture"), TEXT("GBuffers"), 9, 2);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferDTexture"), TEXT("GBuffers"), 9, 3);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferETexture"), TEXT("GBuffers"), 9, 4);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferVelocityTexture"), TEXT("GBuffers"), 9, 5);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferATextureNonMS"), TEXT("GBuffers"), 9, 6);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferBTextureNonMS"), TEXT("GBuffers"), 9, 7);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferCTextureNonMS"), TEXT("GBuffers"), 9, 8);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferDTextureNonMS"), TEXT("GBuffers"), 9, 9);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferETextureNonMS"), TEXT("GBuffers"), 9, 10);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferVelocityTextureNonMS"), TEXT("GBuffers"), 9, 11);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferATextureMS"), TEXT("GBuffers"), 9, 12);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferBTextureMS"), TEXT("GBuffers"), 9, 13);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferCTextureMS"), TEXT("GBuffers"), 9, 14);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferDTextureMS"), TEXT("GBuffers"), 9, 15);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferETextureMS"), TEXT("GBuffers"), 9, 16);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferVelocityTextureMS"), TEXT("GBuffers"), 9, 17);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferATextureSampler"), TEXT("GBuffers"), 8, 18);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferBTextureSampler"), TEXT("GBuffers"), 8, 19);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferCTextureSampler"), TEXT("GBuffers"), 8, 20);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferDTextureSampler"), TEXT("GBuffers"), 8, 21);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferETextureSampler"), TEXT("GBuffers"), 8, 22);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("GBuffers_GBufferVelocityTextureSampler"), TEXT("GBuffers"), 8, 23);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("Material_Clamp_WorldGroupSettings"), TEXT("Material"), 8, 1);
+	AddResourceTableEntry(Input.Environment.ResourceTableMap, TEXT("Material_Wrap_WorldGroupSettings"), TEXT("Material"), 8, 0);
+
 
 	uint32 CFlag = 0;
 	while (CFlags != 0)
@@ -798,7 +902,11 @@ static int32 GuardedMainWrapper(int32 ArgC, TCHAR* ArgV[], const TCHAR* CrashOut
 			int32 OutputVersion = ShaderCompileWorkerOutputVersion;
 			OutputFile << OutputVersion;
 
-			int32 ErrorCode = GFailedDueToShaderFormatVersion ? 2 : 1;
+			if (GFailedErrorCode == ESCWErrorCode::Success)
+			{
+				GFailedErrorCode = ESCWErrorCode::GeneralCrash;
+			}
+			int32 ErrorCode = (int32)GFailedErrorCode;
 			OutputFile << ErrorCode;
 
 			// Note: Can't use FStrings here as SEH can't be used with destructors

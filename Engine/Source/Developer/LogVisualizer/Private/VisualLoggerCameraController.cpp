@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
 #include "VisualLoggerCameraController.h"
-#include "VisualLoggerHUD.h"
-#include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
+#include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/WorldSettings.h"
 #include "GameFramework/PlayerInput.h"
+#include "Engine/Player.h"
+#include "VisualLoggerHUD.h"
 
 
 //----------------------------------------------------------------------//

@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
 #include "IOSApplication.h"
 #include "IOSInputInterface.h"
 #include "IOSWindow.h"
@@ -8,6 +7,7 @@
 #include "IInputDeviceModule.h"
 #include "IInputInterface.h"
 #include "IInputDevice.h"
+#include "Misc/ScopeLock.h"
 
 
 FCriticalSection FIOSApplication::CriticalSection;

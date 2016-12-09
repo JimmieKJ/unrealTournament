@@ -2,11 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/SWidget.h"
 #include "WidgetReference.h"
-#include "IUMGDesigner.h"
 
-class UWidget;
-class SWidget;
+class FScopedTransaction;
+class FSlateWindowElementList;
+class IUMGDesigner;
 class UWidgetBlueprint;
 
 /**

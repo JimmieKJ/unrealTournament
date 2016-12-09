@@ -68,7 +68,11 @@
 # endif
 # ifdef OPENSSL_SYS_WIN32
 /* Needed for struct timeval */
-#  include <winsock.h>
+#  ifndef OPENSSL_USE_WINSOCK1
+#   include <winsock2.h>
+#  elif 
+#   include <winsock.h>
+#  endif
 # elif defined(OPENSSL_SYS_NETWARE) && !defined(_WINSOCK2API_)
 #  include <sys/timeval.h>
 # else

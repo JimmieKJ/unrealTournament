@@ -1,18 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
+#include "TileMapEditing/TileMapEditorViewportClient.h"
+#include "Components/PrimitiveComponent.h"
 #include "PaperTileMapComponent.h"
-#include "TileMapEditorViewportClient.h"
-#include "SceneViewport.h"
-#include "EdModeTileMap.h"
-#include "PaperEditorShared/SpriteGeometryEditMode.h"
-
-#include "PreviewScene.h"
 #include "ScopedTransaction.h"
-#include "Runtime/Engine/Public/ComponentReregisterContext.h"
-#include "CanvasTypes.h"
+#include "CanvasItem.h"
 #include "Engine/Selection.h"
-#include "TileMapEditorSettings.h"
+#include "AssetEditorModeManager.h"
+#include "TileMapEditing/EdModeTileMap.h"
+#include "PaperEditorShared/SpriteGeometryEditMode.h"
+#include "PaperTileMap.h"
+
+#include "ComponentReregisterContext.h"
+#include "CanvasTypes.h"
+#include "TileMapEditing/TileMapEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "TileMapEditor"
 
@@ -103,12 +104,12 @@ void FTileMapEditorViewportClient::Draw(const FSceneView* View, FPrimitiveDrawIn
 
 
 		//@TODO: Merge this with FEditorCommonDrawHelper::DrawPivot, which needs to take the pivot position as an argument
-		const FMatrix CameraToWorld = View->ViewMatrices.ViewMatrix.InverseFast();
+		const FMatrix CameraToWorld = View->ViewMatrices.GetInvViewMatrix();
 
 		const FVector PivLoc = FVector::ZeroVector;
 
-		const float ZoomFactor = FMath::Min<float>(View->ViewMatrices.ProjMatrix.M[0][0], View->ViewMatrices.ProjMatrix.M[1][1]);
-		const float WidgetRadius = View->ViewMatrices.GetViewProjMatrix().TransformPosition(PivLoc).W * (PivotSize / ZoomFactor);
+		const float ZoomFactor = FMath::Min<float>(View->ViewMatrices.GetProjectionMatrix().M[0][0], View->ViewMatrices.GetProjectionMatrix().M[1][1]);
+		const float WidgetRadius = View->ViewMatrices.GetViewProjectionMatrix().TransformPosition(PivLoc).W * (PivotSize / ZoomFactor);
 
 		const FVector CamX = CameraToWorld.TransformVector(FVector(1, 0, 0));
 		const FVector CamY = CameraToWorld.TransformVector(FVector(0, 1, 0));

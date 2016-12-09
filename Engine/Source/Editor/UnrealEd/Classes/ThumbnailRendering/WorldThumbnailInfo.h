@@ -5,8 +5,11 @@
  */
 
 #pragma once
-#include "Camera/CameraTypes.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "ThumbnailRendering/SceneThumbnailInfo.h"
+#include "Camera/CameraTypes.h"
 #include "WorldThumbnailInfo.generated.h"
 
 UENUM()

@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "../Curves/CurveFloat.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "RenderResource.h"
 #include "SubsurfaceProfile.generated.h"
 
 // struct with all the settings we want in USubsurfaceProfile, separate to make it easer to pass this data around in the engine.

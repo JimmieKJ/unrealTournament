@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MinidumpDiagnosticsApp.h"
+#include "HAL/PlatformMisc.h"
 
-#include "Core.h"
 #include "RequiredProgramMainCPPInclude.h"
 #include "ExceptionHandling.h"
 

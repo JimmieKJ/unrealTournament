@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SlateTextRun.h"
-#include "ShapedTextCache.h"
-#include "RunUtils.h"
+#include "Framework/Text/SlateTextRun.h"
+#include "Rendering/DrawElements.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Text/DefaultLayoutBlock.h"
+#include "Framework/Text/ShapedTextCache.h"
+#include "Framework/Text/RunUtils.h"
 
 TSharedRef< FSlateTextRun > FSlateTextRun::Create( const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FTextBlockStyle& Style )
 {
@@ -41,13 +44,19 @@ FVector2D FSlateTextRun::Measure( int32 BeginIndex, int32 EndIndex, float Scale,
 {
 	const FVector2D ShadowOffsetToApply((EndIndex == Range.EndIndex) ? FMath::Abs(Style.ShadowOffset.X * Scale) : 0.0f, FMath::Abs(Style.ShadowOffset.Y * Scale));
 
+	// Offset the measured shaped text by the outline since the outline was not factored into the size of the text
+	const float OutlineSize = Style.Font.OutlineSettings.OutlineSize * Scale;
+
+	// Need to add the outline offsetting to the beginning and the end because it surrounds both sides.
+	const FVector2D OutlineSizeToApply(EndIndex == Range.EndIndex ? OutlineSize : BeginIndex == Range.BeginIndex ? OutlineSize : 0, OutlineSize);
+
 	if ( EndIndex - BeginIndex == 0 )
 	{
 		return FVector2D( ShadowOffsetToApply.X * Scale, GetMaxHeight( Scale ) );
 	}
 
 	// Use the full text range (rather than the run range) so that text that spans runs will still be shaped correctly
-	return ShapedTextCacheUtil::MeasureShapedText(TextContext.ShapedTextCache, FCachedShapedTextKey(FTextRange(0, Text->Len()), Scale, TextContext, Style.Font), FTextRange(BeginIndex, EndIndex), **Text) + ShadowOffsetToApply;
+	return ShapedTextCacheUtil::MeasureShapedText(TextContext.ShapedTextCache, FCachedShapedTextKey(FTextRange(0, Text->Len()), Scale, TextContext, Style.Font), FTextRange(BeginIndex, EndIndex), **Text) + ShadowOffsetToApply + OutlineSizeToApply;
 }
 
 int8 FSlateTextRun::GetKerning(int32 CurrentIndex, float Scale, const FRunTextContext& TextContext) const

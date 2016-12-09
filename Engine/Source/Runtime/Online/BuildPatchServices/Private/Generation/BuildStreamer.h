@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "StatsCollector.h"
+#include "CoreMinimal.h"
+#include "Misc/SecureHash.h"
+#include "Generation/StatsCollector.h"
+#include "HAL/FileManager.h"
 
 namespace BuildPatchServices
 {

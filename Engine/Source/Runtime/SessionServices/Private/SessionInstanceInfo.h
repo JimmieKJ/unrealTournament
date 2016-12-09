@@ -2,12 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "IMessageContext.h"
+#include "IMessageBus.h"
+#include "Helpers/MessageEndpoint.h"
 #include "ISessionInstanceInfo.h"
+#include "ISessionInfo.h"
 
-
-class ISessionInfo;
+struct FEngineServicePong;
 struct FSessionLogMessage;
-
+struct FSessionServiceLog;
+struct FSessionServicePong;
 
 /**
  * Implements a class to maintain all info related to a game instance in a session
@@ -28,7 +34,7 @@ public:
 	 * @param InOwner The session that owns this instance.
 	 * @param InMessageBus The message bus to use.
 	 */
-	FSessionInstanceInfo(const FGuid& InInstanceId, const TSharedRef<ISessionInfo>& InOwner, const IMessageBusRef& InMessageBus);
+	FSessionInstanceInfo(const FGuid& InInstanceId, const TSharedRef<ISessionInfo>& InOwner, const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InMessageBus);
 
 public:
 
@@ -50,7 +56,7 @@ public:
 
 public:	
 
-	// IGameInstanceInfo interface
+	//~ IGameInstanceInfo interface
 
 	virtual void ExecuteCommand(const FString& CommandString) override;
 

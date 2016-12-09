@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "OnlineBlueprintCallProxyBase.h"
-#include "Interfaces/OnlineAchievementsInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "OnlineStats.h"
+#include "Net/OnlineBlueprintCallProxyBase.h"
 #include "AchievementWriteCallbackProxy.generated.h"
+
+class APlayerController;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAchievementWriteDelegate, FName, WrittenAchievementName, float, WrittenProgress, int32, WrittenUserTag);
 

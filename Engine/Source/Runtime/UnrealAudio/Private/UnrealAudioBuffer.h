@@ -2,6 +2,8 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "UnrealAudioTypes.h"
 #include "UnrealAudioDeviceModule.h"
 #include "UnrealAudioModule.h"
 

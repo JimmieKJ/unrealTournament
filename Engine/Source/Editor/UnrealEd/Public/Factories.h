@@ -6,7 +6,14 @@
 
 #ifndef __FACTORIES_H__
 #define __FACTORIES_H__
+
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
 #include "Animation/MorphTarget.h"
+
+class Error;
+class USkeletalMesh;
+class UStaticMesh;
 
 /**  
  * This class is a simple customizable object factory driven from a text buffer.  

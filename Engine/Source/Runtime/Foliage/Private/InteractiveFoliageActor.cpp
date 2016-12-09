@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FoliagePrivate.h"
 #include "InteractiveFoliageActor.h"
-#include "InteractiveFoliageComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Engine/CollisionProfile.h"
+#include "InteractiveFoliageComponent.h"
 
 AInteractiveFoliageActor::AInteractiveFoliageActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer

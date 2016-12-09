@@ -2,6 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+#include "IMessageContext.h"
+#include "Helpers/MessageEndpoint.h"
+#include "Interfaces/IAutomationWorkerModule.h"
+
+struct FAutomationWorkerFindWorkers;
+struct FAutomationWorkerImageComparisonResults;
+struct FAutomationWorkerNextNetworkCommandReply;
+struct FAutomationWorkerPing;
+struct FAutomationWorkerRequestTests;
+struct FAutomationWorkerResetTests;
+struct FAutomationWorkerRunTests;
 
 /**
  * Implements the Automation Worker module.
@@ -88,6 +101,9 @@ private:
 	// Handles FAutomationWorkerRunTests messages.
 	void HandleRunTestsMessage( const FAutomationWorkerRunTests& Message, const IMessageContextRef& Context );
 
+	// Handles FAutomationWorkerImageComparisonResults messages.
+	void HandleScreenShotCompared(const FAutomationWorkerImageComparisonResults& Message, const IMessageContextRef& Context);
+
 	// Handles FAutomationTestFramework PreTestingEvents.
 	void HandlePreTestingEvent();
 
@@ -97,7 +113,7 @@ private:
 #if WITH_ENGINE
 	/** Invoked when we have screen shot to send. */
 	void HandleScreenShotCaptured(int32 Width, int32 Height, const TArray<FColor>& Bitmap);
-	void HandleScreenShotCapturedWithName(int32 Width, int32 Height, const TArray<FColor>& Bitmap, const FString& ScreenShotName);
+	void HandleScreenShotCapturedWithName(const TArray<FColor>& RawImageData, const FAutomationScreenshotData& Data);
 #endif
 
 	//dispatches analytics events to the data collector

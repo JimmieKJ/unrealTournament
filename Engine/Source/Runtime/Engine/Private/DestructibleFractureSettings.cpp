@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "PhysicsPublic.h"
 #include "Engine/DestructibleFractureSettings.h"
-#include "PhysicsEngine/PhysXSupport.h"
-
+#include "Materials/Material.h"
+#include "PhysXPublic.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -33,39 +31,39 @@ inline void Resize(TArray<ElementType>& Array, const ElementType& Item, uint32 S
 }
 
 #if WITH_APEX
-static void BuildApexRenderMesh(NxRenderMeshAssetAuthoring& RenderMeshAssetAuthor, NxExplicitHierarchicalMesh& HMesh, NxRenderDataFormat::Enum VertexNormalFormat = NxRenderDataFormat::FLOAT3)
+static void BuildApexRenderMesh(apex::RenderMeshAssetAuthoring& RenderMeshAssetAuthor, apex::ExplicitHierarchicalMesh& HMesh, apex::RenderDataFormat::Enum VertexNormalFormat = apex::RenderDataFormat::FLOAT3)
 {
 	// Create a mesh building descriptor
-	NxRenderMeshAssetAuthoring::MeshDesc MeshDesc;
-	TArray<NxRenderMeshAssetAuthoring::SubmeshDesc> SubmeshDescs;
-	SubmeshDescs.Init(NxRenderMeshAssetAuthoring::SubmeshDesc(), HMesh.submeshCount());
+	apex::RenderMeshAssetAuthoring::MeshDesc MeshDesc;
+	TArray<apex::RenderMeshAssetAuthoring::SubmeshDesc> SubmeshDescs;
+	SubmeshDescs.Init(apex::RenderMeshAssetAuthoring::SubmeshDesc(), HMesh.submeshCount());
 	MeshDesc.m_numSubmeshes = (PxU32)SubmeshDescs.Num();
 	MeshDesc.m_submeshes = SubmeshDescs.GetData();
 
 	// Need to transpose the submesh/part arrays.  The outer arrays on the following are indexed by submesh:
-	TArray< TArray<NxVertex> > SubmeshVertices;
-	SubmeshVertices.Init(TArray<NxVertex>(), MeshDesc.m_numSubmeshes);
+	TArray< TArray<apex::Vertex> > SubmeshVertices;
+	SubmeshVertices.Init(TArray<apex::Vertex>(), MeshDesc.m_numSubmeshes);
 	TArray< TArray<PxU32> > SubmeshIndices;
 	SubmeshIndices.Init(TArray<PxU32>(), MeshDesc.m_numSubmeshes);
 	TArray< TArray<PxU32> > SubmeshPartIndices;
 	SubmeshPartIndices.Init(TArray<PxU32>(), MeshDesc.m_numSubmeshes);
 	TArray< TArray<PxU16> > SubmeshFlags;
 	SubmeshFlags.Init(TArray<PxU16>(), MeshDesc.m_numSubmeshes);
-	TArray< NxRenderMeshAssetAuthoring::VertexBuffer > SubmeshVertexBuffers;
-	SubmeshVertexBuffers.Init(NxRenderMeshAssetAuthoring::VertexBuffer(), MeshDesc.m_numSubmeshes);
+	TArray< apex::RenderMeshAssetAuthoring::VertexBuffer > SubmeshVertexBuffers;
+	SubmeshVertexBuffers.Init(apex::RenderMeshAssetAuthoring::VertexBuffer(), MeshDesc.m_numSubmeshes);
 
 	for (uint32 SubmeshNum = 0; SubmeshNum < MeshDesc.m_numSubmeshes; ++SubmeshNum)
 	{
-		TArray<NxVertex>& Vertices = SubmeshVertices[SubmeshNum];
+		TArray<apex::Vertex>& Vertices = SubmeshVertices[SubmeshNum];
 		TArray<PxU32>& Indices = SubmeshIndices[SubmeshNum];
 		TArray<PxU16>& Flags = SubmeshFlags[SubmeshNum];
 		TArray<PxU32>& PartIndices = SubmeshPartIndices[SubmeshNum];
-		NxRenderMeshAssetAuthoring::VertexBuffer& vb = SubmeshVertexBuffers[SubmeshNum];
+		apex::RenderMeshAssetAuthoring::VertexBuffer& vb = SubmeshVertexBuffers[SubmeshNum];
 
-		NxRenderMeshAssetAuthoring::SubmeshDesc& SubmeshDesc = SubmeshDescs[SubmeshNum];
+		apex::RenderMeshAssetAuthoring::SubmeshDesc& SubmeshDesc = SubmeshDescs[SubmeshNum];
 
 		SubmeshDesc.m_materialName = HMesh.submeshData(SubmeshNum)->mMaterialName;
-		NxExplicitVertexFormat VertexFormat = HMesh.submeshData(SubmeshNum)->mVertexFormat;
+		apex::ExplicitVertexFormat VertexFormat = HMesh.submeshData(SubmeshNum)->mVertexFormat;
 
 		SubmeshDesc.m_numVertexBuffers = 1;
 		SubmeshDesc.m_vertexBuffers = &vb;
@@ -73,9 +71,9 @@ static void BuildApexRenderMesh(NxRenderMeshAssetAuthoring& RenderMeshAssetAutho
 		PartIndices.SetNumUninitialized(HMesh.partCount());
 		for(uint32 PartIndex = 0; PartIndex < HMesh.partCount(); ++PartIndex)
 		{
-			TArray<NxVertex> PartVertices;
+			TArray<apex::Vertex> PartVertices;
 			const uint32 PartTriangleCount = HMesh.meshTriangleCount(PartIndex);
-			NxExplicitRenderTriangle* PartTriangles = HMesh.meshTriangles(PartIndex);
+			apex::ExplicitRenderTriangle* PartTriangles = HMesh.meshTriangles(PartIndex);
 
 			uint32 PartVertexCount = 0;
 			for(uint32 PartTriangleIndex = 0; PartTriangleIndex < PartTriangleCount; ++PartTriangleIndex)
@@ -86,11 +84,11 @@ static void BuildApexRenderMesh(NxRenderMeshAssetAuthoring& RenderMeshAssetAutho
 				}
 			}
 
-			PartVertices.Init(NxVertex(), PartVertexCount);
+			PartVertices.Init(apex::Vertex(), PartVertexCount);
 			PartVertexCount = 0;
 			for(uint32 PartTriangleIndex = 0; PartTriangleIndex < PartTriangleCount; ++PartTriangleIndex)
 			{
-				NxExplicitRenderTriangle& Triangle = PartTriangles[PartTriangleIndex];
+				apex::ExplicitRenderTriangle& Triangle = PartTriangles[PartTriangleIndex];
 				if (Triangle.submeshIndex == SubmeshNum)
 				{
 					PartVertices[PartVertexCount++]	= Triangle.vertices[0];
@@ -107,7 +105,7 @@ static void BuildApexRenderMesh(NxRenderMeshAssetAuthoring& RenderMeshAssetAutho
 				Map.SetNumUninitialized(PartVertices.Num());
 				const PxU32 ReducedPartVertexCount = RenderMeshAssetAuthor.createReductionMap(Map.GetData(), PartVertices.GetData(), NULL, (PxU32)PartVertices.Num(), PxVec3( 0.0001f ), 0.001f, 1.0f/256.01f);
 				const PxU32 VertexPartStart = (PxU32)Vertices.Num();
-				Resize(Vertices, NxVertex(), VertexPartStart + ReducedPartVertexCount);
+				Resize(Vertices, apex::Vertex(), VertexPartStart + ReducedPartVertexCount);
 				Resize(Indices, (uint32)0, PartIndices[PartIndex] + PartVertices.Num());
 				Resize(Flags, (uint16)0, VertexPartStart + ReducedPartVertexCount);
 				for(uint32 OldIndex = 0; OldIndex < (uint32)PartVertices.Num(); ++OldIndex)
@@ -133,44 +131,44 @@ static void BuildApexRenderMesh(NxRenderMeshAssetAuthoring& RenderMeshAssetAutho
 
 		if (VertexFormat.mHasStaticPositions || VertexFormat.mHasDynamicPositions)
 		{
-			vb.setSemanticData( NxRenderVertexSemantic::POSITION, &Vertices.GetData()->position, sizeof( NxVertex ), NxRenderDataFormat::FLOAT3);
+			vb.setSemanticData( apex::RenderVertexSemantic::POSITION, &Vertices.GetData()->position, sizeof( apex::Vertex ), apex::RenderDataFormat::FLOAT3);
 		}
 		if (VertexFormat.mHasStaticNormals || VertexFormat.mHasDynamicNormals)
 		{
-			vb.setSemanticData( NxRenderVertexSemantic::NORMAL, &Vertices.GetData()->normal, sizeof( NxVertex ), VertexNormalFormat, NxRenderDataFormat::FLOAT3);
+			vb.setSemanticData( apex::RenderVertexSemantic::NORMAL, &Vertices.GetData()->normal, sizeof( apex::Vertex ), VertexNormalFormat, apex::RenderDataFormat::FLOAT3);
 		}
 		if (VertexFormat.mHasStaticTangents || VertexFormat.mHasDynamicTangents)
 		{
-			vb.setSemanticData( NxRenderVertexSemantic::TANGENT, &Vertices.GetData()->tangent, sizeof( NxVertex ), VertexNormalFormat, NxRenderDataFormat::FLOAT3);
+			vb.setSemanticData( apex::RenderVertexSemantic::TANGENT, &Vertices.GetData()->tangent, sizeof( apex::Vertex ), VertexNormalFormat, apex::RenderDataFormat::FLOAT3);
 		}
 		if (VertexFormat.mHasStaticBinormals || VertexFormat.mHasDynamicBinormals)
 		{
-			vb.setSemanticData( NxRenderVertexSemantic::BINORMAL, &Vertices.GetData()->binormal, sizeof( NxVertex ), VertexNormalFormat, NxRenderDataFormat::FLOAT3);
+			vb.setSemanticData( apex::RenderVertexSemantic::BINORMAL, &Vertices.GetData()->binormal, sizeof( apex::Vertex ), VertexNormalFormat, apex::RenderDataFormat::FLOAT3);
 		}
 		if (VertexFormat.mHasStaticColors || VertexFormat.mHasDynamicColors)
 		{
-			vb.setSemanticData( NxRenderVertexSemantic::COLOR, &Vertices.GetData()->color, sizeof( NxVertex ), NxRenderDataFormat::R8G8B8A8, NxRenderDataFormat::R32G32B32A32_FLOAT);
+			vb.setSemanticData( apex::RenderVertexSemantic::COLOR, &Vertices.GetData()->color, sizeof( apex::Vertex ), apex::RenderDataFormat::R8G8B8A8, apex::RenderDataFormat::R32G32B32A32_FLOAT);
 		}
 		for (PxU32 uvNum = 0; uvNum < VertexFormat.mUVCount; ++uvNum)
 		{
-			vb.setSemanticData( (NxRenderVertexSemantic::Enum)(uvNum+NxRenderVertexSemantic::TEXCOORD0), &Vertices.GetData()->uv[uvNum], sizeof( NxVertex ), NxRenderDataFormat::FLOAT2);
+			vb.setSemanticData( (apex::RenderVertexSemantic::Enum)(uvNum+apex::RenderVertexSemantic::TEXCOORD0), &Vertices.GetData()->uv[uvNum], sizeof( apex::Vertex ), apex::RenderDataFormat::FLOAT2);
 		}
 		switch (VertexFormat.mBonesPerVertex)
 		{
 		case 1:
-			vb.setSemanticData( NxRenderVertexSemantic::BONE_INDEX, &Vertices.GetData()->boneIndices[0], sizeof( NxVertex ), NxRenderDataFormat::USHORT1);
+			vb.setSemanticData( apex::RenderVertexSemantic::BONE_INDEX, &Vertices.GetData()->boneIndices[0], sizeof( apex::Vertex ), apex::RenderDataFormat::USHORT1);
 			break;
 		case 2:
-			vb.setSemanticData( NxRenderVertexSemantic::BONE_INDEX, &Vertices.GetData()->boneIndices[0], sizeof( NxVertex ), NxRenderDataFormat::USHORT2);
-			vb.setSemanticData( NxRenderVertexSemantic::BONE_WEIGHT, &Vertices.GetData()->boneWeights[0], sizeof( NxVertex ), NxRenderDataFormat::FLOAT2);
+			vb.setSemanticData( apex::RenderVertexSemantic::BONE_INDEX, &Vertices.GetData()->boneIndices[0], sizeof( apex::Vertex ), apex::RenderDataFormat::USHORT2);
+			vb.setSemanticData( apex::RenderVertexSemantic::BONE_WEIGHT, &Vertices.GetData()->boneWeights[0], sizeof( apex::Vertex ), apex::RenderDataFormat::FLOAT2);
 			break;
 		case 3:
-			vb.setSemanticData( NxRenderVertexSemantic::BONE_INDEX, &Vertices.GetData()->boneIndices[0], sizeof( NxVertex ), NxRenderDataFormat::USHORT3);
-			vb.setSemanticData( NxRenderVertexSemantic::BONE_WEIGHT, &Vertices.GetData()->boneWeights[0], sizeof( NxVertex ), NxRenderDataFormat::FLOAT3);
+			vb.setSemanticData( apex::RenderVertexSemantic::BONE_INDEX, &Vertices.GetData()->boneIndices[0], sizeof( apex::Vertex ), apex::RenderDataFormat::USHORT3);
+			vb.setSemanticData( apex::RenderVertexSemantic::BONE_WEIGHT, &Vertices.GetData()->boneWeights[0], sizeof( apex::Vertex ), apex::RenderDataFormat::FLOAT3);
 			break;
 		case 4:
-			vb.setSemanticData( NxRenderVertexSemantic::BONE_INDEX, &Vertices.GetData()->boneIndices[0], sizeof( NxVertex ), NxRenderDataFormat::USHORT4);
-			vb.setSemanticData( NxRenderVertexSemantic::BONE_WEIGHT, &Vertices.GetData()->boneWeights[0], sizeof( NxVertex ), NxRenderDataFormat::FLOAT4);
+			vb.setSemanticData( apex::RenderVertexSemantic::BONE_INDEX, &Vertices.GetData()->boneIndices[0], sizeof( apex::Vertex ), apex::RenderDataFormat::USHORT4);
+			vb.setSemanticData( apex::RenderVertexSemantic::BONE_WEIGHT, &Vertices.GetData()->boneWeights[0], sizeof( apex::Vertex ), apex::RenderDataFormat::FLOAT4);
 			break;
 		}
 	}
@@ -196,11 +194,11 @@ public:
 	// End IProgressListener interface
 };
 
-class FExplicitHierarchicalMeshEmbedding : public NxExplicitHierarchicalMesh::NxEmbedding
+class FExplicitHierarchicalMeshEmbedding : public apex::ExplicitHierarchicalMesh::Embedding
 {
 public:
-	virtual void	serialize(physx::general_PxIOStream2::PxFileBuf& stream, NxExplicitHierarchicalMesh::NxEmbedding::DataType type) const override {}
-	virtual void	deserialize(physx::general_PxIOStream2::PxFileBuf& stream, NxExplicitHierarchicalMesh::NxEmbedding::DataType type, physx::PxU32 version) override {}
+	virtual void	serialize(physx::general_PxIOStream2::PxFileBuf& stream, apex::ExplicitHierarchicalMesh::Embedding::DataType type) const override {}
+	virtual void	deserialize(physx::general_PxIOStream2::PxFileBuf& stream, apex::ExplicitHierarchicalMesh::Embedding::DataType type, physx::PxU32 version) override {}
 };
 
 #endif // WITH_APEX
@@ -211,7 +209,7 @@ public:
 //////////////////////////////////////////////////////////////////////////
 
 #if WITH_APEX
-void FFractureMaterial::FillNxFractureMaterialDesc(NxFractureMaterialDesc& PFractureMaterialDesc)
+void FFractureMaterial::FillNxFractureMaterialDesc(apex::FractureMaterialDesc& PFractureMaterialDesc)
 {
 #if WITH_EDITOR	//	Fracture code is only needed in editor
 	PFractureMaterialDesc.uvScale = PxVec2(UVScale.X, UVScale.Y);
@@ -290,7 +288,7 @@ void UDestructibleFractureSettings::PostInitProperties()
 
 #if WITH_EDITOR	//	Fracture code is only needed in editor
 #if WITH_APEX
-	ApexDestructibleAssetAuthoring = static_cast<NxDestructibleAssetAuthoring*>(physx::NxGetApexSDK()->createAssetAuthoring( NX_DESTRUCTIBLE_AUTHORING_TYPE_NAME ));
+	ApexDestructibleAssetAuthoring = static_cast<apex::DestructibleAssetAuthoring*>(apex::GetApexSDK()->createAssetAuthoring( DESTRUCTIBLE_AUTHORING_TYPE_NAME ));
 	//check(ApexDestructibleAssetAuthoring);
 #endif // WITH_APEX
 #endif // #if WITH_EDITOR	//	Fracture code is only needed in editor
@@ -313,11 +311,11 @@ void UDestructibleFractureSettings::BeginDestroy()
 }
 
 #if WITH_APEX && WITH_EDITOR
-void UDestructibleFractureSettings::BuildDestructibleAssetCookingDesc(NxDestructibleAssetCookingDesc& DestructibleAssetCookingDesc)
+void UDestructibleFractureSettings::BuildDestructibleAssetCookingDesc(apex::DestructibleAssetCookingDesc& DestructibleAssetCookingDesc)
 {
 	//	Fracture code is only needed in editor
 	// Retrieve the authoring mesh
-	physx::NxExplicitHierarchicalMesh& HMesh = ApexDestructibleAssetAuthoring->getExplicitHierarchicalMesh();
+	apex::ExplicitHierarchicalMesh& HMesh = ApexDestructibleAssetAuthoring->getExplicitHierarchicalMesh();
 
 	if (ChunkParameters.Num() < (int32)HMesh.chunkCount())
 	{
@@ -330,7 +328,7 @@ void UDestructibleFractureSettings::BuildDestructibleAssetCookingDesc(NxDestruct
 	}
 
 	// Set up chunk desc array
-	ChunkDescs.Init(physx::NxDestructibleChunkDesc(), HMesh.chunkCount());
+	ChunkDescs.Init(apex::DestructibleChunkDesc(), HMesh.chunkCount());
 	DestructibleAssetCookingDesc.chunkDescs = ChunkDescs.GetData();
 	DestructibleAssetCookingDesc.chunkDescCount = ChunkDescs.Num();
 	for (uint32 ChunkIndex = 0; ChunkIndex < DestructibleAssetCookingDesc.chunkDescCount; ++ChunkIndex)
@@ -343,7 +341,7 @@ void UDestructibleFractureSettings::BuildDestructibleAssetCookingDesc(NxDestruct
 		DestructibleAssetCookingDesc.chunkDescs[ChunkIndex].doNotFracture = IndexedChunkParameters.bDoNotFracture;
 		DestructibleAssetCookingDesc.chunkDescs[ChunkIndex].doNotDamage = IndexedChunkParameters.bDoNotDamage;
 		DestructibleAssetCookingDesc.chunkDescs[ChunkIndex].doNotCrumble = IndexedChunkParameters.bDoNotCrumble;
-		const bool instancing = (*HMesh.chunkFlags(ChunkIndex) & physx::NxDestructibleAsset::ChunkIsInstanced) != 0;
+		const bool instancing = (*HMesh.chunkFlags(ChunkIndex) & apex::DestructibleAsset::ChunkIsInstanced) != 0;
 
 		DestructibleAssetCookingDesc.chunkDescs[ChunkIndex].useInstancedRendering = instancing;
 		if (instancing)
@@ -354,7 +352,7 @@ void UDestructibleFractureSettings::BuildDestructibleAssetCookingDesc(NxDestruct
 	}
 
 	// Set up geometry desc array
-	GeometryDescs.Init(physx::NxDestructibleGeometryDesc(), HMesh.partCount());
+	GeometryDescs.Init(apex::DestructibleGeometryDesc(), HMesh.partCount());
 	DestructibleAssetCookingDesc.geometryDescs = GeometryDescs.GetData();
 	DestructibleAssetCookingDesc.geometryDescCount = GeometryDescs.Num();
 	for (uint32 GeometryIndex = 0; GeometryIndex < DestructibleAssetCookingDesc.geometryDescCount; ++GeometryIndex)
@@ -365,7 +363,7 @@ void UDestructibleFractureSettings::BuildDestructibleAssetCookingDesc(NxDestruct
 	}
 }
 
-bool UDestructibleFractureSettings::SetRootMesh(const TArray<NxExplicitRenderTriangle>& MeshTriangles, const TArray<UMaterialInterface*>& InMaterials, const TArray<NxExplicitSubmeshData>& SubmeshData, 
+bool UDestructibleFractureSettings::SetRootMesh(const TArray<apex::ExplicitRenderTriangle>& MeshTriangles, const TArray<UMaterialInterface*>& InMaterials, const TArray<apex::ExplicitSubmeshData>& SubmeshData,
 												const TArray<uint32>& MeshPartition, bool bFirstPartitionIsDepthZero)
 {
 	bool Success = false;
@@ -377,12 +375,12 @@ bool UDestructibleFractureSettings::SetRootMesh(const TArray<NxExplicitRenderTri
 															  SubmeshData.Num(), (uint32*)MeshPartition.GetData(), MeshPartition.Num(), &NegativeOne, bFirstPartitionIsDepthZero ? 1 : 0);
 		if (Success)
 		{
-			NxCollisionDesc CollisionDesc;
+			apex::CollisionDesc CollisionDesc;
 			ApexDestructibleAssetAuthoring->getExplicitHierarchicalMesh().buildCollisionGeometryForRootChunkParts(CollisionDesc);
 		}
 
 		// Resize the chunk parameters
-		physx::NxExplicitHierarchicalMesh& HMesh = ApexDestructibleAssetAuthoring->getExplicitHierarchicalMesh();
+		apex::ExplicitHierarchicalMesh& HMesh = ApexDestructibleAssetAuthoring->getExplicitHierarchicalMesh();
 		ChunkParameters.Init(FDestructibleChunkParameters(), HMesh.chunkCount());
 	}
 
@@ -406,7 +404,7 @@ bool UDestructibleFractureSettings::SetRootMesh(const TArray<NxExplicitRenderTri
 	return Success;
 }
 
-bool UDestructibleFractureSettings::BuildRootMeshFromApexDestructibleAsset(NxDestructibleAsset& ApexDestructibleAsset, EDestructibleImportOptions::Type Options)
+bool UDestructibleFractureSettings::BuildRootMeshFromApexDestructibleAsset(apex::DestructibleAsset& ApexDestructibleAsset, EDestructibleImportOptions::Type Options)
 {
 	bool Success = false;
 
@@ -414,26 +412,26 @@ bool UDestructibleFractureSettings::BuildRootMeshFromApexDestructibleAsset(NxDes
 	{
 		Success = ApexDestructibleAssetAuthoring->importDestructibleAssetToRootMesh(ApexDestructibleAsset, 0);
 
-		NxExplicitHierarchicalMesh& EHM = ApexDestructibleAssetAuthoring->getExplicitHierarchicalMesh();
+		apex::ExplicitHierarchicalMesh& EHM = ApexDestructibleAssetAuthoring->getExplicitHierarchicalMesh();
 
 		if (!(Options & EDestructibleImportOptions::PreserveSettings))
 		{
 			// Now apply the y -> -y and v -> 1-v transformation to all vertex data
 			for (PxU32 PartIndex = 0; PartIndex < EHM.partCount(); ++PartIndex)
 			{
-				NxExplicitRenderTriangle* Triangles = EHM.meshTriangles(PartIndex);
+				apex::ExplicitRenderTriangle* Triangles = EHM.meshTriangles(PartIndex);
 				for (PxU32 TriangleIndex = 0; TriangleIndex < EHM.meshTriangleCount(PartIndex); ++TriangleIndex)
 				{
-					NxExplicitRenderTriangle& Triangle = Triangles[TriangleIndex];
+					apex::ExplicitRenderTriangle& Triangle = Triangles[TriangleIndex];
 					for (PxU32 VertexNum = 0; VertexNum < 3; ++VertexNum)
 					{
-						NxVertex& Vertex = Triangle.vertices[VertexNum];
+						apex::Vertex& Vertex = Triangle.vertices[VertexNum];
 						Vertex.position.y *= -1.0f;
 						Vertex.normal.y *= -1.0f;
 						Vertex.tangent.y *= -1.0f;
 						Vertex.binormal.y *= -1.0f;
 						
-						for (PxU32 UVNum = 0; UVNum < NxVertexFormat::MAX_UV_COUNT; ++UVNum)
+						for (PxU32 UVNum = 0; UVNum < apex::VertexFormat::MAX_UV_COUNT; ++UVNum)
 						{
 							Vertex.uv[UVNum].v = 1.0f - Vertex.uv[UVNum].v;
 						}
@@ -454,7 +452,7 @@ bool UDestructibleFractureSettings::BuildRootMeshFromApexDestructibleAsset(NxDes
 
 				Instanced = (1 << 8),
 			};
-			const NxParameterized::Interface* Params = ApexDestructibleAsset.getAssetNxParameterized();
+			const NvParameterized::Interface* Params = ApexDestructibleAsset.getAssetNvParameterized();
 			if (Params != NULL)
 			{
 				// Damage parameters
@@ -463,7 +461,7 @@ bool UDestructibleFractureSettings::BuildRootMeshFromApexDestructibleAsset(NxDes
 					char ChunkFlagsName[MAX_SPRINTF];
 					FCStringAnsi::Sprintf(ChunkFlagsName, "chunks[%d].flags", ChunkIndex);
 					PxU16 ChunkFlags = 0;
-					verify( NxParameterized::getParamU16(*Params, ChunkFlagsName, ChunkFlags) );
+					verify( NvParameterized::getParamU16(*Params, ChunkFlagsName, ChunkFlags) );
 					FDestructibleChunkParameters& IndexedChunkParameters = ChunkParameters[ChunkIndex];
 					IndexedChunkParameters.bIsSupportChunk = (ChunkFlags & SupportChunk) != 0;
 					IndexedChunkParameters.bDoNotFracture = (ChunkFlags & UnfractureableChunk) != 0;
@@ -485,7 +483,7 @@ void UDestructibleFractureSettings::CreateVoronoiSitesInRootMesh()
 		// Progress listener for reporting progress - for now, just a dummy
 		FProgressListener ProgressListener;
 		check(sizeof(FVector) == sizeof(PxVec3));
-		ApexDestructibleAssetAuthoring->createVoronoiSitesInsideMesh((PxVec3*)VoronoiSites.GetData(), nullptr, VoronoiSites.Num(), (PxU32*)&RandomSeed, NULL, ProgressListener);
+		ApexDestructibleAssetAuthoring->createVoronoiSitesInsideMesh((PxVec3*)VoronoiSites.GetData(), nullptr, VoronoiSites.Num(), (PxU32*)&RandomSeed, NULL, apex::BSPOpenMode::Automatic, ProgressListener);
 	}
 }
 
@@ -496,11 +494,11 @@ bool UDestructibleFractureSettings::VoronoiSplitMesh()
 	if (ApexDestructibleAssetAuthoring != NULL)
 	{
 		// Fill MeshProcessingParameters
-		FractureTools::NxMeshProcessingParameters FTMeshProcessingParameters;
+		FractureTools::MeshProcessingParameters FTMeshProcessingParameters;
 		FTMeshProcessingParameters.islandGeneration = false;	// expose
 
 		// Fill Voronoi splitting descriptor
-		FractureTools::NxFractureVoronoiDesc FTFractureVoronoiDesc;
+		FractureTools::FractureVoronoiDesc FTFractureVoronoiDesc;
 		FTFractureVoronoiDesc.siteCount = VoronoiSites.Num();
 		check(sizeof(FVector) == sizeof(PxVec3));
 		FTFractureVoronoiDesc.sites = (PxVec3*)VoronoiSites.GetData();
@@ -508,12 +506,12 @@ bool UDestructibleFractureSettings::VoronoiSplitMesh()
 		// Material descriptor
 		FractureMaterialDesc.FillNxFractureMaterialDesc(FTFractureVoronoiDesc.materialDesc);
 		// Retrieve the authoring mesh to see if the interiorSubmeshIndex is valid
-		physx::NxExplicitHierarchicalMesh& HMesh = ApexDestructibleAssetAuthoring->getExplicitHierarchicalMesh();
+		apex::ExplicitHierarchicalMesh& HMesh = ApexDestructibleAssetAuthoring->getExplicitHierarchicalMesh();
 		if (FTFractureVoronoiDesc.materialDesc.interiorSubmeshIndex >= HMesh.submeshCount())
 		{
 			// For now just copy the submesh data from the 0 submesh.
-			NxExplicitSubmeshData SubmeshData;
-			NxExplicitSubmeshData* SourceSubmeshData = HMesh.submeshData(0);
+			apex::ExplicitSubmeshData SubmeshData;
+			apex::ExplicitSubmeshData* SourceSubmeshData = HMesh.submeshData(0);
 			if (SourceSubmeshData != NULL)
 			{
 				SubmeshData = *SourceSubmeshData;
@@ -537,7 +535,7 @@ bool UDestructibleFractureSettings::VoronoiSplitMesh()
 		}
 
 		// Collision volume descriptor
-		NxCollisionDesc CollisionVolumeDesc;
+		apex::CollisionDesc CollisionVolumeDesc;
 
 		// Progress listener for reporting progress - for now, just a dummy
 		FProgressListener ProgressListener;
@@ -547,22 +545,22 @@ bool UDestructibleFractureSettings::VoronoiSplitMesh()
 	return Success;
 }
 
-NxDestructibleAsset* UDestructibleFractureSettings::CreateApexDestructibleAsset(const NxDestructibleAssetCookingDesc& DestructibleAssetCookingDesc)
+apex::DestructibleAsset* UDestructibleFractureSettings::CreateApexDestructibleAsset(const apex::DestructibleAssetCookingDesc& DestructibleAssetCookingDesc)
 {
-	NxDestructibleAsset* ApexDestructibleAsset = NULL;
+	apex::DestructibleAsset* ApexDestructibleAsset = NULL;
 
 	if (ApexDestructibleAssetAuthoring != NULL && DestructibleAssetCookingDesc.isValid())
 	{
-		NxRenderMeshAssetAuthoring* ApexRenderMeshAssetAuthoring = static_cast<NxRenderMeshAssetAuthoring*>(physx::NxGetApexSDK()->createAssetAuthoring(NX_RENDER_MESH_AUTHORING_TYPE_NAME));
+		apex::RenderMeshAssetAuthoring* ApexRenderMeshAssetAuthoring = static_cast<apex::RenderMeshAssetAuthoring*>(apex::GetApexSDK()->createAssetAuthoring(RENDER_MESH_AUTHORING_TYPE_NAME));
 		if (ApexRenderMeshAssetAuthoring != NULL)
 		{
 			BuildApexRenderMesh(*ApexRenderMeshAssetAuthoring, ApexDestructibleAssetAuthoring->getExplicitHierarchicalMesh());
-			NxRenderMeshAsset* ApexRenderMeshAsset = static_cast<NxRenderMeshAsset*>(physx::NxGetApexSDK()->createAsset(ApexRenderMeshAssetAuthoring->releaseAndReturnNxParameterizedInterface(), NULL ));
+			apex::RenderMeshAsset* ApexRenderMeshAsset = static_cast<apex::RenderMeshAsset*>(apex::GetApexSDK()->createAsset(ApexRenderMeshAssetAuthoring->releaseAndReturnNvParameterizedInterface(), NULL ));
 			if (ApexRenderMeshAsset != NULL)
 			{
 				ApexDestructibleAssetAuthoring->setRenderMeshAsset(ApexRenderMeshAsset);
 				ApexDestructibleAssetAuthoring->cookChunks(DestructibleAssetCookingDesc);
-				ApexDestructibleAsset = static_cast<NxDestructibleAsset*>(physx::NxGetApexSDK()->createAsset(*ApexDestructibleAssetAuthoring, NULL));
+				ApexDestructibleAsset = static_cast<apex::DestructibleAsset*>(apex::GetApexSDK()->createAsset(*ApexDestructibleAssetAuthoring, NULL));
 			}
 		}
 	}

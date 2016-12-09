@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_SkeletalControlBase.h"
+#include "UnrealWidget.h"
 #include "AnimationGraphSchema.h"
 #include "Animation/AnimationSettings.h"
-#include "Animation/AnimInstance.h"
-#include "CompilerResultsLog.h"
-#include "AnimNode_SkeletalControlBase.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Kismet2/CompilerResultsLog.h"
+#include "BoneControllers/AnimNode_SkeletalControlBase.h"
+
 /////////////////////////////////////////////////////
 // UAnimGraphNode_SkeletalControlBase
 
@@ -19,6 +20,7 @@ UAnimGraphNode_SkeletalControlBase::UAnimGraphNode_SkeletalControlBase(const FOb
 
 int32 UAnimGraphNode_SkeletalControlBase::GetWidgetCoordinateSystem(const USkeletalMeshComponent* SkelComp)
 {
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	if (GetWidgetMode(SkelComp) == FWidget::WM_Scale)
 	{
 		return COORD_Local;
@@ -27,6 +29,7 @@ int32 UAnimGraphNode_SkeletalControlBase::GetWidgetCoordinateSystem(const USkele
 	{
 		return COORD_World;
 	}
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 // returns int32 instead of EWidgetMode because of compiling issue on Mac
@@ -37,7 +40,9 @@ int32 UAnimGraphNode_SkeletalControlBase::GetWidgetMode(const USkeletalMeshCompo
 
 int32 UAnimGraphNode_SkeletalControlBase::ChangeToNextWidgetMode(const USkeletalMeshComponent* SkelComp, int32 CurWidgetMode)
 {
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	return GetWidgetMode(SkelComp);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 FName UAnimGraphNode_SkeletalControlBase::FindSelectedBone()
@@ -69,33 +74,6 @@ void UAnimGraphNode_SkeletalControlBase::CreateOutputPins()
 {
 	const UAnimationGraphSchema* Schema = GetDefault<UAnimationGraphSchema>();
 	CreatePin(EGPD_Output, Schema->PC_Struct, TEXT(""), FComponentSpacePoseLink::StaticStruct(), /*bIsArray=*/ false, /*bIsReference=*/ false, TEXT("Pose"));
-}
-
-FAnimNode_SkeletalControlBase* UAnimGraphNode_SkeletalControlBase::FindDebugAnimNode(USkeletalMeshComponent * PreviewSkelMeshComp) const
-{
-	FAnimNode_SkeletalControlBase* DebugNode = nullptr;
-
-	if (PreviewSkelMeshComp != nullptr && PreviewSkelMeshComp->GetAnimInstance() != nullptr)
-	{
-		// find an anim node index from debug data
-		UAnimBlueprintGeneratedClass* AnimBlueprintClass = Cast<UAnimBlueprintGeneratedClass>(PreviewSkelMeshComp->GetAnimInstance()->GetClass());
-		if (AnimBlueprintClass)
-		{
-			FAnimBlueprintDebugData& DebugData = AnimBlueprintClass->GetAnimBlueprintDebugData();
-			int32* IndexPtr = DebugData.NodePropertyToIndexMap.Find(this);
-
-			if (IndexPtr)
-			{
-				int32 AnimNodeIndex = *IndexPtr;
-				// reverse node index temporarily because of a bug in NodeGuidToIndexMap
-				AnimNodeIndex = AnimBlueprintClass->AnimNodeProperties.Num() - AnimNodeIndex - 1;
-
-				DebugNode = AnimBlueprintClass->AnimNodeProperties[AnimNodeIndex]->ContainerPtrToValuePtr<FAnimNode_SkeletalControlBase>(PreviewSkelMeshComp->GetAnimInstance());
-			}
-		}
-	}
-
-	return DebugNode;
 }
 
 
@@ -390,4 +368,5 @@ void UAnimGraphNode_SkeletalControlBase::ValidateAnimNodePostCompile(FCompilerRe
 		}
 	}
 }
+
 #undef LOCTEXT_NAMESPACE

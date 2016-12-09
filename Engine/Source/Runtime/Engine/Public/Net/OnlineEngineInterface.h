@@ -1,13 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineEngineInterface.generated.h"
 
-class UWorld;
 class FVoicePacket;
-class FArchive;
-class FUniqueNetId;
-struct FJoinabilitySettings;
+struct FWorldContext;
 
 /** Delegate fired when an AutoLogin request is complete */
 DECLARE_DELEGATE_ThreeParams(FOnlineAutoLoginComplete, int32 /*LocalUserNum*/, bool /*bWasSuccessful*/, const FString& /*Error*/);

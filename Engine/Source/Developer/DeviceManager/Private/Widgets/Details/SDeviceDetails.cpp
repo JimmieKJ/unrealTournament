@@ -1,6 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DeviceManagerPrivatePCH.h"
+#include "Widgets/Details/SDeviceDetails.h"
+#include "Widgets/SOverlay.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Widgets/Shared/SDeviceQuickInfo.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Details/SDeviceDetailsFeatureListRow.h"
 
 
 #define LOCTEXT_NAMESPACE "SDeviceDetails"

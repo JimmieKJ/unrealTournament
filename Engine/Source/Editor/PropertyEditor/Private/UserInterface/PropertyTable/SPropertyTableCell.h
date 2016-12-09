@@ -1,14 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IPropertyTableUtilities.h"
-#include "PropertyNode.h"
-#include "PropertyEditor.h"
-
-#include "IPropertyTableColumn.h"
-#include "IPropertyTableRow.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
 #include "IPropertyTableCellPresenter.h"
+#include "Widgets/SWindow.h"
+#include "IPropertyTableCell.h"
 
+class FPaintArgs;
+class FSlateWindowElementList;
+class SMenuAnchor;
 
 class SPropertyTableCell : public SCompoundWidget
 {

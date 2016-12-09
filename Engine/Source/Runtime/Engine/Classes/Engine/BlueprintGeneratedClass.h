@@ -2,9 +2,21 @@
 
 #pragma once
 
-#include "MeshBatch.h"
-#include "ArchiveBase.h"
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
+#include "EdGraph/EdGraphPin.h"
 #include "BlueprintGeneratedClass.generated.h"
+
+class AActor;
+class UActorComponent;
+class UDynamicBlueprintBinding;
+class UInheritableComponentHandler;
+class UTimelineTemplate;
 
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Persistent Uber Graph Frame memory"), STAT_PersistentUberGraphFrameMemory, STATGROUP_Memory, );
 
@@ -315,6 +327,30 @@ public:
 		}
 
 		return INDEX_NONE;
+	}
+
+	// Finds all code locations (Function+CodeOffset) associated with the source node
+	void FindAllCodeLocationsFromSourceNode(UEdGraphNode* SourceNode, UFunction* InFunction, TArray<int32>& OutNodeToCodeAssociations) const
+	{
+		OutNodeToCodeAssociations.Empty();
+
+		if (const FDebuggingInfoForSingleFunction* pFuncInfo = PerFunctionLineNumbers.Find(InFunction))
+		{
+			for (auto CodeLocation : pFuncInfo->LineNumberToSourceNodeMap)
+			{
+				if (CodeLocation.Value == SourceNode)
+				{
+					OutNodeToCodeAssociations.Add(CodeLocation.Key);
+				}
+			}
+			for (auto CodeLocation : pFuncInfo->LineNumberToMacroSourceNodeMap)
+			{
+				if (CodeLocation.Value == SourceNode)
+				{
+					OutNodeToCodeAssociations.Add(CodeLocation.Key);
+				}
+			}
+		}
 	}
 
 	// Finds the pure node script code range associated with the [impure] source node, or FInt32Range(INDEX_NONE) if there is no existing association
@@ -649,6 +685,7 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 	virtual void PostInitProperties() override;
+	virtual void GetPreloadDependencies(TArray<UObject*>& OutDeps) override;
 	// End UObject interface
 	
 	// UClass interface
@@ -740,4 +777,6 @@ protected:
 private:
 	/** List of native class-owned properties that differ from defaults. This is used to optimize property initialization during post-construction by minimizing the number of native class-owned property values that get copied to the new instance. */
 	TIndirectArray<FCustomPropertyListNode> CustomPropertyListForPostConstruction;
+	/** In some cases UObject::ConditionalPostLoad() code calls PostLoadDefaultObject() on a class that's still being serialized. */
+	FCriticalSection SerializeAndPostLoadCritical;
 };

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -41,11 +41,6 @@
 #include "../SDL_sysjoystick.h"
 #include "../SDL_joystick_c.h"
 #include "SDL_sysjoystick_c.h"
-
-/* !!! FIXME: move this somewhere else. */
-#if !SDL_EVENTS_DISABLED
-#include "../../events/SDL_events_c.h"
-#endif
 
 /* This isn't defined in older Linux kernel headers */
 #ifndef SYN_DROPPED
@@ -176,9 +171,6 @@ MaybeAddDevice(const char *path)
     char namebuf[128];
     SDL_JoystickGUID guid;
     SDL_joylist_item *item;
-#if !SDL_EVENTS_DISABLED
-    SDL_Event event;
-#endif
 
     if (path == NULL) {
         return -1;
@@ -239,18 +231,7 @@ MaybeAddDevice(const char *path)
     /* Need to increment the joystick count before we post the event */
     ++numjoysticks;
 
-    /* !!! FIXME: Move this to an SDL_PrivateJoyDeviceAdded() function? */
-#if !SDL_EVENTS_DISABLED
-    event.type = SDL_JOYDEVICEADDED;
-
-    if (SDL_GetEventState(event.type) == SDL_ENABLE) {
-        event.jdevice.which = (numjoysticks - 1);
-        if ( (SDL_EventOK == NULL) ||
-             (*SDL_EventOK) (SDL_EventOKParam, &event) ) {
-            SDL_PushEvent(&event);
-        }
-    }
-#endif /* !SDL_EVENTS_DISABLED */
+    SDL_PrivateJoystickAdded(numjoysticks - 1);
 
     return numjoysticks;
 }
@@ -262,9 +243,6 @@ MaybeRemoveDevice(const char *path)
 {
     SDL_joylist_item *item;
     SDL_joylist_item *prev = NULL;
-#if !SDL_EVENTS_DISABLED
-    SDL_Event event;
-#endif
 
     if (path == NULL) {
         return -1;
@@ -290,18 +268,7 @@ MaybeRemoveDevice(const char *path)
             /* Need to decrement the joystick count before we post the event */
             --numjoysticks;
 
-            /* !!! FIXME: Move this to an SDL_PrivateJoyDeviceRemoved() function? */
-#if !SDL_EVENTS_DISABLED
-            event.type = SDL_JOYDEVICEREMOVED;
-
-            if (SDL_GetEventState(event.type) == SDL_ENABLE) {
-                event.jdevice.which = item->device_instance;
-                if ( (SDL_EventOK == NULL) ||
-                     (*SDL_EventOK) (SDL_EventOKParam, &event) ) {
-                    SDL_PushEvent(&event);
-                }
-            }
-#endif /* !SDL_EVENTS_DISABLED */
+            SDL_PrivateJoystickRemoved(item->device_instance);
 
             SDL_free(item->path);
             SDL_free(item->name);
@@ -492,7 +459,7 @@ ConfigJoystick(SDL_Joystick * joystick, int fd)
                 ++joystick->nbuttons;
             }
         }
-        for (i = 0; i < ABS_MISC; ++i) {
+        for (i = 0; i < ABS_MAX; ++i) {
             /* Skip hats */
             if (i == ABS_HAT0X) {
                 i = ABS_HAT3Y;
@@ -753,10 +720,6 @@ HandleInputEvents(SDL_Joystick * joystick)
                 }
                 break;
             case EV_ABS:
-                if (code >= ABS_MISC) {
-                    break;
-                }
-
                 switch (code) {
                 case ABS_HAT0X:
                 case ABS_HAT0Y:

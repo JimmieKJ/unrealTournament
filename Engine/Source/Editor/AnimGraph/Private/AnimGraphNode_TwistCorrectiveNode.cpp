@@ -1,10 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_TwistCorrectiveNode.h"
-#include "CompilerResultsLog.h"
-#include "PropertyEditing.h"
-#include "AnimationCustomVersion.h"
+#include "Kismet2/CompilerResultsLog.h"
 
 #define LOCTEXT_NAMESPACE "TwistCorrectiveNode"
 

@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Sound/SoundWave.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Haptics/HapticFeedbackEffect_Base.h"
+#include "GenericPlatform/IInputInterface.h"
 #include "HapticFeedbackEffect_SoundWave.generated.h"
+
+class USoundWave;
 
 UCLASS(MinimalAPI, BlueprintType)
 class UHapticFeedbackEffect_SoundWave : public UHapticFeedbackEffect_Base

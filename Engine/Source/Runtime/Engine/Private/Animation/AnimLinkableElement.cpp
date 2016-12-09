@@ -1,9 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Animation/AnimLinkableElement.h"
 #include "Animation/AnimMontage.h"
-#include "Animation/AnimSequenceBase.h"
 
 void FAnimLinkableElement::LinkMontage(UAnimMontage* Montage, float AbsMontageTime, int32 InSlotIndex)
 {

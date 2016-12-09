@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Commands.h"
+#include "CoreMinimal.h"
+#include "Framework/Commands/Commands.h"
 
 class FBTCommonCommands : public TCommands<FBTCommonCommands>
 {

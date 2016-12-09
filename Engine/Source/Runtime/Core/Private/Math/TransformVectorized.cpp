@@ -4,11 +4,22 @@
 	Transform.cpp
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "TransformVectorized.h"
+#include "Misc/AssertionMacros.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Logging/LogMacros.h"
+#include "Math/Vector.h"
+#include "Math/VectorRegister.h"
+#include "Math/Rotator.h"
+#include "Math/Matrix.h"
+#include "Math/Quat.h"
+#include "Math/Transform.h"
 
 #if ENABLE_VECTORIZED_TRANSFORM
 
-#include "DefaultValueHelper.h"
+#include "Misc/DefaultValueHelper.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTransform, Log, All);
 

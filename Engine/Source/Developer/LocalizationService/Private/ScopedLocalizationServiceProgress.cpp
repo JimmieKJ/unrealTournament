@@ -1,9 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationServicePrivatePCH.h"
 #include "ScopedLocalizationServiceProgress.h"
+#include "Misc/App.h"
+#include "ILocalizationServiceProvider.h"
+
 #if LOCALIZATION_SERVICES_WITH_SLATE
-#include "SThrobber.h"
+	#include "Framework/Application/SlateApplication.h"
+	#include "Widgets/Layout/SBorder.h"
+	#include "Widgets/Images/SImage.h"
+	#include "Widgets/Text/STextBlock.h"
+	#include "Widgets/Layout/SBox.h"
+	#include "Widgets/Layout/SUniformGridPanel.h"
+	#include "Widgets/Input/SButton.h"
+	#include "Framework/Docking/TabManager.h"
+	#include "EditorStyleSet.h"
+#endif // LOCALIZATION_SERVICES_WITH_SLATE
+
+#if LOCALIZATION_SERVICES_WITH_SLATE
+#include "Widgets/Images/SThrobber.h"
 
 #define LOCTEXT_NAMESPACE "LocalizationServiceProgress"
 

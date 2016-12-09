@@ -10,7 +10,8 @@ public class QualcommTextureConverter : ModuleRules
 
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32) ||
-			(Target.Platform == UnrealTargetPlatform.Mac))
+			(Target.Platform == UnrealTargetPlatform.Mac) ||
+			(Target.Platform == UnrealTargetPlatform.Linux && Target.Architecture.StartsWith("x86_64")))
 		{
 			PublicIncludePaths.Add(UEBuildConfiguration.UEThirdPartySourceDirectory + "Qualcomm/TextureConverter/Include");
 
@@ -30,6 +31,14 @@ public class QualcommTextureConverter : ModuleRules
 				LibraryPath += "osx64";
 				LibraryExtension = ".dylib";
 				LibraryName = LibraryPath + "/lib" + LibraryName;
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Linux)
+			{
+				LibraryPath += "linux_x64";	// FIXME: change to proper architecture
+				LibraryExtension = ".so";
+				LibraryName = LibraryPath + "/lib" + LibraryName;
+
+				RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/Qualcomm/Linux/libTextureConverter.so"));
 			}
 
 			PublicLibraryPaths.Add(LibraryPath);

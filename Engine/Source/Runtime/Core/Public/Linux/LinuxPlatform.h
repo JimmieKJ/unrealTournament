@@ -6,7 +6,9 @@
 
 #pragma once
 
-#include <linux/version.h>	// for checking if SOCK_CLOEXEC is defined - including sys/socket.h at this stage pollutes the namespaces with macros which cause collisions (e.g. PF_MAX)
+#include <linux/version.h>
+
+struct FGenericPlatformTypes;
 
 /**
 * Linux specific types
@@ -34,6 +36,7 @@ typedef FLinuxPlatformTypes FPlatformTypes;
 // Base defines, defaults are commented out
 
 #define PLATFORM_LITTLE_ENDIAN						1
+#define PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS		1
 #define PLATFORM_COMPILER_DISTINGUISHES_INT_AND_LONG 1
 #define PLATFORM_SUPPORTS_PRAGMA_PACK				1
 #define PLATFORM_USE_LS_SPEC_FOR_WIDECHAR			1
@@ -62,15 +65,20 @@ typedef FLinuxPlatformTypes FPlatformTypes;
 #define VARARGS															/* Functions with variable arguments */
 #define CDECL															/* Standard C function */
 #define STDCALL															/* Standard calling convention */
-#define FORCEINLINE inline __attribute__ ((always_inline))				/* Force code to be inline */
+#if UE_BUILD_DEBUG
+	#define FORCEINLINE inline 											/* Don't force code to be inline, or you'll run into -Wignored-attributes */
+#else
+	#define FORCEINLINE inline __attribute__ ((always_inline))			/* Force code to be inline */
+#endif // UE_BUILD_DEBUG
 #define FORCENOINLINE __attribute__((noinline))							/* Force code to NOT be inline */
 #define FUNCTION_CHECK_RETURN_END __attribute__ ((warn_unused_result))	/* Wrap a function signature in this to warn that callers should not ignore the return value. */
 #define FUNCTION_NO_RETURN_END __attribute__ ((noreturn))				/* Wrap a function signature in this to indicate that the function never returns. */
 
 // Optimization macros (uses _Pragma to enable inside a #define).
-// @todo linux: do these actually work with clang?  (no, they do not, but keeping in in case we switch to gcc)
-#define PRAGMA_DISABLE_OPTIMIZATION_ACTUAL _Pragma("optimize(\"\",off)")
-#define PRAGMA_ENABLE_OPTIMIZATION_ACTUAL  _Pragma("optimize(\"\",on)")
+#if (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 6))
+	#define PRAGMA_DISABLE_OPTIMIZATION_ACTUAL _Pragma("clang optimize off")
+	#define PRAGMA_ENABLE_OPTIMIZATION_ACTUAL  _Pragma("clang optimize on")
+#endif
 
 #define ABSTRACT abstract
 

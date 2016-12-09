@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -18,6 +18,7 @@
 #pragma message("Warning: "__FILE__" may be accessed wrapper-side only")
 #else  // USING_CEF_SHARED
 
+#include <vector>
 #include "include/cef_request_context.h"
 #include "include/capi/cef_request_context_capi.h"
 #include "include/cef_scheme.h"
@@ -30,24 +31,36 @@ class CefRequestContextCToCpp
     : public CefCToCpp<CefRequestContextCToCpp, CefRequestContext,
         cef_request_context_t> {
  public:
-  explicit CefRequestContextCToCpp(cef_request_context_t* str)
-      : CefCToCpp<CefRequestContextCToCpp, CefRequestContext,
-          cef_request_context_t>(str) {}
+  CefRequestContextCToCpp();
 
-  // CefRequestContext methods
-  virtual bool IsSame(CefRefPtr<CefRequestContext> other) OVERRIDE;
-  virtual bool IsSharingWith(CefRefPtr<CefRequestContext> other) OVERRIDE;
-  virtual bool IsGlobal() OVERRIDE;
-  virtual CefRefPtr<CefRequestContextHandler> GetHandler() OVERRIDE;
-  virtual CefString GetCachePath() OVERRIDE;
-  virtual CefRefPtr<CefCookieManager> GetDefaultCookieManager(
+  // CefRequestContext methods.
+  bool IsSame(CefRefPtr<CefRequestContext> other) OVERRIDE;
+  bool IsSharingWith(CefRefPtr<CefRequestContext> other) OVERRIDE;
+  bool IsGlobal() OVERRIDE;
+  CefRefPtr<CefRequestContextHandler> GetHandler() OVERRIDE;
+  CefString GetCachePath() OVERRIDE;
+  CefRefPtr<CefCookieManager> GetDefaultCookieManager(
       CefRefPtr<CefCompletionCallback> callback) OVERRIDE;
-  virtual bool RegisterSchemeHandlerFactory(const CefString& scheme_name,
+  bool RegisterSchemeHandlerFactory(const CefString& scheme_name,
       const CefString& domain_name,
       CefRefPtr<CefSchemeHandlerFactory> factory) OVERRIDE;
-  virtual bool ClearSchemeHandlerFactories() OVERRIDE;
+  bool ClearSchemeHandlerFactories() OVERRIDE;
+  void PurgePluginListCache(bool reload_pages) OVERRIDE;
+  bool HasPreference(const CefString& name) OVERRIDE;
+  CefRefPtr<CefValue> GetPreference(const CefString& name) OVERRIDE;
+  CefRefPtr<CefDictionaryValue> GetAllPreferences(
+      bool include_defaults) OVERRIDE;
+  bool CanSetPreference(const CefString& name) OVERRIDE;
+  bool SetPreference(const CefString& name, CefRefPtr<CefValue> value,
+      CefString& error) OVERRIDE;
+  void ClearCertificateExceptions(
+      CefRefPtr<CefCompletionCallback> callback) OVERRIDE;
+  void CloseAllConnections(CefRefPtr<CefCompletionCallback> callback) OVERRIDE;
+  void ResolveHost(const CefString& origin,
+      CefRefPtr<CefResolveCallback> callback) OVERRIDE;
+  cef_errorcode_t ResolveHostCached(const CefString& origin,
+      std::vector<CefString>& resolved_ips) OVERRIDE;
 };
 
 #endif  // USING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_REQUEST_CONTEXT_CTOCPP_H_
-

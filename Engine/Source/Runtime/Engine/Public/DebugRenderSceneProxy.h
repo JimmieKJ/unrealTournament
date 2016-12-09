@@ -6,8 +6,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "PrimitiveSceneProxy.h"
+#include "Materials/Material.h"
 #include "DynamicMeshBuilder.h"
+
+class APlayerController;
+class FMeshElementCollector;
+class FPrimitiveDrawInterface;
+class UCanvas;
+class UPrimitiveComponent;
 
 DECLARE_DELEGATE_TwoParams(FDebugDrawDelegate, class UCanvas*, class APlayerController*);
 
@@ -41,24 +49,17 @@ public:
 	 */
 	void DrawLineArrow(FPrimitiveDrawInterface* PDI,const FVector &Start,const FVector &End,const FColor &Color,float Mag) const;
 
-	ENGINE_API virtual void DrawDebugLabels(UCanvas* Canvas, APlayerController*);
-
 	virtual uint32 GetMemoryFootprint( void ) const override { return( sizeof( *this ) + GetAllocatedSize() ); }
 	ENGINE_API uint32 GetAllocatedSize(void) const;
 
-	/** called to set up debug drawing delegate in UDebugDrawService if you want to draw labels */
-	ENGINE_API virtual void RegisterDebugDrawDelgate();
-	/** called to clean up debug drawing delegate in UDebugDrawService */
-	ENGINE_API virtual void UnregisterDebugDrawDelgate();
-
-	FORCEINLINE bool PointInView(const FVector& Location, const FSceneView* View) const
+	FORCEINLINE static bool PointInView(const FVector& Location, const FSceneView* View)
 	{
 		return View ? View->ViewFrustum.IntersectBox(Location, FVector::ZeroVector) : false;
 	}
 
-	FORCEINLINE bool PointInRange(const FVector& Start, const FSceneView* View, float Range) const
+	FORCEINLINE static bool PointInRange(const FVector& Start, const FSceneView* View, float Range)
 	{
-		return FVector::DistSquared(Start, View->ViewMatrices.ViewOrigin) <= FMath::Square(Range);
+		return FVector::DistSquared(Start, View->ViewMatrices.GetViewOrigin()) <= FMath::Square(Range);
 	}
 
 	/** Struct to hold info about lines to render. */
@@ -245,3 +246,54 @@ public:
 	TWeakObjectPtr<class UMaterial> SolidMeshMaterial;
 };
 
+
+struct FDebugDrawDelegateHelper
+{
+	FDebugDrawDelegateHelper()
+		: State(UndefinedState)
+		, ViewFlagName(TEXT("Game"))
+		, TextWithoutShadowDistance(1500)
+	{}
+
+	virtual ~FDebugDrawDelegateHelper() {}
+
+protected:
+	typedef TArray<FDebugRenderSceneProxy::FText3d> TextArray;
+
+public:
+	virtual void InitDelegateHelper(const FDebugRenderSceneProxy* InSceneProxy)
+	{
+		check(IsInGameThread());
+
+		Texts.Reset();
+		Texts.Append(InSceneProxy->Texts);
+		ViewFlagName = InSceneProxy->ViewFlagName;
+		TextWithoutShadowDistance = InSceneProxy->TextWithoutShadowDistance;
+		State = (State == UndefinedState) ? InitializedState : State;
+	}
+
+	/** called to set up debug drawing delegate in UDebugDrawService if you want to draw labels */
+	ENGINE_API virtual void RegisterDebugDrawDelgate();
+	/** called to clean up debug drawing delegate in UDebugDrawService */
+	ENGINE_API virtual void UnregisterDebugDrawDelgate();
+
+	ENGINE_API void ReregisterDebugDrawDelgate();
+
+protected:
+	ENGINE_API virtual void DrawDebugLabels(UCanvas* Canvas, APlayerController*);
+
+protected:
+	FDebugDrawDelegate DebugTextDrawingDelegate;
+	FDelegateHandle DebugTextDrawingDelegateHandle;
+	enum EState
+	{
+		UndefinedState,
+		InitializedState,
+		RegisteredState,
+	} State;
+
+private:
+	TextArray Texts;
+	FString ViewFlagName;
+	float TextWithoutShadowDistance;
+};

@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
 #include "Animation/AnimBlueprint.h"
 #include "EditorParentPlayerListObj.generated.h"
 
-struct FAnimParentNodeAssetOverride;
 class UAnimGraphNode_Base;
-class UAnimBlueprint;
 
 UCLASS()
 class UNREALED_API UEditorParentPlayerListObj : public UObject

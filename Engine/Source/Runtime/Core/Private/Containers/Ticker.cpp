@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "Ticker.h"
+#include "Containers/Ticker.h"
+#include "Stats/Stats.h"
+#include "Misc/TimeGuard.h"
 
 FTicker::FTicker()
 	: CurrentTime(0.0)

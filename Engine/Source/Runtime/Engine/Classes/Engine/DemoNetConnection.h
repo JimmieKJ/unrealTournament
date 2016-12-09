@@ -2,8 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/NetConnection.h"
 #include "DemoNetConnection.generated.h"
 
+class APlayerController;
+class FObjectReplicator;
+class UDemoNetDriver;
 
 struct FQueuedDemoPacket
 {
@@ -28,7 +34,7 @@ public:
  * Simulated network connection for recording and playing back game sessions.
  */
 UCLASS(transient, config=Engine)
-class UDemoNetConnection
+class ENGINE_API UDemoNetConnection
 	: public UNetConnection
 {
 	GENERATED_UCLASS_BODY()

@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Layout/SBox.h"
+
+class FArrangedChildren;
 
 /**
 	Here's how you could make use of TitleSafe and ActionSafe areas:
@@ -28,6 +35,10 @@ class SLATE_API SSafeZone : public SBox
 		, _Content()
 		, _IsTitleSafe( false )
 		, _SafeAreaScale(1,1,1,1)
+		, _PadLeft( true )
+		, _PadRight( true )
+		, _PadTop( true )
+		, _PadBottom( true )
 		{}
 
 		/** Horizontal alignment of content in the area allotted to the SBox by its parent */
@@ -51,21 +62,47 @@ class SLATE_API SSafeZone : public SBox
 		 */
 		SLATE_ARGUMENT(FMargin, SafeAreaScale)
 
+		/** If this safe zone should pad for the left side of the screen's safe zone */
+		SLATE_ARGUMENT( bool, PadLeft )
+
+		/** If this safe zone should pad for the right side of the screen's safe zone */
+		SLATE_ARGUMENT( bool, PadRight )
+
+		/** If this safe zone should pad for the top of the screen's safe zone */
+		SLATE_ARGUMENT( bool, PadTop )
+		
+		/** If this safe zone should pad for the bottom of the screen's safe zone */
+		SLATE_ARGUMENT( bool, PadBottom )
+
 	SLATE_END_ARGS()
 
 public:
 
 	void Construct( const FArguments& InArgs );
-
+	
+	void SafeAreaUpdated();
 	void SetTitleSafe( bool bIsTitleSafe );
 	void SetSafeAreaScale(FMargin InSafeAreaScale);
+
+	void SetSidesToPad( bool InPadLeft, bool InPadRight, bool InPadTop, bool InPadBottom );
 
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
 	virtual FVector2D ComputeDesiredSize(float LayoutScale) const override;
 
 private:
+
+	FMargin ComputeScaledSafeMargin(float Scale) const;
+
 	/** Cached values from the args */
 	TAttribute<FMargin> Padding;
 	FMargin SafeAreaScale;
+	bool bIsTitleSafe;
+	bool bPadLeft;
+	bool bPadRight;
+	bool bPadTop;
+	bool bPadBottom;
+
+	/** Screen space margin */
 	FMargin SafeMargin;
 };
+ 

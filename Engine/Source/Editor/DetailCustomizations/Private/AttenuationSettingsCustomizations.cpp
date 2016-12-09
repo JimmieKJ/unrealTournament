@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "AttenuationSettingsCustomizations.h"
+#include "Widgets/Text/STextBlock.h"
 #include "Sound/SoundAttenuation.h"
+#include "Audio.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
 
 TSharedRef<IPropertyTypeCustomization> FAttenuationSettingsCustomization::MakeInstance() 
 {

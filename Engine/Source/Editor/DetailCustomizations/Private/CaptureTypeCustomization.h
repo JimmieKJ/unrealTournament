@@ -2,7 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+#include "IPropertyUtilities.h"
 #include "MovieSceneCaptureProtocolRegistry.h"
+
+class FDetailWidgetRow;
+class IDetailChildrenBuilder;
+class STextBlock;
 
 class FCaptureTypeCustomization : public IPropertyTypeCustomization
 {

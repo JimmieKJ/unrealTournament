@@ -2,6 +2,22 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Styling/CoreStyle.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/SlateWidgetStyleAsset.h"
+#include "Types/SlateStructs.h"
+
+class SEditableTextBox;
+class SMultiLineEditableTextBox;
+
 /** Interface to allow STextPropertyEditableTextBox to be used to edit both properties and Blueprint pins */
 class IEditableTextProperty
 {

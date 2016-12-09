@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/UnrealTemplate.h"
+#include "UObject/NameTypes.h"
+
+class FArchive;
+class FCacheEntryMetadata;
+class FRuntimeAssetCacheBucket;
+
 /** Forward declarations. */
 class FCacheEntryMetadata;
 class FRuntimeAssetCacheBucket;

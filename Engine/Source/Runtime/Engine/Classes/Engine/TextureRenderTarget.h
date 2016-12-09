@@ -8,6 +8,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/Texture.h"
 #include "TextureRenderTarget.generated.h"
 
 UCLASS(abstract, MinimalAPI)

@@ -7,13 +7,13 @@ Notes:
 	  for Winsock WSAE* errors returned by Windows Sockets.
 =============================================================================*/
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
+#include "IpConnection.h"
+#include "SocketSubsystem.h"
 
 #include "IPAddress.h"
 #include "Sockets.h"
 #include "Net/NetworkProfiler.h"
 #include "Net/DataChannel.h"
-#include "Runtime/PacketHandlers/PacketHandler/Public/PacketHandler.h"
 
 /*-----------------------------------------------------------------------------
 	Declarations.
@@ -136,9 +136,17 @@ void UIpConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 	{
 		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits);
 
-		DataToSend = ProcessedData.Data;
-		CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
-		CountBits = ProcessedData.CountBits;
+		if (!ProcessedData.bError)
+		{
+			DataToSend = ProcessedData.Data;
+			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
+			CountBits = ProcessedData.CountBits;
+		}
+		else
+		{
+			CountBytes = 0;
+			CountBits = 0;
+		}
 	}
 
 	// Send to remote.

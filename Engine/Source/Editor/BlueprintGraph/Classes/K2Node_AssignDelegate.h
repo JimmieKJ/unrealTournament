@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_AddDelegate.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_AssignDelegate.generated.h"
+
+class UEdGraph;
 
 /**
  * Modeled after FEdGraphSchemaAction_K2AssignDelegate for the newer Blueprint

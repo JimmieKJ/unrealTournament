@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_GetDataTableRow.h"
+#include "Engine/DataTable.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_IfThenElse.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "KismetCompiler.h"
 //#include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
 #include "Kismet/DataTableFunctionLibrary.h"
@@ -319,7 +324,7 @@ void UK2Node_GetDataTableRow::ExpandNode(class FKismetCompilerContext& CompilerC
         
     UEdGraphPin* OriginalDataTableInPin = GetDataTablePin();
     UDataTable* Table = (OriginalDataTableInPin != NULL) ? Cast<UDataTable>(OriginalDataTableInPin->DefaultObject) : NULL;
-    if((0 == OriginalDataTableInPin->LinkedTo.Num()) && (NULL == Table))
+    if((nullptr == OriginalDataTableInPin) || (0 == OriginalDataTableInPin->LinkedTo.Num() && nullptr == Table))
     {
         CompilerContext.MessageLog.Error(*LOCTEXT("GetDataTableRowNoDataTable_Error", "GetDataTableRow must have a DataTable specified.").ToString(), this);
         // we break exec links so this is the only error we get

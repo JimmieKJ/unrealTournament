@@ -4,11 +4,11 @@
 	AnimCompress.cpp: Skeletal mesh animation compression.
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
 #include "Animation/AnimCompress.h"
+#include "Misc/MessageDialog.h"
+#include "Serialization/MemoryWriter.h"
+#include "Misc/FeedbackContext.h"
 #include "AnimationCompression.h"
-#include "AnimationUtils.h"
-#include "FloatPacker.h"
 #include "AnimEncoding.h"
 
 DEFINE_LOG_CATEGORY(LogAnimationCompression);

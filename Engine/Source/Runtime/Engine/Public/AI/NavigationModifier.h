@@ -1,13 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once 
-#include "AI/Navigation/NavLinkDefinition.h"
-#include "AI/Navigation/NavigationTypes.h"
 
-class UNavArea;
-class UNavLinkDefinition;
-class UPrimitiveComponent;
+#include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
+#include "AI/Navigation/NavLinkDefinition.h"
+#include "AI/Navigation/NavAreas/NavArea.h"
+
 class UBrushComponent;
+class UPrimitiveComponent;
+
+template<typename InElementType> class TNavStatArray;
 
 struct ENGINE_API FNavigationModifier
 {
@@ -68,7 +71,7 @@ struct ENGINE_API FAreaNavModifier : public FNavigationModifier
 	float Cost;
 	float FixedCost;
 
-	FAreaNavModifier() : Cost(0.0f), FixedCost(0.0f), AreaClass(NULL), ReplaceAreaClass(NULL), ShapeType(ENavigationShapeType::Unknown), bIncludeAgentHeight(false) {}
+	FAreaNavModifier() : Cost(0.0f), FixedCost(0.0f), ShapeType(ENavigationShapeType::Unknown), bIncludeAgentHeight(false) {}
 	FAreaNavModifier(float Radius, float Height, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
 	FAreaNavModifier(const FVector& Extent, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
 	FAreaNavModifier(const FBox& Box, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
@@ -81,8 +84,8 @@ struct ENGINE_API FAreaNavModifier : public FNavigationModifier
 	FORCEINLINE ENavigationShapeType::Type GetShapeType() const { return ShapeType; }
 	FORCEINLINE bool ShouldIncludeAgentHeight() const { return bIncludeAgentHeight; }
 	FORCEINLINE void SetIncludeAgentHeight(bool bInclude) { bIncludeAgentHeight = bInclude; }
-	FORCEINLINE const TSubclassOf<UNavArea> GetAreaClass() const { return AreaClass; }
-	FORCEINLINE const TSubclassOf<UNavArea> GetAreaClassToReplace() const { return ReplaceAreaClass; }
+	FORCEINLINE const TSubclassOf<UNavArea> GetAreaClass() const { return TSubclassOf<UNavArea>(AreaClassOb.Get()); }
+	FORCEINLINE const TSubclassOf<UNavArea> GetAreaClassToReplace() const { return TSubclassOf<UNavArea>(ReplaceAreaClassOb.Get()); }
 	void SetAreaClass(const TSubclassOf<UNavArea> AreaClass);
 	void SetAreaClassToReplace(const TSubclassOf<UNavArea> AreaClass);
 
@@ -92,8 +95,8 @@ struct ENGINE_API FAreaNavModifier : public FNavigationModifier
 
 protected:
 	/** this should take a value of a game specific navigation modifier	*/
-	TSubclassOf<UNavArea> AreaClass;
-	TSubclassOf<UNavArea> ReplaceAreaClass;
+	TWeakObjectPtr<UClass> AreaClassOb;
+	TWeakObjectPtr<UClass> ReplaceAreaClassOb;
 	FBox Bounds;
 	
 	TArray<FVector> Points;
@@ -192,12 +195,11 @@ struct ENGINE_API FCustomLinkNavModifier : public FNavigationModifier
 {
 	FTransform LocalToWorld;
 
-	FCustomLinkNavModifier() : LinkDefinitionClass(NULL) {}
 	void Set(TSubclassOf<UNavLinkDefinition> LinkDefinitionClass, const FTransform& InLocalToWorld);
-	FORCEINLINE const TSubclassOf<UNavLinkDefinition> GetNavLinkClass() const { return LinkDefinitionClass; }
+	FORCEINLINE const TSubclassOf<UNavLinkDefinition> GetNavLinkClass() const { return TSubclassOf<UNavLinkDefinition>(LinkDefinitionClassOb.Get()); }
 
 protected:
-	TSubclassOf<UNavLinkDefinition> LinkDefinitionClass;
+	TWeakObjectPtr<UClass> LinkDefinitionClassOb;
 };
 
 struct ENGINE_API FCompositeNavModifier : public FNavigationModifier

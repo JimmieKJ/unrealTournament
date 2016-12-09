@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneCameraAnimSection.h"
-#include "MovieSceneCameraAnimTrack.h"
-#include "IMovieScenePlayer.h"
-#include "MovieSceneCameraAnimTrackInstance.h"
+#include "Tracks/MovieSceneCameraAnimTrack.h"
+#include "Sections/MovieSceneCameraAnimSection.h"
+#include "Templates/Casts.h"
 #include "Camera/CameraAnim.h"
+#include "Evaluation/PersistentEvaluationData.h"
+#include "Evaluation/MovieSceneCameraAnimTemplate.h"
+#include "Evaluation/MovieSceneEvaluationTrack.h"
+#include "Evaluation/MovieSceneEvaluationTemplate.h"
+#include "Compilation/MovieSceneCompilerRules.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCameraAnimTrack"
 
@@ -16,7 +19,7 @@ void UMovieSceneCameraAnimTrack::AddNewCameraAnim(float KeyTime, UCameraAnim* Ca
 	if (NewSection)
 	{
 		NewSection->InitialPlacement(CameraAnimSections, KeyTime, KeyTime + CameraAnim->AnimLength, SupportsMultipleRows());
-		NewSection->SetCameraAnim(CameraAnim);
+		NewSection->AnimData.CameraAnim = CameraAnim;
 
 		AddSection(*NewSection);
 	}
@@ -25,9 +28,23 @@ void UMovieSceneCameraAnimTrack::AddNewCameraAnim(float KeyTime, UCameraAnim* Ca
 /* UMovieSceneTrack interface
 *****************************************************************************/
 
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneCameraAnimTrack::CreateInstance()
+
+void UMovieSceneCameraAnimTrack::PostCompile(FMovieSceneEvaluationTrack& OutTrack, const FMovieSceneTrackCompilerArgs& Args) const
 {
-	return MakeShareable(new FMovieSceneCameraAnimTrackInstance(*this));
+	FMovieSceneSharedDataId UniqueId = FMovieSceneAdditiveCameraAnimationTrackTemplate::SharedDataId;
+
+	// Add a new shared track for the additive camera anim. There will only be one of these, and it will apply all the additive camera animations for this object.
+	FMovieSceneEvaluationTrack SharedTrackTemplate(Args.ObjectBindingId);
+	SharedTrackTemplate.DefineAsSingleTemplate(FMovieSceneAdditiveCameraAnimationTrackTemplate());
+	SharedTrackTemplate.SetEvaluationPriority(0xF);
+	
+	Args.Generator.AddSharedTrack(MoveTemp(SharedTrackTemplate), UniqueId, *this);
+}
+
+
+TInlineValue<FMovieSceneSegmentCompilerRules> UMovieSceneCameraAnimTrack::GetTrackCompilerRules() const
+{
+	return FMovieSceneAdditiveCameraRules(this);
 }
 
 

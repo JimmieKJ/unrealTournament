@@ -6,49 +6,31 @@
 
 #pragma once
 
-#include "PhysicsPublic.h"
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "RenderingThread.h"
+#include "RenderResource.h"
+#include "PrimitiveViewRelevance.h"
 #include "ShaderParameters.h"
-#include "ShaderParameterUtils.h"
-
-#include "Misc/UObjectToken.h"
-#include "Components/SplineMeshComponent.h"
-#include "Components/ModelComponent.h"
-#include "Components/ShapeComponent.h"
-#include "Components/BoxComponent.h"
-#include "Components/CapsuleComponent.h"
-#include "Components/SphereComponent.h"
-#include "Components/DrawSphereComponent.h"
-#include "Components/TextRenderComponent.h"
-#include "Components/VectorFieldComponent.h"
-#include "PhysicsEngine/RadialForceComponent.h"
-#include "GameFramework/SpringArmComponent.h"
-#include "Components/WindDirectionalSourceComponent.h"
-#include "Components/TimelineComponent.h"
-#include "SlateBasics.h"
-#include "NavDataGenerator.h"
-#include "AI/Navigation/RecastHelpers.h"
-
-#include "StaticMeshResources.h"
-#include "StaticMeshLight.h"
-#include "SpeedTreeWind.h"
-#include "ComponentInstanceDataCache.h"
+#include "SceneView.h"
 #include "VertexFactory.h"
 #include "LocalVertexFactory.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "StaticMeshResources.h"
 
-#if WITH_PHYSX
-#include "PhysicsEngine/PhysXSupport.h"
-#include "Collision/PhysXCollision.h"
-#endif
+
+#include "StaticMeshLight.h"
 
 #if WITH_EDITOR
 #include "LightMap.h"
 #include "ShadowMap.h"
-#include "Logging/MessageLog.h"
 #endif
 
-#include "NavigationSystemHelpers.h"
-#include "AI/Navigation/NavCollision.h"
-#include "Components/InstancedStaticMeshComponent.h"
+class ULightComponent;
 
 extern TAutoConsoleVariable<float> CVarFoliageMinimumScreenSize;
 extern TAutoConsoleVariable<float> CVarFoliageLODDistanceScale;
@@ -386,7 +368,7 @@ public:
 	FInstancedStaticMeshRenderData(UInstancedStaticMeshComponent* InComponent, ERHIFeatureLevel::Type InFeatureLevel)
 	  : Component(InComponent)
 	  , PerInstanceRenderData(InComponent->PerInstanceRenderData)
-	  , LODModels(Component->StaticMesh->RenderData->LODResources)
+	  , LODModels(Component->GetStaticMesh()->RenderData->LODResources)
 	  , FeatureLevel(InFeatureLevel)
 	{
 		// Allocate the vertex factories for each LOD
@@ -414,7 +396,7 @@ public:
 	FInstancedStaticMeshRenderData(UInstancedStaticMeshComponent* InComponent, ERHIFeatureLevel::Type InFeatureLevel, FStaticMeshInstanceData& Other)
 		: Component(InComponent)
 		, PerInstanceRenderData(InComponent->PerInstanceRenderData)
-		, LODModels(Component->StaticMesh->RenderData->LODResources)
+		, LODModels(Component->GetStaticMesh()->RenderData->LODResources)
 		, FeatureLevel(InFeatureLevel)
 	{
 		InitVertexFactories();
@@ -440,7 +422,7 @@ public:
 			CallInitStaticMeshVertexFactory,
 			TIndirectArray<FInstancedStaticMeshVertexFactory>*,VertexFactories,&VertexFactories,
 			FInstancedStaticMeshRenderData*,InstancedRenderData,this,
-			UStaticMesh*,Parent,Component->StaticMesh,
+			UStaticMesh*,Parent,Component->GetStaticMesh(),
 		{
 			InitStaticMeshVertexFactories( VertexFactories, InstancedRenderData, Parent );
 		});
@@ -451,11 +433,11 @@ public:
 		}
 
 		// register SpeedTree wind with the scene
-		if (Component->StaticMesh->SpeedTreeWind.IsValid())
+		if (Component->GetStaticMesh()->SpeedTreeWind.IsValid())
 		{
 			for (int32 LODIndex = 0; LODIndex < LODModels.Num(); LODIndex++)
 			{
-				Component->GetScene()->AddSpeedTreeWind(&VertexFactories[LODIndex], Component->StaticMesh);
+				Component->GetScene()->AddSpeedTreeWind(&VertexFactories[LODIndex], Component->GetStaticMesh());
 			}
 		}
 	}
@@ -670,7 +652,7 @@ private:
 		const bool bInstanced = GRHISupportsInstancing;
 
 		// Copy the parameters for LOD - all instances
-		UserData_AllInstances.MeshRenderData = InComponent->StaticMesh->RenderData;
+		UserData_AllInstances.MeshRenderData = InComponent->GetStaticMesh()->RenderData.Get();
 		UserData_AllInstances.StartCullDistance = InComponent->InstanceStartCullDistance;
 		UserData_AllInstances.EndCullDistance = InComponent->InstanceEndCullDistance;
 		UserData_AllInstances.MinLOD = ClampedMinLOD;
@@ -730,7 +712,7 @@ public:
 	}
 
 	// FStaticLightingTextureMapping interface
-	virtual void Apply(FQuantizedLightmapData* InQuantizedData, const TMap<ULightComponent*, FShadowMapData2D*>& InShadowMapData) override
+	virtual void Apply(FQuantizedLightmapData* InQuantizedData, const TMap<ULightComponent*, FShadowMapData2D*>& InShadowMapData, ULevel* LightingScenario) override
 	{
 		check(bComplete == false);
 
@@ -746,7 +728,7 @@ public:
 				ShadowMapData.Add(ShadowDataPair.Key, TUniquePtr<FShadowMapData2D>(ShadowDataPair.Value));
 			}
 
-			InstancedComponent->ApplyLightMapping(this);
+			InstancedComponent->ApplyLightMapping(this, LightingScenario);
 		}
 
 		bComplete = true;
@@ -815,4 +797,3 @@ struct FComponentInstancedLightmapData
 	/** List of new components */
 	TArray< FComponentInstanceSharingData > SharingData;
 };
-

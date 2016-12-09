@@ -2,9 +2,16 @@
 
 
 #pragma once
-#include "Particles/Event/ParticleModuleEventBase.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "Particles/Event/ParticleModuleEventBase.h"
 #include "ParticleModuleEventGenerator.generated.h"
+
+class UParticleModuleTypeDataBase;
+struct FParticleEmitterInstance;
+
 /**
  */
 USTRUCT()

@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeEditorPrivatePCH.h"
+#include "CodeProject.h"
+#include "Misc/Paths.h"
 
 
 UCodeProject::UCodeProject(const FObjectInitializer& ObjectInitializer)

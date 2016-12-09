@@ -1,9 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "SPropertyEditorBool.h"
-#include "PropertyHandle.h"
-#include "PropertyEditor.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorBool.h"
 
 void SPropertyEditorBool::Construct( const FArguments& InArgs, const TSharedRef< class FPropertyEditor >& InPropertyEditor )
 {

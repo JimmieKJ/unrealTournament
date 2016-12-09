@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /**
  * Hitbox used for clickable HUD elements.
  * These are named regions that receive various events when clicked upon.

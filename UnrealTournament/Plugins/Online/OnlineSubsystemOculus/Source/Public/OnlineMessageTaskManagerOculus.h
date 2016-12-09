@@ -13,7 +13,7 @@ private:
 	void OnReceiveMessage(ovrMessageHandle Message);
 
 	/** Direct Requests waiting for a Message response */
-	TMap<ovrRequest, FOculusMessageOnCompleteDelegate> RequestDelegates;
+	TMap<uint64, FOculusMessageOnCompleteDelegate> RequestDelegates;
 
 	/** Notif Requests waiting for a Message response */
 	TMap<ovrMessageType, FOculusMulticastMessageOnCompleteDelegate> NotifDelegates;

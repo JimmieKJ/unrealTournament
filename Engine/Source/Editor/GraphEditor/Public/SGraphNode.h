@@ -2,12 +2,30 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Layout/SlateRect.h"
+#include "Input/Reply.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SWidget.h"
+#include "Animation/CurveHandle.h"
+#include "Animation/CurveSequence.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SOverlay.h"
+#include "GraphEditor.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "SNodePanel.h"
+#include "Widgets/Notifications/SErrorText.h"
 
-class SGraphPin;
-class SGraphPanel;
-class UEdGraphNode;
 class FActorDragDropOp;
+class IToolTip;
+class SGraphPanel;
+class SGraphPin;
+class SToolTip;
+class SVerticalBox;
 
 /////////////////////////////////////////////////////
 // SNodeTitle
@@ -125,12 +143,6 @@ public:
 
 	/** @return the tint for the node's title text */
 	FLinearColor GetNodeTitleTextColor() const;
-
-	/** @return the tint for the node's indicator overlay */
-	virtual FSlateColor GetNodeIndicatorOverlayColor() const { return FLinearColor::Transparent; }
-
-	/** @return visibility state of the indicator overlay */
-	virtual EVisibility GetNodeIndicatorOverlayVisibility() const { return EVisibility::Collapsed; }
 
 	/** @return the tooltip to display when over the node */
 	FText GetNodeTooltip() const;

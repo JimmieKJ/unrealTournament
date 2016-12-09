@@ -3,7 +3,23 @@
 
 #pragma once
 
-#include "SlateCore.h"
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Layout/Geometry.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Input/PopupMethodReply.h"
+#include "Widgets/SWidget.h"
+#include "Rendering/RenderingCommon.h"
+#include "Textures/SlateShaderResource.h"
+#include "UnrealClient.h"
+
+class FCanvas;
+class FDebugCanvasDrawer;
+class FSlateRenderer;
+class FSlateWindowElementList;
+class SViewport;
+class SWindow;
 
 /** Called in FSceneViewport::ResizeFrame after ResizeViewport*/
 DECLARE_DELEGATE_OneParam( FOnSceneViewportResize, FVector2D );
@@ -191,7 +207,7 @@ public:
 	}
 
 	/** Updates the viewport RHI with a new size and fullscreen flag */
-	virtual void UpdateViewportRHI(bool bDestroyed,uint32 NewSizeX,uint32 NewSizeY,EWindowMode::Type NewWindowMode) override;
+	virtual void UpdateViewportRHI(bool bDestroyed, uint32 NewSizeX, uint32 NewSizeY, EWindowMode::Type NewWindowMode, EPixelFormat PreferredPixelFormat) override;
 
 	/** ISlateViewport interface */
 	virtual FSlateShaderResource* GetViewportRenderTargetTexture() const override;
@@ -220,6 +236,7 @@ public:
 	virtual FReply OnFocusReceived( const FFocusEvent& InFocusEvent ) override;
 	virtual void OnFocusLost( const FFocusEvent& InFocusEvent ) override;
 	virtual void OnViewportClosed() override;
+	virtual FReply OnRequestWindowClose() override;
 	virtual TWeakPtr<SWidget> GetWidget() override;
 	virtual FReply OnViewportActivated(const FWindowActivateEvent& InActivateEvent) override;
 	virtual void OnViewportDeactivated(const FWindowActivateEvent& InActivateEvent) override;
@@ -319,6 +336,17 @@ private:
 	{
 		return bUseSeparateRenderTarget || bForceSeparateRenderTarget;
 	}
+
+	/** 
+	 * Called right before a backbuffer is resized. If this viewport is using this backbuffer 
+	 * it will release its resource here
+	 */
+	void OnPreResizeWindowBackbuffer(void* Backbuffer);
+
+	/** 
+	 * Called right after a backbuffer is resized. This viewport will reaquire its backbuffer handle if needed
+	 */
+	void OnPostResizeWindowBackbuffer(void* Backbuffer);
 
 private:
 	/** An intermediate reply state that is reset whenever an input event is generated */

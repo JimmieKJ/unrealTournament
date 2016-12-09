@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "Engine/Breakpoint.h"
-#include "BlueprintUtilities.h"
+#if WITH_EDITOR
+#include "EdGraph/EdGraphNode.h"
+#endif
 
 UBreakpoint::UBreakpoint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

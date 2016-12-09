@@ -5,24 +5,11 @@
   <Date>2016-06-15T18:49:07.2659248-04:00</Date>
   <Function />
   <Justification />
-  <Platforms>
-    <Platform>PC</Platform>
-  </Platforms>
-  <Products>
-    <Product>UDK</Product>
-    <Product>UDK4</Product>
-    <Product>UE4</Product>
-  </Products>
-  <TpsType>Source Code</TpsType>
-  <Eula>Custom agreement</Eula>
+  <Eula>Custom agreement between Epic/IDV</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
   <LicenseFolder>None</LicenseFolder>
 </TpsData>

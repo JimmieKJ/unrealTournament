@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
 #include "SDetailSingleItemRow.h"
-#include "DetailItemNode.h"
-#include "PropertyEditorHelpers.h"
+#include "ObjectPropertyNode.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "DetailWidgetRow.h"
 #include "IDetailKeyframeHandler.h"
 #include "IDetailPropertyExtensionHandler.h"
 #include "DetailPropertyRow.h"
@@ -408,7 +410,7 @@ void SDetailSingleItemRow::OnCopyProperty()
 		TSharedPtr<IPropertyHandle> Handle = PropertyEditorHelpers::GetPropertyHandle( Customization->GetPropertyNode().ToSharedRef(), OwnerTreeNode.Pin()->GetDetailsView().GetNotifyHook(),  OwnerTreeNode.Pin()->GetDetailsView().GetPropertyUtilities() );
 
 		FString Value;
-		if( Handle->GetValueAsFormattedString(Value) == FPropertyAccess::Success )
+		if( Handle->GetValueAsFormattedString(Value, PPF_Copy) == FPropertyAccess::Success )
 		{
 			FPlatformMisc::ClipboardCopy(*Value);
 		}
@@ -471,29 +473,31 @@ const FSlateBrush* SDetailSingleItemRow::GetBorderImage() const
 
 TSharedRef<SWidget> SDetailSingleItemRow::CreateExtensionWidget(TSharedRef<SWidget> ValueWidget, FDetailLayoutCustomization& InCustomization, TSharedRef<IDetailTreeNode> InTreeNode)
 {
-	IDetailsViewPrivate& DetailsView = InTreeNode->GetDetailsView();
-	TSharedPtr<IDetailPropertyExtensionHandler> ExtensionHandler = DetailsView.GetExtensionHandler();
-
-	if ( ExtensionHandler.IsValid() && InCustomization.HasPropertyNode() )
+	if(InTreeNode->GetParentCategory().IsValid())
 	{
-		TSharedPtr<IPropertyHandle> Handle = PropertyEditorHelpers::GetPropertyHandle(InCustomization.GetPropertyNode().ToSharedRef(), nullptr, nullptr);
+		IDetailsViewPrivate& DetailsView = InTreeNode->GetDetailsView();
+		TSharedPtr<IDetailPropertyExtensionHandler> ExtensionHandler = DetailsView.GetExtensionHandler();
 
-		UClass* ObjectClass = InCustomization.GetPropertyNode()->FindObjectItemParent()->GetObjectBaseClass();
-		if (Handle->IsValidHandle() && ExtensionHandler->IsPropertyExtendable(ObjectClass, *Handle))
+		if(ExtensionHandler.IsValid() && InCustomization.HasPropertyNode())
 		{
-			ValueWidget = SNew(SHorizontalBox)
+			TSharedPtr<IPropertyHandle> Handle = PropertyEditorHelpers::GetPropertyHandle(InCustomization.GetPropertyNode().ToSharedRef(), nullptr, nullptr);
 
-				+ SHorizontalBox::Slot()
-				.FillWidth(1.0f)
-				[
-					ValueWidget
-				]
-					
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					ExtensionHandler->GenerateExtensionWidget(ObjectClass, Handle)
-				];
+			UClass* ObjectClass = InCustomization.GetPropertyNode()->FindObjectItemParent()->GetObjectBaseClass();
+			if(Handle->IsValidHandle() && ExtensionHandler->IsPropertyExtendable(ObjectClass, *Handle))
+			{
+				ValueWidget = SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					[
+						ValueWidget
+					]
+
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						ExtensionHandler->GenerateExtensionWidget(ObjectClass, Handle)
+					];
+			}
 		}
 	}
 

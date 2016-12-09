@@ -20,17 +20,13 @@
 	3. This notice may not be removed or altered from any source distribution.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "GPUSkinVertexFactory.h"
 #include "SkeletalRenderGPUSkin.h"
-#include "SkeletalRenderCPUSkin.h"
-#include "GPUSkinCache.h"
-#include "ShaderCompiler.h"
-#include "Animation/MorphTarget.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "LocalVertexFactory.h"
+#include "SceneUtils.h"
+#include "SkeletalRender.h"
+#include "GPUSkinCache.h"
+#include "Animation/MorphTarget.h"
 
-#include "GlobalShader.h"
 #include "ShaderParameterUtils.h"
 
 
@@ -254,16 +250,6 @@ void FSkeletalMeshObjectGPUSkin::Update(int32 LODIndex,USkinnedMeshComponent* In
 	FDynamicSkelMeshObjectDataGPUSkin* NewDynamicData = FDynamicSkelMeshObjectDataGPUSkin::AllocDynamicSkelMeshObjectDataGPUSkin();		
 	NewDynamicData->InitDynamicSkelMeshObjectDataGPUSkin(InMeshComponent,SkeletalMeshResource,LODIndex,ActiveMorphTargets, MorphTargetWeights);
 
-	{
-		// Handle the case of skin caching shaders not done compiling before updates are finished/editor is loading
-		static bool bNeedToWait = GEnableGPUSkinCache != 0;
-		if (bNeedToWait && GShaderCompilingManager)
-		{
-			GShaderCompilingManager->ProcessAsyncResults(false, true);
-			bNeedToWait = false;
-		}
-	}
-
 	// We prepare the next frame but still have the value from the last one
 	uint32 FrameNumberToPrepare = GFrameNumber + 1;
 
@@ -289,18 +275,22 @@ void FSkeletalMeshObjectGPUSkin::Update(int32 LODIndex,USkinnedMeshComponent* In
 	}
 }
 
-void FSkeletalMeshObjectGPUSkin::UpdateRecomputeTangent(int32 MaterialIndex, bool bRecomputeTangent)
+void FSkeletalMeshObjectGPUSkin::UpdateRecomputeTangent(int32 MaterialIndex, int32 LODIndex, bool bRecomputeTangent)
 {
 	// queue a call to update this data
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+	ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER(
 		SkelMeshObjectUpdateMaterialDataCommand,
 		FSkeletalMeshObjectGPUSkin*, MeshObject, this,
 		int32, MaterialIndex, MaterialIndex, 
+		int32, LODIndex, LODIndex,
 		bool, bRecomputeTangent, bRecomputeTangent,
 		{
 			// iterate through section and find the section that matches MaterialIndex, if so, set that flag
-			for (auto& LODModel : MeshObject->SkeletalMeshResource->LODModels)
+			for (int32 LodIdx = 0; LodIdx < MeshObject->SkeletalMeshResource->LODModels.Num(); ++LodIdx)
 			{
+				if (LODIndex != INDEX_NONE && LODIndex != LodIdx)
+					continue;
+				FStaticLODModel& LODModel = MeshObject->SkeletalMeshResource->LODModels[LodIdx];
 				for (int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); ++SectionIndex)
 				{
 					// @todo there can be more than one section that can use same material? If not, please break. 

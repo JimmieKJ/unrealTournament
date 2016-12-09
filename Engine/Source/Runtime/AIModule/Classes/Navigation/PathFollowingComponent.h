@@ -1,12 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AITypes.h"
-#include "AI/Navigation/NavigationTypes.h"
-#include "GameFramework/NavMovementComponent.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Engine/EngineTypes.h"
 #include "Components/ActorComponent.h"
+#include "EngineDefines.h"
+#include "AI/Navigation/NavigationTypes.h"
+#include "AITypes.h"
 #include "AIResourceInterface.h"
+#include "AI/Navigation/NavigationData.h"
+#include "GameFramework/NavMovementComponent.h"
 #include "PathFollowingComponent.generated.h"
+
+class Error;
+class FDebugDisplayInfo;
+class INavLinkCustomInterface;
+class UCanvas;
 
 AIMODULE_API DECLARE_LOG_CATEGORY_EXTERN(LogPathFollowing, Warning, All);
 
@@ -314,7 +326,7 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	FORCEINLINE EPathFollowingStatus::Type GetStatus() const { return Status; }
 	FORCEINLINE float GetAcceptanceRadius() const { return AcceptanceRadius; }
 	FORCEINLINE float GetDefaultAcceptanceRadius() const { return MyDefaultAcceptanceRadius; }
-	FORCEINLINE void SetAcceptanceRadius(float InAcceptanceRadius) { AcceptanceRadius = InAcceptanceRadius; }
+	void SetAcceptanceRadius(const float InAcceptanceRadius);
 	FORCEINLINE AActor* GetMoveGoal() const { return DestinationActor.Get(); }
 	FORCEINLINE bool HasPartialPath() const { return Path.IsValid() && Path->IsPartial(); }
 	FORCEINLINE bool DidMoveReachGoal() const { return bLastMoveReachedGoal && (Status == EPathFollowingStatus::Idle); }
@@ -325,6 +337,7 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	FORCEINLINE UObject* GetCurrentCustomLinkOb() const { return CurrentCustomLinkOb.Get(); }
 	FORCEINLINE FVector GetCurrentTargetLocation() const { return *CurrentDestination; }
 	FORCEINLINE FBasedPosition GetCurrentTargetLocationBased() const { return CurrentDestination; }
+	FORCEINLINE FVector GetMoveGoalLocationOffset() const { return MoveOffset; }
 	bool HasStartedNavLinkMove() const { return bWalkingNavLinkStart; }
 	bool IsCurrentSegmentNavigationLink() const;
 	FVector GetCurrentDirection() const;
@@ -451,7 +464,11 @@ protected:
 	/** value based on navigation agent's properties that's used for AcceptanceRadius when DefaultAcceptanceRadius is requested */
 	float MyDefaultAcceptanceRadius;
 
-	/** min distance to destination to consider request successful */
+	/** min distance to destination to consider request successful.
+	 *	If following a partial path movement request will finish
+	 *	when the original goal gets within AcceptanceRadius or 
+	 *	pathfollowing agent gets within MyDefaultAcceptanceRadius 
+	 *	of the end of the path*/
 	float AcceptanceRadius;
 
 	/** min distance to end of current path segment to consider segment finished */
@@ -484,14 +501,28 @@ protected:
 	/** agent location when movement was paused */
 	FVector LocationWhenPaused;
 
+	/** This is needed for partial paths when trying to figure out if following a path should finish
+	 *	before reaching path end, due to reaching requested acceptance radius away from original
+	 *	move goal
+	 *	Is being set for non-partial paths as well */
+	FVector OriginalMoveRequestGoalLocation;
+
 	/** timestamp of path update when movement was paused */
 	float PathTimeWhenPaused;
+
+	/** Indicates a path node index at which precise "is at goal"
+	 *	tests are going to be performed every frame, in regards
+	 *	to acceptance radius */
+	int32 PreciseAcceptanceRadiusCheckStartNodeIndex;
 
 	/** increase acceptance radius with agent's radius */
 	uint32 bReachTestIncludesAgentRadius : 1;
 
 	/** increase acceptance radius with goal's radius */
 	uint32 bReachTestIncludesGoalRadius : 1;
+
+	/** if set, target location will be constantly updated to match goal actor while following last segment of full path */
+	uint32 bMoveToGoalOnLastSegment : 1;
 
 	/** if set, movement block detection will be used */
 	uint32 bUseBlockDetection : 1;
@@ -631,6 +662,16 @@ protected:
 
 	/** set move focus in AI owner */
 	void UpdateMoveFocus();
+
+	/** For given path finds a path node at which
+	 *	PathfollowingComponent should start doing 
+	 *	precise is-goal-in-acceptance-radius  tests */
+	int32 FindPreciseAcceptanceRadiusTestsStartNodeIndex(const FNavigationPath& PathInstance, const FVector& GoalLocation) const;
+
+	/** Based on Path's properties, original move goal location and requested AcceptanceRadius
+	 *	this function calculates actual acceptance radius to apply when testing if the agent
+	 *	has successfully reached requested goal's vicinity */
+	float GetFinalAcceptanceRadius(const FNavigationPath& PathInstance, const FVector OriginalGoalLocation, const FVector* PathEndOverride = nullptr) const;
 
 	/** debug point reach test values */
 	void DebugReachTest(float& CurrentDot, float& CurrentDistance, float& CurrentHeight, uint8& bDotFailed, uint8& bDistanceFailed, uint8& bHeightFailed) const;

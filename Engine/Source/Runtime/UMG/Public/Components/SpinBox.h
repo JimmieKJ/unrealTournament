@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Styling/SlateColor.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Components/Widget.h"
 #include "SpinBox.generated.h"
 
 /**

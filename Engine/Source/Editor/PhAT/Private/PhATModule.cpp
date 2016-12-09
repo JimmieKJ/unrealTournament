@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PhATPrivatePCH.h"
 #include "PhATModule.h"
-#include "ModuleManager.h"
-#include "PhAT.h"
+#include "Modules/ModuleManager.h"
 #include "PhATSharedData.h"
+#include "IPhAT.h"
+#include "PhAT.h"
 
 /*-----------------------------------------------------------------------------
    FPhATModule

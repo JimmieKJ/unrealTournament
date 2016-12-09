@@ -2,13 +2,32 @@
 
 #pragma once
 
-#include "PropertyEditing.h"
-#include "PropertyCustomizationHelpers.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Settings/LevelEditorPlaySettings.h"
+#include "Editor.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "IDetailCustomization.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SComboButton.h"
+#include "IDetailPropertyRow.h"
+#include "DetailWidgetRow.h"
+#include "Widgets/Input/SComboBox.h"
 #include "Runtime/Engine/Classes/Sound/AudioSettings.h"
 
 
 #define LOCTEXT_NAMESPACE "FLevelEditorPlaySettingsCustomization"
-
 
 class SScreenPositionCustomization
 	: public SCompoundWidget

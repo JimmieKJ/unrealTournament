@@ -2,15 +2,16 @@
 
 #pragma once
 
-#include "Engine/DataAsset.h"
-#include "Engine/EngineTypes.h"
-#include "PaperSprite.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "SpriteEditorOnlyTypes.h"
 #include "PaperTileMap.generated.h"
 
-class UPaperTileSet;
-class UPaperTileLayer;
 class UBodySetup;
-class UAssetImportData;
+class UMaterialInterface;
+class UPaperTileLayer;
+class UPaperTileSet;
 
 // The different kinds of projection modes supported
 UENUM()

@@ -2,11 +2,23 @@
 
 #pragma once
 
-#include "SBorder.h"
-#include "TabManager.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Styling/StyleDefaults.h"
+#include "Animation/CurveSequence.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Framework/Docking/TabManager.h"
+#include "Runtime/Slate/Private/Framework/Docking/SDockingArea.h"
 
-class SDockingTabWell;
+class FActiveTimerHandle;
 class SDockingTabStack;
+class SDockingTabWell;
 class SImage;
 class STextBlock;
 class SToolTip;

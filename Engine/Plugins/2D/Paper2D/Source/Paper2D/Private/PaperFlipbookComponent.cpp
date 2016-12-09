@@ -1,16 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
-#include "PaperFlipbookSceneProxy.h"
 #include "PaperFlipbookComponent.h"
-#include "PaperCustomVersion.h"
-#include "Runtime/Engine/Public/Net/UnrealNetwork.h"
-#include "Runtime/Engine/Public/ContentStreaming.h"
-#include "Runtime/Core/Public/Logging/MessageLog.h"
-#include "Runtime/Core/Public/Misc/MapErrors.h"
-#include "Runtime/CoreUObject/Public/Misc/UObjectToken.h"
-#include "PhysicsEngine/BodySetup.h"
+#include "RenderingThread.h"
+#include "Engine/CollisionProfile.h"
 #include "SpriteDrawCall.h"
+#include "PaperFlipbookSceneProxy.h"
+#include "PaperFlipbook.h"
+#include "PaperCustomVersion.h"
+#include "Net/UnrealNetwork.h"
+#include "ContentStreaming.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/MapErrors.h"
+#include "Misc/UObjectToken.h"
+#include "PhysicsEngine/BodySetup.h"
 
 DECLARE_CYCLE_STAT(TEXT("Tick Flipbook"), STAT_TickFlipbook, STATGROUP_Paper2D);
 

@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Stats/Stats.h"
+#include "TickableEditorObject.h"
+
 /**
  * Class used to provide simple global editor notifications (for things like shader compilation and texture streaming) 
  */

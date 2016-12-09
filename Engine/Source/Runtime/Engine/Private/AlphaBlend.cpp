@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "AlphaBlend.h"
+#include "Curves/CurveFloat.h"
 
 FAlphaBlend::FAlphaBlend(float NewBlendTime) 
 	: BlendOption(EAlphaBlendOption::Linear)

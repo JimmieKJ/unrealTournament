@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "GameFramework/MovementComponent.h"
-#include "Net/UnrealNetwork.h"
 #include "PhysicsEngine/RadialForceComponent.h"
+#include "UObject/ConstructorHelpers.h"
+#include "GameFramework/Actor.h"
+#include "WorldCollision.h"
+#include "Engine/World.h"
+#include "Components/BillboardComponent.h"
+#include "Engine/Texture2D.h"
+#include "GameFramework/MovementComponent.h"
 #include "PhysicsEngine/RadialForceActor.h"
 #include "Components/DestructibleComponent.h"
 
@@ -87,6 +91,13 @@ void URadialForceComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 			}
 		}
 	}
+}
+
+void URadialForceComponent::BeginPlay()
+{
+	Super::BeginPlay();
+
+	UpdateCollisionObjectQueryParams();
 }
 
 void URadialForceComponent::PostLoad()

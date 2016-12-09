@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectsPrivatePCH.h"
 #include "ProjectDescriptor.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 
 #define LOCTEXT_NAMESPACE "ProjectDescriptor"
 
@@ -45,6 +49,11 @@ void FProjectDescriptor::UpdateSupportedTargetPlatforms(const FName& InPlatformN
 	}
 }
 
+static bool IsRootedPath(const FString& Path)
+{
+	return Path[0] == TEXT('\\') || Path[0] == TEXT('/') || Path[1] == TEXT(':');
+}
+
 bool FProjectDescriptor::Load(const FString& FileName, FText& OutFailReason)
 {
 	// Read the file to a string
@@ -65,10 +74,10 @@ bool FProjectDescriptor::Load(const FString& FileName, FText& OutFailReason)
 	}
 
 	// Parse it as a project descriptor
-	return Read(*Object.Get(), OutFailReason);
+	return Read(*Object.Get(), FPaths::GetPath(FileName), OutFailReason);
 }
 
-bool FProjectDescriptor::Read(const FJsonObject& Object, FText& OutFailReason)
+bool FProjectDescriptor::Read(const FJsonObject& Object, const FString& PathToProject, FText& OutFailReason)
 {
 	// Read the file version
 	int32 FileVersionInt32;
@@ -108,6 +117,28 @@ bool FProjectDescriptor::Read(const FJsonObject& Object, FText& OutFailReason)
 		return false;
 	}
 
+	// Read the list of additional plugin directories to scan
+	const TArray< TSharedPtr<FJsonValue> >* AdditionalPluginDirectoriesValue;
+	if (Object.TryGetArrayField(TEXT("AdditionalPluginDirectories"), AdditionalPluginDirectoriesValue))
+	{
+		for (int32 Idx = 0; Idx < AdditionalPluginDirectoriesValue->Num(); Idx++)
+		{
+			FString AdditionalDir;
+			if ((*AdditionalPluginDirectoriesValue)[Idx]->TryGetString(AdditionalDir))
+			{
+				if (IsRootedPath(AdditionalDir))
+				{
+					AddPluginDirectory(AdditionalDir);
+				}
+				else
+				{
+					// This is path relative to the project, so convert to absolute
+					AddPluginDirectory(IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*(PathToProject / AdditionalDir)));
+				}
+			}
+		}
+	}
+
 	// Read the target platforms
 	const TArray< TSharedPtr<FJsonValue> > *TargetPlatformsValue;
 	if(Object.TryGetArrayField(TEXT("TargetPlatforms"), TargetPlatformsValue))
@@ -137,7 +168,7 @@ bool FProjectDescriptor::Save(const FString& FileName, FText& OutFailReason)
 	// Write the contents of the descriptor to a string. Make sure the writer is destroyed so that the contents are flushed to the string.
 	FString Text;
 	TSharedRef< TJsonWriter<> > Writer = TJsonWriterFactory<>::Create(&Text);
-	Write(Writer.Get());
+	Write(Writer.Get(), FPaths::GetPath(FileName));
 	Writer->Close();
 
 	// Save it to a file
@@ -152,7 +183,7 @@ bool FProjectDescriptor::Save(const FString& FileName, FText& OutFailReason)
 	}
 }
 
-void FProjectDescriptor::Write(TJsonWriter<>& Writer) const
+void FProjectDescriptor::Write(TJsonWriter<>& Writer, const FString& PathToProject) const
 {
 	Writer.WriteObjectStart();
 
@@ -167,6 +198,18 @@ void FProjectDescriptor::Write(TJsonWriter<>& Writer) const
 
 	// Write the plugin list
 	FPluginReferenceDescriptor::WriteArray(Writer, TEXT("Plugins"), Plugins);
+
+	// Write out the additional plugin directories to scan
+	if (AdditionalPluginDirectories.Num() > 0)
+	{
+		Writer.WriteArrayStart(TEXT("AdditionalPluginDirectories"));
+		for (const FString& Dir : AdditionalPluginDirectories)
+		{
+			// Convert to relative path if possible before writing it out
+			Writer.WriteValue(MakePathRelativeToProject(Dir, PathToProject));
+		}
+		Writer.WriteArrayEnd();
+	}
 
 	// Write the target platforms
 	if(TargetPlatforms.Num() > 0)
@@ -202,6 +245,33 @@ FString FProjectDescriptor::GetExtension()
 {
 	static const FString ProjectExtension(TEXT("uproject"));
 	return ProjectExtension;
+}
+
+/** @return the path relative to this project if possible */
+const FString FProjectDescriptor::MakePathRelativeToProject(const FString& Dir, const FString& PathToProject) const
+{
+	FString ProjectDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*(PathToProject / TEXT("")));
+	FPaths::MakePlatformFilename(ProjectDir);
+	FString ModifiedDir(Dir);
+	FPaths::MakePathRelativeTo(ModifiedDir, *ProjectDir);
+	return ModifiedDir;
+}
+
+void FProjectDescriptor::AddPluginDirectory(const FString& AdditionalDir)
+{
+	check(!AdditionalDir.StartsWith(IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*FPaths::GamePluginsDir())));
+	check(!AdditionalDir.StartsWith(IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*FPaths::EnginePluginsDir())));
+
+	// Detect calls where the path is not absolute
+	check(IsRootedPath(AdditionalDir));
+	AdditionalPluginDirectories.AddUnique(AdditionalDir);
+}
+
+void FProjectDescriptor::RemovePluginDirectory(const FString& Dir)
+{
+	// Detect calls where the path is not absolute
+	check(IsRootedPath(Dir));
+	AdditionalPluginDirectories.RemoveSingle(Dir);
 }
 
 #undef LOCTEXT_NAMESPACE

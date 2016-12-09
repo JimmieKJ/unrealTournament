@@ -3,6 +3,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Templates/ScopedPointer.h"
+#include "Misc/Paths.h"
+#include "UniquePtr.h"
+
+class IAsyncReadFileHandle;
+
 /**
  * Wrapper to log the low level file system
 **/
@@ -11,8 +19,8 @@ DECLARE_LOG_CATEGORY_EXTERN(SandboxFile, Log, All);
 
 class SANDBOXFILE_API FSandboxFileHandle : public IFileHandle
 {
-	TAutoPtr<IFileHandle>	FileHandle;
-	FString				Filename;
+	TUniquePtr<IFileHandle>	FileHandle;
+	FString					Filename;
 
 public:
 
@@ -593,17 +601,17 @@ public:
 		return LowerLevel->CreateDirectoryTree( *ConvertToSandboxPath( Directory ) );
 	}
 
-	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From) override
+	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags = EPlatformFileRead::None, EPlatformFileWrite WriteFlags = EPlatformFileWrite::None) override
 	{
 		// Files can be copied only to the sandbox directory
 		bool Result = false;
 		if( LowerLevel->FileExists( *ConvertToSandboxPath( From ) ) )
 		{
-			Result = LowerLevel->CopyFile( *ConvertToSandboxPath( To ), *ConvertToSandboxPath( From ) );
+			Result = LowerLevel->CopyFile( *ConvertToSandboxPath( To ), *ConvertToSandboxPath( From ), ReadFlags, WriteFlags);
 		}
 		else
 		{
-			Result = LowerLevel->CopyFile( *ConvertToSandboxPath( To ), From );
+			Result = LowerLevel->CopyFile( *ConvertToSandboxPath( To ), From, ReadFlags, WriteFlags);
 		}
 		return Result;
 	}
@@ -613,7 +621,12 @@ public:
 #if USE_NEW_ASYNC_IO
 	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename) override
 	{
-		return LowerLevel->OpenAsyncRead(*ConvertToSandboxPath(Filename));
+		FString UserFilename(*ConvertToSandboxPath(Filename));
+		if (!OkForInnerAccess(Filename) || LowerLevel->FileExists(*UserFilename))
+		{
+			return LowerLevel->OpenAsyncRead(*UserFilename);
+		}
+		return LowerLevel->OpenAsyncRead(Filename);
 	}
 #endif // USE_NEW_ASYNC_IO
 };

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Timespan.h"
+
+class FString;
 
 /**
  * Interface for media sinks that receive string data.
@@ -17,7 +21,7 @@ public:
 	 * Initialize the sink.
 	 *
 	 * @return true on success, false otherwise.
-	 * @see ShutdownSink
+	 * @see ShutdownStringSink
 	 */
 	virtual bool InitializeStringSink() = 0;
 
@@ -32,7 +36,7 @@ public:
 	/**
 	 * Shut down the sink.
 	 *
-	 * @see InitializeSink
+	 * @see InitializeStringSink
 	 */
 	virtual void ShutdownStringSink() = 0;
 

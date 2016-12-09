@@ -6,6 +6,10 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "TextPropertyTestObject.generated.h"
 UCLASS()
 class UTextPropertyTestObject : public UObject

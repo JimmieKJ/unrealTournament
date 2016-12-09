@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "IOculusRiftPlugin.h"
 #include "IHeadMountedDisplay.h"
 
 #if OCULUS_RIFT_SUPPORTED_PLATFORMS
@@ -31,6 +34,10 @@ FORCEINLINE FQuat ToFQuat(const OVRQuat& InQuat)
 {
 	return FQuat(float(-InQuat.z), float(InQuat.x), float(InQuat.y), float(-InQuat.w));
 }
+
+/**
+* Converts quat from Unreal ref frame to Oculus
+*/
 template <typename OVRQuat>
 FORCEINLINE OVRQuat ToOVRQuat(const FQuat& InQuat)
 {
@@ -56,7 +63,7 @@ FORCEINLINE FVector ToFVector_M2U(const OVRVector3& InVec, float WorldToMetersSc
 					float(InVec.y  * WorldToMetersScale));
 }
 /**
- * Converts vector from Oculus to Unreal, also converting UU (Unreal Units) to meters.
+ * Converts vector from Unreal to Oculus, also converting UU (Unreal Units) to meters.
  */
 template <typename OVRVector3>
 FORCEINLINE OVRVector3 ToOVRVector_U2M(const FVector& InVec, float WorldToMetersScale)
@@ -66,7 +73,7 @@ FORCEINLINE OVRVector3 ToOVRVector_U2M(const FVector& InVec, float WorldToMeters
 					    float(-InVec.X * (1.f / WorldToMetersScale)));
 }
 /**
- * Converts vector from Oculus to Unreal.
+ * Converts vector from Unreal to Oculus.
  */
 template <typename OVRVector3>
 FORCEINLINE OVRVector3 ToOVRVector(const FVector& InVec)
@@ -122,7 +129,7 @@ public:
 	virtual void ShutdownModule() override;
 
 	/** IHeadMountedDisplayModule */
-	virtual FString GetModulePriorityKeyName() const override;
+	virtual FString GetModuleKeyName() const override;
 	virtual bool PreInit() override;
 	virtual bool IsHMDConnected() override;
 	virtual int GetGraphicsAdapter() override;
@@ -415,7 +422,6 @@ class FOculusRiftHMD : public FHeadMountedDisplay
 	friend class FLayerManager;
 	friend class FOculusRiftSplash;
 public:
-
 	/** IHeadMountedDisplay interface */
 	virtual FName GetDeviceName() const override
 	{
@@ -432,12 +438,13 @@ public:
 	virtual bool DoesSupportPositionalTracking() const override;
 	virtual bool HasValidTrackingPosition() override;
 	virtual uint32 GetNumOfTrackingSensors() const override;
-	virtual bool GetTrackingSensorProperties(uint8 InSensorIndex, FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const override;
+	virtual bool GetTrackingSensorProperties(uint8 InSensorIndex, FVector& OutOrigin, FQuat& OutOrientation, float& OutLeftFOV, float& OutRightFOV, float& OutTopFOV, float& OutBottomFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const override;
 	virtual void RebaseObjectOrientationAndPosition(FVector& OutPosition, FQuat& OutOrientation) const override;
 
 	virtual TSharedPtr<class ISceneViewExtension, ESPMode::ThreadSafe> GetViewExtension() override;
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar ) override;
-
+	
+	virtual void SetScreenPercentage(float InScreenPercentage) override;
 	virtual void RecordAnalytics() override;
 
 	virtual bool HasHiddenAreaMesh() const override;
@@ -540,6 +547,17 @@ public:
 	float GetVsyncToNextVsync() const;
 	FPerformanceStats GetPerformanceStats() const;
 
+	/** Turns ovrVector3f in Unreal World space to a scaled FVector and applies translation and rotation corresponding to player movement */
+	FVector ScaleAndMovePointWithPlayer(ovrVector3f& OculusRiftPoint);
+
+	/** Convert dimension of a float (e.g., a distance) from meters to Unreal Units */
+	float ConvertFloat_M2U(float OculusFloat);
+	
+	FVector ConvertVector_M2U(ovrVector3f OculusPoint);
+
+	/** Getter for LastPlayerLocation and LastPlayerRotation, which provide data from the previous frame */
+	void GetLastPlayerLocationAndRotation(FVector& PlayerLocation, FQuat& PlayerRotation);
+											
 #ifdef OVR_D3D
 	class D3D11Bridge : public FCustomPresent
 	{
@@ -592,6 +610,8 @@ public:
 	virtual ~FOculusRiftHMD();
 
 	FCustomPresent* GetCustomPresent_Internal() const { return pCustomPresent; }
+
+	virtual IRendererModule* GetRendererModule() override { return RendererModule; }
 	
 	#if !UE_BUILD_SHIPPING
 	enum ECubemapType
@@ -669,6 +689,13 @@ private: // data
 
 	// used to capture cubemaps for Oculus Home
 	class USceneCubemapCapturer* CubemapCapturer;
+	
+	// Stores GetFrame()->PlayerLocation (i.e., ViewLocation) from the previous frame
+	FVector LastPlayerLocation;
+
+	// Stores difference between ViewRotation and EyeOrientation from previous frame
+	FQuat LastPlayerRotation;
+
 
 	union
 	{

@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ITargetDeviceProxy.h"
+#include "IMessageContext.h"
+#include "Helpers/MessageEndpoint.h"
+
+class FTargetDeviceProxy;
+struct FTargetDeviceServiceDeployFinished;
+struct FTargetDeviceServiceLaunchFinished;
+struct FTargetDeviceServicePong;
 
 /** Type definition for shared pointers to instances of FTargetDeviceProxy. */
 typedef TSharedPtr<class FTargetDeviceProxy> FTargetDeviceProxyPtr;

@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Internationalization/InternationalizationMetadata.h"
-#include "Json.h"
-#include "JsonInternationalizationManifestSerializer.h"
-#include "JsonInternationalizationMetadataSerializer.h"
+#include "Commandlets/GatherTextCommandletBase.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/PackageName.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
-#include "AssetRegistryModule.h"
+#include "EngineGlobals.h"
+#include "AssetData.h"
+#include "Editor.h"
+#include "IAssetRegistry.h"
+#include "ARFilter.h"
 #include "PackageHelperFunctions.h"
 #include "ObjectTools.h"
 

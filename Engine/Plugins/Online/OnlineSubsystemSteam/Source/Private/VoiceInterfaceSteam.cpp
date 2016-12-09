@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
-#include "OnlineSubsystemSteam.h"
 #include "VoiceInterfaceSteam.h"
+#include "Misc/ConfigCacheIni.h"
+#include "EngineGlobals.h"
+#include "GameFramework/OnlineReplStructs.h"
+#include "Engine/Engine.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/LocalPlayer.h"
+#include "OnlineSubsystemSteam.h"
 #include "VoiceEngineSteam.h"
-#include "Voice.h"
+#include "VoiceModule.h"
 #include "OnlineIdentityInterfaceSteam.h"
 #include "OnlineSessionInterfaceSteam.h"
-#include "SteamUtilities.h"
 
 /** Largest size to attempt to transmit */
 #define MAX_VOICE_PACKET_SIZE_STEAM 1 * 1024

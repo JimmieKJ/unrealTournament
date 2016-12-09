@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/NetConnection.h"
 #include "ChildConnection.generated.h"
-
 
 /**
  * Represents a secondary split screen connection that reroutes calls to the parent connection.

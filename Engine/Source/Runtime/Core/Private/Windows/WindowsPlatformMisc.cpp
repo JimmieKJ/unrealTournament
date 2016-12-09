@@ -1,46 +1,73 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "ExceptionHandling.h"
-#include "SecureHash.h"
-#include "WindowsApplication.h"
-#include "EngineVersion.h"
-#include "WindowsPlatformCrashContext.h"
+#include "Windows/WindowsPlatformMisc.h"
+#include "Misc/DateTime.h"
+#include "Misc/AssertionMacros.h"
+#include "Logging/LogMacros.h"
+#include "Misc/OutputDevice.h"
+#include "HAL/PlatformStackWalk.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/UnrealTemplate.h"
+#include "CoreGlobals.h"
+#include "HAL/FileManager.h"
+#include "Misc/CString.h"
+#include "Misc/Parse.h"
+#include "Misc/MessageDialog.h"
+#include "Containers/StringConv.h"
+#include "Containers/UnrealString.h"
+#include "CoreGlobals.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Internationalization/Text.h"
+#include "Internationalization/Culture.h"
+#include "Internationalization/Internationalization.h"
+#include "Math/Color.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "Misc/OutputDeviceFile.h"
+#include "Misc/OutputDeviceError.h"
+#include "Misc/FeedbackContext.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
+#include "HAL/ExceptionHandling.h"
+#include "Misc/SecureHash.h"
+#include "Windows/WindowsApplication.h"
+#include "Misc/EngineVersion.h"
+#include "GenericPlatform/GenericPlatformCrashContext.h"
+#include "Windows/WindowsPlatformCrashContext.h"
+#include "HAL/PlatformOutputDevices.h"
 
-#include "GenericPlatformChunkInstall.h"
-#include "GenericPlatformDriver.h"			// FGPUDriverInfo
+#include "GenericPlatform/GenericPlatformChunkInstall.h"
+#include "GenericPlatform/GenericPlatformDriver.h"
 #include "HAL/ThreadHeartBeat.h"
 
 // Resource includes.
 #include "Runtime/Launch/Resources/Windows/Resource.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <time.h>
-	#include <MMSystem.h>
-	#include <rpcsal.h>					// from DXSDK
-	#include <gameux.h>					// from DXSDK For IGameExplorer
-	#include <shlobj.h>
-	#include <intshcut.h>
+	#include <mmsystem.h>
+	#include <rpcsal.h>
+	#include <gameux.h>
+	#include <ShlObj.h>
+	#include <IntShCut.h>
 	#include <shellapi.h>
-	#include <Iphlpapi.h>
-#include "HideWindowsPlatformTypes.h"
+	#include <IPHlpApi.h>
+#include "Windows/HideWindowsPlatformTypes.h"
 
-#include "MallocTBB.h"
-#include "ModuleManager.h"
-#include "MallocAnsi.h"
-#include "VarargsHelper.h"
+#include "Modules/ModuleManager.h"
 
 #if !FORCE_ANSI_ALLOCATOR
-	#include "AllowWindowsPlatformTypes.h"
-		#include <psapi.h>
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
+		#include <Psapi.h>
+	#include "Windows/HideWindowsPlatformTypes.h"
 	#pragma comment(lib, "psapi.lib")
 #endif
 
 #include <fcntl.h>
 #include <io.h>
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 // This might not be defined by Windows when maintaining backwards-compatibility to pre-Win8 builds
 #ifndef SM_CONVERTIBLESLATEMODE
@@ -58,6 +85,9 @@ static TAutoConsoleVariable<int32> CVarDriverDetectionMethod(
 	TEXT("  3: Use Windows functions, use the primary device (might be wrong when API is using another adapter)\n")
 	TEXT("  4: Use Windows functions, use the one names like the DirectX Device (newest, most promising)"),
 	ECVF_RenderThreadSafe);
+
+typedef HRESULT(STDAPICALLTYPE *GetDpiForMonitorProc)(HMONITOR Monitor, int32 DPIType, uint32 *DPIX, uint32 *DPIY);
+static GetDpiForMonitorProc GetDpiForMonitor;
 
 namespace
 {
@@ -380,7 +410,7 @@ int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FStri
 
 	return ErrorCode;
 }
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 /** 
  * Whether support for integrating into the firewall is there
@@ -389,7 +419,7 @@ int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FStri
 
 extern "C"
 {
-	CORE_API HINSTANCE hInstance = NULL;
+	CORE_API Windows::HINSTANCE hInstance = NULL;
 }
 
 
@@ -495,6 +525,63 @@ static void SetProcessMemoryLimit( SIZE_T ProcessMemoryLimitMB )
 	const BOOL bAssign = ::AssignProcessToJobObject(JobObject, GetCurrentProcess());
 }
 
+void FWindowsPlatformMisc::SetHighDPIMode()
+{
+	if (FParse::Param(FCommandLine::Get(), TEXT("enablehighdpi")))
+	{
+		if (void* ShCoreDll = FPlatformProcess::GetDllHandle(TEXT("shcore.dll")))
+		{
+			typedef HRESULT(STDAPICALLTYPE *SetProcessDpiAwarenessProc)(int32 Value);
+			SetProcessDpiAwarenessProc SetProcessDpiAwareness = (SetProcessDpiAwarenessProc)FPlatformProcess::GetDllExport(ShCoreDll, TEXT("SetProcessDpiAwareness"));
+			GetDpiForMonitor = (GetDpiForMonitorProc)FPlatformProcess::GetDllExport(ShCoreDll, TEXT("GetDpiForMonitor"));
+			FPlatformProcess::FreeDllHandle(ShCoreDll);
+
+			if (SetProcessDpiAwareness)
+			{
+				SetProcessDpiAwareness(2); // PROCESS_PER_MONITOR_DPI_AWARE_VALUE
+			}
+		}
+		else if (void* User32Dll = FPlatformProcess::GetDllHandle(TEXT("user32.dll")))
+		{
+			typedef BOOL(WINAPI *SetProcessDpiAwareProc)(void);
+			SetProcessDpiAwareProc SetProcessDpiAware = (SetProcessDpiAwareProc)FPlatformProcess::GetDllExport(User32Dll, TEXT("SetProcessDPIAware"));
+			FPlatformProcess::FreeDllHandle(User32Dll);
+
+			if (SetProcessDpiAware)
+			{
+				SetProcessDpiAware();
+			}
+		}
+	}
+
+}
+
+float FWindowsPlatformMisc::GetDPIScaleFactorAtPoint(float X, float Y)
+{
+	if (FParse::Param(FCommandLine::Get(), TEXT("enablehighdpi")))
+	{
+		if (GetDpiForMonitor)
+		{
+			POINT Position = { X, Y };
+			HMONITOR Monitor = MonitorFromPoint(Position, MONITOR_DEFAULTTONEAREST);
+			if (Monitor)
+			{
+				uint32 DPIX = 0;
+				uint32 DPIY = 0;
+				return SUCCEEDED(GetDpiForMonitor(Monitor, 0/*MDT_EFFECTIVE_DPI_VALUE*/, &DPIX, &DPIY)) ? DPIX / 96.0f : 1.0f;
+			}
+		}
+		else
+		{
+			HDC Context = GetDC(nullptr);
+			const float DPIScaleFactor = GetDeviceCaps(Context, LOGPIXELSX) / 96.0f;
+			ReleaseDC(nullptr, Context);
+			return DPIScaleFactor;
+		}
+	}
+	return 1.0f;
+}
+
 void FWindowsPlatformMisc::PlatformPreInit()
 {
 	//SetProcessMemoryLimit( 92 );
@@ -513,6 +600,8 @@ void FWindowsPlatformMisc::PlatformPreInit()
 
 	// initialize the file SHA hash mapping
 	InitSHAHashes();
+
+	SetHighDPIMode();
 }
 
 
@@ -578,7 +667,8 @@ static BOOL WINAPI ConsoleCtrlHandler( ::DWORD /*Type*/ )
 		GError->Flush();
 	}
 
-	if( !GIsRequestingExit )
+	// if we are running commandlet we want the application to exit immediately on control-c press
+	if( !GIsRequestingExit && !IsRunningCommandlet())
 	{
 		PostQuitMessage( 0 );
 		GIsRequestingExit = 1;
@@ -611,7 +701,7 @@ void FWindowsPlatformMisc::SetGracefulTerminationHandler()
 
 void FWindowsPlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength)
 {
-	uint32 Error = ::GetEnvironmentVariable(VariableName, Result, ResultLength);
+	uint32 Error = ::GetEnvironmentVariableW(VariableName, Result, ResultLength);
 	if (Error <= 0)
 	{		
 		*Result = 0;
@@ -808,25 +898,9 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 
 				//get the paths that the files will actually have been saved to
 				FString UserIniDumpPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*IniDumpPath);
-				FString LogDirectory = FPaths::GameLogDir();
+				FString LogDirectory = FPlatformOutputDevices::GetAbsoluteLogFilename();
 				TCHAR CommandlineLogFile[MAX_SPRINTF]=TEXT("");
-
-				//use the log file specified on the commandline if there is one
-				if (FParse::Value(FCommandLine::Get(), TEXT("LOG="), CommandlineLogFile, ARRAY_COUNT(CommandlineLogFile)))
-				{
-					LogDirectory += CommandlineLogFile;
-				}
-				else if (!FApp::IsGameNameEmpty())
-				{
-					// If the app name is defined, use it as the log filename
-					LogDirectory += FString::Printf(TEXT("%s.Log"), FApp::GetGameName());
-				}
-				else
-				{
-					// Revert to hardcoded UE4.log
-					LogDirectory += TEXT("UE4.Log");
-				}
-
+				
 				FString UserLogFile = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*LogDirectory);
 				FString UserReportDumpPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ReportDumpPath);
 				FString UserCrashVideoPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*CrashVideoPath);
@@ -1982,7 +2056,7 @@ bool FWindowsPlatformMisc::GetWindowTitleMatchingText(const TCHAR* TitleStartsWi
 	bool bWasFound = false;
 	WCHAR Buffer[8192];
 	// Get the first window so we can start walking the window chain
-	HWND hWnd = FindWindow(NULL,NULL);
+	HWND hWnd = FindWindowW(NULL,NULL);
 	if (hWnd != NULL)
 	{
 		do
@@ -2394,7 +2468,7 @@ FString FWindowsPlatformMisc::GetCPUBrand()
 	return FCPUIDQueriedData::GetBrand();
 }
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 FString FWindowsPlatformMisc::GetPrimaryGPUBrand()
 {
 	static FString PrimaryGPUBrand;
@@ -2422,7 +2496,7 @@ FString FWindowsPlatformMisc::GetPrimaryGPUBrand()
 	}
 
 	return PrimaryGPUBrand;
-	}
+}
 
 static void GetVideoDriverDetails(const FString& Key, FGPUDriverInfo& Out)
 {
@@ -2704,7 +2778,7 @@ FGPUDriverInfo FWindowsPlatformMisc::GetGPUDriverInfo(const FString& DeviceDescr
 	return Ret;
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 void FWindowsPlatformMisc::GetOSVersions( FString& out_OSVersionLabel, FString& out_OSSubVersionLabel )
 {
@@ -2744,7 +2818,7 @@ int32 FWindowsPlatformMisc::GetCacheLineSize()
 	return FCPUIDQueriedData::GetCacheLineSize();
 }
 
-bool FWindowsPlatformMisc::QueryRegKey( const HKEY InKey, const TCHAR* InSubKey, const TCHAR* InValueName, FString& OutData )
+bool FWindowsPlatformMisc::QueryRegKey( const Windows::HKEY InKey, const TCHAR* InSubKey, const TCHAR* InValueName, FString& OutData )
 {
 	bool bSuccess = false;
 
@@ -2778,34 +2852,27 @@ bool FWindowsPlatformMisc::QueryRegKey( const HKEY InKey, const TCHAR* InSubKey,
 
 bool FWindowsPlatformMisc::GetVSComnTools(int32 Version, FString& OutData)
 {
-	checkf(12 <= Version && Version <= 14, L"Not supported Visual Studio version.");
+	checkf(12 <= Version && Version <= 15, L"Not supported Visual Studio version.");
 
-	const TCHAR* PossibleRegPaths[] = {
-		L"Wow6432Node\\Microsoft\\VisualStudio",	// Non-express VS201x on 64-bit machine.
-		L"Microsoft\\VisualStudio",					// Non-express VS201x on 32-bit machine.
-		L"Wow6432Node\\Microsoft\\WDExpress",		// Express VS201x on 64-bit machine.
-		L"Microsoft\\WDExpress"						// Express VS201x on 32-bit machine.
-	};
+	FString ValueName = FString::Printf(TEXT("%d.0"), Version);
 
-	bool bResult = false;
 	FString IDEPath;
-
-	for (int32 Index = 0; Index < sizeof(PossibleRegPaths) / sizeof(const TCHAR *); ++Index)
+	if (!QueryRegKey(HKEY_CURRENT_USER, TEXT("SOFTWARE\\Microsoft\\VisualStudio\\SxS\\VS7"), *ValueName, IDEPath))
 	{
-		bResult = QueryRegKey(HKEY_LOCAL_MACHINE, *FString::Printf(L"SOFTWARE\\%s\\%d.0", PossibleRegPaths[Index], Version), L"InstallDir", IDEPath);
-
-		if (bResult)
+		if (!QueryRegKey(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Microsoft\\VisualStudio\\SxS\\VS7"), *ValueName, IDEPath))
 		{
-			break;
+			if (!QueryRegKey(HKEY_CURRENT_USER, TEXT("SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\VS7"), *ValueName, IDEPath))
+			{
+				if (!QueryRegKey(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\VS7"), *ValueName, IDEPath))
+				{
+					return false;
+				}
+			}
 		}
 	}
-	
-	if(bResult)
-	{
-		OutData = FPaths::ConvertRelativePathToFull(FPaths::Combine(*IDEPath, L"..", L"Tools"));
-	}
 
-	return bResult;
+	OutData = FPaths::ConvertRelativePathToFull(FPaths::Combine(*IDEPath, L"Common7", L"Tools"));
+	return true;
 }
 
 const TCHAR* FWindowsPlatformMisc::GetDefaultPathSeparator()
@@ -2886,7 +2953,7 @@ IPlatformChunkInstall* FWindowsPlatformMisc::GetPlatformChunkInstall()
 #endif
 		{
 			// Placeholder instance
-			ChunkInstall = new FGenericPlatformChunkInstall();
+			ChunkInstall = FGenericPlatformMisc::GetPlatformChunkInstall();
 		}
 	}
 

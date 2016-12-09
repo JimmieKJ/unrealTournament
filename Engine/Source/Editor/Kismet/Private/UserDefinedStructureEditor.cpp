@@ -1,17 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "UserDefinedStructureEditor.h"
-#include "BlueprintEditorUtils.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Misc/CoreMisc.h"
+#include "UObject/UnrealType.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/StructOnScope.h"
+#include "Misc/NotifyHook.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "UserDefinedStructure/UserDefinedStructEditorData.h"
+#include "Engine/UserDefinedStruct.h"
+#include "EdGraphSchema_K2.h"
+#include "IDetailCustomization.h"
 #include "PropertyEditorModule.h"
-#include "IStructureDetailsView.h"
+#include "IDetailCustomNodeBuilder.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #include "PropertyCustomizationHelpers.h"
-#include "Editor/KismetWidgets/Public/SPinTypeSelector.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
-#include "SDockTab.h"
-#include "Engine/UserDefinedStruct.h"
+#include "SPinTypeSelector.h"
+#include "Kismet2/StructureEditorUtils.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "StructureEditor"
 
@@ -283,7 +299,8 @@ void FUserDefinedStructureEditor::InitEditor(const EToolkitMode::Type Mode, cons
 	const TSharedRef<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::NewLayout( "Standalone_UserDefinedStructureEditor_Layout_v1" )
 	->AddArea
 	(
-		FTabManager::NewPrimaryArea() ->SetOrientation(Orient_Vertical)
+		FTabManager::NewPrimaryArea() 
+		->SetOrientation(Orient_Vertical)
 		->Split
 		(
 			FTabManager::NewStack()
@@ -297,6 +314,7 @@ void FUserDefinedStructureEditor::InitEditor(const EToolkitMode::Type Mode, cons
 			->Split
 			(
 				FTabManager::NewStack()
+				->SetHideTabWell( true )
 				->AddTab( MemberVariablesTabId, ETabState::OpenedTab )
 			)
 		)
@@ -360,7 +378,7 @@ TSharedRef<SDockTab> FUserDefinedStructureEditor::SpawnStructureTab(const FSpawn
 		EditedStruct = Cast<UUserDefinedStruct>(EditingObjs[ 0 ]);
 	}
 
-	auto Box = SNew(SHorizontalBox);
+	auto Box = SNew(SVerticalBox);
 
 	{
 		// Create a property view
@@ -373,6 +391,7 @@ TSharedRef<SDockTab> FUserDefinedStructureEditor::SpawnStructureTab(const FSpawn
 		PropertyView->SetObject(EditedStruct);
 		Box->AddSlot()
 		.VAlign(EVerticalAlignment::VAlign_Top)
+		.AutoHeight()
 		[
 			PropertyView.ToSharedRef()
 		];
@@ -391,6 +410,7 @@ TSharedRef<SDockTab> FUserDefinedStructureEditor::SpawnStructureTab(const FSpawn
 			Box->AddSlot()
 			.VAlign(EVerticalAlignment::VAlign_Top)
 			.Padding(2.0f, 0.0f, 0.0f, 0.0f)
+			.AutoHeight()
 			[
 				DefaultValueWidget.ToSharedRef()
 			];

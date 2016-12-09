@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "Engine/Scene.h"
 
 #include "CameraActor.generated.h"
+
+class UCameraAnim;
 
 /** 
  * A CameraActor is a camera viewpoint that can be placed in a level.

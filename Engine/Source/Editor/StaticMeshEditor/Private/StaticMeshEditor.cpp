@@ -1,35 +1,43 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StaticMeshEditorModule.h"
-#include "AssetRegistryModule.h"
-
 #include "StaticMeshEditor.h"
+#include "AssetData.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorStyleSet.h"
+#include "EditorReimportHandler.h"
+#include "Editor/UnrealEdEngine.h"
+#include "EditorFramework/AssetImportData.h"
+#include "Engine/StaticMesh.h"
+#include "Editor.h"
+#include "UnrealEdGlobals.h"
+#include "StaticMeshEditorModule.h"
+
 #include "SStaticMeshEditorViewport.h"
-#include "StaticMeshEditorViewportClient.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
+#include "IDetailCustomization.h"
 #include "StaticMeshEditorTools.h"
 #include "StaticMeshEditorActions.h"
 
-#include "UnrealEd.h"
 #include "StaticMeshResources.h"
-#include "ISocketManager.h"
-#include "PreviewScene.h"
-#include "ScopedTransaction.h"
 #include "BusyCursor.h"
-#include "FbxMeshUtils.h"
-#include "../Private/GeomFitUtils.h"
+#include "Private/GeomFitUtils.h"
 #include "EditorViewportCommands.h"
-#include "Editor/UnrealEd/Private/ConvexDecompTool.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
+#include "Private/ConvexDecompTool.h"
 
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
-#include "SDockTab.h"
-#include "GenericCommands.h"
-#include "STextComboBox.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "Engine/Selection.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Widgets/Input/STextComboBox.h"
+#include "PhysicsEngine/ConvexElem.h"
+#include "PhysicsEngine/BoxElem.h"
+#include "PhysicsEngine/SphereElem.h"
+#include "PhysicsEngine/SphylElem.h"
 #include "PhysicsEngine/BodySetup.h"
 
 #include "SAdvancedPreviewDetailsTab.h"
@@ -568,8 +576,7 @@ void FStaticMeshEditor::BuildSubTools()
 		LODLevelCombo->SetSelectedItem(LODLevels[0]);
 	}
 
-	AdvancedPreviewSettingsWidget = SNew(SAdvancedPreviewDetailsTab)
-		.PreviewScenePtr(&Viewport->GetPreviewScene());
+	AdvancedPreviewSettingsWidget = SNew(SAdvancedPreviewDetailsTab, Viewport->GetPreviewScene());
 }
 
 FName FStaticMeshEditor::GetToolkitFName() const
@@ -1355,45 +1362,6 @@ static void AddVertexIfNotPresent(TArray<FVector>& Vertices, const FVector& NewV
 	}
 }
 
-void FStaticMeshEditor::CreateBoxVertsFromBoxCollision(const FKBoxElem& BoxElem, TArray<FVector>& Verts, float Scale)
-{
-	FVector	B[2], P, Q, Radii;
-
-	// X,Y,Z member variables are LENGTH not RADIUS
-	Radii.X = Scale*0.5f*BoxElem.X;
-	Radii.Y = Scale*0.5f*BoxElem.Y;
-	Radii.Z = Scale*0.5f*BoxElem.Z;
-
-	B[0] = Radii; // max
-	B[1] = -1.0f * Radii; // min
-
-	FTransform BoxElemTM = BoxElem.GetTransform();
-
-	for( int32 i=0; i<2; i++ )
-	{
-		for( int32 j=0; j<2; j++ )
-		{
-			P.X=B[i].X; Q.X=B[i].X;
-			P.Y=B[j].Y; Q.Y=B[j].Y;
-			P.Z=B[0].Z; Q.Z=B[1].Z;
-			AddVertexIfNotPresent(Verts, BoxElemTM.TransformPosition(P));
-			AddVertexIfNotPresent(Verts, BoxElemTM.TransformPosition(Q));
-
-			P.Y=B[i].Y; Q.Y=B[i].Y;
-			P.Z=B[j].Z; Q.Z=B[j].Z;
-			P.X=B[0].X; Q.X=B[1].X;
-			AddVertexIfNotPresent(Verts, BoxElemTM.TransformPosition(P));
-			AddVertexIfNotPresent(Verts, BoxElemTM.TransformPosition(Q));
-
-			P.Z=B[i].Z; Q.Z=B[i].Z;
-			P.X=B[j].X; Q.X=B[j].X;
-			P.Y=B[0].Y; Q.Y=B[1].Y;
-			AddVertexIfNotPresent(Verts, BoxElemTM.TransformPosition(P));
-			AddVertexIfNotPresent(Verts, BoxElemTM.TransformPosition(Q));
-		}
-	}
-}
-
 void FStaticMeshEditor::OnConvertBoxToConvexCollision()
 {
 	// If we have a collision model for this staticmesh, ask if we want to replace it.
@@ -1424,11 +1392,7 @@ void FStaticMeshEditor::OnConvertBoxToConvexCollision()
 
 					//Create a new convex collision element
 					NewConvexColl = new(TempArray) FKConvexElem();
-					NewConvexColl->Reset();
-
-					//Fill the convex verts from the box elem collision and generate the convex hull
-					CreateBoxVertsFromBoxCollision(BoxColl, NewConvexColl->VertexData, 1.0f);
-					NewConvexColl->UpdateElemBox();
+					NewConvexColl->ConvexFromBoxElem(BoxColl);
 				}
 
 				//Clear the cache (PIE may have created some data), create new GUID
@@ -1904,6 +1868,55 @@ void FStaticMeshEditor::OnObjectReimported(UObject* InObject)
 	if(StaticMesh == InObject)
 	{
 		SetEditorMesh(Cast<UStaticMesh>(InObject));
+	}
+}
+
+void FStaticMeshEditor::SaveAsset_Execute()
+{
+	//Clean the unused Material entry before saving
+	if (StaticMesh)
+	{
+		for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex)
+		{
+			bool MaterialIsUsed = false;
+			for (int32 LODIndex = 0; LODIndex < StaticMesh->GetNumLODs(); ++LODIndex)
+			{
+				for (int32 SectionIndex = 0; SectionIndex < StaticMesh->GetNumSections(LODIndex); ++SectionIndex)
+				{
+					FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, SectionIndex);
+					if (Info.MaterialIndex == MaterialIndex)
+					{
+						MaterialIsUsed = true;
+						break;
+					}
+				}
+			}
+
+			if (!MaterialIsUsed)
+			{
+				StaticMesh->StaticMaterials[MaterialIndex].MaterialInterface = nullptr;
+				StaticMesh->Modify();
+				StaticMesh->PostEditChange();
+				if (StaticMesh->BodySetup)
+				{
+					StaticMesh->BodySetup->CreatePhysicsMeshes();
+				}
+			}
+		}
+	}
+	FAssetEditorToolkit::SaveAsset_Execute();
+}
+
+EViewModeIndex FStaticMeshEditor::GetViewMode() const
+{
+	if (Viewport.IsValid())
+	{
+		const FStaticMeshEditorViewportClient& ViewportClient = Viewport->GetViewportClient();
+		return ViewportClient.GetViewMode();
+	}
+	else
+	{
+		return VMI_Unknown;
 	}
 }
 

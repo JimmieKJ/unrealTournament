@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "TextBinding.h"
+#include "Binding/TextBinding.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

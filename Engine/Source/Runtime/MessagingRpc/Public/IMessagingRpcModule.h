@@ -2,12 +2,10 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-
-
-class IMessageRpcClient;
-class IMessageRpcServer;
-
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "IMessageRpcClient.h"
+#include "IMessageRpcServer.h"
 
 /**
  * Interface for the MessagingRpc module.

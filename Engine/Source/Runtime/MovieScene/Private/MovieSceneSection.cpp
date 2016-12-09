@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieScenePrivatePCH.h"
 #include "MovieSceneSection.h"
+#include "MovieSceneTrack.h"
+#include "MovieSceneCommonHelpers.h"
+#include "Evaluation/MovieSceneEvalTemplate.h"
 
 
 UMovieSceneSection::UMovieSceneSection(const FObjectInitializer& ObjectInitializer)
@@ -159,8 +161,14 @@ void UMovieSceneSection::AddKeyToCurve(FRichCurve& InCurve, float Time, float Va
 
 void UMovieSceneSection::SetCurveDefault(FRichCurve& InCurve, float Value)
 {
-	if (TryModify())
+	if (InCurve.GetDefaultValue() != Value && TryModify())
 	{
 		InCurve.SetDefaultValue(Value);
 	}
+}
+
+
+FMovieSceneEvalTemplatePtr UMovieSceneSection::GenerateTemplate() const
+{
+	return FMovieSceneEvalTemplatePtr();
 }

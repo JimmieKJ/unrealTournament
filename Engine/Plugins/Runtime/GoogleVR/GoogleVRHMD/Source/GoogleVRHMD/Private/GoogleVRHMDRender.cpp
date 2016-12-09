@@ -13,21 +13,11 @@
  * limitations under the License.
  */
 
-#include "GoogleVRHMDPCH.h"
+#include "CoreMinimal.h"
+#include "IHeadMountedDisplay.h"
+#include "IGoogleVRHMDPlugin.h"
 #include "GoogleVRHMD.h"
 #include "ScreenRendering.h"
-
-static bool IsDeviceScanlineRacingEnabled()
-{
-#if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
-
-	extern bool AndroidThunkCpp_IsScanlineRacingEnabled();
-	return AndroidThunkCpp_IsScanlineRacingEnabled();
-
-#endif
-
-	return false;
-}
 
 void FGoogleVRHMD::GenerateDistortionCorrectionIndexBuffer()
 {
@@ -36,7 +26,7 @@ void FGoogleVRHMD::GenerateDistortionCorrectionIndexBuffer()
 	DistortionMeshIndices = nullptr;
 
 	// Allocate new indices
-	DistortionMeshIndices = new uint16[NumIndices];
+	DistortionMeshIndices = new uint16[6 * DistortionPointsX * DistortionPointsY];
 
 	uint32 InsertIndex = 0;
 	for(uint32 y = 0; y < DistortionPointsY - 1; ++y)
@@ -73,7 +63,6 @@ void FGoogleVRHMD::GenerateDistortionCorrectionVertexBuffer(EStereoscopicPass Ey
 	Verts = nullptr;
 
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
 	// Allocate new vertex buffer
 	Verts = new FDistortionVertex[NumVerts];
 
@@ -129,9 +118,9 @@ void FGoogleVRHMD::GenerateDistortionCorrectionVertexBuffer(EStereoscopicPass Ey
 #endif
 			FDistortionVertex FinalVertex = FDistortionVertex{ ScreenPos, FinalRedUV, FinalGreenUV, FinalBlueUV, 1.0f, 0.0f };
 			Verts[VertexIndex++] = FinalVertex;
-			
+
 #if LOG_VIEWER_DATA_FOR_GENERATION
-			UE_LOG(LogHMD, Log, TEXT("\tFDistortionVertex{ FVector2D(%ff, %ff), FVector2D(%ff, %ff), FVector2D(%ff, %ff), FVector2D(%ff, %ff), 1.0f, 0.0f }%s"), 
+			UE_LOG(LogHMD, Log, TEXT("\tFDistortionVertex{ FVector2D(%ff, %ff), FVector2D(%ff, %ff), FVector2D(%ff, %ff), FVector2D(%ff, %ff), 1.0f, 0.0f }%s"),
 				ScreenPos.X, ScreenPos.Y,
 				FinalRedUV.X, FinalRedUV.Y,
 				FinalGreenUV.X, FinalGreenUV.Y,
@@ -147,7 +136,6 @@ void FGoogleVRHMD::GenerateDistortionCorrectionVertexBuffer(EStereoscopicPass Ey
 #endif // LOG_VIEWER_DATA_FOR_GENERATION
 
 	check(VertexIndex == NumVerts);
-
 #endif
 }
 
@@ -157,9 +145,8 @@ void FGoogleVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePas
 	FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
 	const FSceneViewFamily& ViewFamily = *(View.Family);
 	FIntPoint ViewportSize = ViewFamily.RenderTarget->GetSizeXY();
-	
-#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	if(View.StereoPass == eSSP_LEFT_EYE)
 	{
 		RHICmdList.SetViewport(0, 0, 0.0f, ViewportSize.X / 2, ViewportSize.Y, 1.0f);
@@ -172,54 +159,47 @@ void FGoogleVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePas
 		DrawIndexedPrimitiveUP(Context.RHICmdList, PT_TriangleList, 0, NumVerts, NumTris, DistortionMeshIndices,
 			sizeof(DistortionMeshIndices[0]), DistortionMeshVerticesRightEye, sizeof(DistortionMeshVerticesRightEye[0]));
 	}
-
 #else
-
-	if(GetPreviewViewerType() == EVP_None)
+	// Editor Preview: We are using a hardcoded quad mesh for now with no distortion applyed.
+	// TODO: We will add preview using real viewer profile later.
 	{
-		RHICmdList.SetViewport(0, 0, 0.0f, ViewportSize.X, ViewportSize.Y, 1.0f);
+		static const uint32 LocalNumVertsPerEye = 4;
+		static const uint32 LocalNumTrisPerEye = 2;
 
-		static const uint32 LocalNumVerts = 8;
-		static const uint32 LocalNumTris = 4;
-
-		static const FDistortionVertex Verts[8] =
+		static const FDistortionVertex VertsLeft[4] =
 		{
 			// left eye
-			{ FVector2D(-0.9f, -0.9f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), 1.0f, 0.0f },
-			{ FVector2D(-0.1f, -0.9f), FVector2D(0.5f, 1.0f), FVector2D(0.5f, 1.0f), FVector2D(0.5f, 1.0f), 1.0f, 0.0f },
-			{ FVector2D(-0.1f, 0.9f), FVector2D(0.5f, 0.0f), FVector2D(0.5f, 0.0f), FVector2D(0.5f, 0.0f), 1.0f, 0.0f },
-			{ FVector2D(-0.9f, 0.9f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), 1.0f, 0.0f },
+			{ FVector2D(-1.0f, -1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), 1.0f, 0.0f },
+			{ FVector2D(1.0f, -1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), 1.0f, 0.0f },
+			{ FVector2D(1.0f, 1.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), 1.0f, 0.0f },
+			{ FVector2D(-1.0f, 1.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), 1.0f, 0.0f },
+		};
+		static const FDistortionVertex VertsRight[4] =
+		{
 			// right eye
-			{ FVector2D(0.1f, -0.9f), FVector2D(0.5f, 1.0f), FVector2D(0.5f, 1.0f), FVector2D(0.5f, 1.0f), 1.0f, 0.0f },
-			{ FVector2D(0.9f, -0.9f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), 1.0f, 0.0f },
-			{ FVector2D(0.9f, 0.9f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), 1.0f, 0.0f },
-			{ FVector2D(0.1f, 0.9f), FVector2D(0.5f, 0.0f), FVector2D(0.5f, 0.0f), FVector2D(0.5f, 0.0f), 1.0f, 0.0f },
+			{ FVector2D(-1.0f, -1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), FVector2D(0.0f, 1.0f), 1.0f, 0.0f },
+			{ FVector2D( 1.0f, -1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), FVector2D(1.0f, 1.0f), 1.0f, 0.0f },
+			{ FVector2D(1.0f, 1.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), FVector2D(1.0f, 0.0f), 1.0f, 0.0f },
+			{ FVector2D(-1.0f, 1.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), FVector2D(0.0f, 0.0f), 1.0f, 0.0f },
 		};
 
-		static const uint16 Indices[12] = { /*Left*/ 0, 1, 2, 0, 2, 3, /*Right*/ 4, 5, 6, 4, 6, 7 };
+		static const uint16 Indices[6] = {0, 1, 2, 0, 2, 3};
 
-		DrawIndexedPrimitiveUP(Context.RHICmdList, PT_TriangleList, 0, LocalNumVerts, LocalNumTris, &Indices,
-			sizeof(Indices[0]), &Verts, sizeof(Verts[0]));
+		const uint32 XBound = TextureSize.X / 2;
+ 		if(View.StereoPass == eSSP_LEFT_EYE)
+ 		{
+			RHICmdList.SetViewport(0, 0, 0.0f, XBound, TextureSize.Y, 1.0f);
+			DrawIndexedPrimitiveUP(Context.RHICmdList, PT_TriangleList, 0, LocalNumVertsPerEye, LocalNumTrisPerEye, &Indices, sizeof(Indices[0]), &VertsLeft, sizeof(VertsLeft[0]));
+ 		}
+ 		else
+ 		{
+  			RHICmdList.SetViewport(XBound, 0, 0.0f, TextureSize.X, TextureSize.Y, 1.0f);
+  			DrawIndexedPrimitiveUP(Context.RHICmdList, PT_TriangleList, 0, LocalNumVertsPerEye, LocalNumTrisPerEye, &Indices, sizeof(Indices[0]), &VertsRight, sizeof(VertsRight[0]));
+ 		}
 	}
-	else
-	{
-		// Indices are generated, mesh is stored in GoogleVRHMDViewerPreviews.h/cpp
-
-		if(View.StereoPass == eSSP_LEFT_EYE)
-		{
-			RHICmdList.SetViewport(0, 0, 0.0f, ViewportSize.X / 2, ViewportSize.Y, 1.0f);
-			DrawIndexedPrimitiveUP(Context.RHICmdList, PT_TriangleList, 0, GetPreviewViewerNumVertices(eSSP_LEFT_EYE), NumTris, DistortionMeshIndices,
-				sizeof(DistortionMeshIndices[0]), GetPreviewViewerVertices(eSSP_LEFT_EYE), sizeof(GetPreviewViewerVertices(eSSP_LEFT_EYE)[0]));
-		}
-		else
-		{
-			RHICmdList.SetViewport(ViewportSize.X / 2, 0, 0.0f, ViewportSize.X, ViewportSize.Y, 1.0f);
-			DrawIndexedPrimitiveUP(Context.RHICmdList, PT_TriangleList, 0, GetPreviewViewerNumVertices(eSSP_RIGHT_EYE), NumTris, DistortionMeshIndices,
-				sizeof(DistortionMeshIndices[0]), GetPreviewViewerVertices(eSSP_RIGHT_EYE), sizeof(GetPreviewViewerVertices(eSSP_RIGHT_EYE)[0]));
-		}
-	}
-
 #endif
+
+
 }
 
 // If bfullResourceResolve is true: A no-op draw call is submitted which resolves all pending states
@@ -227,7 +207,6 @@ void FGoogleVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePas
 static void ResolvePendingRenderTarget(FRHICommandListImmediate& RHICmdList, IRendererModule* RendererModule, bool bFullResourceResolve = true)
 {
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
 	// HACK! Need to workaround UE4's caching mechanism. This causes the pending commands to actually apply to the device.
 	class FFakeIndexBuffer : public FIndexBuffer
 	{
@@ -235,9 +214,9 @@ static void ResolvePendingRenderTarget(FRHICommandListImmediate& RHICmdList, IRe
 		/** Initialize the RHI for this rendering resource */
 		void InitRHI() override
 		{
-			// Indices 0 - 5 are used for rendering a quad. Indices 6 - 8 are used for triangle optimization. 
+			// Indices 0 - 5 are used for rendering a quad. Indices 6 - 8 are used for triangle optimization.
 			const uint16 Indices[] = { 0, 1, 2, 2, 1, 3, 0, 4, 5 };
-		
+
 			TResourceArray<uint16, INDEXBUFFER_ALIGNMENT> IndexBuffer;
 			uint32 InternalNumIndices = ARRAY_COUNT(Indices);
 			IndexBuffer.AddUninitialized(InternalNumIndices);
@@ -274,7 +253,7 @@ static void ResolvePendingRenderTarget(FRHICommandListImmediate& RHICmdList, IRe
 	}
 	else
 	{
-		RHICmdList.ClearMRT(false, 0, nullptr, false, 0.0f, false, 0, FIntRect());
+		RHICmdList.ClearColorTextures(0, nullptr, nullptr, FIntRect());
 	}
 
 	RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
@@ -286,65 +265,40 @@ void FGoogleVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLi
 {
 	check(IsInRenderingThread());
 
+	//GVRSplash->RenderStereoSplashScreen(RHICmdList, BackBuffer);
+
 	const uint32 ViewportWidth = BackBuffer->GetSizeX();
 	const uint32 ViewportHeight = BackBuffer->GetSizeY();
 	const uint32 TextureWidth = SrcTexture->GetSizeX();
 	const uint32 TextureHeight = SrcTexture->GetSizeY();
-	
+
 	//UE_LOG(LogHMD, Log, TEXT("RenderTexture_RenderThread() Viewport:(%d, %d) Texture:(%d, %d) BackBuffer=%p SrcTexture=%p"), ViewportWidth, ViewportHeight, TextureWidth, TextureHeight, BackBuffer, SrcTexture);
 
 	RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
 	RHICmdList.SetRasterizerState(TStaticRasterizerState<>::GetRHI());
 	RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-	
+
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
-	if(IsUsingGVRApiDistortionCorrection())
+	// When using distortion method in GVR SDK
+	if(IsUsingGVRApiDistortionCorrection() && bDistortionCorrectionEnabled)
 	{
-		if(!bDistortionCorrectionEnabled)
-		{
-			return;
-		}
-
-		// Perform render
+		// Use native gvr distortion without async reprojection
+		// Note that this method is not enabled by default.
 		if(!bUseOffscreenFramebuffers)
 		{
-			// With proper resolution scaling, this should always be true!
-			check(ViewportWidth == TextureWidth);
-			check(ViewportHeight == TextureHeight);
-
 			// Set target to back buffer
 			SetRenderTarget(RHICmdList, BackBuffer, FTextureRHIRef());
 			RHICmdList.SetViewport(0, 0, 0, ViewportWidth, ViewportHeight, 1.0f);
 			ResolvePendingRenderTarget(RHICmdList, RendererModule);
 
 			gvr_distort_to_screen(GVRAPI, *reinterpret_cast<GLuint*>(SrcTexture->GetNativeResource()),
-				CachedDistortedRenderTextureParams,
-				&CachedPose,
-				&CachedFuturePoseTime);
+								  DistortedBufferViewportList,
+								  CachedHeadPose,
+								  CachedFuturePoseTime);
 		}
-		else
-		{
-			if(!IsDeviceScanlineRacingEnabled())
-			{
-				// With proper resolution scaling, this should always be true!
-				check(ViewportWidth == TextureWidth);
-				check(ViewportHeight == TextureHeight);
-
-				// Set target to back buffer
-				SetRenderTarget(RHICmdList, BackBuffer, FTextureRHIRef());
-				RHICmdList.SetViewport(0, 0, 0, ViewportWidth, ViewportHeight, 1.0f);
-				ResolvePendingRenderTarget(RHICmdList, RendererModule);
-			}
-
-			gvr_distort_offscreen_framebuffer_to_screen(GVRAPI, CustomPresent->GetFrameBufferId(),
-				CachedDistortedRenderTextureParams,
-				&CachedPose,
-				&CachedFuturePoseTime);
-		}
+		//When use aysnc reprojection, the framebuffer submit is handled in CustomPresent->FinishRendering
 	}
-	else // falls through on purpose
-
+	else
 #endif // GOOGLEVRHMD_SUPPORTED_PLATFORMS
 
 	// Just render directly to output
@@ -397,12 +351,10 @@ void FGoogleVRHMD::DrawVisibleAreaMesh_RenderThread(FRHICommandList& RHICmdList,
 FRHICustomPresent* FGoogleVRHMD::GetCustomPresent()
 {
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
 	if(bUseOffscreenFramebuffers)
 	{
 		return CustomPresent;
 	}
-
 #endif
 
 	return nullptr;
@@ -420,9 +372,16 @@ bool FGoogleVRHMD::AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint3
 	check(IsInGameThread() && IsInRenderingThread()); // checking if rendering thread is suspended
 
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	if(bUseOffscreenFramebuffers)
+	if(CustomPresent)
 	{
-		return CustomPresent ? CustomPresent->AllocateRenderTargetTexture(Index, SizeX, SizeY, Format, NumMips, InFlags, TargetableTextureFlags, OutTargetableTexture, OutShaderResourceTexture, NumSamples) : false;
+		bool Success = CustomPresent->AllocateRenderTargetTexture(Index, SizeX, SizeY, Format, NumMips, InFlags, TargetableTextureFlags);
+		if (Success)
+		{
+			OutTargetableTexture = CustomPresent->TextureSet->GetTexture2D();
+			OutShaderResourceTexture = CustomPresent->TextureSet->GetTexture2D();
+			return true;
+		}
+		return false;
 	}
 #endif
 
@@ -430,7 +389,6 @@ bool FGoogleVRHMD::AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint3
 }
 
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
 FGoogleVRHMDTexture2DSet::FGoogleVRHMDTexture2DSet(
 	class FOpenGLDynamicRHI* InGLRHI,
 	GLuint InResource,
@@ -466,27 +424,11 @@ FGoogleVRHMDTexture2DSet::FGoogleVRHMDTexture2DSet(
 	InTextureRange,
 	FClearValueBinding::Black
 	)
-	, ResourceId(-1)
 {
 }
 
 FGoogleVRHMDTexture2DSet::~FGoogleVRHMDTexture2DSet()
 {
-	if(ResourceId != 0)
-	{
-		gvr_release_offscreen_framebuffer(GVRAPI, ResourceId);
-	}
-}
-
-int FGoogleVRHMDTexture2DSet::GetResourceId()
-{
-	return ResourceId;
-}
-
-void FGoogleVRHMDTexture2DSet::InitializeWithActualResource(int InResourceId)
-{
-	check(InResourceId != 0);
-	ResourceId = InResourceId;
 }
 
 FGoogleVRHMDTexture2DSet* FGoogleVRHMDTexture2DSet::CreateTexture2DSet(
@@ -496,59 +438,56 @@ FGoogleVRHMDTexture2DSet* FGoogleVRHMDTexture2DSet::CreateTexture2DSet(
 	EPixelFormat InFormat,
 	uint32 InFlags)
 {
-	// Get screen size
-	gvr_recti Bounds = gvr_get_window_bounds(GVRAPI);
-	int ActualScreenSizeX = Bounds.right - Bounds.left;
-	int ActualScreenSizeY = Bounds.top - Bounds.bottom;
-
-	// Should this match the desired size? What about resolution scaling?
-	check(DesiredSizeX == (uint32)ActualScreenSizeX);
-	check(DesiredSizeY == (uint32)ActualScreenSizeY);
-
-
-	// Get MobileMSAA Settings and use that to set the MSAA on offscreen buffer
-	// TODO: Use the MSAA setting from Unreal.
-	// We are using the OffscreenBufferMSAASetting in our plugin for now since Unreal only support
-	// 2x MSAA for android using gles.
-
-	// Create resource using GVR Api
-	gvr_framebuffer_spec* FramebufferSpec = gvr_framebuffer_spec_create(GVRAPI);
-	gvr_sizei TextureSize = gvr_sizei{ActualScreenSizeX, ActualScreenSizeY};
-	gvr_framebuffer_spec_set_size(FramebufferSpec, TextureSize);
-	gvr_framebuffer_spec_set_samples(FramebufferSpec, FGoogleVRHMD::GetOffscreenBufferMSAASetting());
-	int ResourceIdentifier = gvr_create_offscreen_framebuffer(GVRAPI, FramebufferSpec);
-	gvr_framebuffer_spec_destroy(&FramebufferSpec);
-
-	// Fail?
-	if(ResourceIdentifier == 0)
-	{
-		UE_LOG(LogHMD, Warning, TEXT("Failed to create offscreen frame buffer! Returned Handle: [%d]"), ResourceIdentifier);
-		return nullptr;
-	}
-
 	GLenum Target = (InNumSamples > 1) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
 	GLenum Attachment = GL_NONE;//GL_COLOR_ATTACHMENT0;
 	bool bAllocatedStorage = false;
 	uint32 NumMips = 1;
 	uint8* TextureRange = nullptr;
 
+	// Note that here we are passing a 0 as the texture resource id which means we are not creating the actually opengl texture resource here.
 	FGoogleVRHMDTexture2DSet* NewTextureSet = new FGoogleVRHMDTexture2DSet(
-		InGLRHI, 0, Target, Attachment, ActualScreenSizeX, ActualScreenSizeY, 0, NumMips, InNumSamples, 1, InFormat, false, bAllocatedStorage, InFlags, TextureRange);
+		InGLRHI, 0, Target, Attachment, DesiredSizeX, DesiredSizeY, 0, NumMips, InNumSamples, 1, InFormat, false, bAllocatedStorage, InFlags, TextureRange);
 
-	UE_LOG(LogHMD, Log, TEXT("Created FGoogleVRHMDTexture2DSet of size (%d, %d), resource id [%d], NewTextureSet [%p]"), ActualScreenSizeX, ActualScreenSizeY, ResourceIdentifier, NewTextureSet);
-
-	NewTextureSet->InitializeWithActualResource(ResourceIdentifier);
+	UE_LOG(LogHMD, Log, TEXT("Created FGoogleVRHMDTexture2DSet of size (%d, %d), NewTextureSet [%p]"), DesiredSizeX, DesiredSizeY, NewTextureSet);
 
 	return NewTextureSet;
 }
 
-bool FGoogleVRHMDCustomPresent::AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 InFlags, uint32 TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples)
+FGoogleVRHMDCustomPresent::FGoogleVRHMDCustomPresent(FGoogleVRHMD* InHMD)
+	: FRHICustomPresent(nullptr)
+	, CurrentFrame(nullptr)
+	, HMD(InHMD)
+	, SwapChain(nullptr)
+	, CurrentFrameViewportList(nullptr)
+	, bSkipPresent(false)
 {
-	check(SizeX != 0 && SizeY != 0);
+	CreateGVRSwapChain();
+}
 
-	InFlags |= TargetableTextureFlags;
+FGoogleVRHMDCustomPresent::~FGoogleVRHMDCustomPresent()
+{
+    Shutdown();
+}
 
+void FGoogleVRHMDCustomPresent::Shutdown()
+{
+	if (SwapChain)
+	{
+		gvr_swap_chain_destroy(&SwapChain);
+		SwapChain = nullptr;
+	}
+}
+
+bool FGoogleVRHMDCustomPresent::AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 InFlags, uint32 TargetableTextureFlags)
+{
 	FOpenGLDynamicRHI* GLRHI = static_cast<FOpenGLDynamicRHI*>(GDynamicRHI);
+
+	if (TextureSet)
+	{
+		// Reassign the resource to 0 before destroy the texture since we are managing those resrouce in GVR.
+		TextureSet->Resource = 0;
+	}
+
 	TextureSet = FGoogleVRHMDTexture2DSet::CreateTexture2DSet(
 		GLRHI,
 		SizeX, SizeY,
@@ -562,32 +501,47 @@ bool FGoogleVRHMDCustomPresent::AllocateRenderTargetTexture(uint32 Index, uint32
 		return false;
 	}
 
-	OutTargetableTexture = TextureSet->GetTexture2D();
-	OutShaderResourceTexture = TextureSet->GetTexture2D();
+	RenderTargetSize = gvr_sizei{static_cast<int32_t>(SizeX), static_cast<int32_t>(SizeY)};
+	bNeedResizeGVRRenderTarget = true;
 
 	return true;
 }
 
-void FGoogleVRHMDCustomPresent::BeginRendering(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily)
+void FGoogleVRHMDCustomPresent::CreateGVRSwapChain()
 {
-#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	if(TextureSet.IsValid())
+	if(SwapChain)
 	{
-		// Binds a framebuffer to the pipeline.  When scanline racing, this resource changes every frame.  We need to grab the texture
-		// attachment id to apply to the texture set below.
-		gvr_set_active_offscreen_framebuffer(GVRAPI, TextureSet->GetResourceId());
-
-		// API returns framebuffer resource, but we need the texture resource for the pipeline
-		check(PLATFORM_USES_ES2); // Some craziness will only work on OpenGL platforms.
-		GLint TextureId = 0;
-		glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &TextureId);
-		TextureSet->Resource = TextureId;
+		// Since we don't change other specs in the swapchian except the size,
+		// there is no need to recreate it everytime.
+		return;
 	}
-#endif
+
+	static const auto CVarMobileOnChipMSAA = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileOnChipMSAA"));
+	static bool bEnableMobileOnChipMSAA = CVarMobileOnChipMSAA->GetValueOnRenderThread();
+
+	// Create resource using GVR Api
+	gvr_buffer_spec* BufferSpec = gvr_buffer_spec_create(GVRAPI);
+	gvr_buffer_spec_set_samples(BufferSpec, bEnableMobileOnChipMSAA ? 2 : 1);
+	// No need to create the depth buffer in GVR FBO since we are only use the color_buffer from FBO not the entire FBO.
+	gvr_buffer_spec_set_depth_stencil_format(BufferSpec, GVR_DEPTH_STENCIL_FORMAT_NONE);
+	// We are using the default color buffer format in GVRSDK, which is RGBA8, and that is also the format passed in.
+
+	const gvr_buffer_spec* Specs[1];
+	Specs[0] = BufferSpec;
+	// Hard coded to 1 for now since the sdk only support 1 buffer.
+	SwapChain = gvr_swap_chain_create(GVRAPI, Specs, size_t(1));
+
+	gvr_buffer_spec_destroy(&BufferSpec);
 }
 
-void FGoogleVRHMDCustomPresent::FinishRendering()
+void FGoogleVRHMDCustomPresent::UpdateRenderingViewportList(const gvr_buffer_viewport_list* BufferViewportList)
 {
+	CurrentFrameViewportList = BufferViewportList;
+}
+
+void FGoogleVRHMDCustomPresent::UpdateRenderingPose(gvr_mat4f InHeadPose)
+{
+	RenderingHeadPoseQueue.Enqueue(InHeadPose);
 }
 
 void FGoogleVRHMDCustomPresent::UpdateViewport(const FViewport& Viewport, FRHIViewport* ViewportRHI)
@@ -595,44 +549,106 @@ void FGoogleVRHMDCustomPresent::UpdateViewport(const FViewport& Viewport, FRHIVi
 	check(IsInGameThread());
 	check(ViewportRHI);
 
-	if(TextureSet.IsValid())
+	if(SwapChain)
 	{
 		ViewportRHI->SetCustomPresent(this);
 	}
 }
 
-int FGoogleVRHMDCustomPresent::GetFrameBufferId()
+void FGoogleVRHMDCustomPresent::BeginRendering()
 {
-	if(TextureSet.IsValid())
+	gvr_mat4f SceneRenderingHeadPose;
+	if(RenderingHeadPoseQueue.Dequeue(SceneRenderingHeadPose))
 	{
-		return TextureSet->GetResourceId();
+		bSkipPresent = false;
+		BeginRendering(SceneRenderingHeadPose);
 	}
 	else
 	{
-		return -1;
+		// If somehow there is no rendering headpose avaliable, skip present this frame.
+		bSkipPresent = true;
 	}
 }
 
-FGoogleVRHMDCustomPresent::FGoogleVRHMDCustomPresent(FGoogleVRHMD* InHMD)
-	: FRHICustomPresent(nullptr)
-	, HMD(InHMD)
+void FGoogleVRHMDCustomPresent::BeginRendering(const gvr_mat4f& RenderingHeadPose)
 {
+	if(SwapChain != nullptr)
+	{
+		// If the CurrentFrame is not submitted to GVR and no need to change the render target size
+		// We don't need to acquire a new buffer
+		if(CurrentFrame && !bNeedResizeGVRRenderTarget)
+		{
+			// Cache the render headpose we use for this frame
+			CurrentFrameRenderHeadPose = RenderingHeadPose;
+			return;
+		}
+
+		// If we need to change the render target size
+		if(bNeedResizeGVRRenderTarget)
+		{
+			gvr_swap_chain_resize_buffer(SwapChain, 0, RenderTargetSize);
+			bNeedResizeGVRRenderTarget = false;
+		}
+
+		// If we got here and still have a valid CurrentFrame, force submit it.
+		if (CurrentFrame)
+		{
+			FinishRendering();
+		}
+
+		// Cache the render headpose we use for this frame
+		CurrentFrameRenderHeadPose = RenderingHeadPose;
+
+		// Now we need to acquire a new frame from gvr swapchain
+		CurrentFrame = gvr_swap_chain_acquire_frame(SwapChain);
+
+		// gvr_swap_chain_acquire_frame(SwapChain); will only return null when SwapChain is invalid or
+		// the frame already required. We should hit neither of these cases.
+		check(CurrentFrame);
+
+		// HACK: This is a hacky way to make gvr sdk works with the current VR architecture in Unreal.
+		// We only grab the color buffer from the GVR FBO instead of using the entire FBO for now
+		// since Unreal don't have a way to bind the entire FBO in the plugin right now.
+		gvr_frame_bind_buffer(CurrentFrame, 0);
+
+		// API returns framebuffer resource, but we need the texture resource for the pipeline
+		check(PLATFORM_USES_ES2); // Some craziness will only work on OpenGL platforms.
+		GLint TextureId = 0;
+		glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &TextureId);
+		//override the texture set in custom present to the texture id we just bind so that unreal could render to it.
+		TextureSet->Resource = TextureId;
+	}
 }
 
-FGoogleVRHMDCustomPresent::~FGoogleVRHMDCustomPresent()
+void FGoogleVRHMDCustomPresent::FinishRendering()
 {
-}
+	if(SwapChain && CurrentFrame)
+	{
+		check(CurrentFrameViewportList);
 
-void FGoogleVRHMDCustomPresent::OnBackBufferResize()
-{
+		gvr_frame_unbind(CurrentFrame);
+
+		if (CurrentFrameViewportList)
+		{
+			gvr_frame_submit(&CurrentFrame, CurrentFrameViewportList, CurrentFrameRenderHeadPose);
+			TextureSet->Resource = 0;
+		}
+	}
 }
 
 bool FGoogleVRHMDCustomPresent::Present(int32& InOutSyncInterval)
 {
-	FinishRendering();
+	if (!bSkipPresent)
+	{
+		FinishRendering();
+	}
+	else
+	{
+		UE_LOG(LogHMD, Log, TEXT("GVR frame present skipped on purpose!"));
+	}
 
 	// Note: true causes normal swapbuffers(), false prevents normal swapbuffers()
-	if(TextureSet.IsValid() && IsDeviceScanlineRacingEnabled())
+	if(SwapChain)
 	{
 		return false;
 	}
@@ -642,4 +658,7 @@ bool FGoogleVRHMDCustomPresent::Present(int32& InOutSyncInterval)
 	}
 }
 
+void FGoogleVRHMDCustomPresent::OnBackBufferResize()
+{
+}
 #endif // GOOGLEVRHMD_SUPPORTED_PLATFORMS

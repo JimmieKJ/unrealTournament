@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "DragTool_BoxSelect.h"
+#include "Components/PrimitiveComponent.h"
+#include "CanvasItem.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "GameFramework/Volume.h"
+#include "EngineUtils.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
 #include "ActorEditorUtils.h"
 #include "ScopedTransaction.h"
 #include "Engine/LevelStreaming.h"
-#include "EngineUtils.h"
-#include "CanvasItem.h"
 #include "CanvasTypes.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

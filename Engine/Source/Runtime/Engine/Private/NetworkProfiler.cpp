@@ -4,7 +4,14 @@
 	NetworkProfiler.cpp: server network profiling support.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Net/NetworkProfiler.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/App.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Engine/World.h"
 
 #if USE_NETWORK_PROFILER
 
@@ -16,9 +23,7 @@
  */
 #define NETWORK_PROFILER_TRACK_RAW_NETWORK_DATA		0
 
-#include "Net/UnrealNetwork.h"
-#include "IPAddress.h"
-#include "Net/NetworkProfiler.h"
+#include "Engine/NetConnection.h"
 
 /** Global network profiler instance. */
 FNetworkProfiler GNetworkProfiler;

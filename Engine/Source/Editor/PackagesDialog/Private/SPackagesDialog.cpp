@@ -1,9 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "PackagesDialog.h"
 #include "SPackagesDialog.h"
-#include "Editor/UnrealEd/Public/PackageTools.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/SListView.h"
+#include "UObject/UObjectHash.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "IAssetTools.h"
+#include "IAssetTypeActions.h"
 #include "AssetToolsModule.h"
 
 #define LOCTEXT_NAMESPACE "SPackagesDialog"
@@ -309,7 +319,18 @@ EDialogReturnType SPackagesDialog::GetReturnType(OUT TArray<UPackage*>& OutCheck
  */
 TSharedPtr< SWidget > SPackagesDialog::GetWidgetToFocusOnActivate() const
 {
-	return ButtonsBox->GetChildren()->Num() > 0 ? ButtonsBox->GetChildren()->GetChildAt( 0 ) : TSharedPtr< SWidget >();
+	// Find the first visible button.  That will be our widget to focus
+	FChildren* ButtonBoxChildren = ButtonsBox->GetChildren();
+	for( int ButtonIndex = 0; ButtonIndex < ButtonBoxChildren->Num(); ++ButtonIndex )
+	{
+		TSharedPtr<SWidget> ButtonWidget = ButtonBoxChildren->GetChildAt(0);
+		if(ButtonWidget.IsValid() && ButtonWidget->GetVisibility() == EVisibility::Visible)
+		{
+			return ButtonWidget;
+		}
+	}
+
+	return  TSharedPtr< SWidget >();
 }
 
 /**

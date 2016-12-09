@@ -6,8 +6,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RHI.h"
+#include "RenderResource.h"
 #include "RendererInterface.h"
 #include "VisualizeTexture.h"
+
+class FViewInfo;
 
 /** The reference to a pooled render target, use like this: TRefCountPtr<IPooledRenderTarget> */
 struct FPooledRenderTarget : public IPooledRenderTarget

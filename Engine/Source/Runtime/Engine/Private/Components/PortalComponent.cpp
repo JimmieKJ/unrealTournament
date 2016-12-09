@@ -4,7 +4,11 @@
 	
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/BillboardComponent.h"
+#include "Engine/CollisionProfile.h"
+#include "Engine/Texture2D.h"
 #include "Lightmass/LightmassPortal.h"
 #include "Components/LightmassPortalComponent.h"
 #include "Components/BoxComponent.h"

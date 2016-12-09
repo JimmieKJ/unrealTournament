@@ -1,11 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "UniquePtr.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "GameFramework/Actor.h"
+#include "Misc/NotifyHook.h"
+#include "Editor/EditorEngine.h"
 #include "IPackageAutoSaver.h"
-#include "ISourceControlModule.h"
+#include "ISourceControlProvider.h"
+#include "ComponentVisualizer.h"
 #include "ComponentVisualizerManager.h"
 #include "UnrealEdEngine.generated.h"
+
+class AGroupActor;
+class FCanvas;
+class FLevelEditorViewportClient;
+class FPerformanceMonitor;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FViewport;
+class IEngineLoop;
+class ITargetPlatform;
+class UPrimitiveComponent;
+class UTexture2D;
+class UUnrealEdOptions;
 
 UENUM()
 enum EPackageNotifyState
@@ -401,9 +421,10 @@ public:
 	 *
 	 * @param	InWorld						World context
 	 * @param	bVerifyDeletionCanHappen	[opt] If true (default), verify that deletion can be performed.
+	 * @param	bWarnAboutReferences		[opt] If true (default), we prompt the user about referenced actours they are about to delete
 	 * @return								true unless the delete operation was aborted.
 	 */
-	virtual bool edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletionCanHappen=true ) override;
+	virtual bool edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletionCanHappen=true, bool bWarnAboutReferences = true) override;
 
 	/**
 	 * Creates a new group from the current selection removing any existing groups.

@@ -6,7 +6,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "SubDSurfaceActor.generated.h"
+
+class UBillboardComponent;
+class UStaticMeshComponent;
 
 UCLASS(hidecategories=(Collision, Attachment, Actor))
 class ENGINE_API ASubDSurfaceActor : public AActor

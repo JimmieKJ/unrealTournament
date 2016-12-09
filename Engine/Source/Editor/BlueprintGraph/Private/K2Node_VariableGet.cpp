@@ -1,11 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_VariableGet.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EdGraph/EdGraph.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_IfThenElse.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "KismetCompilerMisc.h"
 #include "KismetCompiler.h"
 #include "ScopedTransaction.h"
-#include "Kismet/KismetTextLibrary.h"
-#include "Kismet/KismetSystemLibrary.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FKCHandler_VariableGet
@@ -32,22 +41,22 @@ public:
 		if (VarNode)
 		{
 			VarNode->CheckForErrors(CompilerContext.GetSchema(), Context.MessageLog);
-		}
 
-		// Report an error that the local variable could not be found
-		if(VarNode->VariableReference.IsLocalScope() && VarNode->GetPropertyForVariable() == NULL)
-		{
-			FFormatNamedArguments Args;
-			Args.Add(TEXT("VariableName"), FText::FromName(VarNode->VariableReference.GetMemberName()));
+			// Report an error that the local variable could not be found
+			if(VarNode->VariableReference.IsLocalScope() && VarNode->GetPropertyForVariable() == NULL)
+			{
+				FFormatNamedArguments Args;
+				Args.Add(TEXT("VariableName"), FText::FromName(VarNode->VariableReference.GetMemberName()));
 
-			if(VarNode->VariableReference.GetMemberScopeName() != Context.Function->GetName())
-			{
-				Args.Add(TEXT("ScopeName"), FText::FromString(VarNode->VariableReference.GetMemberScopeName()));
-				CompilerContext.MessageLog.Warning(*FText::Format(LOCTEXT("LocalVariableNotFoundInScope_Error", "Unable to find local variable with name '{VariableName}' for @@, scope expected: @@, scope found: {ScopeName}"), Args).ToString(), Node, Node->GetGraph());
-			}
-			else
-			{
-				CompilerContext.MessageLog.Warning(*FText::Format(LOCTEXT("LocalVariableNotFound_Error", "Unable to find local variable with name '{VariableName}' for @@"), Args).ToString(), Node);
+				if(VarNode->VariableReference.GetMemberScopeName() != Context.Function->GetName())
+				{
+					Args.Add(TEXT("ScopeName"), FText::FromString(VarNode->VariableReference.GetMemberScopeName()));
+					CompilerContext.MessageLog.Warning(*FText::Format(LOCTEXT("LocalVariableNotFoundInScope_Error", "Unable to find local variable with name '{VariableName}' for @@, scope expected: @@, scope found: {ScopeName}"), Args).ToString(), Node, Node->GetGraph());
+				}
+				else
+				{
+					CompilerContext.MessageLog.Warning(*FText::Format(LOCTEXT("LocalVariableNotFound_Error", "Unable to find local variable with name '{VariableName}' for @@"), Args).ToString(), Node);
+				}
 			}
 		}
 
@@ -197,12 +206,15 @@ FText UK2Node_VariableGet::GetPropertyTooltip(UProperty const* VariableProperty)
 				FText::FindText(*VariableProperty->GetFullGroupName(true), *TooltipName, SubTooltip);
 			}
 		}
-		else if (UBlueprint* VarBlueprint = Cast<UBlueprint>(SourceClass->ClassGeneratedBy))
+		else if (SourceClass)
 		{
-			FString UserTooltipData;
-			if (FBlueprintEditorUtils::GetBlueprintVariableMetaData(VarBlueprint, VarName, /*InLocalVarScope =*/nullptr, TooltipMetaKey, UserTooltipData))
+			if (UBlueprint* VarBlueprint = Cast<UBlueprint>(SourceClass->ClassGeneratedBy))
 			{
-				SubTooltip = FText::FromString(UserTooltipData);
+				FString UserTooltipData;
+				if (FBlueprintEditorUtils::GetBlueprintVariableMetaData(VarBlueprint, VarName, /*InLocalVarScope =*/nullptr, TooltipMetaKey, UserTooltipData))
+				{
+					SubTooltip = FText::FromString(UserTooltipData);
+				}
 			}
 		}
 

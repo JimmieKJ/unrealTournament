@@ -1,14 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HierarchicalLODOutlinerPrivatePCH.h"
-#include "HLODOutliner.h"
-#include "LevelEditor.h"
 #include "LODLevelItem.h"
-#include "HierarchicalLODUtilities.h"
+#include "Engine/World.h"
+#include "Engine/LODActor.h"
+#include "Modules/ModuleManager.h"
+#include "IHierarchicalLODUtilities.h"
 #include "HierarchicalLODUtilitiesModule.h"
-#include "ScopedTransaction.h"
-#include "SlateBasics.h"
-#include "TreeItemID.h"
 
 #define LOCTEXT_NAMESPACE "LODLevelItem"
 

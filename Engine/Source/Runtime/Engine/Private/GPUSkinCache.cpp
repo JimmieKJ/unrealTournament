@@ -5,14 +5,13 @@
 	GPUSkinCache.cpp: Performs skinning on a compute shader into a buffer to avoid vertex buffer skinning.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "GlobalShader.h"
-#include "SceneManagement.h"
-#include "GPUSkinVertexFactory.h"
-#include "SkeletalRenderGPUSkin.h"
 #include "GPUSkinCache.h"
-#include "ShaderParameterUtils.h"
+#include "RawIndexBuffer.h"
+#include "Shader.h"
 #include "SceneUtils.h"
+#include "GlobalShader.h"
+#include "SkeletalRenderGPUSkin.h"
+#include "ShaderParameterUtils.h"
 
 DEFINE_STAT(STAT_GPUSkinCache_TotalNumChunks);
 DEFINE_STAT(STAT_GPUSkinCache_TotalNumVertices);
@@ -50,25 +49,25 @@ static FAutoConsoleVariableRef CVarGSkinCacheSafety(
 	);
 
 // 0/1
-int32 GEnableGPUSkinCache = 0;
+int32 GEnableGPUSkinCache = 1;
 static TAutoConsoleVariable<int32> CVarEnableGPUSkinCache(
 	TEXT("r.SkinCache.Mode"),
-	0,
+	1,
 	TEXT("Whether or not to use the GPU compute skinning cache.\n")
 	TEXT("This will perform skinning on a compute job and not skin on the vertex shader.\n")
 	TEXT("Requires r.SkinCache.CompileShaders=1\n")
-	TEXT(" 0: off(default)\n")
-	TEXT(" 1: on"),
+	TEXT(" 0: off\n")
+	TEXT(" 1: on(default)"),
 	ECVF_RenderThreadSafe
 	);
 
 TAutoConsoleVariable<int32> CVarGPUSkinCacheRecomputeTangents(
 	TEXT("r.SkinCache.RecomputeTangents"),
 	2,
-	TEXT("If r.SkinCache.Mode is enabled this option recomputes the vertex tangents on the GPU\n")
-	TEXT("Can be changed at runtime, Requires r.SkinCache.CompileShaders=1 and r.SkinCache.Mode=1\n")
+	TEXT("This option enables recomputing the vertex tangents on the GPU.\n")
+	TEXT("Can be changed at runtime, requires both r.SkinCache.CompileShaders=1 and r.SkinCache.Mode=1\n")
 	TEXT(" 0: off\n")
-	TEXT(" 1: on\n")
+	TEXT(" 1: on, forces all skinned object to recompute tangents\n")
 	TEXT(" 2: on, SkinCache only objects that would require the RecomputTangents feature (default)"),
 	ECVF_RenderThreadSafe
 	);
@@ -337,13 +336,13 @@ void FGPUSkinCache::Initialize(FRHICommandListImmediate& RHICmdList)
 		// We clear once in the beginning and then each time in the PerVertexPass (this saves the clear or another Dispatch)
 		uint32 Value[4] = { 0, 0, 0, 0 };
 		RHICmdList.ClearUAV(SkinTangentIntermediate.UAV, Value);
-	}
-
-	TransitionAllToWriteable(RHICmdList);
+	}	
 
 	CachedElements.Reserve(MaxCachedElements);
 
 	bInitialized = true;
+
+	TransitionAllToWriteable(RHICmdList);
 }
 
 void FGPUSkinCache::Cleanup()
@@ -520,11 +519,10 @@ int32 FGPUSkinCache::StartCacheMesh(FRHICommandListImmediate& RHICmdList, uint32
 
 	FDispatchData DispatchData(RHICmdList, BatchElement, Skin->GetFeatureLevel(), Skin);
 
-	// could be removed for SHIPPING
+	FSkeletalMeshResource& SkeletalMeshResource = Skin->GetSkeletalMeshResource();
+	int32 LODIndex = Skin->GetLOD();
+	FStaticLODModel& LodModel = SkeletalMeshResource.LODModels[LODIndex];
 	{
-		FSkeletalMeshResource& SkeletalMeshResource = Skin->GetSkeletalMeshResource();
-		int32 LODIndex = Skin->GetLOD();
-		FStaticLODModel& LodModel = SkeletalMeshResource.LODModels[LODIndex];
 		DispatchData.SectionIdx = LodModel.FindSectionIndex(BatchElement);
 	}
 
@@ -567,14 +565,12 @@ int32 FGPUSkinCache::StartCacheMesh(FRHICommandListImmediate& RHICmdList, uint32
 	
 	TargetVertexFactory->UpdateVertexDeclaration(VertexFactory, DispatchData.SkinCacheBuffer);
 
-	const bool bRecomputeTangents = MorphVertexBuffer && CVarGPUSkinCacheRecomputeTangents.GetValueOnRenderThread() != 0;
-
-	if(bRecomputeTangents)
+	const bool bRecomputeTangents = CVarGPUSkinCacheRecomputeTangents.GetValueOnRenderThread() != 0;
+	if (bRecomputeTangents)
 	{
-		if(BatchElement.bRecomputeTangent)
+		if (BatchElement.bRecomputeTangent)
 		{
-			FStaticLODModel* StaticLODModel = MorphVertexBuffer->GetStaticLODModel();
-			FRawStaticIndexBuffer16or32Interface* IndexBuffer = StaticLODModel->MultiSizeIndexContainer.GetIndexBuffer();
+			FRawStaticIndexBuffer16or32Interface* IndexBuffer = LodModel.MultiSizeIndexContainer.GetIndexBuffer();
 
 			DispatchData.IndexBuffer = IndexBuffer->GetSRV();
 			check(!GSkinCacheSafety || DispatchData.IndexBuffer);

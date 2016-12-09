@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "AI/Navigation/NavFilters/RecastFilter_UseDefaultArea.h"
+#include "Templates/Casts.h"
+#include "AI/Navigation/RecastNavMesh.h"
 #include "AI/Navigation/PImplRecastNavMesh.h"
 
 URecastFilter_UseDefaultArea::URecastFilter_UseDefaultArea(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)

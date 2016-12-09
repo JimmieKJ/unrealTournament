@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
+#include "SSequencerLabelBrowser.h"
+#include "SlateOptMacros.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "SSequencerLabelListRow.h"
 
 

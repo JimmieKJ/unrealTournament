@@ -5,6 +5,14 @@
 =============================================================================*/
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/NetworkGuid.h"
+#include "UObject/CoreNet.h"
+#include "EngineLogs.h"
+
+class UChannel;
+class UNetConnection;
+
 //
 // A bunch of data to send.
 //

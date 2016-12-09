@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "PhysicsManipulationMode.h"
+#include "Components/PrimitiveComponent.h"
+#include "EditorViewportClient.h"
 #include "PhysicsEngine/PhysicsHandleComponent.h"
 #include "Engine/Selection.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorPhysMode, Log, All);
 
@@ -84,39 +88,42 @@ bool FPhysicsManipulationEdMode::InputDelta( FEditorViewportClient* InViewportCl
 	}
 }
 
-bool FPhysicsManipulationEdMode::StartTracking( FEditorViewportClient* InViewportClient, FViewport* InViewport )
+bool FPhysicsManipulationEdMode::StartTracking(FEditorViewportClient* InViewportClient, FViewport* InViewport)
 {
 	//UE_LOG(LogEditorPhysMode, Warning, TEXT("Start Tracking"));
 
-	FVector GrabLocation(0,0,0);
-	UPrimitiveComponent* ComponentToGrab = NULL;
+	if (InViewportClient->GetCurrentWidgetAxis() != EAxisList::None)
+	{
+		FVector GrabLocation(0,0,0);
+		UPrimitiveComponent* ComponentToGrab = NULL;
 	
-	USelection* Selection = GEditor->GetSelectedActors();
+		USelection* Selection = GEditor->GetSelectedActors();
 
-	for (int32 i=0; i<Selection->Num(); ++i)
-	{
-		AActor* SelectedActor = Cast<AActor>(Selection->GetSelectedObject(i));
-
-		if (SelectedActor != NULL)
+		for (int32 i=0; i<Selection->Num(); ++i)
 		{
-			UPrimitiveComponent* PC = Cast<UPrimitiveComponent>(SelectedActor->GetRootComponent());
+			AActor* SelectedActor = Cast<AActor>(Selection->GetSelectedObject(i));
 
-			if (PC != NULL && PC->BodyInstance.bSimulatePhysics)
+			if (SelectedActor != NULL)
 			{
-				ComponentToGrab = PC;
+				UPrimitiveComponent* PC = Cast<UPrimitiveComponent>(SelectedActor->GetRootComponent());
+
+				if (PC != NULL && PC->BodyInstance.bSimulatePhysics)
+				{
+					ComponentToGrab = PC;
 				
-				HandleTargetLocation = SelectedActor->GetActorLocation();
-				HandleTargetRotation = SelectedActor->GetActorRotation();
-				break;
+					HandleTargetLocation = SelectedActor->GetActorLocation();
+					HandleTargetRotation = SelectedActor->GetActorRotation();
+					break;
+				}
+
+				if (ComponentToGrab != NULL) { break; }
 			}
-
-			if (ComponentToGrab != NULL) { break; }
 		}
-	}
 
-	if (ComponentToGrab != NULL)
-	{
-		HandleComp->GrabComponentAtLocationWithRotation(ComponentToGrab, NAME_None, ComponentToGrab->GetOwner()->GetActorLocation(), ComponentToGrab->GetOwner()->GetActorRotation());
+		if (ComponentToGrab != NULL)
+		{
+			HandleComp->GrabComponentAtLocationWithRotation(ComponentToGrab, NAME_None, ComponentToGrab->GetOwner()->GetActorLocation(), ComponentToGrab->GetOwner()->GetActorRotation());
+		}
 	}
 
 	return FEdMode::StartTracking(InViewportClient, InViewport);
@@ -125,7 +132,6 @@ bool FPhysicsManipulationEdMode::StartTracking( FEditorViewportClient* InViewpor
 bool FPhysicsManipulationEdMode::EndTracking( FEditorViewportClient* InViewportClient, FViewport* InViewport )
 {
 	//UE_LOG(LogEditorPhysMode, Warning, TEXT("End Tracking"));
-
 	HandleComp->ReleaseComponent();
 
 	return FEdMode::EndTracking(InViewportClient, InViewport);

@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "KismetCompiledFunctionContext.h"
 #include "KismetCompiler.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -22,6 +24,7 @@ class FKismetCompilerVMBackend : public IKismetCompilerBackend
 {
 public:
 	typedef TMap<FBlueprintCompiledStatement*, CodeSkipSizeType> TStatementToSkipSizeMap;
+
 protected:
 	UBlueprint* Blueprint;
 	UEdGraphSchema_K2* Schema;
@@ -30,11 +33,14 @@ protected:
 
 	TStatementToSkipSizeMap UbergraphStatementLabelMap;
 public:
+	bool bAnyNonReducibleFunctionGenerated;
+
 	FKismetCompilerVMBackend(UBlueprint* InBlueprint, UEdGraphSchema_K2* InSchema, FKismetCompilerContext& InContext)
 		: Blueprint(InBlueprint)
 		, Schema(InSchema)
 		, MessageLog(InContext.MessageLog)
 		, CompilerContext(InContext)
+		, bAnyNonReducibleFunctionGenerated(false)
 	{
 	}
 

@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "AIController.h"
-#include "Actions/PawnActionsComponent.h"
 #include "BehaviorTree/Tasks/BTTask_PawnActionBase.h"
+#include "Actions/PawnActionsComponent.h"
+#include "AIController.h"
+#include "VisualLogger/VisualLogger.h"
 
 UBTTask_PawnActionBase::UBTTask_PawnActionBase(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "../WmfMediaPrivate.h"
+
+#if WMFMEDIA_SUPPORTED_PLATFORM
+
 #include "AllowWindowsPlatformTypes.h"
 
 
@@ -71,3 +75,5 @@ private:
 
 
 #include "HideWindowsPlatformTypes.h"
+
+#endif

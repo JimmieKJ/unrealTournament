@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Private/IContentSource.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "Editor/AddContentDialog/Private/IContentSource.h"
 #include "FeaturePackContentSource.generated.h"
 
-class UObject;
+class FJsonValue;
+class FPakPlatformFile;
+struct FSearchEntry;
 
 struct FPackData
 {

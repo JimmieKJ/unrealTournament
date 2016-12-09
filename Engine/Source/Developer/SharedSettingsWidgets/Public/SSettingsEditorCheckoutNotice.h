@@ -2,10 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+
 namespace SettingsHelpers
 {
-	SHAREDSETTINGSWIDGETS_API bool CheckOutFile(const FString& InFileToCheckOut);
-	SHAREDSETTINGSWIDGETS_API bool MakeWritable(const FString& InFileToMakeWritable);
+	SHAREDSETTINGSWIDGETS_API bool IsSourceControlled(const FString& InFileToCheckOut, bool bForceSourceControlUpdate = false);
+	SHAREDSETTINGSWIDGETS_API bool IsCheckedOut(const FString& InFileToCheckOut, bool bForceSourceControlUpdate = false);
+	SHAREDSETTINGSWIDGETS_API bool CheckOutOrAddFile(const FString& InFileToCheckOut, bool bForceSourceControlUpdate = false, bool ShowErrorInNotification = true, FText* OutErrorMessage = nullptr);
+	SHAREDSETTINGSWIDGETS_API bool MakeWritable(const FString& InFileToMakeWritable, bool ShowErrorInNotification = true, FText* OutErrorMessage = nullptr);
 }
 
 /**

@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "AI/Navigation/NavigationTypes.h"
+#include "GenericOctreePublic.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "EngineStats.h"
 #include "AI/NavigationModifier.h"
 #include "GenericOctree.h"
 
-class AActor;
-class UActorComponent;
-struct FNavDataConfig;
+class INavRelevantInterface;
 
 struct ENGINE_API FNavigationOctreeFilter
 {

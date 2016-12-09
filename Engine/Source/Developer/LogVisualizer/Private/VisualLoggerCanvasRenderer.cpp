@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "LogVisualizer.h"
-#include "Engine.h"
-#include "SlateBasics.h"
-#include "EditorStyle.h"
-#include "Editor/UnrealEd/Classes/Editor/EditorEngine.h"
+
 #include "VisualLoggerCanvasRenderer.h"
+#include "EngineGlobals.h"
+#include "CanvasItem.h"
+#include "Engine/Canvas.h"
+#include "Engine/Engine.h"
+#include "VisualLogger/VisualLogger.h"
+#include "LogVisualizerSettings.h"
+#include "LogVisualizerSessionSettings.h"
+#include "VisualLoggerDatabase.h"
+#include "LogVisualizerPrivate.h"
+#include "VisualLoggerTimeSliderController.h"
 #include "Debug/ReporterGraph.h"
 
 

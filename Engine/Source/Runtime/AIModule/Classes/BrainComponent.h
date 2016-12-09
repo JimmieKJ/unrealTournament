@@ -2,16 +2,22 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Components/ActorComponent.h"
+#include "EngineDefines.h"
 #include "AITypes.h"
 #include "AIResourceInterface.h"
 #include "BrainComponent.generated.h"
 
-class AController;
 class AAIController;
+class AController;
+class APawn;
 class UBlackboardComponent;
 class UBrainComponent;
 struct FAIMessage;
-class APawn;
+struct FAIMessageObserver;
 
 DECLARE_DELEGATE_TwoParams(FOnAIMessage, UBrainComponent*, const FAIMessage&);
 
@@ -64,6 +70,7 @@ typedef TSharedPtr<struct FAIMessageObserver, ESPMode::Fast> FAIMessageObserverH
 struct AIMODULE_API FAIMessageObserver : public TSharedFromThis<FAIMessageObserver>
 {
 public:
+	FAIMessageObserver();
 
 	static FAIMessageObserverHandle Create(AController* Controller, FName MessageType, FOnAIMessage const& Delegate);
 	static FAIMessageObserverHandle Create(AController* Controller, FName MessageType, FAIRequestID MessageID, FOnAIMessage const& Delegate);
@@ -100,6 +107,10 @@ private:
 
 	/** brain component owning this observer */
 	TWeakObjectPtr<UBrainComponent> Owner;
+
+	// Non-copyable
+	FAIMessageObserver(const FAIMessageObserver&);
+	FAIMessageObserver& operator=(const FAIMessageObserver&);
 };
 
 UCLASS(abstract, BlueprintType)

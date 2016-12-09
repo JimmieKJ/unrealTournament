@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "CompilerResultsLog.h"
+#include "K2Node_DelegateSet.h"
+#include "UObject/UnrealType.h"
+#include "Engine/MemberReference.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_Event.h"
+#include "EdGraphUtilities.h"
+#include "BPTerminal.h"
+#include "KismetCompilerMisc.h"
 #include "KismetCompiler.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_DelegateSet"

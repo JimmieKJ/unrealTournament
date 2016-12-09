@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Sound/SoundWaveProcedural.h"
 
 USoundWaveProcedural::USoundWaveProcedural(const FObjectInitializer& ObjectInitializer)
@@ -96,9 +95,9 @@ int32 USoundWaveProcedural::GetAvailableAudioByteCount()
 	return AvailableByteCount.GetValue();
 }
 
-SIZE_T USoundWaveProcedural::GetResourceSize(EResourceSizeMode::Type Mode)
+void USoundWaveProcedural::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	return 0;
+	Super::GetResourceSizeEx(CumulativeResourceSize);
 }
 
 int32 USoundWaveProcedural::GetResourceSizeForFormat(FName Format)

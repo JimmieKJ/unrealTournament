@@ -6,7 +6,11 @@
 
 #pragma once
 
-#include "UObjectBase.h"
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Containers/LockFreeList.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectBase.h"
 
 /**
 * Controls whether the number of available elements is being tracked in the ObjObjects array.
@@ -702,11 +706,6 @@ private:
 
 	//typedef TStaticIndirectArrayThreadSafeRead<UObjectBase, 8 * 1024 * 1024 /* Max 8M UObjects */, 16384 /* allocated in 64K/128K chunks */ > TUObjectArray;
 	typedef FFixedUObjectArray TUObjectArray;
-
-	/**
-	 * return the object array for use by debug visualizers
-	 */
-	static FFixedUObjectArray* GetObjectArrayForDebugVisualizers();
 
 	// note these variables are left with the Obj prefix so they can be related to the historical GObj versions
 

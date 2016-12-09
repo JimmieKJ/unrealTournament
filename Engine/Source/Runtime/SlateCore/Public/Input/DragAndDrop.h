@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/CursorReply.h"
+#include "Input/Events.h"
 
+class SWidget;
 class SWindow;
-
 
 /**
  * A base class for a DragAndDrop operation which supports reflection.
@@ -256,4 +259,4 @@ protected:
 	FVector2D DecoratorPosition;
 };
 
-#include "DragAndDrop.inl"
+#include "Input/DragAndDrop.inl"

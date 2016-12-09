@@ -2,7 +2,9 @@
 
 #pragma once
 
-class FAssetData;
+#include "CoreMinimal.h"
+#include "AssetData.h"
+
 class IAssetRegistry;
 
 DEFINE_LOG_CATEGORY_STATIC(LogAutoReimportManager, Log, All);

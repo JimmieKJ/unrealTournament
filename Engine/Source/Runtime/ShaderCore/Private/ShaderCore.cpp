@@ -4,12 +4,16 @@
 	ShaderCore.h: Shader core module implementation.
 =============================================================================*/
 
-#include "ShaderCorePrivatePCH.h"
 #include "ShaderCore.h"
-#include "SecureHash.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopeLock.h"
+#include "Stats/StatsMisc.h"
+#include "Misc/ScopedSlowTask.h"
 #include "Shader.h"
 #include "VertexFactory.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 FSHAHash GGlobalShaderMapHash;
 
@@ -438,6 +442,7 @@ void GetShaderIncludes(const TCHAR* Filename, TArray<FString>& IncludeFilenames,
 					const bool bIsOptionalInclude = (ExtractedIncludeFilename == TEXT("PS4/PS4Common.usf") 
 						|| ExtractedIncludeFilename == TEXT("PS4/PostProcessHMDMorpheus.usf")
 						|| ExtractedIncludeFilename == TEXT("PS4/RTWriteMaskProcessing.usf")
+						|| ExtractedIncludeFilename == TEXT("XboxOne/XboxOneCommon.usf")
 						);
 					// ignore the header if it's optional and doesn't exist
 					if (bIsOptionalInclude)

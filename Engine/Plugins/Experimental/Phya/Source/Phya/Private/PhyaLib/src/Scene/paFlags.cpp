@@ -2,7 +2,7 @@
 // paFlags.cpp
 //
 //! Should move all global vars and functions into a scene class.
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 namespace paScene {
 

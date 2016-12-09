@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StatsViewerPrivatePCH.h"
+#include "StatsViewerModule.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "SStatsViewer.h"
 #include "StatsPageManager.h"
-#include "CookerStatsPage.h"
-#include "LightingBuildInfoStatsPage.h"
-#include "PrimitiveStatsPage.h"
-#include "StaticMeshLightingInfoStatsPage.h"
-#include "TextureStatsPage.h"
+#include "StatsPages/CookerStatsPage.h"
+#include "StatsPages/LightingBuildInfoStatsPage.h"
+#include "StatsPages/PrimitiveStatsPage.h"
+#include "StatsPages/StaticMeshLightingInfoStatsPage.h"
+#include "StatsPages/TextureStatsPage.h"
 #include "ObjectHyperlinkColumn.h"
 
 

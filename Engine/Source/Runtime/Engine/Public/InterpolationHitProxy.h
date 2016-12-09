@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HitProxies.h"
 #include "Interpolation.h"
 
 /** Input interface hit proxy */

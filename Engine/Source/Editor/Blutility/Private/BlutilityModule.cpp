@@ -1,15 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlutilityPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Docking/TabManager.h"
+#include "IBlutilityModule.h"
+#include "EditorUtilityBlueprint.h"
 
 
-#include "AssetTypeActions_EditorUtilityBlueprint.h"
 #include "AssetToolsModule.h"
+#include "PropertyEditorModule.h"
+#include "AssetTypeActions_EditorUtilityBlueprint.h"
+#include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
 
 #include "BlutilityDetailsPanel.h"
 #include "BlutilityShelf.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 /////////////////////////////////////////////////////
 

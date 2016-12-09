@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "Serialization/ArchiveObjectGraph.h"
+#include "UObject/UObjectIterator.h"
 
 // This is from FArchiveTraceRoute -This only creates object graph of all objects 
 // This can be used by other classes such as FTraceReferences - trace references of one object

@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
-#include "NiagaraScript.h"
+#include "CoreMinimal.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "NiagaraCommon.h"
 #include "NiagaraEditorModule.h"
+#include "NiagaraScript.h"
+#include "EdGraph/EdGraph.h"
+#include "NiagaraGraph.h"
+#include "NiagaraScriptSource.h"
 #include "NiagaraScriptFactoryNew.h"
 #include "NiagaraNodeOutput.h"
 

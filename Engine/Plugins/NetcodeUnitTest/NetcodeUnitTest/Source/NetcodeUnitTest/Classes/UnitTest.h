@@ -2,10 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Styling/SlateColor.h"
+#include "Misc/App.h"
+#include "NetcodeUnitTest.h"
 #include "UnitTestBase.h"
 
 #include "UnitTest.generated.h"
 
+class FUnitTestEnvironment;
+class SLogWindow;
 
 // @todo #JohnBFeature: For bugtracking/changelist info, consider adding auto-launching of P4/TTP/Browser-JIRA links,
 //				upon double-clicking these entries in the status windows

@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "../WmfMediaPrivate.h"
 #include "IMediaControls.h"
-#include "AllowWindowsPlatformTypes.h"
 
+#if WMFMEDIA_SUPPORTED_PLATFORM
+
+#include "AllowWindowsPlatformTypes.h"
 
 // forward declarations
 enum class EMediaPlaybackDirections;
@@ -15,12 +18,14 @@ enum class EMediaPlaybackDirections;
  *
  * Many of the media playback features are asynchronous and do not take place
  * immediately, such as seeking and playback rate changes. A media session may
- * generate events during playback that are handled in this class.
+ * generate events during playback that are then handled by this class.
  *
  * Windows Media Foundation also queues up most playback commands, which may have
  * undesired side effects, such as unresponsive or sluggish user interfaces. For
  * this reason, this helper class also implements a mechanism to manage pending
  * operations efficiently.
+ *
+ * @todo gmp: implement better command queuing.
  */
 class FWmfMediaSession
 	: public IMFAsyncCallback
@@ -28,19 +33,35 @@ class FWmfMediaSession
 {
 public:
 
-	/** Default constructor. */
-	FWmfMediaSession();
+	/**
+	 * Create a placeholder instance.
+	 *
+	 * This constructor is used by WmfMediaPlayer when no media
+	 * is open or when a media URL is currently being resolved.
+	 *
+	 * @param InState Must be either Closed or Preparing.
+	 */
+	FWmfMediaSession(EMediaState InState);
 
 	/**
 	 * Creates and initializes a new instance.
 	 *
 	 * @param InDuration The duration of the media.
-	 * @param InTopology The playback topology to use.
 	 */
-	FWmfMediaSession(const FTimespan& InDuration, const TComPtr<IMFTopology>& InTopology);
+	FWmfMediaSession(const FTimespan& InDuration);
 
 	/** Virtual destructor. */
 	virtual ~FWmfMediaSession() { }
+
+public:
+
+	/**
+	 * Set the given playback topology.
+	 *
+	 * @param NewTopology The topology to set.
+	 * @return true on success, false otherwise.
+	 */
+	bool SetTopology(const TComPtr<IMFTopology>& NewTopology);
 
 public:
 
@@ -184,6 +205,9 @@ private:
 	/** Whether a state change is currently in progress. */
 	bool StateChangePending;
 
+	/** The playback topology to use. */
+	TComPtr<IMFTopology> Topology;
+
 private:
 
 	/** Holds an event delegate that is invoked when an event occurs in the session. */
@@ -192,3 +216,5 @@ private:
 
 
 #include "HideWindowsPlatformTypes.h"
+
+#endif

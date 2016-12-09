@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#if WITH_FANCY_TEXT
+#include "CoreMinimal.h"
+#include "SlateGlobals.h"
+#include "Framework/Text/ISlateRun.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "Framework/Text/ITextDecorator.h"
+#include "Framework/Text/SlateWidgetRun.h"
 
-#include "ITextDecorator.h"
-#include "SlateWidgetRun.h"
-#include "SlateHyperlinkRun.h"
+class ISlateStyle;
+
+#if WITH_FANCY_TEXT
 
 class SLATE_API FWidgetDecorator : public ITextDecorator
 {

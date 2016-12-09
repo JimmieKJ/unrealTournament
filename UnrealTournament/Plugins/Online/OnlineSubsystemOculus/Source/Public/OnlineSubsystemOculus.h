@@ -116,6 +116,9 @@ private:
 	/** Interface for friends */
 	FOnlineFriendsOculusPtr FriendsInterface;
 
+	/** Interface for CloudStorage User Saves. */
+	FOnlineUserCloudOculusPtr UserCloudInterface;
+
 	/** Message Task Manager */
 	FOnlineMessageTaskManagerOculusPtr MessageTaskManager;
 };

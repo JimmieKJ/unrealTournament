@@ -1,9 +1,14 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "ITextData.h"
-#include "TextHistory.h"
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Internationalization/TextLocalizationManager.h"
+#include "Internationalization/ITextData.h"
+#include "Misc/ScopeLock.h"
+
+class FTextHistory;
 
 /** 
  * Implementation of ITextData that stores the common data and functionality.

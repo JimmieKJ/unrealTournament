@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "AutoReimport/AssetSourceFilenameCache.h"
-#include "AutoReimportUtilities.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
 #include "AssetRegistryModule.h"
 
 FAssetSourceFilenameCache::FAssetSourceFilenameCache()

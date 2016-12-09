@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "OnlineTurnBasedInterface.h"
 #include "TurnBasedBlueprintLibrary.generated.h"
+
+class APlayerController;
 
 // Library of synchronous achievement calls
 UCLASS()

@@ -6,9 +6,15 @@
 
 #pragma once
 
-#include "RenderCore.h"
-#include "RenderResource.h"
+#include "CoreMinimal.h"
+#include "Containers/List.h"
+#include "Containers/StaticArray.h"
 #include "RHI.h"
+#include "RenderingThread.h"
+#include "RenderResource.h"
+
+class FShaderUniformBufferParameter;
+template<typename TBufferStruct> class TShaderUniformBufferParameter;
 
 namespace EShaderPrecisionModifier
 {

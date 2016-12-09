@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
-#include "SoundDefinitions.h"
 #include "Sound/SoundNodeGroupControl.h"
+#include "ActiveSound.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSoundNodeGroupControl, Log, All);
 

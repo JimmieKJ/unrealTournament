@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #define WORLDTILE_LOD_PACKAGE_SUFFIX	TEXT("_LOD")
 #define WORLDTILE_LOD_MAX_INDEX			4
 

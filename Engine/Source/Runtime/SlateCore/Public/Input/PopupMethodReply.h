@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "ReplyBase.h"
+#include "CoreMinimal.h"
+#include "Input/ReplyBase.h"
 
 enum class EPopupMethod : uint8
 {

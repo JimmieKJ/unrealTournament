@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
 #define LOCTEXT_NAMESPACE "ConfigEditor"
 
 /*-----------------------------------------------------------------------------

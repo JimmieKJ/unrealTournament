@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Classes/K2Node_BaseAsyncTask.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "K2Node_BaseAsyncTask.h"
 #include "K2Node_InAppPurchase.generated.h"
 
 UCLASS()

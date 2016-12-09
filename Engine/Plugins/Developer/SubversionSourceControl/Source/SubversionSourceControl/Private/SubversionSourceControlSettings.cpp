@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SubversionSourceControlPrivatePCH.h"
 #include "SubversionSourceControlSettings.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/ConfigCacheIni.h"
 #include "SourceControlHelpers.h"
 
 namespace SubversionSettingsConstants

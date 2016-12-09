@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
 
 #define SUBTITLE_SCREEN_DEPTH_FOR_3D 0.1f
+
+class FCanvas;
 
 /**
  * A collection of subtitles, rendered at a certain priority.
@@ -12,25 +15,31 @@
 class FActiveSubtitle
 {
 public:
-	FActiveSubtitle( int32 InIndex, float InPriority, bool InbSplit, bool InbSingleLine, TArray<FSubtitleCue> InSubtitles )
-		:	Index( InIndex )
-		,	Priority( InPriority )
-		,	bSplit( InbSplit )
-		,	bSingleLine( InbSingleLine )
-		,	Subtitles( MoveTemp(InSubtitles) )
-	{}
+
+	FActiveSubtitle(int32 InIndex, float InPriority, bool InbSplit, bool InbSingleLine, TArray<FSubtitleCue> InSubtitles)
+		: Index(InIndex)
+		, Priority(InPriority)
+		, bSplit(InbSplit)
+		, bSingleLine(InbSingleLine)
+		, Subtitles(MoveTemp(InSubtitles))
+	{ }
 
 	/** Index into the Subtitles array for the currently active subtitle in this set. */
-	int32						Index;
+	int32 Index;
+
 	/** Priority for this set of subtitles, used by FSubtitleManager to determine which subtitle to play. */
-	float					Priority;
-	/** true if the subtitles have come in pre split, or after they have been split programmatically. */
-	bool					bSplit;
-	/** true if the subtitles should be displayed as a sequence of single lines */
-	bool					bSingleLine;
+	float Priority;
+	
+	/** Whether subtitles have come in pre-split, or after they have been split programmatically. */
+	bool bSplit;
+	
+	/** Whether subtitles should be displayed as a sequence of single lines. */
+	bool bSingleLine;
+	
 	/** A set of subtitles. */
 	TArray<FSubtitleCue>	Subtitles;
 };
+
 
 struct FQueueSubtitleParams
 {
@@ -46,94 +55,108 @@ struct FQueueSubtitleParams
 	uint8 bManualWordWrap : 1;
 	uint8 bSingleLine : 1;
 	const TArray<FSubtitleCue>& Subtitles;
+	float RequestedStartTime;
 };
 
 
 /**
- * Subtitle manager.  Handles prioritization and rendering of subtitles.
+ * Subtitle manager. Handles prioritization and rendering of subtitles.
  */
 class FSubtitleManager
 {
 public:
-	/**
-	 * Kills all the subtitles
-	 */
-	void		KillAllSubtitles( void );
+
+	/** Kill all the subtitles. */
+	void KillAllSubtitles(void);
 
 	/**
-	 * Kills all the subtitles associated with the subtitle ID
+	 * Kill specified subtitles.
+	 *
+	 * @param SubtitleId Identifier of the subtitles to kill.
 	 */
-	void		KillSubtitles( PTRINT SubtitleID );
+	void KillSubtitles(PTRINT SubtitleID);
 
 	/**
-	 * Trim the SubtitleRegion to the safe 80% of the canvas 
+	 * Trim the SubtitleRegion to the safe 80% of the canvas.
+	 *
+	 * @param Canvas The canvas to trim to.
+	 * @param InOutSubtitleRegion The trim region.
 	 */
-	void		TrimRegionToSafeZone( FCanvas * Canvas, FIntRect & SubtitleRegion );
+	void TrimRegionToSafeZone(FCanvas* Canvas, FIntRect& InOutSubtitleRegion);
 
 	/**
-	 * If any of the active subtitles need to be split into multiple lines, do so now
-	 * - caveat - this assumes the width of the subtitle region does not change while the subtitle is active
+	 * If any of the active subtitles need to be split into multiple lines, do so now.
+	 *
+	 * Note: This assumes the width of the subtitle region does not change while the subtitle is active.
 	 */
-	void		SplitLinesToSafeZone( FCanvas* Canvas, FIntRect & SubtitleRegion );
+	void SplitLinesToSafeZone(FCanvas* Canvas, FIntRect & SubtitleRegion);
 
 	/**
-	 * Find the highest priority subtitle from the list of currently active ones
+	 * Find the highest priority subtitle from the list of currently active ones.
+	 *
+	 * @param CurrentTime The time at which to find the subtitle.
+	 * @return Found subtitle identifier.
 	 */
-	PTRINT		FindHighestPrioritySubtitle( float CurrentTime );
+	PTRINT FindHighestPrioritySubtitle(float CurrentTime);
 
 	/**
 	 * Add an array of subtitles to the active list
 	 *
-	 * @param  SubTitleID - the controlling id that groups sets of subtitles together
-	 * @param  Priority - used to prioritize subtitles; higher values have higher priority.  Subtitles with a priority 0.0f are not displayed.
-	 * @param  StartTime - float of seconds that the subtitles start at
-	 * @param  SoundDuration - time in seconds after which the subtitles do not display
-	 * @param  Subtitles - TArray of lines of subtitle and time offset to play them
+	 * @param SubTitleID The controlling id that groups sets of subtitles together.
+	 * @param Priority Used to prioritize subtitles; higher values have higher priority.  Subtitles with a priority 0.0f are not displayed.
+	 * @param StartTime Time at which the subtitles start (in seconds).
+	 * @param SoundDuration Time  after which the subtitles do not display (in seconds).
+	 * @param Subtitles Collection of lines of subtitle and time offset to play them.
 	 */
-	void		QueueSubtitles( PTRINT SubtitleID, float Priority, bool bManualWordWrap, bool bSingleLine, float SoundDuration, const TArray<FSubtitleCue>& Subtitles, float InStartTime );
+	void QueueSubtitles(PTRINT SubtitleID, float Priority, bool bManualWordWrap, bool bSingleLine, float SoundDuration, const TArray<FSubtitleCue>& Subtitles, float InStartTime, float InCurrentTime);
 
 	static void QueueSubtitles(const FQueueSubtitleParams& QueueSubtitlesParams);
 
 	/**
 	 * Draws a subtitle at the specified pixel location.
 	 */
-	void		DisplaySubtitle( FCanvas *Canvas, FActiveSubtitle* Subtitle, FIntRect & Parms, const FLinearColor& Color );
+	void DisplaySubtitle(FCanvas *Canvas, FActiveSubtitle* Subtitle, FIntRect & Parms, const FLinearColor& Color);
 
 	/**
-	 * Display the currently queued subtitles and cleanup after they have finished rendering
+	 * Display the currently queued subtitles and cleanup after they have finished rendering.
 	 *
-	 * @param  Canvas - where to render the subtitles
-	 * @param  CurrentTime - current world time
+	 * @param Canvas Where to render the subtitles.
+	 * @param CurrentTime Current world time.
 	 */
-	ENGINE_API void		DisplaySubtitles( FCanvas *InCanvas, FIntRect & SubtitleRegion, float InAudioTimeSeconds );
+	ENGINE_API void DisplaySubtitles(FCanvas *InCanvas, FIntRect & SubtitleRegion, float InAudioTimeSeconds);
 
-	/** @return true if there are any active subtitles */
-	bool		HasSubtitles( void ) 
+	/**
+	 * Whether there are any active subtitles.
+	 *
+	 * @return true if there are any active subtitles, false otherwise.
+	 */
+	bool HasSubtitles() 
 	{ 
-		return ActiveSubtitles.Num() > 0; 
+		return (ActiveSubtitles.Num() > 0); 
 	}
 
 	/**
-	 * @return The height of the currently rendered subtitles, 0 if none are rendering
+	 * Get the height of currently rendered subtitles.
+	 *
+	 * @return Subtitle height (in pixels), or 0 if none are rendering.
 	 */
-	float GetCurrentSubtitlesHeight( void )
+	float GetCurrentSubtitlesHeight()
 	{
 		return CurrentSubtitleHeight;
 	}
 
 	/**
-	 * Returns the singleton subtitle manager instance, creating it if necessary.
+	 * Get the subtitle manager singleton instance.
+	 *
+	 * @return Subtitle manager.
 	 */
-	ENGINE_API static FSubtitleManager* GetSubtitleManager( void );
+	ENGINE_API static FSubtitleManager* GetSubtitleManager();
 
 private:
-	/**
-	 * The set of active, prioritized subtitles.
-	 */
-	TMap<PTRINT, FActiveSubtitle>	ActiveSubtitles;
 
-	/**
-	 * The current height of the subtitles
-	 */
+	/** The set of active, prioritized subtitles. */
+	TMap<PTRINT, FActiveSubtitle> ActiveSubtitles;
+
+	/** The current height of the subtitles. */
 	float CurrentSubtitleHeight;
 };

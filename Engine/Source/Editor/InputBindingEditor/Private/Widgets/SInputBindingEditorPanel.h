@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Commands/UICommandInfo.h"
+#include "Framework/Commands/InputBindingManager.h"
+#include "Widgets/Views/STableRow.h"
+
+class IDetailLayoutBuilder;
 
 /**
  * A gesture sort functor.  Sorts by name or gesture and ascending or descending
@@ -13,17 +19,17 @@ struct FChordSort
 		, bSortUp( bInSortUp )
 	{ }
 
-	bool operator()( const TSharedPtr<FChordTreeItem>& A, const TSharedPtr<FChordTreeItem>& B ) const
+	bool operator()( const TSharedPtr<FUICommandInfo>& A, const TSharedPtr<FUICommandInfo>& B ) const
 	{
 		if( bSortName )
 		{
-			bool bResult = A->CommandInfo->GetLabel().CompareTo( B->CommandInfo->GetLabel() ) == -1;
+			bool bResult = A->GetLabel().CompareTo( B->GetLabel() ) == -1;
 			return bSortUp ? !bResult : bResult;
 		}
 		else
 		{
 			// Sort by binding
-			bool bResult = A->CommandInfo->GetInputText().CompareTo( B->CommandInfo->GetInputText() ) == -1;
+			bool bResult = A->GetInputText().CompareTo( B->GetInputText() ) == -1;
 			return bSortUp ? !bResult : bResult;
 		}
 	}
@@ -37,26 +43,34 @@ private:
 	bool bSortUp;
 };
 
+/**
+* An item for the chord tree view
+*/
+struct FChordTreeItem
+{
+	// Note these are mutually exclusive
+	TWeakPtr<FBindingContext> BindingContext;
+	TSharedPtr<FUICommandInfo> CommandInfo;
+
+	TSharedPtr<FBindingContext> GetBindingContext() { return BindingContext.Pin(); }
+
+	bool IsContext() const { return BindingContext.IsValid(); }
+	bool IsCommand() const { return CommandInfo.IsValid(); }
+};
 
 /**
  * The main input binding editor widget                   
  */
-class SInputBindingEditorPanel : public SCompoundWidget
+class FInputBindingEditorPanel : public TSharedFromThis<FInputBindingEditorPanel>
 {
 public:
 
-	SLATE_BEGIN_ARGS(SInputBindingEditorPanel){}
-	SLATE_END_ARGS()
-
-public:
-
 	/** Default constructor. */
-	SInputBindingEditorPanel()
-		: ChordSortMode( true, false )
+	FInputBindingEditorPanel()
 	{ }
 
 	/** Destructor. */
-	virtual ~SInputBindingEditorPanel()
+	virtual ~FInputBindingEditorPanel()
 	{
 		FInputBindingManager::Get().SaveInputBindings();
 		FBindingContext::CommandsChanged.RemoveAll( this );
@@ -69,70 +83,24 @@ public:
 	 *
 	 * @param InArgs The Slate argument list.
 	 */
-	void Construct(const FArguments& InArgs);
-
-public:
-
-	// SWidget interface
-
-	virtual bool SupportsKeyboardFocus() const override;
-	virtual FReply OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent ) override;
+	void Initialize(class IDetailLayoutBuilder& InDetailBuilder);
 
 private:
-
-	/**
-	 * Called when the text changes in the search box.
-	 * 
-	 * @param NewSearch	The new search term to filter by.
-	 */
-	void OnSearchChanged( const FText& NewSearch );
-
-	/**
-	 * Generates widget for an item in the gesture tree.
-	 */
-	TSharedRef< ITableRow > OnGenerateWidgetForTreeItem( TSharedPtr<FChordTreeItem> InTreeItem, const TSharedRef<STableViewBase>& OwnerTable );
+	void UpdateUI(const bool bForceRefresh);
 
 	/**
 	 * Gets children FChordTreeItems from the passed in tree item.  Note: Only contexts have children and those children are the actual gestures.
 	 */
-	void OnGetChildrenForTreeItem( TSharedPtr<FChordTreeItem> InTreeItem, TArray< TSharedPtr< FChordTreeItem > >& OutChildren );
-
-	/**
-	 * Called when the binding column is clicked.  We sort by binding in this case .
-	 */	 
-	FReply OnBindingColumnClicked();
-
-	/**
-	 * Called when the name column is clicked. We sort by name in this case.
-	 */	
-	FReply OnNameColumnClicked();
+	void GetCommandsForContext( TSharedPtr<FChordTreeItem> InTreeItem, TArray< TSharedPtr< FUICommandInfo > >& OutChildren );
 
 	/** Updates the master context list with new commands. */
 	void UpdateContextMasterList();
-
-	/** Filters the currently visible context list. */
-	void FilterVisibleContextList();
 
 	/** Called when new commands are registered with the input binding manager. */
 	void OnCommandsChanged();
 
 private:
-
+	IDetailLayoutBuilder* DetailBuilder;
 	/** List of all known contexts. */
 	TArray< TSharedPtr<FChordTreeItem> > ContextMasterList;
-	
-	/** List of contexts visible in the tree. */
-	TArray< TSharedPtr<FChordTreeItem> > ContextVisibleList;
-	
-	/** Search box */
-	TSharedPtr<SWidget> SearchBox;
-
-	/** Chord tree widget. */
-	TSharedPtr< SChordTree > ChordTree;
-	
-	/** The current gesture sort to use. */
-	FChordSort ChordSortMode;
-	
-	/** The current list of filter strings to filter gestures by. */
-	TArray<FString> FilterStrings;
 };

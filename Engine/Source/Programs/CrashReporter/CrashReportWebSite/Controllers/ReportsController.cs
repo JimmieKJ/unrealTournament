@@ -242,7 +242,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 	        // It would be great to have a CSV export of this as well with buggs ID being the key I can then use to join them :)
 	        // 
 	        // Enumerate JIRA projects if needed.
-	        // https://jira.ol.epicgames.net//rest/api/2/project
+	        // https://jira.it.epicgames.net//rest/api/2/project
 	        var JC = JiraConnection.Get();
 	        var JiraComponents = JC.GetNameToComponents();
 	        var JiraVersions = JC.GetNameToVersions();
@@ -594,7 +594,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 	    private string GetReportsEmailContents(string branchName)
 	    {
             var reportViewModel = GetResults(branchName, DateTime.Now.AddDays(-7), DateTime.Now, 0);
-            return RenderViewToString("Reports", "~/Views/Reports/ViewReports.ascx", reportViewModel);
+            return RenderViewToString("Reports", "~/Views/Reports/ViewReports.cshtml", reportViewModel);
 	    }
 
         /// <summary>
@@ -621,6 +621,12 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
                 razorViewResult.View.Render(viewContext, writer);
                 return writer.ToString();
             }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            _unitOfWork.Dispose();
+            base.Dispose(disposing);
         }
 
         #endregion

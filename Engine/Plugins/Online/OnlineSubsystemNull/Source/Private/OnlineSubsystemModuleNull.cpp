@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemNullPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "OnlineSubsystemNullModule.h"
+#include "OnlineSubsystemModule.h"
+#include "OnlineSubsystemNames.h"
+#include "OnlineSubsystem.h"
 #include "OnlineSubsystemNull.h"
-#include "ModuleManager.h"
 
 IMPLEMENT_MODULE(FOnlineSubsystemNullModule, OnlineSubsystemNull);
 

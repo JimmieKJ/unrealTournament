@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/UnrealType.h"
+#include "Animation/AnimCurveTypes.h"
+#include "AssetData.h"
+
+class UAnimationAsset;
+class UAnimBlueprint;
+class UAnimSequenceBase;
+
 namespace EditorAnimUtils
 {
 	struct FNameDuplicationRule

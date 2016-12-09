@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
 #include "Engine/BlueprintGeneratedClass.h"
+#include "ScriptBlueprintGeneratedClass.h"
 #include "ScriptContext.generated.h"
 
 /**

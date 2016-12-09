@@ -1,9 +1,11 @@
 #pragma once
 
-#include "Curves/IndexedCurve.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
 #include "Curves/KeyHandle.h"
+#include "Curves/IndexedCurve.h"
 #include "NameCurve.generated.h"
-
 
 /**
  * One key in a curve of FNames.

@@ -4,6 +4,7 @@
 #include "OpenGL/SlateOpenGLRenderer.h"
 #include "CocoaThread.h"
 #include "SlateOpenGLMac.h"
+#include "Widgets/SWindow.h"
 
 #include "MacWindow.h"
 

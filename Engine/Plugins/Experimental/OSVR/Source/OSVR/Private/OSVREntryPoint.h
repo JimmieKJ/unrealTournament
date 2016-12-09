@@ -16,6 +16,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "OSVRPrivate.h"
+#include "Tickable.h"
+#include "Engine/World.h"
+
 #if OSVR_DEPRECATED_BLUEPRINT_API_ENABLED
 #include "OSVRInterfaceCollection.h"
 #endif

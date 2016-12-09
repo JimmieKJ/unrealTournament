@@ -2,8 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+#include "Input/DragAndDrop.h"
+#include "Input/Reply.h"
+#include "Engine/MemberReference.h"
 #include "BlueprintEditor.h"
 #include "Editor/GraphEditor/Public/GraphEditorDragDropAction.h"
+
+class UEdGraph;
 
 /*******************************************************************************
 * FKismetDragDropAction

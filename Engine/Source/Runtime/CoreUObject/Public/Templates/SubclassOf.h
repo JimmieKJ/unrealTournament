@@ -2,91 +2,90 @@
 
 #pragma once
 
-#include "Class.h"
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
 
 /**
-* Template to allow UClass's to be passed around with type safety
-**/
+ * Template to allow UClass's to be passed around with type safety 
+ */
 template<class TClass>
 class TSubclassOf
 {
+	template <class TClassA>
+	friend class TSubclassOf;
+
 public:
-	/**
-	* Default Constructor, defaults to NULL
-	**/
+	/** Default Constructor, defaults to null */
 	FORCEINLINE TSubclassOf() :
-		Class(NULL)
+		Class(nullptr)
 	{
 	}
-	/**
-	* Constructor that takes a UClass and does a runtime check to make sure this is a compatible class
-	* @param From UClass to assign to this TSubclassOf
-	**/
+
+	/** Constructor that takes a UClass and does a runtime check to make sure this is a compatible class */
 	FORCEINLINE TSubclassOf(UClass* From) :
 		Class(From)
 	{
 	}
-	/**
-	* Copy Constructor
-	* @param From TSubclassOf to copy
-	**/
-	template<class TClassA>
+
+	/** Copy Constructor, will only compile if types are compatible */
+	template <class TClassA, class = typename TEnableIf<TPointerIsConvertibleFromTo<TClassA, TClass>::Value>::Type>
 	FORCEINLINE TSubclassOf(const TSubclassOf<TClassA>& From) :
 		Class(*From)
 	{
-		TClass* Test = (TClassA*)0; // verify that TClassA derives from TClass
 	}
 
-	/**
-	* Assignment operator
-	* @param From TSubclassOf to copy
-	**/
-	template<class TClassA>
+	/** Assignment operator, will only compile if types are compatible */
+	template <class TClassA, class = typename TEnableIf<TPointerIsConvertibleFromTo<TClassA, TClass>::Value>::Type>
 	FORCEINLINE TSubclassOf& operator=(const TSubclassOf<TClassA>& From)
 	{
 		Class = *From;
-		TClass* Test = (TClassA*)0; // verify that TClassA derives from TClass
 		return *this;
 	}
-	/**
-	* Assignment operator from UClass, runtime check for compatibility
-	* @param From UClass to assign to this TSubclassOf
-	**/
+	
+	/** Assignment operator from UClass, the type is checked on get not on set */
 	FORCEINLINE TSubclassOf& operator=(UClass* From)
 	{
 		Class = From;
 		return *this;
 	}
-	/**
-	* Dereference back into a UClass
-	* @return	the embedded UClass
-	* The body for this method is in Class.h
-	*/
-	FORCEINLINE UClass* operator*() const;
+	
+	/** Dereference back into a UClass, does runtime type checking */
+	FORCEINLINE UClass* operator*() const
+	{
+		if (!Class || !Class->IsChildOf(TClass::StaticClass()))
+		{
+			return nullptr;
+		}
+		return Class;
+	}
+	
+	/** Dereference back into a UClass */
+	FORCEINLINE UClass* Get() const
+	{
+		return **this;
+	}
 
-	/**
-	* Dereference back into a UClass
-	* @return	the embedded UClass
-	*/
+	/** Dereference back into a UClass */
 	FORCEINLINE UClass* operator->() const
 	{
 		return **this;
 	}
 
-	/**
-	* Implicit conversion to UClass
-	* @return	the embedded UClass
-	*/
+	/** Implicit conversion to UClass */
 	FORCEINLINE operator UClass* () const
 	{
 		return **this;
 	}
 
 	/**
-	* Get the CDO if we are referencing a valid class
-	* @return the CDO, or NULL
-	*/
-	FORCEINLINE TClass* GetDefaultObject() const;
+	 * Get the CDO if we are referencing a valid class
+	 *
+	 * @return the CDO, or null if class is null
+	 */
+	FORCEINLINE TClass* GetDefaultObject() const
+	{
+		return Class ? Class->GetDefaultObject<TClass>() : nullptr;
+	}
 
 	friend FArchive& operator<<(FArchive& Ar, TSubclassOf& SubclassOf)
 	{
@@ -96,23 +95,3 @@ public:
 private:
 	UClass* Class;
 };
-
-/**
-* Dereference back into a UClass
-* @return	the embedded UClass
-*/
-template<class TClass>
-FORCEINLINE UClass* TSubclassOf<TClass>::operator*() const
-{
-	if (!Class || !Class->IsChildOf(TClass::StaticClass()))
-	{
-		return NULL;
-	}
-	return Class;
-}
-
-template<class TClass>
-FORCEINLINE TClass* TSubclassOf<TClass>::GetDefaultObject() const
-{
-	return Class ? Class->GetDefaultObject<TClass>() : NULL;
-}

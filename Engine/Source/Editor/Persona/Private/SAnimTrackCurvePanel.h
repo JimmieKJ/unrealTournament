@@ -3,13 +3,19 @@
 
 #pragma once
 
-#include "Persona.h"
-#include "GraphEditor.h"
-#include "SNodePanel.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Animation/Skeleton.h"
 #include "SAnimTrackPanel.h"
-#include "SCurveEditor.h"
-#include "SAnimNotifyPanel.h"
+#include "SAnimCurvePanel.h"
 #include "Animation/AnimSequence.h"
+
+class IPersonaPreviewScene;
+class SSplitter;
+class STransformCurveEdTrack;
 
 //////////////////////////////////////////////////////////////////////////
 // SAnimTrackCurvePanel
@@ -27,10 +33,6 @@ public:
 		, _OnGetScrubValue()
 	{}
 
-	/**
-	 * Weak ptr to our Persona instance
-	 */
-	SLATE_ARGUMENT(TWeakPtr<FPersona>, Persona)
 	/**
 	 * AnimSequenceBase to be used for this panel
 	 */
@@ -51,9 +53,12 @@ public:
 	 * Get current value
 	 */
 	SLATE_EVENT( FOnGetScrubValue, OnGetScrubValue )
+
+	SLATE_ARGUMENT(FSimpleDelegate, OnCurvesChanged)
+
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene);
 	/**
 	 * Delete Track
 	 *
@@ -63,7 +68,7 @@ public:
 	/**
 	 * Sets the specified flag value to State for the provided curve
 	 */
-	void SetCurveFlag(FAnimCurveBase* CurveInterface, bool State, EAnimCurveFlags FlagToSet);
+	void SetCurveFlag(FAnimCurveBase* CurveInterface, bool State, EAnimAssetCurveFlags FlagToSet);
 
 	/**
 	* Update Panel
@@ -79,12 +84,13 @@ public:
 	float GetLength() { return (Sequence)? Sequence->SequenceLength : 0.f; }
 
 private:
-	TWeakPtr<FPersona> WeakPersona;
+	TWeakPtr<IPersonaPreviewScene> PreviewScenePtr;
 	TSharedPtr<SSplitter> PanelSlot;
 	class UAnimSequence* Sequence;
 	TAttribute<float> CurrentPosition;
 	FOnGetScrubValue OnGetScrubValue;
 	TArray<TWeakPtr<class STransformCurveEdTrack>> Tracks;
+	FSimpleDelegate OnCurvesChanged;
 
 	/**
 	 * This is to control visibility of the curves, so you can edit or not
@@ -111,10 +117,10 @@ private:
 	/**
 	 * Convert the requested flag bool value into a checkbox state
 	 */
-	ECheckBoxState GetCurveFlagAsCheckboxState(USkeleton::AnimCurveUID CurveUid, EAnimCurveFlags InFlag) const;
+	ECheckBoxState GetCurveFlagAsCheckboxState(USkeleton::AnimCurveUID CurveUid, EAnimAssetCurveFlags InFlag) const;
 
 	/**
 	 * Convert a given checkbox state into a flag value in the provided curve
 	 */
-	void SetCurveFlagFromCheckboxState(ECheckBoxState CheckState, USkeleton::AnimCurveUID CurveUid, EAnimCurveFlags InFlag);
+	void SetCurveFlagFromCheckboxState(ECheckBoxState CheckState, USkeleton::AnimCurveUID CurveUid, EAnimAssetCurveFlags InFlag);
 };

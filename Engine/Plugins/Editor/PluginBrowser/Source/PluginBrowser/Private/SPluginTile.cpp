@@ -1,21 +1,35 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PluginBrowserPrivatePCH.h"
 #include "SPluginTile.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+#include "PluginDescriptor.h"
+#include "Interfaces/IPluginManager.h"
 #include "SPluginBrowser.h"
-#include "SPluginTileList.h"
 #include "PluginStyle.h"
 #include "GameProjectGenerationModule.h"
 #include "IDetailsView.h"
-#include "SHyperlink.h"
+#include "Widgets/Input/SHyperlink.h"
 #include "PluginMetadataObject.h"
-#include "IProjectManager.h"
+#include "Interfaces/IProjectManager.h"
 #include "PluginBrowserModule.h"
-#include "ISourceControlModule.h"
 #include "PropertyEditorModule.h"
 #include "IUATHelperModule.h"
-#include "IMainFrameModule.h"
 #include "DesktopPlatformModule.h"
+#include "Widgets/Layout/SSpacer.h"
 
 #define LOCTEXT_NAMESPACE "PluginListTile"
 
@@ -216,13 +230,40 @@ void SPluginTile::RecreateWidgets()
 
 										// Friendly name
 										+SHorizontalBox::Slot()
-										.Padding(PaddingAmount)
-										[
-											SNew(STextBlock)
-												.Text(FText::FromString(PluginDescriptor.FriendlyName))
-												.HighlightText_Raw(&OwnerWeak.Pin()->GetOwner().GetPluginTextFilter(), &FPluginTextFilter::GetRawFilterText)
-												.TextStyle(FPluginStyle::Get(), "PluginTile.NameText")
-										]
+											.AutoWidth()
+											.VAlign(VAlign_Center)
+											.Padding(PaddingAmount)
+											[
+												SNew(STextBlock)
+													.Text(FText::FromString(PluginDescriptor.FriendlyName))
+													.HighlightText_Raw(&OwnerWeak.Pin()->GetOwner().GetPluginTextFilter(), &FPluginTextFilter::GetRawFilterText)
+													.TextStyle(FPluginStyle::Get(), "PluginTile.NameText")
+											]
+
+										// "NEW!" label
+										+ SHorizontalBox::Slot()
+											.AutoWidth()
+											.Padding(10.0f, 0.0f, 0.0f, 0.0f)
+											.HAlign(HAlign_Left)
+											.VAlign(VAlign_Center)
+											[
+												SNew(SBorder)
+													.Padding(FMargin(5.0f, 3.0f))
+													.BorderImage(FPluginStyle::Get()->GetBrush("PluginTile.NewLabelBackground"))
+													[
+														SNew(STextBlock)
+															.Visibility(FPluginBrowserModule::Get().IsNewlyInstalledPlugin(Plugin->GetName())? EVisibility::Visible : EVisibility::Collapsed)
+															.Font(FPluginStyle::Get()->GetFontStyle(TEXT("PluginTile.NewLabelFont")))
+															.Text(LOCTEXT("PluginNewLabel", "NEW!"))
+															.TextStyle(FPluginStyle::Get(), "PluginTile.NewLabelText")
+													]
+											]
+
+										// Gap
+										+ SHorizontalBox::Slot()
+											[
+												SNew(SSpacer)
+											]
 
 										// Version
 										+ SHorizontalBox::Slot()
@@ -540,18 +581,10 @@ FReply SPluginTile::OnEditPluginFinished(UPluginMetadataObject* MetadataObject)
 
 void SPluginTile::OnPackagePlugin()
 {
-	void* ParentWindowWindowHandle = nullptr;
-	IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-	const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-	if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-	{
-		ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-	}
-
 	FString DefaultDirectory;
 	FString OutputDirectory;
 
-	if ( !FDesktopPlatformModule::Get()->OpenDirectoryDialog(ParentWindowWindowHandle, LOCTEXT("PackagePluginDialogTitle", "Package Plugin...").ToString(), DefaultDirectory, OutputDirectory) )
+	if ( !FDesktopPlatformModule::Get()->OpenDirectoryDialog(FSlateApplication::Get().FindBestParentWindowHandleForDialogs(AsShared()), LOCTEXT("PackagePluginDialogTitle", "Package Plugin...").ToString(), DefaultDirectory, OutputDirectory) )
 	{
 		return;
 	}

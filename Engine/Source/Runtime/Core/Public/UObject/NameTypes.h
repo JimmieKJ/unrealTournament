@@ -1,10 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Containers/StringConv.h"
+
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Templates/UnrealTemplate.h"
 #include "Containers/UnrealString.h"
-#include "HAL/Platform.h"
-#include "HAL/PlatformProcess.h"
+#include "HAL/CriticalSection.h"
+#include "Containers/StringConv.h"
 #include "UObject/UnrealNames.h"
 
 /*----------------------------------------------------------------------------
@@ -52,13 +57,13 @@ typedef int32 NAME_INDEX;
 #define INVALID_NAME_CHARACTERS			TEXT("\"' ,\n\r\t")
 
 /** These characters cannot be used in object names */
-#define INVALID_OBJECTNAME_CHARACTERS	TEXT("\"' ,/.:|&!\n\r\t@#(){}[]=;^%$`")
+#define INVALID_OBJECTNAME_CHARACTERS	TEXT("\"' ,/.:|&!~\n\r\t@#(){}[]=;^%$`")
 
 /** These characters cannot be used in textboxes which take group names (i.e. Group1.Group2) */
-#define INVALID_GROUPNAME_CHARACTERS	TEXT("\"' ,/:|&!\n\r\t@#")
+#define INVALID_GROUPNAME_CHARACTERS	TEXT("\"' ,/:|&!~\n\r\t@#")
 
 /** These characters cannot be used in long package names */
-#define INVALID_LONGPACKAGE_CHARACTERS	TEXT("\\:*?\"<>|' ,.&!\n\r\t@#")
+#define INVALID_LONGPACKAGE_CHARACTERS	TEXT("\\:*?\"<>|' ,.&!~\n\r\t@#")
 
 /** These characters can be used in relative directory names (lowercase versions as well) */
 #define VALID_SAVEDDIRSUFFIX_CHARACTERS	TEXT("_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
@@ -980,8 +985,6 @@ public:
 	 */
 	static bool SplitNameWithCheck(const WIDECHAR* OldName, WIDECHAR* NewName, int32 NewNameLen, int32& NewNumber);
 
-	/** Singleton to retrieve a table of all names (single threaded) for debug visualizers. */
-	static TArray<FNameEntry const*>* GetNameTableForDebuggerVisualizers_ST();
 	/** Singleton to retrieve a table of all names (multithreaded) for debug visualizers. */
 	static FNameEntry*** GetNameTableForDebuggerVisualizers_MT();
 	/** Run autotest on FNames. */

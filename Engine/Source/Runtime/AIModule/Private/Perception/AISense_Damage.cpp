@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Perception/AISense_Damage.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/Controller.h"
+#include "Perception/AIPerceptionListenerInterface.h"
+#include "Perception/AIPerceptionSystem.h"
+#include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseEvent_Damage.h"
 
 //----------------------------------------------------------------------//

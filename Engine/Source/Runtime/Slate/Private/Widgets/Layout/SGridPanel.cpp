@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "LayoutUtils.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Types/PaintArgs.h"
+#include "Layout/ArrangedChildren.h"
+#include "Rendering/DrawElements.h"
+#include "Layout/LayoutUtils.h"
 
 SGridPanel::SGridPanel()
 : Slots()

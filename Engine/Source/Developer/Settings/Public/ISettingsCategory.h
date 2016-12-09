@@ -2,10 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
-// forward declarations
 class ISettingsSection;
-
 
 /**
  * Interface for setting categories.

@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "DecoratedDragDropOp.h"
-#include "WidgetTemplate.h"
+#include "CoreMinimal.h"
+#include "Input/DragAndDrop.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
+
+class FWidgetTemplate;
 
 /**
  * This drag drop operation allows widget templates from the palate to be dragged and dropped into the designer

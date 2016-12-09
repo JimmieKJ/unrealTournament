@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_ForEachElementInEnum.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_AssignmentStatement.h"
+#include "K2Node_ExecutionSequence.h"
+#include "K2Node_IfThenElse.h"
+#include "K2Node_TemporaryVariable.h"
 #include "KismetCompiler.h"
 #include "Kismet/KismetNodeHelperLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "K2Node_CastByteToEnum.h"
-#include "K2Node_ForEachElementInEnum.h"
 #include "K2Node_GetNumEnumEntries.h"
 #include "BlueprintFieldNodeSpawner.h"
 #include "EditorCategoryUtils.h"

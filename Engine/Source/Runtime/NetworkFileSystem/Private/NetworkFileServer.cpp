@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetworkFileSystemPrivatePCH.h"
-#include "TargetPlatform.h"
+#include "NetworkFileServer.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "IPAddress.h"
+#include "Sockets.h"
+#include "SocketSubsystem.h"
+#include "NetworkMessage.h"
+#include "NetworkFileSystemLog.h"
 #include "NetworkFileServerConnection.h"
 
 class FNetworkFileServerClientConnectionThreaded

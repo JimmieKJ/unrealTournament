@@ -7,12 +7,19 @@
 
 #pragma once
 
-#include "SkeletalMeshTypes.h"
-#include "AnimInterpFilter.h"
-#include "Animation/Skeleton.h"
-#include "Engine/SkeletalMesh.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
 #include "Interfaces/Interface_AssetUserData.h"
+#include "Engine/SkeletalMesh.h"
+#include "AnimInterpFilter.h"
 #include "AnimationAsset.generated.h"
+
+class UAssetMappingTable;
+class UAssetUserData;
+class USkeleton;
 
 namespace MarkerIndexSpecialValues
 {
@@ -621,6 +628,7 @@ public:
 		, MarkerTickContext(ValidMarkerNames)
 		, DeltaTime(InDeltaTime)
 		, LeaderDelta(0.f)
+		, PreviousAnimLengthRatio(0.0f)
 		, AnimLengthRatio(0.0f)
 		, bIsMarkerPositionValid(ValidMarkerNames.Num() > 0)
 		, bIsLeader(true)
@@ -632,6 +640,7 @@ public:
 		: RootMotionMode(InRootMotionMode)
 		, DeltaTime(InDeltaTime)
 		, LeaderDelta(0.f)
+		, PreviousAnimLengthRatio(0.0f)
 		, AnimLengthRatio(0.0f)
 		, bIsMarkerPositionValid(false)
 		, bIsLeader(true)
@@ -666,9 +675,21 @@ public:
 		return LeaderDelta;
 	}
 
+	void SetPreviousAnimationPositionRatio(float NormalizedTime)
+	{
+		PreviousAnimLengthRatio = NormalizedTime;
+	}
+
 	void SetAnimationPositionRatio(float NormalizedTime)
 	{
 		AnimLengthRatio = NormalizedTime;
+	}
+
+	// Returns the previous synchronization point (normalized time; only legal to call if ticking a follower)
+	float GetPreviousAnimationPositionRatio() const
+	{
+		checkSlow(!bIsLeader);
+		return AnimLengthRatio;
 	}
 
 	// Returns the synchronization point (normalized time; only legal to call if ticking a follower)
@@ -710,6 +731,9 @@ private:
 	float DeltaTime;
 
 	float LeaderDelta;
+
+	// Float in 0 - 1 range representing how far through an animation we were before ticking
+	float PreviousAnimLengthRatio;
 
 	// Float in 0 - 1 range representing how far through an animation we are
 	float AnimLengthRatio;
@@ -753,6 +777,9 @@ private:
 	/** Skeleton guid. If changes, you need to remap info*/
 	FGuid SkeletonGuid;
 
+	/** Allow animations to track virtual bone info */
+	FGuid SkeletonVirtualBoneGuid; 
+
 	/** Meta data that can be saved with the asset 
 	 * 
 	 * You can query by GetMetaData function
@@ -760,21 +787,49 @@ private:
 	UPROPERTY(Category=MetaData, instanced, EditAnywhere)
 	TArray<class UAnimMetaData*> MetaData;
 
+public:
+	/* 
+	 * Parent asset is used for AnimMontage when it derives all settings but remap animation asset. 
+	 * For example, you can just use all parent's setting  for the montage, but only remap assets
+	 * This isn't magic bullet unfortunately and it is consistent effort of keeping the data synced with parent
+	 * If you add new property, please make sure those property has to be copied for children. 
+	 * If it does, please add the copy in the function RefreshParentAssetData
+	 * We'd like to extend this feature to BlendSpace in the future
+	 */
+#if WITH_EDITORONLY_DATA
+	/** Parent Asset, if set, you won't be able to edit any data in here but just mapping table
+	 * 
+	 * During cooking, this data will be used to bake out to normal asset */
+	UPROPERTY(AssetRegistrySearchable, Category=Animation, VisibleAnywhere)
+	class UAnimationAsset* ParentAsset;
+
+	/** 
+	 * @todo : comment
+	 */
+	void ValidateParentAsset();
+
+	/**
+	 * note this is transient as they're added as they're loaded
+	 */
+	UPROPERTY(transient)
+	TArray<class UAnimationAsset*> ChildrenAssets;
+
+	const UAssetMappingTable* GetAssetMappingTable() const
+	{
+		return AssetMappingTable;
+	}
+protected:
+	/** Asset mapping table when ParentAsset is set */
+	UPROPERTY(Category=Animation, VisibleAnywhere)
+	class UAssetMappingTable* AssetMappingTable;
+#endif // WITH_EDITORONLY_DATA
+
 protected:
 	/** Array of user data stored with the asset */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Instanced, Category = Animation)
 	TArray<UAssetUserData*> AssetUserData;
 
 public:
-	/** Advances the asset player instance 
-	 * 
-	 * @param Instance		AnimationTickRecord Instance - saves data to evaluate
-	 * @param InstanceOwner	AnimInstance playing this asset
-	 * @param Context		The tick context (leader/follower, delta time, sync point, etc...)
-	 */
-	DEPRECATED(4.11, "This function is deprecated, use TickAssetPlayer")
-	ENGINE_API virtual void TickAssetPlayerInstance(FAnimTickRecord& Instance, class UAnimInstance* AnimInstance, FAnimAssetTickContext& Context) const;
-
 	/** Advances the asset player instance 
 	 * 
 	 * @param Instance		AnimationTickRecord Instance - saves data to evaluate
@@ -809,14 +864,14 @@ public:
 	ENGINE_API bool ReplaceSkeleton(USkeleton* NewSkeleton, bool bConvertSpaces=false);
 
 	// Helper function for GetAllAnimationSequencesReferred, it adds itself first and call GetAllAnimationSEquencesReferred
-	ENGINE_API void HandleAnimReferenceCollection(TArray<UAnimationAsset*>& AnimationAssets);
+	ENGINE_API void HandleAnimReferenceCollection(TArray<UAnimationAsset*>& AnimationAssets, bool bRecursive);
 
 protected:
 	/** Retrieve all animations that are used by this asset 
 	 * 
 	 * @param (out)		AnimationSequences 
 	 **/
-	ENGINE_API virtual bool GetAllAnimationSequencesReferred(TArray<class UAnimationAsset*>& AnimationSequences);
+	ENGINE_API virtual bool GetAllAnimationSequencesReferred(TArray<class UAnimationAsset*>& AnimationSequences, bool bRecursive = true);
 
 public:
 	/** Replace this assets references to other animations based on ReplacementMap 
@@ -827,10 +882,23 @@ public:
 
 	ENGINE_API void SetPreviewMesh(USkeletalMesh* PreviewMesh);
 	ENGINE_API USkeletalMesh* GetPreviewMesh();
+	ENGINE_API USkeletalMesh* GetPreviewMesh() const;
 
 	ENGINE_API virtual int32 GetMarkerUpdateCounter() const { return 0; }
+
+	/** 
+	 * Parent Asset related function. Used by editor
+	 */
+	ENGINE_API void SetParentAsset(UAnimationAsset* InParentAsset);
+	ENGINE_API bool HasParentAsset() { return ParentAsset != nullptr;  }
+	ENGINE_API bool RemapAsset(UAnimationAsset* SourceAsset, UAnimationAsset* TargetAsset);
+	// we have to update whenever we have anything loaded
+	void UpdateParentAsset();
+protected:
+	virtual void RefreshParentAssetData();
 #endif //WITH_EDITOR
 
+public:
 	/** Return a list of unique marker names for blending compatibility */
 	ENGINE_API virtual TArray<FName>* GetUniqueMarkerNames() { return NULL; }
 
@@ -870,5 +938,8 @@ protected:
 
 public:
 	class USkeleton* GetSkeleton() const { return Skeleton; }
+
+	FGuid GetSkeletonVirtualBoneGuid() const { return SkeletonVirtualBoneGuid; }
+	void SetSkeletonVirtualBoneGuid(FGuid Guid) { SkeletonVirtualBoneGuid = Guid; }
 };
 

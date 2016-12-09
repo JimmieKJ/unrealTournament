@@ -157,7 +157,7 @@ public class DownloaderServiceMarshaller {
 
     /**
      * Returns a proxy that will marshall calls to IDownloaderService methods
-     * 
+     *
      * @param ctx
      * @return
      */
@@ -169,7 +169,7 @@ public class DownloaderServiceMarshaller {
      * Returns a stub object that, when connected, will listen for marshalled
      * IDownloaderService methods and translate them into calls to the supplied
      * interface.
-     * 
+     *
      * @param itf An implementation of IDownloaderService that will be called
      *            when remote method calls are unmarshalled.
      * @return

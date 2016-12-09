@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Kismet/KismetStringLibrary.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -70,6 +69,11 @@ FString UKismetStringLibrary::Conv_BoolToString(bool InBool)
 FString UKismetStringLibrary::Conv_VectorToString(FVector InVec)
 {
 	return InVec.ToString();	
+}
+
+FString UKismetStringLibrary::Conv_IntVectorToString(FIntVector InIntVec)
+{
+	return InIntVec.ToString();
 }
 
 FString UKismetStringLibrary::Conv_Vector2dToString(FVector2D InVec)
@@ -189,6 +193,21 @@ FString UKismetStringLibrary::BuildString_Vector(const FString& AppendTo, const 
 
 	FString StringResult;
 	StringResult.Empty(AppendTo.Len()+Prefix.Len()+VecStr.Len()+Suffix.Len()+1); // adding one for the string terminator
+	StringResult += AppendTo;
+	StringResult += Prefix;
+	StringResult += VecStr;
+	StringResult += Suffix;
+
+	return StringResult;
+}
+
+FString UKismetStringLibrary::BuildString_IntVector(const FString& AppendTo, const FString& Prefix, FIntVector InIntVector, const FString& Suffix)
+{
+	// faster, preallocating method
+	FString const VecStr = InIntVector.ToString();
+
+	FString StringResult;
+	StringResult.Empty(AppendTo.Len() + Prefix.Len() + VecStr.Len() + Suffix.Len() + 1); // adding one for the string terminator
 	StringResult += AppendTo;
 	StringResult += Prefix;
 	StringResult += VecStr;
@@ -449,5 +468,5 @@ FString UKismetStringLibrary::TimeSecondsToString(float InSeconds)
 	const int32 NumCentiseconds = FMath::FloorToInt((InSeconds - FMath::FloorToFloat(InSeconds)) * 100.f);
 
 	// Create string, including leading zeroes
-	return FString::Printf(TEXT("%02d:%02d:%02d"), NumMinutes, NumSeconds, NumCentiseconds);
+	return FString::Printf(TEXT("%02d:%02d.%02d"), NumMinutes, NumSeconds, NumCentiseconds);
 }

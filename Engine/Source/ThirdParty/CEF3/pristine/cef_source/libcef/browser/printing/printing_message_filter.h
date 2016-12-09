@@ -5,9 +5,13 @@
 #ifndef CEF_LIBCEF_BROWSER_PRINTING_PRINTING_MESSAGE_FILTER_H_
 #define CEF_LIBCEF_BROWSER_PRINTING_PRINTING_MESSAGE_FILTER_H_
 
+#include <stdint.h>
+
 #include <string>
 
 #include "base/compiler_specific.h"
+#include "base/macros.h"
+#include "build/build_config.h"
 #include "content/public/browser/browser_message_filter.h"
 
 #if defined(OS_WIN)
@@ -51,29 +55,6 @@ class PrintingMessageFilter : public content::BrowserMessageFilter {
                           base::SharedMemoryHandle* browser_handle);
 #endif
 
-#if defined(OS_CHROMEOS) || defined(OS_ANDROID)
-  // Used to ask the browser allocate a temporary file for the renderer
-  // to fill in resulting PDF in renderer.
-  void OnAllocateTempFileForPrinting(int render_view_id,
-                                     base::FileDescriptor* temp_file_fd,
-                                     int* sequence_number);
-  void OnTempFileForPrintingWritten(int render_view_id, int sequence_number);
-#endif
-
-#if defined(OS_CHROMEOS)
-  void CreatePrintDialogForFile(int render_view_id, const base::FilePath& path);
-#endif
-
-#if defined(OS_ANDROID)
-  // Updates the file descriptor for the PrintViewManagerBasic of a given
-  // render_view_id.
-  void UpdateFileDescriptor(int render_view_id, int fd);
-#endif
-
-  // Given a render_view_id get the corresponding WebContents.
-  // Must be called on the UI thread.
-  content::WebContents* GetWebContentsForRenderView(int render_view_id);
-
   // GetPrintSettingsForRenderView must be called via PostTask and
   // base::Bind.  Collapse the settings-specific params into a
   // struct to avoid running into issues with too many params
@@ -104,6 +85,10 @@ class PrintingMessageFilter : public content::BrowserMessageFilter {
                              IPC::Message* reply_msg);
   void OnUpdatePrintSettingsReply(scoped_refptr<PrinterQuery> printer_query,
                                   IPC::Message* reply_msg);
+
+  void OnCheckForCancel(int32_t preview_ui_id,
+                        int preview_request_id,
+                        bool* cancel);
 
   const int render_process_id_;
 

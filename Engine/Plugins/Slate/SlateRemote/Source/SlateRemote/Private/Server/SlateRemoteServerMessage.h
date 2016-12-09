@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 // magic number that must match UDKRemote
 #define SLATE_REMOTE_SERVER_MESSAGE_MAGIC_ID 0xAB

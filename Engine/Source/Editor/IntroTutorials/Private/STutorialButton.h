@@ -2,7 +2,16 @@
 
 #pragma once
 
-#include "STutorialLoading.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Animation/CurveSequence.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+class SWindow;
+class UEditorTutorial;
 
 class STutorialButton : public SCompoundWidget
 {

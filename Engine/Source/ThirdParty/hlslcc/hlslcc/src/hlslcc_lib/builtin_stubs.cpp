@@ -31,6 +31,7 @@
 #include "glsl_parser_extras.h"
 #include "LanguageSpec.h"
 #include "IRDump.h"
+#include "ast.h"
 
 static ir_variable* make_var(void *ctx, const glsl_type* type, unsigned index, ir_variable_mode mode)
 {
@@ -1048,19 +1049,34 @@ void make_intrinsic_pack_functions(exec_list *ir, _mesa_glsl_parse_state *state)
 		{
 			for (size_t i = 0; i < sizeof(func) / sizeof(ir_function*); i++)
 			{
-				ir_function_signature* sig = new(ctx)ir_function_signature(glsl_type::get_instance(outType[i], vec_size, 1));
-				sig->is_builtin = true;
-				sig->is_defined = true;
+				glsl_base_type inputTypes[2];
+				inputTypes[0] = inType[i];
+				inputTypes[1] = outType[i];
+				
+				for (int in_type = 0; in_type < sizeof(inputTypes) / sizeof(glsl_base_type); in_type++)
+				{
+					ir_function_signature* sig = new(ctx)ir_function_signature(glsl_type::get_instance(outType[i], vec_size, 1));
+					sig->is_builtin = true;
+					sig->is_defined = true;
 
-				/** Create parameter */
-				ir_variable* arg = make_var(ctx, glsl_type::get_instance(inType[i], vec_size, 1), 0, ir_var_in);
-				sig->parameters.push_tail(arg);
+					/** Create parameter */
+					ir_variable* arg = make_var(ctx, glsl_type::get_instance(inputTypes[in_type], vec_size, 1), 0, ir_var_in);
+					sig->parameters.push_tail(arg);
 
-				/** Generate the expression and return it */
-				ir_expression* expression = new(ctx)ir_expression(op[i], new(ctx)ir_dereference_variable(arg));
-				sig->body.push_tail(new(ctx)ir_return(expression));
+					/** Generate the expression and return it */
+					ir_rvalue* expression = NULL;
+					if (inputTypes[in_type] == inType[i])
+					{
+						expression = new(ctx)ir_expression(op[i], new(ctx)ir_dereference_variable(arg));
+					}
+					else
+					{
+						expression = convert_component(new(ctx)ir_dereference_variable(arg), glsl_type::get_instance(inputTypes[in_type], vec_size, 1));
+					}
+					sig->body.push_tail(new(ctx)ir_return(expression));
 
-				func[i]->add_signature(sig);
+					func[i]->add_signature(sig);
+				}
 			}
 		}
 		state->symbols->add_global_function(asuint);

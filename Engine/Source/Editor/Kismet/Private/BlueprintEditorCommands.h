@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EditorStyleSet.h"
+#include "Framework/Commands/Commands.h"
+
+class FNodeSpawnInfo;
+class UEdGraph;
+class UEdGraphNode;
+
 //////////////////////////////////////////////////////////////////////////
 // FBlueprintEditorCommands
 

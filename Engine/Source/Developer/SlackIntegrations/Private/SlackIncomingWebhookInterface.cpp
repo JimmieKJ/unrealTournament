@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlackIntegrationsPrivatePCH.h"
 #include "SlackIncomingWebhookInterface.h"
+#include "HttpModule.h"
 #include "SlackIntegrations.h"
 
 bool FSlackIncomingWebhookInterface::SendMessage(const FSlackIncomingWebhook& InWebhook, const FSlackMessage& InMessage) const

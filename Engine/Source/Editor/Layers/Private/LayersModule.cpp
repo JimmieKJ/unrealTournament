@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "LayersPrivatePCH.h"
+#include "LayersModule.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Editor.h"
+#include "Modules/ModuleManager.h"
+#include "LayerCollectionViewCommands.h"
+#include "ActorLayerCollectionViewModel.h"
+#include "SActorLayerCloud.h"
+#include "SLayerBrowser.h"
 
-#include "ModuleManager.h"
 
 IMPLEMENT_MODULE( FLayersModule, Layers );
 

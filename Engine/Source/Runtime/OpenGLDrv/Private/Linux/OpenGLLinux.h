@@ -6,13 +6,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/CommandLine.h"
+#include "RHI.h"
+
 #if !PLATFORM_LINUX
 	#error "OpenGLLinux.h included for a platform other than Linux."
 #endif
 
 	#include <GL/glcorearb.h>
 	#include <GL/glext.h>
-	#include "SDL.h"      
+	#include "SDL.h"
 
 /** List all OpenGL entry points used by Unreal. */
 #define ENUM_GL_ENTRYPOINTS(EnumMacro) \
@@ -294,6 +298,7 @@
 	EnumMacro(PFNGLBINDBUFFERRANGEPROC, glBindBufferRange)
 
 #define ENUM_GL_ENTRYPOINTS_OPTIONAL(EnumMacro) \
+	EnumMacro(PFNGLCLIPCONTROLPROC,glClipControl) \
 	EnumMacro(PFNGLDEBUGMESSAGECALLBACKARBPROC,glDebugMessageCallbackARB) \
 	EnumMacro(PFNGLDEBUGMESSAGECONTROLARBPROC,glDebugMessageControlARB) \
 	EnumMacro(PFNGLDEBUGMESSAGECALLBACKAMDPROC,glDebugMessageCallbackAMD) \
@@ -358,6 +363,7 @@
 
 /** Declare all GL functions. */
 #define DECLARE_GL_ENTRYPOINTS(Type,Func) extern Type Func;
+
 // We need to make pointer names different from GL functions otherwise we may end up getting
 // addresses of those symbols when looking for extensions.
 namespace GLFuncPointers

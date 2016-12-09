@@ -2,8 +2,15 @@
 
 #pragma once
 
-#include "SCurveEditor.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "ITimeSlider.h"
+#include "Sequencer.h"
+#include "SCurveEditor.h"
+
+class FSequencerCurveOwner;
+class USequencerSettings;
 
 /** A widget for displaying and managing an SCurveEditor in sequencer. */
 class SSequencerCurveEditor : public SCurveEditor

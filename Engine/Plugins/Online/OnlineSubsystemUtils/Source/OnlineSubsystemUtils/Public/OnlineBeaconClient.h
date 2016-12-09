@@ -1,14 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "TimerManager.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
 #include "OnlineBeacon.h"
 #include "OnlineBeaconClient.generated.h"
 
-class AOnlineBeaconHost;
 class AOnlineBeaconHostObject;
-class UNetConnection;
 class FInBunch;
+class UNetConnection;
+struct FUniqueNetIdRepl;
 
 /**
  * State of a connection.

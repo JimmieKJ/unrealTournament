@@ -1,10 +1,15 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "VREditorBaseActor.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Editor/VREditor/VREditorBaseActor.h"
 #include "ViewportInteractableInterface.h"
 #include "VREditorButton.generated.h"
+
+class UStaticMeshComponent;
+class UViewportInteractor;
 
 //Forward declarations
 class UViewportInteractor;

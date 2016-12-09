@@ -4,8 +4,8 @@
 ActorFactory.cpp:
 =============================================================================*/
 
-#include "UnrealEd.h"
 #include "ActorFactoryProceduralFoliage.h"
+#include "Settings/EditorExperimentalSettings.h"
 #include "ProceduralFoliageSpawner.h"
 #include "ProceduralFoliageVolume.h"
 #include "ProceduralFoliageComponent.h"

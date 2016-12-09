@@ -18,22 +18,22 @@ namespace UnrealBuildTool
 			CppPlatform = InCppPlatform;
 		}
 
-		public abstract CPPOutput CompileCPPFiles(UEBuildTarget Target, CPPEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName);
+		public abstract CPPOutput CompileCPPFiles(CPPEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName, ActionGraph ActionGraph);
 
-		public virtual CPPOutput CompileRCFiles(UEBuildTarget Target, CPPEnvironment Environment, List<FileItem> RCFiles)
+		public virtual CPPOutput CompileRCFiles(CPPEnvironment Environment, List<FileItem> RCFiles, ActionGraph ActionGraph)
 		{
 			CPPOutput Result = new CPPOutput();
 			return Result;
 		}
 
-		public abstract FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly);
-		public virtual FileItem[] LinkAllFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly)
+		public abstract FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph);
+		public virtual FileItem[] LinkAllFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
 		{
-			return new FileItem[] { LinkFiles(LinkEnvironment, bBuildImportLibraryOnly) };
+			return new FileItem[] { LinkFiles(LinkEnvironment, bBuildImportLibraryOnly, ActionGraph) };
 		}
 
 
-		public virtual void CompileCSharpProject(CSharpEnvironment CompileEnvironment, FileReference ProjectFileName, FileReference DestinationFile)
+		public virtual void CompileCSharpProject(CSharpEnvironment CompileEnvironment, FileReference ProjectFileName, FileReference DestinationFile, ActionGraph ActionGraph)
 		{
 		}
 
@@ -74,7 +74,7 @@ namespace UnrealBuildTool
 		{
 		}
 
-		public virtual ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment ExecutableLinkEnvironment)
+		public virtual ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment ExecutableLinkEnvironment, ActionGraph ActionGraph)
 		{
 			return new List<FileItem>();
 		}
@@ -106,7 +106,7 @@ namespace UnrealBuildTool
 			return true;
 		}
 
-		protected void AddPrerequisiteSourceFile(UEBuildTarget Target, UEBuildPlatform BuildPlatform, CPPEnvironment CompileEnvironment, FileItem SourceFile, List<FileItem> PrerequisiteItems)
+		protected void AddPrerequisiteSourceFile(UEBuildPlatform BuildPlatform, CPPEnvironment CompileEnvironment, FileItem SourceFile, List<FileItem> PrerequisiteItems)
 		{
 			PrerequisiteItems.Add(SourceFile);
 
@@ -123,7 +123,7 @@ namespace UnrealBuildTool
 				//		-> Two CASES:
 				//				1) NOT WORKING: Non-unity file went away (SourceFile in this context).  That seems like an existing old use case.  Compile params or Response file should have changed?
 				//				2) WORKING: Indirect file went away (unity'd original source file or include).  This would return a file that no longer exists and adds to the prerequiteitems list
-				List<FileItem> IncludedFileList = CPPEnvironment.FindAndCacheAllIncludedFiles(Target, SourceFile, BuildPlatform, CompileEnvironment.Config.CPPIncludeInfo, bOnlyCachedDependencies: BuildConfiguration.bUseUBTMakefiles);
+				List<FileItem> IncludedFileList = CompileEnvironment.Headers.FindAndCacheAllIncludedFiles(SourceFile, BuildPlatform, CompileEnvironment.Config.CPPIncludeInfo, bOnlyCachedDependencies: BuildConfiguration.bUseUBTMakefiles);
 				if (IncludedFileList != null)
 				{
 					foreach (FileItem IncludedFile in IncludedFileList)
@@ -155,5 +155,21 @@ namespace UnrealBuildTool
 			Log.TraceWarning("StripSymbols() has not been implemented for {0}; copying files", CppPlatform.ToString());
 			File.Copy(SourceFileName, TargetFileName, true);
 		}
+
+        public virtual bool PublishSymbols(DirectoryReference SymbolStoreDirectory, List<FileReference> Files, string Product)
+        {
+            Log.TraceWarning("PublishSymbols() has not been implemented for {0}", CppPlatform.ToString());
+            return false;
+        }
+
+        /// <summary>
+        /// When overridden, returns the directory structure of the platform's symbol server.
+        /// Each element is a semi-colon separated string of possible directory names.
+        /// The * wildcard is allowed in any entry. {0} will be substituted for a custom filter string.
+        /// </summary>
+        public virtual string[] SymbolServerDirectoryStructure
+        {
+             get { return null; }
+        }
 	};
 }

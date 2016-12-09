@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MeshUtilitiesPrivate.h"
 #include "Allocator2D.h"
 
 FAllocator2D::FAllocator2D( uint32 InWidth, uint32 InHeight )

@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
  
-#include "InternationalizationMetadata.h"
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Internationalization/InternationalizationMetadata.h"
 
 struct FTextSourceSiteContext
 {

@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
+#include "DDCCleanup.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/FileManager.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/ScopeLock.h"
+#include "Math/RandomStream.h"
 
 #include "DerivedDataBackendInterface.h"
-#include "DDCCleanup.h"
 
 /** Struct containing a list of directories to cleanup. */
 struct FFilesystemInfo

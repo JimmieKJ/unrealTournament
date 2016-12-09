@@ -4,43 +4,49 @@
 	GameEngine.cpp: Unreal game engine.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "ParticleDefinitions.h"
-#include "SoundDefinitions.h"
-#include "Net/UnrealNetwork.h"
-#include "AllocatorFixedSizeFreeList.h"
-#include "Database.h"
-#include "MallocProfiler.h"
+#include "Engine/GameEngine.h"
+#include "GenericPlatform/GenericPlatformSurvey.h"
+#include "Misc/CommandLine.h"
+#include "Misc/TimeGuard.h"
+#include "Misc/App.h"
+#include "GameMapsSettings.h"
+#include "EngineStats.h"
+#include "EngineGlobals.h"
+#include "RenderingThread.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/LevelStreaming.h"
+#include "Engine/PlatformInterfaceBase.h"
+#include "ContentStreaming.h"
+#include "UnrealEngine.h"
+#include "HAL/PlatformSplash.h"
+#include "UObject/Package.h"
+#include "GameFramework/GameModeBase.h"
+#include "EngineUtils.h"
+#include "Framework/Application/SlateApplication.h"
+#include "AudioDeviceManager.h"
 #include "Net/NetworkProfiler.h"
-#include "ConfigCacheIni.h"
+#include "RendererInterface.h"
 #include "EngineModule.h"
-#include "Engine/GameInstance.h"
-#include "Engine/RendererSettings.h"
-#include "Engine/UserInterfaceSettings.h"
 #include "GeneralProjectSettings.h"
+#include "Misc/PackageName.h"
 
-#include "SlateBasics.h"
 #include "Slate/SceneViewport.h"
-#include "SVirtualJoystick.h"
 
+#include "IMovieSceneCapture.h"
 #include "MovieSceneCaptureModule.h"
-#include "MovieSceneCaptureSettings.h"
 
-#include "AssetRegistryModule.h"
 #include "SynthBenchmark.h"
 
-#include "IHeadMountedDisplay.h"
-#include "RendererInterface.h"
-#include "HotReloadInterface.h"
-#include "SGameLayerManager.h"
+#include "Misc/HotReloadInterface.h"
+#include "Engine/LocalPlayer.h"
+#include "Slate/SGameLayerManager.h"
 #include "Components/SkyLightComponent.h"
 #include "Components/ReflectionCaptureComponent.h"
-#include "Engine/GameEngine.h"
 #include "GameFramework/GameUserSettings.h"
-#include "GameFramework/GameMode.h"
 #include "GameDelegates.h"
 #include "Engine/CoreSettings.h"
 #include "EngineAnalytics.h"
+#include "Engine/DemoNetDriver.h"
 
 #include "Tickable.h"
 
@@ -56,6 +62,12 @@ static FAutoConsoleVariableRef CvarSlowFrameLoggingThreshold(
 	ECVF_Default
 	);
 
+static int32 GDoAsyncEndOfFrameTasks = 0;
+static FAutoConsoleVariableRef CVarDoAsyncEndOfFrameTasks(
+	TEXT("tick.DoAsyncEndOfFrameTasks"),
+	GDoAsyncEndOfFrameTasks,
+	TEXT("Experimental option to run various things concurrently with the HUD render.")
+	);
 
 /** Benchmark results to the log */
 static void RunSynthBenchmark(const TArray<FString>& Args)
@@ -331,6 +343,10 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 	const FText WindowTitle = FText::Format(WindowTitleVar, Args);
 	const bool bShouldPreserveAspectRatio = GetDefault<UGeneralProjectSettings>()->bShouldWindowPreserveAspectRatio;
 	const bool bUseBorderlessWindow = GetDefault<UGeneralProjectSettings>()->bUseBorderlessWindow;
+	const bool bAllowWindowResize = GetDefault<UGeneralProjectSettings>()->bAllowWindowResize;
+	const bool bAllowClose = GetDefault<UGeneralProjectSettings>()->bAllowClose;
+	const bool bAllowMaximize = GetDefault<UGeneralProjectSettings>()->bAllowMaximize;
+	const bool bAllowMinimize = GetDefault<UGeneralProjectSettings>()->bAllowMinimize;
 
 	// Allow optional winX/winY parameters to set initial window position
 	EAutoCenter::Type AutoCenterType = EAutoCenter::PrimaryWorkArea;
@@ -387,7 +403,11 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 	.UseOSWindowBorder(!bUseBorderlessWindow)
 	.CreateTitleBar(!bUseBorderlessWindow)
 	.ShouldPreserveAspectRatio(bShouldPreserveAspectRatio)
-	.LayoutBorder(bUseBorderlessWindow ? FMargin(0) : FMargin(5, 5, 5, 5));
+	.LayoutBorder(bUseBorderlessWindow ? FMargin(0) : FMargin(5, 5, 5, 5))
+	.SizingRule(bAllowWindowResize ? ESizingRule::UserSized : ESizingRule::FixedSize)
+	.HasCloseButton(bAllowClose)
+	.SupportsMinimize(bAllowMinimize)
+	.SupportsMaximize(bAllowMaximize);
 
 	const bool bShowImmediately = false;
 
@@ -489,6 +509,9 @@ UEngine::UEngine(const FObjectInitializer& ObjectInitializer)
 	C_BrushShape = FColor(128, 255, 128, 255);
 
 	SelectionHighlightIntensity = 0.0f;
+#if WITH_EDITOR
+	SelectionMeshSectionHighlightIntensity = 0.2f;
+#endif
 	BSPSelectionHighlightIntensity = 0.0f;
 	HoverHighlightIntensity = 10.f;
 
@@ -504,11 +527,12 @@ UEngine::UEngine(const FObjectInitializer& ObjectInitializer)
 
 	bCanBlueprintsTickByDefault = true;
 	bOptimizeAnimBlueprintMemberVariableAccess = true;
+	bAllowMultiThreadedAnimationUpdate = true;
 
 	bUseFixedFrameRate = false;
 	FixedFrameRate = 30.f;
-	ServerSchedulerSlack = 0.f;
-	ServerSchedulerMinSleep = 0.f;
+
+	bIsVanillaProduct = false;
 }
 
 void UGameEngine::Init(IEngineLoop* InEngineLoop)
@@ -663,11 +687,42 @@ void UGameEngine::FinishDestroy()
 	Super::FinishDestroy();
 }
 
-bool UGameEngine::NetworkRemapPath(UWorld* InWorld, FString& Str, bool bReading /*= true*/)
+bool UGameEngine::NetworkRemapPath(UNetDriver* Driver, FString& Str, bool bReading /*= true*/)
 {
+	if (Driver == nullptr)
+	{
+		return false;
+	}
+
+	UWorld* const World = Driver->GetWorld();
+
+	// If the driver is using a duplicate level ID, find the level collection using the driver
+	// and see if any of its levels match the prefixed name. If so, remap Str to that level's
+	// prefixed name.
+	if (Driver->GetDuplicateLevelID() != INDEX_NONE && bReading)
+	{
+		const FName PrefixedName = *UWorld::ConvertToPIEPackageName(Str, Driver->GetDuplicateLevelID());
+
+		for (const FLevelCollection& Collection : World->GetLevelCollections())
+		{
+			if (Collection.GetNetDriver() == Driver || Collection.GetDemoNetDriver() == Driver)
+			{
+				for (const ULevel* Level : Collection.GetLevels())
+				{
+					const UPackage* const CachedOutermost = Level ? Level->GetOutermost() : nullptr;
+					if (CachedOutermost && CachedOutermost->GetFName() == PrefixedName)
+					{
+						Str = PrefixedName.ToString();
+						return true;
+					}
+				}
+			}
+		}
+	}
+
 	// If the game has created multiple worlds, some of them may have prefixed package names,
 	// so we need to remap the world package and streaming levels for replay playback to work correctly.
-	FWorldContext& Context = GetWorldContextFromWorldChecked(InWorld);
+	FWorldContext& Context = GetWorldContextFromWorldChecked(World);
 	if (Context.PIEInstance == INDEX_NONE || !bReading)
 	{
 		return false;
@@ -679,7 +734,7 @@ bool UGameEngine::NetworkRemapPath(UWorld* InWorld, FString& Str, bool bReading 
 
 	const FString PrefixedFullName = UWorld::ConvertToPIEPackageName(Str, Context.PIEInstance);
 	const FString PrefixedPackageName = UWorld::ConvertToPIEPackageName(PackageNameOnly, Context.PIEInstance);
-	const FString WorldPackageName = InWorld->GetOutermost()->GetName();
+	const FString WorldPackageName = World->GetOutermost()->GetName();
 
 	if (WorldPackageName == PrefixedPackageName)
 	{
@@ -687,7 +742,7 @@ bool UGameEngine::NetworkRemapPath(UWorld* InWorld, FString& Str, bool bReading 
 		return true;
 	}
 
-	for( ULevelStreaming* StreamingLevel : InWorld->StreamingLevels)
+	for( ULevelStreaming* StreamingLevel : World->StreamingLevels)
 	{
 		if (StreamingLevel != nullptr)
 		{
@@ -701,6 +756,11 @@ bool UGameEngine::NetworkRemapPath(UWorld* InWorld, FString& Str, bool bReading 
 	}
 
 	return false;
+}
+
+bool UGameEngine::ShouldDoAsyncEndOfFrameTasks() const
+{
+	return FApp::ShouldUseThreadingForPerformance() && ENamedThreads::RenderThread != ENamedThreads::GameThread && !!GDoAsyncEndOfFrameTasks;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1119,7 +1179,7 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_UGameEngine_Tick_ConditionalCommitMapChange);
 		ConditionalCommitMapChange(Context);
 
-		if (Context.WorldType != EWorldType::Preview && !Context.World()->IsPaused())
+		if (Context.WorldType != EWorldType::EditorPreview && !Context.World()->IsPaused())
 		{
 			bIsAnyNonPreviewWorldUnpaused = true;
 		}

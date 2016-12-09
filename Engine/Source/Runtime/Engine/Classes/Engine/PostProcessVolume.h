@@ -7,8 +7,12 @@
 
 #pragma once
 
-#include "Scene.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptInterface.h"
 #include "GameFramework/Volume.h"
+#include "Engine/BlendableInterface.h"
+#include "Engine/Scene.h"
 #include "Interfaces/Interface_PostProcessVolume.h"
 
 #include "PostProcessVolume.generated.h"

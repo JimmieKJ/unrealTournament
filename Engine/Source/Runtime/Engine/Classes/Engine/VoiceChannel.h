@@ -5,9 +5,15 @@
 //
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
 #include "Engine/Channel.h"
 #include "Net/VoiceDataCommon.h"
 #include "VoiceChannel.generated.h"
+
+class FInBunch;
 
 UCLASS(transient, customConstructor)
 class ENGINE_API UVoiceChannel : public UChannel

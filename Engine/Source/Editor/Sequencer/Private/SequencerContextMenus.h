@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
 #include "Sequencer.h"
 #include "SequencerClipboardReconciler.h"
+
+class FMenuBuilder;
 
 /**
  * Class responsible for generating a menu for the currently selected sections.

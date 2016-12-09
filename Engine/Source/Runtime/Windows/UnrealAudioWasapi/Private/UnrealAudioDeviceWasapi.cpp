@@ -19,8 +19,6 @@
 
 #if ENABLE_UNREAL_AUDIO
 
-DEFINE_LOG_CATEGORY(LogUnrealAudioDevice);
-
 // See MSDN documentation for what these error codes mean in the context of the API call
 static const TCHAR* GetWasapiError(HRESULT Result)
 {

@@ -7,6 +7,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/Guid.h"
+#include "BuildPatchProgress.h"
+#include "BuildPatchManifest.h"
+
+class FBuildPatchInstallationInfo;
+
 // Forward decelerations
 class FBuildPatchAppManifest;
 class FBuildPatchInstallationInfo;
@@ -196,15 +204,15 @@ public:
 
 	/**
 	 * Constructor takes required arguments
-	 * @param	InInstallManifet		The manifest for build being installed
-	 * @param	InCurrentManifest		The manifest for build currently installed
-	 * @param	InChunkCacheStage		A stage where we can save chunks to if necessary
-	 * @param	InCurrentInstallDir		The directory of the current install
-	 * @param	InBuildProgress			Pointer to the progress tracking class, also used for pause.
-	 * @param	FilesToConstruct		List of files that are going to be constructed
-	 * @param	InstallationInfoRef		Reference to the module's installation info that keeps record of locally installed apps for use as chunk sources
+	 * @param	InInstallManifet        The manifest for build being installed
+	 * @param	InCurrentManifest       The manifest for build currently installed
+	 * @param	InChunkCacheStage       A stage where we can save chunks to if necessary
+	 * @param	InCurrentInstallDir     The directory of the current install
+	 * @param	InBuildProgress         Pointer to the progress tracking class, also used for pause.
+	 * @param	FilesToConstruct        Set of files that are going to be constructed
+	 * @param	InstallationInfoRef     Reference to the module's installation info that keeps record of locally installed apps for use as chunk sources
 	 */
-	FBuildPatchChunkCache(const FBuildPatchAppManifestRef& InInstallManifet, const FBuildPatchAppManifestPtr& InCurrentManifest, const FString& InChunkCacheStage, const FString& InCurrentInstallDir, FBuildPatchProgress* InBuildProgress, TArray< FString >& FilesToConstruct, FBuildPatchInstallationInfo& InstallationInfoRef);
+	FBuildPatchChunkCache(const FBuildPatchAppManifestRef& InInstallManifet, const FBuildPatchAppManifestPtr& InCurrentManifest, const FString& InChunkCacheStage, const FString& InCurrentInstallDir, FBuildPatchProgress* InBuildProgress, const TSet<FString>& FilesToConstruct, FBuildPatchInstallationInfo& InstallationInfoRef);
 
 	/**
 	 * Gets hold of a chunk file class to provide access to chunk data. It will be blocking until the chunk is available in memory
@@ -365,7 +373,7 @@ private:
 /* Here we have static access for the singleton
 *****************************************************************************/
 public:
-	static void Init(const FBuildPatchAppManifestRef& InInstallManifet, const FBuildPatchAppManifestPtr& InCurrentManifest, const FString& InChunkCacheStage, const FString& InCurrentInstallDir, FBuildPatchProgress* InBuildProgress, TArray<FString>& FilesToConstruct, FBuildPatchInstallationInfo& ChunkRecyclerRef);
+	static void Init(const FBuildPatchAppManifestRef& InInstallManifet, const FBuildPatchAppManifestPtr& InCurrentManifest, const FString& InChunkCacheStage, const FString& InCurrentInstallDir, FBuildPatchProgress* InBuildProgress, const TSet<FString>& FilesToConstruct, FBuildPatchInstallationInfo& ChunkRecyclerRef);
 	static FBuildPatchChunkCache& Get();
 	static void Shutdown();
 	static bool IsAvailable();

@@ -1,9 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Camera/CameraTypes.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptInterface.h"
 #include "Components/SceneComponent.h"
+#include "Engine/BlendableInterface.h"
+#include "Engine/Scene.h"
+#include "Camera/CameraTypes.h"
 #include "CameraComponent.generated.h"
+
+class UStaticMesh;
 
 /**
   * Represents a camera viewpoint and settings, such as projection type, field of view, and post-process overrides.

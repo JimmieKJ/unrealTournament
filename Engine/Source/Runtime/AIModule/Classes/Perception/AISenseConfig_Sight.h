@@ -2,10 +2,17 @@
 
 #pragma once
 
-#include "AISenseConfig.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Perception/AIPerceptionTypes.h"
+#include "Perception/AISense.h"
+#include "Perception/AISenseConfig.h"
+#include "Perception/AISense_Sight.h"
 #include "AISenseConfig_Sight.generated.h"
 
-class UAISense_Sight;
+class FGameplayDebuggerCategory;
+class UAIPerceptionComponent;
 
 UCLASS(meta = (DisplayName = "AI Sight config"))
 class AIMODULE_API UAISenseConfig_Sight : public UAISenseConfig

@@ -5,11 +5,12 @@
 =============================================================================*/
 
 #pragma once
+
+#include "CoreMinimal.h"
 #include "Engine/EngineTypes.h"
 #include "UObject/GCObject.h"
 
 class FPrimitiveDrawInterface;
-class FReferenceCollector;
 class FSceneView;
 class UMaterial;
 class UMaterialInstanceDynamic;
@@ -57,8 +58,6 @@ public:
 
 	/** Draw green lines to indicate what the selected actor(s) are based on. */
 	void DrawBaseInfo(const FSceneView* View,FPrimitiveDrawInterface* PDI);
-
-	void AddReferencedObjects( FReferenceCollector& Collector );
 
 private:
 

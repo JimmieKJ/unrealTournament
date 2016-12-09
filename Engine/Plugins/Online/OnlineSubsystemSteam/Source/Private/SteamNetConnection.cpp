@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
-#include "Classes/SteamNetConnection.h"
+#include "SteamNetConnection.h"
+#include "OnlineSubsystemNames.h"
+#include "OnlineSubsystem.h"
+#include "SocketSubsystem.h"
+#include "OnlineSubsystemSteamPrivate.h"
 #include "IPAddressSteam.h"
 #include "SocketSubsystemSteam.h"
 #include "SocketsSteam.h"

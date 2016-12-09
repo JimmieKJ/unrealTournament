@@ -4,7 +4,8 @@
 	ScreenShotData.cpp: Implements the FScreenShotData class.
 =============================================================================*/
 
-#include "ScreenShotComparisonToolsPrivatePCH.h"
+#include "ScreenShotBaseNode.h"
+#include "ScreenShotScreenNode.h"
 
 
 /* IScreenShotData interface

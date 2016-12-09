@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_CommutativeAssociativeBinaryOperator.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #include "ScopedTransaction.h"
 
@@ -291,8 +295,9 @@ void UK2Node_CommutativeAssociativeBinaryOperator::ExpandNode(FKismetCompilerCon
 			CompilerContext.MovePinLinksToIntermediate(*CurrentPin, *NewOperatorInputB);
 
 			LastOutPin = NewOperator->FindOutPin();
-			check(LastOutPin);
 		}
+
+		check(LastOutPin);
 
 		UEdGraphPin* TrueOutPin = FindOutPin();
 		check(TrueOutPin);

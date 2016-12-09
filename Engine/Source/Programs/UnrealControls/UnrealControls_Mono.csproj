@@ -97,7 +97,7 @@
     <Compile Include="OutputWindowView.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="OutputWindowView.designer.cs">
+    <Compile Include="OutputWindowView.Designer.cs">
       <DependentUpon>OutputWindowView.cs</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />

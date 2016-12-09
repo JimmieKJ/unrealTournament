@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Developer/LogVisualizer/Private/LogVisualizerPrivate.h"
 
 /**
 * Implements the messaging debugger toolbar widget.

@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Info.h"
 #include "ExponentialHeightFog.generated.h"
-
 
 /**
  * Implements an Actor for exponential height fog.

@@ -53,7 +53,7 @@ namespace AutomationTool
 		/// Creates a new process and adds it to the tracking list.
 		/// </summary>
 		/// <returns>New Process objects</returns>
-		public static ProcessResult CreateProcess(string AppName, bool bAllowSpew, string LogName, Dictionary<string, string> Env = null, UnrealBuildTool.LogEventType SpewVerbosity = UnrealBuildTool.LogEventType.Console, ProcessResult.SpewFilterCallbackType SpewFilterCallback = null)
+		public static IProcessResult CreateProcess(string AppName, bool bAllowSpew, string LogName, Dictionary<string, string> Env = null, UnrealBuildTool.LogEventType SpewVerbosity = UnrealBuildTool.LogEventType.Console, ProcessResult.SpewFilterCallbackType SpewFilterCallback = null)
 		{
 			var NewProcess = HostPlatform.Current.CreateProcess(LogName);
 			if (Env != null)
@@ -207,10 +207,23 @@ namespace AutomationTool
 
 	#region ProcessResult Helper Class
 
+	public interface IProcessResult : IProcess
+	{
+		void OnProcessExited();
+		void DisposeProcess();
+		void StdOut(object sender, DataReceivedEventArgs e);
+		void StdErr(object sender, DataReceivedEventArgs e);
+		int ExitCode{ get;set; }
+		string Output {get;}
+		Process ProcessObject {get;}
+		string ToString();
+		void WaitForExit();
+	}
+	
 	/// <summary>
 	/// Class containing the result of process execution.
 	/// </summary>
-	public class ProcessResult : IProcess
+	public class ProcessResult : IProcessResult
 	{
 		public delegate string SpewFilterCallbackType(string Message);
 
@@ -306,8 +319,11 @@ namespace AutomationTool
 					}
 				}
 
-				ProcessOutput.Append(e.Data);
-				ProcessOutput.Append(Environment.NewLine);
+				lock (ProcSyncObject)
+				{
+					ProcessOutput.Append(e.Data);
+					ProcessOutput.Append(Environment.NewLine);
+				}
 			}
 			else
 			{
@@ -336,9 +352,11 @@ namespace AutomationTool
 				{
 					LogOutput(SpewVerbosity, e.Data);
 				}
-
-				ProcessOutput.Append(e.Data);
-				ProcessOutput.Append(Environment.NewLine);
+				lock (ProcSyncObject)
+				{
+					ProcessOutput.Append(e.Data);
+					ProcessOutput.Append(Environment.NewLine);
+				}
 			}
 			else
 			{
@@ -370,7 +388,13 @@ namespace AutomationTool
 		/// </summary>
 		public string Output
 		{
-			get { return ProcessOutput.ToString(); }
+			get
+			{
+				lock (ProcSyncObject)
+				{
+					return ProcessOutput.ToString();
+				}
+			}
 		}
 
 		public bool HasExited
@@ -707,7 +731,7 @@ namespace AutomationTool
 		/// <param name="Env">Environment to pass to program.</param>
 		/// <param name="FilterCallback">Callback to filter log spew before output.</param>
 		/// <returns>Object containing the exit code of the program as well as it's stdout output.</returns>
-		public static ProcessResult Run(string App, string CommandLine = null, string Input = null, ERunOptions Options = ERunOptions.Default, Dictionary<string, string> Env = null, ProcessResult.SpewFilterCallbackType SpewFilterCallback = null)
+		public static IProcessResult Run(string App, string CommandLine = null, string Input = null, ERunOptions Options = ERunOptions.Default, Dictionary<string, string> Env = null, ProcessResult.SpewFilterCallbackType SpewFilterCallback = null)
 		{
 			App = ConvertSeparators(PathSeparator.Default, App);
 
@@ -750,7 +774,7 @@ namespace AutomationTool
             {
                 LogWithVerbosity(SpewVerbosity,"Run: " + App + " " + (String.IsNullOrEmpty(CommandLine) ? "" : CommandLine));
             }
-			ProcessResult Result = ProcessManager.CreateProcess(App, Options.HasFlag(ERunOptions.AllowSpew), LogName, Env, SpewVerbosity:SpewVerbosity, SpewFilterCallback: SpewFilterCallback);
+			IProcessResult Result = ProcessManager.CreateProcess(App, Options.HasFlag(ERunOptions.AllowSpew), LogName, Env, SpewVerbosity:SpewVerbosity, SpewFilterCallback: SpewFilterCallback);
 			Process Proc = Result.ProcessObject;
 
 			bool bRedirectStdOut = (Options & ERunOptions.NoStdOutRedirect) != ERunOptions.NoStdOutRedirect;			
@@ -861,7 +885,7 @@ namespace AutomationTool
 		/// <param name="FilterCallback">Callback to filter log spew before output.</param>
 		public static string RunAndLog(string App, string CommandLine, string Logfile = null, int MaxSuccessCode = 0, string Input = null, ERunOptions Options = ERunOptions.Default, Dictionary<string, string> EnvVars = null, ProcessResult.SpewFilterCallbackType SpewFilterCallback = null)
         {
-			ProcessResult Result = Run(App, CommandLine, Input, Options, EnvVars, SpewFilterCallback);
+			IProcessResult Result = Run(App, CommandLine, Input, Options, EnvVars, SpewFilterCallback);
             if (Result.Output.Length > 0 && Logfile != null)
             {
                 WriteToFile(Logfile, Result.Output);
@@ -875,7 +899,7 @@ namespace AutomationTool
                 Logfile = "[None!, no output produced]";
             }
 
-            if (Result > MaxSuccessCode || Result < 0)
+            if (Result.ExitCode > MaxSuccessCode || Result.ExitCode < 0)
             {
                 throw new CommandFailedException((ExitCode)Result.ExitCode, String.Format("Command failed (Result:{3}): {0} {1}. See logfile for details: '{2}' ",
                                                 App, CommandLine, Path.GetFileName(Logfile), Result.ExitCode));
@@ -897,7 +921,7 @@ namespace AutomationTool
 		/// <returns>Whether the program executed successfully or not.</returns>
 		public static string RunAndLog(string App, string CommandLine, out int SuccessCode, string Logfile = null, Dictionary<string, string> EnvVars = null, ProcessResult.SpewFilterCallbackType SpewFilterCallback = null)
         {
-			ProcessResult Result = Run(App, CommandLine, Env: EnvVars, SpewFilterCallback: SpewFilterCallback);
+			IProcessResult Result = Run(App, CommandLine, Env: EnvVars, SpewFilterCallback: SpewFilterCallback);
             SuccessCode = Result.ExitCode;
             if (Result.Output.Length > 0 && Logfile != null)
             {
@@ -991,7 +1015,7 @@ namespace AutomationTool
 				OSEnv.Add(AutomationTool.EnvVarNames.LocalRoot, ""); // if we don't clear this out, it will think it is a build machine; it will rederive everything
 			}
 
-			ProcessResult Result = Run(App, CommandLine, null, ERunOptions.Default, OSEnv);
+			IProcessResult Result = Run(App, CommandLine, null, ERunOptions.Default, OSEnv);
 			if (Result.Output.Length > 0)
 			{
 				WriteToFile(LogFile, Result.Output);
@@ -1027,7 +1051,7 @@ namespace AutomationTool
 			}
             DeleteDirectory_NoExceptions(LogSubdir);
 
-			if (Result != 0)
+			if (Result.ExitCode != 0)
 			{
 				throw new CommandFailedException(String.Format("Recursive UAT Command failed (Result:{3}): {0} {1}. See logfile for details: '{2}' ",
 																				App, CommandLine, Path.GetFileName(LogFile), Result.ExitCode));
@@ -1042,7 +1066,7 @@ namespace AutomationTool
 		/// <param name="LogFilename">Name of the log file.</param>
 		/// <param name="LogProcess">Process that writes to the log file.</param>
 		/// <param name="OnLogRead">Callback used to process the recently read log contents.</param>
-		protected static void LogFileReaderProcess(string LogFilename, ProcessResult LogProcess, ProcessLog OnLogRead = null)
+		protected static void LogFileReaderProcess(string LogFilename, IProcessResult LogProcess, ProcessLog OnLogRead = null)
 		{
 			while (!FileExists(LogFilename) && !LogProcess.HasExited)
 			{

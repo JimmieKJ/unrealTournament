@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Parse.h"
+#include "Logging/LogMacros.h"
+#include "Math/Vector.h"
+#include "Math/VectorRegister.h"
 
 /**
  * Implements a container for rotation information.
@@ -732,3 +739,20 @@ FORCEINLINE bool FRotator::ContainsNaN() const
 
 
 template<> struct TIsPODType<FRotator> { enum { Value = true }; };
+
+
+/* FMath inline functions
+ *****************************************************************************/
+
+template<class U>
+FORCEINLINE_DEBUGGABLE FRotator FMath::Lerp(const FRotator& A, const FRotator& B, const U& Alpha)
+{
+	return A + (B - A).GetNormalized() * Alpha;
+}
+
+template<class U>
+FORCEINLINE_DEBUGGABLE FRotator FMath::LerpRange(const FRotator& A, const FRotator& B, const U& Alpha)
+{
+	// Similar to Lerp, but does not take the shortest path. Allows interpolation over more than 180 degrees.
+	return (A * (1 - Alpha) + B * Alpha).GetNormalized();
+}

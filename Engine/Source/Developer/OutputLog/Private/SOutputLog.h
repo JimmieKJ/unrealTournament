@@ -1,11 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "BaseTextLayoutMarshaller.h"
-#include "TextFilterExpressionEvaluator.h"
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Framework/Text/BaseTextLayoutMarshaller.h"
+#include "Misc/TextFilterExpressionEvaluator.h"
+
+class FMenuBuilder;
 class FOutputLogTextLayoutMarshaller;
-class SSearchBox;
+class FTextLayout;
+class SMenuAnchor;
+class SMultiLineEditableTextBox;
 
 /**
 * A single log message for the output log, holding a message and
@@ -158,6 +171,9 @@ struct FLogFilter
 	/** Set the Text to be used as the Filter's restrictions */
 	void SetFilterText(const FText& InFilterText) { TextFilterExpressionEvaluator.SetFilterText(InFilterText); }
 
+	/** Get the Text currently being used as the Filter's restrictions */
+	const FText GetFilterText() const { return TextFilterExpressionEvaluator.GetFilterText(); }
+
 	/** Returns Evaluator syntax errors (if any) */
 	FText GetSyntaxErrors() { return TextFilterExpressionEvaluator.GetFilterErrorText(); }
 
@@ -254,6 +270,9 @@ protected:
 private:
 	/** Called by Slate when the filter box changes text. */
 	void OnFilterTextChanged(const FText& InFilterText);
+
+	/** Called by Slate when the filter text box is confirmed. */
+	void OnFilterTextCommitted(const FText& InFilterText, ETextCommit::Type InCommitType); 
 
 	/** Make the "Filters" menu. */
 	TSharedRef<SWidget> MakeAddFilterMenu();

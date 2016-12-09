@@ -2,7 +2,9 @@
 
 #pragma once 
 
-#include "Commandlets/Commandlet.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Commandlets/GatherTextCommandletBase.h"
 #include "InternationalizationExportCommandlet.generated.h"
 
 class FPortableObjectFormatDOM;

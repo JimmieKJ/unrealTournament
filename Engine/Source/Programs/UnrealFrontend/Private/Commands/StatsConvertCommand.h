@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "StatsData.h"
 #include "StatsFile.h"
 

@@ -4,13 +4,9 @@
 	VertexFactory.cpp: Vertex factory implementation
 =============================================================================*/
 
-#include "ShaderCorePrivatePCH.h"
-#include "ShaderCore.h"
-#include "Shader.h"
 #include "VertexFactory.h"
-#include "RHICommandList.h"
-
-#include "DebugSerializationFlags.h"
+#include "Serialization/MemoryWriter.h"
+#include "UObject/DebugSerializationFlags.h"
 
 uint32 FVertexFactoryType::NextHashIndex = 0;
 bool FVertexFactoryType::bInitializedSerializationHistory = false;

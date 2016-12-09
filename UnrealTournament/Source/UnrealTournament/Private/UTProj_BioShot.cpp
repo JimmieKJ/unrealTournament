@@ -363,7 +363,7 @@ void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
 {
 	// Don't constantly explode in blueprint preview
-	if (GetWorld()->WorldType == EWorldType::Preview)
+	if (GetWorld()->WorldType == EWorldType::EditorPreview)
 	{
 		Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 		return;

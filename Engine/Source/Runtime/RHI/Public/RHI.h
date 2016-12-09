@@ -6,11 +6,17 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
 #include "RHIDefinitions.h"
-#include "StaticArray.h"
+#include "Containers/StaticArray.h"
 
 #define INVALID_FENCE_ID (0xffffffffffffffffull)
+
+class FRenderTarget;
+class FResourceArrayInterface;
+class FResourceBulkDataInterface;
+struct Rect;
 
 inline const bool IsValidFenceID( const uint64 FenceID )
 {
@@ -90,6 +96,9 @@ RHI_API bool IsRHIDeviceIntel();
 // to trigger GPU specific optimizations and fallbacks
 RHI_API bool IsRHIDeviceNVIDIA();
 
+// helper to convert GRHIVendorId into a printable string, or "Unknown" if unknown.
+RHI_API const TCHAR* RHIVendorIdToString();
+
 /** true if PF_G8 render targets are supported */
 extern RHI_API bool GSupportsRenderTargetFormat_PF_G8;
 
@@ -123,8 +132,14 @@ extern RHI_API bool GSupportsSeparateRenderTargetBlendState;
 /** True if the RHI can render to a depth-only render target with no additional color render target. */
 extern RHI_API bool GSupportsDepthRenderTargetWithoutColorRenderTarget;
 
+/** True if the RHI has artifacts with atlased CSM depths. */
+extern RHI_API bool GRHINeedsUnatlasedCSMDepthsWorkaround;
+
 /** true if the RHI supports 3D textures */
 extern RHI_API bool GSupportsTexture3D;
+
+/** true if the RHI supports mobile multi-view */
+extern RHI_API bool GSupportsMobileMultiView;
 
 /** true if the RHI supports SRVs */
 extern RHI_API bool GSupportsResourceView;
@@ -185,6 +200,12 @@ FORCEINLINE uint32 GetMaxTextureArrayLayers()
 	return GMaxTextureArrayLayers;
 }
 
+extern RHI_API int32 GMaxTextureSamplers;
+FORCEINLINE uint32 GetMaxTextureSamplers()
+{
+	return GMaxTextureSamplers;
+}
+
 /** true if we are running with the NULL RHI */
 extern RHI_API bool GUsingNullRHI;
 
@@ -241,6 +262,9 @@ extern RHI_API bool GRHISupportsBaseVertexIndex;
 /** True if the RHI supports hardware instancing */
 extern RHI_API bool GRHISupportsInstancing;
 
+/** True if the RHI supports copying cubemap faces using CopyToResolveTarget */
+extern RHI_API bool GRHISupportsResolveCubemapFaces;
+
 /** Whether or not the RHI can handle a non-zero FirstInstance - extra SetStreamSource calls will be needed if this is false */
 extern RHI_API bool GRHISupportsFirstInstance;
 
@@ -260,12 +284,18 @@ extern RHI_API bool GRHISupportsRHIThread;
 
 /** Whether or not the RHI supports parallel RHIThread executes / translates
 Requirements:
-* RHICreateBoundShaderState is threadsafe and GetCachedBoundShaderState must not be used. GetCachedBoundShaderState_Threadsafe has a slightly different protocol.
+* RHICreateBoundShaderState & RHICreateGraphicsPipelineState is threadsafe and GetCachedBoundShaderState must not be used. GetCachedBoundShaderState_Threadsafe has a slightly different protocol.
 ***/
 extern RHI_API bool GRHISupportsParallelRHIExecute;
 
 /** Whether or not the RHI can perform MSAA sample load. */
 extern RHI_API bool GRHISupportsMSAADepthSampleAccess;
+
+/** Whether the present adapter/display offers HDR output capabilities. */
+extern RHI_API bool GRHISupportsHDROutput;
+
+/** Format used for the backbuffer when outputting to a HDR display. */
+extern RHI_API EPixelFormat GRHIHDRDisplayOutputFormat;
 
 /** Called once per frame only from within an RHI. */
 extern RHI_API void RHIPrivateBeginFrame();
@@ -555,6 +585,7 @@ struct FSamplerStateInitializerRHI
 		return Ar;
 	}
 };
+
 struct FRasterizerStateInitializerRHI
 {
 	TEnumAsByte<ERasterizerFillMode> FillMode;
@@ -575,6 +606,7 @@ struct FRasterizerStateInitializerRHI
 		return Ar;
 	}
 };
+
 struct FDepthStencilStateInitializerRHI
 {
 	bool bEnableDepthWrite;
@@ -644,6 +676,7 @@ struct FDepthStencilStateInitializerRHI
 		return Ar;
 	}
 };
+
 class FBlendStateInitializerRHI
 {
 public:

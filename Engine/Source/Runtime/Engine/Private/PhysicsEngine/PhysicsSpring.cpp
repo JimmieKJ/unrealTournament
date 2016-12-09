@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "CollisionQueryParams.h"
+#include "WorldCollision.h"
+#include "Engine/World.h"
+#include "Components/PrimitiveComponent.h"
 #include "PhysicsEngine/PhysicsSpringComponent.h"
-#include "PhysXSupport.h"
 
 
 UPhysicsSpringComponent::UPhysicsSpringComponent(const FObjectInitializer& ObjectInitializer)

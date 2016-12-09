@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Policies/PrettyJsonPrintPolicy.h"
+#include "Curves/CurveOwnerInterface.h"
 #include "CurveTable.generated.h"
-
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogCurveTable, Log, All);
 
@@ -21,6 +26,7 @@ class TJsonWriter;
 UCLASS(MinimalAPI)
 class UCurveTable
 	: public UObject
+	, public FCurveOwnerInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -46,6 +52,15 @@ class UCurveTable
 #endif	// WITH_EDITORONLY_DATA
 
 	//~ End  UObject Interface
+
+	//~ Begin FCurveOwnerInterface Interface.
+	virtual TArray<FRichCurveEditInfoConst> GetCurves() const override;
+	virtual TArray<FRichCurveEditInfo> GetCurves() override;
+	virtual void ModifyOwner() override;
+	virtual void MakeTransactional() override;
+	virtual void OnCurveChanged(const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos) override;
+	virtual bool IsValidCurve(FRichCurveEditInfo CurveInfo) override;
+	//~ End FCurveOwnerInterface Interface.
 
 	//~ Begin UCurveTable Interface
 
@@ -78,8 +93,8 @@ class UCurveTable
 	/** Output entire contents of table as JSON */
 	ENGINE_API FString GetTableAsJSON() const;
 
-	/** Output entire contents of table as JSON */
-	ENGINE_API bool WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR> > >& JsonWriter) const;
+	/** Output entire contents of table as JSON. bAsArray true will write is as a JSON array, false will write it as a series of named objects*/
+	ENGINE_API bool WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR> > >& JsonWriter,bool bAsArray = true) const;
 
 	/** 
 	 *	Create table from CSV style comma-separated string. 
@@ -165,8 +180,17 @@ struct ENGINE_API FCurveTableRowHandle
 
 	bool operator==(const FCurveTableRowHandle& Other) const;
 	bool operator!=(const FCurveTableRowHandle& Other) const;
+	void PostSerialize(const FArchive& Ar);
 };
 
+template<>
+struct TStructOpsTypeTraits< FCurveTableRowHandle > : public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithPostSerialize = true,
+	};
+};
 
 /** Macro to call GetCurve with a correct error info. Assumed to be called within a UObject */
 #define GETCURVE_REPORTERROR(Handle) Handle.GetCurve(FString::Printf(TEXT("%s.%s"), *GetPathName(), TEXT(#Handle)))

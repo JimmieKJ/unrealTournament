@@ -1,26 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "PersonaPrivatePCH.h"
-#include "AnimGraphDefinitions.h"
-#include "AnimPreviewInstance.h"
-#include "Animation/AnimSingleNodeInstance.h"
-#include "Persona.h"
 #include "SAnimationScrubPanel.h"
-#include "Editor/KismetWidgets/Public/SScrubControlPanel.h"
-#include "AnimationUtils.h"
+#include "Widgets/SBoxPanel.h"
+#include "Animation/AnimSequenceBase.h"
+#include "Animation/AnimSequence.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
+#include "Animation/AnimBlueprint.h"
+#include "AnimPreviewInstance.h"
+#include "SScrubControlPanel.h"
 #include "ScopedTransaction.h"
+#include "Animation/BlendSpaceBase.h"
+#include "AnimationEditorPreviewScene.h"
 
 #define LOCTEXT_NAMESPACE "AnimationScrubPanel"
 
-void SAnimationScrubPanel::Construct( const SAnimationScrubPanel::FArguments& InArgs )
+void SAnimationScrubPanel::Construct( const SAnimationScrubPanel::FArguments& InArgs, const TSharedRef<IPersonaPreviewScene>& InPreviewScene)
 {
 	bSliderBeingDragged = false;
-	PersonaPtr = InArgs._Persona;
 	LockedSequence = InArgs._LockedSequence;
 	OnSetInputViewRange = InArgs._OnSetInputViewRange;
 
-	// register delegate for anim change notification
-	PersonaPtr.Pin()->RegisterOnAnimChanged( FPersona::FOnAnimChanged::CreateSP(this, &SAnimationScrubPanel::AnimChanged) );
-	check(PersonaPtr.IsValid());
+	PreviewScenePtr = InPreviewScene;
 
 	this->ChildSlot
 	[
@@ -30,13 +29,14 @@ void SAnimationScrubPanel::Construct( const SAnimationScrubPanel::FArguments& In
 		.HAlign(HAlign_Fill) 
 		.VAlign(VAlign_Center)
 		.FillWidth(1)
-		.Padding( FMargin( 3.0f, 0.0f) )
+		.Padding(0.0f)
 		[
 			SAssignNew(ScrubControlPanel, SScrubControlPanel)
 			.IsEnabled(true)//this, &SAnimationScrubPanel::DoesSyncViewport)
 			.Value(this, &SAnimationScrubPanel::GetScrubValue)
 			.NumOfKeys(this, &SAnimationScrubPanel::GetNumOfFrames)
 			.SequenceLength(this, &SAnimationScrubPanel::GetSequenceLength)
+			.DisplayDrag(this, &SAnimationScrubPanel::GetDisplayDrag)
 			.OnValueChanged(this, &SAnimationScrubPanel::OnValueChanged)
 			.OnBeginSliderMovement(this, &SAnimationScrubPanel::OnBeginSliderMovement)
 			.OnEndSliderMovement(this, &SAnimationScrubPanel::OnEndSliderMovement)
@@ -47,8 +47,10 @@ void SAnimationScrubPanel::Construct( const SAnimationScrubPanel::FArguments& In
 			.OnClickedBackwardStep(this, &SAnimationScrubPanel::OnClick_Backward_Step)
 			.OnClickedBackwardEnd(this, &SAnimationScrubPanel::OnClick_Backward_End)
 			.OnClickedToggleLoop(this, &SAnimationScrubPanel::OnClick_ToggleLoop)
+			.OnClickedRecord(this, &SAnimationScrubPanel::OnClick_Record)
 			.OnGetLooping(this, &SAnimationScrubPanel::IsLoopStatusOn)
 			.OnGetPlaybackMode(this, &SAnimationScrubPanel::GetPlaybackMode)
+			.OnGetRecording(this, &SAnimationScrubPanel::IsRecording)
 			.ViewInputMin(InArgs._ViewInputMin)
 			.ViewInputMax(InArgs._ViewInputMax)
 			.OnSetInputViewRange(InArgs._OnSetInputViewRange)
@@ -60,15 +62,6 @@ void SAnimationScrubPanel::Construct( const SAnimationScrubPanel::FArguments& In
 			.IsRealtimeStreamingMode(this, &SAnimationScrubPanel::IsRealtimeStreamingMode)
 		]
 	];
-
-}
-
-SAnimationScrubPanel::~SAnimationScrubPanel()
-{
-	if (PersonaPtr.IsValid())
-	{
-		PersonaPtr.Pin()->UnregisterOnAnimChanged(this);
-	}
 }
 
 FReply SAnimationScrubPanel::OnClick_Forward_Step()
@@ -78,7 +71,7 @@ FReply SAnimationScrubPanel::OnClick_Forward_Step()
 		PreviewInstance->SetPlaying(false);
 		PreviewInstance->StepForward();
 	}
-	else if (UDebugSkelMeshComponent* SMC = PersonaPtr.Pin()->GetPreviewMeshComponent())
+	else if (UDebugSkelMeshComponent* SMC = GetPreviewScene()->GetPreviewMeshComponent())
 	{
 		//@TODO: Should we hardcode 30 Hz here?
 		{
@@ -158,7 +151,7 @@ FReply SAnimationScrubPanel::OnClick_Forward()
 			PreviewInstance->SetPlaying(true);
 		}
 	}
-	else if (UDebugSkelMeshComponent* SMC = PersonaPtr.Pin()->GetPreviewMeshComponent())
+	else if (UDebugSkelMeshComponent* SMC = GetPreviewScene()->GetPreviewMeshComponent())
 	{
 
 		SMC->GlobalAnimRateScale = (SMC->GlobalAnimRateScale > 0.0f) ? 0.0f : 1.0f;
@@ -209,6 +202,13 @@ FReply SAnimationScrubPanel::OnClick_ToggleLoop()
 	return FReply::Handled();
 }
 
+FReply SAnimationScrubPanel::OnClick_Record()
+{
+	StaticCastSharedRef<FAnimationEditorPreviewScene>(GetPreviewScene())->RecordAnimation();
+
+	return FReply::Handled();
+}
+
 bool SAnimationScrubPanel::IsLoopStatusOn() const
 {
 	UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
@@ -225,12 +225,17 @@ EPlaybackMode::Type SAnimationScrubPanel::GetPlaybackMode() const
 		}
 		return EPlaybackMode::Stopped;
 	}
-	else if (UDebugSkelMeshComponent* SMC = PersonaPtr.Pin()->GetPreviewMeshComponent())
+	else if (UDebugSkelMeshComponent* SMC = GetPreviewScene()->GetPreviewMeshComponent())
 	{
 		return (SMC->GlobalAnimRateScale > 0.0f) ? EPlaybackMode::PlayingForward : EPlaybackMode::Stopped;
 	}
 	
 	return EPlaybackMode::Stopped;
+}
+
+bool SAnimationScrubPanel::IsRecording() const
+{
+	return StaticCastSharedRef<FAnimationEditorPreviewScene>(GetPreviewScene())->IsRecording();
 }
 
 bool SAnimationScrubPanel::IsRealtimeStreamingMode() const
@@ -272,10 +277,6 @@ void SAnimationScrubPanel::OnEndSliderMovement(float NewValue)
 	bSliderBeingDragged = false;
 }
 
-void SAnimationScrubPanel::AnimChanged(UAnimationAsset* AnimAsset)
-{
-}
-
 uint32 SAnimationScrubPanel::GetNumOfFrames() const
 {
 	if (DoesSyncViewport())
@@ -284,9 +285,17 @@ uint32 SAnimationScrubPanel::GetNumOfFrames() const
 		float Length = PreviewInstance->GetLength();
 		// if anim sequence, use correct num frames
 		int32 NumFrames = (int32) (Length/0.0333f); 
-		if (PreviewInstance->GetCurrentAsset() && PreviewInstance->GetCurrentAsset()->IsA(UAnimSequenceBase::StaticClass()))
+		if (PreviewInstance->GetCurrentAsset())
 		{
-			NumFrames = CastChecked<UAnimSequenceBase>(PreviewInstance->GetCurrentAsset())->GetNumberOfFrames();
+			if (PreviewInstance->GetCurrentAsset()->IsA(UAnimSequenceBase::StaticClass()))
+			{
+				NumFrames = CastChecked<UAnimSequenceBase>(PreviewInstance->GetCurrentAsset())->GetNumberOfFrames();
+			}
+			else if(PreviewInstance->GetCurrentAsset()->IsA(UBlendSpaceBase::StaticClass()))
+			{
+				// Blendspaces dont display frame notches, so just return 0 here
+				NumFrames = 0;
+			}
 		}
 		return NumFrames;
 	}
@@ -342,21 +351,13 @@ void SAnimationScrubPanel::Tick( const FGeometry& AllottedGeometry, const double
 {
 	if (bSliderBeingDragged)
 	{
-		if (PersonaPtr.IsValid())
-		{
-			PersonaPtr.Pin()->RefreshViewport();
-		}
-		else
-		{
-			// if character editor isn't valid, we should just ignore update
-			bSliderBeingDragged = false;
-		}
+		GetPreviewScene()->InvalidateViews();
 	}
 }
 
 class UAnimSingleNodeInstance* SAnimationScrubPanel::GetPreviewInstance() const
 {
-	UDebugSkelMeshComponent* PreviewMeshComponent = PersonaPtr.Pin()->GetPreviewMeshComponent();
+	UDebugSkelMeshComponent* PreviewMeshComponent = GetPreviewScene()->GetPreviewMeshComponent();
 	return PreviewMeshComponent && PreviewMeshComponent->IsPreviewOn()? PreviewMeshComponent->PreviewInstance : NULL;
 }
 
@@ -390,7 +391,7 @@ void SAnimationScrubPanel::ReplaceLockedSequence(class UAnimSequenceBase* NewLoc
 
 UAnimInstance* SAnimationScrubPanel::GetAnimInstanceWithBlueprint() const
 {
-	if (UDebugSkelMeshComponent* DebugComponent = PersonaPtr.Pin()->GetPreviewMeshComponent())
+	if (UDebugSkelMeshComponent* DebugComponent = GetPreviewScene()->GetPreviewMeshComponent())
 	{
 		UAnimInstance* Instance = DebugComponent->GetAnimInstance();
 
@@ -515,7 +516,7 @@ void SAnimationScrubPanel::OnReZeroAnimSequence( )
 	UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
 	if(PreviewInstance)
 	{
-		UDebugSkelMeshComponent* PreviewSkelComp = PersonaPtr.Pin()->GetPreviewMeshComponent();
+		UDebugSkelMeshComponent* PreviewSkelComp = GetPreviewScene()->GetPreviewMeshComponent();
 
 		if (PreviewInstance->GetCurrentAsset() && PreviewSkelComp )
 		{
@@ -536,7 +537,7 @@ void SAnimationScrubPanel::OnReZeroAnimSequence( )
 				ApplyTranslation = PreviewSkelComp->ComponentToWorld.InverseTransformVector(WorldApplyTranslation);
 
 				// As above, animations don't have any idea of hierarchy, so we don't know for sure if track 0 is the root bone's track.
-				FRawAnimSequenceTrack& RawTrack = AnimSequence->RawAnimationData[0];
+				FRawAnimSequenceTrack& RawTrack = AnimSequence->GetRawAnimationTrack(0);
 				for(int32 i=0; i<RawTrack.PosKeys.Num(); i++)
 				{
 					RawTrack.PosKeys[i] += ApplyTranslation;
@@ -550,6 +551,17 @@ void SAnimationScrubPanel::OnReZeroAnimSequence( )
 			}
 		}
 	}
+}
+
+bool SAnimationScrubPanel::GetDisplayDrag() const
+{
+	UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
+	if (PreviewInstance && PreviewInstance->GetCurrentAsset())
+	{
+		return true;
+	}
+
+	return false;
 }
 
 #undef LOCTEXT_NAMESPACE

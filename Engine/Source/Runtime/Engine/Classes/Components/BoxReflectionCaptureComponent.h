@@ -2,7 +2,10 @@
 
 
 #pragma once
-#include "ReflectionCaptureComponent.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/ReflectionCaptureComponent.h"
 #include "BoxReflectionCaptureComponent.generated.h"
 
 	// -> will be exported to EngineDecalClasses.h

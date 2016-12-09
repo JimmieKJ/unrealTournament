@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Tasks/BTTask_PlayAnimation.h"
+#include "VisualLogger/VisualLogger.h"
+#include "AIController.h"
 #include "GameFramework/Character.h"
-#include "Animation/AnimationAsset.h"
-#include "Components/SkeletalMeshComponent.h"
 
 //----------------------------------------------------------------------//
 // UBTTask_PlayAnimation

@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
 #include "StringCurveKeyArea.h"
-#include "SStringCurveKeyEditor.h"
-#include "MovieSceneClipboard.h"
+#include "UObject/StructOnScope.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "MovieSceneTrack.h"
+#include "ClipboardTypes.h"
+#include "CurveKeyEditors/SStringCurveKeyEditor.h"
 #include "Curves/StringCurve.h"
 #include "SequencerClipboardReconciler.h"
 
@@ -27,24 +29,25 @@ TArray<FKeyHandle> FStringCurveKeyArea::AddKeyUnique(float Time, EMovieSceneKeyI
 			OwningSection->SetEndTime(Time);
 		}
 
-		FString Value = Curve->Eval(Time, Curve->GetDefaultValue());
-
-		if (TimeToCopyFrom != FLT_MAX)
+		FString Value;
+		if (ExternalValue.IsSet() && ExternalValue.Get().IsSet() && TimeToCopyFrom == FLT_MAX)
 		{
-			Value = Curve->Eval(TimeToCopyFrom, Curve->GetDefaultValue());
+			Value = ExternalValue.Get().GetValue();
 		}
-		else if ( IntermediateValue.IsSet() )
+		else
 		{
-			Value = IntermediateValue.GetValue();
+			float EvalTime = TimeToCopyFrom != FLT_MAX ? Time : TimeToCopyFrom;
+			FString DefaultValue;
+			Value = Curve->Eval(EvalTime, DefaultValue);
 		}
 
 		Curve->AddKey(Time, Value, CurrentKeyHandle);
 		AddedKeyHandles.Add(CurrentKeyHandle);
 	}
-	else if ( IntermediateValue.IsSet() )
+	else if (ExternalValue.IsSet() && ExternalValue.Get().IsSet())
 	{
-		FString Value = IntermediateValue.GetValue();
-		Curve->UpdateOrAddKey(Time,Value);
+		FString Value = ExternalValue.Get().GetValue();
+		Curve->UpdateOrAddKey(Time, Value);
 	}
 
 	return AddedKeyHandles;
@@ -78,10 +81,7 @@ TSharedRef<SWidget> FStringCurveKeyArea::CreateKeyEditor(ISequencer* Sequencer)
 		.Sequencer(Sequencer)
 		.OwningSection(OwningSection)
 		.Curve(Curve)
-		.OnValueChanged(this, &FStringCurveKeyArea::OnValueChanged)
-		.IntermediateValue_Lambda([this] {
-			return IntermediateValue;
-		});
+		.ExternalValue(ExternalValue);
 };
 
 
@@ -182,7 +182,7 @@ void FStringCurveKeyArea::SetKeyTangentMode(FKeyHandle KeyHandle, ERichCurveTang
 }
 
 
-void FStringCurveKeyArea::SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) const
+void FStringCurveKeyArea::SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime)
 {
 	Curve->SetKeyTime(KeyHandle, NewKeyTime);
 }
@@ -243,9 +243,4 @@ void FStringCurveKeyArea::PasteKeys(const FMovieSceneClipboardKeyTrack& KeyTrack
 			
 		return true;
 	});
-}
-
-void FStringCurveKeyArea::OnValueChanged(FString InValue)
-{
-	ClearIntermediateValue();
 }

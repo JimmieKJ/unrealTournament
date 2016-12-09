@@ -2,11 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "VisualizerEvents.h"
+
 class SBarVisualizer;
 class SEventsTree;
 class SRealtimeProfilerTimeline;
+class SSplitter;
 struct FRealtimeProfilerFPSChartFrame;
-struct FVisualizerEvent;
 
 class SRealtimeProfilerVisualizer : public SCompoundWidget
 {

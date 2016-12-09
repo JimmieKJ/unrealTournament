@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -12,6 +12,8 @@
 
 #include "libcef_dll/cpptoc/scheme_registrar_cpptoc.h"
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -39,13 +41,20 @@ int CEF_CALLBACK scheme_registrar_add_custom_scheme(
   return _retval;
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefSchemeRegistrarCppToC::CefSchemeRegistrarCppToC(CefSchemeRegistrar* cls)
-    : CefCppToC<CefSchemeRegistrarCppToC, CefSchemeRegistrar,
-        cef_scheme_registrar_t>(cls) {
-  struct_.struct_.add_custom_scheme = scheme_registrar_add_custom_scheme;
+CefSchemeRegistrarCppToC::CefSchemeRegistrarCppToC() {
+  GetStruct()->add_custom_scheme = scheme_registrar_add_custom_scheme;
+}
+
+template<> CefRefPtr<CefSchemeRegistrar> CefCppToC<CefSchemeRegistrarCppToC,
+    CefSchemeRegistrar, cef_scheme_registrar_t>::UnwrapDerived(
+    CefWrapperType type, cef_scheme_registrar_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -53,3 +62,6 @@ template<> base::AtomicRefCount CefCppToC<CefSchemeRegistrarCppToC,
     CefSchemeRegistrar, cef_scheme_registrar_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefSchemeRegistrarCppToC,
+    CefSchemeRegistrar, cef_scheme_registrar_t>::kWrapperType =
+    WT_SCHEME_REGISTRAR;

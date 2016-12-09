@@ -4,7 +4,16 @@
 	BuildPatchChunkCache.cpp: Implements classes involved with chunks for the build system.
 =============================================================================*/
 
-#include "BuildPatchServicesPrivatePCH.h"
+#include "BuildPatchChunkCache.h"
+#include "HAL/FileManager.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/FeedbackContext.h"
+#include "BuildPatchError.h"
+#include "BuildPatchDownloader.h"
+#include "BuildPatchServicesModule.h"
+#include "BuildPatchHash.h"
+#include "BuildPatchUtil.h"
+#include "BuildPatchAnalytics.h"
 
 // How many chunks we should be able to keep in RAM while required
 #define CHUNK_CACHE_SIZE		256
@@ -132,7 +141,7 @@ bool FBuildPatchChunkCache::FThreadSafeChunkCache::HasReservation( const FGuid& 
 
 /* FBuildPatchChunkCache implementation
 *****************************************************************************/
-FBuildPatchChunkCache::FBuildPatchChunkCache( const FBuildPatchAppManifestRef& InInstallManifet, const FBuildPatchAppManifestPtr& InCurrentManifest, const FString& InChunkCacheStage, const FString& InCurrentInstallDir, FBuildPatchProgress* InBuildProgress, TArray<FString>& FilesToConstruct, FBuildPatchInstallationInfo& InstallationInfoRef )
+FBuildPatchChunkCache::FBuildPatchChunkCache( const FBuildPatchAppManifestRef& InInstallManifet, const FBuildPatchAppManifestPtr& InCurrentManifest, const FString& InChunkCacheStage, const FString& InCurrentInstallDir, FBuildPatchProgress* InBuildProgress, const TSet<FString>& FilesToConstruct, FBuildPatchInstallationInfo& InstallationInfoRef )
 	: ChunkCacheStage(InChunkCacheStage)
 	, CurrentInstallDir( InCurrentInstallDir )
 	, InstallManifet( InInstallManifet )
@@ -736,7 +745,7 @@ void FBuildPatchChunkCache::SkipChunkPart( const FChunkPartData& ChunkPart )
 	// Keep UI in check
 	const float OriginalCount = TotalChunkDownloadSize;
 	const float SkipCount = SkippedChunkDownloadSize;
-	BuildProgress->SetStateProgress( EBuildPatchProgress::Downloading, SkipCount / OriginalCount );
+	BuildProgress->SetStateProgress( EBuildPatchState::Downloading, SkipCount / OriginalCount );
 }
 
 void FBuildPatchChunkCache::BeginDownloads()
@@ -909,7 +918,7 @@ void FBuildPatchChunkCache::ReserveChunkInventorySlotForce( const FGuid& ChunkGu
 *****************************************************************************/
 TSharedPtr< FBuildPatchChunkCache, ESPMode::ThreadSafe > FBuildPatchChunkCache::SingletonInstance = NULL;
 
-void FBuildPatchChunkCache::Init(const FBuildPatchAppManifestRef& InInstallManifet, const FBuildPatchAppManifestPtr& InCurrentManifest, const FString& InChunkCacheStage, const FString& InCurrentInstallDir, FBuildPatchProgress* InBuildProgress, TArray<FString>& FilesToConstruct, FBuildPatchInstallationInfo& InstallationInfoRef)
+void FBuildPatchChunkCache::Init(const FBuildPatchAppManifestRef& InInstallManifet, const FBuildPatchAppManifestPtr& InCurrentManifest, const FString& InChunkCacheStage, const FString& InCurrentInstallDir, FBuildPatchProgress* InBuildProgress, const TSet<FString>& FilesToConstruct, FBuildPatchInstallationInfo& InstallationInfoRef)
 {
 	// We won't allow misuse of these functions
 	check(!SingletonInstance.IsValid());

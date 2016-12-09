@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 
 #define AES_BLOCK_SIZE 16
 

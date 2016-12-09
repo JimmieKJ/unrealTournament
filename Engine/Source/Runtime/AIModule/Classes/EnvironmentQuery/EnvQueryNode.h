@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
 #include "EnvQueryNode.generated.h"
+
+struct FPropertyChangedEvent;
 
 UCLASS(Abstract)
 class AIMODULE_API UEnvQueryNode : public UObject

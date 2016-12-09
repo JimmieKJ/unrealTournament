@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Animation/AnimNodeBase.h"
 #include "AnimNode_RotateRootBone.generated.h"
 

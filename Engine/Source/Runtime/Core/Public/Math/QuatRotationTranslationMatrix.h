@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Math/Vector.h"
+#include "Math/Matrix.h"
+#include "Math/Quat.h"
 
 /** Rotation and translation matrix using quaternion rotation */
 class FQuatRotationTranslationMatrix

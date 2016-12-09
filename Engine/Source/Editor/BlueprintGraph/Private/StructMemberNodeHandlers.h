@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "KismetCompiler.h"
+#include "CoreMinimal.h"
+#include "KismetCompilerMisc.h"
 #include "VariableSetHandler.h"
 
+class FKismetCompilerContext;
+struct FKismetFunctionContext;
 
 class FKCHandler_StructMemberVariableGet : public FNodeHandlingFunctor
 {

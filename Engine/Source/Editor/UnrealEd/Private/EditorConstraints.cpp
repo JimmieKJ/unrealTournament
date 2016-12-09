@@ -4,7 +4,10 @@
 	EditorConstraints.cpp: Editor movement constraints.
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Editor/EditorEngine.h"
+#include "Editor.h"
 #include "EditorSupportDelegates.h"
 
 float UEditorEngine::GetGridSize()

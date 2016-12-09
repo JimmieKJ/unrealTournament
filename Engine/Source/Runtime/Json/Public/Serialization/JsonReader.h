@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Serialization/JsonTypes.h"
+#include "Serialization/BufferReader.h"
+
+class Error;
 
 static EJsonNotation TokenToNotationTable[] = 
 { 

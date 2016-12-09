@@ -1,9 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "RenderUtils.h"
-#include "TextureRenderTarget.h"
+#include "Engine/TextureRenderTarget.h"
 #include "TextureRenderTarget2D.generated.h"
+
+class FTextureResource;
+class UTexture2D;
+struct FPropertyChangedEvent;
+
+extern ENGINE_API int32 GTextureRenderTarget2DMaxSizeX;
+extern ENGINE_API int32 GTextureRenderTarget2DMaxSizeY;
 
 /**
  * TextureRenderTarget2D
@@ -100,7 +110,7 @@ class UTextureRenderTarget2D : public UTextureRenderTarget
 	ENGINE_API virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	ENGINE_API virtual void PostLoad() override;
-	ENGINE_API virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	ENGINE_API virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	ENGINE_API virtual FString GetDesc() override;
 	//~ End UObject Interface
 

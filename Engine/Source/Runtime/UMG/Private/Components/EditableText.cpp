@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "SlateFontInfo.h"
+#include "Components/EditableText.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/Font.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Input/SEditableText.h"
+#include "Slate/SlateBrushAsset.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

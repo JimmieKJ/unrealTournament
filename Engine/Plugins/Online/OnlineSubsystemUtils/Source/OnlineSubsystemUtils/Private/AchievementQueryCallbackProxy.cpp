@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
-#include "Classes/AchievementQueryCallbackProxy.h"
+#include "AchievementQueryCallbackProxy.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "OnlineSubsystem.h"
+#include "Interfaces/OnlineAchievementsInterface.h"
+#include "OnlineSubsystemBPCallHelper.h"
+#include "GameFramework/PlayerController.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UAchievementQueryCallbackProxy

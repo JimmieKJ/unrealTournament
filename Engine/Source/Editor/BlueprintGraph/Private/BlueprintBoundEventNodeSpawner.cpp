@@ -1,14 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintBoundEventNodeSpawner.h"
-#include "ObjectEditorUtils.h"		// for GetCategory()/IsVariableCategoryHiddenFromClass()
-#include "KismetEditorUtilities.h"	// for FindBoundEventForComponent()/FindBoundEventForActor()
-#include "EditorCategoryUtils.h"	// for GetCommonCategory()
-#include "BlueprintNodeSpawnerUtils.h" // for GetBindingClass()
-#include "K2Node_ComponentBoundEvent.h"
+#include "GameFramework/Actor.h"
 #include "K2Node_ActorBoundEvent.h"
+#include "K2Node_ComponentBoundEvent.h"
 #include "EditorStyleSettings.h"
+#include "Editor/EditorEngine.h"
+#include "ObjectEditorUtils.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "EditorCategoryUtils.h"
+#include "BlueprintNodeSpawnerUtils.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintBoundEventNodeSpawner"
 

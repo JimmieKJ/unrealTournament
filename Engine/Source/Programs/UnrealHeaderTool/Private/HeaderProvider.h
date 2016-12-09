@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "UnrealString.h"
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
 
 class FUnrealSourceFile;
 class FUHTMakefile;

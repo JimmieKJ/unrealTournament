@@ -4,17 +4,19 @@
 	ParticleCurveTexture.cpp: Texture used to hold particle curves.
 ==============================================================================*/
 
-#include "EnginePrivate.h"
-#include "ParticleHelper.h"
-#include "ParticleCurveTexture.h"
-#include "ParticleResources.h"
+#include "Particles/ParticleCurveTexture.h"
+#include "Misc/App.h"
+#include "RenderingThread.h"
 #include "UniformBuffer.h"
-#include "ShaderParameters.h"
-#include "ShaderParameterUtils.h"
+#include "Shader.h"
+#include "StaticBoundShaderState.h"
 #include "RHIStaticStates.h"
+#include "SceneUtils.h"
+#include "ParticleHelper.h"
+#include "Particles/ParticleResources.h"
+#include "ShaderParameterUtils.h"
 #include "GlobalShader.h"
 #include "FXSystem.h"
-#include "SceneUtils.h"
 
 /** The texture size allocated for particle curves. */
 extern const int32 GParticleCurveTextureSizeX = 512;
@@ -197,7 +199,7 @@ static void InjectCurves(
 
 	if (bFirstCall)
 	{
-		RHICmdList.Clear(true, FLinearColor::Blue, false, 0.0f, false, 0, FIntRect());
+		RHICmdList.ClearColorTexture(CurveTextureTargetRHI, FLinearColor::Blue, FIntRect());
 		bFirstCall = false;
 	}
 

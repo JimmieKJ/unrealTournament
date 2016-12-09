@@ -2,8 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EngineDefines.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "DebugSkelMeshComponent.generated.h"
+
+class Error;
 
 USTRUCT()
 struct FSelectedSocketInfo
@@ -12,7 +18,7 @@ struct FSelectedSocketInfo
 
 	/** Default constructor */
 	FSelectedSocketInfo()
-		: Socket( NULL )
+		: Socket(nullptr)
 		, bSocketIsOnSkeleton( false )
 	{
 
@@ -26,13 +32,21 @@ struct FSelectedSocketInfo
 
 	}
 
+	bool IsValid() const
+	{
+		return Socket != nullptr;
+	}
+
+	void Reset()
+	{
+		Socket = nullptr;
+	}
+
 	/** The socket we have selected */
 	class USkeletalMeshSocket* Socket;
 
 	/** true if on skeleton, false if on mesh */
 	bool bSocketIsOnSkeleton;
-
-
 };
 
 /** Different modes for Persona's Turn Table. */
@@ -70,6 +84,10 @@ class UDebugSkelMeshComponent : public USkeletalMeshComponent
 	UPROPERTY(transient)
 	uint32 bDrawBoneInfluences:1;
 
+	/** Morphtarget viewing */
+	UPROPERTY(transient)
+	uint32 bDrawMorphTargetVerts : 1;
+
 	/** Vertex normal viewing */
 	UPROPERTY(transient)
 	uint32 bDrawNormals:1;
@@ -81,10 +99,6 @@ class UDebugSkelMeshComponent : public USkeletalMeshComponent
 	/** Vertex binormal viewing */
 	UPROPERTY(transient)
 	uint32 bDrawBinormals:1;
-
-	/** CPU skinning rendering - only for previewing in Persona */
-	UPROPERTY(transient)
-	uint32 bCPUSkinning : 1;
 
 	/** Socket hit points viewing */
 	UPROPERTY(transient)
@@ -139,19 +153,14 @@ class UDebugSkelMeshComponent : public USkeletalMeshComponent
 
 	/** Storage of Source Animation Pose for when bDisplaySourceAnimation == true, as they have to be calculated */
 	TArray<FTransform> SourceAnimationPoses;
-
-	/** Color render mode enum value - 0 - none, 1 - tangent, 2 - normal, 3 - mirror, 4 - bone weighting */
-	//var native transient int ColorRenderMode;
 	
 	/** Array of bones to render bone weights for */
 	UPROPERTY(transient)
 	TArray<int32> BonesOfInterest;
-	
-	/** Array of sockets to render manipulation widgets for
-	/	Storing a pointer to the actual socket rather than a name, as we don't care here
-	/	whether the socket is on the skeleton or the mesh! */
+
+	/** Array of morphtargets to render verts for */
 	UPROPERTY(transient)
-	TArray< FSelectedSocketInfo > SocketsOfInterest;
+	TArray<class UMorphTarget*> MorphTargetOfInterests;
 
 	/** Array of materials to restore when not rendering blend weights */
 	UPROPERTY(transient)
@@ -167,9 +176,6 @@ class UDebugSkelMeshComponent : public USkeletalMeshComponent
 	UPROPERTY(transient)
 	bool bIsUsingInGameBounds;
 	
-	/** true if wind effects on clothing is enabled */
-	bool bEnableWind;
-
 	//~ Begin USceneComponent Interface.
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 	//~ End USceneComponent Interface.
@@ -195,7 +201,7 @@ class UDebugSkelMeshComponent : public USkeletalMeshComponent
 
 	//~ Begin SkeletalMeshComponent Interface
 	virtual void InitAnim(bool bForceReinit) override;
-	virtual bool IsWindEnabled() const override;
+	virtual bool IsWindEnabled() const override { return true; }
 	//~ End SkeletalMeshComponent Interface
 	// Preview.
 	// @todo document
@@ -213,6 +219,12 @@ class UDebugSkelMeshComponent : public USkeletalMeshComponent
 	 * Refresh/replace materials 
 	 */
 	UNREALED_API void SetShowBoneWeight(bool bNewShowBoneWeight);
+
+	/**
+	* Update material information depending on color render mode
+	* Refresh/replace materials
+	*/
+	UNREALED_API void SetShowMorphTargetVerts(bool bNewShowMorphTargetVerts);
 
 	/**
 	 * Does it use in-game bounds or bounds calculated from bones
@@ -283,6 +295,8 @@ private:
 	// Helper function to generate space bases for current frame
 	void GenSpaceBases(TArray<FTransform>& OutSpaceBases);
 
+	// Helper function to enable overlay material
+	void EnableOverlayMaterial(bool bEnable);
 public:
 	/** Current turn table mode */
 	EPersonaTurnTableMode::Type TurnTableMode;

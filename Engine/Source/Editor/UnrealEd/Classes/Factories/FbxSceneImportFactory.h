@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "FbxSceneImportFactory.generated.h"
 
+class AActor;
 class UFbxSceneImportData;
+class USceneComponent;
 
 #define INVALID_UNIQUE_ID 0xFFFFFFFFFFFFFFFF
 
@@ -421,6 +427,7 @@ protected:
 	FString Path;
 
 	/** Pointer on the fbx scene import data, we fill this object to be able to do re import of the scene */
+	UPROPERTY()
 	UFbxSceneImportData* ReimportData;
 	
 	/** Assets created by the factory*/

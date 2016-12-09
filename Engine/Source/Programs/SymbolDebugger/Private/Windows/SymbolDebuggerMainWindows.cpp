@@ -2,7 +2,7 @@
 
 
 #include "SymbolDebuggerApp.h"
-
+#include "WindowsHWrapper.h"
 
 /**
  * WinMain, called when the application is started

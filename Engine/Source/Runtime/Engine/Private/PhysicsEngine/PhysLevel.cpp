@@ -1,12 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+#include "Misc/CommandLine.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/UObjectGlobals.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "EngineDefines.h"
+#include "Engine/World.h"
 #include "PhysicsPublic.h"
-#include "ParticleDefinitions.h"
-#include "PrecomputedLightVolume.h"
 
 #if WITH_PHYSX
-	#include "PhysXSupport.h"
+	#include "PhysicsEngine/PhysXSupport.h"
 #endif
 
 #if WITH_BOX2D
@@ -22,17 +28,16 @@
 FPhysCommandHandler * GPhysCommandHandler = NULL;
 FDelegateHandle GPreGarbageCollectDelegateHandle;
 
+FPhysicsDelegates::FOnUpdatePhysXMaterial FPhysicsDelegates::OnUpdatePhysXMaterial;
+FPhysicsDelegates::FOnPhysicsAssetChanged FPhysicsDelegates::OnPhysicsAssetChanged;
+FPhysicsDelegates::FOnPhysSceneInit FPhysicsDelegates::OnPhysSceneInit;
+FPhysicsDelegates::FOnPhysSceneTerm FPhysicsDelegates::OnPhysSceneTerm;
+
 // CVars
 static TAutoConsoleVariable<float> CVarToleranceScaleLength(
 	TEXT("p.ToleranceScale_Length"),
 	100.f,
 	TEXT("The approximate size of objects in the simulation. Default: 100"),
-	ECVF_ReadOnly);
-
-static TAutoConsoleVariable<float> CVarTolerenceScaleMass(
-	TEXT("p.ToleranceScale_Mass"),
-	100.f,
-	TEXT("The approximate mass of a length * length * length block. Default: 100"),
 	ECVF_ReadOnly);
 
 static TAutoConsoleVariable<float> CVarToleranceScaleSpeed(
@@ -271,7 +276,7 @@ void InitGamePhys()
 	GPhysXAllocator = new FPhysXAllocator();
 	FPhysXErrorCallback* ErrorCallback = new FPhysXErrorCallback();
 
-	GPhysXFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, *GPhysXAllocator, *ErrorCallback);
+	GPhysXFoundation = PxCreateFoundation(PX_FOUNDATION_VERSION, *GPhysXAllocator, *ErrorCallback);
 	check(GPhysXFoundation);
 
 #if PHYSX_MEMORY_STATS
@@ -280,16 +285,15 @@ void InitGamePhys()
 #endif
 
 	// Create profile manager
-	GPhysXProfileZoneManager = &PxProfileZoneManager::createProfileZoneManager(GPhysXFoundation);
-	check(GPhysXProfileZoneManager);
+	GPhysXVisualDebugger = PxCreatePvd(*GPhysXFoundation);
+	check(GPhysXVisualDebugger);
 
 	// Create Physics
 	PxTolerancesScale PScale;
 	PScale.length = CVarToleranceScaleLength.GetValueOnGameThread();
-	PScale.mass = CVarTolerenceScaleMass.GetValueOnGameThread();
 	PScale.speed = CVarToleranceScaleSpeed.GetValueOnGameThread();
 
-	GPhysXSDK = PxCreatePhysics(PX_PHYSICS_VERSION, *GPhysXFoundation, PScale, false, GPhysXProfileZoneManager);
+	GPhysXSDK = PxCreatePhysics(PX_PHYSICS_VERSION, *GPhysXFoundation, PScale, false, GPhysXVisualDebugger);
 	check(GPhysXSDK);
 
 	FPhysxSharedData::Initialize();
@@ -299,10 +303,7 @@ void InitGamePhys()
 	GPreGarbageCollectDelegateHandle = FCoreUObjectDelegates::PreGarbageCollect.AddRaw(GPhysCommandHandler, &FPhysCommandHandler::Flush);
 
 	// Init Extensions
-	PxInitExtensions(*GPhysXSDK);
-#if WITH_VEHICLE
-	PxInitVehicleSDK(*GPhysXSDK);
-#endif
+	PxInitExtensions(*GPhysXSDK, GPhysXVisualDebugger);
 
 	if (CVarUseUnifiedHeightfield.GetValueOnGameThread())
 	{
@@ -327,7 +328,10 @@ void InitGamePhys()
 	// Create Cooking
 	PxCookingParams PCookingParams(PScale);
 	PCookingParams.meshWeldTolerance = 0.1f; // Weld to 1mm precision
-	PCookingParams.meshPreprocessParams = PxMeshPreprocessingFlags(PxMeshPreprocessingFlag::eWELD_VERTICES | PxMeshPreprocessingFlag::eREMOVE_UNREFERENCED_VERTICES | PxMeshPreprocessingFlag::eREMOVE_DUPLICATED_TRIANGLES);
+	PCookingParams.meshPreprocessParams = PxMeshPreprocessingFlags(PxMeshPreprocessingFlag::eWELD_VERTICES);
+	// Force any cooking in PhysX or APEX to use older incremental hull method
+	// This is because the new 'quick hull' method can generate degenerate geometry in some cases (very thin meshes etc.)
+	//PCookingParams.convexMeshCookingType = PxConvexMeshCookingType::eINFLATION_INCREMENTAL_HULL;
 	PCookingParams.targetPlatform = PxPlatform::ePC;
 	//PCookingParams.meshCookingHint = PxMeshCookingHint::eCOOKING_PERFORMANCE;
 	//PCookingParams.meshSizePerformanceTradeOff = 0.0f;
@@ -337,18 +341,29 @@ void InitGamePhys()
 
 #if WITH_APEX
 	// Build the descriptor for the APEX SDK
-	NxApexSDKDesc ApexDesc;
+	apex::ApexSDKDesc ApexDesc;
+	ApexDesc.foundation				= GPhysXFoundation;	// Pointer to the PxFoundation
 	ApexDesc.physXSDK				= GPhysXSDK;	// Pointer to the PhysXSDK
 	ApexDesc.cooking				= GPhysXCooking;	// Pointer to the cooking library
 	ApexDesc.renderResourceManager	= &GApexNullRenderResourceManager;	// We will not be using the APEX rendering API, so just use a dummy render resource manager
 	ApexDesc.resourceCallback		= &GApexResourceCallback;	// The resource callback is how APEX asks the application to find assets when it needs them
 
+#if PLATFORM_MAC
+	FString DylibFolder = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/PhysX/");
+	ANSICHAR* DLLLoadPath = (ANSICHAR*)FMemory::Malloc(DylibFolder.Len() + 1);
+	FCStringAnsi::Strcpy(DLLLoadPath, DylibFolder.Len() + 1, TCHAR_TO_UTF8(*DylibFolder));
+	ApexDesc.dllLoadPath = DLLLoadPath;
+#endif
+
 	// Create the APEX SDK
-	NxApexCreateError ErrorCode;
-	GApexSDK = NxCreateApexSDK(ApexDesc, &ErrorCode);
+	apex::ApexCreateError ErrorCode;
+	GApexSDK = apex::CreateApexSDK(ApexDesc, &ErrorCode);
 	check(ErrorCode == APEX_CE_NO_ERROR);
 	check(GApexSDK);
 
+#if PLATFORM_MAC
+	FMemory::Free(DLLLoadPath);
+#endif
 
 #if UE_BUILD_SHIPPING
 	GApexSDK->setEnableApexStats(false);
@@ -379,15 +394,13 @@ void InitGamePhys()
 #endif // WITH_APEX_LEGACY
 
 	// Load APEX Destruction module
-	GApexModuleDestructible = static_cast<NxModuleDestructible*>(GApexSDK->createModule("Destructible"));
+	GApexModuleDestructible = static_cast<apex::ModuleDestructible*>(GApexSDK->createModule("Destructible"));
 	check(GApexModuleDestructible);
 
 	// Set Destructible module parameters
-	NxParameterized::Interface* ModuleParams = GApexModuleDestructible->getDefaultModuleDesc();
+	NvParameterized::Interface* ModuleParams = GApexModuleDestructible->getDefaultModuleDesc();
 	// ModuleParams contains the default module descriptor, which may be modified here before calling the module init function
 	GApexModuleDestructible->init(*ModuleParams);
-	// Disabling dynamic LOD
-	GApexModuleDestructible->setLODEnabled(false);
 	// Set chunk report for fracture effect callbacks
 	GApexModuleDestructible->setChunkReport(&GApexChunkReport);
 
@@ -396,7 +409,7 @@ void InitGamePhys()
 	GApexModuleDestructible->setMaxChunkCount((physx::PxU32)FMath::Max(CVarAPEXMaxDestructibleDynamicChunkCount.GetValueOnGameThread(), 0));
 	GApexModuleDestructible->setSortByBenefit(CVarAPEXSortDynamicChunksByBenefit.GetValueOnGameThread() != 0);
 
-	GApexModuleDestructible->scheduleChunkStateEventCallback(NxDestructibleCallbackSchedule::FetchResults);
+	GApexModuleDestructible->scheduleChunkStateEventCallback(apex::DestructibleCallbackSchedule::FetchResults);
 
 	// APEX 1.3 to preserve 1.2 behavior
 	GApexModuleDestructible->setUseLegacyDamageRadiusSpread(true); 
@@ -404,17 +417,17 @@ void InitGamePhys()
 
 #if WITH_APEX_CLOTHING
 	// Load APEX Clothing module
-	GApexModuleClothing = static_cast<NxModuleClothing*>(GApexSDK->createModule("Clothing"));
+	GApexModuleClothing = static_cast<apex::ModuleClothing*>(GApexSDK->createModule("Clothing"));
 	check(GApexModuleClothing);
 	// Set Clothing module parameters
 	ModuleParams = GApexModuleClothing->getDefaultModuleDesc();
 
 	// Can be tuned for switching between more memory and more spikes.
-	NxParameterized::setParamU32(*ModuleParams, "maxUnusedPhysXResources", 5);
+	NvParameterized::setParamU32(*ModuleParams, "maxUnusedPhysXResources", 5);
 
 	// If true, let fetch results tasks run longer than the fetchResults call. 
 	// Setting to true could not ensure same finish timing with Physx simulation phase
-	NxParameterized::setParamBool(*ModuleParams, "asyncFetchResults", false);
+	NvParameterized::setParamBool(*ModuleParams, "asyncFetchResults", false);
 
 	// ModuleParams contains the default module descriptor, which may be modified here before calling the module init function
 	GApexModuleClothing->init(*ModuleParams);
@@ -464,17 +477,20 @@ void TermGamePhys()
 #endif	// #if WITH_APEX
 
 	//Remove all scenes still registered
-	if (int32 NumScenes = GPhysXSDK->getNbScenes())
+	if (GPhysXSDK != NULL)
 	{
-		TArray<PxScene*> PScenes;
-		PScenes.AddUninitialized(NumScenes);
-		GPhysXSDK->getScenes(PScenes.GetData(), sizeof(PxScene*)* NumScenes);
-
-		for (PxScene* PScene : PScenes)
+		if (int32 NumScenes = GPhysXSDK->getNbScenes())
 		{
-			if (PScene)
+			TArray<PxScene*> PScenes;
+			PScenes.AddUninitialized(NumScenes);
+			GPhysXSDK->getScenes(PScenes.GetData(), sizeof(PxScene*)* NumScenes);
+
+			for (PxScene* PScene : PScenes)
 			{
-				PScene->release();
+				if (PScene)
+				{
+					PScene->release();
+				}
 			}
 		}
 	}
@@ -489,8 +505,10 @@ void TermGamePhys()
 	}
 #endif
 
-	PxCloseExtensions();
-	PxCloseVehicleSDK();
+	if (GPhysXSDK != NULL)
+	{
+		PxCloseExtensions();
+	}
 
 	if(GPhysXSDK != NULL)
 	{

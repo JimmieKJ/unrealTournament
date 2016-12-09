@@ -7,6 +7,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/ContainersFwd.h"
+#include "HAL/PlatformCrt.h"
 
 /**
  * Generic implementation for most platforms
@@ -391,6 +394,25 @@ struct FGenericPlatformMath
 	}
 
 	/**
+	 * Computes the base 2 logarithm for a 64-bit value that is greater than 0.
+	 * The result is rounded down to the nearest integer.
+	 *
+	 * @param Value		The value to compute the log of
+	 * @return			Log2 of Value. 0 if Value is 0.
+	 */	
+	static FORCEINLINE uint64 FloorLog2_64(uint64 Value) 
+	{
+		uint64 pos = 0;
+		if (Value >= 1ull<<32) { Value >>= 32; pos += 32; }
+		if (Value >= 1ull<<16) { Value >>= 16; pos += 16; }
+		if (Value >= 1ull<< 8) { Value >>=  8; pos +=  8; }
+		if (Value >= 1ull<< 4) { Value >>=  4; pos +=  4; }
+		if (Value >= 1ull<< 2) { Value >>=  2; pos +=  2; }
+		if (Value >= 1ull<< 1) {				pos +=  1; }
+		return (Value == 0) ? 0 : pos;
+	}
+
+	/**
 	 * Counts the number of leading zeros in the bit representation of the value
 	 *
 	 * @param Value the value to determine the number of leading zeros for
@@ -401,6 +423,19 @@ struct FGenericPlatformMath
 	{
 		if (Value == 0) return 32;
 		return 31 - FloorLog2(Value);
+	}
+
+	/**
+	 * Counts the number of leading zeros in the bit representation of the 64-bit value
+	 *
+	 * @param Value the value to determine the number of leading zeros for
+	 *
+	 * @return the number of zeros before the first "on" bit
+	 */
+	static FORCEINLINE uint64 CountLeadingZeros64(uint64 Value)
+	{
+		if (Value == 0) return 64;
+		return 63 - FloorLog2_64(Value);
 	}
 
 	/**
@@ -433,6 +468,12 @@ struct FGenericPlatformMath
 	{
 		int32 Bitmask = ((int32)(CountLeadingZeros(Arg) << 26)) >> 31;
 		return (32 - CountLeadingZeros(Arg - 1)) & (~Bitmask);
+	}
+
+	static FORCEINLINE uint64 CeilLogTwo64( uint64 Arg )
+	{
+		int64 Bitmask = ((int64)(CountLeadingZeros64(Arg) << 57)) >> 63;
+		return (64 - CountLeadingZeros64(Arg - 1)) & (~Bitmask);
 	}
 
 	/** @return Rounds the given number up to the next highest power of two. */

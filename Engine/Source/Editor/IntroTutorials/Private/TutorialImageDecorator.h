@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "TextDecorators.h"
+#include "CoreMinimal.h"
+#include "Framework/Text/ISlateRun.h"
+#include "Framework/Text/ITextDecorator.h"
+
+class ISlateStyle;
 
 class FTutorialImageDecorator : public ITextDecorator
 {

@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayTasksPrivatePCH.h"
 #include "GameplayTasksModule.h"
+#include "Stats/Stats.h"
+#include "GameplayTask.h"
+#include "GameplayTasksPrivate.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FCharacterAIModule

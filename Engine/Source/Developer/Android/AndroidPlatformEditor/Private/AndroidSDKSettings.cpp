@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidPlatformEditorPrivatePCH.h"
+#include "AndroidSDKSettings.h"
+#include "Misc/Paths.h"
+#include "Interfaces/IAndroidDeviceDetection.h"
 
 //#include "EngineTypes.h"
-#include "AndroidSDKSettings.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(AndroidSDKSettings, Log, All);
 

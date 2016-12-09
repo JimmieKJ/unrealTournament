@@ -2,15 +2,26 @@
 
 #pragma once
 
-#include "DebugRenderSceneProxy.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "PrimitiveViewRelevance.h"
+#include "RenderResource.h"
+#include "MaterialShared.h"
 #include "DynamicMeshBuilder.h"
+#include "DebugRenderSceneProxy.h"
+#include "Components/PrimitiveComponent.h"
+#include "MeshBatch.h"
 #include "LocalVertexFactory.h"
 #include "GenericOctree.h"
-#include "Components/PrimitiveComponent.h"
 #include "NavMeshRenderingComponent.generated.h"
 
-class UNavMeshRenderingComponent;
+class APlayerController;
 class ARecastNavMesh;
+class FMeshElementCollector;
+class FPrimitiveDrawInterface;
+class UCanvas;
+class UNavMeshRenderingComponent;
 
 enum class ENavMeshDetailFlags : uint8
 {
@@ -83,17 +94,15 @@ struct ENGINE_API FNavMeshSceneProxyData : public TSharedFromThis<FNavMeshSceneP
 // exported to API for GameplayDebugger module
 class ENGINE_API FNavMeshSceneProxy : public FDebugRenderSceneProxy
 {
+	friend class FNavMeshDebugDrawDelegateHelper;
 public:
 	FNavMeshSceneProxy(const UPrimitiveComponent* InComponent, FNavMeshSceneProxyData* InProxyData, bool ForceToRender = false);
 	virtual ~FNavMeshSceneProxy();
 
-	virtual void RegisterDebugDrawDelgate() override;
-	virtual void UnregisterDebugDrawDelgate() override;
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 
 protected:
 	void DrawDebugBox(FPrimitiveDrawInterface* PDI, FVector const& Center, FVector const& Box, FColor const& Color) const;
-	virtual void DrawDebugLabels(UCanvas* Canvas, APlayerController*) override;
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 
 	virtual uint32 GetMemoryFootprint(void) const override { return sizeof(*this) + GetAllocatedSize(); }
@@ -138,6 +147,46 @@ private:
 	uint32 bUseThickLines : 1;
 };
 
+#if WITH_RECAST && !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+class FNavMeshDebugDrawDelegateHelper : public FDebugDrawDelegateHelper
+{
+	typedef FDebugDrawDelegateHelper Super;
+
+public:
+	FNavMeshDebugDrawDelegateHelper()
+		: bForceRendering(false)
+		, bNeedsNewData(false)
+	{
+	}
+
+	virtual void InitDelegateHelper(const FDebugRenderSceneProxy* InSceneProxy) override
+	{
+		check(0);
+	}
+
+	void InitDelegateHelper(const FNavMeshSceneProxy* InSceneProxy)
+	{
+		Super::InitDelegateHelper(InSceneProxy);
+
+		DebugLabels.Reset();
+		DebugLabels.Append(InSceneProxy->ProxyData.DebugLabels);
+		bForceRendering = InSceneProxy->bForceRendering;
+		bNeedsNewData = InSceneProxy->ProxyData.bNeedsNewData;
+	}
+
+	ENGINE_API virtual void RegisterDebugDrawDelgate() override;
+	ENGINE_API virtual void UnregisterDebugDrawDelgate() override;
+
+protected:
+	ENGINE_API virtual void DrawDebugLabels(UCanvas* Canvas, APlayerController*) override;
+
+private:
+	TArray<FNavMeshSceneProxyData::FDebugText> DebugLabels;
+	uint32 bForceRendering : 1;
+	uint32 bNeedsNewData : 1;
+};
+#endif
+
 UCLASS(hidecategories=Object, editinlinenew)
 class ENGINE_API UNavMeshRenderingComponent : public UPrimitiveComponent
 {
@@ -172,6 +221,11 @@ protected:
 	uint32 bCollectNavigationData : 1;
 	uint32 bForceUpdate : 1;
 	FTimerHandle TimerHandle;
+
+protected:
+#if WITH_RECAST && !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+	FNavMeshDebugDrawDelegateHelper NavMeshDebugDrawDelgateManager;
+#endif
 };
 
 namespace FNavMeshRenderingHelpers

@@ -2,14 +2,25 @@
 
 #pragma once
 
-#include "Engine/BlendableInterface.h"
-#include "MaterialExpressionIO.h"
-#include "Materials/MaterialExpression.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "RenderCommandFence.h"
+#include "Templates/ScopedPointer.h"
 #include "Materials/MaterialInterface.h"
+#include "MaterialShared.h"
+#include "MaterialExpressionIO.h"
 #include "Materials/MaterialExpressionMaterialFunctionCall.h"
 #include "Materials/MaterialFunction.h"
+#include "UniquePtr.h"
 
 #include "Material.generated.h"
+
+class ITargetPlatform;
+class UMaterialExpressionComment;
+class UPhysicalMaterial;
+class USubsurfaceProfile;
+class UTexture;
 
 #if WITH_EDITOR
 
@@ -283,9 +294,10 @@ struct FMaterialParameterCollectionInfo
 };
 
 /**
- * A Material is an asset which can be applied to a mesh to control the visual look of the scene. In general,
- * when light from the scene hits the surface, the shading model of the material is used to calculate how
- * that light interacts with the surface. 
+ * A Material is an asset which can be applied to a mesh to control the visual look of the scene. 
+ * When light from the scene hits the surface, the shading model of the material is used to calculate how that light interacts with the surface. 
+ *
+ * Warning: Creating new materials directly increases shader compile times!  Consider creating a Material Instance off of an existing material instead.
  */
 UCLASS(hidecategories=Object, MinimalAPI, BlueprintType)
 class UMaterial : public UMaterialInterface
@@ -461,6 +473,10 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Directional Lighting Intensity"))
 	float TranslucencyDirectionalLightingIntensity;
+
+	/** Allows a translucenct material to be used with custom depth writing by compiling additional shaders. */
+	UPROPERTY(EditAnywhere, Category=Translucency, AdvancedDisplay, meta=(DisplayName = "Allow Custom Depth Writes"))
+	uint32 AllowTranslucentCustomDepthWrites:1;
 
 	/** Scale used to make translucent shadows more or less opaque than the material's actual opacity. */
 	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing, meta=(DisplayName = "Shadow Density Scale"))
@@ -751,6 +767,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PostProcessMaterial, meta=(DisplayName = "Blendable Priority"))
 	int32 BlendablePriority;
 
+	/** If this is enabled, the blendable will output alpha */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PostProcessMaterial, meta = (DisplayName = "Output Alpha"))
+	bool BlendableOutputAlpha;
+
 	/** Controls how the Refraction input is interpreted and how the refraction offset into scene color is computed for this material. */
 	UPROPERTY(EditAnywhere, Category=Refraction)
 	TEnumAsByte<enum ERefractionMode> RefractionMode;
@@ -853,6 +873,7 @@ public:
 	ENGINE_API virtual EMaterialShadingModel GetShadingModel() const override;
 	ENGINE_API virtual bool IsTwoSided() const override;
 	ENGINE_API virtual bool IsDitheredLODTransition() const override;
+	ENGINE_API virtual bool IsTranslucencyWritingCustomDepth() const override;
 	ENGINE_API virtual bool IsMasked() const override;
 	ENGINE_API virtual bool IsUIMaterial() const { return MaterialDomain == MD_UI; }
 	ENGINE_API virtual USubsurfaceProfile* GetSubsurfaceProfile_Internal() const override;
@@ -864,7 +885,7 @@ public:
 	ENGINE_API virtual bool IsPropertyActive(EMaterialProperty InProperty) const override;
 #if WITH_EDITOR
 	/** Allows material properties to be compiled with the option of being overridden by the material attributes input. */
-	ENGINE_API virtual int32 CompilePropertyEx( class FMaterialCompiler* Compiler, EMaterialProperty Property ) override;
+	ENGINE_API virtual int32 CompilePropertyEx( class FMaterialCompiler* Compiler, const FGuid& AttributeID ) override;
 #endif // WITH_EDITOR
 	ENGINE_API virtual void ForceRecompileForRendering() override;
 	//~ End UMaterialInterface Interface.
@@ -889,7 +910,7 @@ public:
 	ENGINE_API virtual void BeginDestroy() override;
 	ENGINE_API virtual bool IsReadyForFinishDestroy() override;
 	ENGINE_API virtual void FinishDestroy() override;
-	ENGINE_API virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	ENGINE_API virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	ENGINE_API virtual bool CanBeClusterRoot() const override;
 	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
@@ -1207,7 +1228,22 @@ private:
 	/** Caches shader maps for an array of material resources. */
 	void CacheShadersForResources(EShaderPlatform ShaderPlatform, const TArray<FMaterialResource*>& ResourcesToCache, bool bApplyCompletedShaderMapForRendering);
 
+	/**
+	 * If there is some texture reference used by a TextureProperty node in any expressions, this function
+	 * will extract the current hash of TextureReferencesHash into a string  then append the texture guid used by the node
+	 * and recompute a new hash.
+	 */
+	void GetForceRecompileTextureIdsHash(FSHAHash &TextureReferencesHash);
+
 public:
+	bool IsTextureForceRecompileCacheRessource(UTexture *Texture);
+
+#if WITH_EDITOR
+	/* Recompute the ddc cache key and reload the material in case the key is not the same.
+	 * It will also make sure lightmass texture reference are up to date
+	 */
+	void UpdateMaterialShaderCacheAndTextureReferences();
+#endif
 
 	/**
 	 * Go through every material, flush the specified types and re-initialize the material's shader maps.
@@ -1218,12 +1254,12 @@ public:
 	 * Backs up all material shaders to memory through serialization, organized by FMaterialShaderMap. 
 	 * This will also clear all FMaterialShaderMap references to FShaders.
 	 */
-	ENGINE_API static void BackupMaterialShadersToMemory(TMap<class FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData);
+	ENGINE_API static void BackupMaterialShadersToMemory(TMap<class FMaterialShaderMap*, TUniquePtr<TArray<uint8> > >& ShaderMapToSerializedShaderData);
 
 	/** 
 	 * Recreates FShaders for FMaterialShaderMap's from the serialized data.  Shader maps may not be complete after this due to changes in the shader keys.
 	 */
-	ENGINE_API static void RestoreMaterialShadersFromMemory(const TMap<class FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData);
+	ENGINE_API static void RestoreMaterialShadersFromMemory(const TMap<class FMaterialShaderMap*, TUniquePtr<TArray<uint8> > >& ShaderMapToSerializedShaderData);
 
 	/** Builds a map from UMaterialInterface name to the shader maps that are needed for rendering on the given platform. */
 	ENGINE_API static void CompileMaterialsForRemoteRecompile(

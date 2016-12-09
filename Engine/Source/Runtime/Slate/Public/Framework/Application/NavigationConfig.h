@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+
+struct FKeyEvent;
+enum class EUINavigation : uint8;
+
 /** This class is used to control which FKeys should move focus */
 class SLATE_API FNavigationConfig : public TSharedFromThis<FNavigationConfig>
 {

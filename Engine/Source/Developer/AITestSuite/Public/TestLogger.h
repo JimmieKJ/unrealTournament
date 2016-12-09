@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+
 template<typename ValueType>
 struct FTestLogger
 {

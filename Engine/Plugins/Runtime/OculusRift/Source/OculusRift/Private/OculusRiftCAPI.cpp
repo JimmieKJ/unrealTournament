@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OculusRiftPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "GameFramework/WorldSettings.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "DrawDebugHelpers.h"
 #include "OculusRiftHMD.h"
 
 #if PLATFORM_WINDOWS

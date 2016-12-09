@@ -2,13 +2,22 @@
 
 #pragma once
 
-#include "GenericApplication.h"
-#include "LinuxWindow.h"
-#include "LinuxCursor.h"
+#include "CoreTypes.h"
+#include "HAL/UnrealMemory.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Math/Vector2D.h"
+#include "Templates/SharedPointer.h"
+#include "Misc/CoreMisc.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericWindowDefinition.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Linux/LinuxWindow.h"
+#include "Linux/LinuxCursor.h"
 
-class FLinuxWindow;
-class FGenericApplicationMessageHandler;
-
+class IInputDevice;
 
 class FLinuxApplication : public GenericApplication, public FSelfRegisteringExec
 {
@@ -113,7 +122,15 @@ public:
 	 */
 	void GetWindowPositionInEventLoop(SDL_HWindow NativeWindow, int *x, int *y);
 
+	/**
+	 * Destroys native window safely, possibly postponing it to some time in the future.
+	 *
+	 * @param NativeWindow The native window handle to be destroyed
+	 */
+	void DestroyNativeWindow(SDL_HWindow NativeWindow);
+
 	virtual bool IsMouseAttached() const override;
+
 private:
 
 	FLinuxApplication();
@@ -168,6 +185,21 @@ private:
 private:
 
 	void RefreshDisplayCache();
+
+	/**
+	 * Checks if we need to destroy any of PendingDestroy windows.
+	 */
+	void DestroyPendingWindows();
+
+	/** Gets the touch index for a given finger. */
+	inline uint32 GetTouchIndexForFinger(SDL_FingerID FingerId)
+	{
+		// SDL ids are 64-bit while our touches are 32-bit. Collision due to wrapping shouldn't be a practical problem though
+		return static_cast<uint32>(FingerId & 0xFFFFFFFF);
+	}
+
+	/** Gets the location from a given touch event. */
+	FVector2D GetTouchEventLocation(SDL_Event TouchEvent);
 
 	struct SDLControllerState
 	{
@@ -264,6 +296,14 @@ private:
 
 	/** Last time we asked about work area (this is a hack. What we need is a callback when screen config changes). */
 	mutable double			LastTimeCachedDisplays;
+
+	/**
+	 * Native windows to be destroyed - maps window handles to their deadlines (set in terms of FPlatformTime::Seconds())
+	 *
+	 * Deferred destruction is needed because of race condition between render and game threads: Slate might have already queued the window to be drawn this tick (see SlateDrawWindowsCommand), so deleting it
+	 * while processing window messages (especially deferred ones) during the same tick is not safe. See UE-28322 for details.
+	 */
+	TMap<SDL_HWindow, double> PendingDestroyWindows;
 };
 
 extern FLinuxApplication* LinuxApplication;

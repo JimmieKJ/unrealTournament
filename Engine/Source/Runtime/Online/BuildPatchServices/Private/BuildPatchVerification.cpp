@@ -1,63 +1,68 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BuildPatchServicesPrivatePCH.h"
+#include "BuildPatchVerification.h"
+#include "HAL/FileManager.h"
+#include "BuildPatchError.h"
+#include "BuildPatchUtil.h"
 
 class FBuildPatchVerificationImpl : public FBuildPatchVerification
 {
 public:
-	FBuildPatchVerificationImpl(const FBuildPatchAppManifestRef& Manifest, const FBuildPatchFloatDelegate& ProgressDelegate, const FBuildPatchBoolRetDelegate& ShouldPauseDelegate, const FString& VerifyDirectory, const FString& StagedFileDirectory, bool bUseStageDirectory);
+	FBuildPatchVerificationImpl(EVerifyMode InVerifyMode, TSet<FString> InTouchedFiles, TSet<FString> InInstallTags, FBuildPatchAppManifestRef InManifest, FString InVerifyDirectory, FString InStagedFileDirectory, const FBuildPatchFloatDelegate& InProgressDelegate, const FBuildPatchBoolRetDelegate& InShouldPauseDelegate);
 
 	virtual ~FBuildPatchVerificationImpl(){}
-
-	virtual void SetRequiredFiles(TArray<FString> RequiredFiles) override;
 
 	virtual bool VerifyAgainstDirectory(TArray<FString>& OutDatedFiles, double& TimeSpentPaused) override;
 
 private:
+	EVerifyMode VerifyMode;
+	TSet<FString> RequiredFiles;
+	TSet<FString> InstallTags;
 	FBuildPatchAppManifestRef Manifest;
-	TArray<FString> RequiredFiles;
-	FBuildPatchFloatDelegate ProgressDelegate;
-	FBuildPatchBoolRetDelegate ShouldPauseDelegate;
 	const FString VerifyDirectory;
 	const FString StagedFileDirectory;
-	const bool bUseStageDirectory;
+	FBuildPatchFloatDelegate ProgressDelegate;
+	FBuildPatchBoolRetDelegate ShouldPauseDelegate;
 	double CurrentBuildPercentage;
 	double CurrentFileWeight;
 
+private:
 	void PerFileProgress(float Progress);
 	FString SelectFullFilePath(const FString& BuildFile);
+	bool VerfiyFileSha(const FString& BuildFile, double& TimeSpentPaused);
+	bool VerfiyFileSize(const FString& BuildFile, double& TimeSpentPaused);
 };
 
-FBuildPatchVerificationImpl::FBuildPatchVerificationImpl(const FBuildPatchAppManifestRef& InManifest, const FBuildPatchFloatDelegate& InProgressDelegate, const FBuildPatchBoolRetDelegate& InShouldPauseDelegate, const FString& InVerifyDirectory, const FString& InStagedFileDirectory, bool bInUseStageDirectory)
-	: Manifest(InManifest)
+FBuildPatchVerificationImpl::FBuildPatchVerificationImpl(EVerifyMode InVerifyMode, TSet<FString> InTouchedFiles, TSet<FString> InInstallTags, FBuildPatchAppManifestRef InManifest, FString InVerifyDirectory, FString InStagedFileDirectory, const FBuildPatchFloatDelegate& InProgressDelegate, const FBuildPatchBoolRetDelegate& InShouldPauseDelegate)
+	: VerifyMode(InVerifyMode)
+	, RequiredFiles(MoveTemp(InTouchedFiles))
+	, InstallTags(MoveTemp(InInstallTags))
+	, Manifest(MoveTemp(InManifest))
+	, VerifyDirectory(MoveTemp(InVerifyDirectory))
+	, StagedFileDirectory(MoveTemp(InStagedFileDirectory))
 	, ProgressDelegate(InProgressDelegate)
 	, ShouldPauseDelegate(InShouldPauseDelegate)
-	, VerifyDirectory(InVerifyDirectory)
-	, StagedFileDirectory(InStagedFileDirectory)
-	, bUseStageDirectory(bInUseStageDirectory)
 	, CurrentBuildPercentage(0)
 	, CurrentFileWeight(0)
 {}
-
-void FBuildPatchVerificationImpl::SetRequiredFiles(TArray<FString> InRequiredFiles)
-{
-	RequiredFiles = MoveTemp(InRequiredFiles);
-}
 
 bool FBuildPatchVerificationImpl::VerifyAgainstDirectory(TArray<FString>& OutDatedFiles, double& TimeSpentPaused)
 {
 	bool bAllCorrect = true;
 	OutDatedFiles.Empty();
 	TimeSpentPaused = 0;
-	if (RequiredFiles.Num() == 0)
+	if (VerifyMode == EVerifyMode::FileSizeCheckAllFiles || VerifyMode == EVerifyMode::ShaVerifyAllFiles)
 	{
-		Manifest->GetFileList(RequiredFiles);
+		Manifest->GetTaggedFileList(InstallTags, RequiredFiles);
 	}
 
 	// Setup progress tracking
 	double TotalBuildSizeDouble = Manifest->GetFileSize(RequiredFiles);
 	double ProcessedBytes = 0;
 	CurrentBuildPercentage = 0;
+
+	// Select verify function
+	bool bVerifySha = VerifyMode == EVerifyMode::ShaVerifyAllFiles || VerifyMode == EVerifyMode::ShaVerifyTouchedFiles;
 
 	// For all files in the manifest, check that they produce the correct SHA1 hash, adding any that don't to the list
 	for (const FString& BuildFile : RequiredFiles)
@@ -70,16 +75,11 @@ bool FBuildPatchVerificationImpl::VerifyAgainstDirectory(TArray<FString>& OutDat
 
 		// Get file details
 		int64 BuildFileSize = Manifest->GetFileSize(BuildFile);
-		FSHAHashData BuildFileHash;
-		bool bFoundHash = Manifest->GetFileHash(BuildFile, BuildFileHash);
-		check(bFoundHash);
-
-		// Chose the file to check
-		FString FullFilename = SelectFullFilePath(BuildFile);
 
 		// Verify the file
 		CurrentFileWeight = BuildFileSize / TotalBuildSizeDouble;
-		if (FBuildPatchUtils::VerifyFile(FullFilename, BuildFileHash, BuildFileHash, FBuildPatchFloatDelegate::CreateRaw(this, &FBuildPatchVerificationImpl::PerFileProgress), ShouldPauseDelegate, TimeSpentPaused) == 0)
+		bool bFileOk = bVerifySha ? VerfiyFileSha(BuildFile, TimeSpentPaused) : VerfiyFileSize(BuildFile, TimeSpentPaused);
+		if (bFileOk == false)
 		{
 			bAllCorrect = false;
 			OutDatedFiles.Add(BuildFile);
@@ -98,19 +98,54 @@ void FBuildPatchVerificationImpl::PerFileProgress(float Progress)
 
 FString FBuildPatchVerificationImpl::SelectFullFilePath(const FString& BuildFile)
 {
-	if (bUseStageDirectory)
+	FString FullFilePath;
+	if (StagedFileDirectory.IsEmpty() == false)
 	{
-		FString StagedFilename = StagedFileDirectory / BuildFile;
-		if (IFileManager::Get().FileSize(*StagedFilename) != -1)
+		FullFilePath = StagedFileDirectory / BuildFile;
+		if (IFileManager::Get().FileSize(*FullFilePath) != -1)
 		{
-			return MoveTemp(StagedFilename);
+			return FullFilePath;
 		}
 	}
-	FString InstallFilename = VerifyDirectory / BuildFile;
-	return MoveTemp(InstallFilename);
+	FullFilePath = VerifyDirectory / BuildFile;
+	return FullFilePath;
 }
 
-TSharedRef<FBuildPatchVerification> FBuildPatchVerificationFactory::Create(const FBuildPatchAppManifestRef& Manifest, const FBuildPatchFloatDelegate& ProgressDelegate, const FBuildPatchBoolRetDelegate& ShouldPauseDelegate, const FString& VerifyDirectory, const FString& StagedFileDirectory)
+bool FBuildPatchVerificationImpl::VerfiyFileSha(const FString& BuildFile, double& TimeSpentPaused)
 {
-	return MakeShareable(new FBuildPatchVerificationImpl(Manifest, ProgressDelegate, ShouldPauseDelegate, VerifyDirectory, StagedFileDirectory, !StagedFileDirectory.IsEmpty()));
+	FSHAHashData BuildFileHash;
+	bool bFoundHash = Manifest->GetFileHash(BuildFile, BuildFileHash);
+	checkf(bFoundHash, TEXT("Missing file hash from manifest."))
+	return FBuildPatchUtils::VerifyFile(
+		SelectFullFilePath(BuildFile),
+		BuildFileHash,
+		BuildFileHash,
+		FBuildPatchFloatDelegate::CreateRaw(this, &FBuildPatchVerificationImpl::PerFileProgress),
+		ShouldPauseDelegate,
+		TimeSpentPaused) != 0;
+}
+
+bool FBuildPatchVerificationImpl::VerfiyFileSize(const FString& BuildFile, double& TimeSpentPaused)
+{
+	// Pause if necessary
+	const double PrePauseTime = FPlatformTime::Seconds();
+	double PostPauseTime = PrePauseTime;
+	bool bShouldPause = ShouldPauseDelegate.IsBound() && ShouldPauseDelegate.Execute();
+	while (bShouldPause && !FBuildPatchInstallError::HasFatalError())
+	{
+		FPlatformProcess::Sleep(0.1f);
+		bShouldPause = ShouldPauseDelegate.Execute();
+		PostPauseTime = FPlatformTime::Seconds();
+	}
+	// Count up pause time
+	TimeSpentPaused += PostPauseTime - PrePauseTime;
+	PerFileProgress(0.0f);
+	int64 FileSize = IFileManager::Get().FileSize(*SelectFullFilePath(BuildFile));
+	PerFileProgress(1.0f);
+	return FileSize == Manifest->GetFileSize(BuildFile);
+}
+
+TSharedRef<FBuildPatchVerification> FBuildPatchVerificationFactory::Create(EVerifyMode VerifyMode, TSet<FString> TouchedFiles, TSet<FString> InstallTags, FBuildPatchAppManifestRef Manifest, FString VerifyDirectory, FString StagedFileDirectory, const FBuildPatchFloatDelegate& ProgressDelegate, const FBuildPatchBoolRetDelegate& ShouldPauseDelegate)
+{
+	return MakeShareable(new FBuildPatchVerificationImpl(VerifyMode, TouchedFiles, InstallTags, Manifest, VerifyDirectory, StagedFileDirectory, ProgressDelegate, ShouldPauseDelegate));
 }

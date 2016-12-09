@@ -2,12 +2,13 @@
 
 #pragma once
 
-#include "Platform.h"
+#include "CoreMinimal.h"
+#include "BSDSockets/SocketSubsystemBSDPrivate.h"
+#include "Sockets.h"
+
+class FInternetAddr;
 
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
-
-#include "Sockets.h"
-#include "IPAddress.h"
 
 namespace EIPv6SocketInternalState
 {

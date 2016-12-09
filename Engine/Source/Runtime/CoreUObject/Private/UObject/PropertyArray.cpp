@@ -1,13 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "PropertyHelper.h"
-#include "PropertyTag.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/Casts.h"
+#include "UObject/PropertyTag.h"
+#include "UObject/UnrealType.h"
+#include "UObject/LinkerLoad.h"
+#include "UObject/PropertyHelper.h"
 
 /*-----------------------------------------------------------------------------
 	UArrayProperty.
 -----------------------------------------------------------------------------*/
 
+void UArrayProperty::GetPreloadDependencies(TArray<UObject*>& OutDeps)
+{
+	Super::GetPreloadDependencies(OutDeps);
+	OutDeps.Add(Inner);
+}
 
 void UArrayProperty::LinkInternal(FArchive& Ar)
 {
@@ -94,11 +103,22 @@ void UArrayProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defau
 
 			auto CanSerializeFromStructWithDifferentName = [](const FArchive& InAr, const FPropertyTag& PropertyTag, const UStructProperty* StructProperty)
 			{
-				return PropertyTag.StructGuid.IsValid() && StructProperty && StructProperty->Struct && (PropertyTag.StructGuid == StructProperty->Struct->GetCustomGuid() && (StructProperty->Struct->StructFlags & STRUCT_SerializeFromMismatchedTag));
+				return PropertyTag.StructGuid.IsValid()
+					&& StructProperty 
+					&& StructProperty->Struct 
+					&& (PropertyTag.StructGuid == StructProperty->Struct->GetCustomGuid());
 			};
 
 			// Check if the Inner property can successfully serialize, the type may have changed
 			UStructProperty* StructProperty = CastChecked<UStructProperty>(Inner);
+			// if check redirector to make sure if the name has changed
+			FName* NewName = FLinkerLoad::StructNameRedirects.Find(InnerTag.StructName);
+			FName StructName = CastChecked<UStructProperty>(StructProperty)->Struct->GetFName();
+			if (NewName != nullptr && *NewName == StructName)
+			{
+				InnerTag.StructName = *NewName;
+			}
+
 			if (InnerTag.StructName != StructProperty->Struct->GetFName()
 				&& !CanSerializeFromStructWithDifferentName(Ar, InnerTag, StructProperty))
 			{
@@ -477,10 +497,22 @@ void UArrayProperty::InstanceSubobjects( void* Data, void const* DefaultData, UO
 		FScriptArrayHelper ArrayHelper(this, Data);
 		FScriptArrayHelper DefaultArrayHelper(this, DefaultData);
 
+		int32 InnerElementSize = Inner->ElementSize;
+		void* TempElement = FMemory_Alloca(InnerElementSize);
+
 		for( int32 ElementIndex = 0; ElementIndex < ArrayHelper.Num(); ElementIndex++ )
 		{
-			uint8* DefaultValue = (DefaultData && ElementIndex < DefaultArrayHelper.Num()) ? DefaultArrayHelper.GetRawPtr(ElementIndex) : NULL;
-			Inner->InstanceSubobjects( ArrayHelper.GetRawPtr(ElementIndex), DefaultValue, Owner, InstanceGraph );
+			uint8* DefaultValue = (DefaultData && ElementIndex < DefaultArrayHelper.Num()) ? DefaultArrayHelper.GetRawPtr(ElementIndex) : nullptr;
+			FMemory::Memmove(TempElement, ArrayHelper.GetRawPtr(ElementIndex), InnerElementSize);
+			Inner->InstanceSubobjects( TempElement, DefaultValue, Owner, InstanceGraph );
+			if (ElementIndex < ArrayHelper.Num())
+			{
+				FMemory::Memmove(ArrayHelper.GetRawPtr(ElementIndex), TempElement, InnerElementSize);
+			}
+			else
+			{
+				Inner->DestroyValue(TempElement);
+			}
 		}
 	}
 }

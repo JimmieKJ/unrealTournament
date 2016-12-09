@@ -1,13 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "K2Node_AssignDelegate.h"
-#include "K2Node_CustomEvent.h"		// for CreateFromFunction()
-#include "BlueprintEditorUtils.h"	// for DoesSupportEventGraphs(), FindUniqueKismetName(), etc.
-#include "EditorStyleSettings.h"	// for bShowFriendlyNames
-#include "ObjectEditorUtils.h"		// for GetCategory()
+#include "EdGraphSchema_K2.h"
+#include "K2Node_CustomEvent.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "EditorStyleSettings.h"
+#include "Editor/EditorEngine.h"
+#include "ObjectEditorUtils.h"
 #include "EditorCategoryUtils.h"
-#include "Editor/EditorEngine.h"	// for GetFriendlyName()
 
 #define LOCTEXT_NAMESPACE "K2Node_AssignDelegate"
 

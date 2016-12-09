@@ -14,18 +14,20 @@
 // limitations under the License.
 //
 
-#include "OSVRInputPrivatePCH.h"
+#include "OSVRInputDevice.h"
+#include "OSVRInputPrivate.h"
+#include "Containers/Queue.h"
 
 #include "GenericPlatformMath.h"
 #include "OSVREntryPoint.h"
-#include "OSVRInputDevice.h"
-#include "SlateBasics.h"
 #include "GenericApplicationMessageHandler.h"
 #include "OSVRTypes.h"
 #include "IOSVR.h"
 #include "OSVRHMD.h"
 
-#include <osvr/ClientKit/InterfaceStateC.h>
+THIRD_PARTY_INCLUDES_START
+	#include <osvr/ClientKit/InterfaceStateC.h>
+THIRD_PARTY_INCLUDES_END
 
 DEFINE_LOG_CATEGORY(LogOSVRInputDevice);
 
@@ -111,14 +113,16 @@ void FOSVRInputDevice::RegisterNewKeys()
 {
 }
 
-FOSVRInputDevice::FOSVRInputDevice(const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler)
-    : MessageHandler(InMessageHandler)
+FOSVRInputDevice::FOSVRInputDevice(
+    const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler,
+    TSharedPtr<OSVREntryPoint, ESPMode::ThreadSafe> osvrEntryPoint,
+    TSharedPtr<FOSVRHMD, ESPMode::ThreadSafe> osvrHMD) :
+    mOSVREntryPoint(osvrEntryPoint), mOSVRHMD(osvrHMD), MessageHandler(InMessageHandler)
 {
     // make sure OSVR module is loaded.
-    auto entryPoint = IOSVR::Get().GetEntryPoint();
-    contextMutex = entryPoint->GetClientContextMutex();
+    contextMutex = mOSVREntryPoint->GetClientContextMutex();
     FScopeLock lock(contextMutex);
-    context = entryPoint->GetClientContext();
+    context = mOSVREntryPoint->GetClientContext();
 
     bContextValid = context && osvrClientCheckStatus(context) == OSVR_RETURN_SUCCESS;
 
@@ -309,7 +313,8 @@ bool FOSVRInputDevice::GetControllerOrientationAndPosition(const int32 Controlle
             OSVR_TimeValue tvalue;
             if (osvrGetPoseState(iface, &tvalue, &state) == OSVR_RETURN_SUCCESS)
             {
-                float worldToMetersScale = IOSVR::Get().GetHMD()->GetWorldToMetersScale();
+                // @todo: how do we get the world to meters scale without the HMD?
+                float worldToMetersScale = mOSVRHMD.IsValid() ? mOSVRHMD->GetWorldToMetersScale() : 100.0f;
                 OutPosition = OSVR2FVector(state.translation, worldToMetersScale);
                 OutOrientation = OSVR2FQuat(state.rotation).Rotator();
                 bRet = true;

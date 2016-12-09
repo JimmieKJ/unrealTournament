@@ -1,14 +1,42 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationWindowPrivatePCH.h"
-
-#include "AutomationController.h"
-#include "AutomationPresetManager.h"
 #include "SAutomationWindow.h"
-#include "SSearchBox.h"
-#include "SNotificationList.h"
-#include "SThrobber.h"
-#include "SHyperlink.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/TextFilter.h"
+#include "Misc/FilterCollection.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "SlateOptMacros.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/InputChord.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/Commands.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "EditorStyleSet.h"
+#include "SAutomationWindowCommandBar.h"
+#include "AutomationFilter.h"
+#include "AutomationPresetManager.h"
+#include "SAutomationTestItemContextMenu.h"
+#include "SAutomationTestItem.h"
+
+#if WITH_EDITOR
+	#include "Engine/World.h"
+	#include "FileHelpers.h"
+	#include "AssetRegistryModule.h"
+#endif
+
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Widgets/Images/SThrobber.h"
+#include "Widgets/Input/SHyperlink.h"
 #include "Internationalization/Regex.h"
 
 
@@ -104,7 +132,7 @@ SAutomationWindow::~SAutomationWindow()
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-void SAutomationWindow::Construct( const FArguments& InArgs, const IAutomationControllerManagerRef& InAutomationController, const ISessionManagerRef& InSessionManager )
+void SAutomationWindow::Construct( const FArguments& InArgs, const IAutomationControllerManagerRef& InAutomationController, const TSharedRef<ISessionManager>& InSessionManager )
 {
 	FAutomationWindowCommands::Register();
 	CreateCommands();
@@ -920,18 +948,21 @@ void SAutomationWindow::HandlePresetTextCommited( const FText& CommittedText, ET
 	if( CommitType == ETextCommit::OnEnter )
 	{
 		bAddingTestPreset = false;
-		if(CommittedText.IsEmpty())
+		if ( CommittedText.IsEmpty() )
 		{
 			return;
 		}
 
 		TArray<FString> EnabledTests;
 		AutomationController->GetEnabledTestNames(EnabledTests);
-		AutomationPresetPtr NewPreset = TestPresetManager->AddNewPreset(CommittedText,EnabledTests);
-		PresetComboBox->SetSelectedItem(NewPreset);
-		SelectedPreset = NewPreset;
+		AutomationPresetPtr NewPreset = TestPresetManager->AddNewPreset(CommittedText, EnabledTests);
+		if ( NewPreset.IsValid() )
+		{
+			PresetComboBox->SetSelectedItem(NewPreset);
+			SelectedPreset = NewPreset;
 
-		PresetTextBox->SetText(FText());
+			PresetTextBox->SetText(FText());
+		}
 	}
 	else if( CommitType == ETextCommit::OnCleared || CommitType == ETextCommit::OnUserMovedFocus )
 	{
@@ -1050,9 +1081,9 @@ FReply SAutomationWindow::HandleRemovePresetClicked()
 
 FText SAutomationWindow::GetPresetComboText() const
 {
-	if( SelectedPreset.IsValid() )
+	if ( SelectedPreset.IsValid() )
 	{
-		return SelectedPreset->GetPresetName();
+		return SelectedPreset->GetName();
 	}
 	else
 	{
@@ -1078,7 +1109,7 @@ TSharedRef<SWidget> SAutomationWindow::GeneratePresetComboItem(TSharedPtr<FAutom
 	if ( InItem.IsValid() )
 	{
 		return SNew(STextBlock)
-			.Text(InItem->GetPresetName());
+			.Text(InItem->GetName());
 	}
 	else
 	{
@@ -1233,20 +1264,6 @@ TSharedRef< SWidget > SAutomationWindow::GenerateTestsOptionsMenuContent( )
 			.Text(LOCTEXT("AutomationNoScreenshotText", "Enable screenshots"))
 		];
 
-	TSharedRef<SWidget> FullSizeScreenshotsWidget =
-		SNew(SCheckBox)
-		.IsChecked(this, &SAutomationWindow::IsFullSizeScreenshotsCheckBoxChecked)
-		.OnCheckStateChanged(this, &SAutomationWindow::HandleFullSizeScreenshotsBoxCheckStateChanged)
-		.Padding(FMargin(4.0f, 0.0f))
-		.ToolTipText(LOCTEXT("AutomationFullSizeScreenshotsTip", "If checked, test that take screenshots will send back full size images instead of thumbnails."))
-		.IsEnabled( this, &SAutomationWindow::IsFullSizeScreenshotsOptionEnabled )
-		.Content()
-		[
-			SNew(STextBlock)
-			.Text(LOCTEXT("AutomationFullSizeScreenshotText", "Full size screenshots"))
-		];
-
-
 
 	MenuBuilder.BeginSection("AutomationWindowRunTest", LOCTEXT("RunTestOptions", "Advanced Settings"));
 	{
@@ -1257,7 +1274,6 @@ TSharedRef< SWidget > SAutomationWindow::GenerateTestsOptionsMenuContent( )
 	MenuBuilder.BeginSection("AutomationWindowScreenshots", LOCTEXT("ScreenshotOptions", "Screenshot Settings"));
 	{
 		MenuBuilder.AddWidget(EnableScreenshotsWidget, FText::GetEmpty());
-		MenuBuilder.AddWidget(FullSizeScreenshotsWidget, FText::GetEmpty());
 	}
 	MenuBuilder.EndSection();
 
@@ -1320,16 +1336,6 @@ TSharedRef< SWidget > SAutomationWindow::GenerateTestHistoryMenuContent()
 	MenuBuilder.EndSection();
 
 	return MenuBuilder.MakeWidget();
-}
-
-ECheckBoxState SAutomationWindow::IsFullSizeScreenshotsCheckBoxChecked() const
-{
-	return AutomationController->IsUsingFullSizeScreenshots() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-}
-
-void SAutomationWindow::HandleFullSizeScreenshotsBoxCheckStateChanged(ECheckBoxState CheckBoxState)
-{
-	AutomationController->SetUsingFullSizeScreenshots(CheckBoxState == ECheckBoxState::Checked);
 }
 
 ECheckBoxState SAutomationWindow::IsSendAnalyticsCheckBoxChecked() const
@@ -1550,6 +1556,7 @@ void SAutomationWindow::PopulateReportSearchStrings( const TSharedPtr< IAutomati
 	}
 
 	OutSearchStrings.Add( Report->GetDisplayName() );
+	OutSearchStrings.Add( Report->GetFullTestPath() );
 }
 
 
@@ -1893,19 +1900,19 @@ void SAutomationWindow::OnTestAvailableCallback( EAutomationControllerModuleStat
 {
 	AutomationControllerState = InAutomationControllerState;
 
-#if WITH_EDITOR
 	// Only list tests on opening the Window if the asset registry isn't in the middle of loading tests.
 	if ( InAutomationControllerState == EAutomationControllerModuleState::Ready && AutomationController->GetReports().Num() == 0 )
 	{
+#if WITH_EDITOR
 		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 		if ( !AssetRegistryModule.Get().IsLoadingAssets() )
 		{
 			ListTests();
 		}
-	}
 #else
-	ListTests();
+		ListTests();
 #endif
+	}
 }
 
 void SAutomationWindow::OnTestsCompleteCallback()
@@ -1980,7 +1987,7 @@ void SAutomationWindow::HandleSessionManagerInstanceChanged()
 
 void SAutomationWindow::UpdateTestListBackgroundStyle()
 {
-	TArray<ISessionInstanceInfoPtr> OutInstances;
+	TArray<TSharedPtr<ISessionInstanceInfo>> OutInstances;
 
 	if( ActiveSession.IsValid() )
 	{
@@ -2229,7 +2236,7 @@ EVisibility SAutomationWindow::HandleSelectSessionOverlayVisibility( ) const
 }
 
 
-void SAutomationWindow::HandleSessionManagerCanSelectSession( const ISessionInfoPtr& Session, bool& CanSelect )
+void SAutomationWindow::HandleSessionManagerCanSelectSession( const TSharedPtr<ISessionInfo>& Session, bool& CanSelect )
 {
 	if (ActiveSession.IsValid() && AutomationController->CheckTestResultsAvailable())
 	{
@@ -2239,7 +2246,7 @@ void SAutomationWindow::HandleSessionManagerCanSelectSession( const ISessionInfo
 }
 
 
-void SAutomationWindow::HandleSessionManagerSelectionChanged( const ISessionInfoPtr& SelectedSession )
+void SAutomationWindow::HandleSessionManagerSelectionChanged( const TSharedPtr<ISessionInfo>& SelectedSession )
 {
 	FindWorkers();
 }

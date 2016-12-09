@@ -2,13 +2,15 @@
 
 #pragma once
 
-#include "SequencerEditTool.h"
-#include "UniquePtr.h"
-#include "DelayedDrag.h"
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Tools/SequencerEditTool.h"
+#include "Tools/DelayedDrag.h"
 
-
-struct FMarqueeSelectData;
-
+class SSequencer;
+struct ISequencerHotspot;
 
 class FSequencerEditTool_Selection
 	: public FSequencerEditTool

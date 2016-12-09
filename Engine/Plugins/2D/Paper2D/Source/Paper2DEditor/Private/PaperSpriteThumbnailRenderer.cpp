@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "CanvasTypes.h"
 #include "PaperSpriteThumbnailRenderer.h"
+#include "Engine/EngineTypes.h"
+#include "CanvasItem.h"
+#include "Engine/Texture2D.h"
+#include "Paper2DModule.h"
+#include "CanvasTypes.h"
 #include "PaperSprite.h"
 
 //////////////////////////////////////////////////////////////////////////

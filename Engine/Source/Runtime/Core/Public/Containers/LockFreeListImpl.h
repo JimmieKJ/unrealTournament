@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Containers/ContainersFwd.h"
 
 /** 
  *	Wrapper around FLockFreeVoidPointerListBase

@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/FbxMeshImportData.h"
 #include "FbxSkeletalMeshImportData.generated.h"
+
+class USkeletalMesh;
 
 /**
  * Import data and options used when importing a static mesh from fbx

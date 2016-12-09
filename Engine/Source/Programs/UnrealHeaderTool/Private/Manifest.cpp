@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "Manifest.h"
 #include "UnrealHeaderTool.h"
-#include "IScriptGeneratorPluginInterface.h"
-#include "Manifest.h"
-#include "Json.h"
-#include "Manifest.h"
-#include "GeneratedCodeVersion.h"
+#include "Misc/DateTime.h"
+#include "Logging/LogMacros.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "UObject/ErrorException.h"
+#include "Misc/PackageName.h"
+#include "UnrealHeaderToolGlobals.h"
+#include "Serialization/JsonTypes.h"
+#include "Serialization/JsonSerializer.h"
 
 namespace
 {

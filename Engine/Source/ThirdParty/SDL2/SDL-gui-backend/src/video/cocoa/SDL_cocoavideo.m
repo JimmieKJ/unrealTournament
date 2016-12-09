@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -74,6 +74,7 @@ Cocoa_CreateDevice(int devindex)
     device->VideoQuit = Cocoa_VideoQuit;
     device->GetDisplayBounds = Cocoa_GetDisplayBounds;
     device->GetDisplayUsableBounds = Cocoa_GetDisplayUsableBounds;
+    device->GetDisplayDPI = Cocoa_GetDisplayDPI;
     device->GetDisplayModes = Cocoa_GetDisplayModes;
     device->SetDisplayMode = Cocoa_SetDisplayMode;
     device->PumpEvents = Cocoa_PumpEvents;
@@ -87,6 +88,7 @@ Cocoa_CreateDevice(int devindex)
     device->SetWindowSize = Cocoa_SetWindowSize;
     device->SetWindowMinimumSize = Cocoa_SetWindowMinimumSize;
     device->SetWindowMaximumSize = Cocoa_SetWindowMaximumSize;
+    device->SetWindowOpacity = Cocoa_SetWindowOpacity;
     device->ShowWindow = Cocoa_ShowWindow;
     device->HideWindow = Cocoa_HideWindow;
     device->RaiseWindow = Cocoa_RaiseWindow;

@@ -5,8 +5,10 @@
 #include "chrome/browser/renderer_host/pepper/device_id_fetcher.h"
 
 #include "base/files/file_util.h"
+#include "base/macros.h"
 #include "base/prefs/pref_service.h"
 #include "base/strings/string_number_conversions.h"
+#include "build/build_config.h"
 #include "chrome/common/pref_names.h"
 #if defined(OS_CHROMEOS)
 #include "chromeos/cryptohome/system_salt_getter.h"
@@ -56,13 +58,13 @@ void GetMachineIDAsync(
 
 DeviceIDFetcher::DeviceIDFetcher(int render_process_id)
     : in_progress_(false), render_process_id_(render_process_id) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DCHECK_CURRENTLY_ON(BrowserThread::IO);
 }
 
 DeviceIDFetcher::~DeviceIDFetcher() {}
 
 bool DeviceIDFetcher::Start(const IDCallback& callback) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
   if (in_progress_)
     return false;
@@ -80,11 +82,8 @@ bool DeviceIDFetcher::Start(const IDCallback& callback) {
 // static
 void DeviceIDFetcher::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* prefs) {
-  prefs->RegisterBooleanPref(prefs::kEnableDRM,
-                             true,
-                             user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
-  prefs->RegisterStringPref(
-      prefs::kDRMSalt, "", user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
+  prefs->RegisterBooleanPref(prefs::kEnableDRM, true);
+  prefs->RegisterStringPref(prefs::kDRMSalt, "");
 }
 
 // static
@@ -94,7 +93,7 @@ base::FilePath DeviceIDFetcher::GetLegacyDeviceIDPath(
 }
 
 void DeviceIDFetcher::CheckPrefsOnUIThread() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   RenderProcessHost* render_process_host =
       RenderProcessHost::FromID(render_process_id_);
@@ -142,7 +141,7 @@ void DeviceIDFetcher::CheckPrefsOnUIThread() {
 
 void DeviceIDFetcher::ComputeOnUIThread(const std::string& salt,
                                         const std::string& machine_id) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   if (machine_id.empty()) {
     LOG(ERROR) << "Empty machine id";
@@ -152,7 +151,7 @@ void DeviceIDFetcher::ComputeOnUIThread(const std::string& salt,
 
   // Build the identifier as follows:
   // SHA256(machine-id||service||SHA256(machine-id||service||salt))
-  std::vector<uint8> salt_bytes;
+  std::vector<uint8_t> salt_bytes;
   if (!base::HexStringToBytes(salt, &salt_bytes))
     salt_bytes.clear();
   if (salt_bytes.size() != kSaltLength) {
@@ -166,13 +165,13 @@ void DeviceIDFetcher::ComputeOnUIThread(const std::string& salt,
   input.append(kDRMIdentifierFile);
   input.append(salt_bytes.begin(), salt_bytes.end());
   crypto::SHA256HashString(input, &id_buf, sizeof(id_buf));
-  std::string id = base::StringToLowerASCII(
+  std::string id = base::ToLowerASCII(
       base::HexEncode(reinterpret_cast<const void*>(id_buf), sizeof(id_buf)));
   input = machine_id;
   input.append(kDRMIdentifierFile);
   input.append(id);
   crypto::SHA256HashString(input, &id_buf, sizeof(id_buf));
-  id = base::StringToLowerASCII(
+  id = base::ToLowerASCII(
       base::HexEncode(reinterpret_cast<const void*>(id_buf), sizeof(id_buf)));
 
   RunCallbackOnIOThread(id, PP_OK);

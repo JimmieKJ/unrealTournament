@@ -10,9 +10,13 @@
 =============================================================================*/
 
 // for compression
-#include "CorePrivatePCH.h"
-#include "FileManagerGeneric.h"
-#include "SecureHash.h"
+#include "HAL/FileManagerGeneric.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Misc/SecureHash.h"
+#include "UniquePtr.h"
 #include <time.h>
 
 DEFINE_LOG_CATEGORY_STATIC( LogFileManager, Log, All );
@@ -119,18 +123,18 @@ int64 FFileManagerGeneric::FileSize( const TCHAR* Filename )
 	return GetLowLevel().FileSize( Filename );
 }
 
-uint32 FFileManagerGeneric::Copy( const TCHAR* InDestFile, const TCHAR* InSrcFile, bool ReplaceExisting, bool EvenIfReadOnly, bool Attributes, FCopyProgress* Progress )
+uint32 FFileManagerGeneric::Copy( const TCHAR* Dest, const TCHAR* Src, bool Replace, bool EvenIfReadOnly, bool Attributes, FCopyProgress* Progress, EFileRead ReadFlags, EFileWrite WriteFlags)
 {
 	uint32	Result = COPY_OK;
-	if( FPaths::ConvertRelativePathToFull( InDestFile ) == FPaths::ConvertRelativePathToFull( InSrcFile ) )
+	if( FPaths::ConvertRelativePathToFull(Dest) == FPaths::ConvertRelativePathToFull(Src) )
 	{
 		Result = COPY_Fail;
 	}
 	else if( Progress )
 	{
-		Result = CopyWithProgress( InDestFile, InSrcFile, ReplaceExisting, EvenIfReadOnly, Attributes, Progress );
+		Result = CopyWithProgress(Dest, Src, Replace, EvenIfReadOnly, Attributes, Progress, ReadFlags, WriteFlags);
 	}
-	else if( !ReplaceExisting && GetLowLevel().FileExists( InDestFile ) )
+	else if( !Replace && GetLowLevel().FileExists(Dest) )
 	{
 		Result = COPY_Fail;
 	}
@@ -138,10 +142,12 @@ uint32 FFileManagerGeneric::Copy( const TCHAR* InDestFile, const TCHAR* InSrcFil
 	{
 		if( EvenIfReadOnly )
 		{
-			GetLowLevel().SetReadOnly( InDestFile, false );
+			GetLowLevel().SetReadOnly(Dest, false );
 		}
-		MakeDirectory( *FPaths::GetPath(InDestFile), true );
-		if( !GetLowLevel().CopyFile( InDestFile, InSrcFile ) )
+		MakeDirectory( *FPaths::GetPath(Dest), true );
+		EPlatformFileRead PlatformFileRead = (ReadFlags & FILEREAD_AllowWrite) ? EPlatformFileRead::AllowWrite : EPlatformFileRead::None;
+		EPlatformFileWrite PlatformFileWrite = (WriteFlags & FILEWRITE_AllowRead) ? EPlatformFileWrite::AllowRead : EPlatformFileWrite::None;
+		if( !GetLowLevel().CopyFile(Dest, Src, PlatformFileRead, PlatformFileWrite) )
 		{
 			Result = COPY_Fail;
 		}
@@ -150,13 +156,13 @@ uint32 FFileManagerGeneric::Copy( const TCHAR* InDestFile, const TCHAR* InSrcFil
 	// Restore read-only attribute if required
 	if( Result == COPY_OK && Attributes )
 	{
-		GetLowLevel().SetReadOnly( InDestFile, GetLowLevel().IsReadOnly( InSrcFile ) );
+		GetLowLevel().SetReadOnly(Dest, GetLowLevel().IsReadOnly(Src) );
 	}
 
 	return Result;
 }
 
-uint32 FFileManagerGeneric::CopyWithProgress( const TCHAR* InDestFile, const TCHAR* InSrcFile, bool ReplaceExisting, bool EvenIfReadOnly, bool Attributes, FCopyProgress* Progress )
+uint32 FFileManagerGeneric::CopyWithProgress(const TCHAR* InDestFile, const TCHAR* InSrcFile, bool ReplaceExisting, bool EvenIfReadOnly, bool Attributes, FCopyProgress* Progress, EFileRead ReadFlags, EFileWrite WriteFlags)
 {
 	uint32	Result = COPY_OK;
 
@@ -166,14 +172,14 @@ uint32 FFileManagerGeneric::CopyWithProgress( const TCHAR* InDestFile, const TCH
 		FString SrcFile		= InSrcFile;
 		FString DestFile	= InDestFile;
 	
-		FArchive* Src = CreateFileReader( *SrcFile );
+		FArchive* Src = CreateFileReader( *SrcFile, ReadFlags );
 		if( !Src )
 		{
 			Result = COPY_Fail;
 		}
 		else
 		{
-			FArchive* Dest = CreateFileWriter( *DestFile,( ReplaceExisting ? 0 : FILEWRITE_NoReplaceExisting ) | ( EvenIfReadOnly ? FILEWRITE_EvenIfReadOnly : 0 ) );
+			FArchive* Dest = CreateFileWriter( *DestFile, ( ReplaceExisting ? 0 : FILEWRITE_NoReplaceExisting ) | ( EvenIfReadOnly ? FILEWRITE_EvenIfReadOnly : 0 ) | WriteFlags );
 			if( !Dest )
 			{
 				Result = COPY_Fail;
@@ -670,38 +676,13 @@ bool FArchiveFileReaderGeneric::InternalPrecache( int64 PrecacheOffset, int64 Pr
 		int64 Count = 0;
 
 		{
-			#if PLATFORM_DESKTOP
-				// Show a message box indicating, possible, corrupt data (desktop platforms only)
-				if (BufferCount > ARRAY_COUNT( Buffer ) || BufferCount <= 0)
-				{
-					FText ErrorMessage, ErrorCaption;
-					GConfig->GetText(TEXT("/Script/Engine.Engine"),
-									 TEXT("SerializationOutOfBoundsErrorMessage"),
-									 ErrorMessage,
-									 GEngineIni);
-					GConfig->GetText(TEXT("/Script/Engine.Engine"),
-						TEXT("SerializationOutOfBoundsErrorMessageCaption"),
-						ErrorCaption,
-						GEngineIni);
+			if (BufferCount > ARRAY_COUNT( Buffer ) || BufferCount <= 0)
+			{
+				UE_LOG( LogFileManager, Error, TEXT("Invalid BufferCount=%lld while reading %s. File is most likely corrupted. Please verify your installation. Pos=%lld, Size=%lld, PrecacheSize=%lld, PrecacheOffset=%lld"),
+					BufferCount, *Filename, Pos, Size, PrecacheSize, PrecacheOffset );
 
-					UE_LOG( LogFileManager, Error, TEXT("Invalid BufferCount=%lld while reading %s. File is most likely corrupted. Please verify your installation. Pos=%lld, Size=%lld, PrecacheSize=%lld, PrecacheOffset=%lld"),
-						BufferCount, *Filename, Pos, Size, PrecacheSize, PrecacheOffset );
-
-					if (GLog)
-					{
-						GLog->Flush();
-					}
-
-					FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *ErrorMessage.ToString(), *ErrorCaption.ToString());
-
-					check(false);
-				}
-			#else
-				{
-					UE_CLOG( BufferCount > ARRAY_COUNT( Buffer ) || BufferCount <= 0, LogFileManager, Fatal, TEXT("Invalid BufferCount=%lld while reading %s. File is most likely corrupted. Please verify your installation. Pos=%lld, Size=%lld, PrecacheSize=%lld, PrecacheOffset=%lld"),
-						BufferCount, *Filename, Pos, Size, PrecacheSize, PrecacheOffset );
-				}
-			#endif
+				return false;
+			}
 
 			ReadLowLevel( Buffer, BufferCount, Count );
 		}
@@ -739,7 +720,12 @@ void FArchiveFileReaderGeneric::Serialize( void* V, int64 Length )
 				Pos += Length;
 				return;
 			}
-			InternalPrecache( Pos, MAX_int32 );
+			if (!InternalPrecache(Pos, MAX_int32))
+			{
+				ArIsError = true;
+				UE_LOG( LogFileManager, Warning, TEXT( "ReadFile failed during precaching for file %s" ),*Filename );
+				return;
+			}
 			Copy = FMath::Min( Length, BufferBase+BufferCount-Pos );
 			if( Copy<=0 )
 			{
@@ -882,10 +868,10 @@ void FArchiveFileWriterGeneric::LogWriteError(const TCHAR* Message)
 
 IFileManager& IFileManager::Get()
 {
-	static TScopedPointer<FFileManagerGeneric> AutoDestroySingleton;
+	static TUniquePtr<FFileManagerGeneric> AutoDestroySingleton;
 	if( !AutoDestroySingleton )
 	{
-		AutoDestroySingleton = new FFileManagerGeneric();
+		AutoDestroySingleton = MakeUnique<FFileManagerGeneric>();
 	}
 	return *AutoDestroySingleton;
 }

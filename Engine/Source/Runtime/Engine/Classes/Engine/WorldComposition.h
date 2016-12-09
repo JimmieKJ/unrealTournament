@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/WorldCompositionUtility.h"
 #include "WorldComposition.generated.h"
 
+class ULevel;
+class ULevelStreaming;
 
 /**
  * Helper structure which holds information about level package which participates in world composition
@@ -132,15 +139,15 @@ class ENGINE_API UWorldComposition : public UObject
 	/** @returns Whether specified tile package name is managed by world composition */
 	bool DoesTileExists(const FName& TilePackageName) const;
 
+	/** @returns Tiles list in a world composition */
+	FTilesList& GetTilesList();
+
 #if WITH_EDITOR
 	/** @returns FWorldTileInfo associated with specified package */
 	FWorldTileInfo GetTileInfo(const FName& InPackageName) const;
 	
 	/** Notification from World browser about changes in tile info structure */
 	void OnTileInfoUpdated(const FName& InPackageName, const FWorldTileInfo& InInfo);
-
-	/** @returns Tiles list in a world composition */
-	FTilesList& GetTilesList();
 
 	/** Restores dirty tiles information after world composition being rescanned */
 	void RestoreDirtyTilesInfo(const FTilesList& TilesPrevState);

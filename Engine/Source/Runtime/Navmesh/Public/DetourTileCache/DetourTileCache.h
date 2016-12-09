@@ -22,9 +22,11 @@
 #ifndef DETOURTILECACHE_H
 #define DETOURTILECACHE_H
 
-#include "DetourStatus.h"
+#include "CoreMinimal.h"
+#include "Detour/DetourStatus.h"
 
-
+struct dtTileCacheAlloc;
+struct dtTileCacheCompressor;
 
 typedef unsigned int dtObstacleRef;
 

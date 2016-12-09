@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AlembicLibraryPublicPCH.h"
-#include "Engine.h"
-#include "UnrealEd.h"
+#include "AlembicTestCommandLet.h"
 #include "AbcImporter.h"
 #include "AbcImportSettings.h"
-#include "AlembicTestCommandLet.h"
+#include "Misc/Paths.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAlembicCommandlet, Log, All);
 
@@ -103,7 +101,7 @@ int32 UAlembicTestCommandlet::Main(const FString& Params)
 		}
 	}	
 
-	Sleep(5);
+	FPlatformProcess::Sleep(0.005f);
 
 	return bSuccess ? 0 : 1;
 }

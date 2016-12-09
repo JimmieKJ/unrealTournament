@@ -542,6 +542,11 @@ TEST(CookieTest, DomainCookieOnDisk) {
   EXPECT_TRUE(manager.get());
 
   TestDomainCookie(manager, event);
+
+  // The backing store will be closed on the DB thread after the CookieManager
+  // is destroyed.
+  manager = NULL;
+  WaitForDBThread();
 }
 
 // Test creation of a host cookie.
@@ -585,6 +590,11 @@ TEST(CookieTest, HostCookieOnDisk) {
   EXPECT_TRUE(manager.get());
 
   TestHostCookie(manager, event);
+
+  // The backing store will be closed on the DB thread after the CookieManager
+  // is destroyed.
+  manager = NULL;
+  WaitForDBThread();
 }
 
 // Test creation of multiple cookies.
@@ -628,6 +638,11 @@ TEST(CookieTest, MultipleCookiesOnDisk) {
   EXPECT_TRUE(manager.get());
 
   TestMultipleCookies(manager, event);
+
+  // The backing store will be closed on the DB thread after the CookieManager
+  // is destroyed.
+  manager = NULL;
+  WaitForDBThread();
 }
 
 TEST(CookieTest, AllCookiesGlobal) {
@@ -668,6 +683,11 @@ TEST(CookieTest, AllCookiesOnDisk) {
   EXPECT_TRUE(manager.get());
 
   TestAllCookies(manager, event);
+
+  // The backing store will be closed on the DB thread after the CookieManager
+  // is destroyed.
+  manager = NULL;
+  WaitForDBThread();
 }
 
 TEST(CookieTest, ChangeDirectoryGlobal) {
@@ -900,6 +920,8 @@ class CookieTestJSHandler : public TestHandler {
   TrackCallback got_load_end2_;
   TrackCallback got_cookie1_;
   TrackCallback got_cookie2_;
+
+  IMPLEMENT_REFCOUNTING(CookieTestJSHandler);
 };
 
 }  // namespace
@@ -1083,8 +1105,6 @@ class CookieTestSchemeHandler : public TestHandler {
 
     if (scheme_ != "http") {
       std::vector<CefString> schemes;
-      schemes.push_back("http");
-      schemes.push_back("https");
       schemes.push_back(scheme_);
 
       manager1_->SetSupportedSchemes(schemes, NULL);
@@ -1188,6 +1208,8 @@ class CookieTestSchemeHandler : public TestHandler {
   TrackCallback got_cookie1_;
   TrackCallback got_cookie2_;
   TrackCallback got_cookie3_;
+
+  IMPLEMENT_REFCOUNTING(CookieTestSchemeHandler);
 };
 
 }  // namespace

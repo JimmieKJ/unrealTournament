@@ -1,118 +1,72 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
-#include "Matinee/MatineeActor.h"
-#include "InteractiveFoliageActor.h"
-#include "Animation/SkeletalMeshActor.h"
-#include "Engine/WorldComposition.h"
-#include "EditorSupportDelegates.h"
-#include "Factories.h"
-#include "BSPOps.h"
-#include "EditorCommandLineUtils.h"
-#include "Net/NetworkProfiler.h"
-#include "UObjectGlobals.h"
+#include "Editor.h"
+#include "Factories/Factory.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Modules/ModuleManager.h"
+#include "Containers/ArrayView.h"
+#include "EditorReimportHandler.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+#include "Factories/ReimportDestructibleMeshFactory.h"
+#include "Factories/ReimportFbxSkeletalMeshFactory.h"
+#include "Factories/ReimportFbxStaticMeshFactory.h"
+#include "Factories/ReimportFbxSceneFactory.h"
+#include "Factories/ReimportSoundFactory.h"
+#include "Factories/ReimportSoundSurroundFactory.h"
+#include "Factories/ReimportTextureFactory.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Misc/ScopedSlowTask.h"
+#include "UObject/UObjectIterator.h"
+#include "EngineUtils.h"
+#include "Dialogs/Dialogs.h"
 
 // needed for the RemotePropagator
-#include "SoundDefinitions.h"
-#include "Database.h"
-#include "SurfaceIterators.h"
-#include "ScopedTransaction.h"
 
-#include "ISourceControlModule.h"
-#include "PackageBackup.h"
-#include "LevelUtils.h"
-#include "Layers/Layers.h"
-#include "EditorLevelUtils.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "AssetSelection.h"
-#include "FXSystem.h"
 
+#include "Engine/SimpleConstructionScript.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "Kismet2/KismetEditorUtilities.h"
-#include "Kismet2/KismetDebugUtilities.h"
-#include "Editor/Kismet/Public/BlueprintEditorModule.h"
 #include "Engine/InheritableComponentHandler.h"
 
-#include "BlueprintUtilities.h"
 
-#include "AssetRegistryModule.h"
-#include "ContentBrowserModule.h"
-#include "ISourceCodeAccessModule.h"
 
-#include "Editor/MainFrame/Public/MainFrame.h"
-#include "AnimationUtils.h"
-#include "AudioDecompress.h"
-#include "LevelEditor.h"
-#include "SCreateAssetFromObject.h"
+#include "Interfaces/IMainFrameModule.h"
 
-#include "Editor/ActorPositioning.h"
 
-#include "Developer/DirectoryWatcher/Public/DirectoryWatcherModule.h"
 
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "Editor/LevelEditor/Public/ILevelViewport.h"
 
-#include "ComponentReregisterContext.h"
-#include "EngineModule.h"
-#include "RendererInterface.h"
 
 #if PLATFORM_WINDOWS
+	#include "WindowsHWrapper.h"
 // For WAVEFORMATEXTENSIBLE
 	#include "AllowWindowsPlatformTypes.h"
 #include <mmreg.h>
 	#include "HideWindowsPlatformTypes.h"
 #endif
 
-#include "AudioDerivedData.h"
-#include "Projects.h"
-#include "TargetPlatform.h"
-#include "RemoteConfigIni.h"
 
-#include "AssetToolsModule.h"
 #include "DesktopPlatformModule.h"
 #include "ObjectTools.h"
-#include "MessageLogModule.h"
 
-#include "GameProjectGenerationModule.h"
-#include "ActorEditorUtils.h"
-#include "SnappingUtils.h"
-#include "EditorViewportCommands.h"
-#include "MessageLog.h"
 
-#include "MRUFavoritesList.h"
-#include "EditorStyle.h"
-#include "EngineBuildSettings.h"
 
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
 
 // AIMdule
-#include "BehaviorTree/BehaviorTreeManager.h"
 
-#include "HotReloadInterface.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "Engine/GameEngine.h"
-#include "Engine/TextureRenderTarget2D.h"
-#include "GameFramework/GameUserSettings.h"
-#include "Engine/Light.h"
-#include "Engine/LevelStreamingVolume.h"
-#include "Sound/SoundCue.h"
-#include "Components/BrushComponent.h"
-#include "Engine/LocalPlayer.h"
-#include "Components/SkyLightComponent.h"
-#include "Components/ReflectionCaptureComponent.h"
-#include "Engine/Polys.h"
-#include "UnrealEngine.h"
-#include "EngineStats.h"
-#include "Engine/SimpleConstructionScript.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "K2Node_AddComponent.h"
 
 #include "AutoReimport/AutoReimportUtilities.h"
 
-#include "Settings/EditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "UnrealEd.Editor"
 
@@ -193,7 +147,7 @@ void FReimportManager::UnregisterHandler( FReimportHandler& InHandler )
 	Handlers.Remove( &InHandler );
 }
 
-bool FReimportManager::CanReimport( UObject* Obj ) const
+bool FReimportManager::CanReimport( UObject* Obj, TArray<FString> *ReimportSourceFilenames) const
 {
 	if ( Obj )
 	{
@@ -203,10 +157,21 @@ bool FReimportManager::CanReimport( UObject* Obj ) const
 			SourceFilenames.Empty();
 			if ( Handlers[ HandlerIndex ]->CanReimport(Obj, SourceFilenames) )
 			{
+				if (ReimportSourceFilenames != nullptr)
+				{
+					(*ReimportSourceFilenames) = SourceFilenames;
+				}
+	
 				return true;
 			}
 		}
 	}
+	
+	if (ReimportSourceFilenames != nullptr)
+	{
+		ReimportSourceFilenames->Empty();
+	}
+	
 	return false;
 }
 
@@ -387,6 +352,118 @@ bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, boo
 	return bSuccess;
 }
 
+void FReimportManager::ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImportObjects)
+{
+	//Copy the array to prevent iteration assert if a reimport factory change the selection
+	TArray<UObject*> CopyOfSelectedAssets;
+	TArray<UObject*> MissingFileSelectedAssets;
+	for (UObject *Asset : ToImportObjects)
+	{
+		TArray<FString> SourceFilenames;
+		if (this->CanReimport(Asset, &SourceFilenames))
+		{
+			bool bMissingFile = false;
+			for (FString SourceFilename : SourceFilenames)
+			{
+				if (SourceFilename.IsEmpty() || IFileManager::Get().FileSize(*SourceFilename) == INDEX_NONE)
+				{
+					MissingFileSelectedAssets.Add(Asset);
+					bMissingFile = true;
+					break;
+				}
+			}
+
+			if (!bMissingFile)
+			{
+				CopyOfSelectedAssets.Add(Asset);
+			}
+		}
+	}
+
+	if (MissingFileSelectedAssets.Num() > 0)
+	{
+		// Ask the user how to handle missing files before doing the re-import when there is more then one missing file
+		// 1. Ask for missing file location for every missing file
+		// 2. Ignore missing file asset when doing the re-import
+		// 3. Cancel the whole reimport
+		EAppReturnType::Type UserChoice = EAppReturnType::Type::Yes;
+		if (MissingFileSelectedAssets.Num() > 1)
+		{
+			//Pop the dialog box asking the question
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("MissingNumber"), FText::FromString(FString::FromInt(MissingFileSelectedAssets.Num())));
+			int MaxListFile = 100;
+			FString AssetToFileListString;
+			for (UObject *Asset : MissingFileSelectedAssets)
+			{
+				AssetToFileListString += TEXT("\n");
+				if (MaxListFile == 0)
+				{
+					AssetToFileListString += TEXT("...");
+					break;
+				}
+				TArray<FString> SourceFilenames;
+				if (this->CanReimport(Asset, &SourceFilenames))
+				{
+					MaxListFile--;
+					AssetToFileListString += FString::Printf(TEXT("Asset %s -> Missing file %s"), *(Asset->GetName()), *(SourceFilenames[0]));
+				}
+			}
+			Arguments.Add(TEXT("AssetToFileList"), FText::FromString(AssetToFileListString));
+			FText DialogText = FText::Format(LOCTEXT("ReimportMissingFileChoiceDialogMessage", "There is {MissingNumber} assets with missing source file path. Do you want to specify a new source file path for each asset?\n \"No\" will skip the reimport of all asset with a missing source file path.\n \"Cancel\" will cancel the whole reimport.\n{AssetToFileList}"), Arguments);
+
+			UserChoice = OpenMsgDlgInt(EAppMsgType::YesNoCancel, DialogText, LOCTEXT("ReimportMissingFileChoiceDialogMessageTitle", "Reimport missing files"));
+		}
+
+		//Ask missing file locations
+		if (UserChoice == EAppReturnType::Type::Yes)
+		{
+			//Ask the user for a new source reimport path for each asset
+			for (UObject *Asset : MissingFileSelectedAssets)
+			{
+				TArray<FString> SourceFilenames;
+				this->GetNewReimportPath(Asset, SourceFilenames);
+				if (SourceFilenames.Num() == 0)
+				{
+					continue;
+				}
+				this->UpdateReimportPaths(Asset, SourceFilenames);
+				CopyOfSelectedAssets.Add(Asset);
+			}
+		}
+		else if (UserChoice == EAppReturnType::Type::Cancel)
+		{
+			return;
+		}
+		//If user ignore those asset just not add them to CopyOfSelectedAssets
+	}
+
+	FReimportManager::Instance()->ReimportMultiple(CopyOfSelectedAssets, /*bAskForNewFileIfMissing=*/false);
+}
+
+bool FReimportManager::ReimportMultiple(TArrayView<UObject*> Objects, bool bAskForNewFileIfMissing /*= false*/, bool bShowNotification /*= true*/, FString PreferedReimportFile /*= TEXT("")*/, FReimportHandler* SpecifiedReimportHandler /*= nullptr */)
+{
+	bool bBulkSuccess = true;
+
+	FScopedSlowTask BulkReimportTask((float)Objects.Num(), LOCTEXT("BulkReimport_Title", "Reimporting..."));
+
+	for(UObject* CurrentObject : Objects)
+	{
+		if(CurrentObject)
+		{
+			FText SingleTaskTest = FText::Format(LOCTEXT("BulkReimport_SingleItem", "Reimporting {0}"), FText::FromString(CurrentObject->GetName()));
+			FScopedSlowTask SingleObjectTask(1.0f, SingleTaskTest);
+			SingleObjectTask.EnterProgressFrame(1.0f);
+
+			bBulkSuccess = bBulkSuccess && Reimport(CurrentObject, bAskForNewFileIfMissing, bShowNotification, PreferedReimportFile, SpecifiedReimportHandler);
+		}
+
+		BulkReimportTask.EnterProgressFrame(1.0f);
+	}
+
+	return bBulkSuccess;
+}
+
 void FReimportManager::GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFilenames)
 {
 	TArray<UObject*> ReturnObjects;
@@ -491,11 +568,6 @@ FReimportManager::FReimportManager()
 	// Create reimport handler for APEX destructible meshes
 	UReimportDestructibleMeshFactory::StaticClass();
 
-	// Create reimport handler for sound node waves
-	UReimportSoundFactory::StaticClass();
-
-	// Create reimport handler for surround sound waves
-	UReimportSoundSurroundFactory::StaticClass();
 }
 
 FReimportManager::~FReimportManager()
@@ -590,7 +662,7 @@ namespace EditorUtilities
 	AActor* GetEditorWorldCounterpartActor( AActor* Actor )
 	{
 		const bool bIsSimActor = Actor->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
-		if( bIsSimActor && GEditor->PlayWorld != NULL )
+		if( bIsSimActor && GEditor && GEditor->PlayWorld != NULL )
 		{
 			// Do we have a counterpart in the editor world?
 			auto* SimWorldActor = Actor;
@@ -621,7 +693,7 @@ namespace EditorUtilities
 	AActor* GetSimWorldCounterpartActor( AActor* Actor )
 	{
 		const bool bIsSimActor = Actor->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
-		if( !bIsSimActor && GEditor->EditorWorld != NULL )
+		if( !bIsSimActor && GEditor && GEditor->EditorWorld != NULL )
 		{
 			// Do we have a counterpart in the sim world?
 			auto* EditorWorldActor = Actor;
@@ -1058,16 +1130,15 @@ namespace EditorUtilities
 
 
 		int32 TargetComponentIndex = 0;
-		for( auto SourceComponentIter( SourceComponents.CreateConstIterator() ); SourceComponentIter; ++SourceComponentIter )
+		for( UActorComponent* SourceComponent : SourceComponents )
 		{
-			UActorComponent* SourceComponent = *SourceComponentIter;
 			if (SourceComponent->CreationMethod == EComponentCreationMethod::UserConstructionScript)
 			{
 				continue;
 			}
 			UActorComponent* TargetComponent = FindMatchingComponentInstance( SourceComponent, TargetActor, TargetComponents, TargetComponentIndex );
 
-			if( SourceComponent != nullptr && TargetComponent != nullptr )
+			if( TargetComponent != nullptr )
 			{
 				UClass* ComponentClass = SourceComponent->GetClass();
 				check( ComponentClass == TargetComponent->GetClass() );

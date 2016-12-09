@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StatsViewerPrivatePCH.h"
-#include "LightingBuildInfoStatsPage.h"
-#include "LightingBuildInfo.h"
+#include "StatsPages/LightingBuildInfoStatsPage.h"
 
 #define LOCTEXT_NAMESPACE "Editor.StatsViewer.LightingBuildInfo"
 

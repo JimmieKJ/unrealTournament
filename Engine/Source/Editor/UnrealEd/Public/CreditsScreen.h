@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+
+class FActiveTimerHandle;
+class SScrollBox;
+
 /**
  * Credit screen widget that displays a scrolling list contributors.  
  */

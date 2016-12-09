@@ -2,17 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
 
-class ISequencerTrackEditor;
-class UMovieSceneSection;
+class FSequencer;
 class FSequencerDisplayNode;
 class FSequencerObjectBindingNode;
 class FSequencerTrackNode;
-class FSequencerFolderNode;
+class ISequencerTrackEditor;
+class UMovieSceneFolder;
 class UMovieSceneTrack;
 struct FMovieSceneBinding;
-class UMovieSceneFolder;
-
 
 /**
  * Represents a tree of sequencer display nodes, used to populate the Sequencer UI with MovieScene data

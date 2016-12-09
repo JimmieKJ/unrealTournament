@@ -1,8 +1,16 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SWidget.h"
+#include "Components/TextWidgetTypes.h"
 #include "TextBlock.generated.h"
+
+class STextBlock;
 
 /**
  * A simple static text widget.
@@ -60,10 +68,18 @@ public:
 	/**
 	 *  Set the text justification for this text block
 	 *
-	 *  @param Justification new justification
+	 *  @param InJustification new justification
 	 */
-	UFUNCTION( BlueprintCallable, Category = "Appearance" )
-	void SetJustification( ETextJustify::Type InJustification );
+	UFUNCTION(BlueprintCallable, Category = "Appearance")
+	void SetJustification(ETextJustify::Type InJustification);
+	
+	/**
+	 *  Set the minimum desired width for this text block
+	 *
+	 *  @param InMinDesiredWidth new minimum desired width
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Appearance")
+	void SetMinDesiredWidth(float InMinDesiredWidth);
 
 public:
 	/** The text to display */
@@ -122,7 +138,7 @@ public:
 	 * @param InText The text to assign to the widget
 	 */
 	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="SetText (Text)"))
-	void SetText(FText InText);
+	virtual void SetText(FText InText);
 
 	//~ Begin UWidget Interface
 	virtual void SynchronizeProperties() override;

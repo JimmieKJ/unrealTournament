@@ -13,8 +13,12 @@
  * limitations under the License.
  */
 
-#include "GoogleVRHMDPCH.h"
 #include "GoogleVRHMD.h"
+#include "Engine/LocalPlayer.h"
+#include "GameFramework/WorldSettings.h"
+#include "GameFramework/PlayerController.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/CoreDelegates.h"
 #if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
 #include "Android/AndroidJNI.h"
 #include "Android/AndroidApplication.h"
@@ -33,8 +37,8 @@
 ///////////////////////////////////////////
 
 static TAutoConsoleVariable<int32> CVarViewerPreview(
-	TEXT("googlevr.ViewerPreview"), 
-	3, 
+	TEXT("googlevr.ViewerPreview"),
+	3,
 	TEXT("Change which viewer data is used for VR previewing.\n")
 	TEXT(" 0: No viewer or distortion\n")
 	TEXT(" 1: Google Cardboard 1.0\n")
@@ -59,12 +63,19 @@ static TAutoConsoleVariable<float> CVarPreviewSensitivity(
 // GoogleVR Api Reference
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 gvr_context* GVRAPI = nullptr;
-static uint32 OffscreenBufferMSAASetting = 2;
+const gvr_user_prefs* GVRUserPrefs = nullptr;
+static const int64_t kPredictionTime = 50 * 1000000; //50 millisecond
+static const float kDefaultRenderTargetScaleFactor = 1.0f;
 #endif // GOOGLEVRHMD_SUPPORTED_PLATFORMS
 
 // Only one HMD can be active at a time, so using file static to track this for transferring to game thread
 static bool bBackDetected = false;
 static bool bTriggerDetected = false;
+static double BackbuttonPressTime;
+static const double BACK_BUTTON_SHORT_PRESS_TIME = 1.0f;
+
+//static variable for debugging;
+static bool bDebugShowGVRSplash = false;
 
 ////////////////////////////////////////////////
 // Begin Misc Helper Functions Implementation //
@@ -139,17 +150,6 @@ gvr_context* AndroidThunkCpp_GetNativeGVRApi()
 	return nullptr;
 }
 
-bool AndroidThunkCpp_IsScanlineRacingEnabled()
-{
- 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
- 	{
-		static jmethodID Method = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_IsScanlineRacingEnabled", "()Z", false);
-		return FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, Method);
- 	}
-
-	return false;
-}
-
 void AndroidThunkCpp_GvrLayout_SetFixedPresentationSurfaceSizeToCurrent()
 {
  	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
@@ -168,6 +168,45 @@ bool AndroidThunkCpp_ProjectWantsCardboardOnlyMode()
  	}
 
 	return false;
+}
+
+bool AndroidThunkCpp_IsVrLaunch()
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		static jmethodID Method = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_IsVrLaunch", "()Z", false);
+		return FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, Method);
+	}
+
+	return true;
+}
+
+void AndroidThunkCpp_QuitDaydreamApplication()
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		static jmethodID Method = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_QuitDaydreamApplication", "()V", false);
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, Method);
+	}
+}
+
+FString AndroidThunkCpp_GetDataString()
+{
+	FString Result = FString("");
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		static jmethodID Method = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_GetDataString", "()Z", false);
+		jstring JavaString = (jstring)FJavaWrapper::CallObjectMethod(Env, FJavaWrapper::GameActivityThis, Method);
+		if (JavaString != NULL)
+		{
+			const char* JavaChars = Env->GetStringUTFChars(JavaString, 0);
+			Result = FString(UTF8_TO_TCHAR(JavaChars));
+			Env->ReleaseStringUTFChars(JavaString, JavaChars);
+			Env->DeleteLocalRef(JavaString);
+		}
+	}
+
+	return Result;
 }
 
 #endif // GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
@@ -218,7 +257,7 @@ class FGoogleVRHMDPlugin : public IGoogleVRHMDPlugin
 public:
 
 	/** Returns the key into the HMDPluginPriority section of the config file for this module */
-	virtual FString GetModulePriorityKeyName() const override
+	virtual FString GetModuleKeyName() const override
 	{
 		return TEXT("GoogleVRHMD");
 	}
@@ -229,6 +268,11 @@ public:
 	 * @return	Interface to the new head tracking device, if we were able to successfully create one
 	 */
 	virtual TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > CreateHeadMountedDisplay() override;
+
+	/**
+	 * Always return true for GoogleVR, when enabled, to allow HMD Priority to sort it out
+	 */
+	virtual bool IsHMDConnected() { return true; }
 };
 
 IMPLEMENT_MODULE( FGoogleVRHMDPlugin, GoogleVRHMD );
@@ -249,13 +293,21 @@ TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > FGoogleVRHMDPlugin:
 /////////////////////////////////////
 
 FGoogleVRHMD::FGoogleVRHMD()
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	: CustomPresent(nullptr)
+	, bStereoEnabled(false)
+#else
 	: bStereoEnabled(false)
+#endif
 	, bHMDEnabled(false)
 	, bDistortionCorrectionEnabled(true)
-	, bUseGVRApiDistortionCorrection(true)
-	, bUseOffscreenFramebuffers(true)
+	, bUseGVRApiDistortionCorrection(false)
+	, bUseOffscreenFramebuffers(false)
+	, bIsInDaydreamMode(false)
+	, bForceStopPresentScene(false)
+	, NeckModelScale(1.0f)
 	, CurHmdOrientation(FQuat::Identity)
-	, LastHmdOrientation(FQuat::Identity)
+	, CurHmdPosition(FVector::ZeroVector)
 	, DeltaControlRotation(FRotator::ZeroRotator)
 	, DeltaControlOrientation(FQuat::Identity)
 	, BaseOrientation(FQuat::Identity)
@@ -263,16 +315,15 @@ FGoogleVRHMD::FGoogleVRHMD()
 	, DistortionMeshIndices(nullptr)
 	, DistortionMeshVerticesLeftEye(nullptr)
 	, DistortionMeshVerticesRightEye(nullptr)
-#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	, CustomPresent(nullptr)
-#endif
 #if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
 	, OverlayView(nil)
 #endif
 	, LastUpdatedCacheFrame(0)
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	, CachedDistortedRenderTextureParams(nullptr)
-	, CachedNonDistortedRenderTextureParams(nullptr)
+	, DistortedBufferViewportList(nullptr)
+	, NonDistortedBufferViewportList(nullptr)
+	, ActiveViewportList(nullptr)
+	, ScratchViewport(nullptr)
 #endif
 	, PosePitch(0.0f)
 	, PoseYaw(0.0f)
@@ -299,25 +350,39 @@ FGoogleVRHMD::FGoogleVRHMD()
 	{
 		UE_LOG(LogHMD, Log, TEXT("GoogleVR API created"));
 
+		// Get renderer module
+		static const FName RendererModuleName("Renderer");
+		RendererModule = FModuleManager::GetModulePtr<IRendererModule>(RendererModuleName);
+		check(RendererModule);
+
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 
 		// Initialize OpenGL resources for API
 		gvr_initialize_gl(GVRAPI);
 
-		// Set default framebuffer
-		gvr_set_default_framebuffer_active(GVRAPI);
-
 		// Log the current viewer
 		UE_LOG(LogHMD, Log, TEXT("The current viewer is %s"), UTF8_TO_TCHAR(gvr_get_viewer_model(GVRAPI)));
 
-#if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
+		// Get gvr user prefs
+		GVRUserPrefs = gvr_get_user_prefs(GVRAPI);
 
-		// Fix some flags based on deployment mode for Android
-		// Also disable GVR Distortion if scanline racing is not enabled.
-		if(AndroidThunkCpp_ProjectWantsCardboardOnlyMode() || !AndroidThunkCpp_IsScanlineRacingEnabled())
+#if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
+		//Set the flag when async reprojection is enabled
+		bUseOffscreenFramebuffers = gvr_get_async_reprojection_enabled(GVRAPI);
+		//We are in Daydream Mode when async reprojection is enabled.
+		bIsInDaydreamMode = bUseOffscreenFramebuffers;
+
+		// Only use gvr api distortion when async reprojection is enabled
+		// And by default we use Unreal's PostProcessing Distortion for Cardboard
+		bUseGVRApiDistortionCorrection = bUseOffscreenFramebuffers;
+		//bUseGVRApiDistortionCorrection = true;  //Uncomment this line is you want to use GVR distortion when async reprojection is not enabled.
+
+		if(bUseOffscreenFramebuffers)
 		{
-			bUseOffscreenFramebuffers = false;
-			bUseGVRApiDistortionCorrection = false;
+			// Create custom present class
+			CustomPresent = new FGoogleVRHMDCustomPresent(this);
+			GVRSplash = MakeShareable(new FGoogleVRSplash(this));
+			GVRSplash->Init();
 		}
 
 		// Show ui on Android
@@ -329,9 +394,9 @@ FGoogleVRHMD::FGoogleVRHMD()
 
 #elif GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
 
-		// No support for these
-		bUseOffscreenFramebuffers = false;
+		// We will use Unreal's PostProcessing Distortion for iOS
 		bUseGVRApiDistortionCorrection = false;
+		bIsInDaydreamMode = false;
 
 		// Setup and show ui on iOS
 		dispatch_async(dispatch_get_main_queue(), ^
@@ -342,7 +407,6 @@ FGoogleVRHMD::FGoogleVRHMD()
 			OverlayView.delegate = OverlayViewDelegate;
 			[[IOSAppDelegate GetDelegate].IOSView addSubview:OverlayView];
 		});
-
 #endif // GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
 
 		// By default, go ahead and disable the screen saver. The user can still change this freely
@@ -355,25 +419,20 @@ FGoogleVRHMD::FGoogleVRHMD()
 		// Refresh delegate
 		FCoreDelegates::ApplicationHasEnteredForegroundDelegate.AddRaw(this, &FGoogleVRHMD::ApplicationResumeDelegate);
 
-		// Create custom present class
-		CustomPresent = new FGoogleVRHMDCustomPresent(this);
-
-		// Get initial render params!
-		ConditionalUpdateCache();
-
 #endif // GOOGLEVRHMD_SUPPORTED_PLATFORMS
+
+		// Set the default rendertarget size to the default size in UE4
+		SetRenderTargetSizeToDefault();
 
 		// Enabled by default
 		EnableHMD(true);
 		EnableStereo(true);
 
-		// Get renderer module
-		static const FName RendererModuleName("Renderer");
-		RendererModule = FModuleManager::GetModulePtr<IRendererModule>(RendererModuleName);
-		check(RendererModule);
-
 		// Initialize distortion mesh and indices
 		SetNumOfDistortionPoints(DistortionPointsX, DistortionPointsY);
+
+		// Register LoadMap Delegate
+		FCoreUObjectDelegates::PreLoadMap.AddRaw(this, &FGoogleVRHMD::OnPreLoadMap);
 	}
 	else
 	{
@@ -383,27 +442,33 @@ FGoogleVRHMD::FGoogleVRHMD()
 
 FGoogleVRHMD::~FGoogleVRHMD()
 {
-	delete [] DistortionMeshIndices;
+	delete[] DistortionMeshIndices;
 	DistortionMeshIndices = nullptr;
-	delete [] DistortionMeshVerticesLeftEye;
+	delete[] DistortionMeshVerticesLeftEye;
 	DistortionMeshVerticesLeftEye = nullptr;
-	delete [] DistortionMeshVerticesRightEye;
+	delete[] DistortionMeshVerticesRightEye;
 	DistortionMeshVerticesRightEye = nullptr;
 
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	if(CachedDistortedRenderTextureParams)
+	if (DistortedBufferViewportList)
 	{
-		gvr_destroy_render_params_list(&CachedDistortedRenderTextureParams);
-		CachedDistortedRenderTextureParams = nullptr;
+		// gvr destroy function will set the pointer to nullptr
+		gvr_buffer_viewport_list_destroy(&DistortedBufferViewportList);
 	}
-	if(CachedNonDistortedRenderTextureParams)
+	if (NonDistortedBufferViewportList)
 	{
-		gvr_destroy_render_params_list(&CachedNonDistortedRenderTextureParams);
-		CachedNonDistortedRenderTextureParams = nullptr;
+		gvr_buffer_viewport_list_destroy(&NonDistortedBufferViewportList);
+	}
+	if (ScratchViewport)
+	{
+		gvr_buffer_viewport_destroy(&ScratchViewport);
 	}
 
-	delete CustomPresent;
+	CustomPresent->Shutdown();
+    CustomPresent = nullptr;
 #endif
+
+	FCoreUObjectDelegates::PreLoadMap.RemoveAll(this);
 }
 
 bool FGoogleVRHMD::IsInitialized() const
@@ -418,21 +483,45 @@ bool FGoogleVRHMD::IsInitialized() const
 	return true;
 }
 
-void FGoogleVRHMD::GetCurrentPose(FQuat& CurrentOrientation)
+void FGoogleVRHMD::UpdateGVRViewportList() const
 {
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	// Allocate if necessary!
+	if (!DistortedBufferViewportList)
+	{
+		DistortedBufferViewportList = gvr_buffer_viewport_list_create(GVRAPI);
+	}
+	if (!NonDistortedBufferViewportList)
+	{
+		NonDistortedBufferViewportList = gvr_buffer_viewport_list_create(GVRAPI);
+	}
+	if (!ScratchViewport)
+	{
+		ScratchViewport = gvr_buffer_viewport_create(GVRAPI);
+	}
 
-	// Get head pose
-	const gvr_quatf& HeadRotation = CachedPose.rotation;
+	gvr_get_recommended_buffer_viewports(GVRAPI, DistortedBufferViewportList);
+	gvr_get_screen_buffer_viewports(GVRAPI, NonDistortedBufferViewportList);
 
-	// Set output orientation
-	CurrentOrientation = FQuat(HeadRotation.qx, HeadRotation.qy, HeadRotation.qz, HeadRotation.qw);
+	ActiveViewportList = bDistortionCorrectionEnabled ? DistortedBufferViewportList : NonDistortedBufferViewportList;
 
-	// Fix coordinate system for Google -> UE4
-	CurrentOrientation = BaseOrientation * FQuat(-CurrentOrientation.Z, CurrentOrientation.X, CurrentOrientation.Y, -CurrentOrientation.W);
+	// Pass the viewport list used for rendering to CustomPresent for async reprojection
+	if(CustomPresent)
+	{
+		CustomPresent->UpdateRenderingViewportList(ActiveViewportList);
+	}
 
+#endif
+}
+
+void FGoogleVRHMD::GetCurrentPose(FQuat& CurrentOrientation, FVector& CurrentPosition)
+{
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	// Update camera pose using cached head pose which we updated at the beginning of a frame.
+	CurrentOrientation = BaseOrientation * CachedFinalHeadRotation;
+	CurrentPosition = BaseOrientation.RotateVector(CachedFinalHeadPosition);
 #else
-
+	// Simulating head rotation using mouse in Editor.
 	ULocalPlayer* Player = GEngine->GetDebugLocalPlayer();
 	float PreviewSensitivity = FMath::Clamp(CVarPreviewSensitivity.GetValueOnAnyThread(), 0.1f, 10.0f);
 
@@ -444,53 +533,21 @@ void FGoogleVRHMD::GetCurrentPose(FQuat& CurrentOrientation)
 
 		double CurrentTime = FApp::GetCurrentTime();
 		double DeltaTime = GWorld->GetDeltaSeconds();
-		
+
 		PoseYaw += (FMath::RadiansToDegrees(MouseX * DeltaTime * 4.0f) * PreviewSensitivity);
 		PosePitch += (FMath::RadiansToDegrees(MouseY * DeltaTime * 4.0f) * PreviewSensitivity);
 		PosePitch = FMath::Clamp(PosePitch, -90.0f + KINDA_SMALL_NUMBER, 90.0f - KINDA_SMALL_NUMBER);
 
-		CurrentOrientation = FQuat(FRotator(PosePitch, PoseYaw, 0.0f));
+		CurrentOrientation = BaseOrientation * FQuat(FRotator(PosePitch, PoseYaw, 0.0f));
 	}
 	else
 	{
 		CurrentOrientation = FQuat(FRotator(0.0f, 0.0f, 0.0f));
 	}
 
+	// TODO: add neck model to the editor emulatation.
+	CurrentPosition = FVector::ZeroVector;
 #endif
-}
-
-void FGoogleVRHMD::ConditionalUpdateCache() const
-{
-	// Google VR doesn't want to check some values more than once per frame.
-	if( LastUpdatedCacheFrame == GFrameNumber &&
-		LastUpdatedCacheFrame != 0 )
-	{
-		return;
-	}
-	
-#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
-	// Allocate if necessary!
-	if(CachedDistortedRenderTextureParams == nullptr)
-	{
-		CachedDistortedRenderTextureParams = gvr_create_render_params_list(GVRAPI);
-	}
-	if(CachedNonDistortedRenderTextureParams == nullptr)
-	{
-		CachedNonDistortedRenderTextureParams = gvr_create_render_params_list(GVRAPI);
-	}
-
-	// Update cache
-	CachedFuturePoseTime = gvr_get_time_point_now();
-	CachedFuturePoseTime.monotonic_system_time_nanos += 50 * 1000000;
-	CachedPose = gvr_get_head_pose_in_start_space(GVRAPI, CachedFuturePoseTime);
-	gvr_get_recommended_render_params_list(GVRAPI, CachedDistortedRenderTextureParams);
-	gvr_get_screen_render_params_list(GVRAPI, CachedNonDistortedRenderTextureParams);
-
-#endif
-
-	// Update bookkeeping
-	LastUpdatedCacheFrame = GFrameNumber;
 }
 
 IRendererModule* FGoogleVRHMD::GetRendererModule()
@@ -506,6 +563,116 @@ void FGoogleVRHMD::RefreshViewerProfile()
 
 	// Re-Initialize distortion meshes, as the viewer may have changed
 	SetNumOfDistortionPoints(DistortionPointsX, DistortionPointsY);
+}
+
+FIntPoint FGoogleVRHMD::GetUnrealMobileContentSize()
+{
+	FIntPoint Size = FIntPoint::ZeroValue;
+#if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
+	FPlatformRect Rect = FAndroidWindow::GetScreenRect();
+	Size.X = Rect.Right;
+	Size.Y = Rect.Bottom;
+#elif GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
+	FPlatformRect Rect = FIOSWindow::GetScreenRect();
+	Size.X = Rect.Right;
+	Size.Y = Rect.Bottom;
+#endif
+	return Size;
+}
+
+FIntPoint FGoogleVRHMD::GetGVRHMDRenderTargetSize()
+{
+	return GVRRenderTargetSize;
+}
+
+FIntPoint FGoogleVRHMD::GetGVRMaxRenderTargetSize()
+{
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	gvr_sizei MaxSize = gvr_get_maximum_effective_render_target_size(GVRAPI);
+	UE_LOG(LogHMD, Log, TEXT("GVR Recommended RenderTargetSize: %d x %d"), MaxSize.width, MaxSize.height);
+	return FIntPoint{ static_cast<int>(MaxSize.width), static_cast<int>(MaxSize.height) };
+#else
+	return FIntPoint{ 0, 0 };
+#endif
+}
+
+FIntPoint FGoogleVRHMD::SetRenderTargetSizeToDefault()
+{
+	GVRRenderTargetSize = FIntPoint::ZeroValue;
+#if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
+	if (bUseGVRApiDistortionCorrection)
+	{
+		FIntPoint RenderTargetSize = FIntPoint::ZeroValue;
+		SetGVRHMDRenderTargetSize(kDefaultRenderTargetScaleFactor, RenderTargetSize);
+	}
+	else
+	{
+		FPlatformRect Rect = FAndroidWindow::GetScreenRect();
+		GVRRenderTargetSize.X = Rect.Right;
+		GVRRenderTargetSize.Y = Rect.Bottom;
+	}
+#elif GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
+	FPlatformRect Rect = FIOSWindow::GetScreenRect();
+	GVRRenderTargetSize.X = Rect.Right;
+	GVRRenderTargetSize.Y = Rect.Bottom;
+#endif
+	return GVRRenderTargetSize;
+}
+
+bool FGoogleVRHMD::SetGVRHMDRenderTargetSize(float ScaleFactor, FIntPoint& OutRenderTargetSize)
+{
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	if (ScaleFactor < 0.1 || ScaleFactor > 1)
+	{
+        	ScaleFactor = FMath::Clamp(ScaleFactor, 0.1f, 1.0f);
+		UE_LOG(LogHMD, Warning, TEXT("Invalid RenderTexture Scale Factor. The valid value should be within [0.1, 1.0]. Clamping the value to %f"), ScaleFactor);
+	}
+
+	// For now, only allow change the render texture size when using gvr distortion.
+	// Since when use PPHMD, the render texture size need to match the surface size.
+	if (!bUseGVRApiDistortionCorrection)
+	{
+		return false;
+	}
+	UE_LOG(LogHMD, Log, TEXT("Setting render target size using scale factor: %f"), ScaleFactor);
+	FIntPoint DesiredRenderTargetSize = GetGVRMaxRenderTargetSize();
+	DesiredRenderTargetSize.X *= ScaleFactor;
+	DesiredRenderTargetSize.Y *= ScaleFactor;
+	return SetGVRHMDRenderTargetSize(DesiredRenderTargetSize.X, DesiredRenderTargetSize.Y, OutRenderTargetSize);
+#else
+	return false;
+#endif
+}
+
+bool FGoogleVRHMD::SetGVRHMDRenderTargetSize(int DesiredWidth, int DesiredHeight, FIntPoint& OutRenderTargetSize)
+{
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	// For now, only allow change the render texture size when using gvr distortion.
+	// Since when use PPHMD, the render texture size need to match the surface size.
+	if (!bUseGVRApiDistortionCorrection)
+	{
+		return false;
+	}
+
+	// Ensure sizes are dividable by DividableBy to get post processing effects with lower resolution working well
+	const uint32 DividableBy = 4;
+
+	const uint32 Mask = ~(DividableBy - 1);
+	GVRRenderTargetSize.X = (DesiredWidth + DividableBy - 1) & Mask;
+	GVRRenderTargetSize.Y = (DesiredHeight + DividableBy - 1) & Mask;
+
+	OutRenderTargetSize = GVRRenderTargetSize;
+	UE_LOG(LogHMD, Log, TEXT("Set Render Target Size to %d x %d, the deired size is %d x %d"), GVRRenderTargetSize.X, GVRRenderTargetSize.Y, DesiredWidth, DesiredHeight);
+	return true;
+#else
+	return false;
+#endif
+}
+
+void FGoogleVRHMD::OnPreLoadMap(const FString &)
+{
+	// Force not to present the scene when start loading a map.
+	bForceStopPresentScene = true;
 }
 
 void FGoogleVRHMD::ApplicationResumeDelegate()
@@ -533,8 +700,12 @@ void FGoogleVRHMD::HandleGVRBackEvent()
 
 void FGoogleVRHMD::SetDistortionCorrectionEnabled(bool bEnable)
 {
-	// Can't turn off distortion correction if using offscreen framebuffers
-	if(!bUseOffscreenFramebuffers || !GOOGLEVRHMD_SUPPORTED_PLATFORMS)
+	// Can't turn off distortion correction if using async reprojection;
+	if(bUseOffscreenFramebuffers)
+	{
+		bDistortionCorrectionEnabled = true;
+	}
+	else
 	{
 		bDistortionCorrectionEnabled = bEnable;
 	}
@@ -542,14 +713,15 @@ void FGoogleVRHMD::SetDistortionCorrectionEnabled(bool bEnable)
 
 void FGoogleVRHMD::SetDistortionCorrectionMethod(bool bInUseGVRApiDistortionCorrection)
 {
-	bUseGVRApiDistortionCorrection = bInUseGVRApiDistortionCorrection;
-}
-
-void FGoogleVRHMD::SetChromaticAberrationCorrectionEnabled(bool bEnable)
-{
-#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	gvr_set_bool_parameter(GVRAPI, GVR_CHROMATIC_ABERRATION_CORRECTION_ENABLED, bEnable);
-#endif
+	//Cannot change distortion method when use async reprojection
+	if(bUseOffscreenFramebuffers)
+	{
+		bUseGVRApiDistortionCorrection = true;
+	}
+	else
+	{
+		bUseGVRApiDistortionCorrection = bInUseGVRApiDistortionCorrection;
+	}
 }
 
 bool FGoogleVRHMD::SetDefaultViewerProfile(const FString& ViewerProfileURL)
@@ -571,13 +743,12 @@ bool FGoogleVRHMD::SetDefaultViewerProfile(const FString& ViewerProfileURL)
 
 void FGoogleVRHMD::SetNumOfDistortionPoints(int32 XPoints, int32 YPoints)
 {
-	// Force non supported platform distortion mesh be 2 x 2.
-	// TODO:  Drive this from the SDK when it's ready
+	// Force non supported platform distortion mesh be 40 x 40
 #if !GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	XPoints = 2;
-	YPoints = 2;
+	XPoints = 40;
+	YPoints = 40;
 #endif
-	
+
 	// clamp values
 	if (XPoints < 2)
 	{
@@ -630,8 +801,13 @@ void FGoogleVRHMD::SetDistortionMeshSize(EDistortionMeshSizeEnum MeshSize)
 	case EDistortionMeshSizeEnum::DMS_VERYLARGE:
 		SetNumOfDistortionPoints(100, 100);
 		break;
-	}	
+	}
 #endif
+}
+
+void FGoogleVRHMD::SetNeckModelScale(float ScaleFactor)
+{
+	NeckModelScale = FMath::Clamp(ScaleFactor, 0.0f, 1.0f);
 }
 
 bool FGoogleVRHMD::GetDistortionCorrectionEnabled() const
@@ -641,8 +817,39 @@ bool FGoogleVRHMD::GetDistortionCorrectionEnabled() const
 
 bool FGoogleVRHMD::IsUsingGVRApiDistortionCorrection() const
 {
-	// Offscreen framebuffers don't support PPHMD
-	return bUseOffscreenFramebuffers || bUseGVRApiDistortionCorrection;
+	return bUseGVRApiDistortionCorrection;
+}
+
+float FGoogleVRHMD::GetNeckModelScale() const
+{
+	return NeckModelScale;
+}
+
+float FGoogleVRHMD::GetWorldToMetersScale() const
+{
+	if (GWorld != nullptr)
+	{
+		return GWorld->GetWorldSettings()->WorldToMeters;
+	}
+
+	// Default value, assume Unreal units are in centimeters
+	return 100.0f;
+}
+
+bool FGoogleVRHMD::IsVrLaunch() const
+{
+#if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
+	return AndroidThunkCpp_IsVrLaunch();
+#endif
+	return false;
+}
+
+FString FGoogleVRHMD::GetIntentData() const
+{
+#if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
+	return AndroidThunkCpp_GetDataString();
+#endif
+	return TEXT("");
 }
 
 FString FGoogleVRHMD::GetViewerModel()
@@ -705,7 +912,7 @@ FMatrix FGoogleVRHMD::GetPreviewViewerStereoProjectionMatrix(enum EStereoscopicP
 	switch(GetPreviewViewerType())
 	{
 #if !GOOGLEVRHMD_SUPPORTED_PLATFORMS
-		
+
 	case EVP_GoogleCardboard1:
 		return StereoPass == eSSP_LEFT_EYE ? GoogleCardboardViewerPreviews::GoogleCardboard1::LeftStereoProjectionMatrix : GoogleCardboardViewerPreviews::GoogleCardboard1::RightStereoProjectionMatrix;
 	case EVP_GoogleCardboard2:
@@ -784,22 +991,16 @@ const FDistortionVertex* FGoogleVRHMD::GetPreviewViewerVertices(enum EStereoscop
 	}
 }
 
-#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-uint32 FGoogleVRHMD::GetOffscreenBufferMSAASetting()
-{
-	return OffscreenBufferMSAASetting;
-}
-#endif
-
-
 //////////////////////////////////////////////////////
 // Begin ISceneViewExtension Pure-Virtual Interface //
 //////////////////////////////////////////////////////
 
+// ------  Called on Game Thread ------
 void FGoogleVRHMD::SetupViewFamily(FSceneViewFamily& InViewFamily)
 {
 	InViewFamily.EngineShowFlags.MotionBlur = 0;
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	// Enbale Unreal PostProcessing Distortion when not using GVR Distortion.
 	InViewFamily.EngineShowFlags.HMDDistortion = bDistortionCorrectionEnabled && !IsUsingGVRApiDistortionCorrection();
 #else
 	InViewFamily.EngineShowFlags.HMDDistortion = bDistortionCorrectionEnabled && (GetPreviewViewerType() != EVP_None);
@@ -808,39 +1009,81 @@ void FGoogleVRHMD::SetupViewFamily(FSceneViewFamily& InViewFamily)
 	InViewFamily.EngineShowFlags.StereoRendering = IsStereoEnabled();
 }
 
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+FIntRect FGoogleVRHMD::CalculateGVRViewportRect(int RenderTargetSizeX, int RenderTargetSizeY, EStereoscopicPass StereoPassType)
+{
+	switch(StereoPassType)
+	{
+		case EStereoscopicPass::eSSP_LEFT_EYE:
+			gvr_buffer_viewport_list_get_item(ActiveViewportList, 0, ScratchViewport);
+			break;
+		case EStereoscopicPass::eSSP_RIGHT_EYE:
+			gvr_buffer_viewport_list_get_item(ActiveViewportList, 1, ScratchViewport);
+			break;
+		default:
+			// We shouldn't got here.
+			check(false);
+			break;
+	}
+	gvr_rectf GVRRect = gvr_buffer_viewport_get_source_uv(ScratchViewport);
+	int Left = static_cast<int>(GVRRect.left * RenderTargetSizeX);
+	int Bottom = static_cast<int>(GVRRect.bottom * RenderTargetSizeY);
+	int Right = static_cast<int>(GVRRect.right * RenderTargetSizeX);
+	int Top = static_cast<int>(GVRRect.top * RenderTargetSizeY);
+
+	//UE_LOG(LogTemp, Log, TEXT("Set Viewport Rect to %d, %d, %d, %d for render target size %d x %d"), Left, Bottom, Right, Top, RenderTargetSizeX, RenderTargetSizeY);
+	return FIntRect(Left, Bottom, Right, Top);
+}
+#endif
+
 void FGoogleVRHMD::SetupView(FSceneViewFamily& InViewFamily, FSceneView& InView)
 {
-	InView.BaseHmdOrientation = FQuat(FRotator(0.0f,0.0f,0.0f));
-	InView.BaseHmdLocation = FVector(0.f);
-//	WorldToMetersScale = InView.WorldToMetersScale;
+	InView.BaseHmdOrientation = CurHmdOrientation;
+	InView.BaseHmdLocation = CurHmdPosition;
+
 	InViewFamily.bUseSeparateRenderTarget = ShouldUseSeparateRenderTarget();
+
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	// We should have a valid GVRRenderTargetSize here.
+	check(GVRRenderTargetSize.X != 0 && GVRRenderTargetSize.Y != 0);
+	InView.ViewRect = CalculateGVRViewportRect(GVRRenderTargetSize.X, GVRRenderTargetSize.Y, InView.StereoPass);
+#endif
 }
 
 void FGoogleVRHMD::BeginRenderViewFamily(FSceneViewFamily& InViewFamily)
 {
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	// Note that we force not enqueue the CachedHeadPose when start loading a map until a new game frame started.
+	// This is for solving the one frame flickering issue when load another level due to that there is one frame
+	// the scene is rendered before the camera is updated.
+	// TODO: We need to investigate a better solution here.
+	if(CustomPresent && !bForceStopPresentScene && !bDebugShowGVRSplash)
+	{
+		CustomPresent->UpdateRenderingPose(CachedHeadPose);
+	}
+#endif
+}
+
+// ------  Called on Render Thread ------
+
+void FGoogleVRHMD::PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily)
+{
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	if(CustomPresent)
+	{
+		CustomPresent->BeginRendering();
+	}
+#endif
 }
 
 void FGoogleVRHMD::PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView)
 {
 }
 
-void FGoogleVRHMD::PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily)
-{
-	// Cache frame information now
-	ConditionalUpdateCache();
-
-#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	if(CustomPresent && bUseOffscreenFramebuffers)
-	{
-		CustomPresent->BeginRendering(RHICmdList, InViewFamily);
-	}
-#endif
-}
-
 ////////////////////////////////////////////////////////////////////
 // Begin FGoogleVRHMD IStereoRendering Pure-Virtual Interface //
 ////////////////////////////////////////////////////////////////////
-	
+
 bool FGoogleVRHMD::IsStereoEnabled() const
 {
 	return bStereoEnabled && bHMDEnabled;
@@ -848,12 +1091,11 @@ bool FGoogleVRHMD::IsStereoEnabled() const
 
 bool FGoogleVRHMD::EnableStereo(bool stereo)
 {
-
 #if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
-	// We will not allow stereo rendering to be disabled when using Scanline Racing
-	if(AndroidThunkCpp_IsScanlineRacingEnabled() && !stereo)
+	// We will not allow stereo rendering to be disabled when using async reprojection
+	if(bUseOffscreenFramebuffers && !stereo)
 	{
-		UE_LOG(LogHMD, Warning, TEXT("Attemp to disable stereo rendering when using scanline racing. This is not support so the operation will be ignored!"));
+		UE_LOG(LogHMD, Warning, TEXT("Attemp to disable stereo rendering when using async reprojection. This is not support so the operation will be ignored!"));
 		return true;
 	}
 	AndroidThunkCpp_UiLayer_SetEnabled(stereo);
@@ -876,16 +1118,13 @@ void FGoogleVRHMD::AdjustViewRect(enum EStereoscopicPass StereoPass, int32& X, i
 void FGoogleVRHMD::CalculateStereoViewOffset(const enum EStereoscopicPass StereoPassType, const FRotator& ViewRotation, const float WorldToMeters, FVector& ViewLocation)
 {
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	
 	if( StereoPassType != eSSP_FULL)
 	{
 		const float EyeOffset = (GetInterpupillaryDistance() * 0.5f) * WorldToMeters;
 		const float PassOffset = (StereoPassType == eSSP_LEFT_EYE) ? -EyeOffset : EyeOffset;
 		ViewLocation += ViewRotation.Quaternion().RotateVector(FVector(0,PassOffset,0));
 	}
-
 #else
-
 	if( StereoPassType != eSSP_FULL)
 	{
 		if(GetPreviewViewerType() != EVP_None)
@@ -902,7 +1141,6 @@ void FGoogleVRHMD::CalculateStereoViewOffset(const enum EStereoscopicPass Stereo
 			ViewLocation += ViewRotation.Quaternion().RotateVector(FVector(0,PassOffset,0));
 		}
 	}
-
 #endif
 }
 
@@ -910,30 +1148,27 @@ FMatrix FGoogleVRHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass Ste
 {
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 
-	// Get information for the proper eye
-	gvr_render_params EyeParams{};
-	const gvr_render_params_list* ActiveParams = bDistortionCorrectionEnabled ? CachedDistortedRenderTextureParams : CachedNonDistortedRenderTextureParams;
-	bool bValidParamsFound = false;
-	for(size_t i = 0; i < gvr_get_render_params_list_size(ActiveParams); ++i)
+	switch(StereoPassType)
 	{
-		EyeParams = gvr_get_render_params(ActiveParams, i);
-
-		if( (EyeParams.eye_type == GVR_LEFT_EYE && StereoPassType == eSSP_LEFT_EYE) ||
-			(EyeParams.eye_type == GVR_RIGHT_EYE && StereoPassType == eSSP_RIGHT_EYE) )
-		{
-			bValidParamsFound = true;
+		case EStereoscopicPass::eSSP_LEFT_EYE:
+			gvr_buffer_viewport_list_get_item(ActiveViewportList, 0, ScratchViewport);
 			break;
-		}
+		case EStereoscopicPass::eSSP_RIGHT_EYE:
+			gvr_buffer_viewport_list_get_item(ActiveViewportList, 1, ScratchViewport);
+			break;
+		default:
+			// We shouldn't got here.
+			check(false);
+			break;
 	}
 
-	// If bValidParamsFound == false, there was an error, either because this function was called with eSSP_FULL or the API didn't have eye data
-	check(bValidParamsFound);
+	gvr_rectf EyeFov = gvr_buffer_viewport_get_source_fov(ScratchViewport);
 
 	// Have to flip left/right and top/bottom to match UE4 expectations
-	float Right = FPlatformMath::Tan(FMath::DegreesToRadians(EyeParams.eye_fov.left));
-	float Left = -FPlatformMath::Tan(FMath::DegreesToRadians(EyeParams.eye_fov.right));
-	float Bottom = -FPlatformMath::Tan(FMath::DegreesToRadians(EyeParams.eye_fov.top));
-	float Top = FPlatformMath::Tan(FMath::DegreesToRadians(EyeParams.eye_fov.bottom));
+	float Right = FPlatformMath::Tan(FMath::DegreesToRadians(EyeFov.left));
+	float Left = -FPlatformMath::Tan(FMath::DegreesToRadians(EyeFov.right));
+	float Bottom = -FPlatformMath::Tan(FMath::DegreesToRadians(EyeFov.top));
+	float Top = FPlatformMath::Tan(FMath::DegreesToRadians(EyeFov.bottom));
 
 	float ZNear = GNearClippingPlane;
 
@@ -948,7 +1183,7 @@ FMatrix FGoogleVRHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass Ste
 	FPlane Plane1 = FPlane(0.0f, (2.0f * InvTB), 0.0f, 0.0f);
 	FPlane Plane2 = FPlane((SumRL * InvRL), (SumTB * InvTB), 0.0f, 1.0f);
 	FPlane Plane3 = FPlane(0.0f, 0.0f, ZNear, 0.0f);
-	
+
 	const TCHAR* EyeString = StereoPassType == eSSP_LEFT_EYE ? TEXT("Left") : TEXT("Right");
 	UE_LOG(LogHMD, Log, TEXT("===== Begin Projection Matrix Eye %s"), EyeString);
 	UE_LOG(LogHMD, Log, TEXT("const FMatrix %sStereoProjectionMatrix = FMatrix("), EyeString);
@@ -977,7 +1212,7 @@ FMatrix FGoogleVRHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass Ste
 
 #endif // LOG_VIEWER_DATA_FOR_GENERATION
 
-#else
+#else //!GOOGLEVRHMD_SUPPORTED_PLATFORMS
 
 	if(GetPreviewViewerType() == EVP_None)
 	{
@@ -1036,7 +1271,6 @@ void FGoogleVRHMD::GetEyeRenderParams_RenderThread(const struct FRenderingCompos
 	}
 }
 
-
 void FGoogleVRHMD::UpdateViewport(bool bUseSeparateRenderTarget, const class FViewport& InViewport, class SViewport* ViewportWidget)
 {
 	check(IsInGameThread());
@@ -1062,11 +1296,11 @@ void FGoogleVRHMD::CalculateRenderTargetSize(const class FViewport& Viewport, ui
 {
 	check(IsInGameThread());
 
-	MonitorInfo Info;
-	if(GetHMDMonitorInfo(Info))
+	// Change the render target size when it is valid
+	if (GVRRenderTargetSize.X != 0 && GVRRenderTargetSize.Y != 0)
 	{
-		InOutSizeX = Info.ResolutionX;
-		InOutSizeY = Info.ResolutionY;
+		InOutSizeX = GVRRenderTargetSize.X;
+		InOutSizeY = GVRRenderTargetSize.Y;
 	}
 }
 
@@ -1096,7 +1330,7 @@ bool FGoogleVRHMD::NeedReAllocateViewportRenderTarget(const class FViewport& Vie
 bool FGoogleVRHMD::ShouldUseSeparateRenderTarget() const
 {
 	check(IsInGameThread());
-	return IsStereoEnabled() && (bDistortionCorrectionEnabled || bUseOffscreenFramebuffers);
+	return IsStereoEnabled() && bUseGVRApiDistortionCorrection;
 }
 
 void FGoogleVRHMD::SetClippingPlanes(float NCP, float FCP)
@@ -1121,10 +1355,10 @@ bool FGoogleVRHMD::IsHMDEnabled() const
 void FGoogleVRHMD::EnableHMD(bool bEnable)
 {
 #if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
-	// We will not allow stereo rendering to be disabled when using Scanline Racing
-	if(AndroidThunkCpp_IsScanlineRacingEnabled() && !bEnable)
+	// We will not allow stereo rendering to be disabled when using async reprojection
+	if(bUseOffscreenFramebuffers && !bEnable)
 	{
-		UE_LOG(LogHMD, Warning, TEXT("Attemp to disable HMD when using scanline racing. This is not support so the operation will be ignored!"));
+		UE_LOG(LogHMD, Warning, TEXT("Attemp to disable HMD when using async reprojection. This is not support so the operation will be ignored!"));
 		return;
 	}
 #endif
@@ -1140,25 +1374,26 @@ EHMDDeviceType::Type FGoogleVRHMD::GetHMDDeviceType() const
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	return EHMDDeviceType::DT_ES2GenericStereoMesh;
 #else
-	return EHMDDeviceType::DT_OculusRift; // Workaround needed for non-es2 post processing to call PostProcessHMD
+	return EHMDDeviceType::DT_GoogleVR; // Workaround needed for non-es2 post processing to call PostProcessHMD
 #endif
 }
 
-bool	FGoogleVRHMD::GetHMDMonitorInfo(MonitorInfo& OutMonitorInfo)
+bool FGoogleVRHMD::GetHMDMonitorInfo(MonitorInfo& OutMonitorInfo)
 {
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
 	if(!IsStereoEnabled())
 	{
 		return false;
 	}
-	
+
 	OutMonitorInfo.MonitorName = FString::Printf(TEXT("%s - %s"), UTF8_TO_TCHAR(gvr_get_viewer_vendor(GVRAPI)), UTF8_TO_TCHAR(gvr_get_viewer_model(GVRAPI)));
 	OutMonitorInfo.MonitorId = 0;
 	OutMonitorInfo.DesktopX = OutMonitorInfo.DesktopY = OutMonitorInfo.ResolutionX = OutMonitorInfo.ResolutionY = 0;
 	OutMonitorInfo.WindowSizeX = OutMonitorInfo.WindowSizeY = 0;
 
 	// For proper scaling, and since hardware scaling is used, return the calculated size and not the actual device size
+	// TODO: We are using the screen resolution to tune the rendering scale. Revisit here if we want to hook up the gvr
+	// gvr_get_recommended_render_target_size function.
 #if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
 	FPlatformRect Rect = FAndroidWindow::GetScreenRect();
 	OutMonitorInfo.ResolutionX = Rect.Right - Rect.Left;
@@ -1174,55 +1409,50 @@ bool	FGoogleVRHMD::GetHMDMonitorInfo(MonitorInfo& OutMonitorInfo)
 #endif
 
 	return true;
-
 #else
-
 	OutMonitorInfo.MonitorName = "UnsupportedGoogleVRHMDPlatform";
 	OutMonitorInfo.MonitorId = 0;
 	OutMonitorInfo.DesktopX = OutMonitorInfo.DesktopY = OutMonitorInfo.ResolutionX = OutMonitorInfo.ResolutionY = 0;
 	OutMonitorInfo.WindowSizeX = OutMonitorInfo.WindowSizeY = 0;
 
 	return false;
-
 #endif
 }
 
-void	FGoogleVRHMD::GetFieldOfView(float& InOutHFOVInDegrees, float& InOutVFOVInDegrees) const
+void FGoogleVRHMD::GetFieldOfView(float& InOutHFOVInDegrees, float& InOutVFOVInDegrees) const
 {
 	InOutHFOVInDegrees = 0.0f;
 	InOutVFOVInDegrees = 0.0f;
 }
 
-bool	FGoogleVRHMD::DoesSupportPositionalTracking() const
+bool FGoogleVRHMD::DoesSupportPositionalTracking() const
 {
 	// Does not support position tracking, only pose
 	return false;
 }
 
-bool	FGoogleVRHMD::HasValidTrackingPosition()
+bool FGoogleVRHMD::HasValidTrackingPosition()
 {
 	// Does not support position tracking, only pose
 	return false;
 }
 
-void	FGoogleVRHMD::GetPositionalTrackingCameraProperties(FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const
+void FGoogleVRHMD::GetPositionalTrackingCameraProperties(FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const
 {
 	// Does not support position tracking, only pose
 }
 
-void	FGoogleVRHMD::SetInterpupillaryDistance(float NewInterpupillaryDistance)
+void FGoogleVRHMD::SetInterpupillaryDistance(float NewInterpupillaryDistance)
 {
 	// Nothing
 }
 
-float	FGoogleVRHMD::GetInterpupillaryDistance() const
+float FGoogleVRHMD::GetInterpupillaryDistance() const
 {
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
 	// For simplicity, the interpupillary distance is the distance to the left eye, doubled.
 	gvr_mat4f EyeMat = gvr_get_eye_from_head_matrix(GVRAPI, GVR_LEFT_EYE);
 	FVector Offset = FVector(-EyeMat.m[2][3], EyeMat.m[0][3], EyeMat.m[1][3]);
-
 #if LOG_VIEWER_DATA_FOR_GENERATION
 	UE_LOG(LogHMD, Log, TEXT("===== Begin Interpupillary Distance"));
 	UE_LOG(LogHMD, Log, TEXT("const float InterpupillaryDistance = %ff;"), Offset.Size() * 2.0f);
@@ -1230,20 +1460,16 @@ float	FGoogleVRHMD::GetInterpupillaryDistance() const
 #endif
 
 	return Offset.Size() * 2.0f;
-
-#else
-
+#else //!GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	return GetPreviewViewerInterpupillaryDistance();
-
 #endif
 }
 
 void FGoogleVRHMD::GetCurrentOrientationAndPosition(FQuat& CurrentOrientation, FVector& CurrentPosition)
 {
-	CurrentPosition = FVector(0.0f, 0.0f, 0.0f);
-
-	GetCurrentPose(CurrentOrientation);
-	CurHmdOrientation = LastHmdOrientation = CurrentOrientation;
+	GetCurrentPose(CurrentOrientation, CurrentPosition);
+	CurHmdOrientation = CurrentOrientation;
+	CurHmdPosition = CurrentPosition;
 }
 
 void FGoogleVRHMD::RebaseObjectOrientationAndPosition(FVector& Position, FQuat& Orientation) const
@@ -1260,8 +1486,7 @@ void FGoogleVRHMD::ApplyHmdRotation(class APlayerController* PC, FRotator& ViewR
 {
 	ViewRotation.Normalize();
 
-	GetCurrentPose(CurHmdOrientation);
-	LastHmdOrientation = CurHmdOrientation;
+	GetCurrentPose(CurHmdOrientation, CurHmdPosition);
 
 	const FRotator DeltaRot = ViewRotation - PC->GetControlRotation();
 	DeltaControlRotation = (DeltaControlRotation + DeltaRot).GetNormalized();
@@ -1277,23 +1502,15 @@ void FGoogleVRHMD::ApplyHmdRotation(class APlayerController* PC, FRotator& ViewR
 
 bool FGoogleVRHMD::UpdatePlayerCamera(FQuat& CurrentOrientation, FVector& CurrentPosition)
 {
-	GetCurrentPose(CurHmdOrientation);
-	LastHmdOrientation = CurHmdOrientation;
-
-	CurrentOrientation = CurHmdOrientation;
-	CurrentPosition = FVector(0.0f, 0.0f, 0.0f);
+	GetCurrentPose(CurrentOrientation, CurrentPosition);
+	CurHmdOrientation = CurrentOrientation;
+	CurHmdPosition = CurrentPosition;
 
 	return true;
 }
 
 bool FGoogleVRHMD::IsChromaAbCorrectionEnabled() const
 {
-#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
-	return gvr_get_bool_parameter(GVRAPI, GVR_CHROMATIC_ABERRATION_CORRECTION_ENABLED);
-
-#endif // GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
 	return false;
 }
 
@@ -1346,27 +1563,49 @@ bool FGoogleVRHMD::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 			SetDistortionCorrectionMethod(true);
 		}
 	}
-#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	else if(FParse::Command(&Cmd, TEXT("CABC"))) // ChromaABCorrection
+	else if (FParse::Command(&Cmd, TEXT("GVRRENDERSIZE")))
 	{
-		if (FParse::Command(&Cmd, TEXT("ON")))
+		int Width, Height;
+		float ScaleFactor;
+		FIntPoint ActualSize;
+		if (FParse::Value(Cmd, TEXT("W="), Width) && FParse::Value(Cmd, TEXT("H="), Height))
 		{
-			SetChromaticAberrationCorrectionEnabled(true);
+			SetGVRHMDRenderTargetSize(Width, Height, ActualSize);
 			return true;
 		}
-		else if(FParse::Command(&Cmd, TEXT("OFF")))
+		else if (FParse::Value(Cmd, TEXT("S="), ScaleFactor))
 		{
-			SetChromaticAberrationCorrectionEnabled(false);
+			SetGVRHMDRenderTargetSize(ScaleFactor, ActualSize);
 			return true;
 		}
+		else if (FParse::Command(&Cmd, TEXT("RESET")))
+		{
+			SetRenderTargetSizeToDefault();
+			return true;
+		}
+
+		return false;
 	}
+	else if (FParse::Command(&Cmd, TEXT("GVRNECKMODELSCALE")))
+	{
+		float ScaleFactor;
+		if (FParse::Value(Cmd, TEXT("Factor="), ScaleFactor))
+		{
+			SetNeckModelScale(ScaleFactor);
+			return true;
+		}
+
+		return false;
+	}
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	// Tune the distortion mesh vert count when use Unreal's PostProcessing Distortion
 	else if (FParse::Command(&Cmd, TEXT("DISTORTMESH")))
 	{
 		if (FParse::Command(&Cmd, TEXT("VERYSMALL")))
 		{
 			SetDistortionMeshSize(EDistortionMeshSizeEnum::DMS_VERYSMALL);
 			return true;
-		}	
+		}
 		else if (FParse::Command(&Cmd, TEXT("SMALL")))
 		{
 			SetDistortionMeshSize(EDistortionMeshSizeEnum::DMS_SMALL);
@@ -1388,30 +1627,25 @@ bool FGoogleVRHMD::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 			return true;
 		}
 	}
-	else if(FParse::Command(&Cmd, TEXT("GVRMSAA"))) // ChromaABCorrection
+	else if (FParse::Command(&Cmd, TEXT("GVRSPLASH")))
 	{
-		if (FParse::Command(&Cmd, TEXT("1")))
+		if (FParse::Command(&Cmd, TEXT("SHOW")))
 		{
-			OffscreenBufferMSAASetting = 1;
-			return true;
+			if (GVRSplash.IsValid())
+			{
+				GVRSplash->Show();
+				bDebugShowGVRSplash = true;
+			}
 		}
-		else if(FParse::Command(&Cmd, TEXT("2")))
+		else if (FParse::Command(&Cmd, TEXT("HIDE")))
 		{
-			OffscreenBufferMSAASetting = 2;
-			return true;
-		}
-		else if(FParse::Command(&Cmd, TEXT("4")))
-		{
-			OffscreenBufferMSAASetting = 4;
-			return true;
-		}
-		else if(FParse::Command(&Cmd, TEXT("8")))
-		{
-			OffscreenBufferMSAASetting = 8;
-			return true;
+			if (GVRSplash.IsValid())
+			{
+				GVRSplash->Hide();
+				bDebugShowGVRSplash = false;
+			}
 		}
 	}
-
 #endif
 
 	return false;
@@ -1456,11 +1690,11 @@ void FGoogleVRHMD::ResetOrientationAndPosition(float Yaw)
 void FGoogleVRHMD::ResetOrientation(float Yaw)
 {
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
 	gvr_reset_tracking(GVRAPI);
-	SetBaseOrientation(FRotator(0.0f, Yaw, 0.0f).Quaternion());
-
+#else
+	PoseYaw = 0;
 #endif
+	SetBaseOrientation(FRotator(0.0f, Yaw, 0.0f).Quaternion());
 }
 
 void FGoogleVRHMD::ResetPosition()
@@ -1487,13 +1721,81 @@ FQuat FGoogleVRHMD::GetBaseOrientation() const
 	return BaseOrientation;
 }
 
+bool FGoogleVRHMD::HandleInputKey(UPlayerInput *, const FKey & Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
+{
+#if GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
+	if (Key == EKeys::Android_Back)
+	{
+		if (EventType == IE_Pressed)
+		{
+			BackbuttonPressTime = FPlatformTime::Seconds();
+		}
+		else if (EventType == IE_Released)
+		{
+			if (FPlatformTime::Seconds() - BackbuttonPressTime < BACK_BUTTON_SHORT_PRESS_TIME)
+			{
+				// Add default back button behavior in Daydream Mode
+				if (bIsInDaydreamMode)
+				{
+					AndroidThunkCpp_QuitDaydreamApplication();
+				}
+			}
+		}
+		return true;
+	}
+#endif
+	return false;
+}
+
 bool FGoogleVRHMD::HandleInputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
 {
 	return false;
 }
 
+void FGoogleVRHMD::UpdateHeadPose()
+{
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	// Update CachedHeadPose
+	CachedFuturePoseTime = gvr_get_time_point_now();
+	CachedFuturePoseTime.monotonic_system_time_nanos += kPredictionTime;
+
+	CachedHeadPose = gvr_get_head_space_from_start_space_rotation(GVRAPI, CachedFuturePoseTime);
+
+	// Apply the neck model to calculate the final pose
+	gvr_mat4f FinalHeadPose = gvr_apply_neck_model(GVRAPI, CachedHeadPose, NeckModelScale);
+
+	// Convert the final pose into Unreal data type
+	FMatrix FinalHeadPoseUnreal;
+	memcpy(FinalHeadPoseUnreal.M[0], FinalHeadPose.m[0], 4 * 4 * sizeof(float));
+
+	// Inverse the view matrix so we can get the world position of the pose
+	FMatrix FinalHeadPoseInverseUnreal = FinalHeadPoseUnreal.Inverse();
+
+	// Number of Unreal Units per meter.
+	const float WorldToMetersScale = GetWorldToMetersScale();
+
+	// Gvr is using a openGl Right Handed coordinate system, UE is left handed.
+	// The following code is converting the gvr coordinate system to UE coordinates.
+
+	// Gvr: Negative Z is Forward, UE: Positive X is Forward.
+	CachedFinalHeadPosition.X = -FinalHeadPoseInverseUnreal.M[2][3] * WorldToMetersScale;
+
+	// Gvr: Positive X is Right, UE: Positive Y is Right.
+	CachedFinalHeadPosition.Y = FinalHeadPoseInverseUnreal.M[0][3] * WorldToMetersScale;
+
+	// Gvr: Positive Y is Up, UE: Positive Z is Up
+	CachedFinalHeadPosition.Z = FinalHeadPoseInverseUnreal.M[1][3] * WorldToMetersScale;
+
+	// Convert Gvr right handed coordinate system rotation into UE left handed coordinate system.
+	CachedFinalHeadRotation = FQuat(FinalHeadPoseUnreal);
+	CachedFinalHeadRotation = FQuat(-CachedFinalHeadRotation.Z, CachedFinalHeadRotation.X, CachedFinalHeadRotation.Y, -CachedFinalHeadRotation.W);
+#endif
+}
+
 bool FGoogleVRHMD::OnStartGameFrame( FWorldContext& WorldContext )
 {
+	//UE_LOG(LogTemp, Log, TEXT("Start Game Frame!!!"));
+
 	// Handle back coming from viewer magnet clickers or ui layer
 	if(bBackDetected)
 	{
@@ -1514,6 +1816,14 @@ bool FGoogleVRHMD::OnStartGameFrame( FWorldContext& WorldContext )
 		bTriggerDetected = false;
 	}
 
+	//Update the head pose at the begnning of a frame. This headpose will be used for both simulation and rendering.
+	UpdateHeadPose();
+
+	// Update ViewportList from GVR API
+	UpdateGVRViewportList();
+
+	// Enable scene present after OnStartGameFrame get called.
+	bForceStopPresentScene = false;
 	return false;
 }
 
@@ -1527,18 +1837,18 @@ void FGoogleVRHMD::RecordAnalytics()
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 
 	if (FEngineAnalytics::IsAvailable())
-	{		
+	{
 		// prepare and send analytics data
 		TArray<FAnalyticsEventAttribute> EventAttributes;
 
 		IHeadMountedDisplay::MonitorInfo MonitorInfo;
-		GetHMDMonitorInfo(MonitorInfo);	
+		GetHMDMonitorInfo(MonitorInfo);
 
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("DeviceName"), TEXT("GoogleVRHMD")));
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("DisplayDeviceName"), *MonitorInfo.MonitorName));
 		//EventAttributes.Add(FAnalyticsEventAttribute(TEXT("DisplayId"), MonitorInfo.MonitorId)); // Doesn't compile on iOS for some reason
 		FString MonResolution(FString::Printf(TEXT("(%d, %d)"), MonitorInfo.ResolutionX, MonitorInfo.ResolutionY));
-		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("Resolution"), MonResolution));	
+		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("Resolution"), MonResolution));
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("InterpupillaryDistance"), GetInterpupillaryDistance()));
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("ChromaAbCorrectionEnabled"), IsChromaAbCorrectionEnabled()));
 

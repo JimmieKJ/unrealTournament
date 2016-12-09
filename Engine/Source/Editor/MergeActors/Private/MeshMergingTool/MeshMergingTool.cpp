@@ -1,23 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MergeActorsPrivatePCH.h"
-#include "MeshMergingTool.h"
-#include "SMeshMergingDialog.h"
-#include "PropertyEditorModule.h"
-#include "Engine/TextureLODSettings.h"
-#include "RawMesh.h"
+#include "MeshMergingTool/MeshMergingTool.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
 #include "Engine/StaticMeshActor.h"
-#include "Engine/StaticMesh.h"
 #include "Engine/Selection.h"
-#include "SystemSettings.h"
-#include "Engine/TextureLODSettings.h"
+#include "Editor.h"
+#include "Dialogs/Dialogs.h"
+#include "MeshUtilities.h"
+#include "MeshMergingTool/SMeshMergingDialog.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "AssetRegistryModule.h"
 #include "ScopedTransaction.h"
 
-#include "SlateBasics.h"
-#include "Widgets/Notifications/SNotificationList.h"
-#include "Framework/Notifications/NotificationManager.h"
 
 #define LOCTEXT_NAMESPACE "MeshMergingTool"
 
@@ -143,7 +145,7 @@ bool FMeshMergingTool::RunMerge(const FString& PackageName)
 				FRotator MergedActorRotation(ForceInit);
 								
 				AStaticMeshActor* MergedActor = World->SpawnActor<AStaticMeshActor>(MergedActorLocation, MergedActorRotation, Params);
-				MergedActor->GetStaticMeshComponent()->StaticMesh = MergedMesh;
+				MergedActor->GetStaticMeshComponent()->SetStaticMesh(MergedMesh);
 				MergedActor->SetActorLabel(AssetsToSync[0]->GetName());
 
 				// Remove source actors

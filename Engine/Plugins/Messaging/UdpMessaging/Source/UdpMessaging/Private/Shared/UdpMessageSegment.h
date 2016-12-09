@@ -2,39 +2,38 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
 
-namespace EUdpMessageSegments
+/**
+ * Enumerates message segment types.
+ */
+enum class EUdpMessageSegments : uint8
 {
-	/**
-	 * Enumerates message segment types.
-	 */
-	enum Type
-	{
-		/** None. */
-		None,
+	/** None. */
+	None,
 
-		/** Request to abort the sending of a message. */
-		Abort,
+	/** Request to abort the sending of a message. */
+	Abort,
 
-		/** Acknowledges that the message was received successfully. */
-		Acknowledge,
+	/** Acknowledges that the message was received successfully. */
+	Acknowledge,
 
-		/** Notifies the bus that an endpoint has left. */
-		Bye,
+	/** Notifies the bus that an endpoint has left. */
+	Bye,
 
-		/** A message data segment. */
-		Data,
+	/** A message data segment. */
+	Data,
 
-		/** Notifies the bus that an endpoint has joined. */
-		Hello,
+	/** Notifies the bus that an endpoint has joined. */
+	Hello,
 
-		/** Request to retransmit selected data segments. */
-		Retransmit,
+	/** Request to retransmit selected data segments. */
+	Retransmit,
 
-		/** Notification that an inbound message timed out. */
-		Timeout
-	};
-}
+	/** Notification that an inbound message timed out. */
+	Timeout
+};
 
 
 namespace FUdpMessageSegment
@@ -58,7 +57,7 @@ namespace FUdpMessageSegment
 		 *
 		 * @see EUdpMessageSegments
 		 */
-		uint8 SegmentType;
+		EUdpMessageSegments SegmentType;
 
 	public:
 

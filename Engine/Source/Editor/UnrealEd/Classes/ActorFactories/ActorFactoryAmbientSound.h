@@ -6,8 +6,14 @@
  *
  * The base class of all ambient sound types
  */
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "ActorFactories/ActorFactory.h"
 #include "ActorFactoryAmbientSound.generated.h"
+
+class AActor;
+class FAssetData;
 
 UCLASS(MinimalAPI, config=Editor, collapsecategories, hidecategories=Object)
 class UActorFactoryAmbientSound : public UActorFactory

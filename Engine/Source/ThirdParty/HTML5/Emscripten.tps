@@ -8,8 +8,6 @@
   <Products />
   <Eula />
   <RedistributeTo />
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
   <Notification>
 Redirect: ../../../Extras/ThirdPartyNotUE/emsdk/emscripten/
 Notes: These are Epic files which direct to Emscripten under ThirdPartyNotUE. Not actually Emscripten.

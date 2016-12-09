@@ -3,7 +3,11 @@
 #include "OpenGLDrvPrivate.h"
 #include "IOSAppDelegate.h"
 #include "IOSView.h"
-#include "SlateBasics.h"
+#include "IOS/IOSApplication.h"
+#include "IOS/IOSPlatformFramePacer.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Misc/ConfigCacheIni.h"
 
 // This header file gives access to the thread_policy_set function.
 #include <mach/thread_act.h>
@@ -116,6 +120,11 @@ struct FPlatformOpenGLDevice
 FPlatformOpenGLDevice* PlatformCreateOpenGLDevice()
 {
 	return new FPlatformOpenGLDevice;
+}
+
+bool PlatformCanEnableGPUCapture()
+{
+	return false;
 }
 
 void PlatformDestroyOpenGLDevice(FPlatformOpenGLDevice* Device)

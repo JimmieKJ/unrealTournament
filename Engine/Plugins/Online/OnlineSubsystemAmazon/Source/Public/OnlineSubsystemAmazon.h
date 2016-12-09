@@ -2,10 +2,11 @@
 
 #pragma once
 
-#include "OnlineSubsystem.h"
+#include "CoreMinimal.h"
 #include "OnlineSubsystemImpl.h"
-#include "OnlineSubsystemAmazonModule.h"
 #include "OnlineSubsystemAmazonPackage.h"
+
+class FOnlineIdentityAmazon;
 
 /** Forward declarations of all interface classes */
 typedef TSharedPtr<class FOnlineIdentityAmazon, ESPMode::ThreadSafe> FOnlineIdentityAmazonPtr;

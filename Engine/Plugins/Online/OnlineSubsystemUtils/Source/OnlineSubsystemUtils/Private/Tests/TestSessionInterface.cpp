@@ -1,14 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
-#include "TestSessionInterface.h"
-#include "OnlineIdentityInterface.h"
-#include "OnlineFriendsInterface.h"
-#include "OnlineExternalUIInterface.h"
-#include "ModuleManager.h"
+#include "Tests/TestSessionInterface.h"
+#include "GameFramework/GameModeBase.h"
+#include "GameFramework/GameMode.h"
 #include "Kismet/GameplayStatics.h"
+#include "OnlineSubsystemUtils.h"
 
-#include "Engine.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -50,15 +47,19 @@ class TestOnlineGameSettings : public FOnlineSessionSettings
 			const FString MapName = InWorld->GetMapName();
 			Set(SETTING_MAPNAME, MapName, EOnlineDataAdvertisementType::ViaOnlineService);
 
-			AGameMode const* const GameMode = InWorld->GetAuthGameMode();
+			AGameModeBase const* const GameModeBase = InWorld->GetAuthGameMode();
+			AGameMode const* const GameMode = Cast<AGameMode>(GameModeBase);
+			if (GameModeBase != NULL)
+			{
+				// Game type
+				FString GameModeStr = GameModeBase->GetClass()->GetName();
+				Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
+			}
+
 			if (GameMode != NULL)
 			{
 				// Bot count
 				Set(SETTING_NUMBOTS, GameMode->NumBots, EOnlineDataAdvertisementType::ViaOnlineService);
-
-				// Game type
-				FString GameModeStr = GameMode->GetClass()->GetName();
-				Set(SETTING_GAMEMODE, GameModeStr, EOnlineDataAdvertisementType::ViaOnlineService);
 			}
 		}
 	}

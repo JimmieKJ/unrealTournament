@@ -2,7 +2,15 @@
 
 #pragma once
 
-#include "AssetTypeActions_ClassTypeBase.h"
+#include "CoreMinimal.h"
+#include "Engine/Blueprint.h"
+#include "Toolkits/IToolkitHost.h"
+#include "AssetTypeActions/AssetTypeActions_ClassTypeBase.h"
+
+class FAssetData;
+class FMenuBuilder;
+class IClassTypeActions;
+class UFactory;
 
 class ASSETTOOLS_API FAssetTypeActions_Blueprint : public FAssetTypeActions_ClassTypeBase
 {

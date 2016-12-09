@@ -1,15 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_BaseAsyncTask.h"
+#include "EdGraph/EdGraphPin.h"
+#include "UObject/UnrealType.h"
+#include "EdGraphSchema_K2.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_AddDelegate.h"
+#include "K2Node_AssignmentStatement.h"
+#include "K2Node_CreateDelegate.h"
+#include "K2Node_CustomEvent.h"
+#include "K2Node_IfThenElse.h"
+#include "K2Node_MacroInstance.h"
+#include "K2Node_Self.h"
+#include "K2Node_TemporaryVariable.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
-#include "CompilerResultsLog.h"
 #include "KismetCompiler.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "K2Node_BaseAsyncTask.h"
-#include "K2Node_IfThenElse.h"
-#include "Kismet/KismetSystemLibrary.h"
 
 #define LOCTEXT_NAMESPACE "UK2Node_BaseAsyncTask"
 

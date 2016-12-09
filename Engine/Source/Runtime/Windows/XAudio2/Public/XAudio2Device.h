@@ -9,10 +9,10 @@
 /*------------------------------------------------------------------------------------
 	XAudio2 system headers
 ------------------------------------------------------------------------------------*/
-#include "Engine.h"
-#include "SoundDefinitions.h"
+#include "CoreMinimal.h"
 #include "AudioDecompress.h"
 #include "AudioEffect.h"
+#include "AudioDevice.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogXAudio2, Log, All);
 
@@ -94,6 +94,12 @@ class FXAudio2Device : public FAudioDevice
 	/** Lets the platform any tick actions */
 	virtual void UpdateHardware() override;
 
+	/** Get a sample-accurate time clock. */
+	virtual void UpdateAudioClock() override;
+
+	/** Checks the device state change */
+	virtual void CheckDeviceStateChange() override;
+
 	/** Creates a new platform specific sound source */
 	virtual FAudioEffectsManager* CreateEffectsManager() override;
 
@@ -142,6 +148,9 @@ class FXAudio2Device : public FAudioDevice
 
 protected:
 
+	/** Creates a mastering voice. Returns false if fails. */
+	struct IXAudio2MasteringVoice* CreateMasteringVoice();
+
 	/**
      * Allocates memory from permanent pool. This memory will NEVER be freed.
 	 *
@@ -169,6 +178,9 @@ protected:
 
 private:
 	struct FXAudioDeviceProperties* DeviceProperties;
+
+	/** Whether or not audio hardware changed. */
+	bool bHardwareChanged;
 
 #if PLATFORM_WINDOWS
 	// We need to keep track whether com was successfully initialized so we can clean 

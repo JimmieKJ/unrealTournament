@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "SGlobalOpenAssetDialog.h"
-
+#include "Toolkits/SGlobalOpenAssetDialog.h"
 #include "AssetData.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "Toolkits/AssetEditorManager.h"
 

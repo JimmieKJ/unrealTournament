@@ -47,8 +47,9 @@ public:
 	 * @param ChatRoomId chat room id to connect with
 	 * @param CompletionDelegate delegate fired when operation completes
 	 * @param Password optional password for the room
+     * NOTE: All parameters are by value because ClearTimer/SetTimer can destroy the internal lambda function
 	 */
-	void CreateOrJoinChatRoom(const FUniqueNetIdRepl& LocalUserId, const FChatRoomId& ChatRoomId, const FOnChatRoomCreatedOrJoined& CompletionDelegate, const FString& Password = FString());
+	void CreateOrJoinChatRoom(FUniqueNetIdRepl LocalUserId, FChatRoomId ChatRoomId, FOnChatRoomCreatedOrJoined CompletionDelegate, FString Password = FString());
 
 	/**
 	 * Leave the joined chat room
@@ -83,6 +84,14 @@ private:
 	 * @param CompletionDelegate user passed in delegate
 	 */
 	void OnChatRoomLeft(const FUniqueNetId& LocalUserId, const FChatRoomId& RoomId, bool bWasSuccessful, const FString& Error, FChatRoomId ChatRoomIdCopy, FOnChatRoomLeft CompletionDelegate);
+
+	/**
+	 * Common code called at the end of chat room cleanup
+	 *
+	 * @param RoomId id of the room let
+	 * @param CompletionDelegate delegate to fire to notify that the room has been left
+	 */
+	void ChatRoomLeftInternal(const FChatRoomId& RoomId, const FOnChatRoomLeft& CompletionDelegate);
 
 private:
 

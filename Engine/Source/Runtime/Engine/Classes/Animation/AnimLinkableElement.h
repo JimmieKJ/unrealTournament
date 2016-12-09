@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AnimLinkableElement.generated.h"
 
 class UAnimMontage;
@@ -45,6 +47,10 @@ struct FAnimLinkableElement
 	, LinkMethod(EAnimLinkMethod::Absolute)
 	, CachedLinkMethod(LinkMethod)
 	, LinkedSequence(nullptr)
+	{
+	}
+
+	virtual ~FAnimLinkableElement()
 	{
 	}
 

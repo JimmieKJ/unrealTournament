@@ -1,10 +1,19 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "AssetImportDataCustomization.h"
-#include "SEditableText.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableText.h"
+#include "Widgets/Input/SButton.h"
 #include "EditorReimportHandler.h"
-#include "ObjectEditorUtils.h"
+#include "EditorFramework/AssetImportData.h"
+#include "PropertyHandle.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailLayoutBuilder.h"
 
 #define LOCTEXT_NAMESPACE "AssetImportDataCustomization"
 

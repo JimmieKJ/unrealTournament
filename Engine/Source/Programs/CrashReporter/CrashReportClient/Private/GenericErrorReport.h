@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Paths.h"
+#include "CrashDescription.h"
+
+class FText;
 class FCrashDebugHelperModule;
 struct FPrimaryCrashProperties;
 

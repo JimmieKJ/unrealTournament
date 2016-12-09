@@ -4,24 +4,38 @@
 	GenericPlatformMisc.cpp: Generic implementations of misc platform functions
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
-#include "LinuxPlatformMisc.h"
-#include "LinuxApplication.h"
-#include "LinuxPlatformCrashContext.h"
+#include "Linux/LinuxPlatformMisc.h"
+#include "Misc/AssertionMacros.h"
+#include "GenericPlatform/GenericPlatformMemory.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/UnrealTemplate.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Misc/DateTime.h"
+#include "HAL/PlatformTime.h"
+#include "Containers/StringConv.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Misc/App.h"
+#include "Linux/LinuxApplication.h"
+#include "Linux/LinuxPlatformCrashContext.h"
 
-#include <cpuid.h>
+#if PLATFORM_HAS_CPUID
+	#include <cpuid.h>
+#endif // PLATFORM_HAS_CPUID
 #include <sys/sysinfo.h>
 #include <sched.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <sys/vfs.h>	// statfs()
+#include <sys/vfs.h>
 #include <sys/ioctl.h>
 
-#include <ifaddrs.h>	// ethernet mac
+#include <ifaddrs.h>
 #include <net/if.h>
 #include <net/if_arp.h>
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "HAL/ThreadHeartBeat.h"
 
 // define for glibc 2.12.2 and lower (which is shipped with CentOS 6.x and which we target by default)
@@ -92,7 +106,7 @@ namespace
 	bool GInitializedSDL = false;
 }
 
-size_t GCacheLineSize = PLATFORM_CACHE_LINE_SIZE;
+size_t CORE_API GCacheLineSize = PLATFORM_CACHE_LINE_SIZE;
 
 void LinuxPlatform_UpdateCacheLineSize()
 {
@@ -101,13 +115,14 @@ void LinuxPlatform_UpdateCacheLineSize()
 	if (SysFsFile)
 	{
 		int SystemLineSize = 0;
-		fscanf(SysFsFile, "%d", &SystemLineSize);
-		fclose(SysFsFile);
-
-		if (SystemLineSize > 0)
+		if (1 == fscanf(SysFsFile, "%d", &SystemLineSize))
 		{
-			GCacheLineSize = SystemLineSize;
+			if (SystemLineSize > 0)
+			{
+				GCacheLineSize = SystemLineSize;
+			}
 		}
+		fclose(SysFsFile);
 	}
 }
 
@@ -135,11 +150,7 @@ void FLinuxPlatformMisc::PlatformInit()
 	UE_LOG(LogInit, Log, TEXT(" - Cache line size: %Zu"), GCacheLineSize);
 	UE_LOG(LogInit, Log, TEXT(" - Memory allocator used: %s"), GMalloc->GetDescriptiveName());
 
-	// programs don't need it by default
-	if (!IS_PROGRAM || FParse::Param(FCommandLine::Get(), TEXT("calibrateclock")))
-	{
-		FPlatformTime::CalibrateClock();
-	}
+	FPlatformTime::PrintCalibrationLog();
 
 	UE_LOG(LogInit, Log, TEXT("Linux-specific commandline switches:"));
 	UE_LOG(LogInit, Log, TEXT(" -%s (currently %s): suppress parsing of DWARF debug info (callstacks will be generated faster, but won't have line numbers)"), 
@@ -187,9 +198,12 @@ bool FLinuxPlatformMisc::PlatformInitMultimedia()
 		SDL_version RunTimeSDLVersion;
 		SDL_VERSION(&CompileTimeSDLVersion);
 		SDL_GetVersion(&RunTimeSDLVersion);
-		UE_LOG(LogInit, Log, TEXT("Initialized SDL %d.%d.%d (compiled against %d.%d.%d)"),
-			CompileTimeSDLVersion.major, CompileTimeSDLVersion.minor, CompileTimeSDLVersion.patch,
-			RunTimeSDLVersion.major, RunTimeSDLVersion.minor, RunTimeSDLVersion.patch
+		int SdlRevisionNum = SDL_GetRevisionNumber();
+		FString SdlRevision = UTF8_TO_TCHAR(SDL_GetRevision());
+		UE_LOG(LogInit, Log, TEXT("Initialized SDL %d.%d.%d revision: %d (%s) (compiled against %d.%d.%d)"),
+			RunTimeSDLVersion.major, RunTimeSDLVersion.minor, RunTimeSDLVersion.patch,
+			SdlRevisionNum, *SdlRevision,
+			CompileTimeSDLVersion.major, CompileTimeSDLVersion.minor, CompileTimeSDLVersion.patch
 			);
 
 		// Used to make SDL push SDL_TEXTINPUT events.
@@ -377,6 +391,28 @@ uint32 FLinuxPlatformMisc::GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint3
 uint8 GOverriddenReturnCode = 0;
 bool GHasOverriddenReturnCode = false;
 
+void FLinuxPlatformMisc::RequestExit(bool Force)
+{
+	UE_LOG(LogLinux, Log,  TEXT("FLinuxPlatformMisc::RequestExit(%i)"), Force );
+	if( Force )
+	{
+		// Force immediate exit. Cannot call abort() here, because abort() raises SIGABRT which we treat as crash
+		// (to prevent other, particularly third party libs, from quitting without us noticing)
+		// Propagate override return code, but normally don't exit with 0, so the parent knows it wasn't a normal exit.
+		if (GHasOverriddenReturnCode)
+		{
+			_exit(GOverriddenReturnCode);
+		}
+		else
+		{
+			_exit(1);
+		}
+	}
+
+	// Tell the platform specific code we want to exit cleanly from the main loop.
+	FGenericPlatformMisc::RequestExit(Force);
+}
+
 void FLinuxPlatformMisc::RequestExitWithStatus(bool Force, uint8 ReturnCode)
 {
 	UE_LOG(LogLinux, Log, TEXT("FLinuxPlatformMisc::RequestExit(bForce=%s, ReturnCode=%d)"), Force ? TEXT("true") : TEXT("false"), ReturnCode);
@@ -413,14 +449,12 @@ const TCHAR* FLinuxPlatformMisc::GetSystemErrorMessage(TCHAR* OutBuffer, int32 B
 
 void FLinuxPlatformMisc::ClipboardCopy(const TCHAR* Str)
 {
-	if (SDL_HasClipboardText() == SDL_TRUE)
+	if (SDL_SetClipboardText(TCHAR_TO_UTF8(Str)))
 	{
-		if (SDL_SetClipboardText(TCHAR_TO_UTF8(Str)))
-		{
-			UE_LOG(LogInit, Fatal, TEXT("Error copying clipboard contents: %s\n"), UTF8_TO_TCHAR(SDL_GetError()));
-		}
+		UE_LOG(LogInit, Fatal, TEXT("Error copying clipboard contents: %s\n"), UTF8_TO_TCHAR(SDL_GetError()));
 	}
 }
+
 void FLinuxPlatformMisc::ClipboardPaste(class FString& Result)
 {
 	char* ClipContent;
@@ -629,11 +663,14 @@ int32 FLinuxPlatformMisc::NumberOfCores()
 				FMemory::Memzero(CpuInfos);
 				int MaxCoreId = 0;
 				int MaxPackageId = 0;
+				int NumCpusAvailable = 0;
 
 				for(int32 CpuIdx = 0; CpuIdx < CPU_SETSIZE; ++CpuIdx)
 				{
 					if (CPU_ISSET(CpuIdx, &AvailableCpusMask))
 					{
+						++NumCpusAvailable;
+
 						sprintf(FileNameBuffer, "/sys/devices/system/cpu/cpu%d/topology/core_id", CpuIdx);
 
 						if (FILE* CoreIdFile = fopen(FileNameBuffer, "r"))
@@ -647,12 +684,12 @@ int32 FLinuxPlatformMisc::NumberOfCores()
 
 						sprintf(FileNameBuffer, "/sys/devices/system/cpu/cpu%d/topology/physical_package_id", CpuIdx);
 
-						unsigned int PackageId = 0;
 						if (FILE* PackageIdFile = fopen(FileNameBuffer, "r"))
 						{
-							if (1 != fscanf(PackageIdFile, "%d", &CpuInfos[CpuIdx].Package))
+							// physical_package_id can be -1 on embedded devices - treat all CPUs as separate in that case.
+							if (1 != fscanf(PackageIdFile, "%d", &CpuInfos[CpuIdx].Package) || CpuInfos[CpuIdx].Package < 0)
 							{
-								CpuInfos[CpuIdx].Package = 0;
+								CpuInfos[CpuIdx].Package = CpuInfos[CpuIdx].Core;
 							}
 							fclose(PackageIdFile);
 						}
@@ -665,23 +702,36 @@ int32 FLinuxPlatformMisc::NumberOfCores()
 				int NumCores = MaxCoreId + 1;
 				int NumPackages = MaxPackageId + 1;
 				int NumPairs = NumPackages * NumCores;
-				unsigned char * Pairs = reinterpret_cast<unsigned char *>(FMemory_Alloca(NumPairs * sizeof(unsigned char)));
-				FMemory::Memzero(Pairs, NumPairs * sizeof(unsigned char));
 
-				for (int32 CpuIdx = 0; CpuIdx < CPU_SETSIZE; ++CpuIdx)
+				// AArch64 topology seems to be incompatible with the above assumptions, particularly, core_id can be all 0 while the cores themselves are obviously independent. 
+				// Check if num CPUs available to us is more than 2 per core (i.e. more than reasonable when hyperthreading is involved), and if so, don't trust the topology.
+				if (2 * NumCores < NumCpusAvailable)
 				{
-					if (CPU_ISSET(CpuIdx, &AvailableCpusMask))
-					{
-						Pairs[CpuInfos[CpuIdx].Package * NumCores + CpuInfos[CpuIdx].Core] = 1;
-					}
+					NumberOfCores = NumCpusAvailable;	// consider all CPUs to be separate
 				}
-
-				for (int32 Idx = 0; Idx < NumPairs; ++Idx)
+				else
 				{
-					NumberOfCores += Pairs[Idx];
+					unsigned char * Pairs = reinterpret_cast<unsigned char *>(FMemory_Alloca(NumPairs * sizeof(unsigned char)));
+					FMemory::Memzero(Pairs, NumPairs * sizeof(unsigned char));
+
+					for (int32 CpuIdx = 0; CpuIdx < CPU_SETSIZE; ++CpuIdx)
+					{
+						if (CPU_ISSET(CpuIdx, &AvailableCpusMask))
+						{
+							Pairs[CpuInfos[CpuIdx].Package * NumCores + CpuInfos[CpuIdx].Core] = 1;
+						}
+					}
+
+					for (int32 Idx = 0; Idx < NumPairs; ++Idx)
+					{
+						NumberOfCores += Pairs[Idx];
+					}
 				}
 			}
 		}
+
+		// never allow it to be less than 1, we are running on something
+		NumberOfCores = FMath::Max(1, NumberOfCores);
 	}
 
 	return NumberOfCores;

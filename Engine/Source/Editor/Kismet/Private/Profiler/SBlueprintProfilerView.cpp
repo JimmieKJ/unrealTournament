@@ -1,19 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "SBlueprintProfilerView.h"
-#include "SBlueprintProfilerToolbar.h"
-#include "BPProfilerStatisticWidgets.h"
-#include "BlueprintEditor.h"
+#include "Profiler/SBlueprintProfilerView.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EditorStyleSet.h"
+#include "Settings/EditorExperimentalSettings.h"
 
 // Profiler View types
-#include "SProfilerOverview.h"
-#include "SLeastPerformantDisplay.h"
-#include "SGraphExecutionStatDisplay.h"
+#include "BlueprintProfilerModule.h"
+#include "Profiler/SProfilerOverview.h"
+#include "Profiler/SLeastPerformantDisplay.h"
+#include "Profiler/SGraphExecutionStatDisplay.h"
 
-#include "ScriptPerfData.h"
-#include "SNumericEntryBox.h"
-#include "Editor/UnrealEd/Classes/Settings/EditorExperimentalSettings.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintProfilerView"
 

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <sal.h>
+
 
 /**
 * Windows specific types
@@ -34,6 +36,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 // Base defines, defaults are commented out
 
 #define PLATFORM_LITTLE_ENDIAN								1
+#define PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS				1
 #if defined(__clang__)
 	// @todo clang: Clang compiler on Windows doesn't support SEH exception handling yet (__try/__except)
 	#define PLATFORM_SEH_EXCEPTIONS_DISABLED				1
@@ -53,7 +56,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 //#define PLATFORM_TCHAR_IS_4_BYTES							0
 #define PLATFORM_HAS_BSD_TIME								0
 #define PLATFORM_USE_PTHREADS								0
-#define PLATFORM_MAX_FILEPATH_LENGTH						MAX_PATH
+#define PLATFORM_MAX_FILEPATH_LENGTH						WINDOWS_MAX_PATH
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS			1
 #define PLATFORM_USES_MICROSOFT_LIBC_FUNCTIONS				1
 #define PLATFORM_SUPPORTS_TBB								1
@@ -81,6 +84,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #define FORCEINLINE __forceinline									/* Force code to be inline */
 #define FORCENOINLINE __declspec(noinline)							/* Force code to NOT be inline */
 #define FUNCTION_NO_RETURN_START __declspec(noreturn)				/* Indicate that the function never returns. */
+#define FUNCTION_NON_NULL_RETURN_START _Ret_notnull_				/* Indicate that the function never returns nullptr. */
 
 // Hints compiler that expression is true; generally restricted to comparisons against constants
 #if !defined(__clang__) || defined(_MSC_VER)	// Clang only supports __assume when using -fms-extensions

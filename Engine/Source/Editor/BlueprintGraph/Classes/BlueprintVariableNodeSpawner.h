@@ -2,11 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/UnrealType.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Engine/Blueprint.h"
+#include "BlueprintActionFilter.h"
+#include "BlueprintNodeSignature.h"
+#include "BlueprintNodeSpawner.h"
 #include "BlueprintFieldNodeSpawner.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "BlueprintVariableNodeSpawner.generated.h"
 
-// Forward declarations
 class UEdGraph;
 class UK2Node_Variable;
 

@@ -1,14 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSPlatformEditorPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialInstance.h"
+#include "PropertyEditorModule.h"
+#include "IOSRuntimeSettings.h"
 #include "IOSTargetSettingsCustomization.h"
 #include "ISettingsModule.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
 #include "MaterialShaderQualitySettings.h"
 #include "MaterialShaderQualitySettingsCustomization.h"
-#include "RenderingThread.h"
 #include "ComponentRecreateRenderStateContext.h"
+#include "ShaderPlatformQualitySettings.h"
 
 #define LOCTEXT_NAMESPACE "FIOSPlatformEditorModule"
 

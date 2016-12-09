@@ -1,15 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "ScriptStructArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/StructArchiveProxy.h"
+#include "UObject/Package.h"
+#include "UHTMakefile.h"
 
 FScriptStructArchiveProxy::FScriptStructArchiveProxy(FUHTMakefile& UHTMakefile, const UScriptStruct* ScriptStruct)
 	: FStructArchiveProxy(UHTMakefile, ScriptStruct)
 {
 	StructFlagsUInt32 = (uint32)ScriptStruct->StructFlags;
 	StructMacroDeclaredLineNumber = ScriptStruct->StructMacroDeclaredLineNumber;
-	bCppStructOpsFromBaseClass = ScriptStruct->bCppStructOpsFromBaseClass;
 	bPrepareCppStructOpsCompleted = ScriptStruct->bPrepareCppStructOpsCompleted;
 }
 
@@ -29,7 +29,6 @@ void FScriptStructArchiveProxy::PostConstruct(UScriptStruct* ScriptStruct) const
 {
 	ScriptStruct->StructFlags = (EStructFlags)StructFlagsUInt32;
 	ScriptStruct->StructMacroDeclaredLineNumber = StructMacroDeclaredLineNumber;
-	ScriptStruct->bCppStructOpsFromBaseClass = bCppStructOpsFromBaseClass;
 	ScriptStruct->bPrepareCppStructOpsCompleted = bPrepareCppStructOpsCompleted;
 }
 
@@ -43,7 +42,8 @@ FArchive& operator<<(FArchive& Ar, FScriptStructArchiveProxy& ScriptStructArchiv
 	Ar << static_cast<FStructArchiveProxy&>(ScriptStructArchiveProxy);
 	Ar << ScriptStructArchiveProxy.StructFlagsUInt32;
 	Ar << ScriptStructArchiveProxy.StructMacroDeclaredLineNumber;
-	Ar << ScriptStructArchiveProxy.bCppStructOpsFromBaseClass;
+	bool bRemovedCppStructOpsFromBaseClass = false;
+	Ar << bRemovedCppStructOpsFromBaseClass;
 	Ar << ScriptStructArchiveProxy.bPrepareCppStructOpsCompleted;
 
 	return Ar;

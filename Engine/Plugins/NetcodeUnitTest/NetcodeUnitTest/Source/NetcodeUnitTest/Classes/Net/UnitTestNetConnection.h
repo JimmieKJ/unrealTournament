@@ -2,12 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "NetcodeUnitTest.h"
 #include "IpConnection.h"
 
-#include "NUTUtilNet.h"
+#include "Net/NUTUtilNet.h"
 
 #include "UnitTestNetConnection.generated.h"
-
 
 /**
  * A net connection for enabling unit testing through barebones/minimal client connections

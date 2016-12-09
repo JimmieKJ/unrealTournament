@@ -1,9 +1,12 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "CaptureTypeCustomization.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SComboBox.h"
+#include "DetailWidgetRow.h"
+#include "DetailLayoutBuilder.h"
 #include "MovieSceneCaptureModule.h"
-#include "IPropertyUtilities.h"
 
 #define LOCTEXT_NAMESPACE "CaptureTypeCustomization"
 

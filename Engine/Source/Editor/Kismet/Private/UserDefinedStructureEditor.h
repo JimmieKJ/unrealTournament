@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
 #include "BlueprintEditorModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditing.h"
+#include "IDetailsView.h"
+
+class FStructureDefaultValueView;
 
 class FUserDefinedStructureEditor : public IUserDefinedStructureEditor
 {

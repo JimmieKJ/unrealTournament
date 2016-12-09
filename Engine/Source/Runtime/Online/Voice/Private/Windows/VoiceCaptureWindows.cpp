@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "VoicePrivatePCH.h"
 #include "VoiceCaptureWindows.h"
+#include "VoicePrivate.h"
+#include "VoiceModule.h"
 
 #include "AllowWindowsPlatformTypes.h"
 

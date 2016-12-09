@@ -1,5 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. 
-#include "ScriptPluginPrivatePCH.h"
+
+#include "ScriptPluginComponent.h"
+#include "Engine/World.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -11,15 +13,16 @@ UScriptPluginComponent::UScriptPluginComponent(const FObjectInitializer& ObjectI
 	bAutoActivate = true;
 	bWantsInitializeComponent = true;
 
-	Context = NULL;
+	Context = nullptr;
 }
 
 void UScriptPluginComponent::OnRegister()
 {
 	Super::OnRegister();
 
-	auto ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(GetClass());
-	if (ScriptClass && GetWorld() && GetWorld()->WorldType != EWorldType::Editor)
+	UScriptBlueprintGeneratedClass* ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(GetClass());
+	UWorld* MyWorld = (ScriptClass ? GetWorld() : nullptr);
+	if (MyWorld && MyWorld->WorldType != EWorldType::Editor)
 	{
 		Context = FScriptContextBase::CreateContext(ScriptClass->SourceCode, ScriptClass, this);
 		if (!Context || !Context->CanTick())
@@ -35,7 +38,7 @@ void UScriptPluginComponent::InitializeComponent()
 	Super::InitializeComponent();
 	if (Context)
 	{
-		auto ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(GetClass());
+		UScriptBlueprintGeneratedClass* ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(GetClass());
 		Context->PushScriptPropertyValues(ScriptClass, this);
 		Context->BeginPlay();
 		Context->FetchScriptPropertyValues(ScriptClass, this);
@@ -47,7 +50,7 @@ void UScriptPluginComponent::TickComponent(float DeltaTime, enum ELevelTick Tick
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	if (Context)
 	{
-		auto ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(GetClass());
+		UScriptBlueprintGeneratedClass* ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(GetClass());
 		Context->PushScriptPropertyValues(ScriptClass, this);
 		Context->Tick(DeltaTime);
 		Context->FetchScriptPropertyValues(ScriptClass, this);
@@ -60,7 +63,7 @@ void UScriptPluginComponent::OnUnregister()
 	{
 		Context->Destroy();
 		delete Context;
-		Context = NULL;
+		Context = nullptr;
 	}
 
 	Super::OnUnregister();
@@ -71,7 +74,7 @@ bool UScriptPluginComponent::CallScriptFunction(FString FunctionName)
 	bool bSuccess = false;
 	if (Context)
 	{
-		auto ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(GetClass());
+		UScriptBlueprintGeneratedClass* ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(GetClass());
 		Context->PushScriptPropertyValues(ScriptClass, this);
 		bSuccess = Context->CallFunction(FunctionName);
 		Context->FetchScriptPropertyValues(ScriptClass, this);

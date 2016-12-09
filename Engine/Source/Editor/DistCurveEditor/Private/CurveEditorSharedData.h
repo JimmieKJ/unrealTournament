@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #define CURVEED_MAX_CURVES 6
 
 #define CURVEEDENTRY_HIDECURVE_BIT					(0x00000001)		// Used by macros only
@@ -20,7 +22,8 @@
 #define CURVEEDENTRY_SET_SELECTED(x, flg)			((x) = ((flg) ? ((x) | CURVEEDENTRY_SELECTED_BIT) : ((x) &~ CURVEEDENTRY_SELECTED_BIT)))
 
 class FCurveEdNotifyInterface;
-
+class UCurveEdOptions;
+class UInterpCurveEdSetup;
 
 /*-----------------------------------------------------------------------------
    FCurveEditorModKey

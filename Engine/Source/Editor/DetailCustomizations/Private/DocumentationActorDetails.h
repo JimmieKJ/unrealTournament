@@ -2,7 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Input/Reply.h"
+#include "IDetailCustomization.h"
+
 class ADocumentationActor;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
 
 class FDocumentationActorDetails : public IDetailCustomization
 {

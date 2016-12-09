@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-
+#include "Windows/WindowsPlatformTime.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/Ticker.h"
+#include "Windows/WindowsHWrapper.h"
 
 float FWindowsPlatformTime::CPUTimePctRelative = 0.0f;
 
@@ -11,6 +13,7 @@ double FWindowsPlatformTime::InitTiming(void)
 	LARGE_INTEGER Frequency;
 	verify( QueryPerformanceFrequency(&Frequency) );
 	SecondsPerCycle = 1.0 / Frequency.QuadPart;
+	SecondsPerCycle64 = 1.0 / Frequency.QuadPart;
 
 	// Due to some limitation of the OS, we limit the polling frequency to 4 times per second, 
 	// but it should be enough for longterm CPU usage monitoring.

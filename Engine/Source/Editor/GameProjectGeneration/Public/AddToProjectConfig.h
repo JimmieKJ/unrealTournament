@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/Interface.h"
+
+class IClassViewerFilter;
+class SWindow;
+struct FSlateBrush;
 
 /**
  * Delegate called when code is added to the project.  Passes in the created class name and class path

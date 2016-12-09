@@ -1,18 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
-#include "Engine/GameInstance.h"
-#include "Debug/DebugDrawService.h"
-#include "GameFramework/HUD.h"
-#include "AI/Navigation/RecastHelpers.h"
+#include "VisualLoggerRenderingActor.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "VisualLogger/VisualLogger.h"
+#include "LogVisualizerSettings.h"
+#include "VisualLoggerDatabase.h"
+#include "LogVisualizerPrivate.h"
 #if WITH_EDITOR
-#include "Editor/EditorEngine.h"
 #include "GeomTools.h"
 #endif // WITH_EDITOR
-#include "VisualLoggerRenderingActor.h"
 #include "VisualLoggerRenderingComponent.h"
-#include "DebugRenderSceneProxy.h"
-#include "SVisualLoggerTimeline.h"
 
 class UVisualLoggerRenderingComponent;
 class FVisualLoggerSceneProxy : public FDebugRenderSceneProxy
@@ -86,6 +83,13 @@ FPrimitiveSceneProxy* UVisualLoggerRenderingComponent::CreateSceneProxy()
 		VLogSceneProxy->Capsles.Append(RenderingActor->TestDebugShapes.Capsles);
 	}
 
+#if WITH_EDITOR
+	if (VLogSceneProxy)
+	{
+		DebugDrawDelegateHelper.InitDelegateHelper(VLogSceneProxy);
+		DebugDrawDelegateHelper.ReregisterDebugDrawDelgate();
+	}
+#endif
 	return VLogSceneProxy;
 }
 
@@ -104,20 +108,14 @@ void UVisualLoggerRenderingComponent::CreateRenderState_Concurrent()
 	Super::CreateRenderState_Concurrent();
 
 #if WITH_EDITOR
-	if (SceneProxy)
-	{
-		static_cast<FVisualLoggerSceneProxy*>(SceneProxy)->RegisterDebugDrawDelgate();
-	}
+	DebugDrawDelegateHelper.RegisterDebugDrawDelgate();
 #endif
 }
 
 void UVisualLoggerRenderingComponent::DestroyRenderState_Concurrent()
 {
 #if WITH_EDITOR
-	if (SceneProxy)
-	{
-		static_cast<FVisualLoggerSceneProxy*>(SceneProxy)->UnregisterDebugDrawDelgate();
-	}
+	DebugDrawDelegateHelper.UnregisterDebugDrawDelgate();
 #endif
 
 	Super::DestroyRenderState_Concurrent();

@@ -4,21 +4,18 @@
 	Player.cpp: Unreal player implementation.
 =============================================================================*/
  
-#include "EnginePrivate.h"
+#include "Engine/Player.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Engine/LocalPlayer.h"
+#include "Engine/NetConnection.h"
+#include "EngineUtils.h"
 
-#include "SubtitleManager.h"
-#include "Net/UnrealNetwork.h"
 #include "GameFramework/HUD.h"
 #include "GameFramework/PlayerInput.h"
-#include "Engine/GameInstance.h"
 
-#include "RenderCore.h"
-#include "ColorList.h"
-#include "SlateBasics.h"
 #include "GameFramework/CheatManager.h"
-#include "GameFramework/Pawn.h"
-#include "GameFramework/GameState.h"
-#include "GameFramework/GameMode.h"
+#include "GameFramework/GameStateBase.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UPlayer
@@ -83,7 +80,7 @@ APlayerController* UPlayer::GetPlayerController(UWorld* InWorld) const
 	{
 		if ( (*Iterator)->GetLocalPlayer() == this )
 		{
-			return *Iterator;
+			return Iterator->Get();
 		}
 	}
 
@@ -129,7 +126,7 @@ bool UPlayer::Exec( UWorld* InWorld, const TCHAR* Cmd,FOutputDevice& Ar)
 		{
 			return true;
 		}
-		else if (World->GameState && World->GameState->ProcessConsoleExec(Cmd, Ar, PCPawn))
+		else if (World->GetGameState() && World->GetGameState()->ProcessConsoleExec(Cmd, Ar, PCPawn))
 		{
 			return true;
 		}

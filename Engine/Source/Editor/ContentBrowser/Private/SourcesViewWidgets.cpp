@@ -1,17 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ContentBrowserPCH.h"
-#include "PathViewTypes.h"
-#include "CollectionViewTypes.h"
 #include "SourcesViewWidgets.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "EditorFontGlyphs.h"
+#include "PathViewTypes.h"
 
+#include "DragAndDrop/DecoratedDragDropOp.h"
 #include "DragAndDrop/AssetDragDropOp.h"
 #include "DragAndDrop/AssetPathDragDropOp.h"
 #include "DragAndDrop/CollectionDragDropOp.h"
 #include "DragDropHandler.h"
 #include "ContentBrowserUtils.h"
 #include "CollectionViewUtils.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 

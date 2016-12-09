@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "IOculusRiftPlugin.h"
 #include "IHeadMountedDisplay.h"
 
 #if OCULUS_RIFT_SUPPORTED_PLATFORMS

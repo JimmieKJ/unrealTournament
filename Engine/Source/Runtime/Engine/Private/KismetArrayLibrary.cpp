@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Blueprint/BlueprintSupport.h"
 #include "Kismet/KismetArrayLibrary.h"
+#include "GameFramework/Actor.h"
+#include "Blueprint/BlueprintSupport.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogArray, Warning, All);
 

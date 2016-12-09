@@ -4,14 +4,18 @@
 	PostProcessGBufferHints.cpp: Post processing GBufferHints implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessGBufferHints.h"
-#include "PostProcessing.h"
-#include "PostProcessHistogram.h"
-#include "PostProcessEyeAdaptation.h"
+#include "PostProcess/PostProcessGBufferHints.h"
+#include "EngineGlobals.h"
+#include "StaticBoundShaderState.h"
+#include "CanvasTypes.h"
+#include "UnrealEngine.h"
+#include "RenderTargetTemp.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "SceneRenderTargetParameters.h"
+#include "PostProcess/PostProcessing.h"
+#include "PostProcess/PostProcessEyeAdaptation.h"
 
 /** Encapsulates the post processing eye adaptation pixel shader. */
 class FPostProcessGBufferHintsPS : public FGlobalShader
@@ -81,7 +85,7 @@ IMPLEMENT_SHADER_TYPE(,FPostProcessGBufferHintsPS,TEXT("PostProcessGBufferHints"
 FRCPassPostProcessGBufferHints::FRCPassPostProcessGBufferHints(FRHICommandList& RHICmdList)
 {
 	// AdjustGBufferRefCount(-1) call is done when the pass gets executed
-	FSceneRenderTargets::Get_Todo_PassContext().AdjustGBufferRefCount(RHICmdList, 1);
+	FSceneRenderTargets::Get(RHICmdList).AdjustGBufferRefCount(RHICmdList, 1);
 }
 
 
@@ -152,10 +156,10 @@ void FRCPassPostProcessGBufferHints::Process(FRenderingCompositePassContext& Con
 
 	Y += YStep;
 	
-	Line = FString::Printf(TEXT("Yellow: Unrealistic material (In nature even black materials reflect quite some light)"));
+	Line = FString::Printf(TEXT("Yellow: Unrealistic material (In nature even black materials reflect a small amount of light)"));
 	Canvas.DrawShadowedString( X, Y += YStep, *Line, GetStatsFont(), FLinearColor(0.8f, 0.8f, 0));
 
-	Line = FString::Printf(TEXT("Red: Impossive material (this material emits more light than it receives)"));
+	Line = FString::Printf(TEXT("Red: Impossible material (This material emits more light than it receives)"));
 	Canvas.DrawShadowedString( X, Y += YStep, *Line, GetStatsFont(), FLinearColor(1, 0, 0));
 
 	Canvas.Flush_RenderThread(Context.RHICmdList);

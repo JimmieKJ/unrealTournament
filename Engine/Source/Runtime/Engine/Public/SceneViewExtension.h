@@ -6,6 +6,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class APlayerController;
+class FRHICommandListImmediate;
+class FSceneView;
+class FSceneViewFamily;
+struct FMinimalViewInfo;
+
 class ISceneViewExtension
 {
 public:
@@ -41,6 +49,16 @@ public:
      */
     virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) = 0;
 
+	/** 
+	 * Called on render thread from FSceneRenderer::Render implementation after init views has completed, but before rendering proper has started
+	 */
+	virtual void PostInitViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) {};
+
+	/** 
+	 * Called on render thread, for each view, after the PostInitViewFamily_RenderThread call
+	 */
+	virtual void PostInitView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) {};
+
 	/**
 	 * Allows to render content after the 3D content scene, useful for debugging
 	 */
@@ -55,4 +73,10 @@ public:
      * Called to determine view extensions priority in relation to other view extensions, higher comes first
      */
 	virtual int32 GetPriority() const { return 0; }
+
+	/**
+	 * If true, use PostInitViewFamily_RenderThread and PostInitView_RenderThread instead of PreRenderViewFamily_RenderThread and PreRenderView_RenderThread.
+	 * Note: Frustum culling will have already happened in init views. This may require a small FOV buffer when culling to account for view changes/updates.
+	 */
+	virtual bool UsePostInitView() const { return false; }
 };

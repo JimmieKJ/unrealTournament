@@ -2,11 +2,12 @@
 
 #pragma once
 
-#include "UnrealEd.h"
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "Toolkits/IToolkit.h"
-#include "IFontEditor.h"
+
+class IFontEditor;
+class UFont;
 
 extern const FName FontEditorAppIdentifier;
 

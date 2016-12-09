@@ -4,82 +4,92 @@
 	ParticleModules.cpp: Particle module implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Serialization/ArchiveUObject.h"
+#include "UObject/UnrealType.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/RenderingObjectVersion.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/Package.h"
+#include "GameFramework/WorldSettings.h"
+#include "Particles/ParticleSystem.h"
+#include "ParticleHelper.h"
+#include "Distributions.h"
+#include "Distributions/Distribution.h"
+#include "Distributions/DistributionFloat.h"
+#include "Distributions/DistributionVector.h"
+#include "Particles/ParticleModule.h"
+#include "Particles/Orientation/ParticleModuleOrientationBase.h"
+#include "Particles/Orientation/ParticleModuleOrientationAxisLock.h"
+#include "ParticleEmitterInstances.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Distributions/DistributionFloatConstant.h"
+#include "Distributions/DistributionFloatUniform.h"
+#include "Distributions/DistributionVectorConstant.h"
+#include "Distributions/DistributionVectorUniform.h"
+#include "Engine/StaticMesh.h"
+#include "UnrealEngine.h"
 #include "Distributions/DistributionFloatParticleParameter.h"
 #include "Distributions/DistributionVectorParticleParameter.h"
 #include "Distributions/DistributionVectorConstantCurve.h"
 #include "Distributions/DistributionVectorUniformCurve.h"
 #include "FXSystem.h"
-#include "ParticleDefinitions.h"
-#include "Particles/Acceleration/ParticleModuleAcceleration.h"
 #include "Particles/Acceleration/ParticleModuleAccelerationBase.h"
+#include "Particles/Acceleration/ParticleModuleAcceleration.h"
 #include "Particles/Acceleration/ParticleModuleAccelerationConstant.h"
 #include "Particles/Acceleration/ParticleModuleAccelerationDrag.h"
 #include "Particles/Acceleration/ParticleModuleAccelerationDragScaleOverLife.h"
 #include "Particles/Acceleration/ParticleModuleAccelerationOverLifetime.h"
+#include "Particles/Attractor/ParticleModuleAttractorBase.h"
 #include "Particles/Attractor/ParticleModuleAttractorPointGravity.h"
 #include "Particles/Attractor/ParticleModuleAttractorLine.h"
 #include "Particles/Attractor/ParticleModuleAttractorParticle.h"
 #include "Particles/Attractor/ParticleModuleAttractorPoint.h"
-#include "Particles/Attractor/ParticleModuleAttractorPointGravity.h"
-#include "Particles/Collision/ParticleModuleCollisionGPU.h"
 #include "Particles/Kill/ParticleModuleKillBase.h"
 #include "Particles/Kill/ParticleModuleKillBox.h"
 #include "Particles/Kill/ParticleModuleKillHeight.h"
+#include "Particles/Light/ParticleModuleLightBase.h"
+#include "Particles/Light/ParticleModuleLight.h"
 #include "Particles/Light/ParticleModuleLight_Seeded.h"
+#include "Particles/Lifetime/ParticleModuleLifetimeBase.h"
+#include "Particles/Lifetime/ParticleModuleLifetime.h"
 #include "Particles/Lifetime/ParticleModuleLifetime_Seeded.h"
-#include "Particles/Location/ParticleModuleLocation.h"
-#include "Particles/Location/ParticleModuleLocationBase.h"
-#include "Particles/Location/ParticleModuleLocationBoneSocket.h"
-#include "Particles/Location/ParticleModuleLocationDirect.h"
-#include "Particles/Location/ParticleModuleLocationEmitter.h"
-#include "Particles/Location/ParticleModuleLocationEmitterDirect.h"
-#include "Particles/Location/ParticleModuleLocationPrimitiveBase.h"
-#include "Particles/Location/ParticleModuleLocationPrimitiveCylinder.h"
-#include "Particles/Location/ParticleModuleLocationPrimitiveCylinder_Seeded.h"
-#include "Particles/Location/ParticleModuleLocationPrimitiveSphere.h"
-#include "Particles/Location/ParticleModuleLocationPrimitiveSphere_Seeded.h"
-#include "Particles/Location/ParticleModuleLocationPrimitiveTriangle.h"
-#include "Particles/Location/ParticleModuleLocationSkelVertSurface.h"
-#include "Particles/Location/ParticleModuleLocationWorldOffset.h"
-#include "Particles/Location/ParticleModuleLocationWorldOffset_Seeded.h"
-#include "Particles/Location/ParticleModuleLocation_Seeded.h"
 #include "Particles/Location/ParticleModuleSourceMovement.h"
 #include "Particles/Modules/Location/ParticleModulePivotOffset.h"
-#include "Particles/Orientation/ParticleModuleOrientationAxisLock.h"
+#include "Particles/Rotation/ParticleModuleRotationBase.h"
 #include "Particles/Rotation/ParticleModuleRotation.h"
 #include "Particles/Rotation/ParticleModuleRotation_Seeded.h"
 #include "Particles/Rotation/ParticleModuleMeshRotation.h"
 #include "Particles/Rotation/ParticleModuleMeshRotation_Seeded.h"
 #include "Particles/Rotation/ParticleModuleRotationOverLifetime.h"
+#include "Particles/RotationRate/ParticleModuleRotationRateBase.h"
 #include "Particles/RotationRate/ParticleModuleRotationRate.h"
 #include "Particles/RotationRate/ParticleModuleRotationRateMultiplyLife.h"
-#include "Particles/RotationRate/ParticleModuleRotationRate_Seeded.h"
 #include "Particles/RotationRate/ParticleModuleMeshRotationRate.h"
+#include "Particles/RotationRate/ParticleModuleRotationRate_Seeded.h"
 #include "Particles/RotationRate/ParticleModuleMeshRotationRate_Seeded.h"
 #include "Particles/RotationRate/ParticleModuleMeshRotationRateMultiplyLife.h"
 #include "Particles/RotationRate/ParticleModuleMeshRotationRateOverLife.h"
+#include "Particles/SubUV/ParticleModuleSubUVBase.h"
+#include "Particles/ParticleEmitter.h"
+#include "ProfilingDebugging/CookStats.h"
+#include "Particles/SubUVAnimation.h"
+#include "Particles/SubUV/ParticleModuleSubUV.h"
 #include "Particles/SubUV/ParticleModuleSubUVMovie.h"
-#include "Particles/TypeData/ParticleModuleTypeDataAnimTrail.h"
 #include "Particles/TypeData/ParticleModuleTypeDataBase.h"
-#include "Particles/TypeData/ParticleModuleTypeDataBeam2.h"
 #include "Particles/TypeData/ParticleModuleTypeDataGpu.h"
 #include "Particles/TypeData/ParticleModuleTypeDataMesh.h"
-#include "Particles/TypeData/ParticleModuleTypeDataRibbon.h"
-#include "Particles/ParticleEmitter.h"
 #include "Particles/ParticleLODLevel.h"
-#include "Particles/ParticleModule.h"
 #include "Particles/ParticleModuleRequired.h"
-#include "Particles/ParticleSpriteEmitter.h"
-#include "Particles/ParticleSystem.h"
-#include "Particles/ParticleSystemComponent.h"
 #include "Distributions/DistributionFloatUniformCurve.h"
 #include "Engine/InterpCurveEdSetup.h"
 #include "Engine/RendererSettings.h"
 #include "Distributions/DistributionFloatConstantCurve.h"
 #include "Components/PointLightComponent.h"
+#include "Particles/Collision/ParticleModuleCollisionGPU.h"
 #include "DerivedDataCacheInterface.h"
-#include "RenderingObjectVersion.h"
 
 /*-----------------------------------------------------------------------------
 	Abstract base modules used for categorization.
@@ -860,20 +870,24 @@ private:
 	/** Serialize a reference **/
 	FArchive& operator<<( class UObject*& Obj )
 	{
-		if (Obj && Obj->IsA<UDistribution>() && Obj->GetOuter() != Outer )
+		if (Obj && Obj->IsA<UDistribution>())
 		{
-			UE_LOG(LogParticles, Verbose, TEXT("Bad Module Distribution %s not in %s (resave asset will fix this)"), *GetFullNameSafe(Obj), *GetFullNameSafe(Outer));
-			UObject *New = (UObject*)FindObjectWithOuter(Outer, Obj->GetClass(), Obj->GetFName());
-			if (New)
+			if (Obj->GetOuter() != Outer )
 			{
-				UE_LOG(LogParticles, Verbose, TEXT("      Replacing with Found %s"), *GetFullNameSafe(New));
+				UE_LOG(LogParticles, Verbose, TEXT("Bad Module Distribution %s not in %s (resave asset will fix this)"), *GetFullNameSafe(Obj), *GetFullNameSafe(Outer));
+				UObject *New = (UObject*)FindObjectWithOuter(Outer, Obj->GetClass(), Obj->GetFName());
+				if (New)
+				{
+					UE_LOG(LogParticles, Verbose, TEXT("      Replacing with Found %s"), *GetFullNameSafe(New));
+				}
+				else
+				{
+					New = NewObject<UObject>(Outer, Obj->GetClass(), Obj->GetFName(), RF_NoFlags, Obj);
+					UE_LOG(LogParticles, Verbose, TEXT("      Replacing with New %s"), *GetFullNameSafe(New));
+				}
+				Obj = New;
 			}
-			else
-			{
-				New = NewObject<UObject>(Outer, Obj->GetClass(), Obj->GetFName(), RF_NoFlags, Obj);
-				UE_LOG(LogParticles, Verbose, TEXT("      Replacing with New %s"), *GetFullNameSafe(New));
-			}
-			Obj = New;
+			Obj->ConditionalPostLoad();
 		}
 		return *this;
 	}
@@ -1307,7 +1321,7 @@ void UParticleModuleRequired::GetDefaultCutout()
 	{
 		// Try to find an opacity mask texture to default to, if not try to find an opacity texture
 		TArray<UTexture*> OpacityMaskTextures;
-		Material->GetTexturesInPropertyChain(EMaterialProperty::MP_OpacityMask, OpacityMaskTextures, nullptr, nullptr);
+		Material->GetTexturesInPropertyChain(MP_OpacityMask, OpacityMaskTextures, nullptr, nullptr);
 
 		if (OpacityMaskTextures.Num())
 		{
@@ -1316,7 +1330,7 @@ void UParticleModuleRequired::GetDefaultCutout()
 		else
 		{
 			TArray<UTexture*> OpacityTextures;
-			Material->GetTexturesInPropertyChain(EMaterialProperty::MP_Opacity, OpacityTextures, nullptr, nullptr);
+			Material->GetTexturesInPropertyChain(MP_Opacity, OpacityTextures, nullptr, nullptr);
 
 			if (OpacityTextures.Num())
 			{
@@ -3130,14 +3144,14 @@ uint64 UParticleModuleLight::SpawnHQLight(const FLightParticlePayload& Payload, 
 		{
 			PointLightComponent->SetupAttachment(RootComponent);
 		}			
-		PointLightComponent->CreationMethod = EComponentCreationMethod::UserConstructionScript;
-		PointLightComponent->RegisterComponent();
-		Owner->HighQualityLights.Add(PointLightComponent);
-			
-			
+		PointLightComponent->CreationMethod = ParticleSystem->CreationMethod;
+		PointLightComponent->LightingChannels = LightingChannels;
 		PointLightComponent->bUseInverseSquaredFalloff = bUseInverseSquaredFalloff;
 		PointLightComponent->bAffectTranslucentLighting = bAffectsTranslucency;
 		PointLightComponent->SetCastShadows(bShadowCastingLights);
+
+		PointLightComponent->RegisterComponent();
+		Owner->HighQualityLights.Add(PointLightComponent);
 
 		int32 ScreenAlignment;
 		FVector ComponentScale;
@@ -3177,7 +3191,7 @@ void UParticleModuleLight::UpdateHQLight(UPointLightComponent* PointLightCompone
 	FVector2D Size;
 	Size.X = FMath::Abs(Particle.Size.X * ComponentScale.X);
 	Size.Y = FMath::Abs(Particle.Size.Y * ComponentScale.Y);
-	if (ScreenAlignment == PSA_Square || ScreenAlignment == PSA_FacingCameraPosition)
+	if (ScreenAlignment == PSA_Square || ScreenAlignment == PSA_FacingCameraPosition || ScreenAlignment == PSA_FacingCameraDistanceBlend)
 	{
 		Size.Y = Size.X;
 	}
@@ -4848,6 +4862,14 @@ void UParticleModuleTypeDataGpu::Build( FParticleEmitterBuildInfo& EmitterBuildI
 	// Store screen alignment for particles.
 	EmitterInfo.ScreenAlignment = EmitterBuildInfo.RequiredModule->ScreenAlignment;
 	ResourceData.ScreenAlignment = EmitterBuildInfo.RequiredModule->ScreenAlignment;
+
+	EmitterInfo.bRemoveHMDRoll = EmitterBuildInfo.RequiredModule->bRemoveHMDRoll;
+	EmitterInfo.MinFacingCameraBlendDistance = EmitterBuildInfo.RequiredModule->MinFacingCameraBlendDistance;
+	EmitterInfo.MaxFacingCameraBlendDistance = EmitterBuildInfo.RequiredModule->MaxFacingCameraBlendDistance;
+	
+	ResourceData.bRemoveHMDRoll = EmitterBuildInfo.RequiredModule->bRemoveHMDRoll;
+	ResourceData.MinFacingCameraBlendDistance = EmitterBuildInfo.RequiredModule->MinFacingCameraBlendDistance;
+	ResourceData.MaxFacingCameraBlendDistance = EmitterBuildInfo.RequiredModule->MaxFacingCameraBlendDistance;
 
 	// Particle axis lock
 	for (int32 ModuleIndex = 0; ModuleIndex < EmitterInfo.SpawnModules.Num(); ++ModuleIndex)

@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "BehaviorTree/Decorators/BTDecorator_CheckGameplayTagsOnActor.h"
+#include "GameFramework/Actor.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
 #include "GameplayTagAssetInterface.h"
 #include "BehaviorTree/BlackboardComponent.h"
-#include "BehaviorTree/Decorators/BTDecorator_CheckGameplayTagsOnActor.h"
 
 UBTDecorator_CheckGameplayTagsOnActor::UBTDecorator_CheckGameplayTagsOnActor(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

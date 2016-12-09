@@ -1,8 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ErrorException.h"
+#include "UObject/Package.h"
+#include "UObject/MetaData.h"
+#include "UObject/TextProperty.h"
+#include "UObject/EnumProperty.h"
+#include "UnrealHeaderToolGlobals.h"
 #include "ClassMaps.h"
-#include "UniqueObj.h"
+#include "Templates/UniqueObj.h"
+#include "UniquePtr.h"
+
+class UEnum;
+class UScriptStruct;
+class UProperty;
+class FUnrealSourceFile;
+class UObject;
+class UField;
+class UMetaData;
+class FHeaderParser;
 
 extern class FCompilerMetadataManager GScriptHelper;
 
@@ -276,6 +294,26 @@ public:
 		{
 			*this = FPropertyBase(CPT_Byte);
 			Enum = Cast<UByteProperty>(Property)->Enum;
+			IntType = EIntType::Sized;
+		}
+		else if( ClassOfProperty==UEnumProperty::StaticClass() )
+		{
+			UEnumProperty* EnumProp = Cast<UEnumProperty>(Property);
+			UNumericProperty* UnderlyingProp = EnumProp->GetUnderlyingProperty();
+
+			*this = FPropertyBase(
+				  UnderlyingProp->IsA<UInt8Property>()   ? CPT_Int8
+				: UnderlyingProp->IsA<UInt16Property>()  ? CPT_Int16
+				: UnderlyingProp->IsA<UIntProperty>()    ? CPT_Int
+				: UnderlyingProp->IsA<UInt64Property>()  ? CPT_Int64
+				: UnderlyingProp->IsA<UByteProperty>()   ? CPT_Byte
+				: UnderlyingProp->IsA<UUInt16Property>() ? CPT_UInt16
+				: UnderlyingProp->IsA<UUInt32Property>() ? CPT_UInt32
+				: UnderlyingProp->IsA<UUInt64Property>() ? CPT_UInt64
+				:                                          CPT_None
+			);
+			check(this->Type != CPT_None);
+			Enum = EnumProp->Enum;
 			IntType = EIntType::Sized;
 		}
 		else if( ClassOfProperty==UInt8Property::StaticClass() )
@@ -706,6 +744,7 @@ public:
 	{
 		// TOKEN_Const values.
 		uint8 Byte;								// If CPT_Byte.
+		int64 Int64;							// If CPT_Int64.
 		int32 Int;								// If CPT_Int.
 		bool NativeBool;						// if CPT_Bool
 		float Float;							// If CPT_Float.
@@ -722,7 +761,7 @@ public:
 	 */
 	void Clone( const FToken& Other );
 
-	FString GetConstantValue()
+	FString GetConstantValue() const
 	{
 		if (TokenType == TOKEN_Const)
 		{
@@ -730,6 +769,8 @@ public:
 			{
 				case CPT_Byte:
 					return FString::Printf(TEXT("%u"), Byte);
+				case CPT_Int64:
+					return FString::Printf(TEXT("%ld"), Int64);
 				case CPT_Int:
 					return FString::Printf(TEXT("%i"), Int);
 				case CPT_Bool:
@@ -749,7 +790,6 @@ public:
 				case CPT_Rotation:
 				case CPT_Int8:
 				case CPT_Int16:
-				case CPT_Int64:
 				case CPT_UInt16:
 				case CPT_UInt32:
 				case CPT_UInt64:
@@ -832,6 +872,12 @@ public:
 
 	// Setters.
 	
+	void SetConstInt64( int64 InInt64 )
+	{
+		(FPropertyBase&)*this = FPropertyBase(CPT_Int64);
+		Int64			= InInt64;
+		TokenType		= TOKEN_Const;
+	}
 	void SetConstInt( int32 InInt )
 	{
 		(FPropertyBase&)*this = FPropertyBase(CPT_Int);
@@ -885,7 +931,42 @@ public:
 	// Getters.
 	bool GetConstInt( int32& I ) const
 	{
-		if( TokenType==TOKEN_Const && Type==CPT_Int )
+		if( TokenType==TOKEN_Const && Type==CPT_Int64 )
+		{
+			I = Int64;
+			return 1;
+		}
+		else if( TokenType==TOKEN_Const && Type==CPT_Int )
+		{
+			I = Int;
+			return 1;
+		}
+		else if( TokenType==TOKEN_Const && Type==CPT_Byte )
+		{
+			I = Byte;
+			return 1;
+		}
+		else if( TokenType==TOKEN_Const && Type==CPT_Float && Float==FMath::TruncToInt(Float))
+		{
+			I = (int32) Float;
+			return 1;
+		}
+		else if (TokenType == TOKEN_Const && Type == CPT_Double && Float == FMath::TruncToInt(Double))
+		{
+			I = (int32) Double;
+			return 1;
+		}
+		else return 0;
+	}
+
+	bool GetConstInt64( int64& I ) const
+	{
+		if( TokenType==TOKEN_Const && Type==CPT_Int64 )
+		{
+			I = Int64;
+			return 1;
+		}
+		else if( TokenType==TOKEN_Const && Type==CPT_Int )
 		{
 			I = Int;
 			return 1;
@@ -1687,7 +1768,7 @@ public:
  * The type of data tracked by this class is data that would otherwise only be accessible by adding a 
  * member property to UFunction/UProperty.  
  */
-class FCompilerMetadataManager : protected TMap<UStruct*, TScopedPointer<FClassMetaData> >
+class FCompilerMetadataManager : protected TMap<UStruct*, TUniquePtr<FClassMetaData> >
 {
 public:
 	/**
@@ -1708,12 +1789,12 @@ public:
 	 */
 	FClassMetaData* FindClassData(UStruct* Struct)
 	{
-		FClassMetaData* Result = NULL;
+		FClassMetaData* Result = nullptr;
 
-		TScopedPointer<FClassMetaData>* pClassData = Find(Struct);
+		TUniquePtr<FClassMetaData>* pClassData = Find(Struct);
 		if (pClassData)
 		{
-			Result = pClassData->GetOwnedPointer();
+			Result = pClassData->Get();
 		}
 
 		return Result;
@@ -1724,10 +1805,10 @@ public:
 	 */
 	void Shrink()
 	{
-		TMap<UStruct*, TScopedPointer<FClassMetaData> >::Shrink();
-		for (TMap<UStruct*, TScopedPointer<FClassMetaData> >::TIterator It(*this); It; ++It)
+		TMap<UStruct*, TUniquePtr<FClassMetaData> >::Shrink();
+		for (TMap<UStruct*, TUniquePtr<FClassMetaData> >::TIterator It(*this); It; ++It)
 		{
-			FClassMetaData* MetaData = It.Value();
+			FClassMetaData* MetaData = It->Value.Get();
 			MetaData->Shrink();
 		}
 	}

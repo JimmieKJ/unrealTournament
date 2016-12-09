@@ -4,8 +4,8 @@
 	RawIndexBuffer.cpp: Raw index buffer implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "RawIndexBuffer.h"
+#include "Modules/ModuleManager.h"
 
 #if WITH_EDITOR
 #include "MeshUtilities.h"

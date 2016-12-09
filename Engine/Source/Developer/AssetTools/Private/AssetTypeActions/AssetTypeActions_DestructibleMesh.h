@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
+#include "AssetTypeActions/AssetTypeActions_SkeletalMesh.h"
+
 class FAssetTypeActions_DestructibleMesh : public FAssetTypeActions_SkeletalMesh
 {
 public:

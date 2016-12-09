@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "BehaviorTree/BTDecorator.h"
-#include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTreeGraphNode_CompositeDecorator.h"
+#include "BehaviorTree/BTNode.h"
+#include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTree/BTCompositeNode.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "BehaviorTreeDecoratorGraph.h"
+#include "BehaviorTreeDecoratorGraphNode_Decorator.h"
+#include "EdGraphSchema_BehaviorTreeDecorator.h"
+#include "BehaviorTree/BehaviorTree.h"
 
 #define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
 

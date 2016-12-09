@@ -2,6 +2,9 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Containers/CircularQueue.h"
 #include "UnrealAudioTypes.h"
 #include "UnrealAudioEntityManager.h"
 

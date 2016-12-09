@@ -49,6 +49,7 @@ groupshared uint SortedTileReflectionCaptureIndices[MAX_CAPTURES];
 
 #if USE_LIGHT_GRID_REFLECTION_CAPTURE_CULLING
 	#define CompositeTileReflectionCaptureIndices CulledLightDataGrid
+	#define InstancedCompositeTileReflectionCaptureIndices InstancedCulledLightDataGrid
 #else
 	#if SORT_CAPTURES
 		#define CompositeTileReflectionCaptureIndices SortedTileReflectionCaptureIndices

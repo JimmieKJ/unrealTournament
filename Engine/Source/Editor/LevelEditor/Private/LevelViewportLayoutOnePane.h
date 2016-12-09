@@ -6,7 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
 #include "LevelViewportLayout.h"
+#include "LevelViewportActions.h"
+
+class SHorizontalBox;
 
 class FLevelViewportLayoutOnePane : public FLevelViewportLayout
 {

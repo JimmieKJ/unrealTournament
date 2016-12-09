@@ -5,7 +5,30 @@
 =============================================================================*/
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "ProfilingDebugging/ResourceSize.h"
+#include "PackedNormal.h"
+#include "RenderingThread.h"
+#include "SkeletalMeshTypes.h"
+#include "Engine/SkeletalMesh.h"
+#include "Components/SkinnedMeshComponent.h"
+
+class FPrimitiveDrawInterface;
+class FVertexFactory;
+class UMorphTarget;
+
 //#include "../Private/SkeletalRenderCPUSkin.h"
+
+/** data for a single skinned skeletal mesh vertex */
+struct FFinalSkinVertex
+{
+	FVector			Position;
+	FPackedNormal	TangentX;
+	FPackedNormal	TangentZ;
+	float			U;
+	float			V;
+};
 
 /**
 * Interface for mesh rendering data
@@ -46,7 +69,7 @@ public:
 	* @param	MaterialIndex : Material Index for the update
 	* @param	bRecomputeTangent : the new flag
 	*/
-	virtual void UpdateRecomputeTangent(int32 MaterialIndex, bool bRecomputeTangent) = 0;
+	virtual void UpdateRecomputeTangent(int32 MaterialIndex, int32 LODIndex, bool bRecomputeTangent) = 0;
 
 	/**
 	 * Called by FSkeletalMeshObject prior to GDME. This allows the GPU skin version to update bones etc now that we know we are going to render
@@ -94,10 +117,12 @@ public:
 	/** 
 	 * Enable blend weight rendering in the editor
 	 * @param bEnabled - turn on or off the rendering mode
-	 * @param BonesOfInterest - array of bone indices to capture weights for
+	 * optional parameters will decide which one to draw
+	 * @param (optional) BonesOfInterest - array of bone indices to capture weights for
+	 * @param (optional) MorphTargetsOfInterest - array of morphtargets to render for
 	 */
-	virtual void EnableBlendWeightRendering(bool bEnabled, const TArray<int32>& InBonesOfInterest) {}
-	
+	virtual void EnableOverlayRendering(bool bEnabled, const TArray<int32>* InBonesOfInterest, const TArray<UMorphTarget*>* MorphTargetOfInterest) {}
+
 	/** 
 	* Draw Normals/Tangents based on skinned vertex data 
 	* @param PDI			- Draw Interface
@@ -143,7 +168,20 @@ public:
 	/**
 	* Returns the size of memory allocated by render data
 	*/
-	virtual SIZE_T GetResourceSize() = 0;
+	DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
+	SIZE_T GetResourceSize()
+	{
+		return GetResourceSizeBytes();
+	}
+
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) = 0;
+
+	SIZE_T GetResourceSizeBytes()
+	{
+		FResourceSizeEx ResSize;
+		GetResourceSizeEx(ResSize);
+		return ResSize.GetTotalMemoryBytes();
+	}
 
 	/**
 	 * List of sections to be rendered based on instance weight usage. Full swap of weights will render with its own sections.

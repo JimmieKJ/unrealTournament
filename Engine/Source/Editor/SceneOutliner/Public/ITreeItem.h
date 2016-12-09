@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "SceneOutlinerFwd.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
 #include "SceneOutlinerVisitorTypes.h"
+
+class FMenuBuilder;
 
 namespace SceneOutliner
 {

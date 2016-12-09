@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "AssetData.h"
+#include "ITreeMap.h"
+#include "STreeMap.h"
+
+class FAssetThumbnailPool;
+
 /**
  * Tree map for displaying the size of assets
  */

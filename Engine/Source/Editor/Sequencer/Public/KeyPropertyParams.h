@@ -2,19 +2,17 @@
 
 #pragma once
 
-#include "KeyParams.h"
+#include "CoreMinimal.h"
+#include "UObject/UnrealType.h"
 
 class IPropertyHandle;
-class UClass;
-class UProperty;
+enum class ESequencerKeyMode;
 
 /**
  * Parameters for determining if a property can be keyed.
  */
 struct SEQUENCER_API FCanKeyPropertyParams
 {
-	FCanKeyPropertyParams();
-
 	/**
 	 * Creates new can key property parameters.
 	 * @param InObjectClass the class of the object which has the property to be keyed.
@@ -32,9 +30,10 @@ struct SEQUENCER_API FCanKeyPropertyParams
 
 	/** The class of the object which has the property to be keyed. */
 	const UClass* ObjectClass;
+
 	/** An array of UProperty objects which represents a path of properties to get from the root object to the
 	property to be keyed. */
-	TArray<UProperty*> PropertyPath;
+	const TArray<UProperty*> PropertyPath;
 };
 
 /**
@@ -42,30 +41,30 @@ struct SEQUENCER_API FCanKeyPropertyParams
  */
 struct SEQUENCER_API FKeyPropertyParams
 {
-	FKeyPropertyParams();
-
 	/**
 	* Creates new key property parameters for a manually triggered property change.
 	* @param InObjectsToKey an array of the objects who's property will be keyed.
 	* @param InPropertyPath an array of UProperty objects which represents a path of properties to get from
 	*        the root object to the property to be keyed.
 	*/
-	FKeyPropertyParams(TArray<UObject*> InObjectsToKey, TArray<UProperty*> InPropertyPath);
+	FKeyPropertyParams(TArray<UObject*> InObjectsToKey, TArray<UProperty*> InPropertyPath, ESequencerKeyMode InKeyMode);
 
 	/**
 	* Creates new key property parameters from an actual property change notification with a property handle.
 	* @param InObjectsToKey an array of the objects who's property will be keyed.
 	* @param InPropertyHandle a handle to the property to be keyed.
 	*/
-	FKeyPropertyParams(TArray<UObject*> InObjectsToKey, const IPropertyHandle& InPropertyHandle);
+	FKeyPropertyParams(TArray<UObject*> InObjectsToKey, const IPropertyHandle& InPropertyHandle, ESequencerKeyMode InKeyMode);
 
 	/** An array of the objects who's property will be keyed. */
-	TArray<UObject*> ObjectsToKey;
+	const TArray<UObject*> ObjectsToKey;
+
 	/** An array of UProperty objects which represents a path of properties to get from the root object to the
 	property to be keyed. */
-	TArray<UProperty*> PropertyPath;
+	const TArray<UProperty*> PropertyPath;
+
 	/** Keyframing params */
-	FKeyParams KeyParams;
+	const ESequencerKeyMode KeyMode;
 };
 
 /**
@@ -74,6 +73,8 @@ struct SEQUENCER_API FKeyPropertyParams
 class SEQUENCER_API FPropertyChangedParams
 {
 public:
+	FPropertyChangedParams(TArray<UObject*> InObjectsThatChanged, TArray<UProperty*> InPropertyPath, FName InStructPropertyNameToKey, ESequencerKeyMode InKeyMode);
+
 	/**
 	 * Gets the value of the property that changed.
 	 */
@@ -108,13 +109,16 @@ public:
 	FString GetPropertyPathString() const;
 
 	/** An array of the objects that changed. */
-	TArray<UObject*> ObjectsThatChanged;
+	const TArray<UObject*> ObjectsThatChanged;
+
 	/** An array of UProperty objects which represents a path of properties to get from the root object to the 
 	property that changed. */
-	TArray<UProperty*> PropertyPath;
+	const TArray<UProperty*> PropertyPath;
+
 	/** Represents the FName of an inner property which should be keyed for a struct property.  If all inner 
 	properties should be keyed, this will be FName::None. */
-	FName StructPropertyNameToKey;
+	const FName StructPropertyNameToKey;
+
 	/** Keyframing params */
-	FKeyParams KeyParams;
+	const ESequencerKeyMode KeyMode;
 };

@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -44,6 +44,8 @@ CEF_EXPORT cef_urlrequest_t* cef_urlrequest_create(cef_request_t* request,
   return CefURLRequestCppToC::Wrap(_retval);
 }
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -136,17 +138,25 @@ void CEF_CALLBACK urlrequest_cancel(struct _cef_urlrequest_t* self) {
   CefURLRequestCppToC::Get(self)->Cancel();
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefURLRequestCppToC::CefURLRequestCppToC(CefURLRequest* cls)
-    : CefCppToC<CefURLRequestCppToC, CefURLRequest, cef_urlrequest_t>(cls) {
-  struct_.struct_.get_request = urlrequest_get_request;
-  struct_.struct_.get_client = urlrequest_get_client;
-  struct_.struct_.get_request_status = urlrequest_get_request_status;
-  struct_.struct_.get_request_error = urlrequest_get_request_error;
-  struct_.struct_.get_response = urlrequest_get_response;
-  struct_.struct_.cancel = urlrequest_cancel;
+CefURLRequestCppToC::CefURLRequestCppToC() {
+  GetStruct()->get_request = urlrequest_get_request;
+  GetStruct()->get_client = urlrequest_get_client;
+  GetStruct()->get_request_status = urlrequest_get_request_status;
+  GetStruct()->get_request_error = urlrequest_get_request_error;
+  GetStruct()->get_response = urlrequest_get_response;
+  GetStruct()->cancel = urlrequest_cancel;
+}
+
+template<> CefRefPtr<CefURLRequest> CefCppToC<CefURLRequestCppToC,
+    CefURLRequest, cef_urlrequest_t>::UnwrapDerived(CefWrapperType type,
+    cef_urlrequest_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -154,3 +164,5 @@ template<> base::AtomicRefCount CefCppToC<CefURLRequestCppToC, CefURLRequest,
     cef_urlrequest_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefURLRequestCppToC, CefURLRequest,
+    cef_urlrequest_t>::kWrapperType = WT_URLREQUEST;

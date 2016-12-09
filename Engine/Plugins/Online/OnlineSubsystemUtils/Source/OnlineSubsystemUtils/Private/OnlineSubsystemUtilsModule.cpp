@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "OnlineSubsystemUtilsModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "OnlineSubsystem.h"
+#include "OnlineSubsystemUtils.h"
 #include "OnlinePIESettings.h"
 
 IMPLEMENT_MODULE(FOnlineSubsystemUtilsModule, OnlineSubsystemUtils);
@@ -14,7 +16,10 @@ class FOnlineSubsystemUtils : public IOnlineSubsystemUtils
 {
 public:
 
-	FOnlineSubsystemUtils() {}
+	FOnlineSubsystemUtils() 
+		: bShouldTryOnlinePIE(true)
+	{}
+
 	virtual ~FOnlineSubsystemUtils() {}
 
 	FName GetOnlineIdentifier(const FWorldContext& WorldContext) override
@@ -55,10 +60,21 @@ public:
 		return false;
 	}
 
+	virtual void SetShouldTryOnlinePIE(bool bShouldTry) override
+	{
+		if (bShouldTryOnlinePIE != bShouldTry)
+		{
+			bShouldTryOnlinePIE = bShouldTry;
+
+			// This will swap it back to the null subsystem if needed
+			IOnlineSubsystem::ReloadDefaultSubsystem();
+		}
+	}
+
 	virtual bool IsOnlinePIEEnabled() const override
 	{
 		const UOnlinePIESettings* OnlinePIESettings = GetDefault<UOnlinePIESettings>();
-		return OnlinePIESettings->bOnlinePIEEnabled;
+		return bShouldTryOnlinePIE && OnlinePIESettings->bOnlinePIEEnabled;
 	}
 
 	virtual int32 GetNumPIELogins() const override
@@ -93,7 +109,13 @@ public:
 			}
 		}
 	}
+
 #endif // WITH_EDITOR
+
+private:
+
+	// If false it will not try to do online PIE at all
+	bool bShouldTryOnlinePIE;
 };
 
 void FOnlineSubsystemUtilsModule::StartupModule()

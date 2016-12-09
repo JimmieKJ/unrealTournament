@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
+#include "BehaviorTree/BehaviorTreeTypes.h"
 #include "BehaviorTree/BTDecorator.h"
 #include "BTDecorator_ConeCheck.generated.h"
 
+class UBehaviorTree;
 class UBlackboardComponent;
-struct FBlackboardKeySelector;
 
 struct FBTConeCheckDecoratorMemory
 {

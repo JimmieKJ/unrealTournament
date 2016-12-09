@@ -4,14 +4,25 @@
 	AtmosphereRendering.cpp: Fog rendering implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
 #include "AtmosphereRendering.h"
-#include "../../Engine/Private/Atmosphere/Atmosphere.h"
-#include "AtmosphereTextures.h"
 #include "ShowFlags.h"
+#include "RenderingThread.h"
+#include "ShaderParameters.h"
+#include "RHIStaticStates.h"
+#include "Shader.h"
+#include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
+#include "Atmosphere/AtmosphericFogComponent.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "GlobalShader.h"
+#include "AtmosphereTextureParameters.h"
+#include "SceneRenderTargetParameters.h"
+#include "DeferredShadingRenderer.h"
+#include "ScenePrivate.h"
+#include "Private/Atmosphere/Atmosphere.h"
+#include "AtmosphereTextures.h"
+#include "PostProcess/SceneFilterRendering.h"
+
 
 DECLARE_FLOAT_COUNTER_STAT(TEXT("Atmosphere"), Stat_GPU_Atmosphere, STATGROUP_GPU);
 

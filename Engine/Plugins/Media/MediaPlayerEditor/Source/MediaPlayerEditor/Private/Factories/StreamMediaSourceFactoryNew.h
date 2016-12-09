@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Factories/Factory.h"
 #include "StreamMediaSourceFactoryNew.generated.h"
-
 
 /**
  * Implements a factory for UStreamMediaSource objects.

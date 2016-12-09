@@ -6,8 +6,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Shader.h"
 #include "MaterialShaderType.h"
+
+class FMaterial;
+class FShaderCommonCompileJob;
+class FShaderCompileJob;
+class FUniformExpressionSet;
+class FVertexFactoryType;
 
 /**
  * A shader meta type for material-linked shaders which use a vertex factory.

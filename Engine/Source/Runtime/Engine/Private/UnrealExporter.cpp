@@ -5,9 +5,24 @@
 =============================================================================*/
 
 // Engine includes.
-#include "EnginePrivate.h"
-#include "Model.h"
 #include "UnrealExporter.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/UnrealType.h"
+#include "Components/ActorComponent.h"
+#include "Exporters/Exporter.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/OutputDeviceFile.h"
+#include "Serialization/BufferArchive.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "UObject/PropertyPortFlags.h"
+#include "GameFramework/Actor.h"
+#include "Model.h"
+#include "Misc/FeedbackContext.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogExporter, Log, All);
 

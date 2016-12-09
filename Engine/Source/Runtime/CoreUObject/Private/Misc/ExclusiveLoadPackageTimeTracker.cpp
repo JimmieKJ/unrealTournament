@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "ExclusiveLoadPackageTimeTracker.h"
+#include "Misc/ExclusiveLoadPackageTimeTracker.h"
+#include "Misc/ScopeLock.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/Class.h"
 
 #if WITH_LOADPACKAGE_TIME_TRACKER
 

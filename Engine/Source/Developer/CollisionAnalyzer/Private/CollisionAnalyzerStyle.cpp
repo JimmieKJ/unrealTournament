@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CollisionAnalyzerPCH.h"
-#include "SlateBasics.h"
 #include "CollisionAnalyzerStyle.h"
+#include "Styling/SlateTypes.h"
+#include "Engine/GameEngine.h"
+#include "Styling/SlateStyleRegistry.h"
 
 #define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush( RootToContentDir( RelativePath, TEXT(".png") ), __VA_ARGS__ )
 #define BOX_BRUSH( RelativePath, ... ) FSlateBoxBrush( RootToContentDir( RelativePath, TEXT(".png") ), __VA_ARGS__ )

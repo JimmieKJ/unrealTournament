@@ -2,7 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+
 class IMergeActorsTool;
+class SBorder;
+class SBox;
+enum class ECheckBoxState : uint8;
 
 //////////////////////////////////////////////////////////////////////////
 // SMergeActorsToolbar

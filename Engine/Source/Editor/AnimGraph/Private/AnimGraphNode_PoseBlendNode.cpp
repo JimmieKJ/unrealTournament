@@ -1,15 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
-
-#include "CompilerResultsLog.h"
-#include "GraphEditorActions.h"
-#include "EditorCategoryUtils.h"
-#include "AssetRegistryModule.h"
-#include "BlueprintActionDatabaseRegistrar.h"
-#include "BlueprintActionFilter.h"
-#include "BlueprintNodeSpawner.h"
 #include "AnimGraphNode_PoseBlendNode.h"
+#include "EdGraphSchema_K2_Actions.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+
+#include "GraphEditorActions.h"
+#include "ARFilter.h"
+#include "AssetRegistryModule.h"
+#include "BlueprintActionFilter.h"
+#include "BlueprintActionDatabaseRegistrar.h"
+#include "BlueprintNodeSpawner.h"
 
 #define LOCTEXT_NAMESPACE "PoseBlendNode"
 
@@ -44,14 +45,6 @@ UAnimGraphNode_PoseBlendNode::UAnimGraphNode_PoseBlendNode(const FObjectInitiali
 {
 }
 
-void UAnimGraphNode_PoseBlendNode::PreloadRequiredAssets()
-{
-	PreloadObject(Node.PoseAsset);
-
-	Super::PreloadRequiredAssets();
-}
-
-
 void UAnimGraphNode_PoseBlendNode::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) const
 {
 	if(Node.PoseAsset)
@@ -76,10 +69,7 @@ FText UAnimGraphNode_PoseBlendNode::GetNodeTitleForPoseAsset(ENodeTitleType::Typ
 	FFormatNamedArguments Args;
 	Args.Add(TEXT("PoseAssetName"), FText::FromString(InPoseAsset->GetName()));
 
-	// FText::Format() is slow, so we cache this to save on performance
-	CachedNodeTitle.SetCachedText(FText::Format(LOCTEXT("PoseByName_Title", "{PoseAssetName}"), Args), this);
-
-	return CachedNodeTitle;
+	return FText::Format(LOCTEXT("PoseByName_Title", "{PoseAssetName}"), Args);
 }
 
 FText UAnimGraphNode_PoseBlendNode::GetNodeTitle(ENodeTitleType::Type TitleType) const
@@ -101,15 +91,10 @@ FText UAnimGraphNode_PoseBlendNode::GetNodeTitle(ENodeTitleType::Type TitleType)
 			return LOCTEXT("PoseByName_TitleNONE", "Pose (None)");
 		}
 	}
-	// @TODO: don't know enough about this node type to comfortably assert that
-	//        the CacheName won't change after the node has spawned... until
-	//        then, we'll leave this optimization off
-	else //if (CachedNodeTitle.IsOutOfDate(this))
+	else
 	{
-		GetNodeTitleForPoseAsset(TitleType, Node.PoseAsset);
+		return GetNodeTitleForPoseAsset(TitleType, Node.PoseAsset);
 	}
-
-	return CachedNodeTitle;
 }
 
 void UAnimGraphNode_PoseBlendNode::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
@@ -254,56 +239,9 @@ FText UAnimGraphNode_PoseBlendNode::GetMenuCategory() const
 	return LOCTEXT("PoseAssetCategory_Label", "Poses");
 }
 
-void UAnimGraphNode_PoseBlendNode::SetAnimationAsset(UAnimationAsset* Asset)
-{
-	if (UPoseAsset* PoseAsset =  Cast<UPoseAsset>(Asset))
-	{
-		Node.PoseAsset = PoseAsset;
-	}
-}
-
-void UAnimGraphNode_PoseBlendNode::ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog)
-{
-	UPoseAsset* PoseAssetToCheck = Node.PoseAsset;
-	UEdGraphPin* PoseAssetPin = FindPin(GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_PoseBlendNode, PoseAsset));
-	if (PoseAssetPin != nullptr && PoseAssetToCheck == nullptr)
-	{
-		PoseAssetToCheck = Cast<UPoseAsset>(PoseAssetPin->DefaultObject);
-	}
-
-	if (PoseAssetToCheck == nullptr)
-	{
-		if (PoseAssetPin == nullptr || PoseAssetPin->LinkedTo.Num() == 0)
-		{
-			MessageLog.Error(TEXT("@@ references an unknown poseasset"), this);
-		}
-	}
-	else
-	{
-		USkeleton* SeqSkeleton = PoseAssetToCheck->GetSkeleton();
-		if (SeqSkeleton&& // if PoseAsset doesn't have skeleton, it might be due to PoseAsset not loaded yet, @todo: wait with anim blueprint compilation until all assets are loaded?
-			!SeqSkeleton->IsCompatible(ForSkeleton))
-		{
-			MessageLog.Error(TEXT("@@ references poseasset that uses different skeleton @@"), this, SeqSkeleton);
-		}
-	}
-}
-
 bool UAnimGraphNode_PoseBlendNode::DoesSupportTimeForTransitionGetter() const
 {
 	return false;
-}
-
-UAnimationAsset* UAnimGraphNode_PoseBlendNode::GetAnimationAsset() const 
-{
-	UPoseAsset* PoseAsset = Node.PoseAsset;
-	UEdGraphPin* PoseAssetPin = FindPin(GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_PoseBlendNode, PoseAsset));
-	if (PoseAssetPin != nullptr && PoseAsset == nullptr)
-	{
-		PoseAsset = Cast<UPoseAsset>(PoseAssetPin->DefaultObject);
-	}
-
-	return PoseAsset;
 }
 
 void UAnimGraphNode_PoseBlendNode::GetContextMenuActions(const FGraphNodeContextMenuBuilder& Context) const

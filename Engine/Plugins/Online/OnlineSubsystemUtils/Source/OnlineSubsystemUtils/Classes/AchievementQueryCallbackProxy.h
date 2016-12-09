@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "OnlineBlueprintCallProxyBase.h"
-#include "Interfaces/OnlineAchievementsInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Net/OnlineBlueprintCallProxyBase.h"
 #include "AchievementQueryCallbackProxy.generated.h"
+
+class APlayerController;
+class FUniqueNetId;
 
 UCLASS(MinimalAPI)
 class UAchievementQueryCallbackProxy : public UOnlineBlueprintCallProxyBase

@@ -2,14 +2,21 @@
 
 #pragma once
 
-#include "Editor/SequencerWidgets/Public/ITimeSlider.h"
+#include "CoreMinimal.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "ITimeSlider.h"
 
+class FSlateWindowElementList;
 struct FContextMenuSuppressor;
+struct FScrubRangeToScreen;
+struct FSlateBrush;
 
 struct FPaintPlaybackRangeArgs
 {
 	FPaintPlaybackRangeArgs()
-		: StartBrush(nullptr), EndBrush(nullptr), BrushWidth(0.f)
+		: StartBrush(nullptr), EndBrush(nullptr), BrushWidth(0.f), SolidFillOpacity(0.f)
 	{}
 
 	FPaintPlaybackRangeArgs(const FSlateBrush* InStartBrush, const FSlateBrush* InEndBrush, float InBrushWidth)
@@ -21,6 +28,8 @@ struct FPaintPlaybackRangeArgs
 	const FSlateBrush* EndBrush;
 	/** The width of the above brushes, in slate units */
 	float BrushWidth;
+	/** level of opacity for the fill color between the range markers */
+	float SolidFillOpacity;
 };
 
 struct FPaintSectionAreaViewArgs
@@ -45,6 +54,17 @@ class FSequencerTimeSliderController : public ITimeSliderController
 {
 public:
 	FSequencerTimeSliderController( const FTimeSliderArgs& InArgs );
+
+	/**
+	* Determines the optimal spacing between tick marks in the slider for a given pixel density
+	* Increments until a minimum amount of slate units specified by MinTick is reached
+	*
+	* @param InPixelsPerInput	The density of pixels between each input
+	* @param MinTick			The minimum slate units per tick allowed
+	* @param MinTickSpacing	The minimum tick spacing in time units allowed
+	* @return the optimal spacing in time units
+	*/
+	float DetermineOptimalSpacing(float InPixelsPerInput, uint32 MinTick, float MinTickSpacing) const;
 
 	/** ITimeSliderController Interface */
 	virtual int32 OnPaintTimeSlider( bool bMirrorLabels, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
@@ -155,6 +175,13 @@ private:
 	 */
 	int32 DrawPlaybackRange(const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FScrubRangeToScreen& RangeToScreen, const FPaintPlaybackRangeArgs& Args) const;
 
+	/**
+	 * Draw the playback range.
+	 *
+	 * @return the new layer ID
+	 */
+	int32 DrawSubSequenceRange(const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FScrubRangeToScreen& RangeToScreen, const FPaintPlaybackRangeArgs& Args) const;
+	
 private:
 
 	/**
@@ -169,6 +196,9 @@ private:
 
 	void SetPlaybackRangeStart(float NewStart);
 	void SetPlaybackRangeEnd(float NewEnd);
+
+	void SetSelectionRangeStart(float NewStart);
+	void SetSelectionRangeEnd(float NewEnd);
 
 	TSharedRef<SWidget> OpenSetPlaybackRangeMenu(float MouseTime);
 
@@ -209,7 +239,7 @@ private:
 	
 	/** Range stack */
 	TArray<FVector2D> RangeStack;
-	
+
 	/** When > 0, we should not show context menus */
 	int32 ContextMenuSuppression;
 	

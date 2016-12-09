@@ -1,14 +1,20 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "HotfixPrivatePCH.h"
-
 #include "UpdateManager.h"
+#include "Misc/CommandLine.h"
+#include "Containers/Ticker.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/Package.h"
+#include "Engine/GameInstance.h"
+#include "TimerManager.h"
+#include "Engine/LocalPlayer.h"
+#include "OnlineSubsystem.h"
+
 #include "OnlineHotfixManager.h"
 
-#include "Online.h"
 #include "OnlineSubsystemUtils.h"
 
-#include "LoadTimeTracker.h"
+#include "ProfilingDebugging/LoadTimeTracker.h"
 
 #define UPDATE_CHECK_SECONDS 30.0
 
@@ -200,6 +206,8 @@ void UUpdateManager::StartPatchCheck()
 {
 	ensure(ChecksEnabled());
 
+	UGameInstance* GameInstance = GetGameInstance();
+	check(GameInstance);
 	bool bStarted = false;
 
 	SetUpdateState(EUpdateState::CheckingForPatch);
@@ -210,16 +218,30 @@ void UUpdateManager::StartPatchCheck()
 		IOnlineIdentityPtr OnlineIdentityConsole = OnlineSubConsole->GetIdentityInterface();
 		if (OnlineIdentityConsole.IsValid())
 		{
-			bStarted = true;
-
-			TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityConsole->GetUniquePlayerId(0);
-			OnlineIdentityConsole->GetUserPrivilege(*UserId,
-				EUserPrivileges::CanPlayOnline, IOnlineIdentity::FOnGetUserPrivilegeCompleteDelegate::CreateUObject(this, &ThisClass::OnCheckForPatchComplete, true));
+			ULocalPlayer* LP = GameInstance->GetFirstGamePlayer();
+			if (LP != nullptr)
+			{
+				const int32 ControllerId = LP->GetControllerId();
+				TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityConsole->GetUniquePlayerId(ControllerId);
+				if (UserId.IsValid())
+				{
+					bStarted = true;
+					OnlineIdentityConsole->GetUserPrivilege(*UserId,
+						EUserPrivileges::CanPlayOnline, IOnlineIdentity::FOnGetUserPrivilegeCompleteDelegate::CreateUObject(this, &ThisClass::OnCheckForPatchComplete, true));
+				}
+				else
+				{
+					UE_LOG(LogHotfixManager, Warning, TEXT("No valid platform user id when starting patch check!"));
+				}
+			}
+			else
+			{
+				UE_LOG(LogHotfixManager, Warning, TEXT("No local player to perform check!"));
+			}
 		}
 	}
 	else
 	{
-		UGameInstance* GameInstance = GetGameInstance();
 		if (GameInstance->IsDedicatedServerInstance())
 		{
 			bStarted = true;
@@ -231,22 +253,39 @@ void UUpdateManager::StartPatchCheck()
 			IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(World);
 			if (IdentityInt.IsValid())
 			{
-				bStarted = true;
-				TSharedPtr<const FUniqueNetId> UserId = GameInstance->GetPrimaryPlayerUniqueId();
-				if (!bInitialUpdateFinished && !UserId.IsValid())
+				ULocalPlayer* LP = GameInstance->GetFirstGamePlayer();
+				if (LP != nullptr)
 				{
-					// Invalid user for "before title/login" check, underlying code doesn't need a valid user currently
-					UserId = IdentityInt->CreateUniquePlayerId(TEXT("InvalidUser"));
-				}
+					const int32 ControllerId = LP->GetControllerId();
+					TSharedPtr<const FUniqueNetId> UserId = IdentityInt->GetUniquePlayerId(ControllerId);
+					if (!bInitialUpdateFinished && !UserId.IsValid())
+					{
+						// Invalid user for "before title/login" check, underlying code doesn't need a valid user currently
+						UserId = IdentityInt->CreateUniquePlayerId(TEXT("InvalidUser"));
+					}
 
-				IdentityInt->GetUserPrivilege(*UserId,
-					EUserPrivileges::CanPlayOnline, IOnlineIdentity::FOnGetUserPrivilegeCompleteDelegate::CreateUObject(this, &ThisClass::OnCheckForPatchComplete, false));
+					if (UserId.IsValid())
+					{
+						bStarted = true;
+						IdentityInt->GetUserPrivilege(*UserId,
+							EUserPrivileges::CanPlayOnline, IOnlineIdentity::FOnGetUserPrivilegeCompleteDelegate::CreateUObject(this, &ThisClass::OnCheckForPatchComplete, false));
+					}
+					else
+					{
+						UE_LOG(LogHotfixManager, Warning, TEXT("No valid user id when starting patch check!"));
+					}
+				}
+				else
+				{
+					UE_LOG(LogHotfixManager, Warning, TEXT("No local player to perform check!"));
+				}
 			}
 		}
 	}
 
 	if (!bStarted)
 	{
+		// Any failure to call GetUserPrivilege will result in completing the flow via this path
 		PatchCheckComplete(EPatchCheckResult::PatchCheckFailure);
 	}
 }
@@ -343,12 +382,13 @@ void UUpdateManager::StartPlatformEnvironmentCheck()
 		ULocalPlayer* LP = GetGameInstance()->GetFirstGamePlayer();
 		if (LP != nullptr)
 		{
+			const int32 ControllerId = LP->GetControllerId();
 			OnLoginConsoleCompleteHandle = OnlineSubConsole->GetIdentityInterface()->AddOnLoginCompleteDelegate_Handle(
-				LP->GetControllerId(),
+				ControllerId,
 				FOnLoginCompleteDelegate::CreateUObject(this, &ThisClass::PlatformEnvironmentCheck_OnLoginConsoleComplete)
 				);
 
-			OnlineSubConsole->GetIdentityInterface()->Login(LP->GetControllerId(), FOnlineAccountCredentials());
+			OnlineSubConsole->GetIdentityInterface()->Login(ControllerId, FOnlineAccountCredentials());
 		}
 	}
 	else

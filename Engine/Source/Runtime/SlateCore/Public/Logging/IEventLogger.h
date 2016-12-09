@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class SWidget;
 
 namespace EEventLog
 {

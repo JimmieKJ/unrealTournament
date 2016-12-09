@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FConnectionDrawingPolicy;
+class FSlateRect;
+class FSlateWindowElementList;
+class SGraphNode;
+class SGraphPin;
+class UEdGraph;
+class UEdGraphNode;
+class UEdGraphPin;
+class UEdGraphSchema;
+
 /** Class that decides which widget type to create for a given data object */
 class GRAPHEDITOR_API FNodeFactory
 {

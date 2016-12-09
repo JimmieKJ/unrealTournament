@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "WindowsHWrapper.h"
+
 // Assume D3DX is available
 #ifndef WITH_D3DX_LIBS
 #define WITH_D3DX_LIBS	1

@@ -1,22 +1,49 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
+#include "BehaviorTreeEditor.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Engine/Blueprint.h"
+#include "Widgets/Layout/SBorder.h"
+#include "UObject/Package.h"
+#include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTree/BTCompositeNode.h"
+#include "Modules/ModuleManager.h"
+#include "EditorStyleSet.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Factories/DataAssetFactory.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "UnrealEdGlobals.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "WorkflowOrientedApp/WorkflowTabFactory.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
+#include "WorkflowOrientedApp/WorkflowUObjectDocuments.h"
+#include "ClassViewerModule.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "BehaviorTreeEditorTypes.h"
+#include "BehaviorTreeDecoratorGraphNode_Logic.h"
+#include "BehaviorTreeGraph.h"
+#include "BehaviorTreeGraphNode_Decorator.h"
+#include "BehaviorTreeGraphNode_Root.h"
+#include "EdGraphSchema_BehaviorTree.h"
+#include "AssetToolsModule.h"
+#include "PropertyEditorModule.h"
+#include "BehaviorTreeEditorModule.h"
+#include "BehaviorTreeDebugger.h"
+#include "FindInBT.h"
+#include "IDetailsView.h"
 #include "GraphEditorActions.h"
 #include "ScopedTransaction.h"
 #include "BehaviorTreeColors.h"
-#include "EdGraphUtilities.h"
 
 #include "BehaviorTree/Composites/BTComposite_SimpleParallel.h"
+#include "BehaviorTree/BlackboardData.h"
+#include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
 #include "BehaviorTree/Tasks/BTTask_BlueprintBase.h"
 #include "BehaviorTree/Decorators/BTDecorator_BlueprintBase.h"
 #include "BehaviorTree/Services/BTService_BlueprintBase.h"
-#include "BehaviorTree/BTDecorator.h"
 
-#include "Toolkits/IToolkitHost.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
 
 #include "BehaviorTreeEditorModes.h"
 #include "BehaviorTreeEditorToolbar.h"
@@ -24,20 +51,15 @@
 #include "BehaviorTreeEditorCommands.h"
 #include "BehaviorTreeEditorTabs.h"
 #include "BehaviorTreeEditorUtils.h"
-#include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/BlackboardData.h"
 #include "BehaviorTreeGraphNode_SubtreeTask.h"
 #include "DetailCustomizations/BlackboardDataDetails.h"
 #include "SBehaviorTreeBlackboardView.h"
 #include "SBehaviorTreeBlackboardEditor.h"
 #include "ClassViewerFilter.h"
-#include "ClassViewerModule.h"
 #include "AssetRegistryModule.h"
-#include "AssetToolsModule.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
-#include "SDockTab.h"
-#include "GenericCommands.h"
-#include "Engine/BlueprintGeneratedClass.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
 
@@ -550,6 +572,7 @@ TSharedRef<SGraphEditor> FBehaviorTreeEditor::CreateGraphEditorWidget(UEdGraph* 
 	SGraphEditor::FGraphEditorEvents InEvents;
 	InEvents.OnSelectionChanged = SGraphEditor::FOnSelectionChanged::CreateSP(this, &FBehaviorTreeEditor::OnSelectedNodesChanged);
 	InEvents.OnNodeDoubleClicked = FSingleNodeEvent::CreateSP(this, &FBehaviorTreeEditor::OnNodeDoubleClicked);
+	InEvents.OnTextCommitted = FOnNodeTextCommitted::CreateSP(this, &FBehaviorTreeEditor::OnNodeTitleCommitted);
 
 	// Make title bar
 	TSharedRef<SWidget> TitleBarWidget = 
@@ -1560,6 +1583,23 @@ void FBehaviorTreeEditor::FocusWindow(UObject* ObjectToFocusOn)
 	}
 
 	FWorkflowCentricApplication::FocusWindow(ObjectToFocusOn);
+}
+
+void FBehaviorTreeEditor::OnNodeTitleCommitted(const FText& NewText, ETextCommit::Type CommitInfo, UEdGraphNode* NodeBeingChanged)
+{
+	if (NodeBeingChanged)
+	{
+		static const FText TranscationTitle = FText::FromString(FString(TEXT("Rename Node")));
+		const FScopedTransaction Transaction(TranscationTitle);
+		NodeBeingChanged->Modify();
+		NodeBeingChanged->OnRenameNode(NewText.ToString());
+	}
+}
+
+bool FBehaviorTreeEditor::GetBoundsForSelectedNodes(FSlateRect& Rect, float Padding) const
+{
+	TSharedPtr<SGraphEditor> FocusedGraphEd = UpdateGraphEdPtr.Pin();
+	return FocusedGraphEd.IsValid() && FocusedGraphEd->GetBoundsForSelectedNodes(Rect, Padding);
 }
 
 void FBehaviorTreeEditor::InitializeDebuggerState(class FBehaviorTreeDebugger* ParentDebugger) const

@@ -6,7 +6,12 @@
 
 #pragma once
 
-#include "RenderingCompositionGraph.h"
+#include "CoreMinimal.h"
+#include "Shader.h"
+#include "GlobalShader.h"
+#include "RendererInterface.h"
+#include "PostProcessParameters.h"
+#include "PostProcess/RenderingCompositionGraph.h"
 
 /** Encapsulates a simple copy pixel shader. */
 class FPostProcessPassThroughPS : public FGlobalShader

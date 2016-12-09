@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Tasks/BTTask_MakeNoise.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/Controller.h"
 
 UBTTask_MakeNoise::UBTTask_MakeNoise(const FObjectInitializer& ObjectInitializer) 
 	: Super(ObjectInitializer)

@@ -1,13 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
 #include "PaperSpriteSceneProxy.h"
-#include "PhysicsEngine/BodySetup2D.h"
+#include "Materials/Material.h"
 #include "SceneManagement.h"
+#include "PhysicsEngine/BodySetup2D.h"
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
 #include "PaperSpriteComponent.h"
-#include "SpriteDrawCall.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperSpriteSceneProxy

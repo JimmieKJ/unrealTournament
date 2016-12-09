@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Input/Reply.h"
+#include "IDetailCustomization.h"
+#include "PersonaDelegates.h"
+
+class IPropertyHandle;
+class USkeleton;
 
 /**
  * Customizes a DataTable asset to use a dropdown
@@ -9,19 +17,19 @@
 class FAnimGraphNodeSlotDetails : public IDetailCustomization
 {
 public:
-	FAnimGraphNodeSlotDetails(TWeakPtr<class FPersona> PersonalEditor);
+	FAnimGraphNodeSlotDetails(FOnInvokeTab InOnInvokeTab);
 
-	static TSharedRef<IDetailCustomization> MakeInstance(TWeakPtr<class FPersona> PersonalEditor) 
+	static TSharedRef<IDetailCustomization> MakeInstance(FOnInvokeTab InOnInvokeTab) 
 	{
-		return MakeShareable( new FAnimGraphNodeSlotDetails(PersonalEditor) );
+		return MakeShareable( new FAnimGraphNodeSlotDetails(InOnInvokeTab) );
 	}
 
 	// IDetailCustomization interface
 	virtual void CustomizeDetails(class IDetailLayoutBuilder& DetailBuilder) override;
 	
 private:
-	// persona editor 
-	TWeakPtr<class FPersona> PersonaEditor;
+	// delegate used to invoke a tab in the containing editor
+	FOnInvokeTab OnInvokeTab;
 
 	// property of the two 
 	TSharedPtr<IPropertyHandle> SlotNodeNamePropertyHandle;

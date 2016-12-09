@@ -1,11 +1,24 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "InputCoreTypes.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/WeakObjectPtr.h"
+#include "GameFramework/Actor.h"
+#include "EditorViewportClient.h"
 #include "ViewportWorldInteractionInterface.h"
+#include "Misc/App.h"
 #include "ViewportInteractionTypes.h"
-#include "ViewportInteractionInputProcessor.h"
+#include "VIBaseTransformGizmo.h"
+#include "LevelEditorViewport.h"
 #include "ViewportWorldInteraction.generated.h"
+
+class IViewportInteractableInterface;
+class UViewportInteractor;
 
 namespace ViewportWorldActionTypes
 {
@@ -69,22 +82,27 @@ class VIEWPORTINTERACTION_API UViewportWorldInteraction : public UObject, public
 	
 public:
 
-	~UViewportWorldInteraction();
+	virtual ~UViewportWorldInteraction();
 
 	// IViewportWorldInteraction overrides
-	virtual void Init( const TSharedPtr<class FEditorViewportClient>& InEditorViewportClient ) override;
+	virtual void Init( UWorld* InWorld ) override;
 	virtual void Shutdown() override;
-	virtual void Tick( class FEditorViewportClient* ViewportClient, const float DeltaTime ) override;
+	virtual void Tick( const float DeltaTime ) override;
 	virtual void AddInteractor( UViewportInteractor* Interactor ) override;
 	virtual void RemoveInteractor( UViewportInteractor* Interactor ) override;
-	virtual FOnVIHoverUpdate& OnViewportInteractionHoverUpdate() override
-	{
-		return OnHoverUpdateEvent;
-	}
-	virtual FOnVIActionHandle& OnViewportInteractionInputAction() override
-	{
-		return OnInputActionEvent;
-	}
+	virtual FOnVIHoverUpdate& OnViewportInteractionHoverUpdate() override { return OnHoverUpdateEvent; }
+	virtual FOnVIActionHandle& OnViewportInteractionInputAction() override { return OnInputActionEvent; }
+	virtual FOnHandleInputKey& OnHandleKeyInput() override { return OnKeyInputEvent; }
+	virtual FOnHandleInputAxis& OnHandleAxisInput() override { return OnAxisInputEvent; }
+
+	/** Sets the Viewport to be used, this is needed to run the ViewportWorldInteraction */
+	void SetViewport( const TSharedPtr<class FEditorViewportClient>& InEditorViewportClient );
+	
+	/** Starts if bInActive is true and closes if bInActivate is false */
+	void Activate( const bool bInActivate );
+	
+	/** Returns true if this worldinteraction is currently running */
+	bool IsActive() const;
 
 	/** Pairs to interactors by setting	the other interactor for each interactor */
 	void PairInteractors( UViewportInteractor* FirstInteractor, UViewportInteractor* SecondInteractor );
@@ -152,7 +170,9 @@ public:
 	void Deselect();
 	
 	/** Called to finish a drag action with the specified interactor */
-	virtual void StopDragging( class UViewportInteractor* Interactor );
+	void StopDragging( class UViewportInteractor* Interactor );
+
+	virtual FOnStopDragging& OnStopDragging() override { return OnStopDraggingEvent; };
 
 	/** Starts dragging selected actors around, changing selection if needed.  Called when clicking in the world, or when placing new objects */
 	void StartDraggingActors( UViewportInteractor* Interactor, const FViewportActionKeyInput& Action, UActorComponent* ClickedComponent, const FVector& HitLocation, const bool bIsPlacingActors );
@@ -172,11 +192,19 @@ public:
 	/** Sets GNewWorldToMetersScale */
 	void SetWorldToMetersScale( const float NewWorldToMetersScale );
 
+	/** Tells the world interaction system to skip updates of world movement this frame.  This is useful if you've called
+	    SetWorldToMetersScale() yourself to set a static world scale, and the cached room-space transforms for the last
+		frame will no longer make sense */
+	void SkipInteractiveWorldMovementThisFrame()
+	{
+		bSkipInteractiveWorldMovementThisFrame = true;
+	}
+
 	/** True if we're actively interacting with the specified actor */
 	bool IsTransformingActor( AActor* Actor ) const;
 
 	/** Checks to see if we're allowed to interact with the specified component */
-	virtual bool IsInteractableComponent( const UActorComponent* Component ) const;
+	bool IsInteractableComponent( const UActorComponent* Component ) const;
 
 	/** Gets the transform gizmo actor, or returns null if we currently don't have one */
 	class ABaseTransformGizmo* GetTransformGizmoActor();
@@ -219,28 +247,43 @@ public:
 
 	/** Destroys a transient actor we created earlier and nulls out the pointer */
 	void DestroyTransientActor(AActor* Actor) const;
+	
+	/** Figures out where to place an object when tracing it against the scene using a laser pointer */
+	bool FindPlacementPointUnderLaser( UViewportInteractor* Interactor, FVector& OutHitLocation );
+
+	/** Gets the tracking transactions */
+	FTrackingTransaction& GetTrackingTransaction();
+	
+	/** Creates a Transformable for each selected actor, wiping out the existing transformables */
+	void SetupTransformablesForSelectedActors();
+	
+	/** All of the objects we're currently interacting with, such as selected actors */
+	TArray< TUniquePtr< class FViewportTransformable > > Transformables;
 
 protected:
 
 	/** Allow base class to refresh on selection changed */
 	virtual void RefreshOnSelectionChanged( const bool bNewObjectsSelected, bool bAllHandlesVisible, class UActorComponent* SingleVisibleHandle, const TArray< UActorComponent* >& HoveringOverHandles );
 
-	/** Creates a Transformable for each selected actor, wiping out the existing transformables */
-	void SetupTransformablesForSelectedActors();
-
-	/** Figures out where to place an object when tracing it against the scene using a laser pointer */
-	bool FindPlacementPointUnderLaser( UViewportInteractor* Interactor, FVector& OutHitLocation );
-
 private:
 
+	/** Starts when activated */
+	void Enter();
+
+	/** Closes when deactivated */
+	void Exit();
+
+	/** Called when the editor is closed */
+	void OnEditorClosed();
+
 	/** Called every frame to update hover state */
-	void HoverTick( class FEditorViewportClient* ViewportClient, const float DeltaTime );
+	void HoverTick( const float DeltaTime );
 
 	/** Updates the interaction */
-	void InteractionTick( FEditorViewportClient* ViewportClient, const float DeltaTime );
+	void InteractionTick( const float DeltaTime );
 	
 	/** Called by the world interaction system when one of our components is dragged by the user.  If null is
-	passed in then we'll treat it as dragging the whole object (rather than a specific axis/handle) */
+	    passed in then we'll treat it as dragging the whole object (rather than a specific axis/handle) */
 	void UpdateDragging( 
 		const float DeltaTime,
 		bool& bIsFirstDragUpdate, 
@@ -317,6 +360,9 @@ private:
 	/** Spawns a transient actor that we can use in the editor world */
 	AActor* SpawnTransientSceneActor( TSubclassOf<AActor> ActorClass, const FString& ActorName, const bool bWithSceneComponent ) const;
 
+	/** Destroys the actors */
+	void DestroyActors();
+
 	/** Gets the snap grid mesh actor */
 	AActor* GetSnapGridActor()
 	{
@@ -359,8 +405,8 @@ private:
 
 protected:
 	
-	/** All of the objects we're currently interacting with, such as selected actors */
-	TArray< TUniquePtr< class FViewportTransformable > > Transformables;
+	/** The world for this interaction */
+	UWorld* World;
 
 	/** True if we've dragged objects with either hand since the last time we selected something */
 	bool bDraggedSinceLastSelection;
@@ -381,7 +427,6 @@ private:
 	FTimespan AppTimeEntered;
 
 	/** All the interactors registered to modify the world */
-	UPROPERTY()
 	TArray< class UViewportInteractor* > Interactors;
 
 	//
@@ -389,18 +434,11 @@ private:
 	//
 
 	/** The viewport that the worldinteraction is used for */
-	TSharedPtr<class FEditorViewportClient> EditorViewportClient;
+	class FEditorViewportClient* EditorViewportClient;
 
 	/** The last frame that input was polled.  We keep track of this so that we can make sure to poll for latest input right before
 	its first needed each frame */
 	uint32 LastFrameNumberInputWasPolled;
-
-	//
-	// Input
-	//
-
-	/** Slate Input Processor */
-	TSharedPtr<class FViewportInteractionInputProcessor> InputProcessor;
 
 	/** The Unreal controller ID for the motion controllers we're using */
 	int32 MotionControllerID;
@@ -412,6 +450,10 @@ private:
 
 	/** The world to meters scale before we changed it (last frame's world to meters scale) */
 	float LastWorldToMetersScale;
+
+	/** True if we should skip interactive world movement/rotation/scaling this frame (because it was already set by something else) */
+	bool bSkipInteractiveWorldMovementThisFrame;
+
 
 	//
 	// Hover state
@@ -459,7 +501,6 @@ private:
 	/** Whether the gizmo should be visible or not */
 	bool bIsTransformGizmoVisible;
 
-
 	//
 	// Snap grid
 	//
@@ -483,9 +524,25 @@ private:
 	/** The current dragged interactable */
 	class IViewportInteractableInterface* DraggedInteractable;		
 	
+	//
+	// Events
+	//
+
 	/** Event that fires every frame to update hover state based on what's under the cursor.  Set bWasHandled to true if you detect something to hover. */
 	FOnVIHoverUpdate OnHoverUpdateEvent;
 
 	/** Event that is fired for when a key is pressed by an interactor */
 	FOnVIActionHandle OnInputActionEvent;
+
+	/** Event that is fired when new key input is received by the InputProcessor */
+	FOnHandleInputKey OnKeyInputEvent;
+
+	/** Event that is fired when new axis input is received by the InputProcessor */
+	FOnHandleInputAxis OnAxisInputEvent;
+
+	/** Event this is fired when a interactor stopped dragging */
+	FOnStopDragging OnStopDraggingEvent;
+
+	/** If the world interaction is active and running the tick function */
+	bool bActive;
 };

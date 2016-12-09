@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Framework/Commands/Commands.h"
-#include "Styling/CoreStyle.h"
-#include "Styling/ISlateStyle.h"
 
-#include "Runtime/Slate/Public/SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/Commands/Commands.h"
 
 /**
  * Defines a set of commands used by the unit test log window

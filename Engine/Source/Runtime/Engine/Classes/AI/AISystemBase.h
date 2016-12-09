@@ -1,10 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Math/IntPoint.h"
-#include "AISystemBase.generated.h"
 
-class UWorld;
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Misc/StringClassReference.h"
+#include "Modules/ModuleInterface.h"
+#include "AISystemBase.generated.h"
 
 UCLASS(abstract, config = Engine, defaultconfig)
 class ENGINE_API UAISystemBase : public UObject

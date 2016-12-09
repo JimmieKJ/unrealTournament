@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "UObject/Package.h"
+#include "HAL/FileManager.h"
+#include "Misc/ITransaction.h"
+#include "UObject/MetaData.h"
+#include "Misc/PackageName.h"
+#include "UObject/LinkerLoad.h"
 #include "UObject/LinkerManager.h"
-#include "UObject/UObjectThreadContext.h"
 
 /*-----------------------------------------------------------------------------
 	UPackage.
 -----------------------------------------------------------------------------*/
 
+/** Delegate to notify subscribers when a package is about to be saved. */
+UPackage::FPreSavePackage UPackage::PreSavePackageEvent;
 /** Delegate to notify subscribers when a package has been saved. This is triggered when the package saving
  *  has completed and was successful. */
 UPackage::FOnPackageSaved UPackage::PackageSavedEvent;
@@ -34,9 +40,7 @@ void UPackage::PostInitProperties()
 	MetaData = NULL;
 	LinkerPackageVersion = GPackageFileUE4Version;
 	LinkerLicenseeVersion = GPackageFileLicenseeUE4Version;
-#if WITH_EDITOR
 	PIEInstanceID = INDEX_NONE;
-#endif
 #if WITH_EDITORONLY_DATA
 	bIsCookedForEditor = false;
 	// Mark this package as editor-only by default. As soon as something in it is accessed through a non editor-only
@@ -183,7 +187,7 @@ void UPackage::TagSubobjects(EObjectFlags NewFlags)
  *
  * @return true if fully loaded or no file associated on disk, false otherwise
  */
-bool UPackage::IsFullyLoaded()
+bool UPackage::IsFullyLoaded() const
 {
 	// Newly created packages aren't loaded and therefore haven't been marked as being fully loaded. They are treated as fully
 	// loaded packages though in this case, which is why we are looking to see whether the package exists on disk and assume it

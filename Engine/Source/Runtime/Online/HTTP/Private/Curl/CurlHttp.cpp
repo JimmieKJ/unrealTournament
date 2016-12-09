@@ -1,15 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HttpPrivatePCH.h"
-#include "CurlHttp.h"
-#include "EngineVersion.h"
-#include "CurlHttpManager.h"
+#include "Curl/CurlHttp.h"
+#include "Stats/Stats.h"
+#include "Misc/App.h"
+#include "HttpModule.h"
+#include "Http.h"
+#include "Misc/EngineVersion.h"
+#include "Curl/CurlHttpManager.h"
 
 #if WITH_LIBCURL
 
-// FCurlHttpRequest
+int32 FCurlHttpRequest::NumberOfInfoMessagesToCache = 50;
 
-int32 FCurlHttpRequest::NumberOfInfoMessagesToCache = 10;
+#if WITH_SSL
+#include "Ssl.h"
+
+static CURLcode sslctx_function(CURL * curl, void * sslctx, void * parm)
+{
+	FSslModule::Get().GetCertificateManager().AddCertificatesToSslContext((reinterpret_cast<SSL_CTX*>(sslctx)));
+
+	/* all set to go */
+	return CURLE_OK;
+}
+#endif //#if WITH_SSL
 
 FCurlHttpRequest::FCurlHttpRequest()
 	:	EasyHandle(NULL)
@@ -38,6 +51,8 @@ FCurlHttpRequest::FCurlHttpRequest()
 #endif // !UE_BUILD_SHIPPING && !UE_BUILD_TEST
 
 	curl_easy_setopt(EasyHandle, CURLOPT_SHARE, FCurlHttpManager::GShareHandle);
+
+	curl_easy_setopt(EasyHandle, CURLOPT_USE_SSL, CURLUSESSL_ALL);
 
 	// set certificate verification (disable to allow self-signed certificates)
 	if (FCurlHttpManager::CurlRequestOptions.bVerifyPeer)
@@ -72,6 +87,13 @@ FCurlHttpRequest::FCurlHttpRequest()
 	if (FCurlHttpManager::CurlRequestOptions.CertBundlePath)
 	{
 		curl_easy_setopt(EasyHandle, CURLOPT_CAINFO, FCurlHttpManager::CurlRequestOptions.CertBundlePath);
+	}
+	else
+	{
+		curl_easy_setopt(EasyHandle, CURLOPT_SSLCERTTYPE, "PEM");
+#if WITH_SSL
+		curl_easy_setopt(EasyHandle, CURLOPT_SSL_CTX_FUNCTION, *sslctx_function);
+#endif // #if WITH_SSL
 	}
 
 		InfoMessageCache.AddDefaulted(NumberOfInfoMessagesToCache);
@@ -399,7 +421,9 @@ size_t FCurlHttpRequest::DebugCallback(CURL * Handle, curl_infotype DebugInfoTyp
 		case CURLINFO_TEXT:
 			{
 				// in this case DebugInfo is a C string (see http://curl.haxx.se/libcurl/c/debug.html)
-				FString DebugText(ANSI_TO_TCHAR(DebugInfo));
+				// C string is not null terminated:  https://curl.haxx.se/libcurl/c/CURLOPT_DEBUGFUNCTION.html
+				auto ConvertedString = StringCast<TCHAR>(static_cast<const ANSICHAR*>(DebugInfo), DebugInfoSize);
+				FString DebugText(ConvertedString.Length(), ConvertedString.Get());
 				DebugText.ReplaceInline(TEXT("\n"), TEXT(""), ESearchCase::CaseSensitive);
 				DebugText.ReplaceInline(TEXT("\r"), TEXT(""), ESearchCase::CaseSensitive);
 				UE_LOG(LogHttp, VeryVerbose, TEXT("%p: '%s'"), this, *DebugText);
@@ -417,7 +441,9 @@ size_t FCurlHttpRequest::DebugCallback(CURL * Handle, curl_infotype DebugInfoTyp
 
 		case CURLINFO_HEADER_OUT:
 			{
-				FString DebugText(ANSI_TO_TCHAR(DebugInfo));
+				// C string is not null terminated:  https://curl.haxx.se/libcurl/c/CURLOPT_DEBUGFUNCTION.html
+				auto ConvertedString = StringCast<TCHAR>(static_cast<const ANSICHAR*>(DebugInfo), DebugInfoSize);
+				FString DebugText(ConvertedString.Length(), ConvertedString.Get());
 				DebugText.ReplaceInline(TEXT("\n"), TEXT(""), ESearchCase::CaseSensitive);
 				DebugText.ReplaceInline(TEXT("\r"), TEXT(""), ESearchCase::CaseSensitive);
 				UE_LOG(LogHttp, VeryVerbose, TEXT("%p: Sent header (%d bytes) - %s"), this, DebugInfoSize, *DebugText);
@@ -695,7 +721,17 @@ FHttpRequestProgressDelegate& FCurlHttpRequest::OnRequestProgress()
 void FCurlHttpRequest::CancelRequest()
 {
 	bCanceled = true;
-	FHttpModule::Get().GetHttpManager().CancelThreadedRequest(SharedThis(this));
+	
+	FHttpManager& HttpManager = FHttpModule::Get().GetHttpManager();
+	if (HttpManager.IsValidRequest(this))
+	{
+		HttpManager.CancelThreadedRequest(SharedThis(this));
+	}
+	else
+	{
+		// Finish immediately
+		FinishedRequest();
+	}
 }
 
 EHttpRequestStatus::Type FCurlHttpRequest::GetStatus()
@@ -826,7 +862,7 @@ void FCurlHttpRequest::FinishedRequest()
 		{
 			if (InfoMessageCache[(LeastRecentlyCachedInfoMessageIndex + i) % InfoMessageCache.Num()].Len() > 0)
 			{
-				UE_LOG(LogHttp, Warning, TEXT("%p: libcurl info message cache %d (%s)"), this, i, *(InfoMessageCache[(LeastRecentlyCachedInfoMessageIndex + i) % NumberOfInfoMessagesToCache]));
+				UE_LOG(LogHttp, Warning, TEXT("%p: libcurl info message cache %d (%s)"), this, (LeastRecentlyCachedInfoMessageIndex + i) % InfoMessageCache.Num(), *(InfoMessageCache[(LeastRecentlyCachedInfoMessageIndex + i) % NumberOfInfoMessagesToCache]));
 			}
 		}
 

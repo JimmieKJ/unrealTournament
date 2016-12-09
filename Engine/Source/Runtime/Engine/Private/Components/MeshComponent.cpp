@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Components/MeshComponent.h"
+#include "Materials/Material.h"
+#include "Engine/Texture2D.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "ContentStreaming.h"
+#include "Streaming/TextureStreamingHelpers.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMaterialParameter, Warning, All);
 
@@ -73,6 +78,15 @@ void UMeshComponent::SetMaterial(int32 ElementIndex, UMaterialInterface* Materia
 	}
 }
 
+void UMeshComponent::SetMaterialByName(FName MaterialSlotName, UMaterialInterface* Material)
+{
+	int32 MaterialIndex = GetMaterialIndex(MaterialSlotName);
+	if (MaterialIndex < 0)
+		return;
+
+	SetMaterial(MaterialIndex, Material);
+}
+
 FMaterialRelevance UMeshComponent::GetMaterialRelevance(ERHIFeatureLevel::Type InFeatureLevel) const
 {
 	// Combine the material relevance for all materials.
@@ -93,6 +107,34 @@ int32 UMeshComponent::GetNumOverrideMaterials() const
 {
 	return OverrideMaterials.Num();
 }
+
+#if WITH_EDITOR
+void UMeshComponent::CleanUpOverrideMaterials()
+{
+	//We have to remove material override Ids that are bigger then the material list
+	if (GetNumOverrideMaterials() > GetNumMaterials())
+	{
+		//Remove the override material id that are superior to the static mesh materials number
+		int32 RemoveCount = GetNumOverrideMaterials() - GetNumMaterials();
+		OverrideMaterials.RemoveAt(GetNumMaterials(), RemoveCount);
+	}
+	//Remove override at the end of the array until there is a valid material
+	for (int32 i = GetNumOverrideMaterials() - 1; i >= 0; --i)
+	{
+		UMaterialInterface *OverrideMaterial = OverrideMaterials[i];
+		if (OverrideMaterial == nullptr)
+		{
+			OverrideMaterials.RemoveAt(i);
+			continue;
+		}
+		break;
+	}
+}
+void UMeshComponent::EmptyOverrideMaterials()
+{
+	OverrideMaterials.Reset();
+}
+#endif
 
 int32 UMeshComponent::GetNumMaterials() const
 {
@@ -164,6 +206,24 @@ TArray<class UMaterialInterface*> UMeshComponent::GetMaterials() const
 	}
 
 	return OutMaterials;
+}
+
+int32 UMeshComponent::GetMaterialIndex(FName MaterialSlotName) const
+{
+	//This function should be override
+	return -1;
+}
+
+TArray<FName> UMeshComponent::GetMaterialSlotNames() const
+{
+	//This function should be override
+	return TArray<FName>();
+}
+
+bool UMeshComponent::IsMaterialSlotNameValid(FName MaterialSlotName) const
+{
+	//This function should be override
+	return false;
 }
 
 void UMeshComponent::SetScalarParameterValueOnMaterials(const FName ParameterName, const float ParameterValue)
@@ -287,6 +347,21 @@ void UMeshComponent::CacheMaterialParameterNameIndices()
 	}
 
 	bCachedMaterialParameterIndicesAreDirty = false;
+}
+
+void UMeshComponent::GetStreamingTextureInfoInner(FStreamingTextureLevelContext& LevelContext, const TArray<FStreamingTextureBuildInfo>* PreBuiltData, float ComponentScaling, TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const
+{
+	LevelContext.BindBuildData(PreBuiltData);
+
+	const int32 NumMaterials = GetNumMaterials();
+	for (int32 MaterialIndex = 0; MaterialIndex < NumMaterials; ++MaterialIndex)
+	{
+		FPrimitiveMaterialInfo MaterialData;
+		if (GetMaterialStreamingData(MaterialIndex, MaterialData))
+		{
+			LevelContext.ProcessMaterial(Bounds, MaterialData, ComponentScaling, OutStreamingTextures);
+		}
+	}
 }
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)

@@ -1,9 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PortalProxiesPrivatePCH.h"
-#include "PortalUserProxy.h"
-#include "IMessageRpcClient.h"
-#include "IPortalUser.h"
+#include "Account/PortalUserProxy.h"
+#include "Account/IPortalUser.h"
 #include "PortalUserMessages.h"
 
 class FPortalUserProxy

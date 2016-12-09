@@ -48,7 +48,7 @@
 #endif
 
 //Platforms that don't run the editor shouldn't need editor features in the shaders.
-#define PLATFORM_SUPPORTS_EDITOR_SHADERS (!PS4_PROFILE && !XBOXONE_PROFILE && !ESDEFERRED_PROFILE)
+#define PLATFORM_SUPPORTS_EDITOR_SHADERS (!PS4_PROFILE && !XBOXONE_PROFILE && !ESDEFERRED_PROFILE && !SWITCH_PROFILE)
 
 //Tie Editor features to platform support and the COMPILE_SHADERS_FOR_DEVELOPMENT which is set via CVAR.
 #define USE_EDITOR_SHADERS (PLATFORM_SUPPORTS_EDITOR_SHADERS && USE_DEVELOPMENT_SHADERS)
@@ -122,9 +122,6 @@ struct FMaterialPixelParameters
 
 	/** Interpolated vertex color, in linear color space. */
 	half4 VertexColor;
-
-	/** Normalized tangent space normal. */
-	half3 TangentNormal;
 
 	/** Normalized world space normal. */
 	half3 WorldNormal;
@@ -216,55 +213,7 @@ struct FMaterialPixelParameters
 FMaterialPixelParameters MakeInitializedMaterialPixelParameters()
 {
 	FMaterialPixelParameters MPP;
-#if SM5_PROFILE || SM4_PROFILE || PS4_PROFILE || (ES2_PROFILE || ES3_1_PROFILE) || METAL_SM5_PROFILE || METAL_SM4_PROFILE || METAL_MRT_PROFILE
 	MPP = (FMaterialPixelParameters)0;
-#else
-	// @todo compat hack - put back to the 0 typecast (2 lines up)
-	#if NUM_MATERIAL_TEXCOORDS
-	for (int C = 0; C < NUM_MATERIAL_TEXCOORDS; C++)
-	{
-		MPP.TexCoords[C] = 0;
-	}
-	#endif
-	MPP.VertexColor = 0;
-	MPP.TangentNormal = 0;
-	MPP.WorldNormal = 0;
-	MPP.ReflectionVector = 0;
-	MPP.CameraVector = 0;
-	MPP.LightVector = 0;
-	MPP.ScreenPosition = 0;
-	MPP.UnMirrored = 0;
-	MPP.TwoSidedSign = 0;
-	MPP.AbsoluteWorldPosition = 0;
-	MPP.WorldPosition_NoOffsets = 0;
-	MPP.WorldPosition_CamRelative = 0;
-	MPP.WorldPosition_NoOffsets_CamRelative = 0;
-	MPP.Particle.RelativeTime = 0;
-	MPP.Particle.MotionBlurFade = 0;
-	MPP.Particle.Velocity = 0;
-	MPP.LightingPositionOffset = 0;
-	MPP.AOMaterialMask = 0;
-	MPP.Particle.Color = 0;
-	MPP.Particle.TranslatedWorldPositionAndSize = 0;
-	MPP.Particle.MacroUV = 0;
-	MPP.Particle.DynamicParameter = 0;
-	#if USE_PARTICLE_SUBUVS
-	MPP.Particle.SubUVCoords[0] = 0;
-	MPP.Particle.SubUVCoords[1] = 0;
-	MPP.Particle.SubUVLerp = 0;
-	#endif
-	MPP.Particle.Size = 0;
-	#if LIGHTMAP_UV_ACCESS
-	MPP.LightmapUVs = 0;
-	#endif
-	#if USE_INSTANCING
-	MPP.PerInstanceParams = 0;
-	#endif
-	MPP.SvPosition = 0;
-	#if POST_PROCESS_MATERIAL && (FEATURE_LEVEL <= FEATURE_LEVEL_ES3_1)
-	MPP.BackupSceneColorAlpha = 0;
-	#endif
-#endif
 	MPP.TangentToWorld = float3x3(1,0,0,0,1,0,0,0,1);
 	return MPP;
 }
@@ -310,6 +259,8 @@ struct FMaterialVertexParameters
 	/** Per-particle properties. */
 	float4x4 InstanceLocalToWorld;
 #endif
+	float3 PreSkinnedPosition;
+	float3 PreSkinnedNormal;
 
 	half4 VertexColor;
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
@@ -391,7 +342,7 @@ float4 GetScreenPosition(FMaterialPixelParameters Parameters)
 	return Parameters.ScreenPosition;
 }
 
-#if DEFERRED_DECAL && NUM_MATERIAL_TEXCOORDS
+#if DECAL_PRIMITIVE && NUM_MATERIAL_TEXCOORDS
 	/*
 	 * Material node DecalMipmapLevel's code designed to avoid the 2x2 pixels artefacts on the edges around where the decal
 	 * is projected to. The technique is fetched from (http://www.humus.name/index.php?page=3D&ID=84).
@@ -451,7 +402,7 @@ float4 GetScreenPosition(FMaterialPixelParameters Parameters)
 		float MaxDiff = max(dot(UvPixelDiffX, UvPixelDiffX), dot(UvPixelDiffY, UvPixelDiffY));
 		return 0.5 * log2(MaxDiff);
 	}
-#else // DEFERRED_DECAL && NUM_MATERIAL_TEXCOORDS
+#else // DECAL_PRIMITIVE && NUM_MATERIAL_TEXCOORDS
 	float2 ComputeDecalDDX(FMaterialPixelParameters Parameters)
 	{
 		return 0.0f;
@@ -466,9 +417,9 @@ float4 GetScreenPosition(FMaterialPixelParameters Parameters)
 	{
 		return 0.0f;
 	}
-#endif // DEFERRED_DECAL && NUM_MATERIAL_TEXCOORDS
+#endif // DECAL_PRIMITIVE && NUM_MATERIAL_TEXCOORDS
 
-#if DEFERRED_DECAL
+#if DECAL_PRIMITIVE
 	/*
 	 * Deferred decal don't have a Primitive uniform buffer, because we don't know on which primitive the decal
 	 * is being projected to. But the user may still need to get the decal's actor world position.
@@ -484,7 +435,7 @@ float4 GetScreenPosition(FMaterialPixelParameters Parameters)
 	{
 		return Primitive.ActorWorldPosition;
 	}
-#endif // DEFERRED_DECAL
+#endif // DECAL_PRIMITIVE
 
 #if DECAL_PRIMITIVE
 	float DecalLifetimeOpacity()
@@ -1140,19 +1091,50 @@ float4 GetPostProcessInputMinMax(uint Index)
 	return 1.0f;
 }
 
-MaterialFloat4 MobileLookupPostProcessInput0(inout FMaterialPixelParameters Parameters, float2 UV)
+MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameters, int SceneTextureId, float2 UV)
 {
-#if POST_PROCESS_MATERIAL && (FEATURE_LEVEL <= FEATURE_LEVEL_ES3_1)
-	MaterialFloat4 Input0 = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV);
-	#if POST_PROCESS_MATERIAL_BEFORE_TONEMAP
+#if (FEATURE_LEVEL <= FEATURE_LEVEL_ES3_1)
+	
+	// For fetching SceneDepth and CustomDepth after tonemapper we need to switch OpenGL coordinates
+	// SceneColor will be transformed to OpenGL coordinates during tonemapping
+	#define NEEDTOSWITCHVERTICLEAXIS (COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1) && (POST_PROCESS_MATERIAL && !POST_PROCESS_MATERIAL_BEFORE_TONEMAP)
+	
+	//PPI_SceneDepth
+	if (SceneTextureId == 1)
+	{
+		#if NEEDTOSWITCHVERTICLEAXIS
+		UV.y = 1.0 - UV.y; 
+		#endif
+		
+		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(SceneDepthTexture, SceneDepthTextureSampler, UV).r);
+		return MaterialFloat4(Depth.rrr, 0.f);
+	}
+	//PPI_CustomDepth
+	else if (SceneTextureId == 13)
+	{
+		#if NEEDTOSWITCHVERTICLEAXIS
+		UV.y = 1.0 - UV.y; 
+		#endif
+
+		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(CustomDepthTexture, CustomDepthTextureSampler, UV).r);
+		return MaterialFloat4(Depth.rrr, 0.f);
+	}
+	// PPI_PostprocessInput
+	else if (SceneTextureId == 14)
+	{
+#if POST_PROCESS_MATERIAL	
+		MaterialFloat4 Input0 = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV);
+		#if POST_PROCESS_MATERIAL_BEFORE_TONEMAP
 		Input0 = Decode32BPPHDR(Input0);
-	#endif
-	// We need to preserve original SceneColor Alpha as it's used by tonemaper on mobile
-	Parameters.BackupSceneColorAlpha = Input0.a;
-	return Input0;
-#else
+		#endif
+		// We need to preserve original SceneColor Alpha as it's used by tonemaper on mobile
+		Parameters.BackupSceneColorAlpha = Input0.a;
+		return Input0;
+#endif// POST_PROCESS_MATERIAL	
+	}
+#endif// FEATURE_LEVEL
+
 	return MaterialFloat4(0.0f, 0.0f, 0.0f, 0.0f);
-#endif
 }
 
 /** Applies an offset to the scene texture lookup and decodes the HDR linear space color. */
@@ -1554,6 +1536,35 @@ float GetMaterialPixelDepthOffset(FPixelMaterialInputs PixelMaterialInputs)
 	return PixelMaterialInputs.PixelDepthOffset;
 }
 
+#if DECAL_PRIMITIVE
+
+float3 TransformTangentNormalToWorld(in FMaterialPixelParameters Parameters, float3 TangentNormal)
+{
+	// To transform the normals use tranpose(Inverse(DecalToWorld)) = transpose(WorldToDecal)
+	// But we want to only rotate the normals (we don't want to non-uniformaly scale them).
+	// We assume the matrix is only a scale and rotation, and we remove non-uniform scale:
+	float3 lengthSqr = { length2(DecalToWorld._m00_m01_m02),
+							length2(DecalToWorld._m10_m11_m12),
+							length2(DecalToWorld._m20_m21_m22) };
+
+	float3 scale = rsqrt(lengthSqr);
+				
+	// Pre-multiply by the inverse of the non-uniform scale in DecalToWorld
+	float4 ScaledNormal = float4(-TangentNormal.z * scale.x, TangentNormal.y * scale.y, TangentNormal.x * scale.z, 0.f);
+
+	// Compute the normal 
+	return normalize(mul(ScaledNormal, DecalToWorld).xyz);
+}
+
+#else //DECAL_PRIMITIVE
+
+float3 TransformTangentNormalToWorld(in FMaterialPixelParameters Parameters, float3 TangentNormal)
+{
+	return normalize(float3(TransformTangentVectorToWorld(Parameters.TangentToWorld, TangentNormal)));
+}
+
+#endif //DECAL_PRIMITIVE
+
 void CalcPixelMaterialInputs(in out FMaterialPixelParameters Parameters, in out FPixelMaterialInputs PixelMaterialInputs)
 {
 	// Initial calculations (required for Normal)
@@ -1565,26 +1576,25 @@ void CalcPixelMaterialInputs(in out FMaterialPixelParameters Parameters, in out 
 	float3 MaterialNormal = GetMaterialNormal(Parameters, PixelMaterialInputs);
 
 #if MATERIAL_TANGENTSPACENORMAL
-
 #if SIMPLE_FORWARD_SHADING
-	// Drop normal with simple forward shading for scalability
-	MaterialNormal = float3(0, 0, 1);
+	Parameters.WorldNormal = float3(0, 0, 1);
 #endif
-
-	// flip the normal for backfaces being rendered with a two-sided material
-	Parameters.TangentNormal = MaterialNormal * Parameters.TwoSidedSign;
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
 	// ES2 will rely on only the final normalize for performance
-	Parameters.TangentNormal = normalize(Parameters.TangentNormal);
+	MaterialNormal = normalize(MaterialNormal);
 #endif
 
 	// normalizing after the tangent space to world space conversion improves quality with sheared bases (UV layout to WS causes shrearing)
 	// use full precision normalize to avoid overflows
-	Parameters.WorldNormal = normalize(float3(TransformTangentVectorToWorld(Parameters.TangentToWorld, Parameters.TangentNormal)));
-#else
-	// Here we don't supoport two sided materials
-	Parameters.TangentNormal = Parameters.WorldNormal = normalize(MaterialNormal);
+	Parameters.WorldNormal = TransformTangentNormalToWorld(Parameters, MaterialNormal);
+#else //MATERIAL_TANGENTSPACENORMAL
+	Parameters.WorldNormal = normalize(MaterialNormal);
+#endif //MATERIAL_TANGENTSPACENORMAL
+
+#if MATERIAL_TANGENTSPACENORMAL
+	// flip the normal for backfaces being rendered with a two-sided material
+	Parameters.WorldNormal *= Parameters.TwoSidedSign;
 #endif
 
 	Parameters.ReflectionVector = ReflectionAboutCustomWorldNormal(Parameters, Parameters.WorldNormal, false);
@@ -1655,9 +1665,19 @@ void ClipLODTransition(float2 SvPosition)
 void GetMaterialClippingShadowDepth(FMaterialPixelParameters Parameters, FPixelMaterialInputs PixelMaterialInputs)
 {
 	ClipLODTransition(Parameters);
-	//#if MATERIALBLENDING_MASKED && MATERIAL_DITHER_OPACITY_MASK
-	//	clip(GetMaterialMaskInputRaw(PixelMaterialInputs) - 1.0f / 255.0f);
 	#if MATERIALBLENDING_MASKED
+		clip(GetMaterialMask(PixelMaterialInputs)); 
+	#elif MATERIALBLENDING_TRANSLUCENT
+		clip(GetMaterialOpacity(PixelMaterialInputs) - 1.0f / 255.0f);
+	#endif
+}
+
+void GetMaterialClippingVelocity(FMaterialPixelParameters Parameters, FPixelMaterialInputs PixelMaterialInputs)
+{
+	ClipLODTransition(Parameters);
+	#if MATERIALBLENDING_MASKED && MATERIAL_DITHER_OPACITY_MASK
+		clip(GetMaterialMaskInputRaw(PixelMaterialInputs) - 1.0f / 255.0f);
+	#elif MATERIALBLENDING_MASKED
 		clip(GetMaterialMask(PixelMaterialInputs)); 
 	#elif MATERIALBLENDING_TRANSLUCENT
 		clip(GetMaterialOpacity(PixelMaterialInputs) - 1.0f / 255.0f);
@@ -1791,7 +1811,7 @@ half3x3 AssembleTangentToWorld( half3 TangentToWorld0, half4 TangentToWorld2 )
 }
 
 // Whether the material shader should output pixel depth offset
-#define OUTPUT_PIXEL_DEPTH_OFFSET (WANT_PIXEL_DEPTH_OFFSET && (MATERIALBLENDING_SOLID || MATERIALBLENDING_MASKED))
+#define OUTPUT_PIXEL_DEPTH_OFFSET (WANT_PIXEL_DEPTH_OFFSET && (MATERIALBLENDING_SOLID || MATERIALBLENDING_MASKED) && !ES2_PROFILE)
 
 // Whether to use the hidden d3d11 feature that supports depth writes with ZCull by only pushing into the screen
 //@todo - use for other SM5 platforms

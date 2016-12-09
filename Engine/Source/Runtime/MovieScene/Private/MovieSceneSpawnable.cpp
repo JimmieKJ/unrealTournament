@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieScenePrivatePCH.h"
 #include "MovieSceneSpawnable.h"
+#include "UObject/UObjectAnnotation.h"
+#include "MovieSceneSequence.h"
 #include "MovieScene.h"
 
 struct FIsSpawnable

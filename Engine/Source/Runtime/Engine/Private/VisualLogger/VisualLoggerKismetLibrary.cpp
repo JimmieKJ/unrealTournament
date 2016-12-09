@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "VisualLogger/VisualLogger.h"
-#include "VisualLogger/VisualLogger.h"
 #include "VisualLogger/VisualLoggerKismetLibrary.h"
+#include "EngineDefines.h"
+#include "VisualLogger/VisualLogger.h"
 
 UVisualLoggerKismetLibrary::UVisualLoggerKismetLibrary(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

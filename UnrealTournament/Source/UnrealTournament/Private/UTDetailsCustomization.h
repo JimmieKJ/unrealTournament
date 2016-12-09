@@ -11,6 +11,7 @@ class UFactory;
 #include "Toolkits/AssetEditorToolkit.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "Editor/PropertyEditor/Public/DetailLayoutBuilder.h"
+#include "Editor/PropertyEditor/Public/IDetailCustomization.h"
 
 class UNREALTOURNAMENT_API FUTDetailsCustomization : public IDetailCustomization
 {

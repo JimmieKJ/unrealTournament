@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WorldBrowserPrivatePCH.h"
-#include "WorldTileThumbnails.h"
+#include "Tiles/WorldTileThumbnails.h"
+#include "Misc/ObjectThumbnail.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "UObject/Package.h"
+#include "Brushes/SlateColorBrush.h"
+#include "RHI.h"
+#include "RenderingThread.h"
+#include "Engine/Texture2DDynamic.h"
+#include "LevelCollectionModel.h"
 #include "ObjectTools.h"
-#include "AssetThumbnail.h"
-#include "SlateTextures.h"
-#include "WorldTileCollectionModel.h"
+#include "Slate/SlateTextures.h"
+#include "Tiles/WorldTileModel.h"
 
 static const double TileThumbnailUpdateCooldown = 0.005f;
 static const FSlateColorBrush ThumbnailDefaultBrush(FLinearColor::White);

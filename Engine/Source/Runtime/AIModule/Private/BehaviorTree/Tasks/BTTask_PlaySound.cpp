@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "SoundDefinitions.h"
-#include "Kismet/GameplayStatics.h"
-#include "Sound/SoundCue.h"
 #include "BehaviorTree/Tasks/BTTask_PlaySound.h"
+#include "Kismet/GameplayStatics.h"
+#include "AIController.h"
+#include "Sound/SoundCue.h"
 
 UBTTask_PlaySound::UBTTask_PlaySound(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

@@ -4,7 +4,7 @@
 // Wrapper for the accessing class methods.
 //
 //! This is not up to date.
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #if 0
 

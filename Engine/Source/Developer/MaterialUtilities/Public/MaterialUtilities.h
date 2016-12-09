@@ -2,107 +2,94 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "Runtime/CoreUObject/Public/UObject/ObjectBase.h"
-#include "Runtime/Engine/Classes/Engine/EngineTypes.h"
-#include "Runtime/Engine/Classes/Engine/Texture.h"
-#include "Runtime/Engine/Public/SceneTypes.h"
-#include "Runtime/Engine/Classes/Materials/Material.h"
-#include "Runtime/Engine/Classes/Engine/TextureStreamingTypes.h"
-#include "RawMesh.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "SceneTypes.h"
+#include "Modules/ModuleInterface.h"
+#include "Engine/TextureStreamingTypes.h"
+#include "UObject/ErrorException.h"
+#include "Engine/Texture.h"
+
+class ALandscapeProxy;
+class Error;
+class FStaticLODModel;
+class ULandscapeComponent;
+class UMaterial;
+class UMaterialInstanceConstant;
+class UMaterialInterface;
+class UTexture2D;
+class UTextureRenderTarget2D;
+struct FMaterialProxySettings;
+struct FRawMesh;
+
+/* TODO replace this with rendering property enum when extending the system */
+UENUM()
+enum class EFlattenMaterialProperties : uint8
+{
+	Diffuse,
+	Normal,
+	Metallic,
+	Roughness,
+	Specular,
+	Opacity,
+	Emissive,
+	SubSurface,
+	NumFlattenMaterialProperties
+};
 
 /** Structure used for storing intermediate baked down material data/samples*/
 struct FFlattenMaterial
 {
 	FFlattenMaterial()
-		: RenderSize( 0, 0 )
-		, DiffuseSize(0, 0)
-		, NormalSize(0, 0)
-		, MetallicSize(0, 0)
-		, RoughnessSize(0, 0)
-		, SpecularSize(0, 0)
-		, OpacitySize(0, 0)
-		, EmissiveSize(0, 0)
-		, SubSurfaceSize(0, 0)
+		: RenderSize(0, 0)
 		, bTwoSided(false)
 		, bDitheredLODTransition(false)
 		, BlendMode(BLEND_Opaque)
-		, EmissiveScale(1.0f)		
-	{}
+		, EmissiveScale(1.0f)
+	{
+		for (FIntPoint& Size : PropertySizes)
+		{
+			Size = FIntPoint(ForceInitToZero);
+		}
+	}
 
 	/** Release all the sample data */
 	void ReleaseData()
 	{
-		DiffuseSamples.Empty();
-		NormalSamples.Empty();
-		MetallicSamples.Empty();
-		RoughnessSamples.Empty();
-		SpecularSamples.Empty();
-		OpacitySamples.Empty();
-		EmissiveSamples.Empty();
-		SubSurfaceSamples.Empty();
+		for (TArray<FColor>& Samples : PropertySamples)
+		{
+			Samples.Empty();
+		}
 	}
 	
 	/** Set all alpha channel values with InAlphaValue */
 	void FillAlphaValues(const uint8 InAlphaValue)
 	{
-		for (FColor& Sample : DiffuseSamples) 
-		{ 
-			Sample.A = InAlphaValue;
-		}
-		for (FColor& Sample : NormalSamples) 
-		{ 
-			Sample.A = InAlphaValue;
-		}
-		for (FColor& Sample : MetallicSamples) 
-		{ 
-			Sample.A = InAlphaValue;
-		}
-		for (FColor& Sample : RoughnessSamples) 
-		{ 
-			Sample.A = InAlphaValue;
-		}
-		for (FColor& Sample : SpecularSamples)
-		{ 
-			Sample.A = InAlphaValue;
-		}
-		for (FColor& Sample : OpacitySamples) 
-		{ 
-			Sample.A = InAlphaValue;
-		}
-		for (FColor& Sample : EmissiveSamples)
-		{ 
-			Sample.A = InAlphaValue; 
-		}
-		for (FColor& Sample : SubSurfaceSamples)
+		for (TArray<FColor>& SampleArray : PropertySamples)
 		{
-			Sample.A = InAlphaValue;
+			for (FColor& Sample : SampleArray)
+			{
+				Sample.A = InAlphaValue;
+			}
 		}
 	}
+
+	const bool DoesPropertyContainData(const EFlattenMaterialProperties Property) const { return PropertySamples[(int32)Property].Num() > 0; }
+
+	const bool IsPropertyConstant(const EFlattenMaterialProperties Property) const { return PropertySamples[(int32)Property].Num() == 1; }
+
+	const bool ShouldGenerateDataForProperty(const EFlattenMaterialProperties Property) const { return PropertySizes[(int32)Property].GetMin() > 0; }
+
+	const FIntPoint GetPropertySize(const EFlattenMaterialProperties Property) const{ return PropertySizes[(int32)Property]; }
+	void SetPropertySize(const EFlattenMaterialProperties Property, const FIntPoint& InSize) { PropertySizes[(int32)Property] = InSize; }
+
+	TArray<FColor>& GetPropertySamples(const EFlattenMaterialProperties Property) { return PropertySamples[(int32)Property]; }
+	const TArray<FColor>& GetPropertySamples(const EFlattenMaterialProperties Property) const { return PropertySamples[(int32)Property]; }
 	
 	/** Material Guid */
-	FGuid			MaterialId;
-		
-	/** Texture sizes for each individual property*/
+	FGuid			MaterialId;	
 	FIntPoint		RenderSize;
-	FIntPoint		DiffuseSize;
-	FIntPoint		NormalSize;
-	FIntPoint		MetallicSize;	
-	FIntPoint		RoughnessSize;	
-	FIntPoint		SpecularSize;	
-	FIntPoint		OpacitySize;
-	FIntPoint		EmissiveSize;
-	FIntPoint		SubSurfaceSize;
-
-	/** Baked down texture samples for each individual property*/
-	TArray<FColor>	DiffuseSamples;
-	TArray<FColor>	NormalSamples;
-	TArray<FColor>	MetallicSamples;
-	TArray<FColor>	RoughnessSamples;
-	TArray<FColor>	SpecularSamples;
-	TArray<FColor>	OpacitySamples;
-	TArray<FColor>	EmissiveSamples;
-	TArray<FColor>	SubSurfaceSamples;
 
 	/** Flag whether or not the material will have to be two-sided */
 	bool			bTwoSided;
@@ -112,6 +99,12 @@ struct FFlattenMaterial
 	EBlendMode		BlendMode;
 	/** Scale (maximum baked down value) for the emissive property */
 	float			EmissiveScale;
+private:
+
+	/** Texture sizes for each individual property*/
+	FIntPoint PropertySizes[(uint32)EFlattenMaterialProperties::NumFlattenMaterialProperties];
+	/** Baked down texture samples for each individual property*/
+	TArray<FColor> PropertySamples[(uint32)EFlattenMaterialProperties::NumFlattenMaterialProperties];
 };
 
 /** Export material proxy cache*/
@@ -119,7 +112,7 @@ struct MATERIALUTILITIES_API FExportMaterialProxyCache
 {
 	// Material proxies for each property. Note: we're not handling all properties here,
 	// so hold only up to MP_Normal inclusive.
-	class FMaterialRenderProxy* Proxies[EMaterialProperty::MP_MAX];
+	class FMaterialRenderProxy* Proxies[MP_MAX];
 
 	FExportMaterialProxyCache();
 	~FExportMaterialProxyCache();
@@ -373,7 +366,7 @@ public:
 	* @param OutMaterialMap					Map of MeshIDAndLOD keys with a material index array as value mapping InMeshData to the OutMaterials array
 	* @param OutMaterials					List of Material interfaces (unique)
 	*/
-	static void RemapUniqueMaterialIndices(const TArray<UMaterialInterface*>& InMaterials, const TArray<struct FRawMeshExt>& InMeshData, const TMap<FIntPoint, TArray<int32> >& InMaterialMap, const FMaterialProxySettings& InMaterialProxySettings, const bool bBakeVertexData, const bool bMergeMaterials, TArray<bool>& OutMeshShouldBakeVertexData, TMap<FIntPoint, TArray<int32> >& OutMaterialMap, TArray<UMaterialInterface*>& OutMaterials);
+	static void RemapUniqueMaterialIndices(const TArray<struct FSectionInfo>& InSections, const TArray<struct FRawMeshExt>& InMeshData, const TMap<FIntPoint, TArray<int32> >& InMaterialMap, const FMaterialProxySettings& InMaterialProxySettings, const bool bBakeVertexData, const bool bMergeMaterials, TArray<bool>& OutMeshShouldBakeVertexData, TMap<FIntPoint, TArray<int32> >& OutMaterialMap, TArray<struct FSectionInfo>& OutSections);
 
 	/**
 	* Tries to optimize the flatten material's data by picking out constant values for the various properties
@@ -410,11 +403,11 @@ public:
 		* Register a new error.
 		*
 		* @param Material			The material having this error.
-		* @param Texture			The texture for which the scale could not be generated.
+		* @param TextureName		The texture for which the scale could not be generated.
 		* @param RegisterIndex		The register index bound to this texture.
 		* @param ErrorType			The issue encountered.
 		*/
-		void Register(const UMaterialInterface* Material, const UTexture* Texture, int32 RegisterIndex, EErrorType ErrorType);
+		void Register(const UMaterialInterface* Material, FName TextureName, int32 RegisterIndex, EErrorType ErrorType);
 
 		/**
 		* Output all errors registered.
@@ -435,7 +428,7 @@ public:
 		struct FInstance
 		{
 			const UMaterialInterface* Material;
-			const UTexture* Texture;
+			FName TextureName;
 		};
 
 		friend uint32 GetTypeHash(const FError& Error);
@@ -450,11 +443,14 @@ public:
 	* @param InMaterial			Target material
 	* @param QualityLevel		Quality level used for the shader profiling.
 	* @param FeatureLevel		Feature level used for the shader profiling.
-	* @param OutScales			TheOutput array of rendered samples	
+	* @param OutErrors			Manager to log errors (removes duplicates and similar errors)	
 	* @return					Whether operation was successful
 	*/
-	static bool ExportMaterialTexCoordScales(UMaterialInterface* InMaterial, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel, TArray<FMaterialTexCoordBuildInfo>& OutScales, FExportErrorManager& OutErrors);
+	static bool ExportMaterialUVDensities(UMaterialInterface* InMaterial, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel, FExportErrorManager& OutErrors);
 
+	// QQQ COMMENTS
+	static void DetermineMaterialImportance(const TArray<UMaterialInterface*>& InMaterials, TArray<float>& OutImportance);
+	static void GeneratedBinnedTextureSquares(const FVector2D DestinationSize, TArray<float>& InTexureWeights, TArray<FBox2D>& OutGeneratedBoxes);
 private:
 	
 	/**
@@ -478,7 +474,7 @@ private:
 	* @param OutSamples				Array of FColor samples containing the rendered out texture pixel data
 	* @return						Whether operation was successful
 	*/
-	static bool RenderMaterialPropertyToTexture(struct FMaterialMergeData& InMaterialData, EMaterialProperty InMaterialProperty, bool bInForceLinearGamma, EPixelFormat InPixelFormat, const FIntPoint& InTargetSize, FIntPoint& OutSampleSize, TArray<FColor>& OutSamples);
+	static bool RenderMaterialPropertyToTexture(struct FMaterialMergeData& InMaterialData, EMaterialProperty InMaterialProperty, bool bInForceLinearGamma, EPixelFormat InPixelFormat, const FIntPoint InTargetSize, FIntPoint& OutSampleSize, TArray<FColor>& OutSamples);
 
 	/**
 	* Creates and add or reuses a RenderTarget from the pool
@@ -503,6 +499,7 @@ private:
 
 	/** Tries to optimize the sample array (will set to const value if all samples are equal) */
 	static void OptimizeSampleArray(TArray<FColor>& InSamples, FIntPoint& InSampleSize);
+	
 private:
 	/** Flag to indicate whether or not a texture is currently being rendered out */
 	static bool CurrentlyRendering;

@@ -4,13 +4,18 @@
 	StatsFile.cpp: Implements stats file related functionality.
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "Stats/StatsFile.h"
+#include "HAL/FileManager.h"
+#include "Templates/ScopedPointer.h"
+#include "Misc/Paths.h"
+#include "Internationalization/Internationalization.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "UniquePtr.h"
 
 #if	STATS
 
-#include "StatsData.h"
-#include "StatsFile.h"
-#include "ScopeExit.h"
+#include "Misc/ScopeExit.h"
 
 DECLARE_CYCLE_STAT( TEXT( "Stream File" ), STAT_StreamFile, STATGROUP_StatSystem );
 DECLARE_CYCLE_STAT( TEXT( "Wait For Write" ), STAT_StreamFileWaitForWrite, STATGROUP_StatSystem );
@@ -1183,7 +1188,7 @@ void FCommandStatsFile::TestLastSaved()
 		}
 	};
 
-	TAutoPtr<FStatsTestReader> Instance( FStatsReader<FStatsTestReader>::Create( *FilePath ) );
+	TUniquePtr<FStatsTestReader> Instance( FStatsReader<FStatsTestReader>::Create( *FilePath ) );
 
 	extern void DumpHistoryFrame( FStatsThreadState const& StatsData, int64 TargetFrame, float InDumpCull = 0.0f, int32 MaxDepth = MAX_int32, TCHAR const* Filter = NULL );
 

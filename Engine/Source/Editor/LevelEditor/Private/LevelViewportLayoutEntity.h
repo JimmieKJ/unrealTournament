@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "LevelEditor.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
 #include "LevelViewportLayout.h"
+
+class FLevelEditorViewportClient;
+class SLevelViewport;
 
 class LEVELEDITOR_API FLevelViewportLayoutEntity : public IViewportLayoutEntity
 {

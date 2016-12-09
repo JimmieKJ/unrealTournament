@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-// @todo AIModule circular dependency
 #include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/Engine.h"
+// @todo AIModule circular dependency
 #include "AI/Navigation/NavAreas/NavArea.h"
+#include "EngineGlobals.h"
 
 //----------------------------------------------------------------------//
 // FNavigationQueryFilter

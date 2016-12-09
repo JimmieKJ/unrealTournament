@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "Runtime/Renderer/Public/MaterialShader.h"
+#include "CoreMinimal.h"
+#include "Rendering/RenderingCommon.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "MaterialShaderType.h"
+#include "MaterialShader.h"
 
 class FSlateMaterialShaderVS : public FMaterialShader
 {

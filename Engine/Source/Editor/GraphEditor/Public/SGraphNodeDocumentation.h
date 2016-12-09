@@ -2,7 +2,13 @@
 
 #pragma once
 
-class IDocumentationPage;
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/SlateRect.h"
+#include "Input/Reply.h"
+#include "SGraphNodeResizable.h"
+#include "Types/SlateStructs.h"
 
 class SGraphNodeDocumentation : public SGraphNodeResizable
 {

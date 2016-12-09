@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Factories/WorldFactory.h"
+#include "UObject/Package.h"
+#include "Engine/Level.h"
+#include "Editor/EditorEngine.h"
+#include "ThumbnailRendering/WorldThumbnailInfo.h"
 #include "EditorClassUtils.h"
 
 #define LOCTEXT_NAMESPACE "WorldFactory"

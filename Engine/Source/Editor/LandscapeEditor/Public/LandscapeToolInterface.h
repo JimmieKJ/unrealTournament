@@ -2,20 +2,33 @@
 
 #pragma once
 
-// Forward declarations
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "UObject/GCObject.h"
+#include "UnrealWidget.h"
+#include "EdMode.h"
+
+class FEditorViewportClient;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FViewport;
 class ULandscapeInfo;
 class ULandscapeLayerInfoObject;
+class UMaterialInstance;
+class UMaterialInterface;
+class UViewportInteractor;
+struct FViewportClick;
 
 // FLandscapeToolMousePosition - Struct to store mouse positions since the last time we applied the brush
-struct FLandscapeToolMousePosition
+struct FLandscapeToolInteractorPosition
 {
 	// Stored in heightmap space.
 	FVector2D Position;
-	bool bShiftDown;
+	bool bModifierPressed;
 
-	FLandscapeToolMousePosition(FVector2D InPosition, bool InbShiftDown)
+	FLandscapeToolInteractorPosition(FVector2D InPosition, const bool bInModifierPressed)
 		: Position(InPosition)
-		, bShiftDown(InbShiftDown)
+		, bModifierPressed(bInModifierPressed)
 	{
 	}
 };
@@ -85,7 +98,7 @@ class FLandscapeBrush : public FGCObject
 {
 public:
 	virtual void MouseMove(float LandscapeX, float LandscapeY) = 0;
-	virtual FLandscapeBrushData ApplyBrush(const TArray<FLandscapeToolMousePosition>& MousePositions) = 0;
+	virtual FLandscapeBrushData ApplyBrush(const TArray<FLandscapeToolInteractorPosition>& InteractorPositions) = 0;
 	virtual TOptional<bool> InputKey(FEditorViewportClient* InViewportClient, FViewport* InViewport, FKey InKey, EInputEvent InEvent) { return TOptional<bool>(); }
 	virtual void Tick(FEditorViewportClient* ViewportClient, float DeltaTime) {};
 	virtual void BeginStroke(float LandscapeX, float LandscapeY, class FLandscapeTool* CurrentTool);
@@ -192,9 +205,9 @@ struct FLandscapeToolTarget
 	FName LayerName;
 
 	FLandscapeToolTarget()
-		: LandscapeInfo(NULL)
+		: LandscapeInfo()
 		, TargetType(ELandscapeToolTargetType::Heightmap)
-		, LayerInfo(NULL)
+		, LayerInfo()
 		, LayerName(NAME_None)
 	{
 	}
@@ -214,7 +227,7 @@ class FLandscapeTool : public FGCObject
 public:
 	virtual void EnterTool() {}
 	virtual void ExitTool() {}
-	virtual bool BeginTool(FEditorViewportClient* ViewportClient, const FLandscapeToolTarget& Target, const FVector& InHitLocation) = 0;
+	virtual bool BeginTool(FEditorViewportClient* ViewportClient, const FLandscapeToolTarget& Target, const FVector& InHitLocation, const UViewportInteractor* Interactor = nullptr) = 0;
 	virtual void EndTool(FEditorViewportClient* ViewportClient) = 0;
 	virtual void Tick(FEditorViewportClient* ViewportClient, float DeltaTime) {};
 	virtual bool MouseMove(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 x, int32 y) = 0;

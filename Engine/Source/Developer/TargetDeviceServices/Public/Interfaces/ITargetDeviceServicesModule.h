@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Interfaces/ITargetDeviceProxyManager.h"
+#include "Interfaces/ITargetDeviceServiceManager.h"
 
 /**
  * Interface for target device services modules.

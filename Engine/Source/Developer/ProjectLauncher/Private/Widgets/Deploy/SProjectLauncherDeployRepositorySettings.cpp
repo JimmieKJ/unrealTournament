@@ -1,6 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
+#include "Widgets/Deploy/SProjectLauncherDeployRepositorySettings.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "DesktopPlatformModule.h"
+#include "Widgets/Deploy/SProjectLauncherDeployTargets.h"
 
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherDeployRepositorySettings"

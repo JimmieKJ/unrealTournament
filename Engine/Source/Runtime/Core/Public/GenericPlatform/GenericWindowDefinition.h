@@ -2,10 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 #include "Containers/UnrealString.h"
-#include "HAL/Platform.h"
-#include "GenericApplicationMessageHandler.h"
-#include "StaticArray.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 
 
 #ifndef ALPHA_BLENDED_WINDOWS

@@ -1,15 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneAudioSection.h"
-#include "MovieSceneAudioTrack.h"
-#include "IMovieScenePlayer.h"
-#include "SoundDefinitions.h"
-#include "Sound/SoundNodeWavePlayer.h"
+#include "Tracks/MovieSceneAudioTrack.h"
+#include "Audio.h"
+#include "Sound/SoundWave.h"
 #include "Sound/SoundCue.h"
-#include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
-#include "Runtime/Engine/Public/AudioDecompress.h"
-#include "MovieSceneAudioTrackInstance.h"
+#include "MovieScene.h"
+#include "Sections/MovieSceneAudioSection.h"
+#include "Sound/SoundNodeWavePlayer.h"
+#include "Kismet/GameplayStatics.h"
+#include "AudioDecompress.h"
 
 
 #define LOCTEXT_NAMESPACE "MovieSceneAudioTrack"
@@ -21,12 +20,6 @@ UMovieSceneAudioTrack::UMovieSceneAudioTrack( const FObjectInitializer& ObjectIn
 #if WITH_EDITORONLY_DATA
 	TrackTint = FColor(93, 95, 136);
 #endif
-}
-
-
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneAudioTrack::CreateInstance()
-{
-	return MakeShareable( new FMovieSceneAudioTrackInstance( *this ) ); 
 }
 
 

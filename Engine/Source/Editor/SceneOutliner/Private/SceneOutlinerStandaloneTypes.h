@@ -2,11 +2,9 @@
 
 #pragma once
 
-#include "ObjectKey.h"
-#include "SceneOutlinerFwd.h"
-
-#include "SceneOutlinerDragDrop.h"
-#include "SceneOutlinerFilters.h"
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+#include "UObject/ObjectKey.h"
 
 namespace SceneOutliner
 {

@@ -1587,6 +1587,20 @@ void FD3D11DynamicRHI::RHIBindDebugLabelName(FTextureRHIParamRef TextureRHI, con
 	//todo: require names at texture creation time.
 	FName DebugName(Name);
 	TextureRHI->SetName(DebugName);
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+	if (FD3D11Texture2D* Texture2D = (FD3D11Texture2D*)TextureRHI->GetTexture2D())
+	{
+		Texture2D->GetResource()->SetPrivateData(WKPDID_D3DDebugObjectName, FCString::Strlen(Name) + 1, TCHAR_TO_ANSI(Name));
+	}
+	else if (FD3D11TextureCube* TextureCube = (FD3D11TextureCube*)TextureRHI->GetTextureCube())
+	{
+		TextureCube->GetResource()->SetPrivateData(WKPDID_D3DDebugObjectName, FCString::Strlen(Name) + 1, TCHAR_TO_ANSI(Name));
+	}
+	else if (FD3D11Texture3D* Texture3D = (FD3D11Texture3D*)TextureRHI->GetTexture3D())
+	{
+		Texture3D->GetResource()->SetPrivateData(WKPDID_D3DDebugObjectName, FCString::Strlen(Name) + 1, TCHAR_TO_ANSI(Name));
+	}
+#endif
 }
 
 void FD3D11DynamicRHI::RHIVirtualTextureSetFirstMipInMemory(FTexture2DRHIParamRef TextureRHI, uint32 FirstMip)

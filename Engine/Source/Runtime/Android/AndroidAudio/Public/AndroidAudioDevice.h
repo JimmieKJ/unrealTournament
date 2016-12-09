@@ -8,11 +8,10 @@
 
 class FSLESAudioDevice;
 
-#include "Core.h"
-#include "Engine.h"
-#include "SoundDefinitions.h"
+#include "CoreMinimal.h"
 #include "AudioDecompress.h"
 #include "AudioEffect.h"
+#include "AudioDevice.h"
 
 #include <SLES/OpenSLES.h>
 #include "SLES/OpenSLES_Android.h"
@@ -241,6 +240,8 @@ protected:
 	int32						BufferInUse;
 	float						VolumePreviousUpdate;
 	bool						bHasLooped;
+	/** Lets us know if calls to SL_PlayerPlayInterface->GetPosition have progressed past 0 at some point so we can determine when a non-looping sound has finished */
+	bool						bHasPositionUpdated;
 
 	bool CreatePlayer();
 	void DestroyPlayer();

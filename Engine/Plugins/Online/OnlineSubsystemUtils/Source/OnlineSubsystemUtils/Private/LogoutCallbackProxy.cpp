@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "LogoutCallbackProxy.h"
-#include "OnlineExternalUIInterface.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/LocalPlayer.h"
+#include "OnlineSubsystem.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "OnlineSubsystemBPCallHelper.h"
 
 ULogoutCallbackProxy::ULogoutCallbackProxy(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

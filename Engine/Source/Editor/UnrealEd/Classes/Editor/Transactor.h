@@ -5,6 +5,12 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Serialization/ArchiveUObject.h"
+#include "Misc/ITransaction.h"
 #include "Transactor.generated.h"
 
 /*-----------------------------------------------------------------------------

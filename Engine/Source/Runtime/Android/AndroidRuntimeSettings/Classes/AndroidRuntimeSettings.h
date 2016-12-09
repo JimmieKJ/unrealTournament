@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "AndroidRuntimeSettings.generated.h"
 
 UENUM()
@@ -237,7 +240,11 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = AdvancedAPKPackaging, Meta = (DisplayName = "Remove Oculus Signature Files from Distribution APK"))
 	bool bRemoveOSIG;
 
-	// Configure AndroidManifest.xml for Cardboard, Cardboard Advanced, or Daydream deployment. If running in Daydream-only mode, sustained performance and scanline racing are forced.
+	// Configure AndroidManifest.xml and Resrouces for Daydream
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = AdvancedAPKPackaging, Meta = (DisplayName = "Configure for deployment to Daydream"))
+	bool bPackageForDaydream;
+
+	// Configure AndroidManifest.xml for Cardboard, Cardboard Advanced, or Daydream deployment. If running in Daydream-only mode, sustained performance and async reprojection are forced.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = AdvancedAPKPackaging, Meta = (DisplayName = "Configure GoogleVR Deployment Mode"))
 	TEnumAsByte<EGoogleVRMode::Type> GoogleVRMode;
 
@@ -277,11 +284,11 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Support x86_64 [aka x64]"))
 	bool bBuildForX8664;
 
-	// Enable ES2 support? [CURRENTLY FOR FULL SOURCE GAMES ONLY]
+	// Enable ES2 support?
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Support OpenGL ES2"))
 	bool bBuildForES2;
 
-	// Enable ES3.1 support? [CURRENTLY FOR FULL SOURCE GAMES ONLY]
+	// Enable ES3.1 support?
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Support OpenGL ES3.1"))
 	bool bBuildForES31;
 
@@ -289,7 +296,7 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Support OpenGL ES Deferred Shading Renderer"))
 	bool bBuildForESDeferred;
 
-	// Enable Vulkan support? [CURRENTLY FOR FULL SOURCE GAMES ONLY]
+	// Enable Vulkan rendering support?
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Support Vulkan [Experimental]"))
 	bool bSupportsVulkan;
 

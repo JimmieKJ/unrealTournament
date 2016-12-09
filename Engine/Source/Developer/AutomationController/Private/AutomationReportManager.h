@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/IAutomationReport.h"
 
 /**
  * Wrapper class to obfuscate the hierarchy of tests

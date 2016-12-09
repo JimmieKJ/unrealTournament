@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "EngineDefines.h"
 #include "GameFramework/DamageType.h"
+#include "Engine/World.h"
+#include "Components/PrimitiveComponent.h"
+#include "GameFramework/WorldSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogProjectileMovement, Log, All);
 

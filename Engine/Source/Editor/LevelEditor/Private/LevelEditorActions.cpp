@@ -1,74 +1,85 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
+#include "LevelEditorActions.h"
+#include "SceneView.h"
+#include "Factories/Factory.h"
+#include "Animation/AnimSequence.h"
+#include "Components/LightComponent.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "TexAlignTools.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Materials/Material.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "ISourceControlModule.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Factories/BlueprintFactory.h"
+#include "Editor/GroupActor.h"
+#include "Materials/MaterialInstance.h"
+#include "Engine/Light.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Kismet2/ComponentEditorUtils.h"
+#include "Engine/Selection.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/UObjectIterator.h"
+#include "EngineUtils.h"
+#include "EditorModes.h"
+#include "UnrealEdMisc.h"
+#include "FileHelpers.h"
+#include "EditorModeInterpolation.h"
+#include "UnrealEdGlobals.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "LevelEditor.h"
 #include "Matinee/MatineeActor.h"
 #include "Engine/LevelScriptBlueprint.h"
 #include "LightingBuildOptions.h"
 #include "EditorSupportDelegates.h"
 #include "SLevelEditor.h"
-#include "LevelEditorActions.h"
-#include "SLevelViewport.h"
 #include "EditorBuildUtils.h"
-#include "Toolkits/AssetEditorManager.h"
 #include "ScopedTransaction.h"
-#include "Editor/Kismet/Public/BlueprintEditorModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
-#include "Editor/MainFrame/Public/MainFrame.h"
-#include "Editor/UnrealEd/Private/GeomFitUtils.h"
-#include "Editor/UnrealEd/Public/BSPOps.h"
-#include "Editor/LevelEditor/Public/DlgDeltaTransform.h"
-#include "Runtime/Engine/Classes/PhysicsEngine/BodySetup.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "DlgDeltaTransform.h"
 #include "Editor/NewLevelDialog/Public/NewLevelDialogModule.h"
-#include "DelegateFilter.h"
-#include "BlueprintUtilities.h"
 #include "MRUFavoritesList.h"
-#include "Editor/SceneOutliner/Private/SSocketChooser.h"
+#include "Private/SSocketChooser.h"
 #include "SnappingUtils.h"
+#include "LevelEditorViewport.h"
 #include "Layers/ILayers.h"
+#include "IPlacementMode.h"
 #include "IPlacementModeModule.h"
 #include "AssetSelection.h"
 #include "IDocumentation.h"
 #include "SourceCodeNavigation.h"
-#include "Dialogs/DlgPickAssetPath.h"
-#include "AssetToolsModule.h"
-#include "BlueprintEditorUtils.h"
-#include "KismetEditorUtilities.h"
 #include "DesktopPlatformModule.h"
 #include "EngineAnalytics.h"
-#include "AnalyticsEventAttribute.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "ReferenceViewer.h"
 #include "ISizeMapModule.h"
-#include "Developer/MeshUtilities/Public/MeshUtilities.h"
 #include "EditorClassUtils.h"
-#include "ComponentEditorUtils.h"
 
 #include "EditorActorFolders.h"
 #include "ActorPickerMode.h"
-#include "EngineBuildSettings.h"
-#include "HotReloadInterface.h"
-#include "ISourceControlModule.h"
+#include "Misc/EngineBuildSettings.h"
+#include "Misc/HotReloadInterface.h"
 #include "SourceControlWindows.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
-#include "Engine/Selection.h"
-#include "EngineUtils.h"
-#include "Engine/StaticMeshActor.h"
-#include "Engine/Polys.h"
-#include "Components/LightComponent.h"
-#include "Engine/StaticMesh.h"
-#include "Engine/Light.h"
-#include "Animation/SkeletalMeshActor.h"
-#include "Animation/AnimSequence.h"
-#include "Editor/KismetWidgets/Public/CreateBlueprintFromActorDialog.h"
-#include "EditorProjectSettings.h"
-#include "HierarchicalLODUtilities.h"
-#include "HierarchicalLODUtilitiesModule.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "CreateBlueprintFromActorDialog.h"
+#include "Settings/EditorProjectSettings.h"
 #include "Engine/LODActor.h"
-#include "AsyncResult.h"
-#include "IPortalApplicationWindow.h"
+#include "IHierarchicalLODUtilities.h"
+#include "HierarchicalLODUtilitiesModule.h"
+#include "Application/IPortalApplicationWindow.h"
 #include "IPortalServiceLocator.h"
 #include "MaterialShaderQualitySettings.h"
 #include "IVREditorModule.h"
@@ -2049,55 +2060,7 @@ void FLevelEditorActionCallbacks::OpenContentBrowser()
 
 void FLevelEditorActionCallbacks::OpenMarketplace()
 {
-	auto Service = GEditor->GetServiceLocator()->GetServiceRef<IPortalApplicationWindow>();
-	if (Service->IsAvailable())
-	{
-		TAsyncResult<bool> Result = Service->NavigateTo(TEXT("/ue/marketplace"));
-		if (FEngineAnalytics::IsAvailable())
-		{
-			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.OpenMarketplace"));
-		}
-	}
-	else
-	{
-	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
-
-	if (DesktopPlatform != nullptr)
-	{
-		TArray<FAnalyticsEventAttribute> EventAttributes;
-
-		FOpenLauncherOptions OpenOptions(TEXT("ue/marketplace"));
-		if ( DesktopPlatform->OpenLauncher(OpenOptions) )
-		{
-			EventAttributes.Add(FAnalyticsEventAttribute(TEXT("OpenSucceeded"), TEXT("TRUE")));
-		}
-		else
-		{
-			EventAttributes.Add(FAnalyticsEventAttribute(TEXT("OpenSucceeded"), TEXT("FALSE")));
-
-			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("InstallMarketplacePrompt", "The Marketplace requires the Epic Games Launcher, which does not seem to be installed on your computer. Would you like to install it now?")))
-			{
-				FOpenLauncherOptions InstallOptions(true, TEXT("ue/marketplace"));
-				if (!DesktopPlatform->OpenLauncher(InstallOptions))
-				{
-					EventAttributes.Add(FAnalyticsEventAttribute(TEXT("InstallSucceeded"), TEXT("FALSE")));
-					FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(TEXT("Sorry, there was a problem installing the Launcher.\nPlease try to install it manually!")));
-				}
-				else
-				{
-					EventAttributes.Add(FAnalyticsEventAttribute(TEXT("InstallSucceeded"), TEXT("TRUE")));
-				}
-			}
-		}
-
-		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("Source"), TEXT("EditorToolbar")));
-
-		if( FEngineAnalytics::IsAvailable() )
-		{
-			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.OpenMarketplace"), EventAttributes);
-		}
-	}
-}
+	FUnrealEdMisc::Get().OpenMarketplace();
 }
 
 
@@ -2111,7 +2074,7 @@ void FLevelEditorActionCallbacks::ToggleVR()
 bool FLevelEditorActionCallbacks::ToggleVR_CanExecute()
 {
 	IVREditorModule& VREditorModule = IVREditorModule::Get();
-	return VREditorModule.IsVREditorAvailable();
+	return VREditorModule.IsVREditorAvailable() && !GEditor->bIsSimulatingInEditor;
 }
 
 
@@ -2658,7 +2621,7 @@ void FLevelEditorActionCallbacks::MoveActorTo_Clicked( const bool InAlign, const
 	for ( FSelectionIterator It( GEditor->GetSelectedActorIterator() ) ; It ; ++It )
 	{
 		AActor* Actor = Cast<AActor>( *It );
-		checkSlow( Actor->IsA(AActor::StaticClass()) );
+		checkSlow( Actor );
 		if ( Actor == InDestination )	// Early out
 		{
 			continue;
@@ -2915,8 +2878,8 @@ void FLevelEditorCommands::RegisterCommands()
 	UI_COMMAND( BrowseViewportControls, "Viewport Controls...", "Opens the viewport controls cheat sheet", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( NewLevel, "New Level...", "Create a new level, or choose a level template to start from.", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::N ) );
 	UI_COMMAND( OpenLevel, "Open Level...", "Loads an existing level", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::O ) );
-	UI_COMMAND( Save, "Save", "Saves the current level to disk", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( SaveAs, "Save As...", "Save the current level as...", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Shift|EModifierKey::Control, EKeys::S ) );
+	UI_COMMAND( Save, "Save Current", "Saves the current level to disk", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control, EKeys::S) );
+	UI_COMMAND( SaveAs, "Save Current As...", "Save the current level as...", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control|EModifierKey::Alt, EKeys::S ) );
 	UI_COMMAND( SaveAllLevels, "Save All Levels", "Saves all unsaved levels to disk", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( ToggleFavorite, "Toggle Favorite", "Sets whether the currently loaded level will appear in the list of favorite levels", EUserInterfaceActionType::Button, FInputChord() );
 
@@ -2947,7 +2910,7 @@ void FLevelEditorCommands::RegisterCommands()
 	UI_COMMAND( LightingBuildOptions_UseErrorColoring, "Use Error Coloring", "When enabled, errors during lighting precomputation will be baked as colors into light map data", EUserInterfaceActionType::ToggleButton, FInputChord() );
 	UI_COMMAND( LightingBuildOptions_ShowLightingStats, "Show Lighting Stats", "When enabled, a window containing metrics about lighting performance and memory will be displayed after a successful build.", EUserInterfaceActionType::ToggleButton, FInputChord() );
 	UI_COMMAND( BuildGeometryOnly, "Build Geometry", "Only builds geometry (all levels.)", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( BuildGeometryOnly_OnlyCurrentLevel, "Build Geometry (Current Level)", "Builds geometry, only for the current level", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( BuildGeometryOnly_OnlyCurrentLevel, "Build Geometry (Current Level)", "Builds geometry, only for the current level", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control | EModifierKey::Shift, EKeys::B) );
 	UI_COMMAND( BuildPathsOnly, "Build Paths", "Only builds paths (all levels.)", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( BuildLODsOnly, "Build LODs", "Only builds LODs (all levels.)", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( BuildTextureStreamingOnly, "Build Texture Streaming", "Build texture streaming data", EUserInterfaceActionType::Button, FInputChord() );

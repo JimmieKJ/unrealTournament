@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Misc/CoreMisc.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
 /** Logging related to parties */
 PARTY_API DECLARE_LOG_CATEGORY_EXTERN(LogParty, Display, All);

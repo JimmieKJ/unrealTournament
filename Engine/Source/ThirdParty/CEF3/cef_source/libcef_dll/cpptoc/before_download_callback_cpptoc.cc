@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -12,6 +12,8 @@
 
 #include "libcef_dll/cpptoc/before_download_callback_cpptoc.h"
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -31,14 +33,20 @@ void CEF_CALLBACK before_download_callback_cont(
       show_dialog?true:false);
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefBeforeDownloadCallbackCppToC::CefBeforeDownloadCallbackCppToC(
-    CefBeforeDownloadCallback* cls)
-    : CefCppToC<CefBeforeDownloadCallbackCppToC, CefBeforeDownloadCallback,
-        cef_before_download_callback_t>(cls) {
-  struct_.struct_.cont = before_download_callback_cont;
+CefBeforeDownloadCallbackCppToC::CefBeforeDownloadCallbackCppToC() {
+  GetStruct()->cont = before_download_callback_cont;
+}
+
+template<> CefRefPtr<CefBeforeDownloadCallback> CefCppToC<CefBeforeDownloadCallbackCppToC,
+    CefBeforeDownloadCallback, cef_before_download_callback_t>::UnwrapDerived(
+    CefWrapperType type, cef_before_download_callback_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -47,3 +55,6 @@ template<> base::AtomicRefCount CefCppToC<CefBeforeDownloadCallbackCppToC,
     0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefBeforeDownloadCallbackCppToC,
+    CefBeforeDownloadCallback, cef_before_download_callback_t>::kWrapperType =
+    WT_BEFORE_DOWNLOAD_CALLBACK;

@@ -3,22 +3,26 @@
 /*=============================================================================
 	AVIWriter.cpp: AVI creation implementation.
 =============================================================================*/
-#include "EnginePrivate.h"
 #include "AVIWriter.h"
-#include "Engine/GameEngine.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/ScopeLock.h"
+#include "Async/Async.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAVIWriter, Log, All);
 
 #if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
 
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 typedef TCHAR* PTCHAR;
 #pragma warning(push)
 #pragma warning(disable : 4263) // 'function' : member function does not override any base class virtual member function
 #pragma warning(disable : 4264) // 'virtual_function' : no override available for virtual member function from base 'cla
 #if USING_CODE_ANALYSIS
-	#pragma warning(disable:6509) // Invalid annotation: 'return' cannot be referenced in some contexts
-	#pragma warning(disable:6101) // Returning uninitialized memory '*lpdwExitCode'.  A successful path through the function does not set the named _Out_ parameter.
+	#pragma warning(disable:6509)  // Invalid annotation: 'return' cannot be referenced in some contexts
+	#pragma warning(disable:6101)  // Returning uninitialized memory '*lpdwExitCode'.  A successful path through the function does not set the named _Out_ parameter.
+	#pragma warning(disable:28204) // 'Func' has an override at 'file' and only the override is annotated for _Param_(N): when an override is annotated, the base (this function) should be similarly annotated.
 #endif
 #include <streams.h>
 #pragma warning(pop)

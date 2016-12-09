@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "AssetUserData.generated.h"
-
 
 /**
  * Object that can be subclassed to store custom data on Unreal asset objects.

@@ -2,11 +2,16 @@
 
 #pragma once
 
-// Forward declarations
-class ULightComponent;
-class UInstancedStaticMeshComponent;
-class FShadowMap2D;
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "RenderingThread.h"
+#include "SceneManagement.h"
 
+class FShadowMap2D;
+class UInstancedStaticMeshComponent;
+class ULightComponent;
+class UMapBuildDataRegistry;
+class UShadowMapTexture2D;
 
 struct FSignedDistanceFieldShadowSample
 {
@@ -284,12 +289,12 @@ public:
 	 * @param	InWorld				World in which the textures exist
 	 * @param	bLightingSuccessful	Whether the lighting build was successful or not.
 	 */
-	static void EncodeTextures(UWorld* InWorld, bool bLightingSuccessful, bool bMultithreadedEncode =false );
+	static void EncodeTextures(UWorld* InWorld, ULevel* LightingScenario, bool bLightingSuccessful, bool bMultithreadedEncode =false );
 
 	/**
 	 * Constructs mip maps for a single shadowmap texture.
 	 */
-	static int32 EncodeSingleTexture(struct FShadowMapPendingTexture& PendingTexture, UShadowMapTexture2D* Texture, TArray< TArray<FFourDistanceFieldSamples>>& MipData);
+	static int32 EncodeSingleTexture(ULevel* LightingScenario, struct FShadowMapPendingTexture& PendingTexture, UShadowMapTexture2D* Texture, TArray< TArray<FFourDistanceFieldSamples>>& MipData);
 
 	static TRefCountPtr<FShadowMap2D> AllocateShadowMap(
 		UObject* LightMapOuter,
@@ -307,8 +312,8 @@ public:
 	 * @param	InPaddingType - the method for padding the shadowmap.
 	 * @param	ShadowmapFlags - flags that determine how the shadowmap is stored (e.g. streamed or not)
 	 */
-	static TRefCountPtr<FShadowMap2D> AllocateInstancedShadowMap(UInstancedStaticMeshComponent* Component, TArray<TMap<ULightComponent*, TUniquePtr<FShadowMapData2D>>>&& InstancedShadowMapData,
-		const FBoxSphereBounds& Bounds, ELightMapPaddingType PaddingType, EShadowMapFlags ShadowmapFlags);
+	static TRefCountPtr<FShadowMap2D> AllocateInstancedShadowMap(UObject* LightMapOuter, UInstancedStaticMeshComponent* Component, TArray<TMap<ULightComponent*, TUniquePtr<FShadowMapData2D>>>&& InstancedShadowMapData,
+		UMapBuildDataRegistry* Registry, FGuid MapBuildDataId, const FBoxSphereBounds& Bounds, ELightMapPaddingType PaddingType, EShadowMapFlags ShadowmapFlags);
 
 	FShadowMap2D();
 

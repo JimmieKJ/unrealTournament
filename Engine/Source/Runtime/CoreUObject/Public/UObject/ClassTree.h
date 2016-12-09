@@ -6,6 +6,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Containers/List.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+
 enum EClassFlagMatchType
 {
 	/** matches if the flags contain any of the mask flags specified */

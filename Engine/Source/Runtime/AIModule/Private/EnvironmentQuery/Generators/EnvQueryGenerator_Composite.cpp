@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType_Point.h"
 #include "EnvironmentQuery/Generators/EnvQueryGenerator_Composite.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_Point.h"
 
 #define LOCTEXT_NAMESPACE "EnvQueryGenerator"
 

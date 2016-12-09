@@ -1,13 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObject.h"
+#include "CoreMinimal.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/Guid.h"
+#include "Misc/App.h"
+#include "Async/TaskGraphInterfaces.h"
 
 #include "SwarmInterface.h"
 
-#include "CoreUObject.h"
 #include "SwarmMessages.h"
 #if USE_LOCAL_SWARM_INTERFACE
-#include "Messaging.h"
+#include "IMessageContext.h"
+#include "Helpers/MessageEndpoint.h"
+#include "Helpers/MessageEndpointBuilder.h"
 #endif
 
 namespace NSwarm

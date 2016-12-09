@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Stats/StatsData.h"
+#include "Templates/Greater.h"
+#include "Misc/CoreStats.h"
 #if STATS
 
-#include "TaskGraphInterfaces.h"
-#include "StatsData.h"
-#include "AllocatorFixedSizeFreeList.h"
-#include "LockFreeFixedSizeAllocator.h"
+#include "Containers/LockFreeFixedSizeAllocator.h"
+#include "HAL/IConsoleManager.h"
+#include "Async/TaskGraphInterfaces.h"
 
 DECLARE_CYCLE_STAT(TEXT("Broadcast"),STAT_StatsBroadcast,STATGROUP_StatSystem);
 DECLARE_CYCLE_STAT(TEXT("Condense"),STAT_StatsCondense,STATGROUP_StatSystem);

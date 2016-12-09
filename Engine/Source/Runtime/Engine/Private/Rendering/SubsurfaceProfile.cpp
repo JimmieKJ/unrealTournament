@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "SeparableSSS.h"
-#include "RendererInterface.h"
 #include "Engine/SubsurfaceProfile.h"
-#include "EngineModule.h" // GetRendererModule()
+#include "RenderingThread.h"
+#include "RendererInterface.h"
+#include "Rendering/SeparableSSS.h"
+#include "EngineModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSubsurfaceProfile, Log, All);
 

@@ -4,7 +4,7 @@
 // Global packaging for convenient multi-threaded output.
 // Can work at a lower level if required.
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #include "System/paConfig.h"
 

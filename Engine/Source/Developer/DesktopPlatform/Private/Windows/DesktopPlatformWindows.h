@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "../DesktopPlatformBase.h"
+#include "Containers/IndirectArray.h"
+#include "WindowsHWrapper.h"
 #include "WindowsRegistry.h"
 
 class FDesktopPlatformWindows : public FDesktopPlatformBase

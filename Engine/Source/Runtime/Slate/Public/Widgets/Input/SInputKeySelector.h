@@ -2,13 +2,29 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "InputCoreTypes.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateColor.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Input/Reply.h"
+#include "Styling/SlateWidgetStyleAsset.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/Commands/InputChord.h"
+
+class SButton;
+
 /**
  * A widget for selecting keys or input chords.
  */
 class SLATE_API SInputKeySelector : public SCompoundWidget
 {
 public:
-	DECLARE_DELEGATE_OneParam( FOnKeySelected, FInputChord )
+	DECLARE_DELEGATE_OneParam( FOnKeySelected, const FInputChord& )
 	DECLARE_DELEGATE( FOnIsSelectingKeyChanged )
 
 	SLATE_BEGIN_ARGS( SInputKeySelector )

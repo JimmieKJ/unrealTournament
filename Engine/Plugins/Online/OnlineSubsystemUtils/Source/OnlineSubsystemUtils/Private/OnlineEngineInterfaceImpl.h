@@ -2,13 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/CoreOnline.h"
 #include "Net/OnlineEngineInterface.h"
 #include "OnlineEngineInterfaceImpl.generated.h"
 
-class UWorld;
+class Error;
 class FVoicePacket;
-class FArchive;
-class FUniqueNetId;
+struct FWorldContext;
 
 UCLASS(config = Engine)
 class ONLINESUBSYSTEMUTILS_API UOnlineEngineInterfaceImpl : public UOnlineEngineInterface
@@ -123,6 +125,7 @@ public:
 public:
 
 	virtual bool SupportsOnlinePIE() override;
+	virtual void SetShouldTryOnlinePIE(bool bShouldTry) override;
 	virtual int32 GetNumPIELogins() override;
 	virtual void SetForceDedicated(FName OnlineIdentifier, bool bForce) override;
 	virtual void LoginPIEInstance(FName OnlineIdentifier, int32 LocalUserNum, int32 PIELoginNum, FOnPIELoginComplete& CompletionDelegate) override;

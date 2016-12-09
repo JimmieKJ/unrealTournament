@@ -1,13 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "TileSetDetailsCustomization.h"
+#include "TileSetEditor/TileSetDetailsCustomization.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "EditorStyleSet.h"
 #include "DetailLayoutBuilder.h"
+#include "IDetailPropertyRow.h"
 #include "DetailCategoryBuilder.h"
-#include "PropertyEditing.h"
-#include "ScopedTransaction.h"
-#include "IPropertyUtilities.h"
-#include "PaperTileSet.h"
+#include "IDetailsView.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 

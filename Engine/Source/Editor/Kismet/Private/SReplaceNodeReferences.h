@@ -2,6 +2,24 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "BlueprintEditor.h"
+
+class FImaginaryFiBData;
+class SComboButton;
+class SFindInBlueprints;
+struct FMemberReference;
+
 class FTargetReplaceReferences
 {
 public:

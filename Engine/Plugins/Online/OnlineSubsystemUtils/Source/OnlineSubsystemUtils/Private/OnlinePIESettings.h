@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/DeveloperSettings.h"
 #include "OnlinePIESettings.generated.h"
+
+struct FPropertyChangedEvent;
 
 /**
  * Stores PIE login credentials

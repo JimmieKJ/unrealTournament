@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationPrivatePCH.h"
 #include "LocalizationSettings.h"
-#include "LocalizationTargetTypes.h"
+#include "Misc/ConfigCacheIni.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
 
 ULocalizationSettings::ULocalizationSettings(const FObjectInitializer& ObjectInitializer)

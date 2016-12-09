@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "InternationalizationPrivatePCH.h"
 #include "LocTextHelper.h"
+#include "Misc/Paths.h"
 
-#include "Json.h"
-#include "JsonInternationalizationManifestSerializer.h"
-#include "JsonInternationalizationArchiveSerializer.h"
-#include "JsonInternationalizationMetadataSerializer.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonInternationalizationManifestSerializer.h"
+#include "Serialization/JsonInternationalizationArchiveSerializer.h"
+#include "Serialization/JsonInternationalizationMetadataSerializer.h"
 
 #define LOCTEXT_NAMESPACE "LocTextHelper"
 

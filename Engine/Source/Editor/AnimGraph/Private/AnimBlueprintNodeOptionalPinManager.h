@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "K2Node.h"
+
+class UEdGraphPin;
 
 struct FAnimBlueprintNodeOptionalPinManager : public FOptionalPinManager
 {

@@ -7,6 +7,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/FeedbackContext.h"
+#include "Widgets/SWindow.h"
+
+class FContextSupplier;
+class SBuildProgressWidget;
+
 /**
  * A FFeedbackContext implementation for use in UnrealEd.
  */

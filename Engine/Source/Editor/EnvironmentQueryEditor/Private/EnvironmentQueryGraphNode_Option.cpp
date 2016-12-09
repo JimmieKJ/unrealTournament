@@ -1,10 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnvironmentQueryEditorPrivatePCH.h"
-#include "ScopedTransaction.h"
-#include "SGraphEditorActionMenuAI.h"
+#include "EnvironmentQueryGraphNode_Option.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EnvironmentQuery/EnvQueryGenerator.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
 #include "EnvironmentQuery/EnvQueryOption.h"
+#include "EnvironmentQueryGraphNode_Test.h"
+#include "EdGraph/EdGraph.h"
+#include "SGraphEditorActionMenuAI.h"
 #include "EnvironmentQuery/Generators/EnvQueryGenerator_Composite.h"
 
 #define LOCTEXT_NAMESPACE "EnvironmentQueryEditor"

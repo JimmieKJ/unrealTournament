@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GeometryCacheEdModulePublicPCH.h"
 #include "GeometryCacheAssetBroker.h"
-#include "GeometryCacheComponent.h"
 #include "GeometryCache.h"
+#include "GeometryCacheComponent.h"
 
 UClass* FGeometryCacheAssetBroker::GetSupportedAssetClass()
 {

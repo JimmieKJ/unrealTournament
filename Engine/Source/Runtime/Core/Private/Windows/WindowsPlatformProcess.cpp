@@ -1,14 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "EngineVersion.h"
-#include "Resources/Windows/ModuleVersionResource.h"
+#include "Windows/WindowsPlatformProcess.h"
+#include "HAL/PlatformMisc.h"
+#include "Misc/AssertionMacros.h"
+#include "Logging/LogMacros.h"
+#include "HAL/PlatformAffinity.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/UnrealTemplate.h"
+#include "CoreGlobals.h"
+#include "HAL/FileManager.h"
+#include "Misc/Parse.h"
+#include "Containers/StringConv.h"
+#include "Containers/UnrealString.h"
+#include "Misc/SingleThreadEvent.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Internationalization/Internationalization.h"
+#include "CoreGlobals.h"
+#include "Stats/Stats.h"
+#include "Misc/CoreStats.h"
+#include "Runtime/Core/Resources/Windows/ModuleVersionResource.h"
+#include "Windows/WindowsHWrapper.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <shellapi.h>
-	#include <shlobj.h>
+	#include <ShlObj.h>
 	#include <LM.h>
 	#include <Psapi.h>
+	#include <TlHelp32.h>
 
 	namespace ProcessConstants
 	{
@@ -18,11 +37,13 @@
 		uint32 WIN_STILL_ACTIVE = STILL_ACTIVE;
 	}
 
-#include "HideWindowsPlatformTypes.h"
-#include "WindowsPlatformMisc.h"
-#include "EventPool.h"
+#include "Windows/HideWindowsPlatformTypes.h"
+#include "Windows/WindowsPlatformMisc.h"
 
 #pragma comment(lib, "psapi.lib")
+
+static bool ReadLibraryImportsFromMemory(const IMAGE_DOS_HEADER *Header, TArray<FString> &ImportNames);
+static const void *MapRvaToPointer(const IMAGE_DOS_HEADER *Header, const IMAGE_NT_HEADERS *NtHeader, size_t Rva);
 
 
 // static variables
@@ -38,36 +59,29 @@ void FWindowsPlatformProcess::AddDllDirectory(const TCHAR* Directory)
 	DllDirectories.AddUnique(NormalizedDirectory);
 }
 
-void* FWindowsPlatformProcess::GetDllHandle( const TCHAR* Filename )
+void* FWindowsPlatformProcess::GetDllHandle( const TCHAR* FileName )
 {
-	check(Filename);
+	check(FileName);
 
-	// In order to load the DLL and resolve its imports correctly, we update the PATH environment variable before the load, and restore it when we're done. 
-	TArray<TCHAR> InitialPathVariable;
-	InitialPathVariable.AddUninitialized(::GetEnvironmentVariable(TEXT("PATH"), NULL, 0));
-	if (::GetEnvironmentVariable(TEXT("PATH"), InitialPathVariable.GetData(), InitialPathVariable.Num()) == 0)
+	// Combine the explicit DLL search directories with the contents of the directory stack 
+	TArray<FString> SearchPaths;
+	SearchPaths.Add(FPlatformProcess::GetModulesDirectory());
+	if(DllDirectoryStack.Num() > 0)
 	{
-		UE_LOG(LogWindows, Warning, TEXT("Failed to load PATH environment variable. It either doesn't exist, or is too long."));
+		SearchPaths.Add(DllDirectoryStack.Top());
+	}
+	for(int32 Idx = 0; Idx < DllDirectories.Num(); Idx++)
+	{
+		SearchPaths.Add(DllDirectories[Idx]);
 	}
 
-	// Set the new path variable with the input directory at the start. Skip over any existing instances of the input directory.
-	FString NewPathVariable;
-	for(const FString& DllDirectory: DllDirectories)
-	{
-		if(NewPathVariable.Len() > 0)
-		{
-			NewPathVariable.AppendChar(TEXT(';'));
-		}
-		NewPathVariable.Append(DllDirectory);
-	}
-	SetEnvironmentVariable(TEXT("PATH"), *NewPathVariable);
+	// Load the DLL, avoiding windows dialog boxes if missing
+	int32 PrevErrorMode = ::SetErrorMode(SEM_NOOPENFILEERRORBOX);
 
-	// Load the DLL
-	::SetErrorMode(SEM_NOOPENFILEERRORBOX);
-	void* Handle = ::LoadLibraryW(Filename);
+	void* Handle = LoadLibraryWithSearchPaths(FileName, SearchPaths);
 
-	// Restore the PATH variable back to normal
-	::SetEnvironmentVariable(TEXT("PATH"), InitialPathVariable.GetData());
+	::SetErrorMode(PrevErrorMode);
+
 	return Handle;
 }
 
@@ -369,6 +383,11 @@ FProcHandle FWindowsPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* 
 	::CloseHandle( ProcInfo.hThread );
 
 	return FProcHandle(ProcInfo.hProcess);
+}
+
+FProcHandle FWindowsPlatformProcess::OpenProcess(uint32 ProcessID)
+{
+	return FProcHandle(::OpenProcess(PROCESS_ALL_ACCESS, 0, ProcessID));
 }
 
 bool FWindowsPlatformProcess::IsProcRunning( FProcHandle & ProcessHandle )
@@ -724,7 +743,16 @@ const TCHAR* FWindowsPlatformProcess::BaseDir()
 		// workingdir in your debugger to the <path>/Project/Binaries/Win64 of your cooked
 		// data
 		// Too early to use the FCommand line interface
-		if (FCString::Stristr(::GetCommandLine(), TEXT("-BaseFromWorkingDir")))
+		FString BaseArg;
+		FParse::Value(::GetCommandLineW(), TEXT("-basedir="), BaseArg);
+
+		if (BaseArg.Len())
+		{
+			BaseArg = BaseArg.Replace(TEXT("\\"), TEXT("/"));
+			BaseArg += TEXT('/');
+			FCString::Strcpy(Result, *BaseArg);
+		}
+		else if (FCString::Stristr(::GetCommandLineW(), TEXT("-BaseFromWorkingDir")))
 		{
 			::GetCurrentDirectory(512, Result);
 
@@ -787,7 +815,12 @@ const TCHAR* FWindowsPlatformProcess::UserTempDir()
 
 		::GetTempPath(MAX_PATH, TempPath);
 
-		WindowsUserTempDir = FString(TempPath).Replace(TEXT("\\"), TEXT("/"));
+		// Always expand the temp path in case windows returns short directory names.
+		TCHAR FullTempPath[MAX_PATH];
+		ZeroMemory(FullTempPath, sizeof(TCHAR) * MAX_PATH);
+		::GetLongPathName(TempPath, FullTempPath, MAX_PATH);
+
+		WindowsUserTempDir = FString(FullTempPath).Replace(TEXT("\\"), TEXT("/"));
 	}
 	return *WindowsUserTempDir;
 }
@@ -1056,7 +1089,7 @@ FEvent* FWindowsPlatformProcess::CreateSynchEvent(bool bIsManualReset)
 	return Event;
 }
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 bool FEventWin::Wait(uint32 WaitTime, const bool bIgnoreThreadIdleStats /*= false*/)
 {
@@ -1083,7 +1116,7 @@ void FEventWin::Reset()
 	ResetEvent( Event );
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #include "WindowsRunnableThread.h"
 
@@ -1188,7 +1221,7 @@ bool FWindowsPlatformProcess::WritePipe(void* WritePipe, const FString& Message,
 
 	// Write to pipe
 	uint32 BytesWritten = 0;
-	bool bIsWritten = !!WriteFile(WritePipe, Buffer, BytesAvailable, (::DWORD*)&BytesWritten, nullptr);
+	bool bIsWritten = !!WriteFile(WritePipe, Buffer, BytesAvailable + 1, (::DWORD*)&BytesWritten, nullptr);
 
 	// Get written message
 	if (OutWritten)
@@ -1200,7 +1233,7 @@ bool FWindowsPlatformProcess::WritePipe(void* WritePipe, const FString& Message,
 	return bIsWritten;
 }
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 FWindowsPlatformProcess::FWindowsSemaphore::FWindowsSemaphore(const FString & InName, HANDLE InSemaphore)
 	:	FSemaphore(InName)
@@ -1328,58 +1361,194 @@ bool FWindowsPlatformProcess::Daemonize()
 	return true;
 }
 
-FProcHandle FWindowsPlatformProcess::OpenProcess(uint32 ProcessID)
+void *FWindowsPlatformProcess::LoadLibraryWithSearchPaths(const FString& FileName, const TArray<FString>& SearchPaths)
 {
-	return FProcHandle(::OpenProcess(PROCESS_ALL_ACCESS, 0, ProcessID));
+	// Create a list of files which we've already checked for imports. Don't add the initial file to this list to improve the resolution of dependencies for direct circular dependencies of this
+	// module; by allowing the module to be visited twice, any mutually depended on DLLs will be visited first.
+	TArray<FString> VisitedImportNames;
+
+	// Find a list of all the DLLs that need to be loaded
+	TArray<FString> ImportFileNames;
+	ResolveImportsRecursive(*FileName, SearchPaths, ImportFileNames, VisitedImportNames);
+
+	// Load all the missing dependencies first
+	for(int32 Idx = 0; Idx < ImportFileNames.Num(); Idx++)
+	{
+		if(GetModuleHandle(*ImportFileNames[Idx]) == nullptr)
+		{
+			LoadLibrary(*ImportFileNames[Idx]);
+		}
+	}
+
+	// Finally, load the actual library
+	return LoadLibrary(*FileName);
+}
+
+void FWindowsPlatformProcess::ResolveImportsRecursive(const FString& FileName, const TArray<FString>& SearchPaths, TArray<FString>& ImportFileNames, TArray<FString>& VisitedImportNames)
+{
+	// Read the imports for this library
+	TArray<FString> ImportNames;
+	if(ReadLibraryImports(*FileName, ImportNames))
+	{
+		// Find all the imports that haven't already been resolved
+		for(int Idx = 0; Idx < ImportNames.Num(); Idx++)
+		{
+			const FString &ImportName = ImportNames[Idx];
+			if(!VisitedImportNames.Contains(ImportName))
+			{
+				// Prevent checking this import again
+				VisitedImportNames.Add(ImportName);
+
+				// Try to resolve this import
+				FString ImportFileName;
+				if(ResolveImport(*ImportName, SearchPaths, ImportFileName))
+				{
+					ResolveImportsRecursive(ImportFileName, SearchPaths, ImportFileNames, VisitedImportNames);
+					ImportFileNames.Add(ImportFileName);
+				}
+			}
+		}
+	}
+}
+
+bool FWindowsPlatformProcess::ResolveImport(const FString& Name, const TArray<FString>& SearchPaths, FString& OutFileName)
+{
+	// Look for the named DLL on any of the search paths
+	for(int Idx = 0; Idx < SearchPaths.Num(); Idx++)
+	{
+		FString FileName = SearchPaths[Idx] / Name;
+		if(FPaths::FileExists(FileName))
+		{
+			OutFileName = FPaths::ConvertRelativePathToFull(FileName);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool FWindowsPlatformProcess::ReadLibraryImports(const TCHAR* FileName, TArray<FString>& ImportNames)
+{
+	bool bResult = false;
+
+	// Open the DLL using a file mapping, so we don't need to map any more than is necessary
+	HANDLE NewFileHandle = CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if(NewFileHandle != INVALID_HANDLE_VALUE)
+	{
+		HANDLE NewFileMappingHandle = CreateFileMapping(NewFileHandle, NULL, PAGE_READONLY, 0, 0, NULL);
+		if(NewFileMappingHandle != NULL)
+		{
+			void* NewData = MapViewOfFile(NewFileMappingHandle, FILE_MAP_READ, 0, 0, 0);
+			if(NewData != NULL)
+			{
+				const IMAGE_DOS_HEADER* Header = (const IMAGE_DOS_HEADER*)NewData;
+				bResult = ReadLibraryImportsFromMemory(Header, ImportNames);
+				UnmapViewOfFile(NewData);
+			}
+			CloseHandle(NewFileMappingHandle);
+		}
+		CloseHandle(NewFileHandle);
+	}
+
+	return bResult;
+}
+
+bool ReadLibraryImportsFromMemory(const IMAGE_DOS_HEADER *Header, TArray<FString> &ImportNames)
+{
+	bool bResult = false;
+	if(Header->e_magic == IMAGE_DOS_SIGNATURE)
+	{
+		IMAGE_NT_HEADERS *NtHeader = (IMAGE_NT_HEADERS*)((BYTE*)Header + Header->e_lfanew);
+		if(NtHeader->Signature == IMAGE_NT_SIGNATURE)
+		{
+			// Find the import directory header
+			IMAGE_DATA_DIRECTORY *ImportDirectoryEntry = &NtHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+
+			// Enumerate the imports
+			IMAGE_IMPORT_DESCRIPTOR *ImportDescriptors = (IMAGE_IMPORT_DESCRIPTOR*)MapRvaToPointer(Header, NtHeader, ImportDirectoryEntry->VirtualAddress);
+			for(size_t ImportIdx = 0; ImportIdx * sizeof(IMAGE_IMPORT_DESCRIPTOR) < ImportDirectoryEntry->Size; ImportIdx++)
+			{
+				IMAGE_IMPORT_DESCRIPTOR *ImportDescriptor = ImportDescriptors + ImportIdx;
+				if(ImportDescriptor->Name != 0)
+				{
+					const char *ImportName = (const char*)MapRvaToPointer(Header, NtHeader, ImportDescriptor->Name);
+					ImportNames.Add(ImportName);
+				}
+			}
+
+			bResult = true;
+		}
+	}
+	return bResult;
+}
+
+const void *MapRvaToPointer(const IMAGE_DOS_HEADER *Header, const IMAGE_NT_HEADERS *NtHeader, size_t Rva)
+{
+	const IMAGE_SECTION_HEADER *SectionHeaders = (const IMAGE_SECTION_HEADER*)(NtHeader + 1);
+	for(size_t SectionIdx = 0; SectionIdx < NtHeader->FileHeader.NumberOfSections; SectionIdx++)
+	{
+		const IMAGE_SECTION_HEADER *SectionHeader = SectionHeaders + SectionIdx;
+		if(Rva >= SectionHeader->VirtualAddress && Rva < SectionHeader->VirtualAddress + SectionHeader->SizeOfRawData)
+		{
+			return (const BYTE*)Header + SectionHeader->PointerToRawData + (Rva - SectionHeader->VirtualAddress);
+		}
+	}
+	return NULL;
 }
 
 FWindowsPlatformProcess::FProcEnumerator::FProcEnumerator()
 {
 	SnapshotHandle = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	CurrentEntry.dwSize = 0;
+	CurrentEntry = new PROCESSENTRY32();
+	CurrentEntry->dwSize = 0;
 }
 
 FWindowsPlatformProcess::FProcEnumerator::~FProcEnumerator()
 {
 	::CloseHandle(SnapshotHandle);
+	delete CurrentEntry;
 }
 
 FWindowsPlatformProcess::FProcEnumInfo::FProcEnumInfo(const PROCESSENTRY32& InInfo)
-	: Info(InInfo)
+	: Info(new PROCESSENTRY32(InInfo))
 {
 
+}
+
+FWindowsPlatformProcess::FProcEnumInfo::~FProcEnumInfo()
+{
+	delete Info;
 }
 
 bool FWindowsPlatformProcess::FProcEnumerator::MoveNext()
 {
-	if (CurrentEntry.dwSize == 0)
+	if (CurrentEntry->dwSize == 0)
 	{
-		CurrentEntry.dwSize = sizeof(PROCESSENTRY32);
+		CurrentEntry->dwSize = sizeof(PROCESSENTRY32);
 
-		return ::Process32First(SnapshotHandle, &CurrentEntry) == TRUE;
+		return ::Process32First(SnapshotHandle, CurrentEntry) == TRUE;
 	}
 
-	return ::Process32Next(SnapshotHandle, &CurrentEntry) == TRUE;
+	return ::Process32Next(SnapshotHandle, CurrentEntry) == TRUE;
 }
 
 FWindowsPlatformProcess::FProcEnumInfo FWindowsPlatformProcess::FProcEnumerator::GetCurrent() const
 {
-	return FProcEnumInfo(CurrentEntry);
+	return FProcEnumInfo(*CurrentEntry);
 }
 
 uint32 FWindowsPlatformProcess::FProcEnumInfo::GetPID() const
 {
-	return Info.th32ProcessID;
+	return Info->th32ProcessID;
 }
 
 uint32 FWindowsPlatformProcess::FProcEnumInfo::GetParentPID() const
 {
-	return Info.th32ParentProcessID;
+	return Info->th32ParentProcessID;
 }
 
 FString FWindowsPlatformProcess::FProcEnumInfo::GetName() const
 {
-	return Info.szExeFile;
+	return Info->szExeFile;
 }
 
 FString FWindowsPlatformProcess::FProcEnumInfo::GetFullPath() const
@@ -1387,4 +1556,4 @@ FString FWindowsPlatformProcess::FProcEnumInfo::GetFullPath() const
 	return GetApplicationName(GetPID());
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RenderResource.h"
+
 class FSlateElementIndexBuffer : public FIndexBuffer
 {
 public:

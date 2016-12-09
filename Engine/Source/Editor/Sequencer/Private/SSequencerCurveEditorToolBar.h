@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Sequencer.h"
+
+class USequencerSettings;
+
 /** Wraps and builds a toolbar which works with the SSequencerCurveEditor. */
 class SSequencerCurveEditorToolBar : public SCompoundWidget
 {

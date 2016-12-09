@@ -2,8 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Commands/Commands.h"
+#include "SDestructibleMeshEditorViewport.h"
+#include "Widgets/Input/SComboBox.h"
+#include "EditorStyleSet.h"
+#include "Toolkits/IToolkitHost.h"
 #include "IDestructibleMeshEditor.h"
-#include "Toolkits/AssetEditorToolkit.h"
+
+class IDetailsView;
+class SDockableTab;
+class SSlider;
+class UDestructibleMesh;
 
 class FDestructibleMeshEditorCommands : public TCommands<FDestructibleMeshEditorCommands>
 {

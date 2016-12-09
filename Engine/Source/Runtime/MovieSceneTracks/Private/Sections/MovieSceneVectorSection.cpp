@@ -1,18 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneVectorSection.h"
-#include "MovieSceneVectorTrack.h"
+#include "Sections/MovieSceneVectorSection.h"
+#include "UObject/StructOnScope.h"
 
 
 /* FMovieSceneVectorKeyStruct interface
  *****************************************************************************/
 
-void FMovieSceneVectorKeyStruct::PropagateChanges(const FPropertyChangedEvent& ChangeEvent)
+void FMovieSceneVectorKeyStructBase::PropagateChanges(const FPropertyChangedEvent& ChangeEvent)
 {
-	for (int32 Index = 0; Index <= 3; ++Index)
+	for (int32 Index = 0; Index < GetChannelsUsed(); ++Index)
 	{
-		Keys[Index]->Value = Vector[Index];
+		if (Keys[Index] == nullptr)
+		{
+			if (Curves[Index] != nullptr)
+			{
+				Curves[Index]->SetDefaultValue(GetPropertyChannelByIndex(Index));
+			}
+		}
+		else
+		{
+			Keys[Index]->Value = GetPropertyChannelByIndex(Index);
+		}
 	}
 }
 
@@ -25,20 +34,6 @@ UMovieSceneVectorSection::UMovieSceneVectorSection(const FObjectInitializer& Obj
 {
 	ChannelsUsed = 0;
 }
-
-
-/* UMovieSceneVectorSection interface
- *****************************************************************************/
-
-FVector4 UMovieSceneVectorSection::Eval(float Position, const FVector4& DefaultVector) const
-{
-	return FVector4(
-		Curves[0].Eval(Position, DefaultVector.X),
-		Curves[1].Eval(Position, DefaultVector.Y),
-		Curves[2].Eval(Position, DefaultVector.Z),
-		Curves[3].Eval(Position, DefaultVector.W));
-}
-
 
 /* UMovieSceneSection interface
  *****************************************************************************/
@@ -90,14 +85,45 @@ void UMovieSceneVectorSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TR
 
 TSharedPtr<FStructOnScope> UMovieSceneVectorSection::GetKeyStruct(const TArray<FKeyHandle>& KeyHandles)
 {
-	TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieSceneVectorKeyStruct::StaticStruct()));
-	auto Struct = (FMovieSceneVectorKeyStruct*)KeyStruct->GetStructMemory();
+	TSharedPtr<FStructOnScope> KeyStruct;
+	if (ChannelsUsed == 2)
 	{
-		for (int32 Index = 0; Index <= 3; ++Index)
+		KeyStruct = MakeShareable(new FStructOnScope(FMovieSceneVector2DKeyStruct::StaticStruct()));
+	}
+	else if (ChannelsUsed == 3)
+	{
+		KeyStruct = MakeShareable(new FStructOnScope(FMovieSceneVectorKeyStruct::StaticStruct()));
+	}
+	else if (ChannelsUsed == 4)
+	{
+		KeyStruct = MakeShareable(new FStructOnScope(FMovieSceneVector4KeyStruct::StaticStruct()));
+	}
+
+	if (KeyStruct.IsValid())
+	{
+		FMovieSceneVectorKeyStructBase* Struct = (FMovieSceneVectorKeyStructBase*)KeyStruct->GetStructMemory();
+
+		float FirstValidKeyTime = 0.f;
+		for (int32 Index = 0; Index < Struct->GetChannelsUsed(); ++Index)
 		{
+			Struct->Curves[Index] = &Curves[Index];
 			Struct->Keys[Index] = Curves[Index].GetFirstMatchingKey(KeyHandles);
-			check(Struct->Keys[Index] != nullptr);
-			Struct->Vector[Index] = Struct->Keys[Index]->Value;
+			if (Struct->Keys[Index] != nullptr)
+			{
+				FirstValidKeyTime = Struct->Keys[Index]->Time;
+			}
+		}
+
+		for (int32 Index = 0; Index < Struct->GetChannelsUsed(); ++Index)
+		{
+			if (Struct->Keys[Index] == nullptr)
+			{
+				Struct->SetPropertyChannelByIndex(Index, Struct->Curves[Index]->Eval(FirstValidKeyTime));
+			}
+			else
+			{
+				Struct->SetPropertyChannelByIndex(Index, Struct->Keys[Index]->Value);
+			}
 		}
 	}
 
@@ -179,5 +205,14 @@ bool UMovieSceneVectorSection::HasKeys(const FVectorKey& Key) const
 void UMovieSceneVectorSection::SetDefault(const FVectorKey& Key)
 {
 	FRichCurve* ChannelCurve = GetCurveForChannel(Key.Channel, Curves, ChannelsUsed);
-	ChannelCurve->SetDefaultValue(Key.Value);
+	SetCurveDefault( *ChannelCurve, Key.Value );
+}
+
+
+void UMovieSceneVectorSection::ClearDefaults()
+{
+	for (auto Curve : Curves)
+	{
+		Curve.ClearDefaultValue();
+	}
 }

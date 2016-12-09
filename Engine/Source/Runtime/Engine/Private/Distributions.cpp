@@ -4,15 +4,21 @@
 	Distributions.cpp: Implementation of distribution classes.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Distributions.h"
+#include "UObject/UnrealType.h"
+#include "Distributions/Distribution.h"
+#include "Distributions/DistributionFloat.h"
+#include "Distributions/DistributionVector.h"
+#include "Particles/ParticleModule.h"
+#include "Distributions/DistributionFloatConstant.h"
+#include "Distributions/DistributionFloatUniform.h"
+#include "Distributions/DistributionVectorConstant.h"
+#include "Distributions/DistributionVectorUniform.h"
 #include "Distributions/DistributionVectorParameterBase.h"
 #include "Distributions/DistributionVectorConstantCurve.h"
 #include "Distributions/DistributionVectorUniformCurve.h"
-#include "ParticleDefinitions.h"
-#include "SoundDefinitions.h"
 #include "Sound/SoundNode.h"
 
-#include "Particles/ParticleModule.h"
 #include "Distributions/DistributionFloatUniformCurve.h"
 #include "Distributions/DistributionFloatConstantCurve.h"
 #include "Distributions/DistributionFloatParameterBase.h"
@@ -1136,6 +1142,10 @@ void FRawDistributionVector::Initialize()
 		return;
 	}
 
+	// fill out our min/max
+	Distribution->GetOutRange(MinValue, MaxValue);
+	Distribution->GetRange(MinValueVec, MaxValueVec);
+
 	// does this FRawDist need updating? (if UDist is dirty or somehow the distribution wasn't dirty, but we have no data)
 	bool bNeedsUpdating = false;
 	if (Distribution->bIsDirty || (LookupTable.IsEmpty() && Distribution->CanBeBaked()))
@@ -1177,10 +1187,6 @@ void FRawDistributionVector::Initialize()
 	const float MaxIn = MinIn + (LookupTable.EntryCount-1) * (LookupTable.TimeScale == 0.0f ? 0.0f : (1.0f / LookupTable.TimeScale));
 	OptimizeLookupTable( &LookupTable, LOOKUP_TABLE_ERROR_THRESHOLD );
 
-	// fill out our min/max
-	Distribution->GetOutRange(MinValue, MaxValue);
-
-	Distribution->GetRange(MinValueVec, MaxValueVec);
 }
 #endif
 
@@ -1232,7 +1238,7 @@ void FRawDistributionVector::GetOutRange(float& MinOut, float& MaxOut)
 
 void FRawDistributionVector::GetRange(FVector& MinOut, FVector& MaxOut)
 {
-	if (/*!HasLookupTable() &&*/ Distribution)
+	if (Distribution)
 	{
 		check(Distribution);
 		Distribution->GetRange(MinOut, MaxOut);

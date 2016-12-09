@@ -5,16 +5,21 @@
 /** 
  * Playable sound object for raw wave files
  */
-#include "BulkData.h"
-#include "Engine/EngineTypes.h"
+
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "Async/AsyncWork.h"
 #include "Sound/SoundBase.h"
+#include "Serialization/BulkData.h"
 #include "Sound/SoundGroups.h"
 
 #include "SoundWave.generated.h"
 
+class ITargetPlatform;
 struct FActiveSound;
 struct FSoundParseParameters;
-struct FWaveInstance;
 
 UENUM()
 enum EDecompressionType
@@ -121,7 +126,7 @@ class ENGINE_API USoundWave : public USoundBase
 	int32 CompressionQuality;
 
 	/** If set, when played directly (not through a sound cue) the wave will be played looping. */
-	UPROPERTY(EditAnywhere, Category=SoundWave )
+	UPROPERTY(EditAnywhere, Category=SoundWave, AssetRegistrySearchable)
 	uint32 bLooping:1;
 
 	/** Whether this sound can be streamed to avoid increased memory usage */
@@ -152,6 +157,10 @@ class ENGINE_API USoundWave : public USoundBase
 	/** If set to true the subtitles display as a sequence of single lines as opposed to multiline. */
 	UPROPERTY(EditAnywhere, Category=Subtitles )
 	uint32 bSingleLine:1;
+
+	/** Allows sound to play at 0 volume, otherwise will stop the sound when the sound is silent. */
+	UPROPERTY(EditAnywhere, Category=Sound)
+	uint32 bVirtualizeWhenSilent:1;
 
 	/** Whether this SoundWave was decompressed from OGG. */
 	uint32 bDecompressedFromOgg:1;
@@ -229,6 +238,14 @@ class ENGINE_API USoundWave : public USoundBase
 	
 #endif // WITH_EDITORONLY_DATA
 
+	/** Curves associated with this sound wave */
+	UPROPERTY(EditAnywhere, Category = "Curves")
+	class UCurveTable* Curves;
+
+	/** Hold a reference to our internal curve so we can switch back to it if we want to */
+	UPROPERTY()
+	class UCurveTable* InternalCurves;
+
 public:	
 	/** Async worker that decompresses the audio data on a different thread */
 	typedef FAsyncTask< class FAsyncAudioDecompressWorker > FAsyncAudioDecompress;	// Forward declare typedef
@@ -278,7 +295,7 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;	
 #endif // WITH_EDITOR
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	virtual FName GetExporterName() override;
 	virtual FString GetDesc() override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;

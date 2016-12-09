@@ -2,15 +2,19 @@
 
 #pragma once
 
-#include "Editor/UnrealEd/Public/Toolkits/BaseToolkit.h"
-#include "SCompoundWidget.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "LandscapeEdMode.h"
+#include "Toolkits/IToolkitHost.h"
+#include "AssetThumbnail.h"
+#include "Toolkits/BaseToolkit.h"
 
-// Forward declarations
-class FAssetThumbnailPool;
-class FAssetThumbnail;
+class Error;
+class IDetailsView;
+class SErrorText;
 class SLandscapeEditor;
 struct FPropertyAndParent;
-class IDetailsView;
 
 /**
  * Slate widget wrapping an FAssetThumbnail and Viewport

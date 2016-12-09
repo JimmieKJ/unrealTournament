@@ -12,136 +12,10 @@ using System.Collections.Generic;
 using System.IO;
 using Microsoft.Win32;
 using iPhonePackager;
+using Manzana;
 
 namespace DeploymentServer
 {
-	internal class CoreFoundation
-	{
-		static public CoreFoundationImpl CoreImpl;
-
-		static CoreFoundation()
-		{
-			if (Environment.OSVersion.Platform == PlatformID.MacOSX || Environment.OSVersion.Platform == PlatformID.Unix)
-			{
-				CoreImpl = new CoreFoundationOSX();
-			}
-			else
-			{
-				List<string> PathBits = new List<string>();
-				PathBits.Add(Environment.GetEnvironmentVariable("Path"));
-
-				// Try to add the paths from the registry (they aren't always available on newer iTunes installs though)
-				object RegistrySupportDir = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Apple Inc.\Apple Application Support", "InstallDir", Environment.CurrentDirectory);
-				if (RegistrySupportDir != null)
-				{
-					DirectoryInfo ApplicationSupportDirectory = new DirectoryInfo(RegistrySupportDir.ToString());
-
-					if (ApplicationSupportDirectory.Exists)
-					{
-						PathBits.Add(ApplicationSupportDirectory.FullName);
-					}
-				}
-
-				// Add some guesses as well
-				DirectoryInfo AppleMobileDeviceSupport = new DirectoryInfo(Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFiles) + @"\Apple\Mobile Device Support");
-				if (AppleMobileDeviceSupport.Exists)
-				{
-					PathBits.Add(AppleMobileDeviceSupport.FullName);
-				}
-
-				DirectoryInfo AppleMobileDeviceSupportX86 = new DirectoryInfo(Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFilesX86) + @"\Apple\Mobile Device Support");
-				if ((AppleMobileDeviceSupport != AppleMobileDeviceSupportX86) && (AppleMobileDeviceSupportX86.Exists))
-				{
-					PathBits.Add(AppleMobileDeviceSupportX86.FullName);
-				}
-
-				// Set the path from all the individual bits
-				Environment.SetEnvironmentVariable("Path", string.Join(";", PathBits));
-				CoreImpl = new CoreFoundationWin32();
-			}
-		}
-
-		public static int RunLoopRunInMode(IntPtr mode, double seconds, int returnAfterSourceHandled)
-		{
-			return CoreImpl.RunLoopInMode(mode, seconds, returnAfterSourceHandled);
-		}
-
-		public static IntPtr kCFRunLoopDefaultMode()
-		{
-			return CoreImpl.DefaultMode();
-		}
-	};
-
-	internal interface CoreFoundationImpl
-	{
-		int RunLoopInMode(IntPtr mode, double seconds, int returnAfterSourceHandled);
-		IntPtr DefaultMode();
-	}
-
-	internal class CoreFoundationOSX : CoreFoundationImpl
-	{
-		public int RunLoopInMode(IntPtr mode, double seconds, int returnAfterSourceHandled)
-		{
-			return CFRunLoopRunInMode(mode, seconds, returnAfterSourceHandled);
-		}
-
-		public IntPtr DefaultMode()
-		{
-			return kCFRunLoopDefaultMode;
-		}
-
-		[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
-		public extern static IntPtr CFStringCreateWithCString(IntPtr allocator, string value, int encoding);
-
-		[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
-		public extern static void CFRunLoopRun();
-
-		[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
-		public extern static IntPtr CFRunLoopGetMain();
-
-		[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
-		public extern static IntPtr CFRunLoopGetCurrent();
-
-		[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
-		public extern static int CFRunLoopRunInMode(IntPtr mode, double seconds, int returnAfterSourceHandled);
-
-		public static IntPtr kCFRunLoopDefaultMode = CFStringCreateWithCString(IntPtr.Zero, "kCFRunLoopDefaultMode", 0);
-	}
-
-	internal class CoreFoundationWin32 : CoreFoundationImpl
-	{
-		static CoreFoundationWin32()
-		{
-		}
-
-		public int RunLoopInMode(IntPtr mode, double seconds, int returnAfterSourceHandled)
-		{
-			return CFRunLoopRunInMode(mode, seconds, returnAfterSourceHandled);
-		}
-
-		public IntPtr DefaultMode()
-		{
-			return kCFRunLoopDefaultMode;
-		}
-
-		[DllImport("CoreFoundation.dll")]
-		public extern static IntPtr CFStringCreateWithCString(IntPtr allocator, string value, int encoding);
-
-		[DllImport("CoreFoundation.dll")]
-		public extern static void CFRunLoopRun();
-
-		[DllImport("CoreFoundation.dll")]
-		public extern static IntPtr CFRunLoopGetMain();
-
-		[DllImport("CoreFoundation.dll")]
-		public extern static IntPtr CFRunLoopGetCurrent();
-
-		[DllImport("CoreFoundation.dll")]
-		public extern static int CFRunLoopRunInMode(IntPtr mode, double seconds, int returnAfterSourceHandled);
-
-		public static IntPtr kCFRunLoopDefaultMode = CFStringCreateWithCString(IntPtr.Zero, "kCFRunLoopDefaultMode", 0);
-	}
-
 	class Program
     {
 		static int ExitCode = 0;
@@ -164,7 +38,7 @@ namespace DeploymentServer
 					Process ParentProcess = Process.GetProcessById(ParentPID);
 					while (!ParentProcess.HasExited)
 					{
-						CoreFoundation.RunLoopRunInMode(CoreFoundation.kCFRunLoopDefaultMode(), 1.0, 0);
+						CoreFoundationRunLoop.RunLoopRunInMode(CoreFoundationRunLoop.kCFRunLoopDefaultMode(), 1.0, 0);
 					}
 				}
 				catch (System.Exception Ex)
@@ -187,7 +61,7 @@ namespace DeploymentServer
 					enumerateLoop.Start();
 					while (!bCommandComplete)
 					{
-						CoreFoundation.RunLoopRunInMode(CoreFoundation.kCFRunLoopDefaultMode(), 1.0, 0);
+						CoreFoundationRunLoop.RunLoopRunInMode(CoreFoundationRunLoop.kCFRunLoopDefaultMode(), 1.0, 0);
 					}
 				}
                 Console.WriteLine("Exiting.");
@@ -298,6 +172,14 @@ namespace DeploymentServer
 
 				case "enumerate":
 					Deployer.EnumerateConnectedDevices();
+					break;
+
+				case "listdevices":
+					Deployer.ListDevices();
+					break;
+
+				case "listentodevice":
+					Deployer.ListenToDevice(Device);
 					break;
 			}
 

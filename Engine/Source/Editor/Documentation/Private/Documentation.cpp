@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DocumentationModulePrivatePCH.h"
 #include "Documentation.h"
+#include "Misc/Paths.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/SToolTip.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Dialogs/Dialogs.h"
 #include "SDocumentationAnchor.h"
 #include "UDNParser.h"
 #include "DocumentationPage.h"
 #include "DocumentationLink.h"
 #include "SDocumentationToolTip.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
 
 #define LOCTEXT_NAMESPACE "DocumentationActor"

@@ -5,7 +5,14 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "BlendSpaceFactory1D.generated.h"
+
+class FAssetData;
+class SWindow;
 
 UCLASS(hidecategories=Object, MinimalAPI)
 class UBlendSpaceFactory1D : public UFactory

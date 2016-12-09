@@ -1,0 +1,50 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+MobileOpacityShaders.usf: Renders opacity to alpha channel. Mobile only.
+=============================================================================*/
+
+#include "Common.usf"
+#include "Material.usf"
+#include "VertexFactory.usf"
+
+
+#define VertexFactoryGetInterpolants VertexFactoryGetInterpolantsVSToPS
+
+void MainVS(
+	FVertexFactoryInput Input
+	, out FVertexFactoryInterpolantsVSToPS FactoryInterpolants
+	, out float4 Position : SV_POSITION
+)
+{
+	ResolvedView = ResolveView();
+
+	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
+	float4 WorldPos = VertexFactoryGetWorldPosition(Input, VFIntermediates);
+	half3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);
+	FMaterialVertexParameters VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, WorldPos.xyz, TangentToLocal);
+
+	half3 WorldPositionOffset = GetMaterialWorldPositionOffset(VertexParameters);
+	WorldPos.xyz += WorldPositionOffset;
+
+	float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, WorldPos);
+	Position = mul(RasterizedWorldPosition, ResolvedView.TranslatedWorldToClip);
+
+	FactoryInterpolants = VertexFactoryGetInterpolants(Input, VFIntermediates, VertexParameters);
+}
+
+
+void MainPS(
+	FVertexFactoryInterpolantsVSToPS FactoryInterpolants
+	, in float4 SvPosition : SV_Position
+	OPTIONAL_IsFrontFace
+	, out half4 OutColor : SV_Target0
+)
+{
+	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(FactoryInterpolants, SvPosition);
+	FPixelMaterialInputs PixelMaterialInputs;
+	CalcMaterialParameters(MaterialParameters, PixelMaterialInputs, SvPosition, bIsFrontFace);
+	OutColor = half4(0,0,0, GetMaterialOpacity(PixelMaterialInputs));
+}
+
+

@@ -111,12 +111,6 @@ namespace UnrealBuildTool
 		/// 
 
 		/// <summary>
-		/// PCH header file name as it appears in an #include statement in source code (might include partial, or no relative path.)
-		/// This is needed by some compilers to use PCH features.
-		/// </summary>
-		public string PCHHeaderNameInCode;
-
-		/// <summary>
 		/// The PCH file that this file will use
 		/// </summary>
 		public FileReference PrecompiledHeaderIncludeFilename;

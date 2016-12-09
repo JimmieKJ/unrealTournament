@@ -1,11 +1,73 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HttpPrivatePCH.h"
-#include "CurlHttpManager.h"
-#include "CurlHttpThread.h"
-#include "CurlHttp.h"
+#include "Curl/CurlHttpManager.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/LocalTimestampDirectoryVisitor.h"
+#include "Curl/CurlHttpThread.h"
+#include "Curl/CurlHttp.h"
 
 #if WITH_LIBCURL
+
+#if PLATFORM_WINDOWS
+#include "SslModule.h"
+#endif
+
+#if PLATFORM_WINDOWS
+#include "AllowWindowsPlatformTypes.h"
+
+// recreating parts of winhttp.h in here because winhttp.h and wininet.h do not play well with each other.
+#if defined(_WIN64)
+#include <pshpack8.h>
+#else
+#include <pshpack4.h>
+#endif
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
+#if !defined(_WINHTTP_INTERNAL_)
+#define WINHTTPAPI DECLSPEC_IMPORT
+#else
+#define WINHTTPAPI
+
+#endif
+
+// WinHttpOpen dwAccessType values (also for WINHTTP_PROXY_INFO::dwAccessType)
+#define WINHTTP_ACCESS_TYPE_DEFAULT_PROXY               0
+#define WINHTTP_ACCESS_TYPE_NO_PROXY                    1
+#define WINHTTP_ACCESS_TYPE_NAMED_PROXY                 3
+#define WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY             4
+
+typedef struct
+{
+	DWORD  dwAccessType;      // see WINHTTP_ACCESS_* types below
+	LPWSTR lpszProxy;         // proxy server list
+	LPWSTR lpszProxyBypass;   // proxy bypass list
+}
+WINHTTP_PROXY_INFO, *LPWINHTTP_PROXY_INFO;
+WINHTTPAPI BOOL WINAPI WinHttpGetDefaultProxyConfiguration(WINHTTP_PROXY_INFO* pProxyInfo);
+
+typedef struct
+{
+	BOOL    fAutoDetect;
+	LPWSTR  lpszAutoConfigUrl;
+	LPWSTR  lpszProxy;
+	LPWSTR  lpszProxyBypass;
+} WINHTTP_CURRENT_USER_IE_PROXY_CONFIG;
+WINHTTPAPI BOOL WINAPI WinHttpGetIEProxyConfigForCurrentUser(WINHTTP_CURRENT_USER_IE_PROXY_CONFIG* pProxyConfig);
+
+#if defined(__cplusplus)
+}
+#endif
+
+#include "HideWindowsPlatformTypes.h"
+#endif
 
 CURLM* FCurlHttpManager::GMultiHandle = NULL;
 CURLSH* FCurlHttpManager::GShareHandle = NULL;
@@ -94,6 +156,63 @@ namespace LibCryptoMemHooks
 	}
 }
 
+bool IsUnsignedInteger(const FString& InString)
+{
+	bool bResult = true;
+	for(auto CharacterIter: InString)
+	{
+		if (!FChar::IsDigit(CharacterIter))
+		{
+			bResult = false;
+			break;
+		}
+	}
+	return bResult;
+}
+
+bool IsValidIPv4Address(const FString& InString)
+{
+	bool bResult = false;
+
+	FString Temp = InString;
+	FString AStr, BStr, CStr, DStr, PortStr;
+
+	bool bWasPatternMatched = false;
+	if (Temp.Split(TEXT("."), &AStr, &Temp))
+	{
+		if (Temp.Split(TEXT("."), &BStr, &Temp))
+		{
+			if (Temp.Split(TEXT("."), &CStr, &Temp))
+			{
+				if (Temp.Split(TEXT(":"), &DStr, &PortStr))
+				{
+					bWasPatternMatched = true;
+				}
+			}
+		}
+	}
+
+	if (bWasPatternMatched)
+	{
+		if (IsUnsignedInteger(AStr) && IsUnsignedInteger(BStr) && IsUnsignedInteger(CStr) && IsUnsignedInteger(DStr) && IsUnsignedInteger(PortStr))
+		{
+			uint32 A, B, C, D, Port;
+			LexicalConversion::FromString(A, *AStr);
+			LexicalConversion::FromString(B, *BStr);
+			LexicalConversion::FromString(C, *CStr);
+			LexicalConversion::FromString(D, *DStr);
+			LexicalConversion::FromString(Port, *PortStr);
+
+			if (A < 256 && B < 256 && C < 256 && D < 256 && Port < 65536)
+			{
+				bResult = true;
+			}
+		}
+	}
+
+	return bResult;
+}
+
 void FCurlHttpManager::InitCurl()
 {
 	if (GMultiHandle != NULL)
@@ -101,6 +220,11 @@ void FCurlHttpManager::InitCurl()
 		UE_LOG(LogInit, Warning, TEXT("Already initialized multi handle"));
 		return;
 	}
+
+#if WITH_SSL
+	// Make sure ssl is loaded so that we can use the shared cert pool
+	FModuleManager::LoadModuleChecked<class FSslModule>("SSL");
+#endif // #if WITH_SSL
 
 	// Override libcrypt functions to initialize memory since OpenSSL triggers multiple valgrind warnings due to this.
 	// Do this before libcurl/libopenssl/libcrypto has been inited.
@@ -188,6 +312,71 @@ void FCurlHttpManager::InitCurl()
 		{
 			UE_LOG(LogInit, Warning, TEXT(" Libcurl: -httpproxy has been passed as a parameter, but the address doesn't seem to be valid"));
 		}
+	}
+
+#if PLATFORM_WINDOWS
+	// Look for the default machine wide proxy setting
+	if (ProxyAddress.Len() == 0)
+	{
+		// Retrieve the default proxy configuration.
+		WINHTTP_PROXY_INFO DefaultProxyInfo;
+		memset(&DefaultProxyInfo, 0, sizeof(DefaultProxyInfo));
+		WinHttpGetDefaultProxyConfiguration(&DefaultProxyInfo);
+
+		if (DefaultProxyInfo.lpszProxy != nullptr)
+		{
+			FString TempProxy(DefaultProxyInfo.lpszProxy);
+			if (IsValidIPv4Address(TempProxy))
+			{
+				ProxyAddress = TempProxy;
+			}
+			else
+			{
+				if (TempProxy.Split(TEXT("https="), nullptr, &TempProxy))
+				{
+					TempProxy.Split(TEXT(";"), &TempProxy, nullptr);
+					if (IsValidIPv4Address(TempProxy))
+					{
+						ProxyAddress = TempProxy;
+					}
+				}
+			}
+		}
+	}
+
+	// Look for the proxy setting for the current user. Charles proxies count in here.
+	if (ProxyAddress.Len() == 0)
+	{
+		WINHTTP_CURRENT_USER_IE_PROXY_CONFIG IeProxyInfo;
+		memset(&IeProxyInfo, 0, sizeof(IeProxyInfo));
+		WinHttpGetIEProxyConfigForCurrentUser(&IeProxyInfo);
+
+		if (IeProxyInfo.lpszProxy != nullptr)
+		{
+			FString TempProxy(IeProxyInfo.lpszProxy);
+			if (IsValidIPv4Address(TempProxy))
+			{
+				ProxyAddress = TempProxy;
+			}
+			else
+			{
+				if (TempProxy.Split(TEXT("https="), nullptr, &TempProxy))
+				{
+					TempProxy.Split(TEXT(";"), &TempProxy, nullptr);
+					if (IsValidIPv4Address(TempProxy))
+					{
+						ProxyAddress = TempProxy;
+					}
+				}
+			}
+		}
+	}
+#endif
+
+	if (ProxyAddress.Len() > 0)
+	{
+		CurlRequestOptions.bUseHttpProxy = true;
+		CurlRequestOptions.HttpProxyAddress = ProxyAddress;
 	}
 
 	if (FParse::Param(FCommandLine::Get(), TEXT("noreuseconn")))
@@ -361,5 +550,7 @@ FHttpThread* FCurlHttpManager::CreateHttpThread()
 {
 	return new FCurlHttpThread();
 }
+
+
 
 #endif //WITH_LIBCURL

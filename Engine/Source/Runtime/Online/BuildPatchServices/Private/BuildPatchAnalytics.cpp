@@ -5,12 +5,13 @@
 	events for the module.
 =============================================================================*/
 
-#define ERROR_EVENT_SEND_LIMIT 20
-
-#include "BuildPatchServicesPrivatePCH.h"
+#include "BuildPatchAnalytics.h"
+#include "BuildPatchHTTP.h"
 #include "HttpServiceTracker.h"
 #include "AnalyticsEventAttribute.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
+
+#define ERROR_EVENT_SEND_LIMIT 20
 
 TSharedPtr< IAnalyticsProvider > FBuildPatchAnalytics::Analytics;
 

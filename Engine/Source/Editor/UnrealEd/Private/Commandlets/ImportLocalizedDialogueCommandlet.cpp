@@ -1,11 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "Commandlets/ImportLocalizedDialogueCommandlet.h"
-#include "AssetRegistryModule.h"
-#include "TargetPlatform.h"
-#include "Sound/DialogueWave.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "AssetData.h"
 #include "Sound/SoundWave.h"
+#include "Misc/Paths.h"
+#include "Misc/App.h"
+#include "UObject/MetaData.h"
+#include "EditorFramework/AssetImportData.h"
+#include "Sound/DialogueWave.h"
+#include "Utils.h"
+#include "AssetRegistryModule.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "AudioEditorModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogImportLocalizedDialogueCommandlet, Log, All);
 
@@ -18,10 +27,6 @@ namespace
 UImportLocalizedDialogueCommandlet::UImportLocalizedDialogueCommandlet(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	SoundWaveFactory = NewObject<USoundFactory>();
-
-	// Setup sane defaults for importing localized sound waves
-	SoundWaveFactory->bAutoCreateCue = false;
 }
 
 int32 UImportLocalizedDialogueCommandlet::Main(const FString& Params)
@@ -492,11 +497,8 @@ USoundWave* UImportLocalizedDialogueCommandlet::ImportSoundWave(const FString& I
 	// Make sure the destination package is loaded
 	SoundWavePackage->FullyLoad();
 
-	// We set the correct options in the constructor, so run the import silently
-	SoundWaveFactory->SuppressImportOverwriteDialog();
-
-	// Perform the actual import
-	USoundWave* const SoundWave = ImportObject<USoundWave>(SoundWavePackage, *InSoundWaveAssetName, RF_Public | RF_Standalone, *InWavFilename, nullptr, SoundWaveFactory);
+	IAudioEditorModule* AudioEditorModule = &FModuleManager::LoadModuleChecked<IAudioEditorModule>("AudioEditor");
+	USoundWave* const SoundWave = AudioEditorModule->ImportSoundWave(SoundWavePackage, *InSoundWaveAssetName, *InWavFilename);
 	if (!SoundWave)
 	{
 		UE_LOG(LogImportLocalizedDialogueCommandlet, Error, TEXT("Failed to import the sound wave asset '%s.%s' from '%s'"), *InSoundWavePackageName, *InSoundWaveAssetName, *InWavFilename);

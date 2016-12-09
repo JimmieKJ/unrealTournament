@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "FeedbackContextMarkup.h"
-#include "MonitoredProcess.h"
+#include "Misc/FeedbackContextMarkup.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/UnrealString.h"
+#include "HAL/PlatformProcess.h"
+#include "Internationalization/Text.h"
+#include "Misc/FeedbackContext.h"
 
 bool FFeedbackContextMarkup::ParseCommand(const FString& Line, FFeedbackContext* Warn)
 {

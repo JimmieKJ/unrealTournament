@@ -2,11 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "Components/StaticMeshComponent.h"
 
 #include "LandscapeMeshProxyComponent.generated.h"
 
 class ALandscapeProxy;
+class FPrimitiveSceneProxy;
 
 UCLASS(MinimalAPI)
 class ULandscapeMeshProxyComponent : public UStaticMeshComponent

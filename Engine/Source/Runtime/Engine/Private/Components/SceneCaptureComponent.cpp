@@ -4,8 +4,19 @@
 	
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "../../Renderer/Private/ScenePrivate.h"
+#include "Components/SceneCaptureComponent.h"
+#include "Misc/ScopeLock.h"
+#include "UObject/RenderingObjectVersion.h"
+#include "UObject/ConstructorHelpers.h"
+#include "GameFramework/Actor.h"
+#include "RenderingThread.h"
+#include "Components/StaticMeshComponent.h"
+#include "Materials/Material.h"
+#include "Components/BillboardComponent.h"
+#include "Engine/CollisionProfile.h"
+#include "Engine/Texture2D.h"
+#include "SceneManagement.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/SceneCapture.h"
 #include "Engine/SceneCapture2D.h"
 #include "Components/SceneCaptureComponent2D.h"
@@ -16,8 +27,7 @@
 #include "Components/PlanarReflectionComponent.h"
 #include "PlanarReflectionSceneProxy.h"
 #include "Components/BoxComponent.h"
-#include "MessageLog.h"
-#include "RenderingObjectVersion.h"
+#include "Logging/MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "SceneCaptureComponent"
 
@@ -39,8 +49,7 @@ ASceneCapture2D::ASceneCapture2D(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	DrawFrustum = CreateDefaultSubobject<UDrawFrustumComponent>(TEXT("DrawFrust0"));
-	DrawFrustum->AlwaysLoadOnClient = false;
-	DrawFrustum->AlwaysLoadOnServer = false;
+	DrawFrustum->bIsEditorOnly = true;
 	DrawFrustum->SetupAttachment(GetMeshComp());
 
 	CaptureComponent2D = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("NewSceneCaptureComponent2D"));
@@ -77,7 +86,7 @@ void ASceneCapture2D::PostActorCreated()
 	{
 		if (!IsRunningCommandlet())
 		{
-			if( !GetMeshComp()->StaticMesh)
+			if( !GetMeshComp()->GetStaticMesh())
 			{
 				UStaticMesh* CamMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/EditorMeshes/MatineeCam_SM.MatineeCam_SM"), NULL, LOAD_None, NULL);
 				GetMeshComp()->SetStaticMesh(CamMesh);
@@ -95,8 +104,7 @@ ASceneCaptureCube::ASceneCaptureCube(const FObjectInitializer& ObjectInitializer
 	: Super(ObjectInitializer)
 {
 	DrawFrustum = CreateDefaultSubobject<UDrawFrustumComponent>(TEXT("DrawFrust0"));
-	DrawFrustum->AlwaysLoadOnClient = false;
-	DrawFrustum->AlwaysLoadOnServer = false;
+	DrawFrustum->bIsEditorOnly = true;
 	DrawFrustum->SetupAttachment(GetMeshComp());
 
 	CaptureComponentCube = CreateDefaultSubobject<USceneCaptureComponentCube>(TEXT("NewSceneCaptureComponentCube"));
@@ -132,7 +140,7 @@ void ASceneCaptureCube::PostActorCreated()
 	{
 		if (!IsRunningCommandlet())
 		{
-			if( !GetMeshComp()->StaticMesh)
+			if( !GetMeshComp()->GetStaticMesh())
 			{
 				UStaticMesh* CamMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/EditorMeshes/MatineeCam_SM.MatineeCam_SM"), NULL, LOAD_None, NULL);
 				GetMeshComp()->SetStaticMesh(CamMesh);
@@ -184,10 +192,15 @@ void USceneCaptureComponent::AddReferencedObjects(UObject* InThis, FReferenceCol
 	USceneCaptureComponent* This = CastChecked<USceneCaptureComponent>(InThis);
 
 	FSceneViewStateInterface* Ref = This->ViewState.GetReference();
-
 	if (Ref)
 	{
 		Ref->AddReferencedObjects(Collector);
+	}
+	
+	FSceneViewStateInterface* StereoRef = This->StereoViewState.GetReference();
+	if (StereoRef)
+	{
+		StereoRef->AddReferencedObjects(Collector);
 	}
 
 	Super::AddReferencedObjects(This, Collector);
@@ -521,7 +534,7 @@ void APlanarReflection::PostActorCreated()
 	{
 		if (!IsRunningCommandlet())
 		{
-			if( !GetMeshComp()->StaticMesh)
+			if( !GetMeshComp()->GetStaticMesh())
 			{
 				UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/EditorMeshes/PlanarReflectionPlane.PlanarReflectionPlane"), NULL, LOAD_None, NULL);
 				GetMeshComp()->SetStaticMesh(PlaneMesh);
@@ -579,6 +592,8 @@ UPlanarReflectionComponent::UPlanarReflectionComponent(const FObjectInitializer&
 	PrefilterRoughnessDistance = 10000;
 	ScreenPercentage = 50;
 	NormalDistortionStrength = 500;
+	DistanceFromPlaneFadeStart_DEPRECATED = 400;
+	DistanceFromPlaneFadeEnd_DEPRECATED = 600;
 	DistanceFromPlaneFadeoutStart = 60;
 	DistanceFromPlaneFadeoutEnd = 100;
 	AngleFromPlaneFadeStart = 20;
@@ -587,6 +602,7 @@ UPlanarReflectionComponent::UPlanarReflectionComponent(const FObjectInitializer&
 	ProjectionWithExtraFOV[1] = FMatrix::Identity;
 
 	ShowFlags.SetLightShafts(0);
+	ShowFlags.SetContactShadows(0);
 
 	NextPlanarReflectionId++;
 	PlanarReflectionId = NextPlanarReflectionId;

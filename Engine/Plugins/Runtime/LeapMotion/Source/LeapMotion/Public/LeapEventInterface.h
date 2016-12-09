@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "LeapHand.h"
+#include "UObject/Interface.h"
 #include "LeapEventInterface.generated.h"
 
 UINTERFACE(MinimalAPI)

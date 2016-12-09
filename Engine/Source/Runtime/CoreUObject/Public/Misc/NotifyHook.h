@@ -5,7 +5,10 @@
 =============================================================================*/
 
 #pragma once
- 
+
+#include "CoreMinimal.h"
+
+struct FPropertyChangedEvent;
 
 // Notification hook.
 class COREUOBJECT_API FNotifyHook

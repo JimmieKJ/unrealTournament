@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "UObjectToken.h"
+#include "Misc/UObjectToken.h"
+#include "UObject/Object.h"
 
 FOnMessageTokenActivated FUObjectToken::DefaultMessageTokenActivated;
 
@@ -19,10 +19,16 @@ FUObjectToken::FUObjectToken( const UObject* InObject,  const FText& InLabelOver
 		if ( DefaultGetObjectDisplayName.IsBound() )
 		{
 			CachedText = DefaultGetObjectDisplayName.Execute(InObject, false);
+
+			if (InObject)
+			{
+				OriginalObjectPathName = InObject->GetPathName();
+			}
 		}
 		else if ( InObject )
 		{
 			CachedText = FText::FromString( InObject->GetName() );
+			OriginalObjectPathName = InObject->GetPathName();
 		}
 		else
 		{

@@ -2,22 +2,47 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "UObject/GCObject.h"
+#include "Editor/Transactor.h"
+#include "MatineeViewSaveData.h"
+#include "MatineeTrackData.h"
+#include "Framework/SlateDelegates.h"
+#include "Framework/Application/IMenu.h"
+#include "Toolkits/IToolkitHost.h"
+#include "Editor/Matinee/Private/MatineeActions.h"
+#include "MatineeGroupData.h"
+#include "IMatinee.h"
 #include "Matinee/InterpData.h"
 
-#include "IMatinee.h"
 #include "IDistCurveEditor.h"
-#include "MatineeActions.h"
-#include "MatineeGroupData.h"
-#include "MatineeHitProxy.h"
-#include "MatineeOptions.h"
-#include "MatineeTrackData.h"
-#include "MatineeTransBuffer.h"
-#include "MatineeViewportClient.h"
-#include "MatineeViewSaveData.h"
-#include "SMatineeRecorder.h"
+#include "Editor/Matinee/Private/MatineeHitProxy.h"
 
-#include "Editor/DistCurveEditor/Public/IDistCurveEditor.h"
-#include "Editor/UnrealEd/Classes/Editor/Transactor.h"
+class AActor;
+class ACameraActor;
+class AMatineeActor;
+class FCameraControllerConfig;
+class FCanvas;
+class FEditorViewportClient;
+class FLevelEditorViewportClient;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FViewport;
+class IDetailsView;
+class SBorder;
+class SDockableTab;
+class SMatineeRecorder;
+class SMatineeViewport;
+class UInterpFilter;
+class UInterpTrackInst;
+class UInterpTrackMove;
+class UMatineeOptions;
+class UMatineeTransBuffer;
+class UTexture2D;
+struct FPropertyChangedEvent;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSlateMatinee, Log, All);
 

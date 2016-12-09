@@ -2,10 +2,12 @@
 
 #pragma once
 
-#include "AISenseConfig.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Perception/AISense.h"
+#include "Perception/AISenseConfig.h"
 #include "AISenseConfig_Touch.generated.h"
-
-class UAISense_Touch;
 
 UCLASS(meta = (DisplayName = "AI Touch config"))
 class AIMODULE_API UAISenseConfig_Touch : public UAISenseConfig

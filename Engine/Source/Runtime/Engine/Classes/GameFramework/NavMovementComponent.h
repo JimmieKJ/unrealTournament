@@ -6,15 +6,17 @@
 
 #pragma once
 
-#include "AI/Navigation/NavigationSystem.h"
-#include "AI/Navigation/NavAgentInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "GameFramework/Actor.h"
 #include "AI/Navigation/NavigationTypes.h"
+#include "AI/Navigation/NavAgentInterface.h"
 #include "GameFramework/MovementComponent.h"
-#include "Components/PrimitiveComponent.h"
 #include "NavMovementComponent.generated.h"
 
-class AActor;
 class UCapsuleComponent;
+class UPathFollowingComponent;
 
 /**
  * NavMovementComponent defines base functionality for MovementComponents that move any 'agent' that may be involved in AI pathfinding.

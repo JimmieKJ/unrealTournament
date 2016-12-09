@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Docking/TabManager.h"
+#include "WorkflowOrientedApp/WorkflowTabFactory.h"
+
+class SMenuAnchor;
+struct FGenericTabHistory;
+
 /////////////////////////////////////////////////////
 
 namespace EDocumentOpenBehavior

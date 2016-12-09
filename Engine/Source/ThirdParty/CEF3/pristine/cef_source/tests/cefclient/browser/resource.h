@@ -38,21 +38,27 @@
 #define ID_TESTS_ZOOM_IN                32710
 #define ID_TESTS_ZOOM_OUT               32711
 #define ID_TESTS_ZOOM_RESET             32712
-#define ID_TESTS_LAST                   32712
+#define ID_TESTS_OSR_FPS                32713
+#define ID_TESTS_OSR_DSF                32714
+#define ID_TESTS_PRINT_TO_PDF           32715
+#define ID_TESTS_LAST                   32715
 #define IDC_STATIC                      -1
-#define IDS_BINDING                     1000
-#define IDS_DIALOGS                     1001
-#define IDS_LOCALSTORAGE                1002
-#define IDS_LOGO                        1003
-#define IDS_LOGOBALL                    1004
-#define IDS_OSRTEST                     1005
-#define IDS_OTHER_TESTS                 1006
-#define IDS_PERFORMANCE                 1007
-#define IDS_PERFORMANCE2                1008
-#define IDS_TRANSPARENCY                1009
-#define IDS_URLREQUEST                  1010
-#define IDS_WINDOW                      1011
-#define IDS_XMLHTTPREQUEST              1012
+#define IDS_BINDING_HTML                1000
+#define IDS_DIALOGS_HTML                1001
+#define IDS_LOCALSTORAGE_HTML           1002
+#define IDS_LOGO_PNG                    1003
+#define IDS_OSRTEST_HTML                1004
+#define IDS_OTHER_TESTS_HTML            1005
+#define IDS_PDF_HTML                    1006
+#define IDS_PDF_PDF                     1007
+#define IDS_PERFORMANCE_HTML            1008
+#define IDS_PERFORMANCE2_HTML           1009
+#define IDS_PREFERENCES_HTML            1010
+#define IDS_RESPONSE_FILTER_HTML        1011
+#define IDS_TRANSPARENCY_HTML           1012
+#define IDS_URLREQUEST_HTML             1013
+#define IDS_WINDOW_HTML                 1014
+#define IDS_XMLHTTPREQUEST_HTML         1015
 
 // Next default values for new objects
 // 

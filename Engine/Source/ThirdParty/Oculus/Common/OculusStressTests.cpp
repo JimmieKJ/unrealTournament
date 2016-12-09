@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Engine.h"
+#include "OculusStressTests.h"
 
 #include "HeadMountedDisplayCommon.h"
 #if OCULUS_STRESS_TESTS_ENABLED
@@ -12,7 +12,6 @@
 #include "ShaderParameterUtils.h"
 #include "RHIStaticStates.h"
 
-#include "OculusStressTests.h"
 
 //This buffer should contain variables that never, or rarely change
 BEGIN_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderConstantParameters, )
@@ -56,19 +55,6 @@ namespace Oculus
 		{
 			VertexDeclarationRHI.SafeRelease();
 		}
-	};
-
-	class FVertexShader : public FGlobalShader
-	{
-		DECLARE_SHADER_TYPE(FVertexShader, Global);
-	public:
-
-		static bool ShouldCache(EShaderPlatform Platform) { return true; }
-
-		FVertexShader(const ShaderMetaType::CompiledShaderInitializerType& Initializer) :
-			FGlobalShader(Initializer)
-		{}
-		FVertexShader() {}
 	};
 
 	class FPixelShaderDeclaration : public FGlobalShader
@@ -268,7 +254,7 @@ void FOculusStressTester::TickGPU_RenderThread(FRHICommandListImmediate& RHICmdL
 
 		static FGlobalBoundShaderState BoundShaderState;
 		const auto FeatureLevel = GMaxRHIFeatureLevel;
-		TShaderMapRef<FVertexShader> VertexShader(GetGlobalShaderMap(FeatureLevel));
+		TShaderMapRef<FOculusVertexShader> VertexShader(GetGlobalShaderMap(FeatureLevel));
 		TShaderMapRef<FPixelShaderDeclaration> PixelShader(GetGlobalShaderMap(FeatureLevel));
 
 		SetGlobalBoundShaderState(RHICmdList, FeatureLevel, BoundShaderState, GOculusTextureVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
@@ -337,7 +323,6 @@ void FPixelShaderDeclaration::UnbindBuffers(FRHICommandList& RHICmdList)
 	}
 }
 
-IMPLEMENT_SHADER_TYPE(, FVertexShader, TEXT("OculusStressTestShader"), TEXT("MainVertexShader"), SF_Vertex);
-IMPLEMENT_SHADER_TYPE(, FPixelShaderDeclaration, TEXT("OculusStressTestShader"), TEXT("MainPixelShader"), SF_Pixel);
+IMPLEMENT_SHADER_TYPE(, FPixelShaderDeclaration, TEXT("OculusStressShaders"), TEXT("MainPixelShader"), SF_Pixel);
 
 #endif // #if OCULUS_STRESS_TESTS_ENABLED

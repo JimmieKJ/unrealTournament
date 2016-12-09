@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 extern ENGINE_API FVector Unreal2RecastPoint(const float* UnrealPoint);
 extern ENGINE_API FVector Unreal2RecastPoint(const FVector& UnrealPoint);
 extern ENGINE_API FBox Unreal2RecastBox(const FBox& UnrealBox);

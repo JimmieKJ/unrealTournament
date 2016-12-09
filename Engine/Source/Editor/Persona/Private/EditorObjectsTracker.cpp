@@ -1,29 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PersonaPrivatePCH.h"
 #include "EditorObjectsTracker.h"
+#include "UObject/Package.h"
 
 void FEditorObjectTracker::AddReferencedObjects( FReferenceCollector& Collector )
 {
-	for (TMap<UClass*, UObject*>::TIterator It(EditorObjMap); It; ++It)
-	{
-		UObject *Obj = It.Value();
-		if(ensure(Obj))
-		{
-			Collector.AddReferencedObject(Obj);
-		}
-	}	
+	Collector.AddReferencedObjects(EditorObjMap);
+	Collector.AddReferencedObjects(EditorObjectArray);
 }
 
 UObject* FEditorObjectTracker::GetEditorObjectForClass( UClass* EdClass )
 {
-	UObject *Obj = (EditorObjMap.Contains(EdClass) ? *EditorObjMap.Find(EdClass) : NULL);
-	if(Obj == NULL)
+	UObject *Obj = (bAllowOnePerClass && EditorObjMap.Contains(EdClass) ? *EditorObjMap.Find(EdClass) : nullptr);
+
+	if (Obj == NULL)
 	{
 		FString ObjName = MakeUniqueObjectName(GetTransientPackage(), EdClass).ToString();
 		ObjName += "_EdObj";
 		Obj = NewObject<UObject>(GetTransientPackage(), EdClass, FName(*ObjName), RF_Public | RF_Standalone | RF_Transient);
-		EditorObjMap.Add(EdClass,Obj);
+		if (bAllowOnePerClass)
+		{
+			EditorObjMap.Add(EdClass, Obj);
+		}
+		else
+		{
+			EditorObjectArray.Add(Obj);
+		}
 	}
 	return Obj;
 }

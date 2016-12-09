@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPrivatePCH.h"
 #include "NamedInterfaces.h"
+#include "UObject/Package.h"
+#include "OnlineSubsystem.h"
 
 UNamedInterfaces::UNamedInterfaces(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)

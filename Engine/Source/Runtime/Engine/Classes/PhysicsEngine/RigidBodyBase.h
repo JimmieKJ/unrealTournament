@@ -5,6 +5,10 @@
 //=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "RigidBodyBase.generated.h"
 
 UCLASS(ClassGroup=Physics, abstract,MinimalAPI)

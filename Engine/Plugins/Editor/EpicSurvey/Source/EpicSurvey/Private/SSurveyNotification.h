@@ -2,7 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
 #include "EpicSurvey.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Animation/CurveSequence.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Survey.h"
+#include "SSurvey.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "EpicSurvey"
 

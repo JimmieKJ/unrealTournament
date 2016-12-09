@@ -1,21 +1,112 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
+#include "AssetTools.h"
+#include "Factories/Factory.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopedSlowTask.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/Blueprint.h"
+#include "Exporters/Exporter.h"
+#include "Editor/EditorEngine.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlModule.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Settings/EditorLoadingSavingSettings.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
+#include "Editor.h"
+#include "EditorDirectories.h"
+#include "FileHelpers.h"
+#include "UnrealEdGlobals.h"
+#include "AssetToolsLog.h"
+#include "AssetToolsModule.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "IClassTypeActions.h"
+#include "AssetTypeActions/AssetTypeActions_Blueprint.h"
+#include "AssetTypeActions/AssetTypeActions_Curve.h"
+#include "AssetTypeActions/AssetTypeActions_MaterialInterface.h"
+#include "AssetTypeActions/AssetTypeActions_SkeletalMesh.h"
+#include "AssetTypeActions/AssetTypeActions_FbxSceneImportData.h"
+#include "AssetTypeActions/AssetTypeActions_Texture.h"
+#include "AssetTypeActions/AssetTypeActions_TextureRenderTarget.h"
+#include "AssetTypeActions/AssetTypeActions_VectorField.h"
+#include "AssetTypeActions/AssetTypeActions_AnimationAsset.h"
+#include "AssetTypeActions/AssetTypeActions_AnimBlueprint.h"
+#include "AssetTypeActions/AssetTypeActions_AnimComposite.h"
+#include "AssetTypeActions/AssetTypeActions_AnimMontage.h"
+#include "AssetTypeActions/AssetTypeActions_AnimSequence.h"
+#include "AssetTypeActions/AssetTypeActions_BlendSpace.h"
+#include "AssetTypeActions/AssetTypeActions_AimOffset.h"
+#include "AssetTypeActions/AssetTypeActions_BlendSpace1D.h"
+#include "AssetTypeActions/AssetTypeActions_AimOffset1D.h"
+#include "AssetTypeActions/AssetTypeActions_CameraAnim.h"
+#include "AssetTypeActions/AssetTypeActions_TextureRenderTarget2D.h"
+#include "AssetTypeActions/AssetTypeActions_CanvasRenderTarget2D.h"
+#include "AssetTypeActions/AssetTypeActions_CurveFloat.h"
+#include "AssetTypeActions/AssetTypeActions_CurveTable.h"
+#include "AssetTypeActions/AssetTypeActions_CurveVector.h"
+#include "AssetTypeActions/AssetTypeActions_CurveLinearColor.h"
+#include "AssetTypeActions/AssetTypeActions_DataAsset.h"
+#include "AssetTypeActions/AssetTypeActions_DataTable.h"
+#include "AssetTypeActions/AssetTypeActions_DestructibleMesh.h"
+#include "AssetTypeActions/AssetTypeActions_Enum.h"
+#include "AssetTypeActions/AssetTypeActions_Class.h"
+#include "AssetTypeActions/AssetTypeActions_Struct.h"
+#include "AssetTypeActions/AssetTypeActions_Font.h"
+#include "AssetTypeActions/AssetTypeActions_FontFace.h"
+#include "AssetTypeActions/AssetTypeActions_ForceFeedbackEffect.h"
+#include "AssetTypeActions/AssetTypeActions_SubsurfaceProfile.h"
+#include "AssetTypeActions/AssetTypeActions_InstancedFoliageSettings.h"
+#include "AssetTypeActions/AssetTypeActions_InterpData.h"
+#include "AssetTypeActions/AssetTypeActions_LandscapeLayer.h"
+#include "AssetTypeActions/AssetTypeActions_LandscapeGrassType.h"
+#include "AssetTypeActions/AssetTypeActions_Material.h"
+#include "AssetTypeActions/AssetTypeActions_MaterialFunction.h"
+#include "AssetTypeActions/AssetTypeActions_MaterialInstanceConstant.h"
+#include "AssetTypeActions/AssetTypeActions_MaterialParameterCollection.h"
+#include "AssetTypeActions/AssetTypeActions_ObjectLibrary.h"
+#include "AssetTypeActions/AssetTypeActions_ParticleSystem.h"
+#include "AssetTypeActions/AssetTypeActions_PhysicalMaterial.h"
+#include "AssetTypeActions/AssetTypeActions_PhysicsAsset.h"
+#include "AssetTypeActions/AssetTypeActions_PoseAsset.h"
+#include "AssetTypeActions/AssetTypeActions_PreviewMeshCollection.h"
+#include "AssetTypeActions/AssetTypeActions_ProceduralFoliageSpawner.h"
+#include "AssetTypeActions/AssetTypeActions_Redirector.h"
+#include "AssetTypeActions/AssetTypeActions_Rig.h"
+#include "AssetTypeActions/AssetTypeActions_Skeleton.h"
+#include "AssetTypeActions/AssetTypeActions_SlateBrush.h"
+#include "AssetTypeActions/AssetTypeActions_SlateWidgetStyle.h"
+#include "AssetTypeActions/AssetTypeActions_StaticMesh.h"
+#include "AssetTypeActions/AssetTypeActions_Texture2D.h"
+#include "AssetTypeActions/AssetTypeActions_TextureCube.h"
+#include "AssetTypeActions/AssetTypeActions_TextureRenderTargetCube.h"
+#include "AssetTypeActions/AssetTypeActions_TextureLightProfile.h"
+#include "AssetTypeActions/AssetTypeActions_TouchInterface.h"
+#include "AssetTypeActions/AssetTypeActions_VectorFieldAnimated.h"
+#include "AssetTypeActions/AssetTypeActions_VectorFieldStatic.h"
+#include "AssetTypeActions/AssetTypeActions_World.h"
+#include "SDiscoveringAssetsDialog.h"
+#include "AssetFixUpRedirectors.h"
 #include "ObjectTools.h"
 #include "PackageTools.h"
 #include "AssetRegistryModule.h"
 #include "DesktopPlatformModule.h"
-#include "AssetToolsModule.h"
-#include "MainFrame.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
-#include "ReferencedAssetsUtils.h"
 #include "SPackageReportDialog.h"
 #include "EngineAnalytics.h"
-#include "IAnalyticsProvider.h"
-#include "MessageLog.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
+#include "Logging/MessageLog.h"
 #include "UnrealExporter.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "AutomatedAssetImportData.h"
 
 #define LOCTEXT_NAMESPACE "AssetTools"
 
@@ -59,13 +150,12 @@ FAssetTools::FAssetTools()
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_DataAsset) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_DataTable) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_DestructibleMesh) );
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_DialogueVoice) );
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_DialogueWave) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Enum) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Class) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Struct) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SceneImportData));
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Font) );
+	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_FontFace) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_ForceFeedbackEffect) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SubsurfaceProfile));
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_InstancedFoliageSettings) );
@@ -77,26 +167,18 @@ FAssetTools::FAssetTools()
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MaterialInstanceConstant(BlendablesCategoryBit)) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MaterialInterface) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MaterialParameterCollection) );
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MorphTarget) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_ObjectLibrary) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_ParticleSystem) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_PhysicalMaterial) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_PhysicsAsset) );
+	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_PreviewMeshCollection) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_ProceduralFoliageSpawner) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Redirector) );
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_ReverbEffect) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Rig) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SkeletalMesh) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Skeleton) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SlateBrush) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SlateWidgetStyle) );
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SoundAttenuation) );
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SoundConcurrency));
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SoundBase) );
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SoundClass) );
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SoundCue) );
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SoundMix) );
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_SoundWave) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_StaticMesh) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Texture) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Texture2D) );
@@ -466,22 +548,25 @@ UObject* FAssetTools::DuplicateAsset(const FString& AssetName, const FString& Pa
 
 	TSet<UPackage*> ObjectsUserRefusedToFullyLoad;
 	UObject* NewObject = ObjectTools::DuplicateSingleObject(OriginalObject, PGN, ObjectsUserRefusedToFullyLoad);
-	if(NewObject != nullptr && ISourceControlModule::Get().IsEnabled())
+	if(NewObject != nullptr)
 	{
-		// Save package here if SCC is enabled because the user can use SCC to revert a change
-		TArray<UPackage*> OutermostPackagesToSave;
-		OutermostPackagesToSave.Add(NewObject->GetOutermost());
+		if ( ISourceControlModule::Get().IsEnabled() )
+		{
+			// Save package here if SCC is enabled because the user can use SCC to revert a change
+			TArray<UPackage*> OutermostPackagesToSave;
+			OutermostPackagesToSave.Add(NewObject->GetOutermost());
 
-		const bool bCheckDirty = false;
-		const bool bPromptToSave = false;
-		FEditorFileUtils::PromptForCheckoutAndSave(OutermostPackagesToSave, bCheckDirty, bPromptToSave);
+			const bool bCheckDirty = false;
+			const bool bPromptToSave = false;
+			FEditorFileUtils::PromptForCheckoutAndSave(OutermostPackagesToSave, bCheckDirty, bPromptToSave);
 
-		// now attempt to branch, we can do this now as we should have a file on disk
-		SourceControlHelpers::BranchPackage(NewObject->GetOutermost(), OriginalObject->GetOutermost());
+			// now attempt to branch, we can do this now as we should have a file on disk
+			SourceControlHelpers::BranchPackage(NewObject->GetOutermost(), OriginalObject->GetOutermost());
+		}
+
+		// analytics create record
+		FAssetTools::OnNewCreateRecord(NewObject->GetClass(), true);
 	}
-
-	// analytics create record
-	FAssetTools::OnNewCreateRecord(NewObject->GetClass(), true);
 
 	return NewObject;
 }
@@ -527,14 +612,7 @@ TArray<UObject*> FAssetTools::ImportAssets(const FString& DestinationPath)
 
 	if ( DesktopPlatform )
 	{
-		void* ParentWindowWindowHandle = nullptr;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
+		const void* ParentWindowWindowHandle = FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr);
 
 		bOpened = DesktopPlatform->OpenFileDialog(
 			ParentWindowWindowHandle,
@@ -565,6 +643,19 @@ TArray<UObject*> FAssetTools::ImportAssets(const FString& DestinationPath)
 	}
 
 	return ReturnObjects;
+}
+
+TArray<UObject*> FAssetTools::ImportAssetsAutomated(const UAutomatedAssetImportData& ImportData) const
+{
+	FAssetImportParams Params;
+
+	Params.bAutomated = true;
+	Params.bForceOverrideExisting = ImportData.bReplaceExisting;
+	Params.bSyncToBrowser = false;
+	Params.SpecifiedFactory = ImportData.Factory;
+	Params.ImportData = &ImportData;
+
+	return ImportAssetsInternal(ImportData.Filenames, ImportData.DestinationPath, nullptr, Params);
 }
 
 void FAssetTools::ExpandDirectories(const TArray<FString>& Files, const FString& DestinationPath, TArray<TPair<FString, FString>>& FilesAndDestinations) const
@@ -603,415 +694,18 @@ void FAssetTools::ExpandDirectories(const TArray<FString>& Files, const FString&
 	}
 }
 
-TArray<UObject*> FAssetTools::ImportAssets(const TArray<FString>& Files, const FString& RootDestinationPath, UFactory* SpecifiedFactory, bool bSyncToBrowser ) const
+TArray<UObject*> FAssetTools::ImportAssets(const TArray<FString>& Files, const FString& RootDestinationPath, UFactory* SpecifiedFactory, bool bSyncToBrowser, TArray<TPair<FString, FString>> *FilesAndDestinations) const
 {
-	TArray<UObject*> ReturnObjects;
-	TMap< FString, TArray<UFactory*> > ExtensionToFactoriesMap;
+	const bool bForceOverrideExisting = false;
 
-	FScopedSlowTask SlowTask(Files.Num() + 3, LOCTEXT("ImportSlowTask", "Importing"));
-	SlowTask.MakeDialog();
+	FAssetImportParams Params;
 
-	// Reset the 'Do you want to overwrite the existing object?' Yes to All / No to All prompt, to make sure the
-	// user gets a chance to select something
-	UFactory::ResetState();
+	Params.bAutomated = false;
+	Params.bForceOverrideExisting = false;
+	Params.bSyncToBrowser = bSyncToBrowser;
+	Params.SpecifiedFactory = SpecifiedFactory;
 
-	SlowTask.EnterProgressFrame();
-
-	TArray<TPair<FString, FString>> FilesAndDestinations;
-	ExpandDirectories(Files, RootDestinationPath, FilesAndDestinations);
-
-	SlowTask.EnterProgressFrame(1, LOCTEXT("Import_DeterminingImportTypes", "Determining asset types"));
-
-	if (SpecifiedFactory == nullptr)
-	{	
-		// First instantiate one factory for each file extension encountered that supports the extension
-		// @todo import: gmp: show dialog in case of multiple matching factories
-		for( TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt )
-		{
-			if (!(*ClassIt)->IsChildOf(UFactory::StaticClass()) || ((*ClassIt)->HasAnyClassFlags(CLASS_Abstract)))
-			{
-				continue;
-			}
-
-			UFactory* Factory = Cast<UFactory>( (*ClassIt)->GetDefaultObject() );
-
-			if (!Factory->bEditorImport)
-			{
-				continue;
-			}
-
-			TArray<FString> FactoryExtensions;
-			Factory->GetSupportedFileExtensions(FactoryExtensions);
-
-			for (auto& FileDest : FilesAndDestinations)
-			{
-				const FString FileExtension = FPaths::GetExtension(FileDest.Key);
-	
-				// Case insensitive string compare with supported formats of this factory
-				if ( FactoryExtensions.Contains(FileExtension) )
-				{
-					TArray<UFactory*>& ExistingFactories = ExtensionToFactoriesMap.FindOrAdd(FileExtension);
-							
-					// Do not remap extensions, just reuse the existing UFactory.
-					// There may be multiple UFactories, so we will keep track of all of them
-					bool bFactoryAlreadyInMap = false;
-					for ( auto FoundFactoryIt = ExistingFactories.CreateConstIterator(); FoundFactoryIt; ++FoundFactoryIt )
-					{
-						if ( (*FoundFactoryIt)->GetClass() == Factory->GetClass() )
-						{
-							bFactoryAlreadyInMap = true;
-							break;
-						}
-					}
-	
-					if ( !bFactoryAlreadyInMap )
-					{
-						// We found a factory for this file, it can be imported!
-						// Create a new factory of the same class and make sure it doesn't get GCed.
-						// The object will be removed from the root set at the end of this function.
-						UFactory* NewFactory = NewObject<UFactory>(GetTransientPackage(), Factory->GetClass());
-						if ( NewFactory->ConfigureProperties() )
-						{
-							NewFactory->AddToRoot();
-							ExistingFactories.Add(NewFactory);
-						}
-					}
-				}
-			}
-		}
-	}
-	else if( SpecifiedFactory->bEditorImport )
-	{
-		TArray<FString> FactoryExtensions;
-		SpecifiedFactory->GetSupportedFileExtensions(FactoryExtensions);
-
-		for (auto FileIt = Files.CreateConstIterator(); FileIt; ++FileIt)
-		{
-			const FString FileExtension = FPaths::GetExtension(*FileIt);
-
-			// Case insensitive string compare with supported formats of this factory
-			if (!FactoryExtensions.Contains(FileExtension))
-			{
-				continue;
-			}
-
-			TArray<UFactory*>& ExistingFactories = ExtensionToFactoriesMap.FindOrAdd(FileExtension);
-
-			// Do not remap extensions, just reuse the existing UFactory.
-			// There may be multiple UFactories, so we will keep track of all of them
-			bool bFactoryAlreadyInMap = false;
-			for ( auto FoundFactoryIt = ExistingFactories.CreateConstIterator(); FoundFactoryIt; ++FoundFactoryIt )
-			{
-				if ( (*FoundFactoryIt)->GetClass() == SpecifiedFactory->GetClass() )
-				{
-					bFactoryAlreadyInMap = true;
-					break;
-				}
-			}
-
-			if ( !bFactoryAlreadyInMap )
-			{
-				// We found a factory for this file, it can be imported!
-				// Create a new factory of the same class and make sure it doesnt get GCed.
-				// The object will be removed from the root set at the end of this function.
-				UFactory* NewFactory = NewObject<UFactory>(GetTransientPackage(), SpecifiedFactory->GetClass());
-				if ( NewFactory->ConfigureProperties() )
-				{
-					NewFactory->AddToRoot();
-					ExistingFactories.Add(NewFactory);
-				}
-			}
-		}
-	}
-
-	// We need to sort the factories so that they get tested in priority order
-	for (auto& ExtensionToFactories : ExtensionToFactoriesMap)
-	{
-		ExtensionToFactories.Value.Sort(&UFactory::SortFactoriesByPriority);
-	}
-
-	// Some flags to keep track of what the user decided when asked about overwriting or replacing
-	bool bOverwriteAll = false;
-	bool bReplaceAll = false;
-	bool bDontOverwriteAny = false;
-	bool bDontReplaceAny = false;
-
-	// Now iterate over the input files and use the same factory object for each file with the same extension
-	for ( int32 FileIdx = 0; FileIdx < FilesAndDestinations.Num(); ++FileIdx )
-	{
-		const FString& Filename = FilesAndDestinations[FileIdx].Key;
-		const FString& DestinationPath = FilesAndDestinations[FileIdx].Value;
-
-		SlowTask.EnterProgressFrame(1, FText::Format(LOCTEXT("Import_ImportingFile", "Importing \"{0}\"..."), FText::FromString(FPaths::GetBaseFilename(Filename))));
-
-		FString FileExtension = FPaths::GetExtension(Filename);
-
-		const TArray<UFactory*>* FactoriesPtr = ExtensionToFactoriesMap.Find(FileExtension);
-		UFactory* Factory = nullptr;
-		//When doing automationtest we can setup factory option and we need to make sure we use the specified one
-		if (GIsAutomationTesting && SpecifiedFactory && SpecifiedFactory->FactoryCanImport(Filename))
-		{
-			Factory = SpecifiedFactory;
-		}
-		else if ( FactoriesPtr )
-		{
-			const TArray<UFactory*>& Factories = *FactoriesPtr;
-
-			// Handle the potential of multiple factories being found
-			if( Factories.Num() > 0 )
-			{
-				Factory = Factories[0];
-
-				for( auto FactoryIt = Factories.CreateConstIterator(); FactoryIt; ++FactoryIt )
-				{
-					UFactory* TestFactory = *FactoryIt;
-					if( TestFactory->FactoryCanImport( Filename ) )
-					{
-						Factory = TestFactory;
-						break;
-					}
-				}
-			}
-		}
-		else
-		{
-			if(FEngineAnalytics::IsAvailable())
-			{
-				TArray<FAnalyticsEventAttribute> Attribs;
-				Attribs.Add(FAnalyticsEventAttribute(TEXT("FileExtension"), FileExtension));
-
-				FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.ImportFailed"), Attribs);
-			}
-
-			const FText Message = FText::Format( LOCTEXT("ImportFailed_UnknownExtension", "Failed to import '{0}'. Unknown extension '{1}'."), FText::FromString( Filename ), FText::FromString( FileExtension ) );
-			FNotificationInfo Info(Message);
-			Info.ExpireDuration = 3.0f;
-			Info.bUseLargeFont = false;
-			Info.bFireAndForget = true;
-			Info.bUseSuccessFailIcons = true;
-			FSlateNotificationManager::Get().AddNotification(Info)->SetCompletionState(SNotificationItem::CS_Fail);
-
-			UE_LOG(LogAssetTools, Warning, TEXT("%s"), *Message.ToString() );
-		}
-
-		if ( Factory != nullptr )
-		{
-			UClass* ImportAssetType = Factory->SupportedClass;
-			bool bImportSucceeded = false;
-			bool bImportWasCancelled = false;
-			FDateTime ImportStartTime = FDateTime::UtcNow();
-
-			FString Name = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(Filename));
-			FString PackageName = DestinationPath + TEXT("/") + Name;
-
-			// We can not create assets that share the name of a map file in the same location
-			if ( FEditorFileUtils::IsMapPackageAsset(PackageName) )
-			{
-				const FText Message = FText::Format( LOCTEXT("AssetNameInUseByMap", "You can not create an asset named '{0}' because there is already a map file with this name in this folder."), FText::FromString( Name ) );
-				FMessageDialog::Open( EAppMsgType::Ok, Message );
-				UE_LOG(LogAssetTools, Warning, TEXT("%s"), *Message.ToString());
-				OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
-				continue;
-			}
-
-			UPackage* Pkg = CreatePackage(nullptr, *PackageName);
-			if ( !ensure(Pkg) )
-			{
-				// Failed to create the package to hold this asset for some reason
-				OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
-				continue;
-			}
-
-			// Make sure the destination package is loaded
-			Pkg->FullyLoad();
-
-			// Check for an existing object
-			UObject* ExistingObject = StaticFindObject( UObject::StaticClass(), Pkg, *Name );
-			if( ExistingObject != nullptr )
-			{
-				// If the existing object is one of the imports we've just created we can't replace or overwrite it
-				if (ReturnObjects.Contains(ExistingObject))
-				{
-					if( ImportAssetType == nullptr )
-					{
-						// The factory probably supports multiple types and cant be determined yet without asking the user or actually loading it
-						// We just need to generate an unused name so object should do fine.
-						ImportAssetType = UObject::StaticClass();
-					}
-					// generate a unique name for this import
-					Name = MakeUniqueObjectName(Pkg, ImportAssetType, *Name).ToString();
-				}
-				else
-				{
-					// If the object is supported by the factory we are using, ask if we want to overwrite the asset
-					// Otherwise, prompt to replace the object
-					if (Factory->DoesSupportClass(ExistingObject->GetClass()))
-					{
-						// The factory can overwrite this object, ask if that is okay, unless "Yes To All" or "No To All" was already selected
-						EAppReturnType::Type UserResponse;
-
-						if (bOverwriteAll || GIsAutomationTesting)
-						{
-							UserResponse = EAppReturnType::YesAll;
-						}
-						else if (bDontOverwriteAny)
-						{
-							UserResponse = EAppReturnType::NoAll;
-						}
-						else
-						{
-							UserResponse = FMessageDialog::Open(
-								EAppMsgType::YesNoYesAllNoAll,
-								FText::Format(LOCTEXT("ImportObjectAlreadyExists_SameClass", "Do you want to overwrite the existing asset?\n\nAn asset already exists at the import location: {0}"), FText::FromString(PackageName)));
-
-							bOverwriteAll = UserResponse == EAppReturnType::YesAll;
-							bDontOverwriteAny = UserResponse == EAppReturnType::NoAll;
-						}
-
-						const bool bWantOverwrite = UserResponse == EAppReturnType::Yes || UserResponse == EAppReturnType::YesAll;
-
-						if (!bWantOverwrite)
-						{
-							// User chose not to replace the package
-							bImportWasCancelled = true;
-							OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
-							continue;
-						}
-					}
-					else
-					{
-						// The factory can't overwrite this asset, ask if we should delete the object then import the new one. Only do this if "Yes To All" or "No To All" was not already selected.
-						EAppReturnType::Type UserResponse;
-
-						if (bReplaceAll)
-						{
-							UserResponse = EAppReturnType::YesAll;
-						}
-						else if (bDontReplaceAny)
-						{
-							UserResponse = EAppReturnType::NoAll;
-						}
-						else
-						{
-							UserResponse = FMessageDialog::Open(
-								EAppMsgType::YesNoYesAllNoAll,
-								FText::Format(LOCTEXT("ImportObjectAlreadyExists_DifferentClass", "Do you want to replace the existing asset?\n\nAn asset already exists at the import location: {0}"), FText::FromString(PackageName)));
-
-							bReplaceAll = UserResponse == EAppReturnType::YesAll;
-							bDontReplaceAny = UserResponse == EAppReturnType::NoAll;
-						}
-
-						const bool bWantReplace = UserResponse == EAppReturnType::Yes || UserResponse == EAppReturnType::YesAll;
-
-						if (bWantReplace)
-						{
-							// Delete the existing object
-							int32 NumObjectsDeleted = 0;
-							TArray< UObject* > ObjectsToDelete;
-							ObjectsToDelete.Add(ExistingObject);
-
-							// If the user forcefully deletes the package, all sorts of things could become invalidated,
-							// the Pkg pointer might be killed even though it was added to the root.
-							TWeakObjectPtr<UPackage> WeakPkg(Pkg);
-							
-							// Dont let the package get garbage collected (just in case we are deleting the last asset in the package)
-							Pkg->AddToRoot();
-							NumObjectsDeleted = ObjectTools::DeleteObjects(ObjectsToDelete, /*bShowConfirmation=*/false);
-							
-							// If the weak package ptr is still valid, it should then be safe to remove it from the root.
-							if ( WeakPkg.IsValid() )
-							{
-								Pkg->RemoveFromRoot();
-							}
-
-							const FString QualifiedName = PackageName + TEXT(".") + Name;
-							FText Reason;
-							if (NumObjectsDeleted == 0 || !IsUniqueObjectName(*QualifiedName, ANY_PACKAGE, Reason))
-							{
-								// Original object couldn't be deleted
-								const FText Message = FText::Format(LOCTEXT("ImportDeleteFailed", "Failed to delete '{0}'. The asset is referenced by other content."), FText::FromString(PackageName));
-								FMessageDialog::Open(EAppMsgType::Ok, Message);
-								UE_LOG(LogAssetTools, Warning, TEXT("%s"), *Message.ToString());
-								OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
-								continue;
-							}
-							else
-							{
-								// succeed, recreate package since it has been deleted
-								Pkg = CreatePackage(nullptr, *PackageName);
-							}
-						}
-						else
-						{
-							// User chose not to replace the package
-							bImportWasCancelled = true;
-							OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
-							continue;
-						}
-					}
-				}
-			}
-
-			// Check for a package that was marked for delete in source control
-			if ( !CheckForDeletedPackage(Pkg) )
-			{
-				OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
-				continue;
-			}
-
-			ImportAssetType = Factory->ResolveSupportedClass();
-			UObject* Result = Factory->ImportObject(ImportAssetType, Pkg, FName(*Name), RF_Public | RF_Standalone, Filename, nullptr, bImportWasCancelled);
-
-			// Do not report any error if the operation was canceled.
-			if(!bImportWasCancelled)
-			{
-				if ( Result )
-				{
-					ReturnObjects.Add( Result );
-
-					// Notify the asset registry
-					FAssetRegistryModule::AssetCreated(Result);
-					GEditor->BroadcastObjectReimported(Result);
-
-					bImportSucceeded = true;
-				}
-				else
-				{
-					const FText Message = FText::Format( LOCTEXT("ImportFailed_Generic", "Failed to import '{0}'. Failed to create asset '{1}'.\nPlease see Output Log for details."), FText::FromString( Filename ), FText::FromString( PackageName ) );
-					FMessageDialog::Open( EAppMsgType::Ok, Message );
-					UE_LOG(LogAssetTools, Warning, TEXT("%s"), *Message.ToString());
-				}
-			}
-
-			// Refresh the supported class.  Some factories (e.g. FBX) only resolve their type after reading the file
-			ImportAssetType = Factory->ResolveSupportedClass();
-			OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
-		}
-		else
-		{
-			// A factory or extension was not found. The extension warning is above. If a factory was not found, the user likely canceled a factory configuration dialog.
-		}
-	}
-
-	SlowTask.EnterProgressFrame(1);
-
-	// Clean up and remove the factories we created from the root set
-	for ( auto ExtensionIt = ExtensionToFactoriesMap.CreateConstIterator(); ExtensionIt; ++ExtensionIt)
-	{
-		for ( auto FactoryIt = ExtensionIt.Value().CreateConstIterator(); FactoryIt; ++FactoryIt )
-		{
-			(*FactoryIt)->CleanUp();
-			(*FactoryIt)->RemoveFromRoot();
-		}
-	}
-
-	// Sync content browser to the newly created assets
-	if ( ReturnObjects.Num() && (bSyncToBrowser != false ) )
-	{
-		FAssetTools::Get().SyncBrowserToAssets(ReturnObjects);
-	}
-
-	return ReturnObjects;
+	return ImportAssetsInternal(Files, RootDestinationPath, FilesAndDestinations, Params);
 }
 
 void FAssetTools::CreateUniqueAssetName(const FString& InBasePackageName, const FString& InSuffix, FString& OutPackageName, FString& OutAssetName) const
@@ -1388,6 +1082,441 @@ void FAssetTools::OnNewCreateRecord(UClass* AssetType, bool bDuplicated)
 	}
 }
 
+TArray<UObject*> FAssetTools::ImportAssetsInternal(const TArray<FString>& Files, const FString& RootDestinationPath, TArray<TPair<FString, FString>> *FilesAndDestinationsPtr, const FAssetImportParams& Params) const
+{
+	UFactory* SpecifiedFactory = Params.SpecifiedFactory;
+	const bool bForceOverrideExisting = Params.bForceOverrideExisting;
+	const bool bSyncToBrowser = Params.bSyncToBrowser;
+	const bool bAutomatedImport = Params.bAutomated || GIsAutomationTesting;
+
+	TArray<UObject*> ReturnObjects;
+	TMap< FString, TArray<UFactory*> > ExtensionToFactoriesMap;
+
+	FScopedSlowTask SlowTask(Files.Num() + 3, LOCTEXT("ImportSlowTask", "Importing"));
+	SlowTask.MakeDialog();
+
+
+	SlowTask.EnterProgressFrame();
+	TArray<TPair<FString, FString>> FilesAndDestinations;
+	if (FilesAndDestinationsPtr == nullptr)
+	{
+		ExpandDirectories(Files, RootDestinationPath, FilesAndDestinations);
+	}
+	else
+	{
+		FilesAndDestinations = (*FilesAndDestinationsPtr);
+	}
+
+	SlowTask.EnterProgressFrame(1, LOCTEXT("Import_DeterminingImportTypes", "Determining asset types"));
+
+
+	if(SpecifiedFactory == nullptr)
+	{
+		// First instantiate one factory for each file extension encountered that supports the extension
+		// @todo import: gmp: show dialog in case of multiple matching factories
+		for(TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
+		{
+			if(!(*ClassIt)->IsChildOf(UFactory::StaticClass()) || ((*ClassIt)->HasAnyClassFlags(CLASS_Abstract)))
+			{
+				continue;
+			}
+
+			UFactory* Factory = Cast<UFactory>((*ClassIt)->GetDefaultObject());
+
+			if(!Factory->bEditorImport)
+			{
+				continue;
+			}
+
+			TArray<FString> FactoryExtensions;
+			Factory->GetSupportedFileExtensions(FactoryExtensions);
+
+			for(auto& FileDest : FilesAndDestinations)
+			{
+				const FString FileExtension = FPaths::GetExtension(FileDest.Key);
+
+				// Case insensitive string compare with supported formats of this factory
+				if(FactoryExtensions.Contains(FileExtension))
+				{
+					TArray<UFactory*>& ExistingFactories = ExtensionToFactoriesMap.FindOrAdd(FileExtension);
+
+					// Do not remap extensions, just reuse the existing UFactory.
+					// There may be multiple UFactories, so we will keep track of all of them
+					bool bFactoryAlreadyInMap = false;
+					for(auto FoundFactoryIt = ExistingFactories.CreateConstIterator(); FoundFactoryIt; ++FoundFactoryIt)
+					{
+						if((*FoundFactoryIt)->GetClass() == Factory->GetClass())
+						{
+							bFactoryAlreadyInMap = true;
+							break;
+						}
+					}
+
+					if(!bFactoryAlreadyInMap)
+					{
+						// We found a factory for this file, it can be imported!
+						// Create a new factory of the same class and make sure it doesn't get GCed.
+						// The object will be removed from the root set at the end of this function.
+						UFactory* NewFactory = NewObject<UFactory>(GetTransientPackage(), Factory->GetClass());
+						if(NewFactory->ConfigureProperties())
+						{
+							NewFactory->AddToRoot();
+							ExistingFactories.Add(NewFactory);
+						}
+					}
+				}
+			}
+		}
+	}
+	else if(SpecifiedFactory->bEditorImport && !bAutomatedImport) 
+	{
+
+		TArray<FString> FactoryExtensions;
+		SpecifiedFactory->GetSupportedFileExtensions(FactoryExtensions);
+
+		for(auto FileIt = Files.CreateConstIterator(); FileIt; ++FileIt)
+		{
+			const FString FileExtension = FPaths::GetExtension(*FileIt);
+
+			// Case insensitive string compare with supported formats of this factory
+			if(!FactoryExtensions.Contains(FileExtension))
+			{
+				continue;
+			}
+
+			TArray<UFactory*>& ExistingFactories = ExtensionToFactoriesMap.FindOrAdd(FileExtension);
+
+			// Do not remap extensions, just reuse the existing UFactory.
+			// There may be multiple UFactories, so we will keep track of all of them
+			bool bFactoryAlreadyInMap = false;
+			for(auto FoundFactoryIt = ExistingFactories.CreateConstIterator(); FoundFactoryIt; ++FoundFactoryIt)
+			{
+				if((*FoundFactoryIt)->GetClass() == SpecifiedFactory->GetClass())
+				{
+					bFactoryAlreadyInMap = true;
+					break;
+				}
+			}
+
+			if(!bFactoryAlreadyInMap)
+			{
+				// We found a factory for this file, it can be imported!
+				// Create a new factory of the same class and make sure it doesnt get GCed.
+				// The object will be removed from the root set at the end of this function.
+				UFactory* NewFactory = NewObject<UFactory>(GetTransientPackage(), SpecifiedFactory->GetClass());
+				if(NewFactory->ConfigureProperties())
+				{
+					NewFactory->AddToRoot();
+					ExistingFactories.Add(NewFactory);
+				}
+			}
+		}
+	}
+
+	// We need to sort the factories so that they get tested in priority order
+	for(auto& ExtensionToFactories : ExtensionToFactoriesMap)
+	{
+		ExtensionToFactories.Value.Sort(&UFactory::SortFactoriesByPriority);
+	}
+
+	// Some flags to keep track of what the user decided when asked about overwriting or replacing
+	bool bOverwriteAll = false;
+	bool bReplaceAll = false;
+	bool bDontOverwriteAny = false;
+	bool bDontReplaceAny = false;
+
+	// Now iterate over the input files and use the same factory object for each file with the same extension
+	for(int32 FileIdx = 0; FileIdx < FilesAndDestinations.Num(); ++FileIdx)
+	{
+		const FString& Filename = FilesAndDestinations[FileIdx].Key;
+		const FString& DestinationPath = FilesAndDestinations[FileIdx].Value;
+
+		SlowTask.EnterProgressFrame(1, FText::Format(LOCTEXT("Import_ImportingFile", "Importing \"{0}\"..."), FText::FromString(FPaths::GetBaseFilename(Filename))));
+
+		FString FileExtension = FPaths::GetExtension(Filename);
+
+		const TArray<UFactory*>* FactoriesPtr = ExtensionToFactoriesMap.Find(FileExtension);
+		UFactory* Factory = nullptr;
+		// Assume that for automated import, the user knows exactly what factory to use if it exists
+		if(bAutomatedImport && SpecifiedFactory && SpecifiedFactory->FactoryCanImport(Filename))
+		{
+			Factory = SpecifiedFactory;
+		}
+		else if(FactoriesPtr)
+		{
+			const TArray<UFactory*>& Factories = *FactoriesPtr;
+
+			// Handle the potential of multiple factories being found
+			if(Factories.Num() > 0)
+			{
+				Factory = Factories[0];
+
+				for(auto FactoryIt = Factories.CreateConstIterator(); FactoryIt; ++FactoryIt)
+				{
+					UFactory* TestFactory = *FactoryIt;
+					if(TestFactory->FactoryCanImport(Filename))
+					{
+						Factory = TestFactory;
+						break;
+					}
+				}
+			}
+		}
+		else
+		{
+			if(FEngineAnalytics::IsAvailable())
+			{
+				TArray<FAnalyticsEventAttribute> Attribs;
+				Attribs.Add(FAnalyticsEventAttribute(TEXT("FileExtension"), FileExtension));
+
+				FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.ImportFailed"), Attribs);
+			}
+
+			const FText Message = FText::Format(LOCTEXT("ImportFailed_UnknownExtension", "Failed to import '{0}'. Unknown extension '{1}'."), FText::FromString(Filename), FText::FromString(FileExtension));
+			FNotificationInfo Info(Message);
+			Info.ExpireDuration = 3.0f;
+			Info.bUseLargeFont = false;
+			Info.bFireAndForget = true;
+			Info.bUseSuccessFailIcons = true;
+			FSlateNotificationManager::Get().AddNotification(Info)->SetCompletionState(SNotificationItem::CS_Fail);
+
+			UE_LOG(LogAssetTools, Warning, TEXT("%s"), *Message.ToString());
+		}
+
+		if(Factory != nullptr)
+		{
+			// Reset the 'Do you want to overwrite the existing object?' Yes to All / No to All prompt, to make sure the
+			// user gets a chance to select something
+			Factory->ResetState();
+
+			UClass* ImportAssetType = Factory->SupportedClass;
+			bool bImportSucceeded = false;
+			bool bImportWasCancelled = false;
+			FDateTime ImportStartTime = FDateTime::UtcNow();
+
+			FString Name = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(Filename));
+			FString PackageName = DestinationPath + TEXT("/") + Name;
+
+			// We can not create assets that share the name of a map file in the same location
+			if(FEditorFileUtils::IsMapPackageAsset(PackageName))
+			{
+				const FText Message = FText::Format(LOCTEXT("AssetNameInUseByMap", "You can not create an asset named '{0}' because there is already a map file with this name in this folder."), FText::FromString(Name));
+				if(!bAutomatedImport)
+				{
+					FMessageDialog::Open(EAppMsgType::Ok, Message);
+				}
+				UE_LOG(LogAssetTools, Warning, TEXT("%s"), *Message.ToString());
+				OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
+				continue;
+			}
+
+			UPackage* Pkg = CreatePackage(nullptr, *PackageName);
+			if(!ensure(Pkg))
+			{
+				// Failed to create the package to hold this asset for some reason
+				OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
+				continue;
+			}
+
+			// Make sure the destination package is loaded
+			Pkg->FullyLoad();
+
+			// Check for an existing object
+			UObject* ExistingObject = StaticFindObject(UObject::StaticClass(), Pkg, *Name);
+			if(ExistingObject != nullptr)
+			{
+				// If the existing object is one of the imports we've just created we can't replace or overwrite it
+				if(ReturnObjects.Contains(ExistingObject))
+				{
+					if(ImportAssetType == nullptr)
+					{
+						// The factory probably supports multiple types and cant be determined yet without asking the user or actually loading it
+						// We just need to generate an unused name so object should do fine.
+						ImportAssetType = UObject::StaticClass();
+					}
+					// generate a unique name for this import
+					Name = MakeUniqueObjectName(Pkg, ImportAssetType, *Name).ToString();
+				}
+				else
+				{
+					// If the object is supported by the factory we are using, ask if we want to overwrite the asset
+					// Otherwise, prompt to replace the object
+					if(Factory->DoesSupportClass(ExistingObject->GetClass()))
+					{
+						// The factory can overwrite this object, ask if that is okay, unless "Yes To All" or "No To All" was already selected
+						EAppReturnType::Type UserResponse;
+
+						if(bForceOverrideExisting || bOverwriteAll || GIsAutomationTesting)
+						{
+							UserResponse = EAppReturnType::YesAll;
+						}
+						else if(bDontOverwriteAny)
+						{
+							UserResponse = EAppReturnType::NoAll;
+						}
+						else
+						{
+							UserResponse = FMessageDialog::Open(
+								EAppMsgType::YesNoYesAllNoAll,
+								FText::Format(LOCTEXT("ImportObjectAlreadyExists_SameClass", "Do you want to overwrite the existing asset?\n\nAn asset already exists at the import location: {0}"), FText::FromString(PackageName)));
+
+							bOverwriteAll = UserResponse == EAppReturnType::YesAll;
+							bDontOverwriteAny = UserResponse == EAppReturnType::NoAll;
+						}
+
+						const bool bWantOverwrite = UserResponse == EAppReturnType::Yes || UserResponse == EAppReturnType::YesAll;
+
+						if(!bWantOverwrite)
+						{
+							// User chose not to replace the package
+							bImportWasCancelled = true;
+							OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
+							continue;
+						}
+					}
+					else if(!bAutomatedImport)
+					{
+						// The factory can't overwrite this asset, ask if we should delete the object then import the new one. Only do this if "Yes To All" or "No To All" was not already selected.
+						EAppReturnType::Type UserResponse;
+
+						if(bReplaceAll)
+						{
+							UserResponse = EAppReturnType::YesAll;
+						}
+						else if(bDontReplaceAny)
+						{
+							UserResponse = EAppReturnType::NoAll;
+						}
+						else
+						{
+							UserResponse = FMessageDialog::Open(
+								EAppMsgType::YesNoYesAllNoAll,
+								FText::Format(LOCTEXT("ImportObjectAlreadyExists_DifferentClass", "Do you want to replace the existing asset?\n\nAn asset already exists at the import location: {0}"), FText::FromString(PackageName)));
+
+							bReplaceAll = UserResponse == EAppReturnType::YesAll;
+							bDontReplaceAny = UserResponse == EAppReturnType::NoAll;
+						}
+
+						const bool bWantReplace = UserResponse == EAppReturnType::Yes || UserResponse == EAppReturnType::YesAll;
+
+						if(bWantReplace)
+						{
+							// Delete the existing object
+							int32 NumObjectsDeleted = 0;
+							TArray< UObject* > ObjectsToDelete;
+							ObjectsToDelete.Add(ExistingObject);
+
+							// If the user forcefully deletes the package, all sorts of things could become invalidated,
+							// the Pkg pointer might be killed even though it was added to the root.
+							TWeakObjectPtr<UPackage> WeakPkg(Pkg);
+
+							// Dont let the package get garbage collected (just in case we are deleting the last asset in the package)
+							Pkg->AddToRoot();
+							NumObjectsDeleted = ObjectTools::DeleteObjects(ObjectsToDelete, /*bShowConfirmation=*/false);
+
+							// If the weak package ptr is still valid, it should then be safe to remove it from the root.
+							if(WeakPkg.IsValid())
+							{
+								Pkg->RemoveFromRoot();
+							}
+
+							const FString QualifiedName = PackageName + TEXT(".") + Name;
+							FText Reason;
+							if(NumObjectsDeleted == 0 || !IsUniqueObjectName(*QualifiedName, ANY_PACKAGE, Reason))
+							{
+								// Original object couldn't be deleted
+								const FText Message = FText::Format(LOCTEXT("ImportDeleteFailed", "Failed to delete '{0}'. The asset is referenced by other content."), FText::FromString(PackageName));
+								FMessageDialog::Open(EAppMsgType::Ok, Message);
+								UE_LOG(LogAssetTools, Warning, TEXT("%s"), *Message.ToString());
+								OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
+								continue;
+							}
+							else
+							{
+								// succeed, recreate package since it has been deleted
+								Pkg = CreatePackage(nullptr, *PackageName);
+							}
+						}
+						else
+						{
+							// User chose not to replace the package
+							bImportWasCancelled = true;
+							OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
+							continue;
+						}
+					}
+				}
+			}
+
+			// Check for a package that was marked for delete in source control
+			if(!CheckForDeletedPackage(Pkg))
+			{
+				OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
+				continue;
+			}
+
+			Factory->SetAutomatedAssetImportData(Params.ImportData);
+
+			ImportAssetType = Factory->ResolveSupportedClass();
+			UObject* Result = Factory->ImportObject(ImportAssetType, Pkg, FName(*Name), RF_Public | RF_Standalone, Filename, nullptr, bImportWasCancelled);
+
+			Factory->SetAutomatedAssetImportData(nullptr);
+
+			// Do not report any error if the operation was canceled.
+			if(!bImportWasCancelled)
+			{
+				if(Result)
+				{
+					ReturnObjects.Add(Result);
+
+					// Notify the asset registry
+					FAssetRegistryModule::AssetCreated(Result);
+					GEditor->BroadcastObjectReimported(Result);
+
+					bImportSucceeded = true;
+				}
+				else
+				{
+					const FText Message = FText::Format(LOCTEXT("ImportFailed_Generic", "Failed to import '{0}'. Failed to create asset '{1}'.\nPlease see Output Log for details."), FText::FromString(Filename), FText::FromString(PackageName));
+					if(!bAutomatedImport)
+					{
+						FMessageDialog::Open(EAppMsgType::Ok, Message);
+					}
+					UE_LOG(LogAssetTools, Warning, TEXT("%s"), *Message.ToString());
+				}
+			}
+
+			// Refresh the supported class.  Some factories (e.g. FBX) only resolve their type after reading the file
+			ImportAssetType = Factory->ResolveSupportedClass();
+			OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
+		}
+		else
+		{
+			// A factory or extension was not found. The extension warning is above. If a factory was not found, the user likely canceled a factory configuration dialog.
+		}
+	}
+
+	SlowTask.EnterProgressFrame(1);
+
+	// Clean up and remove the factories we created from the root set
+	for(auto ExtensionIt = ExtensionToFactoriesMap.CreateConstIterator(); ExtensionIt; ++ExtensionIt)
+	{
+		for(auto FactoryIt = ExtensionIt.Value().CreateConstIterator(); FactoryIt; ++FactoryIt)
+		{
+			(*FactoryIt)->CleanUp();
+			(*FactoryIt)->RemoveFromRoot();
+		}
+	}
+
+	// Sync content browser to the newly created assets
+	if(ReturnObjects.Num() && (bSyncToBrowser != false))
+	{
+		FAssetTools::Get().SyncBrowserToAssets(ReturnObjects);
+	}
+
+	return ReturnObjects;
+}
+
 FAssetTools& FAssetTools::Get()
 {
 	FAssetToolsModule& Module = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
@@ -1583,14 +1712,7 @@ void FAssetTools::MigratePackages_ReportConfirmed(TArray<FString> ConfirmedPacka
 	FString DestinationFolder;
 	if ( ensure(DesktopPlatform) )
 	{
-		void* ParentWindowWindowHandle = nullptr;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
+		const void* ParentWindowWindowHandle = FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr);
 
 		const FString Title = LOCTEXT("MigrateToFolderTitle", "Choose a destination Content folder").ToString();
 		bool bFolderAccepted = false;

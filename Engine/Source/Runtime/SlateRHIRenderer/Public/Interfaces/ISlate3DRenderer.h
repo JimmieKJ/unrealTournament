@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FRHICommandListImmediate;
+class FSlateDrawBuffer;
+class FTextureRenderTarget2DResource;
+
 class ISlate3DRenderer : public TSharedFromThis<ISlate3DRenderer, ESPMode::ThreadSafe>
 {
 public:

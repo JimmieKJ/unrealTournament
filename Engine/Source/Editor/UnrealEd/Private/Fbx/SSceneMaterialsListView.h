@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Classes/Factories/FbxSceneImportFactory.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Factories/FbxSceneImportFactory.h"
+#include "Widgets/Views/SListView.h"
+
+class FAssetData;
 
 typedef TSharedPtr<FFbxMaterialInfo> FbxMaterialInfoPtr;
 typedef TSharedPtr<FFbxTextureInfo> FbxTextureInfoPtr;

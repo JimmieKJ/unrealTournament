@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SQLiteSupportPrivatePCH.h"
+#include "SQLiteSupport.h"
 #include "SQLiteResultSet.h"
 #include "sqlite3.h"
 FSQLiteResultSet::~FSQLiteResultSet()

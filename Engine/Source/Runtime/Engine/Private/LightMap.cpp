@@ -4,14 +4,18 @@
 	LightMap.cpp: Light-map implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "TargetPlatform.h"
-#include "StaticLighting.h"
 #include "LightMap.h"
+#include "UnrealEngine.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "StaticLighting.h"
 #include "Components/InstancedStaticMeshComponent.h"
-#if WITH_EDITOR
-#include "Editor/UnrealEd/Classes/Settings/EditorExperimentalSettings.h"
-#endif
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/Package.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/MapBuildDataRegistry.h"
+
 DEFINE_LOG_CATEGORY_STATIC(LogLightMap, Log, All);
 
 FLightmassDebugOptions GLightmassDebugOptions;
@@ -230,6 +234,7 @@ struct FLightMapAllocation
 		MappedRect.Max.X = 0;
 		MappedRect.Max.Y = 0;
 		Primitive = nullptr;
+		Registry = NULL;
 		InstanceIndex = INDEX_NONE;
 		bSkipEncoding = false;
 	}
@@ -258,18 +263,21 @@ struct FLightMapAllocation
 	// Called after the lightmap is encoded
 	void PostEncode()
 	{
-		if (InstanceIndex >= 0)
+		if (InstanceIndex >= 0 && Registry)
 		{
-			UInstancedStaticMeshComponent* Component = CastChecked<UInstancedStaticMeshComponent>(Primitive);
+			FMeshMapBuildData* MeshBuildData = Registry->GetMeshBuildData(MapBuildDataId);
+			check(MeshBuildData);
 
 			// Instances may have been removed since LM allocation.
 			// Instances may have also been shuffled from removes. We do not handle this case.
-			if( InstanceIndex < Component->PerInstanceSMData.Num() )
+			if( InstanceIndex < MeshBuildData->PerInstanceLightmapData.Num() )
 			{
 				// TODO: We currently only support one LOD of static lighting in foliage
 				// Need to create per-LOD instance data to fix that
-				Component->PerInstanceSMData[InstanceIndex].LightmapUVBias = LightMap->GetCoordinateBias();
+				MeshBuildData->PerInstanceLightmapData[InstanceIndex].LightmapUVBias = LightMap->GetCoordinateBias();
 			}
+
+			UInstancedStaticMeshComponent* Component = CastChecked<UInstancedStaticMeshComponent>(Primitive);
 
 			Component->ReleasePerInstanceRenderData();
 			Component->MarkRenderStateDirty();
@@ -278,7 +286,9 @@ struct FLightMapAllocation
 
 	TRefCountPtr<FLightMap2D> LightMap;
 
-	UObject*		Primitive;
+	UPrimitiveComponent* Primitive;
+	UMapBuildDataRegistry* Registry;
+	FGuid MapBuildDataId;
 	int32			InstanceIndex;
 
 	/** Upper-left X-coordinate in the texture atlas. */
@@ -389,7 +399,7 @@ struct FLightMapPendingTexture : public FTextureLayout
 	bool							bTexelDebuggingEnabled;
 
 	FLightMapPendingTexture(UWorld* InWorld, uint32 InSizeX,uint32 InSizeY)
-		: FTextureLayout(4, 4, InSizeX, InSizeY, /* PowerOfTwo */ true, /* AlignByFour */ true) // Min size is 4x4 in case of block compression.
+		: FTextureLayout(4, 4, InSizeX, InSizeY, /* PowerOfTwo */ true, /* Force2To1Aspect */ true, /* AlignByFour */ true) // Min size is 4x4 in case of block compression.
 		, SkyOcclusionTexture(nullptr)
 		, AOMaterialMaskTexture(nullptr)
 		, OwningWorld(InWorld)
@@ -415,7 +425,7 @@ struct FLightMapPendingTexture : public FTextureLayout
 	/**
 	 * Processes the textures and starts asynchronous compression tasks for all mip-levels.
 	 */
-	void StartEncoding();
+	void StartEncoding(ULevel* Unused);
 
 	/**
 	 * Call this function after the IsFinishedEncoding function returns true
@@ -1157,7 +1167,7 @@ bool FLightMapPendingTexture::NeedsAOMaterialMaskTexture() const
 	return false;
 }
 
-void FLightMapPendingTexture::StartEncoding()
+void FLightMapPendingTexture::StartEncoding(ULevel* Unused)
 {
 	if (!bUObjectsCreated)
 	{
@@ -1354,6 +1364,7 @@ void FLightMapPendingTexture::StartEncoding()
 		Texture->Source.Init2DWithMipChain(GetSizeX(), GetSizeY() * 2, TSF_BGRA8);	// Top/bottom atlased
 		Texture->MipGenSettings = TMGS_LeaveExistingMips;
 		int32 NumMips = Texture->Source.GetNumMips();
+		check(NumMips > 0);
 		Texture->SRGB = 0;
 		Texture->Filter	= GUseBilinearLightmaps ? TF_Default : TF_Nearest;
 		Texture->LODGroup = TEXTUREGROUP_Lightmap;
@@ -1596,7 +1607,7 @@ TRefCountPtr<FLightMap2D> FLightMap2D::AllocateLightMap(UObject* LightMapOuter, 
 
 #if WITH_EDITOR
 	FLightMapAllocationGroup AllocationGroup;
-	AllocationGroup.Outer = LightMapOuter->GetOutermost();
+	AllocationGroup.Outer = LightMapOuter;
 	AllocationGroup.LightmapFlags = InLightmapFlags;
 	AllocationGroup.Bounds = Bounds;
 	if (!GAllowStreamingLightmaps)
@@ -1612,7 +1623,6 @@ TRefCountPtr<FLightMap2D> FLightMap2D::AllocateLightMap(UObject* LightMapOuter, 
 		TUniquePtr<FLightMapAllocation> Allocation = MakeUnique<FLightMapAllocation>(MoveTemp(*SourceQuantizedData));
 		Allocation->PaddingType = InPaddingType;
 		Allocation->LightMap = LightMap;
-		Allocation->Primitive = LightMapOuter;
 
 #if WITH_EDITOR
 		if (IsTexelDebuggingEnabled())
@@ -1649,8 +1659,8 @@ TRefCountPtr<FLightMap2D> FLightMap2D::AllocateLightMap(UObject* LightMapOuter, 
 #endif // WITH_EDITOR
 }
 
-TRefCountPtr<FLightMap2D> FLightMap2D::AllocateInstancedLightMap(UInstancedStaticMeshComponent* Component, TArray<TUniquePtr<FQuantizedLightmapData>> InstancedSourceQuantizedData,
-	const FBoxSphereBounds& Bounds, ELightMapPaddingType InPaddingType, ELightMapFlags InLightmapFlags)
+TRefCountPtr<FLightMap2D> FLightMap2D::AllocateInstancedLightMap(UObject* LightMapOuter, UInstancedStaticMeshComponent* Component, TArray<TUniquePtr<FQuantizedLightmapData>> InstancedSourceQuantizedData,
+	UMapBuildDataRegistry* Registry, FGuid MapBuildDataId, const FBoxSphereBounds& Bounds, ELightMapPaddingType InPaddingType, ELightMapFlags InLightmapFlags)
 {
 #if WITH_EDITOR
 	check(InstancedSourceQuantizedData.Num() > 0);
@@ -1775,7 +1785,7 @@ TRefCountPtr<FLightMap2D> FLightMap2D::AllocateInstancedLightMap(UInstancedStati
 	}
 
 	FLightMapAllocationGroup AllocationGroup = FLightMapAllocationGroup();
-	AllocationGroup.Outer = Component->GetOutermost();
+	AllocationGroup.Outer = LightMapOuter;
 	AllocationGroup.LightmapFlags = InLightmapFlags;
 	AllocationGroup.Bounds = Bounds;
 	if (!GAllowStreamingLightmaps)
@@ -1809,6 +1819,8 @@ TRefCountPtr<FLightMap2D> FLightMap2D::AllocateInstancedLightMap(UInstancedStati
 		Allocation->PaddingType = InPaddingType;
 		Allocation->LightMap = MoveTemp(LightMap);
 		Allocation->Primitive = Component;
+		Allocation->Registry = Registry;
+		Allocation->MapBuildDataId = MapBuildDataId;
 		Allocation->InstanceIndex = InstanceIndex;
 
 		// SourceQuantizedData is no longer needed now that FLightMapAllocation has what it needs
@@ -1971,7 +1983,7 @@ void FLightMap2D::EncodeTextures( UWorld* InWorld, bool bLightingSuccessful, boo
 				// precreate the UObjects then give them to some threads to process
 				// need to precreate Uobjects 
 				Texture->CreateUObjects();
-				auto AsyncEncodeTask = new (AsyncEncodeTasks)FAsyncEncode<FLightMapPendingTexture>(Texture,Counter);
+				auto AsyncEncodeTask = new (AsyncEncodeTasks)FAsyncEncode<FLightMapPendingTexture>(Texture,NULL,Counter);
 				GLargeThreadPool->AddQueuedWork(AsyncEncodeTask);
 			}
 
@@ -1991,7 +2003,7 @@ void FLightMap2D::EncodeTextures( UWorld* InWorld, bool bLightingSuccessful, boo
 					GWarn->UpdateProgress(TextureIndex, PendingTextures.Num());
 				}
 				FLightMapPendingTexture* PendingTexture = PendingTextures[TextureIndex];
-				PendingTexture->StartEncoding();
+				PendingTexture->StartEncoding(NULL);
 			}
 		}
 
@@ -2065,12 +2077,12 @@ UTexture2D* FLightMap2D::GetTexture(uint32 BasisIndex)
 	return Textures[BasisIndex];
 }
 
-UTexture2D* FLightMap2D::GetSkyOcclusionTexture()
+UTexture2D* FLightMap2D::GetSkyOcclusionTexture() const
 {
 	return SkyOcclusionTexture;
 }
 
-UTexture2D* FLightMap2D::GetAOMaterialMaskTexture()
+UTexture2D* FLightMap2D::GetAOMaterialMaskTexture() const
 {
 	return AOMaterialMaskTexture;
 }

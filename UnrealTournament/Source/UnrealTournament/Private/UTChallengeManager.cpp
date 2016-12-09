@@ -328,15 +328,16 @@ bool UUTChallengeManager::IsValidChallenge(AUTGameMode* CurrentGame, const FStri
 		const FUTChallengeInfo* Challenge = Challenges.Find(CurrentGame->ChallengeTag);
 
 		FString GameMode = UGameplayStatics::ParseOption(Challenge->GameURL, TEXT("Game"));
+		FString FullGameModePath = UGameMapsSettings::GetGameModeForName(GameMode);
 
 		if (MapName != Challenge->Map.Right(MapName.Len()))
 		{
 			UE_LOG(UT, Warning, TEXT("CHALLENGE FAILED - Challenge in %s should be %s"), *MapName, *Challenge->Map);
 			return false;
 		}
-		else if (CurrentGame->GetClass()->GetPathName() != CurrentGame->StaticGetFullGameClassName(GameMode))
+		else if (CurrentGame->GetClass()->GetPathName() != FullGameModePath)
 		{
-			UE_LOG(UT, Warning, TEXT("CHALLENGE FAILED - Challenge game %s should be %s [%s]"), *CurrentGame->GetClass()->GetFullName(), *CurrentGame->StaticGetFullGameClassName(GameMode), *GameMode);
+			UE_LOG(UT, Warning, TEXT("CHALLENGE FAILED - Challenge game %s should be %s [%s]"), *CurrentGame->GetClass()->GetFullName(), *FullGameModePath, *GameMode);
 			return false;
 		}
 		else if (!GetModPakFilenameFromPkg(CurrentGame->GetOutermost()->GetName()).IsEmpty())

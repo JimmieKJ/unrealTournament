@@ -1,9 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PortalProxiesPrivatePCH.h"
-#include "PortalApplicationWindowProxy.h"
-#include "IMessageRpcClient.h"
-#include "IPortalApplicationWindow.h"
+#include "Application/PortalApplicationWindowProxy.h"
+#include "Application/IPortalApplicationWindow.h"
 #include "PortalApplicationWindowMessages.h"
 
 class FPortalApplicationWindowProxy

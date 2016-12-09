@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SViewport.h"
+
+class FLevelEditorViewportClient;
+class FViewport;
+
 /**
  * Public interface to SLevelViewport
  */

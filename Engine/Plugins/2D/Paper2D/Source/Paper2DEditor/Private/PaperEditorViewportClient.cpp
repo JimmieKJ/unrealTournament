@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "TileSetEditor.h"
 #include "PaperEditorViewportClient.h"
+#include "Paper2DModule.h"
+#include "AssetEditorModeManager.h"
 #include "CanvasTypes.h"
-#include "SEditorViewport.h"
-#include "PreviewScene.h"
 #include "ImageUtils.h"
 
 //////////////////////////////////////////////////////////////////////////

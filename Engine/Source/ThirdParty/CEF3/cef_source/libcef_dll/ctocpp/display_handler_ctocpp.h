@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -29,17 +29,17 @@ class CefDisplayHandlerCToCpp
     : public CefCToCpp<CefDisplayHandlerCToCpp, CefDisplayHandler,
         cef_display_handler_t> {
  public:
-  explicit CefDisplayHandlerCToCpp(cef_display_handler_t* str)
-      : CefCToCpp<CefDisplayHandlerCToCpp, CefDisplayHandler,
-          cef_display_handler_t>(str) {}
+  CefDisplayHandlerCToCpp();
 
-  // CefDisplayHandler methods
+  // CefDisplayHandler methods.
   void OnAddressChange(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
       const CefString& url) override;
   void OnTitleChange(CefRefPtr<CefBrowser> browser,
       const CefString& title) override;
   void OnFaviconURLChange(CefRefPtr<CefBrowser> browser,
       const std::vector<CefString>& icon_urls) override;
+  void OnFullscreenModeChange(CefRefPtr<CefBrowser> browser,
+      bool fullscreen) override;
   bool OnTooltip(CefRefPtr<CefBrowser> browser, CefString& text) override;
   void OnStatusMessage(CefRefPtr<CefBrowser> browser,
       const CefString& value) override;
@@ -49,4 +49,3 @@ class CefDisplayHandlerCToCpp
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_DISPLAY_HANDLER_CTOCPP_H_
-

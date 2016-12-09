@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneStringSection.h"
+#include "Sections/MovieSceneStringSection.h"
 
 UMovieSceneStringSection::UMovieSceneStringSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
@@ -40,7 +39,15 @@ void UMovieSceneStringSection::AddKey( float Time, const FString& Key, EMovieSce
 
 void UMovieSceneStringSection::SetDefault(const FString& Value)
 {
-	StringCurve.SetDefaultValue(Value);
+	if (StringCurve.DefaultValue.Compare(Value) != 0 && TryModify())
+	{
+		StringCurve.SetDefaultValue(Value);
+	}
+}
+
+void UMovieSceneStringSection::ClearDefaults()
+{
+	StringCurve.ClearDefaultValue();
 }
 
 

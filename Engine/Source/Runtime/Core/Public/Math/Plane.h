@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/UnrealMathUtility.h"
+#include "Math/Vector.h"
+#include "Math/Vector4.h"
+#include "UObject/ObjectVersion.h"
 
 /**
  * Structure for three dimensional planes.
@@ -276,6 +281,84 @@ public:
 	}
 } GCC_ALIGN(16);
 
+/* FMath inline functions
+ *****************************************************************************/
+
+inline FVector FMath::LinePlaneIntersection
+	(
+	const FVector &Point1,
+	const FVector &Point2,
+	const FPlane  &Plane
+	)
+{
+	return
+		Point1
+		+	(Point2-Point1)
+		*	((Plane.W - (Point1|Plane))/((Point2 - Point1)|Plane));
+}
+
+inline bool FMath::IntersectPlanes3( FVector& I, const FPlane& P1, const FPlane& P2, const FPlane& P3 )
+{
+	// Compute determinant, the triple product P1|(P2^P3)==(P1^P2)|P3.
+	const float Det = (P1 ^ P2) | P3;
+	if( Square(Det) < Square(0.001f) )
+	{
+		// Degenerate.
+		I = FVector::ZeroVector;
+		return 0;
+	}
+	else
+	{
+		// Compute the intersection point, guaranteed valid if determinant is nonzero.
+		I = (P1.W*(P2^P3) + P2.W*(P3^P1) + P3.W*(P1^P2)) / Det;
+	}
+	return 1;
+}
+
+inline bool FMath::IntersectPlanes2( FVector& I, FVector& D, const FPlane& P1, const FPlane& P2 )
+{
+	// Compute line direction, perpendicular to both plane normals.
+	D = P1 ^ P2;
+	const float DD = D.SizeSquared();
+	if( DD < Square(0.001f) )
+	{
+		// Parallel or nearly parallel planes.
+		D = I = FVector::ZeroVector;
+		return 0;
+	}
+	else
+	{
+		// Compute intersection.
+		I = (P1.W*(P2^D) + P2.W*(D^P1)) / DD;
+		D.Normalize();
+		return 1;
+	}
+}
+
+/* FVector inline functions
+ *****************************************************************************/
+
+inline FVector FVector::MirrorByPlane( const FPlane& Plane ) const
+{
+	return *this - Plane * (2.f * Plane.PlaneDot(*this) );
+}
+
+inline FVector FVector::PointPlaneProject(const FVector& Point, const FPlane& Plane)
+{
+	//Find the distance of X from the plane
+	//Add the distance back along the normal from the point
+	return Point - Plane.PlaneDot(Point) * Plane;
+}
+
+inline FVector FVector::PointPlaneProject(const FVector& Point, const FVector& A, const FVector& B, const FVector& C)
+{
+	//Compute the plane normal from ABC
+	FPlane Plane(A, B, C);
+
+	//Find the distance of X from the plane
+	//Add the distance back along the normal from the point
+	return Point - Plane.PlaneDot(Point) * Plane;
+}
 
 /* FPlane inline functions
  *****************************************************************************/
@@ -335,7 +418,6 @@ FORCEINLINE FPlane FPlane::Flip() const
 {
 	return FPlane(-X, -Y, -Z, -W);
 }
-
 
 FORCEINLINE bool FPlane::operator==(const FPlane& V) const
 {

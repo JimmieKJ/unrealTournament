@@ -4,6 +4,11 @@
 	OpenGLViewport.cpp: OpenGL viewport RHI implementation.
 =============================================================================*/
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "RHI.h"
+#include "OpenGLDrv.h"
 #include "OpenGLDrvPrivate.h"
 
 /**

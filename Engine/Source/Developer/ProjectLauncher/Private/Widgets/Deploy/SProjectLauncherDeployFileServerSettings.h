@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Models/ProjectLauncherModel.h"
+
+enum class ECheckBoxState : uint8;
 
 /**
  * Implements the deploy-to-device settings panel.

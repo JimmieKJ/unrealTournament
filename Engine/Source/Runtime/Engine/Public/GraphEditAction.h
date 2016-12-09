@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** This is the type of action that occurred on a given graph */
 enum EEdGraphActionType
 {

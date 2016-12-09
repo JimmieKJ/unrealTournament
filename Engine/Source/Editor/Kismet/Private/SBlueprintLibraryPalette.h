@@ -2,7 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Styling/SlateBrush.h"
+#include "Widgets/SBoxPanel.h"
 #include "SBlueprintSubPalette.h"
+
+class FBlueprintEditor;
+class FMenuBuilder;
+class FUICommandList;
+class SComboButton;
 
 /*******************************************************************************
 * SBlueprintLibraryPalette

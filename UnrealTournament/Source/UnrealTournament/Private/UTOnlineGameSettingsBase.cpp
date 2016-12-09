@@ -4,6 +4,7 @@
 #include "UTOnlineGameSettingsBase.h"
 #include "UTGameEngine.h"
 #include "UnrealNetwork.h"
+#include "Misc/NetworkVersion.h"
 
 FUTOnlineGameSettingsBase::FUTOnlineGameSettingsBase(bool bIsLanGame, bool bIsPresense, bool bPrivate, int32 MaxNumberPlayers)
 {

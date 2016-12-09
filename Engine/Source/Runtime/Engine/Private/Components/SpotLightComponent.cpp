@@ -4,9 +4,11 @@
 	SpotLightComponent.cpp: LightComponent implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "PointLightSceneProxy.h"
 #include "Components/SpotLightComponent.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/Texture2D.h"
+#include "SceneManagement.h"
+#include "PointLightSceneProxy.h"
 
 
 /**

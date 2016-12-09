@@ -4,28 +4,27 @@
 	ParticleEmitterInstances.cpp: Particle emitter instance implementations.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "ParticleEmitterInstances.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Materials/Material.h"
+#include "Particles/ParticleSystem.h"
+#include "TessellationRendering.h"
 #include "StaticMeshResources.h"
-#include "ParticleDefinitions.h"
-#include "LevelUtils.h"
 #include "FXSystem.h"
-#include "UObjectBaseUtility.h"
 
+#include "Particles/SubUV/ParticleModuleSubUV.h"
 #include "Particles/Collision/ParticleModuleCollisionGPU.h"
 #include "Particles/Event/ParticleModuleEventGenerator.h"
 #include "Particles/Event/ParticleModuleEventReceiverBase.h"
 #include "Particles/Material/ParticleModuleMeshMaterial.h"
 #include "Particles/Modules/Location/ParticleModulePivotOffset.h"
 #include "Particles/Orbit/ParticleModuleOrbit.h"
-#include "Particles/Orientation/ParticleModuleOrientationAxisLock.h"
 #include "Particles/Spawn/ParticleModuleSpawn.h"
+#include "Particles/TypeData/ParticleModuleTypeDataBase.h"
 #include "Particles/TypeData/ParticleModuleTypeDataMesh.h"
 #include "Particles/ParticleLODLevel.h"
-#include "Particles/ParticleModule.h"
 #include "Particles/ParticleModuleRequired.h"
-#include "Particles/ParticleSpriteEmitter.h"
-#include "Particles/ParticleSystemComponent.h"
-#include "Particles/SubUV/ParticleModuleSubUV.h"
 
 #include "Components/PointLightComponent.h"
 
@@ -223,6 +222,9 @@ FParticleEmitterBuildInfo::FParticleEmitterBuildInfo()
 	, bLocalVectorFieldTileY(false)
 	, bLocalVectorFieldTileZ(false)
 	, bLocalVectorFieldUseFixDT(false)
+	, bRemoveHMDRoll(0)
+	, MinFacingCameraBlendDistance(0.0f)
+	, MaxFacingCameraBlendDistance(0.0f)
 {
 	DragScale.InitializeWithConstant(1.0f);
 	VectorFieldScale.InitializeWithConstant(1.0f);
@@ -1977,6 +1979,8 @@ void FParticleEmitterInstance::SpawnParticles( int32 Count, float StartTime, flo
 			{
 				UParticleModule* OffsetModule = HighestLODLevel->SpawnModules[ModuleIndex];
 				SpawnModule->Spawn(this, GetModuleDataOffset(OffsetModule), SpawnTime, Particle);
+
+				ensureMsgf(!Particle->Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Component ? *GetNameSafe(Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Component));
 			}
 		}
 		PostSpawn(Particle, Interp, SpawnTime);
@@ -2596,6 +2600,10 @@ bool FParticleEmitterInstance::FillReplayData( FDynamicEmitterReplayDataBase& Ou
 		NewReplayData->NormalsCylinderDirection = LODLevel->RequiredModule->NormalsCylinderDirection;
 
 		NewReplayData->PivotOffset = PivotOffset;
+
+		NewReplayData->bRemoveHMDRoll = LODLevel->RequiredModule->bRemoveHMDRoll;
+		NewReplayData->MinFacingCameraBlendDistance = LODLevel->RequiredModule->MinFacingCameraBlendDistance;
+		NewReplayData->MaxFacingCameraBlendDistance = LODLevel->RequiredModule->MaxFacingCameraBlendDistance;
 	}
 
 
@@ -2804,26 +2812,24 @@ void FParticleSpriteEmitterInstance::GetAllocatedSize(int32& OutNum, int32& OutM
  * @param	Mode	Specifies which resource size should be displayed. ( see EResourceSizeMode::Type )
  * @return	Size of resource as to be displayed to artists/ LDs in the Editor.
  */
-SIZE_T FParticleSpriteEmitterInstance::GetResourceSize(EResourceSizeMode::Type Mode)
+void FParticleSpriteEmitterInstance::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	int32 ResSize = 0;
-	if (Mode == EResourceSizeMode::Inclusive || (Component && Component->SceneProxy))
+	if (CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::Inclusive || (Component && Component->SceneProxy))
 	{
 		int32 MaxActiveParticleDataSize = (ParticleData != NULL) ? (MaxActiveParticles * ParticleStride) : 0;
 		int32 MaxActiveParticleIndexSize = (ParticleIndices != NULL) ? (MaxActiveParticles * sizeof(uint16)) : 0;
 		// Take dynamic data into account as well
-		ResSize = sizeof(FDynamicSpriteEmitterData);
-		ResSize += MaxActiveParticleDataSize;								// Copy of the particle data on the render thread
-		ResSize += MaxActiveParticleIndexSize;								// Copy of the particle indices on the render thread
-		ResSize += MaxActiveParticles * sizeof(FParticleSpriteVertex);		// The vertex data array
+		CumulativeResourceSize.AddUnknownMemoryBytes(sizeof(FDynamicSpriteEmitterData));
+		CumulativeResourceSize.AddUnknownMemoryBytes(MaxActiveParticleDataSize);								// Copy of the particle data on the render thread
+		CumulativeResourceSize.AddUnknownMemoryBytes(MaxActiveParticleIndexSize);								// Copy of the particle indices on the render thread
+		CumulativeResourceSize.AddUnknownMemoryBytes(MaxActiveParticles * sizeof(FParticleSpriteVertex));		// The vertex data array
 
 		// Account for dynamic parameter data
 		if (DynamicParameterDataOffset > 0)
 		{
-			ResSize += MaxActiveParticles * sizeof(FParticleVertexDynamicParameter);
+			CumulativeResourceSize.AddUnknownMemoryBytes(MaxActiveParticles * sizeof(FParticleVertexDynamicParameter));
 		}
 	}
-	return ResSize;
 }
 
 /**
@@ -3014,7 +3020,7 @@ void FParticleMeshEmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning)
 						check(LastOrbit);
 					
 						uint32 SpriteOrbitModuleOffset = *SpriteTemplate->ModuleOffsetMap.Find(LastOrbit);
-						if (OrbitModuleOffset != 0)
+						if (SpriteOrbitModuleOffset != 0)
 						{
 							const FOrbitChainModuleInstancePayload &OrbitPayload = *(FOrbitChainModuleInstancePayload*)((uint8*)&Particle + SpriteOrbitModuleOffset);
 
@@ -3435,19 +3441,17 @@ void FParticleMeshEmitterInstance::GetAllocatedSize(int32& OutNum, int32& OutMax
  * @param	Mode	Specifies which resource size should be displayed. ( see EResourceSizeMode::Type )
  * @return  Size of resource as to be displayed to artists/ LDs in the Editor.
  */
-SIZE_T FParticleMeshEmitterInstance::GetResourceSize(EResourceSizeMode::Type Mode)
+void FParticleMeshEmitterInstance::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	int32 ResSize = 0;
-	if (Mode == EResourceSizeMode::Inclusive || (Component && Component->SceneProxy))
+	if (CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::Inclusive || (Component && Component->SceneProxy))
 	{
 		int32 MaxActiveParticleDataSize = (ParticleData != NULL) ? (MaxActiveParticles * ParticleStride) : 0;
 		int32 MaxActiveParticleIndexSize = (ParticleIndices != NULL) ? (MaxActiveParticles * sizeof(uint16)) : 0;
 		// Take dynamic data into account as well
-		ResSize = sizeof(FDynamicMeshEmitterData);
-		ResSize += MaxActiveParticleDataSize;								// Copy of the particle data on the render thread
-		ResSize += MaxActiveParticleIndexSize;								// Copy of the particle indices on the render thread
+		CumulativeResourceSize.AddUnknownMemoryBytes(sizeof(FDynamicMeshEmitterData));
+		CumulativeResourceSize.AddUnknownMemoryBytes(MaxActiveParticleDataSize);								// Copy of the particle data on the render thread
+		CumulativeResourceSize.AddUnknownMemoryBytes(MaxActiveParticleIndexSize);								// Copy of the particle indices on the render thread
 	}
-	return ResSize;
 }
 
 /**
@@ -3702,6 +3706,9 @@ FDynamicSpriteEmitterReplayDataBase::FDynamicSpriteEmitterReplayDataBase()
 	, EmitterRenderMode(0)
 	, EmitterNormalsMode(0)
 	, PivotOffset(-0.5f, -0.5f)
+	, bRemoveHMDRoll(false)
+	, MinFacingCameraBlendDistance(0.f)
+	, MaxFacingCameraBlendDistance(0.f)
 {
 }
 
@@ -3733,4 +3740,8 @@ void FDynamicSpriteEmitterReplayDataBase::Serialize( FArchive& Ar )
 	Ar << MaterialInterface;
 
 	Ar << PivotOffset;
+
+	Ar << bRemoveHMDRoll;
+	Ar << MinFacingCameraBlendDistance;
+	Ar << MaxFacingCameraBlendDistance;
 }

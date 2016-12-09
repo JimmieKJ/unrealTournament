@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TreeMapModule.h"
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
 #include "ITreeMap.h"
-#include "XmlParser.h"
+#include "XmlFile.h"
 
 
 typedef TSharedPtr<class FTreeMapNode> FTreeMapNodePtr;

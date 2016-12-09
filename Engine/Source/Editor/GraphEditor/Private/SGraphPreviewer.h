@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class SGraphPanel;
+class UEdGraph;
+
 // This widget provides a fully-zoomed-out preview of a specified graph
 class GRAPHEDITOR_API SGraphPreviewer : public SCompoundWidget
 {

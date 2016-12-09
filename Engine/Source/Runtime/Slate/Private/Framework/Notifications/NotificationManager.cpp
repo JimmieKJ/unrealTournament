@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Misc/ScopeLock.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 namespace NotificationManagerConstants
 {
@@ -105,7 +106,10 @@ TSharedRef<SNotificationList> FSlateNotificationManager::CreateStackForArea(cons
 
 	if( !FSlateApplication::Get().GetActiveModalWindow().IsValid() )
 	{
-		NotificationWindow->BringToFront();
+		if ( NotificationWindow->IsActive() || NotificationWindow->HasActiveParent() )
+		{
+			NotificationWindow->BringToFront();
+		}
 	}
 
 	bool bFound = false;

@@ -2,8 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "BehaviorTree/BTTaskNode.h"
-#include "Actions/PawnAction.h"
 #include "BTTask_PawnActionBase.generated.h"
 
 class UPawnAction;

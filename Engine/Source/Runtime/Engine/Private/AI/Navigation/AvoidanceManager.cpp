@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "GameFramework/MovementComponent.h"
 #include "AI/Navigation/AvoidanceManager.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
+#include "DrawDebugHelpers.h"
+#include "GameFramework/MovementComponent.h"
 #include "AI/RVOAvoidanceInterface.h"
+#include "AI/Navigation/NavEdgeProviderInterface.h"
 
 DEFINE_STAT(STAT_AI_ObstacleAvoidance);
 
@@ -51,7 +54,7 @@ UAvoidanceManager::UAvoidanceManager(const FObjectInitializer& ObjectInitializer
 {
 	DefaultTimeToLive = 1.5f;
 	LockTimeAfterAvoid = 0.2f;
-	LockTimeAfterClean = 0.01f;
+	LockTimeAfterClean = 0.001f;
 	DeltaTimeToPredict = 0.5f;
 	ArtificialRadiusExpansion = 1.5f;
 	TestHeightDifference_DEPRECATED = 500.0f;

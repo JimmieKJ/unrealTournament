@@ -7,18 +7,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "BoneIndices.h"
+#include "Animation/AnimTypes.h"
+#include "Animation/AnimationAsset.h"
+#include "Animation/AnimCurveTypes.h"
+#include "Components/SkinnedMeshComponent.h"
 #include "BonePose.h"
-#include "AnimTypes.h"
-#include "AnimCurveTypes.h"
 #include "Containers/ArrayView.h"
 
-struct FInputBlendPose;
+class UBlendSpaceBase;
+class USkeletalMeshComponent;
 struct FA2CSPose;
 struct FA2Pose;
-struct FPerBoneBlendWeight;
-struct FCompactPose;
-struct FBlendedCurve;
-class UBlendSpaceBase;
+struct FInputBlendPose;
+
 typedef TArray<FTransform> FTransformArrayA2;
 
 /////////////////////////////////////////////////////////

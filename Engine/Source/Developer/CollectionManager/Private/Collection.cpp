@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CollectionManagerPrivatePCH.h"
+#include "Collection.h"
+#include "HAL/PlatformTime.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/FeedbackContext.h"
+#include "Misc/ScopedSlowTask.h"
+#include "CollectionManagerLog.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
-#include "TextFilterExpressionEvaluator.h"
+#include "Misc/TextFilterExpressionEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "CollectionManager"
 

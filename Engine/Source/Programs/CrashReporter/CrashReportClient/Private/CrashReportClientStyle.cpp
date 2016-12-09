@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "CrashReportClientStyle.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Paths.h"
+#include "Math/Color.h"
+#include "Math/Vector2D.h"
 #include "CrashReportClientApp.h"
 
 #if !CRASH_REPORT_UNATTENDED_ONLY
 
-#include "CrashReportClientStyle.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Styling/SlateTypes.h"
 
 TSharedPtr< FSlateStyleSet > FCrashReportClientStyle::StyleSet = nullptr;
 

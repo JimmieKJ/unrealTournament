@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
 
 /**
  * Implements a string with wild card pattern matching abilities.

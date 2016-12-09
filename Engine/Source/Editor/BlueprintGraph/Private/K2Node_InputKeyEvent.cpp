@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "K2Node_InputKeyEvent.h"
 #include "Engine/InputKeyDelegateBinding.h"
 

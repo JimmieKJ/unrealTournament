@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "Editor/MaterialEditor/Public/MaterialEditorModule.h"
+#include "AssetTypeActions/AssetTypeActions_MaterialFunction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "EditorStyleSet.h"
+#include "Materials/Material.h"
+#include "ThumbnailRendering/SceneThumbnailInfoWithPrimitive.h"
+#include "AssetTools.h"
+#include "MaterialEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

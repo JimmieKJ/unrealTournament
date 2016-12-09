@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Serialization/Archive.h"
+#include "Math/UnrealMathUtility.h"
+#include "Math/Float32.h"
 
 /**
 * 16 bit float components and conversion

@@ -1,16 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Tools.CrashReporter.CrashReportProcess
 {
-	static class ReportIndex
+	class ReportIndex
 	{
-		public static void WriteToFile()
+		public void WriteToFile()
 		{
+			if (!IsEnabled) return;
+
 			try
 			{
 				if (File.Exists(Filepath))
@@ -34,15 +33,17 @@ namespace Tools.CrashReporter.CrashReportProcess
 
 				LastFlush = DateTime.UtcNow;
 			}
-			catch (Exception ex)
+			catch (Exception Ex)
 			{
-				CrashReporterProcessServicer.WriteException(string.Format("Failed to write ReportIndex to {0}. Exception was: {1}", Filepath, ex));
-				CrashReporterProcessServicer.StatusReporter.Alert(string.Format("Failed to write ReportIndex to {0}", Filepath));
+				CrashReporterProcessServicer.WriteException(string.Format("Failed to write ReportIndex to {0}. Exception was: {1}", Filepath, Ex), Ex);
+				CrashReporterProcessServicer.StatusReporter.Alert("ReportIndex.WriteToFile", string.Format("Failed to write ReportIndex to {0}", Filepath), Config.Default.SlackAlertRepeatMinimumMinutes);
 			}
 		}
 
-		public static void ReadFromFile()
+		public void ReadFromFile()
 		{
+			if (!IsEnabled) return;
+
 			try
 			{
 				Index = new Dictionary<string, DateTime>();
@@ -52,7 +53,7 @@ namespace Tools.CrashReporter.CrashReportProcess
 					if (File.Exists(Filepath + ".backup"))
 					{
 						CrashReporterProcessServicer.WriteFailure(string.Format("Failed to read ReportIndex from {0}. Attempting to read from {1}", Filepath, Filepath + ".backup"));
-						CrashReporterProcessServicer.StatusReporter.Alert(string.Format("Failed to read ReportIndex from {0}. Using backup.", Filepath));
+						CrashReporterProcessServicer.StatusReporter.Alert("ReportIndex.ReadFromFile.UsingBackup", string.Format("Failed to read ReportIndex from {0}. Using backup.", Filepath), Config.Default.SlackAlertRepeatMinimumMinutes);
 						File.Move(Filepath + ".backup", Filepath);
 					}
 					else
@@ -83,15 +84,17 @@ namespace Tools.CrashReporter.CrashReportProcess
 
 				LastFlush = DateTime.UtcNow;
 			}
-			catch (Exception ex)
+			catch (Exception Ex)
 			{
-				CrashReporterProcessServicer.WriteException(string.Format("Failed to read ReportIndex from {0}. Exception was: {1}", Filepath, ex));
-				CrashReporterProcessServicer.StatusReporter.Alert(string.Format("Failed to read ReportIndex from {0}", Filepath));
+				CrashReporterProcessServicer.WriteException(string.Format("Failed to read ReportIndex from {0}. Exception was: {1}", Filepath, Ex), Ex);
+				CrashReporterProcessServicer.StatusReporter.Alert("ReportIndex.ReadFromFile", string.Format("Failed to read ReportIndex from {0}", Filepath), Config.Default.SlackAlertRepeatMinimumMinutes);
 			}
 		}
 
-		public static bool TryAddNewReport(string ReportKey)
+		public bool TryAddNewReport(string ReportKey)
 		{
+			if (!IsEnabled) return true;
+
 			if (ContainsReport(ReportKey))
 			{
 				return false;
@@ -107,13 +110,17 @@ namespace Tools.CrashReporter.CrashReportProcess
 			return true;
 		}
 
-		public static bool ContainsReport(string ReportKey)
+		public bool ContainsReport(string ReportKey)
 		{
+			if (!IsEnabled) return false;
+
 			return Index.ContainsKey(ReportKey);
 		}
 
-		public static bool TryRemoveReport(string ReportKey)
+		public bool TryRemoveReport(string ReportKey)
 		{
+			if (!IsEnabled) return true;
+
 			return Index.Remove(ReportKey);
 		}
 
@@ -149,10 +156,11 @@ namespace Tools.CrashReporter.CrashReportProcess
 			return true;
 		}
 
-		public static string Filepath { get; set; }
-		public static TimeSpan Retention { get; set; }
+		public bool IsEnabled { get; set; }
+		public string Filepath { get; set; }
+		public TimeSpan Retention { get; set; }
 
-		private static Dictionary<string, DateTime> Index = new Dictionary<string, DateTime>();
-		private static DateTime LastFlush = DateTime.MinValue;
+		private Dictionary<string, DateTime> Index = new Dictionary<string, DateTime>();
+		private DateTime LastFlush = DateTime.MinValue;
 	}
 }

@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "UnrealString.h"
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+
+class FArchive;
 
 /**
  * Simplified parsing information about UClasses.

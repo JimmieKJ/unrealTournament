@@ -1,29 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Engine/BookMark.h"
-#include "StaticMeshResources.h"
-#include "EditorSupportDelegates.h"
-#include "MouseDeltaTracker.h"
-#include "ScopedTransaction.h"
-#include "SurfaceIterators.h"
-#include "SoundDefinitions.h"
-#include "LevelEditor.h"
-#include "Toolkits/ToolkitManager.h"
-#include "EditorLevelUtils.h"
-
-#include "ActorEditorUtils.h"
-#include "EditorStyle.h"
-#include "ComponentVisualizer.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "EdMode.h"
+#include "EditorModeTools.h"
+#include "EditorViewportClient.h"
+#include "Framework/Application/SlateApplication.h"
+#include "CanvasItem.h"
+#include "Engine/StaticMeshActor.h"
 #include "Engine/Selection.h"
 #include "EngineUtils.h"
-#include "CanvasItem.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "StaticMeshResources.h"
+#include "Toolkits/BaseToolkit.h"
+
 #include "CanvasTypes.h"
-#include "Engine/Polys.h"
-#include "Engine/StaticMeshActor.h"
-#include "Engine/LevelStreaming.h"
 
 /** Hit proxy used for editable properties */
 struct HPropertyWidgetProxy : public HHitProxy
@@ -675,7 +665,7 @@ void FEdMode::Render(const FSceneView* View,FViewport* Viewport,FPrimitiveDrawIn
 				const FMatrix WidgetTM(WorldWidgetTransform.ToMatrixWithScale());
 
 				const float WidgetSize = 0.035f;
-				const float ZoomFactor = FMath::Min<float>(View->ViewMatrices.ProjMatrix.M[0][0], View->ViewMatrices.ProjMatrix.M[1][1]);
+				const float ZoomFactor = FMath::Min<float>(View->ViewMatrices.GetProjectionMatrix().M[0][0], View->ViewMatrices.GetProjectionMatrix().M[1][1]);
 				const float WidgetRadius = View->Project(WorldWidgetTransform.GetTranslation()).W * (WidgetSize / ZoomFactor);
 
 				if (bHitTesting) PDI->SetHitProxy(new HPropertyWidgetProxy(WidgetInfo.PropertyName, WidgetInfo.PropertyIndex, WidgetInfo.bIsTransform));
@@ -745,12 +735,12 @@ void FEdMode::DrawHUD(FEditorViewportClient* ViewportClient,FViewport* Viewport,
 
 			// Static mesh vertices
 			AStaticMeshActor* Actor = Cast<AStaticMeshActor>( SelectedActor );
-			if( Actor && Actor->GetStaticMeshComponent() && Actor->GetStaticMeshComponent()->StaticMesh
-				&& Actor->GetStaticMeshComponent()->StaticMesh->RenderData )
+			if( Actor && Actor->GetStaticMeshComponent() && Actor->GetStaticMeshComponent()->GetStaticMesh()
+				&& Actor->GetStaticMeshComponent()->GetStaticMesh()->RenderData )
 			{
 				FTransform ActorToWorld = Actor->ActorToWorld();
 				Vertices.Empty();
-				const FPositionVertexBuffer& VertexBuffer = Actor->GetStaticMeshComponent()->StaticMesh->RenderData->LODResources[0].PositionVertexBuffer;
+				const FPositionVertexBuffer& VertexBuffer = Actor->GetStaticMeshComponent()->GetStaticMesh()->RenderData->LODResources[0].PositionVertexBuffer;
 				for( uint32 i = 0 ; i < VertexBuffer.GetNumVertices() ; i++ )
 				{
 					Vertices.AddUnique( ActorToWorld.TransformPosition( VertexBuffer.VertexPosition(i) ) );

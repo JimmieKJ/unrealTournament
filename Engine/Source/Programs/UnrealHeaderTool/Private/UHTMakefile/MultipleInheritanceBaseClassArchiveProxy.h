@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "MakefileHelpers.h"
+
+class FArchive;
 class FUHTMakefile;
 struct FMultipleInheritanceBaseClass;
 

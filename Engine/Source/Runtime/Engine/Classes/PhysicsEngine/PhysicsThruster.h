@@ -3,7 +3,10 @@
 
 
 #pragma once
-#include "RigidBodyBase.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "PhysicsEngine/RigidBodyBase.h"
 #include "PhysicsThruster.generated.h"
 
 /** 

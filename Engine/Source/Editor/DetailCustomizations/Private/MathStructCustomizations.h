@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
 #include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
 
+class FDetailWidgetRow;
+class IDetailChildrenBuilder;
 
 /**
  * Base class for math struct customization (e.g, vector, rotator, color)                                                              

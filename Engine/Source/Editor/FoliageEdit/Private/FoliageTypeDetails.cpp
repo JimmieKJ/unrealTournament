@@ -1,10 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "FoliageEditModule.h"
-#include "PropertyEditing.h"
 #include "FoliageTypeDetails.h"
-#include "FoliageType.h"
+#include "Layout/Visibility.h"
+#include "Misc/Attribute.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "UObject/UnrealType.h"
+#include "PropertyHandle.h"
+#include "IDetailPropertyRow.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailGroup.h"
+#include "DetailCategoryBuilder.h"
 #include "FoliageTypeCustomizationHelpers.h"
 
 TSharedRef<IDetailCustomization> FFoliageTypeDetails::MakeInstance()

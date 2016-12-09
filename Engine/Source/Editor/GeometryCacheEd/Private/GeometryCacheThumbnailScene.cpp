@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GeometryCacheEdModulePublicPCH.h"
-#include "GeometryCacheThumbnailRenderer.h"
 #include "GeometryCacheThumbnailScene.h"
-#include "GeometryCacheActor.h"
+#include "ThumbnailRendering/SceneThumbnailInfo.h"
+#include "GeometryCache.h"
 #include "GeometryCacheComponent.h"
+#include "GeometryCacheActor.h"
 
 FGeometryCacheThumbnailScene::FGeometryCacheThumbnailScene()
 {

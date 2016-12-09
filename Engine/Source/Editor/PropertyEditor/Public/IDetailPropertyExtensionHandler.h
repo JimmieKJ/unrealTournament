@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+
+class IPropertyHandle;
+
 class IDetailPropertyExtensionHandler
 {
 public:

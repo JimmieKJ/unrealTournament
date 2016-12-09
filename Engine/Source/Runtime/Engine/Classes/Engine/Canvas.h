@@ -2,12 +2,17 @@
 
 #pragma once
 
-#include "Engine/Engine.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/EngineTypes.h"
+#include "CanvasItem.h"
 #include "CanvasTypes.h"
 #include "Canvas.generated.h"
 
-class FSceneView;
-class UFont;
+class UMaterialInterface;
+class UReporterGraph;
+class UTexture;
 
 /**
  * Holds texture information with UV coordinates as well.
@@ -208,7 +213,6 @@ class ENGINE_API UCanvas
 
 	FDisplayDebugManager DisplayDebugManager;
 public:
-
 	FCanvas* Canvas;
 	FSceneView* SceneView;
 	FMatrix	ViewProjectionMatrix;
@@ -218,6 +222,8 @@ public:
 	
 	/** Initializes the canvas. */
 	void Init(int32 InSizeX, int32 InSizeY, FSceneView* InSceneView);
+
+	virtual void BeginDestroy() override;
 
 	/** Changes the view for the canvas. */
 	void SetView(FSceneView* InView);

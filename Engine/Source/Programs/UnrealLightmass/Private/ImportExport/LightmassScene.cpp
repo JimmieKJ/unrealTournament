@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
 #include "LightmassScene.h"
 #include "Importer.h"
 #include "MonteCarlo.h"
@@ -355,11 +354,15 @@ const FStaticLightingMapping* FScene::FindMappingByGuid(FGuid FindGuid) const
 }
 
 /** Returns true if the specified position is inside any of the importance volumes. */
-bool FScene::IsPointInImportanceVolume(const FVector4& Position) const
+bool FScene::IsPointInImportanceVolume(const FVector4& Position, float Tolerance) const
 {
 	for (int32 VolumeIndex = 0; VolumeIndex < ImportanceVolumes.Num(); VolumeIndex++)
 	{
-		if (ImportanceVolumes[VolumeIndex].IsInside(Position))
+		FBox Volume = ImportanceVolumes[VolumeIndex];
+
+		if (Position.X + Tolerance > Volume.Min.X && Position.X - Tolerance < Volume.Max.X
+			&& Position.Y + Tolerance > Volume.Min.Y && Position.Y - Tolerance < Volume.Max.Y
+			&& Position.Z + Tolerance > Volume.Min.Z && Position.Z - Tolerance < Volume.Max.Z)
 		{
 			return true;
 		}

@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
 #include "SNiagaraEffectEditorWidget.h"
-#include "SNotificationList.h"
-#include "SExpandableArea.h"
-#include "SSplitter.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SComboBox.h"
+#include "NiagaraEffect.h"
 #include "NiagaraEffectEditor.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
 #include "NiagaraEmitterPropertiesDetailsCustomization.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEffectEditor"

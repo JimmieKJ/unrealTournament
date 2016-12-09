@@ -1,16 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
-#include "ActiveSound.h"
 #include "Sound/SoundNodeQualityLevel.h"
+#include "EngineGlobals.h"
+#include "ActiveSound.h"
 #include "Sound/AudioSettings.h"
 #include "GameFramework/GameUserSettings.h"
+#include "Engine/Engine.h"
 
 #if WITH_EDITORONLY_DATA
-#include "Editor.h"
-#include "EdGraph/EdGraph.h"
 #include "Settings/LevelEditorPlaySettings.h"
+#include "Editor.h"
 #endif
 
 #if WITH_EDITOR

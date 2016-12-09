@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealAudioPrivate.h"
 #include "UnrealAudioSoundFile.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "UnrealAudioTypes.h"
 #include "UnrealAudioSoundFileInternal.h"
-#include "UnrealAudioModule.h"
-#include "ModuleManager.h"
+#include "UnrealAudioSoundFileManager.h"
+#include "Modules/ModuleManager.h"
 
 #if ENABLE_UNREAL_AUDIO
 

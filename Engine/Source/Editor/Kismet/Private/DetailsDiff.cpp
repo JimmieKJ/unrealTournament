@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "DetailsDiff.h"
+#include "Modules/ModuleManager.h"
 #include "IDetailsView.h"
 #include "PropertyEditorModule.h"
 //#include "SBlueprintDiff.h"

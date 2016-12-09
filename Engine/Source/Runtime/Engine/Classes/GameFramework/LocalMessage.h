@@ -13,7 +13,14 @@
 //=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "LocalMessage.generated.h"
+
+class APlayerController;
+class APlayerState;
 
 /** Handles the many pieces of data passed into Client Receive */
 USTRUCT()

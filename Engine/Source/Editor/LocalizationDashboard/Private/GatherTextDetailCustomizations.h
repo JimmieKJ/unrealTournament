@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "IPropertyTypeCustomization.h"
-#include "LocalizationTargetTypes.h"
+
+class IPropertyHandle;
 
 class FGatherTextSearchDirectoryStructCustomization : public IStructCustomization
 {

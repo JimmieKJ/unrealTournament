@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderPrivatePCH.h"
 #include "SequenceRecorderSettings.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Camera/CameraComponent.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Components/LightComponent.h"
 #include "SequenceRecorder.h"
 #include "CineCameraComponent.h"
 
@@ -14,6 +18,9 @@ USequenceRecorderSettings::USequenceRecorderSettings(const FObjectInitializer& O
 	RecordingDelay = 4.0f;
 	SequenceName = TEXT("RecordedSequence");
 	AnimationSubDirectory = TEXT("Animations");
+	AudioSubDirectory = TEXT("Audio");
+	AudioGain = 0.0f;
+	AudioInputBufferSize = 4048;
 	SequenceRecordingBasePath.Path = TEXT("/Game/Cinematics/Sequences");
 	bRecordNearbySpawnedActors = true;
 	NearbyActorRecordingProximity = 5000.0f;

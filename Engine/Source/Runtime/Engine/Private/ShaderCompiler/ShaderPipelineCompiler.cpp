@@ -4,15 +4,9 @@
 	ShaderPipelineCompiler.cpp: Platform independent shader pipeline compilations.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "EditorSupportDelegates.h"
-#include "ExceptionHandling.h"
-#include "GlobalShader.h"
-#include "TargetPlatform.h"
-#include "DerivedDataCacheInterface.h"
-#include "EngineModule.h"
+#include "CoreMinimal.h"
+#include "Interfaces/IShaderFormat.h"
 #include "ShaderCompiler.h"
-#include "RendererInterface.h"
 
 bool CompileShaderPipeline(const IShaderFormat* Compiler, FName Format, FShaderPipelineCompileJob* PipelineJob, const FString& Dir)
 {

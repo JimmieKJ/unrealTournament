@@ -16,6 +16,7 @@
 
 float4 SingleCaptureOffsetAndAverageBrightness;
 float4 SingleCapturePositionAndRadius; 
+float SingleCaptureBrightness;
 
 float3 CompositeReflectionCapturesAndSkylight(
 	float CompositeAlpha, 
@@ -26,7 +27,8 @@ float3 CompositeReflectionCapturesAndSkylight(
 	float IndirectSpecularOcclusion,
 	float3 ExtraIndirectSpecular,
 	uint NumCapturesAffectingTile,
-	uint CaptureDataStartIndex)
+	uint CaptureDataStartIndex, 
+	uint EyeIndex)
 {
 	float Mip = ComputeReflectionCaptureMipFromRoughness(Roughness, View.ReflectionCubemapMaxMip);
 	float4 ImageBasedReflections = float4(0, 0, 0, CompositeAlpha);
@@ -43,7 +45,16 @@ float3 CompositeReflectionCapturesAndSkylight(
 			break;
 		}
 
-		uint CaptureIndex = CompositeTileReflectionCaptureIndices[CaptureDataStartIndex + TileCaptureIndex];
+		uint CaptureIndex = 0;
+		BRANCH
+		if (EyeIndex == 0)
+		{
+			CaptureIndex = CompositeTileReflectionCaptureIndices[CaptureDataStartIndex + TileCaptureIndex];
+		}
+		else
+		{
+			CaptureIndex = InstancedCompositeTileReflectionCaptureIndices[CaptureDataStartIndex + TileCaptureIndex];
+		}
 			
 		float4 CapturePositionAndRadius = ReflectionCapture.PositionAndRadius[CaptureIndex];
 		float4 CaptureProperties = ReflectionCapture.CaptureProperties[CaptureIndex];
@@ -128,7 +139,8 @@ float3 CompositeReflectionCapturesAndSkylight(
 #else
 	float4 Sample = TextureCubeSampleLevel(ReflectionCubemap, ReflectionCubemapSampler, ProjectedCaptureVector, Mip);
 #endif
-	ImageBasedReflections = Sample;
+	Sample.rgb *= SingleCaptureBrightness;
+	ImageBasedReflections = float4(Sample.rgb, 1 - Sample.a);
 
 	float AverageBrightness = SingleCaptureOffsetAndAverageBrightness.w;
 	CompositedAverageBrightness.x += AverageBrightness * CompositedAverageBrightness.y;
@@ -171,4 +183,28 @@ float3 CompositeReflectionCapturesAndSkylight(
 	ImageBasedReflections.rgb += ImageBasedReflections.a * ExtraIndirectSpecular;
 
 	return ImageBasedReflections.rgb;
+}
+
+float3 CompositeReflectionCapturesAndSkylight(
+	float CompositeAlpha, 
+	float3 WorldPosition, 
+	float3 RayDirection, 
+	float Roughness, 
+	float IndirectIrradiance, 
+	float IndirectSpecularOcclusion,
+	float3 ExtraIndirectSpecular,
+	uint NumCapturesAffectingTile,
+	uint CaptureDataStartIndex)
+{
+	return CompositeReflectionCapturesAndSkylight(
+		CompositeAlpha, 
+		WorldPosition, 
+		RayDirection, 
+		Roughness, 
+		IndirectIrradiance, 
+		IndirectSpecularOcclusion, 
+		ExtraIndirectSpecular, 
+		NumCapturesAffectingTile, 
+		CaptureDataStartIndex, 
+		0);
 }

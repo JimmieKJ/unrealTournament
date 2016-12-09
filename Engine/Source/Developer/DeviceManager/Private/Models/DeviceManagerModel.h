@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ITargetDeviceService.h"
+
+class FDeviceManagerModel;
 
 /** Type definition for shared pointers to instances of FDeviceManagerModel. */
 typedef TSharedPtr<class FDeviceManagerModel> FDeviceManagerModelPtr;

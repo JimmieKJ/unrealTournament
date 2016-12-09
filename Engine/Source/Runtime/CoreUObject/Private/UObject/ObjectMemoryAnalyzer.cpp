@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
 #include "UObject/ObjectMemoryAnalyzer.h"
+#include "UObject/Object.h"
+#include "UObject/UObjectIterator.h"
+#include "Serialization/ArchiveCountMem.h"
 
 FObjectMemoryAnalyzer::FObjectMemoryAnalyzer(uint32 Flags)
 	: BaseClass(NULL)
@@ -189,8 +191,8 @@ SIZE_T FObjectMemoryAnalyzer::CalculateSizeRecursive(UObject* Object)
 	}
 
 	SIZE_T InclusiveSize = Annotation.ExclusiveMemoryUsage;
-	Annotation.ExclusiveResourceSize = Object->GetResourceSize(EResourceSizeMode::Exclusive);
-	Annotation.InclusiveResourceSize = Object->GetResourceSize(EResourceSizeMode::Inclusive);
+	Annotation.ExclusiveResourceSize = Object->GetResourceSizeBytes(EResourceSizeMode::Exclusive);
+	Annotation.InclusiveResourceSize = Object->GetResourceSizeBytes(EResourceSizeMode::Inclusive);
 
 	TArray<UObject*> ReferencedObjects;
 	GetReferencedObjects(Object, ReferencedObjects);

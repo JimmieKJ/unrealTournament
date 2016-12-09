@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "IVirtualKeyboardEntry.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Application/IMenu.h"
+#include "Widgets/Input/IVirtualKeyboardEntry.h"
+
+struct FTextLocation;
 
 enum class ECursorMoveMethod
 {

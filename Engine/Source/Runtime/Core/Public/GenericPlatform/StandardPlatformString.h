@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreTypes.h"
+#include "Misc/Char.h"
 #include "GenericPlatform/GenericPlatformStricmp.h"
 #include "GenericPlatform/GenericPlatformString.h"
-#include "HAL/Platform.h"
-#include "Misc/Char.h"
 #include <wchar.h>
+
+#if PLATFORM_APPLE || PLATFORM_LINUX || PLATFORM_HTML5 || PLATFORM_PS4 || PLATFORM_SWITCH
 
 /**
 * Standard implementation
@@ -139,6 +142,15 @@ public:
 	static FORCEINLINE int32 Strtoi( const WIDECHAR* Start, WIDECHAR** End, int32 Base ) 
 	{
 		return wcstol( Start, End, Base );
+	}
+
+	static FORCEINLINE int64 Strtoi64( const WIDECHAR* Start, WIDECHAR** End, int32 Base ) 
+	{
+#if PLATFORM_HTML5_WIN32
+		return _wtoi64(Start);
+#else
+		return wcstoll( Start, End, Base );
+#endif
 	}
 
 	static FORCEINLINE uint64 Strtoui64( const WIDECHAR* Start, WIDECHAR** End, int32 Base ) 
@@ -299,6 +311,15 @@ public:
 		return strtol( Start, End, Base ); 
 	}
 
+	static FORCEINLINE int64 Strtoi64( const ANSICHAR* Start, ANSICHAR** End, int32 Base ) 
+	{
+#if PLATFORM_HTML5_WIN32
+		return _atoi64(Start);
+#else
+		return strtoll(Start, End, Base);
+#endif
+	}
+
 	static FORCEINLINE uint64 Strtoui64( const ANSICHAR* Start, ANSICHAR** End, int32 Base ) 
 	{
 #if PLATFORM_HTML5_WIN32
@@ -335,3 +356,5 @@ public:
 		return Result;
 	}
 };
+
+#endif

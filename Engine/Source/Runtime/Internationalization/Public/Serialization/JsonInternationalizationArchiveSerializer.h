@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "Json.h"
-#include "InternationalizationArchive.h"
-#include "InternationalizationManifest.h"
+#include "CoreMinimal.h"
+#include "Internationalization/InternationalizationManifest.h"
+#include "Internationalization/InternationalizationArchive.h"
+#include "Dom/JsonObject.h"
 
 /**
  * Used to arrange Internationalization archive data in a hierarchy based on namespace prior to json serialization.

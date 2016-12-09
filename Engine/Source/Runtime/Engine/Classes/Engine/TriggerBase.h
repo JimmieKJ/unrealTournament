@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/Actor.h"
 #include "TriggerBase.generated.h"
 
-class UShapeComponent;
 class UBillboardComponent;
+class UShapeComponent;
 
 /** An actor used to generate collision events (begin/end overlap) in the level. */
 UCLASS(ClassGroup=Common, abstract, ConversionRoot, MinimalAPI)

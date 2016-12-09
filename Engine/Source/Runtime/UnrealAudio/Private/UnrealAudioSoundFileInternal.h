@@ -2,16 +2,18 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
 #include "UnrealAudioTypes.h"
-#include "UnrealAudioTypes.h"
-#include "UnrealAudioSoundFile.h"
-#include "UnrealAudioEntityManager.h"
-#include "BulkData.h"
+#include "UnrealAudioHandles.h"
+
+class Error;
 
 #if ENABLE_UNREAL_AUDIO
 
 namespace UAudio
 {
+	class FUnrealAudioModule;
 
 	typedef int64 SoundFileCount;
 	typedef struct SoundFileHandleOpaque LibSoundFileHandle;

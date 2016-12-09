@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "MediaTextureFactoryNew.h"
+#include "Factories/MediaTextureFactoryNew.h"
+#include "AssetTypeCategories.h"
+#include "MediaTexture.h"
 
 
 /* UMediaTextureFactoryNew structors

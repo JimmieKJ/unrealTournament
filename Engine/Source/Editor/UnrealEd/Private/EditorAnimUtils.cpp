@@ -1,19 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "AnimGraphNode_Base.h"
-#include "AssetData.h"
 #include "EditorAnimUtils.h"
-#include "BlueprintEditorUtils.h"
-#include "KismetEditorUtilities.h"
-#include "AnimGraphDefinitions.h"
-#include "Developer/AssetTools/Public/AssetToolsModule.h"
-#include "NotificationManager.h"
-#include "Editor/Persona/Public/PersonaModule.h"
+#include "Modules/ModuleManager.h"
+#include "Serialization/ArchiveReplaceObjectRef.h"
+#include "Animation/AnimationAsset.h"
+#include "Animation/AnimSequence.h"
+#include "Animation/AnimBlueprint.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "IAssetTools.h"
+#include "AssetToolsModule.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "ObjectEditorUtils.h"
-#include "SNotificationList.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
-#include "Serialization/ArchiveUObjectBase.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "EditorAnimUtils"
 
@@ -112,7 +115,7 @@ namespace EditorAnimUtils
 			while (AssetIndex < AnimationAssetsToRetarget.Num())
 			{
 				UAnimationAsset* AnimAsset = AnimationAssetsToRetarget[AssetIndex++];
-				AnimAsset->HandleAnimReferenceCollection(AnimationAssetsToRetarget);
+				AnimAsset->HandleAnimReferenceCollection(AnimationAssetsToRetarget, true);
 			}
 		}
 	}
@@ -188,6 +191,9 @@ namespace EditorAnimUtils
 			DuplicatedAnimAssets = DuplicateAssets<UAnimationAsset>(AnimationAssetsToDuplicate, DestinationPackage, NameRule);
 			DuplicatedBlueprints = DuplicateAssets<UAnimBlueprint>(AnimBlueprintsToDuplicate, DestinationPackage, NameRule);
 
+			// Remapped assets needs the duplicated ones added
+			RemappedAnimAssets.Append(DuplicatedAnimAssets);
+
 			DuplicatedAnimAssets.GenerateValueArray(AnimationAssetsToRetarget);
 			DuplicatedBlueprints.GenerateValueArray(AnimBlueprintsToRetarget);
 		}
@@ -248,14 +254,11 @@ namespace EditorAnimUtils
 			UAnimationAsset* AssetToRetarget = (*Iter);
 			if (HasDuplicates())
 			{
-				AssetToRetarget->ReplaceReferredAnimations(DuplicatedAnimAssets);
+				AssetToRetarget->ReplaceReferredAnimations(RemappedAnimAssets);
 			}
 			AssetToRetarget->ReplaceSkeleton(NewSkeleton, bConvertAnimationDataInComponentSpaces);
 			AssetToRetarget->MarkPackageDirty();
 		}
-
-		// Put duplicated and remapped assets in one list
-		RemappedAnimAssets.Append(DuplicatedAnimAssets);
 
 		// convert all Animation Blueprints and compile 
 		for ( auto AnimBPIter = AnimBlueprintsToRetarget.CreateIterator(); AnimBPIter; ++AnimBPIter )
@@ -288,17 +291,7 @@ namespace EditorAnimUtils
 
 	void OpenAssetFromNotify(UObject* AssetToOpen)
 	{
-		EToolkitMode::Type Mode = EToolkitMode::Standalone;
-		FPersonaModule& PersonaModule = FModuleManager::LoadModuleChecked<FPersonaModule>( "Persona" );
-
-		if(UAnimationAsset* AnimAsset = Cast<UAnimationAsset>(AssetToOpen))
-		{
-			PersonaModule.CreatePersona( Mode, TSharedPtr<IToolkitHost>(), AnimAsset->GetSkeleton(), NULL, AnimAsset, NULL );
-		}
-		else if(UAnimBlueprint* AnimBlueprint = Cast<UAnimBlueprint>(AssetToOpen))
-		{
-			PersonaModule.CreatePersona( Mode, TSharedPtr<IToolkitHost>(), AnimBlueprint->TargetSkeleton, AnimBlueprint, NULL, NULL );
-		}
+		FAssetEditorManager::Get().OpenEditorForAsset(AssetToOpen);
 	}
 
 	//////////////////////////////////////////////////////////////////

@@ -1,10 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "SCompoundWidget.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
 #include "TranslationPickerEditWindow.generated.h"
 
 #define LOCTEXT_NAMESPACE "TranslationPicker"
+
+class SBox;
+class SMultiLineEditableTextBox;
+class SWindow;
+class UTranslationUnit;
 
 UCLASS(config = TranslationPickerSettings)
 class UTranslationPickerSettings : public UObject

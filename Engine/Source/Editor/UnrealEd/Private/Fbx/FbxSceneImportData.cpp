@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Factories/FbxSceneImportData.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Factories/FbxSceneImportOptions.h"
 #include "FbxImporter.h"
 
 
@@ -39,6 +42,8 @@ UnFbx::FBXImportOptions *JSONToFbxOption(TSharedPtr<FJsonValue> OptionJsonValue,
 	OptionObj->TryGetBoolField("bImportLOD", Option->bImportLOD);
 	OptionObj->TryGetBoolField("bUsedAsFullName", Option->bUsedAsFullName);
 	OptionObj->TryGetBoolField("bConvertScene", Option->bConvertScene);
+	OptionObj->TryGetBoolField("bForceFrontXAxis", Option->bForceFrontXAxis);
+	OptionObj->TryGetBoolField("bConvertSceneUnit", Option->bConvertSceneUnit);
 	OptionObj->TryGetBoolField("bRemoveNameSpace", Option->bRemoveNameSpace);
 	double X, Y, Z, Pitch, Yaw, Roll;
 	const TSharedPtr<FJsonObject> *DataObj = nullptr;
@@ -129,7 +134,7 @@ FString FbxOptionToJSON(FString OptionName, UnFbx::FBXImportOptions *Option)
 	check(Option != nullptr);
 	check(!OptionName.IsEmpty());
 
-	FString JsonString = FString::Printf(TEXT("{ \"OptionName\" : \"%s\", \"bImportScene\" : \"%d\", \"bImportMaterials\" : \"%d\", \"bInvertNormalMap\" : \"%d\", \"bImportTextures\" : \"%d\", \"bImportLOD\" : \"%d\", \"bUsedAsFullName\" : \"%d\", \"bConvertScene\" : \"%d\", \"bRemoveNameSpace\" : \"%d\", "),
+	FString JsonString = FString::Printf(TEXT("{ \"OptionName\" : \"%s\", \"bImportScene\" : \"%d\", \"bImportMaterials\" : \"%d\", \"bInvertNormalMap\" : \"%d\", \"bImportTextures\" : \"%d\", \"bImportLOD\" : \"%d\", \"bUsedAsFullName\" : \"%d\", \"bConvertScene\" : \"%d\", \"bForceFrontXAxis\" : \"%d\", \"bConvertSceneUnit\" : \"%d\", \"bRemoveNameSpace\" : \"%d\", "),
 		*OptionName,
 		Option->bImportScene ? 1 : 0,
 		Option->bImportMaterials ? 1 : 0,
@@ -138,6 +143,8 @@ FString FbxOptionToJSON(FString OptionName, UnFbx::FBXImportOptions *Option)
 		Option->bImportLOD ? 1 : 0,
 		Option->bUsedAsFullName ? 1 : 0,
 		Option->bConvertScene ? 1 : 0,
+		Option->bForceFrontXAxis ? 1 : 0,
+		Option->bConvertSceneUnit ? 1 : 0,
 		Option->bRemoveNameSpace ? 1 : 0
 		);
 

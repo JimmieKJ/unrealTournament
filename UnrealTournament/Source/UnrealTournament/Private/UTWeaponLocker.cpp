@@ -308,7 +308,7 @@ void AUTWeaponLocker::GiveTo_Implementation(APawn* Target)
 						PS->Team->ModifyStatsValue(Inventory->StatsNameCount, 1);
 					}
 
-					AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+					AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 					if (GS != nullptr)
 					{
 						GS->ModifyStatsValue(Inventory->StatsNameCount, 1);

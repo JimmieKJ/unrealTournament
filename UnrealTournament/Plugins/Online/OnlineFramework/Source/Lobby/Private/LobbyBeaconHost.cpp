@@ -79,8 +79,6 @@ ALobbyBeaconPlayerState* ALobbyBeaconHost::HandlePlayerLogin(ALobbyBeaconClient*
 {
 	UWorld* World = GetWorld();
 	check(World);
-	AGameMode* GameMode = World->GetAuthGameMode();
-	check(GameMode);
 
 	FString NewPlayerName = UGameplayStatics::ParseOption(Options, TEXT("Name")).Left(20);
 	if (NewPlayerName.IsEmpty())
@@ -288,7 +286,7 @@ void ALobbyBeaconHost::NotifyClientDisconnected(AOnlineBeaconClient* LeavingClie
 			UWorld* World = GetWorld();
 			check(World);
 
-			AGameMode* GameMode = World->GetAuthGameMode();
+			AGameModeBase* GameMode = World->GetAuthGameMode();
 			check(GameMode);
 			check(GameMode->GameSession);
 

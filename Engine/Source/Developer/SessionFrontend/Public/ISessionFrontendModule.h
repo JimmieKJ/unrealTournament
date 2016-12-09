@@ -2,13 +2,11 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Widgets/SWidget.h"
 
-
-// forward declarations
 class ISessionManager;
-class SWidget;
-
 
 /**
  * Interface for launcher UI modules.

@@ -2,16 +2,20 @@
 
 #pragma once
 
-#include "AISystem.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Components/ActorComponent.h"
+#include "EngineDefines.h"
+#include "GenericTeamAgentInterface.h"
+#include "Perception/AIPerceptionTypes.h"
 #include "Perception/AISense.h"
-#include "AIPerceptionSystem.h"
+#include "Perception/AIPerceptionSystem.h"
 #include "AIPerceptionComponent.generated.h"
 
 class AAIController;
-class UCanvas;
-class UAIPerceptionSystem;
-class UAISenseConfig;
 class FGameplayDebuggerCategory;
+class UAISenseConfig;
 struct FVisualLogEntry;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPerceptionUpdatedDelegate, TArray<AActor*>, UpdatedActors);
@@ -39,18 +43,31 @@ struct AIMODULE_API FActorPerceptionInfo
 		}
 	}
 
-	FORCEINLINE_DEBUGGABLE FVector GetLastStimulusLocation(float* OptionalAge = NULL) const 
+	/** Retrieves last known location. Active (last reported as "successful")
+	 *	stimuli are preferred. */
+	FVector GetLastStimulusLocation(float* OptionalAge = NULL) const 
 	{
 		FVector Location(FAISystem::InvalidLocation);
 		float BestAge = FLT_MAX;
+		bool bBestWasSuccessfullySensed = false;
 		for (int32 Sense = 0; Sense < LastSensedStimuli.Num(); ++Sense)
 		{
 			const float Age = LastSensedStimuli[Sense].GetAge();
+			const bool bWasSuccessfullySensed = LastSensedStimuli[Sense].WasSuccessfullySensed();
+
 			if (Age >= 0 && (Age < BestAge 
-				|| (Sense == DominantSense && LastSensedStimuli[Sense].WasSuccessfullySensed())))
+				|| (bBestWasSuccessfullySensed == false && bWasSuccessfullySensed)
+				|| (Sense == DominantSense && bWasSuccessfullySensed)))
 			{
 				BestAge = Age;
 				Location = LastSensedStimuli[Sense].StimulusLocation;
+				bBestWasSuccessfullySensed = bWasSuccessfullySensed;
+
+				if (Sense == DominantSense && bWasSuccessfullySensed)
+				{
+					// if dominant sense is active we don't want to look any further 
+					break;
+				}
 			}
 		}
 
@@ -249,6 +266,7 @@ public:
 
 	float GetYoungestStimulusAge(const AActor& Source) const;
 	bool HasAnyActiveStimulus(const AActor& Source) const;
+	bool HasAnyCurrentStimulus(const AActor& Source) const;
 	bool HasActiveStimulus(const AActor& Source, FAISenseID Sense) const;
 
 #if WITH_GAMEPLAY_DEBUGGER
@@ -273,7 +291,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI|Perception")
 	void GetKnownPerceivedActors(TSubclassOf<UAISense> SenseToUse, TArray<AActor*>& OutActors) const;
 	
-	DEPRECATED(4.13, "GetPerceivedActors is deprecated. Use GetPerceivedActors or GetPerceivedActors")
+	DEPRECATED(4.13, "GetPerceivedActors is deprecated. Use GetCurrentlyPerceivedActors or GetKnownPerceivedActors")
 	UFUNCTION(BlueprintCallable, Category = "AI|Perception")
 	void GetPerceivedActors(TSubclassOf<UAISense> SenseToUse, TArray<AActor*>& OutActors) const;
 	

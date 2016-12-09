@@ -6,13 +6,17 @@
 
 #pragma once
 
-#include "Core.h"
-#include "../../RHI/Public/RHIDefinitions.h"
-#include "SecureHash.h"
-#include "../../RenderCore/Public/UniformBuffer.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Templates/RefCounting.h"
+#include "Misc/SecureHash.h"
+#include "Misc/CoreStats.h"
+#include "UniformBuffer.h"
 
-/** 
- * Controls whether shader related logs are visible.  
+class Error;
+
+/**
+ * Controls whether shader related logs are visible.
  * Note: The runtime verbosity is driven by the console variable 'r.ShaderDevelopmentMode'
  */
 #if UE_BUILD_DEBUG && PLATFORM_LINUX
@@ -166,7 +170,7 @@ private:
 		FParameterAllocation() :
 			bBound(false)
 		{}
-			
+
 		friend FArchive& operator<<(FArchive& Ar,FParameterAllocation& Allocation)
 		{
 			return Ar << Allocation.BufferIndex << Allocation.BaseIndex << Allocation.Size << Allocation.bBound;
@@ -205,6 +209,12 @@ public:
 	{
 		// can be optimized
 		Definitions.Add(Name, *FString::Printf(TEXT("%u"), Value));
+	}
+
+	void SetDefine(const TCHAR* Name, int32 Value)
+	{
+		// can be optimized
+		Definitions.Add(Name, *FString::Printf(TEXT("%d"), Value));
 	}
 
 	/**
@@ -338,7 +348,7 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 	TMap<FString,uint32> ResourceTableLayoutHashes;
 
 	/** Default constructor. */
-	FShaderCompilerEnvironment() 
+	FShaderCompilerEnvironment()
 	{
 		// Presize to reduce re-hashing while building shader jobs
 		IncludeFileNameToContentsMap.Empty(15);
@@ -349,7 +359,7 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 		: Definitions(InDefinitions)
 	{
 	}
-	
+
 	/**
 	 * Works for TCHAR
 	 * e.g. SetDefine(TEXT("NAME"), TEXT("Test"));
@@ -358,7 +368,7 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 	 */
 	void SetDefine(const TCHAR* Name, const TCHAR* Value)	{ Definitions.SetDefine(Name, Value); }
 	void SetDefine(const TCHAR* Name, uint32 Value)			{ Definitions.SetDefine(Name, Value); }
-	void SetDefine(const TCHAR* Name, int32 Value)			{ Definitions.SetDefine(Name, (uint32)Value); }
+	void SetDefine(const TCHAR* Name, int32 Value)			{ Definitions.SetDefine(Name, Value); }
 	void SetDefine(const TCHAR* Name, bool Value)			{ Definitions.SetDefine(Name, (uint32)Value); }
 	void SetDefine(const TCHAR* Name, float Value)			{ Definitions.SetFloatDefine(Name, Value); }
 
@@ -366,12 +376,12 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 	{
 		return Definitions.GetDefinitionMap();
 	}
-	
+
 	void SetRenderTargetOutputFormat(uint32 RenderTargetIndex, EPixelFormat PixelFormat)
 	{
 		RenderTargetOutputFormatsMap.Add(RenderTargetIndex, PixelFormat);
 	}
-	
+
 	friend FArchive& operator<<(FArchive& Ar,FShaderCompilerEnvironment& Environment)
 	{
 		// Note: this serialize is used to pass between UE4 and the shader compile worker, recompile both when modifying
@@ -501,7 +511,7 @@ struct FShaderCompilerInput
 				// Inline the shared environment when saving
 				Ar << *(Input.SharedEnvironment);
 			}
-			 
+
 			if (Ar.IsLoading())
 			{
 				// Create a new environment when loading, no sharing is happening anymore
@@ -509,7 +519,7 @@ struct FShaderCompilerInput
 				Ar << *(Input.SharedEnvironment);
 			}
 		}
-		
+
 		return Ar;
 	}
 };
@@ -551,6 +561,19 @@ struct FShaderCodePackedResourceCounts
 	uint8 NumUAVs;
 };
 
+#ifdef __EMSCRIPTEN__
+// Emscripten asm.js is strict and doesn't support unaligned memory load or stores.
+// When such an unaligned memory access occurs, the compiler needs to know about it,
+// so that it can generate the appropriate unalignment-aware memory load/store instruction.
+typedef int32 __attribute__((aligned(1))) unaligned_int32;
+typedef uint32 __attribute__((aligned(1))) unaligned_uint32;
+#else
+// On x86 etc. unaligned memory accesses are supported by the CPU, so no need to
+// behave specially for them.
+typedef int32 unaligned_int32;
+typedef uint32 unaligned_uint32;
+#endif
+
 // later we can transform that to the actual class passed around at the RHI level
 class FShaderCodeReader
 {
@@ -587,12 +610,15 @@ public:
 		int32 LocalOptionalDataSize = GetOptionalDataSize();
 
 		const uint8* Start = End - LocalOptionalDataSize;
+		// while searching don't include the optional data size
+		End = End - sizeof(LocalOptionalDataSize);
 		const uint8* Current = Start;
 
 		while(Current < End)
 		{
 			uint8 Key = *Current++;
-			uint8 Size = *Current++;
+			uint32 Size = *((const unaligned_uint32*)Current);
+			Current += sizeof(Size);
 
 			if(Key == InKey && Size == ValueSize)
 			{
@@ -614,12 +640,15 @@ public:
 		int32 LocalOptionalDataSize = GetOptionalDataSize();
 
 		const uint8* Start = End - LocalOptionalDataSize;
+		// while searching don't include the optional data size
+		End = End - sizeof(LocalOptionalDataSize);
 		const uint8* Current = Start;
 
 		while(Current < End)
 		{
 			uint8 Key = *Current++;
-			uint8 Size = *Current++;
+			uint32 Size = *((const unaligned_uint32*)Current);
+			Current += sizeof(Size);
 
 			if(Key == InKey)
 			{
@@ -642,12 +671,15 @@ public:
 		int32 LocalOptionalDataSize = GetOptionalDataSize();
 
 		const uint8* Start = End - LocalOptionalDataSize;
+		// while searching don't include the optional data size
+		End = End - sizeof(LocalOptionalDataSize);
 		const uint8* Current = Start;
 
 		while (Current < End)
 		{
 			uint8 Key = *Current++;
-			uint8 Size = *Current++;
+			uint32 Size = *((const unaligned_uint32*)Current);
+			Current += sizeof(Size);
 
 			if (Key == InKey)
 			{
@@ -664,14 +696,14 @@ public:
 
 	int32 GetOptionalDataSize() const
 	{
-		if(ShaderCode.Num() < 2)
+		if(ShaderCode.Num() < sizeof(int32))
 		{
 			return 0;
 		}
 
 		const uint8* End = &ShaderCode[0] + ShaderCode.Num();
 
-		int32 LocalOptionalDataSize = (((uint32)End[-2]) << 8 ) + ((uint32)End[-1]);
+		int32 LocalOptionalDataSize = ((const unaligned_int32*)End)[-1];
 
 		check(LocalOptionalDataSize >= 0);
 		check(ShaderCode.Num() >= LocalOptionalDataSize);
@@ -687,7 +719,7 @@ public:
 
 class FShaderCode
 {
-	// -1 if ShaderData was finalized 
+	// -1 if ShaderData was finalized
 	mutable int32 OptionalDataSize;
 	// access through class methods
 	mutable TArray<uint8> ShaderCodeWithOptionalData;
@@ -704,12 +736,8 @@ public:
 	{
 		if(OptionalDataSize != -1)
 		{
-			OptionalDataSize += sizeof(uint8) + sizeof(uint8);
-
-			check(OptionalDataSize <= 0xffff);
-
-			ShaderCodeWithOptionalData.Add(OptionalDataSize >> 8);
-			ShaderCodeWithOptionalData.Add(OptionalDataSize);
+			OptionalDataSize += sizeof(OptionalDataSize);
+			ShaderCodeWithOptionalData.Append((const uint8*)&OptionalDataSize, sizeof(OptionalDataSize));
 			OptionalDataSize = -1;
 		}
 	}
@@ -752,36 +780,31 @@ public:
 	{
 		AddOptionalData(T::Key, (uint8*)&In, sizeof(T));
 	}
-	
+
 	// Note: we don't hash the optional attachments in GenerateOutputHash() as they would prevent sharing (e.g. many material share the save VS)
 	// can be called after the non optional data was stored in ShaderData
 	// @param Key uint8 to save memory so max 255, e.g. FShaderCodePackedResourceCounts::Key
-	// @param Size max 255, >0, check if too large
+	// @param Size >0, only restriction is that sum of all optional data values must be < 4GB
 	void AddOptionalData(uint8 Key, const uint8* ValuePtr, uint32 ValueSize)
 	{
-		check(ValueSize <= 255);
 		check(ValuePtr);
 
 		// don't add after Finalize happened
 		check(OptionalDataSize >= 0);
 
 		ShaderCodeWithOptionalData.Add(Key);
-		ShaderCodeWithOptionalData.Add(ValueSize);
+		ShaderCodeWithOptionalData.Append((const uint8*)&ValueSize, sizeof(ValueSize));
 		ShaderCodeWithOptionalData.Append(ValuePtr, ValueSize);
-		OptionalDataSize += sizeof(uint8) + sizeof(uint8) + (uint32)ValueSize;
+		OptionalDataSize += sizeof(uint8) + sizeof(ValueSize) + (uint32)ValueSize;
 	}
 
 	// Note: we don't hash the optional attachments in GenerateOutputHash() as they would prevent sharing (e.g. many material share the save VS)
-	// convenience, silently drops the data if string is too long 
+	// convenience, silently drops the data if string is too long
 	// @param e.g. 'n' for the ShaderSourceFileName
 	void AddOptionalData(uint8 Key, const ANSICHAR* InString)
 	{
 		uint32 Size = FCStringAnsi::Strlen(InString) + 1;
-
-		if(Size < 255)
-		{
-			AddOptionalData(Key, (uint8*)InString, Size);
-		}
+		AddOptionalData(Key, (uint8*)InString, Size);
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, FShaderCode& Output)
@@ -827,7 +850,7 @@ struct FShaderCompilerOutput
 
 	/** Generates OutputHash from the compiler output. */
 	SHADERCORE_API void GenerateOutputHash();
-	
+
 	friend FArchive& operator<<(FArchive& Ar, FShaderCompilerOutput& Output)
 	{
 		// Note: this serialize is used to pass between UE4 and the shader compile worker, recompile both when modifying
@@ -889,8 +912,8 @@ struct FCachedUniformBufferDeclaration
 
 /** Parses the given source file and its includes for references of uniform buffers, which are then stored in UniformBufferEntries. */
 extern void GenerateReferencedUniformBuffers(
-	const TCHAR* SourceFilename, 
-	const TCHAR* ShaderTypeName, 
+	const TCHAR* SourceFilename,
+	const TCHAR* ShaderTypeName,
 	const TMap<FString, TArray<const TCHAR*> >& ShaderFileToUniformBufferVariables,
 	TMap<const TCHAR*,FCachedUniformBufferDeclaration>& UniformBufferEntries);
 

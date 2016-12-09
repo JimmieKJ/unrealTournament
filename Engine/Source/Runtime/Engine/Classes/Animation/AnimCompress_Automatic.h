@@ -7,6 +7,9 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Animation/AnimCompress.h"
 #include "AnimCompress_Automatic.generated.h"
 

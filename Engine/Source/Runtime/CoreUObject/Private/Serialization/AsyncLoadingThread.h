@@ -5,7 +5,138 @@
 =============================================================================*/
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "UObject/ObjectMacros.h"
+#include "Serialization/AsyncLoading.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/CommandLine.h"
+#include "Misc/App.h"
+#include "HAL/Runnable.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Misc/ConfigCacheIni.h"
+
 class IAssetRegistryInterface;
+
+#ifndef USE_EVENT_DRIVEN_ASYNC_LOAD
+#error "USE_EVENT_DRIVEN_ASYNC_LOAD must be defined"
+#endif
+
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+
+struct FAsyncLoadEvent
+{
+	enum
+	{
+		EventSystemPriority_MAX = MAX_int32
+	};
+
+	int32 UserPriority;
+	int32 PackageSerialNumber;
+	int32 EventSystemPriority;
+	int32 SerialNumber;
+	TFunction<void(FAsyncLoadEventArgs& Args)> Payload;
+
+	FAsyncLoadEvent()
+		: UserPriority(0)
+		, PackageSerialNumber(0)
+		, EventSystemPriority(0)
+		, SerialNumber(0)
+	{
+	}
+	FAsyncLoadEvent(int32 InUserPriority, int32 InPackageSerialNumber, int32 InEventSystemPriority, int32 InSerialNumber, TFunction<void(FAsyncLoadEventArgs& Args)>&& InPayload)
+		: UserPriority(InUserPriority)
+		, PackageSerialNumber(InPackageSerialNumber)
+		, EventSystemPriority(InEventSystemPriority)
+		, SerialNumber(InSerialNumber)
+		, Payload(Forward<TFunction<void(FAsyncLoadEventArgs& Args)>>(InPayload))
+	{
+	}
+
+	FORCEINLINE bool operator<(const FAsyncLoadEvent& Other) const
+	{
+		if (UserPriority != Other.UserPriority)
+		{
+			return UserPriority > Other.UserPriority;
+		}
+		if (EventSystemPriority != Other.EventSystemPriority)
+		{
+			return EventSystemPriority > Other.EventSystemPriority;
+		}
+		if (PackageSerialNumber != Other.PackageSerialNumber)
+		{
+			return PackageSerialNumber > Other.PackageSerialNumber; // roughly DFS
+		}
+		return SerialNumber < Other.SerialNumber;
+	}
+};
+
+struct FAsyncLoadEventQueue
+{
+	//FCriticalSection AsyncLoadEventQueueCritical; //@todoio maybe this doesn't need to be protected by a critical section. 
+	int32 RunningSerialNumber;
+	TArray<FAsyncLoadEvent> EventQueue;
+
+	FAsyncLoadEventQueue()
+		: RunningSerialNumber(0)
+	{
+	}
+
+	FORCEINLINE void AddAsyncEvent(int32 UserPriority, int32 PackageSerialNumber, int32 EventSystemPriority, TFunction<void(FAsyncLoadEventArgs& Args)>&& Payload)
+	{
+		//FScopeLock Lock(&AsyncLoadEventQueueCritical);
+		//@todoio check(FAsyncLoadingThread::IsInAsyncLoadThread());
+		EventQueue.HeapPush(FAsyncLoadEvent(UserPriority, PackageSerialNumber, EventSystemPriority, ++RunningSerialNumber, Forward<TFunction<void(FAsyncLoadEventArgs& Args)>>(Payload)));
+	}
+	bool PopAndExecute(FAsyncLoadEventArgs& Args)
+	{
+		FAsyncLoadEvent Event;
+		bool bResult = false;
+		{
+			//FScopeLock Lock(&AsyncLoadEventQueueCritical);
+			//@todoio check(FAsyncLoadingThread::IsInAsyncLoadThread());
+			if (EventQueue.Num())
+			{
+				EventQueue.HeapPop(Event, false);
+				bResult = true;
+			}
+		}
+		if (bResult)
+		{
+			Event.Payload(Args);
+		}
+		return bResult;
+	}
+};
+
+#endif
+
+/** Package dependency tree used for flushing specific packages */
+struct FFlushTree
+{
+	int32 RequestId;
+	TSet<FName> PackagesToFlush;
+
+	FFlushTree(int32 InRequestId)
+		: RequestId(InRequestId)
+	{
+	}
+
+	bool AddPackage(const FName& Package)
+	{
+		if (!PackagesToFlush.Contains(Package))
+		{
+			PackagesToFlush.Add(Package);
+			return true;
+		}
+		return false;
+	}
+
+	bool Contains(const FName& Package)
+	{
+		return PackagesToFlush.Contains(Package);
+	}
+};
 
 /**
  * Async loading thread. Preloads/serializes packages on async loading thread. Postloads objects on the game thread.
@@ -57,11 +188,13 @@ class FAsyncLoadingThread : public FRunnable
 
 	/** [ASYNC THREAD] Array of packages that are being preloaded */
 	TArray<FAsyncPackage*> AsyncPackages;
-
-	/** Packages that we've already hinted for reading */
-	TSet<FAsyncPackage*> PendingPackageHints;
-
 	TMap<FName, FAsyncPackage*> AsyncPackageNameLookup;
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+public:
+	TArray<FAsyncPackage*> AsyncPackagesReadyForTick;
+private:
+#endif 
+
 #if THREADSAFE_UOBJECTS
 	/** We only lock AsyncPackages array to make GetAsyncLoadPercentage thread safe, so we only care about locking Add/Remove operations on the async thread */
 	FCriticalSection AsyncPackagesCritical;
@@ -110,13 +243,40 @@ public:
 	/** Returns the async loading thread singleton */
 	static FAsyncLoadingThread& Get();
 
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+	FAsyncLoadEventQueue EventQueue;
+
+	FORCEINLINE FAsyncPackage* GetPackage(FWeakAsyncPackagePtr Ptr)
+	{
+		if (Ptr.PackageName != NAME_None && Ptr.SerialNumber)
+		{
+			FAsyncPackage* Package = FindAsyncPackage(Ptr.PackageName);
+			if (Package && Package->SerialNumber == Ptr.SerialNumber)
+			{
+				return Package;
+			}
+		}
+		return nullptr;
+	}
+
+	void QueueEvent_CreateLinker(FAsyncPackage* Pkg, int32 EventSystemPriority = 0);
+	void QueueEvent_FinishLinker(FWeakAsyncPackagePtr WeakPtr, int32 EventSystemPriority = 0);
+	void QueueEvent_StartImportPackages(FAsyncPackage* Pkg, int32 EventSystemPriority = 0);
+	void QueueEvent_SetupImports(FAsyncPackage* Pkg, int32 EventSystemPriority = 0);
+	void QueueEvent_SetupExports(FAsyncPackage* Pkg, int32 EventSystemPriority = 0);
+	void QueueEvent_ProcessImportsAndExports(FAsyncPackage* Pkg, int32 EventSystemPriority = 0);
+	void QueueEvent_ExportsDone(FAsyncPackage* Pkg, int32 EventSystemPriority = 0);
+	void QueueEvent_ProcessPostloadWait(FAsyncPackage* Pkg, int32 EventSystemPriority = 0);
+	void QueueEvent_StartPostLoad(FAsyncPackage* Pkg, int32 EventSystemPriority = 0);
+#endif
+
 	/** True if multithreaded async loading should be used. */
 	static FORCEINLINE bool IsMultithreaded()
 	{
 		static struct FAsyncLoadingThreadEnabled
 		{
 			bool Value;
-			FAsyncLoadingThreadEnabled()
+			FORCENOINLINE FAsyncLoadingThreadEnabled()
 			{
 #if THREADSAFE_UOBJECTS
 				if (FPlatformProperties::RequiresCookedData())
@@ -124,8 +284,9 @@ public:
 					check(GConfig);
 					bool bConfigValue = true;
 					GConfig->GetBool(TEXT("/Script/Engine.StreamingSettings"), TEXT("s.AsyncLoadingThreadEnabled"), bConfigValue, GEngineIni);
-					bool bCommandLineNoAsyncThread = false;
-					Value = bConfigValue && FApp::ShouldUseThreadingForPerformance() && !FParse::Param(FCommandLine::Get(), TEXT("NoAsyncLoadingThread"));
+					bool bCommandLineNoAsyncThread = FParse::Param(FCommandLine::Get(), TEXT("NoAsyncLoadingThread"));
+					bool bCommandLineAsyncThread = FParse::Param(FCommandLine::Get(), TEXT("AsyncLoadingThread"));
+					Value = bCommandLineAsyncThread || (bConfigValue && FApp::ShouldUseThreadingForPerformance() && !bCommandLineNoAsyncThread);
 				}
 				else
 #endif
@@ -138,15 +299,21 @@ public:
 	}
 
 	/** Sets the current state of async loading */
-	FORCEINLINE void SetIsInAsyncLoadingTick(bool InTick)
+	void EnterAsyncLoadingTick()
 	{
-		bIsInAsyncLoadingTick = InTick;
+		AsyncLoadingTickCounter++;
+	}
+
+	void LeaveAsyncLoadingTick()
+	{
+		AsyncLoadingTickCounter--;
+		check(AsyncLoadingTickCounter >= 0);
 	}
 
 	/** Gets the current state of async loading */
 	FORCEINLINE bool GetIsInAsyncLoadingTick() const
 	{
-		return bIsInAsyncLoadingTick;
+		return !!AsyncLoadingTickCounter;
 	}
 
 	/** Returns true if packages are currently being loaded on the async thread */
@@ -166,11 +333,11 @@ public:
 			// we're on game thread but inside of async loading code (PostLoad mostly)
 			// to make it behave exactly like the non-threaded version
 			bResult = FPlatformTLS::GetCurrentThreadId() == AsyncLoadingThreadID || 
-				(IsInGameThread() && FAsyncLoadingThread::Get().bIsInAsyncLoadingTick);
+				(IsInGameThread() && FAsyncLoadingThread::Get().GetIsInAsyncLoadingTick());
 		}
 		else
 		{
-			bResult = IsInGameThread() && FAsyncLoadingThread::Get().bIsInAsyncLoadingTick;
+			bResult = IsInGameThread() && FAsyncLoadingThread::Get().GetIsInAsyncLoadingTick();
 		}
 		return bResult;
 	}
@@ -213,7 +380,7 @@ public:
 	* @param PackageName - async package name.
 	* @param InsertMode - Insert mode, describing how we insert this package into the request list
 	*/
-	void InsertPackage(FAsyncPackage* Package, EAsyncPackageInsertMode InsertMode = EAsyncPackageInsertMode::InsertBeforeMatchingPriorities);
+	void InsertPackage(FAsyncPackage* Package, bool bReinsert = false, EAsyncPackageInsertMode InsertMode = EAsyncPackageInsertMode::InsertBeforeMatchingPriorities);
 
 	/**
 	* [ASYNC THREAD] Finds an existing async package in the LoadedPackages by its name.
@@ -267,11 +434,17 @@ public:
 	* @param bUseTimeLimit True if time limit should be used [time-slicing].
 	* @param bUseFullTimeLimit True if full time limit should be used [time-slicing].
 	* @param TimeLimit Maximum amount of time that can be spent in this call [time-slicing].
+	* @param FlushTree Package dependency tree to be flushed
 	* @return The current state of async loading
 	*/
-	EAsyncPackageState::Type ProcessAsyncLoading(int32& OutPackagesProcessed, bool bUseTimeLimit = false, bool bUseFullTimeLimit = false, float TimeLimit = 0.0f);
+	EAsyncPackageState::Type ProcessAsyncLoading(int32& OutPackagesProcessed, bool bUseTimeLimit = false, bool bUseFullTimeLimit = false, float TimeLimit = 0.0f, FFlushTree* FlushTree = nullptr);
 
-	void JustInTimeHinting();
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+	/**
+	* [ASYNC* THREAD] Checks fopr cycles in the event driven loader and does fatal errors in that case
+	*/
+	void CheckForCycles();
+#endif
 
 	/**
 	* [GAME THREAD] Ticks game thread side of async loading.
@@ -279,9 +452,10 @@ public:
 	* @param bUseTimeLimit True if time limit should be used [time-slicing].
 	* @param bUseFullTimeLimit True if full time limit should be used [time-slicing].
 	* @param TimeLimit Maximum amount of time that can be spent in this call [time-slicing].
+	* @param FlushTree Package dependency tree to be flushed
 	* @return The current state of async loading
 	*/
-	EAsyncPackageState::Type TickAsyncLoading(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, int32 WaitForRequestID = INDEX_NONE);
+	EAsyncPackageState::Type TickAsyncLoading(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, FFlushTree* FlushTree = nullptr);
 
 	/**
 	* [ASYNC THREAD] Main thread loop
@@ -289,8 +463,9 @@ public:
 	* @param bUseTimeLimit True if time limit should be used [time-slicing].
 	* @param bUseFullTimeLimit True if full time limit should be used [time-slicing].
 	* @param TimeLimit Maximum amount of time that can be spent in this call [time-slicing].
+	* @param FlushTree Package dependency tree to be flushed
 	*/
-	EAsyncPackageState::Type TickAsyncThread(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit);
+	EAsyncPackageState::Type TickAsyncThread(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, bool& bDidSomething, FFlushTree* FlushTree = nullptr);
 
 	/** Initializes async loading thread */
 	void InitializeAsyncThread();
@@ -349,21 +524,23 @@ private:
 	* @param bUseTimeLimit True if time limit should be used [time-slicing].
 	* @param bUseFullTimeLimit True if full time limit should be used [time-slicing].
 	* @param TimeLimit Maximum amount of time that can be spent in this call [time-slicing].
-	* @param WaitForRequestID If the package request ID is valid, exits as soon as the request is no longer in the qeueue.
+	* @param FlushTree Package dependency tree to be flushed
 	* @return The current state of async loading
 	*/
-	EAsyncPackageState::Type ProcessLoadedPackages(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, int32 WaitForRequestID = INDEX_NONE);
+	EAsyncPackageState::Type ProcessLoadedPackages(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, bool& bDidSomething, FFlushTree* FlushTree = nullptr);
 
 	/**
 	* [ASYNC THREAD] Creates async packages from the queued requests
+	* @param FlushTree Package dependency tree to be flushed
 	*/
-	int32 CreateAsyncPackagesFromQueue();
+	int32 CreateAsyncPackagesFromQueue(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, FFlushTree* FlushTree = nullptr);
 
 	/**
 	* [ASYNC THREAD] Internal helper function for processing a package load request. If dependency preloading is enabled, 
 	* it will call itself recursively for all the package dependencies
+	* @param FlushTree Package dependency tree to be flushed
 	*/
-	void ProcessAsyncPackageRequest(FAsyncPackageDesc* InRequest, FAsyncPackage* InRootPackage, IAssetRegistryInterface* InAssetRegistry);
+	void ProcessAsyncPackageRequest(FAsyncPackageDesc* InRequest, FAsyncPackage* InRootPackage, IAssetRegistryInterface* InAssetRegistry, FFlushTree* FlushTree);
 
 	/**
 	* [ASYNC THREAD] Internal helper function for updating the priorities of an existing package and all its dependencies
@@ -372,24 +549,18 @@ private:
 
 	/**
 	* [ASYNC THREAD] Finds existing async package and adds the new request's completion callback to it.
+	* @param FlushTree Package dependency tree to be flushed
 	*/
-	FAsyncPackage* FindExistingPackageAndAddCompletionCallback(FAsyncPackageDesc* PackageRequest, TMap<FName, FAsyncPackage*>& PackageList);
+	FAsyncPackage* FindExistingPackageAndAddCompletionCallback(FAsyncPackageDesc* PackageRequest, TMap<FName, FAsyncPackage*>& PackageList, FFlushTree* FlushTree);
 
 	/**
 	* [ASYNC THREAD] Adds a package to a list of packages that have finished loading on the async thread
 	*/
-	FORCEINLINE void AddToLoadedPackages(FAsyncPackage* Package)
-	{
-#if THREADSAFE_UOBJECTS
-		FScopeLock LoadedLock(&LoadedPackagesCritical);
-#endif
-		LoadedPackages.Add(Package);
-		LoadedPackagesNameLookup.Add(Package->GetPackageName(), Package);
-	}
+	void AddToLoadedPackages(FAsyncPackage* Package);
 
 	/** Cancels async loading internally */
 	void CancelAsyncLoadingInternal();
 
-	/** True if async loading is currently being ticked, mostly used by singlethreaded ticking */
-	bool bIsInAsyncLoadingTick;
+	/** Number of times we re-entered the async loading tick, mostly used by singlethreaded ticking. Debug purposes only. */
+	int32 AsyncLoadingTickCounter;
 };

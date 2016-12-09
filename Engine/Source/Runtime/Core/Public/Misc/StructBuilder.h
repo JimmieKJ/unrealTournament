@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/UnrealMathUtility.h"
+#include "Templates/AlignmentTemplates.h"
+
 /**
  * Lays out up a struct at runtime, in hopefully the same way as a compiler,
  * and returns the offset of each member as it's added.

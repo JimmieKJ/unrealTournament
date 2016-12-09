@@ -69,19 +69,32 @@
 		#define PRAGMA_POP \
 			_Pragma("clang diagnostic pop")
 	#endif // PRAGMA_POP
+
+	// Disable common CA warnings around SDK includes
+	#ifndef THIRD_PARTY_INCLUDES_START
+		#define THIRD_PARTY_INCLUDES_START \
+			PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+	#endif
+
+	#ifndef THIRD_PARTY_INCLUDES_END
+		#define THIRD_PARTY_INCLUDES_END \
+			PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+	#endif
 #else
 	// VC++
 	// 4456 - declaration of 'LocalVariable' hides previous local declaration
 	// 4457 - declaration of 'LocalVariable' hides function parameter
 	// 4458 - declaration of 'LocalVariable' hides class member
 	// 4459 - declaration of 'LocalVariable' hides global declaration
+	// 6244 - local declaration of <variable> hides previous declaration at <line> of <file>
 	#ifndef PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 		#define PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS \
 			__pragma (warning(push)) \
 			__pragma (warning(disable:4456)) \
 			__pragma (warning(disable:4457)) \
 			__pragma (warning(disable:4458)) \
-			__pragma (warning(disable:4459))
+			__pragma (warning(disable:4459)) \
+			__pragma (warning(disable:6244))
 	#endif // PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 
 	#ifndef PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
@@ -93,6 +106,32 @@
 		#define PRAGMA_POP \
 			__pragma(warning(pop))
 	#endif // PRAGMA_POP
+
+	// Disable common CA warnings around SDK includes
+	#ifndef THIRD_PARTY_INCLUDES_START
+		#define THIRD_PARTY_INCLUDES_START \
+			__pragma(warning(push)) \
+			__pragma(warning(disable: 4510))  /* '<class>': default constructor could not be generated. */ \
+			__pragma(warning(disable: 4610))  /* object '<class>' can never be instantiated - user-defined constructor required. */ \
+			__pragma(warning(disable: 4996))  /* '<obj>' was declared deprecated. */ \
+			__pragma(warning(disable: 6011))  /* Dereferencing NULL pointer '<ptr>'. */ \
+			__pragma(warning(disable: 6101))  /* Returning uninitialized memory '<expr>'.  A successful path through the function does not set the named _Out_ parameter. */ \
+			__pragma(warning(disable: 6308))  /* 'realloc' might return null pointer: assigning null pointer to 'X', which is passed as an argument to 'realloc', will cause the original memory block to be leaked. */ \
+			__pragma(warning(disable: 6326))  /* Potential comparison of a constant with another constant. */ \
+			__pragma(warning(disable: 6385))  /* Reading invalid data from '<ptr>':  the readable size is '<num1>' bytes, but '<num2>' bytes may be read. */ \
+			__pragma(warning(disable: 6386))  /* Buffer overrun while writing to '<ptr>':  the writable size is '<num1>' bytes, but '<num2>' bytes might be written. */ \
+			__pragma(warning(disable: 28182)) /* Dereferencing NULL pointer. '<ptr1>' contains the same NULL value as '<ptr2>' did. */ \
+			__pragma(warning(disable: 28251)) /* Inconsistent annotation for '<func>': this instance has no annotations. */ \
+			__pragma(warning(disable: 28252)) /* Inconsistent annotation for '<func>': return/function has '<annotation>' on the prior instance. */ \
+			__pragma(warning(disable: 28253)) /* Inconsistent annotation for '<func>': _Param_(<num>) has '<annotation>' on the prior instance. */ \
+			PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+	#endif
+
+	#ifndef THIRD_PARTY_INCLUDES_END
+		#define THIRD_PARTY_INCLUDES_END \
+			PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS \
+			__pragma(warning(pop))
+	#endif
 #endif
 
 #if defined(__clang__)

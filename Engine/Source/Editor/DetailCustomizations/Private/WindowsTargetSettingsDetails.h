@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SWidget.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+enum class ECheckBoxState : uint8;
 
 /* FTargetShaderFormatsPropertyDetails
 *****************************************************************************/

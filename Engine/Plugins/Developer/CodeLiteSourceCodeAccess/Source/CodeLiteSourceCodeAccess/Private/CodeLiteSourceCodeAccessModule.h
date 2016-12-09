@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 #include "CodeLiteSourceCodeAccessor.h"
 
 class FCodeLiteSourceCodeAccessModule : public IModuleInterface

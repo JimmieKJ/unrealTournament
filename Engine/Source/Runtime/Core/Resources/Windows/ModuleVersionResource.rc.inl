@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include <windows.h>
-#include "CoreMiscDefines.h"
-#include "Public/Modules/ModuleVersion.h"
+#include "../../Public/Misc/CoreMiscDefines.h"
+#include "../../Public/Modules/ModuleVersion.h"
 #include "ModuleVersionResource.h"
 
 

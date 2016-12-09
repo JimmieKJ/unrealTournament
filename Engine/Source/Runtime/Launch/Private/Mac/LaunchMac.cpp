@@ -1,11 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LaunchPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/App.h"
+#include "Misc/OutputDeviceError.h"
+#include "Misc/FeedbackContext.h"
+#include "LaunchEngineLoop.h"
 #include "ExceptionHandling.h"
 #include "MacPlatformCrashContext.h"
 
+#if WITH_ENGINE
+	#include "Engine/Engine.h"
+	#include "EngineGlobals.h"
+#endif
+
 #if WITH_EDITOR
-	#include "MainFrame.h"
+	#include "Interfaces/IMainFrameModule.h"
 	#include "ISettingsModule.h"
 #endif
 

@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "Misc/DateTime.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "CrashDebugHelper.h"
+
+class FArchive;
 
 typedef TSharedRef<FPDBCacheEntry> FPDBCacheEntryRef;
 typedef TSharedPtr<FPDBCacheEntry> FPDBCacheEntryPtr;

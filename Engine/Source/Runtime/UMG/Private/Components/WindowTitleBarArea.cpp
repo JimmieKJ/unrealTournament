@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "ObjectEditorUtils.h"
+#include "Components/WindowTitleBarArea.h"
+#include "EngineGlobals.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/Engine.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SWindowTitleBarArea.h"
+#include "Components/WindowTitleBarAreaSlot.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -45,9 +52,16 @@ TSharedRef<SWidget> UWindowTitleBarArea::RebuildWidget()
 		WindowActionNotificationHandle.Reset();
 	}
 
+	MyWindowTitleBarArea->SetOnDoubleClickCallback(BIND_UOBJECT_DELEGATE(FSimpleDelegate, HandleMouseButtonDoubleClick));
+
 	if (GetChildrenCount() > 0)
 	{
 		Cast<UWindowTitleBarAreaSlot>(GetContentSlot())->BuildSlot(MyWindowTitleBarArea.ToSharedRef());
+	}
+
+	if (GEngine && GEngine->GameViewport && GEngine->GameViewport->GetWindow().IsValid())
+	{
+		MyWindowTitleBarArea->SetGameWindow(GEngine->GameViewport->GetWindow());
 	}
 
 	return BuildDesignTimeWidget(MyWindowTitleBarArea.ToSharedRef());
@@ -133,14 +147,15 @@ bool UWindowTitleBarArea::HandleWindowAction(const TSharedRef<FGenericWindow>& P
 	return false;
 }
 
-#if WITH_EDITOR
-
-const FText UWindowTitleBarArea::GetPaletteCategory()
+void UWindowTitleBarArea::HandleMouseButtonDoubleClick()
 {
-	return LOCTEXT("Borderless Window", "Borderless Window");
+	// This is only called in fullscreen mode when user double clicks the title bar.
+	if (GEngine)
+	{
+		GEngine->DeferredCommands.Add(TEXT("TOGGLE_FULLSCREEN"));
+	}
 }
 
-#endif
 
 /////////////////////////////////////////////////////
 

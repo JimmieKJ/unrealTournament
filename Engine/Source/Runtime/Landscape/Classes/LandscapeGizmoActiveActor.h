@@ -3,10 +3,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "LandscapeGizmoActor.h"
-#include "Materials/Material.h"
 
 #include "LandscapeGizmoActiveActor.generated.h"
+
+class ULandscapeInfo;
+class ULandscapeLayerInfoObject;
+class UMaterial;
+class UMaterialInstance;
+class UTexture2D;
 
 UENUM()
 enum ELandscapeGizmoType
@@ -28,18 +35,18 @@ struct FGizmoSelectData
 
 	UPROPERTY()
 	float HeightData;
-
 #endif // WITH_EDITORONLY_DATA
 
+	TMap<ULandscapeLayerInfoObject*, float>	WeightDataMap;
 
-		TMap<class ULandscapeLayerInfoObject*, float>	WeightDataMap;
-
-		FGizmoSelectData()
-		#if WITH_EDITORONLY_DATA
-		: Ratio(0.0f), HeightData(0.0f), WeightDataMap()
-		#endif
-		{
-		}
+	FGizmoSelectData()
+#if WITH_EDITORONLY_DATA
+		: Ratio(0.0f)
+		, HeightData(0.0f)
+		, WeightDataMap()
+#endif
+	{
+	}
 	
 };
 
@@ -53,7 +60,7 @@ class ALandscapeGizmoActiveActor : public ALandscapeGizmoActor
 	TEnumAsByte<enum ELandscapeGizmoType> DataType;
 
 	UPROPERTY(Transient)
-	class UTexture2D* GizmoTexture;
+	UTexture2D* GizmoTexture;
 
 	UPROPERTY()
 	FVector2D TextureScale;
@@ -83,16 +90,16 @@ class ALandscapeGizmoActiveActor : public ALandscapeGizmoActor
 	FVector FrustumVerts[8];
 
 	UPROPERTY()
-	class UMaterial* GizmoMaterial;
+	UMaterial* GizmoMaterial;
 
 	UPROPERTY()
-	class UMaterialInstance* GizmoDataMaterial;
+	UMaterialInstance* GizmoDataMaterial;
 
 	UPROPERTY()
 	UMaterial* GizmoMeshMaterial;
 
 	UPROPERTY(Category=LandscapeGizmoActiveActor, VisibleAnywhere)
-	TArray<class ULandscapeLayerInfoObject*> LayerInfos;
+	TArray<ULandscapeLayerInfoObject*> LayerInfos;
 
 	UPROPERTY(transient)
 	bool bSnapToLandscapeGrid;
@@ -135,13 +142,11 @@ public:
 	// @todo document
 	LANDSCAPE_API void SetTargetLandscape(ULandscapeInfo* LandscapeInfo);
 
-
 	// @todo document
 	void CalcNormal();
 
 	// @todo document
 	LANDSCAPE_API void SampleData(int32 SizeX, int32 SizeY);
-
 
 	// @todo document
 	LANDSCAPE_API void ExportToClipboard();
@@ -155,30 +160,39 @@ public:
 	// @todo document
 	LANDSCAPE_API void Export(int32 Index, TArray<FString>& Filenames);
 
-
 	// @todo document
 	LANDSCAPE_API float GetNormalizedHeight(uint16 LandscapeHeight) const;
 
 	// @todo document
 	LANDSCAPE_API float GetLandscapeHeight(float NormalizedHeight) const;
 
+	// @todo document
+	float GetWidth() const
+	{
+		return Width * GetRootComponent()->RelativeScale3D.X;
+	}
 
 	// @todo document
-	float GetWidth() const { return Width   * GetRootComponent()->RelativeScale3D.X; }
+	float GetHeight() const
+	{
+		return Height * GetRootComponent()->RelativeScale3D.Y;
+	}
 
 	// @todo document
-	float GetHeight() const { return Height  * GetRootComponent()->RelativeScale3D.Y; }
+	float GetLength() const
+	{
+		return LengthZ * GetRootComponent()->RelativeScale3D.Z;
+	}
 
 	// @todo document
-	float GetLength() const { return LengthZ * GetRootComponent()->RelativeScale3D.Z; }
+	void SetLength(float WorldLength)
+	{
+		LengthZ = WorldLength / GetRootComponent()->RelativeScale3D.Z;
+	}
 
+	static const int32 DataTexSize = 128;
 
-	// @todo document
-	void SetLength(float WorldLength) { LengthZ = WorldLength / GetRootComponent()->RelativeScale3D.Z; }
-
-	LANDSCAPE_API static const int32 DataTexSize = 128;
 private:
-
 	// @todo document
 	FORCEINLINE float GetWorldHeight(float NormalizedHeight) const;
 #endif

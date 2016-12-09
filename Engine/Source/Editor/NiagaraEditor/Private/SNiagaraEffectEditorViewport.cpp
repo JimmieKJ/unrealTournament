@@ -1,17 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
-#include "NiagaraEditorModule.h"
-#include "MouseDeltaTracker.h"
 #include "SNiagaraEffectEditorViewport.h"
-#include "PreviewScene.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "NiagaraEditor.h"
-#include "ComponentReregisterContext.h"
+#include "Widgets/Layout/SBox.h"
+#include "Editor/UnrealEdEngine.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
+#include "UnrealEdGlobals.h"
 #include "NiagaraComponent.h"
+#include "ComponentReregisterContext.h"
+#include "NiagaraEditorModule.h"
+#include "Slate/SceneViewport.h"
 #include "NiagaraEffect.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "Engine/TextureCube.h"
+
+class INiagaraEffectEditor;
 
 /** Viewport Client for the preview viewport */
 class FNiagaraEffectEditorViewportClient : public FEditorViewportClient

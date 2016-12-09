@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Camera/CameraAnim.h"
+
+#include "CoreMinimal.h"
+#include "GameFramework/Pawn.h"
+#include "Toolkits/IToolkitHost.h"
 #include "AssetTypeActions_Base.h"
+#include "Camera/CameraActor.h"
+#include "Camera/CameraAnim.h"
+
+class AMatineeActorCameraAnim;
 
 class FAssetTypeActions_CameraAnim : public FAssetTypeActions_Base
 {

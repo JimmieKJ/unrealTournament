@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "LegacySlateFontInfoCache.h"
+#include "Fonts/LegacySlateFontInfoCache.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/FileHelper.h"
+#include "Fonts/FontBulkData.h"
 
 TSharedPtr<FLegacySlateFontInfoCache> FLegacySlateFontInfoCache::Singleton;
 
@@ -61,9 +64,7 @@ TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetCompositeFont(con
 	// Don't allow GC while we perform this allocation
 	FGCScopeGuard GCGuard;
 
-	UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
-	FontBulkData->Initialize(LegacyFontPath);
-	TSharedRef<const FCompositeFont> NewCompositeFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, LegacyFontPath, FontBulkData, InLegacyFontHinting));
+	TSharedRef<const FCompositeFont> NewCompositeFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, LegacyFontPath, InLegacyFontHinting, EFontLoadingPolicy::PreLoad));
 	LegacyFontNameToCompositeFont.Add(LegacyFontKey, NewCompositeFont);
 	return NewCompositeFont;
 }
@@ -75,10 +76,15 @@ TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetSystemFont()
 		// Don't allow GC while we perform this allocation
 		FGCScopeGuard GCGuard;
 
-		TArray<uint8> FontBytes = FPlatformMisc::GetSystemFontBytes();
-		UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
-		FontBulkData->Initialize(FontBytes.GetData(), FontBytes.Num());
-		SystemFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, TEXT("DefaultSystemFont"), FontBulkData, EFontHinting::Default));
+		const TArray<uint8> FontBytes = FPlatformMisc::GetSystemFontBytes();
+		if (FontBytes.Num() > 0)
+		{
+			const FString FontFilename = FPaths::EngineIntermediateDir() / TEXT("DefaultSystemFont.ttf");
+			if (FFileHelper::SaveArrayToFile(FontBytes, *FontFilename))
+			{
+				SystemFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, FontFilename, EFontHinting::Default, EFontLoadingPolicy::PreLoad));
+			}
+		}
 	}
 
 	return SystemFont;
@@ -110,10 +116,7 @@ const FFontData& FLegacySlateFontInfoCache::GetLocalizedFallbackFontData()
 
 		if (!LocalizedFallbackFontData.IsValid())
 		{
-			UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
-			FontBulkData->Initialize(FallbackFontPath);
-			LocalizedFallbackFontData = MakeShareable(new FFontData(FallbackFontPath, FontBulkData, EFontHinting::Default));
-
+			LocalizedFallbackFontData = MakeShareable(new FFontData(FallbackFontPath, EFontHinting::Default, EFontLoadingPolicy::PreLoad));
 			AllLocalizedFallbackFontData.Add(FallbackFontPath, LocalizedFallbackFontData);
 		}
 
@@ -140,7 +143,7 @@ TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetLastResortFont()
 	if (!LastResortFont.IsValid())
 	{
 		const FFontData& FontData = GetLastResortFontData();
-		LastResortFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, FontData.FontFilename, FontData.BulkDataPtr, EFontHinting::Default));
+		LastResortFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, FontData.GetFontFilename(), FontData.GetHinting(), FontData.GetLoadingPolicy()));
 	}
 
 	return LastResortFont;
@@ -156,10 +159,8 @@ const FFontData& FLegacySlateFontInfoCache::GetLastResortFontData()
 		// Don't allow GC while we perform this allocation
 		FGCScopeGuard GCGuard;
 
-		const FString LastResortFontPath = FPaths::EngineContentDir() / TEXT("Slate/Fonts/LastResort.ttf");
-		UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
-		FontBulkData->Initialize(LastResortFontPath);
-		LastResortFontData = MakeShareable(new FFontData(LastResortFontPath, FontBulkData, EFontHinting::Default));
+		const FString LastResortFontPath = FPaths::EngineContentDir() / TEXT("SlateDebug/Fonts/LastResort.ttf");
+		LastResortFontData = MakeShareable(new FFontData(LastResortFontPath, EFontHinting::Default, EFontLoadingPolicy::PreLoad));
 	}
 
 	return *LastResortFontData;
@@ -167,16 +168,19 @@ const FFontData& FLegacySlateFontInfoCache::GetLastResortFontData()
 
 void FLegacySlateFontInfoCache::AddReferencedObjects(FReferenceCollector& Collector)
 {
-	for (const auto& Pair : AllLocalizedFallbackFontData)
+	for (TPair<FString, TSharedPtr<const FFontData>>& Pair : AllLocalizedFallbackFontData)
 	{
-		const UFontBulkData* TmpPtr = Pair.Value->BulkDataPtr;
-		Collector.AddReferencedObject(TmpPtr);
+		const_cast<FFontData&>(*Pair.Value).AddReferencedObjects(Collector);
+	}
+
+	if (LocalizedFallbackFontData.IsValid())
+	{
+		const_cast<FFontData&>(*LocalizedFallbackFontData).AddReferencedObjects(Collector);
 	}
 
 	if (LastResortFontData.IsValid())
 	{
-		const UFontBulkData* TmpPtr = LastResortFontData->BulkDataPtr;
-		Collector.AddReferencedObject(TmpPtr);
+		const_cast<FFontData&>(*LastResortFontData).AddReferencedObjects(Collector);
 	}
 }
 

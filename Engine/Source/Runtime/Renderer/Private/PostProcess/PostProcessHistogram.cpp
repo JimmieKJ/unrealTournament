@@ -4,13 +4,9 @@
 	PostProcessHistogram.cpp: Post processing histogram implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "PostProcessHistogram.h"
-#include "PostProcessing.h"
-#include "PostProcessEyeAdaptation.h"
+#include "PostProcess/PostProcessHistogram.h"
 #include "SceneUtils.h"
-
+#include "PostProcess/PostProcessEyeAdaptation.h"
 
 /** Encapsulates the post processing histogram compute shader. */
 class FPostProcessHistogramCS : public FGlobalShader

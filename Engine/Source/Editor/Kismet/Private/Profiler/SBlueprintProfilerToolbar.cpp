@@ -1,18 +1,59 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
+#include "Profiler/SBlueprintProfilerToolbar.h"
+#include "Profiler/BlueprintProfilerSettings.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "EdGraphSchema_K2.h"
 #include "BlueprintProfilerModule.h"
-#include "SBlueprintProfilerToolbar.h"
-#include "EventExecution.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintProfilerToolbar"
+
+//////////////////////////////////////////////////////////////////////////
+// CustomStatisticThresholdValues
+
+namespace CustomStatisticThresholdValues
+{
+	// Event thresholds
+	const float EventMin = 0.01f;
+	const float EventMax = 10.f;
+	const float EventDefault = 1.f;
+
+	// Node Average Thresholds
+	const float NodeAvgMin = 0.001f;
+	const float NodeAvgMax = 5.f;
+	const float NodeAvgDefault = 0.2f;
+
+	// Node Inclusive Thresholds
+	const float NodeInclMin = 0.001f;
+	const float NodeInclMax = 5.f;
+	const float NodeInclDefault = 0.25f;
+
+	// Node Max Thresholds
+	const float NodeMaxTimeMin = 0.01f;
+	const float NodeMaxTimeMax = 5.f;
+	const float NodeMaxTimeDefault = 0.5f;
+};
 
 //////////////////////////////////////////////////////////////////////////
 // FBPProfilerStatOptions
 
 FBlueprintProfilerStatOptions::FBlueprintProfilerStatOptions()
-	: ActiveInstance(NAME_None)
+	: ActiveInstance(SPDN_Blueprint)
 	, ActiveGraph(NAME_None)
 	, Flags(Modified)
 {
@@ -42,11 +83,6 @@ FBlueprintProfilerStatOptions::FBlueprintProfilerStatOptions()
 	{
 		Flags |= DisplayInheritedEvents;
 	}
-
-	if (ProfilerSettings->bAverageBlueprintStats)
-	{
-		Flags |= AverageBlueprintStats;
-	}
 }
 
 void FBlueprintProfilerStatOptions::SetActiveInstance(const FName InstanceName)
@@ -71,6 +107,48 @@ TSharedRef<SWidget> FBlueprintProfilerStatOptions::CreateComboContent()
 {
 	return	
 		SNew(SVerticalBox)
+#if 1 // Debugging options - not for MVP
+		+SVerticalBox::Slot()
+		.HAlign(HAlign_Left)
+		.AutoHeight()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(FMargin(5,2))
+			[
+				SNew(SCheckBox)
+				.Content()
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("ShowHottestPathStats_Label", "Show HottestPath Stats"))
+					.ToolTipText(LOCTEXT("ShowHottestPathStats_Tooltip", "Debugging feature - Show hottest path stats column."))
+				]
+				.IsChecked<FBlueprintProfilerStatOptions, uint32>(this, &FBlueprintProfilerStatOptions::GetChecked, DisplayHottestPathStats)
+				.OnCheckStateChanged<FBlueprintProfilerStatOptions, uint32>(this, &FBlueprintProfilerStatOptions::OnChecked, DisplayHottestPathStats)
+			]
+		]
+		+SVerticalBox::Slot()
+		.HAlign(HAlign_Left)
+		.AutoHeight()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(FMargin(5,2))
+			[
+				SNew(SCheckBox)
+				.Content()
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("ShowNodeHeatStats_Label", "Show Node Heat Level Stats"))
+					.ToolTipText(LOCTEXT("ShowNodeHeatStats_Tooltip", "Debugging feature - Show node heat level stats column."))
+				]
+				.IsChecked<FBlueprintProfilerStatOptions, uint32>(this, &FBlueprintProfilerStatOptions::GetChecked, DisplayNodeHeatStat)
+				.OnCheckStateChanged<FBlueprintProfilerStatOptions, uint32>(this, &FBlueprintProfilerStatOptions::OnChecked, DisplayNodeHeatStat)
+			]
+		]
+#endif
 		+SVerticalBox::Slot()
 		.HAlign(HAlign_Left)
 		.AutoHeight()
@@ -89,26 +167,6 @@ TSharedRef<SWidget> FBlueprintProfilerStatOptions::CreateComboContent()
 				]
 				.IsChecked<FBlueprintProfilerStatOptions, uint32>(this, &FBlueprintProfilerStatOptions::GetChecked, GraphFilter)
 				.OnCheckStateChanged<FBlueprintProfilerStatOptions, uint32>(this, &FBlueprintProfilerStatOptions::OnChecked, GraphFilter)
-			]
-		]
-		+SVerticalBox::Slot()
-		.HAlign(HAlign_Left)
-		.AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(FMargin(5,2))
-			[
-				SNew(SCheckBox)
-				.Content()
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("AverageBlueprintStats_Label", "Use Averaged Blueprint Stats"))
-					.ToolTipText(LOCTEXT("AverageBlueprintStats_Tooltip", "Blueprint Statistics are Averaged or Summed By Instance."))
-				]
-				.IsChecked<FBlueprintProfilerStatOptions, uint32>(this, &FBlueprintProfilerStatOptions::GetChecked, AverageBlueprintStats)
-				.OnCheckStateChanged<FBlueprintProfilerStatOptions, uint32>(this, &FBlueprintProfilerStatOptions::OnChecked, AverageBlueprintStats)
 			]
 		]
 #if 0 // Removing pure timings until we have an advanced display options.
@@ -228,11 +286,6 @@ void FBlueprintProfilerStatOptions::OnChecked(ECheckBoxState NewState, const uin
 		Flags &= ~FlagsIn;
 	}
 
-	if (FlagsIn & AverageBlueprintStats)
-	{
-		FScriptPerfData::EnableBlueprintStatAverage(NewState == ECheckBoxState::Checked);
-	}
-
 	Flags |= Modified;
 
 	UBlueprintProfilerSettings* ProfilerSettings = GetMutableDefault<UBlueprintProfilerSettings>();
@@ -262,9 +315,14 @@ void FBlueprintProfilerStatOptions::OnChecked(ECheckBoxState NewState, const uin
 		ProfilerSettings->bDisplayInheritedEvents = !!(Flags & DisplayInheritedEvents);
 	}
 
-	if (FlagsIn & AverageBlueprintStats)
+	if (FlagsIn & DisplayHottestPathStats)
 	{
-		ProfilerSettings->bAverageBlueprintStats = !!(Flags & AverageBlueprintStats);
+		ProfilerSettings->bShowHottestPathStats = !!(Flags & DisplayHottestPathStats);
+	}
+
+	if (FlagsIn & DisplayNodeHeatStat)
+	{
+		ProfilerSettings->bShowHeatLevelStats = !!(Flags & DisplayNodeHeatStat);
 	}
 
 	ProfilerSettings->SaveConfig();
@@ -434,14 +492,14 @@ void SBlueprintProfilerToolbar::Construct(const FArguments& InArgs)
 			[
 				SAssignNew(GeneralOptionsComboButton, SComboButton)
 				.ForegroundColor(this, &SBlueprintProfilerToolbar::GetButtonForegroundColor, EHeatmapControlId::GeneralOptions)
-				.ToolTipText(LOCTEXT("GeneralOptions_Tooltip", "General Options"))
+				.ToolTipText(LOCTEXT("DisplayOptions_Tooltip", "Display Options"))
 				.ButtonStyle(FEditorStyle::Get(), "ToggleButton")
 				.ContentPadding(2)
 				.OnGetMenuContent(DisplayOptions.Get(), &FBlueprintProfilerStatOptions::CreateComboContent)
 				.ButtonContent()
 				[
 					SNew(STextBlock)
-					.Text(LOCTEXT("GeneralOptions_Label", "General Options"))
+					.Text(LOCTEXT("DisplayOptions_Label", "Display Options"))
 					.ColorAndOpacity(FLinearColor::White)
 				]
 			]
@@ -570,6 +628,7 @@ void SBlueprintProfilerToolbar::Construct(const FArguments& InArgs)
 				.ButtonStyle(FEditorStyle::Get(), "ToggleButton")
 				.ContentPadding(2)
 				.OnGetMenuContent(this, &SBlueprintProfilerToolbar::CreateCustomHeatThresholdsMenuContent)
+				.OnMenuOpenChanged(this, &SBlueprintProfilerToolbar::SaveCustomHeatThresholds)
 			]
 #if 0
 			+SHorizontalBox::Slot()
@@ -722,6 +781,7 @@ void SBlueprintProfilerToolbar::OnHeatLevelMetricsTypeChanged(ECheckBoxState InC
 	{
 		UBlueprintProfilerSettings* Settings = GetMutableDefault<UBlueprintProfilerSettings>();
 		Settings->HeatLevelMetricsType = NewHeatLevelMetricsType;
+		Settings->SetPerformanceThresholdsModified(true);
 
 		Settings->SaveConfig();
 	}
@@ -755,9 +815,8 @@ void SBlueprintProfilerToolbar::OnHeatMapDisplayModeChanged(const EHeatmapContro
 		if (Settings->GraphNodeHeatMapDisplayMode != NewHeatMapDisplayMode)
 		{
 			Settings->GraphNodeHeatMapDisplayMode = NewHeatMapDisplayMode;
-
-			// @TODO - should we save this setting?
-			//Settings->SaveConfig();
+			Settings->SaveConfig();
+			Settings->SetPerformanceThresholdsModified(true);
 		}
 	}
 	else 
@@ -765,9 +824,8 @@ void SBlueprintProfilerToolbar::OnHeatMapDisplayModeChanged(const EHeatmapContro
 		if (Settings->WireHeatMapDisplayMode != NewHeatMapDisplayMode)
 		{
 			Settings->WireHeatMapDisplayMode = NewHeatMapDisplayMode;
-
-			// @TODO - should we save this setting?
-			//Settings->SaveConfig();
+			Settings->SaveConfig();
+			Settings->SetPerformanceThresholdsModified(true);
 		}
 	}
 }
@@ -806,10 +864,10 @@ TSharedRef<SWidget> SBlueprintProfilerToolbar::CreateCustomHeatThresholdsMenuCon
 				[
 					SNew(SNumericEntryBox<float>)
 					.AllowSpin(true)
-					.MinValue(0.01f)
-					.MaxValue(5.f)
-					.MinSliderValue(0.01f)
-					.MaxSliderValue(5.f)
+					.MinValue(CustomStatisticThresholdValues::EventMin)
+					.MaxValue(CustomStatisticThresholdValues::EventMax)
+					.MinSliderValue(CustomStatisticThresholdValues::EventMin)
+					.MaxSliderValue(CustomStatisticThresholdValues::EventMax)
 					.Value(this, &SBlueprintProfilerToolbar::GetCustomPerformanceThreshold, ECustomPerformanceThreshold::Event)
 					.OnValueChanged(this, &SBlueprintProfilerToolbar::SetCustomPerformanceThreshold, ECustomPerformanceThreshold::Event)
 					.MinDesiredValueWidth(100)
@@ -859,10 +917,10 @@ TSharedRef<SWidget> SBlueprintProfilerToolbar::CreateCustomHeatThresholdsMenuCon
 				[
 					SNew(SNumericEntryBox<float>)
 					.AllowSpin(true)
-					.MinValue(0.001f)
-					.MaxValue(0.5f)
-					.MinSliderValue(0.001f)
-					.MaxSliderValue(0.5f)
+					.MinValue(CustomStatisticThresholdValues::NodeAvgMin)
+					.MaxValue(CustomStatisticThresholdValues::NodeAvgMax)
+					.MinSliderValue(CustomStatisticThresholdValues::NodeAvgMin)
+					.MaxSliderValue(CustomStatisticThresholdValues::NodeAvgMax)
 					.Value(this, &SBlueprintProfilerToolbar::GetCustomPerformanceThreshold, ECustomPerformanceThreshold::Average)
 					.OnValueChanged(this, &SBlueprintProfilerToolbar::SetCustomPerformanceThreshold, ECustomPerformanceThreshold::Average)
 					.MinDesiredValueWidth(100)
@@ -912,10 +970,10 @@ TSharedRef<SWidget> SBlueprintProfilerToolbar::CreateCustomHeatThresholdsMenuCon
 				[
 					SNew(SNumericEntryBox<float>)
 					.AllowSpin(true)
-					.MinValue(0.001f)
-					.MaxValue(0.5f)
-					.MinSliderValue(0.001f)
-					.MaxSliderValue(0.5f)
+					.MinValue(CustomStatisticThresholdValues::NodeInclMin)
+					.MaxValue(CustomStatisticThresholdValues::NodeInclMax)
+					.MinSliderValue(CustomStatisticThresholdValues::NodeInclMin)
+					.MaxSliderValue(CustomStatisticThresholdValues::NodeInclMax)
 					.Value(this, &SBlueprintProfilerToolbar::GetCustomPerformanceThreshold, ECustomPerformanceThreshold::Inclusive)
 					.OnValueChanged(this, &SBlueprintProfilerToolbar::SetCustomPerformanceThreshold, ECustomPerformanceThreshold::Inclusive)
 					.MinDesiredValueWidth(100)
@@ -965,10 +1023,10 @@ TSharedRef<SWidget> SBlueprintProfilerToolbar::CreateCustomHeatThresholdsMenuCon
 				[
 					SNew(SNumericEntryBox<float>)
 					.AllowSpin(true)
-					.MinValue(0.01f)
-					.MaxValue(2.f)
-					.MinSliderValue(0.01f)
-					.MaxSliderValue(2.f)
+					.MinValue(CustomStatisticThresholdValues::NodeMaxTimeMin)
+					.MaxValue(CustomStatisticThresholdValues::NodeMaxTimeMax)
+					.MinSliderValue(CustomStatisticThresholdValues::NodeMaxTimeMin)
+					.MaxSliderValue(CustomStatisticThresholdValues::NodeMaxTimeMax)
 					.Value(this, &SBlueprintProfilerToolbar::GetCustomPerformanceThreshold, ECustomPerformanceThreshold::Max)
 					.OnValueChanged(this, &SBlueprintProfilerToolbar::SetCustomPerformanceThreshold, ECustomPerformanceThreshold::Max)
 					.MinDesiredValueWidth(100)
@@ -992,6 +1050,19 @@ TSharedRef<SWidget> SBlueprintProfilerToolbar::CreateCustomHeatThresholdsMenuCon
 				]
 			]
 		];
+}
+
+void SBlueprintProfilerToolbar::SaveCustomHeatThresholds(bool bIsOpened)
+{
+	if (!bIsOpened)
+	{
+		// Save settings on combo menu close.
+		UBlueprintProfilerSettings* ProfilerSettings = GetMutableDefault<UBlueprintProfilerSettings>();
+		if (ProfilerSettings->GetPerformanceThresholdsModified())
+		{
+			ProfilerSettings->SaveConfig();
+		}
+	}
 }
 
 TOptional<float> SBlueprintProfilerToolbar::GetCustomPerformanceThreshold(ECustomPerformanceThreshold InType) const
@@ -1025,7 +1096,7 @@ void SBlueprintProfilerToolbar::SetCustomPerformanceThreshold(float NewValue, EC
 {
 	float OldValue = 0.0f;
 	UBlueprintProfilerSettings* ProfilerSettings = GetMutableDefault<UBlueprintProfilerSettings>();
-	
+
 	switch (InType)
 	{
 	case ECustomPerformanceThreshold::Event:
@@ -1048,11 +1119,7 @@ void SBlueprintProfilerToolbar::SetCustomPerformanceThreshold(float NewValue, EC
 		ProfilerSettings->CustomMaxPerformanceThreshold = NewValue;
 		break;
 	}
-
-	if (OldValue != NewValue)
-	{
-		ProfilerSettings->SaveConfig();
-	}
+	ProfilerSettings->SetPerformanceThresholdsModified(OldValue != NewValue);
 }
 
 EVisibility SBlueprintProfilerToolbar::IsCustomPerformanceThresholdDefaultButtonVisible(ECustomPerformanceThreshold InType) const
@@ -1065,22 +1132,22 @@ EVisibility SBlueprintProfilerToolbar::IsCustomPerformanceThresholdDefaultButton
 	{
 	case ECustomPerformanceThreshold::Event:
 		CurValue = ProfilerSettings->CustomEventPerformanceThreshold;
-		DefValue = UBlueprintProfilerSettings::CustomEventPerformanceThresholdDefaultValue;
+		DefValue = CustomStatisticThresholdValues::EventDefault;
 		break;
 
 	case ECustomPerformanceThreshold::Average:
 		CurValue = ProfilerSettings->CustomAveragePerformanceThreshold;
-		DefValue = UBlueprintProfilerSettings::CustomAveragePerformanceThresholdDefaultValue;
+		DefValue = CustomStatisticThresholdValues::NodeAvgDefault;
 		break;
 
 	case ECustomPerformanceThreshold::Inclusive:
 		CurValue = ProfilerSettings->CustomInclusivePerformanceThreshold;
-		DefValue = UBlueprintProfilerSettings::CustomInclusivePerformanceThresholdDefaultValue;
+		DefValue = CustomStatisticThresholdValues::NodeInclDefault;
 		break;
 
 	case ECustomPerformanceThreshold::Max:
 		CurValue = ProfilerSettings->CustomMaxPerformanceThreshold;
-		DefValue = UBlueprintProfilerSettings::CustomMaxPerformanceThresholdDefaultValue;
+		DefValue = CustomStatisticThresholdValues::NodeMaxTimeDefault;
 		break;
 	}
 
@@ -1090,32 +1157,36 @@ EVisibility SBlueprintProfilerToolbar::IsCustomPerformanceThresholdDefaultButton
 FReply SBlueprintProfilerToolbar::ResetCustomPerformanceThreshold(ECustomPerformanceThreshold InType)
 {
 	float OldValue = 0.0f;
+	float NewValue = 0.0f;
 	UBlueprintProfilerSettings* ProfilerSettings = GetMutableDefault<UBlueprintProfilerSettings>();
 	
 	switch (InType)
 	{
 	case ECustomPerformanceThreshold::Event:
 		OldValue = ProfilerSettings->CustomEventPerformanceThreshold;
-		ProfilerSettings->CustomEventPerformanceThreshold = UBlueprintProfilerSettings::CustomEventPerformanceThresholdDefaultValue;
+		ProfilerSettings->CustomEventPerformanceThreshold = CustomStatisticThresholdValues::EventDefault;
+		NewValue = ProfilerSettings->CustomEventPerformanceThreshold;
 		break;
 
 	case ECustomPerformanceThreshold::Average:
 		OldValue = ProfilerSettings->CustomAveragePerformanceThreshold;
-		ProfilerSettings->CustomAveragePerformanceThreshold = UBlueprintProfilerSettings::CustomAveragePerformanceThresholdDefaultValue;
+		ProfilerSettings->CustomAveragePerformanceThreshold = CustomStatisticThresholdValues::NodeAvgDefault;
+		NewValue = ProfilerSettings->CustomAveragePerformanceThreshold;
 		break;
 
 	case ECustomPerformanceThreshold::Inclusive:
 		OldValue = ProfilerSettings->CustomInclusivePerformanceThreshold;
-		ProfilerSettings->CustomInclusivePerformanceThreshold = UBlueprintProfilerSettings::CustomInclusivePerformanceThresholdDefaultValue;
+		ProfilerSettings->CustomInclusivePerformanceThreshold = CustomStatisticThresholdValues::NodeInclDefault;
+		NewValue = ProfilerSettings->CustomInclusivePerformanceThreshold;
 		break;
 
 	case ECustomPerformanceThreshold::Max:
 		OldValue = ProfilerSettings->CustomMaxPerformanceThreshold;
-		ProfilerSettings->CustomMaxPerformanceThreshold = UBlueprintProfilerSettings::CustomMaxPerformanceThresholdDefaultValue;
+		ProfilerSettings->CustomMaxPerformanceThreshold = CustomStatisticThresholdValues::NodeMaxTimeDefault;
+		NewValue = ProfilerSettings->CustomMaxPerformanceThreshold;
 		break;
 	}
-
-	ProfilerSettings->SaveConfig();
+	ProfilerSettings->SetPerformanceThresholdsModified(OldValue != NewValue);
 
 	return FReply::Handled();
 }

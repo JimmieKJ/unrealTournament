@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIGraphPrivatePCH.h"
-#include "BlueprintGraphDefinitions.h"
+#include "AIGraphSchema.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EdGraph/EdGraph.h"
+#include "AIGraphNode.h"
 #include "GraphEditorActions.h"
 #include "AIGraphConnectionDrawingPolicy.h"
 #include "ScopedTransaction.h"
-#include "SGraphEditorImpl.h"
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #define LOCTEXT_NAMESPACE "AIGraph"
 #define SNAP_GRID (16) // @todo ensure this is the same as SNodePanel::GetSnapGridSize()
@@ -116,6 +119,7 @@ void FAISchemaAction_NewSubNode::AddReferencedObjects(FReferenceCollector& Colle
 
 	// These don't get saved to disk, but we want to make sure the objects don't get GC'd while the action array is around
 	Collector.AddReferencedObject(NodeTemplate);
+	Collector.AddReferencedObject(ParentNode);
 }
 //////////////////////////////////////////////////////////////////////////
 

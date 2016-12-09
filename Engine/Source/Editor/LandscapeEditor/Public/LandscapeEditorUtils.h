@@ -2,7 +2,9 @@
 
 #pragma once
 
-// Forward declarations
+#include "CoreMinimal.h"
+
+class ALandscapeProxy;
 class ULandscapeLayerInfoObject;
 
 namespace LandscapeEditorUtils

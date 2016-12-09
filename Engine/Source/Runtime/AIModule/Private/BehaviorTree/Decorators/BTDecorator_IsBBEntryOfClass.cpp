@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Decorators/BTDecorator_IsBBEntryOfClass.h"
+#include "BehaviorTree/BlackboardComponent.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
 
 UBTDecorator_IsBBEntryOfClass::UBTDecorator_IsBBEntryOfClass(const FObjectInitializer& ObjectInitializer) 
 	: Super(ObjectInitializer)

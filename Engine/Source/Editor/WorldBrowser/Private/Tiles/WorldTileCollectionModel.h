@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "WorldTileModel.h"
+#include "CoreMinimal.h"
+#include "Misc/WorldCompositionUtility.h"
+#include "Tiles/WorldTileModel.h"
+#include "LevelCollectionModel.h"
 #include "EditorUndoClient.h"
+
+class FMenuBuilder;
+class IDetailsView;
 
 /** The non-UI solution specific presentation logic for a world composition */
 class FWorldTileCollectionModel

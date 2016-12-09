@@ -6,7 +6,10 @@
 
 #pragma once
 
-#include "Linker.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/CoreMisc.h"
+#include "Misc/ScopeLock.h"
 
 class FLinkerManager : private FSelfRegisteringExec
 {
@@ -95,7 +98,7 @@ public:
 		LoadersWithNewImports.Empty();
 	}
 
-#if UE_BUILD_DEBUG
+#if !UE_BUILD_SHIPPING
 	FORCEINLINE TArray<FLinkerLoad*>& GetLiveLinkers()
 	{
 		return LiveLinkers;
@@ -133,7 +136,7 @@ private:
 #if THREADSAFE_UOBJECTS
 	FCriticalSection LoadersWithNewImportsCritical;
 #endif
-#if UE_BUILD_DEBUG
+#if !UE_BUILD_SHIPPING
 	/** List of all the existing linker loaders **/
 	TArray<FLinkerLoad*> LiveLinkers;
 #endif

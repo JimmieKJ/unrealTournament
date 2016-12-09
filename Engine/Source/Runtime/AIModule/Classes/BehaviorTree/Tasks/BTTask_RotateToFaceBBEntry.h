@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "BehaviorTree/Tasks/BTTask_BlackboardBase.h"
 #include "BehaviorTree/Services/BTService_DefaultFocus.h"
 #include "BTTask_RotateToFaceBBEntry.generated.h"
+
+class AAIController;
 
 /**
  * 

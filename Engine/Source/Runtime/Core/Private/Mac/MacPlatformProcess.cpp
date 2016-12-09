@@ -4,8 +4,9 @@
 	MacPlatformProcess.mm: Mac implementations of Process functions
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "MacPlatformProcess.h"
 #include "Misc/App.h"
+#include "Misc/Paths.h"
 #include "MacApplication.h"
 #include <mach-o/dyld.h>
 #include <libproc.h>
@@ -81,6 +82,7 @@ FString FMacPlatformProcess::GenerateApplicationPath( const FString& AppName, EB
 	}
 	else
 	{
+		// Try expected path of an executable inside an app package in Engine Binaries
 		FString ExecutablePath = FString::Printf(TEXT("../../../Engine/Binaries/%s/%s.app/Contents/MacOS/%s"), *PlatformName, *ExecutableName, *ExecutableName);
 			
 		NSString* LaunchPath = ExecutablePath.GetNSString();
@@ -91,18 +93,30 @@ FString FMacPlatformProcess::GenerateApplicationPath( const FString& AppName, EB
 		}
 		else
 		{
-			CFStringRef App = FPlatformString::TCHARToCFString(*ExecutableName);
-			NSWorkspace* Workspace = [NSWorkspace sharedWorkspace];
-			NSString* AppPath = [Workspace fullPathForApplication:(NSString*)App];
-			CFRelease(App);
-			if (AppPath)
+			// Next try expected path of a simple executable file in Engine Binaries
+			ExecutablePath = FString::Printf(TEXT("../../../Engine/Binaries/%s/%s"), *PlatformName, *ExecutableName);
+
+			LaunchPath = ExecutablePath.GetNSString();
+
+			if ([[NSFileManager defaultManager] fileExistsAtPath:LaunchPath])
 			{
-				ExecutablePath = FString::Printf(TEXT("%s/Contents/MacOS/%s"), *FString(AppPath), *ExecutableName);
 				return ExecutablePath;
 			}
 			else
 			{
-				return FString();
+				CFStringRef App = FPlatformString::TCHARToCFString(*ExecutableName);
+				NSWorkspace* Workspace = [NSWorkspace sharedWorkspace];
+				NSString* AppPath = [Workspace fullPathForApplication : (NSString*)App];
+				CFRelease(App);
+				if (AppPath)
+				{
+					ExecutablePath = FString::Printf(TEXT("%s/Contents/MacOS/%s"), *FString(AppPath), *ExecutableName);
+					return ExecutablePath;
+				}
+				else
+				{
+					return FString();
+				}
 			}
 		}
 	}
@@ -1094,7 +1108,7 @@ bool FMacPlatformProcess::WritePipe(void* WritePipe, const FString& Message, FSt
 	Buffer[BytesAvailable] = '\n';
 
 	// Write to pipe
-	uint32 BytesWritten = write([(NSFileHandle*)WritePipe fileDescriptor], Buffer, BytesAvailable);
+	uint32 BytesWritten = write([(NSFileHandle*)WritePipe fileDescriptor], Buffer, BytesAvailable + 1);
 
 	// Get written message
 	if (OutWritten)
@@ -1203,56 +1217,4 @@ FString FMacPlatformProcess::FProcEnumInfo::GetName() const
 FRunnableThread* FMacPlatformProcess::CreateRunnableThread()
 {
 	return new FRunnableThreadMac();
-}
-
-
-FMacSystemWideCriticalSection::FMacSystemWideCriticalSection(const FString& InName, FTimespan InTimeout)
-{
-	check(InName.Len() > 0)
-	check(InTimeout >= FTimespan::Zero())
-	check(InTimeout.GetTotalSeconds() < (double)FLT_MAX)	// we'll need this to fit in a single-precision float later so check it here
-
-	FDateTime ExpireTime = FDateTime::UtcNow() + InTimeout;
-
-	// This lock implementation is using files so correct any backslashes in the name
-	const FString LockPath = FString(FMacPlatformProcess::ApplicationSettingsDir()) / InName;
-	FString NormalizedFilepath(LockPath);
-	NormalizedFilepath.ReplaceInline(TEXT("\\"), TEXT("/"));
-
-	// Attempt to open a file with O_EXLOCK (equivalent of atomic open() + flock())
-	FileHandle = open(TCHAR_TO_UTF8(*NormalizedFilepath), O_CREAT | O_WRONLY | O_EXLOCK | O_NONBLOCK, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-
-	if (FileHandle == -1 && InTimeout != FTimespan::Zero())
-	{
-		// Failed to get a valid file handle so the file is probably open and locked by another owner - retry until we timeout
-
-		for (FTimespan TimeoutRemaining = ExpireTime - FDateTime::UtcNow();
-			 FileHandle == -1 && TimeoutRemaining > FTimespan::Zero();
-			 TimeoutRemaining = ExpireTime - FDateTime::UtcNow())
-		{
-			// retry until timeout
-			float RetrySeconds = FMath::Min((float)TimeoutRemaining.GetTotalSeconds(), 0.25f);
-			FMacPlatformProcess::Sleep(RetrySeconds);
-			FileHandle = open(TCHAR_TO_UTF8(*NormalizedFilepath), O_CREAT | O_WRONLY | O_EXLOCK | O_NONBLOCK, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-		}
-	}
-}
-
-FMacSystemWideCriticalSection::~FMacSystemWideCriticalSection()
-{
-	Release();
-}
-
-bool FMacSystemWideCriticalSection::IsValid() const
-{
-	return FileHandle != -1;
-}
-
-void FMacSystemWideCriticalSection::Release()
-{
-	if (IsValid())
-	{
-		close(FileHandle);
-		FileHandle = -1;
-	}
 }

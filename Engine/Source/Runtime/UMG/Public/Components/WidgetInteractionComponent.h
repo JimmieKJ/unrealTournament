@@ -2,11 +2,19 @@
 
 #pragma once
 
-#include "Components/WidgetComponent.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "InputCoreTypes.h"
+#include "Engine/EngineTypes.h"
+#include "Components/SceneComponent.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Layout/WidgetPath.h"
 #include "WidgetInteractionComponent.generated.h"
 
+class FSlateVirtualUser;
 class UPrimitiveComponent;
-class AActor;
+class UWidgetComponent;
 
 /**
  * The interaction source for the widget interaction component, e.g. where do we try and
@@ -34,16 +42,17 @@ enum class EWidgetInteractionSource : uint8
 
 // TODO Expose modifier key state.
 
+// TODO Come up with a better way to let people forward a lot of keyboard input without a bunch of glue
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHoveredWidgetChanged, UWidgetComponent*, WidgetComponent, UWidgetComponent*, PreviousWidgetComponent);
 
 /**
- * This is a highly experimental component to allow interaction with the Widget Component.  Not
- * everything should be expected to work correctly.  This class allows you to simulate a sort of
- * laser pointer device, when it hovers over widgets it will send the basic signals to show as if the
- * mouse were moving on top of it.  You'll then tell the component to simulate key presses, like
- * Left Mouse, down and up, to simulate a mouse click.
+ * This is a component to allow interaction with the Widget Component.  This class allows you to 
+ * simulate a sort of laser pointer device, when it hovers over widgets it will send the basic signals 
+ * to show as if the mouse were moving on top of it.  You'll then tell the component to simulate key presses, 
+ * like Left Mouse, down and up, to simulate a mouse click.
  */
-UCLASS(ClassGroup=Experimental, meta=(BlueprintSpawnableComponent, DevelopmentStatus=Experimental) )
+UCLASS(ClassGroup="UserInterface", meta=(BlueprintSpawnableComponent) )
 class UMG_API UWidgetInteractionComponent : public USceneComponent
 {
 	GENERATED_BODY()
@@ -61,9 +70,9 @@ public:
 
 	// Begin ActorComponent interface
 	virtual void OnComponentCreated() override;
-	virtual void BeginPlay() override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
+	virtual void Activate(bool bReset = false) override;
+	virtual void Deactivate() override;
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	// End UActorComponent
 	
 	/**
@@ -154,6 +163,12 @@ public:
 	const FHitResult& GetLastHitResult() const;
 
 	/**
+	 * Gets the last hit location on the widget in 2D, local pixel units of the render target.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Interaction")
+	FVector2D Get2DHitLocation() const;
+
+	/**
 	 * Set custom hit result.  This is only taken into account if InteractionSource is set to EWidgetInteractionSource::Custom.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Interaction")
@@ -187,6 +202,12 @@ public:
 	float PointerIndex;
 
 public:
+
+	/**
+	 * The trace channel to use when tracing for widget components in the world.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Interaction")
+	TEnumAsByte<ECollisionChannel> TraceChannel;
 
 	/**
 	 * The distance in game units the component should be able to interact with a widget component.

@@ -2,17 +2,17 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "Engine/StaticMesh.h"
 
 class AActor;
-class ALODActor;
-class UStaticMeshComponent;
-class UPackage;
-struct FHierarchicalSimplification;
-struct FMatrix;
-class UWorld;
-class AWorldSettings;
 class AHierarchicalLODVolume;
+class ALODActor;
+class AWorldSettings;
+class FStaticMeshRenderData;
+class ULevel;
+class UStaticMeshComponent;
+struct FHierarchicalSimplification;
 
 /**
  * IHierarchicalLODUtilities module interface
@@ -123,11 +123,11 @@ public:
 	/** Deletes all the ALODActors with the given HLODLevelIndex inside off InWorld */
 	virtual void DeleteLODActorsInHLODLevel(UWorld* InWorld, const int32 HLODLevelIndex) = 0;
 
-	/** Computes which LOD level of a Mesh corresponds to the given Distance (calculates closest screensize with distance) */
-	virtual int32 ComputeStaticMeshLODLevel(const TArray<FStaticMeshSourceModel>& SourceModels, const FStaticMeshRenderData* RenderData, const float ScreenAreaSize) = 0;
+	/** Computes which LOD level of a Mesh corresponds to the given Distance (calculates closest ScreenSize with distance) */
+	virtual int32 ComputeStaticMeshLODLevel(const TArray<FStaticMeshSourceModel>& SourceModels, const FStaticMeshRenderData* RenderData, const float ScreenSize) = 0;
 
-	/** Computes the LODLevel for a StaticMeshComponent taking into account the ScreenArea */
-	virtual int32 GetLODLevelForScreenAreaSize(const UStaticMeshComponent* StaticMeshComponent, const float ScreenAreaSize) = 0;
+	/** Computes the LODLevel for a StaticMeshComponent taking into account the ScreenSize */
+	virtual int32 GetLODLevelForScreenSize(const UStaticMeshComponent* StaticMeshComponent, const float ScreenSize) = 0;
 	
 	/**
 	* Creates a HierarchicalLODVolume using the bounds of a given LODActor

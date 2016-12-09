@@ -2,7 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "ISequencerSection.h"
 
+class FSequencerSectionPainter;
+class ISectionLayoutBuilder;
 class UMovieSceneLevelVisibilitySection;
 
 /**

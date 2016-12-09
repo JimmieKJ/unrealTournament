@@ -4,8 +4,10 @@
 	UObjectHash.cpp: Unreal object name hashes
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
-#include "UObjectHash.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUObjectHash, Log, All);
 
@@ -692,7 +694,7 @@ UObjectBase* FindObjectWithOuter(class UObjectBase* Outer, class UClass* ClassTo
 	SCOPE_CYCLE_COUNTER( STAT_Hash_FindObjectWithOuter );
 
 	UObject* Result = nullptr;
-	check( Outer && ClassToLookFor );
+	check( Outer );
 	// We don't want to return any objects that are currently being background loaded unless we're using the object iterator during async loading.
 	EInternalObjectFlags ExclusionInternalFlags = EInternalObjectFlags::Unreachable;
 	if (!IsInAsyncLoadingThread())
@@ -718,7 +720,7 @@ UObjectBase* FindObjectWithOuter(class UObjectBase* Outer, class UClass* ClassTo
 				{
 					continue;
 				}
-				if (!Object->IsA(ClassToLookFor))
+				if (ClassToLookFor && !Object->IsA(ClassToLookFor))
 				{
 					continue;
 				}

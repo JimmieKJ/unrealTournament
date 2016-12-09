@@ -5,6 +5,12 @@
 =============================================================================*/
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Misc/NetworkGuid.h"
+#include "GameFramework/OnlineReplStructs.h"
+#include "Net/DataBunch.h"
 #include "Engine/ChildConnection.h"
 
 /*-----------------------------------------------------------------------------

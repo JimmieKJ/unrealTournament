@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "HotReloadInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/HotReloadInterface.h"
 
 /**
 * The public interface to this module.  In most cases, this interface is only public to sibling modules

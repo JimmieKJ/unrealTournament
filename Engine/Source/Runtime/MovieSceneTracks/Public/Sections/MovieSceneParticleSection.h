@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "Curves/IntegralCurve.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
+#include "Curves/IntegralCurve.h"
 #include "MovieSceneParticleSection.generated.h"
 
 
@@ -33,7 +36,8 @@ class UMovieSceneParticleSection
 
 	MOVIESCENETRACKS_API void AddKey(float Time, EParticleKey::Type KeyType);
 
-	MOVIESCENETRACKS_API FIntegralCurve& GetParticleCurve();
+	FIntegralCurve& GetParticleCurve() { return ParticleKeys; }
+	const FIntegralCurve& GetParticleCurve() const { return ParticleKeys; }
 
 public:
 
@@ -44,7 +48,8 @@ public:
 	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
 	virtual TOptional<float> GetKeyTime(FKeyHandle KeyHandle) const override;
 	virtual void SetKeyTime(FKeyHandle KeyHandle, float Time) override;
-
+	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
+	
 private:
 
 	/** Curve containing the particle keys. */

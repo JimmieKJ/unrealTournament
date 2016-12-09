@@ -3,10 +3,13 @@
 #pragma once
 
 // Dependencies.
-#include "ModuleManager.h"
-#include "Core.h"
-#include "Json.h"
-#include "NetworkVersion.h"
+
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Serialization/JsonSerializerMacros.h"
+
+class FNetworkReplayVersion;
 
 class FReplayEventListItem : public FJsonSerializable
 {
@@ -174,6 +177,8 @@ public:
 	virtual void RequestEventData( const FString& EventID, const FOnRequestEventDataComplete& RequestEventDataComplete ) = 0;
 	virtual void SearchEvents(const FString& EventGroup, const FOnEnumerateStreamsComplete& Delegate) = 0;
 	virtual void KeepReplay( const FString& ReplayName, const bool bKeep ) = 0;
+	virtual void RefreshHeader() = 0;
+
 	/** Returns true if the playing stream is currently in progress */
 	virtual bool IsLive() const = 0;
 	virtual FString	GetReplayID() const = 0;

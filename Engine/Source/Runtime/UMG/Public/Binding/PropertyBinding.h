@@ -1,8 +1,13 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "DynamicPropertyPath.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "SlateGlobals.h"
+#include "Binding/DynamicPropertyPath.h"
 
 #include "PropertyBinding.generated.h"
 

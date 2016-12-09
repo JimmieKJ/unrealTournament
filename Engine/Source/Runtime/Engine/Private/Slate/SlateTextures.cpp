@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
-#include "SlateBasics.h"
-#include "RenderingCommon.h"
 #include "Slate/SlateTextures.h"
+#include "RenderUtils.h"
 
 FSlateTexture2DRHIRef::FSlateTexture2DRHIRef( FTexture2DRHIRef InRef, uint32 InWidth, uint32 InHeight )
 	: TSlateTexture( InRef )
@@ -343,7 +341,7 @@ void FSlateTextureRenderTarget2DResource::UpdateDeferredResource(FRHICommandList
 	{
 		SetRenderTarget(RHICmdList, RenderTargetTextureRHI,FTextureRHIRef());
 		RHICmdList.SetViewport(0,0,0.0f,TargetSizeX,TargetSizeY,1.0f);
-		RHICmdList.Clear(true,ClearColor,false,0.f,false,0, FIntRect());
+		RHICmdList.ClearColorTexture(RenderTargetTextureRHI, ClearColor, FIntRect());
 	}
 
 	// Copy surface to the texture for use

@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "BuildPatchServicesPrivatePCH.h"
-#include "BuildStreamer.h"
+#include "Generation/BuildStreamer.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Misc/ScopeLock.h"
 #include "Core/RingBuffer.h"
-#include "StatsCollector.h"
+#include "Async/Future.h"
+#include "Async/Async.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogBuildStreamer, Log, All);
 DEFINE_LOG_CATEGORY(LogBuildStreamer);

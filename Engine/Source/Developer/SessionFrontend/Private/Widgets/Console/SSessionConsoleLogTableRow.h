@@ -2,18 +2,37 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Margin.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Views/STableRow.h"
+#include "SessionLogMessage.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Images/SImage.h"
+
+class Error;
 
 /**
  * Implements a row widget for the session console log.
  */
 class SSessionConsoleLogTableRow
-	: public SMultiColumnTableRow<FSessionLogMessagePtr>
+	: public SMultiColumnTableRow<TSharedPtr<FSessionLogMessage>>
 {
 public:
 
 	SLATE_BEGIN_ARGS(SSessionConsoleLogTableRow) { }
 		SLATE_ATTRIBUTE(FText, HighlightText)
-		SLATE_ARGUMENT(FSessionLogMessagePtr, LogMessage)
+		SLATE_ARGUMENT(TSharedPtr<FSessionLogMessage>, LogMessage)
 	SLATE_END_ARGS()
 
 public:
@@ -28,7 +47,7 @@ public:
 		HighlightText = InArgs._HighlightText;
 		LogMessage = InArgs._LogMessage;
 
-		SMultiColumnTableRow<FSessionLogMessagePtr>::Construct(FSuperRowType::FArguments(), InOwnerTableView);
+		SMultiColumnTableRow<TSharedPtr<FSessionLogMessage>>::Construct(FSuperRowType::FArguments(), InOwnerTableView);
 	}
 
 public:
@@ -148,5 +167,5 @@ private:
 	TAttribute<FText> HighlightText;
 
 	/** Holds a reference to the log message that is displayed in this row. */
-	FSessionLogMessagePtr LogMessage;
+	TSharedPtr<FSessionLogMessage> LogMessage;
 };

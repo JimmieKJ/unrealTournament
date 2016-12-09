@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "DestructibleMeshDetails.h"
-#include "ScopedTransaction.h"
-#include "ObjectEditorUtils.h"
-#include "IDocumentation.h"
+#include "Engine/SkeletalMesh.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
 #include "Engine/DestructibleMesh.h"
 
 #define LOCTEXT_NAMESPACE "DestructibleMeshDetails"
@@ -42,13 +41,6 @@ void AddStructToDetails(FName CategoryName, FName PropertyName, IDetailLayoutBui
 
 void FDestructibleMeshDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
-		//we always hide bodysetup as it's not useful in this editor
-		TSharedPtr<IPropertyHandle> BodySetupHandler = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UDestructibleMesh, BodySetup));
-		if (BodySetupHandler.IsValid())
-		{
-			DetailBuilder.HideProperty(BodySetupHandler);
-		}
-		
 		//rest of customization is just moving stuff out of DefaultDestructibleParameters so it's nicer to view
 		TSharedPtr<IPropertyHandle> DefaultParams = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UDestructibleMesh, DefaultDestructibleParameters));
 		if (DefaultParams.IsValid() == false)
@@ -63,10 +55,35 @@ void FDestructibleMeshDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 		AddStructToDetails("HierarchyDepth", "DefaultDestructibleParameters.SpecialHierarchyDepths", DetailBuilder);
 		AddStructToDetails("HierarchyDepth", "DefaultDestructibleParameters.DepthParameters", DetailBuilder, false, true);
 
-		
+		// There are some properties we inherit that aren't supported on destructibles, hide them from the details panel.
+		HideUnsupportedProperties(DetailBuilder);
 
 		//hide the default params as we've taken everything out of it
 		DetailBuilder.HideProperty(DefaultParams);
+}
+
+void FDestructibleMeshDetails::HideUnsupportedProperties(IDetailLayoutBuilder &DetailBuilder)
+{
+	// Body setups are not available on destructible meshes as we set up the bodies through APEX
+	TSharedPtr<IPropertyHandle> BodySetupHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UDestructibleMesh, BodySetup));
+	if(BodySetupHandle.IsValid())
+	{
+		BodySetupHandle->MarkHiddenByCustomization();
+	}
+
+	// Capsule shadows only supported on skeletal meshes
+	TSharedPtr<IPropertyHandle> ShadowPhysicsAssetHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UDestructibleMesh, ShadowPhysicsAsset), USkeletalMesh::StaticClass());
+	if(ShadowPhysicsAssetHandle.IsValid())
+	{
+		ShadowPhysicsAssetHandle->MarkHiddenByCustomization();
+	}
+
+	// Post processing graphs only supported on skeletal meshes
+	TSharedPtr<IPropertyHandle> PostProcessBlueprintHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UDestructibleMesh, PostProcessAnimBlueprint), USkeletalMesh::StaticClass());
+	if(PostProcessBlueprintHandle.IsValid())
+	{
+		PostProcessBlueprintHandle->MarkHiddenByCustomization();
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

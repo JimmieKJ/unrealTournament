@@ -7,7 +7,6 @@
 #pragma once
 
 // Dependencies
-#include "Engine.h"
 #include "EmptyRHI.h"
 #include "EmptyGlobalUniformBuffer.h"
 #include "RHI.h"

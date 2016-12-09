@@ -1,19 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Internationalization/ICUUtilities.h"
 
 #if UE_ENABLE_ICU
-#include "ICUUtilities.h"
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(push)
-	#pragma warning(disable:28251)
-	#pragma warning(disable:28252)
-	#pragma warning(disable:28253)
-#endif
+THIRD_PARTY_INCLUDES_START
 	#include <unicode/ucnv.h>
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(pop)
-#endif
+THIRD_PARTY_INCLUDES_END
 
 namespace ICUUtilities
 {
@@ -84,6 +76,11 @@ namespace ICUUtilities
 
 	void FStringConverter::ConvertString(const icu::UnicodeString& Source, FString& Destination)
 	{
+		return ConvertString(Source, 0, Source.length(), Destination);
+	}
+
+	void FStringConverter::ConvertString(const icu::UnicodeString& Source, const int32 SourceStartIndex, const int32 SourceLen, FString& Destination)
+	{
 		if (Source.length() > 0)
 		{
 			UErrorCode ICUStatus = U_ZERO_ERROR;
@@ -94,12 +91,12 @@ namespace ICUUtilities
 			TArray<TCHAR>& InternalStringBuffer = Destination.GetCharArray();
 				
 			// Work out the maximum size required and resize the buffer so it can hold enough data
-			const int32_t DestinationCapacityBytes = UCNV_GET_MAX_BYTES_FOR_STRING(Source.length(), ucnv_getMaxCharSize(ICUConverter));
+			const int32_t DestinationCapacityBytes = UCNV_GET_MAX_BYTES_FOR_STRING(SourceLen, ucnv_getMaxCharSize(ICUConverter));
 			const int32 DestinationCapacityTCHARs = DestinationCapacityBytes / sizeof(TCHAR);
 			InternalStringBuffer.SetNumUninitialized(DestinationCapacityTCHARs);
 
 			// Perform the conversion into the string buffer, and then null terminate the FString and size it back down to the correct size
-			const int32_t DestinationSizeBytes = ucnv_fromUChars(ICUConverter, reinterpret_cast<char*>(InternalStringBuffer.GetData()), DestinationCapacityBytes, Source.getBuffer(), Source.length(), &ICUStatus);
+			const int32_t DestinationSizeBytes = ucnv_fromUChars(ICUConverter, reinterpret_cast<char*>(InternalStringBuffer.GetData()), DestinationCapacityBytes, Source.getBuffer() + SourceStartIndex, SourceLen, &ICUStatus);
 			const int32 DestinationSizeTCHARs = DestinationSizeBytes / sizeof(TCHAR);
 			InternalStringBuffer[DestinationSizeTCHARs] = 0;
 			InternalStringBuffer.SetNum(DestinationSizeTCHARs + 1, /*bAllowShrinking*/false); // the array size includes null
@@ -116,6 +113,13 @@ namespace ICUUtilities
 	{
 		FString Destination;
 		ConvertString(Source, Destination);
+		return Destination;
+	}
+
+	FString FStringConverter::ConvertString(const icu::UnicodeString& Source, const int32 SourceStartIndex, const int32 SourceLen)
+	{
+		FString Destination;
+		ConvertString(Source, SourceStartIndex, SourceLen, Destination);
 		return Destination;
 	}
 
@@ -161,10 +165,15 @@ namespace ICUUtilities
 
 	void ConvertString(const icu::UnicodeString& Source, FString& Destination)
 	{
-		if (Source.length() > 0)
+		return ConvertString(Source, 0, Source.length(), Destination);
+	}
+
+	void ConvertString(const icu::UnicodeString& Source, const int32 SourceStartIndex, const int32 SourceLen, FString& Destination)
+	{
+		if (SourceLen)
 		{
 			FStringConverter StringConverter;
-			StringConverter.ConvertString(Source, Destination);
+			StringConverter.ConvertString(Source, SourceStartIndex, SourceLen, Destination);
 		}
 		else
 		{
@@ -177,6 +186,95 @@ namespace ICUUtilities
 		FString Destination;
 		ConvertString(Source, Destination);
 		return Destination;
+	}
+
+	FString ConvertString(const icu::UnicodeString& Source, const int32 SourceStartIndex, const int32 SourceLen)
+	{
+		FString Destination;
+		ConvertString(Source, SourceStartIndex, SourceLen, Destination);
+		return Destination;
+	}
+
+	template <bool IsUnicode, size_t TCHARSize>
+	int32 GetNativeStringLengthImpl(const icu::UnicodeString& Source, const int32 InSourceStartIndex, const int32 InSourceLength)
+	{
+		if (InSourceLength > 0)
+		{
+			const FString TmpStr = ConvertString(Source, InSourceStartIndex, InSourceLength);
+			return TmpStr.Len();
+		}
+		return 0;
+	}
+
+	// A unicode encoding with a wchar_t size of 2 bytes is assumed to be UTF-16
+	template <>
+	int32 GetNativeStringLengthImpl<true, 2>(const icu::UnicodeString& Source, const int32 InSourceStartIndex, const int32 InSourceLength)
+	{
+		// Nothing to do, ICU already uses UTF-16 internally
+		return InSourceLength;
+	}
+
+	// A unicode encoding with a wchar_t size of 4 bytes is assumed to be UTF-32
+	template <>
+	int32 GetNativeStringLengthImpl<true, 4>(const icu::UnicodeString& Source, const int32 InSourceStartIndex, const int32 InSourceLength)
+	{
+		return InSourceLength == 0 ? 0 : Source.countChar32(InSourceStartIndex, InSourceLength);
+	}
+
+	int32 GetNativeStringLength(const icu::UnicodeString& Source)
+	{
+		return GetNativeStringLength(Source, 0, Source.length());
+	}
+
+	int32 GetNativeStringLength(const icu::UnicodeString& Source, const int32 InSourceStartIndex, const int32 InSourceLength)
+	{
+		return GetNativeStringLengthImpl<FPlatformString::IsUnicodeEncoded, sizeof(TCHAR)>(Source, InSourceStartIndex, InSourceLength);
+	}
+
+	template <bool IsUnicode, size_t TCHARSize>
+	int32 GetUnicodeStringLengthImpl(const TCHAR* Source, const int32 InSourceStartIndex, const int32 InSourceLength)
+	{
+		if (InSourceLength > 0)
+		{
+			const icu::UnicodeString TmpStr = ConvertString(Source, InSourceStartIndex, InSourceLength);
+			return TmpStr.length();
+		}
+		return 0;
+	}
+
+	// A unicode encoding with a wchar_t size of 2 bytes is assumed to be UTF-16
+	template <>
+	int32 GetUnicodeStringLengthImpl<true, 2>(const TCHAR* Source, const int32 InSourceStartIndex, const int32 InSourceLength)
+	{
+		// Nothing to do, ICU already uses UTF-16 internally
+		return InSourceLength;
+	}
+
+	// A unicode encoding with a wchar_t size of 4 bytes is assumed to be UTF-32
+	template <>
+	int32 GetUnicodeStringLengthImpl<true, 4>(const TCHAR* Source, const int32 InSourceStartIndex, const int32 InSourceLength)
+	{
+		int32 Len = 0;
+		if (InSourceLength > 0)
+		{
+			const TCHAR* SourceStartChar = Source + InSourceStartIndex;
+			const TCHAR* SourceEndChar = SourceStartChar + InSourceLength;
+			for (const TCHAR* SourceChar = SourceStartChar; SourceChar < SourceEndChar; ++SourceChar)
+			{
+				Len += (*SourceChar > 0xFFFF ? 2 : 1); // 0xFFFF is the largest code-point a single UTF-16 character can hold
+			}
+		}
+		return Len;
+	}
+
+	int32 GetUnicodeStringLength(const FString& Source)
+	{
+		return GetUnicodeStringLength(*Source, 0, Source.Len());
+	}
+
+	int32 GetUnicodeStringLength(const TCHAR* Source, const int32 InSourceStartIndex, const int32 InSourceLength)
+	{
+		return GetUnicodeStringLengthImpl<FPlatformString::IsUnicodeEncoded, sizeof(TCHAR)>(Source, InSourceStartIndex, InSourceLength);
 	}
 }
 #endif

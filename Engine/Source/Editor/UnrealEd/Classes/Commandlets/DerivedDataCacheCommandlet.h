@@ -5,9 +5,11 @@
 =============================================================================*/
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Commandlets/Commandlet.h"
 #include "DerivedDataCacheCommandlet.generated.h"
-
 
 UCLASS()
 class UDerivedDataCacheCommandlet : public UCommandlet

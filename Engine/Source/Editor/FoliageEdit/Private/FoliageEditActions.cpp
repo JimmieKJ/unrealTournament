@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
-#include "FoliageEditModule.h"
-
 #include "FoliageEditActions.h"
+
+
 
 #define LOCTEXT_NAMESPACE "FoliageEditCommands"
 

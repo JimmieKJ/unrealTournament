@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StandaloneRendererPrivate.h"
-#include "SlateOpenGLRenderer.h"
 #include "OpenGL/SlateOpenGLTextures.h"
+#include "OpenGL/SlateOpenGLRenderer.h"
 #if PLATFORM_MAC
 #include "Mac/OpenGL/SlateOpenGLMac.h"
 #endif

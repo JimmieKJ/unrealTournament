@@ -1,9 +1,15 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
 #include "Engine/EngineTypes.h"
 #include "LocalizationTargetTypes.generated.h"
+
+struct FPropertyChangedEvent;
 
 UENUM()
 enum class ELocalizationTargetConflictStatus : uint8
@@ -133,6 +139,10 @@ struct FGatherTextFromPackagesConfiguration
 	/* Packages whose names match these wildcard patterns may be processed for text to gather. */
 	UPROPERTY(config, EditAnywhere, Category = "Filter")
 	TArray<FGatherTextFileExtension> FileExtensions;
+
+	/* Packages in these collections may be processed for gathering. */
+	UPROPERTY(config, EditAnywhere, Category = "Filter")
+	TArray<FName> Collections;
 
 	/* If enabled, data that is specified as editor-only may be processed for gathering. */
 	UPROPERTY(config, EditAnywhere, Category = "Gather Text")

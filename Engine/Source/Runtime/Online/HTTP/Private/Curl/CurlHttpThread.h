@@ -2,11 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #if WITH_LIBCURL
 
 #include "HttpThread.h"
 
 #if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 #endif
 	#include "curl/curl.h"
@@ -14,6 +17,11 @@
 #include "HideWindowsPlatformTypes.h"
 #endif
 
+#endif //WITH_LIBCURL
+
+class IHttpThreadedRequest;
+
+#if WITH_LIBCURL
 
 class FCurlHttpThread
 	: public FHttpThread

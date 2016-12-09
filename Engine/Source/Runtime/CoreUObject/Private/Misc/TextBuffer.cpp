@@ -4,8 +4,8 @@
 	TextBuffer.cpp: UObject class for storing text
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
 #include "Misc/TextBuffer.h"
+#include "UObject/Class.h"
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UTextBuffer, UObject, { });
 

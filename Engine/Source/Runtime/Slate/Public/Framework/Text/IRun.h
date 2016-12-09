@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ShapedTextCacheFwd.h"
+#include "CoreMinimal.h"
+#include "Framework/Text/ShapedTextCacheFwd.h"
+#include "Misc/EnumClassFlags.h"
+#include "Framework/Text/TextRange.h"
 
+class ILayoutBlock;
+class IRunRenderer;
 enum class ETextHitPoint : uint8;
+enum class ETextShapingMethod : uint8;
 
 struct FRunInfo
 {

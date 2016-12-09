@@ -1,13 +1,13 @@
 @echo off
-setlocal 
-
-echo Running AutomationTool...
 
 rem ## Unreal Engine 4 AutomationTool setup script
 rem ## Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-
+rem ##
 rem ## This script is expecting to exist in the UE4/Engine/Build/BatchFiles directory.  It will not work correctly
 rem ## if you copy it to a different location and run it.
+
+setlocal 
+echo Running AutomationTool...
 
 set UATExecutable=AutomationToolLauncher.exe
 set UATDirectory=Binaries\DotNET\
@@ -23,67 +23,26 @@ for %%P in (%*) do if /I "%%P" == "-nocompile" goto RunPrecompiled
 rem ## check for force precompiled
 if not "%ForcePrecompiledUAT%"=="" goto RunPrecompiled
 
+rem ## check if the UAT projects are present. if not, we'll just use the precompiled ones.
 if not exist Source\Programs\AutomationTool\AutomationTool.csproj goto RunPrecompiled
 if not exist Source\Programs\AutomationToolLauncher\AutomationToolLauncher.csproj goto RunPrecompiled
 
-rem ## Check to see if we're already running under a Visual Studio environment shell
-if not "%INCLUDE%" == "" if not "%LIB%" == "" goto ReadyToCompile
-
-rem ## Check for Visual Studio 2015
-for %%P in (%*) do if "%%P" == "-2013" goto NoVisualStudio2015Environment
-
-pushd %~dp0
-call GetVSComnToolsPath 14
-popd
-
-if "%VsComnToolsPath%" == "" goto NoVisualStudio2015Environment
-rem ## Check if the C++ toolchain is not installed
-if not exist "%VsComnToolsPath%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat" goto NoVisualStudio2015Environment
-call "%VsComnToolsPath%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat" >NUL
-goto ReadyToCompile
-
-
-rem ## Check for Visual Studio 2013
-:NoVisualStudio2015Environment
-
-pushd %~dp0
-call GetVSComnToolsPath 12
-popd
-
-if "%VsComnToolsPath%" == "" goto NoVisualStudio2013Environment
-call "%VsComnToolsPath%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat" >NUL
-goto ReadyToCompile
-
-
-
-rem ## Check for Visual Studio 2013
-
-pushd %~dp0
-call GetVSComnToolsPath 12
-popd
-
-if "%VsComnToolsPath%" == "" goto NoVisualStudio2013Environment
-call "%VsComnToolsPath%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat" >NUL
-goto ReadyToCompile
-
-:NoVisualStudio2013Environment
-
-rem ## ok, well it doesn't look like visual studio is installed, let's try running the precompiled one.
-:RunPrecompiled
-
-if not exist Binaries\DotNET\AutomationTool.exe goto Error_NoFallbackExecutable
-
-set UATCompileArg=
-
-if not exist Binaries\DotNET\AutomationToolLauncher.exe set UATExecutable=AutomationTool.exe
+rem ## Get the path to MSBuild
+call "%~dp0GetMSBuildPath.bat"
+if errorlevel 1 goto RunPrecompiled
+%MSBUILD_EXE% /nologo /verbosity:quiet Source\Programs\AutomationToolLauncher\AutomationToolLauncher.csproj /property:Configuration=Development /property:Platform=AnyCPU
+if errorlevel 1 goto Error_UATCompileFailed
+%MSBUILD_EXE% /nologo /verbosity:quiet Source\Programs\AutomationTool\AutomationTool.csproj /property:Configuration=Development /property:Platform=AnyCPU /property:AutomationToolProjectOnly=true
+if errorlevel 1 goto Error_UATCompileFailed
 goto DoRunUAT
 
 
-:ReadyToCompile
-msbuild /nologo /verbosity:quiet Source\Programs\AutomationToolLauncher\AutomationToolLauncher.csproj /property:Configuration=Development /property:Platform=AnyCPU
-if not %ERRORLEVEL% == 0 goto Error_UATCompileFailed
-msbuild /nologo /verbosity:quiet Source\Programs\AutomationTool\AutomationTool.csproj /property:Configuration=Development /property:Platform=AnyCPU /property:AutomationToolProjectOnly=true
-if not %ERRORLEVEL% == 0 goto Error_UATCompileFailed
+rem ## ok, well it doesn't look like visual studio is installed, let's try running the precompiled one.
+:RunPrecompiled
+if not exist Binaries\DotNET\AutomationTool.exe goto Error_NoFallbackExecutable
+set UATCompileArg=
+if not exist Binaries\DotNET\AutomationToolLauncher.exe set UATExecutable=AutomationTool.exe
+goto DoRunUAT
 
 
 rem ## Run AutomationTool

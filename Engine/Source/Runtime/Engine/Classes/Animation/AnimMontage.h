@@ -7,12 +7,21 @@
  *
  */
 
-#include "Animation/AnimCompositeBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Animation/AnimLinkableElement.h"
+#include "Animation/AnimTypes.h"
+#include "Animation/Skeleton.h"
+#include "Animation/AnimationAsset.h"
 #include "AlphaBlend.h"
+#include "Animation/AnimCompositeBase.h"
 #include "AnimMontage.generated.h"
 
-class UAnimMontage;
 class UAnimInstance;
+class UAnimMontage;
+class UAnimSequence;
+class USkeletalMeshComponent;
 
 /**
  * Section data for each track. Reference of data will be stored in the child class for the way they want
@@ -345,8 +354,8 @@ public:
 	 * to accumulate and update curve data/notifies/branching points
 	 */
 	void UpdateWeight(float DeltaTime);
-	/** Simulate is same as Advance, but without calling any events or touching any of the instance data. So it performs a simulation of advancing the timeline. 
-	 * @fixme laurent can we make Advance use that, so we don't have 2 code paths which risk getting out of sync? */
+	//~ @fixme laurent can we make Advance use that, so we don't have 2 code paths which risk getting out of sync?
+	/** Simulate is same as Advance, but without calling any events or touching any of the instance data. So it performs a simulation of advancing the timeline. */
 	bool SimulateAdvance(float DeltaTime, float& InOutPosition, struct FRootMotionMovementParams & OutRootMotionParams) const;
 	void Advance(float DeltaTime, struct FRootMotionMovementParams * OutRootMotionParams, bool bBlendRootMotion);
 
@@ -380,6 +389,15 @@ private:
 	static UAnimMontage* InitializeMatineeControl(FName SlotName, USkeletalMeshComponent* SkeletalMeshComponent, UAnimSequenceBase* InAnimSequence, bool bLooping);
 };
 
+/* 
+ * Any property you're adding to AnimMontage and parent class has to be considered for Child Asset
+ * 
+ * Child Asset is considered to be only asset mapping feature using everything else in the class
+ * For example, you can just use all parent's setting  for the montage, but only remap assets
+ * This isn't magic bullet unfortunately and it is consistent effort of keeping the data synced with parent
+ * If you add new property, please make sure those property has to be copied for children. 
+ * If it does, please add the copy in the function RefreshParentAssetData
+ */
 UCLASS(config=Engine, hidecategories=(UObject, Length), MinimalAPI, BlueprintType)
 class UAnimMontage : public UAnimCompositeBase
 {
@@ -442,7 +460,7 @@ class UAnimMontage : public UAnimCompositeBase
 
 #if WITH_EDITORONLY_DATA
 	/** Preview Base pose for additive BlendSpace **/
-	UPROPERTY(EditAnywhere, Category=AdditiveSettings)
+	UPROPERTY(EditAnywhere, Category = AdditiveSettings)
 	UAnimSequence* PreviewBasePose;
 #endif // WITH_EDITORONLY_DATA
 
@@ -476,7 +494,7 @@ public:
 
 #if WITH_EDITOR
 	//~ Begin UAnimationAsset Interface
-	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) override;
+	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets, bool bRecursive = true) override;
 	virtual void ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap) override;
 	//~ End UAnimationAsset Interface
 
@@ -598,6 +616,22 @@ private:
 	/** Sort CompositeSections in the order of StartPos */
 	void SortAnimCompositeSectionByPos();
 
+	/** Refresh Parent Asset Data to the child */
+	virtual void RefreshParentAssetData() override;
+	
+	/** Propagate the changes to children */
+	void PropagateChanges();
+
+private:
+	DECLARE_MULTICAST_DELEGATE(FOnMontageChangedMulticaster);
+	FOnMontageChangedMulticaster OnMontageChanged;
+
+public:
+	typedef FOnMontageChangedMulticaster::FDelegate FOnMontageChanged;
+
+	/** Registers a delegate to be called after notification has changed*/
+	ENGINE_API void RegisterOnMontageChanged(const FOnMontageChanged& Delegate);
+	ENGINE_API void UnregisterOnMontageChanged(void* Unregister);
 #endif	//WITH_EDITOR
 
 private:

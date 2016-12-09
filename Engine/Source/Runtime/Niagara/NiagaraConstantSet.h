@@ -2,11 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "NiagaraCommon.h"
 #include "NiagaraConstantSet.generated.h"
-
-struct FNiagaraConstants;
-
 
 USTRUCT()
 struct FNiagaraConstantBase

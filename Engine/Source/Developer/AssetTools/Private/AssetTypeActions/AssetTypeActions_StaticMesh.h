@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
 #include "Engine/StaticMesh.h"
+#include "Toolkits/IToolkitHost.h"
 #include "AssetTypeActions_Base.h"
+
+class FMenuBuilder;
 
 class FAssetTypeActions_StaticMesh : public FAssetTypeActions_Base
 {
@@ -44,6 +49,9 @@ private:
 
 	/** Handler to provide the LOD sub-menu. Hides away LOD actions - includes Import LOD sub menu */
 	void GetLODMenu(class FMenuBuilder& MenuBuilder, TArray<TWeakObjectPtr<UStaticMesh>> Meshes);
+
+	/** Handler for calling import methods */
+	static void ExecuteImportMeshLOD(UObject* Mesh, int32 LOD);
 private:
 
 	TWeakObjectPtr<UStaticMesh> LODCopyMesh;	

@@ -4,6 +4,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Stats/Stats.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "HAL/IConsoleManager.h"
+#include "Containers/List.h"
+
 #define LOG_EVERY_ALLOCATION			0
 #define DUMP_ALLOC_FREQUENCY			0 // 100
 
@@ -11,6 +18,9 @@
 #define VALIDATE_MOVES					0 //validates that GPU moves in a given frame do not overlap destination areas.
 #define TRACK_RELOCATIONS (VALIDATE_SYNC_SIZE || VALIDATE_MOVES)
 #define VALIDATE_MEMORY_PROTECTION		0
+
+class FAsyncReallocationRequest;
+class FScopedGPUDefragLock;
 
 /*-----------------------------------------------------------------------------
 Custom fixed size pool best fit texture memory allocator

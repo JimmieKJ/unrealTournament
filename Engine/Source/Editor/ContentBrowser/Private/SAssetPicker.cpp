@@ -1,7 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ContentBrowserPCH.h"
-#include "GenericCommands.h"
+#include "SAssetPicker.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/SBoxPanel.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "FrontendFilters.h"
+#include "SAssetSearchBox.h"
+#include "SFilterList.h"
+#include "SAssetView.h"
+#include "SContentBrowser.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -233,6 +251,8 @@ void SAssetPicker::Construct( const FArguments& InArgs )
 		.AssetShowWarningText( InArgs._AssetPickerConfig.AssetShowWarningText)
 		.AllowFocusOnSync(false)	// Stop the asset view from stealing focus (we're in control of that)
 		.OnPathSelected(this, &SAssetPicker::FolderEntered)
+		.HiddenColumnNames(InArgs._AssetPickerConfig.HiddenColumnNames)
+		.SearchInBlueprint(InArgs._AssetPickerConfig.bSearchInBlueprint)
 	];
 
 	LoadSettings();
@@ -247,6 +267,7 @@ EActiveTimerReturnType SAssetPicker::SetFocusPostConstruct( double InCurrentTime
 		FWidgetPath WidgetToFocusPath;
 		FSlateApplication::Get().GeneratePathToWidgetUnchecked( SearchBoxPtr.ToSharedRef(), WidgetToFocusPath );
 		FSlateApplication::Get().SetKeyboardFocus( WidgetToFocusPath, EFocusCause::SetDirectly );
+		WidgetToFocusPath.GetWindow()->SetWidgetToFocusOnActivate(SearchBoxPtr);
 
 		return EActiveTimerReturnType::Stop;
 	}

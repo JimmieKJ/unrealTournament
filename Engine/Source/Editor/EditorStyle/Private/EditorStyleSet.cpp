@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EditorStylePrivatePCH.h"
+#include "EditorStyleSet.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Styling/CoreStyle.h"
 
 TSharedPtr< ISlateStyle > FEditorStyle::Instance = NULL;
 

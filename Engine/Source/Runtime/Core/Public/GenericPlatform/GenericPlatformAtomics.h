@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
 
 
 /** Helper struct used to hold 128-bit values, internally represented as two 64-bit integers. */

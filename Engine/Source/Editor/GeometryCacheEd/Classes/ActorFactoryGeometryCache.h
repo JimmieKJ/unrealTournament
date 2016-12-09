@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "ActorFactories/ActorFactory.h"
 #include "ActorFactoryGeometryCache.generated.h"
+
+class AActor;
+class FAssetData;
 
 /** Factory class for spawning and creating GeometryCacheActors */
 UCLASS(MinimalAPI, config = Editor)

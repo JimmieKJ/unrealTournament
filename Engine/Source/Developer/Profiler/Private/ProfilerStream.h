@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Containers/IndirectArray.h"
+#include "Containers/ChunkedArray.h"
+#include "Misc/ScopeLock.h"
+#include "ProfilerCommon.h"
+#include "Stats/StatsData.h"
+
 /*-----------------------------------------------------------------------------
 	Basic structures
 -----------------------------------------------------------------------------*/

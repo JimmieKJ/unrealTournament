@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "VisualLogger/VisualLogger.h"
+
+#include "CoreMinimal.h"
+#include "EngineDefines.h"
+#include "VisualLogger/VisualLoggerTypes.h"
 
 #if ENABLE_VISUAL_LOG
 

@@ -181,7 +181,12 @@ public partial class Project : CommandUtils
                 {
                     CommandletParams += " -iterate";
                 }
-                if (Params.CookMapsOnly)
+				if ( Params.IterateSharedCookedBuild)
+				{
+					CommandletParams += " -iteratesharedcookedbuild";
+				}
+
+				if (Params.CookMapsOnly)
                 {
                     CommandletParams += " -mapsonly";
                 }
@@ -208,8 +213,11 @@ public partial class Project : CommandUtils
                 if ( Params.NumCookersToSpawn != 0)
                 {
                     CommandletParams += " -numcookerstospawn=" + Params.NumCookersToSpawn;
-
                 }
+				if ( Params.CookPartialGC)
+				{
+					CommandletParams += " -partialgc";
+				}
                 if (Params.HasDLCName)
                 {
                     CommandletParams += " -dlcname=" + Params.DLCName;

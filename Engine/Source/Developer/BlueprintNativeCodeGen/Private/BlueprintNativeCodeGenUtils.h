@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "FeedbackContext.h"
-#include "IBlueprintCompilerCppBackendModule.h"  //for FNativizationSummary
+#include "CoreMinimal.h"
+#include "IBlueprintCompilerCppBackendModule.h"
+#include "Misc/FeedbackContext.h"
+
+class SBuildProgressWidget;
+struct FBlueprintNativeCodeGenManifest;
 
 // Forward declares
 class  SBuildProgressWidget;

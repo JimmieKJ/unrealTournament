@@ -1,14 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DistCurveEditorModule.h"
-#include "SDistributionCurveEditor.h"
-#include "CurveEditorSharedData.h"
-#include "CurveEditorActions.h"
-#include "CurveEditorHitProxies.h"
-#include "SCurveEditorViewport.h"
 #include "CurveEditorViewportClient.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
 #include "Engine/InterpCurveEdSetup.h"
+#include "SCurveEditorViewport.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Preferences/CurveEdOptions.h"
+#include "CanvasItem.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Preferences/UnrealEdOptions.h"
+#include "EngineGlobals.h"
+#include "Editor.h"
+#include "UnrealEdGlobals.h"
+#include "CurveEditorSharedData.h"
+#include "SDistributionCurveEditor.h"
+#include "CurveEditorHitProxies.h"
+#include "Slate/SceneViewport.h"
 #include "CanvasTypes.h"
 
 FCurveEditorViewportClient::FCurveEditorViewportClient(TWeakPtr<SDistributionCurveEditor> InCurveEditor, TWeakPtr<SCurveEditorViewport> InCurveEditorViewport)

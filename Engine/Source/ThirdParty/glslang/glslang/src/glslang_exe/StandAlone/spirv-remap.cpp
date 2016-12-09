@@ -38,8 +38,7 @@
 #include <cstring>
 #include <stdexcept>
 
-//#Epic
-#include "SPIRV/SPVRemapper.h"
+#include "../SPIRV/SPVRemapper.h"
 
 namespace {
 

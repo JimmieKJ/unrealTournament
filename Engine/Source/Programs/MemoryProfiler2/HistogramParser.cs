@@ -117,7 +117,9 @@ namespace MemoryProfiler2
 				// Add all groups to all memory bank columns.
 				foreach( ClassGroup CallStackGroup in CallStackGroups )
 				{
-					Bars[ BankIndex ].Add( new FHistogramBar( CallStackGroup ) );
+					var Bar = new FHistogramBar( CallStackGroup );
+					Bar.BeginBatchAddition();
+					Bars[ BankIndex ].Add( Bar );
 				}
 			}
 
@@ -126,11 +128,22 @@ namespace MemoryProfiler2
 				long Size = 0;
 				int Count = 0;
 
-				// JarekS@TODO Multithreading
-				foreach( FCallStackAllocationInfo AllocationInfo in CallStackList )
+				bool bFilterIn = OwnerWindow.IsFilteringIn();
+
+				var FilteredCallstackList = new List<FCallStackAllocationInfo>(CallStackList.Count);
+				foreach (var AllocationInfo in CallStackList)
+				{
+					var FilteredAllocationInfo = AllocationInfo.GetAllocationInfoForTags(OwnerWindow.GetTagsFilter(), bFilterIn);
+					if (FilteredAllocationInfo.TotalCount != 0)
+					{
+						FilteredCallstackList.Add(FilteredAllocationInfo);
+					}
+				}
+
+				foreach ( FCallStackAllocationInfo AllocationInfo in FilteredCallstackList )
 				{
 					// Update progress bar.
-					if( CallStackCurrent >= NextProgressUpdate )
+					if ( CallStackCurrent >= NextProgressUpdate )
 					{
 						OwnerWindow.ToolStripProgressBar.PerformStep();
 						NextProgressUpdate += ProgressInterval;
@@ -138,8 +151,8 @@ namespace MemoryProfiler2
 					}
 					CallStackCurrent++;
 
-					FCallStack OriginalCallStack = FStreamInfo.GlobalInstance.CallStackArray[ AllocationInfo.CallStackIndex ];
-					if( OriginalCallStack.RunFilters( FilterText, CallStackGroups, OwnerWindow.IsFilteringIn(), OwnerWindow.SelectedMemoryPool ) )
+					FCallStack OriginalCallStack = FStreamInfo.GlobalInstance.CallStackArray[AllocationInfo.CallStackIndex ];
+					if( OriginalCallStack.RunFilters( FilterText, CallStackGroups, bFilterIn, OwnerWindow.SelectedMemoryPool ) )
 					{
 						bool bFound = false;
 						int Column = FMemoryPoolInfo.GetMemoryPoolHistogramColumn( OriginalCallStack.MemoryPool );
@@ -154,18 +167,14 @@ namespace MemoryProfiler2
 						{
 							foreach( CallStackPattern CallStackPatternIt in CallStackGroups[ GroupIndex ].CallStackPatterns )
 							{
-								foreach( FCallStack CallStack in CallStackPatternIt.CallStacks )
+								if (CallStackPatternIt.ContainsCallStack(FStreamInfo.GlobalInstance.CallStackArray[AllocationInfo.CallStackIndex]))
 								{
-									if( CallStack == FStreamInfo.GlobalInstance.CallStackArray[ AllocationInfo.CallStackIndex ] )
-									{
-										Bars[ Column ][ GroupIndex + 1 ].AddAllocation( AllocationInfo );
-										bFound = true;
-										goto HackyBreakAll;
-									}
+									Bars[Column][GroupIndex + 1].AddAllocation(AllocationInfo);
+									bFound = true;
+									goto HackyBreakAll;
 								}
 							}
 						}
-
 HackyBreakAll:
 
 						if( !bFound )
@@ -175,8 +184,20 @@ HackyBreakAll:
 						}
 					}
 
-					Size += AllocationInfo.Size;
-					Count += AllocationInfo.Count;
+					Size += AllocationInfo.TotalSize;
+					Count += AllocationInfo.TotalCount;
+				}
+			}
+
+			// End the update batch and allow things to sort
+			for( int BankIndex = 0; BankIndex < Bars.Length; BankIndex++ )
+			{
+				foreach( ClassGroup CallStackGroup in CallStackGroups )
+				{
+					foreach (var Bar in Bars[ BankIndex ])
+					{
+						Bar.EndBatchAddition();
+					}
 				}
 			}
 
@@ -286,7 +307,7 @@ HackyBreakAll:
 					float YScale = TotalGraphHeight / MemorySizes[ MemoryBankIndex ];
 
 					// Draw vertical axes.
-					OwnerWindow.DrawYAxis( e.Graphics, Pens.Black, MajorTick, MinorTick, GraphLeft + TickRight, GraphTop, TotalGraphHeight, MemoryCaptions[ MemoryBankIndex ], MemorySizes[ MemoryBankIndex ] );
+					OwnerWindow.DrawYAxis( e.Graphics, Pens.Black, Color.Black, MajorTick, MinorTick, GraphLeft + TickRight, GraphTop, TotalGraphHeight, MemoryCaptions[ MemoryBankIndex ], MemorySizes[ MemoryBankIndex ] );
 
 					float BarY = GraphTop + YScale * MemorySizes[ MemoryBankIndex ];
 					for( int BarIndex = HistogramBars[ MemoryBankIndex ].Count - 1; BarIndex >= 0; BarIndex-- )
@@ -330,10 +351,13 @@ HackyBreakAll:
 					e.Graphics.DrawLine( Pens.Black, MarkerPosX + 0, MarkerPosY + MarkerHeight + 1, MarkerPosX + 5, MarkerPosY + MarkerHeight + 1 );
 				}
 
-				e.Graphics.DrawString( "Use key up or key down to change selected allocation",
-					OwnerWindow.AxisFont,
-					Brushes.Black, BarLeft * 0.5f,
-					OwnerWindow.HistogramPanel.Height - ( GraphYBorder + OwnerWindow.AxisFont.Height ) * 0.5f );
+				TextRenderer.DrawText(
+					e.Graphics, 
+					"Use key up or key down to change selected allocation", 
+					OwnerWindow.AxisFont, 
+					new Point((int)(BarLeft * 0.5f), (int)(OwnerWindow.HistogramPanel.Height - (GraphYBorder + OwnerWindow.AxisFont.Height) * 0.5f)), 
+					Color.Black
+					);
 			}
 
 			/*
@@ -376,24 +400,47 @@ HackyBreakAll:
 				// Select a major tick that's divisible by 4 so that the minor tick divides into it without remainder.
 				int SelectedMajorTick = ( AxisMemorySize / 8 ) / 4 * 4;
 				int SelectedMinorTick = SelectedMajorTick / 4;
-				OwnerWindow.DrawYAxis( e.Graphics, Pens.Black, SelectedMajorTick, SelectedMinorTick, GraphLeft + TickRight, GraphYBorder, TotalGraphHeight, AxisLabel, AxisMemorySize );
+				OwnerWindow.DrawYAxis( e.Graphics, Pens.Black, Color.Black, SelectedMajorTick, SelectedMinorTick, GraphLeft + TickRight, GraphYBorder, TotalGraphHeight, AxisLabel, AxisMemorySize );
 
-				float BarY = GraphYBorder + SelectedYScale * MemorySizeMB;
-				for( int SelBarIndex = HistogramSelectionBars.Count - 1; SelBarIndex >= 0; SelBarIndex-- )
 				{
-					FHistogramBar Bar = HistogramSelectionBars[ SelBarIndex ];
+					// Used to batch up drawing as individual calls are slow
+					var FillRects = new Dictionary<Color, List<RectangleF>>();
+					var DrawRects = new List<RectangleF>();
 
-					float BarHeight = ( float )( ( double )Bar.MemorySize / ( 1024 * 1024 ) * SelectedYScale );
+					float BarY = GraphYBorder + SelectedYScale * MemorySizeMB;
+					for (int SelBarIndex = HistogramSelectionBars.Count - 1; SelBarIndex >= 0; SelBarIndex--)
+					{
+						FHistogramBar Bar = HistogramSelectionBars[SelBarIndex];
 
-					Bar.Rect.X = GraphLeft + BarLeft;
-					Bar.Rect.Y = BarY - BarHeight;
-					Bar.Rect.Width = BarWidth;
-					Bar.Rect.Height = BarHeight;
+						float BarHeight = (float)((double)Bar.MemorySize / (1024 * 1024) * SelectedYScale);
 
-					e.Graphics.FillRectangle( new SolidBrush( Bar.Colour ), Bar.Rect.X, Bar.Rect.Y, Bar.Rect.Width, Bar.Rect.Height );
-					e.Graphics.DrawRectangle( Pens.Black, Bar.Rect.X, Bar.Rect.Y, Bar.Rect.Width - 1, Bar.Rect.Height );
-					
-					BarY -= BarHeight;
+						Bar.Rect.X = GraphLeft + BarLeft;
+						Bar.Rect.Y = BarY - BarHeight;
+						Bar.Rect.Width = BarWidth;
+						Bar.Rect.Height = BarHeight;
+
+						List<RectangleF> FillRectsList;
+						if (FillRects.TryGetValue(Bar.Colour, out FillRectsList))
+						{
+							FillRectsList.Add(new RectangleF(Bar.Rect.X, Bar.Rect.Y, Bar.Rect.Width, Bar.Rect.Height));
+						}
+						else
+						{
+							FillRectsList = new List<RectangleF>() { new RectangleF(Bar.Rect.X, Bar.Rect.Y, Bar.Rect.Width, Bar.Rect.Height) };
+							FillRects.Add(Bar.Colour, FillRectsList);
+						}
+
+						DrawRects.Add(new RectangleF(Bar.Rect.X, Bar.Rect.Y, Bar.Rect.Width - 1, Bar.Rect.Height));
+
+						BarY -= BarHeight;
+					}
+
+					// Draw batched
+					foreach (var FillRectPair in FillRects)
+					{
+						e.Graphics.FillRectangles(new SolidBrush(FillRectPair.Key), FillRectPair.Value.ToArray());
+					}
+					e.Graphics.DrawRectangles(Pens.Black, DrawRects.ToArray());
 				}
 
 				if( SubselectedHistogramBar != null )
@@ -605,8 +652,8 @@ HackyBreakAll:
 				{
 					OwnerWindow.HistogramViewNameLabel.Text = Bar.Description;
 				}
-				OwnerWindow.HistogramViewSizeLabel.Text = MainWindow.FormatSizeString( Bar.MemorySize ) + "  (" + Bar.MemorySize + " bytes)";
-				OwnerWindow.HistogramViewAllocationsLabel.Text = Bar.AllocationCount.ToString();
+				OwnerWindow.HistogramViewSizeLabel.Text = MainWindow.FormatSizeString2( Bar.MemorySize );
+				OwnerWindow.HistogramViewAllocationsLabel.Text = Bar.AllocationCount.ToString("N0");
 
 				if( Bar.CallStackList.Count == 1 )
 				{
@@ -646,6 +693,9 @@ HackyBreakAll:
 		/// <summary> Rectangle used to draw this bar. </summary>
 		public RectangleF Rect;
 
+		/// <summary> > 0 if we are batch adding. See BeginBatchAddition and EndBatchAddition. </summary>
+		int BatchAddingCount = 0;
+
 		/// <summary> Default constructor. </summary>
 		public FHistogramBar( ClassGroup InCallStackGroup )
 		{
@@ -661,27 +711,52 @@ HackyBreakAll:
 			Colour = InColour;
 		}
 
+		/// <summary> Begin the process of adding a batch of new entries to this bar. Calls to AddAllocation will defer the Sort until EndBatchAddition is called. </summary>
+		public void BeginBatchAddition()
+		{
+			++BatchAddingCount;
+		}
+
+		/// <summary> End the process of adding a batch of new entries to this bar. Calls Sort to ensure new entries are in the correct order. </summary>
+		public void EndBatchAddition()
+		{
+			if (--BatchAddingCount < 0)
+			{
+				BatchAddingCount = 0;
+			}
+
+			if (BatchAddingCount == 0)
+			{
+				// Sorting largest -> smallest
+				CallStackList.Sort((First, Second) => Math.Sign(First.TotalSize - Second.TotalSize));
+			}
+		}
+
 		/// <summary> Inserts the new allocation so that the list stays in size order. </summary>
 		public void AddAllocation( FCallStackAllocationInfo AllocationInfo )
 		{
 			bool bInserted = false;
-			for( int Index = 0; Index < CallStackList.Count; Index++ )
+
+			if (BatchAddingCount == 0)
 			{
-				if( CallStackList[ Index ].Size > AllocationInfo.Size )
+				for (int Index = 0; Index < CallStackList.Count; Index++)
 				{
-					CallStackList.Insert( Index, AllocationInfo );
-					bInserted = true;
-					break;
+					if (CallStackList[Index].TotalSize > AllocationInfo.TotalSize)
+					{
+						CallStackList.Insert(Index, AllocationInfo);
+						bInserted = true;
+						break;
+					}
 				}
 			}
 
-			if( !bInserted )
+			if (!bInserted)
 			{
-				CallStackList.Add( AllocationInfo );
+				CallStackList.Add(AllocationInfo);
 			}
 
-			MemorySize += AllocationInfo.Size;
-			AllocationCount += AllocationInfo.Count;
+			MemorySize += AllocationInfo.TotalSize;
+			AllocationCount += AllocationInfo.TotalCount;
 		}
 	}
 }

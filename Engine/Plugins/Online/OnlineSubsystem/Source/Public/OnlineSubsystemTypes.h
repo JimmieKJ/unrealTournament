@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
 #include "UObject/CoreOnline.h"
 #include "OnlineSubsystemPackage.h"
 
@@ -9,8 +11,15 @@
 #define MAX_LOCAL_PLAYERS 4
 #elif PLATFORM_PS4
 #define MAX_LOCAL_PLAYERS 4
+#elif PLATFORM_SWITCH
+#define MAX_LOCAL_PLAYERS 8
 #else
 #define MAX_LOCAL_PLAYERS 1
+#endif
+
+/** TODO: Yuck. Public headers should not depend on redefining platform-specific macros like ERROR_SUCCESS below */
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
 #endif
 
 #ifndef ERROR_SUCCESS
@@ -117,10 +126,10 @@ namespace ELoginStatus
 /** Possible connection states */
 namespace EOnlineServerConnectionStatus
 {
-	enum Type
+	enum Type : unsigned int
 	{
 		/** System normal (used for default state) */
-		Normal,
+		Normal = 0,
 		/** Gracefully disconnected from the online servers */
 		NotConnected,
 		/** Connected to the online servers just fine */

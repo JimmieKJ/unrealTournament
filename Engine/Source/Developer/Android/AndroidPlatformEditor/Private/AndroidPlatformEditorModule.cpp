@@ -1,17 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidPlatformEditorPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "GenericPlatform/GenericPlatformStackWalk.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialInstance.h"
+#include "Interfaces/IAndroidDeviceDetectionModule.h"
+#include "PropertyEditorModule.h"
+#include "AndroidRuntimeSettings.h"
 #include "AndroidTargetSettingsCustomization.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "AndroidSDKSettings.h"
 #include "AndroidSDKSettingsCustomization.h"
-#include "ModuleInterface.h"
 #include "ISettingsModule.h"
-#include "ModuleManager.h"
 #include "MaterialShaderQualitySettingsCustomization.h"
 #include "MaterialShaderQualitySettings.h"
-#include "Materials/Material.h"
-#include "RenderingThread.h"
 #include "ComponentRecreateRenderStateContext.h"
-
+#include "ShaderPlatformQualitySettings.h"
 
 #define LOCTEXT_NAMESPACE "FAndroidPlatformEditorModule"
 

@@ -2,10 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 //////////////////////////////////////////////////////////////////////////
 // FTracePath
 
 #define TRACEPATH_DEBUG 0
+
+class FScriptExecutionTunnelEntry;
 
 class FTracePath
 {

@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "EngineLogs.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/UnrealType.h"
+#include "UObject/Package.h"
+#include "UObject/UObjectIterator.h"
 #include "Engine/Blueprint.h"
 #include "MemberReference.generated.h"
 

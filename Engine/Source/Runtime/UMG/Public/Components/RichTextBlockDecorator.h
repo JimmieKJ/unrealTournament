@@ -1,9 +1,18 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Text/TextLayout.h"
+#include "Framework/Text/ISlateRun.h"
+#include "Framework/Text/ITextDecorator.h"
 #include "RichTextBlockDecorator.generated.h"
 
+class ISlateStyle;
 class URichTextBlockDecorator;
 
 class FDefaultRichTextDecorator : public ITextDecorator

@@ -6,8 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
 #include "RHIStaticStates.h"
 
+class FShaderParameterMap;
 struct FRenderingCompositePassContext;
 
 // This is the index for the texture input of this pass.

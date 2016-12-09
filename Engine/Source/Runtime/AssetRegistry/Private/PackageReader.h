@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Serialization/ArchiveUObject.h"
+#include "UObject/ObjectResource.h"
+#include "UObject/PackageFileSummary.h"
+
+class FAssetData;
+class FPackageDependencyData;
+
 class FPackageReader : public FArchiveUObject
 {
 public:
@@ -40,6 +48,7 @@ public:
 	void SerializeImportMap(TArray<FObjectImport>& OutImportMap);
 	void SerializeExportMap(TArray<FObjectExport>& OutExportMap);
 	void SerializeStringAssetReferencesMap(TArray<FString>& OutStringAssetReferencesMap);
+	void SerializeSearchableNamesMap(FPackageDependencyData& OutDependencyData);
 
 	/** Returns flags the asset package was saved with */
 	uint32 GetPackageFlags() const;

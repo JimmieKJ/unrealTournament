@@ -1,11 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-
-#if WITH_EDITOR
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#endif
+#include "Components/ContentWidget.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

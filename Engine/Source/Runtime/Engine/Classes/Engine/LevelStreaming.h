@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
+#include "Engine/LatentActionManager.h"
 #include "LatentActions.h"
+
+class ALevelScriptActor;
+class ULevelStreaming;
 
 // Stream Level Action
 class FStreamLevelAction : public FPendingLatentAction
@@ -123,8 +132,15 @@ public:
 	uint32 bShouldBeLoaded:1;
 
 	/** Whether the level should be visible if it is loaded																		*/
-	UPROPERTY(EditAnywhere, Category=LevelStreaming, BlueprintReadWrite)
+	UPROPERTY(Category=LevelStreaming, BlueprintReadWrite)
 	uint32 bShouldBeVisible:1;
+
+	/**
+	 * Whether this level only contains static actors that aren't affected by gameplay or replication.
+	 * If true, the engine can make certain optimizations and will add this level to the StaticLevels collection.
+	 */
+	UPROPERTY(EditDefaultsOnly, Category=LevelStreaming)
+	uint32 bIsStatic:1;
 
 	/** Whether we want to force a blocking load																				*/
 	UPROPERTY(Category=LevelStreaming, BlueprintReadWrite)
@@ -173,8 +189,8 @@ public:
 
 	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-#if WITH_EDITOR
 	virtual void Serialize( FArchive& Ar ) override;
+#if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	
 	/** Remove duplicates in EditorStreamingVolumes list*/

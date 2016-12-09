@@ -1,6 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Framework/Commands/InputBindingManager.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
+#include "Dom/JsonValue.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "SlateGlobals.h"
+#include "Misc/RemoteConfigIni.h"
 
 
 /* FUserDefinedChords helper class
@@ -48,10 +58,44 @@ public:
 	/** Remove all user defined chords */
 	void RemoveAll();
 private:
+
+	void LoadChord(const TSharedPtr<FJsonObject>& ChordInfoObject, const FName& BindingContextName, const FName& CommandName);
+
 	/* Mapping from a chord key to the user defined chord */
 	typedef TMap<FUserDefinedChordKey, FInputChord> FChordsMap;
 	TSharedPtr<FChordsMap> Chords;
 };
+
+void FUserDefinedChords::LoadChord(const TSharedPtr<FJsonObject>& ChordInfoObject, const FName& BindingContextName, const FName& CommandName)
+{
+	const TSharedPtr<FJsonValue> CtrlObj = ChordInfoObject->Values.FindRef(TEXT("Control"));
+	const TSharedPtr<FJsonValue> AltObj = ChordInfoObject->Values.FindRef( TEXT("Alt") );
+	const TSharedPtr<FJsonValue> ShiftObj = ChordInfoObject->Values.FindRef( TEXT("Shift") );
+	const TSharedPtr<FJsonValue> CmdObj = ChordInfoObject->Values.FindRef(TEXT("Command"));
+	const TSharedPtr<FJsonValue> KeyObj = ChordInfoObject->Values.FindRef( TEXT("Key") );
+
+	const FUserDefinedChordKey ChordKey(BindingContextName, CommandName);
+	FInputChord& UserDefinedChord = Chords->FindOrAdd(ChordKey);
+
+#if PLATFORM_MAC
+	// Command is treated like "Control" on Mac and vice-versa, so swap them.
+	EModifierKey::Type Modifiers = EModifierKey::FromBools(
+										CmdObj.IsValid() ? CmdObj->AsBool() : false,
+										AltObj->AsBool(),
+										ShiftObj->AsBool(),
+										CtrlObj->AsBool()
+									);
+#else
+	EModifierKey::Type Modifiers = EModifierKey::FromBools(
+										CtrlObj->AsBool(),
+										AltObj->AsBool(),
+										ShiftObj->AsBool(),
+										CmdObj.IsValid() ? CmdObj->AsBool() : false
+									);
+#endif	//#if PLATFORM_MAC
+
+	UserDefinedChord = FInputChord(*KeyObj->AsString(), Modifiers);
+}
 
 void FUserDefinedChords::LoadChords()
 {
@@ -82,24 +126,11 @@ void FUserDefinedChords::LoadChords()
 				{
 					const TSharedPtr<FJsonValue> BindingContextObj = ChordInfoObj->Values.FindRef( TEXT("BindingContext") );
 					const TSharedPtr<FJsonValue> CommandNameObj = ChordInfoObj->Values.FindRef( TEXT("CommandName") );
-					const TSharedPtr<FJsonValue> CtrlObj = ChordInfoObj->Values.FindRef( TEXT("Control") );
-					const TSharedPtr<FJsonValue> AltObj = ChordInfoObj->Values.FindRef( TEXT("Alt") );
-					const TSharedPtr<FJsonValue> ShiftObj = ChordInfoObj->Values.FindRef( TEXT("Shift") );
-					const TSharedPtr<FJsonValue> CmdObj = ChordInfoObj->Values.FindRef( TEXT("Command") );
-					const TSharedPtr<FJsonValue> KeyObj = ChordInfoObj->Values.FindRef( TEXT("Key") );
 
 					const FName BindingContext = *BindingContextObj->AsString();
 					const FName CommandName = *CommandNameObj->AsString();
 
-					const FUserDefinedChordKey ChordKey(BindingContext, CommandName);
-					FInputChord& UserDefinedChord = Chords->FindOrAdd(ChordKey);
-
-					UserDefinedChord = FInputChord(*KeyObj->AsString(), EModifierKey::FromBools(
-																				CtrlObj->AsBool(), 
-																				AltObj->AsBool(), 
-																				ShiftObj->AsBool(), 
-																				CmdObj.IsValid() ? CmdObj->AsBool() : false // Old config files may not have this
-																			));
+					LoadChord(ChordInfoObj, BindingContext, CommandName);
 				}
 			}
 		}
@@ -140,26 +171,12 @@ void FUserDefinedChords::LoadChords()
 				{
 					const FName BindingContext = *BindingContextInfo.Key;
 					TSharedPtr<FJsonObject> BindingContextObj = BindingContextInfo.Value->AsObject();
-					for(const auto& CommandInfo : BindingContextObj->Values)
+					for (const auto& CommandInfo : BindingContextObj->Values)
 					{
 						const FName CommandName = *CommandInfo.Key;
 						TSharedPtr<FJsonObject> CommandObj = CommandInfo.Value->AsObject();
 
-						const TSharedPtr<FJsonValue> CtrlObj = CommandObj->Values.FindRef( TEXT("Control") );
-						const TSharedPtr<FJsonValue> AltObj = CommandObj->Values.FindRef( TEXT("Alt") );
-						const TSharedPtr<FJsonValue> ShiftObj = CommandObj->Values.FindRef( TEXT("Shift") );
-						const TSharedPtr<FJsonValue> CmdObj = CommandObj->Values.FindRef( TEXT("Command") );
-						const TSharedPtr<FJsonValue> KeyObj = CommandObj->Values.FindRef( TEXT("Key") );
-
-						const FUserDefinedChordKey ChordKey(BindingContext, CommandName);
-						FInputChord& UserDefinedChord = Chords->FindOrAdd(ChordKey);
-
-						UserDefinedChord = FInputChord(*KeyObj->AsString(), EModifierKey::FromBools(
-																					CtrlObj->AsBool(), 
-																					AltObj->AsBool(), 
-																					ShiftObj->AsBool(), 
-																					CmdObj.IsValid() ? CmdObj->AsBool() : false // Old config files may not have this
-																				));
+						LoadChord(CommandObj, BindingContext, CommandName);
 					}
 				}
 			}

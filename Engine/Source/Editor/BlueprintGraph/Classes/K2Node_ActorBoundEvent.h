@@ -2,9 +2,17 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_Event.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_ActorBoundEvent.generated.h"
+
+class AActor;
+class FKismetCompilerContext;
+class FNodeHandlingFunctor;
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UK2Node_ActorBoundEvent : public UK2Node_Event

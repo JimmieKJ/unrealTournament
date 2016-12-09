@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "XCodeSourceCodeAccessPrivatePCH.h"
 #include "XCodeSourceCodeAccessor.h"
 #include "DesktopPlatformModule.h"
+#include "HAL/FileManager.h"
+#include "Modules/ModuleManager.h"
+#include "XCodeSourceCodeAccessModule.h"
+#include "ISourceCodeAccessModule.h"
+#include "Misc/Paths.h"
 
 #define LOCTEXT_NAMESPACE "XCodeSourceCodeAccessor"
 

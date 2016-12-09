@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -215,7 +215,7 @@ extern DECLSPEC int SDLCALL SDL_GetRendererInfo(SDL_Renderer * renderer,
                                                 SDL_RendererInfo * info);
 
 /**
- *  \brief Get the output size of a rendering context.
+ *  \brief Get the output size in pixels of a rendering context.
  */
 extern DECLSPEC int SDLCALL SDL_GetRendererOutputSize(SDL_Renderer * renderer,
                                                       int *w, int *h);
@@ -229,7 +229,7 @@ extern DECLSPEC int SDLCALL SDL_GetRendererOutputSize(SDL_Renderer * renderer,
  *  \param w      The width of the texture in pixels.
  *  \param h      The height of the texture in pixels.
  *
- *  \return The created texture is returned, or 0 if no rendering context was
+ *  \return The created texture is returned, or NULL if no rendering context was
  *          active,  the format was unsupported, or the width or height were out
  *          of range.
  *
@@ -248,7 +248,7 @@ extern DECLSPEC SDL_Texture * SDLCALL SDL_CreateTexture(SDL_Renderer * renderer,
  *  \param renderer The renderer.
  *  \param surface The surface containing pixel data used to fill the texture.
  *
- *  \return The created texture is returned, or 0 on error.
+ *  \return The created texture is returned, or NULL on error.
  *
  *  \note The surface is not modified or freed by this function.
  *
@@ -498,6 +498,30 @@ extern DECLSPEC int SDLCALL SDL_RenderSetLogicalSize(SDL_Renderer * renderer, in
  *  \sa SDL_RenderSetLogicalSize()
  */
 extern DECLSPEC void SDLCALL SDL_RenderGetLogicalSize(SDL_Renderer * renderer, int *w, int *h);
+
+/**
+ *  \brief Set whether to force integer scales for resolution-independent rendering
+ *
+ *  \param renderer The renderer for which integer scaling should be set.
+ *  \param enable   Enable or disable integer scaling
+ *
+ *  This function restricts the logical viewport to integer values - that is, when
+ *  a resolution is between two multiples of a logical size, the viewport size is
+ *  rounded down to the lower multiple.
+ *
+ *  \sa SDL_RenderSetLogicalSize()
+ */
+extern DECLSPEC int SDLCALL SDL_RenderSetIntegerScale(SDL_Renderer * renderer,
+                                                      SDL_bool enable);
+
+/**
+ *  \brief Get whether integer scales are forced for resolution-independent rendering
+ *
+ *  \param renderer The renderer from which integer scaling should be queried.
+ *
+ *  \sa SDL_RenderSetIntegerScale()
+ */
+extern DECLSPEC SDL_bool SDLCALL SDL_RenderGetIntegerScale(SDL_Renderer * renderer);
 
 /**
  *  \brief Set the drawing area for rendering on the current target.

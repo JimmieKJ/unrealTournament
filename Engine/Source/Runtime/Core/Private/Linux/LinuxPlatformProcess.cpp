@@ -1,16 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "LinuxPlatformRunnableThread.h"
-#include "EngineVersion.h"
+#include "Linux/LinuxPlatformProcess.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Containers/StringConv.h"
+#include "Logging/LogMacros.h"
+#include "HAL/FileManager.h"
+#include "Misc/Parse.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Linux/LinuxPlatformRunnableThread.h"
+#include "Misc/EngineVersion.h"
 #include <spawn.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
-#include <sys/ioctl.h> // ioctl
+#include <sys/ioctl.h>
 #include <sys/file.h>
-#include <asm/ioctls.h> // FIONREAD
-#include <sys/file.h> // flock
-#include "LinuxApplication.h" // FLinuxApplication::IsForeground()
+#include <asm/ioctls.h>
+#include "Linux/LinuxApplication.h"
 
 namespace PlatformProcessLimits
 {
@@ -25,21 +33,49 @@ void* FLinuxPlatformProcess::GetDllHandle( const TCHAR* Filename )
 	check( Filename );
 	FString AbsolutePath = FPaths::ConvertRelativePathToFull(Filename);
 
+	// first of all open the lib in LOCAL mode (we will eventually move to GLOBAL if required)
 	int DlOpenMode = RTLD_LAZY;
-	if (AbsolutePath.EndsWith(TEXT("libsteam_api.so")))
+	void *Handle = dlopen( TCHAR_TO_UTF8(*AbsolutePath), DlOpenMode | RTLD_LOCAL );
+	if (Handle)
 	{
-		DlOpenMode |= RTLD_GLOBAL; //Global symbol resolution when loading shared objects - Needed for Steam to work when its library is loaded by a plugin
-	}
-	else
-	{
-		DlOpenMode |= RTLD_LOCAL; //Local symbol resolution when loading shared objects - Needed for Hot-Reload
+		bool UpgradeToGlobal = false;
+		// check for the "ue4_module_options" symbol
+		const char **ue4_module_options = (const char **)dlsym(Handle, "ue4_module_options");
+		if (ue4_module_options)
+		{
+			// split by ','
+			TArray<FString> Options;
+			FString UE4ModuleOptions = FString(ANSI_TO_TCHAR(*ue4_module_options));
+			int32 OptionsNum = UE4ModuleOptions.ParseIntoArray(Options, ANSI_TO_TCHAR(","), true);
+			for(FString Option : Options)
+			{
+				if (Option.Equals(FString(ANSI_TO_TCHAR("linux_global_symbols")), ESearchCase::IgnoreCase))
+				{
+					UpgradeToGlobal = true;
+				}
+			}
+		}
+		else
+		{
+			// is it ia ue4 module ? if not, move it to GLOBAL
+			void *IsUE4Module = dlsym(Handle, "InitializeModule");
+			if (!IsUE4Module)
+			{
+				UpgradeToGlobal = true;
+			}
+		}
+
+		if (UpgradeToGlobal)
+		{
+			Handle = dlopen( TCHAR_TO_UTF8(*AbsolutePath), DlOpenMode | RTLD_NOLOAD | RTLD_GLOBAL );
+		}
 	}
 
-	void *Handle = dlopen( TCHAR_TO_UTF8(*AbsolutePath), DlOpenMode );
 	if (!Handle)
 	{
 		UE_LOG(LogLinux, Warning, TEXT("dlopen failed: %s"), UTF8_TO_TCHAR(dlerror()) );
 	}
+
 	return Handle;
 }
 
@@ -147,9 +183,9 @@ const TCHAR* FLinuxPlatformProcess::BaseDir()
 		}
 		SelfPath[ARRAY_COUNT(SelfPath) - 1] = 0;
 
-		FCString::Strcpy(CachedResult, ARRAY_COUNT(CachedResult) - 1, UTF8_TO_TCHAR(dirname(SelfPath)));
+		FCString::Strncpy(CachedResult, UTF8_TO_TCHAR(dirname(SelfPath)), ARRAY_COUNT(CachedResult) - 1);
 		CachedResult[ARRAY_COUNT(CachedResult) - 1] = 0;
-		FCString::Strcat(CachedResult, ARRAY_COUNT(CachedResult) - 1, TEXT("/"));
+		FCString::Strncat(CachedResult, TEXT("/"), ARRAY_COUNT(CachedResult) - 1);
 		bHaveResult = true;
 	}
 	return CachedResult;
@@ -499,7 +535,7 @@ bool FLinuxPlatformProcess::WritePipe(void* WritePipe, const FString& Message, F
 	Buffer[BytesAvailable] = '\n';
 
 	// write to pipe
-	uint32 BytesWritten = write(*(int*)WritePipe, Buffer, BytesAvailable);
+	uint32 BytesWritten = write(*(int*)WritePipe, Buffer, BytesAvailable + 1);
 
 	// Get written message
 	if (OutWritten)
@@ -675,7 +711,7 @@ FProcHandle FLinuxPlatformProcess::CreateProc(const TCHAR* URL, const TCHAR* Par
 	Commandline += TEXT(" ");
 	Commandline += Parms;
 
-	UE_LOG(LogHAL, Log, TEXT("FLinuxPlatformProcess::CreateProc: '%s'"), *Commandline);
+	UE_LOG(LogHAL, Verbose, TEXT("FLinuxPlatformProcess::CreateProc: '%s'"), *Commandline);
 
 	TArray<FString> ArgvArray;
 	int Argc = Commandline.ParseIntoArray(ArgvArray, TEXT(" "), true);
@@ -921,13 +957,13 @@ FProcHandle FLinuxPlatformProcess::CreateProc(const TCHAR* URL, const TCHAR* Par
 		}
 		else
 		{
-			UE_LOG(LogHAL, Log, TEXT("Changed child's priority (nice value) to %d (change from %d)"), NewPrio, TheirCurrentPrio);
+			UE_LOG(LogHAL, Verbose, TEXT("Changed child's priority (nice value) to %d (change from %d)"), NewPrio, TheirCurrentPrio);
 		}
 	}
 
 	else
 	{
-		UE_LOG(LogHAL, Log, TEXT("FLinuxPlatformProcess::CreateProc: spawned child %d"), ChildPid);
+		UE_LOG(LogHAL, Verbose, TEXT("FLinuxPlatformProcess::CreateProc: spawned child %d"), ChildPid);
 	}
 
 	if (OutProcessID)
@@ -1028,7 +1064,7 @@ bool FProcState::IsRunning()
 		// which is a dubious, but valid behavior. We don't want to keep zombie around though.
 		if (!bIsRunning)
 		{
-			UE_LOG(LogHAL, Log, TEXT("Child %d is no longer running (zombie), Wait()ing immediately."), GetProcessId() );
+			UE_LOG(LogHAL, Verbose, TEXT("Child %d is no longer running (zombie), Wait()ing immediately."), GetProcessId() );
 			Wait();
 		}
 	}
@@ -1083,7 +1119,7 @@ void FProcState::Wait()
 			ReturnCode = (SignalInfo.si_code == CLD_EXITED) ? SignalInfo.si_status : -1;
 			bHasBeenWaitedFor = true;
 			bIsRunning = false;	// set in advance
-			UE_LOG(LogHAL, Log, TEXT("Child %d's return code is %d."), GetProcessId(), ReturnCode);
+			UE_LOG(LogHAL, Verbose, TEXT("Child %d's return code is %d."), GetProcessId(), ReturnCode);
 			break;
 		}
 	}
@@ -1138,7 +1174,7 @@ FString FLinuxPlatformProcess::GetCurrentWorkingDirectory()
 {
 	// get the current directory
 	ANSICHAR CurrentDir[MAX_PATH] = { 0 };
-	getcwd(CurrentDir, sizeof(CurrentDir));
+	(void)getcwd(CurrentDir, sizeof(CurrentDir));
 	return UTF8_TO_TCHAR(CurrentDir);
 }
 
@@ -1392,7 +1428,10 @@ uint32 FLinuxPlatformProcess::FProcEnumInfo::GetParentPID() const
 	sprintf(Buf, "/proc/%d/stat", GetPID());
 	
 	FILE* FilePtr = fopen(Buf, "r");
-	fscanf(FilePtr, "%d %s %c %d", &DummyNumber, Buf, &DummyChar, &ParentPID);	
+	if (fscanf(FilePtr, "%d %s %c %d", &DummyNumber, Buf, &DummyChar, &ParentPID) != 4)
+	{
+		ParentPID = 1;
+	}
 	fclose(FilePtr);
 
 	return ParentPID;
@@ -1462,55 +1501,4 @@ void FLinuxPlatformProcess::CeaseBeingFirstInstance()
 		GFileLockDescriptor = -1;
 	}
 #endif
-}
-
-FLinuxSystemWideCriticalSection::FLinuxSystemWideCriticalSection(const FString& InName, FTimespan InTimeout)
-{
-	check(InName.Len() > 0)
-	check(InTimeout >= FTimespan::Zero())
-	check(InTimeout.GetTotalSeconds() < (double)FLT_MAX)
-
-	const FString LockPath = FString(FLinuxPlatformProcess::ApplicationSettingsDir()) / InName;
-	FString NormalizedFilepath(LockPath);
-	NormalizedFilepath.ReplaceInline(TEXT("\\"), TEXT("/"));
-
-	// Attempt to open a file and then lock with flock (NOTE: not an atomic operation, but best we can do)
-	FileHandle = open(TCHAR_TO_UTF8(*NormalizedFilepath), O_CREAT | O_WRONLY | O_NONBLOCK, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-
-	if (FileHandle == -1 && InTimeout != FTimespan::Zero())
-	{
-		FDateTime ExpireTime = FDateTime::UtcNow() + InTimeout;
-		const float RetrySeconds = FMath::Min((float)InTimeout.GetTotalSeconds(), 0.25f);
-
-		do
-		{
-			// retry until timeout
-			FLinuxPlatformProcess::Sleep(RetrySeconds);
-			FileHandle = open(TCHAR_TO_UTF8(*NormalizedFilepath), O_CREAT | O_WRONLY | O_NONBLOCK, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-		} while (FileHandle == -1 && FDateTime::UtcNow() < ExpireTime);
-	}
-	if (FileHandle != -1)
-	{
-		flock(FileHandle, LOCK_EX);
-	}
-}
-
-FLinuxSystemWideCriticalSection::~FLinuxSystemWideCriticalSection()
-{
-	Release();
-}
-
-bool FLinuxSystemWideCriticalSection::IsValid() const
-{
-	return FileHandle != -1;
-}
-
-void FLinuxSystemWideCriticalSection::Release()
-{
-	if (IsValid())
-	{
-		flock(FileHandle, LOCK_UN);
-		close(FileHandle);
-		FileHandle = -1;
-	}
 }

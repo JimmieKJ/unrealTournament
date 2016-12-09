@@ -1,10 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "SAnimationGraphNode.h"
+#include "AnimationNodes/SAnimationGraphNode.h"
+#include "Widgets/SBoxPanel.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
 #include "AnimGraphNode_Base.h"
 #include "IDocumentation.h"
-#include "Engine/PoseWatch.h"
 #include "AnimationEditorUtils.h"
 
 class SPoseViewColourPickerPopup : public SCompoundWidget

@@ -1,17 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
 #include "OnlineAsyncTaskManagerSteam.h"
+#include "SocketSubsystem.h"
 #include "OnlineSubsystemSteam.h"
+#include "OnlineSubsystemSteamTypes.h"
 #include "OnlineSessionInterfaceSteam.h"
 #include "OnlineSessionAsyncLobbySteam.h"
 #include "OnlineSessionAsyncServerSteam.h"
-#include "OnlineSharedCloudInterfaceSteam.h"
 #include "OnlineLeaderboardInterfaceSteam.h"
 #include "OnlineExternalUIInterfaceSteam.h"
-#include "IPAddressSteam.h"
 #include "SocketSubsystemSteam.h"
-#include "SocketsSteam.h"
 #include "SteamUtilities.h"
 
 void FOnlineAsyncTaskManagerSteam::OnlineTick()

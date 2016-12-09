@@ -1,15 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RuntimeAssetCachePrivatePCH.h"
 #include "RuntimeAssetCacheAsyncWorker.h"
 #include "RuntimeAssetCachePluginInterface.h"
-#include "RuntimeAssetCacheBucket.h"
 #include "RuntimeAssetCacheBackend.h"
 #include "RuntimeAssetCacheEntryMetadata.h"
 #include "RuntimeAssetCacheBucketScopeLock.h"
-#include "ScopeExit.h"
+#include "Misc/ScopeExit.h"
 #include "RuntimeAssetCacheModule.h"
-#include "RuntimeAssetCacheBPHooks.h"
 
 /** Stats */
 DEFINE_STAT(STAT_RAC_NumBuilds);

@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
-#include "OnlineSharingInterface.h"
-#include "ModuleManager.h"
+#include "Tests/TestSharingInterface.h"
+#include "OnlineSubsystemUtils.h"
 #include "ImageCore.h"
-#include "TestSharingInterface.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

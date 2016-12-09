@@ -2,9 +2,15 @@
 
 #pragma once
 
-class FVirtualTrackArea;
-struct ISequencerHotspot;
+#include "CoreMinimal.h"
+#include "Input/CursorReply.h"
+#include "ISequencerInputHandler.h"
 
+class FSlateWindowElementList;
+class FVirtualTrackArea;
+class ISequencer;
+class SWidget;
+struct ISequencerHotspot;
 
 /**
  * Interface for drag and drop operations that are handled by edit tools in Sequencer.

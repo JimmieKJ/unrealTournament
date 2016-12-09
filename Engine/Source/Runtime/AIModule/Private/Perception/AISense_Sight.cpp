@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "Perception/AISightTargetInterface.h"
 #include "Perception/AISense_Sight.h"
+#include "EngineDefines.h"
+#include "EngineGlobals.h"
+#include "CollisionQueryParams.h"
+#include "Engine/Engine.h"
+#include "AISystem.h"
+#include "Perception/AIPerceptionComponent.h"
+#include "VisualLogger/VisualLogger.h"
+#include "Perception/AISightTargetInterface.h"
 #include "Perception/AISenseConfig_Sight.h"
 
 #define DO_SIGHT_VLOGGING (0 && ENABLE_VISUAL_LOG)
@@ -170,13 +176,13 @@ float UAISense_Sight::Update()
 		TimeSpent += (FPlatformTime::Seconds() - LastTime);
 		LastTime = FPlatformTime::Seconds();
 #endif // AISENSE_SIGHT_TIMESLICING_DEBUG
-		if ((NumQueriesProcessed % MinQueriesPerTimeSliceCheck) == 0 && FPlatformTime::Seconds() > TimeSliceEnd)
+		if (bHitTimeSliceLimit == false && (NumQueriesProcessed % MinQueriesPerTimeSliceCheck) == 0 && FPlatformTime::Seconds() > TimeSliceEnd)
 		{
 			bHitTimeSliceLimit = true;
-			break;
+			// do not break here since that would bypass queue aging
 		}
 
-		if (TracesCount < MaxTracesPerTick)
+		if (TracesCount < MaxTracesPerTick && bHitTimeSliceLimit == false)
 		{
 			FPerceptionListener& Listener = ListenersMap[SightQuery->ObserverId];
 			ensure(Listener.Listener.IsValid());
@@ -349,9 +355,34 @@ void UAISense_Sight::UnregisterSource(AActor& SourceActor)
 {
 	const FAISightTarget::FTargetId AsTargetId = SourceActor.GetFName();
 	FAISightTarget* AsTarget = ObservedTargets.Find(AsTargetId);
-	if (AsTarget != nullptr)
+	
+	if (AsTarget != nullptr && SightQueryQueue.Num() > 0)
 	{
-		RemoveAllQueriesToTarget(AsTargetId, DontSort);
+		AActor* TargetActor = AsTarget->Target.Get();
+
+		if (TargetActor)
+		{
+			// notify all interested observers that this source is no longer
+			// visible		
+			AIPerception::FListenerMap& ListenersMap = *GetListeners();
+			const FAISightQuery* SightQuery = &SightQueryQueue[SightQueryQueue.Num() - 1];
+			for (int32 QueryIndex = SightQueryQueue.Num() - 1; QueryIndex >= 0; --QueryIndex, --SightQuery)
+			{
+				if (SightQuery->TargetId == AsTargetId)
+				{
+					if (SightQuery->bLastResult == true)
+					{
+						FPerceptionListener& Listener = ListenersMap[SightQuery->ObserverId];
+						ensure(Listener.Listener.IsValid());
+
+						Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, 0.f, SightQuery->LastSeenLocation, Listener.CachedLocation, FAIStimulus::SensingFailed));
+					}
+
+					SightQueryQueue.RemoveAt(QueryIndex, 1, /*bAllowShrinking=*/false);
+				}
+			}
+			// no point in sorting, we haven't change the order of other queries
+		}
 	}
 }
 

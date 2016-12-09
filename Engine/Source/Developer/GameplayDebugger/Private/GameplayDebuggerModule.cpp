@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Engine/World.h"
 #include "GameplayDebugger.h"
 #include "ISettingsModule.h"
 #include "GameplayDebuggerAddonManager.h"
@@ -12,12 +14,12 @@
 
 #if WITH_EDITOR
 #include "PropertyEditorModule.h"
+#include "EditorModeRegistry.h"
 #include "Editor/GameplayDebuggerCategoryConfigCustomization.h"
 #include "Editor/GameplayDebuggerExtensionConfigCustomization.h"
 #include "Editor/GameplayDebuggerInputConfigCustomization.h"
+#include "Editor/GameplayDebuggerEdMode.h"
 #endif
-
-#if !ENABLE_OLD_GAMEPLAY_DEBUGGER
 
 class FGameplayDebuggerModule : public IGameplayDebugger
 {
@@ -41,18 +43,7 @@ public:
 
 IMPLEMENT_MODULE(FGameplayDebuggerModule, GameplayDebugger)
 
-#else
-
-#include "GameplayDebuggerCompat.h"
-#define FGameplayDebuggerModule FGameplayDebuggerCompat
-
-#endif
-
-#if !ENABLE_OLD_GAMEPLAY_DEBUGGER
 void FGameplayDebuggerModule::StartupModule()
-#else
-void FGameplayDebuggerCompat::StartupNewDebugger()
-#endif
 {
 	// This code will execute after your module is loaded into memory (but after global variables are initialized, of course.)
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FGameplayDebuggerModule::OnWorldInitialized);
@@ -74,6 +65,8 @@ void FGameplayDebuggerCompat::StartupNewDebugger()
 		PropertyEditorModule.RegisterCustomPropertyTypeLayout("GameplayDebuggerCategoryConfig", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayDebuggerCategoryConfigCustomization::MakeInstance));
 		PropertyEditorModule.RegisterCustomPropertyTypeLayout("GameplayDebuggerExtensionConfig", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayDebuggerExtensionConfigCustomization::MakeInstance));
 		PropertyEditorModule.RegisterCustomPropertyTypeLayout("GameplayDebuggerInputConfig", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayDebuggerInputConfigCustomization::MakeInstance));
+
+		FEditorModeRegistry::Get().RegisterMode<FGameplayDebuggerEdMode>(FGameplayDebuggerEdMode::EM_GameplayDebugger);
 #endif
 
 		AddonManager.RegisterExtension("GameHUD", FOnGetExtension::CreateStatic(&FGameplayDebuggerExtension_HUD::MakeInstance));
@@ -82,11 +75,7 @@ void FGameplayDebuggerCompat::StartupNewDebugger()
 	}
 }
 
-#if !ENABLE_OLD_GAMEPLAY_DEBUGGER
 void FGameplayDebuggerModule::ShutdownModule()
-#else
-void FGameplayDebuggerCompat::ShutdownNewDebugger()
-#endif
 {
 	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
 	// we call this function before unloading the module.
@@ -103,6 +92,8 @@ void FGameplayDebuggerCompat::ShutdownNewDebugger()
 	PropertyEditorModule.UnregisterCustomPropertyTypeLayout("GameplayDebuggerCategoryConfig");
 	PropertyEditorModule.UnregisterCustomPropertyTypeLayout("GameplayDebuggerExtensionConfig");
 	PropertyEditorModule.UnregisterCustomPropertyTypeLayout("GameplayDebuggerInputConfig");
+
+	FEditorModeRegistry::Get().UnregisterMode(FGameplayDebuggerEdMode::EM_GameplayDebugger);
 #endif
 }
 
@@ -187,7 +178,3 @@ void FGameplayDebuggerModule::OnWorldInitialized(UWorld* World, const UWorld::In
 		GetPlayerManager(World);
 	}
 }
-
-#if ENABLE_OLD_GAMEPLAY_DEBUGGER
-#undef FGameplayDebuggerModule
-#endif // !ENABLE_OLD_GAMEPLAY_DEBUGGER

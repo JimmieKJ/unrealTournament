@@ -1,15 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
 #include "PaperRenderSceneProxy.h"
-#include "PhysicsEngine/BodySetup.h"
-#include "PhysicsEngine/BodySetup2D.h"
-#include "LocalVertexFactory.h"
-#include "MeshBatch.h"
-#include "EngineGlobals.h"
+#include "Containers/ResourceArray.h"
 #include "SceneManagement.h"
+#include "Materials/Material.h"
+#include "PhysicsEngine/BodySetup.h"
+#include "EngineGlobals.h"
+#include "Components/PrimitiveComponent.h"
 #include "Engine/Engine.h"
-#include "SpriteDrawCall.h"
 
 static TAutoConsoleVariable<int32> CVarDrawSpritesAsTwoSided(TEXT("r.Paper2D.DrawTwoSided"), 1, TEXT("Draw sprites as two sided."));
 

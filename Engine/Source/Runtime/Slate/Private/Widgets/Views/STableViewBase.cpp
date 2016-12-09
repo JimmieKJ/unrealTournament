@@ -1,7 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SListPanel.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Rendering/DrawElements.h"
+#include "Types/SlateConstants.h"
+#include "Types/SlateStructs.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Framework/Layout/Overscroll.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListPanel.h"
 
 namespace ListConstants
 {
@@ -644,7 +658,7 @@ STableViewBase::STableViewBase( ETableViewMode::Type InTableViewMode )
 	, SelectionMode( ESelectionMode::Multi )
 	, SoftwareCursorPosition( ForceInitToZero )
 	, bShowSoftwareCursor( false )
-	, WheelScrollMultiplier( WheelScrollAmount )
+	, WheelScrollMultiplier(GetGlobalScrollAmount())
 	, bIsScrollingActiveTimerRegistered( false )
 	, Overscroll()
 	, AllowOverscroll(EAllowOverscroll::Yes)

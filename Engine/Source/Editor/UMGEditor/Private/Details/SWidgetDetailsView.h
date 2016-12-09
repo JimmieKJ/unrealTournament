@@ -2,12 +2,16 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
-#include "BlueprintEditor.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Misc/NotifyHook.h"
+#include "WidgetBlueprintEditor.h"
 
-#include "WidgetTemplate.h"
-
-class FWidgetBlueprintEditor;
+class IDetailsView;
+class SBox;
+class SEditableTextBox;
 
 /**
  * The details view used in the designer section of the widget blueprint editor.

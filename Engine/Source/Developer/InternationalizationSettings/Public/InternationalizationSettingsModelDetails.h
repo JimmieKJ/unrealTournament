@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "InternationalizationSettingsModel.h"
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
 
 class INTERNATIONALIZATIONSETTINGS_API FInternationalizationSettingsModelDetails : public IDetailCustomization
 {

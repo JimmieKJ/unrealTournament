@@ -1,11 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "AutoReimportUtilities.h"
-#include "EditorReimportHandler.h"
-#include "ARFilter.h"
-#include "IAssetRegistry.h"
-#include "AssetSourceFilenameCache.h"
+#include "AutoReimport/AutoReimportUtilities.h"
+#include "EditorFramework/AssetImportData.h"
+#include "AutoReimport/AssetSourceFilenameCache.h"
 
 namespace Utils
 {

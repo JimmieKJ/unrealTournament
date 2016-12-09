@@ -6,6 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/IScreenShotData.h"
+#include "ScreenShotBaseNode.h"
+#include "ScreenShotPlatformNode.h"
+
 class FScreenShotScreenNode : public FScreenShotBaseNode
 {
 public:
@@ -63,7 +68,7 @@ public:
 
 	virtual TSharedRef<IScreenShotData> CreateNode( const FString& ChildName ) override 
 	{
-		TSharedPtr< IScreenShotData > ScreenShotNode = MakeShareable( new FScreenShotPlatformNode( ChildName ) );;
+		TSharedPtr< IScreenShotData > ScreenShotNode = MakeShareable( new FScreenShotPlatformNode( ChildName ) );
 		Children.Add( ScreenShotNode.ToSharedRef() );
 		return ScreenShotNode.ToSharedRef();
 	};

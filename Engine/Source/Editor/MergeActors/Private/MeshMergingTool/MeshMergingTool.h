@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Widgets/SWidget.h"
+#include "Engine/MeshMerging.h"
 #include "IMergeActorsTool.h"
-#include "MeshUtilities.h"
 
 #include "MeshMergingTool.generated.h"
 
@@ -17,6 +21,8 @@ public:
 	UMeshMergingSettingsObject()		
 	{
 		Settings.bMergePhysicsData = true;
+		// In this case set to AllLODs value since calculating the LODs is not possible and thus disabled in the UI
+		Settings.LODSelectionType = EMeshLODSelectionType::AllLODs;
 	}
 
 	static UMeshMergingSettingsObject* Get()

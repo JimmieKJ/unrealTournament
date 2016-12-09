@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
 #include "AssetTypeActions_Base.h"
+
+class FAssetData;
+
 //TODO Use base class FAssetTypeActions_Blueprint later
 class FAssetTypeActions_WidgetBlueprint : public FAssetTypeActions_Base
 {

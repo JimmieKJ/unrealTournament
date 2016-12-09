@@ -2,7 +2,26 @@
 
 #pragma once
 
-class FDetailCategoryWidgetDecl;
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "IPropertyUtilities.h"
+#include "IDetailTreeNode.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "PropertyNode.h"
+#include "UObject/StructOnScope.h"
+#include "PropertyHandle.h"
+#include "DetailWidgetRow.h"
+#include "DetailCustomBuilderRow.h"
+#include "DetailLayoutBuilderImpl.h"
+#include "IDetailCustomNodeBuilder.h"
+#include "DetailCategoryBuilder.h"
+
+class FDetailGroup;
+class FDetailPropertyRow;
+class IDetailGroup;
+class IDetailPropertyRow;
 
 /**
  * Defines a customization for a specific detail
@@ -138,6 +157,7 @@ public:
 	virtual IDetailPropertyRow& AddProperty( TSharedPtr<IPropertyHandle> PropertyHandle, EPropertyLocation::Type Location = EPropertyLocation::Default ) override;
 	virtual IDetailPropertyRow* AddExternalProperty( const TArray<UObject*>& Objects, FName PropertyName, EPropertyLocation::Type Location = EPropertyLocation::Default ) override;
 	virtual IDetailPropertyRow* AddExternalProperty( TSharedPtr<FStructOnScope> StructData, FName PropertyName, EPropertyLocation::Type Location = EPropertyLocation::Default ) override;
+	virtual TArray<TSharedPtr<IPropertyHandle>> AddExternalProperties( TSharedRef<FStructOnScope> StructData, EPropertyLocation::Type Location = EPropertyLocation::Default ) override;
 	virtual IDetailLayoutBuilder& GetParentLayout() const override { return *DetailLayoutBuilder.Pin(); }
 	virtual FDetailWidgetRow& AddCustomRow( const FText& FilterString, bool bForAdvanced = false ) override;
 	virtual void AddCustomBuilder( TSharedRef<IDetailCustomNodeBuilder> InCustomBuilder, bool bForAdvanced = false ) override;

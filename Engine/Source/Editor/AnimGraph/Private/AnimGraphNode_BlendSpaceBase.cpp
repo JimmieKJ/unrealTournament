@@ -1,13 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
-#include "AnimationGraphSchema.h"
 #include "AnimGraphNode_BlendSpaceBase.h"
+#include "EdGraphSchema_K2_Actions.h"
 #include "AnimGraphNode_BlendSpacePlayer.h"
 #include "AnimGraphNode_RotationOffsetBlendSpace.h"
 #include "Animation/AimOffsetBlendSpace.h"
+#include "Animation/BlendSpace1D.h"
 #include "Animation/AimOffsetBlendSpace1D.h"
-#include "GraphEditorActions.h"
 
 #define LOCTEXT_NAMESPACE "AnimGraphNode_BlendSpaceBase"
 
@@ -70,7 +69,7 @@ void UAnimGraphNode_BlendSpaceBase::CustomizePinData(UEdGraphPin* Pin, FName Sou
 		else if (SourcePropertyName == TEXT("Y"))
 		{
 			Pin->PinFriendlyName = FText::FromString(BlendSpace->GetBlendParameter(1).DisplayName);
-			Pin->bHidden = (BlendSpace->NumOfDimension == 1) ? 1 : 0;
+			Pin->bHidden = BlendSpace->IsA<UBlendSpace1D>() ? 1 : 0;
 		}
 		else if (SourcePropertyName == TEXT("Z"))
 		{

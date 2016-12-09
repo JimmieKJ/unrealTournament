@@ -1,15 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "FontCacheFreeType.h"
+#include "Fonts/FontCacheFreeType.h"
+#include "SlateGlobals.h"
+#include "HAL/PlatformFile.h"
+#include "HAL/PlatformFilemanager.h"
 
 #if WITH_FREETYPE
 
 // The total amount of memory freetype allocates internally
-DECLARE_MEMORY_STAT(TEXT("Freetype Total Allocated Memory"), STAT_SlateFreetypeAllocatedMemory, STATGROUP_SlateMemory);
+DECLARE_MEMORY_STAT(TEXT("FreeType Total Allocated Memory"), STAT_SlateFreetypeAllocatedMemory, STATGROUP_SlateMemory);
 
-// The total true type memory we are using for active font faces
-DECLARE_MEMORY_STAT(TEXT("Uncompressed(in use) TTF/OTF data"), STAT_SlateRawFontDataMemory, STATGROUP_SlateMemory);
+// The total true type memory we are using for resident font faces
+DECLARE_MEMORY_STAT(TEXT("Resident Font Memory (TTF/OTF)"), STAT_SlateRawFontDataMemory, STATGROUP_SlateMemory);
+
+// The active counts of resident and streaming fonts
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Resident Fonts"), STAT_SlateResidentFontCount, STATGROUP_SlateMemory);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Streaming Fonts"), STAT_SlateStreamingFontCount, STATGROUP_SlateMemory);
 
 namespace FreeTypeMemory
 {
@@ -109,6 +115,19 @@ FFreeTypeLibrary::FFreeTypeLibrary()
 	}
 		
 	FT_Add_Default_Modules(FTLibrary);
+
+	static bool bLoggedVersion = false;
+
+	// Write out the version of freetype for debugging purposes
+	if(!bLoggedVersion)
+	{
+		bLoggedVersion = true;
+		FT_Int Major, Minor, Patch;
+
+		FT_Library_Version(FTLibrary, &Major, &Minor, &Patch);
+		UE_LOG(LogSlate, Log, TEXT("Using Freetype %d.%d.%d"), Major, Minor, Patch);
+	}
+
 #endif // WITH_FREETYPE
 }
 
@@ -121,15 +140,76 @@ FFreeTypeLibrary::~FFreeTypeLibrary()
 }
 
 
-FFreeTypeFace::FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, const void* InRawFontData, const int32 InRawFontDataSizeBytes)
+FFreeTypeFace::FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, TArray<uint8>&& InMemory)
+#if WITH_FREETYPE
+	: FTFace(nullptr)
+	, Memory(MoveTemp(InMemory))
+#endif // WITH_FREETYPE
 {
 #if WITH_FREETYPE
-	Memory.Reserve(InRawFontDataSizeBytes);
-	Memory.Append(static_cast<const uint8*>(InRawFontData), InRawFontDataSizeBytes);
+	FT_New_Memory_Face(InFTLibrary->GetLibrary(), Memory.GetData(), static_cast<FT_Long>(Memory.Num()), 0, &FTFace);
 
-	FT_New_Memory_Face(InFTLibrary->GetLibrary(), Memory.GetData(), static_cast<FT_Long>(InRawFontDataSizeBytes), 0, &FTFace);
+	ParseAttributes();
 
-	INC_DWORD_STAT_BY( STAT_SlateRawFontDataMemory, Memory.GetAllocatedSize() );
+	if (Memory.Num() > 0)
+	{
+		INC_DWORD_STAT_BY(STAT_SlateRawFontDataMemory, Memory.GetAllocatedSize());
+		INC_DWORD_STAT_BY(STAT_SlateResidentFontCount, 1);
+	}
+#endif // WITH_FREETYPE
+}
+
+FFreeTypeFace::FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, const FString& InFilename)
+#if WITH_FREETYPE
+	: FTFace(nullptr)
+	, FTStreamHandler(InFilename)
+#endif // WITH_FREETYPE
+{
+#if WITH_FREETYPE
+	FMemory::Memzero(FTStream);
+	FTStream.size = FTStreamHandler.FontSizeBytes;
+	FTStream.descriptor.pointer = &FTStreamHandler;
+	FTStream.close = &FFTStreamHandler::CloseFile;
+	FTStream.read = &FFTStreamHandler::ReadData;
+
+	FMemory::Memzero(FTFaceOpenArgs);
+	FTFaceOpenArgs.flags = FT_OPEN_STREAM;
+	FTFaceOpenArgs.stream = &FTStream;
+
+	FT_Open_Face(InFTLibrary->GetLibrary(), &FTFaceOpenArgs, 0, &FTFace);
+
+	ParseAttributes();
+
+	INC_DWORD_STAT_BY(STAT_SlateStreamingFontCount, 1);
+#endif // WITH_FREETYPE
+}
+
+FFreeTypeFace::~FFreeTypeFace()
+{
+#if WITH_FREETYPE
+	if (FTFace)
+	{
+		if (Memory.Num() > 0)
+		{
+			DEC_DWORD_STAT_BY(STAT_SlateRawFontDataMemory, Memory.GetAllocatedSize());
+			DEC_DWORD_STAT_BY(STAT_SlateResidentFontCount, 1);
+		}
+		else
+		{
+			DEC_DWORD_STAT_BY(STAT_SlateStreamingFontCount, 1);
+		}
+
+		FT_Done_Face(FTFace);
+
+		Memory.Empty();
+		FTStreamHandler = FFTStreamHandler();
+	}
+#endif // WITH_FREETYPE
+}
+
+#if WITH_FREETYPE
+void FFreeTypeFace::ParseAttributes()
+{
 	if (FTFace)
 	{
 		// Parse out the font attributes
@@ -141,20 +221,66 @@ FFreeTypeFace::FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, const void* In
 			Attributes.Add(*Style);
 		}
 	}
-#endif // WITH_FREETYPE
 }
 
-FFreeTypeFace::~FFreeTypeFace()
+FFreeTypeFace::FFTStreamHandler::FFTStreamHandler()
+	: FileHandle(nullptr)
+	, FontSizeBytes(0)
 {
-#if WITH_FREETYPE
-	if (FTFace)
-	{
-		DEC_DWORD_STAT_BY( STAT_SlateRawFontDataMemory, Memory.GetAllocatedSize() );
-		FT_Done_Face(FTFace);
-		Memory.Empty();
-	}
-#endif // WITH_FREETYPE
 }
+
+FFreeTypeFace::FFTStreamHandler::FFTStreamHandler(const FString& InFilename)
+	: FileHandle(FPlatformFileManager::Get().GetPlatformFile().OpenRead(*InFilename))
+	, FontSizeBytes(FileHandle ? FileHandle->Size() : 0)
+{
+}
+
+FFreeTypeFace::FFTStreamHandler::~FFTStreamHandler()
+{
+	check(!FileHandle);
+}
+
+void FFreeTypeFace::FFTStreamHandler::CloseFile(FT_Stream InStream)
+{
+	FFTStreamHandler* MyStream = (FFTStreamHandler*)InStream->descriptor.pointer;
+
+	if (MyStream->FileHandle)
+	{
+		delete MyStream->FileHandle;
+		MyStream->FileHandle = nullptr;
+	}
+}
+
+unsigned long FFreeTypeFace::FFTStreamHandler::ReadData(FT_Stream InStream, unsigned long InOffset, unsigned char* InBuffer, unsigned long InCount)
+{
+	FFTStreamHandler* MyStream = (FFTStreamHandler*)InStream->descriptor.pointer;
+
+	if (MyStream->FileHandle)
+	{
+		if (!MyStream->FileHandle->Seek(InOffset))
+		{
+			return 0;
+		}
+	}
+
+	if (InCount > 0)
+	{
+		if (MyStream->FileHandle)
+		{
+			if (!MyStream->FileHandle->Read(InBuffer, InCount))
+			{
+				return 0;
+			}
+		}
+		else
+		{
+			return 0;
+		}
+	}
+
+	return InCount;
+}
+#endif // WITH_FREETYPE
 
 
 #if WITH_FREETYPE

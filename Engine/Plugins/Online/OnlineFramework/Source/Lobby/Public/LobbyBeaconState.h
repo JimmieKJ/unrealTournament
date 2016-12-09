@@ -2,14 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/NetSerialization.h"
+#include "Engine/EngineTypes.h"
 #include "GameFramework/Info.h"
+#include "LobbyBeaconHost.h"
 #include "LobbyBeaconState.generated.h"
 
-class AOnlineBeaconClient;
-class ALobbyBeaconState;
 class ALobbyBeaconPlayerState;
-class ALobbyBeaconHost;
+class ALobbyBeaconState;
+class AOnlineBeaconClient;
 struct FLobbyPlayerStateInfoArray;
+struct FUniqueNetIdRepl;
 
 /**
  * Delegate fired when the lobby is open to players

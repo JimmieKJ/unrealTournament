@@ -2,7 +2,18 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
 #include "SoundNode.generated.h"
+
+class FAudioDevice;
+class UEdGraphNode;
+struct FActiveSound;
+struct FPropertyChangedEvent;
+struct FWaveInstance;
 
 /*-----------------------------------------------------------------------------
 	USoundNode helper macros. 
@@ -55,13 +66,14 @@ class ENGINE_API USoundNode : public UObject
 	UPROPERTY()
 	UEdGraphNode*	GraphNode;
 
-	class USoundCueGraphNode* GetGraphNode() const;
+	class UEdGraphNode* GetGraphNode() const;
 #endif
 
 public:
 	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostLoad() override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 #endif //WITH_EDITOR
 	virtual void Serialize(FArchive& Ar) override;

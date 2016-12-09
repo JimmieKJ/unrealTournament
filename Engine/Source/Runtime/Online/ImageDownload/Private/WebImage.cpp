@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ImageDownloadPCH.h"
 #include "WebImage.h"
+#include "ImageDownloadPrivate.h"
+#include "Interfaces/IImageWrapperModule.h"
+#include "HttpModule.h"
+#include "Modules/ModuleManager.h"
+#include "Styling/CoreStyle.h"
 
 FWebImage::FWebImage()
 : StandInBrush(FCoreStyle::Get().GetDefaultBrush())

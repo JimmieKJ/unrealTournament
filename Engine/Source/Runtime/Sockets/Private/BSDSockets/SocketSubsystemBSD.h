@@ -2,14 +2,16 @@
 
 #pragma once
 
-#include "SocketSubsystem.h"
+#include "CoreMinimal.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "SocketSubsystemPackage.h"
 
+class FInternetAddr;
+class FSocketBSD;
 
 #if PLATFORM_HAS_BSD_SOCKETS
 
 #include "SocketSubsystemBSDPrivate.h"
-#include "IPAddressBSD.h"
 
 
 /**

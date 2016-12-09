@@ -6,6 +6,18 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Templates/SharedPointer.h"
+#include "CoreMinimal.h"
+
+class FAndroidTargetDevice;
+class FTargetDeviceId;
+class ITargetDevice;
+class ITargetPlatform;
+struct FTargetDeviceProcessInfo;
+enum class ETargetDeviceFeatures;
+enum class ETargetDeviceTypes;
 
 /**
  * Type definition for shared pointers to instances of FAndroidTargetDevice.
@@ -173,7 +185,7 @@ public:
 	virtual bool Run(const FString& ExecutablePath, const FString& Params, uint32* OutProcessId) override;
 	virtual bool SupportsFeature(ETargetDeviceFeatures Feature) const override;
 	virtual bool SupportsSdkVersion(const FString& VersionString) const override;
-	virtual bool TerminateProcess(const int32 ProcessId) override;
+	virtual bool TerminateProcess(const int64 ProcessId) override;
 	virtual void SetUserCredentials(const FString& UserName, const FString& UserPassword) override;
 	virtual bool GetUserCredentials(FString& OutUserName, FString& OutUserPassword) override;
 	virtual void ExecuteConsoleCommand(const FString& ExecCommand) const override;

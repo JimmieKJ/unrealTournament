@@ -1,10 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ColumnWidgetFactory.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Textures/SlateIcon.h"
+#include "EditorStyleSet.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Views/SHeaderRow.h"
 #include "IPropertyTable.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "IPropertyTableColumn.h"
-#include "IPropertyTableCustomColumn.h"
+#include "UserInterface/PropertyTable/SColumnHeader.h"
+#include "UserInterface/PropertyTable/ColumnWidgetFactory.h"
 
 #define LOCTEXT_NAMESPACE "PropertyTableHeaderRow"
 

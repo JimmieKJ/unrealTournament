@@ -2,30 +2,51 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Features/IModularFeature.h"
+#include "Features/IModularFeatures.h"
 
-class FAudioSpatializationParams
+/**
+* FSpatializationParams
+* Struct for retrieving parameters needed for computing 3d spatialization.
+*/
+struct FSpatializationParams
 {
-public:
-	FAudioSpatializationParams()
-		: EmitterPosition(0.0f)
-		, EmitterWorldPosition(0.0f)
-	{}
+	/** The listener position (is likely at the origin). */
+	FVector ListenerPosition;
 
-	FAudioSpatializationParams(const FVector& InEmitterPosition, const FVector& InEmitterWorldPosition)
-		: EmitterPosition(InEmitterPosition)
-		, EmitterWorldPosition(InEmitterWorldPosition)
-	{}
+	/** The listener orientation. */
+	FVector ListenerOrientation;
 
-	// Add any more params one might need here...
-
-	/** Normalized emitter position relative to the listener */
+	/** The emitter position relative to listener. */
 	FVector EmitterPosition;
 
-	/** Raw emitter world position, untransformed relative to listener */
+	/** The emitter world position. */
 	FVector EmitterWorldPosition;
+
+	/** The left channel position. */
+	FVector LeftChannelPosition;
+
+	/** The right channel position. */
+	FVector RightChannelPosition;
+
+	/** The distance between listener and emitter. */
+	float Distance;
+
+	/** The normalized omni radius, or the radius that will blend a sound to non-3d */
+	float NormalizedOmniRadius;
+
+	FSpatializationParams()
+		: ListenerPosition(FVector::ZeroVector)
+		, ListenerOrientation(FVector::ZeroVector)
+		, EmitterPosition(FVector::ZeroVector)
+		, EmitterWorldPosition(FVector::ZeroVector)
+		, LeftChannelPosition(FVector::ZeroVector)
+		, RightChannelPosition(FVector::ZeroVector)
+		, Distance(0.0f)
+	{}
 };
 
 /**
@@ -48,16 +69,20 @@ public:
 	/** Uses the given HRTF algorithm to spatialize a mono audio stream. */
 	virtual void ProcessSpatializationForVoice(uint32 VoiceIndex, float* InSamples, float* OutSamples, const FVector& Position)
 	{
+	}
 
+	/** Uses the given HRTF algorithm to spatialize a mono audio stream, assumes the parameters have already been set before processing. */
+	virtual void ProcessSpatializationForVoice(uint32 VoiceIndex, float* InSamples, float* OutSamples)
+	{
 	}
 
 	/** Sets the spatialization effect parameters. */
-	virtual void SetSpatializationParameters(uint32 VoiceId, const FAudioSpatializationParams& Params)
+	virtual void SetSpatializationParameters(uint32 VoiceId, const FSpatializationParams& Params)
 	{
 	}
 
 	/** Gets the spatialization effect parameters. */
-	virtual void GetSpatializationParameters(uint32 VoiceId, FAudioSpatializationParams& OutParams)
+	virtual void GetSpatializationParameters(uint32 VoiceId, FSpatializationParams& OutParams)
 	{
 	}
 

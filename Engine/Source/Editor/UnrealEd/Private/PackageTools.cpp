@@ -1,19 +1,34 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "PackageTools.h"
-
+#include "Misc/MessageDialog.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/GarbageCollection.h"
+#include "UObject/Package.h"
+#include "UObject/MetaData.h"
+#include "UObject/UObjectHash.h"
+#include "Serialization/ArchiveFindCulprit.h"
+#include "Misc/PackageName.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+#include "Editor.h"
+#include "Dialogs/Dialogs.h"
 
 #include "ObjectTools.h"
 #include "BusyCursor.h"
 
-#include "ISourceControlModule.h"
 
-#include "AssetToolsModule.h"
-#include "DesktopPlatformModule.h"
-#include "MainFrame.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
+#include "UObject/UObjectIterator.h"
 #include "ComponentReregisterContext.h"
 #include "Engine/Selection.h"
 

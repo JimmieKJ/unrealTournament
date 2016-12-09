@@ -1,14 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
-#include "ModuleManager.h"
-
 #include "WorkspaceMenuStructureModule.h"
-
+#include "Textures/SlateIcon.h"
+#include "Framework/Docking/WorkspaceItem.h"
 #include "WorkspaceMenuStructure.h"
 
-#include "SlateBasics.h"
-#include "EditorStyle.h"
+
+
+#include "EditorStyleSet.h"
 
 IMPLEMENT_MODULE( FWorkspaceMenuStructureModule, WorkspaceMenuStructure );
 
@@ -62,11 +61,6 @@ public:
 		return DeveloperToolsMiscCategory.ToSharedRef();
 	}
 
-	virtual TSharedRef<FWorkspaceItem> GetAutomationCategory() const override
-	{
-		return AutomationCategory.ToSharedRef();
-	}
-
 	virtual TSharedRef<FWorkspaceItem> GetAutomationToolsCategory() const override
 	{
 		return AutomationToolsCategory.ToSharedRef();
@@ -96,9 +90,9 @@ public:
 		DeveloperToolsDebugCategory = DeveloperToolsCategory->AddGroup(LOCTEXT("WorkspaceMenu_DeveloperToolsDebugCategory", "Debug"), FSlateIcon(), true);
 		DeveloperToolsLogCategory = DeveloperToolsCategory->AddGroup(LOCTEXT("WorkspaceMenu_DeveloperToolsLogCategory", "Log"), FSlateIcon(), true);
 		DeveloperToolsMiscCategory = DeveloperToolsCategory->AddGroup(LOCTEXT("WorkspaceMenu_DeveloperToolsMiscCategory", "Miscellaneous"), FSlateIcon(), true);
-
-		AutomationCategory = ToolsCategory->AddGroup(LOCTEXT("WorkspaceMenu_AutomationCategory", "Automation"), FSlateIcon(FEditorStyle::GetStyleSetName(), "AutomationTools.MenuIcon"));
-		AutomationToolsCategory = AutomationCategory->AddGroup(LOCTEXT("WorkspaceMenu_AutomationToolsCategory", "Automation Tools"), FSlateIcon(), true);
+		
+		// Automation tools sub menu
+		AutomationToolsCategory = FWorkspaceItem::NewGroup(LOCTEXT("WorkspaceMenu_AutomationToolsCategory", "Automation Tools"), FSlateIcon(), true);
 	}
 
 public:
@@ -128,7 +122,6 @@ private:
 	TSharedPtr<FWorkspaceItem> DeveloperToolsLogCategory;
 	TSharedPtr<FWorkspaceItem> DeveloperToolsMiscCategory;
 	
-	TSharedPtr<FWorkspaceItem> AutomationCategory;
 	TSharedPtr<FWorkspaceItem> AutomationToolsCategory;
 	
 	TSharedPtr<FWorkspaceItem> EditOptions;

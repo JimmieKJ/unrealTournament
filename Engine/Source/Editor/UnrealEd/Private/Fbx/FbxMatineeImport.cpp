@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Matinee/MatineeActor.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
+#include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
+#include "Editor.h"
 #include "Matinee/MatineeActorCameraAnim.h"
 #include "Matinee/InterpGroup.h"
 #include "Matinee/InterpGroupInst.h"
@@ -13,7 +17,6 @@
 #include "Matinee/InterpTrackInstFloatProp.h"
 
 #include "FbxImporter.h"
-#include "Camera/CameraActor.h"
 
 namespace UnFbx {
 

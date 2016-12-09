@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Containers/ResourceArray.h"
+#include "RenderResource.h"
+#include "PrimitiveViewRelevance.h"
+#include "PrimitiveSceneProxy.h"
+#include "Materials/MaterialInterface.h"
+#include "LocalVertexFactory.h"
 #include "DynamicMeshBuilder.h"
-#include "Stats.h"
+
+class FMeshElementCollector;
+struct FGeometryCacheMeshData;
 
 DECLARE_STATS_GROUP(TEXT("GeometryCache"), STATGROUP_GeometryCache, STATCAT_Advanced);
 DECLARE_CYCLE_STAT(TEXT("MeshTime"), STAT_GeometryCacheSceneProxy_GetMeshElements, STATGROUP_GeometryCache );

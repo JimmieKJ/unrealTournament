@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "SLevelEditorToolBox.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Commands/InputBindingManager.h"
+#include "EditorModeRegistry.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EditorStyleSet.h"
+#include "Editor/EditorPerProjectUserSettings.h"
 #include "LevelEditor.h"
 #include "LevelEditorActions.h"
-#include "SLevelEditorToolBox.h"
-#include "LevelEditorActions.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
 #include "LevelEditorModesActions.h"
 
 #define LOCTEXT_NAMESPACE "SLevelEditorToolBox"

@@ -2,15 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "NiagaraCommon.h"
 #include "INiagaraCompiler.h"
-#include "CompilerResultsLog.h"
-#include "NiagaraScriptConstantData.h"
+#include "Kismet2/CompilerResultsLog.h"
+#include "Runtime/Niagara/NiagaraScriptConstantData.h"
 #include "NiagaraScript.h"
 
+class Error;
 class UNiagaraGraph;
-class UNiagaraScriptSource;
-class UNiagaraScript;
+class UNiagaraNode;
 class UNiagaraNodeFunctionCall;
+class UNiagaraScriptSource;
 
 /** Base class for Niagara compilers. Children of this will include a compiler for the VectorVM and for Compute shaders. Possibly others. */
 class NIAGARAEDITOR_API FNiagaraCompiler : public INiagaraCompiler

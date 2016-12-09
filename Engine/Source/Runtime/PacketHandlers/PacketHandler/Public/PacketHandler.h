@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Serialization/BitReader.h"
+#include "Serialization/BitWriter.h"
+#include "Modules/ModuleInterface.h"
+#include "Containers/Queue.h"
+
+class HandlerComponent;
+class ReliabilityHandlerComponent;
 
 DECLARE_LOG_CATEGORY_EXTERN(PacketHandlerLog, Log, All);
 
@@ -61,19 +68,24 @@ struct PACKETHANDLER_API ProcessedPacket
 	/** Size of the returned packet data in bits */
 	int32 CountBits;
 
+	/** Whether or not there was an error processing the packet */
+	bool bError;
+
 public:
 	ProcessedPacket()
 		: Data()
 		, CountBits(0)
+		, bError(false)
 	{
 	}
 
 	/**
 	 * Base constructor
 	 */
-	ProcessedPacket(uint8* InData, int32 InCountBits)
+	ProcessedPacket(uint8* InData, int32 InCountBits, bool bInError=false)
 		: Data(InData)
 		, CountBits(InCountBits)
+		, bError(bInError)
 	{
 	}
 };

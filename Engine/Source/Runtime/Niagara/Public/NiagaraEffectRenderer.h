@@ -5,17 +5,19 @@ NiagaraEffectRenderer.h: Base class for Niagara render modules
 ==============================================================================*/
 #pragma once
 
-#include "SceneUtils.h"
+#include "CoreMinimal.h"
+#include "NiagaraCommon.h"
+#include "Materials/MaterialInterface.h"
+#include "UniformBuffer.h"
+#include "Materials/Material.h"
+#include "PrimitiveViewRelevance.h"
 #include "ParticleHelper.h"
-#include "ParticleVertexFactory.h"
-#include "ParticleBeamTrailVertexFactory.h"
 #include "NiagaraComponent.h"
-#include "NiagaraSimulation.h"
-#include "NiagaraEffectRendererProperties.h"
 #include "NiagaraSpriteRendererProperties.h"
 #include "NiagaraRibbonRendererProperties.h"
 #include "NiagaraMeshRendererProperties.h"
 
+class FNiagaraDataSet;
 
 /** Struct used to pass dynamic data from game thread to render thread */
 struct FNiagaraDynamicDataBase

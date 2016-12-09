@@ -2,9 +2,15 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "ITransportControl.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Margin.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Modules/ModuleInterface.h"
 #include "AssetDiscoveryIndicator.h"
+
+class ITransportControl;
+struct FTransportControlArgs;
 
 /** Interface for the widget that wraps an editable text box for viewing the names of objects or editing the labels of actors */
 class IObjectNameEditableTextBox : public SCompoundWidget

@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SourceCodeAccessPrivatePCH.h"
 #include "SourceCodeAccessSettings.h"
+#include "Misc/ConfigCacheIni.h"
 
 USourceCodeAccessSettings::USourceCodeAccessSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
+#include "Engine/PendingNetGame.h"
+#include "Engine/NetDriver.h"
 #include "OnlineBeacon.generated.h"
 
-class UWorld;
-class UNetDriver;
-class UNetConnection;
-class UChannel;
 class FInBunch;
+class UChannel;
+class UNetConnection;
 
 ONLINESUBSYSTEMUTILS_API DECLARE_LOG_CATEGORY_EXTERN(LogBeacon, Display, All);
 

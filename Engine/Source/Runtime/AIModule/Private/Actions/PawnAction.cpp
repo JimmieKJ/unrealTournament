@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Actions/PawnAction.h"
+#include "UObject/Package.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 #include "Actions/PawnActionsComponent.h"
+#include "AIController.h"
+#include "VisualLogger/VisualLogger.h"
 
 DEFINE_LOG_CATEGORY(LogPawnAction);
 

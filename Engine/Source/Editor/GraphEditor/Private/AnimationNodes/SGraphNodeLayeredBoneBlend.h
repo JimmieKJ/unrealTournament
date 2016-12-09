@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "SAnimationGraphNode.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "AnimationNodes/SAnimationGraphNode.h"
 
+class SVerticalBox;
 class UAnimGraphNode_LayeredBoneBlend;
 
 class SGraphNodeLayeredBoneBlend : public SAnimationGraphNode

@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
 #include "IPAddress.h"
+#include "Engine/EngineBaseTypes.h"
 #include "OnlineSubsystemOculusTypes.h"
 #include "OnlineSubsystemOculusPackage.h"
 

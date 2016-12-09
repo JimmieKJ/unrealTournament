@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TextureAlignModePrivatePCH.h"
+#include "TextureAlignEdMode.h"
+#include "EditorViewportClient.h"
+#include "Modules/ModuleManager.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "ScopedTransaction.h"
+#include "SurfaceIterators.h"
 #include "EditorSupportDelegates.h"
 #include "Engine/Polys.h"
 

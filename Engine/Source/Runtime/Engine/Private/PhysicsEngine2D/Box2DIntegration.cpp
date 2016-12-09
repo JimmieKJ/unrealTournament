@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Box2DIntegration.h"
-#include "PhysicsEngine/PhysXSupport.h"
-#include "Collision/PhysicsFiltering.h"
+#include "PhysicsEngine2D/Box2DIntegration.h"
+#include "PhysicsEngine/RigidBodyIndexPair.h"
+#include "SceneManagement.h"
+#include "Physics/PhysicsFiltering.h"
+#include "Components/PrimitiveComponent.h"
 
 #if WITH_BOX2D
 

@@ -2,12 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
 #include "Animation/AnimationRecordingSettings.h"
-#include "Components/SkinnedMeshComponent.h"
+#include "IMovieSceneSectionRecorder.h"
+#include "Sections/MovieSceneAnimationSectionRecorder.h"
 #include "ActorRecordingSettings.h"
-#include "ObjectKey.h"
+#include "UObject/ObjectKey.h"
 
 #include "ActorRecording.generated.h"
+
+class ULevelSequence;
+class UMovieScene;
 
 UCLASS(MinimalAPI, Transient)
 class UActorRecording : public UObject

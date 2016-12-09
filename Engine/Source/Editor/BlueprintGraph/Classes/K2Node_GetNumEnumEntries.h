@@ -1,9 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Textures/SlateIcon.h"
+#include "K2Node.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "NodeDependingOnEnumInterface.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_GetNumEnumEntries.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UK2Node_GetNumEnumEntries : public UK2Node, public INodeDependingOnEnumInterface

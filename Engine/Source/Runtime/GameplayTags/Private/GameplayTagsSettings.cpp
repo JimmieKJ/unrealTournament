@@ -1,11 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayTagsModulePrivatePCH.h"
+#include "GameplayTagsSettings.h"
 #include "GameplayTagsModule.h"
+
+UGameplayTagsList::UGameplayTagsList(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// No config filename, needs to be set at creation time
+}
+
+void UGameplayTagsList::SortTags()
+{
+	GameplayTagList.Sort();
+}
 
 UGameplayTagsSettings::UGameplayTagsSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	ConfigFileName = GetDefaultConfigFilename();
+	ImportTagsFromConfig = false;
+	WarnOnInvalidTags = true;
+	FastReplication = false;
+	NumBitsForContainerSize = 6;
 	NetIndexFirstBitSegment = 16;
 }
 
@@ -15,19 +31,10 @@ void UGameplayTagsSettings::PostEditChangeProperty(FPropertyChangedEvent& Proper
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 	if (PropertyChangedEvent.Property)
 	{
-		if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UGameplayTagsSettings, GameplayTags))
-		{
-			IGameplayTagsModule::Get().GetGameplayTagsManager().DestroyGameplayTagTree();
-			IGameplayTagsModule::Get().GetGameplayTagsManager().ConstructGameplayTagTree();
-		}
+		IGameplayTagsModule::OnTagSettingsChanged.Broadcast();
 	}
 }
 #endif
-
-void UGameplayTagsSettings::SortTags()
-{
-	GameplayTags.Sort();
-}
 
 // ---------------------------------
 

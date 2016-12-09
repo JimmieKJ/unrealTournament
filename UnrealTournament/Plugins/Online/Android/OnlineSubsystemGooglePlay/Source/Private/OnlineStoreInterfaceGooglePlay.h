@@ -3,55 +3,16 @@
 #pragma once
 
 #include "OnlineStoreInterface.h"
+#include "OnlineStoreGooglePlayCommon.h"
 
-
-enum class EGooglePlayBillingResponseCode
-{
-	Ok					= 0,
-	UserCancelled		= 1,
-	ServiceUnavailable	= 2,
-	BillingUnavailable	= 3,
-	ItemUnavailable		= 4,
-	DeveloperError		= 5,
-	Error				= 6,
-	ItemAlreadyOwned	= 7,
-	ItemNotOwned		= 8,
-};
-
-
-/**
- * The resulting state of an iap transaction
- */
-namespace EInAppPurchaseResult
-{
-	enum Type
-	{
-		Succeeded = 0,
-		RestoredFromServer,
-		Failed,
-		Cancelled,
-	};
-}
-
-
-/**
- * Implementation of the Platform Purchase receipt. For this we provide an identifier and the encrypted data.
- */
-class FGooglePlayPurchaseReceipt : public IPlatformPurchaseReceipt
-{
-public:
-	// Product identifier
-	FString Identifier;
-
-	// The encrypted receipt data
-	FString Data;
-};
-
+class FOnlineAsyncTaskGooglePlayQueryInAppPurchases;
 
 /**
  *	FOnlineStoreGooglePlay - Implementation of the online store for GooglePlay
  */
-class FOnlineStoreGooglePlay : public IOnlineStore
+class FOnlineStoreGooglePlay : 
+	public IOnlineStore,
+	public TSharedFromThis<FOnlineStoreGooglePlay, ESPMode::ThreadSafe>
 {
 public:
 	/** C-tor */
@@ -59,17 +20,15 @@ public:
 	/** Destructor */
 	virtual ~FOnlineStoreGooglePlay();
 
+	/** Initialize the interface */
+	void Init();
+
 	// Begin IOnlineStore 
 	virtual bool QueryForAvailablePurchases(const TArray<FString>& ProductIDs, FOnlineProductInformationReadRef& InReadObject) override;
 	virtual bool BeginPurchase(const FInAppPurchaseProductRequest& ProductRequest, FOnlineInAppPurchaseTransactionRef& InReadObject) override;
 	virtual bool IsAllowedToMakePurchases() override;
 	virtual bool RestorePurchases(const TArray<FInAppPurchaseProductRequest>& ConsumableProductFlags, FOnlineInAppPurchaseRestoreReadRef& InReadObject) override;
 	// End IOnlineStore 
-
-	void ProcessQueryAvailablePurchasesResults(EGooglePlayBillingResponseCode InResponseCode, const TArray<FInAppPurchaseProductInfo>& AvailablePurchases);
-	void ProcessPurchaseResult(EGooglePlayBillingResponseCode InResponseCode, const FString& InProductId, const FString& InReceiptData, const FString& Signature);
-
-	EInAppPurchaseState::Type ConvertGPResponseCodeToIAPState(const EGooglePlayBillingResponseCode InResponseCode);
 
 	/** Cached in-app purchase restore transaction object, used to provide details to the developer about what products should be restored */
 	FOnlineInAppPurchaseRestoreReadPtr CachedPurchaseRestoreObject;
@@ -80,7 +39,7 @@ private:
 	FOnlineSubsystemGooglePlay* Subsystem;
 
 	/** The current query for iap async task */
-	class FOnlineAsyncTaskGooglePlayQueryInAppPurchases* CurrentQueryTask;
+	FOnlineAsyncTaskGooglePlayQueryInAppPurchases* CurrentQueryTask;
 
 	/** Delegate fired when a query for purchases has completed, whether successful or unsuccessful */
 	FOnQueryForAvailablePurchasesComplete OnQueryForAvailablePurchasesCompleteDelegate;
@@ -93,6 +52,33 @@ private:
 
 	/** Cached in-app purchase transaction object, used to provide details to the user, of the product that has just been purchased. */
 	FOnlineInAppPurchaseTransactionPtr CachedPurchaseStateObject;
+
+	/**
+	 * Delegate fired where an IAP query for available offers has completed
+	 *
+	 * @param InResponseCode response from Google backend
+	 * @param AvailablePurchases list of offers returned in response to a query on available offer ids
+	 */
+	void OnGooglePlayAvailableIAPQueryComplete(EGooglePlayBillingResponseCode InResponseCode, const TArray<FInAppPurchaseProductInfo>& AvailablePurchases);
+	FDelegateHandle AvailableIAPQueryDelegateHandle;
+
+	/**
+	 * Delegate fired when a purchase has completed
+	 *
+	 * @param InResponseCode response from the GooglePlay backend
+	 * @param InTransactionData transaction data for the completed purchase
+	 */
+	void OnProcessPurchaseResult(EGooglePlayBillingResponseCode InResponseCode, const FGoogleTransactionData& InTransactionData);
+	FDelegateHandle ProcessPurchaseResultDelegateHandle;
+
+	/**
+	 * Delegate fired when purchases are restored
+	 *
+	 * @param InResponseCode response from the GooglePlay backend
+	 * @param InRestoredPurchases transaction data for the restored purchases
+	 */
+	void OnRestorePurchasesComplete(EGooglePlayBillingResponseCode InResponseCode, const TArray<FGoogleTransactionData>& InRestoredPurchases);
+	FDelegateHandle RestorePurchasesCompleteDelegateHandle;
 };
 
 typedef TSharedPtr<FOnlineStoreGooglePlay, ESPMode::ThreadSafe> FOnlineStoreGooglePlayPtr;

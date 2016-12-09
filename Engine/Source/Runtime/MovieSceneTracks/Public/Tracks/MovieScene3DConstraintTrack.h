@@ -2,12 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "MovieSceneTrack.h"
 #include "MovieScene3DConstraintTrack.generated.h"
-
-
-class UMovieSceneSection;
-
 
 /**
  * Base class for constraint tracks (tracks that are dependent upon other objects).

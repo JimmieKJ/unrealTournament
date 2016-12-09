@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "Components/BillboardComponent.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 
 #include "LandscapeGizmoActor.generated.h"
+
+class UBillboardComponent;
 
 UCLASS(notplaceable, MinimalAPI, NotBlueprintable)
 class ALandscapeGizmoActor : public AActor

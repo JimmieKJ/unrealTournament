@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "MovieSceneFadeTrack.h"
-#include "MovieSceneFadeSection.h"
-#include "MovieSceneTrack.h"
-#include "FadeTrackEditor.h"
-#include "FloatPropertySection.h"
+#include "TrackEditors/FadeTrackEditor.h"
+#include "Rendering/DrawElements.h"
+#include "SequencerSectionPainter.h"
+#include "EditorStyleSet.h"
+#include "Tracks/MovieSceneFadeTrack.h"
+#include "Sections/MovieSceneFadeSection.h"
+#include "Sections/FloatPropertySection.h"
 #include "CommonMovieSceneTools.h"
 
 #define LOCTEXT_NAMESPACE "FFadeTrackEditor"
@@ -66,7 +67,7 @@ public:
 
 			for (auto Time : TimesWithKeys)
 			{
-				float Value = FadeSection->Eval(Time);
+				float Value = FadeSection->Eval(Time, 0.f);
 			
 				FLinearColor Color = FLinearColor::Black;
 				Color.A = Value*255.f;
@@ -112,16 +113,13 @@ FFadeTrackEditor::FFadeTrackEditor(TSharedRef<ISequencer> InSequencer)
 	: FFloatPropertyTrackEditor(InSequencer)
 { }
 
-/* FFPropertyTrackEditor interface
+/* ISequencerTrackEditor interface
  *****************************************************************************/
 
-TSharedRef<FPropertySection> FFadeTrackEditor::MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
+TSharedRef<ISequencerSection> FFadeTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
 {
 	return MakeShareable(new FFadeSection(SectionObject, Track.GetDisplayName()));
 }
-
-/* ISequencerTrackEditor interface
- *****************************************************************************/
 
 void FFadeTrackEditor::BuildAddTrackMenu(FMenuBuilder& MenuBuilder)
 {
@@ -178,10 +176,10 @@ void FFadeTrackEditor::HandleAddFadeTrackMenuEntryExecute()
 	MovieScene->Modify();
 
 	FadeTrack = FindOrCreateMasterTrack<UMovieSceneFadeTrack>().Track;
-	ensure(FadeTrack);
+	check(FadeTrack);
 
 	UMovieSceneSection* NewSection = FadeTrack->CreateNewSection();
-	ensure(NewSection);
+	check(NewSection);
 
 	FadeTrack->AddSection(*NewSection);
 

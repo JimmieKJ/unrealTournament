@@ -2,7 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Margin.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/SlateDelegates.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Widgets/Input/NumericTypeInterface.h"
+
 #undef _X //@todo vogel: needs to be removed once Slate no longer uses _##Name
+
+class FArrangedChildren;
+class SHorizontalBox;
 
 /**
  * Vector Slate control

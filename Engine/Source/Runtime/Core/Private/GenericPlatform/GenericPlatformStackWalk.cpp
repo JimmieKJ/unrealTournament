@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "GenericPlatformCrashContext.h"
+#include "GenericPlatform/GenericPlatformStackWalk.h"
+#include "HAL/PlatformStackWalk.h"
+#include "Misc/ConfigCacheIni.h"
+#include "GenericPlatform/GenericPlatformCrashContext.h"
 
 FProgramCounterSymbolInfo::FProgramCounterSymbolInfo() :
 	LineNumber( 0 ),
@@ -62,13 +64,24 @@ bool FGenericPlatformStackWalk::SymbolInfoToHumanReadableString( const FProgramC
 		const ANSICHAR* StrippedModuleName = RealPos > 0 ? (const ANSICHAR*)(RealPos + 1) : SymbolInfo.ModuleName;
 
 		//FCStringAnsi::Sprintf( StackLine, "%s!%s [%s:%i]", StrippedModuleName, (const ANSICHAR*)SymbolInfo.FunctionName, (const ANSICHAR*)SymbolInfo.Filename, SymbolInfo.LineNumber );
-		FCStringAnsi::Strncat(StackLine, StrippedModuleName, MAX_SPRINTF);
-		
+
+		const bool bHasValidModuleName = FCStringAnsi::Strlen(StrippedModuleName) > 0;
+		if (bHasValidModuleName)
+		{
+			FCStringAnsi::Strncat(StackLine, StrippedModuleName, MAX_SPRINTF);
+			FCStringAnsi::Strncat(StackLine, "!", MAX_SPRINTF);
+		}
+
 		const bool bHasValidFunctionName = FCStringAnsi::Strlen( SymbolInfo.FunctionName ) > 0;
 		if( bHasValidFunctionName )
 		{
-			FCStringAnsi::Strncat(StackLine, "!", MAX_SPRINTF);
 			FCStringAnsi::Strncat(StackLine, SymbolInfo.FunctionName, MAX_SPRINTF);
+		}
+		else
+		{
+			ANSICHAR PCAddress[MAX_TEMP_SPRINTF] = {0};
+			FCStringAnsi::Snprintf(PCAddress, MAX_TEMP_SPRINTF, "0x%016X", SymbolInfo.ProgramCounter);
+			FCStringAnsi::Strncat(StackLine, PCAddress, MAX_SPRINTF);
 		}
 
 		const bool bHasValidFilename = FCStringAnsi::Strlen( SymbolInfo.Filename ) > 0 && SymbolInfo.LineNumber > 0;
@@ -186,4 +199,9 @@ TArray<FProgramCounterSymbolInfo> FGenericPlatformStackWalk::GetStack(int32 Igno
 	}
 
 	return Stack;
+}
+
+TMap<FName, FString> FGenericPlatformStackWalk::GetSymbolMetaData()
+{
+	return TMap<FName, FString>();
 }

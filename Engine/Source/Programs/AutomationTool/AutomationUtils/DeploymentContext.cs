@@ -215,7 +215,12 @@ public class DeploymentContext //: ProjectParams
 	/// </summary>
 	public bool bIsCombiningMultiplePlatforms = false;
 
-	public DeploymentContext(
+    /// <summary>
+    /// If true if this platform is using streaming install chunk manifests
+    /// </summary>
+    public bool PlatformUsesChunkManifests = false;
+
+    public DeploymentContext(
 		FileReference RawProjectPathOrName,
 		string InLocalRoot,
 		string BaseStageDirectory,
@@ -233,6 +238,7 @@ public class DeploymentContext //: ProjectParams
 		bool InArchive,
 		bool InProgram,
 		bool IsClientInsteadOfNoEditor,
+        bool InForceChunkManifests,
 		bool bInUseWebsocketNetDriver = false
 		)
 	{
@@ -333,7 +339,24 @@ public class DeploymentContext //: ProjectParams
 		}
 		ProjectArgForCommandLines = ProjectArgForCommandLines.Replace("\\", "/");
 		ProjectBinariesFolder = CommandUtils.CombinePaths(ProjectUtils.GetClientProjectBinariesRootPath(RawProjectPath, TargetRules.TargetType.Game, IsCodeBasedProject), PlatformDir);
-	}
+
+        // If we were configured to use manifests across the whole project, then this platform should use manifests.
+        // Otherwise, read whether we are generating chunks from the ProjectPackagingSettings ini.
+        if (InForceChunkManifests)
+        {
+            PlatformUsesChunkManifests = true;
+        }
+        else
+        {
+            ConfigCacheIni GameIni = ConfigCacheIni.CreateConfigCacheIni(InTargetPlatform.PlatformType, "Game", RawProjectPath.Directory);
+            String IniPath = "/Script/UnrealEd.ProjectPackagingSettings";
+            bool bSetting = false;
+            if (GameIni.GetBool(IniPath, "bGenerateChunks", out bSetting))
+            {
+                PlatformUsesChunkManifests = bSetting;
+            }
+        }
+    }
 
 	public void StageFile(StagedFileType FileType, string InputPath, string OutputPath = null, bool bRemap = true)
 	{
@@ -395,7 +418,7 @@ public class DeploymentContext //: ProjectParams
 
 				StageFile(FileTypeToUse, BuildProduct.Path);
 			}
-			else if(BuildProduct.Type == BuildProductType.SymbolFile)
+			else if(BuildProduct.Type == BuildProductType.SymbolFile || BuildProduct.Type == BuildProductType.MapFile)
 			{
 				// Symbol files aren't true dependencies so we can skip if they don't exist
 				if (File.Exists(BuildProduct.Path))
@@ -759,22 +782,34 @@ public class DeploymentContext //: ProjectParams
 
 	public String GetUFSDeploymentDeltaPath(string DeviceName)
 	{
-		return Path.Combine(StageDirectory, UFSDeployDeltaFileName + DeviceName);
+		//replace the port name in the case of deploy while adb is using wifi
+		string SanitizedDeviceName = DeviceName.Replace(":", "_");
+
+		return Path.Combine(StageDirectory, UFSDeployDeltaFileName + SanitizedDeviceName);
 	}
 
 	public String GetNonUFSDeploymentDeltaPath(string DeviceName)
 	{
-		return Path.Combine(StageDirectory, NonUFSDeployDeltaFileName + DeviceName);
+		//replace the port name in the case of deploy while adb is using wifi
+		string SanitizedDeviceName = DeviceName.Replace(":", "_");
+
+		return Path.Combine(StageDirectory, NonUFSDeployDeltaFileName + SanitizedDeviceName);
 	}
 
 	public String GetUFSDeploymentObsoletePath(string DeviceName)
 	{
-		return Path.Combine(StageDirectory, UFSDeployObsoleteFileName + DeviceName);
+		//replace the port name in the case of deploy while adb is using wifi
+		string SanitizedDeviceName = DeviceName.Replace(":", "_");
+
+		return Path.Combine(StageDirectory, UFSDeployObsoleteFileName + SanitizedDeviceName);
 	}
 
 	public String GetNonUFSDeploymentObsoletePath(string DeviceName)
 	{
-		return Path.Combine(StageDirectory, NonUFSDeployObsoleteFileName + DeviceName);
+		//replace the port name in the case of deploy while adb is using wifi
+		string SanitizedDeviceName = DeviceName.Replace(":", "_");
+
+		return Path.Combine(StageDirectory, NonUFSDeployObsoleteFileName + SanitizedDeviceName);
 	}
 
 	public string UFSDeployedManifestFileName

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Serialization/ArchiveUObject.h"
+
 /** Helper archive class to find all references, used by the cycle finder **/
 class FArchiveFindAllRefs : public FArchiveUObject
 {

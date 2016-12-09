@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SDockableTab.h"
-#include "SDockTabStack.h"
+#include "Widgets/Docking/SDockableTab.h"
 
 
 void SDockableTab::SetContent( TSharedRef<SWidget> InContent )

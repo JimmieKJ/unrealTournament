@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
+#include "AssetTypeActions_Base.h"
 #include "Materials/MaterialFunction.h"
+
+class FMenuBuilder;
 
 class FAssetTypeActions_MaterialFunction : public FAssetTypeActions_Base
 {

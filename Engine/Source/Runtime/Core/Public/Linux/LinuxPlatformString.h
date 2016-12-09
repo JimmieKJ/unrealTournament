@@ -5,8 +5,9 @@
 ==============================================================================================*/
 
 #pragma once
+
+#include "CoreTypes.h"
 #include "GenericPlatform/StandardPlatformString.h"
-#include "Linux/LinuxSystemIncludes.h"
 /**
 * Linux string implementation
 **/

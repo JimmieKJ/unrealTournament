@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MergePrivatePCH.h"
 #include "MergeUtils.h"
+#include "IAssetTypeActions.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
-#include "SourceControlHelpers.h"
-#include "NotificationManager.h"
-#include "Developer/AssetTools/Public/IAssetTypeActions.h"
-#include "Runtime/Slate/Public/Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "MergeToolUtils"
 

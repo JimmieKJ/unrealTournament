@@ -302,7 +302,7 @@ namespace MemoryProfiler2
 
 						foreach( CallStackPattern CallStackPatternIt in CallStackGroup.CallStackPatterns )
 						{
-							foreach( FCallStack CallStack in CallStackPatternIt.CallStacks )
+							foreach( FCallStack CallStack in CallStackPatternIt.GetCallStacks() )
 							{
 								if( CallStack.RunFilters( FilterText, OwnerWindow.Options.ClassGroups, OwnerWindow.IsFilteringIn(), OwnerWindow.SelectedMemoryPool ) )
 								{
@@ -712,7 +712,7 @@ namespace MemoryProfiler2
 				MajorTick = MajorTick / 4 * 4;
 				long MinorTick = MajorTick / 4;
 
-				OwnerWindow.DrawYAxis( e.Graphics, Pens.Black, MajorTick, 9, MinorTick, 5, MEMORY_BITMAP_LEFT_MARGIN - 2, 0, MemoryBitmap.Height, 0, MemoryBitmap.Height, YAxisLabel, AxisHeight, true, true );
+				OwnerWindow.DrawYAxis( e.Graphics, Pens.Black, Color.Black, MajorTick, 9, MinorTick, 5, MEMORY_BITMAP_LEFT_MARGIN - 2, 0, MemoryBitmap.Height, 0, MemoryBitmap.Height, YAxisLabel, AxisHeight, true, true );
 			}
 		}
 

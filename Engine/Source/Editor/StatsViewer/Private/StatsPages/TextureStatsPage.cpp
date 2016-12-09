@@ -1,12 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StatsViewerPrivatePCH.h"
-#include "TextureStatsPage.h"
-#include "TextureStats.h"
+#include "StatsPages/TextureStatsPage.h"
+#include "GameFramework/Actor.h"
+#include "Materials/MaterialInterface.h"
+#include "Engine/Texture.h"
+#include "Misc/App.h"
+#include "UObject/UObjectIterator.h"
+#include "Components/PrimitiveComponent.h"
+#include "Engine/Texture2D.h"
+#include "Engine/Selection.h"
+#include "Engine/TextureCube.h"
+#include "EngineUtils.h"
+#include "Editor.h"
 #include "ReferencedAssetsUtils.h"
 #include "AssetSelection.h"
-#include "EngineUtils.h"
-#include "Engine/TextureCube.h"
 
 #define LOCTEXT_NAMESPACE "Editor.StatsViewer.TextureStats"
 

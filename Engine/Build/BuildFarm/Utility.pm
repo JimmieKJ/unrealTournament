@@ -63,7 +63,12 @@ sub p4_command
 				my $error_text = $1;
 				if($additional_options->{'ignore_not_in_client_view'} && m/- file\(s\) not in client view\.$/)
 				{
-					print "$error_text";
+					print "$error_text\n";
+					next;
+				}
+				if($additional_options->{'ignore_no_files_to_reconcile'} && m/- no file\(s\) to reconcile\.$/)
+				{
+					print "$error_text\n";
 					next;
 				}
 				if($additional_options->{'errors_as_warnings'})

@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Textures/SlateIcon.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_StructMemberSet.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_MakeStruct.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UEdGraph;
 
 // Pure kismet node that creates a struct with specified values for each member
 UCLASS(MinimalAPI)
@@ -54,6 +61,7 @@ class UK2Node_MakeStruct : public UK2Node_StructMemberSet
 	virtual ERedirectType DoPinsMatchForReconstruction(const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex)  const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
+	virtual void ConvertDeprecatedNode(UEdGraph* Graph, bool bOnlySafeChanges) override;
 	//~ End K2Node Interface
 
 protected:
@@ -62,9 +70,15 @@ protected:
 		const uint8* const SampleStructMemory;
 	public:
 		FMakeStructPinManager(const uint8* InSampleStructMemory);
+
+		bool HasAdvancedPins() const { return bHasAdvancedPins; }
 	protected:
+		virtual void GetRecordDefaults(UProperty* TestProperty, FOptionalPinFromProperty& Record) const override;
 		virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex, UProperty* Property) const override;
 		virtual bool CanTreatPropertyAsOptional(UProperty* TestProperty) const override;
+
+		/** set by GetRecordDefaults(), mutable as it is a const function */
+		mutable bool bHasAdvancedPins;
 	};
 
 private:

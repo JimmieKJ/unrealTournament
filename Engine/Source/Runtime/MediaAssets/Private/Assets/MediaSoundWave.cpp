@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaAssetsPCH.h"
 #include "MediaSoundWave.h"
+#include "Misc/ScopeLock.h"
+#include "MediaAssetsPrivate.h"
 
 
 const int32 ZeroBufferSize = 1024;
@@ -55,10 +56,10 @@ int32 UMediaSoundWave::GeneratePCMData(uint8* Data, const int32 SamplesRequested
 
 		// poor man's re-sampling
 		const float ResampleRatio = (float)SinkSampleRate / 44100.0f;
-		const int32 SamplesAvailable = (QueuedAudio.Num() / sizeof(int16)) / ResampleRatio - 2 * SinkNumChannels;
-		const int32 NumFrames = FMath::Min<int32>(SamplesRequested, SamplesAvailable) / NumChannels;
+		const int32 SamplesAvailable = FPlatformMath::FloorToInt(((QueuedAudio.Num() / sizeof(int16)) - SinkNumChannels) / ResampleRatio);
+		const int32 NumOutputFrames = FMath::Min<int32>(SamplesRequested, SamplesAvailable) / SinkNumChannels;
 		
-		if (NumFrames > 0)
+		if (NumOutputFrames > 0)
 		{
 			int16* InputSamples = (int16*)QueuedAudio.GetData();
 			int16* OutputSamples = (int16*)Data;
@@ -66,7 +67,7 @@ int32 UMediaSoundWave::GeneratePCMData(uint8* Data, const int32 SamplesRequested
 			float InputFrameInterp = 0.0f;
 			int32 InputIndex = 0;
 
-			for (int32 OutputFrame = 0; OutputFrame < NumFrames; ++OutputFrame)
+			for (int32 OutputFrame = 0; OutputFrame < NumOutputFrames; ++OutputFrame)
 			{
 				int32 InputFrame = (int32)InputFrameInterp;
 				float Alpha = InputFrameInterp - InputFrame;
@@ -89,6 +90,17 @@ int32 UMediaSoundWave::GeneratePCMData(uint8* Data, const int32 SamplesRequested
 
 					OutputSamples[0] = OutputSampleL;
 					OutputSamples[1] = OutputSampleR;
+				}
+				else if (SinkNumChannels == 4)
+				{
+					// quadrophonic to stereo
+					const int16 OutputSampleLF = (int16)FMath::Lerp((float)InputSamples[InputIndex], (float)InputSamples[InputIndex + 4], Alpha);
+					const int16 OutputSampleRF = (int16)FMath::Lerp((float)InputSamples[InputIndex + 1], (float)InputSamples[InputIndex + 5], Alpha);
+					const int16 OutputSampleLB = (int16)FMath::Lerp((float)InputSamples[InputIndex + 2], (float)InputSamples[InputIndex + 6], Alpha);
+					const int16 OutputSampleRB = (int16)FMath::Lerp((float)InputSamples[InputIndex + 3], (float)InputSamples[InputIndex + 7], Alpha);
+
+					OutputSamples[0] = (OutputSampleLF + OutputSampleRF) / 2;
+					OutputSamples[1] = (OutputSampleLB + OutputSampleRB) / 2;
 				}
 				else if (SinkNumChannels == 6)
 				{
@@ -118,7 +130,7 @@ int32 UMediaSoundWave::GeneratePCMData(uint8* Data, const int32 SamplesRequested
 	// return zero samples if paused or buffer underrun
 	if (!Paused && (SinkNumChannels > 0) && (SinkSampleRate > 0))
 	{
-		UE_LOG(LogMediaAssets, Verbose, TEXT("MediaSoundWave buffer underrun."));
+		UE_LOG(LogMediaAssets, VeryVerbose, TEXT("MediaSoundWave buffer underrun."));
 	}
 
 	FMemory::Memzero(Data, ZeroBufferSize);
@@ -168,9 +180,9 @@ void UMediaSoundWave::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) c
 }
 
 
-SIZE_T UMediaSoundWave::GetResourceSize(EResourceSizeMode::Type Mode)
+void UMediaSoundWave::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	return 0; // procedural sound
+	Super::GetResourceSizeEx(CumulativeResourceSize);
 }
 
 
@@ -209,9 +221,9 @@ bool UMediaSoundWave::InitializeAudioSink(uint32 Channels, uint32 InSampleRate)
 {
 	UE_LOG(LogMediaAssets, Verbose, TEXT("MediaSoundWave initializing sink with %i channels at %i Hz."), Channels, InSampleRate);
 
-	if ((Channels != 1) && (Channels != 2) && (Channels != 6))
+	if ((Channels != 1) && (Channels != 2) && (Channels != 4) && (Channels != 6))
 	{
-		return false; // we currently only support mono, stereo, and 5.1
+		return false; // we currently only support mono, stereo, quadrophonic, and 5.1
 	}
 
 	if ((Channels == SinkNumChannels) && (InSampleRate == SinkSampleRate))

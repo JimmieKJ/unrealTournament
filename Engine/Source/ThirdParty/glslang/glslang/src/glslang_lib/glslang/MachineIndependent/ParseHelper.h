@@ -73,18 +73,30 @@ typedef std::set<int> TIdSetType;
 //
 class TParseContextBase : public TParseVersions {
 public:
-    TParseContextBase(TSymbolTable& symbolTable, TIntermediate& interm, int version,
+    TParseContextBase(TSymbolTable& symbolTable, TIntermediate& interm, bool parsingBuiltins, int version,
                       EProfile profile, const SpvVersion& spvVersion, EShLanguage language,
                       TInfoSink& infoSink, bool forwardCompatible, EShMessages messages)
           : TParseVersions(interm, version, profile, spvVersion, language, infoSink, forwardCompatible, messages),
-            symbolTable(symbolTable), tokensBeforeEOF(false),
-            linkage(nullptr), scanContext(nullptr), ppContext(nullptr) { }
+            symbolTable(symbolTable),
+            parsingBuiltins(parsingBuiltins), scanContext(nullptr), ppContext(nullptr),
+            globalUniformBlock(nullptr)
+    {
+        linkage = new TIntermAggregate;
+    }
     virtual ~TParseContextBase() { }
-    
+
+    virtual void C_DECL   error(const TSourceLoc&, const char* szReason, const char* szToken,
+                                const char* szExtraInfoFormat, ...);
+    virtual void C_DECL    warn(const TSourceLoc&, const char* szReason, const char* szToken,
+                                const char* szExtraInfoFormat, ...);
+    virtual void C_DECL ppError(const TSourceLoc&, const char* szReason, const char* szToken,
+                                const char* szExtraInfoFormat, ...);
+    virtual void C_DECL  ppWarn(const TSourceLoc&, const char* szReason, const char* szToken,
+                                const char* szExtraInfoFormat, ...);
+
     virtual void setLimits(const TBuiltInResource&) = 0;
-    
+
     EShLanguage getLanguage() const { return language; }
-    TIntermAggregate*& getLinkage() { return linkage; }
     void setScanContext(TScanContext* c) { scanContext = c; }
     TScanContext* getScanContext() const { return scanContext; }
     void setPpContext(TPpContext* c) { ppContext = c; }
@@ -125,13 +137,23 @@ public:
     }
 
     TSymbolTable& symbolTable;   // symbol table that goes with the current language, version, and profile
-    bool tokensBeforeEOF;
+
+    // Manage the global uniform block (default uniforms in GLSL, $Global in HLSL)
+    // TODO: This could perhaps get its own object, but the current design doesn't work
+    // yet when new uniform variables are declared between function definitions, so
+    // this is pending getting a fully functional design.
+    virtual void growGlobalUniformBlock(TSourceLoc&, TType&, TString& memberName);
+    virtual bool insertGlobalUniformBlock();
+
+    virtual bool lValueErrorCheck(const TSourceLoc&, const char* op, TIntermTyped*);
+    virtual void rValueErrorCheck(const TSourceLoc&, const char* op, TIntermTyped*);
 
 protected:
     TParseContextBase(TParseContextBase&);
     TParseContextBase& operator=(TParseContextBase&);
 
-    TIntermAggregate* linkage;   // aggregate node of objects the linker may need, if not referenced by the rest of the AST
+    const bool parsingBuiltins;       // true if parsing built-in symbols/functions
+    TVector<TSymbol*> linkageSymbols; // these need to be transferred to 'linkage', after all editing is done
     TScanContext* scanContext;
     TPpContext* ppContext;
 
@@ -142,6 +164,64 @@ protected:
     std::function<void(int, int, const char*)> versionCallback;
     std::function<void(int, const char*, const char*)> extensionCallback;
     std::function<void(int, const char*)> errorCallback;
+
+    // see implementation for detail
+    const TFunction* selectFunction(const TVector<const TFunction*>, const TFunction&,
+        std::function<bool(const TType&, const TType&)>,
+        std::function<bool(const TType&, const TType&, const TType&)>,
+        /* output */ bool& tie);
+
+    // Manage the global uniform block (default uniforms in GLSL, $Global in HLSL)
+    TVariable* globalUniformBlock;   // the actual block, inserted into the symbol table
+    int firstNewMember;              // the index of the first member not yet inserted into the symbol table
+    // override this to set the language-specific name
+    virtual const char* getGlobalUniformBlockName() { return ""; }
+    virtual void finalizeGlobalUniformBlockLayout(TVariable&) { }
+    virtual void outputMessage(const TSourceLoc&, const char* szReason, const char* szToken,
+                               const char* szExtraInfoFormat, TPrefixType prefix,
+                               va_list args);
+    virtual void trackLinkage(TSymbol& symbol);
+    virtual void trackLinkageDeferred(TSymbol& symbol);
+    virtual void makeEditable(TSymbol*&);
+    virtual TVariable* getEditableVariable(const char* name);
+    virtual void finish();
+
+private:
+    TIntermAggregate* linkage;
+};
+
+//
+// Manage the state for when to respect precision qualifiers and when to warn about
+// the defaults being different than might be expected.
+//
+class TPrecisionManager {
+public:
+    TPrecisionManager() : obey(false), warn(false), explicitIntDefault(false), explicitFloatDefault(false){ }
+    virtual ~TPrecisionManager() {}
+
+    void respectPrecisionQualifiers() { obey = true; }
+    bool respectingPrecisionQualifiers() const { return obey; }
+    bool shouldWarnAboutDefaults() const { return warn; }
+    void defaultWarningGiven() { warn = false; }
+    void warnAboutDefaults() { warn = true; }
+    void explicitIntDefaultSeen()
+    {
+        explicitIntDefault = true;
+        if (explicitFloatDefault)
+            warn = false;
+    }
+    void explicitFloatDefaultSeen()
+    {
+        explicitFloatDefault = true;
+        if (explicitIntDefault)
+            warn = false;
+    }
+
+protected:
+    bool obey;                  // respect precision qualifiers
+    bool warn;                  // need to give a warning about the defaults
+    bool explicitIntDefault;    // user set the default for int/uint
+    bool explicitFloatDefault;  // user set the default for float
 };
 
 //
@@ -155,18 +235,12 @@ public:
                   bool forwardCompatible = false, EShMessages messages = EShMsgDefault);
     virtual ~TParseContext();
 
+    bool obeyPrecisionQualifiers() const { return precisionManager.respectingPrecisionQualifiers(); };
+    void setPrecisionDefaults();
+
     void setLimits(const TBuiltInResource&);
     bool parseShaderStrings(TPpContext&, TInputScanner& input, bool versionWillBeError = false);
     void parserError(const char* s);     // for bison's yyerror
-
-    void C_DECL error(const TSourceLoc&, const char* szReason, const char* szToken,
-                      const char* szExtraInfoFormat, ...);
-    void C_DECL  warn(const TSourceLoc&, const char* szReason, const char* szToken,
-                      const char* szExtraInfoFormat, ...);
-    void C_DECL ppError(const TSourceLoc&, const char* szReason, const char* szToken,
-                      const char* szExtraInfoFormat, ...);
-    void C_DECL ppWarn(const TSourceLoc&, const char* szReason, const char* szToken,
-                      const char* szExtraInfoFormat, ...);
 
     void reservedErrorCheck(const TSourceLoc&, const TString&);
     void reservedPpErrorCheck(const TSourceLoc&, const char* name, const char* op);
@@ -181,7 +255,6 @@ public:
     void handleIndexLimits(const TSourceLoc&, TIntermTyped* base, TIntermTyped* index);
 
     void makeEditable(TSymbol*&);
-    TVariable* getEditableVariable(const char* name);
     bool isIoResizeArray(const TType&) const;
     void fixIoArraySize(const TSourceLoc&, TType&);
     void ioArrayCheck(const TSourceLoc&, const TType&, const TString& identifier);
@@ -197,6 +270,8 @@ public:
     TFunction* handleFunctionDeclarator(const TSourceLoc&, TFunction& function, bool prototype);
     TIntermAggregate* handleFunctionDefinition(const TSourceLoc&, TFunction&);
     TIntermTyped* handleFunctionCall(const TSourceLoc&, TFunction*, TIntermNode*);
+    TIntermTyped* handleBuiltInFunctionCall(TSourceLoc, TIntermNode& arguments, const TFunction& function);
+    void computeBuiltinPrecisions(TIntermTyped&, const TFunction&);
     TIntermNode* handleReturnValue(const TSourceLoc&, TIntermTyped*);
     void checkLocation(const TSourceLoc&, TOperator);
     TIntermTyped* handleLengthMethod(const TSourceLoc&, TFunction*, TIntermNode*);
@@ -204,15 +279,19 @@ public:
     TIntermTyped* addOutputArgumentConversions(const TFunction&, TIntermAggregate&) const;
     void builtInOpCheck(const TSourceLoc&, const TFunction&, TIntermOperator&);
     void nonOpBuiltInCheck(const TSourceLoc&, const TFunction&, TIntermAggregate&);
+    void userFunctionCallCheck(const TSourceLoc&, TIntermAggregate&);
+    void samplerConstructorLocationCheck(const TSourceLoc&, const char* token, TIntermNode*);
     TFunction* handleConstructorCall(const TSourceLoc&, const TPublicType&);
+    void handlePrecisionQualifier(const TSourceLoc&, TQualifier&, TPrecisionQualifier);
+    void checkPrecisionQualifier(const TSourceLoc&, TPrecisionQualifier);
 
     bool parseVectorFields(const TSourceLoc&, const TString&, int vecSize, TVectorFields&);
     void assignError(const TSourceLoc&, const char* op, TString left, TString right);
     void unaryOpError(const TSourceLoc&, const char* op, TString operand);
     void binaryOpError(const TSourceLoc&, const char* op, TString left, TString right);
     void variableCheck(TIntermTyped*& nodePtr);
-    bool lValueErrorCheck(const TSourceLoc&, const char* op, TIntermTyped*);
-    void rValueErrorCheck(const TSourceLoc&, const char* op, TIntermTyped*);
+    bool lValueErrorCheck(const TSourceLoc&, const char* op, TIntermTyped*) override;
+    void rValueErrorCheck(const TSourceLoc&, const char* op, TIntermTyped*) override;
     void constantValueCheck(TIntermTyped* node, const char* token);
     void integerCheck(const TIntermTyped* node, const char* token);
     void globalCheck(const TSourceLoc&, const char* token);
@@ -244,7 +323,7 @@ public:
     void precisionQualifierCheck(const TSourceLoc&, TBasicType, TQualifier&);
     void parameterTypeCheck(const TSourceLoc&, TStorageQualifier qualifier, const TType& type);
     bool containsFieldWithBasicType(const TType& type ,TBasicType basicType);
-    TSymbol* redeclareBuiltinVariable(const TSourceLoc&, const TString&, const TQualifier&, const TShaderQualifiers&, bool& newDeclaration);
+    TSymbol* redeclareBuiltinVariable(const TSourceLoc&, const TString&, const TQualifier&, const TShaderQualifiers&);
     void redeclareBuiltinBlock(const TSourceLoc&, TTypeList& typeList, const TString& blockName, const TString* instanceName, TArraySizes* arraySizes);
     void paramCheckFix(const TSourceLoc&, const TStorageQualifier&, TType& type);
     void paramCheckFix(const TSourceLoc&, const TQualifier&, TType& type);
@@ -276,7 +355,7 @@ public:
     const TFunction* findFunction400(const TSourceLoc& loc, const TFunction& call, bool& builtIn);
     void declareTypeDefaults(const TSourceLoc&, const TPublicType&);
     TIntermNode* declareVariable(const TSourceLoc&, TString& identifier, const TPublicType&, TArraySizes* typeArray = 0, TIntermTyped* initializer = 0);
-    TIntermTyped* addConstructor(const TSourceLoc&, TIntermNode*, const TType&, TOperator);
+    TIntermTyped* addConstructor(const TSourceLoc&, TIntermNode*, const TType&);
     TIntermTyped* constructAggregate(TIntermNode*, const TType&, int, const TSourceLoc&);
     TIntermTyped* constructBuiltIn(const TType&, TOperator, TIntermTyped*, const TSourceLoc&, bool subset);
     void declareBlock(const TSourceLoc&, TTypeList& typeList, const TString* instanceName = 0, TArraySizes* arraySizes = 0);
@@ -298,15 +377,11 @@ protected:
     void nonInitConstCheck(const TSourceLoc&, TString& identifier, TType& type);
     void inheritGlobalDefaults(TQualifier& dst) const;
     TVariable* makeInternalVariable(const char* name, const TType&) const;
-    TVariable* declareNonArray(const TSourceLoc&, TString& identifier, TType&, bool& newDeclaration);
-    void declareArray(const TSourceLoc&, TString& identifier, const TType&, TSymbol*&, bool& newDeclaration);
+    TVariable* declareNonArray(const TSourceLoc&, TString& identifier, TType&);
+    void declareArray(const TSourceLoc&, TString& identifier, const TType&, TSymbol*&);
     TIntermNode* executeInitializer(const TSourceLoc&, TIntermTyped* initializer, TVariable* variable);
     TIntermTyped* convertInitializerList(const TSourceLoc&, const TType&, TIntermTyped* initializer);
-    TOperator mapTypeToConstructorOp(const TType&) const;
-    void finalErrorCheck();
-    void outputMessage(const TSourceLoc&, const char* szReason, const char* szToken,
-                       const char* szExtraInfoFormat, TPrefixType prefix,
-                       va_list args);
+    void finish() override;
 
 public:
     //
@@ -335,10 +410,9 @@ protected:
     TParseContext(TParseContext&);
     TParseContext& operator=(TParseContext&);
 
-    const bool parsingBuiltins;        // true if parsing built-in symbols/functions
     static const int maxSamplerIndex = EsdNumDims * (EbtNumTypes * (2 * 2 * 2 * 2 * 2)); // see computeSamplerTypeIndex()
     TPrecisionQualifier defaultSamplerPrecision[maxSamplerIndex];
-    bool afterEOF;
+    TPrecisionManager precisionManager;
     TQualifier globalBufferDefaults;
     TQualifier globalUniformDefaults;
     TQualifier globalInputDefaults;

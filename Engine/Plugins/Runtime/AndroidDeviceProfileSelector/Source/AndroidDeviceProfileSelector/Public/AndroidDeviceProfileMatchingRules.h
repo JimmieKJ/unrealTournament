@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
 #include "AndroidDeviceProfileMatchingRules.generated.h"
 
 UENUM()
@@ -13,6 +15,7 @@ enum ESourceType
 	SRC_AndroidVersion,
 	SRC_DeviceMake,
 	SRC_DeviceModel,
+	SRC_VulkanVersion,
 	SRC_MAX,
 };
 

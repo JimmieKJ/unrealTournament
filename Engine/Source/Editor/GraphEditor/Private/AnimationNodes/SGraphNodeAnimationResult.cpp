@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "AnimGraphDefinitions.h"
-#include "SGraphNodeAnimationResult.h"
-#include "EdGraph/EdGraphNode.h"
+#include "AnimationNodes/SGraphNodeAnimationResult.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
 #include "AnimGraphNode_Base.h"
 
 /////////////////////////////////////////////////////

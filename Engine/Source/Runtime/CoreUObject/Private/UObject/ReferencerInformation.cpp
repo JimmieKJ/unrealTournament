@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 
 FReferencerInformation::FReferencerInformation( UObject* inReferencer, int32 InReferences, const TArray<const UProperty*>& InProperties )
 : Referencer(inReferencer), TotalReferences(InReferences), ReferencingProperties(InProperties)

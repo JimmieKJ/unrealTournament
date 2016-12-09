@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LeapMotionPrivatePCH.h"
+#include "AnimFinger.h"
 #include "LeapFinger.h"
 #include "LeapBone.h"
-#include "AnimFinger.h"
 #include "LeapInterfaceUtility.h"
 
 UAnimFinger::UAnimFinger(const class FObjectInitializer& Init)

@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PerforceSourceControlPrivatePCH.h"
 #include "PerforceSourceControlOperations.h"
-#include "PerforceSourceControlState.h"
+#include "PerforceSourceControlPrivate.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "SourceControlOperations.h"
+#include "PerforceSourceControlRevision.h"
 #include "PerforceSourceControlCommand.h"
 #include "PerforceConnection.h"
 #include "PerforceSourceControlModule.h"
-#include "PerforceSourceControlRevision.h"
 #include "SPerforceSourceControlSettings.h"
 
 #define LOCTEXT_NAMESPACE "PerforceSourceControl"
@@ -182,6 +185,19 @@ static bool CheckWorkspaceRecordSet(const FP4RecordSet& InRecords, TArray<FText>
 	return false;
 }
 
+static void AppendChangelistParameter(TArray<FString>& InOutParams)
+{
+	FPerforceSourceControlModule& PerforceSourceControl = FModuleManager::LoadModuleChecked<FPerforceSourceControlModule>("PerforceSourceControl");
+	FPerforceSourceControlSettings& Settings = PerforceSourceControl.AccessSettings();
+
+	const FString& ChangelistNumber = Settings.GetChangelistNumber();
+	if ( !ChangelistNumber.IsEmpty() )
+	{
+		InOutParams.Add(TEXT("-c"));
+		InOutParams.Add(ChangelistNumber);
+	}
+}
+
 FName FPerforceConnectWorker::GetName() const
 {
 	return "Connect";
@@ -246,14 +262,7 @@ bool FPerforceCheckOutWorker::Execute(FPerforceSourceControlCommand& InCommand)
 		FPerforceConnection& Connection = ScopedConnection.GetConnection();
 		TArray<FString> Parameters;
 
-		FPerforceSourceControlModule& PerforceSourceControl = FModuleManager::LoadModuleChecked<FPerforceSourceControlModule>("PerforceSourceControl");
-		FPerforceSourceControlSettings& Settings = PerforceSourceControl.AccessSettings();
-		if (Settings.GetChangelistNumber().IsEmpty() == false)
-		{
-			Parameters.Add(TEXT("-c"));
-			Parameters.Add(Settings.GetChangelistNumber());
-			// Parameters.Add(FString::Printf(TEXT("-c %s"), *Settings.GetChangelistNumber()));
-		}
+		AppendChangelistParameter(Parameters);
 
 		Parameters.Append(InCommand.Files);
 		FP4RecordSet Records;
@@ -412,7 +421,10 @@ bool FPerforceMarkForAddWorker::Execute(FPerforceSourceControlCommand& InCommand
 		FPerforceConnection& Connection = ScopedConnection.GetConnection();
 		TArray<FString> Parameters;
 		FP4RecordSet Records;
+
+		AppendChangelistParameter(Parameters);
 		Parameters.Append(InCommand.Files);
+
 		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("add"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 		ParseRecordSetForState(Records, OutResults);
 	}
@@ -436,7 +448,10 @@ bool FPerforceDeleteWorker::Execute(FPerforceSourceControlCommand& InCommand)
 	{
 		FPerforceConnection& Connection = ScopedConnection.GetConnection();
 		TArray<FString> Parameters;
+
+		AppendChangelistParameter(Parameters);
 		Parameters.Append(InCommand.Files);
+
 		FP4RecordSet Records;
 		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("delete"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 		ParseRecordSetForState(Records, OutResults);
@@ -461,7 +476,10 @@ bool FPerforceRevertWorker::Execute(FPerforceSourceControlCommand& InCommand)
 	{
 		FPerforceConnection& Connection = ScopedConnection.GetConnection();
 		TArray<FString> Parameters;
+
+		AppendChangelistParameter(Parameters);
 		Parameters.Append(InCommand.Files);
+
 		FP4RecordSet Records;
 		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("revert"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 		ParseRecordSetForState(Records, OutResults);
@@ -943,6 +961,9 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			Parameters.Append(InCommand.Files);
 			InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("filelog"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 			ParseHistoryResults(Records, OutStates, OutHistory);
+			RemoveRedundantErrors(InCommand, TEXT(" - no such file(s)."));
+			RemoveRedundantErrors(InCommand, TEXT(" - file(s) not on client"));
+			RemoveRedundantErrors(InCommand, TEXT("' is not under client's root '"));
 		}
 
 		if(Operation->ShouldGetOpenedOnly())
@@ -954,6 +975,8 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			FP4RecordSet Records;
 			InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("opened"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 			ParseOpenedResults(Records, ANSI_TO_TCHAR(Connection.P4Client.GetClient().Text()), Connection.ClientRoot, OutStateMap);
+			RemoveRedundantErrors(InCommand, TEXT(" - no such file(s)."));
+			RemoveRedundantErrors(InCommand, TEXT("' is not under client's root '"));
 		}
 
 		if(Operation->ShouldUpdateModifiedState())
@@ -967,6 +990,9 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 
 			// Parse the results and store them in the command
 			ParseDiffResults(Records, OutModifiedFiles);
+			RemoveRedundantErrors(InCommand, TEXT(" - no such file(s)."));
+			RemoveRedundantErrors(InCommand, TEXT(" - file(s) not opened for edit"));
+			RemoveRedundantErrors(InCommand, TEXT("' is not under client's root '"));
 		}
 	}
 #endif
@@ -1066,6 +1092,9 @@ bool FPerforceCopyWorker::Execute(class FPerforceSourceControlCommand& InCommand
 		FString DestinationPath = FPaths::ConvertRelativePathToFull(Operation->GetDestination());
 
 		TArray<FString> Parameters;
+
+		AppendChangelistParameter(Parameters);
+
 		Parameters.Append(InCommand.Files);
 		Parameters.Add(DestinationPath);
 		
@@ -1106,8 +1135,10 @@ bool FPerforceResolveWorker::Execute(class FPerforceSourceControlCommand& InComm
 		FPerforceConnection& Connection = ScopedConnection.GetConnection();
 
 		TArray<FString> Parameters;
+
 		Parameters.Add("-ay");
 		Parameters.Append(InCommand.Files);
+		AppendChangelistParameter(Parameters);
 
 		FP4RecordSet Records;
 		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("resolve"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);

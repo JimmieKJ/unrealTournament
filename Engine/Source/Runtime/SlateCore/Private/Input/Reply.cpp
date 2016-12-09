@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
+#include "Input/Reply.h"
+
+FReply& FReply::SetMousePos(const FIntPoint& NewMousePos)
+{
+	this->RequestedMousePos = NewMousePos;
+	return Me();
+}
 
 FReply& FReply::SetUserFocus(TSharedRef<SWidget> GiveMeFocus, EFocusCause ReasonFocusIsChanging, bool bInAllUsers)
 {

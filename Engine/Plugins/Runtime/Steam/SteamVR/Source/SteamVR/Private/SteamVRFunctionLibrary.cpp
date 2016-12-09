@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
-#include "SteamVRPrivatePCH.h"
 #include "Classes/SteamVRFunctionLibrary.h"
+#include "SteamVRPrivate.h"
 #include "SteamVRHMD.h"
 
 USteamVRFunctionLibrary::USteamVRFunctionLibrary(const FObjectInitializer& ObjectInitializer)
@@ -21,7 +21,7 @@ FSteamVRHMD* GetSteamVRHMD()
 }
 #endif // STEAMVR_SUPPORTED_PLATFORMS
 
-void USteamVRFunctionLibrary::GetValidTrackedDeviceIds(TEnumAsByte<ESteamVRTrackedDeviceType> DeviceType, TArray<int32>& OutTrackedDeviceIds)
+void USteamVRFunctionLibrary::GetValidTrackedDeviceIds(ESteamVRTrackedDeviceType DeviceType, TArray<int32>& OutTrackedDeviceIds)
 {
 #if STEAMVR_SUPPORTED_PLATFORMS
 	OutTrackedDeviceIds.Empty();

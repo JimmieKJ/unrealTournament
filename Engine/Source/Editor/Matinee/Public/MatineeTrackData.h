@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/Casts.h"
+#include "Matinee/InterpGroup.h"
 #include "Matinee/InterpTrack.h"
 
 /*-----------------------------------------------------------------------------

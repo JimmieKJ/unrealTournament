@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "WorkflowOrientedApp/WorkflowTabFactory.h"
 #include "WorkflowOrientedApp/ApplicationMode.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/Docking/LayoutService.h"
 
 #define LOCTEXT_NAMESPACE "ApplicationMode"
 

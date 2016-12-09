@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-
 #include "EditorFramework/AssetImportData.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/PackageName.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "UObject/Package.h"
+
 
 // This whole class is compiled out in non-editor
 UAssetImportData::UAssetImportData(const FObjectInitializer& ObjectInitializer)
@@ -117,6 +122,23 @@ void UAssetImportData::Update(const FString& InPath, FMD5Hash *Md5Hash/* = nullp
 	
 	OnImportDataChanged.Broadcast(Old, this);
 }
+
+//@third party BEGIN SIMPLYGON
+void UAssetImportData::Update(const FString& InPath, const FMD5Hash InPreComputedHash)
+{
+	FAssetImportInfo Old = SourceData;
+
+	// Reset our current data
+	SourceData.SourceFiles.Reset();
+	SourceData.SourceFiles.Emplace(
+		SanitizeImportFilename(InPath),
+		IFileManager::Get().GetTimeStamp(*InPath),
+		InPreComputedHash
+	);
+
+	OnImportDataChanged.Broadcast(Old, this);
+}
+//@third party END SIMPLYGON
 
 FString UAssetImportData::GetFirstFilename() const
 {

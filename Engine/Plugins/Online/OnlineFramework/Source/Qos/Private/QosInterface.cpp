@@ -1,9 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "QosPrivatePCH.h"
 #include "QosInterface.h"
-#include "QosRegionManager.h"
-#include "QosEvaluator.h"
 #include "QosModule.h"
 
 //static 

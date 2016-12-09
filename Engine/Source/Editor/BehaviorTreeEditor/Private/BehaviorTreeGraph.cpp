@@ -1,15 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "BehaviorTreeEditorModule.h"
+#include "BehaviorTreeGraph.h"
+#include "EdGraph/EdGraphPin.h"
+#include "SGraphNode.h"
+#include "BehaviorTree/BTNode.h"
+#include "BehaviorTree/BTService.h"
+#include "BehaviorTree/BTTaskNode.h"
+#include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTree/BTCompositeNode.h"
+#include "AIGraphTypes.h"
+#include "BehaviorTreeEditorTypes.h"
+#include "BehaviorTreeGraphNode.h"
+#include "BehaviorTreeGraphNode_Composite.h"
+#include "BehaviorTreeGraphNode_CompositeDecorator.h"
+#include "BehaviorTreeGraphNode_Decorator.h"
+#include "BehaviorTreeGraphNode_Root.h"
+#include "BehaviorTreeGraphNode_Service.h"
+#include "BehaviorTreeGraphNode_Task.h"
+#include "EdGraphSchema_BehaviorTree.h"
+#include "SGraphPanel.h"
+#include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
 #include "BehaviorTree/Composites/BTComposite_SimpleParallel.h"
-#include "BehaviorTree/BTDecorator.h"
-#include "BehaviorTree/BTService.h"
-#include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/Composites/BTComposite_SimpleParallel.h"
 #include "BehaviorTree/Tasks/BTTask_Wait.h"
-#include "Classes/BehaviorTreeGraphNode_SimpleParallel.h"
-#include "Classes/BehaviorTreeGraphNode_SubtreeTask.h"
+#include "BehaviorTreeGraphNode_SimpleParallel.h"
+#include "BehaviorTreeGraphNode_SubtreeTask.h"
 
 //////////////////////////////////////////////////////////////////////////
 // BehaviorTreeGraph
@@ -192,8 +206,9 @@ void UBehaviorTreeGraph::UpdatePinConnectionTypes()
 	for (int32 Index = 0; Index < Nodes.Num(); ++Index)
 	{
 		UEdGraphNode* Node = Nodes[Index];
+		check(Node);
 
-		const bool bIsCompositeNode = Node && Node->IsA(UBehaviorTreeGraphNode_Composite::StaticClass());
+		const bool bIsCompositeNode = Node->IsA(UBehaviorTreeGraphNode_Composite::StaticClass());
 
 		for (int32 iPin = 0; iPin < Node->Pins.Num(); iPin++)
 		{
@@ -213,6 +228,7 @@ void UBehaviorTreeGraph::ReplaceNodeConnections(UEdGraphNode* OldNode, UEdGraphN
 	for (int32 Index = 0; Index < Nodes.Num(); ++Index)
 	{
 		UEdGraphNode* Node = Nodes[Index];
+		check(Node);
 		for (int32 PinIndex = 0; PinIndex < Node->Pins.Num(); PinIndex++)
 		{
 			UEdGraphPin* Pin = Node->Pins[PinIndex];
@@ -223,6 +239,9 @@ void UBehaviorTreeGraph::ReplaceNodeConnections(UEdGraphNode* OldNode, UEdGraphN
 
 				if (LinkedNode == OldNode)
 				{
+					check(OldNode);
+					check(LinkedPin);
+
 					const int32 LinkedPinIndex = OldNode->Pins.IndexOfByKey(LinkedPin);
 					Pin->LinkedTo[LinkedIndex] = NewNode->Pins[LinkedPinIndex];
 					LinkedPin->LinkedTo.Remove(Pin);
@@ -1223,6 +1242,11 @@ void UBehaviorTreeGraph::AutoArrange()
 		{
 			break;
 		}
+	}
+
+	if (!RootNode)
+	{
+		return;
 	}
 
 	BTAutoArrangeHelpers::FNodeBoundsInfo BBoxTree;

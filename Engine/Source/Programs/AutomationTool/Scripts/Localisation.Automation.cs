@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.IO;
+using System.Security.Cryptography;
 using AutomationTool;
 using UnrealBuildTool;
 using EpicGames.Localization;
@@ -155,14 +156,62 @@ class Localise : BuildCommand
 			}
 		}
 
+		// Create a single changelist to use for all changes, and hash the current PO files on disk so we can work out whether they actually change
+		int PendingChangeList = 0;
+		Dictionary<string, byte[]> InitalPOFileHashes = null;
+		if (P4Enabled)
+		{
+			PendingChangeList = P4.CreateChange(P4Env.Client, "Localization Automation");
+			InitalPOFileHashes = GetPOFileHashes(LocalizationBatches, UEProjectRoot);
+		}
+
 		// Process each localization batch
 		foreach (var LocalizationBatch in LocalizationBatches)
 		{
-			ProcessLocalizationProjects(LocalizationBatch, UEProjectRoot, UEProjectName, LocalizationProviderName, LocalizationSteps, AdditionalCommandletArguments);
+			ProcessLocalizationProjects(LocalizationBatch, PendingChangeList, UEProjectRoot, UEProjectName, LocalizationProviderName, LocalizationSteps, AdditionalCommandletArguments);
+		}
+
+		// Submit that single changelist now
+		if (P4Enabled && AllowSubmit)
+		{
+			// Revert any PO files that haven't changed aside from their header
+			{
+				var POFilesToRevert = new List<string>();
+
+				var CurrentPOFileHashes = GetPOFileHashes(LocalizationBatches, UEProjectRoot);
+				foreach (var CurrentPOFileHashPair in CurrentPOFileHashes)
+				{
+					byte[] InitialPOFileHash;
+					if (InitalPOFileHashes.TryGetValue(CurrentPOFileHashPair.Key, out InitialPOFileHash) && InitialPOFileHash.SequenceEqual(CurrentPOFileHashPair.Value))
+					{
+						POFilesToRevert.Add(CurrentPOFileHashPair.Key);
+					}
+				}
+
+				if (POFilesToRevert.Count > 0)
+				{
+					var P4RevertCommandline = new StringBuilder();
+					foreach (var POFileToRevert in POFilesToRevert)
+					{
+						P4RevertCommandline.Append('"');
+						P4RevertCommandline.Append(POFileToRevert);
+						P4RevertCommandline.Append('"');
+						P4RevertCommandline.Append(' ');
+					}
+
+					P4.Revert(P4RevertCommandline.ToString());
+				}
+			}
+
+			// Revert any other unchanged files
+			P4.RevertUnchanged(PendingChangeList);
+
+			int SubmittedChangeList;
+			P4.Submit(PendingChangeList, out SubmittedChangeList);
 		}
 	}
 
-	private void ProcessLocalizationProjects(LocalizationBatch LocalizationBatch, string UEProjectRoot, string UEProjectName, string LocalizationProviderName, List<string> LocalizationSteps, string AdditionalCommandletArguments)
+	private void ProcessLocalizationProjects(LocalizationBatch LocalizationBatch, int PendingChangeList, string UEProjectRoot, string UEProjectName, string LocalizationProviderName, List<string> LocalizationSteps, string AdditionalCommandletArguments)
 	{
 		var EditorExe = CombinePaths(CmdEnv.LocalRoot, @"Engine/Binaries/Win64/UE4Editor-Cmd.exe");
 		var RootWorkingDirectory = CombinePaths(UEProjectRoot, LocalizationBatch.UEProjectDirectory);
@@ -174,6 +223,7 @@ class Localise : BuildCommand
 			LocProviderArgs.RootWorkingDirectory = RootWorkingDirectory;
 			LocProviderArgs.RemoteFilenamePrefix = LocalizationBatch.RemoteFilenamePrefix;
 			LocProviderArgs.CommandUtils = this;
+			LocProviderArgs.PendingChangeList = PendingChangeList;
 			LocProvider = LocalizationProvider.GetLocalizationProvider(LocalizationProviderName, LocProviderArgs);
 		}
 
@@ -205,17 +255,13 @@ class Localise : BuildCommand
 		string EditorArguments = String.Empty;
 		if (P4Enabled)
 		{
-			EditorArguments = String.Format("-SCCProvider={0} -P4Port={1} -P4User={2} -P4Client={3} -P4Passwd={4}", "Perforce", P4Env.P4Port, P4Env.User, P4Env.Client, P4.GetAuthenticationToken());
+			EditorArguments = String.Format("-SCCProvider={0} -P4Port={1} -P4User={2} -P4Client={3} -P4Passwd={4} -P4Changelist={5} -EnableSCC -DisableSCCSubmit", "Perforce", P4Env.P4Port, P4Env.User, P4Env.Client, P4.GetAuthenticationToken(), PendingChangeList);
 		}
 		else
 		{
 			EditorArguments = String.Format("-SCCProvider={0}", "None");
 		}
-
-		// Setup commandlet arguments for SCC.
-		string CommandletSCCArguments = String.Empty;
-		if (P4Enabled) { CommandletSCCArguments += (String.IsNullOrEmpty(CommandletSCCArguments) ? "" : " ") + "-EnableSCC"; }
-		if (!AllowSubmit) { CommandletSCCArguments += (String.IsNullOrEmpty(CommandletSCCArguments) ? "" : " ") + "-DisableSCCSubmit"; }
+		EditorArguments += " -Unattended";
 
 		// Execute commandlet for each config in each project.
 		bool bLocCommandletFailed = false;
@@ -228,7 +274,7 @@ class Localise : BuildCommand
 					continue;
 				}
 
-				var CommandletArguments = String.Format("-config=\"{0}\"", LocalizationStep.LocalizationConfigFile) + (String.IsNullOrEmpty(CommandletSCCArguments) ? "" : " " + CommandletSCCArguments);
+				var CommandletArguments = String.Format("-config=\"{0}\"", LocalizationStep.LocalizationConfigFile);
 
 				if (!String.IsNullOrEmpty(AdditionalCommandletArguments))
 				{
@@ -366,5 +412,45 @@ class Localise : BuildCommand
 		}
 
 		return ProjectImportExportInfo;
+	}
+
+	private Dictionary<string, byte[]> GetPOFileHashes(List<LocalizationBatch> LocalizationBatches, string UEProjectRoot)
+	{
+		var AllFiles = new Dictionary<string, byte[]>();
+
+		foreach (var LocalizationBatch in LocalizationBatches)
+		{
+			var LocalizationPath = CombinePaths(UEProjectRoot, LocalizationBatch.UEProjectDirectory, "Content", "Localization");
+
+			string[] POFileNames = Directory.GetFiles(LocalizationPath, "*.po", SearchOption.AllDirectories);
+			foreach (var POFileName in POFileNames)
+			{
+				using (StreamReader POFileReader = File.OpenText(POFileName))
+				{
+					// Don't include the PO header (everything up to the first empty line) in the hash as it contains transient information (like timestamps) that we don't care about
+					bool bHasParsedHeader = false;
+					var POFileHash = MD5.Create();
+
+					string POFileLine;
+					while ((POFileLine = POFileReader.ReadLine()) != null)
+					{
+						if (!bHasParsedHeader)
+						{
+							bHasParsedHeader = POFileLine.Length == 0;
+							continue;
+						}
+
+						var POFileLineBytes = Encoding.UTF8.GetBytes(POFileLine);
+						POFileHash.TransformBlock(POFileLineBytes, 0, POFileLineBytes.Length, null, 0);
+					}
+
+					POFileHash.TransformFinalBlock(new byte[0], 0, 0);
+
+					AllFiles.Add(POFileName, POFileHash.Hash);
+				}
+			}
+		}
+
+		return AllFiles;
 	}
 }

@@ -2,18 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
+#include "IMediaOverlaySink.h"
 #include "MediaPlayer.generated.h"
 
-
-class FMediaCaptionSink;
-class UMediaPlaylist;
-class UMediaSource;
-class UMediaSoundWave;
-class UMediaTexture;
 class IMediaOptions;
 class IMediaPlayer;
+class UMediaPlaylist;
+class UMediaSoundWave;
+class UMediaSource;
+class UMediaTexture;
 enum class EMediaEvent;
-
 
 /** Multicast delegate that is invoked when a media event occurred in the player. */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnMediaPlayerMediaEvent);
@@ -27,27 +29,51 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMediaPlayerMediaOpenFailed, FStri
 
 /**
  * Media track types.
+ *
+ * Note: Keep this in sync with EMediaTrackType
  */
 UENUM(BlueprintType)
 enum class EMediaPlayerTrack : uint8
 {
-	/** Audio tracks. */
+	/** Audio track. */
 	Audio,
 
-	/** Binary data tracks. */
+	/** Binary data track. */
 	Binary,
 
-	/** Caption (subtitle) tracks) */
+	/** Caption track. */
 	Caption,
 
-	/** Still image tracks. */
-	Image,
-
-	/** Script tracks. */
+	/** Script track. */
 	Script,
 
-	/** Video tracks. */
+	/** Subtitle track. */
+	Subtitle,
+
+	/** Text track. */
+	Text,
+
+	/** Video track. */
 	Video
+};
+
+
+USTRUCT(BlueprintType)
+struct FMediaPlayerOverlay
+{
+	GENERATED_BODY()
+
+	/** Whether the text position is set. */
+	UPROPERTY()
+	bool HasPosition;
+
+	/** The text position. */
+	UPROPERTY()
+	FVector2D Position;
+
+	/** The overlay text. */
+	UPROPERTY()
+	FText Text;
 };
 
 
@@ -57,13 +83,14 @@ enum class EMediaPlayerTrack : uint8
 UCLASS(BlueprintType, hidecategories=(Object))
 class MEDIAASSETS_API UMediaPlayer
 	: public UObject
+	, public IMediaOverlaySink
 {
 	GENERATED_UCLASS_BODY()
 
 public:
 
 	/**
-	 * Checks whether media playback can be paused right now.
+	 * Check whether media playback can be paused right now.
 	 *
 	 * Playback can be paused if the media supports pausing and if it is currently playing.
 	 *
@@ -74,6 +101,30 @@ public:
 	bool CanPause() const;
 
 	/**
+	 * Check whether the specified media source can be played by this player.
+	 *
+	 * If a desired player name is set for this player (DesiredPlayerName), it will
+	 * only check whether that particular player type can play the specified source.
+	 *
+	 * @param MediaSource The media source to check.
+	 * @return true if the media source can be opened, false otherwise.
+	 * @see CanPlayUrl, DesiredPlayerName
+	 */
+	bool CanPlaySource(UMediaSource* MediaSource);
+
+	/**
+	 * Check whether the specified URL can be played by this player.
+	 *
+	 * If a desired player name is set for this player (DesiredPlayerName), it will
+	 * only check whether that particular player type can play the specified URL.
+	 *
+	 * @param Url The URL to check.
+	 * @see CanPlaySource, DesiredPlayerName
+	 */
+	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
+	bool CanPlayUrl(const FString& Url);
+
+	/**
 	 * Close the currently open media, if any.
 	 *
 	 * @see OnMediaClosed, OpenPlaylist, OpenPlaylistIndex, OpenSource, OpenUrl, Pause, Play
@@ -82,12 +133,16 @@ public:
 	void Close();
 
 	/**
-	 * Get the current caption/subtitle text, if any.
+	 * Get the current caption text overlays, if any.
 	 *
-	 * @return Caption text.
+	 * @param OutCaptions Will contain the caption text overlays.
+	 * @see GetSubtitles, GetTexts
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
-	FText GetCaptionText() const;
+	void GetCaptions(TArray<FMediaPlayerOverlay>& OutCaptions) const
+	{
+		GetOverlays(EMediaOverlayType::Caption, OutCaptions);
+	}
 
 	/**
 	 * Get the media's duration.
@@ -121,7 +176,7 @@ public:
 	/**
 	 * Get the name of the current native media player.
 	 *
-	 * @return Player name.
+	 * @return Player name, or NAME_None if not available.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
 	FName GetPlayerName() const;
@@ -154,6 +209,30 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
 	int32 GetSelectedTrack(EMediaPlayerTrack TrackType) const;
+
+	/**
+	 * Get the current subtitle text overlays, if any.
+	 *
+	 * @param OutSubtitles Will contain the caption text overlays.
+	 * @see GetCaptions, GetTexts
+	 */
+	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
+	void GetSubtitles(TArray<FMediaPlayerOverlay>& OutSubtitles) const
+	{
+		GetOverlays(EMediaOverlayType::Subtitle, OutSubtitles);
+	}
+
+	/**
+	 * Get the current generic text overlays, if any.
+	 *
+	 * @param OutTexts Will contain the text overlays.
+	 * @see GetCaptions, GetSubtitles
+	 */
+	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
+	void GetTexts(TArray<FMediaPlayerOverlay>& OutTexts) const
+	{
+		GetOverlays(EMediaOverlayType::Text, OutTexts);
+	}
 
 	/**
 	 * Get the media's current playback time.
@@ -259,11 +338,26 @@ public:
 	bool Next();
 
 	/**
+	 * Opens the specified media file path.
+	 *
+	 * A return value of true indicates that the player will attempt to open
+	 * the media, but it may fail to do so later for other reasons, i.e. if
+	 * a connection to the media server timed out. Use the OnMediaOpened and
+	 * OnMediaOpenFailed delegates to detect if and when the media is ready!
+	 *
+	 * @param FilePath The file path to open.
+	 * @return true if the file path will be opened, false otherwise.
+	 * @see GetUrl, Close, OpenPlaylist, OpenPlaylistIndex, OpenSource, OpenUrl, Reopen
+	 */
+	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
+	bool OpenFile(const FString& FilePath);
+
+	/**
 	 * Open the first media source in the specified play list.
 	 *
 	 * @param InPlaylist The play list to open.
 	 * @return true if the source will be opened, false otherwise.
-	 * @see Close, OpenPlaylistIndex, OpenSource, OpenUrl, Reopen
+	 * @see Close, OpenFile, OpenPlaylistIndex, OpenSource, OpenUrl, Reopen
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
 	bool OpenPlaylist(UMediaPlaylist* InPlaylist)
@@ -277,7 +371,7 @@ public:
 	 * @param InPlaylist The play list to open.
 	 * @param Index The index of the source to open.
 	 * @return true if the source will be opened, false otherwise.
-	 * @see Close, OpenPlaylist, OpenSource, OpenUrl, Reopen
+	 * @see Close, OpenFile, OpenPlaylist, OpenSource, OpenUrl, Reopen
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
 	bool OpenPlaylistIndex(UMediaPlaylist* InPlaylist, int32 Index);
@@ -292,7 +386,7 @@ public:
 	 *
 	 * @param MediaSource The media source to open.
 	 * @return true if the source will be opened, false otherwise.
-	 * @see Close, OpenPlaylist, OpenPlaylistIndex, OpenUrl, Reopen
+	 * @see Close, OpenFile, OpenPlaylist, OpenPlaylistIndex, OpenUrl, Reopen
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
 	bool OpenSource(UMediaSource* MediaSource);
@@ -307,7 +401,7 @@ public:
 	 *
 	 * @param Url The URL to open.
 	 * @return true if the URL will be opened, false otherwise.
-	 * @see GetUrl, Close, OpenPlaylist, OpenPlaylistIndex, OpenSource, Reopen
+	 * @see GetUrl, Close, OpenFile, OpenPlaylist, OpenPlaylistIndex, OpenSource, Reopen
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
 	bool OpenUrl(const FString& Url);
@@ -350,7 +444,7 @@ public:
 	 * Reopens the currently opened media or play list.
 	 *
 	 * @return true if the media will be opened, false otherwise.
-	 * @see Close, Open, OpenPlaylist, OpenPlaylistIndex, OpenSource, OpenUrl
+	 * @see Close, Open, OpenFile, OpenPlaylist, OpenPlaylistIndex, OpenSource, OpenUrl
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
 	bool Reopen();
@@ -369,12 +463,12 @@ public:
 	/**
 	 * Seeks to the specified playback time.
 	 *
-	 * @param InTime The playback time to set.
+	 * @param Time The playback time to set.
 	 * @return true on success, false otherwise.
 	 * @see GetTime, Rewind
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
-	bool Seek(const FTimespan& InTime);
+	bool Seek(const FTimespan& Time);
 
 	/**
 	 * Select the active track of the given type.
@@ -390,15 +484,6 @@ public:
 	bool SelectTrack(EMediaPlayerTrack TrackType, int32 TrackIndex);
 
 	/**
-	 * Assign the given texture to the player's image sink.
-	 *
-	 * @param NewTexture The texture to set.
-	 * @see SetSoundWave, SetVideoTexture
-	 */
-	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
-	void SetImageTexture(UMediaTexture* NewTexture);
-
-	/**
 	 * Enables or disables playback looping.
 	 *
 	 * @param Looping Whether playback should be looped.
@@ -406,7 +491,7 @@ public:
 	 * @see IsLooping
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
-	bool SetLooping(bool InLooping);
+	bool SetLooping(bool Looping);
 
 	/**
 	 * Changes the media's playback rate.
@@ -422,7 +507,7 @@ public:
 	 * Assign the given sound wave to the player's audio sink.
 	 *
 	 * @param NewSoundWave The sound wave to set.
-	 * @see SetImageTexture, SetVideoTexture
+	 * @see SetVideoTexture
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
 	void SetSoundWave(UMediaSoundWave* NewSoundWave);
@@ -431,7 +516,7 @@ public:
 	 * Assign the given texture to the player's video sink.
 	 *
 	 * @param NewTexture The texture to set.
-	 * @see SetImageTexture, SetSoundWave
+	 * @see SetSoundWave
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
 	void SetVideoTexture(UMediaTexture* NewTexture);
@@ -514,15 +599,12 @@ public:
 public:
 
 	/**
-	 * Get the media texture that receives the image output.
+	 * Get the text overlays of the specified type.
 	 *
-	 * @return Media texture asset.
-	 * @see GetPlayer, GetSoundWave, GetVideoTexture
+	 * @param Type The type of overlays to get, i.e. captions, subtitles, etc.
+	 * @param OutOverlays Will contain the text overlays.
 	 */
-	UMediaTexture* GetImageTexture() const
-	{
-		return ImageTexture;
-	}
+	void GetOverlays(EMediaOverlayType Type, TArray<FMediaPlayerOverlay>& OutOverlays) const;
 
 	/**
 	 * Get the low-level player associated with this object.
@@ -561,7 +643,7 @@ public:
 	 * Get the sound wave that receives the audio output.
 	 *
 	 * @return Sound wave asset.
-	 * @see GetImageTexture, GetPlayer, GetVideoTexture
+	 * @see GetPlayer, GetVideoTexture
 	 */
 	UMediaSoundWave* GetSoundWave() const
 	{
@@ -572,7 +654,7 @@ public:
 	 * Get the media texture that receives the video output.
 	 *
 	 * @return Media texture asset.
-	 * @see GetImageTexture, GetPlayer, GetSoundWave
+	 * @see GetPlayer, GetSoundWave
 	 */
 	UMediaTexture* GetVideoTexture() const
 	{
@@ -604,6 +686,15 @@ public:
 protected:
 
 	/**
+	 * Find a player that can play the specified media URL.
+	 *
+	 * @param Url The URL to play.
+	 * @param Options The media options for the URL.
+	 * @return The player if found, or nullptr otherwise.
+	 */
+	TSharedPtr<IMediaPlayer> FindPlayerForUrl(const FString& Url, const IMediaOptions& Options);
+
+	/**
 	 * Open a media source from a URL with optional parameters.
 	 *
 	 * @param Url The URL of the media to open (file name or web address).
@@ -614,6 +705,15 @@ protected:
 
 	/** Select the default media tracks. */
 	void SelectDefaultTracks();
+
+protected:
+
+	//~ IMediaOverlaySink interface
+
+	virtual bool InitializeOverlaySink() override;
+	virtual void AddOverlaySinkText(const FText& Text, EMediaOverlayType Type, FTimespan Time, FTimespan Duration, TOptional<FVector2D> Position) override;
+	virtual void ClearOverlaySinkText() override;
+	virtual void ShutdownOverlaySink() override;
 
 public:
 
@@ -630,10 +730,6 @@ public:
 	uint32 Shuffle : 1;
 
 protected:
-
-	/** The media texture to output the image track frames to. */
-	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category=Output, AdvancedDisplay)
-	UMediaTexture* ImageTexture;
 
 	/** Whether the player should loop when media playback reaches the end. */
 	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category=Playback)
@@ -668,22 +764,29 @@ private:
 
 private:
 
-	/** Caption text sink. */
-	FMediaCaptionSink* CaptionSink;
-
 	/** Holds the URL of the currently loaded media source. */
 	FString CurrentUrl;
 
 	/** An event delegate that is invoked when a media event occurred. */
 	FOnMediaEvent MediaEvent;
 
+	struct FOverlay
+	{
+		FTimespan Duration;
+		TOptional<FVector2D> Position;
+		FText Text;
+		FTimespan Time;
+		EMediaOverlayType Type;
+	};
+
+	/** Queued text overlays. */
+	TArray<FOverlay> Overlays;
+
 	/** Holds the low-level player used to play the media source. */
 	TSharedPtr<IMediaPlayer> Player;
 
-	/** Name of the current player. */
-	FName PlayerName;
-
 #if WITH_EDITOR
+	/** Whether the player was playing in PIE/SIE. */
 	bool WasPlayingInPIE;
 #endif
 };

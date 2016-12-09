@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UTBot.h"
+#include "BehaviorTree/BehaviorTreeTypes.h"
 #include "UTCustomBot.generated.h"
 
 class UBlackboardComponent;

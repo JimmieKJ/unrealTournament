@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "Breakpoint.generated.h"
 
+class UEdGraphNode;
 
 UCLASS()
 class ENGINE_API UBreakpoint

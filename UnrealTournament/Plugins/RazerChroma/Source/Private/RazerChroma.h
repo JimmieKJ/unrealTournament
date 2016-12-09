@@ -1,14 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Core.h"
-#include "UnrealTournament.h"
-
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 #include "RzChromaSDKDefines.h"
 #include "RzChromaSDKTypes.h"
 #include "RzErrors.h"
 #include "HideWindowsPlatformTypes.h"
+
+#include "Core.h"
+#include "UnrealTournament.h"
 
 #include "RazerChroma.generated.h"
 

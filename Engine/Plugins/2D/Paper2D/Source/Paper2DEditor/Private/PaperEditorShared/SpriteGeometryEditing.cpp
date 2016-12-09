@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "SpriteGeometryEditing.h"
+#include "PaperEditorShared/SpriteGeometryEditing.h"
+#include "Materials/Material.h"
+#include "CanvasItem.h"
+#include "CanvasTypes.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
+#include "SceneManagement.h"
+#include "UnrealWidget.h"
+#include "PaperEditorShared/AssetEditorSelectedItem.h"
+#include "SpriteEditorOnlyTypes.h"
 #include "SpriteEditor/SpriteEditorSelections.h"
 #include "PaperGeomTools.h"
 #include "DynamicMeshBuilder.h"

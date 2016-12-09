@@ -1,24 +1,37 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerPrivatePCH.h"
-#include "SDockTab.h"
+#include "Widgets/SProfilerToolbar.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "ProfilerCommands.h"
+#include "ProfilerManager.h"
+#include "Widgets/SProfilerFPSChartPanel.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "Profiler"
+
 
 SProfilerToolbar::SProfilerToolbar()
 {
 }
 
+
 SProfilerToolbar::~SProfilerToolbar()
 {
 	// Remove ourselves from the profiler manager.
-	if( FProfilerManager::Get().IsValid() )
+	if(FProfilerManager::Get().IsValid())
 	{
-		FProfilerManager::Get()->OnSessionInstancesUpdated().RemoveAll( this );
+		FProfilerManager::Get()->OnSessionInstancesUpdated().RemoveAll(this);
 	}
 }
 
-void SProfilerToolbar::Construct( const FArguments& InArgs )
+
+void SProfilerToolbar::Construct(const FArguments& InArgs)
 {
 	CreateCommands();
 
@@ -30,39 +43,39 @@ void SProfilerToolbar::Construct( const FArguments& InArgs )
 			{
 				ToolbarBuilder.AddToolBarButton(FProfilerCommands::Get().ProfilerManager_Load);
 				ToolbarBuilder.AddToolBarButton(FProfilerCommands::Get().ProfilerManager_LoadMultiple);
-				ToolbarBuilder.AddToolBarButton( FProfilerCommands::Get().ProfilerManager_Save );
+				ToolbarBuilder.AddToolBarButton(FProfilerCommands::Get().ProfilerManager_Save);
 			}
 			ToolbarBuilder.EndSection();
 			ToolbarBuilder.BeginSection("Capture");
 			{
-				ToolbarBuilder.AddToolBarButton( FProfilerCommands::Get().ToggleDataPreview );
-				ToolbarBuilder.AddToolBarButton( FProfilerCommands::Get().ProfilerManager_ToggleLivePreview );
-				ToolbarBuilder.AddToolBarButton( FProfilerCommands::Get().ToggleDataCapture );
+				ToolbarBuilder.AddToolBarButton(FProfilerCommands::Get().ToggleDataPreview);
+				ToolbarBuilder.AddToolBarButton(FProfilerCommands::Get().ProfilerManager_ToggleLivePreview);
+				ToolbarBuilder.AddToolBarButton(FProfilerCommands::Get().ToggleDataCapture);
 			}
 			ToolbarBuilder.EndSection();
 			ToolbarBuilder.BeginSection("Profilers");
 			{
-				ToolbarBuilder.AddToolBarButton( FProfilerCommands::Get().StatsProfiler );
-				//ToolbarBuilder.AddToolBarButton( FProfilerCommands::Get().MemoryProfiler );
-				ToolbarBuilder.AddToolBarButton( FProfilerCommands::Get().FPSChart );
+				ToolbarBuilder.AddToolBarButton(FProfilerCommands::Get().StatsProfiler);
+				//ToolbarBuilder.AddToolBarButton(FProfilerCommands::Get().MemoryProfiler);
+				ToolbarBuilder.AddToolBarButton(FProfilerCommands::Get().FPSChart);
 			}
 			ToolbarBuilder.EndSection();
 			ToolbarBuilder.BeginSection("Options");
 			{
-				ToolbarBuilder.AddToolBarButton( FProfilerCommands::Get().OpenSettings );
+				ToolbarBuilder.AddToolBarButton(FProfilerCommands::Get().OpenSettings);
 			}
 			ToolbarBuilder.EndSection();
 		}
 	};
 
 	TSharedPtr<FUICommandList> ProfilerCommandList = FProfilerManager::Get()->GetCommandList();
-	FToolBarBuilder ToolbarBuilder( ProfilerCommandList.ToSharedRef(), FMultiBoxCustomization::None );
-	Local::FillToolbar( ToolbarBuilder );
+	FToolBarBuilder ToolbarBuilder(ProfilerCommandList.ToSharedRef(), FMultiBoxCustomization::None);
+	Local::FillToolbar(ToolbarBuilder);
 
 	// Create the tool bar!
 	ChildSlot
 	[
-		SNew( SHorizontalBox )
+		SNew(SHorizontalBox)
 
 		+SHorizontalBox::Slot()
 		.HAlign(HAlign_Left)
@@ -70,10 +83,10 @@ void SProfilerToolbar::Construct( const FArguments& InArgs )
 		.FillWidth(1.0)
 		.Padding(0.0f)
 		[
-			SNew( SBorder )
+			SNew(SBorder)
 			.Padding(0)
-			.BorderImage( FEditorStyle::GetBrush("NoBorder") )
-			.IsEnabled( FSlateApplication::Get().GetNormalExecutionAttribute() )
+			.BorderImage(FEditorStyle::GetBrush("NoBorder"))
+			.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute())
 			[
 				ToolbarBuilder.MakeWidget()
 			]
@@ -81,22 +94,25 @@ void SProfilerToolbar::Construct( const FArguments& InArgs )
 	];
 }
 
+
 void SProfilerToolbar::ShowStats()
 {
-
+	// do nothing
 }
+
 
 void SProfilerToolbar::ShowMemory()
 {
-
+	// do nothing
 }
 
-void DisplayFPSChart( const TSharedRef<FFPSAnalyzer> InFPSAnalyzer )
+
+void DisplayFPSChart(const TSharedRef<FFPSAnalyzer> InFPSAnalyzer)
 {
 	static bool HasRegisteredFPSChart = false;
-	if ( !HasRegisteredFPSChart )
+	if (!HasRegisteredFPSChart)
 	{
-		TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout( "FPSChart_Layout" )
+		TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout("FPSChart_Layout")
 			->AddArea
 			(
 			FTabManager::NewArea(720, 360)
@@ -107,31 +123,33 @@ void DisplayFPSChart( const TSharedRef<FFPSAnalyzer> InFPSAnalyzer )
 			)
 			);
 
-		FGlobalTabmanager::Get()->RestoreFrom( Layout, TSharedPtr<SWindow>() );
+		FGlobalTabmanager::Get()->RestoreFrom(Layout, TSharedPtr<SWindow>());
 		HasRegisteredFPSChart = true;
 	}
 
 	FGlobalTabmanager::Get()->InsertNewDocumentTab
 	(
 		"FPSChart", FTabManager::ESearchPreference::RequireClosedTab,
-		SNew( SDockTab )
-		.Label( LOCTEXT("Label_FPSHistogram", "FPS Histogram") )
-		.TabRole( ETabRole::DocumentTab )
+		SNew(SDockTab)
+		.Label(LOCTEXT("Label_FPSHistogram", "FPS Histogram"))
+		.TabRole(ETabRole::DocumentTab)
 		[
-			SNew( SProfilerFPSChartPanel )
-			.FPSAnalyzer( InFPSAnalyzer )
+			SNew(SProfilerFPSChartPanel)
+			.FPSAnalyzer(InFPSAnalyzer)
 		]
 	);
 }
 
+
 void SProfilerToolbar::ShowFPSChart()
 {
-	const FProfilerSessionPtr ProfilerSession = FProfilerManager::Get()->GetProfilerSession();
+	const TSharedPtr<FProfilerSession> ProfilerSession = FProfilerManager::Get()->GetProfilerSession();
 	if (ProfilerSession.IsValid())
 	{
-		DisplayFPSChart( ProfilerSession->FPSAnalyzer );
+		DisplayFPSChart(ProfilerSession->FPSAnalyzer);
 	}
 }
+
 
 void SProfilerToolbar::CreateCommands()
 {
@@ -139,30 +157,31 @@ void SProfilerToolbar::CreateCommands()
 	const FProfilerCommands& Commands = FProfilerCommands::Get();
 
 	// Save command
-	ProfilerCommandList->MapAction( Commands.ProfilerManager_Save,
+	ProfilerCommandList->MapAction(Commands.ProfilerManager_Save,
 		FExecuteAction(),
-		FCanExecuteAction::CreateRaw( this, &SProfilerToolbar::IsImplemented )
+		FCanExecuteAction::CreateRaw(this, &SProfilerToolbar::IsImplemented)
 	);
 
 	// Stats command
-	ProfilerCommandList->MapAction( Commands.StatsProfiler,
-		FExecuteAction::CreateRaw( this, &SProfilerToolbar::ShowStats ),
+	ProfilerCommandList->MapAction(Commands.StatsProfiler,
+		FExecuteAction::CreateRaw(this, &SProfilerToolbar::ShowStats),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateRaw( this, &SProfilerToolbar::IsShowingStats )
+		FIsActionChecked::CreateRaw(this, &SProfilerToolbar::IsShowingStats)
 	);
 
 	// Memory command
-	ProfilerCommandList->MapAction( Commands.MemoryProfiler,
-		FExecuteAction::CreateRaw( this, &SProfilerToolbar::ShowMemory ),
+	ProfilerCommandList->MapAction(Commands.MemoryProfiler,
+		FExecuteAction::CreateRaw(this, &SProfilerToolbar::ShowMemory),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateRaw( this, &SProfilerToolbar::IsShowingMemory )
+		FIsActionChecked::CreateRaw(this, &SProfilerToolbar::IsShowingMemory)
 		);
 
 	// FPSChart command
-	ProfilerCommandList->MapAction( Commands.FPSChart,
-		FExecuteAction::CreateRaw( this, &SProfilerToolbar::ShowFPSChart ),
+	ProfilerCommandList->MapAction(Commands.FPSChart,
+		FExecuteAction::CreateRaw(this, &SProfilerToolbar::ShowFPSChart),
 		FCanExecuteAction()
 		);
 }
+
 
 #undef LOCTEXT_NAMESPACE

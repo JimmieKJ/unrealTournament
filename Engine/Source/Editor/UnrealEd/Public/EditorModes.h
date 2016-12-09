@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "EditorModeRegistry.h"
-#include "EditorComponents.h"
-#include "UnrealWidget.h"
-#include "EngineGlobals.h"
+#include "CoreMinimal.h"
+#include "MaterialShared.h"
+#include "SceneManagement.h"
+#include "Editor.h"
 
 enum EModeTools : int8;
 class FEditorViewportClient;
@@ -14,20 +14,6 @@ struct FViewportClick;
 class FModeTool;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogEditorModes, Log, All);
-
-/** Outcomes when determining whether it's possible to perform an action on the edit modes*/
-namespace EEditAction
-{
-	enum Type
-	{
-		/** Can't process this action */
-		Skip		= 0,
-		/** Can process this action */
-		Process,
-		/** Stop evaluating other modes (early out) */
-		Halt,
-	};
-};
 
 // Builtin editor mode constants
 struct UNREALED_API FBuiltinEditorModes
@@ -104,26 +90,4 @@ public:
 		delete this;
 	}
 };
-
-#include "EdMode.h"
-
-/*------------------------------------------------------------------------------
-	Default.
-------------------------------------------------------------------------------*/
-
-/**
- * The default editing mode.  User can work with BSP and the builder brush. Vector and array properties are also visually editable.
- */
-class FEdModeDefault : public FEdMode
-{
-public:
-	FEdModeDefault();
-
-	// FEdMode interface
-	virtual bool UsesPropertyWidgets() const override { return true; }
-	// End of FEdMode interface
-};
-
-
-#include "EditorModeManager.h"
 

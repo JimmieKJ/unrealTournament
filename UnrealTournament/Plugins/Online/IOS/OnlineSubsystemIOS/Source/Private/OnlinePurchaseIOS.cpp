@@ -6,9 +6,12 @@
 #import "OnlineStoreKitHelper.h"
 
 #define LOCTEXT_NAMESPACE "OnlineSubsystemIOS"
+#define IOSUSER TEXT("IOSUser")
 
 FOnlinePurchaseIOS::FOnlinePurchaseIOS(FOnlineSubsystemIOS* InSubsystem)
-	: Subsystem(InSubsystem)
+	: StoreHelper(nullptr)
+	, bRestoringTransactions(false)
+	, Subsystem(InSubsystem)
 {
 	UE_LOG(LogOnline, Verbose, TEXT( "FOnlinePurchaseIOS::FOnlinePurchaseIOS" ));
 }
@@ -62,7 +65,7 @@ void FOnlinePurchaseIOS::Checkout(const FUniqueNetId& UserId, const FPurchaseChe
 
 	if (IsAllowedToPurchase(UserId))
 	{
-		const FString UserIdStr = TEXT("IOSUser");
+		const FString UserIdStr = IOSUSER;
 		const TSharedRef<FOnlinePurchasePendingTransactionIOS>* UserPendingTransaction = PendingTransactions.Find(UserIdStr);
 		if (UserPendingTransaction == nullptr)
 		{
@@ -96,6 +99,11 @@ void FOnlinePurchaseIOS::Checkout(const FUniqueNetId& UserId, const FPurchaseChe
 					});
 					bStarted = true;
 				}
+				else
+				{
+					ErrorMessage = NSLOCTEXT("IOSPurchase", "ErrorNoOffersSpecified", "Failed to checkout, no offers given.");
+					RequestedTransaction->PendingPurchaseInfo.TransactionState = EPurchaseTransactionState::Failed;
+				}
 			}
 		}
 		else
@@ -114,11 +122,11 @@ void FOnlinePurchaseIOS::Checkout(const FUniqueNetId& UserId, const FPurchaseChe
 	{
 		TSharedRef<FPurchaseReceipt> FailReceipt = RequestedTransaction->GenerateReceipt();
 		
+		Subsystem->ExecuteNextTick([ErrorMessage, FailReceipt, Delegate]()
 		{
-			// @todo execute next tick
 			FOnlineError Error(ErrorMessage);
 			Delegate.ExecuteIfBound(Error, FailReceipt);
-		}
+		});
 	}
 }
 
@@ -140,13 +148,45 @@ void FOnlinePurchaseIOS::RedeemCode(const FUniqueNetId& UserId, const FRedeemCod
 	Delegate.ExecuteIfBound(Result, MakeShareable(new FPurchaseReceipt()));
 }
 
-void FOnlinePurchaseIOS::QueryReceipts(const FUniqueNetId& UserId, const FOnQueryReceiptsComplete& Delegate)
+void FOnlinePurchaseIOS::QueryReceipts(const FUniqueNetId& UserId, bool bRestoreReceipts, const FOnQueryReceiptsComplete& Delegate)
 {
-	// Query receipts comes dynamically from the StoreKit observer
-	Subsystem->ExecuteNextTick([Delegate]() {
-		FOnlineError Result(true);
-		Delegate.ExecuteIfBound(Result);
-	});
+	bool bSuccess = true;
+	bool bTriggerDelegate = true;
+	if (bRestoreReceipts)
+	{
+		if (!bRestoringTransactions)
+		{
+			// Restore purchases, adding them to the offline receipts array for later redemption
+			if (StoreHelper)
+			{
+				QueryReceiptsComplete = Delegate;
+				bTriggerDelegate = false;
+				bRestoringTransactions = true;
+				dispatch_async(dispatch_get_main_queue(), ^
+				{
+					[StoreHelper restorePurchases];
+				});
+			}
+			else
+			{
+				bSuccess = false;
+			}
+		}
+		else
+		{
+			UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::QueryReceipts already restoring transactions"));
+			bSuccess = false;
+		}
+	}
+	
+	if (bTriggerDelegate)
+	{
+		// Query receipts comes dynamically from the StoreKit observer
+		Subsystem->ExecuteNextTick([Delegate, bSuccess]() {
+			FOnlineError Result(bSuccess);
+			Delegate.ExecuteIfBound(Result);
+		});
+	}
 }
 
 void FOnlinePurchaseIOS::GetReceipts(const FUniqueNetId& UserId, TArray<FPurchaseReceipt>& OutReceipts) const
@@ -179,7 +219,7 @@ void FOnlinePurchaseIOS::OnTransactionCompleteResponse(EPurchaseTransactionState
 {
 	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::OnTransactionCompleteResponse %d %s"), (int32)Result, *TransactionData.ToDebugString());
 	
-	FString UserIdStr = TEXT("IOSUser");
+	FString UserIdStr = IOSUSER;
 	const TSharedRef<FOnlinePurchasePendingTransactionIOS>* UserPendingTransactionPtr = PendingTransactions.Find(UserIdStr);
 	if(UserPendingTransactionPtr != nullptr)
 	{
@@ -194,23 +234,24 @@ void FOnlinePurchaseIOS::OnTransactionCompleteResponse(EPurchaseTransactionState
 			UserPendingTransaction->PendingPurchaseInfo.TransactionState = FinalState;
 			// UserPendingTransaction->PendingPurchaseInfo.TransactionId; purposefully blank
 			
+			const FString& ErrorStr = TransactionData.GetErrorStr();
 			switch (FinalState)
 			{
 				case EPurchaseTransactionState::Failed:
-					FinalResult.SetFromErrorCode(!TransactionData.ErrorStr.IsEmpty() ? TransactionData.ErrorStr : TEXT("TransactionFailed"));
-					FinalResult.ErrorMessage = LOCTEXT("TransactionFailed", "Purchased failed");
+					FinalResult.SetFromErrorCode(TEXT("com.epicgames.purchase.failure"));
+					FinalResult.ErrorMessage = !ErrorStr.IsEmpty() ? FText::FromString(ErrorStr) : LOCTEXT("IOSTransactionFailed", "TransactionFailed");
 					break;
 				case EPurchaseTransactionState::Canceled:
-					FinalResult.SetFromErrorCode(!TransactionData.ErrorStr.IsEmpty() ? TransactionData.ErrorStr : TEXT("TransactionCanceled"));
-					FinalResult.ErrorMessage = LOCTEXT("TransactionCanceled", "Purchased canceled");
+					FinalResult.SetFromErrorCode(TEXT("com.epicgames.catalog_helper.user_cancelled"));
+					FinalResult.ErrorMessage = !ErrorStr.IsEmpty() ? FText::FromString(ErrorStr) : LOCTEXT("IOSTransactionCancel", "TransactionCanceled");
 					break;
 				case EPurchaseTransactionState::Purchased:
 					FinalResult.bSucceeded = true;
 					break;
 				default:
 					UE_LOG(LogOnline, Warning, TEXT("Unexpected state after purchase %d"), FinalState);
-					FinalResult.SetFromErrorCode(TEXT("UnexpectedState"));
-					FinalResult.ErrorMessage = LOCTEXT("UnexpectedState", "Unexpected purchase result");
+					FinalResult.SetFromErrorCode(TEXT("com.epicgames.purchase.unexpected_state"));
+					FinalResult.ErrorMessage = !ErrorStr.IsEmpty() ? FText::FromString(ErrorStr) : LOCTEXT("UnexpectedState", "Unexpected purchase result");
 					UserPendingTransaction->PendingPurchaseInfo.TransactionState = EPurchaseTransactionState::Failed;
 					break;
 			}
@@ -241,13 +282,42 @@ void FOnlinePurchaseIOS::OnTransactionCompleteResponse(EPurchaseTransactionState
 void FOnlinePurchaseIOS::OnTransactionRestored(const FStoreKitTransactionData& TransactionData)
 {
 	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::OnTransactionRestored %s"), *TransactionData.ToDebugString());
+
 	// Single item restored amongst a group of items
+	TSharedRef<FPurchaseReceipt> OfflineReceipt = FOnlinePurchasePendingTransactionIOS::GenerateReceipt(EPurchaseTransactionState::Restored, TransactionData);
+	
+#if 0
+	bool bFound = false;
+	for (TSharedRef<FPurchaseReceipt>& OtherReceipt : OfflineTransactions)
+	{
+		// If redundant, replace the entry
+		if (OtherReceipt->TransactionId == OfflineReceipt->TransactionId)
+		{
+			*OtherReceipt = *OfflineReceipt;
+			bFound = true;
+			break;
+		}
+	}
+	
+	if (!bFound)
+#endif
+	{
+		OfflineTransactions.Add(OfflineReceipt);
+	}
 }
 
 void FOnlinePurchaseIOS::OnRestoreTransactionsComplete(EPurchaseTransactionState Result)
 {
 	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::OnRestoreTransactionsComplete %d"), (int32)Result);
+	
 	// Full restore is complete
+	bRestoringTransactions = false;
+	bool bSuccess = (Result == EPurchaseTransactionState::Restored) || (Result == EPurchaseTransactionState::Purchased);
+	Subsystem->ExecuteNextTick([this, bSuccess]() {
+		FOnlineError FinalResult(bSuccess);
+		QueryReceiptsComplete.ExecuteIfBound(FinalResult);
+		QueryReceiptsComplete.Unbind();
+	});
 }
 
 void FOnlinePurchaseIOS::OnTransactionInProgress(const FStoreKitTransactionData& TransactionData)
@@ -289,20 +359,20 @@ TSharedRef<FPurchaseReceipt> FOnlinePurchasePendingTransactionIOS::GenerateRecei
 	TSharedRef<FPurchaseReceipt> Receipt = MakeShareable(new FPurchaseReceipt());
 	
 	Receipt->TransactionState = Result;
-	Receipt->TransactionId = Transaction.TransactionIdentifier;
+	Receipt->TransactionId = Transaction.GetTransactionIdentifier();
 	
-	if(Result == EPurchaseTransactionState::Purchased ||
-	   Result == EPurchaseTransactionState::Restored)
+	if (Result == EPurchaseTransactionState::Purchased ||
+	    Result == EPurchaseTransactionState::Restored)
 	{
-		FPurchaseReceipt::FReceiptOfferEntry ReceiptEntry(TEXT(""), Transaction.OfferId, 1);
+		FPurchaseReceipt::FReceiptOfferEntry ReceiptEntry(TEXT(""), Transaction.GetOfferId(), 1);
 		
 		int32 Idx = ReceiptEntry.LineItems.AddZeroed();
 		
 		FPurchaseReceipt::FLineItemInfo& LineItem = ReceiptEntry.LineItems[Idx];
 		
-		LineItem.ItemName = Transaction.OfferId;
-		LineItem.UniqueId = Transaction.TransactionIdentifier;
-		LineItem.ValidationInfo = Transaction.ReceiptData;
+		LineItem.ItemName = Transaction.GetOfferId();
+		LineItem.UniqueId = Transaction.GetTransactionIdentifier();;
+		LineItem.ValidationInfo = Transaction.GetReceiptData();
 
 		Receipt->AddReceiptOffer(ReceiptEntry);
 	}
@@ -324,18 +394,18 @@ bool FOnlinePurchasePendingTransactionIOS::AddCompletedOffer(EPurchaseTransactio
 	for (int32 OfferIdx = 0; OfferIdx < CheckoutRequest.PurchaseOffers.Num(); ++OfferIdx)
 	{
 		const FPurchaseCheckoutRequest::FPurchaseOfferEntry& Offer = CheckoutRequest.PurchaseOffers[OfferIdx];
-		if (Transaction.OfferId == Offer.OfferId)
+		if (Transaction.GetOfferId() == Offer.OfferId)
 		{
 			OfferPurchaseStates[OfferIdx] = Result;
-			FPurchaseReceipt::FReceiptOfferEntry Receipt(TEXT(""), Transaction.OfferId, 1);
+			FPurchaseReceipt::FReceiptOfferEntry Receipt(TEXT(""), Transaction.GetOfferId(), 1);
 
 			int32 Idx = Receipt.LineItems.AddZeroed();
 			
 			FPurchaseReceipt::FLineItemInfo& LineItem = Receipt.LineItems[Idx];
 			
-			LineItem.ItemName = Transaction.OfferId;
-			LineItem.UniqueId = Transaction.TransactionIdentifier;
-			LineItem.ValidationInfo = Transaction.ReceiptData;
+			LineItem.ItemName = Transaction.GetOfferId();
+			LineItem.UniqueId = Transaction.GetTransactionIdentifier();
+			LineItem.ValidationInfo = Transaction.GetReceiptData();
 			
 			PendingPurchaseInfo.AddReceiptOffer(Receipt);
 			return true;

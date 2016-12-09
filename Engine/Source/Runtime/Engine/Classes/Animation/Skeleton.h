@@ -6,14 +6,23 @@
  */
 
 #pragma once
-#include "PreviewAssetAttachComponent.h"
-#include "SmartName.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
 #include "ReferenceSkeleton.h"
+#include "Animation/PreviewAssetAttachComponent.h"
+#include "Animation/SmartName.h"
+
 #include "Skeleton.generated.h"
 
 class UAnimSequence;
-class USkeletalMesh;
 class UBlendProfile;
+class UPreviewMeshCollection;
+class URig;
+class USkeletalMesh;
+class USkeletalMeshSocket;
 
 /** This is a mapping table between bone in a particular skeletal mesh and bone of this skeleton set. */
 USTRUCT()
@@ -215,6 +224,35 @@ public:
 	}
 };
 
+USTRUCT()
+struct FVirtualBone
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	UPROPERTY()
+	FName SourceBoneName;
+
+	UPROPERTY()
+	FName TargetBoneName;
+
+	UPROPERTY()
+	FName VirtualBoneName;
+
+	FVirtualBone() {}
+
+	FVirtualBone(FName InSource, FName InTarget)
+		: SourceBoneName(InSource)
+		, TargetBoneName(InTarget)
+	{
+		// VB Prefix including space after VB so that it will never collide with 
+		// an actual bone name (as they cannot contain spaces)
+		static FString VirtualBonePrefix(TEXT("VB "));
+
+		VirtualBoneName = FName( *(VirtualBonePrefix + SourceBoneName.ToString() + TEXT("_") + TargetBoneName.ToString()) );
+	}
+};
+
 /**
  *	USkeleton : that links between mesh and animation
  *		- Bone hierarchy for animations
@@ -242,15 +280,35 @@ protected:
 	/** Guid for skeleton */
 	FGuid Guid;
 
+	/** Guid for virtual bones.
+	 *  Separate so that we don't have to dirty the original guid when only changing virtual bones */
+	UPROPERTY()
+	FGuid VirtualBoneGuid;
+
 	/** Conversion function. Remove when VER_UE4_REFERENCE_SKELETON_REFACTOR is removed. */
 	void ConvertToFReferenceSkeleton();
 
+	/**
+	*  Array of this skeletons virtual bones. These are new bones are links between two existing bones
+	*  and are baked into all the skeletons animations
+	*/
+	UPROPERTY()
+	TArray<FVirtualBone> VirtualBones;
+
 public:
+	//~ Begin UObject Interface.
+#if WITH_EDITOR
+	virtual void PostEditUndo() override;
+#endif
+
 	/** Accessor to Reference Skeleton to make data read only */
 	const FReferenceSkeleton& GetReferenceSkeleton() const
 	{
 		return ReferenceSkeleton;
 	}
+
+	/** Accessor for the array of virtual bones on this skeleton */
+	const TArray<FVirtualBone>& GetVirtualBones() const { return VirtualBones; }
 
 	/** Non-serialised cache of linkups between different skeletal meshes and this Skeleton. */
 	UPROPERTY(transient)
@@ -267,7 +325,7 @@ public:
 	TMap< FName, FReferencePose > AnimRetargetSources;
 
 	// Typedefs for greater smartname UID readability, add one for each smartname category 
-	typedef FSmartNameMapping::UID AnimCurveUID;
+	typedef SmartName::UID_Type AnimCurveUID;
 
 	// Names for smartname mappings, if you're adding a new category of smartnames add a new name here
 	static ENGINE_API const FName AnimCurveMappingName;
@@ -275,19 +333,40 @@ public:
 	// Names for smartname mappings, if you're adding a new category of smartnames add a new name here
 	static ENGINE_API const FName AnimTrackCurveMappingName;
 
-	/** Caches the Animation curve mapping name UIds from SmartNames into CachedAnimCurveMappingNameUids (used in FBlendedCurve::InitFrom) */
-	void CacheAnimCurveMappingNameUids();
+	// these return container of curve meta data, if you modify this container, 
+	// you'll have to call REfreshCAchedAnimationCurveData to apply
+	ENGINE_API FCurveMetaData* GetCurveMetaData(const FName& CurveName);
+	ENGINE_API const FCurveMetaData* GetCurveMetaData(const FName& CurveName) const;
+	ENGINE_API const FCurveMetaData* GetCurveMetaData(const SmartName::UID_Type CurveUID) const;
+	ENGINE_API FCurveMetaData* GetCurveMetaData(const FSmartName& CurveName);
+	ENGINE_API const FCurveMetaData* GetCurveMetaData(const FSmartName& CurveName) const;
+	// this is called when you know both flags - called by post serialize
+	ENGINE_API void AccumulateCurveMetaData(FName CurveName, bool bMaterialSet, bool bMorphtargetSet);
 
-	// Returns the cached animation curve mapping Uids, used for initializing FBlendedCurve 
-	const TArray<FSmartNameMapping::UID>& GetCachedAnimCurveMappingNameUids();
+	ENGINE_API bool AddNewVirtualBone(const FName SourceBoneName, const FName TargetBoneName);
 
+	ENGINE_API void RemoveVirtualBones(const TArray<FName>& BonesToRemove);
+	
+	void HandleVirtualBoneChanges();
+
+	// return version of AnimCurveUidVersion
+	uint16 GetAnimCurveUidVersion() const { return AnimCurveUidVersion;  }
+	const TArray<AnimCurveUID>& GetDefaultCurveUIDList() const { return DefaultCurveUIDList; }
 protected:
 	// Container for smart name mappings
 	UPROPERTY()
 	FSmartNameContainer SmartNames;
 
-	/** Cached animation curves smart name mapping UIDs, only at runtime, not serialized. (accessed in FBlendedCurve::InitFrom) */
-	TArray<FSmartNameMapping::UID> CachedAnimCurveMappingNameUids;
+	// this is default curve uid list used like ref pose, as default value
+	// don't use this unless you want all curves from the skeleton
+	// FBoneContainer contains only list that is used by current LOD
+	TArray<AnimCurveUID> DefaultCurveUIDList;
+
+private:
+	/** Increase the AnimCurveUidVersion so that instances can get the latest information */
+	void IncreaseAnimCurveUidVersion();
+	/** Current  Anim Curve Uid Version. Increase whenever it has to be recalculated */
+	uint16 AnimCurveUidVersion;
 
 public:
 	//////////////////////////////////////////////////////////////////////////
@@ -320,8 +399,9 @@ private:
 
 public:
 	ENGINE_API FAnimSlotGroup* FindAnimSlotGroup(const FName& InGroupName);
+	ENGINE_API const FAnimSlotGroup* FindAnimSlotGroup(const FName& InGroupName) const;
 	ENGINE_API const TArray<FAnimSlotGroup>& GetSlotGroups() const;
-	ENGINE_API bool ContainsSlotName(const FName& InSlotName);
+	ENGINE_API bool ContainsSlotName(const FName& InSlotName) const;
 	ENGINE_API void RegisterSlotNode(const FName& InSlotName);
 	ENGINE_API void SetSlotGroupName(const FName& InSlotName, const FName& InGroupName);
 	/** Returns true if Group is added, false if it already exists */
@@ -345,23 +425,23 @@ public:
 
 	// Renames a smartname in the specified container and modifies the skeleton
 	// return bool - Whether the rename was sucessful
-	ENGINE_API bool RenameSmartnameAndModify(FName ContainerName, FSmartNameMapping::UID Uid, FName NewName);
+	ENGINE_API bool RenameSmartnameAndModify(FName ContainerName, SmartName::UID_Type Uid, FName NewName);
 
 	// Removes a smartname from the specified container and modifies the skeleton
-	ENGINE_API void RemoveSmartnameAndModify(FName ContainerName, FSmartNameMapping::UID Uid);
+	ENGINE_API void RemoveSmartnameAndModify(FName ContainerName, SmartName::UID_Type Uid);
 
 	// Removes smartnames from the specified container and modifies the skeleton
-	ENGINE_API void RemoveSmartnamesAndModify(FName ContainerName, const TArray<FSmartNameMapping::UID>& Uids);
+	ENGINE_API void RemoveSmartnamesAndModify(FName ContainerName, const TArray<SmartName::UID_Type>& Uids);
 #endif// WITH_EDITOR
 
-	// quick wrapper function for Find UID by name, if not found, it will return FSmartNameMapping::MaxUID
-	ENGINE_API FSmartNameMapping::UID GetUIDByName(const FName& ContainerName, const FName& Name);
-	ENGINE_API bool GetSmartNameByUID(const FName& ContainerName, FSmartNameMapping::UID UID, FSmartName& OutSmartName);
+	// quick wrapper function for Find UID by name, if not found, it will return SmartName::MaxUID
+	ENGINE_API SmartName::UID_Type GetUIDByName(const FName& ContainerName, const FName& Name) const;
+	ENGINE_API bool GetSmartNameByUID(const FName& ContainerName, SmartName::UID_Type UID, FSmartName& OutSmartName);
 	ENGINE_API bool GetSmartNameByName(const FName& ContainerName, const FName& InName, FSmartName& OutSmartName);
 
 	// Adds a new name to the smart name container and modifies the skeleton so it can be saved
 	// return bool - Whether a name was added (false if already present)
-	ENGINE_API bool RenameSmartName(FName ContainerName, const FSmartNameMapping::UID& Uid, FName NewName);
+	ENGINE_API bool RenameSmartName(FName ContainerName, const SmartName::UID_Type& Uid, FName NewName);
 
 	// Get or add a smartname container with the given name
 	ENGINE_API const FSmartNameMapping* GetSmartNameContainer(const FName& ContainerName) const;
@@ -379,6 +459,10 @@ private:
 	/** The default skeletal mesh to use when previewing this skeleton */
 	UPROPERTY(duplicatetransient, AssetRegistrySearchable)
 	TAssetPtr<class USkeletalMesh> PreviewSkeletalMesh;
+
+	/** The additional skeletal meshes to use when previewing this skeleton */
+	UPROPERTY(duplicatetransient, AssetRegistrySearchable)
+	TAssetPtr<class UPreviewMeshCollection> AdditionalPreviewSkeletalMeshes;
 
 	UPROPERTY()
 	FRigConfiguration RigConfig;
@@ -415,6 +499,11 @@ public:
 		return Guid;
 	}
 
+	FGuid GetVirtualBoneGuid() const
+	{
+		return VirtualBoneGuid;
+	}
+
 	/** Unregisters a delegate to be called after the preview animation has been changed */
 	void UnregisterOnRetargetSourceChanged(FDelegateHandle Handle)
 	{
@@ -430,7 +519,7 @@ public:
 	typedef TArray<FBoneNode> FBoneTreeType;
 
 	/** Runtime built mapping table between SkeletalMeshes, and LinkupCache array indices. */
-	TMap<TAutoWeakObjectPtr<class USkeletalMesh>, int32> SkelMesh2LinkupCache;
+	TMap<TWeakObjectPtr<USkeletalMesh>, int32> SkelMesh2LinkupCache;
 
 #if WITH_EDITORONLY_DATA
 
@@ -445,8 +534,20 @@ public:
 	ENGINE_API USkeletalMesh* GetPreviewMesh() const;
 	ENGINE_API USkeletalMesh* GetAssetPreviewMesh(class UAnimationAsset* AnimAsset);
 
+	/** Find the first compatible mesh for this skeleton */
+	ENGINE_API USkeletalMesh* FindCompatibleMesh() const;
+
 	/** Returns the skeletons preview mesh, loading it if necessary */
 	ENGINE_API void SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty=true);
+
+	/** Load any additional meshes we may have */
+	ENGINE_API void LoadAdditionalPreviewSkeletalMeshes();
+
+	/** Get the additional skeletal meshes we use when previewing this skeleton */
+	ENGINE_API UPreviewMeshCollection* GetAdditionalPreviewSkeletalMeshes() const;
+
+	/** Set the additional skeletal meshes we use when previewing this skeleton */
+	ENGINE_API void SetAdditionalPreviewSkeletalMeshes(UPreviewMeshCollection* PreviewMeshCollection);
 
 	/**
 	 * Makes sure all attached objects are valid and removes any that aren't.
@@ -544,6 +645,7 @@ public:
 	 *	Anybody modifying BoneTree will corrupt animation data, so will need to make sure it's not modifiable outside of Skeleton
 	 *	You can add new BoneNode but you can't modify current list. The index will be referenced by Animation data.
 	 */
+	DEPRECATED(4.14, "GetBoneTree should not be called. Please use GetBoneTranslationRetargetingMode()/SetBoneTranslationRetargetingMode() functions instead")
 	const TArray<FBoneNode>& GetBoneTree()	const
 	{ 
 		return BoneTree;	
@@ -592,7 +694,11 @@ public:
 
 	EBoneTranslationRetargetingMode::Type GetBoneTranslationRetargetingMode(const int32& BoneTreeIdx) const
 	{
-		return BoneTree[BoneTreeIdx].TranslationRetargetingMode;
+		if (BoneTree.IsValidIndex(BoneTreeIdx))
+		{
+			return BoneTree[BoneTreeIdx].TranslationRetargetingMode;
+		}
+		return EBoneTranslationRetargetingMode::Animation;
 	}
 
 	/** 
@@ -612,7 +718,7 @@ public:
 	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 
 	/** 
-	 * Create RefLocalPoses from InSkelMesh
+	 * Create RefLocalPoses from InSkelMesh. Note InSkelMesh cannot be null and this function will assert if it is.
 	 * 
 	 * If bClearAll is false, it will overwrite ref pose of bones that are found in InSkelMesh
 	 * If bClearAll is true, it will reset all Reference Poses 
@@ -705,9 +811,16 @@ public:
 	ENGINE_API void RefreshRigConfig();
 	int32 FindRigBoneMapping(const FName& NodeName) const;
 	ENGINE_API URig * GetRig() const;
+
 #endif
 
+public:
+	ENGINE_API USkeletalMeshSocket* FindSocketAndIndex(FName InSocketName, int32& OutIndex) const;
+	ENGINE_API USkeletalMeshSocket* FindSocket(FName InSocketName) const;
+
 private:
-	void RegenerateGuid();	
+	/** Regenerate new Guid */
+	void RegenerateGuid();
+	void RegenerateVirtualBoneGuid();
 };
 

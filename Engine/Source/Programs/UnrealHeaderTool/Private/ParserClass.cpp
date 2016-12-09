@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealHeaderTool.h"
 #include "ParserClass.h"
-#include "Classes.h"
-#include "ClassMaps.h"
+#include "UnrealHeaderTool.h"
+#include "UObject/Package.h"
+#include "Templates/Casts.h"
 
 FString FClass::GetNameWithPrefix(EEnforceInterfacePrefix::Type EnforceInterfacePrefix) const
 {

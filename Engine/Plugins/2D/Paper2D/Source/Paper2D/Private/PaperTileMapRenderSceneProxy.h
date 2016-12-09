@@ -2,10 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "PaperRenderSceneProxy.h"
 
-class UPaperTileMapComponent;
+class FMeshElementCollector;
+class FPrimitiveDrawInterface;
 class UPaperTileMap;
+class UPaperTileMapComponent;
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperTileMapRenderSceneProxy

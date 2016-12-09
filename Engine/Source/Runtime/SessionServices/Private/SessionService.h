@@ -2,8 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IMessageContext.h"
+#include "IMessageBus.h"
+#include "Helpers/MessageEndpoint.h"
 #include "ISessionService.h"
 
+struct FSessionServiceLogSubscribe;
+struct FSessionServiceLogUnsubscribe;
+struct FSessionServicePing;
 
 /**
  * Implements an application session service.
@@ -19,14 +26,14 @@ public:
 	 *
 	 * @param InMessageBus The message bus to use.
 	 */
-	FSessionService(const IMessageBusRef& InMessageBus);
+	FSessionService(const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InMessageBus);
 
 	/** Virtual destructor. */
 	virtual ~FSessionService();
 
 public:
 
-	// FOutputDevice interface
+	//~ FOutputDevice interface
 
 	virtual void Serialize(const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category) override
 	{
@@ -35,7 +42,7 @@ public:
 
 public:
 
-	// ISessionService interface
+	//~ ISessionService interface
 
 	virtual bool IsRunning() override
 	{
@@ -70,7 +77,7 @@ protected:
 	 * @param Context The context of the received Ping message.
 	 * @param UserName The name of the user that sent the ping.
 	 */
-	void SendPong(const IMessageContextRef& Context, const FString& UserName);
+	void SendPong(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, const FString& UserName);
 
 private:
 
@@ -78,13 +85,13 @@ private:
 	void HandleMessageEndpointShutdown();
 
 	/** Handles FSessionServiceLogSubscribe messages. */
-	void HandleSessionLogSubscribeMessage(const FSessionServiceLogSubscribe& Message, const IMessageContextRef& Context);
+	void HandleSessionLogSubscribeMessage(const FSessionServiceLogSubscribe& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
 	/** Handles FSessionServiceLogUnsubscribe messages. */
-	void HandleSessionLogUnsubscribeMessage(const FSessionServiceLogUnsubscribe& Message, const IMessageContextRef& Context);
+	void HandleSessionLogUnsubscribeMessage(const FSessionServiceLogUnsubscribe& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
 	/** Handles FSessionServicePing messages. */
-	void HandleSessionPingMessage(const FSessionServicePing& Message, const IMessageContextRef& Context);
+	void HandleSessionPingMessage(const FSessionServicePing& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
 private:
 
@@ -95,8 +102,8 @@ private:
 	FCriticalSection LogSubscribersLock;
 
 	/** Holds a weak pointer to the message bus. */
-	IMessageBusWeakPtr MessageBusPtr;
+	TWeakPtr<IMessageBus, ESPMode::ThreadSafe> MessageBusPtr;
 
 	/** Holds the message endpoint. */
-	FMessageEndpointPtr MessageEndpoint;
+	TSharedPtr<FMessageEndpoint, ESPMode::ThreadSafe> MessageEndpoint;
 };

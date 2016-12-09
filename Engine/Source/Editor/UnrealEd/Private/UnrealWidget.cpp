@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "UnrealWidget.h"
+#include "Materials/Material.h"
+#include "CanvasItem.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "EditorViewportClient.h"
+#include "EdMode.h"
+#include "EditorModeManager.h"
 #include "SnappingUtils.h"
 #include "DynamicMeshBuilder.h"
 #include "CanvasTypes.h"
-#include "Materials/MaterialInstanceDynamic.h"
 
 IMPLEMENT_HIT_PROXY(HWidgetAxis,HHitProxy);
 
@@ -30,12 +36,12 @@ struct FSpaceDescriptor
      *  @param InLocation   The location of the camera in the virtual space.
      */
     FSpaceDescriptor(const FSceneView* View, const FEditorViewportClient* Viewport, const FVector& InLocation) :
-        bIsPerspective(View->ViewMatrices.ProjMatrix.M[3][3] < 1.0f),
+        bIsPerspective(View->ViewMatrices.GetProjectionMatrix().M[3][3] < 1.0f),
         bIsLocalSpace(Viewport->GetWidgetCoordSystemSpace() == COORD_Local),
-        bIsOrthoXY(!bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[2][2]) > 0.0f),
-        bIsOrthoXZ(!bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[1][2]) > 0.0f),
-        bIsOrthoYZ(!bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[0][2]) > 0.0f),
-        UniformScale(View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0])),
+        bIsOrthoXY(!bIsPerspective && FMath::Abs(View->ViewMatrices.GetViewMatrix().M[2][2]) > 0.0f),
+        bIsOrthoXZ(!bIsPerspective && FMath::Abs(View->ViewMatrices.GetViewMatrix().M[1][2]) > 0.0f),
+        bIsOrthoYZ(!bIsPerspective && FMath::Abs(View->ViewMatrices.GetViewMatrix().M[0][2]) > 0.0f),
+        UniformScale(View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.GetProjectionMatrix().M[0][0])),
         Scale(CreateScale())
     {
     }
@@ -619,9 +625,9 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
 	if( bDrawWidget && ( DrawAxis & EAxisList::Screen ) && Space.bIsPerspective )
 	{
 		PDI->SetHitProxy( new HWidgetAxis(EAxisList::Screen, bDisabled) );
-		const FVector CameraXAxis = View->ViewMatrices.ViewMatrix.GetColumn(0);
-		const FVector CameraYAxis = View->ViewMatrices.ViewMatrix.GetColumn(1);
-		const FVector CameraZAxis = View->ViewMatrices.ViewMatrix.GetColumn(2);
+		const FVector CameraXAxis = View->ViewMatrices.GetViewMatrix().GetColumn(0);
+		const FVector CameraYAxis = View->ViewMatrices.GetViewMatrix().GetColumn(1);
+		const FVector CameraZAxis = View->ViewMatrices.GetViewMatrix().GetColumn(2);
 
 		UMaterialInstanceDynamic* XYZMaterial = ( CurrentAxis&EAxisList::Screen) ? CurrentAxisMaterial : OpaquePlaneMaterialXY;
 		DrawSphere( PDI, InLocation, 4.0f * Space.Scale, 10, 5, XYZMaterial->GetRenderProxy(false), SDPG_Foreground );
@@ -635,7 +641,7 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
  */
 void FWidget::Render_Rotate( const FSceneView* View,FPrimitiveDrawInterface* PDI, FEditorViewportClient* ViewportClient, const FVector& InLocation, bool bDrawWidget )
 {
-	float Scale = View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
+	float Scale = View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.GetProjectionMatrix().M[0][0]);
 
 	//get the axes 
 	FVector XAxis = CustomCoordSystem.TransformVector(FVector(1, 0, 0));
@@ -644,7 +650,7 @@ void FWidget::Render_Rotate( const FSceneView* View,FPrimitiveDrawInterface* PDI
 
 	EAxisList::Type DrawAxis = GetAxisToDraw( ViewportClient->GetWidgetMode() );
 
-	FVector DirectionToWidget = View->IsPerspectiveProjection() ? (InLocation - View->ViewMatrices.ViewOrigin) : -View->GetViewDirection();
+	FVector DirectionToWidget = View->IsPerspectiveProjection() ? (InLocation - View->ViewMatrices.GetViewOrigin()) : -View->GetViewDirection();
 	DirectionToWidget.Normalize();
 
 	// Draw a circle for each axis
@@ -790,17 +796,17 @@ void FWidget::Render_TranslateRotateZ( const FSceneView* View, FPrimitiveDrawInt
 	if( bDrawWidget )
 	{
 		// Draw the axis lines with arrow heads
-		if( DrawAxis&EAxisList::X && (Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][2] != -1.f) )
+		if( DrawAxis&EAxisList::X && (Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.GetViewMatrix().M[0][2] != -1.f) )
 		{
 			Render_Axis( View, PDI, EAxisList::X, AxisMatrix, XMaterial, XColor, XAxisDir, Space.Scale, bDrawWidget );
 		}
 
-		if( DrawAxis&EAxisList::Y && (Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[1][2] != -1.f) )
+		if( DrawAxis&EAxisList::Y && (Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.GetViewMatrix().M[1][2] != -1.f) )
 		{
 			Render_Axis( View, PDI, EAxisList::Y, AxisMatrix, YMaterial, YColor, YAxisDir, Space.Scale, bDrawWidget );
 		}
 
-		if( DrawAxis&EAxisList::Z && (Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][1] != 1.f) )
+		if( DrawAxis&EAxisList::Z && (Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.GetViewMatrix().M[0][1] != 1.f) )
 		{
 			Render_Axis( View, PDI, EAxisList::Z, AxisMatrix, ZMaterial, ZColor, ZAxisDir, Space.Scale, bDrawWidget );
 		}
@@ -810,7 +816,7 @@ void FWidget::Render_TranslateRotateZ( const FSceneView* View, FPrimitiveDrawInt
 		const float ScaledRadius = (TRANSLATE_ROTATE_AXIS_CIRCLE_RADIUS * Space.UniformScale) + GetDefault<ULevelEditorViewportSettings>()->TransformWidgetSizeAdjustment;
 
 		//ZRotation
-		if( DrawAxis&EAxisList::ZRotation && (Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][2] != -1.f) )
+		if( DrawAxis&EAxisList::ZRotation && (Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.GetViewMatrix().M[0][2] != -1.f) )
 		{
 			PDI->SetHitProxy( new HWidgetAxis(EAxisList::ZRotation, bDisabled) );
 			{
@@ -823,7 +829,7 @@ void FWidget::Render_TranslateRotateZ( const FSceneView* View, FPrimitiveDrawInt
 		}
 
 		//XY Plane
-		if( Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][1] != 1.f )
+		if( Space.bIsPerspective || Space.bIsLocalSpace || View->ViewMatrices.GetViewMatrix().M[0][1] != 1.f )
 		{
 			if( (DrawAxis & EAxisList::XY) == EAxisList::XY ) 
 			{
@@ -882,7 +888,7 @@ void FWidget::Render_2D(const FSceneView* View, FPrimitiveDrawInterface* PDI, FE
 	else if (Space.bIsPerspective)
 	{
 		// Find the best plane to move on
-		const FVector CameraZAxis = View->ViewMatrices.ViewMatrix.GetColumn(2);
+		const FVector CameraZAxis = View->ViewMatrices.GetViewMatrix().GetColumn(2);
 		const FVector LargestAxis = CameraZAxis.GetAbs();
 		if (LargestAxis.X > LargestAxis.Y)
 		{
@@ -1294,9 +1300,9 @@ void FWidget::AbsoluteTranslationConvertMouseMovementToAxisMovement(FSceneView* 
 			case EAxisList::XZ: GetPlaneNormalAndMask(Params.YAxis, Params.PlaneNormal, Params.NormalToRemove); break;
 			case EAxisList::YZ: GetPlaneNormalAndMask(Params.XAxis, Params.PlaneNormal, Params.NormalToRemove); break;
 			case EAxisList::Screen:
-				Params.XAxis = InView->ViewMatrices.ViewMatrix.GetColumn(0);
-				Params.YAxis = InView->ViewMatrices.ViewMatrix.GetColumn(1);
-				Params.ZAxis = InView->ViewMatrices.ViewMatrix.GetColumn(2);
+				Params.XAxis = InView->ViewMatrices.GetViewMatrix().GetColumn(0);
+				Params.YAxis = InView->ViewMatrices.GetViewMatrix().GetColumn(1);
+				Params.ZAxis = InView->ViewMatrices.GetViewMatrix().GetColumn(2);
 				GetPlaneNormalAndMask(Params.ZAxis, Params.PlaneNormal, Params.NormalToRemove); break;
 				break;
 			}
@@ -1601,7 +1607,7 @@ uint8 SmallOuterAlpha = 0x0f;
  */
 void FWidget::DrawRotationArc(const FSceneView* View, FPrimitiveDrawInterface* PDI, EAxisList::Type InAxis, const FVector& InLocation, const FVector& Axis0, const FVector& Axis1, const FVector& InDirectionToWidget, const FColor& InColor, const float InScale, FVector2D& OutAxisDir)
 {
-	bool bIsPerspective = ( View->ViewMatrices.ProjMatrix.M[3][3] < 1.0f );
+	bool bIsPerspective = ( View->ViewMatrices.GetProjectionMatrix().M[3][3] < 1.0f );
 	bool bIsOrtho = !bIsPerspective;
 
 	//if we're in an ortho viewport and the ring is perpendicular to the camera (both Axis0 & Axis1 are perpendicular)
@@ -1732,7 +1738,7 @@ void FWidget::DrawPartialRotationArc(const FSceneView* View, FPrimitiveDrawInter
 	const float InnerRadius = (INNER_AXIS_CIRCLE_RADIUS * InScale) + GetDefault<ULevelEditorViewportSettings>()->TransformWidgetSizeAdjustment;
 	const float OuterRadius = (OUTER_AXIS_CIRCLE_RADIUS * InScale) + GetDefault<ULevelEditorViewportSettings>()->TransformWidgetSizeAdjustment;
 
-	bool bIsPerspective = ( View->ViewMatrices.ProjMatrix.M[3][3] < 1.0f );
+	bool bIsPerspective = ( View->ViewMatrices.GetProjectionMatrix().M[3][3] < 1.0f );
 	PDI->SetHitProxy( new HWidgetAxis( InAxis ) );
 	{
 		FThickArcParams OuterArcParams(PDI, InLocation, TransparentPlaneMaterialXY, InnerRadius, OuterRadius);

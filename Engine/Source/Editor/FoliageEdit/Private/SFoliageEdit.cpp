@@ -1,15 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
-#include "FoliageType_InstancedStaticMesh.h"
-#include "FoliageEdMode.h"
 #include "SFoliageEdit.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Styling/SlateTypes.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+
 #include "FoliageEditActions.h"
-#include "Editor/IntroTutorials/Public/IIntroTutorials.h"
-#include "SNumericEntryBox.h"
+#include "IIntroTutorials.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "SFoliagePalette.h"
-#include "SScaleBox.h"
 
 #define LOCTEXT_NAMESPACE "FoliageEd_Mode"
 
@@ -195,14 +209,12 @@ void SFoliageEdit::Construct(const FArguments& InArgs)
 						[
 							SNew(SWrapBox)
 							.UseAllottedWidth(true)
+							.InnerSlotPadding({6, 5})
 
 							+ SWrapBox::Slot()
-							.Padding(FMargin(0.f, 0.f, 6.f, 0.f))
 							[
-								SNew(SVerticalBox)
-
-								+ SVerticalBox::Slot()
-								.Padding(FMargin(0.f, 5.f, 0.f, 0.f))
+								SNew(SBox)
+								.MinDesiredWidth(91)
 								[
 									SNew(SCheckBox)
 									.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
@@ -215,9 +227,30 @@ void SFoliageEdit::Construct(const FArguments& InArgs)
 										.Font(StandardFont)
 									]
 								]
+							]
 
-								+ SVerticalBox::Slot()
-								.Padding(FMargin(0.f, 5.f, 0.f, 0.f))
+							+ SWrapBox::Slot()
+							[
+								SNew(SBox)
+								.MinDesiredWidth(91)
+								[
+									SNew(SCheckBox)
+									.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
+									.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_StaticMesh)
+									.IsChecked(this, &SFoliageEdit::GetCheckState_StaticMesh)
+									.ToolTipText(this, &SFoliageEdit::GetTooltipText_StaticMesh)
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("StaticMeshes", "Static Meshes"))
+										.Font(StandardFont)
+									]
+								]
+							]
+
+							+ SWrapBox::Slot()
+							[
+								SNew(SBox)
+								.MinDesiredWidth(91)
 								[
 									SNew(SCheckBox)
 									.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
@@ -233,27 +266,27 @@ void SFoliageEdit::Construct(const FArguments& InArgs)
 							]
 
 							+ SWrapBox::Slot()
-							.Padding(FMargin(0.f, 0.f, 6.f, 0.f))
 							[
-								SNew(SVerticalBox)
-
-								+ SVerticalBox::Slot()
-								.Padding(FMargin(0.f, 5.f, 0.f, 0.f))
+								SNew(SBox)
+								.MinDesiredWidth(91)
 								[
 									SNew(SCheckBox)
 									.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
-									.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_StaticMesh)
-									.IsChecked(this, &SFoliageEdit::GetCheckState_StaticMesh)
-									.ToolTipText(this, &SFoliageEdit::GetTooltipText_StaticMesh)
+									.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_Foliage)
+									.IsChecked(this, &SFoliageEdit::GetCheckState_Foliage)
+									.ToolTipText(this, &SFoliageEdit::GetTooltipText_Foliage)
 									[
 										SNew(STextBlock)
-										.Text(LOCTEXT("StaticMeshes", "Static Meshes"))
+										.Text(LOCTEXT("Foliage", "Foliage"))
 										.Font(StandardFont)
 									]
 								]
+							]
 
-								+ SVerticalBox::Slot()
-								.Padding(FMargin(0.f, 5.f, 0.f, 0.f))
+							+ SWrapBox::Slot()
+							[
+								SNew(SBox)
+								.MinDesiredWidth(91)
 								[
 									SNew(SCheckBox)
 									.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
@@ -267,6 +300,7 @@ void SFoliageEdit::Construct(const FArguments& InArgs)
 									]
 								]
 							]
+
 						]
 					]
 
@@ -623,6 +657,35 @@ FText SFoliageEdit::GetTooltipText_BSP() const
 	else if (IsLassoSelectTool())
 	{
 		TooltipText = LOCTEXT("FilterBSPTooltip_Select", "Select instances on BSP");
+	}
+
+	return TooltipText;
+}
+
+void SFoliageEdit::OnCheckStateChanged_Foliage(ECheckBoxState InState)
+{
+	FoliageEditMode->UISettings.SetFilterFoliage(InState == ECheckBoxState::Checked ? true : false);
+}
+
+ECheckBoxState SFoliageEdit::GetCheckState_Foliage() const
+{
+	return FoliageEditMode->UISettings.GetFilterFoliage() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+FText SFoliageEdit::GetTooltipText_Foliage() const
+{
+	FText TooltipText;
+	if (IsPaintTool() || IsPaintFillTool())
+	{
+		TooltipText = LOCTEXT("FilterFoliageTooltip_Placement", "Place foliage on other blocking foliage geometry");
+	}
+	else if (IsReapplySettingsTool())
+	{
+		TooltipText = LOCTEXT("FilterFoliageTooltip_Reapply", "Reapply to instances on blocking foliage geometry");
+	}
+	else if (IsLassoSelectTool())
+	{
+		TooltipText = LOCTEXT("FilterFoliageTooltip_Select", "Select instances on blocking foliage geometry");
 	}
 
 	return TooltipText;

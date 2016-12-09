@@ -6,10 +6,14 @@
  */
 
 #pragma once
-#include "Particles/Orientation/ParticleModuleOrientationAxisLock.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "ParticleLODLevel.generated.h"
 
 class UInterpCurveEdSetup;
+class UParticleModule;
 
 UCLASS(collapsecategories, hidecategories=Object, editinlinenew, MinimalAPI)
 class UParticleLODLevel : public UObject

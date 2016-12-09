@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UnrealType.h"
 #include "K2Node.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "Engine/MemberReference.h"
+#include "UObject/UObjectHash.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_BaseMCDelegate.generated.h"
+
+class UEdGraph;
 
 UCLASS(MinimalAPI, abstract)
 class UK2Node_BaseMCDelegate : public UK2Node

@@ -20,6 +20,7 @@ namespace UnrealBuildTool
 	class VersionManifest
 	{
 		public int Changelist;
+		public int CompatibleChangelist;
 		public string BuildId;
 		public Dictionary<string, string> ModuleNameToFileName = new Dictionary<string, string>();
 
@@ -27,9 +28,10 @@ namespace UnrealBuildTool
 		/// Constructs the module map with the given changelist
 		/// </summary>
 		/// <param name="InChangelist"></param>
-		public VersionManifest(int InChangelist, string InBuildId)
+		public VersionManifest(int InChangelist, int InCompatibleChangelist, string InBuildId)
 		{
 			Changelist = InChangelist;
+			CompatibleChangelist = InCompatibleChangelist;
 			BuildId = InBuildId;
 		}
 
@@ -76,7 +78,15 @@ namespace UnrealBuildTool
 		{
 			JsonObject Object = JsonObject.Read(FileName);
 
-			VersionManifest Receipt = new VersionManifest(Object.GetIntegerField("Changelist"), Object.GetStringField("BuildId"));
+			int Changelist = Object.GetIntegerField("Changelist");
+
+			int CompatibleChangelist;
+			if(!Object.TryGetIntegerField("CompatibleChangelist", out CompatibleChangelist))
+			{
+				CompatibleChangelist = Changelist;
+			}
+
+			VersionManifest Receipt = new VersionManifest(Changelist, CompatibleChangelist, Object.GetStringField("BuildId"));
 
 			JsonObject Modules = Object.GetObjectField("Modules");
 			foreach (string ModuleName in Modules.KeyNames)
@@ -122,11 +132,16 @@ namespace UnrealBuildTool
 		/// <param name="BuildArchitecture">The architecture of the target platform</param>
 		public void Write(string FileName)
 		{
+			Directory.CreateDirectory(Path.GetDirectoryName(FileName));
 			using (JsonWriter Writer = new JsonWriter(FileName))
 			{
 				Writer.WriteObjectStart();
 
 				Writer.WriteValue("Changelist", Changelist);
+				if(CompatibleChangelist != Changelist)
+				{
+					Writer.WriteValue("CompatibleChangelist", CompatibleChangelist);
+				}
 				Writer.WriteValue("BuildId", BuildId);
 
 				Writer.WriteObjectStart("Modules");

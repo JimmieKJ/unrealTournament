@@ -2,8 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Components/ShapeComponent.h"
 #include "BoxComponent.generated.h"
+
+class FPrimitiveSceneProxy;
 
 /** 
  * A box generally used for simple collision. Bounds are rendered as lines in the editor.

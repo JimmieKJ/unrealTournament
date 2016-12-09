@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "BaseToolkit.h"
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
+#include "Editor/PropertyEditor/Public/PropertyEditorDelegates.h"
+
+class IDetailsView;
+class SDockableTab;
 
 class UNREALED_API FSimpleAssetEditor : public FAssetEditorToolkit
 {
@@ -45,6 +49,9 @@ private:
 	/** Create the properties tab and its content */
 	TSharedRef<SDockTab> SpawnPropertiesTab( const FSpawnTabArgs& Args );
 
+	/** Handles when an asset is imported */
+	void HandleAssetPostImport(class UFactory* InFactory, UObject* InObject);
+
 	/** Dockable tab for properties */
 	TSharedPtr< SDockableTab > PropertiesTab;
 
@@ -56,6 +63,9 @@ private:
 
 	/**	The tab ids for all the tabs used */
 	static const FName PropertiesTabId;
+
+	/** The objects open within this editor */
+	TArray<UObject*> EditingObjects;
 
 public:
 	/** The name given to all instances of this type of editor */

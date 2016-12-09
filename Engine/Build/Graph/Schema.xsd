@@ -228,6 +228,7 @@
       <xs:element name="LabelBuild" type="tns:LabelBuildTaskType" />
       <xs:element name="Log" type="tns:LogTaskType" />
       <xs:element name="Merge" type="tns:MergeTaskType" />
+      <xs:element name="Move" type="tns:MoveTaskType" />
       <xs:element name="PakFile" type="tns:PakFileTaskType" />
       <xs:element name="PostBuild" type="tns:PostBuildTaskType" />
       <xs:element name="Rename" type="tns:RenameTaskType" />
@@ -288,9 +289,13 @@
     <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
   </xs:complexType>
   <xs:complexType name="PropertyType">
-    <xs:attribute name="Name" type="tns:NameType" use="required" />
-    <xs:attribute name="Value" type="xs:string" use="required" />
-    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="Name" type="tns:NameType" use="required" />
+        <xs:attribute name="Value" type="xs:string" use="optional" />
+        <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+      </xs:extension>
+    </xs:simpleContent>
   </xs:complexType>
   <xs:complexType name="WarningType">
     <xs:attribute name="Message" type="tns:BalancedStringType" use="required" />
@@ -350,6 +355,13 @@
       <xs:pattern value="((-?[1-9][0-9]*|0)|[^\$]*((\$\([^ ^&lt;&gt;:&quot;/\|?*]+( [^ ^&lt;&gt;:&quot;/\|?*]+)*\)|\$[^\(])[^\$]*)+\$?)" />
     </xs:restriction>
   </xs:simpleType>
+  <xs:complexType name="MoveTaskType">
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="From" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="To" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
   <xs:complexType name="PakFileTaskType">
     <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
     <xs:attribute name="Output" type="tns:BalancedStringType" use="required" />
@@ -397,9 +409,9 @@
     <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
   </xs:complexType>
   <xs:complexType name="CopyTaskType">
-    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
-    <xs:attribute name="FromDir" type="tns:BalancedStringType" use="required" />
-    <xs:attribute name="ToDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="From" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="To" type="tns:BalancedStringType" use="required" />
     <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
     <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
   </xs:complexType>
@@ -443,6 +455,20 @@
     <xs:attribute name="Files" type="tns:BalancedStringType" use="optional" />
     <xs:attribute name="ZipFile" type="tns:BalancedStringType" use="required" />
     <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="AgeStoreTaskType">
+    <xs:attribute name="Platform" type="tns:UnrealTargetPlatformUserType" use="required" />
+    <xs:attribute name="StoreDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Days" type="tns:IntegerType" use="required" />
+    <xs:attribute name="Filter" type="tns:BalancedStringType" use="optional" />
+    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="SymStoreTaskType">
+    <xs:attribute name="Platform" type="tns:UnrealTargetPlatformUserType" use="required" />
+    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="StoreDir" type="tns:BalancedStringType" use="required" />
+    <xs:attribute name="Product" type="tns:BalancedStringType" use="required" />
     <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
   </xs:complexType>
   <xs:complexType name="CompileTaskType">
@@ -510,22 +536,11 @@
     <xs:attribute name="Tag" type="tns:TagListType" use="optional" />
     <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
   </xs:complexType>
-  <xs:complexType name="AgeStoreTaskType">
-    <xs:attribute name="StoreDir" type="tns:BalancedStringType" use="required" />
-    <xs:attribute name="Days" type="tns:IntegerType" use="required" />
-    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
-  </xs:complexType>
   <xs:complexType name="SrcSrvTaskType">
     <xs:attribute name="BinaryFiles" type="tns:BalancedStringType" use="required" />
     <xs:attribute name="SourceFiles" type="tns:BalancedStringType" use="required" />
     <xs:attribute name="Branch" type="tns:BalancedStringType" use="required" />
     <xs:attribute name="Change" type="tns:IntegerType" use="required" />
-    <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
-  </xs:complexType>
-  <xs:complexType name="SymStoreTaskType">
-    <xs:attribute name="Files" type="tns:BalancedStringType" use="required" />
-    <xs:attribute name="StoreDir" type="tns:BalancedStringType" use="required" />
-    <xs:attribute name="Product" type="tns:BalancedStringType" use="required" />
     <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
   </xs:complexType>
   <xs:complexType name="PostBuildTaskType">
@@ -586,6 +601,7 @@
           <xs:enumeration value="Linux" />
           <xs:enumeration value="AllDesktop" />
           <xs:enumeration value="TVOS" />
+          <xs:enumeration value="Switch" />
         </xs:restriction>
       </xs:simpleType>
       <xs:simpleType>

@@ -5,6 +5,19 @@
 	controls the process of installing a build described by a build manifest.
 =============================================================================*/
 
+#pragma once
+
+#include "CoreMinimal.h"
+#include "HAL/Runnable.h"
+#include "BuildPatchManifest.h"
+#include "Interfaces/IBuildInstaller.h"
+#include "Interfaces/IBuildPatchServicesModule.h"
+#include "HAL/ThreadSafeBool.h"
+#include "BuildPatchProgress.h"
+
+class FBuildPatchInstallationInfo;
+class FBuildPatchInstaller;
+
 typedef TSharedPtr< class FBuildPatchInstaller, ESPMode::ThreadSafe > FBuildPatchInstallerPtr;
 typedef TSharedRef< class FBuildPatchInstaller, ESPMode::ThreadSafe > FBuildPatchInstallerRef;
 typedef TWeakPtr< class FBuildPatchInstaller, ESPMode::ThreadSafe > FBuildPatchInstallerWeakPtr;
@@ -24,29 +37,20 @@ private:
 	// The delegates that we will be calling
 	FBuildPatchBoolManifestDelegate OnCompleteDelegate;
 
+	// The installer configuration
+	FInstallerConfiguration Configuration;
+
 	// The manifest for the build we have installed (if applicable)
 	FBuildPatchAppManifestPtr CurrentBuildManifest;
 
 	// The manifest for the build we want to install
 	FBuildPatchAppManifestRef NewBuildManifest;
 
-	// The Destination directory that we want to install to
-	FString InstallDirectory;
-
-	// The Staging directory used for construction
-	FString StagingDirectory;
-
 	// The directory created in staging, to store local patch data
 	FString DataStagingDir;
 
 	// The directory created in staging to construct install files to
 	FString InstallStagingDir;
-
-	// The base paths for the data clouds
-	TArray<FString> CloudDirectories;
-
-	// The backup directory
-	FString BackupDirectory;
 
 	// The filename used to mark a previous install that did not complete but moved staged files into the install directory
 	FString PreviousMoveMarker;
@@ -63,23 +67,17 @@ private:
 	// A flag to store if we are installing chunk data (to help readability)
 	const bool bIsChunkData;
 
-	// A flag to store if we are performing a repair
-	bool bIsRepairing;
-
-	// A flag to store if we should only be staging, and not moving to install location
-	bool bShouldStageOnly;
-
 	// A flag storing whether the process was a success
-	bool bSuccess;
+	FThreadSafeBool bSuccess;
 
 	// A flag marking that we a running
-	bool bIsRunning;
+	FThreadSafeBool bIsRunning;
 
 	// A flag marking that we initialized correctly
-	bool bIsInited;
+	FThreadSafeBool bIsInited;
 
-	// A flag specifying whether prerequisites install should be skipped
-	bool bForceSkipPrereqs;
+	// A flag that stores whether we are on the first install iteration
+	FThreadSafeBool bFirstInstallIteration;
 
 	// The download speed value
 	double DownloadSpeedValue;
@@ -111,11 +109,11 @@ private:
 	// Holds a list of files that have been placed into the install directory
 	TArray<FString> FilesInstalled;
 
-	// Holds the install tags for describing the files we want to install
-	TSet<FString> InstallTags;
-
 	// Holds the files which are all required
 	TSet<FString> TaggedFiles;
+
+	// The files that the installation process required to construct
+	TSet<FString> FilesToConstruct;
 
 	// The list of prerequisites that have already been installed. Will also be updated on successful installation
 	TSet<FString> InstalledPrereqs;
@@ -125,19 +123,13 @@ private:
 
 public:
 	/**
-	 * Constructor takes the required arguments, CurrentManifest can be invalid for fresh install.
-	 * @param OnCompleteDelegate		Delegate for when the process has completed
-	 * @param CurrentManifest			The manifest for the currently installed build. Can be invalid if fresh install.
-	 * @param InstallManifest			The manifest for the build to be installed
-	 * @param InstallDirectory			The directory where the build will be installed
-	 * @param StagingDirectory			The directory for storing the intermediate files
-	 * @param InstallationInfoRef		Reference to the module's installation info that keeps record of locally installed apps for use as chunk sources
-	 * @param ShouldStageOnly			Whether the installer should only stage the required files, and skip moving them to the install directory
-	 * @param InLocalMachineConfigFile	Filename for the local machine's config. This is used for per-machine configuration rather than shipped or user config.
-	 * @param bIsRepair					Whether the operation is to repair an existing installation
-	 * @param bShouldForceSkipPrereqs	Whether the installer should skip prerequisites installs
+	 * Constructor takes configuration and dependencies.
+	 * @param Configuration             The installer configuration structure.
+	 * @param InstallationInfoRef       Reference to the module's installation info that keeps record of locally installed apps for use as chunk sources.
+	 * @param InLocalMachineConfigFile  Filename for the local machine's config. This is used for per-machine configuration rather than shipped or user config.
+	 * @param OnCompleteDelegate        Delegate for when the process has completed.
 	 */
-	FBuildPatchInstaller(FBuildPatchBoolManifestDelegate OnCompleteDelegate, FBuildPatchAppManifestPtr CurrentManifest, FBuildPatchAppManifestRef InstallManifest, const FString& InstallDirectory, const FString& StagingDirectory, FBuildPatchInstallationInfo& InstallationInfoRef, bool ShouldStageOnly, const FString& InLocalMachineConfigFile, bool bIsRepair, bool bShouldForceSkipPrereqs);
+	FBuildPatchInstaller(FInstallerConfiguration Configuration, FBuildPatchInstallationInfo& InstallationInfoRef, const FString& InLocalMachineConfigFile, FBuildPatchBoolManifestDelegate OnCompleteDelegate);
 
 	/**
 	 * Default Destructor, will delete the allocated Thread
@@ -145,42 +137,33 @@ public:
 	~FBuildPatchInstaller();
 
 	// Begin FRunnable
-	bool Init() override;
 	uint32 Run() override;
 	// End FRunnable
 
 	// Begin IBuildInstaller
-	virtual bool IsComplete() override;
-	virtual bool IsCanceled() override;
-	virtual bool IsPaused() override;
-	virtual bool IsResumable() override;
-	virtual bool HasError() override;
-	virtual EBuildPatchInstallError GetErrorType() override;
-	virtual FString GetErrorCode() override;
+	virtual bool IsComplete() const override;
+	virtual bool IsCanceled() const override;
+	virtual bool IsPaused() const override;
+	virtual bool IsResumable() const override;
+	virtual bool HasError() const override;
+	virtual EBuildPatchInstallError GetErrorType() const override;
+	virtual FString GetErrorCode() const override;
 	//@todo this is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]
-	virtual FText GetPercentageText() override;
+	virtual FText GetPercentageText() const override;
 	//@todo this is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]
-	virtual FText GetDownloadSpeedText() override;
+	virtual FText GetDownloadSpeedText() const override;
 	virtual double GetDownloadSpeed() const override;
 	virtual int64 GetInitialDownloadSize() const override;
 	virtual int64 GetTotalDownloaded() const override;
-	virtual FText GetStatusText() override;
-	virtual float GetUpdateProgress() override;
-	virtual FBuildInstallStats GetBuildStatistics() override;
+	virtual EBuildPatchState GetState() const override;
+	virtual FText GetStatusText() const override;
+	virtual float GetUpdateProgress() const override;
+	virtual FBuildInstallStats GetBuildStatistics() const override;
 	virtual EBuildPatchDownloadHealth GetDownloadHealth() const override;
-	virtual FText GetErrorText() override;
+	virtual FText GetErrorText() const override;
 	virtual void CancelInstall() override;
 	virtual bool TogglePauseInstall() override;
 	// End IBuildInstaller interface
-
-	/**
-	 * Set the list of install tags to be installed. Only files which are tagged with one of these will be installed. Untagged files are always installed.
-	 * Special cases:
-	 *      Providing an empty set will result in every file being installed.
-	 *      Providing a set with a single empty string entry, is minimal install, defined by only untagged files.
-	 * @return true if the new set was accepted. false can be returned if the installation is already running, or the set contained a tag not present on the install manifest.
-	 */
-	bool SetRequiredInstallTags(const TSet<FString>& Tags);
 
 	/**
 	 * Begin the installation process
@@ -200,6 +183,12 @@ public:
 	void WaitForThread() const;
 
 private:
+
+	/**
+	 * Initialise the installer.
+	 * @return Whether initialization was successful.
+	 */
+	bool Initialize();
 
 	/**
 	 * Checks the installation directory for any already existing files of the correct size, with may account for manual
@@ -250,18 +239,6 @@ private:
 	 */
 	bool RunPrereqInstaller();
 	
-	/**
-	 * Sets the bIsRunning flag
-	 * @param bRunning	Whether the thread is running
-	 */
-	void SetRunning( bool bRunning );
-
-	/**
-	 * Sets the bIsInited flag
-	 * @param bInited	Whether the thread successfully initialized
-	 */
-	void SetInited( bool bInited );
-
 	/**
 	 * Sets the current byte download speed
 	 * @param ByteSpeed	The download speed

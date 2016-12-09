@@ -4,16 +4,30 @@
 	Interaction.cpp: See .UC for for info
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Engine/Console.h"
+#include "Misc/Paths.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "UObject/UnrealType.h"
+#include "Misc/PackageName.h"
+#include "UObject/ConstructorHelpers.h"
+#include "EngineGlobals.h"
+#include "ShowFlags.h"
+#include "Input/Events.h"
+#include "Engine/Engine.h"
+#include "CanvasItem.h"
+#include "Engine/Canvas.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/Texture2D.h"
+#include "Engine/LocalPlayer.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/SViewport.h"
 #include "Engine/LevelScriptActor.h"
-#include "SlateBasics.h"
-#include "DefaultValueHelper.h"
-#include "ConsoleSettings.h"
+#include "Misc/DefaultValueHelper.h"
 #include "GameFramework/InputSettings.h"
 #include "Stats/StatsData.h"
-#include "TextFilter.h"
-#include "SceneViewport.h"
+#include "Misc/TextFilter.h"
 
 static const uint32 MAX_AUTOCOMPLETION_LINES = 20;
 
@@ -189,14 +203,17 @@ void UConsole::BuildRuntimeAutoCompleteList(bool bForce)
 			int32 NewIdx = AutoCompleteList.AddZeroed(1);
 			AutoCompleteList[NewIdx].Command = FuncName;
 			AutoCompleteList[NewIdx].Color = ConsoleSettings->AutoCompleteCommandColor;
+
+			FString Desc;
+
 			// build a help string
 			// append each property (and it's type) to the help string
 			for (TFieldIterator<UProperty> PropIt(Func); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
 			{
 				UProperty *Prop = *PropIt;
-				FuncName = FString::Printf(TEXT("%s[%s]"),*Prop->GetName(),*Prop->GetCPPType());
+				Desc += FString::Printf(TEXT("%s[%s] "),*Prop->GetName(),*Prop->GetCPPType());
 			}
-			AutoCompleteList[NewIdx].Desc = FuncName;
+			AutoCompleteList[NewIdx].Desc = Desc;
 			ScriptExecCnt++;
 		}
 	}
@@ -472,6 +489,7 @@ void UConsole::ConsoleCommand(const FString& Command)
 {
 	// insert into history buffer
 	{
+		HistoryBuffer.Remove(Command);
 		HistoryBuffer.Add(Command);
 
 		NormalizeHistoryBuffer();
@@ -1127,7 +1145,10 @@ void UConsole::PostRender_Console_Open(UCanvas* Canvas)
 	FLinearColor BackgroundColor = ConsoleDefs::AutocompleteBackgroundColor.ReinterpretAsLinear();
 	BackgroundColor.A = ConsoleSettings->BackgroundOpacityPercentage / 100.0f;
 	FCanvasTileItem ConsoleTile( FVector2D( LeftPos, 0.0f ), DefaultTexture_Black->Resource, FVector2D( ClipX, Height + TopPos - yl), FVector2D( 0.0f, 0.0f), FVector2D( 1.0f, 1.0f ), BackgroundColor );
-	ConsoleTile.BlendMode = SE_BLEND_Translucent;
+
+	// Preserve alpha to allow single-pass composite
+	ConsoleTile.BlendMode = SE_BLEND_AlphaBlend;
+
 	Canvas->DrawItem( ConsoleTile );
 
 	// figure out which element of the scrollback buffer to should appear first (at the top of the screen)
@@ -1268,7 +1289,10 @@ void UConsole::PostRender_InputLine(UCanvas* Canvas, FIntPoint UserInputLinePos)
 	FLinearColor BackgroundColor = ConsoleDefs::AutocompleteBackgroundColor.ReinterpretAsLinear();
 	BackgroundColor.A = ConsoleSettings->BackgroundOpacityPercentage / 100.0f;
 	FCanvasTileItem ConsoleTile( FVector2D( UserInputLinePos.X,UserInputLinePos.Y-6-yl ), DefaultTexture_Black->Resource, FVector2D( ClipX, yl+6 ), FVector2D( 0.0f, 0.0f), FVector2D( 1.0f, 1.0f ), BackgroundColor );
-	ConsoleTile.BlendMode = SE_BLEND_Translucent;
+	
+	// Preserve alpha to allow single-pass composite
+	ConsoleTile.BlendMode = SE_BLEND_AlphaBlend;
+
 	Canvas->DrawItem( ConsoleTile );
 
 	// Separator line
@@ -1352,7 +1376,10 @@ void UConsole::PostRender_InputLine(UCanvas* Canvas, FIntPoint UserInputLinePos)
 		// dark inner part
 		ConsoleTile.Size = FVector2D( MaxWidth + 2 * Border, Height + 2 * Border );
 		ConsoleTile.SetColor( AutoCompleteBackgroundColor );
-		ConsoleTile.BlendMode = SE_BLEND_Translucent;
+
+		// Preserve alpha to allow single-pass composite
+		ConsoleTile.BlendMode = SE_BLEND_AlphaBlend;
+
 		Canvas->DrawItem( ConsoleTile, UserInputLinePos.X + xl - Border, y + yl - Height - Border );
 
 		// white border
@@ -1479,6 +1506,7 @@ void UConsole::FakeGotoState(FName NextStateName)
 		// We need to force the console state name change now otherwise inside the call 
 		// to SetKeyboardFocus the console is still considered active
 		ConsoleState = NAME_None;
+		bCtrl = false;
 
 		TSharedPtr<SWidget> WidgetToFocus;
 		if (PreviousFocusedWidget.IsValid())

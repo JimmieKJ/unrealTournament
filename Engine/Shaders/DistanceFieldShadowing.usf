@@ -98,20 +98,6 @@ bool ShadowConvexHullIntersectSphere(float3 SphereOrigin, float SphereRadius)
 	return true;
 }
 
-[numthreads(1, 1, 1)]
-void ClearObjectIndirectArguments(
-	uint3 GroupId : SV_GroupID,
-	uint3 DispatchThreadId : SV_DispatchThreadID,
-    uint3 GroupThreadId : SV_GroupThreadID) 
-{
-	// IndexCount, NumInstances, StartIndex, BaseVertexIndex, FirstInstance
-	RWObjectIndirectArguments[0] = 0;
-	RWObjectIndirectArguments[1] = 0;
-	RWObjectIndirectArguments[2] = 0;
-	RWObjectIndirectArguments[3] = 0;
-	RWObjectIndirectArguments[4] = 0;
-}
-
 [numthreads(UPDATEOBJECTS_THREADGROUP_SIZE, 1, 1)]
 void CullObjectsForShadowCS(
 	uint3 GroupId : SV_GroupID,
@@ -633,6 +619,8 @@ SamplerState ShadowFactorsSampler;
 
 float FadePlaneOffset;
 float InvFadePlaneLength;
+float NearFadePlaneOffset;
+float InvNearFadePlaneLength;
 
 void DistanceFieldShadowingUpsamplePS(
 	in float4 UVAndScreenPos : TEXCOORD0,
@@ -680,7 +668,11 @@ void DistanceFieldShadowingUpsamplePS(
 	float Output = Texture2DSampleLevel(ShadowFactorsTexture, ShadowFactorsSampler, DistanceFieldUVs, 0).x;
 #endif
 
-	float BlendFactor = 1.0f - saturate((SceneDepth - FadePlaneOffset) * InvFadePlaneLength);
-	Output = lerp(1, Output, BlendFactor);
-	OutColor = EncodeLightAttenuation(half4(Output, Output, Output, BlendFactor));
+	float FarBlendFactor = 1.0f - saturate((SceneDepth - FadePlaneOffset) * InvFadePlaneLength);
+	Output = lerp(1, Output, FarBlendFactor);
+
+	float NearBlendFactor = saturate((SceneDepth - NearFadePlaneOffset) * InvNearFadePlaneLength);
+	Output = lerp(1, Output, NearBlendFactor);
+
+	OutColor = EncodeLightAttenuation(half4(Output, Output, Output, Output));
 }

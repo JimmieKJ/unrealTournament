@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "HierarchicalLODOutlinerPrivatePCH.h"
-#include "ActorDragDropGraphEdOp.h"
 
-class ALODActor;
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/DragAndDrop.h"
+#include "Editor/HierarchicalLODOutliner/Private/HierarchicalLODType.h"
+
+class AActor;
+class FActorDragDropOp;
+class SWidget;
+struct FSlateBrush;
 
 namespace HLODOutliner
 {

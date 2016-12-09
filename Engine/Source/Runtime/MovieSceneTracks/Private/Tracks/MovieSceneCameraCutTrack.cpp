@@ -1,15 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneCameraCutSection.h"
-#include "MovieSceneCameraCutTrack.h"
+#include "Tracks/MovieSceneCameraCutTrack.h"
+#include "MovieScene.h"
 #include "MovieSceneCommonHelpers.h"
-#include "IMovieScenePlayer.h"
-#include "MovieSceneCameraCutTrackInstance.h"
-
+#include "Sections/MovieSceneCameraCutSection.h"
+#include "Evaluation/MovieSceneCameraCutTemplate.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCameraCutTrack"
-
 
 /* UMovieSceneCameraCutTrack interface
  *****************************************************************************/
@@ -19,6 +16,9 @@ UMovieSceneCameraCutTrack::UMovieSceneCameraCutTrack( const FObjectInitializer& 
 #if WITH_EDITORONLY_DATA
 	TrackTint = FColor(0, 0, 0, 65);
 #endif
+
+	// By default, don't evaluate camera cuts in pre and postroll
+	EvalOptions.bEvaluateInPreroll = EvalOptions.bEvaluateInPostroll = false;
 }
 
 
@@ -74,12 +74,6 @@ void UMovieSceneCameraCutTrack::AddSection(UMovieSceneSection& Section)
 	{
 		Sections.Add(&Section);
 	}
-}
-
-
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneCameraCutTrack::CreateInstance()
-{
-	return MakeShareable(new FMovieSceneCameraCutTrackInstance(*this)); 
 }
 
 
@@ -152,6 +146,5 @@ float UMovieSceneCameraCutTrack::FindEndTimeForCameraCut( float StartTime )
 
 	return EndTime;
 }
-
 
 #undef LOCTEXT_NAMESPACE

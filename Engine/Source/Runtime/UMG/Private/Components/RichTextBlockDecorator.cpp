@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/RichTextBlockDecorator.h"
+#include "Misc/StringAssetReference.h"
+#include "Rendering/DrawElements.h"
+#include "Framework/Text/SlateTextRun.h"
 
-#include "RichTextBlockDecorator.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

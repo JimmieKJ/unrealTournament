@@ -1,7 +1,7 @@
 //
 // paLowpass.cpp
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 
 #include "Signal/paLowpass.hpp"

@@ -2,9 +2,13 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Modules/ModuleManager.h"
 #include "IPluginBrowser.h"
-#include "IPluginManager.h"
-#include "ModuleManager.h"
+#include "Widgets/SWindow.h"
+
+class FSpawnTabArgs;
 
 DECLARE_MULTICAST_DELEGATE(FOnNewPluginCreated);
 
@@ -51,6 +55,9 @@ public:
 	 */
 	bool HasPluginPendingEnable(const FString& PluginName) const;
 
+	/** Checks whether the given plugin should be displayed with a 'NEW' label */
+	bool IsNewlyInstalledPlugin(const FString& PluginName) const;
+
 	/** ID name for the plugins editor major tab */
 	static const FName PluginsEditorTabName;
 
@@ -58,12 +65,39 @@ public:
 	static const FName PluginCreatorTabName;
 
 private:
+	/** Called to spawn the plugin browser tab */
+	TSharedRef<SDockTab> HandleSpawnPluginBrowserTab(const FSpawnTabArgs& SpawnTabArgs);
+
 	/** Called to spawn the plugin creator tab */
 	TSharedRef<SDockTab> HandleSpawnPluginCreatorTab(const FSpawnTabArgs& SpawnTabArgs);
+
+	/** Callback for the main frame finishing load */
+	void OnMainFrameLoaded(TSharedPtr<SWindow> InRootWindow, bool bIsNewProjectWindow);
+
+	/** Callback for when the user selects to edit installed plugins */
+	void OnNewPluginsPopupSettingsClicked();
+
+	/** Callback for when the user selects to edit installed plugins */
+	void OnNewPluginsPopupDismissClicked();
+
+	/** Updates the user's config file with the list of installed plugins that they've seen. */
+	void UpdatePreviousInstalledPlugins();
+
+	/** The spawned browser tab */
+	TWeakPtr<SDockTab> PluginBrowserTab;
 
 	/** List of plugins that are pending enable/disable */
 	TMap<FString, bool> PendingEnablePlugins;
 
+	/** List of all the installed plugins (as opposed to built-in engine plugins) */
+	TArray<FString> InstalledPlugins;
+
+	/** List of plugins that have been recently installed */
+	TSet<FString> NewlyInstalledPlugins;
+
 	/** Delegate called when a new plugin is created */
 	FOnNewPluginCreated NewPluginCreatedDelegate;
+
+	/** Notification popup that new plugins are available */
+	TWeakPtr<SNotificationItem> NewPluginsNotification;
 };

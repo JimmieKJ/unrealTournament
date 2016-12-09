@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "MRUFavoritesList.h"
-#include "ConfigCacheIni.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "HAL/FileManager.h"
+#include "Misc/PackageName.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 const FString FMainMRUFavoritesList::FAVORITES_INI_SECTION = TEXT("FavoriteFiles");
 

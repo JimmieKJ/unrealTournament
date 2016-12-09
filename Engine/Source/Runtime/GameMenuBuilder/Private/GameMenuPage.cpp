@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameMenuBuilderPrivatePCH.h"
+#include "GameMenuPage.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWeakWidget.h"
+#include "GameMenuBuilderStyle.h"
+#include "GameMenuWidgetStyle.h"
+#include "SGameMenuPageWidget.h"
+#include "GameMenuBuilderModule.h"
 
 FGameMenuPage::FGameMenuPage()
 {
@@ -28,7 +34,7 @@ bool FGameMenuPage::InitialiseRootMenu(APlayerController* InPCOwner, const FStri
 {
 	if (FModuleManager::Get().IsModuleLoaded("GameMenuBuilder") == false)
 	{
-		FModuleManager::LoadModuleChecked<FGameMenuBuilderModule>("GameMenuBuilder");
+		FModuleManager::LoadModuleChecked<IGameMenuBuilderModule>("GameMenuBuilder");
 	}	
 
 	TArray<FString> SplitString;

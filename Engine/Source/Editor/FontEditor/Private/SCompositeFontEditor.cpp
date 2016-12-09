@@ -1,13 +1,32 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FontEditorModule.h"
 #include "SCompositeFontEditor.h"
-#include "SFilePathPicker.h"
-#include "SInlineEditableTextBlock.h"
-#include "SNumericEntryBox.h"
+#include "Fonts/FontCache.h"
+#include "Fonts/FontBulkData.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "EditorStyleSet.h"
+#include "EditorFontGlyphs.h"
+#include "EditorDirectories.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "IFontEditor.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "ScopedTransaction.h"
+#include "Modules/ModuleManager.h"
 #include "DesktopPlatformModule.h"
+#include "ContentBrowserModule.h"
+#include "AssetRegistryModule.h"
+#include "PropertyCustomizationHelpers.h"
 #include "Engine/Font.h"
+#include "Engine/FontFace.h"
+#include "Misc/FileHelper.h"
+#include "IContentBrowserSingleton.h"
+#include "FileHelpers.h"
 
 #define LOCTEXT_NAMESPACE "FontEditor"
 
@@ -569,8 +588,6 @@ void STypefaceEntryEditor::Construct(const FArguments& InArgs)
 	OnDeleteFont = InArgs._OnDeleteFont;
 	OnVerifyFontName = InArgs._OnVerifyFontName;
 
-	GatherHintingEnumEntries();
-
 	ChildSlot
 	[
 		SNew(SBorder)
@@ -599,9 +616,12 @@ void STypefaceEntryEditor::Construct(const FArguments& InArgs)
 				+SHorizontalBox::Slot()
 				.VAlign(VAlign_Center)
 				[
-					SNew(STextBlock)
-					.Text(this, &STypefaceEntryEditor::GetTypefaceEntryFontLeafname)
-					.ToolTipText(this, &STypefaceEntryEditor::GetTypefaceEntryFontFilePath)
+					SNew(SObjectPropertyEntryBox)
+					.AllowedClass(UFontFace::StaticClass())
+					.ObjectPath(this, &STypefaceEntryEditor::GetFontFaceAssetPath)
+					.OnObjectChanged(this, &STypefaceEntryEditor::OnFontFaceAssetChanged)
+					.DisplayUseSelected(false)
+					.DisplayBrowse(false)
 				]
 
 				+SHorizontalBox::Slot()
@@ -628,17 +648,28 @@ void STypefaceEntryEditor::Construct(const FArguments& InArgs)
 			.AutoHeight()
 			.Padding(FMargin(0.0f, 0.0f, 0.0f, 4.0f))
 			[
-				SNew(SBox)
-				.MinDesiredWidth(100.0f)
+				SNew(SButton)
+				.ToolTipText(LOCTEXT("FontFaceUpgradeToolTip", "This font face has been upgraded from legacy data and needs to be split into its own asset before it can be edited."))
+				.Visibility(this, &STypefaceEntryEditor::GetUpgradeDataVisibility)
+				.OnClicked(this, &STypefaceEntryEditor::OnUpgradeDataClicked)
 				[
-					SNew(SComboBox<TSharedPtr<FFontHintingComboEntry>>)
-					.ToolTipText(LOCTEXT("HintingTooltip", "The hinting algorithm to use with this font"))
-					.OptionsSource(&HintingComboData)
-					.OnSelectionChanged(this, &STypefaceEntryEditor::OnHintingComboSelectionChanged)
-					.OnGenerateWidget(this, &STypefaceEntryEditor::MakeHintingComboEntryWidget)
+					SNew(SHorizontalBox)
+
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Center)
+					.Padding(FMargin(0.0f, 0.0f, 2.0f, 0.0f))
+					[
+						SNew(SImage)
+						.Image(FEditorStyle::Get().GetBrush("Icons.Warning"))
+					]
+
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text(this, &STypefaceEntryEditor::GetHintingComboText)
+						.Text(LOCTEXT("FontFaceUpgradeBtn", "Upgrade Data"))
 					]
 				]
 			]
@@ -706,30 +737,37 @@ bool STypefaceEntryEditor::OnTypefaceEntryChanged(const FText& InNewName, FText&
 	return !OnVerifyFontName.IsBound() || OnVerifyFontName.Execute(TypefaceEntry, *InNewName.ToString(), OutFailureReason);
 }
 
-FText STypefaceEntryEditor::GetTypefaceEntryFontFilePath() const
+FString STypefaceEntryEditor::GetFontFaceAssetPath() const
 {
 	FTypefaceEntry* const TypefaceEntryPtr = TypefaceEntry->GetTypefaceEntry();
 
 	if(TypefaceEntryPtr)
 	{
-		return FText::FromString(TypefaceEntryPtr->Font.FontFilename);
-	}
+		const UFontFace* FontFaceAsset = Cast<const UFontFace>(TypefaceEntryPtr->Font.GetFontFaceAsset());
 
-	return FText::GetEmpty();
+		// Don't show the path for font faces within the same package as the main font (these have been in-place upgraded and should be split into their own package)
+		if (FontFaceAsset && FontFaceAsset->GetOutermost() != CompositeFontEditorPtr->GetFontObject()->GetOutermost())
+		{
+			return FontFaceAsset->GetPathName();
+		}
+
+	}
+	
+	return FString();
 }
 
-FText STypefaceEntryEditor::GetTypefaceEntryFontLeafname() const
+void STypefaceEntryEditor::OnFontFaceAssetChanged(const FAssetData& InAssetData)
 {
 	FTypefaceEntry* const TypefaceEntryPtr = TypefaceEntry->GetTypefaceEntry();
 
 	if(TypefaceEntryPtr)
 	{
-		return (TypefaceEntryPtr->Font.FontFilename.Len() > 0) 
-			? FText::FromString(FPaths::GetCleanFilename(TypefaceEntryPtr->Font.FontFilename)) 
-			: LOCTEXT("NoFontFileSelected", "<No File Selected>");
-	}
+		const FScopedTransaction Transaction(LOCTEXT("SetFontFaceAsset", "Set Font Face Asset"));
+		CompositeFontEditorPtr->GetFontObject()->Modify();
 
-	return FText::GetEmpty();
+		TypefaceEntryPtr->Font = FFontData(InAssetData.GetAsset());
+		CompositeFontEditorPtr->FlushCachedFont();
+	}
 }
 
 FReply STypefaceEntryEditor::OnBrowseTypefaceEntryFontPath()
@@ -769,15 +807,17 @@ void STypefaceEntryEditor::OnTypefaceEntryFontPathPicked(const FString& InNewFon
 
 	if(TypefaceEntryPtr)
 	{
-		const FScopedTransaction Transaction(LOCTEXT("SetFontFile", "Set Font File"));
-		CompositeFontEditorPtr->GetFontObject()->Modify();
-
-		// We need to allocate the bulk data with the font as its outer
-		UFontBulkData* const BulkData = NewObject<UFontBulkData>(CompositeFontEditorPtr->GetFontObject());
-		BulkData->Initialize(InNewFontFilename);
-
-		TypefaceEntryPtr->Font.SetFont(InNewFontFilename, BulkData);
-		CompositeFontEditorPtr->FlushCachedFont();
+		UFontFace* TempFontFace = NewObject<UFontFace>();
+		TempFontFace->SourceFilename = InNewFontFilename;
+		if (FFileHelper::LoadFileToArray(TempFontFace->FontFaceData, *TempFontFace->SourceFilename))
+		{
+			UFontFace* NewFontFaceAsset = SaveFontFaceAsAsset(TempFontFace, *FPaths::GetBaseFilename(TempFontFace->SourceFilename));
+			if (NewFontFaceAsset)
+			{
+				OnFontFaceAssetChanged(FAssetData(NewFontFaceAsset));
+				FAssetEditorManager::Get().OpenEditorForAsset(NewFontFaceAsset);
+			}
+		}
 	}
 
 	FEditorDirectories::Get().SetLastDirectory(ELastDirectory::GENERIC_OPEN, FPaths::GetPath(InNewFontFilename));
@@ -790,76 +830,102 @@ FReply STypefaceEntryEditor::OnDeleteFontClicked()
 	return FReply::Handled();
 }
 
+EVisibility STypefaceEntryEditor::GetUpgradeDataVisibility() const
+{
+	FTypefaceEntry* const TypefaceEntryPtr = TypefaceEntry->GetTypefaceEntry();
+
+	if (TypefaceEntryPtr)
+	{
+		const UFontFace* FontFaceAsset = Cast<const UFontFace>(TypefaceEntryPtr->Font.GetFontFaceAsset());
+
+		// Only show for font faces within the same package as the main font
+		if (FontFaceAsset && FontFaceAsset->GetOutermost() == CompositeFontEditorPtr->GetFontObject()->GetOutermost())
+		{
+			return EVisibility::Visible;
+		}
+
+	}
+
+	return EVisibility::Collapsed;
+}
+
+FReply STypefaceEntryEditor::OnUpgradeDataClicked()
+{
+	FTypefaceEntry* const TypefaceEntryPtr = TypefaceEntry->GetTypefaceEntry();
+
+	if (TypefaceEntryPtr)
+	{
+		const UFontFace* FontFaceAsset = Cast<const UFontFace>(TypefaceEntryPtr->Font.GetFontFaceAsset());
+		check(FontFaceAsset);
+
+		UFontFace* NewFontFaceAsset = SaveFontFaceAsAsset(FontFaceAsset, nullptr);
+		if (NewFontFaceAsset)
+		{
+			OnFontFaceAssetChanged(FAssetData(NewFontFaceAsset));
+			FAssetEditorManager::Get().OpenEditorForAsset(NewFontFaceAsset);
+		}
+	}
+
+	return FReply::Handled();
+}
+
+UFontFace* STypefaceEntryEditor::SaveFontFaceAsAsset(const UFontFace* InFontFace, const TCHAR* InDefaultNameOverride)
+{
+	const FString DefaultPackageName = CompositeFontEditorPtr->GetFontObject()->GetOutermost()->GetName();
+	const FString DefaultPackagePath = FPackageName::GetLongPackagePath(DefaultPackageName);
+	const FString DefaultFaceAssetName = InDefaultNameOverride ? FString(InDefaultNameOverride) : InFontFace->GetName();
+
+	FSaveAssetDialogConfig SaveAssetDialogConfig;
+	SaveAssetDialogConfig.DefaultPath = DefaultPackagePath;
+	SaveAssetDialogConfig.DefaultAssetName = DefaultFaceAssetName;
+	SaveAssetDialogConfig.AssetClassNames.Add(InFontFace->GetClass()->GetFName());
+	SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+	SaveAssetDialogConfig.DialogTitleOverride = LOCTEXT("SaveFontFaceDialogTitle", "Save Font Face");
+
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+
+	FString NewPackageName;
+	bool bFilenameValid = false;
+	while (!bFilenameValid)
+	{
+		NewPackageName = ContentBrowserModule.Get().CreateModalSaveAssetDialog(SaveAssetDialogConfig);
+		if (NewPackageName.IsEmpty())
+		{
+			bFilenameValid = false;
+			break;
+		}
+
+		NewPackageName = FPackageName::ObjectPathToPackageName(NewPackageName);
+
+		FText OutError;
+		bFilenameValid = FEditorFileUtils::IsFilenameValidForSaving(NewPackageName, OutError);
+	}
+
+	if (bFilenameValid)
+	{
+		const FString NewFaceAssetName = FPackageName::GetLongPackageAssetName(NewPackageName);
+		UPackage* NewFaceAssetPackage = CreatePackage(nullptr, *NewPackageName);
+		UFontFace* NewFaceAsset = Cast<UFontFace>(StaticDuplicateObject(InFontFace, NewFaceAssetPackage, *NewFaceAssetName));
+
+		if (NewFaceAsset)
+		{
+			// Make sure the new object is flagged correctly
+			NewFaceAsset->SetFlags(RF_Public | RF_Standalone);
+
+			NewFaceAsset->MarkPackageDirty();
+			FAssetRegistryModule::AssetCreated(NewFaceAsset);
+		}
+
+		return NewFaceAsset;
+	}
+
+	return nullptr;
+}
+
 FSlateFontInfo STypefaceEntryEditor::GetPreviewFontStyle() const
 {
 	FTypefaceEntry* const TypefaceEntryPtr = TypefaceEntry->GetTypefaceEntry();
 	return FSlateFontInfo(CompositeFontEditorPtr->GetFontObject(), 9, (TypefaceEntryPtr) ? TypefaceEntryPtr->Name : NAME_None);
-}
-
-void STypefaceEntryEditor::GatherHintingEnumEntries()
-{
-	FTypefaceEntry* const TypefaceEntryPtr = TypefaceEntry->GetTypefaceEntry();
-
-	const UEnum* const HintingEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EFontHinting"), true);
-	check(HintingEnum);
-
-	for(int32 EnumIndex = 0; EnumIndex < HintingEnum->NumEnums() - 1; ++EnumIndex)
-	{
-		// Ignore hidden enum entries
-		const bool bShouldBeHidden = HintingEnum->HasMetaData(TEXT("Hidden"), EnumIndex) || HintingEnum->HasMetaData(TEXT("Spacer"), EnumIndex);
-		if(bShouldBeHidden)
-		{
-			continue;
-		}
-
-		TSharedPtr<FFontHintingComboEntry> ComboEntry = MakeShareable(new FFontHintingComboEntry());
-		ComboEntry->EnumValue = static_cast<EFontHinting>(EnumIndex);
-
-		// See if we specified an alternate name for this entry using metadata
-		ComboEntry->DisplayName = HintingEnum->GetDisplayNameText(EnumIndex);
-		if(ComboEntry->DisplayName.IsEmpty()) 
-		{
-			ComboEntry->DisplayName = HintingEnum->GetEnumText(EnumIndex);
-		}
-
-		ComboEntry->Tooltip = HintingEnum->GetToolTipText(EnumIndex);
-
-		if(TypefaceEntryPtr && ComboEntry->EnumValue == TypefaceEntryPtr->Font.Hinting)
-		{
-			ActiveHintingEnumEntryText = ComboEntry->DisplayName;
-		}
-
-		HintingComboData.Add(ComboEntry);
-	}
-}
-
-void STypefaceEntryEditor::OnHintingComboSelectionChanged(TSharedPtr<FFontHintingComboEntry> InNewSelection, ESelectInfo::Type)
-{
-	FTypefaceEntry* const TypefaceEntryPtr = TypefaceEntry->GetTypefaceEntry();
-
-	if(TypefaceEntryPtr && InNewSelection.IsValid() && TypefaceEntryPtr->Font.Hinting != InNewSelection->EnumValue)
-	{
-		const FScopedTransaction Transaction(LOCTEXT("SetFontHinting", "Set Font Hinting"));
-		CompositeFontEditorPtr->GetFontObject()->Modify();
-
-		TypefaceEntryPtr->Font.Hinting = InNewSelection->EnumValue;
-		ActiveHintingEnumEntryText = InNewSelection->DisplayName;
-
-		CompositeFontEditorPtr->FlushCachedFont();
-	}
-}
-
-TSharedRef<SWidget> STypefaceEntryEditor::MakeHintingComboEntryWidget(TSharedPtr<FFontHintingComboEntry> InHintingEntry)
-{
-	return
-		SNew(STextBlock)
-		.Text(InHintingEntry->DisplayName)
-		.ToolTipText(InHintingEntry->Tooltip);
-}
-
-FText STypefaceEntryEditor::GetHintingComboText() const
-{
-	return ActiveHintingEnumEntryText;
 }
 
 SSubTypefaceEditor::~SSubTypefaceEditor()

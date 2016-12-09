@@ -1,25 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "HierarchicalLOD.h"
+#include "Engine/World.h"
+#include "Stats/StatsMisc.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Misc/PackageName.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "MapErrors.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "Misc/MapErrors.h"
 
 #if WITH_EDITOR
-#include "Editor/UnrealEd/Classes/Editor/EditorEngine.h"
-#include "Editor/UnrealEd/Public/Editor.h"
 #include "Engine/LODActor.h"
-#include "Editor/UnrealEd/Classes/Factories/Factory.h"
 #include "ObjectTools.h"
-#include "MeshUtilities.h"
-#include "HierarchicalLODUtilities.h"
+#include "IHierarchicalLODUtilities.h"
 #include "HierarchicalLODUtilitiesModule.h"
 #endif // WITH_EDITOR
 
-#include "GameFramework/WorldSettings.h"
-#include "Components/InstancedStaticMeshComponent.h"
 
 #include "HierarchicalLODVolume.h"
 
@@ -342,7 +342,7 @@ bool FHierarchicalLODBuilder::ShouldGenerateCluster(AActor* Actor, const bool bP
 	ALODActor* LODActor = Cast<ALODActor>(Actor);
 	if (bPreviewBuild && LODActor)
 	{
-		if (LODActor->GetStaticMeshComponent()->StaticMesh)
+		if (LODActor->GetStaticMeshComponent()->GetStaticMesh())
 		{
 			return false;
 		}
@@ -530,7 +530,7 @@ void FHierarchicalLODBuilder::DeleteLODActors(ULevel* InLevel, const bool bPrevi
 	for (int32 ActorId = InLevel->Actors.Num() - 1; ActorId >= 0; --ActorId)
 	{
 		ALODActor* LodActor = Cast<ALODActor>(InLevel->Actors[ActorId]);
-		if (LodActor && ( ( LodActor->GetStaticMeshComponent()->StaticMesh == nullptr && bPreviewOnly) || !bPreviewOnly ))
+		if (LodActor && ( ( LodActor->GetStaticMeshComponent()->GetStaticMesh() == nullptr && bPreviewOnly) || !bPreviewOnly ))
 		{
 			for (auto& Asset : LodActor->SubObjects)
 			{

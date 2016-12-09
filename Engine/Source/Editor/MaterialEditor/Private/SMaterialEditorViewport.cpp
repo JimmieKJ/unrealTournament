@@ -1,23 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "MaterialEditorModule.h"
-#include "MaterialEditorActions.h"
-#include "MouseDeltaTracker.h"
 #include "SMaterialEditorViewport.h"
-#include "PreviewScene.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "AssetToolsModule.h"
-#include "MaterialEditor.h"
-#include "SMaterialEditorViewportToolBar.h"
-#include "ComponentReregisterContext.h"
-#include "SDockTab.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SViewport.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "EditorStyleSet.h"
+#include "Components/MeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Editor/UnrealEdEngine.h"
+#include "MaterialEditor/MaterialEditorMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/Selection.h"
+#include "Editor.h"
+#include "Dialogs/Dialogs.h"
+#include "UnrealEdGlobals.h"
+#include "MaterialEditorActions.h"
+#include "Slate/SceneViewport.h"
+#include "MaterialEditor.h"
+#include "SMaterialEditorViewportToolBar.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "Engine/TextureCube.h"
 #include "ComponentAssetBroker.h"
 #include "SlateMaterialBrush.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 
 #define LOCTEXT_NAMESPACE "MaterialEditor"
@@ -100,15 +108,8 @@ void FMaterialEditorViewportClient::Draw(FViewport* InViewport,FCanvas* Canvas)
 
 bool FMaterialEditorViewportClient::ShouldOrbitCamera() const
 {
+	// Should always orbit around the preview object to keep it in view.
 	return true;
-
-	/*if (GetDefault<ULevelEditorViewportSettings>()->bUseUE3OrbitControls)
-	{
-		// this editor orbits always if ue3 orbit controls are enabled
-		return true;
-	}
-
-	return FEditorViewportClient::ShouldOrbitCamera();*/
 }
 
 FLinearColor FMaterialEditorViewportClient::GetBackgroundColor() const

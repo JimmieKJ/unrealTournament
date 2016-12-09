@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/IAutomationReport.h"
+#include "Misc/IFilter.h"
 
 class FAutomationFilter
 	: public IFilter<const TSharedPtr<class IAutomationReport>&>

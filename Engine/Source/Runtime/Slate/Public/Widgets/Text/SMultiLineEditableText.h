@@ -2,12 +2,37 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "SlateGlobals.h"
+#include "Layout/Margin.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/TextLayout.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Framework/SlateDelegates.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
 #if WITH_FANCY_TEXT
+	#include "Widgets/Text/ISlateEditableTextWidget.h"
+	#include "Framework/Text/SlateTextLayoutFactory.h"
+#endif
 
-#include "ISlateEditableTextWidget.h"
-#include "SlateTextLayoutFactory.h"
-#include "SScrollBar.h"
-#include "UniquePtr.h"
+class FActiveTimerHandle;
+class FArrangedChildren;
+class FPaintArgs;
+class FSlateEditableTextLayout;
+class FSlateWindowElementList;
+class ITextLayoutMarshaller;
+enum class ETextShapingMethod : uint8;
+
+#if WITH_FANCY_TEXT
 
 class ITextLayoutMarshaller;
 class FSlateEditableTextLayout;
@@ -283,6 +308,7 @@ protected:
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FCursorReply OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const override;
 	virtual bool IsInteractable() const override;
+	virtual bool ComputeVolatility() const override;
 	//~ End SWidget Interface
 
 protected:

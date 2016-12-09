@@ -1,11 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AnimNodeBase.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimTypes.h"
+#include "Animation/AnimationAsset.h"
+#include "AlphaBlend.h"
+#include "Animation/AnimStateMachineTypes.h"
+#include "Animation/AnimNodeBase.h"
 #include "Animation/AnimInstance.h"
-#include "AnimStateMachineTypes.h"
 #include "AnimNode_StateMachine.generated.h"
 
+class IAnimClassInterface;
+class UBlendProfile;
+struct FAnimNode_AssetPlayerBase;
 struct FAnimNode_StateMachine;
 struct FAnimNode_TransitionPoseEvaluator;
 

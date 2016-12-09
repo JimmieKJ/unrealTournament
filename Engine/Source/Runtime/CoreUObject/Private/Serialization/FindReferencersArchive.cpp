@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "Serialization/FindReferencersArchive.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Class.h"
 
 /*----------------------------------------------------------------------------
 	FFindReferencersArchive.

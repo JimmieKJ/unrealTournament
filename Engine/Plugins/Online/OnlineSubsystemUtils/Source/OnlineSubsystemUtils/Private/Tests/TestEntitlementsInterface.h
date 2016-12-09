@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "Core.h"
-#include "OnlineEntitlementsInterface.h"
-#include "OnlineIdentityInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
+#include "OnlineSubsystem.h"
+#include "Interfaces/OnlineEntitlementsInterface.h"
+
+class Error;
 
 #if WITH_DEV_AUTOMATION_TESTS
 

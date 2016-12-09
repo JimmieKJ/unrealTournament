@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/TextProperty.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "KismetTextLibrary.generated.h"
 
 #if !CPP
@@ -75,7 +80,7 @@ struct FFormatArgumentData
 };
 #endif
 
-UCLASS()
+UCLASS(meta=(BlueprintThreadSafe))
 class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
@@ -186,7 +191,7 @@ class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
 	 * Generate an FText that represents the passed number as currency in the current culture.
 	 * BaseVal is specified in the smallest fractional value of the currency and will be converted for formatting according to the selected culture.
 	 * Keep in mind the CurrencyCode is completely independent of the culture it's displayed in (and they do not imply one another).
-	 * For example: FText::AsCurrencyBase(650, TEXT("EUR")); would return an FText of "€6.50" in most English cultures (en_US/en_UK) and "6,50€" in Spanish (es_ES).
+	 * For example: FText::AsCurrencyBase(650, TEXT("EUR")); would return an FText of "ï¿½6.50" in most English cultures (en_US/en_UK) and "6,50ï¿½" in Spanish (es_ES).
 	 */
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "AsCurrency"), Category = "Utilities|Text")
 	static FText AsCurrencyBase(int32 BaseValue, const FString& CurrencyCode);

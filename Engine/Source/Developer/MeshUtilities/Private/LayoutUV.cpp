@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MeshUtilitiesPrivate.h"
 #include "LayoutUV.h"
 #include "DisjointSet.h"
 
@@ -384,9 +383,7 @@ void FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
 			}
 		}
 
-		PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
-		uint32 NumTris = 0;
-		PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+		NumTris = 0;
 
 		for( int32 i = 0; i < Charts.Num(); i++ )
 		{

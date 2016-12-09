@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/GCObject.h"
+#include "Animation/AnimCurveTypes.h"
+#include "Animation/AnimationRecordingSettings.h"
+#include "Components/SkinnedMeshComponent.h"
+
+class UAnimNotify;
+class UAnimNotifyState;
+class UAnimSequence;
+class USkeletalMeshComponent;
+
 //////////////////////////////////////////////////////////////////////////
 // FAnimationRecorder
 
@@ -75,7 +87,7 @@ private:
 
 	// recording curve data 
 	TArray< TArray<FCurveElement> >  RecordedCurves;
-	TArray<FSmartNameMapping::UID> const * UIDList;
+	TArray<SmartName::UID_Type> const * UIDList;
 };
 
 //////////////////////////////////////////////////////////////////////////

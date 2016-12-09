@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "DecalActor.generated.h"
-
 
 class UArrowComponent;
 class UBillboardComponent;

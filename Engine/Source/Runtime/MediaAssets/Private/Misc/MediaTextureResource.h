@@ -2,13 +2,16 @@
 
 #pragma once
 
-#include "TextureResource.h"
-#include "TickableObjectRenderThread.h"
+#include "CoreMinimal.h"
+#include "Containers/Ticker.h"
+#include "Containers/TripleBuffer.h"
 #include "UnrealClient.h"
-
+#include "TextureResource.h"
+#include "Containers/Queue.h"
 
 class UMediaTexture;
-
+enum class EMediaTextureSinkFormat;
+enum class EMediaTextureSinkMode;
 
 /**
  * Texture resource type for media textures.
@@ -60,7 +63,21 @@ public:
 	 *
 	 * @return Resource size (in bytes).
 	 */
-	SIZE_T GetResourceSize() const;
+	DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
+	SIZE_T GetResourceSize() const
+	{
+		return GetResourceSizeBytes();
+	}
+
+	void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const
+	{
+		CumulativeResourceSize.AddUnknownMemoryBytes(CachedResourceSizeBytes);
+	}
+
+	SIZE_T GetResourceSizeBytes() const
+	{
+		return CachedResourceSizeBytes;
+	}
 
 	/**
 	 * Get the render target texture to render to.
@@ -72,11 +89,12 @@ public:
 	/**
 	 * Initialize the render target buffer(s).
 	 *
-	 * @param Dimensions Width and height of the texture (in pixels).
+	 * @param OutputDim Width and height of the video output (in pixels).
+	 * @param BufferDim Width and height of the sink buffer(s) (in pixels).
 	 * @param Format The pixel format of the sink's render target texture.
 	 * @param Mode The mode to operate the sink in (buffered vs. unbuffered).
 	 */
-	void InitializeBuffer(FIntPoint Dimensions, EMediaTextureSinkFormat Format, EMediaTextureSinkMode Mode);
+	void InitializeBuffer(FIntPoint OutputDim, FIntPoint BufferDim, EMediaTextureSinkFormat Format, EMediaTextureSinkMode Mode);
 
 	/** Release a previously acquired texture buffer. */
 	void ReleaseBuffer();
@@ -124,6 +142,9 @@ public:
 
 protected:
 
+	/** Cache the size of this resource, so it doesn't need to be recalculated. */
+	void CacheResourceSize();
+
 	/**
 	 * Helper function to convert the given resource to the target resource's pixel format.
 	 *
@@ -143,11 +164,15 @@ protected:
 	/**
 	 * Initialize this resource.
 	 *
-	 * @param Dimensions The new texture dimensions.
+	 * @param OutputDim Width and height of the output texture (in pixels).
+	 * @param BufferDim Width and height of the buffer texture(s) (in pixels).
 	 * @param Format The new texture format.
 	 * @param Mode The new sink mode.
 	 */
-	void InitializeResource(FIntPoint Dimensions, EMediaTextureSinkFormat Format, EMediaTextureSinkMode Mode);
+	void InitializeResource(FIntPoint OutputDim, FIntPoint BufferDim, EMediaTextureSinkFormat Format, EMediaTextureSinkMode Mode);
+
+	/** Process any queued up tasks on the render thread. */
+	void ProcessRenderThreadTasks();
 
 	/**
 	 * Helper function to make the given resource the output.
@@ -171,9 +196,6 @@ private:
 
 	//~ The following fields are owned by the render thread
 
-	/** Number of bytes per pixel in buffer resources. */
-	uint8 BufferBytesPerPixel;
-
 	/** The clear color to use. */
 	FLinearColor BufferClearColor;
 
@@ -184,6 +206,9 @@ private:
 	 * have formats with multiple pixels packed into a single RGBA tuple.
 	 */
 	FIntPoint BufferDimensions;
+
+	/** Number of bytes per row in buffer resources. */
+	SIZE_T BufferPitch;
 
 	/**
 	 * Texture resources for buffered mode or pixel conversions.
@@ -198,6 +223,9 @@ private:
 	 * to a separate output resource.
 	 */
 	FResource BufferResources[3];
+
+	/** Total size of this resource.*/
+	SIZE_T CachedResourceSizeBytes;
 
 	/** Width and height of the output resource (in pixels). */
 	FIntPoint OutputDimensions;
@@ -224,7 +252,21 @@ private:
 
 	//~ The following fields are owned by the decoder thread
 
-	/** The resource's current state. */
+	/**
+	 * The sink's current state.
+	 *
+	 * The purpose of this field is to prevent the decoder thread from doing
+	 * stupid things, such as calling InitializeBuffer or ShutdownBuffer in
+	 * the wrong order. Strictly speaking, it is not thread-safe, because
+	 * state changing operations are not atomic in the current implementation.
+	 * However, it shouldn't be an issue, because relevant accesses are gated.
+	 *
+	 * State changes on the decoder thread will be visible there immediately.
+	 * There are a couple places where the state is set on the render thread,
+	 * but here we are ok with eventual consistency on the decoder thread.
+	 * The latest state will eventually trickle down, and in the meantime the
+	 * decoder is in a pending state, such as Initializing or ShuttingDown.
+	 */
 	enum class EState
 	{
 		Initializing,

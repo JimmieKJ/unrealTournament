@@ -5,7 +5,11 @@ DiffPackagesCommandlet.cpp: Commandlet used for comparing two packages.
 
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "Commandlets/DiffFilesCommandlet.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
 #include "AssetRegistryModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDiffFilesCommandlet, Log, All);

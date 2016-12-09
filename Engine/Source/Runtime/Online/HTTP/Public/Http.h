@@ -3,12 +3,12 @@
 #pragma once
 
 // Module dependencies
-#include "Interfaces/IHttpBase.h"
-#include "Interfaces/IHttpRequest.h"
+
+#include "CoreMinimal.h"
+#include "HttpModule.h"
 #include "Interfaces/IHttpResponse.h"
 
 // Module includes
-#include "HttpModule.h"
 #include "PlatformHttp.h"
 
 HTTP_API DECLARE_LOG_CATEGORY_EXTERN(LogHttp, Display, All);

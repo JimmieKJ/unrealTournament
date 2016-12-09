@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationWindowPrivatePCH.h"
-
+#include "SAutomationGraphicalResultBox.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "SAutomationGraphicalResultBox"
 

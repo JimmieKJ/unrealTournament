@@ -1,38 +1,59 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
-#include "SlateBasics.h"
+#include "Kismet2/DebuggerCommands.h"
+#include "Misc/Paths.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "EditorStyleSettings.h"
+#include "GameFramework/Actor.h"
+#include "Settings/LevelEditorPlaySettings.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "GameFramework/PlayerStart.h"
+#include "Components/CapsuleComponent.h"
+#include "LevelEditorViewport.h"
+#include "UnrealEdGlobals.h"
+#include "EditorAnalytics.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/KismetDebugUtilities.h"
-#include "Kismet2/DebuggerCommands.h"
-#include "BlueprintUtilities.h"
 
-#include "LauncherServices.h"
+#include "Interfaces/TargetDeviceId.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/ITargetDeviceServicesModule.h"
 #include "ISettingsModule.h"
-#include "TargetDeviceServices.h"
-#include "IMainFrameModule.h"
+#include "Interfaces/IMainFrameModule.h"
 
 #include "EngineAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
 
 #include "GameProjectGenerationModule.h"
-#include "ProjectTargetPlatformEditor.h"
+#include "Interfaces/IProjectTargetPlatformEditorModule.h"
 #include "PlatformInfo.h"
 
 #include "IHeadMountedDisplay.h"
+#include "Editor.h"
 #include "IVREditorModule.h"
 
 //@TODO: Remove this dependency
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Editor/LevelEditor/Public/ILevelViewport.h"
+#include "EngineGlobals.h"
+#include "LevelEditor.h"
+#include "ILevelViewport.h"
 
-#include "EditorAnalytics.h"
-#include "MessageLog.h"
-#include "GameFramework/PlayerStart.h"
-#include "Components/CapsuleComponent.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
 
-#include "IProjectManager.h"
+#include "Interfaces/IProjectManager.h"
 
 #include "InstalledPlatformInfo.h"
 
@@ -1076,6 +1097,10 @@ void SetLastExecutedPlayMode(EPlayModeType PlayMode)
 {
 	ULevelEditorPlaySettings* PlaySettings = GetMutableDefault<ULevelEditorPlaySettings>();
 	PlaySettings->LastExecutedPlayModeType = PlayMode;
+	
+	FPropertyChangedEvent PropChangeEvent(ULevelEditorPlaySettings::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, LastExecutedPlayModeType)));
+	PlaySettings->PostEditChangeProperty(PropChangeEvent);
+	
 	PlaySettings->SaveConfig();
 }
 
@@ -1239,13 +1264,24 @@ void SetLastExecutedLaunchMode( ELaunchModeType LaunchMode )
 {
 	ULevelEditorPlaySettings* PlaySettings = GetMutableDefault<ULevelEditorPlaySettings>();
 	PlaySettings->LastExecutedLaunchModeType = LaunchMode;
+
+	PlaySettings->PostEditChange();
+
 	PlaySettings->SaveConfig();
 }
 
 
 void FInternalPlayWorldCommandCallbacks::RepeatLastPlay_Clicked()
 {
-	FPlayWorldCommands::GlobalPlayWorldActions->ExecuteAction( GetLastPlaySessionCommand() );
+	// Let a game have a go at settings before we play
+	ULevelEditorPlaySettings* PlaySettings = GetMutableDefault<ULevelEditorPlaySettings>();
+	PlaySettings->PostEditChange();
+
+	// Grab the play command and execute it
+	TSharedRef<FUICommandInfo> LastCommand = GetLastPlaySessionCommand();
+	UE_LOG(LogTemp, Log, TEXT("Repeting last play command: %s"), *LastCommand->GetLabel().ToString());
+
+	FPlayWorldCommands::GlobalPlayWorldActions->ExecuteAction(LastCommand);
 }
 
 
@@ -1366,8 +1402,8 @@ void FInternalPlayWorldCommandCallbacks::PlayInEditorFloating_Clicked( )
 	}
 	else
 	{
-		// Terminate existing session
-		GUnrealEd->EndPlayMap();
+		// Terminate existing session.  This is deferred because we could be processing this from the play world and we should not clear the play world while in it.
+		GUnrealEd->RequestEndPlayMap();
 	}
 }
 
@@ -1506,6 +1542,7 @@ void FInternalPlayWorldCommandCallbacks::PlayInLocation_Clicked( EPlayModeLocati
 {
 	ULevelEditorPlaySettings* PlaySettings = GetMutableDefault<ULevelEditorPlaySettings>();
 	PlaySettings->LastExecutedPlayModeLocation = Location;
+	PlaySettings->PostEditChange();
 	PlaySettings->SaveConfig();
 }
 
@@ -1732,6 +1769,9 @@ void FInternalPlayWorldCommandCallbacks::HandleLaunchOnDeviceActionExecute( FStr
 		PlaySettings->LastExecutedLaunchModeType = LaunchMode_OnDevice;
 		PlaySettings->LastExecutedLaunchDevice = DeviceId;
 		PlaySettings->LastExecutedLaunchName = DeviceName;
+
+		PlaySettings->PostEditChange();
+
 		PlaySettings->SaveConfig();
 
 		LaunchOnDevice(DeviceId, DeviceName);
@@ -1994,6 +2034,8 @@ void FInternalPlayWorldCommandCallbacks::SetNumberOfClients(int32 NumClients, ET
 {
 	ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
 	PlayInSettings->SetPlayNumberOfClients(NumClients);
+
+	PlayInSettings->PostEditChange();
 }
 
 
@@ -2003,6 +2045,8 @@ void FInternalPlayWorldCommandCallbacks::OnToggleDedicatedServerPIE()
 	bool PlayNetDedicated;
 	PlayInSettings->GetPlayNetDedicated(PlayNetDedicated);			// Ignore 'state' of option, as we're toggling it regardless
 	PlayInSettings->SetPlayNetDedicated(!PlayNetDedicated);
+
+	PlayInSettings->PostEditChange();
 }
 
 

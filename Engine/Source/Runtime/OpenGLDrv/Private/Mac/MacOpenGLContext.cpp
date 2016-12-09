@@ -4,22 +4,11 @@
 
 #include "MacOpenGLContext.h"
 #include "MacOpenGLQuery.h"
+#include "Misc/ConfigCacheIni.h"
 
 #include <IOKit/ps/IOPowerSources.h>
 #include <IOKit/ps/IOPSKeys.h>
 #include <OpenGL/gl3.h>
-
-/*------------------------------------------------------------------------------
- OpenGL defines.
- ------------------------------------------------------------------------------*/
-
-#if WITH_EDITOR
-#define MAC_OPENGL_SETTINGS TEXT("/Script/MacGraphicsSwitching.MacGraphicsSwitchingSettings")
-#define MAC_OPENGL_INI GEditorSettingsIni
-#else
-#define MAC_OPENGL_SETTINGS TEXT("/Script/MacTargetPlatform.MacTargetSettings")
-#define MAC_OPENGL_INI GEngineIni
-#endif
 
 /*------------------------------------------------------------------------------
  OpenGL static variables.
@@ -71,11 +60,6 @@ static NSOpenGLContext* CreateContext( NSOpenGLContext* SharedContext )
 		Attributes.Append(ContextCreationAttributes, ARRAY_COUNT(ContextCreationAttributes) - 1);
 		
 		int32 DisplayMask = 0;
-		if (GConfig->GetInt(MAC_OPENGL_SETTINGS, TEXT("DisplayMask"), DisplayMask, MAC_OPENGL_INI) && DisplayMask)
-		{
-			Attributes.Add(NSOpenGLPFAScreenMask);
-			Attributes.Add(DisplayMask);
-		}
 		
 		// Only initialise explicit renderer ID values once, require a restart to change, as otherwise the contexts cannot be in the same share group
 		static bool bExplicitRendererSetup = false;
@@ -577,9 +561,6 @@ void FPlatformOpenGLContext::RegisterGraphicsSwitchingCallback(void)
 #if WITH_SLI
 	GNumActiveGPUsForRendering = 1;
 #endif
-	
-	GConfig->GetBool(MAC_OPENGL_SETTINGS, TEXT("bAllowAutomaticGraphicsSwitching"), GMacUseAutomaticGraphicsSwitching, MAC_OPENGL_INI);
-	GConfig->GetBool(MAC_OPENGL_SETTINGS, TEXT("bUseMultipleRenderers"), GMacUseMultipleGPUs, MAC_OPENGL_INI);
 	
 	// Graphics switching requires a laptop, while multi-GPU requires a desktop.
 	// Check the power sources for info about this Mac to determine which it is.

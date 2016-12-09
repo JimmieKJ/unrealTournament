@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
 
 template <class ContainerType>
 class TLinkedListIteratorBase

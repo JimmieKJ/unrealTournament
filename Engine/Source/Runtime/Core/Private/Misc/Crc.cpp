@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "Crc.h"
+#include "Misc/Crc.h"
+#include "Templates/AlignmentTemplates.h"
+#include "Templates/UnrealTemplate.h"
+#include "Misc/ByteSwap.h"
 
 /** CRC 32 polynomial */
 enum { Crc32Poly = 0x04c11db7 };

@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-
-#include "SRuler.h"
+#include "Designer/SRuler.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Misc/Paths.h"
+#include "Rendering/DrawElements.h"
+#include "Styling/CoreStyle.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -92,16 +96,19 @@ static float GetNextSpacing( uint32 CurrentStep )
 	}
 }
 
-/**
- * Determines the optimal spacing between tick marks in the slider for a given pixel density
- * Increments until a minimum amount of slate units specified by MinTick is reached
- * 
- * @param InPixelsPerInput	The density of pixels between each input
- * @param MinTick			The minimum slate units per tick allowed
- * @param MinTickSpacing	The minimum tick spacing in time units allowed
- * @return the optimal spacing in time units
- */
-float DetermineOptimalSpacing( float InPixelsPerInput, uint32 MinTick, float MinTickSpacing )
+/////////////////////////////////////////////////////
+// SRuler
+
+void SRuler::Construct(const SRuler::FArguments& InArgs)
+{
+	Orientation = InArgs._Orientation;
+	AbsoluteOrigin = FVector2D(0, 0);
+	SlateToUnitScale = 1;
+
+	MouseButtonDownHandler = InArgs._OnMouseButtonDown;
+}
+
+float SRuler::DetermineOptimalSpacing(float InPixelsPerInput, uint32 MinTick, float MinTickSpacing) const
 {
 	if (InPixelsPerInput == 0.0f)
 		return MinTickSpacing;
@@ -118,18 +125,6 @@ float DetermineOptimalSpacing( float InPixelsPerInput, uint32 MinTick, float Min
 	}
 
 	return Spacing;
-}
-
-/////////////////////////////////////////////////////
-// SRuler
-
-void SRuler::Construct(const SRuler::FArguments& InArgs)
-{
-	Orientation = InArgs._Orientation;
-	AbsoluteOrigin = FVector2D(0, 0);
-	SlateToUnitScale = 1;
-
-	MouseButtonDownHandler = InArgs._OnMouseButtonDown;
 }
 
 void SRuler::SetRuling(FVector2D InAbsoluteOrigin, float InSlateToUnitScale)

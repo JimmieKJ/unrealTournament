@@ -95,8 +95,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="EngineDir">Path to the engine directory</param>
 		/// <param name="ProjectFileName">Path to the project file (or null)</param>
+        /// <param name="AdditionalDirectories">List of additional directories to scan for available plugins</param>
 		/// <returns>Sequence of PluginInfo objects, one for each discovered plugin</returns>
-		public static List<PluginInfo> ReadAvailablePlugins(DirectoryReference EngineDirectoryName, FileReference ProjectFileName)
+		public static List<PluginInfo> ReadAvailablePlugins(DirectoryReference EngineDirectoryName, FileReference ProjectFileName, List<DirectoryReference> AdditionalDirectories)
 		{
 			List<PluginInfo> Plugins = new List<PluginInfo>();
 
@@ -111,7 +112,13 @@ namespace UnrealBuildTool
 				Plugins.AddRange(ReadPluginsFromDirectory(ProjectPluginsDir, PluginLoadedFrom.GameProject));
 			}
 
-			return FilterPlugins(Plugins).ToList();
+            // Scan for shared plugins in project specified additional directories
+            foreach (DirectoryReference DirRef in AdditionalDirectories)
+            {
+                Plugins.AddRange(ReadPluginsFromDirectory(DirRef, PluginLoadedFrom.Engine));
+            }
+
+            return Plugins;
 		}
 
 		/// <summary>
@@ -136,13 +143,29 @@ namespace UnrealBuildTool
 			return ReadPluginsFromDirectory(ProjectPluginsDirectory, PluginLoadedFrom.GameProject);
 		}
 
-		/// <summary>
-		/// Read all the plugin descriptors under the given directory
-		/// </summary>
-		/// <param name="ParentDirectory">The parent directory to look in.</param>
-		/// <param name="LoadedFrom">The directory type</param>
-		/// <returns>Sequence of the found PluginInfo object.</returns>
-		public static IReadOnlyList<PluginInfo> ReadPluginsFromDirectory(DirectoryReference ParentDirectory, PluginLoadedFrom LoadedFrom)
+        /// <summary>
+        /// Read all of the plugins found in the project specified additional plugin directories
+        /// </summary>
+        /// <param name="AdditionalDirectories">The list of additional directories to scan</param>
+        /// <returns>List of the found PluginInfo objects</returns>
+        public static IReadOnlyList<PluginInfo> ReadAdditionalPlugins(List<DirectoryReference> AdditionalDirectories)
+        {
+            List<PluginInfo> Plugins = new List<PluginInfo>();
+            // Scan for shared plugins in project specified additional directories
+            foreach (DirectoryReference DirRef in AdditionalDirectories)
+            {
+                Plugins.AddRange(ReadPluginsFromDirectory(DirRef, PluginLoadedFrom.Engine));
+            }
+            return Plugins;
+        }
+
+        /// <summary>
+        /// Read all the plugin descriptors under the given directory
+        /// </summary>
+        /// <param name="ParentDirectory">The parent directory to look in.</param>
+        /// <param name="LoadedFrom">The directory type</param>
+        /// <returns>Sequence of the found PluginInfo object.</returns>
+        public static IReadOnlyList<PluginInfo> ReadPluginsFromDirectory(DirectoryReference ParentDirectory, PluginLoadedFrom LoadedFrom)
 		{
 			List<PluginInfo> Plugins;
 			if (!PluginInfoCache.TryGetValue(ParentDirectory, out Plugins))

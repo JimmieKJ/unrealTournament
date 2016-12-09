@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IMessageContext.h"
 
 /**
  * Interface for message handlers.
@@ -15,17 +17,10 @@ public:
 	 *
 	 * @param Context The context of the message to handle.
 	 */
-	virtual void HandleMessage( const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context ) = 0;
+	virtual void HandleMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context) = 0;
 
 public:
 
 	/** Virtual destructor. */
 	virtual ~IMessageHandler() { }
 };
-
-
-/** Type definition for shared pointers to instances of IMessageHandler. */
-typedef TSharedPtr<IMessageHandler, ESPMode::ThreadSafe> IMessageHandlerPtr;
-
-/** Type definition for shared references to instances of IMessageHandler. */
-typedef TSharedRef<IMessageHandler, ESPMode::ThreadSafe> IMessageHandlerRef;

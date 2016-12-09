@@ -2,10 +2,13 @@
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 #include "OnlineStoreIOS.h"
+#include "Internationalization.h"
 #import "OnlineStoreKitHelper.h"
+#include "FastDecimalFormat.h"
 
 FOnlineStoreIOS::FOnlineStoreIOS(FOnlineSubsystemIOS* InSubsystem)
-	: bIsQueryInFlight(false)
+	: StoreHelper(nullptr)
+	, bIsQueryInFlight(false)
 	, Subsystem(InSubsystem)
 {
 	UE_LOG(LogOnline, Verbose, TEXT( "FOnlineStoreIOS::FOnlineStoreIOS" ));
@@ -25,14 +28,14 @@ void FOnlineStoreIOS::InitStoreKit(FStoreKitHelperV2* InStoreKit)
 	OnProductsRequestResponseDelegate.BindRaw(this, &FOnlineStoreIOS::OnProductPurchaseRequestResponse);
 	[StoreHelper AddOnProductRequestResponse: OnProductsRequestResponseDelegate];
 
-	FOnTransactionCompleteIOSDelegate OnTransactionCompleteResponseDelegate = FOnTransactionCompleteIOSDelegate::CreateRaw(this, &FOnlineStoreIOS::OnTransactionCompleteResponse);
-	[StoreHelper AddOnTransactionComplete: OnTransactionCompleteResponseDelegate];
+	// FOnTransactionCompleteIOSDelegate OnTransactionCompleteResponseDelegate = FOnTransactionCompleteIOSDelegate::CreateRaw(this, &FOnlineStoreIOS::OnTransactionCompleteResponse);
+	// [StoreHelper AddOnTransactionComplete: OnTransactionCompleteResponseDelegate];
 	
-	FOnTransactionRestoredIOSDelegate OnTransactionRestoredDelegate = FOnTransactionRestoredIOSDelegate::CreateRaw(this, &FOnlineStoreIOS::OnTransactionRestored);
-	[StoreHelper AddOnTransactionRestored: OnTransactionRestoredDelegate];
+	// FOnTransactionRestoredIOSDelegate OnTransactionRestoredDelegate = FOnTransactionRestoredIOSDelegate::CreateRaw(this, &FOnlineStoreIOS::OnTransactionRestored);
+	// [StoreHelper AddOnTransactionRestored: OnTransactionRestoredDelegate];
 	
-	FOnRestoreTransactionsCompleteIOSDelegate OnRestoreTransactionsCompleteDelegate = FOnRestoreTransactionsCompleteIOSDelegate::CreateRaw(this, &FOnlineStoreIOS::OnRestoreTransactionsComplete);
-	[StoreHelper AddOnRestoreTransactionsComplete: OnRestoreTransactionsCompleteDelegate];
+	// FOnRestoreTransactionsCompleteIOSDelegate OnRestoreTransactionsCompleteDelegate = FOnRestoreTransactionsCompleteIOSDelegate::CreateRaw(this, &FOnlineStoreIOS::OnRestoreTransactionsComplete);
+	// [StoreHelper AddOnRestoreTransactionsComplete: OnRestoreTransactionsCompleteDelegate];
 }
 
 FOnlineStoreIOS::~FOnlineStoreIOS()
@@ -88,6 +91,14 @@ void FOnlineStoreIOS::QueryOffersById(const FUniqueNetId& UserId, const TArray<F
 	}
 }
 
+/**
+ * Convert an Apple SKProduct reference into a engine FOnlineStoreOffer
+ * (Apple has only Title/Description converted to Title/LongDescription)
+ *
+ * @param Product information about an Apple offer from iTunesConnect
+ *
+ * @return FOnlineStoreOffer with proper parameters filled in
+ */
 FOnlineStoreOffer ConvertProductToStoreOffer(SKProduct* Product)
 {
 	FOnlineStoreOffer NewProductInfo;
@@ -100,14 +111,21 @@ FOnlineStoreOffer ConvertProductToStoreOffer(SKProduct* Product)
 	NewProductInfo.OfferId = [Product productIdentifier];
 	
 	NewProductInfo.Title = FText::FromString([Product localizedTitle]);
-	NewProductInfo.Description = FText::FromString([Product localizedDescription]);
+	// NewProductInfo.Description = FText::FromString([Product localizedDescription]);
 	NewProductInfo.LongDescription = FText::FromString([Product localizedDescription]);
 	NewProductInfo.PriceText = FText::FromString([numberFormatter stringFromNumber : Product.price]);
-
-	NewProductInfo.NumericPrice = (int32)([Product.price doubleValue] * 100.0); // HACK!!!!!!
 	NewProductInfo.CurrencyCode = [Product.priceLocale objectForKey : NSLocaleCurrencyCode];
 	
-	// IOS doesn't support these fields, set to min and max defaults
+	// Convert the backend stated price into its base units
+	FInternationalization& I18N = FInternationalization::Get();
+	const FCulture& Culture = *I18N.GetCurrentCulture();
+	
+	const FDecimalNumberFormattingRules& FormattingRules = Culture.GetCurrencyFormattingRules(NewProductInfo.CurrencyCode);
+	const FNumberFormattingOptions& FormattingOptions = FormattingRules.CultureDefaultFormattingOptions;
+	double Val = static_cast<double>([Product.price doubleValue]) * static_cast<double>(FMath::Pow(10.0f, FormattingOptions.MaximumFractionalDigits));
+	NewProductInfo.NumericPrice = FMath::TruncToInt(Val + 0.5);
+	
+	// iOS doesn't support these fields, set to min and max defaults
 	NewProductInfo.ReleaseDate = FDateTime::MinValue();
 	NewProductInfo.ExpirationDate = FDateTime::MaxValue();
 	
@@ -137,7 +155,7 @@ void FOnlineStoreIOS::OnProductPurchaseRequestResponse(SKProductsResponse* Respo
 	{
 		bool bWasSuccessful = [Response.products count] > 0;
 		int32 NumInvalidProducts = [Response.invalidProductIdentifiers count];
-		if([Response.products count] == 0 && NumInvalidProducts == 0)
+		if ([Response.products count] == 0 && NumInvalidProducts == 0)
 		{
 			UE_LOG(LogOnline, Warning, TEXT("Wrong number of products [%d] in the response when trying to make a single purchase"), [Response.products count]);
 		}
@@ -150,11 +168,13 @@ void FOnlineStoreIOS::OnProductPurchaseRequestResponse(SKProductsResponse* Respo
 			AddOffer(NewProductOffer);
 			OfferIds.Add(NewProductOffer.Offer->OfferId);
 			
-			UE_LOG(LogOnline, Log, TEXT("Product Identifier: %s, Name: %s, Description: %s, Price: %s"),
+			UE_LOG(LogOnline, Log, TEXT("Product Identifier: %s, Name: %s, Desc: %s, Long Desc: %s, Price: %s IntPrice: %d"),
 				   *NewProductOffer.Offer->OfferId,
 				   *NewProductOffer.Offer->Title.ToString(),
 				   *NewProductOffer.Offer->Description.ToString(),
-				   *NewProductOffer.Offer->PriceText.ToString());
+				   *NewProductOffer.Offer->LongDescription.ToString(),
+				   *NewProductOffer.Offer->PriceText.ToString(),
+				   NewProductOffer.Offer->NumericPrice);
 		}
 		
 		for (NSString *invalidProduct in Response.invalidProductIdentifiers)

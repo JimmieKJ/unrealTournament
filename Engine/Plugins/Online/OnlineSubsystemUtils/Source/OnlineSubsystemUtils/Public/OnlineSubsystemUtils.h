@@ -2,13 +2,14 @@
 
 #pragma once
 
-#include "Core.h"
-#include "Engine.h"
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Engine/Engine.h"
+#include "OnlineSubsystem.h"
 #include "OnlineSubsystemUtilsModule.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "Online.h"
-
-struct FWorldContext;
+#include "EngineGlobals.h"
 
 #ifdef ONLINESUBSYSTEMUTILS_API
 
@@ -60,6 +61,8 @@ public:
 
 	/** @return true if the default platform supports logging in for Play In Editor (PIE) */
 	virtual bool SupportsOnlinePIE() const = 0;
+	/** Enable/Disable online PIE at runtime */
+	virtual void SetShouldTryOnlinePIE(bool bShouldTry) = 0;
 	/** @return true if the user has enabled logging in for Play In Editor (PIE) */
 	virtual bool IsOnlinePIEEnabled() const = 0;
 	/** @return the number of logins the user has setup for Play In Editor (PIE) */

@@ -4,11 +4,15 @@
 	Replication.cpp: Engine actor replication implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreNet.h"
+#include "EngineGlobals.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/LocalPlayer.h"
+#include "UnrealEngine.h"
 #include "Matinee/MatineeInterface.h"
 #include "Matinee/MatineeActor.h"
 #include "Net/UnrealNetwork.h"
-#include "SoundDefinitions.h"
 
 void AMatineeActor::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetimeProps ) const
 {

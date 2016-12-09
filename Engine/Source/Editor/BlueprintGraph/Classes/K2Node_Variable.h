@@ -2,12 +2,17 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/Blueprint.h"
 #include "K2Node.h"
 #include "Engine/MemberReference.h"
+#include "Textures/SlateIcon.h"
 #include "K2Node_Variable.generated.h"
 
-// Forward Declarations
-struct FBPVariableDescription;
+class UEdGraph;
 
 UENUM()
 namespace ESelfContextInfo

@@ -3,13 +3,27 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Containers/Array.h"
+#include "Misc/Crc.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Math/Color.h"
+#include "Containers/StaticArray.h"
+#include "HAL/ThreadSafeCounter.h"
 #include "RHIDefinitions.h"
-#include "RefCounting.h"
-#include "Runtime/Engine/Public/PixelFormat.h" // for EPixelFormat
-#include "LockFreeList.h"
-#include "SecureHash.h"
+#include "Templates/RefCounting.h"
+#include "Runtime/Engine/Public/PixelFormat.h"
+#include "Containers/LockFreeList.h"
+#include "Misc/SecureHash.h"
 
 #define DISABLE_RHI_DEFFERED_DELETE 0
+
+struct FClearValueBinding;
+struct FRHIResourceInfo;
+enum class EClearBinding;
 
 /** The base type of RHI resources. */
 class RHI_API FRHIResource
@@ -152,6 +166,13 @@ class FRHIDomainShader : public FRHIShader {};
 class FRHIPixelShader : public FRHIShader {};
 class FRHIGeometryShader : public FRHIShader {};
 class FRHIComputeShader : public FRHIShader {};
+
+//
+// Pipeline States
+//
+
+class FRHIGraphicsPipelineState : public FRHIResource {};
+class FRHIComputePipelineState : public FRHIResource {};
 
 //
 // Buffers
@@ -791,7 +812,6 @@ typedef TRefCountPtr<FRHIComputeShader> FComputeShaderRHIRef;
 typedef FRHIComputeFence*				FComputeFenceRHIParamRef;
 typedef TRefCountPtr<FRHIComputeFence>	FComputeFenceRHIRef;
 
-
 typedef FRHIBoundShaderState*              FBoundShaderStateRHIParamRef;
 typedef TRefCountPtr<FRHIBoundShaderState> FBoundShaderStateRHIRef;
 
@@ -837,7 +857,8 @@ typedef TRefCountPtr<FRHIUnorderedAccessView> FUnorderedAccessViewRHIRef;
 typedef FRHIShaderResourceView*              FShaderResourceViewRHIParamRef;
 typedef TRefCountPtr<FRHIShaderResourceView> FShaderResourceViewRHIRef;
 
-
+typedef FRHIGraphicsPipelineState*              FGraphicsPipelineStateRHIParamRef;
+typedef TRefCountPtr<FRHIGraphicsPipelineState> FGraphicsPipelineStateRHIRef;
 
 
 class FRHIRenderTargetView
@@ -1281,6 +1302,9 @@ public:
 	// true, then InOutSyncInterval could be modified to switch between VSync/NoVSync for the normal Present.
 	virtual bool Present(int32& InOutSyncInterval) = 0;
 
+	// Called after a normal present has been called
+	virtual void PostPresent() {};
+
 	// Called when rendering thread is acquired
 	virtual void OnAcquireThreadOwnership() {}
 	// Called when rendering thread is released
@@ -1315,3 +1339,280 @@ template<> struct TRHIShaderToEnum<FDomainShaderRHIRef>		{ enum { ShaderFrequenc
 template<> struct TRHIShaderToEnum<FPixelShaderRHIRef>		{ enum { ShaderFrequency = SF_Pixel }; };
 template<> struct TRHIShaderToEnum<FGeometryShaderRHIRef>	{ enum { ShaderFrequency = SF_Geometry }; };
 template<> struct TRHIShaderToEnum<FComputeShaderRHIRef>	{ enum { ShaderFrequency = SF_Compute }; };
+
+struct FBoundShaderStateInput
+{
+	FVertexDeclarationRHIParamRef VertexDeclarationRHI;
+	FVertexShaderRHIParamRef VertexShaderRHI;
+	FHullShaderRHIParamRef HullShaderRHI;
+	FDomainShaderRHIParamRef DomainShaderRHI;
+	FPixelShaderRHIParamRef PixelShaderRHI;
+	FGeometryShaderRHIParamRef GeometryShaderRHI;
+
+	FORCEINLINE FBoundShaderStateInput()
+		: VertexDeclarationRHI(nullptr)
+		, VertexShaderRHI(nullptr)
+		, HullShaderRHI(nullptr)
+		, DomainShaderRHI(nullptr)
+		, PixelShaderRHI(nullptr)
+		, GeometryShaderRHI(nullptr)
+	{
+	}
+
+	FORCEINLINE FBoundShaderStateInput(
+		FVertexDeclarationRHIParamRef InVertexDeclarationRHI,
+		FVertexShaderRHIParamRef InVertexShaderRHI,
+		FHullShaderRHIParamRef InHullShaderRHI,
+		FDomainShaderRHIParamRef InDomainShaderRHI,
+		FPixelShaderRHIParamRef InPixelShaderRHI,
+		FGeometryShaderRHIParamRef InGeometryShaderRHI
+	)
+		: VertexDeclarationRHI(InVertexDeclarationRHI)
+		, VertexShaderRHI(InVertexShaderRHI)
+		, HullShaderRHI(InHullShaderRHI)
+		, DomainShaderRHI(InDomainShaderRHI)
+		, PixelShaderRHI(InPixelShaderRHI)
+		, GeometryShaderRHI(InGeometryShaderRHI)
+	{
+	}
+};
+
+class FGraphicsPipelineStateInitializer
+{
+public:
+	enum OptionalState : uint32
+	{
+		OS_SetStencilRef = 1 << 0,
+		OS_SetBlendFactor = 1 << 1,
+	};
+
+	using TRenderTargetFormats = TStaticArray<EPixelFormat, MaxSimultaneousRenderTargets>;
+	using TRenderTargetFlags = TStaticArray<uint32, MaxSimultaneousRenderTargets>;
+	using TRenderTargetLoadActions = TStaticArray<ERenderTargetLoadAction, MaxSimultaneousRenderTargets>;
+	using TRenderTargetStoreActions = TStaticArray<ERenderTargetStoreAction, MaxSimultaneousRenderTargets>;
+
+	FGraphicsPipelineStateInitializer()
+		: BlendState(nullptr)
+		, RasterizerState(nullptr)
+		, DepthStencilState(nullptr)
+		, PrimitiveType(PT_Num)
+		, RenderTargetsEnabled(0)
+		, DepthStencilTargetFormat(PF_Unknown)
+		, DepthStencilTargetFlag(0)
+		, DepthStencilTargetLoadAction(ERenderTargetLoadAction::ENoAction)
+		, DepthStencilTargetStoreAction(ERenderTargetStoreAction::ENoAction)
+		, NumSamples(0)
+		, OptState(0)
+		, StencilRef(0)
+		, BlendFactor(1.0f, 1.0f, 1.0f)
+	{
+		for (uint32 i = 0; i < MaxSimultaneousRenderTargets; ++i)
+		{
+			RenderTargetFormats[i] = PF_Unknown;
+			RenderTargetFlags[i] = 0;
+			RenderTargetLoadActions[i] = ERenderTargetLoadAction::ENoAction;
+			RenderTargetStoreActions[i] = ERenderTargetStoreAction::ENoAction;
+		}
+	}
+
+	FGraphicsPipelineStateInitializer(
+		FBoundShaderStateInput				InBoundShaderState,
+		FBlendStateRHIParamRef				InBlendState,
+		FRasterizerStateRHIParamRef			InRasterizerState,
+		FDepthStencilStateRHIParamRef		InDepthStencilState,
+		uint32								InStencilRef,
+		FLinearColor						InBlendFactor,
+		EPrimitiveType						InPrimitiveType,
+		uint32								InRenderTargetsEnabled,
+		const TRenderTargetFormats&			InRenderTargetFormats,
+		const TRenderTargetFlags&			InRenderTargetFlags,
+		const TRenderTargetLoadActions&		InRenderTargetLoadActions,
+		const TRenderTargetStoreActions&	InRenderTargetStoreActions,
+		EPixelFormat						InDepthStencilTargetFormat,
+		uint32								InDepthStencilTargetFlag,
+		ERenderTargetLoadAction				InDepthStencilTargetLoadAction,
+		ERenderTargetStoreAction			InDepthStencilTargetStoreAction,
+		uint32								InNumSamples
+		)
+		: BoundShaderState(InBoundShaderState)
+		, BlendState(InBlendState)
+		, RasterizerState(InRasterizerState)
+		, DepthStencilState(InDepthStencilState)
+		, PrimitiveType(InPrimitiveType)
+		, RenderTargetsEnabled(InRenderTargetsEnabled)
+		, RenderTargetFormats(InRenderTargetFormats)
+		, RenderTargetFlags(InRenderTargetFlags)
+		, RenderTargetLoadActions(InRenderTargetLoadActions)
+		, RenderTargetStoreActions(InRenderTargetStoreActions)
+		, DepthStencilTargetFormat(InDepthStencilTargetFormat)
+		, DepthStencilTargetFlag(InDepthStencilTargetFlag)
+		, DepthStencilTargetLoadAction(InDepthStencilTargetLoadAction)
+		, DepthStencilTargetStoreAction(InDepthStencilTargetStoreAction)
+		, NumSamples(InNumSamples)
+		, OptState(OptionalState::OS_SetStencilRef | OptionalState::OS_SetBlendFactor)
+		, StencilRef(InStencilRef)
+		, BlendFactor(InBlendFactor)
+	{
+	}
+
+	bool operator==(FGraphicsPipelineStateInitializer& rhs)
+	{
+		if (BoundShaderState.VertexDeclarationRHI != rhs.BoundShaderState.VertexDeclarationRHI || 
+			BoundShaderState.VertexShaderRHI != rhs.BoundShaderState.VertexShaderRHI ||
+			BoundShaderState.PixelShaderRHI != rhs.BoundShaderState.PixelShaderRHI ||
+			BoundShaderState.GeometryShaderRHI != rhs.BoundShaderState.GeometryShaderRHI ||
+			BoundShaderState.DomainShaderRHI != rhs.BoundShaderState.DomainShaderRHI ||
+			BoundShaderState.HullShaderRHI != rhs.BoundShaderState.HullShaderRHI ||
+			BlendState != rhs.BlendState || 
+			RasterizerState != rhs.RasterizerState || 
+			DepthStencilState != rhs.DepthStencilState ||
+			StencilRef != rhs.StencilRef || 
+			BlendFactor != rhs.BlendFactor || 
+			PrimitiveType != rhs.PrimitiveType || 
+			RenderTargetsEnabled != rhs.RenderTargetsEnabled ||
+			RenderTargetFormats != rhs.RenderTargetFormats || 
+			RenderTargetFlags != rhs.RenderTargetFlags || 
+			RenderTargetLoadActions != rhs.RenderTargetLoadActions ||
+			RenderTargetStoreActions != rhs.RenderTargetStoreActions || 
+			DepthStencilTargetFormat != rhs.DepthStencilTargetFormat || 
+			DepthStencilTargetFlag != rhs.DepthStencilTargetFlag ||
+			DepthStencilTargetLoadAction != rhs.DepthStencilTargetLoadAction || 
+			DepthStencilTargetStoreAction != rhs.DepthStencilTargetStoreAction || 
+			NumSamples != rhs.NumSamples ||
+			OptState != rhs.OptState) 
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+#define COMPARE_FIELD_BEGIN(Field) \
+		if (Field != rhs.Field) \
+		{ return Field COMPARE_OP rhs.Field; }
+
+#define COMPARE_FIELD(Field) \
+		else if (Field != rhs.Field) \
+		{ return Field COMPARE_OP rhs.Field; }
+
+#define COMPARE_FIELD_END \
+		else { return false; }
+
+	bool operator<(FGraphicsPipelineStateInitializer& rhs) const
+	{
+#define COMPARE_OP <
+
+		COMPARE_FIELD_BEGIN(BoundShaderState.VertexDeclarationRHI)
+		COMPARE_FIELD(BoundShaderState.VertexShaderRHI)
+		COMPARE_FIELD(BoundShaderState.PixelShaderRHI)
+		COMPARE_FIELD(BoundShaderState.GeometryShaderRHI)
+		COMPARE_FIELD(BoundShaderState.DomainShaderRHI)
+		COMPARE_FIELD(BoundShaderState.HullShaderRHI)
+		COMPARE_FIELD(BlendState)
+		COMPARE_FIELD(RasterizerState)
+		COMPARE_FIELD(DepthStencilState)
+		COMPARE_FIELD(PrimitiveType)
+		COMPARE_FIELD_END;
+
+#undef COMPARE_OP
+	}
+
+	bool operator>(FGraphicsPipelineStateInitializer& rhs) const
+	{
+#define COMPARE_OP >
+
+		COMPARE_FIELD_BEGIN(BoundShaderState.VertexDeclarationRHI)
+		COMPARE_FIELD(BoundShaderState.VertexShaderRHI)
+		COMPARE_FIELD(BoundShaderState.PixelShaderRHI)
+		COMPARE_FIELD(BoundShaderState.GeometryShaderRHI)
+		COMPARE_FIELD(BoundShaderState.DomainShaderRHI)
+		COMPARE_FIELD(BoundShaderState.HullShaderRHI)
+		COMPARE_FIELD(BlendState)
+		COMPARE_FIELD(RasterizerState)
+		COMPARE_FIELD(DepthStencilState)
+		COMPARE_FIELD(PrimitiveType)
+		COMPARE_FIELD_END;
+
+#undef COMPARE_OP
+	}
+
+#undef COMPARE_FIELD_BEGIN
+#undef COMPARE_FIELD
+#undef COMPARE_FIELD_END
+
+	uint32 GetOptionalSetState()
+	{
+		return OptState;
+	}
+
+	uint32 GetStencilRef() const
+	{
+		return StencilRef;
+	}
+
+	void SetStencilRef(uint32 InStencilRef)
+	{
+		OptState |= OptionalState::OS_SetStencilRef;
+		StencilRef = InStencilRef;
+	}
+
+	void ClearSetStencilRef()
+	{
+		OptState &= ~OptionalState::OS_SetStencilRef;
+	}
+
+	FLinearColor GetBlendFactor() const
+	{
+		return BlendFactor;
+	}
+
+	void SetBlendFactor(FLinearColor InBlendFactor)
+	{
+		OptState |= OptionalState::OS_SetBlendFactor;
+		BlendFactor = InBlendFactor;
+	}
+
+	void ClearSetBlendFactor()
+	{
+		OptState &= ~OptionalState::OS_SetBlendFactor;
+	}
+
+	// TODO: [PSO API] - As we migrate reuse existing API objects, but eventually we can move to the direct initializers. 
+	// When we do that work, move this to RHI.h as its more appropriate there, but here for now since dependent typdefs are here.
+	FBoundShaderStateInput			BoundShaderState;
+	FBlendStateRHIParamRef			BlendState;
+	FRasterizerStateRHIParamRef		RasterizerState;
+	FDepthStencilStateRHIParamRef	DepthStencilState;
+	EPrimitiveType					PrimitiveType;
+	uint32							RenderTargetsEnabled;
+	TRenderTargetFormats			RenderTargetFormats;
+	TRenderTargetFlags				RenderTargetFlags;
+	TRenderTargetLoadActions		RenderTargetLoadActions;
+	TRenderTargetStoreActions		RenderTargetStoreActions;
+	EPixelFormat					DepthStencilTargetFormat;
+	uint32							DepthStencilTargetFlag;
+	ERenderTargetLoadAction			DepthStencilTargetLoadAction;
+	ERenderTargetStoreAction		DepthStencilTargetStoreAction;
+	uint32							NumSamples;
+
+private:
+	uint32							OptState;
+	uint32							StencilRef;
+	FLinearColor					BlendFactor;
+
+	friend class FMeshDrawingPolicy;
+};
+
+// This PSO is used as a fallback for RHIs that dont support PSOs. It is used to set the graphics state using the legacy state setting APIs
+class FRHIGraphicsPipelineStateFallBack : public FRHIGraphicsPipelineState
+{
+public:
+	FRHIGraphicsPipelineStateFallBack() {}
+
+	FRHIGraphicsPipelineStateFallBack(const FGraphicsPipelineStateInitializer& Init)
+		: Initializer(Init)
+	{
+	}
+
+	FGraphicsPipelineStateInitializer Initializer;
+};

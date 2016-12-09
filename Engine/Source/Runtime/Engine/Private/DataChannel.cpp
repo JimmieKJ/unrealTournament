@@ -4,11 +4,15 @@
 	DataChannel.cpp: Unreal datachannel implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Net/DataChannel.h"
-#include "Net/DataReplication.h"
+#include "UObject/UObjectIterator.h"
+#include "EngineStats.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "DrawDebugHelpers.h"
 #include "Net/NetworkProfiler.h"
-#include "Net/UnrealNetwork.h"
+#include "Net/DataReplication.h"
 #include "Engine/ActorChannel.h"
 #include "Engine/ControlChannel.h"
 #include "Engine/PackageMapClient.h"
@@ -960,11 +964,11 @@ FOutBunch* UChannel::PrepBunch(FOutBunch* Bunch, FOutBunch* OutBunch, bool Merge
 		Connection->LastOutBunch = OutBunch;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if (CVarNetReliableDebug.GetValueOnGameThread() == 1)
+		if (CVarNetReliableDebug.GetValueOnAnyThread() == 1)
 		{
 			UE_LOG(LogNetTraffic, Warning, TEXT("%s. Reliable: %s"), *Describe(), *Bunch->DebugString);
 		}
-		if (CVarNetReliableDebug.GetValueOnGameThread() == 2)
+		if (CVarNetReliableDebug.GetValueOnAnyThread() == 2)
 		{
 			UE_LOG(LogNetTraffic, Warning, TEXT("%s. Reliable: %s"), *Describe(), *Bunch->DebugString);
 			PrintReliableBunchBuffer();
@@ -1493,7 +1497,7 @@ void UActorChannel::Close()
 
 			// Validation checking
 			static const auto ValidateCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("net.DormancyValidate"));
-			if ( ValidateCVar && ValidateCVar->GetValueOnGameThread() > 0 )
+			if ( ValidateCVar && ValidateCVar->GetValueOnAnyThread() > 0 )
 			{
 				bKeepReplicators = true;		// We need to keep the replicators around so we can use
 			}
@@ -1700,7 +1704,10 @@ bool UActorChannel::CleanUp( const bool bForDestroy )
 	// Remove from hash and stuff.
 	SetClosingFlag();
 
-	CleanupReplicators();
+	// If this actor is going dormant (and we are a client), keep the replicators around, we need them to run the business logic for updating unmapped properties
+	const bool bKeepReplicators = !bForDestroy && !bIsServer && Dormant != 0;
+
+	CleanupReplicators( bKeepReplicators );
 
 	// We don't care about any leftover pending guids at this point
 	PendingGuidResolves.Empty();
@@ -1761,6 +1768,20 @@ void UActorChannel::SetChannelActor( AActor* InActor )
 {
 	check(!Closing);
 	check(Actor==NULL);
+
+	// Sanity check that the actor is in the same level collection as the channel's driver.
+	const UWorld* const World = Connection->Driver ? Connection->Driver->GetWorld() : nullptr;
+	if (World && InActor)
+	{
+		const ULevel* const CachedLevel = InActor->GetLevel();
+		const FLevelCollection* const ActorCollection = CachedLevel ? CachedLevel->GetCachedLevelCollection() : nullptr;
+		if (ActorCollection &&
+			ActorCollection->GetNetDriver() != Connection->Driver &&
+			ActorCollection->GetDemoNetDriver() != Connection->Driver)
+		{
+			UE_LOG(LogNet, Verbose, TEXT("UActorChannel::SetChannelActor: actor %s is not in the same level collection as the net driver (%s)!"), *GetFullNameSafe(InActor), *GetFullNameSafe(Connection->Driver));
+		}
+	}
 
 	// Set stuff.
 	Actor = InActor;
@@ -1961,6 +1982,13 @@ void UActorChannel::ReceivedBunch( FInBunch & Bunch )
 			{
 				FNetworkGUID NetGUID;
 				Bunch << NetGUID;
+
+				// If we have async package map loading disabled, we have to ignore NumMustBeMappedGUIDs
+				//	(this is due to the fact that async loading could have been enabled on the server side)
+				if ( !Connection->Driver->GuidCache->ShouldAsyncLoad() )
+				{
+					continue;
+				}
 
 				// This GUID better have been exported before we get here, which means it must be registered by now
 				check( Connection->Driver->GuidCache->IsGUIDRegistered( NetGUID ) );
@@ -2285,7 +2313,7 @@ bool UActorChannel::ReplicateActor()
 	}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	if (CVarNetReliableDebug.GetValueOnGameThread() > 0)
+	if (CVarNetReliableDebug.GetValueOnAnyThread() > 0)
 	{
 		Bunch.DebugString = FString::Printf(TEXT("%.2f ActorBunch: %s"), Connection->Driver->Time, *Actor->GetName() );
 	}
@@ -2849,6 +2877,9 @@ UObject* UActorChannel::ReadContentBlockHeader( FInBunch & Bunch, bool& bObjectD
 
 		// Track which sub-object guids we are creating
 		CreateSubObjects.AddUnique( SubObj );
+
+		// Add this sub-object to the ImportedNetGuids list so we can possibly map this object if needed
+		Connection->Driver->GuidCache->ImportedNetGuids.Add( NetGUID );
 	}
 
 	return SubObj;
@@ -3134,6 +3165,8 @@ TSharedRef< FObjectReplicator > & UActorChannel::FindOrCreateReplicator( UObject
 		}
 		else
 		{
+			UE_LOG( LogNetTraffic, Log, TEXT( "Found existing replicator for %s" ), *Obj->GetName() );
+
 			NewReplicator = *ReplicatorRefPtr;
 		}
 
@@ -3305,9 +3338,11 @@ static void	DeleteDormantActor( UWorld* InWorld )
 
 		UE_LOG(LogNet, Warning, TEXT("Deleting actor %s"), *ThisActor->GetName());
 
+#if ENABLE_DRAW_DEBUG
 		FBox Box = ThisActor->GetComponentsBoundingBox();
 		
 		DrawDebugBox( InWorld, Box.GetCenter(), Box.GetExtent(), FQuat::Identity, FColor::Red, true, 30 );
+#endif
 
 		ThisActor->Destroy();
 

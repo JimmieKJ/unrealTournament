@@ -6,7 +6,23 @@
 #endif
 
 #pragma once
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/TypeWrapper.h"
+#include "Templates/RemoveReference.h"
+#include "Templates/UnrealTemplate.h"
+#include "Misc/Crc.h"
+#include "UObject/NameTypes.h"
+#include "UObject/WeakObjectPtrTemplates.h"
+#include "Templates/SharedPointer.h"
 #include "UObject/ScriptDelegates.h"
+
+class FDelegateBase;
+class FDelegateHandle;
+class IDelegateInstance;
+struct FWeakObjectPtr;
+template <typename FuncType> struct IBaseDelegateInstance;
+template<typename ObjectPtrType> class FMulticastDelegateBase;
 
 /**
  * Unicast delegate base object.

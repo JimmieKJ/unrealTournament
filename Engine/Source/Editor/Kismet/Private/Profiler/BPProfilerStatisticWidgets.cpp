@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "SBlueprintProfilerView.h"
-#include "BPProfilerStatisticWidgets.h"
-#include "EventExecution.h"
-#include "SProfilerStatExpander.h"
-#include "Developer/BlueprintProfiler/Public/BlueprintProfilerModule.h"
+#include "Profiler/BPProfilerStatisticWidgets.h"
+#include "Profiler/BlueprintProfilerSettings.h"
+#include "EditorStyleSet.h"
+#include "Profiler/SProfilerStatExpander.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintProfilerViewTypesUI"
 
@@ -29,6 +27,16 @@ namespace BlueprintProfilerStatText
 	const FText ColumnText_MinTime(LOCTEXT("MinTime", "Min Time (ms)"));
 	const FText ColumnText_Samples(LOCTEXT("Samples", "Samples"));
 	const FText ColumnText_TotalTime(LOCTEXT("TotalTime", "Total Time (ms)"));
+	// Debugging values
+	const FName ColumnId_HottestPath("HottestPath");
+	const FText ColumnText_HottestPath(LOCTEXT("Hottest Path", "Path Heat"));
+	const FName ColumnId_HeatLevel("HeatLevel");
+	const FText ColumnText_HeatLevel(LOCTEXT("Heat Levels", "Heat Level"));
+
+	// Text Heat display colors
+	const FLinearColor HotColor(1.f, 0.f, 0.f, 1.f);
+	const FLinearColor ColdColor(1.f, 1.f, 1.f, 1.f);
+	const FLinearColor InactiveColor(1.f, 1.f, 1.f, 0.6f);
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -79,6 +87,9 @@ const FName SProfilerStatRow::GetStatName(const EBlueprintProfilerStat::Type Sta
 		case EBlueprintProfilerStat::MaxTime:		return BlueprintProfilerStatText::ColumnId_MaxTime;
 		case EBlueprintProfilerStat::MinTime:		return BlueprintProfilerStatText::ColumnId_MinTime;
 		case EBlueprintProfilerStat::Samples:		return BlueprintProfilerStatText::ColumnId_Samples;
+		// Debugging Values
+		case EBlueprintProfilerStat::HottestPath:	return BlueprintProfilerStatText::ColumnId_HottestPath;
+		case EBlueprintProfilerStat::HeatLevel:		return BlueprintProfilerStatText::ColumnId_HeatLevel;
 		default:									return NAME_None;
 	}
 }
@@ -94,6 +105,9 @@ const FText SProfilerStatRow::GetStatText(const EBlueprintProfilerStat::Type Sta
 		case EBlueprintProfilerStat::MaxTime:		return BlueprintProfilerStatText::ColumnText_MaxTime;
 		case EBlueprintProfilerStat::MinTime:		return BlueprintProfilerStatText::ColumnText_MinTime;
 		case EBlueprintProfilerStat::Samples:		return BlueprintProfilerStatText::ColumnText_Samples;
+		// Debugging Values
+		case EBlueprintProfilerStat::HottestPath:	return BlueprintProfilerStatText::ColumnText_HottestPath;
+		case EBlueprintProfilerStat::HeatLevel:		return BlueprintProfilerStatText::ColumnText_HeatLevel;
 		default:									return FText::GetEmpty();
 	}
 }
@@ -142,13 +156,13 @@ TSharedRef<SWidget> FBPProfilerStatWidget::GenerateColumnWidget(FName ColumnName
 		else
 		{
 			TAttribute<FText> TextAttr(LOCTEXT("NonApplicableStat", ""));
-			TAttribute<FSlateColor> ColorAttr;
+			TAttribute<FSlateColor> ColorAttr = TAttribute<FSlateColor>(BlueprintProfilerStatText::InactiveColor);
 			const uint32 NonNodeStats = EScriptExecutionNodeFlags::Container|EScriptExecutionNodeFlags::CallSite|EScriptExecutionNodeFlags::BranchNode|EScriptExecutionNodeFlags::ExecPin;
 
 			if (ColumnName == BlueprintProfilerStatText::ColumnId_TotalTime)
 			{
 				TextAttr = TAttribute<FText>(PerformanceStats.Get(), &FScriptPerfData::GetTotalTimingText);
-				ColorAttr = TAttribute<FSlateColor>(FLinearColor::White);
+				ColorAttr = TAttribute<FSlateColor>(this, &FBPProfilerStatWidget::GetTotalTimeHeatColor);
 			}
 			else if (ColumnName == BlueprintProfilerStatText::ColumnId_InclusiveTime)
 			{
@@ -163,18 +177,24 @@ TSharedRef<SWidget> FBPProfilerStatWidget::GenerateColumnWidget(FName ColumnName
 			else if (ColumnName == BlueprintProfilerStatText::ColumnId_MaxTime)
 			{
 				TextAttr = TAttribute<FText>(PerformanceStats.Get(), &FScriptPerfData::GetMaxTimingText);
-				//ColorAttr = TAttribute<FSlateColor>(this, &FBPProfilerStatWidget::GetMaxTimeHeatColor);
-				ColorAttr = TAttribute<FSlateColor>(FLinearColor::White);
+				ColorAttr = TAttribute<FSlateColor>(this, &FBPProfilerStatWidget::GetMaxTimeHeatColor);
 			}
 			else if (ColumnName == BlueprintProfilerStatText::ColumnId_MinTime)
 			{
 				TextAttr = TAttribute<FText>(PerformanceStats.Get(), &FScriptPerfData::GetMinTimingText);
-				ColorAttr = TAttribute<FSlateColor>(FLinearColor::White);
 			}
 			else if (ColumnName == BlueprintProfilerStatText::ColumnId_Samples)
 			{
 				TextAttr = TAttribute<FText>(PerformanceStats.Get(), &FScriptPerfData::GetSamplesText);
-				ColorAttr = TAttribute<FSlateColor>(FLinearColor::White);
+			}
+			// Debugging Values
+			else if (ColumnName == BlueprintProfilerStatText::ColumnId_HottestPath)
+			{
+				TextAttr = TAttribute<FText>(PerformanceStats.Get(), &FScriptPerfData::GetHottestPathText);
+			}
+			else if (ColumnName == BlueprintProfilerStatText::ColumnId_HeatLevel)
+			{
+				TextAttr = TAttribute<FText>(PerformanceStats.Get(), &FScriptPerfData::GetHeatLevelText);
 			}
 			// Create the actual widget
 			return SNew(STextBlock)
@@ -195,20 +215,50 @@ void FBPProfilerStatWidget::NavigateTo() const
 
 FSlateColor FBPProfilerStatWidget::GetAverageHeatColor() const
 {
-	const float Value = 1.f - PerformanceStats->GetAverageHeatLevel();
-	return FLinearColor(1.f, Value, Value);
+	const UBlueprintProfilerSettings* ProfilerSettings = GetDefault<UBlueprintProfilerSettings>();
+	if (ProfilerSettings->GraphNodeHeatMapDisplayMode == EBlueprintProfilerHeatMapDisplayMode::Average)
+	{
+		const float Value = 1.f - PerformanceStats->GetAverageHeatLevel();
+		return FLinearColor(1.f, Value, Value);
+//		return FLinearColor::LerpUsingHSV(BlueprintProfilerStatText::ColdColor, BlueprintProfilerStatText::HotColor, PerformanceStats->GetAverageHeatLevel());
+	}
+	return BlueprintProfilerStatText::InactiveColor;
 }
 
 FSlateColor FBPProfilerStatWidget::GetInclusiveHeatColor() const
 {
-	const float Value = 1.f - PerformanceStats->GetInclusiveHeatLevel();
-	return FLinearColor(1.f, Value, Value);
+	const UBlueprintProfilerSettings* ProfilerSettings = GetDefault<UBlueprintProfilerSettings>();
+	if (ProfilerSettings->GraphNodeHeatMapDisplayMode == EBlueprintProfilerHeatMapDisplayMode::Inclusive)
+	{
+		const float Value = 1.f - PerformanceStats->GetInclusiveHeatLevel();
+		return FLinearColor(1.f, Value, Value);
+//		return FLinearColor::LerpUsingHSV(BlueprintProfilerStatText::ColdColor, BlueprintProfilerStatText::HotColor, PerformanceStats->GetInclusiveHeatLevel());
+	}
+	return BlueprintProfilerStatText::InactiveColor;
 }
 
 FSlateColor FBPProfilerStatWidget::GetMaxTimeHeatColor() const
 {
-	const float Value = 1.f - PerformanceStats->GetMaxTimeHeatLevel();
-	return FLinearColor(1.f, Value, Value);
+	const UBlueprintProfilerSettings* ProfilerSettings = GetDefault<UBlueprintProfilerSettings>();
+	if (ProfilerSettings->GraphNodeHeatMapDisplayMode == EBlueprintProfilerHeatMapDisplayMode::MaxTiming)
+	{
+		const float Value = 1.f - PerformanceStats->GetMaxTimeHeatLevel();
+		return FLinearColor(1.f, Value, Value);
+//		return FLinearColor::LerpUsingHSV(BlueprintProfilerStatText::ColdColor, BlueprintProfilerStatText::HotColor, PerformanceStats->GetMaxTimeHeatLevel());
+	}
+	return BlueprintProfilerStatText::InactiveColor;
+}
+
+FSlateColor FBPProfilerStatWidget::GetTotalTimeHeatColor() const
+{
+	const UBlueprintProfilerSettings* ProfilerSettings = GetDefault<UBlueprintProfilerSettings>();
+	if (ProfilerSettings->GraphNodeHeatMapDisplayMode == EBlueprintProfilerHeatMapDisplayMode::Total)
+	{
+		const float Value = 1.f - PerformanceStats->GetTotalHeatLevel();
+		return FLinearColor(1.f, Value, Value);
+//		return FLinearColor::LerpUsingHSV(BlueprintProfilerStatText::ColdColor, BlueprintProfilerStatText::HotColor, PerformanceStats->GetTotalHeatLevel());
+	}
+	return BlueprintProfilerStatText::InactiveColor;
 }
 
 void FBPProfilerStatWidget::GenerateExecNodeWidgets(const TSharedPtr<FBlueprintProfilerStatOptions> DisplayOptions)
@@ -343,21 +393,24 @@ void FBPProfilerStatWidget::GenerateSimpleTunnelWidgets(TSharedPtr<FScriptExecut
 		// Filter out events based on graph
 		if (!DisplayOptions->IsFiltered(EntryPoint) && !EntryPoint->IsPureChain())
 		{
-			TArray<FScriptNodeExecLinkage::FLinearExecPath> LinearExecNodes;
-			EntryPoint->GetLinearExecutionPath(LinearExecNodes, WidgetTracePath, true);
-			TSharedPtr<FBPProfilerStatWidget> ChildContainer = AsShared();
-			for (auto LinearPathIter : LinearExecNodes)
+			for (auto EntryPointChild : EntryPoint->GetChildNodes())
 			{
-				const bool bInternalTunnelBoundary = TunnelEntryNode->IsInternalBoundary(LinearPathIter.LinkedNode);
-				const bool bPureChain = LinearPathIter.LinkedNode->IsPureChain();
-				if (!DisplayOptions->IsFiltered(LinearPathIter.LinkedNode) && !bPureChain && !bInternalTunnelBoundary)
+				TArray<FScriptNodeExecLinkage::FLinearExecPath> LinearExecNodes;
+				EntryPointChild->GetLinearExecutionPath(LinearExecNodes, WidgetTracePath, false);
+				TSharedPtr<FBPProfilerStatWidget> ChildContainer = AsShared();
+				for (auto LinearPathIter : LinearExecNodes)
 				{
-					TSharedPtr<FBPProfilerStatWidget> NewLinkedNode = MakeShareable<FBPProfilerStatWidget>(new FBPProfilerStatWidget(LinearPathIter.LinkedNode, LinearPathIter.TracePath));
-					NewLinkedNode->GenerateExecNodeWidgets(DisplayOptions);
-					CachedChildren.Add(NewLinkedNode);
-					if (LinearPathIter.LinkedNode->HasFlags(EScriptExecutionNodeFlags::Container))
+					const bool bInternalTunnelBoundary = TunnelEntryNode->IsInternalBoundary(LinearPathIter.LinkedNode);
+					const bool bPureChain = LinearPathIter.LinkedNode->IsPureChain();
+					if (!DisplayOptions->IsFiltered(LinearPathIter.LinkedNode) && !bPureChain && !bInternalTunnelBoundary)
 					{
-						ChildContainer = NewLinkedNode;
+						TSharedPtr<FBPProfilerStatWidget> NewLinkedNode = MakeShareable<FBPProfilerStatWidget>(new FBPProfilerStatWidget(LinearPathIter.LinkedNode, LinearPathIter.TracePath));
+						NewLinkedNode->GenerateExecNodeWidgets(DisplayOptions);
+						CachedChildren.Add(NewLinkedNode);
+						if (LinearPathIter.LinkedNode->HasFlags(EScriptExecutionNodeFlags::Container))
+						{
+							ChildContainer = NewLinkedNode;
+						}
 					}
 				}
 			}

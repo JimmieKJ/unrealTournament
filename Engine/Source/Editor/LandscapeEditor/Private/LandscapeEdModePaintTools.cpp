@@ -1,17 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
-#include "ObjectTools.h"
-#include "LandscapeEdMode.h"
-#include "ScopedTransaction.h"
-#include "LandscapeEdit.h"
-#include "LandscapeRender.h"
-#include "LandscapeDataAccess.h"
-#include "LandscapeSplineProxies.h"
-#include "LandscapeEditorModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "LandscapeEdModeTools.h"
+#include "CoreMinimal.h"
+#include "Misc/App.h"
+#include "InputCoreTypes.h"
+#include "Engine/EngineTypes.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "LandscapeToolInterface.h"
+#include "LandscapeProxy.h"
+#include "LandscapeEdMode.h"
+#include "LandscapeEditorObject.h"
+#include "LandscapeEdit.h"
+#include "LandscapeDataAccess.h"
+#include "LandscapeEdModeTools.h"
 
 
 const int32 FNoiseParameter::Permutations[256] =
@@ -93,17 +94,17 @@ public:
 	{
 	}
 
-	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolMousePosition>& MousePositions)
+	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolInteractorPosition>& InteractorPositions)
 	{
 		// Invert when holding Shift
 		//UE_LOG(LogLandscape, Log, TEXT("bInvert = %d"), bInvert);
-		bool bInvert = MousePositions.Last().bShiftDown;
+		bool bInvert = InteractorPositions.Last().bModifierPressed;
 
 		if (bIsWhitelistMode)
 		{
 			// Get list of components to delete from brush
 			// TODO - only retrieve bounds as we don't need the vert data
-			FLandscapeBrushData BrushInfo = Brush->ApplyBrush(MousePositions);
+			FLandscapeBrushData BrushInfo = Brush->ApplyBrush(InteractorPositions);
 			if (!BrushInfo)
 			{
 				return;
@@ -142,7 +143,7 @@ public:
 		}
 
 		// Get list of verts to update
-		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(MousePositions);
+		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(InteractorPositions);
 		if (!BrushInfo)
 		{
 			return;
@@ -180,7 +181,7 @@ public:
 				auto* OriginalDataScanline = OriginalData.GetData() + (Y - Y1) * (X2 - X1 + 1) + (0 - X1);
 				for (int32 X = X1; X < X2; X++)
 				{
-					float VertexInfluence = TotalInfluenceMap.FindRef(ALandscape::MakeKey(X, Y));
+					float VertexInfluence = TotalInfluenceMap.FindRef(FIntPoint(X, Y));
 
 					auto& CurrentValue = DataScanline[X];
 					auto& SourceValue = OriginalDataScanline[X];
@@ -219,7 +220,7 @@ public:
 
 			for (int32 X = BrushInfo.GetBounds().Min.X; X < BrushInfo.GetBounds().Max.X; X++)
 			{
-				const FIntPoint Key = ALandscape::MakeKey(X, Y);
+				const FIntPoint Key = FIntPoint(X, Y);
 				const float BrushValue = BrushScanline[X];
 
 				// Update influence map
@@ -289,14 +290,14 @@ public:
 	{
 	}
 
-	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolMousePosition>& MousePositions)
+	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolInteractorPosition>& InteractorPositions)
 	{
 		// Invert when holding Shift
 		//UE_LOG(LogLandscape, Log, TEXT("bInvert = %d"), bInvert);
-		bool bInvert = MousePositions.Last().bShiftDown;
+		bool bInvert = InteractorPositions.Last().bModifierPressed;
 
 		// Get list of verts to update
-		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(MousePositions);
+		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(InteractorPositions);
 		if (!BrushInfo)
 		{
 			return;
@@ -442,7 +443,7 @@ public:
 
 			for (int32 X = BrushInfo.GetBounds().Min.X; X < BrushInfo.GetBounds().Max.X; X++)
 			{
-				const FIntPoint Key = ALandscape::MakeKey(X, Y);
+				const FIntPoint Key = FIntPoint(X, Y);
 				const float BrushValue = BrushScanline[X];
 
 				float SculptAmount = BrushValue * SculptStrength;
@@ -513,12 +514,12 @@ public:
 	{
 	}
 
-	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolMousePosition>& MousePositions)
+	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolInteractorPosition>& InteractorPositions)
 	{
 		if (!this->LandscapeInfo) return;
 
 		// Get list of verts to update
-		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(MousePositions);
+		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(InteractorPositions);
 		if (!BrushInfo)
 		{
 			return;
@@ -656,15 +657,15 @@ public:
 		}
 	}
 
-	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolMousePosition>& MousePositions)
+	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolInteractorPosition>& InteractorPositions)
 	{
 		if (!this->LandscapeInfo) return;
 
 		if (!bInitializedFlattenHeight || (UISettings->bPickValuePerApply && bTargetIsHeightmap))
 		{
 			bInitializedFlattenHeight = false;
-			float FlattenX = MousePositions[0].Position.X;
-			float FlattenY = MousePositions[0].Position.Y;
+			float FlattenX = InteractorPositions[0].Position.X;
+			float FlattenY = InteractorPositions[0].Position.Y;
 			int32 FlattenHeightX = FMath::FloorToInt(FlattenX);
 			int32 FlattenHeightY = FMath::FloorToInt(FlattenY);
 
@@ -683,7 +684,7 @@ public:
 
 
 		// Get list of verts to update
-		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(MousePositions);
+		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(InteractorPositions);
 		if (!BrushInfo)
 		{
 			return;
@@ -841,7 +842,7 @@ public:
 
 		ALandscapeProxy* LandscapeProxy = this->EdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
 		MeshComponent = NewObject<UStaticMeshComponent>(LandscapeProxy, NAME_None, RF_Transient);
-		MeshComponent->StaticMesh = PlaneMesh;
+		MeshComponent->SetStaticMesh(PlaneMesh);
 		MeshComponent->AttachToComponent(LandscapeProxy->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 		MeshComponent->RegisterComponent();
 
@@ -876,12 +877,12 @@ public:
 	{
 	}
 
-	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolMousePosition>& MousePositions)
+	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolInteractorPosition>& InteractorPositions)
 	{
 		if (!this->LandscapeInfo) return;
 
 		// Get list of verts to update
-		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(MousePositions);
+		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(InteractorPositions);
 		if (!BrushInfo)
 		{
 			return;

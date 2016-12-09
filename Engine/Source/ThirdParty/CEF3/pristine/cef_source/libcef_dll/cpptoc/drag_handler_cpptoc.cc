@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -14,6 +14,8 @@
 #include "libcef_dll/ctocpp/browser_ctocpp.h"
 #include "libcef_dll/ctocpp/drag_data_ctocpp.h"
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -65,7 +67,8 @@ void CEF_CALLBACK drag_handler_on_draggable_regions_changed(
   std::vector<CefDraggableRegion > regionsList;
   if (regionsCount > 0) {
     for (size_t i = 0; i < regionsCount; ++i) {
-      regionsList.push_back(regions[i]);
+      CefDraggableRegion regionsVal = regions[i];
+      regionsList.push_back(regionsVal);
     }
   }
 
@@ -75,14 +78,22 @@ void CEF_CALLBACK drag_handler_on_draggable_regions_changed(
       regionsList);
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefDragHandlerCppToC::CefDragHandlerCppToC(CefDragHandler* cls)
-    : CefCppToC<CefDragHandlerCppToC, CefDragHandler, cef_drag_handler_t>(cls) {
-  struct_.struct_.on_drag_enter = drag_handler_on_drag_enter;
-  struct_.struct_.on_draggable_regions_changed =
+CefDragHandlerCppToC::CefDragHandlerCppToC() {
+  GetStruct()->on_drag_enter = drag_handler_on_drag_enter;
+  GetStruct()->on_draggable_regions_changed =
       drag_handler_on_draggable_regions_changed;
+}
+
+template<> CefRefPtr<CefDragHandler> CefCppToC<CefDragHandlerCppToC,
+    CefDragHandler, cef_drag_handler_t>::UnwrapDerived(CefWrapperType type,
+    cef_drag_handler_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -90,3 +101,5 @@ template<> base::AtomicRefCount CefCppToC<CefDragHandlerCppToC, CefDragHandler,
     cef_drag_handler_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefDragHandlerCppToC, CefDragHandler,
+    cef_drag_handler_t>::kWrapperType = WT_DRAG_HANDLER;

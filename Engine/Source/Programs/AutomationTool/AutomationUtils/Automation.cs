@@ -368,32 +368,32 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 â
 		/// <summary>
 		/// Parse the command line and create a list of commands to execute.
 		/// </summary>
-		/// <param name="CommandLine">Command line</param>
+		/// <param name="Arguments">Command line</param>
 		/// <param name="OutCommandsToExecute">List containing the names of commands to execute</param>
 		/// <param name="OutAdditionalScriptsFolders">Optional list of additional paths to look for scripts in</param>
-		private static void ParseCommandLine(string[] CommandLine, List<CommandInfo> OutCommandsToExecute, out string OutScriptsForProjectFileName, List<string> OutAdditionalScriptsFolders)
+		private static void ParseCommandLine(string[] Arguments, List<CommandInfo> OutCommandsToExecute, out string OutScriptsForProjectFileName, List<string> OutAdditionalScriptsFolders)
 		{
 			// Initialize global command line parameters
 			GlobalCommandLine.Init();
 
-			ParseProfile(ref CommandLine);
+			ParseProfile(ref Arguments);
 
-			Log.TraceInformation("Parsing command line: {0}", String.Join(" ", CommandLine));
+			Log.TraceInformation("Parsing command line: {0}", CommandUtils.FormatCommandLine(Arguments));
 
 			OutScriptsForProjectFileName = null;
 
 			CommandInfo CurrentCommand = null;
-			for (int Index = 0; Index < CommandLine.Length; ++Index)
+			for (int Index = 0; Index < Arguments.Length; ++Index)
 			{
-				var Param = CommandLine[Index];
+				var Param = Arguments[Index];
 				if (Param.StartsWith("-") || Param.Contains("="))
 				{
-					ParseParam(CommandLine[Index], CurrentCommand, ref OutScriptsForProjectFileName, OutAdditionalScriptsFolders);
+					ParseParam(Arguments[Index], CurrentCommand, ref OutScriptsForProjectFileName, OutAdditionalScriptsFolders);
 				}
 				else
 				{
 					CurrentCommand = new CommandInfo();
-					CurrentCommand.CommandName = CommandLine[Index];
+					CurrentCommand.CommandName = Arguments[Index];
 					OutCommandsToExecute.Add(CurrentCommand);
 				}
 			}
@@ -429,8 +429,8 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 â
 		/// <summary>
 		/// Main method.
 		/// </summary>
-		/// <param name="CommandLine">Command line</param>
-		public static ExitCode Process(string[] CommandLine)
+		/// <param name="Arguments">Command line</param>
+		public static ExitCode Process(string[] Arguments)
 		{
 			// Initial check for local or build machine runs BEFORE we parse the command line (We need this value set
 			// in case something throws the exception while parsing the command line)
@@ -440,10 +440,10 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 â
 			var CommandsToExecute = new List<CommandInfo>();
 			string OutScriptsForProjectFileName;
 			var AdditionalScriptsFolders = new List<string>();
-			ParseCommandLine(CommandLine, CommandsToExecute, out OutScriptsForProjectFileName, AdditionalScriptsFolders);
+			ParseCommandLine(Arguments, CommandsToExecute, out OutScriptsForProjectFileName, AdditionalScriptsFolders);
 
 			// Get the path to the telemetry file, if present
-			string TelemetryFile = CommandUtils.ParseParamValue(CommandLine, "-Telemetry");
+			string TelemetryFile = CommandUtils.ParseParamValue(Arguments, "-Telemetry");
 
 			// Check for build machine override (force local)
 			IsBuildMachine = GlobalCommandLine.ForceLocal ? false : IsBuildMachine;

@@ -1,6 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SceneOutlinerPrivatePCH.h"
+#include "SOutlinerTreeView.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorStyleSet.h"
+#include "ISceneOutlinerColumn.h"
+#include "SceneOutlinerPublicTypes.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
+#include "DragAndDrop/ActorDragDropGraphEdOp.h"
+#include "SceneOutlinerDragDrop.h"
+#include "SSceneOutliner.h"
 
 #define LOCTEXT_NAMESPACE "SSceneOutliner"
 

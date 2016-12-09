@@ -3,11 +3,11 @@
 #pragma once
 
 // Module dependencies
-#include "Interfaces/VoiceCapture.h"
-#include "Interfaces/VoiceCodec.h"
+
+#include "CoreMinimal.h"
+#include "VoiceModule.h"
 
 // Module includes
-#include "VoiceModule.h"
 
 #define VOICE_SAMPLE_RATE 16000
 #define NUM_VOICE_CHANNELS 1

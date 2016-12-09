@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Modules/ModuleInterface.h"
+#include "Interfaces/IAutomationControllerManager.h"
 
 class ISessionManager;
-
 
 /** Delegate to call when the automation window module is shutdown. */
 DECLARE_DELEGATE(FOnAutomationWindowModuleShutdown);

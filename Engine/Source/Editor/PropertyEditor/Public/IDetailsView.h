@@ -2,7 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SCompoundWidget.h"
 #include "PropertyEditorDelegates.h"
+#include "Framework/Commands/UICommandList.h"
+
+class AActor;
+class FNotifyHook;
+class FPropertyPath;
+class IDetailKeyframeHandler;
+class IDetailPropertyExtensionHandler;
+class IDetailRootObjectCustomization;
 
 /**
  * Init params for a details view widget
@@ -68,7 +78,8 @@ struct FDetailsViewArgs
 	uint32 bAllowFavoriteSystem : 1;
 	/** If true the details panel will assume each object passed in through SetObjects will be a unique object shown in the tree and not combined with other objects */
 	uint32 bAllowMultipleTopLevelObjects : 1;
-
+	/** If false, the details panel's scrollbar will always be hidden. Useful when embedding details panels in widgets that either grow to accommodate them, or with scrollbars of their own. */
+	uint32 bShowScrollBar : 1;
 
 public:
 	/** Default constructor */
@@ -97,6 +108,7 @@ public:
 		, bCustomFilterAreaLocation(false)
 		, bAllowFavoriteSystem(true)
 		, bAllowMultipleTopLevelObjects(false)
+		, bShowScrollBar(true)
 	{
 	}
 };

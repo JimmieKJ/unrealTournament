@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UdpMessagingPrivatePCH.h"
-#include "TaskGraphInterfaces.h"
+#include "Transport/UdpSerializeMessageTask.h"
+#include "Backends/JsonStructSerializerBackend.h"
+#include "StructSerializer.h"
 
 
 /* FUdpSerializeMessageTask interface
@@ -27,7 +28,7 @@ void FUdpSerializeMessageTask::DoTask(ENamedThreads::Type CurrentThread, const F
 			const TArray<FMessageAddress>& Recipients = MessageContext->GetRecipients();
 			Archive << const_cast<TArray<FMessageAddress>&>(Recipients);
 
-			TEnumAsByte<EMessageScope> Scope = MessageContext->GetScope();
+			EMessageScope Scope = MessageContext->GetScope();
 			Archive << Scope;
 
 			const FDateTime& TimeSent = MessageContext->GetTimeSent();

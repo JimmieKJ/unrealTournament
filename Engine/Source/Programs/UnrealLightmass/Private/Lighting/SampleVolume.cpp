@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "LightmassPCH.h"
+#include "CoreMinimal.h"
 #include "LightingSystem.h"
 #include "Raster.h"
 #include "MonteCarlo.h"
+#include "HAL/PlatformTime.h"
+#include "UnrealLightmass.h"
 
 namespace Lightmass
 {
@@ -92,6 +93,7 @@ public:
 		int32 InSizeY, 
 		float InMinSampleDistance, 
 		float InSceneBoundingRadius,
+		float InSampleRadius,
 		FStaticLightingSystem& InSystem,
 		FCoherentRayCache& InCoherentRayCache,
 		FVolumeLightingProximityOctree& InProximityOctree)
@@ -100,6 +102,7 @@ public:
 		SizeY(InSizeY),
 		MinSampleDistance(InMinSampleDistance),
 		SceneBoundingRadius(InSceneBoundingRadius),
+		SampleRadius(InSampleRadius),
 		System(InSystem),
 		CoherentRayCache(InCoherentRayCache),
 		ProximityOctree(InProximityOctree)
@@ -144,6 +147,7 @@ private:
 	const int32 SizeY;
 	const float MinSampleDistance;
 	const float SceneBoundingRadius;
+	const float SampleRadius;
 	FGuid LevelGuid;
 	FStaticLightingSystem& System;
 	FCoherentRayCache& CoherentRayCache;
@@ -205,8 +209,7 @@ void FVolumeSamplePlacementRasterPolicy::ProcessPixel(int32 X,int32 Y,const Inte
 					TArray<FVolumeLightingSample>* VolumeLightingSamples = System.VolumeLightingSamples.Find(LevelGuid);
 					check(VolumeLightingSamples);
 					// Add a new sample for this layer
-					// Expand the radius to touch a diagonal sample on the grid for a little overlap
-					VolumeLightingSamples->Add(FVolumeLightingSample(FVector4(SamplePosition, System.DynamicObjectSettings.SurfaceLightSampleSpacing * FMath::Sqrt(2.0f))));
+					VolumeLightingSamples->Add(FVolumeLightingSample(FVector4(SamplePosition, SampleRadius)));
 					// Add the sample to the proximity octree so we can avoid placing any more samples nearby
 					ProximityOctree.AddElement(FVolumeSampleProximityElement(VolumeLightingSamples->Num() - 1, *VolumeLightingSamples));
 					if (System.DynamicObjectSettings.bVisualizeVolumeLightInterpolation)
@@ -277,6 +280,11 @@ void FStaticLightingSystem::BeginCalculateVolumeSamples()
 		const int32 RasterSizeX = FMath::TruncToInt(2.0f * VolumeBounds.BoxExtent.X / DynamicObjectSettings.SurfaceLightSampleSpacing);
 		const int32 RasterSizeY = FMath::TruncToInt(2.0f * VolumeBounds.BoxExtent.Y / DynamicObjectSettings.SurfaceLightSampleSpacing);
 
+		// Expand the radius to touch a diagonal sample on the grid for a little overlap
+		const float DiagonalRadius = DynamicObjectSettings.SurfaceLightSampleSpacing * FMath::Sqrt(2.0f);
+		// Make sure the space between layers is covered
+		const float SampleRadius = FMath::Max(DiagonalRadius, DynamicObjectSettings.SurfaceSampleLayerHeightSpacing * FMath::Sqrt(2.0f));
+
 		FTriangleRasterizer<FVolumeSamplePlacementRasterPolicy> Rasterizer(
 			FVolumeSamplePlacementRasterPolicy(
 			RasterSizeX, 
@@ -284,6 +292,7 @@ void FStaticLightingSystem::BeginCalculateVolumeSamples()
 			// Use a minimum sample distance slightly less than the SurfaceLightSampleSpacing
 			0.9f * FMath::Min(DynamicObjectSettings.SurfaceLightSampleSpacing, DynamicObjectSettings.SurfaceSampleLayerHeightSpacing), 
 			FBoxSphereBounds(AggregateMesh->GetBounds()).SphereRadius,
+			SampleRadius,
 			*this,
 			MappingContext.RayCache,
 			VolumeLightingOctree));
@@ -467,7 +476,7 @@ void FStaticLightingSystem::BeginCalculateVolumeSamples()
 				{
 					const FVector4 SamplePosition(SampleX, SampleY, SampleZ);
 					// Only place inside the importance volume
-					if (IsPointInImportanceVolume(SamplePosition)
+					if (IsPointInImportanceVolume(SamplePosition, EffectiveVolumeSpacing)
 						// Only place a sample if there are no surface lighting samples nearby
 						&& !FindNearbyVolumeSample(VolumeLightingOctree, SamplePosition, DynamicObjectSettings.SurfaceLightSampleSpacing))
 					{

@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Marshall A. Greenblatt. All rights reserved.
+// Copyright (c) 2016 Marshall A. Greenblatt. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -60,10 +60,10 @@ typedef struct _cef_cookie_manager_t {
   cef_base_t base;
 
   ///
-  // Set the schemes supported by this manager. By default only "http" and
-  // "https" schemes are supported. If |callback| is non-NULL it will be
-  // executed asnychronously on the IO thread after the change has been applied.
-  // Must be called before any cookies are accessed.
+  // Set the schemes supported by this manager. The default schemes ("http",
+  // "https", "ws" and "wss") will always be supported. If |callback| is non-
+  // NULL it will be executed asnychronously on the IO thread after the change
+  // has been applied. Must be called before any cookies are accessed.
   ///
   void (CEF_CALLBACK *set_supported_schemes)(struct _cef_cookie_manager_t* self,
       cef_string_list_t schemes, struct _cef_completion_callback_t* callback);

@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "Editor/MaterialEditor/Public/MaterialEditorModule.h"
-#include "AssetRegistryModule.h"
-#include "ContentBrowserModule.h"
-#include "AssetToolsModule.h"
+#include "AssetTypeActions/AssetTypeActions_MaterialInterface.h"
+#include "Misc/PackageName.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "Factories/MaterialInstanceConstantFactoryNew.h"
+#include "ThumbnailRendering/SceneThumbnailInfoWithPrimitive.h"
 #include "Materials/MaterialInstanceConstant.h"
+#include "AssetTools.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

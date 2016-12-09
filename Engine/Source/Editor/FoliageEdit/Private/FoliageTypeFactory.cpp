@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "FoliageTypeFactory.h"
-#include "IAssetTypeActions.h"
+#include "AssetTypeCategories.h"
 #include "FoliageType_InstancedStaticMesh.h"
 
 UFoliageTypeFactory::UFoliageTypeFactory(const FObjectInitializer& ObjectInitializer)

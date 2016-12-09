@@ -1,16 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "SlateBasics.h"
-#include "STextComboBox.h"
-#include "SBreadcrumbTrail.h"
-#include "SInlineEditableTextBlock.h"
+
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Misc/Paths.h"
+#include "Layout/Visibility.h"
+#include "Layout/Margin.h"
+#include "Widgets/SNullWidget.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
 #include "SlateFileDialogsStyles.h"
-#include "DirectoryWatcherModule.h"
+#include "IDirectoryWatcher.h"
 
 #define LOCTEXT_NAMESPACE "SlateFileDialogsNamespace"
 
+class SButton;
 class SSlateFileOpenDlg;
+class SWindow;
 
 //-----------------------------------------------------------------------------
 struct FFileEntry

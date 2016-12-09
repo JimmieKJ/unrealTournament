@@ -2,9 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/Docking/TabManager.h"
 
 #define LOCTEXT_NAMESPACE "DeviceProfileEditor"
 
+class IPropertyTable;
+class SDeviceProfileSelectionPanel;
+class UDeviceProfile;
+class UDeviceProfileManager;
 
 /**
  * Slate widget to allow users to edit Device Profiles

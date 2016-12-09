@@ -1,7 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SInputKeySelector.h"
+#include "Widgets/Input/SInputKeySelector.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
 
 
 void SInputKeySelector::Construct( const FArguments& InArgs )
@@ -42,11 +43,15 @@ FText SInputKeySelector::GetSelectedKeyText() const
 	}
 	else if ( SelectedKey.IsSet() )
 	{
-		// If the key in the chord is a modifier key, print it's display name directly since the FInputChord
-		// displays these as empty text.
-		return SelectedKey.Get().Key.IsModifierKey()
-			? SelectedKey.Get().Key.GetDisplayName()
-			: SelectedKey.Get().GetInputText();
+		if(SelectedKey.Get().Key.IsValid())
+		{
+			// If the key in the chord is a modifier key, print it's display name directly since the FInputChord
+					// displays these as empty text.
+			return SelectedKey.Get().Key.IsModifierKey()
+				? SelectedKey.Get().Key.GetDisplayName()
+				: SelectedKey.Get().GetInputText();
+		}
+		return FText();
 	}
 	return FText();
 }

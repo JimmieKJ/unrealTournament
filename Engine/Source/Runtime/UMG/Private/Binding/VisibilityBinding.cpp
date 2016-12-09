@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "VisibilityBinding.h"
+#include "Binding/VisibilityBinding.h"
+#include "Components/SlateWrapperTypes.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -18,7 +18,11 @@ bool UVisibilityBinding::IsSupportedDestination(UProperty* Property) const
 {
 	static const FName VisibilityEnum(TEXT("ESlateVisibility"));
 
-	if ( UByteProperty* ByteProperty = Cast<UByteProperty>(Property) )
+	if ( UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property) )
+	{
+		return EnumProperty->GetEnum()->GetFName() == VisibilityEnum;
+	}
+	else if ( UByteProperty* ByteProperty = Cast<UByteProperty>(Property) )
 	{
 		if ( ByteProperty->IsEnum() )
 		{

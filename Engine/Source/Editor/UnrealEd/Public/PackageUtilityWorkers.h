@@ -7,6 +7,8 @@
 #ifndef __PACKAGEUTILITYWORKERS_H__
 #define __PACKAGEUTILITYWORKERS_H__
 
+#include "CoreMinimal.h"
+
 /**
  * These bit flag values represent the different types of information that can be reported about a package
  */

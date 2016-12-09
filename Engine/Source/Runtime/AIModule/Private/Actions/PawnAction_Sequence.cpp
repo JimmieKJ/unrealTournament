@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Actions/PawnAction_Sequence.h"
+#include "Engine/World.h"
+#include "VisualLogger/VisualLogger.h"
 
 UPawnAction_Sequence::UPawnAction_Sequence(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

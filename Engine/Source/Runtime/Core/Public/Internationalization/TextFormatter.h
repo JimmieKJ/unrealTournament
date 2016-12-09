@@ -2,9 +2,16 @@
 
 #pragma once
 
-#include "Text.h"
-#include "ExpressionParserTypes.h"
-#include "ITextFormatArgumentModifier.h"
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Templates/Function.h"
+#include "Containers/Map.h"
+#include "Internationalization/Text.h"
+#include "Misc/ExpressionParserTypes.h"
+#include "Internationalization/ITextFormatArgumentModifier.h"
+
+struct FPrivateTextFormatArguments;
 
 /**
  * A text formatter is responsible for formatting text patterns using a set of named or ordered arguments.

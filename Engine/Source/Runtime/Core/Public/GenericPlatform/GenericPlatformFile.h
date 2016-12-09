@@ -6,13 +6,13 @@
 ==============================================================================================*/
 
 #pragma once
-#include "HAL/Platform.h"
 
-class FArchive;
-class FString;
-struct FDateTime;
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Misc/DateTime.h"
+#include "Misc/EnumClassFlags.h"
 
-#define USE_NEW_ASYNC_IO (0)
+class IAsyncReadFileHandle;
 
 #if USE_NEW_ASYNC_IO
 class IAsyncReadFileHandle;
@@ -33,6 +33,28 @@ enum EAsyncIOPriority
 	AIOP_MAX = AIOP_CriticalPath,
 	AIOP_NUM
 };
+
+/**
+ * Enum for platform file read flags
+ */
+enum class EPlatformFileRead : uint8
+{
+	None = 0x0,
+	AllowWrite = 0x01	// attempts to open for read while allowing others to write
+};
+
+ENUM_CLASS_FLAGS(EPlatformFileRead);
+
+/**
+ * Enum for platform file write flags
+ */
+enum class EPlatformFileWrite : uint8
+{
+	None = 0x0,
+	AllowRead = 0x01	// attempts to open for write while allowing others to read
+};
+
+ENUM_CLASS_FLAGS(EPlatformFileWrite);
 
 /** 
  * File handle interface. 
@@ -341,11 +363,13 @@ public:
 
 	/** 
 	 * Copy a file. This will fail if the destination file already exists.
-	 * @param To		File to copy to.
-	 * @param From		File to copy from.
+	 * @param To				File to copy to.
+	 * @param From				File to copy from.
+	 * @param ReadFlags			Source file read options.
+	 * @param WriteFlags		Destination file write options.
 	 * @return			true if the file was copied sucessfully.
 	**/
-	virtual bool CopyFile(const TCHAR* To, const TCHAR* From);
+	virtual bool CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags = EPlatformFileRead::None, EPlatformFileWrite WriteFlags = EPlatformFileWrite::None);
 
 	/** 
 	 * Copy a file or a hierarchy of files (directory).

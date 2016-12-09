@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "CompilerResultsLog.h"
+#include "K2Node_InputAxisEvent.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/InputSettings.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Editor.h"
+#include "Kismet2/CompilerResultsLog.h"
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
 #include "Engine/InputAxisDelegateBinding.h"
+#include "BlueprintActionDatabase.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "K2Node_InputAxisEvent.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_InputAxisEvent"
 

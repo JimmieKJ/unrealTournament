@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/Views/SHeaderRow.h"
+
+struct FAssetViewItem;
+
 class FAssetViewSortManager
 {
 public:

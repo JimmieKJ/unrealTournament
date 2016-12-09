@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIGraphPrivatePCH.h"
+#include "AIGraphNode.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
+#include "Engine/Blueprint.h"
+#include "AssetData.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "AIGraph.h"
+#include "DiffResults.h"
 #include "ScopedTransaction.h"
 #include "BlueprintNodeHelpers.h"
-#include "AssetData.h"
 
 #define LOCTEXT_NAMESPACE "AIGraph"
 

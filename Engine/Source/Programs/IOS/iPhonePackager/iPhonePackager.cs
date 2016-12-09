@@ -69,6 +69,7 @@ namespace iPhonePackager
 		Error_MissingExecutable = 103,
 		Error_DeviceNotSetupForDevelopment = 150,
 		Error_DeviceOSNewerThanSDK = 151,
+		Error_TestFailure = 152,
 	};
 
 	public partial class Program
@@ -189,13 +190,21 @@ namespace iPhonePackager
 			{
 				MainCommand = Arguments[0];
 				GamePath = Arguments[1];
-			}
-			else if (Arguments.Length >= 2)
+                if (GamePath.EndsWith(".uproject"))
+                {
+                    Config.ProjectFile = GamePath;
+                }
+            }
+            else if (Arguments.Length >= 2)
 			{
 				MainCommand = Arguments[0];
 				GamePath = Arguments[1];
+                if (GamePath.EndsWith(".uproject"))
+                {
+                    Config.ProjectFile = GamePath;
+                }
 
-				for (int ArgIndex = 2; ArgIndex < Arguments.Length; ArgIndex++)
+                for (int ArgIndex = 2; ArgIndex < Arguments.Length; ArgIndex++)
 				{
 					string Arg = Arguments[ArgIndex].ToLowerInvariant();
 
@@ -862,7 +871,25 @@ namespace iPhonePackager
 						ListDevices();
 						break;
 
-					default:
+                    case "signing_match":
+                        {
+                            MobileProvision Provision;
+                            X509Certificate2 Cert;
+                            bool bNameMatch;
+                            bool bHasOverrideFile;
+                            if (CodeSignatureBuilder.FindRequiredFiles(out Provision, out Cert, out bHasOverrideFile, out bNameMatch))
+                            {
+                                // print out the provision and cert name
+                                Program.LogVerbose("CERTIFICATE-{0},PROVISION-{1}", Cert.FriendlyName, Path.GetFileName(Provision.FileName));
+                            }
+                            else
+                            {
+                                Program.LogVerbose("No matching Signing Data found!");
+                            }
+                        }
+                        break;
+
+                    default:
 						// Commands by themself default to packaging for the device
 						if (CheckArguments())
 						{

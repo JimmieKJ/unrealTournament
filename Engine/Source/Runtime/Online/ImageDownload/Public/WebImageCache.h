@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
 #include "WebImage.h"
+
+struct FSlateBrush;
 
 /** 
  * This class is designed to facilitate caching of web images and setting a global stand-in so we don't
@@ -14,6 +18,9 @@ class IMAGEDOWNLOAD_API FWebImageCache
 {
 public:
 	FWebImageCache();
+
+	/** Signifies the module is being unloaded and to perform any actions that depend on other modules which may be unloaded as well */
+	void PreUnload();
 
 	/** Find or create a WebImage object for this URL (you probably just want to call ->Attr() on this) */
 	TSharedRef<const FWebImage> Download(const FString& Url, const TOptional<FString>& DefaultImageUrl = TOptional<FString>());

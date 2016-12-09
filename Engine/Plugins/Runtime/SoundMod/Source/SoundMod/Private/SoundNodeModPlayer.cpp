@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SoundModPrivatePCH.h"
-#include "SoundDefinitions.h"
 #include "SoundNodeModPlayer.h"
+#include "Audio.h"
+#include "SoundMod.h"
+#include "ActiveSound.h"
 
 #define LOCTEXT_NAMESPACE "SoundNodeModPlayer"
 

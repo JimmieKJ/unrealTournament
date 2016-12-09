@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "Toolkits/IToolkit.h"
+#include "CoreMinimal.h"
 #include "Toolkits/AssetEditorToolkit.h"
 
+class UDestructibleMesh;
 
 /** DestructibleMesh Editor public interface */
 class IDestructibleMeshEditor : public FAssetEditorToolkit

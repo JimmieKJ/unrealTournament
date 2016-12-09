@@ -2,8 +2,19 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/Location/ParticleModuleLocationBase.h"
 #include "ParticleModuleLocationSkelVertSurface.generated.h"
+
+class FStaticLODModel;
+class UParticleLODLevel;
+class UParticleModuleTypeDataBase;
+class UParticleSystemComponent;
+class USkeletalMeshComponent;
+struct FParticleEmitterInstance;
+struct FSkelMeshSection;
 
 UENUM()
 enum ELocationSkelVertSurfaceSource
@@ -42,6 +53,10 @@ class ENGINE_API UParticleModuleLocationSkelVertSurface : public UParticleModule
 	/** If true, particles inherit the associated bone velocity when spawned */
 	UPROPERTY(EditAnywhere, Category=VertSurface)
 	uint32 bInheritBoneVelocity:1;
+
+	/** A scale on how much of the bone's velocity a particle will inherit. */
+	UPROPERTY(EditAnywhere, Category=VertSurface)
+	float InheritVelocityScale;
 
 	/**
 	 *	The parameter name of the skeletal mesh actor that supplies the SkelMeshComponent for in-game.

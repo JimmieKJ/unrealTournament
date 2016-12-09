@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "BaseTextLayoutMarshaller.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Framework/Text/BaseTextLayoutMarshaller.h"
+
+class FTextLayout;
 
 /**
  * Get/set the raw text to/from a text layout as plain text

@@ -6,6 +6,7 @@
 
 #include "D3D11RHIPrivate.h"
 #include "RHIStaticStates.h"
+#include "StaticBoundShaderState.h"
 
 #ifndef WITH_DX_PERF
 	#define WITH_DX_PERF	1

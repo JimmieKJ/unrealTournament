@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ISettingsCategory.h"
+#include "ISettingsSection.h"
 
-// forward declarations
 class FSettingsSection;
-
+class SWidget;
 
 /**
  * Implements a settings category.

@@ -1,10 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "ADPCMAudioInfo.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
+#include "Sound/SoundWave.h"
+#include "Audio.h"
+#include "ContentStreaming.h"
 
+#define WAVE_FORMAT_LPCM  1
+#define WAVE_FORMAT_ADPCM 2
 
 namespace ADPCM
 {
@@ -14,12 +18,32 @@ namespace ADPCM
 
 FADPCMAudioInfo::FADPCMAudioInfo(void)
 {
-
+	UncompressedBlockData = NULL;
 }
 
 FADPCMAudioInfo::~FADPCMAudioInfo(void)
 {
+	if(UncompressedBlockData != NULL)
+	{
+		FMemory::Free(UncompressedBlockData);
+		UncompressedBlockData = NULL;
+	}
+}
 
+void FADPCMAudioInfo::SeekToTime(const float SeekTime)
+{
+	if(SeekTime == 0.0f)
+	{
+		CurrentUncompressedBlockSampleIndex = UncompressedBlockSize / sizeof(uint16);
+		CurrentCompressedBlockIndex = 0;
+		TotalSamplesStreamed = 0;
+	
+		CurrentUncompressedBlockSampleIndex = 0;
+		CurrentChunkIndex = 0;
+		CurrentChunkBufferOffset = 0;
+		TotalSamplesStreamed = 0;
+		CurCompressedChunkData = NULL;
+	}
 }
 
 bool FADPCMAudioInfo::ReadCompressedInfo(const uint8* InSrcBufferData, uint32 InSrcBufferDataSize, struct FSoundQualityInfo* QualityInfo)
@@ -29,43 +53,181 @@ bool FADPCMAudioInfo::ReadCompressedInfo(const uint8* InSrcBufferData, uint32 In
 
 	SrcBufferData = InSrcBufferData;
 	SrcBufferDataSize = InSrcBufferDataSize;
-	SrcBufferOffset = 0;
 
-	if (!WaveInfo.ReadWaveInfo((uint8*)SrcBufferData, SrcBufferDataSize))
+	void*	FormatHeader;
+	
+	if (!WaveInfo.ReadWaveInfo((uint8*)SrcBufferData, SrcBufferDataSize, NULL, false, &FormatHeader))
 	{
 		UE_LOG(LogAudio, Warning, TEXT("WaveInfo.ReadWaveInfo Failed"));
 		return false;
 	}
 
-	const uint32 PreambleSize = 7;
-	BlockSize = *WaveInfo.pBlockAlign;
+	Format = *WaveInfo.pFormatTag;
+	NumChannels = *WaveInfo.pChannels;
 
-	// (BlockSize - PreambleSize) * 2 (samples per byte) + 2 (preamble samples)
-	UncompressedBlockSize = (2 + (BlockSize - PreambleSize) * 2) * sizeof(int16);
-	CompressedBlockSize = BlockSize;
+	if(Format == WAVE_FORMAT_ADPCM)
+	{
+		ADPCM::ADPCMFormatHeader* APPCMHeader = (ADPCM::ADPCMFormatHeader*)FormatHeader;
+		TotalSamplesPerChannel = APPCMHeader->SamplesPerChannel;
+		
+		const uint32 PreambleSize = 7;
+		BlockSize = *WaveInfo.pBlockAlign;
 
-	// Calculate the preferred mono buffer size here based on the same calculations as we do for Vorbis but with our blocksizes taken into account
-	const uint32 uncompressedBlockSamples = (2 + (BlockSize - PreambleSize) * 2);
-	const uint32 targetBlocks = MONO_PCM_BUFFER_SAMPLES / uncompressedBlockSamples;
-	StreamBufferSize = targetBlocks * UncompressedBlockSize;
-	StreamBufferSizeInBlocks = CompressedBlockSize * targetBlocks;
-	TotalDecodedSize = (WaveInfo.SampleDataSize / CompressedBlockSize) * UncompressedBlockSize;
+		// ADPCM starts with 2 uncompressed samples and then the remaining compressed sample data has 2 samples per byte
+		UncompressedBlockSize = (2 + (BlockSize - PreambleSize) * 2) * sizeof(int16);
+		CompressedBlockSize = BlockSize;
+
+		const uint32 uncompressedBlockSamples = (2 + (BlockSize - PreambleSize) * 2);
+		const uint32 targetBlocks = MONO_PCM_BUFFER_SAMPLES / uncompressedBlockSamples;
+		StreamBufferSize = targetBlocks * UncompressedBlockSize;
+		// Ensure TotalDecodedSize is a even multiple of the compressed block size so that the buffer is not over read on the last block
+		TotalDecodedSize = ((WaveInfo.SampleDataSize + CompressedBlockSize - 1) / CompressedBlockSize) * UncompressedBlockSize;
+
+		UncompressedBlockData = (uint8*)FMemory::Realloc(UncompressedBlockData, NumChannels * UncompressedBlockSize);
+		check(UncompressedBlockData != NULL);
+		TotalCompressedBlocksPerChannel = (WaveInfo.SampleDataSize + CompressedBlockSize - 1) / CompressedBlockSize / NumChannels;
+	}
+	else if(Format == WAVE_FORMAT_LPCM)
+	{
+		// There are no "blocks" in this case
+		BlockSize = 0;
+		UncompressedBlockSize = 0;
+		CompressedBlockSize = 0;
+		StreamBufferSize = 0;
+		UncompressedBlockData = NULL;
+		TotalCompressedBlocksPerChannel = 0;
+		
+		TotalDecodedSize = WaveInfo.SampleDataSize;
+		
+		TotalSamplesPerChannel = TotalDecodedSize / sizeof(uint16) / NumChannels;
+	}
+	else
+	{
+		return false;
+	}
+	
 	if (QualityInfo)
 	{
+		uint32 TrueSampleCount = TotalDecodedSize / *WaveInfo.pBitsPerSample;
+
 		QualityInfo->SampleRate = *WaveInfo.pSamplesPerSec;
 		QualityInfo->NumChannels = *WaveInfo.pChannels;
 		QualityInfo->SampleDataSize = TotalDecodedSize;
-		QualityInfo->Duration = 0.0f; // (float)TrueSampleCount / QualityInfo->SampleRate;
+		QualityInfo->Duration = (float)TrueSampleCount / QualityInfo->SampleRate;
 	}
-
+	
+	CurrentCompressedBlockIndex = 0;
+	TotalSamplesStreamed = 0;
+	// This is set to the max value to trigger the decompression of the first audio block
+	CurrentUncompressedBlockSampleIndex = UncompressedBlockSize / sizeof(uint16);
+	
 	return true;
 }
 
 bool FADPCMAudioInfo::ReadCompressedData(uint8* Destination, bool bLooping, uint32 BufferSize)
 {
+	// This correctly handles any BufferSize as long as its a multiple of sample size * number of channels
+	
 	check(Destination);
+	check((BufferSize % (sizeof(uint16) * NumChannels)) == 0);
+	
+	int16*	OutData = (int16*)Destination;
+	
+	bool	reachedEndOfSamples = false;
+	
+	if(Format == WAVE_FORMAT_ADPCM)
+	{
+		// We need to loop over the number of samples requested since an uncompressed block will not match the number of frames requested
+		while(BufferSize > 0)
+		{
+			if(CurrentUncompressedBlockSampleIndex >= UncompressedBlockSize / sizeof(uint16))
+			{
+				// we need to decompress another block of compressed data from the current chunk
+				
+				// Decompress one block for each channel and store it in UncompressedBlockData
+				for(int32 channelItr = 0; channelItr < NumChannels; ++channelItr)
+				{
+					ADPCM::DecodeBlock(
+						WaveInfo.SampleDataStart + (channelItr * TotalCompressedBlocksPerChannel + CurrentCompressedBlockIndex) * CompressedBlockSize,
+						CompressedBlockSize,
+						(int16*)(UncompressedBlockData + channelItr * UncompressedBlockSize));
+				}
+				
+				// Update some bookkeeping
+				CurrentUncompressedBlockSampleIndex = 0;
+				++CurrentCompressedBlockIndex;
+			}
+			
+			// Only copy over the number of samples we currently have available, we will loop around if needed
+			uint32	decompressedSamplesToCopy = FMath::Min<uint32>(UncompressedBlockSize / sizeof(uint16) - CurrentUncompressedBlockSampleIndex, BufferSize / (sizeof(uint16) * NumChannels));
+			check(decompressedSamplesToCopy > 0);
+			
+			// Ensure we don't go over the number of samples left in the audio data
+			if(decompressedSamplesToCopy > TotalSamplesPerChannel - TotalSamplesStreamed)
+			{
+				decompressedSamplesToCopy = TotalSamplesPerChannel - TotalSamplesStreamed;
+			}
+			
+			// Copy over the actual sample data
+			for(uint32 sampleItr = 0; sampleItr < decompressedSamplesToCopy; ++sampleItr)
+			{
+				for(int32 channelItr = 0; channelItr < NumChannels; ++channelItr)
+				{
+					uint16	value = *(int16*)(UncompressedBlockData + channelItr * UncompressedBlockSize + (CurrentUncompressedBlockSampleIndex + sampleItr) * sizeof(int16));
+					*OutData++ = value;
+				}
+			}
+			
+			// Update bookkeeping
+			CurrentUncompressedBlockSampleIndex += decompressedSamplesToCopy;
+			BufferSize -= decompressedSamplesToCopy * sizeof(uint16) * NumChannels;
+			TotalSamplesStreamed += decompressedSamplesToCopy;
+			
+			// Check for the end of the audio samples and loop if needed
+			if(TotalSamplesStreamed >= TotalSamplesPerChannel)
+			{
+				reachedEndOfSamples = true;
+				// This is set to the max value to trigger the decompression of the first audio block
+				CurrentUncompressedBlockSampleIndex = UncompressedBlockSize / sizeof(uint16);
+				CurrentCompressedBlockIndex = 0;
+				TotalSamplesStreamed = 0;
+				if(!bLooping)
+				{
+					// Set the remaining buffer to 0
+					memset(OutData, 0, BufferSize);
+					return true;
+				}
+			}
+		}
+	}
+	else
+	{
+		uint32	decompressedSamplesToCopy = BufferSize / (sizeof(uint16) * NumChannels);
+			
+		// Ensure we don't go over the number of samples left in the audio data
+		if(decompressedSamplesToCopy > TotalSamplesPerChannel - TotalSamplesStreamed)
+		{
+			decompressedSamplesToCopy = TotalSamplesPerChannel - TotalSamplesStreamed;
+		}
 
-	return (*WaveInfo.pChannels == 1) ? DecodeMonoData(Destination, bLooping, BufferSize) : DecodeStereoData(Destination, bLooping, BufferSize);
+		memcpy(OutData, WaveInfo.SampleDataStart + TotalSamplesStreamed * sizeof(uint16) * NumChannels, decompressedSamplesToCopy * sizeof(uint16) * NumChannels);
+		TotalSamplesStreamed += decompressedSamplesToCopy;
+		
+		// Check for the end of the audio samples and loop if needed
+		if(TotalSamplesStreamed >= TotalSamplesPerChannel)
+		{
+			reachedEndOfSamples = true;
+			TotalSamplesStreamed = 0;
+			if(!bLooping)
+			{
+				// Set the remaining buffer to 0
+				memset(OutData, 0, BufferSize);
+				return true;
+			}
+		}
+	}
+	
+	return reachedEndOfSamples;
 }
 
 void FADPCMAudioInfo::ExpandFile(uint8* DstBuffer, struct FSoundQualityInfo* QualityInfo)
@@ -80,123 +242,258 @@ int FADPCMAudioInfo::GetStreamBufferSize() const
 	return StreamBufferSize;
 }
 
-bool FADPCMAudioInfo::DecodeStereoData(uint8* Destination, bool bLooping, uint32 BufferSize)
+bool FADPCMAudioInfo::StreamCompressedInfo(USoundWave* Wave, struct FSoundQualityInfo* QualityInfo)
 {
-	const uint8* EncodedADPCMBlockLeftStart = reinterpret_cast<uint8*>(WaveInfo.SampleDataStart);
-	const uint8* EncodedADPCMBlockRightStart = reinterpret_cast<uint8*>(WaveInfo.SampleDataStart + (WaveInfo.SampleDataSize / 2));
-	uint8* EncodedADPCMLeftBlock = (uint8*)EncodedADPCMBlockLeftStart + SrcBufferOffset;
-	uint8* EncodedADPCMRightBlock = (uint8*)EncodedADPCMBlockRightStart + SrcBufferOffset;
-	
-	bool looped = false;
+	check(QualityInfo);
 
-	// Check to see if we have enough data left to do a complete decode
-	if (EncodedADPCMLeftBlock + StreamBufferSizeInBlocks < EncodedADPCMBlockRightStart)
+	StreamingSoundWave = Wave;
+
+	// Get the first chunk of audio data (should already be loaded)
+	uint8 const* firstChunk = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(Wave, 0, &CurrentChunkDataSize);
+
+	if (firstChunk == NULL)
 	{
-		while (BufferSize)
+		return false;
+	}
+
+	SrcBufferData = NULL;
+	SrcBufferDataSize = 0;
+	
+	void*	FormatHeader;
+	
+	if (!WaveInfo.ReadWaveInfo((uint8*)firstChunk, Wave->RunningPlatformData->Chunks[0].DataSize, NULL, true, &FormatHeader))
+	{
+		UE_LOG(LogAudio, Warning, TEXT("WaveInfo.ReadWaveInfo Failed"));
+		return false;
+	}
+
+	FirstChunkSampleDataOffset = WaveInfo.SampleDataStart - firstChunk;
+	CurrentChunkBufferOffset = 0;
+	CurCompressedChunkData = NULL;
+	CurrentUncompressedBlockSampleIndex = 0;
+	CurrentChunkIndex = 0;
+	TotalSamplesStreamed = 0;
+	Format = *WaveInfo.pFormatTag;
+	NumChannels = *WaveInfo.pChannels;
+	
+	if(Format == WAVE_FORMAT_ADPCM)
+	{
+		ADPCM::ADPCMFormatHeader* APPCMHeader = (ADPCM::ADPCMFormatHeader*)FormatHeader;
+		TotalSamplesPerChannel = APPCMHeader->SamplesPerChannel;
+
+		const uint32 PreambleSize = 7;
+
+		BlockSize = *WaveInfo.pBlockAlign;
+		UncompressedBlockSize = (2 + (BlockSize - PreambleSize) * 2) * sizeof(int16);
+		CompressedBlockSize = BlockSize;
+
+		// Calculate buffer sizes and total number of samples
+		const uint32 uncompressedBlockSamples = (2 + (BlockSize - PreambleSize) * 2);
+		const uint32 targetBlocks = MONO_PCM_BUFFER_SAMPLES / uncompressedBlockSamples;
+		StreamBufferSize = targetBlocks * UncompressedBlockSize;
+		TotalDecodedSize = ((WaveInfo.SampleDataSize + CompressedBlockSize - 1) / CompressedBlockSize) * UncompressedBlockSize;
+		if (QualityInfo)
 		{
-			ADPCM::DecodeBlockStereo(EncodedADPCMLeftBlock, EncodedADPCMRightBlock, CompressedBlockSize, (int16*)Destination);
-			EncodedADPCMLeftBlock += CompressedBlockSize;
-			EncodedADPCMRightBlock += CompressedBlockSize;
-			SrcBufferOffset += CompressedBlockSize;
-			Destination += (UncompressedBlockSize * 2);
-			BufferSize -= (UncompressedBlockSize * 2);
+			uint32 TrueSampleCount = TotalDecodedSize / *WaveInfo.pBitsPerSample;
+
+			QualityInfo->SampleRate = *WaveInfo.pSamplesPerSec;
+			QualityInfo->NumChannels = *WaveInfo.pChannels;
+			QualityInfo->SampleDataSize = TotalDecodedSize;
+			QualityInfo->Duration = (float)TrueSampleCount / QualityInfo->SampleRate;
 		}
+		
+		UncompressedBlockData = (uint8*)FMemory::Realloc(UncompressedBlockData, NumChannels * UncompressedBlockSize);
+		check(UncompressedBlockData != NULL);
+	}
+	else if(Format == WAVE_FORMAT_LPCM)
+	{
+		BlockSize = 0;
+		UncompressedBlockSize = 0;
+		CompressedBlockSize = 0;
+		StreamBufferSize = TotalDecodedSize = WaveInfo.SampleDataSize;
+		TotalSamplesPerChannel = StreamBufferSize / sizeof(uint16) / NumChannels;
 	}
 	else
 	{
-		// otherwise we need to copy what we have left
-		while (EncodedADPCMLeftBlock < EncodedADPCMBlockRightStart)
-		{
-			ADPCM::DecodeBlockStereo(EncodedADPCMLeftBlock, EncodedADPCMRightBlock, CompressedBlockSize, (int16*)Destination);
-			EncodedADPCMLeftBlock += CompressedBlockSize;
-			EncodedADPCMRightBlock += CompressedBlockSize;
-			SrcBufferOffset += CompressedBlockSize;
-			Destination += (UncompressedBlockSize * 2);
-			BufferSize -= (UncompressedBlockSize * 2);
-		}
-
-		looped = true;
-
-		// and then decide if we zero pad or reset and loop
-		if (bLooping)
-		{
-			EncodedADPCMLeftBlock = (uint8*)EncodedADPCMBlockLeftStart;
-			EncodedADPCMRightBlock = (uint8*)EncodedADPCMBlockRightStart;
-			SrcBufferOffset = 0;
-			while (BufferSize)
-			{
-				ADPCM::DecodeBlockStereo(EncodedADPCMLeftBlock, EncodedADPCMRightBlock, CompressedBlockSize, (int16*)Destination);
-				EncodedADPCMLeftBlock += CompressedBlockSize;
-				EncodedADPCMRightBlock += CompressedBlockSize;
-				SrcBufferOffset += CompressedBlockSize;
-				Destination += (UncompressedBlockSize * 2);
-				BufferSize -= (UncompressedBlockSize * 2);
-			}
-		}
-		else
-		{
-			FMemory::Memzero(Destination, BufferSize);
-		}
+		UE_LOG(LogAudio, Error, TEXT("Unsupported wave format"));
+		return false;
 	}
-
-	return looped;
+	
+	return true;
 }
 
-bool FADPCMAudioInfo::DecodeMonoData(uint8* Destination, bool bLooping, uint32 BufferSize)
+bool FADPCMAudioInfo::StreamCompressedData(uint8* Destination, bool bLooping, uint32 BufferSize)
 {
-	const uint8* EncodedADPCMBlockStart = reinterpret_cast<uint8*>(WaveInfo.SampleDataStart);
-	uint8* EncodedADPCMBlock = (uint8*)EncodedADPCMBlockStart + SrcBufferOffset;
-	const uint8* EncodedDataEnd = EncodedADPCMBlockStart + WaveInfo.SampleDataSize;
+	// Destination samples are interlaced by channel, BufferSize is in bytes
+	
+	// Ensure that BuffserSize is a multiple of the sample size times the number of channels
+	check((BufferSize % (sizeof(uint16) * NumChannels)) == 0);
+	
+	int16*	OutData = (int16*)Destination;
+	
+	bool	reachedEndOfSamples = false;
 
-	bool looped = false;
-
-	// See if we are still completely inside the source data..
-	if (EncodedADPCMBlock + StreamBufferSizeInBlocks < EncodedDataEnd)
+	if(Format == WAVE_FORMAT_ADPCM)
 	{
-		// and if so do a straight decode
-		while (BufferSize)
+		// We need to loop over the number of samples requested since an uncompressed block will not match the number of frames requested
+		while(BufferSize > 0)
 		{
-			ADPCM::DecodeBlock(EncodedADPCMBlock, CompressedBlockSize, (int16*)Destination);
-			EncodedADPCMBlock += CompressedBlockSize;
-			SrcBufferOffset += CompressedBlockSize;
-			Destination += UncompressedBlockSize;
-			BufferSize -= UncompressedBlockSize;
+			if(CurCompressedChunkData == NULL || CurrentUncompressedBlockSampleIndex >= UncompressedBlockSize / sizeof(uint16))
+			{
+				// we need to decompress another block of compressed data from the current chunk
+				
+				if(CurCompressedChunkData == NULL || CurrentChunkBufferOffset >= CurrentChunkDataSize)
+				{
+					// Get another chunk of compressed data from the streaming engine
+					
+					// CurrentChunkIndex is used to keep track of the current chunk for loading/unloading by the streaming engine but chunk 0 is preloaded so we don't want to increment this when getting chunk 0, only later chunks
+					// Also, if we failed to get a previous chunk because it was not ready we don't want to re-increment the CurrentChunkIndex
+					if(CurCompressedChunkData != NULL)
+					{
+						++CurrentChunkIndex;
+					}
+					
+					// Request the next chunk of data from the streaming engine
+					CurCompressedChunkData = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, CurrentChunkIndex, &CurrentChunkDataSize);
+
+					if(CurCompressedChunkData == NULL)
+					{
+						// If we did not get it then just bail, CurrentChunkIndex will not get incremented on the next callback so in effect another attempt will be made to fetch the chunk
+						// Since audio streaming depends on the general data streaming mechanism used by other parts of the engine and new data is prefectched on the game tick thread its possible a game hickup can cause this
+						UE_LOG(LogAudio, Warning, TEXT("Missed Deadline chunk %d"), CurrentChunkIndex);
+						
+						// zero out remaining data and bail
+						memset(OutData, 0, BufferSize);
+						return false;
+					}
+					
+					// Set the current buffer offset accounting for the header in the first chunk
+					CurrentChunkBufferOffset = CurrentChunkIndex == 0 ? FirstChunkSampleDataOffset : 0;
+				}
+				
+				// Decompress one block for each channel and store it in UncompressedBlockData
+				for(int32 channelItr = 0; channelItr < NumChannels; ++channelItr)
+				{
+					ADPCM::DecodeBlock(
+						CurCompressedChunkData + CurrentChunkBufferOffset + channelItr * CompressedBlockSize,
+						CompressedBlockSize,
+						(int16*)(UncompressedBlockData + channelItr * UncompressedBlockSize));
+				}
+				
+				// Update some bookkeeping
+				CurrentUncompressedBlockSampleIndex = 0;
+				CurrentChunkBufferOffset += NumChannels * CompressedBlockSize;
+			}
+			
+			// Only copy over the number of samples we currently have available, we will loop around if needed
+			uint32	decompressedSamplesToCopy = FMath::Min<uint32>(UncompressedBlockSize / sizeof(uint16) - CurrentUncompressedBlockSampleIndex, BufferSize / (sizeof(uint16) * NumChannels));
+			check(decompressedSamplesToCopy > 0);
+			
+			// Ensure we don't go over the number of samples left in the audio data
+			if(decompressedSamplesToCopy > TotalSamplesPerChannel - TotalSamplesStreamed)
+			{
+				decompressedSamplesToCopy = TotalSamplesPerChannel - TotalSamplesStreamed;
+			}
+			
+			// Copy over the actual sample data
+			for(uint32 sampleItr = 0; sampleItr < decompressedSamplesToCopy; ++sampleItr)
+			{
+				for(int32 channelItr = 0; channelItr < NumChannels; ++channelItr)
+				{
+					uint16	value = *(int16*)(UncompressedBlockData + channelItr * UncompressedBlockSize + (CurrentUncompressedBlockSampleIndex + sampleItr) * sizeof(int16));
+					*OutData++ = value;
+				}
+			}
+			
+			// Update bookkeeping
+			CurrentUncompressedBlockSampleIndex += decompressedSamplesToCopy;
+			BufferSize -= decompressedSamplesToCopy * sizeof(uint16) * NumChannels;
+			TotalSamplesStreamed += decompressedSamplesToCopy;
+			
+			// Check for the end of the audio samples and loop if needed
+			if(TotalSamplesStreamed >= TotalSamplesPerChannel)
+			{
+				reachedEndOfSamples = true;
+				CurrentUncompressedBlockSampleIndex = 0;
+				CurrentChunkIndex = 0;
+				CurrentChunkBufferOffset = 0;
+				TotalSamplesStreamed = 0;
+				CurCompressedChunkData = NULL;
+				if(!bLooping)
+				{
+					// Set the remaining buffer to 0
+					memset(OutData, 0, BufferSize);
+					return true;
+				}
+			}
 		}
 	}
 	else
 	{
-		// otherwise we copy what we have left
-
-		while (EncodedADPCMBlock < EncodedDataEnd)
+		while(BufferSize > 0)
 		{
-			ADPCM::DecodeBlock(EncodedADPCMBlock, CompressedBlockSize, (int16*)Destination);
-			EncodedADPCMBlock += CompressedBlockSize;
-			Destination += UncompressedBlockSize;
-			BufferSize -= UncompressedBlockSize;
-		}
-
-		// and then decide if we zero pad or reset and loop
-
-		looped = true;
-
-		if (bLooping)
-		{
-			EncodedADPCMBlock = (uint8*)EncodedADPCMBlockStart;
-			SrcBufferOffset = 0;
-			while (BufferSize)
+			if(CurCompressedChunkData == NULL || CurrentChunkBufferOffset >= CurrentChunkDataSize)
 			{
-				ADPCM::DecodeBlock(EncodedADPCMBlock, CompressedBlockSize, (int16*)Destination);
-				EncodedADPCMBlock += CompressedBlockSize;
-				SrcBufferOffset += CompressedBlockSize;
-				Destination += UncompressedBlockSize;
-				BufferSize -= UncompressedBlockSize;
+				// Get another chunk of compressed data from the streaming engine
+				
+				// CurrentChunkIndex is used to keep track of the current chunk for loading/unloading by the streaming engine but chunk 0 is preloaded so we don't want to increment this when getting chunk 0, only later chunks
+				// Also, if we failed to get a previous chunk because it was not ready we don't want to re-increment the CurrentChunkIndex
+				if(CurCompressedChunkData != NULL)
+				{
+					++CurrentChunkIndex;
+				}
+				
+				// Request the next chunk of data from the streaming engine
+				CurCompressedChunkData = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, CurrentChunkIndex, &CurrentChunkDataSize);
+
+				if(CurCompressedChunkData == NULL)
+				{
+					// If we did not get it then just bail, CurrentChunkIndex will not get incremented on the next callback so in effect another attempt will be made to fetch the chunk
+					// Since audio streaming depends on the general data streaming mechanism used by other parts of the engine and new data is prefectched on the game tick thread its possible a game hickup can cause this
+					UE_LOG(LogAudio, Warning, TEXT("Missed Deadline chunk %d"), CurrentChunkIndex);
+					
+					// zero out remaining data and bail
+					memset(OutData, 0, BufferSize);
+					return false;
+				}
+				
+				// Set the current buffer offset accounting for the header in the first chunk
+				CurrentChunkBufferOffset = CurrentChunkIndex == 0 ? FirstChunkSampleDataOffset : 0;
+			}
+
+			uint32	decompressedSamplesToCopy = FMath::Min<uint32>((CurrentChunkDataSize - CurrentChunkBufferOffset) / (sizeof(uint16) * NumChannels), BufferSize / (sizeof(uint16) * NumChannels));
+			check(decompressedSamplesToCopy > 0);
+			
+			// Ensure we don't go over the number of samples left in the audio data
+			if(decompressedSamplesToCopy > TotalSamplesPerChannel - TotalSamplesStreamed)
+			{
+				decompressedSamplesToCopy = TotalSamplesPerChannel - TotalSamplesStreamed;
+			}
+			
+			memcpy(OutData, CurCompressedChunkData + CurrentChunkBufferOffset, decompressedSamplesToCopy * (sizeof(uint16) * NumChannels));
+			
+			OutData += decompressedSamplesToCopy * NumChannels;
+			CurrentChunkBufferOffset += decompressedSamplesToCopy * (sizeof(uint16) * NumChannels);
+			BufferSize -= decompressedSamplesToCopy * (sizeof(uint16) * NumChannels);
+			TotalSamplesStreamed += decompressedSamplesToCopy;
+			
+			// Check for the end of the audio samples and loop if needed
+			if(TotalSamplesStreamed >= TotalSamplesPerChannel)
+			{
+				reachedEndOfSamples = true;
+				CurrentChunkIndex = 0;
+				CurrentChunkBufferOffset = 0;
+				TotalSamplesStreamed = 0;
+				CurCompressedChunkData = NULL;
+				if(!bLooping)
+				{
+					// Set the remaining buffer to 0
+					memset(OutData, 0, BufferSize);
+					return true;
+				}
 			}
 		}
-		else
-		{
-			FMemory::Memzero(Destination, BufferSize);
-		}
 	}
-
-	return looped;
+	
+	return reachedEndOfSamples;
 }

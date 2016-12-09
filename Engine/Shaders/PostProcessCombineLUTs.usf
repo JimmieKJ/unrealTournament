@@ -11,7 +11,6 @@
 #include "Common.usf"
 #include "PostProcessCommon.usf"
 #include "TonemapCommon.usf"
-#include "GammaCorrectionCommon.usf"
 
 // ---------------------------------------------------
 
@@ -137,6 +136,9 @@ float4 ColorGammaHighlights;
 float4 ColorGainHighlights;
 float4 ColorOffsetHighlights;
 
+float  ColorCorrectionShadowsMax;
+float  ColorCorrectionHighlightsMin;
+
 float3 ColorCorrect( float3 WorkingColor,
 	float4 ColorSaturation,
 	float4 ColorContrast,
@@ -164,7 +166,7 @@ float3 ColorCorrectAll( float3 WorkingColor )
 		ColorGammaShadows*ColorGamma, 
 		ColorGainShadows*ColorGain, 
 		ColorOffsetShadows+ColorOffset);
-	float CCWeightShadows = 1- smoothstep(0, 0.09, Luma);
+	float CCWeightShadows = 1- smoothstep(0, ColorCorrectionShadowsMax, Luma);
 	
 	// Highlight CC
 	float3 CCColorHighlights = ColorCorrect(WorkingColor, 
@@ -173,7 +175,7 @@ float3 ColorCorrectAll( float3 WorkingColor )
 		ColorGammaHighlights*ColorGamma, 
 		ColorGainHighlights*ColorGain, 
 		ColorOffsetHighlights+ColorOffset);
-	float CCWeightHighlights = smoothstep(0.5, 1, Luma);
+	float CCWeightHighlights = smoothstep(ColorCorrectionHighlightsMin, 1, Luma);
 
 	// Midtone CC
 	float3 CCColorMidtones = ColorCorrect(WorkingColor, 
@@ -217,7 +219,6 @@ float3 ColorGrade( float3 LinearColor )
 
 uint OutputDevice;
 uint OutputGamut;
-uint ACESInversion;
 
 uint GetOutputDevice()
 {
@@ -366,11 +367,11 @@ void MainPS(noperspective float4 InUV : TEXCOORD0, out float4 OutColor : SV_Targ
 		OutDeviceColor = LinearTo709Branchless( OutputGamutColor );
 	}
 
-	// r.Tonemapper2084 1 - ACES P3 D60 transform with PQ/2084 encoding, user specified gamut 
+	// ACES 1000nit transform with PQ/2084 encoding, user specified gamut 
 	else if( GetOutputDevice() == 3 )
 	{		
-		// Use ACES_P3D60_PQ_2000nits instead of FilmToneMap, using linear GradedColor as input
-		float3 ODTColor = ACESOutputTransformsP3D60PQ2000( GradedColor );
+		// 1000 nit ODT
+		float3 ODTColor = ACESOutputTransforms1000( GradedColor );
 
 		// Convert from AP1 to specified output gamut
 		ODTColor = mul( AP1_2_Output, ODTColor );
@@ -379,26 +380,17 @@ void MainPS(noperspective float4 InUV : TEXCOORD0, out float4 OutColor : SV_Targ
 		OutDeviceColor = LinearToST2084( ODTColor );
 	}
 
-	// r.Tonemapper2084 2 - PQ/2084 encoding, user specified gamut 
+	// ACES 2000nit transform with PQ/2084 encoding, user specified gamut 
 	else if( GetOutputDevice() == 4 )
 	{		
-		// Convert from sRGB to specified output gamut
-		float3 OutputGamutColor = mul( AP1_2_Output, mul( sRGB_2_AP1, GradedColor ) );
-
-		// Apply conversion to ST-2084 (Dolby PQ) with no prior tonemapping
-		OutDeviceColor = LinearToST2084( OutputGamutColor * 200. );
-	}
-
-	// r.Tonemapper2084 3 - Pseudo linearization of UE Tonemapped result with PQ/2084 encoding, user specified gamut 
-	else if( GetOutputDevice() == 5 )
-	{
-		float3 pseudoLinear = lerp( aces100nitFitInverse( FilmColorAP1 ), InverseACESOutputTransformsRGBD65( FilmColor ), ACESInversion);
+		// 2000 nit ODT
+		float3 ODTColor = ACESOutputTransforms2000( GradedColor );
 
 		// Convert from AP1 to specified output gamut
-		float3 OutputGamutColor = mul( AP1_2_Output, pseudoLinear );
+		ODTColor = mul( AP1_2_Output, ODTColor );
 
 		// Apply conversion to ST-2084 (Dolby PQ)
-		OutDeviceColor = LinearToST2084( OutputGamutColor * 200. );
+		OutDeviceColor = LinearToST2084( ODTColor );
 	}
 
 	// OutputDevice == 2

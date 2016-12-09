@@ -31,6 +31,8 @@ public class VulkanRHI : ModuleRules
 			{
 				// If the user has an installed SDK, use that instead
 				PrivateIncludePaths.Add(VulkanSDKPath + "/Include");
+				// Older SDKs have an extra subfolder
+				PrivateIncludePaths.Add(VulkanSDKPath + "/Include/vulkan");
 
 				if (Target.Platform == UnrealTargetPlatform.Win32)
 				{

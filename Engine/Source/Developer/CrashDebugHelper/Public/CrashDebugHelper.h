@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "Templates/SharedPointer.h"
 
+class FArchive;
 struct FPDBCacheEntry;
 
 enum EProcessorArchitecture
@@ -293,8 +296,12 @@ public:
 
 	/**
 	 * Sync the branch root relative file names to the requested label
+	 *
+	 *	@param	bOutPDBCacheEntryValid		Returns whether the PDB cache entry was found or created and whether it contains files.
+	 *
+	 *	@return	bool						true if successful, false if not
 	 */
-	virtual bool SyncModules();
+	virtual bool SyncModules(bool& bOutPDBCacheEntryValid);
 
 	/**
 	 *	Sync a single source file to the requested CL.

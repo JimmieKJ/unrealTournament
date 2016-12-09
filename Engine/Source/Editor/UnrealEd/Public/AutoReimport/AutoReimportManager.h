@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "IDirectoryWatcher.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "AutoReimportManager.generated.h"
+
+class FAutoReimportManager;
 
 /** Struct representing a path on disk, and its virtual mount point */
 struct FPathAndMountPoint

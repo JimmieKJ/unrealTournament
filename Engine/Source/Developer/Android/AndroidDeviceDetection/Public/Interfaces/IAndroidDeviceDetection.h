@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "Containers/UnrealString.h"
+#include "HAL/CriticalSection.h"
+
+template<typename KeyType,typename ValueType,typename SetAllocator ,typename KeyFuncs > class TMap;
 
 struct FAndroidDeviceInfo
 {

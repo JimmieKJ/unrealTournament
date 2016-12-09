@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SGraphNode.h"
+
+class UBehaviorTreeDecoratorGraphNode_Decorator;
+
 class SGraphNode_Decorator : public SGraphNode
 {
 public:

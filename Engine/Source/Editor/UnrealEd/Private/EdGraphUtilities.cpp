@@ -1,14 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "EdGraphUtilities.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Styling/CoreStyle.h"
+#include "Exporters/Exporter.h"
+#include "EdGraph/EdGraph.h"
+#include "Kismet2/CompilerResultsLog.h"
 #include "Factories.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "UnrealExporter.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "K2Node_TunnelBoundary.h"
+#include "K2Node_Composite.h"
 
 /////////////////////////////////////////////////////
 // FGraphObjectTextFactory
@@ -21,6 +27,7 @@ public:
 	TSet<UEdGraphNode*> SubstituteNodes;
 	const UEdGraph* DestinationGraph;
 	TArray<FName> ExtraNamesInUse;
+	TArray<UEdGraphNode*> NodesToDestroy;
 public:
 	FGraphObjectTextFactory(const UEdGraph* InDestinationGraph)
 		: FCustomizableTextObjectFactory(GWarn)
@@ -60,28 +67,26 @@ protected:
 	{
 		if (UEdGraphNode* Node = Cast<UEdGraphNode>(CreatedObject))
 		{
+			UEdGraphNode* CreatedNode = Node;
 			if (!Node->CanPasteHere(DestinationGraph))
 			{
 				// Attempt to create a substitute node if it cannot be pasted (note: the return value can be NULL, indicating that the node cannot be pasted into the graph)
-				Node = DestinationGraph->GetSchema()->CreateSubstituteNode(Node, DestinationGraph, &InstanceGraph, ExtraNamesInUse);
-				SubstituteNodes.Add(Node);
+				CreatedNode = DestinationGraph->GetSchema()->CreateSubstituteNode(CreatedNode, DestinationGraph, &InstanceGraph, ExtraNamesInUse);
+				SubstituteNodes.Add(CreatedNode);
 			}
 
-			if (Node != CreatedObject)
+			if (Node != CreatedNode)
 			{
-				// Move the old node into the transient package so that it is GC'd
-				CreatedObject->Rename(NULL, GetTransientPackage());
-				CreatedObject->MarkPendingKill();
+				NodesToDestroy.Add(Node);
 			}
 
-			if (Node)
+			if (CreatedNode)
 			{
-				SpawnedNodes.Add(Node);
+				SpawnedNodes.Add(CreatedNode);
 
-				Node->GetGraph()->Nodes.Add(Node);
+				CreatedNode->GetGraph()->Nodes.Add(CreatedNode);
 			}
 		}
-
 	}
 
 	virtual void PostProcessConstructedObjects() override
@@ -98,6 +103,14 @@ protected:
 			{
 				Notification->SetCompletionState(SNotificationItem::CS_None);
 			}
+		}
+
+		for (UEdGraphNode* Node : NodesToDestroy)
+		{
+			// Move the old node into the transient package so that it is GC'd
+			Node->BreakAllNodeLinks();
+			Node->Rename(NULL, GetTransientPackage());
+			Node->MarkPendingKill();
 		}
 	}
 };
@@ -196,6 +209,7 @@ UEdGraph* FEdGraphUtilities::CloneGraph(UEdGraph* InSource, UObject* NewOuter, F
 	if (bCloningForCompile || (NewOuter == NULL))
 	{
 		Parameters.ApplyFlags |= RF_Transient;
+		Parameters.FlagMask &= ~RF_Transactional;
 	}
 
 	UEdGraph* ClonedGraph = CastChecked<UEdGraph>(StaticDuplicateObjectEx(Parameters));
@@ -269,7 +283,41 @@ void FEdGraphUtilities::MergeChildrenGraphsIn(UEdGraph* MergeTarget, UEdGraph* P
 	{
 		UEdGraph* ChildGraph = ParentGraph->SubGraphs[Index];
 
-		if (bWantBoundaryNodes)
+		if (ChildGraph && MessageLog)
+		{
+			UK2Node_Composite* CompositeInstance = ChildGraph->GetTypedOuter<UK2Node_Composite>();
+			if (MessageLog->bTreatCompositeGraphsAsTunnels && CompositeInstance != nullptr)
+			{
+				// Locate or register active tunnels for this child graph.
+				TArray<TWeakObjectPtr<UEdGraphNode>> ActiveTunnels;
+				UEdGraphNode* TrueCompositeInstance = MessageLog->GetSourceTunnelNode(CompositeInstance);
+				MessageLog->GetTunnelsActiveForNode(TrueCompositeInstance, ActiveTunnels);
+				if (!ActiveTunnels.Num())
+				{
+					ActiveTunnels.Add(TrueCompositeInstance);
+					MessageLog->RegisterIntermediateTunnelInstance(TrueCompositeInstance, ActiveTunnels);
+				}
+				// Register composite nodes to the source composite instance.
+				for (auto Node : ChildGraph->Nodes)
+				{
+					MessageLog->RegisterIntermediateTunnelNode(Node, TrueCompositeInstance);
+					if (FBlueprintEditorUtils::IsTunnelInstanceNode(Node))
+					{
+						if (Node->IsA<UK2Node_Composite>())
+						{
+							UEdGraphNode* SourceNode = MessageLog->GetSourceTunnelNode(Node);
+							MessageLog->RegisterIntermediateTunnelInstance(SourceNode, ActiveTunnels);
+						}
+						else
+						{
+							// Register child macro instance nodes using the duplicated instance.
+							MessageLog->RegisterIntermediateTunnelInstance(Node, ActiveTunnels);
+						}
+					}
+				}
+			}
+		}
+		if (bWantBoundaryNodes && MessageLog)
 		{
 			// Create boundary nodes around tunnels for debugging/profiling if requested.
 			UK2Node_TunnelBoundary::CreateBoundaryNodesForGraph(ChildGraph, *MessageLog);
@@ -408,6 +456,136 @@ void FEdGraphUtilities::CopyCommonState(UEdGraphNode* OldNode, UEdGraphNode* New
 	NewNode->NodeWidth = OldNode->NodeWidth;
 	NewNode->NodeHeight = OldNode->NodeHeight;
 	NewNode->NodeComment = OldNode->NodeComment;
+}
+
+bool FEdGraphUtilities::IsSetParam(const UFunction* Function, const FString& ParameterName)
+{
+	if (Function == nullptr)
+	{
+		return false;
+	}
+
+	const FString& RawMetaData = Function->GetMetaData(FBlueprintMetadata::MD_SetParam);
+	if (RawMetaData.IsEmpty())
+	{
+		return false;
+	}
+
+	TArray<FString> SetParamPinGroups;
+	{
+		RawMetaData.ParseIntoArray(SetParamPinGroups, TEXT(","), true);
+	}
+
+	for (FString& Entry : SetParamPinGroups)
+	{
+		TArray<FString> GroupEntries;
+		Entry.ParseIntoArray(GroupEntries, TEXT("|"), true);
+		if (GroupEntries.Contains(ParameterName))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool FEdGraphUtilities::IsMapParam(const UFunction* Function, const FString& ParameterName)
+{
+	if (Function == nullptr)
+	{
+		return false;
+	}
+
+	const FString& MapParamMetaData = Function->GetMetaData(FBlueprintMetadata::MD_MapParam);
+	const FString& MapValueParamMetaData = Function->GetMetaData(FBlueprintMetadata::MD_MapValueParam);
+	const FString& MapKeyParamMetaData = Function->GetMetaData(FBlueprintMetadata::MD_MapKeyParam);
+	if (MapParamMetaData.IsEmpty() && MapValueParamMetaData.IsEmpty() && MapKeyParamMetaData.IsEmpty() )
+	{
+		return false;
+	}
+
+	const auto PipeSeparatedStringContains = [ParameterName](const FString& List)
+	{
+		TArray<FString> GroupEntries;
+		List.ParseIntoArray(GroupEntries, TEXT("|"), true);
+		if (GroupEntries.Contains(ParameterName))
+		{
+			return true;
+		}
+		return false;
+	};
+
+	return PipeSeparatedStringContains(MapParamMetaData)
+		|| PipeSeparatedStringContains(MapValueParamMetaData) 
+		|| PipeSeparatedStringContains(MapKeyParamMetaData);
+}
+
+bool FEdGraphUtilities::IsArrayDependentParam(const UFunction* Function, const FString& ParameterName)
+{
+	if (Function == nullptr)
+	{
+		return false;
+	}
+
+	const FString& DependentPinMetaData = Function->GetMetaData(FBlueprintMetadata::MD_ArrayDependentParam);
+	if( DependentPinMetaData.IsEmpty() )
+	{
+		return false;
+	}
+
+	TArray<FString> TypeDependentPinNames;
+	DependentPinMetaData.ParseIntoArray(TypeDependentPinNames, TEXT(","), true);
+
+	return TypeDependentPinNames.Contains(ParameterName);
+}
+
+UEdGraphPin* FEdGraphUtilities::FindArrayParamPin(const UFunction* Function, const UEdGraphNode* Node)
+{
+	return FEdGraphUtilities::FindPinFromMetaData(Function, Node, FBlueprintMetadata::MD_ArrayParam);
+}
+
+UEdGraphPin* FEdGraphUtilities::FindSetParamPin(const UFunction* Function, const UEdGraphNode* Node)
+{
+	return FEdGraphUtilities::FindPinFromMetaData(Function, Node, FBlueprintMetadata::MD_SetParam);
+}
+	
+UEdGraphPin* FEdGraphUtilities::FindMapParamPin(const UFunction* Function, const UEdGraphNode* Node)
+{
+	return FEdGraphUtilities::FindPinFromMetaData(Function, Node, FBlueprintMetadata::MD_MapParam);
+}
+
+UEdGraphPin* FEdGraphUtilities::FindPinFromMetaData(const UFunction* Function, const UEdGraphNode* Node, FName MetaData )
+{
+	if(!Function || !Node)
+	{
+		return nullptr;
+	}
+
+	if(!Function->HasMetaData(MetaData))
+	{
+		return nullptr;
+	}
+
+	const FString& PinMetaData = Function->GetMetaData(MetaData);
+	TArray<FString> ParamPinGroups;
+	PinMetaData.ParseIntoArray(ParamPinGroups, TEXT(","), true);
+
+	for (const FString& Entry : ParamPinGroups)
+	{
+		// split the group:
+		TArray<FString> GroupEntries;
+		Entry.ParseIntoArray(GroupEntries, TEXT("|"), true);
+		// resolve pins
+		for(const FString& PinName : GroupEntries)
+		{
+			if(UEdGraphPin* Pin = Node->FindPin(PinName))
+			{
+				return Pin;
+			}
+		}
+	}
+
+	return nullptr;
 }
 
 void FEdGraphUtilities::RegisterVisualNodeFactory(TSharedPtr<FGraphPanelNodeFactory> NewFactory)

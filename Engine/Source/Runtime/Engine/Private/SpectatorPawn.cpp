@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "GameFramework/SpectatorPawn.h"
-#include "GameFramework/SpectatorPawnMovement.h"
 #include "Components/SphereComponent.h"
+#include "GameFramework/SpectatorPawnMovement.h"
 
 ASpectatorPawn::ASpectatorPawn(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer

@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "MaterialInstanceBasePropertyOverrides.generated.h"
 
-class UMaterialInstance;
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "MaterialInstanceBasePropertyOverrides.generated.h"
 
 /** Properties from the base material that can be overridden in material instances. */
 USTRUCT()

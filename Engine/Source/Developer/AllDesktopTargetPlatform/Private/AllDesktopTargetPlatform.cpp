@@ -4,8 +4,14 @@
 	AllDesktopTargetPlatform.cpp: Implements the FDesktopTargetPlatform class.
 =============================================================================*/
 
-#include "AllDesktopTargetPlatformPrivatePCH.h"
-#include "IProjectManager.h"
+#include "AllDesktopTargetPlatform.h"
+
+#if WITH_ENGINE
+	#include "Sound/SoundWave.h"
+#endif
+
+
+ 
 
 /* FAllDesktopTargetPlatform structors
  *****************************************************************************/
@@ -61,7 +67,7 @@ void FAllDesktopTargetPlatform::GetAllTargetedShaderFormats( TArray<FName>& OutF
 void FAllDesktopTargetPlatform::GetTextureFormats( const UTexture* Texture, TArray<FName>& OutFormats ) const
 {
 	// just use the standard texture format name for this texture (without DX11 texture support)
-	OutFormats.Add(GetDefaultTextureFormatName(Texture, EngineSettings, false));
+	OutFormats.Add(GetDefaultTextureFormatName(this, Texture, EngineSettings, false));
 }
 
 
@@ -72,7 +78,7 @@ FName FAllDesktopTargetPlatform::GetWaveFormat( const class USoundWave* Wave ) c
 	
 	if (Wave->IsStreaming())
 	{
-		// @todo desktop platform: Does Mac support OPUS?
+		// @todo desktop platform: Does Linux support OPUS?
 		return NAME_OPUS;
 	}
 	

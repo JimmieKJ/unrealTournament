@@ -82,9 +82,12 @@ sub write_step_notification
 	# read the job definition the original workspace on the network
 	my $job_definition_file = join_paths($jobstep->{'workspace_dir'}, 'job.json');
 	my $job_definition = read_json($job_definition_file);
+	
+	# create some dummy repro steps
+	my $repro_steps = "Engine\\Build\\BatchFiles\\RunUAT.bat BuildGraph -Script=Engine/Build/InstalledEngineBuild -Target=".quote_argument($jobstep->{'jobstep_name'})." -ClearHistory -P4";
 
 	# format the email
-	my $notifications = get_jobstep_notifications($ec, $ec_project, $job_definition, $jobstep, $workspace_name, $workspace_dir);
+	my $notifications = get_jobstep_notifications($ec, $ec_project, $job_definition, $jobstep, $workspace_name, $workspace_dir, $repro_steps);
 	fail("No notifications for jobstep $jobstep_id") if !$notifications;
 	print "Default recipients: ".join(", ", @{$notifications->{'default_recipients'}})."\n";
 	print "Fail Causers: ".join(", ", @{$notifications->{'fail_causer_emails'}})."\n";
@@ -266,7 +269,7 @@ sub get_report_notification
 # determines the notification settings and generates a notification email for a given build
 sub get_jobstep_notifications
 {
-	my ($ec, $ec_project, $job_definition, $jobstep, $workspace_name, $workspace_dir) = @_;
+	my ($ec, $ec_project, $job_definition, $jobstep, $workspace_name, $workspace_dir, $repro_steps) = @_;
 	
 	# read the step properties
 	my $current_change = $jobstep->{'properties'}->{'CL'};
@@ -495,6 +498,7 @@ sub get_jobstep_notifications
 		$html .=     "</td>";
 		$html .= "</tr>";
 	}
+	
 	$html .=                                     "</table>";
 	$html .=                                 "</td>";
 	$html .=                             "</tr>";
@@ -505,7 +509,7 @@ sub get_jobstep_notifications
 	$html .=         "</td>";
 	$html .=     "</tr>";
 	$html .= "</table>";
-	
+
 	# write the list of changes
 	my $timeline_change_style = "color:#ffffff; text-decoration:none;";
 	my $timeline_item_border_style = "border:2px solid #f7f7f7;";
@@ -584,6 +588,38 @@ sub get_jobstep_notifications
 			$change_idx++;
 		}
 	}
+	$html .=                         "</table>";
+	$html .=                     "</td>";
+	$html .=                 "</tr>";
+	$html .=             "</table>";
+	$html .=         "</td>";
+	$html .=     "</tr>";
+	$html .= "</table>";
+		
+	# write the steps to reproduce
+	$html .= "<table cellpadding=\"20px\" width=\"100%\" bgcolor=\"#fcfcfc\" style=\"min-width:640px;\">";
+	$html .=     "<tr>";
+	$html .=         "<td>";
+	$html .=             "<table cellpadding=\"0px\" width=\"100%\">";
+	$html .=                 "<tr>";
+	$html .=                     "<td><h2 style=\"color: #202020;font-size: 16pt; margin:0px;\">Steps to Reproduce</h2></td>";
+	$html .=                 "</tr>";
+	$html .=                 "<tr>";
+	$html .=                     "<td>";
+	$html .=                         "<table cellspacing=\"6px\">";
+	$html .=                             "<tr>";
+	$html .=                                 "<td>";
+	$html .=                                     "<table cellspacing=\"4px\">";
+	$html .=                                         "<tr>";
+	$html .=                                             "<td style=\"font-size:11pt; display:table-cell; padding:0px; background:$outcome_color;\"><div style=\"width:8px;height:1px;\"></div></td>";
+	$html .=                                             "<td style=\"font-size:11pt; vertical-align:middle; padding:.65em 1em;\">";
+	$html .=                                                 "<p style=\"font-family:Arial,Helvetica,sans-serif;font-size:10pt;margin-top:0px;margin-bottom:10px;white-space:pre-wrap;tab-size:4;\">To execute this step locally, run the following from a ".(is_windows()? "command prompt" : "terminal session").":</p>";
+	$html .=                                                 "<p style=\"font-family:monospace,Arial,Helvetica,sans-serif;font-size:9pt;margin-top:0px;margin-bottom:1px;white-space:pre-wrap;tab-size:4;\">$repro_steps</p>";
+	$html .=                                             "</td>";
+	$html .=                                         "</tr>";
+	$html .=                                     "</table>";
+	$html .=                                 "</td>";
+	$html .=                             "</tr>";
 	$html .=                         "</table>";
 	$html .=                     "</td>";
 	$html .=                 "</tr>";
@@ -681,7 +717,7 @@ sub get_change_history
 		if(!defined $p4_user_to_email->{$user})
 		{
 			my @records = p4_tagged_command("user -o \"$user\"");
-			$p4_user_to_email->{$user} = $records[0]->{'Email'};
+			$p4_user_to_email->{$user} = $records[0]->{'Type'} ? $records[0]->{'Email'} : 'Build@epicgames.com';
 		}
 		$change->{'author_email'} = $p4_user_to_email->{$user};
 	}

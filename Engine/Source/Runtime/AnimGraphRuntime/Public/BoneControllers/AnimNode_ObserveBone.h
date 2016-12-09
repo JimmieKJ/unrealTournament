@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BoneContainer.h"
+#include "BonePose.h"
+#include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "AnimNode_ObserveBone.generated.h"
+
+class USkeletalMeshComponent;
 
 /**
  *	Debugging node that displays the current value of a bone in a specific space.

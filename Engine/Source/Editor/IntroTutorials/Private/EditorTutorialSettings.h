@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/StringClassReference.h"
 #include "EditorTutorial.h"
 #include "EditorTutorialSettings.generated.h"
 

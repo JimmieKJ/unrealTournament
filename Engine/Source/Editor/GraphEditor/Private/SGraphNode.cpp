@@ -1,17 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
+#include "SGraphNode.h"
+#include "EdGraph/EdGraph.h"
+#include "Widgets/SBoxPanel.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "GraphEditorSettings.h"
+#include "SCommentBubble.h"
+#include "SGraphPin.h"
+#include "GraphEditorDragDropAction.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_Literal.h"
 #include "NodeFactory.h"
-#include "TokenizedMessage.h"
-#include "Editor/UnrealEd/Public/DragAndDrop/ActorDragDropGraphEdOp.h"
-#include "Editor/UnrealEd/Public/DragAndDrop/AssetDragDropOp.h"
+#include "Logging/TokenizedMessage.h"
+#include "DragAndDrop/ActorDragDropGraphEdOp.h"
+#include "DragAndDrop/AssetDragDropOp.h"
 #include "Editor/Persona/Public/BoneDragDropOp.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "SLevelOfDetailBranchNode.h"
+#include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
 #include "TutorialMetaData.h"
 #include "SGraphPanel.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "BlueprintEditorSettings.h"
 
 /////////////////////////////////////////////////////
 // SNodeTitle
@@ -51,9 +67,16 @@ void SNodeTitle::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 
 FText SNodeTitle::GetNodeTitle() const
 {
-	return (GraphNode != NULL)
-		? GraphNode->GetNodeTitle(ENodeTitleType::FullTitle)
-		: NSLOCTEXT("GraphEditor", "NullNode", "Null Node");
+	if (GetDefault<UBlueprintEditorSettings>()->bBlueprintNodeUniqueNames && GraphNode)
+	{
+		return FText::FromName(GraphNode->GetFName());
+	}
+	else
+	{
+		return (GraphNode != NULL)
+			? GraphNode->GetNodeTitle(ENodeTitleType::FullTitle)
+			: NSLOCTEXT("GraphEditor", "NullNode", "Null Node");
+	}
 }
 
 FText SNodeTitle::GetHeadTitle() const
@@ -850,19 +873,7 @@ void SGraphNode::UpdateGraphNode()
 					.HAlign(HAlign_Fill)
 					.VAlign(VAlign_Top)
 					[
-						SNew(SOverlay)
-						+SOverlay::Slot()
-						.VAlign(VAlign_Fill)
-						[
-							SNew(SImage)
-							.Image(FEditorStyle::GetBrush("Graph.Node.IndicatorOverlay"))
-							.Visibility(this, &SGraphNode::GetNodeIndicatorOverlayVisibility)
-							.ColorAndOpacity(this, &SGraphNode::GetNodeIndicatorOverlayColor)
-						]
-						+SOverlay::Slot()
-						[
-							CreateNodeContentArea()
-						]
+						CreateNodeContentArea()
 					]
 
 					+SVerticalBox::Slot()

@@ -23,6 +23,10 @@ public class Vulkan : ModuleRules
 			PublicAdditionalLibraries.Add("VKstatic.1.lib");
 
 			PublicSystemIncludePaths.Add(RootPath + "/Include");
+			PublicSystemIncludePaths.Add(RootPath + "/Include/vulkan");
+
+			// For now let's always delay load the vulkan dll as not everyone has it installed
+			PublicDelayLoadDLLs.Add("vulkan-1.dll");
 		}
 	}
 }

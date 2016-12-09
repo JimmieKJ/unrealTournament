@@ -1,12 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerPlayerManager.h"
-#include "GameplayDebuggerAddonManager.h"
+#include "Engine/World.h"
+#include "Components/InputComponent.h"
 #include "GameplayDebuggerCategoryReplicator.h"
 #include "GameplayDebuggerLocalController.h"
-#include "Engine/DebugCameraController.h"
-#include "Components/InputComponent.h"
 #include "Engine/DebugCameraController.h"
 
 AGameplayDebuggerPlayerManager::AGameplayDebuggerPlayerManager(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -103,7 +101,7 @@ void AGameplayDebuggerPlayerManager::UpdateAuthReplicators()
 
 	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; It++)
 	{
-		APlayerController* TestPC = *It;
+		APlayerController* TestPC = It->Get();
 		if (TestPC && !TestPC->IsA<ADebugCameraController>())
 		{
 			const bool bNeedsReplicator = (GetReplicator(*TestPC) == nullptr);
@@ -175,26 +173,30 @@ void AGameplayDebuggerPlayerManager::RefreshInputBindings(AGameplayDebuggerCateg
 
 AGameplayDebuggerCategoryReplicator* AGameplayDebuggerPlayerManager::GetReplicator(const APlayerController& OwnerPC) const
 {
-	for (int32 Idx = 0; Idx < PlayerData.Num(); Idx++)
-	{
-		AGameplayDebuggerCategoryReplicator* TestReplicator = PlayerData[Idx].Replicator;
-		if (TestReplicator && TestReplicator->GetReplicationOwner() == &OwnerPC)
-		{
-			return TestReplicator;
-		}
-	}
-
-	return nullptr;
+	const FGameplayDebuggerPlayerData* DataPtr = GetPlayerData(OwnerPC);
+	return DataPtr ? DataPtr->Replicator : nullptr;
 }
 
 UInputComponent* AGameplayDebuggerPlayerManager::GetInputComponent(const APlayerController& OwnerPC) const
+{
+	const FGameplayDebuggerPlayerData* DataPtr = GetPlayerData(OwnerPC);
+	return DataPtr ? DataPtr->InputComponent : nullptr;
+}
+
+UGameplayDebuggerLocalController* AGameplayDebuggerPlayerManager::GetLocalController(const APlayerController& OwnerPC) const
+{
+	const FGameplayDebuggerPlayerData* DataPtr = GetPlayerData(OwnerPC);
+	return DataPtr ? DataPtr->Controller : nullptr;
+}
+
+const FGameplayDebuggerPlayerData* AGameplayDebuggerPlayerManager::GetPlayerData(const APlayerController& OwnerPC) const
 {
 	for (int32 Idx = 0; Idx < PlayerData.Num(); Idx++)
 	{
 		const FGameplayDebuggerPlayerData& TestData = PlayerData[Idx];
 		if (TestData.Replicator && TestData.Replicator->GetReplicationOwner() == &OwnerPC)
 		{
-			return TestData.InputComponent;
+			return &TestData;
 		}
 	}
 

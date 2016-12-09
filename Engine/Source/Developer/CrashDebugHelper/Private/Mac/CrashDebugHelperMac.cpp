@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashDebugHelperPrivatePCH.h"
 #include "CrashDebugHelperMac.h"
 #include "EngineVersion.h"
 #include "ApplePlatformSymbolication.h"
 #include "CrashReporter.h"
+#include "CrashDebugHelperPrivate.h"
+#include "Misc/FileHelper.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
 #include <cxxabi.h>
 
 FString ExtractRelativePath( const TCHAR* BaseName, TCHAR const* FullName )
@@ -662,7 +665,8 @@ bool FCrashDebugHelperMac::CreateMinidumpDiagnosticReport( const FString& InCras
 				{
 					FindSymbolsAndBinariesStorage();
 					
-					SyncModules();
+					bool bPDBCacheEntryValid = false;
+					SyncModules(bPDBCacheEntryValid);
 				}
 			}
 			

@@ -2,12 +2,15 @@
 
 #pragma once
 
-class FTranslationEditor;
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "ILocalizationServiceProvider.h"
+
 class FInternationalizationArchive;
 class FInternationalizationManifest;
+class FJsonObject;
+class ULocalizationTarget;
 class UTranslationUnit;
-
-#include "ILocalizationServiceProvider.h"
 
 class FTranslationDataManager : public TSharedFromThis<FTranslationDataManager>
 {

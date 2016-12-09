@@ -4,8 +4,12 @@
 	TextureInstanceManager.cpp: Implementation of content streaming classes.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "TextureInstanceManager.h"
+#include "Streaming/TextureInstanceManager.h"
+#include "Engine/World.h"
+#include "Engine/TextureStreamingTypes.h"
+#include "Components/PrimitiveComponent.h"
+#include "Engine/Texture2D.h"
+#include "UObject/UObjectHash.h"
 
 FTextureInstanceState::FBounds4::FBounds4()
 :	OriginX( 0, 0, 0, 0 )
@@ -18,13 +22,13 @@ FTextureInstanceState::FBounds4::FBounds4()
 ,	ExtentY( 0, 0, 0, 0 )
 ,	ExtentZ( 0, 0, 0, 0 )
 ,	Radius( 0, 0, 0, 0 )
+,	PackedRelativeBox(0, 0, 0, 0)
 ,	MinDistanceSq( 0, 0, 0, 0 )
 ,	MinRangeSq( 0, 0, 0, 0 )
 ,	MaxRangeSq( FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX )
 ,	LastRenderTime( -FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX)
 {
 }
-
 
 void FTextureInstanceState::FBounds4::Clear(int32 Index)
 {
@@ -40,13 +44,14 @@ void FTextureInstanceState::FBounds4::Clear(int32 Index)
 	ExtentY.Component(Index) = 0;
 	ExtentZ.Component(Index) = 0;
 	Radius.Component(Index) = 0;
+	PackedRelativeBox[Index] = 0;
 	MinDistanceSq.Component(Index) = 0;
 	MinRangeSq.Component(Index) = 0;
 	MaxRangeSq.Component(Index) = FLT_MAX;
 	LastRenderTime.Component(Index) = -FLT_MAX;
 }
 
-void FTextureInstanceState::FBounds4::Set(int32 Index, const FBoxSphereBounds& Bounds, float InLastRenderTime, const FVector& RangeOrigin, float InMinDistance, float InMinRange, float InMaxRange)
+void FTextureInstanceState::FBounds4::Set(int32 Index, const FBoxSphereBounds& Bounds, uint32 InPackedRelativeBox, float InLastRenderTime, const FVector& RangeOrigin, float InMinDistance, float InMinRange, float InMaxRange)
 {
 	check(Index >= 0 && Index < 4);
 
@@ -60,13 +65,37 @@ void FTextureInstanceState::FBounds4::Set(int32 Index, const FBoxSphereBounds& B
 	ExtentY.Component(Index) = Bounds.BoxExtent.Y;
 	ExtentZ.Component(Index) = Bounds.BoxExtent.Z;
 	Radius.Component(Index) = Bounds.SphereRadius;
+	PackedRelativeBox[Index] = InPackedRelativeBox;
 	MinDistanceSq.Component(Index) = InMinDistance * InMinDistance;
 	MinRangeSq.Component(Index) = InMinRange * InMinRange;
 	MaxRangeSq.Component(Index) = InMaxRange != FLT_MAX ? (InMaxRange * InMaxRange) : FLT_MAX;
 	LastRenderTime.Component(Index) = InLastRenderTime;
 }
 
-void FTextureInstanceState::FBounds4::Update(int32 Index, const FBoxSphereBounds& Bounds, float InLastRenderTime)
+void FTextureInstanceState::FBounds4::UnpackBounds(int32 Index, const FBoxSphereBounds& Bounds)
+{
+	check(Index >= 0 && Index < 4);
+
+	if (PackedRelativeBox[Index])
+	{
+		FBoxSphereBounds SubBounds;
+		UnpackRelativeBox(Bounds, PackedRelativeBox[Index], SubBounds);
+
+		OriginX.Component(Index) = SubBounds.Origin.X;
+		OriginY.Component(Index) = SubBounds.Origin.Y;
+		OriginZ.Component(Index) = SubBounds.Origin.Z;
+		RangeOriginX.Component(Index) = SubBounds.Origin.X;
+		RangeOriginY.Component(Index) = SubBounds.Origin.Y;
+		RangeOriginZ.Component(Index) = SubBounds.Origin.Z;
+		ExtentX.Component(Index) = SubBounds.BoxExtent.X;
+		ExtentY.Component(Index) = SubBounds.BoxExtent.Y;
+		ExtentZ.Component(Index) = SubBounds.BoxExtent.Z;
+		Radius.Component(Index) = SubBounds.SphereRadius;
+	}
+}
+
+/** Dynamic Path, this needs to reset all members since the dynamic data is rebuilt from scratch every update (the previous data is given to the async task) */
+void FTextureInstanceState::FBounds4::FullUpdate(int32 Index, const FBoxSphereBounds& Bounds, float InLastRenderTime)
 {
 	check(Index >= 0 && Index < 4);
 
@@ -80,6 +109,7 @@ void FTextureInstanceState::FBounds4::Update(int32 Index, const FBoxSphereBounds
 	ExtentY.Component(Index) = Bounds.BoxExtent.Y;
 	ExtentZ.Component(Index) = Bounds.BoxExtent.Z;
 	Radius.Component(Index) = Bounds.SphereRadius;
+	PackedRelativeBox[Index] = PackedRelativeBox_Identity;
 	MinDistanceSq.Component(Index) = 0;
 	MinRangeSq.Component(Index) = 0;
 	MaxRangeSq.Component(Index) = FLT_MAX;
@@ -217,8 +247,9 @@ void FTextureInstanceState::FTextureLinkConstIterator::OutputToLog(float MaxNorm
 }
 
 
-int32 FTextureInstanceState::AddBounds(const FBoxSphereBounds& Bounds, const UPrimitiveComponent* InComponent, float LastRenderTime, const FVector4& RangeOrigin, float MinDistance, float MinRange, float MaxRange)
+int32 FTextureInstanceState::AddBounds(const FBoxSphereBounds& Bounds, uint32 PackedRelativeBox, const UPrimitiveComponent* InComponent, float LastRenderTime, const FVector4& RangeOrigin, float MinDistance, float MinRange, float MaxRange)
 {
+	ensure(!AsyncUpdateLastRenderTimeTask.IsValid()); // Dynamic path does not use the async task.
 	check(InComponent);
 
 	int BoundsIndex = INDEX_NONE;
@@ -243,7 +274,7 @@ int32 FTextureInstanceState::AddBounds(const FBoxSphereBounds& Bounds, const UPr
 		FreeBoundIndices.Push(BoundsIndex + 1);
 	}
 
-	Bounds4[BoundsIndex / 4].Set(BoundsIndex % 4, Bounds, LastRenderTime, RangeOrigin, MinDistance, MinRange, MaxRange);
+	Bounds4[BoundsIndex / 4].Set(BoundsIndex % 4, Bounds, PackedRelativeBox, LastRenderTime, RangeOrigin, MinDistance, MinRange, MaxRange);
 	Bounds4Components[BoundsIndex] = InComponent;
 
 	return BoundsIndex;
@@ -251,6 +282,7 @@ int32 FTextureInstanceState::AddBounds(const FBoxSphereBounds& Bounds, const UPr
 
 void FTextureInstanceState::RemoveBounds(int32 BoundsIndex)
 {
+	ensure(!AsyncUpdateLastRenderTimeTask.IsValid()); // Dynamic path does not use the async task.
 	check(BoundsIndex != INDEX_NONE);
 	checkSlow(!FreeBoundIndices.Contains(BoundsIndex));
 
@@ -271,8 +303,8 @@ void FTextureInstanceState::RemoveBounds(int32 BoundsIndex)
 
 void FTextureInstanceState::AddElement(const UPrimitiveComponent* InComponent, const UTexture2D* InTexture, int InBoundsIndex, float InTexelFactor, int32*& ComponentLink)
 {
+	ensure(!AsyncUpdateLastRenderTimeTask.IsValid()); // Dynamic path does not use the async task.
 	check(InComponent && InTexture);
-	CompiledTextureMap.Empty(); // Data is invalid now!
 
 	int32* TextureLink = TextureMap.Find(InTexture);
 
@@ -359,15 +391,28 @@ void FTextureInstanceState::AddElement(const UPrimitiveComponent* InComponent, c
 	{
 		ComponentLink = &ComponentMap.Add(InComponent, ElementIndex);
 	}
+
+	// Keep the compiled elements up to date if it was built.
+	// This will happen when not all components could be inserted in the incremental build.
+	if (HasCompiledElements()) 
+	{
+		CompiledTextureMap.FindOrAdd(Element.Texture).Add(FCompiledElement(Element.BoundsIndex, Element.TexelFactor));
+	}
 }
 
 void FTextureInstanceState::RemoveElement(int32 ElementIndex, int32& NextComponentLink, int32& BoundsIndex, const UTexture2D*& Texture)
 {
-	CompiledTextureMap.Empty(); // Data is invalid now!
+	ensure(!AsyncUpdateLastRenderTimeTask.IsValid()); // Dynamic path does not use the async task.
 
 	FElement& Element = Elements[ElementIndex];
 	NextComponentLink = Element.NextComponentLink; 
 	BoundsIndex = Element.BoundsIndex; 
+
+	// Removed compiled elements. This happens when a static component is not registered after the level became visible.
+	if (HasCompiledElements())
+	{
+		verify(CompiledTextureMap.FindChecked(Element.Texture).RemoveSingleSwap(FCompiledElement(Element.BoundsIndex, Element.TexelFactor), false) == 1);
+	}
 
 	// Unlink textures
 	if (Element.Texture)
@@ -383,6 +428,7 @@ void FTextureInstanceState::RemoveElement(int32 ElementIndex, int32& NextCompone
 			else // Otherwise, remove the texture entry
 			{
 				TextureMap.Remove(Element.Texture);
+				CompiledTextureMap.Remove(Element.Texture);
 				Texture = Element.Texture;
 			}
 		}
@@ -415,11 +461,26 @@ static bool operator==(const FBoxSphereBounds& A, const FBoxSphereBounds& B)
 	return A.Origin == B.Origin && A.BoxExtent == B.BoxExtent &&  A.SphereRadius == B.SphereRadius;
 }
 
-void FTextureInstanceState::AddComponent(const UPrimitiveComponent* Component, FStreamingTextureLevelContext& LevelContext)
+bool FTextureInstanceState::AddComponent(const UPrimitiveComponent* Component, FStreamingTextureLevelContext& LevelContext)
 {
+	ensure(!AsyncUpdateLastRenderTimeTask.IsValid()); // Dynamic path does not use the async task.
+
 	TArray<FStreamingTexturePrimitiveInfo> TextureInstanceInfos;
 	Component->GetStreamingTextureInfoWithNULLRemoval(LevelContext, TextureInstanceInfos);
-	// Texture entries are garantied to be relevant here!
+	// Texture entries are guarantied to be relevant here, except for bounds if the component is not registered.
+
+	if (!Component->IsRegistered())
+	{
+		// When the components are not registered, every entry must have a valid PackedRelativeBox since the bound is not reliable.
+		// it will not be possible to recreate the bounds corretly.
+		for (const FStreamingTexturePrimitiveInfo& Info : TextureInstanceInfos)
+		{
+			if (!Info.PackedRelativeBox)
+			{
+				return false;
+			}
+		}
+	}
 
 	if (TextureInstanceInfos.Num())
 	{
@@ -440,7 +501,7 @@ void FTextureInstanceState::AddComponent(const UPrimitiveComponent* Component, F
 				for (int32 TestIndex = TextureIndex - 1; TestIndex >= 0; --TestIndex)
 				{
 					const FStreamingTexturePrimitiveInfo& TestInfo = TextureInstanceInfos[TestIndex];
-					if (Info.Bounds == TestInfo.Bounds && BoundsIndices[TestIndex] != INDEX_NONE)
+					if (Info.Bounds == TestInfo.Bounds && Info.PackedRelativeBox == TestInfo.PackedRelativeBox && BoundsIndices[TestIndex] != INDEX_NONE)
 					{
 						BoundsIndex = BoundsIndices[TestIndex];
 						break;
@@ -463,7 +524,7 @@ void FTextureInstanceState::AddComponent(const UPrimitiveComponent* Component, F
 						// Max distance when HLOD becomes visible.
 						MaxRange = LODParent->MinDrawDistance + (Component->Bounds.Origin - LODParent->Bounds.Origin).Size();
 					}
-					BoundsIndex = AddBounds(Info.Bounds, Component, Component->LastRenderTimeOnScreen, Component->Bounds.Origin, MinDistance, MinRange, MaxRange);
+					BoundsIndex = AddBounds(Info.Bounds, Info.PackedRelativeBox, Component, Component->LastRenderTimeOnScreen, Component->Bounds.Origin, MinDistance, MinRange, MaxRange);
 				}
 				BoundsIndices.Push(BoundsIndex);
 			}
@@ -472,27 +533,43 @@ void FTextureInstanceState::AddComponent(const UPrimitiveComponent* Component, F
 			AddElement(Component, Info.Texture, BoundsIndex, Component->bForceMipStreaming ? FLT_MAX : Info.TexelFactor, ComponentLink);
 		}
 	}
+
+	return true;
 }
 
-void FTextureInstanceState::AddComponent(const UPrimitiveComponent* Component)
+bool FTextureInstanceState::AddComponent(const UPrimitiveComponent* Component)
 {
-	FStreamingTextureLevelContext LevelContext;
-	TArray<FStreamingTexturePrimitiveInfo> TextureInstanceInfos;
-	Component->GetStreamingTextureInfoWithNULLRemoval(LevelContext, TextureInstanceInfos);
+	ensure(!AsyncUpdateLastRenderTimeTask.IsValid()); // Dynamic path does not use the async task.
 
-	if (TextureInstanceInfos.Num())
+	// Dynamic components should only be active if registered
+	check(Component->IsRegistered());
+
+	// Some components don't have any proxy in game.
+	if (Component->SceneProxy)
 	{
-		int32 BoundsIndex = AddBounds(Component->Bounds, Component, Component->LastRenderTimeOnScreen);
-		int32* ComponentLink = ComponentMap.Find(Component);
-		for (const FStreamingTexturePrimitiveInfo& Info : TextureInstanceInfos)
+		FStreamingTextureLevelContext LevelContext(EMaterialQualityLevel::Num, Component);
+		TArray<FStreamingTexturePrimitiveInfo> TextureInstanceInfos;
+		Component->GetStreamingTextureInfoWithNULLRemoval(LevelContext, TextureInstanceInfos);
+
+		if (TextureInstanceInfos.Num())
 		{
-			AddElement(Component, Info.Texture, BoundsIndex, Info.TexelFactor, ComponentLink);
+			int32 BoundsIndex = AddBounds(Component);
+			int32* ComponentLink = ComponentMap.Find(Component);
+			for (const FStreamingTexturePrimitiveInfo& Info : TextureInstanceInfos)
+			{
+				AddElement(Component, Info.Texture, BoundsIndex, Info.TexelFactor, ComponentLink);
+			}
+
+			return true;
 		}
 	}
+	return false;
 }
 
 void FTextureInstanceState::RemoveComponent(const UPrimitiveComponent* Component, FRemovedTextureArray& RemovedTextures)
 {
+	ensure(!AsyncUpdateLastRenderTimeTask.IsValid()); // Dynamic path does not use the async task.
+
 	TArray<int32, TInlineAllocator<12> > RemovedBoundsIndices;
 	int32 ElementIndex = INDEX_NONE;
 
@@ -521,14 +598,17 @@ void FTextureInstanceState::RemoveComponent(const UPrimitiveComponent* Component
 	}
 }
 
-void FTextureInstanceState::RemoveComponentReferences(const UPrimitiveComponent* Component) 
+bool FTextureInstanceState::RemoveComponentReferences(const UPrimitiveComponent* Component) 
 { 
-	// Because the async task could be running, we can't change the async view state. 
+	// Because the async streaming task could be running, we can't change the async view state. 
 	// We limit ourself to clearing the component ptr to avoid invalid access when updating visibility.
 
 	int32* ComponentLink = ComponentMap.Find(Component);
 	if (ComponentLink)
 	{
+		// Flush the async last rendertime update task as it is dereferencing components.
+		WaitForAsyncUpdateLastRenderTimeTask();
+
 		int32 ElementIndex = *ComponentLink;
 		while (ElementIndex != INDEX_NONE)
 		{
@@ -541,8 +621,14 @@ void FTextureInstanceState::RemoveComponentReferences(const UPrimitiveComponent*
 
 			ElementIndex = Element.NextComponentLink;
 		}
+
+		ComponentMap.Remove(Component);
+		return true;
 	}
-	ComponentMap.Remove(Component);
+	else
+	{
+		return false;
+	}
 }
 
 void FTextureInstanceState::UpdateBounds(const UPrimitiveComponent* Component)
@@ -556,19 +642,24 @@ void FTextureInstanceState::UpdateBounds(const UPrimitiveComponent* Component)
 			const FElement& Element = Elements[ElementIndex];
 			if (Element.BoundsIndex != INDEX_NONE)
 			{
-				Bounds4[Element.BoundsIndex / 4].Update(Element.BoundsIndex % 4, Component->Bounds, Component->LastRenderTimeOnScreen);
+				Bounds4[Element.BoundsIndex / 4].FullUpdate(Element.BoundsIndex % 4, Component->Bounds, Component->LastRenderTimeOnScreen);
 			}
 			ElementIndex = Element.NextComponentLink;
 		}
 	}
 }
 
-void FTextureInstanceState::UpdateBounds(int32 BoundIndex)
+bool FTextureInstanceState::UpdateBounds(int32 BoundIndex)
 {
 	const UPrimitiveComponent* Component = Bounds4Components[BoundIndex];
 	if (Component)
 	{
-		Bounds4[BoundIndex / 4].Update(BoundIndex % 4, Component->Bounds, Component->LastRenderTimeOnScreen);
+		Bounds4[BoundIndex / 4].FullUpdate(BoundIndex % 4, Component->Bounds, Component->LastRenderTimeOnScreen);
+		return true;
+	}
+	else
+	{
+		return false;
 	}
 }
 
@@ -578,6 +669,32 @@ void FTextureInstanceState::UpdateLastRenderTime(int32 BoundIndex)
 	if (Component)
 	{
 		Bounds4[BoundIndex / 4].Update(BoundIndex % 4, Component->LastRenderTimeOnScreen);
+	}
+}
+
+void FTextureInstanceState::WaitForAsyncUpdateLastRenderTimeTask()
+{
+	if (AsyncUpdateLastRenderTimeTask)
+	{
+		AsyncUpdateLastRenderTimeTask->EnsureCompletion();
+		AsyncUpdateLastRenderTimeTask.SafeRelease();
+	}
+}
+
+void FTextureInstanceState::UpdateAsyncUpdateLastRenderTimeTask(const TRefCountPtr<FAsyncUpdateLastRenderTimeTask>& InAsyncUpdateLastRenderTimeTask)
+{
+	WaitForAsyncUpdateLastRenderTimeTask();
+	AsyncUpdateLastRenderTimeTask = InAsyncUpdateLastRenderTimeTask;
+}
+
+void FUpdateLastRenderTimeTask::DoWork()
+{
+	for (const FArguments& Arg : LevelArgs)
+	{
+		for (int32 Index = Arg.FirstIndex; Index < Arg.LastIndex; ++Index)
+		{
+			Arg.LevelState->UpdateLastRenderTime(Index);
+		}
 	}
 }
 
@@ -599,18 +716,29 @@ uint32 FTextureInstanceState::GetAllocatedSize() const
 		ComponentMap.GetAllocatedSize();
 }
 
-void FStaticTextureInstanceManager::IncrementalUpdate(float Percentage)
+void FStaticTextureInstanceManager::IncrementalUpdate(const TRefCountPtr<FAsyncUpdateLastRenderTimeTask>& InAsyncUpdateLastRenderTimeTask, float Percentage)
 {
 	const int32 LastIndex = FMath::Min(State->NumBounds(), DirtyIndex + FMath::CeilToInt((float)State->NumBounds() * Percentage));
-	for (int32 Index = DirtyIndex; Index < LastIndex; ++Index)
+
+	if (InAsyncUpdateLastRenderTimeTask.IsValid() && LastIndex - DirtyIndex > 5)
 	{
-		State->UpdateLastRenderTime(Index);
+		InAsyncUpdateLastRenderTimeTask->GetTask().Push(FUpdateLastRenderTimeTask::FArguments(State, DirtyIndex, LastIndex));
+		State->UpdateAsyncUpdateLastRenderTimeTask(InAsyncUpdateLastRenderTimeTask);
+	}
+	else
+	{
+		for (int32 Index = DirtyIndex; Index < LastIndex; ++Index)
+		{
+			State->UpdateLastRenderTime(Index);
+		}
 	}
 	DirtyIndex = LastIndex;
 }
 
-void FStaticTextureInstanceManager::NormalizeLightmapTexelFactor()
+int32 FStaticTextureInstanceManager::NormalizeLightmapTexelFactor()
 {
+	int32 NumTexturesUpdated = 0;
+
 	TArray<float> TexelFactors;
 
 	for (auto TextureIt = State->GetTextureIterator(); TextureIt; ++TextureIt)
@@ -633,11 +761,14 @@ void FStaticTextureInstanceManager::NormalizeLightmapTexelFactor()
 			{
 				ElementIt.ClampTexelFactor(MinTexelFactor, MaxTexelFactor);
 			}
+
+			++NumTexturesUpdated;
 		}
 	}
+	return NumTexturesUpdated;
 }
 
-void FTextureInstanceState::CompileElements()
+int32 FTextureInstanceState::CompileElements()
 {
 	CompiledTextureMap.Empty();
 
@@ -669,16 +800,167 @@ void FTextureInstanceState::CompileElements()
 			++CompiledElementCount;
 		}
 	}
+	return CompiledTextureMap.Num();
 }
 
+int32 FTextureInstanceState::CheckRegistrationAndUnpackBounds()
+{
+	for (int32 BoundIndex = 0; BoundIndex < Bounds4Components.Num(); ++BoundIndex)
+	{
+		const UPrimitiveComponent* Component = Bounds4Components[BoundIndex];
+		if (Component)
+		{
+			if (Component->IsRegistered() && Component->SceneProxy)
+			{
+				Bounds4[BoundIndex / 4].UnpackBounds(BoundIndex % 4, Component->Bounds);
+			}
+			else // Here we can remove the component, as the async task is not yet using this.
+			{
+				FRemovedTextureArray RemovedTextures; // Here we don't have to process the removed textures as the data was never used.
+				RemoveComponent(Component, RemovedTextures);
+			}
+		}
+	}
+	return Bounds4Components.Num();
+}
+
+void FTextureInstanceState::MoveBound(int32 OldBoundIndex, int32 NewBoundIndex)
+{
+	check(!HasCompiledElements() && !Bounds4Components[NewBoundIndex] && Bounds4Components[OldBoundIndex]); // This should only run for the dynamic path in order to be thread safe.
+
+	const UPrimitiveComponent* Component = Bounds4Components[OldBoundIndex];
+
+	// Update the elements.
+	int32* ComponentLink = ComponentMap.Find(Component);
+	if (ComponentLink)
+	{
+		int32 ElementIndex = *ComponentLink;
+		while (ElementIndex != INDEX_NONE)
+		{
+			FElement& Element = Elements[ElementIndex];
+			if (Element.BoundsIndex == OldBoundIndex)
+			{
+				Element.BoundsIndex = NewBoundIndex;
+			}
+			ElementIndex = Element.NextComponentLink;
+		}
+	}
+
+	// Update the componenets.
+	Bounds4Components[NewBoundIndex] = Component;
+	Bounds4Components[OldBoundIndex] = nullptr;
+
+	// Update the free list.
+	for (int32& BoundIndex : FreeBoundIndices)
+	{
+		if (BoundIndex == NewBoundIndex)
+		{
+			BoundIndex = OldBoundIndex;
+			break;
+		}
+	}
+
+	UpdateBounds(NewBoundIndex); // Update the bounds using the component.
+	Bounds4[OldBoundIndex / 4].Clear(OldBoundIndex % 4);
+}
+
+void FTextureInstanceState::TrimBounds()
+{
+	const int32 DefragThreshold = 8; // Must be a multiple of 4
+	check(NumBounds4() * 4 == NumBounds());
+
+	bool bUpdateFreeBoundIndices = false;
+
+	// Here we check the bound components from low indices to high indices
+	// because there are more chance that the lower range indices fail.
+	// (since the incremental update move null component to the end)
+	bool bDefragRangeIsFree = true;
+	while (bDefragRangeIsFree)
+	{
+		const int32 LowerBoundThreshold = NumBounds() - DefragThreshold;
+		if (Bounds4Components.IsValidIndex(LowerBoundThreshold))
+		{
+			for (int BoundIndex = LowerBoundThreshold; BoundIndex < NumBounds(); ++BoundIndex)
+			{
+				if (Bounds4Components[BoundIndex])
+				{
+					bDefragRangeIsFree = false;
+					break;
+				}
+			}
+
+			if (bDefragRangeIsFree)
+			{
+				Bounds4.RemoveAt(Bounds4.Num() - DefragThreshold / 4, DefragThreshold / 4, false);
+				Bounds4Components.RemoveAt(Bounds4Components.Num() - DefragThreshold, DefragThreshold, false);
+				bUpdateFreeBoundIndices = true;
+			}
+		}
+		else
+		{
+			bDefragRangeIsFree = false;
+		}
+	} 
+
+	if (bUpdateFreeBoundIndices)
+	{
+		// The bounds are cleared outside the range loop to prevent parsing elements multiple times.
+		for (int Index = 0; Index < FreeBoundIndices.Num(); ++Index)
+		{
+			if (FreeBoundIndices[Index] >= NumBounds())
+			{
+				FreeBoundIndices.RemoveAtSwap(Index);
+				--Index;
+			}
+		}
+		check(NumBounds4() * 4 == NumBounds());
+	}
+}
+
+// Dynamic primitives must update the bounds of each   update the b
 void FDynamicTextureInstanceManager::IncrementalUpdate(float Percentage)
 {
-	const int32 LastIndex = FMath::Min(State->NumBounds(), DirtyIndex + FMath::CeilToInt((float)State->NumBounds() * Percentage));
+	if (!State->NumBounds())
+	{	// Early exit as the code bellow assume > 0
+		return;
+	}
+
+	const int32 LastIndex = FMath::Min<int32>(State->NumBounds(), DirtyIndex + FMath::CeilToInt((float)State->NumBounds() * Percentage));
+	DirtyIndex = FMath::Min<int32>(DirtyIndex, State->NumBounds() - 1);
+
+	bool bDefragBounds = CVarStreamingDefragDynamicBounds.GetValueOnGameThread() > 0;
+	bool bDoTrim = false;
+
+	int32 FirstFreeBound = INDEX_NONE;
+	int32 LastUsedBound = INDEX_NONE;
+	if (DirtyIndex > 0 && !State->HasComponent(DirtyIndex - 1))
+	{	// If there is any free spaces in the previous update range, the defrag process will move then toward the tail.
+		// To allow bounds to move between update range, we check if the last element is a free element.
+		FirstFreeBound = DirtyIndex - 1;
+	}
+
 	for (int32 Index = DirtyIndex; Index < LastIndex; ++Index)
 	{
-		State->UpdateBounds(Index);
+		const bool bBoundUpdated = State->UpdateBounds(Index);
+
+		if (State->UpdateBounds(Index))
+		{
+			LastUsedBound = Index;
+		}
+		else if (FirstFreeBound == INDEX_NONE)
+		{
+			FirstFreeBound = Index;
+		}
 	}
 	DirtyIndex = LastIndex;
+
+	// Move the last valid bound to the first empty place, trying to free the tail.
+	if (FirstFreeBound != INDEX_NONE && LastUsedBound != INDEX_NONE)
+	{
+		State->MoveBound(LastUsedBound, FirstFreeBound);
+		// Now check if the tail is free.
+		State->TrimBounds();
+	}
 }
 
 TRefCountPtr<const FTextureInstanceState> FDynamicTextureInstanceManager::GetAsyncState()
@@ -934,7 +1216,6 @@ void FDynamicComponentTextureManager::Remove(const UPrimitiveComponent* Componen
 		State->bToDelete = true;
 		DirtyComponents.Add(Component);
 	}
-
 }
 
 void FDynamicComponentTextureManager::Update(const UPrimitiveComponent* Component, FRemovedTextureArray& RemovedTextures)
@@ -985,8 +1266,14 @@ void FDynamicComponentTextureManager::IncrementalUpdate(FRemovedTextureArray& Re
 			}
 			else if (bIsInScene && !State->bHasTextures)
 			{
-				DynamicInstances.AddComponent(Component);
-				State->bHasTextures = true;
+				if (DynamicInstances.AddComponent(Component))
+				{
+					State->bHasTextures = true;
+				}
+				else // This component does not require any texture streaming.
+				{
+					ComponentStates.Remove(Component);
+				}
 			}
 			else
 			{
@@ -1003,6 +1290,22 @@ uint32 FDynamicComponentTextureManager::GetAllocatedSize() const
 	return ComponentStates.GetAllocatedSize() + DirtyComponents.GetAllocatedSize() + DynamicInstances.GetAllocatedSize();
 }
 
+#if !UE_BUILD_SHIPPING
+void FDynamicComponentTextureManager::GetAllComponents(TArray<const UPrimitiveComponent*>& Components) const
+{
+	for (TMap<const UPrimitiveComponent*, FComponentState>::TConstIterator It(ComponentStates); It; ++It)
+	{
+		const UPrimitiveComponent* Component = It.Key();
+		const FComponentState& State = It.Value();
+
+		if (!State.bToDelete)
+		{
+			Components.Add(Component);
+		}
+	}
+}
+#endif
+
 void FLevelTextureManager::Remove(FDynamicComponentTextureManager& DynamicComponentManager, FRemovedTextureArray& RemovedTextures)
 { 
 	// Mark all static textures for removal.
@@ -1010,6 +1313,7 @@ void FLevelTextureManager::Remove(FDynamicComponentTextureManager& DynamicCompon
 	{
 		RemovedTextures.Push(*It);
 	}
+	StaticInstances.WaitForAsyncTasks(); // Terminate any async work if pending.
 	StaticInstances = FStaticTextureInstanceManager();
 
 	// Mark all dynamic textures for removal.
@@ -1019,7 +1323,13 @@ void FLevelTextureManager::Remove(FDynamicComponentTextureManager& DynamicCompon
 	}	
 	DynamicComponents.Empty();
 
-	bToDelete = true; 
+	BuildStep = EStaticBuildStep::BuildTextureLookUpMap;
+	StaticActorsWithNonStaticPrimitives.Empty();
+	UnprocessedStaticActors.Empty();
+	UnprocessedStaticComponents.Empty();
+	PendingInsertionStaticPrimitives.Empty();
+	TextureGuidToLevelIndex.Empty();
+	bIsInitialized = false;
 }
 
 float FLevelTextureManager::GetWorldTime() const
@@ -1037,55 +1347,274 @@ float FLevelTextureManager::GetWorldTime() const
 	return 0;
 }
 
-void FLevelTextureManager::IncrementalUpdate(FDynamicComponentTextureManager& DynamicComponentManager, FRemovedTextureArray& RemovedTextures, float Percentage, bool bUseDynamicStreaming) 
+void FLevelTextureManager::IncrementalBuild(FStreamingTextureLevelContext& LevelContext, bool bForceCompletion, int64& NumStepsLeft)
+{
+	check(Level);
+
+	switch (BuildStep)
+	{
+	case EStaticBuildStep::BuildTextureLookUpMap:
+	{
+		// Build the map to convert from a guid to the level index. 
+		TextureGuidToLevelIndex.Reserve(Level->StreamingTextureGuids.Num());
+		for (int32 TextureIndex = 0; TextureIndex < Level->StreamingTextureGuids.Num(); ++TextureIndex)
+		{
+			TextureGuidToLevelIndex.Add(Level->StreamingTextureGuids[TextureIndex], TextureIndex);
+		}
+		NumStepsLeft -= Level->StreamingTextureGuids.Num();
+		BuildStep = EStaticBuildStep::GetActors;
+
+		// Update the level context with the texture guid map. This is required in case the incremental build runs more steps.
+		LevelContext = FStreamingTextureLevelContext(EMaterialQualityLevel::Num, Level, &TextureGuidToLevelIndex);
+		break;
+	}
+	case EStaticBuildStep::GetActors:
+	{
+		// This should be unset at first.
+		check(UnprocessedStaticActors.Num() == 0 && UnprocessedStaticComponents.Num() == 0 && PendingInsertionStaticPrimitives.Num() == 0);
+
+		UnprocessedStaticActors.Empty(Level->Actors.Num());
+		for (const AActor* Actor : Level->Actors)
+		{
+			if (Actor && Actor->IsRootComponentStatic())
+			{
+				UnprocessedStaticActors.Push(Actor);
+			}
+		}
+
+		NumStepsLeft -= (int64)FMath::Max<int32>(Level->Actors.Num() / 16, 1); // div 16 because this is light weight.
+		BuildStep = EStaticBuildStep::GetComponents;
+		break;
+	}
+	case EStaticBuildStep::GetComponents:
+	{
+		while ((bForceCompletion || NumStepsLeft > 0) && UnprocessedStaticActors.Num())
+		{
+			const AActor* StaticActor = UnprocessedStaticActors.Pop(false);
+			check(StaticActor);
+
+			TInlineComponentArray<UPrimitiveComponent*> Primitives;
+			StaticActor->GetComponents<UPrimitiveComponent>(Primitives);
+
+			bool bHasNonStaticPrimitives = false;
+			for (UPrimitiveComponent* Primitive : Primitives)
+			{
+				check(Primitive);
+				if (Primitive->Mobility == EComponentMobility::Static)
+				{
+					UnprocessedStaticComponents.Push(Primitive);
+				}
+				else
+				{
+					bHasNonStaticPrimitives = true;
+				}
+			}
+
+			// Mark this actor to process non static component later. (after visibility)
+			if (bHasNonStaticPrimitives)
+			{	
+				StaticActorsWithNonStaticPrimitives.Push(StaticActor);
+			}
+
+			NumStepsLeft -= (int64)FMath::Max<int32>(Primitives.Num() / 16, 1); // div 16 because this is light weight.
+		}
+
+		if (!UnprocessedStaticActors.Num())
+		{
+			UnprocessedStaticActors.Empty(); // Free the memory.
+			BuildStep = EStaticBuildStep::ProcessComponents;
+		}
+		break;
+	}
+	case EStaticBuildStep::ProcessComponents:
+	{
+		while ((bForceCompletion || NumStepsLeft > 0) && UnprocessedStaticComponents.Num())
+		{
+			const UPrimitiveComponent* Primitive = UnprocessedStaticComponents.Pop(false);
+			check(Primitive && Primitive->Mobility == EComponentMobility::Static);
+
+			// Try to insert the component, this will fail if some texture entry has not PackedRelativeBounds.
+			if (!StaticInstances.AddComponent(Primitive, LevelContext))
+			{
+				PendingInsertionStaticPrimitives.Add(Primitive);
+			}
+			--NumStepsLeft;
+		}
+
+		if (!UnprocessedStaticComponents.Num())
+		{
+			UnprocessedStaticComponents.Empty(); // Free the memory.
+			BuildStep = EStaticBuildStep::NormalizeLightmapTexelFactors;
+		}
+		break;
+	}
+	case EStaticBuildStep::NormalizeLightmapTexelFactors:
+		// Unfortunately, PendingInsertionStaticPrimtivComponents won't be taken into account here.
+		NumStepsLeft -= (int64)StaticInstances.NormalizeLightmapTexelFactor();
+		BuildStep = EStaticBuildStep::CompileElements;
+		break;
+	case EStaticBuildStep::CompileElements:
+		// Compile elements (to optimize runtime) for what is there.
+		// PendingInsertionStaticPrimitives will be added after.
+		NumStepsLeft -= (int64)StaticInstances.CompileElements();
+		BuildStep = EStaticBuildStep::WaitForRegistration;
+		break;
+	case EStaticBuildStep::WaitForRegistration:
+		if (Level->bIsVisible)
+		{
+			// Remove unregistered component and resolve the bounds using the packed relative boxes.
+			NumStepsLeft -= (int64)StaticInstances.CheckRegistrationAndUnpackBounds();
+
+			NumStepsLeft -= (int64)PendingInsertionStaticPrimitives.Num();
+
+			// Insert the component we could not preprocess.
+			while (PendingInsertionStaticPrimitives.Num())
+			{
+				const UPrimitiveComponent* Primitive = PendingInsertionStaticPrimitives.Pop(false);
+				if (Primitive && Primitive->IsRegistered() && Primitive->SceneProxy)
+				{
+					StaticInstances.AddComponent(Primitive, LevelContext);
+				}
+			}
+			PendingInsertionStaticPrimitives.Empty(); // Free the memory.
+			TextureGuidToLevelIndex.Empty();
+			BuildStep = EStaticBuildStep::Done;
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+bool FLevelTextureManager::NeedsIncrementalBuild(int32 NumStepsLeftForIncrementalBuild) const
+{
+	check(Level);
+
+	if (BuildStep == EStaticBuildStep::Done)
+	{
+		return false;
+	}
+	else if (Level->bIsVisible)
+	{
+		return true; // If visible, continue until done.
+	}
+	else // Otherwise, continue while there are incremental build steps available or we are waiting for visibility.
+	{
+		return BuildStep != EStaticBuildStep::WaitForRegistration && NumStepsLeftForIncrementalBuild > 0;
+	}
+}
+
+void FLevelTextureManager::IncrementalUpdate(
+	const TRefCountPtr<FAsyncUpdateLastRenderTimeTask>& InAsyncUpdateLastRenderTimeTask,
+	FDynamicComponentTextureManager& DynamicComponentManager, 
+	FRemovedTextureArray& RemovedTextures, 
+	int64& NumStepsLeftForIncrementalBuild, 
+	float Percentage, 
+	bool bUseDynamicStreaming) 
 {
 	QUICK_SCOPE_CYCLE_COUNTER(FStaticComponentTextureManager_IncrementalUpdate);
 
-	check(!bToDelete);
+	check(Level);
 
-	StaticInstances.IncrementalUpdate(Percentage);
-
-	if (!bHasTextures)
+	if (NeedsIncrementalBuild(NumStepsLeftForIncrementalBuild))
 	{
-		FStreamingTextureLevelContext LevelContext(Level);
-
-		// Process all components of the level.
-		TArray<UObject*> ObjectsInOuter;
-		GetObjectsWithOuter(Level, ObjectsInOuter);
-
-		for (UObject* LevelObject : ObjectsInOuter)
+		FStreamingTextureLevelContext LevelContext(EMaterialQualityLevel::Num, Level, &TextureGuidToLevelIndex);
+		do
 		{
-			UPrimitiveComponent* Component = Cast<UPrimitiveComponent>(LevelObject);
+			IncrementalBuild(LevelContext, Level->bIsVisible, NumStepsLeftForIncrementalBuild);
+		}
+		while (NeedsIncrementalBuild(NumStepsLeftForIncrementalBuild));
+	}
 
-			// Skip non primitive components, default objects and non registered objects.
-			if (!Component || Component->IsTemplate(RF_ClassDefaultObject) || !Component->IsRegistered()) 
-				continue;
-
-			const AActor* const Owner = Component->GetOwner();
-			const bool bIsStatic = (!Owner || Component->Mobility == EComponentMobility::Static || Component->Mobility == EComponentMobility::Stationary);
-
-			if (bIsStatic)
+	if (BuildStep == EStaticBuildStep::Done)
+	{
+		if (Level->bIsVisible && !bIsInitialized)
+		{
+			if (bUseDynamicStreaming)
 			{
-				StaticInstances.AddComponent(Component, LevelContext);
+				TInlineComponentArray<UPrimitiveComponent*> Primitives;
+		
+				// Handle dynamic component for static actors
+				for (int32 ActorIndex = 0; ActorIndex < StaticActorsWithNonStaticPrimitives.Num(); ++ActorIndex)
+				{
+					const AActor* Actor = StaticActorsWithNonStaticPrimitives[ActorIndex];
+					check(Actor && Actor->IsRootComponentStatic());
+
+					bool AnyComponentAdded = false;
+
+					Actor->GetComponents<UPrimitiveComponent>(Primitives);
+					for (const UPrimitiveComponent* Primitive : Primitives)
+					{
+						check(Primitive);
+						if (Primitive->IsRegistered() && Primitive->SceneProxy && Primitive->Mobility != EComponentMobility::Static)
+						{
+							DynamicComponentManager.Add(Primitive, DPT_Level, RemovedTextures);
+							DynamicComponents.Add(Primitive); // Track component added form this level so we can remove them later.
+							AnyComponentAdded = true;
+						}
+					}
+
+					if (!AnyComponentAdded)
+					{
+						StaticActorsWithNonStaticPrimitives.RemoveAtSwap(ActorIndex);
+						--ActorIndex;
+					}
+				}
+
+				// Build the dynamic data if required.
+				for (AActor* Actor : Level->Actors)
+				{
+					// In the preprocessing step, we only handle static actors, to allow dynamic actors to update before insertion.
+					if (Actor && !Actor->IsRootComponentStatic())
+					{
+						Actor->GetComponents<UPrimitiveComponent>(Primitives);
+						for (UPrimitiveComponent* Primitive : Primitives)
+						{
+							check(Primitive);
+							// Even if the component is static, it must be added in the dynamic list as the actor is not static.
+							// This allows the static data to be reusable without processing when toggling visibility.
+							if (Primitive->IsRegistered() && Primitive->SceneProxy)
+							{
+								DynamicComponentManager.Add(Primitive, DPT_Level, RemovedTextures);
+								DynamicComponents.Add(Primitive); // Track component added form this level so we can remove them later.
+							}
+						}
+					}
+				}
 			}
-			else if (bUseDynamicStreaming)
+			bIsInitialized = true;
+		}
+		else if (!Level->bIsVisible && bIsInitialized)
+		{
+			// Remove the dynamic data when the level is not visible anymore.
+			for (const UPrimitiveComponent* Component : DynamicComponents)
 			{
-				DynamicComponentManager.Add(Component, DPT_Level, RemovedTextures);
+				DynamicComponentManager.Remove(Component, RemovedTextures);
+			}	
+			DynamicComponents.Empty();
 
-				// This will be used when the level is removed. Never dereferenced.
-				DynamicComponents.Add(Component);
+			// Mark all static textures for removal.
+			for (auto It = StaticInstances.GetTextureIterator(); It; ++It)
+			{
+				RemovedTextures.Push(*It);
 			}
 
+			bIsInitialized = false;
 		}
 
-		StaticInstances.NormalizeLightmapTexelFactor();
-		StaticInstances.CompiledElements();
-
-		bHasTextures = true;
+		// If the level is visible, update the bounds.
+		if (Level->bIsVisible)
+		{
+			StaticInstances.IncrementalUpdate(InAsyncUpdateLastRenderTimeTask, Percentage);
+		}
 	}
 }
 
 uint32 FLevelTextureManager::GetAllocatedSize() const
 {
-	return StaticInstances.GetAllocatedSize() + DynamicComponents.GetAllocatedSize();
+	return StaticInstances.GetAllocatedSize() + 
+		DynamicComponents.GetAllocatedSize() + 
+		PendingInsertionStaticPrimitives.GetAllocatedSize() + 
+		UnprocessedStaticComponents.GetAllocatedSize() + 
+		PendingInsertionStaticPrimitives.GetAllocatedSize();
 }

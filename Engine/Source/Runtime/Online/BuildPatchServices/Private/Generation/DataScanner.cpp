@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BuildPatchServicesPrivatePCH.h"
-#include "DataScanner.h"
-#include "ThreadingBase.h"
-#include "Async.h"
+#include "Generation/DataScanner.h"
+#include "HAL/ThreadSafeBool.h"
+#include "BuildPatchChunk.h"
+#include "BuildPatchHash.h"
+#include "Async/Future.h"
+#include "Async/Async.h"
 
 namespace BuildPatchServices
 {
@@ -34,13 +36,15 @@ namespace BuildPatchServices
 		FRollingHash<WindowSize> RollingHash;
 		TMap<uint64, TSet<FGuid>> ChunkInventory;
 		TMap<FGuid, FSHAHash> ChunkShaHashes;
-		volatile int64* StatCreatedScanners;
-		volatile int64* StatRunningScanners;
-		volatile int64* StatCpuTime;
-		volatile int64* StatRealTime;
-		volatile int64* StatHashCollisions;
-		volatile int64* StatProcessedData;
-		volatile int64* StatProcessingSpeed;
+		volatile FStatsCollector::FAtomicValue* StatCreatedScanners;
+		volatile FStatsCollector::FAtomicValue* StatRunningScanners;
+		volatile FStatsCollector::FAtomicValue* StatCompleteScanners;
+		volatile FStatsCollector::FAtomicValue* StatCpuTime;
+		volatile FStatsCollector::FAtomicValue* StatRealTime;
+		volatile FStatsCollector::FAtomicValue* StatHashCollisions;
+		volatile FStatsCollector::FAtomicValue* StatTotalData;
+		volatile FStatsCollector::FAtomicValue* StatSkippedData;
+		volatile FStatsCollector::FAtomicValue* StatProcessingSpeed;
 
 	public:
 		static FThreadSafeCounter NumIncompleteScanners;
@@ -57,10 +61,12 @@ namespace BuildPatchServices
 		// Create statistics.
 		StatCreatedScanners = StatsCollector->CreateStat(TEXT("Scanner: Created Scanners"), EStatFormat::Value);
 		StatRunningScanners = StatsCollector->CreateStat(TEXT("Scanner: Running Scanners"), EStatFormat::Value);
+		StatCompleteScanners = StatsCollector->CreateStat(TEXT("Scanner: Complete Scanners"), EStatFormat::Value);
 		StatCpuTime = StatsCollector->CreateStat(TEXT("Scanner: CPU Time"), EStatFormat::Timer);
 		StatRealTime = StatsCollector->CreateStat(TEXT("Scanner: Real Time"), EStatFormat::Timer);
 		StatHashCollisions = StatsCollector->CreateStat(TEXT("Scanner: Hash Collisions"), EStatFormat::Value);
-		StatProcessedData = StatsCollector->CreateStat(TEXT("Scanner: Processed Data"), EStatFormat::DataSize);
+		StatTotalData = StatsCollector->CreateStat(TEXT("Scanner: Total Data"), EStatFormat::DataSize);
+		StatSkippedData = StatsCollector->CreateStat(TEXT("Scanner: Skipped Data"), EStatFormat::DataSize);
 		StatProcessingSpeed = StatsCollector->CreateStat(TEXT("Scanner: Processing Speed"), EStatFormat::DataSpeed);
 		FStatsCollector::Accumulate(StatCreatedScanners, 1);
 
@@ -70,6 +76,7 @@ namespace BuildPatchServices
 		{
 			TArray<FChunkMatch> Result = ScanData();
 			NumIncompleteScanners.Decrement();
+			FStatsCollector::Accumulate(StatCompleteScanners, 1);
 			return MoveTemp(Result);
 		};
 		FutureResult = Async(EAsyncExecution::ThreadPool, MoveTemp(Task));
@@ -107,16 +114,21 @@ namespace BuildPatchServices
 	bool FDataScanner::FindChunkDataMatch(FGuid& ChunkMatch, FSHAHash& ChunkSha)
 	{
 		TSet<FGuid>* PotentialMatches = ChunkInventory.Find(RollingHash.GetWindowHash());
+		bool bFoundMatch = false;
 		if (PotentialMatches != nullptr)
 		{
 			RollingHash.GetWindowData().GetShaHash(ChunkSha);
+			// Always return first match in list however count all collisions.
 			for (const FGuid& PotentialMatch : *PotentialMatches)
 			{
 				FSHAHash* PotentialMatchSha = ChunkShaHashes.Find(PotentialMatch);
 				if (PotentialMatchSha != nullptr && *PotentialMatchSha == ChunkSha)
 				{
-					ChunkMatch = PotentialMatch;
-					return true;
+					if (!bFoundMatch)
+					{
+						ChunkMatch = PotentialMatch;
+						bFoundMatch = true;
+					}
 				}
 				else
 				{
@@ -124,12 +136,12 @@ namespace BuildPatchServices
 				}
 			}
 		}
-		return false;
+		return bFoundMatch;
 	}
 
 	TArray<FChunkMatch> FDataScanner::ScanData()
 	{
-		static volatile int64 TempTimerValue;
+		static volatile FStatsCollector::FAtomicValue TempTimerValue;
 		// The return data.
 		TArray<FChunkMatch> DataScanResult;
 
@@ -145,6 +157,9 @@ namespace BuildPatchServices
 		FSHAHash ChunkSha;
 		uint64 CpuTimer;
 
+		// Track last match so we know if we can start skipping data. This will also cover us for the overlap with previous scanner.
+		uint64 LastMatch = 0;
+
 		// Loop over and process all data.
 		uint32 NextByte = ConsumeData(&Data[0], Data.Num());
 		bool bScanningData = true;
@@ -153,12 +168,34 @@ namespace BuildPatchServices
 			FStatsParallelScopeTimer ParallelScopeTimer(&TempTimerValue, StatRealTime, StatRunningScanners);
 			while (bScanningData && !bShouldAbort)
 			{
+				const uint32 DataStart = NextByte - WindowSize;
+				const bool bChunkOverlap = DataStart < (LastMatch + WindowSize);
 				// Check for a chunk match at this offset.
-				if (FindChunkDataMatch(ChunkMatch, ChunkSha))
+				const bool bFoundChunkMatch = FindChunkDataMatch(ChunkMatch, ChunkSha);
+				if (bFoundChunkMatch)
 				{
-					DataScanResult.Emplace(NextByte - WindowSize, ChunkMatch);
+					LastMatch = DataStart;
+					DataScanResult.Emplace(DataStart, ChunkMatch);
 				}
-
+				// We can start skipping over the chunk that we matched if we have no overlap potential, i.e. we know this match will not be rejected.
+				if (bFoundChunkMatch && !bChunkOverlap)
+				{
+					RollingHash.Clear();
+					const bool bHasEnoughData = (NextByte + WindowSize - 1) < static_cast<uint32>(Data.Num());
+					if (bHasEnoughData)
+				{
+						const uint32 Consumed = ConsumeData(&Data[NextByte], Data.Num() - NextByte);
+						FStatsCollector::Accumulate(StatSkippedData, Consumed);
+						NextByte += Consumed;
+				}
+					else
+					{
+						bScanningData = false;
+					}
+				}
+				// Otherwise we only move forwards by one byte.
+				else
+				{
 				const bool bHasMoreData = NextByte < static_cast<uint32>(Data.Num());
 				if (bHasMoreData)
 				{
@@ -170,9 +207,10 @@ namespace BuildPatchServices
 					bScanningData = false;
 				}
 			}
+			}
 			FStatsCollector::AccumulateTimeEnd(StatCpuTime, CpuTimer);
-			FStatsCollector::Accumulate(StatProcessedData, Data.Num());
-			FStatsCollector::Set(StatProcessingSpeed, *StatProcessedData / FStatsCollector::CyclesToSeconds(ParallelScopeTimer.GetCurrentTime()));
+			FStatsCollector::Accumulate(StatTotalData, Data.Num());
+			FStatsCollector::Set(StatProcessingSpeed, *StatTotalData / FStatsCollector::CyclesToSeconds(ParallelScopeTimer.GetCurrentTime()));
 		}
 
 		// Count running scanners.

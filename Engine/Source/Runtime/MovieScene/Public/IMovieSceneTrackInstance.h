@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Evaluation/MovieSceneAnimTypeID.h"
 
-class IMovieScenePlayer;
 class FMovieSceneSequenceInstance;
+class IMovieScenePlayer;
 
 enum EMovieSceneUpdatePass
 {
@@ -56,6 +58,8 @@ class IMovieSceneTrackInstance
 {
 public:
 
+	MOVIESCENE_API IMovieSceneTrackInstance();
+	
 	/** Virtual destructor. */
 	virtual ~IMovieSceneTrackInstance() { }
 
@@ -106,4 +110,6 @@ public:
 	* Evaluation order
 	*/
 	virtual float EvalOrder() { return 0.f; }
+
+	const FMovieSceneAnimTypeID AnimTypeID;
 };

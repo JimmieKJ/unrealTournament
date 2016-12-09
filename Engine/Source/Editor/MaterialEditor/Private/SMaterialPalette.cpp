@@ -1,16 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MaterialEditorModule.h"
+#include "SMaterialPalette.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SOverlay.h"
+#include "EditorStyleSet.h"
+#include "Materials/MaterialFunction.h"
+#include "MaterialGraph/MaterialGraphSchema.h"
 
 #include "Materials/MaterialExpressionComment.h"
-#include "Materials/MaterialFunction.h"
 
-#include "EditorWidgets.h"
+#include "EditorWidgetsModule.h"
 #include "AssetRegistryModule.h"
 #include "MaterialEditor.h"
-#include "SMaterialPalette.h"
 #include "MaterialEditorActions.h"
-#include "STextComboBox.h"
+#include "Widgets/Input/STextComboBox.h"
 
 #define LOCTEXT_NAMESPACE "MaterialPalette"
 
@@ -25,14 +28,18 @@ void SMaterialPaletteItem::Construct(const FArguments& InArgs, FCreateWidgetForA
 
 	// Get the Hotkey chord if one exists for this action
 	TSharedPtr<const FInputChord> HotkeyChord;
-	if (GraphAction->GetTypeId() == FMaterialGraphSchemaAction_NewNode::StaticGetTypeId())
+
+	if ( FMaterialEditorSpawnNodeCommands::IsRegistered() )
 	{
-		UClass* MaterialExpressionClass = StaticCastSharedPtr<FMaterialGraphSchemaAction_NewNode>(GraphAction)->MaterialExpressionClass;
-		HotkeyChord = FMaterialEditorSpawnNodeCommands::Get().GetChordByClass(MaterialExpressionClass);
-	}
-	else if (GraphAction->GetTypeId() == FMaterialGraphSchemaAction_NewComment::StaticGetTypeId())
-	{
-		HotkeyChord = FMaterialEditorSpawnNodeCommands::Get().GetChordByClass(UMaterialExpressionComment::StaticClass());
+		if ( GraphAction->GetTypeId() == FMaterialGraphSchemaAction_NewNode::StaticGetTypeId() )
+		{
+			UClass* MaterialExpressionClass = StaticCastSharedPtr<FMaterialGraphSchemaAction_NewNode>(GraphAction)->MaterialExpressionClass;
+			HotkeyChord = FMaterialEditorSpawnNodeCommands::Get().GetChordByClass(MaterialExpressionClass);
+		}
+		else if ( GraphAction->GetTypeId() == FMaterialGraphSchemaAction_NewComment::StaticGetTypeId() )
+		{
+			HotkeyChord = FMaterialEditorSpawnNodeCommands::Get().GetChordByClass(UMaterialExpressionComment::StaticClass());
+		}
 	}
 
 	// Find icons

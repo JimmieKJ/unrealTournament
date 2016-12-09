@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class IPropertyTable;
+struct FPropertyChangedEvent;
 
 /**
  * Implements details panel customizations for UConfigPropertyHelper fields.

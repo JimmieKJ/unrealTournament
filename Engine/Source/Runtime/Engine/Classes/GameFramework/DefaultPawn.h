@@ -6,10 +6,14 @@
 //=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/Pawn.h"
 #include "DefaultPawn.generated.h"
 
-class UFloatingPawnMovement;
+class UInputComponent;
+class UPawnMovementComponent;
 class USphereComponent;
 class UStaticMeshComponent;
 

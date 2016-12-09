@@ -4,7 +4,8 @@
 	UnCoreNet.cpp: Core networking support.
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
+#include "UObject/CoreNet.h"
+#include "UObject/UnrealType.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCoreNet, Log, All);
 
@@ -363,6 +364,11 @@ FArchive& FNetBitWriter::operator<<(FStringAssetReference& Value)
 	return *this;
 }
 
+FArchive& FNetBitWriter::operator<<(struct FWeakObjectPtr& WeakObjectPtr)
+{
+	WeakObjectPtr.Serialize(*this);
+	return *this;
+}
 
 // ----------------------------------------------------------------
 //	FNetBitReader
@@ -396,6 +402,12 @@ FArchive& FNetBitReader::operator<<(FStringAssetReference& Value)
 		Value.SetPath(MoveTemp(Path));
 	}
 
+	return *this;
+}
+
+FArchive& FNetBitReader::operator<<(struct FWeakObjectPtr& WeakObjectPtr)
+{
+	WeakObjectPtr.Serialize(*this);
 	return *this;
 }
 

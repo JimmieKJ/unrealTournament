@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AIGraphNode.h"
-#include "BehaviorTreeEditorTypes.h"
 #include "BehaviorTreeGraphNode.generated.h"
+
+class UEdGraph;
+class UEdGraphSchema;
 
 UCLASS()
 class UBehaviorTreeGraphNode : public UAIGraphNode

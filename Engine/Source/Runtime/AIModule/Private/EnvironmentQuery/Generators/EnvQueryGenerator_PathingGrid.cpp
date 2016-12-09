@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "AI/Navigation/RecastNavMesh.h"
 #include "EnvironmentQuery/Generators/EnvQueryGenerator_PathingGrid.h"
+#include "AI/Navigation/RecastNavMesh.h"
 
 #define LOCTEXT_NAMESPACE "EnvQueryGenerator"
 

@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
 #include "ITreeItem.h"
+#include "UObject/ObjectKey.h"
+
+class FMenuBuilder;
 
 namespace SceneOutliner
 {

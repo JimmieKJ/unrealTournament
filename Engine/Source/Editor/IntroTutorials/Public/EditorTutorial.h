@@ -2,7 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/StringAssetReference.h"
+#include "UObject/ScriptMacros.h"
+#include "Types/SlateEnums.h"
+#include "Misc/StringClassReference.h"
 #include "EditorTutorial.generated.h"
+
+class AActor;
+class UTexture2D;
 
 /** The type of tutorial content to display */
 UENUM()

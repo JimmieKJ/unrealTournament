@@ -3,12 +3,12 @@
 	
 	"FriendlyName" : "Online Subsystem Oculus",
 	"Version" : 1,
-	"VersionName" : "1.7",
+	"VersionName" : "1.8",
 	"EngineVersion" : "4.2.0",
 	"Description" : "Access to Oculus Platform",
 	"Category" : "Online Platform",
-	"CreatedBy" : "Epic Games, Inc.",
-	"CreatedByURL" : "http://epicgames.com",
+	"CreatedBy" : "Oculus",
+	"CreatedByURL" : "https://developer.oculus.com/",
 	"EnabledByDefault" : false,
 
     "Modules": [

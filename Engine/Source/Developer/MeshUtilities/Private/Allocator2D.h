@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+struct FRect;
+struct Rect;
+
 class FAllocator2D
 {
 public:

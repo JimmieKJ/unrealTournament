@@ -1,28 +1,35 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "BlueprintActionMenuUtils.h"
 #include "BlueprintActionMenuBuilder.h"
-#include "BlueprintActionMenuItem.h"
-#include "BlueprintDragDropMenuItem.h"
-#include "BlueprintActionFilter.h"
-#include "BlueprintNodeSpawner.h"
-#include "BlueprintEditorUtils.h"	// for DoesSupportComponents()
-#include "BlueprintPaletteFavorites.h"
-#include "EdGraphSchema_K2.h"		// for PC_Object/PC_Interface 
+#include "Engine/Blueprint.h"
+#include "Modules/ModuleManager.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
+#include "EdGraph/EdGraph.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Engine/LevelScriptActor.h"
+#include "Engine/Selection.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "EdGraphSchema_K2_Actions.h"
 #include "K2Node_ActorBoundEvent.h"
 #include "K2Node_CallFunction.h"
+#include "K2Node_AddComponent.h"
 #include "K2Node_ComponentBoundEvent.h"
-#include "K2Node_MatineeController.h"
 #include "K2Node_VariableGet.h"
 #include "K2Node_VariableSet.h"
-#include "KismetEditorUtilities.h"	// for CanPasteNodes()
+#include "BlueprintActionMenuItem.h"
+#include "Editor.h"
+#include "BlueprintDragDropMenuItem.h"
+#include "BlueprintNodeSpawner.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "BlueprintPaletteFavorites.h"
 #include "BlueprintEditorSettings.h"
-#include "Engine/Selection.h"
-#include "Engine/LevelScriptActor.h"
-#include "Engine/LevelScriptBlueprint.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h" // for GetSelectedAssets()
-#include "ComponentAssetBroker.h"	// for GetPrimaryComponentForAsset()
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
+#include "ComponentAssetBroker.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintActionMenuUtils"
 

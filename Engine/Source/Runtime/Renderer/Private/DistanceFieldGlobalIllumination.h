@@ -6,7 +6,9 @@
 
 #pragma once
 
-#include "RenderResource.h"
+#include "CoreMinimal.h"
+#include "RHI.h"
+#include "DistanceFieldSurfaceCacheLighting.h"
 
 // In float4's, must match usf
 const int32 VPLDataStride = 3;

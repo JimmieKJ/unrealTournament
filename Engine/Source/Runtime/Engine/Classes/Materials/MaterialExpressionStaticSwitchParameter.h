@@ -2,6 +2,10 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "MaterialExpressionIO.h"
 #include "Materials/MaterialExpressionStaticBoolParameter.h"
 #include "MaterialExpressionStaticSwitchParameter.generated.h"
 
@@ -20,7 +24,7 @@ class UMaterialExpressionStaticSwitchParameter : public UMaterialExpressionStati
 	//~ Begin UMaterialExpression Interface
 	virtual FString GetInputName(int32 InputIndex) const override;
 #if WITH_EDITOR
-	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
+	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override;
 	virtual uint32 GetInputType(int32 InputIndex) override {return MCT_Unknown;}

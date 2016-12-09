@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SizeMapModule.h"
+#include "UObject/NameTypes.h"
+#include "Templates/SharedPointer.h"
+#include "Internationalization/Internationalization.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Docking/TabManager.h"
 #include "ISizeMapModule.h"
 #include "SSizeMap.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "SizeMap"
 

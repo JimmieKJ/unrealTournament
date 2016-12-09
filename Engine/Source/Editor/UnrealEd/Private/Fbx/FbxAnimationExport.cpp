@@ -4,15 +4,20 @@
   Implementation of animation export related functionality from FbxExporter
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/FeedbackContext.h"
+#include "Animation/AnimTypes.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Matinee/InterpData.h"
 #include "Matinee/InterpTrackAnimControl.h"
-#include "Animation/SkeletalMeshActor.h"
 #include "Animation/AnimSequence.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Matinee/MatineeActor.h"
+#include "Animation/SkeletalMeshActor.h"
+#include "FbxExporter.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFbxAnimationExport, Log, All);
-
-#include "FbxExporter.h"
 
 namespace UnFbx
 {
@@ -351,14 +356,16 @@ void FFbxExporter::ExportMatineeGroup(class AMatineeActor* MatineeActor, USkelet
 	BaseNode->AddChild(SkeletonRootNode);
 
 	FMatineeAnimTrackAdapter AnimTrackAdapter(MatineeActor);
-	ExportAnimTrack(AnimTrackAdapter, SkeletalMeshComponent);
+	ExportAnimTrack(AnimTrackAdapter, Owner, SkeletalMeshComponent);
 }
 
-void FFbxExporter::ExportAnimTrack(IAnimTrackAdapter& AnimTrackAdapter, USkeletalMeshComponent* SkeletalMeshComponent)
+void FFbxExporter::ExportAnimTrack(IAnimTrackAdapter& AnimTrackAdapter, AActor* Actor, USkeletalMeshComponent* SkeletalMeshComponent)
 {
 	static const float SamplingRate = 1.f / DEFAULT_SAMPLERATE;
 
-	float MatineeLength = AnimTrackAdapter.GetAnimationLength();
+	float AnimationStart = AnimTrackAdapter.GetAnimationStart();
+	float AnimationLength = AnimTrackAdapter.GetAnimationLength();
+	float AnimationEnd = AnimationStart + AnimationLength;
 	// show a status update every 1 second worth of samples
 	const float UpdateFrequency = 1.0f;
 	float NextUpdateTime = UpdateFrequency;
@@ -372,9 +379,16 @@ void FFbxExporter::ExportAnimTrack(IAnimTrackAdapter& AnimTrackAdapter, USkeleta
 		return;
 	}
 
+	FTransform InitialInvParentTransform;
+
 	float SampleTime;
-	for(SampleTime = 0.f; SampleTime <= MatineeLength; SampleTime += SamplingRate)
+	for(SampleTime = AnimationStart; SampleTime <= AnimationEnd; SampleTime += SamplingRate)
 	{
+		if (SampleTime == AnimationStart)
+		{
+			InitialInvParentTransform = Actor->GetRootComponent()->GetComponentTransform().Inverse();
+		}
+
 		// This will call UpdateSkelPose on the skeletal mesh component to move bones based on animations in the matinee group
 		AnimTrackAdapter.UpdateAnimation( SampleTime );
 
@@ -386,7 +400,7 @@ void FFbxExporter::ExportAnimTrack(IAnimTrackAdapter& AnimTrackAdapter, USkeleta
 		if( NextUpdateTime <= 0.0f )
 		{
 			NextUpdateTime = UpdateFrequency;
-			GWarn->StatusUpdate( FMath::RoundToInt( SampleTime ), FMath::RoundToInt(MatineeLength), NSLOCTEXT("FbxExporter", "ExportingToFbxStatus", "Exporting to FBX") );
+			GWarn->StatusUpdate( FMath::RoundToInt( SampleTime ), FMath::RoundToInt(AnimationLength), NSLOCTEXT("FbxExporter", "ExportingToFbxStatus", "Exporting to FBX") );
 		}
 
 		// Add the animation data to the bone nodes
@@ -411,6 +425,12 @@ void FFbxExporter::ExportAnimTrack(IAnimTrackAdapter& AnimTrackAdapter, USkeleta
 			}
 
 			FTransform BoneTransform = SkeletalMeshComponent->BoneSpaceTransforms[BoneIndex];
+
+			if (GetDefault<UEditorPerProjectUserSettings>()->bMapSkeletalMotionToRoot && BoneIndex == 0)
+			{
+				BoneTransform = SkeletalMeshComponent->GetSocketTransform(BoneName) * InitialInvParentTransform;
+			}
+
 			FbxVector4 Translation = Converter.ConvertToFbxPos(BoneTransform.GetLocation());
 			FbxVector4 Rotation = Converter.ConvertToFbxRot(BoneTransform.GetRotation().Euler());
 

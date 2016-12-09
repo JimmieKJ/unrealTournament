@@ -19,17 +19,11 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include <float.h>
+#include "CoreMinimal.h"
 #define _USE_MATH_DEFINES
-#include <math.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include "Recast.h"
-#include "RecastAlloc.h"
-#include "RecastAssert.h"
-#include <new>
+#include "Recast/Recast.h"
+#include "Recast/RecastAlloc.h"
+#include "Recast/RecastAssert.h"
 
 
 static void calculateDistanceField(rcCompactHeightfield& chf, unsigned short* src, unsigned short& maxDist)

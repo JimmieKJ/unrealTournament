@@ -2,9 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "KeyPropertyParams.h"
-
-class IPropertyHandle;
 
 DECLARE_MULTICAST_DELEGATE_OneParam( FOnAnimatablePropertyChanged, const FPropertyChangedParams& );
 

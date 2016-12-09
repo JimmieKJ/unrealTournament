@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "PackageTools.h"
-#include "AssetRegistryModule.h"
-#include "ISourceControlModule.h"
+#include "AssetTypeActions/AssetTypeActions_Struct.h"
+#include "AssetData.h"
 #include "BlueprintEditorModule.h"
-#include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
+#include "Kismet2/StructureEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

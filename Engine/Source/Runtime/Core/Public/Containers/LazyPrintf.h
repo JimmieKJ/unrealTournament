@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/UnrealString.h"
 
 // to avoid limits with the Printf parameter count, for more readability and type safety
 class FLazyPrintf

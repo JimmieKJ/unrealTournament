@@ -1,13 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "BlueprintActionMenuItem.h"
+#include "EdGraph/EdGraph.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
 #include "BlueprintNodeSpawner.h"
-#include "KismetEditorUtilities.h"	// for BringKismetToFocusAttentionOnObject()
-#include "BlueprintEditorUtils.h"	// for AnalyticsTrackNewNode(), MarkBlueprintAsModified(), etc.
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "ScopedTransaction.h"
-#include "SNodePanel.h"				// for GetSnapGridSize()
-#include "IDocumentation.h"			// for GetPage()
+#include "SNodePanel.h"
+#include "IDocumentationPage.h"
+#include "IDocumentation.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintActionMenuItem"
 

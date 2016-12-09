@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Toolkits/AssetEditorToolkit.h"
+#include "Modules/ModuleInterface.h"
+
 #define PAPER2D_EDITOR_MODULE_NAME "Paper2DEditor"
 
 //////////////////////////////////////////////////////////////////////////

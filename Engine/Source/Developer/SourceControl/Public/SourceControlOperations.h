@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ISourceControlOperation.h"
 
 #define LOCTEXT_NAMESPACE "SourceControl"

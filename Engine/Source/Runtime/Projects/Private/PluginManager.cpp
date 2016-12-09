@@ -1,6 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectsPrivatePCH.h"
+#include "PluginManager.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
+#include "ProjectDescriptor.h"
+#include "Interfaces/IProjectManager.h"
+#include "Modules/ModuleManager.h"
+#include "ProjectManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC( LogPluginManager, Log, All );
 
@@ -33,7 +46,7 @@ namespace PluginSystemDefs
 		{
 			FString PluginPath;
 
-			SearchStr = FCString::Strfind(SearchStr, SwitchStr);
+			SearchStr = FCString::Strifind(SearchStr, SwitchStr);
 			if (FParse::Value(SearchStr, SwitchStr, PluginPath))
 			{
 				FString PluginDir = FPaths::GetPath(PluginPath);
@@ -201,6 +214,16 @@ void FPluginManager::ReadAllPlugins(TMap<FString, TSharedRef<FPlugin>>& Plugins,
 		ReadPluginsInDirectory(FPaths::GamePluginsDir(), EPluginLoadedFrom::GameProject, Plugins);
 	}
 
+	const FProjectDescriptor* Project = IProjectManager::Get().GetCurrentProject();
+	if (Project != nullptr)
+	{
+		// If they have a list of additional directories to check, add those plugins too
+		for (const FString& Dir : Project->GetAdditionalPluginDirectories())
+		{
+			ReadPluginsInDirectory(Dir, EPluginLoadedFrom::Engine, Plugins);
+		}
+	}
+
 	for (const FString& ExtraSearchPath : ExtraSearchPaths)
 	{
 		ReadPluginsInDirectory(ExtraSearchPath, EPluginLoadedFrom::GameProject, Plugins);
@@ -225,7 +248,7 @@ void FPluginManager::ReadPluginsInDirectory(const FString& PluginsDirectory, con
 				TSharedRef<FPlugin> Plugin = MakeShareable(new FPlugin(FileName, Descriptor, LoadedFrom));
 				
 				FString FullPath = FPaths::ConvertRelativePathToFull(FileName);
-				UE_LOG(LogPluginManager, Log, TEXT("Loaded Plugin %s, From %s"), *Plugin->GetName(), *FullPath);
+				UE_LOG(LogPluginManager, Verbose, TEXT("Read plugin descriptor for %s, from %s"), *Plugin->GetName(), *FullPath);
 
 				const TSharedRef<FPlugin>* ExistingPlugin = Plugins.Find(Plugin->GetName());
 				if (ExistingPlugin == nullptr)
@@ -235,7 +258,7 @@ void FPluginManager::ReadPluginsInDirectory(const FString& PluginsDirectory, con
 				else if ((*ExistingPlugin)->LoadedFrom == EPluginLoadedFrom::Engine && LoadedFrom == EPluginLoadedFrom::GameProject)
 				{
 					Plugins[Plugin->GetName()] = Plugin;
-					UE_LOG(LogPluginManager, Log, TEXT("Replacing engine version of '%s' plugin with game version"), *Plugin->GetName());
+					UE_LOG(LogPluginManager, Verbose, TEXT("Replacing engine version of '%s' plugin with game version"), *Plugin->GetName());
 				}
 				else if( (*ExistingPlugin)->LoadedFrom != EPluginLoadedFrom::GameProject || LoadedFrom != EPluginLoadedFrom::Engine)
 				{
@@ -393,6 +416,12 @@ bool FPluginManager::ConfigureEnabledPlugins()
 #else
 				Plugin->bEnabled = true;
 #endif
+
+				if (Plugin->bEnabled && FPlatformMisc::ShouldDisablePluginAtRuntime(Plugin->Name))
+				{
+					Plugin->bEnabled = false;
+					AllEnabledPlugins.Remove(Plugin->Name);
+				}
 			}
 		}
 
@@ -508,7 +537,7 @@ bool FPluginManager::ConfigureEnabledPlugins()
 				}
 			}
 		}
-		
+
 		// Mount all the plugin content folders and pak files
 		TArray<FString>	FoundPaks;
 		FPakFileSearchVisitor PakVisitor(FoundPaks);

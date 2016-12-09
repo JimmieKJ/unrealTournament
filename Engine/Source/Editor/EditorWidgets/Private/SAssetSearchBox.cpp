@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EditorWidgetsPrivatePCH.h"
 #include "SAssetSearchBox.h"
-#include "SSearchBox.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Input/SSearchBox.h"
 
 void SAssetSearchBox::Construct( const FArguments& InArgs )
 {

@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GeometryCacheModulePrivatePCH.h"
 #include "GeometryCacheActor.h"
+#include "GeometryCache.h"
 #include "GeometryCacheComponent.h"
 
 AGeometryCacheActor::AGeometryCacheActor(const FObjectInitializer& ObjectInitializer)

@@ -1,10 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayTasksPrivatePCH.h"
 #include "GameplayTasksComponent.h"
-#include "GameplayTaskResource.h"
-#include "GameplayTask.h"
-#include "MessageLog.h"
+#include "UObject/Package.h"
+#include "Net/UnrealNetwork.h"
+#include "Engine/ActorChannel.h"
+#include "GameFramework/Actor.h"
+#include "VisualLogger/VisualLoggerTypes.h"
+#include "VisualLogger/VisualLogger.h"
+#include "GameplayTasksPrivate.h"
+#include "Logging/MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "GameplayTasksComponent"
 
@@ -450,7 +454,7 @@ void UGameplayTasksComponent::UpdateTaskActivations()
 		FGameplayResourceSet ResourcesBlocked;
 		for (int32 TaskIndex = 0; TaskIndex < TaskPriorityQueue.Num(); ++TaskIndex)
 		{
-			if (ensure(TaskPriorityQueue[TaskIndex]))
+			if (TaskPriorityQueue[TaskIndex])
 			{
 				const FGameplayResourceSet RequiredResources = TaskPriorityQueue[TaskIndex]->GetRequiredResources();
 				const FGameplayResourceSet ClaimedResources = TaskPriorityQueue[TaskIndex]->GetClaimedResources();
@@ -470,6 +474,8 @@ void UGameplayTasksComponent::UpdateTaskActivations()
 			else
 			{
 				bHasNulls = true;
+
+				UE_VLOG(this, LogGameplayTasks, Warning, TEXT("UpdateTaskActivations found null entry in task queue at index:%d!"), TaskIndex);
 			}
 		}
 

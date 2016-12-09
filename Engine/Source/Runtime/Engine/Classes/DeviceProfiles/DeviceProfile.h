@@ -6,9 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Engine/TextureLODSettings.h"
 #include "DeviceProfile.generated.h"
 
+struct FPropertyChangedEvent;
 
 DECLARE_DELEGATE(FOnCVarsUpdated);
 

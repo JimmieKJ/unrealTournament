@@ -1,42 +1,56 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "SBlueprintPalette.h"
-#include "UnrealEd.h"
-#include "BPFunctionDragDropAction.h"
-#include "BPVariableDragDropAction.h"
-#include "BPDelegateDragDropAction.h"
-#include "AnimGraphDefinitions.h"
-#include "BlueprintEditorUtils.h"
-#include "Kismet2NameValidators.h"
+#include "Widgets/IToolTip.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/SOverlay.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Components/ActorComponent.h"
+#include "Engine/Blueprint.h"
+#include "EdGraph/EdGraph.h"
+#include "EdGraphNode_Comment.h"
+#include "Components/TimelineComponent.h"
+#include "Kismet2/ComponentEditorUtils.h"
+#include "FileHelpers.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "EdGraphSchema_K2_Actions.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_Variable.h"
+#include "Engine/SCS_Node.h"
+#include "Internationalization/Culture.h"
+#include "BlueprintEditor.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/Kismet2NameValidators.h"
 #include "ScopedTransaction.h"
-#include "EditorWidgets.h"
+#include "EditorWidgetsModule.h"
 #include "AssetRegistryModule.h"
-#include "Editor/GraphEditor/Public/SGraphActionMenu.h"
 #include "SMyBlueprint.h"
+#include "IAssetTools.h"
 #include "AssetToolsModule.h"
-#include "AssetRegistryModule.h"
 #include "IDocumentation.h"
 #include "SBlueprintLibraryPalette.h"
 #include "SBlueprintFavoritesPalette.h"
 #include "BlueprintPaletteFavorites.h"
-#include "ClassIconFinder.h"
 #include "AnimationStateMachineGraph.h"
 #include "AnimationStateMachineSchema.h"
+#include "AnimationGraph.h"
 #include "AnimationStateGraph.h"
 #include "AnimStateConduitNode.h"
 #include "AnimationTransitionGraph.h"
 #include "BlueprintActionMenuItem.h"
 #include "BlueprintActionMenuUtils.h"
 #include "BlueprintDragDropMenuItem.h"
-#include "BlueprintNodeSpawner.h"
 #include "TutorialMetaData.h"
-#include "BlueprintEditorSettings.h" // for bShowActionMenuItemSignatures
-#include "SInlineEditableTextBlock.h"
-#include "Engine/SimpleConstructionScript.h"
-#include "Editor/UnrealEd/Public/Kismet2/ComponentEditorUtils.h"
-#include "Engine/SCS_Node.h"
-#include "Components/TimelineComponent.h"
+#include "BlueprintEditorSettings.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "SPinTypeSelector.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintPalette"
@@ -290,7 +304,7 @@ static void GetSubGraphIcon(FEdGraphSchemaAction_K2Graph const* const ActionIn, 
  * @param  ColorOut		An output color, further denoting the specified action.
  * @param  ToolTipOut	An output tooltip, best describing the specified action type.
  */
-static void GetPaletteItemIcon(TSharedPtr<FEdGraphSchemaAction> ActionIn, UBlueprint const* BlueprintIn, FSlateBrush const*& BrushOut, FSlateColor& ColorOut, FText& ToolTipOut, FString& DocLinkOut, FString& DocExcerptOut)
+static void GetPaletteItemIcon(TSharedPtr<FEdGraphSchemaAction> ActionIn, UBlueprint const* BlueprintIn, FSlateBrush const*& BrushOut, FSlateColor& ColorOut, FText& ToolTipOut, FString& DocLinkOut, FString& DocExcerptOut, FSlateBrush const*& SecondaryBrushOut, FSlateColor& SecondaryColorOut)
 {
 	// Default to tooltip based on action supplied
 	ToolTipOut = (ActionIn->GetTooltipDescription().Len() > 0) ? FText::FromString(ActionIn->GetTooltipDescription()) : ActionIn->GetMenuDescription();
@@ -344,7 +358,7 @@ static void GetPaletteItemIcon(TSharedPtr<FEdGraphSchemaAction> ActionIn, UBluep
 		FEdGraphSchemaAction_K2Var* VarAction = (FEdGraphSchemaAction_K2Var*)ActionIn.Get();
 
 		UClass* VarClass = VarAction->GetVariableClass();
-		BrushOut = FBlueprintEditor::GetVarIconAndColor(VarClass, VarAction->GetVariableName(), ColorOut);
+		BrushOut = FBlueprintEditor::GetVarIconAndColor(VarClass, VarAction->GetVariableName(), ColorOut, SecondaryBrushOut, SecondaryColorOut);
 		ToolTipOut = FText::FromString(GetVarType(VarClass, VarAction->GetVariableName(), true, true));
 
 		DocLinkOut = TEXT("Shared/Editor/Blueprint/VariableTypes");
@@ -355,7 +369,7 @@ static void GetPaletteItemIcon(TSharedPtr<FEdGraphSchemaAction> ActionIn, UBluep
 		FEdGraphSchemaAction_K2LocalVar* LocalVarAction = (FEdGraphSchemaAction_K2LocalVar*)ActionIn.Get();
 
 		UStruct* VarScope = LocalVarAction->GetVariableScope();
-		BrushOut = FBlueprintEditor::GetVarIconAndColor(VarScope, LocalVarAction->GetVariableName(), ColorOut);
+		BrushOut = FBlueprintEditor::GetVarIconAndColor(VarScope, LocalVarAction->GetVariableName(), ColorOut, SecondaryBrushOut, SecondaryColorOut);
 		ToolTipOut = FText::FromString(GetVarType(VarScope, LocalVarAction->GetVariableName(), true));
 
 		DocLinkOut = TEXT("Shared/Editor/Blueprint/VariableTypes");
@@ -994,11 +1008,13 @@ void SBlueprintPaletteItem::Construct(const FArguments& InArgs, FCreateWidgetFor
 	
 	// construct the icon widget
 	FSlateBrush const* IconBrush   = FEditorStyle::GetBrush(TEXT("NoBrush"));
+	FSlateBrush const* SecondaryBrush = FEditorStyle::GetBrush(TEXT("NoBrush"));
 	FSlateColor        IconColor   = FSlateColor::UseForeground();
+	FSlateColor        SecondaryIconColor   = FSlateColor::UseForeground();
 	FText			   IconToolTip = FText::FromString(GraphAction->GetTooltipDescription());
 	FString			   IconDocLink, IconDocExcerpt;
-	GetPaletteItemIcon(GraphAction, Blueprint, IconBrush, IconColor, IconToolTip, IconDocLink, IconDocExcerpt);
-	TSharedRef<SWidget> IconWidget = CreateIconWidget(IconToolTip, IconBrush, IconColor, IconDocLink, IconDocExcerpt);
+	GetPaletteItemIcon(GraphAction, Blueprint, IconBrush, IconColor, IconToolTip, IconDocLink, IconDocExcerpt, SecondaryBrush, SecondaryIconColor);
+	TSharedRef<SWidget> IconWidget = CreateIconWidget(IconToolTip, IconBrush, IconColor, IconDocLink, IconDocExcerpt, SecondaryBrush, SecondaryIconColor);
 	IconWidget->SetEnabled(!bIsFullyReadOnly);
 
 	// Setup a meta tag for this node
@@ -1246,7 +1262,7 @@ bool SBlueprintPaletteItem::OnNameTextVerifyChanged(const FText& InNewText, FTex
 	{
 		for (USCS_Node* Node : BlueprintObj->SimpleConstructionScript->GetAllNodes())
 		{
-			if (Node && Node->VariableName == OriginalName && !FComponentEditorUtils::IsValidVariableNameString(Node->ComponentTemplate, InNewText.ToString()))
+			if (Node && Node->GetVariableName() == OriginalName && !FComponentEditorUtils::IsValidVariableNameString(Node->ComponentTemplate, InNewText.ToString()))
 			{
 				OutErrorMessage = LOCTEXT("RenameFailed_NotValid", "This name is reserved for engine use.");
 				return false;

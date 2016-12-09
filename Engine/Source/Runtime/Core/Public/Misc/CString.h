@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "HAL/PlatformString.h"
+
+#include "CoreTypes.h"
+#include "Misc/VarArgs.h"
+#include "Misc/AssertionMacros.h"
 #include "Misc/Char.h"
+#include "HAL/PlatformString.h"
 
 #define MAX_SPRINTF 1024
 
@@ -203,9 +207,14 @@ struct TCString
 	static const CharType* Tab( int32 NumTabs );
 
 	/**
-	 * Find string in string, case insensitive, requires non-alphanumeric lead-in.
+	 * Find string in string, case sensitive, requires non-alphanumeric lead-in.
 	 */
 	static const CharType* Strfind( const CharType* Str, const CharType* Find );
+
+	/**
+	 * Find string in string, case insensitive, requires non-alphanumeric lead-in.
+	 */
+	static const CharType* Strifind( const CharType* Str, const CharType* Find );
 
 	/**
 	 * Finds string in string, case insensitive, requires the string be surrounded by one the specified
@@ -303,6 +312,11 @@ struct TCString
 	static FORCEINLINE int32 Strtoi( const CharType* Start, CharType** End, int32 Base );
 
 	/**
+	 * strtoi wrapper
+	 */
+	static FORCEINLINE int64 Strtoi64( const CharType* Start, CharType** End, int32 Base );
+
+	/**
 	 * strtoui wrapper
 	 */
 	static FORCEINLINE uint64 Strtoui64( const CharType* Start, CharType** End, int32 Base );
@@ -372,10 +386,39 @@ const typename TCString<T>::CharType* TCString<T>::Tab( int32 NumTabs )
 }
 
 //
+// Find string in string, case sensitive, requires non-alphanumeric lead-in.
+//
+template <typename T>
+const typename TCString<T>::CharType* TCString<T>::Strfind(const CharType* Str, const CharType* Find)
+{
+	if (Find == NULL || Str == NULL)
+	{
+		return NULL;
+	}
+
+	bool Alnum = 0;
+	CharType f = *Find;
+	int32 Length = Strlen(Find++) - 1;
+	CharType c = *Str++;
+	while (c)
+	{
+		if (!Alnum && c == f && !Strncmp(Str, Find, Length))
+		{
+			return Str - 1;
+		}
+		Alnum = (c >= LITERAL(CharType, 'A') && c <= LITERAL(CharType, 'Z')) ||
+			(c >= LITERAL(CharType, 'a') && c <= LITERAL(CharType, 'z')) ||
+			(c >= LITERAL(CharType, '0') && c <= LITERAL(CharType, '9'));
+		c = *Str++;
+	}
+	return NULL;
+}
+
+//
 // Find string in string, case insensitive, requires non-alphanumeric lead-in.
 //
 template <typename T>
-const typename TCString<T>::CharType* TCString<T>::Strfind( const CharType* Str, const CharType* Find )
+const typename TCString<T>::CharType* TCString<T>::Strifind( const CharType* Str, const CharType* Find )
 {
 	if( Find == NULL || Str == NULL )
 	{
@@ -617,12 +660,15 @@ int32 TCString<T>::Strspn( const CharType* String, const CharType* Mask )
 	{
 		for (const TCHAR* MaskIt = Mask; *MaskIt; ++MaskIt)
 		{
-			if (*StringIt != *MaskIt)
+			if (*StringIt == *MaskIt)
 			{
-				return StringIt - String;
+				goto NextChar;
 			}
 		}
 
+		return StringIt - String;
+
+	NextChar:
 		++StringIt;
 	}
 
@@ -677,6 +723,12 @@ template <typename T> FORCEINLINE
 int32 TCString<T>::Strtoi( const CharType* Start, CharType** End, int32 Base ) 
 { 
 	return FPlatformString::Strtoi(Start, End, Base);
+}
+
+template <typename T> FORCEINLINE
+int64 TCString<T>::Strtoi64( const CharType* Start, CharType** End, int32 Base ) 
+{ 
+	return FPlatformString::Strtoi64(Start, End, Base);
 }
 
 template <typename T> FORCEINLINE

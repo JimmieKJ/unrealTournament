@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Map.h"
+#include "CoreMinimal.h"
+
+struct FKey;
 
 /** Immutable wrapper of shared pointer to a map */
 template <class FKey, class FValue>
@@ -22,27 +24,27 @@ public:
 	}
 
 	/** Find a value by key (nullptr if not found) */
-	const FString* Find(FName Name) const
+	const FValue* Find(typename FMap::KeyConstPointerType Key) const
 	{
-		return Map->Find(Name);
+		return Map->Find(Key);
 	}
 
 	/** Find a value by key (abort if not found) */
-	const FString& FindChecked(FName Name) const
+	const FValue& FindChecked(typename FMap::KeyConstPointerType Key) const
 	{
-		return Map->FindChecked(Name);
+		return Map->FindChecked(Key);
 	}
 
 	/** Find a value by key (default value if not found) */
-	FString FindRef(FName Name) const
+	FValue FindRef(typename FMap::KeyConstPointerType Key) const
 	{
-		return Map->FindRef(Name);
+		return Map->FindRef(Key);
 	}
 
 	/** Determine whether a key is present in the map */
-	bool Contains(FName Name) const
+	bool Contains(typename FMap::KeyConstPointerType Key) const
 	{
-		return Map->Contains(Name);
+		return Map->Contains(Key);
 	}
 
 	/** Retrieve size of map */

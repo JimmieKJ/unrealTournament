@@ -247,7 +247,7 @@ AUTGameMode* AUTReplicatedGameRuleset::GetDefaultGameModeObject()
 {
 	if (!GameMode.IsEmpty())
 	{
-		FString LongGameModeClassname = AGameMode::StaticGetFullGameClassName(GameMode);
+		FString LongGameModeClassname = UGameMapsSettings::GetGameModeForName(GameMode);
 		UClass* GModeClass = LoadClass<AUTGameMode>(NULL, *LongGameModeClassname, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
 		if (GModeClass)
 		{

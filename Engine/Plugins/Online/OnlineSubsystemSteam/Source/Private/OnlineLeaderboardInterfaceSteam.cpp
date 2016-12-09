@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
 #include "OnlineLeaderboardInterfaceSteam.h"
+#include "Misc/ScopeLock.h"
 #include "OnlineSubsystemSteam.h"
 #include "OnlineAsyncTaskManagerSteam.h"
 #include "SteamUtilities.h"

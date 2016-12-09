@@ -2,9 +2,15 @@
 
 #pragma once
 
-#include "OnlineSessionSettings.h"
-#include "OnlineDelegateMacros.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
+#include "OnlineDelegateMacros.h"
+
+class FOnlineSession;
+class FOnlineSessionSearch;
+class FOnlineSessionSearchResult;
+class FOnlineSessionSettings;
 
 /**
  * Delegate fired when a session create request has completed

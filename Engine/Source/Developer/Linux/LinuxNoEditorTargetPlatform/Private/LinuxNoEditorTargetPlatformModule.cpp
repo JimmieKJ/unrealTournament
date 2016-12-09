@@ -4,8 +4,13 @@
 	LinuxNoEditorTargetPlatformModule.cpp: Implements the FLinuxNoEditorTargetPlatformModule class.
 =============================================================================*/
 
-#include "LinuxNoEditorTargetPlatformPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 
+#include "Interfaces/ITargetPlatformModule.h"
+
+#include "LinuxTargetDevice.h"
+#include "LinuxTargetPlatform.h"
 
 /**
  * Holds the target platform singleton.

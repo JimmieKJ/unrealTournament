@@ -1,7 +1,14 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "UObject/WeakObjectPtr.h"
+#include "UObject/UnrealType.h"
+#include "UObject/EnumProperty.h"
+#include "UObject/TextProperty.h"
 #include "DynamicPropertyPath.generated.h"
 
 /** */
@@ -25,48 +32,88 @@ inline bool IsConcreteTypeCompatibleWithReflectedType<bool>(UProperty* Property)
 template<>
 inline bool IsConcreteTypeCompatibleWithReflectedType<int8>(UProperty* Property)
 {
+	if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+	{
+		Property = EnumProperty->GetUnderlyingProperty();
+	}
+
 	return Property->GetClass() == UInt8Property::StaticClass();
 }
 
 template<>
 inline bool IsConcreteTypeCompatibleWithReflectedType<uint8>(UProperty* Property)
 {
+	if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+	{
+		Property = EnumProperty->GetUnderlyingProperty();
+	}
+
 	return Property->GetClass() == UByteProperty::StaticClass();
 }
 
 template<>
 inline bool IsConcreteTypeCompatibleWithReflectedType<int16>(UProperty* Property)
 {
+	if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+	{
+		Property = EnumProperty->GetUnderlyingProperty();
+	}
+
 	return Property->GetClass() == UInt16Property::StaticClass();
 }
 
 template<>
 inline bool IsConcreteTypeCompatibleWithReflectedType<uint16>(UProperty* Property)
 {
+	if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+	{
+		Property = EnumProperty->GetUnderlyingProperty();
+	}
+
 	return Property->GetClass() == UUInt16Property::StaticClass();
 }
 
 template<>
 inline bool IsConcreteTypeCompatibleWithReflectedType<int32>(UProperty* Property)
 {
+	if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+	{
+		Property = EnumProperty->GetUnderlyingProperty();
+	}
+
 	return Property->GetClass() == UIntProperty::StaticClass();
 }
 
 template<>
 inline bool IsConcreteTypeCompatibleWithReflectedType<uint32>(UProperty* Property)
 {
+	if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+	{
+		Property = EnumProperty->GetUnderlyingProperty();
+	}
+
 	return Property->GetClass() == UUInt32Property::StaticClass();
 }
 
 template<>
 inline bool IsConcreteTypeCompatibleWithReflectedType<int64>(UProperty* Property)
 {
+	if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+	{
+		Property = EnumProperty->GetUnderlyingProperty();
+	}
+
 	return Property->GetClass() == UInt64Property::StaticClass();
 }
 
 template<>
 inline bool IsConcreteTypeCompatibleWithReflectedType<uint64>(UProperty* Property)
 {
+	if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+	{
+		Property = EnumProperty->GetUnderlyingProperty();
+	}
+
 	return Property->GetClass() == UUInt64Property::StaticClass();
 }
 

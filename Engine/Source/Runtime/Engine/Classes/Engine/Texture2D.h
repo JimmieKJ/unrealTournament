@@ -2,8 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptMacros.h"
 #include "Engine/Texture.h"
+#include "TextureResource.h"
 #include "Texture2D.generated.h"
+
+class FTexture2DResourceMem;
 
 UCLASS(hidecategories=Object, MinimalAPI, BlueprintType)
 class UTexture2D : public UTexture
@@ -77,6 +84,10 @@ public:
 	UPROPERTY(transient, NonTransactional)
 	uint32 bIsStreamable:1;
 
+	/** Whether some mips might be streamed soon. If false, the texture is not planned resolution will be stable. */
+	UPROPERTY(transient, NonTransactional)
+	uint32 bHasStreamingUpdatePending:1;
+
 	/** Whether the current texture mip change request is pending cancellation.	*/
 	UPROPERTY(transient, NonTransactional)
 	uint32 bHasCancelationPending:1;
@@ -84,6 +95,10 @@ public:
 	/** Override whether to fully stream even if texture hasn't been rendered.	*/
 	UPROPERTY(transient)
 	uint32 bForceMiplevelsToBeResident:1;
+
+	/** Ignores the streaming mip bias used to accommodate memory constraints. */
+	UPROPERTY(transient)
+	uint32 bIgnoreStreamingMipBias:1;
 
 	/** Global and serialized version of ForceMiplevelsToBeResident.				*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=LevelOfDetail, meta=(DisplayName="Global Force Resident Mip Levels"), AdvancedDisplay)
@@ -335,7 +350,7 @@ public:
 	 *
 	 * @return size of resource as to be displayed to artists/ LDs in the Editor.
 	 */
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 
 	/**
 	 * Returns whether miplevels should be forced resident.

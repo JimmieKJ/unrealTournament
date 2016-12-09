@@ -4,22 +4,39 @@
 	ScriptCore.cpp: Kismet VM execution and support code.
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
-#include "MallocProfiler.h"
-#include "HotReloadInterface.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
+#include "Misc/CommandLine.h"
+#include "Logging/LogScopedCategoryAndVerbosityOverride.h"
+#include "Stats/Stats.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/ScriptInterface.h"
+#include "UObject/Script.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectBaseUtility.h"
+#include "UObject/Object.h"
+#include "UObject/CoreNative.h"
+#include "UObject/Class.h"
+#include "Templates/Casts.h"
+#include "Misc/StringAssetReference.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/UnrealType.h"
+#include "UObject/Stack.h"
+#include "Blueprint/BlueprintSupport.h"
+#include "UObject/ScriptMacros.h"
+#include "Misc/HotReloadInterface.h"
 #include "UObject/UObjectThreadContext.h"
 
 DEFINE_LOG_CATEGORY(LogScriptFrame);
 DEFINE_LOG_CATEGORY_STATIC(LogScriptCore, Log, All);
 
-DECLARE_CYCLE_STAT(TEXT("Blueprint Time"),STAT_BlueprintTime,STATGROUP_Game);
+DECLARE_CYCLE_STAT(TEXT("Blueprint Time"), STAT_BlueprintTime, STATGROUP_Game);
 
 #define LOCTEXT_NAMESPACE "ScriptCore"
 
 #if TOTAL_OVERHEAD_SCRIPT_STATS
-COREUOBJECT_API FBlueprintEventTimer::FScopedVMTimer* FBlueprintEventTimer::ActiveVMTimer = nullptr;
-COREUOBJECT_API FBlueprintEventTimer::FPausableScopeTimer* FBlueprintEventTimer::ActiveTimer = nullptr;
-
 DEFINE_STAT(STAT_ScriptVmTime_Total);
 DEFINE_STAT(STAT_ScriptNativeTime_Total);
 #endif //TOTAL_OVERHEAD_SCRIPT_STATS
@@ -129,12 +146,13 @@ void FBlueprintCoreDelegates::ThrowScriptException(const UObject* ActiveObject, 
 	// cant fire arbitrary delegates here off the game thread
 	if (IsInGameThread())
 	{
+#if DO_BLUEPRINT_GUARD
 		// If nothing is bound, show warnings so something is left in the log.
 		if (bShouldLogWarning && (OnScriptException.IsBound() == false))
 		{
 			UE_LOG(LogScript, Warning, TEXT("%s"), *StackFrame.GetStackTrace());
 		}
-
+#endif
 		OnScriptException.Broadcast(ActiveObject, StackFrame, Info);
 	}
 
@@ -366,12 +384,14 @@ void FFrame::KismetExecutionMessage(const TCHAR* Message, ELogVerbosity::Type Ve
 	// Tracking down some places that display warnings but no message..
 	ensure(Verbosity > ELogVerbosity::Warning || FCString::Strlen(Message) > 0);
 
+#if DO_BLUEPRINT_GUARD
 	// Show the stackfor fatal/error, and on warning if that option is enabled
 	if (Verbosity <= ELogVerbosity::Error || (ShowKismetScriptStackOnWarnings() && Verbosity == ELogVerbosity::Warning))
 	{
 		ScriptStack = TEXT("Script call stack:\n");
 		ScriptStack += GetScriptCallstack();
 	}
+#endif
 
 	if (Verbosity == ELogVerbosity::Fatal)
 	{
@@ -382,7 +402,10 @@ void FFrame::KismetExecutionMessage(const TCHAR* Message, ELogVerbosity::Type Ve
 	{
 		// Call directly so we can pass verbosity through
 		FMsg::Logf_Internal(__FILE__, __LINE__, LogScriptCore.GetCategoryName(), Verbosity, TEXT("Script Msg: %s"), Message);
-		FMsg::Logf_Internal(__FILE__, __LINE__, LogScriptCore.GetCategoryName(), Verbosity, TEXT("%s"), *ScriptStack);
+		if (!ScriptStack.IsEmpty())
+		{
+			FMsg::Logf_Internal(__FILE__, __LINE__, LogScriptCore.GetCategoryName(), Verbosity, TEXT("%s"), *ScriptStack);
+		}
 	}	
 #endif
 }
@@ -838,13 +861,15 @@ void ClearReturnValue(UProperty* ReturnProp, RESULT_DECL)
 {
 	if (ReturnProp != NULL)
 	{
-		// destroy old value if necessary
-		if (!ReturnProp->HasAllPropertyFlags(CPF_NoDestructor))
+		uint8* Data = (uint8*)RESULT_PARAM;
+		for (int32 ArrayIdx = 0; ArrayIdx < ReturnProp->ArrayDim; ArrayIdx++, Data += ReturnProp->ElementSize)
 		{
-			ReturnProp->DestroyValue(RESULT_PARAM);
+			// destroy old value if necessary
+			ReturnProp->DestroyValue(Data);
+
+			// copy zero value for return property into Result, or default construct as necessary
+			ReturnProp->ClearValue(Data);
 		}
-		// copy zero value for return property into Result
-		FMemory::Memzero(RESULT_PARAM, ReturnProp->ArrayDim * ReturnProp->ElementSize);
 	}
 }
 
@@ -969,13 +994,7 @@ void UObject::ProcessInternal( FFrame& Stack, RESULT_DECL )
 	else
 	{
 		UProperty* ReturnProp = (Function)->GetReturnProperty();
-		if (ReturnProp != NULL)
-		{
-			// destroy old value if necessary
-			ReturnProp->DestroyValue(RESULT_PARAM);
-			// copy zero value for return property into Result
-			FMemory::Memzero(RESULT_PARAM, ReturnProp->ArrayDim * ReturnProp->ElementSize);
-		}
+		ClearReturnValue(ReturnProp, RESULT_PARAM);
 	}
 }
 
@@ -1293,15 +1312,8 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 
 		// Call native function or UObject::ProcessInternal.
 		const bool bHasReturnParam = Function->ReturnValueOffset != MAX_uint16;
-		uint8* ReturnValueAdress = bHasReturnParam ? ((uint8*)Parms + Function->ReturnValueOffset) : nullptr;
-		if (Function->FunctionFlags & FUNC_Native)
-		{
-			Function->Invoke(this, NewStack, ReturnValueAdress);
-		}
-		else
-		{
-			Function->Invoke(this, NewStack, ReturnValueAdress);
-		}
+		uint8* ReturnValueAddress = bHasReturnParam ? ((uint8*)Parms + Function->ReturnValueOffset) : nullptr;
+		Function->Invoke(this, NewStack, ReturnValueAddress);
 
 		if (!bUsePersistentFrame)
 		{
@@ -1619,7 +1631,7 @@ void UObject::execInstrumentation( FFrame& Stack, RESULT_DECL )
 	if (EventType == EScriptInstrumentation::InlineEvent)
 	{
 		const FName& EventName = *reinterpret_cast<FName*>(&Stack.Code[1]);
-		FScriptInstrumentationSignal InstrumentationEventInfo(EScriptInstrumentation::Event, this, Stack, EventName);
+		FScriptInstrumentationSignal InstrumentationEventInfo(EventType, this, Stack, EventName);
 		FBlueprintCoreDelegates::InstrumentScriptEvent(InstrumentationEventInfo);
 		Stack.SkipCode(sizeof(FName) + 1);
 	}

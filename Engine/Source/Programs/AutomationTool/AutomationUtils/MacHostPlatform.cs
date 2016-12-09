@@ -135,6 +135,10 @@ namespace AutomationTool
 		public override bool IsScriptModuleSupported(string ModuleName)
 		{
 			// @todo: add more unsupported modules here
+			if (String.Equals(ModuleName, "OrionGame", StringComparison.InvariantCultureIgnoreCase))
+			{
+				return false;
+			}
 			return true;
 		}
 

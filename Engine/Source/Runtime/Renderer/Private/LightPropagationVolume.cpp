@@ -10,11 +10,14 @@
 //				Copyright (C) Microsoft. All rights reserved.
 //-----------------------------------------------------------------------------
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
 #include "LightPropagationVolume.h"
-#include "UniformBuffer.h"
+#include "RHIStaticStates.h"
+#include "Shader.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "GlobalShader.h"
+#include "DeferredShadingRenderer.h"
+#include "ScenePrivate.h"
 #include "LightPropagationVolumeBlendable.h"
 
 DECLARE_FLOAT_COUNTER_STAT(TEXT("LPV"), Stat_GPU_LPV, STATGROUP_GPU);
@@ -964,7 +967,7 @@ void FLightPropagationVolume::InitSettings(FRHICommandListImmediate& RHICmdList,
 	// Update the grid offset based on the camera
 	{
 		mOldGridOffset = mGridOffset;
-		FVector CentrePos = View.ViewMatrices.ViewOrigin;
+		FVector CentrePos = View.ViewMatrices.GetViewOrigin();
 		FVector CameraAt = View.GetViewDirection();
 
 		float LpvScale = CubeSize / float(LPV_GRIDRES);
@@ -977,7 +980,7 @@ void FLightPropagationVolume::InitSettings(FRHICommandListImmediate& RHICmdList,
 
 		LpvWriteUniformBufferParams->mOldGridOffset		= mOldGridOffset;
 		LpvWriteUniformBufferParams->mLpvGridOffset		= mGridOffset;
-		LpvWriteUniformBufferParams->mEyePos			= View.ViewMatrices.ViewOrigin;
+		LpvWriteUniformBufferParams->mEyePos			= View.ViewMatrices.GetViewOrigin();
 		LpvWriteUniformBufferParams->ClearMultiplier	= ClearMultiplier;
 		LpvWriteUniformBufferParams->LpvScale			= LpvScale;
 		LpvWriteUniformBufferParams->OneOverLpvScale	= OneOverLpvScale;

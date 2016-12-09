@@ -18,7 +18,13 @@ public:
     :   Pool(NULL)
     {
     }
-    
+
+	~FRunnableThreadApple()
+	{
+		// Call the parent destructor body before the parent does it - see comment on that function for explanation why.
+		FRunnableThreadPThread_DestructorBody();
+	}
+
 private:
 	/**
 	 * Allows a platform subclass to setup anything needed on the thread before running the Run function

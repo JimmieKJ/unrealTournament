@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayTagsModulePrivatePCH.h"
+#include "GameplayTagsModule.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/Package.h"
+
+FSimpleMulticastDelegate IGameplayTagsModule::OnGameplayTagTreeChanged;
+FSimpleMulticastDelegate IGameplayTagsModule::OnTagSettingsChanged;
 
 class FGameplayTagsModule : public IGameplayTagsModule
 {
@@ -15,15 +21,8 @@ DEFINE_LOG_CATEGORY(LogGameplayTags);
 
 void FGameplayTagsModule::StartupModule()
 {
-	// This code will execute after your module is loaded into memory (but after global variables are initialized, of course.)
-	GGameplayTagsManager = NewObject<UGameplayTagsManager>(GetTransientPackage(), NAME_None);
-	GGameplayTagsManager->AddToRoot();
-
-	TArray<FString> GameplayTagTables;
-	GConfig->GetArray(TEXT("GameplayTags"), TEXT("GameplayTagTableList"), GameplayTagTables, GEngineIni);
-
-	GGameplayTagsManager->LoadGameplayTagTables(GameplayTagTables);
-	GGameplayTagsManager->ConstructGameplayTagTree();
+	// This will force initialization
+	UGameplayTagsManager::Get();
 }
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -37,9 +36,9 @@ void FGameplayTagsModule::ShutdownModule()
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (GameplayTagPrintReportOnShutdown)
 	{
-		UGameplayTagsManager::PrintReplicationFrequencyReport();
+		UGameplayTagsManager::Get().PrintReplicationFrequencyReport();
 	}
 #endif
 
-	GGameplayTagsManager = NULL;
+	UGameplayTagsManager::SingletonManager = nullptr;
 }

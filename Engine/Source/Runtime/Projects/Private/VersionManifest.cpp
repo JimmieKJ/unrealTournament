@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectsPrivatePCH.h"
 #include "VersionManifest.h"
+#include "Misc/FileHelper.h"
+#include "Misc/App.h"
+#include "Serialization/JsonTypes.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Modules/ModuleManager.h"
 
 FVersionManifest::FVersionManifest()
 {
 	Changelist = 0;
+	CompatibleChangelist = 0;
 }
 
 FString FVersionManifest::GetFileName(const FString& DirectoryName, bool bIsGameFolder)
@@ -40,6 +46,12 @@ bool FVersionManifest::TryRead(const FString& FileName, FVersionManifest& Manife
 	if(!Object.TryGetNumberField(TEXT("Changelist"), Manifest.Changelist) || !Object.TryGetStringField(TEXT("BuildId"), Manifest.BuildId))
 	{
 		return false;
+	}
+
+	// Read the compatible changelist, or default to the current changelist if it's not set
+	if(Manifest.Changelist == 0 || !Object.TryGetNumberField(TEXT("CompatibleChangelist"), Manifest.CompatibleChangelist))
+	{
+		Manifest.CompatibleChangelist = Manifest.Changelist;
 	}
 
 	// Read the module mappings

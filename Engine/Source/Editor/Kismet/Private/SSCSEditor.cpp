@@ -1,37 +1,54 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "Editor/UnrealEd/Public/Kismet2/ComponentEditorUtils.h"
-#include "BlueprintUtilities.h"
+#include "SSCSEditor.h"
+#include "AssetData.h"
+#include "Editor.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Components/PrimitiveComponent.h"
+#include "EngineGlobals.h"
+#include "Misc/FeedbackContext.h"
+#include "Serialization/ObjectWriter.h"
+#include "Serialization/ObjectReader.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Editor/UnrealEdEngine.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
+#include "Components/ChildActorComponent.h"
+#include "Kismet2/ComponentEditorUtils.h"
+#include "Engine/Selection.h"
+#include "UnrealEdGlobals.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_Variable.h"
+#include "K2Node_ComponentBoundEvent.h"
+#include "K2Node_VariableGet.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "ComponentAssetBroker.h"
 #include "ClassViewerFilter.h"
 
-#include "SSCSEditor.h"
-#include "SKismetInspector.h"
-#include "SSCSEditorViewport.h"
-#include "SComponentClassCombo.h"
 #include "PropertyPath.h"
 
 #include "AssetSelection.h"
-#include "Editor/SceneOutliner/Private/SSocketChooser.h"
 #include "ScopedTransaction.h"
 
-#include "DragAndDrop/AssetDragDropOp.h"
+#include "Styling/SlateIconFinder.h"
 #include "ClassIconFinder.h"
+#include "DragAndDrop/AssetDragDropOp.h"
 
 #include "ObjectTools.h"
 
 #include "IDocumentation.h"
-#include "Kismet2NameValidators.h"
+#include "Kismet2/Kismet2NameValidators.h"
 #include "TutorialMetaData.h"
-#include "SInlineEditableTextBlock.h"
-#include "GenericCommands.h"
-#include "Engine/SCS_Node.h"
-#include "Engine/SimpleConstructionScript.h"
-#include "Engine/Selection.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #include "Engine/InheritableComponentHandler.h"
 
@@ -39,19 +56,15 @@
 
 #include "BPVariableDragDropAction.h"
 
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
+#include "AddToProjectConfig.h"
 #include "GameProjectGenerationModule.h"
 #include "FeaturedClasses.inl"
 
-#include "HotReloadInterface.h"
-#include "AssetRegistryModule.h"
-#include "SCreateAssetFromObject.h"
 
-#include "SourceCodeNavigation.h"
-#include "Editor/BlueprintGraph/Public/BlueprintEditorSettings.h"
-#include "Engine/BlueprintGeneratedClass.h"
+#include "BlueprintEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "SSCSEditor"
 
@@ -1178,7 +1191,7 @@ UActorComponent* FSCSEditorTreeNode::FindComponentInstanceInActor(const AActor* 
 					// Return the component instance that's stored in the property with the given variable name
 					ComponentInstance = Cast<UActorComponent>(Property->GetObjectPropertyValue_InContainer(InActor));
 				}
-				else if (World != nullptr && World->WorldType == EWorldType::Preview)
+				else if (World != nullptr && World->WorldType == EWorldType::EditorPreview)
 				{
 					// If this is the preview actor, return the cached component instance that's being used for the preview actor prior to recompiling the Blueprint
 					ComponentInstance = SCS_Node->EditorComponentInstance;
@@ -2790,6 +2803,8 @@ void SSCS_RowWidget::OnMakeNewRootDropAction(FSCSEditorTreeNodePtrType DroppedNo
 
 void SSCS_RowWidget::PostDragDropAction(bool bRegenerateTreeNodes)
 {
+	GUnrealEd->ComponentVisManager.ClearActiveComponentVis();
+
 	FSCSEditorTreeNodePtrType NodePtr = GetNode();
 
 	TSharedPtr<SSCSEditor> PinnedEditor = SCSEditor.Pin();
@@ -4023,7 +4038,7 @@ FSCSEditorTreeNodePtrType SSCSEditor::GetNodeFromActorComponent(const UActorComp
 							for (USCS_Node* SCS_Node : ParentBPStack[StackIndex]->SimpleConstructionScript->GetAllNodes())
 							{
 								check(SCS_Node != NULL);
-								if (SCS_Node->VariableName == ActorComponent->GetFName())
+								if (SCS_Node->GetVariableName() == ActorComponent->GetFName())
 								{
 									// We found a match; redirect to the component archetype instance that may be associated with a tree node
 									ActorComponent = SCS_Node->ComponentTemplate;
@@ -4723,19 +4738,37 @@ UActorComponent* SSCSEditor::AddNewNode(USCS_Node* NewNode, UObject* Asset, bool
 	UBlueprint* Blueprint = GetBlueprint();
 	check(Blueprint != nullptr && Blueprint->SimpleConstructionScript != nullptr);
 
-	// Reset the scene root node if it's set to the default one that's managed by the SCS
-	//if(SceneRootNodePtr.IsValid() && SceneRootNodePtr->GetSCSNode() == Blueprint->SimpleConstructionScript->GetDefaultSceneRootNode())
-	//{
-	//	SceneRootNodePtr.Reset();
-	//}
+	bool AttachToSceneRootNode = true;
+	if (USceneComponent* NewSceneComponent = Cast<USceneComponent>(NewNode->ComponentTemplate))
+	{
+		// get currently selected component
+		TArray<FSCSEditorTreeNodePtrType> SelectedTreeNodes;
+		if (SCSTreeWidget.IsValid() && SCSTreeWidget->GetSelectedItems(SelectedTreeNodes) > 0)
+		{
+			FSCSEditorTreeNodePtrType FirstTreeNode = SelectedTreeNodes[0];
+			if (FirstTreeNode.IsValid() && FirstTreeNode->GetComponentTemplate())
+			{
+				USceneComponent* CastFirstTreeNode = Cast<USceneComponent>(FirstTreeNode->GetComponentTemplate());
+				if (CastFirstTreeNode && NewSceneComponent->CanAttachAsChild(CastFirstTreeNode, NAME_None))
+				{
+					NewNodePtr = AddTreeNode(NewNode, FirstTreeNode, false);
+					AttachToSceneRootNode = false;
+				}
+			}
+		}
+	}
 
-	// Add the new node to the editor tree
-	NewNodePtr = AddTreeNode(NewNode, SceneRootNodePtr, false);
+	if (AttachToSceneRootNode)
+	{
+		// Add the new node to the editor tree
+		NewNodePtr = AddTreeNode(NewNode, SceneRootNodePtr, false);
+	}
 
 	// Potentially adjust variable names for any child blueprints
-	if(NewNode->VariableName != NAME_None)
+	const FName VariableName = NewNode->GetVariableName();
+	if(VariableName != NAME_None)
 	{
-		FBlueprintEditorUtils::ValidateBlueprintChildVariables(Blueprint, NewNode->VariableName);
+		FBlueprintEditorUtils::ValidateBlueprintChildVariables(Blueprint, VariableName);
 	}
 	
 	if(bSetFocusToNewItem)
@@ -5016,6 +5049,9 @@ bool SSCSEditor::CanDeleteNodes() const
 
 void SSCSEditor::OnDeleteNodes()
 {
+	// Invalidate any active component in the visualizer
+	GUnrealEd->ComponentVisManager.ClearActiveComponentVis();
+
 	const FScopedTransaction Transaction( LOCTEXT("RemoveComponents", "Remove Components") );
 
 	if (EditorMode == EComponentEditorMode::BlueprintSCS)
@@ -5142,7 +5178,8 @@ void SSCSEditor::RemoveComponentNode(FSCSEditorTreeNodePtrType InNodePtr)
 			// we can re-use the name without having to compile (we still have a 
 			// problem if they attempt to name it to what ever we choose here, 
 			// but that is unlikely)
-			if (SCS_Node->ComponentTemplate != nullptr)
+			// note: skip this for the default scene root; we don't actually destroy that node when it's removed, so we don't need the template to be renamed.
+			if (!InNodePtr->IsDefaultSceneRoot() && SCS_Node->ComponentTemplate != nullptr)
 			{
 				SCS_Node->ComponentTemplate->Modify();
 				const FString RemovedName = SCS_Node->GetVariableName().ToString() + TEXT("_REMOVED_") + FGuid::NewGuid().ToString();
@@ -5216,14 +5253,14 @@ FSCSEditorTreeNodePtrType SSCSEditor::AddTreeNode(USCS_Node* InSCSNode, FSCSEdit
 	{
 		check(InSCSNode->ComponentTemplate != NULL);
 		checkf(InSCSNode->ParentComponentOrVariableName == NAME_None
-			|| (!InSCSNode->bIsParentComponentNative && InParentNodePtr->GetSCSNode() != NULL && InParentNodePtr->GetSCSNode()->VariableName == InSCSNode->ParentComponentOrVariableName)
+			|| (!InSCSNode->bIsParentComponentNative && InParentNodePtr->GetSCSNode() != NULL && InParentNodePtr->GetSCSNode()->GetVariableName() == InSCSNode->ParentComponentOrVariableName)
 			|| (InSCSNode->bIsParentComponentNative && InParentNodePtr->GetComponentTemplate() != NULL && InParentNodePtr->GetComponentTemplate()->GetFName() == InSCSNode->ParentComponentOrVariableName),
 			TEXT("Failed to add SCS node %s to tree:\n- bIsParentComponentNative=%d\n- Stored ParentComponentOrVariableName=%s\n- Actual ParentComponentOrVariableName=%s"),
-			*InSCSNode->VariableName.ToString(),
+			*InSCSNode->GetVariableName().ToString(),
 			!!InSCSNode->bIsParentComponentNative,
 			*InSCSNode->ParentComponentOrVariableName.ToString(),
 			!InSCSNode->bIsParentComponentNative
-			? (InParentNodePtr->GetSCSNode() != NULL ? *InParentNodePtr->GetSCSNode()->VariableName.ToString() : TEXT("NULL"))
+			? (InParentNodePtr->GetSCSNode() != NULL ? *InParentNodePtr->GetSCSNode()->GetVariableName().ToString() : TEXT("NULL"))
 			: (InParentNodePtr->GetComponentTemplate() != NULL ? *InParentNodePtr->GetComponentTemplate()->GetFName().ToString() : TEXT("NULL")));
 	}
 	

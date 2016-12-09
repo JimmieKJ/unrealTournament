@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "SlateWidgetStyleContainerBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Styling/SlateWidgetStyleContainerBase.h"
+#include "Styling/SlateTypes.h"
 #include "ScrollBoxWidgetStyle.generated.h"
 
 /**

@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "ModuleManager.h"
-#include "ISourceControlProvider.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+
+class ISourceControlProvider;
 
 SOURCECONTROL_API DECLARE_LOG_CATEGORY_EXTERN(LogSourceControl, Log, All);
 

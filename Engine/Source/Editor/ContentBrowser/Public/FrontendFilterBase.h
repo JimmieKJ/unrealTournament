@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/IFilter.h"
+#include "IContentBrowserSingleton.h"
+
+class FMenuBuilder;
+
 class FFrontendFilterCategory
 {
 public:

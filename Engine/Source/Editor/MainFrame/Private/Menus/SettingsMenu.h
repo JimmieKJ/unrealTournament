@@ -2,15 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "ISettingsModule.h"
 #include "ISettingsCategory.h"
 #include "ISettingsContainer.h"
-#include "ISettingsModule.h"
 #include "ISettingsSection.h"
-#include "ModuleManager.h"
 
 
 #define LOCTEXT_NAMESPACE "FSettingsMenu"
-
 
 /**
  * Static helper class for populating the "Settings" menu.

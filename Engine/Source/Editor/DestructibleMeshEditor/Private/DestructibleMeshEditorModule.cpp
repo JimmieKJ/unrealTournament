@@ -1,15 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DestructibleMeshEditorPrivatePCH.h"
-
-#include "ModuleManager.h"
+#include "DestructibleMeshEditorModule.h"
+#include "Misc/PackageName.h"
+#include "Modules/ModuleManager.h"
+#include "IDestructibleMeshEditor.h"
 #include "DestructibleMeshEditor.h"
-#include "Toolkits/ToolkitManager.h"
+#include "Misc/MessageDialog.h"
+
+#include "IAssetTools.h"
 #include "AssetToolsModule.h"
 
-#include "ApexDestructibleAssetImport.h"
 #include "Engine/DestructibleMesh.h"
 #include "Engine/StaticMesh.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialExpressionSpeedTree.h"
 
 IMPLEMENT_MODULE( FDestructibleMeshEditorModule, DestructibleMeshEditor );
 
@@ -46,6 +50,40 @@ UDestructibleMesh* FDestructibleMeshEditorModule::CreateDestructibleMeshFromStat
 		OutErrorMsg = LOCTEXT( "StaticMeshInvalid", "Static Mesh is Invalid!" );
 		return NULL;
 	}
+
+	// We can't use any speedtree materials for destructibles due to UV requirements, so check the graph here
+	TArray<UMaterial*> SpeedTreeMaterials;
+	for(FStaticMaterial& StaticMaterial : StaticMesh->StaticMaterials)
+	{
+		UMaterialInterface* Mat = StaticMaterial.MaterialInterface;
+
+		UMaterial* BaseMat = Mat->GetBaseMaterial();
+	
+		for(UMaterialExpression* Expression : BaseMat->Expressions)
+		{
+			if(Cast<UMaterialExpressionSpeedTree>(Expression))
+			{
+				SpeedTreeMaterials.Add(BaseMat);
+				break;
+			}
+		}
+	}
+	
+	if(SpeedTreeMaterials.Num() > 0)
+	{
+		// Invalid, can't create a mesh from this
+		FTextBuilder TextBuilder;
+		TextBuilder.AppendLine(FText::Format(LOCTEXT("StaticMeshInvalid_SpeedTree", "The static mesh '{0}' uses SpeedTree materials which are not compatible with destructible meshes. Cannot create destructible.\n\nList of Materials:\n"), FText::FromString(StaticMesh->GetName())));
+	
+		for(UMaterial* SpeedTreeMat : SpeedTreeMaterials)
+		{
+			TextBuilder.AppendLine(SpeedTreeMat->GetName());
+		}
+	
+		FMessageDialog::Open(EAppMsgType::Ok, TextBuilder.ToText());
+		return nullptr;
+	}
+
 
 	FString DestructibleName;
 	

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class Error;
 
 /**
  * Json (JavaScript Object Notation) is a lightweight data-interchange format.
@@ -37,13 +40,20 @@ enum class EJsonToken
 	SquareClose,
 	Colon,
 	String,
+
+	// short values
 	Number,
 	True,
 	False,
 	Null,
+
 	Identifier
 };
 
+FORCEINLINE bool EJsonToken_IsShortValue(EJsonToken Token)
+{
+	return Token >= EJsonToken::Number && Token <= EJsonToken::Null;
+}
 
 enum class EJsonNotation
 {

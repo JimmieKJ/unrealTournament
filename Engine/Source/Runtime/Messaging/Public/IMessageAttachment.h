@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /**
  * Interface for message attachments.
@@ -36,10 +37,3 @@ public:
 	/** Virtual destructor. */
 	virtual ~IMessageAttachment() { }
 };
-
-
-/** Type definition for shared pointers to instances of IMessageAttachment. */
-typedef TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe> IMessageAttachmentPtr;
-
-/** Type definition for shared references to instances of IMessageAttachment. */
-typedef TSharedRef<IMessageAttachment, ESPMode::ThreadSafe> IMessageAttachmentRef;

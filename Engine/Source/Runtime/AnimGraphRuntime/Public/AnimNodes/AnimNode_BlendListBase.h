@@ -2,9 +2,15 @@
 
 #pragma once
 
-#include "AlphaBlend.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimationAsset.h"
 #include "Animation/AnimNodeBase.h"
+#include "AlphaBlend.h"
 #include "AnimNode_BlendListBase.generated.h"
+
+class UBlendProfile;
+class UCurveFloat;
 
 // Blend list node; has many children
 USTRUCT()

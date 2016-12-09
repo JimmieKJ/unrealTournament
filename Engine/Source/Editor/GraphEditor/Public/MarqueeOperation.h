@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "MarqueeRect.h"
+
+#include "CoreMinimal.h"
+#include "GraphEditor.h"
+#include "Framework/MarqueeRect.h"
+
+struct FMarqueeOperation;
+struct Rect;
 
 /** Helper for managing marquee operations */
 struct FMarqueeOperation

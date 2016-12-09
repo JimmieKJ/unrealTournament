@@ -1,8 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PersonaPrivatePCH.h"
 #include "SAnimTimingPanel.h"
-#include "SExpandableArea.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Animation/AnimMontage.h"
+#include "Preferences/PersonaOptions.h"
+#include "Widgets/Layout/SExpandableArea.h"
 #include "STimingTrack.h"
 
 #define LOCTEXT_NAMESPACE "AnimTimingPanel"
@@ -174,7 +187,7 @@ void SAnimTimingTrackNode::Construct(const FArguments& InArgs)
 		);
 }
 
-void SAnimTimingPanel::Construct(const FArguments& InArgs)
+void SAnimTimingPanel::Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnAnimNotifiesChanged, FSimpleMulticastDelegate& OnSectionsChanged)
 {
 	SAnimTrackPanel::Construct(SAnimTrackPanel::FArguments()
 		.WidgetWidth(InArgs._WidgetWidth)
@@ -184,10 +197,8 @@ void SAnimTimingPanel::Construct(const FArguments& InArgs)
 		.InputMax(InArgs._InputMax)
 		.OnSetInputViewRange(InArgs._OnSetInputViewRange));
 
-	WeakPersona = InArgs._InWeakPersona;
 	AnimSequence = InArgs._InSequence;
 
-	check(WeakPersona.IsValid());
 	check(AnimSequence);
 
 	this->ChildSlot
@@ -211,26 +222,11 @@ void SAnimTimingPanel::Construct(const FArguments& InArgs)
 	Update();
 
 	// Register to some delegates to update the interface
-	TSharedPtr<FPersona> SharedPersona = WeakPersona.Pin();
-	if(SharedPersona.IsValid())
-	{
-		SharedPersona->RegisterOnChangeAnimNotifies(FPersona::FOnAnimNotifiesChanged::CreateSP(this, &SAnimTimingPanel::RefreshTrackNodes));
-		SharedPersona->RegisterOnSectionsChanged(FPersona::FOnSectionsChanged::CreateSP(this, &SAnimTimingPanel::RefreshTrackNodes));
-	}
+	OnAnimNotifiesChanged.Add(FSimpleDelegate::CreateSP(this, &SAnimTimingPanel::RefreshTrackNodes));
+	OnSectionsChanged.Add(FSimpleDelegate::CreateSP(this, &SAnimTimingPanel::RefreshTrackNodes));
 
 	// Clear display flags
 	FMemory::Memset(bElementNodeDisplayFlags, false, sizeof(bElementNodeDisplayFlags));
-}
-
-SAnimTimingPanel::~SAnimTimingPanel()
-{
-	// Clean up our registered delegates
-	TSharedPtr<FPersona> SharedPersona = WeakPersona.Pin();
-	if(SharedPersona.IsValid())
-	{
-		SharedPersona->UnregisterOnChangeAnimNotifies(this);
-		SharedPersona->UnregisterOnSectionsChanged(this);
-	}
 }
 
 void SAnimTimingPanel::Update()

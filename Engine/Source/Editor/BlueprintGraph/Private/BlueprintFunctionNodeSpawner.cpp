@@ -1,22 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintFunctionNodeSpawner.h"
-#include "EdGraphSchema_K2.h"	// for FBlueprintMetadata
 #include "GameFramework/Actor.h"
-#include "BlueprintVariableNodeSpawner.h"
-#include "BlueprintNodeTemplateCache.h" // for IsTemplateOuter()
-#include "BlueprintActionFilter.h"	// for FBlueprintActionContext
-#include "EditorCategoryUtils.h"	// for BuildCategoryString()
-#include "ObjectEditorUtils.h"		// for IsFunctionHiddenFromClass()
-#include "BlueprintNodeSpawnerUtils.h" // for GetBindingClass()
-#include "K2Node_Literal.h"
-#include "K2Node_CallFunctionOnMember.h"
-#include "K2Node_CommutativeAssociativeBinaryOperator.h"
-#include "K2Node_CallMaterialParameterCollectionFunction.h"
-#include "K2Node_CallDataTableFunction.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_CallFunction.h"
 #include "K2Node_CallArrayFunction.h"
+#include "K2Node_CallDataTableFunction.h"
+#include "K2Node_CallFunctionOnMember.h"
+#include "K2Node_CallMaterialParameterCollectionFunction.h"
+#include "K2Node_CommutativeAssociativeBinaryOperator.h"
+#include "K2Node_Literal.h"
 #include "K2Node_VariableGet.h"
+#include "BlueprintVariableNodeSpawner.h"
+#include "BlueprintNodeTemplateCache.h"
+#include "EditorCategoryUtils.h"
+#include "ObjectEditorUtils.h"
+#include "BlueprintNodeSpawnerUtils.h"
 #include "BlueprintEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintFunctionNodeSpawner"

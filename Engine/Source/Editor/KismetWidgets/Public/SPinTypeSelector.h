@@ -2,7 +2,27 @@
 
 #pragma once
 
-#include "BlueprintGraphDefinitions.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Misc/Attribute.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Types/SlateStructs.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "EditorStyleSet.h"
+#include "EdGraphSchema_K2.h"
+
+class SComboButton;
+class SMenuOwner;
+class SToolTip;
+struct FObjectReferenceType;
 
 DECLARE_DELEGATE_OneParam(FOnPinTypeChanged, const FEdGraphPinType&)
 
@@ -22,6 +42,10 @@ typedef TSharedPtr<struct FObjectReferenceType> FObjectReferenceListItem;
 class KISMETWIDGETS_API SPinTypeSelector : public SCompoundWidget
 {
 public:
+	static TSharedRef<SWidget> ConstructPinTypeImage(const FSlateBrush* PrimaryIcon, const FSlateColor& PrimaryColor, const FSlateBrush* SecondaryIcon, const FSlateColor& SecondaryColor, TSharedPtr<SToolTip> InToolTip);
+	static TSharedRef<SWidget> ConstructPinTypeImage(TAttribute<const FSlateBrush*> PrimaryIcon, TAttribute<FSlateColor> PrimaryColor, TAttribute<const FSlateBrush*> SecondaryIcon, TAttribute<FSlateColor> SecondaryColor );
+	static TSharedRef<SWidget> ConstructPinTypeImage(UEdGraphPin* Pin);
+
 	SLATE_BEGIN_ARGS( SPinTypeSelector )
 		: _TargetPinType()
 		, _Schema(NULL)
@@ -53,14 +77,23 @@ public:
 	// End of SWidget interface
 
 protected:
-	/** Gets the icon (pin or array) for the type being manipulated */
+	/** Gets the icon (value, array, set, or map) for the type being manipulated */
 	const FSlateBrush* GetTypeIconImage() const;
+
+	/** Gets the secondary icon (for maps, otherwise null) for the type being manipulated */
+	const FSlateBrush* GetSecondaryTypeIconImage() const;
 
 	/** Gets the type-specific color for the type being manipulated */
 	FSlateColor GetTypeIconColor() const;
 
+	/** Gets the secondary type-specific color for the type being manipulated */
+	FSlateColor GetSecondaryTypeIconColor() const;
+
 	/** Gets a succinct type description for the type being manipulated */
-	virtual FText GetTypeDescription() const;
+	FText GetTypeDescription() const;
+
+	/** Gets the secondary type description. E.g. the value type for TMaps */
+	FText GetSecondaryTypeDescription() const;
 
 	TSharedPtr<SComboButton>		TypeComboButton;
 	TSharedPtr<SSearchBox>			FilterTextBox;
@@ -106,23 +139,26 @@ protected:
 	/** Toggles the variable type as an array */
 	void OnArrayStateToggled();
 
+	/** Updates the variable container type: */
+	void OnContainerTypeSelectionChanged(enum class EPinContainerType PinContainerType);
+
 	/** Array containing the unfiltered list of all supported types this pin could possibly have */
 	TArray<FPinTypeTreeItem>		TypeTreeRoot;
 	/** Array containing a filtered list, according to the text in the searchbox */
 	TArray<FPinTypeTreeItem>		FilteredTypeTreeRoot;
 
 	/** Treeview support functions */
-	virtual TSharedRef<ITableRow> GenerateTypeTreeRow(FPinTypeTreeItem InItem, const TSharedRef<STableViewBase>& OwnerTree);
-	void OnTypeSelectionChanged(FPinTypeTreeItem Selection, ESelectInfo::Type SelectInfo);
+	virtual TSharedRef<ITableRow> GenerateTypeTreeRow(FPinTypeTreeItem InItem, const TSharedRef<STableViewBase>& OwnerTree, bool bForSecondaryType);
+	void OnTypeSelectionChanged(FPinTypeTreeItem Selection, ESelectInfo::Type SelectInfo, bool bForSecondaryType);
 	void GetTypeChildren(FPinTypeTreeItem InItem, TArray<FPinTypeTreeItem>& OutChildren);
 
 	/** Listview support functions for sub-menu */
 	TSharedRef<ITableRow> GenerateObjectReferenceTreeRow(FObjectReferenceListItem InItem, const TSharedRef<STableViewBase>& OwnerTree);
-	void OnObjectReferenceSelectionChanged(FObjectReferenceListItem InItem, ESelectInfo::Type SelectInfo);
+	void OnObjectReferenceSelectionChanged(FObjectReferenceListItem InItem, ESelectInfo::Type SelectInfo, bool bForSecondaryType);
 
 	/** Reference to the menu content that's displayed when the type button is clicked on */
 	TSharedPtr<SMenuOwner> MenuContent;
-	virtual TSharedRef<SWidget>	GetMenuContent();
+	virtual TSharedRef<SWidget>	GetMenuContent(bool bForSecondaryType);
 
 	/** Type searching support */
 	FText SearchText;
@@ -135,8 +171,14 @@ protected:
 	/** Callback to get the tooltip text for the pin type combo box */
 	FText GetToolTipForComboBoxType() const;
 
+	/** Callback to get the tooltip text for the secondary pin type combo box */
+	FText GetToolTipForComboBoxSecondaryType() const;
+
 	/** Callback to get the tooltip for the array button widget */
 	FText GetToolTipForArrayWidget() const;
+
+	/** Callback to get the tooltip for the container type dropdown widget */
+	FText GetToolTipForContainerWidget() const;
 
 	/**
 	 * Helper function to create widget for the sub-menu
@@ -149,7 +191,7 @@ protected:
 	TSharedRef<SWidget> CreateObjectReferenceWidget(FPinTypeTreeItem InItem, FEdGraphPinType& InPinType, const FSlateBrush* InIconBrush, FText InSimpleTooltip) const;
 
 	/** Gets the allowable object types for an tree item, used for building the sub-menu */
-	TSharedRef< SWidget > GetAllowedObjectTypes(FPinTypeTreeItem InItem);
+	TSharedRef< SWidget > GetAllowedObjectTypes(FPinTypeTreeItem InItem, bool bForSecondaryType);
 	
 	/**
 	 * When a pin type is selected, handle it
@@ -157,5 +199,5 @@ protected:
 	 * @param InItem				Item selected
 	 * @param InPinCategory			This is the PinType's category, must be provided separately as the PinType in the tree item is always Object Types for any object related type.
 	 */
-	void OnSelectPinType(FPinTypeTreeItem InItem, FString InPinCategory);
+	void OnSelectPinType(FPinTypeTreeItem InItem, FString InPinCategory, bool bForSecondaryType);
 };

@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "ActorPickerMode.h"
+
+class AActor;
+
 class SPropertyMenuActorPicker : public SCompoundWidget
 {
 public:

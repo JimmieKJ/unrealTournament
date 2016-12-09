@@ -2,10 +2,11 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
 
-class ULocalizationTarget;
 class SLocalizationDashboard;
+class ULocalizationTarget;
 
 class FLocalizationDashboard
 {

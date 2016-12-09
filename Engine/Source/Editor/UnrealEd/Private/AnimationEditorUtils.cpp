@@ -1,25 +1,44 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "AnimationEditorUtils.h"
-#include "AssetToolsModule.h"
+#include "Framework/Commands/UIAction.h"
+#include "Textures/SlateIcon.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/FeedbackContext.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Animation/AnimMontage.h"
+#include "Animation/AnimBlueprint.h"
+#include "Factories/AnimBlueprintFactory.h"
+#include "Factories/AnimCompositeFactory.h"
+#include "Factories/AnimMontageFactory.h"
+#include "Factories/BlendSpaceFactory1D.h"
+#include "Factories/AimOffsetBlendSpaceFactory1D.h"
+#include "Factories/BlendSpaceFactoryNew.h"
+#include "Factories/AimOffsetBlendSpaceFactoryNew.h"
+#include "Engine/PoseWatch.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
 #include "Animation/AnimComposite.h"
 #include "Animation/AnimCompress.h"
 #include "Animation/BlendSpace.h"
 #include "Animation/BlendSpace1D.h"
 #include "Animation/AimOffsetBlendSpace.h"
 #include "Animation/AimOffsetBlendSpace1D.h"
-#include "Animation/AnimCompress.h"
-
 #include "AnimationGraph.h"
 #include "AnimStateNodeBase.h"
 #include "AnimStateTransitionNode.h"
+#include "Animation/AnimNodeBase.h"
+#include "AnimGraphNode_Base.h"
 #include "AnimGraphNode_StateMachineBase.h"
 #include "AnimationStateMachineGraph.h"
 #include "K2Node_Composite.h"
-#include "AssertionMacros.h"
-#include "Engine/PoseWatch.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "AnimationEditorUtils"
 
@@ -426,7 +445,7 @@ namespace AnimationEditorUtils
 		MenuBuilder.EndSection();
 	}
 
-	bool ApplyCompressionAlgorithm(TArray<UAnimSequence*>& AnimSequencePtrs, class UAnimCompress* Algorithm)
+	bool ApplyCompressionAlgorithm(TArray<UAnimSequence*>& AnimSequencePtrs, UAnimCompress* Algorithm)
 	{
 		if(Algorithm)
 		{

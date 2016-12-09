@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -99,14 +99,13 @@ static int SetupWindowData(_THIS, SDL_Window *window, UIWindow *uiwindow, SDL_bo
     /* only one window on iOS, always shown */
     window->flags &= ~SDL_WINDOW_HIDDEN;
 
-    if (displaydata.uiscreen == [UIScreen mainScreen]) {
-        window->flags |= SDL_WINDOW_INPUT_FOCUS;  /* always has input focus */
-    } else {
+    if (displaydata.uiscreen != [UIScreen mainScreen]) {
         window->flags &= ~SDL_WINDOW_RESIZABLE;  /* window is NEVER resizable */
         window->flags &= ~SDL_WINDOW_INPUT_FOCUS;  /* never has input focus */
         window->flags |= SDL_WINDOW_BORDERLESS;  /* never has a status bar. */
     }
 
+#if !TARGET_OS_TV
     if (displaydata.uiscreen == [UIScreen mainScreen]) {
         NSUInteger orients = UIKit_GetSupportedOrientations(window);
         BOOL supportsLandscape = (orients & UIInterfaceOrientationMaskLandscape) != 0;
@@ -119,6 +118,7 @@ static int SetupWindowData(_THIS, SDL_Window *window, UIWindow *uiwindow, SDL_bo
             height = temp;
         }
     }
+#endif /* !TARGET_OS_TV */
 
     window->x = 0;
     window->y = 0;
@@ -152,7 +152,6 @@ UIKit_CreateWindow(_THIS, SDL_Window *window)
     @autoreleasepool {
         SDL_VideoDisplay *display = SDL_GetDisplayForWindow(window);
         SDL_DisplayData *data = (__bridge SDL_DisplayData *) display->driverdata;
-        const CGSize origsize = data.uiscreen.currentMode.size;
 
         /* SDL currently puts this window at the start of display's linked list. We rely on this. */
         SDL_assert(_this->windows == window);
@@ -165,6 +164,8 @@ UIKit_CreateWindow(_THIS, SDL_Window *window)
         /* If monitor has a resolution of 0x0 (hasn't been explicitly set by the
          * user, so it's in standby), try to force the display to a resolution
          * that most closely matches the desired window size. */
+#if !TARGET_OS_TV
+        const CGSize origsize = data.uiscreen.currentMode.size;
         if ((origsize.width == 0.0f) && (origsize.height == 0.0f)) {
             if (display->num_display_modes == 0) {
                 _this->GetDisplayModes(_this, display);
@@ -191,15 +192,13 @@ UIKit_CreateWindow(_THIS, SDL_Window *window)
         }
 
         if (data.uiscreen == [UIScreen mainScreen]) {
-            NSUInteger orientations = UIKit_GetSupportedOrientations(window);
-            UIApplication *app = [UIApplication sharedApplication];
-
             if (window->flags & (SDL_WINDOW_FULLSCREEN|SDL_WINDOW_BORDERLESS)) {
-                app.statusBarHidden = YES;
+                [UIApplication sharedApplication].statusBarHidden = YES;
             } else {
-                app.statusBarHidden = NO;
+                [UIApplication sharedApplication].statusBarHidden = NO;
             }
         }
+#endif /* !TARGET_OS_TV */
 
         /* ignore the size user requested, and make a fullscreen window */
         /* !!! FIXME: can we have a smaller view? */
@@ -261,6 +260,7 @@ UIKit_UpdateWindowBorder(_THIS, SDL_Window * window)
     SDL_WindowData *data = (__bridge SDL_WindowData *) window->driverdata;
     SDL_uikitviewcontroller *viewcontroller = data.viewcontroller;
 
+#if !TARGET_OS_TV
     if (data.uiwindow.screen == [UIScreen mainScreen]) {
         if (window->flags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS)) {
             [UIApplication sharedApplication].statusBarHidden = YES;
@@ -276,6 +276,13 @@ UIKit_UpdateWindowBorder(_THIS, SDL_Window * window)
 
     /* Update the view's frame to account for the status bar change. */
     viewcontroller.view.frame = UIKit_ComputeViewFrame(window, data.uiwindow.screen);
+#endif /* !TARGET_OS_TV */
+
+#ifdef SDL_IPHONE_KEYBOARD
+    /* Make sure the view is offset correctly when the keyboard is visible. */
+    [viewcontroller updateKeyboard];
+#endif
+
     [viewcontroller.view setNeedsLayout];
     [viewcontroller.view layoutIfNeeded];
 }
@@ -302,7 +309,24 @@ UIKit_DestroyWindow(_THIS, SDL_Window * window)
     @autoreleasepool {
         if (window->driverdata != NULL) {
             SDL_WindowData *data = (SDL_WindowData *) CFBridgingRelease(window->driverdata);
+            NSArray *views = nil;
+
             [data.viewcontroller stopAnimation];
+
+            /* Detach all views from this window. We use a copy of the array
+             * because setSDLWindow will remove the object from the original
+             * array, which would be undesirable if we were iterating over it. */
+            views = [data.views copy];
+            for (SDL_uikitview *view in views) {
+                [view setSDLWindow:NULL];
+            }
+
+            /* iOS may still hold a reference to the window after we release it.
+             * We want to make sure the SDL view controller isn't accessed in
+             * that case, because it would contain an invalid pointer to the old
+             * SDL window. */
+            data.uiwindow.rootViewController = nil;
+            data.uiwindow.hidden = YES;
         }
     }
     window->driverdata = NULL;
@@ -326,9 +350,11 @@ UIKit_GetWindowWMInfo(_THIS, SDL_Window * window, SDL_SysWMinfo * info)
                     SDL_uikitopenglview *glview = (SDL_uikitopenglview *)data.viewcontroller.view;
                     info->info.uikit.framebuffer = glview.drawableFramebuffer;
                     info->info.uikit.colorbuffer = glview.drawableRenderbuffer;
+                    info->info.uikit.resolveFramebuffer = glview.msaaResolveFramebuffer;
                 } else {
                     info->info.uikit.framebuffer = 0;
                     info->info.uikit.colorbuffer = 0;
+                    info->info.uikit.resolveFramebuffer = 0;
                 }
             }
 
@@ -341,13 +367,26 @@ UIKit_GetWindowWMInfo(_THIS, SDL_Window * window, SDL_SysWMinfo * info)
     }
 }
 
+#if !TARGET_OS_TV
 NSUInteger
 UIKit_GetSupportedOrientations(SDL_Window * window)
 {
     const char *hint = SDL_GetHint(SDL_HINT_ORIENTATIONS);
+    NSUInteger validOrientations = UIInterfaceOrientationMaskAll;
     NSUInteger orientationMask = 0;
 
     @autoreleasepool {
+        SDL_WindowData *data = (__bridge SDL_WindowData *) window->driverdata;
+        UIApplication *app = [UIApplication sharedApplication];
+
+        /* Get all possible valid orientations. If the app delegate doesn't tell
+         * us, we get the orientations from Info.plist via UIApplication. */
+        if ([app.delegate respondsToSelector:@selector(application:supportedInterfaceOrientationsForWindow:)]) {
+            validOrientations = [app.delegate application:app supportedInterfaceOrientationsForWindow:data.uiwindow];
+        } else if ([app respondsToSelector:@selector(supportedInterfaceOrientationsForWindow:)]) {
+            validOrientations = [app supportedInterfaceOrientationsForWindow:data.uiwindow];
+        }
+
         if (hint != NULL) {
             NSArray *orientations = [@(hint) componentsSeparatedByString:@" "];
 
@@ -379,14 +418,22 @@ UIKit_GetSupportedOrientations(SDL_Window * window)
             }
         }
 
-        /* Don't allow upside-down orientation on the phone, so answering calls is in the natural orientation */
+        /* Don't allow upside-down orientation on phones, so answering calls is in the natural orientation */
         if ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone) {
             orientationMask &= ~UIInterfaceOrientationMaskPortraitUpsideDown;
+        }
+
+        /* If none of the specified orientations are actually supported by the
+         * app, we'll revert to what the app supports. An exception would be
+         * thrown by the system otherwise. */
+        if ((validOrientations & orientationMask) == 0) {
+            orientationMask = validOrientations;
         }
     }
 
     return orientationMask;
 }
+#endif /* !TARGET_OS_TV */
 
 int
 SDL_iPhoneSetAnimationCallback(SDL_Window * window, int interval, void (*callback)(void*), void *callbackParam)

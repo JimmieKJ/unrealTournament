@@ -1,15 +1,41 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "Widgets/SNullWidget.h"
+#include "Animation/CurveSequence.h"
+#include "InputCoreTypes.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
 #include "IUserFeedbackModule.h"
-#include "SlateBasics.h"
-#include "SlateStyle.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Notifications/SPopUpErrorText.h"
 
-#include "IAnalyticsProvider.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
-#include "UnrealEd.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "EditorStyleSet.h"
+#include "UnrealEdMisc.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "UserFeedback"
 
@@ -228,7 +254,7 @@ private:
 			NSLOCTEXT("MaterialEditor", "AppLabel", "Material Editor"),
 			NSLOCTEXT("PhAT", "AppLabel", "PhAT"),
 			NSLOCTEXT("Cascade", "AppLabel", "Cascade"),
-			NSLOCTEXT("FPersona", "AppLabel", "Persona")
+			NSLOCTEXT("Persona", "AppLabel", "Persona")
 		});
 
 		ContextMarkers.Custom = -1;

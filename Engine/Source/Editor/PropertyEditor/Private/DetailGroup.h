@@ -2,6 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "PropertyHandle.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilderImpl.h"
+#include "DetailItemNode.h"
+#include "IDetailGroup.h"
+
+class IDetailPropertyRow;
+
 class FDetailGroup : public IDetailGroup, public TSharedFromThis<FDetailGroup>
 {
 public:

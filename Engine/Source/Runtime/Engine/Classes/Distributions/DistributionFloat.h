@@ -2,9 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
 #include "Distributions.h"
 #include "Distributions/Distribution.h"
 #include "DistributionFloat.generated.h"
+
+struct FPropertyChangedEvent;
 
 #if !CPP      //noexport struct
 /** Type-safe floating point distribution. */

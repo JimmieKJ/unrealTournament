@@ -1,0 +1,124 @@
+﻿<!-- // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. -->
+
+@using Tools.CrashReporter.CrashReportWebSite.Models"
+@model DashboardViewModel
+
+<style>
+    table
+    {
+        border: 0px solid black;
+        color: white;
+        padding: 4px;
+    }
+
+</style>
+
+@{
+    ViewBag.Title = "[CR] Dashboard";
+    Layout = "../Shared/_CRWLayout.cshtml";
+}
+
+@section ScriptContent
+{
+    <script type="text/javascript">
+        $(document).ready(function() {
+        });
+    </script>
+}
+
+@section AboveMainContent
+{
+    <div style="clear:both;"><small style="color: lightgray;">Generated in @Model.GenerationTime second(s)</small><br /></div>
+}
+<script type='text/javascript' src='http://www.google.com/jsapi'></script>
+<script type='text/javascript'>
+    google.load('visualization', '1', { 'packages': ['annotatedtimeline'] });
+    google.setOnLoadCallback(drawChart);
+    function drawChart() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('date', 'Date');
+        data.addColumn('number', 'General Crashes');
+        data.addColumn('number', 'Coder Crashes');
+        data.addColumn('number', 'EngineQA Crashes');
+        data.addColumn('number', 'GameQA Crashes');
+
+        @foreach (var Version in Model.EngineVersions )
+        {
+            @Html.Raw("data.addColumn('number', '"+ @Version +" - ');")
+        }
+
+        data.addColumn('number', 'All Crashes');
+        data.addRows([@Model.CrashesByWeek]);
+        var chart = new google.visualization.AnnotatedTimeLine(document.getElementById('weekly_chart'));
+        chart.draw(data, { displayAnnotations: true });
+    }
+</script>
+<script type='text/javascript'>
+    google.load('visualization', '1', { 'packages': ['annotatedtimeline'] });
+    google.setOnLoadCallback(drawChart);
+    function drawChart()
+    {
+        var data = new google.visualization.DataTable();
+        data.addColumn('date', 'Date');
+        data.addColumn('number', 'General Crashes');
+        data.addColumn('number', 'Coder Crashes');
+        data.addColumn('number', 'EngineQA Crashes');
+        data.addColumn('number', 'GameQA Crashes');
+				
+        @foreach (var Version in Model.EngineVersions )
+        {
+            @Html.Raw("data.addColumn('number', '" + @Version + " - ');")
+        }
+
+        data.addColumn('number', 'All Crashes');
+        data.addRows([@Model.CrashesByDay]);
+        var chart = new google.visualization.AnnotatedTimeLine(document.getElementById('daily_chart'));
+        chart.draw(data, { displayAnnotations: true });
+    }
+</script>
+
+		<script type='text/javascript'>
+		    google.load('visualization', '1', { 'packages': ['annotatedtimeline'] });
+		    google.setOnLoadCallback(drawChart);
+		    function drawChart()
+		    {
+		        var data = new google.visualization.DataTable();
+		        data.addColumn('date', 'Date');
+		        data.addColumn('number', 'Daily New Buggs');
+		        data.addRows([@Model.BuggsByDay]);
+		        var chart = new google.visualization.AnnotatedTimeLine(document.getElementById('bugg_daily_chart'));
+		        chart.draw(data, { displayAnnotations: true });
+		    }
+		</script>
+
+		<table>
+			<tr>
+				<td>
+				Crashes By Week
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<div id="weekly_chart" style="height: 256px; width: 1600px;"></div>
+				</td>
+			</tr>
+			<tr>
+				<td>
+				Crashes By Day
+				</td>
+			<tr>
+				<td>
+					<div id="daily_chart" style="height: 256px; width: 1600px;"></div>
+				</td>
+			</tr>
+			<tr>
+				<td>
+				Buggs By Day
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<div id="bugg_daily_chart" style="height: 256px; width: 1600px;"></div>
+				</td>
+			</tr>
+		</table>	

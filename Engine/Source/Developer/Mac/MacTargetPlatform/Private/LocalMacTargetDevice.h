@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ITargetDevice.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformProcess.h"
 
 /**
  * Template for local Mac target devices.
@@ -188,7 +192,7 @@ public:
 		return false;
 	}
 
-	virtual bool TerminateProcess( const int32 ProcessId ) override
+	virtual bool TerminateProcess( const int64 ProcessId ) override
 	{
 		return false;
 	}

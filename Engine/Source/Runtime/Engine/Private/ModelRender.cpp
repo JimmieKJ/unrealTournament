@@ -4,13 +4,31 @@
 	ModelRender.cpp: Unreal model rendering
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "LevelUtils.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Stats/Stats.h"
+#include "EngineGlobals.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/Level.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "RawIndexBuffer.h"
+#include "PrimitiveViewRelevance.h"
+#include "Materials/MaterialInterface.h"
+#include "PrimitiveSceneProxy.h"
+#include "Engine/MapBuildDataRegistry.h"
 #include "Model.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
+#include "MeshBatch.h"
+#include "SceneManagement.h"
+#include "TessellationRendering.h"
+#include "Engine/Engine.h"
+#include "Engine/LevelStreaming.h"
+#include "LevelUtils.h"
 #include "HModel.h"
-#include "LightMap.h"
-#include "ShadowMap.h"
 #include "Components/ModelComponent.h"
+#include "Engine/Brush.h"
 
 namespace
 {
@@ -82,12 +100,12 @@ void UModelComponent::BuildRenderData()
 		FModelElement& Element = Elements[ElementIndex];
 
 		// Find the index buffer for the element's material.
-		TScopedPointer<FRawIndexBuffer16or32>* IndexBufferRef = TheModel->MaterialIndexBuffers.Find(Element.Material);
+		TUniquePtr<FRawIndexBuffer16or32>* IndexBufferRef = TheModel->MaterialIndexBuffers.Find(Element.Material);
 		if(!IndexBufferRef)
 		{
 			IndexBufferRef = &TheModel->MaterialIndexBuffers.Emplace(Element.Material,new FRawIndexBuffer16or32());
 		}
-		FRawIndexBuffer16or32* const IndexBuffer = *IndexBufferRef;
+		FRawIndexBuffer16or32* const IndexBuffer = IndexBufferRef->Get();
 		check(IndexBuffer);
 
 		Element.IndexBuffer = IndexBuffer;
@@ -318,32 +336,40 @@ public:
 
 											for(int32 NodeIndex = 0;NodeIndex < ModelElement.Nodes.Num();NodeIndex++)
 											{
-												FBspNode& Node = Component->GetModel()->Nodes[ModelElement.Nodes[NodeIndex]];
-												FBspSurf& Surf = Component->GetModel()->Surfs[Node.iSurf];
-
-												if (!ShouldDrawSurface(Surf))
+												UModel* ComponentModel = Component->GetModel();
+												if (ensureMsgf(ComponentModel->Nodes.IsValidIndex(ModelElement.Nodes[NodeIndex]), TEXT("Invalid Node Index, Idx:%d, Num:%d"), ModelElement.Nodes[NodeIndex], ComponentModel->Nodes.Num()))
 												{
-													continue;
-												}
+													FBspNode& Node = ComponentModel->Nodes[ModelElement.Nodes[NodeIndex]];
 
-												const bool bSurfaceSelected = (Surf.PolyFlags & PF_Selected) == PF_Selected;
-												const bool bSurfaceHovered = !bSurfaceSelected && ((Surf.PolyFlags & PF_Hovered) == PF_Hovered);
-												bHasSelectedSurfs |= bSurfaceSelected;
-												bHasHoveredSurfs |= bSurfaceHovered;
-
-												if (bSurfaceSelected == bOnlySelectedSurfaces && bSurfaceHovered == bOnlyHoveredSurfaces)
-												{
-													for (uint32 BackFace = 0; BackFace < (uint32)((Surf.PolyFlags & PF_TwoSided) ? 2 : 1); BackFace++)
+													if (ensureMsgf(ComponentModel->Surfs.IsValidIndex(Node.iSurf), TEXT("Invalid Surf Index, Idx:%d, Num:%d"), Node.iSurf, ComponentModel->Surfs.Num()))
 													{
-														for (int32 VertexIndex = 2; VertexIndex < Node.NumVertices; VertexIndex++)
+														FBspSurf& Surf = ComponentModel->Surfs[Node.iSurf];
+
+														if (!ShouldDrawSurface(Surf))
 														{
-															*Indices++ = Node.iVertexIndex + Node.NumVertices * BackFace;
-															*Indices++ = Node.iVertexIndex + Node.NumVertices * BackFace + VertexIndex;
-															*Indices++ = Node.iVertexIndex + Node.NumVertices * BackFace + VertexIndex - 1;
-															NumIndices += 3;
+															continue;
 														}
-														MinVertexIndex = FMath::Min(Node.iVertexIndex + Node.NumVertices * BackFace,MinVertexIndex);
-														MaxVertexIndex = FMath::Max(Node.iVertexIndex + Node.NumVertices * BackFace + Node.NumVertices - 1,MaxVertexIndex);
+
+														const bool bSurfaceSelected = (Surf.PolyFlags & PF_Selected) == PF_Selected;
+														const bool bSurfaceHovered = !bSurfaceSelected && ((Surf.PolyFlags & PF_Hovered) == PF_Hovered);
+														bHasSelectedSurfs |= bSurfaceSelected;
+														bHasHoveredSurfs |= bSurfaceHovered;
+
+														if (bSurfaceSelected == bOnlySelectedSurfaces && bSurfaceHovered == bOnlyHoveredSurfaces)
+														{
+															for (uint32 BackFace = 0; BackFace < (uint32)((Surf.PolyFlags & PF_TwoSided) ? 2 : 1); BackFace++)
+															{
+																for (int32 VertexIndex = 2; VertexIndex < Node.NumVertices; VertexIndex++)
+																{
+																	*Indices++ = Node.iVertexIndex + Node.NumVertices * BackFace;
+																	*Indices++ = Node.iVertexIndex + Node.NumVertices * BackFace + VertexIndex;
+																	*Indices++ = Node.iVertexIndex + Node.NumVertices * BackFace + VertexIndex - 1;
+																	NumIndices += 3;
+																}
+																MinVertexIndex = FMath::Min(Node.iVertexIndex + Node.NumVertices * BackFace,MinVertexIndex);
+																MaxVertexIndex = FMath::Max(Node.iVertexIndex + Node.NumVertices * BackFace + Node.NumVertices - 1,MaxVertexIndex);
+															}
+														}
 													}
 												}
 											}
@@ -527,6 +553,15 @@ private:
 	/** Returns true if any surfaces relevant to this component are selected (or hovered). */
 	bool HasSelectedSurfaces() const
 	{
+#if WITH_EDITOR
+		if (!ensureMsgf(ABrush::GGeometryRebuildCause == nullptr, TEXT("Attempting to render brushes while they are being updated. Cause: %s"), ABrush::GGeometryRebuildCause))
+		{
+			return false;
+		}
+#endif
+
+		UModel* Model = Component->GetModel();
+
 		for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ElementIndex++)
 		{
 			const FModelElement& ModelElement = Component->GetElements()[ElementIndex];
@@ -534,12 +569,21 @@ private:
 			{
 				for(int32 NodeIndex = 0;NodeIndex < ModelElement.Nodes.Num();NodeIndex++)
 				{
-					FBspNode& Node = Component->GetModel()->Nodes[ModelElement.Nodes[NodeIndex]];
-					FBspSurf& Surf = Component->GetModel()->Surfs[Node.iSurf];
-
-					if (ShouldDrawSurface(Surf) && (Surf.PolyFlags & (PF_Selected | PF_Hovered)) != 0)
+					uint16 ModelNodeIndex = ModelElement.Nodes[NodeIndex];
+					// Ensures for debug purposes only; an attempt to catch the cause of UE-36265.
+					// Please remove again ASAP as these extra checks can't be fast
+					if (ensureMsgf(Model->Nodes.IsValidIndex(ModelNodeIndex), TEXT( "Invalid Node Index, Idx:%d, Num:%d" ), ModelNodeIndex, Model->Nodes.Num() ) )
 					{
-						return true;
+						FBspNode& Node = Model->Nodes[ModelNodeIndex];
+						if (ensureMsgf(Model->Surfs.IsValidIndex(Node.iSurf), TEXT( "Invalid Surf Index, Idx:%d, Num:%d" ), Node.iSurf, Model->Surfs.Num() ) )
+						{
+							FBspSurf& Surf = Model->Surfs[Node.iSurf];
+
+							if (ShouldDrawSurface(Surf) && (Surf.PolyFlags & (PF_Selected | PF_Hovered)) != 0)
+							{
+								return true;
+							}
+						}
 					}
 				}
 			}
@@ -555,11 +599,19 @@ private:
 
 		/** Initialization constructor. */
 		FElementInfo(const FModelElement& InModelElement)
-			: FLightCacheInterface(InModelElement.LightMap, InModelElement.ShadowMap)
-			, IrrelevantLights(InModelElement.IrrelevantLights)
+			: FLightCacheInterface(NULL, NULL)
 			, Bounds(InModelElement.BoundingBox)
 		{
-			const bool bHasStaticLighting = InModelElement.LightMap != nullptr || InModelElement.ShadowMap != nullptr;
+			const FMeshMapBuildData* MapBuildData = InModelElement.GetMeshMapBuildData();
+
+			if (MapBuildData)
+			{
+				SetLightMap(MapBuildData->LightMap);
+				SetShadowMap(MapBuildData->ShadowMap);
+				IrrelevantLights = MapBuildData->IrrelevantLights;
+			}
+
+			const bool bHasStaticLighting = GetLightMap() != nullptr || GetShadowMap() != nullptr;
 
 			// Determine the material applied to the model element.
 			Material = InModelElement.Material;

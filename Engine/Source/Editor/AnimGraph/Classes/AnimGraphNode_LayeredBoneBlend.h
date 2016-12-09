@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AnimGraphNode_BlendListBase.h"
 #include "AnimNodes/AnimNode_LayeredBoneBlend.h"
 #include "AnimGraphNode_LayeredBoneBlend.generated.h"

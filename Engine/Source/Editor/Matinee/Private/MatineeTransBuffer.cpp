@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MatineeModule.h"
-#include "MatineeTransaction.h"
 #include "MatineeTransBuffer.h"
+#include "MatineeTransaction.h"
 
 /*-----------------------------------------------------------------------------
 	UMatineeTransBuffer / FMatineeTransaction

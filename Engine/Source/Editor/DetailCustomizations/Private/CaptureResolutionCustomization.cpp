@@ -1,9 +1,12 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "CaptureResolutionCustomization.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SComboBox.h"
+#include "DetailWidgetRow.h"
+#include "DetailLayoutBuilder.h"
 #include "MovieSceneCaptureSettings.h"
-#include "SEditableText.h"
 
 #define LOCTEXT_NAMESPACE "CaptureResolutionCustomization"
 

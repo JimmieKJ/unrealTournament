@@ -5,7 +5,13 @@
 //
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/NetConnection.h"
 #include "IpConnection.generated.h"
+
+class FInternetAddr;
 
 UCLASS(transient, config=Engine)
 class ONLINESUBSYSTEMUTILS_API UIpConnection : public UNetConnection

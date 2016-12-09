@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,9 +28,8 @@ class CefSchemeHandlerFactoryCppToC
     : public CefCppToC<CefSchemeHandlerFactoryCppToC, CefSchemeHandlerFactory,
         cef_scheme_handler_factory_t> {
  public:
-  explicit CefSchemeHandlerFactoryCppToC(CefSchemeHandlerFactory* cls);
+  CefSchemeHandlerFactoryCppToC();
 };
 
 #endif  // USING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CPPTOC_SCHEME_HANDLER_FACTORY_CPPTOC_H_
-

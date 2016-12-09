@@ -1,12 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "Engine/Blueprint.h"
-#include "Blueprint/AIAsyncTaskBlueprintProxy.h"
-#include "BehaviorTree/BlackboardComponent.h"
-#include "Animation/AnimInstance.h"
-#include "TimerManager.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "EngineGlobals.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
+#include "Engine/Engine.h"
+#include "AITypes.h"
+#include "AISystem.h"
+#include "BrainComponent.h"
+#include "Navigation/PathFollowingComponent.h"
+#include "AIController.h"
+#include "BehaviorTree/BlackboardComponent.h"
+#include "Blueprint/AIAsyncTaskBlueprintProxy.h"
+#include "Animation/AnimInstance.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogAIBlueprint, Warning, All);
 
 //----------------------------------------------------------------------//
 // UAIAsyncTaskBlueprintProxy
@@ -91,16 +99,39 @@ UAIBlueprintHelperLibrary::UAIBlueprintHelperLibrary(const FObjectInitializer& O
 
 UAIAsyncTaskBlueprintProxy* UAIBlueprintHelperLibrary::CreateMoveToProxyObject(UObject* WorldContextObject, APawn* Pawn, FVector Destination, AActor* TargetActor, float AcceptanceRadius, bool bStopOnOverlap)
 {
-	check(WorldContextObject);
+	if (WorldContextObject == nullptr)
+	{
+		if (Pawn != nullptr)
+		{
+			WorldContextObject = Pawn;
+		}
+		else
+		{
+			UE_LOG(LogAIBlueprint, Warning, TEXT("Empty (None) world context as well as Pawn passed in while trying to create a MoveTo proxy"));
+			return nullptr;
+		}
+	}
+
+	if (Pawn == nullptr)
+	{
+		// maybe we can extract the pawn from the world context
+		AAIController* AsController = Cast<AAIController>(WorldContextObject);
+		if (AsController)
+		{
+			Pawn = AsController->GetPawn();
+		}
+	}
+
 	if (!Pawn)
 	{
 		return NULL;
 	}
+
 	UAIAsyncTaskBlueprintProxy* MyObj = NULL;
 	AAIController* AIController = Cast<AAIController>(Pawn->GetController());
 	if (AIController)
 	{
-		UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
+		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
 		MyObj = NewObject<UAIAsyncTaskBlueprintProxy>(World);
 
 		FAIMoveRequest MoveReq;
@@ -115,6 +146,7 @@ UAIAsyncTaskBlueprintProxy* UAIBlueprintHelperLibrary::CreateMoveToProxyObject(U
 		{
 			MoveReq.SetGoalLocation(Destination);
 		}
+		MoveReq.SetNavigationFilter(AIController->GetDefaultNavigationFilterClass());
 		
 		FPathFollowingRequestResult ResultData = AIController->MoveTo(MoveReq);
 		switch (ResultData.Code)

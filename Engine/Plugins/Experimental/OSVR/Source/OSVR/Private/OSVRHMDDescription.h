@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "OSVRPrivate.h"
 #include "IHeadMountedDisplay.h"
 
 #include <osvr/ClientKit/DisplayC.h>

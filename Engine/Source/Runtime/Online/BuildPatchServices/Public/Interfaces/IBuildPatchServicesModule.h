@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IBuildInstaller.h"
-#include "IBuildManifest.h"
+#include "CoreMinimal.h"
+#include "Interfaces/IBuildInstaller.h"
+#include "Modules/ModuleInterface.h"
 #include "BuildPatchSettings.h"
 
-class IAnalyticsProvider;
 class FHttpServiceTracker;
+class IAnalyticsProvider;
 
 /**
  * Delegates that will be accepted and fired of by the implementation
@@ -62,6 +63,8 @@ public:
 
 	/**
 	 * Starts an installer thread for the provided manifests
+	 * NB: THIS FUNCTION WILL EVENTUALLY BE DEPRECATED.
+	 *     Use StartBuildInstall(const BuildPatchServices::FInstallerConfiguration& Configuration);
 	 * @param	CurrentManifest			The manifest that the current install was generated from (if applicable)
 	 * @param	InstallManifest			The manifest to be installed
 	 * @param	InstallDirectory		The directory to install the App to
@@ -75,6 +78,8 @@ public:
 	/**
 	 * Starts an installer thread for the provided manifests, only producing the necessary stage. Useful for handling specific install directory write access requirements yourself.
 	 * The staged files will be in the provided staging directory as StagingDirectory/Install/
+	 * NB: THIS FUNCTION WILL EVENTUALLY BE DEPRECATED.
+	 *     Use StartBuildInstall(const BuildPatchServices::FInstallerConfiguration& Configuration);
 	 * @param	CurrentManifest			The manifest that the current install was generated from (if applicable)
 	 * @param	InstallManifest			The manifest to be installed
 	 * @param	InstallDirectory		The directory to install the App to - this should still be the real install directory. It may be read from for patching.
@@ -84,6 +89,14 @@ public:
 	 * @return		An interface to the created installer. Will be an invalid ptr if error.
 	 */
 	virtual IBuildInstallerPtr StartBuildInstallStageOnly(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, bool bIsRepair = false, TSet<FString> InstallTags = TSet<FString>()) = 0;
+
+	/**
+	 * Starts an installer thread for the provided manifests
+	 * @param   Configuration           The full configuration for the installer.
+	 * @param   OnCompleteDelegate      The delegate to call on completion.
+	 * @return  An interface to the created installer.
+	 */
+	virtual IBuildInstallerRef StartBuildInstall(BuildPatchServices::FInstallerConfiguration Configuration, FBuildPatchBoolManifestDelegate OnCompleteDelegate) = 0;
 
 	/**
 	 * Sets the directory used for staging intermediate files.
@@ -139,19 +152,20 @@ public:
 	/**
 	 * Processes a Build Image to determine new chunks and produce a chunk based manifest, all saved to the cloud.
 	 * NOTE: This function is blocking and will not return until finished. Don't run on main thread.
-	 * @param Settings				Specifies the settings for the operation.  See FBuildPatchSettings documentation.
+	 * @param Configuration			Specifies the settings for the operation.  See BuildPatchServices::FGenerationConfiguration comments.
 	 * @return		true if no file errors occurred
 	 */
-	virtual bool GenerateChunksManifestFromDirectory( const FBuildPatchSettings& Settings ) = 0;
+	virtual bool GenerateChunksManifestFromDirectory(const BuildPatchServices::FGenerationConfiguration& Configuration) = 0;
 
 	/**
 	 * Processes a Cloud Directory to identify and delete any orphaned chunks or files.
 	 * NOTE: THIS function is blocking and will not return until finished. Don't run on main thread.
 	 * @param DataAgeThreshold     Chunks which are not referenced by a valid manifest, and which are older than this age (in days), will be deleted
 	 * @param Mode                 The mode that compactify will run in. If Preview, then no work will be carried out, if NoPatchData, then no patch-data will be deleted
+	 * @param DeletedChunkLogFile  The full path to a file to which a list of all chunk files deleted by compactify will be written. The output filenames will be relative to the cloud directory
 	 * @return                     true if no file errors occurred
 	 */
-	virtual bool CompactifyCloudDirectory(float DataAgeThreshold, ECompactifyMode::Type Mode) = 0;
+	virtual bool CompactifyCloudDirectory(float DataAgeThreshold, ECompactifyMode::Type Mode, const FString& DeletedChunkLogFile) = 0;
 
 	/**
 	 * Saves to file, and logs, a full list of cloud dir relative referenced data file paths
@@ -175,6 +189,15 @@ public:
 	 * @return  true if successful
 	 */
 	virtual bool MergeManifests(const FString& ManifestFilePathA, const FString& ManifestFilePathB, const FString& ManifestFilePathC, const FString& NewVersionString, const FString& SelectionDetailFilePath) = 0;
+
+	/**
+	 * Takes two manifests as input and outputs the details of the patch.
+	 * @param   ManifestFilePathA          A full file path for the manifest to be used as the source.
+	 * @param   ManifestFilePathB          A full file path for the manifest to be used as the target.
+	 * @param   OutputFilePath             A full file path where a JSON object will be saved for the diff details. Empty string if not desired.
+	 * @return  true if successful
+	 */
+	virtual bool DiffManifests(const FString& ManifestFilePathA, const FString& ManifestFilePathB, const FString& OutputFilePath) = 0;
 
 	/**
 	 * Deprecated function, use MakeManifestFromData instead

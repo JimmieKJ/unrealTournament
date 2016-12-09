@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
 /**
  * Interface for the Level Sequence Editor module.

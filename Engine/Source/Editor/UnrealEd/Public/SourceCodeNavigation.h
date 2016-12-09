@@ -5,7 +5,11 @@
 #define __SourceCodeNavigation_h__
 
 #pragma once
-#include "IHttpRequest.h"
+
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+
+class AActor;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSelectionDetails, Log, All);
 

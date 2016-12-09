@@ -1,14 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Net;
-using System.Text;
-using Amazon.Runtime;
-using Amazon.S3;
 using Amazon.S3.Model;
-using Amazon.SQS;
 using Amazon.SQS.Model;
 using Tools.CrashReporter.CrashReportCommon;
 
@@ -27,32 +21,9 @@ namespace Tools.CrashReporter.CrashReportProcess
 		/// <summary>
 		/// Constructor taking the landing zone
 		/// </summary>
-		public DataRouterReportQueue(string InQueueName, string InLandingZoneTempPath)
-			: base(InQueueName, InLandingZoneTempPath)
+		public DataRouterReportQueue(string InQueueName, string InLandingZoneTempPath, int InDecimateWaitingCountStart, int InDecimateWaitingCountEnd)
+			: base(InQueueName, InLandingZoneTempPath, InDecimateWaitingCountStart, InDecimateWaitingCountEnd)
 		{
-			AWSCredentials Credentials = new StoredProfileAWSCredentials(Config.Default.AWSProfileName, Config.Default.AWSCredentialsFilepath);
-
-			AmazonSQSConfig SqsConfig = new AmazonSQSConfig
-			{
-				ServiceURL = Config.Default.AWSSQSServiceURL
-			};
-
-			SqsClient = new AmazonSQSClient(Credentials, SqsConfig);
-
-			AmazonS3Config S3Config = new AmazonS3Config
-			{
-				ServiceURL = Config.Default.AWSS3ServiceURL
-			};
-
-			S3Client = new AmazonS3Client(Credentials, S3Config);
-		}
-
-		public override void Dispose()
-		{
-			SqsClient.Dispose();
-			S3Client.Dispose();
-
-			base.Dispose();
 		}
 
 		protected override int GetTotalWaitingCount()
@@ -105,15 +76,9 @@ namespace Tools.CrashReporter.CrashReportProcess
 					string S3Key = RecordPair[1];
 					string ReadableRequestString = "Bucket=" + S3BucketName + " Key=" + S3Key;
 
-					var ObjectRequest = new GetObjectRequest
-					{
-						BucketName = S3BucketName,
-						Key = S3Key
-					};
-
 					using (Stream ProtocolBufferStream = new MemoryStream())
 					{
-						using (GetObjectResponse ObjectResponse = S3Client.GetObject(ObjectRequest))
+						using (GetObjectResponse ObjectResponse = CrashReporterProcessServicer.DataRouterAWS.GetS3Object(S3BucketName, S3Key))
 						{
 							using (Stream ResponseStream = ObjectResponse.ResponseStream)
 							{
@@ -129,11 +94,11 @@ namespace Tools.CrashReporter.CrashReportProcess
 						NewCrashCount += UnpackRecordsFromDelimitedProtocolBuffers(ProtocolBufferStream, LandingZone, ReadableRequestString);
 					}
 				}
-				catch (Exception ex)
+				catch (Exception Ex)
 				{
 					CrashReporterProcessServicer.StatusReporter.IncrementCount(StatusReportingEventNames.ReadS3FileFailedEvent);
 					CrashReporterProcessServicer.WriteException("TryGetNewS3Crashes: failure during processing SQS record " + SQSRecord +
-					                                            "\n" + ex);
+					                                            "\n" + Ex, Ex);
 				}
 			}
 		}
@@ -219,7 +184,7 @@ namespace Tools.CrashReporter.CrashReportProcess
 					// Early check for duplicate processed report
 					lock (ReportIndexLock)
 					{
-						if (ReportIndex.ContainsReport(CrashFolderName))
+						if (CrashReporterProcessServicer.ReportIndex.ContainsReport(CrashFolderName))
 						{
 							// Crash report not accepted by index
 							CrashReporterProcessServicer.WriteEvent(string.Format(
@@ -271,7 +236,7 @@ namespace Tools.CrashReporter.CrashReportProcess
 					// Early check for duplicate processed report
 					lock (ReportIndexLock)
 					{
-						if (ReportIndex.ContainsReport(CrashFolderName))
+						if (CrashReporterProcessServicer.ReportIndex.ContainsReport(CrashFolderName))
 						{
 							// Crash report not accepted by index
 							CrashReporterProcessServicer.WriteEvent(string.Format(
@@ -335,21 +300,11 @@ namespace Tools.CrashReporter.CrashReportProcess
 		{
 			try
 			{
-				var AttribRequest = new GetQueueAttributesRequest
-				{
-					QueueUrl = Config.Default.AWSSQSQueueUrl,
-					AttributeNames = new List<string>
-					{
-						"ApproximateNumberOfMessages"
-					}
-				};
-
-				var AttribResponse = SqsClient.GetQueueAttributes(AttribRequest);
-				return AttribResponse.ApproximateNumberOfMessages;
+				return CrashReporterProcessServicer.DataRouterAWS.GetSQSQueueCount(Config.Default.AWSSQSQueueInputUrl);
 			}
 			catch (Exception Ex)
 			{
-				CrashReporterProcessServicer.WriteException("GetSQSCount: " + Ex.ToString());
+				CrashReporterProcessServicer.WriteException("GetSQSCount: " + Ex, Ex);
 			}
 			return 0;
 		}
@@ -360,56 +315,25 @@ namespace Tools.CrashReporter.CrashReportProcess
 
 			try
 			{
-				var ReceiveRequest = new ReceiveMessageRequest
+#if DEBUG
+				bool bNoDeleteFromSQS = true;
+#else
+				bool bNoDeleteFromSQS = false;
+#endif
+
+				Message DequeuedMessage = CrashReporterProcessServicer.DataRouterAWS.SQSDequeueMessage(Config.Default.AWSSQSQueueInputUrl, bNoDeleteFromSQS);
+				if (DequeuedMessage != null)
 				{
-					QueueUrl = Config.Default.AWSSQSQueueUrl,
-					MaxNumberOfMessages = 1
-				};
-
-				var ReceiveResponse = SqsClient.ReceiveMessage(ReceiveRequest);
-
-				if (ReceiveResponse.Messages.Count == 1)
-				{
-					var Message = ReceiveResponse.Messages[0];
-
-					if (Message != null && TryDeleteRecordSQS(Message))
-					{
-						OutRecordString = Message.Body;
-						return true;
-					}
+					OutRecordString = DequeuedMessage.Body;
+					return true;
 				}
 			}
 			catch (Exception Ex)
 			{
-				CrashReporterProcessServicer.WriteException("DequeueRecordSQS: " + Ex.ToString());
+				CrashReporterProcessServicer.WriteException("DequeueRecordSQS: " + Ex, Ex);
 			}
 			return false;
 		}
-
-		private bool TryDeleteRecordSQS(Message InMessage)
-		{
-#if DEBUG
-			// Debug doesn't empty the queue - it's just reads records
-			return true;
-#else
-			try
-			{
-				var DeleteRequest = new DeleteMessageRequest
-				{
-					QueueUrl = Config.Default.AWSSQSQueueUrl,
-					ReceiptHandle = InMessage.ReceiptHandle
-				};
-
-				var DeleteResponse = SqsClient.DeleteMessage(DeleteRequest);
-				return DeleteResponse.HttpStatusCode == HttpStatusCode.OK;
-			}
-			catch (Exception Ex)
-			{
-				CrashReporterProcessServicer.WriteException("TryDeleteRecordSQS: " + Ex.ToString());
-			}
-			return false;
-#endif
-        }
 
         private class CrashHeader
 		{
@@ -430,8 +354,5 @@ namespace Tools.CrashReporter.CrashReportProcess
 				return OutCrashHeader;
 			}
 		}
-
-		private readonly AmazonSQSClient SqsClient;
-		private readonly AmazonS3Client S3Client;
 	}
 }

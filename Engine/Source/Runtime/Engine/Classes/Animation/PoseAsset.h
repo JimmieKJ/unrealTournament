@@ -7,8 +7,15 @@
  *
  */
 
-#include "AnimationAsset.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/SmartName.h"
+#include "Animation/AnimationAsset.h"
+#include "Animation/AnimCurveTypes.h"
 #include "PoseAsset.generated.h"
+
+class UAnimSequence;
+class USkeletalMeshComponent;
 
 /** 
  * Pose data 
@@ -186,19 +193,19 @@ public:
 
 #if WITH_EDITOR
 	ENGINE_API void AddOrUpdatePose(const FSmartName& PoseName, USkeletalMeshComponent* MeshComponent);
-	ENGINE_API void AddOrUpdatePoseWithUniqueName(USkeletalMeshComponent* MeshComponent);
-	ENGINE_API void AddOrUpdatePose(const FSmartName& PoseName, TArray<FName> TrackNames, TArray<FTransform>& LocalTransform);
+	ENGINE_API bool AddOrUpdatePoseWithUniqueName(USkeletalMeshComponent* MeshComponent, FSmartName* OutPoseName = nullptr);
+	ENGINE_API void AddOrUpdatePose(const FSmartName& PoseName, const TArray<FName>& TrackNames, const TArray<FTransform>& LocalTransform, const TArray<float>& CurveValues);
 
 	ENGINE_API void CreatePoseFromAnimation(class UAnimSequence* AnimSequence, const TArray<FSmartName>* InPoseNames = nullptr);
 	ENGINE_API void UpdatePoseFromAnimation(class UAnimSequence* AnimSequence);
 
 	// Begin AnimationAsset interface
-	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) override;
+	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets, bool bRecursive = true) override;
 	virtual void ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap) override;
 	// End AnimationAsset interface
 #endif
 
-	ENGINE_API bool ModifyPoseName(FName OldPoseName, FName NewPoseName, const FSmartNameMapping::UID* NewUID);
+	ENGINE_API bool ModifyPoseName(FName OldPoseName, FName NewPoseName, const SmartName::UID_Type* NewUID);
 
 	ENGINE_API int32 DeletePoses(TArray<FName> PoseNamesToDelete);
 	ENGINE_API int32 DeleteCurves(TArray<FName> CurveNamesToDelete);
@@ -231,17 +238,6 @@ public:
 #if WITH_EDITOR
 protected:
 	virtual void RemapTracksToNewSkeleton(USkeleton* NewSkeleton, bool bConvertSpaces) override;
-
-private:
-	DECLARE_MULTICAST_DELEGATE(FOnPoseAssetModifiedMulticaster);
-	FOnPoseAssetModifiedMulticaster OnAssetModifiedNotifier;
-
-public:
-	typedef FOnPoseAssetModifiedMulticaster::FDelegate FAssetModifiedNotifier;
-
-	/** Registers a delegate to be called after asset has changed*/
-	ENGINE_API void RegisterOnAssetModifiedNotifier(const FAssetModifiedNotifier& Delegate);
-	ENGINE_API void UnregisterOnAssetModifiedNotifier(void* Unregister);
 #endif // WITH_EDITOR	
 
 private:

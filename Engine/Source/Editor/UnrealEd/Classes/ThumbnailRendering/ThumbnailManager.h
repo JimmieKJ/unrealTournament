@@ -8,7 +8,15 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "ThumbnailRendering/ThumbnailRenderer.h"
 #include "ThumbnailManager.generated.h"
+
+class FViewport;
 
 /**
  * Types of primitives for drawing thumbnails of resources.

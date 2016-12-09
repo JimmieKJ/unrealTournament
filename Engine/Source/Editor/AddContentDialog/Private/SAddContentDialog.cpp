@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AddContentDialogPCH.h"
+#include "SAddContentDialog.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EditorStyleSet.h"
+#include "SAddContentWidget.h"
 
 #define LOCTEXT_NAMESPACE "AddContentDialog"
 

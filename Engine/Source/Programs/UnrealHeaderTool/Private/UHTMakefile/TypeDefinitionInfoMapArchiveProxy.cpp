@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+#include "TypeDefinitionInfoMapArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/TypeDefinitionInfoMapArchiveProxy.h"
+#include "UHTMakefile.h"
 #include "ClassMaps.h"
 
 

@@ -1,22 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MaterialEditorModule.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+#include "Materials/Material.h"
+#include "MaterialGraph/MaterialGraph.h"
+#include "Engine/Texture.h"
+#include "AssetData.h"
+#include "Toolkits/AssetEditorManager.h"
 
 //Automation
 #include "Tests/AutomationTestSettings.h"
-#include "AutomationEditorCommon.h"
-#include "AutomationEditorPromotionCommon.h"
+#include "Tests/AutomationEditorCommon.h"
+#include "Tests/AutomationEditorPromotionCommon.h"
 
 //Assets
-#include "AssetSelection.h"
 
 //Materials
-#include "AssetEditorManager.h"
-#include "AssetEditorToolkit.h"
-#include "IMaterialEditor.h"
-#include "Private/MaterialEditor.h"
+#include "MaterialEditor.h"
 #include "Materials/MaterialExpressionTextureSample.h"
-#include "Materials/MaterialExpressionConstant3Vector.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

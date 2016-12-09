@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "GenericApplication.h"
-#include "GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "HAL/IConsoleManager.h"
 
 const FGamepadKeyNames::Type FGamepadKeyNames::Invalid(NAME_None);
 

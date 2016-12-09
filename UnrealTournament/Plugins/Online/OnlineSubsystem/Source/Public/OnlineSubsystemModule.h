@@ -56,6 +56,11 @@ private:
 	void LoadDefaultSubsystem();
 
 	/**
+	 *	Called before ShutdownOnlineSubsystem, before other modules have been unloaded
+	 */
+	virtual void PreUnloadOnlineSubsystem();
+
+	/**
 	 *	Shuts down all registered online subsystem platforms and unloads their modules
 	 */
 	virtual void ShutdownOnlineSubsystem();
@@ -132,6 +137,12 @@ public:
 	 * Overloaded to allow the default subsystem a chance to load
 	 */
 	virtual void StartupModule() override;
+
+	/**
+	 * Called before the module has been unloaded
+	 * Overloaded to allow online subsystems to cancel any outstanding http requests
+	 */
+	virtual void PreUnloadCallback() override;
 
 	/**
 	 * Called before the module is unloaded, right before the module object is destroyed.

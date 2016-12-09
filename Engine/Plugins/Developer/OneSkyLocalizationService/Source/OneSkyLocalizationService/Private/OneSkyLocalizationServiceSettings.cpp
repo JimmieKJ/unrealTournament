@@ -1,14 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OneSkyLocalizationServicePrivatePCH.h"
 #include "OneSkyLocalizationServiceSettings.h"
-#include "Developer/LocalizationService/Public/LocalizationServiceHelpers.h"
-#include "OneSkyLocalizationServiceModule.h"
-#include "OneSkyLocalizationServiceProvider.h"
-#include "JsonObject.h"
-#include "JsonReader.h"
-#include "JsonValue.h"
-#include "TextLocalizationManager.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Serialization/JsonTypes.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "ILocalizationServiceModule.h"
+#include "LocalizationServiceHelpers.h"
 //#include "JsonInternationalizationManifestSerializer.h"
 
 

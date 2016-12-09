@@ -2,10 +2,28 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Misc/Guid.h"
+#include "IProfilerClient.h"
+#include "IMessageContext.h"
+#include "Containers/Ticker.h"
+#include "IProfilerServiceManager.h"
+#include "IMessageBus.h"
+#include "Helpers/MessageEndpoint.h"
+#include "Stats/StatsFile.h"
+
 class FNewStatsReader;
 class FProfilerClientManager;
+struct FProfilerServiceAuthorize;
+struct FProfilerServiceData2;
+struct FProfilerServiceFileChunk;
+struct FProfilerServicePing;
+struct FProfilerServicePreviewAck;
 
-/** Helper struct containing all of the data and operations associated with a service connection */
+/**
+ * Helper struct containing all of the data and operations associated with a service connection.
+ */
 struct FServiceConnection
 {
 	FServiceConnection();
@@ -27,7 +45,7 @@ struct FServiceConnection
 	FProfilerDataFrame CurrentData;
 
 	/** Initialize the connection from the given authorization message and context */
-	void Initialize( const FProfilerServiceAuthorize& Message, const IMessageContextRef& Context );
+	void Initialize(const FProfilerServiceAuthorize& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
 #if STATS
 	/** Current stats data */
@@ -65,7 +83,7 @@ struct FServiceConnection
 	void GenerateAccumulators(TArray<FStatMessage>& Stats, TArray<FProfilerCountAccumulator>& CountAccumulators, TArray<FProfilerFloatAccumulator>& FloatAccumulators);
 
 	// adds a new style stat FName to the list of stats and generates an old style id and description
-	int32 FindOrAddStat( const FStatNameAndInfo& StatNameAndInfo, uint32 StatType );
+	int32 FindOrAddStat(const FStatNameAndInfo& StatNameAndInfo, uint32 StatType);
 
 	// adds a new style stat FName to the list of threads and generates an old style id and description
 	int32 FindOrAddThread(const FStatNameAndInfo& Thread);
@@ -78,10 +96,11 @@ struct FServiceConnection
 		Transition into new system
 	-----------------------------------------------------------------------------*/
 
-	void LoadCapture( const FString& DataFilepath, FProfilerClientManager* ProfilerClientManager );
+	void LoadCapture(const FString& DataFilepath, FProfilerClientManager* ProfilerClientManager);
 
 	FNewStatsReader* StatsReader;
 };
+
 
 /**
  * Implements the ProfileClient manager.
@@ -98,97 +117,61 @@ public:
 	 *
 	 * @param InMessageBus The message bus to use.
 	 */
-	FProfilerClientManager( const IMessageBusRef& InMessageBus );
+	FProfilerClientManager(const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InMessageBus);
 
 	/** Default destructor */
 	~FProfilerClientManager();
 
 public:
 
-	// IProfilerClient Interface
+	//~ IProfilerClient Interface
 
-	virtual void Subscribe( const FGuid& Session ) override;
-	virtual void Track( const FGuid& Instance ) override;
-	virtual void Untrack( const FGuid& Instance ) override;
+	virtual void Subscribe(const FGuid& Session) override;
+	virtual void Track(const FGuid& Instance) override;
+	virtual void Untrack(const FGuid& Instance) override;
 	virtual void Unsubscribe() override;
-	virtual void SetCaptureState( const bool bRequestedCaptureState, const FGuid& InstanceId = FGuid() ) override;
-	virtual void SetPreviewState( const bool bRequestedPreviewState, const FGuid& InstanceId = FGuid() ) override;
-	virtual void LoadCapture( const FString& DataFilepath, const FGuid& ProfileId ) override;
-	virtual void RequestLastCapturedFile( const FGuid& InstanceId = FGuid() ) override;
-
-	virtual const FStatMetaData& GetStatMetaData( const FGuid& InstanceId ) const override
-	{
-		return Connections.Find(InstanceId)->StatMetaData;
-	}
-
-	virtual FProfilerClientDataDelegate& OnProfilerData() override
-	{
-		return ProfilerDataDelegate;
-	}
-
-	virtual FProfilerFileTransferDelegate& OnProfilerFileTransfer() override
-	{
-		return ProfilerFileTransferDelegate;
-	}
-
-	virtual FProfilerClientConnectedDelegate& OnProfilerClientConnected() override
-	{
-		return ProfilerClientConnectedDelegate;
-	}
-
-	virtual FProfilerClientDisconnectedDelegate& OnProfilerClientDisconnected() override
-	{
-		return ProfilerClientDisconnectedDelegate;
-	}
-
-	virtual FProfilerMetaDataUpdateDelegate& OnMetaDataUpdated() override
-	{
-		return ProfilerMetaDataUpdatedDelegate;
-	}
-
-	virtual FProfilerLoadStartedDelegate& OnLoadStarted() override
-	{
-		return ProfilerLoadStartedDelegate;
-	}
-
-	virtual FProfilerLoadCompletedDelegate& OnLoadCompleted() override
-	{
-		return ProfilerLoadCompletedDelegate;
-	}
-
-	virtual FProfilerLoadCancelledDelegate& OnLoadCancelled() override
-	{
-		return ProfilerLoadCancelledDelegate;
-	}
+	virtual void SetCaptureState(const bool bRequestedCaptureState, const FGuid& InstanceId = FGuid()) override;
+	virtual void SetPreviewState(const bool bRequestedPreviewState, const FGuid& InstanceId = FGuid()) override;
+	virtual void LoadCapture(const FString& DataFilepath, const FGuid& ProfileId) override;
+	virtual void RequestLastCapturedFile(const FGuid& InstanceId = FGuid()) override;
+	virtual const FStatMetaData& GetStatMetaData(const FGuid& InstanceId) const override;
+	virtual FProfilerClientDataDelegate& OnProfilerData() override;
+	virtual FProfilerFileTransferDelegate& OnProfilerFileTransfer() override;
+	virtual FProfilerClientConnectedDelegate& OnProfilerClientConnected() override;
+	virtual FProfilerClientDisconnectedDelegate& OnProfilerClientDisconnected() override;
+	virtual FProfilerMetaDataUpdateDelegate& OnMetaDataUpdated() override;
+	virtual FProfilerLoadStartedDelegate& OnLoadStarted() override;
+	virtual FProfilerLoadCompletedDelegate& OnLoadCompleted() override;
+	virtual FProfilerLoadCancelledDelegate& OnLoadCancelled() override;
 
 private:
 
-	// Handles message bus shutdowns.
+	/** Handles message bus shutdowns. */
 	void HandleMessageBusShutdown();
 
-	// Handles FProfilerServiceAuthorize2 messages.
-	void HandleServiceAuthorizeMessage( const FProfilerServiceAuthorize& Message, const IMessageContextRef& Context );
+	/** Handles FProfilerServiceAuthorize2 messages. */
+	void HandleServiceAuthorizeMessage(const FProfilerServiceAuthorize& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	// Handles FProfilerServiceFileChunk messages.
-	void HandleServiceFileChunk( const FProfilerServiceFileChunk& FileChunk, const IMessageContextRef& Context );
+	/** Handles FProfilerServiceFileChunk messages. */
+	void HandleServiceFileChunk(const FProfilerServiceFileChunk& FileChunk, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	// Handles FProfilerServicePing messages.
-	void HandleServicePingMessage( const FProfilerServicePing& Message, const IMessageContextRef& Context );
+	/** Handles FProfilerServicePing messages. */
+	void HandleServicePingMessage(const FProfilerServicePing& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	// Handles ticker callbacks (used to retry connection with a profiler service).
-	bool HandleTicker( float DeltaTime );
+	/** Handles ticker callbacks (used to retry connection with a profiler service). */
+	bool HandleTicker(float DeltaTime);
 
-	// Handles FProfilerServiceData2 messages.
-	void HandleProfilerServiceData2Message( const FProfilerServiceData2& Message, const IMessageContextRef& Context );
+	/** Handles FProfilerServiceData2 messages. */
+	void HandleProfilerServiceData2Message(const FProfilerServiceData2& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	// Handles FProfilerServicePreviewAck messages
-	void HandleServicePreviewAckMessage( const FProfilerServicePreviewAck& Messsage, const IMessageContextRef& Context );
+	/** Handles FProfilerServicePreviewAck messages. */
+	void HandleServicePreviewAckMessage(const FProfilerServicePreviewAck& Messsage, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	// Handles ticker callbacks for sending out the received messages to subscribed clients
-	bool HandleMessagesTicker( float DeltaTime );
+	/** Handles ticker callbacks for sending out the received messages to subscribed clients. */
+	bool HandleMessagesTicker(float DeltaTime);
 
 	/** If hash is ok, writes the data to the archive and returns true, otherwise only returns false. */
-	bool CheckHashAndWrite( const FProfilerServiceFileChunk& FileChunk, const FProfilerFileChunkHeader& FileChunkHeader, FArchive* Writer );
+	bool CheckHashAndWrite(const FProfilerServiceFileChunk& FileChunk, const FProfilerFileChunkHeader& FileChunkHeader, FArchive* Writer);
 
 	/** Broadcast that loading has completed and cleans internal structures. */
 	void FinalizeLoading(const FGuid InstanceId);
@@ -197,13 +180,13 @@ private:
 	void CancelLoading(const FGuid InstanceId);
 
 	/** Decompress all stats data and send to the game thread. */
-	void DecompressDataAndSendToGame( FProfilerServiceData2* ToProcess );
+	void DecompressDataAndSendToGame(FProfilerServiceData2* ToProcess);
 
 	/** Sends decompressed data to the game thread. */
-	void SendDataToGame( TArray<uint8>* DataToGame, int64 Frame, const FGuid InstanceId );
+	void SendDataToGame(TArray<uint8>* DataToGame, int64 Frame, const FGuid InstanceId);
 
 	/** A new profiler data frame from the async loading thread. */
-	void SendProfilerDataFrameToGame( FProfilerDataFrame* NewData, FStatMetaData* MetaDataPtr, const FGuid InstanceId);
+	void SendProfilerDataFrameToGame(FProfilerDataFrame* NewData, FStatMetaData* MetaDataPtr, const FGuid InstanceId);
 
 	/** Removes active transfers and core tickers. */
 	void Shutdown();
@@ -223,11 +206,11 @@ private:
 
 	struct FReceivedFileInfo
 	{
-		FReceivedFileInfo( FArchive* InFileWriter, const int64 InProgress, const FString& InDestFilepath)
-			: FileWriter( InFileWriter )
-			, Progress( InProgress )
-			, DestFilepath( InDestFilepath )
-			, LastReceivedChunkTime( FPlatformTime::Seconds() )
+		FReceivedFileInfo(FArchive* InFileWriter, const int64 InProgress, const FString& InDestFilepath)
+			: FileWriter(InFileWriter)
+			, Progress(InProgress)
+			, DestFilepath(InDestFilepath)
+			, LastReceivedChunkTime(FPlatformTime::Seconds())
 		{}
 
 		bool IsTimedOut() const
@@ -257,7 +240,7 @@ private:
 	FMessageEndpointPtr MessageEndpoint;
 
 	/** Holds a pointer to the message bus. */
-	IMessageBusPtr MessageBus;
+	TSharedPtr<IMessageBus, ESPMode::ThreadSafe> MessageBus;
 
 	/** Delegate for notifying clients of received data */
 	FProfilerClientDataDelegate ProfilerDataDelegate;
@@ -303,7 +286,6 @@ private:
 
 	/** Handle to the registered OnShutdown for Message Bus. */
 	FDelegateHandle OnShutdownMessageBusDelegateHandle;
-
 
 	/** Holds the last time a ping was made to instances */
 	FDateTime LastPingTime;

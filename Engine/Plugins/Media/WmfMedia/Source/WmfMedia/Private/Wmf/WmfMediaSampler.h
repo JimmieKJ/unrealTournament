@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "AllowWindowsPlatformTypes.h"
+#include "../WmfMediaPrivate.h"
 
+#if WMFMEDIA_SUPPORTED_PLATFORM
+
+#include "AllowWindowsPlatformTypes.h"
 
 /**
  * Clock sink events.
@@ -154,3 +157,5 @@ private:
 
 
 #include "HideWindowsPlatformTypes.h"
+
+#endif

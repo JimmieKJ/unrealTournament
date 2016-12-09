@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "EdGraph/EdGraphNode_Documentation.h"
 
 #if WITH_EDITOR
-#include "SlateBasics.h"
-#include "Editor/UnrealEd/Public/Kismet2/Kismet2NameValidators.h"
+#include "Layout/SlateRect.h"
+#include "Kismet2/Kismet2NameValidators.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "EdGraph"

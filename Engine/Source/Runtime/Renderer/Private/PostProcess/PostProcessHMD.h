@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RendererInterface.h"
 #include "RenderingCompositionGraph.h"
 
 /** The vertex data used to filter a texture. */

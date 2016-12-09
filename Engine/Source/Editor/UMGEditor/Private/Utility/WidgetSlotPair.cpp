@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "WidgetSlotPair.h"
+#include "Utility/WidgetSlotPair.h"
+#include "Components/PanelSlot.h"
 #include "WidgetBlueprintEditorUtils.h"
 
 UWidgetSlotPair::UWidgetSlotPair()

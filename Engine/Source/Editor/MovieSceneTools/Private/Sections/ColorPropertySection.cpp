@@ -1,27 +1,40 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "MovieSceneColorTrack.h"
-#include "MovieSceneColorSection.h"
-#include "ColorPropertySection.h"
-#include "CommonMovieSceneTools.h"
-#include "MovieSceneSequence.h"
+#include "Sections/ColorPropertySection.h"
+#include "Rendering/DrawElements.h"
+#include "Sections/MovieSceneColorSection.h"
+#include "SequencerSectionPainter.h"
 #include "FloatCurveKeyArea.h"
+#include "ISectionLayoutBuilder.h"
+#include "EditorStyleSet.h"
+#include "CommonMovieSceneTools.h"
 
+const FName SlateColorName("SlateColor");
 
 void FColorPropertySection::GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const
 {
 	UMovieSceneColorSection* ColorSection = Cast<UMovieSceneColorSection>( &SectionObject );
 
-	RedKeyArea = MakeShareable( new FFloatCurveKeyArea( &ColorSection->GetRedCurve(), ColorSection ) ) ;
-	GreenKeyArea = MakeShareable( new FFloatCurveKeyArea( &ColorSection->GetGreenCurve(), ColorSection ) ) ;
-	BlueKeyArea = MakeShareable( new FFloatCurveKeyArea( &ColorSection->GetBlueCurve(), ColorSection ) ) ;
-	AlphaKeyArea = MakeShareable( new FFloatCurveKeyArea( &ColorSection->GetAlphaCurve(), ColorSection ) );
+	TAttribute<TOptional<float>> RedExternalValue = TAttribute<TOptional<float>>::Create(
+		TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FColorPropertySection::GetColorRedValue));
+	TSharedRef<FFloatCurveKeyArea> RedKeyArea = MakeShareable( new FFloatCurveKeyArea( &ColorSection->GetRedCurve(), RedExternalValue, ColorSection ) ) ;
 
-	LayoutBuilder.AddKeyArea( "R", NSLOCTEXT( "FColorPropertySection", "RedArea", "Red" ), RedKeyArea.ToSharedRef() );
-	LayoutBuilder.AddKeyArea( "G", NSLOCTEXT( "FColorPropertySection", "GreenArea", "Green" ), GreenKeyArea.ToSharedRef() );
-	LayoutBuilder.AddKeyArea( "B", NSLOCTEXT( "FColorPropertySection", "BlueArea", "Blue" ), BlueKeyArea.ToSharedRef() );
-	LayoutBuilder.AddKeyArea( "A", NSLOCTEXT( "FColorPropertySection", "OpacityArea", "Opacity" ), AlphaKeyArea.ToSharedRef() );
+	TAttribute<TOptional<float>> GreenExternalValue = TAttribute<TOptional<float>>::Create(
+		TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FColorPropertySection::GetColorGreenValue));
+	TSharedRef<FFloatCurveKeyArea> GreenKeyArea = MakeShareable( new FFloatCurveKeyArea( &ColorSection->GetGreenCurve(), GreenExternalValue, ColorSection ) ) ;
+	
+	TAttribute<TOptional<float>> BlueExternalValue = TAttribute<TOptional<float>>::Create(
+		TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FColorPropertySection::GetColorBlueValue));
+	TSharedRef<FFloatCurveKeyArea> BlueKeyArea = MakeShareable( new FFloatCurveKeyArea( &ColorSection->GetBlueCurve(), BlueExternalValue, ColorSection ) ) ;
+	
+	TAttribute<TOptional<float>> AlphaExternalValue = TAttribute<TOptional<float>>::Create(
+		TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FColorPropertySection::GetColorAlphaValue));
+	TSharedRef<FFloatCurveKeyArea> AlphaKeyArea = MakeShareable( new FFloatCurveKeyArea( &ColorSection->GetAlphaCurve(), AlphaExternalValue, ColorSection ) );
+
+	LayoutBuilder.AddKeyArea( "R", NSLOCTEXT( "FColorPropertySection", "RedArea", "Red" ), RedKeyArea );
+	LayoutBuilder.AddKeyArea( "G", NSLOCTEXT( "FColorPropertySection", "GreenArea", "Green" ), GreenKeyArea );
+	LayoutBuilder.AddKeyArea( "B", NSLOCTEXT( "FColorPropertySection", "BlueArea", "Blue" ), BlueKeyArea );
+	LayoutBuilder.AddKeyArea( "A", NSLOCTEXT( "FColorPropertySection", "OpacityArea", "Opacity" ), AlphaKeyArea );
 }
 
 
@@ -95,9 +108,18 @@ int32 FColorPropertySection::OnPaintSection( FSequencerSectionPainter& Painter )
 
 void FColorPropertySection::ConsolidateColorCurves( TArray< TKeyValuePair<float, FLinearColor> >& OutColorKeys, const UMovieSceneColorSection* Section ) const
 {
-	// Get the default color of the first instance
-	static const FName SlateColorName("SlateColor");
-	FLinearColor DefaultColor = FindSlateColor(SlateColorName);
+	// Get the default color from the current property value, or use black if the current property
+	// value can't be found.
+	FLinearColor DefaultColor;
+	TOptional<FLinearColor> CurrentPropertyValue = GetPropertyValueAsLinearColor();
+	if (CurrentPropertyValue.IsSet())
+	{
+		DefaultColor = CurrentPropertyValue.GetValue();
+	}
+	else
+	{
+		DefaultColor = FLinearColor::Black;
+	}
 
 	// @todo Sequencer Optimize - This could all get cached, instead of recalculating everything every OnPaint
 
@@ -158,89 +180,70 @@ void FColorPropertySection::ConsolidateColorCurves( TArray< TKeyValuePair<float,
 	// @todo Sequencer Optimize - This another O(n^2) loop, since Eval is O(n)!
 	for ( int32 i = 0; i < TimesWithKeys.Num(); ++i )
 	{
-		OutColorKeys.Add( TKeyValuePair<float, FLinearColor>( TimesWithKeys[i], Section->Eval( TimesWithKeys[i], DefaultColor ) ) );
+		float Time = TimesWithKeys[i];
+
+		FLinearColor Color(
+			Section->GetRedCurve().Eval(Time, DefaultColor.R),
+			Section->GetGreenCurve().Eval(Time, DefaultColor.G),
+			Section->GetBlueCurve().Eval(Time, DefaultColor.B),
+			Section->GetAlphaCurve().Eval(Time, DefaultColor.A)
+			);
+		OutColorKeys.Add( TKeyValuePair<float, FLinearColor>( TimesWithKeys[i], Color ) );
 	}
 }
 
 
-FLinearColor FColorPropertySection::FindSlateColor(const FName& ColorName) const
+TOptional<FLinearColor> FColorPropertySection::GetPropertyValueAsLinearColor() const
 {
-	const UMovieSceneSequence* FocusedSequence = Sequencer->GetFocusedMovieSceneSequence();
-	const TArray<FMovieSceneBinding>& FocusedBindings = FocusedSequence->GetMovieScene()->GetBindings();
-
-	for (const FMovieSceneBinding& Binding : FocusedBindings)
+	UStructProperty* ColorStructProperty = Cast<UStructProperty>(GetProperty());
+	if (ColorStructProperty != nullptr)
 	{
-		for (const UMovieSceneTrack* BindingTrack : Binding.GetTracks())
+		if (ColorStructProperty->Struct->GetFName() == SlateColorName)
 		{
-			if (BindingTrack != &Track)
+			TOptional<FSlateColor> SlateColor = GetPropertyValue<FSlateColor>();
+			if (SlateColor.IsSet())
 			{
-				continue;
+				return TOptional<FLinearColor>(SlateColor.GetValue().GetSpecifiedColor());
 			}
+		}
 
-			UObject* RuntimeObject = Sequencer->GetFocusedMovieSceneSequenceInstance()->FindObject(Binding.GetObjectGuid(), *Sequencer);
+		if (ColorStructProperty->Struct->GetFName() == NAME_LinearColor)
+		{
+			return GetPropertyValue<FLinearColor>();
+		}
 
-			if (RuntimeObject == nullptr)
+		if (ColorStructProperty->Struct->GetFName() == NAME_Color)
+		{
+			TOptional<FColor> Color = GetPropertyValue<FColor>();
+			if (Color.IsSet())
 			{
-				continue;
+				return TOptional<FLinearColor>(Color.GetValue());
 			}
-
-			UProperty* Property = RuntimeObject->GetClass()->FindPropertyByName(Track.GetPropertyName());
-			UStructProperty* ColorStructProp = Cast<UStructProperty>(Property);
-			
-			if ((ColorStructProp == nullptr) || (ColorStructProp->Struct == nullptr))
-			{
-				continue;
-			}
-
-			if (ColorStructProp->Struct->GetFName() == ColorName)
-			{
-				return (*Property->ContainerPtrToValuePtr<FSlateColor>(RuntimeObject)).GetSpecifiedColor();
-			}
-
-			if (ColorStructProp->Struct->GetFName() == NAME_LinearColor)
-			{
-				return *Property->ContainerPtrToValuePtr<FLinearColor>(RuntimeObject);
-			}
-
-			return *Property->ContainerPtrToValuePtr<FColor>(RuntimeObject);
 		}
 	}
-
-	return FLinearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	return TOptional<FLinearColor>();
 }
 
-
-void FColorPropertySection::SetIntermediateValue( FPropertyChangedParams PropertyChangedParams )
+TOptional<float> FColorPropertySection::GetColorRedValue() const
 {
-	const UStructProperty* StructProp = Cast<const UStructProperty>( PropertyChangedParams.PropertyPath.Last() );
-	FName StructName = StructProp->Struct->GetFName();
-	bool bIsFColor = StructName == NAME_Color;
-	bool bIsFLinearColor = StructName == NAME_LinearColor;
-	bool bIsSlateColor = StructName == FName( "SlateColor" );
-
-	FLinearColor ColorValue;
-
-	if ( bIsFColor )
-	{
-		ColorValue = PropertyChangedParams.GetPropertyValue<FColor>();
-	}
-	else
-	{
-		ColorValue = PropertyChangedParams.GetPropertyValue<FLinearColor>();
-	}
-
-	// @todo - Sequencer - This will cause slightly different values to show up in the key editors for FColors.
-	RedKeyArea->SetIntermediateValue(ColorValue.R);
-	GreenKeyArea->SetIntermediateValue(ColorValue.G);
-	BlueKeyArea->SetIntermediateValue(ColorValue.B);
-	AlphaKeyArea->SetIntermediateValue(ColorValue.A);
+	TOptional<FLinearColor> CurrentValue = GetPropertyValueAsLinearColor();
+	return CurrentValue.IsSet() ? CurrentValue.GetValue().R : TOptional<float>();
 }
 
-
-void FColorPropertySection::ClearIntermediateValue()
+TOptional<float> FColorPropertySection::GetColorGreenValue() const
 {
-	RedKeyArea->ClearIntermediateValue();
-	GreenKeyArea->ClearIntermediateValue();
-	BlueKeyArea->ClearIntermediateValue();
-	AlphaKeyArea->ClearIntermediateValue();
+	TOptional<FLinearColor> CurrentValue = GetPropertyValueAsLinearColor();
+	return CurrentValue.IsSet() ? CurrentValue.GetValue().G : TOptional<float>();
+}
+
+TOptional<float> FColorPropertySection::GetColorBlueValue() const
+{
+	TOptional<FLinearColor> CurrentValue = GetPropertyValueAsLinearColor();
+	return CurrentValue.IsSet() ? CurrentValue.GetValue().B : TOptional<float>();
+}
+
+TOptional<float> FColorPropertySection::GetColorAlphaValue() const
+{
+	TOptional<FLinearColor> CurrentValue = GetPropertyValueAsLinearColor();
+	return CurrentValue.IsSet() ? CurrentValue.GetValue().A : TOptional<float>();
 }

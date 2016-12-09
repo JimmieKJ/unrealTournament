@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IPropertyChangeListener.h"
+
+class FObjectPropertyNode;
+class FPropertyNode;
+class FValueCache;
+
 /**
  * Implementation of an IPropertyChangeListener
  */

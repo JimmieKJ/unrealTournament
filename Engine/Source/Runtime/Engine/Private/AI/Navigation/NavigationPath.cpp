@@ -1,10 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "VisualLogger/VisualLogger.h"
-#include "AI/Navigation/NavigationTypes.h"
-#include "AI/Navigation/RecastNavMesh.h"
 #include "AI/Navigation/NavigationPath.h"
+#include "EngineStats.h"
+#include "EngineGlobals.h"
+#include "AI/Navigation/NavAgentInterface.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/Engine.h"
+#include "Engine/Canvas.h"
+#include "DrawDebugHelpers.h"
+#include "VisualLogger/VisualLoggerTypes.h"
+#include "AI/Navigation/RecastNavMesh.h"
 #include "AI/Navigation/NavAreas/NavArea.h"
 #include "Debug/DebugDrawService.h"
 
@@ -181,6 +186,8 @@ void FNavigationPath::ResetForRepath()
 
 void FNavigationPath::DebugDraw(const ANavigationData* NavData, FColor PathColor, UCanvas* Canvas, bool bPersistent, const uint32 NextPathPointIndex) const
 {
+#if ENABLE_DRAW_DEBUG
+
 	static const FColor Grey(100,100,100);
 	const int32 NumPathVerts = PathPoints.Num();
 
@@ -214,6 +221,8 @@ void FNavigationPath::DebugDraw(const ANavigationData* NavData, FColor PathColor
 		DrawDebugCylinder(World, EndLocation - CylinderHalfHeight, EndLocation + CylinderHalfHeight, FMath::Sqrt(GoalActorLocationTetherDistanceSq), 16, PathColor, bPersistent);
 		DrawDebugLine(World, EndLocation, GoalLocation, Grey, bPersistent);
 	}
+
+#endif
 }
 
 bool FNavigationPath::ContainsNode(NavNodeRef NodeRef) const
@@ -514,7 +523,10 @@ void FNavMeshPath::PerformStringPulling(const FVector& StartLoc, const FVector& 
 {
 #if WITH_RECAST
 	const ARecastNavMesh* MyOwner = Cast<ARecastNavMesh>(GetNavigationDataUsed());
-	bStringPulled = MyOwner->FindStraightPath(StartLoc, EndLoc, PathCorridor, PathPoints, &CustomLinkIds);
+	if (PathCorridor.Num())
+	{
+		bStringPulled = MyOwner->FindStraightPath(StartLoc, EndLoc, PathCorridor, PathPoints, &CustomLinkIds);
+	}
 #endif	// WITH_RECAST
 }
 
@@ -905,7 +917,7 @@ void FNavMeshPath::DebugDraw(const ANavigationData* NavData, FColor PathColor, U
 {
 	Super::DebugDraw(NavData, PathColor, Canvas, bPersistent, NextPathPointIndex);
 
-#if WITH_RECAST
+#if WITH_RECAST && ENABLE_DRAW_DEBUG
 	const ARecastNavMesh* RecastNavMesh = Cast<const ARecastNavMesh>(NavData);		
 	const TArray<FNavigationPortalEdge>& Edges = (const_cast<FNavMeshPath*>(this))->GetPathCorridorEdges();	
 	const int32 CorridorEdgesCount = Edges.Num();
@@ -935,7 +947,7 @@ void FNavMeshPath::DebugDraw(const ANavigationData* NavData, FColor PathColor, U
 			Canvas->DrawText(RenderFont, FString::Printf(TEXT("%d: %s"), VertIdx, *GetNameSafe(NavAreaClass)), ScreenLocation.X, ScreenLocation.Y );
 		}
 	}
-#endif // WITH_RECAST
+#endif // WITH_RECAST && ENABLE_DRAW_DEBUG
 }
 
 bool FNavMeshPath::ContainsWithSameEnd(const FNavMeshPath* Other) const

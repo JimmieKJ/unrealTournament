@@ -1,13 +1,15 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Core.h"
-#include "UnrealTournament.h"
-
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 #include <mmsystem.h>
+#include "HideWindowsPlatformTypes.h"
+
+#include "Core.h"
+#include "UnrealTournament.h"
 
 #include "UTVideoRecordingFeature.h"
 

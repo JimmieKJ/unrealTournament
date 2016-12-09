@@ -6,7 +6,16 @@
 
 #pragma once
 
-#include "ScreenRendering.h"
+#include "CoreMinimal.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "ShaderParameters.h"
+#include "UniformBuffer.h"
+#include "RHIStaticStates.h"
+#include "Shader.h"
+#include "GlobalShader.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "ScenePrivate.h"
 
 const static int32 GAOMaxSupportedLevel = 6;
 /** Number of cone traced directions. */

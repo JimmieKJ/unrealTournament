@@ -2,7 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "AssetData.h"
+#include "EditorFramework/AssetImportData.h"
+
 class IAssetRegistry;
+
+template <class FKey, class FValue> class TSharedMapView;
 
 /** Class responsible for maintaing a cache of clean source file names (bla.txt) to asset data */
 class UNREALED_API FAssetSourceFilenameCache

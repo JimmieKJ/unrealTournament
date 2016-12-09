@@ -2,21 +2,40 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/Guid.h"
+#include "IMessageContext.h"
+#include "IProfilerServiceManager.h"
+#include "HAL/Runnable.h"
+#include "Containers/Queue.h"
+#include "Containers/Ticker.h"
+#include "Helpers/MessageEndpoint.h"
 
-DECLARE_LOG_CATEGORY_EXTERN( LogProfilerService, Log, All );
+struct FProfilerServiceCapture;
+struct FProfilerServiceData2;
+struct FProfilerServiceFileChunk;
+struct FProfilerServicePong;
+struct FProfilerServicePreview;
+struct FProfilerServiceRequest;
+struct FProfilerServiceSubscribe;
+struct FProfilerServiceUnsubscribe;
+
+DECLARE_LOG_CATEGORY_EXTERN(LogProfilerService, Log, All);
 
 /**
 * Thread used to read, prepare and send files through the message bus.
 * Supports resending bad file chunks and basic synchronization between service and client.
 */
-class FFileTransferRunnable : public FRunnable
+class FFileTransferRunnable
+	: public FRunnable
 {
 	typedef TKeyValuePair<FArchive*, FMessageAddress> FReaderAndAddress;
 
 public:
 
 	/** Default constructor. */
-	FFileTransferRunnable( FMessageEndpointPtr& InMessageEndpoint );
+	FFileTransferRunnable(TSharedPtr<FMessageEndpoint, ESPMode::ThreadSafe>& InMessageEndpoint);
 
 	/** Destructor. */
 	~FFileTransferRunnable();
@@ -34,19 +53,19 @@ public:
 	virtual void Exit();
 	// End FRunnable interface
 
-	void EnqueueFileToSend( const FString& StatFilename, const FMessageAddress& RecipientAddress, const FGuid& ServiceInstanceId );
+	void EnqueueFileToSend(const FString& StatFilename, const FMessageAddress& RecipientAddress, const FGuid& ServiceInstanceId);
 
 	/** Enqueues a file chunk. */
-	void EnqueueFileChunkToSend( FProfilerServiceFileChunk* FileChunk, bool bTriggerWorkEvent = false );
+	void EnqueueFileChunkToSend(FProfilerServiceFileChunk* FileChunk, bool bTriggerWorkEvent = false);
 
 	/** Prepare the chunks to be sent through the message bus. */
-	void PrepareFileForSending( FProfilerServiceFileChunk*& FileChunk );
+	void PrepareFileForSending(FProfilerServiceFileChunk*& FileChunk);
 
 	/** Removes file from the list of the active transfers, must be confirmed by the profiler client. */
-	void FinalizeFileSending( const FString& Filename );
+	void FinalizeFileSending(const FString& Filename);
 
 	/** Aborts file sending to the specified client, probably client disconnected or exited. */
-	void AbortFileSending( const FMessageAddress& Recipient );
+	void AbortFileSending(const FMessageAddress& Recipient);
 
 	/** Checks if there has been any stop requests. */
 	FORCEINLINE bool ShouldStop() const
@@ -55,11 +74,12 @@ public:
 	}
 
 protected:
+
 	/** Deletes the file reader. */
-	void DeleteFileReader( FReaderAndAddress& ReaderAndAddress );
+	void DeleteFileReader(FReaderAndAddress& ReaderAndAddress);
 
 	/** Reads the data from the archive and generates hash. */
-	void ReadAndSetHash( FProfilerServiceFileChunk* FileChunk, const FProfilerFileChunkHeader& FileChunkHeader, FArchive* Reader );
+	void ReadAndSetHash(FProfilerServiceFileChunk* FileChunk, const FProfilerFileChunkHeader& FileChunkHeader, FArchive* Reader);
 
 	/** Thread that is running this task. */
 	FRunnableThread* Runnable;
@@ -83,6 +103,7 @@ protected:
 	TMap<FString, FReaderAndAddress> ActiveTransfers;
 };
 
+
 #if STATS
 
 /**
@@ -98,9 +119,9 @@ struct FClientData
 
 	/** Default constructor. */
 	FClientData()
-		: Active( false )
-		, Preview( false )
-	{}
+		: Active(false)
+		, Preview(false)
+	{ }
 };
 
 #endif //STATS
@@ -115,75 +136,74 @@ class FProfilerServiceManager
 {
 public:
 
-	/**
-	 * Default constructor
-	 */
+	/** Default constructor. */
 	FProfilerServiceManager();
 
 public:
 
-	//~ Begin IProfilerServiceManager Interface
+	//~ IProfilerServiceManager interface
+
 	virtual void StartCapture() override;
 	virtual void StopCapture() override;
-	//~ End IProfilerServiceManager Interface
+
+public:
 
 	/**
 	 * Creates a profiler service manager for shared use
 	 */
-	static IProfilerServiceManagerPtr CreateSharedServiceManager();
+	static TSharedPtr<IProfilerServiceManager> CreateSharedServiceManager();
 
 
-	/**
-	 * Initializes the manager
-	 */
+	/** Initializes the manager. */
 	void Init();
 
-	/**
-	 * Shuts down the manager
-	 */
+	/** Shuts down the manager. */
 	void Shutdown();
 
 private:
+
 	/**
 	 * Changes the data preview state for the given client to the specified value.
 	 */
-	void SetPreviewState( const FMessageAddress& ClientAddress, const bool bRequestedPreviewState );
+	void SetPreviewState(const FMessageAddress& ClientAddress, const bool bRequestedPreviewState);
 
 	/** Callback for a tick, used to ping the clients */
-	bool HandlePing( float DeltaTime );
+	bool HandlePing(float DeltaTime);
 
 
-	// Handles FProfilerServiceCapture messages.
-	void HandleServiceCaptureMessage( const FProfilerServiceCapture& Message, const IMessageContextRef& Context );
+	/** Handles FProfilerServiceCapture messages. */
+	void HandleServiceCaptureMessage(const FProfilerServiceCapture& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	// Handles FProfilerServicePong messages.
-	void HandleServicePongMessage( const FProfilerServicePong& Message, const IMessageContextRef& Context );
+	/** Handles FProfilerServicePong messages. */
+	void HandleServicePongMessage(const FProfilerServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	// Handles FProfilerServicePreview messages.
-	void HandleServicePreviewMessage( const FProfilerServicePreview& Message, const IMessageContextRef& Context );
+	/** Handles FProfilerServicePreview messages. */
+	void HandleServicePreviewMessage(const FProfilerServicePreview& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	// Handles FProfilerServiceRequest messages.
-	void HandleServiceRequestMessage( const FProfilerServiceRequest& Message, const IMessageContextRef& Context );
+	/** Handles FProfilerServiceRequest messages. */
+	void HandleServiceRequestMessage(const FProfilerServiceRequest& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	// Handles FProfilerServiceFileChunk messages.
-	void HandleServiceFileChunkMessage( const FProfilerServiceFileChunk& Message, const IMessageContextRef& Context );
+	/** Handles FProfilerServiceFileChunk messages. */
+	void HandleServiceFileChunkMessage(const FProfilerServiceFileChunk& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	// Handles FProfilerServiceSubscribe messages.
-	void HandleServiceSubscribeMessage( const FProfilerServiceSubscribe& Message, const IMessageContextRef& Context );
+	/** Handles FProfilerServiceSubscribe messages. */
+	void HandleServiceSubscribeMessage(const FProfilerServiceSubscribe& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	// Handles FProfilerServiceUnsubscribe messages.
-	void HandleServiceUnsubscribeMessage( const FProfilerServiceUnsubscribe& Message, const IMessageContextRef& Context );
+	/** Handles FProfilerServiceUnsubscribe messages. */
+	void HandleServiceUnsubscribeMessage(const FProfilerServiceUnsubscribe& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
 	/** Handles a new frame from the stats system. Called from the stats thread. */
 	void HandleNewFrame(int64 Frame);
 
 #if STATS
+
 	/** Compresses all stats data and send to the game thread. */
-	void CompressDataAndSendToGame( TArray<uint8>* DataToTask, int64 Frame );
+	void CompressDataAndSendToGame(TArray<uint8>* DataToTask, int64 Frame);
 
 	/** Handles a new frame from the stats system. Called from the game thread. */
-	void HandleNewFrameGT( FProfilerServiceData2* ToGameThread );
-#endif // STATS
+	void HandleNewFrameGT(FProfilerServiceData2* ToGameThread);
+
+#endif //STATS
 
 	void AddNewFrameHandleStatsThread();
 
@@ -200,9 +220,11 @@ private:
 	TArray<FMessageAddress> PreviewClients;
 
 #if	STATS
+
 	/** Holds the client data for registered clients */
 	TMap<FMessageAddress, FClientData> ClientData;
-#endif // STATS
+
+#endif //STATS
 
 	/** Thread used to read, prepare and send file chunks through the message bus. */
 	FFileTransferRunnable* FileTransferRunnable;

@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+
 class SRuler : public SCompoundWidget
 {
 public:
@@ -24,6 +32,17 @@ public:
 	 * @param InArgs   A declaration from which to construct the widget
 	 */
 	void Construct( const FArguments& InArgs );
+
+	/**
+	* Determines the optimal spacing between tick marks in the slider for a given pixel density
+	* Increments until a minimum amount of slate units specified by MinTick is reached
+	*
+	* @param InPixelsPerInput	The density of pixels between each input
+	* @param MinTick			The minimum slate units per tick allowed
+	* @param MinTickSpacing	The minimum tick spacing in time units allowed
+	* @return the optimal spacing in time units
+	*/
+	float DetermineOptimalSpacing(float InPixelsPerInput, uint32 MinTick, float MinTickSpacing) const;
 
 	/**
 	 * Sets the rules to use when rendering the ruler.

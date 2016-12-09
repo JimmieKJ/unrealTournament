@@ -4,16 +4,17 @@
 	AnimStateTransitionNode.cpp
 =============================================================================*/
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimStateTransitionNode.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Animation/AnimInstance.h"
 #include "AnimationTransitionGraph.h"
 #include "AnimationTransitionSchema.h"
 #include "AnimationCustomTransitionGraph.h"
 #include "AnimationCustomTransitionSchema.h"
 #include "AnimGraphNode_TransitionResult.h"
+#include "Kismet2/CompilerResultsLog.h"
 #include "EdGraphUtilities.h"
 #include "Kismet2/Kismet2NameValidators.h"
-#include "Animation/AnimInstance.h"
 
 //////////////////////////////////////////////////////////////////////////
 // IAnimStateTransitionNodeSharedDataHelper
@@ -158,6 +159,17 @@ void UAnimStateTransitionNode::PostPasteNode()
 	}
 
 	Super::PostPasteNode();
+
+	// We don't want to paste nodes in that aren't fully linked (transition nodes have fixed pins as they
+	// really describle the connection between two other nodes). If we find one missing link, get rid of the node.
+	for(UEdGraphPin* Pin : Pins)
+	{
+		if(Pin->LinkedTo.Num() == 0)
+		{
+			DestroyNode();
+			break;
+		}
+	}
 }
 
 FText UAnimStateTransitionNode::GetNodeTitle(ENodeTitleType::Type TitleType) const

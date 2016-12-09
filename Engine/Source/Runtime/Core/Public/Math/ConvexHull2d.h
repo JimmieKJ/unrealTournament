@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/Vector2D.h"
+#include "Math/Vector.h"
 
 namespace ConvexHull2D
 {

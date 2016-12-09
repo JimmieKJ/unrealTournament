@@ -4,9 +4,13 @@
 	ApplePlatformSymbolication.cpp: Apple platform implementation of symbolication
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
-
 #include "ApplePlatformSymbolication.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/AssertionMacros.h"
+#include "Misc/CoreStats.h"
+#include "Containers/Map.h"
+#include "CoreGlobals.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <mach/mach.h>
 

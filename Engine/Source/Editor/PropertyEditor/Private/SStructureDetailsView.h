@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "UObject/StructOnScope.h"
+#include "PropertyNode.h"
+#include "IDetailsView.h"
 #include "SDetailsViewBase.h"
 #include "IStructureDetailsView.h"
+
+class AActor;
+class FDetailLayoutBuilderImpl;
+class IDetailRootObjectCustomization;
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 class SStructureDetailsView : public SDetailsViewBase, public IStructureDetailsView

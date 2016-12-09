@@ -1,14 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "SGraphNode.h"
-#include "KismetPins/SGraphPinObject.h"
-#include "NodeFactory.h"
-#include "SGraphNodeK2Base.h"
-#include "SGraphNodeK2Default.h"
-#include "SGraphNodeCallParameterCollectionFunction.h"
-#include "SGraphPinNameList.h"
+#include "KismetNodes/SGraphNodeCallParameterCollectionFunction.h"
 #include "Materials/MaterialParameterCollection.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_CallMaterialParameterCollectionFunction.h"
+#include "NodeFactory.h"
+#include "SGraphPinNameList.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SGraphNodeCallParameterCollectionFunction

@@ -1,14 +1,20 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WorldBrowserPrivatePCH.h"
-#include "STiledLandscapeImportDlg.h"
-#include "SVectorInputBox.h"
-#include "IDesktopPlatform.h"
+#include "Tiles/STiledLandscapeImportDlg.h"
+#include "Materials/MaterialInterface.h"
+#include "AssetData.h"
+#include "HAL/FileManager.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorDirectories.h"
+#include "Widgets/Input/SVectorInputBox.h"
 #include "DesktopPlatformModule.h"
-#include "ContentBrowserModule.h"
 #include "LandscapeProxy.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "PropertyCustomizationHelpers.h"
+#include "LandscapeFileFormatInterface.h"
 #include "LandscapeEditorModule.h"
 #include "LandscapeDataAccess.h"
 

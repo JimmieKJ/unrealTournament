@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "DerivedDataBackendInterface.h"
+#include "ProfilingDebugging/CookStats.h"
 #include "DerivedDataCacheUsageStats.h"
+#include "Misc/SecureHash.h"
 
 /** 
  * A backend wrapper that limits the key size and uses hashing...in this case it wraps the payload and the payload contains the full key to verify the integrity of the hash

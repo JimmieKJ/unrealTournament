@@ -2,11 +2,8 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
-
-
-class FString;
-
+#include "CoreTypes.h"
+#include "Containers/ContainersFwd.h"
 
 #if PLATFORM_SUPPORTS_NAMED_PIPES
 

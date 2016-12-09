@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
+struct FSlateBrush;
 
 /**
  * The public interface to this module

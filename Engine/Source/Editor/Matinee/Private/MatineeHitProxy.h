@@ -3,6 +3,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HitProxies.h"
+
+class UInterpTrack;
+
 /*-----------------------------------------------------------------------------
 	Editor-specific hit proxies.
 -----------------------------------------------------------------------------*/

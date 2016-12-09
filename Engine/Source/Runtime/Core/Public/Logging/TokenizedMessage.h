@@ -2,8 +2,15 @@
 
 #pragma once
 
-#include "SharedPointer.h"
-#include "UnrealString.h"
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Templates/SharedPointer.h"
+#include "Delegates/Delegate.h"
+#include "Internationalization/Text.h"
+
+class Error;
 
 /** The severity of the message type */
 namespace EMessageSeverity

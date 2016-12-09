@@ -77,10 +77,10 @@ private:
 	FOnlineSubsystemOculus& OculusSubsystem;
 
 	/** All the friends for the player */
-	TMap<ovrID, TSharedRef<FOnlineFriend>> PlayerFriends;
+	TMap<uint64, TSharedRef<FOnlineFriend>> PlayerFriends;
 
 	/** Invitable users to a room for the player */
-	TMap<ovrID, TSharedRef<FOnlineFriend>> InvitableUsers;
+	TMap<uint64, TSharedRef<FOnlineFriend>> InvitableUsers;
 
 PACKAGE_SCOPE:
 
@@ -88,7 +88,7 @@ PACKAGE_SCOPE:
 	* ** INTERNAL **
 	* Called when we get the results back from the MessageQueue
 	*/
-	void OnQueryFriendsComplete(ovrMessageHandle Message, bool bIsError, int32 LocalUserNum, const FString& ListName, TMap<ovrID, TSharedRef<FOnlineFriend>>& OutList, bool bAppendToExistingMap, const FOnReadFriendsListComplete& Delegate);
+	void OnQueryFriendsComplete(ovrMessageHandle Message, bool bIsError, int32 LocalUserNum, const FString& ListName, TMap<uint64, TSharedRef<FOnlineFriend>>& OutList, bool bAppendToExistingMap, const FOnReadFriendsListComplete& Delegate);
 
 public:
 

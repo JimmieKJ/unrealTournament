@@ -2,8 +2,16 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AssetData.h"
+#include "EdGraph/EdGraphSchema.h"
 #include "EdGraphSchema_K2.h"
 #include "AnimationGraphSchema.generated.h"
+
+class FMenuBuilder;
+class UAnimationAsset;
 
 UCLASS(MinimalAPI)
 class UAnimationGraphSchema : public UEdGraphSchema_K2
@@ -52,6 +60,7 @@ class UAnimationGraphSchema : public UEdGraphSchema_K2
 	virtual bool CanDuplicateGraph(UEdGraph* InSourceGraph) const override {	return false; }
 	virtual bool DoesSupportEventDispatcher() const	override { return false; }
 	virtual bool ShouldAlwaysPurgeOnModification() const override { return true; }
+	virtual bool TryCreateConnection(UEdGraphPin* A, UEdGraphPin* B) const override;
 	//~ End UEdGraphSchema Interface.
 
 	//~ Begin UEdGraphSchema_K2 Interface

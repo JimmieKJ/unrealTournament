@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
-
-#include "CompilerResultsLog.h"
-#include "GraphEditorActions.h"
-#include "EditorCategoryUtils.h"
 #include "AnimGraphNode_PoseByName.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+
+#include "Kismet2/CompilerResultsLog.h"
+#include "GraphEditorActions.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_PoseByName

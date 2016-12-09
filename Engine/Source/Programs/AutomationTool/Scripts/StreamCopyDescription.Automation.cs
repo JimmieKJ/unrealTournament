@@ -35,7 +35,7 @@ namespace AutomationTool
 			int LastCl;
 			if (Changes == null)
 			{
-				ProcessResult Result = P4.P4(String.Format("interchanges -l -S {0}", Stream), AllowSpew: false);
+				IProcessResult Result = P4.P4(String.Format("interchanges -l -S {0}", Stream), AllowSpew: false);
 				Descriptions = Result.Output.Replace("\r\n", "\n");
 				SourceStream = Stream;
 
@@ -49,7 +49,7 @@ namespace AutomationTool
 			}
 			else
 			{
-				ProcessResult Result = P4.P4(String.Format("changes -l {0}", Changes), AllowSpew: false);
+				IProcessResult Result = P4.P4(String.Format("changes -l {0}", Changes), AllowSpew: false);
 				Descriptions = Result.Output.Replace("\r\n", "\n");
 				SourceStream = Regex.Replace(Changes, @"(\/(?:\/[^\/]*){2}).*", "$1");
 				LastCl = Int32.Parse(Regex.Replace(Changes, ".*,", ""));
@@ -62,7 +62,7 @@ namespace AutomationTool
 			Descriptions = Regex.Replace(Descriptions, "[^\n]*buildmachine\n(\n|\t[^\n]*\n)*", "");
 
 			// Figure out the target stream
-			ProcessResult StreamResult = P4.P4(String.Format("stream -o {0}", Stream), AllowSpew: false);
+			IProcessResult StreamResult = P4.P4(String.Format("stream -o {0}", Stream), AllowSpew: false);
 			if (StreamResult.ExitCode != 0)
 			{
 				throw new AutomationException("Couldn't get stream description for {0}", Stream);

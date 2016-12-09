@@ -2,24 +2,26 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 namespace Algo
 {
 	/**
 	 * Conditionally applies a transform to a range and stores the results into a container
 	 *
-	 * @param  Input  Any iterable type
-	 * @param  Output  Container to hold the output
+	 * @param  Input      Any iterable type
+	 * @param  Output     Container to hold the output
 	 * @param  Predicate  Condition which returns true for elements that should be transformed and false for elements that should be skipped
-	 * @param  Transform  Transformation operation
+	 * @param  Trans      Transformation operation
 	 */
 	template <typename InT, typename OutT, typename PredicateT, typename TransformT>
-	FORCEINLINE void TransformIf(const InT& Input, OutT& Output, PredicateT Predicate, TransformT Transform)
+	FORCEINLINE void TransformIf(const InT& Input, OutT& Output, PredicateT Predicate, TransformT Trans)
 	{
-		for (auto&& Value : Input)
+		for (const auto& Value : Input)
 		{
-			if (Predicate(Value))
+			if (Invoke(Predicate, Value))
 			{
-				Output.Add(Transform(Value));
+				Output.Add(Invoke(Trans, Value));
 			}
 		}
 	}
@@ -27,16 +29,16 @@ namespace Algo
 	/**
 	 * Applies a transform to a range and stores the results into a container
 	 *
-	 * @param  Input  Any iterable type
+	 * @param  Input   Any iterable type
 	 * @param  Output  Container to hold the output
-	 * @param  Transform  Transformation operation
+	 * @param  Trans   Transformation operation
 	 */
 	template <typename InT, typename OutT, typename TransformT>
-	FORCEINLINE void Transform(const InT& Input, OutT& Output, TransformT Transform)
+	FORCEINLINE void Transform(const InT& Input, OutT& Output, TransformT Trans)
 	{
-		for (auto&& Value : Input)
+		for (const auto& Value : Input)
 		{
-			Output.Add(Transform(Value));
+			Output.Add(Invoke(Trans, Value));
 		}
 	}
 }

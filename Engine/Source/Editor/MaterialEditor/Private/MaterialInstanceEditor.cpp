@@ -1,25 +1,38 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "MaterialInstanceEditor.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EngineGlobals.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Views/SListView.h"
+#include "UObject/Package.h"
+#include "Editor.h"
+#include "EditorStyleSet.h"
+#include "MaterialEditor/DEditorTextureParameterValue.h"
+#include "Materials/Material.h"
+#include "MaterialEditor/MaterialEditorInstanceConstant.h"
+#include "ThumbnailRendering/SceneThumbnailInfoWithPrimitive.h"
+#include "Materials/MaterialInstance.h"
+#include "Materials/MaterialInstanceConstant.h"
 #include "MaterialEditorModule.h"
 
 #include "Materials/MaterialExpressionTextureBase.h"
 #include "Materials/MaterialExpressionTextureSampleParameter.h"
 
-#include "MaterialInstanceEditor.h"
 #include "MaterialEditor.h"
 #include "MaterialEditorActions.h"
 #include "MaterialEditorUtilities.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "Editor/PropertyEditor/Public/PropertyHandle.h"
+#include "PropertyEditorModule.h"
 #include "MaterialEditorInstanceDetailCustomization.h"
 
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 #include "EditorViewportCommands.h"
-#include "SDockTab.h"
-#include "Materials/MaterialInstanceConstant.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "CanvasTypes.h"
+#include "UnrealEdGlobals.h"
+#include "Editor/UnrealEdEngine.h"
+
 
 #define LOCTEXT_NAMESPACE "MaterialInstanceEditor"
 
@@ -241,9 +254,11 @@ void FMaterialInstanceEditor::InitMaterialInstanceEditor( const EToolkitMode::Ty
 	SetPreviewAssetByName(*InstanceConstant->PreviewMesh.ToString());
 }
 FMaterialInstanceEditor::FMaterialInstanceEditor()
-: MenuExtensibilityManager(new FExtensibilityManager)
+: MaterialEditorInstance(nullptr)
+, MenuExtensibilityManager(new FExtensibilityManager)
 , ToolBarExtensibilityManager(new FExtensibilityManager)
 {
+	UPackage::PreSavePackageEvent.AddRaw(this, &FMaterialInstanceEditor::PreSavePackage);
 }
 
 FMaterialInstanceEditor::~FMaterialInstanceEditor()
@@ -252,6 +267,18 @@ FMaterialInstanceEditor::~FMaterialInstanceEditor()
 	OnMaterialEditorClosed().Broadcast();
 
 	GEditor->UnregisterForUndo( this );
+
+	UPackage::PreSavePackageEvent.RemoveAll(this);
+
+	// The streaming data will be null if there were any edits
+	if (MaterialEditorInstance && MaterialEditorInstance->SourceInstance && !MaterialEditorInstance->SourceInstance->HasTextureStreamingData())
+	{
+		UPackage* Package = MaterialEditorInstance->SourceInstance->GetOutermost();
+		if (Package && Package->IsDirty() && Package != GetTransientPackage())
+		{
+			FMaterialEditorUtilities::BuildTextureStreamingData(MaterialEditorInstance->SourceInstance);
+		}
+	}
 
 	MaterialEditorInstance = NULL;
 	ParentList.Empty();
@@ -648,9 +675,6 @@ void FMaterialInstanceEditor::NotifyPreChange(UProperty* PropertyThatChanged)
 
 void FMaterialInstanceEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged)
 {
-	// Update the preview window when the user changes a property.
-	PreviewVC->RefreshViewport();
-
 	// If they changed the parent, regenerate the parent list.
 	if(PropertyThatChanged->GetName()==TEXT("Parent"))
 	{
@@ -679,6 +703,16 @@ void FMaterialInstanceEditor::NotifyPostChange( const FPropertyChangedEvent& Pro
 
 		UpdatePropertyWindow();
 	}
+	else if(PropertyThatChanged->GetName() == TEXT("PreviewMesh"))
+	{
+		UObject* PreviewAsset = MaterialEditorInstance->SourceInstance->PreviewMesh.TryLoad();
+		if(!PreviewAsset)
+		{
+			// Just default to the sphere if the preview asset is null or missing
+			PreviewAsset = GUnrealEd->GetThumbnailManager()->EditorSphere;
+		}
+		PreviewVC->SetPreviewAsset(PreviewAsset);
+	}
 
 	//rebuild the property window to account for the possibility that the item changed was
 	//a static switch
@@ -689,6 +723,21 @@ void FMaterialInstanceEditor::NotifyPostChange( const FPropertyChangedEvent& Pro
 		TArray<FGuid> PreviousExpressions(MaterialEditorInstance->VisibleExpressions);
 		MaterialEditorInstance->VisibleExpressions.Empty();
 		FMaterialEditorUtilities::GetVisibleMaterialParameters(MaterialEditorInstance->Parent->GetMaterial(), MaterialEditorInstance->SourceInstance, MaterialEditorInstance->VisibleExpressions);
+	}
+
+	// Update the preview window when the user changes a property.
+	PreviewVC->RefreshViewport();
+}
+
+void FMaterialInstanceEditor::PreSavePackage(UPackage* Package)
+{
+	// The streaming data will be null if there were any edits
+	if (MaterialEditorInstance && 
+		MaterialEditorInstance->SourceInstance && 
+		MaterialEditorInstance->SourceInstance->GetOutermost() == Package &&
+		!MaterialEditorInstance->SourceInstance->HasTextureStreamingData())
+	{
+		FMaterialEditorUtilities::BuildTextureStreamingData(MaterialEditorInstance->SourceInstance);
 	}
 }
 

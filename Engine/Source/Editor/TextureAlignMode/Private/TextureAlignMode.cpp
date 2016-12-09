@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TextureAlignModePrivatePCH.h"
+#include "TextureAlignMode.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "TextureAlignEdMode.h"
 
 #define LOCTEXT_NAMESPACE "TextureAlignMode"
 

@@ -9,11 +9,13 @@
 #include "include/cef_app.h"
 #include "cefclient/browser/browser_window_osr_win.h"
 #include "cefclient/browser/browser_window_std_win.h"
+#include "cefclient/browser/geometry_util.h"
 #include "cefclient/browser/main_context.h"
 #include "cefclient/browser/main_message_loop.h"
 #include "cefclient/browser/resource.h"
 #include "cefclient/browser/temp_window.h"
 #include "cefclient/browser/util_win.h"
+#include "cefclient/browser/window_test.h"
 #include "cefclient/common/client_switches.h"
 
 #define MAX_URL_LENGTH  255
@@ -71,6 +73,7 @@ int GetURLBarHeight() {
 RootWindowWin::RootWindowWin()
     : delegate_(NULL),
       with_controls_(false),
+      with_osr_(false),
       is_popup_(false),
       start_rect_(),
       initialized_(false),
@@ -119,13 +122,14 @@ void RootWindowWin::Init(RootWindow::Delegate* delegate,
 
   delegate_ = delegate;
   with_controls_ = with_controls;
+  with_osr_ = with_osr;
 
   start_rect_.left = bounds.x;
   start_rect_.top = bounds.y;
   start_rect_.right = bounds.x + bounds.width;
   start_rect_.bottom = bounds.y + bounds.height;
 
-  CreateBrowserWindow(with_osr, url);
+  CreateBrowserWindow(url);
 
   initialized_ = true;
 
@@ -150,6 +154,7 @@ void RootWindowWin::InitAsPopup(RootWindow::Delegate* delegate,
 
   delegate_ = delegate;
   with_controls_ = with_controls;
+  with_osr_ = with_osr;
   is_popup_ = true;
 
   if (popupFeatures.xSet)
@@ -161,7 +166,7 @@ void RootWindowWin::InitAsPopup(RootWindow::Delegate* delegate,
   if (popupFeatures.heightSet)
     start_rect_.bottom = start_rect_.top + popupFeatures.height;
 
-  CreateBrowserWindow(with_osr, std::string());
+  CreateBrowserWindow(std::string());
 
   initialized_ = true;
 
@@ -222,6 +227,21 @@ void RootWindowWin::Close(bool force) {
   }
 }
 
+void RootWindowWin::SetDeviceScaleFactor(float device_scale_factor) {
+  REQUIRE_MAIN_THREAD();
+
+  if (browser_window_)
+    browser_window_->SetDeviceScaleFactor(device_scale_factor);
+}
+
+float RootWindowWin::GetDeviceScaleFactor() const {
+  REQUIRE_MAIN_THREAD();
+
+  if (browser_window_)
+    return browser_window_->GetDeviceScaleFactor();
+  return client::GetDeviceScaleFactor();
+}
+
 CefRefPtr<CefBrowser> RootWindowWin::GetBrowser() const {
   REQUIRE_MAIN_THREAD();
 
@@ -235,9 +255,8 @@ ClientWindowHandle RootWindowWin::GetWindowHandle() const {
   return hwnd_;
 }
 
-void RootWindowWin::CreateBrowserWindow(bool with_osr,
-                                        const std::string& startup_url) {
-  if (with_osr) {
+void RootWindowWin::CreateBrowserWindow(const std::string& startup_url) {
+  if (with_osr_) {
     OsrRenderer::Settings settings;
     MainContext::Get()->PopulateOsrSettings(&settings);
     browser_window_.reset(new BrowserWindowOsrWin(this, startup_url, settings));
@@ -303,11 +322,12 @@ void RootWindowWin::CreateRootWindow(const CefBrowserSettings& settings) {
 
   if (with_controls_) {
     // Create the child controls.
-    int x = 0;
+    int x_offset = 0;
 
-    static int button_width = GetButtonWidth();
-    static int urlbar_height = GetURLBarHeight();
-    static int font_height = LogicalToDevice(14, GetDeviceScaleFactor());
+    const int button_width = GetButtonWidth();
+    const int urlbar_height = GetURLBarHeight();
+    const int font_height =
+        LogicalToDevice(14, client::GetDeviceScaleFactor());
 
     // Create a scaled font.
     font_ = ::CreateFont(
@@ -318,46 +338,46 @@ void RootWindowWin::CreateRootWindow(const CefBrowserSettings& settings) {
     back_hwnd_ = CreateWindow(
         L"BUTTON", L"Back",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_DISABLED,
-        x, 0, button_width, urlbar_height,
+        x_offset, 0, button_width, urlbar_height,
         hwnd_, reinterpret_cast<HMENU>(IDC_NAV_BACK), hInstance, 0);
     CHECK(back_hwnd_);
     SendMessage(back_hwnd_, WM_SETFONT, reinterpret_cast<WPARAM>(font_), TRUE);
-    x += button_width;
+    x_offset += button_width;
 
     forward_hwnd_ = CreateWindow(
         L"BUTTON", L"Forward",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_DISABLED,
-        x, 0, button_width, urlbar_height,
+        x_offset, 0, button_width, urlbar_height,
         hwnd_, reinterpret_cast<HMENU>(IDC_NAV_FORWARD), hInstance, 0);
     CHECK(forward_hwnd_);
     SendMessage(forward_hwnd_, WM_SETFONT,
                 reinterpret_cast<WPARAM>(font_), TRUE);
-    x += button_width;
+    x_offset += button_width;
 
     reload_hwnd_ = CreateWindow(
         L"BUTTON", L"Reload",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON| WS_DISABLED,
-        x, 0, button_width, urlbar_height,
+        x_offset, 0, button_width, urlbar_height,
         hwnd_, reinterpret_cast<HMENU>(IDC_NAV_RELOAD), hInstance, 0);
     CHECK(reload_hwnd_);
     SendMessage(reload_hwnd_, WM_SETFONT,
                 reinterpret_cast<WPARAM>(font_), TRUE);
-    x += button_width;
+    x_offset += button_width;
 
     stop_hwnd_ = CreateWindow(
         L"BUTTON", L"Stop",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_DISABLED,
-        x, 0, button_width, urlbar_height,
+        x_offset, 0, button_width, urlbar_height,
         hwnd_, reinterpret_cast<HMENU>(IDC_NAV_STOP), hInstance, 0);
     CHECK(stop_hwnd_);
     SendMessage(stop_hwnd_, WM_SETFONT, reinterpret_cast<WPARAM>(font_), TRUE);
-    x += button_width;
+    x_offset += button_width;
 
     edit_hwnd_ = CreateWindow(
         L"EDIT", 0,
         WS_CHILD | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOVSCROLL |
         ES_AUTOHSCROLL| WS_DISABLED,
-        x, 0, rect.right - button_width * 4, urlbar_height,
+        x_offset, 0, rect.right - button_width * 4, urlbar_height,
         hwnd_, 0, hInstance, 0);
     SendMessage(edit_hwnd_, WM_SETFONT, reinterpret_cast<WPARAM>(font_), TRUE);
     CHECK(edit_hwnd_);
@@ -369,6 +389,18 @@ void RootWindowWin::CreateRootWindow(const CefBrowserSettings& settings) {
     SetUserDataPtr(edit_hwnd_, this);
 
     rect.top += urlbar_height;
+
+    if (!with_osr_) {
+      // Remove the menu items that are only used with OSR.
+      HMENU hMenu = ::GetMenu(hwnd_);
+      if (hMenu) {
+        HMENU hTestMenu = ::GetSubMenu(hMenu, 2);
+        if (hTestMenu) {
+          ::RemoveMenu(hTestMenu, ID_TESTS_OSR_FPS, MF_BYCOMMAND);
+          ::RemoveMenu(hTestMenu, ID_TESTS_OSR_DSF, MF_BYCOMMAND);
+        }
+      }
+    }
   } else {
     // No controls so also remove the default menu.
     ::SetMenu(hwnd_, NULL);
@@ -611,16 +643,24 @@ void RootWindowWin::OnSize(bool minimized) {
 
     int urloffset = rect.left + button_width * 4;
 
-    if (browser_window_) {
-      HWND browser_hwnd = browser_window_->GetWindowHandle();
-      HDWP hdwp = BeginDeferWindowPos(1);
+    // |browser_hwnd| may be NULL if the browser has not yet been created.
+    HWND browser_hwnd = NULL;
+    if (browser_window_)
+      browser_hwnd = browser_window_->GetWindowHandle();
+
+    if (browser_hwnd) {
+      // Resize both the browser and the URL edit field.
+      HDWP hdwp = BeginDeferWindowPos(2);
       hdwp = DeferWindowPos(hdwp, edit_hwnd_, NULL, urloffset,
           0, rect.right - urloffset, urlbar_height, SWP_NOZORDER);
       hdwp = DeferWindowPos(hdwp, browser_hwnd, NULL,
           rect.left, rect.top, rect.right - rect.left,
           rect.bottom - rect.top, SWP_NOZORDER);
-      EndDeferWindowPos(hdwp);
+      BOOL result = EndDeferWindowPos(hdwp);
+      ALLOW_UNUSED_LOCAL(result);
+      DCHECK(result);
     } else {
+      // Resize just the URL edit field.
       SetWindowPos(edit_hwnd_, NULL, urloffset,
           0, rect.right - urloffset, urlbar_height, SWP_NOZORDER);
     }
@@ -770,10 +810,14 @@ void RootWindowWin::OnDestroyed() {
 void RootWindowWin::OnBrowserCreated(CefRefPtr<CefBrowser> browser) {
   REQUIRE_MAIN_THREAD();
 
-  // For popup browsers create the root window once the browser has been
-  // created.
-  if (is_popup_)
+  if (is_popup_) {
+    // For popup browsers create the root window once the browser has been
+    // created.
     CreateRootWindow(CefBrowserSettings());
+  } else {
+    // Make sure the browser is sized correctly.
+    OnSize(false);
+  }
 }
 
 void RootWindowWin::OnBrowserWindowDestroyed() {
@@ -804,6 +848,18 @@ void RootWindowWin::OnSetTitle(const std::string& title) {
 
   if (hwnd_)
     SetWindowText(hwnd_, CefString(title).ToWString().c_str());
+}
+
+void RootWindowWin::OnSetFullscreen(bool fullscreen) {
+  REQUIRE_MAIN_THREAD();
+
+  CefRefPtr<CefBrowser> browser = GetBrowser();
+  if (browser) {
+    if (fullscreen)
+      window_test::Maximize(browser);
+    else
+      window_test::Restore(browser);
+  }
 }
 
 void RootWindowWin::OnSetLoadingState(bool isLoading,

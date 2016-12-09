@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+
+class FAssetData;
+
+/** Called when filtering content with a container class */
+DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnContainerContentValid, const UClass* /*SearchingClass*/, const UObject* /*Container*/, const FAssetData* /*DiskAssetData*/);
+
 /** A struct to serve as a filter for Asset Registry queries. Each component element is processed as an 'OR' operation while all the components are processed together as an 'AND' operation. */
 struct FARFilter
 {
@@ -11,15 +19,19 @@ struct FARFilter
 	TArray<FName> PackagePaths;
 	/** The filter component containing specific object paths */
 	TArray<FName> ObjectPaths;
-	/** The filter component for class names */
+	/** The filter component for class names. Instances of the specified classes, but not subclasses (by default), will be included. Derived classes will be included only if bRecursiveClasses is true. */
 	TArray<FName> ClassNames;
+	/** Container filter to search for ClassNames (example, UBlueprint parent class can be contained in ClassNames) */
+	TArray<FName> ContainerClassNames;
+	/** This will be called for each container to know if the container root is what we seek */
+	FOnContainerContentValid OnContainerContentValid;
 	/** The filter component for properties marked with the AssetRegistrySearchable flag */
 	TMultiMap<FName, FString> TagsAndValues;
-	/** If bRecursiveClasses is true, this results will exclude classes (including subclasses) in this list */
+	/** Only if bRecursiveClasses is true, the results will exclude classes (and subclasses) in this list */
 	TSet<FName> RecursiveClassesExclusionSet;
 	/** If true, PackagePath components will be recursive */
 	bool bRecursivePaths;
-	/** If true, Classes will include subclasses */
+	/** If true, subclasses of ClassNames will also be included and RecursiveClassesExclusionSet will be excluded. */
 	bool bRecursiveClasses;
 	/** If true, only on-disk assets will be returned. Be warned that this is rarely what you want and should only be used for performance reasons */
 	bool bIncludeOnlyOnDiskAssets;

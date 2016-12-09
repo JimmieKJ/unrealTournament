@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Sound/AmbientSound.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class SWidget;
+
 class FAmbientSoundDetails : public IDetailCustomization
 {
 public:

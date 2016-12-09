@@ -1,14 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "StandaloneRendererPrivate.h"
-
 #include "Windows/D3D/SlateD3DRenderer.h"
 #include "Windows/D3D/SlateD3DTextureManager.h"
 #include "Windows/D3D/SlateD3DRenderingPolicy.h"
 #include "ElementBatcher.h"
 #include "FontCache.h"
 #include "SlateStats.h"
+#include "Widgets/SWindow.h"
+#include "Misc/CommandLine.h"
+#include "StandaloneRendererLog.h"
 
 SLATE_DECLARE_CYCLE_COUNTER(GRendererDrawElementList, "Renderer DrawElementList");
 SLATE_DECLARE_CYCLE_COUNTER(GRendererUpdateBuffers, "Renderer UpdateBuffers");

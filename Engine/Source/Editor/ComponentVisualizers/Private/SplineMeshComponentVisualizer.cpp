@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ComponentVisualizersPrivatePCH.h"
 #include "SplineMeshComponentVisualizer.h"
-#include "ScopedTransaction.h"
+#include "Widgets/SNullWidget.h"
+#include "Editor.h"
+#include "EditorViewportClient.h"
+#include "Components/SplineMeshComponent.h"
 
 IMPLEMENT_HIT_PROXY(HSplineMeshVisProxy, HComponentVisProxy);
 IMPLEMENT_HIT_PROXY(HSplineMeshKeyProxy, HSplineMeshVisProxy);

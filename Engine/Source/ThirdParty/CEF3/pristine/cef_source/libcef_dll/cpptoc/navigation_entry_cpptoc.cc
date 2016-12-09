@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -12,6 +12,8 @@
 
 #include "libcef_dll/cpptoc/navigation_entry_cpptoc.h"
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -121,21 +123,6 @@ int CEF_CALLBACK navigation_entry_has_post_data(
   return _retval;
 }
 
-cef_string_userfree_t CEF_CALLBACK navigation_entry_get_frame_name(
-    struct _cef_navigation_entry_t* self) {
-  // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
-
-  DCHECK(self);
-  if (!self)
-    return NULL;
-
-  // Execute
-  CefString _retval = CefNavigationEntryCppToC::Get(self)->GetFrameName();
-
-  // Return type: string
-  return _retval.DetachToUserFree();
-}
-
 cef_time_t CEF_CALLBACK navigation_entry_get_completion_time(
     struct _cef_navigation_entry_t* self) {
   // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
@@ -166,22 +153,28 @@ int CEF_CALLBACK navigation_entry_get_http_status_code(
   return _retval;
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefNavigationEntryCppToC::CefNavigationEntryCppToC(CefNavigationEntry* cls)
-    : CefCppToC<CefNavigationEntryCppToC, CefNavigationEntry,
-        cef_navigation_entry_t>(cls) {
-  struct_.struct_.is_valid = navigation_entry_is_valid;
-  struct_.struct_.get_url = navigation_entry_get_url;
-  struct_.struct_.get_display_url = navigation_entry_get_display_url;
-  struct_.struct_.get_original_url = navigation_entry_get_original_url;
-  struct_.struct_.get_title = navigation_entry_get_title;
-  struct_.struct_.get_transition_type = navigation_entry_get_transition_type;
-  struct_.struct_.has_post_data = navigation_entry_has_post_data;
-  struct_.struct_.get_frame_name = navigation_entry_get_frame_name;
-  struct_.struct_.get_completion_time = navigation_entry_get_completion_time;
-  struct_.struct_.get_http_status_code = navigation_entry_get_http_status_code;
+CefNavigationEntryCppToC::CefNavigationEntryCppToC() {
+  GetStruct()->is_valid = navigation_entry_is_valid;
+  GetStruct()->get_url = navigation_entry_get_url;
+  GetStruct()->get_display_url = navigation_entry_get_display_url;
+  GetStruct()->get_original_url = navigation_entry_get_original_url;
+  GetStruct()->get_title = navigation_entry_get_title;
+  GetStruct()->get_transition_type = navigation_entry_get_transition_type;
+  GetStruct()->has_post_data = navigation_entry_has_post_data;
+  GetStruct()->get_completion_time = navigation_entry_get_completion_time;
+  GetStruct()->get_http_status_code = navigation_entry_get_http_status_code;
+}
+
+template<> CefRefPtr<CefNavigationEntry> CefCppToC<CefNavigationEntryCppToC,
+    CefNavigationEntry, cef_navigation_entry_t>::UnwrapDerived(
+    CefWrapperType type, cef_navigation_entry_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -189,3 +182,6 @@ template<> base::AtomicRefCount CefCppToC<CefNavigationEntryCppToC,
     CefNavigationEntry, cef_navigation_entry_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefNavigationEntryCppToC,
+    CefNavigationEntry, cef_navigation_entry_t>::kWrapperType =
+    WT_NAVIGATION_ENTRY;

@@ -1,6 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "SceneDepthPickerModePrivatePCH.h"
+#include "SceneDepthPickerMode.h"
+#include "Modules/ModuleManager.h"
+#include "EditorModeRegistry.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "EditorModeSceneDepthPicker.h"
 
 IMPLEMENT_MODULE( FSceneDepthPickerModeModule, SceneDepthPickerMode );
 

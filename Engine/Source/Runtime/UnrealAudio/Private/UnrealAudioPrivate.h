@@ -2,16 +2,18 @@
 
 #pragma once 
 
-#include "UnrealAudioModule.h"
-#include "UnrealAudioHandles.h"
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "UnrealAudioTypes.h"
+#include "GenericPlatform/GenericPlatformStackWalk.h"
+#include "HAL/Runnable.h"
+#include "HAL/ThreadSafeBool.h"
 #include "UnrealAudioDeviceModule.h"
-#include "UnrealAudioEmitterInternal.h"
-#include "UnrealAudioVoiceInternal.h"
 #include "UnrealAudioEmitterManager.h"
 #include "UnrealAudioVoiceManager.h"
-#include "UnrealAudioSoundFileManager.h"
 #include "UnrealAudioTests.h"
-#include "UnrealAudioUtilities.h"
+
+class Error;
 
 #if ENABLE_UNREAL_AUDIO
 

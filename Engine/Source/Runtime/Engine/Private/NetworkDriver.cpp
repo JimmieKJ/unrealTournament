@@ -4,22 +4,56 @@
 	NetworkDriver.cpp: Unreal network driver base class.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Net/DataReplication.h"
-#include "Net/UnrealNetwork.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
+#include "Misc/CommandLine.h"
+#include "Misc/NetworkGuid.h"
+#include "Stats/Stats.h"
+#include "Misc/MemStack.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/CoreNet.h"
+#include "UObject/UnrealType.h"
+#include "UObject/Package.h"
+#include "EngineStats.h"
+#include "EngineGlobals.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Engine/EngineTypes.h"
+#include "Components/ActorComponent.h"
+#include "Engine/Level.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
+#include "CollisionQueryParams.h"
+#include "Components/PrimitiveComponent.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/UObjectIterator.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/WorldSettings.h"
+#include "PacketHandler.h"
+#include "PacketHandlers/StatelessConnectHandlerComponent.h"
+#include "Engine/NetDriver.h"
+#include "Engine/LocalPlayer.h"
+#include "Net/DataBunch.h"
+#include "Engine/NetConnection.h"
+#include "DrawDebugHelpers.h"
+#include "UnrealEngine.h"
+#include "EngineUtils.h"
 #include "Net/NetworkProfiler.h"
+#include "Engine/PackageMapClient.h"
 #include "Net/RepLayout.h"
+#include "Net/DataReplication.h"
 #include "Engine/ActorChannel.h"
 #include "Engine/VoiceChannel.h"
 #include "Engine/NetworkObjectList.h"
 #include "GameFramework/GameNetworkManager.h"
 #include "Net/OnlineEngineInterface.h"
 #include "NetworkingDistanceConstants.h"
-#include "DataChannel.h"
-#include "Engine/PackageMapClient.h"
+#include "Engine/ChildConnection.h"
+#include "Net/DataChannel.h"
 #include "GameFramework/PlayerState.h"
-#include "GameFramework/GameMode.h"
-#include "PerfCountersHelpers.h"
+#include "Net/PerfCountersHelpers.h"
 
 
 #if USE_SERVER_PERF_COUNTERS
@@ -27,7 +61,7 @@
 #endif
 
 #if WITH_EDITOR
-#include "UnrealEd.h"
+#include "Editor.h"
 #endif
 
 // Default net driver stats
@@ -173,6 +207,7 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,	ProcessQueuedBunchesCurrentFrameMilliseconds(0.0f)
 ,	NetworkObjects(new FNetworkObjectList)
 ,	LagState(ENetworkLagState::NotLagging)
+,	DuplicateLevelID(INDEX_NONE)
 {
 }
 
@@ -215,7 +250,7 @@ void UNetDriver::AssertValid()
 
 /*static*/ bool UNetDriver::IsAdaptiveNetUpdateFrequencyEnabled()
 {
-	const bool bUseAdapativeNetFrequency = CVarUseAdaptiveNetUpdateFrequency.GetValueOnGameThread() > 0;
+	const bool bUseAdapativeNetFrequency = CVarUseAdaptiveNetUpdateFrequency.GetValueOnAnyThread() > 0;
 	return bUseAdapativeNetFrequency;
 }
 
@@ -672,12 +707,12 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 		FlushHandler();
 	}
 
-	if (CVarNetDormancyDraw.GetValueOnGameThread() > 0)
+	if (CVarNetDormancyDraw.GetValueOnAnyThread() > 0)
 	{
 		DrawNetDriverDebug();
 	}
 
-	if ( CVarOptimizedRemapping.GetValueOnGameThread() && GuidCache.IsValid() )
+	if ( CVarOptimizedRemapping.GetValueOnAnyThread() && GuidCache.IsValid() )
 	{
 		SCOPE_CYCLE_COUNTER( STAT_NetUpdateUnmappedObjectsTime );
 
@@ -763,6 +798,14 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 	if ( CurrentRealtimeSeconds - LastCleanupTime > CleanupTimeSeconds )
 	{
 		for ( auto It = RepChangedPropertyTrackerMap.CreateIterator(); It; ++It )
+		{
+			if ( !It.Key().IsValid() )
+			{
+				It.RemoveCurrent();
+			}
+		}
+
+		for ( auto It = ReplicationChangeListMap.CreateIterator(); It; ++It )
 		{
 			if ( !It.Key().IsValid() )
 			{
@@ -1314,7 +1357,7 @@ void UNetDriver::InternalProcessRemoteFunction
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	extern TAutoConsoleVariable< int32 > CVarNetReliableDebug;
 
-	if ( CVarNetReliableDebug.GetValueOnGameThread() > 0 )
+	if ( CVarNetReliableDebug.GetValueOnAnyThread() > 0 )
 	{
 		Bunch.DebugString = FString::Printf( TEXT( "%.2f RPC: %s - %s" ), Connection->Driver->Time, *Actor->GetName(), *Function->GetName() );
 	}
@@ -1395,7 +1438,7 @@ void UNetDriver::InternalProcessRemoteFunction
 	}
 
 	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("net.RPC.Debug"));
-	bool LogAsWarning = (CVar && CVar->GetValueOnGameThread() == 1);
+	bool LogAsWarning = (CVar && CVar->GetValueOnAnyThread() == 1);
 
 	// Send the bunch.
 	if( Bunch.IsError() )
@@ -1510,7 +1553,6 @@ void UNetDriver::UpdateStandbyCheatStatus(void)
 			
 			if (FoundWorld)
 			{
-				AGameMode* const GameMode = FoundWorld->GetAuthGameMode();
 				AGameNetworkManager* const NetworkManager = FoundWorld->NetworkManager;
 				if (NetworkManager)
 				{
@@ -1518,21 +1560,17 @@ void UNetDriver::UpdateStandbyCheatStatus(void)
 					if (float(CountBadRx) / float(ClientConnections.Num()) > PercentMissingForRxStandby)
 					{
 						bHasStandbyCheatTriggered = true;
-						// Send to the GameMode for processing
 						NetworkManager->StandbyCheatDetected(STDBY_Rx);
 					}
 					else if (float(CountBadPing) / float(ClientConnections.Num()) > PercentForBadPing)
 					{
 						bHasStandbyCheatTriggered = true;
-						// Send to the GameMode for processing
 						NetworkManager->StandbyCheatDetected(STDBY_BadPing);
 					}
-					// Check for the host not sending to the clients, but only during a match
-					else if ( GameMode && GameMode->IsMatchInProgress() &&
-						float(CountBadTx) / float(ClientConnections.Num()) > PercentMissingForTxStandby)
+					// Check for the host not sending to the clients
+					else if (float(CountBadTx) / float(ClientConnections.Num()) > PercentMissingForTxStandby)
 					{
 						bHasStandbyCheatTriggered = true;
-						// Send to the GameMode for processing
 						NetworkManager->StandbyCheatDetected(STDBY_Tx);
 					}
 				}
@@ -2033,7 +2071,7 @@ void UNetDriver::FlushActorDormancy(AActor* Actor)
 	// way too, since we dont have to check every dormant actor in ::ServerReplicateActor to see if it needs to go out of dormancy
 
 #if WITH_SERVER_CODE
-	if (CVarSetNetDormancyEnabled.GetValueOnGameThread() == 0)
+	if (CVarSetNetDormancyEnabled.GetValueOnAnyThread() == 0)
 		return;
 
 	check(Actor);
@@ -2429,9 +2467,9 @@ void UNetDriver::ServerReplicateActors_BuildConsiderList( TArray<FNetworkObjectI
 			continue;
 		}
 
-		// Don't send actors that may still be streaming in
+		// Don't send actors that may still be streaming in or out
 		ULevel* Level = Actor->GetLevel();
-		if ( Level->HasVisibilityRequestPending() || Level->bIsAssociatingLevel )
+		if ( Level->HasVisibilityChangeRequestPending() || Level->bIsAssociatingLevel )
 		{
 			continue;
 		}
@@ -2566,7 +2604,7 @@ static FORCEINLINE_DEBUGGABLE bool IsActorDormant( const AActor* Actor, const UN
 	{
 		// net.DormancyValidate can be set to 2 to validate dormant actor properties on every replicate
 		// (this could be moved to be done every tick instead of every net update if necessary, but seems excessive)
-		if ( CVarNetDormancyValidate.GetValueOnGameThread() == 2 )
+		if ( CVarNetDormancyValidate.GetValueOnAnyThread() == 2 )
 		{
 			const TSharedRef<FObjectReplicator>* Replicator = Connection->DormantReplicatorMap.Find( Actor );
 
@@ -2632,11 +2670,10 @@ int32 UNetDriver::ServerReplicateActors_PrioritizeActors( UNetConnection* Connec
 		OutPriorityList = new ( FMemStack::Get(), MaxSortedActors ) FActorPriority;
 		OutPriorityActors = new ( FMemStack::Get(), MaxSortedActors ) FActorPriority*;
 
-		// determine whether we should priority sort the list of relevant actors based on the saturation/bandwidth of the current connection
-		//@note - if the server is currently CPU saturated then do not sort until framerate improves
 		check( World == Connection->ViewTarget->GetWorld() );
-		AGameMode const* const GameMode = World->GetAuthGameMode();
-		const bool bLowNetBandwidth = !bCPUSaturated && ( Connection->CurrentNetSpeed / float( GameMode->NumPlayers + GameMode->NumBots ) < 500.f );
+
+		AGameNetworkManager* const NetworkManager = World->NetworkManager;
+		const bool bLowNetBandwidth = NetworkManager ? NetworkManager->IsInLowBandwidthMode() : false;
 
 		for ( FNetworkObjectInfo* ActorInfo : ConsiderList )
 		{
@@ -3083,6 +3120,8 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 				}
 			}
 			RelevantActorMark.Pop();
+
+			ConnectionViewers.Reset();
 		}
 	}
 
@@ -3192,6 +3231,7 @@ void UNetDriver::PrintDebugRelevantActors()
 
 void UNetDriver::DrawNetDriverDebug()
 {
+#if ENABLE_DRAW_DEBUG
 	UNetConnection *Connection = (ServerConnection ? ServerConnection : (ClientConnections.Num() >= 1 ? ClientConnections[0] : NULL));
 	if (!Connection)
 	{
@@ -3215,7 +3255,7 @@ void UNetDriver::DrawNetDriverDebug()
 		return;
 	}
 
-	const float CullDistSqr = FMath::Square(CVarNetDormancyDrawCullDistance.GetValueOnGameThread());
+	const float CullDistSqr = FMath::Square(CVarNetDormancyDrawCullDistance.GetValueOnAnyThread());
 
 	for (FActorIterator It(LocalWorld); It; ++It)
 	{
@@ -3241,6 +3281,7 @@ void UNetDriver::DrawNetDriverDebug()
 		FBox Box = 	It->GetComponentsBoundingBox();
 		DrawDebugBox( LocalWorld, Box.GetCenter(), Box.GetExtent(), FQuat::Identity, DrawColor, false );
 	}
+#endif
 }
 
 bool UNetDriver::NetObjectIsDynamic(const UObject *Object) const
@@ -3408,6 +3449,18 @@ TSharedPtr<FRepLayout> UNetDriver::GetStructRepLayout( UStruct * Struct )
 	}
 
 	return *RepLayoutPtr;
+}
+
+TSharedPtr< FReplicationChangelistMgr > UNetDriver::GetReplicationChangeListMgr( UObject* Object )
+{
+	TSharedPtr< FReplicationChangelistMgr >* ReplicationChangeListMgrPtr = ReplicationChangeListMap.Find( Object );
+
+	if ( !ReplicationChangeListMgrPtr )
+	{
+		ReplicationChangeListMgrPtr = &ReplicationChangeListMap.Add( Object, TSharedPtr< FReplicationChangelistMgr >( new FReplicationChangelistMgr( this, Object ) ) );
+	}
+
+	return *ReplicationChangeListMgrPtr;
 }
 
 FAutoConsoleCommandWithWorld	DumpRelevantActorsCommand(

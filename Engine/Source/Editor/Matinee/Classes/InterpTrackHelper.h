@@ -2,8 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "InterpTrackHelper.generated.h"
 
+class AActor;
+class UInterpGroup;
+class UInterpTrack;
 
 UCLASS()
 class MATINEE_API UInterpTrackHelper : public UObject

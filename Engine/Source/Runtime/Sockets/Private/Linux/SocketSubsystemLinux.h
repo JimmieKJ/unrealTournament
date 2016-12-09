@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "SocketSubsystem.h"
+#include "CoreMinimal.h"
 #include "BSDSockets/SocketSubsystemBSD.h"
 #include "SocketSubsystemPackage.h"
+
+class Error;
+class FInternetAddr;
 
 /**
  * Android specific socket subsystem implementation

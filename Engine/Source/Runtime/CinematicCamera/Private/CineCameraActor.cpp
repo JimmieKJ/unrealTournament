@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "CinematicCameraPrivate.h"
-#include "CineCameraComponent.h"
 #include "CineCameraActor.h"
+#include "DrawDebugHelpers.h"
+#include "CineCameraComponent.h"
 
 #define LOCTEXT_NAMESPACE "CineCameraActor"
 
@@ -17,23 +17,19 @@ ACineCameraActor::ACineCameraActor(const FObjectInitializer& ObjectInitializer)
 	CineCameraComponent = Cast<UCineCameraComponent>(GetCameraComponent());
 
 	PrimaryActorTick.bCanEverTick = true;
-	SetActorTickEnabled(ShouldTickForTracking());
+	SetActorTickEnabled(true);
 }
 
 #if WITH_EDITOR
 void ACineCameraActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-
-	SetActorTickEnabled(ShouldTickForTracking());
 }
 #endif
 
 void ACineCameraActor::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	SetActorTickEnabled(ShouldTickForTracking());
-
 	LookatTrackingSettings.LastLookatTrackingRotation = GetActorRotation();
 }
 
@@ -86,13 +82,16 @@ void ACineCameraActor::Tick(float DeltaTime)
 			// we store this ourselves in case other systems try to change our rotation, and end fighting the interpolation
 			LookatTrackingSettings.LastLookatTrackingRotation = FinalRot;
 
+#if ENABLE_DRAW_DEBUG
 			if (LookatTrackingSettings.bDrawDebugLookAtTrackingPosition)
 			{
 				::DrawDebugSolidBox(GetWorld(), LookatLoc, FVector(12.f), DebugLookatTrackingPointSolidColor);
 				::DrawDebugBox(GetWorld(), LookatLoc, FVector(12.f), DebugLookatTrackingPointOutlineColor);
 			}
+#endif // ENABLE_DRAW_DEBUG
 		}
 
+#if ENABLE_DRAW_DEBUG
 		if (CineCameraComponent->FocusSettings.TrackingFocusSettings.bDrawDebugTrackingFocusPoint)
 		{
 			AActor const* const TrackedActor = CineCameraComponent->FocusSettings.TrackingFocusSettings.ActorToTrack;
@@ -111,6 +110,7 @@ void ACineCameraActor::Tick(float DeltaTime)
 			::DrawDebugSolidBox(GetWorld(), FocusPoint, FVector(12.f), DebugFocusPointSolidColor);
 			::DrawDebugBox(GetWorld(), FocusPoint, FVector(12.f), DebugFocusPointOutlineColor);
 		}
+#endif // ENABLE_DRAW_DEBUG
 
 #if WITH_EDITORONLY_DATA
 		if (CineCameraComponent->FocusSettings.bDrawDebugFocusPlane)
@@ -118,11 +118,6 @@ void ACineCameraActor::Tick(float DeltaTime)
 			CineCameraComponent->UpdateDebugFocusPlane();
 		}
 #endif // WITH_EDITORONLY_DATA
-	}
-	else
-	{
-		// no tracking, no ticking
-		SetActorTickEnabled(false);
 	}
 
 	bResetInterplation = false;

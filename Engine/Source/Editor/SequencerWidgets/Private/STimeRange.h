@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Input/NumericTypeInterface.h"
 #include "ITimeSlider.h"
 
 class STimeRange : public ITimeSlider

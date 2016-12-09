@@ -1,8 +1,14 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Widgets/SWidget.h"
+#include "Components/Widget.h"
 #include "Spacer.generated.h"
+
+class SSpacer;
 
 /**
  * A spacer widget; it does not have a visual representation, and just provides padding between other widgets.

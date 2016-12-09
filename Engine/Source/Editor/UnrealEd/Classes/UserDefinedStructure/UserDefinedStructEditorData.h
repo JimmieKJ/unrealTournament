@@ -2,7 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "UObject/AssetPtr.h"
+#include "EdGraph/EdGraphPin.h"
+#include "UObject/StructOnScope.h"
 #include "UserDefinedStructEditorData.generated.h"
+
+class ITransactionObjectAnnotation;
 
 USTRUCT()
 struct FStructVariableDescription

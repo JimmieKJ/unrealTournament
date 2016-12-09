@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class IPropertyHandle;
+
 class IDetailKeyframeHandler
 {
 public:

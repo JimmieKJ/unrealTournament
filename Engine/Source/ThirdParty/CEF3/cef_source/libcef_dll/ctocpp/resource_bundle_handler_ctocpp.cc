@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -15,16 +15,17 @@
 
 // VIRTUAL METHODS - Body may be edited by hand.
 
-bool CefResourceBundleHandlerCToCpp::GetLocalizedString(int message_id,
+bool CefResourceBundleHandlerCToCpp::GetLocalizedString(int string_id,
     CefString& string) {
-  if (CEF_MEMBER_MISSING(struct_, get_localized_string))
+  cef_resource_bundle_handler_t* _struct = GetStruct();
+  if (CEF_MEMBER_MISSING(_struct, get_localized_string))
     return false;
 
   // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
 
   // Execute
-  int _retval = struct_->get_localized_string(struct_,
-      message_id,
+  int _retval = _struct->get_localized_string(_struct,
+      string_id,
       string.GetWritableStruct());
 
   // Return type: bool
@@ -33,13 +34,14 @@ bool CefResourceBundleHandlerCToCpp::GetLocalizedString(int message_id,
 
 bool CefResourceBundleHandlerCToCpp::GetDataResource(int resource_id,
     void*& data, size_t& data_size) {
-  if (CEF_MEMBER_MISSING(struct_, get_data_resource))
+  cef_resource_bundle_handler_t* _struct = GetStruct();
+  if (CEF_MEMBER_MISSING(_struct, get_data_resource))
     return false;
 
   // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
 
   // Execute
-  int _retval = struct_->get_data_resource(struct_,
+  int _retval = _struct->get_data_resource(_struct,
       resource_id,
       &data,
       &data_size);
@@ -48,9 +50,43 @@ bool CefResourceBundleHandlerCToCpp::GetDataResource(int resource_id,
   return _retval?true:false;
 }
 
+bool CefResourceBundleHandlerCToCpp::GetDataResourceForScale(int resource_id,
+    ScaleFactor scale_factor, void*& data, size_t& data_size) {
+  cef_resource_bundle_handler_t* _struct = GetStruct();
+  if (CEF_MEMBER_MISSING(_struct, get_data_resource_for_scale))
+    return false;
+
+  // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
+
+  // Execute
+  int _retval = _struct->get_data_resource_for_scale(_struct,
+      resource_id,
+      scale_factor,
+      &data,
+      &data_size);
+
+  // Return type: bool
+  return _retval?true:false;
+}
+
+
+// CONSTRUCTOR - Do not edit by hand.
+
+CefResourceBundleHandlerCToCpp::CefResourceBundleHandlerCToCpp() {
+}
+
+template<> cef_resource_bundle_handler_t* CefCToCpp<CefResourceBundleHandlerCToCpp,
+    CefResourceBundleHandler, cef_resource_bundle_handler_t>::UnwrapDerived(
+    CefWrapperType type, CefResourceBundleHandler* c) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
+}
 
 #ifndef NDEBUG
 template<> base::AtomicRefCount CefCToCpp<CefResourceBundleHandlerCToCpp,
     CefResourceBundleHandler, cef_resource_bundle_handler_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCToCpp<CefResourceBundleHandlerCToCpp,
+    CefResourceBundleHandler, cef_resource_bundle_handler_t>::kWrapperType =
+    WT_RESOURCE_BUNDLE_HANDLER;

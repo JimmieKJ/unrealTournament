@@ -6,11 +6,24 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/LockFreeList.h"
+#include "ProfilingDebugging/ResourceSize.h"
+#include "Engine/EngineTypes.h"
+#include "Templates/ScopedPointer.h"
+#include "UObject/GCObject.h"
+#include "RenderResource.h"
+#include "RenderingThread.h"
 #include "TextureLayout3d.h"
-#include "GCObject.h"
+#include "UniquePtr.h"
 
 // DDC key for distance field data, must be changed when modifying the generation code or data format
 #define DISTANCEFIELD_DERIVEDDATA_VER TEXT("7768798764B445A9543C94442EA899D")
+
+class FDistanceFieldVolumeData;
+class UStaticMesh;
+
+template <class T> class TLockFreePointerListLIFO;
 
 /** Represents a distance field volume texture for a single UStaticMesh. */
 class FDistanceFieldVolumeTexture
@@ -22,11 +35,7 @@ public:
 		bReferencedByAtlas(false)
 	{}
 
-	~FDistanceFieldVolumeTexture()
-	{
-		// Make sure we have been properly removed from the atlas before deleting
-		check(!bReferencedByAtlas);
-	}
+	~FDistanceFieldVolumeTexture();
 
 	/** Called at load time on game thread */
 	void Initialize();
@@ -143,14 +152,28 @@ public:
 		delete this;
 	}
 
+	DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
 	SIZE_T GetResourceSize() const
 	{
-		return sizeof(*this) + DistanceFieldVolume.GetAllocatedSize();
+		return GetResourceSizeBytes();
+	}
+
+	void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const
+	{
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(*this));
+		CumulativeResourceSize.AddUnknownMemoryBytes(DistanceFieldVolume.GetAllocatedSize());
+	}
+
+	SIZE_T GetResourceSizeBytes() const
+	{
+		FResourceSizeEx ResSize;
+		GetResourceSizeEx(ResSize);
+		return ResSize.GetTotalMemoryBytes();
 	}
 
 #if WITH_EDITORONLY_DATA
 
-	void CacheDerivedData(const FString& InDDCKey, UStaticMesh* Mesh, UStaticMesh* GenerateSource, float DistanceFieldResolutionScale, bool bGenerateDistanceFieldAsIfTwoSided);
+	void CacheDerivedData(const FString& InDDCKey, UStaticMesh* Mesh, UStaticMesh* GenerateSource, float DistanceFieldResolutionScale, float DistanceFieldBias, bool bGenerateDistanceFieldAsIfTwoSided);
 
 #endif
 
@@ -166,10 +189,13 @@ public:
 class FAsyncDistanceFieldTask
 {
 public:
+	FAsyncDistanceFieldTask();
+
 	TArray<EBlendMode> MaterialBlendModes;
 	UStaticMesh* StaticMesh;
 	UStaticMesh* GenerateSource;
 	float DistanceFieldResolutionScale;
+	float DistanceFieldBias;
 	bool bGenerateDistanceFieldAsIfTwoSided;
 	FString DDCKey;
 	FDistanceFieldVolumeData* GeneratedVolumeData;
@@ -213,7 +239,7 @@ private:
 	void Build(FAsyncDistanceFieldTask* Task, class FQueuedThreadPool& ThreadPool);
 
 	/** Thread that will build any tasks in TaskQueue and exit when there are no more. */
-	class TScopedPointer<class FBuildDistanceFieldThreadRunnable> ThreadRunnable;
+	class TUniquePtr<class FBuildDistanceFieldThreadRunnable> ThreadRunnable;
 
 	/** Game-thread managed list of tasks in the async system. */
 	TArray<FAsyncDistanceFieldTask*> ReferencedTasks;

@@ -4,7 +4,16 @@
 ShadowSetupMobile.cpp: Shadow setup implementation for mobile specific features.
 =============================================================================*/
 
-#include "RendererPrivate.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "EngineDefines.h"
+#include "ConvexVolume.h"
+#include "RendererInterface.h"
+#include "GenericOctree.h"
+#include "LightSceneInfo.h"
+#include "SceneRendering.h"
+#include "DynamicPrimitiveDrawing.h"
 #include "ScenePrivate.h"
 
 static TAutoConsoleVariable<int32> CVarCsmShaderCullingDebugGfx(
@@ -159,7 +168,7 @@ static bool MobileDetermineStaticMeshesCSMVisibilityState(FScene* Scene, FProjec
 {
 	FConvexVolume ViewFrustum;
 	FViewInfo* View = WholeSceneShadow->DependentView;
-	GetViewFrustumBounds(ViewFrustum, View->ViewMatrices.GetViewProjMatrix(), true);
+	GetViewFrustumBounds(ViewFrustum, View->ViewMatrices.GetViewProjectionMatrix(), true);
 	bool bFoundReceiver = false;
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_ShadowOctreeTraversal);
@@ -395,7 +404,7 @@ void FMobileSceneRenderer::BuildCombinedStaticAndCSMVisibilityState(FLightSceneI
 				}
 
 				FConvexVolume ViewFrustum;
-				GetViewFrustumBounds(ViewFrustum, View.ViewMatrices.GetViewProjMatrix(), true);
+				GetViewFrustumBounds(ViewFrustum, View.ViewMatrices.GetViewProjectionMatrix(), true);
 				FConvexVolume& ShadowReceiverFrustum = ProjectedShadowInfo->ReceiverFrustum;
 				FVector& PreShadowTranslation = ProjectedShadowInfo->PreShadowTranslation;
 

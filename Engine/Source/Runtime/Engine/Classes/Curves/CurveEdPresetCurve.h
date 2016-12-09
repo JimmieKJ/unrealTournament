@@ -6,6 +6,10 @@
 //=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "CurveEdPresetCurve.generated.h"
 
 UCLASS(deprecated)

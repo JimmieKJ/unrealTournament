@@ -2,11 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ParserClass.h"
-#include "ClassTree.h"
+#include "UObject/ClassTree.h"
 
 #define WIP_UHT_REFACTOR 1
 
+class UPackage;
+class FString;
 class FClass;
 
 class FClasses

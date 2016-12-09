@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "StaticMeshComponentDetails.h"
+#include "Components/StaticMeshComponent.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
 
 #define LOCTEXT_NAMESPACE "StaticMeshComponentDetails"
 

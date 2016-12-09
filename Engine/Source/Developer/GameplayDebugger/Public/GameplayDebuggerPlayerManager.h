@@ -2,11 +2,15 @@
 
 #pragma once
 
-#include "GameFramework/PlayerController.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "GameplayDebuggerPlayerManager.generated.h"
 
 class AGameplayDebuggerCategoryReplicator;
+class APlayerController;
 class UGameplayDebuggerLocalController;
+class UInputComponent;
 
 USTRUCT()
 struct FGameplayDebuggerPlayerData
@@ -38,7 +42,10 @@ class AGameplayDebuggerPlayerManager : public AActor
 
 	AGameplayDebuggerCategoryReplicator* GetReplicator(const APlayerController& OwnerPC) const;
 	UInputComponent* GetInputComponent(const APlayerController& OwnerPC) const;
+	UGameplayDebuggerLocalController* GetLocalController(const APlayerController& OwnerPC) const;
 	
+	const FGameplayDebuggerPlayerData* GetPlayerData(const APlayerController& OwnerPC) const;
+
 	static AGameplayDebuggerPlayerManager& GetCurrent(UWorld* World);
 
 protected:

@@ -1,16 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Engine/CoreSettings.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/UnrealType.h"
+#include "Misc/App.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogCoreSettings, Log, All);
 
 int32 GUseBackgroundLevelStreaming = 1;
 float GAsyncLoadingTimeLimit = 5.0f;
 int32 GAsyncLoadingUseFullTimeLimit = 1;
 float GPriorityAsyncLoadingExtraTime = 20.0f;
 float GLevelStreamingActorsUpdateTimeLimit = 5.0f;
+float GLevelStreamingUnregisterComponentsTimeLimit = 1.0f;
 int32 GLevelStreamingComponentsRegistrationGranularity = 10;
-
+int32 GLevelStreamingComponentsUnregistrationGranularity = 5;
 
 static FAutoConsoleVariableRef CVarUseBackgroundLevelStreaming(
 	TEXT("s.UseBackgroundLevelStreaming"),
@@ -47,10 +51,24 @@ static FAutoConsoleVariableRef CVarLevelStreamingActorsUpdateTimeLimit(
 	ECVF_Default
 	);
 
+static FAutoConsoleVariableRef CVarLevelStreamingUnregisterComponentsTimeLimit(
+	TEXT("s.UnregisterComponentsTimeLimit"),
+	GLevelStreamingUnregisterComponentsTimeLimit,
+	TEXT("Maximum allowed time to spend for actor unregistration steps during level streaming (ms per frame). If this is zero then we don't timeslice"),
+	ECVF_Default
+);
+
 static FAutoConsoleVariableRef CVarLevelStreamingComponentsRegistrationGranularity(
 	TEXT("s.LevelStreamingComponentsRegistrationGranularity"),
 	GLevelStreamingComponentsRegistrationGranularity,
 	TEXT("Batching granularity used to register actor components during level streaming."),
+	ECVF_Default
+	);
+
+static FAutoConsoleVariableRef CVarLevelStreamingComponentsUnregistrationGranularity(
+	TEXT("s.LevelStreamingComponentsUnregistrationGranularity"),
+	GLevelStreamingComponentsUnregistrationGranularity,
+	TEXT("Batching granularity used to unregister actor components during level unstreaming."),
 	ECVF_Default
 	);
 
@@ -70,7 +88,8 @@ UStreamingSettings::UStreamingSettings()
 	AsyncLoadingUseFullTimeLimit = true;
 	PriorityAsyncLoadingExtraTime = 20.0f;
 	LevelStreamingActorsUpdateTimeLimit = 5.0f;
-	LevelStreamingComponentsRegistrationGranularity = 10;	
+	LevelStreamingComponentsRegistrationGranularity = 10;
+	EventDrivenLoaderEnabled = false;
 }
 
 void UStreamingSettings::PostInitProperties()
@@ -81,6 +100,12 @@ void UStreamingSettings::PostInitProperties()
 	if (IsTemplate())
 	{
 		ImportConsoleVariableValues();
+
+		// EDL can only be enabled in source code builds
+		if (FApp::IsEngineInstalled())
+		{
+			EventDrivenLoaderEnabled = false;
+		}
 	}
 #endif // #if WITH_EDITOR
 }
@@ -88,8 +113,20 @@ void UStreamingSettings::PostInitProperties()
 #if WITH_EDITOR
 void UStreamingSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
+	static FName NAME_EventDrivenLoaderEnabled(TEXT("EventDrivenLoaderEnabled"));
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
+	if (Cast<UBoolProperty>(PropertyChangedEvent.Property) && PropertyChangedEvent.Property->GetFName() == NAME_EventDrivenLoaderEnabled)
+	{
+		if (FApp::IsEngineInstalled())
+		{
+			UBoolProperty* EventDrivenLoaderEnabledProperty = CastChecked<UBoolProperty>(PropertyChangedEvent.Property);
+			EventDrivenLoaderEnabledProperty->SetPropertyValue_InContainer(this, false);
+			UE_LOG(LogCoreSettings, Warning, TEXT("Event Driven Loader can only be enabled in source code distributions."))
+		}
+	}
+	
 	if (PropertyChangedEvent.Property)
 	{
 		ExportValuesToConsoleVariables(PropertyChangedEvent.Property);

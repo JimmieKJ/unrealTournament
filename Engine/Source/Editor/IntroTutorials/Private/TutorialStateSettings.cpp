@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IntroTutorialsPrivatePCH.h"
 #include "TutorialStateSettings.h"
+#include "Templates/SubclassOf.h"
+#include "EditorTutorial.h"
 
 UTutorialStateSettings::UTutorialStateSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

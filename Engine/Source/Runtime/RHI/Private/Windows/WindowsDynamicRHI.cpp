@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RHIPrivatePCH.h"
 #include "RHI.h"
 #include "ModuleManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/MessageDialog.h"
 
 FDynamicRHI* PlatformCreateDynamicRHI()
 {
@@ -56,7 +58,27 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 
 	// Load the dynamic RHI module.
 	IDynamicRHIModule* DynamicRHIModule = NULL;
-	if(bForceOpenGL)
+
+#if defined(SWITCHRHI)
+	const bool bForceSwitch = FParse::Param(FCommandLine::Get(), TEXT("switch"));
+	// Load the dynamic RHI module.
+	if (bForceSwitch)
+	{
+		#define A(x) #x
+		#define B(x) A(x)
+		#define SWITCH_RHI_STR B(SWITCHRHI)
+		DynamicRHIModule = &FModuleManager::LoadModuleChecked<IDynamicRHIModule>(TEXT( SWITCH_RHI_STR ));
+		if (!DynamicRHIModule->IsSupported())
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("SwitchDynamicRHI", "UnsupportedRHI", "The chosen RHI is not supported"));
+			FPlatformMisc::RequestExit(1);
+			DynamicRHIModule = NULL;
+		}
+	}
+	else 
+#endif
+
+	if (bForceOpenGL)
 	{
 		DynamicRHIModule = &FModuleManager::LoadModuleChecked<IDynamicRHIModule>(TEXT("OpenGLDrv"));
 
@@ -87,6 +109,10 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 			FPlatformMisc::RequestExit(1);
 			DynamicRHIModule = NULL;
 		}
+		else if (FPlatformProcess::IsApplicationRunning(TEXT("fraps.exe")))
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("WindowsDynamicRHI", "UseExpressionEncoder", "Fraps has been known to crash D3D12. Please use Microsoft Expression Encoder instead for capturing."));
+		}
 	}
 	else
 	{
@@ -97,6 +123,10 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("WindowsDynamicRHI", "RequiredDX11Feature", "DX11 feature level 10.0 is required to run the engine."));
 			FPlatformMisc::RequestExit(1);
 			DynamicRHIModule = NULL;
+		}
+		else if (FPlatformProcess::IsApplicationRunning(TEXT("fraps.exe")))
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("WindowsDynamicRHI", "UseExpressionEncoderDX11", "Fraps has been known to crash D3D11. Please use Microsoft Expression Encoder instead for capturing."));
 		}
 	}
 

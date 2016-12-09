@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "STooltipPresenter.h"
+#include "Widgets/LayerManager/STooltipPresenter.h"
+#include "Layout/LayoutUtils.h"
+#include "Framework/Application/SlateApplication.h"
 
 void STooltipPresenter::Construct(const FArguments& InArgs)
 {

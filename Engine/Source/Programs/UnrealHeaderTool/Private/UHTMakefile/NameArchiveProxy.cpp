@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "NameArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/NameArchiveProxy.h"
+#include "UObject/NameTypes.h"
+#include "UHTMakefile.h"
 
 FNameArchiveProxy::FNameArchiveProxy(const FUHTMakefile& UHTMakefile, FName Name)
 {

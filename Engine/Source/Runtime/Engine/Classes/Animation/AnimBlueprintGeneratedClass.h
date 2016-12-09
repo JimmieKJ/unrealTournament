@@ -2,20 +2,24 @@
 
 #pragma once
 
-#include "AnimStateMachineTypes.h"
-#include "AnimSequenceBase.h"
-#include "Engine/BlueprintGeneratedClass.h"
-#include "AnimBlueprint.h"
-#include "AnimClassInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "Animation/AnimTypes.h"
 #include "Engine/PoseWatch.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Animation/AnimStateMachineTypes.h"
+#include "Animation/AnimClassInterface.h"
 
 #include "AnimBlueprintGeneratedClass.generated.h"
 
-struct FAnimNotifyEvent;
-class  UAnimInstance;
-class  UEdGraph;
-class  UEdGraphNode;
-class  UAnimGraphNode_StateResult;
+class UAnimGraphNode_Base;
+class UAnimGraphNode_StateMachineBase;
+class UAnimInstance;
+class UAnimStateNode;
+class UAnimStateTransitionNode;
+class UEdGraph;
+class USkeleton;
 
 // This structure represents debugging information for a single state machine
 USTRUCT()

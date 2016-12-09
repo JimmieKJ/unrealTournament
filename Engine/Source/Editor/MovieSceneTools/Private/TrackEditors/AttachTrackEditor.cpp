@@ -1,20 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "ScopedTransaction.h"
-#include "MovieScene.h"
-#include "MovieSceneSection.h"
-#include "MovieScene3DAttachTrack.h"
-#include "MovieScene3DAttachSection.h"
-#include "ISequencerSection.h"
-#include "ISectionLayoutBuilder.h"
-#include "IKeyArea.h"
-#include "MovieSceneCommonHelpers.h"
-#include "MovieSceneTrackEditor.h"
-#include "ActorEditorUtils.h"
+#include "TrackEditors/AttachTrackEditor.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "GameFramework/Actor.h"
+#include "SequencerSectionPainter.h"
 #include "GameFramework/WorldSettings.h"
-#include "AttachTrackEditor.h"
-#include "ActorPickerTrackEditor.h"
+#include "Tracks/MovieScene3DAttachTrack.h"
+#include "Sections/MovieScene3DAttachSection.h"
+#include "ActorEditorUtils.h"
 
 
 #define LOCTEXT_NAMESPACE "F3DAttachTrackEditor"
@@ -93,7 +86,7 @@ bool F3DAttachTrackEditor::SupportsType( TSubclassOf<UMovieSceneTrack> Type ) co
 }
 
 
-TSharedRef<ISequencerSection> F3DAttachTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
+TSharedRef<ISequencerSection> F3DAttachTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding )
 {
 	check( SupportsType( SectionObject.GetOuter()->GetClass() ) );
 
@@ -117,11 +110,28 @@ void F3DAttachTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder
 bool F3DAttachTrackEditor::IsActorPickable(const AActor* const ParentActor, FGuid ObjectBinding, UMovieSceneSection* InSection)
 {
 	// Can't pick the object that this track binds
-	TArray<TWeakObjectPtr<UObject>> OutObjects;
-	GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectBinding, OutObjects);
-	if (OutObjects.Contains(ParentActor))
+	TArrayView<TWeakObjectPtr<>> Objects = GetSequencer()->FindObjectsInCurrentSequence(ObjectBinding);
+	if (Objects.Contains(ParentActor))
 	{
 		return false;
+	}
+
+	for (auto Object : Objects)
+	{
+		if (Object.IsValid())
+		{
+			AActor* ChildActor = Cast<AActor>(Object.Get());
+			if (ChildActor)
+			{
+				USceneComponent* ChildRoot = ChildActor->GetRootComponent();
+				USceneComponent* ParentRoot = ParentActor->GetDefaultAttachComponent();
+
+				if (!ChildRoot || !ParentRoot || ParentRoot->IsAttachedTo(ChildRoot))
+				{
+					return false;
+				}
+			}
+		}
 	}
 
 	if (ParentActor->IsListedInSceneOutliner() &&
@@ -153,8 +163,11 @@ void F3DAttachTrackEditor::ActorSocketPicked(const FName SocketName, USceneCompo
 	}
 	else if (ObjectGuid.IsValid())
 	{
-		TArray<TWeakObjectPtr<UObject>> OutObjects;
-		GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectGuid, OutObjects);
+		TArray<TWeakObjectPtr<>> OutObjects;
+		for (TWeakObjectPtr<> Object : GetSequencer()->FindObjectsInCurrentSequence(ObjectGuid))
+		{
+			OutObjects.Add(Object);
+		}
 
 		AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &F3DAttachTrackEditor::AddKeyInternal, OutObjects, SocketName, Component ? Component->GetFName() : NAME_None, ParentActor) );
 	}

@@ -2,11 +2,12 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
 #include "UnrealAudioTypes.h"
-#include "UnrealAudioHandles.h"
+#include "HAL/Runnable.h"
+#include "HAL/ThreadSafeBool.h"
 #include "UnrealAudioSoundFileManager.h"
-#include "UnrealAudioTypes.h"
-#include "UnrealAudioSoundFile.h"
 #include "UnrealAudioSoundFileInternal.h"
 
 #if ENABLE_UNREAL_AUDIO

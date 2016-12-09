@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "UnrealVersionSelector.h"
-
 #if PLATFORM_WINDOWS
 	#include "Windows/WindowsPlatformInstallation.h"
 	typedef FWindowsPlatformInstallation FPlatformInstallation;

@@ -1,15 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
 #include "LandscapeEditorDetails.h"
-#include "LandscapeEditorDetailCustomizations.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SComboButton.h"
+#include "LandscapeEdMode.h"
+#include "LandscapeEditorDetailCustomization_NewLandscape.h"
+#include "LandscapeEditorDetailCustomization_ResizeLandscape.h"
+#include "LandscapeEditorDetailCustomization_CopyPaste.h"
+#include "LandscapeEditorDetailCustomization_MiscTools.h"
+#include "LandscapeEditorDetailCustomization_AlphaBrush.h"
+#include "DetailWidgetRow.h"
+#include "LandscapeEditorDetailCustomization_TargetLayers.h"
 #include "DetailCategoryBuilder.h"
 #include "DetailLayoutBuilder.h"
-#include "DetailWidgetRow.h"
 
-#include "LandscapeEdMode.h"
 #include "LandscapeEditorCommands.h"
-#include "LandscapeEditorObject.h"
 #include "LandscapeEditorDetailWidgets.h"
 
 #define LOCTEXT_NAMESPACE "LandscapeEditor"

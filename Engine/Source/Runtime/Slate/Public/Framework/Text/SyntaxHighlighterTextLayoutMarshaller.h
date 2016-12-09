@@ -1,11 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#if WITH_FANCY_TEXT
+#include "CoreMinimal.h"
+#include "SlateGlobals.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
 
-#include "PlainTextLayoutMarshaller.h"
-#include "ITextDecorator.h"
-#include "SyntaxTokenizer.h"
+#if WITH_FANCY_TEXT
+	#include "Framework/Text/PlainTextLayoutMarshaller.h"
+	#include "Framework/Text/SyntaxTokenizer.h"
+#endif
+
+class FTextLayout;
+
+#if WITH_FANCY_TEXT
 
 /**
  * Get/set the raw text to/from a text layout, and also inject syntax highlighting

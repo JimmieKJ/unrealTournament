@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "AssetTypeActions/AssetTypeActions_Curve.h"
 #include "Curves/CurveFloat.h"
-#include "AssetTypeActions_Curve.h"
 
 class FAssetTypeActions_CurveFloat : public FAssetTypeActions_Curve
 {

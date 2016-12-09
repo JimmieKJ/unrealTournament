@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "XmppConnection.h"
+
 /**
 * Chat message received from another Xmpp user
 */

@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include "FloatPropertyTrackEditor.h"
-
-
-class ISequencer;
-class UMovieSceneTrack;
-
+#include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
+#include "ISequencer.h"
+#include "MovieSceneTrack.h"
+#include "ISequencerTrackEditor.h"
+#include "TrackEditors/PropertyTrackEditors/FloatPropertyTrackEditor.h"
 
 /**
 * A property track editor for slow motion control.

@@ -1,11 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "BodyInstanceCustomization.h"
-#include "ScopedTransaction.h"
-#include "Editor/Documentation/Public/IDocumentation.h"
+#include "Components/SceneComponent.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/ShapeComponent.h"
 #include "Engine/CollisionProfile.h"
-#include "SNumericEntryBox.h"
+#include "Components/DestructibleComponent.h"
+#include "Kismet2/ComponentEditorUtils.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailGroup.h"
+#include "IDetailChildrenBuilder.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
+#include "ScopedTransaction.h"
+#include "Widgets/SToolTip.h"
+#include "IDocumentation.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "ObjectEditorUtils.h"
@@ -212,7 +229,9 @@ void FBodyInstanceCustomization::CustomizeChildren( TSharedRef<class IPropertyHa
 
 	if (StaticMeshComponentHandle.IsValid())
 	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		StaticMeshHandle = StaticMeshComponentHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(UStaticMeshComponent, StaticMesh));
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 		if(StaticMeshHandle.IsValid())
 		{
 			FSimpleDelegate OnStaticMeshChangedDelegate = FSimpleDelegate::CreateSP(this, &FBodyInstanceCustomization::RefreshCollisionProfiles);

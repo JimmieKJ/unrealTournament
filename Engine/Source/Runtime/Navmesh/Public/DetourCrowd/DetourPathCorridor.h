@@ -22,7 +22,11 @@
 #ifndef DETOUTPATHCORRIDOR_H
 #define DETOUTPATHCORRIDOR_H
 
-#include "DetourNavMeshQuery.h"
+#include "CoreMinimal.h"
+#include "Detour/DetourNavMesh.h"
+
+class dtNavMeshQuery;
+class dtQueryFilter;
 
 /// Represents a dynamic polygon corridor used to plan agent movement.
 /// @ingroup crowd, detour

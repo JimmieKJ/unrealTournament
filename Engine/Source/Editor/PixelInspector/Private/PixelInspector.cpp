@@ -1,16 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PixelInspectorPrivatePCH.h"
 #include "PixelInspector.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Styling/CoreStyle.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "PixelInspectorView.h"
 #include "PixelInspectorStyle.h"
 
+#include "EngineGlobals.h"
+#include "EditorViewportClient.h"
 #include "Editor.h"
-#include "EditorModeManager.h"
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
-#include "PixelInspectorDetailsCustomization.h"
 #include "LevelEditor.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 #define PIXEL_INSPECTOR_REQUEST_TIMEOUT 10
 #define MINIMUM_TICK_BETWEEN_CREATE_REQUEST 10
@@ -441,7 +453,7 @@ namespace PixelInspector
 		//0: false
 		//1: true
 		//default: true
-		const bool AllowStaticLighting = CVarAllowStaticLighting != nullptr ? CVarGBufferFormat->GetValueOnGameThread() == 1 : true;
+		const bool AllowStaticLighting = CVarAllowStaticLighting != nullptr ? CVarAllowStaticLighting->GetValueOnGameThread() == 1 : true;
 		
 		//Try to create the request buffer
 		int32 BufferIndex = CreateRequestBuffer(SceneInterface, GBufferFormat);

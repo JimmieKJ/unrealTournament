@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-
+#include "Framework/Text/Android/AndroidPlatformTextField.h"
+#include "Widgets/Input/IVirtualKeyboardEntry.h"
 
 // Java InputType class
 #define TYPE_CLASS_TEXT						0x00000001
@@ -50,5 +50,10 @@ void FAndroidPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex,
 		// Show alert for input
 		extern void AndroidThunkCpp_ShowVirtualKeyboardInput(TSharedPtr<IVirtualKeyboardEntry>, int32, const FString&, const FString&);
 		AndroidThunkCpp_ShowVirtualKeyboardInput(TextEntryWidget, InputType, TextEntryWidget->GetHintText().ToString(), TextEntryWidget->GetText().ToString());
+	}
+	else
+	{
+		extern void AndroidThunkCpp_HideVirtualKeyboardInput();
+		AndroidThunkCpp_HideVirtualKeyboardInput();
 	}
 }

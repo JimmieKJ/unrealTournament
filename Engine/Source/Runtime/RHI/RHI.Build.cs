@@ -24,8 +24,25 @@ public class RHI : ModuleRules
 
 			if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 				(Target.Platform == UnrealTargetPlatform.Win32))
-            {
+			{
 				DynamicallyLoadedModuleNames.Add("VulkanRHI");
+			}
+
+			// need to dynamically load an assembly to check if the SDK exists (not everyone will have access to this)
+			if (Target.Platform == UnrealTargetPlatform.Win64)
+			{
+				System.Type SwitchSDKType = System.Type.GetType("UnrealBuildTool.SwitchPlatformSDK,UnrealBuildTool");
+				if (SwitchSDKType != null)
+				{
+					// check for the location of the SDK
+					string RHIModuleName = SwitchSDKType.GetMethod("GetRHIModuleNameIfAvailable").Invoke(null, null) as string;
+					// compile the Switch RHI if possible
+					if (!string.IsNullOrEmpty(RHIModuleName))
+					{
+						DynamicallyLoadedModuleNames.Add(RHIModuleName);
+						Definitions.Add("SWITCHRHI=" + RHIModuleName);
+					}
+				}
 			}
 
 			if ((Target.Platform == UnrealTargetPlatform.Win32) ||

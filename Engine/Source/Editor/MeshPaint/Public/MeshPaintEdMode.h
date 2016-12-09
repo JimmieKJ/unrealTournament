@@ -2,13 +2,26 @@
 
 #pragma once
 
-#include "GenericOctree.h"
-#include "GenericOctreePublic.h"
-#include "Engine/StaticMesh.h"
-#include "IVREditorModule.h"
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "EdMode.h"
 
-
+class FEditorModeTools;
+class FEditorViewportClient;
+class FMeshPaintParameters;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FScopedTransaction;
+class FViewport;
 class IMeshPaintGeometryAdapter;
+class UFactory;
+class UMaterialInterface;
+class UMeshComponent;
+class UStaticMeshComponent;
+class UTexture;
+class UTexture2D;
+class UTextureRenderTarget2D;
+struct FStaticMeshLODResources;
 
 /** Mesh paint resource types */
 namespace EMeshPaintResource
@@ -401,10 +414,6 @@ public:
 	virtual EEditAction::Type GetActionEditDelete() override { return EEditAction::Process; }
 	virtual bool ProcessEditDelete() override;
 	// End of FEdMode interface
-
-
-	/** Called when an editor mode is entered or exited */
-	void OnEditorModeChanged( FEdMode* EditorMode, bool bEntered );
 
 	/** Returns true if we need to force a render/update through based fill/copy */
 	bool IsForceRendered (void) const;

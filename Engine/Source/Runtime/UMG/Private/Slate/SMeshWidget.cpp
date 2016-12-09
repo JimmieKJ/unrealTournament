@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Slate/SMeshWidget.h"
+#include "Rendering/DrawElements.h"
+#include "Modules/ModuleManager.h"
+#include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Framework/Application/SlateApplication.h"
+#include "UMGPrivate.h"
 
-#include "SMeshWidget.h"
 #include "SlateMaterialBrush.h"
 #include "Runtime/SlateRHIRenderer/Public/Interfaces/ISlateRHIRendererModule.h"
-#include "SlateVectorArtData.h"
-#include "SlateVectorArtInstanceData.h"
+#include "Slate/SlateVectorArtData.h"
+#include "Slate/SlateVectorArtInstanceData.h"
 
 
 
@@ -240,8 +245,7 @@ void SMeshWidget::AddReferencedObjects(FReferenceCollector& Collector)
 	{
 		if (SomeRenderData.Brush.IsValid())
 		{
-			UObject* ResourceObject = SomeRenderData.Brush->GetResourceObject();
-			Collector.AddReferencedObject(ResourceObject);
+			SomeRenderData.Brush->AddReferencedObjects(Collector);
 		}
 	}
 }

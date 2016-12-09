@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
 #include "ComponentVisualizer.h"
 
+class FEditorViewportClient;
+class FViewport;
+class SWidget;
 struct FViewportClick;
 
 /** Class that managed active component visualizer and routes input to it */

@@ -113,6 +113,19 @@ namespace UnrealBuildTool
 		public readonly List<string> Files = new List<string>();		
 	}
 
+	/// <summary>
+	/// The type of project files to generate
+	/// </summary>
+	public enum ProjectFileType
+	{
+		Make,
+		CMake,
+		QMake,
+		KDevelop,
+		CodeLite,
+		VisualStudio,
+		XCode,
+	}
 
 	/// <summary>
 	/// Base class for all project file generators
@@ -346,9 +359,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Arguments">Command-line arguments</param>
 		/// <param name="bSuccess">True if everything went OK</param>
-		public virtual void GenerateProjectFiles( String[] Arguments, out bool bSuccess )
+		public virtual bool GenerateProjectFiles( String[] Arguments )
 		{
-			bSuccess = true;
+			bool bSuccess = true;
 
 			// Parse project generator options
 			bool IncludeAllPlatforms = true;
@@ -431,9 +444,10 @@ namespace UnrealBuildTool
 			Dictionary<DirectoryReference, ProjectFile> GameProjects = null;
 			Dictionary<string, ProjectFile> ProgramProjects = null;
 			HashSet<ProjectFile> TemplateGameProjects = null;
+			HashSet<ProjectFile> SampleGameProjects = null;
 			{
 				// Setup buildable projects for all targets
-				AddProjectsForAllTargets( AllGameProjects, out EngineProject, out GameProjects, out ProgramProjects, out TemplateGameProjects );
+				AddProjectsForAllTargets( AllGameProjects, out EngineProject, out GameProjects, out ProgramProjects, out TemplateGameProjects, out SampleGameProjects );
 
 				// Add all game projects and game config files
 				AddAllGameProjects(GameProjects, SupportedPlatformNames, RootFolder);
@@ -517,6 +531,10 @@ namespace UnrealBuildTool
 						if( TemplateGameProjects.Contains( CurGameProject ) )
 						{
 							RootFolder.AddSubFolder( "Templates" ).ChildProjects.Add( CurGameProject );
+						}
+						else if (SampleGameProjects.Contains( CurGameProject ) )
+						{
+							RootFolder.AddSubFolder("Samples").ChildProjects.Add(CurGameProject);
 						}
 						else
 						{
@@ -668,6 +686,8 @@ namespace UnrealBuildTool
 					}
 				}
 			}
+
+			return bSuccess;
 		}
 
 		/// <summary>
@@ -1248,29 +1268,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Adds a Sandcastle Help File Builder project to the master project
-		/// </summary>
-		/// <param name="ProjectName">Name of project file to add</param>
-		private ProjectFile AddSimpleSHFBProject( string ProjectName )
-		{
-			// We only need this for non-native projects
-			ProjectFile Project = null;
-
-			FileReference ProjectFileName = FileReference.Combine( UnrealBuildTool.EngineSourceDirectory, "Programs", ProjectName, Path.GetFileName( ProjectName ) + ".shfbproj" );
-			if( ProjectFileName.Exists() )
-			{
-				Project = new VSHFBProjectFile( ProjectFileName );
-				AddExistingProjectFile(Project);
-			}
-			else
-			{
-				throw new BuildException( ProjectFileName.FullName + " doesn't exist!" );
-			}
-			
-			return Project;
-		}
-
-		/// <summary>
 		/// Check the registry for MVC3 project support
 		/// </summary>
 		/// <param name="RootKey"></param>
@@ -1640,17 +1637,19 @@ namespace UnrealBuildTool
 		/// <param name="GameProjects">Map of game folder name to all of the game projects we created</param>
 		/// <param name="ProgramProjects">Map of program names to all of the program projects we created</param>
 		/// <param name="TemplateGameProjects">Set of template game projects we found.  These will also be in the GameProjects map</param>
-		private void AddProjectsForAllTargets( List<UProjectInfo> AllGames, out ProjectFile EngineProject, out Dictionary<DirectoryReference, ProjectFile> GameProjects, out Dictionary<string, ProjectFile> ProgramProjects, out HashSet<ProjectFile> TemplateGameProjects )
+		private void AddProjectsForAllTargets( List<UProjectInfo> AllGames, out ProjectFile EngineProject, out Dictionary<DirectoryReference, ProjectFile> GameProjects, out Dictionary<string, ProjectFile> ProgramProjects, out HashSet<ProjectFile> TemplateGameProjects, out HashSet<ProjectFile> SampleGameProjects )
 		{
 			// As we're creating project files, we'll also keep track of whether we created an "engine" project and return that if we have one
 			EngineProject = null;
 			GameProjects = new Dictionary<DirectoryReference,ProjectFile>();
 			ProgramProjects = new Dictionary<string,ProjectFile>( StringComparer.InvariantCultureIgnoreCase );
 			TemplateGameProjects = new HashSet<ProjectFile>();
+			SampleGameProjects = new HashSet<ProjectFile>();
 
 			// Get some standard directories
 			DirectoryReference EngineSourceProgramsDirectory = DirectoryReference.Combine(UnrealBuildTool.EngineSourceDirectory, "Programs");
 			DirectoryReference TemplatesDirectory = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "..", "Templates");
+			DirectoryReference SamplesDirectory = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "..", "Samples");
 
 			// Find all of the target files.  This will filter out any modules or targets that don't
 			// belong to platforms we're generating project files for.
@@ -1745,6 +1744,7 @@ namespace UnrealBuildTool
 
 					// Check to see if this is a template target.  That is, the target is located under the "Templates" folder
 					bool IsTemplateTarget = TargetFilePath.IsUnderDirectory(TemplatesDirectory);
+					bool IsSampleTarget = TargetFilePath.IsUnderDirectory(SamplesDirectory);
 
 					DirectoryReference BaseFolder = null;
 					if (IsProgramTarget)
@@ -1770,6 +1770,10 @@ namespace UnrealBuildTool
 						if (IsTemplateTarget)
 						{
 							TemplateGameProjects.Add(ProjectFile);
+						}
+						else if (IsSampleTarget)
+						{
+							SampleGameProjects.Add(ProjectFile);
 						}
 						BaseFolder = GameFolder;
 
@@ -2024,30 +2028,6 @@ namespace UnrealBuildTool
 				WriteMasterProjectFile( UBTProject: UBTProject );
 				Progress.Write(TotalProjectFileCount, TotalProjectFileCount);
 			}
-
-            // Write AutomationReferences file
-            if (AutomationProjectFiles.Any())
-            {
-                XNamespace NS = XNamespace.Get("http://schemas.microsoft.com/developer/msbuild/2003");
-
-                DirectoryReference AutomationToolDir = DirectoryReference.Combine(UnrealBuildTool.EngineSourceDirectory, "Programs", "AutomationTool");
-                new XDocument(
-                    new XElement(NS + "Project",
-                        new XAttribute("ToolsVersion", VCProjectFileGenerator.ProjectFileToolVersionString),
-                        new XAttribute("DefaultTargets", "Build"),
-                        new XElement(NS + "ItemGroup",
-                            from AutomationProject in AutomationProjectFiles
-                            select new XElement(NS + "ProjectReference",
-                                new XAttribute("Include", AutomationProject.ProjectFilePath.MakeRelativeTo(AutomationToolDir)),
-                                new XElement(NS + "Project", (AutomationProject as VCSharpProjectFile).ProjectGUID.ToString("B")),
-                                new XElement(NS + "Name", AutomationProject.ProjectFilePath.GetFileNameWithoutExtension()),
-                                new XElement(NS + "Private", "false")
-                            )
-                        )
-                    )
-                ).Save(FileReference.Combine( AutomationToolDir, "AutomationTool.csproj.References" ).FullName);
-            }
-
 			return true;
 		}
 

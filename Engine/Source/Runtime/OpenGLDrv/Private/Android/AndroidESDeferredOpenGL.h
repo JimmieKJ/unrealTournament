@@ -111,6 +111,10 @@ GL_APICALL void GL_APIENTRY glGetVertexAttribLui64vNV(GLuint index, GLenum pname
 #endif
 #endif /* GL_NV_bindless_texture */
 
+// Mobile multi-view
+typedef void (GL_APIENTRYP PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVRPROC) (GLenum target, GLenum attachment, GLuint texture, GLint level, GLint baseViewIndex, GLsizei numViews);
+typedef void (GL_APIENTRYP PFNGLFRAMEBUFFERTEXTUREMULTISAMPLEMULTIVIEWOVRPROC) (GLenum target, GLenum attachment, GLuint texture, GLint level, GLsizei samples, GLint baseViewIndex, GLsizei numViews);
+
 // List entrypoints core to OpenGL ES2, unless linking directly
 #define ENUM_GL_ENTRYPOINTS_CORE(EnumMacro)
 
@@ -237,8 +241,9 @@ GL_APICALL void GL_APIENTRY glGetVertexAttribLui64vNV(GLuint index, GLenum pname
 	EnumMacro(PFNEGLGETSYSTEMTIMENVPROC, eglGetSystemTimeNV)\
 	EnumMacro(PFNEGLCREATESYNCKHRPROC, eglCreateSyncKHR)\
 	EnumMacro(PFNEGLDESTROYSYNCKHRPROC, eglDestroySyncKHR)\
-	EnumMacro(PFNEGLCLIENTWAITSYNCKHRPROC, eglClientWaitSyncKHR)
-
+	EnumMacro(PFNEGLCLIENTWAITSYNCKHRPROC, eglClientWaitSyncKHR)\
+	EnumMacro(PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVRPROC, glFramebufferTextureMultiviewOVR)\
+	EnumMacro(PFNGLFRAMEBUFFERTEXTUREMULTISAMPLEMULTIVIEWOVRPROC, glFramebufferTextureMultisampleMultiviewOVR)
 
 // List of all OpenGL entry points
 #define ENUM_GL_ENTRYPOINTS_ALL(EnumMacro) \
@@ -510,6 +515,11 @@ struct FAndroidESDeferredOpenGL : public FOpenGLESDeferred
 		return bSupportsBindlessTexture;
 	}
 
+	static FORCEINLINE bool SupportsMobileMultiView()
+	{
+		return bSupportsMobileMultiView;
+	}
+
 	static FORCEINLINE GLuint64 GetTextureSamplerHandle(GLuint Texture, GLuint Sampler)
 	{
 		return glGetTextureSamplerHandleNV(Texture, Sampler);
@@ -539,6 +549,9 @@ struct FAndroidESDeferredOpenGL : public FOpenGLESDeferred
 
 	// whether NV_bindless_texture is supported
 	static bool bSupportsBindlessTexture;
+
+	/** Whether device supports mobile multi-view */
+	static bool bSupportsMobileMultiView;
 };
 
 typedef FAndroidESDeferredOpenGL FOpenGL;

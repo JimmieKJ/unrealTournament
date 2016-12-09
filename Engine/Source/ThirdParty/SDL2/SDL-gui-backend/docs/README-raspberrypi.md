@@ -39,7 +39,7 @@ will be placed in /opt/rpi-tools
 
 You'll also need a Rasbian binary image.
 Get it from: http://downloads.raspberrypi.org/raspbian_latest 
-After unzipping, you'll get file with a name like: <date>-wheezy-raspbian.img
+After unzipping, you'll get file with a name like: "<date>-wheezy-raspbian.img"
 Let's assume the sysroot will be built in /opt/rpi-sysroot.
 
     export SYSROOT=/opt/rpi-sysroot
@@ -74,7 +74,7 @@ The final step is compiling SDL itself.
     export CC="/opt/rpi-tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/arm-linux-gnueabihf-gcc --sysroot=$SYSROOT -I$SYSROOT/opt/vc/include -I$SYSROOT/usr/include -I$SYSROOT/opt/vc/include/interface/vcos/pthreads -I$SYSROOT/opt/vc/include/interface/vmcs_host/linux"
     cd <SDL SOURCE>
     mkdir -p build;cd build
-    ../configure --with-sysroot=$SYSROOT --host=arm-raspberry-linux-gnueabihf --prefix=$PWD/rpi-sdl2-installed --disable-pulseaudio --disable-esd
+    LDFLAGS="-L$SYSROOT/opt/vc/lib" ../configure --with-sysroot=$SYSROOT --host=arm-raspberry-linux-gnueabihf --prefix=$PWD/rpi-sdl2-installed --disable-pulseaudio --disable-esd
     make
     make install
 
@@ -154,19 +154,19 @@ this determining the CAPS LOCK behavior:
  OpenGL problems
 ================================================================================
 
-If you have desktop OpenGL headers installed at build time in your RPi or cross 
-compilation environment, support for it will be built in. However, the chipset 
-does not actually have support for it, which causes issues in certain SDL apps 
-since the presence of OpenGL support supersedes the ES/ES2 variants.
-The workaround is to disable OpenGL at configuration time:
+If you have desktop OpenGL headers installed at build time in your RPi or cross 
+compilation environment, support for it will be built in. However, the chipset 
+does not actually have support for it, which causes issues in certain SDL apps 
+since the presence of OpenGL support supersedes the ES/ES2 variants.
+The workaround is to disable OpenGL at configuration time:
 
     ./configure --disable-video-opengl
-
-Or if the application uses the Render functions, you can use the SDL_RENDER_DRIVER
-environment variable:
-
-    export SDL_RENDER_DRIVER=opengles2
-
+
+Or if the application uses the Render functions, you can use the SDL_RENDER_DRIVER
+environment variable:
+
+    export SDL_RENDER_DRIVER=opengles2
+
 ================================================================================
  Notes
 ================================================================================

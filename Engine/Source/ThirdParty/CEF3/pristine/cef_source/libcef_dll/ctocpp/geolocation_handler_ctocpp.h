@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,18 +28,15 @@ class CefGeolocationHandlerCToCpp
     : public CefCToCpp<CefGeolocationHandlerCToCpp, CefGeolocationHandler,
         cef_geolocation_handler_t> {
  public:
-  explicit CefGeolocationHandlerCToCpp(cef_geolocation_handler_t* str)
-      : CefCToCpp<CefGeolocationHandlerCToCpp, CefGeolocationHandler,
-          cef_geolocation_handler_t>(str) {}
+  CefGeolocationHandlerCToCpp();
 
-  // CefGeolocationHandler methods
+  // CefGeolocationHandler methods.
   bool OnRequestGeolocationPermission(CefRefPtr<CefBrowser> browser,
       const CefString& requesting_url, int request_id,
       CefRefPtr<CefGeolocationCallback> callback) override;
   void OnCancelGeolocationPermission(CefRefPtr<CefBrowser> browser,
-      const CefString& requesting_url, int request_id) override;
+      int request_id) override;
 };
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_GEOLOCATION_HANDLER_CTOCPP_H_
-

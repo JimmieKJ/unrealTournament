@@ -322,11 +322,9 @@ float3 GetWorldSpaceNormalFromAOInput(float2 UV, float4 SvPosition)
 		WorldNormal = GetGBufferData(UV, false).WorldNormal;
 
 		FGBufferData GBuffer = GetGBufferData(UV);
-		BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_HAIR )
+		if( GBuffer.ShadingModelID == SHADINGMODELID_HAIR )
 		{
-			float3 V = -normalize(SvPositionToTranslatedWorld(float4(SvPosition.xy, 1, 0)));
-//				float3 V = -normalize(mul(float4(UVAndScreenPos.zw, 1, 0), View.ScreenToWorld).xyz);
-			WorldNormal = normalize( V - WorldNormal * dot(V, WorldNormal) );
+			WorldNormal = 0;
 		}
 	}
 	else if(SSAO_NORMAL_MODE == 2)

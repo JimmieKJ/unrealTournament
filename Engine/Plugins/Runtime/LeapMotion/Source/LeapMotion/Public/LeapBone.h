@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "LeapMotionPublicPCH.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
+#include "LeapEnums.h"
+#include "Leap_NoPI.h"
 #include "LeapBone.generated.h"
 
 /**

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 #import <UIKit/UIKit.h>
 #import <OpenGLES/EAGL.h>
 

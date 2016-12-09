@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "SlateCore.h"
+#include "CoreMinimal.h"
+#include "Rendering/SlateRenderer.h"
+
+class FSlateFontCache;
+class FSlateFontMeasure;
 
 /** 
  * A shim around FSlateFontServices that provides access from the render thread (where FSlateApplication::Get() would assert)

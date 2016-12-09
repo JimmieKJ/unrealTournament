@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PluginBrowserPrivatePCH.h"
 #include "PluginHelpers.h"
-#include "GameProjectUtils.h"
-#include "GenericPlatformFile.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 
 #define LOCTEXT_NAMESPACE "PluginHelpers"
 

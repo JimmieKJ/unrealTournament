@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPrivatePCH.h"
 #include "OnlineSubsystemImpl.h"
+#include "Containers/Ticker.h"
+#include "Misc/App.h"
 #include "NamedInterfaces.h"
-#include "OnlineIdentityInterface.h"
-#include "OnlineSessionInterface.h"
-#include "OnlineFriendsInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "Interfaces/OnlineSessionInterface.h"
+#include "Interfaces/OnlineFriendsInterface.h"
 
 namespace OSSConsoleVariables
 {

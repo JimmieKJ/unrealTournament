@@ -2,12 +2,28 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Misc/Attribute.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/Geometry.h"
+#include "Input/Events.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Animation/CurveSequence.h"
+#include "UObject/GCObject.h"
 #include "GraphEditor.h"
+#include "SNodePanel.h"
+#include "SGraphNode.h"
+#include "GraphEditAction.h"
+#include "SGraphPin.h"
 #include "GraphSplineOverlapResult.h"
 
-class SGraphNode;
-class SGraphPin;
-class UEdGraphNode;
+class FActiveTimerHandle;
+class FSlateWindowElementList;
+class IToolTip;
+class UEdGraph;
 
 DECLARE_DELEGATE( FOnUpdateGraphPanel )
 
@@ -25,9 +41,6 @@ struct FGraphContextMenuArguments
 
 	// 
 	TArray<UEdGraphPin*> DragFromPins;
-
-	// Was shift held down when the operation started?
-	bool bShiftOperation;
 };
 
 
@@ -107,9 +120,10 @@ public:
 	// End of FGCObject interface.
 
 	void ArrangeChildrenForContextMenuSummon(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const;
-	TSharedPtr<SWidget> SummonContextMenu(const FVector2D& WhereToSummon, const FVector2D& WhereToAddNode, UEdGraphNode* ForNode, UEdGraphPin* ForPin, const TArray<UEdGraphPin*>& DragFromPins, bool bShiftOperation);
+	TSharedPtr<SWidget> SummonContextMenu(const FVector2D& WhereToSummon, const FVector2D& WhereToAddNode, UEdGraphNode* ForNode, UEdGraphPin* ForPin, const TArray<UEdGraphPin*>& DragFromPins);
 
 	void OnBeginMakingConnection(UEdGraphPin* InOriginatingPin);
+	void OnBeginMakingConnection(FGraphPinHandle PinHandle);
 	void OnStopMakingConnection(bool bForceStop = false);
 	void PreservePinPreviewUntilForced();
 

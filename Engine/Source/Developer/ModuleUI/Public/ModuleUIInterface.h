@@ -2,10 +2,9 @@
 
 #pragma once
 
-#include "Core.h"
-#include "ModuleInterface.h"
-#include "SlateBasics.h"
-
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Widgets/SWidget.h"
 
 /**
  * ModuleUI module interface

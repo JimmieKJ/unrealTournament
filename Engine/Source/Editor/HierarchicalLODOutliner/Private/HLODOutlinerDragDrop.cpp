@@ -1,11 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HierarchicalLODOutlinerPrivatePCH.h"
 #include "HLODOutlinerDragDrop.h"
-#include "HierarchicalLODUtilities.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
+#include "DragAndDrop/ActorDragDropOp.h"
+#include "DragAndDrop/ActorDragDropGraphEdOp.h"
+#include "IHierarchicalLODUtilities.h"
 #include "HierarchicalLODUtilitiesModule.h"
 #include "ITreeItem.h"
-#include "TreeItemID.h"
 
 HLODOutliner::FDragDropPayload::FDragDropPayload()
 {

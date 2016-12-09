@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Math/RandomStream.h"
+#include "Animation/AnimationAsset.h"
+#include "AlphaBlend.h"
 #include "Animation/AnimNodeBase.h"
 #include "AnimNode_RandomPlayer.generated.h"
 

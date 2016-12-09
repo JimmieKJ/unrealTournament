@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "UObject/NameTypes.h"
+#include "Delegates/Delegate.h"
+
 /**
  * Public interface to all known modular features
  */

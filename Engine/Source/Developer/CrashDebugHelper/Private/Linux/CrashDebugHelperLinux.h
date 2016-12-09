@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "CrashDebugHelper.h"
+
+class FString;
 
 class FCrashDebugHelperLinux : public ICrashDebugHelper
 {

@@ -22,6 +22,8 @@
 #ifndef DETOURASSERT_H
 #define DETOURASSERT_H
 
+#include "CoreMinimal.h"
+
 // Note: This header file's only purpose is to include define assert.
 // Feel free to change the file and include your own implementation instead.
 

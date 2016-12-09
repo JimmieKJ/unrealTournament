@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/ISlateStyle.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class STextBlock;
+class UMediaPlayer;
 
 /**
  * Implements the stats panel of the MediaPlayer asset editor.
@@ -34,4 +41,7 @@ private:
 
 	/** Pointer to the MediaPlayer asset that is being viewed. */
 	UMediaPlayer* MediaPlayer;
+
+	/** Text block for media statistics. */
+	TSharedPtr<STextBlock> StatsTextBlock;
 };

@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "HittestGrid.h"
-#include "WidgetCaching.h"
+#include "Types/PaintArgs.h"
+#include "Layout/ArrangedWidget.h"
+#include "Input/HittestGrid.h"
+#include "Layout/WidgetCaching.h"
 
 FPaintArgs::FPaintArgs(const SWidget& Parent, FHittestGrid& InHittestGrid, FVector2D InWindowOffset, double InCurrentTime, float InDeltaTime)
 : ParentPtr(Parent)

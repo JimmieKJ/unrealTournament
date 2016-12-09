@@ -1,11 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. 
 
-#include "CableComponentPluginPrivatePCH.h"
-#include "DynamicMeshBuilder.h"
+#include "CableComponent.h"
 #include "EngineGlobals.h"
+#include "PrimitiveViewRelevance.h"
+#include "RenderResource.h"
+#include "RenderingThread.h"
+#include "WorldCollision.h"
+#include "PrimitiveSceneProxy.h"
+#include "VertexFactory.h"
+#include "MaterialShared.h"
+#include "SceneManagement.h"
+#include "Engine/CollisionProfile.h"
+#include "Materials/Material.h"
 #include "LocalVertexFactory.h"
 #include "Engine/Engine.h"
+#include "CableComponentStats.h"
+#include "DynamicMeshBuilder.h"
 
+DECLARE_CYCLE_STAT(TEXT("Cable Sim"), STAT_Cable_SimTime, STATGROUP_CableComponent);
+DECLARE_CYCLE_STAT(TEXT("Cable Solve"), STAT_Cable_SolveTime, STATGROUP_CableComponent);
+DECLARE_CYCLE_STAT(TEXT("Cable Collision"), STAT_Cable_CollisionTime, STATGROUP_CableComponent);
+DECLARE_CYCLE_STAT(TEXT("Cable Integrate"), STAT_Cable_IntegrateTime, STATGROUP_CableComponent);
+
+static FName CableEndSocketName(TEXT("CableEnd"));
+static FName CableStartSocketName(TEXT("CableStart"));
+
+//////////////////////////////////////////////////////////////////////////
 
 /** Vertex Buffer */
 class FCableVertexBuffer : public FVertexBuffer 
@@ -101,7 +121,6 @@ public:
 		, CableWidth(Component->CableWidth)
 		, NumSides(Component->NumSides)
 		, TileMaterial(Component->TileMaterial)
-		, CableUpDir(Component->CableUpDir)
 	{
 		VertexBuffer.NumVerts = GetRequiredVertexCount();
 		IndexBuffer.NumIndices = GetRequiredIndexCount();
@@ -170,11 +189,12 @@ public:
 			const int32 NextIndex = FMath::Min(PointIdx+1, NumPoints-1);
 			const FVector ForwardDir = (InPoints[NextIndex] - InPoints[PrevIndex]).GetSafeNormal();
 
-			// Find a side vector at this point
-			const FVector RightDir = (CableUpDir ^ ForwardDir).GetSafeNormal();
+			// Find quat from up (Z) vector to forward
+			const FQuat DeltaQuat = FQuat::FindBetween(FVector(0, 0, -1), ForwardDir);
 
-			// Find an up vector
-			const FVector UpDir = (ForwardDir ^ RightDir).GetSafeNormal();
+			// Apply quat orth vectors
+			const FVector RightDir = DeltaQuat.RotateVector(FVector(0, 1, 0));
+			const FVector UpDir = DeltaQuat.RotateVector(FVector(1, 0, 0));
 
 			// Generate a ring of verts
 			for(int32 VertIdx = 0; VertIdx<NumRingVerts; VertIdx++)
@@ -331,8 +351,6 @@ private:
 	int32 NumSides;
 
 	float TileMaterial;
-
-	FVector CableUpDir;
 };
 
 
@@ -346,18 +364,20 @@ UCableComponent::UCableComponent( const FObjectInitializer& ObjectInitializer )
 	bTickInEditor = true;
 	bAutoActivate = true;
 
+	bAttachStart = true;
+	bAttachEnd = true;
 	CableWidth = 10.f;
 	NumSegments = 10;
 	NumSides = 4;
-	EndLocation = FVector(0,0,0);
+	EndLocation = FVector(100.f,0,0);
 	CableLength = 100.f;
 	SubstepTime = 0.02f;
 	SolverIterations = 1;
 	TileMaterial = 1.f;
+	CollisionFriction = 0.2f;
+	CableGravityScale = 1.f;
 
-	CableUpDir = FVector(0,0,1);
-
-	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+	SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName);
 }
 
 FPrimitiveSceneProxy* UCableComponent::CreateSceneProxy()
@@ -393,21 +413,14 @@ void UCableComponent::OnRegister()
 
 		Particle.Position = InitialPosition;
 		Particle.OldPosition = InitialPosition;
-
-		// fix particles at ends
-		if(ParticleIdx == 0 || ParticleIdx == NumParticles-1)
-		{
-			Particle.bFree = false;
-		}
-		else
-		{
-			Particle.bFree = true;
-		}
+		Particle.bFree = true; // default to free, will be fixed if desired in TickComponent
 	}
 }
 
 void UCableComponent::VerletIntegrate(float InSubstepTime, const FVector& Gravity)
 {
+	SCOPE_CYCLE_COUNTER(STAT_Cable_IntegrateTime);
+
 	const int32 NumParticles = NumSegments+1;
 	const float SubstepTimeSqr = InSubstepTime * InSubstepTime;
 
@@ -416,8 +429,13 @@ void UCableComponent::VerletIntegrate(float InSubstepTime, const FVector& Gravit
 		FCableParticle& Particle = Particles[ParticleIdx];
 		if(Particle.bFree)
 		{
+			// Calc overall force
+			const FVector ParticleForce = Gravity + CableForce;
+
+			// Find vel
 			const FVector Vel = Particle.Position - Particle.OldPosition;
-			const FVector NewPosition = Particle.Position + Vel + (SubstepTimeSqr * Gravity);
+			// Update position
+			const FVector NewPosition = Particle.Position + Vel + (SubstepTimeSqr * ParticleForce);
 
 			Particle.OldPosition = Particle.Position;
 			Particle.Position = NewPosition;
@@ -452,32 +470,116 @@ static void SolveDistanceConstraint(FCableParticle& ParticleA, FCableParticle& P
 
 void UCableComponent::SolveConstraints()
 {
+	SCOPE_CYCLE_COUNTER(STAT_Cable_SolveTime);
+
 	const float SegmentLength = CableLength/(float)NumSegments;
 
 	// For each iteration..
-	for(int32 IterationIdx=0; IterationIdx<SolverIterations; IterationIdx++)
+	for (int32 IterationIdx = 0; IterationIdx < SolverIterations; IterationIdx++)
 	{
-		// For each segment..
-		for(int32 SegIdx=0; SegIdx<NumSegments; SegIdx++)
+		// Solve distance constraint for each segment
+		for (int32 SegIdx = 0; SegIdx < NumSegments; SegIdx++)
 		{
 			FCableParticle& ParticleA = Particles[SegIdx];
-			FCableParticle& ParticleB = Particles[SegIdx+1];
+			FCableParticle& ParticleB = Particles[SegIdx + 1];
 			// Solve for this pair of particles
 			SolveDistanceConstraint(ParticleA, ParticleB, SegmentLength);
+		}
+
+		// If desired, solve stiffness constraints (distance constraints between every other particle)
+		if (bEnableStiffness)
+		{
+			for (int32 SegIdx = 0; SegIdx < NumSegments-1; SegIdx++)
+			{
+				FCableParticle& ParticleA = Particles[SegIdx];
+				FCableParticle& ParticleB = Particles[SegIdx + 2];
+				SolveDistanceConstraint(ParticleA, ParticleB, 2.f*SegmentLength);
+			}
+		}
+	}
+}
+
+void UCableComponent::PerformCableCollision()
+{
+	SCOPE_CYCLE_COUNTER(STAT_Cable_CollisionTime);
+
+	UWorld* World = GetWorld();
+	// If we have a world, and collision is not disabled
+	if (World && GetCollisionEnabled() != ECollisionEnabled::NoCollision)
+	{
+		// Get collision settings from component
+		static FName CableCollisionName(TEXT("CableCollision"));
+		FCollisionQueryParams Params(CableCollisionName);
+
+		ECollisionChannel TraceChannel = GetCollisionObjectType();
+		FCollisionResponseParams ResponseParams(GetCollisionResponseToChannels());
+
+		// Iterate over each particle
+		for (int32 ParticleIdx = 0; ParticleIdx < Particles.Num(); ParticleIdx++)
+		{
+			FCableParticle& Particle = Particles[ParticleIdx];
+			// If particle is free
+			if (Particle.bFree)
+			{
+				// Do sphere sweep
+				FHitResult Result;
+				bool bHit = World->SweepSingleByChannel(Result, Particle.OldPosition, Particle.Position, FQuat::Identity, TraceChannel, FCollisionShape::MakeSphere(0.5f * CableWidth), Params, ResponseParams);
+				// If we got a hit, resolve it
+				if (bHit)
+				{
+					if (Result.bStartPenetrating)
+					{
+						Particle.Position += (Result.Normal * Result.PenetrationDepth);
+					}
+					else
+					{
+						Particle.Position = Result.Location;
+					}
+
+					// Find new velocity, after fixing collision
+					FVector Delta = Particle.Position - Particle.OldPosition;
+					// Find component in normal
+					float NormalDelta = Delta | Result.Normal;
+					// Find component in plane
+					FVector PlaneDelta = Delta - (NormalDelta * Result.Normal);
+
+					// Zero out any positive separation velocity, basically zero restitution
+					Particle.OldPosition += (NormalDelta * Result.Normal);
+
+					// Apply friction in plane of collision if desired
+					if (CollisionFriction > KINDA_SMALL_NUMBER)
+					{
+						// Scale plane delta  by 'friction'
+						FVector ScaledPlaneDelta = PlaneDelta * CollisionFriction;
+
+						// Apply delta to old position reduce implied velocity in collision plane
+						Particle.OldPosition += ScaledPlaneDelta;
+					}
+				}
+			}
 		}
 	}
 }
 
 void UCableComponent::PerformSubstep(float InSubstepTime, const FVector& Gravity)
 {
+	SCOPE_CYCLE_COUNTER(STAT_Cable_SimTime);
+
 	VerletIntegrate(InSubstepTime, Gravity);
+
 	SolveConstraints();
+
+	if (bEnableCollision)
+	{
+		PerformCableCollision();
+	}
 }
 
-void UCableComponent::SetAttachEndTo(AActor* Actor, FName ComponentProperty)
+void UCableComponent::SetAttachEndTo(AActor* Actor, FName ComponentProperty, FName SocketName)
 {
 	AttachEndTo.OtherActor = Actor;
 	AttachEndTo.ComponentProperty = ComponentProperty;
+	AttachEndToSocketName = SocketName;
 }
 
 AActor* UCableComponent::GetAttachedActor() const
@@ -489,6 +591,16 @@ USceneComponent* UCableComponent::GetAttachedComponent() const
 {
 	return AttachEndTo.GetComponent(GetOwner());
 }
+
+void UCableComponent::GetCableParticleLocations(TArray<FVector>& Locations) const
+{
+	Locations.Empty();
+	for (const FCableParticle& Particle : Particles)
+	{
+		Locations.Add(Particle.Position);
+	}
+}
+
 
 void UCableComponent::GetEndPositions(FVector& OutStartPosition, FVector& OutEndPosition)
 {
@@ -502,24 +614,49 @@ void UCableComponent::GetEndPositions(FVector& OutStartPosition, FVector& OutEnd
 		EndComponent = this;
 	}
 
-	OutEndPosition = EndComponent->ComponentToWorld.TransformPosition(EndLocation);
+	if (AttachEndToSocketName != NAME_None)
+	{
+		OutEndPosition = EndComponent->GetSocketTransform(AttachEndToSocketName).TransformPosition(EndLocation);
+	}
+	else
+	{
+		OutEndPosition = EndComponent->ComponentToWorld.TransformPosition(EndLocation);
+	}
+
 }
 
 void UCableComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	const FVector Gravity = FVector(0, 0, GetWorld()->GetGravityZ());
+	const FVector Gravity = FVector(0, 0, GetWorld()->GetGravityZ()) * CableGravityScale;
 
 	// Update end points
 	FVector CableStart, CableEnd;
 	GetEndPositions(CableStart, CableEnd);
 
 	FCableParticle& StartParticle = Particles[0];
-	StartParticle.Position = StartParticle.OldPosition = CableStart;
+
+	if (bAttachStart)
+	{
+		StartParticle.Position = StartParticle.OldPosition = CableStart;
+		StartParticle.bFree = false;
+	}
+	else
+	{
+		StartParticle.bFree = true;
+	}
 
 	FCableParticle& EndParticle = Particles[NumSegments];
-	EndParticle.Position = EndParticle.OldPosition = CableEnd;
+	if (bAttachEnd)
+	{
+		EndParticle.Position = EndParticle.OldPosition = CableEnd;
+		EndParticle.bFree = false;
+	}
+	else
+	{
+		EndParticle.bFree = true;
+	}
 
 	// Ensure a non-zero substep
 	float UseSubstep = FMath::Max(SubstepTime, 0.005f);
@@ -575,7 +712,72 @@ FBoxSphereBounds UCableComponent::CalcBounds(const FTransform& LocalToWorld) con
 		CableBox += Particle.Position;
 	}
 
-	// Expand by cable width
-	return FBoxSphereBounds(CableBox.ExpandBy(CableWidth));
+	// Expand by cable radius (half cable width)
+	return FBoxSphereBounds(CableBox.ExpandBy(0.5f * CableWidth));
 }
 
+void UCableComponent::QuerySupportedSockets(TArray<FComponentSocketDescription>& OutSockets) const 
+{
+	OutSockets.Add(FComponentSocketDescription(CableEndSocketName, EComponentSocketType::Socket));
+	OutSockets.Add(FComponentSocketDescription(CableStartSocketName, EComponentSocketType::Socket));
+}
+
+FTransform UCableComponent::GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace) const
+{
+	int32 NumParticles = Particles.Num();
+	if ((InSocketName == CableEndSocketName || InSocketName == CableStartSocketName) && NumParticles >= 2)
+	{
+		FVector ForwardDir, Pos;
+		if (InSocketName == CableEndSocketName)
+		{
+			FVector LastPos = Particles[NumParticles - 1].Position;
+			FVector PreviousPos = Particles[NumParticles - 2].Position;
+
+			ForwardDir = (LastPos - PreviousPos).GetSafeNormal();
+			Pos = LastPos;
+		}
+		else
+		{
+			FVector FirstPos = Particles[0].Position;
+			FVector NextPos = Particles[1].Position;
+
+			ForwardDir = (NextPos - FirstPos).GetSafeNormal();
+			Pos = FirstPos;
+		}
+
+		const FQuat RotQuat = FQuat::FindBetween(FVector(1, 0, 0), ForwardDir);
+		FTransform WorldSocketTM = FTransform(RotQuat, Pos, FVector(1, 1, 1));
+
+		switch (TransformSpace)
+		{
+			case RTS_World:
+			{
+				return WorldSocketTM;
+			}
+			case RTS_Actor:
+			{
+				if (const AActor* Actor = GetOwner())
+				{
+					return WorldSocketTM.GetRelativeTransform(GetOwner()->GetTransform());
+				}
+				break;
+			}
+			case RTS_Component:
+			{
+				return WorldSocketTM.GetRelativeTransform(ComponentToWorld);
+			}
+		}
+	}
+
+	return Super::GetSocketTransform(InSocketName, TransformSpace);
+}
+
+bool UCableComponent::HasAnySockets() const
+{
+	return (Particles.Num() >= 2);
+}
+
+bool UCableComponent::DoesSocketExist(FName InSocketName) const
+{
+	return (InSocketName == CableEndSocketName) || (InSocketName == CableStartSocketName);
+}

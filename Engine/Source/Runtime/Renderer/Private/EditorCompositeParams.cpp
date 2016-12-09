@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "RendererPrivate.h"
 #include "EditorCompositeParams.h"
+#include "RHIStaticStates.h"
+#include "MaterialShared.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "ShaderParameterUtils.h"
 
 FEditorCompositingParameters::FEditorCompositingParameters()
 {
@@ -35,9 +38,9 @@ void FEditorCompositingParameters::SetParameters(
 				ViewportExtent.X * 0.5f - 0.5f + ViewportOffset.X,
 				ViewportExtent.Y * 0.5f - 0.5f + ViewportOffset.Y);
 
+			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 			if (FilteredSceneDepthTexture.IsBound())
 			{
-				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 				const FTexture2DRHIRef* DepthTexture = SceneContext.GetActualDepthTexture();
 				check(DepthTexture != NULL);
 				SetTextureParameter(
@@ -50,7 +53,6 @@ void FEditorCompositingParameters::SetParameters(
 					);
 			}
 
-			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 			SetShaderValue(RHICmdList, ShaderRHI, EditorCompositeDepthTestParameter, bEnableEditorPrimitveDepthTest);
 			SetShaderValue(RHICmdList, ShaderRHI, MSAASampleCount, SceneContext.EditorPrimitivesColor ? SceneContext.EditorPrimitivesColor->GetDesc().NumSamples : 0);
 		}

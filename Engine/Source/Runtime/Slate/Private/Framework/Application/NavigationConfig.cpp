@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
 #include "Framework/Application/NavigationConfig.h"
+#include "Types/SlateEnums.h"
+#include "Input/Events.h"
 
 FNavigationConfig::FNavigationConfig()
 {

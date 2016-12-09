@@ -4,10 +4,18 @@
 	RenderingCompositionGraph.cpp: Scene pass order and dependency system.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "RenderingCompositionGraph.h"
+#include "PostProcess/RenderingCompositionGraph.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Async/Async.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "PostProcess/RenderTargetPool.h"
+#include "RendererModule.h"
 #include "HighResScreenshot.h"
 #include "IHeadMountedDisplay.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "SceneRendering.h"
 
 void ExecuteCompositionGraphDebug();
 

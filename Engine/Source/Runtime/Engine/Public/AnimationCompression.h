@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include "FloatPacker.h"
+#include "CoreMinimal.h"
 #include "Animation/AnimSequence.h"
-#include "EngineLogs.h"
+#include "Math/FloatPacker.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAnimationCompression, Log, All);
 

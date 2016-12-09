@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,11 +28,9 @@ class CefLoadHandlerCToCpp
     : public CefCToCpp<CefLoadHandlerCToCpp, CefLoadHandler,
         cef_load_handler_t> {
  public:
-  explicit CefLoadHandlerCToCpp(cef_load_handler_t* str)
-      : CefCToCpp<CefLoadHandlerCToCpp, CefLoadHandler, cef_load_handler_t>(
-          str) {}
+  CefLoadHandlerCToCpp();
 
-  // CefLoadHandler methods
+  // CefLoadHandler methods.
   void OnLoadingStateChange(CefRefPtr<CefBrowser> browser, bool isLoading,
       bool canGoBack, bool canGoForward) override;
   void OnLoadStart(CefRefPtr<CefBrowser> browser,
@@ -46,4 +44,3 @@ class CefLoadHandlerCToCpp
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_LOAD_HANDLER_CTOCPP_H_
-

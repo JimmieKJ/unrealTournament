@@ -1,19 +1,22 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "SceneComponentDetails.h"
-#include "AssetSelection.h"
-#include "PropertyEditing.h"
-#include "PropertyRestriction.h"
-#include "IPropertyUtilities.h"
-#include "ComponentTransformDetails.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "Engine/BlueprintGeneratedClass.h"
-#include "Engine/InheritableComponentHandler.h"
+#include "UObject/Class.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Blueprint.h"
 #include "Components/LightComponentBase.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/SimpleConstructionScript.h"
+#include "Engine/SCS_Node.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailsView.h"
+#include "DetailCategoryBuilder.h"
+#include "Customizations/MobilityCustomization.h"
+#include "PropertyRestriction.h"
+#include "ComponentTransformDetails.h"
+#include "Engine/InheritableComponentHandler.h"
 #include "ComponentUtils.h"
-#include "MobilityCustomization.h"
 
 #define LOCTEXT_NAMESPACE "SceneComponentDetails"
 
@@ -61,13 +64,14 @@ static EComponentMobility::Type GetInheritedMobility(USceneComponent const* cons
 			{
 				for (USCS_Node const* Node : BlueprintClass->SimpleConstructionScript->GetAllNodes())
 				{
-					if (Node->VariableName == ComponentNode->ParentComponentOrVariableName)
+					check(Node); // fix for this bug: https://connect.microsoft.com/VisualStudio/feedback/details/3081898
+					if (Node->GetVariableName() == ComponentNode->ParentComponentOrVariableName)
 					{
 						ParentNode = Node;
 						break;
 					}
 				}
-			}			
+			}
 
 			if (ParentNode != NULL)
 			{

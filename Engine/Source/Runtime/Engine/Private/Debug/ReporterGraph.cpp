@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "../../Classes/Debug/ReporterBase.h"
-#include "../../Classes/Debug/ReporterGraph.h"
+#include "Debug/ReporterGraph.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "CanvasItem.h"
+#include "Engine/Canvas.h"
 
 UReporterGraph::UReporterGraph(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)

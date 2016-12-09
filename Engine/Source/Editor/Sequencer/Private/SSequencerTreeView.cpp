@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
-#include "Sequencer.h"
 #include "SSequencerTreeView.h"
 #include "SSequencerTrackLane.h"
-#include "SSequencerTrackArea.h"
+#include "EditorStyleSet.h"
 #include "SequencerDisplayNodeDragDropOp.h"
 
 static FName TrackAreaName = "TrackArea";

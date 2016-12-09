@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "FlipbookComponentDetailsCustomization.h"
+#include "FlipbookEditor/FlipbookComponentDetailsCustomization.h"
+#include "DetailLayoutBuilder.h"
 
 #define LOCTEXT_NAMESPACE "FlipbookEditor"
 

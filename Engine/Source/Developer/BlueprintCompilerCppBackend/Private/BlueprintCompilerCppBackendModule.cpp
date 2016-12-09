@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintCompilerCppBackendModulePrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "IBlueprintCompilerCppBackendModule.h"
-#include "ModuleManager.h"
 #include "BlueprintCompilerCppBackend.h"
-#include "BlueprintCompilerCppBackendUtils.h" // for FEmitHelper::GetBaseFilename()
+#include "BlueprintCompilerCppBackendUtils.h"
 
 class FBlueprintCompilerCppBackendModule : public IBlueprintCompilerCppBackendModule
 {
@@ -21,6 +21,8 @@ public:
 	virtual FMarkUnconvertedBlueprintAsNecessary& OnIncludingUnconvertedBP() override;
 	virtual FIsFunctionUsedInADelegate& GetIsFunctionUsedInADelegateCallback() override;
 	virtual TSharedPtr<FNativizationSummary>& NativizationSummary() override;
+	virtual FString DependenciesGlobalMapHeaderCode() override;
+	virtual FString DependenciesGlobalMapBodyCode() override;
 	//~ End IBlueprintCompilerCppBackendModule interface
 
 private: 
@@ -71,6 +73,16 @@ TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<UClass> >& FBlueprintCompilerCppBack
 IBlueprintCompilerCppBackendModule::FIsFunctionUsedInADelegate& FBlueprintCompilerCppBackendModule::GetIsFunctionUsedInADelegateCallback()
 {
 	return IsFunctionUsedInADelegate;
+}
+
+FString FBlueprintCompilerCppBackendModule::DependenciesGlobalMapHeaderCode()
+{
+	return FDependenciesGlobalMapHelper::EmitHeaderCode();
+}
+
+FString FBlueprintCompilerCppBackendModule::DependenciesGlobalMapBodyCode()
+{
+	return FDependenciesGlobalMapHelper::EmitBodyCode();
 }
 
 IMPLEMENT_MODULE(FBlueprintCompilerCppBackendModule, BlueprintCompilerCppBackend)

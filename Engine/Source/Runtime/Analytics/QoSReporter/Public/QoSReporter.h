@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "IAnalyticsProviderModule.h"
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "Templates/UnrealTemplate.h"
+#include "Containers/UnrealString.h"
+#include "AnalyticsEventAttribute.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IAnalyticsProviderModule.h"
 
 class IAnalyticsProvider;
 struct FAnalyticsEventAttribute;

@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BehaviorTree/BehaviorTreeTypes.h"
 #include "MockAI.h"
 #include "MockAI_BT.generated.h"
+
+class UBehaviorTree;
+class UBehaviorTreeComponent;
 
 UCLASS()
 class UMockAI_BT : public UMockAI

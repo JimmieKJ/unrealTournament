@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "SFlipbookEditorViewportToolbar.h"
+#include "FlipbookEditor/SFlipbookEditorViewportToolbar.h"
 #include "SEditorViewport.h"
-#include "FlipbookEditorCommands.h"
+#include "FlipbookEditor/FlipbookEditorCommands.h"
 
 #define LOCTEXT_NAMESPACE "SFlipbookEditorViewportToolbar"
 

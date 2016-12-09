@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "AIModulePrivate.h"
+#include "AIModule.h"
+#include "EngineDefines.h"
+#include "Templates/SubclassOf.h"
 #include "AISystem.h"
+#include "VisualLogger/VisualLogger.h"
 
 #if WITH_EDITOR
 #include "Developer/AssetTools/Public/IAssetTools.h"
@@ -10,7 +13,6 @@
 #endif // ENABLE_VISUAL_LOG
 #endif
 
-#include "AIModule.h"
 
 #if WITH_GAMEPLAY_DEBUGGER
 #include "GameplayDebugger.h"
@@ -19,6 +21,7 @@
 #include "GameplayDebugger/GameplayDebuggerCategory_EQS.h"
 #include "GameplayDebugger/GameplayDebuggerCategory_Navmesh.h"
 #include "GameplayDebugger/GameplayDebuggerCategory_Perception.h"
+#include "GameplayDebugger/GameplayDebuggerCategory_NavLocalGrid.h"
 #endif // WITH_GAMEPLAY_DEBUGGER
 
 #define LOCTEXT_NAMESPACE "AIModule"
@@ -71,6 +74,7 @@ void FAIModule::StartupModule()
 	GameplayDebuggerModule.RegisterCategory("EQS", IGameplayDebugger::FOnGetCategory::CreateStatic(&FGameplayDebuggerCategory_EQS::MakeInstance));
 	GameplayDebuggerModule.RegisterCategory("Navmesh", IGameplayDebugger::FOnGetCategory::CreateStatic(&FGameplayDebuggerCategory_Navmesh::MakeInstance), EGameplayDebuggerCategoryState::Disabled, 0);
 	GameplayDebuggerModule.RegisterCategory("Perception", IGameplayDebugger::FOnGetCategory::CreateStatic(&FGameplayDebuggerCategory_Perception::MakeInstance));
+	GameplayDebuggerModule.RegisterCategory("NavGrid", IGameplayDebugger::FOnGetCategory::CreateStatic(&FGameplayDebuggerCategory_NavLocalGrid::MakeInstance), EGameplayDebuggerCategoryState::Hidden);
 	GameplayDebuggerModule.NotifyCategoriesChanged();
 #endif
 }
@@ -92,6 +96,7 @@ void FAIModule::ShutdownModule()
 		GameplayDebuggerModule.UnregisterCategory("EQS");
 		GameplayDebuggerModule.UnregisterCategory("Navmesh");
 		GameplayDebuggerModule.UnregisterCategory("Perception");
+		GameplayDebuggerModule.UnregisterCategory("NavGrid");
 		GameplayDebuggerModule.NotifyCategoriesChanged();
 	}
 #endif

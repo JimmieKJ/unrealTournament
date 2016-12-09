@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "LandscapeFileFormatInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class ILandscapeHeightmapFileFormat;
+class ILandscapeWeightmapFileFormat;
 
 /**
  * LandscapeEditor module interface
@@ -23,6 +27,6 @@ public:
 	virtual const TCHAR* GetWeightmapExportDialogTypeString() const = 0;
 
 	// Gets the heightmap/weightmap format associated with a given extension (null if no plugin is registered for this extension)
-	virtual const ILandscapeHeightmapFileFormat* GetHeightmapFormatByExtension(const TCHAR* Extension) = 0;
-	virtual const ILandscapeWeightmapFileFormat* GetWeightmapFormatByExtension(const TCHAR* Extension) = 0;
+	virtual const ILandscapeHeightmapFileFormat* GetHeightmapFormatByExtension(const TCHAR* Extension) const = 0;
+	virtual const ILandscapeWeightmapFileFormat* GetWeightmapFormatByExtension(const TCHAR* Extension) const = 0;
 };

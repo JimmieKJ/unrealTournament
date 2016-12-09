@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "MovieSceneToolsProjectSettings.generated.h"
 
 USTRUCT()
@@ -80,6 +83,10 @@ public:
 	/** A single character separator between the shot number and the take number. */
 	UPROPERTY(config, EditAnywhere, Category=Shots)
 	FString TakeSeparator;
+
+	/** A single character separator between the take number and the sub sequence name. */
+	UPROPERTY(config, EditAnywhere, Category=Shots)
+	FString SubSequenceSeparator;
 
 	/** Mapping between fbx property name and property track path */
 	UPROPERTY(config, EditAnywhere, Category=TrackSettings)

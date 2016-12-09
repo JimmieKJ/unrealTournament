@@ -1,24 +1,44 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
-#include "MainFrame.h"
-#include "ModuleManager.h"
-#include "DirectoryWatcherModule.h"
-#include "../../../DataTableEditor/Public/IDataTableEditor.h"
-#include "Curves/CurveVector.h"
+#include "Factories/CSVImportFactory.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Curves/CurveBase.h"
 #include "Curves/CurveFloat.h"
+#include "Factories/ReimportCurveFactory.h"
+#include "Factories/ReimportCurveTableFactory.h"
+#include "Factories/ReimportDataTableFactory.h"
+#include "EditorFramework/AssetImportData.h"
 #include "Curves/CurveLinearColor.h"
-#include "Engine/DataTable.h"
+#include "Curves/CurveVector.h"
 #include "Engine/CurveTable.h"
-#include "Engine/UserDefinedStruct.h"
+#include "Engine/DataTable.h"
+#include "Editor.h"
+
+#include "Interfaces/IMainFrameModule.h"
 #include "SCSVImportOptions.h"
 #include "DataTableEditorUtils.h"
+#include "JsonObjectConverter.h"
+
 DEFINE_LOG_CATEGORY(LogCSVImportFactory);
 
 #define LOCTEXT_NAMESPACE "CSVImportFactory"
 
 //////////////////////////////////////////////////////////////////////////
+
+FCSVImportSettings::FCSVImportSettings()
+{
+	ImportRowStruct = nullptr;
+	ImportType = ECSVImportType::ECSV_DataTable;
+	ImportCurveInterpMode = ERichCurveInterpMode::RCIM_Linear;
+}
+
 
 static UClass* GetCurveClass( ECSVImportType ImportType )
 {
@@ -67,7 +87,18 @@ bool UCSVImportFactory::DoesSupportClass(UClass * Class)
 	return (Class == UDataTable::StaticClass() || Class == UCurveTable::StaticClass() || Class == UCurveFloat::StaticClass() || Class == UCurveVector::StaticClass() || Class == UCurveLinearColor::StaticClass() );
 }
 
-UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn )
+bool UCSVImportFactory::FactoryCanImport(const FString& Filename)
+{
+	const FString Extension = FPaths::GetExtension(Filename);
+
+	if(Extension == TEXT("csv"))
+	{
+		return true;
+	}
+	return false;
+}
+
+UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn)
 {
 	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
 
@@ -80,9 +111,18 @@ UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParen
 	bool bHaveInfo = false;
 	UScriptStruct* ImportRowStruct = NULL;
 	ERichCurveInterpMode ImportCurveInterpMode = RCIM_Linear;
-
 	ECSVImportType ImportType = ECSVImportType::ECSV_DataTable;
-	if(ExistingTable != NULL)
+
+	if( IsAutomatedImport() )
+	{
+		ImportRowStruct = AutomatedImportSettings.ImportRowStruct;
+		ImportCurveInterpMode = AutomatedImportSettings.ImportCurveInterpMode;
+		ImportType = AutomatedImportSettings.ImportType;
+
+		// For automated import to work a row struct must be specified for a datatable type or a curve type must be specified
+		bHaveInfo = ImportRowStruct != nullptr || ImportType != ECSVImportType::ECSV_DataTable;
+	}
+	else if(ExistingTable != NULL)
 	{
 		ImportRowStruct = ExistingTable->RowStruct;
 		bHaveInfo = true;
@@ -101,7 +141,7 @@ UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParen
 	bool bDoImport = true;
 
 	// If we do not have the info we need, pop up window to ask for things
-	if(!bHaveInfo)
+	if(!bHaveInfo && !IsAutomatedImport())
 	{
 		TSharedPtr<SWindow> ParentWindow;
 		// Check if the main frame is loaded.  When using the old main frame it may not be.
@@ -129,6 +169,14 @@ UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParen
 		ImportRowStruct = ImportOptionsWindow->GetSelectedRowStruct();
 		ImportCurveInterpMode = ImportOptionsWindow->GetSelectedCurveIterpMode();
 		bDoImport = ImportOptionsWindow->ShouldImport();
+	}
+	else if(!bHaveInfo && IsAutomatedImport())
+	{
+		if(ImportType == ECSVImportType::ECSV_DataTable && !ImportRowStruct)
+		{
+			UE_LOG(LogCSVImportFactory, Error, TEXT("A Data table row type must be specified in the import settings json file for automated import"));
+		}
+		bDoImport = false;
 	}
 
 	UObject* NewAsset = NULL;
@@ -216,8 +264,11 @@ UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParen
 				AllProblems += TEXT("\n");
 			}
 
-			// Pop up any problems for user
-			FMessageDialog::Open( EAppMsgType::Ok, FText::FromString( AllProblems ) );
+			if(!IsAutomatedImport())
+			{
+				// Pop up any problems for user
+				FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(AllProblems));
+			}
 		}
 	}
 
@@ -244,10 +295,15 @@ bool UCSVImportFactory::ReimportCSV( UObject* Obj )
 	return bHandled;
 }
 
-bool UCSVImportFactory::Reimport( UObject* Obj, const FString& Path )
+void UCSVImportFactory::ParseFromJson(TSharedRef<class FJsonObject> ImportSettingsJson)
+{	
+	FJsonObjectConverter::JsonObjectToUStruct(ImportSettingsJson, FCSVImportSettings::StaticStruct(), &AutomatedImportSettings, 0, 0);
+}
+
+bool UCSVImportFactory::Reimport(UObject* Obj, const FString& Path)
 {
 	if(Path.IsEmpty() == false)
-	{
+	{ 
 		FString FilePath = IFileManager::Get().ConvertToRelativePath(*Path);
 
 		FString Data;
@@ -274,16 +330,16 @@ TArray<FString> UCSVImportFactory::DoImportDataTable(UDataTable* TargetDataTable
 	return TargetDataTable->CreateTableFromCSVString(DataToImport);
 }
 
-TArray<FString> UCSVImportFactory::DoImportCurveTable(UCurveTable* TargetCurveTable, const FString& DataToImport, const ERichCurveInterpMode ImportCurveInterpMode)
+TArray<FString> UCSVImportFactory::DoImportCurveTable(UCurveTable* TargetCurveTable, const FString& DataToImport, const ERichCurveInterpMode InImportCurveInterpMode)
 {
 	// Are we importing JSON data?
 	const bool bIsJSON = CurrentFilename.EndsWith(TEXT(".json"));
 	if (bIsJSON)
 	{
-		return TargetCurveTable->CreateTableFromJSONString(DataToImport, ImportCurveInterpMode);
+		return TargetCurveTable->CreateTableFromJSONString(DataToImport, InImportCurveInterpMode);
 	}
 
-	return TargetCurveTable->CreateTableFromCSVString(DataToImport, ImportCurveInterpMode);
+	return TargetCurveTable->CreateTableFromCSVString(DataToImport, InImportCurveInterpMode);
 }
 
 TArray<FString> UCSVImportFactory::DoImportCurve(UCurveBase* TargetCurve, const FString& DataToImport)
@@ -436,3 +492,4 @@ int32 UReimportCurveFactory::GetPriority() const
 
 
 #undef LOCTEXT_NAMESPACE
+

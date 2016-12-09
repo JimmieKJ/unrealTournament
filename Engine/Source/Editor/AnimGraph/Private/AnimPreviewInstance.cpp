@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimPreviewInstance.h"
+#include "Animation/DebugSkelMeshComponent.h"
+#include "AnimationRuntime.h"
 
 #if WITH_EDITOR
 #include "ScopedTransaction.h"
@@ -15,6 +16,10 @@ void FAnimPreviewInstanceProxy::Initialize(UAnimInstance* InAnimInstance)
 	FAnimSingleNodeInstanceProxy::Initialize(InAnimInstance);
 
 	bSetKey = false;
+
+	// link up our curve post-process mini-graph
+	PoseBlendNode.SourcePose.SetLinkNode(&CurveSource);
+	CurveSource.SourcePose.SetLinkNode(&SingleNode);
 }
 
 void FAnimPreviewInstanceProxy::ResetModifiedBone(bool bCurveController)
@@ -98,7 +103,27 @@ void FAnimPreviewInstanceProxy::Update(float DeltaSeconds)
 	}
 #endif // #if WITH_EDITORONLY_DATA
 
-	FAnimSingleNodeInstanceProxy::Update(DeltaSeconds);
+	if (UPoseAsset* PoseAsset = Cast<UPoseAsset>(CurrentAsset))
+	{
+		PoseBlendNode.PoseAsset = PoseAsset;
+
+		FAnimationUpdateContext UpdateContext(this, DeltaSeconds);
+		PoseBlendNode.Update(UpdateContext);
+	}
+	else
+	{
+		FAnimSingleNodeInstanceProxy::Update(DeltaSeconds);
+	}
+}
+
+void FAnimPreviewInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSeconds)
+{
+	FAnimSingleNodeInstanceProxy::PreUpdate(InAnimInstance, DeltaSeconds);
+
+	if (!bForceRetargetBasePose)
+	{
+		CurveSource.PreUpdate(InAnimInstance);
+	}
 }
 
 bool FAnimPreviewInstanceProxy::Evaluate(FPoseContext& Output)
@@ -123,7 +148,14 @@ bool FAnimPreviewInstanceProxy::Evaluate(FPoseContext& Output)
 	else
 #endif // #if WITH_EDITORONLY_DATA
 	{
-		FAnimSingleNodeInstanceProxy::Evaluate(Output);
+		if (UPoseAsset* PoseAsset = Cast<UPoseAsset>(CurrentAsset))
+		{
+			PoseBlendNode.Evaluate(Output);
+		}
+		else
+		{
+			FAnimSingleNodeInstanceProxy::Evaluate(Output);
+		}
 	}
 
 	if (bEnableControllers)
@@ -367,7 +399,7 @@ UAnimPreviewInstance::UAnimPreviewInstance(const FObjectInitializer& ObjectIniti
 	: Super(ObjectInitializer)
 {
 	RootMotionMode = ERootMotionMode::RootMotionFromEverything;
-	bCanUseParallelUpdateAnimation = false;
+	bUseMultiThreadedAnimationUpdate = false;
 }
 
 static FArchive& operator<<(FArchive& Ar, FAnimNode_ModifyBone& ModifyBone)
@@ -809,8 +841,13 @@ void UAnimPreviewInstance::MontagePreview_PreviewNormal(int32 FromSectionIdx, bo
 		Montage_JumpToSection(Montage->GetSectionName(PreviewFromSection));
 		MontagePreview_RemoveBlendOut();
 		Proxy.SetPlaying(bPlay);
-		GetActiveMontageInstance()->SetWeight(1.0f);
-		GetActiveMontageInstance()->bPlaying = Proxy.IsPlaying();
+
+		FAnimMontageInstance* MontageInstance = GetActiveMontageInstance();
+		if (MontageInstance)
+		{
+			MontageInstance->SetWeight(1.0f);
+			MontageInstance->bPlaying = Proxy.IsPlaying();
+		}
 	}
 }
 
@@ -830,8 +867,12 @@ void UAnimPreviewInstance::MontagePreview_PreviewAllSections(bool bPlay)
 		MontagePreview_JumpToPreviewStart();
 		MontagePreview_RemoveBlendOut();
 		Proxy.SetPlaying(bPlay);
-		GetActiveMontageInstance()->SetWeight(1.0f);
-		GetActiveMontageInstance()->bPlaying = Proxy.IsPlaying();
+		FAnimMontageInstance* MontageInstance = GetActiveMontageInstance();
+		if (MontageInstance)
+		{
+			MontageInstance->SetWeight(1.0f);
+			MontageInstance->bPlaying = Proxy.IsPlaying();
+		}
 	}
 }
 
@@ -1085,16 +1126,6 @@ bool UAnimPreviewInstance::GetForceRetargetBasePose() const
 FAnimInstanceProxy* UAnimPreviewInstance::CreateAnimInstanceProxy()
 {
 	return new FAnimPreviewInstanceProxy(this);
-}
-
-void UAnimPreviewInstance::PrePerformAnimationEvaluation()
-{
-	GetProxyOnGameThread<FAnimPreviewInstanceProxy>().InitializeObjects(this);
-}
-
-void UAnimPreviewInstance::PostPerformAnimationEvaluation()
-{
-	GetProxyOnGameThread<FAnimPreviewInstanceProxy>().ClearObjects();
 }
 
 #undef LOCTEXT_NAMESPACE

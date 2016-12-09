@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "IInputDeviceModule.h"
 
 #define WITH_STEAM_CONTROLLER		((PLATFORM_LINUX || PLATFORM_WINDOWS) && WITH_STEAMWORKS)

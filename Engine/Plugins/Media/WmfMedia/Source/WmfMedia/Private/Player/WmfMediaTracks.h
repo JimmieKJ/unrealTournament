@@ -2,16 +2,15 @@
 
 #pragma once
 
+#include "../WmfMediaPrivate.h"
 #include "IMediaOutput.h"
 #include "IMediaTracks.h"
+
+#if WMFMEDIA_SUPPORTED_PLATFORM
+
 #include "AllowWindowsPlatformTypes.h"
 
-
-class FWmfMediaAudioStream;
-class FWmfMediaCaptionStream;
-class FWmfMediaImageStream;
 class FWmfMediaSampler;
-class FWmfMediaVideoStream;
 class IMediaAudioSink;
 class IMediaStringSink;
 class IMediaTextureSink;
@@ -23,38 +22,35 @@ class FWmfMediaTracks
 	: public IMediaOutput
 	, public IMediaTracks
 {
-	struct FTrack
+	struct FStreamInfo
 	{
+		TComPtr<IMFStreamDescriptor> Descriptor;
 		FText DisplayName;
 		FString Language;
 		FString Name;
+		TComPtr<IMFMediaType> OutputType;
 		bool Protected;
 		TComPtr<FWmfMediaSampler> Sampler;
-		TComPtr<IMFStreamDescriptor> StreamDescriptor;
-		DWORD StreamIndex;	
+		DWORD StreamIndex;
 	};
 	
-	struct FAudioTrack : public FTrack
+	struct FAudioTrack : public FStreamInfo
 	{
+		uint32 BitsPerSample;
 		uint32 NumChannels;
 		uint32 SampleRate;
 	};
 	
-	struct FCaptionTrack : public FTrack
+	struct FCaptionTrack : public FStreamInfo
 	{
 	};
-	
-	struct FImageTrack : public FTrack
-	{
-		FIntPoint Dimensions;
-	};
-	
-	struct FVideoTrack : public FTrack
+		
+	struct FVideoTrack : public FStreamInfo
 	{
 		uint32 BitRate;
-		FIntPoint Dimensions;
+		FIntPoint BufferDim;
 		float FrameRate;
-		uint32 Pitch;
+		FIntPoint OutputDim;
 		EMediaTextureSinkFormat SinkFormat;
 	};
 	
@@ -69,36 +65,33 @@ public:
 public:
 
 	/**
-	 * Add a new track for the specified stream.
-	 *
-	 * @param MajorType The type of stream to add.
-	 * @param MediaType The media type information of the input stream.
-	 * @param OutputType The media type information of the output.
-	 * @param Sampler The sample grabber callback object to use.
-	 * @param StreamIndex The stream's index number in the presentation.
-	 * @param StreamDescriptor The stream's descriptor object.
-	 * @see HasAnyStreams
-	 */
-	void AddTrack(const GUID& MajorType, IMFMediaType* MediaType, IMFMediaType* OutputType, FWmfMediaSampler* Sampler, IMFStreamDescriptor* StreamDescriptor, DWORD StreamIndex);
-
-	/**
 	 * Append track statistics information to the given string.
 	 *
 	 * @param OutStats The string to append the statistics to.
 	 */
 	void AppendStats(FString &OutStats) const;
 
+	/**
+	 * Create the playback topology for the current track selection.
+	 *
+	 * @return The new topology.
+	 */
+	TComPtr<IMFTopology> CreateTopology() const;
+
 	/** Discard any pending data on the media sinks. */
-	void Flush();
+	void FlushSinks();
 
 	/**
-	 * Initialize this track collection.
+	 * Initialize the track collection.
 	 *
+	 * @param InMediaSource The media source object.
 	 * @param InPresentationDescriptor The presentation descriptor object.
+	 * @param OutInfo Will contain information about the available media tracks.
+	 * @return true on success, false otherwise.
 	 */
-	void Initialize(IMFPresentationDescriptor& InPresentationDescriptor);
+	bool Initialize(IMFMediaSource& InMediaSource, IMFPresentationDescriptor& InPresentationDescriptor, FString& OutInfo);
 
-	/** Remove all streams from the collection. */
+	/** Remove all streams from the track collection. */
 	void Reset();
 
 	/**
@@ -110,11 +103,19 @@ public:
 
 public:
 
+	/** Get an event that gets fired when the track selection changed. */
+	DECLARE_EVENT(FWmfMediaTracks, FOnSelectionChanged)
+	FOnSelectionChanged& OnSelectionChanged()
+	{
+		return SelectionChangedEvent;
+	}
+
+public:
+
 	//~ IMediaOutput interface
 
 	virtual void SetAudioSink(IMediaAudioSink* Sink) override;
-	virtual void SetCaptionSink(IMediaStringSink* Sink) override;
-	virtual void SetImageSink(IMediaTextureSink* Sink) override;
+	virtual void SetOverlaySink(IMediaOverlaySink* Sink) override;
 	virtual void SetVideoSink(IMediaTextureSink* Sink) override;
 
 public:
@@ -135,14 +136,33 @@ public:
 
 protected:
 
+	/**
+	 * Add the given stream to the specified playback topology.
+	 *
+	 * @param Stream The stream to add.
+	 * @param Topology The playback topology.
+	 * @return true on success, false otherwise.
+	 */
+	bool AddStreamToTopology(const FStreamInfo& Stream, IMFTopology& Topology) const;
+
+	/**
+	 * Add the specified stream to the track collection.
+	 *
+	 * @param StreamIndex The index of the stream to add.
+	 * @param InMediaSource The media source containing the stream.
+	 * @param InPresentationDescriptor The presentation descriptor containing the stream's details.
+	 * @param OutInfo Will contain appended debug information.
+	 */
+	void AddStreamToTracks(uint32 StreamIndex, IMFMediaSource& InMediaSource, IMFPresentationDescriptor& InPresentationDescriptor, FString& OutInfo);
+
 	/** Initialize the current audio sink. */
 	void InitializeAudioSink();
 
-	/** Initialize the current caption sink. */
-	void InitializeCaptionSink();
+	/** Initialize the current text overlay sink. */
+	void InitializeOverlaySink();
 
-	/** Initialize the current image sink. */
-	void InitializeImageSink();
+	/** Initialize the current subtitle sink. */
+	void InitializeSubtitleSink();
 
 	/** Initialize the current video sink. */
 	void InitializeVideoSink();
@@ -160,11 +180,8 @@ private:
 	/** The currently used audio sink. */
 	IMediaAudioSink* AudioSink;
 
-	/** The currently used caption sink. */
-	IMediaStringSink* CaptionSink;
-
-	/** The currently used image sink. */
-	IMediaTextureSink* ImageSink;
+	/** The currently used text overlay sink. */
+	IMediaOverlaySink* OverlaySink;
 
 	/** The currently used video sink. */
 	IMediaTextureSink* VideoSink;
@@ -177,9 +194,6 @@ private:
 	/** The available caption tracks. */
 	TArray<FCaptionTrack> CaptionTracks;
 
-	/** The available image tracks. */
-	TArray<FImageTrack> ImageTracks;
-
 	/** The available video tracks. */
 	TArray<FVideoTrack> VideoTracks;
 
@@ -191,9 +205,6 @@ private:
 	/** Index of the selected caption track. */
 	int32 SelectedCaptionTrack;
 
-	/** Index of the selected image track. */
-	int32 SelectedImageTrack;
-
 	/** Index of the selected video track. */
 	int32 SelectedVideoTrack;
 
@@ -202,9 +213,17 @@ private:
 	/** Synchronizes write access to track arrays, selections & sinks. */
 	mutable FCriticalSection CriticalSection;
 
+	/** The currently opened media. */
+	TComPtr<IMFMediaSource> MediaSource;
+
 	/** The presentation descriptor of the currently opened media. */
 	TComPtr<IMFPresentationDescriptor> PresentationDescriptor;
+
+	/** Event that gets fired when the track selection changed. */
+	FOnSelectionChanged SelectionChangedEvent;
 };
 
 
 #include "HideWindowsPlatformTypes.h"
+
+#endif

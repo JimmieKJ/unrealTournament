@@ -2,7 +2,19 @@
 
 #pragma once
 
-#include "EditorTutorial.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+class SCanvas;
+class SWindow;
+class UEditorTutorial;
+struct FTutorialStage;
+struct FTutorialWidgetContent;
 
 /** Delegate used when drawing/arranging widgets */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPaintNamedWidget, TSharedRef<SWidget> /*InWidget*/, const FGeometry& /*InGeometry*/);

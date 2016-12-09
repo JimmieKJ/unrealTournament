@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "SSpriteEditorViewportToolbar.h"
-#include "SpriteEditorCommands.h"
+#include "SpriteEditor/SSpriteEditorViewportToolbar.h"
+#include "SpriteEditor/SpriteEditorCommands.h"
 #include "PaperEditorShared/SpriteGeometryEditCommands.h"
 #include "SEditorViewport.h"
 

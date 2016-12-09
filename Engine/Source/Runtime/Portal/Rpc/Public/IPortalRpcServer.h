@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-struct FMessageAddress;
+#include "CoreMinimal.h"
+
 class IMessageRpcServer;
+struct FMessageAddress;
 
 /**
  * Interface for Portal RPC server

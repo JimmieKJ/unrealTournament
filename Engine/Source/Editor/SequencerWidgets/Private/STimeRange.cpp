@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerWidgetsPrivatePCH.h"
 #include "STimeRange.h"
-#include "STimeRangeSlider.h"
-#include "SlateStyle.h"
-#include "EditorStyle.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "STimeRange"
 

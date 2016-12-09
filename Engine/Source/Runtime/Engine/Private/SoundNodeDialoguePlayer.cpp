@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "ActiveSound.h"
-#include "Sound/DialogueWave.h"
-#include "Sound/SoundBase.h"
 #include "Sound/SoundNodeDialoguePlayer.h"
-#include "AssetData.h"
+#include "Audio.h"
+#include "ActiveSound.h"
+#include "Sound/SoundBase.h"
+#include "Sound/DialogueWave.h"
 
 #define LOCTEXT_NAMESPACE "SoundNodeDialoguePlayer"
 

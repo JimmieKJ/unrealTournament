@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "FoliageType.h"
 #include "FoliageInstancedStaticMeshComponent.h"
 #include "FoliageType_InstancedStaticMesh.generated.h"

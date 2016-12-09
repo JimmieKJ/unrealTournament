@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "PListNode.h"
+#include "CoreMinimal.h"
+#include "Editor/PListEditor/Private/PListNode.h"
+
+class ITableRow;
+class SPListEditorPanel;
+class STableViewBase;
+class STextBlock;
+class SWidget;
 
 /** A Node representing the plist as a whole */
 class FPListNodeFile : public IPListNode

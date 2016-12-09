@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "ModuleManager.h"
-#include "StringAssetReference.h"
-#include "StringClassReference.h"
-#include "Linker.h"
+#include "UObject/CoreNative.h"
+#include "Misc/CoreDelegates.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
+#include "Misc/PackageName.h"
 
 void UClassRegisterAllCompiledInClasses();
 bool IsInAsyncLoadingThreadCoreUObjectInternal();
@@ -268,9 +269,15 @@ UObject* FObjectInstancingGraph::InstancePropertyValue( class UObject* Component
 	return NewValue;
 }
 
+#if !defined(USE_EVENT_DRIVEN_ASYNC_LOAD)
+#error "USE_EVENT_DRIVEN_ASYNC_LOAD must be defined"
+#endif
 
 void FObjectInstancingGraph::AddNewObject(class UObject* ObjectInstance, UObject* InArchetype /*= nullptr*/)
 {
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+	check(!InArchetype || !InArchetype->HasAnyFlags(RF_NeedLoad));
+#endif
 	if (HasDestinationRoot())
 	{
 		AddNewInstance(ObjectInstance, InArchetype);

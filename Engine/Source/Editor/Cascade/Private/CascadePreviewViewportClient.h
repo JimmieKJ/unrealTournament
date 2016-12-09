@@ -2,10 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "PreviewScene.h"
+#include "EditorViewportClient.h"
+#include "Utils.h"
 
+class FCanvas;
 class FCascade;
 class SCascadePreviewViewport;
-
+class UStaticMeshComponent;
 
 /*-----------------------------------------------------------------------------
    FCascadeViewportClient
@@ -63,7 +69,7 @@ public:
 	FEditorCommonDrawHelper& GetDrawHelper();
 	float& GetWireSphereRadius();
 
-	FCascade* GetCascade(){ return CascadePtr.Pin().Get(); }
+	FCascade* GetCascade(){ return CascadePtr.IsValid() ? CascadePtr.Pin().Get() : nullptr; }
 private:
 	/** Pointer back to the ParticleSystem editor tool that owns us */
 	TWeakPtr<FCascade> CascadePtr;

@@ -1,51 +1,40 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationDashboardPrivatePCH.h"
 #include "LocalizationTargetSetDetailCustomization.h"
+#include "Misc/MessageDialog.h"
+#include "Internationalization/Culture.h"
+#include "DesktopPlatformModule.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/InputChord.h"
+#include "Framework/Commands/Commands.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
+#include "FileHelpers.h"
 #include "DetailLayoutBuilder.h"
-#include "LocalizationSettings.h"
 #include "LocalizationTargetTypes.h"
-#include "DetailWidgetRow.h"
+#include "LocalizationSettings.h"
 #include "SLocalizationDashboardTargetRow.h"
+#include "DetailWidgetRow.h"
 #include "DetailCategoryBuilder.h"
 #include "IDetailsView.h"
 #include "LocalizationCommandletTasks.h"
 #include "ObjectEditorUtils.h"
 #include "ILocalizationServiceProvider.h"
 #include "ILocalizationServiceModule.h"
-#include "ILocalizationDashboardModule.h"
 
 #define LOCTEXT_NAMESPACE "LocalizationDashboard"
 
 FLocalizationTargetSetDetailCustomization::FLocalizationTargetSetDetailCustomization()
 	: DetailLayoutBuilder(nullptr)
-	, ServiceProviderCategoryBuilder(nullptr)
 	, NewEntryIndexToBeInitialized(INDEX_NONE)
 {
-	TArray<ILocalizationServiceProvider*> ActualProviders = ILocalizationDashboardModule::Get().GetLocalizationServiceProviders();
-	for (ILocalizationServiceProvider* ActualProvider : ActualProviders)
-	{
-		TSharedPtr<FLocalizationServiceProviderWrapper> Provider = MakeShareable(new FLocalizationServiceProviderWrapper(ActualProvider));
-		Providers.Add(Provider);
-	}
 }
-
-class FindProviderPredicate
-{
-public:
-	FindProviderPredicate(ILocalizationServiceProvider* const InActualProvider)
-		: ActualProvider(InActualProvider)
-	{
-	}
-
-	bool operator()(const TSharedPtr<FLocalizationServiceProviderWrapper>& Provider)
-	{
-		return Provider->Provider == ActualProvider;
-	}
-
-private:
-	ILocalizationServiceProvider* ActualProvider;
-};
 
 namespace
 {
@@ -97,8 +86,22 @@ void FLocalizationTargetSetDetailCustomization::CustomizeDetails(IDetailLayoutBu
 		TargetObjectsPropertyHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULocalizationTargetSet,TargetObjects));
 		if (TargetObjectsPropertyHandle->IsValidHandle())
 		{
+			FText CategoryDisplayName;
+			bool bCollapseCategory = false;
+			if (TargetSet == ULocalizationSettings::GetEngineTargetSet())
+			{
+				CategoryDisplayName = LOCTEXT("EngineTargetsCategoryDisplayName", "Engine Targets");
+				bCollapseCategory = true;
+			}
+			else if (TargetSet == ULocalizationSettings::GetGameTargetSet())
+			{
+				CategoryDisplayName = LOCTEXT("GameTargetsCategoryDisplayName", "Game Targets");
+			}
+
 			const FName CategoryName = FObjectEditorUtils::GetCategoryFName(TargetObjectsPropertyHandle->GetProperty());
-			IDetailCategoryBuilder& DetailCategoryBuilder = DetailBuilder.EditCategory(CategoryName);
+			IDetailCategoryBuilder& DetailCategoryBuilder = DetailBuilder.EditCategory(CategoryName, CategoryDisplayName);
+			DetailCategoryBuilder.InitiallyCollapsed(bCollapseCategory);
+			DetailCategoryBuilder.RestoreExpansionState(false); // disable this for now as both the game and engine targets share the same state variable
 
 			TargetObjectsPropertyHandle->MarkHiddenByCustomization();
 			TargetsArrayPropertyHandle_OnNumElementsChanged = FSimpleDelegate::CreateSP(this, &FLocalizationTargetSetDetailCustomization::RebuildTargetsList);
@@ -114,7 +117,7 @@ void FLocalizationTargetSetDetailCustomization::CustomizeDetails(IDetailLayoutBu
 				LSP.CustomizeTargetSetToolbar(LocalizationServiceExtender, TargetSet);
 			}
 
-			FToolBarBuilder ToolBarBuilder( CommandList, FMultiBoxCustomization::AllowCustomization("LocalizationDashboard"), LocalizationServiceExtender );
+			FToolBarBuilder ToolBarBuilder( CommandList, FMultiBoxCustomization::AllowCustomization("LocalizationDashboard"), LocalizationServiceExtender, Orient_Horizontal, /*bForceSmallIcons*/true );
 
 			TAttribute<FText> GatherAllTargetsToolTipTextAttribute = TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateLambda([this]() -> FText
 			{
@@ -181,20 +184,15 @@ void FLocalizationTargetSetDetailCustomization::CustomizeDetails(IDetailLayoutBu
 							.HAlignHeader(HAlign_Center)
 							.HAlignCell(HAlign_Center)
 							.VAlignCell(VAlign_Center)
-							+SHeaderRow::Column("Cultures")
-							.DefaultLabel( LOCTEXT("CulturesColumnLabel", "Cultures"))
-							.HAlignHeader(HAlign_Fill)
-							.HAlignCell(HAlign_Fill)
-							.VAlignCell(VAlign_Center)
 							+SHeaderRow::Column("WordCount")
 							.DefaultLabel( LOCTEXT("WordCountColumnLabel", "Word Count"))
 							.HAlignHeader(HAlign_Center)
 							.HAlignCell(HAlign_Center)
 							.VAlignCell(VAlign_Center)
 							+SHeaderRow::Column("Actions")
-							.DefaultLabel( LOCTEXT("ActionsColumnLabel", "Actions"))
-							.HAlignHeader(HAlign_Center)
-							.HAlignCell(HAlign_Center)
+							.DefaultLabel(FText::GetEmpty())
+							.HAlignHeader(HAlign_Right)
+							.HAlignCell(HAlign_Right)
 							.VAlignCell(VAlign_Center)
 							)
 						]
@@ -206,123 +204,6 @@ void FLocalizationTargetSetDetailCustomization::CustomizeDetails(IDetailLayoutBu
 							.Text(LOCTEXT("AddNewTargetButtonLabel", "Add New Target"))
 							.OnClicked(this, &FLocalizationTargetSetDetailCustomization::OnNewTargetButtonClicked)
 						]
-				];
-		}
-	}
-
-	// Localization Service Provider
-	{
-		ServiceProviderCategoryBuilder = &DetailLayoutBuilder->EditCategory("ServiceProvider", LOCTEXT("LocalizationServiceProvider", "Localization Service Provider"), ECategoryPriority::Important);
-		FDetailWidgetRow& DetailWidgetRow = ServiceProviderCategoryBuilder->AddCustomRow(LOCTEXT("SelectedLocalizationServiceProvider", "Selected Localization Service Provider"));
-
-		int32 CurrentlySelectedProviderIndex = 0;
-
-		for (int ProviderIndex = 0; ProviderIndex < Providers.Num(); ++ProviderIndex)
-		{
-			FName CurrentlySelectedProviderName = ILocalizationServiceModule::Get().GetProvider().GetName();
-			if (Providers[ProviderIndex].IsValid() && Providers[ProviderIndex]->Provider && Providers[ProviderIndex]->Provider->GetName() == CurrentlySelectedProviderName)
-			{
-				CurrentlySelectedProviderIndex = ProviderIndex;
-				break;
-			}
-		}
-
-		DetailWidgetRow.NameContent()
-			[
-				SNew(STextBlock)
-				.Font(DetailLayoutBuilder->GetDetailFont())
-				.Text(LOCTEXT("LocalizationServiceProvider", "Localization Service Provider"))
-			];
-		DetailWidgetRow.ValueContent()
-			.MinDesiredWidth(TOptional<float>())
-			.MaxDesiredWidth(TOptional<float>())
-			[
-				SNew(SComboBox< TSharedPtr<FLocalizationServiceProviderWrapper>>)
-				.OptionsSource(&(Providers))
-				.OnSelectionChanged(this, &FLocalizationTargetSetDetailCustomization::ServiceProviderComboBox_OnSelectionChanged)
-				.OnGenerateWidget(this, &FLocalizationTargetSetDetailCustomization::ServiceProviderComboBox_OnGenerateWidget)
-				.InitiallySelectedItem(Providers[CurrentlySelectedProviderIndex])
-				.Content()
-				[
-					SNew(STextBlock)
-					.Font(DetailLayoutBuilder->GetDetailFont())
-					.Text_Lambda([]()
-					{
-						return ILocalizationServiceModule::Get().GetProvider().GetDisplayName();
-					})
-				]
-			];
-
-		const ILocalizationServiceProvider& LSP = ILocalizationServiceModule::Get().GetProvider();
-		if (ServiceProviderCategoryBuilder != nullptr)
-		{
-			LSP.CustomizeSettingsDetails(*ServiceProviderCategoryBuilder);
-		}
-	}
-
-	// Source Control
-	{
-		IDetailCategoryBuilder& SourceControlCategoryBuilder = DetailLayoutBuilder->EditCategory("SourceControl", LOCTEXT("SourceControl", "Source Control"), ECategoryPriority::Important);
-
-		// Enable Source Control
-		{
-			SourceControlCategoryBuilder.AddCustomRow(LOCTEXT("EnableSourceControl", "Enable Source Control"))
-				.NameContent()
-				[
-					SNew(STextBlock)
-					.Font(DetailLayoutBuilder->GetDetailFont())
-					.Text(LOCTEXT("EnableSourceControl", "Enable Source Control"))
-					.ToolTipText(LOCTEXT("EnableSourceControlToolTip", "Should we use source control when running the localization commandlets. This will optionally pass \"-EnableSCC\" to the commandlet."))
-				]
-				.ValueContent()
-				.MinDesiredWidth(TOptional<float>())
-				.MaxDesiredWidth(TOptional<float>())
-				[
-					SNew(SCheckBox)
-					.ToolTipText(LOCTEXT("EnableSourceControlToolTip", "Should we use source control when running the localization commandlets. This will optionally pass \"-EnableSCC\" to the commandlet."))
-					.IsEnabled_Lambda([]() -> bool
-					{
-						return FLocalizationSourceControlSettings::IsSourceControlAvailable();
-					})
-					.IsChecked_Lambda([]() -> ECheckBoxState
-					{
-						return FLocalizationSourceControlSettings::IsSourceControlEnabled() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-					})
-					.OnCheckStateChanged_Lambda([](ECheckBoxState InCheckState)
-					{
-						FLocalizationSourceControlSettings::SetSourceControlEnabled(InCheckState == ECheckBoxState::Checked);
-					})
-				];
-		}
-
-		// Enable Auto Submit
-		{
-			SourceControlCategoryBuilder.AddCustomRow(LOCTEXT("EnableSourceControlAutoSubmit", "Enable Auto Submit"))
-				.NameContent()
-				[
-					SNew(STextBlock)
-					.Font(DetailLayoutBuilder->GetDetailFont())
-					.Text(LOCTEXT("EnableSourceControlAutoSubmit", "Enable Auto Submit"))
-					.ToolTipText(LOCTEXT("EnableSourceControlAutoSubmitToolTip", "Should we automatically submit changed files after running the commandlet. This will optionally pass \"-DisableSCCSubmit\" to the commandlet."))
-				]
-				.ValueContent()
-				.MinDesiredWidth(TOptional<float>())
-				.MaxDesiredWidth(TOptional<float>())
-				[
-					SNew(SCheckBox)
-					.ToolTipText(LOCTEXT("EnableSourceControlAutoSubmitToolTip", "Should we automatically submit changed files after running the commandlet. This will optionally pass \"-DisableSCCSubmit\" to the commandlet."))
-					.IsEnabled_Lambda([]() -> bool
-					{
-						return FLocalizationSourceControlSettings::IsSourceControlAvailable();
-					})
-					.IsChecked_Lambda([]() -> ECheckBoxState
-					{
-						return FLocalizationSourceControlSettings::IsSourceControlAutoSubmitEnabled() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-					})
-					.OnCheckStateChanged_Lambda([](ECheckBoxState InCheckState)
-					{
-						FLocalizationSourceControlSettings::SetSourceControlAutoSubmitEnabled(InCheckState == ECheckBoxState::Checked);
-					})
 				];
 		}
 	}
@@ -385,34 +266,6 @@ void FLocalizationTargetSetDetailCustomization::RebuildTargetsList()
 	{
 		TargetsListView->RequestListRefresh();
 	}
-}
-
-FText FLocalizationTargetSetDetailCustomization::GetCurrentServiceProviderDisplayName() const
-{
-	const ILocalizationServiceProvider& LSP = ILocalizationServiceModule::Get().GetProvider();
-	return LSP.GetDisplayName();
-}
-
-TSharedRef<SWidget> FLocalizationTargetSetDetailCustomization::ServiceProviderComboBox_OnGenerateWidget(TSharedPtr<FLocalizationServiceProviderWrapper> LSPWrapper) const
-{
-	ILocalizationServiceProvider* LSP = LSPWrapper.IsValid() ? LSPWrapper->Provider : nullptr;
-
-	return	SNew(STextBlock)
-		.Text(LSP ? LSP->GetDisplayName() : LOCTEXT("NoServiceProviderName", "None"));
-}
-
-void FLocalizationTargetSetDetailCustomization::ServiceProviderComboBox_OnSelectionChanged(TSharedPtr<FLocalizationServiceProviderWrapper> LSPWrapper, ESelectInfo::Type SelectInfo)
-{
-	ILocalizationServiceProvider* LSP = LSPWrapper.IsValid() ? LSPWrapper->Provider : nullptr;
-
-	FName ServiceProviderName = LSP ? LSP->GetName() : FName(TEXT("None"));
-	ILocalizationServiceModule::Get().SetProvider(ServiceProviderName);
-
-	if (LSP && ServiceProviderCategoryBuilder)
-	{
-		LSP->CustomizeSettingsDetails(*ServiceProviderCategoryBuilder);
-	}
-	DetailLayoutBuilder->ForceRefreshDetails();
 }
 
 bool FLocalizationTargetSetDetailCustomization::CanGatherTextAllTargets() const

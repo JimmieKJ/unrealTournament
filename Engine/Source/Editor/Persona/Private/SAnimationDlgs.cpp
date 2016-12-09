@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
-#include "Persona.h"
 #include "SAnimationDlgs.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
-#include "Developer/AssetTools/Public/AssetToolsModule.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Editor.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "SAnimationDlgs"
 
@@ -66,12 +72,6 @@ void SImportPathDialog::Construct(const FArguments& InArgs)
 					[
 						ContentBrowserModule.Get().CreatePathPicker(PathPickerConfig)
 					]
-
-					+SVerticalBox::Slot()
-					.AutoHeight()
-					[
-						SNew(SSeparator)
-					]
 				]
 			]
 
@@ -91,6 +91,7 @@ void SImportPathDialog::Construct(const FArguments& InArgs)
 					.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
 					.Text(LOCTEXT("OK", "OK"))
 					.OnClicked(this, &SImportPathDialog::OnButtonClick, EAppReturnType::Ok)
+					.IsEnabled(this, &SImportPathDialog::IsOkButtonEnabled)
 				]
 				+SUniformGridPanel::Slot(1, 0)
 				[
@@ -116,6 +117,11 @@ FReply SImportPathDialog::OnButtonClick(EAppReturnType::Type ButtonID)
 	RequestDestroyWindow();
 
 	return FReply::Handled();
+}
+
+bool SImportPathDialog::IsOkButtonEnabled() const
+{
+	return !AssetPath.IsEmptyOrWhitespace();
 }
 
 EAppReturnType::Type SImportPathDialog::ShowModal()

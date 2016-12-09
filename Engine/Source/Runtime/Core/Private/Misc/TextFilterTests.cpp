@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "TextFilter.h"
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Containers/Map.h"
+#include "Internationalization/Text.h"
+#include "Misc/AutomationTest.h"
+#include "Misc/TextFilterExpressionEvaluator.h"
+#include "Misc/TextFilter.h"
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
@@ -43,7 +50,7 @@ namespace TextFilterTests
 			const FString* ItemValue = KeyValuePairs.Find(InKey);
 			if (ItemValue)
 			{
-				return TextFilterUtils::TestComplexExpression(InValue, *ItemValue, InComparisonOperation, InTextComparisonMode);
+				return TextFilterUtils::TestComplexExpression(*ItemValue, InValue, InComparisonOperation, InTextComparisonMode);
 			}
 			return false;
 		}
@@ -199,14 +206,14 @@ namespace TextFilterTests
 		bResult &= InTestPayload.TestFilterExpression(TEXT("StringKey=Test"), true);
 		bResult &= InTestPayload.TestFilterExpression(TEXT("StringKey!=Test"), false);
 		bResult &= InTestPayload.TestFilterExpression(TEXT("IntKey=123"), true);
-		bResult &= InTestPayload.TestFilterExpression(TEXT("IntKey>123"), false);
-		bResult &= InTestPayload.TestFilterExpression(TEXT("IntKey<123"), false);
+		bResult &= InTestPayload.TestFilterExpression(TEXT("IntKey>122"), true);
+		bResult &= InTestPayload.TestFilterExpression(TEXT("IntKey<122"), false);
 		bResult &= InTestPayload.TestFilterExpression(TEXT("FloatKey=456.789"), true);
-		bResult &= InTestPayload.TestFilterExpression(TEXT("FloatKey>456.789"), false);
-		bResult &= InTestPayload.TestFilterExpression(TEXT("FloatKey<456.789"), false);
+		bResult &= InTestPayload.TestFilterExpression(TEXT("FloatKey>456"), true);
+		bResult &= InTestPayload.TestFilterExpression(TEXT("FloatKey<456"), false);
 		bResult &= InTestPayload.TestFilterExpression(TEXT("NegFloatKey=-456.789"), true);
-		bResult &= InTestPayload.TestFilterExpression(TEXT("NegFloatKey>-456.789"), false);
-		bResult &= InTestPayload.TestFilterExpression(TEXT("NegFloatKey<-456.789"), false);
+		bResult &= InTestPayload.TestFilterExpression(TEXT("NegFloatKey>-456"), false);
+		bResult &= InTestPayload.TestFilterExpression(TEXT("NegFloatKey<-456"), true);
 		bResult &= InTestPayload.TestFilterExpression(TEXT("IntKey==300 || FloatKey==456.789"), true);
 		bResult &= InTestPayload.TestFilterExpression(TEXT("IntKey==300 && FloatKey==456.789"), false);
 		bResult &= InTestPayload.TestFilterExpression(TEXT("(IntKey==300 && FloatKey==456.789) OR StringKey==Test"), true);

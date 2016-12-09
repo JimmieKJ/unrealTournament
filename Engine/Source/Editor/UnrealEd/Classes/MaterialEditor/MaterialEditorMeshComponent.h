@@ -2,6 +2,9 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Components/StaticMeshComponent.h"
 #include "MaterialEditorMeshComponent.generated.h"
 

@@ -46,10 +46,9 @@ namespace AutomationTool
 	}
 
 	/// <summary>
-	/// Compiles a target with UnrealBuildTool.
+	/// Executor for compile tasks, which can compile multiple tasks simultaneously
 	/// </summary>
-	[TaskElement("Compile", typeof(CompileTaskParameters))]
-	public class CompileTask : CustomTask
+	public class CompileTaskExecutor : ITaskExecutor
 	{
 		/// <summary>
 		/// List of targets to compile. As well as the target specifically added for this task, additional compile tasks may be merged with it.
@@ -62,48 +61,47 @@ namespace AutomationTool
 		Dictionary<UE4Build.BuildTarget, string> TargetToTagName = new Dictionary<UE4Build.BuildTarget,string>();
 
 		/// <summary>
-		/// Construct a compile task
+		/// Constructor
 		/// </summary>
-		/// <param name="Parameters">Parameters for this task</param>
-		public CompileTask(CompileTaskParameters Parameters)
+		/// <param name="Task">Initial task to execute</param>
+		public CompileTaskExecutor(CompileTask Task)
 		{
+			Add(Task);
+		}
+
+		/// <summary>
+		/// Adds another task to this executor
+		/// </summary>
+		/// <param name="Task">Task to add</param>
+		/// <returns>True if the task could be added, false otherwise</returns>
+		public bool Add(CustomTask Task)
+		{
+			CompileTask CompileTask = Task as CompileTask;
+			if(CompileTask == null)
+			{
+				return false;
+			}
+
+			CompileTaskParameters Parameters = CompileTask.Parameters;
+
 			UE4Build.BuildTarget Target = new UE4Build.BuildTarget { TargetName = Parameters.Target, Platform = Parameters.Platform, Config = Parameters.Configuration, UBTArgs = "-nobuilduht " + (Parameters.Arguments ?? "") };
 			if(!String.IsNullOrEmpty(Parameters.Tag))
 			{
 				TargetToTagName.Add(Target, Parameters.Tag);
 			}
 			Targets.Add(Target);
+
+			return true;
 		}
 
 		/// <summary>
-		/// Allow this task to merge with other tasks within the same node. This can be useful to allow tasks to execute in parallel and reduce overheads.
-		/// </summary>
-		/// <param name="OtherTasks">Other tasks that this task can merge with. If a merge takes place, the other tasks should be removed from the list.</param>
-		public override void Merge(List<CustomTask> OtherTasks)
-		{
-			for (int Idx = 0; Idx < OtherTasks.Count; Idx++)
-			{
-				CompileTask OtherCompileTask = OtherTasks[Idx] as CompileTask;
-				if (OtherCompileTask != null)
-				{
-					Targets.AddRange(OtherCompileTask.Targets);
-					foreach(KeyValuePair<UE4Build.BuildTarget, string> TargetTagName in OtherCompileTask.TargetToTagName)
-					{
-						TargetToTagName.Add(TargetTagName.Key, TargetTagName.Value);
-					}
-					OtherTasks.RemoveAt(Idx);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Execute the task.
+		/// Execute all the tasks added to this executor.
 		/// </summary>
 		/// <param name="Job">Information about the current job</param>
 		/// <param name="BuildProducts">Set of build products produced by this node.</param>
 		/// <param name="TagNameToFileSet">Mapping from tag names to the set of files they include</param>
-		/// <returns>True if the task succeeded</returns>
-		public override bool Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
+		/// <returns>Whether the task succeeded or not. Exiting with an exception will be caught and treated as a failure.</returns>
+		public bool Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
 			// Create the agenda
             UE4Build.BuildAgenda Agenda = new UE4Build.BuildAgenda();
@@ -114,7 +112,8 @@ namespace AutomationTool
             UE4Build Builder = new UE4Build(Job.OwnerCommand);
 			try
 			{
-				Builder.Build(Agenda, InDeleteBuildProducts: null, InUpdateVersionFiles: false, InForceNoXGE: false, InUseParallelExecutor: true, InTargetToManifest: TargetToManifest);
+				bool bCanUseParallelExecutor = (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64);	// parallel executor is only available on Windows as of 2016-09-22
+				Builder.Build(Agenda, InDeleteBuildProducts: null, InUpdateVersionFiles: false, InForceNoXGE: false, InUseParallelExecutor: bCanUseParallelExecutor, InTargetToManifest: TargetToManifest);
 			}
 			catch (CommandUtils.CommandFailedException)
 			{
@@ -131,9 +130,9 @@ namespace AutomationTool
 					throw new AutomationException("Missing manifest for target {0} {1} {2}", TargetTagName.Key.TargetName, TargetTagName.Key.Platform, TargetTagName.Key.Config);
 				}
 
-				foreach(string TagName in SplitDelimitedList(TargetTagName.Value))
+				foreach(string TagName in CustomTask.SplitDelimitedList(TargetTagName.Value))
 				{
-					HashSet<FileReference> FileSet = FindOrAddTagSet(TagNameToFileSet, TagName);
+					HashSet<FileReference> FileSet = CustomTask.FindOrAddTagSet(TagNameToFileSet, TagName);
 					FileSet.UnionWith(Manifest.BuildProducts.Select(x => new FileReference(x)));
 					FileSet.UnionWith(Manifest.LibraryBuildProducts.Select(x => new FileReference(x)));
 				}
@@ -144,28 +143,55 @@ namespace AutomationTool
 			BuildProducts.UnionWith(Builder.LibraryBuildProductFiles.Select(x => new FileReference(x)));
 			return true;
 		}
+	}
+
+	/// <summary>
+	/// Compiles a target with UnrealBuildTool.
+	/// </summary>
+	[TaskElement("Compile", typeof(CompileTaskParameters))]
+	public class CompileTask : CustomTask
+	{
+		/// <summary>
+		/// Parameters for this task
+		/// </summary>
+		public CompileTaskParameters Parameters;
+
+		/// <summary>
+		/// Construct a compile task
+		/// </summary>
+		/// <param name="Parameters">Parameters for this task</param>
+		public CompileTask(CompileTaskParameters Parameters)
+		{
+			this.Parameters = Parameters;
+		}
+
+		/// <summary>
+		/// Execute the task.
+		/// </summary>
+		/// <param name="Job">Information about the current job</param>
+		/// <param name="BuildProducts">Set of build products produced by this node.</param>
+		/// <param name="TagNameToFileSet">Mapping from tag names to the set of files they include</param>
+		/// <returns>True if the task succeeded</returns>
+		public override bool Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
+		{
+			return GetExecutor().Execute(Job, BuildProducts, TagNameToFileSet);
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <returns></returns>
+		public override ITaskExecutor GetExecutor()
+		{
+			return new CompileTaskExecutor(this);
+		}
 
 		/// <summary>
 		/// Output this task out to an XML writer.
 		/// </summary>
 		public override void Write(XmlWriter Writer)
 		{
-			foreach (UE4Build.BuildTarget Target in Targets)
-			{
-				CompileTaskParameters Parameters = new CompileTaskParameters();
-				Parameters.Target = Target.TargetName;
-				Parameters.Platform = Target.Platform;
-				Parameters.Configuration = Target.Config;
-				Parameters.Arguments = Target.UBTArgs;
-
-				string TagName;
-				if (TargetToTagName.TryGetValue(Target, out TagName))
-				{
-					Parameters.Tag = TagName;
-				}
-
-				Write(Writer, Parameters);
-			}
+			Write(Writer, Parameters);
 		}
 
 		/// <summary>
@@ -183,7 +209,7 @@ namespace AutomationTool
 		/// <returns>The tag names which are modified by this task</returns>
 		public override IEnumerable<string> FindProducedTagNames()
 		{
-			return TargetToTagName.Values.SelectMany(x => SplitDelimitedList(x));
+			return FindTagNamesFromList(Parameters.Tag);
 		}
 	}
 }

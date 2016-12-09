@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "RenderResource.h"
 
 /** The texture size allocated for particle curves. */

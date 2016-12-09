@@ -13,6 +13,8 @@
 #include "BlueprintContextBase.h"
 #include "BlueprintContextLibrary.h"
 
+#include "K2Node_CallFunction.h"
+
 void UK2Node_GetBlueprintContext::Serialize( FArchive& Ar )
 {
 	if ( Ar.IsSaving() )
@@ -36,7 +38,7 @@ void UK2Node_GetBlueprintContext::AllocateDefaultPins()
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
 	// If required add the world context pin
-	if ( GetBlueprint()->ParentClass->HasMetaData( FBlueprintMetadata::MD_ShowWorldContextPin ) )
+	if ( GetBlueprint()->ParentClass->HasMetaDataHierarchical( FBlueprintMetadata::MD_ShowWorldContextPin ) )
 	{
 		CreatePin( EGPD_Input, K2Schema->PC_Object, TEXT( "" ), UObject::StaticClass(), false, false, TEXT( "WorldContext" ) );
 	}

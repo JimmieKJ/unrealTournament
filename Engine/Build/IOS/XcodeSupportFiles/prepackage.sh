@@ -66,3 +66,20 @@ then
 	fi
   fi
 fi
+
+if [ -e $1.entitlements ]
+then
+  if [ -d ../../../Intermediate/IOS ]
+  then
+    cp -R $1.entitlements ../../../Intermediate/IOS/$1.entitlements
+  else
+	if [ "$1" == "UE4Game" ]
+	then
+      mkdir -p ../../../../Engine/Intermediate/IOS/
+      cp -R $1.entitlements ../../../../Engine/Intermediate/IOS/$1.entitlements
+	else 
+      mkdir -p ../../../Intermediate/IOS/
+      cp -R $1.entitlements ../../../Intermediate/IOS/$1.entitlements
+	fi
+  fi
+fi

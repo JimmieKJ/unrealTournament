@@ -8,8 +8,6 @@
   <Products />
   <Eula />
   <RedistributeTo />
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
   <Notification>
 Redirect: ../Simplygon/Simplygon.tps
 Notes: This was added by the Simplygon partners as part of the Simplygon integration.

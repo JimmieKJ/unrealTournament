@@ -4,7 +4,8 @@
 	HTML5PlatformTLS.cpp: HTML5 implementations of TLS functions
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "HTML5/HTML5PlatformTLS.h"
+#include "Containers/Array.h"
 
 static TArray<void*>& GetTLSArray()
 {

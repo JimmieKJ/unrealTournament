@@ -2,11 +2,10 @@
 
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "VisualizerEvents.h"
 
-class SRealtimeProfilerFrame;
-struct FVisualizerEvent;
-
+class SWindow;
 
 struct FRealtimeProfilerFPSChartFrame
 {

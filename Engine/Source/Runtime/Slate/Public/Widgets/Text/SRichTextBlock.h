@@ -1,8 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "UniquePtr.h"
-#include "SlateTextLayoutFactory.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "SlateGlobals.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateWidgetStyleAsset.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/Text/TextLayout.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "Framework/Text/ITextDecorator.h"
+#include "Framework/Text/TextDecorators.h"
+#include "Framework/Text/SlateTextLayoutFactory.h"
+
+class FArrangedChildren;
+class FPaintArgs;
+class FRichTextLayoutMarshaller;
+class FSlateWindowElementList;
+class FTextBlockLayout;
+class IRichTextMarkupParser;
+enum class ETextShapingMethod : uint8;
 
 #if WITH_FANCY_TEXT
 

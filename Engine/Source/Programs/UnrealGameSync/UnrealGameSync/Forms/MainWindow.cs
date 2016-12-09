@@ -349,6 +349,9 @@ namespace UnrealGameSync
 				return false;
 			}
 
+			// Make sure the path case is correct. This can cause UBT intermediates to be out of date if the case mismatches.
+			NewSelectedFileName = Utility.GetPathWithCorrectCase(new FileInfo(NewSelectedFileName));
+
 			// Detect the project settings in a background thread
 			using(DetectProjectSettingsTask DetectSettings = new DetectProjectSettingsTask(NewSelectedFileName, Log))
 			{
@@ -675,14 +678,17 @@ namespace UnrealGameSync
 
 			if(Context.Options.HasFlag(WorkspaceUpdateOptions.Sync) || Context.Options.HasFlag(WorkspaceUpdateOptions.Build))
 			{
-				foreach(BuildConfig Config in Enum.GetValues(typeof(BuildConfig)))
+				if(!Context.Options.HasFlag(WorkspaceUpdateOptions.ContentOnly))
 				{
-					List<string> EditorReceiptPaths = GetEditorReceiptPaths(Config);
-					foreach(string EditorReceiptPath in EditorReceiptPaths)
+					foreach(BuildConfig Config in Enum.GetValues(typeof(BuildConfig)))
 					{
-						if(File.Exists(EditorReceiptPath))
+						List<string> EditorReceiptPaths = GetEditorReceiptPaths(Config);
+						foreach(string EditorReceiptPath in EditorReceiptPaths)
 						{
-							try { File.Delete(EditorReceiptPath); } catch(Exception){ }
+							if(File.Exists(EditorReceiptPath))
+							{
+								try { File.Delete(EditorReceiptPath); } catch(Exception){ }
+							}
 						}
 					}
 				}
@@ -1238,7 +1244,7 @@ namespace UnrealGameSync
 						Color BadgeColor = Color.FromArgb(128, 192, 64);
 						if(Badge.Item1.Result == BuildDataResult.Starting)
 						{
-							BadgeColor = Color.FromArgb(192, 192, 192);
+							BadgeColor = Color.FromArgb(128, 192, 255);
 						}
 						else if(Badge.Item1.Result == BuildDataResult.Warning)
 						{
@@ -2252,7 +2258,7 @@ namespace UnrealGameSync
 
 		private void BuildListContextMenu_SyncContentOnly_Click(object sender, EventArgs e)
 		{
-			StartWorkspaceUpdate(ContextMenuChange.Number, WorkspaceUpdateOptions.Sync | WorkspaceUpdateOptions.SkipShaders);
+			StartWorkspaceUpdate(ContextMenuChange.Number, WorkspaceUpdateOptions.Sync | WorkspaceUpdateOptions.ContentOnly);
 		}
 
 		private void BuildListContextMenu_SyncOnlyThisChange_Click(object sender, EventArgs e)

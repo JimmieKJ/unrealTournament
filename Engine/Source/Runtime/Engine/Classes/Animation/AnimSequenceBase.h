@@ -7,14 +7,12 @@
  *
  */
 
-#include "AnimationAsset.h"
-#include "SmartName.h"
-#include "Skeleton.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimTypes.h"
+#include "Animation/AnimationAsset.h"
 #include "Animation/AnimCurveTypes.h"
 #include "AnimSequenceBase.generated.h"
-
-#define DEFAULT_SAMPLERATE			30.f
-#define MINIMUM_ANIMATION_LENGTH	(1/DEFAULT_SAMPLERATE)
 
 UENUM()
 enum ETypeAdvanceAnim
@@ -34,7 +32,7 @@ class UAnimSequenceBase : public UAnimationAsset
 	TArray<struct FAnimNotifyEvent> Notifies;
 
 	/** Length (in seconds) of this AnimSequence if played back with a speed of 1.0. */
-	UPROPERTY(Category=Length, AssetRegistrySearchable, VisibleAnywhere)
+	UPROPERTY(Category=Length, AssetRegistrySearchable, VisibleAnywhere, BlueprintReadOnly)
 	float SequenceLength;
 
 	/** Number for tweaking playback rate of this animation globally. */
@@ -110,7 +108,10 @@ class UAnimSequenceBase : public UAnimationAsset
 	// Get a pointer to the data for a given array property item
 	ENGINE_API uint8* FindArrayProperty(const TCHAR* PropName, UArrayProperty*& ArrayProperty, int32 ArrayIndex);
 
+protected:
+	virtual void RefreshParentAssetData() override;
 #endif	//WITH_EDITORONLY_DATA
+public: 
 	// update cache data (notify tracks, sync markers)
 	ENGINE_API virtual void RefreshCacheData();
 
@@ -137,9 +138,6 @@ class UAnimSequenceBase : public UAnimationAsset
 	*/
 	ENGINE_API virtual void GetAnimationPose(struct FCompactPose& OutPose, FBlendedCurve& OutCurve, const FAnimExtractContext& ExtractionContext) const PURE_VIRTUAL(UAnimSequenceBase::GetAnimationPose, );
 	
-	DEPRECATED(4.11, "This function is deprecated, please use HandleAssetPlayerTickedInternal")
-	ENGINE_API virtual void OnAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, class UAnimInstance* InAnimInstance) const;
-
 	virtual void HandleAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, struct FAnimNotifyQueue& NotifyQueue) const;
 
 	virtual bool HasRootMotion() const { return false; }
@@ -154,6 +152,7 @@ class UAnimSequenceBase : public UAnimationAsset
 	
 	virtual float GetFirstMatchingPosFromMarkerSyncPos(const FMarkerSyncAnimPosition& InMarkerSyncGroupPosition) const { return 0.f; }
 	virtual float GetNextMatchingPosFromMarkerSyncPos(const FMarkerSyncAnimPosition& InMarkerSyncGroupPosition, const float& StartingPosition) const { return 0.f; }
+	virtual float GetPrevMatchingPosFromMarkerSyncPos(const FMarkerSyncAnimPosition& InMarkerSyncGroupPosition, const float& StartingPosition) const { return 0.f; }
 
 	// default implementation, no additive
 	virtual EAdditiveAnimationType GetAdditiveAnimType() const { return AAT_None; }

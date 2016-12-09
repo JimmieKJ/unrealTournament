@@ -2,7 +2,11 @@
 
 #pragma once
 
-class IDetailsView;
+#include "CoreMinimal.h"
+#include "IPropertyTypeCustomization.h"
+
+class FDetailWidgetRow;
+class IPropertyHandle;
 
 class FLevelSequenceBurnInOptionsCustomization : public IPropertyTypeCustomization
 {

@@ -1,7 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "SScaleBox.h"
+#include "GraphEditorDragDropAction.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
+#include "SGraphPanel.h"
+#include "Widgets/Layout/SScaleBox.h"
+#include "SPinTypeSelector.h"
 
 UEdGraphPin* FGraphEditorDragDropAction::GetHoveredPin() const
 {
@@ -115,7 +127,7 @@ void FGraphEditorDragDropAction::SetFeedbackMessage(const TSharedPtr<SWidget>& M
 	}
 }
 
-void FGraphEditorDragDropAction::SetSimpleFeedbackMessage(const FSlateBrush* Icon, const FSlateColor& IconColor, const FText& Message)
+void FGraphEditorDragDropAction::SetSimpleFeedbackMessage(const FSlateBrush* Icon, const FSlateColor& IconColor, const FText& Message, const FSlateBrush* SecondaryIcon /*= nullptr*/, const FSlateColor SecondaryColor /*= FSlateColor()*/)
 {
 	// Let the user know the status of making this connection.
 
@@ -124,7 +136,10 @@ void FGraphEditorDragDropAction::SetSimpleFeedbackMessage(const FSlateBrush* Ico
 	TAttribute<EVisibility> ErrorIconVisibility = TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateRaw(this, &FGraphEditorDragDropAction::GetErrorIconVisible));
 	TAttribute<EVisibility> IconVisibility = TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateRaw(this, &FGraphEditorDragDropAction::GetIconVisible));
 	
-		SetFeedbackMessage(
+	TSharedRef<SWidget> TypeImage = SPinTypeSelector::ConstructPinTypeImage(Icon, IconColor, SecondaryIcon, SecondaryColor, TSharedPtr<SToolTip>());
+	TypeImage->SetVisibility(IconVisibility);
+
+	SetFeedbackMessage(
 		SNew(SHorizontalBox)
 		+SHorizontalBox::Slot()
 		.AutoWidth()
@@ -146,10 +161,7 @@ void FGraphEditorDragDropAction::SetSimpleFeedbackMessage(const FSlateBrush* Ico
 			SNew(SScaleBox)
 			.Stretch(EStretch::ScaleToFit)
 			[
-				SNew(SImage)
-				.Visibility(IconVisibility)
-				.Image( Icon )
-				.ColorAndOpacity( IconColor )
+				TypeImage
 			]
 		]
 		+SHorizontalBox::Slot()

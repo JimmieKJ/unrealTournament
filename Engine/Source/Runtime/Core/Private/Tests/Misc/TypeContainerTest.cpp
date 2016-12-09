@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "Function.h"
-#include "Async.h"
-#include "Future.h"
-#include "TypeContainer.h"
-#include "AutomationTest.h"
+#include "CoreTypes.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Containers/UnrealString.h"
+#include "Templates/Function.h"
+#include "Templates/SharedPointer.h"
+#include "Delegates/Delegate.h"
+#include "Misc/AutomationTest.h"
+#include "Async/Async.h"
+#include "Misc/TypeContainer.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

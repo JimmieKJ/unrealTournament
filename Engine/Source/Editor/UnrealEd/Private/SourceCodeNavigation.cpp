@@ -1,13 +1,34 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "SourceCodeNavigation.h"
-#include "MainFrame.h"
+#include "HAL/PlatformStackWalk.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopeLock.h"
+#include "Async/AsyncWork.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "UObject/MetaData.h"
+#include "Misc/PackageName.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "EditorStyleSet.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
+#include "TickableEditorObject.h"
+#include "UnrealEdMisc.h"
+#include "ISourceCodeAccessor.h"
 #include "ISourceCodeAccessModule.h"
-#include "Http.h"
+#include "Interfaces/IHttpResponse.h"
+#include "Interfaces/IHttpRequest.h"
+#include "HttpModule.h"
 
 #if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 	#include <DbgHelp.h>				
 	#include <TlHelp32.h>		
@@ -20,9 +41,8 @@
 #include <cxxabi.h>
 #include "ApplePlatformSymbolication.h"
 #endif
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "GameFramework/Pawn.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "DesktopPlatformModule.h"
 
 DEFINE_LOG_CATEGORY(LogSelectionDetails);

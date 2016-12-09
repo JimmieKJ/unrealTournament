@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Engine/LODActor.h"
-#include "HLODOutlinerDragDrop.h"
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SWidget.h"
+#include "Editor/HierarchicalLODOutliner/Private/HLODOutlinerDragDrop.h"
 
 class FMenuBuilder;
-class UWorld;
 
 namespace HLODOutliner
 {

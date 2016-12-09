@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SoundModImporterPrivatePCH.h"
 #include "AssetTypeActions_SoundMod.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Editor.h"
 #include "Components/AudioComponent.h"
+#include "SoundMod.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

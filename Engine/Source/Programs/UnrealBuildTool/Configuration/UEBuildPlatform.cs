@@ -29,12 +29,17 @@ namespace UnrealBuildTool
 		/// </summary>
 		public readonly FileReference ProjectFile;
 
-		/// <summary>
-		/// Constructor.
-		/// </summary>
-		/// <param name="InPlatform">The platform that this context is for</param>
-		/// <param name="InProjectFile">The project to read settings from, if any</param>
-		public UEBuildPlatformContext(UnrealTargetPlatform InPlatform, FileReference InProjectFile)
+        /// <summary>
+        /// The current overall target configuration being worked on
+        /// </summary>
+        public UnrealTargetConfiguration TargetConfiguration;
+
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        /// <param name="InPlatform">The platform that this context is for</param>
+        /// <param name="InProjectFile">The project to read settings from, if any</param>
+        public UEBuildPlatformContext(UnrealTargetPlatform InPlatform, FileReference InProjectFile)
 		{
 			Platform = InPlatform;
 			ProjectFile = InProjectFile;
@@ -159,8 +164,8 @@ namespace UnrealBuildTool
 			}
 
 			// Set up the global C++ compilation and link environment.
-			GlobalCompileEnvironment.Config.Target.Configuration = CompileConfiguration;
-			GlobalLinkEnvironment.Config.Target.Configuration = CompileConfiguration;
+			GlobalCompileEnvironment.Config.Configuration = CompileConfiguration;
+			GlobalLinkEnvironment.Config.Configuration = CompileConfiguration;
 
 			// Create debug info based on the heuristics specified by the user.
 			GlobalCompileEnvironment.Config.bCreateDebugInfo =
@@ -172,11 +177,21 @@ namespace UnrealBuildTool
 		/// Setup the project environment for building
 		/// </summary>
 		/// <param name="InBuildTarget"> The target being built</param>
-		public virtual void SetUpProjectEnvironment()
+		public virtual void SetUpProjectEnvironment(UnrealTargetConfiguration Configuration, TargetInfo Target = null)
 		{
 			if (!bInitializedProject)
 			{
-				ConfigCacheIni Ini = ConfigCacheIni.CreateConfigCacheIni(Platform, "Engine", DirectoryReference.FromFile(ProjectFile));
+				TargetConfiguration = Configuration;
+
+				string EngineIniPath = ProjectFile != null ? ProjectFile.Directory.FullName : null;
+				if (String.IsNullOrEmpty(EngineIniPath))
+				{
+					// If the project file hasn't been specified, try to get the path from -remoteini command line param
+					EngineIniPath = UnrealBuildTool.GetRemoteIniPath();
+				}
+				DirectoryReference EngineIniDir = !String.IsNullOrEmpty(EngineIniPath) ? new DirectoryReference(EngineIniPath) : null;
+				ConfigCacheIni Ini = ConfigCacheIni.CreateConfigCacheIni(Platform, "Engine", EngineIniDir);
+
 				bool bValue = UEBuildConfiguration.bCompileAPEX;
 				if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileApex", out bValue))
 				{
@@ -237,11 +252,11 @@ namespace UnrealBuildTool
 					UEBuildConfiguration.bCompileWithPluginSupport = bValue;
 				}
 
-				bValue = UEBuildConfiguration.bCompilePhysXVehicle;
-				if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompilePhysXVehicle", out bValue))
-				{
-					UEBuildConfiguration.bCompilePhysXVehicle = bValue;
-				}
+                bValue = UEBuildConfiguration.bWithPerfCounters;
+                if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bWithPerfCounters", out bValue))
+                {
+                    UEBuildConfiguration.bWithPerfCounters = bValue;
+                }
 
 				bValue = UEBuildConfiguration.bCompileFreeType;
 				if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileFreeType", out bValue))
@@ -261,17 +276,31 @@ namespace UnrealBuildTool
 					UEBuildConfiguration.bCompileCEF3 = bValue;
 				}
 
+				if (Target != null && Target.IsCooked)
+				{
+					if (Ini.GetBool("/Script/Engine.StreamingSettings", "s.EventDrivenLoaderEnabled", out bValue))
+					{
+						UEBuildConfiguration.bEventDrivenLoader = bValue;
+					}
+				}
 				bInitializedProject = true;
 			}
-		}
+            else
+            {
+                if (TargetConfiguration != Configuration)
+                {
+                    throw new BuildException("SetUpProjectEnvironment: Can not setup a project for a different target configuration");
+                }
+            }
+        }
 
-		/// <summary>
-		/// Whether this platform should create debug information or not
-		/// </summary>
-		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
-		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
-		/// <returns>bool    true if debug info should be generated, false if not</returns>
-		public abstract bool ShouldCreateDebugInfo(UnrealTargetConfiguration Configuration);
+        /// <summary>
+        /// Whether this platform should create debug information or not
+        /// </summary>
+        /// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+        /// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
+        /// <returns>bool    true if debug info should be generated, false if not</returns>
+        public abstract bool ShouldCreateDebugInfo(UnrealTargetConfiguration Configuration);
 
 		/// <summary>
 		/// Creates a toolchain instance for the default C++ platform.
@@ -501,7 +530,13 @@ namespace UnrealBuildTool
 			}
 		}
 
-
+		/// <summary>
+		/// Returns the name that should be returned in the output when doing -validateplatforms
+		/// </summary>
+		public virtual string GetPlatformValidationName()
+		{
+			return Platform.ToString();
+		}
 
 		/// <summary>
 		/// If this platform can be compiled with XGE
@@ -744,7 +779,7 @@ namespace UnrealBuildTool
 					ProjIni.GetBool(Section, Key, out Project);
 					if (Default != Project)
 					{
-						Console.WriteLine(Key + " is not set to default. (" + Default + " vs. " + Project + ")");
+						Log.TraceInformationOnce(Key + " is not set to default. (" + Default + " vs. " + Project + ")");
 						return false;
 					}
 				}
@@ -757,7 +792,7 @@ namespace UnrealBuildTool
 					ProjIni.GetInt32(Section, Key, out Project);
 					if (Default != Project)
 					{
-						Console.WriteLine(Key + " is not set to default. (" + Default + " vs. " + Project + ")");
+						Log.TraceInformationOnce(Key + " is not set to default. (" + Default + " vs. " + Project + ")");
 						return false;
 					}
 				}
@@ -770,7 +805,7 @@ namespace UnrealBuildTool
 					ProjIni.GetString(Section, Key, out Project);
 					if (Default != Project)
 					{
-						Console.WriteLine(Key + " is not set to default. (" + Default + " vs. " + Project + ")");
+						Log.TraceInformationOnce(Key + " is not set to default. (" + Default + " vs. " + Project + ")");
 						return false;
 					}
 				}
@@ -785,6 +820,11 @@ namespace UnrealBuildTool
 		/// </summary>
 		public virtual bool HasDefaultBuildConfig(UnrealTargetPlatform Platform, DirectoryReference ProjectDirectoryName)
 		{
+			if(!DoProjectSettingsMatchDefault(Platform, ProjectDirectoryName, "/Script/Engine.StreamingSettings", new string[] { "s.EventDrivenLoaderEnabled" }, null, null))
+			{
+				return false;
+			}
+
 			string[] BoolKeys = new string[] {
 				"bCompileApex", "bCompileBox2D", "bCompileICU", "bCompileSimplygon", "bCompileSimplygonSSF",
 				"bCompileLeanAndMeanUE", "bIncludeADO", "bCompileRecast", "bCompileSpeedTree", 

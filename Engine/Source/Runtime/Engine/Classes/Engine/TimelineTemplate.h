@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
 #include "Components/TimelineComponent.h"
 #include "TimelineTemplate.generated.h"
 
@@ -134,6 +139,10 @@ class UTimelineTemplate : public UObject
 	/** Compiler Validated As Wired up */
 	UPROPERTY()
 	uint32 bValidatedAsWired:1;
+
+	/** If we want the timeline to ignore global time dilation */
+	UPROPERTY(EditAnywhere, Category = TimelineTemplate)
+	uint32 bIgnoreTimeDilation : 1;
 
 	/** Set of event tracks */
 	UPROPERTY()

@@ -17,11 +17,11 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/devtools_http_handler.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
+#include "ipc/ipc_channel.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_response_headers.h"
@@ -109,11 +109,10 @@ CefDevToolsFrontend* CefDevToolsFrontend::Show(
   CefRefPtr<CefBrowserHostImpl> frontend_browser =
       CefBrowserHostImpl::Create(windowInfo, client, CefString(),
                                  new_settings,
-                                 inspected_browser->GetWindowHandle(), true,
+                                 inspected_browser, true,
                                  inspected_browser->GetRequestContext());
 
-  content::WebContents* inspected_contents =
-      inspected_browser->GetWebContents();
+  content::WebContents* inspected_contents = inspected_browser->web_contents();
   if (!inspect_element_at.IsEmpty()) {
     scoped_refptr<content::DevToolsAgentHost> agent_host =
         content::DevToolsAgentHost::GetOrCreateFor(inspected_contents);
@@ -166,7 +165,7 @@ void CefDevToolsFrontend::DisconnectFromTarget() {
 CefDevToolsFrontend::CefDevToolsFrontend(
     CefRefPtr<CefBrowserHostImpl> frontend_browser,
     content::WebContents* inspected_contents)
-    : WebContentsObserver(frontend_browser->GetWebContents()),
+    : WebContentsObserver(frontend_browser->web_contents()),
       frontend_browser_(frontend_browser),
       inspected_contents_(inspected_contents),
       weak_factory_(this) {
@@ -180,16 +179,24 @@ CefDevToolsFrontend::~CefDevToolsFrontend() {
 void CefDevToolsFrontend::RenderViewCreated(
     content::RenderViewHost* render_view_host) {
   if (!frontend_host_) {
-    frontend_host_.reset(
-        content::DevToolsFrontendHost::Create(
-            web_contents()->GetMainFrame(), this));
+    frontend_host_.reset(content::DevToolsFrontendHost::Create(
+        web_contents()->GetMainFrame(),
+        base::Bind(&CefDevToolsFrontend::HandleMessageFromDevToolsFrontend,
+                   base::Unretained(this))));
+
   }
 }
 
 void CefDevToolsFrontend::DocumentAvailableInMainFrame() {
-  agent_host_ =
+  // Don't call AttachClient multiple times for the same DevToolsAgentHost.
+  // Otherwise it will call AgentHostClosed which closes the DevTools window.
+  // This may happen in cases where the DevTools content fails to load.
+  scoped_refptr<content::DevToolsAgentHost> agent_host =
       content::DevToolsAgentHost::GetOrCreateFor(inspected_contents_);
-  agent_host_->AttachClient(this);
+  if (agent_host != agent_host_) {
+    agent_host_ = agent_host;
+    agent_host_->AttachClient(this);
+  }
 }
 
 void CefDevToolsFrontend::WebContentsDestroyed() {
@@ -205,7 +212,7 @@ void CefDevToolsFrontend::HandleMessageFromDevToolsFrontend(
   std::string method;
   base::ListValue* params = NULL;
   base::DictionaryValue* dict = NULL;
-  scoped_ptr<base::Value> parsed_message(base::JSONReader::Read(message));
+  scoped_ptr<base::Value> parsed_message = base::JSONReader::Read(message);
   if (!parsed_message ||
       !parsed_message->GetAsDictionary(&dict) ||
       !dict->GetString("method", &method)) {
@@ -215,12 +222,14 @@ void CefDevToolsFrontend::HandleMessageFromDevToolsFrontend(
   dict->GetInteger("id", &request_id);
   dict->GetList("params", &params);
 
-  std::string browser_message;
-  if (method == "sendMessageToBrowser" && params &&
-      params->GetSize() == 1 && params->GetString(0, &browser_message)) {
-    agent_host_->DispatchProtocolMessage(browser_message);
+  if (method == "dispatchProtocolMessage" && params && params->GetSize() == 1) {
+    std::string protocol_message;
+    if (!params->GetString(0, &protocol_message))
+      return;
+    if (agent_host_)
+      agent_host_->DispatchProtocolMessage(protocol_message);
   } else if (method == "loadCompleted") {
-    web_contents()->GetMainFrame()->ExecuteJavaScript(
+    web_contents()->GetMainFrame()->ExecuteJavaScriptForTests(
         base::ASCIIToUTF16("DevToolsAPI.setUseSoftMenu(true);"));
   } else if (method == "loadNetworkResource" && params->GetSize() == 3) {
     // TODO(pfeldman): handle some of the embedder messages in content.
@@ -242,7 +251,7 @@ void CefDevToolsFrontend::HandleMessageFromDevToolsFrontend(
     }
 
     net::URLFetcher* fetcher =
-        net::URLFetcher::Create(gurl, net::URLFetcher::GET, this);
+        net::URLFetcher::Create(gurl, net::URLFetcher::GET, this).release();
     pending_requests_[fetcher] = request_id;
     fetcher->SetRequestContext(web_contents()->GetBrowserContext()->
         GetRequestContext());
@@ -251,6 +260,25 @@ void CefDevToolsFrontend::HandleMessageFromDevToolsFrontend(
         new ResponseWriter(weak_factory_.GetWeakPtr(), stream_id)));
     fetcher->Start();
     return;
+  } else if (method == "getPreferences") {
+    SendMessageAck(request_id, &preferences_);
+    return;
+  } else if (method == "setPreference") {
+    std::string name;
+    std::string value;
+    if (!params->GetString(0, &name) ||
+        !params->GetString(1, &value)) {
+      return;
+    }
+    preferences_.SetStringWithoutPathExpansion(name, value);
+  } else if (method == "removePreference") {
+    std::string name;
+    if (!params->GetString(0, &name))
+      return;
+    preferences_.RemoveWithoutPathExpansion(name, nullptr);
+  } else if (method == "requestFileSystems") {
+    web_contents()->GetMainFrame()->ExecuteJavaScriptForTests(
+        base::ASCIIToUTF16("DevToolsAPI.fileSystemsLoaded([]);"));
   } else {
     return;
   }
@@ -259,30 +287,24 @@ void CefDevToolsFrontend::HandleMessageFromDevToolsFrontend(
     SendMessageAck(request_id, nullptr);
 }
 
-void CefDevToolsFrontend::HandleMessageFromDevToolsFrontendToBackend(
-    const std::string& message) {
-  if (agent_host_)
-    agent_host_->DispatchProtocolMessage(message);
-}
-
 void CefDevToolsFrontend::DispatchProtocolMessage(
     content::DevToolsAgentHost* agent_host,
     const std::string& message) {
   if (message.length() < kMaxMessageChunkSize) {
     base::string16 javascript = base::UTF8ToUTF16(
         "DevToolsAPI.dispatchMessage(" + message + ");");
-    web_contents()->GetMainFrame()->ExecuteJavaScript(javascript);
+    web_contents()->GetMainFrame()->ExecuteJavaScriptForTests(javascript);
     return;
   }
 
   base::FundamentalValue total_size(static_cast<int>(message.length()));
   for (size_t pos = 0; pos < message.length(); pos += kMaxMessageChunkSize) {
-    base::StringValue message_value(message.substr(pos, kMaxMessageChunkSize));
     std::string param;
-    base::JSONWriter::Write(&message_value, &param);
+    base::JSONWriter::Write(
+        base::StringValue(message.substr(pos, kMaxMessageChunkSize)), &param);
     std::string code = "DevToolsAPI.dispatchMessageChunk(" + param + ");";
     base::string16 javascript = base::UTF8ToUTF16(code);
-    web_contents()->GetMainFrame()->ExecuteJavaScript(javascript);
+    web_contents()->GetMainFrame()->ExecuteJavaScriptForTests(javascript);
   }
 }
 
@@ -318,19 +340,19 @@ void CefDevToolsFrontend::CallClientFunction(
   std::string javascript = function_name + "(";
   if (arg1) {
     std::string json;
-    base::JSONWriter::Write(arg1, &json);
+    base::JSONWriter::Write(*arg1, &json);
     javascript.append(json);
     if (arg2) {
-      base::JSONWriter::Write(arg2, &json);
+      base::JSONWriter::Write(*arg2, &json);
       javascript.append(", ").append(json);
       if (arg3) {
-        base::JSONWriter::Write(arg3, &json);
+        base::JSONWriter::Write(*arg3, &json);
         javascript.append(", ").append(json);
       }
     }
   }
   javascript.append(");");
-  web_contents()->GetMainFrame()->ExecuteJavaScript(
+  web_contents()->GetMainFrame()->ExecuteJavaScriptForTests(
       base::UTF8ToUTF16(javascript));
 }
 

@@ -6,7 +6,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RenderCommandFence.h"
+#include "GenericPlatform/GenericWindow.h"
 #include "Engine/Engine.h"
+#include "SceneTypes.h"
+
+class FViewportClient;
+class UFont;
+class ULocalPlayer;
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogEngine, Log, All);
 //

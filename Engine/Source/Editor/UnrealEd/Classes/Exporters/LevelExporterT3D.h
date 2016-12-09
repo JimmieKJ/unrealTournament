@@ -5,7 +5,15 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Exporters/Exporter.h"
 #include "LevelExporterT3D.generated.h"
+
+class FExportObjectInnerContext;
+class UActorComponent;
 
 UCLASS()
 class ULevelExporterT3D : public UExporter

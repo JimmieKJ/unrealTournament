@@ -1,10 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "MatineeModule.h"
-#include "Matinee.h"
 #include "MatineeActions.h"
-#include "SlateBasics.h"
-#include "STextComboBox.h"
+#include "Matinee.h"
+#include "Widgets/Input/STextComboBox.h"
 
 
 FString FMatinee::GetToolbarSnapText()

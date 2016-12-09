@@ -1,14 +1,44 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "AssetToolsPrivatePCH.h"
-#include "AssetRegistryModule.h"
-#include "AssetToolsModule.h"
-#include "CollectionManagerModule.h"
+#include "AssetRenameManager.h"
+#include "Serialization/ArchiveUObject.h"
+#include "UObject/Class.h"
+#include "Misc/PackageName.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/UnrealType.h"
+#include "Layout/Margin.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
 #include "FileHelpers.h"
+#include "SDiscoveringAssetsDialog.h"
+#include "AssetRegistryModule.h"
+#include "CollectionManagerTypes.h"
+#include "ICollectionManager.h"
+#include "CollectionManagerModule.h"
 #include "ObjectTools.h"
-#include "MainFrame.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "Kismet2/KismetEditorUtilities.h"
 
 #define LOCTEXT_NAMESPACE "AssetRenameManager"
@@ -375,6 +405,18 @@ void FAssetRenameManager::LoadReferencingPackages(TArray<FAssetRenameDataWithRef
 			const bool bLocalFile = !SourceControlState.IsValid() || SourceControlState->IsAdded() || !SourceControlState->IsSourceControlled() || SourceControlState->IsIgnored();
 			if ( !bLocalFile )
 			{
+				// If this asset is locked or not current, mark it failed to prevent it from being renamed
+				if (SourceControlState->IsCheckedOutOther())
+				{
+					RenameData.bRenameFailed = true;
+					RenameData.FailureReason = LOCTEXT("RenameFailedCheckedOutByOther", "Checked out by another user.");
+				}
+				else if (!SourceControlState->IsCurrent())
+				{
+					RenameData.bRenameFailed = true;
+					RenameData.FailureReason = LOCTEXT("RenameFailedNotCurrent", "Out of date.");
+				}
+
 				// This asset is not local. It is not safe to rename it without leaving a redirector
 				RenameData.bCreateRedirector = true;
 				continue;
@@ -431,9 +473,9 @@ bool FAssetRenameManager::CheckOutPackages(TArray<FAssetRenameDataWithReferencer
 	TArray<UPackage*> PackagesToCheckOut;
 	PackagesToCheckOut.Reset(AssetsToRename.Num() + InOutReferencingPackagesToSave.Num());
 
-	for (const auto& AssetToRename : AssetsToRename)
+	for (const FAssetRenameDataWithReferencers& AssetToRename : AssetsToRename)
 	{
-		if (AssetToRename.Asset.IsValid())
+		if (!AssetToRename.bRenameFailed && AssetToRename.Asset.IsValid())
 		{
 			PackagesToCheckOut.Add(AssetToRename.Asset->GetOutermost());
 		}

@@ -2,6 +2,8 @@
 
 #pragma once
 
+struct FGenericPlatformMath;
+struct FMath;
 
 FORCEINLINE bool VectorIsAligned(const void *Ptr)
 {

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Actions/PawnAction_Wait.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
 
 UPawnAction_Wait::UPawnAction_Wait(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

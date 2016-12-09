@@ -2,6 +2,9 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Distributions/DistributionVectorConstant.h"
 #include "DistributionVectorParameterBase.generated.h"
 

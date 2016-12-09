@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "IPropertyTypeCustomization.h"
+
+class FDetailWidgetRow;
+class IDetailChildrenBuilder;
+class IPropertyHandle;
+class UAssetImportData;
+struct FAssetImportInfo;
+
 class FAssetImportDataCustomization : public IPropertyTypeCustomization
 {
 public:

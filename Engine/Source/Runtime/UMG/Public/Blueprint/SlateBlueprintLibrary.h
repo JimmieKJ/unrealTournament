@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Script.h"
+#include "Layout/Geometry.h"
+#include "Styling/SlateBrush.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "SlateBlueprintLibrary.generated.h"
 
 UCLASS()
@@ -41,6 +47,10 @@ public:
 	UFUNCTION(BlueprintPure, Category="User Interface|Geometry")
 	static FVector2D GetLocalSize(const FGeometry& Geometry);
 
+	/** @return Whether brushes A and B are identical. */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Equal (SlateBrush)", CompactNodeTitle = "=="), Category = "SlateBrush")
+	static bool EqualEqual_SlateBrush(const FSlateBrush& A, const FSlateBrush& B);
+
 	/**
 	 * Translates local coordinate of the geometry provided into local viewport coordinates.
 	 *
@@ -64,4 +74,10 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category="User Interface|Geometry", meta=( WorldContext="WorldContextObject" ))
 	static void AbsoluteToViewport(UObject* WorldContextObject, FVector2D AbsoluteDesktopCoordinate, FVector2D& PixelPosition, FVector2D& ViewportPosition);
+
+	UFUNCTION(Category="User Interface|Geometry", meta=( WorldContext="WorldContextObject" ))
+	static void ScreenToWidgetLocal(UObject* WorldContextObject, const FGeometry& Geometry, FVector2D ScreenPosition, FVector2D& LocalCoordinate);
+
+	UFUNCTION(Category="User Interface|Geometry", meta=( WorldContext="WorldContextObject" ))
+	static void ScreenToWidgetAbsolute(UObject* WorldContextObject, FVector2D ScreenPosition, FVector2D& AbsoluteCoordinate);
 };

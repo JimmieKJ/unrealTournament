@@ -2,11 +2,17 @@
 
 #pragma once
 
-#include "VoiceInterface.h"
+#include "CoreMinimal.h"
+#include "Interfaces/VoiceInterface.h"
 #include "Net/VoiceDataCommon.h"
 #include "OnlineSubsystemTypes.h"
-#include "OnlineSubsystemSteamPackage.h"
+#include "OnlineSubsystemSteamPrivate.h"
 #include "OnlineSubsystemSteamTypes.h"
+#include "UObject/GCObject.h"
+#include "OnlineSubsystemSteamPackage.h"
+
+class FOnlineSubsystemSteam;
+class UAudioComponent;
 
 /** 
  * Remote voice data playing on a single client

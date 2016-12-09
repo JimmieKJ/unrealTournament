@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/GCObject.h"
+#include "RHI.h"
 #include "IGameLiveStreaming.h"
+
+class SWindow;
+class UCanvas;
 
 /**
  * Implements support for broadcasting gameplay to a live internet stream

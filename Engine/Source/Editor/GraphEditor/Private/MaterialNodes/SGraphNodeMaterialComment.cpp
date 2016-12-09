@@ -1,9 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
+#include "MaterialNodes/SGraphNodeMaterialComment.h"
 #include "Materials/MaterialExpressionComment.h"
-#include "SGraphNodeComment.h"
-#include "SGraphNodeMaterialComment.h"
 #include "MaterialGraph/MaterialGraphNode_Comment.h"
 
 void SGraphNodeMaterialComment::Construct(const FArguments& InArgs, class UMaterialGraphNode_Comment* InNode)

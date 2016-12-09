@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Models/TextureEditorCommands.h"
 
 #define LOCTEXT_NAMESPACE "TextureEditorViewOptionsMenu"
-
 
 /**
  * Static helper class for populating the "View Options" menu in the texture editor's view port.

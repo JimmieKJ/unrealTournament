@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "FeedbackContext.h"
+#include "Misc/FeedbackContext.h"
+#include "HAL/PlatformTime.h"
+
+FFeedbackContext::FFeedbackContext()
+	: TreatWarningsAsErrors(0)
+	, ScopeStack(MakeShareable(new FSlowTaskStack))
+{
+}
 
 FFeedbackContext::~FFeedbackContext()
 {
@@ -101,37 +107,4 @@ void FFeedbackContext::EndSlowTask()
 bool FFeedbackContext::IsPlayingInEditor() const
 {
 	return GIsPlayInEditorWorld;
-}
-
-void FSlowTask::MakeDialog(bool bShowCancelButton, bool bAllowInPIE)
-{
-	const bool bIsDisabledByPIE = Context.IsPlayingInEditor() && !bAllowInPIE;
-	const bool bIsDialogAllowed = bEnabled && !GIsSilent && !bIsDisabledByPIE && !IsRunningCommandlet() && IsInGameThread();
-	if (!GIsSlowTask && bIsDialogAllowed)
-	{
-		Context.StartSlowTask(GetCurrentMessage(), bShowCancelButton);
-		if (GIsSlowTask)
-		{
-			bCreatedDialog = true;
-		}
-	}
-}
-
-float FSlowTaskStack::GetProgressFraction(int32 Index) const
-{
-	const int32 StartIndex = Num() - 1;
-	const int32 EndIndex = Index;
-
-	float Progress = 0.f;
-	for (int32 CurrentIndex = StartIndex; CurrentIndex >= EndIndex; --CurrentIndex)
-	{
-		const FSlowTask* Scope = (*this)[CurrentIndex];
-		
-		const float ThisScopeCompleted = float(Scope->CompletedWork) / Scope->TotalAmountOfWork;
-		const float ThisScopeCurrentFrame = float(Scope->CurrentFrameScope) / Scope->TotalAmountOfWork;
-
-		Progress = ThisScopeCompleted + ThisScopeCurrentFrame*Progress;
-	}
-
-	return Progress;
 }

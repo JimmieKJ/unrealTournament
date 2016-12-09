@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "Json.h"
+#include "CoreMinimal.h"
+#include "Serialization/JsonWriter.h"
+
+class FJsonObject;
 
 /**
  * Policy by which the localization data associated with a target should be loaded.

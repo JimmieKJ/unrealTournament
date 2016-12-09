@@ -7,10 +7,10 @@
 #ifndef _INC_COREAUDIODEVICE
 #define _INC_COREAUDIODEVICE
 
-#include "Engine.h"
-#include "SoundDefinitions.h"
+#include "CoreMinimal.h"
 #include "AudioDecompress.h"
 #include "AudioEffect.h"
+#include "AudioDevice.h"
 
 /*------------------------------------------------------------------------------------
  CoreAudio system headers
@@ -438,7 +438,8 @@ private:
 	TArray<FCoreAudioSoundSource*> SourcesAttached;
 	TArray<FCoreAudioSoundSource*> SourcesDetached;
 	bool						bNeedsUpdate;
-	
+	bool						bAuGraphErrorLogged;
+
 	friend class FCoreAudioSoundBuffer;
 	friend class FCoreAudioSoundSource;
 	friend class FCoreAudioEffectsManager;

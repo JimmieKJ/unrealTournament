@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "STileMapEditorViewportToolbar.h"
-#include "TileMapEditorCommands.h"
+#include "TileMapEditing/STileMapEditorViewportToolbar.h"
+#include "TileMapEditing/TileMapEditorCommands.h"
 #include "SEditorViewport.h"
 
 #define LOCTEXT_NAMESPACE "STileMapEditorViewportToolbar"

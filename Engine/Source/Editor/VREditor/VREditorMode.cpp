@@ -1,34 +1,38 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "VREditorModule.h"
 #include "VREditorMode.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Engine/EngineTypes.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
+#include "Components/SpotLightComponent.h"
+#include "GameFramework/WorldSettings.h"
+#include "DrawDebugHelpers.h"
 #include "VREditorUISystem.h"
+#include "VIBaseTransformGizmo.h"
+#include "ViewportWorldInteraction.h"
 #include "VREditorWorldInteraction.h"
-#include "VREditorTransformGizmo.h"
-#include "VREditorFloatingText.h"
-#include "VREditorFloatingUI.h"
 #include "VREditorAvatarActor.h"
-#include "Teleporter/VREditorTeleporter.h"
+#include "VREditorTeleporter.h"
+#include "VREditorAutoScaler.h"
 
 #include "CameraController.h"
-#include "DynamicMeshBuilder.h"
-#include "Features/IModularFeatures.h"
+#include "EngineGlobals.h"
+#include "ILevelEditor.h"
 #include "LevelEditor.h"
 #include "SLevelViewport.h"
-#include "IMotionController.h"
 #include "MotionControllerComponent.h"
 #include "EngineAnalytics.h"
 #include "IHeadMountedDisplay.h"
-#include "EngineAnalytics.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 
-#include "Editor/LevelEditor/Public/LevelEditorActions.h"
-#include "Editor/ViewportInteraction/Public/ViewportInteraction.h"
-#include "VREditorInteractor.h"
+#include "IViewportInteractionModule.h"
 #include "MouseCursorInteractor.h"
 #include "VREditorMotionControllerInteractor.h"
 
-#include "Interactables/VREditorButton.h"
+#include "ViewportWorldInteractionManager.h"
 
 #define LOCTEXT_NAMESPACE "VREditorMode"
 
@@ -38,44 +42,38 @@ namespace VREd
 	static FAutoConsoleVariable ForceOculusMirrorMode( TEXT( "VREd.ForceOculusMirrorMode" ), 3, TEXT( "Which Oculus display mirroring mode to use (see MirrorWindowModeType in OculusRiftHMD.h)" ) );
 }
 
-FEditorModeID FVREditorMode::VREditorModeID( "VREditor" );
-bool FVREditorMode::bActuallyUsingVR = true;
-
 // @todo vreditor: Hacky that we have to import these this way. (Plugin has them in a .cpp, not exported)
 
-FVREditorMode::FVREditorMode()
-	: bWantsToExitMode( false ),
-	  bIsFullyInitialized( false ),
-	  AppTimeModeEntered( FTimespan::Zero() ),
-	  AvatarActor( nullptr ),
-      FlashlightComponent( nullptr ),
-	  bIsFlashlightOn( false ),
-	  MotionControllerID( 0 ),	// @todo vreditor minor: We only support a single controller, and we assume the first controller are the motion controls
-	  UISystem( nullptr ),
-	  TeleporterSystem( nullptr ),
-	  WorldInteraction( nullptr ),
-	  MouseCursorInteractor( nullptr ),
-	  LeftHandInteractor( nullptr ),
-	  RightHandInteractor( nullptr ),
-	  bFirstTick( true ),
-	  bWasInWorldSpaceBeforeScaleMode( false )
+UVREditorMode::UVREditorMode( const FObjectInitializer& ObjectInitializer ) : 
+	Super( ObjectInitializer ),
+	bWantsToExitMode( false ),
+	ExitType( EVREditorExitType::Normal ),
+	bIsFullyInitialized( false ),
+	AppTimeModeEntered( FTimespan::Zero() ),
+	AvatarActor( nullptr ),
+    	FlashlightComponent( nullptr ),
+	bIsFlashlightOn( false ),
+	MotionControllerID( 0 ),	// @todo vreditor minor: We only support a single controller, and we assume the first controller are the motion controls
+	UISystem( nullptr ),
+	TeleporterSystem( nullptr ),
+	AutoScalerSystem( nullptr ),
+	WorldInteraction( nullptr ),
+	MouseCursorInteractor( nullptr ),
+	LeftHandInteractor( nullptr ),
+	RightHandInteractor( nullptr ),
+	bFirstTick( true ),
+	bWasInWorldSpaceBeforeScaleMode( false ),
+	bIsActive( false )
 {
-	FEditorDelegates::MapChange.AddRaw( this, &FVREditorMode::OnMapChange );
-	FEditorDelegates::BeginPIE.AddRaw( this, &FVREditorMode::OnBeginPIE );
-	FEditorDelegates::EndPIE.AddRaw( this, &FVREditorMode::OnEndPIE );
-	FEditorDelegates::OnSwitchBeginPIEAndSIE.AddRaw( this, &FVREditorMode::OnSwitchBetweenPIEAndSIE );
 }
 
 
-FVREditorMode::~FVREditorMode()
+UVREditorMode::~UVREditorMode()
 {
-	FEditorDelegates::MapChange.RemoveAll( this );
-	FEditorDelegates::BeginPIE.RemoveAll( this );
-	FEditorDelegates::EndPIE.RemoveAll( this );
-	FEditorDelegates::OnSwitchBeginPIEAndSIE.RemoveAll( this );
+	Shutdown();
 }
 
-void FVREditorMode::Enter()
+void UVREditorMode::Init( UViewportWorldInteraction* InViewportWorldInteraction )
 {
 	// @todo vreditor urgent: Turn on global editor hacks for VR Editor mode
 	GEnableVREditorHacks = true;
@@ -111,13 +109,47 @@ void FVREditorMode::Enter()
 		Colors[ (int32)EColors::UICloseButtonHoverColor ] = FLinearColor( 1.0f, 1.0f, 1.0f, 1.0f );
 	}
 
+	WorldInteraction = InViewportWorldInteraction;
+
+	bIsFullyInitialized = true;
+}
+
+void UVREditorMode::Shutdown()
+{
+	bIsFullyInitialized = false;
+	
+	AvatarActor = nullptr;
+	FlashlightComponent = nullptr;
+	UISystem = nullptr;
+	TeleporterSystem = nullptr;
+	AutoScalerSystem = nullptr;
+	WorldInteraction = nullptr;
+	MouseCursorInteractor = nullptr;
+	LeftHandInteractor = nullptr;
+	RightHandInteractor = nullptr;
+
+	// @todo vreditor urgent: Disable global editor hacks for VR Editor mode
+	GEnableVREditorHacks = false;
+}
+
+void UVREditorMode::Enter(const bool bReenteringVREditing)
+{
+	bWantsToExitMode = false;
+	ExitType = EVREditorExitType::Normal;
+
+	{
+		IViewportWorldInteractionManager& ViewportWorldInteraction = IViewportInteractionModule::Get().GetWorldInteractionManager();
+		ViewportWorldInteraction.OnPreWorldInteractionTick().AddUObject( this, &UVREditorMode::PreTick );
+		ViewportWorldInteraction.OnPostWorldInteractionTick().AddUObject( this, &UVREditorMode::Tick );
+	}
+
 	// @todo vreditor: We need to make sure the user can never switch to orthographic mode, or activate settings that
 	// would disrupt the user's ability to view the VR scene.
-		
+
 	// @todo vreditor: Don't bother drawing toolbars in VR, or other things that won't matter in VR
 
 	{
-		const TSharedRef< ILevelEditor >& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>( "LevelEditor" ).GetFirstLevelEditor().ToSharedRef();
+		const TSharedRef< ILevelEditor >& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor").GetFirstLevelEditor().ToSharedRef();
 
 		bool bSummonNewWindow = true;
 
@@ -125,17 +157,17 @@ void FVREditorMode::Enter()
 		TSharedPtr<SLevelViewport> ExistingActiveLevelViewport;
 		{
 			TSharedPtr<ILevelViewport> ActiveLevelViewport = LevelEditor->GetActiveViewportInterface();
-			if( ActiveLevelViewport.IsValid() )
+			if(ActiveLevelViewport.IsValid())
 			{
-				ExistingActiveLevelViewport = StaticCastSharedRef< SLevelViewport >( ActiveLevelViewport->AsWidget() );
+				ExistingActiveLevelViewport = StaticCastSharedRef< SLevelViewport >(ActiveLevelViewport->AsWidget());
 
 				// Use the currently active window instead
 				bSummonNewWindow = false;
 			}
 		}
-		
+
 		TSharedPtr< SLevelViewport > VREditorLevelViewport;
-		if( bSummonNewWindow )
+		if(bSummonNewWindow)
 		{
 			// @todo vreditor: The resolution we set here doesn't matter, as HMDs will draw at their native resolution
 			// no matter what.  We should probably allow the window to be freely resizable by the user
@@ -143,48 +175,48 @@ void FVREditorMode::Enter()
 			FVector2D WindowSize;
 			{
 				IHeadMountedDisplay::MonitorInfo HMDMonitorInfo;
-				if( bActuallyUsingVR && GEngine->HMDDevice->GetHMDMonitorInfo( HMDMonitorInfo ) )
+				if(bActuallyUsingVR && GEngine->HMDDevice->GetHMDMonitorInfo(HMDMonitorInfo))
 				{
-					WindowSize = FVector2D( HMDMonitorInfo.ResolutionX, HMDMonitorInfo.ResolutionY );
+					WindowSize = FVector2D(HMDMonitorInfo.ResolutionX, HMDMonitorInfo.ResolutionY);
 				}
 				else
 				{
 					// @todo vreditor: Hard-coded failsafe window size
-					WindowSize = FVector2D( 1920.0f, 1080.0f );
+					WindowSize = FVector2D(1920.0f, 1080.0f);
 				}
 			}
 
 			// @todo vreditor: Use SLevelEditor::GetTableTitle() for the VR window title (needs dynamic update)
-			const FText VREditorWindowTitle = NSLOCTEXT( "VREditor", "VRWindowTitle", "Unreal Editor VR" );
+			const FText VREditorWindowTitle = NSLOCTEXT("VREditor", "VRWindowTitle", "Unreal Editor VR");
 
-			TSharedRef< SWindow > VREditorWindow = SNew( SWindow )
-				.Title( VREditorWindowTitle )
-				.ClientSize( WindowSize )
-				.AutoCenter( EAutoCenter::PreferredWorkArea )
-				.UseOSWindowBorder( true )	// @todo vreditor: Allow window to be freely resized?  Shouldn't really hurt anything.  We should save position/size too.
-				.SizingRule( ESizingRule::UserSized );
+			TSharedRef< SWindow > VREditorWindow = SNew(SWindow)
+				.Title(VREditorWindowTitle)
+				.ClientSize(WindowSize)
+				.AutoCenter(EAutoCenter::PreferredWorkArea)
+				.UseOSWindowBorder(true)	// @todo vreditor: Allow window to be freely resized?  Shouldn't really hurt anything.  We should save position/size too.
+				.SizingRule(ESizingRule::UserSized);
 			this->VREditorWindowWeakPtr = VREditorWindow;
 
 			VREditorLevelViewport =
-				SNew( SLevelViewport )
-				.ViewportType( LVT_Perspective ) // Perspective
-				.Realtime( true )
+				SNew(SLevelViewport)
+				.ViewportType(LVT_Perspective) // Perspective
+				.Realtime(true)
 				//				.ParentLayout( AsShared() )	// @todo vreditor: We don't have one and we probably don't need one, right?  Make sure a null parent layout is handled properly everywhere.
-				.ParentLevelEditor( LevelEditor )
+				.ParentLevelEditor(LevelEditor)
 				//				.ConfigKey( BottomLeftKey )	// @todo vreditor: This is for saving/loading layout.  We would need this in order to remember viewport settings like show flags, etc.
-				.IsEnabled( FSlateApplication::Get().GetNormalExecutionAttribute() );
+				.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute());
 
 			// Allow the editor to keep track of this editor viewport.  Because it's not inside of a normal tab, 
 			// we need to explicitly tell the level editor about it
-			LevelEditor->AddStandaloneLevelViewport( VREditorLevelViewport.ToSharedRef() );
+			LevelEditor->AddStandaloneLevelViewport(VREditorLevelViewport.ToSharedRef());
 
-			VREditorWindow->SetContent( VREditorLevelViewport.ToSharedRef() );
+			VREditorWindow->SetContent(VREditorLevelViewport.ToSharedRef());
 
 			// NOTE: We're intentionally not adding this window natively parented to the main frame window, because we don't want it
 			// to minimize/restore when the main frame is minimized/restored
-			FSlateApplication::Get().AddWindow( VREditorWindow );
+			FSlateApplication::Get().AddWindow(VREditorWindow);
 
-			VREditorWindow->SetOnWindowClosed( FOnWindowClosed::CreateRaw( this, &FVREditorMode::OnVREditorWindowClosed ) );
+			VREditorWindow->SetOnWindowClosed(FOnWindowClosed::CreateUObject(this, &UVREditorMode::OnVREditorWindowClosed));
 
 			VREditorWindow->BringToFront();	// @todo vreditor: Not sure if this is needed, especially if we decide the window should be hidden (copied this from PIE code)
 		}
@@ -192,16 +224,17 @@ void FVREditorMode::Enter()
 		{
 			VREditorLevelViewport = ExistingActiveLevelViewport;
 
-			if( bActuallyUsingVR )
+			if(bActuallyUsingVR)
 			{
 				// Switch to immersive mode
 				const bool bWantImmersive = true;
 				const bool bAllowAnimation = false;
-				ExistingActiveLevelViewport->MakeImmersive( bWantImmersive, bAllowAnimation );
+				ExistingActiveLevelViewport->MakeImmersive(bWantImmersive, bAllowAnimation);
 			}
 		}
+
 		this->VREditorLevelViewportWeakPtr = VREditorLevelViewport;
-		
+
 		{
 			FLevelEditorViewportClient& VRViewportClient = VREditorLevelViewport->GetLevelViewportClient();
 			FEditorViewportClient& VREditorViewportClient = VRViewportClient;
@@ -209,7 +242,7 @@ void FVREditorMode::Enter()
 			// Make sure we are in perspective mode
 			// @todo vreditor: We should never allow ortho switching while in VR
 			SavedEditorState.ViewportType = VREditorViewportClient.GetViewportType();
-			VREditorViewportClient.SetViewportType( LVT_Perspective );
+			VREditorViewportClient.SetViewportType(LVT_Perspective);
 
 			// Set the initial camera location
 			// @todo vreditor: This should instead be calculated using the currently active perspective camera's
@@ -218,26 +251,26 @@ void FVREditorMode::Enter()
 			// @todo vreditor: Should save and restore camera position and any other settings we change (viewport type, pitch locking, etc.)
 			SavedEditorState.ViewLocation = VRViewportClient.GetViewLocation();
 			SavedEditorState.ViewRotation = VRViewportClient.GetViewRotation();
-			
+
 			// Don't allow the tracking space to pitch up or down.  People hate that in VR.
 			// @todo vreditor: This doesn't seem to prevent people from pitching the camera with RMB drag
 			SavedEditorState.bLockedPitch = VRViewportClient.GetCameraController()->GetConfig().bLockedPitch;
-			if( bActuallyUsingVR )
+			if(bActuallyUsingVR)
 			{
 				VRViewportClient.GetCameraController()->AccessConfig().bLockedPitch = true;
 			}
 
 			// Set "game mode" to be enabled, to get better performance.  Also hit proxies won't work in VR, anyway
 			SavedEditorState.bGameView = VREditorViewportClient.IsInGameView();
-			VREditorViewportClient.SetGameView( true );
+			VREditorViewportClient.SetGameView(true);
 
 			SavedEditorState.bRealTime = VREditorViewportClient.IsRealtime();
-			VREditorViewportClient.SetRealtime( true );
+			VREditorViewportClient.SetRealtime(true);
 
 			SavedEditorState.ShowFlags = VREditorViewportClient.EngineShowFlags;
 
 			// Never show the traditional Unreal transform widget.  It doesn't work in VR because we don't have hit proxies.
-			VREditorViewportClient.EngineShowFlags.SetModeWidgets( false );
+			VREditorViewportClient.EngineShowFlags.SetModeWidgets(false);
 
 			// Make sure the mode widgets don't come back when users click on things
 			VRViewportClient.bAlwaysShowModeWidgetAfterSelectionChanges = false;
@@ -250,18 +283,21 @@ void FVREditorMode::Enter()
 			SavedEditorState.bOnScreenMessages = GAreScreenMessagesEnabled;
 			GAreScreenMessagesEnabled = false;
 
-			if( bActuallyUsingVR )
+			// Save the world to meters scale
+			SavedEditorState.WorldToMetersScale = VRViewportClient.GetWorld()->GetWorldSettings()->WorldToMeters;
+
+			if(bActuallyUsingVR)
 			{
 				SavedEditorState.TrackingOrigin = GEngine->HMDDevice->GetTrackingOrigin();
-				GEngine->HMDDevice->SetTrackingOrigin( EHMDTrackingOrigin::Floor );
+				GEngine->HMDDevice->SetTrackingOrigin(EHMDTrackingOrigin::Floor);
 			}
 
 			// Make the new viewport the active level editing viewport right away
 			GCurrentLevelEditingViewportClient = &VRViewportClient;
 
 			// Enable selection outline right away
-			VREditorViewportClient.EngineShowFlags.SetSelection(true);
-			VREditorViewportClient.EngineShowFlags.SetSelectionOutline(true);
+			VREditorViewportClient.EngineShowFlags.SetSelection( true );
+			VREditorViewportClient.EngineShowFlags.SetSelectionOutline( true );
 		}
 
 		VREditorLevelViewport->EnableStereoRendering( bActuallyUsingVR );
@@ -269,8 +305,10 @@ void FVREditorMode::Enter()
 
 		if( bActuallyUsingVR )
 		{
-			GEngine->HMDDevice->EnableStereo( true );
-
+			if( !( GEngine->HMDDevice->IsStereoEnabled() ) || bReenteringVREditing )
+			{
+				GEngine->HMDDevice->EnableStereo( true );
+			}
 			// @todo vreditor: Force single eye, undistorted mirror for demos
 			const bool bIsVREditorDemo = FParse::Param( FCommandLine::Get(), TEXT( "VREditorDemo" ) );	// @todo vreditor: Remove this when no longer needed (console variable, too!)
 			if( bIsVREditorDemo && GetHMDDeviceType() == EHMDDeviceType::DT_OculusRift )
@@ -292,11 +330,14 @@ void FVREditorMode::Enter()
 	// Setup sub systems
 	{
 		// Setup world interaction
-		WorldInteraction = NewObject<UVREditorWorldInteraction>();
-		WorldInteraction->SetOwner( this );
-		WorldInteraction->Init( VREditorLevelViewportWeakPtr.Pin()->GetViewportClient() );
+		TSharedPtr<FEditorViewportClient> ViewportClient = VREditorLevelViewportWeakPtr.Pin()->GetViewportClient();
+		WorldInteraction->SetViewport( ViewportClient );
+		WorldInteraction->Activate( true );
+
+		WorldInteraction->OnHandleKeyInput().AddUObject( this, &UVREditorMode::InputKey );
 
 		// Motion controllers
+		if(bActuallyUsingVR)
 		{
 			LeftHandInteractor = NewObject<UVREditorMotionControllerInteractor>( WorldInteraction );
 			LeftHandInteractor->SetControllerHandSide( EControllerHand::Left );
@@ -310,8 +351,7 @@ void FVREditorMode::Enter()
 
 			WorldInteraction->PairInteractors( LeftHandInteractor, RightHandInteractor );
 		}
-
-		if( !bActuallyUsingVR )
+		else
 		{
 			// Register an interactor for the mouse cursor
 			MouseCursorInteractor = NewObject<UMouseCursorInteractor>( WorldInteraction );
@@ -324,89 +364,115 @@ void FVREditorMode::Enter()
 		UISystem->SetOwner( this );
 		UISystem->Init();
 
+		VRWorldInteractionExtension = NewObject<UVREditorWorldInteraction>();
+		VRWorldInteractionExtension->Init( this, WorldInteraction );
+
 		// Setup teleporter
 		TeleporterSystem = NewObject<UVREditorTeleporter>();
 		TeleporterSystem->Init( this );
 
+		// Setup autoscaler
+		AutoScalerSystem = NewObject<UVREditorAutoScaler>();
+		AutoScalerSystem->Init( this );
 	}
 
-	// Call parent implementation
-	FEdMode::Enter();
+	if(AvatarActor == nullptr)
+	{
+		SpawnAvatarMeshActor();
+	}
+
+	/** This will make sure this is not ticking after the editor has been closed. */
+	GEditor->OnEditorClose().AddUObject( this, &UVREditorMode::OnEditorClosed );
 
 	bFirstTick = true;
-	bIsFullyInitialized = true;
+	bIsActive = true;
 }
 
-
-void FVREditorMode::Exit()
+void UVREditorMode::Exit(const bool bHMDShouldExitStereo)
 {
-	bIsFullyInitialized = false;
-
-	FSlateApplication::Get().SetInputPreProcessor(false);
-
-	//Destroy the avatar
 	{
-		DestroyTransientActor( AvatarActor );
-		AvatarActor = nullptr;
-
-		FlashlightComponent = nullptr;
-	}
-
-	{
-		if( GEngine->HMDDevice.IsValid() )
+		//Destroy the avatar
 		{
-			// @todo vreditor switch: We don't want to do this if a VR PIE session is somehow active.  Is that even possible while immersive?
-			GEngine->HMDDevice->EnableStereo( false );
+			DestroyTransientActor( AvatarActor );
+			AvatarActor = nullptr;
+			FlashlightComponent = nullptr;
 		}
 
-		if( bActuallyUsingVR )
-		{ 
-			// Restore Slate drag trigger distance
-			FSlateApplication::Get().SetDragTriggerDistance( SavedEditorState.DragTriggerDistance );
-		}
-
-		TSharedPtr<SLevelViewport> VREditorLevelViewport( VREditorLevelViewportWeakPtr.Pin() );
-		if( VREditorLevelViewport.IsValid() )
 		{
-			VREditorLevelViewport->EnableStereoRendering( false );
-			VREditorLevelViewport->SetRenderDirectlyToWindow( false );
-
+			if(GEngine->HMDDevice.IsValid() && bHMDShouldExitStereo)
 			{
-				FLevelEditorViewportClient& VRViewportClient = VREditorLevelViewport->GetLevelViewportClient();
-				FEditorViewportClient& VREditorViewportClient = VRViewportClient;
+				// @todo vreditor switch: We don't want to do this if a VR PIE session is somehow active.  Is that even possible while immersive?
+				GEngine->HMDDevice->EnableStereo( false );
+			}
 
-				// Restore settings that we changed on the viewport
-				VREditorViewportClient.SetViewportType( SavedEditorState.ViewportType );
-				VRViewportClient.GetCameraController()->AccessConfig().bLockedPitch = SavedEditorState.bLockedPitch;
-				VRViewportClient.bAlwaysShowModeWidgetAfterSelectionChanges = SavedEditorState.bAlwaysShowModeWidgetAfterSelectionChanges;
-				VRViewportClient.EngineShowFlags = SavedEditorState.ShowFlags;
-				VRViewportClient.SetGameView( SavedEditorState.bGameView );
-				VRViewportClient.SetViewLocation( GetHeadTransform().GetLocation() );
-				
-				FRotator HeadRotationNoRoll = GetHeadTransform().GetRotation().Rotator();
-				HeadRotationNoRoll.Roll = 0.0f;
-				VRViewportClient.SetViewRotation(HeadRotationNoRoll); // Use SavedEditorState.ViewRotation to go back to start rot
-				
-				VRViewportClient.SetRealtime( SavedEditorState.bRealTime );
+			if(bActuallyUsingVR)
+			{
+				// Restore Slate drag trigger distance
+				FSlateApplication::Get().SetDragTriggerDistance( SavedEditorState.DragTriggerDistance );
+			}
 
-				GNearClippingPlane = SavedEditorState.NearClipPlane;
-				GAreScreenMessagesEnabled = SavedEditorState.bOnScreenMessages;
+			TSharedPtr<SLevelViewport> VREditorLevelViewport( VREditorLevelViewportWeakPtr.Pin() );
+			if(VREditorLevelViewport.IsValid())
+			{
+				VREditorLevelViewport->EnableStereoRendering( false );
+				VREditorLevelViewport->SetRenderDirectlyToWindow( false );
 
-				if( bActuallyUsingVR )
 				{
-					GEngine->HMDDevice->SetTrackingOrigin( SavedEditorState.TrackingOrigin );
+					FLevelEditorViewportClient& VRViewportClient = VREditorLevelViewport->GetLevelViewportClient();
+					FEditorViewportClient& VREditorViewportClient = VRViewportClient;
+
+					// Restore settings that we changed on the viewport
+					VREditorViewportClient.SetViewportType( SavedEditorState.ViewportType );
+					VRViewportClient.GetCameraController()->AccessConfig().bLockedPitch = SavedEditorState.bLockedPitch;
+					VRViewportClient.bAlwaysShowModeWidgetAfterSelectionChanges = SavedEditorState.bAlwaysShowModeWidgetAfterSelectionChanges;
+					VRViewportClient.EngineShowFlags = SavedEditorState.ShowFlags;
+					VRViewportClient.SetGameView( SavedEditorState.bGameView );
+
+					if(bActuallyUsingVR)
+					{
+						VRViewportClient.SetViewLocation( GetHeadTransform().GetLocation() );
+
+						FRotator HeadRotationNoRoll = GetHeadTransform().GetRotation().Rotator();
+						HeadRotationNoRoll.Roll = 0.0f;
+						VRViewportClient.SetViewRotation( HeadRotationNoRoll ); // Use SavedEditorState.ViewRotation to go back to start rot
+					}
+
+					VRViewportClient.SetRealtime( SavedEditorState.bRealTime );
+
+					GNearClippingPlane = SavedEditorState.NearClipPlane;
+					GAreScreenMessagesEnabled = SavedEditorState.bOnScreenMessages;
+
+					if(bActuallyUsingVR)
+					{
+						GEngine->HMDDevice->SetTrackingOrigin( SavedEditorState.TrackingOrigin );
+					}
+
+					// Set the world to meters back to the saved one when entering the mode
+					{
+						VRViewportClient.GetWorld()->GetWorldSettings()->WorldToMeters = SavedEditorState.WorldToMetersScale;
+						ENGINE_API extern float GNewWorldToMetersScale;
+						GNewWorldToMetersScale = 0.0f;
+					}
 				}
+
+				if(bActuallyUsingVR)
+				{
+					// Leave immersive mode
+					const bool bWantImmersive = false;
+					const bool bAllowAnimation = false;
+					VREditorLevelViewport->MakeImmersive( bWantImmersive, bAllowAnimation );
+				}
+
+				VREditorLevelViewportWeakPtr.Reset();
 			}
 
-			if( bActuallyUsingVR )
+			// Kill the VR editor window
+			TSharedPtr<SWindow> VREditorWindow( VREditorWindowWeakPtr.Pin() );
+			if(VREditorWindow.IsValid())
 			{
-				// Leave immersive mode
-				const bool bWantImmersive = false;
-				const bool bAllowAnimation = false;
-				VREditorLevelViewport->MakeImmersive( bWantImmersive, bAllowAnimation );
+				VREditorWindow->RequestDestroyWindow();
+				VREditorWindow.Reset();
 			}
-
-			VREditorLevelViewportWeakPtr.Reset();
 		}
 
 		// Kill the VR editor window
@@ -417,43 +483,87 @@ void FVREditorMode::Exit()
 			VREditorWindow.Reset();
 		}
 	}
-
-	// Call parent implementation
-	FEdMode::Exit();
+	//Destroy the avatar
+	{
+		DestroyTransientActor( AvatarActor );
+		AvatarActor = nullptr;
+		FlashlightComponent = nullptr;
+	}
 
 	// Kill subsystems
-	if ( UISystem != nullptr )
+	if( UISystem != nullptr )
 	{
 		UISystem->Shutdown();
 		UISystem->MarkPendingKill();
 		UISystem = nullptr;
 	}
 
-	if ( TeleporterSystem != nullptr )
+	if( VRWorldInteractionExtension != nullptr )
+	{
+		VRWorldInteractionExtension->Shutdown();
+		VRWorldInteractionExtension->MarkPendingKill();
+		VRWorldInteractionExtension = nullptr;
+	}
+
+	if( TeleporterSystem != nullptr )
 	{
 		TeleporterSystem->Shutdown();
 		TeleporterSystem->MarkPendingKill();
 		TeleporterSystem = nullptr;
 	}
 
-	if ( WorldInteraction != nullptr )
+	if( AutoScalerSystem != nullptr )
 	{
-		WorldInteraction->Shutdown();
-		WorldInteraction->MarkPendingKill();
-		WorldInteraction = nullptr;
+		AutoScalerSystem->Shutdown();
+		AutoScalerSystem->MarkPendingKill();
+		AutoScalerSystem = nullptr;
 	}
 
-	// @todo vreditor urgent: Disable global editor hacks for VR Editor mode
-	GEnableVREditorHacks = false;
+	{
+		IViewportWorldInteractionManager& ViewportWorldInteraction = IViewportInteractionModule::Get().GetWorldInteractionManager();
+		ViewportWorldInteraction.OnPreWorldInteractionTick().RemoveAll( this );
+		ViewportWorldInteraction.OnPostWorldInteractionTick().RemoveAll( this );
+	}
+
+	if( WorldInteraction != nullptr )
+	{
+		WorldInteraction->OnHandleKeyInput().RemoveAll( this );
+
+		WorldInteraction->RemoveInteractor( LeftHandInteractor );
+		LeftHandInteractor->MarkPendingKill();
+		LeftHandInteractor->Shutdown();
+		LeftHandInteractor = nullptr;
+		WorldInteraction->RemoveInteractor( RightHandInteractor );
+		RightHandInteractor->Shutdown();
+		RightHandInteractor->MarkPendingKill();
+		RightHandInteractor = nullptr;
+
+		WorldInteraction->Activate( false );
+	}
+
+	GEditor->OnEditorClose().RemoveAll( this );
+
+	bWantsToExitMode = false;
+	bIsActive = false;
+	bFirstTick = false;
 }
 
-void FVREditorMode::StartExitingVRMode( const EVREditorExitType InExitType /*= EVREditorExitType::To_Editor */ )
+void UVREditorMode::OnEditorClosed()
+{
+	if( bIsActive )
+	{
+		Exit( false );
+		Shutdown();
+	}
+}
+
+void UVREditorMode::StartExitingVRMode( const EVREditorExitType InExitType /*= EVREditorExitType::To_Editor */ )
 {
 	ExitType = InExitType;
 	bWantsToExitMode = true;
 }
 
-void FVREditorMode::SpawnAvatarMeshActor()
+void UVREditorMode::SpawnAvatarMeshActor()
 {
 	// Setup our avatar
 	if( AvatarActor == nullptr )
@@ -471,25 +581,20 @@ void FVREditorMode::SpawnAvatarMeshActor()
 }
 
 
-void FVREditorMode::OnVREditorWindowClosed( const TSharedRef<SWindow>& ClosedWindow )
+void UVREditorMode::OnVREditorWindowClosed( const TSharedRef<SWindow>& ClosedWindow )
 {
 	StartExitingVRMode();
 }
 
-
-void FVREditorMode::Tick( FEditorViewportClient* ViewportClient, float DeltaTime )
+void UVREditorMode::PreTick( const float DeltaTime )
 {
-	// Call parent implementation
-	FEdMode::Tick( ViewportClient, DeltaTime );
-
-	// Only if this is our VR viewport. Remember, editor modes get a chance to tick and receive input for each active viewport.
-	if ( ViewportClient != GetLevelViewportPossessedForVR().GetViewportClient().Get() || bWantsToExitMode )
+	if( !bIsFullyInitialized || !bIsActive || bWantsToExitMode )
 	{
 		return;
 	}
 
 	//Setting the initial position and rotation based on the editor viewport when going into VR mode
-	if ( bFirstTick )
+	if( bFirstTick && bActuallyUsingVR )
 	{
 		const FTransform RoomToWorld = GetRoomTransform();
 		const FTransform WorldToRoom = RoomToWorld.Inverse();
@@ -509,16 +614,17 @@ void FVREditorMode::Tick( FEditorViewportClient* ViewportClient, float DeltaTime
 		SetRoomTransform( ResultToWorld );
 	}
 
-	if ( AvatarActor == nullptr )
+}
+
+void UVREditorMode::Tick( float DeltaTime )
+{
+	if( !bIsFullyInitialized || !bIsActive || bWantsToExitMode || !VREditorLevelViewportWeakPtr.IsValid() )
 	{
-		SpawnAvatarMeshActor();
+		return;
 	}
 
 	TickHandle.Broadcast( DeltaTime );
-
-	WorldInteraction->Tick( ViewportClient, DeltaTime );
-
-	UISystem->Tick( ViewportClient, DeltaTime );
+	UISystem->Tick( GetLevelViewportPossessedForVR().GetViewportClient().Get(), DeltaTime );
 
 	// Update avatar meshes
 	{
@@ -542,122 +648,114 @@ void FVREditorMode::Tick( FEditorViewportClient* ViewportClient, float DeltaTime
 }
 
 
-bool FVREditorMode::InputKey(FEditorViewportClient* ViewportClient, FViewport* Viewport, FKey Key, EInputEvent Event)
+void UVREditorMode::InputKey(const FEditorViewportClient& InViewportClient, const FKey InKey, const EInputEvent InEvent, bool& bOutWasHandled)
 {
-	// Only if this is our VR viewport. Remember, editor modes get a chance to tick and receive input for each active viewport.
-	if ( ViewportClient != GetLevelViewportPossessedForVR().GetViewportClient().Get() )
-	{
-		return InputKey(GetLevelViewportPossessedForVR().GetViewportClient().Get(), Viewport, Key, Event);
-	}
-
-	if ( Key == EKeys::Escape )
+	if(InKey == EKeys::Escape)
 	{
 		// User hit escape, so bail out of VR mode
 		StartExitingVRMode();
 	}
-	else if( Key.IsMouseButton() )	// Input preprocessor cannot handle mouse buttons, so we'll route those the normal way
-	{
-		return WorldInteraction->HandleInputKey( Key, Event );
-	}
-
-	return FEdMode::InputKey(ViewportClient, Viewport, Key, Event);
 }
 
+//bool UVREditorMode::InputKey(FEditorViewportClient* ViewportClient, FViewport* Viewport, FKey Key, EInputEvent Event)
+//{
+//	// Only if this is our VR viewport. Remember, editor modes get a chance to tick and receive input for each active viewport.
+//	if ( ViewportClient != GetLevelViewportPossessedForVR().GetViewportClient().Get() )
+//	{
+//		return InputKey(GetLevelViewportPossessedForVR().GetViewportClient().Get(), Viewport, Key, Event);
+//	}
+//
+//	if ( Key == EKeys::Escape )
+//	{
+//		// User hit escape, so bail out of VR mode
+//		StartExitingVRMode();
+//	}
+//	else if( Key.IsMouseButton() )	// Input preprocessor cannot handle mouse buttons, so we'll route those the normal way
+//	{
+//		return WorldInteraction->HandleInputKey( Key, Event );
+//	}
+//
+//	return FEdMode::InputKey(ViewportClient, Viewport, Key, Event);
+//}
+//
+//
+//bool UVREditorMode::InputAxis(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime)
+//{
+//	// Only if this is our VR viewport. Remember, editor modes get a chance to tick and receive input for each active viewport.
+//	if ( ViewportClient != GetLevelViewportPossessedForVR().GetViewportClient().Get() )
+//	{
+//		return InputAxis(GetLevelViewportPossessedForVR().GetViewportClient().Get(), Viewport, ControllerId, Key, Delta, DeltaTime);
+//	}
+//
+//	return FEdMode::InputAxis(ViewportClient, Viewport, ControllerId, Key, Delta, DeltaTime);
+//}
 
-bool FVREditorMode::InputAxis(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime)
-{
-	// Only if this is our VR viewport. Remember, editor modes get a chance to tick and receive input for each active viewport.
-	if ( ViewportClient != GetLevelViewportPossessedForVR().GetViewportClient().Get() )
-	{
-		return InputAxis(GetLevelViewportPossessedForVR().GetViewportClient().Get(), Viewport, ControllerId, Key, Delta, DeltaTime);
-	}
-
-	return FEdMode::InputAxis(ViewportClient, Viewport, ControllerId, Key, Delta, DeltaTime);
-}
-
-bool FVREditorMode::IsCompatibleWith(FEditorModeID OtherModeID) const
-{
-	// We are compatible with all other modes!
-	return true;
-}
-
-
-void FVREditorMode::AddReferencedObjects( FReferenceCollector& Collector )
-{
-	Collector.AddReferencedObject( AvatarActor );
-	Collector.AddReferencedObject( FlashlightComponent );	
-	Collector.AddReferencedObject( UISystem );
-	Collector.AddReferencedObject( WorldInteraction );
-	Collector.AddReferencedObject( TeleporterSystem );
-	Collector.AddReferencedObject( MouseCursorInteractor );
-	Collector.AddReferencedObject( LeftHandInteractor );
-	Collector.AddReferencedObject( RightHandInteractor );
-}
-
-
-void FVREditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, FPrimitiveDrawInterface* PDI )
-{
-	//StopOldHapticEffects(); //@todo vreditor
-
-	FEdMode::Render( SceneView, Viewport, PDI );
-
-	if( bIsFullyInitialized )
-	{
-		// Let our subsystems render, too
-		UISystem->Render( SceneView, Viewport, PDI );
-	}
-}
+//void UVREditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, FPrimitiveDrawInterface* PDI )
+//{
+//	//StopOldHapticEffects(); //@todo vreditor
+//
+//	if( bIsFullyInitialized )
+//	{
+//		// Let our subsystems render, too
+//		UISystem->Render( SceneView, Viewport, PDI );
+//	}
+//}
 
 /************************************************************************/
 /* IVREditorMode interface                                              */
 /************************************************************************/
 
-AActor* FVREditorMode::GetAvatarMeshActor()
+AActor* UVREditorMode::GetAvatarMeshActor()
 {
 	return AvatarActor;
 }
 
-UWorld* FVREditorMode::GetWorld() const
+UWorld* UVREditorMode::GetWorld() const
 {
 	return WorldInteraction->GetViewportWorld();
 }
 
-FTransform FVREditorMode::GetRoomTransform() const
+FTransform UVREditorMode::GetRoomTransform() const
 {
 	return WorldInteraction->GetRoomTransform();
 }
 
-void FVREditorMode::SetRoomTransform( const FTransform& NewRoomTransform )
+void UVREditorMode::SetRoomTransform( const FTransform& NewRoomTransform )
 {
 	WorldInteraction->SetRoomTransform( NewRoomTransform );
 }
 
-FTransform FVREditorMode::GetRoomSpaceHeadTransform() const
+FTransform UVREditorMode::GetRoomSpaceHeadTransform() const
 {
 	return WorldInteraction->GetRoomSpaceHeadTransform();
 }
 
-FTransform FVREditorMode::GetHeadTransform() const
+FTransform UVREditorMode::GetHeadTransform() const
 {
 	return WorldInteraction->GetHeadTransform();
 }
 
-const UViewportWorldInteraction& FVREditorMode::GetWorldInteraction() const
+const UViewportWorldInteraction& UVREditorMode::GetWorldInteraction() const
 {
 	return *WorldInteraction;
 }
 
-UViewportWorldInteraction& FVREditorMode::GetWorldInteraction()
+UViewportWorldInteraction& UVREditorMode::GetWorldInteraction()
 {
 	return *WorldInteraction;
 }
 
-bool FVREditorMode::IsFullyInitialized() const
+bool UVREditorMode::IsFullyInitialized() const
 {
 	return bIsFullyInitialized;
 }
 
-AActor* FVREditorMode::SpawnTransientSceneActor( TSubclassOf<AActor> ActorClass, const FString& ActorName, const bool bWithSceneComponent ) const
+bool UVREditorMode::IsActive() const
+{
+	return bIsActive;
+}
+
+AActor* UVREditorMode::SpawnTransientSceneActor(TSubclassOf<AActor> ActorClass, const FString& ActorName, const bool bWithSceneComponent) const
 {
 	const bool bWasWorldPackageDirty = GetWorld()->GetOutermost()->IsDirty();
 
@@ -690,52 +788,29 @@ AActor* FVREditorMode::SpawnTransientSceneActor( TSubclassOf<AActor> ActorClass,
 }
 
 
-void FVREditorMode::DestroyTransientActor( AActor* Actor ) const
+void UVREditorMode::DestroyTransientActor( AActor* Actor ) const
 {
 	WorldInteraction->DestroyTransientActor( Actor );
 }
 
-const SLevelViewport& FVREditorMode::GetLevelViewportPossessedForVR() const
+const SLevelViewport& UVREditorMode::GetLevelViewportPossessedForVR() const
 {
 	return *VREditorLevelViewportWeakPtr.Pin();
 }
 
-SLevelViewport& FVREditorMode::GetLevelViewportPossessedForVR()
+SLevelViewport& UVREditorMode::GetLevelViewportPossessedForVR()
 {
 	return *VREditorLevelViewportWeakPtr.Pin();
 }
 
 
-float FVREditorMode::GetWorldScaleFactor() const
+float UVREditorMode::GetWorldScaleFactor() const
 {
-	return WorldInteraction->GetViewportWorld()->GetWorldSettings()->WorldToMeters / 100.0f;
-}
-
-void FVREditorMode::OnMapChange( uint32 MapChangeFlags )
-{
-	CleanUpActorsBeforeMapChangeOrSimulate();
+	return WorldInteraction->GetWorldScaleFactor();
 }
 
 
-void FVREditorMode::OnBeginPIE( const bool bIsSimulatingInEditor )
-{
-	CleanUpActorsBeforeMapChangeOrSimulate();
-}
-
-
-void FVREditorMode::OnEndPIE( const bool bIsSimulatingInEditor )
-{
-	CleanUpActorsBeforeMapChangeOrSimulate();
-}
-
-
-void FVREditorMode::OnSwitchBetweenPIEAndSIE( const bool bIsSimulatingInEditor )
-{
-	CleanUpActorsBeforeMapChangeOrSimulate();
-}
-
-
-void FVREditorMode::CleanUpActorsBeforeMapChangeOrSimulate()
+void UVREditorMode::CleanUpActorsBeforeMapChangeOrSimulate()
 {
 	if ( WorldInteraction != nullptr )
 	{
@@ -753,7 +828,7 @@ void FVREditorMode::CleanUpActorsBeforeMapChangeOrSimulate()
 	}
 }
 
-void FVREditorMode::ToggleFlashlight( UVREditorInteractor* Interactor )
+void UVREditorMode::ToggleFlashlight( UVREditorInteractor* Interactor )
 {
 	UVREditorMotionControllerInteractor* MotionControllerInteractor = Cast<UVREditorMotionControllerInteractor>( Interactor );
 	if ( MotionControllerInteractor )
@@ -781,7 +856,7 @@ void FVREditorMode::ToggleFlashlight( UVREditorInteractor* Interactor )
 	}
 }
 
-void FVREditorMode::CycleTransformGizmoHandleType()
+void UVREditorMode::CycleTransformGizmoHandleType()
 {
 	EGizmoHandleTypes NewGizmoType = (EGizmoHandleTypes)( (uint8)WorldInteraction->GetCurrentGizmoType() + 1 );
 	
@@ -814,17 +889,17 @@ void FVREditorMode::CycleTransformGizmoHandleType()
 	WorldInteraction->SetGizmoHandleType( NewGizmoType );
 }
 
-EHMDDeviceType::Type FVREditorMode::GetHMDDeviceType() const
+EHMDDeviceType::Type UVREditorMode::GetHMDDeviceType() const
 {
 	return GEngine->HMDDevice.IsValid() ? GEngine->HMDDevice->GetHMDDeviceType() : EHMDDeviceType::DT_SteamVR;
 }
 
-FLinearColor FVREditorMode::GetColor( const EColors Color ) const
+FLinearColor UVREditorMode::GetColor( const EColors Color ) const
 {
 	return Colors[ (int32)Color ];
 }
 
-bool FVREditorMode::IsHandAimingTowardsCapsule( UViewportInteractor* Interactor, const FTransform& CapsuleTransform, FVector CapsuleStart, const FVector CapsuleEnd, const float CapsuleRadius, const float MinDistanceToCapsule, const FVector CapsuleFrontDirection, const float MinDotForAimingAtCapsule ) const
+bool UVREditorMode::IsHandAimingTowardsCapsule( UViewportInteractor* Interactor, const FTransform& CapsuleTransform, FVector CapsuleStart, const FVector CapsuleEnd, const float CapsuleRadius, const float MinDistanceToCapsule, const FVector CapsuleFrontDirection, const float MinDotForAimingAtCapsule ) const
 {
 	bool bIsAimingTowards = false;
 	const float WorldScaleFactor = GetWorldScaleFactor();
@@ -885,17 +960,27 @@ bool FVREditorMode::IsHandAimingTowardsCapsule( UViewportInteractor* Interactor,
 	return bIsAimingTowards;
 }
 
-UVREditorInteractor* FVREditorMode::GetHandInteractor( const EControllerHand ControllerHand ) const 
+UVREditorInteractor* UVREditorMode::GetHandInteractor( const EControllerHand ControllerHand ) const 
 {
 	UVREditorInteractor* ResultInteractor = ControllerHand == EControllerHand::Left ? LeftHandInteractor : RightHandInteractor;
 	check( ResultInteractor != nullptr );
 	return ResultInteractor;
 }
 
-void FVREditorMode::StopOldHapticEffects()
+void UVREditorMode::StopOldHapticEffects()
 {
 	LeftHandInteractor->StopOldHapticEffects();
 	RightHandInteractor->StopOldHapticEffects();
+}
+
+void UVREditorMode::SnapSelectedActorsToGround()
+{
+	VRWorldInteractionExtension->SnapSelectedActorsToGround();
+}
+
+const UVREditorMode::FSavedEditorState& UVREditorMode::GetSavedEditorState() const
+{
+	return SavedEditorState;
 }
 
 #undef LOCTEXT_NAMESPACE

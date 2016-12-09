@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
 #include "K2Node_GetInputAxisKeyValue.h"
 #include "K2Node_GetInputVectorAxisValue.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UDynamicBlueprintBinding;
 
 UCLASS(MinimalAPI, meta=(Keywords = "Get"))
 class UK2Node_GetInputVectorAxisValue : public UK2Node_GetInputAxisKeyValue

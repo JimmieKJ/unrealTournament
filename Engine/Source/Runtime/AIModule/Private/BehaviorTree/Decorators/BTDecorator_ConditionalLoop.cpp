@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "BehaviorTree/BTCompositeNode.h"
 #include "BehaviorTree/Decorators/BTDecorator_ConditionalLoop.h"
+#include "GameFramework/Actor.h"
+#include "VisualLogger/VisualLogger.h"
+#include "BehaviorTree/BTCompositeNode.h"
 
 UBTDecorator_ConditionalLoop::UBTDecorator_ConditionalLoop(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Components/SceneComponent.h"
+#include "Engine/LatentActionManager.h"
+#include "LatentActions.h"
+
 /** Action that interpolates a component over time to a desired position */
 class FInterpolateComponentToAction : public FPendingLatentAction
 {

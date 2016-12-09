@@ -4,7 +4,7 @@
 	VulkanConfiguration.h: Vulkan resource RHI definitions.
 =============================================================================*/
 
-// Compiled with 1.0.17.0
+// Compiled with 1.0.24.0
 
 #pragma once
 
@@ -12,6 +12,8 @@
 
 // API version we want to target.
 #if PLATFORM_WINDOWS
+	#define UE_VK_API_VERSION	VK_MAKE_VERSION(1, 0, 1)
+#elif PLATFORM_MAC // Needed for compiling Vulkan shaders for Android
 	#define UE_VK_API_VERSION	VK_MAKE_VERSION(1, 0, 1)
 #elif PLATFORM_ANDROID
 	#define UE_VK_API_VERSION	VK_MAKE_VERSION(1, 0, 1)
@@ -71,8 +73,11 @@ inline EDescriptorSetStage GetDescriptorSetForStage(EShaderFrequency Stage)
 #define VULKAN_ENABLE_API_DUMP									0
 // Enables logging wrappers per Vulkan call
 #define VULKAN_ENABLE_DUMP_LAYER								0
-#define VULKAN_ENABLE_DRAW_MARKERS								PLATFORM_WINDOWS
+#define VULKAN_ENABLE_DRAW_MARKERS								PLATFORM_WINDOWS && !VULKAN_ENABLE_DUMP_LAYER
 #define VULKAN_ALLOW_MIDPASS_CLEAR								0
+
+// Keep the Vk*CreateInfo stored per object
+#define VULKAN_KEEP_CREATE_INFO									0
 
 #define VULKAN_SINGLE_ALLOCATION_PER_RESOURCE					0
 
@@ -84,14 +89,12 @@ inline EDescriptorSetStage GetDescriptorSetForStage(EShaderFrequency Stage)
 #if PLATFORM_WINDOWS
 	#define VULKAN_DISABLE_DEBUG_CALLBACK						0	/* Disable the DebugReportFunction() callback in VulkanDebug.cpp */
 	#define VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS					0	/* 1 = use resolve attachments, 0 = Use a command buffer vkResolveImage for MSAA resolve */
-	#define VULKAN_USE_RING_BUFFER_FOR_GLOBAL_UBS				1
 #else
 	#define VULKAN_DISABLE_DEBUG_CALLBACK						1	/* Disable the DebugReportFunction() callback in VulkanDebug.cpp */
 	#define VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS					1
-	#define VULKAN_USE_RING_BUFFER_FOR_GLOBAL_UBS				1
 #endif
 
-#define VULKAN_ENABLE_AGGRESSIVE_STATS							1
+#define VULKAN_ENABLE_AGGRESSIVE_STATS							0
 
 #define VULKAN_ENABLE_PIPELINE_CACHE							1
 
@@ -114,3 +117,51 @@ inline EDescriptorSetStage GetDescriptorSetForStage(EShaderFrequency Stage)
 		#define VULKAN_DISABLE_DEBUG_CALLBACK 0
 	#endif
 #endif
+
+namespace EVulkanBindingType
+{
+	enum EType : uint8
+	{
+		PackedUniformBuffer,		//VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+		UniformBuffer,			//VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+
+		CombinedImageSampler,	//VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+		Sampler,					//VK_DESCRIPTOR_TYPE_SAMPLER
+		Image,						//VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
+
+		UniformTexelBuffer,			//VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER	Buffer<>
+
+		//A storage image (VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) is a descriptor type that is used for load, store, and atomic operations on image memory from within shaders bound to pipelines.
+		StorageImage,				//VK_DESCRIPTOR_TYPE_STORAGE_IMAGE		RWTexture
+
+		//RWBuffer/RWTexture?
+		//A storage texel buffer (VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER) represents a tightly packed array of homogeneous formatted data that is stored in a buffer and is made accessible to shaders. Storage texel buffers differ from uniform texel buffers in that they support stores and atomic operations in shaders, may support a different maximum length, and may have different performance characteristics.
+		StorageTexelBuffer,
+
+		// UAV/RWBuffer
+		//A storage buffer(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER) is a region of structured storage that supports both read and write access for shaders.In addition to general read and write operations, some members of storage buffers can be used as the target of atomic operations.In general, atomic operations are only supported on members that have unsigned integer formats.
+
+
+		Count,
+	};
+
+	static inline char GetBindingTypeChar(EType Type)
+	{
+		// Make sure these do NOT alias EPackedTypeName*
+		switch (Type)
+		{
+		case UniformBuffer:			return 'b';
+		case CombinedImageSampler:	return 'c';
+		case Sampler:				return 'p';
+		case Image:					return 'w';
+		case UniformTexelBuffer:	return 'x';
+		case StorageImage:			return 'y';
+		case StorageTexelBuffer:	return 'z';
+		default:
+			check(0);
+			break;
+		}
+
+		return 0;
+	}
+}

@@ -2,9 +2,15 @@
 
 
 #pragma once
-#include "Components/InputComponent.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Framework/Commands/InputChord.h"
 #include "K2Node_Event.h"
 #include "K2Node_InputKeyEvent.generated.h"
+
+class UDynamicBlueprintBinding;
 
 UCLASS(MinimalAPI)
 class UK2Node_InputKeyEvent : public UK2Node_Event

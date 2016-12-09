@@ -28,15 +28,22 @@ public class AnimGraph : ModuleRules
                 "GraphEditor",
 				"PropertyEditor",
 				"EditorStyle",
-                "ContentBrowser"
+                "ContentBrowser",
 			}
 		);
 
-		CircularlyReferencedDependentModules.AddRange(
+        CircularlyReferencedDependentModules.AddRange(
 			new string[] {
                 "UnrealEd",
                 "GraphEditor",
             }
-		); 
-	}
+		);
+
+        PrivateIncludePathModuleNames.AddRange(
+            new string[] {
+                "Persona",
+                "SkeletonEditor"
+            }
+        );
+    }
 }

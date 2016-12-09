@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SlateTextRun.h"
+#include "CoreMinimal.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/TextLayout.h"
+#include "Framework/Text/ILayoutBlock.h"
+#include "Framework/Text/SlateTextRun.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+enum class ETextHitPoint : uint8;
 
 class SLATE_API FSlatePasswordRun : public FSlateTextRun
 {

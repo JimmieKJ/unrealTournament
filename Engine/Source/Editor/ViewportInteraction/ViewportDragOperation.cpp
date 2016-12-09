@@ -1,6 +1,5 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ViewportInteractionModule.h"
 #include "ViewportDragOperation.h"
 
 UViewportDragOperationComponent::UViewportDragOperationComponent( const class FObjectInitializer& Initializer ) :

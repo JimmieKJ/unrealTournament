@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "AssetTypeActions/AssetTypeActions_Texture.h"
 #include "Engine/TextureRenderTarget.h"
-#include "AssetTypeActions_Texture.h"
+
+class FMenuBuilder;
 
 class FAssetTypeActions_TextureRenderTarget : public FAssetTypeActions_Texture
 {

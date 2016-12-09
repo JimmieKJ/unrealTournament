@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+
+class IXmppChat;
+class IXmppMessages;
+class IXmppMultiUserChat;
+class IXmppPresence;
+class IXmppPubSub;
 
 /** Possible XMPP login states */
 namespace EXmppLoginStatus

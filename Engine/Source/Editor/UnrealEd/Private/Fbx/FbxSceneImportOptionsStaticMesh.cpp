@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Factories/FbxSceneImportOptionsStaticMesh.h"
+#include "Factories/FbxStaticMeshImportData.h"
+#include "Factories/FbxSceneImportOptions.h"
 
 
 UFbxSceneImportOptionsStaticMesh::UFbxSceneImportOptionsStaticMesh(const FObjectInitializer& ObjectInitializer)

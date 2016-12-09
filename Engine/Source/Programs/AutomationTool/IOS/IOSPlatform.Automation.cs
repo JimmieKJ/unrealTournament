@@ -10,12 +10,141 @@ using System.Text.RegularExpressions;
 using Ionic.Zip;
 using Ionic.Zlib;
 using System.Security.Principal; 
+using System.Threading;
+using System.Diagnostics;
+//using Manzana;
 
 static class IOSEnvVarNames
 {
 	// Should we code sign when staging?  (defaults to 1 if not present)
 	static public readonly string CodeSignWhenStaging = "uebp_CodeSignWhenStaging";
 }
+
+class IOSClientProcess : IProcessResult
+{
+	private IProcessResult	childProcess;
+	private Thread			consoleLogWorker;
+	//private bool			processConsoleLogs;
+	
+	public IOSClientProcess(IProcessResult inChildProcess, string inDeviceID)
+	{
+		childProcess = inChildProcess;
+		
+		// Startup another thread that collect device console logs
+		//processConsoleLogs = true;
+		consoleLogWorker = new Thread(() => ProcessConsoleOutput(inDeviceID));
+		consoleLogWorker.Start();
+	}
+	
+	public void StopProcess(bool KillDescendants = true)
+	{
+		childProcess.StopProcess(KillDescendants);
+		StopConsoleOutput();
+	}
+	
+	public bool HasExited
+	{
+		get
+		{ 
+			bool	result = childProcess.HasExited;
+			
+			if(result)
+			{
+				StopConsoleOutput();
+			}
+			
+			return result; 
+		}
+	}
+	
+	public string GetProcessName()
+	{
+		return childProcess.GetProcessName();
+	}
+
+	public void OnProcessExited()
+	{
+		childProcess.OnProcessExited();
+		StopConsoleOutput();
+	}
+	
+	public void DisposeProcess()
+	{
+		childProcess.DisposeProcess();
+	}
+	
+	public void StdOut(object sender, DataReceivedEventArgs e)
+	{
+		childProcess.StdOut(sender, e);
+	}
+	
+	public void StdErr(object sender, DataReceivedEventArgs e)
+	{
+		childProcess.StdErr(sender, e);
+	}
+	
+	public int ExitCode
+	{
+		get { return childProcess.ExitCode; }
+		set { childProcess.ExitCode = value; }
+	}
+		
+	public string Output
+	{
+		get { return childProcess.Output; }
+	}
+
+	public Process ProcessObject
+	{
+		get { return childProcess.ProcessObject; }
+	}
+
+	public new string ToString()
+	{
+		return childProcess.ToString();
+	}
+	
+	public void WaitForExit()
+	{
+		childProcess.WaitForExit();
+	}
+	
+	private void StopConsoleOutput()
+	{
+		//processConsoleLogs = false;
+		consoleLogWorker.Join();
+	}
+	
+	public void ProcessConsoleOutput(string inDeviceID)
+	{		
+// 		MobileDeviceInstance	targetDevice = null;
+// 		foreach(MobileDeviceInstance curDevice in MobileDeviceInstanceManager.GetSnapshotInstanceList())
+// 		{
+// 			if(curDevice.DeviceId == inDeviceID)
+// 			{
+// 				targetDevice = curDevice;
+// 				break;
+// 			}
+// 		}
+// 		
+// 		if(targetDevice == null)
+// 		{
+// 			return;
+// 		}
+// 		
+// 		targetDevice.StartSyslogService();
+// 		
+// 		while(processConsoleLogs)
+// 		{
+// 			string logData = targetDevice.GetSyslogData();
+// 			
+// 			Console.WriteLine("DeviceLog: " + logData);
+// 		}
+// 		
+// 		targetDevice.StopSyslogService();
+	}
+
+};
 
 public class IOSPlatform : Platform
 {
@@ -95,13 +224,18 @@ public class IOSPlatform : Platform
 		return 4;
 	}
 
-	public virtual UnrealBuildTool.UEDeployIOS GetDeployHandler(FileReference InProject)
-	{
-		Console.WriteLine("Getting IOS Deploy()");
-		return new UnrealBuildTool.UEDeployIOS(InProject);
-	}
+    public virtual UnrealBuildTool.UEDeployIOS GetDeployHandler(FileReference InProject, UnrealBuildTool.IOSPlatformContext inPlatformContext)
+    {
+        Console.WriteLine("Getting IOS Deploy()");
+        return new UnrealBuildTool.UEDeployIOS(InProject, inPlatformContext);
+    }
 
-	protected string MakeIPAFileName( UnrealTargetConfiguration TargetConfiguration, ProjectParams Params )
+    public virtual UnrealBuildTool.IOSPlatformContext CreatePlatformContext(FileReference InProject, bool Distribution)
+    {
+        return new UnrealBuildTool.IOSPlatformContext(InProject, Distribution);
+    }
+
+    protected string MakeIPAFileName( UnrealTargetConfiguration TargetConfiguration, ProjectParams Params )
 	{
 		string ProjectIPA = Path.Combine(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Binaries", PlatformName, (Params.Distribution ? "Distro_" : "") + Params.ShortProjectName);
 		if (TargetConfiguration != UnrealTargetConfiguration.Development)
@@ -165,18 +299,28 @@ public class IOSPlatform : Platform
 			throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Could not find binary {0}. You may need to build the UE4 project with your target configuration and platform.", FullExePath);
 		}
 
-		//@TODO: We should be able to use this code on both platforms, when the following issues are sorted:
-		//   - Raw executable is unsigned & unstripped (need to investigate adding stripping to IPP)
-		//   - IPP needs to be able to codesign a raw directory
-		//   - IPP needs to be able to take a .app directory instead of a Payload directory when doing RepackageFromStage (which would probably be renamed)
-		//   - Some discrepancy in the loading screen pngs that are getting packaged, which needs to be investigated
-		//   - Code here probably needs to be updated to write 0 byte files as 1 byte (difference with IPP, was required at one point when using Ionic.Zip to prevent issues on device, maybe not needed anymore?)
-		if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
-		{
-			// copy in all of the artwork and plist
-			var DeployHandler = GetDeployHandler(Params.RawProjectPath);
+        if (SC.StageTargetConfigurations.Count != 1)
+        {
+            throw new AutomationException("iOS is currently only able to package one target configuration at a time, but StageTargetConfigurations contained {0} configurations", SC.StageTargetConfigurations.Count);
+        }
 
-			DeployHandler.PrepForUATPackageOrDeploy(Params.RawProjectPath,
+        var TargetConfiguration = SC.StageTargetConfigurations[0];
+
+        UnrealBuildTool.IOSPlatformContext BuildPlatContext = CreatePlatformContext(Params.RawProjectPath, Params.Distribution);
+        BuildPlatContext.SetUpProjectEnvironment(TargetConfiguration);
+
+        //@TODO: We should be able to use this code on both platforms, when the following issues are sorted:
+        //   - Raw executable is unsigned & unstripped (need to investigate adding stripping to IPP)
+        //   - IPP needs to be able to codesign a raw directory
+        //   - IPP needs to be able to take a .app directory instead of a Payload directory when doing RepackageFromStage (which would probably be renamed)
+        //   - Some discrepancy in the loading screen pngs that are getting packaged, which needs to be investigated
+        //   - Code here probably needs to be updated to write 0 byte files as 1 byte (difference with IPP, was required at one point when using Ionic.Zip to prevent issues on device, maybe not needed anymore?)
+        if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
+		{
+            // copy in all of the artwork and plist
+            var DeployHandler = GetDeployHandler(Params.RawProjectPath, BuildPlatContext);
+
+            DeployHandler.PrepForUATPackageOrDeploy(Params.RawProjectPath,
 				Params.ShortProjectName,
 				Path.GetDirectoryName(Params.RawProjectPath.FullName),
 				CombinePaths(Path.GetDirectoryName(Params.ProjectGameExeFilename), SC.StageExecutables[0]),
@@ -218,11 +362,6 @@ public class IOSPlatform : Platform
 			}
 		}
 
-		if (SC.StageTargetConfigurations.Count != 1)
-		{
-			throw new AutomationException("iOS is currently only able to package one target configuration at a time, but StageTargetConfigurations contained {0} configurations", SC.StageTargetConfigurations.Count);
-		}
-
         bCreatedIPA = false;
 		bool bNeedsIPA = false;
 		if (Params.IterativeDeploy)
@@ -244,18 +383,12 @@ public class IOSPlatform : Platform
 
 		if (String.IsNullOrEmpty(Params.Provision))
 		{
-			UnrealBuildTool.IOSPlatformContext BuildPlatContext = new IOSPlatformContext(Params.RawProjectPath);
-			BuildPlatContext.SetUpProjectEnvironment();
 			Params.Provision = BuildPlatContext.MobileProvision;
 		}
 		if (String.IsNullOrEmpty(Params.Certificate))
 		{
-			UnrealBuildTool.IOSPlatformContext BuildPlatContext = new IOSPlatformContext(Params.RawProjectPath);
-			BuildPlatContext.SetUpProjectEnvironment();
 			Params.Certificate = BuildPlatContext.SigningCertificate;
 		}
-
-		var TargetConfiguration = SC.StageTargetConfigurations[0];
 
 		// Scheme name and configuration for code signing with Xcode project
 		string SchemeName = Params.IsCodeBasedProject ? Params.RawProjectPath.GetFileNameWithoutExtension() : "UE4";
@@ -525,12 +658,12 @@ public class IOSPlatform : Platform
 					{
 						idx += "<string>".Length;
 						UUID = AllText.Substring(idx, AllText.IndexOf("</string>", idx) - idx);
-						Arguments += " PROVISIONING_PROFILE=" + UUID;
-					}
-				}
+                        Arguments += " PROVISIONING_PROFILE_SPECIFIER=" + UUID;
+                    }
+                }
 			}
 		}
-		ProcessResult Result = Run ("/usr/bin/env", Arguments, null, ERunOptions.Default);
+		IProcessResult Result = Run ("/usr/bin/env", Arguments, null, ERunOptions.Default);
 		if (bWasGenerated)
 		{
 			InternalUtils.SafeDeleteDirectory( XcodeProj, true);
@@ -703,15 +836,36 @@ public class IOSPlatform : Platform
 					{
 						UnrealBuildTool.UnrealBuildTool.SetRemoteIniPath(SC.ProjectRoot);
 					}
-					GetDeployHandler(new FileReference(SC.ProjectRoot)).GeneratePList((SC.IsCodeBasedProject ? SC.ProjectRoot : SC.LocalRoot + "/Engine"), !SC.IsCodeBasedProject, (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game"), SC.ShortProjectName, SC.LocalRoot + "/Engine", (SC.IsCodeBasedProject ? SC.ProjectRoot : SC.LocalRoot + "/Engine") + "/Binaries/" + PlatformName + "/Payload/" + (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game") + ".app");
-				}
 
-				SC.StageFiles(StagedFileType.NonUFS, SourcePath, Path.GetFileName(TargetPListFile), false, null, "", false, false, "Info.plist");
+                    if (SC.StageTargetConfigurations.Count != 1)
+                    {
+                        throw new AutomationException("iOS is currently only able to package one target configuration at a time, but StageTargetConfigurations contained {0} configurations", SC.StageTargetConfigurations.Count);
+                    }
+
+                    var TargetConfiguration = SC.StageTargetConfigurations[0];
+
+                    UnrealBuildTool.IOSPlatformContext BuildPlatContext = CreatePlatformContext(Params.RawProjectPath, Params.Distribution);
+                    BuildPlatContext.SetUpProjectEnvironment(TargetConfiguration);
+
+                    GetDeployHandler(
+                        new FileReference(SC.ProjectRoot), BuildPlatContext).GeneratePList(
+                            (SC.IsCodeBasedProject ? SC.ProjectRoot : SC.LocalRoot + "/Engine"),
+                            !SC.IsCodeBasedProject,
+                            (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game"),
+                            SC.ShortProjectName, SC.LocalRoot + "/Engine",
+                            (SC.IsCodeBasedProject ? SC.ProjectRoot : SC.LocalRoot + "/Engine") + "/Binaries/" + PlatformName + "/Payload/" + (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game") + ".app");
+                }
+
+                SC.StageFiles(StagedFileType.NonUFS, SourcePath, Path.GetFileName(TargetPListFile), false, null, "", false, false, "Info.plist");
 			}
 		}
-	}
+        {
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Content/Movies"), "*", true, new string[] { "*.uasset", "*.umap" }, CombinePaths(SC.RelativeProjectRootForStage, "Engine/Content/Movies"), true, true, null, true, true, SC.StageTargetPlatform.DeployLowerCaseFilenames(true));
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Movies"), "*", true, new string[] { "*.uasset", "*.umap" }, CombinePaths(SC.RelativeProjectRootForStage, "Content/Movies"), true, true, null, true, true, SC.StageTargetPlatform.DeployLowerCaseFilenames(true));
+        }
+    }
 
-	public override void GetFilesToArchive(ProjectParams Params, DeploymentContext SC)
+    public override void GetFilesToArchive(ProjectParams Params, DeploymentContext SC)
 	{
 		if (SC.StageTargetConfigurations.Count != 1)
 		{
@@ -1033,8 +1187,16 @@ public class IOSPlatform : Platform
     {
         return new List<string> { ".dsym" };
     }
+	
+// 	void MobileDeviceConnected(object sender, ConnectEventArgs args)
+// 	{
+// 	}
+// 	
+// 	void MobileDeviceDisconnected(object sender, ConnectEventArgs args)
+// 	{
+// 	}
 
-	public override ProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
+	public override IProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
 	{
 		if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
 		{
@@ -1042,7 +1204,15 @@ public class IOSPlatform : Platform
             {
                 throw new AutomationException("Can only run on a single specified device, but {0} were specified", Params.Devices.Count);
             }
-
+			
+			// This code only cares about connected devices so just call the run loop a few times to get the existing connected devices
+// 			MobileDeviceInstanceManager.Initialize(MobileDeviceConnected, MobileDeviceDisconnected);
+// 			for(int i = 0; i < 4; ++i)
+// 			{
+// 				System.Threading.Thread.Sleep(1);
+// 				CoreFoundationRunLoop.RunLoopRunInMode(CoreFoundationRunLoop.kCFRunLoopDefaultMode(), 0.25, 0);
+// 			}
+// 			
             /*			string AppDirectory = string.Format("{0}/Payload/{1}.app",
 				Path.GetDirectoryName(Params.ProjectGameExeFilename), 
 				Path.GetFileNameWithoutExtension(Params.ProjectGameExeFilename));
@@ -1078,18 +1248,18 @@ public class IOSPlatform : Platform
 			Arguments += " -t 'Activity Monitor'";
 			Arguments += " -D \"" + Params.BaseStageDirectory + "/" + PlatformName + "/launch.trace\"";
 			Arguments += " '" + BundleIdentifier + "'";
-			ProcessResult ClientProcess = Run ("/usr/bin/env", Arguments, null, ClientRunFlags | ERunOptions.NoWaitForExit);
-			return ClientProcess;
+			IProcessResult ClientProcess = Run ("/usr/bin/env", Arguments, null, ClientRunFlags | ERunOptions.NoWaitForExit);
+			return new IOSClientProcess(ClientProcess, Params.DeviceNames[0]);
 		}
 		else
 		{
-			ProcessResult Result = new ProcessResult("DummyApp", null, false, null);
+			IProcessResult Result = new ProcessResult("DummyApp", null, false, null);
 			Result.ExitCode = 0;
 			return Result;
 		}
 	}
 
-	public override void PostRunClient(ProcessResult Result, ProjectParams Params)
+	public override void PostRunClient(IProcessResult Result, ProjectParams Params)
 	{
 		if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
 		{
@@ -1337,7 +1507,7 @@ public class IOSPlatform : Platform
 
 	public override bool StageMovies
 	{
-		get { return true; }
+		get { return false; }
 	}
 
 	public override bool RequiresPackageToDeploy

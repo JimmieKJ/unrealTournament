@@ -2,6 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "VisualLogger/VisualLoggerTypes.h"
+#include "Framework/SlateDelegates.h"
+
+class FVisualLoggerTimeSliderController;
+class SMenuAnchor;
+class SVisualLoggerTimelineBar;
+class SVisualLoggerTimelinesContainer;
+struct FSlateBrush;
+struct FVisualLoggerDBRow;
+
 /**
 * A list of filters currently applied to an asset view.
 */

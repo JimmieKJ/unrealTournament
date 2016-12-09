@@ -2,8 +2,13 @@
 
 
 #pragma once
-#include "Particles/RotationRate/ParticleModuleMeshRotationRate.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Particles/RotationRate/ParticleModuleRotationRate.h"
 #include "ParticleModuleRotationRate_Seeded.generated.h"
+
+struct FParticleEmitterInstance;
 
 UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Init Rotation Rate (Seed)"))
 class UParticleModuleRotationRate_Seeded : public UParticleModuleRotationRate

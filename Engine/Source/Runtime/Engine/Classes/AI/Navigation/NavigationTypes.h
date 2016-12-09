@@ -2,7 +2,16 @@
 
 #pragma once
 
-#include "Containers/BitArray.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Misc/CoreStats.h"
+#include "Misc/StringClassReference.h"
 #include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
 #include "NavigationTypes.generated.h"
 
@@ -13,6 +22,14 @@
 
 #define DEFAULT_NAV_QUERY_EXTENT_HORIZONTAL 50.f
 #define DEFAULT_NAV_QUERY_EXTENT_VERTICAL 250.f
+
+class AActor;
+class ANavigationData;
+class Error;
+class INavAgentInterface;
+class INavRelevantInterface;
+class ULevel;
+struct FNavigationPath;
 
 /** uniform identifier type for navigation data elements may it be a polygon or graph node */
 typedef uint64 NavNodeRef;
@@ -314,6 +331,8 @@ struct FNavLocation
 
 	/** checks if location has associated navigation node ref */
 	FORCEINLINE bool HasNodeRef() const { return NodeRef != INVALID_NAVNODEREF; }
+
+	FORCEINLINE operator FVector() const { return Location; }
 };
 
 /** Describes node in navigation path */
@@ -542,16 +561,23 @@ struct FNavigationProjectionWork
 	{}
 };
 
-struct FNavigationRaycastWork
+struct FRayStartEnd
 {
 	const FVector RayStart;
 	const FVector RayEnd;
+	explicit FRayStartEnd(const FVector& InRayStart = FNavigationSystem::InvalidLocation, const FVector& InRayEnd = FNavigationSystem::InvalidLocation)
+		: RayStart(InRayStart), RayEnd(InRayEnd)
+	{}
+};
+
+struct FNavigationRaycastWork : FRayStartEnd
+{
 	/** depending on bDidHit HitLocation contains either actual hit location or RayEnd*/
 	FNavLocation HitLocation;
 	bool bDidHit;
 
-	explicit FNavigationRaycastWork(const FVector& InRayStart, const FVector& InRayEnd)
-		: RayStart(InRayStart), RayEnd(InRayEnd), HitLocation(InRayEnd), bDidHit(false)
+	FNavigationRaycastWork(const FVector& InRayStart, const FVector& InRayEnd)
+		: FRayStartEnd(InRayStart, InRayEnd), HitLocation(InRayEnd), bDidHit(false)
 	{}
 };
 

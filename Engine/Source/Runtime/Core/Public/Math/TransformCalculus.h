@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "UnrealMath.h"
+#include "CoreTypes.h"
+#include "Math/Vector2D.h"
+#include "Math/Vector.h"
 
 
 //////////////////////////////////////////////////////////////////////////

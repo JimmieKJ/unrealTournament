@@ -7,6 +7,7 @@
 #include "SPerfSuite.h"
 #include "SDockTab.h"
 #include "SWebBrowser.h"
+#include "Framework/Application/SlateApplication.h"
 #include "IWebBrowserWindow.h"
 #include "IWebBrowserPopupFeatures.h"
 

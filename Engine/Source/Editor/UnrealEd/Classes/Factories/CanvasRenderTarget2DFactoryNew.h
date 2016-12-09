@@ -5,6 +5,10 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "CanvasRenderTarget2DFactoryNew.generated.h"
 
 UCLASS(hidecategories=(Object, Texture))

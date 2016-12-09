@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "UnrealClient.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+
+class SEditableTextBox;
+
 class FMarginStructCustomization : public IPropertyTypeCustomization
 {
 public:

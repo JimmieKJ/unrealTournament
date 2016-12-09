@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "NiagaraEffectRendererProperties.h"
 #include "StaticMeshResources.h"
 #include "NiagaraMeshRendererProperties.generated.h"

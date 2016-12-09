@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
-
 #include "SAnimTrackPanel.h"
-#include "ScopedTransaction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+
 
 #define LOCTEXT_NAMESPACE "AnimTrackPanel"
 

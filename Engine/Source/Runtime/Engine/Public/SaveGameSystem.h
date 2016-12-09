@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+
 #if PLATFORM_HTML5_BROWSER
 	#include "HTML5JavaScriptFx.h"
 #endif

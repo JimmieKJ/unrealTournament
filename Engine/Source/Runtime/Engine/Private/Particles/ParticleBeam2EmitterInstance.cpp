@@ -4,22 +4,25 @@
 	FParticleBeam2EmitterInstance.cpp: 
 	Particle beam emitter instance implementation.
 =============================================================================*/
-#include "EnginePrivate.h"
-#include "ParticleDefinitions.h"
-#include "Particles/Beam/ParticleModuleBeamBase.h"
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Materials/Material.h"
+#include "ParticleHelper.h"
+#include "ParticleEmitterInstances.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "Particles/Beam/ParticleModuleBeamModifier.h"
 #include "Particles/Beam/ParticleModuleBeamNoise.h"
 #include "Particles/Beam/ParticleModuleBeamSource.h"
 #include "Particles/Beam/ParticleModuleBeamTarget.h"
 #include "Particles/Event/ParticleModuleEventGenerator.h"
 #include "Particles/Spawn/ParticleModuleSpawn.h"
+#include "Particles/TypeData/ParticleModuleTypeDataBase.h"
 #include "Particles/TypeData/ParticleModuleTypeDataBeam2.h"
-#include "Particles/ParticleEmitter.h"
 #include "Particles/ParticleLODLevel.h"
 #include "Particles/ParticleModuleRequired.h"
-#include "Particles/ParticleSystemComponent.h"
-#include "Particles/ParticleSpriteEmitter.h"
-#include "ParticleEmitterInstances.h"
 
 /** Beam particle stat objects */
 
@@ -1251,27 +1254,24 @@ void FParticleBeam2EmitterInstance::GetAllocatedSize(int32& OutNum, int32& OutMa
  * @param	Mode	Specifies which resource size should be displayed. ( see EResourceSizeMode::Type )
  * @return	Size of resource as to be displayed to artists/ LDs in the Editor.
  */
-SIZE_T FParticleBeam2EmitterInstance::GetResourceSize(EResourceSizeMode::Type Mode)
+void FParticleBeam2EmitterInstance::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	int32 ResSize = 0;
-	
-	if (Mode == EResourceSizeMode::Inclusive || (Component && Component->SceneProxy))
+	if (CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::Inclusive || (Component && Component->SceneProxy))
 	{
 		int32 MaxActiveParticleDataSize = (ParticleData != NULL) ? (MaxActiveParticles * ParticleStride) : 0;
 		int32 MaxActiveParticleIndexSize = 0;
 		// Take dynamic data into account as well
-		ResSize = sizeof(FDynamicBeam2EmitterData);
-		ResSize += MaxActiveParticleDataSize;		// Copy of the particle data on the render thread
+		CumulativeResourceSize.AddUnknownMemoryBytes(sizeof(FDynamicBeam2EmitterData));
+		CumulativeResourceSize.AddUnknownMemoryBytes(MaxActiveParticleDataSize);		// Copy of the particle data on the render thread
 		if (DynamicParameterDataOffset == 0)
 		{
-			ResSize += MaxActiveParticles * sizeof(FParticleBeamTrailVertex);	// The vertex data array
+			CumulativeResourceSize.AddUnknownMemoryBytes(MaxActiveParticles * sizeof(FParticleBeamTrailVertex));	// The vertex data array
 		}
 		else
 		{
-			ResSize += MaxActiveParticles * sizeof(FParticleBeamTrailVertexDynamicParameter);
+			CumulativeResourceSize.AddUnknownMemoryBytes(MaxActiveParticles * sizeof(FParticleBeamTrailVertexDynamicParameter));
 		}
 	}
-	return ResSize;
 }
 
 /**

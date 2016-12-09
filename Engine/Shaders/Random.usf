@@ -106,7 +106,7 @@ uint3 Rand3DPCG16(int3 p)
 // 3D random number generator inspired by PCGs (permuted congruential generator)
 // Using a **simple** Feistel cipher in place of the usual xor shift permutation step
 // @param v = 3D integer coordinate
-// @return three elements w/ 16 random bits each (0-0xffff).
+// @return three elements w/ 32 random bits each (0-0xffffffff).
 // ~12 ALU operations for result.x   (10 mad, 3 >>)
 // ~14 ALU operations for result.xy  (11 mad, 3 >>)
 // ~15 ALU operations for result.xyz (12 mad, 3 >>)
@@ -214,15 +214,25 @@ float4 PerlinRamp(float4 t)
 	return t * t * t * (t * (t * 6 - 15) + 10); 
 }
 
+// Analytical derivative of the PerlinRamp polynomial
+// only needed by Perlin functions in this file
+// scalar(per component): 2 add, 5 mul
+float4 PerlinRampDerivative(float4 t)
+{
+	return t * t * (t * (t * 30 - 60) + 30);
+}
+
+#define MGradientMask int3(0x8000, 0x4000, 0x2000)
+#define MGradientScale float3(1. / 0x4000, 1. / 0x2000, 1. / 0x1000)
 // Modified noise gradient term
 // @param seed - random seed for integer lattice position
 // @param offset - [-1,1] offset of evaluation point from lattice point
-// @return gradient contribution from this lattice point
-float MGradient(int seed, float3 offset)
+// @return gradient direction (xyz) and contribution (w) from this lattice point
+float4 MGradient(int seed, float3 offset)
 {
 	uint rand = Rand3DPCG16(int3(seed,0,0)).x;
-	float3 direction = float3(rand & 1, rand & 2, rand & 4) * float3(2, 1, 0.5) - 1;
-	return dot(direction, offset);
+	float3 direction = float3(rand.xxx & MGradientMask) * MGradientScale - 1;
+	return float4(direction, dot(direction, offset));
 }
 
 // compute Perlin and related noise corner seed values
@@ -277,20 +287,113 @@ float GradientNoise3D_ALU(float3 v, bool bTiling, float RepeatSize)
 	float seed000, seed001, seed010, seed011, seed100, seed101, seed110, seed111;
 	float3 fv = NoiseSeeds(v, bTiling, RepeatSize, seed000, seed001, seed010, seed011, seed100, seed101, seed110, seed111);
 
-	float rand000 = MGradient(int(seed000), fv - float3(0, 0, 0));
-	float rand100 = MGradient(int(seed100), fv - float3(1, 0, 0));
-	float rand010 = MGradient(int(seed010), fv - float3(0, 1, 0));
-	float rand110 = MGradient(int(seed110), fv - float3(1, 1, 0));
-	float rand001 = MGradient(int(seed001), fv - float3(0, 0, 1));
-	float rand101 = MGradient(int(seed101), fv - float3(1, 0, 1));
-	float rand011 = MGradient(int(seed011), fv - float3(0, 1, 1));
-	float rand111 = MGradient(int(seed111), fv - float3(1, 1, 1));
+	float rand000 = MGradient(int(seed000), fv - float3(0, 0, 0)).w;
+	float rand100 = MGradient(int(seed100), fv - float3(1, 0, 0)).w;
+	float rand010 = MGradient(int(seed010), fv - float3(0, 1, 0)).w;
+	float rand110 = MGradient(int(seed110), fv - float3(1, 1, 0)).w;
+	float rand001 = MGradient(int(seed001), fv - float3(0, 0, 1)).w;
+	float rand101 = MGradient(int(seed101), fv - float3(1, 0, 1)).w;
+	float rand011 = MGradient(int(seed011), fv - float3(0, 1, 1)).w;
+	float rand111 = MGradient(int(seed111), fv - float3(1, 1, 1)).w;
 
 	float3 Weights = PerlinRamp(float4(fv, 0)).xyz;
 
 	float i = lerp(lerp(rand000, rand100, Weights.x), lerp(rand010, rand110, Weights.x), Weights.y);
 	float j = lerp(lerp(rand001, rand101, Weights.x), lerp(rand011, rand111, Weights.x), Weights.y);
 	return lerp(i, j, Weights.z).x;
+}
+
+// Coordinates for corners of a Simplex tetrahedron
+// Based on McEwan et al., Efficient computation of noise in GLSL, JGT 2011
+// @param v = 3D noise argument
+// @return 4 corner locations
+float4x3 SimplexCorners(float3 v)
+{
+	// find base corner by skewing to tetrahedral space and back
+	float3 tet = floor(v + v.x/3 + v.y/3 + v.z/3);
+	float3 base = tet - tet.x/6 - tet.y/6 - tet.z/6;
+	float3 f = v - base;
+
+	// Find offsets to other corners (McEwan did this in tetrahedral space,
+	// but since skew is along x=y=z axis, this works in Euclidean space too.)
+	float3 g = step(f.yzx, f.xyz), h = 1 - g.zxy;
+	float3 a1 = min(g, h) - 1. / 6., a2 = max(g, h) - 1. / 3.;
+
+	// four corners
+	return float4x3(base, base + a1, base + a2, base + 0.5);
+}
+
+// Improved smoothing function for simplex noise
+// @param f = fractional distance to four tetrahedral corners
+// @return weight for each corner
+float4 SimplexSmooth(float4x3 f)
+{
+	const float scale = 1024. / 375.;	// scale factor to make noise -1..1
+	float4 d = float4(dot(f[0], f[0]), dot(f[1], f[1]), dot(f[2], f[2]), dot(f[3], f[3]));
+	float4 s = saturate(2 * d);
+	return (1 * scale + s*(-3 * scale + s*(3 * scale - s*scale)));
+}
+
+// Derivative of simplex noise smoothing function
+// @param f = fractional distanc eto four tetrahedral corners
+// @return derivative of smoothing function for each corner by x, y and z
+float3x4 SimplexDSmooth(float4x3 f)
+{
+	const float scale = 1024. / 375.;	// scale factor to make noise -1..1
+	float4 d = float4(dot(f[0], f[0]), dot(f[1], f[1]), dot(f[2], f[2]), dot(f[3], f[3]));
+	float4 s = saturate(2 * d);
+	s = -12 * scale + s*(24 * scale - s * 12 * scale);
+
+	return float3x4(
+		s * float4(f[0][0], f[1][0], f[2][0], f[3][0]),
+		s * float4(f[0][1], f[1][1], f[2][1], f[3][1]),
+		s * float4(f[0][2], f[1][2], f[2][2], f[3][2]));
+}
+
+// Simplex noise and its Jacobian derivative
+// @param v = 3D noise argument
+// @param bTiling = whether to repeat noise pattern
+// @param RepeatSize = integer units before tiling in each dimension, must be a multiple of 3
+// @return float3x3 Jacobian in J[*].xyz, vector noise in J[*].w
+//     J[0].w, J[1].w, J[2].w is a Perlin-style simplex noise with vector output, e.g. (Nx, Ny, Nz)
+//     J[i].x is X derivative of the i'th component of the noise so J[2].x is dNz/dx
+// You can use this to compute the noise, gradient, curl, or divergence:
+//   float3x4 J = JacobianSimplex_ALU(...);
+//   float3 VNoise = float3(J[0].w, J[1].w, J[2].w);	// 3D noise
+//   float3 Grad = J[0].xyz;							// gradient of J[0].w
+//   float3 Curl = float3(J[1][2]-J[2][1], J[2][0]-J[0][2], J[0][1]-J[1][2]);
+//   float Div = J[0][0]+J[1][1]+J[2][2];
+// All of these are confirmed to compile out all unneeded terms.
+// So Grad of X doesn't compute Y or Z components, and VNoise doesn't do any of the derivative computation.
+float3x4 JacobianSimplex_ALU(float3 v, bool bTiling, float RepeatSize)
+{
+	// corners of tetrahedron
+	float4x3 T = SimplexCorners(v);
+
+	// compute gradient at each corner
+	float4x3 gvec[3], fv;
+	float3x4 grad;
+	UNROLL for (int i = 0; i != 4; ++i) {
+		fv[i] = v - T[i];
+		uint3 rand = Rand3DPCG16(int3(floor(NoiseTileWrap(6 * T[i] + 0.5, bTiling, RepeatSize))));
+		gvec[0][i] = float3(rand.xxx & MGradientMask) * MGradientScale - 1;
+		gvec[1][i] = float3(rand.yyy & MGradientMask) * MGradientScale - 1;
+		gvec[2][i] = float3(rand.zzz & MGradientMask) * MGradientScale - 1;
+		grad[0][i] = dot(gvec[0][i], fv[i]);
+		grad[1][i] = dot(gvec[1][i], fv[i]);
+		grad[2][i] = dot(gvec[2][i], fv[i]);
+	}
+
+	// blend gradients
+	float4 sv = SimplexSmooth(fv);
+	float3x4 ds = SimplexDSmooth(fv);
+
+	float3x4 jacobian;
+	jacobian[0] = float4(mul(sv, gvec[0]) + mul(ds, grad[0]), dot(sv, grad[0]));
+	jacobian[1] = float4(mul(sv, gvec[1]) + mul(ds, grad[1]), dot(sv, grad[1]));
+	jacobian[2] = float4(mul(sv, gvec[2]) + mul(ds, grad[2]), dot(sv, grad[2]));
+
+	return jacobian;
 }
 
 // 3D value noise - used to be incorrectly called Perlin noise
@@ -445,14 +548,34 @@ float3 VoronoiCornerSample(float3 pos, int Quality)
 	return noise;
 }
 
+// compare previous best with a new candidate
+// not producing point locations makes it easier for compiler to eliminate calculations when they're not needed
+// @param minval = location and distance of best candidate seed point before the new one
+// @param candidate = candidate seed point
+// @param offset = 3D offset to new candidate seed point
+// @param bDistanceOnly = if true, only set maxval.w with distance, otherwise maxval.w is distance and maxval.xyz is position
+// @return position (if bDistanceOnly is false) and distance to closest seed point so far
+float4 VoronoiCompare(float4 minval, float3 candidate, float3 offset, bool bDistanceOnly)
+{
+	if (bDistanceOnly)
+	{
+		return float4(0, 0, 0, min(minval.w, dot(offset, offset)));
+	}
+	else
+	{
+		float newdist = dot(offset, offset);
+		return newdist > minval.w ? minval : float4(candidate, newdist);
+	}
+}
+
 // 220 instruction Worley noise
-float VoronoiNoise3D_ALU(float3 v, int Quality, bool bTiling, float RepeatSize)
+float4 VoronoiNoise3D_ALU(float3 v, int Quality, bool bTiling, float RepeatSize, bool bDistanceOnly)
 {
 	float3 fv = frac(v),  fv2 = frac(v + 0.5);
 	float3 iv = floor(v), iv2 = floor(v + 0.5);
 
 	// with initial minimum distance = infinity (or at least bigger than 4), first min is optimized away
-	float mindist = 100;
+	float4 mindist = float4(0,0,0,100);
 	float3 p, offset;
 
 	// quality level 3: do a 3x3x3 search
@@ -464,8 +587,8 @@ float VoronoiNoise3D_ALU(float3 v, int Quality, bool bTiling, float RepeatSize)
 			{
 				UNROLL for (offset.z = -1; offset.z <= 1; ++offset.z)
 				{
-					p = fv2 - offset - VoronoiCornerSample(NoiseTileWrap(iv2 + offset, bTiling, RepeatSize), Quality);
-					mindist = min(mindist, dot(p, p));
+					p = offset + VoronoiCornerSample(NoiseTileWrap(iv2 + offset, bTiling, RepeatSize), Quality);
+					mindist = VoronoiCompare(mindist, iv2 + p, fv2 - p, bDistanceOnly);
 				}
 			}
 		}
@@ -480,14 +603,15 @@ float VoronoiNoise3D_ALU(float3 v, int Quality, bool bTiling, float RepeatSize)
 			{
 				UNROLL for (offset.z = 0; offset.z <= 1; ++offset.z)
 				{
-					p = fv - offset - VoronoiCornerSample(NoiseTileWrap(iv + offset, bTiling, RepeatSize), Quality);
-					mindist = min(mindist, dot(p, p));
+					p = offset + VoronoiCornerSample(NoiseTileWrap(iv + offset, bTiling, RepeatSize), Quality);
+					mindist = VoronoiCompare(mindist, iv + p, fv - p, bDistanceOnly);
+
 					// quality level 2, do extra set of points, offset by half a cell
 					if (Quality == 2)
 					{
 						// 467 is just an offset to a different area in the random number field to avoid similar neighbor artifacts
-						p = fv2 - offset - VoronoiCornerSample(NoiseTileWrap(iv2 + offset, bTiling, RepeatSize) + 467, Quality);
-						mindist = min(mindist, dot(p, p));
+						p = offset + VoronoiCornerSample(NoiseTileWrap(iv2 + offset, bTiling, RepeatSize) + 467, Quality);
+						mindist = VoronoiCompare(mindist, iv2 + p, fv2 - p, bDistanceOnly);
 					}
 				}
 			}
@@ -504,23 +628,23 @@ float VoronoiNoise3D_ALU(float3 v, int Quality, bool bTiling, float RepeatSize)
 				UNROLL for (offset.z = 0; offset.z <= 1; ++offset.z)
 				{
 					// along x axis
-					p = fv - offset.xyz - VoronoiCornerSample(NoiseTileWrap(iv + offset.xyz, bTiling, RepeatSize), Quality);
-					mindist = min(mindist, dot(p, p));
+					p = offset.xyz + VoronoiCornerSample(NoiseTileWrap(iv + offset.xyz, bTiling, RepeatSize), Quality);
+					mindist = VoronoiCompare(mindist, iv + p, fv - p, bDistanceOnly);
 
 					// along y axis
-					p = fv - offset.yzx - VoronoiCornerSample(NoiseTileWrap(iv + offset.yzx, bTiling, RepeatSize), Quality);
-					mindist = min(mindist, dot(p, p));
+					p = offset.yzx + VoronoiCornerSample(NoiseTileWrap(iv + offset.yzx, bTiling, RepeatSize), Quality);
+					mindist = VoronoiCompare(mindist, iv + p, fv - p, bDistanceOnly);
 
 					// along z axis
-					p = fv - offset.zxy - VoronoiCornerSample(NoiseTileWrap(iv + offset.zxy, bTiling, RepeatSize), Quality);
-					mindist = min(mindist, dot(p, p));
+					p = offset.zxy + VoronoiCornerSample(NoiseTileWrap(iv + offset.zxy, bTiling, RepeatSize), Quality);
+					mindist = VoronoiCompare(mindist, iv + p, fv - p, bDistanceOnly);
 				}
 			}
 		}
 	}
 
-	// transform to -1 to 1 range as expected by later OutputMin to OutputMax transform
-	return (sqrt(mindist) * 2 ) - 1;
+	// transform squared distance to real distance
+	return float4(mindist.xyz, sqrt(mindist.w));
 }
 
 

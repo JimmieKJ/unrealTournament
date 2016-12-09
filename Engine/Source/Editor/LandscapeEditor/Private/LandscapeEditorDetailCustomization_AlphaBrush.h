@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "LandscapeEditorDetailCustomization_Base.h"
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+#include "PropertyHandle.h"
+#include "Editor/LandscapeEditor/Private/LandscapeEditorDetailCustomization_Base.h"
+
+class IDetailLayoutBuilder;
 
 //#include "LandscapeEditorObject.h"
 

@@ -5,8 +5,19 @@
 =============================================================================*/
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Templates/ScopedPointer.h"
+#include "Misc/PackageName.h"
 #include "Commandlets/Commandlet.h"
+#include "UniquePtr.h"
 #include "CookCommandlet.generated.h"
+
+class FSandboxPlatformFile;
+class ITargetPlatform;
 
 UCLASS(config=Editor)
 class UCookCommandlet
@@ -116,7 +127,7 @@ public:
 private:
 
 	/** Holds the sandbox file wrapper to handle sandbox path conversion. */
-	TAutoPtr<class FSandboxPlatformFile> SandboxFile;
+	TUniquePtr<class FSandboxPlatformFile> SandboxFile;
 
 	/** We hook this up to a delegate to avoid reloading textures and whatnot */
 	TSet<FString> PackagesToNotReload;

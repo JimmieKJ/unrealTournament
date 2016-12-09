@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/LocalPlayer.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Layout/SConstraintCanvas.h"
+
+class USceneComponent;
+
 class SWorldWidgetScreenLayer : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SWorldWidgetScreenLayer)

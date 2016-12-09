@@ -2,19 +2,16 @@
 
 #pragma once
 
-#include "IToolkit.h"	// For EToolkitMode
-#include "Ticker.h" 	// For automation to request assets to load
-#include "Messaging.h"
-#include "UnrealEdMessages.h"
-
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "Containers/Ticker.h"
+#include "Framework/Docking/TabManager.h"
+#include "Toolkits/IToolkit.h"
+#include "IMessageContext.h"
 
 class FMessageEndpoint;
-class FReferenceCollector;
-class IMessageContext;
 class IToolkitHost;
-class SNotificationItem;
-class UObject;
-
+struct FAssetEditorRequestOpenAsset;
 
 /**
  * This class keeps track of a currently open asset editor; allowing it to be

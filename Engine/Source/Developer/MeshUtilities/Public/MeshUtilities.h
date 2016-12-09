@@ -2,14 +2,27 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Modules/ModuleInterface.h"
+#include "Components.h"
 #include "SkeletalMeshTypes.h"
 #include "Engine/MeshMerging.h"
+
+class UMeshComponent;
+class USkeletalMesh;
+class UStaticMesh;
+class UStaticMeshComponent;
+struct FFlattenMaterial;
+struct FRawMesh;
+struct FStaticMeshLODResources;
 
 typedef FIntPoint FMeshIdAndLOD;
 struct FFlattenMaterial;
 struct FReferenceSkeleton;
 struct FStaticMeshLODResources;
+class UMeshComponent;
+class UStaticMesh;
 
 namespace ETangentOptions
 {
@@ -38,6 +51,7 @@ public:
 		struct FRawMesh& OutReducedMesh,
 		float& OutMaxDeviation,
 		const struct FRawMesh& InMesh,
+		const TMultiMap<int32, int32>& InOverlappingCorners,
 		const struct FMeshReductionSettings& ReductionSettings
 		) = 0;
 	/**
@@ -103,9 +117,14 @@ class IMeshReductionModule : public IModuleInterface
 {
 public:
 	/**
-	 * Retrieve the mesh reduction interface.
+	 * Retrieve the static mesh reduction interface.
 	 */
-	virtual class IMeshReduction* GetMeshReductionInterface() = 0;
+	virtual class IMeshReduction* GetStaticMeshReductionInterface() = 0;
+
+	/**
+	 * Retrieve the static mesh reduction interface.
+	 */
+	virtual class IMeshReduction* GetSkeletalMeshReductionInterface() = 0;
 	
 	/**
 	 * Retrieve the mesh merging interface.
@@ -126,7 +145,20 @@ public:
 	virtual bool BuildStaticMesh(
 		class FStaticMeshRenderData& OutRenderData,
 		TArray<struct FStaticMeshSourceModel>& SourceModels,
-		const class FStaticMeshLODGroup& LODGroup
+		const class FStaticMeshLODGroup& LODGroup,
+		int32 ImportVersion
+		) = 0;
+
+	virtual void BuildStaticMeshVertexAndIndexBuffers(
+		TArray<FStaticMeshBuildVertex>& OutVertices,
+		TArray<TArray<uint32> >& OutPerSectionIndices,
+		TArray<int32>& OutWedgeMap,
+		const FRawMesh& RawMesh,
+		const TMultiMap<int32, int32>& OverlappingCorners,
+		const TMap<uint32, uint32>& MaterialToSectionMapping,
+		float ComparisonThreshold,
+		FVector BuildScale,
+		int32 ImportVersion
 		) = 0;
 
 	/**
@@ -146,6 +178,7 @@ public:
 		const TArray<EBlendMode>& MaterialBlendModes,
 		const FBoxSphereBounds& Bounds,
 		float DistanceFieldResolutionScale,
+		float DistanceFieldBias,
 		bool bGenerateAsIfTwoSided,
 		class FDistanceFieldVolumeData& OutData) = 0;
 
@@ -186,7 +219,10 @@ public:
 		) = 0;
 
 	/** Returns the mesh reduction plugin if available. */
-	virtual IMeshReduction* GetMeshReductionInterface() = 0;
+	virtual IMeshReduction* GetStaticMeshReductionInterface() = 0;
+
+	/** Returns the mesh reduction plugin if available. */
+	virtual IMeshReduction* GetSkeletalMeshReductionInterface() = 0;
 
 	/** Returns the mesh merging plugin if available. */
 	virtual IMeshMerging* GetMeshMergingInterface() = 0;
@@ -217,6 +253,15 @@ public:
 	 *	@param	bOnlyDominant	Controls whether a vertex is added to the info for a bone if it is most controlled by that bone, or if that bone has ANY influence on that vert.
 	 */
 	virtual void CalcBoneVertInfos( USkeletalMesh* SkeletalMesh, TArray<FBoneVertInfo>& Infos, bool bOnlyDominant) = 0;
+
+	/**
+	 * Convert a set of mesh components in their current pose to a static mesh. 
+	 * @param	InMeshComponents		The mesh components we want to convert
+	 * @param	InRootTransform			The transform of the root of the mesh we want to output
+	 * @param	InPackageName			The package name to create the static mesh in. If this is empty then a dialog will be displayed to pick the mesh.
+	 * @return a new static mesh (specified by the user)
+	 */
+	virtual UStaticMesh* ConvertMeshesToStaticMesh(const TArray<UMeshComponent*>& InMeshComponents, const FTransform& InRootTransform = FTransform::Identity, const FString& InPackageName = FString()) = 0;
 
 	/**
 	 * Harvest static mesh components from input actors 

@@ -3,13 +3,11 @@
 #ifndef __DistCurveEditorModule_h__
 #define __DistCurveEditorModule_h__
 
-#include "UnrealEd.h"
-#include "SlateBasics.h"
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 #include "IDistCurveEditor.h"
 
 class UInterpCurveEdSetup;
-class FCurveEdNotifyInterface;
 
 extern const FName DistCurveEditorAppIdentifier;
 

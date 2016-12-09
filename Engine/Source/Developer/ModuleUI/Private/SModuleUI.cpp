@@ -1,8 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ModuleUIPrivatePCH.h"
-#include "HotReloadInterface.h"
-#include "SSearchBox.h"
+#include "SModuleUI.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/FeedbackContext.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Modules/ModuleManager.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SListView.h"
+#include "Misc/HotReloadInterface.h"
+#include "Widgets/Input/SSearchBox.h"
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SModuleUI::Construct(const SModuleUI::FArguments& InArgs)

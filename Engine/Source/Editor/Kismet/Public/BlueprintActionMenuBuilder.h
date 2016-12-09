@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "EdGraph/EdGraphSchema.h" // for FGraphActionListBuilderBase
+#include "CoreMinimal.h"
+#include "EdGraph/EdGraphSchema.h"
 
-// Forward declarations
+class FBlueprintActionFilter;
+class FBlueprintEditor;
+
 namespace FBlueprintActionMenuBuilderImpl
 {
 	// internal type, forward declared to hide implementation details

@@ -2,10 +2,19 @@
 
 #pragma once
 
-#include "ObjectBase.h"
-#include "WeakObjectPtr.h"
-#include "Object.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Serialization/BitReader.h"
+#include "Serialization/BitWriter.h"
+#include "Misc/NetworkGuid.h"
+#include "UObject/CoreNetTypes.h"
 
+class FOutBunch;
+class INetDeltaBaseState;
+struct FStringAssetReference;
 
 DECLARE_DELEGATE_RetVal_OneParam( bool, FNetObjectIsDynamic, const UObject*);
 
@@ -220,33 +229,6 @@ struct FPropertyRetirement
 };
 
 
-/** Secondary condition to check before considering the replication of a lifetime property. */
-enum ELifetimeCondition
-{
-	COND_None						= 0,		// This property has no condition, and will send anytime it changes
-	COND_InitialOnly				= 1,		// This property will only attempt to send on the initial bunch
-	COND_OwnerOnly					= 2,		// This property will only send to the actor's owner
-	COND_SkipOwner					= 3,		// This property send to every connection EXCEPT the owner
-	COND_SimulatedOnly				= 4,		// This property will only send to simulated actors
-	COND_AutonomousOnly				= 5,		// This property will only send to autonomous actors
-	COND_SimulatedOrPhysics			= 6,		// This property will send to simulated OR bRepPhysics actors
-	COND_InitialOrOwner				= 7,		// This property will send on the initial packet, or to the actors owner
-	COND_Custom						= 8,		// This property has no particular condition, but wants the ability to toggle on/off via SetCustomIsActiveOverride
-	COND_ReplayOrOwner				= 9,		// This property will only send to the replay connection, or to the actors owner
-	COND_ReplayOnly					= 10,		// This property will only send to the replay connection
-	COND_SimulatedOnlyNoReplay		= 11,
-	COND_SimulatedOrPhysicsNoReplay	= 12,
-	COND_Max						= 13,
-};
-
-
-enum ELifetimeRepNotifyCondition
-{
-	REPNOTIFY_OnChanged		= 0,		// Only call the property's RepNotify function if it changes from the local value
-	REPNOTIFY_Always		= 1,		// Always Call the property's RepNotify function when it is received from the server
-};
-
-
 /** FLifetimeProperty
  *	This class is used to track a property that is marked to be replicated for the lifetime of the actor channel.
  *  This doesn't mean the property will necessarily always be replicated, it just means:
@@ -298,6 +280,7 @@ public:
 	virtual FArchive& operator<<(FName& Name) override;
 	virtual FArchive& operator<<(UObject*& Object) override;
 	virtual FArchive& operator<<(FStringAssetReference& Value) override;
+	virtual FArchive& operator<<(struct FWeakObjectPtr& Value) override;
 };
 
 
@@ -317,6 +300,7 @@ public:
 	virtual FArchive& operator<<(FName& Name) override;
 	virtual FArchive& operator<<(UObject*& Object) override;
 	virtual FArchive& operator<<(FStringAssetReference& Value) override;
+	virtual FArchive& operator<<(struct FWeakObjectPtr& Value) override;
 };
 
 bool FORCEINLINE NetworkGuidSetsAreSame( const TSet< FNetworkGUID >& A, const TSet< FNetworkGUID >& B )

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /*-----------------------------------------------------------------------------
 	Dynamically sized hash table, used to index another data structure.
 	Vastly simpler and faster than TMap.

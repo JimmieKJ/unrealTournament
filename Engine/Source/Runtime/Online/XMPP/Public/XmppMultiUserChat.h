@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "XmppConnection.h"
+#include "XmppPresence.h"
+#include "XmppChat.h"
+
 /**
  * Id of a chat room
  */

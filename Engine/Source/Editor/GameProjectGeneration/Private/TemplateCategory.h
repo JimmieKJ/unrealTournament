@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+struct FSlateBrush;
+
 struct FTemplateCategory
 {
 	static FName BlueprintCategoryName, CodeCategoryName;

@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "DirectionalLightComponentDetails.h"
+#include "Components/SceneComponent.h"
 #include "Components/LightComponentBase.h"
+#include "Misc/Attribute.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
 
 #define LOCTEXT_NAMESPACE "DirectionalLightComponentDetails"
 

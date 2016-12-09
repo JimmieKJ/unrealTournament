@@ -3,11 +3,16 @@
 
 #pragma once
 
-#include "Persona.h"
-#include "GraphEditor.h"
-#include "SNodePanel.h"
-#include "SAnimCurvePanel.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "UObject/GCObject.h"
+#include "IPersonaPreviewScene.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "PersonaDelegates.h"
+#include "SAnimationScrubPanel.h"
 #include "EditorObjectsTracker.h"
+#include "SAnimCurvePanel.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FTrackMarkerBar
@@ -27,17 +32,17 @@ public:
 class SAnimEditorBase : public SCompoundWidget, public FGCObject
 {
 public:
-	SLATE_BEGIN_ARGS( SAnimEditorBase )
-		: _Persona()
-		, _DisplayAnimInfoBar(true)
-		{}
+	SLATE_BEGIN_ARGS(SAnimEditorBase)
+		: _DisplayAnimInfoBar(true)
+	{}
 
-		SLATE_ARGUMENT( TSharedPtr<FPersona>, Persona )
+	SLATE_EVENT(FOnObjectsSelected, OnObjectsSelected)
 
-		SLATE_ARGUMENT( bool, DisplayAnimInfoBar )
+	SLATE_ARGUMENT( bool, DisplayAnimInfoBar )
+
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene);
 
 	/** Accessors to the current viewed Min/Max input range of the editor */
 	float GetViewMinInput() const { return ViewMinInput; }
@@ -53,7 +58,7 @@ public:
 	void ScrollInputViewRange(float ScreenDelta, FVector2D ScreenViewSize);
 
 	/** Delegate when selection changed **/
-	void OnSelectionChanged(const FGraphPanelSelectionSet& SelectedItems);
+	void OnSelectionChanged(const TArray<UObject*>& SelectedItems);
 
 	/** Get Current Scrub Value **/
 	float GetScrubValue() const;
@@ -72,8 +77,10 @@ public:
 	virtual TSharedRef<SWidget> CreateDocumentAnchor();
 
 protected:
-	/** Persona reference **/
-	TWeakPtr<FPersona> PersonaPtr;
+	/** Preview scene reference **/
+	TWeakPtr<IPersonaPreviewScene> PreviewScenePtr;
+
+	TSharedRef<IPersonaPreviewScene> GetPreviewScene() const { return PreviewScenePtr.Pin().ToSharedRef(); }
 
 	/** Allows derived classes to create different animation scrub panel */
 	virtual TSharedRef<class SAnimationScrubPanel> ConstructAnimScrubPanel();
@@ -85,7 +92,7 @@ protected:
 	float GetSequenceLength() const;
 
 	/** Get the sequence that is currently being edited */
-	virtual UAnimationAsset* GetEditorObject() const PURE_VIRTUAL(SAnimEditorBase::GetEditorObject, return NULL;);
+	virtual UAnimationAsset* GetEditorObject() const = 0;
 
 	/** Get Name of Object being edited **/
 	FText GetEditorObjectName() const;
@@ -120,11 +127,17 @@ protected:
 	/** The slate container that the editor panels are placed in */
 	TSharedPtr<SVerticalBox>	 EditorPanels;
 
+	/** Slate container used to add controls that are not embedded in a scroll box */
+	TSharedPtr<SVerticalBox> NonScrollEditorPanels;
+
 	/** The editors Animation Scrub Panel */
 	TSharedPtr<class SAnimationScrubPanel> AnimScrubPanel;
 
 	/** Tracks objects created for the details panel */
 	FEditorObjectTracker EditorObjectTracker;
+
+	/** Delegate called to select objects */
+	FOnObjectsSelected OnObjectsSelected;
 
 private:
 	float GetPercentageInternal() const;

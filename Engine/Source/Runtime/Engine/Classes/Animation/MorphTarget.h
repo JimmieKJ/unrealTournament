@@ -2,14 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "PackedNormal.h"
 #include "MorphTarget.generated.h"
-
 
 class FStaticLODModel;
 class USkeletalMesh;
 class UStaticMesh;
-
 
 /**
 * Morph mesh vertex data used for comparisons and importing
@@ -102,7 +103,10 @@ struct FMorphTargetLODModel
 	int32 NumBaseMeshVerts;
 	
 	/** Get Resource Size */
+	DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
 	SIZE_T GetResourceSize() const;
+	void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const;
+	SIZE_T GetResourceSizeBytes() const;
 
 	FMorphTargetLODModel()
 		: NumBaseMeshVerts(0)
@@ -151,7 +155,7 @@ public:
 	//~ UObject interface
 
 	virtual void Serialize(FArchive& Ar) override;
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 
 private:
 

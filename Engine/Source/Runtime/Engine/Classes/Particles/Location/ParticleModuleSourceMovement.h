@@ -2,8 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionVector.h"
 #include "Particles/Location/ParticleModuleLocationBase.h"
 #include "ParticleModuleSourceMovement.generated.h"
+
+struct FParticleEmitterInstance;
 
 UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Source Movement"))
 class ENGINE_API UParticleModuleSourceMovement : public UParticleModuleLocationBase

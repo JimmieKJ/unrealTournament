@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
 #include "IAssetTypeActions.h"
+
+class FBlueprintEditor;
 
 // This data is shared by the various controls (graph view, components view, and defaults view) 
 // that are presented as part of the merge tool. Each view keeps its own shallow copy of the data:

@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Engine.h"
 #include "HashTable.h"
 
 uint32 FHashTable::EmptyHash[1] = { ~0u };

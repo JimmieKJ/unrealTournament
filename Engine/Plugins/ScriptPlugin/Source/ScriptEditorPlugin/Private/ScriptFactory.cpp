@@ -1,6 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. 
-#include "ScriptEditorPluginPrivatePCH.h"
+
+#include "ScriptFactory.h"
+#include "GameFramework/Actor.h"
+#include "Modules/ModuleManager.h"
+#include "ClassViewerModule.h"
+#include "Kismet2/SClassPickerDialog.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "ScriptEditorPluginLog.h"
+#include "Editor.h"
+#include "UnrealEdGlobals.h"
+#include "EditorFramework/AssetImportData.h"
+#include "ReimportScriptFactory.h"
+#include "HAL/FileManager.h"
 #include "ScriptBlueprintGeneratedClass.h"
+#include "UniquePtr.h"
 
 UScriptFactory::UScriptFactory(const FObjectInitializer& ObjectInitializer)
 	: Super( ObjectInitializer )
@@ -54,8 +67,8 @@ UObject* UScriptFactory::FactoryCreateText(UClass* InClass, UObject* InParent, F
 	GEditor->SelectNone(true, true, false);
 
 	UScriptBlueprint* NewBlueprint = nullptr;
-	TAutoPtr<FScriptContextBase> ScriptContext(FScriptContextBase::CreateContext(Buffer, nullptr, nullptr));
-	if (ScriptContext.IsValid())
+	TUniquePtr<FScriptContextBase> ScriptContext(FScriptContextBase::CreateContext(Buffer, nullptr, nullptr));
+	if (ScriptContext)
 	{
 	    NewBlueprint = Cast<UScriptBlueprint>( FindObject<UBlueprint>( InParent, *InName.ToString() ) );
 	    if( NewBlueprint != nullptr )

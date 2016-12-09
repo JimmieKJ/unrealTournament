@@ -1,17 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "SnappingUtils.h"
-#include "ScopedTransaction.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Editor/LevelEditor/Public/LevelEditorActions.h"
-#include "VertexSnapping.h"
-#include "ViewportSnappingModule.h"
+#include "Modules/ModuleManager.h"
+#include "GameFramework/Actor.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Editor/GroupActor.h"
 #include "GameFramework/PhysicsVolume.h"
-#include "GameFramework/WorldSettings.h"
-#include "Engine/Selection.h"
-#include "EngineUtils.h"
 #include "Engine/PostProcessVolume.h"
+#include "GameFramework/WorldSettings.h"
+#include "EngineUtils.h"
+#include "LevelEditorViewport.h"
+#include "Engine/Selection.h"
+#include "EditorModeManager.h"
+#include "ScopedTransaction.h"
+#include "EdMode.h"
+#include "LevelEditor.h"
+#include "LevelEditorActions.h"
+#include "VertexSnapping.h"
+#include "ISnappingPolicy.h"
+#include "ViewportSnappingModule.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FEditorViewportSnapping

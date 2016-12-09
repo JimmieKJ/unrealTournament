@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Engine/DecalActor.h"
-#include "Components/DecalComponent.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/ArrowComponent.h"
+#include "Components/BillboardComponent.h"
+#include "Materials/MaterialInterface.h"
+#include "Engine/Texture2D.h"
 #include "Components/BoxComponent.h"
+#include "Components/DecalComponent.h"
 
 
 #if WITH_EDITOR

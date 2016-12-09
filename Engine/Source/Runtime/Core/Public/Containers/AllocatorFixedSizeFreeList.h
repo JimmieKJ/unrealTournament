@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "CoreGlobals.h"
 
 /**
  * Fixed-sized allocator that uses a free list to cache allocations.

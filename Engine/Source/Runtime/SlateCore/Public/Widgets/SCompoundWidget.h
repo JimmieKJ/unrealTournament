@@ -2,10 +2,16 @@
 
 #pragma once
 
-#include "SWidget.h"
-#include "SlateColor.h"
-#include "Children.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Children.h"
 
+class FArrangedChildren;
+class FPaintArgs;
+class FSlateWindowElementList;
 
 /**
  * A CompoundWidget is the base from which most non-primitive widgets should be built.

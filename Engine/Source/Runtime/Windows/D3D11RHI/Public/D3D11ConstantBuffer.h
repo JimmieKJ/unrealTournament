@@ -8,6 +8,8 @@
 
 #include "RenderResource.h"
 
+class FD3D11DynamicRHI;
+
 /** Size of the default constant buffer. */
 #define MAX_GLOBAL_CONSTANT_BUFFER_SIZE		4096
 

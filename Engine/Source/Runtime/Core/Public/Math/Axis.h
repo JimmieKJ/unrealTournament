@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 
 // Generic axis enum (mirrored for property use in Object.h)
 namespace EAxis

@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Animation/AnimNodeBase.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimationAsset.h"
 #include "Animation/PoseAsset.h"
 #include "Animation/AnimNode_AssetPlayerBase.h"
 #include "AnimNode_PoseHandler.generated.h"
@@ -43,12 +46,15 @@ public:
 	// End of FAnimNode_AssetPlayerBase Interface
 
 protected:
+	/** Called after CurrentPoseAsset is changed.  */
+	virtual void OnPoseAssetChange() {}
+
 	TWeakObjectPtr<UPoseAsset> CurrentPoseAsset;
 	FAnimExtractContext PoseExtractContext;
 	// weight to blend pose per joint - has to be cached whenever cache bones for LOD
 	// note this is for mesh bone
 	TArray<float> BoneBlendWeights;
-	TArray<FSmartNameMapping::UID> PoseUIDList;
+	TArray<SmartName::UID_Type> PoseUIDList;
 
 private:
 	void UpdatePoseAssetProperty(struct FAnimInstanceProxy* InstanceProxy);

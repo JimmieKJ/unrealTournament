@@ -1,11 +1,13 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "Components/HorizontalBox.h"
-#include "Components/HorizontalBoxSlot.h"
 #include "Extensions/HorizontalSlotExtension.h"
-#include "Kismet2/BlueprintEditorUtils.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
 #include "WidgetBlueprint.h"
+#include "Widgets/Input/SButton.h"
+#include "Components/HorizontalBoxSlot.h"
+#include "Components/HorizontalBox.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -32,13 +34,13 @@ void FHorizontalSlotExtension::ExtendSelection(const TArray< FWidgetReference >&
 	SelectionCache = Selection;
 
 	TSharedRef<SButton> LeftArrow = SNew(SButton)
-		.Text(LOCTEXT("LeftArrow", "←"))
+		.Text(LOCTEXT("LeftArrow", "\u2190"))
 		.ContentPadding(FMargin(2, 6))
 		.IsEnabled(this, &FHorizontalSlotExtension::CanShift, -1)
 		.OnClicked(this, &FHorizontalSlotExtension::HandleShift, -1);
 
 	TSharedRef<SButton> RightArrow = SNew(SButton)
-		.Text(LOCTEXT("RightArrow", "→"))
+		.Text(LOCTEXT("RightArrow", "\u2192"))
 		.ContentPadding(FMargin(2, 6))
 		.IsEnabled(this, &FHorizontalSlotExtension::CanShift, 1)
 		.OnClicked(this, &FHorizontalSlotExtension::HandleShift, 1);

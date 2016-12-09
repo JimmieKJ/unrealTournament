@@ -8,6 +8,9 @@ using UnrealBuildTool;
 using System.IO;
 using System.Threading;
 using System.Xml;
+using System.Diagnostics;
+
+using Action = System.Action;
 
 namespace Win.Automation
 {
@@ -108,13 +111,59 @@ namespace Win.Automation
 				Writer.WriteLine("SRCSRV: end------------------------------------------------");
 			}
 
-			// Embed the data in the PDB files
-			foreach(FileReference PdbFile in PdbFiles)
-			{
-				CommandUtils.Run(PdbStrExe.FullName, String.Format("-w -p:\"{0}\" -i:\"{1}\" -s:srcsrv", PdbFile.FullName, SrcSrvIni.FullName));
-			}
-			return true;
+            // Execute PDBSTR on the PDB files in parallel.
+            bool[] Results = new bool[PdbFiles.Length];
+            Parallel.For(0, PdbFiles.Length, (Idx, State) => { Results[Idx] = ExecuteTool(PdbStrExe, PdbFiles[Idx], SrcSrvIni, State); });
+            return Results.All(x => x);
 		}
+
+        /// <summary>
+        /// Executes the PdbStr tool.
+        /// </summary>
+        /// <param name="PdbStrExe">Path to PdbStr.exe</param>
+        /// <param name="PdbFile">The PDB file to embed source information for</param>
+        /// <param name="SrcSrvIni">Ini file containing settings to embed</param>
+        /// <param name="State">The current loop state</param>
+        /// <returns>True if the tool executed succesfully</returns>
+        bool ExecuteTool(FileReference PdbStrExe, FileReference PdbFile, FileReference SrcSrvIni, ParallelLoopState State)
+        {
+            using (Process Process = new Process())
+            {
+                List<string> Messages = new List<string>();
+                Messages.Add(String.Format("Writing source server data: {0}", PdbFile));
+
+                DataReceivedEventHandler OutputHandler = (s, e) => { if (e.Data != null) { Messages.Add(e.Data); } };
+                Process.StartInfo.FileName = PdbStrExe.FullName;
+                Process.StartInfo.Arguments = String.Format("-w -p:\"{0}\" -i:\"{1}\" -s:srcsrv", PdbFile.FullName, SrcSrvIni.FullName);
+                Process.StartInfo.UseShellExecute = false;
+                Process.StartInfo.RedirectStandardOutput = true;
+                Process.StartInfo.RedirectStandardError = true;
+                Process.StartInfo.RedirectStandardInput = false;
+                Process.StartInfo.CreateNoWindow = true;
+                Process.OutputDataReceived += OutputHandler;
+                Process.ErrorDataReceived += OutputHandler;
+                Process.Start();
+                Process.BeginOutputReadLine();
+                Process.BeginErrorReadLine();
+                Process.WaitForExit();
+
+                if(Process.ExitCode != 0)
+                {
+                    Messages.Add(String.Format("Exit code: {0}", Process.ExitCode));
+                    State.Break();
+                }
+
+                lock (this)
+                {
+                    foreach (string Message in Messages)
+                    {
+                        CommandUtils.Log(Message);
+                    }
+                }
+
+                return Process.ExitCode == 0;
+            }
+        }
 
         /// <summary>
         /// Output this task out to an XML writer.

@@ -19,6 +19,7 @@ namespace UnrealBuildTool
 		EditorNoCommandlet,
 		Program,
         ServerOnly,
+        ClientOnly,
 	}
 
 	public enum ModuleLoadingPhase
@@ -197,7 +198,9 @@ namespace UnrealBuildTool
 					return TargetType == TargetRules.TargetType.Program;
                 case ModuleHostType.ServerOnly:
                     return TargetType != TargetRules.TargetType.Client;
-			}
+                case ModuleHostType.ClientOnly:
+                    return TargetType != TargetRules.TargetType.Server;
+            }
 
 			return false;
 		}

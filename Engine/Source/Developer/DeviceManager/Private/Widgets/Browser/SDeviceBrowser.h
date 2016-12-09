@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Interfaces/ITargetDeviceServiceManager.h"
+#include "Models/DeviceBrowserFilter.h"
+#include "Models/DeviceManagerModel.h"
+
+class FUICommandList;
 
 /**
  * Delegate type for selection changes in the device browser.

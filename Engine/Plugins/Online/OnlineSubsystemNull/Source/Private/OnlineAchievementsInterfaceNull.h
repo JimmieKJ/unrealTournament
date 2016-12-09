@@ -2,7 +2,10 @@
 
 #pragma once
  
-#include "OnlineAchievementsInterface.h"
+#include "CoreMinimal.h"
+#include "OnlineSubsystemTypes.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Interfaces/OnlineAchievementsInterface.h"
 #include "OnlineSubsystemNullPackage.h"
 
 /**

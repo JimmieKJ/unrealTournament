@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "IPackageLocalizationCache.h"
+#include "CoreMinimal.h"
+#include "Internationalization/IPackageLocalizationCache.h"
 
 class FPackageLocalizationCache;
 

@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+
+class UEdGraphNode;
+class UEdGraphPin;
 
 //////////////////////////////////////////////////////////////////////////
 // SKismetLinearExpression

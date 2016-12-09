@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "MovieSceneMaterialTrack.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Tracks/MovieSceneMaterialTrack.h"
 #include "MovieSceneWidgetMaterialTrack.generated.h"
-
 
 /**
  * A material track which is specialized for materials which are owned by widget brushes.
@@ -19,7 +20,7 @@ public:
 
 	// UMovieSceneTrack interface
 
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
+	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 	virtual FName GetTrackName() const override;
 
 #if WITH_EDITORONLY_DATA

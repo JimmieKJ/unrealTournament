@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+
 class FEditorTutorialDetailsCustomization : public IDetailCustomization
 {
 public:

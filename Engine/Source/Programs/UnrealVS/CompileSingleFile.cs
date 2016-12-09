@@ -99,19 +99,6 @@ namespace UnrealVS
 				return false;
 			}
 
-			// Check it's a cpp file
-			string FileToCompile = DTE.ActiveDocument.FullName;
-			if(!FileToCompile.EndsWith(".cpp", StringComparison.InvariantCultureIgnoreCase))
-			{
-				return false;
-			}
-
-			// If there's already a build in progress, don't let another one start
-			if(DTE.Solution.SolutionBuild.BuildState == vsBuildState.vsBuildStateInProgress)
-			{
-				return false;
-			}
-
 			// Grab the current startup project
 			IVsHierarchy ProjectHierarchy;
 			UnrealVSPackage.Instance.SolutionBuildManager.get_StartupProject(out ProjectHierarchy);
@@ -144,6 +131,27 @@ namespace UnrealVS
 			if(ActiveNMakeTool == null)
 			{
 				return false;
+			}
+
+			// Save all the open documents
+			DTE.ExecuteCommand("File.SaveAll");
+
+			// Check it's a cpp file
+			string FileToCompile = DTE.ActiveDocument.FullName;
+			if (!FileToCompile.EndsWith(".c", StringComparison.InvariantCultureIgnoreCase) && !FileToCompile.EndsWith(".cpp", StringComparison.InvariantCultureIgnoreCase))
+			{
+				MessageBox.Show("Invalid file extension for single-file compile.", "Invalid Extension", MessageBoxButtons.OK);
+				return true;
+			}
+
+			// If there's already a build in progress, don't let another one start
+			if (DTE.Solution.SolutionBuild.BuildState == vsBuildState.vsBuildStateInProgress)
+			{
+				if (MessageBox.Show("Cancel current compile?", "Compile in progress", MessageBoxButtons.YesNo) == DialogResult.Yes)
+				{
+					DTE.ExecuteCommand("Build.Cancel");
+				}
+				return true;
 			}
 
 			// Make sure any existing build is stopped

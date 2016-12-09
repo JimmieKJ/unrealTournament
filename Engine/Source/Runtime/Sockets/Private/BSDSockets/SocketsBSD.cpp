@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SocketsPrivatePCH.h"
+#include "BSDSockets/SocketsBSD.h"
 
 #if PLATFORM_HAS_BSD_SOCKETS
 
-#include "SocketSubsystemBSD.h"
-#include "SocketsBSD.h"
+#include "BSDSockets/IPAddressBSD.h"
+#include "BSDSockets/SocketSubsystemBSD.h"
 //#include "Net/NetworkProfiler.h"
 
 #if PLATFORM_HTML5 

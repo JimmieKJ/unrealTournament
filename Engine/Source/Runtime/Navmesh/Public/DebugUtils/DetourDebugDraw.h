@@ -22,9 +22,13 @@
 #ifndef DETOURDEBUGDRAW_H
 #define DETOURDEBUGDRAW_H
 
-#include "DetourNavMesh.h"
-#include "DetourNavMeshQuery.h"
-#include "DetourTileCacheBuilder.h"
+#include "CoreMinimal.h"
+#include "Detour/DetourNavMesh.h"
+
+class dtNavMeshQuery;
+struct dtTileCacheDistanceField;
+struct dtTileCacheLayer;
+struct duDebugDraw;
 
 enum DrawNavMeshFlags
 {

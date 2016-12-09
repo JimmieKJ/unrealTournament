@@ -6,7 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
 #include "LevelViewportLayout.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "LevelViewportActions.h"
 
 class FLevelViewportLayoutFourPanes : public FLevelViewportLayout
 {

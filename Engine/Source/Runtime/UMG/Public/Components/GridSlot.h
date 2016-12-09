@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptMacros.h"
+#include "Layout/Margin.h"
 #include "Components/PanelSlot.h"
-#include "SlateWrapperTypes.h"
+#include "Widgets/Layout/SGridPanel.h"
 
 #include "GridSlot.generated.h"
 

@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
 #include "GraphDiffControl.h"
-#include "BlueprintEditorUtils.h"
+#include "EdGraph/EdGraphNode.h"
+#include "EdGraph/EdGraphPin.h"
+#include "EdGraph/EdGraph.h"
 
 #define LOCTEXT_NAMESPACE "GraphDiffControl"
 

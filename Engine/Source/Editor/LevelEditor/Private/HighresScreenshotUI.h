@@ -1,9 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "ShowFlags.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/Text/STextBlock.h"
 #include "Slate/SceneViewport.h"
+#include "SCaptureRegionWidget.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "HighResScreenshot.h"
+
+class SButton;
 
 class SHighResScreenshotDialog : public SCompoundWidget
 {

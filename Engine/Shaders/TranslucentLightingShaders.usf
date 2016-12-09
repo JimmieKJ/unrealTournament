@@ -64,26 +64,16 @@ void CopySceneColorMain(
 [maxvertexcount(3)]
 void WriteToSliceMainGS(triangle FWriteToSliceVertexOutput Input[3], inout TriangleStream<FWriteToSliceGeometryOutput> OutStream)
 {
-#if VULKAN_PROFILE_SM4 || VULKAN_PROFILE_SM5
-	float4 Multiplier = float4(1, -1, 1, 1);
-#else
-	// No-op
-	float4 Multiplier = float4(1, 1, 1, 1);
-#endif
-
 	FWriteToSliceGeometryOutput Vertex0;
 	Vertex0.Vertex = Input[0].Vertex;
-	Vertex0.Vertex.Position *= Multiplier;
 	Vertex0.LayerIndex = Input[0].LayerIndex;
 
 	FWriteToSliceGeometryOutput Vertex1;
 	Vertex1.Vertex = Input[1].Vertex;
-	Vertex1.Vertex.Position *= Multiplier;
 	Vertex1.LayerIndex = Input[1].LayerIndex;
 
 	FWriteToSliceGeometryOutput Vertex2;
 	Vertex2.Vertex = Input[2].Vertex;
-	Vertex2.Vertex.Position *= Multiplier;
 	Vertex2.LayerIndex = Input[2].LayerIndex;
 
 	OutStream.Append(Vertex0);

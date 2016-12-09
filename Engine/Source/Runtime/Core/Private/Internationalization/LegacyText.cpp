@@ -1,6 +1,10 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Misc/DateTime.h"
+#include "Internationalization/Text.h"
+#include "Internationalization/Internationalization.h"
 
 #if !UE_ENABLE_ICU
 #include "Text.h"

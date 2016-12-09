@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/Vector.h"
 
 /**
  * Structure for capsules.

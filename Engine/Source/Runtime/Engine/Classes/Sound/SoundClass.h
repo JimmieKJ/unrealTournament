@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#if WITH_EDITOR
+#include "EdGraph/EdGraph.h"
+#endif
 #include "SoundClass.generated.h"
 
 UENUM()
@@ -155,6 +161,20 @@ struct FPassiveSoundMixModifier
 	
 };
 
+#if WITH_EDITOR
+class USoundClass;
+
+/** Interface for sound class graph interaction with the AudioEditor module. */
+class ISoundClassAudioEditor
+{
+public:
+	virtual ~ISoundClassAudioEditor() {}
+
+	/** Refreshes the sound class graph links. */
+	virtual void RefreshGraphLinks(UEdGraph* SoundClassGraph) = 0;
+};
+#endif
+
 UCLASS(hidecategories=object, MinimalAPI)
 class USoundClass : public UObject
 {
@@ -177,7 +197,7 @@ public:
 
 #if WITH_EDITORONLY_DATA
 	/** EdGraph based representation of the SoundClass */
-	class USoundClassGraph* SoundClassGraph;
+	class UEdGraph* SoundClassGraph;
 #endif
 
 protected:
@@ -227,6 +247,19 @@ public:
 	 * @param	bIgnoreThis	Whether to ignore this SoundClass if it's already up to date
 	 */
 	ENGINE_API void RefreshAllGraphs(bool bIgnoreThis);
+
+	/** Sets the sound cue graph editor implementation.* */
+	static ENGINE_API void SetSoundClassAudioEditor(TSharedPtr<ISoundClassAudioEditor> InSoundClassAudioEditor);
+
+	/** Gets the sound cue graph editor implementation. */
+	static TSharedPtr<ISoundClassAudioEditor> ENGINE_API GetSoundClassAudioEditor();
+
+private:
+
+	/** Ptr to interface to sound class editor operations. */
+	static ENGINE_API TSharedPtr<ISoundClassAudioEditor> SoundClassAudioEditor;
+
 #endif
+
 };
 

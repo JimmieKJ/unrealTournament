@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SNodePanel.h"
+#include "SGraphNode.h"
+
+class SToolTip;
+
 class GRAPHEDITOR_API SGraphNodeK2Base : public SGraphNode
 {
 public:
@@ -14,13 +20,13 @@ public:
 	virtual void GetOverlayBrushes(bool bSelected, const FVector2D WidgetSize, TArray<FOverlayBrushInfo>& Brushes) const override;
 	virtual void GetNodeInfoPopups(FNodeInfoContext* Context, TArray<FGraphInformationPopupInfo>& Popups) const override;
 	virtual const FSlateBrush* GetShadowBrush(bool bSelected) const override;
+	virtual FLinearColor GetProfilerHeatmapIntensity() const override;
+	virtual const FSlateBrush* GetProfilerHeatmapBrush() const override;
 	void PerformSecondPassLayout(const TMap< UObject*, TSharedRef<SNode> >& NodeToWidgetLookup) const override;
 
 protected :
 	//~ Begin SGraphNode Interface
 	virtual TSharedPtr<SToolTip> GetComplexTooltip() override;
-	virtual FSlateColor GetNodeIndicatorOverlayColor() const;
-	virtual EVisibility GetNodeIndicatorOverlayVisibility() const;
 	//~ End SGraphNode Interface
 
 	/** Set up node in 'standard' mode */

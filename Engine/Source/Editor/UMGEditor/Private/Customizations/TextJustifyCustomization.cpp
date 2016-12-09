@@ -1,14 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
+#include "Customizations/TextJustifyCustomization.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "DetailWidgetRow.h"
 
-#include "PropertyEditing.h"
-#include "ObjectEditorUtils.h"
-#include "WidgetGraphSchema.h"
-#include "ScopedTransaction.h"
-#include "BlueprintEditorUtils.h"
-
-#include "TextJustifyCustomization.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

@@ -2,11 +2,8 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
-
-
-class FString;
-
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
 
 #if PLATFORM_HAS_BSD_TIME 
 	#include <sys/time.h>

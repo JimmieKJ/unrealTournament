@@ -1,11 +1,15 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "ViewportDragOperation.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Interface.h"
 #include "ViewportInteractableInterface.generated.h"
 
+class UActorComponent;
 class UViewportInteractor;
+struct FHitResult;
 
 UINTERFACE( MinimalAPI )
 class UViewportInteractableInterface : public UInterface

@@ -1,9 +1,9 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Internationalization/Culture.h"
 
 #if UE_ENABLE_ICU
-#include "ICUCulture.h"
+#include "Internationalization/ICUCulture.h"
 #else
 #include "LegacyCulture.h"
 #endif

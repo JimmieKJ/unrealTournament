@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeEditorPrivatePCH.h"
 #include "DirectoryScanner.h"
-#include "CodeProjectItem.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/IQueuedWork.h"
+#include "Misc/QueuedThreadPool.h"
 
 TArray<FDirectoryScannerCommand*> FDirectoryScanner::CommandQueue;
 

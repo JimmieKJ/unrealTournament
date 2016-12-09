@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "DynamicMeshBuilder.h"
-#include "SceneManagement.h"
-#include "StaticMeshResources.h"
-#include "EngineModule.h"
+#include "CoreMinimal.h"
+#include "Math/RandomStream.h"
+#include "EngineGlobals.h"
+#include "RHI.h"
+#include "RawIndexBuffer.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
+#include "CanvasItem.h"
+#include "CanvasTypes.h"
+#include "SkeletalMeshTypes.h"
 #include "SceneUtils.h"
-#include "MeshBatch.h"
-#include "RendererInterface.h"
+#include "UnrealEngine.h"
+#include "DynamicMeshBuilder.h"
+#include "StaticMeshResources.h"
 #include "Engine/LightMapTexture2D.h"
 
 /** Emits draw events for a given FMeshBatch and the FPrimitiveSceneProxy corresponding to that mesh element. */
@@ -203,8 +209,8 @@ void DrawBox(FPrimitiveDrawInterface* PDI,const FMatrix& BoxToWorld,const FVecto
 	MeshBuilder.Draw(PDI,FScaleMatrix(Radii) * BoxToWorld,MaterialRenderProxy,DepthPriorityGroup,0.f);
 }
 
-void GetHalfSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSides, int32 NumRings, float StartAngle, float EndAngle, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority, 
-					bool bDisableBackfaceCulling, int32 ViewIndex, FMeshElementCollector& Collector,bool bUseSelectionOutline,HHitProxy* HitProxy)
+void GetOrientedHalfSphereMesh(const FVector& Center, const FRotator& Orientation, const FVector& Radii, int32 NumSides, int32 NumRings, float StartAngle, float EndAngle, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority,
+	bool bDisableBackfaceCulling, int32 ViewIndex, FMeshElementCollector& Collector, bool bUseSelectionOutline, HHitProxy* HitProxy)
 {
 	// Use a mesh builder to draw the sphere.
 	FDynamicMeshBuilder MeshBuilder;
@@ -284,7 +290,13 @@ void GetHalfSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSid
 		FMemory::Free(Verts);
 		FMemory::Free(ArcVerts);
 	}
-	MeshBuilder.GetMesh(FScaleMatrix(Radii) * FTranslationMatrix(Center), MaterialRenderProxy, DepthPriority, bDisableBackfaceCulling, false, bUseSelectionOutline, ViewIndex, Collector, HitProxy);
+	MeshBuilder.GetMesh(FScaleMatrix(Radii) * FRotationMatrix(Orientation) * FTranslationMatrix(Center), MaterialRenderProxy, DepthPriority, bDisableBackfaceCulling, false, bUseSelectionOutline, ViewIndex, Collector, HitProxy);
+}
+
+void GetHalfSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSides, int32 NumRings, float StartAngle, float EndAngle, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority, 
+					bool bDisableBackfaceCulling, int32 ViewIndex, FMeshElementCollector& Collector,bool bUseSelectionOutline,HHitProxy* HitProxy)
+{
+	GetOrientedHalfSphereMesh(Center, FRotator::ZeroRotator, Radii, NumSides, NumRings, StartAngle, EndAngle, MaterialRenderProxy, DepthPriority, bDisableBackfaceCulling, ViewIndex, Collector, bUseSelectionOutline, HitProxy);
 }
 
 void GetSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSides, int32 NumRings, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority,
@@ -649,11 +661,11 @@ void GetConeMesh(const FMatrix& LocalToWorld, float AngleWidth, float AngleHeigh
 {
 	TArray<FDynamicMeshVertex> MeshVerts;
 	TArray<int32> MeshIndices;
-	BuildConeVerts(AngleWidth * PI / 180, AngleHeight * PI / 180, 1.f, 0.f, 16, MeshVerts, MeshIndices);
+	BuildConeVerts(AngleWidth * PI / 180, AngleHeight * PI / 180, 1.f, 0.f, NumSides, MeshVerts, MeshIndices);
 	FDynamicMeshBuilder MeshBuilder;
 	MeshBuilder.AddVertices(MeshVerts);
 	MeshBuilder.AddTriangles(MeshIndices);
-	MeshBuilder.GetMesh(LocalToWorld, MaterialRenderProxy, SDPG_World, false, false, ViewIndex, Collector);
+	MeshBuilder.GetMesh(LocalToWorld, MaterialRenderProxy, DepthPriority, false, false, ViewIndex, Collector);
 }
 
 void GetCapsuleMesh(const FVector& Origin, const FVector& XAxis, const FVector& YAxis, const FVector& ZAxis, const FLinearColor& Color, float Radius, float HalfHeight, int32 NumSides, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority, bool bDisableBackfaceCulling, int32 ViewIndex, FMeshElementCollector& Collector)
@@ -664,9 +676,9 @@ void GetCapsuleMesh(const FVector& Origin, const FVector& XAxis, const FVector& 
 	const float CylinderHalfHeight = (TopEnd - BottomEnd).Size() * 0.5;
 	const FVector CylinderLocation = BottomEnd + CylinderHalfHeight * ZAxis;
 
-	GetHalfSphereMesh(TopEnd, FVector(Radius), NumSides, 16, 0, PI / 2, MaterialRenderProxy, DepthPriority, bDisableBackfaceCulling, ViewIndex, Collector);
+	GetOrientedHalfSphereMesh(TopEnd, FRotationMatrix::MakeFromXY(XAxis, YAxis).Rotator(), FVector(Radius), NumSides, NumSides, 0, PI / 2, MaterialRenderProxy, DepthPriority, bDisableBackfaceCulling, ViewIndex, Collector);
 	GetCylinderMesh(CylinderLocation, XAxis, YAxis, ZAxis, Radius, CylinderHalfHeight, NumSides, MaterialRenderProxy, DepthPriority, ViewIndex, Collector);
-	GetHalfSphereMesh(BottomEnd, FVector(Radius), NumSides, 16, PI / 2, PI, MaterialRenderProxy, DepthPriority, bDisableBackfaceCulling, ViewIndex, Collector);
+	GetOrientedHalfSphereMesh(BottomEnd, FRotationMatrix::MakeFromXY(XAxis, YAxis).Rotator(), FVector(Radius), NumSides, NumSides, PI / 2, PI, MaterialRenderProxy, DepthPriority, bDisableBackfaceCulling, ViewIndex, Collector);
 }
 
 
@@ -1021,7 +1033,7 @@ void DrawWireCapsule(FPrimitiveDrawInterface* PDI, const FVector& Base, const FV
 	}
 }
 
-void DrawWireCone(FPrimitiveDrawInterface* PDI, TArray<FVector>& Verts, const FTransform& Transform, float ConeRadius, float ConeAngle, int32 ConeSides, const FLinearColor& Color, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
+void DrawWireCone(FPrimitiveDrawInterface* PDI, TArray<FVector>& Verts, const FTransform& Transform, float ConeLength, float ConeAngle, int32 ConeSides, const FLinearColor& Color, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
 {
 	static const float TwoPI = 2.0f * PI;
 	static const float ToRads = PI / 180.0f;
@@ -1038,9 +1050,9 @@ void DrawWireCone(FPrimitiveDrawInterface* PDI, TArray<FVector>& Verts, const FT
 	for ( int32 i = 0 ; i < Verts.Num() ; ++i )
 	{
 		const float Theta = static_cast<float>( (TwoPI * i) / Verts.Num() );
-		Verts[i] = (ConeDirection * (ConeRadius * CosClampedConeAngle)) +
-			((SinClampedConeAngle * ConeRadius * FMath::Cos( Theta )) * ConeUpVector) +
-			((SinClampedConeAngle * ConeRadius * FMath::Sin( Theta )) * ConeLeftVector);
+		Verts[i] = (ConeDirection * (ConeLength * CosClampedConeAngle)) +
+			((SinClampedConeAngle * ConeLength * FMath::Cos( Theta )) * ConeUpVector) +
+			((SinClampedConeAngle * ConeLength * FMath::Sin( Theta )) * ConeLeftVector);
 	}
 
 	// Transform to world space.
@@ -1063,12 +1075,12 @@ void DrawWireCone(FPrimitiveDrawInterface* PDI, TArray<FVector>& Verts, const FT
 	PDI->DrawLine(Verts[Verts.Num() - 1], Verts[0], Color, DepthPriority, Thickness, DepthBias, bScreenSpace);
 }
 
-void DrawWireCone(FPrimitiveDrawInterface* PDI, TArray<FVector>& Verts, const FMatrix& Transform, float ConeRadius, float ConeAngle, int32 ConeSides, const FLinearColor& Color, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
+void DrawWireCone(FPrimitiveDrawInterface* PDI, TArray<FVector>& Verts, const FMatrix& Transform, float ConeLength, float ConeAngle, int32 ConeSides, const FLinearColor& Color, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
 {
-	DrawWireCone(PDI, Verts, FTransform(Transform), ConeRadius, ConeAngle, ConeSides, Color, DepthPriority, Thickness, DepthBias, bScreenSpace);
+	DrawWireCone(PDI, Verts, FTransform(Transform), ConeLength, ConeAngle, ConeSides, Color, DepthPriority, Thickness, DepthBias, bScreenSpace);
 }
 
-void DrawWireSphereCappedCone(FPrimitiveDrawInterface* PDI, const FTransform& Transform, float ConeRadius, float ConeAngle, int32 ConeSides, int32 ArcFrequency, int32 CapSegments, const FLinearColor& Color, uint8 DepthPriority)
+void DrawWireSphereCappedCone(FPrimitiveDrawInterface* PDI, const FTransform& Transform, float ConeLength, float ConeAngle, int32 ConeSides, int32 ArcFrequency, int32 CapSegments, const FLinearColor& Color, uint8 DepthPriority)
 {
 	// The cap only works if there are an even number of verts generated so add another if needed 
 	if ((ConeSides & 0x1) != 0)
@@ -1077,7 +1089,7 @@ void DrawWireSphereCappedCone(FPrimitiveDrawInterface* PDI, const FTransform& Tr
 	}
 
 	TArray<FVector> Verts;
-	DrawWireCone(PDI, Verts, Transform, ConeRadius, ConeAngle, ConeSides, Color, DepthPriority, 0);
+	DrawWireCone(PDI, Verts, Transform, ConeLength, ConeAngle, ConeSides, Color, DepthPriority, 0);
 
 	// Draw arcs
 	int32 ArcCount = (int32)(Verts.Num() / 2);
@@ -1086,7 +1098,7 @@ void DrawWireSphereCappedCone(FPrimitiveDrawInterface* PDI, const FTransform& Tr
 		const FVector X = Transform.GetUnitAxis( EAxis::X );
 		FVector Y = Verts[i] - Verts[ArcCount + i]; Y.Normalize();
 
-		DrawArc(PDI, Transform.GetTranslation(), X, Y, -ConeAngle, ConeAngle, ConeRadius, CapSegments, Color, DepthPriority);
+		DrawArc(PDI, Transform.GetTranslation(), X, Y, -ConeAngle, ConeAngle, ConeLength, CapSegments, Color, DepthPriority);
 	}
 }
 

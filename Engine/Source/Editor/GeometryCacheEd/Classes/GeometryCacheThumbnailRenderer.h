@@ -7,13 +7,14 @@
 
 #pragma once
 
-#include "GeometryCacheEdModulePublicPCH.h"
-#include "Classes/ThumbnailRendering/ThumbnailRenderer.h"
-#include "Classes/ThumbnailRendering/DefaultSizedThumbnailRenderer.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ThumbnailRendering/DefaultSizedThumbnailRenderer.h"
 #include "GeometryCacheThumbnailRenderer.generated.h"
 
-
+class FCanvas;
 class FGeometryCacheThumbnailScene;
+class FRenderTarget;
 
 UCLASS(config = Editor, MinimalAPI)
 class UGeometryCacheThumbnailRenderer : public UDefaultSizedThumbnailRenderer

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #define MATINEE_MODULE_CONSTANTS	1
 
 /** Constants Used by Matinee*/

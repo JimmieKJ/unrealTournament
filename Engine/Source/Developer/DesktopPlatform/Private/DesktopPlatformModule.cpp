@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DesktopPlatformPrivatePCH.h"
 #include "DesktopPlatformModule.h"
+#include "DesktopPlatformPrivate.h"
 
 IMPLEMENT_MODULE( FDesktopPlatformModule, DesktopPlatform );
 DEFINE_LOG_CATEGORY(LogDesktopPlatform);

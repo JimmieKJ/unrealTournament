@@ -4,34 +4,55 @@
 Level.cpp: Level-related functions
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Engine/Level.h"
+#include "Misc/ScopedSlowTask.h"
+#include "UObject/RenderingObjectVersion.h"
+#include "Templates/ScopedPointer.h"
+#include "UObject/Package.h"
+#include "Serialization/AsyncLoading.h"
+#include "EngineStats.h"
+#include "Engine/Blueprint.h"
+#include "GameFramework/Actor.h"
+#include "RenderingThread.h"
+#include "RawIndexBuffer.h"
+#include "GameFramework/Pawn.h"
+#include "Engine/World.h"
+#include "SceneInterface.h"
+#include "AI/Navigation/NavigationData.h"
+#include "PrecomputedLightVolume.h"
+#include "Engine/MapBuildDataRegistry.h"
+#include "Components/LightComponent.h"
+#include "Model.h"
+#include "Engine/Brush.h"
+#include "Engine/Engine.h"
+#include "Containers/TransArray.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Misc/PackageName.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/NavigationObjectBase.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/Texture2D.h"
+#include "ContentStreaming.h"
 #include "Engine/AssetUserData.h"
 #include "Engine/LevelScriptBlueprint.h"
 #include "Engine/LevelScriptActor.h"
 #include "Engine/WorldComposition.h"
-#include "Net/UnrealNetwork.h"
-#include "Model.h"
 #include "StaticLighting.h"
-#include "SoundDefinitions.h"
-#include "PrecomputedLightVolume.h"
 #include "TickTaskManagerInterface.h"
-#include "BlueprintUtilities.h"
-#include "DynamicMeshBuilder.h"
-#include "Engine/LevelBounds.h"
-#include "ReleaseObjectVersion.h"
-#include "RenderingObjectVersion.h"
+#include "UObject/ReleaseObjectVersion.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "EngineGlobals.h"
+#include "Engine/LevelBounds.h"
 #if WITH_EDITOR
-#include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #endif
+#include "Engine/LevelStreaming.h"
 #include "LevelUtils.h"
-#include "TargetPlatform.h"
-#include "ContentStreaming.h"
-#include "Engine/NavigationObjectBase.h"
-#include "Engine/ShadowMapTexture2D.h"
 #include "Components/ModelComponent.h"
-#include "Engine/LightMapTexture2D.h"
 DEFINE_LOG_CATEGORY(LogLevel);
 
 /*-----------------------------------------------------------------------------
@@ -297,6 +318,14 @@ void ULevel::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collecto
 	Super::AddReferencedObjects( This, Collector );
 }
 
+void ULevel::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	// Initialize LevelBuildDataId to something unique, in case this is a new ULevel
+	LevelBuildDataId = FGuid::NewGuid();
+}
+
 void ULevel::Serialize( FArchive& Ar )
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("ULevel::Serialize"), STAT_Level_Serialize, STATGROUP_LoadTime);
@@ -304,6 +333,7 @@ void ULevel::Serialize( FArchive& Ar )
 	Super::Serialize( Ar );
 
 	Ar.UsingCustomVersion(FReleaseObjectVersion::GUID);
+	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
 
 	if (Ar.IsLoading() && Ar.CustomVer(FReleaseObjectVersion::GUID) < FReleaseObjectVersion::LevelTransArrayConvertedToTArray)
 	{
@@ -392,14 +422,15 @@ void ULevel::Serialize( FArchive& Ar )
 	Ar << NavListStart;
 	Ar << NavListEnd;
 
-	if (HasAnyFlags(RF_ClassDefaultObject))
+	if (Ar.IsLoading() && Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::MapBuildDataSeparatePackage)
 	{
-		FPrecomputedLightVolume DummyVolume;
-		Ar << DummyVolume;
-	}
-	else
-	{
-		Ar << *PrecomputedLightVolume;
+		FPrecomputedLightVolumeData* LegacyData = new FPrecomputedLightVolumeData();
+		Ar << (*LegacyData);
+
+		FLevelLegacyMapBuildData LegacyLevelData;
+		LegacyLevelData.Id = LevelBuildDataId;
+		LegacyLevelData.Data = LegacyData;
+		GLevelsWithLegacyBuildData.AddAnnotation(this, LegacyLevelData);
 	}
 
 	Ar << PrecomputedVisibilityHandler;
@@ -527,7 +558,7 @@ void ULevel::PreSave(const class ITargetPlatform* TargetPlatform)
 			}
 		}
 
-		CheckTextureStreamingBuild(this);
+		// CheckTextureStreamingBuild(this);
 	}
 #endif // WITH_EDITOR
 }
@@ -657,11 +688,20 @@ void ULevel::BeginDestroy()
 
 	Super::BeginDestroy();
 
+	// Remove this level from its OwningWorld's collection
+	if (CachedLevelCollection)
+	{
+		CachedLevelCollection->RemoveLevel(this);
+	}
+
 	if (OwningWorld && IsPersistentLevel() && OwningWorld->Scene)
 	{
 		OwningWorld->Scene->SetPrecomputedVisibility(NULL);
 		OwningWorld->Scene->SetPrecomputedVolumeDistanceField(NULL);
 	}
+
+	ReleaseRenderingResources();
+
 	RemoveFromSceneFence.BeginFence();
 }
 
@@ -673,8 +713,6 @@ bool ULevel::IsReadyForFinishDestroy()
 
 void ULevel::FinishDestroy()
 {
-	ReleaseRenderingResources();
-
 	delete PrecomputedLightVolume;
 	PrecomputedLightVolume = NULL;
 
@@ -925,6 +963,42 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 		// The editor is never allowed to incrementally updated components.  Make sure to pass in a value of zero for NumActorsToUpdate.
 		check(OwningWorld->IsGameWorld());
 	}
+}
+
+
+bool ULevel::IncrementalUnregisterComponents(int32 NumComponentsToUnregister)
+{
+	// A value of 0 means that we want to unregister all components.
+	if (NumComponentsToUnregister != 0)
+	{
+		// Only the game can use incremental update functionality.
+		checkf(OwningWorld->IsGameWorld(), TEXT("Cannot call IncrementalUnregisterComponents with non 0 argument in the Editor/ commandlets."));
+	}
+
+	// Find next valid actor to process components unregistration
+	int32 NumComponentsUnregistered = 0;
+	while (CurrentActorIndexForUnregisterComponents < Actors.Num())
+	{
+		AActor* Actor = Actors[CurrentActorIndexForUnregisterComponents];
+		if (Actor)
+		{
+			int32 NumComponents = Actor->GetComponents().Num();
+			NumComponentsUnregistered += NumComponents;
+			Actor->UnregisterAllComponents();
+		}
+		CurrentActorIndexForUnregisterComponents++;
+		if (NumComponentsUnregistered > NumComponentsToUnregister )
+		{
+			break;
+		}
+	}
+
+	if (CurrentActorIndexForUnregisterComponents == Actors.Num())
+	{
+		CurrentActorIndexForUnregisterComponents = 0;
+		return true;
+	}
+	return false;
 }
 
 #if WITH_EDITOR
@@ -1232,11 +1306,11 @@ void ULevel::UpdateModelComponents()
 	}
 
 	// Initialize the model's index buffers.
-	for(TMap<UMaterialInterface*,TScopedPointer<FRawIndexBuffer16or32> >::TIterator IndexBufferIt(Model->MaterialIndexBuffers);
+	for(TMap<UMaterialInterface*,TUniquePtr<FRawIndexBuffer16or32> >::TIterator IndexBufferIt(Model->MaterialIndexBuffers);
 		IndexBufferIt;
 		++IndexBufferIt)
 	{
-		BeginInitResource(IndexBufferIt.Value());
+		BeginInitResource(IndexBufferIt->Value.Get());
 	}
 
 	// Can now release the model's vertex buffer, will have been used for collision
@@ -1271,6 +1345,7 @@ void ULevel::PreEditUndo()
 	// Wait for the components to be detached.
 	FlushRenderingCommands();
 
+	ABrush::GGeometryRebuildCause = TEXT("Undo");
 }
 
 
@@ -1281,6 +1356,8 @@ void ULevel::PostEditUndo()
 	Model->UpdateVertices();
 	// Update model components that were detached earlier
 	UpdateModelComponents();
+
+	ABrush::GGeometryRebuildCause = nullptr;
 
 	// If it's a streaming level and was not visible, don't init rendering resources
 	if (OwningWorld)
@@ -1312,18 +1389,15 @@ void ULevel::PostEditUndo()
 
 	// Non-transactional actors may disappear from the actors list but still exist, so we need to re-add them
 	// Likewise they won't get recreated if we undo to before they were deleted, so we'll have nulls in the actors list to remove
-	//Actors.Remove(nullptr); // removed because TTransArray exploded (undo followed by redo ends up with a different ArrayNum to originally)
 	TSet<AActor*> ActorsSet(Actors);
-	TArray<UObject *> InnerObjects;
-	GetObjectsWithOuter(this, InnerObjects, /*bIncludeNestedObjects*/ false, /*ExclusionFlags*/ RF_NoFlags, /* InternalExclusionFlags */ EInternalObjectFlags::PendingKill);
-	for (UObject* InnerObject : InnerObjects)
+	ForEachObjectWithOuter(this, [&ActorsSet, this](UObject* InnerObject)
 	{
 		AActor* InnerActor = Cast<AActor>(InnerObject);
 		if (InnerActor && !ActorsSet.Contains(InnerActor))
 		{
 			Actors.Add(InnerActor);
 		}
-	}
+	}, /*bIncludeNestedObjects*/ false, /*ExclusionFlags*/ RF_NoFlags, /* InternalExclusionFlags */ EInternalObjectFlags::PendingKill);
 
 	MarkLevelBoundsDirty();
 }
@@ -1427,11 +1501,11 @@ void ULevel::CommitModelSurfaces()
 		}
 
 		// Initialize the model's index buffers.
-		for(TMap<UMaterialInterface*,TScopedPointer<FRawIndexBuffer16or32> >::TIterator IndexBufferIt(Model->MaterialIndexBuffers);
+		for(TMap<UMaterialInterface*,TUniquePtr<FRawIndexBuffer16or32> >::TIterator IndexBufferIt(Model->MaterialIndexBuffers);
 			IndexBufferIt;
 			++IndexBufferIt)
 		{
-			BeginInitResource(IndexBufferIt.Value());
+			BeginInitResource(IndexBufferIt->Value.Get());
 		}
 
 		Model->bOnlyRebuildMaterialIndexBuffers = false;
@@ -1571,6 +1645,14 @@ void ULevel::InitializeNetworkActors()
 				if (Actor->bNetLoadOnClient)
 				{
 					Actor->bNetStartup = true;
+
+					for (UActorComponent* Component : Actor->GetComponents())
+					{
+						if (Component)
+						{
+							Component->SetIsNetStartupComponent(true);
+						}
+					}
 				}
 
 				if (!bIsServer)
@@ -1603,7 +1685,15 @@ void ULevel::InitializeRenderingResources()
 	{
 		if( !PrecomputedLightVolume->IsAddedToScene() )
 		{
-			PrecomputedLightVolume->AddToScene(OwningWorld->Scene);
+			ULevel* ActiveLightingScenario = OwningWorld->GetActiveLightingScenario();
+			UMapBuildDataRegistry* EffectiveMapBuildData = MapBuildData;
+
+			if (ActiveLightingScenario && ActiveLightingScenario->MapBuildData)
+			{
+				EffectiveMapBuildData = ActiveLightingScenario->MapBuildData;
+			}
+
+			PrecomputedLightVolume->AddToScene(OwningWorld->Scene, EffectiveMapBuildData, LevelBuildDataId);
 		}
 	}
 }
@@ -1670,6 +1760,59 @@ void ULevel::RouteActorInitialize()
 	}
 }
 
+UPackage* ULevel::CreateMapBuildDataPackage() const
+{
+	FString PackageName = GetOutermost()->GetName() + TEXT("_BuiltData");
+	UPackage* BuiltDataPackage = CreatePackage(NULL, *PackageName);
+	// PKG_ContainsMapData required so FEditorFileUtils::GetDirtyContentPackages can treat this as a map package
+	BuiltDataPackage->SetPackageFlags(PKG_ContainsMapData);
+	return BuiltDataPackage;
+}
+
+UMapBuildDataRegistry* ULevel::GetOrCreateMapBuildData()
+{
+	if (!MapBuildData 
+		// If MapBuildData is in the level package we need to create a new one, see CreateRegistryForLegacyMap
+		|| MapBuildData->IsLegacyBuildData()
+		|| !MapBuildData->HasAllFlags(RF_Public | RF_Standalone))
+	{
+		if (MapBuildData)
+		{
+			// Allow the legacy registry to be GC'ed
+			MapBuildData->ClearFlags(RF_Standalone);
+		}
+
+		UPackage* BuiltDataPackage = CreateMapBuildDataPackage();
+
+		FName ShortPackageName = FPackageName::GetShortFName(BuiltDataPackage->GetFName());
+		// Top level UObjects have to have both RF_Standalone and RF_Public to be saved into packages
+		MapBuildData = NewObject<UMapBuildDataRegistry>(BuiltDataPackage, ShortPackageName, RF_Standalone | RF_Public);
+		MarkPackageDirty();
+	}
+
+	return MapBuildData;
+}
+
+void ULevel::SetLightingScenario(bool bNewIsLightingScenario)
+{
+	bIsLightingScenario = bNewIsLightingScenario;
+
+	OwningWorld->PropagateLightingScenarioChange();
+}
+
+#if WITH_EDITOR
+void ULevel::OnApplyNewLightingData(bool bLightingSuccessful)
+{
+	// Store level offset that was used during static light data build
+	// This will be used to find correct world position of precomputed lighting samples during origin rebasing
+	LightBuildLevelOffset = FIntVector::ZeroValue;
+	if (bLightingSuccessful && OwningWorld && OwningWorld->WorldComposition)
+	{
+		LightBuildLevelOffset = OwningWorld->WorldComposition->GetLevelOffset(this);
+	}
+}
+#endif
+
 bool ULevel::HasAnyActorsOfType(UClass *SearchType)
 {
 	// just search the actors array
@@ -1693,17 +1836,15 @@ bool ULevel::HasAnyActorsOfType(UClass *SearchType)
 TArray<UBlueprint*> ULevel::GetLevelBlueprints() const
 {
 	TArray<UBlueprint*> LevelBlueprints;
-	TArray<UObject*> LevelChildren;
-	GetObjectsWithOuter(this, LevelChildren, false, RF_NoFlags, EInternalObjectFlags::PendingKill);
 
-	for (UObject* LevelChild : LevelChildren)
+	ForEachObjectWithOuter(this, [&LevelBlueprints](UObject* LevelChild)
 	{
 		UBlueprint* LevelChildBP = Cast<UBlueprint>(LevelChild);
 		if (LevelChildBP)
 		{
 			LevelBlueprints.Add(LevelChildBP);
 		}
-	}
+	}, false, RF_NoFlags, EInternalObjectFlags::PendingKill);
 
 	return LevelBlueprints;
 }
@@ -1737,6 +1878,22 @@ ULevelScriptBlueprint* ULevel::GetLevelScriptBlueprint(bool bDontCreate)
 	}
 
 	return LevelScriptBlueprint;
+}
+
+void ULevel::CleanupLevelScriptBlueprint()
+{
+	if( LevelScriptBlueprint )
+	{
+		if( LevelScriptBlueprint->SkeletonGeneratedClass )
+		{
+			LevelScriptBlueprint->SkeletonGeneratedClass->ClassGeneratedBy = nullptr; 
+		}
+
+		if( LevelScriptBlueprint->GeneratedClass )
+		{
+			LevelScriptBlueprint->GeneratedClass->ClassGeneratedBy = nullptr; 
+		}
+	}
 }
 
 void ULevel::OnLevelScriptBlueprintChanged(ULevelScriptBlueprint* InBlueprint)
@@ -1820,27 +1977,27 @@ void ULevel::ApplyWorldOffset(const FVector& InWorldOffset, bool bWorldShift)
 	if (PrecomputedLightVolume && !InWorldOffset.IsZero())
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_ULevel_ApplyWorldOffset_PrecomputedLightVolume);
-		// Shift light volume only if it's going to be used
-		static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
-		const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnGameThread() != 0);
-		if (bAllowStaticLighting) 
+		
+		if (!PrecomputedLightVolume->IsAddedToScene())
 		{
-			if (!PrecomputedLightVolume->IsAddedToScene())
+			// When we add level to world, move precomputed lighting data taking into account position of level at time when lighting was built  
+			if (bIsAssociatingLevel)
 			{
-				PrecomputedLightVolume->ApplyWorldOffset(InWorldOffset);
+				FVector PrecomputedLightVolumeOffset = InWorldOffset - FVector(LightBuildLevelOffset);
+				PrecomputedLightVolume->ApplyWorldOffset(PrecomputedLightVolumeOffset);
 			}
-			// At world origin rebasing all registered volumes will be moved during FScene shifting
-			// Otherwise we need to send a command to move just this volume
-			else if (!bWorldShift) 
-			{
-				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
- 					ApplyWorldOffset_PLV,
- 					FPrecomputedLightVolume*, InPrecomputedLightVolume, PrecomputedLightVolume,
- 					FVector, InWorldOffset, InWorldOffset,
- 				{
-					InPrecomputedLightVolume->ApplyWorldOffset(InWorldOffset);
- 				});
-			}
+		}
+		// At world origin rebasing all registered volumes will be moved during FScene shifting
+		// Otherwise we need to send a command to move just this volume
+		else if (!bWorldShift) 
+		{
+			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+ 				ApplyWorldOffset_PLV,
+ 				FPrecomputedLightVolume*, InPrecomputedLightVolume, PrecomputedLightVolume,
+ 				FVector, InWorldOffset, InWorldOffset,
+ 			{
+				InPrecomputedLightVolume->ApplyWorldOffset(InWorldOffset);
+ 			});
 		}
 	}
 
@@ -1887,7 +2044,7 @@ void ULevel::PushPendingAutoReceiveInput(APlayerController* InPlayerController)
 	int32 Index = 0;
 	for( FConstPlayerControllerIterator Iterator = InPlayerController->GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 	{
-		APlayerController* PlayerController = *Iterator;
+		APlayerController* PlayerController = Iterator->Get();
 		if (InPlayerController == PlayerController)
 		{
 			PlayerIndex = Index;
@@ -1969,3 +2126,10 @@ bool ULevel::HasVisibilityRequestPending() const
 {
 	return (OwningWorld && this == OwningWorld->CurrentLevelPendingVisibility);
 }
+
+bool ULevel::HasVisibilityChangeRequestPending() const
+{
+	return (OwningWorld && ( this == OwningWorld->CurrentLevelPendingVisibility || this == OwningWorld->CurrentLevelPendingInvisibility ) );
+}
+
+

@@ -3,10 +3,10 @@
 #pragma once
 
 // Dependencies.
-#include "Core.h"
+
+#include "CoreMinimal.h"
 #include "RHI.h"
 #include "NullRHI.h"
-
 
 /** Implements the NullDrv module as a dynamic RHI providing module. */
 class FNullDynamicRHIModule

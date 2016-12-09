@@ -2,11 +2,12 @@
 
 #pragma once
 
-#include "Model.h"
-#include "Level.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/Actor.h"
 #include "Brush.generated.h"
 
+class UBrushBuilder;
 
 //-----------------------------------------------------------------------------
 // Variables.
@@ -197,6 +198,8 @@ public:
 	 */
 	static bool NeedsRebuild(TArray< TWeakObjectPtr< ULevel > >* OutLevels = nullptr)
 	{
+		LevelsToRebuild.RemoveAllSwap([](const TWeakObjectPtr<ULevel>& Level) { return !Level.IsValid(); });
+
 		if (OutLevels)
 		{
 			*OutLevels = LevelsToRebuild;
@@ -273,4 +276,9 @@ public:
 public:
 	/** Returns BrushComponent subobject **/
 	class UBrushComponent* GetBrushComponent() const;
+
+#if WITH_EDITOR
+	/** Debug purposes only; an attempt to catch the cause of UE-36265 */
+	static const TCHAR* GGeometryRebuildCause;
+#endif
 };

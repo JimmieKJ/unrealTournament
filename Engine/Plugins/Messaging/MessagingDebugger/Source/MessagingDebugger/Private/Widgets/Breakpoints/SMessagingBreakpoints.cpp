@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessagingDebuggerPrivatePCH.h"
+#include "Widgets/Breakpoints/SMessagingBreakpoints.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Breakpoints/SMessagingBreakpointsTableRow.h"
 
 
 #define LOCTEXT_NAMESPACE "SMessagingBreakpoints"
@@ -9,8 +11,10 @@
 /* SMessagingBreakpoints interface
  *****************************************************************************/
 
-void SMessagingBreakpoints::Construct(const FArguments& InArgs, const TSharedRef<ISlateStyle>& InStyle, const IMessageTracerRef& InTracer)
+void SMessagingBreakpoints::Construct(const FArguments& InArgs, const TSharedRef<ISlateStyle>& InStyle, const TSharedRef<IMessageTracer, ESPMode::ThreadSafe>& InTracer)
 {
+	typedef SListView<TSharedPtr<IMessageTracerBreakpoint, ESPMode::ThreadSafe>> IMessageTracerBreakPointPtr;
+
 	Style = InStyle;
 	Tracer = InTracer;
 
@@ -27,7 +31,7 @@ void SMessagingBreakpoints::Construct(const FArguments& InArgs, const TSharedRef
 					.Padding(0.0f)
 					[
 						// message list
-						SAssignNew(BreakpointListView, SListView<IMessageTracerBreakpointPtr>)
+						SAssignNew(BreakpointListView, IMessageTracerBreakPointPtr)
 							.ItemHeight(24.0f)
 							.ListItemsSource(&BreakpointList)
 							.SelectionMode(ESelectionMode::Multi)
@@ -51,23 +55,17 @@ void SMessagingBreakpoints::Construct(const FArguments& InArgs, const TSharedRef
 }
 
 
-/* SMessagingBreakpoints implementation
- *****************************************************************************/
-
-
-
 /* SMessagingBreakpoints callbacks
  *****************************************************************************/
 
-TSharedRef<ITableRow> SMessagingBreakpoints::HandleBreakpointListGenerateRow(IMessageTracerBreakpointPtr Breakpoint, const TSharedRef<STableViewBase>& OwnerTable)
+TSharedRef<ITableRow> SMessagingBreakpoints::HandleBreakpointListGenerateRow(TSharedPtr<IMessageTracerBreakpoint, ESPMode::ThreadSafe> Breakpoint, const TSharedRef<STableViewBase>& OwnerTable)
 {
-	return SNew(SMessagingBreakpointsTableRow, OwnerTable)
-		.Breakpoint(Breakpoint)
+	return SNew(SMessagingBreakpointsTableRow, OwnerTable, Breakpoint.ToSharedRef())
 		.Style(Style);
 }
 
 
-void SMessagingBreakpoints::HandleBreakpointListSelectionChanged(IMessageTracerBreakpointPtr InItem, ESelectInfo::Type SelectInfo)
+void SMessagingBreakpoints::HandleBreakpointListSelectionChanged(TSharedPtr<IMessageTracerBreakpoint, ESPMode::ThreadSafe> InItem, ESelectInfo::Type SelectInfo)
 {
 
 }

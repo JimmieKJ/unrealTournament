@@ -1,18 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ScriptGeneratorPluginPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "ScriptGeneratorLog.h"
 #include "ScriptCodeGeneratorBase.h"
 #include "GenericScriptCodeGenerator.h"
 #include "LuaScriptCodeGenerator.h"
 #include "IProjectManager.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "UniquePtr.h"
 
 DEFINE_LOG_CATEGORY(LogScriptGenerator);
 
 class FScriptGeneratorPlugin : public IScriptGeneratorPlugin
 {
 	/** Specialized script code generator */
-	TAutoPtr<FScriptCodeGeneratorBase> CodeGenerator;
+	TUniquePtr<FScriptCodeGeneratorBase> CodeGenerator;
 
 	/** IModuleInterface implementation */
 	virtual void StartupModule() override;
@@ -58,10 +60,10 @@ void FScriptGeneratorPlugin::Initialize(const FString& RootLocalPath, const FStr
 {
 #if WITH_LUA
 	UE_LOG(LogScriptGenerator, Log, TEXT("Using Lua Script Generator."));
-	CodeGenerator = new FLuaScriptCodeGenerator(RootLocalPath, RootBuildPath, OutputDirectory, IncludeBase);
+	CodeGenerator = MakeUnique<FLuaScriptCodeGenerator>(RootLocalPath, RootBuildPath, OutputDirectory, IncludeBase);
 #else
 	UE_LOG(LogScriptGenerator, Log, TEXT("Using Generic Script Generator."));
-	CodeGenerator = new FGenericScriptCodeGenerator(RootLocalPath, RootBuildPath, OutputDirectory, IncludeBase);
+	CodeGenerator = MakeUnique<FGenericScriptCodeGenerator>(RootLocalPath, RootBuildPath, OutputDirectory, IncludeBase);
 #endif
 	UE_LOG(LogScriptGenerator, Log, TEXT("Output directory: %s"), *OutputDirectory);
 }

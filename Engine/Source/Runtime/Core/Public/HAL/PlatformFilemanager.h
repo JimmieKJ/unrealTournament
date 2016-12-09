@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "CoreFwd.h"
 
 /**
 * Platform File chain manager.

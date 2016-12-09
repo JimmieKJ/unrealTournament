@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "CineCameraComponent.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Camera/CameraActor.h"
 
 #include "CineCameraActor.generated.h"
+
+class UCineCameraComponent;
 
 /** Settings to control the camera's lookat feature */
 USTRUCT()
@@ -54,6 +58,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Current Camera Settings")
 	FCameraLookatTrackingSettings LookatTrackingSettings;
+
+	/** Returns the CineCameraComponent of this CineCamera */
+	UFUNCTION(BlueprintCallable, Category="Camera")
+	UCineCameraComponent* GetCineCameraComponent() const { return CineCameraComponent; }
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

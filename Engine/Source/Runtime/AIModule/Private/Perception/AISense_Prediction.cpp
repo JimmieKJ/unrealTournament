@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "Perception/AISense_Prediction.h"
+#include "Perception/AIPerceptionListenerInterface.h"
+#include "Perception/AIPerceptionSystem.h"
+#include "AIController.h"
+#include "Perception/AIPerceptionComponent.h"
 
 UAISense_Prediction::UAISense_Prediction(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)

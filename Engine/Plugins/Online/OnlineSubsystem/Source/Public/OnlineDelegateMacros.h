@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #define DEFINE_ONLINE_DELEGATE_BASE(DelegateName) \
 public: \
 	F##DelegateName DelegateName##Delegates; \

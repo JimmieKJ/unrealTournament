@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AppFrameworkPrivatePCH.h"
-#include "SUserWidgetTest.h"
+#include "Framework/Testing/SUserWidgetTest.h"
+#include "Widgets/Text/STextBlock.h"
 
 #if !UE_BUILD_SHIPPING
 

@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "BehaviorTree/BTCompositeNode.h"
 #include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTree/BTCompositeNode.h"
 
 UBTDecorator::UBTDecorator(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -168,11 +167,6 @@ void UBTDecorator::UpdateFlowAbortMode()
 //----------------------------------------------------------------------//
 // DEPRECATED
 //----------------------------------------------------------------------//
-bool UBTDecorator::CalculateRawConditionValue(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory) const
-{
-	return OwnerComp ? CalculateRawConditionValue(*OwnerComp, NodeMemory) : false;
-}
-
 void UBTDecorator::InitializeDecorator(uint8 InChildIndex)
 {
 	InitializeParentLink(InChildIndex);

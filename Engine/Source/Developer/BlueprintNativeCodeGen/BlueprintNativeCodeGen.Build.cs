@@ -31,6 +31,7 @@ public class BlueprintNativeCodeGen : ModuleRules
                 "GameProjectGeneration",
                 "Projects",
                 "Kismet",
+                "DesktopWidgets"
 			}
 		);
 

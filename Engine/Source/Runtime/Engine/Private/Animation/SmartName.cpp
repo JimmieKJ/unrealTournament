@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Animation/SmartName.h"
-#include "FrameworkObjectVersion.h"
+#include "UObject/FrameworkObjectVersion.h"
+#include "Animation/Skeleton.h"
+
 ////////////////////////////////////////////////////////////////////////
 //
 // FSmartNameMapping
@@ -12,17 +13,17 @@ FSmartNameMapping::FSmartNameMapping()
 : NextUid(0)
 {}
 
-bool FSmartNameMapping::AddOrFindName(FName Name, UID& OutUid, FGuid& OutGuid)
+bool FSmartNameMapping::AddOrFindName(FName Name, SmartName::UID_Type& OutUid, FGuid& OutGuid)
 {
 	check(Name.IsValid());
 
-	// Check for UID overflow
-	const UID* ExistingUid = UidMap.FindKey(Name);
+	// Check for SmartName::UID_Type overflow
+	const SmartName::UID_Type* ExistingUid = UidMap.FindKey(Name);
 	const FGuid* ExistingGuid = GuidMap.Find(Name);
 
 	// make sure they both exists and same 
 	check(!!ExistingUid == !!ExistingGuid);
-	if(ExistingUid)
+	if(ExistingUid && ExistingGuid->IsValid())
 	{
 		// Already present in the list
 		OutUid = *ExistingUid;
@@ -35,13 +36,18 @@ bool FSmartNameMapping::AddOrFindName(FName Name, UID& OutUid, FGuid& OutGuid)
 	return AddName(Name, OutUid, OutGuid);
 }
 
-bool FSmartNameMapping::AddName(FName Name, UID& OutUid, const FGuid& InGuid)
+bool FSmartNameMapping::AddName(FName Name, SmartName::UID_Type& OutUid, const FGuid& InGuid)
 {
 	check(Name.IsValid());
-	if (GuidMap.Find(Name) == nullptr && GuidMap.FindKey(InGuid) == nullptr)
+	check(InGuid.IsValid());
+
+	const SmartName::UID_Type* ExistingUid = UidMap.FindKey(Name);
+	const FGuid* ExistingGuid = GuidMap.Find(Name);
+
+	if (ExistingUid == nullptr && (ExistingGuid == nullptr || !ExistingGuid->IsValid()))
 	{
 		// make sure we didn't reach till end
-		check(NextUid != MaxUID);
+		check(NextUid != SmartName::MaxUID);
 
 		OutUid = NextUid;
 		UidMap.Add(OutUid, Name);
@@ -55,7 +61,7 @@ bool FSmartNameMapping::AddName(FName Name, UID& OutUid, const FGuid& InGuid)
 	return false;
 }
 
-bool FSmartNameMapping::GetName(const UID& Uid, FName& OutName) const
+bool FSmartNameMapping::GetName(const SmartName::UID_Type& Uid, FName& OutName) const
 {
 	const FName* FoundName = UidMap.Find(Uid);
 	if(FoundName)
@@ -68,17 +74,20 @@ bool FSmartNameMapping::GetName(const UID& Uid, FName& OutName) const
 
 bool FSmartNameMapping::GetNameByGuid(const FGuid& Guid, FName& OutName) const
 {
-	const FName* FoundName = GuidMap.FindKey(Guid);
-	if (FoundName)
+	if (Guid.IsValid())
 	{
-		OutName = *FoundName;
-		return true;
+		const FName* FoundName = GuidMap.FindKey(Guid);
+		if (FoundName)
+		{
+			OutName = *FoundName;
+			return true;
+		}
 	}
 
 	return false;
 }
 
-bool FSmartNameMapping::Rename(const UID& Uid, FName NewName)
+bool FSmartNameMapping::Rename(const SmartName::UID_Type& Uid, FName NewName)
 {
 	FName* ExistingName = UidMap.Find(Uid);
 	if(ExistingName)
@@ -90,6 +99,17 @@ bool FSmartNameMapping::Rename(const UID& Uid, FName NewName)
 		GuidMap.Remove(*ExistingName);
 		GuidMap.Add(NewName, *Guid);
 
+		// fix up meta data
+		FCurveMetaData* MetaDataToCopy = CurveMetaDataMap.Find(*ExistingName);
+		if (MetaDataToCopy)
+		{
+			FCurveMetaData& NewMetaData = CurveMetaDataMap.Add(NewName);
+			NewMetaData = *MetaDataToCopy;
+			
+			// remove old one
+			CurveMetaDataMap.Remove(*ExistingName);			
+		}
+
 		check(GuidMap.Num() == UidMap.Num());
 
 		*ExistingName = NewName;
@@ -98,7 +118,7 @@ bool FSmartNameMapping::Rename(const UID& Uid, FName NewName)
 	return false;
 }
 
-bool FSmartNameMapping::Remove(const UID& Uid)
+bool FSmartNameMapping::Remove(const SmartName::UID_Type& Uid)
 {
 	FName* ExistingName = UidMap.Find(Uid);
 	if (ExistingName)
@@ -108,6 +128,7 @@ bool FSmartNameMapping::Remove(const UID& Uid)
 
 		// re add new value
 		GuidMap.Remove(*ExistingName);
+		CurveMetaDataMap.Remove(*ExistingName);
 		UidMap.Remove(Uid);
 
 		check(GuidMap.Num() == UidMap.Num());
@@ -123,6 +144,16 @@ void FSmartNameMapping::Serialize(FArchive& Ar)
 	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
 	if (Ar.CustomVer(FFrameworkObjectVersion::GUID) >= FFrameworkObjectVersion::SmartNameRefactor)
 	{
+		if (Ar.IsSaving() && Ar.IsCooking())
+		{
+			// stript out guid from the map
+			for (TPair<FName, FGuid>& GuidPair: GuidMap)
+			{
+				// clear guid, so that we don't use it once cooked
+				GuidPair.Value = FGuid();
+			}
+		}
+
 		Ar << GuidMap;
 
 		if (Ar.ArIsLoading)
@@ -142,17 +173,22 @@ void FSmartNameMapping::Serialize(FArchive& Ar)
 		Ar << NextUid;
 		Ar << UidMap;
 
-		TMap<UID, FName> NewUidMap;
+		TMap<SmartName::UID_Type, FName> NewUidMap;
 		// convert to GuidMap
 		NextUid = 0;
 		GuidMap.Empty(UidMap.Num());
-		for (TPair<UID, FName>& UidPair : UidMap)
+		for (TPair<SmartName::UID_Type, FName>& UidPair : UidMap)
 		{
 			GuidMap.Add(UidPair.Value, FGuid::NewGuid());
 			NewUidMap.Add(NextUid++, UidPair.Value);
 		}
 
 		UidMap = NewUidMap;
+	}
+
+	if (Ar.CustomVer(FFrameworkObjectVersion::GUID) >= FFrameworkObjectVersion::MoveCurveTypesToSkeleton)
+	{
+		Ar << CurveMetaDataMap;
 	}
 }
 
@@ -161,7 +197,7 @@ int32 FSmartNameMapping::GetNumNames() const
 	return UidMap.Num();
 }
 
-void FSmartNameMapping::FillUidArray(TArray<UID>& Array) const
+void FSmartNameMapping::FillUidArray(TArray<SmartName::UID_Type>& Array) const
 {
 	UidMap.GenerateKeyArray(Array);
 }
@@ -171,7 +207,7 @@ void FSmartNameMapping::FillNameArray(TArray<FName>& Array) const
 	UidMap.GenerateValueArray(Array);
 }
 
-bool FSmartNameMapping::Exists(const UID& Uid) const
+bool FSmartNameMapping::Exists(const SmartName::UID_Type& Uid) const
 {
 	return UidMap.Find(Uid) != nullptr;
 }
@@ -181,7 +217,7 @@ bool FSmartNameMapping::Exists(const FName& Name) const
 	return UidMap.FindKey(Name) != nullptr;
 }
 
-const FSmartNameMapping::UID* FSmartNameMapping::FindUID(const FName& Name) const
+const SmartName::UID_Type* FSmartNameMapping::FindUID(const FName& Name) const
 {
 	return UidMap.FindKey(Name);
 }
@@ -196,7 +232,7 @@ FArchive& operator<<(FArchive& Ar, FSmartNameMapping& Elem)
 #if WITH_EDITOR
 bool FSmartNameMapping::FindOrAddSmartName(FName Name, FSmartName& OutName)
 {
-	FSmartNameMapping::UID NewUID;
+	SmartName::UID_Type NewUID;
 	FGuid NewGuid;
 	bool bNewlyAdded = AddOrFindName(Name, NewUID, NewGuid);
 	OutName = FSmartName(Name, NewUID, NewGuid);
@@ -208,11 +244,30 @@ bool FSmartNameMapping::AddSmartName(FSmartName& OutName)
 {
 	return AddName(OutName.DisplayName, OutName.UID, OutName.Guid);
 }
+
+#else 
+
+// in cooked build, we don't have Guid, so just register with empty guid. 
+// you only should come here if it it hasn't found yet. 
+bool FSmartNameMapping::FindOrAddSmartName(FName Name, SmartName::UID_Type& OutUid)
+{
+	FSmartName FoundName;
+	if (FindSmartName(Name, FoundName))
+	{
+		OutUid = FoundName.UID;
+		return true;
+	}
+	else
+	{
+		// the guid is discarded, just we want to make sure it's not same
+		return AddName(Name, OutUid, FGuid::NewGuid());
+	}
+}
 #endif // WITH_EDITOR
 
 bool FSmartNameMapping::FindSmartName(FName Name, FSmartName& OutName) const
 {
-	const FSmartNameMapping::UID* ExistingUID = FindUID(Name);
+	const SmartName::UID_Type* ExistingUID = FindUID(Name);
 	if (ExistingUID)
 	{
 #if WITH_EDITOR
@@ -227,7 +282,7 @@ bool FSmartNameMapping::FindSmartName(FName Name, FSmartName& OutName) const
 	return false;
 }
 
-bool FSmartNameMapping::FindSmartNameByUID(FSmartNameMapping::UID UID, FSmartName& OutName) const
+bool FSmartNameMapping::FindSmartNameByUID(SmartName::UID_Type UID, FSmartName& OutName) const
 {
 	FName ExistingName;
 	if (GetName(UID, ExistingName))
@@ -241,6 +296,20 @@ bool FSmartNameMapping::FindSmartNameByUID(FSmartNameMapping::UID UID, FSmartNam
 	}
 
 	return false;
+}
+
+/* initialize curve meta data for the container */
+void FSmartNameMapping::InitializeCurveMetaData(class USkeleton* Skeleton)
+{
+	// initialize bone indices for skeleton
+	for (TPair<FName, FCurveMetaData>& Iter : CurveMetaDataMap)
+	{
+		FCurveMetaData& CurveMetaData = Iter.Value;
+		for (int32 LinkedBoneIndex = 0; LinkedBoneIndex < CurveMetaData.LinkedBones.Num(); ++LinkedBoneIndex)
+		{
+			CurveMetaData.LinkedBones[LinkedBoneIndex].Initialize(Skeleton);
+		}
+	}
 }
 ////////////////////////////////////////////////////////////////////////
 //
@@ -268,6 +337,21 @@ void FSmartNameContainer::Serialize(FArchive& Ar)
 FSmartNameMapping* FSmartNameContainer::GetContainerInternal(const FName& ContainerName)
 {
 	return NameMappings.Find(ContainerName);
+}
+
+const FSmartNameMapping* FSmartNameContainer::GetContainerInternal(const FName& ContainerName) const
+{
+	return NameMappings.Find(ContainerName);
+}
+
+/* initialize curve meta data for the container */
+void FSmartNameContainer::InitializeCurveMetaData(class USkeleton* Skeleton)
+{
+	FSmartNameMapping* CurveMappingTable = GetContainerInternal(USkeleton::AnimCurveMappingName);
+	if (CurveMappingTable)
+	{
+		CurveMappingTable->InitializeCurveMetaData(Skeleton);
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////

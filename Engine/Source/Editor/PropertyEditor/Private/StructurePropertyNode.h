@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "PropertyNode.h"
+#include "UObject/StructOnScope.h"
+
 //-----------------------------------------------------------------------------
 //	FStructPropertyNode - Used for the root and various sub-nodes
 //-----------------------------------------------------------------------------
@@ -32,6 +36,11 @@ public:
 	bool HasValidStructData() const
 	{
 		return StructData.IsValid() && StructData->IsValid();
+	}
+
+	TSharedPtr<FStructOnScope> GetStructData() const
+	{
+		return StructData;
 	}
 
 	bool GetReadAddressUncached(FPropertyNode& InPropertyNode, FReadAddressListData& OutAddresses) const override

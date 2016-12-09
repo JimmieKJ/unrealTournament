@@ -1,21 +1,32 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
+#include "FlipbookEditor/SFlipbookTimeline.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "EditorStyleSet.h"
 #include "PaperFlipbook.h"
-#include "SFlipbookTimeline.h"
-#include "Editor/UnrealEd/Public/DragAndDrop/AssetDragDropOp.h"
-#include "Editor/UnrealEd/Public/ScopedTransaction.h"
-#include "FlipbookEditorCommands.h"
-#include "PaperStyle.h"
-#include "STimelineTrack.h"
+#include "DragAndDrop/AssetDragDropOp.h"
+#include "ScopedTransaction.h"
+#include "FlipbookEditor/FlipbookEditorCommands.h"
+#include "PaperSprite.h"
+#include "FlipbookEditor/STimelineTrack.h"
 
 #define LOCTEXT_NAMESPACE "FlipbookEditor"
 
 //////////////////////////////////////////////////////////////////////////
 // Inline widgets
 
-#include "SFlipbookTrackHandle.h"
-#include "STimelineHeader.h"
+#include "FlipbookEditor/STimelineHeader.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SFlipbookTimeline

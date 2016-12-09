@@ -4,13 +4,13 @@
 PostProcessVisualizeComplexity.cpp: Contains definitions for complexity viewmode.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessStreamingAccuracyLegend.h"
+#include "PostProcess/PostProcessStreamingAccuracyLegend.h"
+#include "CanvasTypes.h"
+#include "UnrealEngine.h"
+#include "RenderTargetTemp.h"
 #include "SceneUtils.h"
-#include "PostProcessing.h"
 #include "DebugViewModeRendering.h"
+#include "SceneRendering.h"
 
 void FRCPassPostProcessStreamingAccuracyLegend::DrawDesc(FCanvas& Canvas, float PosX, float PosY, const FText& Text)
 {
@@ -48,13 +48,17 @@ void FRCPassPostProcessStreamingAccuracyLegend::DrawCustom(FRenderingCompositePa
 	FRenderTargetTemp TempRenderTarget(View, (const FTexture2DRHIRef&)PassOutputs[0].RequestSurface(Context).TargetableTexture);
 	FCanvas Canvas(&TempRenderTarget, NULL, ViewFamily.CurrentRealTime, ViewFamily.CurrentWorldTime, ViewFamily.DeltaWorldTime, Context.GetFeatureLevel());
 
-	if (ViewFamily.GetDebugViewShaderMode() == DVSM_MaterialTexCoordScalesAccuracy)
+	if (ViewFamily.GetDebugViewShaderMode() == DVSM_RequiredTextureResolution)
 	{
-		DrawDesc(Canvas, DestRect.Min.X + 115, DestRect.Max.Y - 75, LOCTEXT("DescMaterialTexCoordScalesAccuracy", "Shows under/over texture streaming caused by material texcoord scales."));
+		DrawDesc(Canvas, DestRect.Min.X + 115, DestRect.Max.Y - 75, LOCTEXT("DescRequiredTextureResolution", "Shows the ratio between the currently streamed texture resolution and the resolution wanted by the GPU."));
 	}
-	else if (ViewFamily.GetDebugViewShaderMode() == DVSM_MeshTexCoordSizeAccuracy)
+	else if (ViewFamily.GetDebugViewShaderMode() == DVSM_MaterialTextureScaleAccuracy)
 	{
-		DrawDesc(Canvas, DestRect.Min.X + 115, DestRect.Max.Y - 75, LOCTEXT("DescMeshTexCoordSizeAccuracy", "Shows under/over texture streaming caused by mesh texcoord mappings in world units."));
+		DrawDesc(Canvas, DestRect.Min.X + 115, DestRect.Max.Y - 75, LOCTEXT("DescMaterialTextureScaleAccuracy", "Shows under/over texture streaming caused by the material texture scales applied when sampling."));
+	}
+	else if (ViewFamily.GetDebugViewShaderMode() == DVSM_MeshUVDensityAccuracy)
+	{
+		DrawDesc(Canvas, DestRect.Min.X + 115, DestRect.Max.Y - 75, LOCTEXT("DescUVDensityAccuracy", "Shows under/over texture streaming caused by the mesh UV densities."));
 	}
 	else if (ViewFamily.GetDebugViewShaderMode() == DVSM_PrimitiveDistanceAccuracy)
 	{
@@ -62,19 +66,18 @@ void FRCPassPostProcessStreamingAccuracyLegend::DrawCustom(FRenderingCompositePa
 		DrawDesc(Canvas, DestRect.Min.X + 165, DestRect.Max.Y - 75, LOCTEXT("DescPrimitiveDistanceAccuracy2", "distance-to-mesh via bounding box versus the actual per-pixel depth value."));
 	}
 
-	DrawBox(Canvas, DestRect.Min.X + 115, DestRect.Max.Y - 50, Colors[0], LOCTEXT("2XUnder", "2X Under"));
-	DrawBox(Canvas, DestRect.Min.X + 215, DestRect.Max.Y - 50, Colors[1], LOCTEXT("1XUnder", "1X Under"));
-	DrawBox(Canvas, DestRect.Min.X + 315, DestRect.Max.Y - 50, Colors[2], LOCTEXT("Good", "Good"));
-	DrawBox(Canvas, DestRect.Min.X + 415, DestRect.Max.Y - 50, Colors[3], LOCTEXT("1xOver", "1X Over"));
-	DrawBox(Canvas, DestRect.Min.X + 515, DestRect.Max.Y - 50, Colors[4], LOCTEXT("2XOver", "2X Over"));
+	DrawBox(Canvas, DestRect.Min.X + 115, DestRect.Max.Y - 25, Colors[0], LOCTEXT("2XUnder", "2X+ Under"));
+	DrawBox(Canvas, DestRect.Min.X + 215, DestRect.Max.Y - 25, Colors[1], LOCTEXT("1XUnder", "1X Under"));
+	DrawBox(Canvas, DestRect.Min.X + 315, DestRect.Max.Y - 25, Colors[2], LOCTEXT("Good", "Good"));
+	DrawBox(Canvas, DestRect.Min.X + 415, DestRect.Max.Y - 25, Colors[3], LOCTEXT("1xOver", "1X Over"));
+	DrawBox(Canvas, DestRect.Min.X + 515, DestRect.Max.Y - 25, Colors[4], LOCTEXT("2XOver", "2X+ Over"));
 
 	const FLinearColor UndefColor(UndefinedStreamingAccuracyIntensity, UndefinedStreamingAccuracyIntensity, UndefinedStreamingAccuracyIntensity, 1.f);
-	DrawBox(Canvas, DestRect.Min.X + 615, DestRect.Max.Y - 50, UndefColor, LOCTEXT("Undefined", "Undefined"));
+	DrawBox(Canvas, DestRect.Min.X + 615, DestRect.Max.Y - 25, UndefColor, LOCTEXT("Undefined", "Undefined"));
 	
-	if (ViewFamily.GetDebugViewShaderMode() == DVSM_MaterialTexCoordScalesAccuracy)
+	if (ViewFamily.GetDebugViewShaderMode() == DVSM_MaterialTextureScaleAccuracy || ViewFamily.GetDebugViewShaderMode() == DVSM_MeshUVDensityAccuracy)
 	{
-		DrawCheckerBoard(Canvas, DestRect.Min.X + 115, DestRect.Max.Y - 25, Colors[0], Colors[4], LOCTEXT("WorstUnderAndOver", "Worst Under / Worst Over"));
-		DrawCheckerBoard(Canvas, DestRect.Min.X + 415, DestRect.Max.Y - 25, FLinearColor::Black, FLinearColor::White, LOCTEXT("MissingShader", "Missing Shader"));
+		DrawCheckerBoard(Canvas, DestRect.Min.X + 715, DestRect.Max.Y - 25, Colors[0], Colors[4], LOCTEXT("WorstUnderAndOver", "Worst Under / Worst Over"));
 	}
 
 	Canvas.Flush_RenderThread(Context.RHICmdList);

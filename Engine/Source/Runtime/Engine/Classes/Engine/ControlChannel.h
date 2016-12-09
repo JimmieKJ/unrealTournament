@@ -2,8 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/CoreNet.h"
+#include "Engine/Channel.h"
 #include "ControlChannel.generated.h"
 
+class FInBunch;
+class FOutBunch;
+class UNetConnection;
 
 /**
  * A queued control channel message

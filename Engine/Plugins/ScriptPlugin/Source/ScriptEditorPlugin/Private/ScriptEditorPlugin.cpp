@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ScriptEditorPluginPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "IScriptEditorPlugin.h"
 #include "ScriptBlueprintCompiler.h"
 #include "KismetCompilerModule.h"
 #include "ScriptBlueprintEditor.h"
+#include "ScriptEditorPluginLog.h"
+#include "AssetTypeActions_Base.h"
+#include "Misc/MessageDialog.h"
 
 DEFINE_LOG_CATEGORY(LogScriptEditorPlugin);
 

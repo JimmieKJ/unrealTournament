@@ -2,7 +2,7 @@
 	"FileVersion" : 3,
 	
 	"FriendlyName" : "Online Framework Plugin",
-	"Version" : 1,
+	"Version" : 2,
 	"VersionName" : "1.0",
 	"EngineVersion" : "4.2.0",
 	"Description" : "Shared code for interacting with online gameplay services.",
@@ -26,6 +26,10 @@
         },
         {
             "Name": "Hotfix",
+            "Type": "Runtime"
+        },
+        {
+            "Name": "Rejoin",
             "Type": "Runtime"
         }
     ]

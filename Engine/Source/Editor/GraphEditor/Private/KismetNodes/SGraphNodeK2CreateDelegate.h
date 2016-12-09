@@ -2,13 +2,23 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "KismetNodes/SGraphNodeK2Base.h"
+
+class ITableRow;
+class SComboButton;
+class STableViewBase;
+class SVerticalBox;
+class UK2Node;
+
 class SGraphNodeK2CreateDelegate : public SGraphNodeK2Base
 {
 public:
-	SLATE_BEGIN_ARGS(SGraphNodeK2CreateDelegate){}
+	SLATE_BEGIN_ARGS(SGraphNodeK2CreateDelegate) {}
 	SLATE_END_ARGS()
 
-	struct FFunctionItemData
+		struct FFunctionItemData
 	{
 		FName Name;
 		FString Description;
@@ -16,13 +26,13 @@ public:
 	TArray<TSharedPtr<FFunctionItemData>> FunctionDataItems;
 	TWeakPtr<SComboButton> SelectFunctionWidget;
 public:
-	static FString FunctionDescription(const UFunction* Function);
-
 	virtual ~SGraphNodeK2CreateDelegate();
 	void Construct(const FArguments& InArgs, UK2Node* InNode);
-	virtual void CreateBelowWidgetControls(TSharedPtr<SVerticalBox> MainBox) override;
+	virtual void CreateBelowPinControls(TSharedPtr<SVerticalBox> MainBox) override;
 
 protected:
+	static FString FunctionDescription(const UFunction* Function, const bool bOnlyDescribeSignature = false, const int32 CharacterLimit = 32);
+
 	FText GetCurrentFunctionDescription() const;
 	TSharedRef<ITableRow> HandleGenerateRowFunction(TSharedPtr<FFunctionItemData> FunctionItemData, const TSharedRef<STableViewBase>& OwnerTable);
 	void OnFunctionSelected(TSharedPtr<FFunctionItemData> FunctionItemData, ESelectInfo::Type SelectInfo);

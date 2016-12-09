@@ -1,8 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "DockingPrivate.h"
-#include "TabCommands.h"
+#include "Framework/Docking/SDockingTabStack.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Framework/Docking/SDockingTabWell.h"
+#include "Framework/Docking/SDockingCross.h"
+#include "Framework/Docking/FDockingDragOperation.h"
+#include "Framework/Docking/TabCommands.h"
 
 #define LOCTEXT_NAMESPACE "DockTabStack"
 

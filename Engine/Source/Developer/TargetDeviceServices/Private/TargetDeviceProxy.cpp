@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TargetDeviceServicesPrivatePCH.h"
+#include "TargetDeviceProxy.h"
+#include "HAL/PlatformProcess.h"
+#include "Helpers/FileMessageAttachment.h"
+#include "Helpers/MessageEndpointBuilder.h"
+#include "TargetDeviceServiceMessages.h"
 
 
 /* FTargetDeviceProxy structors
@@ -212,7 +216,7 @@ bool FTargetDeviceProxy::DeployApp(FName InVariant, const TMap<FString, FString>
 {
 	for (TMap<FString, FString>::TConstIterator It(Files); It; ++It)
 	{
-		IMessageAttachmentRef FileAttachment = MakeShareable(new FFileMessageAttachment(It.Key()));
+		TSharedRef<IMessageAttachment, ESPMode::ThreadSafe> FileAttachment = MakeShareable(new FFileMessageAttachment(It.Key()));
 		FString SourcePath = It.Key();
 
 		MessageEndpoint->Send(new FTargetDeviceServiceDeployFile(It.Value(), TransactionId), FileAttachment, MessageAddress);

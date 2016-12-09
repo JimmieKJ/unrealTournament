@@ -2,12 +2,18 @@
 
 #pragma once
 
-#include "ITextInputMethodSystem.h"
+#include "CoreTypes.h"
+#include "Templates/MemoryOps.h"
+#include "Containers/Array.h"
+#include "Templates/SharedPointer.h"
 
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 #include <TextStor.h>
 #include <msctf.h>
 #include "COMPointer.h"
+
+class ITextInputMethodContext;
 
 class FTextStoreACP : public ITextStoreACP, public ITfContextOwnerCompositionSink
 {

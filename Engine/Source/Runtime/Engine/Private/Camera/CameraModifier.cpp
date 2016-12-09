@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "ParticleDefinitions.h"
-
-#include "Net/UnrealNetwork.h"
 #include "Camera/CameraModifier.h"
+#include "Camera/PlayerCameraManager.h"
+
 
 //////////////////////////////////////////////////////////////////////////
 

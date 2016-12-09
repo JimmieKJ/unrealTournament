@@ -2,10 +2,13 @@
 
 #pragma once
 
-#include "OnlineFriendsInterface.h"
+#include "CoreMinimal.h"
+#include "OnlineSubsystem.h"
+#include "Interfaces/OnlineFriendsInterface.h"
+#include "Interfaces/OnlineSharingInterface.h"
+#include "Interfaces/OnlinePresenceInterface.h"
 #include "OnlineSharingFacebook.h"
 #include "OnlineSubsystemFacebookPackage.h"
-#include "OnlinePresenceInterface.h"
 
 /**
  * Info associated with an online friend on the facebook service

@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "UHTMakefile/ClassMetaDataArchiveProxy.h"
 
+#include "CoreMinimal.h"
+#include "ClassMetaDataArchiveProxy.h"
+
+class UStruct;
+class FClassMetaData;
+class FArchive;
 class FCompilerMetadataManager;
 class FUHTMakefile;
 

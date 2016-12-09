@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/ContainerAllocationPolicies.h"
+#include "Containers/Array.h"
+#include "Math/UnrealMathUtility.h"
+#include "Delegates/IDelegateInstance.h"
+#include "Delegates/DelegateBase.h"
 
 /**
  * Abstract base class for multicast delegates.

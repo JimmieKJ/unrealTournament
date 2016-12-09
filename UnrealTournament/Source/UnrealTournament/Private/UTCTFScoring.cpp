@@ -202,7 +202,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		// flag kill or return enabling score gets bonus and assist
 		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 		{
-			AController* C = *Iterator;
+			AController* C = Iterator->Get();
 			AUTPlayerState* PS =  C ? Cast<AUTPlayerState>(C->PlayerState) : NULL;
 			if (PS && (PS != ScorerPS) && CTFGameState->OnSameTeam(PS, ScorerPS))
 			{

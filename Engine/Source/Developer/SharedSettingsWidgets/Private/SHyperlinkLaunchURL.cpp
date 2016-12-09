@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SharedSettingsWidgetsPrivatePCH.h"
 #include "SHyperlinkLaunchURL.h"
+#include "HAL/PlatformProcess.h"
 #include "EditorStyleSet.h"
-#include "SHyperlink.h"
+#include "Widgets/Input/SHyperlink.h"
 
 #define LOCTEXT_NAMESPACE "SHyperlinkLaunchURL"
 

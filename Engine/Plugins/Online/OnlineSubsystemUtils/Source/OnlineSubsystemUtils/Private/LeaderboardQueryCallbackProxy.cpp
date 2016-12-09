@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
-#include "Classes/LeaderboardQueryCallbackProxy.h"
+#include "LeaderboardQueryCallbackProxy.h"
+#include "TimerManager.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/PlayerState.h"
+#include "OnlineSubsystem.h"
+#include "Engine/World.h"
 
 //////////////////////////////////////////////////////////////////////////
 // ULeaderboardQueryCallbackProxy

@@ -1,12 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "VertexSnapping.h"
-#include "StaticMeshResources.h"
+#include "GameFramework/Actor.h"
+#include "Misc/App.h"
+#include "SceneView.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "SkeletalMeshTypes.h"
+#include "Components/SkinnedMeshComponent.h"
+#include "Editor/GroupActor.h"
 #include "Components/BrushComponent.h"
-#include "Engine/Polys.h"
 #include "Engine/Selection.h"
 #include "EngineUtils.h"
+#include "EditorViewportClient.h"
+#include "LevelEditorViewport.h"
+#include "EditorModeManager.h"
+#include "StaticMeshResources.h"
+#include "Engine/Polys.h"
 
 namespace VertexSnappingConstants
 {
@@ -67,8 +77,8 @@ public:
 	FStaticMeshVertexIterator( UStaticMeshComponent* SMC )
 		: ComponentToWorldIT( SMC->ComponentToWorld.ToInverseMatrixWithScale().GetTransposed() )
 		, StaticMeshComponent( SMC )
-		, PositionBuffer( SMC->StaticMesh->RenderData->LODResources[0].PositionVertexBuffer )
-		, VertexBuffer( SMC->StaticMesh->RenderData->LODResources[0].VertexBuffer )
+		, PositionBuffer( SMC->GetStaticMesh()->RenderData->LODResources[0].PositionVertexBuffer )
+		, VertexBuffer( SMC->GetStaticMesh()->RenderData->LODResources[0].VertexBuffer )
 		, CurrentVertexIndex( 0 )
 	{
 
@@ -242,7 +252,7 @@ private:
 static TSharedPtr<FVertexIterator> MakeVertexIterator( UPrimitiveComponent* Component )
 {
 	UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>( Component );
-	if( SMC && SMC->StaticMesh )
+	if( SMC && SMC->GetStaticMesh())
 	{
 		return MakeShareable( new FStaticMeshVertexIterator( SMC ) );
 	}
@@ -412,7 +422,7 @@ bool FVertexSnappingImpl::GetClosestVertexOnComponent( const FSnapActor& SnapAct
 			{
 				// When moving in screen space compute the vertex closest to the mouse location for more accuracy
 
-				FVector ViewToVertex = View->ViewMatrices.ViewOrigin - Position;
+				FVector ViewToVertex = View->ViewMatrices.GetViewOrigin() - Position;
 
 				// Ignore backface vertices 
 				if( View->IsPerspectiveProjection() && Normal != FVector::ZeroVector && FVector::DotProduct( ViewToVertex, Normal ) < 0 )
@@ -430,7 +440,7 @@ bool FVertexSnappingImpl::GetClosestVertexOnComponent( const FSnapActor& SnapAct
 
 					if( !bOutside )
 					{
-						DistanceFromCamera = View->IsPerspectiveProjection() ? FVector::DistSquared( Position, View->ViewMatrices.ViewOrigin ) : 0;
+						DistanceFromCamera = View->IsPerspectiveProjection() ? FVector::DistSquared( Position, View->ViewMatrices.GetViewOrigin() ) : 0;
 						Distance = FVector::DistSquared( FVector( MousePosition, 0 ), FVector( PixelPos, 0 ) );
 					}
 				}

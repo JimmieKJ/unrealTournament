@@ -1,8 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ModuleManager.h"
-#include "Editor/SceneOutliner/Public/SceneOutlinerModule.h"
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Layout/Visibility.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Geometry.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Input/SButton.h"
+#include "Misc/TextFilter.h"
+#include "Editor/Layers/Private/ActorsAssignedToSpecificLayersFilter.h"
+#include "ISceneOutlinerColumn.h"
+#include "Editor/Layers/Private/SceneOutlinerLayerContentsColumn.h"
+#include "DragAndDrop/ActorDragDropGraphEdOp.h"
+#include "Editor/Layers/Private/SLayersView.h"
+#include "Editor/Layers/Private/SLayersCommandsMenu.h"
+
+class ISceneOutliner;
 
 typedef TTextFilter< const TSharedPtr< FLayerViewModel >& > LayerTextFilter;
 

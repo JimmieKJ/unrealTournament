@@ -2,8 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/Orientation/ParticleModuleOrientationBase.h"
 #include "ParticleModuleOrientationAxisLock.generated.h"
+
+struct FParticleEmitterInstance;
 
 // Flags indicating lock
 UENUM()

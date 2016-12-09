@@ -1,9 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SOutlinerTreeView.h"
-#include "SceneOutlinerStandaloneTypes.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Misc/Attribute.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "EditorUndoClient.h"
+#include "Misc/TextFilter.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "ISceneOutliner.h"
+#include "SceneOutlinerPublicTypes.h"
+#include "Editor/SceneOutliner/Private/SOutlinerTreeView.h"
+#include "Editor/SceneOutliner/Private/SceneOutlinerStandaloneTypes.h"
+
+class FMenuBuilder;
+class ISceneOutlinerColumn;
+class SComboButton;
+
+template<typename ItemType> class STreeView;
 
 /**
  * Scene Outliner definition

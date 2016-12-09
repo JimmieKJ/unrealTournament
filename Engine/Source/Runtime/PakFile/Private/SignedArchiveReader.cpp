@@ -1,14 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PakFilePrivatePCH.h"
-#include "IPlatformFilePak.h"
-#include "SecureHash.h"
-#include "FileManagerGeneric.h"
-#include "ModuleManager.h"
-#include "IPlatformFileModule.h"
-#include "IOBase.h"
-#include "BigInt.h"
 #include "SignedArchiveReader.h"
+#include "HAL/FileManager.h"
+#include "HAL/Event.h"
+#include "HAL/RunnableThread.h"
 #include "PublicKey.inl"
 
 DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("FChunkCacheWorker.ProcessQueue"), STAT_FChunkCacheWorker_ProcessQueue, STATGROUP_PakFile);
@@ -16,11 +11,6 @@ DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("FChunkCacheWorker.CheckSignature"), STAT_FC
 
 DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("FChunkCacheWorker.Serialize"), STAT_FChunkCacheWorker_Serialize, STATGROUP_PakFile);
 DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("FChunkCacheWorker.HashBuffer"), STAT_FChunkCacheWorker_HashBuffer, STATGROUP_PakFile);
-DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("FChunkCacheWorker.DecryptDuringIdle"), STAT_FChunkCacheWorker_DecryptDuringIdle, STATGROUP_PakFile);
-DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("FChunkCacheWorker.DecryptDuringVerify"), STAT_FChunkCacheWorker_DecryptDuringVerify, STATGROUP_PakFile);
-DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("FChunkCacheWorker.WaitForHashThread"), STAT_FChunkCacheWorker_WaitForHashThread, STATGROUP_PakFile);
-DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("FChunkCacheWorker.SignaturesDecryptedDuringVerify"), STAT_FChunkCacheWorker_SignaturesDecryptedDuringVerify, STATGROUP_PakFile);
-DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("FChunkCacheWorker.SignaturesDecryptedDuringIdle"), STAT_FChunkCacheWorker_SignaturesDecryptedDuringIdle, STATGROUP_PakFile);
 
 DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("FSignedArchiveReader.Serialize"), STAT_SignedArchiveReader_Serialize, STATGROUP_PakFile);
 
@@ -28,6 +18,8 @@ FChunkCacheWorker::FChunkCacheWorker(FArchive* InReader, const TCHAR* Filename)
 	: Reader(InReader)
 	, QueuedRequestsEvent(NULL)
 {
+	SetupDecryptionKey();
+
 	FString SigFileFilename = FPaths::ChangeExtension(Filename, TEXT("sig"));
 	FArchive* SigFileReader = IFileManager::Get().CreateFileReader(*SigFileFilename);
 
@@ -36,15 +28,15 @@ FChunkCacheWorker::FChunkCacheWorker(FArchive* InReader, const TCHAR* Filename)
 		UE_LOG(LogPakFile, Fatal, TEXT("Couldn't find pak signature file '%s'"), *Filename);
 	}
 
-	*SigFileReader << EncryptedSignatures;
+	FEncryptedSignature MasterSignature;
+	*SigFileReader << MasterSignature;
+	*SigFileReader << ChunkHashes;
 	delete SigFileReader;
 
-	EncryptedSignaturesCRC = FCrc::MemCrc32(&EncryptedSignatures[0], EncryptedSignatures.Num() * sizeof(FEncryptedSignature));
-	DecryptedSignaturesCRC = 0;
-
-	DecryptedSignatures.AddDefaulted(EncryptedSignatures.Num());
-
-	SetupDecryptionKey();
+	uint32 ChunkHashesCRC = ComputePakChunkHash(&ChunkHashes[0], ChunkHashes.Num() * sizeof(TPakChunkHash));
+	FDecryptedSignature DecryptedMasterSignature;
+	FEncryption::DecryptSignature(MasterSignature, DecryptedMasterSignature, DecryptionKey);
+	ensure(DecryptedMasterSignature.Data == ChunkHashesCRC);
 
 	QueuedRequestsEvent = FPlatformProcess::GetSynchEventFromPool();
 	Thread = FRunnableThread::Create(this, TEXT("FChunkCacheWorker"), 0, TPri_BelowNormal);
@@ -88,57 +80,13 @@ void FChunkCacheWorker::SetupDecryptionKey()
 	UE_CLOG(bIdentical, LogPakFile, Fatal, TEXT("Decryption key produces identical results to source data."));
 }
 
-void FChunkCacheWorker::DecryptSignatures(int32 NextIndexToDecrypt)
-{
-	FDecryptedSignature& DecryptedSignature = DecryptedSignatures[NextIndexToDecrypt];
-
-	// Check to see if this signature was already decrypted.
-	if (!DecryptedSignature.IsValid())
-	{
-		INC_DWORD_STAT(STAT_FChunkCacheWorker_SignaturesDecryptedDuringIdle);
-		SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_DecryptDuringIdle);
-		FEncryptedSignature& EncryptedSignature = EncryptedSignatures[NextIndexToDecrypt];
-		FEncryption::DecryptSignature(EncryptedSignature, DecryptedSignature, DecryptionKey);
-	}
-}
-
 uint32 FChunkCacheWorker::Run()
-{
-	int32 NextIndexToDecrypt = 0;
-	LastDecryptedSignatureIndex = -1;
-	StartTime = FPlatformTime::Seconds();
-	
+{	
 	while (StopTaskCounter.GetValue() == 0)
 	{
-		int32 ProcessedRequests = ProcessQueue();		
-		if (ProcessedRequests == 0)
+		if (ProcessQueue() == 0)
 		{
-			uint32 WaitTime = 500;
-
-			// Try and decrypt some signatures if there are any left
-			if (NextIndexToDecrypt < EncryptedSignatures.Num())
-			{
-				check(NextIndexToDecrypt < EncryptedSignatures.Num());
-
-				DecryptSignatures(NextIndexToDecrypt);
-				LastDecryptedSignatureIndex = NextIndexToDecrypt;
-
-				if (++NextIndexToDecrypt == EncryptedSignatures.Num())
-				{
-					double Time = FPlatformTime::Seconds() - StartTime;
-					UE_LOG(LogPakFile, Log, TEXT("PakFile signature decryption complete in %.2fs"), Time);
-
-					DecryptedSignaturesCRC = FCrc::MemCrc32(&DecryptedSignatures[0], DecryptedSignatures.Num() * sizeof(FDecryptedSignature));
-				}
-				else
-				{
-					// There are more signatures to decrypt, so don't stall on event wait if there are
-					// no pending chunk requests
-					WaitTime = 0;
-				}
-			}
-
-			QueuedRequestsEvent->Wait(WaitTime);
+			QueuedRequestsEvent->Wait(500);
 		}
 	}
 	return 0;
@@ -260,67 +208,33 @@ bool FChunkCacheWorker::CheckSignature(const FChunkRequest& ChunkInfo)
 {
 	SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_CheckSignature);
 
-	FDecryptedSignature SourceSignature;
-	const int32 MaxNumRetries = 3;
-	int32 RetriesRemaining = MaxNumRetries;
-	bool bPakChunkSignaturesMatched = false;
+	TPakChunkHash ChunkHash = 0;
 
-	while (!bPakChunkSignaturesMatched && RetriesRemaining >= 0)
 	{
-		{
-			SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_Serialize);
-			Reader->Seek(ChunkInfo.Offset);
-			Reader->Serialize(ChunkInfo.Buffer->Data, ChunkInfo.Size);
-		}
-		{
-			SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_HashBuffer);
-			SourceSignature.Data = FCrc::MemCrc32(ChunkInfo.Buffer->Data, ChunkInfo.Size);
-		}
-
-		// Decrypt serialized hash
-		FDecryptedSignature& DecryptedSignature = DecryptedSignatures[ChunkInfo.Index];
-
-		if (RetriesRemaining < MaxNumRetries || !DecryptedSignature.IsValid())
-		{
-			INC_DWORD_STAT(STAT_FChunkCacheWorker_SignaturesDecryptedDuringVerify);
-			SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_DecryptDuringVerify);
-			FEncryptedSignature EncryptedSignature = EncryptedSignatures[ChunkInfo.Index];
-			check(EncryptedSignature.IsValid());
-			FEncryption::DecryptSignature(EncryptedSignature, DecryptedSignature, DecryptionKey);
-			check(DecryptedSignature.IsValid());
-		}
-
-		// Compare hashes
-		bPakChunkSignaturesMatched = DecryptedSignature == SourceSignature;
-		--RetriesRemaining;
+		SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_Serialize);
+		Reader->Seek(ChunkInfo.Offset);
+		Reader->Serialize(ChunkInfo.Buffer->Data, ChunkInfo.Size);
+	}
+	{
+		SCOPE_SECONDS_ACCUMULATOR(STAT_FChunkCacheWorker_HashBuffer);
+		ChunkHash = ComputePakChunkHash(ChunkInfo.Buffer->Data, ChunkInfo.Size);
 	}
 
-	if (!bPakChunkSignaturesMatched)
+	bool bHashesMatch = (ChunkHash == ChunkHashes[ChunkInfo.Index]);
+	if (!bHashesMatch)
 	{
-		// Check that the encrypted signatures data is the same as it was when we started up
-		int32 CurrentEncryptedSignaturesCRC = FCrc::MemCrc32(&EncryptedSignatures[0], EncryptedSignatures.Num() * sizeof(FEncryptedSignature));
-		ensure(CurrentEncryptedSignaturesCRC == EncryptedSignaturesCRC);
-
-		// If we finished decrypting all the signatures, check that they are still the same as they were when decryption completed
-		if (DecryptedSignaturesCRC != 0)
-		{
-			int32 CurrentDecryptedSignaturesCRC = FCrc::MemCrc32(&DecryptedSignatures[0], DecryptedSignatures.Num() * sizeof(FDecryptedSignature));
-			ensure(CurrentDecryptedSignaturesCRC == DecryptedSignaturesCRC);
-		}
-
 		UE_LOG(LogPakFile, Warning, TEXT("Pak chunk signature verification failed!"));
 		UE_LOG(LogPakFile, Warning, TEXT("  Chunk Index: %d"), ChunkInfo.Index);
 		UE_LOG(LogPakFile, Warning, TEXT("  Chunk Offset: %d"), ChunkInfo.Offset);
 		UE_LOG(LogPakFile, Warning, TEXT("  Chunk Size: %d"), ChunkInfo.Size);
-		UE_LOG(LogPakFile, Warning, TEXT("  Background decrypt: %d\\%d"), LastDecryptedSignatureIndex, DecryptedSignatures.Num());
-
-		ensure(bPakChunkSignaturesMatched);
+	
+		ensure(bHashesMatch);
 
 		//FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, TEXT("Corrupt Installation Detected. Please use \"Verify\" in the Epic Games Launcher"), TEXT("Pakfile Error"));
 		//FPlatformMisc::RequestExit(1);
 	}
 	
-	return bPakChunkSignaturesMatched;
+	return bHashesMatch;
 }
 
 FChunkRequest& FChunkCacheWorker::RequestChunk(int32 ChunkIndex, int64 StartOffset, int64 ChunkSize)

@@ -15,6 +15,7 @@
 #include "ITargetPlatformManagerModule.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "Net/UnrealNetwork.h"
+#include "Misc/NetworkVersion.h"
 
 #define LOCTEXT_NAMESPACE "PackageContent"
 

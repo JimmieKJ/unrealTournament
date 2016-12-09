@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
+#include "SNodePanel.h"
+#include "Rendering/DrawElements.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorStyleSettings.h"
+#include "Settings/LevelEditorViewportSettings.h"
 #include "ScopedTransaction.h"
-#include "MarqueeOperation.h"
 
 struct FZoomLevelEntry
 {
@@ -276,9 +280,9 @@ FVector2D SNodePanel::GetViewOffset() const
 
 void SNodePanel::Construct()
 {
-	if (!ZoomLevels.IsValid())
+	if (!ZoomLevels)
 	{
-		ZoomLevels = new FFixedZoomLevelsContainer();
+		ZoomLevels = MakeUnique<FFixedZoomLevelsContainer>();
 	}
 	ZoomLevel = ZoomLevels->GetDefaultZoomLevel();
 	PreviousZoomLevel = ZoomLevels->GetDefaultZoomLevel();
@@ -519,6 +523,7 @@ FReply SNodePanel::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointe
 		ReplyState.UseHighPrecisionMouseMovement( SharedThis(this) );
 
 		DeferredMovementTargetObject = nullptr; // clear any interpolation when you manually zoom
+		CancelZoomToFit();
 		TotalMouseDeltaY = 0;
 
 		if (!FSlateApplication::Get().IsUsingTrackpad()) // on trackpad we don't know yet if user wants to zoom or bring up the context menu
@@ -576,6 +581,7 @@ FReply SNodePanel::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointe
 		SoftwareCursorPosition = PanelCoordToGraphCoord( MyGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() ) );
 
 		DeferredMovementTargetObject = nullptr; // clear any interpolation when you manually pan
+		CancelZoomToFit();
 
 		// RIGHT BUTTON is for dragging and Context Menu.
 		return ReplyState;
@@ -705,8 +711,8 @@ FReply SNodePanel::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent&
 
 						// Snap to grid
 						const float SnapSize = GetSnapGridSize();
-						AnchorNodeNewPos.X = SnapSize * FMath::RoundToFloat(AnchorNodeNewPos.X/SnapSize);
-						AnchorNodeNewPos.Y = SnapSize * FMath::RoundToFloat(AnchorNodeNewPos.Y/SnapSize);
+						AnchorNodeNewPos.X = SnapSize * FMath::RoundToFloat( AnchorNodeNewPos.X / SnapSize );
+						AnchorNodeNewPos.Y = SnapSize * FMath::RoundToFloat( AnchorNodeNewPos.Y / SnapSize );
 
 						// Dragging an unselected node automatically selects it.
 						SelectionManager.StartDraggingNode(NodeBeingDragged->GetObjectBeingDisplayed(), MouseEvent);
@@ -1141,6 +1147,11 @@ void SNodePanel::RestoreViewSettings(const FVector2D& InViewOffset, float InZoom
 	// This is so our locked window isn't forced to update according to this movement.
 	OldViewOffset = ViewOffset;
 	OldZoomAmount = GetZoomAmount();
+}
+
+float SNodePanel::GetSnapGridSize()
+{
+	return GetDefault<UEditorStyleSettings>()->GridSnapSize;
 }
 
 inline float FancyMod(float Value, float Size)

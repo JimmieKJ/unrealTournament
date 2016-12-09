@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Engine/TextureDefines.h"
+#include "IDetailCustomNodeBuilder.h"
+#include "UnrealClient.h"
+
+class FDetailWidgetRow;
+class IDetailCategoryBuilder;
+class IDetailChildrenBuilder;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class IPropertyHandleArray;
 struct FTextureLODGroup;
 
 /**

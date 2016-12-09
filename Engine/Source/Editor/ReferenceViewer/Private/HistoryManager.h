@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetData.h"
+
+class FMenuBuilder;
+
 /** The history data object, storing all important history data */
 struct FReferenceViewerHistoryData
 {
@@ -9,7 +14,7 @@ struct FReferenceViewerHistoryData
 	FText HistoryDesc;
 
 	/** The list of package names to serve as the root */
-	TArray<FName> PackageNames;
+	TArray<FAssetIdentifier> Identifiers;
 };
 
 /** The delegate for when history data should be applied */

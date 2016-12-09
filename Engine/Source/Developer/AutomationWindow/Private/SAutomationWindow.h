@@ -2,10 +2,33 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Interfaces/IAutomationReport.h"
+#include "ISessionManager.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Developer/AutomationWindow/Private/SAutomationGraphicalResultBox.h"
+#include "Developer/AutomationWindow/Private/SAutomationTestTreeView.h"
+
 #if WITH_EDITOR
 #include "IAssetRegistry.h"
 #endif
 
+class FAutomationFilter;
+class FAutomationTestPresetManager;
+class FUICommandList;
+class SAutomationWindowCommandBar;
+class SCheckBox;
+class SEditableTextBox;
+struct FAutomationTestPreset;
+template< typename ItemType > class TTextFilter;
 
 /** Columns for the test tree view */
 namespace AutomationTestWindowConstants
@@ -76,7 +99,7 @@ public:
 	/**
 	 * Constructs the widget.
 	 */
-	void Construct(const FArguments& InArgs, const IAutomationControllerManagerRef& AutomationController, const ISessionManagerRef& InSessionManager);
+	void Construct(const FArguments& InArgs, const IAutomationControllerManagerRef& AutomationController, const TSharedRef<ISessionManager>& InSessionManager);
 
 	/**
 	* Check tests aren't running.
@@ -289,11 +312,6 @@ private:
 	/** Toggles whether we are tracking history of automation tests */
 	void OnToggleTrackHistory(ECheckBoxState InState);
 
-	/** Returns if full size screen shots are enabled */
-	ECheckBoxState IsFullSizeScreenshotsCheckBoxChecked() const;
-	/** Toggles if we are collecting full size screenshots */
-	void HandleFullSizeScreenshotsBoxCheckStateChanged(ECheckBoxState CheckBoxState);
-
 	/** Returns if analytics should be sent to the back end*/
 	ECheckBoxState IsSendAnalyticsCheckBoxChecked() const;
 	/** Toggles if we are sending analytics results from the tests*/
@@ -378,14 +396,14 @@ private:
 	EVisibility HandleSelectSessionOverlayVisibility( ) const;
 
 	/** Callback for determining whether a session can be selected in the session manager. */
-	void HandleSessionManagerCanSelectSession( const ISessionInfoPtr& Session, bool& CanSelect );
+	void HandleSessionManagerCanSelectSession( const TSharedPtr<ISessionInfo>& Session, bool& CanSelect );
 
 	/**
 	 * Session selection has changed in the session manager
 	 *
 	 * @param SelectedSession The session that was selected.
 	 */
-	void HandleSessionManagerSelectionChanged( const ISessionInfoPtr& SelectedSession );
+	void HandleSessionManagerSelectionChanged( const TSharedPtr<ISessionInfo>& SelectedSession );
 
 	/** Called when the session manager updates an instances. */
 	void HandleSessionManagerInstanceChanged();
@@ -531,7 +549,7 @@ private:
 	TSharedPtr<FUICommandList> AutomationWindowActions;
 
 	/** Holds a pointer to the active session. */
-	ISessionInfoPtr ActiveSession;
+	TSharedPtr<ISessionInfo> ActiveSession;
 
 	/** Holds the AutomationController. */
 	IAutomationControllerManagerPtr AutomationController;
@@ -576,7 +594,7 @@ private:
 	TSharedPtr< AutomationFilterCollection > AutomationFilters;
 
 	/** Holds the session manager. */
-	ISessionManagerPtr SessionManager;
+	TSharedPtr<ISessionManager> SessionManager;
 
 	/**
 	 * Holds the automation controller module state.

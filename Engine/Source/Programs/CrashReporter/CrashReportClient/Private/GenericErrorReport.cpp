@@ -1,12 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashReportClientApp.h"
-#include "CrashDebugHelperModule.h"
 #include "GenericErrorReport.h"
-#include "XmlFile.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/PlatformFilemanager.h"
+#include "UObject/NameTypes.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Parse.h"
+#include "Misc/FileHelper.h"
+#include "Internationalization/Text.h"
+#include "CrashReportClientConfig.h"
+#include "Modules/ModuleManager.h"
+#include "CrashDebugHelper.h"
+#include "CrashDebugHelperModule.h"
 #include "CrashReportUtil.h"
-#include "CrashDescription.h"
-#include "EngineBuildSettings.h"
 
 // ----------------------------------------------------------------
 // Helpers
@@ -135,17 +141,17 @@ bool FGenericErrorReport::SetUserComment(const FText& UserComment)
 	}
 
 	// @see FCrashDescription::UpdateIDs
-	const FString EpicMachineAndUserNameIDs = FString::Printf( TEXT( "!MachineId:%s!EpicAccountId:%s!Name:%s" ), *FPrimaryCrashProperties::Get()->MachineId.AsString(), *FPrimaryCrashProperties::Get()->EpicAccountId.AsString(), *FPrimaryCrashProperties::Get()->UserName.AsString() );
+	const FString EpicLoginAndUserNameIDs = FString::Printf( TEXT( "!LoginId:%s!EpicAccountId:%s!Name:%s" ), *FPrimaryCrashProperties::Get()->LoginId.AsString(), *FPrimaryCrashProperties::Get()->EpicAccountId.AsString(), *FPrimaryCrashProperties::Get()->UserName.AsString() );
 
 	// Add or update a user ID.
 	FXmlNode* Parameter4Node = DynamicSignaturesNode->FindChildNode(TEXT("Parameter4"));
 	if( Parameter4Node )
 	{
-		Parameter4Node->SetContent(EpicMachineAndUserNameIDs);
+		Parameter4Node->SetContent(EpicLoginAndUserNameIDs);
 	}
 	else
 	{
-		DynamicSignaturesNode->AppendChildNode(TEXT("Parameter4"), EpicMachineAndUserNameIDs);
+		DynamicSignaturesNode->AppendChildNode(TEXT("Parameter4"), EpicLoginAndUserNameIDs);
 	}
 
 	// Add or update bAllowToBeContacted

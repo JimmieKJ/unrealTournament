@@ -3,6 +3,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class SButton;
+class SImage;
+class SMenuAnchor;
+struct FSlateBrush;
+
 /**
 * Widget that opens a controls help popup when clicked
 */

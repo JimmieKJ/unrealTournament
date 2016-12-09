@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
 
 
 void SInlineEditableTextBlock::Construct( const FArguments& InArgs )
@@ -139,6 +143,11 @@ void SInlineEditableTextBlock::ExitEditingMode()
 bool SInlineEditableTextBlock::IsInEditMode() const
 {
 	return TextBlock->GetVisibility() == EVisibility::Collapsed;
+}
+
+void SInlineEditableTextBlock::SetReadOnly(bool bInIsReadOnly)
+{
+	bIsReadOnly = bInIsReadOnly;
 }
 
 void SInlineEditableTextBlock::SetText( const TAttribute< FText >& InText )

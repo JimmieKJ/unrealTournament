@@ -6,8 +6,8 @@
 
 CC=emcc
 # use the WIN32 defines -- even when building on non-windows hosts
-CFLAGS= $(OPTIMIZATION) -I../Include -DNDEBUG -D_WIN32 -D__MINGW32__ #-std=c++11
-LDFLAGS= $(OPTIMIZATION)
+CFLAGS= $(CFLAGS_EXTRA) $(OPTIMIZATION) -I../Include -DNDEBUG -D_WIN32 -D__MINGW32__ #-std=c++11
+LDFLAGS= $(CFLAGS_EXTRA) $(OPTIMIZATION)
 
 MKDIR=mkdir -p
 RM=rm -f

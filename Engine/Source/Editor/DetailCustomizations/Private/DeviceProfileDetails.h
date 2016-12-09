@@ -2,8 +2,15 @@
 
 #pragma once
 
-#include "TextureLODSettingsDetails.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "IDetailCustomization.h"
 
+class FDeviceProfileTextureLODSettingsDetails;
+class IDetailGroup;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
 
 /* FDeviceProfileParentPropertyDetails
  *****************************************************************************/

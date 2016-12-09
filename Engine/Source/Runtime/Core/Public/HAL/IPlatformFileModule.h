@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "CoreFwd.h"
+#include "Modules/ModuleInterface.h"
 
 /**
  * Platform File Module Interface

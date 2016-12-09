@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /**
  * Given a series of JPEG compressed images, this will wrap them with an AVI header

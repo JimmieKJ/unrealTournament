@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
 #include "hlslcc.h"
 
 enum class EVulkanShaderVersion
 {
 	ES3_1,
-	ES3_1_UB,
+	SM4_UB,
 	ES3_1_ANDROID,
 	SM4,
 	SM5,

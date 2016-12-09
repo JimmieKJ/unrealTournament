@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateRHIRendererPrivatePCH.h"
 #include "SlateNativeTextureResource.h"
+#include "Textures/SlateShaderResource.h"
+#include "Slate/SlateTextures.h"
 
 TSharedPtr<FSlateDynamicTextureResource> FSlateDynamicTextureResource::NullResource = MakeShareable( new FSlateDynamicTextureResource( NULL ) );
 

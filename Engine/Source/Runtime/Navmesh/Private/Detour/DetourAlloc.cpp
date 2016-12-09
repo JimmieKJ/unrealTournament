@@ -19,10 +19,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include <stdlib.h>
-#include <string.h>
-#include "DetourAlloc.h"
+#include "Detour/DetourAlloc.h"
 
 static void *dtAllocDefault(int size, dtAllocHint)
 {

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "PropertyNode.h"
+
 //-----------------------------------------------------------------------------
 //	FObjectPropertyNode - Used for the root and various sub-nodes
 //-----------------------------------------------------------------------------

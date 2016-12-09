@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** The struct representing an item in the asset tree */
 struct FTreeItem : public TSharedFromThis<FTreeItem>
 {

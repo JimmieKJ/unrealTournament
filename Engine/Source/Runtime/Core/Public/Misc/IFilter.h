@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Delegates/Delegate.h"
 
 /**
  * A generic interface that represents a Filter of ItemType.

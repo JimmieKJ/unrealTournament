@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDirectoryWatcher.h"
+
+class FDirectoryWatchRequestLinux;
+
 class FDirectoryWatcherLinux : public IDirectoryWatcher
 {
 public:

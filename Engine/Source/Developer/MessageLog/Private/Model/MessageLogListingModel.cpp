@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessageLogPrivatePCH.h"
-#include "MessageLogListingModel.h"
-#include "MessageLog.h"
+#include "Model/MessageLogListingModel.h"
+#include "Logging/MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "Developer.MessageLog"
 

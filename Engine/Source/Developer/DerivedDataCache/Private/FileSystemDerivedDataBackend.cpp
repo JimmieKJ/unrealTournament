@@ -1,11 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
 
 #include "DerivedDataBackendInterface.h"
 #include "DDCCleanup.h"
 
+#include "ProfilingDebugging/CookStats.h"
 #include "DerivedDataCacheUsageStats.h"
 
 #define MAX_BACKEND_KEY_LENGTH (120)

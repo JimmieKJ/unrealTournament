@@ -5,16 +5,22 @@
 
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "GameFramework/PawnMovementComponent.h"
+#include "Engine/DebugCameraController.h"
+#include "EngineGlobals.h"
+#include "CollisionQueryParams.h"
+#include "Engine/World.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/MapBuildDataRegistry.h"
+#include "Engine/Engine.h"
+#include "Engine/Player.h"
+#include "EngineUtils.h"
 #include "GameFramework/SpectatorPawn.h"
 #include "GameFramework/SpectatorPawnMovement.h"
 #include "Engine/DebugCameraHUD.h"
 #include "LightMap.h"
-#include "Engine/DebugCameraController.h"
 #include "Components/DrawFrustumComponent.h"
 #include "GameFramework/PlayerInput.h"
-#include "GameFramework/GameState.h"
+#include "GameFramework/GameStateBase.h"
 
 /** The currently selected actor. */
 AActor* GDebugSelectedActor = NULL;
@@ -162,9 +168,10 @@ void ADebugCameraController::Select( FHitResult const& Hit )
 	if ( StaticMeshComponent && StaticMeshComponent->LODData.Num() > 0 )
 	{
 		const FStaticMeshComponentLODInfo& LODInfo = StaticMeshComponent->LODData[0];
-		if ( LODInfo.LightMap )
+		const FMeshMapBuildData* MeshMapBuildData = StaticMeshComponent->GetMeshMapBuildData(LODInfo);
+		if ( MeshMapBuildData && MeshMapBuildData->LightMap )
 		{
-			GDebugSelectedLightmap = LODInfo.LightMap->GetLightMap2D();
+			GDebugSelectedLightmap = MeshMapBuildData->LightMap->GetLightMap2D();
 			Texture2D = GDebugSelectedLightmap ? GDebugSelectedLightmap->GetTexture(0) : NULL;
 			if ( Texture2D )
 			{
@@ -260,7 +267,7 @@ ASpectatorPawn* ADebugCameraController::SpawnSpectatorPawn()
 	// Only spawned for the local player
 	if (GetSpectatorPawn() == NULL && IsLocalController())
 	{
-		AGameState const* const GameState = GetWorld()->GameState;
+		AGameStateBase const* const GameState = GetWorld()->GetGameState();
 		if (GameState)
 		{
 			FActorSpawnParameters SpawnParams;
@@ -479,6 +486,11 @@ void ADebugCameraController::ApplySpeedScale()
 			SpectatorMovement->Deceleration = InitialDecel * SpeedScale;
 		}
 	}
+}
+void ADebugCameraController::SetPawnMovementSpeedScale(const float NewSpeedScale)
+{ 
+	SpeedScale = NewSpeedScale;
+	ApplySpeedScale();
 }
 
 void ADebugCameraController::IncreaseFOV()

@@ -1,13 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "EnvironmentQuery/EnvQueryOption.h"
-#include "EnvironmentQuery/EnvQueryContext.h"
-#include "EnvironmentQuery/EnvQueryManager.h"
-#include "EnvironmentQuery/Contexts/EnvQueryContext_Item.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType_ActorBase.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
+#include "EnvironmentQuery/Contexts/EnvQueryContext_Item.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_ActorBase.h"
 
 #define LOCTEXT_NAMESPACE "EnvQueryGenerator"
 
@@ -21,6 +16,7 @@ UEnvQueryTest::UEnvQueryTest(const FObjectInitializer& ObjectInitializer) : Supe
 	ClampMaxType = EEnvQueryTestClamping::None;
 	BoolValue.DefaultValue = true;
 	ScoringFactor.DefaultValue = 1.0f;
+	NormalizationType = EEQSNormalizationType::Absolute;
 
 	bWorkOnFloatValues = true;
 }
@@ -36,7 +32,7 @@ void UEnvQueryTest::NormalizeItemScores(FEnvQueryInstance& QueryInstance)
 	ScoringFactor.BindData(QueryOwner, QueryInstance.QueryID);
 	float ScoringFactorValue = ScoringFactor.GetValue();
 
-	float MinScore = 0;
+	float MinScore = (NormalizationType == EEQSNormalizationType::Absolute) ? 0 : BIG_NUMBER;
 	float MaxScore = -BIG_NUMBER;
 
 	if (ClampMinType == EEnvQueryTestClamping::FilterThreshold)
@@ -422,7 +418,7 @@ void UEnvQueryTest::UpdatePreviewData()
 
 	if (PreviewData.bShowClampMin)
 	{
-		const int32 FixedIdx = FMath::FloorToInt(PreviewData.ClampMin * PreviewData.Samples.Num());
+		const int32 FixedIdx = FMath::RoundToInt(PreviewData.ClampMin * (PreviewData.Samples.Num() - 1));
 		for (int32 Idx = 0; Idx < FixedIdx; Idx++)
 		{
 			PreviewData.Samples[Idx] = PreviewData.Samples[FixedIdx];
@@ -431,7 +427,7 @@ void UEnvQueryTest::UpdatePreviewData()
 
 	if (PreviewData.bShowClampMax)
 	{
-		const int32 FixedIdx = FMath::CeilToInt(PreviewData.ClampMax * PreviewData.Samples.Num());
+		const int32 FixedIdx = FMath::RoundToInt(PreviewData.ClampMax * (PreviewData.Samples.Num() - 1));
 		for (int32 Idx = FixedIdx + 1; Idx < PreviewData.Samples.Num(); Idx++)
 		{
 			PreviewData.Samples[Idx] = PreviewData.Samples[FixedIdx];

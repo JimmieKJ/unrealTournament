@@ -2,17 +2,14 @@
 
 #pragma once
 
-#include "IToolkit.h"
+#include "CoreMinimal.h"
+#include "Framework/Docking/WorkspaceItem.h"
+#include "Framework/Docking/TabManager.h"
+#include "Toolkits/IToolkit.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Toolkits/IToolkitHost.h"
 
-
-class FTabManager;
-class FUICommandList;
-class FWorkspaceItem;
-class IToolkitHost;
 class SDockableTab;
-class SWidget;
-class UObject;
-
 
 /**
  * Base class for all toolkits (abstract).

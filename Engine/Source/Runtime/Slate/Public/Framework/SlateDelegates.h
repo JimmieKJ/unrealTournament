@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+
+class ITableRow;
 
 /** Notification when user clicks outside a specified region. */
 DECLARE_DELEGATE(FOnClickedOutside)

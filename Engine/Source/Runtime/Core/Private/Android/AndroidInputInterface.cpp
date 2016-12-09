@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
 #include "AndroidInputInterface.h"
 //#include "AndroidInputDeviceMappings.h"
 #include "IInputDevice.h"
 #include "GenericApplicationMessageHandler.h"
+#include "HAL/ThreadingBase.h"
 #include <android/input.h>
+#include "Misc/CallbackDevice.h"
+#include "HAL/PlatformTime.h"
 
 
 TArray<TouchInput> FAndroidInputInterface::TouchInputStack = TArray<TouchInput>();
@@ -73,13 +75,22 @@ FAndroidInputInterface::FAndroidInputInterface( const TSharedRef< FGenericApplic
 
 	VibeIsOn = false;
 
-	ResetGamepadAssignments();
+	for (int32 DeviceIndex = 0; DeviceIndex < MAX_NUM_CONTROLLERS; DeviceIndex++)
+	{
+		DeviceMapping[DeviceIndex].DeviceInfo.DeviceId = 0;
+		DeviceMapping[DeviceIndex].DeviceState = MappingState::Unassigned;
+	}
 }
 
 void FAndroidInputInterface::ResetGamepadAssignments()
 {
 	for (int32 DeviceIndex = 0; DeviceIndex < MAX_NUM_CONTROLLERS; DeviceIndex++)
 	{
+		if (DeviceMapping[DeviceIndex].DeviceState == MappingState::Valid)
+		{
+			FCoreDelegates::OnControllerConnectionChange.Broadcast(false, -1, DeviceIndex);
+		}
+
 		DeviceMapping[DeviceIndex].DeviceInfo.DeviceId = 0;
 		DeviceMapping[DeviceIndex].DeviceState = MappingState::Unassigned;
 	}
@@ -89,6 +100,11 @@ void FAndroidInputInterface::ResetGamepadAssignmentToController(int32 Controller
 {
 	if (ControllerId < 0 || ControllerId >= MAX_NUM_CONTROLLERS)
 		return;
+
+	if (DeviceMapping[ControllerId].DeviceState == MappingState::Valid)
+	{
+		FCoreDelegates::OnControllerConnectionChange.Broadcast(false, -1, ControllerId);
+	}
 
 	DeviceMapping[ControllerId].DeviceInfo.DeviceId = 0;
 	DeviceMapping[ControllerId].DeviceState = MappingState::Unassigned;
@@ -182,6 +198,33 @@ void FAndroidInputInterface::SetForceFeedbackChannelValues(int32 ControllerId, c
 
 	// Update with the latest values (wait for SendControllerEvents later?)
 	UpdateVibeMotors();
+}
+
+extern bool AndroidThunkCpp_IsGamepadAttached();
+
+bool FAndroidInputInterface::IsGamepadAttached() const
+{
+	// Check for gamepads that have already been validated
+	for (int32 DeviceIndex = 0; DeviceIndex < MAX_NUM_CONTROLLERS; DeviceIndex++)
+	{
+		FAndroidGamepadDeviceMapping& CurrentDevice = DeviceMapping[DeviceIndex];
+
+		if (CurrentDevice.DeviceState == MappingState::Valid)
+		{
+			return true;
+		}
+	}
+
+	for (auto DeviceIt = ExternalInputDevices.CreateConstIterator(); DeviceIt; ++DeviceIt)
+	{
+		if ((*DeviceIt)->IsGamepadAttached())
+		{
+			return true;
+		}
+	}
+
+	//if all of this fails, do a check on the Java side to see if the gamepad is attached
+	return AndroidThunkCpp_IsGamepadAttached();
 }
 
 extern void AndroidThunkCpp_Vibrate(int32 Duration);

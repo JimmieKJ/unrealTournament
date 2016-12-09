@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
+#include "AssetTypeActions/AssetTypeActions_ProceduralFoliageSpawner.h"
+#include "Settings/EditorExperimentalSettings.h"
 #include "ProceduralFoliageSpawner.h"
 
 UClass* FAssetTypeActions_ProceduralFoliageSpawner::GetSupportedClass() const

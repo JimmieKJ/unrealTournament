@@ -2,8 +2,18 @@
 
 #pragma once
 
-#include "TracePath.h"
-#include "ScriptPerfData.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/SWidget.h"
+#include "Profiler/TracePath.h"
+#include "Profiler/ScriptPerfData.h"
+
+class FScriptExecutionNode;
+class FScriptExecutionTunnelEntry;
+class FScriptExecutionTunnelExit;
+struct FSlateBrush;
 
 /**  Execution node flags */
 namespace EScriptExecutionNodeFlags
@@ -34,6 +44,9 @@ namespace EScriptExecutionNodeFlags
 		PureChain					= 0x00100000,	// Pure node call chain
 		CyclicLinkage				= 0x00200000,	// Marks execution path as cyclic.
 		InvalidTrace				= 0x00400000,	// Indicates that node doesn't contain a valid script trace.
+		RuntimeEvent				= 0x01000000,	// Event that is considered part of the runtime cost.
+		ConstructionEvent			= 0x02000000,	// Event that is considered part of the construction cost.
+		RequiresRefresh				= 0x04000000,	// This event has updated stats and requires a refresh.
 		// Groups
 		CallSite					= FunctionCall|ParentFunctionCall|MacroCall|TunnelInstance,
 		BranchNode					= ConditionalBranch|SequentialBranch,
@@ -46,6 +59,12 @@ namespace EScriptExecutionNodeFlags
 		Container					= Class|Instance|Event|CustomEvent|ExecPin|PureChain
 	};
 }
+
+//////////////////////////////////////////////////////////////////////////
+// Script Perf Data Name Constants
+
+static const FName SPDN_Blueprint = FName(TEXT("__SPDN_Blueprint"));;
+static const FName SPDN_Node = FName(TEXT("__SPDN_Node"));
 
 //////////////////////////////////////////////////////////////////////////
 // Stat Container Type
@@ -124,6 +143,7 @@ public:
 
 	FScriptNodePerfData(const int32 SampleFreqIn = 1)
 		: SampleFrequency(SampleFreqIn)
+		, NodePerfData(EScriptPerfDataType::Node)
 	{
 	}
 
@@ -148,13 +168,19 @@ public:
 	/** Get global blueprint perf data for the trace path */
 	TSharedPtr<FScriptPerfData> GetBlueprintPerfDataByTracePath(const FTracePath& TracePath);
 
-	/** Get global blueprint perf data for all trace paths */
-	virtual void GetBlueprintPerfDataForAllTracePaths(FScriptPerfData& OutPerfData);
+	/** Get node performance data */
+	const FScriptPerfData& GetNodePerfData() const { return NodePerfData; }
+
+	/** Update all perf data for node */
+	virtual void UpdatePerfDataForNode();
 
 	/** Set the sample frequency */
 	void SetSampleFrequency(const int32 NewSampleFrequency) { SampleFrequency = NewSampleFrequency; }
 
 protected:
+
+	/** Is Valid Instance Name */
+	bool IsValidInstanceName(const FName InstanceName) const { return InstanceName != SPDN_Blueprint && InstanceName != SPDN_Node; }
 
 	/** Returns performance data type */
 	virtual const EScriptPerfDataType GetPerfDataType() const { return EScriptPerfDataType::Node; }
@@ -163,6 +189,8 @@ protected:
 	
 	/** Expected sample frequency for this perf data container */
 	int32 SampleFrequency;
+	/** Node performance data */
+	FScriptPerfData NodePerfData;
 	/** FScriptExeutionPath hash to perf data */
 	TMap<FName, TMap<const uint32, TSharedPtr<FScriptPerfData>>> InstanceInputPinToPerfDataMap;
 
@@ -200,21 +228,46 @@ struct KISMET_API FScriptExecNodeParams
 
 struct FScriptExecutionHottestPathParams
 {
-	FScriptExecutionHottestPathParams(const FName InstanceNameIn, const float EventTimingIn)
+public:
+
+	FScriptExecutionHottestPathParams(const FName InstanceNameIn, const double EventTimingIn, const int32 EventSampleCountIn, TSharedPtr<FScriptHeatLevelMetrics> HeatLevelThresholdsIn)
 		: InstanceName(InstanceNameIn)
 		, EventTiming(EventTimingIn)
-		, TimeSoFar(0.0)
+		, EventSampleCount(EventSampleCountIn)
+		, PathTimeSoFar(0.0)
+		, HeatLevelThresholds(HeatLevelThresholdsIn)
 	{
 	}
+
+	/** Get instance name */
+	const FName GetInstanceName() const { return InstanceName; }
+
+	/** Get the current tracepath */
+	FTracePath& GetTracePath() { return TracePath; }
+
+	/** Get heat thresholds */
+	TSharedPtr<const FScriptHeatLevelMetrics> GetHeatThresholds() const { return HeatLevelThresholds; }
+
+	/** Calculate heat level */
+	const float CalculateHeatLevel() const { return EventTiming > 0.0 ? static_cast<float>((EventTiming - PathTimeSoFar) / EventTiming) : 0.f; }
+
+	/** Add path timings, adjusting for variation in stat execution frequencies */
+	void AddPathTiming(const double PathTiming, const int32 SampleCount) { PathTimeSoFar += PathTiming * (SampleCount / EventSampleCount); }
+
+private:
 
 	/** Instance name */
 	const FName InstanceName;
 	/** Event total timing */
-	const double EventTiming;
-	/** Event time so far */
-	double TimeSoFar;
+	double EventTiming;
+	/** Top level event samples */
+	double EventSampleCount;
+	/** Event path time so far */
+	double PathTimeSoFar;
 	/** Current tracepath */
 	FTracePath TracePath;
+	/** Heat level thresholds */
+	TSharedPtr<const FScriptHeatLevelMetrics> HeatLevelThresholds;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -263,6 +316,9 @@ public:
 	/** Returns if this exec event represents the start of a delegate pin event execution path */
 	bool IsEventPin() const { return (NodeFlags & EScriptExecutionNodeFlags::EventPin) != 0U; }
 
+	/** Returns if this exec event happens at runtime ( alternative is construction time ) */
+	bool IsRuntimeEvent() const { return (NodeFlags & EScriptExecutionNodeFlags::RuntimeEvent) != 0U; }
+
 	/** Returns if this event is a function callsite event */
 	bool IsFunctionCallSite() const { return (NodeFlags & EScriptExecutionNodeFlags::FunctionCall) != 0U; }
 
@@ -308,7 +364,7 @@ public:
 	/** Gets a typed observed object context */
 	template<typename CastType> const CastType* GetTypedObservedObject() { return Cast<CastType>(ObservedObject.Get()); }
 
-	/** Gets the observed object context */
+	/** Gets the observed pin context */
 	const UEdGraphPin* GetObservedPin() const { return ObservedPin.Get(); }
 
 	/** Navigate to object */
@@ -356,11 +412,8 @@ public:
 	/** Refresh Stats */
 	virtual void RefreshStats(const FTracePath& TracePath);
 
-	/** Calculate heat level stats */
-	virtual void CalculateHeatLevelStats(TSharedPtr<FScriptHeatLevelMetrics> HeatLevelMetrics);
-
-	/** Calculate Hottest Path Stats */
-	virtual float CalculateHottestPathStats(FScriptExecutionHottestPathParams HotPathParams);
+	/** Update heat display statistics */
+	virtual void UpdateHeatDisplayStats(FScriptExecutionHottestPathParams& HotPathParams);
 
 	/** Get all exec nodes */
 	virtual void GetAllExecNodes(TMap<FName, TSharedPtr<FScriptExecutionNode>>& ExecNodesOut);
@@ -428,7 +481,9 @@ public:
 	}
 
 	// FScriptNodePerfData
-	virtual void GetBlueprintPerfDataForAllTracePaths(FScriptPerfData& OutPerfData) override;
+	virtual void UpdatePerfDataForNode() override;
+	virtual void RefreshStats(const FTracePath& TracePath) override;
+	virtual void UpdateHeatDisplayStats(FScriptExecutionHottestPathParams& HotPathParams) override;
 	// ~FScriptNodePerfData
 
 	/** Adds an entry site at the specified script offset */
@@ -461,13 +516,13 @@ public:
 
 	FScriptExecutionTunnelEntry(const FScriptExecNodeParams& InitParams)
 		: FScriptExecutionNode(InitParams)
-		, TunnelEntryCount(0)
 	{
 	}
 
 	// FScriptExecutionNode
 	virtual void GetLinearExecutionPath(TArray<FLinearExecPath>& LinearExecutionNodes, const FTracePath& TracePath, const bool bIncludeChildren = false) override;
 	virtual void RefreshStats(const FTracePath& TracePath) override;
+	virtual void UpdateHeatDisplayStats(FScriptExecutionHottestPathParams& HotPathParams) override;
 	// ~FScriptExecutionNode
 
 	/** Add tunnel timing */
@@ -489,12 +544,10 @@ public:
 	bool IsInternalBoundary(TSharedPtr<FScriptExecutionNode> PotentialBoundaryNode) const;
 
 	/** Increment tunnel entry count */
-	void IncrementTunnelEntryCount() { TunnelEntryCount++; }
+	void IncrementTunnelEntryCount(const FName InstanceName, const FTracePath& TracePath);
 
 private:
 
-	/** The tunnel entry count */
-	int32 TunnelEntryCount;
 	/** The tunnel instance this node represents */
 	TSharedPtr<FScriptExecutionTunnelInstance> TunnelInstance;
 
@@ -536,6 +589,7 @@ public:
 	virtual void RefreshStats(const FTracePath& TracePath) override;
 	virtual TSharedRef<SWidget> GetIconWidget(const uint32 TracePath = 0U) override;
 	virtual TSharedRef<SWidget> GetHyperlinkWidget(const uint32 TracePath = 0U) override;
+	virtual void UpdateHeatDisplayStats(FScriptExecutionHottestPathParams& HotPathParams) override;
 	// ~FScriptExecutionNode
 
 	/** Navigate to exit site using tracepath */
@@ -575,8 +629,7 @@ public:
 	virtual TSharedPtr<FScriptExecutionNode> GetPureChainNode() override { return AsShared(); }
 	virtual void GetLinearExecutionPath(TArray<FLinearExecPath>& LinearExecutionNodes, const FTracePath& TracePath, const bool bIncludeChildren = false) override;
 	virtual void RefreshStats(const FTracePath& TracePath) override;
-	virtual float CalculateHottestPathStats(FScriptExecutionHottestPathParams HotPathParams) override;
-	virtual void CalculateHeatLevelStats(TSharedPtr<FScriptHeatLevelMetrics> HeatLevelMetrics);
+	virtual void UpdateHeatDisplayStats(FScriptExecutionHottestPathParams& HotPathParams) override;
 	// ~FScriptExecutionNode
 
 };
@@ -645,6 +698,12 @@ public:
 	/** Returns the instance that matches the supplied name if present */
 	TSharedPtr<FScriptExecutionNode> GetInstanceByName(FName InstanceName);
 
+	/** Get the active instance name */
+	const FName GetActiveInstanceName() const { return ActiveInstanceName; }
+
+	/** Set the active instance name */
+	void SetActiveInstanceName(const FName InstanceName) { ActiveInstanceName = InstanceName; }
+
 	/** Sorts all contained events */
 	void SortEvents();
 	
@@ -659,11 +718,17 @@ public:
 	// ~FScriptExecutionNode
 
 protected:
+
 	/** Updates internal heat level metrics data */
 	void UpdateHeatLevelMetrics(TSharedPtr<FScriptPerfData> BlueprintData);
 
+	/** Updates heat displays */
+	void UpdateHeatLevels();
+
 private:
 
+	/** Active instance */
+	FName ActiveInstanceName;
 	/** Exec nodes representing all instances based on this blueprint */
 	TArray<TSharedPtr<FScriptExecutionNode>> Instances;
 	/** Internal metrics data used for calculating perf data heat levels */

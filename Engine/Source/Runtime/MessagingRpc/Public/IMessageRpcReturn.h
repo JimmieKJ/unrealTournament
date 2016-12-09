@@ -2,9 +2,9 @@
 
 #pragma once
 
-struct FRpcMessage;
-class UScriptStruct;
+#include "CoreMinimal.h"
 
+struct FRpcMessage;
 
 /**
  * Interface for RPC return values.

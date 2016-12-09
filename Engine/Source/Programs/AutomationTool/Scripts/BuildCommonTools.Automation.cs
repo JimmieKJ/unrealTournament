@@ -121,6 +121,7 @@ public class BuildCommonTools : BuildCommand
 		if (Platforms.Contains(UnrealBuildTool.UnrealTargetPlatform.Linux))
 		{
 			Agenda.AddTarget("CrashReportClient", UnrealBuildTool.UnrealTargetPlatform.Linux, UnrealBuildTool.UnrealTargetConfiguration.Development);
+			Agenda.AddTarget("UnrealCEFSubProcess", UnrealBuildTool.UnrealTargetPlatform.Linux, UnrealBuildTool.UnrealTargetConfiguration.Development);
 		}
 
 		// iOS binaries

@@ -4,10 +4,9 @@
 	MorphTools.cpp: Morph target creation helper classes.
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
 #include "RawIndexBuffer.h"
-#include "MeshBuild.h"
-#include "PhysicsEngine/PhysXSupport.h"
+#include "Engine/SkeletalMesh.h"
 #include "Animation/MorphTarget.h"
 
 

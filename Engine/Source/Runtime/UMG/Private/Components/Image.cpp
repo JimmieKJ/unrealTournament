@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/Image.h"
 #include "Slate/SlateBrushAsset.h"
+#include "Materials/MaterialInterface.h"
+#include "Engine/Texture2D.h"
+#include "Engine/Texture2DDynamic.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Images/SImage.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -103,6 +109,11 @@ void UImage::SetBrushFromTexture(UTexture2D* Texture, bool bMatchSize)
 {
 	Brush.SetResourceObject(Texture);
 
+	if (Texture) // Since this texture is used as UI, don't allow it affected by budget.
+	{
+		Texture->bIgnoreStreamingMipBias = true;
+	}
+
 	if (bMatchSize && Texture)
 	{
 		Brush.ImageSize.X = Texture->GetSizeX();
@@ -110,6 +121,22 @@ void UImage::SetBrushFromTexture(UTexture2D* Texture, bool bMatchSize)
 	}
 
 	if ( MyImage.IsValid() )
+	{
+		MyImage->SetImage(&Brush);
+	}
+}
+
+void UImage::SetBrushFromTextureDynamic(UTexture2DDynamic* Texture, bool bMatchSize)
+{
+	Brush.SetResourceObject(Texture);
+
+	if (bMatchSize && Texture)
+	{
+		Brush.ImageSize.X = Texture->SizeX;
+		Brush.ImageSize.Y = Texture->SizeY;
+	}
+
+	if (MyImage.IsValid())
 	{
 		MyImage->SetImage(&Brush);
 	}

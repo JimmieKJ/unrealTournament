@@ -4,7 +4,7 @@
 // A tool for measuring the broad-band average gain of a filter, eg a resonator.
 // Can be used for prenormalising a filter.
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 //#include <math.h>
 #include "Signal/paMeasureGain.hpp"

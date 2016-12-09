@@ -1,7 +1,7 @@
 //
 // paMemory.cpp
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 
 #include "System/paMemory.hpp"

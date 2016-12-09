@@ -5,7 +5,14 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "AnimSequenceFactory.generated.h"
+
+class FAssetData;
+class SWindow;
 
 UCLASS(HideCategories=Object,MinimalAPI)
 class UAnimSequenceFactory : public UFactory

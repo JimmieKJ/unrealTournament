@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "IDetailCustomization.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "MovieSceneToolsUserSettings.generated.h"
 
 UENUM()

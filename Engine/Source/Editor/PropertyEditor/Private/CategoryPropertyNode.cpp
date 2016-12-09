@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyNode.h"
 #include "CategoryPropertyNode.h"
-#include "ObjectPropertyNode.h"
+#include "Misc/ConfigCacheIni.h"
 #include "ItemPropertyNode.h"
 #include "ObjectEditorUtils.h"
 

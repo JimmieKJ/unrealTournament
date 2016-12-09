@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Engine/TargetPoint.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/ArrowComponent.h"
+#include "Components/BillboardComponent.h"
+#include "Engine/Texture2D.h"
 
 ATargetPoint::ATargetPoint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

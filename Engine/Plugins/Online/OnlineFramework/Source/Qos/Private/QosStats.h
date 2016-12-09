@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
+#include "OnlineSessionSettings.h"
+
+class IAnalyticsProvider;
+
 /** Types of result determination types */
 
 enum class EDatacenterResultType :uint8

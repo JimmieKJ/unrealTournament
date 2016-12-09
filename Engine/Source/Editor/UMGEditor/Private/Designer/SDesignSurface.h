@@ -2,8 +2,22 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Styling/SlateColor.h"
+#include "Layout/SlateRect.h"
+#include "Layout/Geometry.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Animation/CurveSequence.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Templates/ScopedPointer.h"
 #include "SNodePanel.h"
+#include "UniquePtr.h"
+
+class FActiveTimerHandle;
+class FSlateWindowElementList;
 
 class SDesignSurface : public SCompoundWidget
 {
@@ -23,6 +37,7 @@ public:
 
 	// SWidget interface
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual FCursorReply OnCursorQuery(const FGeometry& MyGeometry, const FPointerEvent& CursorEvent) const override;
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
@@ -91,7 +106,7 @@ protected:
 	FCurveSequence ZoomLevelFade;
 
 	// The interface for mapping ZoomLevel values to actual node scaling values
-	TScopedPointer<FZoomLevelsContainer> ZoomLevels;
+	TUniquePtr<FZoomLevelsContainer> ZoomLevels;
 
 	bool bAllowContinousZoomInterpolation;
 
@@ -106,6 +121,12 @@ protected:
 
 	/** Offset in the panel the user started the LMB+RMB zoom from */
 	FVector2D ZoomStartOffset;
+
+	/**  */
+	FVector2D ViewOffsetStart;
+
+	/**  */
+	FVector2D MouseDownPositionAbsolute;
 
 	/** Cumulative magnify delta from trackpad gesture */
 	float TotalGestureMagnify;

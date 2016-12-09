@@ -1,22 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "Toolkits/AssetEditorToolkit.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "GameFramework/Actor.h"
+#include "Editor.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "EditorStyleSet.h"
+#include "EditorStyleSettings.h"
+#include "EditorReimportHandler.h"
+#include "FileHelpers.h"
 #include "Toolkits/SStandaloneAssetEditorToolkitHost.h"
 #include "Toolkits/ToolkitManager.h"
 #include "Toolkits/AssetEditorCommonCommands.h"
 #include "Toolkits/GlobalEditorCommonCommands.h"
-#include "Editor/MainFrame/Public/MainFrame.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "SlateIconFinder.h"
+#include "Styling/SlateIconFinder.h"
+#include "CollectionManagerTypes.h"
+#include "ICollectionManager.h"
 #include "CollectionManagerModule.h"
 #include "IUserFeedbackModule.h"
+#include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
 #include "ReferenceViewer.h"
 #include "ISizeMapModule.h"
 #include "IIntroTutorials.h"
 #include "SuperSearchModule.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "AssetEditorToolkit"
 
@@ -28,6 +39,7 @@ const FName FAssetEditorToolkit::ToolbarTabId( TEXT( "AssetEditorToolkit_Toolbar
 FAssetEditorToolkit::FAssetEditorToolkit()
 	: GCEditingObjects(*this)
 	, bCheckDirtyOnAssetSave(false)
+	, AssetEditorModeManager(nullptr)
 	, bIsToolbarFocusable(false)
 {
 	WorkspaceMenuCategory = FWorkspaceItem::NewGroup(LOCTEXT("WorkspaceMenu_BaseAssetEditor", "Asset Editor"));
@@ -615,6 +627,16 @@ const FSlateBrush* FAssetEditorToolkit::GetDefaultTabIcon() const
 	}
 
 	return IconBrush;
+}
+
+FAssetEditorModeManager* FAssetEditorToolkit::GetAssetEditorModeManager() const
+{
+	return AssetEditorModeManager;
+}
+
+void FAssetEditorToolkit::SetAssetEditorModeManager(FAssetEditorModeManager* InModeManager)
+{
+	AssetEditorModeManager = InModeManager;
 }
 
 void FAssetEditorToolkit::SwitchToStandaloneEditor_Execute( TWeakPtr< FAssetEditorToolkit > ThisToolkitWeakRef )

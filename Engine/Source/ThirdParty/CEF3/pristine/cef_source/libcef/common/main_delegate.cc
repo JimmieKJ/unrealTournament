@@ -8,6 +8,7 @@
 #include "libcef/common/cef_switches.h"
 #include "libcef/common/command_line_impl.h"
 #include "libcef/common/crash_reporter_client.h"
+#include "libcef/common/extensions/extensions_util.h"
 #include "libcef/renderer/content_renderer_client.h"
 #include "libcef/utility/content_utility_client.h"
 
@@ -21,21 +22,39 @@
 #include "base/strings/string_util.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/thread.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/child/pdf_child_init.h"
+#include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
+#include "components/content_settings/core/common/content_settings_pattern.h"
 #include "content/public/browser/browser_main_runner.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/main_function_params.h"
+#include "extensions/common/constants.h"
+#include "pdf/pdf.h"
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_paths.h"
 #include "ui/base/ui_base_switches.h"
 
+#include "widevine_cdm_version.h"  // In SHARED_INTERMEDIATE_DIR.
+
+#include "ipc/ipc_message.h"  // For IPC_MESSAGE_LOG_ENABLED.
+
+#if defined(IPC_MESSAGE_LOG_ENABLED)
+#define IPC_MESSAGE_MACROS_LOG_ENABLED
+#include "content/public/common/content_ipc_logging.h"
+#define IPC_LOG_TABLE_ADD_ENTRY(msg_id, logger) \
+    content::RegisterIPCLogger(msg_id, logger)
+#include "libcef/common/cef_message_generator.h"
+#endif
+
 #if defined(OS_WIN)
 #include <Objbase.h>  // NOLINT(build/include_order)
 #include "base/win/registry.h"
-#include "components/crash/app/breakpad_win.h"
+#include "components/crash/content/app/breakpad_win.h"
 #endif
 
 #if defined(OS_MACOSX)
@@ -43,12 +62,12 @@
 #include "base/mac/os_crash_dumps.h"
 #include "base/mac/bundle_locations.h"
 #include "base/mac/foundation_util.h"
-#include "components/crash/app/breakpad_mac.h"
+#include "components/crash/content/app/breakpad_mac.h"
 #include "content/public/common/content_paths.h"
 #endif
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
-#include "components/crash/app/breakpad_linux.h"
+#include "components/crash/content/app/breakpad_linux.h"
 #endif
 
 #if defined(OS_LINUX)
@@ -86,22 +105,32 @@ base::FilePath GetResourcesFilePath() {
   return GetFrameworkBundlePath().Append(FILE_PATH_LITERAL("Resources"));
 }
 
+// Retrieve the name of the running executable.
+std::string GetExecutableName() {
+  base::FilePath path;
+  PathService::Get(base::FILE_EXE, &path);
+  return path.BaseName().value();
+}
+
+// Use a "~/Library/Logs/<app name>_debug.log" file where <app name> is the name
+// of the running executable.
+base::FilePath GetDefaultLogFile() {
+  return base::mac::GetUserLibraryPath()
+      .Append(FILE_PATH_LITERAL("Logs"))
+      .Append(FILE_PATH_LITERAL(GetExecutableName() + "_debug.log"));
+}
+
 void OverrideFrameworkBundlePath() {
   base::mac::SetOverrideFrameworkBundlePath(GetFrameworkBundlePath());
 }
 
 void OverrideChildProcessPath() {
-  // Retrieve the name of the running executable.
-  base::FilePath path;
-  PathService::Get(base::FILE_EXE, &path);
-
-  std::string name = path.BaseName().value();
-
+  const std::string& exe_name = GetExecutableName();
   base::FilePath helper_path = GetFrameworksPath()
-      .Append(FILE_PATH_LITERAL(name+" Helper.app"))
+      .Append(FILE_PATH_LITERAL(exe_name + " Helper.app"))
       .Append(FILE_PATH_LITERAL("Contents"))
       .Append(FILE_PATH_LITERAL("MacOS"))
-      .Append(FILE_PATH_LITERAL(name+" Helper"));
+      .Append(FILE_PATH_LITERAL(exe_name + " Helper"));
 
   PathService::Override(content::CHILD_PROCESS_EXE, helper_path);
 }
@@ -114,22 +143,30 @@ base::FilePath GetResourcesFilePath() {
   return pak_dir;
 }
 
+// Use a "debug.log" file in the running executable's directory.
+base::FilePath GetDefaultLogFile() {
+  base::FilePath log_path;
+  PathService::Get(base::DIR_EXE, &log_path);
+  return log_path.Append(FILE_PATH_LITERAL("debug.log"));
+}
+
 #endif  // !defined(OS_MACOSX)
 
 #if defined(OS_WIN)
 
-const wchar_t kFlashRegistryRoot[] = L"SOFTWARE\\Macromedia\\FlashPlayerPepper";
-const wchar_t kFlashPlayerPathValueName[] = L"PlayerPath";
-
 // Gets the Flash path if installed on the system.
-bool GetSystemFlashDirectory(base::FilePath* out_path) {
-  base::win::RegKey path_key(HKEY_LOCAL_MACHINE, kFlashRegistryRoot, KEY_READ);
+bool GetSystemFlashFilename(base::FilePath* out_path) {
+  const wchar_t kPepperFlashRegistryRoot[] =
+      L"SOFTWARE\\Macromedia\\FlashPlayerPepper";
+  const wchar_t kFlashPlayerPathValueName[] = L"PlayerPath";
+
+  base::win::RegKey path_key(
+      HKEY_LOCAL_MACHINE, kPepperFlashRegistryRoot, KEY_READ);
   base::string16 path_str;
   if (FAILED(path_key.ReadValue(kFlashPlayerPathValueName, &path_str)))
     return false;
-  base::FilePath plugin_path = base::FilePath(path_str).DirName();
 
-  *out_path = plugin_path;
+  *out_path = base::FilePath(path_str);
   return true;
 }
 
@@ -141,20 +178,24 @@ const base::FilePath::CharType kPepperFlashSystemBaseDirectory[] =
 #endif
 
 void OverridePepperFlashSystemPluginPath() {
-  base::FilePath plugin_path;
+  base::FilePath plugin_filename;
 #if defined(OS_WIN)
-  if (!GetSystemFlashDirectory(&plugin_path))
+  if (!GetSystemFlashFilename(&plugin_filename))
     return;
 #elif defined(OS_MACOSX)
-  if (!util_mac::GetLocalLibraryDirectory(&plugin_path))
+  if (!util_mac::GetLocalLibraryDirectory(&plugin_filename))
     return;
-  plugin_path = plugin_path.Append(kPepperFlashSystemBaseDirectory);
+  plugin_filename = plugin_filename.Append(kPepperFlashSystemBaseDirectory)
+                                   .Append(chrome::kPepperFlashPluginFilename);
 #else
   // A system plugin is not available on other platforms.
   return;
 #endif
 
-  PathService::Override(chrome::DIR_PEPPER_FLASH_SYSTEM_PLUGIN, plugin_path);
+  if (!plugin_filename.empty()) {
+    PathService::Override(chrome::FILE_PEPPER_FLASH_SYSTEM_PLUGIN,
+                          plugin_filename);
+  }
 }
 
 #if defined(OS_LINUX)
@@ -337,11 +378,20 @@ bool CefMainDelegate::BasicStartupComplete(int* exit_code) {
       command_line->AppendSwitchASCII(switches::kLang, "en-US");
     }
 
-    if (settings.log_file.length > 0) {
-      base::FilePath file_path = base::FilePath(CefString(&settings.log_file));
-      if (!file_path.empty())
-        command_line->AppendSwitchPath(switches::kLogFile, file_path);
+    base::FilePath log_file;
+    bool has_log_file_cmdline = false;
+    if (settings.log_file.length > 0)
+      log_file = base::FilePath(CefString(&settings.log_file));
+    if (log_file.empty() && command_line->HasSwitch(switches::kLogFile)) {
+      log_file = command_line->GetSwitchValuePath(switches::kLogFile);
+      if (!log_file.empty())
+        has_log_file_cmdline = true;
     }
+    if (log_file.empty())
+      log_file = GetDefaultLogFile();
+    DCHECK(!log_file.empty());
+    if (!has_log_file_cmdline)
+      command_line->AppendSwitchPath(switches::kLogFile, log_file);
 
     if (settings.log_severity != LOGSEVERITY_DEFAULT) {
       std::string log_severity;
@@ -408,13 +458,6 @@ bool CefMainDelegate::BasicStartupComplete(int* exit_code) {
       command_line->AppendSwitchASCII(switches::kContextSafetyImplementation,
           base::IntToString(settings.context_safety_implementation));
     }
-
-    if (settings.windowless_rendering_enabled) {
-#if defined(OS_MACOSX)
-      // The delegated renderer is not yet enabled by default on OS X.
-      command_line->AppendSwitch(switches::kEnableDelegatedRenderer);
-#endif
-    }
   }
 
   if (content_client_.application().get()) {
@@ -428,9 +471,12 @@ bool CefMainDelegate::BasicStartupComplete(int* exit_code) {
 
   // Initialize logging.
   logging::LoggingSettings log_settings;
+
   const base::FilePath& log_file =
       command_line->GetSwitchValuePath(switches::kLogFile);
+  DCHECK(!log_file.empty());
   log_settings.log_file = log_file.value().c_str();
+
   log_settings.lock_log = logging::DONT_LOCK_LOG_FILE;
   log_settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
 
@@ -439,17 +485,17 @@ bool CefMainDelegate::BasicStartupComplete(int* exit_code) {
   std::string log_severity_str =
       command_line->GetSwitchValueASCII(switches::kLogSeverity);
   if (!log_severity_str.empty()) {
-    if (LowerCaseEqualsASCII(log_severity_str,
-                             switches::kLogSeverity_Verbose)) {
+    if (base::LowerCaseEqualsASCII(log_severity_str,
+                                   switches::kLogSeverity_Verbose)) {
       log_severity = logging::LOG_VERBOSE;
-    } else if (LowerCaseEqualsASCII(log_severity_str,
-                                    switches::kLogSeverity_Warning)) {
+    } else if (base::LowerCaseEqualsASCII(log_severity_str,
+                                          switches::kLogSeverity_Warning)) {
       log_severity = logging::LOG_WARNING;
-    } else if (LowerCaseEqualsASCII(log_severity_str,
-                                    switches::kLogSeverity_Error)) {
+    } else if (base::LowerCaseEqualsASCII(log_severity_str,
+                                          switches::kLogSeverity_Error)) {
       log_severity = logging::LOG_ERROR;
-    } else if (LowerCaseEqualsASCII(log_severity_str,
-                                    switches::kLogSeverity_Disable)) {
+    } else if (base::LowerCaseEqualsASCII(log_severity_str,
+                                          switches::kLogSeverity_Disable)) {
       log_severity = LOGSEVERITY_DISABLE;
     }
   }
@@ -462,6 +508,9 @@ bool CefMainDelegate::BasicStartupComplete(int* exit_code) {
   }
 
   logging::InitLogging(log_settings);
+
+  ContentSettingsPattern::SetNonWildcardDomainNonPortScheme(
+      extensions::kExtensionScheme);
 
   content::SetContentClient(&content_client_);
 
@@ -508,12 +557,36 @@ void CefMainDelegate::PreSandboxStartup() {
         user_data_path.AppendASCII("Dictionaries"),
         false,  // May not be an absolute path.
         true);  // Create if necessary.
+
+#if defined(WIDEVINE_CDM_AVAILABLE) && defined(ENABLE_PEPPER_CDMS)
+    const base::FilePath& widevine_plugin_path =
+        GetResourcesFilePath().AppendASCII(kWidevineCdmAdapterFileName);
+    if (base::PathExists(widevine_plugin_path)) {
+      PathService::Override(chrome::FILE_WIDEVINE_CDM_ADAPTER,
+                            widevine_plugin_path);
+    }
+#if defined(WIDEVINE_CDM_IS_COMPONENT)
+    if (command_line->HasSwitch(switches::kEnableWidevineCdm)) {
+      PathService::Override(
+          chrome::DIR_COMPONENT_WIDEVINE_CDM,
+          user_data_path.Append(FILE_PATH_LITERAL("WidevineCDM")));
+    }
+#endif  // defined(WIDEVINE_CDM_IS_COMPONENT)
+#endif  // defined(WIDEVINE_CDM_AVAILABLE) && defined(ENABLE_PEPPER_CDMS)
   }
 
   if (command_line->HasSwitch(switches::kDisablePackLoading))
     content_client_.set_pack_loading_disabled(true);
 
   InitializeResourceBundle();
+  chrome::InitializePDF();
+}
+
+void CefMainDelegate::SandboxInitialized(const std::string& process_type) {
+  CefContentClient::SetPDFEntryFunctions(
+      chrome_pdf::PPP_GetInterface,
+      chrome_pdf::PPP_InitializeModule,
+      chrome_pdf::PPP_ShutdownModule);
 }
 
 int CefMainDelegate::RunProcess(
@@ -541,6 +614,7 @@ int CefMainDelegate::RunProcess(
         NOTREACHED() << "failed to start UI thread";
         return 1;
       }
+      thread->WaitUntilThreadStarted();
       ui_thread_.swap(thread);
     }
 
@@ -598,17 +672,20 @@ void CefMainDelegate::InitializeResourceBundle() {
   const base::CommandLine* command_line =
       base::CommandLine::ForCurrentProcess();
   base::FilePath cef_pak_file, cef_100_percent_pak_file,
-                 cef_200_percent_pak_file, devtools_pak_file, locales_dir;
+                 cef_200_percent_pak_file, cef_extensions_pak_file,
+                 devtools_pak_file, locales_dir;
+
+  base::FilePath resources_dir;
+  if (command_line->HasSwitch(switches::kResourcesDirPath)) {
+    resources_dir =
+        command_line->GetSwitchValuePath(switches::kResourcesDirPath);
+  }
+  if (resources_dir.empty())
+    resources_dir = GetResourcesFilePath();
+  if (!resources_dir.empty())
+    PathService::Override(chrome::DIR_RESOURCES, resources_dir);
 
   if (!content_client_.pack_loading_disabled()) {
-    base::FilePath resources_dir;
-    if (command_line->HasSwitch(switches::kResourcesDirPath)) {
-      resources_dir =
-          command_line->GetSwitchValuePath(switches::kResourcesDirPath);
-    }
-    if (resources_dir.empty())
-      resources_dir = GetResourcesFilePath();
-
     if (!resources_dir.empty()) {
       CHECK(resources_dir.IsAbsolute());
       cef_pak_file = resources_dir.Append(FILE_PATH_LITERAL("cef.pak"));
@@ -616,6 +693,8 @@ void CefMainDelegate::InitializeResourceBundle() {
           resources_dir.Append(FILE_PATH_LITERAL("cef_100_percent.pak"));
       cef_200_percent_pak_file =
           resources_dir.Append(FILE_PATH_LITERAL("cef_200_percent.pak"));
+      cef_extensions_pak_file =
+          resources_dir.Append(FILE_PATH_LITERAL("cef_extensions.pak"));
       devtools_pak_file =
           resources_dir.Append(FILE_PATH_LITERAL("devtools_resources.pak"));
     }
@@ -635,6 +714,9 @@ void CefMainDelegate::InitializeResourceBundle() {
           locale,
           &content_client_,
           ui::ResourceBundle::LOAD_COMMON_RESOURCES);
+  if (!loaded_locale.empty() && g_browser_process)
+    g_browser_process->SetApplicationLocale(loaded_locale);
+
   ResourceBundle& resource_bundle = ResourceBundle::GetSharedInstance();
 
   if (!content_client_.pack_loading_disabled()) {
@@ -673,6 +755,15 @@ void CefMainDelegate::InitializeResourceBundle() {
             cef_200_percent_pak_file, ui::SCALE_FACTOR_200P);
       } else {
         LOG(ERROR) << "Could not load cef_200_percent.pak";
+      }
+    }
+
+    if (extensions::ExtensionsEnabled()) {
+      if (base::PathExists(cef_extensions_pak_file)) {
+        resource_bundle.AddDataPackFromPath(
+            cef_extensions_pak_file, ui::SCALE_FACTOR_NONE);
+      } else {
+        LOG(ERROR) << "Could not load cef_extensions.pak";
       }
     }
 

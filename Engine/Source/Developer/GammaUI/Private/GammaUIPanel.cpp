@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GammaUIPrivatePCH.h"
 #include "GammaUIPanel.h"
-#include "Engine.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "EditorStyleSet.h"
 
 void SGammaUIPanel::Construct(const SGammaUIPanel::FArguments& InArgs)
 {

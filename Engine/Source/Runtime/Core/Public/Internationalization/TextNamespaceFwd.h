@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 // USE_STABLE_LOCALIZATION_KEYS controls whether we attempt to keep localization keys stable when editing text properties.
 // This requires WITH_EDITORONLY_DATA, but can also be optionally disabled in editor builds by changing its value to 0.
 #if WITH_EDITORONLY_DATA

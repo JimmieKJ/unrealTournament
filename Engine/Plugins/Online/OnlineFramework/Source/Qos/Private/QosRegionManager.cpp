@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "QosPrivatePCH.h"
 #include "QosRegionManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
 #include "QosInterface.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
 #include "QosEvaluator.h"
 #include "QosModule.h"
 
@@ -39,6 +42,16 @@ UQosRegionManager::UQosRegionManager(const FObjectInitializer& ObjectInitializer
 
 	// get a forced region id from the command line as an override
 	FParse::Value(FCommandLine::Get(), TEXT("McpRegion="), ForceRegionId);
+
+	// Temporary hack to aid in config conversion. 
+	if (ForceRegionId == TEXT("USA"))
+	{
+		ForceRegionId = TEXT("NA");
+	}
+	else if (ForceRegionId == TEXT("Poland"))
+	{
+		ForceRegionId = TEXT("EU");
+	}
 }
 
 void UQosRegionManager::PostReloadConfig(UProperty* PropertyThatWasLoaded)

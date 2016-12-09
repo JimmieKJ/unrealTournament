@@ -9,6 +9,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class ULevel;
+
 /**
  *	LightmapResRatioAdjust settings
  */

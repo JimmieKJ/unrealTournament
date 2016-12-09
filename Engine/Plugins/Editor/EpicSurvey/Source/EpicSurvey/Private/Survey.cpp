@@ -1,13 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EpicSurveyPrivatePCH.h"
 #include "Survey.h"
-#include "EpicSurvey.h"
-#include "SurveyBranch.h"
 #include "EngineAnalytics.h"
-#include "SurveyPage.h"
 #include "QuestionBlock.h"
-#include "EngineVersion.h"
+#include "SurveyPage.h"
 
 #define LOCTEXT_NAMESPACE "EpicSurvey"
 

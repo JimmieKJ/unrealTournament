@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieScene3DAttachSection.h"
-#include "MovieScene3DAttachTrack.h"
+#include "Sections/MovieScene3DAttachSection.h"
+#include "GameFramework/Actor.h"
 
 
 UMovieScene3DAttachSection::UMovieScene3DAttachSection( const FObjectInitializer& ObjectInitializer )
@@ -16,6 +15,8 @@ UMovieScene3DAttachSection::UMovieScene3DAttachSection( const FObjectInitializer
 	bConstrainRx = true;
 	bConstrainRy = true;
 	bConstrainRz = true;
+
+	EvalOptions.EnableAndSetCompletionMode(EMovieSceneCompletionMode::RestoreState);
 }
 
 

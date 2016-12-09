@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-
-#include "LayoutUtils.h"
-#include "SScaleBox.h"
+#include "Widgets/Layout/SScaleBox.h"
+#include "Layout/LayoutUtils.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/SViewport.h"
+#include "Misc/CoreDelegates.h"
 
 
 /* SScaleBox interface
@@ -24,6 +25,8 @@ void SScaleBox::Construct( const SScaleBox::FArguments& InArgs )
 	[
 		InArgs._Content.Widget
 	];
+
+	FCoreDelegates::OnSafeFrameChangedEvent.AddSP(this, &SScaleBox::RefreshSafeZoneScale);
 }
 
 /* SWidget overrides
@@ -177,7 +180,11 @@ void SScaleBox::SetIgnoreInheritedScale(bool InIgnoreInheritedScale)
 
 FVector2D SScaleBox::ComputeDesiredSize(float InScale) const
 {
-	const float LayoutScale = GetLayoutScale();
+	float LayoutScale = GetLayoutScale();
+	if (IgnoreInheritedScale.Get(false))
+	{
+		return LayoutScale * SCompoundWidget::ComputeDesiredSize(InScale) / InScale;
+	}
 	return LayoutScale * SCompoundWidget::ComputeDesiredSize(InScale);
 }
 

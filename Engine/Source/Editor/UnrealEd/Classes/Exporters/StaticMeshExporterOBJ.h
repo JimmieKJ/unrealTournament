@@ -5,7 +5,13 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Exporters/Exporter.h"
 #include "StaticMeshExporterOBJ.generated.h"
+
+class FExportObjectInnerContext;
 
 UCLASS()
 class UStaticMeshExporterOBJ : public UExporter

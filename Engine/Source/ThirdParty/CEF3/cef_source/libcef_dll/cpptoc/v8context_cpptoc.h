@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -27,9 +27,8 @@
 class CefV8ContextCppToC
     : public CefCppToC<CefV8ContextCppToC, CefV8Context, cef_v8context_t> {
  public:
-  explicit CefV8ContextCppToC(CefV8Context* cls);
+  CefV8ContextCppToC();
 };
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CPPTOC_V8CONTEXT_CPPTOC_H_
-

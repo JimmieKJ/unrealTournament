@@ -1,14 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "AI/NavLinkRenderingProxy.h"
 #include "AI/Navigation/NavLinkRenderingComponent.h"
-#if WITH_EDITOR
-#include "ShowFlags.h"
-#include "ConvexVolume.h"
-#endif
-#include "AI/Navigation/NavLinkHostInterface.h"
+#include "EngineGlobals.h"
+#include "PrimitiveViewRelevance.h"
+#include "PrimitiveSceneProxy.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/Engine.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
+#include "Engine/CollisionProfile.h"
+#include "SceneManagement.h"
 #include "AI/Navigation/NavAreas/NavArea.h"
+#include "AI/Navigation/NavLinkDefinition.h"
+#include "AI/NavLinkRenderingProxy.h"
+#include "AI/Navigation/NavLinkHostInterface.h"
 #include "AI/Navigation/RecastNavMesh.h"
 
 //----------------------------------------------------------------------//
@@ -24,8 +29,7 @@ UNavLinkRenderingComponent::UNavLinkRenderingComponent(const FObjectInitializer&
 
 	BodyInstance.SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 
-	AlwaysLoadOnClient = false;
-	AlwaysLoadOnServer = false;
+	bIsEditorOnly = true;
 
 	bGenerateOverlapEvents = false;
 }
@@ -135,7 +139,7 @@ void FNavLinkRenderingProxy::StorePointLinks(const FTransform& InLocalToWorld, c
 		LinkDrawing.Left = InLocalToWorld.TransformPosition(Link->Left);
 		LinkDrawing.Right = InLocalToWorld.TransformPosition(Link->Right);
 		LinkDrawing.Direction = Link->Direction;
-		LinkDrawing.Color = UNavArea::GetColor(Link->AreaClass);
+		LinkDrawing.Color = UNavArea::GetColor(Link->GetAreaClass());
 		LinkDrawing.SnapRadius = Link->SnapRadius;
 		LinkDrawing.SnapHeight = Link->bUseSnapHeight ? Link->SnapHeight : -1.0f;
 		LinkDrawing.SupportedAgentsBits = Link->SupportedAgents.PackedBits;
@@ -154,7 +158,7 @@ void FNavLinkRenderingProxy::StoreSegmentLinks(const FTransform& InLocalToWorld,
 		LinkDrawing.RightStart = InLocalToWorld.TransformPosition(Link->RightStart);
 		LinkDrawing.RightEnd = InLocalToWorld.TransformPosition(Link->RightEnd);
 		LinkDrawing.Direction = Link->Direction;
-		LinkDrawing.Color = UNavArea::GetColor(Link->AreaClass);
+		LinkDrawing.Color = UNavArea::GetColor(Link->GetAreaClass());
 		LinkDrawing.SnapRadius = Link->SnapRadius;
 		LinkDrawing.SnapHeight = Link->bUseSnapHeight ? Link->SnapHeight : -1.0f;
 		LinkDrawing.SupportedAgentsBits = Link->SupportedAgents.PackedBits;

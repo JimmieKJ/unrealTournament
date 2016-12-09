@@ -1,32 +1,54 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapePrivatePCH.h"
-#include "Landscape.h"
-#include "Engine/Engine.h"
-#include "EngineGlobals.h"
-#include "UnrealEngine.h"
-#include "EngineUtils.h"
+#include "CoreMinimal.h"
+#include "GenericPlatform/GenericPlatformStackWalk.h"
+#include "HAL/FileManager.h"
+#include "Templates/ScopedPointer.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
+#include "Math/RandomStream.h"
+#include "Stats/Stats.h"
+#include "Async/AsyncWork.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/App.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectIterator.h"
+#include "EngineDefines.h"
+#include "Engine/EngineTypes.h"
+#include "GameFramework/Actor.h"
+#include "ShowFlags.h"
+#include "RHI.h"
+#include "RenderingThread.h"
+#include "ShaderParameters.h"
+#include "RHIStaticStates.h"
+#include "SceneView.h"
 #include "Shader.h"
-#include "ShaderParameterUtils.h"
-#include "MeshMaterialShader.h"
-#include "EngineModule.h"
-#include "RendererInterface.h"
+#include "LandscapeProxy.h"
+#include "LightMap.h"
+#include "Engine/MapBuildDataRegistry.h"
+#include "ShadowMap.h"
+#include "LandscapeComponent.h"
+#include "LandscapeVersion.h"
+#include "MaterialShaderType.h"
+#include "MeshMaterialShaderType.h"
 #include "DrawingPolicy.h"
-#include "GenericOctreePublic.h"
-#include "PrimitiveSceneInfo.h"
-#include "MaterialCompiler.h"
+#include "MeshMaterialShader.h"
+#include "Materials/Material.h"
 #include "LandscapeGrassType.h"
 #include "Materials/MaterialExpressionLandscapeGrassOutput.h"
-#include "EdGraph/EdGraphNode.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "ContentStreaming.h"
 #include "LandscapeDataAccess.h"
-#include "LandscapeRender.h"
-#include "LandscapeVersion.h"
-#include "Algo/Accumulate.h"
+#include "StaticMeshResources.h"
 #include "LandscapeLight.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "Materials/MaterialInstanceConstant.h"
+#include "ShaderParameterUtils.h"
+#include "EngineModule.h"
+#include "LandscapeRender.h"
+#include "MaterialCompiler.h"
+#include "Containers/Algo/Accumulate.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -77,6 +99,12 @@ static TAutoConsoleVariable<int32> CVarGrassEnable(
 	TEXT("grass.Enable"),
 	1,
 	TEXT("1: Enable Grass; 0: Disable Grass"));
+
+static TAutoConsoleVariable<int32> CVarGrassDiscardDataOnLoad(
+	TEXT("grass.DiscardDataOnLoad"),
+	0,
+	TEXT("1: Discard grass data on load (disables grass); 0: Keep grass data (requires reloading level)"),
+	ECVF_Scalability);
 
 static TAutoConsoleVariable<int32> CVarUseStreamingManagerForCameras(
 	TEXT("grass.UseStreamingManagerForCameras"),
@@ -166,7 +194,7 @@ public:
 		SetShaderValue(RHICmdList, GetVertexShader(), RenderOffsetParameter, RenderOffset);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FMeshDrawingRenderState& DrawRenderState)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(), VertexFactory, View, Proxy, BatchElement, DrawRenderState);
 	}
@@ -210,7 +238,7 @@ public:
 		}
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FMeshDrawingRenderState& DrawRenderState)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(), VertexFactory, View, Proxy, BatchElement, DrawRenderState);
 	}
@@ -234,10 +262,11 @@ public:
 	FLandscapeGrassWeightDrawingPolicy(
 		const FVertexFactory* InVertexFactory,
 		const FMaterialRenderProxy* InMaterialRenderProxy,
-		const FMaterial& InMaterialResource
+		const FMaterial& InMaterialResource,
+		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings
 		)
 		:
-		FMeshDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource)
+		FMeshDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource, InOverrideSettings)
 	{
 		PixelShader = InMaterialResource.GetShader<FLandscapeGrassWeightPS>(InVertexFactory->GetType());
 		VertexShader = InMaterialResource.GetShader<FLandscapeGrassWeightVS>(VertexFactory->GetType());
@@ -253,14 +282,14 @@ public:
 		DRAWING_POLICY_MATCH_END
 	}
 
-	void SetSharedState(FRHICommandList& RHICmdList, const FSceneView* View, const ContextDataType PolicyContext, int32 OutputPass, const FVector2D& RenderOffset) const
+	void SetSharedState(FRHICommandList& RHICmdList, const FSceneView* View, const ContextDataType PolicyContext, FDrawingPolicyRenderState& DrawRenderState, int32 OutputPass, const FVector2D& RenderOffset) const
 	{
 		// Set the shader parameters for the material.
 		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, *View, RenderOffset);
 		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, OutputPass);
 
 		// Set the shared mesh resources.
-		FMeshDrawingPolicy::SetSharedState(RHICmdList, View, PolicyContext);
+		FMeshDrawingPolicy::SetSharedState(RHICmdList, View, PolicyContext, DrawRenderState);
 	}
 
 	FBoundShaderStateInput GetBoundShaderStateInput(ERHIFeatureLevel::Type InFeatureLevel)
@@ -280,8 +309,7 @@ public:
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
-		bool bBackFace,
-		const FMeshDrawingRenderState& DrawRenderState,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const
@@ -289,7 +317,7 @@ public:
 		const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
 		VertexShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
 		PixelShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement, DrawRenderState);
-		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, bBackFace, DrawRenderState, ElementData, PolicyContext);
+		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, DrawRenderState, ElementData, PolicyContext);
 	}
 
 	friend int32 CompareDrawingPolicy(const FLandscapeGrassWeightDrawingPolicy& A, const FLandscapeGrassWeightDrawingPolicy& B)
@@ -298,7 +326,6 @@ public:
 		COMPAREDRAWINGPOLICYMEMBERS(PixelShader);
 		COMPAREDRAWINGPOLICYMEMBERS(VertexFactory);
 		COMPAREDRAWINGPOLICYMEMBERS(MaterialRenderProxy);
-		COMPAREDRAWINGPOLICYMEMBERS(bIsTwoSidedMaterial);
 		return 0;
 	}
 private:
@@ -375,9 +402,12 @@ public:
 		
 		const FSceneView* View = ViewFamily.Views[0];
 		RHICmdList.SetViewport(View->ViewRect.Min.X, View->ViewRect.Min.Y, 0.0f, View->ViewRect.Max.X, View->ViewRect.Max.Y, 1.0f);
-		RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
+
+		FDrawingPolicyRenderState DrawRenderState(&RHICmdList, *View);
+		DrawRenderState.SetBlendState(RHICmdList, TStaticBlendState<>::GetRHI());
 		RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
-		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+		DrawRenderState.SetDepthStencilState(RHICmdList, TStaticDepthStencilState<false, CF_Always>::GetRHI());
+
 		RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
 
 		for (auto& ComponentInfo : ComponentInfos)
@@ -386,15 +416,15 @@ public:
 
 			for (int32 PassIdx = 0; PassIdx < NumPasses; PassIdx++)
 			{
-				FLandscapeGrassWeightDrawingPolicy DrawingPolicy(Mesh.VertexFactory, Mesh.MaterialRenderProxy, *Mesh.MaterialRenderProxy->GetMaterial(GMaxRHIFeatureLevel));
+				FLandscapeGrassWeightDrawingPolicy DrawingPolicy(Mesh.VertexFactory, Mesh.MaterialRenderProxy, *Mesh.MaterialRenderProxy->GetMaterial(GMaxRHIFeatureLevel), ComputeMeshOverrideSettings(Mesh));
 				RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(GMaxRHIFeatureLevel));
 
 				const int32 ShaderPass = (PassIdx >= FirstHeightMipsPassIndex) ? 0 : PassIdx;
-				DrawingPolicy.SetSharedState(RHICmdList, View, FLandscapeGrassWeightDrawingPolicy::ContextDataType(), ShaderPass, ComponentInfo.ViewOffset + FVector2D(PassOffsetX * PassIdx, 0));
+				DrawingPolicy.SetSharedState(RHICmdList, View, FLandscapeGrassWeightDrawingPolicy::ContextDataType(), DrawRenderState, ShaderPass, ComponentInfo.ViewOffset + FVector2D(PassOffsetX * PassIdx, 0));
 
 				// The first batch element contains the grass batch for the entire component
 				const int32 ElementIndex = (PassIdx >= FirstHeightMipsPassIndex) ? HeightMips[PassIdx - FirstHeightMipsPassIndex] : 0;
-				DrawingPolicy.SetMeshRenderState(RHICmdList, *View, ComponentInfo.SceneProxy, Mesh, ElementIndex, false, FMeshDrawingRenderState(), FMeshDrawingPolicy::ElementDataType(), FLandscapeGrassWeightDrawingPolicy::ContextDataType());
+				DrawingPolicy.SetMeshRenderState(RHICmdList, *View, ComponentInfo.SceneProxy, Mesh, ElementIndex, DrawRenderState, FMeshDrawingPolicy::ElementDataType(), FLandscapeGrassWeightDrawingPolicy::ContextDataType());
 				DrawingPolicy.DrawMesh(RHICmdList, Mesh, ElementIndex);
 			}
 		}
@@ -926,7 +956,9 @@ UMaterialExpressionLandscapeGrassOutput::UMaterialExpressionLandscapeGrassOutput
 	};
 	static FConstructorStatics ConstructorStatics;
 
+#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.STRING_Landscape);
+#endif
 
 	// No outputs
 	Outputs.Reset();
@@ -936,13 +968,13 @@ UMaterialExpressionLandscapeGrassOutput::UMaterialExpressionLandscapeGrassOutput
 }
 
 #if WITH_EDITOR
-int32 UMaterialExpressionLandscapeGrassOutput::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
+int32 UMaterialExpressionLandscapeGrassOutput::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
 {
 	if (GrassTypes.IsValidIndex(OutputIndex))
 	{
 		if (GrassTypes[OutputIndex].Input.Expression)
 		{
-			return Compiler->CustomOutput(this, OutputIndex, GrassTypes[OutputIndex].Input.Compile(Compiler, MultiplexIndex));
+			return Compiler->CustomOutput(this, OutputIndex, GrassTypes[OutputIndex].Input.Compile(Compiler));
 		}
 		else
 		{
@@ -1165,6 +1197,14 @@ FArchive& operator<<(FArchive& Ar, FLandscapeComponentGrassData& Data)
 
 	// Each weight data array, being 1 byte will be serialized in bulk.
 	Ar << Data.WeightData;
+
+	if (Ar.IsLoading() && !GIsEditor && CVarGrassDiscardDataOnLoad.GetValueOnAnyThread())
+	{
+		//Data = FLandscapeComponentGrassData();
+		Data.WeightData.Empty();
+		Data.HeightData.Empty();
+		Data = FLandscapeComponentGrassData();
+	}
 
 	return Ar;
 }
@@ -1434,16 +1474,21 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		LightMapComponentScale = FVector2D(LightmapScaleX, LightmapScaleY) / FVector2D(DrawScale);
 		LightMapComponentBias = FVector2D(LightmapBiasX, LightmapBiasY);
 
-		if (Component->LightMap.IsValid())
-		{
-			LightmapBaseBias = Component->LightMap->GetLightMap2D()->GetCoordinateBias();
-			LightmapBaseScale = Component->LightMap->GetLightMap2D()->GetCoordinateScale();
-		}
+		const FMeshMapBuildData* MeshMapBuildData = Component->GetMeshMapBuildData();
 
-		if (Component->ShadowMap.IsValid())
+		if (MeshMapBuildData != nullptr)
 		{
-			ShadowmapBaseBias = Component->ShadowMap->GetShadowMap2D()->GetCoordinateBias();
-			ShadowmapBaseScale = Component->ShadowMap->GetShadowMap2D()->GetCoordinateScale();
+			if (MeshMapBuildData->LightMap.IsValid())
+			{
+				LightmapBaseBias = MeshMapBuildData->LightMap->GetLightMap2D()->GetCoordinateBias();
+				LightmapBaseScale = MeshMapBuildData->LightMap->GetLightMap2D()->GetCoordinateScale();
+			}
+
+			if (MeshMapBuildData->ShadowMap.IsValid())
+			{
+				ShadowmapBaseBias = MeshMapBuildData->ShadowMap->GetShadowMap2D()->GetCoordinateBias();
+				ShadowmapBaseScale = MeshMapBuildData->ShadowMap->GetShadowMap2D()->GetCoordinateScale();
+			}
 		}
 	}
 
@@ -2094,6 +2139,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 										{
 											QUICK_SCOPE_CYCLE_COUNTER(STAT_GrassCreateComp);
 											HierarchicalInstancedStaticMeshComponent = NewObject<UHierarchicalInstancedStaticMeshComponent>(this);
+											HierarchicalInstancedStaticMeshComponent->SetFlags(RF_Transient);
 										}
 										NewComp.Foliage = HierarchicalInstancedStaticMeshComponent;
 										FoliageCache.CachedGrassComps.Add(NewComp);
@@ -2101,10 +2147,10 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 										HierarchicalInstancedStaticMeshComponent->Mobility = EComponentMobility::Static;
 										HierarchicalInstancedStaticMeshComponent->bCastStaticShadow = false;
 
-										HierarchicalInstancedStaticMeshComponent->StaticMesh = GrassVariety.GrassMesh;
+										HierarchicalInstancedStaticMeshComponent->SetStaticMesh(GrassVariety.GrassMesh);
 										HierarchicalInstancedStaticMeshComponent->MinLOD = GrassVariety.MinLOD;
 										HierarchicalInstancedStaticMeshComponent->bSelectable = false;
-										HierarchicalInstancedStaticMeshComponent->bHasPerInstanceHitProxies = true;
+										HierarchicalInstancedStaticMeshComponent->bHasPerInstanceHitProxies = false;
 										HierarchicalInstancedStaticMeshComponent->bReceivesDecals = GrassVariety.bReceivesDecals;
 										static FName NoCollision(TEXT("NoCollision"));
 										HierarchicalInstancedStaticMeshComponent->SetCollisionProfileName(NoCollision);
@@ -2112,21 +2158,24 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 										HierarchicalInstancedStaticMeshComponent->SetCanEverAffectNavigation(false);
 										HierarchicalInstancedStaticMeshComponent->InstancingRandomSeed = FolSeed;
 										HierarchicalInstancedStaticMeshComponent->LightingChannels = GrassVariety.LightingChannels;
-											
+										
+										const FMeshMapBuildData* MeshMapBuildData = Component->GetMeshMapBuildData();
+
 										if (GrassVariety.bUseLandscapeLightmap
 											&& GrassVariety.GrassMesh->GetNumLODs() > 0
-											&& Component->LightMap.IsValid())
+											&& MeshMapBuildData
+											&& MeshMapBuildData->LightMap)
 										{
 											HierarchicalInstancedStaticMeshComponent->SetLODDataCount(GrassVariety.GrassMesh->GetNumLODs(), GrassVariety.GrassMesh->GetNumLODs());
-											HierarchicalInstancedStaticMeshComponent->bHasCachedStaticLighting = true;
 
-											FLightMapRef GrassLightMap = new FLandscapeGrassLightMap(*Component->LightMap->GetLightMap2D());
-											FShadowMapRef GrassShadowMap = Component->ShadowMap ? new FLandscapeGrassShadowMap(*Component->ShadowMap->GetShadowMap2D()) : nullptr;
+											FLightMapRef GrassLightMap = new FLandscapeGrassLightMap(*MeshMapBuildData->LightMap->GetLightMap2D());
+											FShadowMapRef GrassShadowMap = MeshMapBuildData->ShadowMap ? new FLandscapeGrassShadowMap(*MeshMapBuildData->ShadowMap->GetShadowMap2D()) : nullptr;
 
 											for (auto& LOD : HierarchicalInstancedStaticMeshComponent->LODData)
 											{
-												LOD.LightMap = GrassLightMap;
-												LOD.ShadowMap = GrassShadowMap;
+												LOD.OverrideMapBuildData = MakeUnique<FMeshMapBuildData>();
+												LOD.OverrideMapBuildData->LightMap = GrassLightMap;
+												LOD.OverrideMapBuildData->ShadowMap = GrassShadowMap;
 											}
 										}
 

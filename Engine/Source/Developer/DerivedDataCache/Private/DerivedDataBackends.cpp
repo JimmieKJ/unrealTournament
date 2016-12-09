@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
-#include "SecureHash.h"
+#include "CoreMinimal.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/Guid.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/App.h"
 #include "DerivedDataBackendInterface.h"
-#include "DerivedDataCacheInterface.h"
+#include "DerivedDataCacheUsageStats.h"
 #include "MemoryDerivedDataBackend.h"
 #include "DerivedDataBackendAsyncPutWrapper.h"
 #include "PakFileDerivedDataBackend.h"
@@ -13,7 +20,8 @@
 #include "DerivedDataBackendVerifyWrapper.h"
 #include "DerivedDataUtilsInterface.h"
 #include "Misc/EngineBuildSettings.h"
-#include "DerivedDataCacheUsageStats.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/ConfigCacheIni.h"
 
 DEFINE_LOG_CATEGORY(LogDerivedDataCache);
 
@@ -426,7 +434,7 @@ public:
 			}
 
 			// Move the Entry pointer forward so that we can find more children
-			Entry = FCString::Strfind( Entry, InnerMatch );
+			Entry = FCString::Strifind( Entry, InnerMatch );
 			Entry += InnerMatchLength;
 		}
 

@@ -1,13 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SettingsEditorPrivatePCH.h"
+#include "Widgets/SSettingsEditor.h"
+#include "UObject/UnrealType.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "EditorStyleSet.h"
 #include "AnalyticsEventAttribute.h"
 #include "EngineAnalytics.h"
-#include "IAnalyticsProvider.h"
-#include "PropertyEditing.h"
-#include "SHyperlink.h"
-#include "SSettingsSectionHeader.h"
+#include "Interfaces/IAnalyticsProvider.h"
+#include "Widgets/Text/STextBlock.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
+#include "Widgets/Input/SHyperlink.h"
+#include "Widgets/SSettingsSectionHeader.h"
 #include "SSettingsEditorCheckoutNotice.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/PlatformFile.h"
 
 #define LOCTEXT_NAMESPACE "SSettingsEditor"
 
@@ -143,15 +158,33 @@ void SSettingsEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 		// Note while there could be multiple objects in the details panel, only one is ever edited at once
 		const UObject* ObjectBeingEdited = PropertyChangedEvent.GetObjectBeingEdited(0);
 
-
 		// Get the section from the edited object.  We cannot use the selected section as multiple sections can be shown at once in the settings details panel.
 		ISettingsSectionPtr Section = Model->GetSectionFromSectionObject(ObjectBeingEdited);
 		if(Section.IsValid())
 		{
-			// Attempt to checkout the file automatically
-			FString FullPath = FPaths::ConvertRelativePathToFull(ObjectBeingEdited->GetDefaultConfigFilename());
+			FString RelativePath;
+			bool bIsSourceControlled = false;
+			bool bIsNewFile = false;
 
-			if(!SettingsHelpers::CheckOutFile(FullPath))
+			// Attempt to checkout the file automatically
+			if (ObjectBeingEdited->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig))
+			{
+				RelativePath = ObjectBeingEdited->GetDefaultConfigFilename();
+				bIsSourceControlled = true;
+			}
+			else if (ObjectBeingEdited->GetClass()->HasAnyClassFlags(CLASS_Config))
+			{
+				RelativePath = ObjectBeingEdited->GetClass()->GetConfigName();
+			}
+
+			FString FullPath = FPaths::ConvertRelativePathToFull(RelativePath);
+
+			if (!FPlatformFileManager::Get().GetPlatformFile().FileExists(*FullPath))
+			{
+				bIsNewFile = true;
+			}
+
+			if (!bIsSourceControlled || !SettingsHelpers::CheckOutOrAddFile(FullPath))
 			{
 				SettingsHelpers::MakeWritable(FullPath);
 			}
@@ -163,13 +196,24 @@ void SSettingsEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 				|| PropertyThatChanged->GetActiveMemberNode()->GetValue()->ArrayDim > 1
 				|| ((Outer != nullptr) && Outer->IsA(UArrayProperty::StaticClass()));
 
-			if (Section->GetSettingsObject()->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig) && !bIsArrayOrArrayElement)
+			bool bIsSetOrSetElement = PropertyThatChanged->GetActiveMemberNode()->GetValue()->IsA(USetProperty::StaticClass())
+				|| ((Outer != nullptr) && Outer->IsA(USetProperty::StaticClass()));
+
+			bool bIsMapOrMapElement = PropertyThatChanged->GetActiveMemberNode()->GetValue()->IsA(UMapProperty::StaticClass())
+				|| ((Outer != nullptr) && Outer->IsA(UMapProperty::StaticClass()));
+
+			if (Section->GetSettingsObject()->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig) && !bIsArrayOrArrayElement && !bIsSetOrSetElement && !bIsMapOrMapElement)
 			{
 				Section->GetSettingsObject()->UpdateSinglePropertyInConfigFile(PropertyThatChanged->GetActiveMemberNode()->GetValue(), Section->GetSettingsObject()->GetDefaultConfigFilename());
 			}
 			else
 			{
 				Section->Save();
+			}
+
+			if (bIsNewFile && bIsSourceControlled)
+			{
+				SettingsHelpers::CheckOutOrAddFile(FullPath);
 			}
 
 			static const FName ConfigRestartRequiredKey = "ConfigRestartRequired";

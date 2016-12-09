@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
 #include "SCommentBubble.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/SOverlay.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "SGraphPanel.h"
 #include "ScopedTransaction.h"
 
 namespace SCommentBubbleDefs

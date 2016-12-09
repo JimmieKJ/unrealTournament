@@ -5,8 +5,8 @@
 =============================================================================*/
 
 // Core includes.
-#include "CoreUObjectPrivate.h"
 #include "Misc/NotifyHook.h"
+#include "UObject/UnrealType.h"
 
 void FNotifyHook::NotifyPreChange( FEditPropertyChain* PropertyAboutToChange )
 {

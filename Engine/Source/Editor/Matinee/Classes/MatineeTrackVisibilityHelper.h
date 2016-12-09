@@ -2,7 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InterpTrackHelper.h"
 #include "MatineeTrackVisibilityHelper.generated.h"
+
+class IMatineeBase;
+class UInterpTrack;
 
 UCLASS()
 class UMatineeTrackVisibilityHelper : public UInterpTrackHelper

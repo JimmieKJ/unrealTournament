@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "SSpriteList.h"
-#include "AssetRegistryModule.h"
+#include "SpriteEditor/SSpriteList.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
-#include "SpriteEditor.h"
 #include "PaperSprite.h"
 
 //////////////////////////////////////////////////////////////////////////

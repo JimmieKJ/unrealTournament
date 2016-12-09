@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/FileHelper.h"
+
 /////////////////////////////////////////////////////
 // FManifestUpdateHelper
 

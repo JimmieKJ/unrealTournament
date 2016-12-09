@@ -2,6 +2,9 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_CallArrayFunction.generated.h"
 

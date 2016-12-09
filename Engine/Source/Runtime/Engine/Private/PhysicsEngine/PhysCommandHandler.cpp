@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "EngineDefines.h"
 #include "PhysicsPublic.h"
 
 #if WITH_PHYSX
-	#include "PhysXSupport.h"
-	#include "../Vehicles/PhysXVehicleManager.h"
+	#include "PhysicsEngine/PhysXSupport.h"
 #endif
 
 FPhysCommandHandler::~FPhysCommandHandler()
@@ -39,7 +39,7 @@ void FPhysCommandHandler::ExecuteCommands()
 #if WITH_APEX
 		case PhysCommand::Release:
 		{
-			physx::apex::NxApexInterface * ApexInterface = Command.Pointer.ApexInterface;
+			nvidia::apex::ApexInterface * ApexInterface = Command.Pointer.ApexInterface;
 			ApexInterface->release();
 			break;
 		}
@@ -122,7 +122,7 @@ void  FPhysCommandHandler::DeferredDeleteCPUDispathcer(physx::PxCpuDispatcher * 
 #endif
 
 #if WITH_APEX
-void FPhysCommandHandler::DeferredRelease(physx::apex::NxApexInterface* ApexInterface)
+void FPhysCommandHandler::DeferredRelease(nvidia::apex::ApexInterface* ApexInterface)
 {
 	check(ApexInterface);
 

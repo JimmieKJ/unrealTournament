@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "GenericPlatform/GenericPlatformSymbolication.h"
+#include "Logging/LogMacros.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Serialization/ArchiveSaveCompressedProxy.h"
+#include "Serialization/ArchiveLoadCompressedProxy.h"
 
-#include "GenericPlatformSymbolication.h"
-#include "Serialization/Archive.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenericPlatformSymbolication, Log, All);
 

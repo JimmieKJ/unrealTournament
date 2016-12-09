@@ -5,6 +5,11 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EditorReimportHandler.h"
+#include "Factories/FbxFactory.h"
 #include "ReimportFbxStaticMeshFactory.generated.h"
 
 UCLASS(MinimalAPI, collapsecategories)

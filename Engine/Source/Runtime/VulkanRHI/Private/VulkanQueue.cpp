@@ -73,6 +73,9 @@ void FVulkanQueue::Submit(FVulkanCmdBuffer* CmdBuffer, FVulkanSemaphore* WaitSem
 	if (GWaitForIdleOnSubmit != 0)
 	{
 		VERIFYVULKANRESULT(VulkanRHI::vkQueueWaitIdle(Queue));
+		CmdBuffer->GetOwner()->RefreshFenceStatus();
+		Device->GetFenceManager().WaitForFence(CmdBuffer->Fence, 1000 * 60);
+		ensure(Device->GetFenceManager().IsFenceSignaled(CmdBuffer->Fence));
 	}
 
 	CmdBuffer->State = FVulkanCmdBuffer::EState::Submitted;

@@ -2,12 +2,15 @@
 
 #pragma once
 
-class UObject;
-class SCurveEditor;
-class IPropertyHandle;
-class FDetailWidgetRow;
-class IDetailChildrenBuilder;
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+#include "Curves/CurveOwnerInterface.h"
+#include "IDetailChildrenBuilder.h"
 
+class FDetailWidgetRow;
+class SCurveEditor;
 struct FRuntimeCurveLinearColor;
 
 /**

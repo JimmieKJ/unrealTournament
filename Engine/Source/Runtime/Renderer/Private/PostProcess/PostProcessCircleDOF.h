@@ -6,8 +6,9 @@
 
 #pragma once
 
-#include "RenderingCompositionGraph.h"
-
+#include "CoreMinimal.h"
+#include "RendererInterface.h"
+#include "PostProcess/RenderingCompositionGraph.h"
 
 // down sample and setup DOF input
 // ePId_Input0: SceneColor
@@ -17,17 +18,13 @@ class FRCPassPostProcessCircleDOFSetup : public TRenderingCompositePassBase<2, 2
 {
 public:
 
-	FRCPassPostProcessCircleDOFSetup(bool bInNearBlurEnabled) : bNearBlurEnabled ( bInNearBlurEnabled ) {}
+	FRCPassPostProcessCircleDOFSetup(void) {}
 
 	// interface FRenderingCompositePass ---------
 
 	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
 	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
-
-private:
-
-	bool bNearBlurEnabled;
 };
 
 
@@ -51,11 +48,11 @@ public:
 // ePId_Input0: setup results for far
 // ePId_Input1: setup results for near, might have been processed by the dilate pass
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessCircleDOF : public TRenderingCompositePassBase<2, 2>
+class FRCPassPostProcessCircleDOF : public TRenderingCompositePassBase<3, 2>
 {
 public:
 
-	FRCPassPostProcessCircleDOF(bool bInNearBlurEnabled) : bNearBlurEnabled ( bInNearBlurEnabled ) {}
+	FRCPassPostProcessCircleDOF(void) {}
 
 	// interface FRenderingCompositePass ---------
 
@@ -65,9 +62,7 @@ public:
 
 private:
 
-	bool bNearBlurEnabled;
-
-	template <uint32 NearBlurEnable, uint32 Quality>
+	template <uint32 Quality>
 	FShader* SetShaderTempl(const FRenderingCompositePassContext& Context);
 };
 
@@ -79,7 +74,7 @@ class FRCPassPostProcessCircleDOFRecombine : public TRenderingCompositePassBase<
 {
 public:
 
-	FRCPassPostProcessCircleDOFRecombine(bool bInNearBlurEnabled) : bNearBlurEnabled ( bInNearBlurEnabled ) {}
+	FRCPassPostProcessCircleDOFRecombine() {}
 
 	// interface FRenderingCompositePass ---------
 	virtual void Process(FRenderingCompositePassContext& Context) override;
@@ -88,9 +83,7 @@ public:
 
 private:
 
-	bool bNearBlurEnabled;
-
-	template <uint32 NearBlurEnable, uint32 Quality>
+	template <uint32 Quality>
 	FShader* SetShaderTempl(const FRenderingCompositePassContext& Context);
 };
 

@@ -4,17 +4,14 @@
 	PostProcessHMD.cpp: Post processing for HMD devices.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "ScreenRendering.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessHMD.h"
-#include "PostProcessing.h"
-#include "PostProcessHistogram.h"
-#include "PostProcessEyeAdaptation.h"
+#include "PostProcess/PostProcessHMD.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 #include "IHeadMountedDisplay.h"
-#include "RHICommandList.h"
 #include "SceneUtils.h"
+#include "StaticBoundShaderState.h"
+#include "SceneRenderTargetParameters.h"
+#include "SceneRendering.h"
 
 /** The filter vertex declaration resource type. */
 class FDistortionVertexDeclaration : public FRenderResource
@@ -174,7 +171,7 @@ void FRCPassPostProcessHMD::Process(FRenderingCompositePassContext& Context)
 	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
 
 	Context.SetViewportAndCallRHI(DestRect);
-	Context.RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, FIntRect());
+	Context.RHICmdList.ClearColorTexture(DestRenderTarget.TargetableTexture, FLinearColor::Black, FIntRect());
 
 	// set the state
 	Context.RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());

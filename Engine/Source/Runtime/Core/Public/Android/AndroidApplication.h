@@ -8,7 +8,10 @@
 namespace FAndroidAppEntry
 {
 	void PlatformInit();
-	void ReInitWindow();
+
+	// if the native window handle has changed then the new handle is required.
+	void ReInitWindow(void* NewNativeWindowHandle = nullptr);
+
 	void DestroyWindow();
 	void ReleaseEGL();
 }
@@ -69,6 +72,8 @@ public:
 	void InitializeWindow( const TSharedRef< FGenericWindow >& InWindow, const TSharedRef< FGenericWindowDefinition >& InDefinition, const TSharedPtr< FGenericWindow >& InParent, const bool bShowImmediately );
 
 	static void OnWindowSizeChanged();
+
+	virtual bool IsGamepadAttached() const override;
 
 private:
 

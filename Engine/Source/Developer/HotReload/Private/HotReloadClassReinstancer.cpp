@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HotReloadPrivatePCH.h"
 #include "HotReloadClassReinstancer.h"
+#include "Serialization/MemoryWriter.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "Serialization/ArchiveReplaceObjectRef.h"
+#if WITH_ENGINE
+#include "Engine/Blueprint.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#endif
 
 #if WITH_ENGINE
-#include "Engine/BlueprintGeneratedClass.h"
-#include "Layers/ILayers.h"
-#include "BlueprintEditor.h"
-#include "Kismet2/CompilerResultsLog.h"
 
 void FHotReloadClassReinstancer::SetupNewClassReinstancing(UClass* InNewClass, UClass* InOldClass)
 {
@@ -181,6 +185,11 @@ void FHotReloadClassReinstancer::SerializeCDOProperties(UObject* InObject, FHotR
 
 			return Ar;
 		}
+		FArchive& operator<<(FWeakObjectPtr& WeakObjectPtr) override
+		{
+			WeakObjectPtr.Serialize(*this);
+			return *this;
+		}
 		/** Archive name, for debugging */
 		virtual FString GetArchiveName() const override { return TEXT("FCDOWriter"); }
 	};
@@ -202,9 +211,9 @@ void FHotReloadClassReinstancer::ReconstructClassDefaultObject(UClass* InClass, 
 	// Re-create
 	InClass->ClassDefaultObject = StaticAllocateObject(InClass, InOuter, InName, InFlags, EInternalObjectFlags::None, false);
 	check(InClass->ClassDefaultObject);
-	const bool bShouldInitilizeProperties = false;
+	const bool bShouldInitializeProperties = false;
 	const bool bCopyTransientsFromClassDefaults = false;
-	(*InClass->ClassConstructor)(FObjectInitializer(InClass->ClassDefaultObject, ParentDefaultObject, bCopyTransientsFromClassDefaults, bShouldInitilizeProperties));
+	(*InClass->ClassConstructor)(FObjectInitializer(InClass->ClassDefaultObject, ParentDefaultObject, bCopyTransientsFromClassDefaults, bShouldInitializeProperties));
 }
 
 void FHotReloadClassReinstancer::RecreateCDOAndSetupOldClassReinstancing(UClass* InOldClass)
@@ -415,6 +424,11 @@ void FHotReloadClassReinstancer::UpdateDefaultProperties()
 			}
 
 			return Ar;
+		}
+		FArchive& operator<<(FWeakObjectPtr& WeakObjectPtr) override
+		{
+			WeakObjectPtr.Serialize(*this);
+			return *this;
 		}
 	};
 

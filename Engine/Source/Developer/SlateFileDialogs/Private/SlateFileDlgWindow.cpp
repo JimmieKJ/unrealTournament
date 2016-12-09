@@ -1,8 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateFileDialogsPrivatePCH.h"
 #include "SlateFileDlgWindow.h"
-#include "ModuleManager.h"
+#include "SlateFileDialogsPrivate.h"
+#include "HAL/PlatformProcess.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/STextComboBox.h"
+#include "Widgets/Navigation/SBreadcrumbTrail.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "DirectoryWatcherModule.h"
+
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "SlateFileDialogsNamespace"
 

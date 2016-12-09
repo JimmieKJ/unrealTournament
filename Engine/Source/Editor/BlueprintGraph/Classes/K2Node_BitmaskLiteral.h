@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node.h"
 #include "NodeDependingOnEnumInterface.h"
 #include "K2Node_BitmaskLiteral.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UK2Node_BitmaskLiteral : public UK2Node, public INodeDependingOnEnumInterface

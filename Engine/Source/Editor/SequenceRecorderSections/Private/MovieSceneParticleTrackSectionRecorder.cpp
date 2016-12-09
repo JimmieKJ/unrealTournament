@@ -1,11 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderSectionsPrivatePCH.h"
 #include "MovieSceneParticleTrackSectionRecorder.h"
-#include "MovieSceneParticleSection.h"
-#include "MovieSceneParticleTrack.h"
+#include "Tracks/MovieSceneParticleTrack.h"
 #include "MovieScene.h"
-#include "Particles/ParticleSystemComponent.h"
 
 TSharedPtr<IMovieSceneSectionRecorder> FMovieSceneParticleTrackSectionRecorderFactory::CreateSectionRecorder(const struct FActorRecordingSettings& InActorRecordingSettings) const
 {

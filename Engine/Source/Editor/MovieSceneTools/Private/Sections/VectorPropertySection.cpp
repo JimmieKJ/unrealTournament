@@ -1,84 +1,84 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
+#include "Sections/VectorPropertySection.h"
 #include "FloatCurveKeyArea.h"
-#include "MovieSceneVectorSection.h"
-#include "VectorPropertySection.h"
+#include "ISectionLayoutBuilder.h"
+#include "Sections/MovieSceneVectorSection.h"
 
 
 void FVectorPropertySection::GenerateSectionLayout(class ISectionLayoutBuilder& LayoutBuilder) const
 {
 	UMovieSceneVectorSection* VectorSection = Cast<UMovieSceneVectorSection>(&SectionObject);
-	int32 ChannelsUsed = VectorSection->GetChannelsUsed();
+	ChannelsUsed = VectorSection->GetChannelsUsed();
 	check(ChannelsUsed >= 2 && ChannelsUsed <= 4);
 
-	XKeyArea = MakeShareable(new FFloatCurveKeyArea(&VectorSection->GetCurve(0), VectorSection));
-	LayoutBuilder.AddKeyArea("Vector.X", NSLOCTEXT("FVectorPropertySection", "XArea", "X"), XKeyArea.ToSharedRef());
+	TAttribute<TOptional<float>> XExternalValue = TAttribute<TOptional<float>>::Create(
+		TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FVectorPropertySection::GetVectorXValue));
+	TSharedRef<FFloatCurveKeyArea> XKeyArea = MakeShareable(new FFloatCurveKeyArea(&VectorSection->GetCurve(0), XExternalValue, VectorSection));
+	LayoutBuilder.AddKeyArea("Vector.X", NSLOCTEXT("FVectorPropertySection", "XArea", "X"), XKeyArea);
 
-	YKeyArea = MakeShareable(new FFloatCurveKeyArea(&VectorSection->GetCurve(1), VectorSection));
-	LayoutBuilder.AddKeyArea("Vector.Y", NSLOCTEXT("FVectorPropertySection", "YArea", "Y"), YKeyArea.ToSharedRef());
+	TAttribute<TOptional<float>> YExternalValue = TAttribute<TOptional<float>>::Create(
+		TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FVectorPropertySection::GetVectorYValue));
+	TSharedRef<FFloatCurveKeyArea> YKeyArea = MakeShareable(new FFloatCurveKeyArea(&VectorSection->GetCurve(1), YExternalValue, VectorSection));
+	LayoutBuilder.AddKeyArea("Vector.Y", NSLOCTEXT("FVectorPropertySection", "YArea", "Y"), YKeyArea);
 
 	if (ChannelsUsed >= 3)
 	{
-		ZKeyArea = MakeShareable(new FFloatCurveKeyArea(&VectorSection->GetCurve(2), VectorSection));
-		LayoutBuilder.AddKeyArea("Vector.Z", NSLOCTEXT("FVectorPropertySection", "ZArea", "Z"), ZKeyArea.ToSharedRef());
+		TAttribute<TOptional<float>> ZExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FVectorPropertySection::GetVectorZValue));
+		TSharedRef<FFloatCurveKeyArea> ZKeyArea = MakeShareable(new FFloatCurveKeyArea(&VectorSection->GetCurve(2), ZExternalValue, VectorSection));
+		LayoutBuilder.AddKeyArea("Vector.Z", NSLOCTEXT("FVectorPropertySection", "ZArea", "Z"), ZKeyArea);
 	}
 
 	if (ChannelsUsed >= 4)
 	{
-		WKeyArea = MakeShareable(new FFloatCurveKeyArea(&VectorSection->GetCurve(3), VectorSection));
-		LayoutBuilder.AddKeyArea("Vector.W", NSLOCTEXT("FVectorPropertySection", "WArea", "W"), WKeyArea.ToSharedRef());
+		TAttribute<TOptional<float>> WExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FVectorPropertySection::GetVectorWValue));
+		TSharedRef<FFloatCurveKeyArea> WKeyArea = MakeShareable(new FFloatCurveKeyArea(&VectorSection->GetCurve(3), WExternalValue, VectorSection));
+		LayoutBuilder.AddKeyArea("Vector.W", NSLOCTEXT("FVectorPropertySection", "WArea", "W"), WKeyArea);
 	}
 }
 
 
-void FVectorPropertySection::SetIntermediateValue(FPropertyChangedParams PropertyChangedParams)
+TOptional<FVector4> FVectorPropertySection::GetPropertyValueAsVector4() const
 {
-	const UStructProperty* StructProp = Cast<const UStructProperty>(PropertyChangedParams.PropertyPath.Last());
-
-	FName StructName = StructProp->Struct->GetFName();
-
-	bool bIsVector2D = StructName == NAME_Vector2D;
-	bool bIsVector = StructName == NAME_Vector;
-	bool bIsVector4 = StructName == NAME_Vector4;
-
-	// Get the vector value from the property
-	if (bIsVector2D)
+	if (ChannelsUsed == 2)
 	{
-		FVector2D Vector =  PropertyChangedParams.GetPropertyValue<FVector2D>();
-		XKeyArea->SetIntermediateValue(Vector.X);
-		YKeyArea->SetIntermediateValue(Vector.Y);
+		TOptional<FVector2D> Vector = GetPropertyValue<FVector2D>();
+		return Vector.IsSet() ? TOptional<FVector4>(FVector4(Vector.GetValue().X, Vector.GetValue().Y, 0, 0)) : TOptional<FVector4>();
 	}
-	else if (bIsVector)
+	else if (ChannelsUsed == 3)
 	{
-		FVector Vector = PropertyChangedParams.GetPropertyValue<FVector>();
-		XKeyArea->SetIntermediateValue(Vector.X);
-		YKeyArea->SetIntermediateValue(Vector.Y);
-		ZKeyArea->SetIntermediateValue(Vector.Z);
+		TOptional<FVector> Vector = GetPropertyValue<FVector>();
+		return Vector.IsSet() ? TOptional<FVector4>(FVector4(Vector.GetValue().X, Vector.GetValue().Y, Vector.GetValue().Z, 0)) : TOptional<FVector4>();
 	}
-	else // if (bIsVector4)
+	else // ChannelsUsed == 4
 	{
-		FVector4 Vector = PropertyChangedParams.GetPropertyValue<FVector4>();
-		XKeyArea->SetIntermediateValue(Vector.X);
-		YKeyArea->SetIntermediateValue(Vector.Y);
-		ZKeyArea->SetIntermediateValue(Vector.Z);
-		WKeyArea->SetIntermediateValue(Vector.W);
+		return GetPropertyValue<FVector4>();
 	}
 }
 
 
-void FVectorPropertySection::ClearIntermediateValue()
+TOptional<float> FVectorPropertySection::GetVectorXValue() const
 {
-	XKeyArea->ClearIntermediateValue();
-	YKeyArea->ClearIntermediateValue();
+	TOptional<FVector4> Vector = GetPropertyValueAsVector4();
+	return Vector.IsSet() ? TOptional<float>(Vector.GetValue().X) : TOptional<float>();
+}
 
-	if (ZKeyArea.IsValid())
-	{
-		ZKeyArea->ClearIntermediateValue();
-	}
+TOptional<float> FVectorPropertySection::GetVectorYValue() const
+{
+	TOptional<FVector4> Vector = GetPropertyValueAsVector4();
+	return Vector.IsSet() ? TOptional<float>(Vector.GetValue().Y) : TOptional<float>();
+}
 
-	if (WKeyArea.IsValid())
-	{
-		WKeyArea->ClearIntermediateValue();
-	}
+TOptional<float> FVectorPropertySection::GetVectorZValue() const
+{
+	TOptional<FVector4> Vector = GetPropertyValueAsVector4();
+	return Vector.IsSet() ? TOptional<float>(Vector.GetValue().Z) : TOptional<float>();
+}
+
+TOptional<float> FVectorPropertySection::GetVectorWValue() const
+{
+	TOptional<FVector4> Vector = GetPropertyValueAsVector4();
+	return Vector.IsSet() ? TOptional<float>(Vector.GetValue().W) : TOptional<float>();
 }

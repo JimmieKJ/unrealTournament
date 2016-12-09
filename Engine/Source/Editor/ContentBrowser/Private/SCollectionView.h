@@ -2,11 +2,25 @@
 
 #pragma once
 
-#include "CollectionManagerModule.h"
-#include "CollectionViewTypes.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "AssetData.h"
+#include "CollectionManagerTypes.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "Misc/TextFilter.h"
+#include "Editor/ContentBrowser/Private/CollectionViewTypes.h"
 
-class SCollectionListItem;
 class FCollectionAssetManagement;
+class FCollectionContextMenu;
+class FCollectionDragDropOp;
+class FUICommandList;
+struct FHistoryData;
 
 /**
  * The list view of collections.

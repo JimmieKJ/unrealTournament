@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "AnimNodeBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimNodeBase.h"
 #include "AnimNodeSpaceConversions.generated.h"
 
 USTRUCT()

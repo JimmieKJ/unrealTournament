@@ -462,7 +462,7 @@ namespace APIDocTool
 			}
 
 			// Derive all the tool paths
-			string DoxygenPath = Path.Combine(EngineDir, "Extras\\NotForLicensees\\Doxygen\\bin\\Release64\\doxygen.exe");
+			string DoxygenPath = Path.Combine(EngineDir, "Extras\\NotForLicensees\\doxygen-1.8.11\\Doxygen\\Releasex64\\doxygen.exe");
 			string EditorPath = Path.Combine(EngineDir, "Binaries\\Win64\\UE4Editor-Cmd.exe");
 			string DocToolPath = Path.Combine(EngineDir, "Binaries\\DotNET\\UnrealDocTool.exe");
 			string ChmCompilerPath = Path.Combine(EngineDir, "Extras\\NotForLicensees\\HTML Help Workshop\\hhc.exe");
@@ -497,7 +497,7 @@ namespace APIDocTool
 			// Establish snippet directory so we can look things up later
 			APISnippets.SetSnippetTextDirectory(SnippetsDir);
 
-			// Build all the code docs
+            // Build all the code docs
 			if (!BuildCodeSnippetsTxt(SamplesDir, CodeSnippetsActions))
 			{
 				return 1;
@@ -1541,7 +1541,8 @@ namespace APIDocTool
 
 		static private void CreateChm(string ChmCompilerPath, string ChmFileName, string Title, string DefaultTopicPath, string ContentsFileName, string IndexFileName, string SourceDir, List<string> FileNames)
 		{
-			string ProjectName = Path.GetFileNameWithoutExtension(ChmFileName);
+            Console.WriteLine("CreateChm {0}", ChmFileName);
+            string ProjectName = Path.GetFileNameWithoutExtension(ChmFileName);
 
 			// Create an intermediate directory
 			string IntermediateDir = Path.Combine(Path.GetDirectoryName(ChmFileName), ProjectName);

@@ -6,10 +6,10 @@
 
 #pragma once
 
-#include "RenderingCompositionGraph.h"
-#include "PostProcessPassThrough.h"
+#include "CoreMinimal.h"
+#include "CompositionLighting/PostProcessPassThrough.h"
 
-
+class FCanvas;
 
 class FRCPassPostProcessStreamingAccuracyLegend : public FRCPassPostProcessPassThrough
 {

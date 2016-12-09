@@ -32,7 +32,7 @@
 #define CEF_INCLUDE_INTERNAL_CEF_TYPES_H_
 #pragma once
 
-#include "include/base/cef_build.h"
+#include "include/base/cef_basictypes.h"
 #include "include/internal/cef_string.h"
 #include "include/internal/cef_string_list.h"
 #include "include/internal/cef_time.h"
@@ -44,45 +44,6 @@
 #include "include/internal/cef_types_mac.h"
 #elif defined(OS_LINUX)
 #include "include/internal/cef_types_linux.h"
-#endif
-
-#include <limits.h>         // For UINT_MAX
-#include <stddef.h>         // For size_t
-
-// The NSPR system headers define 64-bit as |long| when possible, except on
-// Mac OS X.  In order to not have typedef mismatches, we do the same on LP64.
-//
-// On Mac OS X, |long long| is used for 64-bit types for compatibility with
-// <inttypes.h> format macros even in the LP64 model.
-#if defined(__LP64__) && !defined(OS_MACOSX) && !defined(OS_OPENBSD)
-typedef long                int64;  // NOLINT(runtime/int)
-typedef unsigned long       uint64;  // NOLINT(runtime/int)
-#else
-typedef long long           int64;  // NOLINT(runtime/int)
-typedef unsigned long long  uint64;  // NOLINT(runtime/int)
-#endif
-
-// TODO: Remove these type guards.  These are to avoid conflicts with
-// obsolete/protypes.h in the Gecko SDK.
-#ifndef _INT32
-#define _INT32
-typedef int                 int32;
-#endif
-
-// TODO: Remove these type guards.  These are to avoid conflicts with
-// obsolete/protypes.h in the Gecko SDK.
-#ifndef _UINT32
-#define _UINT32
-typedef unsigned int       uint32;
-#endif
-
-// UTF-16 character type
-#ifndef char16
-#if defined(WIN32)
-typedef wchar_t             char16;
-#else
-typedef unsigned short      char16;
-#endif
 #endif
 
 // 32-bit ARGB color value, not premultiplied. The color components are always
@@ -214,7 +175,8 @@ typedef struct _cef_settings_t {
   ///
   // Set to true (1) to have the browser process message loop run in a separate
   // thread. If false (0) than the CefDoMessageLoopWork() function must be
-  // called from your application message loop.
+  // called from your application message loop. This option is only supported on
+  // Windows.
   ///
   int multi_threaded_message_loop;
 
@@ -256,14 +218,24 @@ typedef struct _cef_settings_t {
   ///
   // To persist session cookies (cookies without an expiry date or validity
   // interval) by default when using the global cookie manager set this value to
-  // true. Session cookies are generally intended to be transient and most Web
-  // browsers do not persist them. A |cache_path| value must also be specified
-  // to enable this feature. Also configurable using the
+  // true (1). Session cookies are generally intended to be transient and most
+  // Web browsers do not persist them. A |cache_path| value must also be
+  // specified to enable this feature. Also configurable using the
   // "persist-session-cookies" command-line switch. Can be overridden for
   // individual CefRequestContext instances via the
   // CefRequestContextSettings.persist_session_cookies value.
   ///
   int persist_session_cookies;
+
+  ///
+  // To persist user preferences as a JSON file in the cache path directory set
+  // this value to true (1). A |cache_path| value must also be specified
+  // to enable this feature. Also configurable using the
+  // "persist-user-preferences" command-line switch. Can be overridden for
+  // individual CefRequestContext instances via the
+  // CefRequestContextSettings.persist_user_preferences value.
+  ///
+  int persist_user_preferences;
 
   ///
   // Value that will be returned as the User-Agent HTTP header. If empty the
@@ -290,10 +262,12 @@ typedef struct _cef_settings_t {
   cef_string_t locale;
 
   ///
-  // The directory and file name to use for the debug log. If empty, the
-  // default name of "debug.log" will be used and the file will be written
-  // to the application directory. Also configurable using the "log-file"
-  // command-line switch.
+  // The directory and file name to use for the debug log. If empty a default
+  // log file name and location will be used. On Windows and Linux a "debug.log"
+  // file will be written in the main executable directory. On Mac OS X a
+  // "~/Library/Logs/<app name>_debug.log" file will be written where <app name>
+  // is the name of the main app executable. Also configurable using the
+  // "log-file" command-line switch.
   ///
   cef_string_t log_file;
 
@@ -432,12 +406,20 @@ typedef struct _cef_request_context_settings_t {
   ///
   // To persist session cookies (cookies without an expiry date or validity
   // interval) by default when using the global cookie manager set this value to
-  // true. Session cookies are generally intended to be transient and most Web
-  // browsers do not persist them. Can be set globally using the
+  // true (1). Session cookies are generally intended to be transient and most
+  // Web browsers do not persist them. Can be set globally using the
   // CefSettings.persist_session_cookies value. This value will be ignored if
   // |cache_path| is empty or if it matches the CefSettings.cache_path value.
   ///
   int persist_session_cookies;
+
+  ///
+  // To persist user preferences as a JSON file in the cache path directory set
+  // this value to true (1). Can be set globally using the
+  // CefSettings.persist_user_preferences value. This value will be ignored if
+  // |cache_path| is empty or if it matches the CefSettings.cache_path value.
+  ///
+  int persist_user_preferences;
 
   ///
   // Set to true (1) to ignore errors related to invalid SSL certificates.
@@ -476,7 +458,8 @@ typedef struct _cef_browser_settings_t {
   // The maximum rate in frames per second (fps) that CefRenderHandler::OnPaint
   // will be called for a windowless browser. The actual fps may be lower if
   // the browser cannot generate frames at the requested rate. The minimum
-  // value is 1 and the maximum value is 60 (default 30).
+  // value is 1 and the maximum value is 60 (default 30). This value can also be
+  // changed dynamically via CefBrowserHost::SetWindowlessFrameRate.
   ///
   int windowless_frame_rate;
 
@@ -549,12 +532,6 @@ typedef struct _cef_browser_settings_t {
   // the "enable-caret-browsing" command-line switch.
   ///
   cef_state_t caret_browsing;
-
-  ///
-  // Controls whether the Java plugin will be loaded. Also configurable using
-  // the "disable-java" command-line switch.
-  ///
-  cef_state_t java;
 
   ///
   // Controls whether any plugins will be loaded. Also configurable using the
@@ -889,6 +866,7 @@ typedef enum {
   ERR_SSL_VERSION_OR_CIPHER_MISMATCH = -113,
   ERR_SSL_RENEGOTIATION_REQUESTED = -114,
   ERR_CERT_COMMON_NAME_INVALID = -200,
+  ERR_CERT_BEGIN = ERR_CERT_COMMON_NAME_INVALID,
   ERR_CERT_DATE_INVALID = -201,
   ERR_CERT_AUTHORITY_INVALID = -202,
   ERR_CERT_CONTAINS_ERRORS = -203,
@@ -896,7 +874,13 @@ typedef enum {
   ERR_CERT_UNABLE_TO_CHECK_REVOCATION = -205,
   ERR_CERT_REVOKED = -206,
   ERR_CERT_INVALID = -207,
-  ERR_CERT_END = -208,
+  ERR_CERT_WEAK_SIGNATURE_ALGORITHM = -208,
+  // -209 is available: was ERR_CERT_NOT_IN_DNS.
+  ERR_CERT_NON_UNIQUE_NAME = -210,
+  ERR_CERT_WEAK_KEY = -211,
+  ERR_CERT_NAME_CONSTRAINT_VIOLATION = -212,
+  ERR_CERT_VALIDITY_TOO_LONG = -213,
+  ERR_CERT_END = ERR_CERT_VALIDITY_TOO_LONG,
   ERR_INVALID_URL = -300,
   ERR_DISALLOWED_URL_SCHEME = -301,
   ERR_UNKNOWN_URL_SCHEME = -302,
@@ -912,6 +896,38 @@ typedef enum {
   ERR_CACHE_MISS = -400,
   ERR_INSECURE_RESPONSE = -501,
 } cef_errorcode_t;
+
+///
+// Supported certificate status code values. See net\cert\cert_status_flags.h
+// for more information. CERT_STATUS_NONE is new in CEF because we use an
+// enum while cert_status_flags.h uses a typedef and static const variables.
+///
+typedef enum {
+  CERT_STATUS_NONE = 0,
+  CERT_STATUS_COMMON_NAME_INVALID = 1 << 0,
+  CERT_STATUS_DATE_INVALID = 1 << 1,
+  CERT_STATUS_AUTHORITY_INVALID = 1 << 2,
+  // 1 << 3 is reserved for ERR_CERT_CONTAINS_ERRORS (not useful with WinHTTP).
+  CERT_STATUS_NO_REVOCATION_MECHANISM = 1 << 4,
+  CERT_STATUS_UNABLE_TO_CHECK_REVOCATION = 1 << 5,
+  CERT_STATUS_REVOKED = 1 << 6,
+  CERT_STATUS_INVALID = 1 << 7,
+  CERT_STATUS_WEAK_SIGNATURE_ALGORITHM = 1 << 8,
+  // 1 << 9 was used for CERT_STATUS_NOT_IN_DNS
+  CERT_STATUS_NON_UNIQUE_NAME = 1 << 10,
+  CERT_STATUS_WEAK_KEY = 1 << 11,
+  // 1 << 12 was used for CERT_STATUS_WEAK_DH_KEY
+  CERT_STATUS_PINNED_KEY_MISSING = 1 << 13,
+  CERT_STATUS_NAME_CONSTRAINT_VIOLATION = 1 << 14,
+  CERT_STATUS_VALIDITY_TOO_LONG = 1 << 15,
+
+  // Bits 16 to 31 are for non-error statuses.
+  CERT_STATUS_IS_EV = 1 << 16,
+  CERT_STATUS_REV_CHECKING_ENABLED = 1 << 17,
+  // Bit 18 was CERT_STATUS_IS_DNSSEC
+  CERT_STATUS_SHA1_SIGNATURE_PRESENT = 1 << 19,
+  CERT_STATUS_CT_COMPLIANCE_FAILED = 1 << 20,
+} cef_cert_status_t;
 
 ///
 // The manner in which a link click should be opened.
@@ -1060,6 +1076,16 @@ typedef enum {
   // Main resource of a service worker.
   ///
   RT_SERVICE_WORKER,
+
+  ///
+  // A report of Content Security Policy violations.
+  ///
+  RT_CSP_REPORT,
+
+  ///
+  // A resource that a plugin requested.
+  ///
+  RT_PLUGIN_RESOURCE,
 } cef_resource_type_t;
 
 ///
@@ -1187,11 +1213,6 @@ typedef enum {
   // If set upload progress events will be generated when a request has a body.
   ///
   UR_FLAG_REPORT_UPLOAD_PROGRESS    = 1 << 3,
-
-  ///
-  // If set the headers sent and received for the request will be recorded.
-  ///
-  UR_FLAG_REPORT_RAW_HEADERS        = 1 << 5,
 
   ///
   // If set the CefURLRequestClient::OnDownloadData method will not be called.
@@ -1459,6 +1480,11 @@ typedef enum {
   MENU_ID_SPELLCHECK_SUGGESTION_LAST     = 204,
   MENU_ID_NO_SPELLING_SUGGESTIONS        = 205,
   MENU_ID_ADD_TO_DICTIONARY              = 206,
+
+  // Custom menu items originating from the renderer process. For example,
+  // plugin placeholder menu items or Flash menu items.
+  MENU_ID_CUSTOM_FIRST        = 220,
+  MENU_ID_CUSTOM_LAST         = 250,
 
   // All user-defined menu IDs should come between MENU_ID_USER_FIRST and
   // MENU_ID_USER_LAST to avoid overlapping the Chromium and CEF ID ranges
@@ -2191,6 +2217,200 @@ typedef enum {
   ///
   JSON_WRITER_PRETTY_PRINT = 1 << 2,
 } cef_json_writer_options_t;
+
+///
+// Margin type for PDF printing.
+///
+typedef enum {
+  ///
+  // Default margins.
+  ///
+  PDF_PRINT_MARGIN_DEFAULT,
+
+  ///
+  // No margins.
+  ///
+  PDF_PRINT_MARGIN_NONE,
+
+  ///
+  // Minimum margins.
+  ///
+  PDF_PRINT_MARGIN_MINIMUM,
+
+  ///
+  // Custom margins using the |margin_*| values from cef_pdf_print_settings_t.
+  ///
+  PDF_PRINT_MARGIN_CUSTOM,
+} cef_pdf_print_margin_type_t;
+
+///
+// Structure representing PDF print settings.
+///
+typedef struct _cef_pdf_print_settings_t {
+  ///
+  // Page title to display in the header. Only used if |header_footer_enabled|
+  // is set to true (1).
+  ///
+  cef_string_t header_footer_title;
+
+  ///
+  // URL to display in the footer. Only used if |header_footer_enabled| is set
+  // to true (1).
+  ///
+  cef_string_t header_footer_url;
+
+  ///
+  // Output page size in microns. If either of these values is less than or
+  // equal to zero then the default paper size (A4) will be used.
+  ///
+  int page_width;
+  int page_height;
+
+  ///
+  // Margins in millimeters. Only used if |margin_type| is set to
+  // PDF_PRINT_MARGIN_CUSTOM.
+  ///
+  double margin_top;
+  double margin_right;
+  double margin_bottom;
+  double margin_left;
+
+  ///
+  // Margin type.
+  ///
+  cef_pdf_print_margin_type_t margin_type;
+
+  ///
+  // Set to true (1) to print headers and footers or false (0) to not print
+  // headers and footers.
+  ///
+  int header_footer_enabled;
+
+  ///
+  // Set to true (1) to print the selection only or false (0) to print all.
+  ///
+  int selection_only;
+
+  ///
+  // Set to true (1) for landscape mode or false (0) for portrait mode.
+  ///
+  int landscape;
+
+  ///
+  // Set to true (1) to print background graphics or false (0) to not print
+  // background graphics.
+  ///
+  int backgrounds_enabled;
+
+} cef_pdf_print_settings_t;
+
+///
+// Supported UI scale factors for the platform. SCALE_FACTOR_NONE is used for
+// density independent resources such as string, html/js files or an image that
+// can be used for any scale factors (such as wallpapers).
+///
+typedef enum {
+  SCALE_FACTOR_NONE = 0,
+  SCALE_FACTOR_100P,
+  SCALE_FACTOR_125P,
+  SCALE_FACTOR_133P,
+  SCALE_FACTOR_140P,
+  SCALE_FACTOR_150P,
+  SCALE_FACTOR_180P,
+  SCALE_FACTOR_200P,
+  SCALE_FACTOR_250P,
+  SCALE_FACTOR_300P,
+} cef_scale_factor_t;
+
+///
+// Plugin policies supported by CefRequestContextHandler::OnBeforePluginLoad.
+///
+typedef enum {
+  ///
+  // Allow the content.
+  ///
+  PLUGIN_POLICY_ALLOW,
+
+  ///
+  // Allow important content and block unimportant content based on heuristics.
+  // The user can manually load blocked content.
+  ///
+  PLUGIN_POLICY_DETECT_IMPORTANT,
+
+  ///
+  // Block the content. The user can manually load blocked content.
+  ///
+  PLUGIN_POLICY_BLOCK,
+
+  ///
+  // Disable the content. The user cannot load disabled content.
+  ///
+  PLUGIN_POLICY_DISABLE,
+} cef_plugin_policy_t;
+
+///
+// Policy for how the Referrer HTTP header value will be sent during navigation.
+// If the `--no-referrers` command-line flag is specified then the policy value
+// will be ignored and the Referrer value will never be sent.
+///
+typedef enum {
+  ///
+  // Always send the complete Referrer value.
+  ///
+  REFERRER_POLICY_ALWAYS,
+
+  ///
+  // Use the default policy. This is REFERRER_POLICY_ORIGIN_WHEN_CROSS_ORIGIN
+  // when the `--reduced-referrer-granularity` command-line flag is specified
+  // and REFERRER_POLICY_NO_REFERRER_WHEN_DOWNGRADE otherwise.
+  //
+  ///
+  REFERRER_POLICY_DEFAULT,
+
+  ///
+  // When navigating from HTTPS to HTTP do not send the Referrer value.
+  // Otherwise, send the complete Referrer value.
+  ///
+  REFERRER_POLICY_NO_REFERRER_WHEN_DOWNGRADE,
+
+  ///
+  // Never send the Referrer value.
+  ///
+  REFERRER_POLICY_NEVER,
+
+  ///
+  // Only send the origin component of the Referrer value.
+  ///
+  REFERRER_POLICY_ORIGIN,
+
+  ///
+  // When navigating cross-origin only send the origin component of the Referrer
+  // value. Otherwise, send the complete Referrer value.
+  ///
+  REFERRER_POLICY_ORIGIN_WHEN_CROSS_ORIGIN,
+} cef_referrer_policy_t;
+
+///
+// Return values for CefResponseFilter::Filter().
+///
+typedef enum {
+  ///
+  // Some or all of the pre-filter data was read successfully but more data is
+  // needed in order to continue filtering (filtered output is pending).
+  ///
+  RESPONSE_FILTER_NEED_MORE_DATA,
+
+  ///
+  // Some or all of the pre-filter data was read successfully and all available
+  // filtered output has been written.
+  ///
+  RESPONSE_FILTER_DONE,
+
+  ///
+  // An error occurred during filtering.
+  ///
+  RESPONSE_FILTER_ERROR
+} cef_response_filter_status_t;
 
 #ifdef __cplusplus
 }

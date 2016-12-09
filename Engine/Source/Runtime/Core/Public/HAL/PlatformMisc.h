@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "HAL/Platform.h"
+
+#include "CoreTypes.h"
+#include "GenericPlatform/GenericPlatformMisc.h"
 
 #if PLATFORM_WINDOWS
 #include "Windows/WindowsPlatformMisc.h"
@@ -18,6 +20,8 @@
 #include "HTML5/HTML5PlatformMisc.h"
 #elif PLATFORM_LINUX
 #include "Linux/LinuxPlatformMisc.h"
+#elif PLATFORM_SWITCH
+#include "Switch/SwitchPlatformMisc.h"
 #endif
 
 class CORE_API FScopedNamedEvent

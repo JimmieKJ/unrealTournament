@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Framework/Commands/InputChord.h"
+#include "Framework/Commands/Commands.h"
 
 #define LOCTEXT_NAMESPACE "FMessagingDebuggerCommands"
-
 
 class FMessagingDebuggerCommands
 	: public TCommands<FMessagingDebuggerCommands>

@@ -120,6 +120,9 @@ def transfer_gypi_files(src_dir, gypi_paths, gypi_path_prefix, dst_dir, quiet):
     # skip gyp includes
     if path[:2] == '<@':
         continue
+    # skip test files
+    if path.find('/test/') >= 0:
+        continue
     src = os.path.join(src_dir, path)
     dst = os.path.join(dst_dir, path.replace(gypi_path_prefix, ''))
     dst_path = os.path.dirname(dst)
@@ -196,6 +199,9 @@ This utility builds the CEF Binary Distribution.
 parser = OptionParser(description=disc)
 parser.add_option('--output-dir', dest='outputdir', metavar='DIR',
                   help='output directory [required]')
+parser.add_option('--distrib-subdir', dest='distribsubdir',
+                  help='name of the subdirectory for the distribution',
+                  default='')
 parser.add_option('--allow-partial',
                   action='store_true', dest='allowpartial', default=False,
                   help='allow creation of partial distributions')
@@ -304,7 +310,11 @@ if platform == 'linux':
 
 # output directory
 output_dir_base = 'cef_binary_' + cef_ver
-output_dir_name = output_dir_base + '_' + platform + platform_arch
+
+if options.distribsubdir == '':
+  output_dir_name = output_dir_base + '_' + platform + platform_arch
+else:
+  output_dir_name = options.distribsubdir
 
 if options.minimal:
   mode = 'minimal'
@@ -415,12 +425,12 @@ if mode == 'standard':
 if platform == 'windows':
   binaries = [
     'd3dcompiler_47.dll',
-    'ffmpegsumo.dll',
     'libcef.dll',
     'libEGL.dll',
     'libGLESv2.dll',
     'natives_blob.bin',
     'snapshot_blob.bin',
+    'widevinecdmadapter.dll',
   ]
   if not options.x64build:
     binaries.append('wow_helper.exe')
@@ -499,6 +509,7 @@ if platform == 'windows':
     copy_file(os.path.join(build_dir, 'cef.pak'), dst_dir, options.quiet)
     copy_file(os.path.join(build_dir, 'cef_100_percent.pak'), dst_dir, options.quiet)
     copy_file(os.path.join(build_dir, 'cef_200_percent.pak'), dst_dir, options.quiet)
+    copy_file(os.path.join(build_dir, 'cef_extensions.pak'), dst_dir, options.quiet)
     copy_file(os.path.join(build_dir, 'devtools_resources.pak'), dst_dir, options.quiet)
     copy_file(os.path.join(build_dir, 'icudtl.dat'), dst_dir, options.quiet)
     copy_dir(os.path.join(build_dir, 'locales'), os.path.join(dst_dir, 'locales'), options.quiet)
@@ -619,7 +630,6 @@ elif platform == 'linux':
       make_dir(dst_dir, options.quiet)
       copy_file(os.path.join(build_dir, 'chrome_sandbox'), os.path.join(dst_dir, 'chrome-sandbox'), options.quiet)
       copy_file(os.path.join(build_dir, lib_dir_name, 'libcef.so'), dst_dir, options.quiet)
-      copy_file(os.path.join(build_dir, 'libffmpegsumo.so'), dst_dir, options.quiet)
       copy_file(os.path.join(build_dir, 'natives_blob.bin'), dst_dir, options.quiet)
       copy_file(os.path.join(build_dir, 'snapshot_blob.bin'), dst_dir, options.quiet)
     else:
@@ -640,7 +650,6 @@ elif platform == 'linux':
     else:
       copy_file(os.path.join(build_dir, lib_dir_name, 'libcef.so'), dst_dir, options.quiet)
     copy_file(os.path.join(build_dir, 'chrome_sandbox'), os.path.join(dst_dir, 'chrome-sandbox'), options.quiet)
-    copy_file(os.path.join(build_dir, 'libffmpegsumo.so'), dst_dir, options.quiet)
     copy_file(os.path.join(build_dir, 'natives_blob.bin'), dst_dir, options.quiet)
     copy_file(os.path.join(build_dir, 'snapshot_blob.bin'), dst_dir, options.quiet)
   else:
@@ -658,6 +667,7 @@ elif platform == 'linux':
     copy_file(os.path.join(build_dir, 'cef.pak'), dst_dir, options.quiet)
     copy_file(os.path.join(build_dir, 'cef_100_percent.pak'), dst_dir, options.quiet)
     copy_file(os.path.join(build_dir, 'cef_200_percent.pak'), dst_dir, options.quiet)
+    copy_file(os.path.join(build_dir, 'cef_extensions.pak'), dst_dir, options.quiet)
     copy_file(os.path.join(build_dir, 'devtools_resources.pak'), dst_dir, options.quiet)
     copy_file(os.path.join(build_dir, 'icudtl.dat'), dst_dir, options.quiet)
     copy_dir(os.path.join(build_dir, 'locales'), os.path.join(dst_dir, 'locales'), options.quiet)

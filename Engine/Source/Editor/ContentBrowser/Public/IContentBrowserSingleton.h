@@ -2,15 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Misc/Attribute.h"
+#include "AssetData.h"
+#include "Developer/AssetTools/Public/AssetTypeCategories.h"
+#include "ARFilter.h"
 #include "ContentBrowserDelegates.h"
-#include "Runtime/AssetRegistry/Public/ARFilter.h"
 #include "Developer/CollectionManager/Public/CollectionManagerTypes.h"
-#include "IFilter.h"
-#include "FilterCollection.h"
-#include "ITypedTableView.h"
+#include "Misc/FilterCollection.h"
+#include "Framework/Views/ITypedTableView.h"
 #include "AssetThumbnail.h"
-#include "UnrealClient.h"
 
+class FViewport;
+class UFactory;
 
 typedef const FAssetData& FAssetFilterType;
 typedef TFilterCollection<FAssetFilterType> FAssetFilterCollectionType;
@@ -129,6 +134,9 @@ struct FAssetPickerConfig
 	/** Custom front end filters to be displayed */
 	TArray< TSharedRef<class FFrontendFilter> > ExtraFrontendFilters;
 
+	/** The names of columns to hide by default in the column view */
+	TArray<FString> HiddenColumnNames;
+
 	/** The contents of the label on the thumbnail */
 	EThumbnailLabel::Type ThumbnailLabel;
 
@@ -217,6 +225,9 @@ struct FAssetPickerConfig
 	/** Indicates that we would like to build the filter UI with the Asset Picker */
 	bool bAddFilterUI;
 
+	/** Indicates whether we should filter using the blueprint parent class or ignore blueprint */
+	bool bSearchInBlueprint;
+
 	/** If true, show path in column view */
 	bool bShowPathInColumnView; 
 	/** If true, show class in column view */
@@ -243,6 +254,7 @@ struct FAssetPickerConfig
 		, bCanShowDevelopersFolder(false)
 		, bPreloadAssetsForContextMenu(true)
 		, bAddFilterUI(false)
+		, bSearchInBlueprint(false)
 		, bShowPathInColumnView(false)
 		, bShowTypeInColumnView(true)
 		, bSortByPathInColumnView(false)

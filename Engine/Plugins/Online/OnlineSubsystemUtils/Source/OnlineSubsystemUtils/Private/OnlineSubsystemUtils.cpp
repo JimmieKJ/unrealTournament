@@ -1,17 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
-#include "SocketSubsystem.h"
-#include "ModuleManager.h"
+#include "OnlineSubsystemUtils.h"
+#include "Logging/LogScopedVerbosityOverride.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Sound/SoundClass.h"
+#include "Audio.h"
+#include "GameFramework/PlayerState.h"
+#include "Engine/GameEngine.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/NetDriver.h"
+#include "OnlineSubsystemImpl.h"
+#include "OnlineSubsystemBPCallHelper.h"
 
-#include "IPAddress.h"
 
-#include "NboSerializer.h"
 
-#include "Voice.h"
-#include "SoundDefinitions.h"
-#include "Runtime/Engine/Classes/Sound/AudioSettings.h"
-#include "Runtime/Engine/Classes/Sound/SoundWaveProcedural.h"
+#include "VoiceModule.h"
+#include "AudioDevice.h"
+#include "Sound/AudioSettings.h"
+#include "Sound/SoundWaveProcedural.h"
 
 // Testing classes
 #include "Tests/TestFriendsInterface.h"
@@ -43,7 +49,7 @@ UAudioComponent* CreateVoiceAudioComponent(uint32 SampleRate)
 			SoundStreaming->SoundGroup = SOUNDGROUP_Voice;
 			SoundStreaming->bLooping = false;
 
-			AudioComponent = AudioDevice->CreateComponent(SoundStreaming, nullptr, nullptr, false);
+			AudioComponent = AudioDevice->CreateComponent(SoundStreaming);
 			if (AudioComponent)
 			{
 				AudioComponent->bIsUISound = true;

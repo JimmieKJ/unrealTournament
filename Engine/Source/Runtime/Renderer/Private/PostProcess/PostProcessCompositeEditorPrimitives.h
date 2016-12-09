@@ -2,9 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RendererInterface.h"
+#include "PostProcess/RenderingCompositionGraph.h"
+
+class FViewInfo;
+struct FDrawingPolicyRenderState;
+
 #if WITH_EDITOR
 
-#include "RenderingCompositionGraph.h"
 
 // derives from TRenderingCompositePassBase<InputCount, OutputCount>
 // ePId_Input0: SceneColor
@@ -25,7 +31,7 @@ private:
 	 * @param View	The view to draw in
 	 */
 	template <typename TBasePass>
-	void RenderPrimitivesToComposite(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+	void RenderPrimitivesToComposite(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FDrawingPolicyRenderState& DrawRenderState);
 
 	bool bDeferredBasePass;
 };

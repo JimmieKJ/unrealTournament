@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 /**
  * All modular feature interfaces derive from this base interface
  */

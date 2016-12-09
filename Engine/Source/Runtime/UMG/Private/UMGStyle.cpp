@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-
 #include "UMGStyle.h"
-#include "SlateGameResources.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Framework/Application/SlateApplication.h"
+
 
 TSharedPtr< FSlateStyleSet > FUMGStyle::UMGStyleInstance = NULL;
 

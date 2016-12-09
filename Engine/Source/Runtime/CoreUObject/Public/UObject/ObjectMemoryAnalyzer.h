@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/UObjectAnnotation.h"
+
 /** Object mempory usage info */
 struct FObjectMemoryUsage
 {

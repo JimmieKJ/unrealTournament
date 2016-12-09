@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+
 /**
  * The Plugin Warden is a simple module used to verify a user has purchased a plug-in.  This
  * module won't prevent a determined user from avoiding paying for a plug-in, it is merely to

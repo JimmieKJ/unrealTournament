@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "PacketHandlers/StatelessConnectHandlerComponent.h"
+#include "Stats/Stats.h"
+#include "Serialization/MemoryWriter.h"
+#include "EngineStats.h"
+#include "Misc/SecureHash.h"
+#include "Engine/NetConnection.h"
 
-#include "StatelessConnectHandlerComponent.h"
 
-#include "Engine.h"
-#include "SecureHash.h"
 
 
 DEFINE_LOG_CATEGORY(LogHandshake);
@@ -380,14 +382,14 @@ void StatelessConnectHandlerComponent::Incoming(FBitReader& Packet)
 			Packet.SetError();
 
 #if !UE_BUILD_SHIPPING
-			UE_LOG(LogHandshake, Log, TEXT("Error reading handshake packet."));
+			UE_LOG(LogHandshake, Log, TEXT("Incoming: Error reading handshake packet."));
 #endif
 		}
 	}
 #if !UE_BUILD_SHIPPING
 	else if (Packet.IsError())
 	{
-		UE_LOG(LogHandshake, Log, TEXT("Error reading handshake bit from packet."));
+		UE_LOG(LogHandshake, Log, TEXT("Incoming: Error reading handshake bit from packet."));
 	}
 #endif
 }
@@ -460,14 +462,14 @@ void StatelessConnectHandlerComponent::IncomingConnectionless(FString Address, F
 			Packet.SetError();
 
 #if !UE_BUILD_SHIPPING
-			UE_LOG(LogHandshake, Log, TEXT("Error reading handshake packet."));
+			UE_LOG(LogHandshake, Log, TEXT("IncomingConnectionless: Error reading handshake packet."));
 #endif
 		}
 	}
 #if !UE_BUILD_SHIPPING
 	else if (Packet.IsError())
 	{
-		UE_LOG(LogHandshake, Log, TEXT("Error reading handshake bit from packet."));
+		UE_LOG(LogHandshake, Log, TEXT("IncomingConnectionless: Error reading handshake bit from packet."));
 	}
 #endif
 }

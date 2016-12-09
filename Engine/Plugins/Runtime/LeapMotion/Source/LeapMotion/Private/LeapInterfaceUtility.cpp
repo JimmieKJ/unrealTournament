@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LeapMotionPrivatePCH.h"
+#include "LeapInterfaceUtility.h"
 #include "IHeadMountedDisplay.h"
 #include "LeapGesture.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
 
 DEFINE_LOG_CATEGORY(LeapPluginLog);
 

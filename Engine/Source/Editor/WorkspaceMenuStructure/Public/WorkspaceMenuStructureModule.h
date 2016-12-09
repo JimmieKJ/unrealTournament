@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ModuleInterface.h"
-#include "WorkspaceMenuStructure.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+
+class FWorkspaceMenuStructure;
+class IWorkspaceMenuStructure;
 
 /**
  * The module that defines a structure of the workspace menu.

@@ -6,6 +6,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Factories/CSVImportFactory.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Input/SComboBox.h"
+
 class UNREALED_API SCSVImportOptions : public SCompoundWidget
 {
 private:

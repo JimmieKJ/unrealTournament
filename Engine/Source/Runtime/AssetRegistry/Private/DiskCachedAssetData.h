@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetData.h"
+#include "PackageDependencyData.h"
+
 class FDiskCachedAssetData
 {
 public:

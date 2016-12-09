@@ -2,14 +2,15 @@
 
 #pragma once
 
-#include "Windows/WindowsPlatformCompilerSetup.h"
-#include "Windows/WindowsHWrapper.h"
+#include "CoreTypes.h"
+#include "WindowsPlatformCompilerSetup.h"
+#include "MinimalWindowsApi.h"
 
 // Macro for releasing COM objects
 #define SAFE_RELEASE(p) { if(p) { (p)->Release(); (p)=NULL; } }
 
 // Current instance
-extern "C" CORE_API HINSTANCE hInstance;
+extern "C" CORE_API Windows::HINSTANCE hInstance;
 
 // SIMD intrinsics
 #include <intrin.h>
@@ -37,3 +38,12 @@ extern "C" CORE_API HINSTANCE hInstance;
 // MSVC-specific attributes so there should never be collisions.
 using namespace vc_attributes;
 #endif
+
+#ifndef OUT
+#define OUT
+#endif
+
+#ifndef IN
+#define IN
+#endif
+

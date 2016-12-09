@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UdpMessagingPrivatePCH.h"
+#include "Transport/UdpMessageProcessor.h"
+#include "Serialization/ArrayWriter.h"
+#include "Common/UdpSocketSender.h"
+#include "Shared/UdpMessagingSettings.h"
+#include "Transport/UdpMessageBeacon.h"
+#include "Transport/UdpMessageSegmenter.h"
+#include "UdpMessagingPrivate.h"
 
 
 /* FUdpMessageHelloSender static initialization
@@ -82,7 +88,7 @@ bool FUdpMessageProcessor::EnqueueInboundSegment(const FArrayReaderPtr& Data, co
 }
 
 
-bool FUdpMessageProcessor::EnqueueOutboundMessage(const FUdpSerializedMessageRef& SerializedMessage, const FGuid& Recipient)
+bool FUdpMessageProcessor::EnqueueOutboundMessage(const TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe>& SerializedMessage, const FGuid& Recipient)
 {
 	if (!OutboundMessages.Enqueue(FOutboundMessage(SerializedMessage, Recipient)))
 	{
@@ -233,7 +239,7 @@ void FUdpMessageProcessor::ConsumeInboundSegments()
 				break;
 
 			default:
-				ProcessUnknownSegment(Segment, NodeInfo, Header.SegmentType);
+				ProcessUnknownSegment(Segment, NodeInfo, (uint8)Header.SegmentType);
 			}
 
 			NodeInfo.LastSegmentReceivedTime = CurrentTime;
@@ -337,7 +343,7 @@ void FUdpMessageProcessor::ProcessDataSegment(FInboundSegment& Segment, FNodeInf
 		return;
 	}
 
-	FUdpReassembledMessagePtr& ReassembledMessage = NodeInfo.ReassembledMessages.FindOrAdd(DataChunk.MessageId);
+	TSharedPtr<FReassembledUdpMessage, ESPMode::ThreadSafe>& ReassembledMessage = NodeInfo.ReassembledMessages.FindOrAdd(DataChunk.MessageId);
 
 	// Reassemble message
 	if (!ReassembledMessage.IsValid())
@@ -359,18 +365,18 @@ void FUdpMessageProcessor::ProcessDataSegment(FInboundSegment& Segment, FNodeInf
 	{
 		if (NodeInfo.NodeId.IsValid())
 		{
-			MessageReassembledDelegate.ExecuteIfBound(ReassembledMessage.ToSharedRef(), nullptr, NodeInfo.NodeId);
+			MessageReassembledDelegate.ExecuteIfBound(*ReassembledMessage, nullptr, NodeInfo.NodeId);
 		}
 	}
 	else if (NodeInfo.Resequencer.Resequence(ReassembledMessage))
 	{
-		FUdpReassembledMessagePtr ResequencedMessage;
+		TSharedPtr<FReassembledUdpMessage, ESPMode::ThreadSafe> ResequencedMessage;
 
 		while (NodeInfo.Resequencer.Pop(ResequencedMessage))
 		{
 			if (NodeInfo.NodeId.IsValid())
 			{
-				MessageReassembledDelegate.ExecuteIfBound(ResequencedMessage.ToSharedRef(), nullptr, NodeInfo.NodeId);
+				MessageReassembledDelegate.ExecuteIfBound(*ResequencedMessage, nullptr, NodeInfo.NodeId);
 			}
 		}
 	}

@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
+#include "TileSetEditor/SingleTileEditorViewport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SViewport.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
 #include "PaperStyle.h"
-#include "SingleTileEditorViewport.h"
 #include "PaperEditorShared/SpriteGeometryEditCommands.h"
-#include "SingleTileEditorViewportClient.h"
-#include "TileSetEditorCommands.h"
+#include "TileSetEditor/SingleTileEditorViewportClient.h"
+#include "TileSetEditor/TileSetEditorCommands.h"
 
 #define LOCTEXT_NAMESPACE "TileSetEditor"
 

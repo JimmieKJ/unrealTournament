@@ -1,10 +1,14 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "TextCache.h"
+#include "Internationalization/Internationalization.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Internationalization/Culture.h"
+#include "Internationalization/TextCache.h"
 
 #if UE_ENABLE_ICU
-#include "ICUInternationalization.h"
+#include "Internationalization/ICUInternationalization.h"
 #else
 #include "LegacyInternationalization.h"
 #endif
@@ -86,142 +90,107 @@ void FInternationalization::Terminate()
 }
 
 #if ENABLE_LOC_TESTING
-namespace
-{
-	bool LeetifyInRange(FString& String, const int32 Begin, const int32 End)
-	{
-		bool Succeeded = false;
-		for(int32 Index = Begin; Index < End; ++Index)
-		{
-			switch(String[Index])
-			{
-			case TEXT('A'): { String[Index] = TEXT('4'); Succeeded = true; } break;
-			case TEXT('a'): { String[Index] = TEXT('@'); Succeeded = true; } break;
-			case TEXT('B'): { String[Index] = TEXT('8'); Succeeded = true; } break;
-			case TEXT('b'): { String[Index] = TEXT('8'); Succeeded = true; } break;
-			case TEXT('E'): { String[Index] = TEXT('3'); Succeeded = true; } break;
-			case TEXT('e'): { String[Index] = TEXT('3'); Succeeded = true; } break;
-			case TEXT('G'): { String[Index] = TEXT('9'); Succeeded = true; } break;
-			case TEXT('g'): { String[Index] = TEXT('9'); Succeeded = true; } break;
-			case TEXT('I'): { String[Index] = TEXT('1'); Succeeded = true; } break;
-			case TEXT('i'): { String[Index] = TEXT('!'); Succeeded = true; } break;
-			case TEXT('O'): { String[Index] = TEXT('0'); Succeeded = true; } break;
-			case TEXT('o'): { String[Index] = TEXT('0'); Succeeded = true; } break;
-			case TEXT('S'): { String[Index] = TEXT('5'); Succeeded = true; } break;
-			case TEXT('s'): { String[Index] = TEXT('$'); Succeeded = true; } break;
-			case TEXT('T'): { String[Index] = TEXT('7'); Succeeded = true; } break;
-			case TEXT('t'): { String[Index] = TEXT('7'); Succeeded = true; } break;
-			case TEXT('Z'): { String[Index] = TEXT('2'); Succeeded = true; } break;
-			case TEXT('z'): { String[Index] = TEXT('2'); Succeeded = true; } break;
-			}
-		}
-
-		return Succeeded;
-	}
-}
-
 FString& FInternationalization::Leetify(FString& SourceString)
 {
-	// Check that the string hasn't already been Leetified
-	if( SourceString.IsEmpty() ||
-		(SourceString[ 0 ] != 0x2021 && SourceString.Find( TEXT("\x00AB"), ESearchCase::CaseSensitive, ESearchDir::FromStart, 0 ) == -1) )
+	static const TCHAR LeetifyTextStartMarker = TEXT('\x2021');
+	static const TCHAR LeetifyTextEndMarker = TEXT('\x2021');
+	static const TCHAR LeetifyArgumentStartMarker = TEXT('\x00AB');
+	static const TCHAR LeetifyArgumentEndMarker = TEXT('\x00BB');
+	static const TCHAR SourceArgumentStartMarker = TEXT('{');
+	static const TCHAR SourceArgumentEndMarker = TEXT('}');
+	static const TCHAR SourceEscapeMarker = TEXT('`');
+
+	auto LeetifyCharacter = [](const TCHAR InChar) -> TCHAR
 	{
-		bool Succeeded = false;
-
-		FString OpenBlock = TEXT("{");
-		FString CloseBlock = TEXT("}");
-		uint32 SanityLoopCheck=0xFFFF;
-
-		int32 CurrentBlockBeginPos=-1;
-		int32 CurrentBlockEndPos=0;
-		int32 PrevBlockBeginPos=0;
-		int32 PrevBlockEndPos=-1;
-		int32 CurrArgBlock=0;
-
-		struct FBlockRange
+		switch (InChar)
 		{
-			int32 BeginPos;
-			int32 EndPos;
-		};
+		case TEXT('A'): return TEXT('4');
+		case TEXT('a'): return TEXT('@');
+		case TEXT('B'): return TEXT('8');
+		case TEXT('b'): return TEXT('8');
+		case TEXT('E'): return TEXT('3');
+		case TEXT('e'): return TEXT('3');
+		case TEXT('G'): return TEXT('9');
+		case TEXT('g'): return TEXT('9');
+		case TEXT('I'): return TEXT('1');
+		case TEXT('i'): return TEXT('!');
+		case TEXT('O'): return TEXT('0');
+		case TEXT('o'): return TEXT('0');
+		case TEXT('S'): return TEXT('5');
+		case TEXT('s'): return TEXT('$');
+		case TEXT('T'): return TEXT('7');
+		case TEXT('t'): return TEXT('7');
+		case TEXT('Z'): return TEXT('2');
+		case TEXT('z'): return TEXT('2');
+		default:		return InChar;
+		}
+	};
 
-		TArray<FBlockRange> BlockRanges;
-		while(--SanityLoopCheck > 0)
+	if (SourceString.IsEmpty() || (SourceString.Len() >= 2 && SourceString[0] == LeetifyTextStartMarker && SourceString[SourceString.Len() - 1] == LeetifyTextEndMarker))
+	{
+		// Already leetified
+		return SourceString;
+	}
+
+	// We insert a start and end marker (+2), and format strings typically have <= 8 argument blocks which we'll wrap with a start and end marker (+16), so +18 should be a reasonable slack
+	FString LeetifiedString;
+	LeetifiedString.Reserve(SourceString.Len() + 18);
+
+	// Inject the start marker
+	LeetifiedString.AppendChar(LeetifyTextStartMarker);
+
+	// Iterate and leetify each character in the source string, but don't change argument names as that will break formatting
+	{
+		bool bEscapeNextChar = false;
+
+		const int32 SourceStringLen = SourceString.Len();
+		for (int32 SourceCharIndex = 0; SourceCharIndex < SourceStringLen; ++SourceCharIndex)
 		{
-			//Find the start of the next block. Delimited with an open brace '{'
-			++CurrentBlockBeginPos;
-			while(true)
+			const TCHAR SourceChar = SourceString[SourceCharIndex];
+
+			if (!bEscapeNextChar && SourceChar == SourceArgumentStartMarker)
 			{
-				CurrentBlockBeginPos = SourceString.Find(OpenBlock,ESearchCase::CaseSensitive, ESearchDir::FromStart, CurrentBlockBeginPos);
-				if( CurrentBlockBeginPos == -1 )
-				{
-					break;//No block open started so we've reached the end of the format string.
-				}
+				const TCHAR* RawSourceStringPtr = SourceString.GetCharArray().GetData();
 
-				if( CurrentBlockBeginPos >= 0 && SourceString[CurrentBlockBeginPos+1] == OpenBlock[0] )
+				// Walk forward to find the end of this argument block to make sure we have a pair of tokens
+				const TCHAR* ArgumentEndPtr = FCString::Strchr(RawSourceStringPtr + SourceCharIndex + 1, SourceArgumentEndMarker);
+				if (ArgumentEndPtr)
 				{
-					//Skip past {{ literals in the format
-					CurrentBlockBeginPos += 2;
+					const int32 ArgumentEndIndex = ArgumentEndPtr - RawSourceStringPtr;
+
+					// Inject a marker before the argument block
+					LeetifiedString.AppendChar(LeetifyArgumentStartMarker);
+
+					// Copy the body of the argument, including the opening and closing tags
+					check(ArgumentEndIndex >= SourceCharIndex);
+					LeetifiedString.AppendChars(RawSourceStringPtr + SourceCharIndex, (ArgumentEndIndex - SourceCharIndex) + 1);
+
+					// Inject a marker after the end of the argument block
+					LeetifiedString.AppendChar(LeetifyArgumentEndMarker);
+
+					// Move to the end of the argument we just parsed
+					SourceCharIndex = ArgumentEndIndex;
 					continue;
 				}
-
-				break;
 			}
 
-			//No more block opening braces found so we're done.
-			if( CurrentBlockBeginPos == -1 )
+			if (SourceChar == SourceEscapeMarker)
 			{
-				break;
+				bEscapeNextChar = !bEscapeNextChar;
 			}
-
-			//Find the end of the block. Delimited with a close brace '}'
-			CurrentBlockEndPos=SourceString.Find(CloseBlock,ESearchCase::CaseSensitive, ESearchDir::FromStart,CurrentBlockBeginPos);
-
-			FBlockRange NewRange = { CurrentBlockBeginPos, CurrentBlockEndPos };
-			BlockRanges.Add(NewRange);
-
-
-			// Insertion of double arrows causes block start and end to be move later in the string, adjust for that.
-			++CurrentBlockBeginPos;
-			++CurrentBlockEndPos;
-
-			Succeeded = LeetifyInRange(SourceString, PrevBlockEndPos + 1, CurrentBlockBeginPos) || Succeeded;
-
-			PrevBlockBeginPos=CurrentBlockBeginPos;
-			PrevBlockEndPos=CurrentBlockEndPos;
-
-			++CurrArgBlock;
-		}
-
-		Succeeded = LeetifyInRange(SourceString, CurrentBlockEndPos + 1, SourceString.Len()) || Succeeded;
-
-		// Insert double arrows around parameter blocks.
-		if(BlockRanges.Num() > 0)
-		{
-			FString ResultString;
-			int32 i;
-			for(i = 0; i < BlockRanges.Num(); ++i)
+			else
 			{
-				// Append intermediate part of string.
-				int32 EndOfLastPart = (i - 1 >= 0) ? (BlockRanges[i - 1].EndPos + 1) : 0;
-				ResultString += SourceString.Mid(EndOfLastPart, BlockRanges[i].BeginPos - EndOfLastPart);
-				// Wrap block.
-				ResultString += TEXT("\x00AB");
-				// Append block.
-				ResultString += SourceString.Mid(BlockRanges[i].BeginPos, BlockRanges[i].EndPos - BlockRanges[i].BeginPos + 1);
-				// Wrap block.
-				ResultString += TEXT("\x00BB");
+				bEscapeNextChar = false;
 			}
-			ResultString += SourceString.Mid(BlockRanges[i - 1].EndPos + 1, SourceString.Len() - BlockRanges[i - 1].EndPos + 1);
-			SourceString = ResultString;
-		}
 
-		if( !Succeeded )
-		{
-			// Failed to LEETify, add something to beginning and end just to help mark the string.
-			SourceString = FString(TEXT("\x2021")) + SourceString + FString(TEXT("\x2021"));
+			LeetifiedString.AppendChar(LeetifyCharacter(SourceChar));
 		}
 	}
 
+	// Inject the end marker
+	LeetifiedString.AppendChar(LeetifyTextEndMarker);
+
+	SourceString = LeetifiedString;
 	return SourceString;
 }
 #endif

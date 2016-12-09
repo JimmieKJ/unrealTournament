@@ -1,10 +1,16 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "ProgressWidgetStyle.h"
-
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Notifications/SProgressBar.h"
+#include "Components/Widget.h"
 #include "ProgressBar.generated.h"
+
+class USlateBrushAsset;
 
 /**
  * The progress bar widget is a simple bar that fills up that can be restyled to fit any number of uses.

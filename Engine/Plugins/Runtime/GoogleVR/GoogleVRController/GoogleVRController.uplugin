@@ -1,7 +1,7 @@
 {
     "FileVersion": 3,
-    "Version": 1,
-    "VersionName": "1.0",
+    "Version": 2,
+    "VersionName": "1.0.1",
     "FriendlyName": "Google VR Motion Controller",
     "Description": "Support for the Google VR motion controller",
     "Category": "Input Devices",

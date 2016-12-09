@@ -3,13 +3,6 @@
 #pragma once
 
 
-/* Dependencies
- *****************************************************************************/
-
-#include "Core.h"
-#include "ModuleManager.h"
-
-
 /* Interfaces
  *****************************************************************************/
 #include "Interfaces/ILauncherCheckModule.h"

@@ -1,14 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "OnlineBeacon.h"
 #include "OnlineBeaconHost.generated.h"
 
-class AOnlineBeaconHostObject;
 class AOnlineBeaconClient;
-class UNetConnection;
-class UNetDriver;
+class AOnlineBeaconHostObject;
 class FInBunch;
+class UNetConnection;
 
 /**
  * Main actor that listens for side channel communication from another Unreal Engine application

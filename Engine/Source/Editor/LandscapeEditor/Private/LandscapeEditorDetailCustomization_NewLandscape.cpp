@@ -1,34 +1,43 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
-#include "LandscapeEdMode.h"
-#include "LandscapeEditorCommands.h"
+#include "LandscapeEditorDetailCustomization_NewLandscape.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Notifications/SErrorText.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "LandscapeEditorModule.h"
 #include "LandscapeEditorObject.h"
-#include "LandscapeEditorDetails.h"
-#include "LandscapeEditorDetailCustomizations.h"
+#include "Landscape.h"
 #include "LandscapeEditorUtils.h"
 
 #include "DetailLayoutBuilder.h"
-#include "DetailCategoryBuilder.h"
+#include "IDetailChildrenBuilder.h"
 #include "IDetailPropertyRow.h"
-#include "DetailWidgetRow.h"
-#include "IDetailGroup.h"
-#include "PropertyHandle.h"
+#include "DetailCategoryBuilder.h"
 #include "PropertyCustomizationHelpers.h"
 
 #include "SLandscapeEditor.h"
-#include "DlgPickAssetPath.h"
-#include "SVectorInputBox.h"
-#include "SRotatorInputBox.h"
+#include "Dialogs/DlgPickAssetPath.h"
+#include "Widgets/Input/SVectorInputBox.h"
+#include "Widgets/Input/SRotatorInputBox.h"
 #include "ScopedTransaction.h"
 #include "DesktopPlatformModule.h"
-#include "MainFrame.h"
 #include "AssetRegistryModule.h"
 
-#include "Landscape.h"
-#include "LandscapeLayerInfoObject.h"
 #include "TutorialMetaData.h"
-#include "SNumericEntryBox.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "LandscapeDataAccess.h"
 
 #define LOCTEXT_NAMESPACE "LandscapeEditor.NewLandscape"
@@ -871,8 +880,8 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnCreateButtonClicked()
 			const TArray<uint16>& ImportData = LandscapeEdMode->UISettings->GetImportLandscapeData();
 			if (ImportData.Num() != 0)
 			{
-				const int32 OffsetX = (SizeX - ImportSizeX) / 2;
-				const int32 OffsetY = (SizeY - ImportSizeY) / 2;
+				const int32 OffsetX = (int32)(SizeX - ImportSizeX) / 2;
+				const int32 OffsetY = (int32)(SizeY - ImportSizeY) / 2;
 
 				// Heightmap
 				Data = LandscapeEditorUtils::ExpandData(ImportData,
@@ -1101,6 +1110,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::OnImportHeightmapFilename
 			int32 i = ImportResolutions.Num() / 2;
 			LandscapeEdMode->UISettings->ImportLandscape_Width = ImportResolutions[i].Width;
 			LandscapeEdMode->UISettings->ImportLandscape_Height = ImportResolutions[i].Height;
+			LandscapeEdMode->UISettings->ImportLandscapeData();
 			ChooseBestComponentSizeForImport(LandscapeEdMode);
 		}
 	}
@@ -1115,21 +1125,12 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnImportHeightmapFilena
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if (DesktopPlatform != nullptr)
 	{
-		void* ParentWindowWindowHandle = nullptr;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if (MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid())
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		ILandscapeEditorModule& LandscapeEditorModule = FModuleManager::GetModuleChecked<ILandscapeEditorModule>("LandscapeEditor");
 		const TCHAR* FileTypes = LandscapeEditorModule.GetHeightmapImportDialogTypeString();
 
 		TArray<FString> OpenFilenames;
 		bool bOpened = DesktopPlatform->OpenFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			NSLOCTEXT("UnrealEd", "Import", "Import").ToString(),
 			LandscapeEdMode->UISettings->LastImportPath,
 			TEXT(""),
@@ -1437,21 +1438,12 @@ FReply FLandscapeEditorStructCustomization_FLandscapeImportLayer::OnLayerFilenam
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if (DesktopPlatform != nullptr)
 	{
-		void* ParentWindowWindowHandle = nullptr;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if (MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid())
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		ILandscapeEditorModule& LandscapeEditorModule = FModuleManager::GetModuleChecked<ILandscapeEditorModule>("LandscapeEditor");
 		const TCHAR* FileTypes = LandscapeEditorModule.GetWeightmapImportDialogTypeString();
 
 		TArray<FString> OpenFilenames;
 		bool bOpened = DesktopPlatform->OpenFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			NSLOCTEXT("UnrealEd", "Import", "Import").ToString(),
 			LandscapeEdMode->UISettings->LastImportPath,
 			TEXT(""),

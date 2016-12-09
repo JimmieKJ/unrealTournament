@@ -7,8 +7,10 @@
 */
 
 // Core includes.
-#include "CorePrivatePCH.h"
-#include "LoadTimeTracker.h"
+#include "ProfilingDebugging/LoadTimeTracker.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
+#include "HAL/IConsoleManager.h"
 
 FLoadTimeTracker::FLoadTimeTracker()
 {
@@ -96,11 +98,11 @@ void FLoadTimeTracker::DumpRawLoadTimes() const
 	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_SerializeGatherableTextDataMap: %f"), LinkerLoad_SerializeGatherableTextDataMap);
 	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_SerializeImportMap: %f"), LinkerLoad_SerializeImportMap);
 	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_SerializeExportMap: %f"), LinkerLoad_SerializeExportMap);
-	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_StartTextureAllocation: %f"), LinkerLoad_StartTextureAllocation);
 	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_FixupImportMap: %f"), LinkerLoad_FixupImportMap);
 	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_RemapImports: %f"), LinkerLoad_RemapImports);
 	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_FixupExportMap: %f"), LinkerLoad_FixupExportMap);
 	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_SerializeDependsMap: %f"), LinkerLoad_SerializeDependsMap);
+	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_SerializePreloadDependencies: %f"), LinkerLoad_SerializePreloadDependencies);
 	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_CreateExportHash: %f"), LinkerLoad_CreateExportHash);
 	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_FindExistingExports: %f"), LinkerLoad_FindExistingExports);
 	UE_LOG(LogStreaming, Display, TEXT("LinkerLoad_FinalizeCreation: %f"), LinkerLoad_FinalizeCreation);
@@ -109,12 +111,12 @@ void FLoadTimeTracker::DumpRawLoadTimes() const
 	UE_LOG(LogStreaming, Display, TEXT("Package_LoadImports: %f"), Package_LoadImports);
 	UE_LOG(LogStreaming, Display, TEXT("Package_CreateImports: %f"), Package_CreateImports);
 	UE_LOG(LogStreaming, Display, TEXT("Package_CreateLinker: %f"), Package_CreateLinker);
-	UE_LOG(LogStreaming, Display, TEXT("Package_FinishTextureAllocations: %f"), Package_FinishTextureAllocations);
 	UE_LOG(LogStreaming, Display, TEXT("Package_CreateExports: %f"), Package_CreateExports);
 	UE_LOG(LogStreaming, Display, TEXT("Package_PreLoadObjects: %f"), Package_PreLoadObjects);
 	UE_LOG(LogStreaming, Display, TEXT("Package_PostLoadObjects: %f"), Package_PostLoadObjects);
 	UE_LOG(LogStreaming, Display, TEXT("Package_Tick: %f"), Package_Tick);
 	UE_LOG(LogStreaming, Display, TEXT("Package_CreateAsyncPackagesFromQueue: %f"), Package_CreateAsyncPackagesFromQueue);
+	UE_LOG(LogStreaming, Display, TEXT("Package_EventIOWait: %f"), Package_EventIOWait);
 
 	UE_LOG(LogStreaming, Display, TEXT("TickAsyncLoading_ProcessLoadedPackages: %f"), TickAsyncLoading_ProcessLoadedPackages);
 
@@ -123,7 +125,13 @@ void FLoadTimeTracker::DumpRawLoadTimes() const
 	UE_LOG(LogStreaming, Display, TEXT("Package_Temp3: %f"), Package_Temp3);
 	UE_LOG(LogStreaming, Display, TEXT("Package_Temp4: %f"), Package_Temp4);
 
-
+	UE_LOG(LogStreaming, Display, TEXT("Graph_AddNode: %f     %u"), Graph_AddNode, Graph_AddNodeCnt);
+	UE_LOG(LogStreaming, Display, TEXT("Graph_AddArc: %f     %u"), Graph_AddArc, Graph_AddArcCnt);
+	UE_LOG(LogStreaming, Display, TEXT("Graph_RemoveNode: %f     %u"), Graph_RemoveNode, Graph_RemoveNodeCnt);
+	UE_LOG(LogStreaming, Display, TEXT("Graph_RemoveNodeFire: %f     %u"), Graph_RemoveNodeFire, Graph_RemoveNodeFireCnt);
+	UE_LOG(LogStreaming, Display, TEXT("Graph_DoneAddingPrerequistesFireIfNone: %f     %u"), Graph_DoneAddingPrerequistesFireIfNone, Graph_DoneAddingPrerequistesFireIfNoneCnt);
+	UE_LOG(LogStreaming, Display, TEXT("Graph_DoneAddingPrerequistesFireIfNoneFire: %f     %u"), Graph_DoneAddingPrerequistesFireIfNoneFire, Graph_DoneAddingPrerequistesFireIfNoneFireCnt);
+	UE_LOG(LogStreaming, Display, TEXT("Graph_Misc: %f     %u"), Graph_Misc, Graph_MiscCnt);
 	UE_LOG(LogStreaming, Display, TEXT("-------------------------------------------------"));
 
 #endif
@@ -151,17 +159,19 @@ void FLoadTimeTracker::ResetRawLoadTimes()
 	MaterialSerializeTime = 0.0;
 	MaterialInstanceSerializeTime = 0.0;
 	AsyncLoadingTime = 0.0;
+	CreateMetaDataTime = 0.0;
+
 	LinkerLoad_CreateLoader = 0.0;
 	LinkerLoad_SerializePackageFileSummary = 0.0;
 	LinkerLoad_SerializeNameMap = 0.0;
 	LinkerLoad_SerializeGatherableTextDataMap = 0.0;
 	LinkerLoad_SerializeImportMap = 0.0;
 	LinkerLoad_SerializeExportMap = 0.0;
-	LinkerLoad_StartTextureAllocation = 0.0;
 	LinkerLoad_FixupImportMap = 0.0;
 	LinkerLoad_RemapImports = 0.0;
 	LinkerLoad_FixupExportMap = 0.0;
 	LinkerLoad_SerializeDependsMap = 0.0;
+	LinkerLoad_SerializePreloadDependencies = 0.0;
 	LinkerLoad_CreateExportHash = 0.0;
 	LinkerLoad_FindExistingExports = 0.0;
 	LinkerLoad_FinalizeCreation = 0.0;
@@ -170,17 +180,39 @@ void FLoadTimeTracker::ResetRawLoadTimes()
 	Package_LoadImports = 0.0;
 	Package_CreateImports = 0.0;
 	Package_CreateLinker = 0.0;
-	Package_FinishTextureAllocations = 0.0;
 	Package_CreateExports = 0.0;
 	Package_PreLoadObjects = 0.0;
 	Package_PostLoadObjects = 0.0;
 	Package_Tick = 0.0;
 	Package_CreateAsyncPackagesFromQueue = 0.0;
+	Package_CreateMetaData = 0.0;
+	Package_EventIOWait = 0.0;
 
 	Package_Temp1 = 0.0;
 	Package_Temp2 = 0.0;
 	Package_Temp3 = 0.0;
 	Package_Temp4 = 0.0;
+
+	Graph_AddNode = 0.0;
+	Graph_AddNodeCnt = 0;
+
+	Graph_AddArc = 0.0;
+	Graph_AddArcCnt = 0;
+
+	Graph_RemoveNode = 0.0;
+	Graph_RemoveNodeCnt = 0;
+
+	Graph_RemoveNodeFire = 0.0;
+	Graph_RemoveNodeFireCnt = 0;
+
+	Graph_DoneAddingPrerequistesFireIfNone = 0.0;
+	Graph_DoneAddingPrerequistesFireIfNoneCnt = 0;
+
+	Graph_DoneAddingPrerequistesFireIfNoneFire = 0.0;
+	Graph_DoneAddingPrerequistesFireIfNoneFireCnt = 0;
+
+	Graph_Misc = 0.0;
+	Graph_MiscCnt = 0;
 
 	TickAsyncLoading_ProcessLoadedPackages = 0.0;
 
@@ -194,4 +226,9 @@ static FAutoConsoleCommand LoadTimerDumpCmd(
 	TEXT("LoadTimes.DumpTracking"),
 	TEXT("Dump high level load times being tracked"),
 	FConsoleCommandDelegate::CreateStatic(&FLoadTimeTracker::DumpHighLevelLoadTimesStatic)
+	);
+static FAutoConsoleCommand LoadTimerDumpLowCmd(
+	TEXT("LoadTimes.DumpTrackingLow"),
+	TEXT("Dump low level load times being tracked"),
+	FConsoleCommandDelegate::CreateStatic(&FLoadTimeTracker::DumpRawLoadTimesStatic)
 	);

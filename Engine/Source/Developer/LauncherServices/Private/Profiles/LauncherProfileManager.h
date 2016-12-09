@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ILauncherProfileManager.h"
+#include "Misc/Paths.h"
 
 /**
  * Implements a helper class that manages all profiles in the Launcher

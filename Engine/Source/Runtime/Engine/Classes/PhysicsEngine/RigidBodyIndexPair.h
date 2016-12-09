@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /**
  * Endian save storage for a pair of rigid body indices used as a key in the CollisionDisableTable TMap.
  */

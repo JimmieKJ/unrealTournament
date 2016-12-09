@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "InputStructCustomization.h"
-#include "InputSettingsDetails.h"
+#include "Widgets/Layout/SBox.h"
 #include "GameFramework/PlayerInput.h"
+#include "IDetailChildrenBuilder.h"
+#include "PropertyCustomizationHelpers.h"
+#include "InputSettingsDetails.h"
 
 #define LOCTEXT_NAMESPACE "InputStructCustomization"
 

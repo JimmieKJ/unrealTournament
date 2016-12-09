@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SceneOutlinerPrivatePCH.h"
-#include "ModuleManager.h"
+#include "SceneOutlinerModule.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Application/SlateApplication.h"
+#include "SceneOutlinerSettings.h"
+#include "SSceneOutliner.h"
 
 #include "SceneOutlinerActorInfoColumn.h"
 #include "SceneOutlinerGutter.h"

@@ -1,19 +1,14 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "PrimitiveComponentDetails.h"
-#include "ScopedTransaction.h"
+#include "Components/SceneComponent.h"
+#include "Components/PrimitiveComponent.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailGroup.h"
+#include "DetailCategoryBuilder.h"
 #include "ObjectEditorUtils.h"
-#include "PhysicsEngine/BodySetup.h"
-#include "PhysicsEngine/BodyInstance.h"
-#include "Components/DestructibleComponent.h"
-#include "Components/InstancedStaticMeshComponent.h"
-#include "IDocumentation.h"
 #include "EditorCategoryUtils.h"
-#include "PhysicsEngine/PhysicsSettings.h"
 #include "ComponentMaterialCategory.h"
-#include "SCheckBox.h"
-#include "SNumericEntryBox.h"
 
 #define LOCTEXT_NAMESPACE "PrimitiveComponentDetails"
 

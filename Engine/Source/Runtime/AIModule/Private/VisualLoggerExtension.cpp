@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "VisualLoggerExtension.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
 #include "CanvasItem.h"
 #include "Engine/Canvas.h"
 #include "DrawDebugHelpers.h"
 #include "EnvironmentQuery/EnvQueryDebugHelpers.h"
 #include "EnvironmentQuery/EQSRenderingComponent.h"
-#include "VisualLoggerExtension.h"
 
 #if ENABLE_VISUAL_LOG
 FVisualLoggerExtension::FVisualLoggerExtension()
@@ -27,8 +29,7 @@ void FVisualLoggerExtension::DisableEQSRendering(AActor* HelperActor)
 		{
 			EQSRenderComp->SetHiddenInGame(true);
 			EQSRenderComp->Deactivate();
-			EQSRenderComp->DebugData.Reset();
-			EQSRenderComp->MarkRenderStateDirty();
+			EQSRenderComp->ClearStoredDebugData();
 		}
 	}
 #endif
@@ -88,8 +89,7 @@ void FVisualLoggerExtension::DrawData(IVisualLoggerEditorInterface* EdInterface,
 					{
 						Component->SetHiddenInGame(true);
 						Component->Deactivate();
-						Component->DebugData.Reset();
-						Component->MarkRenderStateDirty();
+						Component->ClearStoredDebugData();
 					}
 				}
 			}
@@ -126,10 +126,9 @@ void FVisualLoggerExtension::DrawData(UWorld* InWorld, class UEQSRenderingCompon
 		UEnvQueryDebugHelpers::BlobArrayToDebugData(DataBlock.Data, DebugData, false);
 		if (EQSRenderComp && !Canvas && (SelectedEQSId == DebugData.Id || SelectedEQSId == INDEX_NONE))
 		{
-			EQSRenderComp->DebugData = DebugData;
 			EQSRenderComp->SetHiddenInGame(false);
 			EQSRenderComp->Activate();
-			EQSRenderComp->MarkRenderStateDirty();
+			EQSRenderComp->StoreDebugData(DebugData);
 		}
 
 		/** find and draw item selection */
@@ -137,7 +136,7 @@ void FVisualLoggerExtension::DrawData(UWorld* InWorld, class UEQSRenderingCompon
 		if (SelectedEQSId != INDEX_NONE && DebugData.Id == SelectedEQSId && Canvas)
 		{
 			FVector FireDir = Canvas->SceneView->GetViewDirection();
-			FVector CamLocation = Canvas->SceneView->ViewMatrices.ViewOrigin;
+			FVector CamLocation = Canvas->SceneView->ViewMatrices.GetViewOrigin();
 
 			float bestAim = 0;
 			for (int32 Index = 0; Index < DebugData.RenderDebugHelpers.Num(); ++Index)

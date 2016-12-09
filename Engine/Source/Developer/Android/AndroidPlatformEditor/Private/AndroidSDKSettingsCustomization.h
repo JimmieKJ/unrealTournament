@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "EditorStyle.h"
-#include "PropertyEditorModule.h"
-#include "AndroidSDKSettings.h"
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class ITargetPlatformManagerModule;
 
 //////////////////////////////////////////////////////////////////////////
 // FAndroidSDKSettingsCustomization

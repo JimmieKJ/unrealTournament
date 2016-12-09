@@ -1,32 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TranslationEditorPrivatePCH.h"
-
 #include "TranslationEditor.h"
-#include "Toolkits/IToolkitHost.h"
-#include "WorkspaceMenuStructureModule.h"
-#include "MessageLog.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Input/SButton.h"
+#include "TranslationEditorModule.h"
+#include "TranslationEditorMenu.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IPropertyTable.h"
-#include "Editor/PropertyEditor/Public/IPropertyTableColumn.h"
-#include "Editor/PropertyEditor/Public/IPropertyTableRow.h"
-#include "Editor/PropertyEditor/Public/IPropertyTableCell.h"
-#include "Editor/PropertyEditor/Public/PropertyHandle.h"
-#include "Editor/PropertyEditor/Public/PropertyPath.h"
-#include "CustomFontColumn.h"
+#include "Logging/MessageLog.h"
+
+#include "IPropertyTableRow.h"
 #include "DesktopPlatformModule.h"
 #include "IPropertyTableWidgetHandle.h"
 
-#include "TranslationUnit.h"
-#include "SSearchBox.h"
-#include "SDockTab.h"
-#include "InternationalizationExportSettings.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "ILocalizationServiceModule.h"
-#include "ILocalizationServiceProvider.h"
 #include "LocalizationCommandletTasks.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LocalizationExport, Log, All);
 
@@ -40,8 +33,8 @@ FString GetFontFilename(const FSlateFontInfo& InFontInfo)
 {
 	const FCompositeFont* const ResolvedCompositeFont = InFontInfo.GetCompositeFont();
 	return (ResolvedCompositeFont && ResolvedCompositeFont->DefaultTypeface.Fonts.Num() > 0)
-		? ResolvedCompositeFont->DefaultTypeface.Fonts[0].Font.FontFilename
-		: "";
+		? ResolvedCompositeFont->DefaultTypeface.Fonts[0].Font.GetFontFilename()
+		: FString();
 }
 
 } // namespace TranslationEditorUtils

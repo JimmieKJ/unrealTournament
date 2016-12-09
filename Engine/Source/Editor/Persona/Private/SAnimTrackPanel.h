@@ -3,8 +3,12 @@
 
 #pragma once
 
-#include "Persona.h"
-#include "GraphEditor.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
 #include "SNodePanel.h"
 #include "SCurveEditor.h"
 

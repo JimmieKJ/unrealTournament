@@ -2,14 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/CursorReply.h"
+#include "Curves/KeyHandle.h"
+#include "SequencerSelectedKey.h"
 #include "ISequencerEditTool.h"
-#include "ScopedTransaction.h"
 #include "SequencerHotspots.h"
-#include "SequencerSnapField.h"
+#include "ScopedTransaction.h"
+#include "Tools/SequencerSnapField.h"
 
-
+class FSequencer;
+class FSlateWindowElementList;
+class FVirtualTrackArea;
 class USequencerSettings;
-
 
 /**
  * Abstract base class for drag operations that handle an operation for an edit tool.

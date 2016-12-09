@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 struct FPropertyListenerSettings
 {
 	/** Flags a property must have to be observed for changes */

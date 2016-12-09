@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ICursor.h"
+#include "Math/IntRect.h"
 
 @class FCocoaWindow;
 
@@ -28,15 +29,9 @@ public:
 
 	virtual void Lock(const RECT* const Bounds) override;
 
+	virtual void SetCustomShape(void* CursorHandle) override;
 
 public:
-
-	/**
-	 * Defines a custom cursor shape for the EMouseCursor::Custom type.
-	 *
-	 * @param CursorHandle	A native NSCursor instance to show when EMouseCursor::Custom is selected.
-	 */
-	virtual void SetCustomShape(NSCursor* CursorHandle);
 
 	bool UpdateCursorClipping(FVector2D& CursorPosition);
 

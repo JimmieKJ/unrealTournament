@@ -186,11 +186,15 @@ float3 GetLookupVectorForSphereCapture(float3 ReflectionVector, float3 WorldPosi
 float ComputeMixingWeight(float IndirectIrradiance, float AverageBrightness, float Roughness)
 {
 	// Mirror surfaces should have no mixing, so they match reflections from other sources (SSR, planar reflections)
-	float MixingAlpha = smoothstep(0, 1, saturate(Roughness * View.ReflectionEnvironmentRoughnessMixingScaleBias.x + View.ReflectionEnvironmentRoughnessMixingScaleBias.y));
+	float MixingAlpha = smoothstep(0, 1, saturate(Roughness * View.ReflectionEnvironmentRoughnessMixingScaleBiasAndLargestWeight.x + View.ReflectionEnvironmentRoughnessMixingScaleBiasAndLargestWeight.y));
 
 	// We have high frequency directional data but low frequency spatial data in the envmap.
 	// We have high frequency spatial data but low frequency directional data in the lightmap.
 	// So, we combine the two for the best of both. This is done by removing the low spatial frequencies from the envmap and replacing them with the lightmap data.
 	// This is only done with luma so as to not get odd color shifting.
-	return lerp(1.0f, IndirectIrradiance / max(AverageBrightness, .0001f), MixingAlpha);
+	float MixingWeight = IndirectIrradiance / max(AverageBrightness, .0001f);
+
+	MixingWeight = min(MixingWeight, View.ReflectionEnvironmentRoughnessMixingScaleBiasAndLargestWeight.z);
+
+	return lerp(1.0f, MixingWeight, MixingAlpha);
 }

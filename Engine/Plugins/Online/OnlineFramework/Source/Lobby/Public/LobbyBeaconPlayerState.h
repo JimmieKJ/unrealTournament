@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/Info.h"
+#include "GameFramework/OnlineReplStructs.h"
 #include "LobbyBeaconPlayerState.generated.h"
 
 class AOnlineBeaconClient;

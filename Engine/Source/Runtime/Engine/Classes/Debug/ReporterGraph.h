@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "ReporterBase.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Debug/ReporterBase.h"
 #include "ReporterGraph.generated.h"
+
+class UCanvas;
+class UFont;
 
 /** Draw styles for axes. */
 UENUM()

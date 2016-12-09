@@ -1,7 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessagingDebuggerPrivatePCH.h"
-#include "SDockTab.h"
+#include "Widgets/SMessagingDebugger.h"
+#include "Widgets/SBoxPanel.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Docking/WorkspaceItem.h"
+#include "Framework/Docking/TabManager.h"
+#include "Models/MessagingDebuggerCommands.h"
+#include "Widgets/Breakpoints/SMessagingBreakpoints.h"
+#include "Widgets/Toolbar/SMessagingDebuggerToolbar.h"
+#include "Widgets/EndpointDetails/SMessagingEndpointDetails.h"
+#include "Widgets/Endpoints/SMessagingEndpoints.h"
+#include "Widgets/Graph/SMessagingGraph.h"
+#include "Widgets/MessageData/SMessagingMessageData.h"
+#include "Widgets/MessageDetails/SMessagingMessageDetails.h"
+#include "Widgets/History/SMessagingHistory.h"
+#include "Widgets/Interceptors/SMessagingInterceptors.h"
+#include "Widgets/Types/SMessagingTypes.h"
+#include "Widgets/Docking/SDockTab.h"
 
 
 #define LOCTEXT_NAMESPACE "SMessagingDebugger"
@@ -35,7 +52,13 @@ SMessagingDebugger::SMessagingDebugger()
 /* SMessagingDebugger interface
  *****************************************************************************/
 
-void SMessagingDebugger::Construct(const FArguments& InArgs, const TSharedRef<SDockTab>& ConstructUnderMajorTab, const TSharedPtr<SWindow>& ConstructUnderWindow, const IMessageTracerRef& InMessageTracer, const TSharedRef<ISlateStyle>& InStyle)
+void SMessagingDebugger::Construct(
+	const FArguments& InArgs,
+	const TSharedRef<SDockTab>& ConstructUnderMajorTab,
+	const TSharedPtr<SWindow>& ConstructUnderWindow,
+	const TSharedRef<IMessageTracer, ESPMode::ThreadSafe>& InMessageTracer,
+	const TSharedRef<ISlateStyle>& InStyle
+)
 {
 	MessageTracer = InMessageTracer;
 	Style = InStyle;

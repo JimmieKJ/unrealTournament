@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "HapticFeedbackEffect_Base.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Curves/CurveFloat.h"
+#include "Haptics/HapticFeedbackEffect_Base.h"
 #include "HapticFeedbackEffect_Curve.generated.h"
+
+struct FHapticFeedbackValues;
 
 USTRUCT()
 struct FHapticFeedbackDetails_Curve

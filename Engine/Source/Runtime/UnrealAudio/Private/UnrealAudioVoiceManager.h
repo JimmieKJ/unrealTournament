@@ -2,12 +2,9 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
 #include "UnrealAudioTypes.h"
-#include "UnrealAudioVoice.h"
-#include "UnrealAudioEntityManager.h"
-#include "UnrealAudioEmitterInternal.h"
-#include "UnrealAudioVoiceInternal.h"
-#include "UnrealAudioUtilities.h"
+#include "Containers/Queue.h"
 #include "UnrealAudioPitchManager.h"
 #include "UnrealAudioVolumeManager.h"
 #include "UnrealAudioVoiceMixer.h"

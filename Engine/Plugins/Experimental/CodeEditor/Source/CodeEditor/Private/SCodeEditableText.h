@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "SMultiLineEditableText.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Text/SMultiLineEditableText.h"
+
+class ITextLayoutMarshaller;
 
 class SCodeEditableText : public SMultiLineEditableText
 {

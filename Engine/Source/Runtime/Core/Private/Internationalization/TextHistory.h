@@ -1,6 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Templates/SharedPointer.h"
+#include "Misc/Optional.h"
+#include "Internationalization/Text.h"
+#include "Misc/DateTime.h"
+
 enum class ETextHistoryType
 {
 	Base = 0,
@@ -44,8 +52,11 @@ public:
 	/** Returns the source string managed by the history (if any). */
 	virtual const FString* GetSourceString() const;
 
-	/** Trace the history of this Text until we find the base Texts it was comprised from */
-	virtual void GetSourceTextsFromFormatHistory(FText Text, TArray<FText>& OutSourceTexts) const;
+	/** Get any historic text format data from this history */
+	virtual void GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const;
+
+	/** Get any historic numeric format data from this history */
+	virtual bool GetHistoricNumericData(const FText& InText, FHistoricTextNumericData& OutHistoricNumericData) const;
 
 	/** Will rebuild the display string if out of date. */
 	void Rebuild(TSharedRef< FString, ESPMode::ThreadSafe > InDisplayString);
@@ -112,7 +123,7 @@ public:
 	//~ Begin FTextHistory Interface
 	virtual FText ToText(bool bInAsSource) const override;
 	virtual void Serialize(FArchive& Ar) override;
-	virtual void GetSourceTextsFromFormatHistory(FText, TArray<FText>& OutSourceTexts) const override;
+	virtual void GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const override;
 	//~ End FTextHistory Interface
 
 private:
@@ -140,7 +151,7 @@ public:
 	//~ Begin FTextHistory Interface
 	virtual FText ToText(bool bInAsSource) const override;
 	virtual void Serialize(FArchive& Ar) override;
-	virtual void GetSourceTextsFromFormatHistory(FText, TArray<FText>& OutSourceTexts) const override;
+	virtual void GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const override;
 	//~ End FTextHistory Interface
 
 private:
@@ -168,7 +179,7 @@ public:
 	//~ Begin FTextHistory Interface
 	virtual FText ToText(bool bInAsSource) const override;
 	virtual void Serialize(FArchive& Ar) override;
-	virtual void GetSourceTextsFromFormatHistory(FText, TArray<FText>& OutSourceTexts) const override;
+	virtual void GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const override;
 	//~ End FTextHistory Interface
 
 private:
@@ -225,6 +236,7 @@ public:
 	//~ Begin FTextHistory Interface
 	virtual FText ToText(bool bInAsSource) const override;
 	virtual void Serialize(FArchive& Ar) override;
+	virtual bool GetHistoricNumericData(const FText& InText, FHistoricTextNumericData& OutHistoricNumericData) const override;
 	//~ End FTextHistory interface
 
 private:
@@ -247,6 +259,7 @@ public:
 	//~ Begin FTextHistory Interface
 	virtual FText ToText(bool bInAsSource) const override;
 	virtual void Serialize(FArchive& Ar) override;
+	virtual bool GetHistoricNumericData(const FText& InText, FHistoricTextNumericData& OutHistoricNumericData) const override;
 	//~ End FTextHistory interface
 
 private:

@@ -1,13 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "Sound/SoundMix.h"
-#include "AudioDevice.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Styling/CoreStyle.h"
+#include "AudioDeviceManager.h"
+#include "Sound/SoundClass.h"
 #if WITH_EDITOR
-#include "SlateBasics.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #endif
 
 /*-----------------------------------------------------------------------------

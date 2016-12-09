@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UdpMessagingPrivatePCH.h"
-#include "AutomationTest.h"
-#include "UdpMessagingTestTypes.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Misc/AutomationTest.h"
+#include "Interfaces/IPv4/IPv4Address.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "IMessageContext.h"
+#include "Transport/UdpMessageTransport.h"
+#include "Tests/UdpMessagingTestTypes.h"
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUdpMessageTransportTest, "System.Core.Messaging.Transports.Udp.UdpMessageTransport (takes ~2 minutes!)", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUdpMessageTransportTest, "System.Core.Messaging.Transports.Udp.UdpMessageTransport (takes ~2 minutes!)", EAutomationTestFlags::Disabled | EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::EngineFilter)
 
 
 class FUdpMessageTransportTestState
@@ -41,7 +46,7 @@ public:
 		return NumReceivedMessages;
 	}
 
-	bool Publish(const IMessageContextRef& Context)
+	bool Publish(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 	{
 		return Transport->TransportMessage(Context, TArray<FGuid>());
 	}
@@ -58,7 +63,7 @@ public:
 
 private:
 
-	void HandleTransportMessageReceived(const IMessageContextRef& MessageContext, const FGuid& NodeId)
+	void HandleTransportMessageReceived(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& MessageContext, const FGuid& NodeId)
 	{
 		FPlatformAtomics::InterlockedIncrement(&NumReceivedMessages);
 	}
@@ -79,7 +84,7 @@ private:
 	TArray<FGuid> LostNodes;
 	int32 NumReceivedMessages;
 	FAutomationTestBase& Test;
-	IMessageTransportPtr Transport;
+	TSharedPtr<IMessageTransport, ESPMode::ThreadSafe> Transport;
 };
 
 
@@ -137,7 +142,7 @@ bool FUdpMessageTransportTest::RunTest(const FString& Parameters)
 	for (int32 Count = 0; Count < NumTestMessages; ++Count)
 	{
 		FUdpMockMessage* Message = new FUdpMockMessage(MessageSize);
-		IMessageContextRef Context = MakeShareable(new FUdpMockMessageContext(Message));
+		TSharedRef<IMessageContext, ESPMode::ThreadSafe> Context = MakeShareable(new FUdpMockMessageContext(Message));
 
 		Transport1.Publish(Context);
 	}

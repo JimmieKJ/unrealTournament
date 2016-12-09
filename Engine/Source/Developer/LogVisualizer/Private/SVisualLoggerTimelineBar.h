@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SLeafWidget.h"
+#include "Developer/LogVisualizer/Private/SVisualLoggerTimeline.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+class FVisualLoggerTimeSliderController;
+
 /**
 * A list of filters currently applied to an asset view.
 */

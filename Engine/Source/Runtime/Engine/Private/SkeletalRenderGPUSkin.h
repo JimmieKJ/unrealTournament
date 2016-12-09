@@ -6,11 +6,16 @@
 
 #pragma once
 
-#include "SkeletalRender.h"
-#include "SkeletalRenderPublic.h"
-#include "GPUSkinVertexFactory.h"
+#include "CoreMinimal.h"
+#include "ProfilingDebugging/ResourceSize.h"
+#include "RenderResource.h"
+#include "ShaderParameters.h"
+#include "SkeletalMeshTypes.h"
+#include "Components/SkinnedMeshComponent.h"
 #include "ClothSimData.h"
 #include "GlobalShader.h"
+#include "GPUSkinVertexFactory.h"
+#include "SkeletalRenderPublic.h"
 
 /** 
 * Stores the updated matrices needed to skin the verts.
@@ -90,14 +95,25 @@ public:
 	/**
 	* Returns the size of memory allocated by render data
 	*/
-	virtual SIZE_T GetResourceSize()
+	DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
+	SIZE_T GetResourceSize()
 	{
-		SIZE_T ResourceSize = sizeof(*this);
-		
-		ResourceSize += ReferenceToLocal.GetAllocatedSize();
-		ResourceSize += ActiveMorphTargets.GetAllocatedSize();
+		return GetResourceSizeBytes();
+	}
 
-		return ResourceSize;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
+	{
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(*this));
+		
+		CumulativeResourceSize.AddUnknownMemoryBytes(ReferenceToLocal.GetAllocatedSize());
+		CumulativeResourceSize.AddUnknownMemoryBytes(ActiveMorphTargets.GetAllocatedSize());
+	}
+
+	SIZE_T GetResourceSizeBytes()
+	{
+		FResourceSizeEx ResSize;
+		GetResourceSizeEx(ResSize);
+		return ResSize.GetTotalMemoryBytes();
 	}
 
 	/** Update Simulated Positions & Normals from APEX Clothing actor */
@@ -232,7 +248,7 @@ public:
 	virtual void ReleaseResources() override;
 	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights) override;
 	void UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectDataGPUSkin* InDynamicData, uint32 FrameNumberToPrepare);
-	virtual void UpdateRecomputeTangent(int32 MaterialIndex, bool bRecomputeTangent) override;
+	virtual void UpdateRecomputeTangent(int32 MaterialIndex, int32 LODIndex, bool bRecomputeTangent) override;
 	virtual void PreGDMECallback(uint32 FrameNumber) override;
 	virtual const FVertexFactory* GetSkinVertexFactory(const FSceneView* View, int32 LODIndex,int32 ChunkIdx) const override;
 	virtual void CacheVertices(int32 LODIndex, bool bForce) const override {}
@@ -258,26 +274,24 @@ public:
 		return ( DynamicData!=NULL ); 
 	}
 
-	virtual SIZE_T GetResourceSize() override
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override
 	{
-		SIZE_T ResourceSize = sizeof(*this);
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(*this));
 		
 		if(DynamicData)
 		{
-			ResourceSize += DynamicData->GetResourceSize();
+			DynamicData->GetResourceSizeEx(CumulativeResourceSize);
 		}
 		
-		ResourceSize += LODs.GetAllocatedSize(); 
+		CumulativeResourceSize.AddUnknownMemoryBytes(LODs.GetAllocatedSize()); 
 
 		// include extra data from LOD
 		for (int32 I=0; I<LODs.Num(); ++I)
 		{
-			ResourceSize += LODs[I].GetResourceSize();
+			LODs[I].GetResourceSizeEx(CumulativeResourceSize);
 		}
 
-		ResourceSize += MorphWeightsVertexBuffer.VertexBufferRHI ? MorphWeightsVertexBuffer.VertexBufferRHI->GetSize() : 0;
-
-		return ResourceSize;
+		CumulativeResourceSize.AddUnknownMemoryBytes(MorphWeightsVertexBuffer.VertexBufferRHI ? MorphWeightsVertexBuffer.VertexBufferRHI->GetSize() : 0);
 	}
 	//~ End FSkeletalMeshObject Interface
 
@@ -423,13 +437,23 @@ private:
 		/**
 		 * @return memory in bytes of size of the resources for this LOD
 		 */
+		DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
 		SIZE_T GetResourceSize()
 		{
-			SIZE_T Size = MorphVertexBuffer.GetResourceSize();
+			return GetResourceSizeBytes();
+		}
 
-			Size += GPUSkinVertexFactories.GetResourceSize();
+		void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
+		{
+			CumulativeResourceSize.AddUnknownMemoryBytes(MorphVertexBuffer.GetResourceSize());
+			CumulativeResourceSize.AddUnknownMemoryBytes(GPUSkinVertexFactories.GetResourceSize());
+		}
 
-			return Size;
+		SIZE_T GetResourceSizeBytes()
+		{
+			FResourceSizeEx ResSize;
+			GetResourceSizeEx(ResSize);
+			return ResSize.GetTotalMemoryBytes();
 		}
 
 		FSkeletalMeshResource* SkelMeshResource;

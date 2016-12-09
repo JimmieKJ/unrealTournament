@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/LazyObjectPtr.h"
 #include "LevelSequenceObject.generated.h"
 
 

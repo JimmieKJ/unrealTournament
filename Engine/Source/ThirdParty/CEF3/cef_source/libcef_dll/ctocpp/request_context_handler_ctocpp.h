@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,14 +28,15 @@ class CefRequestContextHandlerCToCpp
     : public CefCToCpp<CefRequestContextHandlerCToCpp, CefRequestContextHandler,
         cef_request_context_handler_t> {
  public:
-  explicit CefRequestContextHandlerCToCpp(cef_request_context_handler_t* str)
-      : CefCToCpp<CefRequestContextHandlerCToCpp, CefRequestContextHandler,
-          cef_request_context_handler_t>(str) {}
+  CefRequestContextHandlerCToCpp();
 
-  // CefRequestContextHandler methods
+  // CefRequestContextHandler methods.
   CefRefPtr<CefCookieManager> GetCookieManager() override;
+  bool OnBeforePluginLoad(const CefString& mime_type,
+      const CefString& plugin_url, const CefString& top_origin_url,
+      CefRefPtr<CefWebPluginInfo> plugin_info,
+      PluginPolicy* plugin_policy) override;
 };
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_REQUEST_CONTEXT_HANDLER_CTOCPP_H_
-

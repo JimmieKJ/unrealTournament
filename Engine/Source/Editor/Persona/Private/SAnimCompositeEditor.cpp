@@ -1,16 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
-
 #include "SAnimCompositeEditor.h"
-#include "GraphEditor.h"
-#include "GraphEditorModule.h"
-#include "Editor/Kismet/Public/SKismetInspector.h"
-#include "SAnimCompositePanel.h"
-#include "ScopedTransaction.h"
+#include "Animation/EditorAnimBaseObj.h"
+#include "IDocumentation.h"
+
 #include "SAnimNotifyPanel.h"
-#include "SAnimCurvePanel.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SAnimCompositeEditor
@@ -20,25 +15,23 @@ TSharedRef<SWidget> SAnimCompositeEditor::CreateDocumentAnchor()
 	return IDocumentation::Get()->CreateAnchor(TEXT("Engine/Animation/AnimationComposite"));
 }
 
-void SAnimCompositeEditor::Construct(const FArguments& InArgs)
+void SAnimCompositeEditor::Construct(const FArguments& InArgs, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& OnPostUndo)
 {
 	bIsActiveTimerRegistered = false;
-	PersonaPtr = InArgs._Persona;
 	CompositeObj = InArgs._Composite;
 	check(CompositeObj);
 
 	SAnimEditorBase::Construct( SAnimEditorBase::FArguments()
-		.Persona(InArgs._Persona)
-		);
+		.OnObjectsSelected(InArgs._OnObjectsSelected), 
+		InPreviewScene );
 
-	PersonaPtr.Pin()->RegisterOnPostUndo(FPersona::FOnPostUndo::CreateSP( this, &SAnimCompositeEditor::PostUndo ) );	
+	OnPostUndo.Add(FSimpleDelegate::CreateSP( this, &SAnimCompositeEditor::PostUndo ) );
 
 	EditorPanels->AddSlot()
 		.AutoHeight()
 		.Padding(0, 10)
 		[
 			SAssignNew( AnimCompositePanel, SAnimCompositePanel )
-			.Persona(PersonaPtr)
 			.Composite(CompositeObj)
 			.CompositeEditor(SharedThis(this))
 			.WidgetWidth(S2ColumnWidget::DEFAULT_RIGHT_COLUMN_WIDTH)
@@ -51,8 +44,7 @@ void SAnimCompositeEditor::Construct(const FArguments& InArgs)
 		.AutoHeight()
 		.Padding(0, 10)
 		[
-			SAssignNew( AnimNotifyPanel, SAnimNotifyPanel )
-			.Persona(InArgs._Persona)
+			SAssignNew( AnimNotifyPanel, SAnimNotifyPanel, OnPostUndo)
 			.Sequence(CompositeObj)
 			.WidgetWidth(S2ColumnWidget::DEFAULT_RIGHT_COLUMN_WIDTH)
 			.InputMin(this, &SAnimEditorBase::GetMinInput)
@@ -62,14 +54,15 @@ void SAnimCompositeEditor::Construct(const FArguments& InArgs)
 			.OnSetInputViewRange(this, &SAnimEditorBase::SetInputViewRange)
 			.OnGetScrubValue(this, &SAnimEditorBase::GetScrubValue)
 			.OnSelectionChanged(this, &SAnimEditorBase::OnSelectionChanged)
+			.OnAnimNotifiesChanged(InArgs._OnAnimNotifiesChanged)
+			.OnInvokeTab(InArgs._OnInvokeTab)
 		];
 
 	EditorPanels->AddSlot()
 		.AutoHeight()
 		.Padding(0, 10)
 		[
-			SAssignNew( AnimCurvePanel, SAnimCurvePanel )
-			.Persona(PersonaPtr)
+			SAssignNew( AnimCurvePanel, SAnimCurvePanel, InEditableSkeleton)
 			.Sequence(CompositeObj)
 			.WidgetWidth(S2ColumnWidget::DEFAULT_RIGHT_COLUMN_WIDTH)
 			.ViewInputMin(this, &SAnimEditorBase::GetViewMinInput)
@@ -81,14 +74,6 @@ void SAnimCompositeEditor::Construct(const FArguments& InArgs)
 		];
 
 	CollapseComposite();
-}
-
-SAnimCompositeEditor::~SAnimCompositeEditor()
-{
-	if (PersonaPtr.IsValid())
-	{
-		PersonaPtr.Pin()->UnregisterOnPostUndo(this);
-	}
 }
 
 void SAnimCompositeEditor::PreAnimUpdate()

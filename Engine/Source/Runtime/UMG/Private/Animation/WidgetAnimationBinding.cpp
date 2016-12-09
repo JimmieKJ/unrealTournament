@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "WidgetAnimationBinding.h"
+#include "Animation/WidgetAnimationBinding.h"
+#include "UObject/Object.h"
+#include "Components/Widget.h"
+#include "Blueprint/WidgetTree.h"
 
 
 /* FWidgetAnimationBinding interface

@@ -1,9 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StaticMeshEditorModule.h"
-#include "StaticMeshEditor.h"
 #include "StaticMeshEditorActions.h"
-#include "SStaticMeshEditorViewport.h"
 
 #define LOCTEXT_NAMESPACE "StaticMeshEditorCommands"
 

@@ -4,15 +4,17 @@
 	Functionality for computing SH diffuse irradiance from a cubemap
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessing.h"
-#include "UniformBuffer.h"
+#include "CoreMinimal.h"
+#include "RHIDefinitions.h"
+#include "RHI.h"
 #include "ShaderParameters.h"
+#include "Shader.h"
+#include "StaticBoundShaderState.h"
+#include "RHIStaticStates.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "GlobalShader.h"
+#include "PostProcess/SceneFilterRendering.h"
 #include "ScreenRendering.h"
-#include "ReflectionEnvironment.h"
-#include "ReflectionEnvironmentCapture.h"
 
 extern int32 GDiffuseIrradianceCubemapSize;
 
@@ -251,7 +253,10 @@ void ComputeDiffuseIrradiance(FRHICommandListImmediate& RHICmdList, ERHIFeatureL
 			for (int32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
 			{
 				SetRenderTarget(RHICmdList, EffectiveRT.TargetableTexture, 0, CubeFace, NULL, true);
-					
+
+				// Clear this face before rendering to ensure it's cleared at least once (avoids issues on XB1 11x/FS)
+				RHICmdList.ClearColorTexture(EffectiveRT.TargetableTexture, FLinearColor(0, 0, 0, 0), FIntRect());
+
 				const FIntRect ViewRect(0, 0, MipSize, MipSize);
 				RHICmdList.SetViewport(0, 0, 0.0f, MipSize, MipSize, 1.0f);
 				RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());

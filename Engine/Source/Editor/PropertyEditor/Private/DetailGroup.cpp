@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
 #include "DetailGroup.h"
+#include "Widgets/Input/SButton.h"
 #include "PropertyHandleImpl.h"
 #include "DetailPropertyRow.h"
-#include "DetailItemNode.h"
 
 FDetailGroup::FDetailGroup( const FName InGroupName, TSharedRef<FDetailCategoryImpl> InParentCategory, const FText& InLocalizedDisplayName, const bool bInStartExpanded )
 	: ParentCategory( InParentCategory )

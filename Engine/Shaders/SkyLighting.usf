@@ -21,7 +21,7 @@ float4 OcclusionTintAndMinOcclusion;
 
 /** Note: used by movable skylights only.  Stationary sky light diffuse is evaluated in the base pass, and Static sky lighting is baked into lightmaps. */
 void SkyLightDiffusePS(
-	in float4 UVAndScreenPos : TEXCOORD0, 
+	in noperspective float4 UVAndScreenPos : TEXCOORD0, 
 	out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
@@ -114,6 +114,7 @@ void SkyLightDiffusePS(
 		DiffuseLookup *= DirectionalOcclusion;
 
 		// Apply AO to the sky diffuse and account for darkening due to the geometry term
+		// apply the Diffuse color to the lighting (including OcclusionTintAndMinOcclusion as it's considered another light, that fixes SubsurfaceProfile being too dark)
 		Lighting += ((ScalarFactors * DotProductFactor) * DiffuseLookup + (1 - SkyVisibility) * OcclusionTintAndMinOcclusion.xyz) * DiffuseColor;
 
 		Lighting += DiffuseIrradiance * GBuffer.DiffuseColor * (GBuffer.GBufferAO * ScreenSpaceData.AmbientOcclusion);
@@ -132,7 +133,7 @@ void SkyLightDiffusePS(
 
 		const bool bNeedsSeparateSubsurfaceLightAccumulation = ShadingModelId == SHADINGMODELID_SUBSURFACE_PROFILE;
 
-		LightAccumulator_Add(LightAccumulator, Lighting, 0, 1.0f, bNeedsSeparateSubsurfaceLightAccumulation);
+		LightAccumulator_Add(LightAccumulator, Lighting, Lighting, 1.0f, bNeedsSeparateSubsurfaceLightAccumulation);
 		OutColor = LightAccumulator_GetResult(LightAccumulator);
 	}
 }

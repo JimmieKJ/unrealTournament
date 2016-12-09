@@ -4,9 +4,15 @@
 	ULineBatchComponent implementation.
 -----------------------------------------------------------------------------*/
 
-#include "EnginePrivate.h"
 #include "Components/LineBatchComponent.h"
+#include "EngineGlobals.h"
+#include "PrimitiveViewRelevance.h"
 #include "PrimitiveSceneProxy.h"
+#include "Engine/Engine.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
+#include "Engine/CollisionProfile.h"
+#include "SceneManagement.h"
 #include "DynamicMeshBuilder.h"
 
 

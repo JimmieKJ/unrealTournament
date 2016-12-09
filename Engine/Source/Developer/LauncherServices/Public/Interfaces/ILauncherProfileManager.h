@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ILauncherProfile.h"
+
+class ILauncherProfileManager;
+class ILauncherProfileWizard;
 
 /** Type definition for shared pointers to instances of ILauncherProfileManager. */
 typedef TSharedPtr<class ILauncherProfileManager> ILauncherProfileManagerPtr;

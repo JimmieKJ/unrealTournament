@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/OutputDeviceConsole.h"
+#include "Misc/OutputDeviceError.h"
+
 @interface FMacConsoleWindow : NSWindow<NSWindowDelegate>
 @end
 

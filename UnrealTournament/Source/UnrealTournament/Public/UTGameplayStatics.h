@@ -237,10 +237,10 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	 * this function works on clients whereas GetGameMode() -> GetClass() does not
 	 */
 	UFUNCTION(BlueprintPure, Category = "Game", meta = (WorldContext = "WorldContextObject"))
-	static TSubclassOf<AGameMode> GetGameClass(UObject* WorldContextObject)
+	static TSubclassOf<AGameModeBase> GetGameClass(UObject* WorldContextObject)
 	{
 		UWorld* const World = GEngine->GetWorldFromContextObject(WorldContextObject);
-		AGameState* GS = (World != nullptr) ? World->GetGameState() : nullptr;
+		AGameStateBase* GS = (World != nullptr) ? World->GetGameState() : nullptr;
 		return (GS != nullptr) ? GS->GameModeClass : nullptr;
 	}
 };

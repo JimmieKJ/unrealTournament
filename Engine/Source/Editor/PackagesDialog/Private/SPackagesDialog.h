@@ -4,13 +4,25 @@
 #ifndef __SPackagesDialog_h__
 #define __SPackagesDialog_h__
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "PackagesDialog.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateTypes.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+
 #ifdef _MSC_VER
 	#pragma once
 #endif
 
-#include "PackagesDialog.h"
-#include "ISourceControlModule.h"
-
+class SCheckBox;
 
 /**
  * Represents a button that will dynamically be added to the package dialog window

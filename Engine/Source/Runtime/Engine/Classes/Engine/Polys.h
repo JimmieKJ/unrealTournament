@@ -5,8 +5,17 @@
 //
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Object.h"
+#include "Engine/EngineTypes.h"
 #include "Polys.generated.h"
 
+class ABrush;
+class UMaterialInterface;
+class UModel;
 
 // Results from FPoly.SplitWithPlane, describing the result of splitting
 // an arbitrary FPoly with an arbitrary plane.

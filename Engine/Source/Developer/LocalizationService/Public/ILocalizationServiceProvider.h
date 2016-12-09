@@ -2,14 +2,22 @@
 
 #pragma once
 
-#include "LocalizationServiceOperations.h"
-//#include "LocalizationServiceHelpers.h"
-#include "Runtime/Core/Public/Features/IModularFeature.h"
+#include "CoreMinimal.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "ILocalizationServiceOperation.h"
 #include "ILocalizationServiceState.h"
+#include "Features/IModularFeature.h"
+#include "LocalizationServiceOperations.h"
+
 class IDetailCategoryBuilder;
 class ULocalizationTarget;
 class ULocalizationTargetSet;
-class FExtender;
+
+//#include "LocalizationServiceHelpers.h"
+
+class IDetailCategoryBuilder;
+class ULocalizationTarget;
+class ULocalizationTargetSet;
 
 #define LOCALIZATION_SERVICES_WITH_SLATE	(!(PLATFORM_LINUX && IS_PROGRAM))
 

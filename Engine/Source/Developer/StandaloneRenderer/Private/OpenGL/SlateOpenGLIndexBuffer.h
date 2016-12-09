@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "StandaloneRendererPlatformHeaders.h"
+
 /**
  * An OpenGL index buffer                   
  */

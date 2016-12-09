@@ -6,7 +6,13 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GeomModifier_Edit.h"
 #include "GeomModifier_Extrude.generated.h"
+
+class FViewport;
 
 UCLASS()
 class UGeomModifier_Extrude : public UGeomModifier_Edit

@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MobileLauncherProfileWizardPrivatePCH.h"
-#include "LauncherServices.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "IMobileLauncherProfileWizard.h"
+#include "Interfaces/ILauncherServicesModule.h"
 #include "AndroidProfileWizard.h"
 #include "IOSProfileWizard.h"
 
@@ -19,7 +21,7 @@ private:
 	TSharedPtr<FIOSProfileWizard> IOSWizardPtr;
 };
 
-IMPLEMENT_MODULE( FMobileLauncherProfileWizardModule, MobileLauncherProfileWizardModule )
+IMPLEMENT_MODULE( FMobileLauncherProfileWizardModule, MobileLauncherProfileWizard )
 
 void FMobileLauncherProfileWizardModule::StartupModule()
 {
@@ -56,5 +58,4 @@ void FMobileLauncherProfileWizardModule::OnProfileManagerInitialized(ILauncherPr
 	ProfileManager.RegisterProfileWizard(IOSWizardPtr);
 }
 
-
-
+#undef LOCTEXT_NAMESPACE

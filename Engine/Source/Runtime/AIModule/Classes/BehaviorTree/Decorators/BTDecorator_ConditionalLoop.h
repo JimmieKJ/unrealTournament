@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
 #include "BehaviorTree/Decorators/BTDecorator_Blackboard.h"
 #include "BTDecorator_ConditionalLoop.generated.h"
+
+class UBlackboardComponent;
 
 /**
  * Conditional loop decorator node.

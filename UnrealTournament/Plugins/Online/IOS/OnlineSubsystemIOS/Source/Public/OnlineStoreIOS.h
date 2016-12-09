@@ -130,7 +130,7 @@ private:
 	
 private:
 	
-	/** Mapping from offer id to prodcut information */
+	/** Mapping from offer id to product information */
 	typedef TMap<FUniqueOfferId, FOnlineStoreOfferIOS> FOnlineOfferDescriptionMap;
 
 	/** Mapping of all queried offers to their product information */

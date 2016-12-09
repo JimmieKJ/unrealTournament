@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "SScalabilitySettings.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SSlider.h"
+#include "EditorStyleSet.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Editor.h"
 
 #include "Settings/EditorSettings.h"
 
@@ -72,10 +81,10 @@ TSharedRef<SWidget> SScalabilitySettings::MakeButtonWidget(const FText& InName, 
 		];
 }
 
-TSharedRef<SWidget> SScalabilitySettings::MakeHeaderButtonWidget(const FText& InName, int32 InQualityLevel, const FText& InToolTip)
+TSharedRef<SWidget> SScalabilitySettings::MakeHeaderButtonWidget(const FText& InName, int32 InQualityLevel, const FText& InToolTip, Scalability::EQualityLevelBehavior Behavior)
 {
 	return SNew(SButton)
-		.OnClicked(this, &SScalabilitySettings::OnHeaderClicked, InQualityLevel)
+		.OnClicked(this, &SScalabilitySettings::OnHeaderClicked, InQualityLevel, Behavior)
 		.ToolTipText(InToolTip)
 		.Content()
 		[
@@ -96,9 +105,19 @@ TSharedRef<SWidget> SScalabilitySettings::MakeAutoButtonWidget()
 		];
 }
 
-FReply SScalabilitySettings::OnHeaderClicked(int32 InQualityLevel)
+FReply SScalabilitySettings::OnHeaderClicked(int32 InQualityLevel, Scalability::EQualityLevelBehavior Behavior)
 {
-	CachedQualityLevels.SetFromSingleQualityLevel(InQualityLevel);
+	Scalability::FQualityLevels LevelCounts = Scalability::GetQualityLevelCounts();
+	switch (Behavior)
+	{
+		case Scalability::EQualityLevelBehavior::ERelativeToMax:
+			CachedQualityLevels.SetFromSingleQualityLevelRelativeToMax(InQualityLevel);
+			break;		
+		case Scalability::EQualityLevelBehavior::EAbsolute:
+		default:
+			CachedQualityLevels.SetFromSingleQualityLevel(InQualityLevel);
+			break;
+	}
 	Scalability::SetQualityLevels(CachedQualityLevels);
 	Scalability::SaveState(GEditorSettingsIni);
 	GEditor->RedrawAllViewports();
@@ -143,13 +162,21 @@ void SScalabilitySettings::OnMonitorPerformanceChanged(ECheckBoxState NewState)
 	Settings->SaveConfig();
 }
 
-void SScalabilitySettings::AddButtonsToGrid(int32 X0, int32 Y0, TSharedRef<SGridPanel> ButtonMatrix, const FText* FourNameArray, int32 ButtonCount, const TCHAR* GroupName, const FText& TooltipShape)
+void SScalabilitySettings::AddButtonsToGrid(int32 X0, int32 Y0, TSharedRef<SGridPanel> ButtonMatrix, const FText* FiveNameArray, int32 ButtonCount, const TCHAR* GroupName, const FText& TooltipShape)
 {
-	const bool bUseNameArray = (ButtonCount == 4) && (FourNameArray != nullptr);
+	const int32 ExpectedNamesSize = 5;
+	const bool bCanUseNameArray = (FiveNameArray != nullptr);
+	const bool bCanAllUseNameArray = (ButtonCount == ExpectedNamesSize) && bCanUseNameArray;
+	const int32 CineButtonName = ExpectedNamesSize - 1;
+	const int32 CineButtonIndex = ButtonCount - 1;
 
 	for (int32 ButtonIndex = 0; ButtonIndex < ButtonCount; ++ButtonIndex)
 	{
-		const FText ButtonLabel = bUseNameArray ? FourNameArray[ButtonIndex] : FText::AsNumber(ButtonIndex);
+		const bool bCineButton = ButtonIndex == CineButtonIndex;
+		const bool bUseNameArray = bCanUseNameArray && (bCanAllUseNameArray || bCineButton);
+		const int32 ButtonNameIndex = bCineButton ? CineButtonName : ButtonIndex;
+
+		const FText ButtonLabel = bUseNameArray ? FiveNameArray[ButtonNameIndex] : FText::AsNumber(ButtonIndex);
 		const FText ButtonTooltip = FText::Format(TooltipShape, ButtonLabel);
 
 		ButtonMatrix->AddSlot(X0 + ButtonIndex, Y0)
@@ -165,15 +192,17 @@ void SScalabilitySettings::Construct( const FArguments& InArgs )
 	const FText NamesMedium(LOCTEXT("QualityMediumLabel", "Medium"));
 	const FText NamesHigh(LOCTEXT("QualityHighLabel", "High"));
 	const FText NamesEpic(LOCTEXT("QualityEpicLabel", "Epic"));
+	const FText NamesCine(LOCTEXT("QualityCineLabel", "Cinematic"));
 	const FText NamesAuto(LOCTEXT("QualityAutoLabel", "Auto"));
 
 	const FText DistanceNear = LOCTEXT("ViewDistanceLabel2", "Near");
 	const FText DistanceMedium = LOCTEXT("ViewDistanceLabel3", "Medium");
 	const FText DistanceFar = LOCTEXT("ViewDistanceLabel4", "Far");
 	const FText DistanceEpic = LOCTEXT("ViewDistanceLabel5", "Epic");
+	const FText DistanceCinematic = LOCTEXT("ViewDistanceLabel6", "Cinematic");
 		
-	const FText FourNames[4] = { NamesLow, NamesMedium, NamesHigh, NamesEpic };
-	const FText FourDistanceNames[4] = { DistanceNear, DistanceMedium, DistanceFar, DistanceEpic };
+	const FText FiveNames[5] = { NamesLow, NamesMedium, NamesHigh, NamesEpic, NamesCine };
+	const FText FiveDistanceNames[5] = { DistanceNear, DistanceMedium, DistanceFar, DistanceEpic, DistanceCinematic };
 
 	auto TitleFont = FEditorStyle::GetFontStyle( FName( "Scalability.TitleFont" ) );
 	auto GroupFont = FEditorStyle::GetFontStyle( FName( "Scalability.GroupFont" ) );
@@ -189,8 +218,9 @@ void SScalabilitySettings::Construct( const FArguments& InArgs )
 		FMath::Max(LevelCounts.TextureQuality,
 		FMath::Max(LevelCounts.ViewDistanceQuality,
 		FMath::Max(LevelCounts.EffectsQuality,
+		FMath::Max(LevelCounts.FoliageQuality,
 		FMath::Max(LevelCounts.PostProcessQuality, LevelCounts.AntiAliasingQuality)
-		))));
+		)))));
 	const int32 TotalWidth = MaxLevelCount + 1;
 
 	TSharedRef<SGridPanel> ButtonMatrix = 
@@ -207,11 +237,12 @@ void SScalabilitySettings::Construct( const FArguments& InArgs )
 		+MakeGridSlot(0,8,TotalWidth,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
 
 		+MakeGridSlot(0,0).VAlign(VAlign_Center) [ SNew(STextBlock).Text(LOCTEXT("QualityLabel", "Quality")).Font(TitleFont) ]
-		+MakeGridSlot(1,0) [ MakeHeaderButtonWidget(NamesLow, 0, LOCTEXT("QualityLow", "Set all groups to low quality")) ]
-		+MakeGridSlot(2,0) [ MakeHeaderButtonWidget(NamesMedium, 1, LOCTEXT("QualityMedium", "Set all groups to medium quality")) ]
-		+MakeGridSlot(3,0) [ MakeHeaderButtonWidget(NamesHigh, 2, LOCTEXT("QualityHigh", "Set all groups to high quality")) ]
-		+MakeGridSlot(4,0) [ MakeHeaderButtonWidget(NamesEpic, MaxLevelCount-1, LOCTEXT("QualityEpic", "Set all groups to epic quality")) ]
-		+MakeGridSlot(5,0) [ MakeAutoButtonWidget() ]
+		+MakeGridSlot(1,0) [ MakeHeaderButtonWidget(NamesLow, 0, LOCTEXT("QualityLow", "Set all groups to low quality"), Scalability::EQualityLevelBehavior::EAbsolute) ]
+		+MakeGridSlot(2,0) [ MakeHeaderButtonWidget(NamesMedium, 3, LOCTEXT("QualityMedium", "Set all groups to medium quality"), Scalability::EQualityLevelBehavior::ERelativeToMax) ]
+		+MakeGridSlot(3,0) [ MakeHeaderButtonWidget(NamesHigh, 2, LOCTEXT("QualityHigh", "Set all groups to high quality"), Scalability::EQualityLevelBehavior::ERelativeToMax) ]
+		+MakeGridSlot(4,0) [ MakeHeaderButtonWidget(NamesEpic, 1, LOCTEXT("QualityEpic", "Set all groups to epic quality"), Scalability::EQualityLevelBehavior::ERelativeToMax) ]
+		+MakeGridSlot(5,0) [ MakeHeaderButtonWidget(NamesCine, 0, LOCTEXT("QualityCinematic", "Set all groups to offline cinematic quality"), Scalability::EQualityLevelBehavior::ERelativeToMax)]
+		+MakeGridSlot(6,0) [ MakeAutoButtonWidget() ]
 
 		+MakeGridSlot(0,1) [ SNew(STextBlock).Text(LOCTEXT("ResScaleLabel1", "Resolution Scale")).Font(GroupFont) ]
 		+MakeGridSlot(5,1) [ SNew(STextBlock).Text(this, &SScalabilitySettings::GetResolutionScaleString) ]
@@ -231,13 +262,13 @@ void SScalabilitySettings::Construct( const FArguments& InArgs )
 		+MakeGridSlot(0,8) [ SNew(STextBlock).Text(LOCTEXT("FoliageQualityLabel1", "Foliage")).Font(GroupFont) ]
 		;
 
-	AddButtonsToGrid(1, 2, ButtonMatrix, FourDistanceNames, LevelCounts.ViewDistanceQuality, TEXT("ViewDistanceQuality"), LOCTEXT("ViewDistanceQualityTooltip", "Set view distance to {0}"));
-	AddButtonsToGrid(1, 3, ButtonMatrix, FourNames, LevelCounts.AntiAliasingQuality, TEXT("AntiAliasingQuality"), LOCTEXT("AntiAliasingQualityTooltip", "Set anti-aliasing quality to {0}"));
-	AddButtonsToGrid(1, 4, ButtonMatrix, FourNames, LevelCounts.PostProcessQuality, TEXT("PostProcessQuality"), LOCTEXT("PostProcessQualityTooltip", "Set post processing quality to {0}"));
-	AddButtonsToGrid(1, 5, ButtonMatrix, FourNames, LevelCounts.ShadowQuality, TEXT("ShadowQuality"), LOCTEXT("ShadowQualityTooltip", "Set shadow quality to {0}"));
-	AddButtonsToGrid(1, 6, ButtonMatrix, FourNames, LevelCounts.TextureQuality, TEXT("TextureQuality"), LOCTEXT("TextureQualityTooltip", "Set texture quality to {0}"));
-	AddButtonsToGrid(1, 7, ButtonMatrix, FourNames, LevelCounts.EffectsQuality, TEXT("EffectsQuality"), LOCTEXT("EffectsQualityTooltip", "Set effects quality to {0}"));
-	AddButtonsToGrid(1, 8, ButtonMatrix, FourNames, LevelCounts.EffectsQuality, TEXT("FoliageQuality"), LOCTEXT("FoliageQualityTooltip", "Set foliage quality to {0}"));
+	AddButtonsToGrid(1, 2, ButtonMatrix, FiveDistanceNames, LevelCounts.ViewDistanceQuality, TEXT("ViewDistanceQuality"), LOCTEXT("ViewDistanceQualityTooltip", "Set view distance to {0}"));
+	AddButtonsToGrid(1, 3, ButtonMatrix, FiveNames, LevelCounts.AntiAliasingQuality, TEXT("AntiAliasingQuality"), LOCTEXT("AntiAliasingQualityTooltip", "Set anti-aliasing quality to {0}"));
+	AddButtonsToGrid(1, 4, ButtonMatrix, FiveNames, LevelCounts.PostProcessQuality, TEXT("PostProcessQuality"), LOCTEXT("PostProcessQualityTooltip", "Set post processing quality to {0}"));
+	AddButtonsToGrid(1, 5, ButtonMatrix, FiveNames, LevelCounts.ShadowQuality, TEXT("ShadowQuality"), LOCTEXT("ShadowQualityTooltip", "Set shadow quality to {0}"));
+	AddButtonsToGrid(1, 6, ButtonMatrix, FiveNames, LevelCounts.TextureQuality, TEXT("TextureQuality"), LOCTEXT("TextureQualityTooltip", "Set texture quality to {0}"));
+	AddButtonsToGrid(1, 7, ButtonMatrix, FiveNames, LevelCounts.EffectsQuality, TEXT("EffectsQuality"), LOCTEXT("EffectsQualityTooltip", "Set effects quality to {0}"));
+	AddButtonsToGrid(1, 8, ButtonMatrix, FiveNames, LevelCounts.FoliageQuality, TEXT("FoliageQuality"), LOCTEXT("FoliageQualityTooltip", "Set foliage quality to {0}"));
 
 
 	this->ChildSlot

@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Serialization/JsonWriter.h"
+
+class FJsonObject;
+
 /**
  * Descriptor for projects. Contains all the information contained within a .uproject file.
  */

@@ -4,8 +4,8 @@
 	ShowFlags.cpp: Show Flag Definitions.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "ShowFlags.h"
+#include "SystemSettings.h"
 
 static bool IsValidNameChar(TCHAR c)
 {
@@ -259,8 +259,9 @@ void ApplyViewMode(EViewModeIndex ViewModeIndex, bool bPerspective, FEngineShowF
 		case VMI_QuadOverdraw:
 		case VMI_ShaderComplexityWithQuadOverdraw:
 		case VMI_PrimitiveDistanceAccuracy:
-		case VMI_MeshTexCoordSizeAccuracy:
-		case VMI_MaterialTexCoordScalesAccuracy:
+		case VMI_MeshUVDensityAccuracy:
+		case VMI_MaterialTextureScaleAccuracy:
+		case VMI_RequiredTextureResolution:
 			bPostProcessing = false;
 			break;
 		case VMI_StationaryLightOverlap:
@@ -306,8 +307,9 @@ void ApplyViewMode(EViewModeIndex ViewModeIndex, bool bPerspective, FEngineShowF
 	EngineShowFlags.SetQuadOverdraw(ViewModeIndex == VMI_QuadOverdraw);
 	EngineShowFlags.SetShaderComplexityWithQuadOverdraw(ViewModeIndex == VMI_ShaderComplexityWithQuadOverdraw);
 	EngineShowFlags.SetPrimitiveDistanceAccuracy(ViewModeIndex == VMI_PrimitiveDistanceAccuracy);
-	EngineShowFlags.SetMeshTexCoordSizeAccuracy(ViewModeIndex == VMI_MeshTexCoordSizeAccuracy);
-	EngineShowFlags.SetMaterialTexCoordScalesAccuracy(ViewModeIndex == VMI_MaterialTexCoordScalesAccuracy);
+	EngineShowFlags.SetMeshUVDensityAccuracy(ViewModeIndex == VMI_MeshUVDensityAccuracy);
+	EngineShowFlags.SetMaterialTextureScaleAccuracy(ViewModeIndex == VMI_MaterialTextureScaleAccuracy);
+	EngineShowFlags.SetRequiredTextureResolution(ViewModeIndex == VMI_RequiredTextureResolution);
 	EngineShowFlags.SetStationaryLightOverlap(ViewModeIndex == VMI_StationaryLightOverlap);
 	EngineShowFlags.SetLightMapDensity(ViewModeIndex == VMI_LightmapDensity || ViewModeIndex == VMI_LitLightmapDensity);
 	EngineShowFlags.SetPostProcessing(bPostProcessing);
@@ -391,8 +393,9 @@ void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex V
 			ViewModeIndex == VMI_QuadOverdraw ||
 			ViewModeIndex == VMI_ShaderComplexityWithQuadOverdraw ||
 			ViewModeIndex == VMI_PrimitiveDistanceAccuracy ||
-			ViewModeIndex == VMI_MeshTexCoordSizeAccuracy ||
-			ViewModeIndex == VMI_MaterialTexCoordScalesAccuracy ||
+			ViewModeIndex == VMI_MeshUVDensityAccuracy ||
+			ViewModeIndex == VMI_MaterialTextureScaleAccuracy ||
+			ViewModeIndex == VMI_RequiredTextureResolution ||
 			ViewModeIndex == VMI_LightmapDensity ||
 			ViewModeIndex == VMI_LitLightmapDensity)
 		{
@@ -412,8 +415,9 @@ void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex V
 			ViewModeIndex == VMI_QuadOverdraw ||
 			ViewModeIndex == VMI_ShaderComplexityWithQuadOverdraw ||
 			ViewModeIndex == VMI_PrimitiveDistanceAccuracy ||
-			ViewModeIndex == VMI_MeshTexCoordSizeAccuracy ||
-			ViewModeIndex == VMI_MaterialTexCoordScalesAccuracy ||
+			ViewModeIndex == VMI_MeshUVDensityAccuracy ||
+			ViewModeIndex == VMI_MaterialTextureScaleAccuracy ||
+			ViewModeIndex == VMI_RequiredTextureResolution ||
 			ViewModeIndex == VMI_LightmapDensity)
 		{
 			EngineShowFlags.SetLighting(false);
@@ -450,8 +454,9 @@ void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex V
 		}
 
 		if (ViewModeIndex == VMI_PrimitiveDistanceAccuracy ||
-			ViewModeIndex == VMI_MeshTexCoordSizeAccuracy ||
-			ViewModeIndex == VMI_MaterialTexCoordScalesAccuracy)
+			ViewModeIndex == VMI_MeshUVDensityAccuracy ||
+			ViewModeIndex == VMI_MaterialTextureScaleAccuracy || 
+			ViewModeIndex == VMI_RequiredTextureResolution)
 		{
 			EngineShowFlags.Decals = 0; // Decals require the use of FDebugPSInLean.
 			EngineShowFlags.Particles = 0; // FX are fully streamed.
@@ -554,13 +559,17 @@ EViewModeIndex FindViewMode(const FEngineShowFlags& EngineShowFlags)
 	{
 		return VMI_PrimitiveDistanceAccuracy;
 	}
-	else if(EngineShowFlags.MeshTexCoordSizeAccuracy)
+	else if(EngineShowFlags.MeshUVDensityAccuracy)
 	{
-		return VMI_MeshTexCoordSizeAccuracy;
+		return VMI_MeshUVDensityAccuracy;
 	}
-	else if(EngineShowFlags.MaterialTexCoordScalesAccuracy)
+	else if(EngineShowFlags.MaterialTextureScaleAccuracy)
 	{
-		return VMI_MaterialTexCoordScalesAccuracy;
+		return VMI_MaterialTextureScaleAccuracy;
+	}
+	else if(EngineShowFlags.RequiredTextureResolution)
+	{
+		return VMI_RequiredTextureResolution;
 	}
 	else if(EngineShowFlags.ShaderComplexity)
 	{
@@ -640,8 +649,9 @@ const TCHAR* GetViewModeName(EViewModeIndex ViewModeIndex)
 		case VMI_QuadOverdraw:				return TEXT("QuadOverdraw");
 		case VMI_ShaderComplexityWithQuadOverdraw: return TEXT("ShaderComplexityWithQuadOverdraw");
 		case VMI_PrimitiveDistanceAccuracy:	return TEXT("PrimitiveDistanceAccuracy");
-		case VMI_MeshTexCoordSizeAccuracy:	return TEXT("MeshTexCoordSizeAccuracy");
-		case VMI_MaterialTexCoordScalesAccuracy: return TEXT("MaterialTexCoordScalesAccuracy");
+		case VMI_MeshUVDensityAccuracy:		return TEXT("MeshUVDensityAccuracy");
+		case VMI_MaterialTextureScaleAccuracy: return TEXT("MaterialTexturecaleAccuracy");
+		case VMI_RequiredTextureResolution: return TEXT("RequiredTextureResolution");
 		case VMI_StationaryLightOverlap:	return TEXT("StationaryLightOverlap");
 		case VMI_LightmapDensity:			return TEXT("LightmapDensity");
 		case VMI_LitLightmapDensity:		return TEXT("LitLightmapDensity");

@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+#include "SocketTypes.h"
 #include "SocketSubsystem.h"
+#include "IPAddress.h"
 #include "Sockets.h"
 
 #include "MultichannelTcpGlobals.h"

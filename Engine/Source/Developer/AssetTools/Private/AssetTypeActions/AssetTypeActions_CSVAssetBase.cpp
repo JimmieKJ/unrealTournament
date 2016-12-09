@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
+#include "AssetTypeActions_CSVAssetBase.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformProcess.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

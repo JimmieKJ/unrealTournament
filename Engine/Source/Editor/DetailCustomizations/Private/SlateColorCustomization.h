@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IPropertyTypeCustomization.h"
 #include "ColorStructCustomization.h"
 
+class FDetailWidgetRow;
 
 class FSlateColorCustomization
 	: public FColorStructCustomization

@@ -1,10 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "MapErrors.h"
 #include "Camera/CameraComponent.h"
+#include "UObject/ConstructorHelpers.h"
+#include "EngineGlobals.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/Controller.h"
+#include "Components/StaticMeshComponent.h"
+#include "Camera/CameraActor.h"
+#include "Engine/Engine.h"
+#include "Engine/CollisionProfile.h"
+#include "Engine/StaticMesh.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "Misc/MapErrors.h"
 #include "Components/DrawFrustumComponent.h"
 #include "IHeadMountedDisplay.h"
 
@@ -79,9 +88,8 @@ void UCameraComponent::OnRegister()
 		{
 			ProxyMeshComponent = NewObject<UStaticMeshComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
 			ProxyMeshComponent->SetupAttachment(this);
-			ProxyMeshComponent->AlwaysLoadOnClient = false;
-			ProxyMeshComponent->AlwaysLoadOnServer = false;
-			ProxyMeshComponent->StaticMesh = CameraMesh;
+			ProxyMeshComponent->bIsEditorOnly = true;
+			ProxyMeshComponent->SetStaticMesh(CameraMesh);
 			ProxyMeshComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			ProxyMeshComponent->bHiddenInGame = true;
 			ProxyMeshComponent->CastShadow = false;
@@ -94,8 +102,7 @@ void UCameraComponent::OnRegister()
 		{
 			DrawFrustum = NewObject<UDrawFrustumComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
 			DrawFrustum->SetupAttachment(this);
-			DrawFrustum->AlwaysLoadOnClient = false;
-			DrawFrustum->AlwaysLoadOnServer = false;
+			DrawFrustum->bIsEditorOnly = true;
 			DrawFrustum->CreationMethod = CreationMethod;
 			DrawFrustum->RegisterComponentWithWorld(GetWorld());
 		}

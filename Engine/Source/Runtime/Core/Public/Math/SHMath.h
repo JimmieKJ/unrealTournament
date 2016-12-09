@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "HAL/UnrealMemory.h"
+#include "Math/UnrealMathUtility.h"
+#include "Math/Color.h"
+#include "Math/Vector.h"
+#include "Math/Vector4.h"
+#include "Math/VectorRegister.h"
+
 //	Constants.
 extern CORE_API float NormalizationConstants[9];
 extern CORE_API int32 BasisL[9];

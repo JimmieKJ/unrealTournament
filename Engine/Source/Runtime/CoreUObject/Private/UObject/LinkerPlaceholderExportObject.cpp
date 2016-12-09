@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "LinkerPlaceholderExportObject.h"
+#include "UObject/LinkerPlaceholderExportObject.h"
 
 //------------------------------------------------------------------------------
 ULinkerPlaceholderExportObject::ULinkerPlaceholderExportObject(const FObjectInitializer& ObjectInitializer)

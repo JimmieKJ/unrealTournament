@@ -6,11 +6,17 @@
 
 #pragma once
 
-#include "CoreUObject.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "HAL/Runnable.h"
+#include "Misc/SecureHash.h"
 
 #include "Generation/StatsCollector.h"
 
 #include "BuildPatchChunk.generated.h"
+
+struct FChunkHeader;
 
 using namespace BuildPatchServices;
 /**
@@ -249,14 +255,14 @@ private:
 		FCriticalSection ChunkFileSizesCS;
 
 		// Atmoic statistics
-		volatile int64* StatFileCreateTime;
-		volatile int64* StatCheckExistsTime;
-		volatile int64* StatSerlialiseTime;
-		volatile int64* StatChunksSaved;
-		volatile int64* StatCompressTime;
-		volatile int64* StatDataWritten;
-		volatile int64* StatDataWriteSpeed;
-		volatile int64* StatCompressionRatio;
+		volatile FStatsCollector::FAtomicValue* StatFileCreateTime;
+		volatile FStatsCollector::FAtomicValue* StatCheckExistsTime;
+		volatile FStatsCollector::FAtomicValue* StatSerlialiseTime;
+		volatile FStatsCollector::FAtomicValue* StatChunksSaved;
+		volatile FStatsCollector::FAtomicValue* StatCompressTime;
+		volatile FStatsCollector::FAtomicValue* StatDataWritten;
+		volatile FStatsCollector::FAtomicValue* StatDataWriteSpeed;
+		volatile FStatsCollector::FAtomicValue* StatCompressionRatio;
 
 		/**
 		 * Called from within run to save out a chunk file.

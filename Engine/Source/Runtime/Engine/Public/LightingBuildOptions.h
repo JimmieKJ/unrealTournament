@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+
+class ULevel;
+
 /**
  * A set of parameters specifying how static lighting is rebuilt.
  */

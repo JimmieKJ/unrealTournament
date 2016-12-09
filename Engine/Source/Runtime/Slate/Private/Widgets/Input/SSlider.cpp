@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Widgets/Input/SSlider.h"
+#include "Rendering/DrawElements.h"
 
 void SSlider::Construct( const SSlider::FArguments& InDeclaration )
 {

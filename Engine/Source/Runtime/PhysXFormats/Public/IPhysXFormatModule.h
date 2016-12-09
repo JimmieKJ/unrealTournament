@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class IPhysXFormat;
 
 /**
  * Interface for PhysX format modules.

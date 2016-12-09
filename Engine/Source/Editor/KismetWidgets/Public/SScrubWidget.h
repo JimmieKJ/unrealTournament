@@ -2,8 +2,16 @@
 
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
 #include "SCurveEditor.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
 
 /**
  * A Slate SpinBox resembles traditional spin boxes in that it is a widget that provides
@@ -25,6 +33,7 @@ public:
 		, _NumOfKeys(10)
 		, _SequenceLength()
 		, _bAllowZoom(false)
+		, _DisplayDrag(true)
 		, _OnValueChanged()
 		, _OnBeginSliderMovement()
 		, _OnEndSliderMovement()
@@ -39,6 +48,7 @@ public:
 		SLATE_ATTRIBUTE( uint32, NumOfKeys )
 		SLATE_ATTRIBUTE( float, SequenceLength )
 		SLATE_ARGUMENT( bool, bAllowZoom )
+		SLATE_ATTRIBUTE( bool, DisplayDrag )
 		/** Called when the value is changed by slider or typing */
 		SLATE_EVENT( FOnFloatValueChanged, OnValueChanged )
 		/** Called right before the slider begins to move */
@@ -136,6 +146,7 @@ private:
 	/** The number of decimal places to display */
 	bool bDragging;
 	bool bAllowZoom;	
+	TAttribute<bool> bDisplayDrag;
 	/** If we are currently panning the panel*/
 	bool bPanning;
 	/** Has the mouse moved during panning - used to determine if we should open the context menu or not */

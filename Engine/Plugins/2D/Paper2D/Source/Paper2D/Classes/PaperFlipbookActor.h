@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "PaperFlipbookComponent.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "PaperFlipbookActor.generated.h"
 
 /**

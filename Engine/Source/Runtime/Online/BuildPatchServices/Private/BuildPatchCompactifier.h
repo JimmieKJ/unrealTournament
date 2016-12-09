@@ -6,6 +6,8 @@ BuildPatchCompactifier.h: Declares classes involved with compactifying build dat
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /**
  * Used to run compactify routines on cloud directories.
  * Compactification removes all data files not currently associated
@@ -18,21 +20,23 @@ public:
 	 * Processes the Cloud Directory to identify and delete any orphaned chunks or files.
 	 * The CloudDir should already have been set using FBuildPatchServicesModule::SetCloudDirectory
 	 * NOTE: THIS function is blocking and will not return until finished. Don't run on main thread.
-	 * @param DataAgeThreshold  Chunks which are not referenced by a valid manifest, and which are older than this age (in days), will be deleted
-	 * @param bPreview          If true, then no actual work will be done, but all operations which would be carried out will be logged.
-	 * @return                  true if no file errors occurred
+	 * @param DataAgeThreshold       Chunks which are not referenced by a valid manifest, and which are older than this age (in days), will be deleted
+	 * @param bPreview               If true, then no actual work will be done, but all operations which would be carried out will be logged.
+	 * @param DeletedChunkLogFile    The full path to a file to which a list of all chunk files deleted by compactify will be written. The output filenames will be relative to the cloud directory
+	 * @return                       true if no file errors occurred
 	 */
-	static bool CompactifyCloudDirectory(float DataAgeThreshold, bool bPreview);
+	static bool CompactifyCloudDirectory(float DataAgeThreshold, bool bPreview, const FString& DeletedChunkLogFile);
 
 	/**
 	 * Processes the specified Cloud Directory to identify and delete any orphaned chunks or files.
 	 * NOTE: THIS function is blocking and will not return until finished. Don't run on main thread.
-	 * @param CloudDir          The path to the Cloud Dir to compactify
-	 * @param DataAgeThreshold  Chunks which are not referenced by a valid manifest, and which are older than this age (in days), will be deleted
-	 * @param bPreview          If true, then no actual work will be done, but all operations which would be carried out will be logged.
-	 * @return                  true if no file errors occurred
+	 * @param CloudDir               The path to the Cloud Dir to compactify
+	 * @param DataAgeThreshold       Chunks which are not referenced by a valid manifest, and which are older than this age (in days), will be deleted
+	 * @param bPreview               If true, then no actual work will be done, but all operations which would be carried out will be logged
+	 * @param DeletedChunkLogFile    The full path to a file to which a list of all chunk files deleted by compactify will be written. The output filenames will be relative to the cloud directory
+	 * @return                       true if no file errors occurred
 	 */
-	static bool CompactifyCloudDirectory(const FString& CloudDir, float DataAgeThreshold, bool bPreview);
+	static bool CompactifyCloudDirectory(const FString& CloudDir, float DataAgeThreshold, bool bPreview, const FString& DeletedChunkLogFile);
 
 private:
 	const FString CloudDir;
@@ -48,10 +52,11 @@ private:
 	/**
 	 * Processes the Cloud Directory to identify and delete any orphaned chunks or files.
 	 * NOTE: THIS function is blocking and will not return until finished. Don't run on main thread.
-	 * @param DataAgeThreshold    The minimum age (in days) of data before it is eligible to be deleted.
-	 * @return                    true if no file errors occurred
+	 * @param DataAgeThreshold       The minimum age (in days) of data before it is eligible to be deleted
+	 * @param DeletedChunkLogFile    The full path to a file to which a list of all chunk files deleted by compactify will be written. The output filenames will be relative to the cloud directory
+	 * @return                       true if no file errors occurred
 	 */
-	bool Compactify(float DataAgeThreshold) const;
+	bool Compactify(float DataAgeThreshold, const FString& DeletedChunkLogFile) const;
 
 	/**
 	 * Deletes the specified file, and logs the deletion

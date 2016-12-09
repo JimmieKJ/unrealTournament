@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "ModuleManager.h"
-
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "AssetData.h"
 
 /**
  * The public interface to this module
@@ -35,6 +37,18 @@ public:
 	}
 
 	/** Invokes a major tab with a reference viewer within it */
-	virtual void InvokeReferenceViewerTab(const TArray<FName>& GraphRootPackageNames) = 0;
+	virtual void InvokeReferenceViewerTab(const TArray<FName>& GraphRootPackageNames)
+	{
+		TArray<FAssetIdentifier> Identifiers;
+		for (FName Name : GraphRootPackageNames)
+		{
+			Identifiers.Add(FAssetIdentifier(Name));
+		}
+
+		InvokeReferenceViewerTab(Identifiers);
+	}
+
+	/** Invokes a major tab with a reference viewer within it */
+	virtual void InvokeReferenceViewerTab(const TArray<FAssetIdentifier>& GraphRootIdentifiers) = 0;
 };
 

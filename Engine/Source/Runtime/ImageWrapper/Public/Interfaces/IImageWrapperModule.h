@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "IImageWrapper.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Interfaces/IImageWrapper.h"
 
 /**
  * Interface for image wrapper modules.

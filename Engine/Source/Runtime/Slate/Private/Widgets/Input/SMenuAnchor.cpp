@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
  
-#include "SlatePrivatePCH.h"
-#include "LayoutUtils.h"
-#include "Menu.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "Layout/ArrangedChildren.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/SWindow.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/Menu.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Layout/LayoutUtils.h"
 
 static FVector2D GetMenuOffsetForPlacement(const FGeometry& AllottedGeometry, EMenuPlacement PlacementMode, FVector2D PopupSizeLocalSpace)
 {
@@ -101,7 +107,7 @@ void SMenuAnchor::Construct( const FArguments& InArgs )
 	
 
 	Children[0]
-		.Padding(0)
+		.Padding(InArgs._Padding)
 		[
 			InArgs._Content.Widget
 		];
@@ -127,8 +133,7 @@ void SMenuAnchor::Tick( const FGeometry& AllottedGeometry, const double InCurren
 		const FVector2D PopupContentDesiredSize = PopupWindow->GetContent()->GetDesiredSize();
 		FGeometry PopupGeometry = ComputeMenuPlacement( AllottedGeometry, PopupContentDesiredSize, Placement.Get() );
 		const FVector2D NewPosition = PopupGeometry.LocalToAbsolute(FVector2D::ZeroVector);
-		// For the CreateWindow case, don't transform the size; it will always use the ApplicationScale
-		const FVector2D NewSize = PopupGeometry.GetLocalSize();
+		const FVector2D NewSize = PopupGeometry.GetDrawSize();
 
 		const FSlateRect NewShape = FSlateRect( NewPosition.X, NewPosition.Y, NewPosition.X + NewSize.X, NewPosition.Y + NewSize.Y );
 
@@ -183,6 +188,11 @@ void SMenuAnchor::Tick( const FGeometry& AllottedGeometry, const double InCurren
 
 	/** The tick is ending, so the window was not dismissed this tick. */
 	bDismissedThisTick = false;
+}
+
+bool SMenuAnchor::ComputeVolatility() const
+{
+	return IsOpen();
 }
 
 void SMenuAnchor::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
@@ -357,7 +367,7 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu, const int32 F
 
 					const FVector2D NewPosition = MyGeometry.AbsolutePosition;
 					FVector2D NewWindowSize = DesiredContentSize;
-					const FVector2D SummonLocationSize = MyGeometry.Size;
+					const FVector2D SummonLocationSize = MyGeometry.GetLocalSize();
 
 					FPopupTransitionEffect TransitionEffect( FPopupTransitionEffect::None );
 					if ( PlacementMode == MenuPlacement_ComboBox || PlacementMode == MenuPlacement_ComboBoxRight )
@@ -384,7 +394,7 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu, const int32 F
 						if (MethodInUse.GetPopupMethod() == EPopupMethod::CreateNewWindow)
 						{
 							// Open the pop-up
-							TSharedPtr<IMenu> NewMenu = FSlateApplication::Get().PushMenu(AsShared(), MyWidgetPath, MenuContentRef, NewPosition, TransitionEffect, bFocusMenu, SummonLocationSize, MethodInUse.GetPopupMethod(), bIsCollapsedByParent);
+							TSharedPtr<IMenu> NewMenu = FSlateApplication::Get().PushMenu(AsShared(), MyWidgetPath, MenuContentRef, NewPosition, TransitionEffect, bFocusMenu, MyGeometry.GetDrawSize(), MethodInUse.GetPopupMethod(), bIsCollapsedByParent);
 
 							PopupMenuPtr = NewMenu;
 							check(NewMenu.IsValid() && NewMenu->GetOwnedWindow().IsValid());
@@ -431,11 +441,8 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu, const int32 F
 						if (MethodInUse.GetPopupMethod() == EPopupMethod::CreateNewWindow)
 						{
 							// Start pop-up windows out transparent, then fade them in over time
-#if ALPHA_BLENDED_WINDOWS
-							const EWindowTransparency Transparency(EWindowTransparency::PerPixel);
-#else
-							const EWindowTransparency Transparency(EWindowTransparency::None);
-#endif
+							const EWindowTransparency Transparency(EWindowTransparency::PerWindow);
+
 							const float TargetWindowOpacity = 1.0f;
 							FSlateRect Anchor(NewPosition, NewPosition + SummonLocationSize);
 							EOrientation Orientation = (TransitionEffect.SlideDirection == FPopupTransitionEffect::SubMenu) ? Orient_Horizontal : Orient_Vertical;
@@ -538,6 +545,8 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu, const int32 F
 				SNullWidget::NullWidget
 			];
 		}
+
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
 	}
 }
 
@@ -604,18 +613,22 @@ void SMenuAnchor::OnMenuDismissed()
 	}
 }
 
+bool SMenuAnchor::UsingApplicationMenuStack() const
+{
+	return bUseApplicationMenuStack;
+}
+
 /*static*/ void SMenuAnchor::DismissAllApplicationMenus()
 {
-	for (TWeakPtr<IMenu>& OpenMenu : OpenApplicationMenus)
+	for (int32 i = 0; i < OpenApplicationMenus.Num(); ++i)
 	{
-		TSharedPtr<IMenu> Iter = OpenMenu.IsValid() ? OpenMenu.Pin() : nullptr;
-		if (Iter.IsValid())
+		TSharedPtr<IMenu> Iter = OpenApplicationMenus[i].IsValid() ? OpenApplicationMenus[i].Pin() : nullptr;
+		if (Iter.IsValid() && Iter->UsingApplicationMenuStack())
 		{
 			Iter->Dismiss();
+			OpenApplicationMenus.RemoveAtSwap(i--);
 		}
 	}
-
-	OpenApplicationMenus.Empty();
 }
 
 SMenuAnchor::SMenuAnchor()

@@ -1,13 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "FoliageTypeCustomizationHelpers.h"
-#include "FoliageType.h"
+#include "UObject/UnrealType.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "Components/PrimitiveComponent.h"
+#include "PropertyHandle.h"
 #include "IDetailPropertyRow.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
-#include "PropertyHandle.h"
-#include "ObjectEditorUtils.h"
+#include "FoliageType.h"
 
 void FFoliageTypeCustomizationHelpers::ModifyFoliagePropertyRow(IDetailPropertyRow* PropertyRow, const TAttribute<EVisibility>& InVisibility, const TAttribute<bool>& InEnabled)
 {
@@ -61,7 +62,7 @@ void FFoliageTypeCustomizationHelpers::BindHiddenPropertyVisibilityGetter(const 
 			return bState && Result == FPropertyAccess::Success ? EVisibility::Visible : EVisibility::Collapsed;
 		});
 	}
-	else if (PropertyHandle->GetProperty()->IsA<UByteProperty>())
+	else if (PropertyHandle->GetProperty()->IsA<UByteProperty>() || PropertyHandle->GetProperty()->IsA<UEnumProperty>())
 	{
 		// If hidden behind a byte/enum, assume that 0 = disabled and show if nonzero
 		OutVisibilityGetter.BindLambda([=]

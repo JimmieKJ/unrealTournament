@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "BehaviorTree/BlackboardData.h"
 #include "BlueprintNodeHelpers.h"
+#include "UObject/UnrealType.h"
+#include "UObject/PropertyPortFlags.h"
+#include "TimerManager.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
+#include "Engine/World.h"
+#include "GameFramework/Controller.h"
+#include "BehaviorTree/BehaviorTreeTypes.h"
+#include "BehaviorTree/BTNode.h"
 
 namespace BlueprintNodeHelpers
 {
@@ -278,14 +285,6 @@ namespace BlueprintNodeHelpers
 	//----------------------------------------------------------------------//
 	// DEPRECATED
 	//----------------------------------------------------------------------//
-	void AbortLatentActions(UActorComponent* OwnerOb, const UObject* Ob)
-	{
-		if (OwnerOb && Ob)
-		{
-			AbortLatentActions(OwnerOb, Ob);
-		}
-	}
-
 	bool HasBlueprintFunction(FName FuncName, const UObject* Object, const UClass* StopAtClass)
 	{
 		return Object && StopAtClass && HasBlueprintFunction(FuncName, *Object, *StopAtClass);

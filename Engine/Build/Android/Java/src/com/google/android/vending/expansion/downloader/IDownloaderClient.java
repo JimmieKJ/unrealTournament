@@ -86,7 +86,7 @@ public interface IDownloaderClient {
      * instance of {@link IDownloaderService}, then call
      * {@link IDownloaderService#onClientUpdated} with the Messenger retrieved
      * from your {@link IStub} proxy object.
-     * 
+     *
      * @param m the service Messenger. This Messenger is used to call the
      *            service API from the client.
      */
@@ -109,7 +109,7 @@ public interface IDownloaderClient {
      * cellular connections with appropriate warnings. If the application
      * suddenly starts downloading, the application should revert to showing the
      * progress again, rather than leaving up the download over cellular UI up.
-     * 
+     *
      * @param newState one of the STATE_* values defined in IDownloaderClient
      */
     void onDownloadStateChanged(int newState);
@@ -118,7 +118,7 @@ public interface IDownloaderClient {
      * Shows the download progress. This is intended to be used to fill out a
      * client UI. This progress should only be shown in a few states such as
      * STATE_DOWNLOADING.
-     * 
+     *
      * @param progress the DownloadProgressInfo object containing the current
      *            progress of all downloads.
      */

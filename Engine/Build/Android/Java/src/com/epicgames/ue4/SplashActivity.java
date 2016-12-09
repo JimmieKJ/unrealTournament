@@ -55,6 +55,22 @@ public class SplashActivity extends Activity
 		{
 			intent.putExtra("ShouldHideUI", "true");
 		}
+
+		//pass down any extras added to this Activity's intent to the GameActivity intent (GCM data, for example)
+		Intent intentFromActivity = getIntent();
+		Bundle intentBundle = intentFromActivity.getExtras();
+		if(intentBundle != null)
+		{
+			intent.putExtras(intentBundle);
+		}
+		
+		// pass the action if available
+		String intentAction = intentFromActivity.getAction();
+		if (intentAction != null)
+		{
+			intent.setAction(intentAction);
+		}
+
 		startActivity(intent);
 		finish();
 		overridePendingTransition(0, 0);

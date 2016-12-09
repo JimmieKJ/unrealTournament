@@ -1,12 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Decorators/BTDecorator_IsAtLocation.h"
+#include "GameFramework/Actor.h"
+#include "Navigation/PathFollowingComponent.h"
+#include "BehaviorTree/BlackboardComponent.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Vector.h"
+#include "AIController.h"
 
 UBTDecorator_IsAtLocation::UBTDecorator_IsAtLocation(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	NodeName = "Is At Location";
 	AcceptableRadius = 50.0f;
+	bUseParametrizedRadius = false;
 	bUseNavAgentGoalLocation = true;
 
 	// accept only actors and vectors
@@ -29,6 +35,13 @@ bool UBTDecorator_IsAtLocation::CalculateRawConditionValue(UBehaviorTreeComponen
 	if (PathFollowingComponent)
 	{
 		const UBlackboardComponent* MyBlackboard = OwnerComp.GetBlackboardComponent();
+		
+		float Radius = AcceptableRadius;
+		if (bUseParametrizedRadius && AIOwner && AIOwner->GetPawn() && ParametrizedAcceptableRadius.IsDynamic())
+		{
+			ParametrizedAcceptableRadius.BindData(AIOwner->GetPawn(), INDEX_NONE);
+			Radius = ParametrizedAcceptableRadius.GetValue();
+		}
 
 		if (BlackboardKey.SelectedKeyType == UBlackboardKeyType_Object::StaticClass())
 		{
@@ -36,7 +49,7 @@ bool UBTDecorator_IsAtLocation::CalculateRawConditionValue(UBehaviorTreeComponen
 			AActor* TargetActor = Cast<AActor>(KeyValue);
 			if (TargetActor)
 			{
-				bHasReached = PathFollowingComponent->HasReached(*TargetActor, EPathFollowingReachMode::OverlapAgentAndGoal, AcceptableRadius, bUseNavAgentGoalLocation);
+				bHasReached = PathFollowingComponent->HasReached(*TargetActor, EPathFollowingReachMode::OverlapAgentAndGoal, Radius, bUseNavAgentGoalLocation);
 			}
 		}
 		else if (BlackboardKey.SelectedKeyType == UBlackboardKeyType_Vector::StaticClass())
@@ -44,7 +57,7 @@ bool UBTDecorator_IsAtLocation::CalculateRawConditionValue(UBehaviorTreeComponen
 			const FVector TargetLocation = MyBlackboard->GetValue<UBlackboardKeyType_Vector>(BlackboardKey.GetSelectedKeyID());
 			if (FAISystem::IsValidLocation(TargetLocation))
 			{
-				bHasReached = PathFollowingComponent->HasReached(TargetLocation, EPathFollowingReachMode::OverlapAgent, AcceptableRadius);
+				bHasReached = PathFollowingComponent->HasReached(TargetLocation, EPathFollowingReachMode::OverlapAgent, Radius);
 			}
 		}
 	}

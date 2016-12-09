@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "ReflectionCapture.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/ReflectionCapture.h"
 #include "BoxReflectionCapture.generated.h"
 
 

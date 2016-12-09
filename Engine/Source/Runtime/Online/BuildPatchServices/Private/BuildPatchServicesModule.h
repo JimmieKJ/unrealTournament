@@ -6,6 +6,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Interfaces/IBuildPatchServicesModule.h"
+#include "BuildPatchInstaller.h"
+
+class FHttpServiceTracker;
+class IAnalyticsProvider;
+
 /**
  * Constant values and typedefs
  */
@@ -77,6 +85,7 @@ public:
 	virtual bool SaveManifestToFile(const FString& Filename, IBuildManifestRef Manifest, bool bUseBinary = true) override;
 	virtual IBuildInstallerPtr StartBuildInstall(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, bool bIsRepair = false, TSet<FString> InstallTags = TSet<FString>()) override;
 	virtual IBuildInstallerPtr StartBuildInstallStageOnly(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, bool bIsRepair = false, TSet<FString> InstallTags = TSet<FString>()) override;
+	virtual IBuildInstallerRef StartBuildInstall(BuildPatchServices::FInstallerConfiguration Configuration, FBuildPatchBoolManifestDelegate OnCompleteDelegate) override;
 	virtual void SetStagingDirectory(const FString& StagingDir) override;
 	virtual void SetCloudDirectory(FString CloudDir) override;
 	virtual void SetCloudDirectories(TArray<FString> CloudDirs) override;
@@ -85,10 +94,11 @@ public:
 	virtual void SetHttpTracker(TSharedPtr< FHttpServiceTracker > HttpTracker) override;
 	virtual void RegisterAppInstallation(IBuildManifestRef AppManifest, const FString AppInstallDirectory) override;
 	virtual void CancelAllInstallers(bool WaitForThreads) override;
-	virtual bool GenerateChunksManifestFromDirectory(const FBuildPatchSettings& Settings) override;
-	virtual bool CompactifyCloudDirectory(float DataAgeThreshold, ECompactifyMode::Type Mode) override;
+	virtual bool GenerateChunksManifestFromDirectory(const BuildPatchServices::FGenerationConfiguration& Settings) override;
+	virtual bool CompactifyCloudDirectory(float DataAgeThreshold, ECompactifyMode::Type Mode, const FString& DeletedChunkLogFile) override;
 	virtual bool EnumerateManifestData(const FString& ManifestFilePath, const FString& OutputFile, bool bIncludeSizes) override;
 	virtual bool MergeManifests(const FString& ManifestFilePathA, const FString& ManifestFilePathB, const FString& ManifestFilePathC, const FString& NewVersionString, const FString& SelectionDetailFilePath) override;
+	virtual bool DiffManifests(const FString& ManifestFilePathA, const FString& ManifestFilePathB, const FString& OutputFilePath) override;
 	virtual IBuildManifestPtr MakeManifestFromJSON(const FString& ManifestJSON) override;
 	//~ End IBuildPatchServicesModule Interface
 

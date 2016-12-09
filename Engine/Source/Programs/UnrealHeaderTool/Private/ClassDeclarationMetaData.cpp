@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealHeaderTool.h"
-#include "ParserClass.h"
 #include "ClassDeclarationMetaData.h"
+#include "UnrealHeaderTool.h"
+#include "UObject/ErrorException.h"
+#include "UObject/Object.h"
+#include "UObject/Interface.h"
+#include "BaseParser.h"
 #include "HeaderParser.h"
 #include "Classes.h"
 

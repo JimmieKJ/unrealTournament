@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "TokenizedMessage.h"
+#include "CoreTypes.h"
+#include "UObject/NameTypes.h"
+#include "Templates/SharedPointer.h"
+#include "Logging/TokenizedMessage.h"
 
 
 /**
@@ -27,6 +30,8 @@ struct CORE_API FFbxErrors
 	static FName Generic_FBXFileParseFailed;
 
 	static FName Generic_MeshNotFound;
+
+	static FName Generic_CannotDetectImportType;
 
 	/** Mesh Generic **/
 

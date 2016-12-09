@@ -4,7 +4,13 @@
 	EdGraphCompiler.cpp
 =============================================================================*/
 
-#include "KismetCompilerPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "EdGraph/EdGraphNode.h"
+#include "Templates/SubclassOf.h"
+#include "EdGraph/EdGraph.h"
+#include "Kismet2/CompilerResultsLog.h"
+#include "EdGraphUtilities.h"
+#include "EdGraphCompilerUtilities.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FGraphCompilerContext
@@ -133,19 +139,6 @@ UEdGraphNode* FGraphCompilerContext::FindNodeByClass(const UEdGraph* Graph, TSub
 	}
 
 	return FirstResultNode;
-}
-
-
-void FGraphCompilerContext::FindNodesByClass(const UEdGraph* Graph, TSubclassOf<UEdGraphNode>  NodeClass, TArray<UEdGraphNode*>& FoundNodes) const
-{
-	for (int32 NodeIndex = 0; NodeIndex < Graph->Nodes.Num(); ++NodeIndex)
-	{
-		UEdGraphNode* Node = Graph->Nodes[NodeIndex];
-		if (Node && Node->IsA(NodeClass))
-		{
-			FoundNodes.Add(Node);
-		}
-	}
 }
 
 /** Prunes any nodes that weren't visited from the graph, printing out a warning */

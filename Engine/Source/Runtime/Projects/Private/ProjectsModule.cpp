@@ -4,7 +4,8 @@
 	ProjectsModule.cpp: Implements the FProjectsModule class.
 =============================================================================*/
 
-#include "ProjectsPrivatePCH.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
 
 /**

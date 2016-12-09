@@ -18,36 +18,6 @@
 #define NUM_SAFE_FRAMES 4
 
 /**
- * Enumeration of features which are present only on some OS/device combinations.
- * These have to be checked at runtime as well as compile time to ensure backward compatibility.
- */
-enum EMetalFeatures
-{
-	/** Support for separate front & back stencil ref. values */
-	EMetalFeaturesSeparateStencil = 1 << 0,
-	/** Support for specifying an update to the buffer offset only */
-	EMetalFeaturesSetBufferOffset = 1 << 1,
-	/** Support for specifying the depth clip mode */
-	EMetalFeaturesDepthClipMode = 1 << 2,
-	/** Support for specifying resource usage & memory options */
-	EMetalFeaturesResourceOptions = 1 << 3,
-	/** Supports texture->buffer blit options for depth/stencil blitting */
-	EMetalFeaturesDepthStencilBlitOptions = 1 << 4,
-    /** Supports creating a native stencil texture view from a depth/stencil texture */
-    EMetalFeaturesStencilView = 1 << 5,
-    /** Supports a depth-16 pixel format */
-    EMetalFeaturesDepth16 = 1 << 6,
-	/** Supports NSUInteger counting visibility queries */
-	EMetalFeaturesCountingQueries = 1 << 7,
-	/** Supports base vertex/instance for draw calls */
-	EMetalFeaturesBaseVertexInstance = 1 << 8,
-	/** Supports indirect buffers for draw calls */
-	EMetalFeaturesIndirectBuffer = 1 << 9,
-	/** Supports layered rendering */
-	EMetalFeaturesLayeredRendering = 1 << 10
-};
-
-/**
  * Enumeration for submission hints to avoid unclear bool values.
  */
 enum EMetalSubmitFlags
@@ -57,7 +27,9 @@ enum EMetalSubmitFlags
 	/** Create the next command buffer. */
 	EMetalSubmitFlagsCreateCommandBuffer = 1 << 0,
 	/** Wait on the submitted command buffer. */
-	EMetalSubmitFlagsWaitOnCommandBuffer = 1 << 1
+	EMetalSubmitFlagsWaitOnCommandBuffer = 1 << 1,
+	/** Break a single logical command-buffer into parts to keep the GPU active. */
+	EMetalSubmitFlagsBreakCommandBuffer = 1 << 2,
 };
 
 class FMetalRHICommandContext;
@@ -86,6 +58,8 @@ public:
 		return bRetainReferences ? CommandQueue.CreateRetainedCommandBuffer() : CommandQueue.CreateUnretainedCommandBuffer();
 	}
 	
+	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence);
+	
 	/**
 	 * Handle rendering thread starting/stopping
 	 */
@@ -95,8 +69,9 @@ public:
 	/**
 	 * Do anything necessary to prepare for any kind of draw call 
 	 * @param PrimitiveType The UE4 primitive type for the draw call, needed to compile the correct render pipeline.
+	 * @returns True if the preparation completed and the draw call can be encoded, false to skip.
 	 */
-	void PrepareToDraw(uint32 PrimitiveType);
+	bool PrepareToDraw(uint32 PrimitiveType);
 	
 	/**
 	 * Set the color, depth and stencil render targets, and then make the new command buffer/encoder
@@ -235,7 +210,7 @@ public:
 	static FMetalDeviceContext* CreateDeviceContext();
 	virtual ~FMetalDeviceContext();
 	
-	bool SupportsFeature(EMetalFeatures InFeature) { return ((Features & InFeature) != 0); }
+	inline bool SupportsFeature(EMetalFeatures InFeature) { return CommandQueue.SupportsFeature(InFeature); }
 	
 	FMetalPooledBuffer CreatePooledBuffer(FMetalPooledBufferArgs const& Args);
 	void ReleasePooledBuffer(FMetalPooledBuffer Buf);
@@ -289,6 +264,9 @@ private:
 		dispatch_semaphore_t Signal;
 		TSet<id> FreeList;
 		NSMutableSet<id<MTLBuffer>>* FreeBuffers;
+#if METAL_DEBUG_OPTIONS
+		int32 DeferCount;
+#endif
 	};
 	TArray<FMetalDelayedFreeList*> DelayedFreeLists;
 	
@@ -311,5 +289,8 @@ private:
 	uint32 Features;
 	
 	/** Count of concurrent contexts encoding commands. */
-	uint32 ActiveContexts;
+	int32 ActiveContexts;
+	
+	/** Count of concurrent contexts encoding commands. */
+	uint32 AllocatedContexts;
 };

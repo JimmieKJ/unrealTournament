@@ -33,9 +33,13 @@ void AUTHUD_CTF::NotifyMatchStateChange()
 	UUTCTFScoreboard* CTFScoreboard = Cast<UUTCTFScoreboard>(MyUTScoreboard);
 	if (CTFScoreboard)
 	{
-		AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(GetWorld()->GetGameState());
-		CTFScoreboard->TimeLineOffset = (CTFState && ((CTFState->IsMatchIntermission() && (CTFState->CTFRound == 0)) || CTFState->HasMatchEnded())) ? -1.5f : 99999.f;
+		AUTCTFGameState* CTFState = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (CTFState)
+		{
+			CTFScoreboard->TimeLineOffset = (CTFState && ((CTFState->IsMatchIntermission() && (CTFState->CTFRound == 0)) || CTFState->HasMatchEnded())) ? -1.5f : 99999.f;
+		}
 	}
+
 	Super::NotifyMatchStateChange();
 }
 
@@ -43,7 +47,7 @@ void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 {
 	Super::DrawMinimapSpectatorIcons();
 
-	AUTCTFGameState* GS = Cast<AUTCTFGameState>(GetWorld()->GetGameState());
+	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
 	if (GS == NULL) return;
 
 	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
@@ -83,7 +87,7 @@ void AUTHUD_CTF::DrawMinimapSpectatorIcons()
 
 bool AUTHUD_CTF::ShouldInvertMinimap()
 {
-	AUTCTFGameState* GS = Cast<AUTCTFGameState>(GetWorld()->GetGameState());
+	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
 	if (GS == NULL)
 	{
 		return false;

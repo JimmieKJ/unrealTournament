@@ -47,6 +47,11 @@ namespace UnrealBuildTool
 		public static string[] PotentialServerNames = new string[] { };
 
 		/// <summary>
+		/// Save the specified port so that RemoteServerName is the machine address only
+		/// </summary>
+		private static int RemoteServerPort = 22;	// Default ssh port
+
+		/// <summary>
 		/// Keep a list of remote files that are potentially copied from local to remote
 		/// </summary>
 		private static Dictionary<FileItem, FileItem> CachedRemoteFileItems = new Dictionary<FileItem, FileItem>();
@@ -386,6 +391,20 @@ namespace UnrealBuildTool
 					return RemoteToolChainErrorCode.ServerNameNotSpecified;
 				}
 
+				// Split port out from RemoteServerName
+				String[] RemoteServerNameSplit = RemoteServerName.Split(':');
+				if(RemoteServerNameSplit.Length > 1)
+				{
+					if(RemoteServerNameSplit.Length != 2)
+					{
+						Log.TraceError("Remote compiling server name contains too many colons.");
+						return RemoteToolChainErrorCode.ServerNameNotSpecified;
+					}
+
+					RemoteServerName = RemoteServerNameSplit[0];
+					RemoteServerPort = Convert.ToInt32(RemoteServerNameSplit[1]);
+				}
+
 				if (!bUseRPCUtil)
 				{
 					// Verify the Delta Copy install path
@@ -452,8 +471,8 @@ namespace UnrealBuildTool
 					}
 
 					// resolve the rest of the strings
-					ResolvedRsyncAuthentication = ResolveString(RsyncAuthentication, false);
-					ResolvedSSHAuthentication = ResolveString(SSHAuthentication, false);
+					ResolvedRsyncAuthentication = ResolveString(RsyncAuthentication, false) + " -p " + RemoteServerPort;
+					ResolvedSSHAuthentication = ResolveString(SSHAuthentication, false) + " -p " + RemoteServerPort;
 				}
 
 				// start up remote communication and record if it succeeds
@@ -470,8 +489,9 @@ namespace UnrealBuildTool
 					KeyProcess.StartInfo.WorkingDirectory = Path.GetFullPath(Path.Combine(BuildConfiguration.RelativeEnginePath, "Build", "BatchFiles"));
 					KeyProcess.StartInfo.FileName = "MakeAndInstallSSHKey.bat";
 					KeyProcess.StartInfo.Arguments = string.Format(
-						"\"{0}\" \"{1}\" {2} {3} \"{4}\" \"{5}\" \"{6}\"",
+						"\"{0}\" {1} \"{2}\" {3} {4} \"{5}\" \"{6}\" \"{7}\"",
 						ResolvedSSHExe,
+						RemoteServerPort,
 						ResolvedRSyncExe,
 						ResolvedRSyncUsername,
 						RemoteServerName,

@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
-#include "Animation/AnimTypes.h"
 #include "BoneControllers/AnimNode_Fabrik.h"
+#include "AnimationRuntime.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "DrawDebugHelpers.h"
 
 /////////////////////////////////////////////////////
 // AnimNode_Fabrik

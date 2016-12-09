@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
-#include "LightmassSwarm.h"
 #include "Importer.h"
+#include "LightmassSwarm.h"
 #include "LightmassScene.h"
 
 

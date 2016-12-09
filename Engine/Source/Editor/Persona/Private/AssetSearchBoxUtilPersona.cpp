@@ -1,13 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PersonaPrivatePCH.h"
 #include "AssetSearchBoxUtilPersona.h"
-#include "DetailCategoryBuilder.h"
-#include "DetailLayoutBuilder.h"
-#include "PropertyHandle.h"
-#include "IDetailPropertyRow.h"
-#include "DetailWidgetRow.h"
-#include "IDetailsView.h"
+#include "ReferenceSkeleton.h"
+#include "Animation/Skeleton.h"
+#include "Engine/SkeletalMesh.h"
 #include "SAssetSearchBox.h"
 #include "Engine/SkeletalMeshSocket.h"
 

@@ -2,13 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "Toolkits/AssetEditorManager.h"
-#include "Kismet2/KismetEditorUtilities.h"
-#include "WorkflowOrientedApp/WorkflowTabFactory.h"
-#include "WorkflowOrientedApp/WorkflowTabManager.h"
-#include "WorkflowOrientedApp/WorkflowUObjectDocuments.h"
-#include "WorkflowOrientedApp/ApplicationMode.h"
+
+class FApplicationMode;
+class FWorkflowAllowedTabSet;
+class FWorkflowTabFactory;
 
 // Delegate for mutating a mode
 DECLARE_DELEGATE_RetVal_TwoParams(TSharedRef<FApplicationMode>, FWorkflowApplicationModeExtender, const FName /*ModeName*/, TSharedRef<FApplicationMode> /*InMode*/);

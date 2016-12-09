@@ -1,18 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Materials/MaterialInterface.h"
+#include "MaterialExpressionIO.h"
+#include "Materials/Material.h"
+#include "Factories/MaterialFactoryNew.h"
+#include "Engine/Texture.h"
+#include "Factories/TextureFactory.h"
+#include "Engine/Texture2D.h"
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "Materials/MaterialExpressionTextureCoordinate.h"
 #include "Materials/MaterialExpressionVectorParameter.h"
-#include "Factories.h"
-#include "Engine.h"
-#include "TextureLayout.h"
+#include "Materials/MaterialInstanceConstant.h"
+#include "Factories/MaterialInstanceConstantFactoryNew.h"
 #include "FbxImporter.h"
 #include "ObjectTools.h"
 #include "PackageTools.h"
 #include "AssetRegistryModule.h"
+#include "IAssetTools.h"
 #include "AssetToolsModule.h"
-#include "ComponentReregisterContext.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFbxMaterialImport, Log, All);
 
@@ -387,7 +398,7 @@ FString UnFbx::FFbxImporter::GetMaterialFullName(FbxSurfaceMaterial& FbxMaterial
 			if (SkinXXNumber.IsNumeric())
 			{
 				// remove the '_skinXX' suffix from the material name					
-				MaterialFullName = MaterialFullName.LeftChop(Offset + 1);
+				MaterialFullName = MaterialFullName.LeftChop(MaterialFullName.Len() - Offset);
 			}
 		}
 	}
@@ -397,7 +408,87 @@ FString UnFbx::FFbxImporter::GetMaterialFullName(FbxSurfaceMaterial& FbxMaterial
 	return MaterialFullName;
 }
 
-void UnFbx::FFbxImporter::CreateUnrealMaterial(FbxSurfaceMaterial& FbxMaterial, TArray<UMaterialInterface*>& OutMaterials, TArray<FString>& UVSets)
+bool UnFbx::FFbxImporter::LinkMaterialProperty(
+	FbxSurfaceMaterial& FbxMaterial,
+	UMaterialInstanceConstant* UnrealMaterial,
+	const char* MaterialProperty,
+	FName ParameterValue,
+	bool bSetupAsNormalMap) {
+	bool bCreated = false;
+	FbxProperty FbxProperty = FbxMaterial.FindProperty(MaterialProperty);
+	if (FbxProperty.IsValid())
+	{
+		int32 LayeredTextureCount = FbxProperty.GetSrcObjectCount<FbxLayeredTexture>();
+		if (LayeredTextureCount > 0)
+		{
+			UE_LOG(LogFbxMaterialImport, Warning, TEXT("Layered Textures are not supported (material %s)"), UTF8_TO_TCHAR(FbxMaterial.GetName()));
+		}
+		else
+		{
+			int32 TextureCount = FbxProperty.GetSrcObjectCount<FbxTexture>();
+			if (TextureCount > 0)
+			{
+				for (int32 TextureIndex = 0; TextureIndex < TextureCount; ++TextureIndex)
+				{
+					FbxFileTexture* FbxTexture = FbxProperty.GetSrcObject<FbxFileTexture>(TextureIndex);
+
+					// create an unreal texture asset
+					UTexture* UnrealTexture = ImportTexture(FbxTexture, bSetupAsNormalMap);
+
+					if (UnrealTexture)
+					{
+						UnrealMaterial->SetTextureParameterValueEditorOnly(ParameterValue, UnrealTexture);
+						bCreated = true;
+					}
+				}
+			}
+		}
+	}
+
+	return bCreated;
+}
+
+bool CanUseMaterialWithInstance(FbxSurfaceMaterial& FbxMaterial, const char* MaterialProperty, FString ParameterValueName, UMaterialInterface *BaseMaterial, TArray<FString>& UVSet) {
+	FbxProperty FbxProperty = FbxMaterial.FindProperty(MaterialProperty);
+	if (FbxProperty.IsValid())
+	{
+		int32 LayeredTextureCount = FbxProperty.GetSrcObjectCount<FbxLayeredTexture>();
+		if (LayeredTextureCount == 0)
+		{
+			int32 TextureCount = FbxProperty.GetSrcObjectCount<FbxTexture>();
+			if (TextureCount == 1)
+			{
+				// If we didnt specify a parameter to go with this property we can't use this as base instance
+				if (ParameterValueName.IsEmpty())
+				{
+					return false;
+				}
+				FbxFileTexture* FbxTexture = FbxProperty.GetSrcObject<FbxFileTexture>(0);
+				float ScaleU = FbxTexture->GetScaleU();
+				float ScaleV = FbxTexture->GetScaleV();
+				FbxString UVSetName = FbxTexture->UVSet.Get();
+				FString LocalUVSetName = UTF8_TO_TCHAR(UVSetName.Buffer());
+				int32 SetIndex = UVSet.Find(LocalUVSetName);
+				if ((SetIndex != 0 && SetIndex != INDEX_NONE) || ScaleU != 1.0f || ScaleV != 1.0f)
+				{
+					return false; // no support for custom uv with instanced yet
+				}
+			}if (TextureCount > 1)
+			{
+				return false; // no support for multiple textures
+			}
+		}
+		else
+		{
+			return false; // no support for layered textures
+		}
+	}
+
+	return true;
+}
+
+
+void UnFbx::FFbxImporter::CreateUnrealMaterial(FbxSurfaceMaterial& FbxMaterial, TArray<UMaterialInterface*>& OutMaterials, TArray<FString>& UVSets, bool bForSkeletalMesh)
 {
 	// Make sure we have a parent
 	if ( !ensure(Parent.IsValid()) )
@@ -461,60 +552,189 @@ void UnFbx::FFbxImporter::CreateUnrealMaterial(FbxSurfaceMaterial& FbxMaterial, 
 
 	UPackage* Package = CreatePackage(NULL, *FinalPackageName);
 	
-
-	// create an unreal material asset
-	auto MaterialFactory = NewObject<UMaterialFactoryNew>();
-	
-	UMaterial* UnrealMaterial = (UMaterial*)MaterialFactory->FactoryCreateNew(
-		UMaterial::StaticClass(), Package, *MaterialFullName, RF_Standalone|RF_Public, NULL, GWarn );
-
-	if ( UnrealMaterial != NULL )
+	// Check if we can use the specified base material to instance from it
+	FBXImportOptions* FbxImportOptions = GetImportOptions();
+	bool bCanInstance = false;
+	if (FbxImportOptions->BaseMaterial)
 	{
-		// Notify the asset registry
-		FAssetRegistryModule::AssetCreated(UnrealMaterial);
-
-		// Set the dirty flag so this package will get saved later
-		Package->SetDirtyFlag(true);
+		bCanInstance = false;
+		// try to use the material as a base for the new material to instance from
+		FbxProperty FbxDiffuseProperty = FbxMaterial.FindProperty(FbxSurfaceMaterial::sDiffuse);
+		if (FbxDiffuseProperty.IsValid())
+		{
+			bCanInstance = CanUseMaterialWithInstance(FbxMaterial, FbxSurfaceMaterial::sDiffuse, FbxImportOptions->BaseDiffuseTextureName, FbxImportOptions->BaseMaterial, UVSets);
+		}
+		else
+		{
+			bCanInstance = !FbxImportOptions->BaseColorName.IsEmpty();
+		}
+		FbxProperty FbxEmissiveProperty = FbxMaterial.FindProperty(FbxSurfaceMaterial::sEmissive);
+		if (FbxDiffuseProperty.IsValid())
+		{
+			bCanInstance &= CanUseMaterialWithInstance(FbxMaterial, FbxSurfaceMaterial::sEmissive, FbxImportOptions->BaseEmmisiveTextureName, FbxImportOptions->BaseMaterial, UVSets);
+		}
+		else
+		{
+			bCanInstance &= !FbxImportOptions->BaseEmissiveColorName.IsEmpty();
+		}
+		bCanInstance &= CanUseMaterialWithInstance(FbxMaterial, FbxSurfaceMaterial::sSpecular, FbxImportOptions->BaseSpecularTextureName, FbxImportOptions->BaseMaterial, UVSets);
+		bCanInstance &= CanUseMaterialWithInstance(FbxMaterial, FbxSurfaceMaterial::sNormalMap, FbxImportOptions->BaseNormalTextureName, FbxImportOptions->BaseMaterial, UVSets);
 	}
 
-	// textures and properties
+	UMaterialInterface* UnrealMaterialFinal = nullptr;
+	if (bCanInstance) {
+		auto MaterialInstanceFactory = NewObject<UMaterialInstanceConstantFactoryNew>();
+		MaterialInstanceFactory->InitialParent = FbxImportOptions->BaseMaterial;
+		UMaterialInstanceConstant* UnrealMaterialConstant = (UMaterialInstanceConstant*)MaterialInstanceFactory->FactoryCreateNew(UMaterialInstanceConstant::StaticClass(), Package, *MaterialFullName, RF_Standalone | RF_Public, NULL, GWarn);
+		if (UnrealMaterialConstant != NULL)
+		{
+			UnrealMaterialFinal = UnrealMaterialConstant;
+			// Notify the asset registry
+			FAssetRegistryModule::AssetCreated(UnrealMaterialConstant);
+
+			// Set the dirty flag so this package will get saved later
+			Package->SetDirtyFlag(true);
+
+			//UnrealMaterialConstant->SetParentEditorOnly(FbxImportOptions->BaseMaterial);
+
+
+			// textures and properties
+			bool bDiffuseTextureCreated = LinkMaterialProperty(FbxMaterial, UnrealMaterialConstant, FbxSurfaceMaterial::sDiffuse, FName(*FbxImportOptions->BaseDiffuseTextureName), false);
+			bool bEmissiveTextureCreated = LinkMaterialProperty(FbxMaterial, UnrealMaterialConstant, FbxSurfaceMaterial::sEmissive, FName(*FbxImportOptions->BaseEmmisiveTextureName), false);
+			LinkMaterialProperty(FbxMaterial, UnrealMaterialConstant, FbxSurfaceMaterial::sSpecular, FName(*FbxImportOptions->BaseSpecularTextureName), false);
+			if (!LinkMaterialProperty(FbxMaterial, UnrealMaterialConstant, FbxSurfaceMaterial::sNormalMap, FName(*FbxImportOptions->BaseNormalTextureName), true))
+			{
+				LinkMaterialProperty(FbxMaterial, UnrealMaterialConstant, FbxSurfaceMaterial::sBump, FName(*FbxImportOptions->BaseNormalTextureName), true); // no bump in unreal, use as normal map
+			}
+
+			// If we only have colors and its different from the base material
+			if (!bDiffuseTextureCreated)
+			{
+				FbxDouble3 DiffuseColor;
+				bool OverrideColor = false;
+
+				if (FbxMaterial.GetClassId().Is(FbxSurfacePhong::ClassId))
+				{
+					DiffuseColor = ((FbxSurfacePhong&)(FbxMaterial)).Diffuse.Get();
+					OverrideColor = true;
+				}
+				else if (FbxMaterial.GetClassId().Is(FbxSurfaceLambert::ClassId))
+				{
+					DiffuseColor = ((FbxSurfaceLambert&)(FbxMaterial)).Diffuse.Get();
+					OverrideColor = true;
+				}
+				if(OverrideColor)
+				{
+					FLinearColor LinearColor((float)DiffuseColor[0], (float)DiffuseColor[1], (float)DiffuseColor[2]);
+					FLinearColor CurrentLinearColor;
+					if (UnrealMaterialConstant->GetVectorParameterValue(FName(*FbxImportOptions->BaseColorName), CurrentLinearColor))
+					{
+						//Alpha is not consider for diffuse color
+						LinearColor.A = CurrentLinearColor.A;
+						if (!CurrentLinearColor.Equals(LinearColor))
+						{
+							UnrealMaterialConstant->SetVectorParameterValueEditorOnly(FName(*FbxImportOptions->BaseColorName), LinearColor);
+						}
+					}
+				}
+			}
+			if (!bEmissiveTextureCreated)
+			{
+				FbxDouble3 EmissiveColor;
+				bool OverrideColor = false;
+
+				if (FbxMaterial.GetClassId().Is(FbxSurfacePhong::ClassId))
+				{
+					EmissiveColor = ((FbxSurfacePhong&)(FbxMaterial)).Emissive.Get();
+					OverrideColor = true;
+				}
+				else if (FbxMaterial.GetClassId().Is(FbxSurfaceLambert::ClassId))
+				{
+					EmissiveColor = ((FbxSurfaceLambert&)(FbxMaterial)).Emissive.Get();
+					OverrideColor = true;
+				}
+				if (OverrideColor)
+				{
+					FLinearColor LinearColor((float)EmissiveColor[0], (float)EmissiveColor[1], (float)EmissiveColor[2]);
+					FLinearColor CurrentLinearColor;
+					if (UnrealMaterialConstant->GetVectorParameterValue(FName(*FbxImportOptions->BaseEmissiveColorName), CurrentLinearColor))
+					{
+						//Alpha is not consider for emissive color
+						LinearColor.A = CurrentLinearColor.A;
+						if (!CurrentLinearColor.Equals(LinearColor))
+						{
+							UnrealMaterialConstant->SetVectorParameterValueEditorOnly(FName(*FbxImportOptions->BaseEmissiveColorName), LinearColor);
+						}
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		// create an unreal material asset
+		auto MaterialFactory = NewObject<UMaterialFactoryNew>();
+	
+		UMaterial* UnrealMaterial = (UMaterial*)MaterialFactory->FactoryCreateNew(
+			UMaterial::StaticClass(), Package, *MaterialFullName, RF_Standalone|RF_Public, NULL, GWarn );
+
+		if (UnrealMaterial != NULL)
+		{
+			UnrealMaterialFinal = UnrealMaterial;
+			// Notify the asset registry
+			FAssetRegistryModule::AssetCreated(UnrealMaterial);
+
+			if(bForSkeletalMesh)
+			{
+				bool bNeedsRecompile = false;
+				UnrealMaterial->GetMaterial()->SetMaterialUsage(bNeedsRecompile, MATUSAGE_SkeletalMesh);
+			}
+
+			// Set the dirty flag so this package will get saved later
+			Package->SetDirtyFlag(true);
+
+			// textures and properties
 #if DEBUG_LOG_FBX_MATERIAL_PROPERTIES
-	const FbxProperty &FirstProperty = FbxMaterial.GetFirstProperty();
-	if (FirstProperty.IsValid())
-	{
-		UE_LOG(LogFbxMaterialImport, Display, TEXT("Creating Material [%s]"), UTF8_TO_TCHAR(FbxMaterial.GetName()));
-		LogPropertyAndChild(FbxMaterial, FirstProperty);
-		UE_LOG(LogFbxMaterialImport, Display, TEXT("-------------------------------"));
-	}
+			const FbxProperty &FirstProperty = FbxMaterial.GetFirstProperty();
+			if (FirstProperty.IsValid())
+			{
+				UE_LOG(LogFbxMaterialImport, Display, TEXT("Creating Material [%s]"), UTF8_TO_TCHAR(FbxMaterial.GetName()));
+				LogPropertyAndChild(FbxMaterial, FirstProperty);
+				UE_LOG(LogFbxMaterialImport, Display, TEXT("-------------------------------"));
+			}
 #endif
-	CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sDiffuse, UnrealMaterial->BaseColor, false, UVSets, FVector2D(240, -320));
-	CreateAndLinkExpressionForMaterialProperty( FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sEmissive, UnrealMaterial->EmissiveColor, false, UVSets, FVector2D(240,-64) );
-	CreateAndLinkExpressionForMaterialProperty( FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sSpecular, UnrealMaterial->Specular, false, UVSets, FVector2D(240, -128) );
-	if (!CreateAndLinkExpressionForMaterialProperty( FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sNormalMap, UnrealMaterial->Normal, true, UVSets, FVector2D(240,256) ) )
-	{
-		CreateAndLinkExpressionForMaterialProperty( FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sBump, UnrealMaterial->Normal, true, UVSets, FVector2D(240,256) ); // no bump in unreal, use as normal map
+			CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sDiffuse, UnrealMaterial->BaseColor, false, UVSets, FVector2D(240, -320));
+			CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sEmissive, UnrealMaterial->EmissiveColor, false, UVSets, FVector2D(240, -64));
+			CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sSpecular, UnrealMaterial->Specular, false, UVSets, FVector2D(240, -128));
+			if (!CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sNormalMap, UnrealMaterial->Normal, true, UVSets, FVector2D(240, 256)))
+			{
+				CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sBump, UnrealMaterial->Normal, true, UVSets, FVector2D(240, 256)); // no bump in unreal, use as normal map
+			}
+			if (CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sTransparentColor, UnrealMaterial->Opacity, false, UVSets, FVector2D(200, 256)))
+			{
+				UnrealMaterial->BlendMode = BLEND_Translucent;
+				CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sTransparencyFactor, UnrealMaterial->OpacityMask, false, UVSets, FVector2D(150, 256));
+
+			}
+			FixupMaterial(FbxMaterial, UnrealMaterial); // add random diffuse if none exists
+		}
+
+		// compile shaders for PC (from UPrecompileShadersCommandlet::ProcessMaterial
+		// and FMaterialEditor::UpdateOriginalMaterial)
 	}
-	if (CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sTransparentColor, UnrealMaterial->Opacity, false, UVSets, FVector2D(200, 256)))
+	if (UnrealMaterialFinal)
 	{
-		UnrealMaterial->BlendMode = BLEND_Translucent;
-		CreateAndLinkExpressionForMaterialProperty(FbxMaterial, UnrealMaterial, FbxSurfaceMaterial::sTransparencyFactor, UnrealMaterial->OpacityMask, false, UVSets, FVector2D(150, 256));
+		// let the material update itself if necessary
+		UnrealMaterialFinal->PreEditChange(NULL);
+		UnrealMaterialFinal->PostEditChange();
 
+		ImportedMaterialData.AddImportedMaterial(FbxMaterial, *UnrealMaterialFinal);
+
+		OutMaterials.Add(UnrealMaterialFinal);
 	}
-	FixupMaterial( FbxMaterial, UnrealMaterial); // add random diffuse if none exists
-
-	// compile shaders for PC (from UPrecompileShadersCommandlet::ProcessMaterial
-	// and FMaterialEditor::UpdateOriginalMaterial)
-
-	// let the material update itself if necessary
-	UnrealMaterial->PreEditChange(NULL);
-	UnrealMaterial->PostEditChange();
-	
-	ImportedMaterialData.AddImportedMaterial( FbxMaterial, *UnrealMaterial );
-
-	OutMaterials.Add(UnrealMaterial);
 }
 
-int32 UnFbx::FFbxImporter::CreateNodeMaterials(FbxNode* FbxNode, TArray<UMaterialInterface*>& OutMaterials, TArray<FString>& UVSets)
+int32 UnFbx::FFbxImporter::CreateNodeMaterials(FbxNode* FbxNode, TArray<UMaterialInterface*>& OutMaterials, TArray<FString>& UVSets, bool bForSkeletalMesh)
 {
 	int32 MaterialCount = FbxNode->GetMaterialCount();
 	for(int32 MaterialIndex=0; MaterialIndex < MaterialCount; ++MaterialIndex)
@@ -523,7 +743,7 @@ int32 UnFbx::FFbxImporter::CreateNodeMaterials(FbxNode* FbxNode, TArray<UMateria
 
 		if( FbxMaterial )
 		{
-			CreateUnrealMaterial(*FbxMaterial, OutMaterials, UVSets);
+			CreateUnrealMaterial(*FbxMaterial, OutMaterials, UVSets, bForSkeletalMesh);
 		}
 	}
 	return MaterialCount;

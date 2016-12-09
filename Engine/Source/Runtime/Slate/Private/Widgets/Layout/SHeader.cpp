@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Widgets/Layout/SHeader.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Layout/SSeparator.h"
 
 
 void SHeader::Construct( const FArguments& InArgs )

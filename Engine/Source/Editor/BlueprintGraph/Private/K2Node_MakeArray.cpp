@@ -1,16 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_MakeArray.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Engine/Blueprint.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EdGraphSchema_K2.h"
+#include "EdGraph/EdGraphNodeUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
-#include "SlateBasics.h"
-#include "../../../Runtime/Engine/Classes/Kismet/KismetArrayLibrary.h"
+#include "Kismet/KismetArrayLibrary.h"
 #include "ScopedTransaction.h"
-#include "KismetCompiler.h"
+#include "EdGraphUtilities.h"
+#include "KismetCompiledFunctionContext.h"
+#include "KismetCompilerMisc.h"
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 
 static const FString OutputPinName = FString(TEXT("Array"));
 
@@ -241,6 +248,7 @@ void UK2Node_MakeArray::PropagatePinType()
 		for (TArray<UEdGraphPin*>::TIterator it(Pins); it; ++it)
 		{
 			UEdGraphPin* CurrentPin = *it;
+			check(CurrentPin);
 
 			if (CurrentPin != OutputPin)
 			{
@@ -519,9 +527,9 @@ void UK2Node_MakeArray::GetContextMenuActions(const FGraphNodeContextMenuBuilder
 bool UK2Node_MakeArray::IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const
 {
 	// if MyPin has a ParentPin then we are dealing with a split pin and we should evaluate it with default behavior
-	if(MyPin->ParentPin == nullptr && OtherPin->PinType.bIsArray == true && MyPin->Direction == EGPD_Input)
+	if(MyPin->ParentPin == nullptr && OtherPin->PinType.IsContainer() == true && MyPin->Direction == EGPD_Input)
 	{
-		OutReason = NSLOCTEXT("K2Node", "MakeArray_InputIsArray", "Cannot make an array with an input of an array!").ToString();
+		OutReason = NSLOCTEXT("K2Node", "MakeArray_InputIsContainer", "Cannot make an array with an input of a container!").ToString();
 		return true;
 	}
 

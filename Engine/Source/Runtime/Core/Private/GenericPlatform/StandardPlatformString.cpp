@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "GenericPlatform/StandardPlatformString.h"
+
+#if !PLATFORM_USE_SYSTEM_VSWPRINTF
+
+#include "GenericPlatform/StandardPlatformString.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/UnrealTemplate.h"
+#include "Logging/LogCategory.h"
+#include "Logging/LogMacros.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogStandardPlatformString, Log, All);
-
-#if !PLATFORM_USE_SYSTEM_VSWPRINTF
 
 #if PLATFORM_IOS
 	#define VA_LIST_REF va_list&

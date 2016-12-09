@@ -1,8 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "ViewportInteractionTypes.h"
+#include "CoreMinimal.h"
+#include "Components/ActorComponent.h"
+#include "Components/SceneComponent.h"
 #include "ViewportInteractionTypes.h"
 
 /** Represents a single virtual hand */
@@ -133,6 +135,9 @@ struct FViewportInteractorData
 		don't want a full press to cancel your light press. */
 	bool bAllowTriggerFullPress;
 
+	/** If the latest hitresult is hovering over a priority type */
+	bool bHitResultIsPriorityType;
+
 	/** Default constructor for FVirtualHand that initializes safe defaults */
 	FViewportInteractorData()
 	{
@@ -167,6 +172,7 @@ struct FViewportInteractorData
 
 		bAllowTriggerLightPressLocking = true;
 		bAllowTriggerFullPress = true;
+		bHitResultIsPriorityType = false;
 	}
 };
 

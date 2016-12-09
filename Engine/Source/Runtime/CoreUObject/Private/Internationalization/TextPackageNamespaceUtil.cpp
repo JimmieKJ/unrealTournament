@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "TextPackageNamespaceUtil.h"
+#include "Internationalization/TextPackageNamespaceUtil.h"
+#include "Misc/Guid.h"
+#include "UObject/Package.h"
+#include "UObject/MetaData.h"
+#include "Misc/PackageName.h"
 
 #if USE_STABLE_LOCALIZATION_KEYS
 

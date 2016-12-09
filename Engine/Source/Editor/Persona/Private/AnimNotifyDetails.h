@@ -2,9 +2,15 @@
 
 #pragma once
 
-#include "PropertyEditorModule.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "PropertyHandle.h"
+#include "IDetailCustomization.h"
 
 class IDetailCategoryBuilder;
+class IDetailLayoutBuilder;
+class UAnimSequenceBase;
+class UEditorNotifyObject;
 
 class FAnimNotifyDetails : public IDetailCustomization
 {

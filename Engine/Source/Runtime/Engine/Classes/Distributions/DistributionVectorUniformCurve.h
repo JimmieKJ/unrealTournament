@@ -2,7 +2,10 @@
 
 
 #pragma once
-#include "Distributions.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionVector.h"
 #include "DistributionVectorUniformCurve.generated.h"
 
 UCLASS(collapsecategories, hidecategories=Object, editinlinenew, MinimalAPI)

@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "UObjectThreadContext.h"
+#include "CoreMinimal.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/ErrorException.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "UObject/MetaData.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/UObjectThreadContext.h"
+#include "UObject/DevObjectVersion.h"
+#include "UObject/CoreObjectVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEnum, Log, All);
 
@@ -13,27 +22,41 @@ TMap<FName, UEnum*> UEnum::AllEnumNames;
 TMap<FName,TMap<FName,FName> > UEnum::EnumRedirects;
 TMap<FName,TMap<FString,FString> > UEnum::EnumSubstringRedirects;
 
-UEnum::~UEnum()
-{
-	RemoveNamesFromMasterList();
-}
-
 void UEnum::Serialize( FArchive& Ar )
 {
+	Ar.UsingCustomVersion(FCoreObjectVersion::GUID);
+
 	Super::Serialize(Ar);
-	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_TIGHTLY_PACKED_ENUMS)
+	if (Ar.IsLoading())
 	{
-		TArray<FName> TempNames;
-		Ar << TempNames;
-		uint8 Value = 0;
-		for (const FName& TempName : TempNames)
+		if (Ar.UE4Ver() < VER_UE4_TIGHTLY_PACKED_ENUMS)
 		{
-			Names.Add(TPairInitializer<FName, uint8>(TempName, Value++));
+			TArray<FName> TempNames;
+			Ar << TempNames;
+			int64 Value = 0;
+			for (const FName& TempName : TempNames)
+			{
+				Names.Add(TPairInitializer<FName, uint8>(TempName, Value++));
+			}
+		}
+		else if (Ar.CustomVer(FCoreObjectVersion::GUID) < FCoreObjectVersion::EnumProperties)
+		{
+			TArray<TPair<FName, uint8>> OldNames;
+			Ar << OldNames;
+			Names.Reset(OldNames.Num());
+			for (const TPair<FName, uint8>& OldName : OldNames)
+			{
+				Names.Add(TPairInitializer<FName, uint8>(OldName.Key, OldName.Value));
+			}
+		}
+		else
+		{
+			Ar << Names;
 		}
 	}
 	else
 	{
-	Ar << Names;
+		Ar << Names;
 	}
 
 	if (Ar.UE4Ver() < VER_UE4_ENUM_CLASS_SUPPORT)
@@ -63,6 +86,13 @@ void UEnum::Serialize( FArchive& Ar )
 	}
 }
 
+void UEnum::BeginDestroy()
+{
+	RemoveNamesFromMasterList();
+
+	Super::BeginDestroy();
+}
+
 FString UEnum::GetBaseEnumNameOnDuplication() const
 {
 	// Last name is always fully qualified, in form EnumName::Prefix_MAX.
@@ -89,7 +119,7 @@ void UEnum::RenameNamesAfterDuplication()
 		FString ThisName = GetName();
 
 		// Replace all usages of base class name to the duplicated one.
-		for (TPair<FName, uint8>& Kvp : Names)
+		for (TPair<FName, int64>& Kvp : Names)
 		{
 			FString NameString = Kvp.Key.ToString();
 			NameString.ReplaceInline(*BaseEnumName, *ThisName);
@@ -98,7 +128,7 @@ void UEnum::RenameNamesAfterDuplication()
 	}
 }
 
-int32 UEnum::ResolveEnumerator(FArchive& Ar, int32 EnumeratorIndex) const
+int64 UEnum::ResolveEnumerator(FArchive& Ar, int64 EnumeratorIndex) const
 {
 	return EnumeratorIndex;
 }
@@ -108,7 +138,7 @@ FString UEnum::GenerateFullEnumName(const TCHAR* InEnumName) const
 	return (CppForm != ECppForm::Regular) ? GenerateFullEnumName(this, InEnumName) : InEnumName;
 }
 
-FName UEnum::GetNameByIndex(uint8 Index) const
+FName UEnum::GetNameByIndex(int32 Index) const
 {
 	if (Names.IsValidIndex(Index))
 	{
@@ -118,15 +148,15 @@ FName UEnum::GetNameByIndex(uint8 Index) const
 	return NAME_None;
 }
 
-uint8 UEnum::GetValueByIndex(uint8 Index) const
+int64 UEnum::GetValueByIndex(int32 Index) const
 {
 	check(Names.IsValidIndex(Index));
 	return Names[Index].Value;
 }
 
-FName UEnum::GetNameByValue(uint8 InValue) const
+FName UEnum::GetNameByValue(int64 InValue) const
 {
-	for (TPair<FName, uint8> Kvp : Names)
+	for (TPair<FName, int64> Kvp : Names)
 	{
 		if (Kvp.Value == InValue)
 		{
@@ -151,7 +181,7 @@ int32 UEnum::GetIndexByName(FName InName) const
 	return INDEX_NONE;
 }
 
-int32 UEnum::GetValueByName(FName InName) const
+int64 UEnum::GetValueByName(FName InName) const
 {
 	FString InNameString = InName.ToString();
 	FString DoubleColon = TEXT("::");
@@ -170,7 +200,7 @@ int32 UEnum::GetValueByName(FName InName) const
 		InName = FName(*InNameString.Mid(DoubleColonPosition + 2, InNameString.Len() - DoubleColonPosition + 2));
 	}
 
-	for (TPair<FName, uint8> Kvp : Names)
+	for (TPair<FName, int64> Kvp : Names)
 	{
 		if (Kvp.Key == InName)
 		{
@@ -182,7 +212,7 @@ int32 UEnum::GetValueByName(FName InName) const
 }
 
 
-uint8 UEnum::GetMaxEnumValue() const
+int64 UEnum::GetMaxEnumValue() const
 {
 	int32 NamesNum = Names.Num();
 	if (NamesNum == 0)
@@ -190,10 +220,10 @@ uint8 UEnum::GetMaxEnumValue() const
 		return 0;
 	}
 
-	uint8 MaxValue = Names[0].Value;
+	int64 MaxValue = Names[0].Value;
 	for (int32 i = 0; i < NamesNum; ++i)
 	{
-		uint8 CurrentValue = Names[i].Value;
+		int64 CurrentValue = Names[i].Value;
 		if (CurrentValue > MaxValue)
 		{
 			MaxValue = CurrentValue;
@@ -203,12 +233,12 @@ uint8 UEnum::GetMaxEnumValue() const
 	return MaxValue;
 }
 
-bool UEnum::IsValidEnumValue(uint8 InValue) const
+bool UEnum::IsValidEnumValue(int64 InValue) const
 {
 	int32 NamesNum = Names.Num();
 	for (int32 i = 0; i < NamesNum; ++i)
 	{
-		uint8 CurrentValue = Names[i].Value;
+		int64 CurrentValue = Names[i].Value;
 		if (CurrentValue == InValue)
 		{
 			return true;
@@ -245,7 +275,7 @@ FString UEnum::GenerateFullEnumName(const UEnum* InEnum, const TCHAR* InEnumName
 
 void UEnum::AddNamesToMasterList()
 {
-	for (TPair<FName, uint8> Kvp : Names)
+	for (TPair<FName, int64> Kvp : Names)
 	{
 		UEnum* Enum = AllEnumNames.FindRef(Kvp.Key);
 		if (Enum == nullptr)
@@ -261,7 +291,7 @@ void UEnum::AddNamesToMasterList()
 
 void UEnum::RemoveNamesFromMasterList()
 {
-	for (TPair<FName, uint8> Kvp : Names)
+	for (TPair<FName, int64> Kvp : Names)
 	{
 		UEnum* Enum = AllEnumNames.FindRef(Kvp.Key);
 		if (Enum == this)
@@ -457,13 +487,13 @@ int32 UEnum::FindEnumRedirects(const UEnum* Enum, FName EnumEntryName)
  *
  * @return	true unless the MAX enum already exists.
  */
-bool UEnum::SetEnums(TArray<TPair<FName, uint8>>& InNames, UEnum::ECppForm InCppForm, bool bAddMaxKeyIfMissing)
+bool UEnum::SetEnums(TArray<TPair<FName, int64>>& InNames, UEnum::ECppForm InCppForm, bool bAddMaxKeyIfMissing)
 {
 	if (Names.Num() > 0)
 	{
 		RemoveNamesFromMasterList();
 	}
-	Names   = InNames;
+	Names  = InNames;
 	CppForm = InCppForm;
 
 	if (bAddMaxKeyIfMissing)
@@ -482,13 +512,7 @@ bool UEnum::SetEnums(TArray<TPair<FName, uint8>>& InNames, UEnum::ECppForm InCpp
 				return false;
 			}
 
-#if HACK_HEADER_GENERATOR
-			if (GetMaxEnumValue() == 255)
-			{
-				FError::Throwf(TEXT("Enum %s doesn't contain user defined %s_MAX entry and its maximum entry value equals 255. Autogenerated %s_MAX enum entry will equal 0. Change maximum entry value to 254 or define %s_MAX entry in enum."), *GetName(), *EnumPrefix, *EnumPrefix, *EnumPrefix, *EnumPrefix);
-			}
-#endif
-			Names.Add(TPairInitializer<FName, uint8>(MaxEnumItem, GetMaxEnumValue() + 1));
+			Names.Add(TPairInitializer<FName, int64>(MaxEnumItem, GetMaxEnumValue() + 1));
 		}
 	}
 	AddNamesToMasterList();
@@ -497,7 +521,7 @@ bool UEnum::SetEnums(TArray<TPair<FName, uint8>>& InNames, UEnum::ECppForm InCpp
 }
 
 #if WITH_EDITOR
-FText UEnum::GetDisplayNameTextByValue(int32 Value) const
+FText UEnum::GetDisplayNameTextByValue(int64 Value) const
 {
 	int32 Index = GetIndexByValue(Value);
 	return GetDisplayNameText(Index);
@@ -705,14 +729,14 @@ void UEnum::RemoveMetaData( const TCHAR* Key, int32 NameIndex/*=INDEX_NONE*/) co
 
 #endif
 
-int32 UEnum::ParseEnum(const TCHAR*& Str)
+int64 UEnum::ParseEnum(const TCHAR*& Str)
 {
 	FString Token;
 	const TCHAR* ParsedStr = Str;
 	if (FParse::AlnumToken(ParsedStr, Token))
 	{
 		FName TheName = FName(*Token, FNAME_Find);
-		int32 Result = LookupEnumName(TheName);
+		int64 Result = LookupEnumName(TheName);
 		if (Result != INDEX_NONE)
 		{
 			Str = ParsedStr;

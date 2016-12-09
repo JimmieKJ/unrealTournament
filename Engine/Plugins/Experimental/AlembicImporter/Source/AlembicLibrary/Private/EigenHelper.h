@@ -2,11 +2,22 @@
 
 #pragma once
 
-// Just to be sure, also added this in Eigen.Build.cs
-#define EIGEN_MPL2_ONLY
+#include "CoreMinimal.h"
 
-#include <Eigen/Dense>
-#include <Eigen/SVD>
+// Just to be sure, also added this in Eigen.Build.cs
+#ifndef EIGEN_MPL2_ONLY
+#define EIGEN_MPL2_ONLY
+#endif
+
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(push)
+	#pragma warning(disable:6326) // Potential comparison of a constant with another constant.
+#endif
+	#include <Eigen/Dense>
+	#include <Eigen/SVD>
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(pop)
+#endif
 
 #define USE_MEMCPY_FOR_EIGEN_CONVERSION 1
 

@@ -2,10 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Styling/SlateColor.h"
+#include "NetcodeUnitTest.h"
+#include "HAL/PlatformProcess.h"
 #include "UnitTest.h"
 
 #include "ProcessUnitTest.generated.h"
-
 
 // Enum definitions
 

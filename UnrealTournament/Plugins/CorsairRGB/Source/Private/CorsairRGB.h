@@ -4,12 +4,6 @@
 #include "Core.h"
 #include "UnrealTournament.h"
 
-#include "AllowWindowsPlatformTypes.h"
-
-#include "CUESDK.h"
-
-#include "HideWindowsPlatformTypes.h"
-
 #include "CorsairRGB.generated.h"
 
 UCLASS(Blueprintable, Meta = (ChildCanTick))

@@ -1,11 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MergeActorsPrivatePCH.h"
-#include "SMeshProxyDialog.h"
-#include "Dialogs/DlgPickAssetPath.h"
-#include "SNumericEntryBox.h"
-#include "STextComboBox.h"
+#include "MeshProxyTool/SMeshProxyDialog.h"
+#include "Engine/MeshMerging.h"
 #include "MeshProxyTool/MeshProxyTool.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Input/STextComboBox.h"
 
 #define LOCTEXT_NAMESPACE "SMeshProxyDialog"
 

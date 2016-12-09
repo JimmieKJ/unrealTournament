@@ -19,12 +19,9 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include "DetourNode.h"
-#include "DetourAlloc.h"
-#include "DetourAssert.h"
-#include "DetourCommon.h"
-#include <string.h>
+#include "Detour/DetourNode.h"
+#include "Detour/DetourAssert.h"
+#include "Detour/DetourCommon.h"
 
 #if USE_64BIT_ADDRESS
 

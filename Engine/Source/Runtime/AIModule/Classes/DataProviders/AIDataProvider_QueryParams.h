@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "AIDataProvider.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "DataProviders/AIDataProvider.h"
 #include "AIDataProvider_QueryParams.generated.h"
 
 /**

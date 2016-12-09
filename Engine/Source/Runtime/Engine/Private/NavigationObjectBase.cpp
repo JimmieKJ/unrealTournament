@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "GameFramework/PhysicsVolume.h"
 #include "Engine/NavigationObjectBase.h"
+#include "UObject/ConstructorHelpers.h"
+#include "CollisionQueryParams.h"
+#include "WorldCollision.h"
+#include "Engine/World.h"
+#include "Components/BillboardComponent.h"
+#include "Engine/CollisionProfile.h"
+#include "Engine/Texture2D.h"
+#include "GameFramework/PhysicsVolume.h"
 #include "Components/CapsuleComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogNavigationPoint, Log, All);

@@ -5,7 +5,13 @@
 ==============================================================================================*/
 
 #pragma once
+
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Misc/DateTime.h"
 #include "GenericPlatform/GenericPlatformFile.h"
+
+template <typename FuncType> class TFunctionRef;
 
 /**
  * Linux File I/O implementation

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDeviceProfileSelectorModule.h"
 
 /**
  * Implements the Windows Device Profile Selector module.

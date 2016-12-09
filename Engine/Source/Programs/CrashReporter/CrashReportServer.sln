@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.31101.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrashReportProcess", "CrashReportProcess\CrashReportProcess.csproj", "{AE49361C-2EC7-4462-B617-FA363ADD71A6}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -59,8 +59,8 @@ Global
 		{A38E68D6-0CB0-450C-A753-764651D7E2B6}.DebugSlackTesting|Mixed Platforms.ActiveCfg = Debug|Any CPU
 		{A38E68D6-0CB0-450C-A753-764651D7E2B6}.DebugSlackTesting|Mixed Platforms.Build.0 = Debug|Any CPU
 		{A38E68D6-0CB0-450C-A753-764651D7E2B6}.DebugSlackTesting|x64.ActiveCfg = Debug|Any CPU
-		{A38E68D6-0CB0-450C-A753-764651D7E2B6}.Development|Any CPU.ActiveCfg = Development|Any CPU
-		{A38E68D6-0CB0-450C-A753-764651D7E2B6}.Development|Any CPU.Build.0 = Development|Any CPU
+		{A38E68D6-0CB0-450C-A753-764651D7E2B6}.Development|Any CPU.ActiveCfg = Dev Disabled|Any CPU
+		{A38E68D6-0CB0-450C-A753-764651D7E2B6}.Development|Any CPU.Build.0 = Dev Disabled|Any CPU
 		{A38E68D6-0CB0-450C-A753-764651D7E2B6}.Development|Mixed Platforms.ActiveCfg = Development|Any CPU
 		{A38E68D6-0CB0-450C-A753-764651D7E2B6}.Development|Mixed Platforms.Build.0 = Development|Any CPU
 		{A38E68D6-0CB0-450C-A753-764651D7E2B6}.Development|x64.ActiveCfg = Development|Any CPU

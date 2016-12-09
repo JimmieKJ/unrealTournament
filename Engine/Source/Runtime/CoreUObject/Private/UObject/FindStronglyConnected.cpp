@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "FindStronglyConnected.h"
+#include "UObject/FindStronglyConnected.h"
+#include "UObject/GarbageCollection.h"
+#include "UObject/UObjectIterator.h"
 #include "Serialization/ArchiveFindAllRefs.h"
 
 void FFindStronglyConnected::FindAllCycles()

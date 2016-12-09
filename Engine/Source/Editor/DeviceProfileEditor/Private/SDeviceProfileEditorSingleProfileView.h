@@ -2,9 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 
 #define LOCTEXT_NAMESPACE "DeviceProfileEditorSingleProfileView"
 
+class IDetailsView;
+class UDeviceProfile;
 
 /**
  * Slate widget to allow users to select device profiles

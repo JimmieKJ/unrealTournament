@@ -2,7 +2,15 @@
 
 #pragma once
 
-
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Docking/TabManager.h"
+#include "SDockingNode.h"
+#include "SDockingSplitter.h"
 
 /**
  * Represents the root node in a hierarchy of DockNodes.

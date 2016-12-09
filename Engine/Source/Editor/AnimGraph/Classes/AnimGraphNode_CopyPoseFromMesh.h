@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AnimGraphNode_SkeletalControlBase.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AnimGraphNode_Base.h"
 #include "AnimNodes/AnimNode_CopyPoseFromMesh.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTitleTextTable
 #include "AnimGraphNode_CopyPoseFromMesh.generated.h"
 
 UCLASS(MinimalAPI)

@@ -2,7 +2,11 @@
 
 #pragma once
  
-#include "OnlineIdentityInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
+#include "OnlineSubsystemTypes.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "OnlineJsonSerializer.h"
 #include "OnlineSubsystemAmazonPackage.h"
 
 /**

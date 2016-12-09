@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "GenericPlatform/GenericPlatformAtomics.h"
+#include "Templates/AlignOf.h"
 
 
 static_assert(sizeof(FInt128) == 16, "FInt128 size must be 16 bytes.");

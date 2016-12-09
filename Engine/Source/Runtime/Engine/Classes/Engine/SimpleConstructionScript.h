@@ -2,6 +2,12 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "GameFramework/Actor.h"
 #include "SimpleConstructionScript.generated.h"
 
 class USCS_Node;
@@ -10,6 +16,9 @@ UCLASS(MinimalAPI)
 class USimpleConstructionScript : public UObject
 {
 	GENERATED_UCLASS_BODY()
+
+	/** Suffix used for component template object name. */
+	ENGINE_API static const FString ComponentTemplateNameSuffix;
 
 	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
@@ -21,14 +30,18 @@ class USimpleConstructionScript : public UObject
 	/** Ensures that all root node parent references are still valid and clears the reference if not */
 	ENGINE_API void FixupRootNodeParentReferences();
 
+	/** Helper method to register instanced components post-construction */
+	static void RegisterInstancedComponent(UActorComponent* Component);
+
 	/**
 	 * Execute this script on the supplied actor, creating components 
 	 *
 	 * @param Actor					The actor instance to execute the script on.
+	 * @param NativeSceneComponents	The set of native scene components from the actor that SCS nodes can parent to when instanced.
 	 * @param RootTransform			The transform to apply to the root scene component of the actor instance if defined in this script.
 	 * @param bIsDefaultTransform	Indicates whether or not the given transform is a "default" transform, in which case it can be overridden by template defaults.
 	 */
-	void ExecuteScriptOnActor(AActor* Actor, const FTransform& RootTransform, bool bIsDefaultTransform);
+	void ExecuteScriptOnActor(AActor* Actor, const TInlineComponentArray<USceneComponent*>& NativeSceneComponents, const FTransform& RootTransform, bool bIsDefaultTransform);
 
 	/** Create the map from names to SCS_Nodes to improve FindSCSNode performance during construction script execution */
 	void CreateNameToSCSNodeMap();

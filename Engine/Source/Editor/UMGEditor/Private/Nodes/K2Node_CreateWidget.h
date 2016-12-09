@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "K2Node.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node_ConstructObjectFromClass.h"
 #include "K2Node_CreateWidget.generated.h"
+
+class UEdGraph;
 
 UCLASS()
 class UMGEDITOR_API UK2Node_CreateWidget : public UK2Node_ConstructObjectFromClass

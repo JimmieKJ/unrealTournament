@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AvfMediaPCH.h"
 #include "AvfMediaPlayer.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "IOS/IOSAsyncTask.h"
 
 /**
  * Cocoa class that can help us with reading player item information.
@@ -151,7 +154,7 @@ void FAvfMediaPlayer::HandleStatusNotification(AVPlayerItemStatus Status)
 		{
 			if (Duration == 0.0f || State == EMediaState::Closed)
 			{
-				Tracks.Initialize(PlayerItem);
+				Tracks.Initialize(PlayerItem, Info);
 			 
 				AVF_GAME_THREAD_CALL(^AVF_GAME_THREAD_BLOCK{
 					MediaEvent.Broadcast(EMediaEvent::TracksChanged);
@@ -440,6 +443,8 @@ void FAvfMediaPlayer::Close()
 		MediaEvent.Broadcast(EMediaEvent::TracksChanged);
 	
 		Duration = CurrentTime = FTimespan::Zero();
+
+		Info.Empty();
 	
 		MediaEvent.Broadcast(EMediaEvent::MediaClosed);
 		
@@ -456,7 +461,14 @@ IMediaControls& FAvfMediaPlayer::GetControls()
 
 FString FAvfMediaPlayer::GetInfo() const
 {
-	return TEXT("AvfMedia media information not implemented yet");
+	return Info;
+}
+
+
+FName FAvfMediaPlayer::GetName() const
+{
+	static FName PlayerName(TEXT("AvfMedia"));
+	return PlayerName;
 }
 
 
@@ -492,9 +504,22 @@ bool FAvfMediaPlayer::Open(const FString& Url, const IMediaOptions& Options)
 {
 	Close();
 
-	// open media file
-	NSURL* nsMediaUrl = [NSURL URLWithString: Url.GetNSString()];
+	NSURL* nsMediaUrl = nil;
+	FString Path;
+	if (Url.StartsWith(TEXT("file://")))
+	{
+		// Media Framework doesn't percent encode the URL, so the path portion is just a native file path.
+		// Extract it and then use it create a proper URL.
+		Path = Url.Mid(7);
+		nsMediaUrl = [NSURL fileURLWithPath:Path.GetNSString() isDirectory:NO];
+	}
+	else
+	{
+		// Assume that this has been percent encoded for now - when we support HTTP Live Streaming we will need to check for that.
+		nsMediaUrl = [NSURL URLWithString: Path.GetNSString()];
+	}
 
+	// open media file
 	if (nsMediaUrl == nil)
 	{
 		UE_LOG(LogAvfMedia, Error, TEXT("Failed to open Media file:"), *Url);
@@ -508,8 +533,7 @@ bool FAvfMediaPlayer::Open(const FString& Url, const IMediaOptions& Options)
 #if !PLATFORM_MAC
 	if ([[nsMediaUrl scheme] isEqualToString:@"file"])
 	{
-		FString FullPath = FString([nsMediaUrl path]);
-		FullPath = ConvertToIOSPath(FullPath, false);
+		FString FullPath = ConvertToIOSPath(Path, false);
 		nsMediaUrl = [NSURL fileURLWithPath: FullPath.GetNSString() isDirectory:NO];
 	}
 #endif

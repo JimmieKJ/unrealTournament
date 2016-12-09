@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSFlurryPrivatePCH.h"
+#include "IOSFlurry.h"
+#include "IOSFlurryProvider.h"
+
+#if WITH_FLURRY
+#import "Flurry.h"
+#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogAnalytics, Display, All);
 

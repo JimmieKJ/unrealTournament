@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneActorReferenceSection.h"
+#include "Sections/MovieSceneActorReferenceSection.h"
 
 
 UMovieSceneActorReferenceSection::UMovieSceneActorReferenceSection( const FObjectInitializer& ObjectInitializer )
@@ -72,8 +71,39 @@ void UMovieSceneActorReferenceSection::SetKeyTime( FKeyHandle KeyHandle, float T
 
 void UMovieSceneActorReferenceSection::AddKey( float Time, const FGuid& Value, EMovieSceneKeyInterpolation KeyInterpolation )
 {
-	int32 NewActorGuidIndex = ActorGuids.Add(Value);
-	ActorGuidIndexCurve.AddKey(Time, NewActorGuidIndex);
+	AddKey(Time, Value);
+}
+
+
+FKeyHandle UMovieSceneActorReferenceSection::AddKey(float Time, const FGuid& Value)
+{
+	if (IsTimeWithinSection(Time))
+	{
+		if (TryModify())
+		{
+			FKeyHandle ExistingKeyHandle = ActorGuidIndexCurve.FindKey(Time);
+			if (ActorGuidIndexCurve.IsKeyHandleValid(ExistingKeyHandle))
+			{
+				int32 ActorGuidIndex = ActorGuidIndexCurve.GetKeyValue(ExistingKeyHandle);
+				if (ActorGuidIndex >= 0 && ActorGuidIndex < ActorGuids.Num())
+				{
+					ActorGuids[ActorGuidIndex] = Value;
+					return ExistingKeyHandle;
+				}
+				else
+				{
+					int32 NewActorGuidIndex = ActorGuids.Add(Value);
+					return ActorGuidIndexCurve.UpdateOrAddKey(Time, NewActorGuidIndex);
+				}
+			}
+			else
+			{
+				int32 NewActorGuidIndex = ActorGuids.Add(Value);
+				return ActorGuidIndexCurve.AddKey(Time, NewActorGuidIndex);
+			}
+		}
+	}
+	return FKeyHandle();
 }
 
 
@@ -91,8 +121,21 @@ bool UMovieSceneActorReferenceSection::HasKeys( const FGuid& Value ) const
 
 void UMovieSceneActorReferenceSection::SetDefault( const FGuid& Value )
 {
-	int32 DefaultIndex = ActorGuids.Add( Value );
-	ActorGuidIndexCurve.SetDefaultValue( DefaultIndex );
+	int32 CurrentDefault = ActorGuidIndexCurve.GetDefaultValue();
+	if (!ActorGuids.IsValidIndex(CurrentDefault) || ActorGuids[CurrentDefault] != Value)
+	{
+		if (TryModify())
+		{
+			int32 DefaultIndex = ActorGuids.Add( Value );
+			ActorGuidIndexCurve.SetDefaultValue( DefaultIndex );
+		}
+	}
+}
+
+
+void UMovieSceneActorReferenceSection::ClearDefaults()
+{
+	ActorGuidIndexCurve.ClearDefaultValue();
 }
 
 

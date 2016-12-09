@@ -1,30 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "ScrollyZoomy.h"
+#include "Framework/Layout/ScrollyZoomy.h"
+#include "Rendering/DrawElements.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Application/SlateApplication.h"
 
 
 /* FScrollyZoomy structors
  *****************************************************************************/
 
-FScrollyZoomy::FScrollyZoomy( const bool bInUseIntertialScrolling )
-	: AmountScrolledWhileRightMouseDown( 0.0f )
-	, bShowSoftwareCursor( false )
-	, SoftwareCursorPosition( FVector2D::ZeroVector )
-	, bUseIntertialScrolling( bInUseIntertialScrolling )
+FScrollyZoomy::FScrollyZoomy(const bool InUseInertialScrolling)
+	: AmountScrolledWhileRightMouseDown(0.0f)
+	, bShowSoftwareCursor(false)
+	, SoftwareCursorPosition(FVector2D::ZeroVector)
+	, UseInertialScrolling(InUseInertialScrolling)
 { }
 
 
 /* FScrollyZoomy interface
  *****************************************************************************/
 
-void FScrollyZoomy::Tick( const float DeltaTime, IScrollableZoomable& ScrollableZoomable )
+void FScrollyZoomy::Tick(const float DeltaTime, IScrollableZoomable& ScrollableZoomable)
 {
 	if (!IsRightClickScrolling())
 	{
 		FVector2D ScrollBy = FVector2D::ZeroVector;
 
-		this->HorizontalIntertia.UpdateScrollVelocity( DeltaTime );
+		this->HorizontalIntertia.UpdateScrollVelocity(DeltaTime);
 		const float HorizontalScrollVelocity = this->HorizontalIntertia.GetScrollVelocity();
 
 		if (HorizontalScrollVelocity != 0.f)
@@ -32,7 +35,7 @@ void FScrollyZoomy::Tick( const float DeltaTime, IScrollableZoomable& Scrollable
 			ScrollBy.X = HorizontalScrollVelocity * DeltaTime;
 		}
 
-		this->VerticalIntertia.UpdateScrollVelocity( DeltaTime );
+		this->VerticalIntertia.UpdateScrollVelocity(DeltaTime);
 		const float VerticalScrollVelocity = this->VerticalIntertia.GetScrollVelocity();
 
 		if (VerticalScrollVelocity != 0.f)
@@ -48,7 +51,7 @@ void FScrollyZoomy::Tick( const float DeltaTime, IScrollableZoomable& Scrollable
 }
 
 
-FReply FScrollyZoomy::OnMouseButtonDown( const FPointerEvent& MouseEvent )
+FReply FScrollyZoomy::OnMouseButtonDown(const FPointerEvent& MouseEvent)
 {
 	// @todo: Should we only clear on RMB down?  Also see other uses of this in the code base
 	this->HorizontalIntertia.ClearScrollVelocity();
@@ -71,7 +74,7 @@ FReply FScrollyZoomy::OnMouseButtonDown( const FPointerEvent& MouseEvent )
 }
 
 
-FReply FScrollyZoomy::OnMouseButtonUp( const TSharedRef<SWidget> MyWidget, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+FReply FScrollyZoomy::OnMouseButtonUp(const TSharedRef<SWidget> MyWidget, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
 	{
@@ -84,17 +87,17 @@ FReply FScrollyZoomy::OnMouseButtonUp( const TSharedRef<SWidget> MyWidget, const
 		if (MyWidget->HasMouseCapture())
 		{
 			FSlateRect PanelScreenSpaceRect = MyGeometry.GetClippingRect();
-			FVector2D CursorPosition = MyGeometry.LocalToAbsolute( SoftwareCursorPosition );
+			FVector2D CursorPosition = MyGeometry.LocalToAbsolute(SoftwareCursorPosition);
 
 			FIntPoint BestPositionInPanel(
-				FMath::RoundToInt( FMath::Clamp( CursorPosition.X, PanelScreenSpaceRect.Left, PanelScreenSpaceRect.Right ) ),
-				FMath::RoundToInt( FMath::Clamp( CursorPosition.Y, PanelScreenSpaceRect.Top, PanelScreenSpaceRect.Bottom ) )
+				FMath::RoundToInt(FMath::Clamp(CursorPosition.X, PanelScreenSpaceRect.Left, PanelScreenSpaceRect.Right)),
+				FMath::RoundToInt(FMath::Clamp(CursorPosition.Y, PanelScreenSpaceRect.Top, PanelScreenSpaceRect.Bottom))
 				);
 
-			Reply.SetMousePos( BestPositionInPanel );
+			Reply.SetMousePos(BestPositionInPanel);
 		}
 
-		if (!bUseIntertialScrolling)
+		if (!UseInertialScrolling)
 		{
 			HorizontalIntertia.ClearScrollVelocity();
 			VerticalIntertia.ClearScrollVelocity();
@@ -107,29 +110,29 @@ FReply FScrollyZoomy::OnMouseButtonUp( const TSharedRef<SWidget> MyWidget, const
 }
 
 
-FReply FScrollyZoomy::OnMouseMove( const TSharedRef<SWidget> MyWidget, IScrollableZoomable& ScrollableZoomable, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+FReply FScrollyZoomy::OnMouseMove(const TSharedRef<SWidget> MyWidget, IScrollableZoomable& ScrollableZoomable, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	if (MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton))
 	{
 		// If scrolling with the right mouse button, we need to remember how much we scrolled.
 		// If we did not scroll at all, we will bring up the context menu when the mouse is released.
-		AmountScrolledWhileRightMouseDown += FMath::Abs( MouseEvent.GetCursorDelta().X ) + FMath::Abs( MouseEvent.GetCursorDelta().Y );
+		AmountScrolledWhileRightMouseDown += FMath::Abs(MouseEvent.GetCursorDelta().X) + FMath::Abs(MouseEvent.GetCursorDelta().Y);
 
 		// Has the mouse moved far enough with the right mouse button held down to start capturing
 		// the mouse and dragging the view?
 		if (IsRightClickScrolling())
 		{
-			this->HorizontalIntertia.AddScrollSample( MouseEvent.GetCursorDelta().X, FPlatformTime::Seconds() );
-			this->VerticalIntertia.AddScrollSample( MouseEvent.GetCursorDelta().Y, FPlatformTime::Seconds() );
-			const bool DidScroll = ScrollableZoomable.ScrollBy( MouseEvent.GetCursorDelta() );
+			this->HorizontalIntertia.AddScrollSample(MouseEvent.GetCursorDelta().X, FPlatformTime::Seconds());
+			this->VerticalIntertia.AddScrollSample(MouseEvent.GetCursorDelta().Y, FPlatformTime::Seconds());
+			const bool DidScroll = ScrollableZoomable.ScrollBy(MouseEvent.GetCursorDelta());
 
 			FReply Reply = FReply::Handled();
 
 			// Capture the mouse if we need to
 			if (MyWidget->HasMouseCapture() == false)
 			{
-				Reply.CaptureMouse( MyWidget ).UseHighPrecisionMouseMovement( MyWidget );
-				SoftwareCursorPosition = MyGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() );
+				Reply.CaptureMouse(MyWidget).UseHighPrecisionMouseMovement(MyWidget);
+				SoftwareCursorPosition = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
 				bShowSoftwareCursor = true;
 			}
 
@@ -147,7 +150,7 @@ FReply FScrollyZoomy::OnMouseMove( const TSharedRef<SWidget> MyWidget, IScrollab
 }
 
 
-void FScrollyZoomy::OnMouseLeave( const TSharedRef<SWidget> MyWidget, const FPointerEvent& MouseEvent )
+void FScrollyZoomy::OnMouseLeave(const TSharedRef<SWidget> MyWidget, const FPointerEvent& MouseEvent)
 {
 	if (MyWidget->HasMouseCapture() == false)
 	{
@@ -157,7 +160,7 @@ void FScrollyZoomy::OnMouseLeave( const TSharedRef<SWidget> MyWidget, const FPoi
 }
 
 
-FReply FScrollyZoomy::OnMouseWheel( const FPointerEvent& MouseEvent, IScrollableZoomable& ScrollableZoomable )
+FReply FScrollyZoomy::OnMouseWheel(const FPointerEvent& MouseEvent, IScrollableZoomable& ScrollableZoomable)
 {
 	// @todo: Inertial zoom support!
 	const bool DidZoom = ScrollableZoomable.ZoomBy(MouseEvent.GetWheelDelta());
@@ -171,7 +174,7 @@ FReply FScrollyZoomy::OnMouseWheel( const FPointerEvent& MouseEvent, IScrollable
 }
 
 
-FCursorReply FScrollyZoomy::OnCursorQuery( ) const
+FCursorReply FScrollyZoomy::OnCursorQuery() const
 {
 	if (IsRightClickScrolling())
 	{
@@ -183,25 +186,25 @@ FCursorReply FScrollyZoomy::OnCursorQuery( ) const
 }
 
 
-bool FScrollyZoomy::IsRightClickScrolling( ) const
+bool FScrollyZoomy::IsRightClickScrolling() const
 {
 	return (AmountScrolledWhileRightMouseDown >= FSlateApplication::Get().GetDragTriggerDistance());
 }
 
 
-bool FScrollyZoomy::NeedsSoftwareCursor( ) const
+bool FScrollyZoomy::NeedsSoftwareCursor() const
 {
 	return bShowSoftwareCursor;
 }
 
 
-const FVector2D& FScrollyZoomy::GetSoftwareCursorPosition( ) const
+const FVector2D& FScrollyZoomy::GetSoftwareCursorPosition() const
 {
 	return SoftwareCursorPosition;
 }
 
 
-int32 FScrollyZoomy::PaintSoftwareCursorIfNeeded( const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId ) const
+int32 FScrollyZoomy::PaintSoftwareCursorIfNeeded(const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId) const
 {
 	if (bShowSoftwareCursor)
 	{

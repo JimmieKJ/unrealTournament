@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetTypeActions_Base.h"
 #include "Slate/SlateBrushAsset.h"
 
 class FAssetTypeActions_SlateBrush : public FAssetTypeActions_Base

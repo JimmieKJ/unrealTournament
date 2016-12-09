@@ -1,13 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WmfMediaPCH.h"
+#include "WmfMediaByteStream.h"
+#include "Misc/ScopeLock.h"
+#include "WmfMediaReadState.h"
 
 #if WMFMEDIA_SUPPORTED_PLATFORM
 
-#include "WmfMediaByteStream.h"
-#include "WmfMediaReadState.h"
 #include "AllowWindowsPlatformTypes.h"
-
 
 /* FWmfByteStream structors
  *****************************************************************************/

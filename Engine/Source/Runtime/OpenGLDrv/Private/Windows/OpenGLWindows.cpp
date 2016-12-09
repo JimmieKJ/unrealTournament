@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "OpenGLDrvPrivate.h"
+#include "Misc/ScopeLock.h"
 
 /*------------------------------------------------------------------------------
 	OpenGL function pointers.
@@ -16,6 +17,8 @@ PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = NULL;
 
 extern PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT_ProcAddress;	// set in OpenGLDevice.cpp
 
+bool GRunningUnderRenderDoc = false;
+
 /*------------------------------------------------------------------------------
 	OpenGL context management.
 ------------------------------------------------------------------------------*/
@@ -23,6 +26,10 @@ extern PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT_ProcAddress;	// set in OpenG
 static void ContextMakeCurrent( HDC DC, HGLRC RC )
 {
 	BOOL Result = wglMakeCurrent( DC, RC );
+	if (!Result)
+	{
+		Result = wglMakeCurrent( nullptr, nullptr );
+	}
 	check(Result);
 }
 
@@ -311,7 +318,8 @@ struct FPlatformOpenGLDevice
 		int MinorVersion = 0;
 		PlatformOpenGLVersionFromCommandLine(MajorVersion, MinorVersion);
 	
-
+		// Need to call this before we set the debug callback, otherwise if we're not running under RD, the debug extension will assert (invalid enum)
+		GRunningUnderRenderDoc = glIsEnabled(GL_DEBUG_TOOL_EXT) != GL_FALSE;
 
 		PlatformCreateDummyGLWindow(&SharedContext);
 		PlatformCreateOpenGLContextCore(&SharedContext, MajorVersion, MinorVersion, NULL);
@@ -357,6 +365,11 @@ struct FPlatformOpenGLDevice
 FPlatformOpenGLDevice* PlatformCreateOpenGLDevice()
 {
 	return new FPlatformOpenGLDevice;
+}
+
+bool PlatformCanEnableGPUCapture()
+{
+	return GRunningUnderRenderDoc;
 }
 
 void PlatformDestroyOpenGLDevice(FPlatformOpenGLDevice* Device)

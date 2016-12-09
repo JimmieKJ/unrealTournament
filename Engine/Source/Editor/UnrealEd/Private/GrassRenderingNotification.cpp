@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
 #include "GlobalEditorNotification.h"
-#include "Landscape.h"
-#include "SNotificationList.h"
+#include "LandscapeProxy.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 /** Notification class for grassmmap rendering. */
 class FGrassRenderingNotificationImpl : public FGlobalEditorNotification

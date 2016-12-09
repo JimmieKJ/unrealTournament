@@ -2,9 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Layout/Geometry.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 #include "VisualizerEvents.h"
-#include "SGraphBar.h"
-#include "STimeline.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+
+class SGraphBar;
+class SScrollBar;
+class STextBlock;
+class STimeline;
 
 /**
  * Bars Visualizer. Contains a list of bars for each profiler category

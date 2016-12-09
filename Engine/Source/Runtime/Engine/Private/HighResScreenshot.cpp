@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "EnginePrivate.h"
 #include "HighResScreenshot.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "HAL/IConsoleManager.h"
+#include "Modules/ModuleManager.h"
+#include "UnrealClient.h"
+#include "Materials/Material.h"
 #include "Slate/SceneViewport.h"
-#include "ImageWrapper.h"
+#include "Interfaces/IImageWrapper.h"
+#include "Interfaces/IImageWrapperModule.h"
 
 static TAutoConsoleVariable<int32> CVarSaveEXRCompressionQuality(
 	TEXT("r.SaveEXR.CompressionQuality"),
@@ -88,10 +94,20 @@ bool FHighResScreenshotConfig::ParseConsoleCommand(const FString& InCmd, FOutput
 	GScreenshotResolutionY = 0;
 	ResolutionMultiplier = 1.0f;
 
-	if( GetHighResScreenShotInput(*InCmd, Ar, GScreenshotResolutionX, GScreenshotResolutionY, ResolutionMultiplier, CaptureRegion, bMaskEnabled) )
+	if( GetHighResScreenShotInput(*InCmd, Ar, GScreenshotResolutionX, GScreenshotResolutionY, ResolutionMultiplier, CaptureRegion, bMaskEnabled, bDumpBufferVisualizationTargets, bCaptureHDR) )
 	{
 		GScreenshotResolutionX *= ResolutionMultiplier;
 		GScreenshotResolutionY *= ResolutionMultiplier;
+
+		uint32 MaxTextureDimension = GetMax2DTextureDimension();
+
+		// Check that we can actually create a destination texture of this size
+		if ( GScreenshotResolutionX > MaxTextureDimension || GScreenshotResolutionY > MaxTextureDimension )
+		{
+			Ar.Logf(TEXT("Error: Screenshot size exceeds the maximum allowed texture size (%d x %d)"), GetMax2DTextureDimension(), GetMax2DTextureDimension());
+			return false;
+		}
+
 		GIsHighResScreenshot = true;
 
 		return true;
@@ -132,6 +148,26 @@ bool FHighResScreenshotConfig::MergeMaskIntoAlpha(TArray<FColor>& InBitmap)
 void FHighResScreenshotConfig::SetHDRCapture(bool bCaptureHDRIN)
 {
 	bCaptureHDR = bCaptureHDRIN;
+}
+
+bool FHighResScreenshotConfig::SetResolution(uint32 ResolutionX, uint32 ResolutionY, float ResolutionScale)
+{
+	if ( ResolutionX > GetMax2DTextureDimension() || ResolutionY > GetMax2DTextureDimension() )
+	{
+		// TODO LOG
+		//Ar.Logf(TEXT("Error: Screenshot size exceeds the maximum allowed texture size (%d x %d)"), GetMax2DTextureDimension(), GetMax2DTextureDimension());
+		return false;
+	}
+
+	UnscaledCaptureRegion = FIntRect(0, 0, 0, 0);
+	CaptureRegion = UnscaledCaptureRegion;
+	bMaskEnabled = false;
+
+	GScreenshotResolutionX = ResolutionX;
+	GScreenshotResolutionY = ResolutionY;
+	GIsHighResScreenshot = true;
+
+	return true;
 }
 
 template<typename> struct FPixelTypeTraits {};

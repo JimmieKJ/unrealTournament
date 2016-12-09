@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "SBlueprintProfilerToolbar.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "BlueprintEditor.h"
+#include "Profiler/SBlueprintProfilerToolbar.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SBlueprintProfilerView

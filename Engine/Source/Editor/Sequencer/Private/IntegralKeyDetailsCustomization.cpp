@@ -1,11 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "IntegralKeyDetailsCustomization.h"
-#include "PropertyEditing.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateTypes.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
 #include "DetailLayoutBuilder.h"
-#include "MovieSceneBoolSection.h"
-#include "MovieSceneParticleSection.h"
+#include "Curves/IntegralCurve.h"
+#include "Sections/MovieSceneBoolSection.h"
+#include "Sections/MovieSceneParticleSection.h"
 #include "MovieSceneToolHelpers.h"
 
 #define LOCTEXT_NAMESPACE "IntegralKeyDetailsCustomization"
@@ -60,8 +67,7 @@ void FIntegralKeyDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& De
 					FOnEnumSelectionChanged::CreateLambda([ValueProperty](int32 Selection, ESelectInfo::Type SelectionType)
 					{
 						ValueProperty->SetValue(Selection);
-					}),
-					TAttribute<TOptional<uint8>>());
+					}));
 			}
 			else
 			{

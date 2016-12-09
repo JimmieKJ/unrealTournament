@@ -1,17 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
-
-#include "Persona.h"
 #include "SSkeletonAnimNotifies.h"
-#include "AssetRegistryModule.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "AssetData.h"
+#include "Animation/AnimSequenceBase.h"
+#include "EditorStyleSet.h"
+#include "Animation/EditorSkeletonNotifyObj.h"
+
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "ScopedTransaction.h"
-#include "SSearchBox.h"
-#include "SInlineEditableTextBlock.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "BlueprintActionDatabase.h"
+#include "IEditableSkeleton.h"
+#include "TabSpawners.h"
 
 #define LOCTEXT_NAMESPACE "SkeletonAnimNotifies"
 
@@ -35,9 +38,6 @@ public:
 	/* Widget used to display the list of morph targets */
 	SLATE_ARGUMENT( TSharedPtr<SSkeletonAnimNotifies>, NotifiesListView )
 
-	/* Persona used to update the viewport when a weight slider is dragged */
-	SLATE_ARGUMENT( TWeakPtr<FPersona>, Persona )
-
 	SLATE_END_ARGS()
 
 	void Construct( const FArguments& InArgs, const TSharedRef<STableViewBase>& OwnerTableView );
@@ -52,16 +52,12 @@ private:
 
 	/** The notify being displayed by this row */
 	FDisplayedAnimNotifyInfoPtr	Item;
-
-	/** Pointer back to the Persona that owns us */
-	TWeakPtr<FPersona> PersonaPtr;
 };
 
 void SAnimNotifyListRow::Construct( const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView )
 {
 	Item = InArgs._Item;
 	NotifiesListView = InArgs._NotifiesListView;
-	PersonaPtr = InArgs._Persona;
 
 	check( Item.IsValid() );
 
@@ -89,8 +85,12 @@ TSharedRef< SWidget > SAnimNotifyListRow::GenerateWidgetForColumn( const FName& 
 /////////////////////////////////////////////////////
 // FSkeletonAnimNotifiesSummoner
 
-FSkeletonAnimNotifiesSummoner::FSkeletonAnimNotifiesSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp)
+FSkeletonAnimNotifiesSummoner::FSkeletonAnimNotifiesSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnChangeAnimNotifies, FSimpleMulticastDelegate& InOnPostUndo, FOnObjectsSelected InOnObjectsSelected)
 	: FWorkflowTabFactory(FPersonaTabs::SkeletonAnimNotifiesID, InHostingApp)
+	, EditableSkeleton(InEditableSkeleton)
+	, OnChangeAnimNotifies(InOnChangeAnimNotifies)
+	, OnPostUndo(InOnPostUndo)
+	, OnObjectsSelected(InOnObjectsSelected)
 {
 	TabLabel = LOCTEXT("SkeletonAnimNotifiesTabTitle", "Animation Notifies");
 	TabIcon = FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.Tabs.AnimationNotifies");
@@ -104,20 +104,20 @@ FSkeletonAnimNotifiesSummoner::FSkeletonAnimNotifiesSummoner(TSharedPtr<class FA
 
 TSharedRef<SWidget> FSkeletonAnimNotifiesSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
 {
-	return SNew(SSkeletonAnimNotifies)
-		.Persona(StaticCastSharedPtr<FPersona>(HostingApp.Pin()));
+	return SNew(SSkeletonAnimNotifies, EditableSkeleton.Pin().ToSharedRef(), OnChangeAnimNotifies, OnPostUndo)
+		.OnObjectsSelected(OnObjectsSelected);
 }
 
 /////////////////////////////////////////////////////
 // SSkeletonAnimNotifies
 
-void SSkeletonAnimNotifies::Construct(const FArguments& InArgs)
+void SSkeletonAnimNotifies::Construct(const FArguments& InArgs, const TSharedRef<IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnChangeAnimNotifies, FSimpleMulticastDelegate& InOnPostUndo)
 {
-	PersonaPtr = InArgs._Persona;
-	TargetSkeleton = PersonaPtr.Pin()->GetSkeleton();
+	OnObjectsSelected = InArgs._OnObjectsSelected;
+	EditableSkeleton = InEditableSkeleton;
 
-	PersonaPtr.Pin()->RegisterOnPostUndo(FPersona::FOnPostUndo::CreateSP( this, &SSkeletonAnimNotifies::PostUndo ) );
-	PersonaPtr.Pin()->RegisterOnChangeAnimNotifies(FPersona::FOnAnimNotifiesChanged::CreateSP( this, &SSkeletonAnimNotifies::RefreshNotifiesListWithFilter ) );
+	InOnChangeAnimNotifies.Add(FSimpleDelegate::CreateSP( this, &SSkeletonAnimNotifies::PostUndo ) );
+	InOnPostUndo.Add(FSimpleDelegate::CreateSP( this, &SSkeletonAnimNotifies::RefreshNotifiesListWithFilter ) );
 
 	this->ChildSlot
 	[
@@ -155,15 +155,6 @@ void SSkeletonAnimNotifies::Construct(const FArguments& InArgs)
 	CreateNotifiesList();
 }
 
-SSkeletonAnimNotifies::~SSkeletonAnimNotifies()
-{
-	if ( PersonaPtr.IsValid() )
-	{
-		PersonaPtr.Pin()->UnregisterOnPostUndo( this );
-		PersonaPtr.Pin()->UnregisterOnChangeAnimNotifies( this );
-	}
-}
-
 void SSkeletonAnimNotifies::OnFilterTextChanged( const FText& SearchText )
 {
 	FilterText = SearchText;
@@ -183,7 +174,6 @@ TSharedRef<ITableRow> SSkeletonAnimNotifies::GenerateNotifyRow(TSharedPtr<FDispl
 
 	return
 		SNew( SAnimNotifyListRow, OwnerTable )
-		.Persona( PersonaPtr )
 		.Item( InInfo )
 		.NotifiesListView( SharedThis( this ) );
 }
@@ -240,50 +230,15 @@ void SSkeletonAnimNotifies::OnDeleteAnimNotify()
 {
 	TArray< TSharedPtr< FDisplayedAnimNotifyInfo > > SelectedRows = NotifiesListView->GetSelectedItems();
 
-	const FScopedTransaction Transaction( LOCTEXT("DeleteAnimNotify", "Delete Anim Notify") );
-
 	// this one deletes all notifies with same name. 
 	TArray<FName> SelectedNotifyNames;
-	TargetSkeleton->Modify();
 
 	for(int Selection = 0; Selection < SelectedRows.Num(); ++Selection)
 	{
-		FName& SelectedName = SelectedRows[Selection]->Name;
-		TargetSkeleton->AnimationNotifies.Remove(SelectedName);
-		SelectedNotifyNames.Add(SelectedName);
+		SelectedNotifyNames.Add(SelectedRows[Selection]->Name);
 	}
 
-	TArray<FAssetData> CompatibleAnimSequences;
-	GetCompatibleAnimSequences(CompatibleAnimSequences);
-
-	int32 NumAnimationsModified = 0;
-
-	for( int32 AssetIndex = 0; AssetIndex < CompatibleAnimSequences.Num(); ++AssetIndex )
-	{
-		const FAssetData& PossibleAnimSequence = CompatibleAnimSequences[AssetIndex];
-		UAnimSequenceBase* Sequence = Cast<UAnimSequenceBase>(PossibleAnimSequence.GetAsset());
-
-		bool SequenceModified = false;
-		for(int32 NotifyIndex = Sequence->Notifies.Num()-1; NotifyIndex >= 0; --NotifyIndex)
-		{
-			FAnimNotifyEvent& AnimNotify = Sequence->Notifies[NotifyIndex];
-			if(SelectedNotifyNames.Contains(AnimNotify.NotifyName))
-			{
-				if(!SequenceModified)
-				{
-					Sequence->Modify();
-					++NumAnimationsModified;
-					SequenceModified = true;
-				}
-				Sequence->Notifies.RemoveAtSwap(NotifyIndex);
-			}
-		}
-
-		if(SequenceModified)
-		{
-			Sequence->MarkPackageDirty();
-		}
-	}
+	int32 NumAnimationsModified = EditableSkeleton->DeleteAnimNotifies(SelectedNotifyNames);
 
 	if(NumAnimationsModified > 0)
 	{
@@ -297,8 +252,6 @@ void SSkeletonAnimNotifies::OnDeleteAnimNotify()
 
 		NotifyUser( Info );
 	}
-
-	FBlueprintActionDatabase::Get().RefreshAssetActions(TargetSkeleton);
 
 	CreateNotifiesList( NameFilterBox->GetText().ToString() );
 }
@@ -325,7 +278,7 @@ bool SSkeletonAnimNotifies::OnVerifyNotifyNameCommit( const FText& NewName, FTex
 	FName NotifyName( *NewName.ToString() );
 	if(NotifyName != Item->Name)
 	{
-		if(TargetSkeleton->AnimationNotifies.Contains(NotifyName))
+		if(EditableSkeleton->GetSkeleton().AnimationNotifies.Contains(NotifyName))
 		{
 			OutErrorMessage = FText::Format( LOCTEXT("AlreadyInUseMessage", "'{0}' is already in use."), NewName );
 			bValid = false;
@@ -337,47 +290,7 @@ bool SSkeletonAnimNotifies::OnVerifyNotifyNameCommit( const FText& NewName, FTex
 
 void SSkeletonAnimNotifies::OnNotifyNameCommitted( const FText& NewName, ETextCommit::Type, TSharedPtr<FDisplayedAnimNotifyInfo> Item )
 {
-	const FScopedTransaction Transaction( LOCTEXT("RenameAnimNotify", "Rename Anim Notify") );
-
-	FName NewNotifyName = FName( *NewName.ToString() );
-	FName NotifyToRename = Item->Name;
-
-	// rename notify in skeleton
-	TargetSkeleton->Modify();
-	int32 Index = TargetSkeleton->AnimationNotifies.IndexOfByKey(NotifyToRename);
-	TargetSkeleton->AnimationNotifies[Index] = NewNotifyName;
-
-	TArray<FAssetData> CompatibleAnimSequences;
-	GetCompatibleAnimSequences(CompatibleAnimSequences);
-
-	int32 NumAnimationsModified = 0;
-
-	for( int32 AssetIndex = 0; AssetIndex < CompatibleAnimSequences.Num(); ++AssetIndex )
-	{
-		const FAssetData& PossibleAnimSequence = CompatibleAnimSequences[AssetIndex];
-		UAnimSequenceBase* Sequence = Cast<UAnimSequenceBase>(PossibleAnimSequence.GetAsset());
-
-		bool SequenceModified = false;
-		for(int32 NotifyIndex = Sequence->Notifies.Num()-1; NotifyIndex >= 0; --NotifyIndex)
-		{
-			FAnimNotifyEvent& AnimNotify = Sequence->Notifies[NotifyIndex];
-			if(NotifyToRename == AnimNotify.NotifyName)
-			{
-				if(!SequenceModified)
-				{
-					Sequence->Modify();
-					++NumAnimationsModified;
-					SequenceModified = true;
-				}	
-				AnimNotify.NotifyName = NewNotifyName;
-			}
-		}
-
-		if(SequenceModified)
-		{
-			Sequence->MarkPackageDirty();
-		}
-	}
+	int32 NumAnimationsModified = EditableSkeleton->RenameNotify(FName(*NewName.ToString()), Item->Name);
 
 	if(NumAnimationsModified > 0)
 	{
@@ -404,22 +317,19 @@ void SSkeletonAnimNotifies::CreateNotifiesList( const FString& SearchText )
 {
 	NotifyList.Empty();
 
-	if ( TargetSkeleton )
+	for(int i = 0; i < EditableSkeleton->GetSkeleton().AnimationNotifies.Num(); ++i)
 	{
-		for(int i = 0; i < TargetSkeleton->AnimationNotifies.Num(); ++i)
+		const FName& NotifyName = EditableSkeleton->GetSkeleton().AnimationNotifies[i];
+		if ( !SearchText.IsEmpty() )
 		{
-			FName& NotifyName = TargetSkeleton->AnimationNotifies[i];
-			if ( !SearchText.IsEmpty() )
-			{
-				if ( NotifyName.ToString().Contains( SearchText ) )
-				{
-					NotifyList.Add( FDisplayedAnimNotifyInfo::Make( NotifyName ) );
-				}
-			}
-			else
+			if ( NotifyName.ToString().Contains( SearchText ) )
 			{
 				NotifyList.Add( FDisplayedAnimNotifyInfo::Make( NotifyName ) );
 			}
+		}
+		else
+		{
+			NotifyList.Add( FDisplayedAnimNotifyInfo::Make( NotifyName ) );
 		}
 	}
 
@@ -434,7 +344,7 @@ void SSkeletonAnimNotifies::ShowNotifyInDetailsView(FName NotifyName)
 		Obj->AnimationNames.Empty();
 
 		TArray<FAssetData> CompatibleAnimSequences;
-		GetCompatibleAnimSequences(CompatibleAnimSequences);
+		EditableSkeleton->GetCompatibleAnimSequences(CompatibleAnimSequences);
 
 		for( int32 AssetIndex = 0; AssetIndex < CompatibleAnimSequences.Num(); ++AssetIndex )
 		{
@@ -455,43 +365,23 @@ void SSkeletonAnimNotifies::ShowNotifyInDetailsView(FName NotifyName)
 	}
 }
 
-void SSkeletonAnimNotifies::GetCompatibleAnimSequences(TArray<class FAssetData>& OutAssets)
-{
-	//Get the skeleton tag to search for
-	FString SkeletonExportName = FAssetData(TargetSkeleton).GetExportTextName();
-
-	// Load the asset registry module
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-
-	TArray<FAssetData> AssetDataList;
-	AssetRegistryModule.Get().GetAssetsByClass(UAnimSequenceBase::StaticClass()->GetFName(), AssetDataList, true);
-
-	OutAssets.Empty(AssetDataList.Num());
-
-	for( int32 AssetIndex = 0; AssetIndex < AssetDataList.Num(); ++AssetIndex )
-	{
-		const FAssetData& PossibleAnimSequence = AssetDataList[AssetIndex];
-		if( SkeletonExportName == PossibleAnimSequence.GetTagValueRef<FString>("Skeleton") )
-		{
-			OutAssets.Add( PossibleAnimSequence );
-		}
-	}
-}
-
 UObject* SSkeletonAnimNotifies::ShowInDetailsView( UClass* EdClass )
 {
 	UObject *Obj = EditorObjectTracker.GetEditorObjectForClass(EdClass);
 
 	if(Obj != NULL)
 	{
-		PersonaPtr.Pin()->SetDetailObject(Obj);
+		TArray<UObject*> Objects;
+		Objects.Add(Obj);
+		OnObjectsSelected.ExecuteIfBound(Objects);
 	}
 	return Obj;
 }
 
 void SSkeletonAnimNotifies::ClearDetailsView()
 {
-	PersonaPtr.Pin()->SetDetailObject(NULL);
+	TArray<UObject*> Objects;
+	OnObjectsSelected.ExecuteIfBound(Objects);
 }
 
 void SSkeletonAnimNotifies::PostUndo()

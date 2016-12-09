@@ -2,15 +2,16 @@
 
 #pragma once
 
-/*-----------------------------------------------------------------------------
-	Declarations
------------------------------------------------------------------------------*/
+#include "CoreMinimal.h"
+#include "ProfilerSample.h"
+
 
 struct FProfilerFPSChartEntry
 {
 	int32 Count;
 	double CummulativeTime;
 };
+
 
 enum FPSChartBins
 {
@@ -36,10 +37,14 @@ enum FPSChartBins
 	FPSBin_LastBucketStat,
 
 };
+
+
 /** Implements a frame rate analyzer */
-class FFPSAnalyzer : public IHistogramDataSource
+class FFPSAnalyzer
+	: public IHistogramDataSource
 {
 public:
+
 	FFPSAnalyzer(int32 InInterval, int32 InMinVal, int32 InMaxVal)
 	{
 		Interval = InInterval;
@@ -48,18 +53,15 @@ public:
 		Reset();
 	}
 
-	virtual ~FFPSAnalyzer()
-	{}
-
+	virtual ~FFPSAnalyzer() { }
 	virtual int32 GetCount(float MinVal, float MaxVal) override;
-
 	virtual int32 GetTotalCount() override;
 
 	void Reset();
-
-	void AddSample( float FPSSample );
-
+	void AddSample(float FPSSample);
 	SIZE_T GetMemoryUsage() const;
+
+public:
 
 	TArray<float> Samples;
 	TArray<FProfilerFPSChartEntry> Histogram;

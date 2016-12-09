@@ -4,30 +4,40 @@
 	LandscapeSpline.cpp
 =============================================================================*/
 
-#include "LandscapePrivatePCH.h"
-#include "Landscape.h"
-#include "Components/SplineMeshComponent.h"
-#include "LandscapeStreamingProxy.h"
+#include "CoreMinimal.h"
+#include "GenericPlatform/GenericPlatformStackWalk.h"
+#include "Misc/Guid.h"
+#include "Math/RandomStream.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/Casts.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/EngineTypes.h"
+#include "HitProxies.h"
+#include "PrimitiveViewRelevance.h"
+#include "PrimitiveSceneProxy.h"
+#include "LandscapeProxy.h"
+#include "Engine/Texture2D.h"
+#include "SceneManagement.h"
 #include "LandscapeComponent.h"
-#include "ShaderParameterUtils.h"
-#include "StaticMeshResources.h"
+#include "LandscapeVersion.h"
+#include "Components/SplineMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "LandscapeSplineProxies.h"
 #include "LandscapeSplinesComponent.h"
-#include "LandscapeSplineControlPoint.h"
 #include "LandscapeSplineSegment.h"
+#include "LandscapeSplineRaster.h"
+#include "LandscapeSplineControlPoint.h"
 #include "ControlPointMeshComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/Engine.h"
-#include "EngineGlobals.h"
-#include "Engine/StaticMesh.h"
-#include "Engine/StaticMeshSocket.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "Engine/StaticMeshSocket.h"
+#include "EngineGlobals.h"
 #if WITH_EDITOR
-#include "LandscapeSplineRaster.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 #endif
-#include "LandscapeVersion.h"
 
 IMPLEMENT_HIT_PROXY(HLandscapeSplineProxy, HHitProxy);
 IMPLEMENT_HIT_PROXY(HLandscapeSplineProxy_Segment, HLandscapeSplineProxy);
@@ -847,21 +857,13 @@ TArray<ULandscapeSplinesComponent*> ULandscapeSplinesComponent::GetAllStreamingS
 		if (LandscapeInfo)
 		{
 			TArray<ULandscapeSplinesComponent*> SplinesComponents;
-			SplinesComponents.Reserve(LandscapeInfo->Proxies.Num() + 1);
-
-			ALandscape* RootLandscape = LandscapeInfo->LandscapeActor.Get();
-			if (RootLandscape && RootLandscape->SplineComponent)
+			LandscapeInfo->ForAllLandscapeProxies([&SplinesComponents](ALandscapeProxy* Proxy)
 			{
-				SplinesComponents.Add(RootLandscape->SplineComponent);
-			}
-			for (ALandscapeProxy* LandscapeProxy : LandscapeInfo->Proxies)
-			{
-				if (LandscapeProxy && LandscapeProxy->SplineComponent)
+				if (Proxy->SplineComponent)
 				{
-					SplinesComponents.Add(LandscapeProxy->SplineComponent);
+					SplinesComponents.Add(Proxy->SplineComponent);
 				}
-			}
-
+			});
 			return SplinesComponents;
 		}
 	}
@@ -901,14 +903,14 @@ void ULandscapeSplinesComponent::UpdateModificationKey(ULandscapeSplineControlPo
 
 void ULandscapeSplinesComponent::AddForeignMeshComponent(ULandscapeSplineSegment* Owner, USplineMeshComponent* Component)
 {
+	UWorld* OwnerWorld = Owner->GetTypedOuter<UWorld>();
+
 #if DO_GUARD_SLOW
 	UWorld* ThisOuterWorld = GetTypedOuter<UWorld>();
 	UWorld* ComponentOuterWorld = Component->GetTypedOuter<UWorld>();
 	checkSlow(ComponentOuterWorld == ThisOuterWorld);
-#endif
-
-	UWorld* OwnerWorld = Owner->GetTypedOuter<UWorld>();
 	checkSlow(OwnerWorld != ThisOuterWorld);
+#endif
 
 	auto& ForeignWorldSplineData = ForeignWorldSplineDataMap.FindOrAdd(OwnerWorld);
 	auto& ForeignSplineSegmentData = ForeignWorldSplineData.ForeignSplineSegmentDataMap.FindOrAdd(Owner);
@@ -920,14 +922,14 @@ void ULandscapeSplinesComponent::AddForeignMeshComponent(ULandscapeSplineSegment
 
 void ULandscapeSplinesComponent::RemoveForeignMeshComponent(ULandscapeSplineSegment* Owner, USplineMeshComponent* Component)
 {
+	UWorld* OwnerWorld = Owner->GetTypedOuter<UWorld>();
+
 #if DO_GUARD_SLOW
 	UWorld* ThisOuterWorld = GetTypedOuter<UWorld>();
 	UWorld* ComponentOuterWorld = Component->GetTypedOuter<UWorld>();
 	checkSlow(ComponentOuterWorld == ThisOuterWorld);
-#endif
-
-	UWorld* OwnerWorld = Owner->GetTypedOuter<UWorld>();
 	checkSlow(OwnerWorld != ThisOuterWorld);
+#endif
 
 	auto* ForeignWorldSplineData = ForeignWorldSplineDataMap.Find(OwnerWorld);
 	checkSlow(ForeignWorldSplineData);
@@ -981,14 +983,14 @@ void ULandscapeSplinesComponent::RemoveAllForeignMeshComponents(ULandscapeSpline
 
 void ULandscapeSplinesComponent::AddForeignMeshComponent(ULandscapeSplineControlPoint* Owner, UControlPointMeshComponent* Component)
 {
+	UWorld* OwnerWorld = Owner->GetTypedOuter<UWorld>();
+
 #if DO_GUARD_SLOW
 	UWorld* ThisOuterWorld = GetTypedOuter<UWorld>();
 	UWorld* ComponentOuterWorld = Component->GetTypedOuter<UWorld>();
 	checkSlow(ComponentOuterWorld == ThisOuterWorld);
-#endif
-
-	UWorld* OwnerWorld = Owner->GetTypedOuter<UWorld>();
 	checkSlow(OwnerWorld != ThisOuterWorld);
+#endif
 
 	auto& ForeignWorldSplineData = ForeignWorldSplineDataMap.FindOrAdd(OwnerWorld);
 	checkSlow(!ForeignWorldSplineData.ForeignControlPointDataMap.Find(Owner));
@@ -1002,14 +1004,14 @@ void ULandscapeSplinesComponent::AddForeignMeshComponent(ULandscapeSplineControl
 
 void ULandscapeSplinesComponent::RemoveForeignMeshComponent(ULandscapeSplineControlPoint* Owner, UControlPointMeshComponent* Component)
 {
+	UWorld* OwnerWorld = Owner->GetTypedOuter<UWorld>();
+
 #if DO_GUARD_SLOW
 	UWorld* ThisOuterWorld = GetTypedOuter<UWorld>();
 	UWorld* ComponentOuterWorld = Component->GetTypedOuter<UWorld>();
 	checkSlow(ComponentOuterWorld == ThisOuterWorld);
-#endif
-
-	UWorld* OwnerWorld = Owner->GetTypedOuter<UWorld>();
 	checkSlow(OwnerWorld != ThisOuterWorld);
+#endif
 
 	auto* ForeignWorldSplineData = ForeignWorldSplineDataMap.Find(OwnerWorld);
 	checkSlow(ForeignWorldSplineData);
@@ -1470,7 +1472,7 @@ void ULandscapeSplineControlPoint::UpdateSplinePoints(bool bUpdateCollision, boo
 			MeshComponent->InvalidateLightingCache();
 		}
 
-		if (MeshComponent->StaticMesh != Mesh)
+		if (MeshComponent->GetStaticMesh() != Mesh)
 		{
 			MeshComponent->Modify();
 			MeshComponent->UnregisterComponent();
@@ -1809,7 +1811,7 @@ void ULandscapeSplineSegment::PostLoad()
 		{
 			for (auto* LocalMeshComponent : LocalMeshComponents)
 			{
-				if (LocalMeshComponent->StaticMesh == nullptr)
+				if (LocalMeshComponent->GetStaticMesh() == nullptr)
 				{
 					LocalMeshComponent->ConditionalPostLoad();
 					LocalMeshComponent->SetStaticMesh(OuterSplines->SplineEditorMesh);
@@ -2201,7 +2203,7 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 		for (int32 i = 0; i < MeshComponents.Num(); i++)
 		{
 			USplineMeshComponent* const MeshComponent = MeshComponents[i];
-			const UStaticMesh* const Mesh = MeshComponent->StaticMesh;
+			const UStaticMesh* const Mesh = MeshComponent->GetStaticMesh();
 			const FBoxSphereBounds MeshBounds = Mesh->GetBounds();
 
 			const float RescaledT = MeshSettings[i].T * Rescale;

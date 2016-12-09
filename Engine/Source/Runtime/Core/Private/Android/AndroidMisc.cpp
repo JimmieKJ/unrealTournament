@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "AndroidMisc.h"
 #include "AndroidInputInterface.h"
 #include "AndroidApplication.h"
+#include "HAL/PlatformStackWalk.h"
+#include "Misc/FileHelper.h"
 #include <android/log.h>
 #include <cpu-features.h>
 #include "ModuleManager.h"
@@ -16,6 +18,7 @@
 #include "GenericPlatformChunkInstall.h"
 
 #include <android_native_app_glue.h>
+#include "Function.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogEngine, Log, All);
 
@@ -111,9 +114,13 @@ void FAndroidMisc::LoadPreInitModules()
 	FModuleManager::Get().LoadModule(TEXT("AndroidAudio"));
 }
 
+// Test for device vulkan support.
+static void EstablishVulkanDeviceSupport();
+
 void FAndroidMisc::PlatformPreInit()
 {
 	FGenericPlatformMisc::PlatformPreInit();
+	EstablishVulkanDeviceSupport();
 	FAndroidAppEntry::PlatformInit();
 }
 
@@ -383,12 +390,6 @@ bool FAndroidMisc::AllowRenderThread()
 	const IConsoleVariable *const CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.AndroidDisableThreadedRendering"));
 	if (CVar && CVar->GetInt() != 0)
 	{
-		return false;
-	}
-
-	if (FAndroidMisc::ShouldUseVulkan())
-	{
-		// @todo vulkan: stop forcing no RT!
 		return false;
 	}
 
@@ -720,7 +721,7 @@ class IPlatformChunkInstall* FAndroidMisc::GetPlatformChunkInstall()
 		else
 		{
 			// Placeholder instance
-			ChunkInstall = new FGenericPlatformChunkInstall();
+			ChunkInstall = FGenericPlatformMisc::GetPlatformChunkInstall();
 		}
 	}
 
@@ -1070,6 +1071,17 @@ int32 FAndroidMisc::GetAndroidBuildVersion()
 	return AndroidBuildVersion;
 }
 
+bool FAndroidMisc::ShouldDisablePluginAtRuntime(const FString& PluginName)
+{
+#if PLATFORM_ANDROID_ARM64 || PLATFORM_ANDROID_X64
+	// disable OnlineSubsystemGooglePlay for unsupported Android architectures
+	if (PluginName.Equals(TEXT("OnlineSubsystemGooglePlay")))
+	{
+		return true;
+	}
+#endif
+	return false;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -1096,11 +1108,17 @@ int32 FAndroidMisc::GetAndroidBuildVersion()
 #define VK_MAKE_VERSION(major, minor, patch) \
     (((major) << 22) | ((minor) << 12) | (patch))
 
+#define VK_VERSION_MAJOR(version) ((uint32)(version) >> 22)
+#define VK_VERSION_MINOR(version) (((uint32)(version) >> 12) & 0x3ff)
+#define VK_VERSION_PATCH(version) ((uint32)(version) & 0xfff)
+
 typedef uint32 VkFlags;
+typedef uint32 VkBool32;
 
 #define VK_DEFINE_HANDLE(object) typedef struct object##_T* object;
 
 VK_DEFINE_HANDLE(VkInstance)
+VK_DEFINE_HANDLE(VkPhysicalDevice)
 
 typedef enum VkResult {
 	VK_SUCCESS = 0,
@@ -1171,26 +1189,188 @@ typedef struct VkAllocationCallbacks {
 	void*	pfnInternalFree;
 } VkAllocationCallbacks;
 
+typedef uint64 VkDeviceSize;
+typedef VkFlags VkSampleCountFlags;
+
+typedef struct VkPhysicalDeviceLimits {
+	uint32				maxImageDimension1D;
+	uint32				maxImageDimension2D;
+	uint32				maxImageDimension3D;
+	uint32				maxImageDimensionCube;
+	uint32				maxImageArrayLayers;
+	uint32				maxTexelBufferElements;
+	uint32				maxUniformBufferRange;
+	uint32				maxStorageBufferRange;
+	uint32				maxPushConstantsSize;
+	uint32				maxMemoryAllocationCount;
+	uint32				maxSamplerAllocationCount;
+	VkDeviceSize		bufferImageGranularity;
+	VkDeviceSize		sparseAddressSpaceSize;
+	uint32				maxBoundDescriptorSets;
+	uint32				maxPerStageDescriptorSamplers;
+	uint32				maxPerStageDescriptorUniformBuffers;
+	uint32				maxPerStageDescriptorStorageBuffers;
+	uint32				maxPerStageDescriptorSampledImages;
+	uint32				maxPerStageDescriptorStorageImages;
+	uint32				maxPerStageDescriptorInputAttachments;
+	uint32				maxPerStageResources;
+	uint32				maxDescriptorSetSamplers;
+	uint32				maxDescriptorSetUniformBuffers;
+	uint32				maxDescriptorSetUniformBuffersDynamic;
+	uint32				maxDescriptorSetStorageBuffers;
+	uint32				maxDescriptorSetStorageBuffersDynamic;
+	uint32				maxDescriptorSetSampledImages;
+	uint32				maxDescriptorSetStorageImages;
+	uint32				maxDescriptorSetInputAttachments;
+	uint32				maxVertexInputAttributes;
+	uint32				maxVertexInputBindings;
+	uint32				maxVertexInputAttributeOffset;
+	uint32				maxVertexInputBindingStride;
+	uint32				maxVertexOutputComponents;
+	uint32				maxTessellationGenerationLevel;
+	uint32				maxTessellationPatchSize;
+	uint32				maxTessellationControlPerVertexInputComponents;
+	uint32				maxTessellationControlPerVertexOutputComponents;
+	uint32				maxTessellationControlPerPatchOutputComponents;
+	uint32				maxTessellationControlTotalOutputComponents;
+	uint32				maxTessellationEvaluationInputComponents;
+	uint32				maxTessellationEvaluationOutputComponents;
+	uint32				maxGeometryShaderInvocations;
+	uint32				maxGeometryInputComponents;
+	uint32				maxGeometryOutputComponents;
+	uint32				maxGeometryOutputVertices;
+	uint32				maxGeometryTotalOutputComponents;
+	uint32				maxFragmentInputComponents;
+	uint32				maxFragmentOutputAttachments;
+	uint32				maxFragmentDualSrcAttachments;
+	uint32				maxFragmentCombinedOutputResources;
+	uint32				maxComputeSharedMemorySize;
+	uint32				maxComputeWorkGroupCount[3];
+	uint32				maxComputeWorkGroupInvocations;
+	uint32				maxComputeWorkGroupSize[3];
+	uint32				subPixelPrecisionBits;
+	uint32				subTexelPrecisionBits;
+	uint32				mipmapPrecisionBits;
+	uint32				maxDrawIndexedIndexValue;
+	uint32				maxDrawIndirectCount;
+	float				maxSamplerLodBias;
+	float				maxSamplerAnisotropy;
+	uint32				maxViewports;
+	uint32				maxViewportDimensions[2];
+	float				viewportBoundsRange[2];
+	uint32				viewportSubPixelBits;
+	size_t				minMemoryMapAlignment;
+	VkDeviceSize		minTexelBufferOffsetAlignment;
+	VkDeviceSize		minUniformBufferOffsetAlignment;
+	VkDeviceSize		minStorageBufferOffsetAlignment;
+	int32				minTexelOffset;
+	uint32				maxTexelOffset;
+	int32				minTexelGatherOffset;
+	uint32				maxTexelGatherOffset;
+	float				minInterpolationOffset;
+	float				maxInterpolationOffset;
+	uint32				subPixelInterpolationOffsetBits;
+	uint32				maxFramebufferWidth;
+	uint32				maxFramebufferHeight;
+	uint32				maxFramebufferLayers;
+	VkSampleCountFlags	framebufferColorSampleCounts;
+	VkSampleCountFlags	framebufferDepthSampleCounts;
+	VkSampleCountFlags	framebufferStencilSampleCounts;
+	VkSampleCountFlags	framebufferNoAttachmentsSampleCounts;
+	uint32				maxColorAttachments;
+	VkSampleCountFlags	sampledImageColorSampleCounts;
+	VkSampleCountFlags	sampledImageIntegerSampleCounts;
+	VkSampleCountFlags	sampledImageDepthSampleCounts;
+	VkSampleCountFlags	sampledImageStencilSampleCounts;
+	VkSampleCountFlags	storageImageSampleCounts;
+	uint32				maxSampleMaskWords;
+	VkBool32			timestampComputeAndGraphics;
+	float				timestampPeriod;
+	uint32				maxClipDistances;
+	uint32				maxCullDistances;
+	uint32				maxCombinedClipAndCullDistances;
+	uint32				discreteQueuePriorities;
+	float				pointSizeRange[2];
+	float				lineWidthRange[2];
+	float				pointSizeGranularity;
+	float				lineWidthGranularity;
+	VkBool32			strictLines;
+	VkBool32			standardSampleLocations;
+	VkDeviceSize		optimalBufferCopyOffsetAlignment;
+	VkDeviceSize		optimalBufferCopyRowPitchAlignment;
+	VkDeviceSize		nonCoherentAtomSize;
+} VkPhysicalDeviceLimits;
+
+typedef struct VkPhysicalDeviceSparseProperties {
+	VkBool32	residencyStandard2DBlockShape;
+	VkBool32	residencyStandard2DMultisampleBlockShape;
+	VkBool32	residencyStandard3DBlockShape;
+	VkBool32	residencyAlignedMipSize;
+	VkBool32	residencyNonResidentStrict;
+} VkPhysicalDeviceSparseProperties;
+
+typedef enum VkPhysicalDeviceType {
+	VK_PHYSICAL_DEVICE_TYPE_OTHER = 0,
+	VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU = 1,
+	VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU = 2,
+	VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU = 3,
+	VK_PHYSICAL_DEVICE_TYPE_CPU = 4,
+	VK_PHYSICAL_DEVICE_TYPE_BEGIN_RANGE = VK_PHYSICAL_DEVICE_TYPE_OTHER,
+	VK_PHYSICAL_DEVICE_TYPE_END_RANGE = VK_PHYSICAL_DEVICE_TYPE_CPU,
+	VK_PHYSICAL_DEVICE_TYPE_RANGE_SIZE = (VK_PHYSICAL_DEVICE_TYPE_CPU - VK_PHYSICAL_DEVICE_TYPE_OTHER + 1),
+	VK_PHYSICAL_DEVICE_TYPE_MAX_ENUM = 0x7FFFFFFF
+} VkPhysicalDeviceType;
+
+#define VK_MAX_PHYSICAL_DEVICE_NAME_SIZE 256
+#define VK_UUID_SIZE 16
+
+typedef struct VkPhysicalDeviceProperties {
+	uint32								apiVersion;
+	uint32								driverVersion;
+	uint32								vendorID;
+	uint32								deviceID;
+	VkPhysicalDeviceType				deviceType;
+	char								deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
+	uint8_t								pipelineCacheUUID[VK_UUID_SIZE];
+	VkPhysicalDeviceLimits				limits;
+	VkPhysicalDeviceSparseProperties	sparseProperties;
+} VkPhysicalDeviceProperties;
+
 typedef VkResult(VKAPI_PTR *PFN_vkCreateInstance)(const VkInstanceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkInstance* pInstance);
 typedef void (VKAPI_PTR *PFN_vkDestroyInstance)(VkInstance instance, const VkAllocationCallbacks* pAllocator);
+typedef VkResult(VKAPI_PTR *PFN_vkEnumeratePhysicalDevices)(VkInstance instance, uint32* pPhysicalDeviceCount, VkPhysicalDevice* pPhysicalDevices);
+typedef void (VKAPI_PTR *PFN_vkGetPhysicalDeviceProperties)(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties* pProperties);
 
 ///////////////////////////////////////////////////////////////////////////////
 
 #define UE_VK_API_VERSION	VK_MAKE_VERSION(1, 0, 1)
 
-static bool AttemptVulkanInit(void* VulkanLib)
+enum class EDeviceVulkanSupportStatus
+{
+	Uninitialized,
+	NotSupported,
+	Supported
+};
+
+static FString VulkanVersionString;
+static EDeviceVulkanSupportStatus VulkanSupport = EDeviceVulkanSupportStatus::Uninitialized;
+
+static EDeviceVulkanSupportStatus AttemptVulkanInit(void* VulkanLib)
 {
 	if (VulkanLib == nullptr)
 	{
-		return false;
+		return EDeviceVulkanSupportStatus::NotSupported;
 	}
 
 	// Try to get required functions to check for driver
 	PFN_vkCreateInstance vkCreateInstance = (PFN_vkCreateInstance)dlsym(VulkanLib, "vkCreateInstance");
 	PFN_vkDestroyInstance vkDestroyInstance = (PFN_vkDestroyInstance)dlsym(VulkanLib, "vkDestroyInstance");
-	if (!vkCreateInstance || !vkDestroyInstance)
+	PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices = (PFN_vkEnumeratePhysicalDevices)dlsym(VulkanLib, "vkEnumeratePhysicalDevices");
+	PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties = (PFN_vkGetPhysicalDeviceProperties)dlsym(VulkanLib, "vkGetPhysicalDeviceProperties");
+	
+	if (!vkCreateInstance || !vkDestroyInstance || !vkEnumeratePhysicalDevices || !vkGetPhysicalDeviceProperties)
 	{
-		return false;
+		return EDeviceVulkanSupportStatus::NotSupported;
 	}
 		
 	// try to create instance to verify driver available
@@ -1215,73 +1395,130 @@ static bool AttemptVulkanInit(void* VulkanLib)
 	VkResult Result = vkCreateInstance(&InstInfo, nullptr, &Instance);
 	if (Result != VK_SUCCESS)
 	{
-		return false;
+		return EDeviceVulkanSupportStatus::NotSupported;
 	}
+
+	// Determine Vulkan device's API level.
+	uint32 GpuCount = 0;
+	Result = vkEnumeratePhysicalDevices(Instance, &GpuCount, nullptr);
+	if (Result != VK_SUCCESS || GpuCount == 0)
+	{
+		vkDestroyInstance(Instance, nullptr);
+		return EDeviceVulkanSupportStatus::NotSupported;
+	}
+
+	TArray<VkPhysicalDevice> PhysicalDevices;
+	PhysicalDevices.AddZeroed(GpuCount);
+	Result = vkEnumeratePhysicalDevices(Instance, &GpuCount, PhysicalDevices.GetData());
+	if (Result != VK_SUCCESS)
+	{
+		vkDestroyInstance(Instance, nullptr);
+		return EDeviceVulkanSupportStatus::NotSupported;
+	}
+
+	// Don't care which device - This code is making the assumption that all devices will have same api version.
+	VkPhysicalDeviceProperties DeviceProperties;
+	vkGetPhysicalDeviceProperties(PhysicalDevices[0], &DeviceProperties);
+
+	VulkanVersionString = FString::Printf(TEXT("%d.%d.%d"), VK_VERSION_MAJOR(DeviceProperties.apiVersion), VK_VERSION_MINOR(DeviceProperties.apiVersion), VK_VERSION_PATCH(DeviceProperties.apiVersion));
 	vkDestroyInstance(Instance, nullptr);
-	return true;
+
+	return EDeviceVulkanSupportStatus::Supported;
 }
 
-extern bool AndroidThunkCpp_GetMetaDataBoolean(const FString& Key);
+extern int32 AndroidThunkCpp_GetMetaDataInt(const FString& Key);
 
-bool FAndroidMisc::ShouldUseVulkan()
+// Test for device vulkan support.
+static void EstablishVulkanDeviceSupport()
 {
-#if PLATFORM_ANDROID_VULKAN
 	// just do this check once
-	static int32 ShouldUseVulkanFlag = -1;
-	if (ShouldUseVulkanFlag == -1)
+	check(VulkanSupport == EDeviceVulkanSupportStatus::Uninitialized);
+	// assume no
+	VulkanSupport = EDeviceVulkanSupportStatus::NotSupported;
+	VulkanVersionString = TEXT("0.0.0");
+
+	// make sure the Vulkan RHI is compiled in
+	if (FModuleManager::Get().ModuleExists(TEXT("VulkanRHI")))
 	{
-		// assume no
-		ShouldUseVulkanFlag = 0;
+		FPlatformMisc::LowLevelOutputDebugString(TEXT("Compiled with Vulkan support"));
 
-		// make sure the project setting has enabled Vulkan support (per-project user settings in the editor) from AndroidManifest.xml
-		bool bSupportsVulkan = AndroidThunkCpp_GetMetaDataBoolean(TEXT("com.epicgames.ue4.GameActivity.bSupportsVulkan"));
-		if (bSupportsVulkan && FModuleManager::Get().ModuleExists(TEXT("VulkanRHI")))
+		// does commandline override (using GL or ES2 for legacy commandlines)
+		bool bForceOpenGL = FParse::Param(FCommandLine::Get(), TEXT("GL")) || FParse::Param(FCommandLine::Get(), TEXT("OpenGL")) || FParse::Param(FCommandLine::Get(), TEXT("ES2"));
+
+		if (!bForceOpenGL)
 		{
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("Compiled with Vulkan support"));
-
-			// does commandline override (using GL or ES2 for legacy commandlines)
-			bool bForceOpenGL = FParse::Param(FCommandLine::Get(), TEXT("GL")) || FParse::Param(FCommandLine::Get(), TEXT("OpenGL")) || FParse::Param(FCommandLine::Get(), TEXT("ES2"));
-			static const auto CVarDisableVulkan = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Android.DisableVulkanSupport"));
-			bForceOpenGL = bForceOpenGL || CVarDisableVulkan->GetValueOnAnyThread() == 1;
-			if (!bForceOpenGL)
+			// check for libvulkan.so
+			void* VulkanLib = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+			if (VulkanLib != nullptr)
 			{
-				// check for libvulkan.so
-				void* VulkanLib = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
-				if (VulkanLib != nullptr)
-				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library detected, checking for available driver"));
-					ShouldUseVulkanFlag = AttemptVulkanInit(VulkanLib);
-					dlclose(VulkanLib);
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library detected, checking for available driver"));
 
-					if (ShouldUseVulkanFlag)
+				// if Nougat, we can check the Vulkan version
+				if (FAndroidMisc::GetAndroidBuildVersion() >= 24)
+				{
+					int32 VulkanVersion = AndroidThunkCpp_GetMetaDataInt(TEXT("android.hardware.vulkan.version"));
+					if (VulkanVersion >= UE_VK_API_VERSION)
 					{
-						FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan driver available, will use VulkanRHI"));
-					}
-					else
-					{
-						FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan driver NOT available, falling back to OpenGL ES"));
+						// final check, try initializing the instance
+						VulkanSupport = AttemptVulkanInit(VulkanLib);
 					}
 				}
 				else
 				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library NOT detected, falling back to OpenGL ES"));
+					// otherwise, we need to try initializing the instance
+					VulkanSupport = AttemptVulkanInit(VulkanLib);
+				}
+
+				dlclose(VulkanLib);
+
+				if (VulkanSupport == EDeviceVulkanSupportStatus::Supported)
+				{
+					FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan driver available, will use VulkanRHI"));
+				}
+				else
+				{
+					FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan driver NOT available, falling back to OpenGL ES"));
 				}
 			}
 			else
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("Forced OpenGL ES"));
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library NOT detected, falling back to OpenGL ES"));
 			}
 		}
 		else
 		{
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("Compiled with OpenGL ES support only"));
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("Forced OpenGL ES"));
 		}
 	}
+	else
+	{
+		FPlatformMisc::LowLevelOutputDebugString(TEXT("Compiled with OpenGL ES support only"));
+	}
+}
 
-	return ShouldUseVulkanFlag == 1;
-#else
-	return false;
-#endif
+bool FAndroidMisc::ShouldUseVulkan()
+{
+	check(VulkanSupport != EDeviceVulkanSupportStatus::Uninitialized);
+	static const auto CVarDisableVulkan = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Android.DisableVulkanSupport"));
+
+	bool bSupportsVulkan = false;
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bSupportsVulkan"), bSupportsVulkan, GEngineIni);
+
+	return bSupportsVulkan && VulkanSupport == EDeviceVulkanSupportStatus::Supported && CVarDisableVulkan->GetValueOnAnyThread() == 0;
+}
+
+FString FAndroidMisc::GetVulkanVersion()
+{
+	check(VulkanSupport != EDeviceVulkanSupportStatus::Uninitialized);
+	return VulkanVersionString;
+}
+
+extern bool AndroidThunkCpp_HasMetaDataKey(const FString& Key);
+
+bool FAndroidMisc::IsDaydreamApplication()
+{
+	static const bool bIsDaydreamApplication = AndroidThunkCpp_HasMetaDataKey(TEXT("com.epicgames.ue4.GameActivity.bDaydream"));
+	return bIsDaydreamApplication;
 }
 
 #if !UE_BUILD_SHIPPING
@@ -1321,6 +1558,12 @@ int FAndroidMisc::GetVolumeState(double* OutTimeOfChangeInSec)
 	return v;
 }
 
+const TCHAR* FAndroidMisc::GamePersistentDownloadDir()
+{
+	extern FString GExternalFilePath;
+	return *GExternalFilePath;
+}
+
 FAndroidMisc::FBatteryState FAndroidMisc::GetBatteryState()
 {
 	FBatteryState CurState;
@@ -1335,3 +1578,20 @@ bool FAndroidMisc::AreHeadPhonesPluggedIn()
 	return HeadPhonesArePluggedIn;
 }
 
+bool FAndroidMisc::HasActiveWiFiConnection()
+{
+	extern bool AndroidThunkCpp_HasActiveWiFiConnection();
+	return AndroidThunkCpp_HasActiveWiFiConnection();
+}
+
+static FAndroidMisc::ReInitWindowCallbackType OnReInitWindowCallback;
+
+FAndroidMisc::ReInitWindowCallbackType FAndroidMisc::GetOnReInitWindowCallback()
+{
+	return OnReInitWindowCallback;
+}
+
+void FAndroidMisc::SetOnReInitWindowCallback(FAndroidMisc::ReInitWindowCallbackType InOnReInitWindowCallback)
+{
+	OnReInitWindowCallback = InOnReInitWindowCallback;
+}

@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealHeaderTool.h"
 #include "ParserHelper.h"
-#include "DefaultValueHelper.h"
+#include "UnrealHeaderTool.h"
+#include "Misc/DefaultValueHelper.h"
 #include "UHTMakefile/UHTMakefile.h"
 
 /////////////////////////////////////////////////////
@@ -258,17 +258,17 @@ bool FFunctionData::TryFindForFunction(UFunction* Function, FFunctionData*& OutD
 
 FClassMetaData* FCompilerMetadataManager::AddClassData(UStruct* Struct, FUHTMakefile& UHTMakefile, FUnrealSourceFile* UnrealSourceFile)
 {
-	TScopedPointer<FClassMetaData>* pClassData = Find(Struct);
+	TUniquePtr<FClassMetaData>* pClassData = Find(Struct);
 	if (pClassData == NULL)
 	{
 		pClassData = &Emplace(Struct, new FClassMetaData());
 		if (UnrealSourceFile)
 		{
-			UHTMakefile.AddClassMetaData(UnrealSourceFile, *pClassData);
+			UHTMakefile.AddClassMetaData(UnrealSourceFile, MakeUnique<FClassMetaData>(*pClassData->Get()));
 		}
 	}
 
-	return *pClassData;
+	return pClassData->Get();
 }
 
 FTokenData* FPropertyData::Set(UProperty* InKey, const FTokenData& InValue, FUHTMakefile& UHTMakefile, FUnrealSourceFile* UnrealSourceFile)

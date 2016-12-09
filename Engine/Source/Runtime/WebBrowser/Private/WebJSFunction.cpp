@@ -1,18 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WebBrowserPrivatePCH.h"
 #include "WebJSFunction.h"
 #include "WebJSScripting.h"
 
 #if WITH_CEF3
 #if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
+#include "AllowWindowsPlatformAtomics.h"
 #endif
 #pragma push_macro("OVERRIDE")
 #undef OVERRIDE // cef headers provide their own OVERRIDE macro
+THIRD_PARTY_INCLUDES_START
 #include "include/cef_values.h"
+THIRD_PARTY_INCLUDES_END
 #pragma pop_macro("OVERRIDE")
 #if PLATFORM_WINDOWS
+#include "HideWindowsPlatformAtomics.h"
 #include "HideWindowsPlatformTypes.h"
 #endif
 #endif
@@ -75,11 +79,9 @@ FWebJSParam::FWebJSParam(const FWebJSParam& Other)
 
 void FWebJSCallbackBase::Invoke(int32 ArgCount, FWebJSParam Arguments[], bool bIsError) const
 {
-#if WITH_CEF3
 	TSharedPtr<FWebJSScripting> Scripting = ScriptingPtr.Pin();
 	if (Scripting.IsValid())
 	{
 		Scripting->InvokeJSFunction(CallbackId, ArgCount, Arguments, bIsError);
 	}
-#endif
 }

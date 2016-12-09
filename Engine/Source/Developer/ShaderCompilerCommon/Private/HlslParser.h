@@ -6,7 +6,10 @@
 
 #pragma once
 
-#include "HlslLexer.h"
+#include "CoreMinimal.h"
+#include "Developer/ShaderCompilerCommon/Private/HlslUtils.h"
+
+class Error;
 
 namespace CrossCompiler
 {

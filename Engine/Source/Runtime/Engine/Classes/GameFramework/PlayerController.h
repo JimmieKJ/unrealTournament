@@ -1,21 +1,40 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "TimerManager.h"
+
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "InputCoreTypes.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/NetSerialization.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Widgets/SWidget.h"
+#include "Engine/LatentActionManager.h"
+#include "SceneTypes.h"
+#include "GameFramework/Controller.h"
+#include "UObject/TextProperty.h"
+#include "GameFramework/OnlineReplStructs.h"
 #include "GameFramework/PlayerMuteList.h"
 #include "Camera/PlayerCameraManager.h"
-#include "Camera/CameraTypes.h"
-#include "Camera/CameraActor.h"
 #include "Components/InputComponent.h"
 #include "GameFramework/ForceFeedbackEffect.h"
-#include "GameFramework/OnlineReplStructs.h"
-#include "GameFramework/Controller.h"
-#include "Engine/LatentActionManager.h"
 #include "GenericPlatform/IInputInterface.h"
 #include "PlayerController.generated.h"
 
-
-class FPrimitiveComponentId;
+class ACameraActor;
+class APawn;
+class ASpectatorPawn;
+class FDebugDisplayInfo;
+class UActorChannel;
+class UGameViewportClient;
+class UInterpTrackInstDirector;
+class ULocalMessage;
+class UPlayer;
+class UPrimitiveComponent;
+struct FActiveHapticFeedbackEffect;
 struct FCollisionQueryParams;
 
 /** Default delegate that provides an implementation for those that don't have special needs other than a toggle */
@@ -56,6 +75,21 @@ struct FDynamicForceFeedbackDetails
 
 	void Update(FForceFeedbackValues& Values) const;
 };
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+/** Used to display the force feedback history of what was played most recently. */
+struct FForceFeedbackEffectHistoryEntry
+{
+	FActiveForceFeedbackEffect LastActiveForceFeedbackEffect;
+	float TimeShown;
+
+	FForceFeedbackEffectHistoryEntry(FActiveForceFeedbackEffect LastActiveFFE, float Time)
+	{
+		LastActiveForceFeedbackEffect = LastActiveFFE;
+		TimeShown = Time;
+	}
+};
+#endif
 
 /** Abstract base class for Input Mode structures */
 struct ENGINE_API FInputModeDataBase
@@ -238,11 +272,11 @@ class ENGINE_API APlayerController : public AController
 	int32 ClientCap;
 	
 	/** Object that manages "cheat" commands.  Not instantiated in shipping builds. */
-	UPROPERTY(transient, BlueprintReadOnly, Category=PlayerController)
+	UPROPERTY(transient, BlueprintReadOnly, Category="Cheat Manager")
 	class UCheatManager* CheatManager;
 	
-	/** class of my CheatManager. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=PlayerController)
+	/** Class of my CheatManager.  The Cheat Manager is not created in shipping builds */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Cheat Manager")
 	TSubclassOf<class UCheatManager> CheatClass;
 
 	/** Object that manages player input. */
@@ -251,6 +285,11 @@ class ENGINE_API APlayerController : public AController
 	
 	UPROPERTY(transient)
 	TArray<FActiveForceFeedbackEffect> ActiveForceFeedbackEffects;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	/** For debbugging, shows the last force feeback effects that played */
+	TArray<FForceFeedbackEffectHistoryEntry> ForceFeedbackEffectHistoryEntries;
+#endif
 
 	TMap<int32, FDynamicForceFeedbackDetails> DynamicForceFeedbacks;
 
@@ -295,7 +334,7 @@ class ENGINE_API APlayerController : public AController
 	/** this is set on the OLD PlayerController when performing a swap over a network connection
 	 * so we know what connection we're waiting on acknowledgment from to finish destroying this PC
 	 * (or when the connection is closed)
-	 * @see GameMode::SwapPlayerControllers()
+	 * @see GameModeBase::SwapPlayerControllers()
 	 */
 	UPROPERTY(DuplicateTransient)
 	class UNetConnection* PendingSwapConnection;
@@ -396,7 +435,7 @@ public:
 	virtual void ClientRepObjRef(UObject* Object);
 
 	/**
-	 * Locally try to pause game (call serverpause to pause network game); returns success indicator.  Calls GameMode's SetPause().
+	 * Locally try to pause game (call serverpause to pause network game); returns success indicator.  Calls GameModeBase's SetPause().
 	 * @return true if succeeded to pause
 	 */
 	virtual bool SetPause(bool bPause, FCanUnpause CanUnpauseDelegate = FCanUnpause());
@@ -478,14 +517,17 @@ public:
 	 * @return true if the world coordinate was successfully projected to the screen.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Game|Player", meta = (DisplayName = "ConvertWorldLocationToScreenLocation", Keywords = "project"))
-	bool ProjectWorldLocationToScreen(FVector WorldLocation, FVector2D& ScreenLocation) const;
+	bool ProjectWorldLocationToScreen(FVector WorldLocation, FVector2D& ScreenLocation, bool bPlayerViewportRelative = false) const;
 
 	/**
 	 * Convert a World Space 3D position into a 3D Screen Space position.
 	 * @return true if the world coordinate was successfully projected to the screen.
 	 */
-	bool ProjectWorldLocationToScreenWithDistance(FVector WorldLocation, FVector& ScreenLocation) const;
+	bool ProjectWorldLocationToScreenWithDistance(FVector WorldLocation, FVector& ScreenLocation, bool bPlayerViewportRelative = false) const;
 	
+	/** Positions the mouse cursor in screen space, in pixels. */
+	UFUNCTION( BlueprintCallable, Category="Game|Player", meta = (DisplayName = "SetMousePosition", Keywords = "mouse" ))
+	void SetMouseLocation( const int X, const int Y );
 	/**
 	  * Updates the rotation of player, based on ControlRotation after RotationInput has been applied.
 	  * This may then be modified by the PlayerCamera, and is passed to Pawn->FaceRotation().
@@ -519,7 +561,7 @@ public:
 	 * are all automatically moved regardless of whether they're included here
 	 * only dynamic actors in the PersistentLevel may be moved (this includes all actors spawned during gameplay)
 	 * this is called for both parts of the transition because actors might change while in the middle (e.g. players might join or leave the game)
-	 * @see also GameMode::GetSeamlessTravelActorList() (the function that's called on servers)
+	 * @see also GameModeBase::GetSeamlessTravelActorList() (the function that's called on servers)
 	 * @param bToEntry true if we are going from old level -> entry, false if we are going from entry -> new level
 	 * @param ActorList (out) list of actors to maintain
 	 */
@@ -527,15 +569,21 @@ public:
 
 	/** Called when seamless traveling and we are being replaced by the specified PC
 	 * clean up any persistent state (post process chains on LocalPlayers, for example)
-	 * (not called if PlayerControllerClass is the same for the from and to GameModes)
+	 * (not called if PlayerController is the same for the from and to GameModes)
 	 */
 	virtual void SeamlessTravelTo(class APlayerController* NewPC);
 
 	/** Called when seamless traveling and the specified PC is being replaced by this one
 	 * copy over data that should persist
-	 * (not called if PlayerControllerClass is the same for the from and to GameModes)
+	 * (not called if PlayerController is the same for the from and to GameModes)
 	 */
 	virtual void SeamlessTravelFrom(class APlayerController* OldPC);
+
+	/** 
+	 * Called after this player controller has transitioned through seamless travel, but before that player is initialized
+	 * This is called both when a new player controller is created, and when it is maintained
+	 */
+	virtual void PostSeamlessTravel();
 
 	/** 
 	 * Tell the client to enable or disable voice chat (not muting)
@@ -872,7 +920,7 @@ public:
 	* @param	Scale					Scale between 0.0 and 1.0 on the intensity of playback
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Game|Feedback")
-	void PlayHapticEffect(class UHapticFeedbackEffect_Base* HapticEffect, TEnumAsByte<EControllerHand> Hand, float Scale = 1.f,  bool bLoop = false);
+	void PlayHapticEffect(class UHapticFeedbackEffect_Base* HapticEffect, EControllerHand Hand, float Scale = 1.f,  bool bLoop = false);
 
 	/**
 	* Stops a playing haptic feedback curve
@@ -880,7 +928,7 @@ public:
 	* @param	Hand					Which hand to stop the effect for
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Game|Feedback")
-	void StopHapticEffect(TEnumAsByte<EControllerHand> Hand);
+	void StopHapticEffect(EControllerHand Hand);
 
 	/**
 	* Sets the value of the haptics for the specified hand directly, using frequency and amplitude.  NOTE:  If a curve is already
@@ -891,7 +939,7 @@ public:
 	* @param	Hand					Which hand to play the effect on
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Game|Feedback")
-	void SetHapticsByValue(const float Frequency, const float Amplitude, TEnumAsByte<EControllerHand> Hand);
+	void SetHapticsByValue(const float Frequency, const float Amplitude, EControllerHand Hand);
 	
 	/**
 	* Sets the light color of the player's controller
@@ -1410,7 +1458,7 @@ public:
 	 */
 	virtual void ViewAPlayer(int32 dir);
 
-	/** @return true if this controller thinks it's able to restart. Called from GameMode::PlayerCanRestart */
+	/** @return true if this controller thinks it's able to restart. Called from GameModeBase::PlayerCanRestart */
 	virtual bool CanRestartPlayer();
 
 	/**
@@ -1462,7 +1510,7 @@ public:
 	 *
 	 * @Param GameModeClass - The Class of the game that was replicated
 	 */
-	virtual void ReceivedGameModeClass(TSubclassOf<class AGameMode> GameModeClass);
+	virtual void ReceivedGameModeClass(TSubclassOf<class AGameModeBase> GameModeClass);
 
 	/** Notify the server that client data was received on the Pawn.
 	 * @return true if InPawn is acknowledged on the server, false otherwise. */
@@ -1607,7 +1655,7 @@ public:
 	virtual void SendClientAdjustment();
 
 	/**
-	 * Designate this player controller as local (public for GameMode to use, not expected to be called anywhere else)
+	 * Designate this player controller as local (public for GameModeBase to use, not expected to be called anywhere else)
 	 */
 	void SetAsLocalPlayerController() { bIsLocalPlayerController = true; }
 
@@ -1624,7 +1672,7 @@ public:
 	UPROPERTY()
 	uint16		SeamlessTravelCount;
 
-	/** The value of SeamlessTravelCount, upon the last call to GameMode::HandleSeamlessTravelPlayer; used to detect seamless travel */
+	/** The value of SeamlessTravelCount, upon the last call to GameModeBase::HandleSeamlessTravelPlayer; used to detect seamless travel */
 	UPROPERTY()
 	uint16		LastCompletedSeamlessTravelCount;
 

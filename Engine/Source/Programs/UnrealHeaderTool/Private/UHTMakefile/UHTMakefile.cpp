@@ -1,22 +1,43 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "UnrealHeaderTool.h"
-#include "UHTMakefile.h"
-#include "ClassMaps.h"
-#include "Scope.h"
-#include "UnrealSourceFile.h"
-#include "HeaderProvider.h"
-#include "ClassArchiveProxy.h"
-#include "PropertyArchiveProxy.h"
-#include "StructArchiveProxy.h"
-#include "PackageArchiveProxy.h"
-#include "EnumArchiveProxy.h"
-#include "ObjectBaseArchiveProxy.h"
-#include "ScriptStructArchiveProxy.h"
-#include "ModuleDescriptor.h"
-#include "Manifest.h"
-#include "ScopedTimers.h"
-#include "ScopeExit.h"
 
+#include "UHTMakefile.h"
+#include "UnrealHeaderTool.h"
+#include "HAL/FileManager.h"
+#include "UObject/UObjectHash.h"
+#include "ClassMaps.h"
+#include "Manifest.h"
+#include "ProfilingDebugging/ScopedTimers.h"
+#include "Misc/ScopeExit.h"
+
+
+namespace UE4Makefile_Private
+{
+	enum class EVersion : uint32
+	{
+		FirstExplicitVersion // there was a version before this, but as there was no header, it was indeterminate
+	};
+
+	static const uint32 HeaderFourCC = 0x5548544D; // UHTM
+
+	struct FHeader
+	{
+		FHeader()
+			: FourCC(HeaderFourCC)
+			, Version(EVersion::FirstExplicitVersion)
+		{
+		}
+
+		friend FArchive& operator<<(FArchive& Ar, FHeader& Header)
+		{
+			Ar << Header.FourCC;
+			Ar << Header.Version;
+			return Ar;
+		}
+
+		uint32 FourCC;
+		EVersion Version;
+	};
+}
 
 void FUHTMakefile::SetupScopeArrays()
 {
@@ -79,6 +100,12 @@ void FUHTMakefile::SetupProxies()
 	for (UProperty* Property : Properties)
 	{
 		PropertyProxies.Add(FPropertyArchiveProxy(*this, Property));
+	}
+
+	EnumPropertyProxies.Empty(EnumProperties.Num());
+	for (UEnumProperty* EnumProperty : EnumProperties)
+	{
+		EnumPropertyProxies.Add(FEnumPropertyArchiveProxy(*this, EnumProperty));
 	}
 
 	BytePropertyProxies.Empty(ByteProperties.Num());
@@ -344,9 +371,9 @@ void FUHTMakefile::SetupProxies()
 	}
 
 	ClassMetaDataArchiveProxies.Empty(ClassMetaDatas.Num());
-	for (const TScopedPointer<FClassMetaData>& MetaData : ClassMetaDatas)
+	for (const TUniquePtr<FClassMetaData>& MetaData : ClassMetaDatas)
 	{
-		ClassMetaDataArchiveProxies.Add(FClassMetaDataArchiveProxy(*this, MetaData.GetOwnedPointer()));
+		ClassMetaDataArchiveProxies.Add(FClassMetaDataArchiveProxy(*this, MetaData.Get()));
 	}
 
 	TokenProxies.Empty(Tokens.Num());
@@ -364,7 +391,7 @@ void FUHTMakefile::SetupProxies()
 	EnumUnderlyingTypeProxies.Empty(EnumUnderlyingTypes.Num());
 	for (auto& Kvp : EnumUnderlyingTypes)
 	{
-		EnumUnderlyingTypeProxies.Add(TPairInitializer<int32, EPropertyType>(GetEnumIndex(Kvp.Key), Kvp.Value));
+		EnumUnderlyingTypeProxies.Add(TPairInitializer<int32, EUnderlyingEnumType>(GetEnumIndex(Kvp.Key), Kvp.Value));
 	}
 
 	StructNameMapEntryProxies.Empty(StructNameMapEntries.Num());
@@ -383,6 +410,7 @@ void FUHTMakefile::SetupProxies()
 int32 FUHTMakefile::GetPropertyCount() const
 {
 	return Properties.Num()
+		+ EnumProperties.Num()
 		+ ByteProperties.Num()
 		+ Int8Properties.Num()
 		+ Int16Properties.Num()
@@ -416,6 +444,7 @@ int32 FUHTMakefile::GetPropertyCount() const
 int32 FUHTMakefile::GetPropertyProxiesCount() const
 {
 	return Properties.Num()
+		+ EnumPropertyProxies.Num()
 		+ BytePropertyProxies.Num()
 		+ Int8PropertyProxies.Num()
 		+ Int16PropertyProxies.Num()
@@ -520,17 +549,19 @@ void FUHTMakefile::SaveToFile(const TCHAR* MakefilePath)
 	double UHTMakefileLoadTime = 0.0;
 	FDurationTimer UHTMakefileLoadTimer(UHTMakefileLoadTime);
 	UHTMakefileLoadTimer.Start();
+	UE4Makefile_Private::FHeader Header;
+	*UHTMakefileArchive << Header;
 	*UHTMakefileArchive << *this;
 	UHTMakefileLoadTimer.Stop();
 	UE_LOG(LogCompile, Log, TEXT("Saving UHT makefile took %f seconds"), UHTMakefileLoadTime);
 }
 
-void FUHTMakefile::LoadFromFile(const TCHAR* MakefilePath, FManifest* InManifest)
+bool FUHTMakefile::LoadFromFile(const TCHAR* MakefilePath, FManifest* InManifest)
 {
 	FArchive* UHTMakefileArchive = IFileManager::Get().CreateFileReader(MakefilePath);
 	if (!UHTMakefileArchive)
 	{
-		return;
+		return false;
 	}
 
 	ON_SCOPE_EXIT
@@ -541,11 +572,19 @@ void FUHTMakefile::LoadFromFile(const TCHAR* MakefilePath, FManifest* InManifest
 	double UHTMakefileLoadTime = 0.0;
 	FDurationTimer UHTMakefileLoadTimer(UHTMakefileLoadTime);
 	UHTMakefileLoadTimer.Start();
+	UE4Makefile_Private::FHeader Header;
+	*UHTMakefileArchive << Header;
+	if (UHTMakefileArchive->IsError() || Header.FourCC != UE4Makefile_Private::HeaderFourCC)
+	{
+		return false;
+	}
 	*UHTMakefileArchive << *this;
 	UHTMakefileLoadTimer.Stop();
 	UE_LOG(LogCompile, Log, TEXT("Loading UHT makefile took %f seconds"), UHTMakefileLoadTime);
 
 	UpdateModulesCompatibility(InManifest);
+
+	return !UHTMakefileArchive->IsError();
 }
 
 bool FUHTMakefile::CanLoadModule(const FManifestModule& ManifestModule)
@@ -826,6 +865,9 @@ void FUHTMakefile::CreateObject(ESerializedObjectType ObjectType, int32 Index)
 	case ESerializedObjectType::EInterfaceAllocation:
 		CreateInterfaceAllocation(Index);
 		break;
+	case ESerializedObjectType::EEnumProperty:
+		CreateEnumProperty(Index);
+		break;
 	default:
 		check(0);
 		break;
@@ -997,6 +1039,9 @@ void FUHTMakefile::ResolveObject(ESerializedObjectType ObjectType, int32 Index)
 		break;
 	case ESerializedObjectType::EInterfaceAllocation:
 		// Intentionally empty.
+		break;
+	case ESerializedObjectType::EEnumProperty:
+		ResolveEnumProperty(Index);
 		break;
 	default:
 		check(0);
@@ -1364,6 +1409,13 @@ int32 FUHTMakefile::GetPropertyIndex(const UProperty* Property) const
 	}
 	Result += Properties.Num();
 
+	CurrentIndex = EnumPropertyIndexes.Find(Cast<UEnumProperty>(Property));
+	if (CurrentIndex)
+	{
+		return Result + *CurrentIndex;
+	}
+	Result += EnumProperties.Num();
+
 	CurrentIndex = BytePropertyIndexes.Find(Cast<UByteProperty>(Property));
 	if (CurrentIndex)
 	{
@@ -1575,6 +1627,12 @@ UProperty* FUHTMakefile::GetPropertyByIndex(int32 Index) const
 		return Properties[Index];
 	}
 	Index -= PropertyProxies.Num();
+
+	if (EnumProperties.IsValidIndex(Index) && EnumPropertyProxies.IsValidIndex(Index))
+	{
+		return EnumProperties[Index];
+	}
+	Index -= EnumPropertyProxies.Num();
 
 	if (ByteProperties.IsValidIndex(Index) && BytePropertyProxies.IsValidIndex(Index))
 	{
@@ -2058,6 +2116,11 @@ void FUHTMakefile::SetupAndSaveReferencedNames(FArchive& Ar)
 		FPropertyArchiveProxy::AddReferencedNames(Property, *this);
 	}
 
+	for (UEnumProperty* EnumProperty : EnumProperties)
+	{
+		FObjectBaseArchiveProxy::AddReferencedNames(EnumProperty, *this);
+	}
+
 	for (UByteProperty* ByteProperty : ByteProperties)
 	{
 		FObjectBaseArchiveProxy::AddReferencedNames(ByteProperty, *this);
@@ -2220,9 +2283,9 @@ void FUHTMakefile::SetupAndSaveReferencedNames(FArchive& Ar)
 		FMultipleInheritanceBaseClassArchiveProxy::AddReferencedNames(MultipleInheritanceBaseClass, *this); 
 	}
 
-	for (FClassMetaData* ClassMetaData : ClassMetaDatas)
+	for (const TUniquePtr<FClassMetaData>& ClassMetaData : ClassMetaDatas)
 	{
-		FClassMetaDataArchiveProxy::AddReferencedNames(ClassMetaData, *this);
+		FClassMetaDataArchiveProxy::AddReferencedNames(ClassMetaData.Get(), *this);
 	}
 
 	for (FToken* Token : Tokens)
@@ -2296,6 +2359,7 @@ FArchive& operator<<(FArchive& Ar, FUHTMakefile& UHTMakefile)
 	Ar << UHTMakefile.UnrealTypeDefinitionInfoProxies;
 	Ar << UHTMakefile.TypeDefinitionInfoMapArchiveProxy;
 	Ar << UHTMakefile.PropertyProxies;
+	Ar << UHTMakefile.EnumPropertyProxies;
 	Ar << UHTMakefile.BytePropertyProxies;
 	Ar << UHTMakefile.Int8PropertyProxies;
 	Ar << UHTMakefile.Int16PropertyProxies;

@@ -2,12 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "KismetCompiler.h"
-#include "AnimGraphDefinitions.h"
 #include "Animation/AnimNodeBase.h"
-#include "AnimationGraphSchema.h"
-#include "K2Node_TransitionRuleGetter.h"
 #include "AnimGraphNode_Base.h"
+
+class UAnimationGraphSchema;
+class UAnimGraphNode_SaveCachedPose;
+class UAnimGraphNode_StateMachineBase;
+class UAnimGraphNode_StateResult;
+class UAnimGraphNode_SubInstance;
+class UAnimGraphNode_UseCachedPose;
+class UAnimStateTransitionNode;
+class UK2Node_CallFunction;
+
 //
 // Forward declarations.
 //

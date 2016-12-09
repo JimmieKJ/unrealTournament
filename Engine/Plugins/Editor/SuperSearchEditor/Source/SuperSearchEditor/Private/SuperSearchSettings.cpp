@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SuperSearchEditorPrivatePCH.h"
-
 #include "SuperSearchSettings.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UnrealType.h"
+#include "SuperSearchModule.h"
+
 
 class FSuperSearchEditorModule : public FDefaultModuleImpl
 {

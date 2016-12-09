@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Commandlets/GenerateTextLocalizationResourceCommandlet.h"
+#include "HAL/FileManager.h"
+#include "Templates/ScopedPointer.h"
 #include "TextLocalizationResourceGenerator.h"
+#include "UniquePtr.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenerateTextLocalizationResourceCommandlet, Log, All);
 
@@ -140,7 +143,7 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 		{
 			bool bSaved = false;
 
-			TAutoPtr<FArchive> TextLocalizationResourceArchive(IFileManager::Get().CreateFileWriter(*InSaveFileName));
+			TUniquePtr<FArchive> TextLocalizationResourceArchive(IFileManager::Get().CreateFileWriter(*InSaveFileName));
 			if (TextLocalizationResourceArchive)
 			{
 				bSaved = FTextLocalizationResourceGenerator::Generate(LocTextHelper, CultureName, bSkipSourceCheck, *TextLocalizationResourceArchive);

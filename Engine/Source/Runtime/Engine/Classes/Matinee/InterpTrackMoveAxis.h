@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Matinee/InterpTrackFloatBase.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Matinee/InterpTrackMove.h"
+#include "Matinee/InterpTrackFloatBase.h"
 #include "InterpTrackMoveAxis.generated.h"
+
+class UInterpTrackInst;
 
 /**
   *

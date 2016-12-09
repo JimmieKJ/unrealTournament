@@ -1,7 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AppFrameworkPrivatePCH.h"
-#include "SColorThemes.h"
+#include "Widgets/Colors/SColorThemes.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Layout/ArrangedChildren.h"
+#include "Application/SlateWindowHelper.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Notifications/SErrorText.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Colors/SColorBlock.h"
 
 
 void FColorDragDrop::OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEvent )

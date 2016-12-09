@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
 #include "LandscapeSplineImportExport.h"
-#include "LandscapeSplineControlPoint.h"
 #include "LandscapeSplineSegment.h"
+#include "LandscapeSplineControlPoint.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 

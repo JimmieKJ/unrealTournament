@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** 
  * Various data declarations relating to split screen on a GameViewportClient
  *

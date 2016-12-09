@@ -2,12 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+
 //////////////////////////////////////////////////////////////////////////
 // FEditorObjectTracker
 
 class FEditorObjectTracker : public FGCObject
 {
 public:
+	FEditorObjectTracker(bool bInAllowOnePerClass = true)
+		: bAllowOnePerClass(bInAllowOnePerClass)
+	{}
 
 	// FGCObject interface
 	void AddReferencedObjects( FReferenceCollector& Collector ) override;
@@ -17,8 +23,18 @@ public:
 	    if none exist */
 	UObject* GetEditorObjectForClass( UClass* EdClass );
 
+	void SetAllowOnePerClass(bool bInAllowOnePerClass)
+	{
+		bAllowOnePerClass = bInAllowOnePerClass;
+	}
 private:
+
+	/** If true, it uses TMap, otherwise, it just uses TArray */
+	bool bAllowOnePerClass;
 
 	/** Tracks editor objects created for details panel */
 	TMap< UClass*, UObject* >	EditorObjMap;
+
+	/** Tracks editor objects created for detail panel */
+	TArray<UObject*> EditorObjectArray;
 };

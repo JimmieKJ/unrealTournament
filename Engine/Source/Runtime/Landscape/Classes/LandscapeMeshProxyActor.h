@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "SceneTypes.h"
-#include "StaticLighting.h"
-#include "Components/PrimitiveComponent.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 
 #include "LandscapeMeshProxyActor.generated.h"
 

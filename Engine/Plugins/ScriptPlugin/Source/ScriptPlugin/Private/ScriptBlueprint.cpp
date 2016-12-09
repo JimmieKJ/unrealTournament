@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "ScriptPluginPrivatePCH.h"
+
 #include "ScriptBlueprint.h"
+#include "ScriptPluginLog.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
 #if WITH_EDITOR
+#include "EditorFramework/AssetImportData.h"
 #include "BlueprintEditorUtils.h"
 #endif
 

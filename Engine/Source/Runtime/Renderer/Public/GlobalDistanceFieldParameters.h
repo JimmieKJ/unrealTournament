@@ -6,6 +6,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
+#include "RenderUtils.h"
+#include "RHIStaticStates.h"
+
+class FShaderParameterMap;
+
 /** Must match global distance field shaders. */
 const int32 GMaxGlobalDistanceFieldClipmaps = 4;
 

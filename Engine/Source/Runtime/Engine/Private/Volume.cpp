@@ -4,7 +4,8 @@
 	Volume.cpp: AVolume and subclasses
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "GameFramework/Volume.h"
+#include "EngineDefines.h"
 #include "Components/BrushComponent.h"
 
 #if WITH_EDITOR

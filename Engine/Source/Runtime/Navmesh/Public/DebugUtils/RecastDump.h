@@ -22,6 +22,10 @@
 #ifndef RECAST_DUMP_H
 #define RECAST_DUMP_H
 
+#include "CoreMinimal.h"
+
+class rcContext;
+
 struct duFileIO
 {
 	virtual ~duFileIO() = 0;

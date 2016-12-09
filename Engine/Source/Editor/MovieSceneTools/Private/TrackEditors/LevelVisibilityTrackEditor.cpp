@@ -1,10 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "LevelVisibilityTrackEditor.h"
-#include "LevelVisibilitySection.h"
-#include "MovieSceneLevelVisibilityTrack.h"
-#include "MovieSceneLevelVisibilitySection.h"
+#include "TrackEditors/LevelVisibilityTrackEditor.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "Sections/MovieSceneLevelVisibilitySection.h"
+#include "Sections/LevelVisibilitySection.h"
+#include "Tracks/MovieSceneLevelVisibilityTrack.h"
 #include "SequencerUtilities.h"
 
 #define LOCTEXT_NAMESPACE "LevelVisibilityTrackEditor.h"
@@ -30,7 +31,7 @@ const FSlateBrush* FLevelVisibilityTrackEditor::GetIconBrush() const
 	return FEditorStyle::GetBrush("Sequencer.Tracks.LevelVisibility");
 }
 
-TSharedRef<ISequencerSection> FLevelVisibilityTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
+TSharedRef<ISequencerSection> FLevelVisibilityTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding )
 {
 	UMovieSceneLevelVisibilitySection* LevelVisibilitySection = Cast<UMovieSceneLevelVisibilitySection>(&SectionObject);
 	check( SupportsType( SectionObject.GetOuter()->GetClass() ) && LevelVisibilitySection != nullptr );

@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Misc/Crc.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Parse.h"
+#include "Math/IntPoint.h"
+#include "Logging/LogMacros.h"
 
 /**
  * A vector in 2-D space composed of components (X, Y) with floating point precision.
@@ -515,6 +523,17 @@ public:
 	inline FVector SphericalToUnitCartesian() const;
 };
 
+/**
+ * Creates a hash value from a FVector2D. 
+ *
+ * @param Vector the vector to create a hash value for
+ * @return The hash value from the components
+ */
+FORCEINLINE uint32 GetTypeHash(const FVector2D& Vector)
+{
+	// Note: this assumes there's no padding in FVector2D that could contain uncompared data.
+	return FCrc::MemCrc_DEPRECATED(&Vector,sizeof(Vector));
+}
 
 /* FVector2D inline functions
  *****************************************************************************/
@@ -543,7 +562,6 @@ FORCEINLINE FVector2D::FVector2D(EForceInit)
 	: X(0), Y(0)
 {
 }
-
 
 FORCEINLINE FVector2D FVector2D::operator+(const FVector2D& V) const
 {
@@ -901,4 +919,17 @@ FORCEINLINE bool FVector2D::InitFromString(const FString& InSourceString)
 	const bool bSuccessful = FParse::Value(*InSourceString, TEXT("X=") , X) && FParse::Value(*InSourceString, TEXT("Y="), Y) ;
 
 	return bSuccessful;
+}
+
+/* FMath inline functions
+ *****************************************************************************/
+
+FORCEINLINE float FMath::GetRangePct(FVector2D const& Range, float Value)
+{
+	return (Range.X != Range.Y) ? (Value - Range.X) / (Range.Y - Range.X) : Range.X;
+}
+
+FORCEINLINE float FMath::GetRangeValue(FVector2D const& Range, float Pct)
+{
+	return Lerp<float>(Range.X, Range.Y, Pct);
 }

@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/ISlateStyle.h"
 #include "AssetTypeActions_Base.h"
 
+class FMenuBuilder;
+class UMediaPlayer;
 
 /**
  * Implements an action for UMediaPlayer assets.

@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Developer/LogVisualizer/Private/LogVisualizerPrivate.h"
+
+class FMenuBuilder;
+class SComboButton;
+class SFilterWidget;
+class SWrapBox;
+struct FVisualLoggerDBRow;
+
 /**
 * A list of filters currently applied to an asset view.
 */

@@ -4,7 +4,15 @@
 	AndroidETC2_TargetPlatformModule.cpp: Implements the FAndroidETC2_TargetPlatformModule class.
 =============================================================================*/
 
-#include "Android_ETC2TargetPlatformPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Android/AndroidProperties.h"
+#include "Interfaces/ITargetPlatformModule.h"
+#include "Common/TargetPlatformBase.h"
+#include "Interfaces/IAndroidDeviceDetection.h"
+#include "Interfaces/IAndroidDeviceDetectionModule.h"
+#include "AndroidTargetDevice.h"
+#include "AndroidTargetPlatform.h"
 
 #define LOCTEXT_NAMESPACE "FAndroid_ETC2TargetPlatformModule" 
 

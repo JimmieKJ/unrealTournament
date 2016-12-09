@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/ArrayView.h"
+
 class FReimportHandler;
 
 /** Reimport manager for package resources with associated source files on disk. */
@@ -37,7 +40,7 @@ public:
 	 *
 	 * @return	true if the object is capable of reimportatio
 	 */
-	UNREALED_API virtual bool CanReimport( UObject* Obj ) const;
+	UNREALED_API virtual bool CanReimport( UObject* Obj, TArray<FString> *ReimportSourceFilenames = nullptr) const;
 
 	/**
 	 * Attempt to reimport the specified object from its source by giving registered reimport
@@ -51,6 +54,31 @@ public:
 	 * @return	true if the object was handled by one of the reimport handlers; false otherwise
 	 */
 	UNREALED_API virtual bool Reimport( UObject* Obj, bool bAskForNewFileIfMissing = false, bool bShowNotification = true, FString PreferedReimportFile = TEXT(""), FReimportHandler* SpecifiedReimportHandler = nullptr );
+
+	/**
+	 * Attemp to reimport all specified objects. This function will verify that all source file exist and ask the user
+	 * to decide on how the system will handle asset with missing source file path.
+	 * Choice are:
+	 * 1. Browse every missing source file path before starting the import process
+	 * 2. Skip all asset that have a missing source file path
+	 * 3. Cancel the whole reimport command
+	 *
+	 * * @param	Objs	Objects to try reimporting
+	 */
+	UNREALED_API virtual void ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImportObjects);
+
+	/**
+	* Attempt to reimport multiple objects from its source by giving registered reimport
+	* handlers a chance to try to reimport the object
+	*
+	* @param	Objects	Objects to try reimporting
+	* @param	bAskForNewFileIfMissing If the file is missing, open a dialog to ask for a new one
+	* @param	bShowNotification True to show a notification when complete, false otherwise
+	* @param	PreferedReimportFile if not empty, will be use in case the original file is missing and bAskForNewFileIfMissing is set to false
+	*
+	* @return	true if the objects all imported successfully, for more granular success reporting use FReimportManager::Reimport
+	*/
+	UNREALED_API virtual bool ReimportMultiple( TArrayView<UObject*> Objects, bool bAskForNewFileIfMissing = false, bool bShowNotification = true, FString PreferedReimportFile = TEXT(""), FReimportHandler* SpecifiedReimportHandler = nullptr );
 
 	/**
 	 * Update the reimport paths for the specified object

@@ -2,7 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ISourceControlModule.h"
+#include "ISourceControlProvider.h"
+#if SOURCE_CONTROL_WITH_SLATE
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Layout/SBorder.h"
+#endif
+
+class FActiveTimerHandle;
+class IDetailsView;
+class SWindow;
 
 namespace ELoginConnectionState
 {
@@ -15,6 +28,7 @@ namespace ELoginConnectionState
 }
 
 #if SOURCE_CONTROL_WITH_SLATE
+
 
 class SSourceControlLogin : public SCompoundWidget
 {

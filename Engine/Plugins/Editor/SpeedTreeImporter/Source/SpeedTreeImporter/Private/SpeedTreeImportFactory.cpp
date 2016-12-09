@@ -1,9 +1,39 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SpeedTreeImporterPrivatePCH.h"
 #include "SpeedTreeImportFactory.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SWindow.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "EditorReimportHandler.h"
+#include "Materials/MaterialInterface.h"
+#include "Materials/MaterialExpressionMaterialFunctionCall.h"
+#include "Materials/MaterialFunction.h"
+#include "Materials/Material.h"
+#include "Factories/MaterialFactoryNew.h"
+#include "Engine/Texture.h"
+#include "Factories/TextureFactory.h"
+#include "EditorFramework/AssetImportData.h"
+#include "Engine/Texture2D.h"
+#include "Engine/StaticMesh.h"
+#include "Editor.h"
 
-#include "UnrealEd.h"
 
 #include "Materials/MaterialExpressionClamp.h"
 #include "Materials/MaterialExpressionComponentMask.h"
@@ -17,15 +47,12 @@
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "Materials/MaterialExpressionTwoSidedSign.h"
 #include "Materials/MaterialExpressionVertexColor.h"
-#include "Materials/MaterialExpressionMaterialFunctionCall.h"
-#include "Materials/MaterialFunction.h"
 
-#include "MainFrame.h"
-#include "ModuleManager.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "ObjectTools.h"
 #include "PackageTools.h"
 #include "AssetRegistryModule.h"
-#include "../Private/GeomFitUtils.h"
+#include "Private/GeomFitUtils.h"
 #include "SpeedTreeWind.h"
 #include "RawMesh.h"
 #include "ComponentReregisterContext.h"
@@ -44,7 +71,8 @@
 #endif
 
 #endif // WITH_SPEEDTREE
-#include "Engine/StaticMesh.h"
+#include "PhysicsEngine/SphereElem.h"
+#include "PhysicsEngine/SphylElem.h"
 #include "PhysicsEngine/BodySetup.h"
 
 #define LOCTEXT_NAMESPACE "SpeedTreeImportFactory"
@@ -1213,17 +1241,17 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 				UPackage* Package = CreatePackage(NULL, *NewPackageName);
 				
 				// clear out old mesh
-				TArray<UMaterialInterface*> OldMaterials;
+				TArray<FStaticMaterial> OldMaterials;
 				UStaticMesh* ExistingMesh = FindObject<UStaticMesh>(Package, *MeshName);
 				FGlobalComponentReregisterContext RecreateComponents;
 
 				if (ExistingMesh)
 				{
-					OldMaterials = ExistingMesh->Materials;
+					OldMaterials = ExistingMesh->StaticMaterials;
 					for (int32 i = 0; i < OldMaterials.Num(); ++i)
 					{
-						OldMaterials[i]->PreEditChange(NULL);
-						OldMaterials[i]->PostEditChange();
+						OldMaterials[i].MaterialInterface->PreEditChange(NULL);
+						OldMaterials[i].MaterialInterface->PostEditChange();
 					}
 
 					// Free any RHI resources for existing mesh before we re-create in place.
@@ -1238,7 +1266,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 				// clear out any old data
 				StaticMesh->SourceModels.Empty();
 				StaticMesh->SectionInfoMap.Clear();
-				StaticMesh->Materials.Empty();
+				StaticMesh->StaticMaterials.Empty();
 
 				// Lightmap data
 				StaticMesh->LightingGuid = FGuid::NewGuid();
@@ -1377,9 +1405,9 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 
 								UMaterialInterface* Material = CreateSpeedTreeMaterial(InParent, MaterialName, RenderState, Options, WindType, SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards, LoadedPackages);
 								
-								RenderStateIndexToStaticMeshIndex.Add(DrawCall->m_nRenderStateIndex, StaticMesh->Materials.Num());
-								MaterialIndex = StaticMesh->Materials.Num();
-								StaticMesh->Materials.Add(Material);
+								RenderStateIndexToStaticMeshIndex.Add(DrawCall->m_nRenderStateIndex, StaticMesh->StaticMaterials.Num());
+								MaterialIndex = StaticMesh->StaticMaterials.Num();
+								StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
 							}
 							else
 							{
@@ -1467,7 +1495,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 						LODModel->ScreenSize = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
 						LODModel->RawMeshBulkData->SaveRawMesh(RawMesh);
 
-						for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->Materials.Num(); ++MaterialIndex)
+						for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex)
 						{
 							FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, MaterialIndex);
 							Info.MaterialIndex = MaterialIndex;
@@ -1480,8 +1508,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 				if (Options->ImportGeometryType != SSpeedTreeImportOptions::IGT_3D && SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards > 0)
 				{
 					UMaterialInterface* Material = CreateSpeedTreeMaterial(InParent, MeshName + "_Billboard", &SpeedTreeGeometry->m_aBillboardRenderStates[SpeedTree::RENDER_PASS_MAIN], Options, WindType, SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards, LoadedPackages);
-					int32 MaterialIndex = StaticMesh->Materials.Num();
-					StaticMesh->Materials.Add(Material);
+					int32 MaterialIndex = StaticMesh->StaticMaterials.Num();
+					StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
 
 					FRawMesh RawMesh;
 					
@@ -1581,10 +1609,13 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 					LODModel->RawMeshBulkData->SaveRawMesh(RawMesh);
 				}
 
-				if (OldMaterials.Num() == StaticMesh->Materials.Num())
+				if (OldMaterials.Num() == StaticMesh->StaticMaterials.Num())
 				{
-					StaticMesh->Materials = OldMaterials;
+					StaticMesh->StaticMaterials = OldMaterials;
 				}
+
+				//Set the Imported version before calling the build
+				StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
 
 				StaticMesh->Build();
 

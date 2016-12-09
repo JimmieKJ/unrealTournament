@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerMessagesPrivatePCH.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
 
 /**
@@ -11,11 +12,10 @@ class FProfilerMessagesModule
 {
 public:
 
-	virtual void StartupModule( ) override { }
+	virtual void StartupModule() override { }
+	virtual void ShutdownModule() override { }
 
-	virtual void ShutdownModule( ) override { }
-
-	virtual bool SupportsDynamicReloading( ) override
+	virtual bool SupportsDynamicReloading() override
 	{
 		return true;
 	}

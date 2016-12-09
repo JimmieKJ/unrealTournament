@@ -6,8 +6,13 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/Location/ParticleModuleLocationPrimitiveBase.h"
 #include "ParticleModuleLocationPrimitiveCylinder.generated.h"
+
+struct FParticleEmitterInstance;
 
 UENUM()
 enum CylinderHeightAxis

@@ -4,12 +4,21 @@
 	VectorFieldFactory.cpp: Factory for importing a 3D grid of vectors.
 =============================================================================*/
 
-#include "UnrealEd.h"
-
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/FeedbackContext.h"
+#include "Factories/VectorFieldStaticFactory.h"
+#include "Factories/ReimportVectorFieldStaticFactory.h"
+#include "EditorFramework/AssetImportData.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "Components/VectorFieldComponent.h"
+#include "Editor.h"
+
+#include "UObject/UObjectHash.h"
 #include "ComponentReregisterContext.h"
 #include "VectorField/VectorFieldStatic.h"
-#include "Components/VectorFieldComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogVectorFieldFactory, Log, All);
 

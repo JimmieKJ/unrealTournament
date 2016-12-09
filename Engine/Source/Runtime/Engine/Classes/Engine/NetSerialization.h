@@ -7,10 +7,19 @@
 
 #pragma once
 
-#include "CoreNet.h"
-#include "CoreUObject.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "Serialization/BitReader.h"
+#include "Misc/NetworkGuid.h"
+#include "UObject/CoreNet.h"
 #include "EngineLogs.h"
 #include "NetSerialization.generated.h"
+
+class Error;
+struct FFastArraySerializer;
+struct FFastArraySerializerItem;
 
 /**
  *	===================== NetSerialize and NetDeltaSerialize customization. =====================
@@ -1083,6 +1092,7 @@ bool WritePackedVector(FVector Value, FArchive& Ar)	// Note Value is intended to
 	// Nan Check
 	if( Value.ContainsNaN() )
 	{
+		logOrEnsureNanError(TEXT("WritePackedVector: Value contains NaN, clearing for safety."));
 		FVector	Dummy(0, 0, 0);
 		WritePackedVector<ScaleFactor, MaxBitsPerComponent>(Dummy, Ar);
 		return false;

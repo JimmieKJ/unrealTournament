@@ -1,14 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Net/UnrealNetwork.h"
-#include "Net/NetworkProfiler.h"
-#include "Net/DataChannel.h"
-#include "Net/DataReplication.h"
-#include "Engine/ActorChannel.h"
-#include "RepLayout.h"
 #include "Engine/PackageMapClient.h"
-#include "ScopedTimers.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/Package.h"
+#include "EngineStats.h"
+#include "EngineGlobals.h"
+#include "Engine/NetSerialization.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/Level.h"
+#include "TimerManager.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
+#include "Engine/Engine.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/NetConnection.h"
+#include "Net/NetworkProfiler.h"
+#include "Engine/ActorChannel.h"
+#include "Net/RepLayout.h"
+#include "ProfilingDebugging/ScopedTimers.h"
 
 // ( OutPacketId == GUID_PACKET_NOT_ACKED ) == NAK'd		(this GUID is not acked, and is not pending either, so sort of waiting)
 // ( OutPacketId == GUID_PACKET_ACKED )		== FULLY ACK'd	(this GUID is fully acked, and we no longer need to send full path)
@@ -23,8 +33,9 @@ static const int GUID_PACKET_ACKED		= -1;
  */
 static const int INTERNAL_LOAD_OBJECT_RECURSION_LIMIT = 16;
 
-static TAutoConsoleVariable<int32> CVarAllowAsyncLoading( TEXT( "net.AllowAsyncLoading" ), 1, TEXT( "Allow async loading" ) );
+static TAutoConsoleVariable<int32> CVarAllowAsyncLoading( TEXT( "net.AllowAsyncLoading" ), 0, TEXT( "Allow async loading" ) );
 static TAutoConsoleVariable<int32> CVarIgnoreNetworkChecksumMismatch( TEXT( "net.IgnoreNetworkChecksumMismatch" ), 0, TEXT( "" ) );
+extern FAutoConsoleVariableRef CVarEnableMultiplayerWorldOriginRebasing;
 
 void BroadcastNetFailure(UNetDriver* Driver, ENetworkFailure::Type FailureType, const FString& ErrorStr)
 {
@@ -289,6 +300,7 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 	{
 		UObject* Archetype = NULL;
 		FVector_NetQuantize10 Location;
+		FVector_NetQuantize10 LocalLocation;
 		FVector_NetQuantize10 Scale;
 		FVector_NetQuantize10 Velocity;
 		FRotator Rotation;
@@ -304,7 +316,15 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 
 			const USceneComponent* RootComponent = Actor->GetRootComponent();
 
-			Location = RootComponent ? Actor->GetActorLocation() : FVector::ZeroVector;
+			if (RootComponent)
+			{
+				LocalLocation = Actor->GetActorLocation();
+				Location = FRepMovement::RebaseOntoZeroOrigin(Actor->GetActorLocation(), Actor);
+			} 
+			else
+			{
+				Location = LocalLocation = FVector::ZeroVector;
+			}
 			Rotation = RootComponent ? Actor->GetActorRotation() : FRotator::ZeroRotator;
 			Scale = RootComponent ? Actor->GetActorScale() : FVector::ZeroVector;
 			Velocity = RootComponent ? Actor->GetVelocity() : FVector::ZeroVector;
@@ -393,7 +413,7 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 				uint8* Recent = RepData && RepData->RepState != NULL && RepData->RepState->StaticBuffer.Num() ? RepData->RepState->StaticBuffer.GetData() : NULL;
 				if ( Recent )
 				{
-					((AActor*)Recent)->ReplicatedMovement.Location = Location;
+					((AActor*)Recent)->ReplicatedMovement.Location = LocalLocation;
 					((AActor*)Recent)->ReplicatedMovement.Rotation = Rotation;
 					((AActor*)Recent)->ReplicatedMovement.LinearVelocity = Velocity;
 				}
@@ -412,7 +432,11 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 					SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 					SpawnInfo.bRemoteOwned = true;
 					SpawnInfo.bNoFail = true;
-					Actor = Connection->Driver->GetWorld()->SpawnActorAbsolute(Archetype->GetClass(), FTransform(Rotation, Location), SpawnInfo );
+
+					UWorld* World = Connection->Driver->GetWorld();
+					FVector SpawnLocation = FRepMovement::RebaseOntoLocalOrigin( Location, World->OriginLocation );
+					Actor = World->SpawnActorAbsolute(Archetype->GetClass(), FTransform( Rotation, SpawnLocation ), SpawnInfo );
+
 					// Velocity was serialized by the server
 					if (bSerializeVelocity)
 					{
@@ -496,7 +520,7 @@ void UPackageMapClient::InternalWriteObject( FArchive & Ar, FNetworkGUID NetGUID
 
 	const bool bNoLoad = !CanClientLoadObject( Object, NetGUID );
 
-	if ( CVarAllowAsyncLoading.GetValueOnGameThread() > 0 && IsNetGUIDAuthority() && !GuidCache->IsExportingNetGUIDBunch && !bNoLoad )
+	if ( GuidCache->ShouldAsyncLoad() && IsNetGUIDAuthority() && !GuidCache->IsExportingNetGUIDBunch && !bNoLoad )
 	{
 		// These are guids that must exist on the client in a package
 		// The client needs to know about these so it can determine if it has finished loading them
@@ -517,7 +541,7 @@ void UPackageMapClient::InternalWriteObject( FArchive & Ar, FNetworkGUID NetGUID
 	//   note: Default NetGUID is implied to always send path
 	FExportFlags ExportFlags;
 
-	ExportFlags.bHasNetworkChecksum = ( GuidCache->NetworkChecksumMode != FNetGUIDCache::NETCHECKSUM_None ) ? 1 : 0;
+	ExportFlags.bHasNetworkChecksum = ( GuidCache->NetworkChecksumMode != FNetGUIDCache::ENetworkChecksumMode::None ) ? 1 : 0;
 
 	if ( NetGUID.IsDefault() )
 	{
@@ -572,7 +596,7 @@ void UPackageMapClient::InternalWriteObject( FArchive & Ar, FNetworkGUID NetGUID
 
 		InternalWriteObject( Ar, OuterNetGUID, ObjectOuter, TEXT( "" ), NULL );
 
-		GEngine->NetworkRemapPath(Connection->Driver->GetWorld(), ObjectPathName, false);
+		GEngine->NetworkRemapPath(Connection->Driver, ObjectPathName, false);
 
 		// Serialize Name of object
 		Ar << ObjectPathName;
@@ -747,7 +771,7 @@ FNetworkGUID UPackageMapClient::InternalLoadObject( FArchive & Ar, UObject *& Ob
 		}
 
 		// Remap name for PIE
-		GEngine->NetworkRemapPath( Connection->Driver->GetWorld(), PathName, true );
+		GEngine->NetworkRemapPath( Connection->Driver, PathName, true );
 
 		if ( Object != NULL )
 		{
@@ -784,7 +808,7 @@ FNetworkGUID UPackageMapClient::InternalLoadObject( FArchive & Ar, UObject *& Ob
 				return NetGUID;
 			}
 
-			if ( NetworkChecksum != 0 && GuidCache->NetworkChecksumMode == FNetGUIDCache::NETCHECKSUM_SaveAndUse && !CVarIgnoreNetworkChecksumMismatch.GetValueOnGameThread() )
+			if ( NetworkChecksum != 0 && GuidCache->NetworkChecksumMode == FNetGUIDCache::ENetworkChecksumMode::SaveAndUse && !CVarIgnoreNetworkChecksumMismatch.GetValueOnAnyThread() )
 			{
 				const uint32 CompareNetworkChecksum = GuidCache->GetNetworkChecksum( Object );
 
@@ -1128,7 +1152,7 @@ void UPackageMapClient::SerializeNetFieldExportGroupMap( FArchive& Ar )
 			// Read in the export group
 			Ar << *NetFieldExportGroup.Get();
 
-			GEngine->NetworkRemapPath(Connection->Driver->GetWorld(), NetFieldExportGroup->PathName, true);
+			GEngine->NetworkRemapPath(Connection->Driver, NetFieldExportGroup->PathName, true);
 
 			// Assign index to path name
 			GuidCache->NetFieldExportGroupPathToIndex.Add( NetFieldExportGroup->PathName, NetFieldExportGroup->PathNameIndex );
@@ -1273,7 +1297,7 @@ void UPackageMapClient::ReceiveNetFieldExports( FInBunch &InBunch )
 			FString PathName;
 			InBunch << PathName;
 
-			GEngine->NetworkRemapPath(Connection->Driver->GetWorld(), PathName, true);
+			GEngine->NetworkRemapPath(Connection->Driver, PathName, true);
 
 			InBunch << MaxExports;
 
@@ -1730,7 +1754,7 @@ FNetworkGUID UPackageMapClient::GetNetGUIDFromObject(const UObject* InObject) co
 //	FNetGUIDCache
 //----------------------------------------------------------------------------------------
 
-FNetGUIDCache::FNetGUIDCache( UNetDriver * InDriver ) : IsExportingNetGUIDBunch( false ), Driver( InDriver ), NetworkChecksumMode( NETCHECKSUM_SaveAndUse )
+FNetGUIDCache::FNetGUIDCache( UNetDriver * InDriver ) : IsExportingNetGUIDBunch( false ), Driver( InDriver ), NetworkChecksumMode( ENetworkChecksumMode::SaveAndUse ), AsyncLoadMode( EAsyncLoadMode::UseCVar )
 {
 	UniqueNetIDs[0] = UniqueNetIDs[1] = 0;
 	UniqueNetFieldExportGroupPathIndex = 0;
@@ -2123,9 +2147,6 @@ void FNetGUIDCache::AsyncPackageCallback(const FName& PackageName, UPackage * Pa
 	FNetworkGUID NetGUID = PendingAsyncPackages.FindRef(PackageName);
 
 	PendingAsyncPackages.Remove(PackageName);
-	
-	//plk @debug
-	UE_LOG(LogNetPackageMap, Warning, TEXT("AsyncPackageCallback: Package loaded. Path: %s, NetGUID: %s"), *PackageName.ToString(), *NetGUID.ToString());
 
 	if ( !NetGUID.IsValid() )
 	{
@@ -2302,8 +2323,8 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 			//	2. We aren't already pending
 			//	3. We're actually suppose to load (levels don't load here for example)
 			//		(Refer to CanClientLoadObject, which is where we protect clients from trying to load levels)
-			
-			if ( CVarAllowAsyncLoading.GetValueOnGameThread() > 0 )
+
+			if ( ShouldAsyncLoad() )
 			{
 				if (!PendingAsyncPackages.Contains(CacheObjectPtr->PathName))
 				{
@@ -2311,16 +2332,12 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 					CacheObjectPtr->bIsPending = true;
 					LoadPackageAsync(CacheObjectPtr->PathName.ToString(), FLoadPackageAsyncDelegate::CreateRaw(this, &FNetGUIDCache::AsyncPackageCallback));
 
-					UE_LOG(LogNetPackageMap, Warning, TEXT("GetObjectFromNetGUID: Async loading package. Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
+					UE_LOG(LogNetPackageMap, Log, TEXT("GetObjectFromNetGUID: Async loading package. Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
 				}
 				else
 				{
-					UE_LOG(LogNetPackageMap, Log, TEXT("GetObjectFromNetGUID: Already async loading package. Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
-					if (PendingAsyncPackages[CacheObjectPtr->PathName] != NetGUID)
-					{
-						UE_LOG(LogNetPackageMap, Warning, TEXT("GetObjectFromNetGUID: NetGUID changed. Path: %s, NetGUID Original: %s, NetGUID New: %s"), *CacheObjectPtr->PathName.ToString(), *PendingAsyncPackages[CacheObjectPtr->PathName].ToString(), *NetGUID.ToString());						
-					}
 					check(PendingAsyncPackages[CacheObjectPtr->PathName] == NetGUID);
+					UE_LOG(LogNetPackageMap, Log, TEXT("GetObjectFromNetGUID: Already async loading package. Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
 				}
 
 				// There is nothing else to do except wait on the delegate to tell us this package is done loading
@@ -2340,7 +2357,7 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 			//	2. Someone else started async loading the outer package, and it's not fully loaded yet
 			Object = StaticLoadObject( UObject::StaticClass(), ObjOuter, *CacheObjectPtr->PathName.ToString(), NULL, LOAD_NoWarn );
 
-			if ( CVarAllowAsyncLoading.GetValueOnGameThread() > 0 )
+			if ( ShouldAsyncLoad() )
 			{
 				UE_LOG( LogNetPackageMap, Error, TEXT( "GetObjectFromNetGUID: Forced blocking load. Path: %s, NetGUID: %s" ), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString() );
 			}
@@ -2373,7 +2390,7 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 		if (!Package->IsFullyLoaded() 
 			&& !Package->HasAnyPackageFlags(EPackageFlags::PKG_CompiledIn)) //TODO: dependencies of CompiledIn could still be loaded asynchronously. Are they necessary at this point??
 		{
-			if ( CVarAllowAsyncLoading.GetValueOnGameThread() > 0 )
+			if ( ShouldAsyncLoad() )
 			{
 				if (Package->HasAnyInternalFlags(EInternalObjectFlags::AsyncLoading))
 				{
@@ -2394,19 +2411,24 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 			else
 			{
 				// If package isn't fully loaded, flush async loading now
+				if (IsAsyncLoading())
+				{
+					UE_LOG(LogNetPackageMap, Log, TEXT("FNetGUIDCache::GetObjectFromNetGUID for package %s is flushing async loading"), *Package->GetPathName());
+				}
+
 				FlushAsyncLoading(); 
-				check(Package->IsFullyLoaded());
+				checkf(Package->IsFullyLoaded(), TEXT("Package %s did not become loaded after FlushAsyncLoading"), *Package->GetPathName());
 			}
 		}
 	}
 
-	if ( CacheObjectPtr->NetworkChecksum != 0 && !CVarIgnoreNetworkChecksumMismatch.GetValueOnGameThread() )
+	if ( CacheObjectPtr->NetworkChecksum != 0 && !CVarIgnoreNetworkChecksumMismatch.GetValueOnAnyThread() )
 	{
 		const uint32 NetworkChecksum = GetNetworkChecksum( Object );
 
 		if (CacheObjectPtr->NetworkChecksum != NetworkChecksum )
 		{
-			if ( NetworkChecksumMode == NETCHECKSUM_SaveAndUse )
+			if ( NetworkChecksumMode == ENetworkChecksumMode::SaveAndUse )
 			{
 				FString ErrorStr = FString::Printf(TEXT("GetObjectFromNetGUID: Network checksum mismatch. FullNetGUIDPath: %s, %u, %u"), *FullNetGUIDPath(NetGUID), CacheObjectPtr->NetworkChecksum, NetworkChecksum);
 				UE_LOG( LogNetPackageMap, Warning, TEXT("%s"), *ErrorStr );
@@ -2633,6 +2655,22 @@ uint32 FNetGUIDCache::GetNetworkChecksum( const UObject* Obj )
 void FNetGUIDCache::SetNetworkChecksumMode( const ENetworkChecksumMode NewMode )
 {
 	NetworkChecksumMode = NewMode;
+}
+
+void FNetGUIDCache::SetAsyncLoadMode( const EAsyncLoadMode NewMode )
+{
+	AsyncLoadMode = NewMode;
+}
+
+bool FNetGUIDCache::ShouldAsyncLoad() const
+{
+	switch ( AsyncLoadMode )
+	{
+		case EAsyncLoadMode::UseCVar:		return CVarAllowAsyncLoading.GetValueOnAnyThread() > 0;
+		case EAsyncLoadMode::ForceDisable:	return false;
+		case EAsyncLoadMode::ForceEnable:	return true;
+		default: ensureMsgf( false, TEXT( "Invalid AsyncLoadMode: %i" ), AsyncLoadMode ); return false;
+	}
 }
 
 //------------------------------------------------------

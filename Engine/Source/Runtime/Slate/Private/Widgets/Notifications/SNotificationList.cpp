@@ -1,10 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SNotificationList.h"
-#include "SHyperlink.h"
-#include "SThrobber.h"
-#include "INotificationWidget.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Animation/CurveHandle.h"
+#include "Animation/CurveSequence.h"
+#include "Application/ThrottleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SHyperlink.h"
+#include "Widgets/Images/SThrobber.h"
+#include "Widgets/Notifications/INotificationWidget.h"
 
 /////////////////////////////////////////////////
 // SNotificationExtendable

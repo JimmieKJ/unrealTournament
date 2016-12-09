@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "OnlineSubsystemSteamPrivate.h"
+
 /**
  * Takes a Steam EResult value, and converts it into a string (with extra debug info)
  *

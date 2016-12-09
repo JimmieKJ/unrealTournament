@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeK2Base.h"
-#include "SGraphNodeK2Default.h"
-#include "SGraphNodeK2Event.h"
+#include "KismetNodes/SGraphNodeK2Event.h"
+#include "SGraphPin.h"
+#include "K2Node_Event.h"
 
 void SGraphNodeK2Event::AddPin( const TSharedRef<SGraphPin>& PinToAdd ) 
 {

@@ -174,11 +174,11 @@ namespace AutomationTool
 		/// <param name="ClientRunFlags"></param>
 		/// <param name="ClientApp"></param>
 		/// <param name="ClientCmdLine"></param>
-		public virtual ProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
+		public virtual IProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
 		{
 			PushDir(Path.GetDirectoryName(ClientApp));
 			// Always start client process and don't wait for exit.
-			ProcessResult ClientProcess = Run(ClientApp, ClientCmdLine, null, ClientRunFlags | ERunOptions.NoWaitForExit);
+			IProcessResult ClientProcess = Run(ClientApp, ClientCmdLine, null, ClientRunFlags | ERunOptions.NoWaitForExit);
 			PopDir();
 
 			return ClientProcess;
@@ -188,14 +188,9 @@ namespace AutomationTool
 		/// Allow platform specific clean-up or detection after client has run
 		/// </summary>
 		/// <param name="ClientRunFlags"></param>
-		public virtual void PostRunClient(ProcessResult Result, ProjectParams Params)
+		public virtual void PostRunClient(IProcessResult Result, ProjectParams Params)
 		{
 			// do nothing in the default case
-		}
-
-		public virtual void UploadSymbols(ProjectParams Params, DeploymentContext SC)
-		{
-			Log("{0} does not implement UploadSymbols...", PlatformType);
 		}
 
 		/// <summary>
@@ -588,8 +583,22 @@ namespace AutomationTool
 
 		#region Utilities
 
+		// let the platform set the exe extension if it chooses (otherwise, use
+		// the switch statement in GetExeExtension below)
+		protected virtual string GetPlatformExeExtension()
+		{
+			return null;
+		}
+
 		public static string GetExeExtension(UnrealTargetPlatform Target)
 		{
+			Platform Plat = GetPlatform(Target);
+			string PlatformExeExtension = Plat.GetPlatformExeExtension();
+			if (!string.IsNullOrEmpty(PlatformExeExtension))
+			{
+				return PlatformExeExtension;
+			}
+
 			switch (Target)
 			{
 				case UnrealTargetPlatform.Win32:
@@ -605,6 +614,7 @@ namespace AutomationTool
 				case UnrealTargetPlatform.HTML5:
 					return ".js";
 			}
+
 			return String.Empty;
 		}
 

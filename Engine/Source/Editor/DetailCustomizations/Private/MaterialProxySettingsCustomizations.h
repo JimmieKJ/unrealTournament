@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "IPropertyTypeCustomization.h"
+
+class FDetailWidgetRow;
+class IPropertyHandle;
+
 class FMaterialProxySettingsCustomizations : public IPropertyTypeCustomization
 {
 public:

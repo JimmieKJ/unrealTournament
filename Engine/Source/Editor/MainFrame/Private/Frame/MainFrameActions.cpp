@@ -1,19 +1,55 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "MainFramePrivatePCH.h"
-#include "MessageLog.h"
-#include "SDockTab.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "GenericCommands.h"
-#include "EngineBuildSettings.h"
+#include "Frame/MainFrameActions.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/Docking/TabManager.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "AboutScreen.h"
+#include "CreditsScreen.h"
+#include "DesktopPlatformModule.h"
+#include "ISourceControlModule.h"
+#include "GameProjectGenerationModule.h"
+#include "Toolkits/GlobalEditorCommonCommands.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
 #include "SourceCodeNavigation.h"
-#include "SOutputLogDialog.h"
+#include "SourceControlWindows.h"
+#include "ISettingsModule.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "PlatformInfo.h"
+#include "EditorStyleSet.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "UnrealEdMisc.h"
+#include "FileHelpers.h"
+#include "Dialogs/Dialogs.h"
+#include "EditorAnalytics.h"
+#include "LevelEditor.h"
+#include "Interfaces/IProjectTargetPlatformEditorModule.h"
+#include "InstalledPlatformInfo.h"
+#include "Misc/ConfigCacheIni.h"
+#include "MainFrameModule.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Dialogs/SOutputLogDialog.h"
 #include "IUATHelperModule.h"
 
 #include "Settings/EditorSettings.h"
 #include "AnalyticsEventAttribute.h"
+#include "Kismet2/DebuggerCommands.h"
 
 #define LOCTEXT_NAMESPACE "MainFrameActions"
 
@@ -48,7 +84,7 @@ void FMainFrameCommands::RegisterCommands()
 	// Make a default can execute action that disables input when in debug mode
 	FCanExecuteAction DefaultExecuteAction = FCanExecuteAction::CreateStatic( &FMainFrameActionCallbacks::DefaultCanExecuteAction );
 
-	UI_COMMAND( SaveAll, "Save All", "Saves all unsaved levels and assets to disk", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::S ) );
+	UI_COMMAND( SaveAll, "Save All", "Saves all unsaved levels and assets to disk", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control | EModifierKey::Shift, EKeys::S ) );
 	ActionList->MapAction( SaveAll, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::SaveAll ), FCanExecuteAction::CreateStatic( &FMainFrameActionCallbacks::CanSaveWorld ) );
 
 	UI_COMMAND( ChooseFilesToSave, "Choose Files to Save...", "Opens a dialog with save options for content and levels", EUserInterfaceActionType::Button, FInputChord() );
@@ -138,7 +174,7 @@ void FMainFrameCommands::RegisterCommands()
 	UI_COMMAND( VisitSearchForAnswersPage, "Answer Hub...", "Go to the AnswerHub to ask questions, search existing answers, and share your knowledge with other UE4 developers.", EUserInterfaceActionType::Button, FInputChord() );
 	ActionList->MapAction( VisitSearchForAnswersPage, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::VisitSearchForAnswersPage ) );
 
-	UI_COMMAND( VisitSupportWebSite, "Unreal Engine Support Web Site...", "Navigates to the Unreal Engine Support web site's main page.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( VisitSupportWebSite, "Support...", "Navigates to the Unreal Engine Support web site's main page.", EUserInterfaceActionType::Button, FInputChord() );
 	ActionList->MapAction( VisitSupportWebSite, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::VisitSupportWebSite ) );
 
 	UI_COMMAND( VisitEpicGamesDotCom, "Visit UnrealEngine.com...", "Navigates to UnrealEngine.com where you can learn more about Unreal Technology.", EUserInterfaceActionType::Button, FInputChord() );
@@ -171,10 +207,15 @@ void FMainFrameCommands::RegisterCommands()
 
 FReply FMainFrameActionCallbacks::OnUnhandledKeyDownEvent(const FKeyEvent& InKeyEvent)
 {
-	if ( FMainFrameCommands::ActionList->ProcessCommandBindings( InKeyEvent ) )
+	if(FMainFrameCommands::ActionList->ProcessCommandBindings(InKeyEvent))
 	{
 		return FReply::Handled();
 	}
+	else if(FPlayWorldCommands::GlobalPlayWorldActions->ProcessCommandBindings(InKeyEvent))
+	{
+		return FReply::Handled();
+	}
+
 	return FReply::Unhandled();
 }
 
@@ -302,7 +343,7 @@ FString GetCookingOptionalParams()
 	
 	if (PackagingSettings->bSkipEditorContent)
 	{
-		OptionalParams += TEXT(" -SKIPEDITORCONTENT");
+		OptionalParams += TEXT(" -SkipCookingEditorContent");
 	}
 	return OptionalParams;
 }
@@ -358,7 +399,7 @@ void FMainFrameActionCallbacks::CookContent(const FName InPlatformInfoName)
 	}
 
 	FString ProjectPath = FPaths::IsProjectFilePathSet() ? FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()) : FPaths::RootDir() / FApp::GetGameName() / FApp::GetGameName() + TEXT(".uproject");
-	FString CommandLine = FString::Printf(TEXT("BuildCookRun %s%s -nop4 -project=\"%s\" -cook -ue4exe=%s %s"),
+	FString CommandLine = FString::Printf(TEXT("BuildCookRun %s%s -nop4 -project=\"%s\" -cook -skipstage -ue4exe=%s %s"),
 		GetUATCompilationFlags(),
 		FApp::IsEngineInstalled() ? TEXT(" -installed") : TEXT(""),
 		*ProjectPath,
@@ -398,8 +439,9 @@ bool FMainFrameActionCallbacks::PackageBuildConfigurationIsChecked( EProjectPack
 void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 {
 	GUnrealEd->CancelPlayingViaLauncher();
-	TArray<FString> Packages;
-	GUnrealEd->SaveWorldForPlay(Packages);
+	/*TArray<FString> Packages;
+	GUnrealEd->SaveWorldForPlay(Packages);*/
+	SaveAll();
 	
 	// does the project have any code?
 	FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
@@ -754,7 +796,7 @@ void FMainFrameActionCallbacks::ZipUpProject()
 			FString FinalFileName = FPaths::ConvertRelativePathToFull(FileName);
 			FString ProjectPath = FPaths::IsProjectFilePathSet() ? FPaths::ConvertRelativePathToFull(FPaths::GameDir()) : FPaths::RootDir() / FApp::GetGameName();
 
-			FString CommandLine = FString::Printf(TEXT("ZipProjectUp -project=\"%s\" -install=\"%s\""), *ProjectPath, *FinalFileName);
+			FString CommandLine = FString::Printf(TEXT("ZipProjectUp %s -project=\"%s\" -install=\"%s\""), GetUATCompilationFlags(), *ProjectPath, *FinalFileName);
 
 			IUATHelperModule::Get().CreateUatTask( CommandLine, PlatformName, LOCTEXT("ZipTaskName", "Zipping Up Project"),
 				LOCTEXT("ZipTaskShortName", "Zip Project Task"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));

@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ModuleDescriptor.h"
-#include "LocalizationDescriptor.h"
 #include "CustomBuildSteps.h"
+#include "LocalizationDescriptor.h"
+
+class FJsonObject;
 
 /**
  * Version numbers for plugin descriptors.

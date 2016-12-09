@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
 #include "Curves/CurveOwnerInterface.h"
-#include "Curves/RichCurve.h"
 #include "CurveBase.generated.h"
-
 
 /**
  * Defines a curve of interpolated points to evaluate over a given range

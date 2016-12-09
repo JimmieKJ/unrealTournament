@@ -1,14 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SceneOutlinerPrivatePCH.h"
+#include "FolderTreeItem.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "ScopedTransaction.h"
+#include "DragAndDrop/ActorDragDropGraphEdOp.h"
+#include "SceneOutlinerDragDrop.h"
 #include "SSceneOutliner.h"
 
 #include "ActorEditorUtils.h"
-#include "SceneOutlinerFilters.h"
 
 #include "EditorActorFolders.h"
-#include "FolderTreeItem.h"
-#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "SceneOutliner_FolderTreeItem"
 

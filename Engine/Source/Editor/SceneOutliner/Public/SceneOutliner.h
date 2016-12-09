@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
 #include "SceneOutlinerFwd.h"
 
 #include "ISceneOutliner.h"

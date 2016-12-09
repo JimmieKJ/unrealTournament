@@ -6,9 +6,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AssetData.h"
+#include "EditorReimportHandler.h"
+#include "Factories/FbxSceneImportFactory.h"
 #include "Camera/CameraTypes.h"
 
 #include "ReimportFbxSceneFactory.generated.h"
+
+class UActorComponent;
+class UBlueprint;
+class USceneComponent;
+class USimpleConstructionScript;
 
 UCLASS()
 class UReimportFbxSceneFactory : public UFbxSceneImportFactory, public FReimportHandler

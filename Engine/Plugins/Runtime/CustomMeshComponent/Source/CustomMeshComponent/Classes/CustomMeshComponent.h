@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/MeshComponent.h"
 #include "CustomMeshComponent.generated.h"
+
+class FPrimitiveSceneProxy;
 
 USTRUCT(BlueprintType)
 struct FCustomMeshTriangle

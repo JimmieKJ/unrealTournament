@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrackInstProperty.h"
 #include "InterpTrackInstLinearColorProp.generated.h"
+
+class UInterpTrack;
 
 UCLASS()
 class UInterpTrackInstLinearColorProp : public UInterpTrackInstProperty

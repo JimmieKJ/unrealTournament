@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /** Max number of bone influences that a single skinned vert can have. */
 #define MAX_TOTAL_INFLUENCES		8

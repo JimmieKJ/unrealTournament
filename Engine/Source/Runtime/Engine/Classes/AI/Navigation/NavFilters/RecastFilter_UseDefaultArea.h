@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
 #include "RecastFilter_UseDefaultArea.generated.h"
+
+class ANavigationData;
 
 /** Regular navigation area, applied to entire navigation data by default */
 UCLASS(MinimalAPI)

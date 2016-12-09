@@ -2,13 +2,18 @@
 
 #pragma once
 
-#include "PopupMethodReply.h"
+#include "CoreMinimal.h"
+#include "Layout/SlateRect.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Input/NavigationReply.h"
+#include "Input/PopupMethodReply.h"
 
-struct FVector2D;
-class FSlateRect;
-enum class EPopupMethod : uint8;
+class FSlateInstanceBufferUpdate;
+class FWidgetStyle;
+class SWidget;
+struct Rect;
 
-#define SLATE_PRE_MULTIPLY 1
 #define SLATE_USE_32BIT_INDICES !PLATFORM_USES_ES2
 
 #if SLATE_USE_32BIT_INDICES
@@ -45,6 +50,8 @@ namespace ESlateShader
 	const Type LineSegment = 3;
 	/** For completely customized materials.  Makes no assumptions on use*/
 	const Type Custom = 4;
+	/** For post processing passes */
+	const Type PostProcess = 5;
 };
 
 /**
@@ -125,6 +132,11 @@ struct SLATECORE_API FSlateRotatedRect
 	FSlateRect ToBoundingRect() const;
 	/** Point-in-rect test. */
 	bool IsUnderLocation(const FVector2D& Location) const;
+
+	/**
+	 * Used to construct a rotated rect from an aligned clip rect and a set of layout and render transforms from the geometry, snapped to pixel boundaries. Returns a float or float16 version of the rect based on the typedef.
+	 */
+	static FSlateRotatedRect MakeSnappedRotatedRect(const FSlateRect& ClipRectInLayoutWindowSpace, const FSlateLayoutTransform& InverseLayoutTransform, const FSlateRenderTransform& RenderTransform);
 };
 
 /**
@@ -521,14 +533,28 @@ public:
 	}
 
 	/**
-	 * Called when the viewports top level window is being closed
+	 * Called when the top level window associated with the viewport has been requested to close.
+	 * At this point, the viewport has not been closed and the operation may be canceled.
+	 * This may not called from PIE, Editor Windows, on consoles, or before the game ends
+ 	 * from other methods.
+	 * This is only when the platform specific window is closed.
+	 *
+	 * @return FReply::Handled if the close event was consumed (and the window should remain open).
+	 */
+	virtual FReply OnRequestWindowClose()
+	{
+		return FReply::Unhandled();
+	}
+
+	/**
+	 * Called when the viewport has been requested to close.
 	 */
 	virtual void OnViewportClosed()
 	{
 	}
 
 	/**
-	 * Called when the viewports top level window is being closed
+	 * Gets the SWidget associated with this viewport
 	 */
 	virtual TWeakPtr<SWidget> GetWidget()
 	{

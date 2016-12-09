@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "ConnectionCallbackProxy.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/LocalPlayer.h"
+#include "OnlineSubsystem.h"
+#include "OnlineSubsystemBPCallHelper.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UConnectionCallbackProxy

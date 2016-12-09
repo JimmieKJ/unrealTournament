@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "Components/PawnNoiseEmitterComponent.h"
 #include "Perception/PawnSensingComponent.h"
+#include "EngineGlobals.h"
+#include "TimerManager.h"
+#include "CollisionQueryParams.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/Controller.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/Engine.h"
+#include "AIController.h"
+#include "Components/PawnNoiseEmitterComponent.h"
 
 DECLARE_CYCLE_STAT(TEXT("Sensing"),STAT_AI_Sensing,STATGROUP_AI);
 
@@ -207,7 +214,7 @@ void UPawnSensingComponent::UpdateAISensing()
 	{
 		for (FConstPlayerControllerIterator Iterator = Owner->GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PC = *Iterator;
+			APlayerController* PC = Iterator->Get();
 			if (IsValid(PC))
 			{
 				APawn* Pawn = PC->GetPawn();
@@ -222,7 +229,7 @@ void UPawnSensingComponent::UpdateAISensing()
 	{
 		for (FConstPawnIterator Iterator = Owner->GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 		{
-			APawn* Pawn = *Iterator;
+			APawn* Pawn = Iterator->Get();
 			if (IsValid(Pawn) && !IsSensorActor(Pawn))
 			{
 				SensePawn(*Pawn);

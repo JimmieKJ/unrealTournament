@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "RHI.h"
+#include "RenderResource.h"
 #include "OpenGLDrv.h"
 
 #define GL_CHECK(x)		x; do { GLint Err = glGetError(); if (Err != 0) {FPlatformMisc::LowLevelOutputDebugStringf(TEXT("(%s:%d) GL_CHECK Failed '%s'! %d (%x)\n"), ANSI_TO_TCHAR(__FILE__), __LINE__, ANSI_TO_TCHAR( #x ), Err, Err); check(!Err);}} while (0)
@@ -48,6 +52,8 @@
 		} \
 	while (0)
 
+struct FPlatformOpenGLContext;
+struct FPlatformOpenGLDevice;
 
 /**
  * The OpenGL RHI stats.
@@ -165,6 +171,11 @@ bool PlatformContextIsCurrent( uint64 QueryContext );
  * This should be called when creating the OpenGL RHI.
  */
 FPlatformOpenGLDevice* PlatformCreateOpenGLDevice();
+
+/**
+* Returns true if the platform supports a GPU capture tool (eg RenderDoc)
+*/
+bool PlatformCanEnableGPUCapture();
 
 /**
  * Label Objects. Needs a separate function because label GLSL api procedure would be loaded later down the line, and we need to label objects after that.
@@ -505,6 +516,7 @@ inline bool OpenGLShaderPlatformNeedsBindLocation(const EShaderPlatform InShader
 		case SP_OPENGL_SM5:
 		case SP_OPENGL_ES31_EXT:
 		case SP_OPENGL_ES3_1_ANDROID:
+		case SP_OPENGL_PCES3_1:
 			return false;
 
 		case SP_OPENGL_SM4:
@@ -530,6 +542,7 @@ inline bool OpenGLShaderPlatformSeparable(const EShaderPlatform InShaderPlatform
 		case SP_OPENGL_SM4_MAC:
 		case SP_OPENGL_SM4:
 		case SP_OPENGL_PCES2:
+		case SP_OPENGL_PCES3_1:
 			return true;
 
 		case SP_OPENGL_ES31_EXT:

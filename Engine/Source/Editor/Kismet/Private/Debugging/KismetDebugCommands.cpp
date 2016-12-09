@@ -1,12 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "Editor/UnrealEd/Public/Kismet2/KismetDebugUtilities.h"
-#include "BlueprintUtilities.h"
-#include "AnimGraphDefinitions.h"
-#include "KismetDebugCommands.h"
+#include "Debugging/KismetDebugCommands.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/KismetDebugUtilities.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FDebuggingActionCallbacks

@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Animation/Skeleton.h"
+#include "Toolkits/IToolkitHost.h"
+#include "AssetTypeActions_Base.h"
 #include "EditorAnimUtils.h"
+
+class FMenuBuilder;
 
 /**
  * Remap Skeleton Asset Data

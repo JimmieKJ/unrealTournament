@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "VoicePrivatePCH.h"
+#include "VoiceModule.h"
+#include "VoicePrivate.h"
 
 #include "VoiceCaptureWindows.h"
 #include "VoiceCodecOpus.h"
 #include "Voice.h"
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
+#include "HAL/IConsoleManager.h"
 
 static TAutoConsoleVariable<int32> CVarHmdDirectSoundVoiceCaptureDeviceIndex(
 	TEXT("hmd.DirectSoundVoiceCaptureDeviceIndex"),

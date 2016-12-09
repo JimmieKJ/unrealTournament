@@ -1,8 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NewLevelDialogPrivatePCH.h"
-#include "ModuleManager.h"
-#include "SlateBasics.h"
+#include "NewLevelDialogModule.h"
+#include "Layout/Margin.h"
+#include "Textures/SlateShaderResource.h"
+#include "Rendering/RenderingCommon.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/SLeafWidget.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "EditorStyleSet.h"
+#include "RenderingThread.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Engine/Texture2D.h"
+#include "UnrealEdGlobals.h"
 
 #define LOCTEXT_NAMESPACE "NewLevelDialog"
 
@@ -296,8 +319,9 @@ bool FNewLevelDialogModule::CreateAndShowNewLevelDialog( const TSharedPtr<const 
 		SNew(SWindow)
 		.Title(LOCTEXT("WindowHeader", "New Level"))
 		.ClientSize(SNewLevelDialog::DEFAULT_WINDOW_SIZE)
-		.SizingRule( ESizingRule::FixedSize )
-		.SupportsMinimize(false) .SupportsMaximize(false);
+		.SizingRule( ESizingRule::UserSized )
+		.SupportsMinimize(false)
+		.SupportsMaximize(false);
 
 	TSharedRef<SNewLevelDialog> NewLevelDialog =
 		SNew(SNewLevelDialog)

@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "Base64.h"
+#include "Misc/Base64.h"
+#include "Containers/StringConv.h"
 
 
 /** The table used to encode a 6 bit value as an ascii character */

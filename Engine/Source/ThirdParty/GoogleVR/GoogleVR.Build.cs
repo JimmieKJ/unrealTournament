@@ -75,35 +75,35 @@ public class GoogleVR : ModuleRules
 			PublicAdditionalFrameworks.Add(
 				new UEBuildFramework(
 					"GVRSDK",														// Framework name
-					"ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
+					"lib/ios/ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
 					"GVRSDK.framework/Resources/GoogleKitCore.bundle"				// Resources we need copied and staged
 				)
 			);
 			PublicAdditionalFrameworks.Add(
 				new UEBuildFramework(
 					"GVRSDK",														// Framework name
-					"ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
+					"lib/ios/ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
 					"GVRSDK.framework/Resources/GoogleKitDialogs.bundle"			// Resources we need copied and staged
 				)
 			);
 			PublicAdditionalFrameworks.Add(
 				new UEBuildFramework(
 					"GVRSDK",														// Framework name
-					"ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
+					"lib/ios/ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
 					"GVRSDK.framework/Resources/CardboardSDK.bundle"				// Resources we need copied and staged
 				)
 			);
 			PublicAdditionalFrameworks.Add(
 				new UEBuildFramework(
 					"GVRSDK",														// Framework name
-					"ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
+					"lib/ios/ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
 					"GVRSDK.framework/Resources/GoogleKitHUD.bundle"				// Resources we need copied and staged
 				)
 			);
 			PublicAdditionalFrameworks.Add(
 				new UEBuildFramework(
 					"GVRSDK",														// Framework name
-					"ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
+					"lib/ios/ThirdPartyFrameworks/GVRSDK.embeddedframework.zip",			// Zip name
 					"GVRSDK.framework/Resources/MaterialRobotoFontLoader.bundle"	// Resources we need copied and staged
 				)
 			);

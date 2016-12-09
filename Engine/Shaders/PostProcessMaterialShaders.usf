@@ -45,7 +45,12 @@ void MainPS(
 	CalcMaterialParametersPost(Parameters, PixelMaterialInputs, SvPosition, true);
 
 	// Grab emissive colour as output
-	OutColor = float4(GetMaterialEmissive(PixelMaterialInputs), 1);
+#if POST_PROCESS_MATERIAL_OUTPUT_ALPHA
+	const float Alpha = GetMaterialOpacity(PixelMaterialInputs);
+#else
+	const float Alpha = 1.0f;
+#endif
+	OutColor = float4(GetMaterialEmissive(PixelMaterialInputs), Alpha );
 } 
 
 #else // FEATURE_LEVEL_ES3_1

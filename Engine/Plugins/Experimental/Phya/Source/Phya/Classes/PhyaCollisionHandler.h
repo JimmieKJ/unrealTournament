@@ -2,9 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "PhysicsEngine/PhysicsCollisionHandler.h"
 #include "PhyaCollisionHandler.generated.h"
 
+class UAudioComponent;
 class USoundWaveProcedural;
+struct FBodyInstance;
+struct FCollisionNotifyInfo;
 
 struct FPhyaBodyInstancePair
 {

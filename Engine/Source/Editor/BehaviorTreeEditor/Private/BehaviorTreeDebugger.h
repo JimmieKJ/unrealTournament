@@ -2,8 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "BehaviorTree/BehaviorTreeComponent.h"
+#include "BehaviorTreeGraphNode_Root.h"
+#include "Tickable.h"
+
+class AActor;
+class APawn;
+class FBehaviorTreeEditor;
 class UBehaviorTree;
-class UBehaviorTreeComponent;
+class UBlackboardData;
 
 class FBehaviorTreeDebugger : public FTickableGameObject
 {
@@ -106,6 +115,9 @@ private:
 	/** index of displayed step, used to detect changes */
 	int32 DisplayedStepIndex;
 
+	/** id of last valid step */
+	int32 LastValidStepId;
+
 	/** indices of display steps for different step actions */
 	int32 StepForwardIntoIdx;
 	int32 StepForwardOverIdx;
@@ -140,7 +152,7 @@ private:
 	void UpdateDebuggerInstance();
 
 	/** clear all runtime variables */
-	void ClearDebuggerState();
+	void ClearDebuggerState(bool bKeepSubtree = false);
 
 	/** try using breakpoints on node change */
 	void OnActiveNodeChanged(const TArray<uint16>& ActivePath, const TArray<uint16>& PrevStepPath);

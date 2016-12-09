@@ -2,7 +2,15 @@
 
 #pragma once
 
-#include "TokenizedMessage.h"
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Templates/SharedPointer.h"
+#include "Delegates/Delegate.h"
+#include "Internationalization/Text.h"
+#include "Logging/TokenizedMessage.h"
+
+class Error;
+class IMessageLog;
 
 class FMessageLog
 {

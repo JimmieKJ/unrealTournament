@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneParameterSection.h"
+#include "Sections/MovieSceneParameterSection.h"
 
 FScalarParameterNameAndCurve::FScalarParameterNameAndCurve( FName InParameterName )
 {
@@ -135,14 +134,29 @@ TArray<FScalarParameterNameAndCurve>* UMovieSceneParameterSection::GetScalarPara
 	return &ScalarParameterNamesAndCurves;
 }
 
+const TArray<FScalarParameterNameAndCurve>& UMovieSceneParameterSection::GetScalarParameterNamesAndCurves() const
+{
+	return ScalarParameterNamesAndCurves;
+}
+
 TArray<FVectorParameterNameAndCurves>* UMovieSceneParameterSection::GetVectorParameterNamesAndCurves()
 {
 	return &VectorParameterNamesAndCurves;
 }
 
+const TArray<FVectorParameterNameAndCurves>& UMovieSceneParameterSection::GetVectorParameterNamesAndCurves() const
+{
+	return VectorParameterNamesAndCurves;
+}
+
 TArray<FColorParameterNameAndCurves>* UMovieSceneParameterSection::GetColorParameterNamesAndCurves()
 {
 	return &ColorParameterNamesAndCurves;
+}
+
+const TArray<FColorParameterNameAndCurves>& UMovieSceneParameterSection::GetColorParameterNamesAndCurves() const
+{
+	return ColorParameterNamesAndCurves;
 }
 
 void UMovieSceneParameterSection::GetParameterNames( TSet<FName>& ParameterNames ) const
@@ -158,32 +172,6 @@ void UMovieSceneParameterSection::GetParameterNames( TSet<FName>& ParameterNames
 	for ( const FColorParameterNameAndCurves& ColorParameterNameAndCurves : ColorParameterNamesAndCurves )
 	{
 		ParameterNames.Add( ColorParameterNameAndCurves.ParameterName );
-	}
-}
-
-void UMovieSceneParameterSection::Eval( float Position,
-	TArray<FScalarParameterNameAndValue>& OutScalarValues,
-	TArray<FVectorParameterNameAndValue>& OutVectorValues,
-	TArray<FColorParameterNameAndValue>& OutColorValues ) const
-{
-	for ( const FScalarParameterNameAndCurve& ScalarParameterNameAndCurve : ScalarParameterNamesAndCurves )
-	{
-		OutScalarValues.Add( FScalarParameterNameAndValue( ScalarParameterNameAndCurve.ParameterName, ScalarParameterNameAndCurve.ParameterCurve.Eval( Position ) ) );
-	}
-	for ( const FVectorParameterNameAndCurves& VectorParameterNameAndCurves : VectorParameterNamesAndCurves )
-	{
-		OutVectorValues.Add( FVectorParameterNameAndValue( VectorParameterNameAndCurves.ParameterName, FVector(
-			VectorParameterNameAndCurves.XCurve.Eval( Position ),
-			VectorParameterNameAndCurves.YCurve.Eval( Position ),
-			VectorParameterNameAndCurves.ZCurve.Eval( Position ) ) ) );
-	}
-	for ( const FColorParameterNameAndCurves& ColorParameterNameAndCurves : ColorParameterNamesAndCurves )
-	{
-		OutColorValues.Add( FColorParameterNameAndValue( ColorParameterNameAndCurves.ParameterName, FLinearColor(
-			ColorParameterNameAndCurves.RedCurve.Eval( Position ),
-			ColorParameterNameAndCurves.GreenCurve.Eval( Position ),
-			ColorParameterNameAndCurves.BlueCurve.Eval( Position ),
-			ColorParameterNameAndCurves.AlphaCurve.Eval( Position ) ) ) );
 	}
 }
 

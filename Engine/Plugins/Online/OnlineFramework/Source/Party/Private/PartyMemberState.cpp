@@ -1,9 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PartyPrivatePCH.h"
 #include "PartyMemberState.h"
-#include "PartyGameState.h"
-#include "Party.h"
 
 UPartyMemberState::UPartyMemberState(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer),

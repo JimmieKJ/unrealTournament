@@ -1,14 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_VariableSetRef.h"
+#include "EdGraphSchema_K2.h"
+#include "EdGraphUtilities.h"
 #include "KismetCompiler.h"
 #include "VariableSetHandler.h"
-#include "K2Node_VariableSetRef.h"
+#include "BlueprintActionFilter.h"
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "BlueprintActionFilter.h"
 
 static FString TargetVarPinName(TEXT("Target"));
 static FString VarValuePinName(TEXT("Value"));
@@ -186,6 +187,8 @@ void UK2Node_VariableSetRef::CoerceTypeFromPin(const UEdGraphPin* Pin)
 
 	UEdGraphPin* TargetPin = GetTargetPin();
 	UEdGraphPin* ValuePin = GetValuePin();
+
+	check(TargetPin && ValuePin);
 
 	if( Pin )
 	{

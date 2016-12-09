@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Blueprint/SlateBlueprintLibrary.h"
+#include "EngineGlobals.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/Engine.h"
 
-#include "Slate/SlateBrushAsset.h"
-#include "Runtime/Engine/Classes/Engine/UserInterfaceSettings.h"
-#include "SlateBlueprintLibrary.h"
+#include "Engine/UserInterfaceSettings.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -34,6 +35,11 @@ FVector2D USlateBlueprintLibrary::LocalToAbsolute(const FGeometry& Geometry, FVe
 FVector2D USlateBlueprintLibrary::GetLocalSize(const FGeometry& Geometry)
 {
 	return Geometry.GetLocalSize();
+}
+
+bool USlateBlueprintLibrary::EqualEqual_SlateBrush(const FSlateBrush& A, const FSlateBrush& B)
+{
+	return A == B;
 }
 
 void USlateBlueprintLibrary::LocalToViewport(UObject* WorldContextObject, const FGeometry& Geometry, FVector2D LocalCoordinate, FVector2D& PixelPosition, FVector2D& ViewportPosition)
@@ -68,6 +74,38 @@ void USlateBlueprintLibrary::AbsoluteToViewport(UObject* WorldContextObject, FVe
 
 	PixelPosition = FVector2D(0, 0);
 	ViewportPosition = FVector2D(0, 0);
+}
+
+void USlateBlueprintLibrary::ScreenToWidgetLocal(UObject* WorldContextObject, const FGeometry& Geometry, FVector2D ScreenPosition, FVector2D& LocalCoordinate)
+{
+	FVector2D AbsoluteCoordinate;
+	ScreenToWidgetAbsolute(WorldContextObject, ScreenPosition, AbsoluteCoordinate);
+
+	LocalCoordinate = Geometry.AbsoluteToLocal(AbsoluteCoordinate);
+}
+
+void USlateBlueprintLibrary::ScreenToWidgetAbsolute(UObject* WorldContextObject, FVector2D ScreenPosition, FVector2D& AbsoluteCoordinate)
+{
+	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
+	if ( World && World->IsGameWorld() )
+	{
+		if ( UGameViewportClient* ViewportClient = World->GetGameViewport() )
+		{
+			if ( FViewport* Viewport = ViewportClient->Viewport )
+			{
+				FVector2D ViewportSize;
+				ViewportClient->GetViewportSize(ViewportSize);
+
+				const FVector2D NormalizedViewportCoordinates = ScreenPosition / ViewportSize;
+
+				const FIntPoint VirtualDesktopPoint = Viewport->ViewportToVirtualDesktopPixel(NormalizedViewportCoordinates);
+				AbsoluteCoordinate = FVector2D(VirtualDesktopPoint);
+				return;
+			}
+		}
+	}
+
+	AbsoluteCoordinate = FVector2D(0, 0);
 }
 
 #undef LOCTEXT_NAMESPACE

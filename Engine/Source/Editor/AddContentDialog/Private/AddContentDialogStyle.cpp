@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AddContentDialogPCH.h"
+#include "AddContentDialogStyle.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorStyleSet.h"
 
-#include "SlateGameResources.h"
 
 TSharedPtr< FSlateStyleSet > FAddContentDialogStyle::AddContentDialogStyleInstance = NULL;
 

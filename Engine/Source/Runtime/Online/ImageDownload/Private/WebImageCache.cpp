@@ -1,11 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ImageDownloadPCH.h"
 #include "WebImageCache.h"
+#include "Styling/CoreStyle.h"
 
 FWebImageCache::FWebImageCache()
 : DefaultStandInBrush(FCoreStyle::Get().GetDefaultBrush())
 {
+}
+
+void FWebImageCache::PreUnload()
+{
+	for (const TSharedRef<FWebImage>& WebImage : StrongRefCache)
+	{
+		WebImage->CancelDownload();
+	}
 }
 
 TSharedRef<const FWebImage> FWebImageCache::Download(const FString& Url, const TOptional<FString>& DefaultImageUrl)

@@ -134,7 +134,7 @@ void AUTCTFRoundGame::RemoveLosers(int32 LoserTeam, int32 FlagTeam)
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
 		// Detach all controllers from their pawns
-		AController* Controller = *Iterator;
+		AController* Controller = Iterator->Get();
 		AUTPlayerState* PS = Controller ? Cast<AUTPlayerState>(Controller->PlayerState) : nullptr;
 		if (Controller && Controller->GetPawn() && (!PS || !PS->Team || (PS->Team->TeamIndex == LoserTeam)))
 		{
@@ -146,7 +146,7 @@ void AUTCTFRoundGame::RemoveLosers(int32 LoserTeam, int32 FlagTeam)
 	TArray<APawn*> PawnsToDestroy;
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		APawn* Pawn = *It;
+		APawn* Pawn = It->Get();
 		if (Pawn && !Pawn->GetController())
 		{
 			PawnsToDestroy.Add(Pawn);
@@ -199,7 +199,10 @@ void AUTCTFRoundGame::BeginGame()
 			TestActor->Destroy();
 		}
 	}
-	GameState->ElapsedTime = 0;
+	if (CTFGameState)
+	{
+		CTFGameState->ElapsedTime = 0;
+	}
 
 	//Let the game session override the StartMatch function, in case it wants to wait for arbitration
 	if (GameSession->HandleStartMatchRequest())
@@ -325,7 +328,7 @@ void AUTCTFRoundGame::PlayEndOfMatchMessage()
 		int32 IsFlawlessVictory = (UTGameState->WinningTeam->Score == 12);
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* Controller = *Iterator;
+			APlayerController* Controller = Iterator->Get();
 			if (Controller && Controller->IsA(AUTPlayerController::StaticClass()))
 			{
 				AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
@@ -367,7 +370,7 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
-		FString MatchStats = FString::Printf(TEXT("%i"), GetWorld()->GetGameState()->ElapsedTime);
+		FString MatchStats = FString::Printf(TEXT("%i"), CTFGameState->ElapsedTime);
 
 		FMatchUpdate MatchUpdate;
 		MatchUpdate.GameTime = UTGameState->ElapsedTime;
@@ -579,7 +582,7 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 	//now respawn all the players
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
-		AController* Controller = *Iterator;
+		AController* Controller = Iterator->Get();
 		if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator)
 		{
 			RestartPlayer(Controller);

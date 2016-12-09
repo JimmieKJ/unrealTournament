@@ -1,22 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidPlatformEditorPrivatePCH.h"
 #include "AndroidSDKSettingsCustomization.h"
-#include "DetailLayoutBuilder.h"
+#include "Modules/ModuleManager.h"
+#include "Layout/Visibility.h"
+#include "UnrealClient.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "AndroidSDKSettings.h"
+#include "PropertyHandle.h"
 #include "DetailCategoryBuilder.h"
-#include "PropertyEditing.h"
-
-#include "ScopedTransaction.h"
-#include "SExternalImageReference.h"
-#include "SHyperlinkLaunchURL.h"
-#include "SPlatformSetupMessage.h"
-#include "SFilePathPicker.h"
-#include "PlatformIconInfo.h"
-#include "SourceControlHelpers.h"
-#include "ManifestUpdateHelper.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "ITargetPlatformManagerModule.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailPropertyRow.h"
 
 #define LOCTEXT_NAMESPACE "AndroidSDKSettings"
 

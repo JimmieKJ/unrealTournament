@@ -1,19 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
-#include "LandscapeEditorCommands.h"
+#include "LandscapeEditorModule.h"
+#include "Modules/ModuleManager.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "EditorStyleSet.h"
+#include "EditorModeRegistry.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "LandscapeFileFormatInterface.h"
+#include "LandscapeProxy.h"
 #include "LandscapeEdMode.h"
+#include "Landscape.h"
+#include "LandscapeEditorCommands.h"
 #include "Classes/ActorFactoryLandscape.h"
 #include "LandscapeFileFormatPng.h"
 #include "LandscapeFileFormatRaw.h"
 
-#include "LandscapeEditorDetails.h"
-#include "LandscapeEditorDetailCustomizations.h"
-#include "LandscapeSplineDetails.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "PropertyEditorModule.h"
-#include "PropertyEditorDelegates.h"
+#include "LandscapeEditorDetails.h"
+#include "LandscapeEditorDetailCustomization_NewLandscape.h"
+#include "LandscapeEditorDetailCustomization_CopyPaste.h"
+#include "LandscapeSplineDetails.h"
 
-#include "Editor/LevelEditor/Public/LevelEditor.h"
+#include "LevelEditor.h"
 
 #include "LandscapeRender.h"
 
@@ -212,8 +224,8 @@ public:
 	virtual const TCHAR* GetHeightmapExportDialogTypeString() const override;
 	virtual const TCHAR* GetWeightmapExportDialogTypeString() const override;
 
-	virtual const ILandscapeHeightmapFileFormat* GetHeightmapFormatByExtension(const TCHAR* Extension) override;
-	virtual const ILandscapeWeightmapFileFormat* GetWeightmapFormatByExtension(const TCHAR* Extension) override;
+	virtual const ILandscapeHeightmapFileFormat* GetHeightmapFormatByExtension(const TCHAR* Extension) const override;
+	virtual const ILandscapeWeightmapFileFormat* GetWeightmapFormatByExtension(const TCHAR* Extension) const override;
 
 protected:
 	TSharedPtr<FExtender> ViewportMenuExtender;
@@ -364,7 +376,7 @@ const TCHAR* FLandscapeEditorModule::GetWeightmapExportDialogTypeString() const
 	return *WeightmapExportDialogTypeString;
 }
 
-const ILandscapeHeightmapFileFormat* FLandscapeEditorModule::GetHeightmapFormatByExtension(const TCHAR* Extension)
+const ILandscapeHeightmapFileFormat* FLandscapeEditorModule::GetHeightmapFormatByExtension(const TCHAR* Extension) const
 {
 	auto* FoundFormat = HeightmapFormats.FindByPredicate(
 		[Extension](const FRegisteredLandscapeHeightmapFileFormat& HeightmapFormat)
@@ -375,7 +387,7 @@ const ILandscapeHeightmapFileFormat* FLandscapeEditorModule::GetHeightmapFormatB
 	return FoundFormat ? &FoundFormat->FileFormat.Get() : nullptr;
 }
 
-const ILandscapeWeightmapFileFormat* FLandscapeEditorModule::GetWeightmapFormatByExtension(const TCHAR* Extension)
+const ILandscapeWeightmapFileFormat* FLandscapeEditorModule::GetWeightmapFormatByExtension(const TCHAR* Extension) const
 {
 	auto* FoundFormat = WeightmapFormats.FindByPredicate(
 		[Extension](const FRegisteredLandscapeWeightmapFileFormat& WeightmapFormat)

@@ -4,4 +4,4 @@
 	LinuxPlatformString.cpp: Linux implementations of string functions
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "Linux/LinuxPlatformString.h"

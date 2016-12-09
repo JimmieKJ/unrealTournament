@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "Core.h"
+#include "CoreMinimal.h"
+#include "UniformBuffer.h"
 #include "ShaderCore.h"
-#include "CrossCompilerCommon.h"
 
 
 /**
@@ -96,6 +96,12 @@ namespace CrossCompiler
 
 		bool Read(const ANSICHAR*& ShaderSource, int32 SourceLen);
 
+		// After the standard header, different backends can output their own info
+		virtual bool ParseCustomHeaderEntries(const ANSICHAR*& ShaderSource)
+		{
+			return true;
+		}
+
 		struct FInOut
 		{
 			FString Type;
@@ -178,4 +184,57 @@ namespace CrossCompiler
 	};
 
 	extern SHADERCOMPILERCOMMON_API const TCHAR* GetFrequencyName(EShaderFrequency Frequency);
+
+	inline bool ParseIdentifier(const ANSICHAR*& Str, FString& OutStr)
+	{
+		OutStr = TEXT("");
+		FString Result;
+		while ((*Str >= 'A' && *Str <= 'Z')
+			|| (*Str >= 'a' && *Str <= 'z')
+			|| (*Str >= '0' && *Str <= '9')
+			|| *Str == '_')
+		{
+			OutStr += (TCHAR)*Str;
+			++Str;
+		}
+
+		return OutStr.Len() > 0;
+	}
+
+	FORCEINLINE bool Match(const ANSICHAR*& Str, ANSICHAR Char)
+	{
+		if (*Str == Char)
+		{
+			++Str;
+			return true;
+		}
+
+		return false;
+	}
+
+	template <typename T>
+	inline bool ParseIntegerNumber(const ANSICHAR*& Str, T& OutNum)
+	{
+		auto* OriginalStr = Str;
+		OutNum = 0;
+		while (*Str >= '0' && *Str <= '9')
+		{
+			OutNum = OutNum * 10 + *Str++ - '0';
+		}
+
+		return Str != OriginalStr;
+	}
+
+	inline bool ParseSignedNumber(const ANSICHAR*& Str, int32& OutNum)
+	{
+		int32 Sign = Match(Str, '-') ? -1 : 1;
+		uint32 Num = 0;
+		if (ParseIntegerNumber(Str, Num))
+		{
+			OutNum = Sign * (int32)Num;
+			return true;
+		}
+
+		return false;
+	}
 }

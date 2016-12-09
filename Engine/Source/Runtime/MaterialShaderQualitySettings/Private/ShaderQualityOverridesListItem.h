@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "PropertyHandle.h"
+#include "SceneTypes.h"
 
 // FShaderQualityOverridesListItem
 // Helper struct for FMaterialShaderQualitySettingsCustomization, contains info required to populate a material quality row.

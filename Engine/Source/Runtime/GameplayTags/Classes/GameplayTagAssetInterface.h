@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptMacros.h"
+#include "UObject/Interface.h"
 #include "GameplayTagContainer.h"
 #include "GameplayTagAssetInterface.generated.h"
 
@@ -38,22 +42,20 @@ class GAMEPLAYTAGS_API IGameplayTagAssetInterface
 	 * Check if the asset has gameplay tags that matches against all of the specified tags (expands to include parents of asset tags)
 	 * 
 	 * @param TagContainer			Tag container to check for a match
-	 * @param bCountEmptyAsMatch	If true, the parameter tag container will count as matching, even if it's empty
 	 * 
-	 * @return True if the asset has matches all of the gameplay tags
+	 * @return True if the asset has matches all of the gameplay tags, will be true if container is empty
 	 */
 	UFUNCTION(BlueprintCallable, Category=GameplayTags)
-	virtual bool HasAllMatchingGameplayTags(const FGameplayTagContainer& TagContainer, bool bCountEmptyAsMatch = true) const;
+	virtual bool HasAllMatchingGameplayTags(const FGameplayTagContainer& TagContainer) const;
 
 	/**
 	 * Check if the asset has gameplay tags that matches against any of the specified tags (expands to include parents of asset tags)
 	 * 
 	 * @param TagContainer			Tag container to check for a match
-	 * @param bCountEmptyAsMatch	If true, the parameter tag container will count as matching, even if it's empty
 	 * 
-	 * @return True if the asset has matches any of the gameplay tags
+	 * @return True if the asset has matches any of the gameplay tags, will be false if container is empty
 	 */
 	UFUNCTION(BlueprintCallable, Category=GameplayTags)
-	virtual bool HasAnyMatchingGameplayTags(const FGameplayTagContainer& TagContainer, bool bCountEmptyAsMatch = true) const;
+	virtual bool HasAnyMatchingGameplayTags(const FGameplayTagContainer& TagContainer) const;
 };
 

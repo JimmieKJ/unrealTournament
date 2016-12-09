@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "IPlatformFileLogWrapper.h"
+#include "HAL/IPlatformFileLogWrapper.h"
+#include "Misc/CoreMisc.h"
+#include "UniquePtr.h"
 
 bool bSuppressFileLog = false;
 DEFINE_LOG_CATEGORY(LogPlatformFile);
@@ -29,7 +30,7 @@ public:
 		return false;
 	}
 };
-static TAutoPtr<FFileLogExec> GFileLogExec;
+static TUniquePtr<FFileLogExec> GFileLogExec;
 
 #endif // !UE_BUILD_SHIPPING
 
@@ -46,7 +47,7 @@ bool FLoggedPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CommandL
 	LowerLevel = Inner;
 
 #if !UE_BUILD_SHIPPING
-	GFileLogExec = new FFileLogExec(*this);
+	GFileLogExec = MakeUnique<FFileLogExec>(*this);
 #endif
 
 	return !!LowerLevel;

@@ -240,6 +240,8 @@ void UUTGameUserSettings::SetKeyboardLightingEnabled(bool NewKeyboardLightingEna
 #if !UE_SERVER
 void UUTGameUserSettings::BenchmarkDetailSettingsIfNeeded(UUTLocalPlayer* LocalPlayer)
 {
+	// breaks internal perf testing on non-desktop platforms
+#if PLATFORM_DESKTOP
 	if (ensure(LocalPlayer))
 	{
 		if (InitialBenchmarkState == -1)
@@ -259,6 +261,7 @@ void UUTGameUserSettings::BenchmarkDetailSettingsIfNeeded(UUTLocalPlayer* LocalP
 			ensure(InitialBenchmarkState == 1);
 		}
 	}
+#endif
 }
 #endif // !UE_SERVER
 

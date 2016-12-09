@@ -2,13 +2,10 @@
 
 #pragma once
 
-#include "MovieSceneBoolTrack.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Tracks/MovieSceneBoolTrack.h"
 #include "MovieSceneVisibilityTrack.generated.h"
-
-
-class IMovieSceneTrackInstance;
-class UMovieSceneSection;
-
 
 /**
  * Handles manipulation of visibility properties in a movie scene
@@ -22,8 +19,7 @@ class UMovieSceneVisibilityTrack
 public:
 
 	// UMovieSceneTrack interface
-	virtual UMovieSceneSection* CreateNewSection() override;
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
+	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 
 #if WITH_EDITORONLY_DATA
 	virtual FText GetDisplayName() const override;

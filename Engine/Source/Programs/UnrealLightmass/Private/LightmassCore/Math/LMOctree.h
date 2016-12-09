@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "LMMath.h"
+#include "LMMathSSE.h"
+#include "UnrealLightmass.h"
+
 namespace Lightmass
 {
 
@@ -551,30 +556,30 @@ FORCEINLINE FOctreeChildNodeSubset FOctreeNodeContext::GetIntersectingChildren(c
 	FOctreeChildNodeSubset Result;
 
 	// Load the query bounding box values as VectorRegisters.
-	const VectorRegister QueryBoundsCenter = VectorLoadAligned(&QueryBounds.Center);
-	const VectorRegister QueryBoundsExtent = VectorLoadAligned(&QueryBounds.Extent);
-	const VectorRegister QueryBoundsMax = VectorAdd(QueryBoundsCenter,QueryBoundsExtent);
-	const VectorRegister QueryBoundsMin = VectorSubtract(QueryBoundsCenter,QueryBoundsExtent);
+	const LmVectorRegister QueryBoundsCenter = LmVectorLoadAligned(&QueryBounds.Center);
+	const LmVectorRegister QueryBoundsExtent = LmVectorLoadAligned(&QueryBounds.Extent);
+	const LmVectorRegister QueryBoundsMax = LmVectorAdd(QueryBoundsCenter,QueryBoundsExtent);
+	const LmVectorRegister QueryBoundsMin = LmVectorSubtract(QueryBoundsCenter,QueryBoundsExtent);
 
 	// Compute the bounds of the node's children.
-	const VectorRegister BoundsCenter = VectorLoadAligned(&Bounds.Center);
-	const VectorRegister BoundsExtent = VectorLoadAligned(&Bounds.Extent);
-	const VectorRegister PositiveChildBoundsMin = VectorSubtract(
-		VectorAdd(BoundsCenter,VectorLoadFloat1(&ChildCenterOffset)),
-		VectorLoadFloat1(&ChildExtent)
+	const LmVectorRegister BoundsCenter = LmVectorLoadAligned(&Bounds.Center);
+	const LmVectorRegister BoundsExtent = LmVectorLoadAligned(&Bounds.Extent);
+	const LmVectorRegister PositiveChildBoundsMin = LmVectorSubtract(
+		LmVectorAdd(BoundsCenter,LmVectorLoadFloat1(&ChildCenterOffset)),
+		LmVectorLoadFloat1(&ChildExtent)
 		);
-	const VectorRegister NegativeChildBoundsMax = VectorAdd(
-		VectorSubtract(BoundsCenter,VectorLoadFloat1(&ChildCenterOffset)),
-		VectorLoadFloat1(&ChildExtent)
+	const LmVectorRegister NegativeChildBoundsMax = LmVectorAdd(
+		LmVectorSubtract(BoundsCenter,LmVectorLoadFloat1(&ChildCenterOffset)),
+		LmVectorLoadFloat1(&ChildExtent)
 		);
 
 	// Intersect the query bounds with the node's children's bounds.
-	Result.bPositiveX = VectorAnyGreaterThan(VectorReplicate(QueryBoundsMax,0),VectorReplicate(PositiveChildBoundsMin,0)) != false;
-	Result.bPositiveY = VectorAnyGreaterThan(VectorReplicate(QueryBoundsMax,1),VectorReplicate(PositiveChildBoundsMin,1)) != false;
-	Result.bPositiveZ = VectorAnyGreaterThan(VectorReplicate(QueryBoundsMax,2),VectorReplicate(PositiveChildBoundsMin,2)) != false;
-	Result.bNegativeX = VectorAnyGreaterThan(VectorReplicate(QueryBoundsMin,0),VectorReplicate(NegativeChildBoundsMax,0)) == false;
-	Result.bNegativeY = VectorAnyGreaterThan(VectorReplicate(QueryBoundsMin,1),VectorReplicate(NegativeChildBoundsMax,1)) == false;
-	Result.bNegativeZ = VectorAnyGreaterThan(VectorReplicate(QueryBoundsMin,2),VectorReplicate(NegativeChildBoundsMax,2)) == false;
+	Result.bPositiveX = LmVectorAnyGreaterThan(LmVectorReplicate(QueryBoundsMax,0),LmVectorReplicate(PositiveChildBoundsMin,0)) != false;
+	Result.bPositiveY = LmVectorAnyGreaterThan(LmVectorReplicate(QueryBoundsMax,1),LmVectorReplicate(PositiveChildBoundsMin,1)) != false;
+	Result.bPositiveZ = LmVectorAnyGreaterThan(LmVectorReplicate(QueryBoundsMax,2),LmVectorReplicate(PositiveChildBoundsMin,2)) != false;
+	Result.bNegativeX = LmVectorAnyGreaterThan(LmVectorReplicate(QueryBoundsMin,0),LmVectorReplicate(NegativeChildBoundsMax,0)) == false;
+	Result.bNegativeY = LmVectorAnyGreaterThan(LmVectorReplicate(QueryBoundsMin,1),LmVectorReplicate(NegativeChildBoundsMax,1)) == false;
+	Result.bNegativeZ = LmVectorAnyGreaterThan(LmVectorReplicate(QueryBoundsMin,2),LmVectorReplicate(NegativeChildBoundsMax,2)) == false;
 	return Result;
 }
 
@@ -583,27 +588,27 @@ FORCEINLINE FOctreeChildNodeRef FOctreeNodeContext::GetContainingChild(const FBo
 	FOctreeChildNodeRef Result;
 
 	// Load the query bounding box values as VectorRegisters.
-	const VectorRegister QueryBoundsCenter = VectorLoadAligned(&QueryBounds.Center);
-	const VectorRegister QueryBoundsExtent = VectorLoadAligned(&QueryBounds.Extent);
+	const LmVectorRegister QueryBoundsCenter = LmVectorLoadAligned(&QueryBounds.Center);
+	const LmVectorRegister QueryBoundsExtent = LmVectorLoadAligned(&QueryBounds.Extent);
 
 	// Compute the bounds of the node's children.
-	const VectorRegister BoundsCenter = VectorLoadAligned(&Bounds.Center);
-	const VectorRegister ChildCenterOffsetVector = VectorLoadFloat1(&ChildCenterOffset);
-	const VectorRegister NegativeCenterDifference = VectorSubtract(QueryBoundsCenter,VectorSubtract(BoundsCenter,ChildCenterOffsetVector));
-	const VectorRegister PositiveCenterDifference = VectorSubtract(VectorAdd(BoundsCenter,ChildCenterOffsetVector),QueryBoundsCenter);
+	const LmVectorRegister BoundsCenter = LmVectorLoadAligned(&Bounds.Center);
+	const LmVectorRegister ChildCenterOffsetVector = LmVectorLoadFloat1(&ChildCenterOffset);
+	const LmVectorRegister NegativeCenterDifference = LmVectorSubtract(QueryBoundsCenter,LmVectorSubtract(BoundsCenter,ChildCenterOffsetVector));
+	const LmVectorRegister PositiveCenterDifference = LmVectorSubtract(LmVectorAdd(BoundsCenter,ChildCenterOffsetVector),QueryBoundsCenter);
 
 	// If the query bounds isn't entirely inside the bounding box of the child it's closest to, it's not contained by any of the child nodes.
-	const VectorRegister MinDifference = VectorMin(PositiveCenterDifference,NegativeCenterDifference);
-	if(VectorAnyGreaterThan(VectorAdd(QueryBoundsExtent,MinDifference),VectorLoadFloat1(&ChildExtent)))
+	const LmVectorRegister MinDifference = LmVectorMin(PositiveCenterDifference,NegativeCenterDifference);
+	if(LmVectorAnyGreaterThan(LmVectorAdd(QueryBoundsExtent,MinDifference),LmVectorLoadFloat1(&ChildExtent)))
 	{
 		Result.bNULL = true;
 	}
 	else
 	{
 		// Return the child node that the query is closest to as the containing child.
-		Result.X = VectorAnyGreaterThan(VectorReplicate(QueryBoundsCenter,0),VectorReplicate(BoundsCenter,0)) != false;
-		Result.Y = VectorAnyGreaterThan(VectorReplicate(QueryBoundsCenter,1),VectorReplicate(BoundsCenter,1)) != false;
-		Result.Z = VectorAnyGreaterThan(VectorReplicate(QueryBoundsCenter,2),VectorReplicate(BoundsCenter,2)) != false;
+		Result.X = LmVectorAnyGreaterThan(LmVectorReplicate(QueryBoundsCenter,0),LmVectorReplicate(BoundsCenter,0)) != false;
+		Result.Y = LmVectorAnyGreaterThan(LmVectorReplicate(QueryBoundsCenter,1),LmVectorReplicate(BoundsCenter,1)) != false;
+		Result.Z = LmVectorAnyGreaterThan(LmVectorReplicate(QueryBoundsCenter,2),LmVectorReplicate(BoundsCenter,2)) != false;
 	}
 
 	return Result;

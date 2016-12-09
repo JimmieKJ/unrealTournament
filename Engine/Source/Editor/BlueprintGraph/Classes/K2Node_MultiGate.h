@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node_ExecutionSequence.h"
 #include "K2Node_MultiGate.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UEdGraph;
+class UEdGraphPin;
 
 UCLASS(MinimalAPI)
 class UK2Node_MultiGate : public UK2Node_ExecutionSequence

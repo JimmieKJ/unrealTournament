@@ -233,6 +233,12 @@
 						<td>
 							<%=Html.DropDownListFor( m=>m.EngineMode, Model.EngineModes )%>
 						</td>
+                        <td>
+							<p class="SearchTextTitle">Filter by Engine Version</p>
+						</td>
+						<td>
+							<%=Html.DropDownListFor( m=>m.EngineVersion, Model.EngineVersions )%>
+						</td>
 					</tr>
 					<tr>
 						<td colspan="7" >

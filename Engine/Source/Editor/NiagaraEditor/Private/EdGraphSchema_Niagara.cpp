@@ -1,15 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
-#include "BlueprintGraphDefinitions.h"
-#include "GraphEditorSettings.h"
-#include "NiagaraComponent.h"
-#include "GraphEditorActions.h"
 #include "EdGraphSchema_Niagara.h"
-
-#include "INiagaraEditor.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "NiagaraCommon.h"
+#include "NiagaraEditorCommon.h"
 #include "INiagaraCompiler.h"
+#include "NiagaraComponent.h"
 #include "ScopedTransaction.h"
+#include "NiagaraGraph.h"
+#include "GraphEditorSettings.h"
+#include "GraphEditorActions.h"
+
 
 #include "NiagaraNodeOutput.h"
 #include "NiagaraNodeInput.h"

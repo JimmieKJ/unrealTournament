@@ -6,6 +6,11 @@
  *
  */
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "RHIDefinitions.h"
+#include "Factories/Factory.h"
 #include "WorldFactory.generated.h"
 
 UCLASS(MinimalAPI)

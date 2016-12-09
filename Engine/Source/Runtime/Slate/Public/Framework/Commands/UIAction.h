@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Styling/SlateTypes.h"
 
 /** Defines FExecuteAction delegate interface */
 DECLARE_DELEGATE(FExecuteAction);

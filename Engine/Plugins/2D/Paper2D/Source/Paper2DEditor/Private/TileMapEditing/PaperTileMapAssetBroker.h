@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "PaperTileMap.h"
 #include "ComponentAssetBroker.h"
 #include "PaperTileMapComponent.h"
 

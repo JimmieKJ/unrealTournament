@@ -2,8 +2,13 @@
 
 #pragma once
 
-#include "WidgetTree.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "WidgetAnimationBinding.generated.h"
+
+class UUserWidget;
+class UWidgetTree;
 
 /**
  * A single object bound to a UMG sequence.

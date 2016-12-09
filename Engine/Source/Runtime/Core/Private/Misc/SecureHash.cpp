@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "SecureHash.h"
+#include "Misc/SecureHash.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogSecureHash, Log, All);
@@ -95,7 +96,7 @@ FMD5::~FMD5()
 
 }
 
-void FMD5::Update( uint8* input, int32 inputLen )
+void FMD5::Update( const uint8* input, int32 inputLen )
 {
 	int32 i, index, partLen;
 
@@ -154,7 +155,7 @@ void FMD5::Final( uint8* digest )
 	FMemory::Memset( &Context, 0, sizeof(Context) );
 }
 
-void FMD5::Transform( uint32* state, uint8* block )
+void FMD5::Transform( uint32* state, const uint8* block )
 {
 	uint32 a = state[0], b = state[1], c = state[2], d = state[3], x[16];
 
@@ -241,7 +242,7 @@ void FMD5::Transform( uint32* state, uint8* block )
 	FMemory::Memset( x, 0, sizeof(x) );
 }
 
-void FMD5::Encode( uint8* output, uint32* input, int32 len )
+void FMD5::Encode( uint8* output, const uint32* input, int32 len )
 {
 	int32 i, j;
 
@@ -254,7 +255,7 @@ void FMD5::Encode( uint8* output, uint32* input, int32 len )
 	}
 }
 
-void FMD5::Decode( uint32* output, uint8* input, int32 len )
+void FMD5::Decode( uint32* output, const uint8* input, int32 len )
 {
 	int32 i, j;
 
@@ -528,14 +529,21 @@ namespace LexicalConversion
 FMD5Hash FMD5Hash::HashFile(const TCHAR* InFilename, TArray<uint8>* Buffer)
 {
 	FArchive* Ar = IFileManager::Get().CreateFileReader(InFilename);
+	FMD5Hash Result = HashFileFromArchive( Ar, Buffer );
+	delete Ar;
 
+	return Result;
+}
+
+FMD5Hash FMD5Hash::HashFileFromArchive( FArchive* Ar, TArray<uint8>* Buffer)
+{
 	FMD5Hash Hash;
 	if (Ar)
 	{
 		TArray<uint8> LocalScratch;
 		if (!Buffer)
 		{
-			LocalScratch.SetNumUninitialized(1024*64);
+			LocalScratch.SetNumUninitialized(1024 * 64);
 			Buffer = &LocalScratch; //-V506
 		}
 		FMD5 MD5;
@@ -554,11 +562,11 @@ FMD5Hash FMD5Hash::HashFile(const TCHAR* InFilename, TArray<uint8>* Buffer)
 		}
 
 		Hash.Set(MD5);
-		delete Ar;
 	}
 
 	return Hash;
 }
+
 
 /*-----------------------------------------------------------------------------
 	SHA-1

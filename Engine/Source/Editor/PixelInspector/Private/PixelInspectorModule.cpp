@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PixelInspectorPrivatePCH.h"
 #include "PixelInspectorModule.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Docking/TabManager.h"
+#include "PixelInspectorView.h"
 #include "PixelInspector.h"
 #include "PropertyEditorModule.h"
 #include "PixelInspectorStyle.h"
 #include "PixelInspectorDetailsCustomization.h"
 
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 void FPixelInspectorModule::StartupModule()
 {

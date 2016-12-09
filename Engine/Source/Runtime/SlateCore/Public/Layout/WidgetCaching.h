@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Layout/SlateRect.h"
+#include "Layout/Geometry.h"
+#include "Widgets/SWidget.h"
+
+class FHittestGrid;
+class FPaintArgs;
+
 /**
  * Used by the implementation of ILayoutCache to store additional information about every widget drawn,
  * so that the hit test grid can be replicated during subsequent frames without the widgets actually doing 

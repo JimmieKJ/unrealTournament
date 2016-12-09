@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HTML5PlatformEditorPrivatePCH.h"
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "PropertyEditorModule.h"
+#include "HTML5TargetSettings.h"
 #include "ISettingsModule.h"
-#include "ModuleManager.h"
 #include "HTML5SDKSettings.h"
 
 

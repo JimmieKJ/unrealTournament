@@ -1,18 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
-#include "ObjectTools.h"
+#include "CoreMinimal.h"
+#include "LandscapeToolInterface.h"
+#include "LandscapeProxy.h"
 #include "LandscapeEdMode.h"
-#include "ScopedTransaction.h"
-#include "LandscapeEdit.h"
-#include "LandscapeRender.h"
-#include "LandscapeDataAccess.h"
-#include "LandscapeSplineProxies.h"
-#include "LandscapeEditorModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
+#include "LandscapeEditorObject.h"
 #include "LandscapeEdModeTools.h"
-#include "Landscape.h"
-#include "LandscapeLayerInfoObject.h"
 
 //
 // FLandscapeToolErosionBase
@@ -61,7 +54,7 @@ public:
 	{
 	}
 
-	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolMousePosition>& MousePositions)
+	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolInteractorPosition>& InteractorPositions)
 	{
 		if (!LandscapeInfo)
 		{
@@ -69,7 +62,7 @@ public:
 		}
 
 		// Get list of verts to update
-		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(MousePositions);
+		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(InteractorPositions);
 		if (!BrushInfo)
 		{
 			return;
@@ -293,7 +286,7 @@ public:
 	{
 	}
 
-	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolMousePosition>& MousePositions)
+	void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolInteractorPosition>& InteractorPositions)
 	{
 		if (!LandscapeInfo)
 		{
@@ -301,7 +294,7 @@ public:
 		}
 
 		// Get list of verts to update
-		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(MousePositions);
+		FLandscapeBrushData BrushInfo = Brush->ApplyBrush(InteractorPositions);
 		if (!BrushInfo)
 		{
 			return;

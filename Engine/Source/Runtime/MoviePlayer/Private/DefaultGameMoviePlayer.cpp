@@ -1,21 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MoviePlayerPrivatePCH.h"
-#include "MoviePlayer.h"
+#include "DefaultGameMoviePlayer.h"
+#include "HAL/PlatformSplash.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/CoreDelegates.h"
+#include "EngineGlobals.h"
+#include "Widgets/SViewport.h"
+#include "Engine/GameEngine.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
 
-#include "Engine.h"
-#include "SlateBasics.h"
-#include "RenderingCommon.h"
-#include "Slate/SlateTextures.h"
-#include "Slate/SceneViewport.h"
 #include "GlobalShader.h"
 
-#include "SpinLock.h"
 #include "MoviePlayerThreading.h"
-#include "DefaultGameMoviePlayer.h"
 #include "MoviePlayerSettings.h"
 #include "ShaderCompiler.h"
-
+#include "IHeadMountedDisplay.h"
+#include "IStereoLayers.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMoviePlayer, Log, All);
 
@@ -40,13 +41,13 @@ public:
 	*/
 	void Construct(const FArguments& InArgs)
 	{
-		OnKeyDown = InArgs._OnKeyDown;		
+		OnKeyDownHandler = InArgs._OnKeyDown;
 
-		SBorder::Construct(SBorder::FArguments()			
+		SBorder::Construct(SBorder::FArguments()
 			.BorderImage(FCoreStyle::Get().GetBrush(TEXT("BlackBrush")))
 			.OnMouseButtonDown(InArgs._OnMouseButtonDown)
 			.Padding(0)[InArgs._Content.Widget]);
-		
+
 	}
 
 	/**
@@ -56,12 +57,35 @@ public:
 	*/
 	void SetOnOnKeyDown(const FOnKeyDown& InHandler)
 	{
-		OnKeyDown = InHandler;
-	}	
+		OnKeyDownHandler = InHandler;
+	}
+
+	/**
+	* Overrides SWidget::OnKeyDown()
+	* executes OnKeyDownHandler if it is bound
+	*/
+	FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override
+	{
+		if (OnKeyDownHandler.IsBound())
+		{
+			// If a handler is assigned, call it.
+			return OnKeyDownHandler.Execute(MyGeometry, InKeyEvent);
+		}
+		return SBorder::OnKeyDown(MyGeometry, InKeyEvent);
+	}
+
+	/**
+	* Overrides SWidget::SupportsKeyboardFocus()
+	* Must support keyboard focus to accept OnKeyDown events
+	*/
+	bool SupportsKeyboardFocus() const override
+	{
+		return true;
+	}
 
 protected:
-	
-	FOnKeyDown OnKeyDown;	
+
+	FOnKeyDown OnKeyDownHandler;
 };
 
 TSharedPtr<FDefaultGameMoviePlayer> FDefaultGameMoviePlayer::MoviePlayer;
@@ -322,6 +346,15 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 		const bool bWaitForManualStop = LoadingScreenAttributes.bWaitForManualStop;
 
 		FSlateApplication& SlateApp = FSlateApplication::Get();
+
+		// Make sure the movie player widget has user focus to accept keypresses
+		if (LoadingScreenContents.IsValid())
+		{
+			SlateApp.ForEachUser([&](FSlateUser* User) {
+				SlateApp.SetUserFocus(User->GetUserIndex(), LoadingScreenContents);
+			});
+		}
+
 		// Continue to wait until the user calls finish (if enabled) or when loading completes or the minimum enforced time (if any) has been reached.
 		while ( (bWaitForManualStop && !bUserCalledFinish) || (!bUserCalledFinish && ((!bEnforceMinimumTime && !IsMovieStreamingFinished() && !bAutoCompleteWhenLoadingCompletes) || (bEnforceMinimumTime && (FPlatformTime::Seconds() - LastPlayTime) < LoadingScreenAttributes.MinimumLoadingScreenDisplayTime))))
 		{
@@ -369,6 +402,12 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 		LoadingScreenWidgetHolder->SetContent( SNullWidget::NullWidget );
 
 		LoadingIsDone.Set(1);
+
+		IStereoLayers* StereoLayers;
+		if (GEngine && GEngine->HMDDevice.IsValid() && (StereoLayers = GEngine->HMDDevice->GetStereoLayers()) != nullptr && SyncMechanism == nullptr)
+		{
+			StereoLayers->SetSplashScreenMovie(FTextureRHIRef());
+		}
 
 		MovieStreamingIsDone.Set(1);
 
@@ -447,6 +486,18 @@ void FDefaultGameMoviePlayer::TickStreamer(float DeltaTime)
 		if (bMovieIsDone)
 		{
 			MovieStreamingIsDone.Set(1);
+		}
+
+		IStereoLayers* StereoLayers;
+		if (GEngine && GEngine->HMDDevice.IsValid() && (StereoLayers = GEngine->HMDDevice->GetStereoLayers()) != nullptr)
+		{
+			FTexture2DRHIRef Movie2DTexture = MovieStreamer->GetTexture();
+			FTextureRHIRef MovieTexture;
+			if (Movie2DTexture.IsValid() && !bMovieIsDone)
+			{
+				MovieTexture = (FRHITexture*)Movie2DTexture.GetReference();
+			}
+			StereoLayers->SetSplashScreenMovie(MovieTexture);
 		}
 	}
 }

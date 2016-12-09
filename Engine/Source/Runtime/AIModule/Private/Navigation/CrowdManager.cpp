@@ -1,19 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "Navigation/CrowdManager.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/Controller.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "AI/Navigation/RecastNavMesh.h"
+#include "VisualLogger/VisualLogger.h"
+#include "AIModuleLog.h"
 
 #if WITH_RECAST
 #include "AI/Navigation/PImplRecastNavMesh.h"
 #include "AI/Navigation/RecastHelpers.h"
+#include "DetourCrowd/DetourObstacleAvoidance.h"
 #include "DetourCrowd/DetourCrowd.h"
-#include "Detour/DetourCommon.h"
 #endif
 
-#include "Navigation/CrowdManager.h"
 #include "Navigation/CrowdFollowingComponent.h"
-#include "Navigation/CrowdAgentInterface.h"
-
-#include "DrawDebugHelpers.h"
 
 DECLARE_STATS_GROUP(TEXT("Crowd"), STATGROUP_AICrowd, STATCAT_Advanced);
 
@@ -138,6 +141,7 @@ UCrowdManager::UCrowdManager(const FObjectInitializer& ObjectInitializer) : Supe
 	MaxAvoidedWalls = 8;
 	NavmeshCheckInterval = 1.0f;
 	PathOptimizationInterval = 0.5f;
+	SeparationDirClamp = -1.0f;
 	bSingleAreaVisibilityOptimization = true;
 	bPruneStartedOffmeshConnections = false;
 	bEarlyReachTestOptimization = false;
@@ -865,6 +869,7 @@ void UCrowdManager::CreateCrowdManager()
 	{
 		DetourCrowd->init(MaxAgents, MaxAgentRadius, NavMeshPtr);
 		DetourCrowd->setAgentCheckInterval(NavmeshCheckInterval);
+		DetourCrowd->setSeparationFilter(SeparationDirClamp);
 		DetourCrowd->setSingleAreaVisibilityOptimization(bSingleAreaVisibilityOptimization);
 		DetourCrowd->setPruneStartedOffmeshConnections(bPruneStartedOffmeshConnections);
 		DetourCrowd->setEarlyReachTestOptimization(bEarlyReachTestOptimization);
@@ -899,6 +904,7 @@ void UCrowdManager::DestroyCrowdManager()
 	DetourCrowd = NULL;
 }
 
+#if ENABLE_DRAW_DEBUG
 void UCrowdManager::DrawDebugCorners(const dtCrowdAgent* CrowdAgent) const
 {
 	{
@@ -1058,6 +1064,7 @@ void UCrowdManager::DrawDebugSharedBoundary() const
 		}
 	}
 }
+#endif // ENABLE_DRAW_DEBUG
 
 #endif // WITH_RECAST
 
@@ -1080,6 +1087,7 @@ void UCrowdManager::DebugTick() const
 		}
 	}
 
+#if ENABLE_DRAW_DEBUG
 	// on screen debugging
 	const dtCrowdAgent* SelectedAgent = DetourAgentDebug->idx >= 0 ? DetourCrowd->getAgent(DetourAgentDebug->idx) : NULL;
 	if (SelectedAgent && CrowdDebugDrawing::bDebugSelectedActors)
@@ -1119,6 +1127,7 @@ void UCrowdManager::DebugTick() const
 	{
 		DrawDebugSharedBoundary();
 	}
+#endif // ENABLE_DRAW_DEBUG
 
 	// vislog debugging
 	if (CrowdDebugDrawing::bDebugVisLog)

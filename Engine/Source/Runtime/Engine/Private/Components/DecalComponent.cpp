@@ -4,9 +4,11 @@
 	DecalComponent.cpp: Decal component implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "LevelUtils.h"
 #include "Components/DecalComponent.h"
+#include "Materials/Material.h"
+#include "TimerManager.h"
+#include "SceneManagement.h"
+#include "Materials/MaterialInstanceDynamic.h"
 
 static TAutoConsoleVariable<float> CVarDecalFadeDurationScale(
 	TEXT("r.Decal.FadeDurationScale"),

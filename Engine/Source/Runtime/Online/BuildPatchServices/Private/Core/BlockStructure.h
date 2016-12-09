@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+
 namespace BuildPatchServices
 {
 	struct FBlockEntry
@@ -16,16 +18,17 @@ namespace BuildPatchServices
 		const FBlockEntry* GetPrevious() const;
 
 	private:
-		uint64 Offset;
-		uint64 Size;
-		FBlockEntry* Prev;
-		FBlockEntry* Next;
-
 		void InsertBefore(FBlockEntry* NewEntry, FBlockEntry** Head);
 		void InsertAfter(FBlockEntry* NewEntry, FBlockEntry** Foot);
 		void Unlink(FBlockEntry** Head, FBlockEntry** Foot);
 		void Merge(uint64 InOffset, uint64 InSize);
 		void Chop(uint64 InOffset, uint64 InSize, FBlockEntry** Head, FBlockEntry** Foot);
+
+	private:
+		uint64 Offset;
+		uint64 Size;
+		FBlockEntry* Prev;
+		FBlockEntry* Next;
 	};
 
 	class FBlockStructure
@@ -104,6 +107,17 @@ namespace BuildPatchServices
 		 * @return structure of blocks representing the overlap between this and other.
 		 */
 		FBlockStructure Intersect(const FBlockStructure& OtherStructure) const;
+
+		/**
+		 * Get a string representation of this block structure, with ability to limit the number of blocks to stringify.
+		 * The string is formatted "[Offset,Size]-[Offset,Size].. %d more."
+		 * e.g. "[0,10]-[20,10]-[40,10]."
+		 *      "[0,10]-[20,10]-[40,10].. 300 more."
+		 *
+		 * @param   BlockCountLimit     The maximum number of blocks to include in the string.
+		 * @return a string representation of this block structure.
+		 */
+		FString ToString(uint64 BlockCountLimit = 20) const;
 
 	private:
 		FBlockEntry* Head;

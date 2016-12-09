@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
 #include "StructSerializerTestTypes.generated.h"
 
 /**
@@ -215,6 +219,9 @@ struct FStructSerializerMapTestStruct
 	TMap<int32, FString> IntToStr;
 
 	UPROPERTY()
+	TMap<FString, FString> StrToStr;
+
+	UPROPERTY()
 	TMap<FString, FVector> StrToVec;
 
 	/** Default constructor. */
@@ -223,6 +230,10 @@ struct FStructSerializerMapTestStruct
 		IntToStr.Add(1, TEXT("One"));
 		IntToStr.Add(2, TEXT("Two"));
 		IntToStr.Add(3, TEXT("Three"));
+
+		StrToStr.Add(TEXT("StrAll"), TEXT("All"));
+		StrToStr.Add(TEXT("StrYour"), TEXT("Your"));
+		StrToStr.Add(TEXT("StrBase"), TEXT("Base"));
 
 		StrToVec.Add(TEXT("V000"), FVector(0.0f, 0.0f, 0.0f));
 		StrToVec.Add(TEXT("V123"), FVector(1.0f, 2.0f, 3.0f));

@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Internationalization/LegacyCulture.h"
+#include "Misc/ScopeLock.h"
 
 #if !UE_ENABLE_ICU
-#include "LegacyCulture.h"
 
 FCulture::FLegacyCultureImplementation::FLegacyCultureImplementation(
 	const FText& InDisplayName, 

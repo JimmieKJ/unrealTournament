@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "IMotionController.h"
 #include "SteamVRFunctionLibrary.generated.h"
 
 /** Defines the class of tracked devices in SteamVR*/
 UENUM(BlueprintType)
-enum class ESteamVRTrackedDeviceType
+enum class ESteamVRTrackedDeviceType : uint8
 {
 	/** Represents a Steam VR Controller */
 	Controller,
@@ -38,7 +40,7 @@ public:
 	 * @param	OutTrackedDeviceIds	(out) Array containing the ID of each device that's currently tracked
 	 */
 	UFUNCTION(BlueprintPure, Category="SteamVR")
-	static void GetValidTrackedDeviceIds(TEnumAsByte<ESteamVRTrackedDeviceType> DeviceType, TArray<int32>& OutTrackedDeviceIds);
+	static void GetValidTrackedDeviceIds(ESteamVRTrackedDeviceType DeviceType, TArray<int32>& OutTrackedDeviceIds);
 
 	/**
 	 * Gets the orientation and position (in device space) of the device with the specified ID

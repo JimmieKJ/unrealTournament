@@ -1,10 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "InputCoreTypes.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Features/IModularFeature.h"
+
+enum class EControllerHand : uint8;
 
 UENUM(BlueprintType)
-enum class ETrackingStatus
+enum class ETrackingStatus : uint8
 {
 	NotTracked,
 	InertialOnly,

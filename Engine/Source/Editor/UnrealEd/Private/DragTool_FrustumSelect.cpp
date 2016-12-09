@@ -1,17 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
-#include "StaticMeshResources.h"
 #include "DragTool_FrustumSelect.h"
+#include "Components/PrimitiveComponent.h"
+#include "CanvasItem.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "GameFramework/Volume.h"
+#include "EngineUtils.h"
+#include "Engine/Selection.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
 #include "ActorEditorUtils.h"
 #include "ScopedTransaction.h"
 #include "HModel.h"
-#include "Components/DrawSphereComponent.h"
-#include "AI/Navigation/NavLinkRenderingComponent.h"
-#include "Engine/Selection.h"
-#include "EngineUtils.h"
-#include "CanvasItem.h"
 #include "CanvasTypes.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -300,11 +301,11 @@ void FDragTool_ActorFrustumSelect::CalculateFrustum( FSceneView* View, FConvexVo
 		FPlane NearPlane;
 		FPlane FarPlane;
 		OutFrustum.Planes.Empty();
-		if ( View->ViewProjectionMatrix.GetFrustumNearPlane(NearPlane) )
+		if ( View->ViewMatrices.GetViewProjectionMatrix().GetFrustumNearPlane(NearPlane) )
 		{
 			OutFrustum.Planes.Add(NearPlane);
 		}
-		if ( View->ViewProjectionMatrix.GetFrustumFarPlane(FarPlane) )
+		if ( View->ViewMatrices.GetViewProjectionMatrix().GetFrustumFarPlane(FarPlane) )
 		{
 			OutFrustum.Planes.Add(FarPlane);
 		}

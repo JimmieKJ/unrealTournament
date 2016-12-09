@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "UnrealAudioModule.h"
+#include "Commandlets/AudioTestCommandlet.h"
+#include "Modules/ModuleManager.h"
+#include "UnrealAudioTypes.h"
 #include "UnrealAudioTests.h"
+#include "UnrealAudioModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(AudioTestCommandlet, Log, All);
 

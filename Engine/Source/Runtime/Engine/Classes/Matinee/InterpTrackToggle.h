@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Matinee/InterpTrack.h"
 #include "InterpTrackToggle.generated.h"
+
+class FCanvas;
+class UInterpGroup;
+class UInterpTrackInst;
 
 /**
  *	A track containing toggle actions that are triggered as its played back. 

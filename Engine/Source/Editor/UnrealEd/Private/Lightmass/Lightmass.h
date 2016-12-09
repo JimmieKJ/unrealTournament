@@ -7,23 +7,34 @@
 #ifndef __LIGHTMASS_H__
 #define __LIGHTMASS_H__
 
-#include "../StaticLightingSystem/StaticLightingPrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "GameFramework/WorldSettings.h"
+#include "Lightmass/LightmassCharacterIndirectDetailVolume.h"
+#include "StaticLightingSystem/StaticLightingPrivate.h"
+#include "Lightmass/LightmassImportanceVolume.h"
+#include "Components/LightmassPortalComponent.h"
 #if PLATFORM_WINDOWS
 #include "AllowWindowsPlatformTypes.h"
 #endif
 	#include "SwarmInterface.h"
-	#include "LightmassRender.h"
+	#include "Lightmass/LightmassRender.h"
 #if PLATFORM_WINDOWS
 #include "HideWindowsPlatformTypes.h"
 #endif
 
-#include "Lightmass/LightmassImportanceVolume.h"
-#include "Lightmass/LightmassCharacterIndirectDetailVolume.h"
-#include "GameFramework/WorldSettings.h"
-#include "Components/LightmassPortalComponent.h"
-
-// Forward declarations
+class FBSPSurfaceStaticLighting;
 class FLandscapeStaticLightingMesh;
+class FLandscapeStaticLightingTextureMapping;
+class FShadowMapData2D;
+class FStaticMeshStaticLightingTextureMapping;
+class ULightComponent;
+class ULightComponentBase;
+class UMaterialInterface;
+class UStaticMesh;
+struct FQuantizedLightmapData;
+
+template <class ElementType> class TList;
 
 /** Forward declarations of Lightmass types */
 namespace Lightmass
@@ -533,7 +544,7 @@ protected:
 	 */
 	UStaticMesh* FindStaticMesh(FGuid& Guid);
 
-	const ULevel* FindLevel(FGuid& Guid);
+	ULevel* FindLevel(FGuid& Guid);
 
 	/**
 	 *	Import light map data from the given channel.

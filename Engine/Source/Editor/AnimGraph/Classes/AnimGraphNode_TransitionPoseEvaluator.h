@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Layout/Visibility.h"
 #include "AnimGraphNode_Base.h"
 #include "Animation/AnimNode_TransitionPoseEvaluator.h"
 #include "AnimGraphNode_TransitionPoseEvaluator.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class IDetailLayoutBuilder;
 
 UCLASS(MinimalAPI)
 class UAnimGraphNode_TransitionPoseEvaluator : public UAnimGraphNode_Base

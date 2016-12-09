@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Curves/KeyHandle.h"
 #include "MovieSceneClipboard.h"
-#include "IKeyArea.h"
+
+class IKeyArea;
 
 typedef TArray<IKeyArea*> FKeyAreaArray;
 

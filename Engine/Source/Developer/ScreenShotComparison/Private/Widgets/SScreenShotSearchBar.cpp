@@ -4,8 +4,18 @@
 	SScreenShotSearchBar.cpp: Implements the SScreenShotSearchBar class.
 =============================================================================*/
 
-#include "ScreenShotComparisonPrivatePCH.h"
-#include "SSearchBox.h"
+#include "Widgets/SScreenShotSearchBar.h"
+#include "Misc/FilterCollection.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "EditorStyleSet.h"
+#include "Models/ScreenShotComparisonFilter.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "ScreenShotBrowserToolBar"
 
@@ -23,46 +33,11 @@ void SScreenShotSearchBar::Construct( const FArguments& InArgs, IScreenShotManag
 
 	PlatformDisplayString = "Any";
 
-	//Default to show all screenshots
-	DisplayEveryNthScreenshot = 1;
-
 	TArray< TSharedPtr<FString> >& PlatformList = ScreenShotManager->GetCachedPlatfomList();
 
 	ChildSlot
 	[
 		SNew ( SHorizontalBox )
-		+ SHorizontalBox::Slot()
-		.FillWidth( 1.0f )
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		[
-			SNew( SHorizontalBox )
-			+SHorizontalBox::Slot()
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			[
-				SNew( STextBlock )
-				.Text( LOCTEXT("ScreenshotNthLabel", "Display Every Nth Screenshot:") )
-			]
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew( SBox )
-				.Padding( FMargin(4.0f, 0.0f, 0.0f, 0.0f) )
-				.WidthOverride( 100.0f )
-				[
-					SNew(SSpinBox<int32>)
-					.MinValue(1)
-					.MaxValue(20)
-					.MinSliderValue(1)
-					.MaxSliderValue(20)
-					.Value(this,&SScreenShotSearchBar::GetDisplayEveryNthScreenshot)
-					.OnValueChanged(this,&SScreenShotSearchBar::OnChangedDisplayEveryNthScreenshot)
-					.OnValueCommitted(this,&SScreenShotSearchBar::OnCommitedDisplayEveryNthScreenshot)
-				]
-			]
-		]
 		+SHorizontalBox::Slot()
 		.AutoWidth()
 		.Padding( 5.0f, 0.0f, 5.0f, 0.0f )
@@ -136,22 +111,6 @@ void SScreenShotSearchBar::Construct( const FArguments& InArgs, IScreenShotManag
 	];
 }
 
-void SScreenShotSearchBar::OnCommitedDisplayEveryNthScreenshot(int32 InNewValue, ETextCommit::Type CommitType)
-{
-	DisplayEveryNthScreenshot = InNewValue;
-	ScreenShotManager->SetDisplayEveryNthScreenshot(DisplayEveryNthScreenshot);
-}
-
-void SScreenShotSearchBar::OnChangedDisplayEveryNthScreenshot(int32 InNewValue)
-{
-	DisplayEveryNthScreenshot = InNewValue;
-}
-
-int32 SScreenShotSearchBar::GetDisplayEveryNthScreenshot() const
-{
-	return DisplayEveryNthScreenshot;
-}
-
 FText SScreenShotSearchBar::GetPlatformString() const
 {
 	return FText::FromString(PlatformDisplayString);
@@ -207,7 +166,6 @@ FReply SScreenShotSearchBar::RefreshView( )
 	ScreenShotComparisonFilter->SetPlatformFilter( "" );
 	ScreenShotManager->SetFilter( ScreenShotFilters );
 	PlatformDisplayString = "Any";
-	DisplayEveryNthScreenshot = 1;
 
 	return FReply::Handled();
 }

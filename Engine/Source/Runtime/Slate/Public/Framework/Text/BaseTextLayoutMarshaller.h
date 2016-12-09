@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ITextLayoutMarshaller.h"
+#include "CoreMinimal.h"
+#include "Framework/Text/ITextLayoutMarshaller.h"
 
 /**
  * Base class implementing some common functionality for all text marshallers

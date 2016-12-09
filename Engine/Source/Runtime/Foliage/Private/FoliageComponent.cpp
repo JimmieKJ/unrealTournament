@@ -4,10 +4,14 @@
 	FoliageComponent.cpp: Foliage rendering implementation.
 =============================================================================*/
 
-#include "FoliagePrivate.h"
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "RenderingThread.h"
+#include "GameFramework/Controller.h"
+#include "Components/CapsuleComponent.h"
+#include "StaticMeshResources.h"
 #include "InteractiveFoliageActor.h"
 #include "InteractiveFoliageComponent.h"
-#include "Components/CapsuleComponent.h"
 
 /** Scene proxy class for UInteractiveFoliageComponent. */
 class FInteractiveFoliageSceneProxy : public FStaticMeshSceneProxy
@@ -56,10 +60,10 @@ UInteractiveFoliageComponent::UInteractiveFoliageComponent(const FObjectInitiali
 FPrimitiveSceneProxy* UInteractiveFoliageComponent::CreateSceneProxy()
 {
 	// If a static mesh does not exist then this component cannot be added to the scene.
-	if(StaticMesh == NULL
-		|| StaticMesh->RenderData == NULL
-		|| StaticMesh->RenderData->LODResources.Num() == 0
-		|| StaticMesh->RenderData->LODResources[0].VertexBuffer.GetNumVertices() == 0)
+	if(GetStaticMesh() == NULL
+		|| GetStaticMesh()->RenderData == NULL
+		|| GetStaticMesh()->RenderData->LODResources.Num() == 0
+		|| GetStaticMesh()->RenderData->LODResources[0].VertexBuffer.GetNumVertices() == 0)
 	{
 		return NULL;
 	}
@@ -116,9 +120,9 @@ void AInteractiveFoliageActor::CapsuleTouched(UPrimitiveComponent* OverlappedCom
 
 void AInteractiveFoliageActor::SetupCollisionCylinder()
 {
-	if (GetStaticMeshComponent()->StaticMesh)
+	if (GetStaticMeshComponent()->GetStaticMesh())
 	{
-		const FBoxSphereBounds MeshBounds = GetStaticMeshComponent()->StaticMesh->GetBounds();
+		const FBoxSphereBounds MeshBounds = GetStaticMeshComponent()->GetStaticMesh()->GetBounds();
 		const FVector Scale3D = GetStaticMeshComponent()->RelativeScale3D;
 		// Set the cylinder's radius based off of the static mesh's bounds radius
 		// CollisionRadius is in world space so apply the actor's scale

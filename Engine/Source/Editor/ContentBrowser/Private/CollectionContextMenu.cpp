@@ -1,13 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ContentBrowserPCH.h"
-#include "CollectionViewTypes.h"
 #include "CollectionContextMenu.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
+#include "ICollectionManager.h"
+#include "CollectionManagerModule.h"
+#include "ContentBrowserUtils.h"
+#include "CollectionViewUtils.h"
 #include "ContentBrowserModule.h"
-#include "SColorPicker.h"
-#include "GenericCommands.h"
-
+#include "Widgets/Colors/SColorPicker.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Settings/ContentBrowserSettings.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -411,6 +423,12 @@ void FCollectionContextMenu::ExecuteNewCollection(ECollectionShareType::Type Col
 		return;
 	}
 
+	if (!GetDefault<UContentBrowserSettings>()->GetDisplayCollections())
+	{
+		GetMutableDefault<UContentBrowserSettings>()->SetDisplayCollections(true);
+		GetMutableDefault<UContentBrowserSettings>()->PostEditChange();
+	}
+
 	CollectionView.Pin()->CreateCollectionItem(CollectionType, StorageMode, InCreationPayload);
 }
 
@@ -436,6 +454,12 @@ void FCollectionContextMenu::ExecuteSetCollectionShareType(ECollectionShareType:
 void FCollectionContextMenu::ExecuteSaveDynamicCollection(FCollectionNameType InCollection, FText InSearchQuery)
 {
 	FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+
+	if (!GetDefault<UContentBrowserSettings>()->GetDisplayCollections())
+	{
+		GetMutableDefault<UContentBrowserSettings>()->SetDisplayCollections(true);
+		GetMutableDefault<UContentBrowserSettings>()->PostEditChange();
+	}
 
 	CollectionManagerModule.Get().SetDynamicQueryText(InCollection.Name, InCollection.Type, InSearchQuery.ToString());
 }

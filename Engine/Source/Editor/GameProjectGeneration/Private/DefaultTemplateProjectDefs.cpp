@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameProjectGenerationPrivatePCH.h"
+#include "DefaultTemplateProjectDefs.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 
 UDefaultTemplateProjectDefs::UDefaultTemplateProjectDefs(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

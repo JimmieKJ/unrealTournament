@@ -2,13 +2,10 @@
 
 #pragma once
 
-#include "KeyParams.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "MovieSceneNameableTrack.h"
 #include "MovieScenePropertyTrack.generated.h"
-
-
-class UMovieSceneSection;
-
 
 /**
  * Base class for tracks that animate an object property

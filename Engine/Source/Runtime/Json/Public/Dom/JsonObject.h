@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "JsonGlobals.h"
+#include "Serialization/JsonTypes.h"
+#include "Dom/JsonValue.h"
 
 /**
  * A Json Object is a structure holding an unordered set of name/value pairs.

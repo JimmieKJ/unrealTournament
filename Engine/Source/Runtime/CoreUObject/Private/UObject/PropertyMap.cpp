@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "PropertyHelper.h"
-#include "ScopeExit.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/Casts.h"
+#include "UObject/PropertyTag.h"
+#include "UObject/UnrealType.h"
+#include "UObject/LinkerLoad.h"
+#include "UObject/PropertyHelper.h"
+#include "Misc/ScopeExit.h"
 
 namespace UE4MapProperty_Private
 {
@@ -226,8 +231,16 @@ bool UMapProperty::Identical(const void* A, const void* B, uint32 PortFlags) con
 	return UE4MapProperty_Private::IsPermutation(MapHelperA, MapHelperB, PortFlags);
 }
 
+void UMapProperty::GetPreloadDependencies(TArray<UObject*>& OutDeps)
+{
+	Super::GetPreloadDependencies(OutDeps);
+	OutDeps.Add(KeyProp);
+	OutDeps.Add(ValueProp);
+}
+
 void UMapProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults) const
 {
+	// Ar related calls in this function must be mirrored in UMapProperty::ConvertFromType
 	checkSlow(KeyProp);
 	checkSlow(ValueProp);
 
@@ -275,23 +288,23 @@ void UMapProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 				int32 Found = MapHelper.FindMapIndexWithKey(TempKeyStorage);
 				if (Found != INDEX_NONE)
 				{
-					MapHelper.RemoveAt_NeedsRehash(Found);
+					MapHelper.RemoveAt(Found);
 				}
 			}
 		}
 
-		int32 Num = 0;
-		Ar << Num;
+		int32 NumEntries = 0;
+		Ar << NumEntries;
 
 		// Allocate temporary key space if we haven't allocated it already above
-		if (Num != 0 && !TempKeyStorage)
+		if (NumEntries != 0 && !TempKeyStorage)
 		{
 			TempKeyStorage = (uint8*)FMemory::Malloc(MapLayout.SetLayout.Size);
 			KeyProp->InitializeValue(TempKeyStorage);
 		}
 
 		// Read remaining items into container
-		for (; Num; --Num)
+		for (; NumEntries; --NumEntries)
 		{
 			// Read key into temporary storage
 			KeyProp->SerializeItem(Ar, TempKeyStorage);
@@ -439,6 +452,14 @@ FString UMapProperty::GetCPPType(FString* ExtendedTypeText, uint32 CPPExportFlag
 	}
 
 	return TEXT("TMap");
+}
+
+FString UMapProperty::GetCPPTypeForwardDeclaration() const
+{
+	checkSlow(KeyProp);
+	checkSlow(ValueProp);
+	// Generates a single ' ' when no forward declaration is needed. Purely an aesthetic concern at this time:
+	return FString::Printf( TEXT("%s %s"), *KeyProp->GetCPPTypeForwardDeclaration(), *ValueProp->GetCPPTypeForwardDeclaration());
 }
 
 FString UMapProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
@@ -785,6 +806,235 @@ bool UMapProperty::SameType(const UProperty* Other) const
 {
 	auto* MapProp = (UMapProperty*)Other;
 	return Super::SameType(Other) && KeyProp && ValueProp && KeyProp->SameType(MapProp->KeyProp) && ValueProp->SameType(MapProp->ValueProp);
+}
+
+bool UMapProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+{
+	// Ar related calls in this function must be mirrored in UMapProperty::SerializeItem
+	checkSlow(KeyProp);
+	checkSlow(ValueProp);
+
+	// Ensure that the key/value properties have been loaded before calling SerializeItem() on them
+	Ar.Preload(KeyProp);
+	Ar.Preload(ValueProp);
+
+	const auto SerializeOrConvert = [](UProperty* CurrentType, const FPropertyTag& InTag, FArchive& InAr, uint8* InData, UStruct* InDefaultsStruct) -> bool
+	{
+		bool bDummyAdvance = false;
+		if(CurrentType->GetID() == InTag.Type)
+		{
+			CurrentType->SerializeItem(InAr, InData, InDefaultsStruct);
+			return true;
+		}
+		else if( CurrentType->ConvertFromType(InTag, InAr, InData, InDefaultsStruct, bDummyAdvance) )
+		{
+			return true;
+		}
+		return false;
+	};
+
+	if (Tag.Type == NAME_MapProperty)
+	{
+		if( (Tag.InnerType != NAME_None && Tag.InnerType != KeyProp->GetID()) || (Tag.ValueType != NAME_None && Tag.ValueType != ValueProp->GetID()) )
+		{
+			FScriptMapHelper MapHelper(this, ContainerPtrToValuePtr<void>(Data));
+
+			uint8* TempKeyStorage = nullptr;
+			ON_SCOPE_EXIT
+			{
+				if (TempKeyStorage)
+				{
+					KeyProp->DestroyValue(TempKeyStorage);
+					FMemory::Free(TempKeyStorage);
+				}
+			};
+
+			FPropertyTag KeyPropertyTag;
+			KeyPropertyTag.Type = Tag.InnerType;
+			KeyPropertyTag.ArrayIndex = 0;
+		
+			FPropertyTag ValuePropertyTag;
+			ValuePropertyTag.Type = Tag.ValueType;
+			ValuePropertyTag.ArrayIndex = 0;
+		
+			bool bConversionSucceeded = true;
+		
+			// When we saved this instance we wrote out any elements that were in the 'Default' instance but not in the 
+			// instance that was being written. Presumably we were constructed from our defaults and must now remove 
+			// any of the elements that were not present when we saved this Map:
+			int32 NumKeysToRemove = 0;
+			Ar << NumKeysToRemove;
+
+			if( NumKeysToRemove != 0 )
+			{
+				TempKeyStorage = (uint8*)FMemory::Malloc(MapLayout.SetLayout.Size);
+				KeyProp->InitializeValue(TempKeyStorage);
+
+				if (SerializeOrConvert( KeyProp, KeyPropertyTag, Ar, TempKeyStorage, DefaultsStruct))
+				{
+					// If the key is in the map, remove it
+					int32 Found = MapHelper.FindMapIndexWithKey(TempKeyStorage);
+					if (Found != INDEX_NONE)
+					{
+						MapHelper.RemoveAt(Found);
+					}
+
+					// things are going fine, remove the rest of the keys:
+					for(int32 I = 1; I < NumKeysToRemove; ++I)
+					{
+						verify(SerializeOrConvert( KeyProp, KeyPropertyTag, Ar, TempKeyStorage, DefaultsStruct));
+						Found = MapHelper.FindMapIndexWithKey(TempKeyStorage);
+						if (Found != INDEX_NONE)
+						{
+							MapHelper.RemoveAt(Found);
+						}
+					}
+				}
+				else
+				{
+					bConversionSucceeded = false;
+				}
+			}
+
+			int32 NumEntries = 0;
+			Ar << NumEntries;
+		
+			if( bConversionSucceeded )
+			{
+				if( NumEntries != 0 )
+				{
+					if( TempKeyStorage == nullptr )
+					{
+						TempKeyStorage = (uint8*)FMemory::Malloc(MapLayout.SetLayout.Size);
+						KeyProp->InitializeValue(TempKeyStorage);
+					}
+
+					if( SerializeOrConvert( KeyProp, KeyPropertyTag, Ar, TempKeyStorage, DefaultsStruct ) )
+					{
+						// Add a new default value if the key doesn't currently exist in the map
+						bool bKeyAlreadyPresent = true;
+						int32 NextPairIndex = MapHelper.FindMapIndexWithKey(TempKeyStorage);
+						if (NextPairIndex == INDEX_NONE)
+						{
+							bKeyAlreadyPresent = false;
+							NextPairIndex = MapHelper.AddDefaultValue_Invalid_NeedsRehash();
+						}
+					
+						uint8* NextPairPtr = MapHelper.GetPairPtrWithoutCheck(NextPairIndex);
+						// This copy is unnecessary when the key was already in the map:
+						KeyProp->CopyCompleteValue_InContainer(NextPairPtr, TempKeyStorage);
+
+						// Deserialize value
+						if( SerializeOrConvert( ValueProp, ValuePropertyTag, Ar, NextPairPtr + MapLayout.ValueOffset, DefaultsStruct ) )
+						{
+							// first entry went fine, convert the rest:
+							for(int32 I = 1; I < NumEntries; ++I)
+							{
+								verify( SerializeOrConvert( KeyProp, KeyPropertyTag, Ar, TempKeyStorage, DefaultsStruct ) );
+								NextPairIndex = MapHelper.FindMapIndexWithKey(TempKeyStorage);
+								if (NextPairIndex == INDEX_NONE)
+								{
+									NextPairIndex = MapHelper.AddDefaultValue_Invalid_NeedsRehash();
+								}
+					
+								NextPairPtr = MapHelper.GetPairPtrWithoutCheck(NextPairIndex);
+								// This copy is unnecessary when the key was already in the map:
+								KeyProp->CopyCompleteValue_InContainer(NextPairPtr, TempKeyStorage);
+								verify( SerializeOrConvert( ValueProp, ValuePropertyTag, Ar, NextPairPtr + MapLayout.ValueOffset, DefaultsStruct ) );
+							}
+						}
+						else
+						{
+							if(!bKeyAlreadyPresent)
+							{
+								MapHelper.RemoveAt(NextPairIndex);
+							}
+							
+							bConversionSucceeded = false;
+						}
+					}
+					else
+					{
+						bConversionSucceeded = false;
+					}
+				
+					MapHelper.Rehash();
+				}
+			}
+
+			// if we could not convert the property ourself, then indicate that calling code needs to advance the property
+			if(!bConversionSucceeded)
+			{
+				UE_LOG(
+					LogClass, 
+					Warning, 
+					TEXT("Map Element Type mismatch in %s of %s - Previous (%s to %s) Current (%s to %s) for package: %s"), 
+					*Tag.Name.ToString(),
+					*GetName(), 
+					*Tag.InnerType.ToString(), 
+					*Tag.ValueType.ToString(), 
+					*KeyProp->GetID().ToString(), 
+					*ValueProp->GetID().ToString(), 
+					*Ar.GetArchiveName() 
+				);
+			}
+
+			bOutAdvanceProperty = bConversionSucceeded;
+
+			return true;
+		}
+		else if(UStructProperty* KeyPropAsStruct = Cast<UStructProperty>(KeyProp))
+		{
+			if(!KeyPropAsStruct->Struct || (KeyPropAsStruct->Struct->GetCppStructOps() && !KeyPropAsStruct->Struct->GetCppStructOps()->HasGetTypeHash() ) )
+			{
+				// If the type we contain is no longer hashable, we're going to drop the saved data here. This can
+				// happen if the native GetTypeHash function is removed.
+				ensureMsgf(false, TEXT("UMapProperty %s with tag %s has an unhashable key type %s and will lose its saved data"), *GetName(), *Tag.Name.ToString(), *KeyProp->GetID().ToString());
+			
+				FScriptMapHelper ScriptMapHelper(this, ContainerPtrToValuePtr<void>(Data));
+				ScriptMapHelper.EmptyValues();
+
+				bOutAdvanceProperty = false;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Checks to see if this property already has the supplied value as a key
+ * @param	InMap			The address of the map
+ * @param	InBaseAddress	The base address of the map
+ * @param	InValue			The value to find in the map
+ * @return True if InValue is a key in the map, false otherwise
+ */
+bool UMapProperty::HasKey(void* InMap, void* InBaseAddress, const FString& InValue) const
+{
+	FScriptMapHelper MapHelper(this, InMap);
+
+	for (int32 Index = 0, ItemsLeft = MapHelper.Num(); ItemsLeft > 0; ++Index)
+	{
+		if (MapHelper.IsValidIndex(Index))
+		{
+			--ItemsLeft;
+
+			uint8* PairPtr = MapHelper.GetPairPtr(Index);
+			uint8* KeyPtr = KeyProp->ContainerPtrToValuePtr<uint8>(PairPtr);
+
+			FString KeyValue;
+			if ( KeyPtr != InBaseAddress && KeyProp->ExportText_Direct(KeyValue, KeyPtr, KeyPtr, nullptr, 0) )
+			{
+				if ( (Cast<UObjectProperty>(KeyProp) != nullptr && KeyValue.Contains(InValue)) || InValue == KeyValue )
+				{
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
 }
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UMapProperty, UProperty,

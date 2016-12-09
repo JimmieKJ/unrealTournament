@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "EditorPerProjectUserSettings.generated.h"
 
 // Fbx export compatibility
@@ -47,20 +50,27 @@ class UEditorPerProjectUserSettings : public UObject
 	bool bDisplayEngineVersionInBadge;
 
 	/** When enabled, use SimplygonSwarm Module / server to create proxies */
-	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Use Simplygon distributed proxy server", ConfigRestartRequired = false))
+	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Use Simplygon distributed proxy server"))
 	bool bUseSimplygonSwarm;
 
 	/** Server IP for the distributed Simplygon server */
-	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Simplygon distributed proxy server IP", ConfigRestartRequired = false, editcondition = "bUseSimplygonSwarm"))
+	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Simplygon distributed proxy server IP", editcondition = "bUseSimplygonSwarm"))
 	FString SimplygonServerIP;
 	
 	/** Enable swarm debugging features. Temp ssf files are not removed. Detailed message printing */
-	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Enable Swarm Debugging ", ConfigRestartRequired = false, editcondition = "bUseSimplygonSwarm"))
+	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Enable Swarm Debugging ", editcondition = "bUseSimplygonSwarm"))
 	bool bEnableSwarmDebugging;
 	
 	/** Time between JSON net requests for Simplygon Swarm */
-	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Time in (MS). Delay between json request (Default 500ms)", ConfigRestartRequired = false, editcondition = "bUseSimplygonSwarm", ClampMin = "100", ClampMax = "30000", UIMin = "100", UIMax = "10000"))
+	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Time in (MS). Delay between json request (Default 5000ms)", editcondition = "bUseSimplygonSwarm", ClampMin = "5000", ClampMax = "30000", UIMin = "5000", UIMax = "30000"))
 	uint32 SimplygonSwarmDelay;
+
+	/** Number of concurrent swarm jobs to execute. This is independent of the main job queue. */
+	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Number of concurrent jobs to submit on simplygon grid server", editcondition = "bUseSimplygonSwarm", ClampMin = "4", ClampMax = "512", UIMin = "4", UIMax = "512"))
+	uint32 SwarmNumOfConcurrentJobs;
+
+	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Max upload size of simplygon swarm zip (MB). File larger than max size will be split into chunks.", editcondition = "bUseSimplygonSwarm", ClampMin = "10", ClampMax = "2000", UIMin = "10", UIMax = "2000"))
+	uint32 SwarmMaxUploadChunkSizeInMB;
 	
 	/** Folder in which Simplygon Swarm will store intermediate texture and mesh data that is uploaded to the Swarm */
 	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Simplygon Swarm Intermediate Folder", ConfigRestartRequired = true, editcondition = "bUseSimplygonSwarm"))
@@ -90,9 +100,17 @@ class UEditorPerProjectUserSettings : public UObject
 	UPROPERTY(EditAnywhere, config, Category=Export)
 	uint32 bKeepAttachHierarchy:1;
 
+	/** Map skeletal actor motion to the root bone of the skeleton. */
+	UPROPERTY(EditAnywhere, config, category=Export)
+	bool bMapSkeletalMotionToRoot;
+
 	/** This will set the fbx sdk compatibility when exporting to fbx file. The default value is 2013 */
 	UPROPERTY(EditAnywhere, config, Category = Export)
 	EFbxExportCompatibility FbxExportCompatibility;
+
+	/** If enabled, FBX export level will export collision mesh with UCX_ as a name suffix. */
+	UPROPERTY(EditAnywhere, config, Category = Export)
+	uint32 bFbxExportCollisionMesh : 1;
 
 	/** Select to make Distributions use the curves, not the baked lookup tables. */
 	UPROPERTY(config)

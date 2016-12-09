@@ -16,6 +16,33 @@
 #undef MoveFile
 #undef CopyFile
 #undef CreateDirectory
+#undef GetCurrentTime
+#undef SendMessage
+#undef LoadString
+#undef UpdateResource
+#undef FindWindow
+#undef GetObject
+#undef GetEnvironmentVariable
+#undef CreateFont
+#undef CreateDesktop
+#undef GetMessage
+#undef GetCommandLine
+
+// Undefine all the atomics. AllowWindowsPlatformAtomics/HideWindowsPlatformAtomics temporarily defining these macros.
+#if !PLATFORM_XBOXONE
+	#undef InterlockedIncrement
+	#undef InterlockedDecrement
+	#undef InterlockedAdd
+	#undef InterlockedExchange
+	#undef InterlockedExchangeAdd
+	#undef InterlockedCompareExchange
+	#undef InterlockedCompareExchangePointer
+	#undef InterlockedExchange64
+	#undef InterlockedExchangeAdd64
+	#undef InterlockedCompareExchange64
+	#undef InterlockedIncrement64
+	#undef InterlockedDecrement64
+#endif
 
 // Restore any previously defined macros
 #pragma pop_macro("MAX_uint8")
@@ -26,11 +53,6 @@
 
 // Redefine CDECL to our version of the #define.  <AJS> Is this really necessary?
 #define CDECL	    __cdecl					/* Standard C function */
-
-// Notify people of the windows dependency. For CRITICAL_SECTION
-#if !defined(_WINBASE_) && !defined(_XTL_)
-	#error CRITICAL_SECTION relies on Windows.h/Xtl.h being included ahead of it
-#endif
 
 // Make sure version is high enough for API to be defined. For CRITICAL_SECTION
 #if !defined(_XTL_) && (_WIN32_WINNT < 0x0403)

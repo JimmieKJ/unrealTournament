@@ -7,6 +7,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RHI.h"
+
 class IStereoLayers
 {
 public:
@@ -18,11 +21,19 @@ public:
 		FaceLocked
 	};
 
+	enum ELayerShape
+	{
+		QuadLayer,
+		CylinderLayer,
+		CubemapLayer
+	};
+
 	enum ELayerFlags
 	{
 		LAYER_FLAG_TEX_CONTINUOUS_UPDATE	= 0x00000001, // Internally copies the texture on every frame for video, etc.
 		LAYER_FLAG_TEX_NO_ALPHA_CHANNEL		= 0x00000002, // Ignore the textures alpha channel, this makes the stereo layer opaque
 		LAYER_FLAG_QUAD_PRESERVE_TEX_RATIO	= 0x00000004, // Quad Y component will be calculated based on the texture dimensions
+		LAYER_FLAG_SUPPORT_DEPTH			= 0x00000008, // The layer will intersect with the scene's depth
 	};
 
 	/**
@@ -30,13 +41,17 @@ public:
 	 */
 	struct FLayerDesc
 	{
-		FTransform		Transform	= FTransform::Identity;									// View space transform
-		FVector2D		QuadSize	= FVector2D(1.0f, 1.0f);								// Size of rendered quad
-		FBox2D			UVRect		= FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));	// UVs of rendered quad
-		int32			Priority	= 0;													// Render order priority, higher priority render on top of lower priority
-		ELayerType		Type		= ELayerType::FaceLocked;								// Which space the quad is locked within
-		FTextureRHIRef	Texture		= nullptr;												// Texture mapped to the quad
-		uint32			Flags		= 0;													// Uses LAYER_FLAG_...
+		FTransform			Transform	 = FTransform::Identity;									// View space transform
+		FVector2D			QuadSize	 = FVector2D(1.0f, 1.0f);									// Size of rendered quad
+		FBox2D				UVRect		 = FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));	// UVs of rendered quad
+		int32				Priority	 = 0;														// Render order priority, higher priority render on top of lower priority
+		ELayerType			PositionType = ELayerType::FaceLocked;									// Which space the layer is locked within
+		ELayerShape			ShapeType	 = ELayerShape::QuadLayer;                                  // which shape of layer it is
+		FVector2D			CylinderSize = FVector2D(1.0f, 1.0f);
+		float				CylinderHeight = 1.0f;
+		FTextureRHIRef		Texture		 = nullptr;													// Texture mapped for right eye (if one texture provided, mono assumed)
+		FTextureRHIRef		LeftTexture  = nullptr;													// Texture mapped for left eye (if one texture provided, mono assumed)
+		uint32				Flags		 = 0;														// Uses LAYER_FLAG_...
 	};
 
 	/**
@@ -77,4 +92,72 @@ public:
 	 * @param	LayerId			The ID of layer to be set the description
 	 */
 	virtual void MarkTextureForUpdate(uint32 LayerId) = 0;
+
+	/**
+	 * Update splash screens from current state
+	 */
+	virtual void UpdateSplashScreen() = 0;
+
+public:
+	/**
+	* Set the splash screen attributes
+	*
+	* @param Texture			(in) A texture to be used for the splash. B8R8G8A8 format.
+	* @param Scale				(in) Scale of the texture.
+	* @param Offset				(in) Position from which to start rendering the texture.
+	* @param ShowLoadingMovie	(in) Whether the splash screen presents loading movies.
+	*/
+	void SetSplashScreen(FTextureRHIRef Texture, FVector2D Scale, FVector2D Offset, bool bShowLoadingMovie)
+	{
+		bSplashShowMovie = bShowLoadingMovie;
+		SplashTexture = nullptr;
+		if (Texture)
+		{
+			SplashTexture = Texture->GetTexture2D();
+			SplashOffset = Offset;
+			SplashScale = Scale;
+		}
+	}
+
+	/**
+	* Show the splash screen and override the normal VR display
+	*/
+	void ShowSplashScreen()
+	{
+		bSplashIsShown = true;
+		UpdateSplashScreen();
+	}
+
+	/**
+	* Hide the splash screen and return to normal display.
+	*/
+	void HideSplashScreen()
+	{
+		bSplashIsShown = false;
+		UpdateSplashScreen();
+	}
+
+	/**
+	* Set the splash screen's movie texture.
+	*
+	* @param InMovieTexture		(in) A movie texture to be used for the splash. B8R8G8A8 format.
+	*/
+	void SetSplashScreenMovie(FTextureRHIRef Texture)
+	{
+		SplashMovie = nullptr;
+		if (Texture)
+		{
+			SplashMovie = Texture->GetTexture2D();
+		}
+		UpdateSplashScreen();
+	}
+
+protected:
+	bool				bSplashIsShown = false;
+	bool				bSplashShowMovie = false;
+	FTexture2DRHIRef	SplashTexture;
+	FTexture2DRHIRef	SplashMovie;
+	FVector2D			SplashOffset = FVector2D(0.0f, 0.0f);
+	FVector2D			SplashScale = FVector2D(1.0f, 1.0f);
+	uint32				SplashLayerHandle = 0;
 };

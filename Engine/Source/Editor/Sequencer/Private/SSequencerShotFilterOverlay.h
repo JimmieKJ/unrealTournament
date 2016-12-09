@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SLeafWidget.h"
+#include "Sequencer.h"
 
-class FSequencer;
-
+class FPaintArgs;
+class FSlateWindowElementList;
 
 /**
  * The shot filter overlay displays the overlay needed to filter out widgets

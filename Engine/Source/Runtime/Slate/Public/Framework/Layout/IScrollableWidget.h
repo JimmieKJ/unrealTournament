@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /**
 * An interface to allow Slate Widgets to expose scrollable functionality.
 */

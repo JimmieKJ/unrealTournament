@@ -1,9 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Developer/AssetTools/Public/IAssetTypeActions.h"
-#include "Editor/GraphEditor/Public/DiffResults.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Textures/SlateIcon.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
 #include "GraphEditor.h"
+#include "DiffUtils.h"
+#include "Editor/GraphEditor/Public/DiffResults.h"
+#include "SKismetInspector.h"
+#include "Developer/AssetTools/Public/IAssetTypeActions.h"
+
+class FSpawnTabArgs;
+class FTabManager;
+class IDiffControl;
+class SMyBlueprint;
+class UEdGraph;
+struct FListItemGraphToDiff;
 
 struct FMatchFName
 {

@@ -5,7 +5,15 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Widgets/SWindow.h"
+#include "InterpTrackHelper.h"
 #include "MatineeTrackFloatPropHelper.generated.h"
+
+class UInterpGroup;
+class UInterpTrack;
 
 UCLASS()
 class UMatineeTrackFloatPropHelper : public UInterpTrackHelper

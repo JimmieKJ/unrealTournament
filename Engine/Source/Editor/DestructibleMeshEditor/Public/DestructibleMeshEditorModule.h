@@ -2,9 +2,14 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "Toolkits/IToolkit.h"	// For EAssetEditorMode
-#include "Toolkits/AssetEditorToolkit.h" // For FExtensibilityManager
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Toolkits/IToolkitHost.h"
+#include "Toolkits/AssetEditorToolkit.h"
+
+class IDestructibleMeshEditor;
+class UDestructibleMesh;
+class UStaticMesh;
 
 extern const FName DestructibleMeshEditorAppIdentifier;
 

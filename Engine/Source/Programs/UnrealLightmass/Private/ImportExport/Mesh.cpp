@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
 #include "Mesh.h"
 #include "Importer.h"
+#include "UnrealLightmass.h"
 
 namespace Lightmass
 {

@@ -19,11 +19,11 @@
 #endif
 
 #include <stdio.h>
-// EPIC MOD, allow zlib to be compiled with emscripten sdk 1.14 for html5 target. 
-#if EMSCRIPTEN
+// EPIC MOD, allow zlib to be compiled with emscripten sdk 1.14 for html5 target.
+#if __EMSCRIPTEN__
 #include <sys/types.h>
 #include <unistd.h>
-#endif 
+#endif
 #include "zlib.h"
 #ifdef STDC
 #  include <string.h>

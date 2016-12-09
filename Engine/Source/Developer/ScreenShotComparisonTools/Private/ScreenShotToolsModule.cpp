@@ -4,9 +4,12 @@
 	ScreenShotToolsModule.cpp: Implements the FScreenShotToolsModule class.
 =============================================================================*/
 
-#include "ScreenShotComparisonToolsPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IScreenShotToolsModule.h"
+#include "IMessagingModule.h"
+#include "ScreenShotManager.h"
 
-#include "ModuleManager.h"
 
 
 /**
@@ -19,18 +22,9 @@ public:
 
 	// Begin IScreenShotToolsModule interface
 
-	virtual IScreenShotManagerPtr GetScreenShotManager( ) override
+	virtual IScreenShotManagerPtr GetScreenShotManager() override
 	{
 		return ScreenShotManager;
-	}
-
-	virtual void UpdateScreenShotData( ) override
-	{
-		if (ScreenShotManager.IsValid())
-		{
-			// Create the screen shot data
-			ScreenShotManager->GenerateLists();
-		}
 	}
 
 	// End IScreenShotToolsModule interface
@@ -50,16 +44,11 @@ public:
 	*/
 	void StartupModule() override
 	{
-		IMessageBusPtr MessageBus = IMessagingModule::Get().GetDefaultBus();
-		check(MessageBus.IsValid());
-
 		// Create the screen shot manager
 		if (!ScreenShotManager.IsValid())
 		{
-			ScreenShotManager = MakeShareable(new FScreenShotManager(MessageBus.ToSharedRef()));
+			ScreenShotManager = MakeShareable(new FScreenShotManager());
 		}
-
-		UpdateScreenShotData();
 	}
 
 private:

@@ -2,22 +2,17 @@
 
 #pragma once
 
-
-/* Public Dependencies
- *****************************************************************************/
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
 
 #include "CoreUObject.h"
-
-
-/* Public Includes
- *****************************************************************************/
 
 #include "IMessageAttachment.h"
 #include "IMessageContext.h"
 #include "IMessageInterceptor.h"
 #include "IMessageHandler.h"
-#include "IReceiveMessages.h"
-#include "ISendMessages.h"
+#include "IMessageReceiver.h"
+#include "IMessageSender.h"
 #include "IMessageSubscription.h"
 #include "IAuthorizeMessageRecipients.h"
 #include "IMessageTracerBreakpoint.h"
@@ -28,11 +23,7 @@
 #include "IMessageBridge.h"
 #include "IMessagingModule.h"
 
-
-/* Common helpers
- *****************************************************************************/
-
-#include "FileMessageAttachment.h"
-#include "MessageBridgeBuilder.h"
-#include "MessageEndpoint.h"
-#include "MessageEndpointBuilder.h"
+#include "Helpers/FileMessageAttachment.h"
+#include "Helpers/MessageBridgeBuilder.h"
+#include "Helpers/MessageEndpoint.h"
+#include "Helpers/MessageEndpointBuilder.h"

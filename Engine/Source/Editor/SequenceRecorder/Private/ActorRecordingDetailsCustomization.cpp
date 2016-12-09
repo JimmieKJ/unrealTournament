@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderPrivatePCH.h"
 #include "ActorRecordingDetailsCustomization.h"
+#include "UObject/UnrealType.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
 #include "ActorRecording.h"
 #include "ObjectEditorUtils.h"
 

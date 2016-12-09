@@ -1,13 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
-#include "GearVRPrivatePCH.h"
+#include "GearVRSplash.h"
 #include "GearVR.h"
 
 #if GEARVR_SUPPORTED_PLATFORMS
-
-#include "GearVRSplash.h"
-
-typedef FCustomPresent FCustomPresent; // TEMP
 
 FGearVRSplash::FGearVRSplash(FGearVR* InPlugin) : 
 	LayerMgr(MakeShareable(new GearVR::FLayerManager(InPlugin->GetCustomPresent_Internal())))
@@ -263,7 +259,6 @@ void FGearVRSplash::Show(EShowType InShowType)
 		}
 
 		// this will push black frame, if texture is not loaded
-		pPlugin->EnterVRMode();
 
 		if (ReadyToPush)
 		{
@@ -312,7 +307,7 @@ void FGearVRSplash::PushFrame()
 			// keep units in meters rather than UU (because UU make not much sense).
 			CurrentFrame->Settings->WorldToMetersScale = 1.0f;
 			CurrentFrame->SetWorldToMetersScale(CurrentFrame->Settings->WorldToMetersScale);
-			CurrentFrame->GameThreadId = 0;//gettid();
+			CurrentFrame->GameThreadId = 0;//FPlatformTLS::GetCurrentThreadId();
 			
 			FSettings* CurrentSettings = static_cast<FSettings*>(CurrentFrame->Settings.Get());
 			CurrentSettings->GpuLevel = 1;
@@ -353,7 +348,7 @@ void FGearVRSplash::PushBlackFrame()
 	ShowingBlack = true;
 	LayerMgr->RemoveAllLayers();
 
-	pPlugin->PushBlackFinal();
+	pPlugin->PushBlack();
 
 	UE_LOG(LogHMD, Log, TEXT("FGearVRSplash::PushBlackFrame"));
 }
@@ -376,7 +371,6 @@ void FGearVRSplash::UnloadTextures()
 void FGearVRSplash::Hide(EShowType InShowType)
 {
 	UE_LOG(LogHMD, Log, TEXT("FGearVRSplash::Hide"));
-//	return; //?
 #if 1
 	check(IsInGameThread());
 	if ((InShowType == ShowManually || InShowType == ShowType) && SplashIsShown)
@@ -400,9 +394,6 @@ void FGearVRSplash::Hide(EShowType InShowType)
 		SplashIsShown = false;
 
 		PushBlackFrame();
-
-		// keep in VR mode? @revise
-		pPlugin->LeaveVRMode();
 
 		FCustomPresent* pCustomPresent = pPlugin->GetCustomPresent_Internal();
 		if (pCustomPresent)

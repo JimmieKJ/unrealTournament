@@ -2,9 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_DelegateSet.generated.h"
+
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UK2Node_DelegateSet : public UK2Node

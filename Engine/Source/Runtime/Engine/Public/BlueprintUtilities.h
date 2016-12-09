@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "GraphEditAction.h"
-#include "Runtime/Core/Public/Serialization/Archive.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+
+struct FEdGraphEditAction;
+struct FPropertyChangedEvent;
 
 DECLARE_MULTICAST_DELEGATE_OneParam( FOnGraphChanged, const FEdGraphEditAction& );
 DECLARE_DELEGATE_OneParam( FSingleNodeEvent, class UEdGraphNode* );

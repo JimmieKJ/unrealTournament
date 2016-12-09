@@ -1,26 +1,43 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "BlueprintGraphDefinitions.h"
-#include "GraphEditorActions.h"
-#include "BehaviorTreeConnectionDrawingPolicy.h"
-#include "ScopedTransaction.h"
-#include "SGraphEditorImpl.h"
-#include "Toolkits/ToolkitManager.h"
+#include "EdGraphSchema_BehaviorTree.h"
+#include "Layout/SlateRect.h"
+#include "EdGraphNode_Comment.h"
+#include "Modules/ModuleManager.h"
 #include "BehaviorTree/BTDecorator.h"
 #include "BehaviorTree/BTService.h"
-#include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BTTaskNode.h"
+#include "BehaviorTree/BTCompositeNode.h"
+#include "BehaviorTreeEditorTypes.h"
+#include "EdGraph/EdGraph.h"
+#include "BehaviorTreeGraph.h"
+#include "BehaviorTreeGraphNode.h"
+#include "BehaviorTreeGraphNode_Composite.h"
+#include "BehaviorTreeGraphNode_CompositeDecorator.h"
+#include "BehaviorTreeGraphNode_Decorator.h"
+#include "BehaviorTreeGraphNode_Root.h"
+#include "BehaviorTreeGraphNode_Service.h"
+#include "BehaviorTreeGraphNode_Task.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "BehaviorTreeEditorModule.h"
+#include "IBehaviorTreeEditor.h"
+#include "BehaviorTreeDebugger.h"
+#include "GraphEditorActions.h"
+#include "BehaviorTreeConnectionDrawingPolicy.h"
+#include "Toolkits/ToolkitManager.h"
+#include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
 #include "BehaviorTree/Composites/BTComposite_SimpleParallel.h"
 #include "BehaviorTreeGraphNode_SimpleParallel.h"
 #include "BehaviorTreeGraphNode_SubtreeTask.h"
-#include "GenericCommands.h"
 
 #define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
 
 int32 UEdGraphSchema_BehaviorTree::CurrentCacheRefreshID = 0;
 
+//----------------------------------------------------------------------//
+// 
+//----------------------------------------------------------------------//
 UEdGraphNode* FBehaviorTreeSchemaAction_AutoArrange::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode)
 {
 	UBehaviorTreeGraph* Graph = Cast<UBehaviorTreeGraph>(ParentGraph);
@@ -31,6 +48,42 @@ UEdGraphNode* FBehaviorTreeSchemaAction_AutoArrange::PerformAction(class UEdGrap
 
 	return NULL;
 }
+
+//----------------------------------------------------------------------//
+// 
+//----------------------------------------------------------------------//
+UEdGraphNode* FBehaviorTreeSchemaAction_AddComment::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode)
+{
+	UEdGraphNode_Comment* const CommentTemplate = NewObject<UEdGraphNode_Comment>();
+
+	FVector2D SpawnLocation = Location;
+
+	TSharedPtr<IBehaviorTreeEditor> BTEditor;
+	if (UBehaviorTree* const BTAsset = Cast<UBehaviorTree>(ParentGraph->GetOuter()))
+	{
+		TSharedPtr<IToolkit> BTAssetEditor = FToolkitManager::Get().FindEditorForAsset(BTAsset);
+		if (BTAssetEditor.IsValid())
+		{
+			BTEditor = StaticCastSharedPtr<IBehaviorTreeEditor>(BTAssetEditor);
+		}
+	}
+
+	FSlateRect Bounds;
+	if (BTEditor.IsValid() && BTEditor->GetBoundsForSelectedNodes(Bounds, 50.0f))
+	{
+		CommentTemplate->SetBounds(Bounds);
+		SpawnLocation.X = CommentTemplate->NodePosX;
+		SpawnLocation.Y = CommentTemplate->NodePosY;
+	}
+
+	UEdGraphNode* const NewNode = FEdGraphSchemaAction_NewNode::SpawnNodeFromTemplate<UEdGraphNode_Comment>(ParentGraph, CommentTemplate, SpawnLocation, bSelectNewNode);
+
+	return NewNode;
+}
+
+//----------------------------------------------------------------------//
+// 
+//----------------------------------------------------------------------//
 
 UEdGraphSchema_BehaviorTree::UEdGraphSchema_BehaviorTree(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -432,6 +485,11 @@ int32 UEdGraphSchema_BehaviorTree::GetCurrentVisualizationCacheID() const
 void UEdGraphSchema_BehaviorTree::ForceVisualizationCacheClear() const
 {
 	++CurrentCacheRefreshID;
+}
+
+TSharedPtr<FEdGraphSchemaAction> UEdGraphSchema_BehaviorTree::GetCreateCommentAction() const
+{
+	return TSharedPtr<FEdGraphSchemaAction>(static_cast<FEdGraphSchemaAction*>(new FBehaviorTreeSchemaAction_AddComment));
 }
 
 #undef LOCTEXT_NAMESPACE

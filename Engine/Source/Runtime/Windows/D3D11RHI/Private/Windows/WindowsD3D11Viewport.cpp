@@ -6,6 +6,7 @@
 
 #include "D3D11RHIPrivate.h"
 #include "RenderCore.h"
+#include "Misc/CommandLine.h"
 
 #include "AllowWindowsPlatformTypes.h"
 #include <dwmapi.h>
@@ -37,6 +38,34 @@ FD3D11Viewport::FD3D11Viewport(FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,ui
 	// Create a backbuffer/swapchain for each viewport
 	TRefCountPtr<IDXGIDevice> DXGIDevice;
 	VERIFYD3D11RESULT_EX(D3DRHI->GetDevice()->QueryInterface(IID_IDXGIDevice, (void**)DXGIDevice.GetInitReference()), D3DRHI->GetDevice());
+
+	// Check for request to use alt display
+	uint32 DisplayIndex = 0;
+	FParse::Value(FCommandLine::Get(), TEXT("FullscreenDisplay="), DisplayIndex);
+
+	// Keep a handle to the DXGIOutput used so we can connect to the proper display for disabling/enabling HDR
+	{
+		// Grab the adapter
+		TRefCountPtr<IDXGIAdapter> DXGIAdapter;
+		DXGIDevice->GetAdapter((IDXGIAdapter**)DXGIAdapter.GetInitReference());
+
+		// Try to get the requested display, fall back to default on failure
+		if (S_OK != DXGIAdapter->EnumOutputs(DisplayIndex, Output.GetInitReference()))
+		{
+			UE_LOG(LogD3D11RHI, Log, TEXT("Failed to find requested output display (%i), falling back to default."), DisplayIndex);
+
+			if (S_OK != DXGIAdapter->EnumOutputs(0, Output.GetInitReference()))
+			{
+				Output = nullptr;
+			}
+		}
+	}
+
+	if (PixelFormat == PF_FloatRGBA && bIsFullscreen)
+	{
+		// Send HDR meta data to enable
+		D3DRHI->EnableHDR(Output);
+	}
 
 	// Create the swapchain.
 	DXGI_SWAP_CHAIN_DESC SwapChainDesc;
@@ -85,7 +114,9 @@ void FD3D11Viewport::ConditionalResetSwapChain(bool bIgnoreFocus)
 			RECT OriginalCursorRect;
 			GetClipCursor(&OriginalCursorRect);
 
-			HRESULT Result = SwapChain->SetFullscreenState(bIsFullscreen,NULL);
+			// Explicit output selection
+			HRESULT Result = SwapChain->SetFullscreenState(bIsFullscreen, Output);
+
 			if(SUCCEEDED(Result))
 			{
 				ClipCursor(&OriginalCursorRect);

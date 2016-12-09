@@ -2,13 +2,18 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "RenderCommandFence.h"
 #include "Particles/ParticleModule.h"
-#include "Particles/ParticleEmitter.h"
 #include "Particles/ParticleSpriteEmitter.h"
-#include "SubUVAnimation.h"
+#include "Particles/SubUVAnimation.h"
 #include "ParticleModuleRequired.generated.h"
 
 class UInterpCurveEdSetup;
+class UParticleLODLevel;
+struct FCurveEdEntry;
 
 UENUM()
 enum class EParticleUVFlipMode : uint8
@@ -102,10 +107,19 @@ class UParticleModuleRequired : public UParticleModule
 	 *	PSA_Rectangle		- Non-uniform scale (via SizeX and SizeY) facing the camera
 	 *	PSA_Velocity		- Orient the particle towards both the camera and the direction 
 	 *						  the particle is moving. Non-uniform scaling is allowed.
-	 *	PSA_TypeSpecific	- Use the alignment method indicated int he type data module.
+	 *	PSA_TypeSpecific	- Use the alignment method indicated in the type data module.
+	 *	PSA_FacingCameraDistanceBlend - Blends between PSA_FacingCameraPosition and PSA_Square over specified distance.
 	 */
 	UPROPERTY(EditAnywhere, Category=Emitter)
 	TEnumAsByte<EParticleScreenAlignment> ScreenAlignment;
+
+	/** The distance at which PSA_FacingCameraDistanceBlend	is fully PSA_Square */
+	UPROPERTY(EditAnywhere, Category=Emitter, meta=(UIMin = "0"))
+	float MinFacingCameraBlendDistance;
+
+	/** The distance at which PSA_FacingCameraDistanceBlend	is fully PSA_FacingCameraPosition */
+	UPROPERTY(EditAnywhere, Category=Emitter, meta=(UIMin = "0"))
+	float MaxFacingCameraBlendDistance;
 
 	/** If true, update the emitter in local space										*/
 	UPROPERTY(EditAnywhere, Category=Emitter)
@@ -143,6 +157,10 @@ class UParticleModuleRequired : public UParticleModule
 	 */
 	UPROPERTY(EditAnywhere, Category=Emitter)
 	uint32 bUseLegacyEmitterTime:1;
+
+	/** If true, removes the HMD view roll (e.g. in VR) */
+	UPROPERTY(EditAnywhere, Category=Emitter, meta=(DisplayName = "Remove HMD Roll"))
+	uint32 bRemoveHMDRoll:1;
 
 	/** 
 	 *	How long, in seconds, the emitter will run before looping.
@@ -302,7 +320,7 @@ class UParticleModuleRequired : public UParticleModule
 	/**
 	* Texture to generate bounding geometry from.
 	*/
-	UPROPERTY(EditAnywhere, Category=Rendering)
+	UPROPERTY(EditAnywhere, Category=ParticleCutout)
 	UTexture2D* CutoutTexture;
 
 	/**
@@ -310,17 +328,17 @@ class UParticleModuleRequired : public UParticleModule
 	* The eight vertex mode is best used when the SubUV texture has a lot of space to cut out that is not captured by the four vertex version,
 	* and when the particles using the texture will be few and large.
 	*/
-	UPROPERTY(EditAnywhere, Category=Rendering)
+	UPROPERTY(EditAnywhere, Category=ParticleCutout)
 	TEnumAsByte<enum ESubUVBoundingVertexCount> BoundingMode;
 
-	UPROPERTY(EditAnywhere, Category=Rendering)
+	UPROPERTY(EditAnywhere, Category=ParticleCutout)
 	TEnumAsByte<enum EOpacitySourceMode> OpacitySourceMode;
 
 	/**
 	* Alpha channel values larger than the threshold are considered occupied and will be contained in the bounding geometry.
 	* Raising this threshold slightly can reduce overdraw in particles using this animation asset.
 	*/
-	UPROPERTY(EditAnywhere, Category=Rendering, meta=(UIMin = "0", UIMax = "1"))
+	UPROPERTY(EditAnywhere, Category=ParticleCutout, meta=(UIMin = "0", UIMax = "1"))
 	float AlphaThreshold;
 
 	/** Normal generation mode for this emitter LOD. */

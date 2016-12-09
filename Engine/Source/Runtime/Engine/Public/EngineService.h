@@ -2,16 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
+class FMessageEndpoint;
+class IMessageContext;
 struct FEngineServiceAuthDeny;
 struct FEngineServiceAuthGrant;
 struct FEngineServiceExecuteCommand;
 struct FEngineServicePing;
 struct FEngineServiceTerminate;
 struct FMessageAddress;
-class FMessageEndpoint;
-class IMessageContext;
-
 
 /**
  * Implements an application session service.

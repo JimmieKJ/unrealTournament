@@ -1,0 +1,57 @@
+﻿@using Tools.CrashReporter.CrashReportWebSite.ViewModels
+@using Tools.CrashReporter.CrashReportWebSite.Views.Helpers
+
+@model UsersViewModel
+
+@{
+    ViewBag.Title = "[CR] Edit the groups the users belong to";
+    Layout = "../Shared/_CRWLayout.cshtml";
+}    
+
+@section ScriptContent{
+    <script src="/Scripts/UserFilterScript.js" type="text/javascript"></script>
+} 
+
+@section AboveMainContent{
+    
+}
+
+<div id='UserGroupBar'>
+	@foreach( var GroupCount in Model.GroupCounts )
+	{
+	<span class=@( (Model.UserGroup == GroupCount.Key ) ? "UserGroupTabSelected" :  "UserGroupTab" )  id="@GroupCount.Key"> @Url.UserGroupLink( GroupCount.Key, Model )
+		<span class="UserGroupResults">
+			@GroupCount.Value
+		</span>
+	</span>
+	} 
+</div>
+<div id="UserNameSearchFilter" style="margin:10px auto 10px; width:460px;">
+    <p>Enter a user name here to quickly change their usergroup assignment.</p>
+    <form action="/Users/Index/@Model.UserGroup" method="POST" id="UserNamesForm" style="text-align: center" title="Enter a user name here to quickly change their usergroup assignment." >
+        <label>User Filter : </label>
+        @Html.TextBox("UserName", Model.User)
+        @Html.DropDownList( "UserGroup", Model.GroupSelectList)
+        <input type="submit" name="submit" value="submit"/>
+    </form>
+</div>
+<div id="UserNames">
+	@foreach( var UserName in Model.Users )
+	{
+        <form action="/Users/Index/@Model.UserGroup" method="POST" id="UserNamesForm" style="text-align: center" title="Enter a user name here to quickly change their usergroup assignment.">
+            @Html.Hidden("UserName", UserName.Name)
+            <span style="color:#c3cad0;">@UserName.Name </span> @Html.DropDownList( "UserGroup", Model.GroupSelectList)
+            <input type="submit" name="submit" value="submit" />
+        </form>
+	 } 
+</div>
+    
+<div class="PaginationBox">
+	@Html.PageLinks( Model.PagingInfo, i => Url.Action( "", new 
+		{ 
+			page = i,
+            userGroup = Model.UserGroup
+        }) )
+	<div id="clear"></div>
+</div>
+

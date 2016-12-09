@@ -6,6 +6,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Script.h"
+#include "Misc/CoreMisc.h"
+#include "Templates/Casts.h"
+#include "UObject/UnrealType.h"
+#include "UObject/EnumProperty.h"
+
 DECLARE_LOG_CATEGORY_EXTERN(LogScriptFrame, Warning, All);
 
 /**

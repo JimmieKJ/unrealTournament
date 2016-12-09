@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
 #include "SocketsSteam.h"
 #include "SocketSubsystemSteam.h"
 #include "IPAddressSteam.h"
-#include "OnlineSubsystemSteamTypes.h"
 
 /**
  * Closes the socket

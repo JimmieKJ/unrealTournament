@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Lightmass/LightmassCharacterIndirectDetailVolume.h"
+#include "Engine/CollisionProfile.h"
 #include "Components/BrushComponent.h"
 
-#include "../Classes/Lightmass/LightmassCharacterIndirectDetailVolume.h"
 
 ALightmassCharacterIndirectDetailVolume::ALightmassCharacterIndirectDetailVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

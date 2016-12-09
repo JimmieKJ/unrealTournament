@@ -6,8 +6,13 @@
 //=============================================================================
 
 #pragma once
-#include "TimerManager.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/EngineTypes.h"
 #include "GameFramework/PhysicsVolume.h"
+#include "GameFramework/DamageType.h"
 #include "PainCausingVolume.generated.h"
 
 /**

@@ -2,8 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphSchema.h"
 #include "AIGraphTypes.h"
 #include "AIGraphSchema.generated.h"
+
+class FSlateRect;
+class UEdGraph;
 
 /** Action to add a node to the graph */
 USTRUCT()

@@ -2,7 +2,20 @@
 
 #pragma once
 
-#include "Persona.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Input/SComboButton.h"
+
+class IEditableSkeleton;
+class URig;
+class USkeleton;
+template <typename ItemType> class SListView;
 
 //////////////////////////////////////////////////////////////////////////
 // FDisplayedBoneMappingInfo
@@ -12,12 +25,12 @@ class FDisplayedBoneMappingInfo
 public:
 	FName Name;
 	FString DisplayName;
-	USkeleton* Skeleton;
+	TWeakPtr<class IEditableSkeleton> EditableSkeletonPtr;
 
 	/** Static function for creating a new item, but ensures that you can only have a TSharedRef to one */
-	static TSharedRef<FDisplayedBoneMappingInfo> Make(const FName NodeName, const FString DisplayName, USkeleton* InSkeleton)
+	static TSharedRef<FDisplayedBoneMappingInfo> Make(const FName NodeName, const FString DisplayName, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton)
 	{
-		return MakeShareable(new FDisplayedBoneMappingInfo(NodeName, DisplayName, InSkeleton));
+		return MakeShareable(new FDisplayedBoneMappingInfo(NodeName, DisplayName, InEditableSkeleton));
 	}
 
 	FName GetNodeName() const
@@ -32,10 +45,10 @@ public:
 
 protected:
 	/** Hidden constructor, always use Make above */
-	FDisplayedBoneMappingInfo(const FName InNodeName, const FString InDisplayName, USkeleton* InSkeleton)
+	FDisplayedBoneMappingInfo(const FName InNodeName, const FString InDisplayName, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton)
 		: Name( InNodeName )
 		, DisplayName( InDisplayName )
-		, Skeleton( InSkeleton )
+		, EditableSkeletonPtr(InEditableSkeleton)
 	{}
 
 	/** Hidden constructor, always use Make above */
@@ -51,11 +64,7 @@ class SRigWindow : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS( SRigWindow )
-		: _Persona()
 	{}
-		
-		/* The Persona that owns this table */
-		SLATE_ARGUMENT( TWeakPtr< FPersona >, Persona )
 
 	SLATE_END_ARGS()
 
@@ -65,13 +74,7 @@ public:
 	* @param InArgs - Arguments passed from Slate
 	*
 	*/
-	void Construct( const FArguments& InArgs );
-
-	/**
-	* Destructor - resets the morph targets
-	*
-	*/
-	virtual ~SRigWindow();
+	void Construct( const FArguments& InArgs, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnPostUndo );
 
 	/**
 	* Filters the SListView when the user changes the search text box (NameFilterBox)
@@ -128,7 +131,7 @@ private:
 	void CreateBoneMappingList( const FString& SearchText = FString("") );
 
 	/** Pointer back to the Persona that owns us */
-	TWeakPtr<FPersona> PersonaPtr;
+	TWeakPtr<class IEditableSkeleton> EditableSkeletonPtr;
 
 	/** Box to filter to a specific morph target name */
 	TSharedPtr<SSearchBox>	NameFilterBox;
@@ -138,9 +141,6 @@ private:
 
 	/** A list of retarget sources. Used by the BoneMappingListView. */
 	TArray< TSharedPtr<FDisplayedBoneMappingInfo> > BoneMappingList;
-
-	/** The skeletal mesh that we grab the morph targets from */
-	USkeleton* Skeleton;
 
 	/** Current text typed into NameFilterBox */
 	FText FilterText;

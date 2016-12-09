@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "SharedPointer.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/WeakObjectPtr.h"
 #include "LatentActionManager.generated.h"
 
+class FPendingLatentAction;
 
 // Latent action info
 USTRUCT()
@@ -133,6 +136,9 @@ public:
 	{
 		ProcessedThisFrame.Reset();
 	}
+
+	/** Returns the number of actions for a given object */
+	int32 GetNumActionsForObject(TWeakObjectPtr<UObject> InObject);
 
 #if WITH_EDITOR
 	/** 

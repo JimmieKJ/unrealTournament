@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Types/SlateEnums.h"
+#include "Layout/Visibility.h"
+#include "Camera/CameraTypes.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class SEditableTextBox;
+class SWidget;
+
 class FCameraDetails : public IDetailCustomization
 {
 public:

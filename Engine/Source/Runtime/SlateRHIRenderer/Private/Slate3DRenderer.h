@@ -2,7 +2,16 @@
 
 #pragma once
 
-#include "ISlate3DRenderer.h"
+#include "CoreMinimal.h"
+#include "Rendering/SlateRenderer.h"
+#include "Interfaces/ISlate3DRenderer.h"
+#include "SlateRHIResourceManager.h"
+#include "Rendering/SlateDrawBuffer.h"
+#include "RenderingThread.h"
+#include "SlateRHIRenderingPolicy.h"
+
+class FSlateElementBatcher;
+class FTextureRenderTarget2DResource;
 
 class FSlate3DRenderer : public ISlate3DRenderer, public FDeferredCleanupInterface
 {

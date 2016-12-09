@@ -1,12 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "MacTargetSettingsDetails.h"
-#include "TargetPlatform.h"
+#include "Misc/Paths.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorDirectories.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformModule.h"
 #include "SExternalImageReference.h"
-#include "IExternalImagePickerModule.h"
-#include "GameProjectGenerationModule.h"
-#include "ISourceControlModule.h"
 
 namespace MacTargetSettingsDetailsConstants
 {

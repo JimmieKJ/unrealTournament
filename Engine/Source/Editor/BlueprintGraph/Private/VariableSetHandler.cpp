@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-
-#include "KismetCompiler.h"
 #include "VariableSetHandler.h"
+#include "GameFramework/Actor.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_Variable.h"
+#include "K2Node_VariableSet.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+
+#include "EdGraphUtilities.h"
+#include "KismetCompiler.h"
 
 #define LOCTEXT_NAMESPACE "VariableSetHandler"
 

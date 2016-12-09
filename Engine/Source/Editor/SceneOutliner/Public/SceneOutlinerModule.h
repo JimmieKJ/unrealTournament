@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "SceneOutlinerFwd.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "ISceneOutliner.h"
+
+class ISceneOutlinerColumn;
 
 /**
  * Implements the Scene Outliner module.

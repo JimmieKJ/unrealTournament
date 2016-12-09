@@ -293,6 +293,14 @@ void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& F
 	check(CurrentWorld->DemoNetDriver != NULL);
 
 	CurrentWorld->DemoNetDriver->SetWorld(CurrentWorld);
+
+	// Set the new demo driver as the current collection's driver
+	FLevelCollection* CurrentLevelCollection = CurrentWorld->FindCollectionByType(ELevelCollectionType::DynamicSourceLevels);
+	if (CurrentLevelCollection)
+	{
+		CurrentLevelCollection->SetDemoNetDriver(CurrentWorld->DemoNetDriver);
+	}
+
 	/*
 	if (DemoURL.Map == TEXT("_DeathCam"))
 	{

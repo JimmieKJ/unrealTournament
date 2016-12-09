@@ -646,7 +646,7 @@ sub read_all_stream_settings
 # syncs all the build machines to a clean state
 sub conform_resources
 {
-	my ($ec, $ec_project, $ec_job, $ec_jobstep, $input_names, $set_pools, $max_parallel, $ec_update) = @_;
+	my ($ec, $ec_project, $ec_job, $ec_jobstep, $input_names, $set_pools, $p4_clean, $max_parallel, $ec_update) = @_;
 	
 	# find all of the actual resources, and whether they're alive or not
 	my $response = $ec->getResources();
@@ -701,7 +701,7 @@ sub conform_resources
 	
 		my $command = '';
 		$command .= "standard_builder_setup('\$[/myResource/resourceName]');\n";
-		$command .= "run_command('ConformResource --name=$resource_name".($set_pools? " --set-pools=\"$set_pools\"" : "")." --ec-update');\n";
+		$command .= "run_command('ConformResource --name=$resource_name".($set_pools? " --set-pools=\"$set_pools\"" : "").($p4_clean? " --p4-clean" : "")." --ec-update');\n";
 		$command .= "\n";
 		$command .= "\$[/myProject/Functions/standard_builder_setup]\n";
 		$command .= "\n";
@@ -716,6 +716,7 @@ sub conform_resources
 		$jobstep_arguments->{'shell'} = 'ec-perl';
 		$jobstep_arguments->{'resourceName'} = $resource_name;
 		$jobstep_arguments->{'workspaceName'} = $resource_name_to_default_workspace{$resource_name};
+		$jobstep_arguments->{'postProcessor'} = 'ec-perl PostpFilter.pl | Postp --load=./PostpExtensions.pl';
 		
 		if($max_parallel && $idx >= $max_parallel)
 		{
@@ -740,7 +741,7 @@ sub conform_resources
 # returns an resource to a clean state; syncing and cleaning all branches, and removing unused branches
 sub conform_resource
 {
-	my ($ec, $ec_project, $resource_name, $root_dir) = @_;
+	my ($ec, $ec_project, $resource_name, $root_dir, $p4_clean) = @_;
 	
 	# figure out which pools we belong to
 	print "Querying resource pools for $resource_name...\n";
@@ -874,9 +875,15 @@ sub conform_resource
 	}
 
 	# clean all the workspaces
-	foreach(@workspaces)
+	foreach my $workspace(@workspaces)
 	{
-		clean_workspace($_);
+		clean_workspace($workspace);
+		if($p4_clean)
+		{
+			print "Running p4 clean for workspace $workspace->{'name'}...\n";
+			my @output = p4_command("-c$workspace->{'name'} clean //$workspace->{'name'}/...", { ignore_no_files_to_reconcile => 1 });
+			print "warning: $_\n" foreach(@output);
+		}
 		print "\n";
 	}
 	

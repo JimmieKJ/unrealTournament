@@ -1,14 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeK2Base.h"
-#include "SGraphNodeSwitchStatement.h"
+#include "KismetNodes/SGraphNodeSwitchStatement.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "GraphEditorSettings.h"
+#include "SGraphPin.h"
+#include "K2Node_Switch.h"
 #include "KismetPins/SGraphPinExec.h"
 #include "NodeFactory.h"
 #include "K2Node_SwitchEnum.h"
 
 #include "ScopedTransaction.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SGraphPinSwitchNodeDefaultCaseExec
@@ -24,7 +27,6 @@ public:
 		SGraphPin::Construct(SGraphPin::FArguments().PinLabelStyle(FName("Graph.Node.DefaultPinName")), InPin);
 
 		bWasEventPin = false;
-		CachePinBrushes(/*bForceCache=*/ true);
 	}
 };
 

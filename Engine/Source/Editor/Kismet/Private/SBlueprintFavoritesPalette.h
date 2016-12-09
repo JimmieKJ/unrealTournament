@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "SBlueprintSubPalette.h"
+
+class FBlueprintEditor;
+class FMenuBuilder;
+class FUICommandList;
 
 /*******************************************************************************
 * SBlueprintFavoritesPalette

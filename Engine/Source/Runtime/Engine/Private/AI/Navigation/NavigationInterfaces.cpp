@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "Templates/Casts.h"
 #include "AI/Navigation/NavAgentInterface.h"
+#include "AI/Navigation/NavRelevantInterface.h"
 #include "AI/Navigation/NavigationPathGenerator.h"
 #include "AI/Navigation/NavNodeInterface.h"
+#include "AI/Navigation/NavLinkDefinition.h"
 #include "AI/Navigation/NavLinkHostInterface.h"
 #include "AI/Navigation/NavPathObserverInterface.h"
-#include "AI/Navigation/NavRelevantInterface.h"
 #include "AI/Navigation/NavLinkCustomInterface.h"
 #include "AI/Navigation/NavEdgeProviderInterface.h"
 #include "AI/RVOAvoidanceInterface.h"
@@ -61,7 +64,7 @@ void INavLinkCustomInterface::UpdateUniqueId(uint32 AlreadyUsedId)
 FNavigationLink INavLinkCustomInterface::GetModifier(const INavLinkCustomInterface* CustomNavLink)
 {
 	FNavigationLink LinkMod;
-	LinkMod.AreaClass = CustomNavLink->GetLinkAreaClass();
+	LinkMod.SetAreaClass(CustomNavLink->GetLinkAreaClass());
 	LinkMod.UserId = CustomNavLink->GetLinkId();
 
 	ENavLinkDirection::Type LinkDirection = ENavLinkDirection::BothWays;

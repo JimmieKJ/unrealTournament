@@ -6,14 +6,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Fonts/ShapedTextFwd.h"
 #include "Engine/EngineTypes.h"
+#include "Templates/Casts.h"
+#include "Fonts/SlateFontInfo.h"
 #include "Engine/Font.h"
-#include "ShapedTextFwd.h"
 #include "SceneTypes.h"
 
-class FCanvas;
 class FBatchedElementParameters;
 class FBatchedElements;
+class FCanvas;
 class FMaterialRenderProxy;
 class FTexture;
 class UMaterial;

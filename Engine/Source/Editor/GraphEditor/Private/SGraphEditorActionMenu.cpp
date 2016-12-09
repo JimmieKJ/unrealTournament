@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "GraphEditorCommon.h"
 #include "SGraphEditorActionMenu.h"
+#include "EdGraph/EdGraph.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "EditorStyleSet.h"
+#include "SGraphActionMenu.h"
 
 SGraphEditorActionMenu::~SGraphEditorActionMenu()
 {

@@ -2,9 +2,18 @@
 
 #pragma once
 
-#include "EditorStyle.h"
-#include "PropertyEditorModule.h"
-#include "IOSRuntimeSettings.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Misc/Attribute.h"
+#include "Input/Reply.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "IDetailCustomization.h"
+
+class FMonitoredProcess;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class SEditableTextBox;
 
 //////////////////////////////////////////////////////////////////////////
 // FProvision structure

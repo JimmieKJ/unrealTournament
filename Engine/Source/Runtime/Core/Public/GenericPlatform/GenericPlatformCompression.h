@@ -7,7 +7,8 @@ GenericPlatformCompression.h: Generic platform compress and decompress.
 
 #pragma once
 
-#include "Compression.h"
+#include "CoreTypes.h"
+#include "Misc/Compression.h"
 
 /**
 * Interface for platform specific compression routines

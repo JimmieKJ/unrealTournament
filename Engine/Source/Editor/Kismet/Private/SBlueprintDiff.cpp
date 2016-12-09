@@ -1,28 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-
-#include "BlueprintEditor.h"
-#include "BlueprintEditorCommands.h"
-#include "BlueprintEditorModes.h"
-#include "BlueprintUtilities.h"
-#include "DetailsDiff.h"
-#include "Editor/Kismet/Public/SBlueprintEditorToolbar.h"
-#include "Editor/Kismet/Public/SKismetInspector.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/UnrealEd/Public/EdGraphUtilities.h"
-#include "GraphDiffControl.h"
-#include "GraphEditor.h"
-#include "Kismet2/BlueprintEditorUtils.h"
 #include "SBlueprintDiff.h"
-#include "SDockTab.h"
-#include "SGraphTitleBar.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Widgets/SOverlay.h"
+#include "Engine/GameViewportClient.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "Animation/AnimBlueprint.h"
+#include "K2Node_MathExpression.h"
+
+#include "BlueprintEditorModes.h"
+#include "DetailsDiff.h"
+#include "EdGraphUtilities.h"
+#include "GraphDiffControl.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "SMyBlueprint.h"
-#include "SSCSEditor.h"
 #include "SCSDiff.h"
 #include "WorkflowOrientedApp/SModeWidget.h"
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "WidgetBlueprint.h"
 
 #define LOCTEXT_NAMESPACE "SBlueprintDif"
 
@@ -180,68 +180,72 @@ FCDODiffControl::FCDODiffControl(
 	TArray<FPropertySoftPath> OldProperties = OldDetails.GetDisplayedProperties();
 	TArray<FPropertySoftPath> NewProperties = NewDetails.GetDisplayedProperties();
 
-	const auto FindDiffering = [](TArray< FSingleObjectDiffEntry > const& InDifferenceEntries, const FPropertySoftPath& PropertyIdentifer) -> const FSingleObjectDiffEntry*
+	const auto FindAndPushDiff = [&OrderedProperties, &DifferingProperties](const FPropertySoftPath& PropertyIdentifer) -> bool
 	{
-		for (const auto& Difference : InDifferenceEntries)
+		for (const auto& Difference : DifferingProperties)
 		{
 			if (Difference.Identifier == PropertyIdentifer)
 			{
-				return &Difference;
+				OrderedProperties.Push(&Difference);
+				return true;
 			}
 		}
-		return nullptr;
+		return false;
 	};
 
 	// zip the two sets of properties, zip iterators are not trivial to write in c++,
 	// so this procedural stuff will have to do:
 	int IterOld = 0;
 	int IterNew = 0;
-	while (IterOld != OldProperties.Num() || IterNew != NewProperties.Num())
+	while (IterOld < OldProperties.Num() || IterNew < NewProperties.Num())
 	{
-		if (IterOld != OldProperties.Num() && IterNew != NewProperties.Num()
-			&& OldProperties[IterOld] == NewProperties[IterNew])
+		const bool bOldIterValid = IterOld < OldProperties.Num();
+		const bool bNewIterValid = IterNew < NewProperties.Num();
+
+		// We've reached the end of the new list, but still have properties in the old list.
+		// Continue over the old list to catch any remaining diffs.
+		if (bOldIterValid && !bNewIterValid)
 		{
-			if (const FSingleObjectDiffEntry* Differing = FindDiffering(DifferingProperties, OldProperties[IterOld]))
-			{
-				OrderedProperties.Push(Differing);
-			}
+			FindAndPushDiff(OldProperties[IterOld]);
 			++IterOld;
+		}
+		// We've reached the end of the old list, but still have properties in the new list.
+		// Continue over the new list to catch any remaining diffs.
+		else if (!bOldIterValid && bNewIterValid)
+		{
+			FindAndPushDiff(NewProperties[IterNew]);
 			++IterNew;
 		}
 		else
 		{
-			if (IterOld != OldProperties.Num())
+			// If both properties have the same path, check to ensure the property hasn't changed.
+			if (OldProperties[IterOld] == NewProperties[IterNew])
 			{
-				bool bFoundDifference = false;
-				if (const FSingleObjectDiffEntry* OldDiffering = FindDiffering(DifferingProperties, OldProperties[IterOld]))
+				FindAndPushDiff(OldProperties[IterOld]);
+				++IterNew;
+				++IterOld;
+			}
+			else
+			{
+				// If the old property is different, add it to the list and increment the old iter.
+				// This indicates the property was removed.
+				if (FindAndPushDiff(OldProperties[IterOld]))
 				{
-					bFoundDifference = true;
-					OrderedProperties.Push(OldDiffering);
 					++IterOld;
 				}
-				else if (IterNew != NewProperties.Num())
+				// If the new property is different, add it to the list and increment the new iter.
+				// This indicates the property was added.
+				else if (FindAndPushDiff(NewProperties[IterNew]))
 				{
-					if (const FSingleObjectDiffEntry* NewDiffering = FindDiffering(DifferingProperties, NewProperties[IterNew]))
-					{
-						bFoundDifference = true;
-						OrderedProperties.Push(NewDiffering);
-						++IterNew;
-					}
+					++IterNew;
 				}
-				if (!bFoundDifference)
+				// Neither property was different.
+				// This indicates the iterators were just out of step from a previous addition or removal.
+				else
 				{
 					++IterOld;
 					++IterNew;
 				}
-			}
-			else
-			{
-				check(IterNew != NewProperties.Num());
-				if (const FSingleObjectDiffEntry* Differing = FindDiffering(DifferingProperties, NewProperties[IterNew]))
-				{
-					OrderedProperties.Push(Differing);
-				}
-				++IterNew;
 			}
 		}
 	}
@@ -411,6 +415,7 @@ FListItemGraphToDiff::~FListItemGraphToDiff()
 TSharedRef<SWidget> FListItemGraphToDiff::GenerateWidget() 
 {
 	auto Graph = GraphOld ? GraphOld : GraphNew;
+	check(Graph);
 	
 	FLinearColor Color = (GraphOld && GraphNew) ? FLinearColor::White : FLinearColor(0.3f,0.3f,1.f);
 
@@ -513,6 +518,7 @@ FText FListItemGraphToDiff::GetToolTip()
 	else
 	{
 		auto GoodGraph = GraphOld ? GraphOld : GraphNew;
+		check(GoodGraph);
 		const FRevisionInfo& Revision = GraphNew ? RevisionOld : RevisionNew;
 		FText RevisionText = LOCTEXT("CurrentRevision", "Current Revision");
 
@@ -660,7 +666,6 @@ void SBlueprintDiff::Construct( const FArguments& InArgs)
 	check(InArgs._BlueprintOld && InArgs._BlueprintNew);
 	PanelOld.Blueprint = InArgs._BlueprintOld;
 	PanelNew.Blueprint = InArgs._BlueprintNew;
-
 	PanelOld.RevisionInfo = InArgs._OldRevision;
 	PanelNew.RevisionInfo = InArgs._NewRevision;
 
@@ -1177,11 +1182,25 @@ void SBlueprintDiff::GenerateDifferencesList()
 		}
 	}
 
+	bool bHasComponents = true;
+	if (const UAnimBlueprint* AnimBP = Cast<UAnimBlueprint>(PanelOld.Blueprint))
+	{
+		MasterDifferencesList.Push(FBlueprintDifferenceTreeEntry::AnimBlueprintEntry());
+		bHasComponents = false;
+	}
+	else if (const UWidgetBlueprint* WidgetBP = Cast<UWidgetBlueprint>(PanelOld.Blueprint))
+	{
+		MasterDifferencesList.Push(FBlueprintDifferenceTreeEntry::WidgetBlueprintEntry());
+		bHasComponents = false;
+	}
+
 	// Unfortunately we can't perform the diff until the UI is generated, the primary reason for this is that
 	// details customizations determine what is actually editable:
 	DefaultsPanel = GenerateDefaultsPanel();
-	ComponentsPanel = GenerateComponentsPanel();
-
+	if (bHasComponents)
+	{
+		ComponentsPanel = GenerateComponentsPanel();
+	}
 
 	for (const auto& Graph : Graphs)
 	{

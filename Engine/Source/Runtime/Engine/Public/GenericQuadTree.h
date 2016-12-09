@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+
 DEFINE_LOG_CATEGORY_STATIC(LogQuadTree, Log, Warning);
 
 template <typename ElementType, int32 NodeCapacity = 4>

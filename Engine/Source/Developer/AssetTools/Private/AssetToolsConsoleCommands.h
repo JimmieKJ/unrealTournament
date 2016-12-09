@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #define LOCTEXT_NAMESPACE "AssetTools"
+
+class FAssetToolsModule;
 
 class FAssetToolsConsoleCommands
 {

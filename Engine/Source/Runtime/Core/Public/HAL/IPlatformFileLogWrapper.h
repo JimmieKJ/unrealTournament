@@ -2,6 +2,21 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "HAL/PlatformMisc.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Math/Color.h"
+#include "Logging/LogMacros.h"
+#include "Misc/DateTime.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/PlatformTime.h"
+#include "Templates/ScopedPointer.h"
+#include "Misc/ScopeLock.h"
+#include "UniquePtr.h"
+
+class FLoggedPlatformFile;
+class IAsyncReadFileHandle;
 
 /**
  * Wrapper to log the low level file system
@@ -22,7 +37,7 @@ class FLoggedPlatformFile;
 
 class CORE_API FLoggedFileHandle : public IFileHandle
 {
-	TAutoPtr<IFileHandle>	FileHandle;
+	TUniquePtr<IFileHandle>	FileHandle;
 	FString					Filename;
 #if !UE_BUILD_SHIPPING
 	FLoggedPlatformFile& PlatformFile;
@@ -398,13 +413,13 @@ public:
 		FILE_LOG(LogPlatformFile, Log, TEXT("DeleteDirectoryRecursively return %d [%fms]"), int32(Result), ThisTime);
 		return Result;
 	}
-	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From) override
+	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags = EPlatformFileRead::None, EPlatformFileWrite WriteFlags = EPlatformFileWrite::None) override
 	{
 		FString DataStr = FString::Printf(TEXT("CopyFile %s %s"), To, From);
 		FScopedNamedEvent NamedEvent(FColor::Emerald, *DataStr);
 		FILE_LOG(LogPlatformFile, Log, TEXT("%s"), *DataStr);
 		double StartTime = FPlatformTime::Seconds();
-		bool Result = LowerLevel->CopyFile(To, From);
+		bool Result = LowerLevel->CopyFile(To, From, ReadFlags, WriteFlags);
 		float ThisTime = (FPlatformTime::Seconds() - StartTime) / 1000.0;
 		FILE_LOG(LogPlatformFile, Log, TEXT("CopyFile return %d [%fms]"), int32(Result), ThisTime);
 		return Result;

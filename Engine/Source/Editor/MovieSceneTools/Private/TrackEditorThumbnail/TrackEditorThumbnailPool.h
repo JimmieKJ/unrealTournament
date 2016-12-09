@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 class FTrackEditorThumbnail;
-
+class ISequencer;
 
 /**
  * Track Editor Thumbnail pool, which keeps a list of thumbnails that

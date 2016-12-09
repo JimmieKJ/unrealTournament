@@ -36,11 +36,6 @@
 
   <!-- optional additions to proguard -->
   <proguardAdditions>
-    <insert>
-      -keep class com.google.** {
-      *;
-      }
-    </insert>
   </proguardAdditions>
   
 	<!-- optional updates applied to AndroidManifest.xml -->

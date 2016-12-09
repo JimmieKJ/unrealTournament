@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+// TODO: implement Watchdog on Mac and Linux and replace Windows check with desktop check below
+//#define PLATFORM_SUPPORTS_WATCHDOG		PLATFORM_DESKTOP
+#define PLATFORM_SUPPORTS_WATCHDOG		PLATFORM_WINDOWS
+
+struct FUserActivity;
+
 enum class EEngineSessionManagerMode
 {
 	Editor,
@@ -21,6 +29,7 @@ public:
 		CurrentSession.bCrashed = false;
 		CurrentSession.bIsDeactivated = false;
 		CurrentSession.bIsInBackground = false;
+		CurrentSession.bIsVanilla = false;
 	}
 
 	void Initialize();
@@ -42,6 +51,7 @@ private:
 		bool bIsDeactivated;
 		bool bIsInBackground;
 		FString CurrentUserActivity;
+		bool bIsVanilla;
 	};
 
 private:
@@ -58,7 +68,13 @@ private:
 	void OnAppForeground();
 	FString GetStoreSectionString(FString InSuffix);
 	void OnUserActivity(const FUserActivity& UserActivity);
+	void OnVanillaStateChanged(bool bIsVanilla);
 	FString GetUserActivityString() const;
+
+#if PLATFORM_SUPPORTS_WATCHDOG
+	void StartWatchdog(const FString& RunType, const FString& ProjectName, const FString& PlatformName, const FString& SessionId, const FString& EngineVersion);
+	FString GetWatchdogStoreSectionString(uint32 InPID);
+#endif
 
 private:
 	EEngineSessionManagerMode Mode;
@@ -68,4 +84,8 @@ private:
 	FSessionRecord CurrentSession;
 	FString CurrentSessionSectionName;
 	TArray<FSessionRecord> SessionRecords;
+
+#if PLATFORM_SUPPORTS_WATCHDOG
+	FString WatchdogSectionName;
+#endif
 };

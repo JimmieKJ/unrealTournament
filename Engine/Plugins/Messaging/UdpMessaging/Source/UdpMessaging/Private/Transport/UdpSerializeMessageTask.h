@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "JsonStructSerializerBackend.h"
-#include "StructSerializer.h"
-
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "IMessageContext.h"
+#include "Transport/UdpSerializedMessage.h"
 
 /**
  * Implements an asynchronous task for serializing a message.
@@ -19,7 +20,7 @@ public:
 	 * @param InMessageContext The context of the message to serialize.
 	 * @param InSerializedMessage Will hold the serialized message data.
 	 */
-	FUdpSerializeMessageTask(IMessageContextRef InMessageContext, FUdpSerializedMessageRef InSerializedMessage)
+	FUdpSerializeMessageTask(TSharedRef<IMessageContext, ESPMode::ThreadSafe> InMessageContext, TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe> InSerializedMessage)
 		: MessageContext(InMessageContext)
 		, SerializedMessage(InSerializedMessage)
 	{ }
@@ -58,8 +59,8 @@ public:
 private:
 
 	/** Holds the context of the message to serialize. */
-	IMessageContextRef MessageContext;
+	TSharedRef<IMessageContext, ESPMode::ThreadSafe> MessageContext;
 
 	/** Holds a reference to the serialized message data. */
-	FUdpSerializedMessageRef SerializedMessage;
+	TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe> SerializedMessage;
 };

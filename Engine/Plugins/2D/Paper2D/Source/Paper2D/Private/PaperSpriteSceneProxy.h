@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SpriteDrawCall.h"
 #include "PaperRenderSceneProxy.h"
 
-struct FSpriteDrawCallRecord;
+class FMeshElementCollector;
+class UBodySetup;
 class UPaperSpriteComponent;
 
 //////////////////////////////////////////////////////////////////////////

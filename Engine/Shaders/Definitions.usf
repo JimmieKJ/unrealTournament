@@ -146,8 +146,8 @@
 #define USING_TESSELLATION								0
 #endif
 
-#ifndef OUTPUT_GBUFFER_VELOCITY
-#define OUTPUT_GBUFFER_VELOCITY									0
+#ifndef GBUFFER_HAS_VELOCITY
+#define GBUFFER_HAS_VELOCITY							0
 #endif
 
 #define PC_D3D											SM5_PROFILE

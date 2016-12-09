@@ -1,13 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "SDockTab.h"
 #include "Toolkits/SimpleAssetEditor.h"
-#include "Toolkits/AssetEditorToolkit.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
+#include "Modules/ModuleManager.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
+#include "Editor.h"
 
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 
 #define LOCTEXT_NAMESPACE "GenericEditor"
 
@@ -37,6 +37,8 @@ const FName FSimpleAssetEditor::SimpleEditorAppIdentifier( TEXT( "GenericEditorA
 
 FSimpleAssetEditor::~FSimpleAssetEditor()
 {
+	FEditorDelegates::OnAssetPostImport.RemoveAll(this);
+
 	DetailsView.Reset();
 	PropertiesTab.Reset();
 }
@@ -47,6 +49,9 @@ void FSimpleAssetEditor::InitEditor( const EToolkitMode::Type Mode, const TShare
 	const bool bIsUpdatable = false;
 	const bool bAllowFavorites = true;
 	const bool bIsLockable = false;
+
+	EditingObjects = ObjectsToEdit;
+	FEditorDelegates::OnAssetPostImport.AddRaw(this, &FSimpleAssetEditor::HandleAssetPostImport);
 
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>( "PropertyEditor" );
 	const FDetailsViewArgs DetailsViewArgs( bIsUpdatable, bIsLockable, true, FDetailsViewArgs::ObjectsUseNameArea, false );
@@ -164,6 +169,8 @@ FText FSimpleAssetEditor::GetToolkitName() const
 			bDirtyState |= Obj->GetOutermost()->IsDirty();
 		}
 
+		check(SharedBaseClass);
+
 		Args.Add( TEXT("NumberOfObjects"), EditingObjs.Num() );
 		Args.Add( TEXT("ClassName"), FText::FromString( SharedBaseClass->GetName() ) );
 		Args.Add( TEXT("DirtyState"), bDirtyState ? FText::FromString( TEXT( "*" ) ) : FText::GetEmpty() );
@@ -214,6 +221,8 @@ FText FSimpleAssetEditor::GetToolkitToolTipText() const
 			}
 		}
 
+		check(SharedBaseClass);
+
 		Args.Add( TEXT("NumberOfObjects"), EditingObjs.Num() );
 		Args.Add( TEXT("ClassName"), FText::FromString( SharedBaseClass->GetName() ) );
 		return FText::Format( LOCTEXT("ToolkitTitle_EditingMultipleToolTip", "{NumberOfObjects} {ClassName} - {ToolkitName}"), Args );
@@ -241,6 +250,15 @@ TSharedRef<SDockTab> FSimpleAssetEditor::SpawnPropertiesTab( const FSpawnTabArgs
 		[
 			DetailsView.ToSharedRef()
 		];
+}
+
+void FSimpleAssetEditor::HandleAssetPostImport(UFactory* InFactory, UObject* InObject)
+{
+	if (EditingObjects.Contains(InObject))
+	{
+		// The details panel likely needs to be refreshed if an asset was imported again
+		DetailsView->SetObjects(EditingObjects);
+	}
 }
 
 FString FSimpleAssetEditor::GetWorldCentricTabPrefix() const

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /*-----------------------------------------------------------------------------
 	Binary Heap, used to index another data structure.
 
@@ -41,7 +43,6 @@ protected:
 
 	void		UpHeap( uint32 HeapIndex );
 	void		DownHeap( uint32 HeapIndex );
-	void		Verify();
 
 	uint32		HeapNum;
 	uint32		HeapSize;
@@ -164,12 +165,13 @@ void FBinaryHeap< KeyType >::ResizeIndexes( uint32 NewIndexSize )
 			NewKeys[i] = Keys[i];
 			NewHeapIndexes[i] = HeapIndexes[i];
 		}
-		for( uint32 i = IndexSize; i < NewIndexSize; i++ )
-		{
-			NewHeapIndexes[i] = ~0u;
-		}
 		delete[] Keys;
 		delete[] HeapIndexes;
+	}
+
+	for( uint32 i = IndexSize; i < NewIndexSize; i++ )
+	{
+		NewHeapIndexes[i] = ~0u;
 	}
 	
 	IndexSize	= NewIndexSize;
@@ -180,7 +182,7 @@ void FBinaryHeap< KeyType >::ResizeIndexes( uint32 NewIndexSize )
 template< typename KeyType >
 FORCEINLINE void FBinaryHeap< KeyType >::Resize( uint32 NewHeapSize, uint32 NewIndexSize )
 {
-	if( NewHeapSize == HeapSize )
+	if( NewHeapSize != HeapSize )
 	{
 		ResizeHeap( NewHeapSize );
 	}
@@ -261,7 +263,8 @@ FORCEINLINE void FBinaryHeap< KeyType >::Update( KeyType Key, uint32 Index )
 	Keys[ Index ] = Key;
 
 	uint32 HeapIndex = HeapIndexes[ Index ];
-	if( HeapIndex > 0 && Key < Keys[ Heap[(HeapIndex - 1) >> 1] ] )
+	uint32 Parent = (HeapIndex - 1) >> 1;
+	if( HeapIndex > 0 && Key < Keys[ Heap[ Parent ] ] )
 	{
 		UpHeap( HeapIndex );
 	}
@@ -285,16 +288,16 @@ FORCEINLINE void FBinaryHeap< KeyType >::Remove( uint32 Index )
 	uint32 HeapIndex = HeapIndexes[ Index ];
 
 	Heap[ HeapIndex ] = Heap[ --HeapNum ];
-	HeapIndexes[ Heap[ HeapIndex ] ] = Index;
+	HeapIndexes[ Heap[ HeapIndex ] ] = HeapIndex;
 	HeapIndexes[ Index ] = ~0u;
 
 	if( Key < Keys[ Heap[ HeapIndex ] ] )
 	{
-		UpHeap( HeapIndex );
+		DownHeap( HeapIndex );
 	}
 	else
 	{
-		DownHeap( HeapIndex );
+		UpHeap( HeapIndex );
 	}
 }
 
@@ -334,7 +337,7 @@ void FBinaryHeap< KeyType >::DownHeap( uint32 HeapIndex )
 		uint32 Smallest = Left;
 		if( Right < HeapNum )
 		{
-			Smallest = ( Keys[ Heap[Left] ] < Keys[ Heap[Right] ] ) ? Left: Right;
+			Smallest = ( Keys[ Heap[Left] ] < Keys[ Heap[Right] ] ) ? Left : Right;
 		}
 
 		if( Keys[ Heap[Smallest] ] < Keys[ Moving ] )
@@ -356,18 +359,5 @@ void FBinaryHeap< KeyType >::DownHeap( uint32 HeapIndex )
 	{
 		Heap[i] = Moving;
 		HeapIndexes[ Heap[i] ] = i;
-	}
-}
-
-template< typename KeyType >
-void FBinaryHeap< KeyType >::Verify()
-{
-	for( uint32 i = 1; i < HeapNum; i++ )
-	{
-		uint32 Parent = (i - 1) >> 1;
-		if( Keys[ Heap[i] ] < Keys[ Heap[Parent] ] )
-		{
-			check( false );
-		}
 	}
 }

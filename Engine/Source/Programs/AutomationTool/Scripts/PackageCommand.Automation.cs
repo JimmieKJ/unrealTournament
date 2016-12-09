@@ -13,40 +13,33 @@ public partial class Project : CommandUtils
 
 	public static void Package(ProjectParams Params, int WorkingCL=-1)
 	{
-		Params.ValidateAndLog();
-		List<DeploymentContext> DeployContextList = new List<DeploymentContext>();
-		if (!Params.NoClient)
+		if ((!Params.SkipStage || Params.Package))
 		{
-			DeployContextList.AddRange(CreateDeploymentContext(Params, false, false));
-		}
-		if (Params.DedicatedServer)
-		{
-			DeployContextList.AddRange(CreateDeploymentContext(Params, true, false));
-		}
-
-		// before we package up the build, allow a symbol upload (this isn't actually tied to packaging, 
-		// but logically it's a package-time thing)
-		foreach (var SC in DeployContextList)
-		{
-			if (Params.UploadSymbols)
+			Params.ValidateAndLog();
+			List<DeploymentContext> DeployContextList = new List<DeploymentContext>();
+			if (!Params.NoClient)
 			{
-				SC.StageTargetPlatform.UploadSymbols(Params, SC);
+				DeployContextList.AddRange(CreateDeploymentContext(Params, false, false));
 			}
-		}
-
-		if (DeployContextList.Count > 0 && (!Params.SkipStage || Params.Package))
-		{
-			Log("********** PACKAGE COMMAND STARTED **********");
-
-			foreach (var SC in DeployContextList)
+			if (Params.DedicatedServer)
 			{
-				if (Params.Package || (SC.StageTargetPlatform.RequiresPackageToDeploy && Params.Deploy))
+				DeployContextList.AddRange(CreateDeploymentContext(Params, true, false));
+			}
+
+			if (DeployContextList.Count > 0 )
+			{
+				Log("********** PACKAGE COMMAND STARTED **********");
+
+				foreach (var SC in DeployContextList)
 				{
-					SC.StageTargetPlatform.Package(Params, SC, WorkingCL);
+					if (Params.Package || (SC.StageTargetPlatform.RequiresPackageToDeploy && Params.Deploy))
+					{
+						SC.StageTargetPlatform.Package(Params, SC, WorkingCL);
+					}
 				}
-			}
 
-			Log("********** PACKAGE COMMAND COMPLETED **********");
+				Log("********** PACKAGE COMMAND COMPLETED **********");
+			}
 		}
 	}
 

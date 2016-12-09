@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealFrontendPrivatePCH.h"
+#include "CoreMinimal.h"
 #include "UnrealFrontendMain.h"
 #include "ExceptionHandling.h"
-#include "RequiredProgramMainCPPInclude.h"
+#include "LaunchEngineLoop.h"
+#include "Misc/CommandLine.h"
 #include "CocoaThread.h"
 
 

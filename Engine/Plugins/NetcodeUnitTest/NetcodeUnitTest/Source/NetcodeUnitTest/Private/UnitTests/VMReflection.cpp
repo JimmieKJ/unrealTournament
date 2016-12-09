@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
-
 #include "UnitTests/VMReflection.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/DefaultPawn.h"
+
 
 #include "NUTUtilReflection.h"
 

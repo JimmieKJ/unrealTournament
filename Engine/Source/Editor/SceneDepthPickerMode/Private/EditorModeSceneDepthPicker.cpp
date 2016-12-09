@@ -1,7 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "SceneDepthPickerModePrivatePCH.h"
-#include "EngineUtils.h"
+#include "EditorModeSceneDepthPicker.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/SToolTip.h"
+#include "LevelEditorViewport.h"
+#include "EditorModes.h"
 
 #define LOCTEXT_NAMESPACE "SceneDepthPicker"
 

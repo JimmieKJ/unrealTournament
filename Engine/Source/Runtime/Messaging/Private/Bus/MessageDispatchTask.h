@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "IMessageContext.h"
+#include "Bus/MessageTracer.h"
+
+class IMessageReceiver;
 
 /**
  * Implements an asynchronous task for dispatching a message to a recipient.
@@ -18,12 +24,11 @@ public:
 	 * @param InRecipient The message recipient.
 	 * @param InTracer The message tracer to notify.
 	 */
-	FMessageDispatchTask(ENamedThreads::Type InThread, IMessageContextRef InContext, IReceiveMessagesWeakPtr InRecipient, FMessageTracerPtr InTracer)
-		: Context(InContext)
-		, RecipientPtr(InRecipient)
-		, Thread(InThread)
-		, TracerPtr(InTracer)
-	{ }
+	FMessageDispatchTask(
+		ENamedThreads::Type InThread,
+		TSharedRef<IMessageContext, ESPMode::ThreadSafe> InContext,
+		TWeakPtr<IMessageReceiver, ESPMode::ThreadSafe> InRecipient,
+		TSharedPtr<FMessageTracer, ESPMode::ThreadSafe> InTracer);
 
 public:
 
@@ -33,29 +38,7 @@ public:
 	 * @param CurrentThread The thread that this task is executing on.
 	 * @param MyCompletionGraphEvent The completion event.
 	 */
-	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-	{
-		IReceiveMessagesPtr Recipient = RecipientPtr.Pin();
-
-		if (!Recipient.IsValid())
-		{
-			return;
-		}
-
-		FMessageTracerPtr Tracer = TracerPtr.Pin();
-
-		if (Tracer.IsValid())
-		{
-			Tracer->TraceDispatchedMessage(Context, Recipient.ToSharedRef(), true);
-		}
-		
-		Recipient->ReceiveMessage(Context);
-
-		if (TracerPtr.IsValid())
-		{
-			Tracer->TraceHandledMessage(Context, Recipient.ToSharedRef());
-		}
-	}
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
 	
 	/**
 	 * Returns the name of the thread that this task should run on.
@@ -87,14 +70,14 @@ public:
 private:
 
 	/** Holds the message context. */
-	IMessageContextRef Context;
+	TSharedRef<IMessageContext, ESPMode::ThreadSafe> Context;
 
 	/** Holds a reference to the recipient. */
-	IReceiveMessagesWeakPtr RecipientPtr;
+	TWeakPtr<IMessageReceiver, ESPMode::ThreadSafe> RecipientPtr;
 
 	/** Holds the name of the thread that the router is running on. */
 	ENamedThreads::Type Thread;
 
 	/** Holds a pointer to the message tracer. */
-	FMessageTracerWeakPtr TracerPtr;
+	TWeakPtr<FMessageTracer, ESPMode::ThreadSafe> TracerPtr;
 };

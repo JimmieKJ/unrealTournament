@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node.h"
 #include "K2Node_PureAssignmentStatement.generated.h"
+
+class UEdGraphPin;
 
 UCLASS(MinimalAPI)
 class UK2Node_PureAssignmentStatement : public UK2Node

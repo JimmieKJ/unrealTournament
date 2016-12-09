@@ -1,13 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
-#include "ScopedTransaction.h"
-#include "MainFrame.h"
-#include "MeshUtilities.h"
-#include "AssetRegistryModule.h"
-#include "ContentBrowserModule.h"
+#include "CoreMinimal.h"
+#include "Misc/MessageDialog.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Editor/GroupActor.h"
 #include "Engine/Selection.h"
+#include "Editor.h"
+#include "ScopedTransaction.h"
 
 
 void UUnrealEdEngine::edactRegroupFromSelected()

@@ -4,18 +4,17 @@
 	ConvertToUniformMesh.cpp
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "UniformBuffer.h"
+#include "CoreMinimal.h"
+#include "RHI.h"
 #include "ShaderParameters.h"
-#include "PostProcessing.h"
-#include "SceneFilterRendering.h"
+#include "Shader.h"
+#include "MeshBatch.h"
+#include "MaterialShaderType.h"
+#include "MaterialShader.h"
+#include "DrawingPolicy.h"
+#include "MeshMaterialShader.h"
+#include "ScenePrivate.h"
 #include "DistanceFieldLightingShared.h"
-#include "DistanceFieldSurfaceCacheLighting.h"
-#include "DistanceFieldGlobalIllumination.h"
-#include "RHICommandList.h"
-#include "SceneUtils.h"
-#include "DistanceFieldAtlas.h"
 
 class FConvertToUniformMeshVS : public FMeshMaterialShader
 {
@@ -47,7 +46,7 @@ public:
 		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View->GetFeatureLevel()), *View, View->ViewUniformBuffer, ESceneRenderTargetsMode::SetTextures);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
@@ -137,7 +136,7 @@ public:
 		FMeshMaterialShader::SetParameters(RHICmdList, (FGeometryShaderRHIParamRef)GetGeometryShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View->GetFeatureLevel()), *View, View->ViewUniformBuffer, ESceneRenderTargetsMode::SetTextures);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, (FGeometryShaderRHIParamRef)GetGeometryShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
@@ -163,7 +162,8 @@ public:
 		const FVertexFactory* InVertexFactory,
 		const FMaterialRenderProxy* InMaterialRenderProxy,
 		const FMaterial& MaterialResouce,
-		ERHIFeatureLevel::Type InFeatureLevel
+		ERHIFeatureLevel::Type InFeatureLevel,
+		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings
 		);
 
 	// FMeshDrawingPolicy interface.
@@ -180,7 +180,7 @@ public:
 	* @param CI - The command interface to execute the draw commands on.
 	* @param View - The view of the scene being drawn.
 	*/
-	void SetSharedState(FRHICommandList& RHICmdList, const FSceneView* View, const ContextDataType PolicyContext) const;
+	void SetSharedState(FRHICommandList& RHICmdList, const FSceneView* View, const ContextDataType PolicyContext, FDrawingPolicyRenderState& DrawRenderState) const;
 	
 	/** 
 	* Create bound shader state using the vertex decl from the mesh draw policy
@@ -201,8 +201,7 @@ public:
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
-		bool bBackFace,
-		const FMeshDrawingRenderState& DrawRenderState,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const;
@@ -216,9 +215,10 @@ FConvertToUniformMeshDrawingPolicy::FConvertToUniformMeshDrawingPolicy(
 	const FVertexFactory* InVertexFactory,
 	const FMaterialRenderProxy* InMaterialRenderProxy,
 	const FMaterial& InMaterialResource,
-	ERHIFeatureLevel::Type InFeatureLevel
+	ERHIFeatureLevel::Type InFeatureLevel,
+	const FMeshDrawingPolicyOverrideSettings& InOverrideSettings
 	)
-:	FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource)
+:	FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource,InOverrideSettings)
 {
 	VertexShader = InMaterialResource.GetShader<FConvertToUniformMeshVS>(InVertexFactory->GetType());
 	GeometryShader = InMaterialResource.GetShader<FConvertToUniformMeshGS>(InVertexFactory->GetType());
@@ -238,11 +238,12 @@ FDrawingPolicyMatchResult FConvertToUniformMeshDrawingPolicy::Matches(
 void FConvertToUniformMeshDrawingPolicy::SetSharedState(
 	FRHICommandList& RHICmdList, 
 	const FSceneView* View,
-	const ContextDataType PolicyContext
+	const ContextDataType PolicyContext,
+	FDrawingPolicyRenderState& DrawRenderState
 	) const
 {
 	// Set shared mesh resources
-	FMeshDrawingPolicy::SetSharedState(RHICmdList, View, PolicyContext);
+	FMeshDrawingPolicy::SetSharedState(RHICmdList, View, PolicyContext, DrawRenderState);
 
 	VertexShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, View);
 	GeometryShader->SetParameters(RHICmdList, VertexFactory, MaterialRenderProxy, View);
@@ -266,8 +267,7 @@ void FConvertToUniformMeshDrawingPolicy::SetMeshRenderState(
 	const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 	const FMeshBatch& Mesh,
 	int32 BatchElementIndex,
-	bool bBackFace,
-	const FMeshDrawingRenderState& DrawRenderState,
+	const FDrawingPolicyRenderState& DrawRenderState,
 	const ElementDataType& ElementData,
 	const ContextDataType PolicyContext
 	) const
@@ -279,9 +279,10 @@ void FConvertToUniformMeshDrawingPolicy::SetMeshRenderState(
 	GeometryShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
 	
 	// Set rasterizer state.
+	const bool bReverseCulling = !!(DrawRenderState.GetViewOverrideFlags() & EDrawingPolicyOverrideFlags::ReverseCullMode);
 	RHICmdList.SetRasterizerState(GetStaticRasterizerState<true>(
 		(Mesh.bWireframe || IsWireframe()) ? FM_Wireframe : FM_Solid,
-		IsTwoSided() ? CM_None : (XOR( XOR(View.bReverseCulling,bBackFace), Mesh.ReverseCulling) ? CM_CCW : CM_CW)));
+		IsTwoSided() ? CM_None : (XOR(bReverseCulling, Mesh.ReverseCulling) ? CM_CCW : CM_CW)));
 }
 
 bool ShouldGenerateSurfelsOnMesh(const FMeshBatch& Mesh, ERHIFeatureLevel::Type FeatureLevel)
@@ -353,13 +354,15 @@ int32 FUniformMeshConverter::Convert(
 					Mesh.VertexFactory,
 					Mesh.MaterialRenderProxy,
 					*Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel),
-					FeatureLevel);
+					FeatureLevel,
+					ComputeMeshOverrideSettings(Mesh));
 
 				//@todo - fix
 				OutMaterialRenderProxy = Mesh.MaterialRenderProxy;
 
+				FDrawingPolicyRenderState DrawRenderState(&RHICmdList, View);
 				RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(FeatureLevel));
-				DrawingPolicy.SetSharedState(RHICmdList, &View, FConvertToUniformMeshDrawingPolicy::ContextDataType());
+				DrawingPolicy.SetSharedState(RHICmdList, &View, FConvertToUniformMeshDrawingPolicy::ContextDataType(), DrawRenderState);
 
 				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 				{
@@ -368,7 +371,7 @@ int32 FUniformMeshConverter::Convert(
 						? Mesh.Elements[BatchElementIndex].PrimitiveUniformBuffer
 						: *Mesh.Elements[BatchElementIndex].PrimitiveUniformBufferResource;
 
-					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,false,FMeshDrawingRenderState(),FConvertToUniformMeshDrawingPolicy::ElementDataType(), FConvertToUniformMeshDrawingPolicy::ContextDataType());
+					DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, DrawRenderState, FConvertToUniformMeshDrawingPolicy::ElementDataType(), FConvertToUniformMeshDrawingPolicy::ContextDataType());
 					DrawingPolicy.DrawMesh(RHICmdList, Mesh, BatchElementIndex);
 				}
 			}

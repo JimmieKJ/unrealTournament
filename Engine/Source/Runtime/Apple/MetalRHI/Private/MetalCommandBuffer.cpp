@@ -169,7 +169,32 @@ NSString* GMetalDebugCommandTypeNames[EMetalDebugCommandTypeInvalid] = {
 	{
 		[String appendFormat:@"\n\t%@: %@", GMetalDebugCommandTypeNames[Command->Type], Command->Label];
 	}
+	
+	[String appendFormat:@"\nResources:"];
+	
+	for (id<MTLResource> Resource : Resources)
+	{
+		[String appendFormat:@"\n\t%@ (%d): %@", Resource.label, (uint32)[Resource retainCount], [Resource description]];
+	}
+	
+	[String appendFormat:@"\nStates:"];
+	
+	for (id State : States)
+	{
+		[String appendFormat:@"\n\t%@ (%d): %@", ([State respondsToSelector:@selector(label)] ? [State label] : @"(null)"), (uint32)[State retainCount], [State description]];
+	}
+	
 	return String;
+}
+
+-(void) trackResource:(id<MTLResource>)Resource
+{
+	Resources.Add(Resource);
+}
+
+-(void) trackState:(id)State
+{
+	States.Add(State);
 }
 
 -(void) beginRenderCommandEncoder:(NSString*)Label withDescriptor:(MTLRenderPassDescriptor*)Desc

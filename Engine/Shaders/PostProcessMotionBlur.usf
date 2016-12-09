@@ -188,7 +188,9 @@ void MainPS(
 	// screen position in [-1, 1] screen space
 	float2 ScreenSpacePos = UVAndScreenPos.zw;
 
+#if !SCENE_ALPHA
 	OutColor = 0;
+#endif
 
 	const uint StepCount = GetStepCountFromQuality() / 2;
 
@@ -219,12 +221,13 @@ void MainPS(
 	bool bSkipPath = MaxVelocityLengthSqrPixels < 0.25;
 	bool bFastPath = MinVelocityLengthSqrPixels > 0.4 * MaxVelocityLengthSqrPixels;
 
-	float3 CenterColor = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0 ).rgb;
+	SceneColorLayout CenterColor = CastFloat4ToSceneColorLayout(
+			PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0 ));
 
 	BRANCH
 	if( bSkipPath )
 	{
-		OutColor.rgb = CenterColor;
+		SetSceneColorLayoutToFloat4(OutColor, CenterColor);
 		return;
 	}
 
@@ -249,7 +252,7 @@ void MainPS(
 	BRANCH
 	if( bFastPath )
 	{
-		float4 ColorAccum = 0;
+		SceneColorLayout ColorAccum = 0;
 
 		UNROLL
 		for( uint i = 0; i < StepCount; i++ )
@@ -261,27 +264,34 @@ void MainPS(
 			SampleUV[0] = UV + OffsetFraction.x * SearchVector.xy;
 			SampleUV[1] = UV + OffsetFraction.y * SearchVector.zw;
 
-			ColorAccum.rgb += PostprocessInput0.SampleLevel( PostprocessInput0Sampler, SampleUV[0], 0 ).rgb;
-			ColorAccum.rgb += PostprocessInput0.SampleLevel( PostprocessInput0Sampler, SampleUV[1], 0 ).rgb;
+			ColorAccum += CastFloat4ToSceneColorLayout(
+					PostprocessInput0.SampleLevel( PostprocessInput0Sampler, SampleUV[0], 0 ));
+			ColorAccum += CastFloat4ToSceneColorLayout(
+					PostprocessInput0.SampleLevel( PostprocessInput0Sampler, SampleUV[1], 0 ));
 		}
 	
 		ColorAccum *= 0.5 / StepCount;
 
-		OutColor.rgb = ColorAccum.rgb;
+		SetSceneColorLayoutToFloat4(OutColor, ColorAccum);
 	}
 	else
 	{
 		float3 CenterVelocityDepth = PostprocessInput2.SampleLevel( PostprocessInput2Sampler, UV, 0 ).xyz;
 		float  CenterDepth = CenterVelocityDepth.z;
 		float  CenterVelocityLength = GetVelocityLengthPixels( CenterVelocityDepth.xy );
-
+		
+#if SCENE_ALPHA
 		float4 ColorAccum = 0;
+		float ColorAccumWeight = 0;
+#else
+		float4 ColorAccum = 0;
+#endif
 
 		UNROLL
 		for( uint i = 0; i < StepCount; i++ )
 		{
 			float2 SampleUV[2];
-			float3 SampleColor[2];
+			SceneColorLayout SampleColor[2];
 			float  SampleDepth[2];
 			float  SampleVelocityLength[2];
 			float  Weight[2];
@@ -296,7 +306,8 @@ void MainPS(
 			for( uint j = 0; j < 2; j++ )
 			{
 				float3 SampleVelocityDepth = PostprocessInput2.SampleLevel( PostprocessInput2Sampler, SampleUV[j], 0 ).xyz;
-				SampleColor[j] = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, SampleUV[j], 0 ).rgb;
+				SampleColor[j] = CastFloat4ToSceneColorLayout(
+						PostprocessInput0.SampleLevel( PostprocessInput0Sampler, SampleUV[j], 0 ));
 				SampleDepth[j] = SampleVelocityDepth.z;
 
 				// in pixels
@@ -308,18 +319,25 @@ void MainPS(
 			bool2 Mirror = bool2( SampleDepth[0] > SampleDepth[1], SampleVelocityLength[1] > SampleVelocityLength[0] );
 			Weight[0] = all( Mirror ) ? Weight[1] : Weight[0];
 			Weight[1] = any( Mirror ) ? Weight[1] : Weight[0];
-
+			
+#if SCENE_ALPHA
+			ColorAccum += Weight[0] * SampleColor[0] + Weight[1] * SampleColor[1];
+			ColorAccumWeight += Weight[0] + Weight[1];
+#else
 			ColorAccum += Weight[0] * float4( SampleColor[0], 1 );
 			ColorAccum += Weight[1] * float4( SampleColor[1], 1 );
+#endif
 		}
 	
 		ColorAccum *= 0.5 / StepCount;
-
+		
+#if SCENE_ALPHA
+		ColorAccumWeight *= 0.5 / StepCount;
+		OutColor = ColorAccum + ( 1 - ColorAccumWeight ) * CenterColor;
+#else
 		OutColor.rgb = ColorAccum.rgb + ( 1 - ColorAccum.a ) * CenterColor;
+#endif
 	}
-
-	//OutColor.rgb *= bFastPath ? float3(1,0,0) : float3(0,1,0);
-	//OutColor.rgb = lerp( OutColor.rgb, float3( abs( MinMaxVelocity.zw ), 0 ) * 0.2, 0.9 );
 }
 
 

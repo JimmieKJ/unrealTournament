@@ -5,8 +5,19 @@
 
 =============================================================================*/
 
-#include "UnrealEd.h"
-#include "EditorCommandlets.h"
+#include "Commandlets/DiffPackagesCommandlet.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "Serialization/ObjectWriter.h"
+#include "Serialization/ObjectReader.h"
+#include "Serialization/ArchiveReplaceObjectRef.h"
+#include "UObject/LinkerLoad.h"
+#include "Engine/Level.h"
+#include "Engine/World.h"
+#include "Commandlets/EditorCommandlets.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDiffPackagesCommandlet, Log, All);
 
@@ -902,6 +913,7 @@ bool UDiffPackagesCommandlet::ProcessDiff(FObjectComparison& Diff)
 							Diff.ObjectSets[2] ? Diff.ObjectSets[2]->GetRootObject() : NULL,
 							Diff);
 
+	check(NumPackages <= 3);
 	for (int32 PackageIndex = 0; PackageIndex < NumPackages; PackageIndex++)
 	{
 		// its possible we have a NULL object set if the root object isn't in the package

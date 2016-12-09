@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "UObject/ObjectResource.h"
+#include "UObject/Class.h"
 
 /*-----------------------------------------------------------------------------
 	Helper functions.
@@ -44,10 +45,16 @@ FObjectExport::FObjectExport()
 , bNotForEditorGame(true)
 , bIsAsset(false)
 , bExportLoadFailed(false)
-, bDynamicClass(false)
+, DynamicType(EDynamicType::NotDynamicExport)
 , bWasFiltered(false)
 , PackageGuid(FGuid(0, 0, 0, 0))
 , PackageFlags(0)
+, FirstExportDependency(-1)
+, SerializationBeforeSerializationDependencies(0)
+, CreateBeforeSerializationDependencies(0)
+, SerializationBeforeCreateDependencies(0)
+, CreateBeforeCreateDependencies(0)
+
 {}
 
 FObjectExport::FObjectExport( UObject* InObject )
@@ -65,10 +72,15 @@ FObjectExport::FObjectExport( UObject* InObject )
 , bNotForEditorGame(true)
 , bIsAsset(false)
 , bExportLoadFailed(false)
-, bDynamicClass(false)
+, DynamicType(EDynamicType::NotDynamicExport)
 , bWasFiltered(false)
 , PackageGuid(FGuid(0, 0, 0, 0))
 , PackageFlags(0)
+, FirstExportDependency(-1)
+, SerializationBeforeSerializationDependencies(0)
+, CreateBeforeSerializationDependencies(0)
+, SerializationBeforeCreateDependencies(0)
+, CreateBeforeCreateDependencies(0)
 {
 	if(Object)		
 	{
@@ -83,6 +95,11 @@ FArchive& operator<<( FArchive& Ar, FObjectExport& E )
 {
 	Ar << E.ClassIndex;
 	Ar << E.SuperIndex;
+	if (Ar.UE4Ver() >= VER_UE4_TemplateIndex_IN_COOKED_EXPORTS)
+	{
+		Ar << E.TemplateIndex;
+	}
+
 	Ar << E.OuterIndex;
 	Ar << E.ObjectName;
 
@@ -113,6 +130,14 @@ FArchive& operator<<( FArchive& Ar, FObjectExport& E )
 		Ar << E.bIsAsset;
 	}
 
+	if (Ar.UE4Ver() >= VER_UE4_PRELOAD_DEPENDENCIES_IN_COOKED_EXPORTS)
+	{
+		Ar << E.FirstExportDependency;
+		Ar << E.SerializationBeforeSerializationDependencies;
+		Ar << E.CreateBeforeSerializationDependencies;
+		Ar << E.SerializationBeforeCreateDependencies;
+		Ar << E.CreateBeforeCreateDependencies;
+	}	
 	return Ar;
 }
 
@@ -121,27 +146,43 @@ FArchive& operator<<( FArchive& Ar, FObjectExport& E )
 -----------------------------------------------------------------------------*/
 
 FObjectImport::FObjectImport()
-:	FObjectResource	()
+	: FObjectResource()
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+	, bImportPackageHandled(false)
+	, bImportSearchedFor(false)
+	, bImportFailed(false)
+#endif
+
 {
 }
 
-FObjectImport::FObjectImport( UObject* InObject )
-:	FObjectResource	( InObject																)
-,	ClassPackage	( InObject ? InObject->GetClass()->GetOuter()->GetFName()	: NAME_None	)
-,	ClassName		( InObject ? InObject->GetClass()->GetFName()				: NAME_None	)
-,	XObject			( InObject																)
-,	SourceLinker	( NULL																	)
-,	SourceIndex		( INDEX_NONE															)
+FObjectImport::FObjectImport(UObject* InObject)
+	: FObjectResource(InObject)
+	, ClassPackage(InObject ? InObject->GetClass()->GetOuter()->GetFName() : NAME_None)
+	, ClassName(InObject ? InObject->GetClass()->GetFName() : NAME_None)
+	, XObject(InObject)
+	, SourceLinker(NULL)
+	, SourceIndex(INDEX_NONE)
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+	, bImportPackageHandled(false)
+	, bImportSearchedFor(false)
+	, bImportFailed(false)
+#endif
 {
 }
 
 FObjectImport::FObjectImport(UObject* InObject, UClass* InClass)
-:	FObjectResource	( InObject																)
-,	ClassPackage	( (InObject && InClass) ? InClass->GetOuter()->GetFName()	: NAME_None	)
-,	ClassName		( (InObject && InClass) ? InClass->GetFName()				: NAME_None	)
-,	XObject			( InObject																)
-,	SourceLinker	( NULL																	)
-,	SourceIndex		( INDEX_NONE															)
+	: FObjectResource(InObject)
+	, ClassPackage((InObject && InClass) ? InClass->GetOuter()->GetFName() : NAME_None)
+	, ClassName((InObject && InClass) ? InClass->GetFName() : NAME_None)
+	, XObject(InObject)
+	, SourceLinker(NULL)
+	, SourceIndex(INDEX_NONE)
+#if USE_EVENT_DRIVEN_ASYNC_LOAD
+	, bImportPackageHandled(false)
+	, bImportSearchedFor(false)
+	, bImportFailed(false)
+#endif
 {
 }
 

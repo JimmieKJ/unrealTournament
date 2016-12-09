@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "SlateIcon.h"
+#include "Textures/SlateIcon.h"
+#include "Styling/StyleDefaults.h"
+#include "Styling/ISlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
 
 /* FSlateIcon structors
  *****************************************************************************/

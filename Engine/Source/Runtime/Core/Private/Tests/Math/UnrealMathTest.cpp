@@ -1,6 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h" 
+#include "CoreTypes.h"
+#include "Math/NumericLimits.h"
+#include "Math/UnrealMathUtility.h"
+#include "Templates/UnrealTemplate.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Logging/LogMacros.h"
+#include "Containers/Map.h"
+#include "Math/Vector.h"
+#include "Math/VectorRegister.h"
+#include "Math/Plane.h"
+#include "Math/Rotator.h"
+#include "Math/Matrix.h"
+#include "Math/RotationMatrix.h"
+#include "Math/Quat.h"
+#include "Math/QuatRotationTranslationMatrix.h"
+#include "Misc/AutomationTest.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

@@ -1,11 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
-
-#include "GraphEditorActions.h"
-#include "ScopedTransaction.h"
-#include "Kismet2NameValidators.h"
 #include "AnimGraphNode_SaveCachedPose.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 

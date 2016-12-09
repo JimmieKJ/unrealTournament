@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Textures/SlateIcon.h"
 #include "K2Node.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_ForEachElementInEnum.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UK2Node_ForEachElementInEnum : public UK2Node
@@ -13,8 +20,8 @@ class UK2Node_ForEachElementInEnum : public UK2Node
 	UPROPERTY()
 	UEnum* Enum;
 
-	static const FString InsideLoopPinName;
-	static const FString EnumOuputPinName;
+	BLUEPRINTGRAPH_API static const FString InsideLoopPinName;
+	BLUEPRINTGRAPH_API static const FString EnumOuputPinName;
 
 	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;

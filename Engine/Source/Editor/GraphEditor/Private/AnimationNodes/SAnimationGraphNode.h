@@ -2,8 +2,15 @@
 
 #pragma once
 
-#include "SGraphNodeK2Base.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Styling/SlateColor.h"
+#include "SNodePanel.h"
+#include "KismetNodes/SGraphNodeK2Base.h"
 #include "Engine/PoseWatch.h"
+
+class UAnimGraphNode_Base;
 
 class SAnimationGraphNode : public SGraphNodeK2Base
 {

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 /**
  * Tests if a type is a valid argument to a variadic function, e.g. printf.
  */

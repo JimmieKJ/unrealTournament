@@ -6,13 +6,18 @@
 
 #pragma once
 
-#include "Engine.h"
+#include "CoreMinimal.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/CommandLine.h"
 
 // UE4 has a Max of 8 RTs, but we can spend less time looping with 6
 const uint32 MaxMetalRenderTargets = 6;
 
 // Requirement for vertex buffer offset field
 const uint32 BufferOffsetAlignment = 256;
+
+// The buffer page size that can be uploaded in a set*Bytes call
+const uint32 MetalBufferPageSize = 4096;
 
 #define METAL_API_1_1 (__IPHONE_9_0 || __MAC_10_11)
 #define METAL_API_1_2 ((__IPHONE_10_0 && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0) || (__MAC_10_12 && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_12))
@@ -43,9 +48,17 @@ const uint32 MaxMetalStreams = 30;
 #define METAL_STATISTICS 0
 #endif
 
+#define METAL_DEBUG_OPTIONS !(UE_BUILD_SHIPPING)
+#if METAL_DEBUG_OPTIONS
+#define METAL_DEBUG_OPTION(Code) Code
+#else
+#define METAL_DEBUG_OPTION(Code)
+#endif
+
 #define SHOULD_TRACK_OBJECTS (UE_BUILD_DEBUG)
 
 #define UNREAL_TO_METAL_BUFFER_INDEX(Index) ((MaxMetalStreams - 1) - Index)
+#define METAL_TO_UNREAL_BUFFER_INDEX(Index) ((MaxMetalStreams - 1) - Index)
 
 // Dependencies
 #include "MetalRHI.h"
@@ -130,5 +143,8 @@ FORCEINLINE MTLStoreAction GetMetalRTStoreAction(ERenderTargetStoreAction StoreA
 	}
 }
 
+uint32 TranslateElementTypeToSize(EVertexElementType Type);
+
 #include "MetalStateCache.h"
 #include "MetalContext.h"
+

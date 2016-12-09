@@ -5,10 +5,20 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "StaticParameterSet.h"
 #include "Editor/UnrealEdTypes.h"
 #include "Materials/MaterialInstanceBasePropertyOverrides.h"
-#include "StaticParameterSet.h"
 #include "MaterialEditorInstanceConstant.generated.h"
+
+class UDEditorParameterValue;
+class UMaterial;
+class UMaterialInstanceConstant;
+struct FPropertyChangedEvent;
 
 USTRUCT()
 struct FEditorParameterGroup

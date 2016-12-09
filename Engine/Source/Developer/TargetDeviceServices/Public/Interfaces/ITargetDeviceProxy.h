@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class ITargetDeviceProxy;
 
 /** Type definition for shared pointers to instances of ITargetDeviceProxy. */
 typedef TSharedPtr<class ITargetDeviceProxy> ITargetDeviceProxyPtr;

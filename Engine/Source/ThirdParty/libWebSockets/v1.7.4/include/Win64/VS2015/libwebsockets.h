@@ -146,10 +146,12 @@ struct sockaddr_in;
 #define LWS_INVALID_FILE INVALID_HANDLE_VALUE
 #define LWS_O_RDONLY _O_RDONLY
 
+#define snprintf _snprintf
+
 #else /* NOT WIN32 */
 #include <unistd.h>
 
-#if defined(__NetBSD__)
+#if defined(__NetBSD__) || defined(__FreeBSD__)
 #include <netinet/in.h>
 #endif
 
@@ -166,8 +168,15 @@ struct sockaddr_in;
 #endif
 
 #if defined(__GNUC__)
+
+/* warn_unused_result attribute only supported by GCC 3.4 or later */
+#if __GNUC__ >= 4 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
+#define LWS_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
+#else
+#define LWS_WARN_UNUSED_RESULT
+#endif
+
 #define LWS_VISIBLE __attribute__((visibility("default")))
-#define LWS_WARN_UNUSED_RESULT __attribute__ ((warn_unused_result))
 #define LWS_WARN_DEPRECATED __attribute__ ((deprecated))
 #else
 #define LWS_VISIBLE
@@ -1492,7 +1501,7 @@ lws_ev_sigint_cb(struct ev_loop *loop, struct ev_signal *watcher, int revents);
 #endif /* LWS_USE_LIBEV */
 
 #ifdef LWS_USE_LIBUV
-typedef void (lws_uv_signal_cb_t)(uv_loop_t *l, uv_signal_t *w, int revents);
+typedef void (lws_uv_signal_cb_t)(uv_loop_t *l, uv_signal_t *w, int signum);
 
 LWS_VISIBLE LWS_EXTERN int
 lws_uv_sigint_cfg(struct lws_context *context, int use_uv_sigint,
@@ -1511,7 +1520,7 @@ LWS_VISIBLE LWS_EXTERN uv_loop_t *
 lws_uv_getloop(struct lws_context *context, int tsi);
 
 LWS_VISIBLE void
-lws_uv_sigint_cb(uv_loop_t *loop, uv_signal_t *watcher, int revents);
+lws_uv_sigint_cb(uv_loop_t *loop, uv_signal_t *watcher, int signum);
 #endif /* LWS_USE_LIBUV */
 
 LWS_VISIBLE LWS_EXTERN int

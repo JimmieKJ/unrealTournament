@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Rendering/DrawElements.h"
+#include "Rendering/RenderingPolicy.h"
+#include "SlateD3DVertexBuffer.h"
+#include "SlateD3DIndexBuffer.h"
+#include "SlateD3DTextureManager.h"
+#include "SlateD3DShaders.h"
+#include "StandaloneRendererPlatformHeaders.h"
 
 class FSlateD3D11RenderingPolicy : public FSlateRenderingPolicy
 {

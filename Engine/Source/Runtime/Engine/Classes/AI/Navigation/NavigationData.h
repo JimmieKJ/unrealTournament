@@ -1,18 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/EngineTypes.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "GameFramework/Actor.h"
 #include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
 #include "AI/Navigation/NavigationTypes.h"
-#include "AI/NavDataGenerator.h"
-#include "GameFramework/Actor.h"
-#include "UniquePtr.h"
+#include "EngineDefines.h"
 #include "NavigationData.generated.h"
 
-class UNavigationQueryFilter;
-class FNavDataGenerator; 
+class ANavigationData;
+class Error;
+class FNavDataGenerator;
+class INavAgentInterface;
 class INavLinkCustomInterface;
+class UNavArea;
 class UPrimitiveComponent;
-class UWorld;
 
 USTRUCT()
 struct FSupportedAreaData

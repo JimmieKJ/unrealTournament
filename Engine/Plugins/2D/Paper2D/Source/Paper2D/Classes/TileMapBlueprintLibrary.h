@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "PaperTileLayer.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "TileMapBlueprintLibrary.generated.h"
+
+class UPaperTileSet;
 
 /**
  * A collection of utility methods for working with tile map components

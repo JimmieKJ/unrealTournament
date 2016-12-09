@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 #include "KDevelopSourceCodeAccessor.h"
 
 class FKDevelopSourceCodeAccessModule : public IModuleInterface

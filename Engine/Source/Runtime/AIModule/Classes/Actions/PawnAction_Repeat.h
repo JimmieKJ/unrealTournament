@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Actions/PawnAction.h"
 #include "PawnAction_Repeat.generated.h"
 

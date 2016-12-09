@@ -1,14 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Kismet/KismetRenderingLibrary.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "Runtime/Engine/Classes/Engine/TextureRenderTarget2D.h"
-#include "Runtime/Engine/Classes/Engine/CanvasRenderTarget2D.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Serialization/BufferArchive.h"
+#include "EngineGlobals.h"
+#include "RenderingThread.h"
+#include "Engine/Engine.h"
+#include "CanvasTypes.h"
+#include "Engine/Canvas.h"
+#include "Misc/App.h"
+#include "TextureResource.h"
+#include "SceneUtils.h"
+#include "Logging/MessageLog.h"
+#include "Engine/TextureRenderTarget2D.h"
 #include "ImageUtils.h"
-#include "FileManagerGeneric.h"
-#include "Paths.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UKismetRenderingLibrary
@@ -35,7 +41,7 @@ void UKismetRenderingLibrary::ClearRenderTarget2D(UObject* WorldContextObject, U
 			FLinearColor,ClearColor,ClearColor,
 		{
 			SetRenderTarget(RHICmdList, RenderTargetResource->GetRenderTargetTexture(), FTextureRHIRef(), true);
-			RHICmdList.Clear(true, ClearColor, false, 0.0f, false, 0, FIntRect());
+			RHICmdList.ClearColorTexture(RenderTargetResource->GetRenderTargetTexture(), ClearColor, FIntRect());
 		});
 	}
 }
@@ -45,7 +51,7 @@ UTextureRenderTarget2D* UKismetRenderingLibrary::CreateRenderTarget2D(UObject* W
 	check(WorldContextObject);
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
 
-	if (Width > 0 && Height > 0 && World)
+	if (Width > 0 && Height > 0 && World && FApp::CanEverRender())
 	{
 		UTextureRenderTarget2D* NewRenderTarget2D = NewObject<UTextureRenderTarget2D>(WorldContextObject);
 		check(NewRenderTarget2D);

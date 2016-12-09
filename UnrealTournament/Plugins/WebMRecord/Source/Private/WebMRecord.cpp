@@ -11,6 +11,13 @@
 #include "RHIStaticStates.h"
 #include "RendererInterface.h"
 
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
+
+#pragma push_macro("RESTRICT")
+#undef RESTRICT
+
 #if PLATFORM_32BITS
 #include "vpx32/vpx_encoder.h"
 #include "vpx32/vp8cx.h"
@@ -31,11 +38,15 @@
 
 #include "libgd/gd.h"
 
+#pragma pop_macro("RESTRICT")
+
 #include "UTGameViewportClient.h"
 
 IMPLEMENT_MODULE(FWebMRecord, WebMRecord)
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWebM, Log, All);
+
+#include "AllowWindowsPlatformTypes.h"
 
 AWebMRecord::AWebMRecord(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -690,14 +701,14 @@ void FWebMRecord::EncodeVideoAndAudio(const FString& Filename)
 	// Hook up to the unreal memory allocators
 	vpx_mem_set_functions(&VPXMalloc, &VPXCalloc, &VPXRealloc, &VPXFree, &VPXMemcpy, &VPXMemset, &VPXMemmove);
 
-#define interface (vpx_codec_vp8_cx())
+#define vpx_interface (vpx_codec_vp8_cx())
 
-	res = vpx_codec_enc_config_default(interface, &cfg, 0);
+	res = vpx_codec_enc_config_default(vpx_interface, &cfg, 0);
 	if (res)
 	{
 		return;
 	}
-	UE_LOG(LogUTWebM, Display, TEXT("Compressing with %s"), ANSI_TO_TCHAR(vpx_codec_iface_name(interface)));
+	UE_LOG(LogUTWebM, Display, TEXT("Compressing with %s"), ANSI_TO_TCHAR(vpx_codec_iface_name(vpx_interface)));
 
 	cfg.rc_target_bitrate = VideoWidth * VideoHeight * cfg.rc_target_bitrate / cfg.g_w / cfg.g_h;
 	cfg.g_w = VideoWidth;
@@ -717,7 +728,7 @@ void FWebMRecord::EncodeVideoAndAudio(const FString& Filename)
 		return;
 	}
 
-	if (vpx_codec_enc_init(&codec, interface, &cfg, 0))
+	if (vpx_codec_enc_init(&codec, vpx_interface, &cfg, 0))
 	{
 		return;
 	}
@@ -1623,3 +1634,5 @@ void FWebMRecord::EncodeAnimatedGIF(const FString& Filename)
 	delete[] UPlane;
 	delete[] VPlane;
 }
+
+#include "HideWindowsPlatformTypes.h"

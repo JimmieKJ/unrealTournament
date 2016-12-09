@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /*------------------------------------------------------------------------------
 	Constants to tune memory and performance for GPU particle simulation.
 ------------------------------------------------------------------------------*/

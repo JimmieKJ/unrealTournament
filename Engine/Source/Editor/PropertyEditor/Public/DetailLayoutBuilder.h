@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Fonts/SlateFontInfo.h"
+#include "EditorStyleSet.h"
+#include "AssetThumbnail.h"
+#include "PropertyHandle.h"
+
 class IDetailCategoryBuilder;
-class IPropertyHandle;
-class IArrayPropertyHelper;
 
 namespace ECategoryPriority
 {
@@ -62,6 +66,13 @@ public:
 	 * If this is a sub-object customization it will return those sub objects.  Otherwise the root objects will be returned.
 	 */
 	virtual void GetObjectsBeingCustomized( TArray< TWeakObjectPtr<UObject> >& OutObjects ) const = 0;
+
+	/**
+	 * Gets the current struct(s) being customized by this builder
+	 *
+	 * If this is a sub-struct customization it will return those sub struct.  Otherwise the root struct will be returned.
+	 */
+	virtual void GetStructsBeingCustomized( TArray< TSharedPtr<FStructOnScope> >& OutStructs ) const = 0;
 
 	/**
 	 *	@return the utilities various widgets need access to certain features of PropertyDetails

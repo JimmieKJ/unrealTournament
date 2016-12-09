@@ -1,7 +1,7 @@
 //
 // paCoolSurface.cpp
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 
 #include "Surface/paCoolSurface.hpp"

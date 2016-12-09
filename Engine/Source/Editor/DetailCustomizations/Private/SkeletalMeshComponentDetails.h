@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "IDetailCustomization.h"
+
+class FAssetData;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class SComboButton;
+
 class FSkeletalMeshComponentDetails : public IDetailCustomization
 {
 public:

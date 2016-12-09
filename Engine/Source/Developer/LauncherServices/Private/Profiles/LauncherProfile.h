@@ -2,8 +2,24 @@
 
 #pragma once
 
-#include "Json.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/ILauncherProfile.h"
+#include "Interfaces/ILauncherServicesModule.h"
+#include "Misc/Paths.h"
+#include "Launcher/LauncherProjectPath.h"
+#include "Misc/CommandLine.h"
+#include "Internationalization/Culture.h"
+#include "Misc/App.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/ITargetDeviceServicesModule.h"
+#include "Common/GameProjectHelper.h"
+#include "Profiles/LauncherProfileLaunchRole.h"
 #include "PlatformInfo.h"
+
+class Error;
 
 enum ELauncherVersion
 {
@@ -647,6 +663,15 @@ public:
 		return false;
 	}
 
+	virtual bool IsIterateSharedCookedBuild() const override
+	{
+		if ( CookMode != ELauncherProfileCookModes::DoNotCook )
+		{
+			return IterateSharedCookedBuild;
+		}
+		return false;
+	}
+
 	virtual bool IsCompressed() const override
 	{
 		return Compressed;
@@ -1266,6 +1291,7 @@ public:
 		}
 
 		Writer.WriteValue("iterativecooking", IsCookingIncrementally());
+		Writer.WriteValue("iteratesharedcookedbuild", IsIterateSharedCookedBuild() );
 		Writer.WriteValue("skipcookingeditorcontent", GetSkipCookingEditorContent());
 		Writer.WriteValue("compressed", IsCompressed());
 		Writer.WriteValue("EncryptIniFiles", IsEncryptingIniFiles());
@@ -1699,6 +1725,7 @@ public:
 		CookMode = ELauncherProfileCookModes::OnTheFly;
 		CookOptions = FString();
 		CookIncremental = false;
+		IterateSharedCookedBuild=false;
 		CookUnversioned = true;
 		Compressed = true;
 		EncryptIniFiles = false;
@@ -1973,6 +2000,16 @@ public:
 		if (CookIncremental != Incremental)
 		{
 			CookIncremental = Incremental;
+
+			Validate();
+		}
+	}
+
+	virtual void SetIterateSharedCookedBuild( bool SharedCookedBuild ) override
+	{
+		if (IterateSharedCookedBuild != SharedCookedBuild)
+		{
+			IterateSharedCookedBuild = SharedCookedBuild;
 
 			Validate();
 		}
@@ -2462,6 +2499,9 @@ private:
 	bool ForDistribution;
 	// Holds a flag indicating whether only modified content should be cooked.
 	bool CookIncremental;
+
+	// hold a flag indicating if we want to iterate on the shared cooked build
+	bool IterateSharedCookedBuild;
 
 	// Holds a flag indicating whether packages should be saved without a version.
 	bool CookUnversioned;

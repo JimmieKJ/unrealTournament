@@ -1,11 +1,15 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Components/SceneComponent.h"
 #include "ViewportInteractionTypes.h"
 #include "VIGizmoHandle.generated.h"
 
+class UMaterialInterface;
+class UStaticMesh;
 enum class EGizmoHandleTypes : uint8;
 
 USTRUCT()

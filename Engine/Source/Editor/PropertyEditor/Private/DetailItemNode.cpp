@@ -1,15 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
 #include "DetailItemNode.h"
-#include "PropertyEditorHelpers.h"
 #include "DetailCategoryGroupNode.h"
-#include "PropertyHandleImpl.h"
 #include "DetailGroup.h"
 #include "DetailPropertyRow.h"
-#include "DetailCustomBuilderRow.h"
 #include "SDetailSingleItemRow.h"
-#include "TutorialMetaData.h"
 
 
 
@@ -85,7 +80,9 @@ FDetailItemNode::~FDetailItemNode()
 
 void FDetailItemNode::InitPropertyEditor()
 {
-	if( Customization.GetPropertyNode()->GetProperty() && Customization.GetPropertyNode()->GetProperty()->IsA<UArrayProperty>() )
+	UProperty* NodeProperty = Customization.GetPropertyNode()->GetProperty();
+
+	if( NodeProperty && (NodeProperty->IsA<UArrayProperty>() || NodeProperty->IsA<USetProperty>() || NodeProperty->IsA<UMapProperty>() ))
 	{
 		const bool bUpdateFilteredNodes = false;
 		FSimpleDelegate OnRegenerateChildren = FSimpleDelegate::CreateSP( this, &FDetailItemNode::GenerateChildren, bUpdateFilteredNodes );

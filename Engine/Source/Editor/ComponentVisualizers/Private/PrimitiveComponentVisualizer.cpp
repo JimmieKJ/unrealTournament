@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ComponentVisualizersPrivatePCH.h"
-
 #include "PrimitiveComponentVisualizer.h"
+#include "Components/PrimitiveComponent.h"
+#include "SceneManagement.h"
+
 
 static const FColor	COMColor(0,255,0);
 

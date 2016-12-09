@@ -1,45 +1,67 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Editor/UnrealEdEngine.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectIterator.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Components/PrimitiveComponent.h"
+#include "CookOnTheSide/CookOnTheFlyServer.h"
+#include "Materials/Material.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "ISourceControlModule.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Settings/EditorLoadingSavingSettings.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
+#include "Preferences/UnrealEdKeyBindings.h"
+#include "Preferences/UnrealEdOptions.h"
+#include "GameFramework/Volume.h"
+#include "Components/ArrowComponent.h"
+#include "Components/BillboardComponent.h"
+#include "Components/BrushComponent.h"
+#include "Engine/Selection.h"
+#include "Editor.h"
+#include "LevelEditorViewport.h"
+#include "EditorModeRegistry.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "UnrealEdMisc.h"
+#include "UnrealEdGlobals.h"
 
 #include "Matinee/InterpData.h"
 #include "Matinee/MatineeActor.h"
 #include "Animation/AnimCompress.h"
 
 #include "EditorSupportDelegates.h"
-#include "SoundDefinitions.h"
-#include "BusyCursor.h"
 #include "EditorLevelUtils.h"
-#include "AVIWriter.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Editor/MainFrame/Public/MainFrame.h"
-#include "CrashTracker.h"
-#include "AssetToolsModule.h"
-#include "EditorLoadingSavingSettingsCustomization.h"
-#include "GameMapsSettingsCustomization.h"
-#include "LevelEditorPlaySettingsCustomization.h"
-#include "ProjectPackagingSettingsCustomization.h"
-#include "Editor/StatsViewer/Public/StatsViewerModule.h"
+#include "EdMode.h"
+#include "PropertyEditorModule.h"
+#include "LevelEditor.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "Interfaces/ICrashTrackerModule.h"
+#include "Settings/EditorLoadingSavingSettingsCustomization.h"
+#include "Settings/GameMapsSettingsCustomization.h"
+#include "Settings/LevelEditorPlaySettingsCustomization.h"
+#include "Settings/ProjectPackagingSettingsCustomization.h"
+#include "StatsViewerModule.h"
 #include "SnappingUtils.h"
 #include "PackageAutoSaver.h"
 #include "PerformanceMonitor.h"
 #include "BSPOps.h"
-#include "ComponentVisualizer.h"
 #include "Editor/EditorLiveStreaming/Public/IEditorLiveStreaming.h"
 #include "SourceCodeNavigation.h"
 #include "AutoReimport/AutoReimportManager.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "AutoReimport/AssetSourceFilenameCache.h"
 #include "UObject/UObjectThreadContext.h"
-#include "Components/BillboardComponent.h"
-#include "Components/ArrowComponent.h"
-#include "Engine/Selection.h"
-#include "IMovieSceneCapture.h"
 #include "EngineUtils.h"
 
-#include "TargetPlatform.h"
 
 #include "CookerSettings.h"
 DEFINE_LOG_CATEGORY_STATIC(LogUnrealEdEngine, Log, All);
@@ -136,7 +158,8 @@ void UUnrealEdEngine::Init(IEngineLoop* InEngineLoop)
 		UEditorExperimentalSettings const* ExperimentalSettings = GetDefault<UEditorExperimentalSettings>();
 		UCookerSettings const* CookerSettings = GetDefault<UCookerSettings>();
 		ECookInitializationFlags BaseCookingFlags = ECookInitializationFlags::AutoTick | ECookInitializationFlags::AsyncSave | ECookInitializationFlags::Compressed;
-		BaseCookingFlags |= CookerSettings->bIterativeCookingForLaunchOn ? ECookInitializationFlags::Iterative : ECookInitializationFlags::None;
+		const ECookInitializationFlags IterativeFlags = ECookInitializationFlags::Iterative | ECookInitializationFlags::IterateOnHash;
+		BaseCookingFlags |= CookerSettings->bIterativeCookingForLaunchOn ? IterativeFlags : ECookInitializationFlags::None;
 
 		bool bEnableCookOnTheSide = false;
 		GConfig->GetBool(TEXT("/Script/UnrealEd.CookerSettings"), TEXT("bEnableCookOnTheSide"), bEnableCookOnTheSide, GEngineIni);
@@ -409,29 +432,7 @@ void UUnrealEdEngine::Tick(float DeltaSeconds, bool bIdleMode)
 	// Update lightmass
 	UpdateBuildLighting();
 	
-	if (!GIsSlowTask && !bFirstTick)
-	{
-		if (CookServer && 
-			CookServer->IsCookByTheBookMode() && 
-			!CookServer->IsCookByTheBookRunning() )
-		{
-			TArray<const ITargetPlatform*> CacheTargetPlatforms;
-
-			const ULevelEditorPlaySettings* PlaySettings = GetDefault<ULevelEditorPlaySettings>();
-			ITargetPlatform* TargetPlatform = nullptr;
-			if (PlaySettings && (PlaySettings->LastExecutedLaunchModeType == LaunchMode_OnDevice))
-			{
-				FString DeviceName = PlaySettings->LastExecutedLaunchDevice.Left(PlaySettings->LastExecutedLaunchDevice.Find(TEXT("@")));
-				CacheTargetPlatforms.Add( GetTargetPlatformManager()->FindTargetPlatform(DeviceName) );
-			}
-
-			if (CacheTargetPlatforms.Num() > 0)
-			{
-				CookServer->EditorTick(0.001f, CacheTargetPlatforms);
-			}
-		}
-	}
-
+	
 	ICrashTrackerModule* CrashTracker = FModuleManager::LoadModulePtr<ICrashTrackerModule>( FName("CrashTracker") );
 	bool bCrashTrackerEnabled = false;
 	if (CrashTracker)
@@ -517,6 +518,7 @@ void UUnrealEdEngine::OnPackageDirtyStateUpdated( UPackage* Pkg)
 
 		if( !bIsAutoSaving && 
 			!GIsEditorLoadingPackage && // Don't ask if the package was modified as a result of a load
+			!GIsCookerLoadingPackage && // don't ask if the package was modified as a result of a cooker load
 			!bAlreadyAsked && // Don't ask if we already asked once!
 			(Settings->bPromptForCheckoutOnAssetModification || Settings->bAutomaticallyCheckoutOnAssetModification) )
 		{

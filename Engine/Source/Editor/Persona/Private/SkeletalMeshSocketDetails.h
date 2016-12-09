@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "PropertyEditorModule.h"
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+#include "Engine/SkeletalMesh.h"
+
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class SEditableTextBox;
+class USkeletalMeshSocket;
 
 class FSkeletalMeshSocketDetails : public IDetailCustomization
 {
@@ -25,7 +32,7 @@ private:
 	void OnSocketNameCommitted(const FText& InSearchText, ETextCommit::Type CommitInfo);
 
 	/** Verifies the socket name and supplies and error message if it's invalid **/
-	bool VerifySocketName( FPersona* PersonaPtr, const USkeletalMeshSocket* Socket, const FText& InText, FText& OutErrorMessage ) const;
+	bool VerifySocketName(TSharedRef<class IEditableSkeleton> EditableSkeleton, const USkeletalMeshSocket* Socket, const FText& InText, USkeletalMesh* InSkeletalMesh, FText& OutErrorMessage ) const;
 
 	/** Get the search suggestions */
 	TArray<FString> GetSearchSuggestions() const;

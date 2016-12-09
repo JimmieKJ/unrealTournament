@@ -4,12 +4,18 @@
 	ContentStreaming.cpp: Implementation of content streaming classes.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "GenericPlatformMemoryPoolStats.h"
-#include "Streaming/AsyncTextureStreaming.h"
+#include "ContentStreaming.h"
+#include "Engine/Texture2D.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "EngineGlobals.h"
+#include "Components/MeshComponent.h"
+#include "Engine/Engine.h"
+#include "Streaming/TextureStreamingHelpers.h"
+#include "Streaming/StreamingManagerTexture.h"
 #include "AudioStreaming.h"
-#include "Engine/LightMapTexture2D.h"
-#include "Engine/ShadowMapTexture2D.h"
 
 /*-----------------------------------------------------------------------------
 	Globals.
@@ -977,28 +983,21 @@ void FStreamingManagerCollection::NotifyActorDestroyed( AActor* Actor )
 void FStreamingManagerCollection::NotifyPrimitiveAttached( const UPrimitiveComponent* Primitive, EDynamicPrimitiveType DynamicType )
 {
 	// Distance-based heuristics only handle mesh components
-	if ( Primitive->IsA( UMeshComponent::StaticClass() ) )
+	for( int32 ManagerIndex=0; ManagerIndex<StreamingManagers.Num(); ManagerIndex++ )
 	{
-		for( int32 ManagerIndex=0; ManagerIndex<StreamingManagers.Num(); ManagerIndex++ )
-		{
-			IStreamingManager* StreamingManager = StreamingManagers[ManagerIndex];
-			StreamingManager->NotifyPrimitiveAttached( Primitive, DynamicType );
-		}
+		IStreamingManager* StreamingManager = StreamingManagers[ManagerIndex];
+		StreamingManager->NotifyPrimitiveAttached( Primitive, DynamicType );
 	}
 }
 
 /** Called when a primitive is detached from an actor or another component. */
 void FStreamingManagerCollection::NotifyPrimitiveDetached( const UPrimitiveComponent* Primitive )
 {
-	// Distance-based heuristics only handle mesh components
-	if ( Primitive->IsA( UMeshComponent::StaticClass() ) )
+	// Route to streaming managers.
+	for( int32 ManagerIndex=0; ManagerIndex<StreamingManagers.Num(); ManagerIndex++ )
 	{
-		// Route to streaming managers.
-		for( int32 ManagerIndex=0; ManagerIndex<StreamingManagers.Num(); ManagerIndex++ )
-		{
-			IStreamingManager* StreamingManager = StreamingManagers[ManagerIndex];
-			StreamingManager->NotifyPrimitiveDetached( Primitive );
-		}
+		IStreamingManager* StreamingManager = StreamingManagers[ManagerIndex];
+		StreamingManager->NotifyPrimitiveDetached( Primitive );
 	}
 }
 

@@ -5,16 +5,20 @@
 	Size-related particle module implementations.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "ParticleHelper.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Distributions/DistributionVectorConstant.h"
+#include "Distributions/DistributionVectorUniform.h"
 #include "Distributions/DistributionVectorConstantCurve.h"
-#include "ParticleDefinitions.h"
+#include "Particles/Size/ParticleModuleSizeBase.h"
+#include "Particles/Size/ParticleModuleSize.h"
 #include "Particles/Size/ParticleModuleSize_Seeded.h"
 #include "Particles/Size/ParticleModuleSizeMultiplyLife.h"
 #include "Particles/Size/ParticleModuleSizeScale.h"
 #include "Particles/Size/ParticleModuleSizeScaleBySpeed.h"
 #include "Particles/TypeData/ParticleModuleTypeDataGpu.h"
 #include "Particles/ParticleLODLevel.h"
-#include "Particles/ParticleSystemComponent.h"
 #include "Particles/ParticleModuleRequired.h"
 
 UParticleModuleSizeBase::UParticleModuleSizeBase(const FObjectInitializer& ObjectInitializer)

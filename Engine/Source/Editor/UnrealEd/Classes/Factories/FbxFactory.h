@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "FbxFactory.generated.h"
+
+class IImportSettingsParser;
 
 UCLASS(hidecategories=Object)
 class UNREALED_API UFbxFactory : public UFactory
@@ -27,6 +33,8 @@ class UNREALED_API UFbxFactory : public UFactory
 	virtual UClass* ResolveSupportedClass() override;
 	virtual UObject* FactoryCreateBinary(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled) override;
 	virtual bool FactoryCanImport(const FString& Filename) override;
+	virtual IImportSettingsParser* GetImportSettingsParser() override;
+
 	//~ End UFactory Interface
 	
 	/**
@@ -37,6 +45,8 @@ class UNREALED_API UFbxFactory : public UFactory
 	 * @return bool	return true if parse the file successfully
 	 */
 	bool DetectImportType(const FString& InFilename);
+
+	void SetDetectImportTypeOnImport(bool bDetectState) { bDetectImportTypeOnImport = bDetectState; }
 
 protected:
 	// @todo document

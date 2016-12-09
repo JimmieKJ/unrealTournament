@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IBuildPatchServicesModule.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IBuildPatchServicesModule.h"
 
 class BUILDPATCHSERVICES_API FBuildPatchServices
 {

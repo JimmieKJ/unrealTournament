@@ -6,8 +6,14 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "Particles/Emitter.h"
 #include "EmitterCameraLensEffectBase.generated.h"
+
+class APlayerCameraManager;
 
 UCLASS(abstract, Blueprintable)
 class ENGINE_API AEmitterCameraLensEffectBase : public AEmitter
@@ -20,8 +26,8 @@ protected:
 	class UParticleSystem* PS_CameraEffect;
 
 	/** The effect to use for non extreme content */
-	UPROPERTY(EditDefaultsOnly, Category = EmitterCameraLensEffectBase)
-	class UParticleSystem* PS_CameraEffectNonExtremeContent;
+	UPROPERTY()
+	class UParticleSystem* PS_CameraEffectNonExtremeContent_DEPRECATED;
 
 	/** Camera this emitter is attached to, will be notified when emitter is destroyed */
 	UPROPERTY(transient)
@@ -42,6 +48,10 @@ public:
 	/** true if multiple instances of this emitter can exist simultaneously, false otherwise.  */
 	UPROPERTY(EditAnywhere, Category = EmitterCameraLensEffectBase)
 	uint8 bAllowMultipleInstances:1;
+
+	/** If bAllowMultipleInstances is true and this effect is retriggered, the particle system will be reset if this is true */
+	UPROPERTY(EditAnywhere, Category = EmitterCameraLensEffectBase)
+	uint8 bResetWhenRetriggered:1;
 
 	/** 
 	 *  If an emitter class in this array is currently playing, do not play this effect.

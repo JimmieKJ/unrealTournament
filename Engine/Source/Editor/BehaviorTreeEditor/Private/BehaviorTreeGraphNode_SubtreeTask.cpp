@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
 #include "BehaviorTreeGraphNode_SubtreeTask.h"
+#include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTreeDecoratorGraphNode_Decorator.h"
+#include "BehaviorTreeGraph.h"
+#include "BehaviorTreeGraphNode_CompositeDecorator.h"
+#include "BehaviorTreeGraphNode_Root.h"
+#include "BehaviorTree/BehaviorTree.h"
+#include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
 
 UBehaviorTreeGraphNode_SubtreeTask::UBehaviorTreeGraphNode_SubtreeTask(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

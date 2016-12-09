@@ -4,12 +4,15 @@
 	PostProcessAmbient.cpp: Post processing ambient implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessing.h"
-#include "PostProcessAmbient.h"
+#include "CompositionLighting/PostProcessAmbient.h"
+#include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "SceneRenderTargetParameters.h"
+#include "ScenePrivate.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "PostProcess/PostProcessing.h"
+#include "AmbientCubemapParameters.h"
 
 /** Encapsulates the post processing ambient pixel shader. */
 class FPostProcessAmbientPS : public FGlobalShader

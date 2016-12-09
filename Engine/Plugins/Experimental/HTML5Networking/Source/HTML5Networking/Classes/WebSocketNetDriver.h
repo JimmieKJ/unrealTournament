@@ -4,7 +4,13 @@
 //
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Engine/NetDriver.h"
 #include "WebSocketNetDriver.generated.h"
+
+class FWebSocket;
+class FWebSocketServer;
 
 UCLASS(transient, config = Engine)
 class HTML5NETWORKING_API UWebSocketNetDriver : public UNetDriver
@@ -22,13 +28,13 @@ class HTML5NETWORKING_API UWebSocketNetDriver : public UNetDriver
 	virtual bool InitListen(FNetworkNotify* InNotify, FURL& LocalURL, bool bReuseAddressAndPort, FString& Error) override;
 	virtual void ProcessRemoteFunction(class AActor* Actor, class UFunction* Function, void* Parameters, struct FOutParmRec* OutParms, struct FFrame* Stack, class UObject* SubObject = NULL) override;
 	virtual void TickDispatch(float DeltaTime) override;
+	virtual void LowLevelSend(FString Address, void* Data, int32 CountBits) override;
 	virtual FString LowLevelGetNetworkNumber() override;
 	virtual void LowLevelDestroy() override;
 	virtual bool IsNetResourceValid(void) override;
 
 	// stub implementation because for websockets we don't use any underlying socket sub system.
 	virtual class ISocketSubsystem* GetSocketSubsystem() override;
-	virtual FSocket * CreateSocket();
 
 	//~ End UNetDriver Interface.
 

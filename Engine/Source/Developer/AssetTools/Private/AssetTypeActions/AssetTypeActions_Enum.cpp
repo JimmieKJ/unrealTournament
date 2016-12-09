@@ -1,9 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "PackageTools.h"
-#include "AssetRegistryModule.h"
-#include "ISourceControlModule.h"
+#include "AssetTypeActions/AssetTypeActions_Enum.h"
 #include "BlueprintEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"

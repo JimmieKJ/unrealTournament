@@ -6,9 +6,12 @@
 
 #pragma once
 
-#include "ShaderCore.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Misc/Guid.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/SecureHash.h"
 #include "RHI.h"
-#include "BoundShaderStateCache.h"
 #include "TickableObjectRenderThread.h"
 
 /** Custom serialization version for FShaderCache */
@@ -296,7 +299,7 @@ class SHADERCORE_API FShaderCache : public FTickableObjectRenderThread
 			FMemory::Memset(RenderTargets, 255, sizeof(RenderTargets));
 			FMemory::Memset(SamplerStates, 255, sizeof(SamplerStates));
 			FMemory::Memset(Resources, 255, sizeof(Resources));
-			check(GetFeatureLevelMaxTextureSamplers(GMaxRHIFeatureLevel) <= MaxNumSamplers);
+			check(GetMaxTextureSamplers() <= MaxNumSamplers);
 		}
 		
 		struct FShaderRasterizerState

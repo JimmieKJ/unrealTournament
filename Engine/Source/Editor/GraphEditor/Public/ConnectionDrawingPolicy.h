@@ -2,7 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Layout/ArrangedWidget.h"
+#include "Widgets/SWidget.h"
+#include "SGraphPin.h"
 #include "GraphSplineOverlapResult.h"
+#include "GraphEditorSettings.h"
+
+class FSlateWindowElementList;
 
 /////////////////////////////////////////////////////
 

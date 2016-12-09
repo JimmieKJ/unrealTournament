@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "TextNamespaceUtil.h"
+#include "CoreMinimal.h"
 
 namespace TextNamespaceUtil
 {

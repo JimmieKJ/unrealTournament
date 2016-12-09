@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "ExpressionParserTypes.h"
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Templates/ValueOrError.h"
+#include "Misc/ExpressionParserTypes.h"
 
 /** An expression parser, responsible for lexing, compiling, and evaluating expressions.
  *	The parser supports 3 functions:

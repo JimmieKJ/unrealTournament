@@ -5,6 +5,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Editor/Transactor.h"
 #include "TransBuffer.generated.h"
 
 UCLASS(transient)

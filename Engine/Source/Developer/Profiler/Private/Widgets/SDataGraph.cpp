@@ -1,8 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerPrivatePCH.h"
+#include "Widgets/SDataGraph.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Misc/Paths.h"
+#include "Rendering/DrawElements.h"
+#include "Containers/ArrayBuilder.h"
+#include "Containers/MapBuilder.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/MenuStack.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "ProfilerDataProvider.h"
+#include "ProfilerManager.h"
+#include "Widgets/StatDragDropOp.h"
 
 #define LOCTEXT_NAMESPACE "SDataGraph"
+
 
 /*-----------------------------------------------------------------------------
 	STrackedStatSummary/SDataGraphSummary
@@ -26,7 +47,7 @@ public:
 		{}
 
 		SLATE_ARGUMENT( TSharedPtr<SDataGraph>, ParentWidget )
-		SLATE_ARGUMENT( FTrackedStatPtr, TrackedStat )
+		SLATE_ARGUMENT( TSharedPtr<FTrackedStat>, TrackedStat )
 		SLATE_EVENT( FGetHoveredFrameIndexDelegate, OnGetMouseFrameIndex )
 	SLATE_END_ARGS()
 
@@ -126,7 +147,7 @@ protected:
 		const bool bCanDisplayData = TrackedStat->GraphDataSource->CanBeDisplayedAsIndexBased() && ParentWidget.Pin()->GetViewMode() == EDataGraphViewModes::Index;
 
 		const uint32 FrameIndex = OnGetMouseFrameIndex.IsBound() ? (uint32)OnGetMouseFrameIndex.Execute() : 0;
-		const FGraphDataSourceRefConst& GraphDataSource = TrackedStat->GraphDataSource;
+		const TSharedRef<const FGraphDataSource>& GraphDataSource = TrackedStat->GraphDataSource;
 
 		if( bCanDisplayData && FrameIndex < GraphDataSource->GetNumFrames() )
 		{
@@ -156,7 +177,7 @@ protected:
 
 private:
 	/** A shared pointer to the traced stat. */
-	FTrackedStatPtr TrackedStat;
+	TSharedPtr<FTrackedStat> TrackedStat;
 
 	/** A weak pointer to the parent widget. */
 	TWeakPtr<SDataGraph> ParentWidget;
@@ -237,7 +258,7 @@ void SDataGraph::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 
 void SDataGraph::UpdateState()
 {
-	const FTrackedStatPtr FirstTrackedStat = GetFirstGraph();
+	const TSharedPtr<FTrackedStat> FirstTrackedStat = GetFirstGraph();
 	if( FirstTrackedStat.IsValid() )
 	{
 		// If the view mode is index based, use the first source for reading the number of frames.
@@ -403,7 +424,7 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 			{
 				// Draw line graph for each graph data source.
 
-				const FGraphDataSourceRefConst& GraphDataSource = TrackedStat.GraphDataSource;
+				const TSharedRef<const FGraphDataSource>& GraphDataSource = TrackedStat.GraphDataSource;
 
 				for (float GraphStartTimeMS = GraphOffsetMS; GraphStartTimeMS < GraphRangeEndMS; GraphStartTimeMS += TimeAccuracyMS)
 				{
@@ -433,7 +454,7 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 		{
 			if( MultiMode == EDataGraphMultiModes::OneLinePerDataSource )
 			{						
-				const FGraphDataSourceRefConst& GraphDataSource = TrackedStat.GraphDataSource;
+				const TSharedRef<const FGraphDataSource>& GraphDataSource = TrackedStat.GraphDataSource;
 				const int32 GraphRangeEndIndex = FMath::Min( GraphOffset+NumVisiblePoints+1, NumDataPoints );
  
 				for( uint32 GraphStartIndex = (uint32)GraphOffset; GraphStartIndex < (uint32)GraphRangeEndIndex; GraphStartIndex++ )
@@ -482,11 +503,11 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 	TArray<FVector2D> LinePoints;
 	const float LabelSize = MaxFontCharHeight * 7.0f;
 
-	const FTrackedStatPtr FirstTrackedStat = GetFirstGraph();
+	const TSharedPtr<FTrackedStat> FirstTrackedStat = GetFirstGraph();
 	if( FirstTrackedStat.IsValid() )
 	{
-		const FGraphDataSourceRefConst& GraphDataSource = FirstTrackedStat->GraphDataSource;
-		const IDataProviderRef DataProvider = GraphDataSource->GetDataProvider();
+		const TSharedRef<const FGraphDataSource>& GraphDataSource = FirstTrackedStat->GraphDataSource;
+		const TSharedRef<IDataProvider> DataProvider = GraphDataSource->GetDataProvider();
 
 		if( ViewMode == EDataGraphViewModes::Index )
 		{
@@ -958,7 +979,7 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 
 
 
-void SDataGraph::AddInnerGraph( const FTrackedStatPtr& TrackedStat )
+void SDataGraph::AddInnerGraph( const TSharedPtr<FTrackedStat>& TrackedStat )
 {
 	TSharedPtr<SWidget> GraphSummary;
 	GraphDescriptionsVBox->AddSlot()
@@ -981,7 +1002,7 @@ void SDataGraph::AddInnerGraph( const FTrackedStatPtr& TrackedStat )
 
 void SDataGraph::RemoveInnerGraph( const uint32 InStatID )
 {
-	FTrackedStatPtr TrackedStat = StatIDToGraphDescriptionMapping.FindRef( InStatID );
+	TSharedPtr<FTrackedStat> TrackedStat = StatIDToGraphDescriptionMapping.FindRef( InStatID );
 	if( TrackedStat.IsValid() )
 	{
 		TSharedRef<SWidget> DataGraphSummary = StatIDToWidgetMapping.FindChecked( InStatID );
@@ -1031,7 +1052,7 @@ FReply SDataGraph::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerE
 
 	if( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton  )
 	{
-		if( bIsLMB_Pressed )
+		if( bIsLMB_Pressed && HoveredFrameIndex != INDEX_NONE )
 		{
 			FrameIndices[1] = HoveredFrameIndex;
 			FrameTimesMS[1] = HoveredFrameStartTimeMS;
@@ -1326,9 +1347,9 @@ bool SDataGraph::ViewMode_SetTimeBased_IsChecked() const
 	return ViewMode == EDataGraphViewModes::Time;
 }
 
-const FTrackedStatPtr SDataGraph::GetFirstGraph() const
+const TSharedPtr<FTrackedStat> SDataGraph::GetFirstGraph() const
 {
-	FTrackedStatPtr Result;
+	TSharedPtr<FTrackedStat> Result;
 	for (const auto& It : StatIDToGraphDescriptionMapping)
 	{
 		Result = It.Value; 

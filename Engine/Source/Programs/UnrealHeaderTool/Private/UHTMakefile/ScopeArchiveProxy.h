@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/Map.h"
+#include "MakefileHelpers.h"
+
+class FArchive;
 class FUHTMakefile;
 class FScope;
 

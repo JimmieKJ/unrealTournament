@@ -1,6 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LauncherServicesPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/ILauncherServicesModule.h"
+#include "Profiles/LauncherDeviceGroup.h"
+#include "Profiles/LauncherProfile.h"
+#include "Profiles/LauncherProfileManager.h"
+#include "Launcher/Launcher.h"
 
 
 /**
@@ -11,30 +18,30 @@ class FLauncherServicesModule
 {
 public:
 
-	// Begin ILauncherServicesModule interface
+	//~ ILauncherServicesModule interface
 
-	virtual ILauncherDeviceGroupRef CreateDeviceGroup( ) override
+	virtual ILauncherDeviceGroupRef CreateDeviceGroup() override
 	{
 		return MakeShareable(new FLauncherDeviceGroup());
 	}
 
-	virtual ILauncherDeviceGroupRef CreateDeviceGroup(const FGuid& Guid, const FString& Name ) override
+	virtual ILauncherDeviceGroupRef CreateDeviceGroup(const FGuid& Guid, const FString& Name) override
 	{
 		return MakeShareable(new FLauncherDeviceGroup(Guid, Name));
 	}
 
-	virtual ILauncherRef CreateLauncher( ) override
+	virtual ILauncherRef CreateLauncher() override
 	{
 		return MakeShareable(new FLauncher());
 	}
 
-	virtual ILauncherProfileRef CreateProfile( const FString& ProfileName ) override
+	virtual ILauncherProfileRef CreateProfile(const FString& ProfileName) override
 	{
 		ILauncherProfileManagerRef ProfileManager = GetProfileManager();
 		return MakeShareable(new FLauncherProfile(ProfileManager, FGuid(), ProfileName));
 	}
 
-	virtual ILauncherProfileManagerRef GetProfileManager( ) override
+	virtual ILauncherProfileManagerRef GetProfileManager() override
 	{
 		if (!ProfileManagerSingleton.IsValid())
 		{
@@ -48,7 +55,7 @@ public:
 	}
 	
 	DECLARE_DERIVED_EVENT(FLauncherServicesModule, ILauncherServicesModule::FLauncherServicesSDKNotInstalled, FLauncherServicesSDKNotInstalled);
-	virtual FLauncherServicesSDKNotInstalled& OnLauncherServicesSDKNotInstalled( ) override
+	virtual FLauncherServicesSDKNotInstalled& OnLauncherServicesSDKNotInstalled() override
 	{
 		return LauncherServicesSDKNotInstalled;
 	}
@@ -57,14 +64,12 @@ public:
 		return LauncherServicesSDKNotInstalled.Broadcast(PlatformName, DocLink);
 	}
 
-	// End ILauncherServicesModule interface
-
 private:
 	
-	/// Event to be called when the editor tried to use a platform, but it wasn't installed
+	/** Event to be called when the editor tried to use a platform, but it wasn't installed. */
 	FLauncherServicesSDKNotInstalled LauncherServicesSDKNotInstalled;
 
-	// Holds the launcher profile manager singleton
+	/** The launcher profile manager singleton. */
 	static ILauncherProfileManagerPtr ProfileManagerSingleton;
 };
 

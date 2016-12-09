@@ -28,7 +28,7 @@ namespace Tools.CrashReporter.CrashReportProcess
 		public ReportWatcher()
 		{
 			CancelSource = new CancellationTokenSource();
-			Start();
+			Init();
 		}
 
 		/// <summary>
@@ -39,21 +39,21 @@ namespace Tools.CrashReporter.CrashReportProcess
 			// Cancel the task and wait for it to quit
 			CancelSource.Cancel();
 			WatcherTask.Wait();
+			WatcherTask.Dispose();
 
 			foreach (var Queue in ReportQueues)
 			{
 				Queue.Dispose();
 			}
-			ReportIndex.WriteToFile();
 
 			CancelSource.Dispose();
 		}
 
 		/// <summary>
-		/// A thread to watch for new crash reports landing.
+		/// Create thread to watch for new crash reports landing.
 		/// </summary>
 		/// <remarks>The NFS storage does not support file system watchers, so this has to be done laboriously.</remarks>
-		void Start()
+		void Init()
 		{
 			CrashReporterProcessServicer.WriteEvent("CrashReportProcessor watching directories:");
 			var Settings = Config.Default;
@@ -62,7 +62,7 @@ namespace Tools.CrashReporter.CrashReportProcess
 			{
 				if (System.IO.Directory.Exists(Settings.DataRouterLandingZone))
 				{
-					ReportQueues.Add(new DataRouterReportQueue("DataRouter Crashes", Settings.DataRouterLandingZone));
+					ReportQueues.Add(new DataRouterReportQueue("DataRouter Crashes", Settings.DataRouterLandingZone, Config.Default.QueueLowerLimitForDiscard, Config.Default.QueueUpperLimitForDiscard));
 					CrashReporterProcessServicer.WriteEvent(string.Format("\t{0} (all crashes from data router)", Settings.DataRouterLandingZone));
 				}
 				else
@@ -75,7 +75,7 @@ namespace Tools.CrashReporter.CrashReportProcess
 			{
 				if( System.IO.Directory.Exists( Settings.InternalLandingZone ) )
 				{
-					ReportQueues.Add(new ReceiverReportQueue("Epic Crashes", Settings.InternalLandingZone));
+					ReportQueues.Add(new ReceiverReportQueue("Epic Crashes", Settings.InternalLandingZone, StatusReportingEventNames.ProcessingStartedReceiverEvent, Config.Default.QueueLowerLimitForDiscard, Config.Default.QueueUpperLimitForDiscard));
 					CrashReporterProcessServicer.WriteEvent(string.Format("\t{0} (internal, high priority (legacy))", Settings.InternalLandingZone));
 				}
 				else
@@ -84,12 +84,25 @@ namespace Tools.CrashReporter.CrashReportProcess
 				}
 			}
 
+			if (!string.IsNullOrEmpty(Settings.PS4LandingZone))
+			{
+				if (System.IO.Directory.Exists(Settings.PS4LandingZone))
+				{
+					ReportQueues.Add(new ReceiverReportQueue("PS4 Crashes", Settings.PS4LandingZone, StatusReportingEventNames.ProcessingStartedPS4Event, Config.Default.QueueLowerLimitForDiscard, Config.Default.QueueUpperLimitForDiscard));
+					CrashReporterProcessServicer.WriteEvent(string.Format("\t{0} (internal, PS4 non-retail hardware)", Settings.PS4LandingZone));
+				}
+				else
+				{
+					CrashReporterProcessServicer.WriteFailure(string.Format("\t{0} (internal, PS4 non-retail hardware) is not accessible", Settings.PS4LandingZone));
+				}
+			}
+
 #if !DEBUG
 			if (!string.IsNullOrEmpty(Settings.ExternalLandingZone))
 			{
 				if( System.IO.Directory.Exists( Settings.ExternalLandingZone ) )
 				{
-					ReportQueues.Add(new ReceiverReportQueue("External Crashes", Settings.ExternalLandingZone));
+					ReportQueues.Add(new ReceiverReportQueue("External Crashes", Settings.ExternalLandingZone, StatusReportingEventNames.ProcessingStartedReceiverEvent, Config.Default.QueueLowerLimitForDiscard, Config.Default.QueueUpperLimitForDiscard));
 					CrashReporterProcessServicer.WriteEvent( string.Format( "\t{0} (legacy)", Settings.ExternalLandingZone ) );
 				}
 				else
@@ -105,12 +118,8 @@ namespace Tools.CrashReporter.CrashReportProcess
 				CrashReporterProcessServicer.StatusReporter.InitQueue(Queue.QueueId, Queue.LandingZonePath);
 			}
 
-			ReportIndex.Filepath = Config.Default.ProcessedReportsIndexPath;
-			ReportIndex.Retention = TimeSpan.FromDays(Config.Default.ReportsIndexRetentionDays);
-			ReportIndex.ReadFromFile();
-
 			var Cancel = CancelSource.Token;
-			WatcherTask = Task.Factory.StartNew(async () =>
+			WatcherTask = new Task(async () =>
 			{
 				DateTime LastQueueSizeReport = DateTime.MinValue;
 				while (!Cancel.IsCancellationRequested)
@@ -130,5 +139,13 @@ namespace Tools.CrashReporter.CrashReportProcess
 				}
 			});
 		}
+
+		public void Start()
+		{
+			if (WatcherTask != null)
+			{
+				WatcherTask.Start();
+			}
+        }
 	}
 }

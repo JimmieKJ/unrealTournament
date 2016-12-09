@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieScenePrivatePCH.h"
 #include "MovieScene.h"
+#include "MovieSceneTrack.h"
 #include "MovieSceneFolder.h"
+#include "Evaluation/MovieSceneEvaluationCustomVersion.h"
 
 /* UMovieScene interface
  *****************************************************************************/
@@ -25,6 +26,8 @@ UMovieScene::UMovieScene(const FObjectInitializer& ObjectInitializer)
 
 void UMovieScene::Serialize( FArchive& Ar )
 {
+	Ar.UsingCustomVersion(FMovieSceneEvaluationCustomVersion::GUID);
+
 #if WITH_EDITOR
 
 	// Perform optimizations for cooking
@@ -194,7 +197,7 @@ bool UMovieScene::RemovePossessable( const FGuid& PossessableGuid )
 }
 
 
-bool UMovieScene::ReplacePossessable( const FGuid& OldGuid, const FGuid& NewGuid, const FString& NewName )
+bool UMovieScene::ReplacePossessable( const FGuid& OldGuid, const FMovieScenePossessable& InNewPosessable )
 {
 	bool bAnythingReplaced = false;
 
@@ -205,10 +208,20 @@ bool UMovieScene::ReplacePossessable( const FGuid& OldGuid, const FGuid& NewGuid
 			Modify();
 
 			// Found it!
-			Possessable.SetGuid(NewGuid);
-			Possessable.SetName(NewName);
+			if (InNewPosessable.GetPossessedObjectClass() == nullptr)
+			{
+				// @todo: delete this when
+				// bool ReplacePossessable(const FGuid& OldGuid, const FGuid& NewGuid, const FString& Name)
+				// is removed
+				Possessable.SetGuid(InNewPosessable.GetGuid());
+				Possessable.SetName(InNewPosessable.GetName());
+			}
+			else
+			{
+				Possessable = InNewPosessable;
+			}
 
-			ReplaceBinding( OldGuid, NewGuid, NewName );
+			ReplaceBinding( OldGuid, InNewPosessable.GetGuid(), InNewPosessable.GetName() );
 			bAnythingReplaced = true;
 
 			break;
@@ -318,17 +331,37 @@ void UMovieScene::SetPlaybackRange(float Start, float End, bool bAlwaysMarkDirty
 		PlaybackRange = NewRange;
 
 #if WITH_EDITORONLY_DATA
+		// Initialize the working and view range with a little bit more space
+		const float OutputViewSize = PlaybackRange.GetUpperBoundValue() - PlaybackRange.GetLowerBoundValue();
+		const float OutputChange = OutputViewSize * 0.1f;
+
+		TRange<float> ExpandedPlaybackRange = TRange<float>(PlaybackRange.GetLowerBoundValue() - OutputChange, PlaybackRange.GetUpperBoundValue() + OutputChange);
+
 		if (EditorData.WorkingRange.IsEmpty())
 		{
-			EditorData.WorkingRange = PlaybackRange;
+			EditorData.WorkingRange = ExpandedPlaybackRange;
 		}
 
 		if (EditorData.ViewRange.IsEmpty())
 		{
-			EditorData.ViewRange = PlaybackRange;
+			EditorData.ViewRange = ExpandedPlaybackRange;
 		}
 #endif
 	}
+}
+
+void UMovieScene::SetWorkingRange(float Start, float End)
+{
+#if WITH_EDITORONLY_DATA
+	EditorData.WorkingRange = TRange<float>(Start, End);
+#endif
+}
+
+void UMovieScene::SetViewRange(float Start, float End)
+{
+#if WITH_EDITORONLY_DATA
+	EditorData.ViewRange = TRange<float>(Start, End);
+#endif
 }
 
 
@@ -341,12 +374,6 @@ bool UMovieScene::GetForceFixedFrameIntervalPlayback() const
 void UMovieScene::SetForceFixedFrameIntervalPlayback( bool bInForceFixedFrameIntervalPlayback )
 {
 	bForceFixedFrameIntervalPlayback = bInForceFixedFrameIntervalPlayback;
-}
-
-
-float UMovieScene::GetFixedFrameInterval() const
-{
-	return FixedFrameInterval;
 }
 
 
@@ -554,7 +581,6 @@ void UMovieScene::RemoveCameraCutTrack()
 	}
 }
 
-
 bool UMovieScene::RemoveMasterTrack(UMovieSceneTrack& Track) 
 {
 	Modify();
@@ -723,6 +749,12 @@ void UMovieScene::ReplaceBinding(const FGuid& OldGuid, const FGuid& NewGuid, con
 		{
 			Binding.SetObjectGuid(NewGuid);
 			Binding.SetName(Name);
+
+			// Changing a binding guid invalidates any tracks contained within the binding
+			for (UMovieSceneTrack* Track : Binding.GetTracks())
+			{
+				Track->MarkAsChanged();
+			}
 			break;
 		}
 	}

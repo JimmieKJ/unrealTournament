@@ -1,6 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
+#include "Widgets/SProjectLauncherBuildTaskSettings.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/SOverlay.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Project/SProjectLauncherProjectPage.h"
+#include "Widgets/Build/SProjectLauncherBuildPage.h"
 
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherBuildTaskSettings"

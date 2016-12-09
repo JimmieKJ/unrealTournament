@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AITestSuitePrivatePCH.h"
 #include "BehaviorTree/TestBTTask_SetValue.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Int.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
 UTestBTTask_SetValue::UTestBTTask_SetValue(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)

@@ -5,9 +5,10 @@ set -x
 # UE4 build script for the following ThirdParty libraries:
 
 ZLIB_VERSION=v1.2.8
-SSL_VERSION=OpenSSL_1_0_1s
+SSL_VERSION=OpenSSL_1_0_2h
 CURL_VERSION=curl-7_48_0
 WS_VERSION=v1.7.4
+WEBRTC_HASH=f2eae333a2e42d20e92e7606bfca087fddcaaaa0
 
 # jump down to build_environment() if this is your first time reading this script
 
@@ -67,6 +68,130 @@ configure_platform()
 }
 
 # ================================================================================
+# google depot_tools {{{
+# ================================================================================
+
+get_google_depot_tools()
+{
+	path_google_depot_tools
+
+	# ----------------------------------------
+	# google build tools
+	# http://dev.chromium.org/developers/how-tos/install-depot-tools
+	#
+	# WARNING: VS2013 shenanigans
+	# - get_google_depot_tools() and get_webrtc() errors:
+	#   o "ImportError: No module named gyp_chromium"
+	#     > this means that symlinks were not created properly (during depot_tools and gclient sync)
+	#     > run scripts with ADMINISTRATOR PRIVILEGES
+	#     > http://stackoverflow.com/a/36121289
+	# - ninja build erros:
+	#   o "CreateProcess: The parameter is incorrect."
+	#     > this means it cannot find MSVS during project file generation
+	#     > ensure vcvarsall.bat is used
+	#     > https://bugs.chromium.org/p/chromium/issues/detail?id=246256
+	#   o "Fatal Error C1083; Permission Denied"
+	#     > this means there is a file lock issue
+	#     > run ninja with -j 1 (use 1 process)
+	#     > http://stackoverflow.com/a/24436007
+
+	case $SYSTEM in
+		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+		*_NT-*)
+			if [ ! -d '/c/Program Files (x86)/Windows Kits/10/Source/10.0.10586.0' ]; then
+				(cat <<__MESSAGE__
+
+
+!!! MANUAL SETUP REQUIRED !!!
+!!! MANUAL SETUP REQUIRED !!!
+
+install VisualStudio 2015 Update2
+
+follow step #2 at:
+  https://chromium.googlesource.com/chromium/src/+/master/docs/windows_build_instructions.md
+  (no need to do step 1 - this build script will do that)
+
+exiting script...
+
+!!! MANUAL SETUP REQUIRED !!!
+!!! MANUAL SETUP REQUIRED !!!
+
+__MESSAGE__
+)
+				exit
+			fi
+			CUR_PATH=$(pwd)
+			mkdir -p $GOOGLE_SHORTY
+			cd $GOOGLE_SHORTY
+				git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+				cd depot_tools
+					# force to DOS line endings...
+					git config --local core.autocrlf false
+					git config --local core.eol lf
+					git rm --cached -r .
+					git reset --hard HEAD
+				cd ..
+( cat <<_EOF_
+				set PATH=%PATH%;$DOS_GOOGLE_DEPOT_TOOLS
+				set DEPOT_TOOLS_WIN_TOOLCHAIN=0
+				call gclient
+_EOF_
+) > dos_google_depot_tools.bat
+				./dos_google_depot_tools.bat
+				# run twice, gclient detected git clone was run from MinGW shell and will
+				# fail finishing installing the "windows-specific bits" (i.e. svn)
+				./dos_google_depot_tools.bat
+			cd $CUR_PATH
+			;;
+		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+		*)
+			mkdir -p prereqs
+			cd prereqs
+				git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+				gclient
+			cd ..
+			;;
+	esac
+}
+path_google_depot_tools()
+{
+	if [ "X$GOOGLE_DEPOT_TOOLS" == "X" ]; then
+		case $SYSTEM in
+			# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			*_NT-*)
+				# SPECIAL CASE: because different hash (revision) are used, keep them separate
+				# this prevents from wrecking each other's "sanity" when switching between the two revisions
+				if $USE_VS_2013; then
+					GOOGLE_SHORTY=$(pwd | sed -e 's!^\(/.\).*!\1!')/googVS2013
+
+					# last known version (that i know of) that works with VS2013 is:
+					# git hash: 9eb1365939683cc5462a5359344148efb7d84f97
+					# revision: 9867
+					WEBRTC_HASH_HACK=9eb1365939683cc5462a5359344148efb7d84f97
+
+					# see VS2013 shenanigans
+					NINJA_JOBS="-j 1"
+				else
+					GOOGLE_SHORTY=$(pwd | sed -e 's!^\(/.\).*!\1!')/googVS2015
+					WEBRTC_HASH_HACK=$WEBRTC_HASH
+					NINJA_JOBS=""
+				fi
+				GOOGLE_DEPOT_TOOLS=$GOOGLE_SHORTY/depot_tools
+				DOS_GOOGLE_DEPOT_TOOLS=$(cygpath -w $GOOGLE_DEPOT_TOOLS)
+				;;
+			# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			*)
+				export GOOGLE_DEPOT_TOOLS=$(pwd)/prereqs/depot_tools:$PATH
+				export PATH=$GOOGLE_DEPOT_TOOLS
+				;;
+		esac
+	fi
+}
+
+# ================================================================================
+# google depot_tools }}}
+# zlib {{{
+# ================================================================================
 
 get_zlib()
 {
@@ -92,7 +217,9 @@ path_zlib()
 			;;
 		*_NT-*)
 			ZLIB_ZLIB=zlibstatic.lib
-#			ZLIB_ZLIB_SO=not used
+#			ZLIB_ZLIB_SO=zlib.dll NOT USED
+			ZLIB_DLL_LINK=zlib.lib # specifically for windows:webRTC
+			DOS_ZLIB_ROOT_PATH=$(cygpath -w $ZLIB_ROOT_PATH)
 			;;
 		*)
 			# default to unix centric
@@ -217,6 +344,9 @@ deadcode_zlib_graveyard()
 }
 
 # ================================================================================
+# zlib }}}
+# OpenSSL {{{
+# ================================================================================
 
 get_openssl()
 {
@@ -235,6 +365,9 @@ path_openssl()
 	CMAKE_PATH="$CUR_PATH/"
 	BUILD_PATH="$CUR_PATH/Intermediate/$PLATFORM"
 	SSL_ROOT_PATH="$CUR_PATH/INSTALL.$SSL_VERSION/$PLATFORM"
+	if [[ $SYSTEM == *'_NT-'* ]]; then
+		DOS_SSL_ROOT_PATH=$(cygpath -w $SSL_ROOT_PATH)
+	fi
 	# ----------------------------------------
 	cd -
 }
@@ -328,6 +461,12 @@ build_openssl()
 
 			# hack UI type -- otherwise, it collides with UE4's UI type
 			perl -pi -e 's!(typedef struct ui_st)!#define UI OSSL_UI\n\1!' crypto/ossl_typ.h
+
+			if [[ $SSL_ARCH == 'debug-VC-'* ]]; then
+				# embed debug symbols
+				perl -pi -e 's!/Zi!/Z7!' util/pl/VC-32.pl
+				DEBUG_SUFFIX=D
+			fi
 			
 			# WARNING: [threads] & [shared] options are not available on windows
 			#          - errors on file generators
@@ -336,8 +475,6 @@ build_openssl()
 			# WARNING: --with-zlib-lib is zlib itself -- whereas other (i.e. unix) builds is path
 			# WARNING: no-asm means no need to install NASM -- OpenSSL does not support MASM
 			#          https://github.com/openssl/openssl/blob/master/NOTES.WIN#L19-L22
-			DOS_ZLIB_ROOT_PATH=$(cygpath -w $ZLIB_ROOT_PATH)
-			DOS_SSL_ROOT_PATH=$(cygpath -w $SSL_ROOT_PATH)
 			./Configure zlib no-asm \
 				--with-zlib-lib=$DOS_ZLIB_ROOT_PATH\\lib\\$ZLIB_ZLIB \
 				--with-zlib-include=$DOS_ZLIB_ROOT_PATH\\include \
@@ -369,8 +506,8 @@ build_openssl()
 
 			:: "install" - will use this with libcurl
 			nmake -f ms\\nt.mak install
-			copy "$DOS_SSL_ROOT_PATH\\lib\\libeay32.lib" "$DOS_SSL_ROOT_PATH\\lib\\libeay${WINTARGET}_static.lib"
-			copy "$DOS_SSL_ROOT_PATH\\lib\\ssleay32.lib" "$DOS_SSL_ROOT_PATH\\lib\\ssleay${WINTARGET}_static.lib"
+			copy "$DOS_SSL_ROOT_PATH\\lib\\libeay32.lib" "$DOS_SSL_ROOT_PATH\\lib\\libeay${WINTARGET}_static${DEBUG_SUFFIX}.lib"
+			copy "$DOS_SSL_ROOT_PATH\\lib\\ssleay32.lib" "$DOS_SSL_ROOT_PATH\\lib\\ssleay${WINTARGET}_static${DEBUG_SUFFIX}.lib"
 
 			:: ------------------------------------------------------------
 			:: DYNAMIC BUILD
@@ -387,7 +524,7 @@ build_openssl()
 			copy "$DOS_SSL_ROOT_PATH\\bin\\ssleay32.dll" "$DOS_SSL_ROOT_PATH\\lib\\ssleay32.dll"
 _EOF_
 ) > dos_openssl_${VS}_${WINTARGET}.bat
-			echo ./dos_openssl_${VS}_${WINTARGET}.bat
+			./dos_openssl_${VS}_${WINTARGET}.bat
 			;;
 		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 		*)
@@ -437,6 +574,9 @@ deadcode_openssl_graveyard()
 	dumpbin "$DOS_SSL_ROOT_PATH\\lib\\ssleay32.lib" /headers | findstr machine
 }
 
+# ================================================================================
+# OpenSSL }}}
+# libCurl {{{
 # ================================================================================
 
 get_libcurl()
@@ -570,6 +710,9 @@ deadcode_libcurl_graveyard()
 }
 
 # ================================================================================
+# libCurl }}}
+# libWebsockets {{{
+# ================================================================================
 
 get_libwebsockets()
 {
@@ -612,6 +755,10 @@ build_libwebsockets()
 	case $SYSTEM in
 		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 		*_NT-*)
+			if $UE4_BUILD_WIN32; then
+				# seems, libWebsockets for Win32 need to drop the [Arch] from the CMake generator
+				CMAKE_GEN=${CMAKE_GEN/ Win32/}
+			fi
 			if $USE_VS_2013; then
 				# TODO: deprecate this when visual studio 2013 is no longer supported
 				# https://connect.microsoft.com/VisualStudio/feedback/details/809403/error-c3861-snprintf-identifier-not-found-in-visual-studio-2013
@@ -622,7 +769,7 @@ build_libwebsockets()
 					perl -pi -e 's/(libwebsockets.h")/\1\n#define snprintf _snprintf/' $CUR_PATH/test-server/${f}
 				done
 			fi
-
+	
 			# NOTE: windows only: tell cmake to not use bundled zlib
 			"$CMAKE" -G "$CMAKE_GEN" \
 				-DCMAKE_INSTALL_PREFIX:PATH="$WS_ROOT_PATH" \
@@ -679,6 +826,257 @@ deadcode_libwebsockets_graveyard()
 }
 
 # ================================================================================
+# libWebsockets }}}
+# webRTC {{{
+# ================================================================================
+
+get_webrtc()
+{
+	path_google_depot_tools
+
+	SYNC_FLAGS="--verbose -n -D -r $WEBRTC_HASH_HACK"
+	# -n no hooks running during sync
+	# -D prune directories
+	# -r revision
+
+	case $SYSTEM in
+		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+		*_NT-*)
+			CUR_PATH=$(pwd)
+			mkdir -p $GOOGLE_SHORTY/WebRTC
+			cd $GOOGLE_SHORTY/WebRTC
+( cat <<_EOF_
+				set PATH=%PATH%;$DOS_GOOGLE_DEPOT_TOOLS
+				set DEPOT_TOOLS_WIN_TOOLCHAIN=0
+				call fetch --nohooks webrtc
+				call gclient sync
+				call gclient sync $SYNC_FLAGS
+_EOF_
+) > dos_get_webrtc.bat
+				stdbuf -oL -eL ./dos_get_webrtc.bat
+			cd $CUR_PATH
+			;;
+		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+		*)
+			mkdir -p WebRTC
+			cd WebRTC
+				fetch --nohooks webrtc
+				gclient sync
+				gclient sync $SYNC_FLAGS
+			cd ..
+			;;
+	esac
+	# note, [gclient sync] also runs
+	# [ python webrtc/build/gyp_webrtc.py ]
+}
+path_webrtc()
+{
+	case $SYSTEM in
+		*_NT-*)
+			cd $GOOGLE_SHORTY/WebRTC/src
+			;;
+		*)
+			cd WebRTC/src
+			;;
+	esac
+	# ----------------------------------------
+	WEBRTC_REVISION=`git log -n 1 $WEBRTC_HASH_HACK | perl -e 'while (<>) { next unless ( m!Cr-Commit-Position: refs/heads/master@\{#(\d+)\}! ); print "$1\n"; last; }'`
+	# ----------------------------------------
+	CUR_PATH=$(pwd)
+	BUILD_PATH="$CUR_PATH"
+	WEBRTC_ROOT_PATH="$CUR_PATH/INSTALL.$WEBRTC_REVISION/$PLATFORM"
+	# ----------------------------------------
+	cd -
+}
+build_webrtc()
+{
+	path_google_depot_tools
+
+	path_zlib
+	path_zlib_fPIC
+	path_openssl
+	path_webrtc
+
+	# ----------------------------------------
+#	BUILD_TYPE=out/Debug
+	BUILD_TYPE=out/Release
+	# ----------------------------------------
+
+	BUILD_FLAGS="-Dbuild_with_chromium=0 -Duse_system_ssl=0 -Duse_openssl=1 -Dbuild_ssl=0 -Duse_nss=0"
+	BUILD_TARGETS="rtc_base rtc_base_approved rtc_xmllite rtc_xmpp expat"
+
+	CUR_PATH=$(pwd)
+	cd $BUILD_PATH
+	# ----------------------------------------
+	# reset
+	rm -rf "$WEBRTC_ROOT_PATH"
+	mkdir -p $WEBRTC_ROOT_PATH/{lib,include}
+
+	# ----------------------------------------
+	modify_webrtc
+	case $SYSTEM in
+		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+		# TODO: iOS and android
+		# https://github.com/pristineio/webrtc-build-scripts
+		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+		*_NT-*)
+			# ........................................
+			# WARNING: bug in WebRTC bulld script
+			#          !!! REMOVE THIS WHEN FIXED !!!
+			git checkout -- webrtc/build/gyp_webrtc.py
+			perl -pi -e 's/(vs2013_runtime_dll_dirs = )None, None/$1 0/' webrtc/build/gyp_webrtc.py
+			# ........................................
+			# the following only errors in windows builds...
+			git checkout -- webrtc/base/helpers.cc
+			git checkout -- webrtc/base/openssladapter.cc
+			perl -pi -e 's/(buf\), )(len)/\1(int)\2/' webrtc/base/helpers.cc
+			perl -pi -e 's/(value, )(j)/\1(int)\2/' webrtc/base/openssladapter.cc
+
+			# ........................................
+			if $UE4_BUILD_WIN32; then
+				TARGET_ARCH=ia32
+			else
+				TARGET_ARCH=x64
+				BUILD_TYPE=${BUILD_TYPE}_x64
+			fi
+			BUILD_FLAGS="$BUILD_FLAGS -Dtarget_arch=$TARGET_ARCH -Dssl_root=$DOS_SSL_ROOT_PATH -Dzlib_root=$DOS_ZLIB_ROOT_PATH"
+			MSVS_PATH=$( echo $VSCT | sed -e 's!\Common.*!!' )
+( cat <<_EOF_
+			set PATH=%PATH%;$DOS_GOOGLE_DEPOT_TOOLS
+			set DEPOT_TOOLS_WIN_TOOLCHAIN=0
+			set GYP_MSVS_OVERRIDE_PATH=$MSVS_PATH
+			set GYP_MSVS_VERSION=$VS
+			set WINDOWSSDKDIR=C:\\Program Files (x86)\\Windows Kits\\10
+
+			set GYP_DEFINES=component=shared_library
+
+			:: the following can be removed when VS2013 is no longer supported
+			call $VCVARSALL
+
+			call python webrtc/build/gyp_webrtc.py $BUILD_FLAGS
+			call ninja -C $BUILD_TYPE -t clean
+			call ninja $NINJA_JOBS -v -C $BUILD_TYPE $BUILD_TARGETS
+_EOF_
+) > dos_webrtc.bat
+			./dos_webrtc.bat
+			 
+			# ........................................
+			find $BUILD_TYPE -type f -name "*.lib" -print | while read i; do
+				cp "$i" $WEBRTC_ROOT_PATH/lib/.
+			done
+			;;
+		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+		*)
+			BUILD_FLAGS="$BUILD_FLAGS -Dtarget_arch=x64 -Dssl_root=$SSL_ROOT_PATH -Dzlib_root=$ZLIB_ROOT_PATH"
+			if [ $SYSTEM == "Darwin" ]; then
+				BUILD_FLAGS="$BUILD_FLAGS -Duse_system_libcxx=1 -Dclang=1 -Dmac_sdk=10.9"
+				export GYP_CROSSCOMPILE=1
+			fi
+
+			python webrtc/build/gyp_webrtc.py $BUILD_FLAGS
+			ninja -C $BUILD_TYPE -t clean
+			ninja -v -C $BUILD_TYPE $BUILD_TARGETS
+
+			# ........................................
+			find $BUILD_TYPE -type f -name "*.a" -print | while read i; do
+				cp "$i" $WEBRTC_ROOT_PATH/lib/.
+			done
+			;;
+	esac
+	# ----------------------------------------
+	find talk third_party webrtc -type f -name "*.h" -print | while read i; do
+		mkdir -p $WEBRTC_ROOT_PATH/include/`dirname "$i"`
+		cp "$i" "$WEBRTC_ROOT_PATH/include/$i"
+	done
+
+	# ----------------------------------------
+	cd "$CUR_PATH"
+}
+modify_webrtc()
+{
+	# https://groups.google.com/forum/#!topic/discuss-webrtc/muT4irg2dvI
+	case $SYSTEM in
+		*_NT-*)
+#			LIBSSL=libeay${WINTARGET}_static.lib
+#			LIBCRYPTO=ssleay${WINTARGET}_static.lib
+
+			# Windows:WebRTC - REQUIRES the DLLs
+			LIBSSL=libeay32.lib
+			LIBCRYPTO=ssleay32.lib
+			ZLIB_LINK=$ZLIB_DLL_LINK
+			;;
+		*)
+			# default to unix centric
+			LIBSSL=libssl.a
+			LIBCRYPTO=libcrypto.a
+			ZLIB_LINK=$ZLIB_ZLIB
+			;;
+	esac
+
+	# ----------------------------------------
+	# spelling this out completely - jic things need to change in future builds
+
+#	git checkout -- chromium/src/third_party/boringssl/boringssl.gyp
+( cat <<_EOF_
+{
+  "targets": [
+    {
+      "target_name": "boringssl",
+      "type": "none",
+      "link_settings": {
+        "libraries": [
+          "<(ssl_root)/lib/$LIBSSL",
+          "<(ssl_root)/lib/$LIBCRYPTO",
+          "<(zlib_root)/lib/$ZLIB_LINK",
+        ]
+      },
+      "include_dirs": [
+        "compat",
+        '<(ssl_root)/include',
+      ],
+      'direct_dependent_settings': {
+        'include_dirs': [
+          '<(ssl_root)/include',
+        ],
+      },
+    }
+  ],
+}
+_EOF_
+) > chromium/src/third_party/boringssl/boringssl.gyp
+
+	# ----------------------------------------
+	REPLACEMENT="/include',
+          ],
+          'link_settings': {
+            'libraries': [
+              '<(ssl_root)/lib/$LIBSSL',
+              '<(ssl_root)/lib/$LIBCRYPTO',
+              '<(zlib_root)/lib/$ZLIB_LINK',
+            ],
+          }"
+	git checkout -- webrtc/base/base.gyp
+	perl -0pi -e "s!(ssl_root\))',[^,]+!\1$REPLACEMENT!" webrtc/base/base.gyp
+
+	# ----------------------------------------
+	# fix compile errors
+	git checkout -- webrtc/base/opensslstreamadapter.cc
+	perl -pi -e 's/dtls1.h/ssl.h/' webrtc/base/opensslstreamadapter.cc
+}
+graveyard_webrtc()
+{
+	# https://webrtc.org/native-code/development/
+	# http://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/depot_tools_tutorial.html#_setting_up
+	# https://chromium.googlesource.com/chromium/src/+/master/docs/windows_build_instructions.md
+	# https://github.com/sukinull/libwebrtc/wiki/Build-the-code-on-Windows-10-(Visual-Studio-2013-Professional)
+	echo X
+}
+
+# ================================================================================
+# webRTC }}}
+# kitchen sink {{{
+# ================================================================================
 
 reset_hard()
 {
@@ -703,6 +1101,11 @@ reset_hard()
 		git clean -fd
 	cd ../..
 	# ........................................
+	cd WebRTC/src
+		git reset --hard HEAD
+		git clean -fd
+	cd ../..
+	# ........................................
 }
 
 build_environment()
@@ -717,10 +1120,16 @@ build_environment()
 			# remember to:
 			# brew install autoconf automake libtool cmake git
 
-			# WARNING: UE4 supports 10.9 as the minimum:
+			# WARNING: UE4 supports OSX 10.9 as the minimum:
 			#
 			# https://developers.apple.com/downloads/
-			# get: xcode 6.4
+			# get:   xcode 6.4
+			# mount: xcode 6.4
+			#
+			# XCODEPATH=Xcode.app/Contents/Developer/Platforms/MacOSX.platform
+			# SDKPATH=$XCODEPATH/Developer/SDKs
+			# sudo cp -a /Volumes/Xcode/$XcodeSDKpath/MacOSX10.9.sdk /Applications/$XcodeSDKpath/.
+			# sudo sed -e 's/>10.\d+</10.9/' /Applications/$XCODEPATH/Info.plist
 			#
 			# follow these instructions
 			# http://blog.felix-schwarz.org/post/141482111524/how-to-use-the-os-x-109-sdk-with-xcode-73
@@ -760,6 +1169,15 @@ build_environment()
 			VCVARSALL="\"$VSCT..\\..\\VC\\vcvarsall.bat\" $MACHINE"
 
 			CMAKE="C:\\Program Files (x86)\\CMake\\bin\\cmake.exe"
+
+
+			# ........................................
+			# needed for WebRTC
+
+			# https://github.com/ninja-build/ninja/releases
+			NINJA_PATH=$(cygpath -w $PWD)
+			NINJA=ninja.exe
+
 			;;
 		# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 		*)
@@ -768,6 +1186,7 @@ build_environment()
 }
 
 # ================================================================================
+# kitchen sink }}}
 # MAIN
 # ================================================================================
 
@@ -777,23 +1196,31 @@ USE_VS_2013=false
 UE4_BUILD_WIN32=false
 
 # --------------------
+# setup
+
+configure_platform
+build_environment
+
+# --------------------
 # fetch
+
+get_google_depot_tools
 get_zlib
 get_openssl
 get_libcurl
 get_libwebsockets
+get_webrtc
 	#reset_hard
 
 # --------------------
 # build
-configure_platform
-build_environment
 
 build_zlib
 build_zlib_fPIC
 build_openssl
 build_libcurl
 build_libwebsockets
+build_webrtc
 
 if [[ $SYSTEM == *'_NT-'* ]]; then
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -804,10 +1231,17 @@ if [[ $SYSTEM == *'_NT-'* ]]; then
 	configure_platform
 	build_environment
 
+	# ----------------------------------------
+	# SPECIAL CASE: see get_google_depot_tools() -- WARNING: VS2013 shenanigans
+	get_google_depot_tools
+	get_webrtc
+	# ----------------------------------------
+
 	build_zlib
 	build_openssl
 	build_libcurl
 	build_libwebsockets
+	build_webrtc            ## NOTE: SPECIAL BUILD !!!
 	USE_VS_2013=false
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -820,6 +1254,7 @@ if [[ $SYSTEM == *'_NT-'* ]]; then
 	build_openssl
 	build_libcurl
 	build_libwebsockets
+	build_webrtc
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	echo building Win32 - VS2013
@@ -831,6 +1266,7 @@ if [[ $SYSTEM == *'_NT-'* ]]; then
 	build_openssl
 	build_libcurl
 	build_libwebsockets
+	build_webrtc            ## NOTE: SPECIAL BUILD !!!
 
 	# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	USE_VS_2013=false

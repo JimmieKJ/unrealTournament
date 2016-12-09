@@ -4,8 +4,8 @@
 	LightPropagationVolumeRuntimeModule.cpp: Module encapsulates the LightPropagationVolume settings
 =============================================================================*/
 
-#include "Core.h"
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "LightPropagationVolumeBlendable.h"
 #include "SceneView.h"
 

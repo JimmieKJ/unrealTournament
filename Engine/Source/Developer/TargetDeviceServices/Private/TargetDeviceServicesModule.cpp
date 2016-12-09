@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TargetDeviceServicesPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/ITargetDeviceServicesModule.h"
+#include "TargetDeviceServicesLog.h"
+#include "TargetDeviceProxyManager.h"
+#include "TargetDeviceServiceManager.h"
 
 
 DEFINE_LOG_CATEGORY(TargetDeviceServicesLog);

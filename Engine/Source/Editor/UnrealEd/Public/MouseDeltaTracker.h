@@ -4,10 +4,16 @@
 #ifndef __MOUSEDELTATRACKER_H__
 #define __MOUSEDELTATRACKER_H__
 
-// Forward declarations.
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "UnrealWidget.h"
+
+class FCanvas;
 class FDragTool;
-class FScopedTransaction;
-class FLevelEditorViewportClient;
+class FEditorViewportClient;
+class FPrimitiveDrawInterface;
+class FSceneView;
+struct FInputEventState;
 
 /**
  * Keeps track of mouse movement deltas in the viewports.

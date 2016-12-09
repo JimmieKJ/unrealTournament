@@ -7,7 +7,8 @@
 #include "CrashDebugHelperModule.h"
 #include "AsyncWork.h"
 #include "ISourceControlModule.h"
-#include "EditorStyle.h"
+#include "EditorStyleSet.h"
+#include "Interfaces/IEditorStyleModule.h"
 
 IMPLEMENT_APPLICATION(SymbolDebugger, "SymbolDebugger");
 

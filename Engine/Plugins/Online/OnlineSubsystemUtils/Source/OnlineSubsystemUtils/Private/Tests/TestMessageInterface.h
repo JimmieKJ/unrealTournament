@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "Core.h"
-#include "OnlineMessageInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
+#include "Interfaces/OnlineMessageInterface.h"
+
+class IOnlineSubsystem;
 
 #if WITH_DEV_AUTOMATION_TESTS
 

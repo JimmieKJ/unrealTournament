@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Types/SlateEnums.h"
+#include "Layout/Visibility.h"
+#include "IDetailCustomization.h"
+
+class FAssetData;
+class IDetailGroup;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class UMaterialEditorInstanceConstant;
+
 DECLARE_DELEGATE_OneParam(FGetShowHiddenParameters, bool&);
 
 

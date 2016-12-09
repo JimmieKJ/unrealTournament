@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "Templates/IsValidVariadicFunctionArg.h"
+
 struct FFileLineException
 {
 	FString Message;

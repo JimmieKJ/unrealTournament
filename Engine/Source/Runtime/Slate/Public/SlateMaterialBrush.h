@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "SlateBasics.h"
-
+#include "CoreMinimal.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateBrush.h"
+#include "Materials/MaterialInterface.h"
+#include "Framework/Application/SlateApplication.h"
 
 /**
  * Dynamic rush for referencing a UMaterial.  

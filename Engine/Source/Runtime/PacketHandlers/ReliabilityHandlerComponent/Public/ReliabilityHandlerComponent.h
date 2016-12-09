@@ -2,9 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/Queue.h"
 #include "PacketHandler.h"
-#include "ModuleManager.h"
-#include "Core.h"
 
 // Symmetric Stream cipher
 class RELIABILITYHANDLERCOMPONENT_API ReliabilityHandlerComponent : public HandlerComponent

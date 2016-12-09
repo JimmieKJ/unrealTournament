@@ -91,6 +91,7 @@
 		<th style='width: 14em;'><%=Url.TableHeader( "Platform", "PlatformName", Model )%></th>
 		<th style='width: 12em;'><%=Url.TableHeader( "Status", "Status", Model )%></th>
 		<th style='width: 12em;'><%=Url.TableHeader( "Module", "Module", Model )%></th>
+		<th style='width: 12em;'><%=Url.TableHeader( "RenderTime", "RenderTime", Model )%></th>
 	</tr>
 		<%
 			if( Model.Results.ToList() != null )
@@ -102,16 +103,7 @@
 					{
 						using( FScopedLogTimer LogTimer2 = new FScopedLogTimer( "CurrentCrash" + "(" + CurrentCrash.Id + ")" ) )
 						{
-						    Bugg bugg = null;
-						    
-							try
-							{
-                                bugg = CurrentCrash.Buggs.First();
-							}
-							catch
-							{
-                                bugg = null;
-							}
+						    var bugg = CurrentCrash.Buggs.Any();
 
 							Iteration++;
 							string CrashRowColor = "grey";
@@ -130,7 +122,7 @@
 								CrashColorDescription = "This crash has been fixed in CL# " + CurrentCrash.FixedChangeList;
 							}
 
-                            if ((bugg != null) && !string.IsNullOrWhiteSpace(CurrentCrash.Jira) && string.IsNullOrWhiteSpace(CurrentCrash.FixedChangeList))
+                            if ((bugg) && !string.IsNullOrWhiteSpace(CurrentCrash.Jira) && string.IsNullOrWhiteSpace(CurrentCrash.FixedChangeList))
 							{
 								CrashRowColor = "#D01F3C"; // red
 								CrashColorDescription = "This crash has occurred more than once and been assigned a JIRA: " + CurrentCrash.Jira + " but has not been fixed.";
@@ -142,7 +134,6 @@
 								CrashColorDescription = "This crash status has been set to Tester";
 							}
 		%>
-
 								<tr class='CrashRow'>
 									<td class="CrashTd" style="background-color: <%=CrashRowColor %>;" title="<%=CrashColorDescription %>">
 										<input type="CHECKBOX" value="<%=Iteration %>" name="<%=CurrentCrash.Id%>" id="<%=CurrentCrash.Id %>" class='input CrashCheckBox'></td>
@@ -195,9 +186,11 @@
 									<td class="Platform"><%=CurrentCrash.PlatformName%></td>
 									<td class="Status"><%=CurrentCrash.Status%></td>
 									<td class="Module"><%=CurrentCrash.Module%></td>
+									<td class="Module"><%=LogTimer2.GetElapsedSeconds().ToString("F2")%></td>
 								</tr>
-		<% 
+		<%                      
 						}
+                        
 					}
 				}
 			} 

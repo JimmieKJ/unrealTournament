@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IPropertyTableUtilities.h"
+#include "CoreMinimal.h"
 #include "IPropertyTableColumn.h"
-#include "IPropertyTableCellPresenter.h"
-#include "IPropertyTableCell.h"
+#include "IPropertyTableUtilities.h"
+
+class IPropertyTableCell;
+class IPropertyTableCellPresenter;
 
 class IPropertyTableCustomColumn
 {

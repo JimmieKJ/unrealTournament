@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 namespace PlatformInfo
 {
 	/** The target type of the given platform */

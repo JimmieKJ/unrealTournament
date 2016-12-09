@@ -2,9 +2,28 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Margin.h"
+#include "Interfaces/ILauncherDeviceGroup.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/StyleDefaults.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "PlatformInfo.h"
+#include "Widgets/Shared/SProjectLauncherVariantSelector.h"
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherDeployTargetListRow"
-
 
 /**
  * Implements a row widget for the launcher's device proxy list.

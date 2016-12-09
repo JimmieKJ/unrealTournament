@@ -1,14 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "UObject/LazyObjectPtr.h"
 #include "LandscapeInfo.generated.h"
 
-// Forward declarations
-class ALandscapeProxy;
 class ALandscape;
+class ALandscapeProxy;
 class ALandscapeStreamingProxy;
 class ULandscapeComponent;
 class ULandscapeLayerInfoObject;
+class ULevel;
 class UMaterialInstanceConstant;
 struct FLandscapeEditorLayerSettings;
 
@@ -51,11 +57,11 @@ struct FLandscapeInfoLayerSettings
 #endif // WITH_EDITORONLY_DATA
 
 	FLandscapeInfoLayerSettings()
-		: LayerInfoObj(NULL)
+		: LayerInfoObj(nullptr)
 		, LayerName(NAME_None)
 #if WITH_EDITORONLY_DATA
-		, ThumbnailMIC(NULL)
-		, Owner(NULL)
+		, ThumbnailMIC(nullptr)
+		, Owner(nullptr)
 		, DebugColorChannel(0)
 		, bValid(false)
 #endif // WITH_EDITORONLY_DATA
@@ -65,10 +71,10 @@ struct FLandscapeInfoLayerSettings
 	LANDSCAPE_API FLandscapeInfoLayerSettings(ULandscapeLayerInfoObject* InLayerInfo, ALandscapeProxy* InProxy);
 
 	FLandscapeInfoLayerSettings(FName InPlaceholderLayerName, ALandscapeProxy* InProxy)
-		: LayerInfoObj(NULL)
+		: LayerInfoObj(nullptr)
 		, LayerName(InPlaceholderLayerName)
 #if WITH_EDITORONLY_DATA
-		, ThumbnailMIC(NULL)
+		, ThumbnailMIC(nullptr)
 		, Owner(InProxy)
 		, DebugColorChannel(0)
 		, bValid(false)
@@ -134,7 +140,6 @@ public:
 
 	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
-	virtual void BeginDestroy() override;
 	//~ End UObject Interface
 
 #if WITH_EDITOR
@@ -168,10 +173,10 @@ public:
 	LANDSCAPE_API FLandscapeEditorLayerSettings& GetLayerEditorSettings(ULandscapeLayerInfoObject* LayerInfo) const;
 	LANDSCAPE_API void CreateLayerEditorSettingsFor(ULandscapeLayerInfoObject* LayerInfo);
 
-	LANDSCAPE_API ULandscapeLayerInfoObject* GetLayerInfoByName(FName LayerName, ALandscapeProxy* Owner = NULL) const;
-	LANDSCAPE_API int32 GetLayerInfoIndex(FName LayerName, ALandscapeProxy* Owner = NULL) const;
-	LANDSCAPE_API int32 GetLayerInfoIndex(ULandscapeLayerInfoObject* LayerInfo, ALandscapeProxy* Owner = NULL) const;
-	LANDSCAPE_API bool UpdateLayerInfoMap(ALandscapeProxy* Proxy = NULL, bool bInvalidate = false);
+	LANDSCAPE_API ULandscapeLayerInfoObject* GetLayerInfoByName(FName LayerName, ALandscapeProxy* Owner = nullptr) const;
+	LANDSCAPE_API int32 GetLayerInfoIndex(FName LayerName, ALandscapeProxy* Owner = nullptr) const;
+	LANDSCAPE_API int32 GetLayerInfoIndex(ULandscapeLayerInfoObject* LayerInfo, ALandscapeProxy* Owner = nullptr) const;
+	LANDSCAPE_API bool UpdateLayerInfoMap(ALandscapeProxy* Proxy = nullptr, bool bInvalidate = false);
 
 	/**
 	 *  Returns the landscape proxy of this landscape info in the given level (if it exists)
@@ -192,6 +197,16 @@ public:
 	 *	@todo: should be removed
 	 */
 	LANDSCAPE_API ALandscapeProxy* GetLandscapeProxy() const;
+
+	/**
+	 * Runs the given function on the root landscape actor and all streaming proxies
+	 * Most easily used with a lambda as follows:
+	 * ForAllLandscapeProxies([](ALandscapeProxy* Proxy)
+	 * {
+	 *     // Code
+	 * });
+	 */
+	LANDSCAPE_API void ForAllLandscapeProxies(TFunctionRef<void(ALandscapeProxy*)> Fn) const;
 
 	/** Associates passed actor with this info object
  	 *  @param	Proxy		Landscape actor to register

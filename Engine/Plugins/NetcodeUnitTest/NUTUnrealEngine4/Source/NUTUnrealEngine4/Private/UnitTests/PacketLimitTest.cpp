@@ -1,13 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NUTUnrealEngine4PCH.h"
-
 #include "UnitTests/PacketLimitTest.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+
 
 #include "UnitTestEnvironment.h"
+#include "IpConnection.h"
+#include "Net/NUTUtilNet.h"
 #include "Net/UnitTestNetConnection.h"
 
-#include "IpConnection.h"
 
 
 /**

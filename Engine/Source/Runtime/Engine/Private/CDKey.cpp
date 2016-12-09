@@ -4,7 +4,8 @@
 	CDKey.cpp: CD Key validation
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CDKey.h"
+#include "Misc/SecureHash.h"
 
 /*-----------------------------------------------------------------------------
 	Internal MD5 Stuff

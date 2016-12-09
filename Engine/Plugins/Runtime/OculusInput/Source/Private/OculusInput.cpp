@@ -4,6 +4,8 @@
 #include "Features/IModularFeatures.h"
 #include "IOculusRiftPlugin.h"
 #include "OculusRiftCommon.h"
+#include "Misc/App.h"
+#include "GenericPlatform/IInputInterface.h"
 
 #if OCULUS_INPUT_SUPPORTED_PLATFORMS
 
@@ -381,6 +383,10 @@ void FOculusInput::SendControllerEvents()
 									bButtonPressed = bIsLeft ? (OvrInput.Buttons & ovrButton_LThumb) != 0 : (OvrInput.Buttons & ovrButton_RThumb) != 0;
 									break;
 
+								case EOculusTouchControllerButton::Menu:
+									bButtonPressed = bIsLeft && (OvrInput.Buttons & ovrButton_Enter);
+									break;
+								
 								default:
 									check(0);
 									break;

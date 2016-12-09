@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Editor/SceneOutliner/Public/SceneOutliner.h"
+#include "CoreMinimal.h"
+#include "PropertyNode.h"
+#include "PropertyHandle.h"
+#include "Editor/SceneOutliner/Public/SceneOutlinerFwd.h"
 
-class FPropertyNode;
-class IPropertyUtilities;
 class FResetToDefaultOverride;
 
 class FPropertyEditor : public TSharedFromThis< FPropertyEditor >	

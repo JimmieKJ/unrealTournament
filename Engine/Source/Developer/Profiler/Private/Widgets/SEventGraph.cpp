@@ -1,10 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerPrivatePCH.h"
-#include "SEventGraphTooltip.h"
-#include "SSearchBox.h"
+#include "Widgets/SEventGraph.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Containers/MapBuilder.h"
+#include "Widgets/SOverlay.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Widgets/StatDragDropOp.h"
+#include "Widgets/SEventGraphTooltip.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "SEventGraph"
+
 
 namespace EEventGraphViewModes
 {
@@ -2429,7 +2443,7 @@ void SEventGraph::ShowEventsInViewMode( const TArray<FEventGraphSamplePtr>& Even
 	SetHierarchicalSelectedEvents( EventGraphState->SelectedEvents );
 	SetHierarchicalExpandedEvents( EventGraphState->ExpandedEvents );
 		
-	EEventPropertyIndex::Type ColumnIndex = FEventGraphColumns::Get().ColumnNameToIndexMapping.FindChecked( ColumnBeingSorted )->Index;
+	EEventPropertyIndex ColumnIndex = FEventGraphColumns::Get().ColumnNameToIndexMapping.FindChecked( ColumnBeingSorted )->Index;
 
 	if( NewViewMode == EEventGraphViewModes::FlatInclusive || NewViewMode == EEventGraphViewModes::FlatInclusiveCoalesced || NewViewMode == EEventGraphViewModes::Hierarchical )
 	{
@@ -2464,7 +2478,7 @@ void SEventGraph::ShowEventsInViewMode( const TArray<FEventGraphSamplePtr>& Even
 	TreeView_Refresh();
 }
 
-void SEventGraph::ScrollToTheSlowestSelectedEvent( EEventPropertyIndex::Type ColumnIndex )
+void SEventGraph::ScrollToTheSlowestSelectedEvent( EEventPropertyIndex ColumnIndex )
 {
 	TArray<FEventGraphSamplePtr> SelectedEvents = TreeView_Base->GetSelectedItems();
 	if( SelectedEvents.Num() > 0 )
@@ -3282,7 +3296,7 @@ bool SEventGraph::SelectAllFrames_CanExecute() const
 	return IsEventGraphStatesHistoryValid();
 }
 
-void SEventGraph::ProfilerManager_OnViewModeChanged( EProfilerViewMode::Type NewViewMode )
+void SEventGraph::ProfilerManager_OnViewModeChanged( EProfilerViewMode NewViewMode )
 {
 // 	if( NewViewMode == EProfilerViewMode::LineIndexBased )
 // 	{

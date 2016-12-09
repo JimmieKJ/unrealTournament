@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateRemotePrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/CoreDelegates.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "SocketSubsystem.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "Shared/SlateRemoteSettings.h"
+#include "Server/SlateRemoteServer.h"
+#include "SlateRemotePrivate.h"
 #include "ISettingsModule.h"
 #include "ISettingsSection.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
 
 
 #define LOCTEXT_NAMESPACE "FSlateRemoteModule"

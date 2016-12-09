@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "BehaviorTree/Services/BTService_BlueprintBase.h"
+#include "AIController.h"
+#include "BehaviorTree/BTFunctionLibrary.h"
 #include "BlueprintNodeHelpers.h"
 #include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/Services/BTService_BlueprintBase.h"
 
 UBTService_BlueprintBase::UBTService_BlueprintBase(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

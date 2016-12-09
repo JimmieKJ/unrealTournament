@@ -2,7 +2,11 @@
 
 #pragma once
 
-class APaperGroupedSpriteActor;
+#include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
+#include "Components/ActorComponent.h"
+
+class AActor;
 
 class FPaperGroupedSpriteUtilities
 {

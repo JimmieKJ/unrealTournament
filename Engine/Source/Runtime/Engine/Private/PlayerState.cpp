@@ -4,12 +4,14 @@
 	PlayerState.cpp: 
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "GameFramework/PlayerState.h"
+#include "Engine/World.h"
+#include "GameFramework/Controller.h"
+#include "GameFramework/PlayerController.h"
 #include "GameFramework/EngineMessage.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/OnlineEngineInterface.h"
-#include "GameFramework/GameState.h"
-#include "GameFramework/PlayerState.h"
+#include "GameFramework/GameStateBase.h"
 
 APlayerState::APlayerState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer
@@ -123,10 +125,12 @@ void APlayerState::PostInitializeComponents()
 	Super::PostInitializeComponents();
 
 	UWorld* World = GetWorld();
-	// register this PlayerState with the game's ReplicationInfo
-	if ( World->GameState != NULL )
+	AGameStateBase* GameStateBase = World->GetGameState();
+
+	// register this PlayerState with the game state
+	if (GameStateBase != nullptr )
 	{
-		World->GameState->AddPlayerState(this);
+		GameStateBase->AddPlayerState(this);
 	}
 
 	if ( Role < ROLE_Authority )
@@ -137,12 +141,12 @@ void APlayerState::PostInitializeComponents()
 	AController* OwningController = Cast<AController>(GetOwner());
 	if (OwningController != NULL)
 	{
-		bIsABot = (Cast<APlayerController>(OwningController) == NULL);
+		bIsABot = (Cast<APlayerController>(OwningController) == nullptr);
 	}
 
-	if (World->GameState)
+	if (GameStateBase)
 	{
-		StartTime = World->GameState->ElapsedTime;
+		StartTime = GameStateBase->GetPlayerStartTime(OwningController);
 	}
 }
 
@@ -172,7 +176,7 @@ void APlayerState::OnRep_PlayerName()
 		{
 			for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 			{
-				APlayerController* PlayerController = *Iterator;
+				APlayerController* PlayerController = Iterator->Get();
 				if( PlayerController )
 				{
 					PlayerController->ClientReceiveLocalizedMessage( EngineMessageClass, 2, this );
@@ -189,7 +193,7 @@ void APlayerState::OnRep_PlayerName()
 		{
 			for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 			{
-				APlayerController* PlayerController = *Iterator;
+				APlayerController* PlayerController = Iterator->Get();
 				if( PlayerController )
 				{
 					PlayerController->ClientReceiveLocalizedMessage( EngineMessageClass, WelcomeMessageNum, this );
@@ -203,10 +207,10 @@ void APlayerState::OnRep_bIsInactive()
 {
 	// remove and re-add from the GameState so it's in the right list  
 	UWorld* World = GetWorld();
-	if (ensure(World && World->GameState))
+	if (ensure(World && World->GetGameState()))
 	{
-		World->GameState->RemovePlayerState(this);
-		World->GameState->AddPlayerState(this);
+		World->GetGameState()->RemovePlayerState(this);
+		World->GetGameState()->AddPlayerState(this);
 	}
 }
 
@@ -218,16 +222,16 @@ bool APlayerState::ShouldBroadCastWelcomeMessage(bool bExiting)
 void APlayerState::Destroyed()
 {
 	UWorld* World = GetWorld();
-	if (World->GameState != NULL)
+	if (World->GetGameState() != nullptr)
 	{
-		World->GameState->RemovePlayerState(this);
+		World->GetGameState()->RemovePlayerState(this);
 	}
 
 	if( ShouldBroadCastWelcomeMessage(true) )
 	{
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PlayerController = *Iterator;
+			APlayerController* PlayerController = Iterator->Get();
 			if( PlayerController )
 			{
 				PlayerController->ClientReceiveLocalizedMessage( EngineMessageClass, 4, this);
@@ -340,7 +344,9 @@ void APlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME( APlayerState, bIsSpectator );
 	DOREPLIFETIME( APlayerState, bOnlySpectator );
 	DOREPLIFETIME( APlayerState, bFromPreviousLevel );
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	DOREPLIFETIME( APlayerState, StartTime );
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	DOREPLIFETIME_CONDITION( APlayerState, Ping,		COND_SkipOwner );
 

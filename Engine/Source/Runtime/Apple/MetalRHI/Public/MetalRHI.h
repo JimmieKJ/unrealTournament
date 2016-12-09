@@ -6,6 +6,9 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "RHI.h"
+
 DECLARE_LOG_CATEGORY_EXTERN(LogMetal, Display, All);
 
 // Metal RHI public headers.
@@ -23,7 +26,7 @@ class FMetalDynamicRHI : public FDynamicRHI, public FMetalRHICommandContext
 public:
 
 	/** Initialization constructor. */
-	FMetalDynamicRHI();
+	FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel);
 
 	/** Destructor */
 	~FMetalDynamicRHI();

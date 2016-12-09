@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
 #include "Engine/DebugCameraController.h"
 #include "VisualLoggerCameraController.generated.h"
 

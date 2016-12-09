@@ -2,13 +2,23 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
+#include "Widgets/SWidget.h"
+#include "ISequencer.h"
+#include "ISequencerSection.h"
+#include "MovieSceneTrack.h"
+#include "ISequencerTrackEditor.h"
+#include "MovieSceneTrackEditor.h"
 
+class AActor;
+class FAssetData;
+class FMenuBuilder;
 class FTrackEditorThumbnailPool;
 class UMovieSceneCinematicShotSection;
 class UMovieSceneCinematicShotTrack;
 class UMovieSceneSubSection;
-
-
 
 /**
  * Tools for cinematic shots.
@@ -45,7 +55,7 @@ public:
 	virtual void OnRelease() override;
 	virtual void BuildAddTrackMenu(FMenuBuilder& MenuBuilder) override;
 	virtual TSharedPtr<SWidget> BuildOutlinerEditWidget(const FGuid& ObjectBinding, UMovieSceneTrack* Track, const FBuildEditWidgetParams& Params) override;
-	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track) override;
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
 	virtual bool HandleAssetAdded(UObject* Asset, const FGuid& TargetObjectGuid) override;
 	virtual bool SupportsType(TSubclassOf<UMovieSceneTrack> Type ) const override;
 	virtual void Tick(float DeltaTime) override;

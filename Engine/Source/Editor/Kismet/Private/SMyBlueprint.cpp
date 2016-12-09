@@ -1,46 +1,57 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "BlueprintUtilities.h"
+#include "SMyBlueprint.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Engine/MemberReference.h"
+#include "Components/TimelineComponent.h"
+#include "Engine/TimelineTemplate.h"
+#include "Dialogs/Dialogs.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_Event.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_Tunnel.h"
+#include "K2Node_Composite.h"
+#include "K2Node_CreateDelegate.h"
+#include "K2Node_CustomEvent.h"
+#include "K2Node_FunctionEntry.h"
+#include "K2Node_InputAction.h"
+#include "K2Node_InputKey.h"
 #include "ScopedTransaction.h"
-#include "GraphEditor.h"
 
-#include "BlueprintEditor.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditing.h"
+#include "DetailLayoutBuilder.h"
 
 #include "SKismetInspector.h"
 #include "SSCSEditor.h"
-#include "SMyBlueprint.h"
-#include "FindInBlueprints.h"
 #include "GraphEditorDragDropAction.h"
 #include "BPFunctionDragDropAction.h"
 #include "BPVariableDragDropAction.h"
 #include "BPDelegateDragDropAction.h"
 #include "SBlueprintPalette.h"
-#include "SGraphActionMenu.h"
 #include "BlueprintEditorCommands.h"
 #include "GraphEditorActions.h"
 
-#include "Editor/AnimGraph/Classes/AnimationGraph.h"
+#include "AnimationGraph.h"
 
-#include "BlueprintDetailsCustomization.h"
 
 #include "SBlueprintEditorToolbar.h"
 
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "ObjectEditorUtils.h"
-#include "AssetToolsModule.h"
-#include "Editor/GraphEditor/Private/GraphActionNode.h"
-#include "IDocumentation.h"
-#include "Editor/UnrealEd/Public/SourceCodeNavigation.h"
+#include "Private/GraphActionNode.h"
+#include "SourceCodeNavigation.h"
 #include "EditorCategoryUtils.h"
-#include "SSearchBox.h"
-#include "GenericCommands.h"
-#include "Components/TimelineComponent.h"
-#include "Engine/TimelineTemplate.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Framework/Commands/GenericCommands.h"
 
 #include "BlueprintEditorSettings.h"
 #include "SReplaceNodeReferences.h"
@@ -826,9 +837,11 @@ TSharedRef<SWidget> SMyBlueprint::OnCreateWidgetForAction(FCreateWidgetForAction
 
 void SMyBlueprint::GetChildGraphs(UEdGraph* InEdGraph, int32 const SectionId, FGraphActionListBuilderBase& OutAllActions, FText ParentCategory)
 {
+	check(InEdGraph);
+
 	// Grab display info
 	FGraphDisplayInfo EdGraphDisplayInfo;
-	if (const UEdGraphSchema* Schema = InEdGraph ? InEdGraph->GetSchema() : nullptr)
+	if (const UEdGraphSchema* Schema = InEdGraph->GetSchema())
 	{
 		Schema->GetGraphDisplayInformation(*InEdGraph, EdGraphDisplayInfo);
 	}
@@ -2691,6 +2704,10 @@ void SMyBlueprint::OnResetItemFilter()
 void SMyBlueprint::EnsureLastPinTypeValid()
 {
 	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
+
+	LastPinType.bIsWeakPointer = false;
+	LastFunctionPinType.bIsWeakPointer = false;
+
 	const bool bLastPinTypeValid = (Schema->PC_Struct != LastPinType.PinCategory) || LastPinType.PinSubCategoryObject.IsValid();
 	const bool bLastFunctionPinTypeValid = (Schema->PC_Struct != LastFunctionPinType.PinCategory) || LastFunctionPinType.PinSubCategoryObject.IsValid();
 	const bool bConstType = LastPinType.bIsConst || LastFunctionPinType.bIsConst;

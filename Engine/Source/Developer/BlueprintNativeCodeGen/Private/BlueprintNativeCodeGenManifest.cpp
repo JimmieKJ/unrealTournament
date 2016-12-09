@@ -1,16 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintNativeCodeGenPCH.h"
-
-#include "App.h"								// for GetGameName()
 #include "BlueprintNativeCodeGenManifest.h"
-#include "BlueprintNativeCodeGenModule.h"
-#include "IBlueprintCompilerCppBackendModule.h" // for ConstructBaseFilename()
-#include "Engine/Blueprint.h"					// for GeneratedClass
-#include "JsonObjectConverter.h"
+#include "UObject/Package.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/App.h"
+#include "Engine/Blueprint.h"
+#include "Dom/JsonObject.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
-#include "Serialization/JsonWriter.h"
+
+#include "IBlueprintCompilerCppBackendModule.h"
+#include "JsonObjectConverter.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogNativeCodeGenManifest, Log, All);
 

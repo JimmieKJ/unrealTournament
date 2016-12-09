@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "PropertyEditorModule.h"
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "PaperTileSet.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
 
 //////////////////////////////////////////////////////////////////////////
 // FTileSetDetailsCustomization

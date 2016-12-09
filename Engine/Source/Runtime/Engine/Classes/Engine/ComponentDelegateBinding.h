@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/WeakObjectPtr.h"
 #include "Engine/DynamicBlueprintBinding.h"
 #include "ComponentDelegateBinding.generated.h"
-
 
 /** Entry for a delegate to assign after a blueprint has been instanced */
 USTRUCT()

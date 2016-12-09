@@ -1,11 +1,343 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "AudioDecompress.h"
 #include "AudioDevice.h"
-#include "Sound/SoundWave.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
+#include "ContentStreaming.h"
+
+IStreamedCompressedInfo::IStreamedCompressedInfo()
+	: SrcBufferData(nullptr)
+	, SrcBufferDataSize(0)
+	, SrcBufferOffset(0)
+	, AudioDataOffset(0)
+	, SampleRate(0)
+	, TrueSampleCount(0)
+	, CurrentSampleCount(0)
+	, NumChannels(0)
+	, MaxFrameSizeSamples(0)
+	, SampleStride(0)
+	, LastPCMByteSize(0)
+	, LastPCMOffset(0)
+	, bStoringEndOfFile(false)
+	, StreamingSoundWave(nullptr)
+	, CurrentChunkIndex(0)
+{
+}
+
+uint32 IStreamedCompressedInfo::Read(void *OutBuffer, uint32 DataSize)
+{
+	uint32 BytesToRead = FMath::Min(DataSize, SrcBufferDataSize - SrcBufferOffset);
+	if (BytesToRead > 0)
+	{
+		FMemory::Memcpy(OutBuffer, SrcBufferData + SrcBufferOffset, BytesToRead);
+		SrcBufferOffset += BytesToRead;
+	}
+	return BytesToRead;
+}
+
+bool IStreamedCompressedInfo::ReadCompressedInfo(const uint8* InSrcBufferData, uint32 InSrcBufferDataSize, FSoundQualityInfo* QualityInfo)
+{
+	check(!SrcBufferData);
+
+	SCOPE_CYCLE_COUNTER(STAT_AudioStreamedDecompressTime);
+
+	// Parse the format header, this is done different for each format
+	if (!ParseHeader(InSrcBufferData, InSrcBufferDataSize, QualityInfo))
+	{
+		return false;
+	}
+
+	// After parsing the header, the SrcBufferData should be none-null
+	check(SrcBufferData != nullptr);
+
+	// Sample Stride is 
+	SampleStride = NumChannels * sizeof(int16);
+
+	MaxFrameSizeSamples = GetMaxFrameSizeSamples();
+		
+	LastDecodedPCM.Empty(MaxFrameSizeSamples * SampleStride);
+	LastDecodedPCM.AddUninitialized(MaxFrameSizeSamples * SampleStride);
+
+	return CreateDecoder();
+}
+
+bool IStreamedCompressedInfo::ReadCompressedData(uint8* Destination, bool bLooping, uint32 BufferSize)
+{
+	check(Destination);
+
+	SCOPE_CYCLE_COUNTER(STAT_AudioStreamedDecompressTime);
+
+	// Write out any PCM data that was decoded during the last request
+	uint32 RawPCMOffset = WriteFromDecodedPCM(Destination, BufferSize);
+
+	bool bLooped = false;
+
+	if (bStoringEndOfFile && LastPCMByteSize > 0)
+	{
+		// delayed returning looped because we hadn't read the entire buffer
+		bLooped = true;
+		bStoringEndOfFile = false;
+	}
+
+	while (RawPCMOffset < BufferSize)
+	{
+		uint16 FrameSize = GetFrameSize();
+		int32 DecodedSamples = DecompressToPCMBuffer(FrameSize);
+		if (DecodedSamples < 0)
+		{
+			LastPCMByteSize = 0;
+			ZeroBuffer(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
+			return false;
+		}
+		else
+		{
+			LastPCMByteSize = IncrementCurrentSampleCount(DecodedSamples) * SampleStride;
+			RawPCMOffset += WriteFromDecodedPCM(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
+
+			if (SrcBufferOffset >= SrcBufferDataSize)
+			{
+				// check whether all decoded PCM was written
+				if (LastPCMByteSize == 0)
+				{
+					bLooped = true;
+				}
+				else
+				{
+					bStoringEndOfFile = true;
+				}
+				if (bLooping)
+				{
+					SrcBufferOffset = AudioDataOffset;
+					CurrentSampleCount = 0;
+				}
+				else
+				{
+					RawPCMOffset += ZeroBuffer(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
+				}
+			}
+		}
+	}
+
+	return bLooped;
+}
+
+void IStreamedCompressedInfo::ExpandFile(uint8* DstBuffer, struct FSoundQualityInfo* QualityInfo)
+{
+	check(DstBuffer);
+	check(QualityInfo);
+	check(QualityInfo->SampleDataSize <= SrcBufferDataSize);
+
+	// Ensure we're at the start of the audio data
+	SrcBufferOffset = AudioDataOffset;
+
+	uint32 RawPCMOffset = 0;
+
+	while (RawPCMOffset < QualityInfo->SampleDataSize)
+	{
+		uint16 FrameSize = 0;
+		Read(&FrameSize, sizeof(uint16));
+		int32 DecodedSamples = DecompressToPCMBuffer(FrameSize);
+
+		if (DecodedSamples < 0)
+		{
+			RawPCMOffset += ZeroBuffer(DstBuffer + RawPCMOffset, QualityInfo->SampleDataSize - RawPCMOffset);
+		}
+		else
+		{
+			LastPCMByteSize = IncrementCurrentSampleCount(DecodedSamples) * SampleStride;
+			RawPCMOffset += WriteFromDecodedPCM(DstBuffer + RawPCMOffset, QualityInfo->SampleDataSize - RawPCMOffset);
+		}
+	}
+}
+
+bool IStreamedCompressedInfo::StreamCompressedInfo(USoundWave* Wave, struct FSoundQualityInfo* QualityInfo)
+{
+	StreamingSoundWave = Wave;
+
+	// Get the first chunk of audio data (should always be loaded)
+	CurrentChunkIndex = 0;
+	const uint8* FirstChunk = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, CurrentChunkIndex);
+
+	if (FirstChunk)
+	{
+		return ReadCompressedInfo(FirstChunk, Wave->RunningPlatformData->Chunks[0].DataSize, QualityInfo);
+	}
+
+	return false;
+}
+
+bool IStreamedCompressedInfo::StreamCompressedData(uint8* Destination, bool bLooping, uint32 BufferSize)
+{
+	check(Destination);
+
+	SCOPE_CYCLE_COUNTER(STAT_AudioStreamedDecompressTime);
+
+	UE_LOG(LogAudio, Log, TEXT("Streaming compressed data from SoundWave'%s' - Chunk %d, Offset %d"), *StreamingSoundWave->GetName(), CurrentChunkIndex, SrcBufferOffset);
+
+	// Write out any PCM data that was decoded during the last request
+	uint32 RawPCMOffset = WriteFromDecodedPCM(Destination, BufferSize);
+
+	// If next chunk wasn't loaded when last one finished reading, try to get it again now
+	if (SrcBufferData == NULL)
+	{
+		SrcBufferData = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, CurrentChunkIndex);
+		if (SrcBufferData)
+		{
+			SrcBufferDataSize = StreamingSoundWave->RunningPlatformData->Chunks[CurrentChunkIndex].DataSize;
+			SrcBufferOffset = CurrentChunkIndex == 0 ? AudioDataOffset : 0;
+		}
+		else
+		{
+			// Still not loaded, zero remainder of current buffer
+			UE_LOG(LogAudio, Warning, TEXT("Unable to read from chunk %d of SoundWave'%s'"), CurrentChunkIndex, *StreamingSoundWave->GetName());
+			ZeroBuffer(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
+			return false;
+		}
+	}
+
+	bool bLooped = false;
+
+	if (bStoringEndOfFile && LastPCMByteSize > 0)
+	{
+		// delayed returning looped because we hadn't read the entire buffer
+		bLooped = true;
+		bStoringEndOfFile = false;
+	}
+
+	while (RawPCMOffset < BufferSize)
+	{
+		// Get the platform-dependent size of the current "frame" of encoded audio (note: frame is used here differently than audio frame/sample)
+		uint16 FrameSize = GetFrameSize();
+
+		// Decompress the next compression frame of audio (many samples) into the PCM buffer
+		int32 DecodedSamples = DecompressToPCMBuffer(FrameSize);
+
+		if (DecodedSamples < 0)
+		{
+			LastPCMByteSize = 0;
+			ZeroBuffer(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
+			return false;
+		}
+		else
+		{
+			LastPCMByteSize = IncrementCurrentSampleCount(DecodedSamples) * SampleStride;
+
+			RawPCMOffset += WriteFromDecodedPCM(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
+
+			// Have we reached the end of buffer
+			if (SrcBufferOffset >= SrcBufferDataSize)
+			{
+				// Special case for the last chunk of audio
+				if (CurrentChunkIndex == StreamingSoundWave->RunningPlatformData->NumChunks - 1)
+				{
+					// check whether all decoded PCM was written
+					if (LastPCMByteSize == 0)
+					{
+						bLooped = true;
+					}
+					else
+					{
+						bStoringEndOfFile = true;
+					}
+
+					if (bLooping)
+					{
+						CurrentChunkIndex = 0;
+						SrcBufferOffset = AudioDataOffset;
+						CurrentSampleCount = 0;
+
+						// Prepare the decoder to begin looping.
+						PrepareToLoop();
+					}
+					else
+					{
+						RawPCMOffset += ZeroBuffer(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
+					}
+				}
+				else
+				{
+					CurrentChunkIndex++;
+					SrcBufferOffset = 0;
+				}
+
+				SrcBufferData = IStreamingManager::Get().GetAudioStreamingManager().GetLoadedChunk(StreamingSoundWave, CurrentChunkIndex);
+				if (SrcBufferData)
+				{
+					UE_LOG(LogAudio, Log, TEXT("Incremented current chunk from SoundWave'%s' - Chunk %d, Offset %d"), *StreamingSoundWave->GetName(), CurrentChunkIndex, SrcBufferOffset);
+					SrcBufferDataSize = StreamingSoundWave->RunningPlatformData->Chunks[CurrentChunkIndex].DataSize;
+				}
+				else
+				{
+					SrcBufferDataSize = 0;
+					RawPCMOffset += ZeroBuffer(Destination + RawPCMOffset, BufferSize - RawPCMOffset);
+				}
+			}
+		}
+	}
+
+	return bLooped;
+}
+
+int32 IStreamedCompressedInfo::DecompressToPCMBuffer(uint16 FrameSize)
+{
+	if (SrcBufferOffset + FrameSize > SrcBufferDataSize)
+	{
+		// if frame size is too large, something has gone wrong
+		return -1;
+	}
+
+	const uint8* SrcPtr = SrcBufferData + SrcBufferOffset;
+	SrcBufferOffset += FrameSize;
+	LastPCMOffset = 0;
+	
+	const int32 SamplesDecoded = Decode(SrcPtr, FrameSize, (int16*)LastDecodedPCM.GetData(), MaxFrameSizeSamples);
+	return SamplesDecoded;
+}
+
+uint32 IStreamedCompressedInfo::IncrementCurrentSampleCount(uint32 NewSamples)
+{
+	if (CurrentSampleCount + NewSamples > TrueSampleCount)
+	{
+		NewSamples = TrueSampleCount - CurrentSampleCount;
+		CurrentSampleCount = TrueSampleCount;
+	}
+	else
+	{
+		CurrentSampleCount += NewSamples;
+	}
+	return NewSamples;
+}
+
+uint32 IStreamedCompressedInfo::WriteFromDecodedPCM(uint8* Destination, uint32 BufferSize)
+{
+	uint32 BytesToCopy = FMath::Min(BufferSize, LastPCMByteSize - LastPCMOffset);
+	if (BytesToCopy > 0)
+	{
+		check(BytesToCopy <= LastDecodedPCM.Num() - LastPCMOffset);
+		FMemory::Memcpy(Destination, LastDecodedPCM.GetData() + LastPCMOffset, BytesToCopy);
+		LastPCMOffset += BytesToCopy;
+		if (LastPCMOffset >= LastPCMByteSize)
+		{
+			LastPCMOffset = 0;
+			LastPCMByteSize = 0;
+		}
+	}
+	return BytesToCopy;
+}
+
+uint32 IStreamedCompressedInfo::ZeroBuffer(uint8* Destination, uint32 BufferSize)
+{
+	check(Destination);
+
+	if (BufferSize > 0)
+	{
+		FMemory::Memzero(Destination, BufferSize);
+		return BufferSize;
+	}
+	return 0;
+}
+
 
 //////////////////////////////////////////////////////////////////////////
 // Copied from IOS - probably want to split and share

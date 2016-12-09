@@ -5,8 +5,18 @@
  */
 
 #pragma once
-#include "CookStats.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "RenderCommandFence.h"
+#include "RenderResource.h"
+#include "Containers/ResourceArray.h"
+#include "ProfilingDebugging/CookStats.h"
 #include "SubUVAnimation.generated.h"
+
+class UTexture2D;
+struct FPropertyChangedEvent;
 
 #if ENABLE_COOK_STATS
 class SubUVAnimationCookStats
@@ -180,7 +190,7 @@ public:
 
 	inline const FVector2D* GetFrameData(int32 FrameIndex) const
 	{
-		return &DerivedData.BoundingGeometry[FrameIndex * GetNumFrames()];
+		return &DerivedData.BoundingGeometry[FrameIndex * GetNumBoundingVertices()];
 	}
 
 	inline FShaderResourceViewRHIParamRef GetBoundingGeometrySRV() const

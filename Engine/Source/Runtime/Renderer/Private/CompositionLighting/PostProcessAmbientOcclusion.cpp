@@ -4,12 +4,14 @@
 	PostProcessAmbientOcclusion.cpp: Post processing ambient occlusion implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessing.h"
-#include "PostProcessAmbientOcclusion.h"
+#include "CompositionLighting/PostProcessAmbientOcclusion.h"
+#include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "SceneRenderTargetParameters.h"
+#include "ScenePrivate.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "PostProcess/PostProcessing.h"
 
 // Tile size for the AmbientOcclusion compute shader, tweaked for 680 GTX. */
 // see GCN Performance Tip 21 http://developer.amd.com/wordpress/media/2013/05/GCNPerformanceTweets.pdf 
@@ -193,7 +195,7 @@ public:
 		float Ratio = View.UnscaledViewRect.Width() / (float)View.UnscaledViewRect.Height();
 
 		// Grab this and pass into shader so we can negate the fov influence of projection on the screen pos.
-		float InvTanHalfFov = View.ViewMatrices.ProjMatrix.M[0][0];
+		float InvTanHalfFov = View.ViewMatrices.GetProjectionMatrix().M[0][0];
 
 		FVector4 Value[6];
 
@@ -967,12 +969,12 @@ TUniformBufferRef<FCameraMotionParameters> CreateCameraMotionParametersUniformBu
 {
 	FSceneViewState* ViewState = (FSceneViewState*)View.State;
 
-	FMatrix Proj = View.ViewMatrices.GetProjNoAAMatrix();
-	FMatrix PrevProj = ViewState->PrevViewMatrices.GetProjNoAAMatrix();
+	FMatrix Proj = View.ViewMatrices.ComputeProjectionNoAAMatrix();
+	FMatrix PrevProj = ViewState->PrevViewMatrices.ComputeProjectionNoAAMatrix();
 
-	FVector DeltaTranslation = ViewState->PrevViewMatrices.PreViewTranslation - View.ViewMatrices.PreViewTranslation;
-	FMatrix ViewProj = ( View.ViewMatrices.TranslatedViewMatrix * Proj ).GetTransposed();
-	FMatrix PrevViewProj = ( FTranslationMatrix(DeltaTranslation) * ViewState->PrevViewMatrices.TranslatedViewMatrix * PrevProj ).GetTransposed();
+	FVector DeltaTranslation = ViewState->PrevViewMatrices.GetPreViewTranslation() - View.ViewMatrices.GetPreViewTranslation();
+	FMatrix ViewProj = ( View.ViewMatrices.GetTranslatedViewMatrix() * Proj ).GetTransposed();
+	FMatrix PrevViewProj = ( FTranslationMatrix(DeltaTranslation) * ViewState->PrevViewMatrices.GetTranslatedViewMatrix() * PrevProj ).GetTransposed();
 
 	double InvViewProj[16];
 	Inverse4x4( InvViewProj, (float*)ViewProj.M );

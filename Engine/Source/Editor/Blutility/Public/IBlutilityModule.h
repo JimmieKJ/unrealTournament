@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
+class UBlueprint;
 
 /**
  * The public interface of BlutilityModule

@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ComponentVisualizersPrivatePCH.h"
-
 #include "SpringComponentVisualizer.h"
+#include "SceneManagement.h"
+
 #include "PhysicsEngine/PhysicsSpringComponent.h"
 
 static const FColor	DisabledColor(128, 128, 128);

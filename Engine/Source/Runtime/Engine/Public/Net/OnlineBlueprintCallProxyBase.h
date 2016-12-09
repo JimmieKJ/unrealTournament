@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
 #include "OnlineBlueprintCallProxyBase.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FEmptyOnlineDelegate);

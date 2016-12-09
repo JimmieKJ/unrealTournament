@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AddContentDialogPCH.h"
+#include "ViewModels/ContentSourceViewModel.h"
+#include "Internationalization/Culture.h"
+#include "Modules/ModuleManager.h"
 
-#include "ImageWrapper.h"
-#include "ModuleManager.h"
+#include "Interfaces/IImageWrapperModule.h"
 
 #define LOCTEXT_NAMESPACE "ContentSourceViewModel"
 

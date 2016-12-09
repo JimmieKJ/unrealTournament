@@ -2,10 +2,22 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Toolkits/IToolkitHost.h"
 #include "BlueprintEditorModule.h"
+#include "IDetailCustomization.h"
+#include "IDetailCustomNodeBuilder.h"
+#include "IDetailsView.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditing.h"
 #include "Editor/UnrealEd/Public/Kismet2/EnumEditorUtils.h"
+
+class FDetailWidgetRow;
+class FUserDefinedEnumIndexLayout;
+class FUserDefinedEnumLayout;
+class IDetailChildrenBuilder;
+class IDetailLayoutBuilder;
+class SEditableTextBox;
 
 class KISMET_API FUserDefinedEnumEditor : public IUserDefinedEnumEditor
 {

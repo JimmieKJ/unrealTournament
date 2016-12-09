@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrack.h"
 #include "InterpTrackVectorBase.generated.h"
+
+struct FPropertyChangedEvent;
 
 UCLASS(abstract)
 class ENGINE_API UInterpTrackVectorBase : public UInterpTrack

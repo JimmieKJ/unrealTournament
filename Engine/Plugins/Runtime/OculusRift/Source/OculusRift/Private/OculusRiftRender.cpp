@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
-#include "OculusRiftPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "IOculusRiftPlugin.h"
 #include "OculusRiftHMD.h"
+#include "Engine/Canvas.h"
+#include "CanvasItem.h"
+#include "Widgets/SViewport.h"
+#include "Framework/Application/SlateApplication.h"
 
 #if !PLATFORM_MAC // Mac uses 0.5/OculusRiftRender_05.cpp
 
@@ -11,8 +16,6 @@
 #include "ScenePrivate.h"
 #include "PostProcess/PostProcessHMD.h"
 #include "ScreenRendering.h"
-
-#include "SlateBasics.h"
 
 #if !UE_BUILD_SHIPPING
 #include "OculusStressTests.h"
@@ -57,7 +60,8 @@ void FViewExtension::PreRenderViewFamily_RenderThread(FRHICommandListImmediate& 
 		const int ViewportSizeY = (ViewFamily.RenderTarget->GetRenderTargetTexture()) ? 
 			ViewFamily.RenderTarget->GetRenderTargetTexture()->GetSizeY() : ViewFamily.RenderTarget->GetSizeXY().Y;
 		RHICmdList.SetViewport(GapMinX, 0, 0, GapMaxX, ViewportSizeY, 1.0f);
-		RHICmdList.Clear(true, FLinearColor::Black, false, 0, false, 0, FIntRect());
+		SetRenderTarget(RHICmdList, ViewFamily.RenderTarget->GetRenderTargetTexture(), nullptr);		
+		RHICmdList.ClearColorTexture(ViewFamily.RenderTarget->GetRenderTargetTexture(), FLinearColor::Black, FIntRect());
 	}
 
 	check(ViewFamily.RenderTarget->GetRenderTargetTexture());
@@ -73,7 +77,7 @@ void FViewExtension::PreRenderViewFamily_RenderThread(FRHICommandListImmediate& 
 	FOculusRiftHMD* OculusRiftHMD = static_cast<FOculusRiftHMD*>(RenderContext.Delegate);
 
 	OculusRiftHMD->PerformanceStats.Frames++;
-	OculusRiftHMD->PerformanceStats.Seconds += DisplayTime;
+	OculusRiftHMD->PerformanceStats.Seconds = DisplayTime;
 
 	if (RenderContext.ShowFlags.Rendering)
 	{
@@ -240,7 +244,7 @@ void FCustomPresent::CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdLi
 		if (bNoAlphaWrite)
 		{
 			// for quads, write RGB, RGB = src.rgb * 1 + dst.rgb * 0
-			RHICmdList.Clear(true, FLinearColor(0.0f, 0.0f, 0.0f, 1.0f), false, 0.0f, false, 0, FIntRect(0, 0, 0, 0));
+			RHICmdList.ClearColorTexture(DstTexture, FLinearColor(0.0f, 0.0f, 0.0f, 1.0f), FIntRect(0, 0, 0, 0));
 			RHICmdList.SetBlendState(TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero>::GetRHI());
 		}
 		else
@@ -253,7 +257,7 @@ void FCustomPresent::CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdLi
 	{
 		if (bNoAlphaWrite)
 		{
-			RHICmdList.Clear(true, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), false, 0.0f, false, 0, FIntRect(0, 0, 0, 0));
+			RHICmdList.ClearColorTexture(DstTexture, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), FIntRect(0, 0, 0, 0));
 			RHICmdList.SetBlendState(TStaticBlendState<CW_RGB>::GetRHI());
 		}
 		else
@@ -384,13 +388,13 @@ void FOculusRiftHMD::RenderTexture_RenderThread(class FRHICommandListImmediate& 
 			if( DstViewRect != BackBufferRect )
 			{
 				SetRenderTarget(RHICmdList, BackBuffer, FTextureRHIRef());
-				RHICmdList.Clear(true, FLinearColor(0.0f, 0.0f, 0.0f, 1.0f), false, 0.0f, false, 0, DstViewRect);
+				RHICmdList.ClearColorTexture(BackBuffer, FLinearColor(0.0f, 0.0f, 0.0f, 1.0f), DstViewRect);
 			}
 
 			pCustomPresent->CopyTexture_RenderThread(RHICmdList, BackBuffer, SrcTexture, SrcTexture->GetTexture2D()->GetSizeX(), SrcTexture->GetTexture2D()->GetSizeY(), DstViewRect, SrcViewRect, false, false);
 		}
 	}
-#if !UE_BUILD_SHIPPING
+#if OCULUS_STRESS_TESTS_ENABLED
 	if (StressTester)
 	{
 		StressTester->TickGPU_RenderThread(RHICmdList, BackBuffer, SrcTexture);

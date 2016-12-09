@@ -1,45 +1,68 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "LevelEditor.h"
 #include "SLevelViewport.h"
+#include "Materials/MaterialInterface.h"
+#include "Engine/Selection.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Docking/TabManager.h"
+#include "EngineGlobals.h"
+#include "ActorFactories/ActorFactory.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "GameFramework/PlayerController.h"
+#include "Application/ThrottleManager.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "Framework/Docking/LayoutService.h"
+#include "EditorStyleSet.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Exporters/ExportTextContainer.h"
+#include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
+#include "GameFramework/WorldSettings.h"
+#include "LevelEditorViewport.h"
+#include "UnrealEdMisc.h"
+#include "UnrealEdGlobals.h"
+#include "LevelEditor.h"
 #include "SLevelViewportToolBar.h"
-#include "Editor/UnrealEd/Public/STransformViewportToolbar.h"
-#include "LevelViewportLayout.h"
-#include "LevelViewportTabContent.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "EditorShowFlags.h"
 #include "LevelViewportActions.h"
+#include "LevelEditorActions.h"
+#include "Slate/SceneViewport.h"
+#include "EditorShowFlags.h"
 #include "SLevelEditor.h"
 #include "AssetSelection.h"
-#include "LevelEditorActions.h"
-#include "Editor/UnrealEd/Public/Kismet2/DebuggerCommands.h"
+#include "Kismet2/DebuggerCommands.h"
 #include "Layers/ILayers.h"
-#include "Editor/UnrealEd/Public/DragAndDrop/ClassDragDropOp.h"
-#include "Editor/UnrealEd/Public/DragAndDrop/AssetDragDropOp.h"
-#include "Editor/UnrealEd/Public/DragAndDrop/ExportTextDragDropOp.h"
-#include "Editor/UnrealEd/Public/DragAndDrop/BrushBuilderDragDropOp.h"
-#include "Editor/SceneOutliner/Public/SceneOutliner.h"
-#include "ScopedTransaction.h"
+#include "DragAndDrop/ClassDragDropOp.h"
+#include "DragAndDrop/AssetDragDropOp.h"
+#include "DragAndDrop/ExportTextDragDropOp.h"
 #include "LevelUtils.h"
-#include "HighresScreenshotUI.h"
+#include "DragAndDrop/BrushBuilderDragDropOp.h"
+#include "ISceneOutlinerColumn.h"
+#include "ActorTreeItem.h"
+#include "ScopedTransaction.h"
 #include "SCaptureRegionWidget.h"
+#include "HighresScreenshotUI.h"
 #include "ISettingsModule.h"
 #include "BufferVisualizationData.h"
-#include "EditorViewportCommands.h"
-#include "Runtime/Engine/Classes/Engine/UserInterfaceSettings.h"
-#include "Runtime/Engine/Classes/Engine/RendererSettings.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "SLevelViewportControlsPopup.h"
-#include "Camera/CameraActor.h"
-#include "GameFramework/WorldSettings.h"
-#include "Engine/LocalPlayer.h"
-#include "Engine/Selection.h"
-#include "GameFramework/PlayerInput.h"
-#include "GameFramework/PlayerController.h"
 #include "SActorPilotViewportToolbar.h"
-#include "SGameLayerManager.h"
+#include "Engine/LocalPlayer.h"
+#include "Slate/SGameLayerManager.h"
 #include "FoliageType.h"
 
 static const FName LevelEditorName("LevelEditor");
@@ -369,7 +392,7 @@ void SLevelViewport::ConstructLevelEditorViewportClient( const FArguments& InArg
 		LevelViewportClient->SetAllowCinematicPreview(true);
 	}
 	LevelViewportClient->SetRealtime(ViewportInstanceSettings.bIsRealtime);
-	LevelViewportClient->SetShowStats(ViewportInstanceSettings.bShowStats);
+	LevelViewportClient->SetShowStats(ViewportInstanceSettings.bShowOnScreenStats);
 	if (ViewportInstanceSettings.bShowFPS_DEPRECATED)
 	{
 		GetMutableDefault<ULevelEditorViewportSettings>()->bSaveEngineStats = true;
@@ -1996,45 +2019,49 @@ void SLevelViewport::SetKeyboardFocusToThisViewport()
 }
 
 
-void SLevelViewport::SaveConfig(const FString& ConfigName)
+void SLevelViewport::SaveConfig(const FString& ConfigName) const
 {
-	// When we startup the editor we always start it up in IsInGameView()=false mode
-	FEngineShowFlags& EditorShowFlagsToSave = LevelViewportClient->IsInGameView() ? LevelViewportClient->LastEngineShowFlags : LevelViewportClient->EngineShowFlags;
-	FEngineShowFlags& GameShowFlagsToSave = LevelViewportClient->IsInGameView() ? LevelViewportClient->EngineShowFlags : LevelViewportClient->LastEngineShowFlags;
-
-	FLevelEditorViewportInstanceSettings ViewportInstanceSettings;
-	ViewportInstanceSettings.ViewportType = LevelViewportClient->ViewportType;
-	ViewportInstanceSettings.PerspViewModeIndex = LevelViewportClient->GetPerspViewMode();
-	ViewportInstanceSettings.OrthoViewModeIndex = LevelViewportClient->GetOrthoViewMode();
-	ViewportInstanceSettings.EditorShowFlagsString = EditorShowFlagsToSave.ToString();
-	ViewportInstanceSettings.GameShowFlagsString = GameShowFlagsToSave.ToString();
-	ViewportInstanceSettings.BufferVisualizationMode = LevelViewportClient->CurrentBufferVisualizationMode;
-	ViewportInstanceSettings.ExposureSettings = LevelViewportClient->ExposureSettings;
-	ViewportInstanceSettings.FOVAngle = LevelViewportClient->FOVAngle;
-	ViewportInstanceSettings.bIsRealtime = LevelViewportClient->IsRealtime();
-	ViewportInstanceSettings.bShowStats = LevelViewportClient->ShouldShowStats();
-	ViewportInstanceSettings.FarViewPlane = LevelViewportClient->GetFarClipPlaneOverride();
-	ViewportInstanceSettings.bShowFullToolbar = bShowFullToolbar;
-
-	if (GetDefault<ULevelEditorViewportSettings>()->bSaveEngineStats)
+	if(ensure(GetDefault<ULevelEditorViewportSettings>()))
 	{
-		const TArray<FString>* EnabledStats = NULL;
+		// When we startup the editor we always start it up in IsInGameView()=false mode
+		FEngineShowFlags& EditorShowFlagsToSave = LevelViewportClient->IsInGameView() ? LevelViewportClient->LastEngineShowFlags : LevelViewportClient->EngineShowFlags;
+		FEngineShowFlags& GameShowFlagsToSave = LevelViewportClient->IsInGameView() ? LevelViewportClient->EngineShowFlags : LevelViewportClient->LastEngineShowFlags;
 
-		// If the selected viewport is currently hosting a PIE session, we need to make sure we copy to stats from the active viewport
-		// Note: This happens if you close the editor while it's running because SwapStatCommands gets called after the config save when shutting down.
-		if (IsPlayInEditorViewportActive())
-		{
-			EnabledStats = ActiveViewport->GetClient()->GetEnabledStats();
-		}
-		else
-		{
-			EnabledStats = LevelViewportClient->GetEnabledStats();
-		}
+		FLevelEditorViewportInstanceSettings ViewportInstanceSettings;
+		ViewportInstanceSettings.ViewportType = LevelViewportClient->ViewportType;
+		ViewportInstanceSettings.PerspViewModeIndex = LevelViewportClient->GetPerspViewMode();
+		ViewportInstanceSettings.OrthoViewModeIndex = LevelViewportClient->GetOrthoViewMode();
+		ViewportInstanceSettings.EditorShowFlagsString = EditorShowFlagsToSave.ToString();
+		ViewportInstanceSettings.GameShowFlagsString = GameShowFlagsToSave.ToString();
+		ViewportInstanceSettings.BufferVisualizationMode = LevelViewportClient->CurrentBufferVisualizationMode;
+		ViewportInstanceSettings.ExposureSettings = LevelViewportClient->ExposureSettings;
+		ViewportInstanceSettings.FOVAngle = LevelViewportClient->FOVAngle;
+		ViewportInstanceSettings.bIsRealtime = LevelViewportClient->IsRealtime();
+		ViewportInstanceSettings.bShowOnScreenStats = LevelViewportClient->ShouldShowStats();
+		ViewportInstanceSettings.FarViewPlane = LevelViewportClient->GetFarClipPlaneOverride();
+		ViewportInstanceSettings.bShowFullToolbar = bShowFullToolbar;
 
-		check(EnabledStats);
-		ViewportInstanceSettings.EnabledStats = *EnabledStats;
+		if(GetDefault<ULevelEditorViewportSettings>()->bSaveEngineStats)
+		{
+			const TArray<FString>* EnabledStats = NULL;
+
+			// If the selected viewport is currently hosting a PIE session, we need to make sure we copy to stats from the active viewport
+			// Note: This happens if you close the editor while it's running because SwapStatCommands gets called after the config save when shutting down.
+			if(IsPlayInEditorViewportActive())
+			{
+				EnabledStats = ActiveViewport->GetClient()->GetEnabledStats();
+			}
+			else
+			{
+				EnabledStats = LevelViewportClient->GetEnabledStats();
+			}
+
+			check(EnabledStats);
+			ViewportInstanceSettings.EnabledStats = *EnabledStats;
+		}
+		GetMutableDefault<ULevelEditorViewportSettings>()->SetViewportInstanceSettings(ConfigName, ViewportInstanceSettings);
 	}
-	GetMutableDefault<ULevelEditorViewportSettings>()->SetViewportInstanceSettings(ConfigName, ViewportInstanceSettings);
+	
 }
 
 
@@ -2103,7 +2130,7 @@ FLevelEditorViewportInstanceSettings SLevelViewport::LoadLegacyConfigFromIni(con
 	}
 
 	GConfig->GetBool(*IniSection, *(InConfigKey + TEXT(".bIsRealtime")), ViewportInstanceSettings.bIsRealtime, GEditorPerProjectIni);
-	GConfig->GetBool(*IniSection, *(InConfigKey + TEXT(".bWantStats")), ViewportInstanceSettings.bShowStats, GEditorPerProjectIni);
+	GConfig->GetBool(*IniSection, *(InConfigKey + TEXT(".bWantStats")), ViewportInstanceSettings.bShowOnScreenStats, GEditorPerProjectIni);
 	GConfig->GetBool(*IniSection, *(InConfigKey + TEXT(".bWantFPS")), ViewportInstanceSettings.bShowFPS_DEPRECATED, GEditorPerProjectIni);
 	GConfig->GetFloat(*IniSection, *(InConfigKey + TEXT(".FOVAngle")), ViewportInstanceSettings.FOVAngle, GEditorPerProjectIni);
 

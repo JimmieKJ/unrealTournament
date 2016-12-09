@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SlateEditableTextTypes.h"
-#include "TextEditHelper.h"
+#include "Widgets/Text/SlateEditableTextTypes.h"
+#include "Rendering/SlateLayoutTransform.h"
+#include "Rendering/DrawElements.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Text/ILayoutBlock.h"
+#include "Framework/Text/TextEditHelper.h"
 
 namespace SlateEditableTextTypes
 {

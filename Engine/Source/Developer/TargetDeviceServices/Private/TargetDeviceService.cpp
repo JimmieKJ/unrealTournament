@@ -1,6 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TargetDeviceServicesPrivatePCH.h"
+#include "TargetDeviceService.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Helpers/MessageEndpointBuilder.h"
+#include "TargetDeviceServiceMessages.h"
 #include "PlatformInfo.h"
 
 
@@ -22,7 +29,7 @@ struct FVariantSortCallback
 /* FTargetDeviceService structors
  *****************************************************************************/
 
-FTargetDeviceService::FTargetDeviceService(const FString& InDeviceName, const IMessageBusRef& InMessageBus)
+FTargetDeviceService::FTargetDeviceService(const FString& InDeviceName, const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InMessageBus)
 	: DeviceName(InDeviceName)
 	, Running(false)
 	, Shared(false)
@@ -317,7 +324,7 @@ void FTargetDeviceService::HandleDeployFileMessage(const FTargetDeviceServiceDep
 		return;
 	}
 
-	IMessageAttachmentPtr Attachment = Context->GetAttachment();
+	TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe> Attachment = Context->GetAttachment();
 
 	if (Attachment.IsValid())
 	{

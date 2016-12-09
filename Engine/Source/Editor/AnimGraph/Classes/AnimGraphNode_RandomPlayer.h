@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AnimGraphNode_Base.h"
-#include "AnimNode_RandomPlayer.h"
+#include "AnimNodes/AnimNode_RandomPlayer.h"
 #include "AnimGraphNode_RandomPlayer.generated.h"
 
 UCLASS(MinimalAPI)

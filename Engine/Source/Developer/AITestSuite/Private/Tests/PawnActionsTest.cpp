@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AITestSuitePrivatePCH.h"
-#include "MockAI_BT.h"
-#include "BehaviorTree/TestBTDecorator_CantExecute.h"
+#include "CoreMinimal.h"
+#include "Tests/AITestsCommon.h"
+#include "Actions/TestPawnAction_Log.h"
 #include "Actions/TestPawnAction_CallFunction.h"
 
 #define LOCTEXT_NAMESPACE "AITestSuite_PawnActionTest"

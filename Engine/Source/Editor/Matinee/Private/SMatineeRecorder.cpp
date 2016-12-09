@@ -1,11 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "MatineeModule.h"
 #include "SMatineeRecorder.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SViewport.h"
+#include "EditorStyleSet.h"
+#include "LevelEditorViewport.h"
+#include "Slate/SceneViewport.h"
+#include "Viewports.h"
 #include "IMatinee.h"
-#include "STextComboBox.h"
+#include "Widgets/Input/STextComboBox.h"
 
 #define LOCTEXT_NAMESPACE "SMatineeRecorder"
 

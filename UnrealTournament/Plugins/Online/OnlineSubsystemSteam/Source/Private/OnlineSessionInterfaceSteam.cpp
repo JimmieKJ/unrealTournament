@@ -1529,20 +1529,30 @@ void FOnlineSessionSteam::OnValidQueryPacketReceived(uint8* PacketData, int32 Pa
 	for (int32 SessionIndex = 0; SessionIndex < Sessions.Num(); SessionIndex++)
 	{
 		FNamedOnlineSession* Session = &Sessions[SessionIndex];
-		// Don't respond to queries when the match is full or it's not a lan match
-		if (Session && 
-			Session->SessionSettings.bIsLANMatch &&
-			Session->NumOpenPublicConnections > 0)
-		{
-			FNboSerializeToBufferSteam Packet(LAN_BEACON_MAX_PACKET_SIZE);
-			// Create the basic header before appending additional information
-			LANSession->CreateHostResponsePacket(Packet, ClientNonce);
-			
-			// Add all the session details
-			AppendSessionToPacket(Packet, Session);
 
-			// Broadcast this response so the client can see us
-			LANSession->BroadcastPacket(Packet, Packet.GetByteCount());
+		// Don't respond to query if the session is not a joinable LAN match.
+		if (Session)
+		{
+			const FOnlineSessionSettings& Settings = Session->SessionSettings;
+
+			const bool bIsMatchInProgress = Session->SessionState == EOnlineSessionState::InProgress;
+
+			const bool bIsMatchJoinable = Settings.bIsLANMatch &&
+				(!bIsMatchInProgress || Settings.bAllowJoinInProgress) &&
+				Settings.NumPublicConnections > 0;
+
+			if (bIsMatchJoinable)
+			{
+				FNboSerializeToBufferSteam Packet(LAN_BEACON_MAX_PACKET_SIZE);
+				// Create the basic header before appending additional information
+				LANSession->CreateHostResponsePacket(Packet, ClientNonce);
+			
+				// Add all the session details
+				AppendSessionToPacket(Packet, Session);
+
+				// Broadcast this response so the client can see us
+				LANSession->BroadcastPacket(Packet, Packet.GetByteCount());
+			}
 		}
 	}
 }

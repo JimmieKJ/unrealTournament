@@ -2,11 +2,18 @@
 
 #pragma once
 
-#include "VoiceInterface.h"
-#include "Voice.h"
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
 #include "OnlineSubsystemTypes.h"
-#include "OnlineSubsystemUtilsPackage.h"
+#include "Interfaces/VoiceInterface.h"
 #include "Net/VoiceDataCommon.h"
+#include "Interfaces/VoiceCapture.h"
+#include "Interfaces/VoiceCodec.h"
+#include "OnlineSubsystemBPCallHelper.h"
+#include "OnlineSubsystemUtilsPackage.h"
+
+class IOnlineSubsystem;
+class UAudioComponent;
 
 /**
  * Container for unprocessed voice data

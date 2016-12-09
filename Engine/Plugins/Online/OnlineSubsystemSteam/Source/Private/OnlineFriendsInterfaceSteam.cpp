@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
-#include "OnlineSubsystemSteam.h"
 #include "OnlineFriendsInterfaceSteam.h"
+#include "OnlineSubsystemSteam.h"
 #include "OnlineSubsystemSteamTypes.h"
 
 const FString DefaultFriendsList(EFriendsLists::ToString(EFriendsLists::Default));

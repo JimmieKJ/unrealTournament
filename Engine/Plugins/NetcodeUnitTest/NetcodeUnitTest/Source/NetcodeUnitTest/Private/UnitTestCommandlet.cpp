@@ -1,13 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
-#include "NUTUtil.h"
-#include "NUTUtilNet.h"
-
 #include "UnitTestCommandlet.h"
+#include "Misc/FeedbackContext.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "UnrealClient.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/SWindow.h"
+#include "Engine/GameEngine.h"
+#include "Framework/Application/SlateApplication.h"
+#include "NetcodeUnitTest.h"
+#include "NUTUtil.h"
+#include "Net/NUTUtilNet.h"
+
 #include "UnitTestManager.h"
 
-#include "SLogDialog.h"
+#include "UI/SLogDialog.h"
 
 
 // @todo #JohnBLowPri: Fix StandaloneRenderer support for static builds
@@ -15,10 +23,7 @@
 #include "StandaloneRenderer.h"
 #endif
 
-#include "Engine/GameInstance.h"
 
-#include "UnrealClient.h"
-#include "SlateBasics.h"
 
 
 // @todo #JohnB_NUTClient: If you later end up doing test client instances that are unit tested against client netcode

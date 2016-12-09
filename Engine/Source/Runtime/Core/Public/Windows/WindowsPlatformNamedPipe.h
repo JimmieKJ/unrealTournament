@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformNamedPipe.h"
-#include "Windows/WindowsSystemIncludes.h"
+#include "WindowsSystemIncludes.h"
 
 
 #if PLATFORM_SUPPORTS_NAMED_PIPES
@@ -39,7 +39,7 @@ public:
 private:
 
 	void*		Pipe;
-	OVERLAPPED	Overlapped;
+	Windows::OVERLAPPED	Overlapped;
 	double		LastWaitingTime;
 	bool		bUseOverlapped : 1;
 	bool		bIsServer : 1;

@@ -1,7 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "BlueprintGraphPrivatePCH.h"
 
-#include "CompilerResultsLog.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "Templates/Casts.h"
+#include "UObject/UnrealType.h"
+#include "Engine/Blueprint.h"
+#include "Engine/MemberReference.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_BaseMCDelegate.h"
+#include "K2Node_AddDelegate.h"
+#include "K2Node_CallDelegate.h"
+#include "K2Node_ClearDelegate.h"
+#include "K2Node_RemoveDelegate.h"
+
+#include "KismetCompiler.h"
 #include "DelegateNodeHandlers.h"
 
 struct FK2Node_BaseMCDelegateHelper

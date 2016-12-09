@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/CommandLine.h"
+
 #define IOS_MAX_PATH 1024
 #define CMD_LINE_MAX 16384
 

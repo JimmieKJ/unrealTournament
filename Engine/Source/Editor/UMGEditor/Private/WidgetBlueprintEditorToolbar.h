@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FExtender;
+class FToolBarBuilder;
 class FWidgetBlueprintEditor;
 
 /**

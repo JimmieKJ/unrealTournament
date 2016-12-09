@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "Core.h"
-#include "Ticker.h"
-#include "IHttpRequest.h"
+#include "CoreMinimal.h"
+#include "Containers/Ticker.h"
+#include "Interfaces/IHttpRequest.h"
 
 class IAnalyticsProviderET;
 

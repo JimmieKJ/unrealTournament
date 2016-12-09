@@ -5,12 +5,19 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
+#include "UObject/CoreOnline.h"
 #include "GameFramework/Info.h"
 #include "GameSession.generated.h"
 
-class UWorld;
 class APlayerController;
-struct FJoinabilitySettings;
+class Error;
+struct FUniqueNetIdRepl;
+
+DECLARE_LOG_CATEGORY_EXTERN(LogGameSession, Log, All);
 
 /**
 Acts as a game-specific wrapper around the session interface. The game code makes calls to this when it needs to interact with the session interface.
@@ -196,16 +203,6 @@ class ENGINE_API AGameSession : public AInfo
 	 * @param bJoinViaPresenceFriendsOnly can only friends actively join your game 
 	 */
 	virtual void UpdateSessionJoinability(FName InSessionName, bool bPublicSearchable, bool bAllowInvites, bool bJoinViaPresence, bool bJoinViaPresenceFriendsOnly);
-
-	/**
-	 * Travel to a session URL (as client) for a given session
-	 *
-	 * @param ControllerId controller initiating the session travel
-	 * @param SessionName name of session to travel to
-	 *
-	 * @return true if successful, false otherwise
-	 */
-	virtual bool TravelToSession(int32 ControllerId, FName InSessionName);
 
     /**
      * Does the session require push to talk

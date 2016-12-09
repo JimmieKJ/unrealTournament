@@ -2,12 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "MovieSceneNameableTrack.h"
 #include "MovieSceneParticleTrack.generated.h"
-
-
-class UMovieSceneSection;
-
 
 /**
  * Handles triggering of particle emitters
@@ -34,7 +32,6 @@ public:
 
 	// UMovieSceneTrack interface
 
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
 	virtual void RemoveAllAnimationData() override;
 	virtual bool HasSection(const UMovieSceneSection& Section) const override;
 	virtual void AddSection(UMovieSceneSection& Section) override;

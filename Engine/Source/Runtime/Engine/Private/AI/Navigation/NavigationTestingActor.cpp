@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "AI/Navigation/NavigationTestingActor.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/CollisionProfile.h"
+#include "EngineUtils.h"
 #if WITH_EDITOR
 #include "ObjectEditorUtils.h"
 #endif
-#include "AI/Navigation/NavigationTestingActor.h"
 #include "AI/Navigation/NavTestRenderingComponent.h"
 #include "AI/Navigation/NavigationInvokerComponent.h"
 #include "AI/Navigation/RecastNavMesh.h"

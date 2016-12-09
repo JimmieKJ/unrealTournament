@@ -1,25 +1,39 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SuperSearchPrivatePCH.h"
-#include "SSearchBox.h"
 #include "SSuperSearch.h"
-#include "SScrollBorder.h"
+#include "HAL/PlatformProcess.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "Widgets/Views/SListView.h"
 
 #if WITH_EDITOR
+	#include "EditorStyleSet.h"
+	#include "Engine/Blueprint.h"
+#endif
+#include "Interfaces/IHttpResponse.h"
+#include "HttpModule.h"
+#include "PlatformHttp.h"
+
+#include "Widgets/Input/SSearchBox.h"
+
+#if WITH_EDITOR
+#include "ARFilter.h"
 #include "AssetRegistryModule.h"
 #include "IIntroTutorials.h"
 #include "EditorTutorial.h"
 #include "EngineAnalytics.h"
-#include "IAnalyticsProvider.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #endif
 
-#include "SSearchBox.h"
-
-#if WITH_EDITOR	
-#include "AssetData.h"
-#endif
-
-#include "Base64.h"
+#include "Misc/Base64.h"
 
 static TSharedRef<FSearchEntry> OtherCategory(new FSearchEntry());
 static TSharedRef<FSearchEntry> AskQuestionEntry (new FSearchEntry());
@@ -42,18 +56,24 @@ SSuperSearchBox::SSuperSearchBox()
 	AskQuestionEntry->Title = NSLOCTEXT("SuperSearchBox", "AskQuestion", "Ask Online").ToString();
 	AskQuestionEntry->URL = "https://answers.unrealengine.com/questions/ask.html";
 	AskQuestionEntry->bCategory = false;
-
-	SearchEngines.Add(MakeShareable(new ESearchEngine(ESearchEngine::Google)));
-	SearchEngines.Add(MakeShareable(new ESearchEngine(ESearchEngine::Bing)));
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SSuperSearchBox::Construct( const FArguments& InArgs )
 {
-	// Allow style to be optionally overridden, but fallback to SSearchBox default if not specified
-	const FSearchBoxStyle* InStyle = InArgs._Style.IsSet() ? InArgs._Style.GetValue() : &FCoreStyle::Get().GetWidgetStyle<FSearchBoxStyle>("SearchBox");
-
 	CurrentSearchEngine = InArgs._SearchEngine;
+
+	if (InArgs._Style.IsSet() && InArgs._Style.GetValue() != nullptr)
+	{
+		Style = *InArgs._Style.GetValue();
+	}
+	else
+	{
+		Style.SetForegroundColor(FCoreStyle::Get().GetSlateColor("InvertedForeground"));
+		Style.SetComboBoxStyle(FCoreStyle::Get().GetWidgetStyle<FComboBoxStyle>("ComboBox"));
+		Style.SetTextBlockStyle(FCoreStyle::Get().GetWidgetStyle<FTextBlockStyle>("NormalText"));
+		Style.SetSearchBoxStyle(FCoreStyle::Get().GetWidgetStyle<FSearchBoxStyle>("SearchBox"));
+	}
 
 	ChildSlot
 	[
@@ -66,9 +86,9 @@ void SSuperSearchBox::Construct( const FArguments& InArgs )
 			+ SHorizontalBox::Slot()
 			[
 				SAssignNew(InputText, SSearchBox)
-				.Style(InStyle)
+				.Style(&Style.SearchBoxStyle)
 				.OnTextCommitted(this, &SSuperSearchBox::OnTextCommitted)
-				.HintText( NSLOCTEXT( "SuperSearchBox", "HelpHint", "Search For Help" ) )
+				.HintText(NSLOCTEXT("SuperSearchBox", "HelpHint", "Search For Help"))
 				.OnTextChanged(this, &SSuperSearchBox::OnTextChanged)
 				.SelectAllTextWhenFocused(false)
 				.DelayChangeNotificationsWhileTyping(true)
@@ -392,23 +412,26 @@ void SSuperSearchBox::OnTextChanged(const FText& InText)
 
 			for (const FAssetData& Asset : AssetData)
 			{
-				const FString ResultTitle = Asset.GetTagValueRef<FString>("Title");
-				if (ResultTitle.Contains(InText.ToString()))
+				const FString* SearchTag = Asset.TagsAndValues.Find("SearchTags");
+				const FString* ResultTitle = Asset.TagsAndValues.Find("Title");
+				if( ResultTitle)
 				{
-					FSearchEntry SearchEntry;
-					SearchEntry.Title = ResultTitle;
-					SearchEntry.URL = "";
-					SearchEntry.bCategory = false;
-					SearchEntry.AssetData = Asset;
-					TutorialResults.Add(SearchEntry);
+					if (ResultTitle->Contains(InText.ToString()))
+					{
+						FSearchEntry SearchEntry;
+						SearchEntry.Title = *ResultTitle;
+						SearchEntry.URL = "";
+						SearchEntry.bCategory = false;
+						SearchEntry.AssetData = Asset;
+						TutorialResults.Add(SearchEntry);
+					}
 				}
 
 				// If the asset has search tags, search them
-				const FString SearchTag = Asset.GetTagValueRef<FString>("SearchTags");
-				if (!SearchTag.IsEmpty())
+				if ((SearchTag) && (SearchTag->IsEmpty()== false))
 				{
 					TArray<FString> SearchTags;			
-					SearchTag.ParseIntoArray(SearchTags,TEXT(","));
+					SearchTag->ParseIntoArray(SearchTags,TEXT(","));
 					//trim any xs spaces off the strings.
 					for (int32 iTag = 0; iTag < SearchTags.Num() ; iTag++)
 					{
@@ -418,7 +441,10 @@ void SSuperSearchBox::OnTextChanged(const FText& InText)
 					if (SearchTags.Find(InText.ToString()) != INDEX_NONE)
 					{
 						FSearchEntry SearchEntry;
-						SearchEntry.Title = ResultTitle;
+						if (ResultTitle)
+						{
+							SearchEntry.Title = *ResultTitle;
+						}
 						SearchEntry.URL = "";
 						SearchEntry.bCategory = false;
 						SearchEntry.AssetData = Asset;
@@ -481,6 +507,11 @@ void SSuperSearchBox::Query_HttpRequestComplete(FHttpRequestPtr HttpRequest, FHt
 				{
 					const TArray<TSharedPtr<FJsonValue> > * JsonItems = nullptr;
 
+					//add search result into cache
+					FSearchResults & SearchResults = SearchResultsCache.FindOrAdd(QueryText->ToString());
+					FCategoryResults & OnlineResults = SearchResults.OnlineResults;
+					OnlineResults.Empty();	//reset online results since we just got updated
+
 					// with bing search result
 					if ( CurrentSearchEngine == ESearchEngine::Bing )
 					{
@@ -488,11 +519,6 @@ void SSuperSearchBox::Query_HttpRequestComplete(FHttpRequestPtr HttpRequest, FHt
 						TSharedPtr<FJsonValue> Field = JsonObject->TryGetField(TEXT("d"));
 						if ( Field.IsValid() && Field->AsObject()->TryGetArrayField(TEXT("results"), JsonItems) )
 						{
-							//add search result into cache
-							FSearchResults & SearchResults = SearchResultsCache.FindOrAdd(QueryText->ToString());
-							FCategoryResults & OnlineResults = SearchResults.OnlineResults;
-							OnlineResults.Empty();	//reset online results since we just got updated
-
 							// The default bing search list the top 50 results, we need to filter out the 10 from wiki, docs and answers.
 							for ( TSharedPtr<FJsonValue> JsonItem : *JsonItems )
 							{
@@ -533,14 +559,10 @@ void SSuperSearchBox::Query_HttpRequestComplete(FHttpRequestPtr HttpRequest, FHt
 							}
 						}
 					}
+
 					// with google search result
 					if (JsonObject->TryGetArrayField(TEXT("items"), JsonItems))
 					{
-						//add search result into cache
-						FSearchResults & SearchResults = SearchResultsCache.FindOrAdd(QueryText->ToString());
-						FCategoryResults & OnlineResults = SearchResults.OnlineResults;
-						OnlineResults.Empty();	//reset online results since we just got updated
-
 						for (TSharedPtr<FJsonValue> JsonItem : *JsonItems)
 						{
 							const TSharedPtr<FJsonObject> & ItemObject = JsonItem->AsObject();

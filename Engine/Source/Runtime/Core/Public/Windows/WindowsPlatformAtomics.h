@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformAtomics.h"
-#include "Windows/WindowsSystemIncludes.h"
-
+#include "WindowsSystemIncludes.h"
+#include <intrin.h>
 
 /**
  * Windows implementation of the Atomics OS functions
@@ -14,84 +15,132 @@ struct CORE_API FWindowsPlatformAtomics
 {
 	static FORCEINLINE int32 InterlockedIncrement( volatile int32* Value )
 	{
-		return (int32)::InterlockedIncrement((LPLONG)Value);
+		return (int32)_InterlockedIncrement((long*)Value);
 	}
 
 #if PLATFORM_HAS_64BIT_ATOMICS
 	static FORCEINLINE int64 InterlockedIncrement( volatile int64* Value )
 	{
-		return (int64)::InterlockedIncrement64((LONGLONG*)Value);
+		#if PLATFORM_64BITS
+			return (int64)::_InterlockedIncrement64((int64*)Value);
+		#else
+			// No explicit instruction for 64-bit atomic increment on 32-bit processors; has to be implemented in terms of CMPXCHG8B
+			for (;;)
+			{
+				int64 OldValue = *Value;
+				if (_InterlockedCompareExchange64(Value, OldValue + 1, OldValue) == OldValue)
+				{
+					return OldValue + 1;
+				}
+			}
+		#endif
 	}
 #endif
 
 	static FORCEINLINE int32 InterlockedDecrement( volatile int32* Value )
 	{
-		return (int32)::InterlockedDecrement((LPLONG)Value);
+		return (int32)::_InterlockedDecrement((long*)Value);
 	}
 
 #if PLATFORM_HAS_64BIT_ATOMICS
 	static FORCEINLINE int64 InterlockedDecrement( volatile int64* Value )
 	{
-		return (int64)::InterlockedDecrement64((LONGLONG*)Value);
+		#if PLATFORM_64BITS
+			return (int64)::_InterlockedDecrement64((int64*)Value);
+		#else
+			// No explicit instruction for 64-bit atomic decrement on 32-bit processors; has to be implemented in terms of CMPXCHG8B
+			for (;;)
+			{
+				int64 OldValue = *Value;
+				if (_InterlockedCompareExchange64(Value, OldValue - 1, OldValue) == OldValue)
+				{
+					return OldValue - 1;
+				}
+			}
+		#endif
 	}
 #endif
 
 	static FORCEINLINE int32 InterlockedAdd( volatile int32* Value, int32 Amount )
 	{
-		return (int32)::InterlockedExchangeAdd((LPLONG)Value, (LONG)Amount);
+		return (int32)::_InterlockedExchangeAdd((long*)Value, (long)Amount);
 	}
 
 #if PLATFORM_HAS_64BIT_ATOMICS
 	static FORCEINLINE int64 InterlockedAdd( volatile int64* Value, int64 Amount )
 	{
-		return (int64)::InterlockedExchangeAdd64((LONGLONG*)Value, (LONGLONG)Amount);
+		#if PLATFORM_64BITS
+			return (int64)::_InterlockedExchangeAdd64((int64*)Value, (int64)Amount);
+		#else
+			// No explicit instruction for 64-bit atomic add on 32-bit processors; has to be implemented in terms of CMPXCHG8B
+			for (;;)
+			{
+				int64 OldValue = *Value;
+				if (_InterlockedCompareExchange64(Value, OldValue + Amount, OldValue) == OldValue)
+				{
+					return OldValue + Amount;
+				}
+			}
+		#endif
 	}
 #endif
 
 	static FORCEINLINE int32 InterlockedExchange( volatile int32* Value, int32 Exchange )
 	{
-		return (int32)::InterlockedExchange((LPLONG)Value, (LONG)Exchange);
+		return (int32)::_InterlockedExchange((long*)Value, (long)Exchange);
 	}
 
 #if PLATFORM_HAS_64BIT_ATOMICS
 	static FORCEINLINE int64 InterlockedExchange( volatile int64* Value, int64 Exchange )
 	{
-		return (int64)::InterlockedExchange64((LONGLONG*)Value, (LONGLONG)Exchange);
+		#if PLATFORM_64BITS
+			return ::_InterlockedExchange64(Value, Exchange);
+		#else
+			// No explicit instruction for 64-bit atomic exchange on 32-bit processors; has to be implemented in terms of CMPXCHG8B
+			for (;;)
+			{
+				int64 OldValue = *Value;
+				if (_InterlockedCompareExchange64(Value, Exchange, OldValue) == OldValue)
+				{
+					return OldValue;
+				}
+			}
+		#endif
 	}
 #endif
 
 	static FORCEINLINE void* InterlockedExchangePtr( void** Dest, void* Exchange )
 	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) 
-		if (IsAligned(Dest) == false)
-		{
-			HandleAtomicsFailure(TEXT("InterlockedExchangePointer requires Dest pointer to be aligned to %d bytes"), sizeof(void*));
-		}
-#endif
+		#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) 
+			if (IsAligned(Dest) == false)
+			{
+				HandleAtomicsFailure(TEXT("InterlockedExchangePointer requires Dest pointer to be aligned to %d bytes"), sizeof(void*));
+			}
+		#endif
 
-#if PLATFORM_HAS_64BIT_ATOMICS
-		return ::InterlockedExchangePointer(Dest, Exchange);
-#else
-		return (void*)::InterlockedExchange((PLONG)(Dest), (LONG)(Exchange));
-#endif
+		#if PLATFORM_64BITS
+			return (void*)::_InterlockedExchange64((int64*)(Dest), (int64)(Exchange));
+		#else
+			return (void*)::_InterlockedExchange((long*)(Dest), (long)(Exchange));
+		#endif
 	}
 
 	static FORCEINLINE int32 InterlockedCompareExchange( volatile int32* Dest, int32 Exchange, int32 Comparand )
 	{
-		return (int32)::InterlockedCompareExchange((LPLONG)Dest, (LONG)Exchange, (LONG)Comparand);
+		return (int32)::_InterlockedCompareExchange((long*)Dest, (long)Exchange, (long)Comparand);
 	}
 
 #if PLATFORM_HAS_64BIT_ATOMICS
 	static FORCEINLINE int64 InterlockedCompareExchange( volatile int64* Dest, int64 Exchange, int64 Comparand )
 	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if (IsAligned(Dest) == false)
-		{
-			HandleAtomicsFailure(TEXT("InterlockedCompareExchangePointer requires Dest pointer to be aligned to %d bytes"), sizeof(void*));
-		}
-#endif
+		#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			if (IsAligned(Dest) == false)
+			{
+				HandleAtomicsFailure(TEXT("InterlockedCompareExchangePointer requires Dest pointer to be aligned to %d bytes"), sizeof(void*));
+			}
+		#endif
 
-		return (int64)::InterlockedCompareExchange64((LONGLONG*)Dest, (LONGLONG)Exchange, (LONGLONG)Comparand);
+		return (int64)::_InterlockedCompareExchange64(Dest, Exchange, Comparand);
 	}
 #endif
 
@@ -125,14 +174,18 @@ struct CORE_API FWindowsPlatformAtomics
 
 	static FORCEINLINE void* InterlockedCompareExchangePointer( void** Dest, void* Exchange, void* Comparand )
 	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if (IsAligned(Dest) == false)
-		{
-			HandleAtomicsFailure(TEXT("InterlockedCompareExchangePointer requires Dest pointer to be aligned to %d bytes"), sizeof(void*));
-		}
-#endif
+		#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			if (IsAligned(Dest) == false)
+			{
+				HandleAtomicsFailure(TEXT("InterlockedCompareExchangePointer requires Dest pointer to be aligned to %d bytes"), sizeof(void*));
+			}
+		#endif
 
-		return ::InterlockedCompareExchangePointer(Dest, Exchange, Comparand);
+		#if PLATFORM_64BITS
+			return (void*)::_InterlockedCompareExchange64((int64 volatile *)Dest, (int64)Exchange, (int64)Comparand);
+		#else
+			return (void*)::_InterlockedCompareExchange((long volatile *)Dest, (long)Exchange, (long)Comparand);
+		#endif
 	}
 
 	/**
@@ -141,7 +194,7 @@ struct CORE_API FWindowsPlatformAtomics
 	*/
 	static FORCEINLINE bool CanUseCompareExchange128()
 	{
-		return !!IsProcessorFeaturePresent( PF_COMPARE_EXCHANGE128 );
+		return !!Windows::IsProcessorFeaturePresent( WINDOWS_PF_COMPARE_EXCHANGE128 );
 	}
 
 protected:

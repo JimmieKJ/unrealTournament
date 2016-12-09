@@ -2,10 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "MoviePlayer.h"
 
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
-#include <windows.h>
 #include <mfapi.h>
 #include <mfidl.h>
 
@@ -38,6 +39,8 @@ public:
 
 	FOnCurrentMovieClipFinished OnCurrentMovieClipFinishedDelegate;
 	virtual FOnCurrentMovieClipFinished& OnCurrentMovieClipFinished() override { return OnCurrentMovieClipFinishedDelegate; }
+
+	virtual FTexture2DRHIRef GetTexture() override { return Texture.IsValid() ? Texture->GetRHIRef() : nullptr; }
 
 private:
 	/** Opens up the next movie in the movie path queue */

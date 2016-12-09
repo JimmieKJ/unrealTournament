@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "TextureRenderTarget2D.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/ScriptMacros.h"
+#include "Engine/TextureRenderTarget2D.h"
 #include "CanvasRenderTarget2D.generated.h"
-
 
 class UCanvas;
 

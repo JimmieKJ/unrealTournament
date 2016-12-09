@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "LayersModule.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "LayerCollectionViewModel.h"
 
 /**
  * The widget that represents a row in the LayersView's list view control.  Generates widgets for each column on demand.

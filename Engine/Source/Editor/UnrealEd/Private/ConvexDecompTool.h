@@ -7,6 +7,10 @@
 #ifndef __CONVEXDECOMPTOOL_H__
 #define __CONVEXDECOMPTOOL_H__
 
+#include "CoreMinimal.h"
+
+class UBodySetup;
+
 /** 
  *	Utlity for turning arbitary mesh into convex hulls.
  *	@output		InBodySetup			BodySetup that will have its existing hulls removed and replaced with results of decomposition.

@@ -4,10 +4,14 @@
 ConsoleManager.cpp: console command handling
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
-#include "ConsoleManager.h"
-#include "ModuleManager.h"
-#include "RemoteConfigIni.h"
+#include "HAL/ConsoleManager.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/Paths.h"
+#include "Stats/Stats.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/RemoteConfigIni.h"
 
 DEFINE_LOG_CATEGORY(LogConsoleResponse);
 DEFINE_LOG_CATEGORY_STATIC(LogConsoleManager, Log, All);
@@ -147,7 +151,7 @@ public:
 	void OnChanged(EConsoleVariableFlags SetBy)
 	{
 		// you have to specify a SetBy e.g. ECVF_SetByCommandline
-		check((uint32)SetBy & ECVF_SetByMask);
+		check(((uint32)SetBy & ECVF_SetByMask) || SetBy == ECVF_Default);
 
 		// double check, if this fires we miss a if(CanChange(SetBy))
 		check(CanChange(SetBy));
@@ -1404,7 +1408,9 @@ void FConsoleManager::AddConsoleHistoryEntry(const TCHAR* Input)
 		HistoryEntries.RemoveAt(0);
 	}
 
-	HistoryEntries.Add(FString(Input));
+	const FString InString(Input);
+	HistoryEntries.Remove(InString);
+	HistoryEntries.Add(InString);
 
 	SaveHistory();
 }
@@ -1665,10 +1671,9 @@ void CreateConsoleVariables()
 	IConsoleManager::Get().RegisterConsoleCommand(TEXT("VisualizeTexture"),	TEXT("To visualize internal textures"), ECVF_Cheat);
 	IConsoleManager::Get().RegisterConsoleCommand(TEXT("Vis"),	TEXT("short version of visualizetexture"), ECVF_Cheat);
 	IConsoleManager::Get().RegisterConsoleCommand(TEXT("VisRT"),	TEXT("GUI for visualizetexture"), ECVF_Cheat);
-	IConsoleManager::Get().RegisterConsoleCommand(TEXT("HighResShot"),	TEXT("High resolution screenshots [Magnification = 2..]"), ECVF_Cheat);
+	IConsoleManager::Get().RegisterConsoleCommand(TEXT("HighResShot"),	TEXT("High resolution screenshots ResolutionX(int32)xResolutionY(int32) Or Magnification(float) [CaptureRegionX(int32) CaptureRegionY(int32) CaptureRegionWidth(int32) CaptureRegionHeight(int32) MaskEnabled(int32) DumpBufferVisualizationTargets(int32) CaptureHDR(int32)]\nExample: HighResShot 500x500 50 50 120 500 1 1 1"), ECVF_Cheat);
 	IConsoleManager::Get().RegisterConsoleCommand(TEXT("DumpUnbuiltLightInteractions"),	TEXT("Logs all lights and primitives that have an unbuilt interaction."), ECVF_Cheat);
 	IConsoleManager::Get().RegisterConsoleCommand(TEXT("r.ResetViewState"), TEXT("Reset some state (e.g. TemporalAA index) to make rendering more deterministic (for automated screenshot verification)"), ECVF_Cheat);
-
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 
@@ -2208,30 +2213,6 @@ static TAutoConsoleVariable<int32> CVarTonemapperGrainQuantization(
 	TEXT("1: high (default, with high frequency pixel pattern to fight 8 bit color quantization)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
-static TAutoConsoleVariable<float> CVarTonemapperHDR(
-	TEXT("r.TonemapperHDR"),
-	1,
-	TEXT("Make tonemapper work with HDR display.\n")
-	TEXT("Requires 'r.TonemapperPhoto 1'.\n")
-	TEXT("1: standard dynamic range\n")
-	TEXT("#: high dynamic range (#=2 for 1 stop more, #=4 for 2 stops more, #=8 for 3 stops more and so on"),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
-
-static TAutoConsoleVariable<float> CVarTonemapperGamma(
-	TEXT("r.TonemapperGamma"),
-	0,
-	TEXT("0: don't use\n")
-	TEXT("#: used fixed gamma # instead of sRGB or Rec709 transform"),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
-
-static TAutoConsoleVariable<int32> CVarTonemapper709(
-	TEXT("r.Tonemapper709"),
-	0,
-	TEXT("0: use sRGB on PC monitor output\n")
-	TEXT("1: use Rec.709 for HDTV/projector output"),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
-
-
 static TAutoConsoleVariable<int32> CVarDetailMode(
 	TEXT("r.DetailMode"),
 	2,
@@ -2324,3 +2305,9 @@ static TAutoConsoleVariable<int32> CVarDisableOpenGLES31Support(
 	TEXT("  0 = OpenGLES 3.1 API will be used (providing device and project supports it) [default]\n")
 	TEXT("  1 = OpenGLES 3.1 will be disabled, OpenGL ES2 fall back will be used."),
 	ECVF_ReadOnly);
+
+static TAutoConsoleVariable<int32> GLSLCvar(
+	TEXT("r.Vulkan.UseGLSL"),
+	0,
+	TEXT("2 to use ES GLSL\n1 to use GLSL\n0 to use SPIRV")
+);

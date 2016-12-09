@@ -1,6 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "LayerCollectionViewCommands.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "DragAndDrop/ActorDragDropGraphEdOp.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+#include "Editor/Layers/Private/LayerCollectionViewModel.h"
+#include "Editor/Layers/Private/SLayersViewRow.h"
+
 #define LOCTEXT_NAMESPACE "LayersView"
 
 typedef SListView< TSharedPtr< FLayerViewModel > > SLayersListView;

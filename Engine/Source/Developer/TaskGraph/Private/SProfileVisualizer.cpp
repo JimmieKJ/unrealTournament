@@ -1,12 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TaskGraphPrivatePCH.h"
-#include "SlateBasics.h"
-#include "TaskGraphStyle.h"
 #include "SProfileVisualizer.h"
-#include "TaskGraphInterfaces.h"
-#include "STaskGraph.h"
-#include "SGraphBar.h"
+#include "Widgets/SBoxPanel.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "TaskGraphStyle.h"
 #include "SBarVisualizer.h"
 #include "SEventsTree.h"
 	

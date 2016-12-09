@@ -3,10 +3,14 @@
 #pragma once
 
 // UE4 includes
-#include "Core.h"
+
+#include "CoreMinimal.h"
+#include "OnlineSubsystem.h"
+#include "Interfaces/OnlineSharingInterface.h"
 
 // Module includes
-#include "OnlineSharingInterface.h"
+
+class UWorld;
 
 #if WITH_DEV_AUTOMATION_TESTS
 

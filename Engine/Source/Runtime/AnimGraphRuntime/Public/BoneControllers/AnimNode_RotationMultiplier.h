@@ -2,9 +2,14 @@
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BoneContainer.h"
+#include "BonePose.h"
+#include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "AnimNode_RotationMultiplier.generated.h"
 
+class USkeletalMeshComponent;
 
 /**
  *	Simple controller that multiplies scalar value to the translation/rotation/scale of a single bone.
@@ -15,11 +20,11 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_RotationMultiplier : public FAnimNode_Skel
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** Name of bone to control. This is the main bone chain to modify from. **/
+	/** Name of bone to control. This is the main bone chain to modify from. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Multiplier) 
 	FBoneReference	TargetBone;
 
-	/** Source to get transform from **/
+	/** Source to get transform from */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Multiplier)
 	FBoneReference	SourceBone;
 

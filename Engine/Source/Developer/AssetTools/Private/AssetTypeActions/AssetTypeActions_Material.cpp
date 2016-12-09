@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "Editor/MaterialEditor/Public/MaterialEditorModule.h"
+#include "AssetTypeActions/AssetTypeActions_Material.h"
+#include "MaterialEditorModule.h"
 
 
 void FAssetTypeActions_Material::OpenAssetEditor( const TArray<UObject*>& InObjects, TSharedPtr<IToolkitHost> EditWithinLevelEditor )

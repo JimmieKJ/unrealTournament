@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "BTCompositeNode.h"
-#include "BTTaskNode.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "Engine/Blueprint.h"
+#include "BehaviorTree/BTCompositeNode.h"
 #include "BehaviorTree.generated.h"
 
-class UBTCompositeNode;
 class UBlackboardData;
 class UBTDecorator;
 

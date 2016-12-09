@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "PropertyEditorPrivatePCH.h"
-#include "SResetToDefaultPropertyEditor.h"
-#include "PropertyEditor.h"
-#include "IDetailPropertyRow.h"
+#include "UserInterface/PropertyEditor/SResetToDefaultPropertyEditor.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
 
 #define LOCTEXT_NAMESPACE "ResetToDefaultPropertyEditor"
 
@@ -32,7 +31,6 @@ void SResetToDefaultPropertyEditor::Construct( const FArguments& InArgs, const T
 	}
 	else
 	{
-		InPropertyEditor->GetPropertyNode()->OnPropertyValueChanged().AddSP(this, &SResetToDefaultPropertyEditor::OnPropertyValueChanged);
 
 		// Indicator for a value that differs from default. Also offers the option to reset to default.
 		ChildSlot
@@ -57,10 +55,7 @@ void SResetToDefaultPropertyEditor::Construct( const FArguments& InArgs, const T
 
 void SResetToDefaultPropertyEditor::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	if (OptionalCustomResetToDefault.IsSet())
-	{
-		bValueDiffersFromDefault = OptionalCustomResetToDefault.GetValue().IsResetToDefaultVisible(PropertyEditor->GetPropertyHandle());
-	}
+	UpdateDiffersFromDefaultState();
 }
 
 FText SResetToDefaultPropertyEditor::GetResetToolTip() const
@@ -70,8 +65,13 @@ FText SResetToDefaultPropertyEditor::GetResetToolTip() const
 
 	if( !PropertyEditor->IsEditConst() && PropertyEditor->ValueDiffersFromDefault() )
 	{
-		Tooltip += "\n";
-		Tooltip += PropertyEditor->GetResetToDefaultLabel().ToString();
+		FString DefaultLabel = PropertyEditor->GetResetToDefaultLabel().ToString();
+
+		if (DefaultLabel.Len() > 0)
+		{
+			Tooltip += "\n";
+			Tooltip += DefaultLabel;
+		}
 	}
 
 	return FText::FromString(Tooltip);
@@ -101,11 +101,6 @@ void SResetToDefaultPropertyEditor::UpdateDiffersFromDefaultState()
 	{
 		bValueDiffersFromDefault = PropertyEditor->IsResetToDefaultAvailable();
 	}
-}
-
-void SResetToDefaultPropertyEditor::OnPropertyValueChanged()
-{
-	UpdateDiffersFromDefaultState();
 }
 
 EVisibility SResetToDefaultPropertyEditor::GetDiffersFromDefaultAsVisibility() const

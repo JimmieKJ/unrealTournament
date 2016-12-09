@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 #include "SScrubWidget.h"
 #include "Editor/EditorWidgets/Public/ITransportControl.h"
 
@@ -13,6 +17,7 @@ public:
 		: _Value( 0 )
 		, _NumOfKeys()
 		, _SequenceLength()
+		, _DisplayDrag(true)
 		, _OnValueChanged()
 		, _OnBeginSliderMovement()
 		, _OnEndSliderMovement()
@@ -26,6 +31,7 @@ public:
 		, _OnClickedToggleLoop()
 		, _OnGetLooping()
 		, _OnGetPlaybackMode()
+		, _OnGetRecording()
 		, _ViewInputMin()
 		, _ViewInputMax()
 		, _OnSetInputViewRange()
@@ -36,6 +42,7 @@ public:
 		SLATE_ATTRIBUTE( uint32, NumOfKeys )
 		SLATE_ATTRIBUTE( float, SequenceLength )
 		SLATE_ARGUMENT( bool, bAllowZoom )
+		SLATE_ATTRIBUTE(bool, DisplayDrag)
 		/** Called when the value is changed by slider or typing */
 		SLATE_EVENT( FOnFloatValueChanged, OnValueChanged )
 		/** Called right before the slider begins to move */
@@ -55,6 +62,7 @@ public:
 		SLATE_EVENT( FOnClicked, OnClickedToggleLoop )
 		SLATE_EVENT( FOnGetLooping, OnGetLooping )
 		SLATE_EVENT( FOnGetPlaybackMode, OnGetPlaybackMode )
+		SLATE_EVENT( FOnGetRecording, OnGetRecording )
 		/** View Input range **/
 		SLATE_ATTRIBUTE( float, ViewInputMin )
 		SLATE_ATTRIBUTE( float, ViewInputMax )

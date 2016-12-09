@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "HttpPrivatePCH.h"
 #include "AppleHTTP.h"
 #include "EngineVersion.h"
 #include "Security/Security.h"
+#include "Misc/App.h"
+#include "HAL/PlatformTime.h"
+#include "Http.h"
+#include "HttpModule.h"
 
 /****************************************************************************
  * FAppleHttpRequest implementation
@@ -21,6 +24,9 @@ FAppleHttpRequest::FAppleHttpRequest()
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::FAppleHttpRequest()"));
 	Request = [[NSMutableURLRequest alloc] init];
 	Request.timeoutInterval = FHttpModule::Get().GetHttpTimeout();
+
+	// Disable cache to mimic WinInet behavior
+	Request.cachePolicy = NSURLRequestReloadIgnoringLocalCacheData;
 }
 
 
@@ -589,7 +595,7 @@ int32 FAppleHttpResponse::GetContentLength()
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpResponse::GetContentLength()"));
 
-	return [ResponseWrapper getPayload].Num();
+	return ResponseWrapper.Response.expectedContentLength;
 }
 
 

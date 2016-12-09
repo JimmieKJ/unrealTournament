@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /**
  * Types of easing functions for Slate animation curves.  These are used to smooth out animations.

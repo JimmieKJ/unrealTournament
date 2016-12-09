@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "UnitConversion.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Optional.h"
+#include "Internationalization/Text.h"
+#include "Templates/ValueOrError.h"
+#include "Math/UnitConversion.h"
+
+template<typename NumericType> struct TDefaultNumericTypeInterface;
+template<typename NumericType> struct TNumericUnitTypeInterface;
 
 template<typename NumericType>
 TNumericUnitTypeInterface<NumericType>::TNumericUnitTypeInterface(EUnit InUnits)

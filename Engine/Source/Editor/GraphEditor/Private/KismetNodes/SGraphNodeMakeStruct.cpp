@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeK2Base.h"
-#include "SGraphNodeMakeStruct.h"
-#include "KismetPins/SGraphPinExec.h"
+#include "KismetNodes/SGraphNodeMakeStruct.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboBox.h"
+#include "SGraphPin.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "K2Node_MakeStruct.h"
 #include "NodeFactory.h"
 
 #include "ScopedTransaction.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "SGraphNodeMakeStruct"
 

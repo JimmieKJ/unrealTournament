@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "LandscapeSplineSegment.h"
+
 class ULandscapeInfo;
 class ULandscapeLayerInfoObject;
-struct FLandscapeSplineInterpPoint;
 
 namespace LandscapeSplineRaster
 {

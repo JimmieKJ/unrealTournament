@@ -97,6 +97,10 @@ struct FPartyState
 	{
 	}
 
+	virtual ~FPartyState()
+	{
+	}
+
 	/** Reset party back to defaults */
 	virtual void Reset()
 	{}

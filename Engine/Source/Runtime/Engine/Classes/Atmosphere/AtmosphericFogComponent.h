@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/SceneComponent.h"
+#include "Serialization/BulkData.h"
 #include "AtmosphericFogComponent.generated.h"
 
 /** Structure storing Data for pre-computation */

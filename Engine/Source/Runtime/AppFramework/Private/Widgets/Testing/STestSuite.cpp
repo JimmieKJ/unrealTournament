@@ -1,34 +1,109 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AppFrameworkPrivatePCH.h"
-#include "STestSuite.h"
+#include "Widgets/Testing/STestSuite.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/Paths.h"
+#include "Misc/Attribute.h"
+#include "Modules/ModuleManager.h"
+#include "InputCoreTypes.h"
+#include "SlateGlobals.h"
+#include "Layout/Visibility.h"
+#include "Types/ISlateMetaData.h"
+#include "Layout/Margin.h"
+#include "Math/TransformCalculus2D.h"
+#include "Rendering/SlateLayoutTransform.h"
+#include "Animation/CurveHandle.h"
+#include "Animation/CurveSequence.h"
+#include "Styling/SlateColor.h"
+#include "Textures/SlateShaderResource.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Fonts/FontMeasure.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "Brushes/SlateImageBrush.h"
+#include "Styling/SlateStyle.h"
+#include "Input/Events.h"
+#include "Input/Reply.h"
+#include "Rendering/RenderingCommon.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/SUserWidget.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/InputChord.h"
+#include "Framework/Commands/Commands.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/Text/TextRange.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/TextLayout.h"
+#include "Framework/Text/ISlateRun.h"
+#include "Framework/Text/SlateTextRun.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "Framework/Text/SlateWidgetRun.h"
+#include "Widgets/Layout/SFxWidget.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/Text/ITextDecorator.h"
+#include "Framework/Text/TextDecorators.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Input/SEditableText.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Notifications/SErrorText.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Framework/Docking/WorkspaceItem.h"
+#include "Framework/Docking/TabManager.h"
 
 #if !UE_BUILD_SHIPPING
 
 #include "ISlateReflectorModule.h"
-#include "STableViewTesting.h"
-#include "SLayoutExample.h"
-#include "SWidgetGallery.h"
-#include "TestStyle.h"
-#include "RichTextLayoutMarshaller.h"
-#include "SyntaxHighlighterTextLayoutMarshaller.h"
-#include "SScissorRectBox.h"
-#include "TransformCalculus3D.h"
-#include "SlateRenderTransform.h"
-#include "SlateLayoutTransform.h"
-#include "SInlineEditableTextBlock.h"
-#include "STextEntryPopup.h"
-#include "SDPIScaler.h"
-#include "SNotificationList.h"
-#include "SNumericEntryBox.h"
-#include "SDockTab.h"
-#include "SSearchBox.h"
-#include "SVolumeControl.h"
-#include "SResponsiveGridPanel.h"
-#include "SColorPicker.h"
-#include "INotificationWidget.h"
-#include "IMenu.h"
-#include "SInvalidationPanel.h"
+#include "Framework/Testing/STableViewTesting.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Input/SVolumeControl.h"
+#include "Widgets/Input/STextEntryPopup.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Layout/SDPIScaler.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Testing/SLayoutExample.h"
+#include "Framework/Testing/SWidgetGallery.h"
+#include "Framework/Testing/TestStyle.h"
+#include "Framework/Text/RichTextLayoutMarshaller.h"
+#include "Framework/Text/SyntaxHighlighterTextLayoutMarshaller.h"
+#include "Widgets/Layout/SScissorRectBox.h"
+#include "Math/TransformCalculus3D.h"
+#include "Widgets/Layout/SResponsiveGridPanel.h"
+#include "Widgets/Colors/SColorPicker.h"
+#include "Widgets/Notifications/INotificationWidget.h"
+#include "Widgets/SInvalidationPanel.h"
+
 
 #define LOCTEXT_NAMESPACE "STestSuite"
 
@@ -543,13 +618,16 @@ private:
 		const FText Text = LOCTEXT("TestText", "The quick brown fox jumps over the lazy dog 0123456789");
 		const FString FontName( FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf" ) );
 		uint32 FontSize = 14;
+		FSlateFontInfo FontInfo(FontName, FontSize);
+		FontInfo.OutlineSettings.OutlineColor = FLinearColor::Blue;
+		FontInfo.OutlineSettings.OutlineSize = 2;
 
 		FSlateDrawElement::MakeText(
 			InParams.OutDrawElements,
 			InParams.Layer,
 			InParams.Geometry.ToPaintGeometry(FVector2D(0,0), InParams.Geometry.Size, FontScale),
 			Text.ToString(),
-			FSlateFontInfo( FontName,FontSize ),
+			FontInfo,
 			InParams.ClippingRect,
 			InParams.bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect,
 			FColor( 255, 255, 255 )
@@ -5834,15 +5912,17 @@ void RestoreSlateTestSuite()
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner("WidgetGalleryTab", FOnSpawnTab::CreateStatic(&SpawnWidgetGallery))
 		.SetDisplayName(LOCTEXT("WidgetGalleryTab", "Widget Gallery"))
 		.SetGroup(TestSuiteMenu::MenuRoot);
-	
+
+	const float DPIScaleFactor = FPlatformMisc::GetDPIScaleFactorAtPoint(10, 10);
+
 	TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout( "SlateTestSuite_Layout" )
 	->AddArea
 	(
-		FTabManager::NewArea(720,600)
+		FTabManager::NewArea(720 * DPIScaleFactor, 600 * DPIScaleFactor)
 #if PLATFORM_MAC
-		->SetWindow( FVector2D(420,32), false )
+		->SetWindow( FVector2D(420 * DPIScaleFactor, 32 * DPIScaleFactor), false )
 #else
-		->SetWindow( FVector2D(420,10), false )
+		->SetWindow( FVector2D(420 * DPIScaleFactor, 10 * DPIScaleFactor), false )
 #endif
 		->Split
 		(
@@ -5857,11 +5937,11 @@ void RestoreSlateTestSuite()
 	->AddArea
 	(
 		// This area will get a 400x600 window at 10,10
-		FTabManager::NewArea(400,600)
+		FTabManager::NewArea(400 * DPIScaleFactor, 600 * DPIScaleFactor)
 #if PLATFORM_MAC
-		->SetWindow( FVector2D(10,32), false )
+		->SetWindow( FVector2D(10 * DPIScaleFactor, 32 * DPIScaleFactor), false )
 #else
-		->SetWindow( FVector2D(10,10), false )
+		->SetWindow( FVector2D(10 * DPIScaleFactor, 10 * DPIScaleFactor), false )
 #endif
 		->Split
 		(

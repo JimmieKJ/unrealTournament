@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "DragAndDrop.h"
+#include "CoreMinimal.h"
+#include "Input/DragAndDrop.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "DecoratedDragDrop"
 

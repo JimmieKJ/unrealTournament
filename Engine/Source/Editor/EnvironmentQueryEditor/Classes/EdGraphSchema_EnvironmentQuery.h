@@ -2,8 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AIGraphTypes.h"
+#include "EdGraph/EdGraphSchema.h"
 #include "AIGraphSchema.h"
 #include "EdGraphSchema_EnvironmentQuery.generated.h"
+
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UEdGraphSchema_EnvironmentQuery : public UAIGraphSchema

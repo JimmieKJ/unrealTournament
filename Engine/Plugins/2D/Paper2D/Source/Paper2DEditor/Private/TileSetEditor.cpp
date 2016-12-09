@@ -1,26 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
 #include "TileSetEditor.h"
+#include "UObject/Package.h"
+#include "EditorStyleSet.h"
 #include "PaperTileSet.h"
 #include "SSingleObjectDetailsPanel.h"
-#include "SceneViewport.h"
-#include "PaperEditorViewportClient.h"
-#include "TileMapEditing/EdModeTileMap.h"
-#include "GraphEditor.h"
-#include "SPaperEditorViewport.h"
-#include "CanvasTypes.h"
-#include "CanvasItem.h"
-#include "SDockTab.h"
-#include "PaperStyle.h"
-#include "TileSetEditor/TileSetEditorViewportClient.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "TileSetEditor/TileSetSelectorViewport.h"
 #include "TileSetEditor/SingleTileEditorViewport.h"
 #include "TileSetEditor/SingleTileEditorViewportClient.h"
 #include "TileSetEditor/TileSetEditorCommands.h"
+#include "IDetailCustomization.h"
 #include "TileSetEditor/TileSetDetailsCustomization.h"
 #include "PaperEditorShared/SpriteGeometryEditCommands.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
+#include "IDetailsView.h"
 
 #define LOCTEXT_NAMESPACE "TileSetEditor"
 
@@ -124,7 +117,8 @@ public:
 // FTileSetEditor
 
 FTileSetEditor::FTileSetEditor()
-	: bUseAlternateLayout(false)
+	: TileSetBeingEdited(nullptr)
+	, bUseAlternateLayout(false)
 {
 	// Register to be notified when properties are edited
 	FCoreUObjectDelegates::FOnObjectPropertyChanged::FDelegate OnPropertyChangedDelegate = FCoreUObjectDelegates::FOnObjectPropertyChanged::FDelegate::CreateRaw(this, &FTileSetEditor::OnPropertyChanged);

@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Misc/EnumRange.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/SlateDelegates.h"
+
 namespace EPlaybackMode
 {
 	enum Type
@@ -9,11 +15,11 @@ namespace EPlaybackMode
 		Stopped,
 		PlayingForward,
 		PlayingReverse,
-		Recording,
 	};
 }
 
 DECLARE_DELEGATE_RetVal(bool, FOnGetLooping)
+DECLARE_DELEGATE_RetVal(bool, FOnGetRecording)
 DECLARE_DELEGATE_RetVal(EPlaybackMode::Type, FOnGetPlaybackMode)
 DECLARE_DELEGATE_TwoParams(FOnTickPlayback, double /*InCurrentTime*/, float /*InDeltaTime*/)
 DECLARE_DELEGATE_RetVal(TSharedRef<SWidget>, FOnMakeTransportWidget)
@@ -66,6 +72,8 @@ struct FTransportControlArgs
 		, OnGetLooping()
 		, OnGetPlaybackMode()
 		, OnTickPlayback()
+		, OnGetRecording()
+		, bAreButtonsFocusable(true)
 	{}
 
 	FOnClicked OnForwardPlay;
@@ -79,6 +87,8 @@ struct FTransportControlArgs
 	FOnGetLooping OnGetLooping;
 	FOnGetPlaybackMode OnGetPlaybackMode;
 	FOnTickPlayback OnTickPlayback;
+	FOnGetRecording OnGetRecording;
+	bool bAreButtonsFocusable;
 
 	/** 
 	 * Array of custom widgets to create - if this array is used the default widget ordering will be

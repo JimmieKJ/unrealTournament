@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SessionServicesPrivatePCH.h"
+#include "SessionService.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/App.h"
+#include "Helpers/MessageEndpointBuilder.h"
+#include "SessionServiceMessages.h"
 
 
 /* FSessionService structors
  *****************************************************************************/
 
-FSessionService::FSessionService(const IMessageBusRef& InMessageBus)
+FSessionService::FSessionService(const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InMessageBus)
 	: MessageBusPtr(InMessageBus)
 { }
 
@@ -22,7 +26,7 @@ FSessionService::~FSessionService()
 
 bool FSessionService::Start()
 {
-	IMessageBusPtr MessageBus = MessageBusPtr.Pin();
+	auto MessageBus = MessageBusPtr.Pin();
 
 	if (!MessageBus.IsValid())
 	{
@@ -105,7 +109,7 @@ void FSessionService::SendNotification(const TCHAR* NotificationText, const FMes
 }
 
 
-void FSessionService::SendPong(const IMessageContextRef& Context, const FString& UserName)
+void FSessionService::SendPong(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, const FString& UserName)
 {
 	if (!MessageEndpoint.IsValid())
 	{
@@ -146,21 +150,21 @@ void FSessionService::HandleMessageEndpointShutdown()
 }
 
 
-void FSessionService::HandleSessionLogSubscribeMessage(const FSessionServiceLogSubscribe& Message, const IMessageContextRef& Context)
+void FSessionService::HandleSessionLogSubscribeMessage(const FSessionServiceLogSubscribe& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
 	FScopeLock Lock(&LogSubscribersLock);
 	LogSubscribers.AddUnique(Context->GetSender());
 }
 
 
-void FSessionService::HandleSessionLogUnsubscribeMessage(const FSessionServiceLogUnsubscribe& Message, const IMessageContextRef& Context)
+void FSessionService::HandleSessionLogUnsubscribeMessage(const FSessionServiceLogUnsubscribe& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
 	FScopeLock Lock(&LogSubscribersLock);
 	LogSubscribers.Remove(Context->GetSender());
 }
 
 
-void FSessionService::HandleSessionPingMessage(const FSessionServicePing& Message, const IMessageContextRef& Context)
+void FSessionService::HandleSessionPingMessage(const FSessionServicePing& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
 {
 	SendPong(Context, Message.UserName);
 }

@@ -63,6 +63,7 @@ public class Launch : ModuleRules
 				DynamicallyLoadedModuleNames.Add("D3D12RHI");
 				DynamicallyLoadedModuleNames.Add("D3D11RHI");
 				DynamicallyLoadedModuleNames.Add("XAudio2");
+				DynamicallyLoadedModuleNames.Add("AudioMixerXAudio2");
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Mac)
 			{
@@ -190,6 +191,7 @@ public class Launch : ModuleRules
 			PrivateDependencyModuleNames.Add("OpenGLDrv"); 
 			PrivateDependencyModuleNames.Add("AndroidAudio");
 			DynamicallyLoadedModuleNames.Add("AndroidRuntimeSettings");
+			DynamicallyLoadedModuleNames.Add("AndroidLocalNotification");
 		}
 
 		if ((Target.Platform == UnrealTargetPlatform.Win32) ||

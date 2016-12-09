@@ -2,8 +2,19 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/AssetPtr.h"
 #include "Sound/SoundNodeAssetReferencer.h"
 #include "SoundNodeWavePlayer.generated.h"
+
+class FAudioDevice;
+class USoundWave;
+struct FActiveSound;
+struct FPropertyChangedEvent;
+struct FSoundParseParameters;
+struct FWaveInstance;
 
 /** 
  * Sound node that contains a reference to the raw wave file to be played

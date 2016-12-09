@@ -2,14 +2,22 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraph.h"
 #include "K2Node_CallFunction.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_AddComponent.generated.h"
+
+class UActorComponent;
 
 UCLASS(MinimalAPI)
 class UK2Node_AddComponent : public UK2Node_CallFunction
 {
 	GENERATED_UCLASS_BODY()
+
+	/** Prefix used for component template object name. */
+	BLUEPRINTGRAPH_API static const FString ComponentTemplateNamePrefix;
 
 	UPROPERTY()
 	uint32 bHasExposedVariable:1;
@@ -19,6 +27,7 @@ class UK2Node_AddComponent : public UK2Node_CallFunction
 	FString TemplateBlueprint;
 
 	//~ Begin UObject Interface
+	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	//~ End UObject Interface
 
@@ -59,6 +68,9 @@ class UK2Node_AddComponent : public UK2Node_CallFunction
 	{
 		return FindPinChecked(TEXT("bManualAttachment"));
 	}
+
+	/** Helper method used to generate a new, unique component template name. */
+	FName MakeNewComponentTemplateName(UObject* InOuter, UClass* InComponentClass);
 
 	/** Helper method used to instantiate a new component template after duplication. */
 	BLUEPRINTGRAPH_API void MakeNewComponentTemplate();

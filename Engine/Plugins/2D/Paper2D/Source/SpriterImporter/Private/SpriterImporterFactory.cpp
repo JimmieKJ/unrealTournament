@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SpriterImporterPrivatePCH.h"
-#include "Json.h"
+#include "SpriterImporterFactory.h"
+#include "SpriterImporterLog.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonSerializer.h"
 #include "PaperJSONHelpers.h"
 #include "AssetToolsModule.h"
 #include "AssetRegistryModule.h"
 #include "PackageTools.h"
-#include "SpriterImporterFactory.h"
 #include "PaperSpriterImportData.h"
 #include "PaperImporterSettings.h"
 

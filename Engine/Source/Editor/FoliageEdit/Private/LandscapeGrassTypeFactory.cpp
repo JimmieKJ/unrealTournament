@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "LandscapeGrassTypeFactory.h"
-#include "IAssetTypeActions.h"
+#include "AssetTypeCategories.h"
 #include "LandscapeGrassType.h"
 
 ULandscapeGrassTypeFactory::ULandscapeGrassTypeFactory(const FObjectInitializer& ObjectInitializer)

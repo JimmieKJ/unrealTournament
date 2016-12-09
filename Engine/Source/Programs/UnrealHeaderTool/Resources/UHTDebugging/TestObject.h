@@ -21,6 +21,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Random")
 	void TestForNullPtrDefaults(UObject* Obj1 = NULL, UObject* Obj2 = nullptr, UObject* Obj3 = 0);
 
+	UFUNCTION()
+	void TestPassingArrayOfInterfaces(const TArray<TScriptInterface<ITestInterface> >& ArrayOfInterfaces);
+
 	UPROPERTY()
 	int32 Cpp11Init = 123;
 
@@ -82,59 +85,6 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
 	UClass* BrokenReturnTypeForFunction();
-
-#if 0
-	UPROPERTY()
-	ITestInterface* ShouldGiveAMeaningfulErrorAboutTScriptInterface;
-#endif
-
-#if BLAH
-	UFUNCTION() int x; // This should not compile if UHT parses it, which it shouldn't
-#elif BLAH2
-	UFUNCTION() int x;
-#else
-	UFUNCTION() int x;
-#endif
-
-#ifdef X
-	UFUNCTION() int x;
-	#ifndef X
-		UFUNCTION() int x;
-	#elif BLAH4
-		UFUNCTION() int x;
-	#else
-		UFUNCTION() int x;
-	#endif
-	UFUNCTION() int x;
-#elif BLAH3
-	UFUNCTION() int x;
-	#ifndef X
-		UFUNCTION() int x;
-	#elif BLAH4
-		UFUNCTION() int x;
-	#else
-		UFUNCTION() int x;
-	#endif
-	UFUNCTION() int x;
-#else
-	UFUNCTION() int x;
-	#ifndef X
-		UFUNCTION() int x;
-	#elif BLAH4
-		UFUNCTION() int x;
-	#else
-		UFUNCTION() int x;
-	#endif
-	UFUNCTION() int x;
-#endif
-
-#ifndef X
-	UFUNCTION() int x;
-#elif BLAH4
-	UFUNCTION() int x;
-#else
-	UFUNCTION() int x;
-#endif
 };
 
 PRAGMA_ENABLE_DEPRECATION_WARNINGS

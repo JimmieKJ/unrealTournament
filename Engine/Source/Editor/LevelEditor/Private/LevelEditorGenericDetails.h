@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
 class IMaterialListBuilder;
+class UMaterialInterface;
 
 /**
  * Creates details for the level editor details view that are not specific to any selected actor type

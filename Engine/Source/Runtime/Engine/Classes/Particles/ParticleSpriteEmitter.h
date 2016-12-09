@@ -2,8 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/ParticleEmitter.h"
 #include "ParticleSpriteEmitter.generated.h"
+
+class UParticleSystemComponent;
 
 UENUM()
 enum EParticleScreenAlignment
@@ -14,6 +19,7 @@ enum EParticleScreenAlignment
 	PSA_Velocity,
 	PSA_AwayFromCenter,
 	PSA_TypeSpecific,
+	PSA_FacingCameraDistanceBlend,
 	PSA_MAX,
 };
 

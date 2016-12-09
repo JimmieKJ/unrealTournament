@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Timespan.h"
+
 /**
  * Class for encoding/decoding Base64 data (RFC 4648)
  */

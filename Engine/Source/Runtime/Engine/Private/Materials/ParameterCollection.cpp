@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "ParameterCollection.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "RenderingThread.h"
+#include "UniformBuffer.h"
+#include "Engine/World.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
 #include "Materials/MaterialParameterCollectionInstance.h"
 #include "Materials/MaterialParameterCollection.h"
 #include "Materials/MaterialExpressionCollectionParameter.h"
@@ -411,7 +417,7 @@ void UMaterialParameterCollection::CreateBufferStruct()
 	NextMemberOffset += VectorArraySize;
 	static FName LayoutName(TEXT("MaterialCollection"));
 	const uint32 StructSize = Align(NextMemberOffset,UNIFORM_BUFFER_STRUCT_ALIGNMENT);
-	UniformBufferStruct = new FUniformBufferStruct(
+	UniformBufferStruct = MakeUnique<FUniformBufferStruct>(
 		LayoutName,
 		TEXT("MaterialCollection"),
 		TEXT("MaterialCollection"),

@@ -3,6 +3,8 @@
 #pragma once
 
 #include <IOKit/hid/IOHIDLib.h>
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
+#include "Templates/SharedPointer.h"
 
 #define MAX_NUM_HIDINPUT_CONTROLLERS 4
 
@@ -24,6 +26,8 @@ public:
 	{
 		MessageHandler = InMessageHandler;
 	}
+
+	bool IsGamepadAttached() const { return bIsGamepadAttached; }
 
 private:
 
@@ -113,6 +117,8 @@ private:
 
 	/** Delay before sendign a repeat message after a button has been pressed for a while */
 	float ButtonRepeatDelay;
+
+	bool bIsGamepadAttached;
 
 	IOHIDManagerRef HIDManager;
 

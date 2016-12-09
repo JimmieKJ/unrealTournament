@@ -2,14 +2,20 @@
 
 #pragma once
 
-#include "SlateCore.h" // for ISlateViewport
-#include "Runtime/AssetRegistry/Public/AssetData.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Misc/Attribute.h"
+#include "AssetData.h"
+#include "Rendering/RenderingCommon.h"
+#include "Widgets/SWidget.h"
 #include "TickableEditorObject.h"
 
-
+class AActor;
+class FAssetThumbnailPool;
+class FSlateShaderResource;
 class FSlateTexture2DRHIRef;
 class FSlateTextureRenderTarget2DResource;
-
+struct FPropertyChangedEvent;
 
 namespace EThumbnailLabel
 {

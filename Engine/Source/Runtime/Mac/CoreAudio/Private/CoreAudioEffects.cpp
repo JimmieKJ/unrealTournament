@@ -8,10 +8,7 @@
  Audio includes.
  ------------------------------------------------------------------------------------*/
 
-#include "CoreAudioDevice.h"
-#include "AudioEffect.h"
 #include "CoreAudioEffects.h"
-#include "Engine.h"
 
 static CFBundleRef LoadRadioEffectComponent()
 {

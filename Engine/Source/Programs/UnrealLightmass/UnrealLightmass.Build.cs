@@ -10,6 +10,8 @@ public class UnrealLightmass : ModuleRules
 
         PrivateDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "zlib", "SwarmInterface", "Projects" });
 
+		Definitions.Add("UE_LIGHTMASS=1");
+
 		if ((Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Win32))
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "DX9");

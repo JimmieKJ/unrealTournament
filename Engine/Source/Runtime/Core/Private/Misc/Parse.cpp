@@ -1,7 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "LazyPrintf.h"
+#include "Misc/Parse.h"
+#include "Misc/DateTime.h"
+#include "HAL/PlatformProcess.h"
+#include "UObject/NameTypes.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Containers/Set.h"
+#include "Internationalization/Text.h"
+#include "Misc/Guid.h"
+#include "Misc/OutputDeviceNull.h"
+#include "HAL/IConsoleManager.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "Containers/LazyPrintf.h"
 
 #if !UE_BUILD_SHIPPING 
 /**
@@ -213,7 +225,7 @@ bool FParse::Value(
 	bool			bShouldStopOnComma
 )
 {
-	const TCHAR* Found = FCString::Strfind(Stream,Match);
+	const TCHAR* Found = FCString::Strifind(Stream,Match);
 
 	if (!Found)
 	{
@@ -254,6 +266,9 @@ bool FParse::Value(
 	}
 	else
 	{
+		// Skip initial whitespace
+		Start += FCString::Strspn(Start, TEXT(" \r\n\t"));
+
 		// Non-quoted string without spaces.
 		FCString::Strncpy( Value, Start, MaxLen );
 		Value[MaxLen-1]=0;
@@ -278,7 +293,7 @@ bool FParse::Param( const TCHAR* Stream, const TCHAR* Param )
 	const TCHAR* Start = Stream;
 	if( *Stream )
 	{
-		while( (Start=FCString::Strfind(Start+1,Param)) != NULL )
+		while( (Start=FCString::Strifind(Start+1,Param)) != NULL )
 		{
 			if( Start>Stream && (Start[-1]=='-' || Start[-1]=='/') )
 			{
@@ -393,7 +408,7 @@ bool FParse::Text( const TCHAR* Buffer, FText& Value, const TCHAR* Namespace )
 bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, FText& Value, const TCHAR* Namespace )
 {
 	// The FText 
-	Stream = FCString::Strfind( Stream, Match );
+	Stream = FCString::Strifind( Stream, Match );
 	if( Stream )
 	{
 		Stream += FCString::Strlen( Match );
@@ -453,7 +468,7 @@ bool FParse::Value(	const TCHAR* Stream, const TCHAR* Match, FName& Name )
 //
 bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, uint32& Value )
 {
-	const TCHAR* Temp = FCString::Strfind(Stream,Match);
+	const TCHAR* Temp = FCString::Strifind(Stream,Match);
 	TCHAR* End;
 	if( Temp==NULL )
 		return 0;
@@ -467,7 +482,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, uint32& Value )
 //
 bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, uint8& Value )
 {
-	const TCHAR* Temp = FCString::Strfind(Stream,Match);
+	const TCHAR* Temp = FCString::Strifind(Stream,Match);
 	if( Temp==NULL )
 		return 0;
 	Temp += FCString::Strlen( Match );
@@ -480,7 +495,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, uint8& Value )
 //
 bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int8& Value )
 {
-	const TCHAR* Temp = FCString::Strfind(Stream,Match);
+	const TCHAR* Temp = FCString::Strifind(Stream,Match);
 	if( Temp==NULL )
 		return 0;
 	Temp += FCString::Strlen( Match );
@@ -493,7 +508,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int8& Value )
 //
 bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, uint16& Value )
 {
-	const TCHAR* Temp = FCString::Strfind( Stream, Match );
+	const TCHAR* Temp = FCString::Strifind( Stream, Match );
 	if( Temp==NULL )
 		return 0;
 	Temp += FCString::Strlen( Match );
@@ -506,7 +521,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, uint16& Value )
 //
 bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int16& Value )
 {
-	const TCHAR* Temp = FCString::Strfind( Stream, Match );
+	const TCHAR* Temp = FCString::Strifind( Stream, Match );
 	if( Temp==NULL )
 		return 0;
 	Temp += FCString::Strlen( Match );
@@ -519,7 +534,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int16& Value )
 //
 bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, float& Value )
 {
-	const TCHAR* Temp = FCString::Strfind( Stream, Match );
+	const TCHAR* Temp = FCString::Strifind( Stream, Match );
 	if( Temp==NULL )
 		return 0;
 	Value = FCString::Atof( Temp+FCString::Strlen(Match) );
@@ -531,7 +546,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, float& Value )
 //
 bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int32& Value )
 {
-	const TCHAR* Temp = FCString::Strfind( Stream, Match );
+	const TCHAR* Temp = FCString::Strifind( Stream, Match );
 	if( Temp==NULL )
 		return 0;
 	Value = FCString::Atoi( Temp + FCString::Strlen(Match) );

@@ -2,21 +2,26 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EngineDefines.h"
 #include "Engine/SkeletalMesh.h"
 #include "DestructibleMesh.generated.h"
 
+class UPhysicalMaterial;
+class UStaticMesh;
 
 #if WITH_APEX
-namespace NxParameterized
+namespace NvParameterized
 {
 	class Interface;
 }
 
-namespace physx
+namespace nvidia
 {
 	namespace apex
 	{
-		class NxDestructibleAsset;
+		class DestructibleAsset;
 	}
 }
 #endif
@@ -51,8 +56,8 @@ struct FDestructibleDepthParameters
 		{}
 	
 #if WITH_APEX
-	void FillDestructibleActorDesc(NxParameterized::Interface* Params, const char* OverrideName, const char* OverrideValueName) const;
-	void LoadDefaultDestructibleParametersFromApexAsset(const NxParameterized::Interface* Params, const char* OverrideName, const char* OverrideValueName);
+	void FillDestructibleActorDesc(NvParameterized::Interface* Params, const char* OverrideName, const char* OverrideValueName) const;
+	void LoadDefaultDestructibleParametersFromApexAsset(const NvParameterized::Interface* Params, const char* OverrideName, const char* OverrideValueName);
 #endif
 
 };
@@ -77,17 +82,17 @@ struct FDestructibleParametersFlag
 		will have environmental support in static destructibles.
 
 		Note: if both bAssetDefinedSupport and bWorldSupport are set, then chunks must be tagged as
-		"support" chunks AND overlap the NxScene's static geometry in order to be environmentally supported.
+		"support" chunks AND overlap the Scene's static geometry in order to be environmentally supported.
 	*/
 	UPROPERTY(EditAnywhere, Category=DestructibleParametersFlag)
 	uint32 bAssetDefinedSupport:1;
 
 	/**
-		If set, then chunks which overlap the NxScene's static geometry will have environmental support in
+		If set, then chunks which overlap the Scene's static geometry will have environmental support in
 		static destructibles.
 
 		Note: if both bAssetDefinedSupport and bWorldSupport are set, then chunks must be tagged as
-		"support" chunks AND overlap the NxScene's static geometry in order to be environmentally supported.
+		"support" chunks AND overlap the Scene's static geometry in order to be environmentally supported.
 	*/
 	UPROPERTY(EditAnywhere, Category=DestructibleParametersFlag)
 	uint32 bWorldSupport:1;
@@ -157,8 +162,8 @@ struct FDestructibleParametersFlag
 	{ }
 
 #if WITH_APEX
-	void FillDestructibleActorDesc(NxParameterized::Interface* Params) const;
-	void LoadDefaultDestructibleParametersFromApexAsset(const NxParameterized::Interface* Params);
+	void FillDestructibleActorDesc(NvParameterized::Interface* Params) const;
+	void LoadDefaultDestructibleParametersFromApexAsset(const NvParameterized::Interface* Params);
 #endif
 
 };
@@ -227,8 +232,8 @@ struct FDestructibleDamageParameters
 	{ }
 
 #if WITH_APEX
-	void FillDestructibleActorDesc(NxParameterized::Interface* Params, UPhysicalMaterial* PhysMat) const;
-	void LoadDefaultDestructibleParametersFromApexAsset(const NxParameterized::Interface* Params);
+	void FillDestructibleActorDesc(NvParameterized::Interface* Params, UPhysicalMaterial* PhysMat) const;
+	void LoadDefaultDestructibleParametersFromApexAsset(const NvParameterized::Interface* Params);
 #endif
 	
 };
@@ -288,8 +293,8 @@ struct FDestructibleDebrisParameters
 		}
 
 #if WITH_APEX
-	void FillDestructibleActorDesc(NxParameterized::Interface* Params) const;
-	void LoadDefaultDestructibleParametersFromApexAsset(const NxParameterized::Interface* Params);
+	void FillDestructibleActorDesc(NvParameterized::Interface* Params) const;
+	void LoadDefaultDestructibleParametersFromApexAsset(const NvParameterized::Interface* Params);
 #endif
 	
 };
@@ -341,8 +346,8 @@ struct FDestructibleAdvancedParameters
 	}
 
 #if WITH_APEX
-	void FillDestructibleActorDesc(NxParameterized::Interface* Params) const;
-	void LoadDefaultDestructibleParametersFromApexAsset(const NxParameterized::Interface* Params);
+	void FillDestructibleActorDesc(NvParameterized::Interface* Params) const;
+	void LoadDefaultDestructibleParametersFromApexAsset(const NvParameterized::Interface* Params);
 #endif
 
 };
@@ -403,8 +408,8 @@ struct FDestructibleSpecialHierarchyDepths
 	{ }
 	
 #if WITH_APEX
-	void FillDestructibleActorDesc(NxParameterized::Interface* Params) const;
-	void LoadDefaultDestructibleParametersFromApexAsset(const NxParameterized::Interface* Params);
+	void FillDestructibleActorDesc(NvParameterized::Interface* Params) const;
+	void LoadDefaultDestructibleParametersFromApexAsset(const NvParameterized::Interface* Params);
 #endif
 };
 
@@ -484,7 +489,7 @@ public:
 
 #if WITH_APEX
 	/** ApexDestructibleAsset is a pointer to the Apex asset interface for this destructible asset */
-	physx::apex::NxDestructibleAsset* ApexDestructibleAsset;
+	nvidia::apex::DestructibleAsset* ApexDestructibleAsset;
 #endif // WITH_APEX
 
 public:
@@ -504,15 +509,15 @@ public:
 	/** 
 	 * Retrieve a default actor descriptor.
 	 * Builds the descriptor from the NxDestructibleAsset and the overrides provided in DefaultDestructibleParameters
-	 * @return : The (NxParameterized) descriptor.
+	 * @return : The (NvParameterized) descriptor.
 	 */
-	NxParameterized::Interface* GetDestructibleActorDesc(UPhysicalMaterial* PhysMat);
+	NvParameterized::Interface* GetDestructibleActorDesc(UPhysicalMaterial* PhysMat);
 
 	/**
 	 * Access to APEX native destructible asset .
 	 * @return : Returns the NxDestructibleAsset stored in this object.
 	 */
-	physx::apex::NxDestructibleAsset*		GetApexDestructibleAsset()
+	nvidia::apex::DestructibleAsset*		GetApexDestructibleAsset()
 	{
 		return ApexDestructibleAsset;
 	}

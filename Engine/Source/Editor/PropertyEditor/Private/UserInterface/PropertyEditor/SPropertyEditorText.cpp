@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "SPropertyEditorText.h"
-#include "PropertyNode.h"
-#include "ObjectPropertyNode.h"
-#include "PropertyEditor.h"
-#include "PropertyEditorHelpers.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorText.h"
+#include "UObject/TextProperty.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
 
 #define LOCTEXT_NAMESPACE "PropertyEditor"
 
@@ -96,14 +94,11 @@ bool SPropertyEditorText::Supports( const TSharedRef< FPropertyEditor >& InPrope
 	const TSharedRef< FPropertyNode > PropertyNode = InPropertyEditor->GetPropertyNode();
 	const UProperty* Property = InPropertyEditor->GetProperty();
 
-	if(	!PropertyNode->HasNodeFlags(EPropertyNodeFlags::EditInline)
+	if(	!PropertyNode->HasNodeFlags(EPropertyNodeFlags::EditInlineNew)
 		&&	( (Property->IsA(UNameProperty::StaticClass()) && Property->GetFName() != NAME_InitialState)
 		||	Property->IsA(UStrProperty::StaticClass())
 		||	Property->IsA(UTextProperty::StaticClass())
 		||	(Property->IsA(UObjectPropertyBase::StaticClass()) && !Property->HasAnyPropertyFlags(CPF_InstancedReference))
-		||	Property->IsA(UInterfaceProperty::StaticClass())
-		||	Property->IsA(UMapProperty::StaticClass())
-		||	Property->IsA(USetProperty::StaticClass())
 		) )
 	{
 		return true;

@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/Texture2D.h"
 #include "AlphaBitmap.h"
+#include "Misc/ScopedSlowTask.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FBitmap

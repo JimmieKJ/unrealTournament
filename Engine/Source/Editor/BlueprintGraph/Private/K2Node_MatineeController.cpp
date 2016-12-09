@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_MatineeController.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_Event.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
+#include "BlueprintNodeBinder.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "BlueprintActionFilter.h"
 #include "BlueprintBoundNodeSpawner.h"
 #include "KismetCompiler.h"
-#include "Runtime/Engine/Public/MatineeDelegates.h"
+#include "MatineeDelegates.h"
 #include "Matinee/MatineeActor.h"
 #include "Matinee/InterpData.h"
 

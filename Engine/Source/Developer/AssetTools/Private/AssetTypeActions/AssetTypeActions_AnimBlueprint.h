@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
+#include "AssetTypeActions/AssetTypeActions_Blueprint.h"
+#include "EditorAnimUtils.h"
+#include "Animation/AnimBlueprint.h"
+
+class FMenuBuilder;
+class UFactory;
+
 class FAssetTypeActions_AnimBlueprint : public FAssetTypeActions_Blueprint
 {
 public:

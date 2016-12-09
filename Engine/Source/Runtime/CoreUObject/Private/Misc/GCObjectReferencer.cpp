@@ -4,15 +4,25 @@
 	GCObjectReferencer.cpp: Implementation of UGCObjectReferencer
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
+#include "CoreMinimal.h"
+#include "Misc/ScopeLock.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/Casts.h"
+#include "UObject/GCObject.h"
+
+// Global GC state flags
+extern bool GObjIncrementalPurgeIsInProgress;
+extern bool GObjUnhashUnreachableIsInProgress;
 
 void UGCObjectReferencer::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {	
 	UGCObjectReferencer* This = CastChecked<UGCObjectReferencer>(InThis);
+	// Note we're not locking ReferencedObjectsCritical here because we guard
+	// against adding new references during GC in AddObject and RemoveObject.
 	// Let each registered object handle its AddReferencedObjects call
-	for (int32 i = 0; i < This->ReferencedObjects.Num(); i++)
+	for (FGCObject* Object : This->ReferencedObjects)
 	{
-		FGCObject* Object = This->ReferencedObjects[i];
 		check(Object);
 		Object->AddReferencedObjects(Collector);
 	}
@@ -22,6 +32,8 @@ void UGCObjectReferencer::AddReferencedObjects(UObject* InThis, FReferenceCollec
 void UGCObjectReferencer::AddObject(FGCObject* Object)
 {
 	check(Object);
+	check(GObjUnhashUnreachableIsInProgress || GObjIncrementalPurgeIsInProgress || !IsGarbageCollecting());
+	FScopeLock ReferencedObjectsLock(&ReferencedObjectsCritical);
 	// Make sure there are no duplicates. Should be impossible...
 	ReferencedObjects.AddUnique(Object);
 }
@@ -29,6 +41,9 @@ void UGCObjectReferencer::AddObject(FGCObject* Object)
 void UGCObjectReferencer::RemoveObject(FGCObject* Object)
 {
 	check(Object);
+	// Only allow to remove FGCObjects during GC when purging objects.
+	check(GObjUnhashUnreachableIsInProgress || GObjIncrementalPurgeIsInProgress || !IsGarbageCollecting());
+	FScopeLock ReferencedObjectsLock(&ReferencedObjectsCritical);
 	ReferencedObjects.Remove(Object);
 }
 

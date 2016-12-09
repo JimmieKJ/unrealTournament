@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Interface.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Interface.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "NavRelevantInterface.generated.h"
 
-struct FNavigationRelevantData;
 struct FNavigableGeometryExport;
+struct FNavigationRelevantData;
 
 UINTERFACE(MinimalAPI, meta=(CannotImplementInterfaceInBlueprint))
 class UNavRelevantInterface : public UInterface

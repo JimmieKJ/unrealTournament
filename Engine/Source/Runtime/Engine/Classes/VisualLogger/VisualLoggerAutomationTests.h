@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Misc/AutomationTest.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "VisualLoggerAutomationTests.generated.h"
 
 UCLASS(NotBlueprintable, Transient, hidecategories = UObject, notplaceable)

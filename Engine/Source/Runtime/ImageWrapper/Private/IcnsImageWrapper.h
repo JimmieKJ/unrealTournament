@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ImageWrapperBase.h"
+
 /**
  * ICNS implementation of the helper class
  */

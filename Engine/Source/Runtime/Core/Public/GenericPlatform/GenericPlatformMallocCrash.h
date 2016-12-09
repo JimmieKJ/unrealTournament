@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "HAL/MemoryBase.h"
+#include "HAL/CriticalSection.h"
+
+struct FMallocCrashPool;
+struct FPoolDesc;
+
 /** Describes a pointer. */
 struct FPtrInfo
 {
@@ -143,4 +150,39 @@ protected:
 	FMalloc* PreviousMalloc;
 
 	FMallocCrashPool* Pools[NUM_POOLS];
+};
+
+
+
+
+
+struct FGenericStackBasedMallocCrash : public FMalloc
+{
+	FGenericStackBasedMallocCrash(FMalloc* MainMalloc);
+	virtual ~FGenericStackBasedMallocCrash();
+
+	/** Creates a new instance. */
+	static CORE_API FGenericStackBasedMallocCrash& Get(FMalloc* MainMalloc = nullptr);
+
+	void SetAsGMalloc();
+
+	virtual void* Malloc(SIZE_T Size, uint32 Alignment) override;
+
+	virtual void* Realloc(void* Ptr, SIZE_T NewSize, uint32 Alignment) override;
+
+	virtual void Free(void* /*Ptr*/) override;
+
+	virtual const TCHAR * GetDescriptiveName() override
+	{
+		return TEXT("FGenericStackBasedMallocCrash");
+	}
+
+private:
+	enum
+	{
+		MEMORYPOOL_SIZE = 256 * 1024
+	};
+
+	uint8* CurrentFreeMemPtr;
+	uint8* FreeMemoryEndPtr;
 };

@@ -1,7 +1,9 @@
 #pragma once
 
-#include "Curves/IndexedCurve.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Curves/KeyHandle.h"
+#include "Curves/IndexedCurve.h"
 #include "IntegralCurve.generated.h"
 
 
@@ -77,12 +79,21 @@ public:
 
 	/** Get the time for the Key with the specified index. */
 	float GetKeyTime(FKeyHandle KeyHandle) const;
+
+	/** Set the value of the key with the specified index. */
+	void SetKeyValue(FKeyHandle KeyHandle, int32 NewValue);
+
+	/** Get the value for the Key with the specified index. */
+	int32 GetKeyValue(FKeyHandle KeyHandle) const;
 	
 	/** Set the default value for the curve */
 	void SetDefaultValue(int32 InDefaultValue) { DefaultValue = InDefaultValue; }
 
 	/** Get the default value for the curve */
 	int32 GetDefaultValue() const { return DefaultValue; }
+	
+	/** Removes the default value for this curve. */
+	void ClearDefaultValue() { DefaultValue = MAX_int32; }
 
 	/** Sets whether or not the default value should be used for evaluation for time values before the first key. */
 	void SetUseDefaultValueBeforeFirstKey(bool InbUseDefaultValueBeforeFirstKey) { bUseDefaultValueBeforeFirstKey = InbUseDefaultValueBeforeFirstKey; }

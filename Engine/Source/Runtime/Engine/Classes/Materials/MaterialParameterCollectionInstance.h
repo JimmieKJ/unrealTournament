@@ -5,7 +5,14 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "MaterialParameterCollectionInstance.generated.h"
+
+class FMaterialParameterCollectionInstanceResource;
+class UMaterialParameterCollection;
 
 /** 
  * Class that stores per-world instance parameter data for a given UMaterialParameterCollection resource. 

@@ -2,7 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Engine/Texture2D.h"
+#include "IDetailsView.h"
 #include "SPaperEditorViewport.h"
+
+class FPaperExtractSpritesViewportClient;
+struct Rect;
 
 struct FPaperExtractedSprite
 {

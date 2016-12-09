@@ -1,11 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "VisualLogger/VisualLogger.h"
 
+#include "CoreMinimal.h"
+#include "VisualLogger/VisualLoggerTypes.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/Docking/TabManager.h"
+
+class AVisualLoggerCameraController;
+class FMenuBuilder;
 class SVisualLoggerFilters;
-class SVisualLoggerView;
 class SVisualLoggerLogsList;
 class SVisualLoggerStatusView;
+class SVisualLoggerView;
+struct FLogEntryItem;
+struct FVisualLoggerCanvasRenderer;
+struct FVisualLoggerDBRow;
 
 class SVisualLogger : public SCompoundWidget
 {

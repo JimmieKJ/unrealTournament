@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
-
-#include "ParticleDefinitions.h"
-#include "CompilerResultsLog.h"
-#include "CallFunctionHandler.h"
-#include "Particles/ParticleSystemComponent.h"
-#include "BlueprintEditorUtils.h"
+#include "K2Node_AddComponent.h"
+#include "Components/ActorComponent.h"
+#include "Serialization/ObjectWriter.h"
+#include "Serialization/ObjectReader.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
+#include "Components/ChildActorComponent.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "UObject/ReleaseObjectVersion.h"
+#include "KismetCompilerMisc.h"
+#include "KismetCompiler.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_AddComponent"
 
@@ -18,6 +24,41 @@ UK2Node_AddComponent::UK2Node_AddComponent(const FObjectInitializer& ObjectIniti
 	: Super(ObjectInitializer)
 {
 	bIsPureFunc = false;
+}
+
+// We add this prefix to template object names.
+const FString UK2Node_AddComponent::ComponentTemplateNamePrefix(TEXT("NODE_Add"));
+
+void UK2Node_AddComponent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading())
+	{
+		if (Ar.CustomVer(FReleaseObjectVersion::GUID) < FReleaseObjectVersion::AddComponentNodeTemplateUniqueNames)
+		{
+			if (Ar.IsPersistent() && !Ar.HasAnyPortFlags(PPF_Duplicate | PPF_DuplicateForPIE))
+			{
+				UActorComponent* Template = GetTemplateFromNode();
+
+				// Fix up old "generic" template names to conform to the new unique naming convention.
+				if (Template != nullptr && !Template->GetName().StartsWith(ComponentTemplateNamePrefix))
+				{
+					// Find a new, unique name for the template.
+					const FName NewTemplateName = MakeNewComponentTemplateName(Template->GetOuter(), Template->GetClass());
+
+					// Map the old template name to the new name (note: GetBlueprint() is internally checked and should be non-NULL).
+					GetBlueprint()->OldToNewComponentTemplateNames.Add(Template->GetFName()) = NewTemplateName;
+
+					// Rename the component template to conform to the new name.
+					Template->Rename(*NewTemplateName.ToString(), Template->GetOuter(), REN_DontCreateRedirectors | REN_ForceNoResetLoaders);
+
+					// Update the template name pin's default value to match the template name.
+					GetTemplateNamePinChecked()->DefaultValue = Template->GetName();
+				}
+			}
+		}
+	}
 }
 
 void UK2Node_AddComponent::PostDuplicate(bool bDuplicateForPIE)
@@ -400,6 +441,30 @@ void UK2Node_AddComponent::ExpandNode(class FKismetCompilerContext& CompilerCont
 	}
 }
 
+FName UK2Node_AddComponent::MakeNewComponentTemplateName(UObject* InOuter, UClass* InComponentClass)
+{
+	FName TemplateName = NAME_None;
+
+	int32& Counter = GetBlueprint()->ComponentTemplateNameIndex.FindOrAdd(InComponentClass->GetFName());
+	FString ComponentClassNameAsString = InComponentClass->GetName();
+	if (InComponentClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
+	{
+		ComponentClassNameAsString.RemoveFromEnd("_C");
+	}
+
+	do
+	{
+		TemplateName = FName(*FString::Printf(TEXT("%s%s-%d"), *ComponentTemplateNamePrefix, *ComponentClassNameAsString, Counter++));
+		if (StaticFindObjectFast(InComponentClass, InOuter, TemplateName) != nullptr)
+		{
+			TemplateName = NAME_None;
+		}
+
+	} while (TemplateName == NAME_None);
+
+	return TemplateName;
+}
+
 void UK2Node_AddComponent::MakeNewComponentTemplate()
 {
 	// There is a template associated with this node that should be unique, but after a node is duplicated, it either points to a
@@ -410,26 +475,30 @@ void UK2Node_AddComponent::MakeNewComponentTemplate()
 	// Find the template name and return type pins
 	UEdGraphPin* TemplateNamePin = GetTemplateNamePin();
 	UEdGraphPin* ReturnPin = GetReturnValuePin();
-	if ((TemplateNamePin != NULL) && (ReturnPin != NULL))
+	if ((TemplateNamePin != nullptr) && (ReturnPin != nullptr))
 	{
 		// Find the current template if it exists
-		FString TemplateName = TemplateNamePin->DefaultValue;
-		UActorComponent* SourceTemplate = Blueprint->FindTemplateByName(FName(*TemplateName));
+		const FName TemplateName = FName(*TemplateNamePin->DefaultValue);
+		UActorComponent* SourceTemplate = Blueprint->FindTemplateByName(TemplateName);
 
 		// Determine the type of the component needed
 		UClass* ComponentClass = Cast<UClass>(ReturnPin->PinType.PinSubCategoryObject.Get());
 
 		if (ComponentClass)
 		{
-			ensure(NULL != Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass));
+			ensure(nullptr != Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass));
+
+			// Create a new template object name
+			const FName NewTemplateName = MakeNewComponentTemplateName(Blueprint->GeneratedClass, ComponentClass);
+
 			// Create a new template object and update the template pin to point to it
-			UActorComponent* NewTemplate = NewObject<UActorComponent>(Blueprint->GeneratedClass, ComponentClass, NAME_None, RF_ArchetypeObject | RF_Public);
+			UActorComponent* NewTemplate = NewObject<UActorComponent>(Blueprint->GeneratedClass, ComponentClass, NewTemplateName, RF_ArchetypeObject | RF_Public);
 			Blueprint->ComponentTemplates.Add(NewTemplate);
 
 			TemplateNamePin->DefaultValue = NewTemplate->GetName();
 
 			// Copy the old template data over to the new template if it's compatible
-			if ((SourceTemplate != NULL) && (SourceTemplate->GetClass()->IsChildOf(ComponentClass)))
+			if ((SourceTemplate != nullptr) && (SourceTemplate->GetClass()->IsChildOf(ComponentClass)))
 			{
 				TArray<uint8> SavedProperties;
 				FObjectWriter Writer(SourceTemplate, SavedProperties);
@@ -438,11 +507,11 @@ void UK2Node_AddComponent::MakeNewComponentTemplate()
 			else if (TemplateBlueprint.Len() > 0)
 			{
 				// try to find/load our blueprint to copy the template
-				UBlueprint* SourceBlueprint = FindObject<UBlueprint>(NULL, *TemplateBlueprint);
-				if (SourceBlueprint != NULL)
+				UBlueprint* SourceBlueprint = FindObject<UBlueprint>(nullptr, *TemplateBlueprint);
+				if (SourceBlueprint != nullptr)
 				{
-					SourceTemplate = SourceBlueprint->FindTemplateByName(FName(*TemplateName));
-					if ((SourceTemplate != NULL) && (SourceTemplate->GetClass()->IsChildOf(ComponentClass)))
+					SourceTemplate = SourceBlueprint->FindTemplateByName(TemplateName);
+					if ((SourceTemplate != nullptr) && (SourceTemplate->GetClass()->IsChildOf(ComponentClass)))
 					{
 						TArray<uint8> SavedProperties;
 						FObjectWriter Writer(SourceTemplate, SavedProperties);

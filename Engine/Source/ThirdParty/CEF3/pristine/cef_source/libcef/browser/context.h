@@ -19,6 +19,10 @@ namespace base {
 class WaitableEvent;
 }
 
+namespace component_updater {
+class ComponentUpdateService;
+}
+
 namespace content {
 class ContentMainRunner;
 }
@@ -28,6 +32,7 @@ class PrintJobManager;
 }
 
 class CefBrowserHostImpl;
+class CefBrowserInfoManager;
 class CefMainDelegate;
 class CefTraceSubscriber;
 
@@ -63,6 +68,8 @@ class CefContext {
     return print_job_manager_.get();
   }
 
+  component_updater::ComponentUpdateService* component_updater();
+
   CefTraceSubscriber* GetTraceSubscriber();
 
   // Populate the request context settings based on CefSettings and command-
@@ -91,9 +98,13 @@ class CefContext {
   scoped_ptr<CefMainDelegate> main_delegate_;
   scoped_ptr<content::ContentMainRunner> main_runner_;
   scoped_ptr<CefTraceSubscriber> trace_subscriber_;
+  scoped_ptr<CefBrowserInfoManager> browser_info_manager_;
 
   // Only accessed on the UI Thread.
   scoped_ptr<printing::PrintJobManager> print_job_manager_;
+
+  // Initially only for Widevine components.
+  scoped_ptr<component_updater::ComponentUpdateService> component_updater_;
 };
 
 // Helper macro that returns true if the global context is in a valid state.

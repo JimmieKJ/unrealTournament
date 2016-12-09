@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SizeMapModule.h"
-#include "STreeMap.h"
 #include "SSizeMap.h"
+#include "Modules/ModuleManager.h"
+#include "Engine/Texture2D.h"
+#include "Editor.h"
 #include "AssetRegistryModule.h"
 #include "AssetThumbnail.h"
 #include "ClassIconFinder.h"
-#include "UnitConversion.h"
+#include "Math/UnitConversion.h"
 
 #define LOCTEXT_NAMESPACE "SizeMap"
 
@@ -314,11 +315,11 @@ void SSizeMap::GatherDependenciesRecursively( FAssetRegistryModule& AssetRegistr
 						// @todo sizemap: We should instead have a special EResourceSizeMode that asks for the worst case size.  Some assets (like UTextureCube) currently always report resident mip size, even when asked for inclusive size
 						if( Asset->IsA( UTexture2D::StaticClass() ) )
 						{
-							NodeSizeMapData.AssetSize = Asset->GetResourceSize( EResourceSizeMode::Inclusive );
+							NodeSizeMapData.AssetSize = Asset->GetResourceSizeBytes( EResourceSizeMode::Inclusive );
 						}
 						else
 						{
-							NodeSizeMapData.AssetSize = Asset->GetResourceSize( EResourceSizeMode::Exclusive );
+							NodeSizeMapData.AssetSize = Asset->GetResourceSizeBytes( EResourceSizeMode::Exclusive );
 						}
 
 						NodeSizeMapData.bHasKnownSize = (NodeSizeMapData.AssetSize != 0);

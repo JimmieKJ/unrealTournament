@@ -5,6 +5,18 @@
 	that runs a thread to download chunks in it's queue.
 =============================================================================*/
 
+#pragma once
+
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/Guid.h"
+#include "HAL/Runnable.h"
+#include "Interfaces/IHttpRequest.h"
+#include "BuildPatchProgress.h"
+#include "BuildPatchManifest.h"
+
+enum class EBuildPatchDownloadHealth;
+
 /**
  * FChunkDownloadRecord
  * This is a simple struct to record downloads
@@ -130,6 +142,9 @@ private:
 	// A flag marking whether the thread is failing all current requests
 	bool bIsDisconnected;
 
+	// A flag marking whether the thread has any in-flight download attempts, failing or otherwise
+	bool bIsDownloading;
+
 	// A flag that says whether more chunks could still be queued
 	bool bWaitingForJobs;
 
@@ -137,7 +152,7 @@ private:
 	float ChunkSuccessRate;
 
 	// Used to help time health states
-	volatile int64 CyclesAtLastHealthState;
+	volatile FStatsCollector::FAtomicValue CyclesAtLastHealthState;
 
 	// Timers in seconds for how long we were in each health state
 	TArray<float> HealthStateTimes;
@@ -149,7 +164,7 @@ private:
 	FCriticalSection FlagsLock;
 
 	// The time in cycles since we received data
-	volatile int64 CyclesAtLastData;
+	volatile FStatsCollector::FAtomicValue CyclesAtLastData;
 
 	// Store a record of each download we made for info
 	TArray< FBuildPatchDownloadRecord > DownloadRecords;
@@ -225,6 +240,12 @@ public:
 	 * @return True if the thread is not getting success responses.
 	 */
 	bool IsDisconnected();
+
+	/**
+	 * Get whether the thread is currently making download requests.
+	 * @return True if the thread is making download requests, rather than waiting.
+	 */
+	bool IsDownloading();
 
 	/**
 	 * Gets the array of download recordings. Should not be polled, only call when the thread has finished to gather data.
@@ -366,6 +387,12 @@ private:
 	 * @param bIsDisconnected       Whether the thread is stalling on all requests.
 	 */
 	void SetIsDisconnected(bool bIsDisconnected);
+
+	/**
+	 * Sets the bIsDownloading flag.
+	 * @param bIsDownloading        Whether the thread has any in-flight download attempts, failing or otherwise.
+	 */
+	void SetIsDownloading(bool bIsDownloading);
 
 	/**
 	 * Sets the current request success rate.

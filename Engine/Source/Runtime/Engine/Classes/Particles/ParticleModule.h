@@ -2,15 +2,23 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "ParticleHelper.h"
 #include "ParticleModule.generated.h"
 
+class UDistribution;
+class UDistributionFloat;
+class UDistributionVector;
 class UInterpCurveEdSetup;
 class UParticleEmitter;
 class UParticleLODLevel;
+class UParticleModuleTypeDataBase;
+class UParticleSystemComponent;
 struct FCurveEdEntry;
 struct FParticleEmitterInstance;
-class UParticleModuleTypeDataBase;
 
 /** ModuleType
  *	Indicates the kind of emitter the module can be applied to.
@@ -136,8 +144,8 @@ struct FParticleRandomSeedInfo
 	
 };
 
-UCLASS(editinlinenew, hidecategories=Object, abstract, MinimalAPI)
-class UParticleModule : public UObject
+UCLASS(editinlinenew, hidecategories=Object, abstract)
+class ENGINE_API UParticleModule : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
@@ -308,13 +316,13 @@ class UParticleModule : public UObject
 	 *
 	 *	@param	EdSetup		The CurveEd setup to remove the curve from.
 	 */
-	ENGINE_API void	RemoveModuleCurvesFromEditor(UInterpCurveEdSetup* EdSetup);
+	void	RemoveModuleCurvesFromEditor(UInterpCurveEdSetup* EdSetup);
 	/** 
 	 *	Does the module contain curves?
 	 *
 	 *	@return	bool		true if it does, false if not.
 	 */
-	ENGINE_API bool	ModuleHasCurves();
+	bool	ModuleHasCurves();
 	/** 
 	 *	Are the modules curves displayed in the curve editor?
 	 *
@@ -322,14 +330,14 @@ class UParticleModule : public UObject
 	 *
 	 *	@return	bool		true if they are, false if not.
 	 */
-	ENGINE_API bool	IsDisplayedInCurveEd(UInterpCurveEdSetup* EdSetup);
+	bool	IsDisplayedInCurveEd(UInterpCurveEdSetup* EdSetup);
 	/** 
 	 *	Helper function for updating the curve editor when the module editor color changes.
 	 *
 	 *	@param	Color		The new color the module is using.
 	 *	@param	EdSetup		The CurveEd setup for the module.
 	 */
-	ENGINE_API void		ChangeEditorColor(FColor& Color, UInterpCurveEdSetup* EdSetup);
+	void		ChangeEditorColor(FColor& Color, UInterpCurveEdSetup* EdSetup);
 
 	/** 
 	 *	Render the modules 3D visualization helper primitive.
@@ -534,7 +542,7 @@ class UParticleModule : public UObject
 	}
 
 	/** Returns whether this module is used in any GPU emitters. */
-	ENGINE_API bool IsUsedInGPUEmitter()const;
+	bool IsUsedInGPUEmitter()const;
 
 #if WITH_EDITOR
 	virtual void PostLoadSubobjects( FObjectInstancingGraph* OuterInstanceGraph ) override;
@@ -577,7 +585,7 @@ class UParticleModule : public UObject
 	/**
 	 *	Gets a list of the names of distributions not allowed on GPU emitters.
 	 */
-	ENGINE_API static  void GetDistributionsRestrictedOnGPU(TArray<FString>& OutRestrictedDistributions);
+	static  void GetDistributionsRestrictedOnGPU(TArray<FString>& OutRestrictedDistributions);
 		
 	/**
 	 *	Checks if a distribution is allowed on the GPU.
@@ -599,7 +607,7 @@ class UParticleModule : public UObject
 	/**
 	 *	Set the transaction flag on the module and any members which require it
 	 */
-	ENGINE_API void SetTransactionFlag();
+	void SetTransactionFlag();
 #endif
 };
 

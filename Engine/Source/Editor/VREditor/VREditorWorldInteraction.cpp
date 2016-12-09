@@ -1,25 +1,35 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "VREditorModule.h"
 #include "VREditorWorldInteraction.h"
+#include "HAL/IConsoleManager.h"
+#include "Engine/EngineTypes.h"
+#include "GameFramework/Actor.h"
+#include "Misc/CommandLine.h"
+#include "Modules/ModuleManager.h"
 #include "VREditorMode.h"
+#include "ViewportInteractionTypes.h"
+#include "Materials/MaterialInterface.h"
+#include "Engine/Texture.h"
+#include "LevelEditorViewport.h"
+#include "ViewportWorldInteraction.h"
+#include "Engine/BrushBuilder.h"
+#include "Components/PrimitiveComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Kismet2/ComponentEditorUtils.h"
+#include "Sound/SoundCue.h"
+#include "Editor.h"
 #include "VREditorUISystem.h"
 #include "VREditorFloatingUI.h"
-#include "VREditorDockableWindow.h"
 #include "VREditorInteractor.h"
-#include "VIBaseTransformGizmo.h"
-#include "SnappingUtils.h"
-#include "ScopedTransaction.h"
 
 // For actor placement
 #include "ObjectTools.h"
 #include "AssetSelection.h"
 #include "IPlacementModeModule.h"
-#include "Kismet/GameplayStatics.h"
 
 #include "LevelEditor.h"
 #include "SLevelViewport.h"
-#include "Editor/LevelEditor/Public/LevelEditorActions.h"
+#include "LevelEditorActions.h"
 
 #define LOCTEXT_NAMESPACE "VREditor"
 
@@ -42,19 +52,26 @@ UVREditorWorldInteraction::UVREditorWorldInteraction( const FObjectInitializer& 
 	FloatingUIAssetDraggedFrom( nullptr ),
 	PlacingMaterialOrTextureAsset( nullptr )
 {
-	// Find out when the user drags stuff out of a content browser
-	FEditorDelegates::OnAssetDragStarted.AddUObject( this, &UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser );
-
 	// Load sounds
 	DropMaterialOrMaterialSound = LoadObject<USoundCue>( nullptr, TEXT( "/Engine/VREditor/Sounds/VR_grab_Cue" ) );
 	check( DropMaterialOrMaterialSound != nullptr );
 }
 
+void UVREditorWorldInteraction::Init( UVREditorMode* InOwner, UViewportWorldInteraction* InViewportWorldInteraction )
+{
+	Owner = InOwner;
+	ViewportWorldInteraction = InViewportWorldInteraction;
+
+	// Find out when the user drags stuff out of a content browser
+	FEditorDelegates::OnAssetDragStarted.AddUObject( this, &UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser );
+
+	ViewportWorldInteraction->OnStopDragging().AddUObject( this, &UVREditorWorldInteraction::StopDragging );
+}
+
 void UVREditorWorldInteraction::Shutdown()
 {
-	Super::Shutdown();
-
 	FEditorDelegates::OnAssetDragStarted.RemoveAll( this );
+	ViewportWorldInteraction->OnStopDragging().RemoveAll( this );
 
 	PlacingMaterialOrTextureAsset = nullptr;
 	FloatingUIAssetDraggedFrom = nullptr;
@@ -62,10 +79,11 @@ void UVREditorWorldInteraction::Shutdown()
 	Owner = nullptr;
 }
 
+//@todo vreditor: This function was overriding ViewportWorldInteraction
 bool UVREditorWorldInteraction::IsInteractableComponent( const UActorComponent* Component ) const
 {
 	bool bResult = false;
-	bResult = UViewportWorldInteraction::IsInteractableComponent( Component );
+	//bResult = UViewportWorldInteraction::IsInteractableComponent( Component );
 
 	// Don't bother if the base class already found out that this is a custom interactable
 	if ( bResult )
@@ -75,7 +93,7 @@ bool UVREditorWorldInteraction::IsInteractableComponent( const UActorComponent* 
 		{
 			static const bool bIsVREditorDemo = FParse::Param( FCommandLine::Get(), TEXT( "VREditorDemo" ) );	// @todo vreditor: Remove this when no longer needed (console variable, too!)
 			const bool bIsFrozen = bIsVREditorDemo && Component->GetOwner()->GetActorLabel().StartsWith( TEXT( "Frozen_" ) );
-			bResult = !bIsFrozen && !GetOwner().GetUISystem().IsWidgetAnEditorUIWidget( Component ); // Don't allow user to move around our UI widgets //@todo VREditor: This wouldn't be necessary if the UI used the interactable interface
+			bResult = !bIsFrozen && !Owner->GetUISystem().IsWidgetAnEditorUIWidget( Component ); // Don't allow user to move around our UI widgets //@todo VREditor: This wouldn't be necessary if the UI used the interactable interface
 		}
 	}
 	
@@ -90,19 +108,17 @@ void UVREditorWorldInteraction::StopDragging( UViewportInteractor* Interactor )
 	if ( InteractorDraggingMode == EViewportInteractionDraggingMode::Material )
 	{
 		PlaceDraggedMaterialOrTexture( Interactor );
-	}
+	}	
 
 	// If we were placing something, bring the window back
-	if ( InteractorDraggingMode == EViewportInteractionDraggingMode::ActorsAtLaserImpact ||
-		InteractorDraggingMode == EViewportInteractionDraggingMode::Material )
+	if ( FloatingUIAssetDraggedFrom != nullptr && 
+		( InteractorDraggingMode == EViewportInteractionDraggingMode::ActorsAtLaserImpact ||
+		InteractorDraggingMode == EViewportInteractionDraggingMode::Material ) )
 	{
-		GetOwner().GetUISystem().ShowEditorUIPanel( FloatingUIAssetDraggedFrom, Cast<UVREditorInteractor>( Interactor->GetOtherInteractor() ), 
+		Owner->GetUISystem().ShowEditorUIPanel( FloatingUIAssetDraggedFrom, Cast<UVREditorInteractor>( Interactor->GetOtherInteractor() ), 
 			true, false, false, false );
 		FloatingUIAssetDraggedFrom = nullptr;
 	}
-
-
-	Super::StopDragging( Interactor );
 }
 
 void UVREditorWorldInteraction::StartDraggingMaterialOrTexture( UViewportInteractor* Interactor, const FViewportActionKeyInput& Action, const FVector HitLocation, UObject* MaterialOrTextureAsset )
@@ -142,8 +158,8 @@ void UVREditorWorldInteraction::StartDraggingMaterialOrTexture( UViewportInterac
 		InteractorData.GizmoSpaceFirstDragUpdateOffsetAlongAxis = FVector::ZeroVector;	// Will be determined on first update
 		InteractorData.GizmoSpaceDragDeltaFromStartOffset = FVector::ZeroVector;	// Set every frame while dragging
 
-		bDraggedSinceLastSelection = false;
-		LastDragGizmoStartTransform = FTransform::Identity;
+		ViewportWorldInteraction->SetDraggedSinceLastSelection( false );
+		ViewportWorldInteraction->SetLastDragGizmoStartTransform( FTransform::Identity );
 
 		// Play a haptic effect when objects aTrackingTransactionre picked up
 		Interactor->PlayHapticEffect( VREd::DragHapticFeedbackStrength->GetFloat() );
@@ -152,6 +168,11 @@ void UVREditorWorldInteraction::StartDraggingMaterialOrTexture( UViewportInterac
 
 void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArray<FAssetData>& DraggedAssets, UActorFactory* FactoryToUse )
 {
+	if( ViewportWorldInteraction == nullptr )
+	{
+		return;
+	}
+
 	const bool bIsPreview = false;	 // @todo vreditor placement: Consider supporting a "drop preview" actor (so you can cancel placement interactively)
 
 	bool bTransactionStarted = false;
@@ -159,7 +180,9 @@ void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArr
 	// Figure out which controller pressed the button and started dragging
 	// @todo vreditor placement: This logic could misfire.  Ideally we would be routed information from the pointer event, so we can determine the hand.
 	UVREditorInteractor* PlacingWithInteractor = nullptr;
-	for ( UViewportInteractor* Interactor : GetInteractors() )
+
+	TArray<UViewportInteractor*>& Interactors = ViewportWorldInteraction->GetInteractors();
+	for ( UViewportInteractor* Interactor : Interactors )
 	{
 		UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>( Interactor );
 		FViewportActionKeyInput* SelectAndMoveAction = Interactor->GetActionWithName( ViewportWorldActionTypes::SelectAndMove );
@@ -201,7 +224,7 @@ void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArr
 
 		FloatingUIAssetDraggedFrom = PlacingWithInteractor->GetHoveringOverWidgetComponent();
 		// Hide the UI panel that's being used to drag
-		GetOwner().GetUISystem().ShowEditorUIPanel( FloatingUIAssetDraggedFrom, PlacingWithInteractor, false, false, true, false );
+		Owner->GetUISystem().ShowEditorUIPanel( FloatingUIAssetDraggedFrom, PlacingWithInteractor, false, false, true, false );
 
 		TArray< UObject* > DroppedObjects;
 		TArray< AActor* > AllNewActors;
@@ -216,7 +239,7 @@ void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArr
 		if( !bShouldInterpolateFromDragLocation )
 		{
 			FVector HitLocation = FVector::ZeroVector;
-			if( FindPlacementPointUnderLaser( PlacingWithInteractor, /* Out */ HitLocation ) )
+			if( ViewportWorldInteraction->FindPlacementPointUnderLaser( PlacingWithInteractor, /* Out */ HitLocation ) )
 			{
 				PlaceAt = HitLocation;
 			}
@@ -227,7 +250,7 @@ void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArr
 			bool bCanPlace = true;
 
 			UObject* AssetObj = AssetData.GetAsset();
-			if( !ObjectTools::IsAssetValidForPlacing( GetViewportWorld(), AssetData.ObjectPath.ToString() ) )
+			if( !ObjectTools::IsAssetValidForPlacing( ViewportWorldInteraction->GetViewportWorld(), AssetData.ObjectPath.ToString() ) )
 			{
 				bCanPlace = false;
 			}
@@ -261,6 +284,7 @@ void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArr
 			}
 
 
+			FTrackingTransaction& TrackingTransaction = ViewportWorldInteraction->GetTrackingTransaction();
 			if( bCanPlace )
 			{
 				CA_SUPPRESS(6240);
@@ -282,7 +306,7 @@ void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArr
 				const bool bSelectNewActors = true;
 				const EObjectFlags NewObjectFlags = bIsPreview ? RF_Transient : RF_Transactional;
 
-				TArray<AActor*> NewActors = FLevelEditorViewportClient::TryPlacingActorFromObject( GetViewportWorld()->GetCurrentLevel(), AssetObj, bSelectNewActors, NewObjectFlags, FactoryToUse );
+				TArray<AActor*> NewActors = FLevelEditorViewportClient::TryPlacingActorFromObject( ViewportWorldInteraction->GetViewportWorld()->GetCurrentLevel(), AssetObj, bSelectNewActors, NewObjectFlags, FactoryToUse );
 
 				if( NewActors.Num() > 0 )
 				{
@@ -300,7 +324,7 @@ void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArr
 								( bShouldInterpolateFromDragLocation ? 
 									VREd::SizeOfActorsOverContentBrowserThumbnail->GetFloat() :
 									VREd::OverrideSizeOfPlacedActors->GetFloat() )
-								* GetWorldScaleFactor();
+								* ViewportWorldInteraction->GetWorldScaleFactor();
 							NewActor->SetActorScale3D( FVector( DesiredSize / LocalBoundsSize ) );
 						}
 					}
@@ -311,6 +335,7 @@ void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArr
 		// Cancel the transaction if nothing was placed
 		if( bTransactionStarted && AllNewActors.Num() == 0)
 		{
+			FTrackingTransaction& TrackingTransaction = ViewportWorldInteraction->GetTrackingTransaction();
 			--TrackingTransaction.TransCount;
 			TrackingTransaction.Cancel();
 			GEditor->DisableDeltaModification( false );
@@ -335,14 +360,14 @@ void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArr
 
 			// Start dragging the new actor(s)
 			const bool bIsPlacingActors = true;
-			StartDraggingActors( PlacingWithInteractor, Action, GetTransformGizmoActor()->GetRootComponent(), PlaceAt, bIsPlacingActors );
+			ViewportWorldInteraction->StartDraggingActors( PlacingWithInteractor, Action, ViewportWorldInteraction->GetTransformGizmoActor()->GetRootComponent(), PlaceAt, bIsPlacingActors );
 
 			// If we're interpolating, update the target transform of the actors to use our overridden size.  When
 			// we placed them we set their size to be 'thumbnail sized', and we want them to interpolate to
 			// their actual size in the world
 			if( bShouldInterpolateFromDragLocation )
 			{
-				for( TUniquePtr<FViewportTransformable>& TransformablePtr : Transformables )
+				for( TUniquePtr<FViewportTransformable>& TransformablePtr : ViewportWorldInteraction->Transformables )
 				{
 					FViewportTransformable& Transformable = *TransformablePtr;
 
@@ -350,7 +375,7 @@ void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArr
 
 					if( VREd::OverrideSizeOfPlacedActors->GetFloat() > KINDA_SMALL_NUMBER )
 					{
-						ObjectSize = 1.0f * GetWorldScaleFactor();
+						ObjectSize = 1.0f * ViewportWorldInteraction->GetWorldScaleFactor();
 
 						// Got an actor?
 						AActor* Actor = Cast<AActor>( Transformable.Object.Get() );
@@ -359,7 +384,7 @@ void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArr
 							const FBox LocalSpaceBounds = Actor->CalculateComponentsBoundingBoxInLocalSpace();
 							const float LocalBoundsSize = LocalSpaceBounds.GetSize().GetAbsMax();
 
-							const float DesiredSize = VREd::OverrideSizeOfPlacedActors->GetFloat() * GetWorldScaleFactor();
+							const float DesiredSize = VREd::OverrideSizeOfPlacedActors->GetFloat() * ViewportWorldInteraction->GetWorldScaleFactor();
 							const FVector NewScale( DesiredSize / LocalBoundsSize );
 
 							Transformable.UnsnappedTargetTransform.SetScale3D( NewScale );
@@ -396,7 +421,7 @@ void UVREditorWorldInteraction::PlaceDraggedMaterialOrTexture( UViewportInteract
 			FHitResult HitResult = Interactor->GetHitResultFromLaserPointer( nullptr, bIgnoreGizmos, nullptr, bEvenIfUIIsInFront );
 			if( HitResult.Actor.IsValid() )
 			{
-				if( IsInteractableComponent( HitResult.GetComponent() ) )	// @todo vreditor placement: We don't necessarily need to restrict to only VR-interactive components here
+				if( ViewportWorldInteraction->IsInteractableComponent( HitResult.GetComponent() ) )	// @todo vreditor placement: We don't necessarily need to restrict to only VR-interactive components here
 				{
 					// Don't place materials on UI widget handles though!
 					if( Cast<AVREditorFloatingUI>( HitResult.GetComponent()->GetOwner() ) == nullptr )
@@ -431,7 +456,7 @@ void UVREditorWorldInteraction::PlaceDraggedMaterialOrTexture( UViewportInteract
 
 			if( DroppedObjAsMaterial || DroppedObjAsTexture )
 			{
-				UGameplayStatics::PlaySound2D( GetViewportWorld(), DropMaterialOrMaterialSound );
+				UGameplayStatics::PlaySound2D( ViewportWorldInteraction->GetViewportWorld(), DropMaterialOrMaterialSound );
 			}
 		}
 	}
@@ -441,7 +466,7 @@ void UVREditorWorldInteraction::PlaceDraggedMaterialOrTexture( UViewportInteract
 
 void UVREditorWorldInteraction::SnapSelectedActorsToGround()
 {
-	TSharedPtr<SLevelViewport> LevelEditorViewport = StaticCastSharedPtr<SLevelViewport>( GetViewportClient()->GetEditorViewportWidget() );
+	TSharedPtr<SLevelViewport> LevelEditorViewport = StaticCastSharedPtr<SLevelViewport>( ViewportWorldInteraction->GetViewportClient()->GetEditorViewportWidget() );
 	if ( LevelEditorViewport.IsValid() )
 	{
 		FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>( TEXT( "LevelEditor" ) );
@@ -451,7 +476,7 @@ void UVREditorWorldInteraction::SnapSelectedActorsToGround()
 		CommandList->ExecuteAction( Commands.SnapBottomCenterBoundsToFloor.ToSharedRef() );
 
 		// @todo vreditor: This should not be needed after to allow transformables to stop animating the transforms of actors after they come to rest
-		SetupTransformablesForSelectedActors();
+		ViewportWorldInteraction->SetupTransformablesForSelectedActors();
 	}
 }
 

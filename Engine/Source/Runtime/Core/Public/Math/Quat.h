@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
+#include "Logging/LogMacros.h"
+#include "Math/Vector.h"
+#include "Math/VectorRegister.h"
+#include "Math/Rotator.h"
+#include "Math/Matrix.h"
+
+class Error;
 
 /**
  * Floating point quaternion that can represent a rotation about an axis in 3-D space.
@@ -306,6 +317,16 @@ public:
 	 * @warning : assumes normalized quaternions.
 	 */
 	void ToAxisAndAngle(FVector& Axis, float& Angle) const;
+
+	/** 
+	 * Get the swing and twist decomposition for a specified axis
+	 *
+	 * @param InTwistAxis Axis to use for decomposition
+	 * @param OutSwing swing component quaternion
+	 * @param OutTwist Twist component quaternion
+	 * @warning assumes normalised quaternion and twist axis
+	 */
+	CORE_API void ToSwingTwist(const FVector& InTwistAxis, FQuat& OutSwing, FQuat& OutTwist) const;
 
 	/**
 	 * Rotate a vector by this quaternion.
@@ -936,7 +957,6 @@ FORCEINLINE void FQuat::ToAxisAndAngle(FVector& Axis, float& Angle) const
 	Axis = GetRotationAxis();
 }
 
-
 FORCEINLINE FVector FQuat::GetRotationAxis() const
 {
 	// Ensure we never try to sqrt a neg number
@@ -1105,3 +1125,33 @@ FORCEINLINE bool FQuat::ContainsNaN() const
 
 
 template<> struct TIsPODType<FQuat> { enum { Value = true }; };
+
+/* FMath inline functions
+ *****************************************************************************/
+
+template<class U>
+FORCEINLINE_DEBUGGABLE FQuat FMath::Lerp( const FQuat& A, const FQuat& B, const U& Alpha)
+{
+	return FQuat::Slerp(A, B, Alpha);
+}
+
+template<class U>
+FORCEINLINE_DEBUGGABLE FQuat FMath::BiLerp(const FQuat& P00, const FQuat& P10, const FQuat& P01, const FQuat& P11, float FracX, float FracY)
+{
+	FQuat Result;
+
+	Result = Lerp(
+		FQuat::Slerp_NotNormalized(P00,P10,FracX),
+		FQuat::Slerp_NotNormalized(P01,P11,FracX),
+		FracY
+		);
+
+	return Result;
+}
+
+template<class U>
+FORCEINLINE_DEBUGGABLE FQuat FMath::CubicInterp( const FQuat& P0, const FQuat& T0, const FQuat& P1, const FQuat& T1, const U& A)
+{
+	return FQuat::Squad(P0, T0, P1, T1, A);
+}
+

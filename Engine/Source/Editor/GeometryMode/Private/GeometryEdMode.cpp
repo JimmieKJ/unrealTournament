@@ -1,22 +1,34 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GeometryModePrivatePCH.h"
-#include "DynamicMeshBuilder.h"
+#include "GeometryEdMode.h"
+#include "EditorViewportClient.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "EditorStyleSet.h"
+#include "EditorStyleSettings.h"
+#include "Materials/Material.h"
 #include "Engine/Selection.h"
-#include "Classes/GeomModifier.h"
-#include "Classes/GeomModifier_Edit.h"
-#include "Classes/GeomModifier_Clip.h"
-#include "Classes/GeomModifier_Create.h"
-#include "Classes/GeomModifier_Delete.h"
-#include "Classes/GeomModifier_Extrude.h"
-#include "Classes/GeomModifier_Flip.h"
-#include "Classes/GeomModifier_Lathe.h"
-#include "Classes/GeomModifier_Pen.h"
-#include "Classes/GeomModifier_Split.h"
-#include "Classes/GeomModifier_Triangulate.h"
-#include "Classes/GeomModifier_Optimize.h"
-#include "Classes/GeomModifier_Turn.h"
-#include "Classes/GeomModifier_Weld.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "Toolkits/ToolkitManager.h"
+#include "BSPOps.h"
+#include "GeometryMode.h"
+#include "EditorGeometry.h"
+#include "DynamicMeshBuilder.h"
+#include "GeomModifier.h"
+#include "GeomModifier_Edit.h"
+#include "GeomModifier_Clip.h"
+#include "GeomModifier_Create.h"
+#include "GeomModifier_Delete.h"
+#include "GeomModifier_Extrude.h"
+#include "GeomModifier_Flip.h"
+#include "GeomModifier_Lathe.h"
+#include "GeomModifier_Pen.h"
+#include "GeomModifier_Split.h"
+#include "GeomModifier_Triangulate.h"
+#include "GeomModifier_Optimize.h"
+#include "GeomModifier_Turn.h"
+#include "GeomModifier_Weld.h"
 
 IMPLEMENT_MODULE( FGeometryModeModule, GeometryMode );
 
@@ -612,7 +624,7 @@ void FEdModeGeometry::RenderVertex( const FSceneView* View, FPrimitiveDrawInterf
 			check(GeomObject->GetActualBrush());
 
 			Location = GeomObject->GetActualBrush()->ActorToWorld().TransformPosition( *GeomVertex );
-			Scale = View->WorldToScreen( Location ).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
+			Scale = View->WorldToScreen( Location ).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.GetProjectionMatrix().M[0][0] );
 			Color = GeomVertex->IsSelected() ? FColor(255,128,64) : GeomObject->GetActualBrush()->GetWireColor();
 
 			PDI->SetHitProxy( new HGeomVertexProxy( GeomObject, VertIdx) );

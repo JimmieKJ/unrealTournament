@@ -2,9 +2,15 @@
 
 #pragma once
 
-class IDetailCustomNodeBuilder;
-class FDetailItemNode;
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "DetailWidgetRow.h"
+#include "SDetailsViewBase.h"
+
+class FCustomChildrenBuilder;
 class FDetailCategoryImpl;
+class FDetailItemNode;
+class IDetailCustomNodeBuilder;
 
 class FDetailCustomBuilderRow : public TSharedFromThis<FDetailCustomBuilderRow>
 {

@@ -1,14 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "SlateTextures.h"
-#include "SceneViewport.h"
-#include "ScreenRendering.h"
-#include "RenderCore.h"
+#include "TrackEditorThumbnail/TrackEditorThumbnail.h"
+#include "Modules/ModuleManager.h"
+#include "RHI.h"
+#include "RenderingThread.h"
+#include "ShowFlags.h"
 #include "RHIStaticStates.h"
 #include "RendererInterface.h"
-#include "TrackEditorThumbnail.h"
-#include "TrackEditorThumbnailPool.h"
+#include "Shader.h"
+#include "StaticBoundShaderState.h"
+#include "EditorViewportClient.h"
+#include "LevelEditorViewport.h"
+#include "Slate/SlateTextures.h"
+#include "Slate/SceneViewport.h"
+#include "GlobalShader.h"
+#include "ScreenRendering.h"
+#include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
 
 
 namespace TrackEditorThumbnailConstants
@@ -365,7 +372,7 @@ void FTrackEditorThumbnailCache::DrawViewportThumbnail(FTrackEditorThumbnail& Tr
 		FIntPoint Size = CalculateTextureSize();
 		if (InternalViewportScene->GetSize() != Size)
 		{
-			InternalViewportScene->UpdateViewportRHI(false, Size.X, Size.Y, EWindowMode::Windowed);
+			InternalViewportScene->UpdateViewportRHI(false, Size.X, Size.Y, EWindowMode::Windowed, PF_Unknown);
 		}
 
 		InternalViewportClient->DeltaWorldTime = TrackEditorThumbnail.GetEvalPosition() - InternalViewportClient->CurrentWorldTime;

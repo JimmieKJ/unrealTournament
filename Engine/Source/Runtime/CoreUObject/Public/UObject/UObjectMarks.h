@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** 
  * Object marks are bits associated with UObject. Marks are:
  * - Never saved

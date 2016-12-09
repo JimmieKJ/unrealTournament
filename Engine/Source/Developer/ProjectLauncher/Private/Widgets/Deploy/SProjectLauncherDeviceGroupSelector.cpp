@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
-#include "SProjectLauncherDeviceGroupSelector.h"
-#include "SEditableComboBox.h"
+#include "Widgets/Deploy/SProjectLauncherDeviceGroupSelector.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Shared/SProjectLauncherFormLabel.h"
+#include "Widgets/Input/SEditableComboBox.h"
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherDeviceGroupSelector"
 

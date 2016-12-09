@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "BehaviorTree/BehaviorTreeTypes.h"
 #include "BehaviorTree/BTDecorator.h"
 #include "BTDecorator_DoesPathExist.generated.h"
 
-class UNavigationQueryFilter;
+class UBehaviorTree;
 
 UENUM()
 namespace EPathExistanceQueryType

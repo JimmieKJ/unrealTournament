@@ -1,37 +1,74 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GameProjectGenerationPrivatePCH.h"
+#include "GameProjectUtils.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "FeaturePackContentSource.h"
+#include "TemplateProjectDefs.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Misc/App.h"
+#include "Misc/EngineVersion.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Components/ActorComponent.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+#include "GeneralProjectSettings.h"
+#include "GameFramework/Character.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "GameFramework/GameModeBase.h"
+#include "UnrealEdMisc.h"
+#include "PluginDescriptor.h"
+#include "Interfaces/IPluginManager.h"
+#include "ProjectDescriptor.h"
+#include "Interfaces/IProjectManager.h"
+#include "GameProjectGenerationLog.h"
+#include "DefaultTemplateProjectDefs.h"
+#include "SNewClassDialog.h"
 #include "FeaturedClasses.inl"
 
-#include "UnrealEdMisc.h"
-#include "ISourceControlModule.h"
-#include "MainFrame.h"
-#include "DefaultTemplateProjectDefs.h"
+#include "Interfaces/IMainFrameModule.h"
 
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
-#include "EngineBuildSettings.h"
 
 #include "DesktopPlatformModule.h"
-#include "TargetPlatform.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
 
-#include "SlateIconFinder.h"
-#include "Editor/UnrealEd/Public/SourceCodeNavigation.h"
-
-#include "UProjectInfo.h"
-#include "DesktopPlatformModule.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "GameFramework/GameMode.h"
-#include "HotReloadInterface.h"
-#include "SVerbChoiceDialog.h"
+#include "Styling/SlateIconFinder.h"
 #include "SourceCodeNavigation.h"
-#include "FeaturePackContentSource.h"
 
-#include "SOutputLogDialog.h"
+#include "Misc/UProjectInfo.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Misc/HotReloadInterface.h"
+
+#include "Dialogs/SOutputLogDialog.h"
+
+#include "Sound/SoundEffectSubmix.h"
+#include "Sound/SoundEffectSource.h"
 
 #include "PlatformInfo.h"
+#include "Blueprint/BlueprintSupport.h"
 
 #define LOCTEXT_NAMESPACE "GameProjectUtils"
 
@@ -329,6 +366,19 @@ FString FNewClassInfo::GetHeaderTemplateFilename() const
 				{
 					return TEXT("CharacterClass.h.template");
 				}
+
+				// Only check audio-mixer module specific classes if audio mixer is loaded
+				if (FModuleManager::Get().IsModuleLoaded("AudioMixer"))
+				{
+					if (BaseClass == USoundEffectSource::StaticClass())
+					{
+						return TEXT("SoundEffectSourceClass.h.template");
+					}
+					else if (BaseClass == USoundEffectSubmix::StaticClass())
+					{
+						return TEXT("SoundEffectSubmixClass.h.template");
+					}
+				}
 			}
 			// Some other non-actor, non-component UObject class
 			return TEXT( "UObjectClass.h.template" );
@@ -374,6 +424,14 @@ FString FNewClassInfo::GetSourceTemplateFilename() const
 				else if (BaseClass == ACharacter::StaticClass())
 				{
 					return TEXT("CharacterClass.cpp.template");
+				}
+				else if (BaseClass == USoundEffectSubmix::StaticClass())
+				{
+					return TEXT("SoundEffectSubmixClass.cpp.template");
+				}
+				else if (BaseClass == USoundEffectSource::StaticClass())
+				{
+					return TEXT("SoundEffectSourceClass.cpp.template");
 				}
 			}
 			// Some other non-actor, non-component UObject class
@@ -1190,7 +1248,7 @@ bool GameProjectUtils::GenerateProjectFromScratch(const FProjectInformation& InP
 	return true;
 }
 
-bool GameProjectUtils::CreateProjectFromTemplate(const FProjectInformation& InProjectInfo, FText& OutFailReason, FText& OutFailLog,TArray<FString>* OutCreatedFiles)
+bool GameProjectUtils::CreateProjectFromTemplate(const FProjectInformation& InProjectInfo, FText& OutFailReason, FText& OutFailLog, TArray<FString>* OutCreatedFiles)
 {
 	FScopedSlowTask SlowTask(10);
 
@@ -1539,12 +1597,12 @@ bool GameProjectUtils::CreateProjectFromTemplate(const FProjectInformation& InPr
 	}
 
 	// Insert any required feature packs (EG starter content) into ini file. These will be imported automatically when the editor is first run
-	if(!InsertFeaturePacksIntoINIFile(InProjectInfo, OutFailReason))
+	if ( !InsertFeaturePacksIntoINIFile(InProjectInfo, OutFailReason) )
 	{
 		return false;
 	}
 
-	if( AddSharedContentToProject(InProjectInfo, CreatedFiles, OutFailReason ) == false )
+	if ( !AddSharedContentToProject(InProjectInfo, CreatedFiles, OutFailReason) )
 	{
 		return false;
 	}
@@ -1556,7 +1614,7 @@ bool GameProjectUtils::CreateProjectFromTemplate(const FProjectInformation& InPr
 	{
 		// Load the source project
 		FProjectDescriptor Project;
-		if(!Project.Load(InProjectInfo.TemplateFile, OutFailReason))
+		if ( !Project.Load(InProjectInfo.TemplateFile, OutFailReason) )
 		{
 			return false;
 		}
@@ -1803,11 +1861,6 @@ bool GameProjectUtils::GenerateConfigFiles(const FProjectInformation& InProjectI
 	{
 		const FString DefaultEditorIniFilename = ProjectConfigPath / TEXT("DefaultEditor.ini");
 		FString FileContents;
-		FileContents += TEXT("[EditoronlyBP]") LINE_TERMINATOR;
-		FileContents += TEXT("bAllowClassAndBlueprintPinMatching=true") LINE_TERMINATOR;
-		FileContents += TEXT("bReplaceBlueprintWithClass=true") LINE_TERMINATOR;
-		FileContents += TEXT("bDontLoadBlueprintOutsideEditor=true") LINE_TERMINATOR;
-		FileContents += TEXT("bBlueprintIsNotBlueprintType=true") LINE_TERMINATOR;
 
 		if (WriteOutputFile(DefaultEditorIniFilename, FileContents, OutFailReason))
 		{
@@ -1955,7 +2008,7 @@ bool GameProjectUtils::GenerateGameFrameworkSourceCode(const FString& NewProject
 
 	// MyGameGameMode.h
 	{
-		const UClass* BaseClass = AGameMode::StaticClass();
+		const UClass* BaseClass = AGameModeBase::StaticClass();
 		const FString NewClassName = NewProjectName + BaseClass->GetName();
 		const FString NewHeaderFilename = GameModulePath / NewClassName + TEXT(".h");
 		FString UnusedSyncLocation;
@@ -1971,7 +2024,7 @@ bool GameProjectUtils::GenerateGameFrameworkSourceCode(const FString& NewProject
 
 	// MyGameGameMode.cpp
 	{
-		const UClass* BaseClass = AGameMode::StaticClass();
+		const UClass* BaseClass = AGameModeBase::StaticClass();
 		const FString NewClassName = NewProjectName + BaseClass->GetName();
 		const FString NewCPPFilename = GameModulePath / NewClassName + TEXT(".cpp");
 		
@@ -2030,7 +2083,7 @@ bool GameProjectUtils::GenerateCodeProjectFiles(const FString& ProjectFilename, 
 	bool bHaveProjectFiles = FDesktopPlatformModule::Get()->GenerateProjectFiles(FPaths::RootDir(), ProjectFilename, GWarn);
 	GLog->RemoveOutputDevice(&OutputLog);
 
-	if(!bHaveProjectFiles)
+	if ( !bHaveProjectFiles )
 	{
 		OutFailReason = LOCTEXT("ErrorWhileGeneratingProjectFiles", "An error occurred while trying to generate project files.");
 		OutFailLog = FText::FromString(OutputLog);
@@ -2455,6 +2508,28 @@ void GameProjectUtils::ClearSupportedTargetPlatforms()
 		}
 
 		IProjectManager::Get().ClearSupportedTargetPlatformsForCurrentProject();
+	}
+}
+
+void GameProjectUtils::UpdateAdditionalPluginDirectory(const FString& InDir, const bool bAddOrRemove)
+{
+	const FString& ProjectFilename = FPaths::GetProjectFilePath();
+	if (!ProjectFilename.IsEmpty())
+	{
+		// First attempt to check out the file if SCC is enabled
+		if (ISourceControlModule::Get().IsEnabled())
+		{
+			FText UnusedFailReason;
+			CheckoutGameProjectFile(ProjectFilename, UnusedFailReason);
+		}
+
+		// Second make sure the file is writable
+		if (FPlatformFileManager::Get().GetPlatformFile().IsReadOnly(*ProjectFilename))
+		{
+			FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*ProjectFilename, false);
+		}
+
+		IProjectManager::Get().UpdateAdditionalPluginDirectory(InDir, bAddOrRemove);
 	}
 }
 

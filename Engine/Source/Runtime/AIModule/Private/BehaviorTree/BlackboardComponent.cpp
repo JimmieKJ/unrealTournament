@@ -1,9 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "EngineUtils.h"
-#include "BehaviorTree/Blackboard/BlackboardKeyAllTypes.h"
 #include "BehaviorTree/BlackboardComponent.h"
+#include "BrainComponent.h"
+#include "AIController.h"
+#include "BehaviorTree/BTNode.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Enum.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Vector.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Rotator.h"
+#include "VisualLogger/VisualLoggerTypes.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Bool.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Class.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Float.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Int.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Name.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_String.h"
 
 UBlackboardComponent::UBlackboardComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -212,20 +223,24 @@ void UBlackboardComponent::PopulateSynchronizedKeys()
 			{
 				if (Key.bInstanceSynced)
 				{
-					const int32 KeyID = BlackboardAsset->GetKeyID(Key.EntryName);
-					const FBlackboardEntry* OtherKey = OtherBlackboard->GetBlackboardAsset()->GetKey(KeyID);
+					UBlackboardData* const OtherBlackboardAsset = OtherBlackboard->GetBlackboardAsset();
+					const int32 OtherKeyID = OtherBlackboardAsset ? OtherBlackboardAsset->GetKeyID(Key.EntryName) : FBlackboard::InvalidKey;
+					if (OtherKeyID != FBlackboard::InvalidKey)
+					{
+						const FBlackboardEntry* const OtherKey = OtherBlackboard->GetBlackboardAsset()->GetKey(OtherKeyID);
+						check(Key.EntryName == OtherKey->EntryName);
+						check(Key.KeyType == OtherKey->KeyType);
 
-					check(Key.EntryName == OtherKey->EntryName);
-					check(Key.KeyType == OtherKey->KeyType);
+						const uint16 DataOffset = Key.KeyType->IsInstanced() ? sizeof(FBlackboardInstancedKeyMemory) : 0;
+						const int32 KeyID = BlackboardAsset->GetKeyID(Key.EntryName);
+						uint8* RawData = GetKeyRawData(KeyID) + DataOffset;
+						uint8* RawSource = OtherBlackboard->GetKeyRawData(OtherKeyID) + DataOffset;
 
-					const uint16 DataOffset = Key.KeyType->IsInstanced() ? sizeof(FBlackboardInstancedKeyMemory) : 0;
-					uint8* RawData = GetKeyRawData(KeyID) + DataOffset;
-					uint8* RawSource = OtherBlackboard->GetKeyRawData(KeyID) + DataOffset;
+						UBlackboardKeyType* KeyOb = Key.KeyType->IsInstanced() ? KeyInstances[KeyID] : Key.KeyType;
+						const UBlackboardKeyType* SourceKeyOb = Key.KeyType->IsInstanced() ? OtherBlackboard->KeyInstances[OtherKeyID] : Key.KeyType;
 
-					UBlackboardKeyType* KeyOb = Key.KeyType->IsInstanced() ? KeyInstances[KeyID] : Key.KeyType;
-					const UBlackboardKeyType* SourceKeyOb = Key.KeyType->IsInstanced() ? OtherBlackboard->KeyInstances[KeyID] : Key.KeyType;
-
-					KeyOb->CopyValues(*this, RawData, SourceKeyOb, RawSource);
+						KeyOb->CopyValues(*this, RawData, SourceKeyOb, RawSource);
+					}
 				}
 			}
 			break;
@@ -239,7 +254,7 @@ bool UBlackboardComponent::ShouldSyncWithBlackboard(UBlackboardComponent& OtherB
 {
 	return &OtherBlackboardComponent != this && (
 		(BrainComp == nullptr || (BrainComp->GetAIOwner() != nullptr && BrainComp->GetAIOwner()->ShouldSyncBlackboardWith(OtherBlackboardComponent) == true))
-		|| (OtherBlackboardComponent.BrainComp == nullptr || (OtherBlackboardComponent.BrainComp->GetAIOwner() != nullptr && OtherBlackboardComponent.BrainComp->GetAIOwner()->ShouldSyncBlackboardWith(OtherBlackboardComponent) == true)));
+		|| (OtherBlackboardComponent.BrainComp == nullptr || (OtherBlackboardComponent.BrainComp->GetAIOwner() != nullptr && OtherBlackboardComponent.BrainComp->GetAIOwner()->ShouldSyncBlackboardWith(*this) == true)));
 }
 
 UBrainComponent* UBlackboardComponent::GetBrainComponent() const
@@ -331,6 +346,27 @@ void UBlackboardComponent::UnregisterObserversFrom(UObject* NotifyOwner)
 		It.RemoveCurrent();
 		// check other delegates from NotifyOwner as well
 	}
+}
+
+void UBlackboardComponent::PauseObserverNotifications()
+{
+	bPausedNotifies = true;
+}
+
+
+void UBlackboardComponent::ResumeObserverNotifications(bool bSendQueuedObserverNotifications)
+{
+	bPausedNotifies = false;
+
+	if (bSendQueuedObserverNotifications)
+	{
+		for (int32 UpdateIndex = 0; UpdateIndex < QueuedUpdates.Num(); UpdateIndex++)
+		{
+			NotifyObservers(QueuedUpdates[UpdateIndex]);
+		}
+	}
+
+	QueuedUpdates.Empty();
 }
 
 void UBlackboardComponent::PauseUpdates()
@@ -681,12 +717,17 @@ void UBlackboardComponent::ClearValue(FBlackboard::FKey KeyID)
 					UBlackboardComponent* OtherBlackboard = Iter.Value();
 					if (OtherBlackboard != nullptr && ShouldSyncWithBlackboard(*OtherBlackboard))
 					{
-						const FBlackboardEntry* OtherEntryInfo = OtherBlackboard->BlackboardAsset->GetKey(KeyID);
-						UBlackboardKeyType* OtherKeyOb = EntryInfo->KeyType->IsInstanced() ? OtherBlackboard->KeyInstances[KeyID] : EntryInfo->KeyType;
-						uint8* OtherRawData = OtherBlackboard->GetKeyRawData(KeyID) + DataOffset;
+						UBlackboardData* const OtherBlackboardAsset = OtherBlackboard->GetBlackboardAsset();
+						const int32 OtherKeyID = OtherBlackboardAsset ? OtherBlackboardAsset->GetKeyID(EntryInfo->EntryName) : FBlackboard::InvalidKey;
+						if (OtherKeyID != FBlackboard::InvalidKey)
+						{
+							const FBlackboardEntry* OtherEntryInfo = OtherBlackboard->BlackboardAsset->GetKey(OtherKeyID);
+							UBlackboardKeyType* OtherKeyOb = EntryInfo->KeyType->IsInstanced() ? OtherBlackboard->KeyInstances[OtherKeyID] : EntryInfo->KeyType;
+							uint8* OtherRawData = OtherBlackboard->GetKeyRawData(OtherKeyID) + DataOffset;
 
-						OtherKeyOb->CopyValues(*OtherBlackboard, OtherRawData, KeyOb, InstancedRawData);
-						OtherBlackboard->NotifyObservers(KeyID);
+							OtherKeyOb->CopyValues(*OtherBlackboard, OtherRawData, KeyOb, InstancedRawData);
+							OtherBlackboard->NotifyObservers(OtherKeyID);
+						}
 					}
 				}
 			}

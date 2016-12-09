@@ -2,13 +2,18 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Engine/BlueprintGeneratedClass.h"
 #include "InheritableComponentHandler.generated.h"
 
-class  USCS_Node;
-class  UActorComponent;
+class UActorComponent;
+class UBlueprint;
+class USCS_Node;
 struct FUCSComponentId;
-class  UBlueprint;
-class  UBlueprintGeneratedClass;
 
 USTRUCT()
 struct ENGINE_API FComponentKey
@@ -66,6 +71,9 @@ struct FComponentOverrideRecord
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
+	UClass* ComponentClass;
+
+	UPROPERTY()
 	UActorComponent* ComponentTemplate;
 
 	UPROPERTY()
@@ -75,7 +83,8 @@ struct FComponentOverrideRecord
 	FBlueprintCookedComponentInstancingData CookedComponentInstancingData;
 
 	FComponentOverrideRecord()
-		: ComponentTemplate(nullptr)
+		: ComponentClass(nullptr)
+		, ComponentTemplate(nullptr)
 	{}
 };
 
@@ -84,8 +93,13 @@ class ENGINE_API UInheritableComponentHandler : public UObject
 {
 	GENERATED_BODY()
 
-#if WITH_EDITOR
 private:
+
+	/* Template name prefix for SCS DefaultSceneRootNode overrides */
+	static const FString SCSDefaultSceneRootOverrideNamePrefix;
+
+#if WITH_EDITOR
+
 	bool IsRecordValid(const FComponentOverrideRecord& Record) const;
 	bool IsRecordNecessary(const FComponentOverrideRecord& Record) const;
 
@@ -112,6 +126,7 @@ public:
 
 	//~ Begin UObject Interface
 	virtual void PostLoad() override;
+	virtual void GetPreloadDependencies(TArray<UObject*>& OutDeps) override;
 	//~ End UObject Interface
 
 	void PreloadAllTempates();
@@ -138,6 +153,11 @@ public:
 private:
 	const FComponentOverrideRecord* FindRecord(const FComponentKey Key) const;
 	
+	/** All component records */
 	UPROPERTY()
 	TArray<FComponentOverrideRecord> Records;
+
+	/** List of components that were marked unnecessary, need to keep these around so it doesn't regenerate them when a child asks for one */
+	UPROPERTY(Transient)
+	TArray<UActorComponent*> UnnecessaryComponents;
 };

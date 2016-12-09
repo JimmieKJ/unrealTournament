@@ -1,12 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_DynamicCast.h"
+#include "UObject/Interface.h"
+#include "Engine/Blueprint.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EdGraphSchema_K2.h"
 
 #include "BlueprintEditorSettings.h"
+#include "Kismet2/CompilerResultsLog.h"
 #include "DynamicCastHandler.h"
 #include "EditorCategoryUtils.h"
-#include "KismetEditorUtilities.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_DynamicCast"
@@ -326,10 +332,10 @@ bool UK2Node_DynamicCast::IsConnectionDisallowed(const UEdGraphPin* MyPin, const
 		const FEdGraphPinType& OtherPinType = OtherPin->PinType;
 		const FText OtherPinName = OtherPin->PinFriendlyName.IsEmpty() ? FText::FromString(OtherPin->PinName) : OtherPin->PinFriendlyName;
 
-		if (OtherPinType.bIsArray)
+		if (OtherPinType.IsContainer())
 		{
 			bIsDisallowed = true;
-			OutReason = LOCTEXT("CannotArrayCast", "You cannot cast arrays of objects.").ToString();
+			OutReason = LOCTEXT("CannotContainerCast", "You cannot cast containers of objects.").ToString();
 		}
 		else if (TargetType == nullptr)
 		{
@@ -399,9 +405,14 @@ void UK2Node_DynamicCast::ValidateNodeDuringCompilation(FCompilerResultsLog& Mes
 	Super::ValidateNodeDuringCompilation(MessageLog);
 
 	UEdGraphPin* SourcePin = GetCastSourcePin();
-	if ((SourcePin->LinkedTo.Num() > 0) && (TargetType != nullptr))
+	if (SourcePin->LinkedTo.Num() > 0)
 	{
 		const UClass* SourceType = *TargetType;
+		if (SourceType == nullptr)
+		{
+			return;
+		}
+
 		for (UEdGraphPin* CastInput : SourcePin->LinkedTo)
 		{
 			const FEdGraphPinType& SourcePinType = CastInput->PinType;

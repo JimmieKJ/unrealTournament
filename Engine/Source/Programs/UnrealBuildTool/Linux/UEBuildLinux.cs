@@ -10,8 +10,61 @@ namespace UnrealBuildTool
 {
 	class LinuxPlatformContext : UEBuildPlatformContext
 	{
+		/** Architecture as stored in the ini. */
+		public enum LinuxArchitecture
+		{
+			/** x86_64, most commonly used architecture.*/
+			X86_64UnknownLinuxGnu,
+
+			/** A.k.a. AArch32, ARM 32-bit with hardware floats */
+			ArmUnknownLinuxGnueabihf,
+
+			/** AArch64, ARM 64-bit */
+			AArch64UnknownLinuxGnueabi
+		}
+
+		/** Currently active architecture */
+		private string ActiveArchitecture = LinuxPlatform.DefaultArchitecture;
+
 		public LinuxPlatformContext(FileReference InProjectFile) : base(UnrealTargetPlatform.Linux, InProjectFile)
 		{
+			// read settings from the config
+			string EngineIniPath = ProjectFile != null ? ProjectFile.Directory.FullName : null;
+			if (String.IsNullOrEmpty(EngineIniPath))
+			{
+				// If the project file hasn't been specified, try to get the path from -remoteini command line param
+				EngineIniPath = UnrealBuildTool.GetRemoteIniPath();
+			}
+			DirectoryReference EngineIniDir = !String.IsNullOrEmpty(EngineIniPath) ? new DirectoryReference(EngineIniPath) : null;
+
+			ConfigCacheIni Ini = ConfigCacheIni.CreateConfigCacheIni(UnrealTargetPlatform.Linux, "Engine", EngineIniDir);
+
+			string LinuxArchitectureString;
+			if (Ini.GetString("/Script/LinuxTargetPlatform.LinuxTargetSettings", "TargetArchitecture", out LinuxArchitectureString))
+			{
+				LinuxArchitecture Architecture;
+				if (Enum.TryParse(LinuxArchitectureString, out Architecture))
+				{
+					switch (Architecture)
+					{
+						default:
+							System.Console.WriteLine("Architecture enum value {0} does not map to a valid triplet.", Architecture);
+							break;
+
+						case LinuxArchitecture.X86_64UnknownLinuxGnu:
+							ActiveArchitecture = "x86_64-unknown-linux-gnu";
+							break;
+
+						case LinuxArchitecture.ArmUnknownLinuxGnueabihf:
+							ActiveArchitecture = "arm-unknown-linux-gnueabihf";
+							break;
+
+						case LinuxArchitecture.AArch64UnknownLinuxGnueabi:
+							ActiveArchitecture = "aarch64-unknown-linux-gnueabi";
+							break;
+					}
+				}
+			}
 		}
 
 		/// <summary>
@@ -19,7 +72,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public override string GetActiveArchitecture()
 		{
-			return LinuxPlatform.DefaultArchitecture;
+			return ActiveArchitecture;
 		}
 
 		/// <summary>
@@ -99,6 +152,8 @@ namespace UnrealBuildTool
 		{
 			UEBuildConfiguration.bCompileSimplygon = false;
             UEBuildConfiguration.bCompileSimplygonSSF = false;
+			// depends on arch, APEX cannot be as of November'16 compiled for AArch32/64
+			UEBuildConfiguration.bCompileAPEX = GetActiveArchitecture().StartsWith("x86_64");
 		}
 
 		/// <summary>
@@ -115,12 +170,8 @@ namespace UnrealBuildTool
 				UEBuildConfiguration.bCompileLeanAndMeanUE = false;
 			}
 
-			BuildConfiguration.bUseUnityBuild = true;
-
 			// Don't stop compilation at first error...
 			BuildConfiguration.bStopXGECompilationAfterErrors = true;
-
-			BuildConfiguration.bUseSharedPCHs = false;
 		}
 
 		/// <summary>
@@ -132,9 +183,10 @@ namespace UnrealBuildTool
 			InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("PLATFORM_LINUX=1");
 			InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("LINUX=1");
 
+			InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("PLATFORM_SUPPORTS_JEMALLOC=1");	// this define does not set jemalloc as default, just indicates its support
 			InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("WITH_DATABASE_SUPPORT=0");		//@todo linux: valid?
 
-			if (GetActiveArchitecture().StartsWith("arm"))
+			if (GetActiveArchitecture().StartsWith("arm"))	// AArch64 doesn't strictly need that - aligned access improves perf, but this will be likely offset by memcpys we're doing to guarantee it.
 			{
 				InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
 			}
@@ -149,9 +201,9 @@ namespace UnrealBuildTool
                 UEBuildConfiguration.bCompileSimplygonSSF = false;
 			}
 
-			if (InBuildTarget.TargetType == TargetRules.TargetType.Server)
+			// At the moment ICU has not been compiled for AArch64. Also, localization isn't needed on servers by default, and ICU is pretty heavy
+			if (GetActiveArchitecture().StartsWith("aarch64") || InBuildTarget.TargetType == TargetRules.TargetType.Server)
 			{
-				// Localization shouldn't be needed on servers by default, and ICU is pretty heavy
 				UEBuildConfiguration.bCompileICU = false;
 			}
 		}
@@ -204,7 +256,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		// FIXME: for now switching between architectures is hard-coded
 		public const string DefaultArchitecture = "x86_64-unknown-linux-gnu";
-		//static private string DefaultArchitecture = "arm-unknown-linux-gnueabihf";
+		//public const string DefaultArchitecture = "arm-unknown-linux-gnueabihf";
+		//public const string DefaultArchitecture = "aarch64-unknown-linux-gnueabi";
 
 		LinuxPlatformSDK SDK;
 
@@ -236,7 +289,7 @@ namespace UnrealBuildTool
 
 		public override bool CanUseXGE()
 		{
-			// [RCL] 2015-08-04 FIXME: we have seen XGE builds fail on Windows
+			// XGE crashes with very high probability when v8_clang-3.9.0-centos cross-toolchain is used on Windows. Please make sure this is resolved before re-enabling it.
 			return BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux;
 		}
 
@@ -337,11 +390,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// This is the SDK version we support
 		/// </summary>
-		static private Dictionary<string, string> ExpectedSDKVersions = new Dictionary<string, string>()
-		{
-			{ "x86_64-unknown-linux-gnu", "v7_clang-3.7.0_ld-2.24_glibc-2.12.2" },
-			{ "arm-unknown-linux-gnueabihf", "arm-unknown-linux-gnueabihf_v5_clang-3.5.0-ld-2.23.1-glibc-2.13" },
-		};
+		static string ExpectedSDKVersion = "v8_clang-3.9.0-centos7";	// now unified for all the architectures
 
 		/// <summary>
 		/// Platform name (embeds architecture for now)
@@ -372,13 +421,7 @@ namespace UnrealBuildTool
 		/// <returns>Valid SDK string</returns>
 		protected override string GetRequiredSDKString()
 		{
-			string SDKString;
-			if (!ExpectedSDKVersions.TryGetValue(LinuxPlatform.DefaultArchitecture, out SDKString))
-			{
-				throw new BuildException("LinuxPlatform::GetRequiredSDKString: no toolchain set up for architecture '{0}'", LinuxPlatform.DefaultArchitecture);
-			}
-
-			return SDKString;
+			return ExpectedSDKVersion;
 		}
 
 		protected override String GetRequiredScriptVersionString()
@@ -402,18 +445,34 @@ namespace UnrealBuildTool
 				return SDKStatus.Valid;
 			}
 
-			string BaseLinuxPath = Environment.GetEnvironmentVariable("LINUX_ROOT");
+			string MultiArchRoot = Environment.GetEnvironmentVariable("LINUX_MULTIARCH_ROOT");
+			string BaseLinuxPath;
+
+			if (MultiArchRoot != null)
+			{
+				// FIXME: UBT should loop across all the architectures and compile for all the selected ones.
+				BaseLinuxPath = Path.Combine(MultiArchRoot, LinuxPlatform.DefaultArchitecture);
+			}
+			else
+			{
+				// support the existing, non-multiarch toolchains for continuity
+				BaseLinuxPath = Environment.GetEnvironmentVariable("LINUX_ROOT");
+			}
 
 			// we don't have an LINUX_ROOT specified
 			if (String.IsNullOrEmpty(BaseLinuxPath))
+			{
 				return SDKStatus.Invalid;
+			}
 
 			// paths to our toolchains
 			BaseLinuxPath = BaseLinuxPath.Replace("\"", "");
-			string ClangPath = Path.Combine(BaseLinuxPath, @"bin\Clang++.exe");
+			string ClangPath = Path.Combine(BaseLinuxPath, @"bin\clang++.exe");
 
 			if (File.Exists(ClangPath))
+			{
 				return SDKStatus.Valid;
+			}
 
 			return SDKStatus.Invalid;
 		}

@@ -4,10 +4,23 @@
 	LightFunctionRendering.cpp: Implementation for rendering light functions.
 =============================================================================*/
 
-#include "RendererPrivate.h"
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "EngineGlobals.h"
+#include "RHIDefinitions.h"
+#include "RHI.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "SceneUtils.h"
+#include "RHIStaticStates.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "MaterialShaderType.h"
+#include "SceneRenderTargetParameters.h"
+#include "MaterialShader.h"
+#include "ShadowRendering.h"
+#include "DeferredShadingRenderer.h"
 #include "ScenePrivate.h"
 #include "LightRendering.h"
-#include "SceneUtils.h"
 
 /**
  * A vertex shader for projecting a light function onto the scene.
@@ -43,11 +56,11 @@ public:
 		FSphere LightBounds = LightSceneInfo->Proxy->GetBoundingSphere();
 		if (LightSceneInfo->Proxy->GetLightType() == LightType_Directional)
 		{
-			LightBounds.Center = View.ViewMatrices.ViewOrigin;
+			LightBounds.Center = View.ViewMatrices.GetViewOrigin();
 		}
 
 		FVector4 StencilingSpherePosAndScale;
-		StencilingGeometry::GStencilSphereVertexBuffer.CalcTransform(StencilingSpherePosAndScale, LightBounds, View.ViewMatrices.PreViewTranslation);
+		StencilingGeometry::GStencilSphereVertexBuffer.CalcTransform(StencilingSpherePosAndScale, LightBounds, View.ViewMatrices.GetPreViewTranslation());
 		StencilingGeometryParameters.Set(RHICmdList, this, StencilingSpherePosAndScale);
 	}
 
@@ -128,7 +141,7 @@ public:
 					FPlane( 0, My,   0,  0),
 					FPlane( 0,  0,   1,  0),
 					FPlane(Ax, Ay,   0,  1)
-				) * View.InvViewProjectionMatrix * WorldToLight;
+				) * View.ViewMatrices.GetInvViewProjectionMatrix() * WorldToLight;
 
 			SetShaderValue(RHICmdList, ShaderRHI, SvPositionToLight, SvPositionToLightValue );
 		}
@@ -180,8 +193,8 @@ static float GetLightFunctionFadeFraction(const FViewInfo& View, FSphere LightBo
 	int32 SizeX = View.ViewRect.Width();
 	int32 SizeY = View.ViewRect.Height();
 	const float ScreenRadius = FMath::Max(
-		SizeX / 2.0f * View.ViewMatrices.ProjMatrix.M[0][0],
-		SizeY / 2.0f * View.ViewMatrices.ProjMatrix.M[1][1]) *
+		SizeX / 2.0f * View.ViewMatrices.GetProjectionMatrix().M[0][0],
+		SizeY / 2.0f * View.ViewMatrices.GetProjectionMatrix().M[1][1]) *
 		LightBounds.W /
 		FMath::Max(ScreenPosition.W, 1.0f);
 
@@ -210,7 +223,7 @@ bool FDeferredShadingSceneRenderer::CheckForLightFunction( const FLightSceneInfo
 
 			if (LightSceneInfo->Proxy->GetLightType() == LightType_Directional)
 			{
-				LightBounds.Center = View.ViewMatrices.ViewOrigin;
+				LightBounds.Center = View.ViewMatrices.GetViewOrigin();
 			}
 
 			if(View.VisibleLightInfos[LightSceneInfo->Id].bInViewFrustum
@@ -281,7 +294,7 @@ bool FDeferredShadingSceneRenderer::RenderLightFunctionForMaterial(FRHICommandLi
 			{
 				if (LightSceneInfo->Proxy->GetLightType() == LightType_Directional)
 				{
-					LightBounds.Center = View.ViewMatrices.ViewOrigin;
+					LightBounds.Center = View.ViewMatrices.GetViewOrigin();
 				}
 
 				const float FadeAlpha = GetLightFunctionFadeFraction(View, LightBounds);
@@ -291,7 +304,7 @@ bool FDeferredShadingSceneRenderer::RenderLightFunctionForMaterial(FRHICommandLi
 					if( !bLightAttenuationCleared )
 					{
 						LightSceneInfo->Proxy->SetScissorRect(RHICmdList, View);
-						RHICmdList.Clear(true, FLinearColor::White, false, (float)ERHIZBuffer::FarPlane, false, 0, FIntRect());
+						RHICmdList.ClearColorTexture(FSceneRenderTargets::Get(RHICmdList).GetLightAttenuationSurface(), FLinearColor::White, FIntRect());
 					}
 				}
 				else
@@ -322,7 +335,7 @@ bool FDeferredShadingSceneRenderer::RenderLightFunctionForMaterial(FRHICommandLi
 						RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA>::GetRHI());
 					}
 
-					if (((FVector)View.ViewMatrices.ViewOrigin - LightBounds.Center).SizeSquared() < FMath::Square(LightBounds.W * 1.05f + View.NearClippingDistance * 2.0f))
+					if (((FVector)View.ViewMatrices.GetViewOrigin() - LightBounds.Center).SizeSquared() < FMath::Square(LightBounds.W * 1.05f + View.NearClippingDistance * 2.0f))
 					{
 						// Render backfaces with depth tests disabled since the camera is inside (or close to inside) the light function geometry
 						RHICmdList.SetRasterizerState(View.bReverseCulling ? TStaticRasterizerState<FM_Solid, CM_CW>::GetRHI() : TStaticRasterizerState<FM_Solid, CM_CCW>::GetRHI());
@@ -355,7 +368,7 @@ bool FDeferredShadingSceneRenderer::RenderLightFunctionForMaterial(FRHICommandLi
 		if (bRenderedLightFunction)
 		{
 			// Restore stencil buffer to all 0's which is the assumed default state
-			RHICmdList.Clear(false,FColor(0,0,0),false,(float)ERHIZBuffer::FarPlane,true,0, FIntRect());
+			RHICmdList.ClearDepthStencilTexture(FSceneRenderTargets::Get(RHICmdList).GetSceneDepthTexture(), EClearDepthStencil::Stencil, (float)ERHIZBuffer::FarPlane, 0, FIntRect());
 		}
 	}
 	return bRenderedLightFunction;

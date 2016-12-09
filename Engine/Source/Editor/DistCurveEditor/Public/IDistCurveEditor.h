@@ -2,8 +2,10 @@
 
 #pragma once
 
-class UInterpCurveEdSetup;
+#include "CoreMinimal.h"
+#include "Widgets/SCompoundWidget.h"
 
+class UInterpCurveEdSetup;
 
 /*-----------------------------------------------------------------------------
    FCurveEdNotifyInterface

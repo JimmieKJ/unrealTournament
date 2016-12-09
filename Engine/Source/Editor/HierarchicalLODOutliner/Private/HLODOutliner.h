@@ -2,21 +2,27 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
-#include "UnrealEd.h"
-#include "STreeView.h"
-#include "SListView.h"
-#include "STableViewBase.h"
-#include "TreeItemID.h"
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Misc/NotifyHook.h"
+#include "Widgets/SCompoundWidget.h"
+#include "EditorUndoClient.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "Editor/HierarchicalLODOutliner/Private/TreeItemID.h"
 
-class AHLODSelectionActor;
-class UWorld;
-class UDrawSphereComponent;
-class IDetailsView;
-class ALODActor;
 class AActor;
+class AHLODSelectionActor;
+class ALODActor;
+class AWorldSettings;
+class IDetailsView;
 class IHierarchicalLODUtilities;
+class UDrawSphereComponent;
+class ULevel;
 
 namespace HLODOutliner
 {

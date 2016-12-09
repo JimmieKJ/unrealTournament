@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Editor/Transactor.h"
+
 /** 
  * Matinee specific transaction record that ignores non-matinee objects.
  */

@@ -9,10 +9,11 @@
  ------------------------------------------------------------------------------------*/
 
 #include "IOSLocalNotification.h"
-#include "Engine.h"
 
 #include "IOSApplication.h"
 #include "IOSAppDelegate.h"
+
+#include "Modules/ModuleManager.h"
 
 DEFINE_LOG_CATEGORY(LogIOSLocalNotification);
 
@@ -120,6 +121,11 @@ void FIOSLocalNotificationService::ScheduleLocalNotificationAtTime(const FDateTi
 
 	[[UIApplication sharedApplication] scheduleLocalNotification:localNotif];
 #endif
+}
+
+void FIOSLocalNotificationService::CancelLocalNotification(const FString& ActivationEvent)
+{
+	// TODO
 }
 
 void FIOSLocalNotificationService::GetLaunchNotification(bool& NotificationLaunchedApp, FString& ActivationEvent, int32& FireDate)

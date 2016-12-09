@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "PointLightComponent.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/PointLightComponent.h"
 #include "SpotLightComponent.generated.h"
+
+class FLightSceneProxy;
 
 /**
  * A spot light component emits a directional cone shaped light (Eg a Torch).

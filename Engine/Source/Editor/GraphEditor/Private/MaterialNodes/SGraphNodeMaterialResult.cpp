@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeMaterialResult.h"
+#include "MaterialNodes/SGraphNodeMaterialResult.h"
+#include "MaterialGraph/MaterialGraph.h"
+#include "MaterialGraph/MaterialGraphNode_Root.h"
+#include "SGraphPanel.h"
 #include "TutorialMetaData.h"
+#include "Widgets/SToolTip.h"
+#include "IDocumentation.h"
 
 /////////////////////////////////////////////////////
 // SGraphNodeMaterialResult
@@ -45,6 +49,9 @@ void SGraphNodeMaterialResult::CreatePinWidgets()
 		{
 			TSharedPtr<SGraphPin> NewPin = CreatePinWidget(CurPin);
 			check(NewPin.IsValid());
+
+			TSharedPtr<SToolTip> ToolTipWidget = IDocumentation::Get()->CreateToolTip(MaterialGraph->MaterialInputs[PinIndex].GetToolTip(), nullptr, FString( TEXT("") ), FString( TEXT("") ) );
+			NewPin->SetToolTip( ToolTipWidget.ToSharedRef() );
 
 			this->AddPin(NewPin.ToSharedRef());
 		}

@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "FunctionArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/FunctionArchiveProxy.h"
+#include "UHTMakefile.h"
 
 FFunctionArchiveProxy::FFunctionArchiveProxy(FUHTMakefile& UHTMakefile, const UFunction* Function)
 	: FStructArchiveProxy(UHTMakefile, Function)

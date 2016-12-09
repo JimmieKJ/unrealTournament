@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SimpleHMDPrivatePCH.h"
 #include "SimpleHMD.h"
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/LocalPlayer.h"
+#include "ISimpleHMDPlugin.h"
+#include "SceneRendering.h"
 #include "PostProcess/PostProcessHMD.h"
 
 //---------------------------------------------------
@@ -15,7 +20,7 @@ class FSimpleHMDPlugin : public ISimpleHMDPlugin
 	/** IHeadMountedDisplayModule implementation */
 	virtual TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > CreateHeadMountedDisplay() override;
 
-	FString GetModulePriorityKeyName() const override
+	FString GetModuleKeyName() const override
 	{
 		return FString(TEXT("SimpleHMD"));
 	}

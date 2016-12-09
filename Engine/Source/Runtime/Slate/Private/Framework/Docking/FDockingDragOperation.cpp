@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "DockingPrivate.h"
+#include "Framework/Docking/FDockingDragOperation.h"
+#include "Framework/Application/SlateApplication.h"
 
 /**
  * Invoked when the drag and drop operation has ended.

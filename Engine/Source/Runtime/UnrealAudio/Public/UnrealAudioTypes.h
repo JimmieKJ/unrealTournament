@@ -2,6 +2,8 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+
 // Only enable unreal audio on windows or mac
 #if PLATFORM_WINDOWS
 #define ENABLE_UNREAL_AUDIO 1

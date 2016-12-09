@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetRegistryPCH.h"
+#include "PackageDependencyData.h"
 
 FName FPackageDependencyData::GetImportPackageName(int32 ImportIndex)
 {

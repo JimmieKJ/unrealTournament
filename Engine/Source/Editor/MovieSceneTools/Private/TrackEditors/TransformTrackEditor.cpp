@@ -1,24 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "ScopedTransaction.h"
-#include "MovieScene.h"
-#include "MovieSceneCommonHelpers.h"
-#include "MovieSceneSection.h"
-#include "MovieScene3DTransformTrack.h"
-#include "MovieScene3DTransformSection.h"
-#include "ISequencerObjectChangeListener.h"
-#include "ISequencerSection.h"
+#include "TrackEditors/TransformTrackEditor.h"
+#include "GameFramework/Actor.h"
+#include "Framework/Commands/Commands.h"
+#include "Animation/AnimSequence.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "SequencerSectionPainter.h"
+#include "EditorStyleSet.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Editor/UnrealEdEngine.h"
+#include "GameFramework/Character.h"
+#include "Engine/Selection.h"
+#include "LevelEditorViewport.h"
+#include "UnrealEdGlobals.h"
 #include "ISectionLayoutBuilder.h"
-#include "IKeyArea.h"
-#include "MovieSceneTrackEditor.h"
-#include "TransformTrackEditor.h"
 #include "MatineeImportTools.h"
 #include "Matinee/InterpTrackMove.h"
 #include "Matinee/InterpTrackMoveAxis.h"
 #include "FloatCurveKeyArea.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
-#include "Animation/AnimSequence.h"
+#include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "MovieScene_TransformTrack"
 
@@ -31,8 +36,10 @@ class F3DTransformSection
 {
 public:
 
-	F3DTransformSection( UMovieSceneSection& InSection )
+	F3DTransformSection(ISequencer* InSequencer, FGuid InObjectBinding, UMovieSceneSection& InSection)
 		: Section( InSection )
+		, Sequencer(InSequencer)
+		, ObjectBinding(InObjectBinding)
 	{ }
 
 	/** Virtual destructor. */
@@ -62,35 +69,62 @@ public:
 
 		UMovieScene3DTransformSection* TransformSection = Cast<UMovieScene3DTransformSection>( &Section );
 
-		TranslationXKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetTranslationCurve(EAxis::X), TransformSection, RedKeyAreaColor));
-		TranslationYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetTranslationCurve(EAxis::Y), TransformSection, GreenKeyAreaColor));
-		TranslationZKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetTranslationCurve(EAxis::Z), TransformSection, BlueKeyAreaColor));
+		// Translation
+		TAttribute<TOptional<float>> TranslationXExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F3DTransformSection::GetTranslationValue, EAxis::X));
+		TSharedRef<FFloatCurveKeyArea> TranslationXKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetTranslationCurve(EAxis::X), TranslationXExternalValue, TransformSection, RedKeyAreaColor));
 
-		RotationXKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetRotationCurve(EAxis::X), TransformSection, RedKeyAreaColor));
-		RotationYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetRotationCurve(EAxis::Y), TransformSection, GreenKeyAreaColor));
-		RotationZKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetRotationCurve(EAxis::Z), TransformSection, BlueKeyAreaColor));
+		TAttribute<TOptional<float>> TranslationYExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F3DTransformSection::GetTranslationValue, EAxis::Y));
+		TSharedRef<FFloatCurveKeyArea> TranslationYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetTranslationCurve(EAxis::Y), TranslationYExternalValue, TransformSection, GreenKeyAreaColor));
 
-		ScaleXKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetScaleCurve(EAxis::X), TransformSection, RedKeyAreaColor));
-		ScaleYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetScaleCurve(EAxis::Y), TransformSection, GreenKeyAreaColor));
-		ScaleZKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetScaleCurve(EAxis::Z), TransformSection, BlueKeyAreaColor));
+		TAttribute<TOptional<float>> TranslationZExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F3DTransformSection::GetTranslationValue, EAxis::Z));
+		TSharedRef<FFloatCurveKeyArea> TranslationZKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetTranslationCurve(EAxis::Z), TranslationZExternalValue, TransformSection, BlueKeyAreaColor));
+
+		// Rotation
+		TAttribute<TOptional<float>> RotationXExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F3DTransformSection::GetRotationValue, EAxis::X));
+		TSharedRef<FFloatCurveKeyArea> RotationXKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetRotationCurve(EAxis::X), RotationXExternalValue, TransformSection, RedKeyAreaColor));
+
+		TAttribute<TOptional<float>> RotationYExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F3DTransformSection::GetRotationValue, EAxis::Y));
+		TSharedRef<FFloatCurveKeyArea> RotationYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetRotationCurve(EAxis::Y), RotationYExternalValue, TransformSection, GreenKeyAreaColor));
+
+		TAttribute<TOptional<float>> RotationZExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F3DTransformSection::GetRotationValue, EAxis::Z));
+		TSharedRef<FFloatCurveKeyArea> RotationZKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetRotationCurve(EAxis::Z), RotationZExternalValue, TransformSection, BlueKeyAreaColor));
+
+		// Scale
+		TAttribute<TOptional<float>> ScaleXExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F3DTransformSection::GetScaleValue, EAxis::X));
+		TSharedRef<FFloatCurveKeyArea> ScaleXKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetScaleCurve(EAxis::X), ScaleXExternalValue, TransformSection, RedKeyAreaColor));
+
+		TAttribute<TOptional<float>> ScaleYExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F3DTransformSection::GetScaleValue, EAxis::Y));
+		TSharedRef<FFloatCurveKeyArea> ScaleYKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetScaleCurve(EAxis::Y), ScaleYExternalValue, TransformSection, GreenKeyAreaColor));
+
+		TAttribute<TOptional<float>> ScaleZExternalValue = TAttribute<TOptional<float>>::Create(
+			TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &F3DTransformSection::GetScaleValue, EAxis::Z));
+		TSharedRef<FFloatCurveKeyArea> ScaleZKeyArea = MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetScaleCurve(EAxis::Z), ScaleZExternalValue, TransformSection, BlueKeyAreaColor));
 
 		// This generates the tree structure for the transform section
 		LayoutBuilder.PushCategory( "Location", NSLOCTEXT("FTransformSection", "LocationArea", "Location") );
-			LayoutBuilder.AddKeyArea("Location.X", NSLOCTEXT("FTransformSection", "LocXArea", "X"), TranslationXKeyArea.ToSharedRef() );
-			LayoutBuilder.AddKeyArea("Location.Y", NSLOCTEXT("FTransformSection", "LocYArea", "Y"), TranslationYKeyArea.ToSharedRef() );
-			LayoutBuilder.AddKeyArea("Location.Z", NSLOCTEXT("FTransformSection", "LocZArea", "Z"), TranslationZKeyArea.ToSharedRef() );
+			LayoutBuilder.AddKeyArea("Location.X", NSLOCTEXT("FTransformSection", "LocXArea", "X"), TranslationXKeyArea );
+			LayoutBuilder.AddKeyArea("Location.Y", NSLOCTEXT("FTransformSection", "LocYArea", "Y"), TranslationYKeyArea );
+			LayoutBuilder.AddKeyArea("Location.Z", NSLOCTEXT("FTransformSection", "LocZArea", "Z"), TranslationZKeyArea );
 		LayoutBuilder.PopCategory();
 
 		LayoutBuilder.PushCategory( "Rotation", NSLOCTEXT("FTransformSection", "RotationArea", "Rotation") );
-			LayoutBuilder.AddKeyArea("Rotation.X", NSLOCTEXT("FTransformSection", "RotXArea", "X"), RotationXKeyArea.ToSharedRef() );
-			LayoutBuilder.AddKeyArea("Rotation.Y", NSLOCTEXT("FTransformSection", "RotYArea", "Y"), RotationYKeyArea.ToSharedRef() );
-			LayoutBuilder.AddKeyArea("Rotation.Z", NSLOCTEXT("FTransformSection", "RotZArea", "Z"), RotationZKeyArea.ToSharedRef() );
+			LayoutBuilder.AddKeyArea("Rotation.X", NSLOCTEXT("FTransformSection", "RotXArea", "X"), RotationXKeyArea );
+			LayoutBuilder.AddKeyArea("Rotation.Y", NSLOCTEXT("FTransformSection", "RotYArea", "Y"), RotationYKeyArea );
+			LayoutBuilder.AddKeyArea("Rotation.Z", NSLOCTEXT("FTransformSection", "RotZArea", "Z"), RotationZKeyArea );
 		LayoutBuilder.PopCategory();
 
 		LayoutBuilder.PushCategory( "Scale", NSLOCTEXT("FTransformSection", "ScaleArea", "Scale") );
-			LayoutBuilder.AddKeyArea("Scale.X", NSLOCTEXT("FTransformSection", "ScaleXArea", "X"), ScaleXKeyArea.ToSharedRef() );
-			LayoutBuilder.AddKeyArea("Scale.Y", NSLOCTEXT("FTransformSection", "ScaleYArea", "Y"), ScaleYKeyArea.ToSharedRef() );
-			LayoutBuilder.AddKeyArea("Scale.Z", NSLOCTEXT("FTransformSection", "ScaleZArea", "Z"), ScaleZKeyArea.ToSharedRef() );
+			LayoutBuilder.AddKeyArea("Scale.X", NSLOCTEXT("FTransformSection", "ScaleXArea", "X"), ScaleXKeyArea );
+			LayoutBuilder.AddKeyArea("Scale.Y", NSLOCTEXT("FTransformSection", "ScaleYArea", "Y"), ScaleYKeyArea );
+			LayoutBuilder.AddKeyArea("Scale.Z", NSLOCTEXT("FTransformSection", "ScaleZArea", "Z"), ScaleZKeyArea );
 		LayoutBuilder.PopCategory();
 	}
 
@@ -99,37 +133,77 @@ public:
 		return InPainter.PaintSectionBackground();
 	}
 
-	void SetIntermediateValue(UMovieSceneTrack* Track, FTransformData IntermediateData )
+
+
+private:
+
+	TOptional<float> GetTranslationValue(EAxis::Type Axis) const
 	{
-		if ( Section.GetOuter() == Track )
+		USceneComponent* SceneComponent = GetSceneComponent();
+		if (SceneComponent != nullptr)
 		{
-			TranslationXKeyArea->SetIntermediateValue( IntermediateData.Translation.X );
-			TranslationYKeyArea->SetIntermediateValue( IntermediateData.Translation.Y );
-			TranslationZKeyArea->SetIntermediateValue( IntermediateData.Translation.Z );
-
-			RotationXKeyArea->SetIntermediateValue( IntermediateData.Rotation.Euler().X );
-			RotationYKeyArea->SetIntermediateValue( IntermediateData.Rotation.Euler().Y );
-			RotationZKeyArea->SetIntermediateValue( IntermediateData.Rotation.Euler().Z );
-
-			ScaleXKeyArea->SetIntermediateValue( IntermediateData.Scale.X );
-			ScaleYKeyArea->SetIntermediateValue( IntermediateData.Scale.Y );
-			ScaleZKeyArea->SetIntermediateValue( IntermediateData.Scale.Z );
+			switch (Axis)
+			{
+			case EAxis::X:
+				return TOptional<float>(SceneComponent->GetRelativeTransform().GetTranslation().X);
+			case EAxis::Y:
+				return TOptional<float>(SceneComponent->GetRelativeTransform().GetTranslation().Y);
+			case EAxis::Z:
+				return TOptional<float>(SceneComponent->GetRelativeTransform().GetTranslation().Z);
+			}
 		}
+		return TOptional<float>();
 	}
 
-	void ClearIntermediateValue()
+	TOptional<float> GetRotationValue(EAxis::Type Axis) const
 	{
-		TranslationXKeyArea->ClearIntermediateValue();
-		TranslationYKeyArea->ClearIntermediateValue();
-		TranslationZKeyArea->ClearIntermediateValue();
+		USceneComponent* SceneComponent = GetSceneComponent();
+		if (SceneComponent != nullptr)
+		{
+			FRotator Rotator = SceneComponent->RelativeRotation;
 
-		RotationXKeyArea->ClearIntermediateValue();
-		RotationYKeyArea->ClearIntermediateValue();
-		RotationZKeyArea->ClearIntermediateValue();
+			switch (Axis)
+			{
+			case EAxis::X:
+				return TOptional<float>(Rotator.Roll);
+			case EAxis::Y:
+				return TOptional<float>(Rotator.Pitch);
+			case EAxis::Z:
+				return TOptional<float>(Rotator.Yaw);
+			}
+		}
+		return TOptional<float>();
+	}
 
-		ScaleXKeyArea->ClearIntermediateValue();
-		ScaleYKeyArea->ClearIntermediateValue();
-		ScaleZKeyArea->ClearIntermediateValue();
+	TOptional<float> GetScaleValue(EAxis::Type Axis) const
+	{
+		USceneComponent* SceneComponent = GetSceneComponent();
+		if (SceneComponent != nullptr)
+		{
+			switch (Axis)
+			{
+			case EAxis::X:
+				return TOptional<float>(SceneComponent->GetRelativeTransform().GetScale3D().X);
+			case EAxis::Y:
+				return TOptional<float>(SceneComponent->GetRelativeTransform().GetScale3D().Y);
+			case EAxis::Z:
+				return TOptional<float>(SceneComponent->GetRelativeTransform().GetScale3D().Z);
+			}
+		}
+		return TOptional<float>();
+	}
+
+	USceneComponent* GetSceneComponent() const
+	{
+		if (Sequencer != nullptr)
+		{
+			TArrayView<TWeakObjectPtr<UObject>> RuntimeObjects = Sequencer->FindBoundObjects(ObjectBinding, Sequencer->GetFocusedTemplateID());
+			if (RuntimeObjects.Num() == 1)
+			{
+				return MovieSceneHelpers::SceneComponentFromRuntimeObject(RuntimeObjects[0].Get());
+			}
+		}
+		return nullptr;
 	}
 
 private:
@@ -137,17 +211,9 @@ private:
 	/** The section we are visualizing */
 	UMovieSceneSection& Section;
 
-	mutable TSharedPtr<FFloatCurveKeyArea> TranslationXKeyArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> TranslationYKeyArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> TranslationZKeyArea;
+	ISequencer* Sequencer;
 
-	mutable TSharedPtr<FFloatCurveKeyArea> RotationXKeyArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> RotationYKeyArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> RotationZKeyArea;
-
-	mutable TSharedPtr<FFloatCurveKeyArea> ScaleXKeyArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> ScaleYKeyArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> ScaleZKeyArea;
+	FGuid ObjectBinding;
 };
 
 
@@ -326,23 +392,22 @@ void F3DTransformTrackEditor::BuildTrackContextMenu( FMenuBuilder& MenuBuilder, 
 		NSLOCTEXT( "Sequencer", "ImportTransformsTooltip", "Import transform keys from an animation sequence's root motion." ),
 		FNewMenuDelegate::CreateLambda(AnimSubMenuDelegate, GetSequencer().ToSharedRef(), TransformTrack), 
 		bInOpenSubMenuOnClick);
+
+	MenuBuilder.AddMenuSeparator();
+	FKeyframeTrackEditor::BuildTrackContextMenu(MenuBuilder, Track);
 }
 
 
-TSharedRef<ISequencerSection> F3DTransformTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
+TSharedRef<ISequencerSection> F3DTransformTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
 {
-	check( SupportsType( SectionObject.GetOuter()->GetClass() ) );
-	TSharedRef<F3DTransformSection> TransformSection = MakeShareable( new F3DTransformSection( SectionObject ) );
-	OnSetIntermediateValueFromTransformChange.AddSP(TransformSection, &F3DTransformSection::SetIntermediateValue );
-	GetSequencer()->OnGlobalTimeChanged().AddSP(TransformSection, &F3DTransformSection::ClearIntermediateValue );
-	return TransformSection;
+	check(SupportsType(SectionObject.GetOuter()->GetClass()));
+	return MakeShareable(new F3DTransformSection(GetSequencer().Get(), ObjectBinding, SectionObject));
 }
 
 
 void F3DTransformTrackEditor::OnPreTransformChanged( UObject& InObject )
 {
-	UMovieSceneSequence* MovieSceneSequence = GetMovieSceneSequence();
-	float AutoKeyTime = GetTimeForKey( MovieSceneSequence );
+	float AutoKeyTime = GetTimeForKey();
 
 	if( IsAllowedToAutoKey() )
 	{
@@ -403,25 +468,9 @@ void F3DTransformTrackEditor::OnTransformChanged( UObject& InObject )
 		// Build new transform data
 		FTransformData NewTransformData( SceneComponentThatChanged );
 
-		FKeyParams KeyParams;
-		KeyParams.bCreateKeyIfUnchanged = GetSequencer()->GetKeyAllEnabled();
-		KeyParams.bCreateKeyOnlyWhenAutoKeying = true;
-		if ( GetSequencer()->GetAutoKeyMode() == EAutoKeyMode::KeyAll )
-		{
-			KeyParams.bCreateHandleIfMissing = true;
-			KeyParams.bCreateTrackIfMissing = true;
-			KeyParams.bCreateKeyIfEmpty = true;
-		}
-		else
-		{
-			KeyParams.bCreateHandleIfMissing = false;
-			KeyParams.bCreateTrackIfMissing = false;
-			KeyParams.bCreateKeyIfEmpty = false;
-		}
-
 		const bool bUnwindRotation = GetSequencer()->IsRecordingLive();
 
-		AddTransformKeys(Actor, ExistingTransform, NewTransformData, EKey3DTransformChannel::All, bUnwindRotation, KeyParams);
+		AddTransformKeys(Actor, ExistingTransform, NewTransformData, EKey3DTransformChannel::All, bUnwindRotation, ESequencerKeyMode::AutoKey);
 	}
 }
 
@@ -439,19 +488,13 @@ void F3DTransformTrackEditor::OnAddTransformKeysForSelectedObjects( EKey3DTransf
 		}
 	}
 
-	FKeyParams KeyParams;
-	KeyParams.bCreateHandleIfMissing = true;
-	KeyParams.bCreateTrackIfMissing = true;
-	KeyParams.bCreateKeyIfUnchanged = true;
-	KeyParams.bCreateKeyIfEmpty = true;
-
 	USelection* CurrentSelection = GEditor->GetSelectedActors();
 	TArray<UObject*> SelectedActors;
 	CurrentSelection->GetSelectedObjects( AActor::StaticClass(), SelectedActors );
 
 	for (TArray<UObject*>::TIterator It(SelectedActors); It; ++It)
 	{
-		AddTransformKeysForObject(*It, Channel, KeyParams);
+		AddTransformKeysForObject(*It, Channel, ESequencerKeyMode::ManualKeyForced);
 	}
 }
 
@@ -482,10 +525,7 @@ void F3DTransformTrackEditor::BuildObjectBindingEditButtons(TSharedPtr<SHorizont
 {
 	bool bHasCameraComponent = false;
 
-	TArray<TWeakObjectPtr<UObject>> OutObjects;
-	GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectGuid, OutObjects);
-
-	for (auto Object : OutObjects)
+	for (auto Object : GetSequencer()->FindObjectsInCurrentSequence(ObjectGuid))
 	{
 		AActor* Actor = Cast<AActor>(Object.Get());
 		if (Actor != nullptr)
@@ -529,16 +569,12 @@ void F3DTransformTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuil
 {
 	if (ObjectClass->IsChildOf(AActor::StaticClass()) || ObjectClass->IsChildOf(USceneComponent::StaticClass()))
 	{
-		FKeyParams KeyParams;
-		KeyParams.bCreateTrackIfMissing = true;
-		KeyParams.bCreateKeyIfUnchanged = true;
-
 		MenuBuilder.AddMenuEntry(
 			NSLOCTEXT("Sequencer", "AddTransform", "Transform"),
 			NSLOCTEXT("Sequencer", "AddPTransformTooltip", "Adds a transform track."),
 			FSlateIcon(),
 			FUIAction( 
-				FExecuteAction::CreateSP( this, &F3DTransformTrackEditor::AddTransformKeysForHandle, ObjectBinding, EKey3DTransformChannel::All, KeyParams ),
+				FExecuteAction::CreateSP( this, &F3DTransformTrackEditor::AddTransformKeysForHandle, ObjectBinding, EKey3DTransformChannel::All, ESequencerKeyMode::ManualKey ),
 				FCanExecuteAction::CreateSP( this, &F3DTransformTrackEditor::CanAddTransformTrackForActorHandle, ObjectBinding ) ) );
 	}
 }
@@ -557,10 +593,7 @@ bool F3DTransformTrackEditor::CanAddTransformTrackForActorHandle( FGuid ObjectBi
 EVisibility
 F3DTransformTrackEditor::IsCameraVisible(FGuid ObjectGuid) const
 {
-	TArray<TWeakObjectPtr<UObject>> OutObjects;
-	GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectGuid, OutObjects);
-
-	for (auto Object : OutObjects)
+	for (auto Object : GetSequencer()->FindObjectsInCurrentSequence(ObjectGuid))
 	{
 		AActor* Actor = Cast<AActor>(Object.Get());
 		
@@ -575,12 +608,9 @@ F3DTransformTrackEditor::IsCameraVisible(FGuid ObjectGuid) const
 
 ECheckBoxState F3DTransformTrackEditor::IsCameraLocked(FGuid ObjectGuid) const
 {
-	TArray<TWeakObjectPtr<UObject>> OutObjects;
-	GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectGuid, OutObjects);
-
 	TWeakObjectPtr<AActor> CameraActor;
 
-	for (auto Object : OutObjects)
+	for (auto Object : GetSequencer()->FindObjectsInCurrentSequence(ObjectGuid))
 	{
 		AActor* Actor = Cast<AActor>(Object.Get());
 		
@@ -634,12 +664,9 @@ ECheckBoxState F3DTransformTrackEditor::IsCameraLocked(FGuid ObjectGuid) const
 
 void F3DTransformTrackEditor::OnLockCameraClicked(ECheckBoxState CheckBoxState, FGuid ObjectGuid)
 {
-	TArray<TWeakObjectPtr<UObject>> OutObjects;
-	GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectGuid, OutObjects);
-
 	TWeakObjectPtr<AActor> CameraActor;
 
-	for (auto Object : OutObjects)
+	for (auto Object : GetSequencer()->FindObjectsInCurrentSequence(ObjectGuid))
 	{
 		AActor* Actor = Cast<AActor>(Object.Get());
 
@@ -705,12 +732,9 @@ void F3DTransformTrackEditor::OnLockCameraClicked(ECheckBoxState CheckBoxState, 
 
 FText F3DTransformTrackEditor::GetLockCameraToolTip(FGuid ObjectGuid) const
 {
-	TArray<TWeakObjectPtr<UObject>> OutObjects;
-	GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectGuid, OutObjects);
-
 	TWeakObjectPtr<AActor> CameraActor;
 
-	for (auto Object : OutObjects)
+	for (auto Object : GetSequencer()->FindObjectsInCurrentSequence(ObjectGuid))
 	{
 		AActor* Actor = Cast<AActor>(Object.Get());
 
@@ -778,19 +802,16 @@ void F3DTransformTrackEditor::GetTransformKeys( const FTransformData& LastTransf
 	GetKeysForVector( bLastVectorIsValid, LastTransform.Scale, CurrentTransform.Scale, EKey3DTransformChannel::Scale, ChannelsToKey, bUnwindRotation, OutNewKeys, OutDefaultKeys );
 }
 
-void F3DTransformTrackEditor::AddTransformKeysForHandle( FGuid ObjectHandle, EKey3DTransformChannel::Type ChannelToKey, FKeyParams KeyParams )
+void F3DTransformTrackEditor::AddTransformKeysForHandle( FGuid ObjectHandle, EKey3DTransformChannel::Type ChannelToKey, ESequencerKeyMode KeyMode )
 {
-	TArray<TWeakObjectPtr<UObject>> OutObjects;
-	GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectHandle, OutObjects );
-
-	for ( TWeakObjectPtr<UObject> Object : OutObjects )
+	for ( TWeakObjectPtr<UObject> Object : GetSequencer()->FindObjectsInCurrentSequence(ObjectHandle) )
 	{
-		AddTransformKeysForObject(Object.Get(), ChannelToKey, KeyParams);
+		AddTransformKeysForObject(Object.Get(), ChannelToKey, KeyMode);
 	}
 }
 
 
-void F3DTransformTrackEditor::AddTransformKeysForObject( UObject* Object, EKey3DTransformChannel::Type ChannelToKey, FKeyParams KeyParams )
+void F3DTransformTrackEditor::AddTransformKeysForObject( UObject* Object, EKey3DTransformChannel::Type ChannelToKey, ESequencerKeyMode KeyMode )
 {
 	AActor* Actor = nullptr;
 	USceneComponent* SceneComponent = nullptr;
@@ -800,27 +821,27 @@ void F3DTransformTrackEditor::AddTransformKeysForObject( UObject* Object, EKey3D
 		FTransformData CurrentTransform( SceneComponent );
 		if(Object->GetClass()->IsChildOf(AActor::StaticClass()))
 		{
-			AddTransformKeys( Actor, FTransformData(), CurrentTransform, ChannelToKey, false, KeyParams );
+			AddTransformKeys( Actor, FTransformData(), CurrentTransform, ChannelToKey, false, KeyMode );
 		}
 		else if(Object->GetClass()->IsChildOf(USceneComponent::StaticClass()))
 		{
-			AddTransformKeys( SceneComponent, FTransformData(), CurrentTransform, ChannelToKey, false, KeyParams );
+			AddTransformKeys( SceneComponent, FTransformData(), CurrentTransform, ChannelToKey, false, KeyMode );
 		}
 	}
 }
 
 
-void F3DTransformTrackEditor::AddTransformKeys( UObject* ObjectToKey, const FTransformData& LastTransform, const FTransformData& CurrentTransform, EKey3DTransformChannel::Type ChannelsToKey, bool bUnwindRotation, FKeyParams KeyParams )
+void F3DTransformTrackEditor::AddTransformKeys( UObject* ObjectToKey, const FTransformData& LastTransform, const FTransformData& CurrentTransform, EKey3DTransformChannel::Type ChannelsToKey, bool bUnwindRotation, ESequencerKeyMode KeyMode )
 {
 	TArray<FTransformKey> NewKeys;
 	TArray<FTransformKey> DefaultKeys;
 	GetTransformKeys(LastTransform, CurrentTransform, ChannelsToKey, bUnwindRotation, NewKeys, DefaultKeys);
 
-	AnimatablePropertyChanged( FOnKeyProperty::CreateRaw(this, &F3DTransformTrackEditor::OnAddTransformKeys, ObjectToKey, &NewKeys, &DefaultKeys, CurrentTransform, KeyParams ) );
+	AnimatablePropertyChanged( FOnKeyProperty::CreateRaw(this, &F3DTransformTrackEditor::OnAddTransformKeys, ObjectToKey, &NewKeys, &DefaultKeys, CurrentTransform, KeyMode ) );
 }
 
 
-bool F3DTransformTrackEditor::OnAddTransformKeys( float Time, UObject* ObjectToKey, TArray<FTransformKey>* NewKeys, TArray<FTransformKey>* DefaultKeys, FTransformData CurrentTransform, FKeyParams KeyParams )
+bool F3DTransformTrackEditor::OnAddTransformKeys( float Time, UObject* ObjectToKey, TArray<FTransformKey>* NewKeys, TArray<FTransformKey>* DefaultKeys, FTransformData CurrentTransform, ESequencerKeyMode KeyMode )
 {
 	TArray<UObject*> ObjectsToKey;
 	ObjectsToKey.Add(ObjectToKey);
@@ -830,23 +851,15 @@ bool F3DTransformTrackEditor::OnAddTransformKeys( float Time, UObject* ObjectToK
 		Time,
 		*NewKeys,
 		*DefaultKeys,
-		KeyParams,
+		KeyMode,
 		UMovieScene3DTransformTrack::StaticClass(),
 		TransformPropertyName,
 		[this](UMovieScene3DTransformTrack* NewTrack) {
 			NewTrack->SetPropertyNameAndPath(TransformPropertyName, TransformPropertyName.ToString());
-		},
-		[&](UMovieScene3DTransformTrack* NewTrack) {
-			SetIntermediateValueFromTransformChange(NewTrack, CurrentTransform);
 		}
 	);
 }
 
-
-void F3DTransformTrackEditor::SetIntermediateValueFromTransformChange( UMovieSceneTrack* Track, FTransformData TransformData )
-{
-	OnSetIntermediateValueFromTransformChange.Broadcast(Track, TransformData);
-}
 
 void F3DTransformTrackEditor::ImportAnimSequenceTransforms(const FAssetData& Asset, TSharedRef<ISequencer> Sequencer, UMovieScene3DTransformTrack* TransformTrack)
 {
@@ -889,7 +902,7 @@ void F3DTransformTrackEditor::ImportAnimSequenceTransforms(const FAssetData& Ass
 		}
 	}
 
-	if(AnimSequence && AnimSequence->RawAnimationData.Num() > 0)
+	if(AnimSequence && AnimSequence->GetRawAnimationData().Num() > 0)
 	{
 		const FScopedTransaction Transaction( NSLOCTEXT( "Sequencer", "ImportAnimSequenceTransforms", "Import Anim Sequence Transforms" ) );
 
@@ -915,7 +928,7 @@ void F3DTransformTrackEditor::ImportAnimSequenceTransforms(const FAssetData& Ass
 
 			TArray<FTempTransformKey> TempKeys;
 
-			FRawAnimSequenceTrack& RawTrack = AnimSequence->RawAnimationData[0];
+			FRawAnimSequenceTrack& RawTrack = AnimSequence->GetRawAnimationTrack(0);
 			const int32 KeyCount = FMath::Max(FMath::Max(RawTrack.PosKeys.Num(), RawTrack.RotKeys.Num()), RawTrack.ScaleKeys.Num());
 			for(int32 KeyIndex = 0; KeyIndex < KeyCount; KeyIndex++)
 			{

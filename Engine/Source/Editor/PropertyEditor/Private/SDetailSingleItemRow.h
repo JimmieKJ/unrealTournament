@@ -2,7 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "IDetailTreeNode.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SDetailsViewBase.h"
 #include "SDetailTableRowBase.h"
+
+class IDetailKeyframeHandler;
+struct FDetailLayoutCustomization;
 
 /**
  * A widget for details that span the entire tree row and have no columns                                                              

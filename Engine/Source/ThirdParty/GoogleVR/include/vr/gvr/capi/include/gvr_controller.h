@@ -40,20 +40,23 @@ extern "C" {
 ///     // Get your gvr_context* pointer from GvrLayout:
 ///     gvr_context* gvr = ......;  // (get from GvrLayout in Java)
 ///
-///     // Set up the API options:
-///     gvr_controller_api_options options;
-///     gvr_controller_init_default_options(&options);
+///     // Set up the API features:
+///     int32_t options = gvr_controller_get_default_options();
 ///
 ///     // Enable non-default options, if needed:
-///     options.enable_gyro = true;
+///     options |= GVR_CONTROLLER_ENABLE_GYRO | GVR_CONTROLLER_ENABLE_ACCEL;
 ///
 ///     // Create and init:
 ///     gvr_controller_context* context =
 ///         gvr_controller_create_and_init(options, gvr);
+///
+///     // Check if init was successful.
 ///     if (!context) {
 ///       // Handle error.
 ///       return;
 ///     }
+///
+///     gvr_controller_state* state = gvr_controller_state_create();
 ///
 ///     // Resume:
 ///     gvr_controller_resume(api);
@@ -61,8 +64,7 @@ extern "C" {
 /// Usage:
 ///
 ///     void DrawFrame() {
-///       gvr_controller_state state;
-///       gvr_controller_read_state(context, &state);
+///       gvr_controller_state_update(context, 0, state);
 ///       // ... process controller state ...
 ///     }
 ///
@@ -88,11 +90,11 @@ extern "C" {
 /// Daydream Controller API.
 typedef struct gvr_controller_context_ gvr_controller_context;
 
-/// Initializes the default API options in *options.
+/// Returns the default features for the controller API.
 ///
-/// @param options Pointer to an options struct which will be modified by
-///     this method.
-void gvr_controller_init_default_options(gvr_controller_api_options* options);
+/// @return The set of default features, as bit flags (an OR'ed combination of
+///     the GVR_CONTROLLER_ENABLE_* feature flags).
+int32_t gvr_controller_get_default_options();
 
 /// Creates and initializes a gvr_controller_context instance which can be used
 /// to invoke the Daydream Controller API functions. Important: after creation
@@ -100,7 +102,8 @@ void gvr_controller_init_default_options(gvr_controller_api_options* options);
 /// You must call gvr_controller_resume() explicitly (typically, in your Android
 /// app's onResume() callback).
 ///
-/// @param options The API options.
+/// @param options The API options. To get the defaults, use
+///     gvr_controller_get_default_options().
 /// @param context The GVR Context object to sync with (optional).
 ///     This can be nullptr. If provided, the context's state will
 ///     be synchronized with the controller's state where possible. For
@@ -110,7 +113,7 @@ void gvr_controller_init_default_options(gvr_controller_api_options* options);
 ///     remains valid for the lifetime of this object.
 /// @return A pointer to the initialized API, or NULL if an error occurs.
 gvr_controller_context* gvr_controller_create_and_init(
-    const gvr_controller_api_options& options, gvr_context* context);
+    int32_t options, gvr_context* context);
 
 #ifdef __ANDROID__
 /// Creates and initializes a gvr_controller_context instance with an explicit
@@ -124,7 +127,8 @@ gvr_controller_context* gvr_controller_create_and_init(
 /// @param class_loader The class loader to use when loading Java
 ///     classes. This must be your app's main class loader (usually
 ///     accessible through activity.getClassLoader() on any of your Activities).
-/// @param options The API options.
+/// @param options The API options. To get the defaults, use
+///     gvr_controller_get_default_options().
 /// @param context The GVR Context object to sync with (optional).
 ///     This can be nullptr. If provided, the context's state will
 ///     be synchronized with the controller's state where possible. For
@@ -135,7 +139,7 @@ gvr_controller_context* gvr_controller_create_and_init(
 /// @return A pointer to the initialized API, or NULL if an error occurs.
 gvr_controller_context* gvr_controller_create_and_init_android(
     JNIEnv *env, jobject android_context, jobject class_loader,
-    const gvr_controller_api_options& options, gvr_context* context);
+    int32_t options, gvr_context* context);
 #endif  // #ifdef __ANDROID__
 
 /// Destroys a gvr_controller_context that was previously created with
@@ -160,40 +164,248 @@ void gvr_controller_pause(gvr_controller_context* api);
 /// @param api Pointer to a pointer to a gvr_controller_context.
 void gvr_controller_resume(gvr_controller_context* api);
 
-/// Reads the controller state. Reading the controller state is not a
-/// const getter: it has side-effects. In particular, some of the
-/// gvr_controller_state fields (the ones documented as "transient") represent
-/// one-time events and will be true for only one read operation, and false
-/// in subsequente reads.
-///
-/// @param api Pointer to a pointer to a gvr_controller_context.
-/// @param out_state A caller-allocated pointer where the controller's state
-///     is to be written.
-void gvr_controller_read_state(gvr_controller_context* api,
-                               gvr_controller_state* out_state);
-
 /// Convenience to convert an API status code to string. The returned pointer
 /// is static and valid throughout the lifetime of the application.
 ///
-/// @param status The status to convert to string.
+/// @param status The gvr_controller_api_status to convert to string.
 /// @return A pointer to a string that describes the value.
-const char* gvr_controller_api_status_to_string(
-    gvr_controller_api_status status);
+const char* gvr_controller_api_status_to_string(int32_t status);
 
 /// Convenience to convert an connection state to string. The returned pointer
 /// is static and valid throughout the lifetime of the application.
 ///
 /// @param state The state to convert to string.
 /// @return A pointer to a string that describes the value.
-const char* gvr_controller_connection_state_to_string(
-    gvr_controller_connection_state state);
+const char* gvr_controller_connection_state_to_string(int32_t state);
 
 /// Convenience to convert an connection state to string. The returned pointer
 /// is static and valid throughout the lifetime of the application.
 ///
-/// @param button The state to convert to string.
+/// @param button The gvr_controller_button to convert to string.
 /// @return A pointer to a string that describes the value.
-const char* gvr_controller_button_to_string(gvr_controller_button button);
+const char* gvr_controller_button_to_string(int32_t button);
+
+/// Creates a gvr_controller_state.
+gvr_controller_state* gvr_controller_state_create();
+
+/// Destroys a a gvr_controller_state that was previously created with
+/// gvr_controller_state_create.
+void gvr_controller_state_destroy(gvr_controller_state** state);
+
+/// Updates the controller state. Reading the controller state is not a
+/// const getter: it has side-effects. In particular, some of the
+/// gvr_controller_state fields (the ones documented as "transient") represent
+/// one-time events and will be true for only one read operation, and false
+/// in subsequente reads.
+///
+/// @param api Pointer to a pointer to a gvr_controller_context.
+/// @param flags Optional flags reserved for future use. A value of 0 should be
+///     used until corresponding flag attributes are defined and documented.
+/// @param out_state A pointer where the controller's state
+///     is to be written. This must have been allocated with
+///     gvr_controller_state_create().
+void gvr_controller_state_update(gvr_controller_context* api, int32_t flags,
+                                 gvr_controller_state* out_state);
+
+/// Gets the API status of the controller state. Returns one of the
+/// gvr_controller_api_status variants, but returned as an int32_t for ABI
+/// compatibility.
+int32_t gvr_controller_state_get_api_status(const gvr_controller_state* state);
+
+/// Gets the connection state of the controller. Returns one of the
+/// gvr_controller_connection_state variants, but returned as an int32_t for ABI
+/// compatibility.
+int32_t gvr_controller_state_get_connection_state(
+    const gvr_controller_state* state);
+
+/// Returns the current controller orientation, in Start Space. The Start Space
+/// is the same space as the headset space and has these three axes
+/// (right-handed):
+///
+/// * The positive X axis points to the right.
+/// * The positive Y axis points upwards.
+/// * The positive Z axis points backwards.
+///
+/// The definition of "backwards" and "to the right" are based on the position
+/// of the controller when tracking started. For Daydream, this is when the
+/// controller was first connected in the "Connect your Controller" screen
+/// which is shown when the user enters VR.
+///
+/// The definition of "upwards" is given by gravity (away from the pull of
+/// gravity). This API may not work in environments without gravity, such
+/// as space stations or near the center of the Earth.
+///
+/// Since the coordinate system is right-handed, rotations are given by the
+/// right-hand rule. For example, rotating the controller counter-clockwise
+/// on a table top as seen from above means a positive rotation about the
+/// Y axis, while clockwise would mean negative.
+///
+/// Note that this is the Start Space for the *controller*, which initially
+/// coincides with the Start Space for the headset, but they may diverge over
+/// time due to controller/headset drift. A recentering operation will bring
+/// the two spaces back into sync.
+///
+/// Remember that a quaternion expresses a rotation. Given a rotation of theta
+/// radians about the (x, y, z) axis, the corresponding quaternion (in
+/// xyzw order) is:
+///
+///     (x * sin(theta/2), y * sin(theta/2), z * sin(theta/2), cos(theta/2))
+///
+/// Here are some examples of orientations of the controller and their
+/// corresponding quaternions, all given in xyzw order:
+///
+///   * Initial pose, pointing forward and lying flat on a surface: identity
+///     quaternion (0, 0, 0, 1). Corresponds to "no rotation".
+///
+///   * Flat on table, rotated 90 degrees counter-clockwise: (0, 0.7071, 0,
+///     0.7071). Corresponds to a +90 degree rotation about the Y axis.
+///
+///   * Flat on table, rotated 90 degrees clockwise: (0, -0.7071, 0, 0.7071).
+///     Corresponds to a -90 degree rotation about the Y axis.
+///
+///   * Flat on table, rotated 180 degrees (pointing backwards): (0, 1, 0, 0).
+///     Corresponds to a 180 degree rotation about the Y axis.
+///
+///   * Pointing straight up towards the sky: (0.7071, 0, 0, 0.7071).
+///     Corresponds to a +90 degree rotation about the X axis.
+///
+///   * Pointing straight down towards the ground: (-0.7071, 0, 0, 0.7071).
+///     Corresponds to a -90 degree rotation about the X axis.
+///
+///   * Banked 90 degrees to the left: (0, 0, 0.7071, 0.7071). Corresponds
+///     to a +90 degree rotation about the Z axis.
+///
+///   * Banked 90 degrees to the right: (0, 0, -0.7071, 0.7071). Corresponds
+///     to a -90 degree rotation about the Z axis.
+gvr_quatf gvr_controller_state_get_orientation(
+    const gvr_controller_state* state);
+
+/// Returns the current controller gyro reading, in Start Space.
+///
+/// The gyro measures the controller's angular speed in radians per second.
+/// Note that this is an angular *speed*, so it reflects how fast the
+/// controller's orientation is changing with time.
+/// In particular, if the controller is not being rotated, the angular speed
+/// will be zero on all axes, regardless of the current pose.
+///
+/// The axes are in the controller's device space. Specifically:
+///
+///    * The X axis points to the right of the controller.
+///    * The Y axis points upwards perpendicular to the top surface of the
+///      controller.
+///    * The Z axis points backwards along the body of the controller,
+///      towards its rear, where the charging port is.
+///
+/// As usual in a right-handed coordinate system, the sign of the angular
+/// velocity is given by the right-hand rule. So, for example:
+///
+///    * If the controller is flat on a table top spinning counter-clockwise
+///      as seen from above, you will read a positive angular velocity
+///      about the Y axis. Clockwise would be negative.
+///    * If the controller is initially pointing forward and lying flat and
+///      is then gradually angled up so that its tip points towards the sky,
+///      it will report a positive angular velocity about the X axis during
+///      that motion. Likewise, angling it down will report a negative angular
+///      velocity about the X axis.
+///    * If the controller is banked (rolled) to the right, this will
+///      report a negative angular velocity about the Z axis during the
+///      motion (remember the Z axis points backwards along the controller).
+///      Banking to the left will report a positive angular velocity about
+///      the Z axis.
+gvr_vec3f gvr_controller_state_get_gyro(const gvr_controller_state* state);
+
+/// Current (latest) controller accelerometer reading, in Start Space.
+///
+/// The accelerometer indicates the direction in which the controller feels
+/// an acceleration, including gravity. The reading is given in meters
+/// per second squared (m/s^2). The axes are the same as for the gyro.
+/// To have an intuition for the signs used in the accelerometer, it is useful
+/// to imagine that, when at rest, the controller is being "pushed" by a
+/// force opposite to gravity. It is as if, by the equivalency princle, it were
+/// on a frame of reference that is accelerating in the opposite direction to
+/// gravity. For example:
+///
+///   * If the controller is lying flat on a table top, it will read a positive
+///     acceleration of about 9.8 m/s^2 along the Y axis, corresponding to
+///     the acceleration of gravity (as if the table were pushing the controller
+///     upwards at 9.8 m/s^2 to counteract gravity).
+///   * If, in that situation, the controller is now accelerated upwards at
+///     3.0 m/s^2, then the reading will be 12.8 m/s^2 along the Y axis,
+///     since the controller will now feel a stronger acceleration corresponding
+///     to the 9.8 m/s^2 plus the upwards push of 3.0 m/s^2.
+///   * If, the controller is accelerated downwards at 5.0 m/s^2, then the
+///     reading will now be 4.8 m/s^2 along the Y axis, since the controller
+///     will now feel a weaker acceleration (as the acceleration is giving in
+///     to gravity).
+///   * If you were to give in to gravity completely, letting the controller
+///     free fall towards the ground, it will read 0 on all axes, as there
+///     will be no force acting on the controller. (Please do not put your
+///     controller in a free-fall situation. This is just a theoretical
+///     example.)
+gvr_vec3f gvr_controller_state_get_accel(const gvr_controller_state* state);
+
+/// Returns whether the user is touching the touchpad.
+bool gvr_controller_state_is_touching(const gvr_controller_state* state);
+
+/// If the user is touching the touchpad, this returns the touch position in
+/// normalized coordinates, where (0,0) is the top-left of the touchpad
+/// and (1,1) is the bottom right. If the user is not touching the touchpad,
+/// then this is the position of the last touch.
+gvr_vec2f gvr_controller_state_get_touch_pos(const gvr_controller_state* state);
+
+/// Returns true if user just started touching touchpad (this is a transient
+/// event:
+/// it is true for only one frame after the event).
+bool gvr_controller_state_get_touch_down(const gvr_controller_state* state);
+
+/// Returns true if user just stopped touching touchpad (this is a transient
+/// event:
+/// it is true for only one frame after the event).
+bool gvr_controller_state_get_touch_up(const gvr_controller_state* state);
+
+/// Returns true if a recenter operation just ended (this is a transient event:
+/// it is true only for one frame after the recenter ended). If this is
+/// true then the `orientation` field is already relative to the new center.
+bool gvr_controller_state_get_recentered(const gvr_controller_state* state);
+
+/// Returns whether the recenter flow is currently in progress.
+///
+/// @deprecated Use gvr_controller_state_get_recentered instead.
+bool gvr_controller_state_get_recentering(const gvr_controller_state* state);
+
+/// Returns whether the given button is currently pressed.
+bool gvr_controller_state_get_button_state(const gvr_controller_state* state,
+
+                                           int32_t button);
+
+/// Returns whether the given button was just pressed (transient).
+bool gvr_controller_state_get_button_down(const gvr_controller_state* state,
+                                          int32_t button);
+
+/// Returns whether the given button was just released (transient).
+bool gvr_controller_state_get_button_up(const gvr_controller_state* state,
+                                        int32_t button);
+
+/// Returns the timestamp (nanos) when the last orientation event was received.
+int64_t gvr_controller_state_get_last_orientation_timestamp(
+    const gvr_controller_state* state);
+
+/// Returns the timestamp (nanos) when the last gyro event was received.
+int64_t gvr_controller_state_get_last_gyro_timestamp(
+    const gvr_controller_state* state);
+
+/// Returns the timestamp (nanos) when the last accelerometer event was
+/// received.
+int64_t gvr_controller_state_get_last_accel_timestamp(
+    const gvr_controller_state* state);
+
+/// Returns the timestamp (nanos) when the last touch event was received.
+int64_t gvr_controller_state_get_last_touch_timestamp(
+    const gvr_controller_state* state);
+
+/// Returns the timestamp (nanos) when the last button event was received.
+int64_t gvr_controller_state_get_last_button_timestamp(
+    const gvr_controller_state* state);
 
 /// @}
 
@@ -203,7 +415,7 @@ const char* gvr_controller_button_to_string(gvr_controller_button button);
 
 
 // Convenience C++ wrapper.
-#ifdef __cplusplus
+#if defined(__cplusplus) && !defined(GVR_NO_CPP_WRAPPER)
 
 #include <memory>
 
@@ -228,12 +440,10 @@ namespace gvr {
 ///     gvr_context* context = .....;  // (get it from GvrLayout)
 ///
 ///     // Set up the options:
-///     ControllerApiOptions options;
-///     ControllerApi::InitDefaultOptions(&options);
+///     int32_t options = ControllerApi::DefaultOptions();
 ///
 ///     // Enable non-default options, if you need them:
-///     options.enable_gestures = true;
-///     options.enable_accel = true;
+///     options |= GVR_CONTROLLER_ENABLE_GYRO;
 ///
 ///     // Init the ControllerApi object:
 ///     bool success = controller_api->Init(options, context);
@@ -246,11 +456,12 @@ namespace gvr {
 ///     // Resume the ControllerApi (if your app is on the foreground).
 ///     controller_api->Resume();
 ///
+///     ControllerState state;
+///
 /// Usage example:
 ///
 ///     void DrawFrame() {
-///       ControllerState state;
-///       controller_api->ReadState(&state);
+///       state.Update(*controller_api);
 ///       // ... process controller state ...
 ///     }
 ///
@@ -277,15 +488,15 @@ class ControllerApi {
   /// it by calling Init() before interacting with it.
   ControllerApi() : context_(nullptr) {}
 
+  /// Returns the default controller options.
+  static int32_t DefaultOptions() {
+    return gvr_controller_get_default_options();
+  }
+
   // Deprecated factory-style create method.
   // TODO(btco): remove this once no one is using it.
   static std::unique_ptr<ControllerApi> Create() {
     return std::unique_ptr<ControllerApi>(new ControllerApi);
-  }
-
-  /// Initializes the ControllerApiOptions with the default options.
-  static void InitDefaultOptions(ControllerApiOptions* options) {
-    gvr_controller_init_default_options(options);
   }
 
   /// Initializes the controller API.
@@ -300,7 +511,7 @@ class ControllerApi {
   /// @return True if initialization was successful, false if it failed.
   ///     Initialization may fail, for example, because invalid options were
   ///     supplied.
-  bool Init(const ControllerApiOptions& options, gvr_context* context) {
+  bool Init(int32_t options, gvr_context* context) {
     context_ = gvr_controller_create_and_init(options, context);
     return context_ != nullptr;
   }
@@ -310,7 +521,7 @@ class ControllerApi {
   /// (for Android only). For more information, see:
   /// gvr_controller_create_and_init_android().
   bool Init(JNIEnv *env, jobject android_context, jobject class_loader,
-            const ControllerApiOptions& options, gvr_context* context) {
+            int32_t options, gvr_context* context) {
     context_ = gvr_controller_create_and_init_android(
         env, android_context, class_loader, options, context);
     return context_ != nullptr;
@@ -319,7 +530,7 @@ class ControllerApi {
 
   /// Convenience overload that calls Init without a gvr_context.
   // TODO(btco): remove once it is no longer being used.
-  bool Init(const ControllerApiOptions& options) {
+  bool Init(int32_t options) {
     return Init(options, nullptr);
   }
 
@@ -333,12 +544,6 @@ class ControllerApi {
   /// For more information, see gvr_controller_resume().
   void Resume() {
     gvr_controller_resume(context_);
-  }
-
-  /// Reads the current state of the controller.
-  /// For more information, see gvr_controller_read_state().
-  void ReadState(ControllerState* out_state) {
-    gvr_controller_read_state(context_, out_state);
   }
 
   /// Destroys this ControllerApi instance.
@@ -360,15 +565,170 @@ class ControllerApi {
     return gvr_controller_button_to_string(button);
   }
 
- private:
+  /// @name Wrapper manipulation
+  /// @{
+  /// Creates a C++ wrapper for a C object and takes ownership.
+  explicit ControllerApi(gvr_controller_context* context)
+      : context_(context) {}
+
+  /// Returns the wrapped C object. Does not affect ownership.
+  gvr_controller_context* cobj() { return context_; }
+  const gvr_controller_context* cobj() const { return context_; }
+
+  /// Returns the wrapped C object and transfers its ownership to the caller.
+  /// The wrapper becomes invalid and should not be used.
+  gvr_controller_context* release() {
+    auto result = context_;
+    context_ = nullptr;
+    return result;
+  }
+  /// @}
+
+ protected:
   gvr_controller_context* context_;
+
+ private:
+  friend class ControllerState;
 
   // Disallow copy and assign:
   ControllerApi(const ControllerApi&);
   void operator=(const ControllerApi&);
 };
 
+/// Convenience C++ wrapper for the opaque gvr_controller_state type. See the
+/// gvr_controller_state functions for more information.
+class ControllerState {
+ public:
+  ControllerState() : state_(gvr_controller_state_create()) {}
+
+  ~ControllerState() {
+    if (state_) gvr_controller_state_destroy(&state_);
+  }
+
+  /// For more information, see gvr_controller_state_update().
+  void Update(const ControllerApi& api) {
+    gvr_controller_state_update(api.context_, 0, state_);
+  }
+
+  /// For more information, see gvr_controller_state_update().
+  void Update(const ControllerApi& api, int32_t flags) {
+    gvr_controller_state_update(api.context_, flags, state_);
+  }
+
+  /// For more information, see gvr_controller_state_get_api_status().
+  ControllerApiStatus GetApiStatus() const {
+    return static_cast<ControllerApiStatus>(
+        gvr_controller_state_get_api_status(state_));
+  }
+
+  /// For more information, see gvr_controller_state_get_connection_state().
+  ControllerConnectionState GetConnectionState() const {
+    return static_cast<ControllerConnectionState>(
+        gvr_controller_state_get_connection_state(state_));
+  }
+
+  /// For more information, see gvr_controller_state_get_orientation().
+  gvr_quatf GetOrientation() const {
+    return gvr_controller_state_get_orientation(state_);
+  }
+
+  /// For more information, see gvr_controller_state_get_gyro().
+  gvr_vec3f GetGyro() const { return gvr_controller_state_get_gyro(state_); }
+
+  /// For more information, see gvr_controller_state_get_accel().
+  gvr_vec3f GetAccel() const { return gvr_controller_state_get_accel(state_); }
+
+  /// For more information, see gvr_controller_state_is_touching().
+  bool IsTouching() const { return gvr_controller_state_is_touching(state_); }
+
+  /// For more information, see gvr_controller_state_get_touch_pos().
+  gvr_vec2f GetTouchPos() const {
+    return gvr_controller_state_get_touch_pos(state_);
+  }
+
+  /// For more information, see gvr_controller_state_get_touch_down().
+  bool GetTouchDown() const {
+    return gvr_controller_state_get_touch_down(state_);
+  }
+
+  /// For more information, see gvr_controller_state_get_touch_up().
+  bool GetTouchUp() const { return gvr_controller_state_get_touch_up(state_); }
+
+  /// For more information, see gvr_controller_state_get_recentered().
+  bool GetRecentered() const {
+    return gvr_controller_state_get_recentered(state_);
+  }
+
+  /// For more information, see gvr_controller_state_get_recentering().
+  bool GetRecentering() const {
+    return gvr_controller_state_get_recentering(state_);
+  }
+
+  /// For more information, see gvr_controller_state_get_button_state().
+  bool GetButtonState(ControllerButton button) const {
+    return gvr_controller_state_get_button_state(state_, button);
+  }
+
+  /// For more information, see gvr_controller_state_get_button_down().
+  bool GetButtonDown(ControllerButton button) const {
+    return gvr_controller_state_get_button_down(state_, button);
+  }
+
+  /// For more information, see gvr_controller_state_get_button_up().
+  bool GetButtonUp(ControllerButton button) const {
+    return gvr_controller_state_get_button_up(state_, button);
+  }
+
+  /// For more information, see
+  /// gvr_controller_state_get_last_orientation_timestamp().
+  int64_t GetLastOrientationTimestamp() const {
+    return gvr_controller_state_get_last_orientation_timestamp(state_);
+  }
+
+  /// For more information, see gvr_controller_state_get_last_gyro_timestamp().
+  int64_t GetLastGyroTimestamp() const {
+    return gvr_controller_state_get_last_gyro_timestamp(state_);
+  }
+
+  /// For more information, see gvr_controller_state_get_last_accel_timestamp().
+  int64_t GetLastAccelTimestamp() const {
+    return gvr_controller_state_get_last_accel_timestamp(state_);
+  }
+
+  /// For more information, see gvr_controller_state_get_last_touch_timestamp().
+  int64_t GetLastTouchTimestamp() const {
+    return gvr_controller_state_get_last_touch_timestamp(state_);
+  }
+
+  /// For more information, see
+  /// gvr_controller_state_get_last_button_timestamp().
+  int64_t GetLastButtonTimestamp() const {
+    return gvr_controller_state_get_last_button_timestamp(state_);
+  }
+
+  /// @name Wrapper manipulation
+  /// @{
+  /// Creates a C++ wrapper for a C object and takes ownership.
+  explicit ControllerState(gvr_controller_state* state) : state_(state) {}
+
+  /// Returns the wrapped C object. Does not affect ownership.
+  gvr_controller_state* cobj() { return state_; }
+  const gvr_controller_state* cobj() const { return state_; }
+
+  /// Returns the wrapped C object and transfers its ownership to the caller.
+  /// The wrapper becomes invalid and should not be used.
+  gvr_controller_state* release() {
+    auto result = state_;
+    state_ = nullptr;
+    return result;
+  }
+  /// @}
+
+ private:
+  gvr_controller_state* state_;
+};
+
 }  // namespace gvr
-#endif  // #ifdef __cplusplus
+#endif  // #if defined(__cplusplus) && !defined(GVR_NO_CPP_WRAPPER)
 
 #endif  // VR_GVR_CAPI_INCLUDE_GVR_CONTROLLER_H_

@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Framework/Commands/InputChord.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "AssetThumbnail.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+
+class FTabSwitchingListItemBase;
+template <typename ItemType> class SListView;
+
 //////////////////////////////////////////////////////////////////////////
 // SGlobalTabSwitchingDialog
 

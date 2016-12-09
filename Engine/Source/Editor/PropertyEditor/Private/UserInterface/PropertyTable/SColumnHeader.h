@@ -1,10 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IPropertyTableColumn.h"
-#include "IPropertyTableUtilities.h"
-#include "PropertyPath.h"
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/Margin.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
 #include "IPropertyTable.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/SToolTip.h"
+#include "EditorStyleSet.h"
 #include "IPropertyTableCustomColumn.h"
 #include "PropertyEditorHelpers.h"
 #include "IDocumentation.h"

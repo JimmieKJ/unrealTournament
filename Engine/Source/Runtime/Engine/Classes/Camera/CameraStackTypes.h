@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "CameraStackTypes.generated.h"
+
+class APlayerCameraManager;
 
 // NOTE:
 // This code is work in progress - do not use these types until this comment is removed.

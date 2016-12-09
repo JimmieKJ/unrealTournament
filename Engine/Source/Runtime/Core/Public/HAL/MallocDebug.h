@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Templates/AlignmentTemplates.h"
+#include "CoreGlobals.h"
+
+class FOutputDevice;
 
 // Debug memory allocator.
 class FMallocDebug : public FMalloc

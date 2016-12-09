@@ -1,19 +1,41 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "LevelEditor.h"
 #include "LevelEditorToolBar.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Input/SSlider.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "GameMapsSettings.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/GameModeBase.h"
+#include "GameFramework/HUD.h"
+#include "GameFramework/GameStateBase.h"
+#include "Engine/TextureStreamingTypes.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "LevelEditor.h"
 #include "LevelEditorActions.h"
-#include "Editor/UnrealEd/Public/SourceCodeNavigation.h"
-#include "Editor/UnrealEd/Public/Kismet2/DebuggerCommands.h"
-#include "Editor/SceneOutliner/Public/SceneOutliner.h"
-#include "DelegateFilter.h"
-#include "EditorViewportCommands.h"
+#include "SourceCodeNavigation.h"
+#include "Kismet2/DebuggerCommands.h"
+#include "SceneOutlinerPublicTypes.h"
+#include "SceneOutlinerModule.h"
 #include "SScalabilitySettings.h"
-#include "Editor/LevelEditor/Private/SLevelEditor.h"
-#include "AssetData.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
-#include "EngineBuildSettings.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
 #include "Matinee/MatineeActor.h"
 #include "LevelSequenceActor.h"
 #include "Engine/LevelScriptBlueprint.h"
@@ -24,20 +46,11 @@
 #include "DesktopPlatformModule.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
-#include "KismetEditorUtilities.h"
-#include "ISourceControlModule.h"
-#include "SVolumeControl.h"
-#include "ModuleManager.h"
-#include "GameFramework/GameMode.h"
-#include "GameFramework/GameState.h"
-#include "GameFramework/HUD.h"
-#include "GameFramework/Pawn.h"
-#include "GameFramework/PlayerController.h"
-#include "GameFramework/WorldSettings.h"
-#include "EngineUtils.h"
-#include "GameMapsSettings.h"
-#include "ScopedTransaction.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "Widgets/Input/SVolumeControl.h"
 #include "Features/IModularFeatures.h"
+#include "EngineUtils.h"
+#include "ScopedTransaction.h"
 #include "Features/EditorFeatures.h"
 
 namespace LevelEditorActionHelpers
@@ -300,7 +313,9 @@ namespace LevelEditorActionHelpers
 
 		FText RootClassName = FText::FromString(InRootClass->GetName());
 		TSharedRef<SWidget> ClassViewer = FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer").CreateClassViewer(Options, InOnClassPicked);
-		InMenuBuilder.BeginSection(NAME_None, FText::Format( NSLOCTEXT("LevelToolBarViewMenu", "SelectGameModeLabel", "Select {RootClass} class"), RootClassName ));
+		FFormatNamedArguments FormatArgs;
+		FormatArgs.Add(TEXT("RootClass"), RootClassName);
+		InMenuBuilder.BeginSection(NAME_None, FText::Format( NSLOCTEXT("LevelToolBarViewMenu", "SelectGameModeLabel", "Select {RootClass} class"), FormatArgs ));
 		InMenuBuilder.AddWidget(ClassViewer, FText::GetEmpty(), true);
 		InMenuBuilder.EndSection();
 	}
@@ -331,7 +346,9 @@ namespace LevelEditorActionHelpers
 
 		FText RootClassName = FText::FromString(InRootClass->GetName());
 		TSharedRef<SWidget> ClassViewer = FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer").CreateClassViewer(Options, InOnClassPicked);
-		InMenuBuilder.BeginSection(NAME_None, FText::Format( NSLOCTEXT("LevelToolBarViewMenu", "CreateGameModeLabel", "Select {RootClass} parent class"), RootClassName ));
+		FFormatNamedArguments FormatArgs;
+		FormatArgs.Add(TEXT("RootClass"), RootClassName);
+		InMenuBuilder.BeginSection(NAME_None, FText::Format( NSLOCTEXT("LevelToolBarViewMenu", "CreateGameModeLabel", "Select {RootClass} parent class"), FormatArgs ));
 		InMenuBuilder.AddWidget(ClassViewer, FText::GetEmpty(), true);
 		InMenuBuilder.EndSection();
 	}
@@ -446,7 +463,7 @@ namespace LevelEditorActionHelpers
 		FText ResultText;
 
 		// Game modes can always be created and selected (providing the config is checked out, handled separately)
-		if(InRootClass != AGameMode::StaticClass() && InGameModeClass->HasAllClassFlags(CLASS_Native))
+		if(InRootClass != AGameModeBase::StaticClass() && InGameModeClass->HasAllClassFlags(CLASS_Native))
 		{
 			ResultText = LOCTEXT("CannotCreateClasses", "Cannot create classes when the game mode is a native class!");
 		}
@@ -473,7 +490,7 @@ namespace LevelEditorActionHelpers
 		FText ResultText;
 
 		// Game modes can always be created and selected (providing the config is checked out, handled separately)
-		if(InRootClass != AGameMode::StaticClass() && InGameModeClass->HasAllClassFlags(CLASS_Native))
+		if(InRootClass != AGameModeBase::StaticClass() && InGameModeClass->HasAllClassFlags(CLASS_Native))
 		{
 			ResultText = LOCTEXT("CannotSelectClasses", "Cannot select classes when the game mode is a native class!");
 		}
@@ -503,7 +520,7 @@ namespace LevelEditorActionHelpers
 		GameModeMenuSettings.OnCreateClassPicked = FOnClassPicked::CreateStatic( &LevelEditorActionHelpers::OnCreateGameModeClassPicked, InLevelEditor, bInProjectSettings );
 		GameModeMenuSettings.OnSelectClassPicked = FOnClassPicked::CreateStatic( &LevelEditorActionHelpers::OnSelectGameModeClassPicked, InLevelEditor, bInProjectSettings );
 		GameModeMenuSettings.CurrentClass = LevelEditorActionHelpers::GetGameModeClass(InLevelEditor, bInProjectSettings);
-		GameModeMenuSettings.RootClass = AGameMode::StaticClass();
+		GameModeMenuSettings.RootClass = AGameModeBase::StaticClass();
 		GameModeMenuSettings.LevelEditor = InLevelEditor;
 		GameModeMenuSettings.bIsProjectSettings = bInProjectSettings;
 
@@ -544,7 +561,7 @@ namespace LevelEditorActionHelpers
 		GameStateMenuSettings.OnCreateClassPicked = FOnClassPicked::CreateStatic( &LevelEditorActionHelpers::OnCreateGameStateClassPicked, InSettingsData.LevelEditor, InSettingsData.bIsProjectSettings );
 		GameStateMenuSettings.OnSelectClassPicked = FOnClassPicked::CreateStatic( &LevelEditorActionHelpers::OnSelectGameStateClassPicked, InSettingsData.LevelEditor, InSettingsData.bIsProjectSettings );
 		GameStateMenuSettings.CurrentClass = LevelEditorActionHelpers::GetGameStateClass(InSettingsData.LevelEditor, InSettingsData.bIsProjectSettings);
-		GameStateMenuSettings.RootClass = AGameState::StaticClass();
+		GameStateMenuSettings.RootClass = AGameStateBase::StaticClass();
 		GameStateMenuSettings.LevelEditor = InSettingsData.LevelEditor;
 		GameStateMenuSettings.bIsProjectSettings = InSettingsData.bIsProjectSettings;
 
@@ -656,7 +673,7 @@ void LevelEditorActionHelpers::GetBlueprintSettingsSubMenu(FMenuBuilder& InMenuB
 		}
 	}
 
-	if(InSettingsData.bIsProjectSettings && InSettingsData.CurrentClass && InSettingsData.CurrentClass->IsChildOf(AGameMode::StaticClass()) && !FLevelEditorActionCallbacks::CanSelectGameModeBlueprint())
+	if(InSettingsData.bIsProjectSettings && InSettingsData.CurrentClass && InSettingsData.CurrentClass->IsChildOf(AGameModeBase::StaticClass()) && !FLevelEditorActionCallbacks::CanSelectGameModeBlueprint())
 	{
 		InMenuBuilder.BeginSection("CheckoutSection", LOCTEXT("CheckoutSection","Check Out Project Settings") );
 		TAttribute<FText> CheckOutLabel;
@@ -684,7 +701,7 @@ void LevelEditorActionHelpers::GetBlueprintSettingsSubMenu(FMenuBuilder& InMenuB
 		FNewMenuDelegate::CreateStatic( &LevelEditorActionHelpers::GetCreateSettingsClassSubMenu, InSettingsData.RootClass, InSettingsData.OnCreateClassPicked ),
 		FUIAction(
 			FExecuteAction(), 
-			InSettingsData.RootClass == AGameMode::StaticClass()? 
+			InSettingsData.RootClass == AGameModeBase::StaticClass()?
 				FCanExecuteAction::CreateStatic(CannotCreateSelectNativeProjectGameMode, InSettingsData.bIsProjectSettings) 
 				: FCanExecuteAction::CreateStatic( &CanCreateSelectSubClass, GetGameModeClass(InSettingsData.LevelEditor, InSettingsData.bIsProjectSettings), InSettingsData.bIsProjectSettings )
 		),
@@ -692,12 +709,14 @@ void LevelEditorActionHelpers::GetBlueprintSettingsSubMenu(FMenuBuilder& InMenuB
 	);
 
 	// Select a game mode, this is always available so the user can switch his selection
-	InMenuBuilder.AddSubMenu( FText::Format( LOCTEXT("SelectGameModeClass", "Select {RootClass} Class"), RootClassName ),
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("RootClass"),RootClassName);
+	InMenuBuilder.AddSubMenu( FText::Format( LOCTEXT("SelectGameModeClass", "Select {RootClass} Class"), Args ),
 		GetSelectMenuTooltip(GetGameModeClass(InSettingsData.LevelEditor, InSettingsData.bIsProjectSettings), InSettingsData.RootClass, InSettingsData.bIsProjectSettings),
 		FNewMenuDelegate::CreateStatic( &LevelEditorActionHelpers::GetSelectSettingsClassSubMenu, InSettingsData.RootClass, InSettingsData.OnSelectClassPicked ),
 		FUIAction(
 			FExecuteAction(), 
-			InSettingsData.RootClass == AGameMode::StaticClass()?
+			InSettingsData.RootClass == AGameModeBase::StaticClass()?
 				FCanExecuteAction::CreateStatic(CannotCreateSelectNativeProjectGameMode, InSettingsData.bIsProjectSettings) 
 				: FCanExecuteAction::CreateStatic( &CanCreateSelectSubClass, GetGameModeClass(InSettingsData.LevelEditor, InSettingsData.bIsProjectSettings), InSettingsData.bIsProjectSettings )
 		),
@@ -705,7 +724,7 @@ void LevelEditorActionHelpers::GetBlueprintSettingsSubMenu(FMenuBuilder& InMenuB
 	);
 
 	// For GameMode classes only, there are some sub-classes we need to add to the menu
-	if(InSettingsData.RootClass == AGameMode::StaticClass())
+	if(InSettingsData.RootClass == AGameModeBase::StaticClass())
 	{
 		InMenuBuilder.BeginSection(NAME_None, LOCTEXT("GameModeClasses", "Game Mode Classes"));
 
@@ -830,7 +849,7 @@ UClass* LevelEditorActionHelpers::GetGameStateClass(TWeakPtr< SLevelEditor > InL
 {
 	if(UClass* GameModeClass = GetGameModeClass(InLevelEditor, bInIsProjectSettings))
 	{
-		AGameMode* ActiveGameMode = Cast<AGameMode>(GameModeClass->GetDefaultObject());
+		AGameModeBase* ActiveGameMode = Cast<AGameModeBase>(GameModeClass->GetDefaultObject());
 		if(ActiveGameMode)
 		{
 			return ActiveGameMode->GameStateClass;
@@ -844,12 +863,15 @@ FText LevelEditorActionHelpers::GetOpenGameStateBlueprintLabel(TWeakPtr< SLevelE
 #define LOCTEXT_NAMESPACE "LevelToolBarViewMenu"
 	if(UClass* GameStateClass = GetGameStateClass(InLevelEditor, bInIsProjectSettings))
 	{
+		FFormatNamedArguments FormatArgs;
 		if(GameStateClass->ClassGeneratedBy)
 		{
-			return FText::Format( LOCTEXT("GameStateEditBlueprint", "GameState: Edit {GameStateName}"), FText::FromString(GameStateClass->ClassGeneratedBy->GetName()));
+			FormatArgs.Add(TEXT("GameStateName"), FText::FromString(GameStateClass->ClassGeneratedBy->GetName()));
+			return FText::Format( LOCTEXT("GameStateEditBlueprint", "GameState: Edit {GameStateName}"), FormatArgs);
 		}
 
-		return FText::Format( LOCTEXT("GameStateBlueprint", "GameState: {GameStateName}"), FText::FromString(GameStateClass->GetName()));
+		FormatArgs.Add(TEXT("GameStateName"), FText::FromString(GameStateClass->GetName()));
+		return FText::Format( LOCTEXT("GameStateBlueprint", "GameState: {GameStateName}"), FormatArgs);
 	}
 
 	return LOCTEXT("GameStateCreateBlueprint", "GameState: New...");
@@ -883,7 +905,7 @@ void LevelEditorActionHelpers::OnSelectGameStateClassPicked(UClass* InChosenClas
 	if(UClass* GameModeClass = GetGameModeClass(InLevelEditor, bInIsProjectSettings))
 	{
 		const FScopedTransaction Transaction( NSLOCTEXT("LevelEditorCommands", "SelectGameStateClassAction", "Set Game State Class") );
-		AGameMode* ActiveGameMode = Cast<AGameMode>(GameModeClass->GetDefaultObject());
+		AGameModeBase* ActiveGameMode = Cast<AGameModeBase>(GameModeClass->GetDefaultObject());
 		ActiveGameMode->Modify();
 		ActiveGameMode->GameStateClass = InChosenClass;
 	}
@@ -895,7 +917,7 @@ UClass* LevelEditorActionHelpers::GetPawnClass(TWeakPtr< SLevelEditor > InLevelE
 {
 	if(UClass* GameModeClass = GetGameModeClass(InLevelEditor, bInIsProjectSettings))
 	{
-		AGameMode* ActiveGameMode = Cast<AGameMode>(GameModeClass->GetDefaultObject());
+		AGameModeBase* ActiveGameMode = Cast<AGameModeBase>(GameModeClass->GetDefaultObject());
 
 		if(ActiveGameMode)
 		{
@@ -910,12 +932,15 @@ FText LevelEditorActionHelpers::GetOpenPawnBlueprintLabel(TWeakPtr< SLevelEditor
 #define LOCTEXT_NAMESPACE "LevelToolBarViewMenu"
 	if(UClass* PawnClass = GetPawnClass(InLevelEditor, bInIsProjectSettings))
 	{
+		FFormatNamedArguments FormatArgs;
 		if(PawnClass->ClassGeneratedBy)
 		{
-			return FText::Format( LOCTEXT("PawnEditBlueprint", "Pawn: Edit {PawnName}"), FText::FromString(PawnClass->ClassGeneratedBy->GetName()));
+			FormatArgs.Add(TEXT("PawnName"), FText::FromString(PawnClass->ClassGeneratedBy->GetName()));
+			return FText::Format( LOCTEXT("PawnEditBlueprint", "Pawn: Edit {PawnName}"), FormatArgs);
 		}
 
-		return FText::Format( LOCTEXT("PawnBlueprint", "Pawn: {PawnName}"), FText::FromString(PawnClass->GetName()));
+		FormatArgs.Add(TEXT("PawnName"), FText::FromString(PawnClass->GetName()));
+		return FText::Format( LOCTEXT("PawnBlueprint", "Pawn: {PawnName}"), FormatArgs);
 	}
 
 	return LOCTEXT("PawnCreateBlueprint", "Pawn: New...");
@@ -950,7 +975,7 @@ void LevelEditorActionHelpers::OnSelectPawnClassPicked(UClass* InChosenClass, TW
 	{
 		const FScopedTransaction Transaction( NSLOCTEXT("LevelEditorCommands", "SelectPawnClassAction", "Set Pawn Class") );
 
-		AGameMode* ActiveGameMode = Cast<AGameMode>(GameModeClass->GetDefaultObject());
+		AGameModeBase* ActiveGameMode = Cast<AGameModeBase>(GameModeClass->GetDefaultObject());
 		ActiveGameMode->Modify();
 		ActiveGameMode->DefaultPawnClass = InChosenClass;
 	}
@@ -962,7 +987,7 @@ UClass* LevelEditorActionHelpers::GetHUDClass(TWeakPtr< SLevelEditor > InLevelEd
 {
 	if(UClass* GameModeClass = GetGameModeClass(InLevelEditor, bInIsProjectSettings))
 	{
-		AGameMode* ActiveGameMode = Cast<AGameMode>(GameModeClass->GetDefaultObject());
+		AGameModeBase* ActiveGameMode = Cast<AGameModeBase>(GameModeClass->GetDefaultObject());
 		if(ActiveGameMode)
 		{
 			return ActiveGameMode->HUDClass;
@@ -976,12 +1001,15 @@ FText LevelEditorActionHelpers::GetOpenHUDBlueprintLabel(TWeakPtr< SLevelEditor 
 #define LOCTEXT_NAMESPACE "LevelToolBarViewMenu"
 	if(UClass* HUDClass = GetHUDClass(InLevelEditor, bInIsProjectSettings))
 	{
+		FFormatNamedArguments FormatArgs;
 		if(HUDClass->ClassGeneratedBy)
 		{
-			return FText::Format( LOCTEXT("HUDEditBlueprint", "HUD: Edit {HUDName}"), FText::FromString(HUDClass->ClassGeneratedBy->GetName()));
+			FormatArgs.Add(TEXT("HUDName"), FText::FromString(HUDClass->ClassGeneratedBy->GetName()));
+			return FText::Format( LOCTEXT("HUDEditBlueprint", "HUD: Edit {HUDName}"), FormatArgs);
 		}
 
-		return FText::Format( LOCTEXT("HUDBlueprint", "HUD: {HUDName}"), FText::FromString(HUDClass->GetName()));
+		FormatArgs.Add(TEXT("HUDName"), FText::FromString(HUDClass->GetName()));
+		return FText::Format( LOCTEXT("HUDBlueprint", "HUD: {HUDName}"), FormatArgs);
 	}
 
 	return LOCTEXT("HUDCreateBlueprint", "HUD: New...");
@@ -1016,7 +1044,7 @@ void LevelEditorActionHelpers::OnSelectHUDClassPicked(UClass* InChosenClass, TWe
 	{
 		const FScopedTransaction Transaction( NSLOCTEXT("LevelEditorCommands", "SelectHUDClassAction", "Set HUD Class") );
 
-		AGameMode* ActiveGameMode = Cast<AGameMode>(GameModeClass->GetDefaultObject());
+		AGameModeBase* ActiveGameMode = Cast<AGameModeBase>(GameModeClass->GetDefaultObject());
 		ActiveGameMode->Modify();
 		ActiveGameMode->HUDClass = InChosenClass;
 	}
@@ -1028,7 +1056,7 @@ UClass* LevelEditorActionHelpers::GetPlayerControllerClass(TWeakPtr< SLevelEdito
 {
 	if(UClass* GameModeClass = GetGameModeClass(InLevelEditor, bInIsProjectSettings))
 	{
-		AGameMode* ActiveGameMode = Cast<AGameMode>(GameModeClass->GetDefaultObject());
+		AGameModeBase* ActiveGameMode = Cast<AGameModeBase>(GameModeClass->GetDefaultObject());
 		if(ActiveGameMode)
 		{
 			return ActiveGameMode->PlayerControllerClass;
@@ -1042,12 +1070,15 @@ FText LevelEditorActionHelpers::GetOpenPlayerControllerBlueprintLabel(TWeakPtr< 
 #define LOCTEXT_NAMESPACE "LevelToolBarViewMenu"
 	if(UClass* PlayerControllerClass = GetPlayerControllerClass(InLevelEditor, bInIsProjectSettings))
 	{
+		FFormatNamedArguments FormatArgs;
 		if(PlayerControllerClass->ClassGeneratedBy)
 		{
-			return FText::Format( LOCTEXT("PlayerControllerEditBlueprint", "PlayerController: Edit {PlayerControllerName}"), FText::FromString(PlayerControllerClass->ClassGeneratedBy->GetName()));
+			FormatArgs.Add(TEXT("PlayerControllerName"), FText::FromString(PlayerControllerClass->ClassGeneratedBy->GetName()));
+			return FText::Format( LOCTEXT("PlayerControllerEditBlueprint", "PlayerController: Edit {PlayerControllerName}"), FormatArgs);
 		}
 
-		return FText::Format( LOCTEXT("PlayerControllerBlueprint", "PlayerController: {PlayerControllerName}"), FText::FromString(PlayerControllerClass->GetName()));
+		FormatArgs.Add(TEXT("PlayerControllerName"), FText::FromString(PlayerControllerClass->GetName()));
+		return FText::Format( LOCTEXT("PlayerControllerBlueprint", "PlayerController: {PlayerControllerName}"), FormatArgs);
 	}
 
 	return LOCTEXT("PlayerControllerCreateBlueprint", "PlayerController: New...");
@@ -1082,7 +1113,7 @@ void LevelEditorActionHelpers::OnSelectPlayerControllerClassPicked(UClass* InCho
 	{
 		const FScopedTransaction Transaction( NSLOCTEXT("LevelEditorCommands", "SelectPlayerControllerClassAction", "Set Player Controller Class") );
 
-		AGameMode* ActiveGameMode = Cast<AGameMode>(GameModeClass->GetDefaultObject());
+		AGameModeBase* ActiveGameMode = Cast<AGameModeBase>(GameModeClass->GetDefaultObject());
 		ActiveGameMode->Modify();
 		ActiveGameMode->PlayerControllerClass = InChosenClass;
 	}
@@ -1899,7 +1930,7 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateOpenBlueprintMenuContent( TSh
 								FExecuteAction::CreateStatic(&FLevelEditorToolBar::OnOpenSubLevelBlueprint, Level)
 								);
 
-							FText DisplayName = FText::Format(LOCTEXT("SubLevelBlueprintItem", "Edit {LevelName}"), FText::FromString(FPaths::GetCleanFilename(Level->GetOutermost()->GetName())));
+							FText DisplayName = FText::Format(LOCTEXT("SubLevelBlueprintItem", "Edit {0}"), FText::FromString(FPaths::GetCleanFilename(Level->GetOutermost()->GetName())));
 							InMenuBuilder.AddMenuEntry(DisplayName, FText::GetEmpty(), EditBP, UIAction);
 						}
 					}

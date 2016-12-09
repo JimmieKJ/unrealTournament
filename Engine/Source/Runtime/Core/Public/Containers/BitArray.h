@@ -2,8 +2,17 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Templates/AlignOf.h"
+#include "Templates/UnrealTemplate.h"
+#include "Containers/ContainerAllocationPolicies.h"
+#include "Serialization/Archive.h"
 #include "Math/UnrealMathUtility.h"
 
+template<typename Allocator > class TBitArray;
 
 // Functions for manipulating bit sets.
 struct FBitSet
@@ -484,6 +493,44 @@ public:
 	}
 
 	/**
+	 * Finds the first true/false bit in the array, and returns the bit index.
+	 * If there is none, INDEX_NONE is returned.
+	 */
+	int32 Find(bool bValue) const
+	{
+		// Iterate over the array until we see a word with a matching bit
+		const uint32 Test = bValue ? 0u : (uint32)-1;
+
+		const uint32* RESTRICT DwordArray = GetData();
+		const int32 LocalNumBits = NumBits;
+		const int32 DwordCount = FMath::DivideAndRoundUp(LocalNumBits, NumBitsPerDWORD);
+		int32 DwordIndex = 0;
+		while (DwordIndex < DwordCount && DwordArray[DwordIndex] == Test)
+		{
+			++DwordIndex;
+		}
+
+		if (DwordIndex < DwordCount)
+		{
+			// If we're looking for a false, then we flip the bits - then we only need to find the first one bit
+			const uint32 Bits = bValue ? (DwordArray[DwordIndex]) : ~(DwordArray[DwordIndex]);
+			ASSUME(Bits != 0);
+			const int32 LowestBitIndex = FMath::CountTrailingZeros(Bits) + (DwordIndex << NumBitsPerDWORDLogTwo);
+			if (LowestBitIndex < LocalNumBits)
+			{
+				return LowestBitIndex;
+			}
+		}
+
+		return INDEX_NONE;
+	}
+
+	FORCEINLINE bool Contains(bool bValue) const
+	{
+		return Find(bValue) != INDEX_NONE;
+	}
+
+	/**
 	 * Finds the first zero bit in the array, sets it to true, and returns the bit index.
 	 * If there is none, INDEX_NONE is returned.
 	 */
@@ -491,22 +538,24 @@ public:
 	{
 		// Iterate over the array until we see a word with a zero bit.
 		uint32* RESTRICT DwordArray = GetData();
-		const int32 DwordCount = FMath::DivideAndRoundUp(Num(), NumBitsPerDWORD);
+		const int32 LocalNumBits = NumBits;
+		const int32 DwordCount = FMath::DivideAndRoundUp(LocalNumBits, NumBitsPerDWORD);
 		int32 DwordIndex = 0;
-		while ( DwordIndex < DwordCount && DwordArray[DwordIndex] == 0xffffffff )
+		while (DwordIndex < DwordCount && DwordArray[DwordIndex] == (uint32)-1)
 		{
-			DwordIndex++;
+			++DwordIndex;
 		}
 
-		if ( DwordIndex < DwordCount )
+		if (DwordIndex < DwordCount)
 		{
 			// Flip the bits, then we only need to find the first one bit -- easy.
 			const uint32 Bits = ~(DwordArray[DwordIndex]);
-			const uint32 LowestBitMask = (Bits) & (-(int32)Bits);
-			const int32 LowestBitIndex = FMath::FloorLog2( LowestBitMask ) + (DwordIndex << NumBitsPerDWORDLogTwo);
-			if ( LowestBitIndex < NumBits )
+			ASSUME(Bits != 0);
+			const uint32 LowestBit = (Bits) & (-(int32)Bits);
+			const int32 LowestBitIndex = FMath::CountTrailingZeros(Bits) + (DwordIndex << NumBitsPerDWORDLogTwo);
+			if (LowestBitIndex < LocalNumBits)
 			{
-				DwordArray[DwordIndex] |= LowestBitMask;
+				DwordArray[DwordIndex] |= LowestBit;
 				return LowestBitIndex;
 			}
 		}

@@ -1,15 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_CustomEvent.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_BaseMCDelegate.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
-#include "Kismet2NameValidators.h"
-#include "CompilerResultsLog.h"
+#include "Kismet2/Kismet2NameValidators.h"
+#include "Kismet2/CompilerResultsLog.h"
+#include "BlueprintNodeSpawner.h"
 #include "BlueprintEventNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "K2Node_CustomEvent.h"
-#include "K2Node_BaseMCDelegate.h"
-#include "Editor/Kismet/Public/FindInBlueprintManager.h"
+#include "FindInBlueprintManager.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_CustomEvent"
 
@@ -525,6 +528,15 @@ void UK2Node_CustomEvent::AddSearchMetaDataInfo(TArray<struct FSearchTagDataPair
 		}
 	}
 	OutTaggedMetaData.Add(FSearchTagDataPair(FFindInBlueprintSearchTags::FiB_NativeName, FText::FromName(CustomFunctionName)));
+}
+
+FText UK2Node_CustomEvent::GetKeywords() const
+{
+	FText ParentKeywords = Super::GetKeywords();
+
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("ParentKeywords"), ParentKeywords);
+	return FText::Format(LOCTEXT("CustomEventKeywords", "{ParentKeywords} Custom"), Args);
 }
 
 #undef LOCTEXT_NAMESPACE

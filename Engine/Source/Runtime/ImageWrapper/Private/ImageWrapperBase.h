@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/IImageWrapper.h"
 
 /**
  * The abstract helper class for handling the different image formats

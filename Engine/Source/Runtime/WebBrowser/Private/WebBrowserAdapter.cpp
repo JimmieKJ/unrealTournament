@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WebBrowserPrivatePCH.h"
-#include "IWebBrowserAdapter.h"
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
 #include "IWebBrowserWindow.h"
-#include "CoreUObject.h"
-#include "GCObject.h"
+#include "IWebBrowserAdapter.h"
 
 class FDefaultWebBrowserAdapter
 	: public IWebBrowserAdapter

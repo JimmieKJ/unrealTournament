@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneParameterSection.h"
-#include "MovieSceneMaterialTrack.h"
-#include "IMovieScenePlayer.h"
-#include "MovieSceneMaterialTrackInstance.h"
+#include "Tracks/MovieSceneMaterialTrack.h"
+#include "MovieSceneCommonHelpers.h"
+#include "Evaluation/MovieSceneParameterTemplate.h"
 
 
 UMovieSceneMaterialTrack::UMovieSceneMaterialTrack(const FObjectInitializer& ObjectInitializer)
@@ -105,20 +103,6 @@ void UMovieSceneMaterialTrack::AddColorParameterKey(FName ParameterName, float T
 }
 
 
-void UMovieSceneMaterialTrack::Eval(float Position, TArray<FScalarParameterNameAndValue>& OutScalarValues, TArray<FColorParameterNameAndValue>& OutColorValues) const
-{
-	TArray<FVectorParameterNameAndValue> OutVectorValues;
-	for (UMovieSceneSection* Section : Sections)
-	{
-		if ( Section->IsActive() )
-		{
-			UMovieSceneParameterSection* ParameterSection = Cast<UMovieSceneParameterSection>( Section );
-			ParameterSection->Eval( Position, OutScalarValues, OutVectorValues, OutColorValues );
-		}
-	}
-}
-
-
 UMovieSceneComponentMaterialTrack::UMovieSceneComponentMaterialTrack(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -126,9 +110,9 @@ UMovieSceneComponentMaterialTrack::UMovieSceneComponentMaterialTrack(const FObje
 }
 
 
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneComponentMaterialTrack::CreateInstance()
+FMovieSceneEvalTemplatePtr UMovieSceneComponentMaterialTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
 {
-	return MakeShareable(new FMovieSceneComponentMaterialTrackInstance(*this));
+	return FMovieSceneComponentMaterialSectionTemplate(*CastChecked<UMovieSceneParameterSection>(&InSection), *this);
 }
 
 

@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "InterpTrackVisibility.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrackInst.h"
+#include "Matinee/InterpTrackVisibility.h"
 
 #include "InterpTrackInstVisibility.generated.h"
 

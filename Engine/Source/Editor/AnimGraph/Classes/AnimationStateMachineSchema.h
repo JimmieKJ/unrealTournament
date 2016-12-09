@@ -2,7 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AssetData.h"
+#include "EdGraph/EdGraphSchema.h"
 #include "AnimationStateMachineSchema.generated.h"
+
+class FMenuBuilder;
+class UEdGraph;
 
 /** Action to add a node to the graph */
 USTRUCT()

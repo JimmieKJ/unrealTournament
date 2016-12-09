@@ -1,17 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CurveAssetEditorPrivatePCH.h"
-
 #include "CurveAssetEditor.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Modules/ModuleManager.h"
+#include "EditorStyleSet.h"
+#include "Curves/CurveBase.h"
+#include "CurveAssetEditorModule.h"
+
 #include "SCurveEditor.h"
 #include "RichCurveEditorCommands.h"
 //#include "Toolkits/IToolkitHost.h"
-#include "WorkspaceMenuStructureModule.h"
-#include "SDockTab.h"
-#include "Curves/CurveVector.h"
-#include "Curves/CurveLinearColor.h"
-#include "Curves/CurveFloat.h"
-#include "SNumericDropDown.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Input/SNumericDropDown.h"
 
 #define LOCTEXT_NAMESPACE "CurveAssetEditor"
 

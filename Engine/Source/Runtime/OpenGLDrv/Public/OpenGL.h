@@ -4,7 +4,11 @@
 	OpenGL.h: Public OpenGL base definitions for non-common functionality
 =============================================================================*/
 #pragma once
-	
+
+#include "Containers/ContainersFwd.h"
+
+struct FPlatformOpenGLContext;
+struct FPlatformOpenGLDevice;
 
 /** OpenGL Logging. */
 OPENGLDRV_API DECLARE_LOG_CATEGORY_EXTERN(LogOpenGL,Log,VeryVerbose);
@@ -37,6 +41,10 @@ struct FPlatformOpenGLContext;
 /** Official OpenGL definitions */
 #ifndef GL_HALF_FLOAT
 #define GL_HALF_FLOAT 0x140B
+#endif
+
+#ifndef GL_RGBA16F
+#define GL_RGBA16F    0x881A
 #endif
 
 // Base static class
@@ -89,6 +97,7 @@ public:
 	static FORCEINLINE bool SupportsPolygonMode()						{ return true; }
 	static FORCEINLINE bool SupportsSamplerObjects()					{ return true; }
 	static FORCEINLINE bool SupportsTexture3D()							{ return true; }
+	static FORCEINLINE bool SupportsMobileMultiView()					{ return false; }
 	static FORCEINLINE bool SupportsTextureLODBias()					{ return true; }
 	static FORCEINLINE bool SupportsTextureCompare()					{ return true; }
 	static FORCEINLINE bool SupportsTextureBaseLevel()					{ return true; }
@@ -137,6 +146,8 @@ public:
 	static FORCEINLINE bool SupportsShaderTextureCubeLod()				{ return true; }
 	static FORCEINLINE bool SupportsSeparateAlphaBlend()				{ return bSupportsDrawBuffersBlend; }
 	static FORCEINLINE bool SupportsTessellation()						{ return false; }
+	static FORCEINLINE void EnableSupportsClipControl()					{ bSupportsClipControl = true; }
+	static FORCEINLINE bool SupportsClipControl()						{ return bSupportsClipControl; }
 	static FORCEINLINE bool SupportsComputeShaders()					{ return false; }
 	static FORCEINLINE bool SupportsTextureView()						{ return false; }
 	static FORCEINLINE bool SupportsSeamlessCubeMap()					{ return false; }
@@ -161,6 +172,8 @@ public:
 	static FORCEINLINE GLenum GetDepthFormat()							{ return GL_DEPTH_COMPONENT16; }
 	static FORCEINLINE GLenum GetShadowDepthFormat()					{ return GL_DEPTH_COMPONENT16; }
 	static FORCEINLINE GLenum GetVertexHalfFloatFormat()				{ return GL_HALF_FLOAT; }
+	static FORCEINLINE GLenum GetTextureHalfFloatPixelType()			{ return GL_HALF_FLOAT; }
+	static FORCEINLINE GLenum GetTextureHalfFloatInternalFormat()		{ return GL_RGBA16F; }
 
 	static FORCEINLINE GLint GetMaxTextureImageUnits()			{ check(MaxTextureImageUnits != -1); return MaxTextureImageUnits; }
 	static FORCEINLINE GLint GetMaxVertexTextureImageUnits()	{ check(MaxVertexTextureImageUnits != -1); return MaxVertexTextureImageUnits; }
@@ -374,6 +387,9 @@ protected:
 	static GLint MaxHullUniformComponents;
 	static GLint MaxDomainUniformComponents;
 	static GLint MaxVaryingVectors;
+
+	/** GL_ARB_clip_control */
+	static bool bSupportsClipControl;
 
 	/** GL_KHR_texture_compression_astc_ldr */
 	static bool bSupportsASTC;

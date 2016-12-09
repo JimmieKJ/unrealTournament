@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "ICUBreakIterator.h"
+#include "Internationalization/ICUBreakIterator.h"
+#include "Misc/ScopeLock.h"
+#include "Internationalization/Internationalization.h"
 
 #if UE_ENABLE_ICU
-#include "ICUTextCharacterIterator.h"
-#include "ICUCulture.h"
+#include "Internationalization/ICUTextCharacterIterator.h"
+#include "Internationalization/ICUCulture.h"
 
 FICUBreakIteratorManager* FICUBreakIteratorManager::Singleton = nullptr;
 
@@ -100,43 +101,59 @@ void FICUBreakIterator::SetString(const TCHAR* const InString, const int32 InStr
 
 void FICUBreakIterator::ClearString()
 {
-	GetInternalBreakIterator()->setText(icu::UnicodeString());
+	GetInternalBreakIterator()->adoptText(new FICUTextCharacterIterator(FString())); // ICUBreakIterator takes ownership of this instance
 	ResetToBeginning();
 }
 
 int32 FICUBreakIterator::GetCurrentPosition() const
 {
-	return GetInternalBreakIterator()->current();
+	TSharedRef<icu::BreakIterator> BrkIt = GetInternalBreakIterator();
+	const int32 InternalIndex = BrkIt->current();
+	return static_cast<FICUTextCharacterIterator&>(BrkIt->getText()).InternalIndexToSourceIndex(InternalIndex);
 }
 
 int32 FICUBreakIterator::ResetToBeginning()
 {
-	return GetInternalBreakIterator()->first();
+	TSharedRef<icu::BreakIterator> BrkIt = GetInternalBreakIterator();
+	const int32 InternalIndex = BrkIt->first();
+	return static_cast<FICUTextCharacterIterator&>(BrkIt->getText()).InternalIndexToSourceIndex(InternalIndex);
 }
 
 int32 FICUBreakIterator::ResetToEnd()
 {
-	return GetInternalBreakIterator()->last();
+	TSharedRef<icu::BreakIterator> BrkIt = GetInternalBreakIterator();
+	const int32 InternalIndex = BrkIt->last();
+	return static_cast<FICUTextCharacterIterator&>(BrkIt->getText()).InternalIndexToSourceIndex(InternalIndex);
 }
 
 int32 FICUBreakIterator::MoveToPrevious()
 {
-	return GetInternalBreakIterator()->previous();
+	TSharedRef<icu::BreakIterator> BrkIt = GetInternalBreakIterator();
+	const int32 InternalIndex = BrkIt->previous();
+	return static_cast<FICUTextCharacterIterator&>(BrkIt->getText()).InternalIndexToSourceIndex(InternalIndex);
 }
 
 int32 FICUBreakIterator::MoveToNext()
 {
-	return GetInternalBreakIterator()->next();
+	TSharedRef<icu::BreakIterator> BrkIt = GetInternalBreakIterator();
+	const int32 InternalIndex = BrkIt->next();
+	return static_cast<FICUTextCharacterIterator&>(BrkIt->getText()).InternalIndexToSourceIndex(InternalIndex);
 }
 
 int32 FICUBreakIterator::MoveToCandidateBefore(const int32 InIndex)
 {
-	return GetInternalBreakIterator()->preceding(InIndex);
+	TSharedRef<icu::BreakIterator> BrkIt = GetInternalBreakIterator();
+	const int32 InitialInternalIndex = static_cast<FICUTextCharacterIterator&>(BrkIt->getText()).SourceIndexToInternalIndex(InIndex);
+	const int32 InternalIndex = BrkIt->preceding(InitialInternalIndex);
+	return static_cast<FICUTextCharacterIterator&>(BrkIt->getText()).InternalIndexToSourceIndex(InternalIndex);
 }
 
 int32 FICUBreakIterator::MoveToCandidateAfter(const int32 InIndex)
 {
-	return GetInternalBreakIterator()->following(InIndex);
+	TSharedRef<icu::BreakIterator> BrkIt = GetInternalBreakIterator();
+	const int32 InitialInternalIndex = static_cast<FICUTextCharacterIterator&>(BrkIt->getText()).SourceIndexToInternalIndex(InIndex);
+	const int32 InternalIndex = BrkIt->following(InitialInternalIndex);
+	return static_cast<FICUTextCharacterIterator&>(BrkIt->getText()).InternalIndexToSourceIndex(InternalIndex);
 }
 
 TSharedRef<icu::BreakIterator> FICUBreakIterator::GetInternalBreakIterator() const

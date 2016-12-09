@@ -5,6 +5,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "StandaloneRendererPlatformHeaders.h"
+
 /** 
  * An OpenGL vertex buffer 
  */

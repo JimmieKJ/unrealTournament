@@ -245,8 +245,8 @@ namespace iPhonePackager
 						string base64 = CertToolData.Substring(start, (end - start));
 						byte[] certData = Convert.FromBase64String(base64);
 						X509Certificate2 cert = new X509Certificate2(certData);
-						DateTime EffectiveDate = cert.NotBefore;
-						DateTime ExpirationDate = cert.NotAfter;
+						DateTime EffectiveDate = cert.NotBefore.ToUniversalTime();
+						DateTime ExpirationDate = cert.NotAfter.ToUniversalTime();
 						DateTime Now = DateTime.UtcNow;
 						string Subject = cert.Subject;
 						int SubjStart = Subject.IndexOf("CN=") + 3;
@@ -270,9 +270,9 @@ namespace iPhonePackager
 
 				foreach (X509Certificate2 TestCert in FoundCerts)
 				{
-					DateTime EffectiveDate = TestCert.NotBefore;
-					DateTime ExpirationDate = TestCert.NotAfter;
-					DateTime Now = DateTime.Now;
+					DateTime EffectiveDate = TestCert.NotBefore.ToUniversalTime();
+					DateTime ExpirationDate = TestCert.NotAfter.ToUniversalTime();
+					DateTime Now = DateTime.UtcNow;
 
 					bool bCertTimeIsValid = (EffectiveDate < Now) && (ExpirationDate > Now);
 					Program.LogVerbose("CERTIFICATE-Name:{0},Validity:{1},StartDate:{2},EndDate:{3}", TestCert.FriendlyName, bCertTimeIsValid ? "VALID" : "EXPIRED", EffectiveDate.ToString("o"), ExpirationDate.ToString("o"));
@@ -282,9 +282,9 @@ namespace iPhonePackager
 
 				foreach (X509Certificate2 TestCert in FoundCerts)
 				{
-					DateTime EffectiveDate = TestCert.NotBefore;
-					DateTime ExpirationDate = TestCert.NotAfter;
-					DateTime Now = DateTime.Now;
+					DateTime EffectiveDate = TestCert.NotBefore.ToUniversalTime();
+					DateTime ExpirationDate = TestCert.NotAfter.ToUniversalTime();
+					DateTime Now = DateTime.UtcNow;
 
 					bool bCertTimeIsValid = (EffectiveDate < Now) && (ExpirationDate > Now);
 					Program.LogVerbose("CERTIFICATE-Name:{0},Validity:{1},StartDate:{2},EndDate:{3}", TestCert.FriendlyName, bCertTimeIsValid ? "VALID" : "EXPIRED", EffectiveDate.ToString("o"), ExpirationDate.ToString("o"));
@@ -318,7 +318,6 @@ namespace iPhonePackager
 				X509Certificate2 Cert = FindCertificate(p);
 				if (Cert != null)
 				{
-					Now = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Now : DateTime.Now;
 					bValid = (Cert.NotBefore < Now) && (Cert.NotAfter > Now);
 				}
 				bool bPassesNameCheck = p.ApplicationIdentifier.Substring(p.ApplicationIdentifierPrefix.Length+1) == CFBundleIdentifier;

@@ -1,18 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealAudioPrivate.h"
-#include "UnrealAudioModule.h"
-#include "UnrealAudioTestGenerators.h"
+#include "Tests/UnrealAudioTestGenerators.h"
 
 #if ENABLE_UNREAL_AUDIO & WITH_DEV_AUTOMATION_TESTS
-
-#ifndef TWO_PI
-#define TWO_PI	6.28318530718
-#endif
-
-#ifndef PI_OVER_TWO
-#define PI_OVER_TWO 1.57079632679
-#endif
 
 namespace UAudio
 {
@@ -44,14 +34,14 @@ namespace Test
 
 	static float WrapTwoPi(float Value)
 	{
-		while (Value > TWO_PI)
+		while (Value > 2.0 * PI)
 		{
-			Value -= TWO_PI;
+			Value -= 2.0 * PI;
 		}
 
 		while (Value < 0)
 		{
-			Value += TWO_PI;
+			Value += 2.0 * PI;
 		}
 		return Value;
 	}
@@ -188,7 +178,7 @@ namespace Test
 
 		check(CallbackData.FrameRate > 0.0f);
 
-		float Theta = TWO_PI * Frequency / CallbackData.FrameRate;
+		float Theta = 2.0 * PI * Frequency / CallbackData.FrameRate;
 		float InverseQ = 0.5f / Quality;
 
 		float Temp = InverseQ * FMath::Sin(Theta);
@@ -318,7 +308,7 @@ namespace Test
 		if (bIsInit)
 		{
 			check(CallbackData.FrameRate > 0.0f);
-			PhaseDelta = TWO_PI * Frequency / CallbackData.FrameRate;
+			PhaseDelta = 2.0 * PI * Frequency / CallbackData.FrameRate;
 			TargetPhaseDelta = PhaseDelta;
 			PhaseDeltaDelta = 0.0f;
 			Phase = 0.0f;
@@ -326,7 +316,7 @@ namespace Test
 		}
 		else
 		{
-			TargetPhaseDelta = TWO_PI * Frequency / CallbackData.FrameRate;
+			TargetPhaseDelta = 2.0 * PI * Frequency / CallbackData.FrameRate;
 			PhaseDeltaDelta = (TargetPhaseDelta - PhaseDelta) / 100.0f;
 			bNewValue = true;
 		}
@@ -760,11 +750,11 @@ namespace Test
 	}
 
 	FPhaseModulator::OscData::OscData(float InMaxAmp)
-		: Phase(FMath::FRandRange(0.0f, TWO_PI))
+		: Phase(FMath::FRandRange(0.0f, 2.0 * PI))
 		, Delta(0.01f)
 		, TargetDelta(Delta)
 		, DeltaEase(0.001f)
-		, SweepPhase(FMath::FRandRange(0.0f, TWO_PI))
+		, SweepPhase(FMath::FRandRange(0.0f, 2.0 * PI))
 		, SweepDelta(0.0f)
 		, Amp(0.0f)
 		, MaxAmp(InMaxAmp)
@@ -883,7 +873,7 @@ namespace Test
 		float ModIndexValue = ModIndex.GetValue();
 
 		// Plug the mod value into the carrier to generate the value of this synth
-		float Value = Carrier.GetAmp() * ModIndexValue * FMath::Sin(Carrier.GetPhase() + TWO_PI * ModValue * ModIndexValue);
+		float Value = Carrier.GetAmp() * ModIndexValue * FMath::Sin(Carrier.GetPhase() + 2.0 * PI * ModValue * ModIndexValue);
 
 		// Scale by the total amplitude
 		Value *= Parent->Amplitude;

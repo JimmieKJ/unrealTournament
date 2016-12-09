@@ -1,9 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EditorWidgetsPrivatePCH.h"
 #include "STextPropertyEditableTextBox.h"
-#include "TextPackageNamespaceUtil.h"
-#include "TextReferenceCollector.h"
+#include "Internationalization/TextNamespaceUtil.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Internationalization/TextPackageNamespaceUtil.h"
+#include "Serialization/TextReferenceCollector.h"
 
 #define LOCTEXT_NAMESPACE "STextPropertyEditableTextBox"
 

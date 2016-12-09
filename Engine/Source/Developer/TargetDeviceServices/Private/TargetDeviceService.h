@@ -2,6 +2,24 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ITargetDeviceService.h"
+#include "IMessageContext.h"
+#include "IMessageBus.h"
+#include "Helpers/MessageEndpoint.h"
+
+struct FTargetDeviceClaimDenied;
+struct FTargetDeviceClaimed;
+struct FTargetDeviceServiceDeployCommit;
+struct FTargetDeviceServiceDeployFile;
+struct FTargetDeviceServiceLaunchApp;
+struct FTargetDeviceServicePing;
+struct FTargetDeviceServicePowerOff;
+struct FTargetDeviceServicePowerOn;
+struct FTargetDeviceServiceReboot;
+struct FTargetDeviceServiceRunExecutable;
+struct FTargetDeviceUnclaimed;
+
 /**
  * Implements remote services for a specific target device.
  */
@@ -16,7 +34,7 @@ public:
 	 * @param InDeviceName The name of the device to expose.
 	 * @param InMessageBus The message bus to listen on for clients.
 	 */
-	FTargetDeviceService(const FString& InDeviceName, const IMessageBusRef& InMessageBus);
+	FTargetDeviceService(const FString& InDeviceName, const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InMessageBus);
 
 	/** Destructor. */
 	~FTargetDeviceService();

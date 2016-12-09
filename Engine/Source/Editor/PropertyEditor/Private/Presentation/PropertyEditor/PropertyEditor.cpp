@@ -1,18 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyEditorConstants.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
+#include "Modules/ModuleManager.h"
+#include "UnrealEdGlobals.h"
+#include "CategoryPropertyNode.h"
+#include "ItemPropertyNode.h"
+#include "ObjectPropertyNode.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "Editor/SceneOutliner/Public/SceneOutlinerFilters.h"
+#include "IDetailPropertyRow.h"
+#include "PropertyCustomizationHelpers.h"
 #include "PropertyEditorHelpers.h"
-#include "IPropertyUtilities.h"
-
-#include "PropertyHandleImpl.h"
-
-#include "PropertyEditor.h"
-
-#include "DelegateFilter.h"
-
+#include "Editor.h"
 #include "EditorClassUtils.h"
-#include "KismetEditorUtilities.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "IConfigEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "PropertyEditor"
@@ -195,13 +196,28 @@ void FPropertyEditor::AddItem()
 
 void FPropertyEditor::OnAddItem()
 {
+	// Check to make sure that the property is a valid container
 	TSharedPtr<IPropertyHandleArray> ArrayHandle = PropertyHandle->AsArray();
-	check( ArrayHandle.IsValid() );
+	TSharedPtr<IPropertyHandleSet> SetHandle = PropertyHandle->AsSet();
+	TSharedPtr<IPropertyHandleMap> MapHandle = PropertyHandle->AsMap();
 
-	// Expand arrays when an item is added to them
-	PropertyNode->SetNodeFlags( EPropertyNodeFlags::Expanded, true );
+	check(ArrayHandle.IsValid() || SetHandle.IsValid() || MapHandle.IsValid());
 
-	ArrayHandle->AddItem();
+	if (ArrayHandle.IsValid())
+	{
+		ArrayHandle->AddItem();
+	}
+	else if (SetHandle.IsValid())
+	{
+		SetHandle->AddItem();
+	}
+	else if (MapHandle.IsValid())
+	{
+		MapHandle->AddItem();
+	}
+
+	// Expand containers when an item is added to them
+	PropertyNode->SetNodeFlags(EPropertyNodeFlags::Expanded, true);
 
 	//In case the property is show in the favorite category refresh the whole tree
 	if (PropertyNode->IsFavorite())
@@ -258,10 +274,12 @@ void FPropertyEditor::InsertItem()
 void FPropertyEditor::OnInsertItem()
 {
 	TSharedPtr<IPropertyHandleArray> ArrayHandle = PropertyHandle->GetParentHandle()->AsArray();
-	check( ArrayHandle.IsValid() );
+	check(ArrayHandle.IsValid());
 
 	int32 Index = PropertyNode->GetArrayIndex();
-	ArrayHandle->Insert( Index );
+	
+	// Insert is only supported on arrays, not maps or sets
+	ArrayHandle->Insert(Index);
 
 	//In case the property is show in the favorite category refresh the whole tree
 	if (PropertyNode->IsFavorite() || (PropertyNode->GetParentNode() != nullptr && PropertyNode->GetParentNode()->IsFavorite()))
@@ -279,10 +297,25 @@ void FPropertyEditor::DeleteItem()
 void FPropertyEditor::OnDeleteItem()
 {
 	TSharedPtr<IPropertyHandleArray> ArrayHandle = PropertyHandle->GetParentHandle()->AsArray();
-	check( ArrayHandle.IsValid() );
+	TSharedPtr<IPropertyHandleSet> SetHandle = PropertyHandle->GetParentHandle()->AsSet();
+	TSharedPtr<IPropertyHandleMap> MapHandle = PropertyHandle->GetParentHandle()->AsMap();
+
+	check(ArrayHandle.IsValid() || SetHandle.IsValid() || MapHandle.IsValid());
 
 	int32 Index = PropertyNode->GetArrayIndex();
-	ArrayHandle->DeleteItem( Index );
+
+	if (ArrayHandle.IsValid())
+	{
+		ArrayHandle->DeleteItem(Index);
+	}
+	else if (SetHandle.IsValid())
+	{
+		SetHandle->DeleteItem(Index);
+	}
+	else if (MapHandle.IsValid())
+	{
+		MapHandle->DeleteItem(Index);
+	}
 
 	//In case the property is show in the favorite category refresh the whole tree
 	if (PropertyNode->IsFavorite() || (PropertyNode->GetParentNode() != nullptr && PropertyNode->GetParentNode()->IsFavorite()))
@@ -300,10 +333,11 @@ void FPropertyEditor::DuplicateItem()
 void FPropertyEditor::OnDuplicateItem()
 {
 	TSharedPtr<IPropertyHandleArray> ArrayHandle = PropertyHandle->GetParentHandle()->AsArray();
-	check( ArrayHandle.IsValid() );
+	check(ArrayHandle.IsValid());
 
 	int32 Index = PropertyNode->GetArrayIndex();
-	ArrayHandle->DuplicateItem( Index );
+	
+	ArrayHandle->DuplicateItem(Index);
 
 	//In case the property is show in the favorite category refresh the whole tree
 	if (PropertyNode->IsFavorite() || (PropertyNode->GetParentNode() != nullptr && PropertyNode->GetParentNode()->IsFavorite()))
@@ -332,9 +366,23 @@ void FPropertyEditor::EmptyArray()
 void FPropertyEditor::OnEmptyArray()
 {
 	TSharedPtr<IPropertyHandleArray> ArrayHandle = PropertyHandle->AsArray();
-	check( ArrayHandle.IsValid() );
+	TSharedPtr<IPropertyHandleSet> SetHandle = PropertyHandle->AsSet();
+	TSharedPtr<IPropertyHandleMap> MapHandle = PropertyHandle->AsMap();
 
-	ArrayHandle->EmptyArray();
+	check(ArrayHandle.IsValid() || SetHandle.IsValid() || MapHandle.IsValid());
+
+	if (ArrayHandle.IsValid())
+	{
+		ArrayHandle->EmptyArray();
+	}
+	else if (SetHandle.IsValid())
+	{
+		SetHandle->Empty();
+	}
+	else if (MapHandle.IsValid())
+	{
+		MapHandle->Empty();
+	}
 
 	//In case the property is show in the favorite category refresh the whole tree
 	if (PropertyNode->IsFavorite())
@@ -382,11 +430,14 @@ void FPropertyEditor::SetEditConditionState( bool bShouldEnable )
 					{
 						// Only propagate if the current value on the instance matches the previous value on the template.
 						uint8* BaseOffset = ParentNode->GetValueAddress((uint8*)ArchetypeInstances[InstanceIndex]);
-						ValueAddr = EditConditionProperty->ContainerPtrToValuePtr<uint8>(BaseOffset);
-						const bool CurValue = EditConditionProperty->GetPropertyValue(ValueAddr);
-						if (OldValue == CurValue)
+						if(BaseOffset)
 						{
-							EditConditionProperty->SetPropertyValue(ValueAddr, NewValue);
+							ValueAddr = EditConditionProperty->ContainerPtrToValuePtr<uint8>(BaseOffset);
+							const bool CurValue = EditConditionProperty->GetPropertyValue(ValueAddr);
+							if(OldValue == CurValue)
+							{
+								EditConditionProperty->SetPropertyValue(ValueAddr, NewValue);
+							}
 						}
 					}
 				}
@@ -767,16 +818,21 @@ void FPropertyEditor::SyncToObjectsInNode( const TWeakPtr< FPropertyNode >& Weak
 		}
 
 		// If a single actor is selected, sync to its location in the level editor viewport instead of the content browser.
-		if( Objects.Num() == 1 && Objects[0]->IsA(AActor::StaticClass()) )
+		if( Objects.Num() == 1 && Objects[0]->IsA<AActor>() )
 		{
-			TArray<AActor*> Actors;
-			Actors.Add(Cast<AActor>(Objects[0]));
+			AActor* Actor = CastChecked<AActor>(Objects[0]);
 
-			GEditor->SelectNone(/*bNoteSelectionChange=*/false, /*bDeselectBSPSurfs=*/true);
-			GEditor->SelectActor(Actors[0], /*InSelected=*/true, /*bNotify=*/true, /*bSelectEvenIfHidden=*/true);
+			if (Actor->GetLevel())
+			{
+				TArray<AActor*> Actors;
+				Actors.Add(Actor);
 
-			// Jump to the location of the actor
-			GEditor->MoveViewportCamerasToActor( Actors, /*bActiveViewportOnly=*/false );
+				GEditor->SelectNone(/*bNoteSelectionChange=*/false, /*bDeselectBSPSurfs=*/true);
+				GEditor->SelectActor(Actor, /*InSelected=*/true, /*bNotify=*/true, /*bSelectEvenIfHidden=*/true);
+
+				// Jump to the location of the actor
+				GEditor->MoveViewportCamerasToActor(Actors, /*bActiveViewportOnly=*/false);
+			}
 		}
 		else if ( Objects.Num() > 0 )
 		{

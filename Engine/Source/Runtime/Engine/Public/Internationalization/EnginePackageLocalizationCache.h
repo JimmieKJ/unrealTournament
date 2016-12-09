@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "PackageLocalizationCache.h"
+#include "CoreMinimal.h"
+#include "Internationalization/PackageLocalizationCache.h"
 
 class FAssetData;
 

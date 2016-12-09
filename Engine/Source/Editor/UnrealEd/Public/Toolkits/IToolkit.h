@@ -2,15 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Docking/WorkspaceItem.h"
+#include "Framework/Docking/TabManager.h"
 
 class FEdMode;
-class FTabManager;
-class FWorkspaceItem;
 class IToolkitHost;
 class SDockableTab;
-class SWidget;
-struct FKeyEvent;
-
 
 /** Some toolkits can be spawned as either standalone tools or within an existing level editing UI */
 namespace EToolkitMode

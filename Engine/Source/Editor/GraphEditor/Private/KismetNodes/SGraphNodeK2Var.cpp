@@ -2,12 +2,21 @@
 
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeK2Base.h"
-#include "SGraphNodeK2Var.h"
-#include "SlateIconFinder.h"
-#include "IDocumentation.h"
-#include "BlueprintEditorUtils.h"
+#include "KismetNodes/SGraphNodeK2Var.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "GraphEditorSettings.h"
+#include "SCommentBubble.h"
+#include "K2Node.h"
+#include "K2Node_StructOperation.h"
+#include "K2Node_StructMemberGet.h"
+#include "K2Node_Literal.h"
+#include "K2Node_StructMemberSet.h"
+#include "K2Node_MakeStruct.h"
+#include "K2Node_VariableGet.h"
+#include "K2Node_VariableSet.h"
+#include "Styling/SlateIconFinder.h"
 #include "TutorialMetaData.h"
 
 void SGraphNodeK2Var::Construct( const FArguments& InArgs, UK2Node* InNode )
@@ -206,13 +215,6 @@ void SGraphNodeK2Var::UpdateGraphNode()
 			+ SOverlay::Slot()
 			[
 				SNew(SImage)
-				.Image(FEditorStyle::GetBrush("Graph.VarNode.IndicatorOverlay"))
-				.Visibility(this, &SGraphNodeK2Var::GetNodeIndicatorOverlayVisibility)
-				.ColorAndOpacity(this, &SGraphNodeK2Var::GetNodeIndicatorOverlayColor)
-			]
-			+ SOverlay::Slot()
-			[
-				SNew(SImage)
 				.Image( FEditorStyle::GetBrush("Graph.VarNode.Gloss") )
 			]
 			+SOverlay::Slot()
@@ -319,4 +321,9 @@ void SGraphNodeK2Var::UpdateGraphNode()
 const FSlateBrush* SGraphNodeK2Var::GetShadowBrush(bool bSelected) const
 {
 	return bSelected ? FEditorStyle::GetBrush(TEXT("Graph.VarNode.ShadowSelected")) : FEditorStyle::GetBrush(TEXT("Graph.VarNode.Shadow"));
+}
+
+const FSlateBrush* SGraphNodeK2Var::GetProfilerHeatmapBrush() const
+{
+	return FEditorStyle::GetBrush(TEXT("BlueprintProfiler.VarNode.HeatDisplay"));
 }

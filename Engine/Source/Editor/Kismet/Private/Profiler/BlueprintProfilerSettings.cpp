@@ -1,13 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "BlueprintProfilerSettings.h"
-#include "ScriptPerfData.h"
-
-float UBlueprintProfilerSettings::CustomEventPerformanceThresholdDefaultValue = 1.f;
-float UBlueprintProfilerSettings::CustomAveragePerformanceThresholdDefaultValue = 0.2f;
-float UBlueprintProfilerSettings::CustomInclusivePerformanceThresholdDefaultValue = 0.25f;
-float UBlueprintProfilerSettings::CustomMaxPerformanceThresholdDefaultValue = 0.5f;
+#include "Profiler/BlueprintProfilerSettings.h"
 
 UBlueprintProfilerSettings::UBlueprintProfilerSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -16,14 +9,14 @@ UBlueprintProfilerSettings::UBlueprintProfilerSettings(const FObjectInitializer&
 	, bGraphFilter(false)
 	, bDisplayPure(true)
 	, bDisplayInheritedEvents(true)
-	, bAverageBlueprintStats(true)
-	, GraphNodeHeatMapDisplayMode(EBlueprintProfilerHeatMapDisplayMode::None)
+	, GraphNodeHeatMapDisplayMode(EBlueprintProfilerHeatMapDisplayMode::Average)
 	, WireHeatMapDisplayMode(EBlueprintProfilerHeatMapDisplayMode::None)
 	, HeatLevelMetricsType(EBlueprintProfilerHeatLevelMetricsType::ClassRelative)
-	, CustomEventPerformanceThreshold(CustomEventPerformanceThresholdDefaultValue)
-	, CustomAveragePerformanceThreshold(CustomAveragePerformanceThresholdDefaultValue)
-	, CustomInclusivePerformanceThreshold(CustomInclusivePerformanceThresholdDefaultValue)
-	, CustomMaxPerformanceThreshold(CustomMaxPerformanceThresholdDefaultValue)
+	// Copied out from CustomStatisticThresholdValues.
+	, CustomEventPerformanceThreshold(1.f)
+	, CustomAveragePerformanceThreshold(0.2f)
+	, CustomInclusivePerformanceThreshold(0.25f)
+	, CustomMaxPerformanceThreshold(0.5f)
+	, bThresholdsModified(false)
 {
-	FScriptPerfData::EnableBlueprintStatAverage(bAverageBlueprintStats);
 }

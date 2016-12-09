@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
-#include "OculusRiftPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "IOculusRiftPlugin.h"
 #include "OculusRiftHMD.h"
 
 #if OCULUS_RIFT_SUPPORTED_PLATFORMS
@@ -24,8 +25,6 @@
 #include "ScenePrivate.h"
 #include "PostProcess/PostProcessHMD.h"
 #include "ScreenRendering.h"
-
-#include "SlateBasics.h"
 
 //-------------------------------------------------------------------------------------------------
 // FD3D11Texture2DSet

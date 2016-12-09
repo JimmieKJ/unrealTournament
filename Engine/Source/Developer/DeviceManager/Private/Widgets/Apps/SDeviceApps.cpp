@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DeviceManagerPrivatePCH.h"
+#include "Widgets/Apps/SDeviceApps.h"
+#include "Widgets/SOverlay.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Apps/SDeviceAppsAppListRow.h"
 
 
 #define LOCTEXT_NAMESPACE "SDeviceApps"

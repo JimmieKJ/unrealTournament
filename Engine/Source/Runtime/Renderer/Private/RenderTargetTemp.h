@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UnrealClient.h"
+#include "SceneView.h"
+
 /*=============================================================================
 RenderTargetTemp.h : Helper for canvas rendering
 =============================================================================*/

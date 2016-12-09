@@ -4,6 +4,10 @@
 #include "ShaderPreprocessor.h"
 #include "ShaderCompilerCommon.h"
 #include "D3D11ShaderResources.h"
+#include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
+#include "HAL/FileManager.h"
+#include "Serialization/MemoryWriter.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogD3D11ShaderCompiler, Log, All);
 
@@ -832,7 +836,7 @@ static bool CompileAndProcessD3DShader(FString& PreprocessedShaderSource, const 
 
 		if (Input.Target.Platform == SP_PCD3D_ES2)
 		{
-			if (Output.NumTextureSamplers > 16)
+			if (Output.NumTextureSamplers > 8)
 			{
 				FilteredErrors.Add(FString::Printf(TEXT("Shader uses more than 8 texture samplers which is not supported by ES2!  Used: %u"), Output.NumTextureSamplers));
 				Result = E_FAIL;

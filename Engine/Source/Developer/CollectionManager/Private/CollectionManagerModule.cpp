@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CollectionManagerPrivatePCH.h"
 #include "CollectionManagerModule.h"
+#include "CollectionManager.h"
 #include "CollectionManagerConsoleCommands.h"
 
 IMPLEMENT_MODULE( FCollectionManagerModule, CollectionManager );

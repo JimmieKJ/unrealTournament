@@ -1,21 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "AIController.h"
+#include "CollisionQueryParams.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/PhysicsVolume.h"
+#include "Actions/PawnActionsComponent.h"
+#include "Engine/Canvas.h"
+#include "BehaviorTree/BehaviorTreeComponent.h"
+#include "Tasks/AITask.h"
+#include "BehaviorTree/BlackboardComponent.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
+#include "Perception/AIPerceptionComponent.h"
+#include "VisualLogger/VisualLoggerTypes.h"
+#include "VisualLogger/VisualLogger.h"
+#include "GameplayTaskResource.h"
+#include "AIResources.h"
+#include "AIModuleLog.h"
 #include "Kismet/GameplayStatics.h"
 #include "DisplayDebugHelpers.h"
-#include "BrainComponent.h"
 #include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/BehaviorTreeManager.h"
-#include "BehaviorTree/BlackboardComponent.h"
-#include "Navigation/PathFollowingComponent.h"
-#include "GameFramework/Pawn.h"
-#include "GameFramework/PawnMovementComponent.h"
-#include "Engine/Canvas.h"
-#include "GameFramework/PhysicsVolume.h"
-#include "AIController.h"
-#include "Perception/AIPerceptionComponent.h"
 #include "GameplayTasksComponent.h"
-#include "GameplayTaskResource.h"
 #include "Tasks/GameplayTask_ClaimResource.h"
 
 // mz@todo these need to be removed, legacy code
@@ -423,8 +428,7 @@ void AAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 	APawn* const MyPawn = GetPawn();
 	if (MyPawn)
 	{
-		const FRotator InitialControlRotation = GetControlRotation();		
-		FRotator NewControlRotation = InitialControlRotation;
+		FRotator NewControlRotation = GetControlRotation();
 
 		// Look toward focus
 		const FVector FocalPoint = GetFocalPoint();
@@ -443,11 +447,13 @@ void AAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 			NewControlRotation.Pitch = 0.f;
 		}
 
-		if (InitialControlRotation.Equals(NewControlRotation, 1e-3f) == false)
-		{
-			SetControlRotation(NewControlRotation);
+		SetControlRotation(NewControlRotation);
 
-			if (bUpdatePawn)
+		if (bUpdatePawn)
+		{
+			const FRotator CurrentPawnRotation = MyPawn->GetActorRotation();
+
+			if (CurrentPawnRotation.Equals(NewControlRotation, 1e-3f) == false)
 			{
 				MyPawn->FaceRotation(NewControlRotation, DeltaTime);
 			}
@@ -567,7 +573,8 @@ EPathFollowingRequestResult::Type AAIController::MoveToActor(AActor* Goal, float
 	// abort active movement to keep only one request running
 	if (PathFollowingComponent && PathFollowingComponent->GetStatus() != EPathFollowingStatus::Idle)
 	{
-		PathFollowingComponent->AbortMove(*this, FPathFollowingResultFlags::ForcedScript | FPathFollowingResultFlags::NewRequest);
+		PathFollowingComponent->AbortMove(*this, FPathFollowingResultFlags::ForcedScript | FPathFollowingResultFlags::NewRequest
+			, FAIRequestID::CurrentRequest, EPathFollowingVelocityMode::Keep);
 	}
 
 	FAIMoveRequest MoveReq(Goal);
@@ -586,7 +593,8 @@ EPathFollowingRequestResult::Type AAIController::MoveToLocation(const FVector& D
 	// abort active movement to keep only one request running
 	if (PathFollowingComponent && PathFollowingComponent->GetStatus() != EPathFollowingStatus::Idle)
 	{
-		PathFollowingComponent->AbortMove(*this, FPathFollowingResultFlags::ForcedScript | FPathFollowingResultFlags::NewRequest);
+		PathFollowingComponent->AbortMove(*this, FPathFollowingResultFlags::ForcedScript | FPathFollowingResultFlags::NewRequest
+			, FAIRequestID::CurrentRequest, EPathFollowingVelocityMode::Keep);
 	}
 
 	FAIMoveRequest MoveReq(Dest);
@@ -1023,12 +1031,20 @@ bool AAIController::UseBlackboard(UBlackboardData* BlackboardAsset, UBlackboardC
 	return bSuccess;
 }
 
+bool AAIController::ShouldSyncBlackboardWith(const UBlackboardComponent& OtherBlackboardComponent) const 
+{ 
+	return Blackboard != nullptr
+		&& Blackboard->GetBlackboardAsset() != nullptr
+		&& OtherBlackboardComponent.GetBlackboardAsset() != nullptr
+		&& Blackboard->GetBlackboardAsset()->IsRelatedTo(*OtherBlackboardComponent.GetBlackboardAsset());
+}
+
 bool AAIController::SuggestTossVelocity(FVector& OutTossVelocity, FVector Start, FVector End, float TossSpeed, bool bPreferHighArc, float CollisionRadius, bool bOnlyTraceUp)
 {
 	// pawn's physics volume gets 2nd priority
 	APhysicsVolume const* const PhysicsVolume = GetPawn() ? GetPawn()->GetPawnPhysicsVolume() : NULL;
 	float const GravityOverride = PhysicsVolume ? PhysicsVolume->GetGravityZ() : 0.f;
-	ESuggestProjVelocityTraceOption::Type const TraceOption = bOnlyTraceUp ? ESuggestProjVelocityTraceOption::OnlyTraceWhileAsceding : ESuggestProjVelocityTraceOption::TraceFullPath;
+	ESuggestProjVelocityTraceOption::Type const TraceOption = bOnlyTraceUp ? ESuggestProjVelocityTraceOption::OnlyTraceWhileAscending : ESuggestProjVelocityTraceOption::TraceFullPath;
 
 	return UGameplayStatics::SuggestProjectileVelocity(this, OutTossVelocity, Start, End, TossSpeed, bPreferHighArc, CollisionRadius, GravityOverride, TraceOption);
 }

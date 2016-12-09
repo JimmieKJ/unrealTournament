@@ -2,11 +2,14 @@
 
 #pragma once
 
-#include "SceneOutlinerFwd.h"
+#include "CoreMinimal.h"
+#include "Layout/Margin.h"
+#include "Framework/SlateDelegates.h"
+#include "Engine/World.h"
 
 #include "SceneOutlinerFilters.h"
-#include "ISceneOutlinerColumn.h"
-#include "ISceneOutliner.h"
+
+class FExtender;
 
 enum class ESceneOutlinerMode : uint8
 {

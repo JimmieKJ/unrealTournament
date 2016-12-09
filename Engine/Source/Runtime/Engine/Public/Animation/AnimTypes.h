@@ -2,12 +2,22 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/MemStack.h"
+//#include "Animation/AnimationAsset.h"
 #include "Animation/AnimLinkableElement.h"
 #include "AnimTypes.generated.h"
 
 struct FMarkerPair;
-struct FPassedMarker;
 struct FMarkerSyncAnimPosition;
+struct FPassedMarker;
+
+// Disable debugging information for shipping and test builds.
+#define ENABLE_ANIM_DEBUG (1 && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
+
+#define DEFAULT_SAMPLERATE			30.f
+#define MINIMUM_ANIMATION_LENGTH	(1/DEFAULT_SAMPLERATE)
 
 namespace EAnimEventTriggerOffsets
 {
@@ -90,12 +100,12 @@ struct FPerBoneBlendWeight
 {
 	GENERATED_USTRUCT_BODY()
 
-		/** Source index of the buffer. */
-		UPROPERTY()
-		int32 SourceIndex;
+	/** Source index of the buffer. */
+	UPROPERTY()
+	int32 SourceIndex;
 
 	UPROPERTY()
-		float BlendWeight;
+	float BlendWeight;
 
 	FPerBoneBlendWeight()
 		: SourceIndex(0)
@@ -109,8 +119,8 @@ struct FPerBoneBlendWeights
 {
 	GENERATED_USTRUCT_BODY()
 
-		UPROPERTY()
-		TArray<FPerBoneBlendWeight> BoneBlendWeights;
+	UPROPERTY()
+	TArray<FPerBoneBlendWeight> BoneBlendWeights;
 
 
 	FPerBoneBlendWeights() {}
@@ -266,6 +276,10 @@ struct FAnimNotifyEvent : public FAnimLinkableElement
 #if WITH_EDITORONLY_DATA
 		, TrackIndex(0)
 #endif // WITH_EDITORONLY_DATA
+	{
+	}
+
+	virtual ~FAnimNotifyEvent()
 	{
 	}
 
@@ -491,5 +505,55 @@ enum class EAnimInterpolationType : uint8
 
 	/** Step interpolation when looking up values between keys. */
 	Step		UMETA(DisplayName="Step"),
+};
+
+
+/*
+ *  Smart name UID type definition
+ * 
+ * This is used by FSmartNameMapping/FSmartName to identify by number
+ * This defines default type and Max number for the type and used all over animation code to identify curve
+ * including bone container containing valid UID list for curves
+ */
+ namespace SmartName
+{
+	// ID type, should be used to access SmartNames as fundamental type may change.
+	typedef uint16 UID_Type;
+	// Max UID used for overflow checking
+	static const UID_Type MaxUID = MAX_uint16;
+}
+/**
+ * Animation Key extraction helper as we have a lot of code that messes up the key length
+ */
+struct FAnimKeyHelper
+{
+	FAnimKeyHelper(float InLength, int32 InNumKeys)
+		: Length(InLength)
+		, NumKeys(InNumKeys)
+	{}
+
+	float TimePerKey() const
+	{
+		return (NumKeys > 1) ? Length / (float)(NumKeys - 1) : MINIMUM_ANIMATION_LENGTH;
+	}
+
+	int32 LastKey() const
+	{
+		return (NumKeys > 1) ? NumKeys - 1 : 0;
+	}
+
+	float GetLength() const 
+	{
+		return Length;
+	}
+
+	int32 GetNumKeys() const 
+	{
+		return NumKeys;
+	}
+
+private:
+	float Length;
+	int32 NumKeys;
 };
 

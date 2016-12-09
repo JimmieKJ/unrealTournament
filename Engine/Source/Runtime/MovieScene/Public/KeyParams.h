@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+
 UENUM()
-enum class EMovieSceneKeyInterpolation
+enum class EMovieSceneKeyInterpolation : uint8
 {
 	/** Auto. */
 	Auto UMETA(DisplayName="Auto"),
@@ -21,37 +24,13 @@ enum class EMovieSceneKeyInterpolation
 	Constant UMETA(DisplayName="Constant"),
 };
 
-/**
- * Parameters for determining keying behavior
- */
-struct MOVIESCENE_API FKeyParams
+/** Defines different modes for adding keyframes in sequencer. */
+enum class ESequencerKeyMode
 {
-	FKeyParams()
-	{
-		bCreateHandleIfMissing = false;
-		bCreateTrackIfMissing = false;
-		bCreateKeyOnlyWhenAutoKeying = false;
-		bCreateKeyIfUnchanged = false;
-		bCreateKeyIfEmpty = false;
-	}
-
-	FKeyParams(const FKeyParams& InKeyParams)
-	{
-		bCreateHandleIfMissing = InKeyParams.bCreateHandleIfMissing;
-		bCreateTrackIfMissing = InKeyParams.bCreateTrackIfMissing;
-		bCreateKeyOnlyWhenAutoKeying = InKeyParams.bCreateKeyOnlyWhenAutoKeying;
-		bCreateKeyIfUnchanged = InKeyParams.bCreateKeyIfUnchanged;
-		bCreateKeyIfEmpty = InKeyParams.bCreateKeyIfEmpty;
-	}
-
-	/** Create handle if it doesn't exist. */
-	bool bCreateHandleIfMissing;
-	/** Create track if it doesn't exist. */
-	bool bCreateTrackIfMissing;
-	/** Create a new key only when currently autokeying.*/
-	bool bCreateKeyOnlyWhenAutoKeying;
-	/** Create a key even if it's unchanged. */
-	bool bCreateKeyIfUnchanged;
-	/** Create a key even if the track is empty */
-	bool bCreateKeyIfEmpty;
+	/** Keyframes are being generated automatically by the user interacting with object properties or transforms. */
+	AutoKey,
+	/** The user has requested to manually add a keyframe.  Keys will be added for unchanged and empty components of multi-component tracks depending on current settings. */
+	ManualKey,
+	/** The user has requested to manually add a keyframe.  Keys will be added for unchanged and empty components of multi-component tracks regardless of the current settings. */
+	ManualKeyForced
 };

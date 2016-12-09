@@ -1,45 +1,52 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "StaticMeshResources.h"
-#include "ObjectTools.h"
 #include "FoliageEdMode.h"
+#include "SceneView.h"
+#include "EditorViewportClient.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "FoliageType.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "StaticMeshResources.h"
+#include "FoliageInstancedStaticMeshComponent.h"
+#include "InstancedFoliageActor.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Materials/Material.h"
+#include "Engine/CollisionProfile.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/ModelComponent.h"
+#include "Misc/ConfigCacheIni.h"
+#include "EngineUtils.h"
+#include "EditorModeManager.h"
+#include "FileHelpers.h"
 #include "ScopedTransaction.h"
 
 #include "FoliageEdModeToolkit.h"
-#include "ModuleManager.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
+#include "LevelEditor.h"
 #include "Toolkits/ToolkitManager.h"
 #include "FoliageEditActions.h"
 
-#include "Runtime/AssetRegistry/Public/AssetRegistryModule.h"
+#include "AssetRegistryModule.h"
 
 //Slate dependencies
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Editor/LevelEditor/Public/SLevelViewport.h"
-#include "Editor/UnrealEd/Public/Dialogs/DlgPickAssetPath.h"
+#include "ILevelViewport.h"
+#include "Dialogs/DlgPickAssetPath.h"
 
 // Classes
-#include "InstancedFoliageActor.h"
-#include "FoliageType.h"
-#include "LandscapeProxy.h"
+#include "LandscapeInfo.h"
 #include "LandscapeComponent.h"
 #include "LandscapeHeightfieldCollisionComponent.h"
-#include "LandscapeInfo.h"
 #include "Components/SplineMeshComponent.h"
-#include "Engine/StaticMeshActor.h"
-#include "GameFramework/WorldSettings.h"
-#include "Engine/CollisionProfile.h"
-#include "Components/ModelComponent.h"
-#include "EngineUtils.h"
-#include "LandscapeDataAccess.h"
-#include "FoliageType_InstancedStaticMesh.h"
 #include "Components/BrushComponent.h"
 
 // VR Editor
 #include "IVREditorModule.h"
+#include "VREditorMode.h"
 #include "ViewportWorldInteraction.h"
 #include "VREditorInteractor.h"
+#include "EditorWorldManager.h"
 
 
 #define LOCTEXT_NAMESPACE "FoliageEdMode"
@@ -152,13 +159,18 @@ bool FFoliagePaintingGeometryFilter::operator() (const UPrimitiveComponent* Comp
 {
 	if (Component)
 	{
-		bool bShallNotPass =
-			(!bAllowLandscape	&& Component->IsA(ULandscapeHeightfieldCollisionComponent::StaticClass())) ||
-			(!bAllowStaticMesh	&& Component->IsA(UStaticMeshComponent::StaticClass())) ||
-			(!bAllowBSP			&& Component->IsA(UModelComponent::StaticClass())) ||
-			(!bAllowTranslucent	&& Component->GetMaterial(0) && IsTranslucentBlendMode(Component->GetMaterial(0)->GetBlendMode()));
+		// Whitelist
+		bool bAllowed =
+			(bAllowLandscape   && Component->IsA(ULandscapeHeightfieldCollisionComponent::StaticClass())) ||
+			(bAllowStaticMesh  && Component->IsA(UStaticMeshComponent::StaticClass()) && !Component->IsA(UFoliageInstancedStaticMeshComponent::StaticClass())) ||
+			(bAllowBSP         && (Component->IsA(UBrushComponent::StaticClass()) || Component->IsA(UModelComponent::StaticClass()))) ||
+			(bAllowFoliage     && Component->IsA(UFoliageInstancedStaticMeshComponent::StaticClass()));
 
-		return !bShallNotPass;
+		// Blacklist
+		bAllowed &=
+			(bAllowTranslucent || !(Component->GetMaterial(0) && IsTranslucentBlendMode(Component->GetMaterial(0)->GetBlendMode())));
+
+		return bAllowed;
 	}
 
 	return false;
@@ -189,7 +201,7 @@ FEdModeFoliage::FEdModeFoliage()
 	SphereBrushComponent = NewObject<UStaticMeshComponent>(GetTransientPackage(), TEXT("SphereBrushComponent"));
 	SphereBrushComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	SphereBrushComponent->SetCollisionObjectType(ECC_WorldDynamic);
-	SphereBrushComponent->StaticMesh = StaticMesh;
+	SphereBrushComponent->SetStaticMesh(StaticMesh);
 	SphereBrushComponent->OverrideMaterials.Add(BrushMaterial);
 	SphereBrushComponent->SetAbsolute(true, true, true);
 	SphereBrushComponent->CastShadow = false;
@@ -344,15 +356,15 @@ void FEdModeFoliage::Enter()
 	// Update UI
 	NotifyNewCurrentLevel();
 
-	// Register to find out when foliage mode is activated
-	GetModeManager()->OnEditorModeChanged().AddRaw(this, &FEdModeFoliage::OnEditorModeChanged);
-
 	// Register for VR input events
-	IVREditorMode* VREditorMode = static_cast<IVREditorMode*>(GetModeManager()->GetActiveMode(IVREditorModule::Get().GetVREditorModeID()));
-	if (VREditorMode != nullptr)
+	UViewportWorldInteraction* ViewportWorldInteraction = GEditor->GetEditorWorldManager()->GetEditorWorldWrapper(GetWorld())->GetViewportWorldInteraction();
+	if (ViewportWorldInteraction != nullptr)
 	{
-		VREditorMode->GetWorldInteraction().OnViewportInteractionInputAction().RemoveAll(this);
-		VREditorMode->GetWorldInteraction().OnViewportInteractionInputAction().AddRaw(this, &FEdModeFoliage::OnVRAction);
+		ViewportWorldInteraction->OnViewportInteractionInputAction().RemoveAll(this);
+		ViewportWorldInteraction->OnViewportInteractionInputAction().AddRaw(this, &FEdModeFoliage::OnVRAction);
+
+		ViewportWorldInteraction->OnViewportInteractionHoverUpdate().RemoveAll(this);
+		ViewportWorldInteraction->OnViewportInteractionHoverUpdate().AddRaw(this, &FEdModeFoliage::OnVRHoverUpdate);
 	}
 }
 
@@ -362,16 +374,14 @@ void FEdModeFoliage::Exit()
 	// Unregister VR mode from event handlers
 	if (IVREditorModule::IsAvailable())
 	{
-		IVREditorMode* VREditorMode = static_cast<IVREditorMode*>(GetModeManager()->GetActiveMode(IVREditorModule::Get().GetVREditorModeID()));
-		if (VREditorMode != nullptr)
+		UViewportWorldInteraction* WorldInteraction = GEditor->GetEditorWorldManager()->GetEditorWorldWrapper(GetWorld())->GetViewportWorldInteraction();
+		if (WorldInteraction != nullptr)
 		{
-			VREditorMode->GetWorldInteraction().OnViewportInteractionInputAction().RemoveAll(this);
+			WorldInteraction->OnViewportInteractionInputAction().RemoveAll(this);
+			WorldInteraction->OnViewportInteractionHoverUpdate().RemoveAll(this);
 			FoliageInteractor = nullptr;
 		}
 	}
-
-	// Unregister foliage mode from event handlers
-	GetModeManager()->OnEditorModeChanged().RemoveAll(this);
 
 	FToolkitManager::Get().CloseToolkit(Toolkit.ToSharedRef());
 	Toolkit.Reset();
@@ -429,40 +439,65 @@ void FEdModeFoliage::Exit()
 	FEdMode::Exit();
 }
 
-void FEdModeFoliage::OnEditorModeChanged(FEdMode* EditorMode, bool bEntered)
+void FEdModeFoliage::OnVRHoverUpdate(FEditorViewportClient& ViewportClient, UViewportInteractor* Interactor, FVector& HoverImpactPoint, bool& bWasHandled)
 {
-	// Detect if we're switching to VR Editor mode
-	// VR Editor mode may have gone away, so re-register for events in case it's a different object than the one we were originally bound to
-	check(EditorMode != nullptr);
-	FoliageInteractor = nullptr;
-	if (bEntered && EditorMode->GetID() == IVREditorModule::Get().GetVREditorModeID())
+	// Check if VR Editor is active
+	if (IVREditorModule::IsAvailable())
 	{
-		IVREditorMode* VREditorMode = static_cast<IVREditorMode*>(EditorMode);
-		if (VREditorMode != nullptr)
+		UVREditorMode* VREditorMode = GEditor->GetEditorWorldManager()->GetEditorWorldWrapper(ViewportClient.GetWorld())->GetVREditorMode();
+		if (VREditorMode != nullptr && VREditorMode->IsFullyInitialized())
 		{
-			VREditorMode->GetWorldInteraction().OnViewportInteractionInputAction().RemoveAll(this);
-			VREditorMode->GetWorldInteraction().OnViewportInteractionInputAction().AddRaw(this, &FEdModeFoliage::OnVRAction);
+			// Check if we're hovering over UI. If so, stop painting so we don't display the preview brush sphere
+			if (FoliageInteractor && FoliageInteractor->IsHoveringOverPriorityType())
+			{
+				EndFoliageBrushTrace();
+				FoliageInteractor = nullptr;
+			}
+			// If there isn't currently a foliage interactor and we are hovering over something valid
+			else if (FoliageInteractor == nullptr && Interactor->GetHitResultFromLaserPointer().GetActor() != nullptr)
+			{
+				FoliageInteractor = Interactor;
+			}
+			// If we aren't hovering over something valid and the tool isn't active
+			else if (Interactor->GetHitResultFromLaserPointer().GetActor() == nullptr && !bToolActive)
+			{
+				FoliageInteractor = nullptr;
+			}
+
+			// Skip other interactors if we are painting with one
+			if (FoliageInteractor && Interactor == FoliageInteractor)
+			{
+				// Go ahead and paint immediately
+				FVector LaserPointerStart, LaserPointerEnd;
+				if (FoliageInteractor->GetLaserPointer( /* Out */ LaserPointerStart, /* Out */ LaserPointerEnd))
+				{
+					const FVector LaserPointerDirection = (LaserPointerEnd - LaserPointerStart).GetSafeNormal();
+
+					FoliageBrushTrace(&ViewportClient, LaserPointerStart, LaserPointerDirection);
+				}
+			}
+			
 		}
 	}
 }
 
 void FEdModeFoliage::OnVRAction(class FEditorViewportClient& ViewportClient, UViewportInteractor* Interactor, const FViewportActionKeyInput& Action, bool& bOutIsInputCaptured, bool& bWasHandled)
 {
-	IVREditorMode* VREditorMode = static_cast<IVREditorMode*>(GetModeManager()->GetActiveMode(IVREditorModule::Get().GetVREditorModeID()));
-
+	UVREditorMode* VREditorMode = GEditor->GetEditorWorldManager()->GetEditorWorldWrapper(ViewportClient.GetWorld())->GetVREditorMode();
 	if (VREditorMode != nullptr && Interactor != nullptr)
 	{
 		const UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(Interactor);
-		FoliageInteractor = Interactor;
 
-		// Consume both full press and light press
-		if (Action.ActionType == ViewportWorldActionTypes::SelectAndMove_LightlyPressed || Action.ActionType == ViewportWorldActionTypes::SelectAndMove)
+		// Only allow light press
+		Interactor->SetAllowTriggerFullPress(false);
+		// Consume light press
+		if (Action.ActionType == ViewportWorldActionTypes::SelectAndMove_LightlyPressed)
 		{
-			if (Action.Event == IE_Pressed && !VRInteractor->IsHoveringOverUI())
+			if (Action.Event == IE_Pressed && !VRInteractor->IsHoveringOverPriorityType())
 			{
 				// Go ahead and paint immediately
 				FVector LaserPointerStart, LaserPointerEnd;
-				if (FoliageInteractor->GetLaserPointer( /* Out */ LaserPointerStart, /* Out */ LaserPointerEnd))
+				if (Interactor->GetLaserPointer( /* Out */ LaserPointerStart, /* Out */ LaserPointerEnd))
 				{
 					const FVector LaserPointerDirection = (LaserPointerEnd - LaserPointerStart).GetSafeNormal();
 					BrushTraceDirection = LaserPointerDirection;
@@ -479,7 +514,7 @@ void FEdModeFoliage::OnVRAction(class FEditorViewportClient& ViewportClient, UVi
 						// Fill a static mesh with foliage brush
 						else if (UISettings.GetPaintBucketToolSelected() || UISettings.GetReapplyPaintBucketToolSelected())
 						{
-							FHitResult HitResult = FoliageInteractor->GetHitResultFromLaserPointer();
+							FHitResult HitResult = Interactor->GetHitResultFromLaserPointer();
 
 							if (HitResult.Actor.Get() != nullptr)
 							{
@@ -500,7 +535,7 @@ void FEdModeFoliage::OnVRAction(class FEditorViewportClient& ViewportClient, UVi
 						// Select an instanced foliage
 						else if (UISettings.GetSelectToolSelected())
 						{
-							FHitResult HitResult = FoliageInteractor->GetHitResultFromLaserPointer();
+							FHitResult HitResult = Interactor->GetHitResultFromLaserPointer();
 
 							GEditor->BeginTransaction(NSLOCTEXT("UnrealEd", "FoliageMode_EditTransaction", "Foliage Editing"));
 
@@ -529,6 +564,7 @@ void FEdModeFoliage::OnVRAction(class FEditorViewportClient& ViewportClient, UVi
 			else if (Action.Event == IE_Released && FoliageInteractor && FoliageInteractor == Interactor)
 			{
 				EndFoliageBrushTrace();
+				FoliageInteractor = nullptr;
 			}
 		}
 	}
@@ -710,46 +746,6 @@ void FEdModeFoliage::Tick(FEditorViewportClient* ViewportClient, float DeltaTime
 			SphereBrushComponent->UnregisterComponent();
 		}
 	}
-
-	// Check if VR Editor is active
-	if (IVREditorModule::IsAvailable())
-	{
-		IVREditorMode* VREditorMode = static_cast<IVREditorMode*>(GetModeManager()->GetActiveMode(IVREditorModule::Get().GetVREditorModeID()));
-		if (VREditorMode != nullptr && VREditorMode->IsFullyInitialized())
-		{
-			// Grab interactor
-			for (UViewportInteractor* Interactor : VREditorMode->GetWorldInteraction().GetInteractors())
-			{
-				// Skip other interactors if we are painting with one
-				if (Interactor && Interactor == FoliageInteractor)
-				{
-					// Check if we're hovering over UI. If so, stop painting so we don't display the preview brush sphere
-					const UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(Interactor);
-					const bool bIsHoveringOverUIVR = VRInteractor->IsHoveringOverUI();
-					if (bIsHoveringOverUIVR)
-					{
-						EndFoliageBrushTrace();
-					}
-					else if (UISettings.GetPaintToolSelected() || UISettings.GetReapplyToolSelected() || UISettings.GetLassoSelectToolSelected())
-					{
-						if (UISettings.GetPaintToolSelected())
-						{
-							StartFoliageBrushTrace(ViewportClient, Interactor);
-						}
-
-						// Go ahead and paint immediately
-						FVector LaserPointerStart, LaserPointerEnd;
-						if (Interactor->GetLaserPointer( /* Out */ LaserPointerStart, /* Out */ LaserPointerEnd))
-						{
-							const FVector LaserPointerDirection = (LaserPointerEnd - LaserPointerStart).GetSafeNormal();
-
-							FoliageBrushTrace(ViewportClient, LaserPointerStart, LaserPointerDirection);
-						}
-					}
-				}
-			}
-		}
-	}
 }
 
 void FEdModeFoliage::StartFoliageBrushTrace(FEditorViewportClient* ViewportClient, class UViewportInteractor* Interactor)
@@ -757,6 +753,10 @@ void FEdModeFoliage::StartFoliageBrushTrace(FEditorViewportClient* ViewportClien
 	if (!bToolActive)
 	{
 		GEditor->BeginTransaction(NSLOCTEXT("UnrealEd", "FoliageMode_EditTransaction", "Foliage Editing"));
+		if (Interactor)
+		{
+			FoliageInteractor = Interactor;
+		}
 		PreApplyBrush();
 		ApplyBrush(ViewportClient);
 		bToolActive = true;
@@ -820,8 +820,8 @@ void FEdModeFoliage::FoliageBrushTrace(FEditorViewportClient* ViewportClient, co
 bool FEdModeFoliage::MouseMove(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 MouseX, int32 MouseY)
 {
 	// Use mouse capture if there's no other interactor currently tracing brush
-	IVREditorMode* VREditorMode = static_cast<IVREditorMode*>(GetModeManager()->GetActiveMode(IVREditorModule::Get().GetVREditorModeID()));
-	if (VREditorMode == nullptr)
+	UVREditorMode* VREditorMode = GEditor->GetEditorWorldManager()->GetEditorWorldWrapper(ViewportClient->GetWorld())->GetVREditorMode();
+	if (!VREditorMode->IsActive())
 	{
 		// Compute a world space ray from the screen space mouse coordinates
 		FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
@@ -858,8 +858,8 @@ bool FEdModeFoliage::MouseMove(FEditorViewportClient* ViewportClient, FViewport*
 bool FEdModeFoliage::CapturedMouseMove(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 MouseX, int32 MouseY)
 {
 	// Use mouse capture if there's no other interactor currently tracing brush
-	IVREditorMode* VREditorMode = static_cast<IVREditorMode*>(GetModeManager()->GetActiveMode(IVREditorModule::Get().GetVREditorModeID()));
-	if (VREditorMode == nullptr)
+	UVREditorMode* VREditorMode = GEditor->GetEditorWorldManager()->GetEditorWorldWrapper(ViewportClient->GetWorld())->GetVREditorMode();
+	if (!VREditorMode->IsActive())
 	{
 		//Compute a world space ray from the screen space mouse coordinates
 		FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
@@ -1404,24 +1404,21 @@ void FEdModeFoliage::RemoveInstancesForBrush(UWorld* InWorld, const UFoliageType
 			}
 		}
 
-		if (!UISettings.bFilterLandscape || !UISettings.bFilterStaticMesh || !UISettings.bFilterBSP || !UISettings.bFilterTranslucent)
+		FFoliagePaintingGeometryFilter GeometryFilterFunc(UISettings);
+
+		// Filter PotentialInstancesToRemove
+		for (int32 Idx = 0; Idx < PotentialInstancesToRemove.Num(); Idx++)
 		{
-			FFoliagePaintingGeometryFilter GeometryFilterFunc(UISettings);
+			auto BaseId = MeshInfo->Instances[PotentialInstancesToRemove[Idx]].BaseId;
+			auto BasePtr = IFA->InstanceBaseCache.GetInstanceBasePtr(BaseId);
+			UPrimitiveComponent* Base = Cast<UPrimitiveComponent>(BasePtr.Get());
 
-			// Filter PotentialInstancesToRemove
-			for (int32 Idx = 0; Idx < PotentialInstancesToRemove.Num(); Idx++)
+			// Check if instance is candidate for removal based on filter settings
+			if (Base && !GeometryFilterFunc(Base))
 			{
-				auto BaseId = MeshInfo->Instances[PotentialInstancesToRemove[Idx]].BaseId;
-				auto BasePtr = IFA->InstanceBaseCache.GetInstanceBasePtr(BaseId);
-				UPrimitiveComponent* Base = Cast<UPrimitiveComponent>(BasePtr.Get());
-
-				// Check if instance is candidate for removal based on filter settings
-				if (Base && !GeometryFilterFunc(Base))
-				{
-					// Instance should not be removed, so remove it from the removal list.
-					PotentialInstancesToRemove.RemoveAtSwap(Idx);
-					Idx--;
-				}
+				// Instance should not be removed, so remove it from the removal list.
+				PotentialInstancesToRemove.RemoveAtSwap(Idx);
+				Idx--;
 			}
 		}
 
@@ -1446,7 +1443,7 @@ void FEdModeFoliage::SelectInstanceAtLocation(UWorld* InWorld, const UFoliageTyp
 		MeshInfo->GetInstanceAtLocation(Location, Instance, bResult);
 		if (bResult)
 		{
-			TArray<int32> Instances;
+		        TArray<int32> Instances;
 			Instances.Add(Instance);
 			MeshInfo->SelectInstances(IFA, bSelect, Instances);
 		}
@@ -1693,6 +1690,8 @@ void FEdModeFoliage::SelectInvalidInstances(const UFoliageType* Settings)
 				for (const FHitResult& Hit : Hits)
 				{
 					UPrimitiveComponent* HitComponent = Hit.GetComponent();
+					check(HitComponent);
+
 					if (HitComponent->IsCreatedByConstructionScript())
 					{
 						continue;
@@ -2289,10 +2288,10 @@ void FEdModeFoliage::ApplyPaintBucket_Add(AActor* Actor)
 	{
 		UMaterialInterface* Material = StaticMeshComponent->GetMaterial(0);
 
-		if (UISettings.bFilterStaticMesh && StaticMeshComponent->StaticMesh && StaticMeshComponent->StaticMesh->RenderData &&
+		if (UISettings.bFilterStaticMesh && StaticMeshComponent->GetStaticMesh() && StaticMeshComponent->GetStaticMesh()->RenderData &&
 			(UISettings.bFilterTranslucent || !Material || !IsTranslucentBlendMode(Material->GetBlendMode())))
 		{
-			UStaticMesh* StaticMesh = StaticMeshComponent->StaticMesh;
+			UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh();
 			FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[0];
 			TArray<FFoliagePaintBucketTriangle>& PotentialTriangles = ComponentPotentialTriangles.Add(StaticMeshComponent, TArray<FFoliagePaintBucketTriangle>());
 
@@ -2429,7 +2428,7 @@ void FEdModeFoliage::ApplyPaintBucket_Add(AActor* Actor)
 
 bool FEdModeFoliage::GetStaticMeshVertexColorForHit(const UStaticMeshComponent* InStaticMeshComponent, int32 InTriangleIndex, const FVector& InHitLocation, FColor& OutVertexColor)
 {
-	const UStaticMesh* StaticMesh = InStaticMeshComponent->StaticMesh;
+	const UStaticMesh* StaticMesh = InStaticMeshComponent->GetStaticMesh();
 
 	if (StaticMesh == nullptr || StaticMesh->RenderData == nullptr)
 	{
@@ -2811,10 +2810,9 @@ bool FEdModeFoliage::CanPaint(const UFoliageType* FoliageType, const ULevel* InL
 
 bool FEdModeFoliage::IsModifierButtonPressed(const FEditorViewportClient* ViewportClient) const
 {
-	IVREditorMode* VREditorMode = static_cast<IVREditorMode*>(GetModeManager()->GetActiveMode(IVREditorModule::Get().GetVREditorModeID()));
 	const UVREditorInteractor* VRInteractor = Cast<UVREditorInteractor>(FoliageInteractor);
 	bool bIsModifierPressed = false;
-	if (VREditorMode != nullptr && VRInteractor != nullptr)
+	if (VRInteractor != nullptr)
 	{
 		bIsModifierPressed = VRInteractor->IsModifierPressed();
 	}
@@ -2920,7 +2918,7 @@ void FEdModeFoliage::BakeFoliage(UFoliageType* Settings, bool bSelectedOnly)
 			UWorld* World = IFA->GetWorld();
 			check(World != nullptr);
 			AStaticMeshActor* SMA = World->SpawnActor<AStaticMeshActor>(Instance.Location, Instance.Rotation);
-			SMA->GetStaticMeshComponent()->StaticMesh = Settings->GetStaticMesh();
+			SMA->GetStaticMeshComponent()->SetStaticMesh(Settings->GetStaticMesh());
 			SMA->GetRootComponent()->SetRelativeScale3D(Instance.DrawScale3D);
 			SMA->MarkComponentsRenderStateDirty();
 		}
@@ -3237,7 +3235,7 @@ bool FEdModeFoliage::HandleClick(FEditorViewportClient* InViewportClient, HHitPr
 		if (HitProxy && HitProxy->IsA(HActor::StaticGetType()))
 		{
 			GEditor->BeginTransaction(NSLOCTEXT("UnrealEd", "FoliageMode_EditTransaction", "Foliage Editing"));
-
+			
 			if (IsModifierButtonPressed(InViewportClient))
 			{
 				ApplyPaintBucket_Remove(((HActor*)HitProxy)->Actor);
@@ -3383,6 +3381,7 @@ void FFoliageUISettings::Load()
 	GConfig->GetBool(TEXT("FoliageEdit"), TEXT("bFilterLandscape"), bFilterLandscape, GEditorPerProjectIni);
 	GConfig->GetBool(TEXT("FoliageEdit"), TEXT("bFilterStaticMesh"), bFilterStaticMesh, GEditorPerProjectIni);
 	GConfig->GetBool(TEXT("FoliageEdit"), TEXT("bFilterBSP"), bFilterBSP, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("FoliageEdit"), TEXT("bFilterFoliage"), bFilterFoliage, GEditorPerProjectIni);
 	GConfig->GetBool(TEXT("FoliageEdit"), TEXT("bFilterTranslucent"), bFilterTranslucent, GEditorPerProjectIni);
 
 	GConfig->GetBool(TEXT("FoliageEdit"), TEXT("bShowPaletteItemDetails"), bShowPaletteItemDetails, GEditorPerProjectIni);
@@ -3407,6 +3406,7 @@ void FFoliageUISettings::Save()
 	GConfig->SetBool(TEXT("FoliageEdit"), TEXT("bFilterLandscape"), bFilterLandscape, GEditorPerProjectIni);
 	GConfig->SetBool(TEXT("FoliageEdit"), TEXT("bFilterStaticMesh"), bFilterStaticMesh, GEditorPerProjectIni);
 	GConfig->SetBool(TEXT("FoliageEdit"), TEXT("bFilterBSP"), bFilterBSP, GEditorPerProjectIni);
+	GConfig->SetBool(TEXT("FoliageEdit"), TEXT("bFilterFoliage"), bFilterFoliage, GEditorPerProjectIni);
 	GConfig->SetBool(TEXT("FoliageEdit"), TEXT("bFilterTranslucent"), bFilterTranslucent, GEditorPerProjectIni);
 
 	GConfig->SetBool(TEXT("FoliageEdit"), TEXT("bShowPaletteItemDetails"), bShowPaletteItemDetails, GEditorPerProjectIni);

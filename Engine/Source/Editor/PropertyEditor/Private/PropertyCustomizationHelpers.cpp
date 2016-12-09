@@ -1,23 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyEditing.h"
 #include "PropertyCustomizationHelpers.h"
-#include "AssetThumbnail.h"
-#include "AssetRegistryModule.h"
-#include "SPropertyAssetPicker.h"
-#include "SPropertyMenuAssetPicker.h"
-#include "SPropertySceneOutliner.h"
-#include "SPropertyMenuActorPicker.h"
-#include "ScopedTransaction.h"
-#include "SoundDefinitions.h"
-#include "SAssetDropTarget.h"
-#include "SPropertyEditorAsset.h"
-#include "SPropertyEditorClass.h"
-#include "SPropertyEditorInteractiveActorPicker.h"
-#include "SPropertyEditorSceneDepthPicker.h"
-#include "SHyperlink.h"
-#include "SWidgetSwitcher.h"
+#include "IDetailChildrenBuilder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Engine/Texture.h"
+#include "Factories/Factory.h"
+#include "Editor.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "DetailLayoutBuilder.h"
+#include "UserInterface/PropertyEditor/SPropertyAssetPicker.h"
+#include "UserInterface/PropertyEditor/SPropertyMenuAssetPicker.h"
+#include "UserInterface/PropertyEditor/SPropertySceneOutliner.h"
+#include "UserInterface/PropertyEditor/SPropertyMenuActorPicker.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorAsset.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorClass.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorInteractiveActorPicker.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorSceneDepthPicker.h"
+#include "Widgets/Input/SHyperlink.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
+#include "IDocumentation.h"
 
 #define LOCTEXT_NAMESPACE "PropertyCustomizationHelpers"
 
@@ -171,13 +181,18 @@ namespace PropertyCustomizationHelpers
 	{	
 		FMenuBuilder MenuContentBuilder( true, NULL );
 		{
-			FUIAction InsertAction( OnInsertClicked );
-			MenuContentBuilder.AddMenuEntry( LOCTEXT( "InsertButtonLabel", "Insert"), FText::GetEmpty(), FSlateIcon(), InsertAction );
+			if (OnInsertClicked.IsBound())
+			{
+				FUIAction InsertAction(OnInsertClicked);
+				MenuContentBuilder.AddMenuEntry(LOCTEXT("InsertButtonLabel", "Insert"), FText::GetEmpty(), FSlateIcon(), InsertAction);
+			}
 
-			FUIAction DeleteAction( OnDeleteClicked );
-			MenuContentBuilder.AddMenuEntry( LOCTEXT( "DeleteButtonLabel", "Delete"), FText::GetEmpty(), FSlateIcon(), DeleteAction );
+			if (OnDeleteClicked.IsBound())
+			{
+				FUIAction DeleteAction(OnDeleteClicked);
+				MenuContentBuilder.AddMenuEntry(LOCTEXT("DeleteButtonLabel", "Delete"), FText::GetEmpty(), FSlateIcon(), DeleteAction);
+			}
 
-			// Duplicate operation is optional
 			if (OnDuplicateClicked.IsBound())
 			{
 				FUIAction DuplicateAction( OnDuplicateClicked );
@@ -191,7 +206,6 @@ namespace PropertyCustomizationHelpers
 			.ContentPadding(2)
 			.ForegroundColor( FSlateColor::UseForeground() )
 			.HasDownArrow(true)
-			.IsFocusable(false)
 			.MenuContent()
 			[
 				MenuContentBuilder.MakeWidget()
@@ -206,12 +220,13 @@ namespace PropertyCustomizationHelpers
 			.OnAssetSelected( OnAssetSelectedFromPicker );
 	}
 
-	TSharedRef<SWidget> MakeAssetPickerWithMenu( const FAssetData& InitialObject, const bool AllowClear, const TArray<const UClass*>& AllowedClasses, const TArray<UFactory*>& NewAssetFactories, FOnShouldFilterAsset OnShouldFilterAsset, FOnAssetSelected OnSet, FSimpleDelegate OnClose)
+	TSharedRef<SWidget> MakeAssetPickerWithMenu( const FAssetData& InitialObject, const bool AllowClear, const bool SearchInBlueprint, const TArray<const UClass*>& AllowedClasses, const TArray<UFactory*>& NewAssetFactories, FOnShouldFilterAsset OnShouldFilterAsset, FOnAssetSelected OnSet, FSimpleDelegate OnClose)
 	{
 		return
 			SNew(SPropertyMenuAssetPicker)
 			.InitialObject(InitialObject)
 			.AllowClear(AllowClear)
+			.SearchInBlueprint(SearchInBlueprint)
 			.AllowedClasses(AllowedClasses)
 			.NewAssetFactories(NewAssetFactories)
 			.OnShouldFilterAsset(OnShouldFilterAsset)
@@ -267,6 +282,27 @@ namespace PropertyCustomizationHelpers
 			.OnClickAction(OnEditConfigClicked)
 			.IsEnabled(IsEnabled)
 			.IsFocusable(false);
+	}
+
+	TSharedRef<SWidget> MakeDocumentationButton(const TSharedRef<FPropertyEditor>& InPropertyEditor)
+	{
+		TSharedPtr<IPropertyHandle> PropertyHandle = InPropertyEditor->GetPropertyHandle();
+
+		FString DocLink;
+		FString DocExcerptName;
+
+		if (PropertyHandle.IsValid() && PropertyHandle->HasDocumentation())
+		{
+			DocLink = PropertyHandle->GetDocumentationLink();
+			DocExcerptName = PropertyHandle->GetDocumentationExcerptName();
+		}
+		else
+		{
+			DocLink = InPropertyEditor->GetDocumentationLink();
+			DocExcerptName = InPropertyEditor->GetDocumentationExcerptName();
+		}
+
+		return IDocumentation::Get()->CreateAnchor(DocLink, FString(), DocExcerptName);
 	}
 
 	UBoolProperty* GetEditConditionProperty(const UProperty* InProperty, bool& bNegate)
@@ -385,8 +421,11 @@ void SObjectPropertyEntryBox::Construct( const FArguments& InArgs )
 				.AllowClear(InArgs._AllowClear)
 				.DisplayUseSelected(InArgs._DisplayUseSelected)
 				.DisplayBrowse(InArgs._DisplayBrowse)
+				.EnableContentPicker(InArgs._EnableContentPicker)
 				.PropertyHandle(PropertyHandle)
 				.ThumbnailSize(ThumbnailSize)
+				.AllowActorPicker(InArgs._AllowActorPicker)
+				.SearchInBlueprint(InArgs._SearchInBlueprint)
 		]
 	];
 }
@@ -651,9 +690,10 @@ public:
 		FOnGenerateWidgetsForMaterial InOnGenerateNameWidgetsForMaterial, 
 		FOnGenerateWidgetsForMaterial InOnGenerateWidgetsForMaterial, 
 		FOnResetMaterialToDefaultClicked InOnResetToDefaultClicked,
-		int32 InMultipleMaterialCount )
+		int32 InMultipleMaterialCount,
+		bool bShowUsedTextures)
 	{
-		return MakeShareable( new FMaterialItemView( Material, InOnMaterialChanged, InOnGenerateNameWidgetsForMaterial, InOnGenerateWidgetsForMaterial, InOnResetToDefaultClicked, InMultipleMaterialCount ) );
+		return MakeShareable( new FMaterialItemView( Material, InOnMaterialChanged, InOnGenerateNameWidgetsForMaterial, InOnGenerateWidgetsForMaterial, InOnResetToDefaultClicked, InMultipleMaterialCount, bShowUsedTextures) );
 	}
 
 	TSharedRef<SWidget> CreateNameContent()
@@ -712,6 +752,7 @@ public:
 								.VAlign( VAlign_Center )
 								.ContentPadding(2)
 								.IsEnabled( this, &FMaterialItemView::IsTexturesMenuEnabled )
+								.Visibility( bShowUsedTextures ? EVisibility::Visible : EVisibility::Hidden )
 								.ButtonContent()
 								[
 									SNew( STextBlock )
@@ -721,7 +762,23 @@ public:
 								]
 							]
 						]
-					
+					]
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Top)
+					.Padding(4.0f, 9.0f)
+					[
+						// Add a button to reset the material to the base material
+						SNew(SButton)
+						.ToolTipText(LOCTEXT("ResetToBaseMaterial", "Reset to base material"))
+						.ButtonStyle(FEditorStyle::Get(), "NoBorder")
+						.ContentPadding(0)
+						.Visibility(this, &FMaterialItemView::GetReplaceVisibility)
+						.OnClicked(this, &FMaterialItemView::OnResetToBaseClicked)
+						[
+							SNew(SImage)
+							.Image(FEditorStyle::GetBrush("PropertyWindow.DiffersFromDefault"))
+						]
 					]
 				]
 				+SVerticalBox::Slot()
@@ -731,24 +788,8 @@ public:
 				[
 					OnGenerateCustomMaterialWidgets.IsBound() ? OnGenerateCustomMaterialWidgets.Execute( MaterialItem.Material.Get(), MaterialItem.SlotIndex ) : StaticCastSharedRef<SWidget>( SNullWidget::NullWidget )
 				]
-			]
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign( VAlign_Center )
-			.Padding( 4.0f, 0.0f )
-			[
-				// Add a button to reset the material to the base material
-				SNew(SButton)
-				.ToolTipText(LOCTEXT( "ResetToBase", "Reset to base material" ))
-				.ButtonStyle( FEditorStyle::Get(), "NoBorder" )
-				.ContentPadding(0) 
-				.Visibility( this, &FMaterialItemView::GetReplaceVisibility )
-				.OnClicked( this, &FMaterialItemView::OnResetToBaseClicked )
-				[
-					SNew(SImage)
-					.Image( FEditorStyle::GetBrush("PropertyWindow.DiffersFromDefault") )
-				]
 			];
+
 	}
 
 private:
@@ -758,13 +799,16 @@ private:
 						FOnGenerateWidgetsForMaterial& InOnGenerateNameWidgets, 
 						FOnGenerateWidgetsForMaterial& InOnGenerateMaterialWidgets, 
 						FOnResetMaterialToDefaultClicked& InOnResetToDefaultClicked,
-						int32 InMultipleMaterialCount )
+						int32 InMultipleMaterialCount,
+						bool bInShowUsedTextures)
+						
 		: MaterialItem( InMaterial )
 		, OnMaterialChanged( InOnMaterialChanged )
 		, OnGenerateCustomNameWidgets( InOnGenerateNameWidgets )
 		, OnGenerateCustomMaterialWidgets( InOnGenerateMaterialWidgets )
 		, OnResetToDefaultClicked( InOnResetToDefaultClicked )
 		, MultipleMaterialCount( InMultipleMaterialCount )
+		, bShowUsedTextures( bInShowUsedTextures )
 	{
 
 	}
@@ -875,14 +919,16 @@ private:
 	FOnGenerateWidgetsForMaterial OnGenerateCustomMaterialWidgets;
 	FOnResetMaterialToDefaultClicked OnResetToDefaultClicked;
 	int32 MultipleMaterialCount;
+	bool bShowUsedTextures;
 };
 
 
-FMaterialList::FMaterialList(IDetailLayoutBuilder& InDetailLayoutBuilder, FMaterialListDelegates& InMaterialListDelegates, bool bInAllowCollapse /*= false*/)
+FMaterialList::FMaterialList(IDetailLayoutBuilder& InDetailLayoutBuilder, FMaterialListDelegates& InMaterialListDelegates, bool bInAllowCollapse, bool bInShowUsedTextures)
 	: MaterialListDelegates( InMaterialListDelegates )
 	, DetailLayoutBuilder( InDetailLayoutBuilder )
 	, MaterialListBuilder( new FMaterialListBuilder )
 	, bAllowCollpase(bInAllowCollapse)
+	, bShowUsedTextures(bInShowUsedTextures)
 {
 }
 
@@ -941,6 +987,11 @@ void FMaterialList::Tick( float DeltaTime )
 					break;
 				}
 			}
+		}
+
+		if (!bRefrestMaterialList && MaterialListDelegates.OnMaterialListDirty.IsBound())
+		{
+			bRefrestMaterialList = MaterialListDelegates.OnMaterialListDirty.Execute();
 		}
 
 		if( bRefrestMaterialList )
@@ -1058,7 +1109,7 @@ void FMaterialList::AddMaterialItem( FDetailWidgetRow& Row, int32 CurrentSlot, c
 {
 	uint32 NumMaterials = MaterialListBuilder->GetNumMaterialsInSlot(CurrentSlot);
 
-	TSharedRef<FMaterialItemView> NewView = FMaterialItemView::Create( Item, MaterialListDelegates.OnMaterialChanged, MaterialListDelegates.OnGenerateCustomNameWidgets, MaterialListDelegates.OnGenerateCustomMaterialWidgets, MaterialListDelegates.OnResetMaterialToDefaultClicked, NumMaterials );
+	TSharedRef<FMaterialItemView> NewView = FMaterialItemView::Create( Item, MaterialListDelegates.OnMaterialChanged, MaterialListDelegates.OnGenerateCustomNameWidgets, MaterialListDelegates.OnGenerateCustomMaterialWidgets, MaterialListDelegates.OnResetMaterialToDefaultClicked, NumMaterials, bShowUsedTextures );
 
 	TSharedPtr<SWidget> RightSideContent;
 	if( bDisplayLink )
@@ -1089,7 +1140,7 @@ void FMaterialList::AddMaterialItem( FDetailWidgetRow& Row, int32 CurrentSlot, c
 		NewView->CreateNameContent()
 	]
 	.ValueContent()
-	.MinDesiredWidth(250.0f)
+	.MinDesiredWidth(250.f)
 	.MaxDesiredWidth(0.0f) // no maximum
 	[
 		RightSideContent.ToSharedRef()
@@ -1284,5 +1335,521 @@ TSharedRef<SWidget> PropertyCustomizationHelpers::MakeTextLocalizationButton(con
 		.OnGetMenuContent(FOnGetContent::CreateLambda(GetLocalizationMenuContent));
 }
 
-#undef LOCTEXT_NAMESPACE
 
+
+//////////////////////////////////////////////////////////////////////////
+//
+// Sections list
+
+/**
+* Builds up a list of unique Sections while creating some information about the Sections
+*/
+class FSectionListBuilder : public ISectionListBuilder
+{
+	friend class FSectionList;
+public:
+
+	/**
+	* Adds a new Section to the list
+	*
+	* @param SlotIndex		The slot (usually mesh element index) where the Section is located on the component
+	* @param Section		The Section being used
+	* @param bCanBeReplced	Whether or not the Section can be replaced by a user
+	*/
+	virtual void AddSection(int32 LodIndex, int32 SectionIndex, FName InMaterialSlotName, int32 InMaterialSlotIndex, FName InOriginalMaterialSlotName, const TMap<int32, FName> &InAvailableMaterialSlotName, const UMaterialInterface* Material, bool IsSectionUsingCloth) override
+	{
+		FSectionListItem SectionItem(LodIndex, SectionIndex, InMaterialSlotName, InMaterialSlotIndex, InOriginalMaterialSlotName, InAvailableMaterialSlotName, Material, IsSectionUsingCloth);
+		if (!Sections.Contains(SectionItem))
+		{
+			Sections.Add(SectionItem);
+			if (!SectionsByLOD.Contains(SectionItem.LodIndex))
+			{
+				TArray<FSectionListItem> LodSectionsArray;
+				LodSectionsArray.Add(SectionItem);
+				SectionsByLOD.Add(SectionItem.LodIndex, LodSectionsArray);
+			}
+			else
+			{
+				//Remove old entry
+				TArray<FSectionListItem> &ExistingSections = *SectionsByLOD.Find(SectionItem.LodIndex);
+				for (int32 ExistingSectionIndex = 0; ExistingSectionIndex < ExistingSections.Num(); ++ExistingSectionIndex)
+				{
+					const FSectionListItem &ExistingSectionItem = ExistingSections[ExistingSectionIndex];
+					if (ExistingSectionItem.LodIndex == LodIndex && ExistingSectionItem.SectionIndex == SectionIndex)
+					{
+						ExistingSections.RemoveAt(ExistingSectionIndex);
+						break;
+					}
+				}
+				ExistingSections.Add(SectionItem);
+			}
+		}
+	}
+
+	/** Empties the list */
+	void Empty()
+	{
+		Sections.Reset();
+		SectionsByLOD.Reset();
+	}
+
+	/** Sorts the list by lod and section index */
+	void Sort()
+	{
+		struct FSortByIndex
+		{
+			bool operator()(const FSectionListItem& A, const FSectionListItem& B) const
+			{
+				return (A.LodIndex == B.LodIndex) ? A.SectionIndex < B.SectionIndex : A.LodIndex < B.LodIndex;
+			}
+		};
+
+		Sections.Sort(FSortByIndex());
+	}
+
+	/** @return The number of Sections in the list */
+	uint32 GetNumSections() const
+	{
+		return Sections.Num();
+	}
+
+	uint32 GetNumSections(int32 LodIndex) const
+	{
+		return SectionsByLOD.Contains(LodIndex) ? SectionsByLOD.Find(LodIndex)->Num() : 0;
+	}
+
+private:
+	/** All Section items in the list */
+	TArray<FSectionListItem> Sections;
+	/** All Section items in the list */
+	TMap<int32, TArray<FSectionListItem>> SectionsByLOD;
+};
+
+
+/**
+* A view of a single item in an FSectionList
+*/
+class FSectionItemView : public TSharedFromThis<FSectionItemView>
+{
+public:
+	/**
+	* Creates a new instance of this class
+	*
+	* @param Section				The Section to view
+	* @param InOnSectionChanged	Delegate for when the Section changes
+	*/
+	static TSharedRef<FSectionItemView> Create(
+		const FSectionListItem& Section,
+		FOnSectionChanged InOnSectionChanged,
+		FOnGenerateWidgetsForSection InOnGenerateNameWidgetsForSection,
+		FOnGenerateWidgetsForSection InOnGenerateWidgetsForSection,
+		FOnResetSectionToDefaultClicked InOnResetToDefaultClicked,
+		int32 InMultipleSectionCount)
+	{
+		return MakeShareable(new FSectionItemView(Section, InOnSectionChanged, InOnGenerateNameWidgetsForSection, InOnGenerateWidgetsForSection, InOnResetToDefaultClicked, InMultipleSectionCount));
+	}
+
+	TSharedRef<SWidget> CreateNameContent()
+	{
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("SectionIndex"), SectionItem.SectionIndex);
+		return
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(FText::Format(LOCTEXT("SectionIndex", "Section {SectionIndex}"), Arguments))
+			]
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 4.0f)
+			.AutoHeight()
+			[
+				OnGenerateCustomNameWidgets.IsBound() ? OnGenerateCustomNameWidgets.Execute(SectionItem.LodIndex, SectionItem.SectionIndex) : StaticCastSharedRef<SWidget>(SNullWidget::NullWidget)
+			];
+	}
+
+	TSharedRef<SWidget> CreateValueContent(const TSharedPtr<FAssetThumbnailPool>& ThumbnailPool)
+	{
+		FText MaterialSlotNameTooltipText = SectionItem.IsSectionUsingCloth ? FText(LOCTEXT("SectionIndex_MaterialSlotNameTooltip", "Cannot change the material slot when the mesh section use the cloth system.")) : FText::GetEmpty();
+		return
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.0f)
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Fill)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					[
+						SNew(SPropertyEditorAsset)
+						.ObjectPath(SectionItem.Material->GetPathName())
+						.Class(UMaterialInterface::StaticClass())
+						.DisplayThumbnail(true)
+						.ThumbnailSize(FIntPoint(32,32))
+						.DisplayUseSelected(false)
+						.AllowClear(false)
+						.DisplayBrowse(false)
+						.EnableContentPicker(false)
+
+						.ThumbnailPool(ThumbnailPool)
+					]
+				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(2)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.Padding(0)
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+						.Text(LOCTEXT("SectionListItemMaterialSlotNameLabel", "Material Slot"))
+						.ToolTipText(MaterialSlotNameTooltipText)
+					]
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					.Padding(5, 0, 0, 0)
+					[
+						SNew(SBox)
+						.HAlign(HAlign_Left)
+						.VAlign(VAlign_Center)
+						[
+							//Material Slot Name
+							SNew(SComboButton)
+							.OnGetMenuContent(this, &FSectionItemView::OnGetMaterialSlotNameMenuForSection)
+							.VAlign(VAlign_Center)
+							.ContentPadding(2)
+							.IsEnabled(!SectionItem.IsSectionUsingCloth)
+							.ButtonContent()
+							[
+								SNew(STextBlock)
+								.Font(IDetailLayoutBuilder::GetDetailFont())
+								.Text(this, &FSectionItemView::GetCurrentMaterialSlotName)
+								.ToolTipText(MaterialSlotNameTooltipText)
+							]
+						]
+					]
+				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.VAlign(VAlign_Center)
+				[
+					OnGenerateCustomSectionWidgets.IsBound() ? OnGenerateCustomSectionWidgets.Execute(SectionItem.LodIndex, SectionItem.SectionIndex) : StaticCastSharedRef<SWidget>(SNullWidget::NullWidget)
+				]
+			];
+	}
+
+private:
+
+	FSectionItemView(const FSectionListItem& InSection,
+		FOnSectionChanged& InOnSectionChanged,
+		FOnGenerateWidgetsForSection& InOnGenerateNameWidgets,
+		FOnGenerateWidgetsForSection& InOnGenerateSectionWidgets,
+		FOnResetSectionToDefaultClicked& InOnResetToDefaultClicked,
+		int32 InMultipleSectionCount)
+		: SectionItem(InSection)
+		, OnSectionChanged(InOnSectionChanged)
+		, OnGenerateCustomNameWidgets(InOnGenerateNameWidgets)
+		, OnGenerateCustomSectionWidgets(InOnGenerateSectionWidgets)
+		, OnResetToDefaultClicked(InOnResetToDefaultClicked)
+		, MultipleSectionCount(InMultipleSectionCount)
+	{
+
+	}
+
+	TSharedRef<SWidget> OnGetMaterialSlotNameMenuForSection()
+	{
+		FMenuBuilder MenuBuilder(true, NULL);
+
+		// Add a menu item for each texture.  Clicking on the texture will display it in the content browser
+		for (auto kvp : SectionItem.AvailableMaterialSlotName)
+		{
+			FName AvailableMaterialSlotName = kvp.Value;
+			int32 AvailableMaterialSlotIndex = kvp.Key;
+
+			FUIAction Action(FExecuteAction::CreateSP(this, &FSectionItemView::SetMaterialSlotName, AvailableMaterialSlotIndex, AvailableMaterialSlotName));
+
+			FString MaterialSlotDisplayName;
+			AvailableMaterialSlotName.ToString(MaterialSlotDisplayName);
+			MaterialSlotDisplayName = TEXT("[") + FString::FromInt(kvp.Key) + TEXT("] ") + MaterialSlotDisplayName;
+			MenuBuilder.AddMenuEntry(FText::FromString(MaterialSlotDisplayName), LOCTEXT("BrowseAvailableMaterialSlotName_ToolTip", "Set the material slot name for this section"), FSlateIcon(), Action);
+		}
+
+		return MenuBuilder.MakeWidget();
+	}
+
+	void SetMaterialSlotName(int32 MaterialSlotIndex, FName NewSlotName)
+	{
+		OnSectionChanged.ExecuteIfBound(SectionItem.LodIndex, SectionItem.SectionIndex, MaterialSlotIndex, NewSlotName);
+	}
+
+	FText GetCurrentMaterialSlotName() const
+	{
+		FString MaterialSlotDisplayName;
+		SectionItem.MaterialSlotName.ToString(MaterialSlotDisplayName);
+		MaterialSlotDisplayName = TEXT("[") + FString::FromInt(SectionItem.MaterialSlotIndex) + TEXT("] ") + MaterialSlotDisplayName;
+		return FText::FromString(MaterialSlotDisplayName);
+	}
+
+	/**
+	* Called when reset to base is clicked
+	*/
+	FReply OnResetToBaseClicked()
+	{
+		OnResetToDefaultClicked.ExecuteIfBound(SectionItem.LodIndex, SectionItem.SectionIndex);
+		return FReply::Handled();
+	}
+
+private:
+	FSectionListItem SectionItem;
+	FOnSectionChanged OnSectionChanged;
+	FOnGenerateWidgetsForSection OnGenerateCustomNameWidgets;
+	FOnGenerateWidgetsForSection OnGenerateCustomSectionWidgets;
+	FOnResetSectionToDefaultClicked OnResetToDefaultClicked;
+	int32 MultipleSectionCount;
+};
+
+
+FSectionList::FSectionList(IDetailLayoutBuilder& InDetailLayoutBuilder, FSectionListDelegates& InSectionListDelegates, bool bInAllowCollapse /*= false*/)
+	: SectionListDelegates(InSectionListDelegates)
+	, DetailLayoutBuilder(InDetailLayoutBuilder)
+	, SectionListBuilder(new FSectionListBuilder)
+	, bAllowCollpase(bInAllowCollapse)
+{
+}
+
+void FSectionList::OnDisplaySectionsForLod(int32 LodIndex)
+{
+	// We now want to display all the materials in the element
+	ExpandedSlots.Add(LodIndex);
+
+	SectionListBuilder->Empty();
+	SectionListDelegates.OnGetSections.ExecuteIfBound(*SectionListBuilder);
+
+	OnRebuildChildren.ExecuteIfBound();
+}
+
+void FSectionList::OnHideSectionsForLod(int32 SlotIndex)
+{
+	// No longer want to expand the element
+	ExpandedSlots.Remove(SlotIndex);
+
+	// regenerate the Sections
+	SectionListBuilder->Empty();
+	SectionListDelegates.OnGetSections.ExecuteIfBound(*SectionListBuilder);
+
+	OnRebuildChildren.ExecuteIfBound();
+}
+
+
+void FSectionList::Tick(float DeltaTime)
+{
+	// Check each Section to see if its still valid.  This allows the Section list to stay up to date when Sections are changed out from under us
+	if (SectionListDelegates.OnGetSections.IsBound())
+	{
+		// Whether or not to refresh the Section list
+		bool bRefrestSectionList = false;
+
+		// Get the current list of Sections from the user
+		SectionListBuilder->Empty();
+		SectionListDelegates.OnGetSections.ExecuteIfBound(*SectionListBuilder);
+
+		if (SectionListBuilder->GetNumSections() != DisplayedSections.Num())
+		{
+			// The array sizes differ so we need to refresh the list
+			bRefrestSectionList = true;
+		}
+		else
+		{
+			// Compare the new list against the currently displayed list
+			for (int32 SectionIndex = 0; SectionIndex < SectionListBuilder->Sections.Num(); ++SectionIndex)
+			{
+				const FSectionListItem& Item = SectionListBuilder->Sections[SectionIndex];
+
+				// The displayed Sections is out of date if there isn't a 1:1 mapping between the Section sets
+				if (!DisplayedSections.IsValidIndex(SectionIndex) || DisplayedSections[SectionIndex] != Item)
+				{
+					bRefrestSectionList = true;
+					break;
+				}
+			}
+		}
+
+		if (bRefrestSectionList)
+		{
+			OnRebuildChildren.ExecuteIfBound();
+		}
+	}
+}
+
+void FSectionList::GenerateHeaderRowContent(FDetailWidgetRow& NodeRow)
+{
+	NodeRow.NameContent()
+	[
+		SNew(STextBlock)
+		.Text(LOCTEXT("SectionHeaderTitle", "Sections"))
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+	];
+}
+
+void FSectionList::GenerateChildContent(IDetailChildrenBuilder& ChildrenBuilder)
+{
+	ViewedSections.Empty();
+	DisplayedSections.Empty();
+	if (SectionListBuilder->GetNumSections() > 0)
+	{
+		DisplayedSections = SectionListBuilder->Sections;
+
+		SectionListBuilder->Sort();
+		TArray<FSectionListItem>& Sections = SectionListBuilder->Sections;
+
+		int32 CurrentLODIndex = INDEX_NONE;
+		bool bDisplayAllSectionsInSlot = true;
+		for (auto It = Sections.CreateConstIterator(); It; ++It)
+		{
+			const FSectionListItem& Section = *It;
+
+			CurrentLODIndex = Section.LodIndex;
+
+			// Display each thumbnail element unless we shouldn't display multiple Sections for one slot
+			if (bDisplayAllSectionsInSlot)
+			{
+				FDetailWidgetRow& ChildRow = ChildrenBuilder.AddChildContent(Section.Material.IsValid() ? FText::FromString(Section.Material->GetName()) : FText::GetEmpty());
+				AddSectionItem(ChildRow, CurrentLODIndex, FSectionListItem(CurrentLODIndex, Section.SectionIndex, Section.MaterialSlotName, Section.MaterialSlotIndex, Section.OriginalMaterialSlotName, Section.AvailableMaterialSlotName, Section.Material.Get(), Section.IsSectionUsingCloth), !bDisplayAllSectionsInSlot);
+			}
+		}
+	}
+	else
+	{
+		FDetailWidgetRow& ChildRow = ChildrenBuilder.AddChildContent(LOCTEXT("NoSections", "No Sections"));
+
+		ChildRow
+			[
+				SNew(SBox)
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("NoSections", "No Sections"))
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				]
+			];
+	}
+}
+
+void FSectionList::AddSectionItem(FDetailWidgetRow& Row, int32 LodIndex, const struct FSectionListItem& Item, bool bDisplayLink)
+{
+	uint32 NumSections = SectionListBuilder->GetNumSections(LodIndex);
+
+	TSharedRef<FSectionItemView> NewView = FSectionItemView::Create(Item, SectionListDelegates.OnSectionChanged, SectionListDelegates.OnGenerateCustomNameWidgets, SectionListDelegates.OnGenerateCustomSectionWidgets, SectionListDelegates.OnResetSectionToDefaultClicked, NumSections);
+
+	TSharedPtr<SWidget> RightSideContent;
+	if (bDisplayLink)
+	{
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("NumSections"), NumSections);
+
+		RightSideContent =
+			SNew(SBox)
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Top)
+			[
+				SNew(SHyperlink)
+				.TextStyle(FEditorStyle::Get(), "MaterialList.HyperlinkStyle")
+				.Text(FText::Format(LOCTEXT("DisplayAllSectionLinkText", "Display {NumSections} Sections"), Arguments))
+				.ToolTipText(LOCTEXT("DisplayAllSectionLink_ToolTip", "Display all Sections. Drag and drop a Section here to replace all Sections."))
+				.OnNavigate(this, &FSectionList::OnDisplaySectionsForLod, LodIndex)
+			];
+	}
+	else
+	{
+		RightSideContent = NewView->CreateValueContent(DetailLayoutBuilder.GetThumbnailPool());
+		ViewedSections.Add(NewView);
+	}
+
+	Row.NameContent()
+		[
+			NewView->CreateNameContent()
+		]
+	.ValueContent()
+		.MinDesiredWidth(250.0f)
+		.MaxDesiredWidth(0.0f) // no maximum
+		[
+			RightSideContent.ToSharedRef()
+		];
+}
+
+
+void SMaterialSlotWidget::Construct(const FArguments& InArgs, int32 SlotIndex, bool bIsMaterialUsed)
+{
+	TSharedPtr<SHorizontalBox> SlotNameBox;
+
+	TSharedRef<SWidget> DeleteButton =
+		PropertyCustomizationHelpers::MakeDeleteButton(
+			InArgs._OnDeleteMaterialSlot,
+			LOCTEXT("CustomNameMaterialNotUsedDeleteTooltip", "Delete this material slot"),
+			InArgs._CanDeleteMaterialSlot);
+
+	if(bIsMaterialUsed)
+	{
+		DeleteButton->SetVisibility(EVisibility::Hidden);
+	}
+
+	ChildSlot
+	[
+		SAssignNew(SlotNameBox, SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		[
+			SNew(SBox)
+			.VAlign(VAlign_Center)
+			// Match the size of the thumbnail
+			.MinDesiredWidth(64.0f)
+			[
+				SNew(STextBlock)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("MaterialArrayNameLabelStringKey", "Slot name"))
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		.Padding(12.0f, 3.0f, 0.0f, 3.0f)
+		[
+			SNew(SBox)
+			.VAlign(VAlign_Center)
+			.MinDesiredWidth(125.0f)
+			[
+				SNew(SEditableTextBox)
+				.Text(InArgs._MaterialName)
+				.OnTextChanged(InArgs._OnMaterialNameChanged)
+				.OnTextCommitted(InArgs._OnMaterialNameCommitted)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+			]
+		]
+	];
+
+	SlotNameBox->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Left)
+		.Padding(2)
+		[
+			DeleteButton
+		];
+}
+
+#undef LOCTEXT_NAMESPACE

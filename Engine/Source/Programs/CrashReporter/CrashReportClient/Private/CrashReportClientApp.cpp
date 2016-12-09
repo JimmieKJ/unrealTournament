@@ -1,9 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashReportClientApp.h"
-#include "EngineVersion.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
+#include "Misc/QueuedThreadPool.h"
+#include "Internationalization/Internationalization.h"
+#include "Math/Vector2D.h"
+#include "Misc/ConfigCacheIni.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Misc/App.h"
+#include "CrashReportClientConfig.h"
+#include "GenericPlatform/GenericPlatformCrashContext.h"
 #include "CrashDescription.h"
 #include "CrashReportAnalytics.h"
+#include "Modules/ModuleManager.h"
 #include "QoSReporter.h"
 
 #if !CRASH_REPORT_UNATTENDED_ONLY
@@ -11,11 +21,12 @@
 	#include "CrashReportClient.h"
 	#include "CrashReportClientStyle.h"
 	#include "ISlateReflectorModule.h"
+	#include "Framework/Application/SlateApplication.h"
 #endif // !CRASH_REPORT_UNATTENDED_ONLY
 
 #include "CrashReportClientUnattended.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "RequiredProgramMainCPPInclude.h"
-#include "AsyncWork.h"
 
 #include "MainLoopTiming.h"
 
@@ -234,11 +245,13 @@ bool RunWithUI(FPlatformErrorReport ErrorReport)
 	// open up the app window	
 	TSharedRef<SCrashReportClient> ClientControl = SNew(SCrashReportClient, CrashReportClient);
 
+	const FSlateRect WorkArea = FSlateApplicationBase::Get().GetPreferredWorkArea();
+
 	auto Window = FSlateApplication::Get().AddWindow(
 		SNew(SWindow)
 		.Title(NSLOCTEXT("CrashReportClient", "CrashReportClientAppName", "Unreal Engine 4 Crash Reporter"))
 		.HasCloseButton(FCrashReportClientConfig::Get().IsAllowedToCloseWithoutSending())
-		.ClientSize(InitialWindowDimensions)
+		.ClientSize(InitialWindowDimensions * FPlatformMisc::GetDPIScaleFactorAtPoint(WorkArea.Left, WorkArea.Top))
 		[
 			ClientControl
 		]);
@@ -299,6 +312,12 @@ void RunCrashReportClient(const TCHAR* CommandLine)
 
 	// Set up the main loop
 	GEngineLoop.PreInit(CommandLine);
+
+	// Make sure all UObject classes are registered and default properties have been initialized
+	ProcessNewlyLoadedUObjects();
+
+	// Tell the module manager is may now process newly-loaded UObjects when new C++ modules are loaded
+	FModuleManager::Get().StartProcessingNewlyLoadedObjects();
 
 	// Initialize config.
 	FCrashReportClientConfig::Get();

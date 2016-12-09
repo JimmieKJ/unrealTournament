@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "EdGraphToken.h"
 #include "Kismet2/CompilerResultsLog.h"
 
@@ -40,11 +39,18 @@ FEdGraphToken::FEdGraphToken(const UObject* InObject, const UEdGraphPin* InPin)
 {
 	if (InPin)
 	{
-		CachedText = FText::FromString(InPin->GetName());
+		CachedText = InPin->GetDisplayName();
 	}
 	else if (InObject)
 	{
-		CachedText = FText::FromString(InObject->GetName());
+		if (const UEdGraphNode* Node = Cast<UEdGraphNode>(InObject))
+		{
+			CachedText = Node->GetNodeTitle(ENodeTitleType::ListView);
+		}
+		else
+		{
+			CachedText = FText::FromString(InObject->GetName());
+		}
 	}
 	else
 	{

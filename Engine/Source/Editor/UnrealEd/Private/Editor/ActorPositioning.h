@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Settings/LevelEditorViewportSettings.h"
+
+class AActor;
+class FLevelEditorViewportClient;
+class FSceneView;
+class UActorFactory;
+struct FViewportCursorLocation;
+
 /** Positioning data struct */
 struct FPositioningData
 {

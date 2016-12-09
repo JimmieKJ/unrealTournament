@@ -1,9 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "LevelEditor.h"
-#include "SVectorInputBox.h"
 #include "DlgDeltaTransform.h"
+#include "InputCoreTypes.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Editor.h"
+#include "UnrealEdGlobals.h"
+#include "Widgets/Input/SVectorInputBox.h"
 
 #define LOCTEXT_NAMESPACE "DeltaTransform"
 

@@ -1,11 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TaskGraphPrivatePCH.h"
-#include "SlateBasics.h"
-#include "TaskGraphStyle.h"
-#include "TaskGraphInterfaces.h"
-#include "VisualizerEvents.h"
 #include "SGraphBar.h"
+#include "Rendering/DrawElements.h"
+#include "TaskGraphStyle.h"
 
 FColor SGraphBar::ColorPalette[] = {
 	FColor( 0xff00A480 ),

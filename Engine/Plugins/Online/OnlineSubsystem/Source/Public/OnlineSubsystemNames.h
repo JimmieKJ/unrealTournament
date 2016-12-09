@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #ifndef NULL_SUBSYSTEM
 #define NULL_SUBSYSTEM FName(TEXT("NULL"))
 #endif

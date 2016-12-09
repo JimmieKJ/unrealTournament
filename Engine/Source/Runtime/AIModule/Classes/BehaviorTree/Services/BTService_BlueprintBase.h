@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "BehaviorTree/BTService.h"
 #include "BTService_BlueprintBase.generated.h"
 
-class FBehaviorBlueprintDetails;
+class AActor;
+class AAIController;
+class APawn;
+class UBehaviorTree;
 
 /**
  *  Base class for blueprint based service nodes. Do NOT use it for creating native c++ classes!
@@ -124,6 +130,4 @@ protected:
 	/** check if service is currently being active */
 	UFUNCTION(BlueprintCallable, Category="AI|BehaviorTree")
 	bool IsServiceActive() const;
-
-	friend FBehaviorBlueprintDetails;
 };

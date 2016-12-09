@@ -1,9 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "WorldBrowserPrivatePCH.h"
-
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
 #include "SWorldDetails.h"
+#include "EditorStyleSet.h"
+#include "LevelCollectionModel.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "WorldBrowserModule.h"
+
+#include "IDetailsView.h"
+#include "LevelEditor.h"
+#include "PropertyEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 

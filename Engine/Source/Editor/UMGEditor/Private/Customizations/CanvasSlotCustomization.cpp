@@ -1,16 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
+#include "Customizations/CanvasSlotCustomization.h"
+#include "Widgets/Layout/Anchors.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+
+#include "Widgets/Layout/SConstraintCanvas.h"
 #include "Components/CanvasPanelSlot.h"
-#include "PropertyEditing.h"
-#include "ObjectEditorUtils.h"
-#include "WidgetGraphSchema.h"
+
+#include "IDetailChildrenBuilder.h"
+#include "DetailLayoutBuilder.h"
 #include "ScopedTransaction.h"
-#include "BlueprintEditorUtils.h"
 
-#include "SConstraintCanvas.h"
 
-#include "CanvasSlotCustomization.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

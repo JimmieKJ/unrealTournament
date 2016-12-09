@@ -285,18 +285,19 @@ public:
 	 */
 	virtual void RHIEndDrawIndexedPrimitiveUP() final override;
 	
-	/*
-	 * This method clears all MRT's, but to only one color value
-	 * @param ExcludeRect within the viewport in pixels, is only a hint to optimize - if a fast clear can be done this is preferred
-	 */
-	virtual void RHIClear(bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) final override;
-	
-	/*
-	 * This method clears all MRT's to potentially different color values
-	 * @param ExcludeRect within the viewport in pixels, is only a hint to optimize - if a fast clear can be done this is preferred
-	 */
-	virtual void RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) final override;
-	
+	virtual void RHIClearColorTexture(FTextureRHIParamRef Texture, const FLinearColor& Color, FIntRect ExcludeRect) final override
+	{
+		RHIClear(true, Color, false, 0, false, 0, ExcludeRect);
+	}
+	virtual void RHIClearDepthStencilTexture(FTextureRHIParamRef Texture, EClearDepthStencil ClearDepthStencil, float Depth, uint32 Stencil, FIntRect ExcludeRect) final override
+	{
+		RHIClear(false, FLinearColor::Black, ClearDepthStencil != EClearDepthStencil::Stencil, Depth, ClearDepthStencil != EClearDepthStencil::Depth, Stencil, ExcludeRect);
+	}
+	virtual void RHIClearColorTextures(int32 NumTextures, FTextureRHIParamRef* Textures, const FLinearColor* ColorArray, FIntRect ExcludeRect) final override
+	{
+		RHIClearMRT(true, NumTextures, ColorArray, false, 0, false, 0, ExcludeRect);
+	}
+
 	/**
 	 * Enabled/Disables Depth Bounds Testing with the given min/max depth.
 	 * @param bEnable	Enable(non-zero)/disable(zero) the depth bounds test
@@ -343,7 +344,7 @@ protected:
 	/** Profiling implementation details. */
 	struct FMetalGPUProfiler* Profiler;
 	
-	/** Some local variables to track the pending primitive information uised in RHIEnd*UP functions */
+	/** Some local variables to track the pending primitive information used in RHIEnd*UP functions */
 	uint32 PendingVertexBufferOffset;
 	uint32 PendingVertexDataStride;
 	
@@ -352,6 +353,10 @@ protected:
 	
 	uint32 PendingPrimitiveType;
 	uint32 PendingNumPrimitives;
+
+private:
+	void RHIClear(bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect);
+	void RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect);
 };
 
 class FMetalRHIComputeContext : public FMetalRHICommandContext

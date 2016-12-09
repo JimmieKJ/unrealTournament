@@ -1,10 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeEditorPrivatePCH.h"
+#include "CodeProjectEditor.h"
+#include "CodeProjectItem.h"
+#include "CodeProject.h"
+#include "CodeEditorStyle.h"
+#include "CodeProjectEditorCommands.h"
+#include "WorkflowOrientedApp/WorkflowTabFactory.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
 #include "SCodeEditor.h"
 #include "SCodeProjectEditor.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "CodeProjectEditorToolbar.h"
+#include "WorkflowOrientedApp/ApplicationMode.h"
+#include "WorkflowOrientedApp/WorkflowUObjectDocuments.h"
 
 
 #define LOCTEXT_NAMESPACE "CodeEditor"

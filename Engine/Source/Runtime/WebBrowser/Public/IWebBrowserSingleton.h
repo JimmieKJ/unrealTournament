@@ -2,10 +2,12 @@
 
 #pragma once
 
-// Forward Declarations
-class FSlateRenderer;
+#include "CoreMinimal.h"
+#include "Rendering/SlateRenderer.h"
+
+class FCEFWebBrowserWindow;
+class IWebBrowserCookieManager;
 class IWebBrowserWindow;
-class FWebBrowserWindow;
 struct FWebBrowserWindowInfo;
 
 class IWebBrowserWindowFactory
@@ -13,7 +15,7 @@ class IWebBrowserWindowFactory
 public:
 
 	virtual TSharedPtr<IWebBrowserWindow> Create(
-		TSharedPtr<FWebBrowserWindow>& BrowserWindowParent,
+		TSharedPtr<FCEFWebBrowserWindow>& BrowserWindowParent,
 		TSharedPtr<FWebBrowserWindowInfo>& BrowserWindowInfo) = 0;
 
 	virtual TSharedPtr<IWebBrowserWindow> Create(
@@ -93,7 +95,7 @@ public:
 	 * @return New Web Browser Window Interface (may be null if not supported)
 	 */
 	virtual TSharedPtr<IWebBrowserWindow> CreateBrowserWindow(
-		TSharedPtr<FWebBrowserWindow>& BrowserWindowParent,
+		TSharedPtr<FCEFWebBrowserWindow>& BrowserWindowParent,
 		TSharedPtr<FWebBrowserWindowInfo>& BrowserWindowInfo
 		) = 0;
 
@@ -111,11 +113,11 @@ public:
 	 */
 	DEPRECATED(4.11, "Please use the new overload that takes a settings struct.")
 	virtual TSharedPtr<IWebBrowserWindow> CreateBrowserWindow(
-		void* OSWindowHandle, 
-		FString InitialURL, 
+		void* OSWindowHandle,
+		FString InitialURL,
 		bool bUseTransparency,
 		bool bThumbMouseButtonNavigation,
-		TOptional<FString> ContentsToLoad = TOptional<FString>(), 
+		TOptional<FString> ContentsToLoad = TOptional<FString>(),
 		bool ShowErrorMessage = true,
 		FColor BackgroundColor = FColor(255, 255, 255, 255),
 		int BrowserFrameRate = 24 ) = 0;
@@ -162,5 +164,19 @@ public:
 	 * @return a boolean value indicating whether the keyboard shortcut is enabled or not.
 	 */
 	virtual bool IsDevToolsShortcutEnabled() = 0;
+
+
+	/**
+	 * Enable or disable to-lowering of JavaScript object member bindings.
+	 *
+	 * Due to how JavaScript to UObject bridges require the use of FNames for building up the JS API objects, it is possible for case-sensitivity issues
+	 * to develop if an FName has been previously created with differing case to your function or property names. To-lowering the member names allows
+	 * a guaranteed casing for the web page's JS to reference.
+	 *
+	 * Default behavior is enabled, so that all JS side objects have only lowercase members.
+	 *
+	 * @param bEnabled a boolean value to enable or disable the to-lowering.
+	 */
+	virtual void SetJSBindingToLoweringEnabled(bool bEnabled) = 0;
 
 };

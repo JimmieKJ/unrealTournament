@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "MouseCursorBinding.h"
+#include "Binding/MouseCursorBinding.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -18,7 +17,11 @@ bool UMouseCursorBinding::IsSupportedDestination(UProperty* Property) const
 {
 	static const FName MouseCursorEnum(TEXT("EMouseCursor"));
 	
-	if ( UByteProperty* ByteProperty = Cast<UByteProperty>(Property) )
+	if ( UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property) )
+	{
+		return EnumProperty->GetEnum()->GetFName() == MouseCursorEnum;
+	}
+	else if ( UByteProperty* ByteProperty = Cast<UByteProperty>(Property) )
 	{
 		if ( ByteProperty->IsEnum() )
 		{

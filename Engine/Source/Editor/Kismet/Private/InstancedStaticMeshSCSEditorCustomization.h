@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "EditorViewportClient.h"
+#include "BlueprintEditorModule.h"
 #include "ISCSEditorCustomization.h"
 
 class FInstancedStaticMeshSCSEditorCustomization : public ISCSEditorCustomization

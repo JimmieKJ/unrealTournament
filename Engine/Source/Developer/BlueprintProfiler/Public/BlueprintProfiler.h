@@ -2,12 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "TickableEditorObject.h"
+#include "EdGraphUtilities.h"
 #include "BlueprintProfilerModule.h"
 #include "ScriptInstrumentationCapture.h"
 
-#if WITH_EDITOR
-#include "ScriptInstrumentationPlayback.h"
-#endif
+class FBlueprintExecutionContext;
+class FScriptEventPlayback;
+class FScriptExecutionBlueprint;
+class FScriptExecutionNode;
+class UBlueprint;
 
 //////////////////////////////////////////////////////////////////////////
 // FBlueprintProfiler
@@ -33,11 +39,14 @@ public:
 #if WITH_EDITOR
 	virtual void AddInstrumentedBlueprint(UBlueprint* InstrumentedBlueprint) override;
 	virtual FOnBPStatGraphLayoutChanged& GetGraphLayoutChangedDelegate() { return GraphLayoutChangedDelegate; }
-	virtual TSharedPtr<FBlueprintExecutionContext> GetBlueprintContext(const FString& BlueprintClassPath) override;
+	virtual TSharedPtr<FBlueprintExecutionContext> GetOrCreateBlueprintContext(const FString& BlueprintClassPath) override;
+	virtual TSharedPtr<FBlueprintExecutionContext> FindBlueprintContext(const FString& BlueprintClassPath) override;
 	virtual TSharedPtr<FScriptExecutionNode> GetProfilerDataForNode(const UEdGraphNode* GraphNode) override;
 	virtual TSharedPtr<FScriptExecutionBlueprint> GetProfilerDataForBlueprint(const UBlueprint* Blueprint) override;
 	virtual bool HasDataForInstance(const UObject* Instance) const override;
 	virtual void ProcessEventProfilingData() override;
+	virtual void AssociateUtilityContexts(TSharedPtr<FBlueprintExecutionContext> TargetContext);
+	virtual void RemoveUtilityContexts(TSharedPtr<FBlueprintExecutionContext> TargetContext);
 #endif
 	// End IBlueprintProfilerModule
 
@@ -84,8 +93,10 @@ protected:
 	bool bPIEActive;
 	/** Suspended script events, the key is the latent LinkId */
 	TMap<FName, TMap<int32, TSharedPtr<FScriptEventPlayback>>> SuspendedEvents;
-	/** Cached object path and code offset lookup to UObjects */
+	/** Cached object path lookup to blueprints */
 	TMap<FString, TSharedPtr<FBlueprintExecutionContext>> PathToBlueprintContext;
+	/** Cached object path lookup to utility blueprints */
+	TMap<FString, TSharedPtr<FBlueprintExecutionContext>> PathToBlueprintUtilityContext;
 	/** The profiler connection factory */
 	TSharedPtr<struct FGraphPanelPinConnectionFactory> ConnectionFactory;
 #endif

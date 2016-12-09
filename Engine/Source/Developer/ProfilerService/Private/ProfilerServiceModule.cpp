@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerServicePrivatePCH.h"
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "IProfilerServiceModule.h"
+#include "ProfilerServiceManager.h"
 
 
 /**
@@ -12,7 +14,8 @@ class FProfilerServiceModule
 {
 public:
 
-	// Begin IModuleInterface interface
+	//~ IModuleInterface interface
+
 	virtual void ShutdownModule() override
 	{
 		if (ProfilerServiceManager.IsValid())
@@ -21,10 +24,12 @@ public:
 		}
 		ProfilerServiceManager.Reset();
 	}
-	// End IModuleInterface interface
 
-	// Begin IProfilerServiceModule interface
-	virtual IProfilerServiceManagerPtr CreateProfilerServiceManager( ) override
+public:
+
+	//~ IProfilerServiceModule interface
+
+	virtual TSharedPtr<IProfilerServiceManager> CreateProfilerServiceManager() override
 	{
 		if (!ProfilerServiceManager.IsValid())
 		{
@@ -34,18 +39,15 @@ public:
 
 		return ProfilerServiceManager;
 	}
-	// End IProfilerServiceModule interface
 
 private:
-	/**
-	 * Holds the profiler service singleton
-	 */
-	static IProfilerServiceManagerPtr ProfilerServiceManager;
+
+	/** The profiler service singleton. */
+	static TSharedPtr<IProfilerServiceManager> ProfilerServiceManager;
 };
 
-/* Static initialization
-******************************************************************************/
-IProfilerServiceManagerPtr FProfilerServiceModule::ProfilerServiceManager = NULL;
+
+TSharedPtr<IProfilerServiceManager> FProfilerServiceModule::ProfilerServiceManager = nullptr;
 
 
 IMPLEMENT_MODULE(FProfilerServiceModule, ProfilerService);

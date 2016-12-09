@@ -1280,12 +1280,11 @@ namespace AutomationTool
 		}
 
 		/// <summary>
-		/// Copies a file.
+		/// Copies a file, throwing an exception on failure.
 		/// </summary>
 		/// <param name="Source"></param>
 		/// <param name="Dest"></param>
         /// <param name="bQuiet">When true, logging is suppressed.</param>
-        /// <returns>True if the operation was successful, false otherwise.</returns>
         public static void CopyFile(string Source, string Dest, bool bQuiet = false)
 		{
 			Source = ConvertSeparators(PathSeparator.Default, Source);
@@ -1603,9 +1602,12 @@ namespace AutomationTool
 		/// <param name="Source"></param>
 		/// <param name="Dest"></param>
 		/// <param name="MaxThreads"></param>
-		public static void ThreadedCopyFiles(List<string> Source, List<string> Dest, int MaxThreads = 64)
+		public static void ThreadedCopyFiles(List<string> Source, List<string> Dest, int MaxThreads = 64, bool bQuiet = false)
 		{
-			Log("Copying {0} file(s) using max {1} thread(s)", Source.Count, MaxThreads);
+			if(!bQuiet)
+			{
+				Log("Copying {0} file(s) using max {1} thread(s)", Source.Count, MaxThreads);
+			}
 
             if (Source.Count != Dest.Count)
 			{
@@ -1656,6 +1658,23 @@ namespace AutomationTool
 			var RelativePaths = Filter.ApplyToDirectory(SourceDir, bIgnoreSymlinks);
 			return ThreadedCopyFiles(SourceDir, TargetDir, RelativePaths);
 		}
+
+		/// <summary>
+		/// Moves files in parallel
+        /// </summary>
+		/// <param
+		/// <param name="SourceAndTargetPairs">Pairs of source and target files</param>
+		public static void ParallelMoveFiles(IEnumerable<KeyValuePair<FileReference, FileReference>> SourceAndTargetPairs)
+		{
+            try
+            {
+                Parallel.ForEach(SourceAndTargetPairs, Pair => File.Move(Pair.Key.FullName, Pair.Value.FullName));
+            }
+            catch (AggregateException Ex)
+            {
+                throw new AutomationException(Ex, "Failed to thread-copy files.");
+            }
+        }
 
 		#endregion
 
@@ -1723,21 +1742,44 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="Args">Arguments</param>
 		/// <returns>Single string containing all arguments separated with a space.</returns>
-		public static string ArgsToCommandLine(params object[] Args)
+		public static string FormatCommandLine(IEnumerable<string> Arguments)
 		{
-			string Arguments = "";
-			if (Args != null)
+			StringBuilder Result = new StringBuilder();
+			foreach(string Argument in Arguments)
 			{
-				for (int Index = 0; Index < Args.Length; ++Index)
+				if(Result.Length > 0)
 				{
-					Arguments += Args[Index].ToString();
-					if (Index < (Args.Length - 1))
-					{
-						Arguments += " ";
-					}
+					Result.Append(" ");
 				}
+				Result.Append(FormatArgumentForCommandLine(Argument));
 			}
-			return Arguments;
+			return Result.ToString();
+		}
+
+		/// <summary>
+		/// Format a single argument for passing on the command line, inserting quotes as necessary.
+		/// </summary>
+		/// <param name="Argument">The argument to quote</param>
+		/// <returns>The argument, with quotes if necessary</returns>
+		public static string FormatArgumentForCommandLine(string Argument)
+		{
+			// Check if the argument contains a space. If not, we can just pass it directly.
+			int SpaceIdx = Argument.IndexOf(' ');
+			if(SpaceIdx == -1)
+			{
+				return Argument;
+			}
+
+			// If it does have a space, and it's formatted as an option (ie. -Something=), try to insert quotes after the equals character
+			int EqualsIdx = Argument.IndexOf('=');
+			if(Argument.StartsWith("-") && EqualsIdx != -1 && EqualsIdx < SpaceIdx)
+			{
+				return String.Format("{0}=\"{1}\"", Argument.Substring(0, EqualsIdx), Argument.Substring(EqualsIdx + 1));
+			}
+			else
+			{
+				return String.Format("\"{0}\"", Argument);
+			}
 		}
 
 		/// <summary>
@@ -2156,27 +2198,63 @@ namespace AutomationTool
 		/// <returns>List of files written</returns>
 		public static IEnumerable<string> UnzipFiles(string ZipFileName, string BaseDirectory)
 		{
-			// manually extract the files. There was a problem with the Ionic.Zip library that required this on non-PC at one point,
-			// but that problem is now fixed. Leaving this code as is as we need to return the list of created files and fix up their permissions anyway.
-			using (Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile(ZipFileName))
+			List<string> OutputFileNames = new List<string>();
+			if (Utils.IsRunningOnMono)
 			{
-				List<string> OutputFileNames = new List<string>();
-				foreach(Ionic.Zip.ZipEntry Entry in Zip.Entries.Where(x => !x.IsDirectory))
+				CommandUtils.CreateDirectory(BaseDirectory);
+
+				// Use system unzip tool as there have been instances of Ionic not being able to open zips created with Mac zip tool
+				string Output = CommandUtils.RunAndLog("unzip", "\"" + ZipFileName + "\" -d \"" + BaseDirectory + "\"");
+
+				// Split log output into lines
+				string[] Lines = Output.Split(new char[] { '\n', '\r' });
+
+				foreach (string LogLine in Lines)
 				{
-					string OutputFileName = Path.Combine(BaseDirectory, Entry.FileName);
-					Directory.CreateDirectory(Path.GetDirectoryName(OutputFileName));
-					using(FileStream OutputStream = new FileStream(OutputFileName, FileMode.Create, FileAccess.Write))
+					CommandUtils.Log(LogLine);
+
+					// Split each line into two by whitespace
+					string[] SplitLine = LogLine.Split(new char[] { ' ', '\t' }, 2, StringSplitOptions.RemoveEmptyEntries);
+					if (SplitLine.Length == 2)
 					{
-						Entry.Extract(OutputStream);
+						// Second part of line should be a path
+						string FilePath = SplitLine[1].Trim();
+						CommandUtils.Log(FilePath);
+						if (File.Exists(FilePath) && !OutputFileNames.Contains(FilePath) && FilePath != ZipFileName)
+						{
+							if (CommandUtils.IsProbablyAMacOrIOSExe(FilePath))
+							{
+								FixUnixFilePermissions(FilePath);
+							}
+							OutputFileNames.Add(FilePath);
+						}
 					}
-					if (UnrealBuildTool.Utils.IsRunningOnMono && CommandUtils.IsProbablyAMacOrIOSExe(OutputFileName))
-					{
-						FixUnixFilePermissions(OutputFileName);
-					}
-					OutputFileNames.Add(OutputFileName);
 				}
-				return OutputFileNames;
+				if (OutputFileNames.Count == 0)
+				{
+					CommandUtils.LogWarning("Unable to parse unzipped files from {0}", ZipFileName);
+				}
 			}
+			else
+			{
+				// manually extract the files. There was a problem with the Ionic.Zip library that required this on non-PC at one point,
+				// but that problem is now fixed. Leaving this code as is as we need to return the list of created files anyway.
+				using (Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile(ZipFileName))
+				{
+					
+					foreach (Ionic.Zip.ZipEntry Entry in Zip.Entries.Where(x => !x.IsDirectory))
+					{
+						string OutputFileName = Path.Combine(BaseDirectory, Entry.FileName);
+						Directory.CreateDirectory(Path.GetDirectoryName(OutputFileName));
+						using (FileStream OutputStream = new FileStream(OutputFileName, FileMode.Create, FileAccess.Write))
+						{
+							Entry.Extract(OutputStream);
+						}
+						OutputFileNames.Add(OutputFileName);
+					}
+				}
+			}
+			return OutputFileNames;
 		}
 
 		/// <summary>
@@ -2576,8 +2654,10 @@ namespace AutomationTool
 				return;
 			}
 
+			WindowsCompiler Compiler = WindowsPlatform.GetDefaultCompiler(new string[0], null);
+
 			string SignToolName = null;
-			if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+			if (Compiler >= WindowsCompiler.VisualStudio2015)
 			{
 				//@todo: Get these paths from the registry
 				if (WindowsPlatform.bUseWindowsSDK10)
@@ -2589,7 +2669,7 @@ namespace AutomationTool
 					SignToolName = "C:/Program Files (x86)/Windows Kits/8.1/bin/x86/SignTool.exe";
 				}
 			}
-			else if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2013)
+			else if (Compiler == WindowsCompiler.VisualStudio2013)
 			{
 				SignToolName = "C:/Program Files (x86)/Windows Kits/8.1/bin/x86/SignTool.exe";
 			}
@@ -2621,7 +2701,7 @@ namespace AutomationTool
 				//  /q does nothing on success and minimal output on failure
 				string CodeSignArgs = String.Format("sign{0} /a /n \"{1}\" /t {2} /d \"{3}\" /v \"{4}\"", SpecificStoreArg, SigningIdentity, TimestampServer[TimestampServerIndex], TargetFileInfo.Name, TargetFileInfo.FullName);
 
-				ProcessResult Result = CommandUtils.Run(SignToolName, CodeSignArgs, null, CommandUtils.ERunOptions.AllowSpew);
+				IProcessResult Result = CommandUtils.Run(SignToolName, CodeSignArgs, null, CommandUtils.ERunOptions.AllowSpew);
 				++NumTrials;
 
 				if (Result.ExitCode != 1)
@@ -2702,7 +2782,7 @@ namespace AutomationTool
 			int NumTrials = 0;
 			for (; ; )
 			{
-				ProcessResult Result = CommandUtils.Run(SignToolName, CodeSignArgs, null, CommandUtils.ERunOptions.AllowSpew);
+				IProcessResult Result = CommandUtils.Run(SignToolName, CodeSignArgs, null, CommandUtils.ERunOptions.AllowSpew);
 				int ExitCode = Result.ExitCode;
 				++NumTrials;
 
@@ -2762,8 +2842,10 @@ namespace AutomationTool
 
 		public static void SignListFilesIfEXEOrDLL(string FilesToSign)
 		{
+			WindowsCompiler Compiler = WindowsPlatform.GetDefaultCompiler(new string[0], null);
+
 			string SignToolName = null;
-			if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
+			if (Compiler == WindowsCompiler.VisualStudio2015)
 			{
 				//@todo: Get these paths from the registry
 				if (WindowsPlatform.bUseWindowsSDK10)
@@ -2775,7 +2857,7 @@ namespace AutomationTool
 					SignToolName = "C:/Program Files (x86)/Windows Kits/8.1/bin/x86/SignTool.exe";
 				}
 			}
-			else if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2013)
+			else if (Compiler == WindowsCompiler.VisualStudio2013)
 			{
 				SignToolName = "C:/Program Files (x86)/Windows Kits/8.1/bin/x86/SignTool.exe";
 			}
@@ -2810,7 +2892,7 @@ namespace AutomationTool
 				//  /q does nothing on success and minimal output on failure
 				string CodeSignArgs = String.Format("sign{0} /a /n \"{1}\" /t {2} /v {3}", SpecificStoreArg, SigningIdentity, TimestampServer[NumTrials % TimestampServer.Length], FilesToSign);
 
-				ProcessResult Result = CommandUtils.Run(SignToolName, CodeSignArgs, null, CommandUtils.ERunOptions.AllowSpew);
+				IProcessResult Result = CommandUtils.Run(SignToolName, CodeSignArgs, null, CommandUtils.ERunOptions.AllowSpew);
 				++NumTrials;
 
 				if (Result.ExitCode != 1)

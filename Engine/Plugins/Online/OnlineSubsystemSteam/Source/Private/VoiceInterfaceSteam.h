@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "VoiceInterface.h"
+#include "CoreMinimal.h"
+#include "Interfaces/VoiceInterface.h"
+#include "Net/VoiceDataCommon.h"
 #include "VoicePacketSteam.h"
 #include "OnlineSubsystemSteamTypes.h"
 #include "OnlineSubsystemSteamPackage.h"

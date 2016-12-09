@@ -1,19 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "SComponentClassCombo.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SComboBox.h"
+#include "EditorStyleSet.h"
+#include "Components/SceneComponent.h"
+#include "Engine/Blueprint.h"
+#include "Engine/Selection.h"
+#include "Editor.h"
 
-#include "BlueprintGraphDefinitions.h"
-#include "SlateIconFinder.h"
+#include "Styling/SlateIconFinder.h"
 #include "ComponentAssetBroker.h"
 #include "ComponentTypeRegistry.h"
 #include "EditorClassUtils.h"
-#include "Engine/Selection.h"
-#include "IDocumentation.h"
-#include "KismetEditorUtilities.h"
-#include "SComponentClassCombo.h"
-#include "SlateBasics.h"
+#include "Widgets/Input/SSearchBox.h"
 #include "SListViewSelectorDropdownMenu.h"
-#include "SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "ComponentClassCombo"
 
@@ -406,6 +410,7 @@ FText SComponentClassCombo::GetFriendlyComponentName(FComponentClassComboEntryPt
 			for(FSelectionIterator ObjectIter(*Selection); ObjectIter; ++ObjectIter)
 			{
 				UObject* Object = *ObjectIter;
+				check(Object);
 				UClass* Class = Object->GetClass();
 
 				TArray<TSubclassOf<UActorComponent> > ComponentClasses = FComponentAssetBrokerage::GetComponentsForAsset(Object);

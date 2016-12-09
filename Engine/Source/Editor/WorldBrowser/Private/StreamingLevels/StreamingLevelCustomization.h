@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-class FStreamingLevelCollectionModel;
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "StreamingLevels/StreamingLevelCollectionModel.h"
+#include "IDetailCustomization.h"
+
+class IDetailChildrenBuilder;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
 
 /////////////////////////////////////////////////////
 // FStreamingLevelCustomization

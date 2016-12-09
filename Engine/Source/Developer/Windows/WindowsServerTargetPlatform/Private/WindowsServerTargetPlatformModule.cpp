@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsServerTargetPlatformPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "GenericWindowsTargetPlatform.h"
+#include "Interfaces/ITargetPlatformModule.h"
 
 
 /** Holds the target platform singleton. */

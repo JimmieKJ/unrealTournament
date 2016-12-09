@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ISlateReflectorModule.h"
 #include "SlateViewer.h"
+#include "Widgets/Docking/SDockTab.h"
 
 
 /**

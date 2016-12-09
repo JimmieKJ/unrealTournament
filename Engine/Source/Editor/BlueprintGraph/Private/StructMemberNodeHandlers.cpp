@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "StructMemberNodeHandlers.h"
+#include "UObject/UnrealType.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_StructMemberGet.h"
+#include "K2Node_StructMemberSet.h"
+#include "EdGraphUtilities.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "KismetCompiler.h"
 
 static FBPTerminal* RegisterStructVar(FCompilerResultsLog& MessageLog, FKismetFunctionContext& Context, UK2Node_StructOperation* MemberSetNode)
 {

@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EditorWidgetsPrivatePCH.h"
+#include "SAssetDiscoveryIndicator.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Notifications/SProgressBar.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "EditorStyleSet.h"
 #include "AssetRegistryModule.h"
-#include "SlateBasics.h"
 
 #define LOCTEXT_NAMESPACE "AssetDiscoveryIndicator"
 

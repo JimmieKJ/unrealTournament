@@ -18,7 +18,60 @@
 #define INTERNAL_DECORATOR_CONTEXT(Method) IRHIComputeContext& Context = (CmdListType == ECmdList::EGfx) ? CmdList.GetContext() : CmdList.GetComputeContext(); Context.Method
 #endif
 
-
+class FRHICommandListBase;
+class IRHIComputeContext;
+struct FComputedBSS;
+struct FComputedGraphicsPipelineState;
+struct FComputedUniformBuffer;
+struct FMemory;
+struct FRHICommandAutomaticCacheFlushAfterComputeShader;
+struct FRHICommandBeginDrawingViewport;
+struct FRHICommandBeginFrame;
+struct FRHICommandBeginOcclusionQueryBatch;
+struct FRHICommandBeginRenderQuery;
+struct FRHICommandBeginScene;
+struct FRHICommandBindClearMRTValues;
+struct FRHICommandBuildLocalBoundShaderState;
+struct FRHICommandBuildLocalGraphicsPipelineState;
+struct FRHICommandBuildLocalUniformBuffer;
+struct FRHICommandClearColorTexture;
+struct FRHICommandClearColorTextures;
+struct FRHICommandClearDepthStencilTexture;
+struct FRHICommandClearUAV;
+struct FRHICommandCopyToResolveTarget;
+struct FRHICommandDrawIndexedIndirect;
+struct FRHICommandDrawIndexedPrimitive;
+struct FRHICommandDrawIndexedPrimitiveIndirect;
+struct FRHICommandDrawPrimitive;
+struct FRHICommandDrawPrimitiveIndirect;
+struct FRHICommandEnableDepthBoundsTest;
+struct FRHICommandEndDrawIndexedPrimitiveUP;
+struct FRHICommandEndDrawingViewport;
+struct FRHICommandEndDrawPrimitiveUP;
+struct FRHICommandEndFrame;
+struct FRHICommandEndOcclusionQueryBatch;
+struct FRHICommandEndRenderQuery;
+struct FRHICommandEndScene;
+struct FRHICommandFlushComputeShaderCache;
+struct FRHICommandSetBlendFactor;
+struct FRHICommandSetBlendState;
+struct FRHICommandSetBoundShaderState;
+struct FRHICommandSetDepthStencilState;
+struct FRHICommandSetLocalBoundShaderState;
+struct FRHICommandSetLocalGraphicsPipelineState;
+struct FRHICommandSetRasterizerState;
+struct FRHICommandSetRenderTargets;
+struct FRHICommandSetRenderTargetsAndClear;
+struct FRHICommandSetScissorRect;
+struct FRHICommandSetStencilRef;
+struct FRHICommandSetStereoViewport;
+struct FRHICommandSetStreamSource;
+struct FRHICommandSetViewport;
+struct FRHICommandTransitionTextures;
+struct FRHICommandTransitionTexturesArray;
+struct FRHICommandUpdateTextureReference;
+enum class ECmdList;
+template <typename TShaderRHIParamRef> struct FRHICommandSetLocalUniformBuffer;
 
 void FRHICommandSetRasterizerState::Execute(FRHICommandListBase& CmdList)
 {
@@ -30,6 +83,12 @@ void FRHICommandSetDepthStencilState::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetDepthStencilState);
 	INTERNAL_DECORATOR(RHISetDepthStencilState)(State, StencilRef);
+}
+
+void FRHICommandSetStencilRef::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(SetStencilRef);
+	INTERNAL_DECORATOR(RHISetStencilRef)(StencilRef);
 }
 
 template <typename TShaderRHIParamRef, ECmdList CmdListType>
@@ -162,6 +221,12 @@ void FRHICommandSetBlendState::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetBlendState);
 	INTERNAL_DECORATOR(RHISetBlendState)(State, BlendFactor);
+}
+
+void FRHICommandSetBlendFactor::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(SetBlendFactor);
+	INTERNAL_DECORATOR(RHISetBlendFactor)(BlendFactor);
 }
 
 void FRHICommandSetStreamSource::Execute(FRHICommandListBase& CmdList)
@@ -358,16 +423,22 @@ void FRHICommandWaitComputeFence<CmdListType>::Execute(FRHICommandListBase& CmdL
 template struct FRHICommandWaitComputeFence<ECmdList::EGfx>;
 template struct FRHICommandWaitComputeFence<ECmdList::ECompute>;
 
-void FRHICommandClear::Execute(FRHICommandListBase& CmdList)
+void FRHICommandClearColorTexture::Execute(FRHICommandListBase& CmdList)
 {
-	RHISTAT(Clear);
-	INTERNAL_DECORATOR(RHIClear)(bClearColor, Color, bClearDepth, Depth, bClearStencil, Stencil, ExcludeRect);
+	RHISTAT(ClearColor);
+	INTERNAL_DECORATOR(RHIClearColorTexture)(Texture, Color, ExcludeRect);
 }
 
-void FRHICommandClearMRT::Execute(FRHICommandListBase& CmdList)
+void FRHICommandClearDepthStencilTexture::Execute(FRHICommandListBase& CmdList)
 {
-	RHISTAT(ClearMRT);
-	INTERNAL_DECORATOR(RHIClearMRT)(bClearColor, NumClearColors, ColorArray, bClearDepth, Depth, bClearStencil, Stencil, ExcludeRect);
+	RHISTAT(ClearDepthStencil);
+	INTERNAL_DECORATOR(RHIClearDepthStencilTexture)(Texture, ClearDepthStencil, Depth, Stencil, ExcludeRect);
+}
+
+void FRHICommandClearColorTextures::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(ClearColorMRT);
+	INTERNAL_DECORATOR(RHIClearColorTextures)(NumClearColors, Textures, ColorArray, ExcludeRect);
 }
 
 void FRHICommandBuildLocalBoundShaderState::Execute(FRHICommandListBase& CmdList)
@@ -391,6 +462,30 @@ void FRHICommandSetLocalBoundShaderState::Execute(FRHICommandListBase& CmdList)
 	if (--LocalBoundShaderState.WorkArea->ComputedBSS->UseCount == 0)
 	{
 		LocalBoundShaderState.WorkArea->ComputedBSS->~FComputedBSS();
+	}
+}
+
+void FRHICommandBuildLocalGraphicsPipelineState::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(BuildLocalGraphicsPipelineState);
+	check(!IsValidRef(WorkArea.ComputedGraphicsPipelineState->GraphicsPipelineState));
+	if (WorkArea.ComputedGraphicsPipelineState->UseCount)
+	{
+		WorkArea.ComputedGraphicsPipelineState->GraphicsPipelineState =
+			RHICreateGraphicsPipelineState(WorkArea.Args);
+	}
+}
+
+void FRHICommandSetLocalGraphicsPipelineState::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(SetLocalGraphicsPipelineState);
+	check(LocalGraphicsPipelineState.WorkArea->ComputedGraphicsPipelineState->UseCount > 0 && IsValidRef(LocalGraphicsPipelineState.WorkArea->ComputedGraphicsPipelineState->GraphicsPipelineState)); // this should have been created and should have uses outstanding
+
+	INTERNAL_DECORATOR(RHISetGraphicsPipelineState)(LocalGraphicsPipelineState.WorkArea->ComputedGraphicsPipelineState->GraphicsPipelineState);
+
+	if (--LocalGraphicsPipelineState.WorkArea->ComputedGraphicsPipelineState->UseCount == 0)
+	{
+		LocalGraphicsPipelineState.WorkArea->ComputedGraphicsPipelineState->~FComputedGraphicsPipelineState();
 	}
 }
 

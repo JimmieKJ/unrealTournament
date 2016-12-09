@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "PhysicsEngine/PhysicsThrusterComponent.h"
-#include "PhysXSupport.h"
 #include "PhysicsEngine/PhysicsThruster.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/ArrowComponent.h"
+#include "Components/BillboardComponent.h"
+#include "Engine/Texture2D.h"
+#include "PhysicsEngine/PhysicsThrusterComponent.h"
 
 
 UPhysicsThrusterComponent::UPhysicsThrusterComponent(const FObjectInitializer& ObjectInitializer)

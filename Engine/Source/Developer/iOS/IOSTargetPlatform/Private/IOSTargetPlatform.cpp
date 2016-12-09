@@ -4,9 +4,19 @@
 	IOSTargetPlatform.cpp: Implements the FIOSTargetPlatform class.
 =============================================================================*/
 
-#include "IOSTargetPlatformPrivatePCH.h"
+#include "IOSTargetPlatform.h"
 #include "IProjectManager.h"
 #include "InstalledPlatformInfo.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/App.h"
+#include "Misc/MonitoredProcess.h"
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
+#if WITH_ENGINE
+#include "TextureResource.h"
+#endif
 
 /* FIOSTargetPlatform structors
  *****************************************************************************/
@@ -163,6 +173,7 @@ int32 FIOSTargetPlatform::CheckRequirements(const FString& ProjectPath, bool bPr
 	FString BundleIdentifier;
 	GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("BundleIdentifier"), BundleIdentifier, GEngineIni);
 	BundleIdentifier = BundleIdentifier.Replace(TEXT("[PROJECT_NAME]"), FApp::GetGameName());
+	BundleIdentifier = BundleIdentifier.Replace(TEXT("_"), TEXT(""));
 #if PLATFORM_MAC
     FString CmdExe = TEXT("/bin/sh");
     FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
@@ -177,6 +188,7 @@ int32 FIOSTargetPlatform::CheckRequirements(const FString& ProjectPath, bool bPr
 	{
 		bReadyToBuild |= ETargetPlatformReadyStatus::RemoveServerNameEmpty;
 	}
+
 #endif
 	TSharedPtr<FMonitoredProcess> IPPProcess = MakeShareable(new FMonitoredProcess(CmdExe, CommandLine, true));
 	OutputMessage = TEXT("");
@@ -407,19 +419,36 @@ void FIOSTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormats 
 	static FName NAME_SF_METAL(TEXT("SF_METAL"));
 	static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
 
-	if (SupportsES2())
+	if (bIsTVOS)
 	{
-		OutFormats.AddUnique(NAME_GLSL_ES2_IOS);
-	}
+		if (SupportsMetalMRT())
+		{
+			OutFormats.AddUnique(NAME_SF_METAL_MRT);
+		}
 
-	if (SupportsMetal())
-	{
-		OutFormats.AddUnique(NAME_SF_METAL);
+		// because we are currently using IOS settings, we will always use metal, even if Metal isn't listed as being supported
+		// however, if MetalMRT is specific and Metal is set to false, then we will just use MetalMRT
+		if (SupportsMetal() || !SupportsMetalMRT())
+		{
+			OutFormats.AddUnique(NAME_SF_METAL);
+		}
 	}
-
-	if (SupportsMetalMRT())
+	else
 	{
-		OutFormats.AddUnique(NAME_SF_METAL_MRT);
+		if (SupportsES2())
+		{
+			OutFormats.AddUnique(NAME_GLSL_ES2_IOS);
+		}
+
+		if (SupportsMetal())
+		{
+			OutFormats.AddUnique(NAME_SF_METAL);
+		}
+
+		if (SupportsMetalMRT())
+		{
+			OutFormats.AddUnique(NAME_SF_METAL_MRT);
+		}
 	}
 }
 
@@ -441,6 +470,7 @@ void FIOSTargetPlatform::GetTextureFormats( const UTexture* Texture, TArray<FNam
 		FName(TEXT("DXT5n")),	FName(TEXT("PVRTCN")),		FName(TEXT("ASTC_NormalAG")),
 		FName(TEXT("BC5")),		FName(TEXT("PVRTCN")),		FName(TEXT("ASTC_NormalRG")),
 		FName(TEXT("AutoDXT")),	FName(TEXT("AutoPVRTC")),	FName(TEXT("ASTC_RGBAuto")),
+		FName(TEXT("BC4")),		FName(TEXT("G8")),			FName(TEXT("G8")),
 	};
 	static FName NameBGRA8(TEXT("BGRA8"));
 	static FName NamePOTERROR(TEXT("POTERROR"));
@@ -456,7 +486,7 @@ void FIOSTargetPlatform::GetTextureFormats( const UTexture* Texture, TArray<FNam
 	// if we didn't assign anything specially, then use the defaults
 	if (TextureFormatName == NAME_None)
 	{
-		TextureFormatName = GetDefaultTextureFormatName(Texture, EngineSettings, false);
+		TextureFormatName = GetDefaultTextureFormatName(this, Texture, EngineSettings, false);
 	}
 
 	// perform any remapping away from defaults

@@ -2,13 +2,30 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "GraphEditor.h"
+#include "BehaviorTreeGraphNode_CompositeDecorator.h"
+#include "Misc/NotifyHook.h"
+#include "Toolkits/IToolkitHost.h"
 #include "IBehaviorTreeEditor.h"
-#include "Toolkits/AssetEditorToolkit.h"
 #include "AIGraphEditor.h"
 
+class FBehaviorTreeDebugger;
+class FBehaviorTreeEditorToolbar;
+class FDocumentTabFactory;
+class FDocumentTracker;
+class IDetailsView;
+class SBehaviorTreeBlackboardEditor;
+class SBehaviorTreeBlackboardView;
+class SFindInBT;
 class UBehaviorTree;
+class UBehaviorTreeComponent;
 class UBlackboardData;
+class UEdGraph;
 struct FBlackboardEntry;
+struct Rect;
 
 class FBehaviorTreeEditor : public IBehaviorTreeEditor, public FAIGraphEditor, public FNotifyHook
 {
@@ -36,6 +53,7 @@ public:
 	virtual UEdGraphNode* FindInjectedNode(int32 Index) const override;
 	virtual void DoubleClickNode(class UEdGraphNode* Node) override;
 	virtual void FocusWindow(UObject* ObjectToFocusOn = NULL) override;
+	virtual bool GetBoundsForSelectedNodes(class FSlateRect& Rect, float Padding) const override;
 	//~ End IBehaviorTreeEditor Interface
 
 	//~ Begin FEditorUndoClient Interface
@@ -50,6 +68,7 @@ public:
 	// Delegates
 	void OnNodeDoubleClicked(class UEdGraphNode* Node);
 	void OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor);
+	void OnNodeTitleCommitted(const FText& NewText, ETextCommit::Type CommitInfo, UEdGraphNode* NodeBeingChanged);
 
 	void OnAddInputPin();
 	bool CanAddInputPin() const;

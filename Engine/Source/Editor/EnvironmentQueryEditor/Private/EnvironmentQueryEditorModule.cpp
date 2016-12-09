@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnvironmentQueryEditorPrivatePCH.h"
+#include "EnvironmentQueryEditorModule.h"
+#include "EnvironmentQuery/EnvQueryNode.h"
+#include "SGraphNode.h"
+#include "EnvironmentQueryGraphNode.h"
+#include "PropertyEditorModule.h"
+#include "IEnvironmentQueryEditor.h"
+#include "EnvironmentQueryEditor.h"
 
 #include "DetailCustomizations/EnvDirectionCustomization.h"
 #include "DetailCustomizations/EnvTraceDataCustomization.h"
 #include "DetailCustomizations/EnvQueryTestDetails.h"
 
-#include "ModuleManager.h"
-#include "Toolkits/ToolkitManager.h"
 #include "SGraphNode_EnvironmentQuery.h"
 #include "EdGraphUtilities.h"
 

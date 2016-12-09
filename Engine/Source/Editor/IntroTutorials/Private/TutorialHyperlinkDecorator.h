@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "TextDecorators.h"
+#include "CoreMinimal.h"
+#include "Framework/Text/ISlateRun.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "Framework/Text/TextDecorators.h"
+
+class ISlateStyle;
 
 class FTutorialHyperlinkDecorator : public FHyperlinkDecorator
 {

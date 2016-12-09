@@ -1,18 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlutilityPrivatePCH.h"
-#include "AssetTypeActions_EditorUtilityBlueprint.h"
-#include "Toolkits/AssetEditorManager.h"
-#include "BlueprintEditorModule.h"
-#include "Kismet2/KismetEditorUtilities.h"
-#include "AssetRegistryModule.h"
-#include "AssetToolsModule.h"
 #include "GlobalBlutilityDialog.h"
+#include "GlobalEditorUtilityBase.h"
+#include "Modules/ModuleManager.h"
+#include "EditorUtilityBlueprint.h"
+#include "PropertyEditorModule.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "AssetRegistryModule.h"
-#include "SDockTab.h"
+#include "IDetailsView.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "GlobalBlutilityDialog"
 

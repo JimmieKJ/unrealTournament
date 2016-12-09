@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapeEditorPrivatePCH.h"
 #include "LandscapeFileFormatRaw.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
 
 #define LOCTEXT_NAMESPACE "LandscapeEditor.NewLandscape"
 

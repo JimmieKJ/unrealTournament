@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "SlateBasics.h"
+#include "K2Node_MacroInstance.h"
+#include "Engine/Blueprint.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
 #include "EditorCategoryUtils.h"
 #include "BlueprintActionFilter.h"
-#include "K2Node_MacroInstance.h"
-#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_MacroInstance"
 

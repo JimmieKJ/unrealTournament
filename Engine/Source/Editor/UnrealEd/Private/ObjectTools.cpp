@@ -1,47 +1,92 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "ObjectTools.h"
+#include "Engine/Level.h"
+#include "UObject/UnrealType.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Blueprint.h"
+#include "Exporters/Exporter.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Serialization/FindReferencersArchive.h"
+#include "Serialization/ArchiveReferenceMarker.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/Text/STextBlock.h"
+#include "RHI.h"
+#include "Materials/MaterialInterface.h"
+#include "RenderingThread.h"
+#include "Materials/Material.h"
+#include "CanvasTypes.h"
+#include "Engine/Brush.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlModule.h"
+#include "Engine/SkeletalMesh.h"
+#include "Editor/UnrealEdEngine.h"
+#include "TextureResource.h"
+#include "Engine/Texture.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
+#include "ThumbnailRendering/TextureThumbnailRenderer.h"
+#include "Engine/StaticMesh.h"
+#include "Factories/Factory.h"
+#include "AssetToolsModule.h"
+#include "Sound/SoundWave.h"
+#include "GameFramework/Volume.h"
+#include "UObject/MetaData.h"
+#include "Serialization/ArchiveReplaceObjectRef.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "Engine/Selection.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Engine/UserDefinedStruct.h"
+#include "Animation/MorphTarget.h"
+#include "Editor.h"
+#include "EditorDirectories.h"
+#include "FileHelpers.h"
+#include "Dialogs/Dialogs.h"
+#include "UnrealEdGlobals.h"
 #include "PackageTools.h"
-#include "Factories.h"
+#include "Framework/Application/SlateApplication.h"
 
 #include "BusyCursor.h"
 #include "Dialogs/DlgMoveAssets.h"
 #include "Dialogs/DlgReferenceTree.h"
+#include "ARFilter.h"
+#include "AssetDeleteModel.h"
 #include "Dialogs/SDeleteAssetsDialog.h"
-#include "SoundDefinitions.h"
+#include "AudioDevice.h"
 #include "ReferencedAssetsUtils.h"
 #include "AssetRegistryModule.h"
-#include "Editor/PackagesDialog/Public/PackagesDialog.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "AssetToolsModule.h"
-#include "Editor/UnrealEd/Public/Toolkits/AssetEditorManager.h"
-#include "ISourceControlModule.h"
+#include "PackagesDialog.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "PropertyEditorModule.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/KismetReinstanceUtilities.h"
-#include "FbxImporter.h"
 #include "PackageHelperFunctions.h"
 #include "EditorLevelUtils.h"
 #include "DesktopPlatformModule.h"
-#include "MainFrame.h"
-#include "Editor/MainFrame/Public/MainFrame.h"
-#include "DesktopPlatformModule.h"
-#include "LevelUtils.h"
-#include "ConsolidateWindow.h"
-#include "ComponentReregisterContext.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "Layers/ILayers.h"
-#include "PhysicalMaterials/PhysicalMaterial.h"
-#include "Engine/BlueprintGeneratedClass.h"
-#include "Engine/SimpleConstructionScript.h"
 #include "Engine/LevelStreaming.h"
-#include "GameFramework/WorldSettings.h"
-#include "CanvasTypes.h"
+#include "LevelUtils.h"
+#include "ContentStreaming.h"
+#include "ComponentRecreateRenderStateContext.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Layers/ILayers.h"
 #include "Engine/SCS_Node.h"
-#include "Engine/UserDefinedStruct.h"
 #include "ShaderCompiler.h"
+#include "UniquePtr.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogObjectTools, Log, All);
 
@@ -262,7 +307,7 @@ namespace ObjectTools
 		}
 	}
 
-	UObject* DuplicateSingleObject(UObject* Object, const FPackageGroupName& PGN, TSet<UPackage*>& InOutPackagesUserRefusedToFullyLoad)
+	UObject* DuplicateSingleObject(UObject* Object, const FPackageGroupName& PGN, TSet<UPackage*>& InOutPackagesUserRefusedToFullyLoad, bool bPromptToOverwrite)
 	{
 		UObject* ReturnObject = NULL;
 
@@ -379,7 +424,7 @@ namespace ObjectTools
 
 		// If there are objects that already exist with the same name, give the user the option to overwrite the 
 		// object. This will delete the object so the new one can be created in its place.
-		if( ObjectsToOverwriteName.Len() > 0 )
+		if(bPromptToOverwrite && ObjectsToOverwriteName.Len() > 0 )
 		{
 			bool bOverwriteExistingObjects =
 				EAppReturnType::Yes == FMessageDialog::Open(
@@ -415,7 +460,7 @@ namespace ObjectTools
 				}
 			}
 
-			const int32 NumObjectsDeleted = ObjectTools::DeleteObjects(ObjectsToDelete);
+			const int32 NumObjectsDeleted = ObjectTools::DeleteObjects(ObjectsToDelete, bPromptToOverwrite);
 
 			// Remove all packages that we added to the root set above.
 			for ( auto PkgIt = DeletedObjectPackages.CreateConstIterator(); PkgIt; ++PkgIt )
@@ -451,7 +496,8 @@ namespace ObjectTools
 		// Any existing objects should be deleted and garbage collected by now
 		if ( ensure(ExistingObject == NULL) )
 		{
-			DupObject = StaticDuplicateObject( Object, CreatePackage(NULL,*PkgName), *ObjName );
+			EDuplicateMode::Type DuplicateMode = Object->IsA(UWorld::StaticClass()) ? EDuplicateMode::World : EDuplicateMode::Normal;
+			DupObject = StaticDuplicateObject( Object, CreatePackage(NULL,*PkgName), *ObjName, RF_AllFlags, nullptr, DuplicateMode );
 		}
 
 		if( DupObject )
@@ -818,7 +864,7 @@ namespace ObjectTools
 			// Scope the reregister context below to complete after object deletion and before garbage collection
 			{
 				// Replacing references inside already loaded objects could cause rendering issues, so globally detach all components from their scenes for now
-				FGlobalComponentReregisterContext ReregisterContext;
+				FGlobalComponentRecreateRenderStateContext ReregisterContext;
 				
 				ForceReplaceReferences(ObjectToConsolidateTo, ObjectsToConsolidate, ReplaceInfo);
 
@@ -1157,6 +1203,8 @@ namespace ObjectTools
 					for(TSet<UObject*>::TConstIterator SetIt(ReferencedObjects); SetIt; ++SetIt)
 					{
 						const UObject *ReferencedObject = *SetIt;
+						check(ReferencedObject);
+
 						// Don't list an object as referring to itself.
 						if ( ReferencedObject != Object )
 						{
@@ -2160,7 +2208,7 @@ namespace ObjectTools
 				}
 
 				// Replacing references inside already loaded objects could cause rendering issues, so globally detach all components from their scenes for now
-				FGlobalComponentReregisterContext ReregisterContext;
+				FGlobalComponentRecreateRenderStateContext ReregisterContext;
 
 				// UserDefinedStructs (probably all SctiptStructs) should be replaced with the FallbackStruct
 				{
@@ -2226,9 +2274,12 @@ namespace ObjectTools
 		}
 
 		TArray<UPackage*> PotentialPackagesToDelete;
-		for ( int32 ObjIdx = 0; ObjIdx < ObjectsToDelete.Num(); ++ObjIdx )
+		for(TWeakObjectPtr<UObject>& Object : ObjectsToDelete)
 		{
-			PotentialPackagesToDelete.AddUnique(ObjectsToDelete[ObjIdx]->GetOutermost());
+			if(Object.IsValid())
+			{
+				PotentialPackagesToDelete.AddUnique(Object->GetOutermost());
+			}
 		}
 
 		if (PotentialPackagesToDelete.Num() > 0)
@@ -3153,19 +3204,10 @@ namespace ObjectTools
 				IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 				if ( DesktopPlatform )
 				{
-					void* ParentWindowWindowHandle = NULL;
-
-					IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-					const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-					if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-					{
-						ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-					}
-
 					FString FolderName;
 					const FString Title = NSLOCTEXT("UnrealEd", "ChooseADirectory", "Choose A Directory").ToString();
 					const bool bFolderSelected = DesktopPlatform->OpenDirectoryDialog(
-						ParentWindowWindowHandle,
+						FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 						Title,
 						LastExportPath,
 						FolderName
@@ -3294,17 +3336,8 @@ namespace ObjectTools
 				bool bSave = false;
 				if ( DesktopPlatform )
 				{
-					void* ParentWindowWindowHandle = NULL;
-
-					IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-					const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-					if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-					{
-						ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-					}
-
 					bSave = DesktopPlatform->SaveFileDialog(
-						ParentWindowWindowHandle,
+						FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 						FText::Format( NSLOCTEXT("UnrealEd", "Save_F", "Save: {0}"), FText::FromString(ObjectToExport->GetName()) ).ToString(),
 						*LastExportPath,
 						*ObjectToExport->GetName(),
@@ -3928,9 +3961,9 @@ namespace ThumbnailTools
 		if ( ObjectFullName.Len() > 0 && DestPackage != NULL )
 		{
 			// Create a new thumbnail map if we don't have one already
-			if( !DestPackage->ThumbnailMap.IsValid() )
+			if( !DestPackage->ThumbnailMap )
 			{
-				DestPackage->ThumbnailMap.Reset( new FThumbnailMap() );
+				DestPackage->ThumbnailMap = MakeUnique<FThumbnailMap>();
 			}
 
 			// @todo thumbnails: Backwards compat
@@ -4074,8 +4107,8 @@ namespace ThumbnailTools
 	bool LoadThumbnailsFromPackage( const FString& InPackageFileName, const TSet< FName >& InObjectFullNames, FThumbnailMap& InOutThumbnails )
 	{
 		// Create a file reader to load the file
-		TScopedPointer< FArchive > FileReader( IFileManager::Get().CreateFileReader( *InPackageFileName ) );
-		if( FileReader == NULL )
+		TUniquePtr< FArchive > FileReader( IFileManager::Get().CreateFileReader( *InPackageFileName ) );
+		if( FileReader == nullptr )
 		{
 			// Couldn't open the file
 			return false;

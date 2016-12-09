@@ -1,17 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidMoviePlayerPrivatePCH.h"
+#include "AndroidMovieStreamer.h"
 
 #include "AndroidApplication.h"
 #include "AndroidJava.h"
 #include "AndroidFile.h"
 
-#include "SlateBasics.h"
 #include "RenderingCommon.h"
 #include "RenderUtils.h"
 #include "Slate/SlateTextures.h"
 #include "MoviePlayer.h"
 #include "StringConv.h"
+
+#include "Misc/ScopeLock.h"
+#include "Misc/Paths.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAndroidMediaPlayerStreamer, Log, All);
 

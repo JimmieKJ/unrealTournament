@@ -5,7 +5,7 @@
 // NB the output will be slightly aliased because of the highfreq content due to the non-smooth points.
 //
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #include "System/paConfig.h"
 #include "Signal/paTriPulser.hpp"

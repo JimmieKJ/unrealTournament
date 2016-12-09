@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "DefaultValueHelper.h"
+#include "Misc/DefaultValueHelper.h"
+#include "Math/Color.h"
+#include "Math/Vector2D.h"
+#include "Math/Vector.h"
+#include "Math/Rotator.h"
 
 
 bool FDefaultValueHelper::Is(const FString& Source, const TCHAR* CompareStr)
@@ -593,6 +596,20 @@ bool FDefaultValueHelper::ParseInt(const FString& Source, int32& OutVal)
 		const bool bHasWhitespace = HasWhitespaces(Source);
 		const FString NoWhitespace = bHasWhitespace ? RemoveWhitespaces(Source) : FString();
 		OutVal = FCString::Strtoi( bHasWhitespace ? *NoWhitespace : *Source , NULL, Base );
+		return true;
+	}
+	return false;
+}
+
+
+bool FDefaultValueHelper::ParseInt64(const FString& Source, int64& OutVal)
+{
+	int32 Base;
+	if( !Source.IsEmpty() && IsStringValidInteger( StartOf(Source), EndOf(Source), Base ) )
+	{
+		const bool bHasWhitespace = HasWhitespaces(Source);
+		const FString NoWhitespace = bHasWhitespace ? RemoveWhitespaces(Source) : FString();
+		OutVal = FCString::Strtoui64( bHasWhitespace ? *NoWhitespace : *Source , NULL, Base );
 		return true;
 	}
 	return false;

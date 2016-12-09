@@ -5,6 +5,7 @@
 #include "UTTeamInterface.h"
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
+#include "OnlineUserCloudInterface.h"
 #include "UTDamageType.h"
 #include "UTHat.h"
 #include "UTHatLeader.h"

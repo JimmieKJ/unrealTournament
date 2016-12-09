@@ -4,9 +4,12 @@
 	GameNetworkManager.cpp: AGameNetworkMAnager C++ code.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "GameFramework/GameNetworkManager.h"
-#include "GameFramework/GameMode.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
+#include "GameFramework/GameModeBase.h"
+#include "Engine/NetDriver.h"
+#include "Engine/Player.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGameNetworkManager, Log, All);
 
@@ -71,6 +74,11 @@ void AGameNetworkManager::UpdateNetSpeedsTimer()
 	UpdateNetSpeeds(false);
 }
 
+bool AGameNetworkManager::IsInLowBandwidthMode()
+{
+	return false;
+}
+
 void AGameNetworkManager::UpdateNetSpeeds(bool bIsLanMatch)
 {
 	// Don't adjust net speeds for LAN matches or dedicated servers
@@ -103,7 +111,15 @@ void AGameNetworkManager::UpdateNetSpeeds(bool bIsLanMatch)
 
 int32 AGameNetworkManager::CalculatedNetSpeed()
 {
-	return FMath::Clamp(TotalNetBandwidth/FMath::Max(GetWorld()->GetAuthGameMode()->NumPlayers,1), MinDynamicBandwidth, MaxDynamicBandwidth);
+	int32 NumPlayers = 1;
+	AGameModeBase* GameMode = GetWorld()->GetAuthGameMode();
+
+	if (GameMode)
+	{
+		NumPlayers = FMath::Max(GameMode->GetNumPlayers(), 1);
+	}
+
+	return FMath::Clamp(TotalNetBandwidth/NumPlayers, MinDynamicBandwidth, MaxDynamicBandwidth);
 }
 
 void AGameNetworkManager::StandbyCheatDetected(EStandbyType StandbyType) {}

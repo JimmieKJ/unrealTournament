@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "SlateGlobals.h"
+
 class FSlateShaderResourceProxy;
 
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Texture Data Memory (GPU)"), STAT_SlateTextureGPUMemory, STATGROUP_SlateMemory, SLATECORE_API);
@@ -21,6 +25,9 @@ namespace ESlateShaderResource
 
 		/** Material resource. */
 		Material,
+
+		/** Post Process. */
+		PostProcess, 
 
 		/** No Resource. */
 		Invalid,

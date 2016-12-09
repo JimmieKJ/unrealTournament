@@ -11,9 +11,8 @@
 ------------------------------------------------------------------------------------*/
 
 #include "ALAudioDevice.h"
-#include "VorbisAudioInfo.h"
 #include "AudioEffect.h"
-#include "Engine.h"
+#include "VorbisAudioInfo.h"
 
 DEFINE_LOG_CATEGORY(LogALAudio);
 

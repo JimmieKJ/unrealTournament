@@ -4,8 +4,10 @@
 #pragma once
 
 
-#include "Core.h"
-#include "OnlineAchievementsInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
+#include "OnlineSubsystem.h"
+#include "Interfaces/OnlineAchievementsInterface.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

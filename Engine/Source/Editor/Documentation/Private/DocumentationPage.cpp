@@ -1,9 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DocumentationModulePrivatePCH.h"
-#include "UDNParser.h"
 #include "DocumentationPage.h"
-#include "SDocumentationAnchor.h"
 
 TSharedRef< IDocumentationPage > FDocumentationPage::Create( const FString& Link, const TSharedRef< FUDNParser >& Parser ) 
 {

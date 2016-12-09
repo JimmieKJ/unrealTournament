@@ -2,11 +2,28 @@
 
 #pragma once
 
-#include "IDocumentation.h"
-#include "KismetEditorUtilities.h"
-#include "EditorClassUtils.h"
-#include "GameFramework/GameMode.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Engine/Blueprint.h"
+#include "Editor.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "IDetailGroup.h"
+#include "IDetailPropertyRow.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Widgets/Layout/SBox.h"
+#include "GameFramework/GameModeBase.h"
 #include "Engine/BlueprintGeneratedClass.h"
+#include "PropertyCustomizationHelpers.h"
+#include "IDocumentation.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "EditorClassUtils.h"
 
 #define LOCTEXT_NAMESPACE "FGameModeInfoCustomizer"
 
@@ -26,7 +43,7 @@ public:
 	/** Create widget for the name of a default class property */
 	TSharedRef<SWidget> CreateGameModePropertyLabelWidget(FName PropertyName)
 	{
-		UProperty* Prop = FindFieldChecked<UProperty>(AGameMode::StaticClass(), PropertyName);
+		UProperty* Prop = FindFieldChecked<UProperty>(AGameModeBase::StaticClass(), PropertyName);
 
 		FString DisplayName = Prop->GetDisplayNameText().ToString();
 		if (DisplayName.Len() == 0)
@@ -46,7 +63,7 @@ public:
 	void CustomizeGameModeDefaultClass(IDetailGroup& Group, FName DefaultClassPropertyName)
 	{
 		// Find the metaclass of this property
-		UClassProperty* ClassProp = FindFieldChecked<UClassProperty>(AGameMode::StaticClass(), DefaultClassPropertyName);
+		UClassProperty* ClassProp = FindFieldChecked<UClassProperty>(AGameModeBase::StaticClass(), DefaultClassPropertyName);
 
 		UClass* MetaClass = ClassProp->MetaClass;
 		const bool bAllowNone = !(ClassProp->PropertyFlags & CPF_NoClear);
@@ -129,7 +146,7 @@ public:
 				[
 					SNew(SClassPropertyEntryBox)
 					.AllowNone(bAllowNone)
-					.MetaClass(AGameMode::StaticClass())
+					.MetaClass(AGameModeBase::StaticClass())
 					.SelectedClass(this, &FGameModeInfoCustomizer::GetCurrentGameModeClass)
 					.OnSetClass(FOnSetClass::CreateSP(this, &FGameModeInfoCustomizer::SetCurrentGameModeClass))
 				]
@@ -156,12 +173,12 @@ public:
 		IDetailGroup& Group = CategoryBuilder.AddGroup(SelectedGameModeDetailsName, LOCTEXT("SelectedGameModeDetails", "Selected GameMode"));
 
 		// Then add rows to show key properties and let you edit them
-		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameMode, DefaultPawnClass));
-		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameMode, HUDClass));
-		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameMode, PlayerControllerClass));
-		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameMode, GameStateClass));
-		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameMode, PlayerStateClass));
-		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameMode, SpectatorClass));
+		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameModeBase, DefaultPawnClass));
+		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameModeBase, HUDClass));
+		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameModeBase, PlayerControllerClass));
+		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameModeBase, GameStateClass));
+		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameModeBase, PlayerStateClass));
+		CustomizeGameModeDefaultClass(Group, GET_MEMBER_NAME_CHECKED(AGameModeBase, SpectatorClass));
 	}
 
 	/** Get the currently set GameMode class */
@@ -192,12 +209,12 @@ public:
 	}
 
 	/** Get the CDO from the currently set GameMode class */
-	AGameMode* GetCurrentGameModeCDO() const
+	AGameModeBase* GetCurrentGameModeCDO() const
 	{
 		UClass* GameModeClass = const_cast<UClass*>( GetCurrentGameModeClass() );
 		if (GameModeClass != NULL)
 		{
-			return GameModeClass->GetDefaultObject<AGameMode>();
+			return GameModeClass->GetDefaultObject<AGameModeBase>();
 		}
 		else
 		{
@@ -245,7 +262,7 @@ public:
 
 	void OnMakeNewDefaultClassClicked(FName ClassPropertyName)
 	{
-		UClassProperty* ClassProp = FindFieldChecked<UClassProperty>(AGameMode::StaticClass(), ClassPropertyName);
+		UClassProperty* ClassProp = FindFieldChecked<UClassProperty>(AGameModeBase::StaticClass(), ClassPropertyName);
 
 		UBlueprint* Blueprint = FKismetEditorUtilities::CreateBlueprintFromClass(LOCTEXT("CreateNewBlueprint", "Create New Blueprint"), ClassProp->MetaClass, FString::Printf(TEXT("New%s"),*ClassProp->MetaClass->GetName()));
 
@@ -261,7 +278,7 @@ public:
 	{
 		FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
 
-		UClassProperty* ClassProp = FindFieldChecked<UClassProperty>(AGameMode::StaticClass(), ClassPropertyName);
+		UClassProperty* ClassProp = FindFieldChecked<UClassProperty>(AGameModeBase::StaticClass(), ClassPropertyName);
 		const UClass* SelectedClass = GEditor->GetFirstSelectedClass(ClassProp->MetaClass);
 		if (SelectedClass)
 		{
@@ -302,7 +319,7 @@ public:
 	{
 		FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
 
-		const UClass* SelectedClass = GEditor->GetFirstSelectedClass(AGameMode::StaticClass());
+		const UClass* SelectedClass = GEditor->GetFirstSelectedClass(AGameModeBase::StaticClass());
 		if (SelectedClass)
 		{
 			DefaultGameModeClassHandle->SetValueFromFormattedString(SelectedClass->GetPathName());
@@ -317,7 +334,7 @@ public:
 	void OnClickNewGameMode(IDetailLayoutBuilder* DetailLayout)
 	{
 		// Create a new GameMode BP
-		UBlueprint* Blueprint = FKismetEditorUtilities::CreateBlueprintFromClass(LOCTEXT("CreateNewGameMode", "Create New GameMode"), AGameMode::StaticClass(), TEXT("NewGameMode"));
+		UBlueprint* Blueprint = FKismetEditorUtilities::CreateBlueprintFromClass(LOCTEXT("CreateNewGameMode", "Create New GameMode"), AGameModeBase::StaticClass(), TEXT("NewGameMode"));
 		// if that worked, assign it
 		if(Blueprint != NULL && Blueprint->GeneratedClass)
 		{

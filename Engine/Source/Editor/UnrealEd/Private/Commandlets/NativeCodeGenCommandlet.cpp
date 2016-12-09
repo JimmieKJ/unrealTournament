@@ -1,9 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Commandlets/NativeCodeGenCommandlet.h"
+#include "Misc/Paths.h"
 
 #include "BlueprintNativeCodeGenModule.h"
-#include "Commandlets/NativeCodeGenCommandlet.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogNativeCodeGenCommandletCommandlet, Log, All);
 

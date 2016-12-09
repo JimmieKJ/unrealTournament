@@ -4,29 +4,108 @@
 ActorFactory.cpp: 
 =============================================================================*/
 
-#include "UnrealEd.h"
-#include "ParticleDefinitions.h"
-#include "SoundDefinitions.h"
+#include "ActorFactories/ActorFactory.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Blueprint.h"
+#include "GameFramework/Pawn.h"
+#include "Engine/World.h"
+#include "Materials/MaterialInterface.h"
+#include "Model.h"
+#include "ActorFactories/ActorFactoryAmbientSound.h"
+#include "ActorFactories/ActorFactoryAtmosphericFog.h"
+#include "ActorFactories/ActorFactoryBlueprint.h"
+#include "ActorFactories/ActorFactoryBoxReflectionCapture.h"
+#include "ActorFactories/ActorFactoryBoxVolume.h"
+#include "ActorFactories/ActorFactoryCameraActor.h"
+#include "ActorFactories/ActorFactoryCharacter.h"
+#include "ActorFactories/ActorFactorySubDSurface.h"
+#include "ActorFactories/ActorFactoryClass.h"
+#include "ActorFactories/ActorFactoryCylinderVolume.h"
+#include "ActorFactories/ActorFactoryDeferredDecal.h"
+#include "ActorFactories/ActorFactoryDestructible.h"
+#include "ActorFactories/ActorFactoryDirectionalLight.h"
+#include "ActorFactories/ActorFactoryEmitter.h"
+#include "ActorFactories/ActorFactoryEmptyActor.h"
+#include "ActorFactories/ActorFactoryPawn.h"
+#include "ActorFactories/ActorFactoryExponentialHeightFog.h"
+#include "ActorFactories/ActorFactoryMatineeActor.h"
+#include "ActorFactories/ActorFactoryNote.h"
+#include "ActorFactories/ActorFactoryPhysicsAsset.h"
+#include "ActorFactories/ActorFactoryPlaneReflectionCapture.h"
+#include "ActorFactories/ActorFactoryPlayerStart.h"
+#include "ActorFactories/ActorFactoryPointLight.h"
+#include "ActorFactories/ActorFactorySkeletalMesh.h"
+#include "ActorFactories/ActorFactoryAnimationAsset.h"
+#include "ActorFactories/ActorFactorySkyLight.h"
+#include "ActorFactories/ActorFactorySphereReflectionCapture.h"
+#include "ActorFactories/ActorFactorySphereVolume.h"
+#include "ActorFactories/ActorFactorySpotLight.h"
+#include "ActorFactories/ActorFactoryStaticMesh.h"
+#include "ActorFactories/ActorFactoryBasicShape.h"
+#include "ActorFactories/ActorFactoryInteractiveFoliage.h"
+#include "ActorFactories/ActorFactoryTargetPoint.h"
+#include "ActorFactories/ActorFactoryTextRender.h"
+#include "ActorFactories/ActorFactoryTriggerBox.h"
+#include "ActorFactories/ActorFactoryTriggerCapsule.h"
+#include "ActorFactories/ActorFactoryTriggerSphere.h"
+#include "ActorFactories/ActorFactoryVectorFieldVolume.h"
+#include "Animation/Skeleton.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimationAsset.h"
+#include "Materials/Material.h"
+#include "Animation/AnimSequenceBase.h"
+#include "Engine/BrushBuilder.h"
+#include "Builders/CubeBuilder.h"
+#include "Builders/CylinderBuilder.h"
+#include "Builders/TetrahedronBuilder.h"
+#include "AssetData.h"
+#include "Editor/EditorEngine.h"
+#include "Animation/AnimBlueprint.h"
+#include "Particles/ParticleSystem.h"
+#include "Engine/Texture2D.h"
+#include "Animation/SkeletalMeshActor.h"
+#include "GameFramework/Character.h"
+#include "Camera/CameraActor.h"
+#include "GameFramework/PlayerStart.h"
+#include "Particles/Emitter.h"
+#include "Engine/StaticMesh.h"
+#include "Sound/SoundBase.h"
+#include "Sound/AmbientSound.h"
+#include "GameFramework/Volume.h"
+#include "Engine/SubDSurface.h"
+#include "Engine/DecalActor.h"
+#include "Atmosphere/AtmosphericFog.h"
+#include "Engine/ExponentialHeightFog.h"
+#include "Engine/SkyLight.h"
+#include "Engine/DirectionalLight.h"
+#include "Engine/PointLight.h"
+#include "Engine/SpotLight.h"
+#include "Engine/Note.h"
+#include "Engine/BoxReflectionCapture.h"
+#include "Engine/PlaneReflectionCapture.h"
+#include "Engine/SphereReflectionCapture.h"
+#include "Engine/StaticMeshActor.h"
+#include "Engine/TargetPoint.h"
+#include "VectorField/VectorFieldVolume.h"
+#include "Components/DecalComponent.h"
+#include "Components/BillboardComponent.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
+#include "Engine/Polys.h"
 #include "StaticMeshResources.h"
-#include "BlueprintUtilities.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
-#include "AssetData.h"
-#include "ScopedTransaction.h"
 #include "BSPOps.h"
 #include "Matinee/MatineeActor.h"
 #include "Matinee/InterpData.h"
 #include "InteractiveFoliageActor.h"
-#include "Animation/SkeletalMeshActor.h"
 
 #include "AssetRegistryModule.h"
 
-#include "Particles/Emitter.h"
-#include "Particles/ParticleSystem.h"
-#include "Particles/ParticleSystemComponent.h"
 
-#include "NiagaraActor.h"
-#include "NiagaraEffect.h"
 
 #include "VectorField/VectorField.h"
 
@@ -38,41 +117,20 @@ ActorFactory.cpp:
 #include "Components/SubDSurfaceComponent.h"
 
 #include "Engine/DestructibleMesh.h"
-#include "Engine/BlueprintGeneratedClass.h"
-#include "Components/DecalComponent.h"
-#include "GameFramework/PlayerStart.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "PhysicsEngine/PhysicsAsset.h"
-#include "Camera/CameraActor.h"
-#include "Sound/SoundBase.h"
-#include "Sound/AmbientSound.h"
-#include "Engine/DirectionalLight.h"
-#include "Engine/SpotLight.h"
-#include "Engine/PointLight.h"
-#include "Engine/SkyLight.h"
-#include "Engine/SphereReflectionCapture.h"
-#include "Engine/BoxReflectionCapture.h"
-#include "Engine/PlaneReflectionCapture.h"
-#include "Atmosphere/AtmosphericFog.h"
-#include "Engine/ExponentialHeightFog.h"
-#include "Engine/DecalActor.h"
-#include "Engine/TargetPoint.h"
 #include "Components/AudioComponent.h"
 #include "PhysicsEngine/DestructibleActor.h"
-#include "Engine/Note.h"
 #include "Components/DestructibleComponent.h"
-#include "VectorField/VectorFieldVolume.h"
 #include "Components/BrushComponent.h"
-#include "Engine/Polys.h"
 #include "Components/VectorFieldComponent.h"
-#include "Animation/AnimBlueprintGeneratedClass.h"
-#include "Kismet2/ComponentEditorUtils.h"
-#include "Components/BillboardComponent.h"
-#include "Classes/ActorFactories/ActorFactoryPlanarReflection.h"
+#include "ActorFactories/ActorFactoryPlanarReflection.h"
 #include "Engine/PlanarReflection.h"
 
 #include "LevelSequence.h"
 #include "LevelSequenceActor.h"
-#include "ActorFactoryMovieScene.h"
+#include "Factories/ActorFactoryMovieScene.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogActorFactory, Log, All);
 
@@ -298,7 +356,7 @@ void UActorFactoryStaticMesh::PostSpawnActor( UObject* Asset, AActor* NewActor)
 
 	StaticMeshComponent->UnregisterComponent();
 
-	StaticMeshComponent->StaticMesh = StaticMesh;
+	StaticMeshComponent->SetStaticMesh(StaticMesh);
 	StaticMeshComponent->StaticMeshDerivedDataKey = StaticMesh->RenderData->DerivedDataKey;
 
 	// Init Component
@@ -311,7 +369,7 @@ UObject* UActorFactoryStaticMesh::GetAssetFromActorInstance(AActor* Instance)
 	AStaticMeshActor* SMA = CastChecked<AStaticMeshActor>(Instance);
 
 	check(SMA->GetStaticMeshComponent());
-	return SMA->GetStaticMeshComponent()->StaticMesh;
+	return SMA->GetStaticMeshComponent()->GetStaticMesh();
 }
 
 void UActorFactoryStaticMesh::PostCreateBlueprint( UObject* Asset, AActor* CDO )
@@ -322,7 +380,7 @@ void UActorFactoryStaticMesh::PostCreateBlueprint( UObject* Asset, AActor* CDO )
 		AStaticMeshActor* StaticMeshActor = CastChecked<AStaticMeshActor>(CDO);
 		UStaticMeshComponent* StaticMeshComponent = StaticMeshActor->GetStaticMeshComponent();
 
-		StaticMeshComponent->StaticMesh = StaticMesh;
+		StaticMeshComponent->SetStaticMesh(StaticMesh);
 		StaticMeshComponent->StaticMeshDerivedDataKey = StaticMesh->RenderData->DerivedDataKey;
 	}
 }
@@ -374,7 +432,7 @@ void UActorFactoryBasicShape::PostSpawnActor(UObject* Asset, AActor* NewActor)
 	{
 		StaticMeshComponent->UnregisterComponent();
 
-		StaticMeshComponent->StaticMesh = StaticMesh;
+		StaticMeshComponent->SetStaticMesh(StaticMesh);
 		StaticMeshComponent->StaticMeshDerivedDataKey = StaticMesh->RenderData->DerivedDataKey;
 		StaticMeshComponent->SetMaterial(0, LoadObject<UMaterial>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")));
 		// Init Component
@@ -1114,8 +1172,7 @@ static UBillboardComponent* CreateEditorOnlyBillboardComponent(AActor* ActorOwne
 	BillboardComponent->Sprite = LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EditorResources/EmptyActor.EmptyActor"));
 	BillboardComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
 	BillboardComponent->Mobility = EComponentMobility::Movable;
-	BillboardComponent->AlwaysLoadOnClient = false;
-	BillboardComponent->AlwaysLoadOnServer = false;
+	BillboardComponent->bIsEditorOnly = true;
 
 	BillboardComponent->SetupAttachment(AttachParent);
 

@@ -1,17 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "QoSReporterPrivatePCH.h"
-
-#include "Core.h"
-#include "Analytics.h"
-#include "IAnalyticsProvider.h"
-#include "EngineVersion.h"
 #include "QoSReporter.h"
+#include "HAL/PlatformTime.h"
+#include "Misc/App.h"
+#include "QoSReporterPrivate.h"
+
+#include "Analytics.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #if WITH_PERFCOUNTERS
 	#include "PerfCountersModule.h"
 #endif // WITH_PERFCOUNTERS
 #if WITH_ENGINE
-	#include "PerfCountersHelpers.h"
+	#include "Net/PerfCountersHelpers.h"
 #endif // WITH_ENGINE
 
 #ifndef WITH_QOSREPORTER

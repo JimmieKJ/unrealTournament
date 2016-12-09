@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-
 #include "CallFunctionHandler.h"
+#include "UObject/MetaData.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_Event.h"
+#include "K2Node_CallParentFunction.h"
+#include "K2Node_ExecutionSequence.h"
+
+#include "EdGraphUtilities.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "KismetCompiler.h"
 
 #define LOCTEXT_NAMESPACE "CallFunctionHandler"
 
@@ -90,23 +97,6 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 			CompilerContext.MessageLog.Error(*LOCTEXT("ContainsLatentCall_Error", "@@ contains a latent call, which cannot exist outside of the event graph").ToString(), Node);
 		}
 
-		// Check access specifier
-		const uint32 AccessSpecifier = Function->FunctionFlags & FUNC_AccessSpecifiers;
-		if(FUNC_Private == AccessSpecifier)
-		{
-			if(Function->GetOuter() != Context.NewClass)
-			{
-				CompilerContext.MessageLog.Warning(*LOCTEXT("PrivateFunctionCall_Error", "Function @@ is private and cannot be called outside its class").ToString(), Node);
-			}
-		}
-		else if(FUNC_Protected == AccessSpecifier)
-		{
-			if( !Context.NewClass->IsChildOf( Cast<UStruct>( Function->GetOuter() ) ) )
-			{
-				CompilerContext.MessageLog.Warning(*LOCTEXT("ProtectedFunctionCall_Error", "Function @@ is protected and can be called only from its class or subclasses").ToString(), Node);
-			}
-		}
-
 		UEdGraphPin* LatentInfoPin = NULL;
 
 		TMap<FName, FString>* MetaData = UMetaData::GetMapForObject(Function);
@@ -134,6 +124,18 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 							if (AssociatedNode && AssociatedNode->NodeGuid.IsValid())
 							{
 								LatentUUID = GetTypeHash(AssociatedNode->NodeGuid);
+
+								UEdGraphNode* ResultNode = AssociatedNode;
+								UEdGraphNode* SourceNode = Cast<UEdGraphNode>(Context.MessageLog.FindSourceObject(AssociatedNode));
+								while (SourceNode && SourceNode != ResultNode)
+								{
+									if (SourceNode->NodeGuid.IsValid())
+									{
+										LatentUUID = HashCombine(LatentUUID, GetTypeHash(SourceNode->NodeGuid));
+									}
+									ResultNode = SourceNode;
+									SourceNode = Cast<UEdGraphNode>(Context.MessageLog.FindSourceObject(ResultNode));
+								}
 							}
 							else
 							{
@@ -379,7 +381,7 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 					for(int32 i = 0; i < SelfPin->LinkedTo.Num(); i++)
 					{
 						FBPTerminal** pContextTerm = Context.NetMap.Find(SelfPin->LinkedTo[i]);
-						if(ensure(pContextTerm != nullptr))
+						if(ensureMsgf(pContextTerm != nullptr, TEXT("'%s' is missing a target input - if this is a server build, the input may be a cosmetic only property which was discarded (if this is the case, and this is expecting component variable try resaving.)"), *Node->GetPathName()))
 						{
 							CheckAndAddSelfTermLambda(*pContextTerm);
 						}
@@ -400,17 +402,16 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 			}
 
 			bool bInlineEventCall = false;
-			bool bLocalCall = false;
+			bool bEmitInstrumentPushState = false;
 			FName EventName = NAME_None;
 			if (Context.IsInstrumentationRequired())
 			{
 				if (UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
 				{
-					if (CallFunctionNode->FunctionReference.IsSelfContext())
+					const UEdGraphNode* EventNodeOut = nullptr;
+					if (UEdGraph* FunctionGraph = CallFunctionNode->GetFunctionGraph(EventNodeOut))
 					{
-						bLocalCall = true;
-						const UEdGraphNode* EventNodeOut = nullptr;
-						CallFunctionNode->GetFunctionGraph(EventNodeOut);
+						bEmitInstrumentPushState = true;
 						if (const UK2Node_Event* EventNode = Cast<UK2Node_Event>(EventNodeOut))
 						{
 							bInlineEventCall = true;
@@ -419,7 +420,7 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 					}
 				}
 			}
-			const bool bInstrumentFunctionEntry = Context.IsInstrumentationRequired() && (bIsLatent || bInlineEventCall || bLocalCall);
+			const bool bInstrumentFunctionEntry = Context.IsInstrumentationRequired() && (bIsLatent || bInlineEventCall || bEmitInstrumentPushState);
 			if (bInstrumentFunctionEntry)
 			{
 				if (bInlineEventCall)

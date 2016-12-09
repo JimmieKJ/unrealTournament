@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphPin.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_CommutativeAssociativeBinaryOperator.generated.h"
+
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UK2Node_CommutativeAssociativeBinaryOperator : public UK2Node_CallFunction

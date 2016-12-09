@@ -32,10 +32,12 @@
 
 void DrawDebugRoute(UWorld* World, APawn* QueryPawn, const TArray<FRouteCacheItem>& Route)
 {
+#if ENABLE_DRAW_DEBUG
 	for (const FRouteCacheItem& RoutePoint : Route)
 	{
 		DrawDebugSphere(World, RoutePoint.GetLocation(QueryPawn), 16.0f, 8, FColor(0, 255, 0));
 	}
+#endif // ENABLE_DRAW_DEBUG
 }
 
 UUTPathBuilderInterface::UUTPathBuilderInterface(const FObjectInitializer& ObjectInitializer)

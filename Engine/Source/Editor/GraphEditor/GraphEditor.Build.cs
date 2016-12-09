@@ -21,9 +21,15 @@ public class GraphEditor : ModuleRules
 
         PublicIncludePathModuleNames.AddRange(
             new string[] {                
-                "IntroTutorials"
+                "IntroTutorials",
             }
         );
+         
+//         PublicDependencyModuleNames.AddRange(
+//             new string[] {
+//                 "AudioEditor"
+//             }
+//         );
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {

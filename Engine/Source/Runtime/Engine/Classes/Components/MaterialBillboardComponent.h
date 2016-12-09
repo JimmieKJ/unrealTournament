@@ -2,8 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/PrimitiveComponent.h"
 #include "MaterialBillboardComponent.generated.h"
 
+class FPrimitiveSceneProxy;
+class UCurveFloat;
+class UMaterialInterface;
 
 USTRUCT(BlueprintType)
 struct FMaterialSpriteElement

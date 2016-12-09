@@ -1,11 +1,52 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PlacementModePrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "EditorStyleSet.h"
+#include "GameFramework/Actor.h"
+#include "ActorFactories/ActorFactory.h"
+#include "ActorFactories/ActorFactoryAtmosphericFog.h"
+#include "ActorFactories/ActorFactoryBoxReflectionCapture.h"
+#include "ActorFactories/ActorFactoryBoxVolume.h"
+#include "ActorFactories/ActorFactoryCharacter.h"
+#include "ActorFactories/ActorFactoryDeferredDecal.h"
+#include "ActorFactories/ActorFactoryDirectionalLight.h"
+#include "ActorFactories/ActorFactoryEmptyActor.h"
+#include "ActorFactories/ActorFactoryPawn.h"
+#include "ActorFactories/ActorFactoryExponentialHeightFog.h"
+#include "ActorFactories/ActorFactoryPlayerStart.h"
+#include "ActorFactories/ActorFactoryPointLight.h"
+#include "ActorFactories/ActorFactorySkyLight.h"
+#include "ActorFactories/ActorFactorySphereReflectionCapture.h"
+#include "ActorFactories/ActorFactorySpotLight.h"
+#include "ActorFactories/ActorFactoryBasicShape.h"
+#include "ActorFactories/ActorFactoryTriggerBox.h"
+#include "ActorFactories/ActorFactoryTriggerSphere.h"
+#include "Engine/BrushBuilder.h"
+#include "Engine/Brush.h"
+#include "Engine/StaticMesh.h"
+#include "GameFramework/Volume.h"
+#include "Engine/PostProcessVolume.h"
+#include "AssetData.h"
+#include "EditorModeRegistry.h"
+#include "EditorModes.h"
+#include "IAssetTools.h"
+#include "IAssetTypeActions.h"
+#include "AssetRegistryModule.h"
+#include "ActorPlacementInfo.h"
 #include "IPlacementModeModule.h"
 #include "PlacementMode.h"
 #include "AssetToolsModule.h"
-#include "KismetEditorUtilities.h"
-#include "Classes/ActorFactories/ActorFactoryPlanarReflection.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "ActorFactories/ActorFactoryPlanarReflection.h"
 
 struct FPlacementCategory : FPlacementCategoryInfo
 {
@@ -27,7 +68,7 @@ struct FPlacementCategory : FPlacementCategoryInfo
 		return *this;
 	}
 
-	TMap<uint32, TSharedPtr<FPlaceableItem>> Items;
+	TMap<FGuid, TSharedPtr<FPlaceableItem>> Items;
 };
 
 static TOptional<FLinearColor> GetBasicShapeColorOverride()
@@ -170,34 +211,20 @@ public:
 		RegisterPlacementCategory(
 			FPlacementCategoryInfo(
 				NSLOCTEXT( "PlacementMode", "Volumes", "Volumes" ),
-				"Volumes",
+				FBuiltInPlacementCategories::Volumes(),
 				TEXT("PMVolumes"),
 				40
 			)
 		);
 
-		{
-			int32 SortOrder = 0;
-			FName CategoryName = FBuiltInPlacementCategories::AllClasses();
-			RegisterPlacementCategory(
-				FPlacementCategoryInfo(
-					NSLOCTEXT( "PlacementMode", "AllClasses", "All Classes" ),
-					CategoryName,
-					TEXT("PMAllClasses"),
-					50
-				)
-			);
-
-			FPlacementCategory* Category = Categories.Find(CategoryName);
-			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryEmptyActor::StaticClass())) );
-			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryCharacter::StaticClass())) );
-			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryPawn::StaticClass())) );
-			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr, *UActorFactoryBasicShape::BasicCube.ToString())), FName("ClassThumbnail.Cube"), GetBasicShapeColorOverride())) );
-			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr, *UActorFactoryBasicShape::BasicSphere.ToString())), FName("ClassThumbnail.Sphere"), GetBasicShapeColorOverride())) );
-			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr, *UActorFactoryBasicShape::BasicCylinder.ToString())), FName("ClassThumbnail.Cylinder"), GetBasicShapeColorOverride())) );
-			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr, *UActorFactoryBasicShape::BasicCone.ToString())), FName("ClassThumbnail.Cone"), GetBasicShapeColorOverride())) );
-		}
-
+		RegisterPlacementCategory(
+			FPlacementCategoryInfo(
+				NSLOCTEXT( "PlacementMode", "AllClasses", "All Classes" ),
+				FBuiltInPlacementCategories::AllClasses(),
+				TEXT("PMAllClasses"),
+				50
+			)
+		);
 	}
 
 	/**
@@ -537,6 +564,15 @@ public:
 
 		Category->Items.Reset();
 
+		// Manually add some special cases that aren't added below
+		Category->Items.Add(CreateID(), MakeShareable(new FPlaceableItem(*UActorFactoryEmptyActor::StaticClass())));
+		Category->Items.Add(CreateID(), MakeShareable(new FPlaceableItem(*UActorFactoryCharacter::StaticClass())));
+		Category->Items.Add(CreateID(), MakeShareable(new FPlaceableItem(*UActorFactoryPawn::StaticClass())));
+		Category->Items.Add(CreateID(), MakeShareable(new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr, *UActorFactoryBasicShape::BasicCube.ToString())), FName("ClassThumbnail.Cube"), GetBasicShapeColorOverride())));
+		Category->Items.Add(CreateID(), MakeShareable(new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr, *UActorFactoryBasicShape::BasicSphere.ToString())), FName("ClassThumbnail.Sphere"), GetBasicShapeColorOverride())));
+		Category->Items.Add(CreateID(), MakeShareable(new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr, *UActorFactoryBasicShape::BasicCylinder.ToString())), FName("ClassThumbnail.Cylinder"), GetBasicShapeColorOverride())));
+		Category->Items.Add(CreateID(), MakeShareable(new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr, *UActorFactoryBasicShape::BasicCone.ToString())), FName("ClassThumbnail.Cone"), GetBasicShapeColorOverride())));
+
 		// Make a map of UClasses to ActorFactories that support them
 		const TArray< UActorFactory *>& ActorFactories = GEditor->ActorFactories;
 		TMap<UClass*, UActorFactory*> ActorFactoryMap;
@@ -587,12 +623,9 @@ public:
 
 private:
 
-	uint32 CreateID()
+	FGuid CreateID()
 	{
-		static uint32 IDCounter = 0;
-		uint32 Next = ++IDCounter;
-		checkf(Next, TEXT("uint32 overflow. If this occurs, something's gone seriously wrong."))
-		return Next;
+		return FGuid::NewGuid();
 	}
 
 	FPlacementModeID CreateID(FName InCategory)
@@ -600,8 +633,6 @@ private:
 		FPlacementModeID NewID;
 		NewID.UniqueID = CreateID();
 		NewID.Category = InCategory;
-
-		
 		return NewID;
 	}
 

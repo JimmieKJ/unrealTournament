@@ -4,13 +4,14 @@
 	PostProcessLensBlur.cpp: Post processing lens blur implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessPassThrough.h"
-#include "PostProcessing.h"
-#include "PostProcessLensBlur.h"
+#include "PostProcess/PostProcessLensBlur.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "SceneRendering.h"
 
 /** Encapsulates the post processing vertex shader. */
 class FPostProcessLensBlurVS : public FGlobalShader

@@ -1,6 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
+#include "IDetailPropertyRow.h"
+
 // Forward decl
 class FResetToDefaultOverride;
 
@@ -31,7 +39,6 @@ private:
 	FReply OnCustomResetClicked();
 
 	void UpdateDiffersFromDefaultState();
-	void OnPropertyValueChanged();
 private:
 	TOptional<FResetToDefaultOverride> OptionalCustomResetToDefault;
 

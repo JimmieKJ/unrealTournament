@@ -14,11 +14,13 @@
 // limitations under the License.
 //
 
-#include "OSVRInputPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "OSVRInputPrivate.h"
 #include "IOSVR.h"
 #include "IOSVRInput.h"
 #include "OSVREntryPoint.h"
 #include "OSVRInputDevice.h"
+#include "Misc/ScopeLock.h"
 
 #include "InputCoreTypes.h"
 #include "GameFramework/InputSettings.h"
@@ -38,13 +40,15 @@ IMPLEMENT_MODULE(FOSVRInput, OSVRInput)
 
 TSharedPtr< class IInputDevice > FOSVRInput::CreateInputDevice(const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler)
 {
-    auto entryPoint = IOSVR::Get().GetEntryPoint();
+    auto& osvr = IOSVR::Get();
+    auto entryPoint = osvr.GetEntryPoint();
+    auto osvrHMD = osvr.GetHMD();
     FScopeLock lock(entryPoint->GetClientContextMutex());
     if (entryPoint->IsOSVRConnected())
     {
         FOSVRInputDevice::RegisterNewKeys();
 
-        InputDevice = MakeShareable(new FOSVRInputDevice(InMessageHandler));
+        InputDevice = MakeShareable(new FOSVRInputDevice(InMessageHandler, entryPoint, osvrHMD));
         return InputDevice;
     }
     return nullptr;

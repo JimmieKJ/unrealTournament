@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
-#include "SExpandableArea.h"
+#include "Widgets/Archive/SProjectLauncherArchivePage.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "DesktopPlatformModule.h"
 
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherArchivePage"
@@ -51,6 +60,7 @@ void SProjectLauncherArchivePage::Construct( const FArguments& InArgs, const FPr
 
 		+ SVerticalBox::Slot()
 			.AutoHeight()
+			.Padding(0.0, 8.0, 0.0, 0.0)
 			[
 				SNew(SBorder)
 				.Padding(8.0)

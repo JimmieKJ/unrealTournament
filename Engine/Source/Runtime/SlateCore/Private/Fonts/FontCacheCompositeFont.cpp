@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "FontCacheCompositeFont.h"
-#include "FontCacheFreeType.h"
+#include "Fonts/FontCacheCompositeFont.h"
+#include "Fonts/FontCacheFreeType.h"
+#include "SlateGlobals.h"
+#include "Fonts/FontBulkData.h"
+#include "Misc/FileHelper.h"
 
 FCachedTypefaceData::FCachedTypefaceData()
 	: Typeface(nullptr)
@@ -268,29 +270,54 @@ const FFontData& FCompositeFontCache::GetFontDataForCharacter(const FSlateFontIn
 
 TSharedPtr<FFreeTypeFace> FCompositeFontCache::GetFontFace(const FFontData& InFontData)
 {
-	TSharedPtr<FFreeTypeFace> FaceAndMemory = FontFaceMap.FindRef(&InFontData);
-	if (!FaceAndMemory.IsValid() && InFontData.BulkDataPtr)
+	TSharedPtr<FFreeTypeFace> FaceAndMemory = FontFaceMap.FindRef(InFontData);
+	if (!FaceAndMemory.IsValid())
 	{
-		FScopeCycleCounterUObject ContextScope(InFontData.BulkDataPtr);
-
-		int32 LockedFontDataSizeBytes = 0;
-		const void* const LockedFontData = InFontData.BulkDataPtr->Lock(LockedFontDataSizeBytes);
-		if (LockedFontDataSizeBytes > 0)
+#if WITH_EDITORONLY_DATA
 		{
-			// make a new entry
-			FaceAndMemory = MakeShareable(new FFreeTypeFace(FTLibrary, LockedFontData, LockedFontDataSizeBytes));
-			if (FaceAndMemory->IsValid())
+			// If this font data is referencing an asset, we just need to load it from memory
+			TArray<uint8> FontFaceData;
+			if (InFontData.GetFontFaceData(FontFaceData))
 			{
-				FontFaceMap.Add(&InFontData, FaceAndMemory);
+				FaceAndMemory = MakeShareable(new FFreeTypeFace(FTLibrary, MoveTemp(FontFaceData)));
 			}
-			else
+		}
+#endif // WITH_EDITORONLY_DATA
+
+		// If no asset was loaded, then we go through the normal font loading process
+		if (!FaceAndMemory.IsValid())
+		{
+			switch (InFontData.GetLoadingPolicy())
 			{
-				FaceAndMemory.Reset();
-				UE_LOG(LogSlate, Warning, TEXT("GetFontFace failed to load or process '%s'"), *InFontData.FontFilename);
+			case EFontLoadingPolicy::PreLoad:
+				{
+					TArray<uint8> FontFaceData;
+					if (FFileHelper::LoadFileToArray(FontFaceData, *InFontData.GetFontFilename()))
+					{
+						FaceAndMemory = MakeShareable(new FFreeTypeFace(FTLibrary, MoveTemp(FontFaceData)));
+					}
+				}
+				break;
+			case EFontLoadingPolicy::Stream:
+				{
+					FaceAndMemory = MakeShareable(new FFreeTypeFace(FTLibrary, InFontData.GetFontFilename()));
+				}
+				break;
+			default:
+				break;
 			}
 		}
 
-		InFontData.BulkDataPtr->Unlock();
+		// Got a valid font?
+		if (FaceAndMemory.IsValid() && FaceAndMemory->IsValid())
+		{
+			FontFaceMap.Add(InFontData, FaceAndMemory);
+		}
+		else
+		{
+			FaceAndMemory.Reset();
+			UE_LOG(LogSlate, Warning, TEXT("GetFontFace failed to load or process '%s'"), *InFontData.GetFontFilename());
+		}
 	}
 	return FaceAndMemory;
 }
@@ -305,19 +332,7 @@ const TSet<FName>& FCompositeFontCache::GetFontAttributes(const FFontData& InFon
 
 void FCompositeFontCache::FlushCompositeFont(const FCompositeFont& InCompositeFont)
 {
-	TSharedPtr<FCachedCompositeFontData>* const FoundCompositeFontData = CompositeFontToCachedDataMap.Find(&InCompositeFont);
-	if (FoundCompositeFontData)
-	{
-		// Also clear out any font face map entries for the cached data
-		TArray<const FFontData*> AllCachedFontData;
-		(*FoundCompositeFontData)->GetCachedFontData(AllCachedFontData);
-		for (const FFontData* CachedFontData : AllCachedFontData)
-		{
-			FontFaceMap.Remove(CachedFontData);
-		}
-
-		CompositeFontToCachedDataMap.Remove(&InCompositeFont);
-	}
+	CompositeFontToCachedDataMap.Remove(&InCompositeFont);
 }
 
 void FCompositeFontCache::FlushCache()

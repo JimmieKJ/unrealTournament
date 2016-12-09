@@ -2,8 +2,15 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Distributions.h"
 #include "Distributions/Distribution.h"
 #include "DistributionVector.generated.h"
+
+struct FPropertyChangedEvent;
 
 UENUM()
 enum EDistributionVectorLockFlags

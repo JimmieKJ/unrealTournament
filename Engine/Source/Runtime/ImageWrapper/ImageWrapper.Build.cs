@@ -13,14 +13,16 @@ public class ImageWrapper : ModuleRules
 
 		PrivateDependencyModuleNames.Add("Core");
 
-		AddEngineThirdPartyPrivateStaticDependencies(Target, 
+		AddEngineThirdPartyPrivateStaticDependencies(Target,
 			"zlib",
 			"UElibPNG",
 			"UElibJPG"
 			);
 
         // Add openEXR lib for windows builds.
-        if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Mac)
+        if (Target.Platform == UnrealTargetPlatform.Win64 ||
+			Target.Platform == UnrealTargetPlatform.Win32 ||
+			Target.Platform == UnrealTargetPlatform.Mac)
         {
             Definitions.Add("WITH_UNREALEXR=1");
             AddEngineThirdPartyPrivateStaticDependencies(Target, "UEOpenExr");
@@ -33,5 +35,6 @@ public class ImageWrapper : ModuleRules
 
 		// Disable shared PCHs to handle warning C4652
 		PCHUsage = ModuleRules.PCHUsageMode.NoSharedPCHs;
+		PrivatePCHHeaderFile = "Private/ImageWrapperPrivatePCH.h";
     }
 }

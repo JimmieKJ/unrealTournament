@@ -1,10 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProceduralMeshComponentEditorPrivatePCH.h"
 #include "ProceduralMeshComponentDetails.h"
-
-#include "DlgPickAssetPath.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Application/SlateWindowHelper.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Engine/StaticMesh.h"
+#include "IAssetTools.h"
 #include "AssetToolsModule.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "IDetailsView.h"
+#include "ProceduralMeshComponent.h"
+#include "RawMesh.h"
+
+#include "Dialogs/DlgPickAssetPath.h"
 #include "AssetRegistryModule.h"
 
 #define LOCTEXT_NAMESPACE "ProceduralMeshComponentDetails"
@@ -183,8 +197,11 @@ FReply FProceduralMeshComponentDetails::ClickedOnConvertToStaticMesh()
 				// Copy materials to new mesh
 				for (UMaterialInterface* Material : MeshMaterials)
 				{
-					StaticMesh->Materials.Add(Material);
+					StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
 				}
+
+				//Set the Imported version before calling the build
+				StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
 
 				// Build mesh from source
 				StaticMesh->Build(false);

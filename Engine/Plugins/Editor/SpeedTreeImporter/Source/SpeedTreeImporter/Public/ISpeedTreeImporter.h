@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "ModuleManager.h"		// For inline LoadModuleChecked()
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
 /**
  * The public interface of the SpeedTreeImporter module

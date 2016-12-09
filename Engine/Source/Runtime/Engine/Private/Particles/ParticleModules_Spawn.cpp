@@ -3,13 +3,15 @@
 /*=============================================================================
 	ParticleModules_Spawn.cpp: Particle spawn-related module implementations.
 =============================================================================*/
-#include "EnginePrivate.h"
-#include "ParticleDefinitions.h"
-#include "Particles/Spawn/ParticleModuleSpawn.h"
-#include "Particles/Spawn/ParticleModuleSpawnBase.h"
-#include "Particles/Spawn/ParticleModuleSpawnPerUnit.h"
-#include "Particles/ParticleEmitter.h"
+
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "ParticleHelper.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "Distributions/DistributionFloatConstant.h"
+#include "Particles/Spawn/ParticleModuleSpawnBase.h"
+#include "Particles/Spawn/ParticleModuleSpawn.h"
+#include "Particles/Spawn/ParticleModuleSpawnPerUnit.h"
 #include "Distributions/DistributionFloatConstantCurve.h"
 
 UParticleModuleSpawnBase::UParticleModuleSpawnBase(const FObjectInitializer& ObjectInitializer)

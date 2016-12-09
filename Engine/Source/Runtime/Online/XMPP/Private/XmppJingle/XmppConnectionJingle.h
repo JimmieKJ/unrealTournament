@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/Ticker.h"
+#include "XmppConnection.h"
+#include "XmppJingle/XmppChatJingle.h"
+
+class FXmppMessagesJingle;
+class FXmppMultiUserChatJingle;
+class FXmppPresenceJingle;
+
 #if WITH_XMPP_JINGLE
 
 /** steps during login/logout */

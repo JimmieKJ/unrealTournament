@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Runtime/Core/Public/Async/TaskGraphInterfaces.h"
+#include "CoreMinimal.h"
+#include "Async/TaskGraphInterfaces.h"
 
 ////////////////////////////////////
 // Render fences

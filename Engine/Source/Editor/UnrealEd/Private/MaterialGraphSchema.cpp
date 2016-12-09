@@ -4,21 +4,35 @@
 	MaterialGraphSchema.cpp
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "MaterialGraph/MaterialGraphSchema.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UnrealType.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "HAL/IConsoleManager.h"
+#include "Materials/MaterialExpression.h"
+#include "Materials/MaterialExpressionMaterialFunctionCall.h"
+#include "Materials/MaterialFunction.h"
+#include "MaterialGraph/MaterialGraph.h"
+#include "Engine/Texture.h"
+#include "MaterialGraph/MaterialGraphNode_Base.h"
+#include "MaterialGraph/MaterialGraphNode.h"
+#include "MaterialGraph/MaterialGraphNode_Root.h"
+#include "Materials/MaterialParameterCollection.h"
 
 #include "Materials/MaterialExpressionCollectionParameter.h"
 #include "Materials/MaterialExpressionComment.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
-#include "Materials/MaterialFunction.h"
 
-#include "AssetData.h"
 #include "ScopedTransaction.h"
 #include "MaterialEditorUtilities.h"
 #include "GraphEditorActions.h"
 #include "AssetRegistryModule.h"
-#include "Materials/MaterialParameterCollection.h"
 
 #define LOCTEXT_NAMESPACE "MaterialGraphSchema"
 
@@ -373,12 +387,15 @@ void UMaterialGraphSchema::GetContextMenuActions(const UEdGraph* CurrentGraph, c
 			// Only display the 'Break Link' option if there is a link to break!
 			if (InGraphPin->LinkedTo.Num() > 0)
 			{
-				MenuBuilder->AddMenuEntry(
-					LOCTEXT("SelectLinkedNodes", "Select Linked Nodes"),
-					LOCTEXT("SelectLinkedNodesTooltip", "Adds all input Nodes linked to this Pin to selection"),
-					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateUObject((UMaterialGraphSchema*const)this, &UMaterialGraphSchema::SelectAllInputNodes, const_cast<UEdGraph*>(CurrentGraph), const_cast<UEdGraphPin*>(InGraphPin)))
-					);
+				if(InGraphPin->Direction == EEdGraphPinDirection::EGPD_Input)
+				{
+					MenuBuilder->AddMenuEntry(
+						LOCTEXT("SelectLinkedNodes", "Select Linked Nodes"),
+						LOCTEXT("SelectLinkedNodesTooltip", "Adds all input Nodes linked to this Pin to selection"),
+						FSlateIcon(),
+						FUIAction(FExecuteAction::CreateUObject((UMaterialGraphSchema*const)this, &UMaterialGraphSchema::SelectAllInputNodes, const_cast<UEdGraph*>(CurrentGraph), const_cast<UEdGraphPin*>(InGraphPin)))
+						);
+				}
 
 				MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().BreakPinLinks);
 

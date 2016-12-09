@@ -3,14 +3,18 @@
 #pragma once
 
 // for FLandscapeSplineInterpPoint
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
 #include "LandscapeSplineSegment.h"
 
 #include "LandscapeSplineControlPoint.generated.h"
 
-// forward declarations
-class ULandscapeSplineSegment;
 class UControlPointMeshComponent;
-struct FLandscapeSplineSegmentConnection;
+class ULandscapeSplinesComponent;
+class UStaticMesh;
 
 USTRUCT()
 struct FLandscapeSplineConnection

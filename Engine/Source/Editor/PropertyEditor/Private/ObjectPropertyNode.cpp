@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyNode.h"
 #include "ObjectPropertyNode.h"
+#include "Misc/ConfigCacheIni.h"
 #include "CategoryPropertyNode.h"
 #include "ItemPropertyNode.h"
 #include "ObjectEditorUtils.h"
@@ -145,10 +144,14 @@ bool FObjectPropertyNode::GetReadAddressUncached(FPropertyNode& InNode,
 
 	//////////////////////////////////////////
 
-	// If this item is the child of an array, return NULL if there is a different number
-	// of items in the array in different objects, when multi-selecting.
+	// If this item is the child of a container, return NULL if there is a different number
+	// of items in the container in different objects, when multi-selecting.
 
-	if( Cast<UArrayProperty>(InItemProperty->GetOuter()) )
+	UArrayProperty* ArrayOuter = Cast<UArrayProperty>(InItemProperty->GetOuter());
+	USetProperty* SetOuter = Cast<USetProperty>(InItemProperty->GetOuter());
+	UMapProperty* MapOuter = Cast<UMapProperty>(InItemProperty->GetOuter());
+
+	if( ArrayOuter || SetOuter || MapOuter)
 	{
 		FPropertyNode* ParentPropertyNode = InNode.GetParentNode();
 		check(ParentPropertyNode);
@@ -158,15 +161,46 @@ bool FObjectPropertyNode::GetReadAddressUncached(FPropertyNode& InNode,
 			uint8* BaseAddr = ParentPropertyNode->GetValueBaseAddress( (uint8*)TempObject );
 			if( BaseAddr )
 			{
-				const int32 Num = FScriptArrayHelper::Num(BaseAddr);
-				for( int32 ObjIndex = 1 ; ObjIndex < GetNumObjects(); ObjIndex++ )
+				if ( ArrayOuter )
 				{
-					TempObject = GetUObject(ObjIndex);
-					BaseAddr = ParentPropertyNode->GetValueBaseAddress( (uint8*)TempObject );
-
-					if( BaseAddr && Num != FScriptArrayHelper::Num( BaseAddr ) )
+					const int32 Num = FScriptArrayHelper::Num(BaseAddr);
+					for (int32 ObjIndex = 1; ObjIndex < GetNumObjects(); ++ObjIndex)
 					{
-						bAllTheSame = false;
+						TempObject = GetUObject(ObjIndex);
+						BaseAddr = ParentPropertyNode->GetValueBaseAddress((uint8*)TempObject);
+
+						if (BaseAddr && Num != FScriptArrayHelper::Num(BaseAddr))
+						{
+							bAllTheSame = false;
+						}
+					}
+				}
+				else if ( SetOuter )
+				{
+					const int32 Num = FScriptSetHelper::Num(BaseAddr);
+					for (int32 ObjIndex = 1; ObjIndex < GetNumObjects(); ++ObjIndex)
+					{
+						TempObject = GetUObject(ObjIndex);
+						BaseAddr = ParentPropertyNode->GetValueBaseAddress((uint8*)TempObject);
+
+						if (BaseAddr && Num != FScriptSetHelper::Num(BaseAddr))
+						{
+							bAllTheSame = false;
+						}
+					}
+				}
+				else if ( MapOuter )
+				{
+					const int32 Num = FScriptMapHelper::Num(BaseAddr);
+					for (int32 ObjIndex = 1; ObjIndex < GetNumObjects(); ++ObjIndex)
+					{
+						TempObject = GetUObject(ObjIndex);
+						BaseAddr = ParentPropertyNode->GetValueBaseAddress((uint8*)TempObject);
+
+						if (BaseAddr && Num != FScriptMapHelper::Num(BaseAddr))
+						{
+							bAllTheSame = false;
+						}
 					}
 				}
 			}
@@ -176,23 +210,55 @@ bool FObjectPropertyNode::GetReadAddressUncached(FPropertyNode& InNode,
 	uint8* Base = GetUObject(0) ? InNode.GetValueBaseAddress( (uint8*)(GetUObject(0)) ) : NULL;
 	if (Base)
 	{
-		// If the item is an array itself, return NULL if there are a different number of
-		// items in the array in different objects, when multi-selecting.
+		// If the item is an array or set itself, return NULL if there are a different number of
+		// items in the container in different objects, when multi-selecting.
 
-		if( Cast<UArrayProperty>(InItemProperty) )
+		UArrayProperty* ArrayProp = Cast<UArrayProperty>(InItemProperty);
+		USetProperty* SetProp = Cast<USetProperty>(InItemProperty);
+		UMapProperty* MapProp = Cast<UMapProperty>(InItemProperty);
+
+		if( ArrayProp || SetProp || MapProp)
 		{
 			// This flag is an override for array properties which want to display e.g. the "Clear" and "Empty"
 			// buttons, even though the array properties may differ in the number of elements.
 			if ( !bArrayPropertiesCanDifferInSize )
 			{
 				const UObject* TempObject = GetUObject(0);
-				int32 const Num = FScriptArrayHelper::Num(InNode.GetValueBaseAddress( (uint8*)TempObject));
-				for( int32 ObjIndex = 1 ; ObjIndex < GetNumObjects() ; ObjIndex++ )
+
+				if (ArrayProp)
 				{
-					TempObject = GetUObject(ObjIndex);
-					if( TempObject && Num != FScriptArrayHelper::Num(InNode.GetValueBaseAddress((uint8*)TempObject)) )
+					int32 const Num = FScriptArrayHelper::Num(InNode.GetValueBaseAddress((uint8*)TempObject));
+					for (int32 ObjIndex = 1; ObjIndex < GetNumObjects(); ObjIndex++)
 					{
-						bAllTheSame = false;
+						TempObject = GetUObject(ObjIndex);
+						if (TempObject && Num != FScriptArrayHelper::Num(InNode.GetValueBaseAddress((uint8*)TempObject)))
+						{
+							bAllTheSame = false;
+						}
+					}
+				}
+				else if (SetProp)
+				{
+					int32 const Num = FScriptSetHelper::Num(InNode.GetValueBaseAddress((uint8*)TempObject));
+					for (int32 ObjIndex = 1; ObjIndex < GetNumObjects(); ++ObjIndex)
+					{
+						TempObject = GetUObject(ObjIndex);
+						if (TempObject && Num != FScriptSetHelper::Num(InNode.GetValueBaseAddress((uint8*)TempObject)))
+						{
+							bAllTheSame = false;
+						}
+					}
+				}
+				else if (MapProp)
+				{
+					int32 const Num = FScriptMapHelper::Num(InNode.GetValueBaseAddress((uint8*)TempObject));
+					for (int32 ObjIndex = 1; ObjIndex < GetNumObjects(); ++ObjIndex)
+					{
+						TempObject = GetUObject(ObjIndex);
+						if (TempObject && Num != FScriptMapHelper::Num(InNode.GetValueBaseAddress((uint8*)TempObject)))
+						{
+							bAllTheSame = false;
+						}
 					}
 				}
 			}

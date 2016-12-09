@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "BehaviorTree/Tasks/BTTask_BlueprintBase.h"
+#include "AIController.h"
+#include "BehaviorTree/BTFunctionLibrary.h"
 #include "BlueprintNodeHelpers.h"
 #include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/Tasks/BTTask_BlueprintBase.h"
 
 UBTTask_BlueprintBase::UBTTask_BlueprintBase(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

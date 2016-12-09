@@ -1,20 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "EnvQueryTypes.h"
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType.h"
+#include "EnvironmentQuery/EnvQueryContext.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
 #include "Tickable.h"
 #include "EnvironmentQuery/EnvQueryInstanceBlueprintWrapper.h"
 #include "EnvQueryManager.generated.h"
 
-class UObject;
-class UWorld;
 class UEnvQuery;
 class UEnvQueryManager;
 class UEnvQueryOption;
-struct FEnvQueryInstance;
-struct FEnvNamedValue;
 class UEnvQueryTest;
-class UEnvQueryInstanceBlueprintWrapper;
 
 /** wrapper for easy query execution */
 USTRUCT()
@@ -84,6 +87,9 @@ struct FEnvQueryInstanceCache
 
 	/** instance to duplicate */
 	FEnvQueryInstance Instance;
+
+	/** the name of the source query */
+	FName AssetName;
 };
 
 #if USE_EQS_DEBUGGER

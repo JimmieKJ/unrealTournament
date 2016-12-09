@@ -4,6 +4,4 @@
 	UnObjLinker.cpp: Unreal object linker relationship management
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
 
-#include "UObjectAnnotation.h"

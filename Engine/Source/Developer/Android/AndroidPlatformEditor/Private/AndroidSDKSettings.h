@@ -2,10 +2,14 @@
 
 #pragma once
 
-#include "ITargetPlatformManagerModule.h"
-#include "IAndroidDeviceDetection.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/EngineTypes.h"
 #include "AndroidSDKSettings.generated.h"
 
+class IAndroidDeviceDetection;
+class ITargetPlatformManagerModule;
 
 /**
  * Implements the settings for the Android SDK setup.

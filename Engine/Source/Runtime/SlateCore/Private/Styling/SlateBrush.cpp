@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
+#include "Styling/SlateBrush.h"
 
 
 /* FSlateBrush constructors
@@ -72,6 +72,12 @@ FSlateBrush::FSlateBrush( ESlateBrushDrawType::Type InDrawType, const FName InRe
 	//{
 	//	checkf( FPaths::FileExists( InResourceName.ToString() ), *FPaths::ConvertRelativePathToFull( InResourceName.ToString() ) );
 	//}
+}
+
+
+void FSlateBrush::AddReferencedObjects( FReferenceCollector& Collector )
+{
+	Collector.AddReferencedObject(ResourceObject);
 }
 
 

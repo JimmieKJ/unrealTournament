@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "Serialization/ArchiveTraceRoute.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/UObjectIterator.h"
+#include "Containers/List.h"
+#include "UObject/UnrealType.h"
 
 /*----------------------------------------------------------------------------
 	FArchiveTraceRoute

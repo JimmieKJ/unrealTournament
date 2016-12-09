@@ -4,12 +4,6 @@ using System;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Xml.Serialization;
-using System.Collections;
-using System.Collections.Generic;
-using Tools.DotNETCommon.XmlHandler;
-using System.Xml;
-using System.Linq;
-using System.Security;
 
 namespace Tools.CrashReporter.CrashReportCommon
 {
@@ -29,11 +23,6 @@ namespace Tools.CrashReporter.CrashReportCommon
 		/// <summary>A optional message to explain any return values.</summary>
 		[XmlAttribute]
 		public string Message = "";
-
-		/// <summary>A simple default constructor to allow Xml serialisation.</summary>
-		public CrashReporterResult()
-		{
-		}
 	}
 
 	/// <summary>
@@ -82,7 +71,11 @@ namespace Tools.CrashReporter.CrashReportCommon
 
 		/// <summary>The four component version of the app e.g. 4.4.1.0</summary>
 		[XmlElement]
-		public string BuildVersion = "";
+		public string EngineVersion = "";
+
+        /// <summary>The four component version of the app e.g. 4.4.1.0</summary>
+        [XmlElement]
+        public string BuildVersion = "";
 
 		/// <summary> Changelist number. </summary>
 		[XmlElement]
@@ -177,13 +170,15 @@ namespace Tools.CrashReporter.CrashReportCommon
 		[XmlElement]
 		public bool bAllowToBeContacted = false;
 
+        /// <summary> Whether the processor generated an error while generating this crash report </summary>
+        [XmlElement]
+        public bool bProcessorFailed = false;
+
 		/// <summary>A simple default constructor to allow Xml serialization.</summary>
 		public CrashDescription()
 		{
 		}
 	}
-
-	
 
 	/// <summary> Details about received compressed crash. </summary>
 	public class FCompressedCrashInformation
@@ -290,5 +285,63 @@ namespace Tools.CrashReporter.CrashReportCommon
 		/// <param name="context">Streaming context </param>
 		protected CrashReporterException(SerializationInfo info, StreamingContext context)
 			: base(info, context) {}
+	}
+
+	/// <summary>
+	/// Helper class for checking the available space on a storage medium
+	/// </summary>
+	public static class StorageSpaceHelper
+	{
+		/// <summary>
+		/// Attempts to extract the drive letter including colon and first slash from a file or folder path. Will not throw exceptions on
+		/// malformed or illegal paths. Does not currently support UNC paths.
+		/// </summary>
+		/// <param name="InPath">A folder or file path that starts with a regular drive letter</param>
+		/// <param name="OutDriveLetter">(out) If the path starts with a valid drive letter, contains the drive letter, colon and first slash.</param>
+		/// <returns>True if the drive letter was return successfully, false if the method fails for any reason.</returns>
+		public static bool TryGetDriveLetter(string InPath, out string OutDriveLetter)
+		{
+			try
+			{
+				OutDriveLetter = Path.GetPathRoot(InPath);
+				return !string.IsNullOrWhiteSpace(OutDriveLetter);
+			}
+			catch (Exception)
+			{
+				OutDriveLetter = String.Empty;
+                return false;
+			}
+		}
+
+		/// <summary>
+		/// This will work for regular drives with letters. Network shares require Win32 calls
+		/// </summary>
+		/// <param name="InPath">Filepath (must be in a regular drive with a letter in this version)</param>
+		/// <param name="OutSpaceAvailable">(out) The number of bytes free</param>
+		/// <param name="OutPercentAvailable">(out) The percentage of free space</param>
+		/// <returns>True if the number of free bytes is retrieved successfully, otherwise false if an error occurs.</returns>
+		public static bool TryGetSpaceAvailable(string InPath, out Int64 OutSpaceAvailable, out float OutPercentAvailable)
+		{
+			string PathRoot;
+			if (TryGetDriveLetter(InPath, out PathRoot))
+			{
+				try
+				{
+					DriveInfo Info = new DriveInfo(PathRoot);
+					OutSpaceAvailable = Info.AvailableFreeSpace;
+					OutPercentAvailable = 100.0f*OutSpaceAvailable/Info.TotalSize;
+					return true;
+				}
+				catch (Exception)
+				{
+					// eat exceptions
+				}
+			}
+
+			// TODO: fallback on p/invoking platform-specific disk space APIs?
+			OutSpaceAvailable = 0;
+			OutPercentAvailable = 0.0f;
+            return false;
+		}
 	}
 }

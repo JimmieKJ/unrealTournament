@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
-#include "SProjectLauncherProfileNameDescEditor.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Shared/SProjectLauncherProfileNameDescEditor.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherProfileNameDescEditor"

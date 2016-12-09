@@ -1,10 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "GraphEditor.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/SlateRect.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Types/SlateStructs.h"
+#include "Widgets/Images/SImage.h"
 #include "SNodePanel.h"
 
+class FLevelModel;
+class FSlateWindowElementList;
 class FTileThumbnailCollection;
+class FWorldTileCollectionModel;
+class FWorldTileModel;
+class IToolTip;
+class SToolTip;
 
 //----------------------------------------------------------------
 //

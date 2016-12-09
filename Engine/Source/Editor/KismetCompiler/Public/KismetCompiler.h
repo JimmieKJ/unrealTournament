@@ -2,12 +2,22 @@
 
 #pragma once
 
-#include "EdGraphCompilerUtilities.h"
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "Templates/SubclassOf.h"
+#include "EdGraph/EdGraphNode.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "Engine/Blueprint.h"
+#include "K2Node_Event.h"
 #include "BPTerminal.h"
-#include "KismetCompiledFunctionContext.h"
 #include "KismetCompilerMisc.h"
+#include "EdGraphCompilerUtilities.h"
+#include "KismetCompiledFunctionContext.h"
 
 class UBlueprintGeneratedClass;
+class UK2Node_FunctionEntry;
+class UK2Node_TemporaryVariable;
+class UK2Node_Timeline;
 
 KISMETCOMPILER_API DECLARE_LOG_CATEGORY_EXTERN(LogK2Compiler, Log, All);
 
@@ -291,12 +301,6 @@ protected:
 	 */
 	void SetCanEverTick() const;
 
-	/** 
-	 * Function works only if subclass UActorComponent.
-	 * If BeginPlay or EndPlay event is defined on the Component, force bWantsBeginPlay.
-	 */
-	void SetWantsBeginPlay() const;
-
 	/** Scan FunctionList and return Entry point, for matching one  */
 	const UK2Node_FunctionEntry* FindLocalEntryPoint(const UFunction* Function) const;
 
@@ -430,6 +434,9 @@ protected:
 
 	/** Validates the generated class */
 	virtual bool ValidateGeneratedClass(UBlueprintGeneratedClass* Class);
+
+	/** Discovers exec pin links for the sourcenode */
+	void DetermineNodeExecLinks(UEdGraphNode* SourceNode, TMap<UEdGraphPin*, UEdGraphPin*>& SourceNodeLinks) const;
 
 private:
 	/**

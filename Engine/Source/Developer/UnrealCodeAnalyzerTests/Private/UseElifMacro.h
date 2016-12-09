@@ -2,5 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #define TEST_IF_MACRO 0
 #define ELIF_MACRO 1

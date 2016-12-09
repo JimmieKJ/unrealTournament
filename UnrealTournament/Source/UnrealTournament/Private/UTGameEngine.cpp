@@ -19,6 +19,13 @@
 #include "MoviePlayer.h"
 #include "SUWindowsStyle.h"
 #endif
+#if PLATFORM_WINDOWS
+#undef ERROR_SUCCESS
+#undef ERROR_IO_PENDING
+#undef E_NOTIMPL
+#undef E_FAIL
+#include "WindowsHWrapper.h"
+#endif
 
 // prevent setting MipBias to an intentionally broken value to make textures turn solid color
 static void MipBiasClamp()
@@ -453,7 +460,7 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 				MaxTickRate = FMath::Clamp(NetDriver->NetServerMaxTickRate, 10, 120);
 
 				// Allow hubs to override the tick rate
-				AUTLobbyGameMode* LobbyGame = Cast<AUTLobbyGameMode>(World->GetAuthGameMode());
+				AUTLobbyGameMode* LobbyGame = World->GetAuthGameMode<AUTLobbyGameMode>();
 				if (LobbyGame)
 				{
 					MaxTickRate = LobbyGame->LobbyMaxTickRate;
@@ -882,6 +889,7 @@ void UUTGameEngine::OnLoadingMoviePlaybackFinished()
 
 void UUTGameEngine::PromptForEULAAcceptance()
 {
+#if PLATFORM_DESKTOP
 	if (bFirstRun)
 	{
 		FString PasswordStr;
@@ -906,6 +914,7 @@ void UUTGameEngine::PromptForEULAAcceptance()
 		SaveConfig();
 		GConfig->Flush(false);
 	}
+#endif
 }
 
 UUTLevelSummary* UUTGameEngine::LoadLevelSummary(const FString& MapName)
@@ -1001,7 +1010,7 @@ UUTFlagInfo* UUTGameEngine::GetFlag(FName FlagName)
 
 bool UUTGameEngine::HandleReconnectCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld )
 {
-	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayerFromControllerId(GWorld,0));
+	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayerFromControllerId(InWorld,0));
 	if (UTLocalPlayer)
 	{
 		UTLocalPlayer->Reconnect(false);

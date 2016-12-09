@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Templates/SubclassOf.h"
+#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
 #include "NavFilter_AIControllerDefault.generated.h"
 
 UCLASS()

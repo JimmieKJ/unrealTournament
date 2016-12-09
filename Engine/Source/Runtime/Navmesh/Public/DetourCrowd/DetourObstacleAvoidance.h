@@ -22,6 +22,8 @@
 #ifndef DETOUROBSTACLEAVOIDANCE_H
 #define DETOUROBSTACLEAVOIDANCE_H
 
+#include "CoreMinimal.h"
+
 struct dtObstacleCircle
 {
 	float p[3];				///< Position of the obstacle

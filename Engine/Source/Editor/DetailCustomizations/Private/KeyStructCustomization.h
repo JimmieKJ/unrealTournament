@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+
 /**
  * Implements a details panel customization for FKey structures.
  */

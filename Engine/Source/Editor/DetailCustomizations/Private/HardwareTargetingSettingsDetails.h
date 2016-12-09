@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "HardwareTargetingSettings.h"
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
 
 class FHardwareTargetingSettingsDetails : public IDetailCustomization
 {

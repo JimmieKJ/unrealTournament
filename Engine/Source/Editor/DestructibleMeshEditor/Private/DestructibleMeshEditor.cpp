@@ -1,13 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DestructibleMeshEditorPrivatePCH.h"
+#include "DestructibleMeshEditor.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Input/SSlider.h"
+#include "EditorReimportHandler.h"
+#include "PhysXIncludes.h"
+#include "DestructibleMeshEditorModule.h"
+#include "Engine/DestructibleFractureSettings.h"
+#include "Editor.h"
 
-#include "Toolkits/IToolkitHost.h"
-
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "SDockTab.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #include "Engine/DestructibleMesh.h"
 #include "Engine/Selection.h"

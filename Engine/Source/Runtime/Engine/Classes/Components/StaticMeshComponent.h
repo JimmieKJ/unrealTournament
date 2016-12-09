@@ -2,19 +2,33 @@
 
 #pragma once
 
-#include "SceneTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "Engine/EngineTypes.h"
+#include "Templates/ScopedPointer.h"
+#include "Engine/TextureStreamingTypes.h"
 #include "Components/MeshComponent.h"
-#include "Runtime/RenderCore/Public/PackedNormal.h"
+#include "PackedNormal.h"
 #include "RawIndexBuffer.h"
+#include "UniquePtr.h"
 #include "StaticMeshComponent.generated.h"
 
 class FColorVertexBuffer;
-class UStaticMesh;
+class FLightingBuildOptions;
+class FMeshMapBuildData;
+class FPrimitiveSceneProxy;
 class FStaticMeshStaticLightingMesh;
 class ULightComponent;
-struct FEngineShowFlags;
+class UStaticMesh;
+class UStaticMeshComponent;
 struct FConvexVolume;
-struct FStreamingTextureBuildInfo;
+struct FEngineShowFlags;
+struct FNavigableGeometryExport;
+struct FNavigationRelevantData;
+struct FStaticLightingPrimitiveInfo;
 
 /** Cached vertex information at the time the mesh was painted. */
 USTRUCT()
@@ -61,9 +75,14 @@ struct FStaticMeshComponentLODInfo
 {
 	GENERATED_USTRUCT_BODY()
 
-	FLightMapRef LightMap;
+	/** Uniquely identifies this LOD's built map data. */
+	FGuid MapBuildDataId;
 
-	FShadowMapRef ShadowMap;
+	/** Used during deserialization to temporarily store legacy lightmap data. */
+	FMeshMapBuildData* LegacyMapBuildData;
+
+	/** Transient override lightmap data, used by landscape grass. */
+	TUniquePtr<FMeshMapBuildData> OverrideMapBuildData;
 
 	/** Vertex data cached at the time this LOD was painted, if any */
 	UPROPERTY()
@@ -77,15 +96,15 @@ struct FStaticMeshComponentLODInfo
 
 	FRawStaticIndexBuffer PreCulledIndexBuffer;
 
-#if WITH_EDITORONLY_DATA
-	/** Owner of this FStaticMeshComponentLODInfo */
-	class UStaticMeshComponent* Owner;
-#endif
+	/** 
+	 * Owner of this FStaticMeshComponentLODInfo 
+	 * Warning, can be NULL for a component created via SpawnActor off of a blueprint default (LODData will be created without a call to SetLODDataCount).
+	 */
+	class UStaticMeshComponent* OwningComponent;
 
 	/** Default constructor */
 	FStaticMeshComponentLODInfo();
-	/** Copy constructor */
-	FStaticMeshComponentLODInfo( const FStaticMeshComponentLODInfo &rhs );
+	FStaticMeshComponentLODInfo(UStaticMeshComponent* InOwningComponent);
 	/** Destructor */
 	~FStaticMeshComponentLODInfo();
 
@@ -154,7 +173,9 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=LOD, meta=(editcondition = "bOverrideMinLOD"))
 	int32 MinLOD;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=StaticMesh, ReplicatedUsing=OnRep_StaticMesh)
+	/** The static mesh that this component uses to render */
+	DEPRECATED(4.14, "Direct access to StaticMesh member is deprecated and will be made private soon. Please use SetStaticMesh and GetStaticMesh.")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=StaticMesh, ReplicatedUsing=OnRep_StaticMesh, meta=(AllowPrivateAccess="true"))
 	class UStaticMesh* StaticMesh;
 
 	UFUNCTION()
@@ -175,6 +196,19 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	/** Index of the section to preview. If set to INDEX_NONE, all section will be rendered. Used for isolating in Static Mesh Tool **/
 	UPROPERTY(transient)
 	int32 SectionIndexPreview;
+
+	/*
+	 * The import version of the static mesh when it was assign this is update when:
+	 * - The user assign a new staticmesh to the component
+	 * - The component is serialize (IsSaving)
+	 * - Default value is BeforeImportStaticMeshVersionWasAdded
+	 *
+	 * If when the component get load (PostLoad) the version of the attach staticmesh is newer
+	 * then this value, we will remap the material override because the order of the materials list
+	 * in the staticmesh can be changed. Hopefully there is a remap table save in the staticmesh.
+	 */
+	UPROPERTY()
+	int32 StaticMeshImportVersion;
 #endif
 
 	/** If true, bForceNavigationObstacle flag will take priority over navigation data stored in StaticMesh */
@@ -207,8 +241,22 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	uint32 bOverrideLightMapRes:1;
 
 	/** Light map resolution to use on this component, used if bOverrideLightMapRes is true */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Lighting, meta=(editcondition="bOverrideLightMapRes") )
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Lighting, meta=(ClampMax = 4096, editcondition="bOverrideLightMapRes") )
 	int32 OverriddenLightMapRes;
+
+	/** 
+	 * Whether to use the mesh distance field representation (when present) for shadowing indirect lighting (from lightmaps or skylight) on Movable components.
+	 * This works like capsule shadows on skeletal meshes, except using the mesh distance field so no physics asset is required.
+	 * The StaticMesh must have 'Generate Mesh Distance Field' enabled, or the project must have 'Generate Mesh Distance Fields' enabled for this feature to work.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(DisplayName = "Distance Field Indirect Shadow"))
+	uint32 bCastDistanceFieldIndirectShadow:1;
+
+	/** 
+	 * Controls how dark the dynamic indirect shadow can be.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(UIMin = "0", UIMax = "1", DisplayName = "Distance Field Indirect Shadow Min Visibility"))
+	float DistanceFieldIndirectShadowMinVisibility;
 
 	/**
 	 * Allows adjusting the desired streaming distance of streaming textures that uses UV 0.
@@ -228,7 +276,7 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	uint32 bUseSubDivisions:1;
 
 	UPROPERTY()
-	TArray<FGuid> IrrelevantLights;
+	TArray<FGuid> IrrelevantLights_DEPRECATED;
 
 	/** Static mesh LOD data.  Contains static lighting data along with instanced mesh vertex colors. */
 	UPROPERTY(transient)
@@ -243,19 +291,13 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	bool bUseDefaultCollision;
 
 #if WITH_EDITORONLY_DATA
-	/** 
-	 * Temporary section data used in the texture streaming build. 
-	 * Stays persistent to allow texture streaming accuracy view mode to inspect it.
-	 * The shared ptr is used to allow a safe way for the proxy to access it without duplicating it.
-	 */
-	TSharedPtr<TArray<FStreamingSectionBuildInfo>, ESPMode::NotThreadSafe> StreamingSectionData;
-
 	/** Derived data key of the static mesh, used to determine if an update from the source static mesh is required. */
 	UPROPERTY()
 	FString StaticMeshDerivedDataKey;
 
-	UPROPERTY()
-	bool bStreamingTextureDataValid;
+	/** Material Bounds used for texture streaming. */
+	UPROPERTY(NonTransactional)
+	TArray<uint32> MaterialStreamingRelativeBoxes;
 #endif
 
 	/** The Lightmass settings for this object. */
@@ -267,6 +309,14 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	/** Change the StaticMesh used by this instance. */
 	UFUNCTION(BlueprintCallable, Category="Components|StaticMesh")
 	virtual bool SetStaticMesh(class UStaticMesh* NewMesh);
+
+	/** Get the StaticMesh used by this instance. */
+	UStaticMesh* GetStaticMesh() const 
+	{ 
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		return StaticMesh; 
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	}
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|LOD")
 	void SetForcedLodModel(int32 NewForcedLodModel);
@@ -286,10 +336,12 @@ public:
 	virtual void ExportCustomProperties(FOutputDevice& Out, uint32 Indent) override;
 	virtual void ImportCustomProperties(const TCHAR* SourceText, FFeedbackContext* Warn) override;	
 	virtual void Serialize(FArchive& Ar) override;
+	virtual void PostInitProperties() override;
 #if WITH_EDITOR
 	virtual void PostEditUndo() override;
 	virtual void PreEditUndo() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
 #endif // WITH_EDITOR
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void PostLoad() override;
@@ -310,7 +362,6 @@ public:
 		// return IsCollisionEnabled() && (StaticMesh != NULL);
 		return false;
 	}
-
 	//~ End USceneComponent Interface
 
 	//~ Begin UActorComponent Interface.
@@ -338,47 +389,15 @@ public:
 		return LightmassSettings.bShadowIndirectOnly;
 	}
 	virtual ELightMapInteractionType GetStaticLightingType() const override;
+	virtual bool IsPrecomputedLightingValid() const override;
 
-	/**
-	* Return whether this primitive should have data for texture streaming. Used to optimize the texture streaming build.
-	*
-	* @return	true if a rebuild is required.
-	*/
-	virtual bool RequiresStreamingTextureData() const override;
-
-	/**
-	* Return whether this primitive has (good) section data for texture streaming. Used in the texture streaming build and accuracy viewmodes.
-	*
-	* @param bCheckTexCoordScales - If true, section data must contains texcoord scales to be valid.
-	*
-	* @return - true if streaming section data is valid.
-	*/
-	virtual bool HasStreamingSectionData(bool bCheckTexCoordScales) const override;
-	/**
-	* Return whether this primitive has (good) built data for texture streaming. Used for the "Texture Streaming Needs Rebuilt" check.
-	*
-	* @return	true if all texture streaming data is valid.
-	*/
-	virtual bool HasStreamingTextureData() const override;
-
-	/**
-	*	Update the precomputed streaming debug data of this component.
-	*
-	*	@param	TexCoordScales				The texcoord scales for each texture register of each relevant materials.
-	*/
-	virtual void UpdateStreamingSectionData(const FTexCoordScaleMap& TexCoordScales) override;
-
-	/**
-	 *	Update the precomputed streaming data of this component.
-	 *
-	 *	@param	LevelTextures	[in,out]	The list of textures referred by all component of a level. The array index maps to UTexture2D::LevelIndex.
-	 *	@param	TexCoordScales	[in]		The texcoord scales for each texture register of each relevant materials.
-	 *	@param	QualityLevel	[in]		The quality level being used in the texture streaming build.
-	 *	@param	FeatureLevel	[in]		The feature level being used in the texture streaming build.
-	 */
-	virtual void UpdateStreamingTextureData(TArray<UTexture2D*>& LevelTextures, const FTexCoordScaleMap& TexCoordScales, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel) override;
-
-	virtual bool GetStreamingTextureFactors(float& OutWorldTexelFactor, float& OutWorldLightmapFactor) const;
+	/** Get the scale comming form the component, when computing StreamingTexture data. Used to support instanced meshes. */
+	virtual float GetTextureStreamingTransformScale() const;
+	/** Get material, UV density and bounds for a given material index. */
+	virtual bool GetMaterialStreamingData(int32 MaterialIndex, FPrimitiveMaterialInfo& MaterialData) const override;
+	/** Build the data to compute accuracte StreaminTexture data. */
+	virtual bool BuildTextureStreamingData(ETextureStreamingBuildType BuildType, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel, TSet<FGuid>& DependentResources) override;
+	/** Get the StreaminTexture data. */
 	virtual void GetStreamingTextureInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const override;
 
 	virtual class UBodySetup* GetBodySetup() override;
@@ -394,6 +413,9 @@ public:
 	virtual void GetLightAndShadowMapMemoryUsage( int32& LightMapMemoryUsage, int32& ShadowMapMemoryUsage ) const override;
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const override;
 	virtual UMaterialInterface* GetMaterial(int32 MaterialIndex) const override;
+	virtual int32 GetMaterialIndex(FName MaterialSlotName) const override;
+	virtual TArray<FName> GetMaterialSlotNames() const override;
+	virtual bool IsMaterialSlotNameValid(FName MaterialSlotName) const override;
 
 	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
 #if WITH_EDITOR
@@ -566,6 +588,10 @@ public:
 
 	/** Unregister this component's render data with the scene for SpeedTree wind */
 	void RemoveSpeedTreeWind();
+
+	virtual void PropagateLightingScenarioChange() override;
+
+	const FMeshMapBuildData* GetMeshMapBuildData(const FStaticMeshComponentLODInfo& LODInfo) const;
 
 #if WITH_EDITOR
 	/** Called when the static mesh changes  */

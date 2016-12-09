@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
 #include "PaperTileSet.h"
 #include "PaperCustomVersion.h"
 
@@ -182,6 +181,7 @@ void UPaperTileSet::PostLoad()
 #if WITH_EDITOR
 
 #include "PaperTileMapComponent.h"
+#include "UObject/UObjectHash.h"
 #include "ComponentReregisterContext.h"
 
 void UPaperTileSet::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)

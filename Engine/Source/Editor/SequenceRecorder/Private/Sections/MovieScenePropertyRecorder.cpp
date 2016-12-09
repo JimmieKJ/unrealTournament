@@ -1,17 +1,19 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderPrivatePCH.h"
-#include "MovieScenePropertyRecorder.h"
-#include "MovieSceneBoolSection.h"
-#include "MovieSceneBoolTrack.h"
-#include "MovieSceneByteSection.h"
-#include "MovieSceneByteTrack.h"
-#include "MovieSceneFloatSection.h"
-#include "MovieSceneFloatTrack.h"
-#include "MovieSceneColorSection.h"
-#include "MovieSceneColorTrack.h"
-#include "MovieSceneVectorSection.h"
-#include "MovieSceneVectorTrack.h"
+#include "Sections/MovieScenePropertyRecorder.h"
+#include "MovieScene.h"
+#include "Sections/MovieSceneBoolSection.h"
+#include "Tracks/MovieSceneBoolTrack.h"
+#include "Sections/MovieSceneByteSection.h"
+#include "Tracks/MovieSceneByteTrack.h"
+#include "Sections/MovieSceneEnumSection.h"
+#include "Tracks/MovieSceneEnumTrack.h"
+#include "Sections/MovieSceneFloatSection.h"
+#include "Tracks/MovieSceneFloatTrack.h"
+#include "Sections/MovieSceneColorSection.h"
+#include "Tracks/MovieSceneColorTrack.h"
+#include "Sections/MovieSceneVectorSection.h"
+#include "Tracks/MovieSceneVectorTrack.h"
 
 // current set of compiled-in property types
 
@@ -27,7 +29,10 @@ UMovieSceneSection* FMovieScenePropertyRecorder<bool>::AddSection(UObject* InObj
 	UMovieSceneBoolTrack* Track = InMovieScene->AddTrack<UMovieSceneBoolTrack>(InGuid);
 	if (Track)
 	{
-		Track->SetPropertyNameAndPath(*Binding.GetProperty(InObjectToRecord)->GetDisplayNameText().ToString(), Binding.GetPropertyPath());
+		if (InObjectToRecord)
+		{
+			Track->SetPropertyNameAndPath(*Binding.GetProperty(*InObjectToRecord)->GetDisplayNameText().ToString(), Binding.GetPropertyPath());
+		}
 
 		UMovieSceneBoolSection* Section = Cast<UMovieSceneBoolSection>(Track->CreateNewSection());
 		Section->SetDefault(PreviousValue);
@@ -66,7 +71,10 @@ UMovieSceneSection* FMovieScenePropertyRecorder<uint8>::AddSection(UObject* InOb
 	UMovieSceneByteTrack* Track = InMovieScene->AddTrack<UMovieSceneByteTrack>(InGuid);
 	if (Track)
 	{
-		Track->SetPropertyNameAndPath(*Binding.GetProperty(InObjectToRecord)->GetDisplayNameText().ToString(), Binding.GetPropertyPath());
+		if (InObjectToRecord)
+		{
+			Track->SetPropertyNameAndPath(*Binding.GetProperty(*InObjectToRecord)->GetDisplayNameText().ToString(), Binding.GetPropertyPath());
+		}
 
 		UMovieSceneByteSection* Section = Cast<UMovieSceneByteSection>(Track->CreateNewSection());
 		Section->SetDefault(PreviousValue);
@@ -93,6 +101,44 @@ void FMovieScenePropertyRecorder<uint8>::ReduceKeys(UMovieSceneSection* InSectio
 {
 }
 
+bool FMovieScenePropertyRecorderEnum::ShouldAddNewKey(const int64& InNewValue) const
+{
+	return InNewValue != PreviousValue;
+}
+
+UMovieSceneSection* FMovieScenePropertyRecorderEnum::AddSection(UObject* InObjectToRecord, UMovieScene* InMovieScene, const FGuid& InGuid, float InTime)
+{
+	UMovieSceneEnumTrack* Track = InMovieScene->AddTrack<UMovieSceneEnumTrack>(InGuid);
+	if (Track)
+	{
+		if (InObjectToRecord)
+		{
+			Track->SetPropertyNameAndPath(*Binding.GetProperty(*InObjectToRecord)->GetDisplayNameText().ToString(), Binding.GetPropertyPath());
+		}
+
+		UMovieSceneEnumSection* Section = Cast<UMovieSceneEnumSection>(Track->CreateNewSection());
+		Section->SetDefault(PreviousValue);
+		Section->SetStartTime(InTime);
+		Section->SetEndTime(InTime);
+		Section->AddKey(InTime, PreviousValue, EMovieSceneKeyInterpolation::Break);
+
+		Track->AddSection(*Section);
+
+		return Section;
+	}
+
+	return nullptr;
+}
+
+void FMovieScenePropertyRecorderEnum::AddKeyToSection(UMovieSceneSection* InSection, const FPropertyKey<int64>& InKey)
+{
+	CastChecked<UMovieSceneEnumSection>(InSection)->AddKey(InKey.Time, InKey.Value, EMovieSceneKeyInterpolation::Break);
+}
+
+void FMovieScenePropertyRecorderEnum::ReduceKeys(UMovieSceneSection* InSection)
+{
+}
+
 template <>
 bool FMovieScenePropertyRecorder<float>::ShouldAddNewKey(const float& InNewValue) const
 {
@@ -105,7 +151,10 @@ UMovieSceneSection* FMovieScenePropertyRecorder<float>::AddSection(UObject* InOb
 	UMovieSceneFloatTrack* Track = InMovieScene->AddTrack<UMovieSceneFloatTrack>(InGuid);
 	if (Track)
 	{
-		Track->SetPropertyNameAndPath(*Binding.GetProperty(InObjectToRecord)->GetDisplayNameText().ToString(), Binding.GetPropertyPath());
+		if (InObjectToRecord)
+		{
+			Track->SetPropertyNameAndPath(*Binding.GetProperty(*InObjectToRecord)->GetDisplayNameText().ToString(), Binding.GetPropertyPath());
+		}
 
 		UMovieSceneFloatSection* Section = Cast<UMovieSceneFloatSection>(Track->CreateNewSection());
 		Section->SetDefault(PreviousValue);
@@ -145,7 +194,10 @@ UMovieSceneSection* FMovieScenePropertyRecorder<FColor>::AddSection(UObject* InO
 	UMovieSceneColorTrack* Track = InMovieScene->AddTrack<UMovieSceneColorTrack>(InGuid);
 	if (Track)
 	{
-		Track->SetPropertyNameAndPath(*Binding.GetProperty(InObjectToRecord)->GetDisplayNameText().ToString(), Binding.GetPropertyPath());
+		if (InObjectToRecord)
+		{
+			Track->SetPropertyNameAndPath(*Binding.GetProperty(*InObjectToRecord)->GetDisplayNameText().ToString(), Binding.GetPropertyPath());
+		}
 
 		UMovieSceneColorSection* Section = Cast<UMovieSceneColorSection>(Track->CreateNewSection());
 		Section->SetDefault(FColorKey(EKeyColorChannel::Red, PreviousValue.R, false));
@@ -202,7 +254,10 @@ UMovieSceneSection* FMovieScenePropertyRecorder<FVector>::AddSection(UObject* In
 	Track->SetNumChannelsUsed(3);
 	if (Track)
 	{
-		Track->SetPropertyNameAndPath(*Binding.GetProperty(InObjectToRecord)->GetDisplayNameText().ToString(), Binding.GetPropertyPath());
+		if (InObjectToRecord)
+		{
+			Track->SetPropertyNameAndPath(*Binding.GetProperty(*InObjectToRecord)->GetDisplayNameText().ToString(), Binding.GetPropertyPath());
+		}
 
 		UMovieSceneVectorSection* Section = Cast<UMovieSceneVectorSection>(Track->CreateNewSection());
 

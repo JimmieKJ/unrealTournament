@@ -4,18 +4,21 @@
 	PostProcessVisualizeBuffer.cpp: Post processing VisualizeBuffer implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessBufferInspector.h"
-#include "PostProcessPassThrough.h"
-#include "PostProcessing.h"
+#include "PostProcess/PostProcessBufferInspector.h"
+#include "StaticBoundShaderState.h"
+#include "CanvasTypes.h"
+#include "RenderTargetTemp.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "CompositionLighting/PostProcessPassThrough.h"
+#include "PostProcess/PostProcessing.h"
+#include "ScenePrivate.h"
 
 FRCPassPostProcessBufferInspector::FRCPassPostProcessBufferInspector(FRHICommandList& RHICmdList)
 {
 	// AdjustGBufferRefCount(-1) call is done when the pass gets executed
-	FSceneRenderTargets::Get_Todo_PassContext().AdjustGBufferRefCount(RHICmdList, 1);
+	FSceneRenderTargets::Get(RHICmdList).AdjustGBufferRefCount(RHICmdList, 1);
 }
 
 FShader* FRCPassPostProcessBufferInspector::SetShaderTempl(const FRenderingCompositePassContext& Context)

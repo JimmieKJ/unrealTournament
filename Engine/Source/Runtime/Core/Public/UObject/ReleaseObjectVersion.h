@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/Guid.h"
+
 // Custom serialization version for changes made in Dev-Core stream
 struct CORE_API FReleaseObjectVersion
 {
@@ -18,6 +21,9 @@ struct CORE_API FReleaseObjectVersion
 		// ULevel was using TTransArray incorrectly (serializing the entire array in addition to individual mutations).
 		// converted to a TArray:
 		LevelTransArrayConvertedToTArray,
+
+		// Add Component node templates now use their own unique naming scheme to ensure more reliable archetype lookups.
+		AddComponentNodeTemplateUniqueNames,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
 #include "HttpNetworkReplayStreaming.h"
-#include "ScopedTimers.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Interfaces/IHttpResponse.h"
+#include "HttpModule.h"
+#include "GenericPlatform/GenericPlatformHttp.h"
+#include "ProfilingDebugging/ScopedTimers.h"
 
 DEFINE_LOG_CATEGORY_STATIC( LogHttpReplay, Log, All );
 
@@ -325,8 +330,13 @@ void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, cons
 		AddRequestToQueue( EQueuedHttpRequestType::StartUploading, HttpRequest, 3, 2.0f );
 		
 		// We need to upload the header AFTER StartUploading is done (so we have session name)
-		AddRequestToQueue( EQueuedHttpRequestType::UploadHeader, nullptr );
+		RefreshHeader();
 	}
+}
+
+void FHttpNetworkReplayStreamer::RefreshHeader()
+{
+	AddRequestToQueue(EQueuedHttpRequestType::UploadHeader, nullptr);
 }
 
 void FHttpNetworkReplayStreamer::AddRequestToQueue( const EQueuedHttpRequestType::Type Type, TSharedPtr< class IHttpRequest > Request, const int32 InMaxRetries, const float InRetryDelay )
@@ -526,7 +536,11 @@ void FHttpNetworkReplayStreamer::UploadHeader()
 		return;
 	}
 
-	check( StreamChunkIndex == 0 );
+	if ( !IsStreaming() )
+	{
+		UE_LOG(LogHttpReplay, Warning, TEXT("FHttpNetworkReplayStreamer::UploadHeader. Not currently streaming"));
+		return;
+	}
 
 	// First upload the header
 	UE_LOG( LogHttpReplay, Log, TEXT( "FHttpNetworkReplayStreamer::UploadHeader. Header. StreamChunkIndex: %i, Size: %i" ), StreamChunkIndex, HeaderArchive.Buffer.Num() );
@@ -1009,6 +1023,11 @@ void FHttpNetworkReplayStreamer::CancelInFlightOrPendingTask( const EQueuedHttpR
 
 	if ( InFlightHttpRequest.IsValid() && InFlightHttpRequest->Type == Type )
 	{
+		if ( InFlightHttpRequest->Request->OnProcessRequestComplete().IsBound() )
+		{
+			InFlightHttpRequest->Request->OnProcessRequestComplete().Unbind();
+		}
+
 		InFlightHttpRequest->Request->CancelRequest();
 		InFlightHttpRequest = NULL;
 	}
@@ -1174,6 +1193,11 @@ void FHttpNetworkReplayStreamer::CancelStreamingRequests()
 	// Cancel any in flight request
 	if ( InFlightHttpRequest.IsValid() )
 	{
+		if ( InFlightHttpRequest->Request->OnProcessRequestComplete().IsBound() )
+		{
+			InFlightHttpRequest->Request->OnProcessRequestComplete().Unbind();
+		}
+
 		InFlightHttpRequest->Request->CancelRequest();
 		InFlightHttpRequest = NULL;
 	}
@@ -1534,9 +1558,7 @@ void FHttpNetworkReplayStreamer::HttpHeaderUploadFinished( FHttpRequestPtr HttpR
 	TSharedPtr< FQueuedHttpRequest > SavedFlightHttpRequest = InFlightHttpRequest;
 
 	RequestFinished( EStreamerState::StreamingUp, EQueuedHttpRequestType::UploadingHeader, HttpRequest );
-
-	check( StartStreamingDelegate.IsBound() );
-
+	
 	if ( bSucceeded && HttpResponse->GetResponseCode() == EHttpResponseCodes::NoContent )
 	{
 		if ( HttpRequest.IsValid() )
@@ -2158,6 +2180,7 @@ bool FHttpNetworkReplayStreamer::ProcessNextHttpRequest()
 			check( IsStreaming() );
 			StreamerState = EStreamerState::Idle;
 			bStopStreamingCalled = false;
+			ensure( QueuedHttpRequests.Num() == 0 );
 			return ProcessNextHttpRequest();
 		}
 

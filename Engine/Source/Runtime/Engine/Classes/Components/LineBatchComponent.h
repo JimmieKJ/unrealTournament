@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/PrimitiveComponent.h"
 #include "LineBatchComponent.generated.h"
+
+class FPrimitiveSceneProxy;
 
 USTRUCT()
 struct FBatchedLine

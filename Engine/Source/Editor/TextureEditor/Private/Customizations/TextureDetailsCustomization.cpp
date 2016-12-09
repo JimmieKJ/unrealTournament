@@ -1,15 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TextureEditorPrivatePCH.h"
 #include "Customizations/TextureDetailsCustomization.h"
-#include "PropertyEditorModule.h"
+#include "Misc/MessageDialog.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/Texture.h"
+#include "Engine/Texture2D.h"
+#include "Editor.h"
 #include "DetailLayoutBuilder.h"
-#include "DetailCategoryBuilder.h"
 #include "DetailWidgetRow.h"
 #include "IDetailPropertyRow.h"
-#include "PropertyHandle.h"
-#include "SNumericEntryBox.h"
-#include "STextComboBox.h"
+#include "DetailCategoryBuilder.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Input/STextComboBox.h"
 
 #define LOCTEXT_NAMESPACE "FTextureDetails"
 

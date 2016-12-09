@@ -1,12 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
 #include "SBlueprintContextTargetMenu.h"
-#include "BlueprintActionMenuUtils.h"	// for EContextTargetFlags
-#include "BlueprintActionFilter.h"		// for FBlueprintActionContext
-#include "BlueprintEditorUtils.h"		// for DoesSupportComponents
-#include "BlueprintEditorSettings.h"
+#include "Engine/Blueprint.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
 #include "Components/ActorComponent.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "BlueprintEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "SBlueprintContextTargetMenu"
 

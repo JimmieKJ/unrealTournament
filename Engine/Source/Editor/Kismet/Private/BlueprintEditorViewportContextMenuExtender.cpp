@@ -1,11 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "BlueprintEditorModule.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "CreateBlueprintFromActorDialog.h"
+#include "CoreMinimal.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "EditorStyleSet.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Blueprint.h"
 #include "Engine/Selection.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Editor.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "CreateBlueprintFromActorDialog.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogViewportBlueprintMenu, Log, All);
 

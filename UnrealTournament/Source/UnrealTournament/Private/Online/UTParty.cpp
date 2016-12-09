@@ -4,6 +4,7 @@
 #include "UTPartyGameState.h"
 #include "UTGameInstance.h"
 #include "UTParty.h"
+#include "OnlineSubsystemSessionSettings.h"
 #include "OnlineSubsystemUtils.h"
 
 #define LOCTEXT_NAMESPACE "UTParties"

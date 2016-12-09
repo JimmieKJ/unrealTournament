@@ -2,8 +2,12 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Actions/PawnAction.h"
 #include "TestPawnAction_Log.generated.h"
+
+template<typename ValueType> struct FTestLogger;
 
 namespace ETestPawnActionMessage
 {

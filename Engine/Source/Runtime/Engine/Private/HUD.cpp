@@ -4,15 +4,30 @@
 	HUD.cpp: Heads up Display related functionality
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Components/LineBatchComponent.h"
 #include "GameFramework/HUD.h"
-#include "GameFramework/GameMode.h"
-#include "Net/UnrealNetwork.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Misc/App.h"
+#include "EngineGlobals.h"
+#include "Layout/Margin.h"
+#include "CollisionQueryParams.h"
+#include "Materials/MaterialInterface.h"
+#include "SceneView.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/Engine.h"
+#include "CanvasItem.h"
+#include "CanvasTypes.h"
+#include "TextureResource.h"
+#include "Engine/Texture.h"
+#include "Engine/LocalPlayer.h"
+#include "GameFramework/GameModeBase.h"
+#include "EngineUtils.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Components/LineBatchComponent.h"
+#include "Engine/Canvas.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 #include "DisplayDebugHelpers.h"
-#include "SlateBasics.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogHUD, Log, All);
 
@@ -239,6 +254,7 @@ void AHUD::DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation)
 
 void AHUD::DrawSafeZoneOverlay()
 {
+#if ENABLE_DRAW_DEBUG
 	const int32 DebugSafeZoneMode = GSafeZoneVisualizationModeCVar.GetValueOnGameThread();
 
 	if ((DebugSafeZoneMode > 0) && (DebugCanvas != nullptr))
@@ -281,6 +297,7 @@ void AHUD::DrawSafeZoneOverlay()
 		TileItem.Size = FVector2D(SafeMargin.Right, HeightOfSides);
 		DebugCanvas->DrawItem(TileItem);
 	}
+#endif
 }
 
 void AHUD::RemovePostRenderedActor(AActor* A)
@@ -429,7 +446,7 @@ void AHUD::ShowDebugInfo(float& YL, float& YPos)
 
 		if (ShouldDisplayDebug(NAME_Game))
 		{
-			AGameMode* AuthGameMode = GetWorld()->GetAuthGameMode();
+			AGameModeBase* AuthGameMode = GetWorld()->GetAuthGameMode();
 			if (AuthGameMode)
 			{
 				AuthGameMode->DisplayDebug(DebugCanvas, DisplayInfo, YL, YPos);
@@ -813,15 +830,14 @@ void AHUD::GetActorsInSelectionRectangle(TSubclassOf<class AActor> ClassFilter, 
 	//The Actor Bounds Point Mapping
 	const FVector BoundsPointMapping[8] =
 	{
-		FVector(1, 1, 1),
-		FVector(1, 1, -1),
-		FVector(1, -1, 1),
-		FVector(1, -1, -1),
-		FVector(-1, 1, 1),
-		FVector(-1, 1, -1),
-		FVector(-1, -1, 1),
-		FVector(-1, -1, -1)
-	};
+		FVector(1.f, 1.f, 1.f),
+		FVector(1.f, 1.f, -1.f),
+		FVector(1.f, -1.f, 1.f),
+		FVector(1.f, -1.f, -1.f),
+		FVector(-1.f, 1.f, 1.f),
+		FVector(-1.f, 1.f, -1.f),
+		FVector(-1.f, -1.f, 1.f),
+		FVector(-1.f, -1.f, -1.f)	};
 
 	//~~~
 
@@ -831,7 +847,7 @@ void AHUD::GetActorsInSelectionRectangle(TSubclassOf<class AActor> ClassFilter, 
 		AActor* EachActor = *Itr;
 
 		//Get Actor Bounds				//casting to base class, checked by template in the .h
-		const FBox EachActorBounds = Cast<AActor>(EachActor)->GetComponentsBoundingBox(bIncludeNonCollidingComponents); /* All Components? */
+		const FBox EachActorBounds = EachActor->GetComponentsBoundingBox(bIncludeNonCollidingComponents); /* All Components? */
 
 		//Center
 		const FVector BoxCenter = EachActorBounds.GetCenter();
@@ -854,7 +870,7 @@ void AHUD::GetActorsInSelectionRectangle(TSubclassOf<class AActor> ClassFilter, 
 		{
 			if(SelectionRectangle.IsInside(ActorBox2D))
 			{
-				OutActors.Add(Cast<AActor>(EachActor));
+				OutActors.Add(EachActor);
 			}
 		}
 		//Partial Intersection with Projected Actor Bounds
@@ -862,7 +878,7 @@ void AHUD::GetActorsInSelectionRectangle(TSubclassOf<class AActor> ClassFilter, 
 		{
 			if (SelectionRectangle.Intersect(ActorBox2D))
 			{
-				OutActors.Add(Cast<AActor>(EachActor));
+				OutActors.Add(EachActor);
 			}
 		}
 	}

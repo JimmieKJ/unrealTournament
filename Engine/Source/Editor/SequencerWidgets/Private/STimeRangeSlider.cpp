@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerWidgetsPrivatePCH.h"
 #include "STimeRangeSlider.h"
-#include "SlateStyle.h"
-#include "EditorStyle.h"
+#include "Rendering/DrawElements.h"
+#include "ITimeSlider.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "STimeRangeSlider"
 

@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Textures/SlateShaderResource.h"
+#include "Rendering/SlateRenderer.h"
+
+class FSlateDrawBuffer;
+class FSlateUpdatableTexture;
+class SWindow;
+struct Rect;
+
 /** A slate null rendering implementation */
 class FSlateNullRenderer : public FSlateRenderer
 {

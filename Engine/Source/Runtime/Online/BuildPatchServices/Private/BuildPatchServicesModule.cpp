@@ -4,7 +4,27 @@
 	BuildPatchServicesModule.cpp: Implements the FBuildPatchServicesModule class.
 =============================================================================*/
 
-#include "BuildPatchServicesPrivatePCH.h"
+#include "BuildPatchServicesModule.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Containers/Ticker.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "HttpModule.h"
+#include "HttpManager.h"
+#include "BuildPatchError.h"
+#include "BuildPatchHTTP.h"
+#include "BuildPatchCompactifier.h"
+#include "BuildPatchDataEnumeration.h"
+#include "BuildPatchMergeManifests.h"
+#include "BuildPatchDiffManifests.h"
+#include "BuildPatchHash.h"
+#include "BuildPatchGeneration.h"
+#include "BuildPatchAnalytics.h"
+#include "BuildPatchServicesPrivate.h"
 
 using namespace BuildPatchConstants;
 
@@ -165,51 +185,67 @@ bool FBuildPatchServicesModule::SaveManifestToFile(const FString& Filename, IBui
 
 IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstall(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, bool bIsRepair, TSet<FString> InstallTags)
 {
-	// Using a local bool for this check will improve the assert message that gets displayed
-	const bool bIsCalledFromMainThread = IsInGameThread();
-	check( bIsCalledFromMainThread );
-	// Cast manifest parameters
-	FBuildPatchAppManifestPtr CurrentManifestInternal = StaticCastSharedPtr< FBuildPatchAppManifest >( CurrentManifest );
-	FBuildPatchAppManifestPtr InstallManifestInternal = StaticCastSharedPtr< FBuildPatchAppManifest >( InstallManifest );
-	if( !InstallManifestInternal.IsValid() )
+	if (InstallManifest.IsValid())
 	{
-		// We must have an install manifest to continue
-		return NULL;
+		// Forward call to new function
+		FInstallerConfiguration InstallerConfiguration(InstallManifest.ToSharedRef());
+		InstallerConfiguration.CurrentManifest = CurrentManifest;
+		InstallerConfiguration.InstallDirectory = InstallDirectory;
+		InstallerConfiguration.InstallTags = InstallTags;
+		InstallerConfiguration.bIsRepair = bIsRepair;
+		InstallerConfiguration.bStageOnly = false;
+		return StartBuildInstall(MoveTemp(InstallerConfiguration), OnCompleteDelegate);
 	}
-	// Make directory
-	IFileManager::Get().MakeDirectory( *InstallDirectory, true );
-	if( !IFileManager::Get().DirectoryExists( *InstallDirectory ) )
+	else
 	{
-		return NULL;
+		return nullptr;
 	}
-	// Make sure the http wrapper is already created
-	FBuildPatchHTTP::Initialize();
-	// Run the install thread
-	FBuildPatchInstallerRef Installer = MakeShareable(new FBuildPatchInstaller(OnCompleteDelegate, CurrentManifestInternal, InstallManifestInternal.ToSharedRef(), InstallDirectory, GetStagingDirectory(), InstallationInfo, false, LocalMachineConfigFile, bIsRepair, bForceSkipPrereqs));
-	Installer->SetRequiredInstallTags(InstallTags);
-	Installer->StartInstallation();
-	BuildPatchInstallers.Add(Installer);
-	return Installer;
 }
 
 IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstallStageOnly(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, bool bIsRepair, TSet<FString> InstallTags)
 {
-	// Using a local bool for this check will improve the assert message that gets displayed
-	const bool bIsCalledFromMainThread = IsInGameThread();
-	check( bIsCalledFromMainThread );
-	// Cast manifest parameters
-	FBuildPatchAppManifestPtr CurrentManifestInternal = StaticCastSharedPtr< FBuildPatchAppManifest >( CurrentManifest );
-	FBuildPatchAppManifestPtr InstallManifestInternal = StaticCastSharedPtr< FBuildPatchAppManifest >( InstallManifest );
-	if( !InstallManifestInternal.IsValid() )
+	if (InstallManifest.IsValid())
 	{
-		// We must have an install manifest to continue
-		return NULL;
+		// Forward call to new function
+		FInstallerConfiguration InstallerConfiguration(InstallManifest.ToSharedRef());
+		InstallerConfiguration.CurrentManifest = CurrentManifest;
+		InstallerConfiguration.InstallDirectory = InstallDirectory;
+		InstallerConfiguration.InstallTags = InstallTags;
+		InstallerConfiguration.bIsRepair = bIsRepair;
+		InstallerConfiguration.bStageOnly = true;
+		return StartBuildInstall(MoveTemp(InstallerConfiguration), OnCompleteDelegate);
 	}
-	// Make sure the http wrapper is already created
+	else
+	{
+		return nullptr;
+	}
+}
+
+IBuildInstallerRef FBuildPatchServicesModule::StartBuildInstall(BuildPatchServices::FInstallerConfiguration Configuration, FBuildPatchBoolManifestDelegate OnCompleteDelegate)
+{
+	checkf(IsInGameThread(), TEXT("FBuildPatchServicesModule::StartBuildInstall must be called from main thread."));
+	// Make sure the HTTP wrapper is already created.
 	FBuildPatchHTTP::Initialize();
-	// Run the install thread
-	FBuildPatchInstallerRef Installer = MakeShareable(new FBuildPatchInstaller(OnCompleteDelegate, CurrentManifestInternal, InstallManifestInternal.ToSharedRef(), InstallDirectory, GetStagingDirectory(), InstallationInfo, true, LocalMachineConfigFile, bIsRepair, bForceSkipPrereqs));
-	Installer->SetRequiredInstallTags(InstallTags);
+	// Handle any of the global module overrides, while they are not yet fully deprecated.
+	if (Configuration.StagingDirectory.IsEmpty())
+	{
+		Configuration.StagingDirectory = GetStagingDirectory();
+	}
+	if (Configuration.BackupDirectory.IsEmpty())
+	{
+		Configuration.BackupDirectory = GetBackupDirectory();
+	}
+	if (Configuration.CloudDirectories.Num() == 0)
+	{
+		Configuration.CloudDirectories = GetCloudDirectories();
+	}
+	// Override prereq install using the config/commandline value to force skip them.
+	if (bForceSkipPrereqs)
+	{
+		Configuration.bRunRequiredPrereqs = false;
+	}
+	// Run the installer.
+	FBuildPatchInstallerRef Installer = MakeShareable(new FBuildPatchInstaller(MoveTemp(Configuration), InstallationInfo, LocalMachineConfigFile, OnCompleteDelegate));
 	Installer->StartInstallation();
 	BuildPatchInstallers.Add(Installer);
 	return Installer;
@@ -239,15 +275,15 @@ bool FBuildPatchServicesModule::Tick( float Delta )
 	return true;
 }
 
-bool FBuildPatchServicesModule::GenerateChunksManifestFromDirectory( const FBuildPatchSettings& Settings )
+bool FBuildPatchServicesModule::GenerateChunksManifestFromDirectory(const BuildPatchServices::FGenerationConfiguration& Settings)
 {
 	return FBuildDataGenerator::GenerateChunksManifestFromDirectory( Settings );
 }
 
-bool FBuildPatchServicesModule::CompactifyCloudDirectory(float DataAgeThreshold, ECompactifyMode::Type Mode)
+bool FBuildPatchServicesModule::CompactifyCloudDirectory(float DataAgeThreshold, ECompactifyMode::Type Mode, const FString& DeletedChunkLogFile)
 {
 	const bool bPreview = Mode == ECompactifyMode::Preview;
-	return FBuildDataCompactifier::CompactifyCloudDirectory(DataAgeThreshold, bPreview);
+	return FBuildDataCompactifier::CompactifyCloudDirectory(DataAgeThreshold, bPreview, DeletedChunkLogFile);
 }
 
 bool FBuildPatchServicesModule::EnumerateManifestData(const FString& ManifestFilePath, const FString& OutputFile, bool bIncludeSizes)
@@ -258,6 +294,11 @@ bool FBuildPatchServicesModule::EnumerateManifestData(const FString& ManifestFil
 bool FBuildPatchServicesModule::MergeManifests(const FString& ManifestFilePathA, const FString& ManifestFilePathB, const FString& ManifestFilePathC, const FString& NewVersionString, const FString& SelectionDetailFilePath)
 {
 	return FBuildMergeManifests::MergeManifests(ManifestFilePathA, ManifestFilePathB, ManifestFilePathC, NewVersionString, SelectionDetailFilePath);
+}
+
+bool FBuildPatchServicesModule::DiffManifests(const FString& ManifestFilePathA, const FString& ManifestFilePathB, const FString& OutputFilePath)
+{
+	return FBuildDiffManifests::DiffManifests(ManifestFilePathA, ManifestFilePathB, OutputFilePath);
 }
 
 void FBuildPatchServicesModule::SetStagingDirectory( const FString& StagingDir )
@@ -331,7 +372,12 @@ void FBuildPatchServicesModule::CancelAllInstallers(bool WaitForThreads)
 			Installer->CancelInstall();
 			if (WaitForThreads)
 			{
-				Installer->WaitForThread();
+				// HACK #portal_debt
+				while (!Installer->IsComplete() && !Installer->IsCanceled())
+				{
+					FHttpModule::Get().GetHttpManager().Tick(0);
+				}
+				
 				Installer->ExecuteCompleteDelegate();
 				Installer.Reset();
 			}

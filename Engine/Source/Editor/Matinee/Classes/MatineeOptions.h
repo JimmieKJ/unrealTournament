@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Matinee/InterpGroup.h"
 #include "MatineeOptions.generated.h"
 
 UCLASS(hidecategories=Object, config=Editor)

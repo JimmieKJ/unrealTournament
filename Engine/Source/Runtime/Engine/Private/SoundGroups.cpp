@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Audio.h"
 #include "Sound/SoundGroups.h"
+#include "UObject/Class.h"
+#include "Audio.h"
 
 USoundGroups::USoundGroups(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

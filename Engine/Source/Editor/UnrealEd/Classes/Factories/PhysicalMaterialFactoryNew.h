@@ -5,7 +5,14 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Factories/Factory.h"
 #include "PhysicalMaterialFactoryNew.generated.h"
+
+class UPhysicalMaterial;
 
 UCLASS(MinimalAPI, HideCategories=Object)
 class UPhysicalMaterialFactoryNew : public UFactory

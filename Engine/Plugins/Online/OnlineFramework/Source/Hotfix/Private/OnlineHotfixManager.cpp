@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HotfixPrivatePCH.h"
 #include "OnlineHotfixManager.h"
-#include "Internationalization.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "Internationalization/Culture.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
 #include "OnlineSubsystemUtils.h"
 
 DEFINE_LOG_CATEGORY(LogHotfixManager);
@@ -533,8 +540,9 @@ bool UOnlineHotfixManager::ApplyHotfixProcessing(const FCloudFileHeader& FileHea
 		{
 			// Convert to a FString
 			FileData.Add(0);
-			const FString IniData = (ANSICHAR*)FileData.GetData();
-			bSuccess = HotfixIniFile(FileHeader.FileName, IniData);
+			FString HotfixStr;
+			FFileHelper::BufferToString(HotfixStr, FileData.GetData(), FileData.Num());
+			bSuccess = HotfixIniFile(FileHeader.FileName, HotfixStr);
 		}
 	}
 	else if (Extension == TEXT("LOCRES"))

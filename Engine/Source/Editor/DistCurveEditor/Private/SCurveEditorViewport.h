@@ -2,9 +2,17 @@
 
 #pragma once
 
-class SDistributionCurveEditor;
-class FCurveEditorViewportClient;
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "IDistCurveEditor.h"
 
+class FCurveEditorViewportClient;
+class FSceneViewport;
+class SDistributionCurveEditor;
+class SScrollBar;
+class SViewport;
 
 /*-----------------------------------------------------------------------------
    SCurveEditorViewport

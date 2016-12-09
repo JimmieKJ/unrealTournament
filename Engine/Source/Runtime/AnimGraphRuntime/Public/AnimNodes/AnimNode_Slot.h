@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimTypes.h"
 #include "Animation/AnimNodeBase.h"
-#include "Animation/AnimInstance.h"
 #include "AnimNode_Slot.generated.h"
 
 // An animation slot node normally acts as a passthru, but a montage or PlaySlotAnimation call from

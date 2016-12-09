@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Materials/Material.h"
+#include "RenderUtils.h"
+
 // Actual values are used in the shader so do not change
 enum EDecalRenderStage
 {

@@ -2,8 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 
 class FFontEditorViewportClient;
+class FSceneViewport;
+class IFontEditor;
+class SScrollBar;
+class SViewport;
 
 /*-----------------------------------------------------------------------------
    SFontEditorViewport

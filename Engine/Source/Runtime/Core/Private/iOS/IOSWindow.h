@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "GenericWindow.h"
+#include "GenericApplication.h"
 #import <UIKit/UIKit.h>
 
 /**

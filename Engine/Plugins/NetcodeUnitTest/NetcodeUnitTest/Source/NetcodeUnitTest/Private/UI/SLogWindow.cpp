@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
-#include "SLogWindow.h"
-#include "SLogWidget.h"
+#include "UI/SLogWindow.h"
+#include "UI/SLogWidget.h"
 
 void SLogWindow::Construct(const FArguments& InArgs, FString InTitle, float WindowPosX, float WindowPosY, float WindowWidth,
 								float WindowHeight)

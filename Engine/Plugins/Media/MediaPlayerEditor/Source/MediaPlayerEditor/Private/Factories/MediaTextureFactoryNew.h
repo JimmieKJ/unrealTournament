@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Factories/Factory.h"
 #include "MediaTextureFactoryNew.generated.h"
-
 
 /**
  * Implements a factory for UMediaTexture objects.

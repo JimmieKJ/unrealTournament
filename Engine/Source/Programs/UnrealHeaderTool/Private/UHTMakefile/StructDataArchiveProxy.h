@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "UHTMakefile/PropertyDataArchiveProxy.h"
-#include "UHTMakefile/TokenArchiveProxy.h"
 
+#include "CoreMinimal.h"
+#include "PropertyDataArchiveProxy.h"
+#include "TokenArchiveProxy.h"
+
+class FArchive;
 class FUHTMakefile;
 class FStructData;
 

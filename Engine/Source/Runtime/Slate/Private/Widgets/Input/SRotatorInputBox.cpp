@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SRotatorInputBox.h"
-#include "SNumericEntryBox.h"
-#include "SWidgetSwitcher.h"
+#include "Widgets/Input/SRotatorInputBox.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "HAL/IConsoleManager.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
 
 extern TAutoConsoleVariable<float> CVarCrushThem;
 extern TAutoConsoleVariable<float> CVarStopCrushWhenAbove;

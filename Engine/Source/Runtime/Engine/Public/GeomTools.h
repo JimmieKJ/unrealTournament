@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class UStaticMesh;
+
 /** An edge in 3D space, used by these utility functions. */
 struct ENGINE_API FUtilEdge3D
 {

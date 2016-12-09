@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
 /**
  * Foliage Edit mode module interface

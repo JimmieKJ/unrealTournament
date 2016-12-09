@@ -19,15 +19,10 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
+#include "DebugUtils/RecastDump.h"
 #define _USE_MATH_DEFINES
-#include <math.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include "Recast.h"
-#include "RecastAlloc.h"
-#include "RecastDump.h"
+#include "Recast/Recast.h"
+#include "Recast/RecastAlloc.h"
 
 
 duFileIO::~duFileIO()

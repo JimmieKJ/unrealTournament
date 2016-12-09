@@ -1,15 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphEditorActionMenu.h"
+#include "SGraphActionMenu.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Layout/SScrollBorder.h"
+#include "EditorStyleSet.h"
+#include "GraphEditorDragDropAction.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "EdGraphSchema_K2_Actions.h"
 #include "GraphActionNode.h"
-#include "SScrollBorder.h"
+#include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
 #include "EditorCategoryUtils.h"
-#include "SSearchBox.h"
-#include "SInlineEditableTextBlock.h"
-#include "Widgets/Views/STableRow.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 #define LOCTEXT_NAMESPACE "GraphActionMenu"
 
@@ -770,10 +777,11 @@ int32 SGraphActionMenu::GetActionFilteredWeight( const FGraphActionListBuilderBa
 	int32 TotalWeight = 0;
 
 	// Some simple weight figures to help find the most appropriate match	
-	int32 WholeMatchWeightMultiplier = 1;
-	int32 DescriptionWeight = 1;
-	int32 CategoryWeight = 1;
-	int32 NodeTitleWeight = 1;
+	const int32 WholeMatchWeightMultiplier = 2;
+	const int32 DescriptionWeight = 10;
+	const int32 CategoryWeight = 1;
+	const int32 NodeTitleWeight = 1;
+	const int32 KeywordWeight = 4;
 
 	// Helper array
 	struct FArrayWithWeight
@@ -800,7 +808,7 @@ int32 SGraphActionMenu::GetActionFilteredWeight( const FGraphActionListBuilderBa
 		const FString& SearchText = InCurrentAction.GetSearchTextForFirstAction();
 
 		// First the keywords
-		WeightedArrayList.Add(FArrayWithWeight(&InCurrentAction.GetSearchKeywordsArrayForFirstAction(), 10));
+		WeightedArrayList.Add(FArrayWithWeight(&InCurrentAction.GetSearchKeywordsArrayForFirstAction(), KeywordWeight));
 
 		// The description
 		WeightedArrayList.Add(FArrayWithWeight(&InCurrentAction.GetMenuDescriptionArrayForFirstAction(), DescriptionWeight));
@@ -812,17 +820,17 @@ int32 SGraphActionMenu::GetActionFilteredWeight( const FGraphActionListBuilderBa
 		WeightedArrayList.Add(FArrayWithWeight(&InCurrentAction.GetSearchCategoryArrayForFirstAction(), CategoryWeight));
 
 		// Now iterate through all the filter terms and calculate a 'weight' using the values and multipliers
-		FString EachTerm;
-		FString EachTermSanitized;
+		const FString* EachTerm = nullptr;
+		const FString* EachTermSanitized = nullptr;
 		for (int32 FilterIndex = 0; FilterIndex < InFilterTerms.Num(); ++FilterIndex)
 		{
-			EachTerm = InFilterTerms[FilterIndex];
-			EachTermSanitized = InSanitizedFilterTerms[FilterIndex];
-			if( SearchText.Contains( EachTerm, ESearchCase::CaseSensitive ) )
+			EachTerm = &InFilterTerms[FilterIndex];
+			EachTermSanitized = &InSanitizedFilterTerms[FilterIndex];
+			if( SearchText.Contains( *EachTerm, ESearchCase::CaseSensitive ) )
 			{
 				TotalWeight += 2;
 			}
-			else if (SearchText.Contains(EachTermSanitized, ESearchCase::CaseSensitive))
+			else if (SearchText.Contains(*EachTermSanitized, ESearchCase::CaseSensitive))
 			{
 				TotalWeight++;
 			}		
@@ -836,21 +844,35 @@ int32 SGraphActionMenu::GetActionFilteredWeight( const FGraphActionListBuilderBa
 				for (int32 iEachWord = 0; iEachWord < KeywordArray.Num() ; iEachWord++)
 				{
 					// If we get an exact match weight the find count to get exact matches higher priority
-					if (KeywordArray[iEachWord] == EachTerm)
+					if (KeywordArray[iEachWord].StartsWith(*EachTerm, ESearchCase::CaseSensitive))
 					{
-						WeightPerList += EachWeight * WholeMatchWeightMultiplier;
+						if (iEachWord == 0)
+						{
+							WeightPerList += EachWeight * WholeMatchWeightMultiplier;
+						}
+						else
+						{
+							WeightPerList += EachWeight;
+						}
 						WholeMatchCount++;
 					}
-					else if (KeywordArray[iEachWord].Contains(EachTerm, ESearchCase::CaseSensitive))
+					else if (KeywordArray[iEachWord].Contains(*EachTerm, ESearchCase::CaseSensitive))
 					{
 						WeightPerList += EachWeight;
 					}
-					else if (KeywordArray[iEachWord] == EachTermSanitized)
+					if (KeywordArray[iEachWord].StartsWith(*EachTermSanitized, ESearchCase::CaseSensitive))
 					{
-						WeightPerList += ( EachWeight * WholeMatchWeightMultiplier ) / 2;
+						if (iEachWord == 0)
+						{
+							WeightPerList += EachWeight * WholeMatchWeightMultiplier;
+						}
+						else
+						{
+							WeightPerList += EachWeight;
+						}
 						WholeMatchCount++;
 					}
-					else if (KeywordArray[iEachWord].Contains(EachTermSanitized, ESearchCase::CaseSensitive))
+					else if (KeywordArray[iEachWord].Contains(*EachTermSanitized, ESearchCase::CaseSensitive))
 					{
 						WeightPerList += EachWeight / 2;
 					}

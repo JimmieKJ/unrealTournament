@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 class EDITORSTYLE_API FEditorFontGlyphs
 {
 public:

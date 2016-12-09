@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EpicSurveyPrivatePCH.h"
 #include "SurveyPage.h"
-#include "QuestionBlock.h"
+#include "Serialization/JsonTypes.h"
+#include "Dom/JsonObject.h"
 
 TSharedPtr< FSurveyPage > FSurveyPage::Create( const TSharedRef< class FEpicSurvey >& InEpicSurvey, const TSharedRef< FJsonObject >& JsonObject )
 {

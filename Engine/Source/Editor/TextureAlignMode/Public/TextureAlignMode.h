@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Toolkits/BaseToolkit.h"
+
 /**
  * Mode Toolkit for the Texture Align Tools
  */

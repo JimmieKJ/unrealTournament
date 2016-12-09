@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneCapturePCH.h"
+#include "MovieSceneCaptureEnvironment.h"
 #include "MovieSceneCapture.h"
 #include "MovieSceneCaptureModule.h"
-#include "MovieSceneCaptureEnvironment.h"
 
 int32 UMovieSceneCaptureEnvironment::GetCaptureFrameNumber()
 {

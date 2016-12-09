@@ -6,8 +6,12 @@
  */
 
 #pragma once
-#include "Animation/AnimMontage.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "Animation/EditorAnimBaseObj.h"
+#include "Animation/AnimMontage.h"
 #include "EditorCompositeSection.generated.h"
 
 UCLASS(hidecategories=UObject, MinimalAPI, BlueprintType)

@@ -6,13 +6,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/List.h"
+#include "Misc/SecureHash.h"
+#include "RHI.h"
+#include "RenderResource.h"
 #include "ShaderCore.h"
 #include "Shader.h"
-#include "RenderResource.h"
-#include "SecureHash.h"
 
-// Forward declarations.
-class FShader;
+class FMaterial;
 
 /**
  * A typed data source for a vertex factory which streams data from a vertex buffer.

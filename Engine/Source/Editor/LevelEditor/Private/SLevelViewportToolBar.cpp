@@ -1,27 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "LevelEditor.h"
 #include "SLevelViewportToolBar.h"
-#include "Editor/UnrealEd/Public/STransformViewportToolbar.h"
-#include "SLevelViewport.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "EditorStyleSet.h"
+#include "Camera/CameraActor.h"
+#include "Misc/ConfigCacheIni.h"
+#include "GameFramework/WorldSettings.h"
+#include "EngineUtils.h"
+#include "LevelEditor.h"
+#include "STransformViewportToolbar.h"
 #include "EditorShowFlags.h"
 #include "LevelViewportActions.h"
-#include "LevelEditorActions.h"
+#include "LevelEditorViewport.h"
 #include "Layers/ILayers.h"
-#include "Editor/SceneOutliner/Public/SceneOutliner.h"
-#include "DelegateFilter.h"
-#include "Editor/SceneOutliner/Public/ISceneOutlinerColumn.h"
-#include "DeviceProfileServices.h"
 #include "DeviceProfiles/DeviceProfile.h"
+#include "IDeviceProfileServicesModule.h"
 #include "EditorViewportCommands.h"
-#include "SLevelEditor.h"
-#include "Editor/UnrealEd/Public/SEditorViewportToolBarMenu.h"
-#include "Editor/UnrealEd/Public/SEditorViewportToolBarButton.h"
-#include "Editor/UnrealEd/Public/SEditorViewportViewMenu.h"
-#include "StatsData.h"
+#include "SEditorViewportToolBarMenu.h"
+#include "SEditorViewportToolBarButton.h"
+#include "SEditorViewportViewMenu.h"
+#include "Stats/StatsData.h"
 #include "BufferVisualizationData.h"
-#include "GameFramework/WorldSettings.h"
 #include "FoliageType.h"
 
 #define LOCTEXT_NAMESPACE "LevelViewportToolBar"
@@ -178,6 +184,19 @@ void SLevelViewportToolBar::Construct( const FArguments& InArgs )
 				.AutoWidth()
 				.Padding( ToolbarSlotPadding )
 				[
+
+					SNew( SEditorViewportToolbarMenu )
+					.Label( this, &SLevelViewportToolBar::GetViewModeOptionsMenuLabel )
+					.Cursor( EMouseCursor::Default )
+					.ParentToolBar( SharedThis( this ) )
+					.Visibility( this, &SLevelViewportToolBar::GetViewModeOptionsVisibility )
+					.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("EditorViewportToolBar.ViewModeOptions")))
+					.OnGetMenuContent( this, &SLevelViewportToolBar::GenerateViewModeOptionsMenu ) 
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding( ToolbarSlotPadding )
+				[
 					SNew( SEditorViewportToolbarMenu )
 					.ParentToolBar( SharedThis( this ) )
 					.Cursor( EMouseCursor::Default )
@@ -232,6 +251,12 @@ void SLevelViewportToolBar::Construct( const FArguments& InArgs )
 
 	SViewportToolBar::Construct(SViewportToolBar::FArguments());
 }
+
+bool SLevelViewportToolBar::IsViewModeSupported(EViewModeIndex ViewModeIndex) const
+{
+	return true;
+}
+
 
 FText SLevelViewportToolBar::GetCameraMenuLabel() const
 {
@@ -363,11 +388,6 @@ const FSlateBrush* SLevelViewportToolBar::GetCameraMenuLabelIcon() const
 
 	return FEditorStyle::GetBrush( Icon );
 }
-
-
-
-
-
 
 bool SLevelViewportToolBar::IsCurrentLevelViewport() const
 {
@@ -890,8 +910,6 @@ void SLevelViewportToolBar::GenerateViewportConfigsMenu(FMenuBuilder& MenuBuilde
 	MenuBuilder.EndSection();
 }
 
-
-
 TSharedRef<SWidget> SLevelViewportToolBar::GenerateShowMenu() const
 {
 	Viewport.Pin()->OnFloatingButtonClicked();
@@ -1007,6 +1025,35 @@ TSharedRef<SWidget> SLevelViewportToolBar::GenerateShowMenu() const
 	}
 
 	return ShowMenuBuilder.MakeWidget();
+}
+
+EVisibility SLevelViewportToolBar::GetViewModeOptionsVisibility() const
+{
+	const FLevelEditorViewportClient& ViewClient = Viewport.Pin()->GetLevelViewportClient();
+	if (ViewClient.GetViewMode() == VMI_MeshUVDensityAccuracy || ViewClient.GetViewMode() == VMI_MaterialTextureScaleAccuracy || ViewClient.GetViewMode() == VMI_RequiredTextureResolution)
+	{
+		return EVisibility::SelfHitTestInvisible;
+	}
+	else
+	{
+		return EVisibility::Collapsed;
+	}
+}
+
+FText SLevelViewportToolBar::GetViewModeOptionsMenuLabel() const
+{
+	Viewport.Pin()->OnFloatingButtonClicked();
+	const FLevelEditorViewportClient& ViewClient = Viewport.Pin()->GetLevelViewportClient();
+	return ::GetViewModeOptionsMenuLabel(ViewClient.GetViewMode());
+}
+
+
+TSharedRef<SWidget> SLevelViewportToolBar::GenerateViewModeOptionsMenu() const
+{
+	Viewport.Pin()->OnFloatingButtonClicked();
+	FLevelEditorViewportClient& ViewClient = Viewport.Pin()->GetLevelViewportClient();
+	const UWorld* World = ViewClient.GetWorld();
+	return BuildViewModeOptionsMenu(Viewport.Pin()->GetCommandList(), ViewClient.GetViewMode(), World ? World->FeatureLevel : GMaxRHIFeatureLevel, ViewClient.GetViewModeParamNameMap());
 }
 
 TSharedRef<SWidget> SLevelViewportToolBar::GenerateFOVMenu() const

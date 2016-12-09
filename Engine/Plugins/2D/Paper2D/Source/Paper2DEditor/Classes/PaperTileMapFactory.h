@@ -6,6 +6,9 @@
  * Factory for tile maps
  */
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "PaperTileMapFactory.generated.h"
 
 UCLASS()

@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeLayeredBoneBlend.h"
+#include "AnimationNodes/SGraphNodeLayeredBoneBlend.h"
 #include "AnimGraphNode_LayeredBoneBlend.h"
+#include "GraphEditorSettings.h"
 
 /////////////////////////////////////////////////////
 // SGraphNodeLayeredBoneBlend

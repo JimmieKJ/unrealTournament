@@ -22,8 +22,6 @@ See https://developer.apple.com/library/mac/documentation/MusicAudio/Conceptual/
 // Used to toggle on white noise testing for CoreAudio output
 #define UNREAL_AUDIO_TEST_WHITE_NOISE 0
 
-DEFINE_LOG_CATEGORY(LogUnrealAudioDevice);
-
 static const TCHAR* GetCoreAudioError(OSStatus Result)
 {
 	switch (Result)

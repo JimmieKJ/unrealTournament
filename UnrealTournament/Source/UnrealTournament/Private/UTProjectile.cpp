@@ -689,7 +689,7 @@ void AUTProjectile::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AAc
 		else if (CollisionComp != NULL)
 		{
 			USphereComponent* TestComp = (PawnOverlapSphere != NULL && PawnOverlapSphere->GetUnscaledSphereRadius() > CollisionComp->GetUnscaledSphereRadius()) ? PawnOverlapSphere : CollisionComp;
-			OtherComp->SweepComponent(Hit, GetActorLocation() - GetVelocity() * 10.f, GetActorLocation() + GetVelocity(), TestComp->GetCollisionShape(), TestComp->bTraceComplexOnMove);
+			OtherComp->SweepComponent(Hit, GetActorLocation() - GetVelocity() * 10.f, GetActorLocation() + GetVelocity(), FQuat::Identity, TestComp->GetCollisionShape(), TestComp->bTraceComplexOnMove);
 		}
 		else
 		{

@@ -4,19 +4,25 @@
 	LightmassRender.cpp: lightmass rendering-related implementation.
 =============================================================================*/
 
-#include "UnrealEd.h"
-#include "Materials/MaterialExpressionWorldPosition.h"
-#include "Programs/UnrealLightmass/Public/LightmassPublic.h"
-#include "Lightmass.h"
-#include "LightmassRender.h"
+#include "Lightmass/LightmassRender.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
+#include "RenderingThread.h"
+#include "MaterialShared.h"
+#include "Materials/Material.h"
+#include "CanvasItem.h"
+#include "CanvasTypes.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "MaterialExport.h"
+#include "Misc/ConfigCacheIni.h"
+#include "LandscapeLight.h"
+#include "Lightmass/Lightmass.h"
 #include "MaterialCompiler.h"
 #include "LightMap.h"
-#include "Engine/TextureRenderTarget2D.h"
-#include "Materials/MaterialInstance.h"
-#include "CanvasTypes.h"
-#include "LightmassLandscapeRender.h"
+#include "Lightmass/LightmassLandscapeRender.h"
 #include "LandscapeMaterialInstanceConstant.h"
-#include "LandscapeLight.h"
 #include "EngineModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogLightmassRender, Error, All);
@@ -150,6 +156,16 @@ struct FLightmassMaterialCompiler : public FProxyMaterialCompiler
 	{
 		//UE_LOG(LogLightmassRender, Log, TEXT("Lightmass material compiler has encountered VertexColor... Forcing constant (1.0f,1.0f,1.0f,1.0f)."));
 		return Compiler->Constant4(1.0f,1.0f,1.0f,1.0f);
+	}
+
+	virtual int32 PreSkinnedPosition() override
+	{
+		return Compiler->Constant3(0.f,0.f,0.f);
+	}
+
+	virtual int32 PreSkinnedNormal() override
+	{
+		return Compiler->Constant3(0.f,0.f,1.f);
 	}
 
 	virtual int32 RealTime(bool bPeriodic, float Period) override
@@ -308,7 +324,7 @@ public:
 
 		int32 Ret = CompilePropertyAndSetMaterialPropertyWithoutCast(Property, Compiler);
 
-		return Compiler->ForceCast(Ret, GetMaterialPropertyType(Property));
+		return Compiler->ForceCast(Ret, FMaterialAttributeDefinitionMap::GetValueType(Property));
 	}
 
 	/** helper for CompilePropertyAndSetMaterialProperty() */
@@ -333,16 +349,19 @@ public:
 			EMaterialShadingModel ShadingModel = MaterialInterface->GetShadingModel();
 			check(ProxyMaterial);
 			FLightmassMaterialCompiler ProxyCompiler(Compiler);
+
+			const uint32 ForceCast_Exact_Replicate = MFCF_ForceCast | MFCF_ExactMatch | MFCF_ReplicateValue;
+
 			switch (PropertyToCompile)
 			{
 			case MP_EmissiveColor:
 				// Emissive is ALWAYS returned...
-				return Compiler->Max(Compiler->ForceCast(MaterialInterface->CompileProperty(&ProxyCompiler,MP_EmissiveColor),MCT_Float3,true,true), Compiler->Constant3(0, 0, 0));
+				return Compiler->Max(MaterialInterface->CompileProperty(&ProxyCompiler,MP_EmissiveColor, ForceCast_Exact_Replicate), Compiler->Constant3(0, 0, 0));
 			case MP_DiffuseColor:
 				// Only return for Opaque and Masked...
 				if (BlendMode == BLEND_Opaque || BlendMode == BLEND_Masked)
 				{
-					return Compiler->Saturate(Compiler->ForceCast(MaterialInterface->CompileProperty(&ProxyCompiler, DiffuseInput),MCT_Float3,true,true));
+					return Compiler->Saturate(MaterialInterface->CompileProperty(&ProxyCompiler, DiffuseInput, ForceCast_Exact_Replicate));
 				}
 				break;
 			case MP_SpecularColor: 
@@ -350,15 +369,15 @@ public:
 				if (BlendMode == BLEND_Opaque || BlendMode == BLEND_Masked)
 				{
 					return Compiler->AppendVector(
-						Compiler->Saturate(Compiler->ForceCast(MaterialInterface->CompileProperty(&ProxyCompiler, MP_SpecularColor),MCT_Float3,true,true)), 
-						Compiler->Saturate(Compiler->ForceCast(MaterialInterface->CompileProperty(&ProxyCompiler,MP_Roughness),MCT_Float1)));
+						Compiler->Saturate(MaterialInterface->CompileProperty(&ProxyCompiler, MP_SpecularColor, ForceCast_Exact_Replicate)), 
+						Compiler->Saturate(MaterialInterface->CompileProperty(&ProxyCompiler, MP_Roughness, MFCF_ForceCast)));
 				}
 				break;
 			case MP_Normal:
 				// Only return for Opaque and Masked...
 				if (BlendMode == BLEND_Opaque || BlendMode == BLEND_Masked)
 				{
-					return Compiler->ForceCast( MaterialInterface->CompileProperty(&ProxyCompiler, MP_Normal ), MCT_Float3, true, true );
+					return MaterialInterface->CompileProperty(&ProxyCompiler, MP_Normal, ForceCast_Exact_Replicate);
 				}
 				break;
 			
@@ -375,25 +394,25 @@ public:
 				{
 					if (ShadingModel == MSM_Unlit)
 					{
-						return Compiler->ForceCast(MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor),MCT_Float3,true,true);
+						return MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor, ForceCast_Exact_Replicate);
 					}
 					else
 					{
-						return Compiler->Saturate(Compiler->ForceCast(MaterialInterface->CompileProperty(Compiler, DiffuseInput),MCT_Float3,true,true));
+						return Compiler->Saturate(MaterialInterface->CompileProperty(Compiler, DiffuseInput, ForceCast_Exact_Replicate));
 					}
 				}
 				else if ((BlendMode == BLEND_Translucent) || (BlendMode == BLEND_Additive || (BlendMode == BLEND_AlphaComposite)))
 				{
-					int32 ColoredOpacity = -1;
+					int32 ColoredOpacity = INDEX_NONE;
 					if (ShadingModel == MSM_Unlit)
 					{
-						ColoredOpacity = Compiler->ForceCast(MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor),MCT_Float3,true,true);
+						ColoredOpacity = MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor, ForceCast_Exact_Replicate);
 					}
 					else
 					{
-						ColoredOpacity = Compiler->Saturate(Compiler->ForceCast(MaterialInterface->CompileProperty(Compiler, DiffuseInput),MCT_Float3,true,true));
+						ColoredOpacity = Compiler->Saturate(MaterialInterface->CompileProperty(Compiler, DiffuseInput, ForceCast_Exact_Replicate));
 					}
-					return Compiler->Lerp(Compiler->Constant3(1.0f, 1.0f, 1.0f), ColoredOpacity, Compiler->Saturate(Compiler->ForceCast( MaterialInterface->CompileProperty(&ProxyCompiler,MP_Opacity), MCT_Float1)));
+					return Compiler->Lerp(Compiler->Constant3(1.0f, 1.0f, 1.0f), ColoredOpacity, Compiler->Saturate(MaterialInterface->CompileProperty(&ProxyCompiler,MP_Opacity,MFCF_ForceCast)));
 				}
 				break;
 			default:

@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
 #include "AssetTypeActions_Base.h"
 
+class FMenuBuilder;
 class UPaperSprite;
 
 class FSpriteAssetTypeActions : public FAssetTypeActions_Base

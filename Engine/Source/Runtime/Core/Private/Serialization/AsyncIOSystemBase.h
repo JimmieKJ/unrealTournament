@@ -5,7 +5,18 @@
 =============================================================================*/
 
 #pragma once
+
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "HAL/CriticalSection.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "HAL/Runnable.h"
+#include "Misc/SingleThreadRunnable.h"
 #include "HAL/IOBase.h"
+
+#if !USE_NEW_ASYNC_IO
 
 /**
  * Base implementation of an async IO system allowing most of the code to be shared across platforms.
@@ -438,3 +449,5 @@ protected:
 	/** Low level file system that we use for our requests.											*/
 	IPlatformFile&					LowLevel;
 };
+
+#endif

@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Engine/EngineTypes.h"
+#include "CollisionQueryParams.h"
+#include "Engine/World.h"
+#include "Components/PrimitiveComponent.h"
+#include "AI/Navigation/NavigationSystem.h"
 #include "Components/LineBatchComponent.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 #include "PhysicsEngine/BodySetup.h"
 
 //////////////// PRIMITIVECOMPONENT ///////////////
@@ -390,6 +396,10 @@ void UPrimitiveComponent::SetAllPhysicsRotation(FRotator NewRot)
 	SetWorldRotation(NewRot, NAME_None);
 }
 
+void UPrimitiveComponent::SetAllPhysicsRotation(const FQuat& NewRot)
+{
+	SetWorldRotation(NewRot);
+}
 
 void UPrimitiveComponent::WakeRigidBody(FName BoneName)
 {
@@ -793,6 +803,13 @@ void UPrimitiveComponent::UnWeldFromParent()
 		return;
 	}
 
+	// If we're purging (shutting down everything to kill the runtime) don't proceed
+	// to make new physics bodies and weld them, as they'll never be used.
+	if(GExitPurge)
+	{
+		return;
+	}
+
 	FName SocketName;
 	UPrimitiveComponent * RootComponent = GetRootWelded(this, GetAttachSocketName(), &SocketName);
 
@@ -871,22 +888,7 @@ void UPrimitiveComponent::UnWeldChildren()
 
 FBodyInstance* UPrimitiveComponent::GetBodyInstance(FName BoneName, bool bGetWelded) const
 {
-	if (bGetWelded && BodyInstance.bWelded)
-	{
-		FName OutSocket;
-		if (UPrimitiveComponent * RootComponentWelded = GetRootWelded(this, GetAttachSocketName(), &OutSocket))
-		{
-			if (FBodyInstance* BI = RootComponentWelded->GetBodyInstance(OutSocket, bGetWelded))
-			{
-				if (BI->bSimulatePhysics)
-				{
-					return BI;
-				}
-			}
-		}
-	}
-
-	return const_cast<FBodyInstance*>(&BodyInstance);
+	return const_cast<FBodyInstance*>((bGetWelded && BodyInstance.WeldParent) ? BodyInstance.WeldParent : &BodyInstance);
 }
 
 bool UPrimitiveComponent::GetSquaredDistanceToCollision(const FVector& Point, float& OutSquaredDistance, FVector& OutClosestPointOnCollision) const
@@ -1027,19 +1029,18 @@ void UPrimitiveComponent::OnComponentCollisionSettingsChanged()
 	}
 }
 
-bool UPrimitiveComponent::K2_LineTraceComponent(FVector TraceStart, FVector TraceEnd, bool bTraceComplex, bool bShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName)
+bool UPrimitiveComponent::K2_LineTraceComponent(FVector TraceStart, FVector TraceEnd, bool bTraceComplex, bool bShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit)
 {
-	FHitResult Hit;
 	static FName KismetTraceComponentName(TEXT("KismetTraceComponent"));
 	FCollisionQueryParams LineParams(KismetTraceComponentName, bTraceComplex);
-	const bool bDidHit = LineTraceComponent(Hit, TraceStart, TraceEnd, LineParams);
+	const bool bDidHit = LineTraceComponent(OutHit, TraceStart, TraceEnd, LineParams);
 
 	if( bDidHit )
 	{
 		// Fill in the results if we hit
-		HitLocation = Hit.Location;
-		HitNormal = Hit.Normal;
-		BoneName = Hit.BoneName;
+		HitLocation = OutHit.Location;
+		HitNormal = OutHit.Normal;
+		BoneName = OutHit.BoneName;
 	}
 	else
 	{

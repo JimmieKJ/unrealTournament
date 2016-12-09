@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ITargetDevice.h"
+
+class FDeviceProcessesProcessTreeNode;
 
 /** Type definition for shared pointers to instances of FDeviceProcessesProcessTreeNode. */
 typedef TSharedPtr<class FDeviceProcessesProcessTreeNode> FDeviceProcessesProcessTreeNodePtr;

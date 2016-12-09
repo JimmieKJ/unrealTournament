@@ -1,16 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
 #include "PropertyEditorToolkit.h"
-#include "IPropertyTable.h"
+#include "Engine/Blueprint.h"
+#include "Editor.h"
+#include "EditorStyleSet.h"
+#include "PropertyEditorModule.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
 #include "IPropertyTableColumn.h"
-#include "PropertyPath.h"
 #include "IPropertyTreeRow.h"
 #include "IPropertyTableRow.h"
-#include "SPropertyTreeViewImpl.h"
 
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "PropertyEditorToolkit"
 
@@ -494,9 +496,11 @@ FText FPropertyEditorToolkit::GetToolkitName() const
 {
 	const TArray<UObject*>& EditingObjs = GetEditingObjects();
 
-	check( EditingObjs.Num() > 0 );
+	int32 NumEditingObjects = EditingObjs.Num();
 
-	if( EditingObjs.Num() == 1 )
+	check( NumEditingObjects > 0 );
+
+	if( NumEditingObjects == 1 )
 	{
 		const UObject* EditingObject = EditingObjs[ 0 ];
 
@@ -512,7 +516,7 @@ FText FPropertyEditorToolkit::GetToolkitName() const
 	{
 		bool bDirtyState = false;
 		UClass* SharedBaseClass = NULL;
-		for( int32 x = 0; x < EditingObjs.Num(); ++x )
+		for( int32 x = 0; x < NumEditingObjects; ++x )
 		{
 			UObject* Obj = EditingObjs[ x ];
 			check( Obj );
@@ -554,9 +558,11 @@ FText FPropertyEditorToolkit::GetToolkitToolTipText() const
 {
 	const TArray<UObject*>& EditingObjs = GetEditingObjects();
 
-	check( EditingObjs.Num() > 0 );
+	int32 NumEditingObjects = EditingObjs.Num();
 
-	if( EditingObjs.Num() == 1 )
+	check( NumEditingObjects > 0 );
+
+	if( NumEditingObjects == 1 )
 	{
 		const UObject* EditingObject = EditingObjs[ 0 ];
 		return FAssetEditorToolkit::GetToolTipTextForObject(EditingObject);
@@ -564,7 +570,7 @@ FText FPropertyEditorToolkit::GetToolkitToolTipText() const
 	else
 	{
 		UClass* SharedBaseClass = NULL;
-		for( int32 x = 0; x < EditingObjs.Num(); ++x )
+		for( int32 x = 0; x < NumEditingObjects; ++x )
 		{
 			UObject* Obj = EditingObjs[ x ];
 			check( Obj );
@@ -591,7 +597,7 @@ FText FPropertyEditorToolkit::GetToolkitToolTipText() const
 		}
 
 		FFormatNamedArguments Args;
-		Args.Add( TEXT("NumberOfObjects"), EditingObjs.Num() );
+		Args.Add( TEXT("NumberOfObjects"), NumEditingObjects );
 		Args.Add( TEXT("ClassName"), FText::FromString( SharedBaseClass->GetName() ) );
 		return FText::Format( LOCTEXT("ToolkitName_MultiObjectToolTip", "{NumberOfObjects} {ClassName} Objects - Property Matrix Editor"), Args );
 	}

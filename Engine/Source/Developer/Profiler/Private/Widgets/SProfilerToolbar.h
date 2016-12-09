@@ -3,6 +3,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class SBorder;
+
 /** Ribbon based toolbar used as a main menu in the Profiler window. */
 class SProfilerToolbar : public SCompoundWidget
 {

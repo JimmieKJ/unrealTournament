@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/ContainerAllocationPolicies.h"
+#include "Containers/Array.h"
+#include "Misc/Crc.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Set.h"
+#include "Containers/Map.h"
+#include "Templates/SharedPointer.h"
 
 class FLocMetadataObject;
-
 
 struct CORE_API FManifestContext
 {

@@ -19,13 +19,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include <string.h>
-#include "DetourPathQueue.h"
-#include "DetourNavMesh.h"
-#include "DetourNavMeshQuery.h"
-#include "DetourAlloc.h"
-#include "DetourCommon.h"
+#include "DetourCrowd/DetourPathQueue.h"
 
 
 dtPathQueue::dtPathQueue() :

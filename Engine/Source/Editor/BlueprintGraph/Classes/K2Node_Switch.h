@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "EdGraph/EdGraphPin.h"
 #include "K2Node.h"
+#include "Textures/SlateIcon.h"
 #include "K2Node_Switch.generated.h"
 
 UCLASS(MinimalAPI, abstract)
@@ -47,6 +53,8 @@ class UK2Node_Switch : public UK2Node
 	/** Gets the pin type from the schema for the subclass */
 	virtual FEdGraphPinType GetPinType() const { check(false); return FEdGraphPinType(); }
 
+	BLUEPRINTGRAPH_API virtual FEdGraphPinType GetInnerCaseType() const;
+
 	/**
 	 * Adds a new execution pin to a switch node
 	 */
@@ -60,9 +68,9 @@ class UK2Node_Switch : public UK2Node
 	BLUEPRINTGRAPH_API virtual void RemovePinFromSwitchNode(UEdGraphPin* TargetPin);
 
 	/** Getting pin access */
-	BLUEPRINTGRAPH_API UEdGraphPin* GetSelectionPin();
-	BLUEPRINTGRAPH_API UEdGraphPin* GetDefaultPin();
-	BLUEPRINTGRAPH_API UEdGraphPin* GetFunctionPin();
+	BLUEPRINTGRAPH_API UEdGraphPin* GetSelectionPin() const;
+	BLUEPRINTGRAPH_API UEdGraphPin* GetDefaultPin() const;
+	BLUEPRINTGRAPH_API UEdGraphPin* GetFunctionPin() const;
 
 	BLUEPRINTGRAPH_API static FString	GetSelectionPinName();
 

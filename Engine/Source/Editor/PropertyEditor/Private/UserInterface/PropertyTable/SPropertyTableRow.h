@@ -1,11 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SColumnHeader.h"
-#include "SPropertyTableHeaderRow.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/SListView.h"
 #include "IPropertyTable.h"
-#include "IPropertyTableRow.h"
+#include "UserInterface/PropertyTable/SPropertyTableHeaderRow.h"
 #include "IPropertyTableCell.h"
+#include "IPropertyTableRow.h"
 
 typedef SMultiColumnTableRow< TSharedRef< class IPropertyTableRow > > SPropertyTableRowBase;
 

@@ -1,29 +1,32 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-
 #include "UMGEditorModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "Editor.h"
+
+#include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetBlueprintGeneratedClass.h"
+#include "Settings/WidgetDesignerSettings.h"
+#include "WidgetBlueprint.h"
 
 #include "AssetToolsModule.h"
+#include "IAssetTypeActions.h"
 #include "AssetTypeActions_WidgetBlueprint.h"
 #include "KismetCompilerModule.h"
 #include "WidgetBlueprintCompiler.h"
 
-#include "Editor/Sequencer/Public/ISequencerModule.h"
+#include "ISequencerModule.h"
 #include "Animation/MarginTrackEditor.h"
 #include "Animation/Sequencer2DTransformTrackEditor.h"
 #include "Animation/WidgetMaterialTrackEditor.h"
 #include "IUMGModule.h"
 #include "ComponentReregisterContext.h"
-#include "WidgetComponent.h"
-#include "DesignerCommands.h"
-#include "WidgetBlueprint.h"
+#include "Components/WidgetComponent.h"
+#include "Designer/DesignerCommands.h"
 
-#include "SlateStyleRegistry.h"
 #include "ClassIconFinder.h"
 
-#include "Settings/WidgetDesignerSettings.h"
 #include "UMGEditorProjectSettings.h"
 #include "ISettingsModule.h"
 

@@ -1,13 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/CoreNet.h"
+#include "Engine/NetSerialization.h"
+#include "Engine/EngineTypes.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
+#include "Animation/AnimationAsset.h"
 #include "GameFramework/RootMotionSource.h"
 #include "Character.generated.h"
 
-class UPawnMovementComponent;
+class AController;
+class FDebugDisplayInfo;
+class UAnimMontage;
+class UArrowComponent;
+class UCapsuleComponent;
 class UCharacterMovementComponent;
+class UPawnMovementComponent;
 class UPrimitiveComponent;
+class USkeletalMeshComponent;
+struct FAnimMontageInstance;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FMovementModeChangedSignature, class ACharacter*, Character, EMovementMode, PrevMovementMode, uint8, PreviousCustomMode);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FCharacterMovementUpdatedSignature, float, DeltaSeconds, FVector, OldLocation, FVector, OldVelocity);
@@ -325,11 +343,16 @@ public:
 	/** Returns ReplicatedMovementMode */
 	uint8 GetReplicatedMovementMode() const { return ReplicatedMovementMode; }
 
-	/** @return Saved translation offset of mesh. */
-	const FVector& GetBaseTranslationOffset() const { return BaseTranslationOffset; }
+	/** Get the saved translation offset of mesh. This is how much extra offset is applied from the center of the capsule. */
+	UFUNCTION(BlueprintCallable, Category="Pawn|Character")
+	FVector GetBaseTranslationOffset() const { return BaseTranslationOffset; }
 
-	/** @return Saved rotation offset of mesh. */
-	const virtual FQuat GetBaseRotationOffset() const { return BaseRotationOffset; }
+	/** Get the saved rotation offset of mesh. This is how much extra rotation is applied from the capsule rotation. */
+	virtual FQuat GetBaseRotationOffset() const { return BaseRotationOffset; }
+
+	/** Get the saved rotation offset of mesh. This is how much extra rotation is applied from the capsule rotation. */
+	UFUNCTION(BlueprintCallable, Category="Pawn|Character", meta=(DisplayName="GetBaseRotationOffset"))
+	FRotator GetBaseRotationOffsetRotator() const { return GetBaseRotationOffset().Rotator(); }
 
 	//~ Begin INavAgentInterface Interface
 	virtual FVector GetNavAgentLocation() const override;
@@ -342,9 +365,6 @@ public:
 	/** Set by character movement to specify that this Character is currently crouched. */
 	UPROPERTY(BlueprintReadOnly, replicatedUsing=OnRep_IsCrouched, Category=Character)
 	uint32 bIsCrouched:1;
-
-	UPROPERTY( replicated )
-	uint32 bReplayHasRootMotionSources:1;
 
 	/** Handle Crouching replicated from server */
 	UFUNCTION()
@@ -415,14 +435,12 @@ public:
     UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="Character")
     int32 JumpCurrentCount;
 
-    /**
-     * Whether or not the JumpMaxCount value has been exceeded.
-     * This is set in CheckJumpInput, used in CanJump_Implementation, and reset in OnMovementModeChanged.
-     * When providing overrides for these methods, it's recommended to either manually
-     * set / reset this value, or call the Super:: method.
-     */
-    UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="Character")
-    uint32 bJumpMaxCountExceeded:1;
+	DEPRECATED(4.14, "This value is no longer used.")
+	uint32 bJumpMaxCountExceeded:1;
+
+	// Tracks whether or not the character was already jumping last frame.
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Transient, Category="Character")
+	uint32 bWasJumping:1;
 
 	//~ Begin AActor Interface.
 	virtual void ClearCrossLevelReferences() override;
@@ -431,7 +449,6 @@ public:
 	virtual void OnRep_ReplicatedMovement() override;
 	virtual void PostNetReceiveLocationAndRotation() override;
 	virtual void GetSimpleCollisionCylinder(float& CollisionRadius, float& CollisionHalfHeight) const override;
-	virtual void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift) override;
 	virtual UActorComponent* FindComponentByClass(const TSubclassOf<UActorComponent> ComponentClass) const override;
 	virtual void TornOff() override;
 	//~ End AActor Interface
@@ -509,7 +526,13 @@ protected:
 	bool CanJumpInternal() const;
 	virtual bool CanJumpInternal_Implementation() const;
 
-	void CheckResetJumpCount();
+	DEPRECATED(4.14, "This function is deprecated. Please use ResetJumpState instead.")
+	void CheckResetJumpCount()
+	{
+		ResetJumpState();
+	}
+
+	void ResetJumpState();
 
 public:
 

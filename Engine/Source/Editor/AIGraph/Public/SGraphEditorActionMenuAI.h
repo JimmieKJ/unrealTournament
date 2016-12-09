@@ -1,7 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "SGraphActionMenu.h"
+
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "GraphEditor.h"
+
+class SEditableTextBox;
+class SGraphActionMenu;
+class UAIGraphNode;
+class UEdGraph;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 

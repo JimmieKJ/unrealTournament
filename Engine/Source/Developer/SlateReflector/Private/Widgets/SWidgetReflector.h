@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "IWidgetReflector.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SUserWidget.h"
+#include "Framework/Application/IWidgetReflector.h"
 
 class FWidgetSnapshotService;
 

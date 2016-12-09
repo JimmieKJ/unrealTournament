@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneCapturePCH.h"
-#include "FrameGrabberProtocol.h"
+#include "Protocols/FrameGrabberProtocol.h"
+#include "Templates/Casts.h"
 
 bool FFrameGrabberProtocol::HasFinishedProcessing() const
 {

@@ -1,14 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "PhysicsAssetUtils.h"
-#include "Developer/MeshUtilities/Public/MeshUtilities.h"
-#include "Editor/UnrealEd/Private/ConvexDecompTool.h"
-#include "MessageLog.h"
+#include "Modules/ModuleManager.h"
+#include "MeshUtilities.h"
+#include "ConvexDecompTool.h"
+#include "Logging/MessageLog.h"
+#include "PhysicsEngine/RigidBodyIndexPair.h"
+#include "PhysicsEngine/ConvexElem.h"
+#include "PhysicsEngine/BoxElem.h"
+#include "PhysicsEngine/SphereElem.h"
+#include "PhysicsEngine/SphylElem.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
-#include "EngineLogs.h"
-#include "PhysicsEngine/BodySetup.h"
 
 void FPhysAssetCreateParams::Initialize()
 {
@@ -35,7 +39,7 @@ static int32 GetChildIndex(int32 BoneIndex, USkeletalMesh* SkelMesh, const TArra
 {
 	int32 ChildIndex = INDEX_NONE;
 
-	for(int32 i=0; i<SkelMesh->RefSkeleton.GetNum(); i++)
+	for(int32 i=0; i<SkelMesh->RefSkeleton.GetRawBoneNum(); i++)
 	{
 		int32 ParentIndex = SkelMesh->RefSkeleton.GetParentIndex(i);
 
@@ -80,14 +84,14 @@ static float CalcBoneInfoLength(const FBoneVertInfo& Info)
  */
 static float GetMaximalMinSizeBelow(int32 BoneIndex, USkeletalMesh* SkelMesh, const TArray<FBoneVertInfo>& Infos)
 {
-	check( Infos.Num() == SkelMesh->RefSkeleton.GetNum() );
+	check( Infos.Num() == SkelMesh->RefSkeleton.GetRawBoneNum() );
 
 	UE_LOG(LogPhysics, Log, TEXT("-------------------------------------------------"));
 
 	float MaximalMinBoxSize = 0.f;
 
 	// For all bones that are children of the supplied one...
-	for(int32 i=BoneIndex; i<SkelMesh->RefSkeleton.GetNum(); i++)
+	for(int32 i=BoneIndex; i<SkelMesh->RefSkeleton.GetRawBoneNum(); i++)
 	{
 		if( SkelMesh->RefSkeleton.BoneIsChildOf(i, BoneIndex) )
 		{
@@ -109,12 +113,12 @@ bool CreateFromSkeletalMeshInternal(UPhysicsAsset* PhysicsAsset, USkeletalMesh* 
 	// For each bone, get the vertices most firmly attached to it.
 	TArray<FBoneVertInfo> Infos;
 	MeshUtilities.CalcBoneVertInfos(SkelMesh, Infos, (Params.VertWeight == EVW_DominantWeight));
-	check(Infos.Num() == SkelMesh->RefSkeleton.GetNum());
+	check(Infos.Num() == SkelMesh->RefSkeleton.GetRawBoneNum());
 
 	bool bHitRoot = false;
 
 	// Iterate over each graphics bone creating body/joint.
-	for(int32 i=0; i<SkelMesh->RefSkeleton.GetNum(); i++)
+	for(int32 i=0; i<SkelMesh->RefSkeleton.GetRawBoneNum(); i++)
 	{
 		FName BoneName = SkelMesh->RefSkeleton.GetBoneName(i);
 
@@ -214,35 +218,28 @@ bool CreateFromSkeletalMeshInternal(UPhysicsAsset* PhysicsAsset, USkeletalMesh* 
 	return PhysicsAsset->SkeletalBodySetups.Num() > 0;
 }
 
-bool CreateFromSkeletalMesh(UPhysicsAsset* PhysicsAsset, USkeletalMesh* SkelMesh, FPhysAssetCreateParams& Params, FText& OutErrorMessage)
+bool CreateFromSkeletalMesh(UPhysicsAsset* PhysicsAsset, USkeletalMesh* SkelMesh, FPhysAssetCreateParams& Params, FText& OutErrorMessage, bool bSetToMesh /*= true*/)
 {
 	PhysicsAsset->PreviewSkeletalMesh = SkelMesh;
 
 	bool bSuccess = CreateFromSkeletalMeshInternal(PhysicsAsset, SkelMesh, Params);
-	if (bSuccess)
-	{
-		// sets physics asset here now, so whoever creates 
-		// new physics asset from skeletalmesh will set properly here
-		SkelMesh->PhysicsAsset = PhysicsAsset;
-		SkelMesh->MarkPackageDirty();
-	}
-	else
+	if (!bSuccess)
 	{
 		// try lower minimum bone size 
 		Params.MinBoneSize = 1.f;
 
 		bSuccess = CreateFromSkeletalMeshInternal(PhysicsAsset, SkelMesh, Params);
-		if(bSuccess)
-		{
-			// sets physics asset here now, so whoever creates 
-			// new physics asset from skeletalmesh will set properly here
-			SkelMesh->PhysicsAsset = PhysicsAsset;
-			SkelMesh->MarkPackageDirty();
-		}
-		else
+
+		if(!bSuccess)
 		{
 			OutErrorMessage = FText::Format(NSLOCTEXT("CreatePhysicsAsset", "CreatePhysicsAssetLinkFailed", "The bone size is too small to create Physics Asset '{0}' from Skeletal Mesh '{1}'. You will have to create physics asset manually."), FText::FromString(PhysicsAsset->GetName()), FText::FromString(SkelMesh->GetName()));
 		}
+	}
+
+	if(bSuccess && bSetToMesh)
+	{
+		SkelMesh->PhysicsAsset = PhysicsAsset;
+		SkelMesh->MarkPackageDirty();
 	}
 
 	return bSuccess;

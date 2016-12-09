@@ -4,48 +4,206 @@
 	EditorFactories.cpp: Editor class factories.
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "EngineDefines.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/CoreMisc.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "UObject/Interface.h"
+#include "Misc/PackageName.h"
+#include "Fonts/FontBulkData.h"
+#include "Fonts/CompositeFont.h"
+#include "Misc/Attribute.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboBox.h"
+#include "EditorStyleSet.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Engine/Level.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Blueprint.h"
+#include "Engine/World.h"
+#include "Materials/MaterialInterface.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
+#include "Model.h"
+#include "Animation/Skeleton.h"
+#include "Engine/SkeletalMesh.h"
+#include "Curves/KeyHandle.h"
+#include "MaterialExpressionIO.h"
+#include "Materials/MaterialExpression.h"
+#include "Materials/MaterialFunction.h"
+#include "Materials/Material.h"
+#include "Animation/AnimSequence.h"
+#include "Curves/CurveBase.h"
+#include "Curves/CurveFloat.h"
+#include "Engine/Font.h"
+#include "Animation/AnimInstance.h"
+#include "Engine/Brush.h"
+#include "Editor/EditorEngine.h"
+#include "Engine/Selection.h"
+#include "Factories/Factory.h"
+#include "Factories/BlendSpaceFactory1D.h"
+#include "Factories/AimOffsetBlendSpaceFactory1D.h"
+#include "Factories/BlendSpaceFactoryNew.h"
+#include "Factories/AimOffsetBlendSpaceFactoryNew.h"
+#include "Factories/BlueprintFactory.h"
+#include "Factories/BlueprintFunctionLibraryFactory.h"
+#include "Factories/BlueprintMacroFactory.h"
+#include "Factories/BlueprintInterfaceFactory.h"
+#include "Factories/CameraAnimFactory.h"
+#include "Factories/CurveFactory.h"
+#include "Factories/CurveImportFactory.h"
+#include "Factories/DataAssetFactory.h"
+#include "Factories/DataTableFactory.h"
+#include "Factories/DestructibleMeshFactory.h"
+#include "Factories/ReimportDestructibleMeshFactory.h"
+#include "Factories/DialogueVoiceFactory.h"
+#include "Factories/DialogueWaveFactory.h"
+#include "Factories/EnumFactory.h"
+#include "Factories/ReimportFbxAnimSequenceFactory.h"
+#include "Factories/ReimportFbxSkeletalMeshFactory.h"
+#include "Factories/ReimportFbxStaticMeshFactory.h"
+#include "Factories/FontFactory.h"
+#include "Factories/FontFileImportFactory.h"
+#include "Factories/ForceFeedbackEffectFactory.h"
+#include "Factories/HapticFeedbackEffectCurveFactory.h"
+#include "Factories/HapticFeedbackEffectBufferFactory.h"
+#include "Factories/HapticFeedbackEffectSoundWaveFactory.h"
+#include "Factories/InterpDataFactoryNew.h"
+#include "Factories/LevelFactory.h"
+#include "Factories/MaterialFactoryNew.h"
+#include "Factories/MaterialFunctionFactoryNew.h"
+#include "Factories/MaterialInstanceConstantFactoryNew.h"
+#include "Factories/MaterialParameterCollectionFactoryNew.h"
+#include "Factories/ModelFactory.h"
+#include "Factories/ObjectLibraryFactory.h"
+#include "Factories/PackageFactory.h"
+#include "Factories/ParticleSystemFactoryNew.h"
+#include "Factories/PhysicalMaterialFactoryNew.h"
+#include "Factories/PolysFactory.h"
+#include "Factories/ReverbEffectFactory.h"
+#include "Factories/SoundAttenuationFactory.h"
+#include "Factories/SoundConcurrencyFactory.h"
+#include "Factories/SoundClassFactory.h"
+#include "Factories/SoundCueFactoryNew.h"
+#include "Factories/ReimportSoundFactory.h"
+#include "Factories/SoundMixFactory.h"
+#include "Factories/ReimportSoundSurroundFactory.h"
+#include "Factories/StructureFactory.h"
+#include "Factories/SubsurfaceProfileFactory.h"
+#include "Factories/SubDSurfaceFactory.h"
+#include "Factories/Texture2dFactoryNew.h"
+#include "Engine/Texture.h"
+#include "Factories/TextureFactory.h"
+#include "Factories/ReimportTextureFactory.h"
+#include "Factories/TextureRenderTargetCubeFactoryNew.h"
+#include "Factories/TextureRenderTargetFactoryNew.h"
+#include "Factories/TouchInterfaceFactory.h"
+#include "Factories/FbxAssetImportData.h"
+#include "Factories/FbxAnimSequenceImportData.h"
+#include "Factories/FbxSkeletalMeshImportData.h"
+#include "Factories/FbxStaticMeshImportData.h"
+#include "Factories/FbxImportUI.h"
+#include "Editor/GroupActor.h"
+#include "Particles/ParticleSystem.h"
+#include "Engine/Texture2D.h"
+#include "Engine/TextureLightProfile.h"
+#include "SoundCueGraph/SoundCueGraphNode.h"
+#include "Exporters/TextureCubeExporterHDR.h"
+#include "Exporters/TextureExporterBMP.h"
+#include "Exporters/TextureExporterHDR.h"
+#include "Exporters/RenderTargetExporterHDR.h"
+#include "Exporters/TextureExporterPCX.h"
+#include "Exporters/TextureExporterTGA.h"
+#include "EngineGlobals.h"
+#include "GameFramework/ForceFeedbackEffect.h"
+#include "Engine/StaticMesh.h"
+#include "Sound/SoundWave.h"
+#include "GameFramework/DefaultPhysicsVolume.h"
+#include "Engine/SubsurfaceProfile.h"
+#include "Engine/SubDSurface.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/LevelScriptActor.h"
+#include "Engine/DataAsset.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Camera/CameraAnim.h"
+#include "Curves/CurveLinearColor.h"
+#include "Curves/CurveVector.h"
+#include "Engine/DataTable.h"
+#include "Sound/DialogueVoice.h"
+#include "Sound/DialogueWave.h"
+#include "Materials/MaterialInstanceConstant.h"
+#include "Materials/MaterialParameterCollection.h"
+#include "Engine/ObjectLibrary.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "Engine/Polys.h"
+#include "Sound/ReverbEffect.h"
+#include "Sound/SoundCue.h"
+#include "Sound/SoundMix.h"
+#include "Engine/TextureCube.h"
+#include "Engine/TextureRenderTarget.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Engine/CanvasRenderTarget2D.h"
+#include "Engine/TextureRenderTargetCube.h"
+#include "GameFramework/TouchInterface.h"
+#include "Engine/UserDefinedEnum.h"
+#include "Engine/UserDefinedStruct.h"
+#include "Editor.h"
 #include "Matinee/InterpData.h"
 #include "Matinee/InterpGroupCamera.h"
 #include "Materials/MaterialExpressionTextureSample.h"
-#include "Materials/MaterialFunction.h"
 #include "Sound/SoundNodeWavePlayer.h"
 #include "Sound/SoundNodeAttenuation.h"
 #include "Sound/SoundNodeModulator.h"
 #include "Factories.h"
 #include "NormalMapIdentification.h"
-#include "SoundDefinitions.h"
-#include "PhysicsPublic.h"
-#include "BlueprintUtilities.h"
+#include "AudioDeviceManager.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "BmpImageSupport.h"
 #include "ScopedTransaction.h"
-#include "BusyCursor.h"
 #include "BSPOps.h"
 #include "LevelUtils.h"
-#include "ObjectTools.h"
 #include "PackageTools.h"
 #include "SSkeletonWidget.h"
+#include "AssetToolsModule.h"
+#include "IAssetTools.h"
 
 #include "DDSLoader.h"
-#include "HDRLoader.h"
-#include "IESLoader.h"
-#include "ImageWrapper.h"
+#include "Factories/HDRLoader.h"
+#include "Factories/IESLoader.h"
+#include "Interfaces/IImageWrapperModule.h"
 
 #include "FbxImporter.h"
 
 #include "AssetRegistryModule.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
-#include "SClassPickerDialog.h"
-#include "MessageLog.h"
-#include "EnumEditorUtils.h"
-#include "StructureEditorUtils.h"
+#include "Kismet2/SClassPickerDialog.h"
+#include "Logging/MessageLog.h"
+#include "Kismet2/EnumEditorUtils.h"
+#include "Kismet2/StructureEditorUtils.h"
 
 #include "InstancedFoliageActor.h"
 
-#include "Particles/ParticleSystem.h"
 
 #include "Engine/DestructibleMesh.h"
 #if WITH_APEX
@@ -54,67 +212,37 @@
 
 #if PLATFORM_WINDOWS
 // Needed for DDS support.
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 	#include <ddraw.h>
 #include "HideWindowsPlatformTypes.h"
 #endif
 
 #if WITH_EDITOR
-#include "CubemapUnwrapUtils.h"			// FMipLevelBatchedElementParameters
+#include "CubemapUnwrapUtils.h"
 #endif
-#include "GameFramework/WorldSettings.h"
-#include "Materials/MaterialInstanceConstant.h"
-#include "Engine/Polys.h"
-#include "GameFramework/DefaultPhysicsVolume.h"
 #include "Components/BrushComponent.h"
-#include "Materials/MaterialParameterCollection.h"
-#include "Sound/ReverbEffect.h"
-#include "Sound/SoundCue.h"
-#include "Sound/SoundWave.h"
 #include "EngineUtils.h"
-#include "Engine/Selection.h"
-#include "Sound/DialogueVoice.h"
-#include "Sound/SoundMix.h"
-#include "PhysicalMaterials/PhysicalMaterial.h"
-#include "Engine/TextureRenderTarget2D.h"
-#include "Engine/TextureRenderTargetCube.h"
-#include "Engine/TextureCube.h"
-#include "Engine/Font.h"
-#include "Components/AudioComponent.h"
-#include "Sound/DialogueWave.h"
-#include "Engine/StaticMesh.h"
 #include "Engine/AssetUserData.h"
-#include "Engine/LevelScriptActor.h"
-#include "Engine/BlueprintGeneratedClass.h"
-#include "Curves/CurveFloat.h"
-#include "Engine/ObjectLibrary.h"
-#include "Engine/DataAsset.h"
 #include "Animation/BlendSpace1D.h"
+#include "Engine/FontFace.h"
+#include "Components/AudioComponent.h"
 #include "AI/Navigation/NavCollision.h"
-#include "Kismet/BlueprintFunctionLibrary.h"
 #include "Animation/BlendSpace.h"
 #include "Animation/AimOffsetBlendSpace.h"
 #include "Animation/AimOffsetBlendSpace1D.h"
-#include "Animation/AnimInstance.h"
-#include "Engine/UserDefinedEnum.h"
-#include "Engine/UserDefinedStruct.h"
-#include "GameFramework/ForceFeedbackEffect.h"
 #include "Haptics/HapticFeedbackEffect_Curve.h"
 #include "Haptics/HapticFeedbackEffect_Buffer.h"
 #include "Haptics/HapticFeedbackEffect_SoundWave.h"
-#include "Engine/SubsurfaceProfile.h"
-#include "Engine/SubDSurface.h"
-#include "Camera/CameraAnim.h"
-#include "GameFramework/TouchInterface.h"
-#include "Engine/DataTable.h"
 #include "DataTableEditorUtils.h"
 #include "Editor/KismetCompiler/Public/KismetCompilerModule.h"
 #include "Factories/SubUVAnimationFactory.h"
 #include "Particles/SubUVAnimation.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "Sound/SoundNodeDialoguePlayer.h"
 #include "Factories/CanvasRenderTarget2DFactoryNew.h"
 #include "ImageUtils.h"
+#include "Engine/PreviewMeshCollection.h"
+#include "Factories/PreviewMeshCollectionFactory.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorFactories, Log, All);
 
@@ -1187,6 +1315,9 @@ UObject* UPolysFactory::FactoryCreateText
 	FFeedbackContext*	Warn
 )
 {
+	FVector PointPool[4096];
+	int32 NumPoints = 0;
+
 	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
 
 	// Create polys.	
@@ -1215,9 +1346,9 @@ UObject* UPolysFactory::FactoryCreateText
 		else if( FCString::Strstr(Str,TEXT("ENTITIES")) && First )
 		{
 			UE_LOG(LogEditorFactories, Log, TEXT("Reading Autocad DXF file"));
-			int32 Started=0, NumPts=0, IsFace=0;
-			FVector PointPool[4096];
+			int32 Started=0, IsFace=0;
 			FPoly NewPoly; NewPoly.Init();
+			NumPoints = 0;
 
 			while
 			(	FParse::Line( &Buffer, StrLine, 1 )
@@ -1234,7 +1365,7 @@ UObject* UPolysFactory::FactoryCreateText
 						if( NewPoly.Vertices.Num() == 0 )
 						{
 							// Got a vertex definition.
-							NumPts++;
+							NumPoints++;
 						}
 						else if( NewPoly.Vertices.Num()>=3 )
 						{
@@ -1258,7 +1389,7 @@ UObject* UPolysFactory::FactoryCreateText
 					if( FParse::Command(&Str,TEXT("VERTEX")) )
 					{
 						// Start of new vertex.
-						PointPool[NumPts] = FVector::ZeroVector;
+						PointPool[NumPoints] = FVector::ZeroVector;
 						Started = 1;
 						IsFace  = 0;
 					}
@@ -1271,7 +1402,7 @@ UObject* UPolysFactory::FactoryCreateText
 					else if( FParse::Command(&Str,TEXT("SEQEND")) )
 					{
 						// End of sequence.
-						NumPts=0;
+						NumPoints=0;
 					}
 					else if( FParse::Command(&Str,TEXT("EOF")) )
 					{
@@ -1294,26 +1425,26 @@ UObject* UPolysFactory::FactoryCreateText
 						{
 							NewPoly.Vertices.AddZeroed(VertexIndex - NewPoly.Vertices.Num() + 1);
 						}
-						NewPoly.Vertices[VertexIndex].X = PointPool[NumPts].X = FCString::Atof(*ExtraLine);
+						NewPoly.Vertices[VertexIndex].X = PointPool[NumPoints].X = FCString::Atof(*ExtraLine);
 					}
 					else if( Code>=20 && Code<=29 )
 					{
 						// Y coordinate.
 						int32 VertexIndex = Code-20;
-						NewPoly.Vertices[VertexIndex].Y = PointPool[NumPts].Y = FCString::Atof(*ExtraLine);
+						NewPoly.Vertices[VertexIndex].Y = PointPool[NumPoints].Y = FCString::Atof(*ExtraLine);
 					}
 					else if( Code>=30 && Code<=39 )
 					{
 						// Z coordinate.
 						int32 VertexIndex = Code-30;
-						NewPoly.Vertices[VertexIndex].Z = PointPool[NumPts].Z = FCString::Atof(*ExtraLine);
+						NewPoly.Vertices[VertexIndex].Z = PointPool[NumPoints].Z = FCString::Atof(*ExtraLine);
 					}
 					else if( Code>=71 && Code<=79 && (Code-71)==NewPoly.Vertices.Num() )
 					{
 						int32 iPoint = FMath::Abs(FCString::Atoi(*ExtraLine));
-						if( iPoint>0 && iPoint<=NumPts )
+						if( iPoint>0 && iPoint<=NumPoints )
 							new(NewPoly.Vertices) FVector(PointPool[iPoint-1]);
-						else UE_LOG(LogEditorFactories, Warning, TEXT("DXF: Invalid point index %i/%i"), iPoint, NumPts );
+						else UE_LOG(LogEditorFactories, Warning, TEXT("DXF: Invalid point index %i/%i"), iPoint, NumPoints );
 					}
 				}
 			}
@@ -1326,22 +1457,22 @@ UObject* UPolysFactory::FactoryCreateText
 		else if( FCString::Strstr(Str,TEXT("Tri-mesh,")) && First )
 		{
 			UE_LOG(LogEditorFactories, Log,  TEXT("Reading 3D Studio ASC file") );
-			FVector PointPool[4096];
+			NumPoints = 0;
 
 			AscReloop:
-			int32 NumVerts = 0, TempNumPolys=0, TempVerts=0;
+			int32 TempNumPolys=0, TempVerts=0;
 			while( FParse::Line( &Buffer, StrLine ) )
 			{
 				Str = *StrLine;
 
-				FString VertText = FString::Printf( TEXT("Vertex %i:"), NumVerts );
+				FString VertText = FString::Printf( TEXT("Vertex %i:"), NumPoints );
 				FString FaceText = FString::Printf( TEXT("Face %i:"), TempNumPolys );
 				if( FCString::Strstr(Str,*VertText) )
 				{
-					PointPool[NumVerts].X = FCString::Atof(FCString::Strstr(Str,TEXT("X:"))+2);
-					PointPool[NumVerts].Y = FCString::Atof(FCString::Strstr(Str,TEXT("Y:"))+2);
-					PointPool[NumVerts].Z = FCString::Atof(FCString::Strstr(Str,TEXT("Z:"))+2);
-					NumVerts++;
+					PointPool[NumPoints].X = FCString::Atof(FCString::Strstr(Str,TEXT("X:"))+2);
+					PointPool[NumPoints].Y = FCString::Atof(FCString::Strstr(Str,TEXT("Y:"))+2);
+					PointPool[NumPoints].Z = FCString::Atof(FCString::Strstr(Str,TEXT("Z:"))+2);
+					NumPoints++;
 					TempVerts++;
 				}
 				else if( FCString::Strstr(Str,*FaceText) )
@@ -1519,985 +1650,6 @@ UObject* UModelFactory::FactoryCreateText
 
 	return Model;
 }
-
-void InsertSoundNode( USoundCue* SoundCue, UClass* NodeClass, int32 NodeIndex )
-{
-	USoundNode* SoundNode = SoundCue->ConstructSoundNode<USoundNode>( NodeClass );
-
-	// If this node allows >0 children but by default has zero - create a connector for starters
-	if( SoundNode->GetMaxChildNodes() > 0 && SoundNode->ChildNodes.Num() == 0 )
-	{
-		SoundNode->CreateStartingConnectors();
-	}
-
-	SoundNode->GraphNode->NodePosX = -150 * NodeIndex - 100;
-	SoundNode->GraphNode->NodePosY = -35;
-
-	// Link the node to the cue.
-	SoundNode->ChildNodes[ 0 ] = SoundCue->FirstNode;
-
-	// Link the attenuation node to root.
-	SoundCue->FirstNode = SoundNode;
-
-	SoundCue->LinkGraphNodesFromSoundNodes();
-}
-
-void CreateSoundCue( USoundWave* Sound, UObject* InParent, EObjectFlags Flags, bool bIncludeAttenuationNode, bool bIncludeModulatorNode, bool bIncludeLoopingNode, float CueVolume )
-{
-	// then first create the actual sound cue
-	FString SoundCueName = FString::Printf( TEXT( "%s_Cue" ), *Sound->GetName() );
-
-	// Create sound cue and wave player
-	USoundCue* SoundCue = NewObject<USoundCue>(InParent, *SoundCueName, Flags);
-	USoundNodeWavePlayer* WavePlayer = SoundCue->ConstructSoundNode<USoundNodeWavePlayer>(); 
-
-	int32 NodeIndex = ( int32 )bIncludeAttenuationNode + ( int32 )bIncludeModulatorNode + ( int32 )bIncludeLoopingNode;
-
-	WavePlayer->GraphNode->NodePosX = -150 * NodeIndex - 100;
-	WavePlayer->GraphNode->NodePosY = -35;
-
-	// Apply the initial volume.
-	SoundCue->VolumeMultiplier = CueVolume;
-
-	WavePlayer->SetSoundWave(Sound);
-	SoundCue->FirstNode = WavePlayer;
-	SoundCue->LinkGraphNodesFromSoundNodes();
-
-	if( bIncludeLoopingNode )
-	{
-		WavePlayer->bLooping = true;
-	}
-
-	if( bIncludeModulatorNode )
-	{
-		InsertSoundNode( SoundCue, USoundNodeModulator::StaticClass(), --NodeIndex );
-	}
-
-	if( bIncludeAttenuationNode )
-	{
-		InsertSoundNode( SoundCue, USoundNodeAttenuation::StaticClass(), --NodeIndex );
-	}
-
-	// Make sure the content browser finds out about this newly-created object.  This is necessary when sound
-	// cues are created automatically after creating a sound node wave.  See use of bAutoCreateCue in USoundTTSFactory.
-	if( ( Flags & ( RF_Public | RF_Standalone ) ) != 0 )
-	{
-		// Notify the asset registry
-		FAssetRegistryModule::AssetCreated(SoundCue);
-	}
-}
-
-/*-----------------------------------------------------------------------------
-	UReverbEffectFactory.
------------------------------------------------------------------------------*/
-UReverbEffectFactory::UReverbEffectFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-
-	SupportedClass = UReverbEffect::StaticClass();
-
-	bCreateNew = true;
-	bEditorImport = false;
-	bEditAfterNew = true;
-}
-
-UObject* UReverbEffectFactory::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
-{
-	UReverbEffect* ReverbEffect = NewObject<UReverbEffect>(InParent, InName, Flags);
-
-	return ReverbEffect;
-}
-
-/*-----------------------------------------------------------------------------
-	USoundFactory.
------------------------------------------------------------------------------*/
-
-static bool bSoundFactorySuppressImportOverwriteDialog = false;
-
-USoundFactory::USoundFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-
-
-	SupportedClass = USoundWave::StaticClass();
-	Formats.Add(TEXT("wav;Sound"));
-
-	bCreateNew = false;
-	bAutoCreateCue = false;
-	bIncludeAttenuationNode = false;
-	bIncludeModulatorNode = false;
-	bIncludeLoopingNode = false;
-	CueVolume = 0.75f;
-	CuePackageSuffix = TEXT("_Cue");
-	bEditorImport = true;
-}
-
-
-UObject* USoundFactory::FactoryCreateBinary
-(
-	UClass*				Class,
-	UObject*			InParent,
-	FName				Name,
-	EObjectFlags		Flags,
-	UObject*			Context,
-	const TCHAR*		FileType,
-	const uint8*&		Buffer,
-	const uint8*			BufferEnd,
-	FFeedbackContext*	Warn
-)
-{
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, FileType);
-
-	if(	FCString::Stricmp( FileType, TEXT( "WAV" ) ) == 0 )
-	{
-		// create the group name for the cue
-		const FString GroupName = InParent->GetFullGroupName( false );
-		FString CuePackageName = InParent->GetOutermost()->GetName();
-		CuePackageName += CuePackageSuffix;
-		if( GroupName.Len() > 0 && GroupName != TEXT( "None" ) )
-		{
-			CuePackageName += TEXT( "." );
-			CuePackageName += GroupName;
-		}
-
-		// validate the cue's group
-		FText Reason;
-		const bool bCuePathIsValid = FName( *CuePackageSuffix ).IsValidGroupName( Reason );
-		const bool bMoveCue = CuePackageSuffix.Len() > 0 && bCuePathIsValid && bAutoCreateCue;
-		if( bAutoCreateCue )
-		{
-			if( !bCuePathIsValid )
-			{
-				FMessageDialog::Open( EAppMsgType::Ok, FText::Format(NSLOCTEXT("UnrealEd", "Error_ImportFailed_f", "Import failed for {0}: {1}"), FText::FromString(CuePackageName), Reason) );
-				FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
-				return nullptr;
-			}
-		}	
-
-		// if we are creating the cue move it when necessary
-		UPackage* CuePackage = bMoveCue ? CreatePackage( nullptr, *CuePackageName ) : nullptr;
-
-		// if the sound already exists, remember the user settings
-		USoundWave* ExistingSound = FindObject<USoundWave>( InParent, *Name.ToString() );
-
-		TArray<UAudioComponent*> ComponentsToRestart;
-		FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
-		if (AudioDeviceManager && ExistingSound)
-		{
-			// Will block internally on audio thread completing outstanding commands
-			AudioDeviceManager->StopSoundsUsingResource(ExistingSound, &ComponentsToRestart);
-		}
-
-		bool bUseExistingSettings = bSoundFactorySuppressImportOverwriteDialog;
-
-		if( ExistingSound && !bSoundFactorySuppressImportOverwriteDialog && !GIsAutomationTesting )
-		{
-			DisplayOverwriteOptionsDialog(FText::Format(
-				NSLOCTEXT("SoundFactory", "ImportOverwriteWarning", "You are about to import '{0}' over an existing sound."),
-				FText::FromName(Name)));
-
-			switch( OverwriteYesOrNoToAllState )
-			{
-
-			case EAppReturnType::Yes:
-			case EAppReturnType::YesAll:
-				{
-					// Overwrite existing settings
-					bUseExistingSettings = false;
-					break;
-				}
-			case EAppReturnType::No:
-			case EAppReturnType::NoAll:
-				{
-					// Preserve existing settings
-					bUseExistingSettings = true;
-					break;
-				}
-			default:
-				{
-					FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
-					return nullptr;
-				}
-			}
-		}
-
-		// Reset the flag back to false so subsequent imports are not suppressed unless the code explicitly suppresses it
-		bSoundFactorySuppressImportOverwriteDialog = false;
-
-		TArray<uint8> RawWaveData;
-		RawWaveData.Empty( BufferEnd - Buffer );
-		RawWaveData.AddUninitialized( BufferEnd - Buffer );
-		FMemory::Memcpy( RawWaveData.GetData(), Buffer, RawWaveData.Num() );
-
-		// Read the wave info and make sure we have valid wave data
-		FWaveModInfo WaveInfo;
-		FString ErrorMessage;
-		if( WaveInfo.ReadWaveInfo( RawWaveData.GetData(), RawWaveData.Num(), &ErrorMessage ) )
-		{
-			if( *WaveInfo.pBitsPerSample != 16 )
-			{
-				WaveInfo.ReportImportFailure();
-				Warn->Logf(ELogVerbosity::Error, TEXT( "Currently, only 16 bit WAV files are supported (%s)." ), *Name.ToString() );
-				FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
-				return nullptr;
-			}
-
-			if( *WaveInfo.pChannels != 1 && *WaveInfo.pChannels != 2 )
-			{
-				WaveInfo.ReportImportFailure();
-				Warn->Logf(ELogVerbosity::Error, TEXT("Currently, only mono or stereo WAV files are supported (%s)."), *Name.ToString());
-				FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
-				return nullptr;
-			}
-		}
-		else
-		{
-			Warn->Logf(ELogVerbosity::Error, TEXT( "Unable to read wave file '%s' - \"%s\""), *Name.ToString(), *ErrorMessage );
-			FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
-			return nullptr;
-		}
-
-		// Use pre-existing sound if it exists and we want to keep settings,
-		// otherwise create new sound and import raw data.
-		USoundWave* Sound = (bUseExistingSettings && ExistingSound) ? ExistingSound : NewObject<USoundWave>(InParent, Name, Flags);
-		
-		if (bUseExistingSettings && ExistingSound)
-		{
-			// Clear resources so that if it's already been played, it will reload the wave data
-			Sound->FreeResources();
-		}
-		
-		// Store the current file path and timestamp for re-import purposes
-		Sound->AssetImportData->Update(CurrentFilename);
-
-		// Compressed data is now out of date.
-		Sound->InvalidateCompressedData();
-
-		Sound->RawData.Lock( LOCK_READ_WRITE );
-		void* LockedData = Sound->RawData.Realloc( BufferEnd-Buffer );		
-		FMemory::Memcpy( LockedData, Buffer, BufferEnd-Buffer ); 
-		Sound->RawData.Unlock();
-		
-		// Calculate duration.
-		int32 DurationDiv = *WaveInfo.pChannels * *WaveInfo.pBitsPerSample * *WaveInfo.pSamplesPerSec;  
-		if( DurationDiv ) 
-		{
-			Sound->Duration = *WaveInfo.pWaveDataSize * 8.0f / DurationDiv;
-		}
-		else
-		{
-			Sound->Duration = 0.0f;
-		}
-	
-		Sound->SampleRate = *WaveInfo.pSamplesPerSec;
-		Sound->NumChannels = *WaveInfo.pChannels;
-
-		FEditorDelegates::OnAssetPostImport.Broadcast( this, Sound );
-
-		if( ExistingSound && bUseExistingSettings )
-		{
-			// Call PostEditChange() to update text to speech
-			Sound->PostEditChange();
-		}
-
-		// if we're auto creating a default cue
-		if( bAutoCreateCue )
-		{
-			CreateSoundCue( Sound, bMoveCue ? CuePackage : InParent, Flags, bIncludeAttenuationNode, bIncludeModulatorNode, bIncludeLoopingNode, CueVolume );
-		}
-
-		for(int32 ComponentIndex = 0; ComponentIndex < ComponentsToRestart.Num(); ++ComponentIndex)
-		{
-			ComponentsToRestart[ComponentIndex]->Play();
-		}
-
-		return Sound;
-	}
-	else
-	{
-		// Unrecognized.
-		Warn->Logf(ELogVerbosity::Error, TEXT("Unrecognized sound format '%s' in %s"), FileType, *Name.ToString() );
-		FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
-		return nullptr;
-	}
-}
-
-void USoundFactory::SuppressImportOverwriteDialog()
-{
-	bSoundFactorySuppressImportOverwriteDialog = true;
-}
-
-/*-----------------------------------------------------------------------------
-	UDialogueVoiceFactory.
------------------------------------------------------------------------------*/
-
-UDialogueVoiceFactory::UDialogueVoiceFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-	SupportedClass = UDialogueVoice::StaticClass();
-	bCreateNew = true;
-	bEditAfterNew = true;
-}
-
-UObject* UDialogueVoiceFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
-{
-	return NewObject<UObject>(InParent, Class, Name, Flags);
-}
-
-/*-----------------------------------------------------------------------------
-	UDialogueWaveFactory.
------------------------------------------------------------------------------*/
-
-UDialogueWaveFactory::UDialogueWaveFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-	SupportedClass = UDialogueWave::StaticClass();
-	bCreateNew = true;
-	bEditAfterNew = true;
-}
-
-UObject* UDialogueWaveFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
-{
-	check(Class == SupportedClass);
-	UDialogueWave* DialogueWave = NewObject<UDialogueWave>(InParent, Name, Flags);
-
-	if (InitialSoundWave)
-	{
-		DialogueWave->SpokenText = InitialSoundWave->SpokenText;
-		DialogueWave->bMature = InitialSoundWave->bMature;
-	}
-
-	DialogueWave->UpdateContext(DialogueWave->ContextMappings[0], InitialSoundWave, InitialSpeakerVoice, InitialTargetVoices);
-
-	return DialogueWave;
-}
-
-/*-----------------------------------------------------------------------------
-	UReimportSoundFactory.
------------------------------------------------------------------------------*/
-UReimportSoundFactory::UReimportSoundFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-
-	SupportedClass = USoundWave::StaticClass();
-	Formats.Add(TEXT("wav;Sound"));
-
-	bCreateNew = false;
-	bAutoCreateCue = false;
-	bIncludeAttenuationNode = false;
-	bIncludeModulatorNode = false;
-	bIncludeLoopingNode = false;
-	CueVolume = 0.75f;
-}
-
-bool UReimportSoundFactory::CanReimport( UObject* Obj, TArray<FString>& OutFilenames )
-{	
-	USoundWave* SoundWave = Cast<USoundWave>(Obj);
-	if(SoundWave && SoundWave->NumChannels < 3)
-	{
-		SoundWave->AssetImportData->ExtractFilenames(OutFilenames);
-		return true;
-	}
-	return false;
-}
-
-void UReimportSoundFactory::SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths )
-{	
-	USoundWave* SoundWave = Cast<USoundWave>(Obj);
-	if(SoundWave && ensure(NewReimportPaths.Num() == 1))
-	{
-		SoundWave->AssetImportData->UpdateFilenameOnly(NewReimportPaths[0]);
-	}
-}
-
-EReimportResult::Type UReimportSoundFactory::Reimport( UObject* Obj )
-{
-	// Only handle valid sound node waves
-	if( !Obj || !Obj->IsA( USoundWave::StaticClass() ) )
-	{
-		return EReimportResult::Failed;
-	}
-
-	USoundWave* SoundWave = Cast<USoundWave>( Obj );
-
-	const FString Filename = SoundWave->AssetImportData->GetFirstFilename();
-	const FString FileExtension = FPaths::GetExtension(Filename);
-	const bool bIsWav = ( FCString::Stricmp( *FileExtension, TEXT("WAV") ) == 0 );
-
-	// Only handle WAV files
-	if ( !bIsWav )
-	{
-		return EReimportResult::Failed;
-	}
-	// If there is no file path provided, can't reimport from source
-	if ( !Filename.Len() )
-	{
-		// Since this is a new system most sound node waves don't have paths, so logging has been commented out
-		//UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: sound node wave resource does not have path stored."));
-		return EReimportResult::Failed;
-	}
-
-	UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
-
-	// Ensure that the file provided by the path exists
-	if (IFileManager::Get().FileSize(*Filename) == INDEX_NONE)
-	{
-		UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found.") );
-		return EReimportResult::Failed;
-	}
-
-	// Suppress the import overwrite dialog, we want to keep existing settings when re-importing
-	USoundFactory::SuppressImportOverwriteDialog();
-
-	bool OutCanceled = false;
-	if (ImportObject(SoundWave->GetClass(), SoundWave->GetOuter(), *SoundWave->GetName(), RF_Public | RF_Standalone, Filename, nullptr, OutCanceled) != nullptr)
-	{
-		UE_LOG(LogEditorFactories, Log, TEXT("-- imported successfully") );
-
-		SoundWave->AssetImportData->Update(Filename);
-		SoundWave->MarkPackageDirty();
-	}
-	else if (OutCanceled)
-	{
-		UE_LOG(LogEditorFactories, Warning, TEXT("-- import canceled"));
-	}
-	else
-	{
-		UE_LOG(LogEditorFactories, Warning, TEXT("-- import failed"));
-	}
-
-	return EReimportResult::Succeeded;
-}
-
-int32 UReimportSoundFactory::GetPriority() const
-{
-	return ImportPriority;
-}
-
-
-/*-----------------------------------------------------------------------------
-	USoundSurroundFactory.
------------------------------------------------------------------------------*/
-
-const FString SurroundSpeakerLocations[SPEAKER_Count] =
-{
-	TEXT( "_fl" ),			// SPEAKER_FrontLeft
-	TEXT( "_fr" ),			// SPEAKER_FrontRight
-	TEXT( "_fc" ),			// SPEAKER_FrontCenter
-	TEXT( "_lf" ),			// SPEAKER_LowFrequency
-	TEXT( "_sl" ),			// SPEAKER_SideLeft
-	TEXT( "_sr" ),			// SPEAKER_SideRight
-	TEXT( "_bl" ),			// SPEAKER_BackLeft
-	TEXT( "_br" )			// SPEAKER_BackRight
-};
-
-USoundSurroundFactory::USoundSurroundFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-
-	SupportedClass = USoundWave::StaticClass();
-	Formats.Add(TEXT("WAV;Multichannel Sound"));
-
-	bCreateNew = false;
-	CueVolume = 0.75f;
-	bEditorImport = true;
-}
-
-bool USoundSurroundFactory::FactoryCanImport( const FString& Filename )
-{
-	// Find the root name
-	FString RootName = FPaths::GetBaseFilename(Filename);
-	FString SpeakerLocation = RootName.Right( 3 ).ToLower();
-
-	// Find which channel this refers to		
-	for( int32 SpeakerIndex = 0; SpeakerIndex < SPEAKER_Count; SpeakerIndex++ )
-	{
-		if( SpeakerLocation == SurroundSpeakerLocations[SpeakerIndex] )
-		{
-			return( true );
-		}
-	}
-
-	return( false );
-}
-
-UObject* USoundSurroundFactory::FactoryCreateBinary
-(
-	UClass*				Class,
-	UObject*			InParent,
-	FName				Name,
-	EObjectFlags		Flags,
-	UObject*			Context,
-	const TCHAR*		FileType,
-	const uint8*&		Buffer,
-	const uint8*			BufferEnd,
-	FFeedbackContext*	Warn
- )
-{
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, FileType);
-
-	int32		SpeakerIndex, i;
-
-	// Only import wavs
-	if(	FCString::Stricmp( FileType, TEXT( "WAV" ) ) == 0 )
-	{
-		// Find the root name
-		FString RootName = Name.GetPlainNameString();
-		FString SpeakerLocation = RootName.Right( 3 ).ToLower();
-		FName BaseName = FName( *RootName.LeftChop( 3 ) );
-
-		// Find which channel this refers to		
-		for( SpeakerIndex = 0; SpeakerIndex < SPEAKER_Count; SpeakerIndex++ )
-		{
-			if( SpeakerLocation == SurroundSpeakerLocations[SpeakerIndex] )
-			{
-				break;
-			}
-		}
-
-		if( SpeakerIndex == SPEAKER_Count )
-		{
-			Warn->Logf(ELogVerbosity::Error, TEXT( "Failed to find speaker location; valid extensions are _fl, _fr, _fc, _lf, _sl, _sr, _bl, _br." ) );
-			FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
-			return( nullptr );
-		}
-
-		// Find existing soundwave
-		USoundWave* Sound = FindObject<USoundWave>(InParent, *BaseName.ToString());
-
-		// Create new sound if necessary
-		if( Sound == nullptr )
-		{
-			// If This is a single asset package, then create package so that its name will be identical to the asset.
-			if (PackageTools::IsSingleAssetPackage(InParent->GetName()))
-			{
-				InParent = CreatePackage(nullptr, *InParent->GetName().LeftChop(3) );
-
-				// Make sure the destination package is loaded
-				CastChecked<UPackage>(InParent)->FullyLoad();
-
-				Sound = FindObject<USoundWave>(InParent, *BaseName.ToString());
-			}
-
-			if (Sound == nullptr)
-			{
-				Sound = NewObject<USoundWave>(InParent, BaseName, Flags);
-			}
-		}
-
-		// Clear resources so that if it's already been played, it will reload the wave data
-		Sound->FreeResources();
-
-		// Presize the offsets array, in case the sound was new or the original sound data was stripped by cooking.
-		if ( Sound->ChannelOffsets.Num() != SPEAKER_Count )
-		{
-			Sound->ChannelOffsets.Empty( SPEAKER_Count );
-			Sound->ChannelOffsets.AddZeroed( SPEAKER_Count );
-		}
-		// Presize the sizes array, in case the sound was new or the original sound data was stripped by cooking.
-		if ( Sound->ChannelSizes.Num() != SPEAKER_Count )
-		{
-			Sound->ChannelSizes.Empty( SPEAKER_Count );
-			Sound->ChannelSizes.AddZeroed( SPEAKER_Count );
-		}
-
-		// Store the current file path and timestamp for re-import purposes
-		Sound->AssetImportData->Update(CurrentFilename);
-
-		// Compressed data is now out of date.
-		Sound->InvalidateCompressedData();
-
-		// Delete the old version of the wave from the bulk data
-		uint8* RawWaveData[SPEAKER_Count] = { nullptr };
-		uint8* RawData = ( uint8* )Sound->RawData.Lock( LOCK_READ_WRITE );
-		int32 RawDataOffset = 0;
-		int32 TotalSize = 0;
-
-		// Copy off the still used waves
-		for( i = 0; i < SPEAKER_Count; i++ )
-		{
-			if( i != SpeakerIndex && Sound->ChannelSizes[ i ] )
-			{
-				RawWaveData[i] = new uint8 [Sound->ChannelSizes[ i ]];
-				FMemory::Memcpy( RawWaveData[i], RawData + Sound->ChannelOffsets[ i ], Sound->ChannelSizes[ i ] );
-				TotalSize += Sound->ChannelSizes[ i ];
-			}
-		}
-
-		// Copy them back without the one that will be updated
-		RawData = ( uint8* )Sound->RawData.Realloc( TotalSize );
-
-		for( i = 0; i < SPEAKER_Count; i++ )
-		{
-			if( RawWaveData[i] )
-			{
-				FMemory::Memcpy( RawData + RawDataOffset, RawWaveData[i], Sound->ChannelSizes[ i ] );
-				Sound->ChannelOffsets[ i ] = RawDataOffset;
-				RawDataOffset += Sound->ChannelSizes[ i ];
-
-				delete [] RawWaveData[i];
-			}
-		}
-
-		uint32 RawDataSize = BufferEnd - Buffer;
-		uint8* LockedData = ( uint8* )Sound->RawData.Realloc( RawDataOffset + RawDataSize );		
-		LockedData += RawDataOffset;
-		FMemory::Memcpy( LockedData, Buffer, RawDataSize ); 
-
-		Sound->ChannelOffsets[ SpeakerIndex ] = RawDataOffset;
-		Sound->ChannelSizes[ SpeakerIndex ] = RawDataSize;
-
-		Sound->RawData.Unlock();
-
-		// Calculate duration.
-		FWaveModInfo WaveInfo;
-		FString ErrorReason;
-		if( WaveInfo.ReadWaveInfo( LockedData, RawDataSize, &ErrorReason ) )
-		{
-			// Calculate duration in seconds
-			int32 DurationDiv = *WaveInfo.pChannels * *WaveInfo.pBitsPerSample * *WaveInfo.pSamplesPerSec;  
-			if( DurationDiv ) 
-			{
-				Sound->Duration = *WaveInfo.pWaveDataSize * 8.0f / DurationDiv;
-			}
-			else
-			{
-				Sound->Duration = 0.0f;
-			}
-
-			if( *WaveInfo.pBitsPerSample != 16 )
-			{
-				Warn->Logf(ELogVerbosity::Error, TEXT( "Currently, only 16 bit WAV files are supported (%s)." ), *Name.ToString() );
-				Sound->MarkPendingKill();
-				Sound = nullptr;
-			}
-
-			if( *WaveInfo.pChannels != 1 )
-			{
-				Warn->Logf(ELogVerbosity::Error, TEXT( "Currently, only mono WAV files can be imported as channels of surround audio (%s)." ), *Name.ToString() );
-				Sound->MarkPendingKill();
-				Sound = nullptr;
-			}
-		}
-		else
-		{
-			Warn->Logf(ELogVerbosity::Error, TEXT( "Unable to read wave file '%s' - \"%s\""), *Name.ToString(), *ErrorReason );
-			Sound->MarkPendingKill();
-			Sound = nullptr;
-		}
-		if (Sound)
-		{
-			Sound->NumChannels = 0;
-			for( i = 0; i < SPEAKER_Count; i++ )
-			{
-				if( Sound->ChannelSizes[ i ] )
-				{
-					Sound->NumChannels++;
-				}
-			}
-		}
-
-		FEditorDelegates::OnAssetPostImport.Broadcast( this, Sound );
-
-		return( Sound );
-	}
-	else
-	{
-		// Unrecognized.
-		Warn->Logf(ELogVerbosity::Error, TEXT("Unrecognized sound extension '%s' in %s"), FileType, *Name.ToString() );
-		FEditorDelegates::OnAssetPostImport.Broadcast( this, nullptr );
-	}
-
-	return( nullptr );
-}
-
-/*-----------------------------------------------------------------------------
-	UReimportSoundSurroundFactory.
------------------------------------------------------------------------------*/
-UReimportSoundSurroundFactory::UReimportSoundSurroundFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-
-	SupportedClass = USoundWave::StaticClass();
-	Formats.Add(TEXT("wav;Sound"));
-
-	bCreateNew = false;
-	CueVolume = 0.75f;
-}
-
-bool UReimportSoundSurroundFactory::CanReimport( UObject* Obj, TArray<FString>& OutFilenames )
-{	
-	USoundWave* SoundWave = Cast<USoundWave>(Obj);
-	if(SoundWave && SoundWave->NumChannels > 2)
-	{
-		FString SourceFilename = SoundWave->AssetImportData->GetFirstFilename();
-		if (!SourceFilename.IsEmpty() && FactoryCanImport(SourceFilename))
-		{
-			// Get filename with speaker location removed
-			FString BaseFilename = FPaths::GetBaseFilename(SourceFilename).LeftChop(3);
-			FString FileExtension = FPaths::GetExtension(SourceFilename, true);
-			FString FilePath = FPaths::GetPath(SourceFilename);
-
-			// Add a filename for each speaker location we have Channel Size data for
-			for (int32 ChannelIndex = 0; ChannelIndex < SoundWave->ChannelSizes.Num(); ++ChannelIndex)
-			{
-				if (SoundWave->ChannelSizes[ChannelIndex])
-				{
-					OutFilenames.Add(FilePath + TEXT("//") + BaseFilename + SurroundSpeakerLocations[ChannelIndex] + FileExtension);
-				}
-			}
-		}
-		else
-		{
-			// We failed to generate possible filenames, fill the array with a blank string for each channel
-			for (int32 ChannelIndex = 0; ChannelIndex < SoundWave->NumChannels; ++ChannelIndex)
-			{
-				OutFilenames.Add(FString());
-			}
-		}
-
-		// Store these for later use
-		ReimportPaths = OutFilenames;
-
-		return true;
-	}
-	return false;
-}
-
-void UReimportSoundSurroundFactory::SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths )
-{	
-	USoundWave* SoundWave = Cast<USoundWave>(Obj);
-	if(SoundWave)
-	{
-		ReimportPaths = NewReimportPaths;
-	}
-}
-
-EReimportResult::Type UReimportSoundSurroundFactory::Reimport( UObject* Obj )
-{
-	// Only handle valid sound node waves
-	if( !Obj || !Obj->IsA( USoundWave::StaticClass() ) )
-	{
-		return EReimportResult::Failed;
-	}
-
-	USoundWave* SoundWave = Cast<USoundWave>( Obj );
-
-	// Holds the warnings for the message log.
-	FMessageLog EditorErrors("EditorErrors");
-	FText NameText = FText::FromString(SoundWave->GetName());
-
-	bool bSourceReimported = false;
-
-	for (int32 PathIndex = 0; PathIndex < ReimportPaths.Num(); ++PathIndex)
-	{
-		FString Filename(ReimportPaths[PathIndex]);
-
-		// If there is no file path provided, can't reimport from source
-		if (!Filename.Len())
-		{
-			// Since this is a new system most sound node waves don't have paths, so logging has been commented out
-			//UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: sound node wave resource does not have path stored."));
-			FFormatNamedArguments Arguments;
-			Arguments.Add(TEXT("NameText"), NameText);
-			EditorErrors.Warning(FText::Format(LOCTEXT("SurroundWarningNoFilename", "{NameText}: Attempt to reimport empty file name."), Arguments));
-			continue;
-		}
-
-		FText FilenameText = FText::FromString(Filename);
-
-		const FString FileExtension = FPaths::GetExtension(Filename);
-		const bool bIsWav = ( FCString::Stricmp( *FileExtension, TEXT("WAV") ) == 0 );
-
-		// Only handle WAV files
-		if (!bIsWav)
-		{
-			FFormatNamedArguments Arguments;
-			Arguments.Add(TEXT("NameText"), NameText);
-			Arguments.Add(TEXT("FilenameText"), FilenameText);
-			EditorErrors.Warning(FText::Format(LOCTEXT("SurroundWarningFormat", "{NameText}: Incorrect File Format - {FilenameText}"), Arguments));
-			continue;
-		}
-
-		UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
-
-		// Ensure that the file provided by the path exists
-		if (IFileManager::Get().FileSize(*Filename) == INDEX_NONE)
-		{
-			FFormatNamedArguments Arguments;
-			Arguments.Add(TEXT("NameText"), NameText);
-			Arguments.Add(TEXT("FilenameText"), FilenameText);
-			EditorErrors.Warning(FText::Format(LOCTEXT("SurroundWarningNoFile", "{NameText}: Source file cannot be found - {FilenameText}"), Arguments));
-			continue;
-		}
-
-		FString SpeakerLocation = FPaths::GetBaseFilename(Filename).Right(3);
-		FName ImportName = *(SoundWave->GetName() + SpeakerLocation);
-		bool OutCanceled = false;
-
-		if (ImportObject(SoundWave->GetClass(), SoundWave->GetOuter(), ImportName, RF_Public | RF_Standalone, Filename, nullptr, OutCanceled) != nullptr)
-		{
-			FFormatNamedArguments Arguments;
-			Arguments.Add(TEXT("NameText"), NameText);
-			Arguments.Add(TEXT("FilenameText"), FilenameText);
-			EditorErrors.Info(FText::Format(LOCTEXT("SurroundWarningImportSucceeded", "{NameText}: Import successful - {FilenameText}"), Arguments));
-
-			// Mark the package dirty after the successful import
-			SoundWave->MarkPackageDirty();
-
-			bSourceReimported = true;
-		}
-		else if (!OutCanceled)
-		{
-			FFormatNamedArguments Arguments;
-			Arguments.Add(TEXT("NameText"), NameText);
-			Arguments.Add(TEXT("FilenameText"), FilenameText);
-			EditorErrors.Warning(FText::Format(LOCTEXT("SurroundWarningImportFailed", "{NameText}: Import failed - {FilenameText}"), Arguments));
-		}
-	}
-
-	EditorErrors.Notify(LOCTEXT("SurroundWarningDescription", "Some files could not be reimported."), EMessageSeverity::Warning);
-
-	return bSourceReimported ? EReimportResult::Succeeded : EReimportResult::Failed;
-}
-
-int32 UReimportSoundSurroundFactory::GetPriority() const
-{
-	return ImportPriority;
-}
-
-
-/*------------------------------------------------------------------------------
-	USoundCueFactoryNew.
-------------------------------------------------------------------------------*/
-USoundCueFactoryNew::USoundCueFactoryNew(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-
-	SupportedClass = USoundCue::StaticClass();
-
-	bCreateNew = true;
-	bEditorImport = false;
-	bEditAfterNew = true;
-}
-
-UObject* USoundCueFactoryNew::FactoryCreateNew( UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
-{
-	USoundCue* SoundCue = NewObject<USoundCue>(InParent, Name, Flags);
-
-	if (InitialSoundWave)
-	{
-		USoundNodeWavePlayer* WavePlayer = SoundCue->ConstructSoundNode<USoundNodeWavePlayer>();
-		SoundCue->FirstNode = WavePlayer;
-		SoundCue->LinkGraphNodesFromSoundNodes();
-		WavePlayer->SetSoundWave(InitialSoundWave);
-		WavePlayer->GraphNode->NodePosX = -250;
-		WavePlayer->GraphNode->NodePosY = -35;
-	}
-	else if (InitialDialogueWave)
-	{
-		USoundNodeDialoguePlayer* DialoguePlayer = SoundCue->ConstructSoundNode<USoundNodeDialoguePlayer>();
-		SoundCue->FirstNode = DialoguePlayer;
-		SoundCue->LinkGraphNodesFromSoundNodes();
-		DialoguePlayer->SetDialogueWave(InitialDialogueWave);
-		DialoguePlayer->GraphNode->NodePosX = -250 - DialoguePlayer->GetGraphNode()->EstimateNodeWidth();
-		DialoguePlayer->GraphNode->NodePosY = -35;
-
-		if (InitialDialogueWave->ContextMappings.Num() == 1)
-		{
-			DialoguePlayer->DialogueWaveParameter.Context.Speaker = InitialDialogueWave->ContextMappings[0].Context.Speaker;
-			DialoguePlayer->DialogueWaveParameter.Context.Targets = InitialDialogueWave->ContextMappings[0].Context.Targets;
-		}
-	}
-
-	return SoundCue;
-}
-
-/*-----------------------------------------------------------------------------
-	USoundMixFactory.
------------------------------------------------------------------------------*/
-USoundMixFactory::USoundMixFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-
-	SupportedClass = USoundMix::StaticClass();
-
-	bCreateNew = true;
-	bEditorImport = false;
-	bEditAfterNew = true;
-}
-
-UObject* USoundMixFactory::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
-{
-	USoundMix* Mix = NewObject<USoundMix>(InParent, InName, Flags);
-
-	return Mix;
-}
-
-
-/*-----------------------------------------------------------------------------
-	USoundClassFactory.
------------------------------------------------------------------------------*/
-USoundClassFactory::USoundClassFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-
-	SupportedClass = USoundClass::StaticClass();
-	bCreateNew = true;
-	bEditorImport = false;
-	bEditAfterNew = true;
-}
-
-UObject* USoundClassFactory::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
-{
-	USoundClass* SoundClass = NewObject<USoundClass>(InParent, InName, Flags);
-	
-
-	class FAudioDeviceManager* AudioDeviceManager = GEngine ? GEngine->GetAudioDeviceManager() : nullptr;
-	if (AudioDeviceManager)
-	{
-		AudioDeviceManager->InitSoundClasses();
-	}
-
-	return( SoundClass );
-}
-
-/*------------------------------------------------------------------------------
-	USoundAttenuationFactory.
-------------------------------------------------------------------------------*/
-USoundAttenuationFactory::USoundAttenuationFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-
-	SupportedClass = USoundAttenuation::StaticClass();
-	bCreateNew = true;
-	bEditorImport = false;
-	bEditAfterNew = true;
-}
-
-UObject* USoundAttenuationFactory::FactoryCreateNew( UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
-{
-	return NewObject<USoundAttenuation>(InParent, Name, Flags);
-}
-
-/*------------------------------------------------------------------------------
-USoundConcurrencyFactory.
-------------------------------------------------------------------------------*/
-USoundConcurrencyFactory::USoundConcurrencyFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-
-	SupportedClass = USoundConcurrency::StaticClass();
-	bCreateNew = true;
-	bEditorImport = false;
-	bEditAfterNew = true;
-}
-
-UObject* USoundConcurrencyFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
-{
-	return NewObject<USoundConcurrency>(InParent, Name, Flags);
-}
-
 
 /*------------------------------------------------------------------------------
 	UParticleSystemFactoryNew.
@@ -3086,7 +2238,7 @@ void DecompressTGA_RLE_24bpp( const FTGAFileHeader* TGA, uint32* TextureData )
 	uint8*	IdData = (uint8*)TGA + sizeof(FTGAFileHeader); 
 	uint8*	ColorMap = IdData + TGA->IdFieldLength;
 	uint8*	ImageData = (uint8*) (ColorMap + (TGA->ColorMapEntrySize + 4) / 8 * TGA->ColorMapLength);
-	uint8    Pixel[4];
+	uint8    Pixel[4] = {};
 	int32     RLERun = 0;
 	int32     RAWRun = 0;
 
@@ -3298,6 +2450,11 @@ bool DecompressTGA_helper(
 	{
 		DecompressTGA_8bpp(TGA, (uint8*)TextureData);
 	}
+	// standard grayscale
+	else if(TGA->ColorMapType == 0 && TGA->ImageTypeCode == 3 && TGA->BitsPerPixel == 8)
+	{
+		DecompressTGA_8bpp(TGA, (uint8*)TextureData);
+	}
 	else
 	{
 		Warn->Logf(ELogVerbosity::Error, TEXT("TGA is an unsupported type: %u"),TGA->ImageTypeCode);
@@ -3356,6 +2513,18 @@ UTexture2D* DecompressTGA(
 		//
 		// We store the image as PF_G8, where it will be used as alpha in the Glyph shader.
 
+		Texture->Source.Init(
+			TGA->Width,
+			TGA->Height,
+			/*NumSlices=*/ 1,
+			/*NumMips=*/ 1,
+			TSF_G8);
+
+		Texture->CompressionSettings = TC_Grayscale;
+	}
+	else if(TGA->ColorMapType == 0 && TGA->ImageTypeCode == 3 && TGA->BitsPerPixel == 8)
+	{
+		// standard grayscale images
 		Texture->Source.Init(
 			TGA->Width,
 			TGA->Height,
@@ -3441,7 +2610,13 @@ void UTextureFactory::PostInitProperties()
 
 UTexture2D* UTextureFactory::CreateTexture2D( UObject* InParent, FName Name, EObjectFlags Flags )
 {
-	UTexture2D* NewTexture = CastChecked<UTexture2D>( CreateOrOverwriteAsset(UTexture2D::StaticClass(),InParent,Name,Flags) );
+	UObject* NewObject = CreateOrOverwriteAsset(UTexture2D::StaticClass(), InParent, Name, Flags);
+	UTexture2D* NewTexture = nullptr;
+	if(NewObject)
+	{
+		NewTexture = CastChecked<UTexture2D>(NewObject);
+	}
+	
 	return NewTexture;
 }
 
@@ -3678,7 +2853,7 @@ UTexture* UTextureFactory::ImportTexture(UClass* Class, UObject* InParent, FName
 				/*NumMips=*/ 1,
 				TextureFormat
 				);
-			Texture->SRGB = true;
+			Texture->SRGB = BitDepth < 16;
 			const TArray<uint8>* RawPNG = nullptr;
 			if ( PngImageWrapper->GetRaw( Format, BitDepth, RawPNG ) )
 			{
@@ -3754,7 +2929,7 @@ UTexture* UTextureFactory::ImportTexture(UClass* Class, UObject* InParent, FName
 					/*NumMips=*/ 1,
 					TextureFormat
 					);
-				Texture->SRGB = true;
+				Texture->SRGB = BitDepth < 16;
 			
 				uint8* MipData = Texture->Source.LockMip( 0 );
 				FMemory::Memcpy( MipData, RawJPEG->GetData(), RawJPEG->Num() );
@@ -4009,19 +3184,20 @@ UTexture* UTextureFactory::ImportTexture(UClass* Class, UObject* InParent, FName
 	{
 		UTexture2D* Texture = 0;
 
-		if (TGA->ColorMapType == 0 && TGA->ImageTypeCode == 3)
-		{
-			Warn->Logf(ELogVerbosity::Error, *NSLOCTEXT("UnrealEd", "Warning_TGAGreyscale", "TGA Greyscale import not supported, use RGB").ToString() );
-			return nullptr;
-		}
-
 		// Check the resolution of the imported texture to ensure validity
 		if ( !IsImportResolutionValid(TGA->Width, TGA->Height, bAllowNonPowerOfTwo, Warn) )
 		{
 			return nullptr;
 		}
 
-		return DecompressTGA(TGA, this, Class, InParent, Name, Flags, Warn);
+		Texture = DecompressTGA(TGA, this, Class, InParent, Name, Flags, Warn);
+		if(Texture && Texture->CompressionSettings == TC_Grayscale && TGA->ImageTypeCode == 3)
+		{
+			// default grayscales to linear as they wont get compression otherwise and are commonly used as masks
+			Texture->SRGB = false;
+		}
+
+		return Texture;
 	}
 	//
 	// PSD File
@@ -5154,33 +4330,155 @@ UObject* UFontFactory::FactoryCreateNew(UClass* InClass, UObject* InParent, FNam
 UFontFileImportFactory::UFontFileImportFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	SupportedClass = UFont::StaticClass();
+	SupportedClass = UFontFace::StaticClass();
 
 	bEditorImport = true;
 
 	Formats.Add(TEXT("ttf;TrueType font"));
 	Formats.Add(TEXT("otf;OpenType font"));
+
+	BatchCreateFontAsset = EBatchCreateFontAsset::Unknown;
+}
+
+bool UFontFileImportFactory::ConfigureProperties()
+{
+	BatchCreateFontAsset = EBatchCreateFontAsset::Unknown;
+	return true;
 }
 
 UObject* UFontFileImportFactory::FactoryCreateBinary(UClass* InClass, UObject* InParent, FName InName, EObjectFlags InFlags, UObject* InContext, const TCHAR* InType, const uint8*& InBuffer, const uint8* InBufferEnd, FFeedbackContext* InWarn)
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, InType);
-
-	UFont* const Font = NewObject<UFont>(InParent, InClass, InName, InFlags);
-	if(Font)
+	// Should we create a font asset alongside our font face?
+	bool bCreateFontAsset = false;
 	{
-		Font->FontCacheType = EFontCacheType::Runtime;
-
-		// We need to allocate the bulk data with the font as its outer
-		UFontBulkData* const BulkData = NewObject<UFontBulkData>(Font);
-		BulkData->Initialize(InBuffer, InBufferEnd - InBuffer);
-
-		Font->CompositeFont.DefaultTypeface.Fonts.Add(FTypefaceEntry("Default", GetCurrentFilename(), BulkData, EFontHinting::Auto));
+		const bool bIsAutomated = IsAutomatedImport();
+		const bool bShowImportDialog = BatchCreateFontAsset == EBatchCreateFontAsset::Unknown && !bIsAutomated;
+		if (bShowImportDialog)
+		{
+			const FText DlgTitle = LOCTEXT("ImportFont_OptionsDlgTitle", "Font Face Import Options");
+			const FText DlgMsg = LOCTEXT("ImportFont_OptionsDlgMsg", "Would you like to create a new Font asset using the imported Font Face as its default font?");
+			switch (FMessageDialog::Open(EAppMsgType::YesNoYesAllNoAllCancel, DlgMsg, &DlgTitle))
+			{
+			case EAppReturnType::Yes:
+				bCreateFontAsset = true;
+				break;
+			case EAppReturnType::YesAll:
+				bCreateFontAsset = true;
+				BatchCreateFontAsset = EBatchCreateFontAsset::Yes;
+				break;
+			case EAppReturnType::No:
+				break;
+			case EAppReturnType::NoAll:
+				BatchCreateFontAsset = EBatchCreateFontAsset::No;
+				break;
+			default:
+				BatchCreateFontAsset = EBatchCreateFontAsset::Cancel;
+				break;
+			}
+		}
+		else
+		{
+			bCreateFontAsset = BatchCreateFontAsset == EBatchCreateFontAsset::Yes;
+		}
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, Font);
+	if (BatchCreateFontAsset == EBatchCreateFontAsset::Cancel)
+	{
+		return nullptr;
+	}
+
+	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, InType);
+
+	// Create the font face
+	UFontFace* const FontFace = NewObject<UFontFace>(InParent, InClass, InName, InFlags);
+	if (FontFace)
+	{
+		FontFace->SourceFilename = GetCurrentFilename();
+		FontFace->FontFaceData.Append(InBuffer, InBufferEnd - InBuffer);
+	}
+
+	FEditorDelegates::OnAssetPostImport.Broadcast(this, FontFace);
 	
-	return Font;
+	// Create the font (if requested)
+	if (FontFace && bCreateFontAsset)
+	{
+		FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
+
+		FString FontPackageName;
+		FString FontAssetName;
+		AssetToolsModule.Get().CreateUniqueAssetName(FString::Printf(TEXT("%s/%s_Font"), *FPackageName::GetLongPackagePath(InParent->GetOutermost()->GetName()), *InName.ToString()), FString(), FontPackageName, FontAssetName);
+
+		UFontFactory* FontFactory = NewObject<UFontFactory>();
+		FontFactory->bEditAfterNew = false;
+
+		UPackage* FontPackage = CreatePackage(nullptr, *FontPackageName);
+		UFont* Font = Cast<UFont>(FontFactory->FactoryCreateNew(UFont::StaticClass(), FontPackage, *FontAssetName, InFlags, InContext, InWarn));
+		if (Font)
+		{
+			Font->FontCacheType = EFontCacheType::Runtime;
+
+			// Add a default typeface referencing the newly created font face
+			FTypefaceEntry& DefaultTypefaceEntry = Font->CompositeFont.DefaultTypeface.Fonts[Font->CompositeFont.DefaultTypeface.Fonts.AddDefaulted()];
+			DefaultTypefaceEntry.Name = "Default";
+			DefaultTypefaceEntry.Font = FFontData(FontFace);
+
+			FAssetRegistryModule::AssetCreated(Font);
+			FontPackage->MarkPackageDirty();
+		}
+	}
+
+	return FontFace;
+}
+
+bool UFontFileImportFactory::CanReimport(UObject* Obj, TArray<FString>& OutFilenames)
+{
+	UFontFace* FontFaceToReimport = Cast<UFontFace>(Obj);
+	if (FontFaceToReimport)
+	{
+		OutFilenames.Add(FontFaceToReimport->SourceFilename);
+		return true;
+	}
+	return false;
+}
+
+void UFontFileImportFactory::SetReimportPaths(UObject* Obj, const TArray<FString>& NewReimportPaths)
+{
+	UFontFace* FontFaceToReimport = Cast<UFontFace>(Obj);
+	if (FontFaceToReimport && ensure(NewReimportPaths.Num() == 1))
+	{
+		FontFaceToReimport->SourceFilename = NewReimportPaths[0];
+	}
+}
+
+EReimportResult::Type UFontFileImportFactory::Reimport(UObject* InObject)
+{
+	UFontFace* FontFaceToReimport = Cast<UFontFace>(InObject);
+
+	if (!FontFaceToReimport)
+	{
+		return EReimportResult::Failed;
+	}
+
+	if (FontFaceToReimport->SourceFilename.IsEmpty() || !FPaths::FileExists(FontFaceToReimport->SourceFilename))
+	{
+		return EReimportResult::Failed;
+	}
+
+	// Never create font assets when reimporting
+	BatchCreateFontAsset = EBatchCreateFontAsset::No;
+
+	bool OutCanceled = false;
+	if (ImportObject(InObject->GetClass(), InObject->GetOuter(), *InObject->GetName(), RF_Public | RF_Standalone, FontFaceToReimport->SourceFilename, nullptr, OutCanceled))
+	{
+		return EReimportResult::Succeeded;
+	}
+
+	return EReimportResult::Failed;
+}
+
+int32 UFontFileImportFactory::GetPriority() const
+{
+	return ImportPriority;
 }
 
 /*------------------------------------------------------------------------------
@@ -5649,6 +4947,8 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	{
 		//Set misc options
 		ReimportUI->bConvertScene = ImportUI->bConvertScene;
+		ReimportUI->bForceFrontXAxis = ImportUI->bForceFrontXAxis;
+		ReimportUI->bConvertSceneUnit = ImportUI->bConvertSceneUnit;
 	}
 
 	if( ImportData )
@@ -5669,7 +4969,8 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		bool bShowOptionDialog = true;
 		bool bOutImportAll = false;
 		bool bIsObjFormat = false;
-		GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, bForceImportType, FBXIT_StaticMesh );
+		bool bIsAutomated = false;
+		GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, bForceImportType, FBXIT_StaticMesh );
 	}
 
 	if( !bOperationCanceled && ensure(ImportData) )
@@ -5884,6 +5185,8 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 	{
 		//Set misc options
 		ReimportUI->bConvertScene = ImportUI->bConvertScene;
+		ReimportUI->bForceFrontXAxis = ImportUI->bForceFrontXAxis;
+		ReimportUI->bConvertSceneUnit = ImportUI->bConvertSceneUnit;
 	}
 
 	bool bSuccess = false;
@@ -5910,14 +5213,13 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		bool bForceImportType = true;
 		bool bOutImportAll = false;
 		bool bIsObjFormat = false;
-
-		// arggg... hate this different option class to confuse everybody
+		bool bIsAutomated = false;
 		// @hack to make sure skeleton is set before opening the dialog
 		ImportOptions->SkeletonForAnimation = SkeletalMesh->Skeleton;
 		ImportOptions->bCreatePhysicsAsset = false;
 		ImportOptions->PhysicsAsset = SkeletalMesh->PhysicsAsset;
 
-		ImportOptions = GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, bForceImportType, FBXIT_SkeletalMesh );
+		ImportOptions = GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, bForceImportType, FBXIT_SkeletalMesh );
 	}
 
 	if( !bOperationCanceled && ensure(ImportData) )
@@ -6746,6 +6048,7 @@ UObject* UDataAssetFactory::FactoryCreateNew(UClass* Class, UObject* InParent, F
 
 #include "EditorPhysXSupport.h"
 #if WITH_APEX_CLOTHING
+#include "PhysicsPublic.h"
 #include "ApexClothingUtils.h"
 #endif // #if WITH_APEX_CLOTHING
 /*------------------------------------------------------------------------------
@@ -6788,7 +6091,7 @@ UObject* UDestructibleMeshFactory::FactoryCreateBinary
 	UDestructibleMesh* DestructibleMesh = nullptr;
 
 	// Create an Apex NxDestructibleAsset from the binary blob
-	NxDestructibleAsset* ApexDestructibleAsset = CreateApexDestructibleAssetFromBuffer(Buffer, (int32)(BufferEnd-Buffer));
+	apex::DestructibleAsset* ApexDestructibleAsset = CreateApexDestructibleAssetFromBuffer(Buffer, (int32)(BufferEnd-Buffer));
 	if( ApexDestructibleAsset != nullptr )
 	{
 		// Succesfully created the NxDestructibleAsset, now create a UDestructibleMesh
@@ -6805,7 +6108,7 @@ UObject* UDestructibleMeshFactory::FactoryCreateBinary
 	else
 	{
 		// verify whether this is an Apex Clothing asset or not 
-		NxClothingAsset* ApexClothingAsset = ApexClothingUtils::CreateApexClothingAssetFromBuffer(Buffer, (int32)(BufferEnd-Buffer));
+		apex::ClothingAsset* ApexClothingAsset = ApexClothingUtils::CreateApexClothingAssetFromBuffer(Buffer, (int32)(BufferEnd-Buffer));
 		
 		if(ApexClothingAsset)
 		{
@@ -6903,7 +6206,7 @@ EReimportResult::Type UReimportDestructibleMeshFactory::Reimport( UObject* Obj )
 	CurrentFilename = Filename;
 
 	// Create an Apex NxDestructibleAsset from the binary blob
-	NxDestructibleAsset* ApexDestructibleAsset = CreateApexDestructibleAssetFromFile(Filename);
+	apex::DestructibleAsset* ApexDestructibleAsset = CreateApexDestructibleAssetFromFile(Filename);
 	if( ApexDestructibleAsset != nullptr )
 	{
 		// Succesfully created the NxDestructibleAsset, now create a UDestructibleMesh
@@ -6956,7 +6259,7 @@ UBlendSpaceFactoryNew::UBlendSpaceFactoryNew(const FObjectInitializer& ObjectIni
 
 	SupportedClass = UBlendSpace::StaticClass();
 	bCreateNew = true;
-		}
+}
 
 bool UBlendSpaceFactoryNew::ConfigureProperties()
 {
@@ -6989,7 +6292,7 @@ bool UBlendSpaceFactoryNew::ConfigureProperties()
 		[
 			ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig)
 		]
-		];
+	];
 
 
 	GEditor->EditorAddModalWindow(PickerWindow.ToSharedRef());
@@ -7487,6 +6790,55 @@ UObject* UDataTableFactory::FactoryCreateNew(UClass* Class, UObject* InParent, F
 	return DataTable;
 }
 
+/*------------------------------------------------------------------------------
+ UPreviewMeshCollectionFactory implementation.
+------------------------------------------------------------------------------*/
+
+UPreviewMeshCollectionFactory::UPreviewMeshCollectionFactory(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	SupportedClass = UPreviewMeshCollection::StaticClass();
+	bCreateNew = true;
+}
+
+FText UPreviewMeshCollectionFactory::GetDisplayName() const
+{
+	return LOCTEXT("PreviewMeshCollection", "Preview Mesh Collection");
+}
+
+FText UPreviewMeshCollectionFactory::GetToolTip() const
+{
+	return LOCTEXT("PreviewMeshCollection_Tooltip", "Preview Mesh Collections are used to build collections of related skeletal meshes that are animated together (such as components of a character)");
+}
+
+bool UPreviewMeshCollectionFactory::ConfigureProperties()
+{
+	if (CurrentSkeleton.IsValid())
+	{
+		return true;
+	}
+
+	USkeleton* Skeleton = ChooseSkeleton();
+	if (Skeleton != nullptr)
+	{
+		CurrentSkeleton = Skeleton;
+		return true;
+	}
+
+	return false;
+}
+
+UObject* UPreviewMeshCollectionFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
+{
+	UPreviewMeshCollection* NewCollection = nullptr;
+	if (CurrentSkeleton.IsValid())
+	{
+		NewCollection = NewObject<UPreviewMeshCollection>(InParent, Name, Flags);
+		NewCollection->Skeleton = CurrentSkeleton.Get();
+	}
+
+	return NewCollection;
+}
 
 #undef LOCTEXT_NAMESPACE
 

@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/ISlateStyle.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "IMessageTracer.h"
+#include "Models/MessagingDebuggerModel.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Models/MessagingDebuggerTypeFilter.h"
 
 /**
  * Implements the message types panel.
@@ -29,7 +38,11 @@ public:
 	 * @param InStyle The visual style to use for this widget.
 	 * @param InTracer The message tracer.
 	 */
-	void Construct( const FArguments& InArgs, const FMessagingDebuggerModelRef& InModel, const TSharedRef<ISlateStyle>& InStyle, const IMessageTracerRef& InTracer );
+	void Construct(
+		const FArguments& InArgs,
+		const TSharedRef<FMessagingDebuggerModel>& InModel,
+		const TSharedRef<ISlateStyle>& InStyle,
+		const TSharedRef<IMessageTracer, ESPMode::ThreadSafe>& InTracer);
 
 protected:
 
@@ -38,7 +51,7 @@ protected:
 	 *
 	 * @param TypeInfo The information about the message type to add.
 	 */
-	void AddType( const FMessageTracerTypeInfoRef& TypeInfo );
+	void AddType(const TSharedRef<FMessageTracerTypeInfo>& TypeInfo);
 
 	/** Reloads the message history. */
 	void ReloadTypes();
@@ -55,34 +68,34 @@ private:
 	void HandleTracerMessagesReset();
 
 	/** Callback for when a message type has been added to the message tracer. */
-	void HandleTracerTypeAdded( FMessageTracerTypeInfoRef TypeInfo );
+	void HandleTracerTypeAdded(TSharedRef<FMessageTracerTypeInfo> TypeInfo);
 
 	/** Callback for generating a row widget for the message type list view. */
-	TSharedRef<ITableRow> HandleTypeListGenerateRow( FMessageTracerTypeInfoPtr TypeInfo, const TSharedRef<STableViewBase>& OwnerTable );
+	TSharedRef<ITableRow> HandleTypeListGenerateRow(TSharedPtr<FMessageTracerTypeInfo> TypeInfo, const TSharedRef<STableViewBase>& OwnerTable);
 
 	/** Callback for getting the highlight string for message types. */
 	FText HandleTypeListGetHighlightText() const;
 
 	/** Callback for selecting message types. */
-	void HandleTypeListSelectionChanged( FMessageTracerTypeInfoPtr InItem, ESelectInfo::Type SelectInfo );
+	void HandleTypeListSelectionChanged(TSharedPtr<FMessageTracerTypeInfo> InItem, ESelectInfo::Type SelectInfo);
 
 private:
 
 	/** Holds the message type filter model. */
-	FMessagingDebuggerTypeFilterPtr Filter;
+	TSharedPtr<FMessagingDebuggerTypeFilter> Filter;
 
 	/** Holds a pointer to the view model. */
-	FMessagingDebuggerModelPtr Model;
+	TSharedPtr<FMessagingDebuggerModel> Model;
 
 	/** Holds the widget's visual style. */
 	TSharedPtr<ISlateStyle> Style;
 
 	/** Holds a pointer to the message bus tracer. */
-	IMessageTracerPtr Tracer;
+	TSharedPtr<IMessageTracer, ESPMode::ThreadSafe> Tracer;
 
 	/** Holds the filtered list of message types. */
-	TArray<FMessageTracerTypeInfoPtr> TypeList;
+	TArray<TSharedPtr<FMessageTracerTypeInfo>> TypeList;
 
 	/** Holds the message type list view. */
-	TSharedPtr<SListView<FMessageTracerTypeInfoPtr>> TypeListView;
+	TSharedPtr<SListView<TSharedPtr<FMessageTracerTypeInfo>>> TypeListView;
 };

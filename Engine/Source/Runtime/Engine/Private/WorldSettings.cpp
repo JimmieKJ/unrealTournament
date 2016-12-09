@@ -1,24 +1,31 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "GameFramework/WorldSettings.h"
+#include "Misc/MessageDialog.h"
+#include "UObject/ConstructorHelpers.h"
+#include "EngineDefines.h"
+#include "EngineStats.h"
+#include "Engine/World.h"
+#include "SceneInterface.h"
+#include "GameFramework/DefaultPhysicsVolume.h"
+#include "EngineUtils.h"
 #include "Engine/AssetUserData.h"
 #include "Engine/WorldComposition.h"
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/GameNetworkManager.h"
-#include "SoundDefinitions.h"
-#include "ParticleDefinitions.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "MapErrors.h"
+#include "AudioDevice.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "Misc/MapErrors.h"
 #include "Particles/ParticleEventManager.h"
 #include "PhysicsEngine/PhysicsSettings.h"
-#include "GameFramework/DefaultPhysicsVolume.h"
-
-#define LOCTEXT_NAMESPACE "ErrorChecking"
 
 #if WITH_EDITOR
 #include "Editor.h"
 #endif 
+
+#define LOCTEXT_NAMESPACE "ErrorChecking"
 
 // @todo vreditor urgent: Temporary hack to allow world-to-meters to be set before
 // input is polled for motion controller devices each frame.
@@ -40,6 +47,7 @@ AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 
 	bEnableWorldBoundsChecks = true;
 	bEnableNavigationSystem = true;
+	bEnableAISystem = true;
 	bEnableWorldComposition = false;
 	bEnableWorldOriginRebasing = false;
 #if WITH_EDITORONLY_DATA	
@@ -69,10 +77,10 @@ AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 	DefaultColorScale = FVector(1.0f, 1.0f, 1.0f);
 	DefaultMaxDistanceFieldOcclusionDistance = 600;
 	GlobalDistanceFieldViewDistance = 20000;
+	DynamicIndirectShadowsSelfShadowingIntensity = .8f;
 	bPlaceCellsOnlyAlongCameraTracks = false;
 	VisibilityCellSize = 200;
 	VisibilityAggressiveness = VIS_LeastAggressive;
-	LevelLightingQuality = Quality_MAX;
 
 #if WITH_EDITORONLY_DATA
 	bActorLabelEditable = false;
@@ -254,9 +262,7 @@ void AWorldSettings::PostLoad()
 	Super::PostLoad();
 
 #if WITH_EDITOR
-	FHierarchicalSimplification DefaultObject;
-
-	for (FHierarchicalSimplification Entry : HierarchicalLODSetup)
+	for (FHierarchicalSimplification& Entry : HierarchicalLODSetup)
 	{
 		Entry.ProxySetting.PostLoadDeprecated();
 		Entry.MergeSetting.LODSelectionType = EMeshLODSelectionType::CalculateLOD;
@@ -280,7 +286,19 @@ void AWorldSettings::CheckForErrors()
 			->AddToken(FMapErrorToken::Create(FMapErrors::DuplicateLevelInfo));
 	}
 
-	if( World->NumLightingUnbuiltObjects > 0 )
+	int32 NumLightingScenariosEnabled = 0;
+
+	for (int32 LevelIndex = 0; LevelIndex < World->GetNumLevels(); LevelIndex++)
+	{
+		ULevel* Level = World->GetLevels()[LevelIndex];
+
+		if (Level->bIsLightingScenario && Level->bIsVisible)
+		{
+			NumLightingScenariosEnabled++;
+		}
+	}
+
+	if( World->NumLightingUnbuiltObjects > 0 && NumLightingScenariosEnabled <= 1 )
 	{
 		FMessageLog("MapCheck").Error()
 			->AddToken(FUObjectToken::Create(this))
@@ -377,11 +395,6 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 
 	if (PropertyThatChanged != nullptr && GetWorld() != nullptr && GetWorld()->PersistentLevel->GetWorldSettings() == this)
 	{
-		if (GIsEditor)
-		{
-			GEngine->DeferredCommands.AddUnique(TEXT("UpdateLandscapeSetup"));
-		}
-
 		if (PropertyThatChanged->GetFName() == GET_MEMBER_NAME_CHECKED(FHierarchicalSimplification,TransitionScreenSize))
 		{
 			GEditor->BroadcastHLODTransitionScreenSizeChanged();

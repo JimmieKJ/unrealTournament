@@ -2,12 +2,13 @@
 
 #pragma once
 
-#include "TaskGraphInterfaces.h"
-
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Async/TaskGraphInterfaces.h"
 
 class IMessageAttachment;
-class UScriptStruct;
-
 
 /**
  * Structure for message endpoint addresses.
@@ -28,7 +29,7 @@ public:
 	 * @param Y The second address to compare.
 	 * @return true if the addresses are equal, false otherwise.
 	 */
-	friend bool operator==( const FMessageAddress& X, const FMessageAddress& Y )
+	friend bool operator==(const FMessageAddress& X, const FMessageAddress& Y)
 	{
 		return (X.UniqueId == Y.UniqueId);
 	}
@@ -40,7 +41,7 @@ public:
 	 * @param Y The second address to compare.
 	 * @return true if the addresses are not equal, false otherwise.
 	 */
-	friend bool operator!=( const FMessageAddress& X, const FMessageAddress& Y )
+	friend bool operator!=(const FMessageAddress& X, const FMessageAddress& Y)
 	{
 		return (X.UniqueId != Y.UniqueId);
 	}
@@ -51,7 +52,7 @@ public:
 	 * @param Ar The archive to serialize from or into.
 	 * @param G The address to serialize.
 	 */
-	friend FArchive& operator<<( FArchive& Ar, FMessageAddress& A )
+	friend FArchive& operator<<(FArchive& Ar, FMessageAddress& A)
 	{
 		return Ar << A.UniqueId;
 	}
@@ -98,7 +99,7 @@ public:
 	 * @param Address The address to calculate the hash for.
 	 * @return The hash.
 	 */
-	friend uint32 GetTypeHash( const FMessageAddress& Address )
+	friend uint32 GetTypeHash(const FMessageAddress& Address)
 	{
 		return FCrc::MemCrc_DEPRECATED(&Address.UniqueId, sizeof(FGuid));
 	}
@@ -153,7 +154,7 @@ private:
  * Scopes only apply to published messages. Messages that are being sent to specific
  * recipients will always be delivered, regardless of the endpoint locations.
  */
-enum class EMessageScope
+enum class EMessageScope : uint8
 {
 	/** Deliver to subscribers in the same thread. */
 	Thread,
@@ -227,7 +228,7 @@ public:
 	 * Gets the message data.
 	 *
 	 * @return A pointer to the message data.
-	 * @see GetMessageType, GetMessageTypeInfo
+	 * @see GetAttachment, GetMessageType, GetMessageTypeInfo
 	 */
 	virtual const void* GetMessage() const = 0;
 
@@ -250,6 +251,7 @@ public:
 	 * Gets the list of message recipients.
 	 *
 	 * @return Message recipients.
+	 * @see GetSender
 	 */
 	virtual const TArray<FMessageAddress>& GetRecipients() const = 0;
 
@@ -264,6 +266,7 @@ public:
 	 * Gets the sender's address.
 	 *
 	 * @return Sender address.
+	 * @see GetRecipients, GetSenderThread
 	 */
 	virtual const FMessageAddress& GetSender() const = 0;
 
@@ -271,6 +274,7 @@ public:
 	 * Gets the name of the thread from which the message was sent.
 	 *
 	 * @return Sender threat name.
+	 * @see GetSender
 	 */
 	virtual ENamedThreads::Type GetSenderThread() const = 0;
 
@@ -278,6 +282,7 @@ public:
 	 * Gets the time at which the message was forwarded.
 	 *
 	 * @return Time forwarded.
+	 * @see GetTimeSent, IsForwarded
 	 */
 	virtual const FDateTime& GetTimeForwarded() const = 0;
 
@@ -285,6 +290,7 @@ public:
 	 * Gets the time at which the message was sent.
 	 *
 	 * @return Time sent.
+	 * @see GetTimeForwarded
 	 */
 	virtual const FDateTime& GetTimeSent() const = 0;
 
@@ -294,6 +300,7 @@ public:
 	 * Gets the name of the message type.
 	 *
 	 * @return Message type name.
+	 * @see GetMessage, GetMessageTypeInfo
 	 */
 	FName GetMessageType() const
 	{
@@ -309,7 +316,7 @@ public:
 	 * Checks whether this is a forwarded message.
 	 *
 	 * @return true if the message was forwarded, false otherwise.
-	 * @see GetOriginalContext, IsValid
+	 * @see GetOriginalContext, GetTimeForwarded, IsValid
 	 */
 	bool IsForwarded() const
 	{

@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "SkeletalMeshTypes.h"
-#include "BoneContainer.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
 #include "BoneIndices.h"
+#include "Animation/AnimTypes.h"
 #include "CustomBoneIndexArray.h"
 #include "AnimEncoding.h"
 #include "Animation/AnimStats.h"
-#include "Animation/AnimTypes.h"
 
 struct FBoneTransform
 {
@@ -42,7 +42,7 @@ template<class BoneIndexType, typename InAllocator>
 struct FBasePose
 {
 public:
-	FORCEINLINE void InitBones(int32 NumBones) { Bones.Empty(NumBones); Bones.AddUninitialized(NumBones); }
+	FORCEINLINE void InitBones(int32 NumBones) { Bones.Reset(NumBones); Bones.AddUninitialized(NumBones); }
 
 	FORCEINLINE int32 GetNumBones() const { return Bones.Num(); }
 

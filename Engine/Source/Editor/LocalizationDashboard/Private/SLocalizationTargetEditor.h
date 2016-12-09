@@ -2,11 +2,13 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 #include "PropertyEditorDelegates.h"
 
-class ULocalizationTargetSet;
 class ULocalizationTarget;
+class ULocalizationTargetSet;
 
 class SLocalizationTargetEditor : public SCompoundWidget
 {

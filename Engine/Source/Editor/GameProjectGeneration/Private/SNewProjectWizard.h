@@ -2,9 +2,17 @@
 
 #pragma once
 
-struct FTemplateItem;
-struct FTemplateCategory;
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "HardwareTargetingSettings.h"
+#include "Widgets/Views/STileView.h"
 
+class SWizard;
+struct FTemplateItem;
 
 /**
  * A wizard to create a new game project

@@ -18,6 +18,8 @@ void Main(
 	// Also to be consistent with DrawMaterialToRenderTarget, which doesn't have this full texture copy in which to invert
 	// Artists will have to invert the alpha to get foreground opacity
 	OutColor = float4(SceneColorValue.rgb, saturate(SceneColorValue.a));
+#elif SOURCE_MODE_SCENE_COLOR_NO_ALPHA
+	OutColor = float4(CalcSceneColor(Input.UV), 0);
 #elif SOURCE_MODE_SCENE_COLOR_SCENE_DEPTH
 	OutColor = float4(CalcSceneColor(Input.UV), CalcSceneDepth(Input.UV));
 #elif SOURCE_MODE_SCENE_DEPTH 

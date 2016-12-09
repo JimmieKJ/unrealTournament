@@ -4,11 +4,9 @@
 	AnimCompress_RemoveEverySecondKey.cpp: Keyframe reduction algorithm that simply removes every second key.
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
 #include "Animation/AnimCompress_RemoveEverySecondKey.h"
-#include "AnimationUtils.h"
-#include "AnimEncoding.h"
 #include "AnimationCompression.h"
+#include "AnimEncoding.h"
 
 UAnimCompress_RemoveEverySecondKey::UAnimCompress_RemoveEverySecondKey(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -28,7 +26,7 @@ void UAnimCompress_RemoveEverySecondKey::DoReduction(UAnimSequence* AnimSeq, con
 	TArray<FTranslationTrack> TranslationData;
 	TArray<FRotationTrack> RotationData;
 	TArray<FScaleTrack> ScaleData;
-	SeparateRawDataIntoTracks( AnimSeq->RawAnimationData, AnimSeq->SequenceLength, TranslationData, RotationData, ScaleData );
+	SeparateRawDataIntoTracks( AnimSeq->GetRawAnimationData(), AnimSeq->SequenceLength, TranslationData, RotationData, ScaleData );
 
 	// Remove Translation Keys from tracks marked bAnimRotationOnly
 	FilterAnimRotationOnlyKeys(TranslationData, AnimSeq);

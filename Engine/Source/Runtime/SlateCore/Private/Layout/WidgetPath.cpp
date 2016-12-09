@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
+#include "Layout/WidgetPath.h"
+#include "SlateGlobals.h"
 
 DECLARE_CYCLE_STAT(TEXT("ToWidgetPath"), STAT_ToWidgetPath, STATGROUP_Slate);
 

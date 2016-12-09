@@ -4,7 +4,7 @@
 	TemplateMapMetadata.cpp: map template related code
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "Editor/TemplateMapMetadata.h"
 
 /*-----------------------------------------------------------------------------
 	UTemplateMapMetadata.

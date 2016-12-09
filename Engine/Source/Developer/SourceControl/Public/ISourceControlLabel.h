@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** 
  * Abstraction of a source control label/tag.
  */

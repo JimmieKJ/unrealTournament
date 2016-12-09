@@ -6,6 +6,16 @@ PrimitiveDistanceAccuracyRendering.h: Declarations used for the viewmode.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "GlobalShader.h"
+#include "DebugViewModeRendering.h"
+
+class FPrimitiveSceneProxy;
+struct FMeshBatchElement;
+struct FMeshDrawingRenderState;
+
 /**
 * Pixel shader that renders texture streamer wanted mips accuracy.
 */
@@ -60,7 +70,7 @@ public:
 		const FPrimitiveSceneProxy* Proxy,
 		int32 VisualizeLODIndex,
 		const FMeshBatchElement& BatchElement, 
-		const FMeshDrawingRenderState& DrawRenderState
+		const FDrawingPolicyRenderState& DrawRenderState
 		) override;
 
 	virtual void SetMesh(FRHICommandList& RHICmdList, const FSceneView& View) override;

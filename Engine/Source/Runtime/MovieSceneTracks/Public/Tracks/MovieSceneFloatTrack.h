@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "MovieScene.h"
-#include "MovieSceneTrack.h"
-#include "MovieScenePropertyTrack.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Tracks/MovieScenePropertyTrack.h"
 #include "MovieSceneFloatTrack.generated.h"
 
 /**
@@ -18,15 +18,8 @@ class UMovieSceneFloatTrack : public UMovieScenePropertyTrack
 public:
 	/** UMovieSceneTrack interface */
 	virtual UMovieSceneSection* CreateNewSection() override;
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
+	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 
-	/**
-	 * Evaluates the track at the playback position
-	 *
-	 * @param Position	The current playback position
-	 * @param LastPosition	The last plackback position
-	 * @param OutFloat 	The value at the playback position
-	 * @return true if anything was evaluated. Note: if false is returned OutFloat remains unchanged
-	 */
-	virtual bool Eval( float Position, float LastPosition, float& OutFloat ) const;
+	DEPRECATED(4.15, "Direct evaluation of float tracks is no longer supported. Please create an evaluation template (see FMovieSceneFloatPropertySectionTemplate).")
+	virtual bool Eval( float Position, float LastPosition, float& InOutFloat ) const;
 };

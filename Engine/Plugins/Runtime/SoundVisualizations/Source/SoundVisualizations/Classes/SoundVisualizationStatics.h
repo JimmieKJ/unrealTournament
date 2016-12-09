@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "SoundVisualizationStatics.generated.h"
+
+class USoundWave;
 
 UCLASS()
 class USoundVisualizationStatics : public UBlueprintFunctionLibrary

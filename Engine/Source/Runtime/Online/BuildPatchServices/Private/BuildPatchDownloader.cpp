@@ -5,8 +5,22 @@
 	that runs a thread to download chunks in it's queue.
 =============================================================================*/
 
-#include "BuildPatchServicesPrivatePCH.h"
-#include "Async.h"
+#include "BuildPatchDownloader.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "Interfaces/IBuildInstaller.h"
+#include "Interfaces/IHttpResponse.h"
+#include "BuildPatchError.h"
+#include "BuildPatchHTTP.h"
+#include "BuildPatchChunkCache.h"
+#include "BuildPatchFileConstructor.h"
+#include "BuildPatchUtil.h"
+#include "BuildPatchAnalytics.h"
+#include "Async/Async.h"
 
 using namespace BuildPatchConstants;
 
@@ -416,15 +430,17 @@ uint32 FBuildPatchDownloader::Run()
 			}
 
 		}
+		bool bHasDownloads = InFlightDownloads.Num() > 0;
 		InFlightDownloadsLock.Unlock();
 		SetSuccessRate(SuccessRateTracker.GetOverall());
 		double SecondsSinceData = FStatsCollector::CyclesToSeconds(FStatsCollector::GetCycles() - CyclesAtLastData);
 		SetIsDisconnected(bAllDownloadsRetrying && SecondsSinceData > DisconnectedDelay);
+		SetIsDownloading(bHasDownloads);
 
 		// Pause
 		if (BuildProgress->GetPauseState())
 		{
-			uint64 PausedForCycles = FStatsCollector::SecondsToCycles(BuildProgress->WaitWhilePaused());
+			FStatsCollector::FAtomicValue PausedForCycles = FStatsCollector::FAtomicValue(FStatsCollector::SecondsToCycles(BuildProgress->WaitWhilePaused()));
 			// Skew timers
 			FPlatformAtomics::InterlockedAdd(&CyclesAtLastHealthState, PausedForCycles);
 		}
@@ -450,7 +466,7 @@ uint32 FBuildPatchDownloader::Run()
 		{
 			bDownloadsStarted = true;
 			// Set timer
-			FPlatformAtomics::InterlockedExchange(&CyclesAtLastHealthState, FStatsCollector::GetCycles());
+			FPlatformAtomics::InterlockedExchange(&CyclesAtLastHealthState, FStatsCollector::FAtomicValue(FStatsCollector::GetCycles()));
 			UpdateDownloadHealth();
 		}
 
@@ -552,6 +568,12 @@ bool FBuildPatchDownloader::IsDisconnected()
 {
 	FScopeLock Lock(&FlagsLock);
 	return bIsDisconnected;
+}
+
+bool FBuildPatchDownloader::IsDownloading()
+{
+	FScopeLock Lock(&FlagsLock);
+	return bIsDownloading;
 }
 
 TArray< FBuildPatchDownloadRecord > FBuildPatchDownloader::GetDownloadRecordings()
@@ -688,7 +710,7 @@ void FBuildPatchDownloader::IncrementByteDownloadCount(const int32& NumBytes)
 	ByteDownloadCount.Add( NumBytes );
 	if (NumBytes > 0)
 	{
-		FPlatformAtomics::InterlockedExchange(&CyclesAtLastData, FStatsCollector::GetCycles());
+		FPlatformAtomics::InterlockedExchange(&CyclesAtLastData, FStatsCollector::FAtomicValue(FStatsCollector::GetCycles()));
 	}
 }
 
@@ -715,6 +737,12 @@ void FBuildPatchDownloader::SetIsDisconnected(bool bInIsDisconnected)
 	FScopeLock Lock(&FlagsLock);
 	bIsDisconnected = bInIsDisconnected;
 	UpdateDownloadHealth();
+}
+
+void FBuildPatchDownloader::SetIsDownloading(bool bInIsDownloading)
+{
+	FScopeLock Lock(&FlagsLock);
+	bIsDownloading = bInIsDownloading;
 }
 
 void FBuildPatchDownloader::SetSuccessRate(float InSuccessRate)
@@ -751,7 +779,7 @@ void FBuildPatchDownloader::UpdateDownloadHealth(bool bFlushTimer)
 	if (PreviousHealth != DownloadHealth || bFlushTimer)
 	{
 		// Update time in state
-		uint64 CyclesNow = FStatsCollector::GetCycles();
+		FStatsCollector::FAtomicValue CyclesNow = FStatsCollector::GetCycles();
 		HealthStateTimes[(int32)PreviousHealth] += FStatsCollector::CyclesToSeconds(CyclesNow - CyclesAtLastHealthState);
 		FPlatformAtomics::InterlockedExchange(&CyclesAtLastHealthState, CyclesNow);
 	}

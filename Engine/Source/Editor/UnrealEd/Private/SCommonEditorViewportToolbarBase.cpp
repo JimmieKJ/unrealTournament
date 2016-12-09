@@ -1,16 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "SCommonEditorViewportToolbarBase.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "EditorStyleSet.h"
 
-#include "Editor/UnrealEd/Public/SCommonEditorViewportToolbarBase.h"
 
-#include "Editor/UnrealEd/Public/STransformViewportToolbar.h"
-#include "Editor/UnrealEd/Public/EditorShowFlags.h"
-#include "Editor/UnrealEd/Public/SEditorViewport.h"
-#include "Editor/UnrealEd/Public/EditorViewportCommands.h"
-#include "Editor/UnrealEd/Public/SEditorViewportToolBarMenu.h"
-#include "Editor/UnrealEd/Public/SEditorViewportToolBarButton.h"
-#include "Editor/UnrealEd/Public/SEditorViewportViewMenu.h"
+#include "STransformViewportToolbar.h"
+#include "EditorShowFlags.h"
+#include "SEditorViewport.h"
+#include "EditorViewportCommands.h"
+#include "SEditorViewportToolBarMenu.h"
+#include "SEditorViewportViewMenu.h"
 
 #define LOCTEXT_NAMESPACE "LevelViewportToolBar"
 
@@ -84,6 +87,18 @@ void SCommonEditorViewportToolbarBase::Construct(const FArguments& InArgs, TShar
 					.Cursor( EMouseCursor::Default )
 					.ParentToolBar( SharedThis( this ) )
 					.OnGetMenuContent(this, &SCommonEditorViewportToolbarBase::GenerateShowMenu)
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding( ToolbarSlotPadding )
+				[
+
+					SNew( SEditorViewportToolbarMenu )
+					.Label( LOCTEXT("ViewParamMenuTitle", "View Mode Options") )
+					.Cursor( EMouseCursor::Default )
+					.ParentToolBar( SharedThis( this ) )
+					.Visibility( this, &SCommonEditorViewportToolbarBase::GetViewModeOptionsVisibility )
+					.OnGetMenuContent( this, &SCommonEditorViewportToolbarBase::GenerateViewModeOptionsMenu ) 
 				]
 
 				// Transform toolbar
@@ -186,6 +201,29 @@ const FSlateBrush* SCommonEditorViewportToolbarBase::GetCameraMenuLabelIcon() co
 
 	return FEditorStyle::GetBrush( Icon );
 }
+
+EVisibility SCommonEditorViewportToolbarBase::GetViewModeOptionsVisibility() const
+{
+	const FEditorViewportClient& ViewClient = GetViewportClient();
+	if (ViewClient.GetViewMode() == VMI_MeshUVDensityAccuracy || ViewClient.GetViewMode() == VMI_MaterialTextureScaleAccuracy || ViewClient.GetViewMode() == VMI_RequiredTextureResolution)
+	{
+		return EVisibility::SelfHitTestInvisible;
+	}
+	else
+	{
+		return EVisibility::Collapsed;
+	}
+}
+
+TSharedRef<SWidget> SCommonEditorViewportToolbarBase::GenerateViewModeOptionsMenu() const
+{
+	GetInfoProvider().OnFloatingButtonClicked();
+	TSharedRef<SEditorViewport> ViewportRef = GetInfoProvider().GetViewportWidget();
+	FEditorViewportClient& ViewClient = GetViewportClient();
+	const UWorld* World = ViewClient.GetWorld();
+	return BuildViewModeOptionsMenu(ViewportRef->GetCommandList(), ViewClient.GetViewMode(), World ? World->FeatureLevel : GMaxRHIFeatureLevel, ViewClient.GetViewModeParamNameMap());
+}
+
 
 TSharedRef<SWidget> SCommonEditorViewportToolbarBase::GenerateOptionsMenu() const
 {

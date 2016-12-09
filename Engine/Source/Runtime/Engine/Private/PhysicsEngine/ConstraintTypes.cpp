@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "PhysicsEngine/ConstraintTypes.h"
+#include "HAL/IConsoleManager.h"
 #include "PhysicsPublic.h"
-#include "PhysXSupport.h"
-#include "PhysicsEngine/ConstraintInstance.h"
+#include "PhysXIncludes.h"
 
 extern TAutoConsoleVariable<float> CVarConstraintDampingScale;
 extern TAutoConsoleVariable<float> CVarConstraintStiffnessScale;
@@ -106,7 +106,7 @@ FTwistConstraint::FTwistConstraint()
 #if WITH_PHYSX
 void FLinearConstraint::UpdatePhysXLinearLimit_AssumesLocked(PxD6Joint* Joint, float AverageMass, float Scale) const
 {
-	const float UseLimit = Limit * Scale;
+	const float UseLimit = FMath::Max(Limit * Scale, KINDA_SMALL_NUMBER);	//physx doesn't ever want limit of 0
 	const bool bLockLimitSize = (UseLimit < RB_MinSizeToLockDOF);
 		
 	SetLinearMovement_AssumesLocked<PxD6Axis::eX>(Joint, XMotion, bLockLimitSize);

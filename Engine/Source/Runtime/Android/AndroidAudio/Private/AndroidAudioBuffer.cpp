@@ -2,7 +2,6 @@
 
 #include "AndroidAudioDevice.h"
 #include "AudioEffect.h"
-#include "Engine.h"
 #include "IAudioFormat.h"
 #include "AudioDecompress.h"
 #include "ContentStreaming.h"

@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Framework/Commands/Commands.h"
+#include "Styling/ISlateStyle.h"
 
 #define LOC_DEFINE_REGION
 

@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "IDetailCustomization.h"
+
+class IDetailChildrenBuilder;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class UNiagaraEmitterProperties;
+
 /*-----------------------------------------------------------------------------
 FNiagaraEmitterPropertiesDetails
 -----------------------------------------------------------------------------*/

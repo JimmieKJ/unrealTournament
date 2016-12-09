@@ -52,6 +52,16 @@ IOnlineLeaderboardsPtr FOnlineSubsystemNull::GetLeaderboardsInterface() const
 
 IOnlineVoicePtr FOnlineSubsystemNull::GetVoiceInterface() const
 {
+	if (VoiceInterface.IsValid() && !bVoiceInterfaceInitialized)
+	{	
+		if (!VoiceInterface->Init())
+		{
+			VoiceInterface = nullptr;
+		}
+
+		bVoiceInterfaceInitialized = true;
+	}
+
 	return VoiceInterface;
 }
 
@@ -137,7 +147,7 @@ bool FOnlineSubsystemNull::Tick(float DeltaTime)
  		SessionInterface->Tick(DeltaTime);
  	}
 
-	if (VoiceInterface.IsValid())
+	if (VoiceInterface.IsValid() && bVoiceInterfaceInitialized)
 	{
 		VoiceInterface->Tick(DeltaTime);
 	}
@@ -163,10 +173,6 @@ bool FOnlineSubsystemNull::Init()
 		IdentityInterface = MakeShareable(new FOnlineIdentityNull(this));
 		AchievementsInterface = MakeShareable(new FOnlineAchievementsNull(this));
 		VoiceInterface = MakeShareable(new FOnlineVoiceImpl(this));
-		if (!VoiceInterface->Init())
-		{
-			VoiceInterface = nullptr;
-		}
 	}
 	else
 	{
@@ -195,7 +201,7 @@ bool FOnlineSubsystemNull::Shutdown()
 		OnlineAsyncTaskThreadRunnable = nullptr;
 	}
 
-	if (VoiceInterface.IsValid())
+	if (VoiceInterface.IsValid() && bVoiceInterfaceInitialized)
 	{
 		VoiceInterface->Shutdown();
 	}

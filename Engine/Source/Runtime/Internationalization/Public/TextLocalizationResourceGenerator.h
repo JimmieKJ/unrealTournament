@@ -2,7 +2,9 @@
 
 #pragma once 
 
-#include "LocTextHelper.h"
+#include "CoreMinimal.h"
+
+class FLocTextHelper;
 
 class FTextLocalizationResourceGenerator
 {

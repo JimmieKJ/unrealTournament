@@ -1,31 +1,41 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "UnrealNetwork.h"
-#include "SlateBasics.h"
-#include "NavDataGenerator.h"
+#include "GameFramework/CheatManager.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/OutputDeviceFile.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/App.h"
+#include "UObject/UObjectIterator.h"
+#include "Misc/PackageName.h"
+#include "EngineDefines.h"
+#include "GameFramework/DamageType.h"
+#include "InputCoreTypes.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
+#include "CollisionQueryParams.h"
+#include "WorldCollision.h"
+#include "Engine/World.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "UObject/Package.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/Volume.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/LevelStreaming.h"
+#include "Engine/LocalPlayer.h"
+#include "DrawDebugHelpers.h"
+#include "GameFramework/GameModeBase.h"
+#include "EngineUtils.h"
 #include "Net/OnlineEngineInterface.h"
 #include "VisualLogger/VisualLogger.h"
 #include "AI/Navigation/RecastNavMesh.h"
 #include "GameFramework/Character.h"
 #include "Engine/Console.h"
-
-#if !UE_BUILD_SHIPPING
-#include "ISlateReflectorModule.h"
-#endif // #if !UE_BUILD_SHIPPING
-
-#if WITH_EDITOR
-#include "UnrealEd.h"
-#endif
-
-#include "GameFramework/CheatManager.h"
-#include "Components/CapsuleComponent.h"
 #include "Engine/DebugCameraController.h"
-#include "GameFramework/PlayerState.h"
-#include "GameFramework/GameMode.h"
-#include "GameFramework/PlayerInput.h"
-#include "GameFramework/InputSettings.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/BrushComponent.h"
+#include "GameFramework/PlayerState.h"
+#include "GameFramework/InputSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCheatManager, Log, All);
 
@@ -464,7 +474,7 @@ void UCheatManager::ViewPlayer( const FString& S )
 	AController* Controller = NULL;
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
-		Controller = *Iterator;
+		Controller = Iterator->Get();
 		if ( Controller->PlayerState && (FCString::Stricmp(*Controller->PlayerState->PlayerName, *S) == 0 ) )
 		{
 			break;
@@ -662,7 +672,7 @@ void UCheatManager::ServerToggleAILogging_Implementation()
 	{
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PC = *Iterator;
+			APlayerController* PC = Iterator->Get();
 			if (PC)
 			{
 				PC->OnServerStartedVisualLogger(bToggleAILogging);
@@ -901,6 +911,7 @@ void UCheatManager::DebugCapsuleSweepClear()
 
 void UCheatManager::TestCollisionDistance()
 {
+#if ENABLE_DRAW_DEBUG
 	APlayerController* PC = GetOuterAPlayerController();
 	if(PC)
 	{
@@ -928,6 +939,7 @@ void UCheatManager::TestCollisionDistance()
 			}
 		}
 	}
+#endif
 }
 
 void UCheatManager::RebuildNavigation()
@@ -1039,7 +1051,7 @@ void UCheatManager::BugItWorker( FVector TheLocation, FRotator TheRotation )
 	}
 	MyPlayerController->SetControlRotation(TheRotation);
 
-	// ghost again in case teleporting changed the movememt mode
+	// ghost again in case teleporting changed the movement mode
 	Ghost();
 	GetOuterAPlayerController()->ClientMessage(TEXT("BugItGo: Ghost mode is ON"));
 }

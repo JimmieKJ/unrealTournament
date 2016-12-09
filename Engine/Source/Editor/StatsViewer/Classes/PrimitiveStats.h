@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/WeakObjectPtr.h"
 #include "PrimitiveStats.generated.h"
+
+class AActor;
 
 /** Enum defining the object sets for this stats object */
 UENUM()

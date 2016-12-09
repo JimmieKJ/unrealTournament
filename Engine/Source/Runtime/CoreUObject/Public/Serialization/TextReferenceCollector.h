@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Counts all persistent text references from within a package, using the specified comparison mode */
 class COREUOBJECT_API FTextReferenceCollector
 {

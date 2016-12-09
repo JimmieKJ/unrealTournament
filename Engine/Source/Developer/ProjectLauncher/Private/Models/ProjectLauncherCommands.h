@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Framework/Commands/InputChord.h"
+#include "Framework/Commands/Commands.h"
+#include "EditorStyleSet.h"
+
 #define LOCTEXT_NAMESPACE "ProjectLauncherCommands"
 
 /**

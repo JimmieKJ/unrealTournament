@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BoneContainer.h"
 #include "Components/SkinnedMeshComponent.h"
 #include "PoseableMeshComponent.generated.h"
+
+class USkeletalMeshComponent;
 
 /**
  *	UPoseableMeshComponent that allows bone transforms to be driven by blueprint.

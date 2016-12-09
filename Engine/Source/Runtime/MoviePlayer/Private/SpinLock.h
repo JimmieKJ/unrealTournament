@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/PlatformProcess.h"
 
 /**
  * Simple primitive for setting spin locks up.

@@ -5,8 +5,9 @@
 
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "GameFramework/SpectatorPawnMovement.h"
+#include "GameFramework/Pawn.h"
+#include "Misc/App.h"
 
 USpectatorPawnMovement::USpectatorPawnMovement(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -29,15 +30,7 @@ void USpectatorPawnMovement::TickComponent(float DeltaTime, enum ELevelTick Tick
 	}
 
 	// We might want to ignore time dilation
-	float AdjustedDeltaTime = DeltaTime;
-	if (bIgnoreTimeDilation)
-	{
-		const float WorldTimeDilation = PawnOwner->GetActorTimeDilation();
-		if (WorldTimeDilation > KINDA_SMALL_NUMBER)
-		{
-			AdjustedDeltaTime = DeltaTime / WorldTimeDilation;
-		}
-	}
+	const float AdjustedDeltaTime = bIgnoreTimeDilation ? FApp::GetDeltaTime() : DeltaTime;
 
 	Super::TickComponent(AdjustedDeltaTime, TickType, ThisTickFunction);
 };

@@ -95,7 +95,11 @@ PACKAGE_SCOPE:
 
 private:
 
+#if PLATFORM_WINDOWS
 	bool InitWithWindowsPlatform();
+#elif PLATFORM_ANDROID
+	bool InitWithAndroidPlatform();
+#endif
 
 	/** Interface to the identity registration/auth services */
 	FOnlineIdentityOculusPtr IdentityInterface;
@@ -111,6 +115,9 @@ private:
 
 	/** Interface for friends */
 	FOnlineFriendsOculusPtr FriendsInterface;
+
+	/** Interface for CloudStorage User Saves. */
+	FOnlineUserCloudOculusPtr UserCloudInterface;
 
 	/** Message Task Manager */
 	FOnlineMessageTaskManagerOculusPtr MessageTaskManager;

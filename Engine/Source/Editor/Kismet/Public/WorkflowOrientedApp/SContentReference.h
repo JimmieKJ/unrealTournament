@@ -2,8 +2,19 @@
 
 #pragma once
 
-#include "Editor/ContentBrowser/Public/ContentBrowserDelegates.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Types/SlateStructs.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/SlateDelegates.h"
 #include "Editor/ContentBrowser/Public/IContentBrowserSingleton.h"
+
+class SBorder;
+class SComboButton;
 
 // This widget is a content reference, which can optionally show buttons for interacting with the reference
 class KISMET_API SContentReference : public SCompoundWidget

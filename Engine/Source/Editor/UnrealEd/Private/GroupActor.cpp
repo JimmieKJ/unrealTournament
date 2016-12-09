@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "ScopedTransaction.h"
-#include "Layers/ILayers.h"
+#include "Editor/GroupActor.h"
+#include "Misc/MessageDialog.h"
+#include "Editor/UnrealEdEngine.h"
 #include "Components/BillboardComponent.h"
 #include "Engine/Selection.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "UnrealEdGlobals.h"
+#include "ScopedTransaction.h"
+#include "LevelEditorViewport.h"
+#include "Layers/ILayers.h"
 
 const FLinearColor BOXCOLOR_LOCKEDGROUPS( 0.0f, 1.0f, 0.0f );
 const FLinearColor BOXCOLOR_UNLOCKEDGROUPS( 1.0f, 0.0f, 0.0f );

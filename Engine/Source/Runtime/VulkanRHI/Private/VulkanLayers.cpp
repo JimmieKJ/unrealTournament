@@ -76,10 +76,16 @@ static const ANSICHAR* GValidationLayersDevice[] =
 	"VK_LAYER_LUNARG_swapchain",
 	"VK_LAYER_GOOGLE_unique_objects",
 #endif
+#if VK_HEADER_VERSION >= 24
+	"VK_LAYER_LUNARG_core_validation",
+#endif
 
+#if VK_HEADER_VERSION < 17
 	"VK_LAYER_LUNARG_device_limits",
+#endif
 	//"VK_LAYER_LUNARG_screenshot",
 	//"VK_LAYER_NV_optimus",
+	//"VK_LAYER_NV_nsight",
 	//"VK_LAYER_LUNARG_vktrace",		// Useful for future
 };
 #endif // VULKAN_HAS_DEBUGGING_ENABLED

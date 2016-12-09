@@ -1,6 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "EnvironmentQueryEditorPrivatePCH.h"
-#include "EnvironmentQueryEditorModule.h"
+#include "EnvironmentQueryGraph.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
+#include "EnvironmentQuery/EnvQueryTest.h"
+#include "EnvironmentQuery/EnvQueryGenerator.h"
+#include "EnvironmentQuery/EnvQueryOption.h"
+#include "EnvironmentQuery/EnvQuery.h"
+#include "EnvironmentQuery/EnvQueryManager.h"
+#include "AIGraphTypes.h"
+#include "EdGraphSchema_EnvironmentQuery.h"
+#include "AIGraphNode.h"
+#include "EnvironmentQueryGraphNode.h"
+#include "EnvironmentQueryGraphNode_Option.h"
+#include "EnvironmentQueryGraphNode_Root.h"
+#include "EnvironmentQueryGraphNode_Test.h"
 
 //////////////////////////////////////////////////////////////////////////
 // EnvironmentQueryGraph

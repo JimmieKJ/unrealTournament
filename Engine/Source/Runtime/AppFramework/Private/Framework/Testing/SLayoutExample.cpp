@@ -1,9 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AppFrameworkPrivatePCH.h"
-#include "SLayoutExample.h"
+#include "Framework/Testing/SLayoutExample.h"
+#include "Misc/Paths.h"
+#include "Widgets/SNullWidget.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/CoreStyle.h"
+#include "Application/SlateWindowHelper.h"
+#include "SlateOptMacros.h"
+#include "Widgets/SWeakWidget.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
 
 #if !UE_BUILD_SHIPPING
+
 
 #define LOCTEXT_NAMESPACE "ExampleLayoutTest"
 

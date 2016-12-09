@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FExtensionBase;
+class FMenuBarBuilder;
+class FMenuBuilder;
+class FToolBarBuilder;
 class FUICommandList;
 
 /** Called on your extension to add new pull-down menus to a menu bar */

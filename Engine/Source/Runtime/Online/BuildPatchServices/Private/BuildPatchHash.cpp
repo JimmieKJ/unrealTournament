@@ -4,7 +4,7 @@
 	BuildPatchHash.cpp: Implements the static struct FRollingHashConst
 =============================================================================*/
 
-#include "BuildPatchServicesPrivatePCH.h"
+#include "BuildPatchHash.h"
 
 // We'll use the commonly used in CRC64, ECMA polynomial defined in ECMA 182.
 static const uint64 HashPoly64 = 0xC96C5795D7870F42;

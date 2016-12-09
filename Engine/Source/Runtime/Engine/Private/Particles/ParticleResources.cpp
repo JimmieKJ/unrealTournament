@@ -4,8 +4,7 @@
 	ParticleResources.cpp: Implementation of global particle resources.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "ParticleResources.h"
+#include "Particles/ParticleResources.h"
 
 /** The size of the scratch vertex buffer. */
 const int32 GParticleScratchVertexBufferSize = 64 * (1 << 10); // 64KB

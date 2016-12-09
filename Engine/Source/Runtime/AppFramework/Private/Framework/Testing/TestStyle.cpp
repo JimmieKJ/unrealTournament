@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AppFrameworkPrivatePCH.h"
-#include "TestStyle.h"
+#include "Framework/Testing/TestStyle.h"
+#include "Brushes/SlateBorderBrush.h"
+#include "Brushes/SlateBoxBrush.h"
+#include "Brushes/SlateImageBrush.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Styling/SlateStyle.h"
+#include "Styling/SlateTypes.h"
+#include "Application/SlateWindowHelper.h"
 
 #if !UE_BUILD_SHIPPING
+
 
 TSharedPtr< ISlateStyle > FTestStyle::Instance = nullptr;
 
@@ -397,5 +404,11 @@ TSharedRef< ISlateStyle > FTestStyle::Create()
 
 	return Style;
 }
+
+#undef IMAGE_BRUSH
+#undef BOX_BRUSH
+#undef BORDER_BRUSH
+#undef TTF_FONT
+#undef OTF_FONT
 
 #endif // #if !UE_BUILD_SHIPPING

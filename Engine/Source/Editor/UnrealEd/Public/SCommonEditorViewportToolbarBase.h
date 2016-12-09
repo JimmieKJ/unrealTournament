@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Editor/UnrealEd/Public/SViewportToolBar.h"
 
 // This is the interface that the host of a SCommonEditorViewportToolbarBase must implement
@@ -120,6 +126,21 @@ private:
 	 * @return The widget containing the show menu content
 	 */
 	virtual TSharedRef<SWidget> GenerateShowMenu() const;
+
+
+	/**
+	 * Returns the initial visibility of the view mode options widget 
+	 *
+	 * @return The visibility value
+	 */
+	EVisibility GetViewModeOptionsVisibility() const;
+
+	/**
+	 * Generates the toolbar view param menu content 
+	 *
+	 * @return The widget containing the show menu content
+	 */
+	TSharedRef<SWidget> GenerateViewModeOptionsMenu() const;
 
 	/**
 	 * @return The widget containing the perspective only FOV window.

@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Perception/AIPerceptionSystem.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GenericTeamAgentInterface.h"
 #include "Perception/AISense.h"
 #include "AISense_Team.generated.h"
 

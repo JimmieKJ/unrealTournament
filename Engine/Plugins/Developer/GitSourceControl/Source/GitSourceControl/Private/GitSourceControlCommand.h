@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ISourceControlProvider.h"
+#include "Misc/IQueuedWork.h"
+
 /**
  * Used to execute Git commands multi-threaded.
  */

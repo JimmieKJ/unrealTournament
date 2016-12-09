@@ -1,4 +1,4 @@
-// Copyright (c) 2015 Marshall A. Greenblatt. All rights reserved.
+// Copyright (c) 2016 Marshall A. Greenblatt. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -174,7 +174,7 @@ typedef struct _cef_browser_t {
   void (CEF_CALLBACK *get_frame_names)(struct _cef_browser_t* self,
       cef_string_list_t names);
 
-  //
+  ///
   // Send a message to the specified |target_process|. Returns true (1) if the
   // message was sent successfully.
   ///
@@ -228,6 +228,27 @@ typedef struct _cef_navigation_entry_visitor_t {
       struct _cef_navigation_entry_t* entry, int current, int index,
       int total);
 } cef_navigation_entry_visitor_t;
+
+
+///
+// Callback structure for cef_browser_host_t::PrintToPDF. The functions of this
+// structure will be called on the browser process UI thread.
+///
+typedef struct _cef_pdf_print_callback_t {
+  ///
+  // Base structure.
+  ///
+  cef_base_t base;
+
+  ///
+  // Method that will be executed when the PDF printing has completed. |path| is
+  // the output path. |ok| will be true (1) if the printing completed
+  // successfully or false (0) otherwise.
+  ///
+  void (CEF_CALLBACK *on_pdf_print_finished)(
+      struct _cef_pdf_print_callback_t* self, const cef_string_t* path,
+      int ok);
+} cef_pdf_print_callback_t;
 
 
 ///
@@ -347,6 +368,17 @@ typedef struct _cef_browser_host_t {
   void (CEF_CALLBACK *print)(struct _cef_browser_host_t* self);
 
   ///
+  // Print the current browser contents to the PDF file specified by |path| and
+  // execute |callback| on completion. The caller is responsible for deleting
+  // |path| when done. For PDF printing to work on Linux you must implement the
+  // cef_print_handler_t::GetPdfPaperSize function.
+  ///
+  void (CEF_CALLBACK *print_to_pdf)(struct _cef_browser_host_t* self,
+      const cef_string_t* path,
+      const struct _cef_pdf_print_settings_t* settings,
+      struct _cef_pdf_print_callback_t* callback);
+
+  ///
   // Search for |searchText|. |identifier| can be used to have multiple searches
   // running simultaniously. |forward| indicates whether to search forward or
   // backward within the page. |matchCase| indicates whether the search should
@@ -385,7 +417,6 @@ typedef struct _cef_browser_host_t {
   // specified visitor. If |current_only| is true (1) only the current
   // navigation entry will be sent, otherwise all navigation entries will be
   // sent.
-  ///
   ///
   void (CEF_CALLBACK *get_navigation_entries)(struct _cef_browser_host_t* self,
       struct _cef_navigation_entry_visitor_t* visitor, int current_only);
@@ -504,6 +535,26 @@ typedef struct _cef_browser_host_t {
   ///
   void (CEF_CALLBACK *notify_move_or_resize_started)(
       struct _cef_browser_host_t* self);
+
+  ///
+  // Returns the maximum rate in frames per second (fps) that
+  // cef_render_handler_t:: OnPaint will be called for a windowless browser. The
+  // actual fps may be lower if the browser cannot generate frames at the
+  // requested rate. The minimum value is 1 and the maximum value is 60 (default
+  // 30). This function can only be called on the UI thread.
+  ///
+  int (CEF_CALLBACK *get_windowless_frame_rate)(
+      struct _cef_browser_host_t* self);
+
+  ///
+  // Set the maximum rate in frames per second (fps) that cef_render_handler_t::
+  // OnPaint will be called for a windowless browser. The actual fps may be
+  // lower if the browser cannot generate frames at the requested rate. The
+  // minimum value is 1 and the maximum value is 60 (default 30). Can also be
+  // set at browser creation via cef_browser_tSettings.windowless_frame_rate.
+  ///
+  void (CEF_CALLBACK *set_windowless_frame_rate)(
+      struct _cef_browser_host_t* self, int frame_rate);
 
   ///
   // Get the NSTextInputContext implementation for enabling IME on Mac when

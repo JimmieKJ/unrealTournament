@@ -2,10 +2,9 @@
 
 #pragma once
 
-#include "Set.h"
+#include "CoreMinimal.h"
 
 class AActor;
-class UWorld;
 
 /**
  * Struct to store an actor pointer and any internal metadata for that actor used

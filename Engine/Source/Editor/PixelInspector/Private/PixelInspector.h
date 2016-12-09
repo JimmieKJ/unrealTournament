@@ -2,17 +2,20 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
-#include "UnrealEd.h"
-#include "STreeView.h"
-#include "SListView.h"
-#include "STableViewBase.h"
-#include "SlateBasics.h"
-
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 #include "PixelInspectorResult.h"
-#include "PixelInspectorView.h"
+#include "Misc/NotifyHook.h"
+#include "RendererInterface.h"
 
+class AActor;
+class FSceneInterface;
 class IDetailsView;
+class UPixelInspectorView;
+class UTextureRenderTarget2D;
+struct FSlateBrush;
 
 namespace PixelInspector
 {

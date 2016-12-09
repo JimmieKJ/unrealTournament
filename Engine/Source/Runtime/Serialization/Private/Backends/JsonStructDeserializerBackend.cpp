@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SerializationPrivatePCH.h"
-#include "JsonStructDeserializerBackend.h"
+#include "Backends/JsonStructDeserializerBackend.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
+#include "UObject/EnumProperty.h"
+#include "UObject/TextProperty.h"
 
 
 /* Internal helpers
@@ -41,6 +44,41 @@ namespace JsonStructDeserializerBackend
 
 
 	/**
+	 * Gets a pointer to object of the given property.
+	 *
+	 * @param Property The property to get.
+	 * @param Outer The property that contains the property to be get, if any.
+	 * @param Data A pointer to the memory holding the property's data.
+	 * @param ArrayIndex The index of the element to set (if the property is an array).
+	 * @return A pointer to the object represented by the property, null otherwise..
+	 * @see ClearPropertyValue
+	 */
+	void* GetPropertyValuePtr( UProperty* Property, UProperty* Outer, void* Data, int32 ArrayIndex )
+	{
+		check(Property);
+
+		if (UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Outer))
+		{
+			if (ArrayProperty->Inner != Property)
+			{
+				return nullptr;
+			}
+
+			FScriptArrayHelper ArrayHelper(ArrayProperty, ArrayProperty->template ContainerPtrToValuePtr<void>(Data));
+			int32 Index = ArrayHelper.AddValue();
+
+			return ArrayHelper.GetRawPtr(Index);
+		}
+
+		if (ArrayIndex >= Property->ArrayDim)
+		{
+			return nullptr;
+		}
+
+		return Property->template ContainerPtrToValuePtr<void>(Data, ArrayIndex);
+	}
+
+	/**
 	 * Sets the value of the given property.
 	 *
 	 * @param Property The property to set.
@@ -50,44 +88,16 @@ namespace JsonStructDeserializerBackend
 	 * @return true on success, false otherwise.
 	 * @see ClearPropertyValue
 	 */
-	template<typename UPropertyType, typename PropertyType>
-	bool SetPropertyValue( UProperty* Property, UProperty* Outer, void* Data, int32 ArrayIndex, const PropertyType& Value )
+	template<typename PropertyType, typename ValueType>
+	bool SetPropertyValue( PropertyType* Property, UProperty* Outer, void* Data, int32 ArrayIndex, const ValueType& Value )
 	{
-		PropertyType* ValuePtr = nullptr;
-		UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Outer);
-
-		if (ArrayProperty != nullptr)
+		if (void* Ptr = GetPropertyValuePtr(Property, Outer, Data, ArrayIndex))
 		{
-			if (ArrayProperty->Inner != Property)
-			{
-				return false;
-			}
-
-			FScriptArrayHelper ArrayHelper(ArrayProperty, ArrayProperty->template ContainerPtrToValuePtr<void>(Data));
-			int32 Index = ArrayHelper.AddValue();
-		
-			ValuePtr = (PropertyType*)ArrayHelper.GetRawPtr(Index);
-		}
-		else
-		{
-			UPropertyType* TypedProperty = Cast<UPropertyType>(Property);
-
-			if (TypedProperty == nullptr)
-			{
-				return false;
-			}
-
-			ValuePtr = TypedProperty->template ContainerPtrToValuePtr<PropertyType>(Data, ArrayIndex);
+			*(ValueType*)Ptr = Value;
+			return true;
 		}
 
-		if (ValuePtr == nullptr)
-		{
-			return false;
-		}
-
-		*ValuePtr = Value;
-
-		return true;
+		return false;
 	}
 }
 
@@ -170,9 +180,9 @@ bool FJsonStructDeserializerBackend::ReadProperty( UProperty* Property, UPropert
 		{
 			bool BoolValue = JsonReader->GetValueAsBoolean();
 
-			if (Property->GetClass() == UBoolProperty::StaticClass())
+			if (UBoolProperty* BoolProperty = Cast<UBoolProperty>(Property))
 			{
-				return SetPropertyValue<UBoolProperty, bool>(Property, Outer, Data, ArrayIndex, BoolValue);
+				return SetPropertyValue(BoolProperty, Outer, Data, ArrayIndex, BoolValue);
 			}
 
 			UE_LOG(LogSerialization, Verbose, TEXT("Boolean field %s with value '%s' is not supported in UProperty type %s (%s)"), *Property->GetFName().ToString(), BoolValue ? *(GTrue.ToString()) : *(GFalse.ToString()), *Property->GetClass()->GetName(), *GetDebugString());
@@ -186,54 +196,54 @@ bool FJsonStructDeserializerBackend::ReadProperty( UProperty* Property, UPropert
 		{
 			double NumericValue = JsonReader->GetValueAsNumber();
 
-			if (Property->GetClass() == UByteProperty::StaticClass())
+			if (UByteProperty* ByteProperty = Cast<UByteProperty>(Property))
 			{
-				return SetPropertyValue<UByteProperty, int8>(Property, Outer, Data, ArrayIndex, (int8)NumericValue);
+				return SetPropertyValue(ByteProperty, Outer, Data, ArrayIndex, (int8)NumericValue);
 			}
 
-			if (Property->GetClass() == UDoubleProperty::StaticClass())
+			if (UDoubleProperty* DoubleProperty = Cast<UDoubleProperty>(Property))
 			{
-				return SetPropertyValue<UDoubleProperty, double>(Property, Outer, Data, ArrayIndex, NumericValue);
+				return SetPropertyValue(DoubleProperty, Outer, Data, ArrayIndex, (double)NumericValue);
 			}
-			
-			if (Property->GetClass() == UFloatProperty::StaticClass())
+
+			if (UFloatProperty* FloatProperty = Cast<UFloatProperty>(Property))
 			{
-				return SetPropertyValue<UFloatProperty, float>(Property, Outer, Data, ArrayIndex, NumericValue);
+				return SetPropertyValue(FloatProperty, Outer, Data, ArrayIndex, (float)NumericValue);
 			}
-			
-			if (Property->GetClass() == UIntProperty::StaticClass())
+
+			if (UIntProperty* IntProperty = Cast<UIntProperty>(Property))
 			{
-				return SetPropertyValue<UIntProperty, int32>(Property, Outer, Data, ArrayIndex, (int32)NumericValue);
+				return SetPropertyValue(IntProperty, Outer, Data, ArrayIndex, (int32)NumericValue);
 			}
-			
-			if (Property->GetClass() == UUInt32Property::StaticClass())
+
+			if (UUInt32Property* UInt32Property = Cast<UUInt32Property>(Property))
 			{
-				return SetPropertyValue<UUInt32Property, uint32>(Property, Outer, Data, ArrayIndex, (uint32)NumericValue);
+				return SetPropertyValue(UInt32Property, Outer, Data, ArrayIndex, (uint32)NumericValue);
 			}
-			
-			if (Property->GetClass() == UInt16Property::StaticClass())
+
+			if (UInt16Property* Int16Property = Cast<UInt16Property>(Property))
 			{
-				return SetPropertyValue<UInt16Property, int16>(Property, Outer, Data, ArrayIndex, (int16)NumericValue);
+				return SetPropertyValue(Int16Property, Outer, Data, ArrayIndex, (int16)NumericValue);
 			}
-			
-			if (Property->GetClass() == UUInt16Property::StaticClass())
+
+			if (UUInt16Property* UInt16Property = Cast<UUInt16Property>(Property))
 			{
-				return SetPropertyValue<UUInt16Property, uint16>(Property, Outer, Data, ArrayIndex, (uint16)NumericValue);
+				return SetPropertyValue(UInt16Property, Outer, Data, ArrayIndex, (uint16)NumericValue);
 			}
-			
-			if (Property->GetClass() == UInt64Property::StaticClass())
+
+			if (UInt64Property* Int64Property = Cast<UInt64Property>(Property))
 			{
-				return SetPropertyValue<UInt64Property, int64>(Property, Outer, Data, ArrayIndex, (int64)NumericValue);
+				return SetPropertyValue(Int64Property, Outer, Data, ArrayIndex, (int64)NumericValue);
 			}
-			
-			if (Property->GetClass() == UUInt64Property::StaticClass())
+
+			if (UUInt64Property* UInt64Property = Cast<UUInt64Property>(Property))
 			{
-				return SetPropertyValue<UUInt64Property, uint64>(Property, Outer, Data, ArrayIndex, (uint64)NumericValue);
+				return SetPropertyValue(UInt64Property, Outer, Data, ArrayIndex, (uint64)NumericValue);
 			}
-			
-			if (Property->GetClass() == UInt8Property::StaticClass())
+
+			if (UInt8Property* Int8Property = Cast<UInt8Property>(Property))
 			{
-				return SetPropertyValue<UInt8Property, int8>(Property, Outer, Data, ArrayIndex, (int8)NumericValue);
+				return SetPropertyValue(Int8Property, Outer, Data, ArrayIndex, (int8)NumericValue);
 			}
 
 			UE_LOG(LogSerialization, Verbose, TEXT("Numeric field %s with value '%f' is not supported in UProperty type %s (%s)"), *Property->GetFName().ToString(), NumericValue, *Property->GetClass()->GetName(), *GetDebugString());
@@ -251,42 +261,57 @@ bool FJsonStructDeserializerBackend::ReadProperty( UProperty* Property, UPropert
 		{
 			const FString& StringValue = JsonReader->GetValueAsString();
 
-			if (Property->GetClass() == UStrProperty::StaticClass())
+			if (UStrProperty* StrProperty = Cast<UStrProperty>(Property))
 			{
-				return SetPropertyValue<UStrProperty, FString>(Property, Outer, Data, ArrayIndex, StringValue);
+				return SetPropertyValue(StrProperty, Outer, Data, ArrayIndex, StringValue);
 			}
-		
-			if (Property->GetClass() == UNameProperty::StaticClass())
+
+			if (UNameProperty* NameProperty = Cast<UNameProperty>(Property))
 			{
-				return SetPropertyValue<UNameProperty, FName>(Property, Outer, Data, ArrayIndex, *StringValue);
+				return SetPropertyValue(NameProperty, Outer, Data, ArrayIndex, FName(*StringValue));
 			}
-			
-			if (Property->GetClass() == UTextProperty::StaticClass())
+
+			if (UTextProperty* TextProperty = Cast<UTextProperty>(Property))
 			{
-				FText TextValue;
-				if (!FTextStringHelper::ReadFromString(*StringValue, TextValue))
+				return SetPropertyValue(TextProperty, Outer, Data, ArrayIndex, FText::FromString(StringValue));
+			}
+
+			if (UByteProperty* ByteProperty = Cast<UByteProperty>(Property))
+			{
+				if (!ByteProperty->Enum)
 				{
-					TextValue = FText::FromString(StringValue);
+					return false;
 				}
-				return SetPropertyValue<UTextProperty, FText>(Property, Outer, Data, ArrayIndex, TextValue);
-			}
 
-			if (Property->GetClass() == UByteProperty::StaticClass())
-			{
-				UByteProperty* ByteProperty = Cast<UByteProperty>(Property);
 				int32 Value = ByteProperty->Enum->GetValueByName(*StringValue);
-
 				if (Value == INDEX_NONE)
 				{
 					return false;
 				}
 
-				return SetPropertyValue<UByteProperty, uint8>(Property, Outer, Data, ArrayIndex, (uint8)Value);
+				return SetPropertyValue(ByteProperty, Outer, Data, ArrayIndex, (uint8)Value);
 			}
-			
-			if (Property->GetClass() == UClassProperty::StaticClass())
+
+			if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
 			{
-				return SetPropertyValue<UClassProperty, UClass*>(Property, Outer, Data, ArrayIndex, LoadObject<UClass>(NULL, *StringValue, NULL, LOAD_NoWarn));
+				int64 Value = EnumProperty->GetEnum()->GetValueByName(*StringValue);
+				if (Value == INDEX_NONE)
+				{
+					return false;
+				}
+
+				if (void* ElementPtr = GetPropertyValuePtr(EnumProperty, Outer, Data, ArrayIndex))
+				{
+					EnumProperty->GetUnderlyingProperty()->SetIntPropertyValue(ElementPtr, Value);
+					return true;
+				}
+
+				return false;
+			}
+
+			if (UClassProperty* ClassProperty = Cast<UClassProperty>(Property))
+			{
+				return SetPropertyValue(ClassProperty, Outer, Data, ArrayIndex, LoadObject<UClass>(NULL, *StringValue, NULL, LOAD_NoWarn));
 			}
 
 			UE_LOG(LogSerialization, Verbose, TEXT("String field %s with value '%s' is not supported in UProperty type %s (%s)"), *Property->GetFName().ToString(), *StringValue, *Property->GetClass()->GetName(), *GetDebugString());
@@ -300,7 +325,7 @@ bool FJsonStructDeserializerBackend::ReadProperty( UProperty* Property, UPropert
 }
 
 
-void FJsonStructDeserializerBackend::SkipArray() 
+void FJsonStructDeserializerBackend::SkipArray()
 {
 	JsonReader->SkipArray();
 }

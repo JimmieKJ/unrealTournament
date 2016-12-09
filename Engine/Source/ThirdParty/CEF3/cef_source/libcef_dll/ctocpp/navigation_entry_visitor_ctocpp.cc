@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -18,7 +18,8 @@
 
 bool CefNavigationEntryVisitorCToCpp::Visit(CefRefPtr<CefNavigationEntry> entry,
     bool current, int index, int total) {
-  if (CEF_MEMBER_MISSING(struct_, visit))
+  cef_navigation_entry_visitor_t* _struct = GetStruct();
+  if (CEF_MEMBER_MISSING(_struct, visit))
     return false;
 
   // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
@@ -29,7 +30,7 @@ bool CefNavigationEntryVisitorCToCpp::Visit(CefRefPtr<CefNavigationEntry> entry,
     return false;
 
   // Execute
-  int _retval = struct_->visit(struct_,
+  int _retval = _struct->visit(_struct,
       CefNavigationEntryCppToC::Wrap(entry),
       current,
       index,
@@ -40,9 +41,24 @@ bool CefNavigationEntryVisitorCToCpp::Visit(CefRefPtr<CefNavigationEntry> entry,
 }
 
 
+// CONSTRUCTOR - Do not edit by hand.
+
+CefNavigationEntryVisitorCToCpp::CefNavigationEntryVisitorCToCpp() {
+}
+
+template<> cef_navigation_entry_visitor_t* CefCToCpp<CefNavigationEntryVisitorCToCpp,
+    CefNavigationEntryVisitor, cef_navigation_entry_visitor_t>::UnwrapDerived(
+    CefWrapperType type, CefNavigationEntryVisitor* c) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
+}
+
 #ifndef NDEBUG
 template<> base::AtomicRefCount CefCToCpp<CefNavigationEntryVisitorCToCpp,
     CefNavigationEntryVisitor, cef_navigation_entry_visitor_t>::DebugObjCt =
     0;
 #endif
 
+template<> CefWrapperType CefCToCpp<CefNavigationEntryVisitorCToCpp,
+    CefNavigationEntryVisitor, cef_navigation_entry_visitor_t>::kWrapperType =
+    WT_NAVIGATION_ENTRY_VISITOR;

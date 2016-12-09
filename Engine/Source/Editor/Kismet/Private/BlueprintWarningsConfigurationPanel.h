@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "BlueprintSupport.h"
-#include "BlueprintRuntimeSettings.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class SSettingsEditorCheckoutNotice;
+struct FBlueprintWarningDeclaration;
+enum class EBlueprintWarningBehavior : uint8;
+template <typename ItemType> class SListView;
 
 typedef TSharedPtr<FBlueprintWarningDeclaration> FBlueprintWarningListEntry;
 typedef SListView<FBlueprintWarningListEntry> FBlueprintWarningListView;

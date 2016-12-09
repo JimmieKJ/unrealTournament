@@ -2,7 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "AssetThumbnail.h"
+#include "Widgets/SCompoundWidget.h"
+#include "PropertyHandle.h"
+#include "PropertyCustomizationHelpers.h"
+
+class SComboButton;
+class SErrorHint;
+class UDialogueVoice;
 
 class SDialogueVoicePropertyEditor : public SCompoundWidget
 {

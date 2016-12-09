@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "UserWidget.h"
-#include "LevelSequenceActor.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "LevelSequencePlayer.h"
+#include "LevelSequenceActor.h"
+#include "Blueprint/UserWidget.h"
 #include "LevelSequenceBurnIn.generated.h"
-
-class ULevelSequenceBurnInInitSettings;
-class ALevelSequenceActor;
 
 /**
  * Base class for level sequence burn ins

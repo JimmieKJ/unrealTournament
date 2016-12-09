@@ -10,6 +10,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/IHttpRequest.h"
+
 struct FAnalyticsEventAttribute;
 
 /**

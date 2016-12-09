@@ -1,9 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
 #include "EditorUndoClient.h"
+#include "LevelModel.h"
 #include "Layers/Layer.h"
 
+class FAssetData;
+class FLevelDragDropOp;
 class FStreamingLevelCollectionModel;
+class ULevel;
+class ULevelStreaming;
 
 /**
  * The non-UI solution specific presentation logic for a single streaming level

@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "CoreMinimal.h"
+#include "UnrealAudioTypes.h"
 #include "UnrealAudioPrivate.h"
-#include "UnrealAudioModule.h"
-#include "UnrealAudioDeviceModule.h"
 
 #if ENABLE_UNREAL_AUDIO
 

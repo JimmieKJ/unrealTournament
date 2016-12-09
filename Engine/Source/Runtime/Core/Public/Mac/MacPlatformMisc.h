@@ -27,6 +27,7 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 		return TEXT(":");
 	}
 
+	DEPRECATED(4.14, "GetMacAddress is deprecated. It is not reliable on all platforms")
 	static TArray<uint8> GetMacAddress();
 #if !UE_BUILD_SHIPPING
 	FORCEINLINE static bool IsDebuggerPresent()
@@ -222,6 +223,8 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
     
     /** Update the driver monitor statistics for the given GPU - called once a frame by the Mac RHI's, no need to call otherwise - use GetPerformanceStatistics instead. */
     static void UpdateDriverMonitorStatistics(int32 DeviceIndex);
+
+	static float GetDPIScaleFactorAtPoint(float X, float Y);
 };
 
 #ifdef __OBJC__

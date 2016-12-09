@@ -2,7 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "TileMapEditing/EdModeTileMap.h"
+#include "PaperTileSet.h"
+#include "Toolkits/IToolkitHost.h"
 #include "Toolkits/BaseToolkit.h"
+
+class SContentReference;
+class STileSetSelectorViewport;
 
 //////////////////////////////////////////////////////////////////////////
 // FTileMapEdModeToolkit

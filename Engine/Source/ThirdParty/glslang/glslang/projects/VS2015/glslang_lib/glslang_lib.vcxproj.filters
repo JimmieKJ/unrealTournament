@@ -133,6 +133,15 @@
     <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslParseables.cpp">
       <Filter>hlsl</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\ParseContextBase.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\iomapper.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslAttributes.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\disassemble.h">
@@ -282,6 +291,27 @@
     <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslParseables.h">
       <Filter>hlsl</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\GLSL.ext.AMD.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\iomapper.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\LiveTraverser.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslAttributes.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\bitutils.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\GLSL.ext.KHR.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\hex_float.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="glslang">
@@ -313,6 +343,9 @@
   <ItemGroup>
     <None Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\glslang.y">
       <Filter>glslang\MachineIndependent</Filter>
+    </None>
+    <None Include="..\..\..\src\glslang_lib\README.md">
+      <Filter>glslang</Filter>
     </None>
   </ItemGroup>
 </Project>

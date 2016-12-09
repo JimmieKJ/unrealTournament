@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include <string>
+// THIRD_PARTY* are macros that aid static analysis of the engine, they won't be defined for hlslcc project
+#ifdef __UNREAL__
+THIRD_PARTY_INCLUDES_START
+#endif // __UNREAL__
+	#include <string>
+#ifdef __UNREAL__
+THIRD_PARTY_INCLUDES_END
+#endif // __UNREAL__
 
 // on Linux, use a custom allocator to work around mismatch between STL classes in a precompiled hlslcc and the engine
 #ifdef __gnu_linux__

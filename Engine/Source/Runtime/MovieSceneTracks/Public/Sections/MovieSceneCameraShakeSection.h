@@ -2,10 +2,38 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Camera/CameraShake.h"
 #include "MovieSceneSection.h"
 #include "MovieSceneCameraShakeSection.generated.h"
 
-class UCameraShake;
+USTRUCT()
+struct FMovieSceneCameraShakeSectionData
+{
+	GENERATED_BODY()
+
+	FMovieSceneCameraShakeSectionData()
+		: ShakeClass(nullptr)
+		, PlayScale(1.f)
+	{
+	}
+
+	/** Class of the camera shake to play */
+	UPROPERTY(EditAnywhere, Category = "Camera Shake")
+	TSubclassOf<UCameraShake> ShakeClass;
+
+	/** Scalar that affects shake intensity */
+	UPROPERTY(EditAnywhere, Category = "Camera Shake")
+	float PlayScale;
+
+	UPROPERTY(EditAnywhere, Category = "Camera Shake")
+	TEnumAsByte<ECameraAnimPlaySpace::Type> PlaySpace;
+
+	UPROPERTY(EditAnywhere, Category = "Camera Shake")
+	FRotator UserDefinedPlaySpace;
+};
 
 /**
  *
@@ -17,45 +45,24 @@ class UMovieSceneCameraShakeSection : public UMovieSceneSection
 
 public:
 
-	// ctor
 	UMovieSceneCameraShakeSection(const FObjectInitializer& ObjectInitializer);
 
-	/** Sets the CameraShake for this section */
-	void SetCameraShakeClass(TSubclassOf<UCameraShake> InShakeClass) { ShakeClass = InShakeClass; }
-
-	/** Gets the CameraAnim for this section */
-	UClass* GetCameraShakeClass() const { return ShakeClass; }
-
-	/** MovieSceneSection interface */
-	virtual void MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual void DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
-	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override;
-	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override;
-
-	/** 
-	 * @return Returns the weighting curve
-	 */
-//	MOVIESCENETRACKS_API FRichCurve& GetShakeWeightCurve() { return ShakeWeightCurve; }
+	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
+	virtual void PostLoad() override;
 	
-private:
-	
-	/** */
-// 	UPROPERTY(EditAnywhere, Category = "Camera Shake")
-// 	FRichCurve ShakeWeightCurve;
+	UPROPERTY(EditAnywhere, Category="Cmaera Shake", meta=(ShowOnlyInnerProperties))
+	FMovieSceneCameraShakeSectionData ShakeData;
 
 public:
-	/** Class of the camera shake to play */
-	UPROPERTY(EditAnywhere, Category = "Camera Shake")
-	TSubclassOf<UCameraShake> ShakeClass;
+	UPROPERTY()
+	TSubclassOf<UCameraShake> ShakeClass_DEPRECATED;
 	
-	/** Scalar that affects shake intensity */
-	UPROPERTY(EditAnywhere, Category = "Camera Shake")
-	float PlayScale;
-	
-	UPROPERTY(EditAnywhere, Category = "Camera Shake")
-	TEnumAsByte<ECameraAnimPlaySpace::Type> PlaySpace;
+	UPROPERTY()
+	float PlayScale_DEPRECATED;
 
-	UPROPERTY(EditAnywhere, Category = "Camera Shake")
-	FRotator UserDefinedPlaySpace;
+	UPROPERTY()
+	TEnumAsByte<ECameraAnimPlaySpace::Type> PlaySpace_DEPRECATED;
+
+	UPROPERTY()
+	FRotator UserDefinedPlaySpace_DEPRECATED;
 };

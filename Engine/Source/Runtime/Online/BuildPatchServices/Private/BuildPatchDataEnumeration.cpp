@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BuildPatchServicesPrivatePCH.h"
+#include "BuildPatchDataEnumeration.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Guid.h"
+#include "BuildPatchManifest.h"
+#include "BuildPatchUtil.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogDataEnumeration, Log, All);
 DEFINE_LOG_CATEGORY(LogDataEnumeration);

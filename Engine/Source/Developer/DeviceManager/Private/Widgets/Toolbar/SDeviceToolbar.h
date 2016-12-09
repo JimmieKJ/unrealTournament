@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Models/DeviceManagerModel.h"
+
+class FUICommandList;
 
 /**
  * Implements the device toolbar widget.

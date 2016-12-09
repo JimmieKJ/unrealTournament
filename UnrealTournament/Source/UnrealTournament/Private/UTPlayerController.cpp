@@ -563,7 +563,7 @@ void AUTPlayerController::InitPlayerState()
 		UWorld* const World = GetWorld();
 		if (World)
 		{
-			AGameMode* const GameMode = World->GetAuthGameMode();
+			AGameModeBase* const GameMode = World->GetAuthGameMode();
 			if (GameMode)
 			{
 				// don't call SetPlayerName() as that will broadcast entry messages but the GameMode hasn't had a chance
@@ -1588,14 +1588,14 @@ void AUTPlayerController::ViewProjectile()
 			// toggle away from projectile cam
 			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
-				APawn* PawnIter = *Iterator;
+				APawn* PawnIter = Iterator->Get();
 				if (PawnIter != nullptr)
 				{
 					AUTPlayerState* PS = Cast<AUTPlayerState>(PawnIter->PlayerState);
 					if (PS && PS->SpectatingID == LastSpectatedPlayerId)
 					{
 						bAutoCam = false;
-						ViewPawn(*Iterator);
+						ViewPawn(Iterator->Get());
 						break;
 					}
 				}
@@ -2027,7 +2027,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			NewActiveSound.bIsUISound = false;
 			NewActiveSound.bHasAttenuationSettings = false;
 			NewActiveSound.bAllowSpatialization = false;
-			
+
 			if (AudioDevice)
 			{
 				AudioDevice->AddNewActiveSound(NewActiveSound);
@@ -2062,7 +2062,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			else
 			{
 				// check if same team
-				AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 				bSameTeam = (GS && GS->OnSameTeam(this, SoundPlayer));
 				if (bSameTeam)
 				{
@@ -2538,7 +2538,7 @@ bool AUTPlayerController::ServerToggleWarmup_Validate()
 
 void AUTPlayerController::ServerToggleWarmup_Implementation()
 {
-	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (!GS || (GS->GetMatchState() != MatchState::WaitingToStart) || !UTPlayerState || !UTPlayerState->bReadyToPlay)
 	{
 		return;
@@ -2590,7 +2590,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		if (UTPlayerState->bCaster)
 		{
 			//For casters, all players need to be ready before the caster can be ready. This avoids the game starting if the caster has been mashing buttons while players are getting ready
-			AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			if (UTPlayerState->bCaster && GS != nullptr && GS->AreAllPlayersReady())
 			{
 				UTPlayerState->SetReadyToPlay(true);
@@ -2882,9 +2882,9 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 	ChangeState(NAME_GameOver);
 
 	bool bIsInGameIntroHandlingEndGameSummary = false;
-	if (GetWorld() && GetWorld()->GameState)
+	if (GetWorld() && GetWorld()->GetGameState())
 	{
-		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GameState);
+		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GetGameState());
 		if (UTGS)
 		{
 			if (UTGS->LineUpHelper && UTGS->LineUpHelper->bIsActive)
@@ -3373,7 +3373,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 		{
 			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
-				APawn* PawnIter = *Iterator;
+				APawn* PawnIter = Iterator->Get();
 				if (PawnIter != nullptr)
 				{
 					AUTPlayerState* PS = Cast<AUTPlayerState>(PawnIter->PlayerState);
@@ -3386,7 +3386,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 						}
 						else
 						{
-							ViewPawn(*Iterator);
+							ViewPawn(Iterator->Get());
 						}
 						break;
 					}
@@ -4815,7 +4815,7 @@ void AUTPlayerController::GhostPlay()
 void AUTPlayerController::OpenMatchSummary()
 {
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GameState);
+	AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
 	if (LocalPlayer != nullptr && UTGS != nullptr)
 	{
 		LocalPlayer->OpenMatchSummary(UTGS);

@@ -20,7 +20,6 @@ public class jemalloc : ModuleRules
             {
                 PublicAdditionalLibraries.Add(UEBuildConfiguration.UEThirdPartySourceDirectory + "jemalloc/lib/Linux/" + Target.Architecture + "/libjemalloc_pic.a");
             }
-		    Definitions.Add("PLATFORM_SUPPORTS_JEMALLOC=1");
         }
 	}
 }

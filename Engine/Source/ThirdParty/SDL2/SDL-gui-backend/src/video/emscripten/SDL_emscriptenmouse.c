@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -58,11 +58,13 @@ Emscripten_CreateDefaultCursor()
     return cursor;
 }
 
+/*
 static SDL_Cursor*
 Emscripten_CreateCursor(SDL_Surface* sruface, int hot_x, int hot_y)
 {
     return Emscripten_CreateDefaultCursor();
 }
+*/
 
 static SDL_Cursor*
 Emscripten_CreateSystemCursor(SDL_SystemCursor id)
@@ -200,7 +202,9 @@ Emscripten_InitMouse()
 {
     SDL_Mouse* mouse = SDL_GetMouse();
 
+/*
     mouse->CreateCursor         = Emscripten_CreateCursor;
+*/ 
     mouse->ShowCursor           = Emscripten_ShowCursor;
     mouse->FreeCursor           = Emscripten_FreeCursor;
     mouse->WarpMouse            = Emscripten_WarpMouse;

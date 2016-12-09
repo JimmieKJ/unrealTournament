@@ -5,7 +5,7 @@
 //!   Could be tidied up by defining vector ops on paVec3.
 //
 
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 //#include <math.h>
 

@@ -1,13 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "BodySetupDetails.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
 #include "ScopedTransaction.h"
 #include "ObjectEditorUtils.h"
-#include "IDocumentation.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/PhysicsAsset.h"
-#include "SNumericEntryBox.h"
 
 #define LOCTEXT_NAMESPACE "BodySetupDetails"
 

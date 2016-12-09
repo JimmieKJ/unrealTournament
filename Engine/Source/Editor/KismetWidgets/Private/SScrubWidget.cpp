@@ -1,8 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "KismetWidgetsPrivatePCH.h"
 #include "SScrubWidget.h"
-#include "STextEntryPopup.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Misc/Paths.h"
+#include "Rendering/DrawElements.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "Animation/AnimTypes.h"
+#include "Widgets/Input/STextEntryPopup.h"
 
 #define LOCTEXT_NAMESPACE "ScrubWidget"
 
@@ -12,12 +23,13 @@ static const float MinStepLengh=15.f;
 int32 SScrubWidget::GetDivider(float InputMinX, float InputMaxX, FVector2D WidgetSize, float SequenceLength, int32 NumFrames)
 {
 	FTrackScaleInfo TimeScaleInfo(InputMinX, InputMaxX, 0.f, 0.f, WidgetSize);
+	const FAnimKeyHelper Helper(SequenceLength, NumFrames);
 
-	float TimePerKey = (NumFrames > 0) ? SequenceLength / (float)(NumFrames) : 0.0f;
+	float TimePerKey = Helper.TimePerKey();
 
 	float TotalWidgetWidth = TimeScaleInfo.WidgetSize.X;
-	float NumKeys = TimeScaleInfo.ViewInputRange / TimePerKey;
-	float KeyWidgetWidth = TotalWidgetWidth / NumKeys;
+	int32 NumKeys = TimeScaleInfo.ViewInputRange / TimePerKey;
+	float KeyWidgetWidth = TotalWidgetWidth / (float)Helper.GetNumKeys();
 	int32 Divider = 1; 
 	if (KeyWidgetWidth > 0)
 	{
@@ -46,7 +58,7 @@ void SScrubWidget::Construct( const SScrubWidget::FArguments& InArgs )
 
 	DraggableBars = InArgs._DraggableBars;
 	OnBarDrag = InArgs._OnBarDrag;
-
+	bDisplayDrag = InArgs._DisplayDrag;
 	bMouseMovedDuringPanning = false;
 	bDragging = false;
 	bPanning = false;
@@ -79,17 +91,17 @@ int32 SScrubWidget::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGe
 	const FSlateBrush* StyleInfo = FEditorStyle::GetBrush( TEXT( "ProgressBar.Background" ) );
 	const float GeomHeight = AllottedGeometry.Size.Y;
 
+	const FTrackScaleInfo TimeScaleInfo(ViewInputMin.Get(), ViewInputMax.Get(), 0.f, 0.f, AllottedGeometry.Size);
+
 	if ( NumOfKeys.Get() > 0 && SequenceLength.Get() > 0)
 	{
-		const FTrackScaleInfo TimeScaleInfo(ViewInputMin.Get(), ViewInputMax.Get(), 0.f, 0.f, AllottedGeometry.Size);
 		const int32 Divider = SScrubWidget::GetDivider( ViewInputMin.Get(), ViewInputMax.Get(), AllottedGeometry.Size, SequenceLength.Get(), NumOfKeys.Get() );
+		const FAnimKeyHelper Helper(SequenceLength.Get(), NumOfKeys.Get());
 		const float HalfDivider = Divider/2.f;
 		
-		const int32 TotalNumKeys = NumOfKeys.Get();
+		const float TimePerKey = Helper.TimePerKey();
 
-		const float TimePerKey = (TotalNumKeys > 0) ? SequenceLength.Get() / (float)(TotalNumKeys) : 0.0f;
-
-		for (float KeyVal = 0; KeyVal < TotalNumKeys; KeyVal += HalfDivider)
+		for (float KeyVal = 0; KeyVal < Helper.GetNumKeys(); KeyVal += HalfDivider)
 		{
 			const float CurValue = KeyVal*TimePerKey;
 			const float XPos = TimeScaleInfo.InputToLocalX(CurValue);
@@ -143,7 +155,10 @@ int32 SScrubWidget::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGe
  
  			}
 		}
+	}
 
+	if (SequenceLength.Get() > 0 && bDisplayDrag.Get())
+	{
 		const int32 ArrowLayer = TextLayer + 1;
 		{
 			const float XPos = TimeScaleInfo.InputToLocalX(ValueAttribute.Get());

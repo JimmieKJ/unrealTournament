@@ -2,10 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/ISlateStyle.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
 
-class UMediaSource;
+class UMediaPlayer;
 struct FMediaSourceTableEntry;
-
+enum class EMediaEvent;
 
 /**
  * Implements the play list of the MediaPlayer asset editor.

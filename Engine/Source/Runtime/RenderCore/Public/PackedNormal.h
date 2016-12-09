@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** A normal vector, quantized and packed into 32-bits. */
 struct FPackedNormal
 {

@@ -6,8 +6,14 @@
 #ifndef __ASSETSELECTION_H__
 #define __ASSETSELECTION_H__
 
-#include "Core.h"
+#include "CoreMinimal.h"
 #include "AssetData.h"
+#include "Input/Reply.h"
+
+class AActor;
+class UActorFactory;
+class ULevel;
+class UMaterialInterface;
 
 // forward decl.
 class UActorFactory;
@@ -39,7 +45,7 @@ namespace AssetUtil
 	UNREALED_API UObject*			GetObject(const FString& AssetName);
 	
 	/** Does drag event contain any asset types which have components that support drag/drop?*/
-	UNREALED_API class FReply 		CanHandleAssetDrag( const FDragDropEvent &DragDropEvent );
+	UNREALED_API FReply 			CanHandleAssetDrag( const FDragDropEvent &DragDropEvent );
 }
 
 /**

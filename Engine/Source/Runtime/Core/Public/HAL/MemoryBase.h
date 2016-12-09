@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/OutputDevice.h"
+#include "HAL/PlatformAtomics.h"
+#include "Misc/Exec.h"
+
 enum
 {
 	// Default allocator alignment. If the default is specified, the allocator applies to engine rules.

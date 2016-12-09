@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "PreviewScene.h"
-#include "AnimGraphDefinitions.h"
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
 #include "AnimTransitionNodeDetails.h"
+
+class IDetailLayoutBuilder;
 
 class FAnimStateNodeDetails : public FAnimTransitionNodeDetails
 {

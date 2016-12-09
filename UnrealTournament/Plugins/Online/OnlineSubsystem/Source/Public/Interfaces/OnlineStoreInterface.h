@@ -79,8 +79,8 @@ struct FInAppPurchaseProductRequest
 
 
 /**
-* Micro-transaction purchase information
-*/
+ * Micro-transaction purchase information
+ */
 USTRUCT(BlueprintType)
 struct FInAppPurchaseProductInfo
 {
@@ -126,15 +126,15 @@ struct FInAppPurchaseProductInfo
 	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
 	FString GroupingSeparator;
 
-	// The localized display price name
+	// Opaque receipt data for the transaction
 	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
 	FString ReceiptData;
 };
 
 
 /**
-* Micro-transaction restored purchase information
-*/
+ * Micro-transaction restored purchase information
+ */
 USTRUCT(BlueprintType)
 struct FInAppPurchaseRestoreInfo
 {
@@ -144,9 +144,9 @@ struct FInAppPurchaseRestoreInfo
 	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
 	FString Identifier;
 
-	// The localized display price name
+	// The opaque receipt data for the platform
 	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
-		FString ReceiptData;
+	FString ReceiptData;
 
 	// the unique transaction identifier
 	UPROPERTY(BlueprintReadOnly, Category = ProductInfo)
@@ -155,8 +155,8 @@ struct FInAppPurchaseRestoreInfo
 
 
 /**
-*	Interface for reading data from an In App Purchase service
-*/
+ *	Interface for reading data from an In App Purchase service
+ */
 class ONLINESUBSYSTEM_API FOnlineProductInformationRead
 {
 public:
@@ -183,9 +183,12 @@ class ONLINESUBSYSTEM_API FOnlineInAppPurchaseTransaction
 public:
 	/** Indicates an error reading data occurred while processing */
 	EOnlineAsyncTaskState::Type ReadState;
+	/** Is the purchase consumable */
+	bool bIsConsumable;
 
 	FOnlineInAppPurchaseTransaction() :
-		ReadState(EOnlineAsyncTaskState::NotStarted)
+		ReadState(EOnlineAsyncTaskState::NotStarted),
+		bIsConsumable(false)
 	{
 	}
 
@@ -197,8 +200,8 @@ typedef TSharedPtr<FOnlineInAppPurchaseTransaction, ESPMode::ThreadSafe> FOnline
 
 
 /**
-*	Interface for reading data from an In App Purchase service
-*/
+ *	Interface for reading data from an In App Purchase service
+ */
 class ONLINESUBSYSTEM_API FOnlineInAppPurchaseRestoreRead
 {
 public:

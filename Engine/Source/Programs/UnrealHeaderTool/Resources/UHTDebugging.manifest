@@ -10,7 +10,7 @@
 			"IncludeBase": "..\\..\\..\\Runtime\\CoreUObject",
 			"OutputDirectory": "..\\..\\..\\..\\Intermediate/Build/Inc\\CoreUObject\\",
 			"ClassesHeaders": [
-				"..\\..\\..\\Runtime\\CoreUObject\\Classes\\Object.h"
+				"..\\..\\..\\Runtime\\CoreUObject\\Public\\UObject\\NoExportTypes.h"
 			],
 			"PublicHeaders": [
 			],

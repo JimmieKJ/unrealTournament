@@ -1,24 +1,30 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CascadeModule.h"
-#include "Cascade.h"
-#include "MouseDeltaTracker.h"
-#include "PreviewScene.h"
-#include "ImageUtils.h"
 #include "CascadePreviewViewportClient.h"
+#include "EngineGlobals.h"
+#include "UObject/Package.h"
+#include "Engine/Engine.h"
+#include "Components/StaticMeshComponent.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Serialization/ArchiveCountMem.h"
+#include "Preferences/CascadeOptions.h"
+#include "CanvasItem.h"
+#include "Engine/Canvas.h"
+#include "ParticleHelper.h"
+#include "Engine/StaticMesh.h"
+#include "ImageUtils.h"
+#include "SEditorViewport.h"
+#include "Components/VectorFieldComponent.h"
+#include "CascadeParticleSystemComponent.h"
+#include "Cascade.h"
 #include "SCascadePreviewViewport.h"
 #include "Particles/Spawn/ParticleModuleSpawn.h"
 #include "Particles/TypeData/ParticleModuleTypeDataGpu.h"
 #include "Particles/VectorField/ParticleModuleVectorFieldLocal.h"
 #include "Particles/ParticleLODLevel.h"
 #include "Particles/ParticleModuleRequired.h"
-#include "Particles/ParticleSpriteEmitter.h"
 #include "PhysicsPublic.h"
-#include "Components/VectorFieldComponent.h"
-#include "Engine/StaticMesh.h"
-#include "CanvasTypes.h"
 #include "Components/LineBatchComponent.h"
-#include "Engine/Canvas.h"
 
 #define LOCTEXT_NAMESPACE "CascadeViewportClient"
 
@@ -150,7 +156,7 @@ FCascadeEdPreviewViewportClient::FCascadeEdPreviewViewportClient(TWeakPtr<FCasca
 	{
 		FloorComponent = NewObject<UStaticMeshComponent>(GetTransientPackage(), TEXT("FloorComponent"));
 		check(FloorComponent);
-		FloorComponent->StaticMesh = Mesh;
+		FloorComponent->SetStaticMesh(Mesh);
 		FloorComponent->DepthPriorityGroup = SDPG_World;
 
 		// Hide it for now...
@@ -730,7 +736,7 @@ void FCascadeEdPreviewViewportClient::UpdateMemoryInformation()
 	{
 		FArchiveCountMem ComponentMemCount(ParticleSystemComponent);
 		PSysCompRootSize = ComponentMemCount.GetMax();
-		PSysCompResourceSize = ParticleSystemComponent->GetResourceSize(EResourceSizeMode::Exclusive);
+		PSysCompResourceSize = ParticleSystemComponent->GetResourceSizeBytes(EResourceSizeMode::Exclusive);
 	}
 }
 

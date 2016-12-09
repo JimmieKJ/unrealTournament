@@ -1,29 +1,41 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "UnrealEd.h"
-#include "FoliageType_InstancedStaticMesh.h"
-#include "FoliageEdMode.h"
-#include "FoliagePaletteCommands.h"
+
 #include "SFoliagePalette.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "FoliagePaletteItem.h"
+#include "FoliageType.h"
+#include "FoliageType_InstancedStaticMesh.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SScrollBorder.h"
+#include "Widgets/Input/SSlider.h"
+#include "EditorStyleSet.h"
+#include "FoliagePaletteCommands.h"
+#include "AssetThumbnail.h"
+#include "PropertyEditorModule.h"
 #include "FoliageTypePaintingCustomization.h"
 #include "FoliageType_InstancedStaticMeshPaintingCustomization.h"
-#include "FoliagePaletteItem.h"
 
-#include "LevelEditor.h"
-#include "Editor/UnrealEd/Public/AssetThumbnail.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
-#include "Editor/PropertyEditor/Public/PropertyCustomizationHelpers.h"
-#include "Editor/UnrealEd/Public/DragAndDrop/AssetDragDropOp.h"
-#include "Editor/UnrealEd/Public/AssetSelection.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/UnrealEd/Public/AssetSelection.h"
-#include "Editor/UnrealEd/Public/ScopedTransaction.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
+#include "PropertyCustomizationHelpers.h"
+#include "IDetailsView.h"
+#include "AssetSelection.h"
+#include "ScopedTransaction.h"
 
-#include "Engine/StaticMesh.h"
 
-#include "SScaleBox.h"
-#include "SWidgetSwitcher.h"
-#include "SSearchBox.h"
+#include "Widgets/Layout/SScaleBox.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "FoliageEd_Mode"
 
@@ -653,6 +665,7 @@ TSharedRef<SWidget> SFoliagePalette::GetAddFoliageTypePicker()
 	ClassFilters.Add(UFoliageType_InstancedStaticMesh::StaticClass());
 
 	return PropertyCustomizationHelpers::MakeAssetPickerWithMenu(FAssetData(),
+		false,
 		false,
 		ClassFilters,
 		PropertyCustomizationHelpers::GetNewAssetFactoriesForClasses(ClassFilters),

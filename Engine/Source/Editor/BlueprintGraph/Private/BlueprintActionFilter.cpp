@@ -1,28 +1,38 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintActionFilter.h"
+#include "UObject/Interface.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Engine/Blueprint.h"
+#include "Modules/ModuleManager.h"
+#include "Animation/Skeleton.h"
+#include "Animation/AnimBlueprint.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "EdGraph/EdGraph.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node.h"
+#include "K2Node_Event.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_BaseAsyncTask.h"
+#include "K2Node_CallArrayFunction.h"
+#include "K2Node_DynamicCast.h"
+#include "K2Node_ExecutionSequence.h"
+#include "K2Node_IfThenElse.h"
+#include "K2Node_MacroInstance.h"
+#include "K2Node_MakeArray.h"
+#include "K2Node_VariableGet.h"
+#include "K2Node_VariableSet.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintNodeSpawnerUtils.h"
 #include "BlueprintVariableNodeSpawner.h"
 #include "BlueprintEventNodeSpawner.h"
 #include "BlueprintBoundEventNodeSpawner.h"
 #include "BlueprintBoundNodeSpawner.h"
-#include "BlueprintGraphModule.h"	// for GetExtendedActionMenuFilters
-#include "EdGraphSchema_K2.h"		// for FBlueprintMetadata
-#include "BlueprintEditorUtils.h"	// for FindBlueprintForGraph()
-#include "ObjectEditorUtils.h"		// for IsFunctionHiddenFromClass()/IsVariableCategoryHiddenFromClass()
-#include "K2Node_VariableSet.h"
-#include "K2Node_VariableGet.h"
-#include "K2Node_CallArrayFunction.h" // for IsFunctionMissingPinParam()
 // "impure" node types (utilized in BlueprintActionFilterImpl::IsImpure)
-#include "K2Node_IfThenElse.h"
 #include "K2Node_MultiGate.h"
-#include "K2Node_MakeArray.h"
 #include "K2Node_Message.h"
-#include "K2Node_ExecutionSequence.h"
-#include "K2Node_DynamicCast.h"
-#include "K2Node_BaseAsyncTask.h"
 #include "EditorCategoryUtils.h"
 
 /*******************************************************************************
@@ -1288,8 +1298,9 @@ static bool BlueprintActionFilterImpl::IsFunctionMissingPinParam(FBlueprintActio
 				// want to flip the connotation here
 				bool const bWantsOutputConnection = (PinDir == EGPD_Input) ^ bIsEventSpawner;
 				
+				// we don't support direct 'containers of containers, hence the !IsContainer() check here:
 				if ( K2Schema->FunctionHasParamOfType(AssociatedFunc, K2Node->GetGraph(), PinType, bWantsOutputConnection) || 
-					(bIsArrayFunction && ArrayFunctionHasParamOfType(AssociatedFunc, K2Node->GetGraph(), PinType, bWantsOutputConnection)) )
+					(bIsArrayFunction && ArrayFunctionHasParamOfType(AssociatedFunc, K2Node->GetGraph(), PinType, bWantsOutputConnection) && !PinType.IsContainer()) )
 				{
 					bIsFilteredOut = false;
 				}
@@ -1428,9 +1439,10 @@ static bool BlueprintActionFilterImpl::IsMissingMatchingPinParam(FBlueprintActio
 {
 	bool bIsFilteredOut = false;
 
-	// we have a separate pin tests for function/property nodes (IsFunctionMissingPinParam/IsMissmatchedPropertyType)
-	bool const bTestPinCompatibility = (BlueprintAction.GetAssociatedProperty() == nullptr) &&
-		(BlueprintAction.GetAssociatedFunction() == nullptr);
+	// we have a separate pin tests for function/property nodes (IsFunctionMissingPinParam/IsMissmatchedPropertyType). Note that we only skip
+	// this test for functions with bindings (because it does not handle getting templates for all binding nodes). By running this for 
+	// other functions we ensure that IsConnectionDisallowed is honored.
+	bool const bTestPinCompatibility = (BlueprintAction.GetAssociatedProperty() == nullptr) && BlueprintAction.GetBindings().Num() == 0;
 
 	if (bTestPinCompatibility)
 	{
@@ -1613,12 +1625,18 @@ static bool BlueprintActionFilterImpl::IsIncompatibleMacroInstance(FBlueprintAct
 	{
 		if(const UBlueprint* MacroBP = Cast<const UBlueprint>(BlueprintAction.GetActionOwner()))
 		{
-			check(MacroBP->ParentClass != nullptr);
+			if (!ensure(MacroBP->ParentClass != nullptr))
+			{
+				return true;
+			}
 
 			for(auto BlueprintIt = Filter.Context.Blueprints.CreateConstIterator(); BlueprintIt && !bIsFilteredOut; ++BlueprintIt)
 			{
 				const UBlueprint* Blueprint = *BlueprintIt;
-				check(Blueprint != nullptr && Blueprint->ParentClass != nullptr)
+				if (!ensure(Blueprint != nullptr && Blueprint->ParentClass != nullptr))
+				{
+					return true;
+				}
 
 				bIsFilteredOut = (Blueprint != MacroBP) && (MacroBP->BlueprintType != BPTYPE_MacroLibrary || !Blueprint->ParentClass->IsChildOf(MacroBP->ParentClass));
 			}

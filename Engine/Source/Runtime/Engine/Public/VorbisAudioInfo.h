@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeBool.h"
 #include "AudioDecompress.h"
 
 /**

@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,11 +28,9 @@ class CefRenderProcessHandlerCToCpp
     : public CefCToCpp<CefRenderProcessHandlerCToCpp, CefRenderProcessHandler,
         cef_render_process_handler_t> {
  public:
-  explicit CefRenderProcessHandlerCToCpp(cef_render_process_handler_t* str)
-      : CefCToCpp<CefRenderProcessHandlerCToCpp, CefRenderProcessHandler,
-          cef_render_process_handler_t>(str) {}
+  CefRenderProcessHandlerCToCpp();
 
-  // CefRenderProcessHandler methods
+  // CefRenderProcessHandler methods.
   void OnRenderThreadCreated(CefRefPtr<CefListValue> extra_info) override;
   void OnWebKitInitialized() override;
   void OnBrowserCreated(CefRefPtr<CefBrowser> browser) override;
@@ -58,4 +56,3 @@ class CefRenderProcessHandlerCToCpp
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_RENDER_PROCESS_HANDLER_CTOCPP_H_
-

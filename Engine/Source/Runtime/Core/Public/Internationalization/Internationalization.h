@@ -1,16 +1,20 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Templates/SharedPointer.h"
+#include "Delegates/Delegate.h"
+#include "Internationalization/Text.h"
 
 #define ENABLE_LOC_TESTING ( UE_BUILD_DEBUG | UE_BUILD_DEVELOPMENT | UE_BUILD_TEST )
 
-#include "Text.h"
-#include "TextLocalizationManager.h"
-#include "TextLocalizationManagerGlobals.h"
-#include "Culture.h"
-#include "UniqueObj.h"
+#include "Templates/UniqueObj.h"
 
 #define LOC_DEFINE_REGION
 
+class FCulture;
 class FICUInternationalization;
 class FLegacyInternationalization;
 

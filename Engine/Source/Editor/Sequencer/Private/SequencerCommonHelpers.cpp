@@ -1,14 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "SequencerCommonHelpers.h"
-#include "MovieSceneSection.h"
-#include "SequencerHotspots.h"
+#include "SequencerSelectedKey.h"
+#include "DisplayNodes/SequencerSectionKeyAreaNode.h"
+#include "DisplayNodes/SequencerTrackNode.h"
 #include "SSequencer.h"
+#include "GroupedKeyArea.h"
+#include "ISequencerHotspot.h"
 #include "SSequencerTreeView.h"
 #include "VirtualTrackArea.h"
 #include "SequencerContextMenus.h"
-#include "MovieSceneTrack.h"
 
 void SequencerHelpers::GetAllKeyAreas(TSharedPtr<FSequencerDisplayNode> DisplayNode, TSet<TSharedPtr<IKeyArea>>& KeyAreas)
 {
@@ -348,11 +349,9 @@ TSharedPtr<SWidget> SequencerHelpers::SummonContextMenu(FSequencer& Sequencer, c
 {
 	// @todo sequencer replace with UI Commands instead of faking it
 
-	FVector2D MouseDownPos = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
-
 	// Attempt to paste into either the current node selection, or the clicked on track
 	TSharedRef<SSequencer> SequencerWidget = StaticCastSharedRef<SSequencer>(Sequencer.GetSequencerWidget());
-	const float PasteAtTime = SequencerWidget->GetVirtualTrackArea().PixelToTime(MouseDownPos.X);
+	const float PasteAtTime = Sequencer.GetLocalTime();
 
 	const bool bShouldCloseWindowAfterMenuSelection = true;
 	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, Sequencer.GetCommandBindings());

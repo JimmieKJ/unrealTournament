@@ -1,15 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
-#include "OnlineSubsystemSteamTypes.h"
 #include "VoiceEngineSteam.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Components/AudioComponent.h"
 #include "OnlineSubsystemSteam.h"
-#include "Voice.h"
+#include "VoiceModule.h"
 #include "SteamUtilities.h"
 
-#include "Engine.h"
-#include "SoundDefinitions.h"
-#include "Runtime/Engine/Classes/Sound/SoundWaveProcedural.h"
+#include "Sound/SoundWaveProcedural.h"
 #include "OnlineSubsystemUtils.h"
 
 /** Largest size Steam says it will need to compress data */

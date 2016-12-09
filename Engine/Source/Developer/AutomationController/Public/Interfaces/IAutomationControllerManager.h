@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/IAutomationReport.h"
+
+class IAutomationControllerManager;
 
 /** Type definition for shared pointers to instances of IAutomationControllerManager. */
 typedef TSharedPtr<class IAutomationControllerManager> IAutomationControllerManagerPtr;
@@ -202,18 +206,6 @@ public:
 	 * @return Number of passes.
 	 */
 	virtual int32 GetNumPasses() = 0;
-
-	/**
-	 * Returns if we are using full size screen shots.
-	 *
-	 * @return true if using full size screenshots, false otherwise.
-	 */
-	virtual bool IsUsingFullSizeScreenshots() const = 0;
-
-	/**
-	 * Sets if we are using full size screen shots.
-	 */
-	virtual void SetUsingFullSizeScreenshots(const  bool bNewValue ) = 0;
 
 	/**
 	* Returns if analytics should be sent

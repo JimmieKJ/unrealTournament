@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "OculusNetConnection.h"
 #include "Engine/NetDriver.h"
 #include "OculusNetDriver.generated.h"
 
@@ -19,7 +21,7 @@ private:
 	FDelegateHandle NetworkingConnectionStateChangeDelegateHandle;
 
 public:
-	TMap<ovrID, UOculusNetConnection*> Connections;
+	TMap<uint64, UOculusNetConnection*> Connections;
 
 	// Begin UNetDriver interface.
 	virtual bool IsAvailable() const override;

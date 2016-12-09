@@ -2,13 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptMacros.h"
 #include "Engine/Texture.h"
 #include "IMediaTextureSink.h"
 #include "MediaTexture.generated.h"
 
-
-class IMediaTextureSink;
-
+class FTextureResource;
 
 /**
  * Implements a texture asset for rendering video tracks from UMediaPlayer assets.
@@ -16,22 +17,50 @@ class IMediaTextureSink;
 UCLASS(hidecategories=(Compression, LevelOfDetail, Object, Texture))
 class MEDIAASSETS_API UMediaTexture
 	: public UTexture
-	, public FTickerObjectBase
 	, public IMediaTextureSink
 {
 	GENERATED_UCLASS_BODY()
 
 	/** The addressing mode to use for the X axis. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MediaTexture, AssetRegistrySearchable)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Media|MediaTexture", AssetRegistrySearchable)
 	TEnumAsByte<TextureAddress> AddressX;
 
 	/** The addressing mode to use for the Y axis. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MediaTexture, AssetRegistrySearchable)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Media|MediaTexture", AssetRegistrySearchable)
 	TEnumAsByte<TextureAddress> AddressY;
 
 	/** The color used to clear the texture if CloseAction is set to Clear (default = black). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MediaTexture, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Media|MediaTexture", AdvancedDisplay)
 	FLinearColor ClearColor;
+
+public:
+
+	/**
+	 * Gets the current aspect ratio of the texture.
+	 *
+	 * @return Texture aspect ratio.
+	 * @see GetHeight, GetWidth
+	 */
+	UFUNCTION(BlueprintCallable, Category="Media|MediaTexture")
+	float GetAspectRatio() const;
+
+	/**
+	 * Gets the current height of the texture.
+	 *
+	 * @return Texture height (in pixels).
+	 * @see GetAspectRatio, GetWidth
+	 */
+	UFUNCTION(BlueprintCallable, Category="Media|MediaTexture")
+	int32 GetHeight() const;
+
+	/**
+	 * Gets the current width of the texture.
+	 *
+	 * @return Texture width (in pixels).
+	 * @see GetAspectRatio, GetHeight
+	 */
+	UFUNCTION(BlueprintCallable, Category="Media|MediaTexture")
+	int32 GetWidth() const;
 
 public:
 
@@ -43,12 +72,6 @@ public:
 
 public:
 
-	//~ FTickerObjectBase interface
-
-	virtual bool Tick(float DeltaTime) override;
-
-public:
-
 	//~ IMediaTextureSink interface
 
 	virtual void* AcquireTextureSinkBuffer() override;
@@ -57,7 +80,7 @@ public:
 	virtual EMediaTextureSinkFormat GetTextureSinkFormat() const override;
 	virtual EMediaTextureSinkMode GetTextureSinkMode() const override;
 	virtual FRHITexture* GetTextureSinkTexture() override;
-	virtual bool InitializeTextureSink(FIntPoint Dimensions, EMediaTextureSinkFormat Format, EMediaTextureSinkMode Mode) override;
+	virtual bool InitializeTextureSink(FIntPoint OutputDim, FIntPoint BufferDim, EMediaTextureSinkFormat Format, EMediaTextureSinkMode Mode) override;
 	virtual void ReleaseTextureSinkBuffer() override;
 	virtual void ShutdownTextureSink() override;
 	virtual bool SupportsTextureSinkFormat(EMediaTextureSinkFormat Format) const override;
@@ -80,7 +103,7 @@ public:
 
 	virtual void BeginDestroy() override;
 	virtual FString GetDesc() override;
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -107,15 +130,15 @@ private:
 	/** Critical section for synchronizing access to texture resource object. */
 	mutable FCriticalSection CriticalSection;
 
-	/** Asynchronous tasks for the game thread. */
-	TQueue<TFunction<void()>> GameThreadTasks;
+	/** Width and height of the sink buffers (in pixels). */
+	FIntPoint SinkBufferDim;
 
-	/** Width and height of the texture (in pixels). */
-	FIntPoint SinkDimensions;
+	/** Width and height of the video output (in pixels). */
+	FIntPoint SinkOutputDim;
 
 	/** The render target's pixel format. */
 	EMediaTextureSinkFormat SinkFormat;
 
 	/** The mode that this sink is currently operating in. */
 	EMediaTextureSinkMode SinkMode;
-	};
+};

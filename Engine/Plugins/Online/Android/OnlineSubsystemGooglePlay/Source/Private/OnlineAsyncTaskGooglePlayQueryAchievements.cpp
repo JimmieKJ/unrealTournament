@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemGooglePlayPrivatePCH.h"
 #include "OnlineAsyncTaskGooglePlayQueryAchievements.h"
+#include "OnlineSubsystemGooglePlay.h"
 
 #include "gpg/achievement_manager.h"
 

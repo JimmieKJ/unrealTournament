@@ -2,8 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Materials/MaterialExpressionTextureSampleParameter2D.h"
 #include "MaterialExpressionAntialiasedTextureMask.generated.h"
+
+class UTexture;
 
 UENUM()
 enum ETextureColorChannel
@@ -35,7 +40,7 @@ class UMaterialExpressionAntialiasedTextureMask : public UMaterialExpressionText
 
 	//~ Begin UMaterialExpression Interface
 #if WITH_EDITOR
-	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
+	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 #endif
 	//~ End UMaterialExpression Interface

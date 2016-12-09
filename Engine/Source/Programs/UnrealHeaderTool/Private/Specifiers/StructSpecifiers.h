@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 enum class EStructSpecifier
 {
 	None = -1

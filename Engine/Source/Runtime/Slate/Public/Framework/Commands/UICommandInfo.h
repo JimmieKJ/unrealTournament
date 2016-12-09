@@ -2,11 +2,15 @@
 
 #pragma once
 
-#include "Layout/Visibility.h"
+#include "CoreMinimal.h"
 #include "Misc/Attribute.h"
-#include "Framework/Commands/InputChord.h"
+#include "InputCoreTypes.h"
+#include "Layout/Visibility.h"
 #include "Textures/SlateIcon.h"
+#include "Framework/Commands/InputChord.h"
 
+class FBindingContext;
+class FUICommandInfo;
 
 /** Types of user interfaces that can be associated with a user interface action */
 namespace EUserInterfaceActionType

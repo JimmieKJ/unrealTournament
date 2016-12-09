@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LeapMotionPrivatePCH.h"
-#include "LeapInterfaceUtility.h"
 #include "AnimBone.h"
+#include "LeapInterfaceUtility.h"
 
 UAnimBone::UAnimBone(const class FObjectInitializer& Init)
 	: Super(Init)

@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class ITableRow;
+class STableViewBase;
+
 class FSkeletonNotifyDetails : public IDetailCustomization
 {
 public:

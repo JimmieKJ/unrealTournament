@@ -1,21 +1,75 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "UHTMakefile/ScriptStructArchiveProxy.h"
-#include "UHTMakefile/PropertyArchiveProxy.h"
-#include "UHTMakefile/FunctionArchiveProxy.h"
-#include "UHTMakefile/EnumArchiveProxy.h"
-#include "UHTMakefile/PackageArchiveProxy.h"
-#include "UHTMakefile/UnrealSourceFileArchiveProxy.h"
-#include "UHTMakefile/ScopeArchiveProxy.h"
-#include "UHTMakefile/FileScopeArchiveProxy.h"
-#include "UHTMakefile/StructScopeArchiveProxy.h"
-#include "UHTMakefile/ScopeArchiveProxy.h"
-#include "UHTMakefile/ClassArchiveProxy.h"
-#include "UHTMakefile/UHTMakefileModuleDescriptor.h"
-#include "UHTMakefile/TypeDefinitionInfoMapArchiveProxy.h"
-#include "UHTMakefile/PropertyBaseArchiveProxy.h"
-#include "UHTMakefile/CompilerMetadataManagerArchiveProxy.h"
+
+#include "CoreMinimal.h"
+#include "UObject/Linker.h"
+#include "StructArchiveProxy.h"
+#include "ScriptStructArchiveProxy.h"
+#include "PropertyArchiveProxy.h"
+#include "FunctionArchiveProxy.h"
+#include "EnumArchiveProxy.h"
+#include "PackageArchiveProxy.h"
+#include "UnrealSourceFileArchiveProxy.h"
+#include "ScopeArchiveProxy.h"
+#include "FileScopeArchiveProxy.h"
+#include "StructScopeArchiveProxy.h"
+#include "ClassArchiveProxy.h"
+#include "UHTMakefileModuleDescriptor.h"
+#include "UnrealTypeDefinitionInfo.h"
+#include "TypeDefinitionInfoMapArchiveProxy.h"
+#include "Scope.h"
+#include "HeaderProvider.h"
+#include "UnrealSourceFile.h"
+#include "ParserHelper.h"
+#include "PropertyBaseArchiveProxy.h"
+#include "MultipleInheritanceBaseClassArchiveProxy.h"
+#include "TokenArchiveProxy.h"
+#include "TokenDataArchiveProxy.h"
+#include "PropertyDataArchiveProxy.h"
+#include "ClassMetaDataArchiveProxy.h"
+#include "CompilerMetadataManagerArchiveProxy.h"
+#include "UnderlyingEnumType.h"
+#include "UniquePtr.h"
+
+class FArchive;
+class UPackage;
+class UClass;
+class UEnum;
+class UStruct;
+class UScriptStruct;
+class UProperty;
+class UByteProperty;
+class UInt8Property;
+class UIntProperty;
+class UUInt16Property;
+class UUInt32Property;
+class UUInt64Property;
+class UFloatProperty;
+class UDoubleProperty;
+class UBoolProperty;
+class UNameProperty;
+class UStrProperty;
+class UTextProperty;
+class UDelegateProperty;
+class UMulticastDelegateProperty;
+class UObjectPropertyBase;
+class UClassProperty;
+class UObjectProperty;
+class UWeakObjectProperty;
+class ULazyObjectProperty;
+class UAssetObjectProperty;
+class UAssetClassProperty;
+class UInterfaceProperty;
+class UStructProperty;
+class UMapProperty;
+class USetProperty;
+class UArrayProperty;
+class UFunction;
+class UDelegateFunction;
+class UField;
+class FUHTMakefileHeaderDescriptor;
+class UObject;
 
 /**
  * UHT makefiles overview.
@@ -342,6 +396,24 @@ public:
 	}
 	int32 GetPropertyIndex(const UProperty* Property) const;
 	UProperty* GetPropertyByIndex(int32 Index) const;
+
+	void AddEnumProperty(FUnrealSourceFile* UnrealSourceFile, UEnumProperty* EnumProperty)
+	{
+		int32 Index = EnumProperties.Add(EnumProperty);
+		GetHeaderDescriptor(UnrealSourceFile).AddEntry(AddObject(ESerializedObjectType::EEnumProperty, Index));
+		EnumPropertyIndexes.Add(EnumProperty, Index);
+	}
+	void CreateEnumProperty(int32 Index)
+	{
+		checkSlow(Index == EnumProperties.Num());
+		UEnumProperty* EnumProperty = EnumPropertyProxies[Index].CreateEnumProperty(*this);
+		Index = EnumProperties.Add(EnumProperty);
+		EnumPropertyIndexes.Add(EnumProperty, Index);
+	}
+	void ResolveEnumProperty(int32 Index)
+	{
+		EnumPropertyProxies[Index].Resolve(EnumProperties[Index], *this);
+	}
 
 	void AddByteProperty(FUnrealSourceFile* UnrealSourceFile, UByteProperty* ByteProperty)
 	{
@@ -979,14 +1051,14 @@ public:
 		GetHeaderDescriptor(UnrealSourceFile).AddEntry(AddObject(ESerializedObjectType::EPublicClassSetEntry, Index));
 	}
 
-	void AddGEnumUnderlyingType(FUnrealSourceFile* UnrealSourceFile, UEnum* Enum, EPropertyType Type)
+	void AddGEnumUnderlyingType(FUnrealSourceFile* UnrealSourceFile, UEnum* Enum, EUnderlyingEnumType Type)
 	{
-		int32 Index = EnumUnderlyingTypes.Add(TPairInitializer<UEnum*, EPropertyType>(Enum, Type));
+		int32 Index = EnumUnderlyingTypes.Add(TPairInitializer<UEnum*, EUnderlyingEnumType>(Enum, Type));
 		GetHeaderDescriptor(UnrealSourceFile).AddEntry(AddObject(ESerializedObjectType::EEnumUnderlyingType, Index));
 	}
 	void CreateGEnumUnderlyingType(int32 Index)
 	{
-		EnumUnderlyingTypes.Add(TPairInitializer<UEnum*, EPropertyType>(nullptr, EnumUnderlyingTypeProxies[Index].Value));
+		EnumUnderlyingTypes.Add(TPairInitializer<UEnum*, EUnderlyingEnumType>(nullptr, EnumUnderlyingTypeProxies[Index].Value));
 	}
 	void ResolveGEnumUnderlyingType(int32 Index)
 	{
@@ -1083,9 +1155,9 @@ public:
 		return GeneratedCodeCRCProxies[Index];
 	}
 	
-	void AddClassMetaData(FUnrealSourceFile* SourceFile, TScopedPointer<FClassMetaData>& ClassMetaData)
+	void AddClassMetaData(FUnrealSourceFile* SourceFile, TUniquePtr<FClassMetaData> ClassMetaData)
 	{
-		int32 Index = ClassMetaDatas.Add(ClassMetaData);
+		int32 Index = ClassMetaDatas.Add(MoveTemp(ClassMetaData));
 		GetHeaderDescriptor(SourceFile).AddEntry(AddObject(ESerializedObjectType::EClassMetaData, Index));
 	}
 	void CreateClassMetaData(int32 Index)
@@ -1095,7 +1167,7 @@ public:
 	}
 	void ResolveClassMetaData(int32 Index)
 	{
-		ClassMetaDataArchiveProxies[Index].Resolve(ClassMetaDatas[Index], *this);
+		ClassMetaDataArchiveProxies[Index].Resolve(ClassMetaDatas[Index].Get(), *this);
 	}
 
 	void AddPropertyDataEntry(FUnrealSourceFile* UnrealSourceFile, TSharedPtr<FTokenData>& TokenData, UProperty* Property)
@@ -1311,7 +1383,7 @@ public:
 		Manifest = InManifest;
 	}
 	bool CanLoadModule(const FManifestModule& ManifestModule);
-	void LoadFromFile(const TCHAR* MakefilePath, FManifest* Manifest);
+	bool LoadFromFile(const TCHAR* MakefilePath, FManifest* Manifest);
 	void SaveToFile(const TCHAR* MakefilePath);
 private:
 	bool bShouldForceRegeneration;
@@ -1396,8 +1468,8 @@ private:
 
 	EUHTMakefileLoadingPhase LoadingPhase;
 
-	TArray<TPair<UEnum*, EPropertyType>> EnumUnderlyingTypes;
-	TArray<TPair<int32, EPropertyType>> EnumUnderlyingTypeProxies;
+	TArray<TPair<UEnum*, EUnderlyingEnumType>> EnumUnderlyingTypes;
+	TArray<TPair<int32, EUnderlyingEnumType>> EnumUnderlyingTypeProxies;
 
 	TArray<FPropertyData*> PropertyDatas;
 	TArray<FPropertyDataArchiveProxy> PropertyDataProxies;
@@ -1405,7 +1477,7 @@ private:
 	TArray<FNameArchiveProxy> ModuleNamesProxy;
 	TArray<FName> ModuleNames;
 
-	TArray<TScopedPointer<FClassMetaData>> ClassMetaDatas;
+	TArray<TUniquePtr<FClassMetaData>> ClassMetaDatas;
 	TArray<FClassMetaDataArchiveProxy> ClassMetaDataArchiveProxies;
 
 	TArray<FPackageArchiveProxy> PackageProxies;
@@ -1478,6 +1550,10 @@ private:
 	TArray<FPropertyArchiveProxy> PropertyProxies;
 	TArray<UProperty*> Properties;
 	TMap<UProperty*, int32> PropertyIndexes;
+
+	TArray<FEnumPropertyArchiveProxy> EnumPropertyProxies;
+	TArray<UEnumProperty*> EnumProperties;
+	TMap<UEnumProperty*, int32> EnumPropertyIndexes;
 
 	TArray<FBytePropertyArchiveProxy> BytePropertyProxies;
 	TArray<UByteProperty*> ByteProperties;

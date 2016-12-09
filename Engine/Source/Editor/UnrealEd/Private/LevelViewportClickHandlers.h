@@ -2,12 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/UObjectGlobals.h"
+#include "HitProxies.h"
+
+class AActor;
+class ABrush;
 class FLevelEditorViewportClient;
+class UModel;
+class USceneComponent;
 struct FViewportClick;
+struct HActor;
 struct HGeomEdgeProxy;
 struct HGeomPolyProxy;
 struct HGeomVertexProxy;
-struct HActor;
 
 /**
  * A hit proxy class for sockets in the main editor viewports.

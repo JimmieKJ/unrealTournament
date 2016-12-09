@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "TemplateProjectDefs.h"
 #include "DefaultTemplateProjectDefs.generated.h"
 

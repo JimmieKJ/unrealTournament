@@ -6,6 +6,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "RenderUtils.h"
+
+class FCanvas;
+class FGPUSpriteResources;
+class UVectorFieldComponent;
+struct FGPUSpriteEmitterInfo;
+struct FGPUSpriteResourceData;
+struct FParticleEmitterInstance;
+
 /*-----------------------------------------------------------------------------
 	Forward declarations.
 -----------------------------------------------------------------------------*/

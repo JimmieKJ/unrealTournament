@@ -2,29 +2,37 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Animation/CurveSequence.h"
+#include "UObject/GCObject.h"
+#include "Editor/UnrealEdTypes.h"
+#include "SceneTypes.h"
+#include "Engine/Scene.h"
+#include "Camera/CameraTypes.h"
 #include "UnrealWidget.h"
-#include "Framework/Commands/Commands.h"
-#include "Layout/SlateRect.h"
-#include "Editor.h"
+#include "ShowFlags.h"
+#include "UnrealClient.h"
+#include "SceneManagement.h"
 #include "EditorComponents.h"
+#include "Framework/Commands/Commands.h"
 
-
+class FAssetData;
 class FCachedJoystickState;
 class FCameraControllerConfig;
 class FCameraControllerUserImpulseData;
+class FCanvas;
 class FDragTool;
 class FEditorCameraController;
 class FEditorModeTools;
 class FEditorViewportClient;
+class FEdMode;
 class FMouseDeltaTracker;
 class FPreviewScene;
-class FSceneView;
-class FWidget;
-class HHitProxy;
 class IMatineeBase;
 class SEditorViewport;
 class UActorFactory;
-
 
 /** Delegate called by FEditorViewportClient to check its visibility */
 DECLARE_DELEGATE_RetVal( bool, FViewportStateGetter );
@@ -753,6 +761,9 @@ public:
 	 */
 	void SetViewModes(const EViewModeIndex InPerspViewModeIndex, const EViewModeIndex InOrthoViewModeIndex);
 
+	/** Set the viewmode param. */
+	void SetViewModeParam(int32 InViewModeParam);
+
 	/**
 	 * @return The current view mode in this viewport, for the current viewport type
 	 */
@@ -779,6 +790,9 @@ public:
 	{
 		return GetViewMode() == InViewModeIndex;
 	}
+
+	/** @return True if InViewModeIndex is the current view mode param */
+	bool IsViewModeParam(int32 InViewModeParam) const;
 
 	/**
 	 * Invalidates this viewport and optionally child views.
@@ -1023,6 +1037,9 @@ public:
 
 	/** Returns the location of the object at the given viewport X,Y */
 	FVector GetHitProxyObjectLocation(int32 X, int32 Y);
+
+	/** Returns the map allowing to convert from the viewmode param to a name. */
+	TMap<int32, FName>& GetViewModeParamNameMap() { return ViewModeParamNameMap; }
 
 protected:
 	/** Invalidates the viewport widget (if valid) to register its active timer */
@@ -1311,6 +1328,8 @@ public:
 	/** True if the orbit camera is currently being used */
 	bool bUsingOrbitCamera;
 	
+	/** If true, numpad keys will be used to move camera in perspective viewport */
+	bool bUseNumpadCameraControl;
 
 	/**
 	 * true if all input is rejected from this viewport
@@ -1475,6 +1494,13 @@ private:
 
 	/* View mode to set when this viewport is not of type LVT_Perspective */
 	EViewModeIndex OrthoViewModeIndex;
+
+	/* View mode param */
+	int32 ViewModeParam;
+	FName ViewModeParamName;
+
+	/* A map converting the viewmode param into an asset name. The map gets updated while the menu is populated. */
+	TMap<int32, FName> ViewModeParamNameMap;
 
 	/** near plane adjustable for each editor view, if < 0 GNearClippingPlane should be used. */
 	float NearPlane;

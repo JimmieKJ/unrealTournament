@@ -3,9 +3,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Widgets/SWidget.h"
+#include "SEditorViewport.h"
 #include "SEditorViewportToolBarMenu.h"
 
-class SEditorViewport;
+struct FSlateBrush;
 
 class UNREALED_API SEditorViewportViewMenu : public SEditorViewportToolbarMenu
 {

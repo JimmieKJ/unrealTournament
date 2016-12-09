@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "IDirectoryWatcher.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class IDirectoryWatcher;
 
 class FDirectoryWatcherModule : public IModuleInterface
 {

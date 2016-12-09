@@ -820,21 +820,83 @@ bool FVariantDataConverter::VariantDataToUProperty(const FVariantData* Variant, 
 
 bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* Variant, UProperty* Property, void* OutValue, int64 CheckFlags, int64 SkipFlags)
 {
-	UNumericProperty* NumericProperty = Cast<UNumericProperty>(Property);
-	if (NumericProperty)
+	if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+	{
+		const UEnum* Enum = EnumProperty->GetEnum();
+
+		if (Variant->GetType() == EOnlineKeyValuePairDataType::String)
+		{
+			FString StrValue;
+			Variant->GetValue(StrValue);
+
+			int64 IntValue = Enum->GetValueByName(FName(*StrValue));
+			if (IntValue != INDEX_NONE)
+			{
+				EnumProperty->GetUnderlyingProperty()->SetIntPropertyValue(OutValue, IntValue);
+				return true;
+			}
+		}
+		else
+		{
+			int64 Value = 0;
+			if (Variant->GetType() == EOnlineKeyValuePairDataType::Double)
+			{
+				double DoubleValue = 0.0;
+				Variant->GetValue(DoubleValue);
+				Value = (int64)DoubleValue;
+			}
+			else if (Variant->GetType() == EOnlineKeyValuePairDataType::Float)
+			{
+				float FloatValue = 0.0f;
+				Variant->GetValue(FloatValue);
+				Value = (int64)FloatValue;
+			}
+			else if (Variant->GetType() == EOnlineKeyValuePairDataType::Int32)
+			{
+				int32 IntValue = 0;
+				Variant->GetValue(IntValue);
+				Value = (int64)IntValue;
+			}
+			else if (Variant->GetType() == EOnlineKeyValuePairDataType::UInt32)
+			{
+				uint32 IntValue = 0;
+				Variant->GetValue(IntValue);
+				Value = (int64)IntValue;
+			}
+			else if (Variant->GetType() == EOnlineKeyValuePairDataType::Int64)
+			{
+				int64 Int64Value;
+				Variant->GetValue(Int64Value);
+				Value = (int64)Int64Value;
+			}
+			else if (Variant->GetType() == EOnlineKeyValuePairDataType::UInt64)
+			{
+				uint64 UInt64Value;
+				Variant->GetValue(UInt64Value);
+				Value = (int64)UInt64Value;
+			}
+
+			// AsNumber will log an error for completely inappropriate types (then give us a default)
+			EnumProperty->GetUnderlyingProperty()->SetIntPropertyValue(OutValue, Value);
+		}
+
+		UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable to import enum %s from %s value for property %s"), *Enum->CppType, Variant->GetTypeString(), *Property->GetNameCPP());
+		return false;
+	}
+	else if (UNumericProperty* NumericProperty = Cast<UNumericProperty>(Property))
 	{
 		if (NumericProperty->IsEnum() && Variant->GetType() == EOnlineKeyValuePairDataType::String)
 		{
 			// see if we were passed a string for the enum
-			const UEnum* EnumProperty = NumericProperty->GetIntPropertyEnum();
-			check(EnumProperty); // should be assured by IsEnum()
+			const UEnum* Enum = NumericProperty->GetIntPropertyEnum();
+			check(Enum); // should be assured by IsEnum()
 			FString StrValue;
 			Variant->GetValue(StrValue);
 
-			int32 IntValue = EnumProperty->GetValueByName(FName(*StrValue));
+			int32 IntValue = Enum->GetValueByName(FName(*StrValue));
 			if (IntValue == INDEX_NONE)
 			{
-				UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable import enum %s from string value %s for property %s"), *EnumProperty->CppType, *StrValue, *Property->GetNameCPP());
+				UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable import enum %s from string value %s for property %s"), *Enum->CppType, *StrValue, *Property->GetNameCPP());
 				return false;
 			}
 			NumericProperty->SetIntPropertyValue(OutValue, (int64)IntValue);
@@ -1073,7 +1135,14 @@ bool FVariantDataConverter::ConvertScalarUPropertyToVariant(UProperty* Property,
 {
 	OutVariantData.Empty();
 
-	if (UNumericProperty *NumericProperty = Cast<UNumericProperty>(Property))
+	if (UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property))
+	{
+		// export enums as strings
+		UEnum* EnumDef = EnumProperty->GetEnum();
+		FString StringValue = EnumDef->GetEnumName(EnumProperty->GetUnderlyingProperty()->GetSignedIntPropertyValue(Value));
+		OutVariantData.SetValue(StringValue);
+	}
+	else if (UNumericProperty *NumericProperty = Cast<UNumericProperty>(Property))
 	{
 		// see if it's an enum
 		UEnum* EnumDef = NumericProperty->GetIntPropertyEnum();
@@ -1083,9 +1152,8 @@ bool FVariantDataConverter::ConvertScalarUPropertyToVariant(UProperty* Property,
 			FString StringValue = EnumDef->GetEnumName(NumericProperty->GetSignedIntPropertyValue(Value));
 			OutVariantData.SetValue(StringValue);
 		}
-
 		// We want to export numbers as numbers
-		if (NumericProperty->IsFloatingPoint())
+		else if (NumericProperty->IsFloatingPoint())
 		{
 			double DoubleValue = NumericProperty->GetFloatingPointPropertyValue(Value);
 			OutVariantData.SetValue(DoubleValue);

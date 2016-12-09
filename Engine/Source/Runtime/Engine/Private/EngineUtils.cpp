@@ -2,13 +2,22 @@
 
 /*=============================================================================
 =============================================================================*/
-#include "EnginePrivate.h"
 #include "EngineUtils.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
+#include "Misc/EngineVersion.h"
+#include "GameFramework/PlayerController.h"
+#include "EngineGlobals.h"
+#include "Components/PrimitiveComponent.h"
+#include "Engine/Engine.h"
+#include "Engine/LevelStreaming.h"
 #include "Engine/Console.h"
 
-#include "DiagnosticTable.h"
-#include "TargetPlatform.h"
-#include "SoundDefinitions.h"
+#include "ProfilingDebugging/DiagnosticTable.h"
+#include "Interfaces/ITargetPlatform.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEngineUtils, Log, All);
 
@@ -114,7 +123,7 @@ bool FContentComparisonHelper::CompareClasses(const FString& InBaseClassName, co
 								int32 NewIndex = AssetList->AddZeroed();
 								FContentComparisonAssetInfo& Info = (*AssetList)[NewIndex];
 								Info.AssetName = Object->GetFullName();
-								Info.ResourceSize = Object->GetResourceSize(EResourceSizeMode::Inclusive);
+								Info.ResourceSize = Object->GetResourceSizeBytes(EResourceSizeMode::Inclusive);
 							}
 						}
 					}
@@ -290,9 +299,7 @@ bool EngineUtils::FindOrLoadAssetsByPath(const FString& Path, TArray<UObject*>& 
 
 		if (Package)
 		{
-			TArray<UObject*> ObjectsInPackage;
-			GetObjectsWithOuter(Package, ObjectsInPackage);
-			for (UObject* Object : ObjectsInPackage)
+			ForEachObjectWithOuter(Package, [Type, &OutAssets](UObject* Object)
 			{
 				const bool bWantedType = 
 					((EAssetToLoad::ATL_Regular == Type) && Object->IsAsset()) ||
@@ -301,7 +308,7 @@ bool EngineUtils::FindOrLoadAssetsByPath(const FString& Path, TArray<UObject*>& 
 				{
 					OutAssets.Add(Object);
 				}
-			}
+			});
 		}
 	}
 	return true;
@@ -399,7 +406,7 @@ TArray<FSubLevelStatus> GetSubLevelsStatus( UWorld* World )
 
 	for( FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator )
 	{
-		APlayerController* PlayerController = *Iterator;
+		APlayerController* PlayerController = Iterator->Get();
 
 		if( PlayerController->GetPawn() != NULL )
 		{

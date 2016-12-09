@@ -4,8 +4,13 @@
 	LinuxTargetPlatformModule.cpp: Implements the FAndroidTargetPlatformModule class.
 =============================================================================*/
 
-#include "LinuxServerTargetPlatformPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 
+#include "Interfaces/ITargetPlatformModule.h"
+
+#include "LinuxTargetDevice.h"
+#include "LinuxTargetPlatform.h"
 
 /**
  * Holds the target platform singleton.

@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "GameFramework/TouchInterface.h"
-#include "SlateBasics.h"
-#include "SVirtualJoystick.h"
+#include "Engine/Texture2D.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Input/SVirtualJoystick.h"
 
 UTouchInterface::UTouchInterface(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

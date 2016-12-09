@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "K2Node_ClassDynamicCast.h"
-#include "DynamicCastHandler.h"
 #include "GraphEditorSettings.h"
+#include "EdGraphSchema_K2.h"
+#include "DynamicCastHandler.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_ClassDynamicCast"
 

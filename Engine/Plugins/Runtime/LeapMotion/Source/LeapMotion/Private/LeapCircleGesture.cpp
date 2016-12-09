@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LeapMotionPrivatePCH.h"
 #include "LeapCircleGesture.h"
 #include "LeapGesture.h"
+#include "LeapPointable.h"
+#include "LeapInterfaceUtility.h"
 #include "Math.h"
 
 class FPrivateCircleGesture

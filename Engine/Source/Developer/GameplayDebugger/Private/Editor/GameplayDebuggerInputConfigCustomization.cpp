@@ -1,13 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
+#include "Editor/GameplayDebuggerInputConfigCustomization.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "GameplayDebuggerTypes.h"
 
 #if WITH_EDITOR
-#include "UnrealEd.h"
-#include "PropertyEditing.h"
-#include "PropertyCustomizationHelpers.h"
+#include "Widgets/Text/STextBlock.h"
+#include "DetailWidgetRow.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailLayoutBuilder.h"
 #include "GameplayDebuggerConfig.h"
-#include "GameplayDebuggerInputConfigCustomization.h"
 
 #define LOCTEXT_NAMESPACE "GameplayDebuggerConfig"
 

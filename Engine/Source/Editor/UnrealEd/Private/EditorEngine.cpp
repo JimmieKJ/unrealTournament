@@ -1,120 +1,176 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Editor/EditorEngine.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/MetaData.h"
+#include "Serialization/ArchiveTraceRoute.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Application/ThrottleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "EditorStyleSettings.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Components/LightComponent.h"
+#include "Tickable.h"
+#include "TickableEditorObject.h"
+#include "ActorFactories/ActorFactory.h"
+#include "ActorFactories/ActorFactoryBlueprint.h"
+#include "ActorFactories/ActorFactoryBoxVolume.h"
+#include "ActorFactories/ActorFactoryCylinderVolume.h"
+#include "ActorFactories/ActorFactorySphereVolume.h"
+#include "Engine/Font.h"
+#include "Engine/BrushBuilder.h"
+#include "Builders/CubeBuilder.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlModule.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Settings/EditorLoadingSavingSettings.h"
+#include "Animation/AnimBlueprint.h"
+#include "Factories/LevelFactory.h"
+#include "Factories/TextureRenderTargetFactoryNew.h"
+#include "Editor/GroupActor.h"
+#include "Settings/LevelEditorMiscSettings.h"
+#include "Engine/Texture2D.h"
+#include "Animation/SkeletalMeshActor.h"
+#include "Engine/NavigationObjectBase.h"
+#include "GameFramework/PlayerStart.h"
+#include "Engine/StaticMesh.h"
+#include "Sound/SoundBase.h"
+#include "GameFramework/Volume.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/UObjectIterator.h"
+#include "Serialization/ArchiveReplaceObjectRef.h"
+#include "Misc/RedirectCollector.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/Light.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/SkyLightComponent.h"
+#include "Components/ReflectionCaptureComponent.h"
+#include "Engine/Polys.h"
+#include "Engine/Selection.h"
+#include "Sound/SoundCue.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "UnrealEngine.h"
+#include "EngineUtils.h"
+#include "Editor.h"
+#include "EditorViewportClient.h"
+#include "LevelEditorViewport.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "UnrealEdMisc.h"
+#include "EditorDirectories.h"
+#include "FileHelpers.h"
+#include "EditorModeInterpolation.h"
+#include "Dialogs/Dialogs.h"
+#include "UnrealEdGlobals.h"
 #include "Matinee/MatineeActor.h"
 #include "InteractiveFoliageActor.h"
-#include "Animation/SkeletalMeshActor.h"
 #include "Engine/WorldComposition.h"
 #include "EditorSupportDelegates.h"
-#include "Factories.h"
 #include "BSPOps.h"
 #include "EditorCommandLineUtils.h"
+#include "Engine/NetDriver.h"
 #include "Net/NetworkProfiler.h"
-#include "UObjectGlobals.h"
+#include "Interfaces/IPluginManager.h"
 
 // needed for the RemotePropagator
-#include "SoundDefinitions.h"
-#include "Database.h"
+#include "AudioDevice.h"
 #include "SurfaceIterators.h"
 #include "ScopedTransaction.h"
 
-#include "ISourceControlModule.h"
 #include "ILocalizationServiceModule.h"
 #include "PackageBackup.h"
+#include "Engine/LevelStreaming.h"
 #include "LevelUtils.h"
 #include "Layers/Layers.h"
 #include "EditorLevelUtils.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "PropertyEditorModule.h"
 #include "AssetSelection.h"
-#include "FXSystem.h"
 
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/KismetDebugUtilities.h"
-#include "Editor/Kismet/Public/BlueprintEditorModule.h"
-#include "Engine/InheritableComponentHandler.h"
 
-#include "BlueprintUtilities.h"
 
 #include "AssetRegistryModule.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
+#include "ISourceCodeAccessor.h"
 #include "ISourceCodeAccessModule.h"
 
 #include "Settings/EditorSettings.h"
 
-#include "Editor/MainFrame/Public/MainFrame.h"
-#include "AnimationUtils.h"
-#include "AudioDecompress.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "LevelEditor.h"
 #include "SCreateAssetFromObject.h"
 
 #include "Editor/ActorPositioning.h"
 
-#include "Developer/DirectoryWatcher/Public/DirectoryWatcherModule.h"
+#include "IDirectoryWatcher.h"
+#include "DirectoryWatcherModule.h"
 
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "Editor/LevelEditor/Public/ILevelViewport.h"
+#include "Slate/SceneViewport.h"
+#include "ILevelViewport.h"
 
-#include "ComponentReregisterContext.h"
+#include "ContentStreaming.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "EngineModule.h"
-#include "RendererInterface.h"
+
+#include "EditorWorldManager.h"
 
 #if PLATFORM_WINDOWS
+	#include "WindowsHWrapper.h"
 // For WAVEFORMATEXTENSIBLE
 	#include "AllowWindowsPlatformTypes.h"
 #include <mmreg.h>
 	#include "HideWindowsPlatformTypes.h"
 #endif
 
-#include "AudioDerivedData.h"
-#include "Projects.h"
-#include "TargetPlatform.h"
-#include "RemoteConfigIni.h"
+#include "ProjectDescriptor.h"
+#include "Interfaces/IProjectManager.h"
+#include "Misc/RemoteConfigIni.h"
 
-#include "AssetToolsModule.h"
+#include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
-#include "ObjectTools.h"
-#include "MessageLogModule.h"
 
-#include "GameProjectGenerationModule.h"
 #include "ActorEditorUtils.h"
 #include "SnappingUtils.h"
-#include "EditorViewportCommands.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 
 #include "MRUFavoritesList.h"
-#include "EditorStyle.h"
-#include "EngineBuildSettings.h"
+#include "Misc/EngineBuildSettings.h"
 
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
 
 // AIMdule
-#include "BehaviorTree/BehaviorTreeManager.h"
 
-#include "HotReloadInterface.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "Engine/GameEngine.h"
-#include "Engine/TextureRenderTarget2D.h"
+#include "Misc/HotReloadInterface.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "GameFramework/GameUserSettings.h"
-#include "Engine/Light.h"
 #include "Engine/LevelStreamingVolume.h"
-#include "Sound/SoundCue.h"
-#include "Components/BrushComponent.h"
 #include "Engine/LocalPlayer.h"
-#include "Components/SkyLightComponent.h"
-#include "Components/ReflectionCaptureComponent.h"
-#include "Engine/Polys.h"
-#include "UnrealEngine.h"
 #include "EngineStats.h"
-#include "Engine/SimpleConstructionScript.h"
-#include "PackageTools.h"
 
-#include "FileHelpers.h"
 #if !UE_BUILD_SHIPPING
-#include "AutomationCommon.h"
+#include "Tests/AutomationCommon.h"
 #endif
 
 #include "PhysicsPublic.h"
@@ -122,6 +178,9 @@
 #include "ShaderCompiler.h"
 
 #include "PixelInspectorModule.h"
+
+#include "SourceCodeNavigation.h"
+#include "GameProjectUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditor, Log, All);
 
@@ -549,6 +608,9 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 	// create the timer manager
 	TimerManager = MakeShareable(new FTimerManager());
 
+	// create the editor world manager
+	EditorWorldManager = MakeShareable(new FEditorWorldManager());
+
 	// Settings.
 	FBSPOps::GFastRebuild = 0;
 
@@ -645,6 +707,13 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	AssetRegistryModule.Get().OnInMemoryAssetCreated().AddUObject(this, &UEditorEngine::OnAssetCreated);
 	
+	// Initialize vanilla status before other systems that consume its status are started inside InitEditor()
+	UpdateIsVanillaProduct();
+	FSourceCodeNavigation::AccessOnNewModuleAdded().AddLambda([this](FName InModuleName)
+	{
+		UpdateIsVanillaProduct();
+	});
+
 	// Init editor.
 	SlowTask.EnterProgressFrame(40);
 	GEditor = this;
@@ -692,17 +761,14 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 			TEXT("AutomationController"),
 			TEXT("DeviceManager"),
 			TEXT("ProfilerClient"),
-//			TEXT("Search"),
 			TEXT("SessionFrontend"),
 			TEXT("ProjectLauncher"),
 			TEXT("SettingsEditor"),
 			TEXT("EditorSettingsViewer"),
 			TEXT("ProjectSettingsViewer"),
 			TEXT("Blutility"),
-			//TEXT("OnlineBlueprintSupport"),
 			TEXT("XmlParser"),
 			TEXT("UserFeedback"),
-			TEXT("GameplayTagsEditor"),
 			TEXT("UndoHistory"),
 			TEXT("DeviceProfileEditor"),
 			TEXT("SourceCodeAccess"),
@@ -714,7 +780,8 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 			TEXT("SizeMap"),
 			TEXT("MergeActors"),
 			TEXT("NiagaraEditor"),
-			TEXT("EditorAutomation"),
+			TEXT("InputBindingEditor"),
+			TEXT("AudioEditor")
 		};
 
 		FScopedSlowTask ModuleSlowTask(ARRAY_COUNT(ModuleNames));
@@ -766,14 +833,6 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 		{
 			FModuleManager::Get().LoadModule(TEXT("EnvironmentQueryEditor"));
 		}
-
-		bool bGameplayAbilitiesEnabled = false;
-		GConfig->GetBool(TEXT("GameplayAbilities"), TEXT("GameplayAbilitiesEditorEnabled"), bGameplayAbilitiesEnabled, GEngineIni);
-		if (bGameplayAbilitiesEnabled)
-		{
-			FModuleManager::Get().LoadModule(TEXT("GameplayAbilitiesEditor"));
-		}
-
 
 		FModuleManager::Get().LoadModule(TEXT("LogVisualizer"));
 		FModuleManager::Get().LoadModule(TEXT("HotReload"));
@@ -1477,7 +1536,10 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			ViewportClient->Tick(DeltaSeconds);
 		}
 	}
-	
+
+	// Updates the ViewportWorldInteraction
+	EditorWorldManager->Tick( DeltaSeconds );
+
 	bool bIsMouseOverAnyLevelViewport = false;
 
 	//Do this check separate to the above loop as the ViewportClient may no longer be valid after we have ticked it
@@ -1849,7 +1911,8 @@ void UEditorEngine::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 			Blueprint->Status = BS_Dirty;
 		}
 	}
-	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UEngine, bOptimizeAnimBlueprintMemberVariableAccess))
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UEngine, bOptimizeAnimBlueprintMemberVariableAccess) ||
+			 PropertyName == GET_MEMBER_NAME_CHECKED(UEngine, bAllowMultiThreadedAnimationUpdate))
 	{
 		FScopedSlowTask SlowTask(100, LOCTEXT("DirtyingAnimBlueprintsDueToOptimizationChange", "Invalidating All Anim Blueprints"));
 
@@ -1979,7 +2042,7 @@ UAudioComponent* UEditorEngine::ResetPreviewAudioComponent( USoundBase* Sound, U
 			PreviewSoundCue = NewObject<USoundCue>();
 			// Set world to NULL as it will most likely become invalid in the next PIE/Simulate session and the
 			// component will be left with invalid pointer.
-			PreviewAudioComponent = FAudioDevice::CreateComponent(PreviewSoundCue, NULL, NULL, false);
+			PreviewAudioComponent = FAudioDevice::CreateComponent(PreviewSoundCue);
 		}
 
 		check(PreviewAudioComponent);
@@ -3086,7 +3149,6 @@ struct FConvertStaticMeshActorInfo
 	UStaticMesh*						StaticMesh;
 	USkeletalMesh*						SkeletalMesh;
 	TArray<UMaterialInterface*>			OverrideMaterials;
-	TArray<FGuid>						IrrelevantLights;
 	float								CachedMaxDrawDistance;
 	bool								CastShadow;
 
@@ -3109,7 +3171,7 @@ struct FConvertStaticMeshActorInfo
 	 * We don't want to simply copy all properties, because classes with different defaults will have
 	 * their defaults hosed by other types.
 	 */
-	bool bComponentPropsDifferFromDefaults[7];
+	bool bComponentPropsDifferFromDefaults[6];
 
 	AGroupActor* ActorGroup;
 
@@ -3136,9 +3198,8 @@ struct FConvertStaticMeshActorInfo
 		InternalGetFromActor(Actor);
 
 		// Copy over component properties.
-		StaticMesh				= MeshComp->StaticMesh;
+		StaticMesh				= MeshComp->GetStaticMesh();
 		OverrideMaterials		= MeshComp->OverrideMaterials;
-		IrrelevantLights		= MeshComp->IrrelevantLights;
 		CachedMaxDrawDistance	= MeshComp->CachedMaxDrawDistance;
 		CastShadow				= MeshComp->CastShadow;
 
@@ -3168,11 +3229,10 @@ struct FConvertStaticMeshActorInfo
 		// Record which component properties differ from their defaults.
 		bComponentPropsDifferFromDefaults[0] = PropsDiffer( TEXT("Engine.StaticMeshComponent:StaticMesh"), MeshComp );
 		bComponentPropsDifferFromDefaults[1] = true; // Assume the materials array always differs.
-		bComponentPropsDifferFromDefaults[2] = true; // Assume the set of irrelevant lights always differs.
-		bComponentPropsDifferFromDefaults[3] = PropsDiffer( TEXT("Engine.PrimitiveComponent:CachedMaxDrawDistance"), MeshComp );
-		bComponentPropsDifferFromDefaults[4] = PropsDiffer( TEXT("Engine.PrimitiveComponent:CastShadow"), MeshComp );
-		bComponentPropsDifferFromDefaults[5] = PropsDiffer( TEXT("Engine.PrimitiveComponent:BodyInstance"), MeshComp );
-		bComponentPropsDifferFromDefaults[6] = bHasAnyVertexOverrideColors;	// Differs from default if there are any vertex override colors
+		bComponentPropsDifferFromDefaults[2] = PropsDiffer( TEXT("Engine.PrimitiveComponent:CachedMaxDrawDistance"), MeshComp );
+		bComponentPropsDifferFromDefaults[3] = PropsDiffer( TEXT("Engine.PrimitiveComponent:CastShadow"), MeshComp );
+		bComponentPropsDifferFromDefaults[4] = PropsDiffer( TEXT("Engine.PrimitiveComponent:BodyInstance"), MeshComp );
+		bComponentPropsDifferFromDefaults[5] = bHasAnyVertexOverrideColors;	// Differs from default if there are any vertex override colors
 	}
 
 	void SetToActor(AActor* Actor, UStaticMeshComponent* MeshComp)
@@ -3180,19 +3240,18 @@ struct FConvertStaticMeshActorInfo
 		InternalSetToActor(Actor);
 
 		// Set component properties.
-		if ( bComponentPropsDifferFromDefaults[0] ) MeshComp->StaticMesh			= StaticMesh;
+		if ( bComponentPropsDifferFromDefaults[0] ) MeshComp->SetStaticMesh(StaticMesh);
 		if ( bComponentPropsDifferFromDefaults[1] ) MeshComp->OverrideMaterials		= OverrideMaterials;
-		if ( bComponentPropsDifferFromDefaults[2] ) MeshComp->IrrelevantLights		= IrrelevantLights;
-		if ( bComponentPropsDifferFromDefaults[3] ) MeshComp->CachedMaxDrawDistance	= CachedMaxDrawDistance;
-		if ( bComponentPropsDifferFromDefaults[4] ) MeshComp->CastShadow			= CastShadow;
-		if ( bComponentPropsDifferFromDefaults[5] ) 
+		if ( bComponentPropsDifferFromDefaults[2] ) MeshComp->CachedMaxDrawDistance	= CachedMaxDrawDistance;
+		if ( bComponentPropsDifferFromDefaults[3] ) MeshComp->CastShadow			= CastShadow;
+		if ( bComponentPropsDifferFromDefaults[4] ) 
 		{
 			MeshComp->BodyInstance.CopyBodyInstancePropertiesFrom(&BodyInstance);
 		}
-		if ( bComponentPropsDifferFromDefaults[6] )
+		if ( bComponentPropsDifferFromDefaults[5] )
 		{
 			// Ensure the LODInfo has the right number of entries
-			MeshComp->SetLODDataCount( OverrideVertexColors.Num(), MeshComp->StaticMesh->GetNumLODs() );
+			MeshComp->SetLODDataCount( OverrideVertexColors.Num(), MeshComp->GetStaticMesh()->GetNumLODs() );
 			
 			// Loop over each LODInfo to see if there are any vertex override colors to restore
 			for ( int32 LODIndex = 0; LODIndex < MeshComp->LODData.Num(); ++LODIndex )
@@ -3249,11 +3308,10 @@ struct FConvertStaticMeshActorInfo
 		// Record which component properties differ from their defaults.
 		bComponentPropsDifferFromDefaults[0] = PropsDiffer( TEXT("Engine.SkinnedMeshComponent:SkeletalMesh"), MeshComp );
 		bComponentPropsDifferFromDefaults[1] = true; // Assume the materials array always differs.
-		bComponentPropsDifferFromDefaults[2] = true; // Assume the set of irrelevant lights always differs.
-		bComponentPropsDifferFromDefaults[3] = PropsDiffer( TEXT("Engine.PrimitiveComponent:CachedMaxDrawDistance"), MeshComp );
-		bComponentPropsDifferFromDefaults[4] = PropsDiffer( TEXT("Engine.PrimitiveComponent:CastShadow"), MeshComp );
-		bComponentPropsDifferFromDefaults[5] = PropsDiffer( TEXT("Engine.PrimitiveComponent:BodyInstance"), MeshComp );
-		bComponentPropsDifferFromDefaults[6] = false;	// Differs from default if there are any vertex override colors
+		bComponentPropsDifferFromDefaults[2] = PropsDiffer( TEXT("Engine.PrimitiveComponent:CachedMaxDrawDistance"), MeshComp );
+		bComponentPropsDifferFromDefaults[3] = PropsDiffer( TEXT("Engine.PrimitiveComponent:CastShadow"), MeshComp );
+		bComponentPropsDifferFromDefaults[4] = PropsDiffer( TEXT("Engine.PrimitiveComponent:BodyInstance"), MeshComp );
+		bComponentPropsDifferFromDefaults[5] = false;	// Differs from default if there are any vertex override colors
 
 		InternalGetAnimationData(MeshComp);
 	}
@@ -3265,9 +3323,9 @@ struct FConvertStaticMeshActorInfo
 		// Set component properties.
 		if ( bComponentPropsDifferFromDefaults[0] ) MeshComp->SkeletalMesh			= SkeletalMesh;
 		if ( bComponentPropsDifferFromDefaults[1] ) MeshComp->OverrideMaterials		= OverrideMaterials;
-		if ( bComponentPropsDifferFromDefaults[3] ) MeshComp->CachedMaxDrawDistance	= CachedMaxDrawDistance;
-		if ( bComponentPropsDifferFromDefaults[4] ) MeshComp->CastShadow			= CastShadow;
-		if ( bComponentPropsDifferFromDefaults[5] ) MeshComp->BodyInstance.CopyBodyInstancePropertiesFrom(&BodyInstance);
+		if ( bComponentPropsDifferFromDefaults[2] ) MeshComp->CachedMaxDrawDistance	= CachedMaxDrawDistance;
+		if ( bComponentPropsDifferFromDefaults[3] ) MeshComp->CastShadow			= CastShadow;
+		if ( bComponentPropsDifferFromDefaults[4] ) MeshComp->BodyInstance.CopyBodyInstancePropertiesFrom(&BodyInstance);
 
 		InternalSetAnimationData(MeshComp);
 	}
@@ -3440,7 +3498,7 @@ void UEditorEngine::ConvertActorsFromClass( UClass* FromClass, UClass* ToClass )
 				SpawnInfo.OverrideLevel = Info.SourceLevel;
 				SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				if( bToStaticMesh )
-				{					
+				{
 					AStaticMeshActor* SMActor = CastChecked<AStaticMeshActor>( World->SpawnActor( ToClass, &Info.Location, &Info.Rotation, SpawnInfo ) );
 					SMActor->UnregisterAllComponents();
 					Info.SetToActor(SMActor, SMActor->GetStaticMeshComponent());
@@ -3449,8 +3507,9 @@ void UEditorEngine::ConvertActorsFromClass( UClass* FromClass, UClass* ToClass )
 					Actor = SMActor;
 				}
 				else if(bToInteractiveFoliage)
-				{					
+				{
 					AInteractiveFoliageActor* FoliageActor = World->SpawnActor<AInteractiveFoliageActor>( Info.Location, Info.Rotation, SpawnInfo );
+					check(FoliageActor);
 					FoliageActor->UnregisterAllComponents();
 					Info.SetToActor(FoliageActor, FoliageActor->GetStaticMeshComponent());
 					FoliageActor->RegisterAllComponents();
@@ -3951,6 +4010,7 @@ ESavePackageResult UEditorEngine::Save( UPackage* InOuter, UObject* InBase, EObj
 
 	SlowTask.EnterProgressFrame(70);
 
+	UPackage::PreSavePackageEvent.Broadcast(InOuter);
 	const ESavePackageResult Result = UPackage::Save(InOuter, Base, TopLevelFlags, Filename, Error, Conform, bForceByteSwapping, bWarnOfLongFilename, SaveFlags, TargetPlatform, FinalTimeStamp, bSlowTask);
 
 	SlowTask.EnterProgressFrame(10);
@@ -6067,7 +6127,7 @@ bool UEditorEngine::LoadPreviewMesh( int32 Index )
 		if( PreviewMesh )
 		{
 			bMeshLoaded = true;
-			PreviewMeshComp->StaticMesh = PreviewMesh;
+			PreviewMeshComp->SetStaticMesh(PreviewMesh);
 		}
 		else
 		{
@@ -6210,7 +6270,7 @@ void UEditorEngine::UpdateAutoLoadProject()
 			TTypeFromString<uint8>::FromString(ComponentValues[i], *Components[i]);
 		}
 		
-		if(ComponentValues[0] < 10 || ComponentValues[1] < 9 || (ComponentValues[1] == 9 && ComponentValues[2] < 4))
+		if(ComponentValues[0] < 10 || ComponentValues[1] < 12 || (ComponentValues[1] == 12 && ComponentValues[2] < 0))
 		{
 			if(FSlateApplication::IsInitialized())
 			{
@@ -6223,6 +6283,22 @@ void UEditorEngine::UpdateAutoLoadProject()
 			else
 			{
 				UE_LOG(LogEditor, Warning, TEXT("Please update to the latest version of Mac OS X for best performance."));
+			}
+		}
+		
+		if(!FPlatformMisc::HasPlatformFeature(TEXT("Metal")))
+		{
+			if(FSlateApplication::IsInitialized())
+			{
+				FSuppressableWarningDialog::FSetupInfo Info(NSLOCTEXT("MessageDialog", "MessageMacOpenGLDeprecated","Support for running Unreal Engine 4 using OpenGL on macOS is deprecated and will be removed in a future release. Unreal Engine 4 may not render correctly and may run at substantially reduced performance."), NSLOCTEXT("MessageDialog", "TitleMacOpenGLDeprecated", "WARNING: OpenGL on macOS Deprecated"), TEXT("MacOpenGLDeprecated"), GEditorSettingsIni );
+				Info.ConfirmText = LOCTEXT( "OK", "OK");
+				Info.bDefaultToSuppressInTheFuture = true;
+				FSuppressableWarningDialog OSUpdateWarning( Info );
+				OSUpdateWarning.ShowModal();
+			}
+			else
+			{
+				UE_LOG(LogEditor, Warning, TEXT("Support for running Unreal Engine 4 using OpenGL on macOS is deprecated and will be removed in a future release. Unreal Engine 4 may not render correctly and may run at substantially reduced performance."));
 			}
 		}
 		
@@ -6376,9 +6452,14 @@ FORCEINLINE bool NetworkRemapPath_local(FWorldContext &Context, FString &Str, bo
 	}
 }
 
-bool UEditorEngine::NetworkRemapPath( UWorld *InWorld, FString &Str, bool reading)
+bool UEditorEngine::NetworkRemapPath(UNetDriver* Driver, FString &Str, bool reading)
 {
-	FWorldContext &Context = GetWorldContextFromWorldChecked(InWorld);
+	if (Driver == nullptr)
+	{
+		return false;
+	}
+
+	FWorldContext &Context = GetWorldContextFromWorldChecked(Driver->GetWorld());
 	if (Context.PIEPrefix.IsEmpty() || Context.PIERemapPrefix.IsEmpty())
 	{
 		return false;
@@ -6408,7 +6489,7 @@ void UEditorEngine::VerifyLoadMapWorldCleanup()
 	for( TObjectIterator<UWorld> It; It; ++It )
 	{
 		UWorld* World = *It;
-		if (World->WorldType != EWorldType::Preview && World->WorldType != EWorldType::Editor && World->WorldType != EWorldType::Inactive)
+		if (World->WorldType != EWorldType::EditorPreview && World->WorldType != EWorldType::Editor && World->WorldType != EWorldType::Inactive)
 		{
 			TArray<UWorld*> OtherEditorWorlds;
 			EditorLevelUtils::GetWorlds(EditorWorld, OtherEditorWorlds, true, false);
@@ -6452,6 +6533,43 @@ void UEditorEngine::VerifyLoadMapWorldCleanup()
 			}
 		}
 	}
+}
+
+void UEditorEngine::UpdateIsVanillaProduct()
+{
+	// Check that we're running a content-only project through an installed build of the engine
+	bool bResult = false;
+	if (FApp::IsEngineInstalled() && !GameProjectUtils::ProjectHasCodeFiles())
+	{
+		// Check the build was installed by the launcher
+		IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+		FString Identifier = DesktopPlatform->GetCurrentEngineIdentifier();
+		if (Identifier.Len() > 0)
+		{
+			FEngineVersion Version;
+			if (DesktopPlatform->TryParseStockEngineVersion(Identifier, Version))
+			{
+				// Check if we have any marketplace plugins enabled
+				bool bHasMarketplacePlugin = false;
+				for (const TSharedRef<IPlugin>& Plugin : IPluginManager::Get().GetEnabledPlugins())
+				{
+					if (Plugin->GetDescriptor().MarketplaceURL.Len() > 0)
+					{
+						bHasMarketplacePlugin = true;
+						break;
+					}
+				}
+
+				// If not, we're running Epic-only code.
+				if (!bHasMarketplacePlugin)
+				{
+					bResult = true;
+				}
+			}
+		}
+	}
+
+	SetIsVanillaProduct(bResult);
 }
 
 void UEditorEngine::HandleBrowseToDefaultMapFailure(FWorldContext& Context, const FString& TextURL, const FString& Error)
@@ -6734,7 +6852,7 @@ void UEditorEngine::AutomationLoadMap(const FString& MapName, FString* OutError)
 	if (bNeedPieStart)
 	{
 		//TODO NICKD We need a better way to determine when to start the map.
-		//ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(10.f));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(10.f));
 	}
 #endif
 	return;

@@ -2,14 +2,24 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Templates/UnrealTemplate.h"
+#include "Templates/Decay.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Templates/Function.h"
+#include "Delegates/Delegate.h"
+#include "HAL/PlatformTime.h"
+#include "HAL/ThreadSafeCounter64.h"
+
 #ifndef ENABLE_COOK_STATS
 #define ENABLE_COOK_STATS WITH_EDITOR
 #endif
 
-#if ENABLE_COOK_STATS
-#include "Core.h"
-#include "ThreadingBase.h"
+template <typename FuncType> class TFunctionRef;
+template <typename T> struct TDecay;
 
+#if ENABLE_COOK_STATS
 /**
  * Centralizes the system to gather stats from a cook that need to be collected at the core/engine level.
  * Essentially, add a delegate to the CookStatsCallbacks member. When a cook a complete that is configured to use stats (ENABLE_COOK_STATS),

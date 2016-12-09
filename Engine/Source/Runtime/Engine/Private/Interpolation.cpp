@@ -4,12 +4,47 @@
 	Interpolation.cpp: Code for supporting interpolation of properties in-game.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Interpolation.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/App.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/EngineTypes.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
+#include "HitProxies.h"
+#include "GameFramework/Controller.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/LightComponent.h"
+#include "Components/DecalComponent.h"
+#include "Camera/PlayerCameraManager.h"
+#include "Camera/CameraActor.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "GameFramework/PlayerController.h"
+#include "Materials/Material.h"
+#include "GameFramework/WorldSettings.h"
+#include "Components/BillboardComponent.h"
+#include "Particles/Emitter.h"
+#include "Animation/Skeleton.h"
+#include "Engine/Texture2D.h"
+#include "Engine/Light.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Engine/LocalPlayer.h"
+#include "Sound/SoundBase.h"
+#include "ContentStreaming.h"
+#include "TimerManager.h"
 #include "Engine/LevelScriptActor.h"
+#include "Matinee/MatineeActor.h"
 #include "Matinee/MatineeActorCameraAnim.h"
 #include "Matinee/InterpData.h"
+#include "Matinee/InterpTrackInst.h"
 #include "Matinee/InterpTrackInstProperty.h"
+#include "Matinee/InterpTrack.h"
 #include "Matinee/InterpTrackMove.h"
+#include "Matinee/InterpTrackFloatBase.h"
 #include "Matinee/InterpTrackMoveAxis.h"
 #include "Matinee/InterpTrackInstMove.h"
 #include "Matinee/InterpTrackDirector.h"
@@ -26,6 +61,7 @@
 #include "Matinee/InterpTrackInstFade.h"
 #include "Matinee/InterpTrackSlomo.h"
 #include "Matinee/InterpTrackInstSlomo.h"
+#include "Matinee/InterpTrackVectorBase.h"
 #include "Matinee/InterpTrackSound.h"
 #include "Matinee/InterpTrackInstSound.h"
 #include "Matinee/InterpTrackLinearColorBase.h"
@@ -57,34 +93,28 @@
 #include "Matinee/InterpGroupInstDirector.h"
 #include "Matinee/InterpGroupCamera.h"
 #include "Matinee/InterpGroupInstCamera.h"
+#include "Matinee/InterpFilter.h"
 #include "Matinee/InterpFilter_Classes.h"
 #include "Matinee/InterpFilter_Custom.h"
 #include "Materials/MaterialInstanceActor.h"
+#include "Matinee/MatineeAnimInterface.h"
 #include "Animation/SkeletalMeshActor.h"
-#include "ParticleDefinitions.h"
 #include "AudioDevice.h"
-#include "Sound/SoundBase.h"
 #include "InterpolationHitProxy.h"
-#include "AVIWriter.h"
 #include "AnimationUtils.h"
 #include "MatineeUtils.h"
-#include "Particles/Emitter.h"
-#include "Particles/ParticleSystemComponent.h"
-#include "Particles/ParticleSystemReplay.h"
-#include "ContentStreaming.h"
 #include "Matinee/InterpTrackFloatAnimBPParam.h"
 #include "Matinee/InterpTrackInstFloatAnimBPParam.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
+#include "Particles/ParticleSystemReplay.h"
+#include "GameFramework/GameState.h"
 
 #if WITH_EDITOR
-#include "UnrealEd.h"
-#endif
-#include "GameFramework/GameState.h"
-#include "Engine/Light.h"
-#include "Components/DecalComponent.h"
-
 #include "Sound/SoundCue.h"
+#include "Editor.h"
+#endif
+
 
 DEFINE_LOG_CATEGORY(LogMatinee);
 
@@ -861,14 +891,17 @@ void AMatineeActor::InitInterp()
 
 		// Cache whether or not we want to enable extreme content within this sequence
 		bShouldShowGore = true;
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		if( GetWorld() != NULL && GetWorld()->GetWorldSettings() != NULL )
 		{
-			AGameState const* const GameState = GetWorld()->GameState;
+			AGameState const* const GameState = GetWorld()->GetGameState<AGameState>();
 			if( GameState != NULL )
 			{
 				bShouldShowGore = GameState->ShouldShowGore();
 			}
 		}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 		for(int32 GroupIndex=0; GroupIndex<MatineeData->InterpGroups.Num(); GroupIndex++)
 		{
@@ -884,7 +917,7 @@ void AMatineeActor::InitInterp()
 					// iterate through the controller list
 					for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 					{
-						APlayerController *PC = *Iterator;
+						APlayerController *PC = Iterator->Get();
 
 						// If it's a player and this sequence is compatible with the player...
 						if (IsMatineeCompatibleWithPlayer( PC ) )
@@ -1254,7 +1287,7 @@ void AMatineeActor::EnableCinematicMode(bool bEnable)
 	{
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController *PC = *Iterator;
+			APlayerController *PC = Iterator->Get();
 			if (bReplicates || PC->IsLocalController())
 			{
 				PC->SetCinematicMode(bEnable, bHidePlayer, bHideHud, bDisableMovementInput, bDisableLookAtInput);
@@ -7435,8 +7468,8 @@ void UInterpTrackAnimControl::UpdateTrack(float NewPosition, UInterpTrackInst* T
 	if(AnimSeqs.Num() == 0 || NewPosition <= AnimInst->LastUpdatePosition || bJump)
 	{
 		UAnimSequence* NewAnimSequence = NULL;
-		float NewAnimPosition;
-		bool bNewLooping;
+		float NewAnimPosition = 0.0f;
+		bool bNewLooping = false;
 		GetAnimForTime(NewPosition, &NewAnimSequence, NewAnimPosition, bNewLooping);
 
 		if( NewAnimSequence != NULL )
@@ -8016,7 +8049,8 @@ void UInterpTrackSound::UpdateTrack(float NewPosition, UInterpTrackInst* TrInst,
 				else
 				{
 					// If there is no AudioComponent - create one now.
-					SoundInst->PlayAudioComp = FAudioDevice::CreateComponent(NewSound, SoundInst->GetWorld(), Actor, false, false);
+					FAudioDevice::FCreateComponentParams Params(SoundInst->GetWorld(), Actor);
+					SoundInst->PlayAudioComp = FAudioDevice::CreateComponent(NewSound, Params);
 					if(SoundInst->PlayAudioComp)
 					{
 						// If we have no actor to attach sound to - its location is meaningless, so we turn off spatialization.
@@ -8133,7 +8167,7 @@ void UInterpTrackSound::PreviewUpdateTrack(float NewPosition, UInterpTrackInst* 
 				: false;
 
 		USoundCue* TempPlaybackAudioCue = NewObject<USoundCue>();
-		UAudioComponent* Component = FAudioDevice::CreateComponent(TempPlaybackAudioCue, NULL, NULL, false, false);
+		UAudioComponent* Component = FAudioDevice::CreateComponent(TempPlaybackAudioCue);
 
 		if ( bIsInRange && Component )
 		{

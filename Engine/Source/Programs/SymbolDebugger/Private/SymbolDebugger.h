@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "SSymbolDebugger.h"
 #include "AsyncWork.h"
+#include "CrashDebugHelper.h"
 
 /**
  *	Async inspection helper class

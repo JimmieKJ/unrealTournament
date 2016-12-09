@@ -5,23 +5,11 @@
   <Date>2016-06-10T17:58:02.2788378-04:00</Date>
   <Function />
   <Justification />
-  <Platforms>
-    <Platform>PC</Platform>
-  </Platforms>
-  <Products>
-    <Product>UDK4</Product>
-    <Product>UE4</Product>
-  </Products>
-  <TpsType>Source Code</TpsType>
-  <Eula>Refer to IPP Agreement in Contraxx</Eula>
+  <Eula>Custom agreement between Epic/Oculus, refer to IPP Agreement in Contraxx</Eula>
   <RedistributeTo>
     <EndUserGroup>Licensees</EndUserGroup>
     <EndUserGroup>Git</EndUserGroup>
     <EndUserGroup>P4</EndUserGroup>
   </RedistributeTo>
-  <Redistribute>false</Redistribute>
-  <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
   <LicenseFolder>None</LicenseFolder>
 </TpsData>

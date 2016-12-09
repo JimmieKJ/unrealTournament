@@ -2,14 +2,17 @@
 
 #pragma once
 
-#include "EnableIf.h"
-#include "PointerIsConvertibleFromTo.h"
-#include "TypeWrapper.h"
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
+#include "Templates/IsPointer.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/EnableIf.h"
+#include "Templates/AndOrNot.h"
+#include "Templates/AreTypesEqual.h"
+#include "Templates/IsArithmetic.h"
 #include "Templates/UnrealTypeTraits.h"
-#include "UnrealMemory.h"
-#include "AlignmentTemplates.h"
-
+#include "Templates/RemoveReference.h"
+#include "Templates/TypeCompatibleBytes.h"
+#include "Traits/IsContiguousContainer.h"
 
 /*-----------------------------------------------------------------------------
 	Standard templates.
@@ -75,16 +78,45 @@ FORCEINLINE void Move(T& A,typename TMoveSupportTraits<T>::Move B)
 }
 
 /**
- * Tests if an index is valid for a given array.
- *
- * @param Array  The array to check against.
- * @param Index  The index to check.
- * @return true if the index is valid, false otherwise.
+ * Generically gets the data pointer of a contiguous container
  */
-template <typename T, SIZE_T N>
-static FORCEINLINE bool IsValidArrayIndex(const T(&Array)[N], SIZE_T Index)
+template<typename T, typename = typename TEnableIf<TIsContiguousContainer<T>::Value>::Type>
+auto GetData(T&& Container) -> decltype(Container.GetData())
 {
-	return Index < N;
+	return Container.GetData();
+}
+
+template <typename T, SIZE_T N>
+CONSTEXPR T* GetData(T (&Container)[N])
+{
+	return Container;
+}
+
+template <typename T>
+CONSTEXPR T* GetData(std::initializer_list<T> List)
+{
+	return List.begin();
+}
+
+/**
+* Generically gets the number of items in a contiguous container
+*/
+template<typename T, typename = typename TEnableIf<TIsContiguousContainer<T>::Value>::Type>
+SIZE_T GetNum(T&& Container)
+{
+	return (SIZE_T)Container.Num();
+}
+
+template <typename T, SIZE_T N>
+CONSTEXPR SIZE_T GetNum(T (&Container)[N])
+{
+	return N;
+}
+
+template <typename T>
+CONSTEXPR SIZE_T GetNum(std::initializer_list<T> List)
+{
+	return List.size();
 }
 
 /*----------------------------------------------------------------------------
@@ -236,24 +268,6 @@ private:
 	Type OldValue;
 };
 
-/** Chooses between two different classes based on a boolean. */
-template<bool Predicate,typename TrueClass,typename FalseClass>
-class TChooseClass;
-
-template<typename TrueClass,typename FalseClass>
-class TChooseClass<true,TrueClass,FalseClass>
-{
-public:
-	typedef TrueClass Result;
-};
-
-template<typename TrueClass,typename FalseClass>
-class TChooseClass<false,TrueClass,FalseClass>
-{
-public:
-	typedef FalseClass Result;
-};
-
 /**
  * Helper class to make it easy to use key/value pairs with a container.
  */
@@ -312,13 +326,6 @@ template <typename T> struct TRemovePointer     { typedef T Type; };
 template <typename T> struct TRemovePointer<T*> { typedef T Type; };
 
 /**
- * TRemoveReference<type> will remove any references from a type.
- */
-template <typename T> struct TRemoveReference      { typedef T Type; };
-template <typename T> struct TRemoveReference<T& > { typedef T Type; };
-template <typename T> struct TRemoveReference<T&&> { typedef T Type; };
-
-/**
  * MoveTemp will cast a reference to an rvalue reference.
  * This is UE's equivalent of std::move.
  */
@@ -369,12 +376,34 @@ FORCEINLINE T&& Forward(typename TRemoveReference<T>::Type&& Obj)
 }
 
 /**
+ * A traits class which specifies whether a Swap of a given type should swap the bits or use a traditional value-based swap.
+ */
+template <typename T>
+struct TUseBitwiseSwap
+{
+	// We don't use bitwise swapping for 'register' types because this will force them into memory and be slower.
+	enum { Value = !TOrValue<__is_enum(T), TIsPointer<T>, TIsArithmetic<T>>::Value };
+};
+
+
+/**
  * Swap two values.  Assumes the types are trivially relocatable.
  */
 template <typename T>
-inline void Swap(T& A, T& B)
+inline typename TEnableIf<TUseBitwiseSwap<T>::Value>::Type Swap(T& A, T& B)
 {
-	FMemory::Memswap(&A, &B, sizeof(T));
+	TTypeCompatibleBytes<T> Temp;
+	FMemory::Memcpy(&Temp, &A, sizeof(T));
+	FMemory::Memcpy(&A, &B, sizeof(T));
+	FMemory::Memcpy(&B, &Temp, sizeof(T));
+}
+
+template <typename T>
+inline typename TEnableIf<!TUseBitwiseSwap<T>::Value>::Type Swap(T& A, T& B)
+{
+	T Temp = MoveTemp(A);
+	A = MoveTemp(B);
+	B = MoveTemp(Temp);
 }
 
 template <typename T>
@@ -399,43 +428,6 @@ FORCEINLINE T StaticCast(ArgType&& Arg)
  */
 template <typename T> struct TRValueToLValueReference      { typedef T  Type; };
 template <typename T> struct TRValueToLValueReference<T&&> { typedef T& Type; };
-
-/**
- * A traits class which tests if a type is a C++ array.
- */
-template <typename T>           struct TIsCPPArray       { enum { Value = false }; };
-template <typename T, uint32 N> struct TIsCPPArray<T[N]> { enum { Value = true  }; };
-
-/**
- * Removes one dimension of extents from an array type.
- */
-template <typename T>           struct TRemoveExtent       { typedef T Type; };
-template <typename T>           struct TRemoveExtent<T[]>  { typedef T Type; };
-template <typename T, uint32 N> struct TRemoveExtent<T[N]> { typedef T Type; };
-
-/**
- * Returns the decayed type of T, meaning it removes all references, qualifiers and
- * applies array-to-pointer and function-to-pointer conversions.
- *
- * http://en.cppreference.com/w/cpp/types/decay
- */
-template <typename T>
-struct TDecay
-{
-private:
-	typedef typename TRemoveReference<T>::Type NoRefs;
-
-public:
-	typedef typename TChooseClass<
-		TIsCPPArray<NoRefs>::Value,
-		typename TRemoveExtent<NoRefs>::Type*,
-		typename TChooseClass<
-			TIsFunction<NoRefs>::Value,
-			NoRefs*,
-			typename TRemoveCV<NoRefs>::Type
-		>::Result
-	>::Result Type;
-};
 
 /**
  * Reverses the order of the bits of a value.
@@ -514,15 +506,6 @@ struct TIdentity
 };
 
 /**
- * Defines a value metafunction of the given Value.
- */
-template <typename T, T Val>
-struct TIntegralConstant
-{
-	static const T Value = Val;
-};
-
-/**
  * Metafunction which returns the specified boolean value.
  */
 template <bool bValue>
@@ -538,18 +521,3 @@ struct TBoolConstant
  */
 template <typename T>
 T&& DeclVal();
-
-
-/**
- * Determines if T is a struct/class type
- */
-template <typename T>
-struct TIsClass
-{
-private:
-	template <typename U> static uint16 Func(int U::*);
-	template <typename U> static uint8  Func(...);
-
-public:
-	enum { Value = !__is_union(T) && sizeof(Func<T>(0)) - 1 };
-};

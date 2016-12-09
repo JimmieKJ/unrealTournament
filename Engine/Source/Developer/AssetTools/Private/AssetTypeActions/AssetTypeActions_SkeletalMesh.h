@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
+#include "AssetTypeActions_Base.h"
+#include "Engine/SkeletalMesh.h"
+
+class FMenuBuilder;
+
 class FAssetTypeActions_SkeletalMesh : public FAssetTypeActions_Base
 {
 public:
@@ -26,10 +33,13 @@ private:
 	void LODImport(TArray<TWeakObjectPtr<USkeletalMesh>> Objects);
 
 	/** Handler for when skeletal mesh LOD sub menu is opened */
-	void GetLODMenu(class FMenuBuilder& MenuBuilder,TArray<TWeakObjectPtr<USkeletalMesh>> Objects);
+	void GetLODMenu(FMenuBuilder& MenuBuilder,TArray<TWeakObjectPtr<USkeletalMesh>> Objects);
+
+	/** Handler to create the menu for new physics assets */
+	void GetPhysicsAssetMenu(FMenuBuilder& MenuBuilder, TArray<TWeakObjectPtr<USkeletalMesh>> Objects);
 
 	/** Handler for when NewPhysicsAsset is selected */
-	void ExecuteNewPhysicsAsset(TArray<TWeakObjectPtr<USkeletalMesh>> Objects);
+	void ExecuteNewPhysicsAsset(TArray<TWeakObjectPtr<USkeletalMesh>> Objects, bool bSetAssetToMesh);
 	
 	/** Handler for when NewSkeleton is selected */
 	void ExecuteNewSkeleton(TArray<TWeakObjectPtr<USkeletalMesh>> Objects);
@@ -40,10 +50,13 @@ private:
 	/** Handler for when FindSkeleton is selected */
 	void ExecuteFindSkeleton(TArray<TWeakObjectPtr<USkeletalMesh>> Objects);
 
+	/** Handler for skeletal mesh import */
+	static void ExecuteImportMeshLOD(class UObject* Mesh, int32 LOD);
+
 	// Helper functions
 private:
 	/** Creates a physics asset based on the mesh */
-	void CreatePhysicsAssetFromMesh(USkeletalMesh* SkelMesh) const;
+	void CreatePhysicsAssetFromMesh(USkeletalMesh* SkelMesh, bool bSetToMesh) const;
 
 	/** Assigns a skeleton to the mesh */
 	void AssignSkeletonToMesh(USkeletalMesh* SkelMesh) const;

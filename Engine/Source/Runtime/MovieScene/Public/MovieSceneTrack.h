@@ -2,12 +2,20 @@
 
 #pragma once
 
-#include "EnumClassFlags.h"
+#include "CoreMinimal.h"
+#include "Misc/EnumClassFlags.h"
+#include "UObject/ObjectMacros.h"
+#include "IMovieSceneTrackInstance.h"
+#include "Misc/Guid.h"
+#include "MovieSceneSignedObject.h"
+#include "MovieSceneSection.h"
+#include "Misc/InlineValue.h"
 #include "MovieSceneTrack.generated.h"
 
-
-class UMovieSceneSection;
-class FMovieSceneSequenceInstance;
+struct FMovieSceneEvaluationTrack;
+struct FMovieSceneSegmentCompilerRules;
+struct FMovieSceneSequenceTemplateStore;
+struct IMovieSceneTemplateGenerator;
 
 /** Flags used to perform cook-time optimization of movie scene data */
 enum class ECookOptimizationFlags
@@ -21,32 +29,189 @@ enum class ECookOptimizationFlags
 };
 ENUM_CLASS_FLAGS(ECookOptimizationFlags)
 
+/** Movie scene compilation parameters. Serialized items contribute to a compiled template's cached hash */
+USTRUCT()
+struct FMovieSceneTrackCompilationParams
+{
+	GENERATED_BODY()
+
+	FMovieSceneTrackCompilationParams()
+		: bForEditorPreview(false)
+	{
+	}
+
+	friend bool operator!=(const FMovieSceneTrackCompilationParams& A, const FMovieSceneTrackCompilationParams& B)
+	{
+		return !(A == B);
+	}
+
+	friend bool operator==(const FMovieSceneTrackCompilationParams& A, const FMovieSceneTrackCompilationParams& B)
+	{
+		return A.bForEditorPreview == B.bForEditorPreview;
+	}
+
+	/** Whether we're generating for an editor preview, or for efficient runtime evaluation */
+	UPROPERTY()
+	bool bForEditorPreview;
+};
+
+/** Track compiler arguments */
+struct FMovieSceneTrackCompilerArgs
+{
+	FMovieSceneTrackCompilerArgs(IMovieSceneTemplateGenerator& InGenerator, FMovieSceneSequenceTemplateStore& InSubSequenceStore)
+		: Generator(InGenerator)
+		, SubSequenceStore(InSubSequenceStore)
+	{
+	}
+
+	/** Compilation parameters */
+	FMovieSceneTrackCompilationParams Params;
+
+	/** The object binding ID that this track belongs to. */
+	FGuid ObjectBindingId;
+
+	/** The generator responsible for generating the template */
+	IMovieSceneTemplateGenerator& Generator;
+
+	/** Store that describes how to find sub sequence templates */
+	FMovieSceneSequenceTemplateStore& SubSequenceStore;
+};
+
+/** Generic evaluation options for any track */
+USTRUCT()
+struct FMovieSceneTrackEvalOptions
+{
+	GENERATED_BODY()
+	
+	FMovieSceneTrackEvalOptions()
+		: bCanEvaluateNearestSection(false)
+		, bEvaluateNearestSection(false)
+		, bEvaluateInPreroll(true)
+		, bEvaluateInPostroll(true)
+	{}
+
+	/** true when the value of bEvaluateNearestSection is to be considered for the track */
+	UPROPERTY()
+	uint32 bCanEvaluateNearestSection : 1;
+
+	/** When evaluating empty space on a track, will evaluate the last position of the previous section (if possible), or the first position of the next section, in that order of preference. */
+	UPROPERTY(EditAnywhere, Category="General", meta=(EditCondition=bCanEvaluateNearestSection))
+	uint32 bEvaluateNearestSection : 1;
+
+	/** Evaluate this track as part of its parent sub-section's pre-roll, if applicable */
+	UPROPERTY(EditAnywhere, Category="General")
+	uint32 bEvaluateInPreroll : 1;
+
+	/** Evaluate this track as part of its parent sub-section's post-roll, if applicable */
+	UPROPERTY(EditAnywhere, Category="General")
+	uint32 bEvaluateInPostroll : 1;
+};
+
+/** Enumeration specifying the result of a compilation */
+enum class EMovieSceneCompileResult : uint8
+{
+	/** The compilation was successful */
+	Success,
+	/** The compilation was not successful */
+	Failure,
+	/** No compilation routine was implemented */
+	Unimplemented
+};
+
 /**
  * Base class for a track in a Movie Scene
  */
 UCLASS(abstract, MinimalAPI)
 class UMovieSceneTrack
-	: public UObject
+	: public UMovieSceneSignedObject
 {
 	GENERATED_BODY()
 
 public:
 
-	UMovieSceneTrack(const FObjectInitializer& InInitializer)
-		: Super(InInitializer)
-	{
-#if WITH_EDITORONLY_DATA
-		TrackTint = FColor(127, 127, 127, 0);
-#endif
-	}
+	MOVIESCENE_API UMovieSceneTrack(const FObjectInitializer& InInitializer);
+
+public:
+
+	/** General evaluation options for a given track */
+	UPROPERTY(EditAnywhere, Category="General", meta=(ShowOnlyInnerProperties))
+	FMovieSceneTrackEvalOptions EvalOptions;
+
+public:
+
+	//~ Methods relating to compilation 
+
+	/** 
+	 * Get compiler rules to use when compiling sections that overlap on the same row.
+	 * These define how to deal with overlapping sections and empty space on a row
+	 */
+	MOVIESCENE_API virtual TInlineValue<FMovieSceneSegmentCompilerRules> GetRowCompilerRules() const;
+
+	/** 
+	 * Get compiler rules to use when compiling sections that overlap on different rows.
+	 * These define how to deal with overlapping sections and empty space at the track level
+	 */
+	MOVIESCENE_API virtual TInlineValue<FMovieSceneSegmentCompilerRules> GetTrackCompilerRules() const;
 
 	/**
-	 * Creates a runtime instance of this class.
-	 * 
-	 * @param SequenceInstance The sequence instance to create this track instance for
-	 * @return The created runtime instance. This must not be nullptr (note sharedptr not sharedref due to compatibility with uobjects not actually allowing pure virtuals)
+	 * Generate a template for this track
+	 *
+	 * @param Args 			Compilation arguments
 	 */
-	virtual TSharedPtr<class IMovieSceneTrackInstance> CreateInstance() PURE_VIRTUAL(UMovieSceneTrack::CreateInstance, check(false); return nullptr;);
+	MOVIESCENE_API virtual void GenerateTemplate(const FMovieSceneTrackCompilerArgs& Args) const;
+
+protected:
+
+	/**
+	 * Overridable user defined custom compilation method
+	 *
+	 * @param Track 		Destination track to compile into
+	 * @param Args 			Compilation arguments
+	 * @return Compilation result
+	 */
+	virtual EMovieSceneCompileResult CustomCompile(FMovieSceneEvaluationTrack& Track, const FMovieSceneTrackCompilerArgs& Args) const { return EMovieSceneCompileResult::Unimplemented; }
+
+	/**
+	 * Called after this track has been compiled, regardless of whether it was compiled through CustomCompile, or the default logic
+	 *
+	 * @param Track 		Destination track to compile into
+	 * @param Args 			Compilation arguments
+	 */
+	virtual void PostCompile(FMovieSceneEvaluationTrack& Track, const FMovieSceneTrackCompilerArgs& Args) const {}
+
+public:
+
+	/**
+	 * Internal function to create a legacy track instance
+	 */
+	TSharedPtr<class IMovieSceneTrackInstance> CreateLegacyInstance() const;
+
+protected:
+
+	/**
+	 * Create a movie scene eval template for the specified section
+	 *
+	 * @param InSection		The section to create a template for
+	 * @return A template, or null
+	 */
+	MOVIESCENE_API virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const;
+
+	/**
+	 * Compile this movie scene track into an efficient runtime structure
+	 *
+	 * @param Track 		Destination track to compile into
+	 * @param Args 			Compilation arguments
+	 * @return Compilation result
+	 */
+	MOVIESCENE_API EMovieSceneCompileResult Compile(FMovieSceneEvaluationTrack& Track, const FMovieSceneTrackCompilerArgs& Args) const;
+
+	/**
+	 * Deprecated method of creating track instances
+	 */
+	DEPRECATED(4.15, "Create Instance has been deprecated. Please provide an evaluation template through CreateTemplateForSection instead.")
+	virtual TSharedPtr<class IMovieSceneTrackInstance> CreateInstance() { return nullptr; }
+
+public:
 
 	/**
 	 * @return The name that makes this track unique from other track of the same class.

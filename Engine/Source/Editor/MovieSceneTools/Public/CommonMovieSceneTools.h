@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Geometry.h"
+
 /**
  * Utility for converting time units to slate pixel units and vice versa
  */

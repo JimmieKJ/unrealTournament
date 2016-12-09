@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node_TemporaryVariable.h"
+#include "Kismet2/Kismet2NameValidators.h"
 #include "K2Node_LocalVariable.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
 
 UCLASS(MinimalAPI, deprecated)
 class UDEPRECATED_K2Node_LocalVariable : public UK2Node_TemporaryVariable

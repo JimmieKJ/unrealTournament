@@ -6,6 +6,11 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "InputCoreTypes.h"
 #include "UnrealEdOptions.generated.h"
 
 /** A category to store a list of commands. */

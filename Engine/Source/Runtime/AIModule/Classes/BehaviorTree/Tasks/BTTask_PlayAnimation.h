@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "BehaviorTree/BTTaskNode.h"
-#include "Components/SkeletalMeshComponent.h"
-#include "BTTask_PlayAnimation.generated.h"
 
-class UAnimationAsset;
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "TimerManager.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "BehaviorTree/BTTaskNode.h"
+#include "BTTask_PlayAnimation.generated.h"
 
 /**
  *	Play indicated AnimationAsset on Pawn controlled by BT 

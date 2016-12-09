@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AnimGraphNode_SkeletalControlBase.h"
 #include "BoneControllers/AnimNode_Fabrik.h"
 #include "AnimGraphNode_Fabrik.generated.h"
+
+class FPrimitiveDrawInterface;
+class USkeletalMeshComponent;
 
 // Editor node for FABRIK IK skeletal controller
 UCLASS(MinimalAPI)
@@ -19,16 +25,11 @@ public:
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	// End of UEdGraphNode interface
 
-	// UAnimGraphNode_SkeletalControlBase interface
-	ANIMGRAPH_API virtual FVector GetWidgetLocation(const USkeletalMeshComponent* SkelComp, struct FAnimNode_SkeletalControlBase* AnimNode) override;
-	ANIMGRAPH_API virtual int32 GetWidgetMode(const USkeletalMeshComponent* SkelComp) override;
-	ANIMGRAPH_API virtual FName FindSelectedBone() override;
-	ANIMGRAPH_API virtual void DoTranslation(const USkeletalMeshComponent* SkelComp, FVector& Drag, FAnimNode_Base* InOutAnimNode) override;
-
-	ANIMGRAPH_API virtual void CopyNodeDataTo(FAnimNode_Base* AnimNode) override;
-	ANIMGRAPH_API virtual void CopyNodeDataFrom(const FAnimNode_Base* NewAnimNode) override;
-	ANIMGRAPH_API virtual void Draw(FPrimitiveDrawInterface* PDI, USkeletalMeshComponent * PreviewSkelMeshComp) const override;
-	// End of UAnimGraphNode_SkeletalControlBase interface
+	// UAnimGraphNode_Base interface
+	virtual void CopyNodeDataToPreviewNode(FAnimNode_Base* AnimNode) override;
+	virtual FEditorModeID GetEditorMode() const override;
+	virtual void Draw(FPrimitiveDrawInterface* PDI, USkeletalMeshComponent * PreviewSkelMeshComp) const override;
+	// End of UAnimGraphNode_Base interface
 
 protected:
 	// UAnimGraphNode_SkeletalControlBase interface

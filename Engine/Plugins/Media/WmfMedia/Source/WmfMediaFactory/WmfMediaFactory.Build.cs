@@ -33,7 +33,14 @@ namespace UnrealBuildTool.Rules
 				}
 			);
 
-			if ((Target.Platform == UnrealTargetPlatform.Win32) || (Target.Platform == UnrealTargetPlatform.Win64))
+			if (Target.Type == TargetRules.TargetType.Editor)
+			{
+				DynamicallyLoadedModuleNames.Add("Settings");
+				PrivateIncludePathModuleNames.Add("Settings");
+			}
+
+			if ((Target.Platform == UnrealTargetPlatform.Win32) ||
+				(Target.Platform == UnrealTargetPlatform.Win64))
 			{
 				DynamicallyLoadedModuleNames.Add("WmfMedia");
 			}

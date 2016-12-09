@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TextureEditorPrivatePCH.h"
+#include "Models/TextureEditorCommands.h"
 
 #define LOCTEXT_NAMESPACE "TextureEditorCommands"
 

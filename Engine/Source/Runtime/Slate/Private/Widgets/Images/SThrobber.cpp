@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SThrobber.h"
+#include "Widgets/Images/SThrobber.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
 
 
 void SThrobber::Construct(const FArguments& InArgs)
@@ -99,6 +102,8 @@ FLinearColor SThrobber::GetPieceColor(int32 PieceIndex) const
 }
 
 // SCircularThrobber
+const float SCircularThrobber::MinimumPeriodValue = SMALL_NUMBER;
+
 void SCircularThrobber::Construct(const FArguments& InArgs)
 {
 	PieceImage = InArgs._PieceImage;
@@ -133,7 +138,7 @@ void SCircularThrobber::SetRadius(const float InRadius)
 void SCircularThrobber::ConstructSequence()
 {
 	Sequence = FCurveSequence();
-	Curve = Sequence.AddCurve(0.f, Period);
+	Curve = Sequence.AddCurve(0.f, FMath::Max(Period, MinimumPeriodValue));
 	Sequence.Play(this->AsShared(), true);
 }
 

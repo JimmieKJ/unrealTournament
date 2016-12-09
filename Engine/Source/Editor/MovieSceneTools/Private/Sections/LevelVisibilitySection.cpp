@@ -1,11 +1,15 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "LevelVisibilitySection.h"
-#include "MovieSceneLevelVisibilitySection.h"
+#include "Sections/LevelVisibilitySection.h"
+#include "Sections/MovieSceneLevelVisibilitySection.h"
+#include "Misc/PackageName.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "SequencerSectionPainter.h"
 #include "SDropTarget.h"
-#include "SExpandableArea.h"
-#include "Editor/UnrealEd/Public/DragAndDrop/LevelDragDropOp.h"
+#include "DragAndDrop/LevelDragDropOp.h"
 
 FLevelVisibilitySection::FLevelVisibilitySection( UMovieSceneLevelVisibilitySection& InSectionObject )
 	: SectionObject( InSectionObject )

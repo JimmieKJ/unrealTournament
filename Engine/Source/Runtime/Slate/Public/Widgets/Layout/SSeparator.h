@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateColor.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Layout/SBorder.h"
 
 class SLATE_API SSeparator : public SBorder
 {

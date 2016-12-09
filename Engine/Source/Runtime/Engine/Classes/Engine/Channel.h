@@ -2,8 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/CoreNet.h"
 #include "Channel.generated.h"
 
+class FInBunch;
+class FOutBunch;
+class UNetConnection;
 
 // Constant for all buffers that are reading from the network
 const int MAX_STRING_SERIALIZE_SIZE	= NAME_SIZE;

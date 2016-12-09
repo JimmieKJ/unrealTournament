@@ -1,6 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Windows/WindowsPlatformNamedPipe.h"
+#include "Templates/IsPointer.h"
+#include "HAL/PlatformMisc.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/AssertionMacros.h"
+#include "Logging/LogMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Misc/CString.h"
+#include "Containers/UnrealString.h"
+#include "CoreGlobals.h"
+#include "Windows/WindowsHWrapper.h"
 
 static void VerifyWinResult(BOOL bResult, const TCHAR* InMessage)
 {
@@ -150,7 +160,7 @@ bool FWindowsPlatformNamedPipe::OpenConnection()
 	check(State == State_Created);
 	//FPlatformMisc::LowLevelOutputDebugStringf(*FString::Printf(TEXT("*** %s: Opening connection\n"), *Name));
 
-	uint32 Result = ConnectNamedPipe(Pipe, &Overlapped);
+	uint32 Result = Windows::ConnectNamedPipe(Pipe, &Overlapped);
 	if (!bUseOverlapped)
 	{
 		if (Result == 0)
@@ -285,8 +295,8 @@ bool FWindowsPlatformNamedPipe::UpdateAsyncStatus()
 				check(bUseOverlapped);
 
 				// Query IO state
-				uint64 Unused = 0;
-				BOOL Result = GetOverlappedResult(Pipe, &Overlapped, (LPDWORD)&Unused, false);
+				Windows::DWORD Unused = 0;
+				Windows::BOOL Result = Windows::GetOverlappedResult(Pipe, &Overlapped, &Unused, false);
 				if (Result)
 				{
 					// Finished
@@ -371,8 +381,8 @@ bool FWindowsPlatformNamedPipe::WriteBytes(int32 NumBytes, const void* Data)
 	//FPlatformMisc::LowLevelOutputDebugStringf(*FString::Printf(TEXT("*** %s: Writing %d bytes\n"), *Name, NumBytes));
 
 	uint64 WrittenBytes = 0;
-	LPDWORD WrittenBytesPtr = bUseOverlapped ? NULL : (LPDWORD)&WrittenBytes;
-	BOOL Result = WriteFile(Pipe, Data, NumBytes, WrittenBytesPtr, &Overlapped);
+	Windows::LPDWORD WrittenBytesPtr = bUseOverlapped ? NULL : (Windows::LPDWORD)&WrittenBytes;
+	BOOL Result = Windows::WriteFile(Pipe, Data, NumBytes, WrittenBytesPtr, &Overlapped);
 	if (!bUseOverlapped)
 	{
 		//FPlatformMisc::LowLevelOutputDebugStringf(*FString::Printf(TEXT("\t\tActually wrote %d bytes\n"), WrittenBytes));
@@ -447,9 +457,9 @@ bool FWindowsPlatformNamedPipe::ReadBytes(int32 NumBytes, void* OutData)
 
 	//FPlatformMisc::LowLevelOutputDebugStringf(*FString::Printf(TEXT("*** %s: Reading %d bytes\n"), *Name, NumBytes));
 
-	uint32 ReadBytes = 0;
-	LPDWORD ReadBytesPtr = bUseOverlapped ? NULL : (LPDWORD)&ReadBytes;
-	BOOL Result = ReadFile(Pipe, OutData, NumBytes, ReadBytesPtr, &Overlapped);
+	Windows::DWORD ReadBytes = 0;
+	Windows::LPDWORD ReadBytesPtr = bUseOverlapped ? NULL : &ReadBytes;
+	BOOL Result = Windows::ReadFile(Pipe, OutData, NumBytes, ReadBytesPtr, &Overlapped);
 	if (!bUseOverlapped)
 	{
 		//FPlatformMisc::LowLevelOutputDebugStringf(*FString::Printf(TEXT("\t\tActually read %d bytes\n"), ReadBytes));

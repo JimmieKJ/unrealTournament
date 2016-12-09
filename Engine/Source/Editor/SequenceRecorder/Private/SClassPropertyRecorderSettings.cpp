@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderPrivatePCH.h"
 #include "SClassPropertyRecorderSettings.h"
-#include "EditorStyle.h"
-#include "SequenceRecorderSettings.h"
-#include "MovieSceneMultiPropertyRecorder.h"
+#include "Templates/SubclassOf.h"
+#include "Widgets/Text/STextBlock.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "IDetailsView.h"
+#include "Sections/MovieSceneMultiPropertyRecorder.h"
 
 #define LOCTEXT_NAMESPACE "SClassPropertyRecorderSettings"
 

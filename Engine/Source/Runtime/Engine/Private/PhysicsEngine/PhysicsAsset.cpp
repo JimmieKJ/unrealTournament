@@ -4,16 +4,14 @@
 	PhysicsAsset.cpp
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "PhysicsEngine/PhysicsConstraintTemplate.h"
-#include "FrameworkObjectVersion.h"
-#include "ReleaseObjectVersion.h"
-#include "MessageLog.h"
-
-#if WITH_PHYSX
-	#include "PhysXSupport.h"
-#endif // WITH_PHYSX
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "UObject/FrameworkObjectVersion.h"
+#include "Serialization/ObjectWriter.h"
+#include "Serialization/ObjectReader.h"
+#include "Components/SkinnedMeshComponent.h"
+#include "PhysicsEngine/PhysicsConstraintTemplate.h"
+#include "UObject/ReleaseObjectVersion.h"
+#include "Logging/MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "PhysicsAsset"
 
@@ -693,20 +691,19 @@ void UPhysicsAsset::BodyFindConstraints(int32 BodyIndex, TArray<int32>& Constrai
 	}
 }
 
-SIZE_T UPhysicsAsset::GetResourceSize(EResourceSizeMode::Type Mode)
+void UPhysicsAsset::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	SIZE_T ResourceSize = Super::GetResourceSize(Mode);
+	Super::GetResourceSizeEx(CumulativeResourceSize);
 
 	for (const auto& SingleBody : SkeletalBodySetups)
 	{
-		ResourceSize += SingleBody->GetResourceSize(Mode);
+		SingleBody->GetResourceSizeEx(CumulativeResourceSize);
 	}
 
-	ResourceSize += BodySetupIndexMap.GetAllocatedSize();
-	ResourceSize += CollisionDisableTable.GetAllocatedSize();
+	CumulativeResourceSize.AddDedicatedSystemMemoryBytes(BodySetupIndexMap.GetAllocatedSize());
+	CumulativeResourceSize.AddDedicatedSystemMemoryBytes(CollisionDisableTable.GetAllocatedSize());
 
 	// @todo implement inclusive mode
-	return ResourceSize;
 }
 
 #undef LOCTEXT_NAMESPACE

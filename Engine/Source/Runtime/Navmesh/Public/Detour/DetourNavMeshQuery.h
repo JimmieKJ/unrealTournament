@@ -22,16 +22,14 @@
 #ifndef DETOURNAVMESHQUERY_H
 #define DETOURNAVMESHQUERY_H
 
-#include "DetourNavMesh.h"
-#include "DetourStatus.h"
-#include "DetourCommon.h"
+#include "CoreMinimal.h"
+#include "Detour/DetourAlloc.h"
+#include "Detour/DetourNavMesh.h"
+#include "Detour/DetourCommon.h"
 
 //@UE4 BEGIN
 #define WITH_FIXED_AREA_ENTERING_COST 1
 
-#ifndef FLT_MAX
-#include <float.h>
-#endif
 #define DT_UNWALKABLE_POLY_COST FLT_MAX
 //@UE4 END
 
@@ -480,11 +478,12 @@ public:
 	///  @param[out]	nearestRef	The reference id of the nearest polygon.
 	///  @param[out]	nearestPt	The nearest point on the polygon. [opt] [(x, y, z)]
 	///  @param[in]		referencePt	If supplied replaces @param center in terms of distance measurements. [opt] [(x, y, z)]
+	///  @param[in]		tolerance	Radius around best 2D point for picking vertical match
 	/// @returns The status flags for the query.
 	dtStatus findNearestPoly2D(const float* center, const float* extents,
 							const dtQueryFilter* filter,
 							dtPolyRef* outProjectedRef, float* outProjectedPt,
-							const float* referencePt = 0) const;
+							const float* referencePt = 0, float tolerance = 0) const;
 
 	/// Finds the nearest polygon containing the specified center point.
 	///  @param[in]		center		The center of the search box. [(x, y, z)]
@@ -722,8 +721,6 @@ public:
 	/// Returns portal points between two polygons.
 	dtStatus getPortalPoints(dtPolyRef from, dtPolyRef to, float* left, float* right,
 							 unsigned char& fromType, unsigned char& toType) const;
-private:
-	//@UE4 END
 	dtStatus getPortalPoints(dtPolyRef from, const dtPoly* fromPoly, const dtMeshTile* fromTile,
 							 dtPolyRef to, const dtPoly* toPoly, const dtMeshTile* toTile,
 							 float* left, float* right) const;
@@ -733,7 +730,9 @@ private:
 	dtStatus getEdgeMidPoint(dtPolyRef from, const dtPoly* fromPoly, const dtMeshTile* fromTile,
 							 dtPolyRef to, const dtPoly* toPoly, const dtMeshTile* toTile,
 							 float* mid) const;
-	
+private:
+	//@UE4 END
+
 	// Appends vertex to a straight path
 	dtStatus appendVertex(const float* pos, const unsigned char flags, const dtPolyRef ref,
 						  dtQueryResult& result) const;

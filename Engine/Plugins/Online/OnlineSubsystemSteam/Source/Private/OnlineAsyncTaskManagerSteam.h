@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "OnlineSubsystemSteamPrivate.h"
 #include "OnlineAsyncTaskManager.h"
 #include "OnlineSubsystemSteamPackage.h"
 

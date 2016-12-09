@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SubversionSourceControlPrivatePCH.h"
 #include "SSubversionSourceControlSettings.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
 #include "SubversionSourceControlModule.h"
 
 TWeakPtr<SEditableTextBox> SSubversionSourceControlSettings::PasswordTextBox;

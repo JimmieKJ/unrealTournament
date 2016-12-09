@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Input/Reply.h"
+#include "IPropertyUtilities.h"
+#include "IDetailTreeNode.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "DetailCategoryBuilderImpl.h"
 
 class FAdvancedDropdownNode : public IDetailTreeNode, public TSharedFromThis<FAdvancedDropdownNode>
 {

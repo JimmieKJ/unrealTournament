@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HitProxies.h"
+#include "Factories/Factory.h"
+
+class FPrimitiveDrawInterface;
+class FSceneView;
+struct FViewportClick;
+
 DECLARE_LOG_CATEGORY_EXTERN(LogUtils, Log, All);
 
 enum EWidgetMovementMode

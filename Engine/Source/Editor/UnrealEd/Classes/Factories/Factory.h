@@ -2,9 +2,14 @@
 
 #pragma once
 
-#include "CoreUObject.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "Misc/SecureHash.h"
 #include "Factory.generated.h"
 
+struct FUntypedBulkData;
 
 /**
  * Base class for all factories
@@ -12,45 +17,9 @@
  * 
  */
 UCLASS(abstract)
-class UNREALED_API UFactory
-	: public UObject
+class UNREALED_API UFactory : public UObject
 {
 	GENERATED_UCLASS_BODY()
-
-public:
-
-	/** The class manufactured by this factory. */
-	UPROPERTY()
-	TSubclassOf<UObject>  SupportedClass;
-
-	/** Class of the context object used to help create the object. */
-	UPROPERTY()
-	TSubclassOf<UObject>  ContextClass;
-
-	/** List of formats supported by the factory. Each entry is of the form "ext;Description" where ext is the file extension. */
-	UPROPERTY()
-	TArray<FString> Formats;
-
-	/** true if the associated editor should be opened after creating a new object. */
-	UPROPERTY()
-	uint32 bEditAfterNew:1;
-
-	/** true if the factory imports objects from files. */
-	UPROPERTY()
-	uint32 bEditorImport:1;
-
-	/** true if the factory imports objects from text. */
-	UPROPERTY()
-	uint32 bText:1;
-
-	/** Determines the order in which factories are tried when importing an object. */
-	DEPRECATED(4.8, "AutoPriority has been replaced with ImportPriority")
-	int32 AutoPriority;
-
-	/** Determines the order in which factories are tried when importing or reimporting an object.
-		Factories with higher priority values will go first. Factories with negative priorities will be excluded. */
-	UPROPERTY()
-	int32 ImportPriority;
 
 public:
 
@@ -174,7 +143,6 @@ public:
 
 	/** Do clean up after importing is done. Will be called once for multi batch import. */
 	virtual void CleanUp() {}
-
 	/**
 	 * Creates an asset if it doesn't exist. If it does exist then it overwrites it if possible. If it can not overwrite then it will delete and replace. If it can not delete, it will return nullptr.
 	 * 
@@ -191,6 +159,20 @@ public:
 	/** Returns a new starting point name for newly created assets in the content browser */
 	virtual FString GetDefaultNewAssetName() const;
 
+	/** @return the parser that is capable of parsing a json string of import settings for this factory */
+	virtual class IImportSettingsParser* GetImportSettingsParser() {return nullptr;}
+
+	/**
+	 * Sets the automated import data being used with this factory
+	 *
+	 * @param Data	The automated import data or nullptr if it doesnt exist
+	 */
+	void SetAutomatedAssetImportData(const class UAutomatedAssetImportData* Data);
+
+	/**
+	 * @return true if this factory is being used for automated import.  Dialogs and user input should be disabled if this method returns true
+	 */
+	bool IsAutomatedImport() const { return  GIsAutomationTesting || AutomatedImportData; }
 public:
 
 	/**
@@ -198,7 +180,7 @@ public:
 	 *
 	 * @param Message The message text.
 	 **/
-	static void DisplayOverwriteOptionsDialog(const FText& Message);
+	void DisplayOverwriteOptionsDialog(const FText& Message);
 
 	/** Get the name of the file currently being imported. */
 	static FString GetCurrentFilename()
@@ -212,13 +194,21 @@ public:
 		return DefaultImportPriority;
 	}
 
+	//@third party code BEGIN SIMPLYGON
+	/** Get the Hash for the file being imported. Provides enormous speed impovements for large CAD file imports  */
+	static FMD5Hash GetFileHash()
+	{
+		return FileHash;
+	}
+	//@third party code END SIMPLYGON
+
 	/**
 	 * Resets the saved state of this factory.
 	 *
 	 * The states are used to suppress messages during multiple object import. 
 	 * It needs to be reset each time a new import is started
 	 */
-	static void ResetState();
+	void ResetState();
 
 	/** Helper function to sort an array of factories by their import priority - use as a predicate for Sort */
 	static bool SortFactoriesByPriority(const UFactory& A, const UFactory& B);
@@ -298,6 +288,45 @@ protected:
 	{
 		return FactoryCreateBinary(InClass, InParent, InName, Flags, Context, Type, Buffer, BufferEnd, Warn);
 	}
+public:
+
+	/** The class manufactured by this factory. */
+	UPROPERTY()
+	TSubclassOf<UObject>  SupportedClass;
+
+	/** Class of the context object used to help create the object. */
+	UPROPERTY()
+	TSubclassOf<UObject>  ContextClass;
+
+	/** List of formats supported by the factory. Each entry is of the form "ext;Description" where ext is the file extension. */
+	UPROPERTY()
+	TArray<FString> Formats;
+
+	/** true if the associated editor should be opened after creating a new object. */
+	UPROPERTY()
+	uint32 bEditAfterNew:1;
+
+	/** true if the factory imports objects from files. */
+	UPROPERTY()
+	uint32 bEditorImport:1;
+
+	/** true if the factory imports objects from text. */
+	UPROPERTY()
+	uint32 bText:1;
+
+	/** Determines the order in which factories are tried when importing an object. */
+	DEPRECATED(4.8, "AutoPriority has been replaced with ImportPriority")
+	int32 AutoPriority;
+
+	/** Determines the order in which factories are tried when importing or reimporting an object.
+	Factories with higher priority values will go first. Factories with negative priorities will be excluded. */
+	UPROPERTY()
+	int32 ImportPriority;
+
+	/** Data for how to import files via the automated command line importing interface */
+	UPROPERTY()
+	const class UAutomatedAssetImportData* AutomatedImportData;
+
 
 protected:
 
@@ -307,12 +336,10 @@ protected:
 	/** This is the import priority that all factories are given in the default constructor. */
 	static const int32 DefaultImportPriority;
 
-	/**
-	 * For interactive object imports, this value indicates whether the user wants
-	 * objects to be automatically overwritten (See EAppReturnType), or -1 if the
-	 * user should be prompted.
-	 */
-	static int32 OverwriteYesOrNoToAllState;
+	//@third party code BEGIN SIMPLYGON
+	/** This is the HASH for the file being imported */
+	static FMD5Hash FileHash;
+	//@third party code END SIMPLYGON
 
 	/**
 	 * If this value is true, warning messages will be shown once for all objects
@@ -321,4 +348,13 @@ protected:
 	 */
 	DEPRECATED(4.8, "bAllowOneTimeWarningMessages is due to be removed in future.")
 	static bool bAllowOneTimeWarningMessages;
+
+	/**
+	 * For interactive object imports, this value indicates whether the user wants
+	 * objects to be automatically overwritten (See EAppReturnType), or -1 if the
+	  * user should be prompted.
+	*/
+	UPROPERTY()
+	int32 OverwriteYesOrNoToAllState;
+
 };

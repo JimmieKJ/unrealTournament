@@ -543,7 +543,7 @@ public:
 	/** Return true if playerstart P should be avoided for this game mode. */
 	virtual bool AvoidPlayerStart(class AUTPlayerStart* P);
 
-	virtual void StartNewPlayer(APlayerController* NewPlayer);
+	virtual void InitializeHUDForPlayer_Implementation(APlayerController* NewPlayer) override;
 	virtual bool ShouldSpawnAtStartSpot(AController* Player) override;
 	virtual class AActor* FindPlayerStart_Implementation(AController* Player, const FString& IncomingName = TEXT("")) override;
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;

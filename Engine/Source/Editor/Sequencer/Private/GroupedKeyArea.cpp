@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "GroupedKeyArea.h"
-#include "MovieSceneSection.h"
+#include "Widgets/SNullWidget.h"
+#include "EditorStyleSet.h"
+#include "DisplayNodes/SequencerSectionKeyAreaNode.h"
+#include "DisplayNodes/SequencerTrackNode.h"
 
 FIndexKey::FIndexKey(FString InNodePath, UMovieSceneSection* InSection)
 	: NodePath(MoveTemp(InNodePath))
@@ -347,7 +349,7 @@ TArray<FKeyHandle> FGroupedKeyArea::GetUnsortedKeyHandles() const
 	return Array;
 }
 
-void FGroupedKeyArea::SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) const
+void FGroupedKeyArea::SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime)
 {
 	auto* Group = FindGroup(KeyHandle);
 

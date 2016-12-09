@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "HAL/Runnable.h"
+#include "Containers/Queue.h"
+#include "IMessageTransport.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
+
+class FSocket;
+class FTcpListener;
+class FTcpMessageTransportConnection;
 
 /** Entry specfying addition or removal to/from the NodeConnectionMap */
 struct FNodeConnectionMapUpdate

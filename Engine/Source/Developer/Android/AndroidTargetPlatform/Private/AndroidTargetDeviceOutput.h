@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "Containers/UnrealString.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Interfaces/ITargetDeviceOutput.h"
+
+class FAndroidTargetDevice;
+
 class FAndroidDeviceOutputReaderRunnable : public FRunnable
 {
 public:

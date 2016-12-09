@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_BoneDrivenController.h"
-#include "CompilerResultsLog.h"
-#include "PropertyEditing.h"
+#include "SceneManagement.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Kismet2/CompilerResultsLog.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
 #include "AnimationCustomVersion.h"
 
 #define LOCTEXT_NAMESPACE "A3Nodes"

@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once 
-#include "Commandlets/Commandlet.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Framework/Commands/Commands.h"
+#include "Commandlets/GatherTextCommandletBase.h"
 #include "GatherTextFromSourceCommandlet.generated.h"
+
+class Error;
 
 /**
  *	UGatherTextFromSourceCommandlet: Localization commandlet that collects all text to be localized from the source code.

@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "PropertyHandle.h"
+
+class IDetailLayoutBuilder;
+class USoundWave;
+
 class FSoundWaveDetails : public IDetailCustomization
 {
 public:
@@ -11,4 +20,14 @@ public:
 private:
 	/** IDetailCustomization interface */
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
+
+	void CustomizeCurveDetails(IDetailLayoutBuilder& DetailBuilder);
+
+	EVisibility GetMakeInternalCurvesVisibility(USoundWave* SoundWave, TSharedRef<IPropertyHandle> CurvePropertyHandle) const;
+
+	EVisibility GetUseInternalCurvesVisibility(USoundWave* SoundWave, TSharedRef<IPropertyHandle> CurvePropertyHandle) const;
+
+	FReply HandleMakeInternalCurves(USoundWave* SoundWave);
+
+	FReply HandleUseInternalCurves(USoundWave* SoundWave, TSharedRef<IPropertyHandle> CurvePropertyHandle);
 };

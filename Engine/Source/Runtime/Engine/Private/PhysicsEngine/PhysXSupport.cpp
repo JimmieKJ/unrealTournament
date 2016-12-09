@@ -4,20 +4,21 @@
 	PhysXSupport.cpp: PhysX
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "PhysicsPublic.h"
+#include "PhysicsEngine/PhysXSupport.h"
+#include "Engine/World.h"
+#include "Components/PrimitiveComponent.h"
+#include "PhysicsEngine/RigidBodyIndexPair.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
-#include "PhysicsEngine/ConvexElem.h"
 
 #if WITH_PHYSX
 
-#include "PhysXSupport.h"
+#include "PhysXPublic.h"
 #include "Components/DestructibleComponent.h"
-#include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/ConstraintInstance.h"
+#include "PhysicsEngine/BodySetup.h"
 
 PxFoundation*			GPhysXFoundation = NULL;
-PxProfileZoneManager*	GPhysXProfileZoneManager = NULL;
+PxPvd*					GPhysXVisualDebugger = NULL;
 PxPhysics*				GPhysXSDK = NULL;
 #if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
 PxCooking*				GPhysXCooking = NULL;
@@ -25,18 +26,18 @@ PxCooking*				GPhysXCooking = NULL;
 FPhysXAllocator*		GPhysXAllocator = NULL;
 
 #if WITH_APEX
-ENGINE_API NxApexSDK*				GApexSDK = NULL;
-ENGINE_API NxModuleDestructible*	GApexModuleDestructible = NULL;	
+ENGINE_API apex::ApexSDK*				GApexSDK = NULL;
+ENGINE_API apex::ModuleDestructible*	GApexModuleDestructible = NULL;
 
 #if WITH_APEX_LEGACY
-ENGINE_API NxModule*				GApexModuleLegacy = NULL;	
+ENGINE_API apex::Module*				GApexModuleLegacy = NULL;
 #endif // WITH_APEX_LEGACY
 
 #if WITH_APEX_CLOTHING
-ENGINE_API NxModuleClothing*		GApexModuleClothing		= NULL;	
+ENGINE_API apex::ModuleClothing*		GApexModuleClothing		= NULL;
 #endif //WITH_APEX_CLOTHING
 
-TMap<int16, NxApexScene*>				GPhysXSceneMap;
+TMap<int16, apex::Scene*>				GPhysXSceneMap;
 FApexNullRenderResourceManager		GApexNullRenderResourceManager;
 FApexResourceCallback				GApexResourceCallback;
 FApexPhysX3Interface				GApexPhysX3Interface;
@@ -146,7 +147,7 @@ FTransform P2UTransform(const PxTransform& PTM)
 
 PxScene* GetPhysXSceneFromIndex(int32 InSceneIndex)
 {
-	NxApexScene** ScenePtr = GPhysXSceneMap.Find(InSceneIndex);
+	apex::Scene** ScenePtr = GPhysXSceneMap.Find(InSceneIndex);
 	if(ScenePtr != NULL)
 	{
 		return (*ScenePtr)->getPhysXScene();
@@ -155,9 +156,9 @@ PxScene* GetPhysXSceneFromIndex(int32 InSceneIndex)
 	return NULL;
 }
 
-NxApexScene* GetApexSceneFromIndex(int32 InSceneIndex)
+apex::Scene* GetApexSceneFromIndex(int32 InSceneIndex)
 {
-	NxApexScene** ScenePtr = GPhysXSceneMap.Find(InSceneIndex);
+	apex::Scene** ScenePtr = GPhysXSceneMap.Find(InSceneIndex);
 	if(ScenePtr != NULL)
 	{
 		return *ScenePtr;
@@ -313,7 +314,8 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 	// ignore kinematic-kinematic interactions which don't involve a destructible
 	if(k0 && k1 && (Channel0 != ECC_Destructible) && (Channel1 != ECC_Destructible))
 	{
-		return PxFilterFlag::eKILL;
+		//return PxFilterFlag::eKILL;
+		return PxFilterFlag::eSUPPRESS;	//NOTE: Waiting on physx fix for refiltering on aggregates. For now use supress which automatically tests when changes to simulation happen
 	}
 
 	bool s0 = PxGetFilterObjectType(attributes0) == PxFilterObjectType::eRIGID_STATIC;
@@ -369,7 +371,7 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 	//todo enabling CCD objects against everything else for now
 	if(!(k0 && k1) && ((FilterFlags0&EPDF_CCD) || (FilterFlags1&EPDF_CCD)))
 	{
-		pairFlags |= PxPairFlag::eCCD_LINEAR;
+		pairFlags |= PxPairFlag::eDETECT_CCD_CONTACT | PxPairFlag::eSOLVE_CONTACT;
 	}
 
 
@@ -392,7 +394,7 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 void FPhysXSimEventCallback::onContact(const PxContactPairHeader& PairHeader, const PxContactPair* Pairs, PxU32 NumPairs)
 {
 	// Check actors are not destroyed
-	if( PairHeader.flags & (PxContactPairHeaderFlag::eDELETED_ACTOR_0 | PxContactPairHeaderFlag::eDELETED_ACTOR_1) )
+	if( PairHeader.flags & (PxContactPairHeaderFlag::eREMOVED_ACTOR_0 | PxContactPairHeaderFlag::eREMOVED_ACTOR_1) )
 	{
 		UE_LOG(LogPhysics, Log, TEXT("%d onContact(): Actors have been deleted!"), GFrameCounter );
 		return;
@@ -402,8 +404,8 @@ void FPhysXSimEventCallback::onContact(const PxContactPairHeader& PairHeader, co
 	const PxActor* PActor1 = PairHeader.actors[1];
 	check(PActor0 && PActor1);
 
-	const PxRigidBody* PRigidBody0 = PActor0->isRigidBody();
-	const PxRigidBody* PRigidBody1 = PActor1->isRigidBody();
+	const PxRigidBody* PRigidBody0 = PActor0->is<PxRigidBody>();
+	const PxRigidBody* PRigidBody1 = PActor1->is<PxRigidBody>();
 
 	const FBodyInstance* BodyInst0 = FPhysxUserData::Get<FBodyInstance>(PActor0->userData);
 	const FBodyInstance* BodyInst1 = FPhysxUserData::Get<FBodyInstance>(PActor1->userData);
@@ -547,11 +549,9 @@ void FPhysXSimEventCallback::onConstraintBreak( PxConstraintInfo* constraints, P
 
 		if (Joint && Joint->userData)
 		{
-			FConstraintInstance* Constraint = FPhysxUserData::Get<FConstraintInstance>(Joint->userData);
-
-			if (Constraint)
+			if (FConstraintInstance* Constraint = FPhysxUserData::Get<FConstraintInstance>(Joint->userData))
 			{
-				Constraint->OnConstraintBroken();
+				OwningScene->AddPendingOnConstraintBreak(Constraint, SceneType);
 			}
 		}
 	}
@@ -666,7 +666,7 @@ SIZE_T GetPhysxObjectSize(PxBase* Obj, const PxCollection* SharedCollection)
 #if WITH_APEX
 ///////// FApexChunkReport //////////////////////////////////
 
-void FApexChunkReport::onDamageNotify(const NxApexDamageEventReportData& damageEvent)
+void FApexChunkReport::onDamageNotify(const apex::DamageEventReportData& damageEvent)
 {
 	UDestructibleComponent* DestructibleComponent = Cast<UDestructibleComponent>(FPhysxUserData::Get<UPrimitiveComponent>(damageEvent.destructible->userData));
 	check(DestructibleComponent);
@@ -679,7 +679,7 @@ void FApexChunkReport::onDamageNotify(const NxApexDamageEventReportData& damageE
 	DestructibleComponent->GetWorld()->GetPhysicsScene()->AddPendingDamageEvent(DestructibleComponent, damageEvent);
 }
 
-void FApexChunkReport::onStateChangeNotify(const NxApexChunkStateEventData& visibilityEvent)
+void FApexChunkReport::onStateChangeNotify(const apex::ChunkStateEventData& visibilityEvent)
 {
 	UDestructibleComponent* DestructibleComponent = Cast<UDestructibleComponent>(FPhysxUserData::Get<UPrimitiveComponent>(visibilityEvent.destructible->userData));
 	check(DestructibleComponent);
@@ -692,21 +692,21 @@ void FApexChunkReport::onStateChangeNotify(const NxApexChunkStateEventData& visi
 	DestructibleComponent->OnVisibilityEvent(visibilityEvent);
 }
 
-bool FApexChunkReport::releaseOnNoChunksVisible(const NxDestructibleActor* destructible)
+bool FApexChunkReport::releaseOnNoChunksVisible(const apex::DestructibleActor* destructible)
 {
 	return false;
 }
 
-void FApexChunkReport::onDestructibleWake(physx::NxDestructibleActor** destructibles, physx::PxU32 count)
+void FApexChunkReport::onDestructibleWake(apex::DestructibleActor** destructibles, physx::PxU32 count)
 {
 }
 
-void FApexChunkReport::onDestructibleSleep(physx::NxDestructibleActor** destructibles, physx::PxU32 count)
+void FApexChunkReport::onDestructibleSleep(apex::DestructibleActor** destructibles, physx::PxU32 count)
 {
 }
 
 ///////// FApexPhysX3Interface //////////////////////////////////
-void FApexPhysX3Interface::setContactReportFlags(physx::PxShape* PShape, physx::PxPairFlags PFlags, NxDestructibleActor* actor, PxU16 actorChunkIndex)
+void FApexPhysX3Interface::setContactReportFlags(physx::PxShape* PShape, physx::PxPairFlags PFlags, apex::DestructibleActor* actor, PxU16 actorChunkIndex)
 {
 	UDestructibleComponent* DestructibleComponent = Cast<UDestructibleComponent>(FPhysxUserData::Get<UPrimitiveComponent>(PShape->userData));
 	check(DestructibleComponent);

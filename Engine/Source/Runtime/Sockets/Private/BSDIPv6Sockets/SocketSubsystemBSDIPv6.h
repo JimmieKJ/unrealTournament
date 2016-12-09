@@ -2,13 +2,15 @@
 
 #pragma once
 
-#include "SocketSubsystem.h"
+#include "CoreMinimal.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "BSDSockets/SocketSubsystemBSDPrivate.h"
+#include "BSDIPv6Sockets/SocketsBSDIPv6.h"
+#include "IPAddress.h"
 #include "SocketSubsystemPackage.h"
 
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 
-#include "../BSDSockets/SocketSubsystemBSDPrivate.h"
-#include "IPAddressBSDIPv6.h"
 
 
 /**

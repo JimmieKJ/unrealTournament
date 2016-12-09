@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "SMediaPlayerEditorInfo.h"
+#include "Widgets/SMediaPlayerEditorInfo.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "EditorStyleSet.h"
+#include "IMediaControls.h"
+#include "IMediaPlayer.h"
+#include "MediaPlayer.h"
 
 
 #define LOCTEXT_NAMESPACE "SMediaPlayerEditorInfo"
@@ -16,18 +24,35 @@ void SMediaPlayerEditorInfo::Construct(const FArguments& InArgs, UMediaPlayer& I
 
 	ChildSlot
 	[
-		SNew(SBorder)
-			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
-			.Padding(4.0)
-			[
-				SNew(SVerticalBox)
+		SNew(SVerticalBox)
 
-				+ SVerticalBox::Slot()
-					.FillHeight(1.0f)
+		+ SVerticalBox::Slot()
+			.FillHeight(1.0f)
+			[
+				SNew(SScrollBox)
+
+				+ SScrollBox::Slot()
+					.Padding(4.0f)
 					[
-						SAssignNew(MediaInfoBox, SMultiLineEditableTextBox)
-							.HintText(LOCTEXT("NoMediaOpened", "No media opened"))
-							.IsReadOnly(true)
+						SAssignNew(InfoTextBlock, STextBlock)
+					]
+			]
+
+		+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SBorder)
+					.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+					.HAlign(HAlign_Right)
+					.Padding(2.0f)
+					[
+						SNew(SButton)
+							.Text(LOCTEXT("CopyClipboardButtonText", "Copy to Clipboard"))
+							.ToolTipText(LOCTEXT("CopyClipboardButtonHint", "Copy the media information to the the clipboard"))
+							.OnClicked_Lambda([this]() -> FReply {
+								FPlatformMisc::ClipboardCopy(*InfoTextBlock->GetText().ToString());
+								return FReply::Handled();
+							})
 					]
 			]
 	];
@@ -41,6 +66,8 @@ void SMediaPlayerEditorInfo::Construct(const FArguments& InArgs, UMediaPlayer& I
 
 void SMediaPlayerEditorInfo::HandleMediaPlayerMediaEvent(EMediaEvent Event)
 {
+	static FText NoMediaText = LOCTEXT("NoMediaOpened", "No media opened");
+
 	if ((Event == EMediaEvent::MediaOpened) || (Event == EMediaEvent::MediaOpenFailed) || (Event == EMediaEvent::TracksChanged))
 	{
 		TSharedPtr<IMediaPlayer> Player = MediaPlayer->GetPlayer();
@@ -80,7 +107,7 @@ void SMediaPlayerEditorInfo::HandleMediaPlayerMediaEvent(EMediaEvent Event)
 				);				
 			}
 
-			MediaInfoBox->SetText(
+			InfoTextBlock->SetText(
 				FText::Format(LOCTEXT("InfoFormat",
 					"Player: {PlayerName}\n"
 					"\n"
@@ -103,12 +130,12 @@ void SMediaPlayerEditorInfo::HandleMediaPlayerMediaEvent(EMediaEvent Event)
 		}
 		else
 		{
-			MediaInfoBox->SetText(FText::GetEmpty());
+			InfoTextBlock->SetText(NoMediaText);
 		}
 	}
 	else if (Event == EMediaEvent::MediaClosed)
 	{
-		MediaInfoBox->SetText(FText::GetEmpty());
+		InfoTextBlock->SetText(NoMediaText);
 	}
 }
 

@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FMallocProfiler;
+
 #if USE_MALLOC_PROFILER
 
 #include "MallocProfiler.h"

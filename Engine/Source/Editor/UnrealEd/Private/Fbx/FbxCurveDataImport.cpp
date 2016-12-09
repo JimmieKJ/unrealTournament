@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
 #include "FbxImporter.h"
-#include "Camera/CameraActor.h"
 
 namespace UnFbx {
 	void FFbxCurvesAPI::GetAnimatedNodeNameArray(TArray<FString> &AnimatedNodeNames) const

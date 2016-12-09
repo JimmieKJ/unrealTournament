@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "DragAndDrop.h"
+
+#include "CoreMinimal.h"
+#include "Engine/Level.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/DragAndDrop.h"
 #include "Engine/LevelStreaming.h"
+#include "EditorStyleSet.h"
+#include "UObject/Package.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/SBoxPanel.h"
 
 class FLevelDragDropOp : public FDragDropOperation
 {

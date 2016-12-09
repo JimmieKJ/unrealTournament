@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
+#include "Engine/EngineBaseTypes.h"
+#include "UObject/Interface.h"
 #include "ViewportWorldInteractionInterface.generated.h"
 
 UINTERFACE( MinimalAPI )
@@ -16,13 +21,13 @@ class VIEWPORTINTERACTION_API IViewportWorldInteractionInterface
 
 public:
 	/** Initializes the world interaction */
-	virtual void Init( const TSharedPtr<class FEditorViewportClient>& InEditorViewportClient ) = 0;
+	virtual void Init( UWorld* InWorld ) = 0;
 
 	/** Shuts down the world interaction */
 	virtual void Shutdown() = 0;
 
 	/** Main update loop including updating interaction, actions and hover */
-	virtual void Tick( class FEditorViewportClient* ViewportClient, const float DeltaTime ) = 0;
+	virtual void Tick( const float DeltaTime ) = 0;
 	
 	/** Adds interactor to the worldinteraction */	
 	virtual void AddInteractor( class UViewportInteractor* Interactor ) = 0;
@@ -38,4 +43,16 @@ public:
 	DECLARE_EVENT_FiveParams( IViewportWorldInteractionInterface, FOnVIActionHandle, class FEditorViewportClient& /* ViewportClient */, class UViewportInteractor* /* Interactor */, 
 	const struct FViewportActionKeyInput& /* Action */, bool& /* bOutIsInputCaptured */, bool& /* bWasHandled */ );
 	virtual FOnVIActionHandle& OnViewportInteractionInputAction() = 0;
+
+	/** To handle raw key input from the Inputprocessor */
+	DECLARE_EVENT_FourParams( IViewportWorldInteractionInterface, FOnHandleInputKey, const class FEditorViewportClient& /* ViewportClient */, const FKey /* Key */, const EInputEvent /* Event */, bool& /* bWasHandled */ );
+	virtual FOnHandleInputKey& OnHandleKeyInput() = 0;
+
+	/** To handle raw axix input from the Inputprocessor */
+	DECLARE_EVENT_SixParams( IViewportWorldInteractionInterface, FOnHandleInputAxis, class FEditorViewportClient& /* ViewportClient */, const int32 /* ControllerId */, const FKey /* Key */, const float /* Delta */, const float /* DeltaTime */, bool& /* bWasHandled */ );
+	virtual FOnHandleInputAxis& OnHandleAxisInput() = 0;
+
+	/** Gets the event for when an interactor stops dragging */
+	DECLARE_EVENT_OneParam( IViewportWorldInteractionInterface, FOnStopDragging, class UViewportInteractor* /** Interactor */ );
+	virtual FOnStopDragging& OnStopDragging() = 0;
 };

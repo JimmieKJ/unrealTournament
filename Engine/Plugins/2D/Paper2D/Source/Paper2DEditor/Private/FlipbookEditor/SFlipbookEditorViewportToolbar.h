@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "Editor/UnrealEd/Public/SCommonEditorViewportToolbarBase.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SCommonEditorViewportToolbarBase.h"
 
 // In-viewport toolbar widget used in the flipbook editor
 class SFlipbookEditorViewportToolbar : public SCommonEditorViewportToolbarBase

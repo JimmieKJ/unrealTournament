@@ -81,7 +81,7 @@ namespace UnrealBuildTool
 				InBuildTarget.GlobalLinkEnvironment.Config.ExcludedLibraries.Add("LIBCMT");
 
 			InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("PLATFORM_HTML5=1");
-			if (InBuildTarget.GlobalCompileEnvironment.Config.Target.Architecture == "-win32")
+			if (InBuildTarget.GlobalCompileEnvironment.Config.Architecture == "-win32")
 			{
 				InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("PLATFORM_HTML5_WIN32=1");
 				InBuildTarget.GlobalLinkEnvironment.Config.AdditionalLibraries.Add("delayimp.lib");

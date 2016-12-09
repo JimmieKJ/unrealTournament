@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "PropertyBaseArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/PropertyBaseArchiveProxy.h"
-#include "ParserHelper.h"
+#include "UHTMakefile.h"
 
 FPropertyBaseArchiveProxy::FPropertyBaseArchiveProxy(const FUHTMakefile& UHTMakefile, const FPropertyBase* PropertyBase)
 {

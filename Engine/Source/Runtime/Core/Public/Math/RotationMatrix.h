@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/Vector.h"
+#include "Math/Rotator.h"
+#include "Math/Matrix.h"
+#include "Math/RotationTranslationMatrix.h"
 
 /** Rotation matrix no translation */
 class FRotationMatrix

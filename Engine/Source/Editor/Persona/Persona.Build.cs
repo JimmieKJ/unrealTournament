@@ -12,8 +12,12 @@ public class Persona : ModuleRules
 			new string[] {
 				"AssetRegistry", 
 				"MainFrame",
-				"DesktopPlatform"
-			}
+				"DesktopPlatform",
+                "SkeletonEditor",
+                "ContentBrowser",
+                "AssetTools",
+                "AnimationEditor",
+            }
 		);
 
 		PrivateDependencyModuleNames.AddRange(
@@ -44,7 +48,10 @@ public class Persona : ModuleRules
 				"Documentation",
 				"MainFrame",
 				"DesktopPlatform",
-			}
+                "SkeletonEditor",
+                "AssetTools",
+                "AnimationEditor",
+            }
 		);
 	}
 }

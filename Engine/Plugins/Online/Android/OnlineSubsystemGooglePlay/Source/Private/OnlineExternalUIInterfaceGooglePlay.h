@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "OnlineDelegateMacros.h"
 
+#include "CoreMinimal.h"
+#include "OnlineDelegateMacros.h"
 #include "OnlineExternalUIInterface.h"
 #include "OnlineSubsystemGooglePlayPackage.h"
 

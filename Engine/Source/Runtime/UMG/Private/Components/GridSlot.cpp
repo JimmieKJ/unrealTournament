@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/GridSlot.h"
+#include "Components/Widget.h"
 
 /////////////////////////////////////////////////////
 // UGridSlot

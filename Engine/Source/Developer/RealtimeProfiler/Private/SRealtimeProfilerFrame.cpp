@@ -1,16 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RealtimeProfilerPrivatePCH.h"
-#include "SlateBasics.h"
-#include "RealtimeProfiler.h"
 #include "SRealtimeProfilerFrame.h"
-#include "SRealtimeProfilerVisualizer.h"
 
-#include "TaskGraphInterfaces.h"
-#include "STaskGraph.h"
-#include "SGraphBar.h"
-#include "SBarVisualizer.h"
-#include "SEventsTree.h"
 
 
 /*	

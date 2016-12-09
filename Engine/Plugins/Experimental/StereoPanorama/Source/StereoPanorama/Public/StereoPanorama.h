@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ModuleInterface.h"
+
+class FStereoPanoramaManager;
 
 /**
  * Implements the StereoPanorama module.

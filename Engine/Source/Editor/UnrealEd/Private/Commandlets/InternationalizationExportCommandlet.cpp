@@ -1,8 +1,10 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Culture.h"
-#include "PortableObjectFormatDOM.h"
+#include "Commandlets/InternationalizationExportCommandlet.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Internationalization/InternationalizationMetadata.h"
+#include "Localization/PortableObjectFormatDOM.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogInternationalizationExportCommandlet, Log, All);
 

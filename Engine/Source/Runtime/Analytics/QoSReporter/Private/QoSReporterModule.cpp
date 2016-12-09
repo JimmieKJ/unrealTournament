@@ -1,17 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "QoSReporterPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/DateTime.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/UnrealString.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Guid.h"
+#include "QoSReporterPrivate.h"
 
-#include "Core.h"
-#include "Json.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
+#include "Serialization/JsonWriter.h"
 #include "AnalyticsBuildType.h"
-#include "IAnalyticsProvider.h"
-#include "Http.h"
-#include "EngineVersion.h"
+#include "AnalyticsEventAttribute.h"
+#include "Interfaces/IAnalyticsProvider.h"
+#include "Interfaces/IHttpResponse.h"
+#include "Modules/ModuleManager.h"
+#include "HttpModule.h"
+#include "GenericPlatform/GenericPlatformHttp.h"
+#include "Misc/EngineVersion.h"
 #include "QoSReporter.h"
 
 #if USE_SERVER_PERF_COUNTERS
-	#include "PerfCountersHelpers.h"
+	#include "PerfCountersModule.h"
+	#include "Net/PerfCountersHelpers.h"
 #endif
 
 DEFINE_LOG_CATEGORY(LogQoSReporter);

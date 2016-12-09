@@ -2,10 +2,17 @@
 
 
 #pragma once
-#include "K2Node_Tunnel.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "EdGraph/EdGraph.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
+#include "BlueprintNodeSignature.h"
+#include "K2Node_Tunnel.h"
+#include "Textures/SlateIcon.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_MacroInstance.generated.h"
+
+class UBlueprint;
 
 UCLASS(MinimalAPI)
 class UK2Node_MacroInstance : public UK2Node_Tunnel

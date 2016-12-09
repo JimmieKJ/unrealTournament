@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Describes logically how a line was hit when performing a screen-space -> view model conversion */
 enum class ETextHitPoint : uint8
 {

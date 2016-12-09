@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
+#include "OnlineSubsystemSteamPrivate.h"
 #include "IPAddress.h"
 #include "OnlineSubsystemSteamPackage.h"
 

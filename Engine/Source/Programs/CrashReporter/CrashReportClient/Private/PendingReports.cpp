@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashReportClientApp.h"
-#include "UniquePtr.h"
-
 #include "PendingReports.h"
-#include "Json.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Logging/LogMacros.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "CrashReportClientApp.h"
+#include "Templates/UniquePtr.h"
+
+#include "Dom/JsonValue.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonSerializer.h"
 
 namespace
 {

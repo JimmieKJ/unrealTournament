@@ -4,10 +4,11 @@
 	LocalVertexFactory.cpp: Local vertex factory implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "LocalVertexFactory.h"
+#include "SceneView.h"
+#include "MeshBatch.h"
 #include "SpeedTreeWind.h"
 #include "ShaderParameterUtils.h"
-#include "LocalVertexFactory.h"
 
 class FSpeedTreeWindNullUniformBuffer : public TUniformBuffer<FSpeedTreeUniformParameters>
 {
@@ -92,13 +93,13 @@ void FLocalVertexFactory::SetData(const FDataType& InData)
 */
 void FLocalVertexFactory::Copy(const FLocalVertexFactory& Other)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FLocalVertexFactoryCopyData,
-		FLocalVertexFactory*,VertexFactory,this,
-		const FDataType*,DataCopy,&Other.Data,
-	{
-		VertexFactory->Data = *DataCopy;
-	});
+	FLocalVertexFactory* VertexFactory = this;
+	const FDataType* DataCopy = &Other.Data;
+	EnqueueUniqueRenderCommand("FLocalVertexFactoryCopyData",
+		[VertexFactory, DataCopy](FRHICommandListImmediate& RHICmdList)
+		{
+			VertexFactory->Data = *DataCopy;
+		});
 	BeginUpdateResourceRHI(this);
 }
 

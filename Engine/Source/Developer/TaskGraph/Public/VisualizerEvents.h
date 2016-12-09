@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 namespace EVisualizerTimeUnits
 {
 	typedef uint8 Type;

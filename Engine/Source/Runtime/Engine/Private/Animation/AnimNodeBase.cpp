@@ -1,44 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Animation/AnimNodeBase.h"
+#include "Animation/AnimClassInterface.h"
 #include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////
 // FAnimationBaseContext
 
-// @todo: remove after deprecation
-FAnimationBaseContext::FAnimationBaseContext(UAnimInstance* InAnimInstance)
-	: AnimInstanceProxy(&InAnimInstance->GetProxyOnAnyThread<FAnimInstanceProxy>())
-{
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	AnimInstance = InAnimInstance;
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-}
-
 FAnimationBaseContext::FAnimationBaseContext(FAnimInstanceProxy* InAnimInstanceProxy)
 	: AnimInstanceProxy(InAnimInstanceProxy)
 {
-	// @todo: remove after deprecation
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	AnimInstance = CastChecked<UAnimInstance>(AnimInstanceProxy->GetAnimInstanceObject());
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 FAnimationBaseContext::FAnimationBaseContext(const FAnimationBaseContext& InContext)
 {
-	// @todo: remove after deprecation
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	AnimInstance = InContext.AnimInstance;
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	AnimInstanceProxy = InContext.AnimInstanceProxy;
-}
-
-UAnimBlueprintGeneratedClass* FAnimationBaseContext::GetAnimBlueprintClass() const
-{
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	return AnimInstanceProxy->GetAnimBlueprintClass();
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 IAnimClassInterface* FAnimationBaseContext::GetAnimClass() const
@@ -59,8 +35,9 @@ UAnimBlueprint* FAnimationBaseContext::GetAnimBlueprint() const
 void FPoseContext::Initialize(FAnimInstanceProxy* InAnimInstanceProxy)
 {
 	checkSlow(AnimInstanceProxy && AnimInstanceProxy->GetRequiredBones().IsValid());
-	Pose.SetBoneContainer(&AnimInstanceProxy->GetRequiredBones());
-	Curve.InitFrom(AnimInstanceProxy->GetSkelMeshComponent()->GetCachedAnimCurveMappingNameUids());
+	const FBoneContainer& RequiredBone = AnimInstanceProxy->GetRequiredBones();
+	Pose.SetBoneContainer(&RequiredBone);
+	Curve.InitFrom(RequiredBone);
 }
 
 /////////////////////////////////////////////////////
@@ -69,8 +46,9 @@ void FPoseContext::Initialize(FAnimInstanceProxy* InAnimInstanceProxy)
 void FComponentSpacePoseContext::ResetToRefPose()
 {
 	checkSlow(AnimInstanceProxy && AnimInstanceProxy->GetRequiredBones().IsValid());
-	Pose.InitPose(&AnimInstanceProxy->GetRequiredBones());
-	Curve.InitFrom(AnimInstanceProxy->GetSkelMeshComponent()->GetCachedAnimCurveMappingNameUids());
+	const FBoneContainer& RequiredBone = AnimInstanceProxy->GetRequiredBones();
+	Pose.InitPose(&RequiredBone);
+	Curve.InitFrom(RequiredBone);
 }
 
 /////////////////////////////////////////////////////
@@ -129,6 +107,12 @@ void FPoseLinkBase::Initialize(const FAnimationInitializeContext& Context)
 	{
 		LinkedNode->Initialize(Context);
 	}
+}
+
+void FPoseLinkBase::SetLinkNode(struct FAnimNode_Base* NewLinkNode)
+{
+	// this is custom interface, only should be used by native handlers
+	LinkedNode = NewLinkNode;
 }
 
 void FPoseLinkBase::CacheBones(const FAnimationCacheBonesContext& Context) 
@@ -500,6 +484,7 @@ void FExposedValueHandler::Initialize(FAnimNode_Base* AnimNode, UObject* AnimIns
 			}
 
 			CopyRecord.CachedBoolDestProperty = Cast<UBoolProperty>(CopyRecord.DestProperty);
+			CopyRecord.CachedStructDestProperty = Cast<UStructProperty>(CopyRecord.DestProperty);
 		}
 	}
 
@@ -529,6 +514,10 @@ void FExposedValueHandler::Execute(const FAnimationBaseContext& Context) const
 				{
 					bool bValue = CopyRecord.CachedBoolSourceProperty->GetPropertyValue_InContainer(CopyRecord.CachedSourceContainer);
 					CopyRecord.CachedBoolDestProperty->SetPropertyValue_InContainer(CopyRecord.CachedDestContainer, bValue, CopyRecord.DestArrayIndex);
+				}
+				else if(CopyRecord.CachedStructDestProperty != nullptr)
+				{
+					CopyRecord.CachedStructDestProperty->Struct->CopyScriptStruct(CopyRecord.Dest, CopyRecord.Source);
 				}
 				else
 				{

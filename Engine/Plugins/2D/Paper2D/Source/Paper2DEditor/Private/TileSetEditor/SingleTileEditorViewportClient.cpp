@@ -1,17 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "SingleTileEditorViewportClient.h"
+#include "TileSetEditor/SingleTileEditorViewportClient.h"
+#include "Materials/MaterialInterface.h"
+#include "PaperTileSet.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "CanvasItem.h"
+#include "CanvasTypes.h"
+#include "AssetEditorModeManager.h"
 #include "PaperSpriteComponent.h"
 #include "PaperTileMap.h"
-#include "PaperTileSet.h"
-#include "PaperEditorShared/SpriteGeometryEditCommands.h"
 #include "PaperEditorShared/SpriteGeometryEditMode.h"
 #include "ScopedTransaction.h"
-#include "TileSetEditorSettings.h"
+#include "TileSetEditor/TileSetEditorSettings.h"
 
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "TileSetEditor"
 

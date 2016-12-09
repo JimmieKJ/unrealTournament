@@ -1,20 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
-#include "MovieSceneSequence.h"
-#include "MovieSceneSection.h"
-#include "MovieSceneTrack.h"
-#include "MovieSceneCinematicShotTrack.h"
 #include "SequencerNodeTree.h"
-#include "Sequencer.h"
-#include "ScopedTransaction.h"
+#include "MovieSceneBinding.h"
+#include "GameFramework/Actor.h"
 #include "MovieScene.h"
-#include "MovieSceneFolder.h"
-#include "MovieSceneTrackEditor.h"
-#include "SequencerSectionLayoutBuilder.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
+#include "DisplayNodes/SequencerFolderNode.h"
+#include "DisplayNodes/SequencerObjectBindingNode.h"
 #include "ISequencerSection.h"
+#include "DisplayNodes/SequencerTrackNode.h"
+#include "MovieSceneSequence.h"
+#include "Tracks/MovieSceneCinematicShotTrack.h"
+#include "Sequencer.h"
+#include "MovieSceneFolder.h"
+#include "SequencerSectionLayoutBuilder.h"
 #include "ISequencerTrackEditor.h"
-#include "SequencerSpacerNode.h"
+#include "DisplayNodes/SequencerSpacerNode.h"
 
 void FSequencerNodeTree::Empty()
 {
@@ -256,8 +257,15 @@ void FSequencerNodeTree::MakeSectionInterfaces( UMovieSceneTrack& Track, TShared
 
 	for (int32 SectionIndex = 0; SectionIndex < MovieSceneSections.Num(); ++SectionIndex )
 	{
+		FGuid ObjectBinding;
+		if (SectionAreaNode->GetParent().IsValid() && SectionAreaNode->GetParent()->GetType() == ESequencerNode::Object)
+		{
+			TSharedPtr<FSequencerObjectBindingNode> ParentObjectNode = StaticCastSharedPtr<FSequencerObjectBindingNode>(SectionAreaNode->GetParent());
+			ObjectBinding = ParentObjectNode->GetObjectBinding();
+		}
+
 		UMovieSceneSection* SectionObject = MovieSceneSections[SectionIndex];
-		TSharedRef<ISequencerSection> Section = Editor->MakeSectionInterface( *SectionObject, Track );
+		TSharedRef<ISequencerSection> Section = Editor->MakeSectionInterface( *SectionObject, Track, ObjectBinding );
 
 		// Ask the section to generate it's inner layout
 		FSequencerSectionLayoutBuilder Builder( SectionAreaNode );
@@ -292,7 +300,6 @@ TSharedRef<FSequencerObjectBindingNode> FSequencerNodeTree::AddObjectBinding(con
 		TSharedPtr<FSequencerObjectBindingNode> ParentNode;
 
 		UMovieSceneSequence* Sequence = Sequencer.GetFocusedMovieSceneSequence();
-		TSharedRef<FMovieSceneSequenceInstance> SequenceInstance = Sequencer.GetFocusedMovieSceneSequenceInstance();
 
 		// Prefer to use the parent spawnable if possible, rather than relying on runtime object presence
 		FMovieScenePossessable* Possessable = Sequence->GetMovieScene()->FindPossessable(ObjectBinding);
@@ -304,38 +311,9 @@ TSharedRef<FSequencerObjectBindingNode> FSequencerNodeTree::AddObjectBinding(con
 				ParentNode = AddObjectBinding( ParentBinding->GetName(), Possessable->GetParent(), GuidToBindingMap, OutNodeList );
 			}
 		}
-		
-		UObject* RuntimeObject = SequenceInstance->FindObject(ObjectBinding, Sequencer);
-
-		// fallback to using the parent runtime object
-		if (!ParentNode.IsValid() && RuntimeObject)
-		{
-			UObject* ParentObject = Sequence->GetParentObject(RuntimeObject);
-
-			if (ParentObject != nullptr)
-			{
-				FGuid ParentBinding = SequenceInstance->FindObjectId(*ParentObject);
-				TSharedPtr<FSequencerObjectBindingNode>* FoundParentNode = ObjectBindingMap.Find( ParentBinding );
-				if ( FoundParentNode != nullptr )
-				{
-					ParentNode = *FoundParentNode;
-				}
-				else
-				{
-					const FMovieSceneBinding** FoundParentMovieSceneBinding = GuidToBindingMap.Find( ParentBinding );
-					if ( FoundParentMovieSceneBinding != nullptr )
-					{
-						ParentNode = AddObjectBinding( (*FoundParentMovieSceneBinding)->GetName(), ParentBinding, GuidToBindingMap, OutNodeList );
-					}
-				}
-			}
-		}
 
 		// get human readable name of the object
-		AActor* RuntimeActor = Cast<AActor>(RuntimeObject);
-		const FString& DisplayString = (RuntimeActor != nullptr)
-			? RuntimeActor->GetActorLabel()
-			: ObjectName;
+		const FString& DisplayString = ObjectName;
 
 		// Create the node.
 		ObjectNode = MakeShareable(new FSequencerObjectBindingNode(ObjectNodeName, FText::FromString(DisplayString), ObjectBinding, ParentNode, *this));

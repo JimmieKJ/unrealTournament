@@ -1,23 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "SpriteEditor.h"
+#include "SpriteEditor/SpriteEditor.h"
+#include "Framework/MultiBox/MultiBoxDefs.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorViewportClient.h"
+#include "Modules/ModuleManager.h"
+#include "EditorStyleSet.h"
 #include "SSingleObjectDetailsPanel.h"
-#include "SceneViewport.h"
 
-#include "GraphEditor.h"
 
-#include "SpriteEditorViewportClient.h"
-#include "SpriteEditorCommands.h"
-#include "PaperEditorShared/SpriteGeometryEditCommands.h"
 #include "SEditorViewport.h"
-#include "WorkspaceMenuStructureModule.h"
+#include "PaperSprite.h"
+#include "SpriteEditor/SpriteEditorViewportClient.h"
+#include "SpriteEditor/SpriteEditorCommands.h"
+#include "PaperEditorShared/SpriteGeometryEditCommands.h"
 #include "Paper2DEditorModule.h"
-#include "SSpriteEditorViewportToolbar.h"
-#include "SpriteDetailsCustomization.h"
+#include "SCommonEditorViewportToolbarBase.h"
+#include "SpriteEditor/SSpriteEditorViewportToolbar.h"
+#include "SpriteEditor/SpriteDetailsCustomization.h"
 
-#include "SSpriteList.h"
-#include "SDockTab.h"
+#include "SpriteEditor/SSpriteList.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #include "ExtractSprites/SPaperExtractSpritesDialog.h"
 
@@ -290,6 +294,11 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 // FSpriteEditor
+
+FSpriteEditor::FSpriteEditor()
+	: SpriteBeingEdited(nullptr)
+{
+}
 
 TSharedRef<SDockTab> FSpriteEditor::SpawnTab_Viewport(const FSpawnTabArgs& Args)
 {

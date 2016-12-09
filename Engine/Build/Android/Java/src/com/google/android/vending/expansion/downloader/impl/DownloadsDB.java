@@ -319,7 +319,7 @@ public class DownloadsDB {
 
     /**
      * This function will add a new file to the database if it does not exist.
-     * 
+     *
      * @param di DownloadInfo that we wish to store
      * @return the row id of the record to be updated/inserted, or -1
      */

@@ -1,12 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Engine/GameEngine.h"
-#include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/BlueprintPlatformLibrary.h"
-#include "Engine/Console.h"
-#include "AssertionMacros.h"
-#include "OutputDevice.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/CoreDelegates.h"
+#include "Modules/ModuleManager.h"
+#include "LocalNotification.h"
+#include "EngineLogs.h"
 
 void UPlatformGameInstance::PostInitProperties()
 
@@ -72,13 +71,19 @@ UBlueprintPlatformLibrary::UBlueprintPlatformLibrary(const FObjectInitializer& O
 			platformService = module->GetLocalNotificationService();
 		}
 	}
+	else
+	{
+#if !WITH_EDITOR
+		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("DEBUG: LocalNotification DefaultPlatformService NOT FOUND"));
+#endif
+	}
 }
 
 void UBlueprintPlatformLibrary::ClearAllLocalNotifications()
 {
 	if(platformService == nullptr)
 	{
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("No local notification service"));
+		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("ClearAllLocalNotifications(): No local notification service"));
 		return;
 	}
 	
@@ -89,7 +94,7 @@ void UBlueprintPlatformLibrary::ScheduleLocalNotificationAtTime(const FDateTime&
 {
 	if(platformService == nullptr)
 	{
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("No local notification service"));
+		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("ScheduleLocalNotificationAtTime(): No local notification service"));
 		return;
 	}
 
@@ -106,11 +111,25 @@ void UBlueprintPlatformLibrary::ScheduleLocalNotificationFromNow(int32 inSeconds
 	ScheduleLocalNotificationAtTime(dateTime, true, Title, Body, Action, ActivationEvent);
 }
 
+UFUNCTION(BlueprintCallable, Category="Platform|LocalNotification")
+void UBlueprintPlatformLibrary::CancelLocalNotification(const FString& ActivationEvent)
+{
+	if(platformService == nullptr)
+	{
+		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("CancelLocalNotification(): No local notification service"));
+		return;
+	}
+
+	UE_LOG(LogBlueprintUserMessages, Log, TEXT("Canceling notification %s"), *ActivationEvent);
+	
+	platformService->CancelLocalNotification(ActivationEvent);
+}
+
 void UBlueprintPlatformLibrary::GetLaunchNotification(bool& NotificationLaunchedApp, FString& ActivationEvent, int32& FireDate)
 {
 	if(platformService == nullptr)
 	{
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("No local notification service"));
+		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("GetLaunchNotification(): No local notification service"));
 		return;
 	}
 	

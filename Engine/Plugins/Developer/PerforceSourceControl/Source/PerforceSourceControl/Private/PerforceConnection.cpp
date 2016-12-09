@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PerforceSourceControlPrivatePCH.h"
-#include "PerforceSourceControlModule.h"
 #include "PerforceConnection.h"
-#include "PerforceSourceControlCommand.h"
-#include "PerforceSourceControlProvider.h"
-#include "MessageLog.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "ISourceControlModule.h"
+#include "HAL/PlatformTime.h"
+#include "PerforceSourceControlModule.h"
+#include "Logging/MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "PerforceConnection"
 

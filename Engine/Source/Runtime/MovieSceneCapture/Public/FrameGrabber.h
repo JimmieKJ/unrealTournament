@@ -2,7 +2,12 @@
 
 #pragma once
 
-class FSceneViewport;
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Slate/SceneViewport.h"
+
+class SWindow;
 
 /** A single, managed surface used as a render target resolution destination  */
 struct MOVIESCENECAPTURE_API FViewportSurfaceReader

@@ -156,6 +156,9 @@ FD3D11Viewport::~FD3D11Viewport()
 {
 	check(IsInRenderingThread());
 
+	// Turn off HDR display mode
+	D3DRHI->ShutdownHDR(Output);
+
 	// If the swap chain was in fullscreen mode, switch back to windowed before releasing the swap chain.
 	// DXGI throws an error otherwise.
 	VERIFYD3D11RESULT_EX(SwapChain->SetFullscreenState(false,NULL), D3DRHI->GetDevice());
@@ -180,7 +183,7 @@ DXGI_MODE_DESC FD3D11Viewport::SetupDXGI_MODE_DESC() const
 	return Ret;
 }
 
-void FD3D11Viewport::Resize(uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen)
+void FD3D11Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen, EPixelFormat PreferredPixelFormat)
 {
 	// Unbind any dangling references to resources
 	D3DRHI->RHISetRenderTargets(0, nullptr, nullptr, 0, nullptr);
@@ -203,10 +206,11 @@ void FD3D11Viewport::Resize(uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen)
 	}
 	BackBuffer.SafeRelease();
 
-	if(SizeX != InSizeX || SizeY != InSizeY)
+	if(SizeX != InSizeX || SizeY != InSizeY || PixelFormat != PreferredPixelFormat)
 	{
 		SizeX = InSizeX;
 		SizeY = InSizeY;
+		PixelFormat = PreferredPixelFormat;
 
 		check(SizeX > 0);
 		check(SizeY > 0);
@@ -233,6 +237,16 @@ void FD3D11Viewport::Resize(uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen)
 		// Use ConditionalResetSwapChain to call SetFullscreenState, to handle the failure case.
 		// Ignore the viewport's focus state; since Resize is called as the result of a user action we assume authority without waiting for Focus.
 		ConditionalResetSwapChain(true);
+	}
+
+	// Float RGBA backbuffers are requested whenever HDR mode is desired
+	if (PixelFormat == PF_FloatRGBA && bIsFullscreen)
+	{
+		D3DRHI->EnableHDR(Output);
+	}
+	else
+	{
+		D3DRHI->ShutdownHDR(Output);
 	}
 
 	// Create a RHI surface to represent the viewport's back buffer.
@@ -470,7 +484,22 @@ void FD3D11DynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI,uint32
 	FD3D11Viewport* Viewport = ResourceCast(ViewportRHI);
 
 	check( IsInGameThread() );
-	Viewport->Resize(SizeX,SizeY,bIsFullscreen);
+	Viewport->Resize(SizeX,SizeY,bIsFullscreen, PF_Unknown);
+}
+
+void FD3D11DynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI, uint32 SizeX, uint32 SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
+{
+	FD3D11Viewport* Viewport = ResourceCast(ViewportRHI);
+
+	check(IsInGameThread());
+
+	// Use a default pixel format if none was specified	
+	if (PreferredPixelFormat == EPixelFormat::PF_Unknown)
+	{
+		PreferredPixelFormat = EPixelFormat::PF_A2B10G10R10;
+	}
+
+	Viewport->Resize(SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
 }
 
 void FD3D11DynamicRHI::RHITick( float DeltaTime )

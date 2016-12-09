@@ -24,9 +24,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "BoneIndices.h"
 #include "GPUSkinPublicDefs.h"
-#include "ResourcePool.h"
 #include "UniformBuffer.h"
+#include "VertexFactory.h"
+#include "LocalVertexFactory.h"
+#include "ResourcePool.h"
+
+class FSkeletalMeshVertexBuffer;
+
+template <class T> class TConsoleVariableData;
 
 /** for final bone matrices - this needs to move out of ifdef due to APEX using it*/
 MS_ALIGN(16) struct FSkinMatrix3x4

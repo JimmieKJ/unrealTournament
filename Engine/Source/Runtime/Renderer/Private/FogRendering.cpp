@@ -4,9 +4,11 @@
 	FogRendering.cpp: Fog rendering implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
+#include "FogRendering.h"
+#include "DeferredShadingRenderer.h"
+#include "AtmosphereRendering.h"
 #include "ScenePrivate.h"
-#include "SceneUtils.h"
+#include "Engine/TextureCube.h"
 
 DECLARE_FLOAT_COUNTER_STAT(TEXT("Fog"), Stat_GPU_Fog, STATGROUP_GPU);
 
@@ -43,6 +45,9 @@ void FExponentialHeightFogShaderParameters::Bind(const FShaderParameterMap& Para
 	ExponentialFogParameters.Bind(ParameterMap,TEXT("ExponentialFogParameters"));
 	ExponentialFogColorParameter.Bind(ParameterMap,TEXT("ExponentialFogColorParameter"));
 	ExponentialFogParameters3.Bind(ParameterMap,TEXT("ExponentialFogParameters3"));
+	FogInscatteringColorCubemap.Bind(ParameterMap,TEXT("FogInscatteringColorCubemap"));
+	FogInscatteringColorSampler.Bind(ParameterMap,TEXT("FogInscatteringColorSampler"));
+	FogInscatteringTextureParameters.Bind(ParameterMap,TEXT("FogInscatteringTextureParameters"));
 	InscatteringLightDirection.Bind(ParameterMap,TEXT("InscatteringLightDirection"));
 	DirectionalInscatteringColor.Bind(ParameterMap,TEXT("DirectionalInscatteringColor"));
 	DirectionalInscatteringStartDistance.Bind(ParameterMap,TEXT("DirectionalInscatteringStartDistance"));
@@ -54,6 +59,9 @@ FArchive& operator<<(FArchive& Ar,FExponentialHeightFogShaderParameters& Paramet
 	Ar << Parameters.ExponentialFogParameters;
 	Ar << Parameters.ExponentialFogColorParameter;
 	Ar << Parameters.ExponentialFogParameters3;
+	Ar << Parameters.FogInscatteringColorCubemap;
+	Ar << Parameters.FogInscatteringColorSampler;
+	Ar << Parameters.FogInscatteringTextureParameters;
 	Ar << Parameters.InscatteringLightDirection;
 	Ar << Parameters.DirectionalInscatteringColor;
 	Ar << Parameters.DirectionalInscatteringStartDistance;
@@ -107,14 +115,14 @@ public:
 			// are culled and don't need to be rendered. This is faster if
 			// there is opaque content nearer than the computed z.
 
-			FMatrix InvProjectionMatrix = View.ViewMatrices.GetInvProjMatrix();
+			FMatrix InvProjectionMatrix = View.ViewMatrices.GetInvProjectionMatrix();
 
 			FVector ViewSpaceCorner = InvProjectionMatrix.TransformFVector4(FVector4(1, 1, 1, 1));
 
 			float Ratio = ViewSpaceCorner.Z / ViewSpaceCorner.Size();
 
 			FVector ViewSpaceStartFogPoint(0.0f, 0.0f, FogStartDistance * Ratio);
-			FVector4 ClipSpaceMaxDistance = View.ViewMatrices.ProjMatrix.TransformPosition(ViewSpaceStartFogPoint);
+			FVector4 ClipSpaceMaxDistance = View.ViewMatrices.GetProjectionMatrix().TransformPosition(ViewSpaceStartFogPoint);
 
 			float FogClipSpaceZ = ClipSpaceMaxDistance.Z / ClipSpaceMaxDistance.W;
 
@@ -135,10 +143,18 @@ private:
 
 IMPLEMENT_SHADER_TYPE(,FHeightFogVS,TEXT("HeightFogVertexShader"),TEXT("Main"),SF_Vertex);
 
-/** A pixel shader for rendering exponential height fog. */
-class FExponentialHeightFogPS : public FGlobalShader
+enum class EHeightFogFeature
 {
-	DECLARE_SHADER_TYPE(FExponentialHeightFogPS,Global);
+	Default,
+	InscatteringTexture,
+	DirectionalLightInscattering
+};
+
+/** A pixel shader for rendering exponential height fog. */
+template<EHeightFogFeature HeightFogFeature>
+class TExponentialHeightFogPS : public FGlobalShader
+{
+	DECLARE_SHADER_TYPE(TExponentialHeightFogPS,Global);
 public:
 
 	static bool ShouldCache(EShaderPlatform Platform)
@@ -146,8 +162,14 @@ public:
 		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
 	}
 
-	FExponentialHeightFogPS( )	{ }
-	FExponentialHeightFogPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		OutEnvironment.SetDefine(TEXT("SUPPORT_FOG_INSCATTERING_TEXTURE"), HeightFogFeature == EHeightFogFeature::InscatteringTexture);
+		OutEnvironment.SetDefine(TEXT("SUPPORT_FOG_DIRECTIONAL_LIGHT_INSCATTERING"), HeightFogFeature == EHeightFogFeature::DirectionalLightInscattering);
+	}
+
+	TExponentialHeightFogPS( )	{ }
+	TExponentialHeightFogPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
 		FGlobalShader(Initializer)
 	{
 		ExponentialParameters.Bind(Initializer.ParameterMap);
@@ -192,7 +214,9 @@ private:
 	FExponentialHeightFogShaderParameters ExponentialParameters;
 };
 
-IMPLEMENT_SHADER_TYPE(,FExponentialHeightFogPS,TEXT("HeightFogPixelShader"), TEXT("ExponentialPixelMain"),SF_Pixel)
+IMPLEMENT_SHADER_TYPE(template<>,TExponentialHeightFogPS<EHeightFogFeature::Default>,TEXT("HeightFogPixelShader"), TEXT("ExponentialPixelMain"),SF_Pixel)
+IMPLEMENT_SHADER_TYPE(template<>,TExponentialHeightFogPS<EHeightFogFeature::InscatteringTexture>,TEXT("HeightFogPixelShader"), TEXT("ExponentialPixelMain"),SF_Pixel)
+IMPLEMENT_SHADER_TYPE(template<>,TExponentialHeightFogPS<EHeightFogFeature::DirectionalLightInscattering>,TEXT("HeightFogPixelShader"), TEXT("ExponentialPixelMain"),SF_Pixel)
 
 /** The fog vertex declaration resource type. */
 class FFogVertexDeclaration : public FRenderResource
@@ -245,7 +269,7 @@ void FSceneRenderer::InitFogConstants()
 				const FExponentialHeightFogSceneInfo& FogInfo = Scene->ExponentialFogs[0];
 				const float CosTerminatorAngle = FMath::Clamp(FMath::Cos(FogInfo.LightTerminatorAngle * PI / 180.0f), -1.0f + DELTA, 1.0f - DELTA);
 				const float CollapsedFogParameterPower = FMath::Clamp(
-						-FogInfo.FogHeightFalloff * (View.ViewMatrices.ViewOrigin.Z - FogInfo.FogHeight),
+						-FogInfo.FogHeightFalloff * (View.ViewMatrices.GetViewOrigin().Z - FogInfo.FogHeight),
 						-126.f + 1.f, // min and max exponent values for IEEE floating points (http://en.wikipedia.org/wiki/IEEE_floating_point)
 						+127.f - 1.f
 						);
@@ -253,7 +277,17 @@ void FSceneRenderer::InitFogConstants()
 				View.ExponentialFogParameters = FVector4(CollapsedFogParameter, FogInfo.FogHeightFalloff, CosTerminatorAngle, FogInfo.StartDistance);
 				View.ExponentialFogColor = FVector(FogInfo.FogColor.R, FogInfo.FogColor.G, FogInfo.FogColor.B);
 				View.FogMaxOpacity = FogInfo.FogMaxOpacity;
-				View.ExponentialFogParameters3 = FVector2D(FogInfo.FogDensity, FogInfo.FogHeight);
+				View.ExponentialFogParameters3 = FVector4(FogInfo.FogDensity, FogInfo.FogHeight, FogInfo.InscatteringColorCubemap ? 1.0f : 0.0f, FogInfo.FogCutoffDistance);
+				View.FogInscatteringColorCubemap = FogInfo.InscatteringColorCubemap;
+				const float InvRange = 1.0f / FMath::Max(FogInfo.FullyDirectionalInscatteringColorDistance - FogInfo.NonDirectionalInscatteringColorDistance, .00001f);
+				float NumMips = 1.0f;
+
+				if (FogInfo.InscatteringColorCubemap)
+				{
+					NumMips = FogInfo.InscatteringColorCubemap->GetNumMips();
+				}
+
+				View.FogInscatteringTextureParameters = FVector(InvRange, -FogInfo.NonDirectionalInscatteringColorDistance * InvRange, NumMips);
 
 				View.DirectionalInscatteringExponent = FogInfo.DirectionalInscatteringExponent;
 				View.DirectionalInscatteringStartDistance = FogInfo.DirectionalInscatteringStartDistance;
@@ -282,19 +316,40 @@ void FSceneRenderer::InitFogConstants()
 	}
 }
 
-FGlobalBoundShaderState ExponentialBoundShaderState;
-
 /** Sets the bound shader state for either the per-pixel or per-sample fog pass. */
 void SetFogShaders(FRHICommandList& RHICmdList, FScene* Scene, const FViewInfo& View, const FLightShaftsOutput& LightShaftsOutput)
 {
 	if (Scene->ExponentialFogs.Num() > 0)
 	{
 		TShaderMapRef<FHeightFogVS> VertexShader(View.ShaderMap);
-		TShaderMapRef<FExponentialHeightFogPS> ExponentialHeightFogPixelShader(View.ShaderMap);
+		
+		if (View.FogInscatteringColorCubemap)
+		{
+			TShaderMapRef<TExponentialHeightFogPS<EHeightFogFeature::InscatteringTexture> > ExponentialHeightFogPixelShader(View.ShaderMap);
 
-		SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), ExponentialBoundShaderState, GFogVertexDeclaration.VertexDeclarationRHI, *VertexShader, *ExponentialHeightFogPixelShader);
-		VertexShader->SetParameters(RHICmdList, View);
-		ExponentialHeightFogPixelShader->SetParameters(RHICmdList, View, LightShaftsOutput);
+			static FGlobalBoundShaderState ExponentialBoundShaderState;
+			SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), ExponentialBoundShaderState, GFogVertexDeclaration.VertexDeclarationRHI, *VertexShader, *ExponentialHeightFogPixelShader);
+			VertexShader->SetParameters(RHICmdList, View);
+			ExponentialHeightFogPixelShader->SetParameters(RHICmdList, View, LightShaftsOutput);
+		}
+		else if (View.bUseDirectionalInscattering)
+		{
+			TShaderMapRef<TExponentialHeightFogPS<EHeightFogFeature::DirectionalLightInscattering> > ExponentialHeightFogPixelShader(View.ShaderMap);
+
+			static FGlobalBoundShaderState ExponentialBoundShaderState;
+			SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), ExponentialBoundShaderState, GFogVertexDeclaration.VertexDeclarationRHI, *VertexShader, *ExponentialHeightFogPixelShader);
+			VertexShader->SetParameters(RHICmdList, View);
+			ExponentialHeightFogPixelShader->SetParameters(RHICmdList, View, LightShaftsOutput);
+		}
+		else
+		{
+			TShaderMapRef<TExponentialHeightFogPS<EHeightFogFeature::Default> > ExponentialHeightFogPixelShader(View.ShaderMap);
+
+			static FGlobalBoundShaderState ExponentialBoundShaderState;
+			SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), ExponentialBoundShaderState, GFogVertexDeclaration.VertexDeclarationRHI, *VertexShader, *ExponentialHeightFogPixelShader);
+			VertexShader->SetParameters(RHICmdList, View);
+			ExponentialHeightFogPixelShader->SetParameters(RHICmdList, View, LightShaftsOutput);
+		}
 	}
 }
 

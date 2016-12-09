@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "LinkerPlaceholderClass.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Package.h"
+#include "Templates/Casts.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/UnrealType.h"
+#include "UObject/LinkerPlaceholderClass.h"
 
 /*-----------------------------------------------------------------------------
 	UInterfaceProperty.
@@ -215,7 +221,7 @@ const TCHAR* UInterfaceProperty::ImportText_Internal( const TCHAR* InBuffer, voi
 	return Buffer;
 }
 
-bool UInterfaceProperty::ContainsObjectReference() const
+bool UInterfaceProperty::ContainsObjectReference(TArray<const UStructProperty*>& EncounteredStructProps) const
 {
 	return true; 
 }

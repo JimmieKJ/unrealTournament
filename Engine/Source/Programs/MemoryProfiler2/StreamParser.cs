@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows.Forms;
+using System.Text;
 
 namespace MemoryProfiler2
 {	
@@ -113,11 +114,37 @@ namespace MemoryProfiler2
 			long TokenStreamOffset = ParserFileStream.Position;
 
 			// Seek to name table and serialize it.
-			ParserFileStream.Seek((Int64)Header.NameTableOffset,SeekOrigin.Begin);
-			for(UInt64 NameIndex = 0;NameIndex < Header.NameTableEntries;NameIndex++)
+			ParserFileStream.Seek((Int64)Header.NameTableOffset, SeekOrigin.Begin);
+			for (UInt64 NameIndex = 0; NameIndex < Header.NameTableEntries; NameIndex++)
 			{
-				FStreamInfo.GlobalInstance.NameArray.Add( ReadString( BinaryStream ) );
+				int InsertedNameIndex = FStreamInfo.GlobalInstance.GetNameIndex(ReadString(BinaryStream), true);
+				Debug.Assert((int)NameIndex == InsertedNameIndex);
 			}
+
+			if (Header.Version >= 6)
+			{
+				// Seek to meta-data table and serialize it.
+				ParserFileStream.Seek((Int64)Header.MetaDataTableOffset, SeekOrigin.Begin);
+				for (UInt64 MetaDataIndex = 0; MetaDataIndex < Header.MetaDataTableEntries; MetaDataIndex++)
+				{
+					string MetaDataKey = ReadString(BinaryStream);
+					string MetaDataValue = ReadString(BinaryStream);
+					FStreamInfo.GlobalInstance.MetaData.Add(MetaDataKey, MetaDataValue);
+				}
+			}
+
+			FStreamInfo.GlobalInstance.TagHierarchy.InitializeHierarchy();
+			if (Header.Version >= 7)
+			{
+				// Seek to tags table and serialize it.
+				ParserFileStream.Seek((Int64)Header.TagsTableOffset, SeekOrigin.Begin);
+				for (UInt64 TagsIndex = 0; TagsIndex < Header.TagsTableEntries; TagsIndex++)
+				{
+					string TagsString = ReadString(BinaryStream);
+					FStreamInfo.GlobalInstance.TagsArray.Add(new FAllocationTags(TagsString));
+				}
+			}
+			FStreamInfo.GlobalInstance.TagHierarchy.FinalizeHierarchy();
 
 			// Seek to callstack address array and serialize it.                
 			ParserFileStream.Seek( (Int64)Header.CallStackAddressTableOffset, SeekOrigin.Begin );
@@ -144,10 +171,7 @@ namespace MemoryProfiler2
             // We need to look up symbol information ourselves if it wasn't serialized.
             try
             {
-                if (!Header.bShouldSerializeSymbolInfo)
-                {
-                    LookupSymbols(Header, MainMProfWindow, BinaryStream, BGWorker);
-                }
+                LookupSymbols(Header, MainMProfWindow, BinaryStream, BGWorker);
             }
             catch (Exception ex)
             {
@@ -241,12 +265,15 @@ namespace MemoryProfiler2
 				}
 			}
 
-			BGWorker.ReportProgress( 0, "5/8 Trimming profiler entries for " + PrettyFilename );;
-
-			// Trim profiler entries from callstacks.
-			foreach( FCallStack CallStack in FStreamInfo.GlobalInstance.CallStackArray )
+			if (MainMProfWindow.Options.TrimAllocatorFunctions)
 			{
-				CallStack.TrimProfilerEntries();
+				BGWorker.ReportProgress(0, "5/8 Trimming allocator entries for " + PrettyFilename); ;
+
+				// Trim allocator entries from callstacks.
+				foreach (FCallStack CallStack in FStreamInfo.GlobalInstance.CallStackArray)
+				{
+					CallStack.TrimAllocatorEntries(MainMProfWindow.Options.AllocatorFunctions);
+				}
 			}
 
 			if( MainMProfWindow.Options.FilterOutObjectVMFunctions )
@@ -262,9 +289,9 @@ namespace MemoryProfiler2
 
 			// Snapshot used for parsing. A copy will be made if a special token is encountered. Otherwise it
 			// will be returned as the only snaphot at the end.
-			FStreamSnapshot Snapshot = new FStreamSnapshot("End");
-			List<FStreamSnapshot> SnapshotList = new List<FStreamSnapshot>();
-            Dictionary<ulong, FCallStackAllocationInfo> PointerToPointerInfoMap = new Dictionary<ulong, FCallStackAllocationInfo>();
+			var Snapshot = new FStreamSnapshot("End");
+			var SnapshotList = new List<FStreamSnapshot>();
+            var PointerToPointerInfoMap = new Dictionary<ulong, FLiveAllocationInfo>();
 
 			// Seek to beginning of token stream.
 			ParserFileStream.Seek(TokenStreamOffset, SeekOrigin.Begin);
@@ -348,7 +375,6 @@ namespace MemoryProfiler2
 						MarkerSnapshot.MetricArray = new List<long>( Token.Metrics );
 						MarkerSnapshot.LoadedLevels = new List<int>( Token.LoadedLevels );
 						MarkerSnapshot.OverallMemorySlice = new List<FMemorySlice>( Snapshot.OverallMemorySlice );
-						MarkerSnapshot.MemoryAllocationStats3 = Token.MemoryAllocationStats3.DeepCopy();
 						MarkerSnapshot.MemoryAllocationStats4 = Token.MemoryAllocationStats4.DeepCopy();
 
 						FStreamInfo.GlobalInstance.SnapshotList.Add( MarkerSnapshot );
@@ -410,7 +436,7 @@ namespace MemoryProfiler2
 								// Either USE_GLOBAL_REALLOC_ZERO_PTR is not being used, or we're not
 								// trying to free the ReallocZeroPtr.
 
-								FCallStackAllocationInfo FreedAllocInfo;
+								FLiveAllocationInfo FreedAllocInfo;
 								if( HandleFree( Token, Snapshot, PointerToPointerInfoMap, out FreedAllocInfo ) )
 								{
 									FCallStack PreviousCallStack = FStreamInfo.GlobalInstance.CallStackArray[ FreedAllocInfo.CallStackIndex ];
@@ -438,7 +464,7 @@ namespace MemoryProfiler2
 
 							if( Token.OldPointer != 0 )
 							{
-								FCallStackAllocationInfo FreedAllocInfo;
+								FLiveAllocationInfo FreedAllocInfo;
 								if( HandleFree( Token, Snapshot, PointerToPointerInfoMap, out FreedAllocInfo ) )
 								{
 									PreviousCallstack = FStreamInfo.GlobalInstance.CallStackArray[ FreedAllocInfo.CallStackIndex ];
@@ -587,7 +613,6 @@ namespace MemoryProfiler2
 										MarkerSnapshot.SnapshotIndex = SnapshotIndex;
 										MarkerSnapshot.MetricArray = new List<long>( Token.Metrics );
 										MarkerSnapshot.LoadedLevels = new List<int>( Token.LoadedLevels );
-										MarkerSnapshot.MemoryAllocationStats3 = Snapshot.MemoryAllocationStats3.DeepCopy();
 										MarkerSnapshot.MemoryAllocationStats4 = Snapshot.MemoryAllocationStats4.DeepCopy();
 										MarkerSnapshot.OverallMemorySlice = new List<FMemorySlice>( Snapshot.OverallMemorySlice );
 
@@ -603,61 +628,51 @@ namespace MemoryProfiler2
 
 								case EProfilingPayloadSubType.SUBTYPE_TotalUsed:
 								{
-									Snapshot.MemoryAllocationStats3.TotalUsed = Token.Payload;
 									break;
 								}
 
 								case EProfilingPayloadSubType.SUBTYPE_TotalAllocated:
 								{
-									Snapshot.MemoryAllocationStats3.TotalAllocated = Token.Payload;
 									break;
 								}
 
 								case EProfilingPayloadSubType.SUBTYPE_CPUUsed:
 								{
-									Snapshot.MemoryAllocationStats3.CPUUsed = Token.Payload;
 									break;
 								}
 
 								case EProfilingPayloadSubType.SUBTYPE_CPUSlack:
 								{
-									Snapshot.MemoryAllocationStats3.CPUSlack = Token.Payload;
 									break;
 								}
 
 								case EProfilingPayloadSubType.SUBTYPE_CPUWaste:
 								{
-									Snapshot.MemoryAllocationStats3.CPUWaste = Token.Payload;
 									break;
 								}
 
 								case EProfilingPayloadSubType.SUBTYPE_GPUUsed:
 								{
-									Snapshot.MemoryAllocationStats3.GPUUsed = Token.Payload;
 									break;
 								}
 
 								case EProfilingPayloadSubType.SUBTYPE_GPUSlack:
 								{
-									Snapshot.MemoryAllocationStats3.GPUSlack = Token.Payload;
 									break;
 								}
 
 								case EProfilingPayloadSubType.SUBTYPE_GPUWaste:
 								{
-									Snapshot.MemoryAllocationStats3.GPUWaste = Token.Payload;
 									break;
 								}
 
 								case EProfilingPayloadSubType.SUBTYPE_ImageSize:
 								{
-									Snapshot.MemoryAllocationStats3.ImageSize = Token.Payload;
 									break;
 								}
 
 								case EProfilingPayloadSubType.SUBTYPE_OSOverhead:
 								{
-									Snapshot.MemoryAllocationStats3.OSOverhead = Token.Payload;
 									break;
 								}
 
@@ -675,7 +690,6 @@ namespace MemoryProfiler2
 
 								case EProfilingPayloadSubType.SUBTYPE_MemoryAllocationStats:
 								{
-									Snapshot.MemoryAllocationStats3 = Token.MemoryAllocationStats3.DeepCopy();
 									Snapshot.MemoryAllocationStats4 = Token.MemoryAllocationStats4.DeepCopy();
 									break;
 								}
@@ -733,7 +747,7 @@ namespace MemoryProfiler2
 			{
 				while( PreviousSnapshot.LifetimeCallStackList.Count < Snapshot.LifetimeCallStackList.Count )
 				{
-					PreviousSnapshot.LifetimeCallStackList.Add( new FCallStackAllocationInfo( 0, PreviousSnapshot.LifetimeCallStackList.Count, 0 ) );
+					PreviousSnapshot.LifetimeCallStackList.Add( new FCallStackAllocationInfo( 0, PreviousSnapshot.LifetimeCallStackList.Count, 0, -1 ) );
 				}
 			}
 
@@ -767,7 +781,7 @@ namespace MemoryProfiler2
 						if( Pattern.Matches( CallStack ) )
 						{
 							CallStack.Group = Pattern.Group;
-							Pattern.CallStacks.Add( CallStack );
+							Pattern.AddCallStack( CallStack );
 							break;
 						}
 					}
@@ -775,7 +789,7 @@ namespace MemoryProfiler2
 					if( CallStack.Group == null )
 					{
 						CallStack.Group = UngroupedGroup;
-						UngroupedGroup.CallStackPatterns[ 0 ].CallStacks.Add( CallStack );
+						UngroupedGroup.CallStackPatterns[ 0 ].AddCallStack( CallStack );
 					}
 				}			
             }
@@ -787,7 +801,6 @@ namespace MemoryProfiler2
 			Snapshot.ElapsedTime = Token.ElapsedTime;
             Snapshot.MetricArray = new List<long>(Token.Metrics);
             Snapshot.LoadedLevels = new List<int>(Token.LoadedLevels);
-			Snapshot.MemoryAllocationStats3 = Token.MemoryAllocationStats3.DeepCopy();
 			Snapshot.MemoryAllocationStats4 = Token.MemoryAllocationStats4.DeepCopy();
             Snapshot.FinalizeSnapshot(PointerToPointerInfoMap);
             FStreamInfo.GlobalInstance.SnapshotList.Add(Snapshot);
@@ -838,10 +851,10 @@ namespace MemoryProfiler2
 		}
 
 		/// <summary> Updates internal state with allocation. </summary>
-        private static void HandleMalloc(FStreamToken StreamToken, FStreamSnapshot Snapshot, Dictionary<ulong, FCallStackAllocationInfo> PointerToPointerInfoMap)
+        private static void HandleMalloc(FStreamToken StreamToken, FStreamSnapshot Snapshot, Dictionary<ulong, FLiveAllocationInfo> PointerToPointerInfoMap)
 		{
 			// Keep track of size associated with pointer and also current callstack.
-            FCallStackAllocationInfo PointerInfo = new FCallStackAllocationInfo(StreamToken.Size, StreamToken.CallStackIndex, 1);
+			var PointerInfo = new FLiveAllocationInfo(StreamToken.Size, StreamToken.CallStackIndex, StreamToken.TagsIndex);
 
             if (PointerToPointerInfoMap.ContainsKey(StreamToken.Pointer))
             {
@@ -860,11 +873,10 @@ namespace MemoryProfiler2
             // Add size to lifetime churn tracking.
             while (StreamToken.CallStackIndex >= Snapshot.LifetimeCallStackList.Count)
 			{
-                Snapshot.LifetimeCallStackList.Add(new FCallStackAllocationInfo(0, Snapshot.LifetimeCallStackList.Count, 0));
+                Snapshot.LifetimeCallStackList.Add(new FCallStackAllocationInfo(0, Snapshot.LifetimeCallStackList.Count, 0, -1));
 			}
 
-            //@todo: Sadly, we have to do all this ugly shuffling because of the way lists of structs work in C#
-			Snapshot.LifetimeCallStackList[ StreamToken.CallStackIndex ] = Snapshot.LifetimeCallStackList[ StreamToken.CallStackIndex ].Add( StreamToken.Size, 1 );
+			Snapshot.LifetimeCallStackList[StreamToken.CallStackIndex].Add(StreamToken.Size, 1, StreamToken.TagsIndex);
 
 			if( Snapshot.AllocationSize > Snapshot.AllocationMaxSize )
 			{
@@ -883,7 +895,7 @@ namespace MemoryProfiler2
 		}
 
 		/// <summary> Updates internal state with free. </summary>
-        private static bool HandleFree(FStreamToken StreamToken, FStreamSnapshot Snapshot, Dictionary<ulong, FCallStackAllocationInfo> PointerToPointerInfoMap, out FCallStackAllocationInfo FreedAllocInfo)
+        private static bool HandleFree(FStreamToken StreamToken, FStreamSnapshot Snapshot, Dictionary<ulong, FLiveAllocationInfo> PointerToPointerInfoMap, out FLiveAllocationInfo FreedAllocInfo)
 		{
             if (!PointerToPointerInfoMap.TryGetValue(StreamToken.Pointer, out FreedAllocInfo))
             {
@@ -911,206 +923,33 @@ namespace MemoryProfiler2
 		{
             string PrettyFilename = Path.GetFileNameWithoutExtension(FStreamInfo.GlobalInstance.FileName);
 			BGWorker.ReportProgress( 0, "2/8 Loading symbols for " + PrettyFilename );
-            
+
+			if (FStreamInfo.GlobalInstance.SymbolParser != null)
+			{
+				FStreamInfo.GlobalInstance.SymbolParser.ShutdownSymbolService();
+			}
+
             // Proper Symbol parser will be created based on platform.
-			FStreamInfo.GlobalInstance.ConsoleSymbolParser = null;
+			FStreamInfo.GlobalInstance.SymbolParser = ISymbolParser.GetSymbolParserForPlatform(Header.PlatformName);
 
-            // Search for symbols in the same directory as the mprof first to allow packaging of previous results
-			FStreamInfo.bLoadDefaultSymbols = false;
-            if (Header.Platform == EPlatformType.PS3)
-            {
-                FStreamInfo.GlobalInstance.ConsoleSymbolParser = new FPS3SymbolParser();
-                int LastPathSeparator = MainMProfWindow.CurrentFilename.LastIndexOf('\\');
-                if (LastPathSeparator != -1)
-                {
-                    string CurrentPath = MainMProfWindow.CurrentFilename.Substring(0, LastPathSeparator);
-					if( !FStreamInfo.GlobalInstance.ConsoleSymbolParser.LoadSymbols( CurrentPath + "\\" + Header.ExecutableName + ".elf" ) )
-                    {
-						FStreamInfo.GlobalInstance.ConsoleSymbolParser = null;
-                    }
-                }
-            }
-			else if( Header.Platform == EPlatformType.Xbox360 )
-            {
-                Directory.SetCurrentDirectory(Path.GetDirectoryName(MainMProfWindow.CurrentFilename));
-
-                FStreamInfo.GlobalInstance.ConsoleSymbolParser = new FXbox360SymbolParser();
-                int LastPathSeparator = MainMProfWindow.CurrentFilename.LastIndexOf('\\');
-                if (LastPathSeparator != -1)
-                {
-					if( Header.ModuleEntries > 0 )
-					{
-						BinaryStream.BaseStream.Seek( (Int64)Header.ModulesOffset, SeekOrigin.Begin );
-						FStreamInfo.GlobalInstance.ConsoleSymbolParser.ReadModuleInfo( BinaryStream, (uint)Header.ModuleEntries );
-					}
-
-                    string CurrentPath = MainMProfWindow.CurrentFilename.Substring(0, LastPathSeparator);
-                    if (!FStreamInfo.GlobalInstance.ConsoleSymbolParser.LoadSymbols(CurrentPath + "\\" + Header.ExecutableName + ".xex" ) )
-                    {
-                        FStreamInfo.GlobalInstance.ConsoleSymbolParser = null;
-                    }
-                }
-            }
-            else if ((Header.Platform & EPlatformType.AnyWindows) != EPlatformType.Unknown)
+			if (FStreamInfo.GlobalInstance.SymbolParser != null)
 			{
-				// unsupported - application evaluates symbols at runtime
+				FStreamInfo.GlobalInstance.SymbolParser.InitializeSymbolService(Header.ExecutableName, new FUIBroker(MainMProfWindow));
 			}
 
-            // If symbols weren't found in the same directory as the mprof, search the intermediate pdb locations
-			FStreamInfo.bLoadDefaultSymbols = true;
-            if (FStreamInfo.GlobalInstance.ConsoleSymbolParser == null)
-            {
-                if (Header.Platform == EPlatformType.PS3)
-                {
-					FStreamInfo.GlobalInstance.ConsoleSymbolParser = new FPS3SymbolParser();
-					if( !FStreamInfo.GlobalInstance.ConsoleSymbolParser.LoadSymbols( Header.ExecutableName + ".elf" ) )
-					{
-						FStreamInfo.GlobalInstance.ConsoleSymbolParser = null;
-					}
-                }
-				else if( Header.Platform == EPlatformType.Xbox360 )
-                {
-                    FStreamInfo.GlobalInstance.ConsoleSymbolParser = new FXbox360SymbolParser();
-                    if (!FStreamInfo.GlobalInstance.ConsoleSymbolParser.LoadSymbols("..\\" + Header.ExecutableName + ".xex" ) )
-                    {
-                        FStreamInfo.GlobalInstance.ConsoleSymbolParser = null;
-                    }
-                }
-				else if (Header.Platform == EPlatformType.IPhone)
-				{
-					FStreamInfo.GlobalInstance.ConsoleSymbolParser = new FIPhoneSymbolParser();
-					if (!FStreamInfo.GlobalInstance.ConsoleSymbolParser.LoadSymbols(Header.ExecutableName + ".ipa"))
-					{
-						FStreamInfo.GlobalInstance.ConsoleSymbolParser = null;
-					}
-				}
-                else if ((Header.Platform & EPlatformType.AnyWindows) != EPlatformType.Unknown)
-                {
-					// unsupported - application evaluates symbols at runtime
-				}
-            }
-
-			// If console symbol parser is null it means that either the platform is not supported or the symbols couldn't
-			// be loaded.
-			if( FStreamInfo.GlobalInstance.ConsoleSymbolParser == null )
+			// Nothing more to do if symbols were serialized at runtime (we just needed to create the correct symbol parser)
+			if (Header.bShouldSerializeSymbolInfo)
 			{
-                if (MainMProfWindow != null)
-                {
-                    MessageBox.Show("Failed to load symbols for " + Header.ExecutableName);
-                }
-                else
-                {
-                    Console.WriteLine("Failed to load symbols for " + Header.ExecutableName);
-                }
-
-				throw new InvalidDataException();
+				return;
 			}
 
-			// Create mapping from string to index in name array.
-			Dictionary<string, int> NameToIndexMap = new Dictionary<string,int>();
-
-			// Propagate existing name entries to map.
-			for( int NameIndex=0; NameIndex<FStreamInfo.GlobalInstance.NameArray.Count; NameIndex++ )
+			if (FStreamInfo.GlobalInstance.SymbolParser != null)
 			{
-				NameToIndexMap.Add( FStreamInfo.GlobalInstance.NameArray[NameIndex], NameIndex );
-			}
-
-			// Current index is incremented whenever a new name is added.
-			int CurrentNameIndex = FStreamInfo.GlobalInstance.NameArray.Count;
-
-			// Iterate over all addresses and look up symbol information.
-            int NumAddressesPerTick = FStreamInfo.GlobalInstance.CallStackAddressArray.Count / 100;
-            int AddressIndex = 0;
-			string ProgressString = "3/8 Resolving symbols for " + PrettyFilename;
-
-			if (Header.Platform == EPlatformType.IPhone)
-			{
-				// When resolving the addresses to symbols we require the use of UnrealRemoteTool to call
-				// the relevant command on the mac. This method allows us to minimize network traffic required
-				const int MaxAddressesPerBatch = 5000;
-				int NumCallStackAddresses = FStreamInfo.GlobalInstance.CallStackAddressArray.Count;
-
-				for (int NextBatchIdx = 0; NextBatchIdx < NumCallStackAddresses; NextBatchIdx += MaxAddressesPerBatch)
-				{
-					int RemainingAddresses = FStreamInfo.GlobalInstance.CallStackAddressArray.Count - NextBatchIdx;
-					int BatchCount = RemainingAddresses >= MaxAddressesPerBatch ? MaxAddressesPerBatch : RemainingAddresses;
-
-					ulong[] Addresses = new ulong[BatchCount];
-
-					String[] FileNames = new String[BatchCount];
-					String[] FunctionNames = new String[BatchCount];
-					int[] LineNumbers = new int[BatchCount];
-
-					if (NumCallStackAddresses - NextBatchIdx >= MaxAddressesPerBatch)
-					{
-						int PercentageComplete = (int)(((float)NextBatchIdx / (float)NumCallStackAddresses) * (float)100);
-						BGWorker.ReportProgress(PercentageComplete, ProgressString);
-					}
-
-					for (int CurrentAddressIdx = NextBatchIdx; CurrentAddressIdx < NextBatchIdx + MaxAddressesPerBatch; CurrentAddressIdx++)
-					{
-						// Jump out of the loops if we have iterated over all addresses
-						if (CurrentAddressIdx >= FStreamInfo.GlobalInstance.CallStackAddressArray.Count)
-						{
-							break;
-						}
-
-						FCallStackAddress Address = FStreamInfo.GlobalInstance.CallStackAddressArray[CurrentAddressIdx];
-
-						int BatchAddressIdx = CurrentAddressIdx % MaxAddressesPerBatch;
-						Addresses[BatchAddressIdx] = (ulong)Address.ProgramCounter;
-					}
-
-					// Use Atos on the target Mac to resolve the symbols in batches.
-					bool bSuccessfullyResolved = FStreamInfo.GlobalInstance.ConsoleSymbolParser.ResolveAddressBatchesToSymbolInfo(Addresses, ref FileNames, ref FunctionNames, ref LineNumbers);
-
-					if (bSuccessfullyResolved)
-					{
-						for (int CurrentAddressIdx = NextBatchIdx; CurrentAddressIdx < NextBatchIdx + BatchCount; CurrentAddressIdx++)
-						{
-							FCallStackAddress Address = FStreamInfo.GlobalInstance.CallStackAddressArray[CurrentAddressIdx];
-
-							int BatchAddressIdx = CurrentAddressIdx % MaxAddressesPerBatch;
-							String Filename = FileNames[BatchAddressIdx];
-							String Function = FunctionNames[BatchAddressIdx];
-							Address.LineNumber = LineNumbers[BatchAddressIdx];
-
-							if (Filename != null && Function != null)
-							{
-								// Look up filename index.
-								if (NameToIndexMap.ContainsKey(Filename))
-								{
-									// Use existing entry.
-									Address.FilenameIndex = NameToIndexMap[Filename];
-								}
-								// Not found, so we use global name index to set new one.
-								else
-								{
-									// Set name in map associated with global ever increasing index.
-									Address.FilenameIndex = CurrentNameIndex++;
-									NameToIndexMap.Add(Filename, Address.FilenameIndex);
-								}
-
-								// Look up function index.
-								if (NameToIndexMap.ContainsKey(Function))
-								{
-									// Use existing entry.
-									Address.FunctionIndex = NameToIndexMap[Function];
-								}
-								// Not found, so we use global name index to set new one.
-								else
-								{
-									// Set name in map associated with global ever increasing index.
-									Address.FunctionIndex = CurrentNameIndex++;
-									NameToIndexMap.Add(Function, Address.FunctionIndex);
-								}
-							}
-						}
-					}
-				}
-			}
-			else
-			{
+				// Iterate over all addresses and look up symbol information.
+				int NumAddressesPerTick = FStreamInfo.GlobalInstance.CallStackAddressArray.Count / 100;
+				int AddressIndex = 0;
+				string ProgressString = "3/8 Resolving symbols for " + PrettyFilename;
+			
 				foreach( FCallStackAddress Address in FStreamInfo.GlobalInstance.CallStackAddressArray )
 				{
 					if( ( AddressIndex % NumAddressesPerTick ) == 0 )
@@ -1119,55 +958,9 @@ namespace MemoryProfiler2
 					}
 					++AddressIndex;
 
-					// Look up symbol info via console support DLL.
-					string Filename = "";
-					string Function = "";
-					FStreamInfo.GlobalInstance.ConsoleSymbolParser.ResolveAddressToSymboInfo( (uint)Address.ProgramCounter, ref Filename, ref Function, ref Address.LineNumber );
-
-					// Look up filename index.
-					if( NameToIndexMap.ContainsKey( Filename ) )
-					{
-						// Use existing entry.
-						Address.FilenameIndex = NameToIndexMap[Filename];
-					}
-					// Not found, so we use global name index to set new one.
-					else
-					{
-						// Set name in map associated with global ever increasing index.
-						Address.FilenameIndex = CurrentNameIndex++;
-						NameToIndexMap.Add( Filename, Address.FilenameIndex );
-					}
-
-					// Look up function index.
-					if( NameToIndexMap.ContainsKey( Function ) )
-					{
-						// Use existing entry.
-						Address.FunctionIndex = NameToIndexMap[Function];
-					}
-					// Not found, so we use global name index to set new one.
-					else
-					{
-						// Set name in map associated with global ever increasing index.
-						Address.FunctionIndex = CurrentNameIndex++;
-						NameToIndexMap.Add( Function, Address.FunctionIndex );
-					}
+					FStreamInfo.GlobalInstance.SymbolParser.ResolveAddressSymbolInfo(ESymbolResolutionMode.Fast, Address);
 				}
 			}
-
-			// Create new name array based on dictionary.
-			FStreamInfo.GlobalInstance.NameArray = new List<string>(CurrentNameIndex);
-			foreach (KeyValuePair<string, int> NameMapping in NameToIndexMap)
-			{
-                while (FStreamInfo.GlobalInstance.NameArray.Count <= NameMapping.Value)
-				{
-                    FStreamInfo.GlobalInstance.NameArray.Add(null);
-				}
-
-				FStreamInfo.GlobalInstance.NameArray[NameMapping.Value] = NameMapping.Key;
-			}
-
-			// Unload symbols again.
-			FStreamInfo.GlobalInstance.ConsoleSymbolParser.UnloadSymbols();
 		}
 
         private static int[] SnapshotTypeCounts;
@@ -1227,12 +1020,43 @@ namespace MemoryProfiler2
             return Result;
         }
 
-		/// <summary> Reads string from stream. </summary>
+		/// <summary> Reads a string from stream (written using either FString operator<< or FString::SerializeAsANSICharArray serialization format). </summary>
 		/// <param name="BinaryStream"> Stream to serialize data from </param>
-        public static string ReadString(BinaryReader BinaryStream)
+		public static string ReadString(BinaryReader BinaryStream)
         {
-			uint Length = BinaryStream.ReadUInt32();
-			return new string( BinaryStream.ReadChars( ( int )Length ) );
-        }
+			int Length = BinaryStream.ReadInt32();
+			if (Length > 0)
+			{
+				// Positive length is an ANSI string
+				var Builder = new StringBuilder(Length);
+				for (int Index = 0; Index < Length; ++Index)
+				{
+					// The given length may or may not include the null terminator, so skip that if we find it at the end of the string
+					char Char = BinaryStream.ReadChar();
+					if (Char != 0)
+					{
+						Builder.Append(Char);
+					}
+				}
+				return Builder.ToString();
+			}
+			else if (Length < 0)
+			{
+				// Negative length is a UCS-2 string
+				Length *= -1;
+				var Builder = new StringBuilder(Length);
+				for (int Index = 0; Index < Length; ++Index)
+				{
+					// The given length may or may not include the null terminator, so skip that if we find it at the end of the string
+					char Char = (char)BinaryStream.ReadUInt16();
+					if (Char != 0)
+					{
+						Builder.Append(Char);
+					}
+				}
+				return Builder.ToString();
+			}
+			return String.Empty;
+		}
 	};
 }

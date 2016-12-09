@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "CoreUObject.h"
-#include "MaterialMerging.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/MaterialMerging.h"
 #include "MeshMerging.generated.h"
 
 /** The importance of a mesh feature when automatically generating mesh LODs. */
@@ -27,67 +28,72 @@ struct FMeshReductionSettings
 {
 	GENERATED_USTRUCT_BODY()
 
-		/** Percentage of triangles to keep. 1.0 = no reduction, 0.0 = no triangles. */
-		UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		float PercentTriangles;
+	/** Percentage of triangles to keep. 1.0 = no reduction, 0.0 = no triangles. */
+	UPROPERTY(EditAnywhere, Category = ReductionSettings)
+	float PercentTriangles;
 
 	/** The maximum distance in object space by which the reduced mesh may deviate from the original mesh. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		float MaxDeviation;
+	float MaxDeviation;
+
+	/** The amount of error in pixels allowed for this LOD. */
+	UPROPERTY(EditAnywhere, Category = ReductionSettings)
+	float PixelError;
 
 	/** Threshold in object space at which vertices are welded together. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		float WeldingThreshold;
+	float WeldingThreshold;
 
 	/** Angle at which a hard edge is introduced between faces. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		float HardAngleThreshold;
+	float HardAngleThreshold;
 
 	/** Higher values minimize change to border edges. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		TEnumAsByte<EMeshFeatureImportance::Type> SilhouetteImportance;
+	TEnumAsByte<EMeshFeatureImportance::Type> SilhouetteImportance;
 
 	/** Higher values reduce texture stretching. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		TEnumAsByte<EMeshFeatureImportance::Type> TextureImportance;
+	TEnumAsByte<EMeshFeatureImportance::Type> TextureImportance;
 
 	/** Higher values try to preserve normals better. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		TEnumAsByte<EMeshFeatureImportance::Type> ShadingImportance;
+	TEnumAsByte<EMeshFeatureImportance::Type> ShadingImportance;
 
 	/*UPROPERTY(EditAnywhere, Category = ReductionSettings)
 	bool bActive;*/
 
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		bool bRecalculateNormals;
+	bool bRecalculateNormals;
 
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		int32 BaseLODModel;
+	int32 BaseLODModel;
 
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		bool bGenerateUniqueLightmapUVs;
+	bool bGenerateUniqueLightmapUVs;
 
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		bool bKeepSymmetry;
+	bool bKeepSymmetry;
 
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		bool bVisibilityAided;
+	bool bVisibilityAided;
 
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		bool bCullOccluded;
+	bool bCullOccluded;
 
 	/** Higher values generates fewer samples*/
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		TEnumAsByte<EMeshFeatureImportance::Type> VisibilityAggressiveness;
+	TEnumAsByte<EMeshFeatureImportance::Type> VisibilityAggressiveness;
 
 	/** Higher values minimize change to vertex color data. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
-		TEnumAsByte<EMeshFeatureImportance::Type> VertexColorImportance;
+	TEnumAsByte<EMeshFeatureImportance::Type> VertexColorImportance;
 
 	/** Default settings. */
 	FMeshReductionSettings()
 		: PercentTriangles(1.0f)
 		, MaxDeviation(0.0f)
+		, PixelError(8.0f)
 		, WeldingThreshold(0.0f)
 		, HardAngleThreshold(80.0f)
 		, SilhouetteImportance(EMeshFeatureImportance::Normal)
@@ -107,9 +113,10 @@ struct FMeshReductionSettings
 	FMeshReductionSettings(const FMeshReductionSettings& Other)
 		: PercentTriangles(Other.PercentTriangles)
 		, MaxDeviation(Other.MaxDeviation)
+		, PixelError(Other.PixelError)
 		, WeldingThreshold(Other.WeldingThreshold)
 		, HardAngleThreshold(Other.HardAngleThreshold)
-		, SilhouetteImportance(Other.ShadingImportance)
+		, SilhouetteImportance(Other.SilhouetteImportance)
 		, TextureImportance(Other.TextureImportance)
 		, ShadingImportance(Other.ShadingImportance)
 		, bRecalculateNormals(Other.bRecalculateNormals)
@@ -128,6 +135,7 @@ struct FMeshReductionSettings
 	{
 		return PercentTriangles == Other.PercentTriangles
 			&& MaxDeviation == Other.MaxDeviation
+			&& PixelError == Other.PixelError
 			&& WeldingThreshold == Other.WeldingThreshold
 			&& HardAngleThreshold == Other.HardAngleThreshold
 			&& SilhouetteImportance == Other.SilhouetteImportance
@@ -294,12 +302,8 @@ struct FMeshMergingSettings
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = MeshSettings)
 	bool bGenerateLightMapUV;
 
-	/** Target UV channel in a merged mesh for a lightmap */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = MeshSettings)
-	int32 TargetLightMapUVChannel;
-
 	/** Target lightmap resolution */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = MeshSettings)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = MeshSettings, meta=(ClampMax = 4096))
 	int32 TargetLightMapResolution;
 
 	/** Whether we should import vertex colors into merged mesh */
@@ -329,6 +333,10 @@ struct FMeshMergingSettings
 	/** Whether or not vertex data such as vertex colours should be used when baking out materials */
 	UPROPERTY(EditAnywhere, Category = MaterialSettings, meta = (editcondition = "bMergeMaterials"))
 	bool bUseVertexDataForBakingMaterial;
+
+	// Whether or not to calculate varying output texture sizes according to their importance in the final atlas texture
+	UPROPERTY(Category = MaterialSettings, EditAnywhere)
+	bool bUseTextureBinning;
 			
 	UPROPERTY()
 	bool bCalculateCorrectLODModel_DEPRECATED;
@@ -368,15 +376,16 @@ struct FMeshMergingSettings
 	/** Default settings. */
 	FMeshMergingSettings()
 		: bGenerateLightMapUV(true)
-		, TargetLightMapUVChannel(1)
 		, TargetLightMapResolution(256)
 		, bImportVertexColors_DEPRECATED(false)
 		, bPivotPointAtZero(false)
 		, bMergePhysicsData(false)
 		, bMergeMaterials(false)
 		, bBakeVertexDataToMesh(false)
+		, bUseVertexDataForBakingMaterial(true)
+		, bUseTextureBinning(false)
 		, bCalculateCorrectLODModel_DEPRECATED(false)
-		, LODSelectionType(EMeshLODSelectionType::AllLODs)
+		, LODSelectionType(EMeshLODSelectionType::CalculateLOD)
 		, ExportSpecificLOD_DEPRECATED(0)
 		, SpecificLOD(0)
 		, bUseLandscapeCulling(false)
@@ -391,4 +400,17 @@ struct FMeshMergingSettings
 
 	/** Handles deprecated properties */
 	void PostLoadDeprecated();
+};
+
+/** Struct to store per section info used to populate data after (multiple) meshes are merged together */
+struct FSectionInfo
+{
+	class UMaterialInterface* Material;
+	bool bCollisionEnabled;
+	bool bShadowCastingEnabled;
+
+	bool operator==(const FSectionInfo& Other) const
+	{
+		return Material == Other.Material && bCollisionEnabled == Other.bCollisionEnabled && bShadowCastingEnabled == Other.bShadowCastingEnabled;
+	}
 };

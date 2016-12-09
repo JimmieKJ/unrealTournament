@@ -6,9 +6,20 @@
  *	This will hold all of our enums and types and such that we need to
  *	use in multiple files where the enum can't be mapped to a specific file.
  */
-#include "NetSerialization.h"
-#include "GameFramework/DamageType.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/NetSerialization.h"
 #include "EngineTypes.generated.h"
+
+class AActor;
+class UDecalComponent;
+class UPhysicalMaterial;
+class UPrimitiveComponent;
+class USceneComponent;
 
 /**
  * Default number of components to expect in TInlineAllocators used with AActor component arrays.
@@ -314,6 +325,7 @@ UENUM()
 enum ESceneCaptureSource 
 { 
 	SCS_SceneColorHDR UMETA(DisplayName="SceneColor (HDR) in RGB, Inv Opacity in A"),
+	SCS_SceneColorHDRNoAlpha UMETA(DisplayName="SceneColor (HDR) in RGB, 0 in A"),
 	SCS_FinalColorLDR UMETA(DisplayName="Final Color (LDR) in RGB"),
 	SCS_SceneColorSceneDepth UMETA(DisplayName="SceneColor (HDR) in RGB, SceneDepth in A"),
 	SCS_SceneDepth UMETA(DisplayName="SceneDepth in R"),
@@ -544,22 +556,42 @@ enum class ENetworkSmoothingMode : uint8
     If(QueryIgnoreMask & ShapeFilter != 0) filter out */
 typedef uint8 FMaskFilter;
 
+// NOTE!!Some of these values are used to index into FCollisionResponseContainers and must be kept in sync.
+// @see FCollisionResponseContainer::SetResponse().
+
+// @NOTE!!!! This DisplayName [DISPLAYNAME] SHOULD MATCH suffix of ECC_DISPLAYNAME
+// Otherwise it will mess up collision profile loading
+// If you change this, please also change FCollisionResponseContainers
+//
+// If you add any more TraceQuery="1", you also should change UCollsionProfile::LoadProfileConfig
+// Metadata doesn't work outside of editor, so you'll need to add manually
+
+// @NOTE : when you add more here for predefined engine channel
+// please change the max in the CollisionProfile
+// search ECC_Destructible
+
+// in order to use this custom channels
+// we recommend to define in your local file
+// - i.e. #define COLLISION_WEAPON		ECC_GameTraceChannel1
+// and make sure you customize these it in INI file by
+// 
+// in DefaultEngine.ini
+//
+// [/Script/Engine.CollisionProfile]
+// GameTraceChannel1="Weapon"
+// 
+// also in the INI file, you can override collision profiles that are defined by simply redefining
+// note that Weapon isn't defined in the BaseEngine.ini file, but "Trigger" is defined in Engine
+// +Profiles=(Name="Trigger",CollisionEnabled=QueryOnly,ObjectTypeName=WorldDynamic, DefaultResponse=ECR_Overlap, CustomResponses=((Channel=Visibility, Response=ECR_Ignore), (Channel=Weapon, Response=ECR_Ignore)))
+
+
 /** 
  * Enum indicating different type of objects for rigid-body collision purposes. 
- * NOTE!! Some of these values are used to index into FCollisionResponseContainers and must be kept in sync.
- * @see FCollisionResponseContainer::SetResponse().
  */
 UENUM(BlueprintType)
 enum ECollisionChannel
 {
-	/**
-	* @NOTE!!!! This DisplayName [DISPLAYNAME] SHOULD MATCH suffix of ECC_DISPLAYNAME
-	* Otherwise it will mess up collision profile loading
-	* If you change this, please also change FCollisionResponseContainers
-	* 
-	* If you add any more TraceQuery="1", you also should change UCollsionProfile::LoadProfileConfig
-	* Metadata doesn't work outside of editor, so you'll need to add manually 
-	*/
+
 	ECC_WorldStatic UMETA(DisplayName="WorldStatic"),
 	ECC_WorldDynamic UMETA(DisplayName="WorldDynamic"),
 	ECC_Pawn UMETA(DisplayName="Pawn"),
@@ -568,31 +600,16 @@ enum ECollisionChannel
 	ECC_PhysicsBody UMETA(DisplayName="PhysicsBody"),
 	ECC_Vehicle UMETA(DisplayName="Vehicle"),
 	ECC_Destructible UMETA(DisplayName="Destructible"),
-	// @NOTE : when you add more here for predefined engine channel
-	// please change the max in the CollisionProfile
-	// search ECC_Destructible
 
-	// Unspecified Engine Trace Channels
-	ECC_EngineTraceChannel1 UMETA(Hidden),		// IMPORTANT: This engine trace channel is reserved by the COLLISION_GIZMO definition
+	/** Reserved for gizmo collision */
+	ECC_EngineTraceChannel1 UMETA(Hidden),
+
 	ECC_EngineTraceChannel2 UMETA(Hidden),
 	ECC_EngineTraceChannel3 UMETA(Hidden),
 	ECC_EngineTraceChannel4 UMETA(Hidden), 
 	ECC_EngineTraceChannel5 UMETA(Hidden),
 	ECC_EngineTraceChannel6 UMETA(Hidden),
 
-	// in order to use this custom channels
-	// we recommend to define in your local file
-	// - i.e. #define COLLISION_WEAPON		ECC_GameTraceChannel1
-	// and make sure you customize these it in INI file by
-	// 
-	// in DefaultEngine.ini
-	//
-	// [/Script/Engine.CollisionProfile]
-	// GameTraceChannel1="Weapon"
-	// 
-	// also in the INI file, you can override collision profiles that are defined by simply redefining
-	// note that Weapon isn't defined in the BaseEngine.ini file, but "Trigger" is defined in Engine
-	// +Profiles=(Name="Trigger",CollisionEnabled=QueryOnly,ObjectTypeName=WorldDynamic, DefaultResponse=ECR_Overlap, CustomResponses=((Channel=Visibility, Response=ECR_Ignore), (Channel=Weapon, Response=ECR_Ignore)))
 	ECC_GameTraceChannel1 UMETA(Hidden),
 	ECC_GameTraceChannel2 UMETA(Hidden),
 	ECC_GameTraceChannel3 UMETA(Hidden),
@@ -616,16 +633,12 @@ enum ECollisionChannel
 	/** Add only nonserialized/transient flags below */
 
 	// NOTE!!!! THESE ARE BEING DEPRECATED BUT STILL THERE FOR BLUEPRINT. PLEASE DO NOT USE THEM IN CODE
-	/** 
-	 * This can be used to get all overlap event. If you trace with this channel, 
-	 * It will return everything except its own. Do not use this often as this is expensive operation
-	 */
-	 /**
-	  * can't add displaynames because then it will show up in the collision channel option
-	  */
+
 	ECC_OverlapAll_Deprecated UMETA(Hidden),
 	ECC_MAX,
 };
+
+DECLARE_DELEGATE_OneParam(FOnConstraintBroken, int32 /*ConstraintIndex*/);
 
 
 #define COLLISION_GIZMO ECC_EngineTraceChannel1
@@ -752,9 +765,9 @@ enum ECollisionResponse
 UENUM()
 enum EFilterInterpolationType
 {
-	BSIT_Average,
-	BSIT_Linear,
-	BSIT_Cubic,
+	BSIT_Average UMETA(DisplayName = "Averaged Interpolation"),
+	BSIT_Linear UMETA(DisplayName = "Linear Interpolation"),
+	BSIT_Cubic UMETA(DisplayName = "Cubic Interpolation"),
 	BSIT_MAX
 };
 
@@ -776,13 +789,30 @@ namespace EWorldType
 {
 	enum Type
 	{
-		None,		// An untyped world, in most cases this will be the vestigial worlds of streamed in sub-levels
-		Game,		// The game world
-		Editor,		// A world being edited in the editor
-		PIE,		// A Play In Editor world
-		Preview,	// A preview world for an editor tool
-		Inactive	// An editor world that was loaded but not currently being edited in the level editor
+		/** An untyped world, in most cases this will be the vestigial worlds of streamed in sub-levels */
+		None,
+
+		/** The game world */
+		Game,
+
+		/** A world being edited in the editor */
+		Editor,
+
+		/** A Play In Editor world */
+		PIE,
+
+		/** A preview world for an editor tool */
+		EditorPreview,
+
+		/** A preview world for a game */
+		GamePreview,
+
+		/** An editor world that was loaded but not currently being edited in the level editor */
+		Inactive
 	};
+
+	DEPRECATED(4.14, "EWorldType::Preview is deprecated. Please use either EWorldType::EditorPreview or EWorldType::GamePreview")
+	const EWorldType::Type Preview = EWorldType::EditorPreview;
 }
 
 
@@ -2440,8 +2470,16 @@ struct FMeshBuildSettings
 	 * Whether to generate the distance field treating every triangle hit as a front face.  
 	 * When enabled prevents the distance field from being discarded due to the mesh being open, but also lowers Distance Field AO quality.
 	 */
-	UPROPERTY(EditAnywhere, Category=BuildSettings)
+	UPROPERTY(EditAnywhere, Category=BuildSettings, meta=(DisplayName="Two-Sided Distance Field Generation"))
 	bool bGenerateDistanceFieldAsIfTwoSided;
+
+	/** 
+	 * Adding a constant distance effectively shrinks the distance field representation.  
+	 * This is useful for preventing self shadowing aritfacts when doing some minor ambient animation.
+	 * Thin walls will be affected more severely than large hollow objects, because thin walls don't have a large negative region.
+	 */
+	UPROPERTY(EditAnywhere, Category = BuildSettings)
+	float DistanceFieldBias;
 
 	UPROPERTY(EditAnywhere, Category=BuildSettings)
 	class UStaticMesh* DistanceFieldReplacementMesh;
@@ -2464,6 +2502,7 @@ struct FMeshBuildSettings
 		, BuildScale3D(1.0f, 1.0f, 1.0f)
 		, DistanceFieldResolutionScale(1.0f)
 		, bGenerateDistanceFieldAsIfTwoSided(false)
+		, DistanceFieldBias(0.0f)
 		, DistanceFieldReplacementMesh(NULL)
 	{ }
 
@@ -2485,6 +2524,7 @@ struct FMeshBuildSettings
 			&& BuildScale3D == Other.BuildScale3D
 			&& DistanceFieldResolutionScale == Other.DistanceFieldResolutionScale
 			&& bGenerateDistanceFieldAsIfTwoSided == Other.bGenerateDistanceFieldAsIfTwoSided
+			&& DistanceFieldBias == Other.DistanceFieldBias
 			&& DistanceFieldReplacementMesh == Other.DistanceFieldReplacementMesh;
 	}
 
@@ -2893,9 +2933,9 @@ struct ENGINE_API FRepMovement
 		return true;
 	}
 
-	void FillFrom(const struct FRigidBodyState& RBState)
+	void FillFrom(const struct FRigidBodyState& RBState, const AActor* const Actor = nullptr)
 	{
-		Location = RBState.Position;
+		Location = RebaseOntoZeroOrigin(RBState.Position, Actor);
 		Rotation = RBState.Quaternion.Rotator();
 		LinearVelocity = RBState.LinVel;
 		AngularVelocity = RBState.AngVel;
@@ -2903,9 +2943,9 @@ struct ENGINE_API FRepMovement
 		bRepPhysics = true;
 	}
 
-	void CopyTo(struct FRigidBodyState& RBState)
+	void CopyTo(struct FRigidBodyState& RBState, const AActor* const Actor = nullptr)
 	{
-		RBState.Position = Location;
+		RBState.Position = RebaseOntoLocalOrigin(Location, Actor);
 		RBState.Quaternion = Rotation.Quaternion();
 		RBState.LinVel = LinearVelocity;
 		RBState.AngVel = AngularVelocity;
@@ -2951,6 +2991,26 @@ struct ENGINE_API FRepMovement
 	{
 		return !(*this == Other);
 	}
+
+	static int32 EnableMultiplayerWorldOriginRebasing;
+
+	/** Rebase zero-origin position onto local world origin value. */
+	static FVector RebaseOntoLocalOrigin(const struct FVector& Location, const struct FIntVector& LocalOrigin);
+
+	/** Rebase local-origin position onto zero world origin value. */
+	static FVector RebaseOntoZeroOrigin(const struct FVector& Location, const struct FIntVector& LocalOrigin);
+
+	/** Rebase zero-origin position onto an Actor's local world origin. */
+	static FVector RebaseOntoLocalOrigin(const struct FVector& Location, const AActor* const WorldContextActor);
+
+	/** Rebase an Actor's local-origin position onto zero world origin value. */
+	static FVector RebaseOntoZeroOrigin(const struct FVector& Location, const AActor* const WorldContextActor);
+
+	/** Rebase zero-origin position onto local world origin value based on an actor component's world. */
+	static FVector RebaseOntoLocalOrigin(const struct FVector& Location, const class UActorComponent* const WorldContextActorComponent);
+
+	/** Rebase local-origin position onto zero world origin value based on an actor component's world.*/
+	static FVector RebaseOntoZeroOrigin(const struct FVector& Location, const class UActorComponent* const WorldContextActorComponent);
 };
 
 
@@ -3250,7 +3310,6 @@ namespace EComponentMobility
 
 		/**
 		 * A stationary light will only have its shadowing and bounced lighting from static geometry baked by Lightmass, all other lighting will be dynamic.
-		 * - Stationary only makes sense for light components
 		 * - It can change color and intensity in game.
 		 * - Can't move
 		 * - Allows partial baked lighting
@@ -3710,4 +3769,22 @@ enum class EMeshBufferAccess: uint8
 
     /** Force access on both CPU and GPU. */
     ForceCPUAndGPU
+};
+
+/** Indicates the type of a level collection, used in FLevelCollection. */
+enum class ELevelCollectionType
+{
+	/**
+	 * The dynamic levels that are used for normal gameplay and the source for any duplicated collections.
+	 * Will contain a world's persistent level and any streaming levels that contain dynamic or replicated gameplay actors.
+	 */
+	DynamicSourceLevels,
+	/** Gameplay relevant levels that have been duplicated from DynamicSourceLevels if requested by the game. */
+	DynamicDuplicatedLevels,
+	/**
+	 * These levels are shared between the source levels and the duplicated levels, and should contain
+	 * only static geometry and other visuals that are not replicated or affected by gameplay.
+	 * These will not be duplicated in order to save memory.
+	 */
+	StaticLevels
 };

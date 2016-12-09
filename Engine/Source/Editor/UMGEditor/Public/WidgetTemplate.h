@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-struct FSlateBrush;
+
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Brushes/SlateNoResource.h"
+#include "Widgets/IToolTip.h"
+
 class UWidget;
 
 /**

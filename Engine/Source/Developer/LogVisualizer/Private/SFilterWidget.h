@@ -1,7 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "VisualLogger.h"
-#include "SFilterCheckBox.h"
+
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Developer/LogVisualizer/Private/SFilterCheckBox.h"
+
+class SFilterCheckBox;
 
 /**
 * A single filter in the filter list. Can be removed by clicking the remove button on it.

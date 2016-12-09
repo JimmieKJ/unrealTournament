@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 #include "OnlineSubsystemAmazonPackage.h"
 
 /**

@@ -1,12 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
-#include "SoundDefinitions.h"
 #include "DialogueWaveWidgets.h"
-#include "AssetThumbnail.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Editor.h"
+#include "Modules/ModuleManager.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Notifications/SErrorHint.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Sound/DialogueVoice.h"
+#include "DetailLayoutBuilder.h"
 #include "SAssetDropTarget.h"
 #include "AssetRegistryModule.h"
-#include "Sound/DialogueVoice.h"
 #include "Engine/Selection.h"
 
 #define LOCTEXT_NAMESPACE "DialogueWaveDetails"
@@ -209,6 +216,7 @@ TSharedRef<SWidget> SDialogueVoicePropertyEditor::OnGetMenuContent()
 
 	return PropertyCustomizationHelpers::MakeAssetPickerWithMenu(
 		DialogueVoice,
+		false,
 		false,
 		AllowedClasses,
 		PropertyCustomizationHelpers::GetNewAssetFactoriesForClasses(AllowedClasses),

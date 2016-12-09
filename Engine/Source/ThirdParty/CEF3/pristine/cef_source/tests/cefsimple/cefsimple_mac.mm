@@ -11,7 +11,7 @@
 #include "include/wrapper/cef_helpers.h"
 
 // Receives notifications from the application.
-@interface SimpleAppDelegate : NSObject
+@interface SimpleAppDelegate : NSObject<NSApplicationDelegate>
 - (void)createApplication:(id)object;
 - (void)tryToTerminateApplication:(NSApplication*)app;
 @end
@@ -90,7 +90,7 @@
   [NSBundle loadNibNamed:@"MainMenu" owner:NSApp];
 
   // Set the delegate for application events.
-  [NSApp setDelegate:self];
+  [[NSApplication sharedApplication] setDelegate:self];
 }
 
 - (void)tryToTerminateApplication:(NSApplication*)app {
@@ -111,10 +111,6 @@ int main(int argc, char* argv[]) {
   // Provide CEF with command-line arguments.
   CefMainArgs main_args(argc, argv);
 
-  // SimpleApp implements application-level callbacks. It will create the first
-  // browser instance in OnContextInitialized() after CEF has initialized.
-  CefRefPtr<SimpleApp> app(new SimpleApp);
-
   // Initialize the AutoRelease pool.
   NSAutoreleasePool* autopool = [[NSAutoreleasePool alloc] init];
 
@@ -123,6 +119,11 @@ int main(int argc, char* argv[]) {
 
   // Specify CEF global settings here.
   CefSettings settings;
+
+  // SimpleApp implements application-level callbacks for the browser process.
+  // It will create the first browser instance in OnContextInitialized() after
+  // CEF has initialized.
+  CefRefPtr<SimpleApp> app(new SimpleApp);
 
   // Initialize CEF for the browser process.
   CefInitialize(main_args, settings, app.get(), NULL);

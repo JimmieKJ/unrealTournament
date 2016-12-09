@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MapPakDownloaderModulePrivatePCH.h"
 #include "MapPakDownloaderModule.h"
 #include "MapPakDownloader.h"
+#include "MapPakDownloaderLog.h"
 
 
 class FMapPakDownloaderModule : public IMapPakDownloaderModule

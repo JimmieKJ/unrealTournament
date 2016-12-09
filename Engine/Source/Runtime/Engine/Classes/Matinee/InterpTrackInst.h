@@ -7,8 +7,13 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "InterpTrackInst.generated.h"
 
+class AActor;
 class UInterpTrack;
 
 UCLASS(MinimalAPI)

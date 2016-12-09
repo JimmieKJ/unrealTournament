@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /**
  * Like a null widget, but visualizes itself as being explicitly missing.

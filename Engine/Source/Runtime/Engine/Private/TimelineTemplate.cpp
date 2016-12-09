@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Engine/TimelineTemplate.h"
+#include "UObject/Package.h"
+#include "Engine/Blueprint.h"
+#include "Curves/CurveFloat.h"
 #include "Curves/CurveLinearColor.h"
 #include "Curves/CurveVector.h"
-#include "BlueprintUtilities.h"
-#include "LatentActions.h"
-#include "Engine/TimelineTemplate.h"
 
 namespace
 {

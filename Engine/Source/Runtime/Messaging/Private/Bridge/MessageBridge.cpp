@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessagingPrivatePCH.h"
+#include "Bridge/MessageBridge.h"
 
 
 /* FMessageBridge structors
  *****************************************************************************/
 
-FMessageBridge::FMessageBridge(const FMessageAddress InAddress, const IMessageBusRef& InBus, const IMessageTransportRef& InTransport)
+FMessageBridge::FMessageBridge(
+	const FMessageAddress InAddress,
+	const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InBus,
+	const TSharedRef<IMessageTransport, ESPMode::ThreadSafe>& InTransport
+)
 	: Address(InAddress)
 	, Bus(InBus)
 	, Enabled(false)
@@ -123,7 +127,7 @@ void FMessageBridge::ReceiveMessage(const IMessageContextRef& Context)
 /* ISendMessages interface
  *****************************************************************************/
 
-void FMessageBridge::NotifyMessageError(const IMessageContextRef& Context, const FString& Error)
+void FMessageBridge::NotifyMessageError(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, const FString& Error)
 {
 	// deprecated
 }
@@ -154,7 +158,7 @@ void FMessageBridge::HandleMessageBusShutdown()
 }
 
 
-void FMessageBridge::HandleTransportMessageReceived(const IMessageContextRef& Context, const FGuid& NodeId)
+void FMessageBridge::HandleTransportMessageReceived(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, const FGuid& NodeId)
 {
 	if (!Enabled || !Bus.IsValid())
 	{

@@ -278,7 +278,7 @@ namespace AutomationTool.Tasks
 		/// <returns>True if the projects were read correctly, false (and prints an error to the log) if not</returns>
 		static bool ReadProjectsRecursively(FileReference File, Dictionary<string, string> InitialProperties, Dictionary<FileReference, CsProjectInfo> FileToProjectInfo)
 		{
-			// Early out if we've already read this project, return succes
+			// Early out if we've already read this project, return success
 			if(FileToProjectInfo.ContainsKey(File))
 			{
 				return true;
@@ -294,7 +294,7 @@ namespace AutomationTool.Tasks
 
 			// Add it to the project lookup, and try to read all the projects it references
 			FileToProjectInfo.Add(File, ProjectInfo);
-			return ProjectInfo.ProjectReferences.Keys.All(x => ReadProjectsRecursively(x, new Dictionary<string, string>(), FileToProjectInfo));
+			return ProjectInfo.ProjectReferences.Keys.All(x => ReadProjectsRecursively(x, InitialProperties, FileToProjectInfo));
 		}
 	}
 

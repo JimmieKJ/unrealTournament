@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeLiteSourceCodeAccessPrivatePCH.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "CodeLiteSourceCodeAccessModule.h"
+#include "Modules/ModuleManager.h"
+#include "Features/IModularFeatures.h"
 
 IMPLEMENT_MODULE( FCodeLiteSourceCodeAccessModule, CodeLiteSourceCodeAccess );
 

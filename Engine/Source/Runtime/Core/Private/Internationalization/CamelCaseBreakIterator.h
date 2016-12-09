@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "IBreakIterator.h"
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Internationalization/IBreakIterator.h"
 
 /**
  * Base class for camel case break iterators

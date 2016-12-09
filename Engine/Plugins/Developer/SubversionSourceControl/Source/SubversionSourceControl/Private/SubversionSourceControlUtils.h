@@ -2,22 +2,27 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SubversionSourceControlRevision.h"
 #include "SubversionSourceControlState.h"
+
+class FSubversionSourceControlCommand;
+class FXmlFile;
 
 /**
  * Helper struct for maintaining temporary files for passing to commands
  */
-class FScopedTempFile
+class FSVNScopedTempFile
 {
 public:
 
 	/** Constructor - open & write string to temp file */
-	FScopedTempFile(const FString& InText);
+	FSVNScopedTempFile(const FString& InText);
 
-	FScopedTempFile(const FText& InText);
+	FSVNScopedTempFile(const FText& InText);
 
 	/** Destructor - delete temp file */
-	~FScopedTempFile();
+	~FSVNScopedTempFile();
 
 	/** Get the filename of this temp file - empty if it failed to be created */
 	const FString& GetFilename() const;

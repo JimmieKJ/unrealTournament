@@ -136,9 +136,17 @@ void UIpConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 	{
 		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits);
 
-		DataToSend = ProcessedData.Data;
-		CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
-		CountBits = ProcessedData.CountBits;
+		if (!ProcessedData.bError)
+		{
+			DataToSend = ProcessedData.Data;
+			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
+			CountBits = ProcessedData.CountBits;
+		}
+		else
+		{
+			CountBytes = 0;
+			CountBits = 0;
+		}
 	}
 
 	// Send to remote.

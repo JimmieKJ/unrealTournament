@@ -2,9 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "MeshPaintEdMode.h"
+#include "Toolkits/IToolkitHost.h"
 #include "Toolkits/BaseToolkit.h"
-#include "SCompoundWidget.h"
 
+class SMeshPaint;
+class UTexture2D;
 
 namespace EMeshPaintColorSet
 {

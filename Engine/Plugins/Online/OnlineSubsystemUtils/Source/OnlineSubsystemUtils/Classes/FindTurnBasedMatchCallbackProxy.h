@@ -2,10 +2,15 @@
 
 #pragma once
 
-#include "OnlineBlueprintCallProxyBase.h"
-#include "OnlineTurnBasedInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptInterface.h"
+#include "Interfaces/OnlineTurnBasedInterface.h"
+#include "Net/OnlineBlueprintCallProxyBase.h"
 #include "FindTurnBasedMatchCallbackProxy.generated.h"
 
+class APlayerController;
+class ITurnBasedMatchInterface;
 class UFindTurnBasedMatchCallbackProxy;
 class UTurnBasedMatchInterface;
 

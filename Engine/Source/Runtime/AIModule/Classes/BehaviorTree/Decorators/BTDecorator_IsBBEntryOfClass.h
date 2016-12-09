@@ -2,8 +2,16 @@
 
 #pragma once 
 
-#include "BehaviorTree/BTDecorator.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Object.h"
+#include "InputCoreTypes.h"
+#include "Templates/SubclassOf.h"
+#include "BehaviorTree/Decorators/BTDecorator_BlackboardBase.h"
 #include "BTDecorator_IsBBEntryOfClass.generated.h"
+
+class UBlackboardComponent;
 
 UCLASS(HideCategories=(Condition))
 class AIMODULE_API UBTDecorator_IsBBEntryOfClass : public UBTDecorator_BlackboardBase

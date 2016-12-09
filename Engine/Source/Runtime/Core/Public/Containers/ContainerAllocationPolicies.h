@@ -2,64 +2,15 @@
 
 #pragma once
 
-#include "MemoryBase.h"
-#include "Misc/OutputDevice.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/TypeCompatibleBytes.h"
+#include "HAL/PlatformMath.h"
 #include "Templates/MemoryOps.h"
+#include "Math/NumericLimits.h"
 
-
-/** Used to determine the alignment of an element type. */
-template<typename ElementType, bool IsClass = TIsClass<ElementType>::Value>
-class TElementAlignmentCalculator
-{
-	/**
-	 * We use a dummy FAlignedElement type that's used to calculate the padding added between the byte and the element
-	 * to fulfill the type's required alignment.
-	 *
-	 * Its default constructor and destructor are declared but never implemented to avoid the need for a ElementType default constructor.
-	 */
-
-private:
-	/**
-	 * In the case of class ElementTypes, we inherit it to allow abstract types to work.
-	 */
-	struct FAlignedElements : ElementType
-	{
-		uint8 MisalignmentPadding;
-
-		FAlignedElements();
-		~FAlignedElements();
-	};
-
-	// We calculate the alignment here and then handle the zero case in the result by forwarding it to the non-class variant.
-	// This is necessary because the compiler can perform empty-base-optimization to eliminate a redundant ElementType state.
-	// Forwarding it to the non-class implementation should always work because an abstract type should never be empty.
-	enum { CalculatedAlignment = sizeof(FAlignedElements) - sizeof(ElementType) };
-
-public:
-	enum { Value = TChooseClass<CalculatedAlignment != 0, TIntegralConstant<SIZE_T, CalculatedAlignment>, TElementAlignmentCalculator<ElementType, false>>::Result::Value };
-};
-
-template<typename ElementType>
-class TElementAlignmentCalculator<ElementType, false>
-{
-private:
-	/**
-	 * In the case of non-class ElementTypes, we contain it because non-class types cannot be inherited.
-	 */
-	struct FAlignedElements
-	{
-		uint8 MisalignmentPadding;
-		ElementType Element;
-
-		FAlignedElements();
-		~FAlignedElements();
-	};
-public:
-	enum { Value = sizeof(FAlignedElements) - sizeof(ElementType) };
-};
-
-#define ALIGNOF(T) (TElementAlignmentCalculator<T>::Value)
-
+class FDefaultBitArrayAllocator;
 
 /** branchless pointer selection
 * return A ? A : B;
@@ -72,10 +23,6 @@ ReferencedType* IfAThenAElseB(ReferencedType* A,ReferencedType* B);
 **/
 template<typename PredicateType,typename ReferencedType>
 ReferencedType* IfPThenAElseB(PredicateType Predicate,ReferencedType* A,ReferencedType* B);
-
-#if TRACK_ARRAY_SLACK 
-CORE_API void TrackSlack(int32 NumElements, int32 NumAllocatedElements, SIZE_T BytesPerElement, int32 Retval);
-#endif
 
 FORCEINLINE int32 DefaultCalculateSlackShrink(int32 NumElements, int32 NumAllocatedElements, SIZE_T BytesPerElement, bool bAllowQuantize, uint32 Alignment = DEFAULT_ALIGNMENT)
 {
@@ -102,9 +49,7 @@ FORCEINLINE int32 DefaultCalculateSlackShrink(int32 NumElements, int32 NumAlloca
 	{
 		Retval = NumAllocatedElements;
 	}
-#if TRACK_ARRAY_SLACK 
-	void TrackSlack(NumElements, NumAllocatedElements, BytesPerElement, Retval);
-#endif
+
 	return Retval;
 }
 
@@ -133,9 +78,6 @@ FORCEINLINE int32 DefaultCalculateSlackGrow(int32 NumElements, int32 NumAllocate
 		Retval = MAX_int32;
 	}
 
-#if TRACK_ARRAY_SLACK 
-	void TrackSlack(NumElements, NumAllocatedElements, BytesPerElement, Retval);
-#endif
 	return Retval;
 }
 
@@ -152,9 +94,7 @@ FORCEINLINE int32 DefaultCalculateSlackReserve(int32 NumElements, SIZE_T BytesPe
 			Retval = MAX_int32;
 		}
 	}
-#if TRACK_ARRAY_SLACK 
-	void TrackSlack(NumElements, NumAllocatedElements, BytesPerElement, Retval);
-#endif
+
 	return Retval;
 }
 
@@ -162,62 +102,6 @@ FORCEINLINE int32 DefaultCalculateSlackReserve(int32 NumElements, SIZE_T BytesPe
 struct FScriptContainerElement
 {
 };
-
-/**
- * Used to declare an untyped array of data with compile-time alignment.
- * It needs to use template specialization as the MS_ALIGN and GCC_ALIGN macros require literal parameters.
- */
-template<int32 Size,uint32 Alignment>
-struct TAlignedBytes; // this intentionally won't compile, we don't support the requested alignment
-
-/** Unaligned storage. */
-template<int32 Size>
-struct TAlignedBytes<Size,1>
-{
-	uint8 Pad[Size];
-};
-
-
-// C++/CLI doesn't support alignment of native types in managed code, so we enforce that the element
-// size is a multiple of the desired alignment
-#ifdef __cplusplus_cli
-	#define IMPLEMENT_ALIGNED_STORAGE(Align) \
-		template<int32 Size>        \
-		struct TAlignedBytes<Size,Align> \
-		{ \
-			uint8 Pad[Size]; \
-			static_assert(Size % Align == 0, "CLR interop types must not be aligned."); \
-		};
-#else
-/** A macro that implements TAlignedBytes for a specific alignment. */
-#define IMPLEMENT_ALIGNED_STORAGE(Align) \
-	template<int32 Size>        \
-	struct TAlignedBytes<Size,Align> \
-	{ \
-		struct MS_ALIGN(Align) TPadding \
-		{ \
-			uint8 Pad[Size]; \
-		} GCC_ALIGN(Align); \
-		TPadding Padding; \
-	};
-#endif
-
-// Implement TAlignedBytes for these alignments.
-IMPLEMENT_ALIGNED_STORAGE(16);
-IMPLEMENT_ALIGNED_STORAGE(8);
-IMPLEMENT_ALIGNED_STORAGE(4);
-IMPLEMENT_ALIGNED_STORAGE(2);
-
-#undef IMPLEMENT_ALIGNED_STORAGE
-
-/** An untyped array of data with compile-time alignment and size derived from another type. */
-template<typename ElementType>
-struct TTypeCompatibleBytes :
-	public TAlignedBytes<
-		sizeof(ElementType),
-		ALIGNOF(ElementType)
-		>
-{};
 
 template <typename AllocatorType>
 struct TAllocatorTraitsBase
@@ -860,7 +744,7 @@ public:
 	{
 		if(NumHashedElements >= MinNumberOfHashedElements)
 		{
-			return FMath::RoundUpToPowerOfTwo(NumHashedElements / AverageNumberOfElementsPerHashBucket + BaseNumberOfHashBuckets);
+			return FPlatformMath::RoundUpToPowerOfTwo(NumHashedElements / AverageNumberOfElementsPerHashBucket + BaseNumberOfHashBuckets);
 		}
 
 		return 1;
@@ -890,7 +774,7 @@ public:
 	/** Computes the number of hash buckets to use for a given number of elements. */
 	static FORCEINLINE uint32 GetNumberOfHashBuckets(uint32 NumHashedElements)
 	{
-		const uint32 NumDesiredHashBuckets = FMath::RoundUpToPowerOfTwo(NumHashedElements / AverageNumberOfElementsPerHashBucket);
+		const uint32 NumDesiredHashBuckets = FPlatformMath::RoundUpToPowerOfTwo(NumHashedElements / AverageNumberOfElementsPerHashBucket);
 		if (NumDesiredHashBuckets < NumInlineHashBuckets)
 		{
 			return NumInlineHashBuckets;

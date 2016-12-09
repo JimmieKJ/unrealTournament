@@ -5,7 +5,13 @@
 //~=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "Emitter.generated.h"
+
+class UPhysicalMaterial;
 
 /** Fires when a particle is spawned
 	* @param EventName - Custom event name for the Spawn Event.

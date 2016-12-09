@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/StaticMeshComponent.h"
 #include "InteractiveFoliageComponent.generated.h"
+
+class FPrimitiveSceneProxy;
 
 UCLASS(hidecategories=Object)
 class UInteractiveFoliageComponent : public UStaticMeshComponent

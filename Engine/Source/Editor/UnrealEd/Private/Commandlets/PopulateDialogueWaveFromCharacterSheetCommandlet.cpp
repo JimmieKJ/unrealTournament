@@ -1,10 +1,12 @@
-#include "UnrealEd.h"
 #include "Commandlets/PopulateDialogueWaveFromCharacterSheetCommandlet.h"
-#include "Commandlets/GatherTextCommandletBase.h" // We use some of the nice wrapper and util functions from the loc commandlet
-#include "AssetRegistryModule.h"
-#include "CsvParser.h"
-#include "Sound/DialogueWave.h"
+#include "Misc/FileHelper.h"
+#include "Modules/ModuleManager.h"
+#include "Commandlets/GatherTextCommandletBase.h"
+#include "AssetData.h"
 #include "Sound/SoundWave.h"
+#include "Sound/DialogueWave.h"
+#include "AssetRegistryModule.h"
+#include "Serialization/Csv/CsvParser.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPopulateDialogueWaveFromCharacterSheetCommandlet, Log, All);
 

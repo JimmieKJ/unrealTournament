@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/ArrayView.h"
 #include "LandscapeFileFormatInterface.h"
 
 // Implement .png file format

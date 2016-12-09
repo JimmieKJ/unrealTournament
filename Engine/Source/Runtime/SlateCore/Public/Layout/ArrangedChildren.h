@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Layout/ArrangedWidget.h"
 
 /**
  * The results of an ArrangeChildren are always returned as an FArrangedChildren.

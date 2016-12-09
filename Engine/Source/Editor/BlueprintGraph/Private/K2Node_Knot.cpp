@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "Kismet2NameValidators.h"
+#include "K2Node_Knot.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/Kismet2NameValidators.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "K2Node_Knot.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_Knot"
 
@@ -69,7 +69,7 @@ bool UK2Node_Knot::IsNodeSafeToIgnore() const
 	return true;
 }
 
-bool UK2Node_Knot::AllowSplitPins() const
+bool UK2Node_Knot::CanSplitPin(const UEdGraphPin* Pin) const
 {
 	return false;
 }

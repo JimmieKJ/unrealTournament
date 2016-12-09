@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "WorldBrowserPrivatePCH.h"
+#include "Tiles/SWorldTileItem.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/SBoxPanel.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/SToolTip.h"
+#include "LevelModel.h"
 
-#include "EdGraphUtilities.h"
-#include "WorldTileCollectionModel.h"
-#include "SWorldTileItem.h"
-#include "WorldTileDetails.h"
-#include "WorldTileThumbnails.h"
+#include "Tiles/WorldTileCollectionModel.h"
+#include "Tiles/WorldTileDetails.h"
+#include "Tiles/WorldTileThumbnails.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 

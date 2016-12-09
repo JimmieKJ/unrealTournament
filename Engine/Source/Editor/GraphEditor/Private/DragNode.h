@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/DragAndDrop.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "GraphEditorDragDropAction.h"
+
+class SGraphNode;
+class SGraphPanel;
+class UEdGraph;
+
 class GRAPHEDITOR_API FDragNode : public FGraphEditorDragDropAction
 {
 public:

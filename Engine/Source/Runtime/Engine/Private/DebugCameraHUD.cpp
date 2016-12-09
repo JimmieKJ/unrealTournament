@@ -4,10 +4,15 @@
    DebugCameraInput.cpp: Native implementation for the debug camera
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Engine/DebugCameraHUD.h"
+#include "EngineGlobals.h"
+#include "CollisionQueryParams.h"
+#include "Components/MeshComponent.h"
+#include "Engine/Engine.h"
+#include "DrawDebugHelpers.h"
 #include "GameFramework/PawnMovementComponent.h"
 #include "GameFramework/SpectatorPawn.h"
-#include "Engine/DebugCameraHUD.h"
+#include "Engine/Canvas.h"
 #include "Engine/DebugCameraController.h"
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -54,6 +59,7 @@ void ADebugCameraHUD::PostRender()
 {
 	Super::PostRender();
 
+#if ENABLE_DRAW_DEBUG
 	if (bShowHUD)
 	{
 		ADebugCameraController* DCC = Cast<ADebugCameraController>( PlayerOwner );
@@ -189,4 +195,5 @@ void ADebugCameraHUD::PostRender()
 			yl += Y;
 		}
 	}
+#endif
 }

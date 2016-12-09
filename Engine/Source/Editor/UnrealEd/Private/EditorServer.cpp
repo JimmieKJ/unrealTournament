@@ -1,79 +1,157 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "EngineDefines.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Misc/ObjectThumbnail.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/ObjectMacros.h"
+#include "ProfilingDebugging/ResourceSize.h"
+#include "UObject/Object.h"
+#include "UObject/GarbageCollection.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "UObject/UnrealType.h"
+#include "UObject/UObjectAnnotation.h"
+#include "Serialization/ArchiveCountMem.h"
+#include "Serialization/ArchiveTraceRoute.h"
+#include "Misc/PackageName.h"
+#include "UObject/PackageFileSummary.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EditorStyleSet.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Engine/Level.h"
+#include "Components/ActorComponent.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
+#include "CollisionQueryParams.h"
+#include "WorldCollision.h"
+#include "Engine/World.h"
+#include "Materials/MaterialInterface.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/MeshComponent.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Components/LightComponent.h"
+#include "Model.h"
+#include "Exporters/Exporter.h"
+#include "Materials/Material.h"
+#include "Editor/Transactor.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Engine/Brush.h"
+#include "Engine/Engine.h"
+#include "Animation/AnimSequence.h"
+#include "AssetData.h"
+#include "Editor/EditorEngine.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Factories/Factory.h"
+#include "Factories/PolysFactory.h"
+#include "Engine/Texture.h"
+#include "Factories/WorldFactory.h"
+#include "Editor/GroupActor.h"
+#include "Settings/LevelEditorMiscSettings.h"
+#include "Editor/PropertyEditorTestObject.h"
+#include "Animation/SkeletalMeshActor.h"
+#include "Editor/TransBuffer.h"
+#include "Components/ShapeComponent.h"
+#include "Particles/Emitter.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Sound/SoundWave.h"
+#include "GameFramework/Volume.h"
+#include "Logging/LogScopedCategoryAndVerbosityOverride.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/Light.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/BillboardComponent.h"
+#include "Components/BrushComponent.h"
+#include "Components/DrawFrustumComponent.h"
+#include "Layers/Layer.h"
+#include "Engine/Polys.h"
+#include "Engine/Selection.h"
+#include "UnrealEngine.h"
+#include "EngineUtils.h"
+#include "Editor.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "UnrealEdMisc.h"
+#include "Utils.h"
+#include "FileHelpers.h"
+#include "Dialogs/Dialogs.h"
+#include "UnrealEdGlobals.h"
 #include "EditorSupportDelegates.h"
-#include "Factories.h"
 #include "BusyCursor.h"
-#include "SoundDefinitions.h"
-#include "ParticleDefinitions.h"
-#include "AnimationUtils.h"
+#include "AudioDevice.h"
+#include "Engine/LevelStreaming.h"
 #include "LevelUtils.h"
-#include "EditorLevelUtils.h"
+#include "LevelEditorViewport.h"
 #include "Layers/ILayers.h"
 #include "ScopedTransaction.h"
 #include "SurfaceIterators.h"
 #include "LightMap.h"
 #include "BSPOps.h"
 #include "EditorLevelUtils.h"
-#include "Editor/MainFrame/Public/MainFrame.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "PackageTools.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "../Private/GeomFitUtils.h"
+#include "LevelEditor.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "Editor/GeometryMode/Public/GeometryEdMode.h"
 #include "Editor/GeometryMode/Public/EditorGeometry.h"
 #include "LandscapeProxy.h"
 #include "Lightmass/PrecomputedVisibilityOverrideVolume.h"
 #include "Animation/AnimSet.h"
 #include "Matinee/InterpTrackAnimControl.h"
-#include "Matinee/InterpData.h"
-#include "Animation/SkeletalMeshActor.h"
 #include "InstancedFoliageActor.h"
+#include "IMovieSceneCapture.h"
 #include "MovieSceneCaptureModule.h"
 
-#include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IPropertyTable.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "Toolkits/AssetEditorManager.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "PropertyEditorModule.h"
+#include "IPropertyTable.h"
+#include "IDetailsView.h"
 #include "AssetRegistryModule.h"
 #include "SnappingUtils.h"
 
-#include "TargetPlatform.h"
-#include "IConsoleManager.h"
 
 #include "Editor/ActorPositioning.h"
 
-#include "Editor/StatsViewer/Public/StatsViewerModule.h"
+#include "StatsViewerModule.h"
 #include "ActorEditorUtils.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
-#include "MapErrors.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
+#include "Misc/MapErrors.h"
 
-#include "Particles/Emitter.h"
-#include "Particles/ParticleSystemComponent.h"
 
 #include "ComponentReregisterContext.h"
 #include "Engine/DocumentationActor.h"
 #include "ShaderCompiler.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "EditorUndoClient.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "DesktopPlatformModule.h"
-#include "Layers/Layer.h"
-#include "Engine/Light.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
-#include "Components/BillboardComponent.h"
-#include "Components/DrawFrustumComponent.h"
-#include "UnrealEngine.h"
 #include "AI/Navigation/NavLinkRenderingComponent.h"
-#include "PhysicsPublic.h"
 #include "Analytics/AnalyticsPrivacySettings.h"
-#include "KismetReinstanceUtilities.h"
+#include "Kismet2/KismetReinstanceUtilities.h"
 #include "AnalyticsEventAttribute.h"
 #include "Developer/SlateReflector/Public/ISlateReflectorModule.h"
+#include "MaterialUtilities.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorServer, Log, All);
 
@@ -98,12 +176,12 @@ namespace
 		FWaveCluster(const TCHAR* InName)
 			:	Name( InName )
 			,	Num( 0 )
-			,	Size( 0 )
+			,	Size( )
 		{}
 
 		FString Name;
 		int32 Num;
-		int32 Size;
+		FResourceSizeEx Size;
 	};
 
 	struct FAnimSequenceUsageInfo
@@ -522,6 +600,37 @@ bool UEditorEngine::Exec_StaticMesh( UWorld* InWorld, const TCHAR* Str, FOutputD
 			GetSelectedObjects()->Select( StaticMesh );
 		}
 	}
+	else if (FParse::Command(&Str, TEXT("FORCELODGROUP")))	// STATICMESH FORCELODGROUP <name>
+	{
+		FName NewGroup(Str);
+		if (NewGroup != NAME_None)
+		{
+			// get the selected meshes
+			TArray<UStaticMesh*> SelectedMeshes;
+			for (FSelectionIterator Iter(GetSelectedActorIterator()); Iter; ++Iter)
+			{
+				TInlineComponentArray<UStaticMeshComponent*> SMComps(CastChecked<AActor>(*Iter));
+				for (UStaticMeshComponent* SMC : SMComps)
+				{
+					if (SMC->GetStaticMesh())
+					{
+						SelectedMeshes.AddUnique(SMC->GetStaticMesh());
+					}
+				}
+
+			}
+
+			// look at all loaded static meshes
+			for (UStaticMesh* SM : SelectedMeshes)
+			{
+				// update any mesh not already in a group
+				if (!SM->IsTemplate() && SM->LODGroup == NAME_None)
+				{
+					SM->SetLODGroup(NewGroup);
+				}
+			}
+		}
+	}
 #endif // UE_BUILD_SHIPPING
 	return bResult;
 }
@@ -701,7 +810,10 @@ bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 
 				InWorld->GetModel()->Modify();
 				NewBrush->Modify();
+				FlushRenderingCommands();
+				ABrush::GGeometryRebuildCause = TEXT("Add Brush");
 				bspBrushCSG( NewBrush, InWorld->GetModel(), DWord1, Brush_Add, CSG_None, true, true, true );
+				ABrush::GGeometryRebuildCause = nullptr;
 			}
 			InWorld->InvalidateModelGeometry( InWorld->GetCurrentLevel() );
 		}
@@ -785,7 +897,10 @@ bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 			{
 				NewBrush->Modify();
 				InWorld->GetModel()->Modify();
+				FlushRenderingCommands();
+				ABrush::GGeometryRebuildCause = TEXT("Subtract Brush");
 				bspBrushCSG( NewBrush, InWorld->GetModel(), 0, Brush_Subtract, CSG_None, true, true, true );
+				ABrush::GGeometryRebuildCause = nullptr;
 			}
 			InWorld->InvalidateModelGeometry( InWorld->GetCurrentLevel() );
 		}
@@ -1622,6 +1737,9 @@ void UEditorEngine::RebuildModelFromBrushes(UModel* Model, bool bSelectedBrushes
 	const int32 NumVectors = Model->Vectors.Num();
 	const int32 NumSurfs = Model->Surfs.Num();
 
+	// Debug purposes only; an attempt to catch the cause of UE-36265
+	ABrush::GGeometryRebuildCause = TEXT("RebuildModelFromBrushes");
+
 	Model->Modify();
 	Model->EmptyModel(1, 1);
 
@@ -1711,6 +1829,9 @@ void UEditorEngine::RebuildModelFromBrushes(UModel* Model, bool bSelectedBrushes
 
 		FBSPOps::csgPrepMovingBrush(DynamicBrush);
 	}
+
+	// Debug purposes only; an attempt to catch the cause of UE-36265
+	ABrush::GGeometryRebuildCause = nullptr;
 
 	FBspPointsGrid::GBspPoints = nullptr;
 	FBspPointsGrid::GBspVectors = nullptr;
@@ -1814,7 +1935,9 @@ void UEditorEngine::BSPIntersectionHelper(UWorld* InWorld, ECsgOper Operation)
 		DefaultBrush->Modify();
 		InWorld->GetModel()->Modify();
 		FinishAllSnaps();
+		ABrush::GGeometryRebuildCause = TEXT("BSPIntersectionHelper");
 		bspBrushCSG(DefaultBrush, InWorld->GetModel(), 0, Brush_MAX, Operation, false, true, true);
+		ABrush::GGeometryRebuildCause = nullptr;
 	}
 }
 
@@ -1825,7 +1948,7 @@ void UEditorEngine::CheckForWorldGCLeaks( UWorld* NewWorld, UPackage* WorldPacka
 	{
 		UWorld* RemainingWorld = *It;
 		const bool bIsNewWorld = (NewWorld && RemainingWorld == NewWorld);
-		const bool bIsPersistantWorldType = (RemainingWorld->WorldType == EWorldType::Inactive) || (RemainingWorld->WorldType == EWorldType::Preview);
+		const bool bIsPersistantWorldType = (RemainingWorld->WorldType == EWorldType::Inactive) || (RemainingWorld->WorldType == EWorldType::EditorPreview);
 		if(!bIsNewWorld && !bIsPersistantWorldType && !WorldHasValidContext(RemainingWorld))
 		{
 			StaticExec(RemainingWorld, *FString::Printf(TEXT("OBJ REFS CLASS=WORLD NAME=%s"), *RemainingWorld->GetPathName()));
@@ -1883,7 +2006,7 @@ void UEditorEngine::EditorDestroyWorld( FWorldContext & Context, const FText& Cl
 		WorldPackage = NULL;
 	}
 
-	if (ContextWorld->WorldType != EWorldType::Preview && ContextWorld->WorldType != EWorldType::Inactive)
+	if (ContextWorld->WorldType != EWorldType::EditorPreview && ContextWorld->WorldType != EWorldType::Inactive)
 	{
 		// Go away, come again never!
 		ContextWorld->ClearFlags(RF_Standalone | RF_Transactional);
@@ -2431,6 +2554,8 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 
 				World->WorldType = EWorldType::Editor;
 
+				Context.World()->PersistentLevel->HandleLegacyMapBuildData();
+
 				// Parse requested feature level if supplied
 				int32 FeatureLevelIndex = (int32)GMaxRHIFeatureLevel;
 				FParse::Value(Str, TEXT("FEATURELEVEL="), FeatureLevelIndex);
@@ -2483,6 +2608,14 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 						Context.World()->GetModel()->Polys->SetFlags( RF_Transactional );
 					}
 
+					// Process any completed shader maps since we at a loading screen anyway
+					// Do this before we register components, as USkinnedMeshComponents require the GPU skin cache global shaders when creating render state.
+					if (GShaderCompilingManager)
+					{
+						// Process any asynchronous shader compile results that are ready, limit execution time
+						GShaderCompilingManager->ProcessAsyncResults(false, true);
+					}
+
 					// Register components in the persistent level (current)
 					Context.World()->UpdateWorldComponents(true, true);
 
@@ -2498,13 +2631,6 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 					// actors in the scene
 					FEditorDelegates::MapChange.Broadcast(MapChangeEventFlags::NewMap );
 					GEngine->BroadcastLevelActorListChanged();
-
-					// Process any completed shader maps since we at a loading screen anyway
-					if (GShaderCompilingManager)
-					{
-						// Process any asynchronous shader compile results that are ready, limit execution time
-						GShaderCompilingManager->ProcessAsyncResults(false, true);
-					}
 
 					NoteSelectionChange();
 
@@ -2542,7 +2668,7 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 					Context.World()->CreateAISystem();
 
 					// Assign stationary light channels for previewing
-					ULightComponent::ReassignStationaryLightChannels(Context.World(), false);
+					ULightComponent::ReassignStationaryLightChannels(Context.World(), false, NULL);
 
 					// Process Layers
 					{
@@ -2855,7 +2981,9 @@ public:
 				*OutClipboardContents = *ScratchData;
 			}
 
-			GEditor->edactDeleteSelected( World, false );
+			// Do not warn if we are only copying not pasint as we are not actually deleting anything from the real level
+			const bool bWarnAboutReferencedActors = !bCopyOnly;
+			GEditor->edactDeleteSelected( World, false, bWarnAboutReferencedActors);
 		}
 
 		if( DestLevel )
@@ -3741,11 +3869,10 @@ bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 
 	Game_Map_Check(InWorld, Str, Ar, bCheckDeprecatedOnly);
 
-
-	CheckTextureStreamingBuild(InWorld);
+	CheckTextureStreamingBuildValidity(InWorld);
 	if (InWorld->NumTextureStreamingUnbuiltComponents > 0 || InWorld->NumTextureStreamingDirtyResources > 0)
 	{
-		FMessageLog("MapCheck").Warning()->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_TextureStreamingNeedsRebuild", "Texture streaming needs to be rebuilt, run 'Build Texture Streaming'.")));
+		FMessageLog("MapCheck").Warning()->AddToken(FTextToken::Create(FText::Format(LOCTEXT("MapCheck_Message_TextureStreamingNeedsRebuild", "Texture streaming needs to be rebuilt ({0} Components, {1} Resource Refs), run 'Build Texture Streaming'."), InWorld->NumTextureStreamingUnbuiltComponents, InWorld->NumTextureStreamingDirtyResources)));
 	}
 
 	GWarn->StatusUpdate( 0, ProgressDenominator, CheckMapLocText );
@@ -5187,7 +5314,7 @@ void UEditorEngine::AssignReplacementComponentsByActors(TArray<AActor*>& ActorsT
 	UPrimitiveComponent* ReplacementComponent = NULL;
 
 	// loop over the clases until a component is found
-	for (int32 ClassIndex = 0; ClassIndex < ARRAY_COUNT(PossibleReplacementClass) && ReplacementComponent == NULL; ClassIndex++)
+	for (int32 ClassIndex = 0; ClassIndex < ARRAY_COUNT(PossibleReplacementClass); ClassIndex++)
 	{
 		// use ClassToReplace of UMeshComponent if not specified
 		UClass* ReplacementComponentClass = ClassToReplace ? ClassToReplace : PossibleReplacementClass[ClassIndex];
@@ -5204,11 +5331,12 @@ void UEditorEngine::AssignReplacementComponentsByActors(TArray<AActor*>& ActorsT
 				if (PrimitiveComponent->IsA(ReplacementComponentClass))
 				{
 					ReplacementComponent = PrimitiveComponent;
-					break;
+					goto FoundComponent;
 				}
 			}
 		}
 	}
+FoundComponent:
 
 	// attempt to set replacement component for all selected actors
 	for (int32 ActorIndex = 0; ActorIndex < ActorsToReplace.Num(); ActorIndex++)
@@ -5772,6 +5900,10 @@ bool UEditorEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice& A
 	{
 		bProcessed = HandleStartMovieCaptureCommand( Str, Ar );
 	}
+	else if( FParse::Command(&Str,TEXT("BUILDMATERIALTEXTURESTREAMINGDATA")) )
+	{
+		bProcessed = HandleBuildMaterialTextureStreamingData( Str, Ar );
+	}
 	else
 	{
 		bProcessed = FBlueprintEditorUtils::KismetDiagnosticExec(Stream, Ar);
@@ -6235,15 +6367,14 @@ bool UEditorEngine::HandleBugItGoCommand( const TCHAR* Str, FOutputDevice& Ar )
 bool UEditorEngine::HandleTagSoundsCommand( const TCHAR* Str, FOutputDevice& Ar )
 {
 	int32 NumObjects = 0;
-	int32 TotalSize = 0;
+	SIZE_T TotalSize = 0;
 	for( FObjectIterator It(USoundWave::StaticClass()); It; ++It )
 	{
 		++NumObjects;
 		DebugSoundAnnotation.Set(*It);
 
 		USoundWave* Wave = static_cast<USoundWave*>(*It);
-		const SIZE_T Size = Wave->GetResourceSize(EResourceSizeMode::Exclusive);
-		TotalSize += Size;
+		TotalSize += Wave->GetResourceSizeBytes(EResourceSizeMode::Exclusive);
 	}
 	UE_LOG(LogEditorServer, Log,  TEXT("Marked %i sounds %10.2fMB"), NumObjects, ((float)TotalSize) /(1024.f*1024.f) );
 	return true;
@@ -6282,19 +6413,20 @@ bool UEditorEngine::HandlecheckSoundsCommand( const TCHAR* Str, FOutputDevice& A
 		const int32 NumCoreClusters = Clusters.Num();
 
 		// Output information.
-		int32 TotalSize = 0;
 		UE_LOG(LogEditorServer, Log,  TEXT("=================================================================================") );
 		UE_LOG(LogEditorServer, Log,  TEXT("%60s %10s"), TEXT("Wave Name"), TEXT("Size") );
 		for ( int32 WaveIndex = 0 ; WaveIndex < WaveList.Num() ; ++WaveIndex )
 		{
 			USoundWave* Wave = WaveList[WaveIndex];
-			const SIZE_T WaveSize = Wave->GetResourceSize(EResourceSizeMode::Exclusive);
 			UPackage* WavePackage = Wave->GetOutermost();
 			const FString PackageName( WavePackage->GetName() );
 
+			FResourceSizeEx WaveResourceSize = FResourceSizeEx(EResourceSizeMode::Exclusive);
+			Wave->GetResourceSizeEx(WaveResourceSize);
+
 			// Totals.
 			Clusters[0].Num++;
-			Clusters[0].Size += WaveSize;
+			Clusters[0].Size += WaveResourceSize;
 
 			// Core clusters
 			for ( int32 ClusterIndex = 1 ; ClusterIndex < NumCoreClusters ; ++ClusterIndex )
@@ -6303,7 +6435,7 @@ bool UEditorEngine::HandlecheckSoundsCommand( const TCHAR* Str, FOutputDevice& A
 				if ( PackageName.Find( Cluster.Name ) != -1 )
 				{
 					Cluster.Num++;
-					Cluster.Size += WaveSize;
+					Cluster.Size += WaveResourceSize;
 				}
 			}
 
@@ -6316,7 +6448,7 @@ bool UEditorEngine::HandlecheckSoundsCommand( const TCHAR* Str, FOutputDevice& A
 				{
 					// Found a cluster with this package name.
 					Cluster.Num++;
-					Cluster.Size += WaveSize;
+					Cluster.Size += WaveResourceSize;
 					bFoundMatch = true;
 					break;
 				}
@@ -6326,17 +6458,17 @@ bool UEditorEngine::HandlecheckSoundsCommand( const TCHAR* Str, FOutputDevice& A
 				// Create a new cluster with the package name.
 				FWaveCluster NewCluster( *PackageName );
 				NewCluster.Num = 1;
-				NewCluster.Size = WaveSize;
+				NewCluster.Size = WaveResourceSize;
 				Clusters.Add( NewCluster );
 			}
 
 			// Dump bulk sound list.
-			UE_LOG(LogEditorServer, Log,  TEXT("%70s %10.2fk"), *Wave->GetPathName(), ((float)WaveSize)/1024.f );
+			UE_LOG(LogEditorServer, Log,  TEXT("%70s %10.2fk"), *Wave->GetPathName(), ((float)WaveResourceSize.GetTotalMemoryBytes())/1024.f );
 		}
 		UE_LOG(LogEditorServer, Log,  TEXT("=================================================================================") );
 		UE_LOG(LogEditorServer, Log,  TEXT("%60s %10s %10s"), TEXT("Cluster Name"), TEXT("Num"), TEXT("Size") );
 		UE_LOG(LogEditorServer, Log,  TEXT("=================================================================================") );
-		int32 TotalClusteredSize = 0;
+		FResourceSizeEx TotalClusteredSize;
 		for ( int32 ClusterIndex = 0 ; ClusterIndex < Clusters.Num() ; ++ClusterIndex )
 		{
 			const FWaveCluster& Cluster = Clusters[ClusterIndex];
@@ -6345,10 +6477,10 @@ bool UEditorEngine::HandlecheckSoundsCommand( const TCHAR* Str, FOutputDevice& A
 				UE_LOG(LogEditorServer, Log,  TEXT("---------------------------------------------------------------------------------") );
 				TotalClusteredSize += Cluster.Size;
 			}
-			UE_LOG(LogEditorServer, Log,  TEXT("%60s %10i %10.2fMB"), *Cluster.Name, Cluster.Num, ((float)Cluster.Size)/(1024.f*1024.f) );
+			UE_LOG(LogEditorServer, Log,  TEXT("%60s %10i %10.2fMB"), *Cluster.Name, Cluster.Num, ((float)Cluster.Size.GetTotalMemoryBytes())/(1024.f*1024.f) );
 		}
 		UE_LOG(LogEditorServer, Log,  TEXT("=================================================================================") );
-		UE_LOG(LogEditorServer, Log,  TEXT("Total Clusterd: %10.2fMB"), ((float)TotalClusteredSize)/(1024.f*1024.f) );
+		UE_LOG(LogEditorServer, Log,  TEXT("Total Clusterd: %10.2fMB"), ((float)TotalClusteredSize.GetTotalMemoryBytes())/(1024.f*1024.f) );
 		return true;
 }
 
@@ -6566,6 +6698,45 @@ bool UEditorEngine::HandleStartMovieCaptureCommand( const TCHAR* Cmd, FOutputDev
 	return false;
 }
 
+bool UEditorEngine::HandleBuildMaterialTextureStreamingData( const TCHAR* Cmd, FOutputDevice& Ar )
+{
+	const EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::High;
+	const ERHIFeatureLevel::Type FeatureLevel = GMaxRHIFeatureLevel;
+
+	CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
+
+	TSet<UMaterialInterface*> Materials;
+	for (TObjectIterator<UMaterialInterface> MaterialIt; MaterialIt; ++MaterialIt)
+	{
+		UMaterialInterface* Material = *MaterialIt;
+		if (Material && Material->GetOutermost() != GetTransientPackage() && Material->HasAnyFlags(RF_Public) && Material->UseAnyStreamingTexture() && !Material->HasTextureStreamingData()) 
+		{
+			Materials.Add(Material);
+		}
+	}
+
+	FScopedSlowTask SlowTask(3.f); // { Sync Pending Shader, Wait for Compilation, Export }
+	CompileDebugViewModeShaders(DVSM_OutputMaterialTextureScales, QualityLevel, FeatureLevel, true, true, Materials, SlowTask);
+	FMaterialUtilities::FExportErrorManager ExportErrors(FeatureLevel);
+	for (UMaterialInterface* MaterialInterface : Materials)
+	{
+		if (MaterialInterface && FMaterialUtilities::ExportMaterialUVDensities(MaterialInterface, QualityLevel, FeatureLevel, ExportErrors))
+		{
+			// Only mark dirty if there is now data, when there wasn't before.
+			if (MaterialInterface->HasTextureStreamingData())
+			{
+				MaterialInterface->MarkPackageDirty();
+			}
+		}
+	}
+	ExportErrors.OutputToLog();
+
+	CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
+	return true;
+}
+
+
+
 /**
  * @return true if the given component's StaticMesh can be merged with other StaticMeshes
  */
@@ -6578,13 +6749,13 @@ bool IsComponentMergable(UStaticMeshComponent* Component)
 	}
 
 	// we need a static mesh to work
-	if (Component->StaticMesh == NULL || Component->StaticMesh->RenderData == NULL)
+	if (Component->GetStaticMesh() == nullptr || Component->GetStaticMesh()->RenderData == nullptr)
 	{
 		return false;
 	}
 
 	// only components with a single LOD can be merged
-	if (Component->StaticMesh->GetNumLODs() != 1)
+	if (Component->GetStaticMesh()->GetNumLODs() != 1)
 	{
 		return false;
 	}
@@ -6833,7 +7004,7 @@ void UEditorEngine::AutoMergeStaticMeshes()
 void UEditorEngine::MoveViewportCamerasToBox(const FBox& BoundingBox, bool bActiveViewportOnly) const
 {
 	// Make sure we had at least one non-null actor in the array passed in.
-	if (BoundingBox.GetSize() != FVector::ZeroVector)
+	if (BoundingBox.GetSize() != FVector::ZeroVector || BoundingBox.GetCenter() != FVector::ZeroVector)
 	{
 		if (bActiveViewportOnly)
 		{

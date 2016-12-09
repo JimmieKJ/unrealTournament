@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "ScopeArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/ScopeArchiveProxy.h"
+#include "UHTMakefile.h"
 #include "Scope.h"
 
 FArchive& operator<<(FArchive& Ar, FScopeArchiveProxy& ScopeArchiveProxy)

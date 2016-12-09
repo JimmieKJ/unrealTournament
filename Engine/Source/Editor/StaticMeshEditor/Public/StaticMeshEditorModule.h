@@ -3,11 +3,12 @@
 #ifndef __StaticMeshEditorModule_h__
 #define __StaticMeshEditorModule_h__
 
-#include "UnrealEd.h"
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "Toolkits/IToolkit.h"
-#include "IStaticMeshEditor.h"
+
+class IStaticMeshEditor;
+class UStaticMesh;
 
 extern const FName StaticMeshEditorAppIdentifier;
 

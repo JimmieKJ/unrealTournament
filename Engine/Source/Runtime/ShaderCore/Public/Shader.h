@@ -6,23 +6,28 @@
 
 #pragma once
 
-#include "ShaderCore.h"
+#include "CoreMinimal.h"
+#include "Containers/List.h"
+#include "Misc/SecureHash.h"
 #include "RenderResource.h"
-#include "SecureHash.h"
+#include "ShaderParameters.h"
+#include "RenderingThread.h"
+#include "ShaderCore.h"
+#include "Serialization/ArchiveProxy.h"
 
 // For FShaderUniformBufferParameter
-#include "ShaderParameters.h"
 
 #if WITH_EDITOR
-#include "DebugSerializationFlags.h"
+#include "UObject/DebugSerializationFlags.h"
 #endif
 
-class FShaderType;
-class FShaderPipelineType;
 class FGlobalShaderType;
 class FMaterialShaderType;
 class FMeshMaterialShaderType;
+class FShaderPipelineType;
+class FShaderType;
 class FVertexFactoryParameterRef;
+class FVertexFactoryType;
 
 /** Used to identify the global shader map. */
 extern SHADERCORE_API FSHAHash GGlobalShaderMapHash;
@@ -200,7 +205,7 @@ public:
 	virtual void FinishCleanup();
 
 	/** Finds a matching shader resource in memory if possible. */
-	SHADERCORE_API static TRefCountPtr<FShaderResource> FindShaderResourceById(const FShaderResourceId& Id);
+	SHADERCORE_API static FShaderResource* FindShaderResourceById(const FShaderResourceId& Id);
 
 	/** 
 	 * Finds a matching shader resource in memory or creates a new one with the given compiler output.  
@@ -215,6 +220,9 @@ public:
 	SHADERCORE_API static bool ArePlatformsCompatible(EShaderPlatform CurrentPlatform, EShaderPlatform TargetPlatform);
 	
 private:
+	// compression functions
+	void UncompressCode(TArray<uint8>& UncompressedCode) const;
+	void CompressCode(const TArray<uint8>& UncompressedCode);
 
 	/** Reference to the RHI shader.  Only one of these is ever valid, and it is the one corresponding to Target.Frequency. */
 	FVertexShaderRHIRef VertexShader;
@@ -229,6 +237,9 @@ private:
 
 	/** Compiled bytecode. */
 	TArray<uint8> Code;
+
+	/** Original bytecode size, before compression */
+	uint32 UncompressedCodeSize = 0;
 
 	/**
 	 * Hash of the compiled bytecode and the generated parameter map.
@@ -805,7 +816,7 @@ public:
 	 * Finds a shader of this type by ID.
 	 * @return NULL if no shader with the specified ID was found.
 	 */
-	TRefCountPtr<FShader> FindShaderById(const FShaderId& Id);
+	FShader* FindShaderById(const FShaderId& Id);
 
 	/** Constructs a new instance of the shader type for deserialization. */
 	FShader* ConstructForDeserialization() const;
@@ -1703,12 +1714,12 @@ public:
 			Shader->RegisterSerializedResource();
 
 			FShaderType* Type = Shader->GetType();
-			TRefCountPtr<FShader> ExistingShader = Type->FindShaderById(Shader->GetId());
+			FShader* ExistingShader = Type->FindShaderById(Shader->GetId());
 
-			if (ExistingShader.IsValid())
+			if (ExistingShader != nullptr)
 			{
 				delete Shader;
-				Shader = ExistingShader.GetReference();
+				Shader = ExistingShader;
 			}
 			else
 			{

@@ -1,22 +1,39 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "ISourceControlModule.h"
-#include "CrashReporterSettings.h"
-#include "Components/BillboardComponent.h"
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/StringAssetReference.h"
+#include "Misc/PackageName.h"
+#include "InputCoreTypes.h"
+#include "EditorStyleSettings.h"
 #include "AI/Navigation/NavigationSystem.h"
+#include "Model.h"
+#include "Settings/ContentBrowserSettings.h"
+#include "Settings/DestructableMeshEditorSettings.h"
+#include "Settings/LevelEditorPlaySettings.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "ISourceControlModule.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Settings/EditorLoadingSavingSettings.h"
+#include "Settings/EditorMiscSettings.h"
+#include "Settings/LevelEditorMiscSettings.h"
+#include "Settings/ProjectPackagingSettings.h"
+#include "EngineGlobals.h"
 #include "Components/ArrowComponent.h"
+#include "Components/BillboardComponent.h"
+#include "UnrealWidget.h"
+#include "EditorModeManager.h"
+#include "UnrealEdMisc.h"
+#include "CrashReporterSettings.h"
 #include "AutoReimport/AutoReimportUtilities.h"
 
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "ISettingsModule.h"
-#include "EditorProjectSettings.h"
+#include "Settings/EditorProjectSettings.h"
 
 #include "SourceCodeNavigation.h"
 
 #include "Developer/BlueprintProfiler/Public/BlueprintProfilerModule.h"
-#include "ScriptPerfData.h"
 
 #define LOCTEXT_NAMESPACE "SettingsClasses"
 
@@ -27,7 +44,8 @@ UContentBrowserSettings::FSettingChangedEvent UContentBrowserSettings::SettingCh
 
 UContentBrowserSettings::UContentBrowserSettings( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
-{ }
+{
+}
 
 
 void UContentBrowserSettings::PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent )
@@ -324,7 +342,10 @@ void ULevelEditorPlaySettings::PostEditChangeProperty(struct FPropertyChangedEve
 	{
 		BuildGameBeforeLaunch = EPlayOnBuildMode::PlayOnBuild_Never;
 	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
+
 /* ULevelEditorViewportSettings interface
  *****************************************************************************/
 
@@ -396,18 +417,21 @@ void ULevelEditorViewportSettings::PostEditChangeProperty( struct FPropertyChang
 			IndexRef = &(CurrentScalingGridSize);
 		}
 
-		// Don't allow an empty array of grid sizes
-		if (ArrayRef->Num() == 0)
+		if (ArrayRef && IndexRef)
 		{
-			ArrayRef->Add(MinGridSize);
-		}
-
-		// Don't allow negative numbers
-		for (int32 SizeIdx = 0; SizeIdx < ArrayRef->Num(); ++SizeIdx)
-		{
-			if ((*ArrayRef)[SizeIdx] < MinGridSize)
+			// Don't allow an empty array of grid sizes
+			if (ArrayRef->Num() == 0)
 			{
-				(*ArrayRef)[SizeIdx] = MinGridSize;
+				ArrayRef->Add(MinGridSize);
+			}
+
+			// Don't allow negative numbers
+			for (int32 SizeIdx = 0; SizeIdx < ArrayRef->Num(); ++SizeIdx)
+			{
+				if ((*ArrayRef)[SizeIdx] < MinGridSize)
+				{
+					(*ArrayRef)[SizeIdx] = MinGridSize;
+				}
 			}
 		}
 	}

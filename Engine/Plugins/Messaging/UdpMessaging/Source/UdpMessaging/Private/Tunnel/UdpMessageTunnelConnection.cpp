@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "Tunnel/UdpMessageTunnelConnection.h"
+#include "Serialization/ArrayWriter.h"
+
 #if PLATFORM_DESKTOP
-
-#include "UdpMessagingPrivatePCH.h"
-
 
 /* FUdpMessageTunnelConnection structors
  *****************************************************************************/

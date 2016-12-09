@@ -1,12 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "CollisionProfileDetails.h"
-#include "ScopedTransaction.h"
-#include "ObjectEditorUtils.h"
+#include "Misc/MessageDialog.h"
+#include "Widgets/SWindow.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "Widgets/Input/SComboBox.h"
 #include "BodyInstanceCustomization.h"
+#include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
-#include "Engine/CollisionProfile.h"
 
 #define LOCTEXT_NAMESPACE "CollsiionProfileDetails"
 
@@ -1197,26 +1208,6 @@ void SProfileListItem::Construct(const FArguments& InArgs, const TSharedRef<STab
 	SMultiColumnTableRow< TSharedPtr<FProfileListItem> >::Construct(FSuperRowType::FArguments(), InOwnerTableView);
 }
 
-int32 UCollisionProfile::ReturnContainerIndexFromChannelName(FName& DisplayName)  const
-{
-	// if we don't find it in new name
-	// @note: I think we can search redirect first in case anybody would like to reuse the name
-	// but that seems overhead moving forward. However that is possibility. 
-	// this code is only one that has to support old redirects
-	// other code should only use new names
-	int32 NameIndex = ChannelDisplayNames.Find(DisplayName);
-	if(NameIndex == INDEX_NONE)
-	{
-		// search for redirects
-		const FName* NewName = CollisionChannelRedirectsMap.Find(DisplayName);
-		if(NewName)
-		{
-			return ChannelDisplayNames.Find(*NewName);
-		}
-	}
-
-	return NameIndex;
-}
 FText SProfileListItem::GetObjectType() const
 {
 	return FText::FromName(ProfileTemplate->ObjectTypeName);

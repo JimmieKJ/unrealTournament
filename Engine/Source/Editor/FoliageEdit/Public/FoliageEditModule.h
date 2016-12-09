@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "UnrealEd.h"
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
 extern const FName FoliageEditAppIdentifier;
 

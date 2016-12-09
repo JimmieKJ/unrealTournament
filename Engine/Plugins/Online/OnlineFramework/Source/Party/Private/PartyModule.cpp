@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PartyPrivatePCH.h"
 #include "PartyModule.h"
 
 IMPLEMENT_MODULE(FPartyModule, Party);

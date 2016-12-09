@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "PropertyHelper.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/LazyObjectPtr.h"
+#include "UObject/UnrealType.h"
+#include "UObject/PropertyHelper.h"
 
 /*-----------------------------------------------------------------------------
 	ULazyObjectProperty.
@@ -73,6 +76,26 @@ bool ULazyObjectProperty::Identical( const void* A, const void* B, uint32 PortFl
 		}
 	}
 	return bResult;
+}
+
+UObject* ULazyObjectProperty::GetObjectPropertyValue(const void* PropertyValueAddress) const
+{
+	return GetPropertyValue(PropertyValueAddress).Get();
+}
+
+void ULazyObjectProperty::SetObjectPropertyValue(void* PropertyValueAddress, UObject* Value) const
+{
+	SetPropertyValue(PropertyValueAddress, TCppType(Value));
+}
+
+bool ULazyObjectProperty::AllowCrossLevel() const
+{
+	return true;
+}
+
+uint32 ULazyObjectProperty::GetValueTypeHashInternal(const void* Src) const
+{
+	return GetTypeHash(GetPropertyValue(Src));
 }
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(ULazyObjectProperty, UObjectPropertyBase,

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneCapturePCH.h"
 #include "LevelCapture.h"
+#include "UObject/LazyObjectPtr.h"
+#include "Engine/World.h"
 
 ULevelCapture::ULevelCapture(const FObjectInitializer& Init)
 	: Super(Init)
@@ -29,11 +30,6 @@ void ULevelCapture::Initialize(TSharedPtr<FSceneViewport> InViewport, int32 PIEI
 
 void ULevelCapture::Tick(float DeltaSeconds)
 {
-	if (!GWorld->HasBegunPlay())
-	{
-		return;
-	}
-
 	AActor* Actor = PrerequisiteActor.Get();
 	if (!Actor)
 	{
@@ -49,6 +45,11 @@ void ULevelCapture::Tick(float DeltaSeconds)
 		}
 
 		PrerequisiteActor = Actor = LazyActor.Get();
+	}
+
+	if (Actor && Actor->GetWorld() && !Actor->GetWorld()->HasBegunPlay())
+	{
+		return;
 	}
 
 	if (!PrerequisiteActorId.IsValid() || (Actor && Actor->HasActorBegunPlay()))

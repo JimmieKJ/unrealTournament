@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerAddonBase.h"
+#include "GameplayDebuggerCategoryReplicator.h"
 #if WITH_EDITOR
 #include "Editor/EditorEngine.h"
 #endif

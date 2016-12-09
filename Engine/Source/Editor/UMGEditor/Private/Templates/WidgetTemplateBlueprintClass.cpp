@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "Blueprint/UserWidget.h"
-#include "WidgetTemplateBlueprintClass.h"
+#include "Templates/WidgetTemplateBlueprintClass.h"
+
+#include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
 #include "WidgetBlueprint.h"
+#include "Toolkits/AssetEditorManager.h"
+
 #include "Kismet2/BlueprintEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "UMGEditor"
@@ -100,6 +102,11 @@ FReply FWidgetTemplateBlueprintClass::OnDoubleClicked()
 FAssetData FWidgetTemplateBlueprintClass::GetWidgetAssetData()
 {
 	return WidgetAssetData;
+}
+
+bool FWidgetTemplateBlueprintClass::Supports(UClass* InClass)
+{
+	return InClass != nullptr && InClass->IsChildOf(UWidgetBlueprint::StaticClass());
 }
 
 #undef LOCTEXT_NAMESPACE

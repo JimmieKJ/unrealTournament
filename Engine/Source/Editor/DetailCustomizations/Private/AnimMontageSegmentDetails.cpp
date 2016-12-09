@@ -1,10 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "AnimMontageSegmentDetails.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/SViewport.h"
+#include "Animation/DebugSkelMeshComponent.h"
+#include "Settings/DestructableMeshEditorSettings.h"
+#include "Animation/AnimSequenceBase.h"
+#include "Animation/AnimMontage.h"
+#include "DetailWidgetRow.h"
+#include "Viewports.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
+#include "PropertyCustomizationHelpers.h"
 #include "AnimPreviewInstance.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "Editor/KismetWidgets/Public/SScrubControlPanel.h"
+#include "Slate/SceneViewport.h"
 #define LOCTEXT_NAMESPACE "AnimMontageSegmentDetails"
 
 /////////////////////////////////////////////////////////////////////////

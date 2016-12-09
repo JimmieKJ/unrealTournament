@@ -2,8 +2,13 @@
 
 
 #pragma once
-#include "RigidBodyBase.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "PhysicsEngine/RigidBodyBase.h"
 #include "RadialForceActor.generated.h"
+
+class UBillboardComponent;
 
 UCLASS(MinimalAPI, hideCategories=(Collision, Input), showCategories=("Input|MouseInput", "Input|TouchInput"), ComponentWrapperClass)
 class ARadialForceActor : public ARigidBodyBase

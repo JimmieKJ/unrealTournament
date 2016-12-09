@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "hlslcc.h"
 #include "LanguageSpec.h"
+#include "VulkanConfiguration.h"
 
 class FVulkanLanguageSpec : public ILanguageSpec
 {
@@ -46,32 +48,20 @@ class ir_variable;
 
 struct FVulkanBindingTable
 {
-	enum EBindingType : uint16
-	{
-		TYPE_COMBINED_IMAGE_SAMPLER,
-		TYPE_SAMPLER_BUFFER,
-		TYPE_UNIFORM_BUFFER,
-		TYPE_PACKED_UNIFORM_BUFFER,
-		TYPE_SAMPLER,
-		TYPE_IMAGE,
-
-		TYPE_MAX,
-	};
-
 	struct FBinding
 	{
 		FBinding();
-		FBinding(const char* InName, int32 InIndex, EBindingType InType, int8 InSubType);
+		FBinding(const char* InName, int32 InIndex, EVulkanBindingType::EType InType, int8 InSubType);
 
 		char		Name[256];
 		int32		Index;
-		EBindingType	Type;
+		EVulkanBindingType::EType	Type;
 		int8		SubType;	// HLSL CC subtype, PACKED_TYPENAME_HIGHP and etc
 	};
 
 	FVulkanBindingTable(EHlslShaderFrequency ShaderStage) : Stage(ShaderStage){}
 
-	int32 RegisterBinding(const char* InName, const char* BlockName, EBindingType Type);
+	int32 RegisterBinding(const char* InName, const char* BlockName, EVulkanBindingType::EType Type);
 
 	int32 FindBinding(const char* InName) const;
 

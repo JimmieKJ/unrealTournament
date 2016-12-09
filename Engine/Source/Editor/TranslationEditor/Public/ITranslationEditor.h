@@ -2,10 +2,8 @@
 
 #pragma once
 
-#include "Toolkits/IToolkit.h"
+#include "CoreMinimal.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "TranslationEditorModule.h"
-#include "Private/TranslationPickerWidget.h"
 #include "LocalizationTargetTypes.h"
 
 /** Translation Editor public interface */

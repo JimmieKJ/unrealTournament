@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "TileSetEditorViewportClient.h"
+#include "TileSetEditor/TileSetEditorViewportClient.h"
+#include "IntMargin.h"
 #include "PaperTileSet.h"
+#include "CanvasItem.h"
+#include "CanvasTypes.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
 
 #define LOCTEXT_NAMESPACE "TileSetEditor"
 

@@ -4,6 +4,11 @@
 #ifndef __AnimViewportShowCommands_h_
 #define __AnimViewportShowCommands_h_
 
+#include "CoreMinimal.h"
+#include "EngineDefines.h"
+#include "Framework/Commands/Commands.h"
+#include "EditorStyleSet.h"
+
 /**
  * Class containing commands for persona viewport show actions
  */
@@ -34,13 +39,13 @@ public:
 	TSharedPtr< FUICommandInfo > ProcessRootMotion;
 
 	/** Show reference pose on preview mesh */
-	TSharedPtr< FUICommandInfo > ShowReferencePose;
-
-	/** Show reference pose on preview mesh */
 	TSharedPtr< FUICommandInfo > ShowRetargetBasePose;
 	
 	/** Show Bound of preview mesh */
 	TSharedPtr< FUICommandInfo > ShowBound;
+
+	/** Use in-game Bound of preview mesh */
+	TSharedPtr< FUICommandInfo > UseInGameBound;
 
 	/** Show/hide the preview mesh */
 	TSharedPtr< FUICommandInfo > ShowPreviewMesh;
@@ -48,13 +53,16 @@ public:
 	/** Show Morphtarget */
 	TSharedPtr< FUICommandInfo > ShowMorphTargets;
 
-	/** Hide all local axes */
+	/** Hide all bones */
 	TSharedPtr< FUICommandInfo > ShowBoneDrawNone;
 
-	/** Show only selected axes */
+	/** Show only selected bones */
 	TSharedPtr< FUICommandInfo > ShowBoneDrawSelected;
 
-	/** Show all local axes */
+	/** Show only selected bones and their parents */
+	TSharedPtr< FUICommandInfo > ShowBoneDrawSelectedAndParents;
+
+	/** Show all bones */
 	TSharedPtr< FUICommandInfo > ShowBoneDrawAll;
 
 	/** Show raw animation (vs compressed) */
@@ -81,8 +89,10 @@ public:
 	TSharedPtr< FUICommandInfo > ShowDisplayInfoSkelControls;
 	TSharedPtr< FUICommandInfo > HideDisplayInfo;
 
-	/** Show selected bone weight */
+	/** Show overlay material option */
+	TSharedPtr< FUICommandInfo > ShowOverlayNone;
 	TSharedPtr< FUICommandInfo > ShowBoneWeight;
+	TSharedPtr< FUICommandInfo > ShowMorphTargetVerts;
 
 	/** Show socket hit point diamonds */
 	TSharedPtr< FUICommandInfo > ShowSockets;

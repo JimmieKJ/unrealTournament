@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
 #include "VoicePackage.h"
 
 /** Stats for voice codec */

@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,15 +28,12 @@ class CefCookieVisitorCToCpp
     : public CefCToCpp<CefCookieVisitorCToCpp, CefCookieVisitor,
         cef_cookie_visitor_t> {
  public:
-  explicit CefCookieVisitorCToCpp(cef_cookie_visitor_t* str)
-      : CefCToCpp<CefCookieVisitorCToCpp, CefCookieVisitor,
-          cef_cookie_visitor_t>(str) {}
+  CefCookieVisitorCToCpp();
 
-  // CefCookieVisitor methods
+  // CefCookieVisitor methods.
   bool Visit(const CefCookie& cookie, int count, int total,
       bool& deleteCookie) override;
 };
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_COOKIE_VISITOR_CTOCPP_H_
-

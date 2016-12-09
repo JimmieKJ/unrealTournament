@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Culture.h"
-#include "PortableObjectFormatDOM.h"
+#include "Localization/PortableObjectFormatDOM.h"
+#include "Internationalization/Culture.h"
+#include "Containers/MapBuilder.h"
 
 static const TCHAR* NewLineDelimiter = TEXT("\n");
 

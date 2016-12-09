@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Animation/AnimNodeBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AnimNodes/AnimNode_BlendListBase.h"
 #include "AnimNode_BlendListByInt.generated.h"
 

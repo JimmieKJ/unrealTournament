@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "Math/Vector.h"
-#include "Math/Rotator.h"
+#include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
+#include "UObject/UObjectHash.h"
+
+class FMenuBuilder;
+class UMaterialInterface;
 
 class UNREALED_API FComponentEditorUtils
 {

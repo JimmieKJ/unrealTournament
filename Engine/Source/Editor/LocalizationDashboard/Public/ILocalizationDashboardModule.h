@@ -2,10 +2,11 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
 class ILocalizationServiceProvider;
-class ULocalizationTarget;
 
 /**
  * Interface for localization dashboard module.

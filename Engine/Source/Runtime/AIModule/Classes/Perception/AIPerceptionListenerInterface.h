@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Interface.h"
 #include "AIPerceptionListenerInterface.generated.h"
 
 class UAIPerceptionComponent;

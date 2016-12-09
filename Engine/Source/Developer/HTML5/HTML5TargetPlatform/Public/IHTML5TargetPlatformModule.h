@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "ITargetPlatformModule.h"
+#include "CoreMinimal.h"
+#include "Interfaces/ITargetPlatformModule.h"
 /**
  * Interface for HTML5TargetPlatformModule module.
  */

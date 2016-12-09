@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "Runtime/Core/Public/Features/IModularFeature.h"
-
+#include "CoreMinimal.h"
+#include "Features/IModularFeature.h"
 
 /**
  * Contains information about the status of the live streaming service.  This is passed along to a user's

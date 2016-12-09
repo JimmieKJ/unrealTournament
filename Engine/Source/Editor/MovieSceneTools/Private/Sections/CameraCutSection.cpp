@@ -1,12 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "CameraCutSection.h"
-#include "ISectionLayoutBuilder.h"
-#include "Runtime/MovieSceneTracks/Public/Sections/MovieSceneCameraCutSection.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "SInlineEditableTextBlock.h"
-#include "MovieSceneToolsUserSettings.h"
+#include "Sections/CameraCutSection.h"
+#include "Sections/MovieSceneCameraCutSection.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "GameFramework/Actor.h"
+#include "Editor.h"
+#include "MovieScene.h"
+#include "SequencerSectionPainter.h"
+#include "ScopedTransaction.h"
+#include "MovieSceneSequence.h"
+#include "MovieSceneCommonHelpers.h"
+#include "EditorStyleSet.h"
+#include "EngineUtils.h"
 
 
 #define LOCTEXT_NAMESPACE "FCameraCutSection"
@@ -123,20 +130,18 @@ const AActor* FCameraCutSection::GetCameraForFrame(float Time) const
 
 	if (CameraCutSection && Sequencer.IsValid())
 	{
-		TSharedRef<FMovieSceneSequenceInstance> SequenceInstance = Sequencer->GetFocusedMovieSceneSequenceInstance();
-
-		AActor* Actor = Cast<AActor>(SequenceInstance->FindObject(CameraCutSection->GetCameraGuid(), *Sequencer));
-		if (Actor)
+		for (TWeakObjectPtr<>& Object : Sequencer->FindBoundObjects(CameraCutSection->GetCameraGuid(), Sequencer->GetFocusedTemplateID()))
 		{
-			return Actor;
-		}
-		else
-		{
-			FMovieSceneSpawnable* Spawnable = SequenceInstance->GetSequence()->GetMovieScene()->FindSpawnable(CameraCutSection->GetCameraGuid());
-			if (Spawnable)
+			if (AActor* Actor = Cast<AActor>(Object.Get()))
 			{
-				return Cast<AActor>(Spawnable->GetObjectTemplate());
+				return Actor;
 			}
+		}
+
+		FMovieSceneSpawnable* Spawnable = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->FindSpawnable(CameraCutSection->GetCameraGuid());
+		if (Spawnable)
+		{
+			return Cast<AActor>(Spawnable->GetObjectTemplate());
 		}
 	}
 

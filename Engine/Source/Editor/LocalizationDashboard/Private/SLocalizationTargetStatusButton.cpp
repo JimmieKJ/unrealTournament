@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationDashboardPrivatePCH.h"
 #include "SLocalizationTargetStatusButton.h"
-#include "LocalizationCommandletExecution.h"
-#include "LocalizationCommandletTasks.h"
+#include "HAL/PlatformProcess.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "LocalizationTargetTypes.h"
+#include "LocalizationConfigurationScript.h"
 
 #define LOCTEXT_NAMESPACE "LocalizationTargetStatusButton"
 

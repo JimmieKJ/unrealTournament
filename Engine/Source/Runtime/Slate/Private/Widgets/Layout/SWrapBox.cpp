@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "LayoutUtils.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Layout/LayoutUtils.h"
 
 SWrapBox::SWrapBox()
 : Slots()
@@ -82,7 +82,6 @@ private:
 	const FOnSlotArranged& OnSlotArranged;
 	FVector2D Offset;
 	float MaximumHeightInCurrentLine;
-	bool IsCurrentLineTheFirstLine;
 	int32 IndexOfFirstChildInCurrentLine;
 	TMap<int32, FArrangementData> OngoingArrangementDataMap;
 };
@@ -93,7 +92,6 @@ SWrapBox::FChildArranger::FChildArranger(const SWrapBox& InWrapBox, const FOnSlo
 	, OnSlotArranged(InOnSlotArranged)
 	, Offset(FVector2D::ZeroVector)
 	, MaximumHeightInCurrentLine(0.0f)
-	, IsCurrentLineTheFirstLine(true)
 	, IndexOfFirstChildInCurrentLine(INDEX_NONE)
 {
 	OngoingArrangementDataMap.Reserve(WrapBox.Slots.Num());
@@ -227,11 +225,9 @@ void SWrapBox::FChildArranger::FinalizeLine(const int32 IndexOfLastChildInCurren
 
 	// Set initial state for new line.
 	Offset.X = 0.0f;
-	Offset.Y += MaximumHeightInCurrentLine;
-	// Rule: If this line is not the first line, "inner slot padding" needs to be injected above it.
-	Offset.Y += !IsCurrentLineTheFirstLine ? WrapBox.InnerSlotPadding.Y : 0.0f;
+	// Since this is the initial state for a new line, this only happens after the first line, so the inner slot vertical padding should always be added.
+	Offset.Y += MaximumHeightInCurrentLine + WrapBox.InnerSlotPadding.Y;
 	MaximumHeightInCurrentLine = 0.0f;
-	IsCurrentLineTheFirstLine = false;
 	IndexOfFirstChildInCurrentLine = INDEX_NONE;
 }
 

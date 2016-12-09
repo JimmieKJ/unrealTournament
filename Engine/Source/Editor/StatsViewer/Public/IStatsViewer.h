@@ -2,7 +2,9 @@
 
 #pragma once
 
-class IPropertyTable;
+#include "CoreMinimal.h"
+#include "Widgets/SCompoundWidget.h"
+#include "IPropertyTable.h"
 
 /**
  * The public interface for the Stats Viewer widget

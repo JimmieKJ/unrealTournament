@@ -2,10 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "StandaloneRendererPlatformHeaders.h"
+#include "Layout/SlateRect.h"
+#include "Textures/SlateShaderResource.h"
+#include "Rendering/SlateDrawBuffer.h"
+#include "Rendering/SlateRenderer.h"
 
-class FSlateOpenGLTextureManager;
-class FSlateOpenGLRenderingPolicy;
+class Error;
 class FSlateElementBatcher;
+class FSlateOpenGLRenderingPolicy;
+class FSlateOpenGLTextureManager;
+class FSlateUpdatableTexture;
+class ISlateAtlasProvider;
+class ISlateStyle;
+class SWindow;
 
 // Optionally use 3.2 context on Linux. There's no real need to require this in a standalone application since it only renders Slate UI.
 // With this set to 0, StandaloneRenderer will use OpenGL 2.1 on Linux, which is almost universally supported (as of 2015).

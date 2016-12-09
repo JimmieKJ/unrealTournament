@@ -1,14 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MergeActorsPrivatePCH.h"
-#include "MeshProxyTool.h"
-#include "SMeshProxyDialog.h"
+#include "MeshProxyTool/MeshProxyTool.h"
+#include "Misc/Paths.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "GameFramework/Actor.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/Selection.h"
+#include "Editor.h"
+#include "MeshProxyTool/SMeshProxyDialog.h"
 #include "MeshUtilities.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "AssetRegistryModule.h"
-#include "Engine/StaticMeshActor.h"
-#include "Engine/StaticMesh.h"
-#include "Engine/Selection.h"
 
 
 #define LOCTEXT_NAMESPACE "MeshProxyTool"
@@ -43,10 +50,10 @@ FString FMeshProxyTool::GetDefaultPackageName() const
 			Actor->GetComponents<UStaticMeshComponent>(SMComponets);
 			for (UStaticMeshComponent* Component : SMComponets)
 			{
-				if (Component->StaticMesh)
+				if (Component->GetStaticMesh())
 				{
-					PackageName = FPackageName::GetLongPackagePath(Component->StaticMesh->GetOutermost()->GetName());
-					PackageName += FString(TEXT("/PROXY_")) + Component->StaticMesh->GetName();
+					PackageName = FPackageName::GetLongPackagePath(Component->GetStaticMesh()->GetOutermost()->GetName());
+					PackageName += FString(TEXT("/PROXY_")) + Component->GetStaticMesh()->GetName();
 					break;
 				}
 			}

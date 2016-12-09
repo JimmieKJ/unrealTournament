@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "UnrealSourceFile.h"
+
+#include "CoreMinimal.h"
+#include "GeneratedCodeVersion.h"
 #include "IScriptGeneratorPluginInterface.h"
+
+class FArchive;
 
 struct FManifestModule
 {

@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ShaderPreprocessorPrivatePCH.h"
-#include "ShaderPreprocessor.h"
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopeLock.h"
+#include "ShaderCore.h"
 #include "PreprocessorPrivate.h"
 
 /**
@@ -93,7 +95,7 @@ private:
  * @param AdditionalDefines - Additional defines with which to preprocess the shader.
  * @returns true if the shader is preprocessed without error.
  */
-bool PreprocessShaderFile(FString& OutPreprocessedShader, TArray<FShaderCompilerError>& OutShaderErrors, const FString& InShaderFile)
+SHADERPREPROCESSOR_API bool PreprocessShaderFile(FString& OutPreprocessedShader, TArray<FShaderCompilerError>& OutShaderErrors, const FString& InShaderFile)
 {
 	FString McppOptions;
 	FString McppOutput, McppErrors;

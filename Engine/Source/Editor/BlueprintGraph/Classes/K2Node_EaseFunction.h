@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Textures/SlateIcon.h"
 #include "K2Node.h"
 #include "K2Node_EaseFunction.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UEdGraph;
 
 /////////////////////////////////////////////////////
 // UK2Node_EaseFunction

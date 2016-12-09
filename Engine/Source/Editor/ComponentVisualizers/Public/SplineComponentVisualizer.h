@@ -2,8 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "HitProxies.h"
 #include "ComponentVisualizer.h"
-#include "Components/SplineComponent.h"
+
+class AActor;
+class FEditorViewportClient;
+class FMenuBuilder;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FUICommandList;
+class FViewport;
+class SWidget;
+class USplineComponent;
+struct FViewportClick;
 
 /** Base class for clickable spline editing proxies */
 struct HSplineVisProxy : public HComponentVisProxy

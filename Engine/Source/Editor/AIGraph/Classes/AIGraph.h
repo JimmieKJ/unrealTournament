@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraph.h"
 #include "AIGraph.generated.h"
+
+class UEdGraphPin;
 
 UCLASS()
 class AIGRAPH_API UAIGraph : public UEdGraph
@@ -30,6 +36,10 @@ class AIGRAPH_API UAIGraph : public UEdGraph
 	bool IsLocked() const;
 	void LockUpdates();
 	void UnlockUpdates();
+
+	//~ Begin UObject Interface.
+	virtual void Serialize(FArchive& Ar) override;
+	//~ End UObject Interface.
 
 protected:
 

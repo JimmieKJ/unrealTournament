@@ -651,6 +651,10 @@ void DofDownPS_ES2(
 	// Mix weighted by circle of confusion.
 	// This tends to erode the effect of more infocus samples (removes bleeding artifacts).
 	OutColor = ((A * A.a) + (B * B.a) + (C * C.a) + (D * D.a)) * rcp(A.a + B.a + C.a + D.a);
+
+	// Clamp rgb to prevent overflow during scale.
+	OutColor.rgb = min(OutColor.rgb, 4.0);
+
 	OutColor.rgb *= OutColor.a;
 }
 

@@ -2,11 +2,13 @@
 
 #pragma once
 
-#include "Curves/IntegralCurve.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
-#include "IKeyframeSection.h"
+#include "Curves/IntegralCurve.h"
+#include "Sections/IKeyframeSection.h"
 #include "MovieSceneByteSection.generated.h"
-
 
 /**
  * A single byte section.
@@ -18,18 +20,10 @@ class UMovieSceneByteSection
 {
 	GENERATED_UCLASS_BODY()
 public:
-	/**
-	 * Update this section.
-	 *
-	 * @param Position The position in time within the movie scene
-	 */
-	virtual uint8 Eval(float Position) const;
 
 	/** Gets all the keys of this byte section */
-	FIntegralCurve& GetCurve()
-	{
-		return ByteCurve;
-	}
+	FIntegralCurve& GetCurve() { return ByteCurve; }
+	const FIntegralCurve& GetCurve() const { return ByteCurve; }
 
 public:
 
@@ -39,6 +33,7 @@ public:
 	virtual bool NewKeyIsNewData(float Time, const uint8& Value) const override;
 	virtual bool HasKeys(const uint8& Value) const override;
 	virtual void SetDefault(const uint8& Value) override;
+	virtual void ClearDefaults() override;
 
 public:
 

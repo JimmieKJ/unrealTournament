@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/CoreOnline.h"
 #include "PlayerMuteList.generated.h"
 
 struct FUniqueNetIdRepl;
-class FUniqueNetId;
 
 /**
  * Container responsible for managing the mute state of a player controller

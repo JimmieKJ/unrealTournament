@@ -7,17 +7,14 @@
 #ifndef __MATINEEEXPORTER_H__
 #define __MATINEEEXPORTER_H__
 
-#include "Matinee/MatineeActor.h"
-#include "Matinee/InterpGroup.h"
-#include "Matinee/InterpGroupInst.h"
+#include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
 
-class UInterpData;
-class UInterpTrackMove;
-class UInterpTrackFloatProp;
-class UInterpTrackVectorProp;
-class AActor;
-class AMatineeActor;
+class ABrush;
+class ACameraActor;
 class ALight;
+class UModel;
+class UStaticMeshComponent;
 
 /** Adapter interface which allows finding the corresponding actor node name to act on both sequencer and matinee data. */
 class INodeNameAdapter

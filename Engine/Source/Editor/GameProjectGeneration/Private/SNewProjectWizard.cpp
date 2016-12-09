@@ -1,20 +1,45 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GameProjectGenerationPrivatePCH.h"
-#include "MainFrame.h"
+#include "SNewProjectWizard.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/App.h"
+#include "Widgets/SOverlay.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBorder.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
+#include "Interfaces/IPluginManager.h"
+#include "ProjectDescriptor.h"
+#include "GameProjectGenerationLog.h"
+#include "GameProjectGenerationModule.h"
+#include "HardwareTargetingModule.h"
+#include "TemplateProjectDefs.h"
+#include "GameProjectUtils.h"
+#include "SGetSuggestedIDEWidget.h"
 #include "DesktopPlatformModule.h"
 #include "SourceCodeNavigation.h"
-#include "SScrollBorder.h"
 #include "TemplateCategory.h"
-#include "GameProjectGenerationModule.h"
-#include "SWizard.h"
-#include "HardwareTargetingModule.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Workflow/SWizard.h"
 #include "SDecoratedEnumCombo.h"
-#include "Editor/Documentation/Public/IDocumentation.h"
-#include "BreakIterator.h"
-#include "SHyperlink.h"
-#include "SOutputLogDialog.h"
+#include "IDocumentation.h"
+#include "Internationalization/BreakIterator.h"
+#include "Dialogs/SOutputLogDialog.h"
 #include "TemplateItem.h"
 #include "Settings/EditorSettings.h"
 
@@ -984,19 +1009,10 @@ FReply SNewProjectWizard::HandleBrowseButtonClicked()
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if ( DesktopPlatform )
 	{
-		void* ParentWindowWindowHandle = NULL;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		FString FolderName;
 		const FString Title = LOCTEXT("NewProjectBrowseTitle", "Choose a project location").ToString();
 		const bool bFolderSelected = DesktopPlatform->OpenDirectoryDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(AsShared()),
 			Title,
 			LastBrowsePath,
 			FolderName

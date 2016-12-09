@@ -2,7 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ISourceControlProvider.h"
 #if SOURCE_CONTROL_WITH_SLATE
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Application/SlateWindowHelper.h"
+#endif
+
+#if SOURCE_CONTROL_WITH_SLATE
+
 
 class SSourceControlPicker : public SCompoundWidget
 {

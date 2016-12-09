@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneCameraShakeSection.h"
-#include "MovieSceneCameraShakeTrack.h"
-#include "IMovieScenePlayer.h"
-#include "MovieSceneCameraShakeTrackInstance.h"
+#include "Tracks/MovieSceneCameraShakeTrack.h"
+#include "Sections/MovieSceneCameraShakeSection.h"
+#include "Evaluation/PersistentEvaluationData.h"
+#include "Evaluation/MovieSceneCameraAnimTemplate.h"
+#include "Evaluation/MovieSceneEvaluationTrack.h"
+#include "Evaluation/MovieSceneEvaluationTemplate.h"
+#include "Compilation/MovieSceneSegmentCompiler.h"
+#include "Compilation/MovieSceneCompilerRules.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCameraShakeTrack"
 
@@ -15,10 +18,27 @@ void UMovieSceneCameraShakeTrack::AddNewCameraShake(float KeyTime, TSubclassOf<U
 	{
 		// #fixme get length
 		NewSection->InitialPlacement(CameraShakeSections, KeyTime, KeyTime + 5.f /*AnimSequence->SequenceLength*/, SupportsMultipleRows());
-		NewSection->SetCameraShakeClass(ShakeClass);
+		NewSection->ShakeData.ShakeClass = ShakeClass;
 		
 		AddSection(*NewSection);
 	}
+}
+
+void UMovieSceneCameraShakeTrack::PostCompile(FMovieSceneEvaluationTrack& OutTrack, const FMovieSceneTrackCompilerArgs& Args) const
+{
+	FMovieSceneSharedDataId UniqueId = FMovieSceneAdditiveCameraAnimationTrackTemplate::SharedDataId;
+
+	// Add a new shared track for the additive camera anim. There will only be one of these, and it will apply all the additive camera animations for this object.
+	FMovieSceneEvaluationTrack SharedTrackTemplate(Args.ObjectBindingId);
+	SharedTrackTemplate.DefineAsSingleTemplate(FMovieSceneAdditiveCameraAnimationTrackTemplate());
+	SharedTrackTemplate.SetEvaluationPriority(0xF);
+	
+	Args.Generator.AddSharedTrack(MoveTemp(SharedTrackTemplate), UniqueId, *this);
+}
+
+TInlineValue<FMovieSceneSegmentCompilerRules> UMovieSceneCameraShakeTrack::GetTrackCompilerRules() const
+{
+	return FMovieSceneAdditiveCameraRules(this);
 }
 
 #if WITH_EDITORONLY_DATA
@@ -33,11 +53,6 @@ FText UMovieSceneCameraShakeTrack::GetDisplayName() const
 
 /* UMovieSceneTrack interface
 *****************************************************************************/
-
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneCameraShakeTrack::CreateInstance()
-{
-	return MakeShareable(new FMovieSceneCameraShakeTrackInstance(*this));
-}
 
 
 const TArray<UMovieSceneSection*>& UMovieSceneCameraShakeTrack::GetAllSections() const
@@ -92,21 +107,6 @@ TRange<float> UMovieSceneCameraShakeTrack::GetSectionBoundaries() const
 	}
 
 	return TRange<float>::Hull(Bounds);
-}
-
-
-void UMovieSceneCameraShakeTrack::GetCameraShakeSectionsAtTime(float Time, TArray<UMovieSceneCameraShakeSection*>& OutSections)
-{
-	OutSections.Empty();
-
-	for (auto Section : CameraShakeSections)
-	{
-		UMovieSceneCameraShakeSection* const CSSection = dynamic_cast<UMovieSceneCameraShakeSection*>(Section);
-		if (CSSection && CSSection->IsTimeWithinSection(Time))
-		{
-			OutSections.Add(CSSection);
-		}
-	}
 }
 
 

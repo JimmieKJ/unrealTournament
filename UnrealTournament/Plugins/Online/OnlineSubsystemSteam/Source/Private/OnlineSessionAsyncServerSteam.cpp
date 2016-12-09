@@ -186,7 +186,7 @@ void UpdatePublishedSettings(UWorld* World, FNamedOnlineSession* Session)
 	// Update all the players names/scores
 	if (World)
 	{
-		AGameState const* const GameState = World->GameState;
+		AGameStateBase const* const GameState = World->GetGameState();
 		if (GameState)
 		{
 			for (int32 PlayerIdx=0; PlayerIdx < GameState->PlayerArray.Num(); PlayerIdx++)

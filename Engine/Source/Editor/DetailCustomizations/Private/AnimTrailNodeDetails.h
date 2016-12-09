@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "SCurveEditor.h"
 
+#include "CoreMinimal.h"
+#include "Curves/CurveOwnerInterface.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class IPropertyHandle;
 class UAnimGraphNode_Trail;
 
 class FAnimTrailNodeDetails : public IDetailCustomization

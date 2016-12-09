@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LayersPrivatePCH.h"
-
 #include "SLayerBrowser.h"
-#include "SDockTab.h"
-#include "SSearchBox.h"
-#include "Editor/SceneOutliner/Public/SceneOutliner.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Editor.h"
+#include "SLayerStats.h"
+#include "SceneOutlinerModule.h"
+
+#include "Widgets/Input/SSearchBox.h"
+#include "SceneOutlinerPublicTypes.h"
 
 #define LOCTEXT_NAMESPACE "LayerBrowser"
 

@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/ComboBoxString.h"
+#include "UObject/EditorObjectVersion.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/Font.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -33,7 +36,7 @@ UComboBoxString::UComboBoxString(const FObjectInitializer& ObjectInitializer)
 	ContentPadding = FMargin(4.0, 2.0);
 	MaxListHeight = 450.0f;
 	HasDownArrow = true;
-
+	EnableGamepadNavigationMode = true;
 	// We don't want to try and load fonts on the server.
 	if ( !IsRunningDedicatedServer() )
 	{
@@ -59,6 +62,13 @@ void UComboBoxString::PostLoad()
 	{
 		AddOption(DefaultOption);
 	}
+
+	if (GetLinkerCustomVersion(FEditorObjectVersion::GUID) < FEditorObjectVersion::ComboBoxControllerSupportUpdate)
+	{
+		EnableGamepadNavigationMode = false;
+	}
+
+
 }
 
 TSharedRef<SWidget> UComboBoxString::RebuildWidget()
@@ -79,6 +89,7 @@ TSharedRef<SWidget> UComboBoxString::RebuildWidget()
 		.ContentPadding(ContentPadding)
 		.MaxListHeight(MaxListHeight)
 		.HasDownArrow(HasDownArrow)
+		.EnableGamepadNavigationMode(EnableGamepadNavigationMode)
 		.OnGenerateWidget(BIND_UOBJECT_DELEGATE(SComboBox< TSharedPtr<FString> >::FOnGenerateWidget, HandleGenerateWidget))
 		.OnSelectionChanged(BIND_UOBJECT_DELEGATE(SComboBox< TSharedPtr<FString> >::FOnSelectionChanged, HandleSelectionChanged))
 		.OnComboBoxOpening(BIND_UOBJECT_DELEGATE(FOnComboBoxOpening, HandleOpening))
@@ -248,7 +259,7 @@ void UComboBoxString::HandleSelectionChanged(TSharedPtr<FString> Item, ESelectIn
 	}
 
 	// When the selection changes we always generate another widget to represent the content area of the comobox.
-	ComoboBoxContent->SetContent( HandleGenerateWidget(Item) );
+	ComoboBoxContent->SetContent( HandleGenerateWidget(CurrentOptionPtr) );
 }
 
 void UComboBoxString::HandleOpening()

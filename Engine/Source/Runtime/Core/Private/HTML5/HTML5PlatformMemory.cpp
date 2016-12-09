@@ -4,9 +4,11 @@
 	HTML5PlatformMemory.cpp: HTML5 platform memory functions
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "HTML5PlatformMemory.h"
 #include "MallocBinned.h"
 #include "MallocAnsi.h"
+#include "Misc/CoreStats.h"
+#include "CoreGlobals.h"
 
 void FHTML5PlatformMemory::Init()
 {

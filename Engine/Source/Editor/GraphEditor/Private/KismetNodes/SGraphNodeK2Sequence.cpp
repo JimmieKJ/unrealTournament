@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeK2Base.h"
-#include "SGraphNodeK2Sequence.h"
+#include "KismetNodes/SGraphNodeK2Sequence.h"
+#include "EdGraph/EdGraph.h"
+#include "Widgets/SBoxPanel.h"
+#include "GraphEditorSettings.h"
+#include "K2Node_CommutativeAssociativeBinaryOperator.h"
+#include "K2Node_DoOnceMultiInput.h"
+#include "K2Node_ExecutionSequence.h"
+#include "K2Node_MakeArray.h"
 
 
 void SGraphNodeK2Sequence::Construct( const FArguments& InArgs, UK2Node* InNode )

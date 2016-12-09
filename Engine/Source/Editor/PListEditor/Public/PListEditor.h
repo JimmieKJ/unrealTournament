@@ -5,8 +5,8 @@
 #ifndef __PListEditor_h__
 #define __PListEditor_h__
 
-#include "Engine.h"
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
 /**
  * Key binding editor module

@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "SlateUTextureResource.h"
-#include "Slate/SlateTextureAtlasInterface.h"
+
+struct FSlateAtlasData;
 
 /**
  * A resource for rendering a sub-rect of a UTexture atlas object in Slate. Each 

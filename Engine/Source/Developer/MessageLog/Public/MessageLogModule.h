@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "IMessageLogListing.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 #include "MessageLogInitializationOptions.h"
+
+class FMessageLogViewModel;
 
 DECLARE_DELEGATE_RetVal(bool, FCanShowMessageLog);
 

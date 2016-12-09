@@ -2,8 +2,13 @@
 
 #pragma once
 
-#include "GameplayDebuggerTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "InputCoreTypes.h"
 #include "GameplayDebuggerConfig.generated.h"
+
+struct FGameplayDebuggerInputModifier;
 
 UENUM()
 enum class EGameplayDebuggerOverrideMode : uint8
@@ -54,13 +59,19 @@ struct FGameplayDebuggerCategoryConfig
 	UPROPERTY(EditAnywhere, Category = Settings)
 	EGameplayDebuggerOverrideMode ActiveInSimulate;
 
+	UPROPERTY(EditAnywhere, Category = Settings)
+	EGameplayDebuggerOverrideMode Hidden;
+
 	UPROPERTY(EditAnywhere, Category = Settings, AdvancedDisplay)
 	uint32 bOverrideSlotIdx : 1;
 
 	UPROPERTY(EditAnywhere, Category = Settings, EditFixedSize)
 	TArray<FGameplayDebuggerInputConfig> InputHandlers;
 
-	FGameplayDebuggerCategoryConfig() : ActiveInGame(EGameplayDebuggerOverrideMode::UseDefault), ActiveInSimulate(EGameplayDebuggerOverrideMode::UseDefault) {}
+	FGameplayDebuggerCategoryConfig() :
+		ActiveInGame(EGameplayDebuggerOverrideMode::UseDefault), ActiveInSimulate(EGameplayDebuggerOverrideMode::UseDefault),
+		Hidden(EGameplayDebuggerOverrideMode::UseDefault), bOverrideSlotIdx(false)
+	{}
 };
 
 USTRUCT()

@@ -2,10 +2,19 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ParticleHelper.h"
 #include "Particles/Location/ParticleModuleLocationBase.h"
 #include "ParticleModuleLocationBoneSocket.generated.h"
 
+class UParticleModuleTypeDataBase;
+class UParticleSystemComponent;
+class USkeletalMeshComponent;
+class USkeletalMeshSocket;
 struct FModuleLocationBoneSocketInstancePayload;
+struct FParticleEmitterInstance;
 
 UENUM()
 enum ELocationBoneSocketSource

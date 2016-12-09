@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "EngineVersion.h"
+#include "CoreMinimal.h"
+#include "Misc/EnumClassFlags.h"
+#include "Misc/CoreDelegates.h"
+#include "HAL/PlatformProcess.h"
 
+class FEngineVersion;
 
 namespace EFileDialogFlags
 {

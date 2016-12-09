@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IDetailCustomization.h"
+
+class IDetailCategoryBuilder;
+class IDetailChildrenBuilder;
+class IPropertyHandle;
+enum class ECheckBoxState : uint8;
+
 /////////////////////////////////////////////////////
 // FSkeletalControlNodeDetails 
 

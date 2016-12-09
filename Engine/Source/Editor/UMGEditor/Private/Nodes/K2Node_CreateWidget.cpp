@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
+#include "Nodes/K2Node_CreateWidget.h"
+
+#if WITH_EDITOR
+	#include "GameFramework/PlayerController.h"
+#endif // WITH_EDITOR
+#include "EdGraphSchema_K2.h"
+#include "K2Node_CallFunction.h"
 #include "Blueprint/UserWidget.h"
+
 #include "Blueprint/WidgetBlueprintLibrary.h"
+#include "KismetCompilerMisc.h"
 #include "KismetCompiler.h"
-#include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
 
-#include "K2Node_CreateWidget.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -96,7 +102,7 @@ void UK2Node_CreateWidget::ExpandNode(class FKismetCompilerContext& CompilerCont
 	UEdGraphPin* SpawnNodeResult = CreateWidgetNode->GetResultPin();
 
 	UClass* SpawnClass = ( SpawnClassPin != NULL ) ? Cast<UClass>(SpawnClassPin->DefaultObject) : NULL;
-	if ( ( 0 == SpawnClassPin->LinkedTo.Num() ) && ( NULL == SpawnClass ) )
+	if ( !SpawnClassPin || ((0 == SpawnClassPin->LinkedTo.Num()) && (NULL == SpawnClass)))
 	{
 		CompilerContext.MessageLog.Error(*LOCTEXT("CreateWidgetNodeMissingClass_Error", "Spawn node @@ must have a class specified.").ToString(), CreateWidgetNode);
 		// we break exec links so this is the only error we get, don't want the CreateWidget node being considered and giving 'unexpected node' type warnings

@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Kismet/HeadMountedDisplayFunctionLibrary.h"
-#include "HeadMountedDisplay.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "GameFramework/WorldSettings.h"
+#include "IHeadMountedDisplay.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUHeadMountedDisplay, Log, All);
 
@@ -87,16 +89,22 @@ int32 UHeadMountedDisplayFunctionLibrary::GetNumOfTrackingSensors()
 void UHeadMountedDisplayFunctionLibrary::GetPositionalTrackingCameraParameters(FVector& CameraOrigin, FRotator& CameraRotation, float& HFOV, float& VFOV, float& CameraDistance, float& NearPlane, float& FarPlane)
 {
 	bool isActive;
-	GetTrackingSensorParameters(CameraOrigin, CameraRotation, HFOV, VFOV, CameraDistance, NearPlane, FarPlane, isActive, 0);
+	float LeftFOV;
+	float RightFOV;
+	float TopFOV;
+	float BottomFOV;
+	GetTrackingSensorParameters(CameraOrigin, CameraRotation, LeftFOV, RightFOV, TopFOV, BottomFOV, CameraDistance, NearPlane, FarPlane, isActive, 0);
+	HFOV = LeftFOV + RightFOV;
+	VFOV = TopFOV + BottomFOV;
 }
 
-void UHeadMountedDisplayFunctionLibrary::GetTrackingSensorParameters(FVector& Origin, FRotator& Rotation, float& HFOV, float& VFOV, float& Distance, float& NearPlane, float& FarPlane, bool& IsActive, int32 Index)
+void UHeadMountedDisplayFunctionLibrary::GetTrackingSensorParameters(FVector& Origin, FRotator& Rotation, float& LeftFOV, float& RightFOV, float& TopFOV, float& BottomFOV, float& Distance, float& NearPlane, float& FarPlane, bool& IsActive, int32 Index)
 {
 	IsActive = false;
 	if (Index >= 0 && GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed() && GEngine->HMDDevice->DoesSupportPositionalTracking())
 	{
 		FQuat Orientation;
-		IsActive = GEngine->HMDDevice->GetTrackingSensorProperties((uint8)Index, Origin, Orientation, HFOV, VFOV, Distance, NearPlane, FarPlane);
+		IsActive = GEngine->HMDDevice->GetTrackingSensorProperties((uint8)Index, Origin, Orientation, LeftFOV, RightFOV, TopFOV, BottomFOV, Distance, NearPlane, FarPlane);
 		Rotation = Orientation.Rotator();
 	}
 	else
@@ -104,7 +112,7 @@ void UHeadMountedDisplayFunctionLibrary::GetTrackingSensorParameters(FVector& Or
 		// No HMD, zero the values
 		Origin = FVector::ZeroVector;
 		Rotation = FRotator::ZeroRotator;
-		HFOV = VFOV = 0.f;
+		LeftFOV = RightFOV = TopFOV = BottomFOV = 0.f;
 		NearPlane = 0.f;
 		FarPlane = 0.f;
 		Distance = 0.f;

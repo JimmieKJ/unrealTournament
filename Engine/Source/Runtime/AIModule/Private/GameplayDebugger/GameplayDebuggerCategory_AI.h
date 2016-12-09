@@ -2,9 +2,22 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #if WITH_GAMEPLAY_DEBUGGER
-
 #include "GameplayDebuggerCategory.h"
+#endif
+
+class AActor;
+class AAIController;
+class APawn;
+class APlayerController;
+class FDebugRenderSceneProxy;
+class FPoly;
+class UPrimitiveComponent;
+struct FDebugDrawDelegateHelper;
+struct FNavigationPath;
+
+#if WITH_GAMEPLAY_DEBUGGER
 
 class FGameplayDebuggerCategory_AI : public FGameplayDebuggerCategory
 {
@@ -14,7 +27,7 @@ public:
 	virtual void CollectData(APlayerController* OwnerPC, AActor* DebugActor) override;
 	virtual void OnDataPackReplicated(int32 DataPackId) override;
 	virtual void DrawData(APlayerController* OwnerPC, FGameplayDebuggerCanvasContext& CanvasContext) override;
-	virtual FDebugRenderSceneProxy* CreateSceneProxy(const UPrimitiveComponent* InComponent) override;
+	virtual FDebugRenderSceneProxy* CreateDebugSceneProxy(const UPrimitiveComponent* InComponent, FDebugDrawDelegateHelper*& OutDelegateHelper) override;
 
 	static TSharedRef<FGameplayDebuggerCategory> MakeInstance();
 

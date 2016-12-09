@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "Commandlets/ImportDialogueScriptCommandlet.h"
-#include "CsvParser.h"
+#include "UObject/UnrealType.h"
+#include "Misc/FileHelper.h"
+#include "UObject/PropertyPortFlags.h"
 #include "Sound/DialogueWave.h"
+#include "Commandlets/ExportDialogueScriptCommandlet.h"
+#include "Serialization/Csv/CsvParser.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogImportDialogueScriptCommandlet, Log, All);
 

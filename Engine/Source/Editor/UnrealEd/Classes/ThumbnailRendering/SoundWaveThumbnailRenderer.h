@@ -6,7 +6,14 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ThumbnailRendering/ThumbnailRenderer.h"
 #include "SoundWaveThumbnailRenderer.generated.h"
+
+class FCanvas;
+class FRenderTarget;
 
 UCLASS()
 class USoundWaveThumbnailRenderer : public UThumbnailRenderer

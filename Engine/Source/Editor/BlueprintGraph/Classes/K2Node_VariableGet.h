@@ -2,9 +2,16 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UnrealType.h"
+#include "Engine/Blueprint.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_Variable.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_VariableGet.generated.h"
+
+class UEdGraph;
 
 UCLASS()
 class BLUEPRINTGRAPH_API UK2Node_VariableGet : public UK2Node_Variable

@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "AssetData.h"
 #include "TileMapActorFactory.h"
+#include "AssetData.h"
 #include "PaperTileMapActor.h"
+#include "PaperTileMap.h"
 #include "PaperImporterSettings.h"
 #include "PaperTileMapComponent.h"
-#include "PaperTileMapActor.h"
+#include "PaperTileSet.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UTileMapActorFactory

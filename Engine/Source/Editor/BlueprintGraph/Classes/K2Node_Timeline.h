@@ -2,8 +2,19 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "K2Node.h"
+#include "Textures/SlateIcon.h"
 #include "K2Node_Timeline.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class FKismetCompilerContext;
+class INameValidatorInterface;
+class UEdGraph;
+class UEdGraphPin;
 
 UCLASS(MinimalAPI)
 class UK2Node_Timeline : public UK2Node
@@ -29,6 +40,10 @@ class UK2Node_Timeline : public UK2Node
 	/** If the timeline is set to loop */
 	UPROPERTY(Transient)
 	uint32 bReplicated:1;
+
+	/** If the timeline should ignore global time dilation */
+	UPROPERTY(Transient)
+	uint32 bIgnoreTimeDilation : 1;
 
 	//~ Begin UEdGraphNode Interface.
 	virtual void AllocateDefaultPins() override;

@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MainFramePrivatePCH.h"
+#include "Frame/MainFrameHandler.h"
+#include "HAL/FileManager.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
+#include "Frame/RootWindowLocation.h"
 
-#include "MainFrameHandler.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 
 void FMainFrameHandler::ShutDownEditor()

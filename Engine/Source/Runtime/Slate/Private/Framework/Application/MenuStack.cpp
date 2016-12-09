@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "Menu.h"
-#include "SPopup.h"
-#include "SMenuAnchor.h"
+#include "Framework/Application/MenuStack.h"
+#include "Layout/LayoutUtils.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SPopup.h"
 
 #define LOCTEXT_NAMESPACE "MenuStack"
 
@@ -343,8 +346,7 @@ FMenuStack::FPrePushResults FMenuStack::PrePush(const FPrePushArgs& InArgs)
 
 	OutResults.WrappedContent = WrapContent(TempContent, OptionalMinWidth, OptionalMinHeight);
 
-	// @todo slate: Assumes that popup is not Scaled up or down from application scale.
-	OutResults.WrappedContent->SlatePrepass(FSlateApplication::Get().GetApplicationScale());
+	OutResults.WrappedContent->SlatePrepass(FSlateApplication::Get().GetApplicationScale() * HostWindow->GetNativeWindow()->GetDPIScaleFactor());
 	// @todo slate: Doesn't take into account potential window border size
 	OutResults.ExpectedSize = OutResults.WrappedContent->GetDesiredSize();
 

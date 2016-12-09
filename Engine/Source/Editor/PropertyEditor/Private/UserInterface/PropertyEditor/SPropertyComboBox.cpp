@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "SPropertyComboBox.h"
+#include "UserInterface/PropertyEditor/SPropertyComboBox.h"
+#include "Widgets/SToolTip.h"
 
 #define LOCTEXT_NAMESPACE "PropertyComboBox"
 

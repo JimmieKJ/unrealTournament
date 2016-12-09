@@ -12,7 +12,7 @@ static inline FName GetOnlineModuleName(const FString& SubsystemName)
 	FString ModuleBase(TEXT("OnlineSubsystem"));
 
 	FName ModuleName;
-	if (!SubsystemName.StartsWith(ModuleBase, ESearchCase::CaseSensitive))
+	if (!SubsystemName.Contains(ModuleBase, ESearchCase::CaseSensitive))
 	{
 		ModuleName = FName(*(ModuleBase + SubsystemName));
 	}
@@ -61,6 +61,11 @@ void FOnlineSubsystemModule::StartupModule()
 	IOnlineSubsystem::GetByPlatform();
 }
 
+void FOnlineSubsystemModule::PreUnloadCallback()
+{
+	PreUnloadOnlineSubsystem();
+}
+
 void FOnlineSubsystemModule::ShutdownModule()
 {
 	ShutdownOnlineSubsystem();
@@ -70,9 +75,19 @@ void FOnlineSubsystemModule::LoadDefaultSubsystem()
 {
 	FString InterfaceString;
 
+	// look up the OSS name from the .ini. 
+	// first, look in a per-platform key (DefaultPlatformService_INIPLATNAME)
+	FString BaseKeyName = TEXT("DefaultPlatformService");
+	FString PlatformKeyName = BaseKeyName + TEXT("_") + FPlatformProperties::IniPlatformName();
+
 	// Load the platform defined "default" online services module
-	if (GConfig->GetString(TEXT("OnlineSubsystem"), TEXT("DefaultPlatformService"), InterfaceString, GEngineIni) &&
-		InterfaceString.Len() > 0)
+	if (GConfig->GetString(TEXT("OnlineSubsystem"), *PlatformKeyName, InterfaceString, GEngineIni) == false ||
+		InterfaceString.Len() == 0)
+	{
+		GConfig->GetString(TEXT("OnlineSubsystem"), *BaseKeyName, InterfaceString, GEngineIni);
+	}
+
+	if (InterfaceString.Len() > 0)
 	{
 		FName InterfaceName = FName(*InterfaceString);
 		// A module loaded with its factory method set for creation and a default instance of the online subsystem is required
@@ -107,6 +122,15 @@ void FOnlineSubsystemModule::ReloadDefaultSubsystem()
 {
 	DestroyOnlineSubsystem(DefaultPlatformService);
 	LoadDefaultSubsystem();
+}
+
+void FOnlineSubsystemModule::PreUnloadOnlineSubsystem()
+{
+	// Shutdown all online subsystem instances
+	for (TMap<FName, IOnlineSubsystemPtr>::TIterator It(OnlineSubsystems); It; ++It)
+	{
+		It.Value()->PreUnload();
+	}
 }
 
 void FOnlineSubsystemModule::ShutdownOnlineSubsystem()

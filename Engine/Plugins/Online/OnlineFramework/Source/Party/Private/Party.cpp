@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PartyPrivatePCH.h"
 #include "Party.h"
-#include "PartyGameState.h"
+#include "TimerManager.h"
 #include "Engine/GameInstance.h"
+#include "PartyModule.h"
 
-#include "Online.h"
 #include "OnlineSubsystemUtils.h"
 
 #define LOCTEXT_NAMESPACE "Parties"
@@ -507,7 +506,7 @@ void UParty::PartyExitedInternal(const FUniqueNetId& LocalUserId, const FOnlineP
 	}
 	else
 	{
-		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state during exit"), *InPartyId.ToString());
+		UE_LOG(LogParty, Display, TEXT("[%s]: Missing party state during exit"), *InPartyId.ToString());
 	}
 }
 
@@ -923,7 +922,10 @@ void UParty::OnCreatePesistentPartyCompletedCommon(const FUniqueNetId& LocalUser
 
 	ensure(PersistentPartyId.IsValid());
 	UPartyGameState* PersistentParty = GetPersistentParty();
-	ensure(PersistentParty != nullptr);
+	if (!ensure(PersistentParty != nullptr))
+	{
+		return;
+	}
 
 	EPartyType PartyType = EPartyType::Public;
 	bool bLeaderInvitesOnly = false;
@@ -1223,9 +1225,9 @@ void UParty::OnLeavePersistentPartyAndRestore(const FUniqueNetId& LocalUserId, c
 	RestorePersistentPartyState();
 }
 
-void UParty::AddPendingPartyJoin(const FUniqueNetId& LocalUserId, const FPartyDetails& PartyDetails, const UPartyDelegates::FOnJoinUPartyComplete& JoinCompleteDelegate)
+void UParty::AddPendingPartyJoin(const FUniqueNetId& LocalUserId, TSharedRef<const FPartyDetails> PartyDetails, const UPartyDelegates::FOnJoinUPartyComplete& JoinCompleteDelegate)
 {
-	if (LocalUserId.IsValid() && PartyDetails.IsValid())
+	if (LocalUserId.IsValid() && PartyDetails->IsValid())
 	{
 		if (!HasPendingPartyJoin())
 		{

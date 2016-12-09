@@ -2,7 +2,9 @@
 
 #pragma once 
 
-#include "Commandlets/Commandlet.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Commandlets/GatherTextCommandletBase.h"
 #include "GenerateTextLocalizationResourceCommandlet.generated.h"
 
 /**

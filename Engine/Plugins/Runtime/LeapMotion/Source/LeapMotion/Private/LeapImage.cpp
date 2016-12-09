@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LeapMotionPrivatePCH.h"
+#include "LeapImage.h"
+#include "LeapInterfaceUtility.h"
+#include "Engine/Texture2D.h"
 #include "RHI.h"
 
 class FPrivateLeapImage

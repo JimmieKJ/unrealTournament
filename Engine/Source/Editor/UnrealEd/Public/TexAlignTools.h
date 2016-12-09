@@ -6,7 +6,10 @@
 
 #pragma once
 
-#include "Model.h"
+#include "CoreMinimal.h"
+#include "TexAligner/TexAligner.h"
+
+struct FBspSurf;
 
 class FBspSurfIdx
 {
@@ -22,8 +25,6 @@ public:
 	FBspSurf* Surf;
 	int32 Idx;
 };
-
-#include "../Classes/TexAligner/TexAligner.h"
 
 /**
  * A helper class to store the state of the various texture alignment tools.

@@ -1,19 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
 #include "OnlineSubsystemSteam.h"
-#include "ModuleManager.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/ScopeLock.h"
+#include "Serialization/BufferArchive.h"
+#include "SocketSubsystem.h"
 
-#include "IPAddressSteam.h"
 
 
+#include "IPAddress.h"
+#include "OnlineSubsystemSteamPrivate.h"
+#include "OnlineSubsystemSteamTypes.h"
 #include "SocketSubsystemSteam.h"
 
+#include "OnlineAsyncTaskManagerSteam.h"
 #include "OnlineSessionInterfaceSteam.h"
 #include "OnlineIdentityInterfaceSteam.h"
 #include "OnlineFriendsInterfaceSteam.h"
-#include "OnlineSharedCloudInterfaceSteam.h"
 #include "OnlineUserCloudInterfaceSteam.h"
+#include "OnlineSharedCloudInterfaceSteam.h"
 #include "OnlineLeaderboardInterfaceSteam.h"
 #include "VoiceInterfaceSteam.h"
 #include "OnlineExternalUIInterfaceSteam.h"

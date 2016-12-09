@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "Editor/FontEditor/Public/FontEditorModule.h"
+#include "AssetTypeActions/AssetTypeActions_Font.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "EditorReimportHandler.h"
+#include "FontEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

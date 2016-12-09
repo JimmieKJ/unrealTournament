@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "MovieSceneCaptureCustomization.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UnrealType.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
 #include "MovieSceneCapture.h"
 
 TSharedRef<IDetailCustomization> FMovieSceneCaptureCustomization::MakeInstance()

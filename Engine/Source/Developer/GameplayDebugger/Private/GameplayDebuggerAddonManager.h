@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "GameplayDebuggerCategory.h"
 #include "GameplayDebugger.h"
+
+class AGameplayDebuggerCategoryReplicator;
+class FGameplayDebuggerExtension;
 
 DECLARE_MULTICAST_DELEGATE(FOnGameplayDebuggerAddonEvent);
 
@@ -61,8 +67,8 @@ public:
 	/** get slot-Name map */
 	const TArray<FString> GetSlotNames() const { return SlotNames; }
 
-	/** get number of known categories */
-	int32 GetNumCategories() const { return CategoryMap.Num(); }
+	/** get number of visible categories */
+	int32 GetNumVisibleCategories() const { return NumVisibleCategories; }
 
 	/** singleton accessor */
 	static FGameplayDebuggerAddonManager& GetCurrent();
@@ -85,4 +91,7 @@ private:
 
 	/** list of slot names */
 	TArray<FString> SlotNames;
+
+	/** number of categories, excluding hidden ones */
+	int32 NumVisibleCategories;
 };

@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "SequencerHotspots.h"
+#include "DisplayNodes/SequencerObjectBindingNode.h"
+#include "SequencerCommonHelpers.h"
+#include "SSequencer.h"
 #include "Tools/EditToolDragOperations.h"
-#include "Sequencer.h"
-#include "MovieSceneSection.h"
 #include "SequencerContextMenus.h"
 
 void FKeyHotspot::PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& InSequencer, float MouseDownTime)

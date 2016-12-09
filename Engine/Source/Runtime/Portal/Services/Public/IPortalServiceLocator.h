@@ -2,8 +2,10 @@
 
 #pragma once
 
-class IPortalService;
+#include "CoreMinimal.h"
 
+class FWildcardString;
+class IPortalService;
 
 class IPortalServiceLocator
 {

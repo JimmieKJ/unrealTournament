@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
-
 #include "SAnimCurveEd.h"
+#include "Rendering/DrawElements.h"
+#include "Animation/AnimTypes.h"
 
-#include "Editor/KismetWidgets/Public/SScrubWidget.h"
+
+#include "SScrubWidget.h"
 
 #define LOCTEXT_NAMESPACE "AnimCurveEd"
 
@@ -17,18 +18,8 @@ float SAnimCurveEd::GetTimeStep(FTrackScaleInfo &ScaleInfo)const
 	if(NumberOfKeys.Get())
 	{
 		int32 Divider = SScrubWidget::GetDivider(ViewMinInput.Get(), ViewMaxInput.Get(), ScaleInfo.WidgetSize, TimelineLength.Get(), NumberOfKeys.Get());
-
-		float TimePerKey;
-
-		if(NumberOfKeys.Get() != 0.f)
-		{
-			TimePerKey = TimelineLength.Get()/(float)NumberOfKeys.Get();
-		}
-		else
-		{
-			TimePerKey = 1.f;
-		}
-
+		const FAnimKeyHelper Helper(TimelineLength.Get(), NumberOfKeys.Get());
+		float TimePerKey = Helper.TimePerKey();
 		return TimePerKey * Divider;
 	}
 

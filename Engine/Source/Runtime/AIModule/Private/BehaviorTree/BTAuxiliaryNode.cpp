@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "BehaviorTree/BTCompositeNode.h"
 #include "BehaviorTree/BTAuxiliaryNode.h"
+#include "BehaviorTree/BTCompositeNode.h"
 
 UBTAuxiliaryNode::UBTAuxiliaryNode(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -133,45 +132,3 @@ const UBTNode* UBTAuxiliaryNode::GetMyNode() const
 //----------------------------------------------------------------------//
 // DEPRECATED
 //----------------------------------------------------------------------//
-void UBTAuxiliaryNode::WrappedOnBecomeRelevant(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory) const
-{
-	if (OwnerComp)
-	{
-		WrappedOnBecomeRelevant(*OwnerComp, NodeMemory);
-	}
-}
-void UBTAuxiliaryNode::WrappedOnCeaseRelevant(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory) const
-{
-	if (OwnerComp)
-	{
-		WrappedOnCeaseRelevant(*OwnerComp, NodeMemory);
-	}
-}
-void UBTAuxiliaryNode::WrappedTickNode(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, float DeltaSeconds) const
-{
-	if (OwnerComp)
-	{
-		WrappedTickNode(*OwnerComp, NodeMemory, DeltaSeconds);
-	}
-}
-void UBTAuxiliaryNode::OnBecomeRelevant(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory)
-{
-	if (OwnerComp)
-	{
-		OnBecomeRelevant(*OwnerComp, NodeMemory);
-	}
-}
-void UBTAuxiliaryNode::OnCeaseRelevant(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory)
-{
-	if (OwnerComp)
-	{
-		OnCeaseRelevant(*OwnerComp, NodeMemory);
-	}
-}
-void UBTAuxiliaryNode::TickNode(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, float DeltaSeconds)
-{
-	if (OwnerComp)
-	{
-		TickNode(*OwnerComp, NodeMemory, DeltaSeconds);
-	}
-}

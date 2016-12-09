@@ -2,6 +2,10 @@
 #pragma once
 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "RHI.h"
 #include "SlateDataSheet.generated.h"
 
 class UTexture2D;

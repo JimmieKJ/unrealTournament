@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+
+class UBlueprintRuntimeSettings;
 
 /**
  * The public interface to this module
@@ -22,5 +26,6 @@ public:
 	}
 
 	virtual void PropagateWarningSettings() = 0;
+	virtual UBlueprintRuntimeSettings* GetMutableBlueprintRuntimeSettings() = 0;
 };
 

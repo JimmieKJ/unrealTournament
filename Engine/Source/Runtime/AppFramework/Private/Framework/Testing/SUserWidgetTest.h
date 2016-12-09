@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SUserWidget.h"
+
 #if !UE_BUILD_SHIPPING
+
 
 class SUserWidgetExample
 	: public SUserWidget

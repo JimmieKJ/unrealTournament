@@ -6,6 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/TargetDeviceId.h"
+#include "Interfaces/ITargetDevice.h"
+
+class FHTML5TargetDevice;
+class ITargetPlatform;
 
 /**
  * Type definition for shared pointers to instances of FHTML5TargetDevice.
@@ -101,7 +107,7 @@ public:
 
 	virtual bool SupportsSdkVersion( const FString& VersionString ) const override;
 
-	virtual bool TerminateProcess( const int32 ProcessId ) override;
+	virtual bool TerminateProcess( const int64 ProcessId ) override;
 
 	virtual void SetUserCredentials( const FString& UserName, const FString& UserPassword ) override;
 

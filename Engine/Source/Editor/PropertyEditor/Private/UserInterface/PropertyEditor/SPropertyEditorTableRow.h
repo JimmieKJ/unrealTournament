@@ -1,6 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "IPropertyUtilities.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
 #include "IPropertyTreeRow.h"
 
 typedef SMultiColumnTableRow< TSharedPtr<class FPropertyNode*> > SPropertyRowBase;

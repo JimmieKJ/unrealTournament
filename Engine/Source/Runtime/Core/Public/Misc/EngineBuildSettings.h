@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/ContainersFwd.h"
 
 class CORE_API FEngineBuildSettings
 {

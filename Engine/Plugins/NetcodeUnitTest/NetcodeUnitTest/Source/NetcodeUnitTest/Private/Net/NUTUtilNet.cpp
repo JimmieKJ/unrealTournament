@@ -1,21 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
+#include "Net/NUTUtilNet.h"
+#include "UObject/CoreOnline.h"
+#include "GameFramework/OnlineReplStructs.h"
+#include "Engine/Engine.h"
+#include "Engine/GameEngine.h"
+#include "PacketHandlers/StatelessConnectHandlerComponent.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/NetDriver.h"
+#include "Net/DataBunch.h"
+#include "Engine/LocalPlayer.h"
+#include "EngineUtils.h"
 
 #include "Net/UnitTestChannel.h"
+#include "IpNetDriver.h"
 #include "Net/UnitTestNetDriver.h"
 
 #include "NUTUtil.h"
-#include "UnitTestEnvironment.h"
-#include "Net/NUTUtilNet.h"
-
 #include "UnitTest.h"
+#include "UnitTestEnvironment.h"
 
-#include "UnrealNetwork.h"
-#include "EngineVersion.h"
-#include "DataChannel.h"
+
+#include "Net/DataChannel.h"
 #include "OnlineBeaconClient.h"
-#include "NetworkVersion.h"
+#include "Misc/NetworkVersion.h"
 #include "OnlineSubsystemTypes.h"
 
 // Forward declarations

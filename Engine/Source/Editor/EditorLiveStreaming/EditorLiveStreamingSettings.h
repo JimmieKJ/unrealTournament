@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "EditorLiveStreamingSettings.generated.h"
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "EditorLiveStreamingSettings.generated.h"
 
 /** Describes the available preset resolutions for web camera video with the editor's live streaming feature */
 UENUM()

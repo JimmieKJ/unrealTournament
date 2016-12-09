@@ -12,7 +12,13 @@ public class AndroidDeviceDetection : ModuleRules
 			new string[]
 			{
 				"Core",
-                "Messaging",
+			}
+		);
+
+		PrivateIncludePathModuleNames.AddRange(
+			new string[]
+			{
+				"TcpMessaging",
 			}
 		);
 

@@ -1,14 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-
 #include "DiffUtils.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+
 #include "EditorCategoryUtils.h"
-#include "Engine/SCS_Node.h"
-#include "Engine/SimpleConstructionScript.h"
+#include "Engine/Blueprint.h"
 #include "IAssetTypeActions.h"
 #include "ObjectEditorUtils.h"
-#include "ISourceControlModule.h"
 
 static const UProperty* Resolve( const UStruct* Class, FName PropertyName )
 {
@@ -284,6 +286,74 @@ TSharedPtr<FBlueprintDifferenceTreeEntry> FBlueprintDifferenceTreeEntry::NoDiffe
 		, FGenerateDiffEntryWidget::CreateStatic(GenerateWidget)
 		, TArray< TSharedPtr<FBlueprintDifferenceTreeEntry> >()
 	) );
+}
+
+TSharedPtr<FBlueprintDifferenceTreeEntry> FBlueprintDifferenceTreeEntry::AnimBlueprintEntry()
+{
+	// For now, a widget and a short message explaining that differences in the AnimGraph are
+	// not detected by the diff tool:
+	const auto GenerateWidget = []() -> TSharedRef<SWidget>
+	{
+		return SNew(STextBlock)
+			.ColorAndOpacity(FLinearColor::FLinearColor(.7f, .7f, .7f))
+			.TextStyle(FEditorStyle::Get(), TEXT("BlueprintDif.ItalicText"))
+			.Text(NSLOCTEXT("FBlueprintDifferenceTreeEntry", "AnimBlueprintsNotSupported", "Warning: Detecting differences in Animation Blueprint specific data is not yet supported..."));
+	};
+
+	TArray< TSharedPtr<FBlueprintDifferenceTreeEntry> > Children;
+	Children.Emplace( TSharedPtr<FBlueprintDifferenceTreeEntry>(new FBlueprintDifferenceTreeEntry(
+		FOnDiffEntryFocused()
+		, FGenerateDiffEntryWidget::CreateStatic(GenerateWidget)
+		, TArray< TSharedPtr<FBlueprintDifferenceTreeEntry> >()
+		)) );
+
+	const auto CreateAnimGraphRootEntry = []() -> TSharedRef<SWidget>
+	{
+		return SNew(STextBlock)
+			.ToolTipText(NSLOCTEXT("FBlueprintDifferenceTreeEntry", "AnimGraphTooltip", "Detecting differences in Animation Blueprint specific data is not yet supported"))
+			.ColorAndOpacity(DiffViewUtils::LookupColor(true))
+			.Text(NSLOCTEXT("FBlueprintDifferenceTreeEntry", "AnimGraphLabel", "Animation Blueprint"));
+	};
+
+	return TSharedPtr<FBlueprintDifferenceTreeEntry>(new FBlueprintDifferenceTreeEntry(
+		FOnDiffEntryFocused()
+		, FGenerateDiffEntryWidget::CreateStatic(CreateAnimGraphRootEntry)
+		, Children
+		));
+}
+
+TSharedPtr<FBlueprintDifferenceTreeEntry> FBlueprintDifferenceTreeEntry::WidgetBlueprintEntry()
+{
+	// For now, a widget and a short message explaining that differences in the WidgetTree are
+	// not detected by the diff tool:
+	const auto GenerateWidget = []() -> TSharedRef<SWidget>
+	{
+		return SNew(STextBlock)
+			.ColorAndOpacity(FLinearColor::FLinearColor(.7f, .7f, .7f))
+			.TextStyle(FEditorStyle::Get(), TEXT("BlueprintDif.ItalicText"))
+			.Text(NSLOCTEXT("FBlueprintDifferenceTreeEntry", "WidgetTreeNotSupported", "Warning: Detecting differences in Widget Blueprint specific data is not yet supported..."));
+	};
+
+	TArray< TSharedPtr<FBlueprintDifferenceTreeEntry> > Children;
+	Children.Emplace(TSharedPtr<FBlueprintDifferenceTreeEntry>(new FBlueprintDifferenceTreeEntry(
+		FOnDiffEntryFocused()
+		, FGenerateDiffEntryWidget::CreateStatic(GenerateWidget)
+		, TArray< TSharedPtr<FBlueprintDifferenceTreeEntry> >()
+		)));
+
+	const auto CreateWidgetTreeRootEntry = []() -> TSharedRef<SWidget>
+	{
+		return SNew(STextBlock)
+			.ToolTipText(NSLOCTEXT("FBlueprintDifferenceTreeEntry", "WidgetTreeTooltip", "Detecting differences in Widget Blueprint specific data is not yet supported"))
+			.ColorAndOpacity(DiffViewUtils::LookupColor(true))
+			.Text(NSLOCTEXT("FBlueprintDifferenceTreeEntry", "WidgetTreeLabel", "Widget Blueprint"));
+	};
+
+	return TSharedPtr<FBlueprintDifferenceTreeEntry>(new FBlueprintDifferenceTreeEntry(
+		FOnDiffEntryFocused()
+		, FGenerateDiffEntryWidget::CreateStatic(CreateWidgetTreeRootEntry)
+		, Children
+		));
 }
 
 TSharedPtr<FBlueprintDifferenceTreeEntry> FBlueprintDifferenceTreeEntry::CreateDefaultsCategoryEntry(FOnDiffEntryFocused FocusCallback, const TArray< TSharedPtr<FBlueprintDifferenceTreeEntry> >& Children, bool bHasDifferences)

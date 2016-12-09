@@ -2,15 +2,14 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "IMessageBus.h"
+#include "IMessageTransport.h"
 
-
-struct FMessageAddress;
 class IAuthorizeMessageRecipients;
-class IMessageBus;
 class IMessageBridge;
-class IMessageTransport;
-
 
 /**
  * Interface for messaging modules.
@@ -34,7 +33,7 @@ public:
 	 * @return The new message bridge, or nullptr if the bridge couldn't be created.
 	 * @see CreateBus
 	 */
-	virtual TSharedPtr<IMessageBridge, ESPMode::ThreadSafe> CreateBridge( const FMessageAddress& Address, const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& Bus, const TSharedRef<IMessageTransport, ESPMode::ThreadSafe>& Transport ) = 0;
+	virtual TSharedPtr<IMessageBridge, ESPMode::ThreadSafe> CreateBridge(const FMessageAddress& Address, const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& Bus, const TSharedRef<IMessageTransport, ESPMode::ThreadSafe>& Transport) = 0;
 
 	/**
 	 * Creates a new message bus.
@@ -43,7 +42,7 @@ public:
 	 * @return The new message bus, or nullptr if the bus couldn't be created.
 	 * @see CreateBridge
 	 */
-	virtual TSharedPtr<IMessageBus, ESPMode::ThreadSafe> CreateBus( const TSharedPtr<IAuthorizeMessageRecipients>& RecipientAuthorizer ) = 0;
+	virtual TSharedPtr<IMessageBus, ESPMode::ThreadSafe> CreateBus(const TSharedPtr<IAuthorizeMessageRecipients>& RecipientAuthorizer) = 0;
 
 	/**
 	 * Gets the default message bus if it has been initialized.

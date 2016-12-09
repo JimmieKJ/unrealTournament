@@ -1,14 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "DiagnosticTable.h"
-#include "MaterialShaderType.h"
+#include "MaterialShader.h"
+#include "Stats/StatsMisc.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "Materials/MaterialInterface.h"
+#include "ProfilingDebugging/DiagnosticTable.h"
 #include "MeshMaterialShaderType.h"
 #include "ShaderCompiler.h"
 #include "DerivedDataCacheInterface.h"
-#include "TargetPlatform.h"
-#include "../ShaderDerivedDataVersion.h"
-#include "CookStats.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "ShaderDerivedDataVersion.h"
+#include "ProfilingDebugging/CookStats.h"
 
 int32 GCreateShadersOnLoad = 0;
 static FAutoConsoleVariableRef CVarCreateShadersOnLoad(
@@ -40,7 +43,7 @@ namespace MaterialShaderCookStats
 TMap<FMaterialShaderMapId,FMaterialShaderMap*> FMaterialShaderMap::GIdToMaterialShaderMap[SP_NumPlatforms];
 TArray<FMaterialShaderMap*> FMaterialShaderMap::AllMaterialShaderMaps;
 // The Id of 0 is reserved for global shaders
-uint32 FMaterialShaderMap::NextCompilingId = 1;
+uint32 FMaterialShaderMap::NextCompilingId = 2;
 /** 
  * Tracks material resources and their shader maps that are being compiled.
  * Uses a TRefCountPtr as this will be the only reference to a shader map while it is being compiled.
@@ -100,6 +103,7 @@ static FString GetMaterialShaderMapKeyString(const FMaterialShaderMapId& ShaderM
 	FString ShaderMapKeyString = Format.ToString() + TEXT("_") + FString(FString::FromInt(GetTargetPlatformManagerRef().ShaderFormatVersion(Format))) + TEXT("_");
 	ShaderMapAppendKeyString(Platform, ShaderMapKeyString);
 	ShaderMapId.AppendKeyString(ShaderMapKeyString);
+	FMaterialAttributeDefinitionMap::AppendDDCKeyString(ShaderMapKeyString);
 	return FDerivedDataCacheInterface::BuildCacheKey(TEXT("MATSM"), MATERIALSHADERMAP_DERIVEDDATA_VER, *ShaderMapKeyString);
 }
 
@@ -1204,7 +1208,9 @@ void FMaterialShaderMap::Compile(
 			TArray<FMaterial*> NewCorrespondingMaterials;
 			NewCorrespondingMaterials.Add(Material);
 			ShaderMapsBeingCompiled.Add(this, NewCorrespondingMaterials);
-  
+#if DEBUG_INFINITESHADERCOMPILE
+			UE_LOG(LogTemp, Display, TEXT("Added material ShaderMap 0x%08X%08X with Material 0x%08X%08X to ShaderMapsBeingCompiled"), (int)((int64)(this) >> 32), (int)((int64)(this)), (int)((int64)(Material) >> 32), (int)((int64)(Material)));
+#endif  
 			// Setup the material compilation environment.
 			Material->SetupMaterialEnvironment(InPlatform, InMaterialCompilationOutput.UniformExpressionSet, *MaterialEnvironment);
   
@@ -1646,6 +1652,9 @@ bool FMaterialShaderMap::TryToAddToExistingCompilationTask(FMaterial* Material)
 	if (CorrespondingMaterials)
 	{
 		CorrespondingMaterials->AddUnique(Material);
+#if DEBUG_INFINITESHADERCOMPILE
+		UE_LOG(LogTemp, Display, TEXT("Added shader map 0x%08X%08X from material 0x%08X%08X"), (int)((int64)(this) >> 32), (int)((int64)(this)), (int)((int64)(Material) >> 32), (int)((int64)(Material)));
+#endif
 		return true;
 	}
 
@@ -2171,7 +2180,13 @@ void FMaterialShaderMap::RemovePendingMaterial(FMaterial* Material)
 	for (TMap<TRefCountPtr<FMaterialShaderMap>, TArray<FMaterial*> >::TIterator It(ShaderMapsBeingCompiled); It; ++It)
 	{
 		TArray<FMaterial*>& Materials = It.Value();
-		Materials.Remove(Material);
+		int32 Result = Materials.Remove(Material);
+#if DEBUG_INFINITESHADERCOMPILE
+		if ( Result )
+		{
+			UE_LOG(LogTemp, Display, TEXT("Removed shader map 0x%08X%08X from material 0x%08X%08X"), (int)((int64)(It.Key().GetReference()) >> 32), (int)((int64)(It.Key().GetReference())), (int)((int64)(Material) >> 32), (int)((int64)(Material)));
+		}
+#endif
 	}
 }
 
@@ -2209,6 +2224,10 @@ uint32 FMaterialShaderMap::GetMaxTextureSamplers() const
 const FMeshMaterialShaderMap* FMaterialShaderMap::GetMeshShaderMap(FVertexFactoryType* VertexFactoryType) const
 {
 	checkSlow(bCompilationFinalized);
+#if WITH_EDITOR 
+	// Attempt to get some more info for a rare crash (UE-35937)
+	checkf(OrderedMeshShaderMaps.Num() > 0 && bCompilationFinalized, TEXT("OrderedMeshShaderMaps.Num() is %d. bCompilationFinalized is %d. This may relate to bug UE-35937"), OrderedMeshShaderMaps.Num(), (int)bCompilationFinalized);
+#endif
 	const FMeshMaterialShaderMap* MeshShaderMap = OrderedMeshShaderMaps[VertexFactoryType->GetId()];
 	checkSlow(!MeshShaderMap || MeshShaderMap->GetVertexFactoryType() == VertexFactoryType);
 	return MeshShaderMap;

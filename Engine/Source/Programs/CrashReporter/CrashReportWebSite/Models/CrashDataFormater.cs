@@ -255,7 +255,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
 				LineToSkipUpto = "FDebug::AssertFailed";
 				break;
 			case 3:
-				bSkipping = true;
+				bSkipping = false;
 				LineToSkipUpto = "FDebug::";
 				break;
 			}
@@ -396,7 +396,12 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
 					"FMsg::Logf",
 					"ReportCrash",
 					"NewReportEnsure",
-					"EngineCrashHandler", // Generic crash handler for all platforms
+					"EngineCrashHandler",
+                    "FLinuxPlatformStackWalk::CaptureStackBackTrac",
+                    "FGenericPlatformStackWalk::StackWalkAndDump",
+                    "FLinuxCrashContext::CaptureStackTrace",
+                    "CommonLinuxCrashHandler",
+                    // Generic crash handler for all platforms
 				} );
 
 				bool Contains = FuncsToRemove.Contains( FuncName, new CustomFuncComparer() );

@@ -1,25 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "SequencerContextMenus.h"
+#include "Modules/ModuleManager.h"
+#include "EditorStyleSet.h"
+#include "DisplayNodes/SequencerSectionKeyAreaNode.h"
+#include "DisplayNodes/SequencerTrackNode.h"
+#include "SequencerCommonHelpers.h"
+#include "SSequencer.h"
+#include "SectionLayout.h"
+#include "SSequencerSection.h"
+#include "SequencerSettings.h"
+#include "ISequencerHotspot.h"
 #include "SequencerHotspots.h"
 #include "ScopedTransaction.h"
 #include "MovieSceneToolHelpers.h"
-#include "MovieSceneSection.h"
-#include "SSequencerSection.h"
-#include "MovieSceneTrack.h"
 #include "MovieSceneCommonHelpers.h"
 #include "MovieSceneKeyStruct.h"
-#include "GenericCommands.h"
-#include "SequencerCommands.h"
-#include "ModuleManager.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "IDetailsView.h"
 #include "IStructureDetailsView.h"
 #include "PropertyEditorModule.h"
-#include "MovieSceneSequence.h"
 #include "IntegralKeyDetailsCustomization.h"
-#include "MovieSceneSubSection.h"
-#include "MovieSceneCinematicShotSection.h"
+#include "Sections/MovieSceneSubSection.h"
+#include "Sections/MovieSceneCinematicShotSection.h"
 #include "Curves/IntegralCurve.h"
 
 #define LOCTEXT_NAMESPACE "SequencerContextMenus"
@@ -192,6 +195,7 @@ void FKeyContextMenu::AddPropertiesMenu(FMenuBuilder& MenuBuilder)
 		DetailsViewArgs.bUpdatesFromSelection = false;
 		DetailsViewArgs.bShowOptions = false;
 		DetailsViewArgs.bShowModifiedPropertiesOption = false;
+		DetailsViewArgs.bShowScrollBar = false;
 	}
 
 	FStructureDetailsViewArgs StructureViewArgs;
@@ -233,6 +237,7 @@ void FKeyContextMenu::AddPropertiesMenu(FMenuBuilder& MenuBuilder)
 			StructureDetailsView->GetOnFinishedChangingPropertiesDelegate().AddLambda(
 				[=](const FPropertyChangedEvent& ChangeEvent) {
 					
+					Key.Value.Section->Modify();
 					if (Key.Key->GetStruct()->IsChildOf(FMovieSceneKeyStruct::StaticStruct()))
 					{
 						((FMovieSceneKeyStruct*)Key.Key->GetStructMemory())->PropagateChanges(ChangeEvent);
@@ -686,7 +691,7 @@ void FSectionContextMenu::TrimSection(bool bTrimLeft)
 {
 	FScopedTransaction TrimSectionTransaction(LOCTEXT("TrimSection_Transaction", "Trim Section"));
 
-	MovieSceneToolHelpers::TrimSection(Sequencer->GetSelection().GetSelectedSections(), Sequencer->GetGlobalTime(), bTrimLeft);
+	MovieSceneToolHelpers::TrimSection(Sequencer->GetSelection().GetSelectedSections(), Sequencer->GetLocalTime(), bTrimLeft);
 	Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 }
 
@@ -695,7 +700,7 @@ void FSectionContextMenu::SplitSection()
 {
 	FScopedTransaction SplitSectionTransaction(LOCTEXT("SplitSection_Transaction", "Split Section"));
 
-	MovieSceneToolHelpers::SplitSection(Sequencer->GetSelection().GetSelectedSections(), Sequencer->GetGlobalTime());
+	MovieSceneToolHelpers::SplitSection(Sequencer->GetSelection().GetSelectedSections(), Sequencer->GetLocalTime());
 	Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
@@ -704,7 +709,7 @@ bool FSectionContextMenu::IsTrimmable() const
 {
 	for (auto Section : Sequencer->GetSelection().GetSelectedSections())
 	{
-		if (Section.IsValid() && Section->IsTimeWithinSection(Sequencer->GetGlobalTime()))
+		if (Section.IsValid() && Section->IsTimeWithinSection(Sequencer->GetLocalTime()))
 		{
 			return true;
 		}
@@ -1002,7 +1007,7 @@ void FSectionContextMenu::BringToFront()
 		}
 	}
 
-	Sequencer->SetGlobalTime(Sequencer->GetGlobalTime());
+	Sequencer->SetLocalTimeDirectly(Sequencer->GetLocalTime());
 }
 
 
@@ -1050,7 +1055,7 @@ void FSectionContextMenu::SendToBack()
 		}
 	}
 
-	Sequencer->SetGlobalTime(Sequencer->GetGlobalTime());
+	Sequencer->SetLocalTimeDirectly(Sequencer->GetLocalTime());
 }
 
 
@@ -1095,7 +1100,7 @@ void FSectionContextMenu::BringForward()
 		}
 	}
 
-	Sequencer->SetGlobalTime(Sequencer->GetGlobalTime());
+	Sequencer->SetLocalTimeDirectly(Sequencer->GetLocalTime());
 }
 
 
@@ -1140,7 +1145,7 @@ void FSectionContextMenu::SendBackward()
 		}
 	}
 
-	Sequencer->SetGlobalTime(Sequencer->GetGlobalTime());
+	Sequencer->SetLocalTimeDirectly(Sequencer->GetLocalTime());
 }
 
 

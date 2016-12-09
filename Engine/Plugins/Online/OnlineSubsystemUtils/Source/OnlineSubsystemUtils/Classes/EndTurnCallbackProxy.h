@@ -2,12 +2,14 @@
 
 #pragma once
 
-#include "OnlineBlueprintCallProxyBase.h"
-#include "OnlineTurnBasedInterface.h"
-#include "TurnBasedMatchInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptInterface.h"
+#include "Interfaces/TurnBasedMatchInterface.h"
+#include "Net/OnlineBlueprintCallProxyBase.h"
 #include "EndTurnCallbackProxy.generated.h"
 
-class AActor;
+class APlayerController;
 
 UCLASS(MinimalAPI)
 class UEndTurnCallbackProxy : public UOnlineBlueprintCallProxyBase

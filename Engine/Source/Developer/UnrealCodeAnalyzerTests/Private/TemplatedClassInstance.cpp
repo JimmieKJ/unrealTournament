@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealCodeAnalyzerTestsPCH.h"
 #include "TemplatedClassInstance.h"
+#include "UseClass.h"
 
 static void Function_TemplatedClassInstance()
 {

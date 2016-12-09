@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "Ticker.h"
-#include "MeshUtilities.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Containers/Ticker.h"
 #include "GameFramework/WorldSettings.h"
+#include "MeshUtilities.h"
 
 class ALODActor;
 

@@ -2,13 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Containers/Queue.h"
 #include "IMessageContext.h"
-#include "IMessageInterceptor.h"
-#include "IMessageSubscription.h"
 #include "IMessageTracer.h"
-#include "IMessageTracerBreakpoint.h"
-#include "IReceiveMessages.h"
 
+class IMessageInterceptor;
+class IMessageReceiver;
+class IMessageSubscription;
+class IMessageTracerBreakpoint;
 
 /**
  * Implements a message bus tracers.
@@ -32,7 +35,7 @@ public:
 	 * @param Interceptor The added interceptor.
 	 * @param MessageType The type of messages being intercepted.
 	 */
-	void TraceAddedInterceptor(const IMessageInterceptorRef& Interceptor, const FName& MessageType);
+	void TraceAddedInterceptor(const TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe>& Interceptor, const FName& MessageType);
 
 	/**
 	 * Notifies the tracer that a message recipient has been added to the message bus.
@@ -40,14 +43,14 @@ public:
 	 * @param Address The address of the added recipient.
 	 * @param Recipient The added recipient.
 	 */
-	void TraceAddedRecipient(const FMessageAddress& Address, const IReceiveMessagesRef& Recipient);
+	void TraceAddedRecipient(const FMessageAddress& Address, const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Recipient);
 
 	/**
 	 * Notifies the tracer that a message subscription has been added to the message bus.
 	 *
 	 * @param Subscription The added subscription.
 	 */
-	void TraceAddedSubscription(const IMessageSubscriptionRef& Subscription);
+	void TraceAddedSubscription(const TSharedRef<IMessageSubscription, ESPMode::ThreadSafe>& Subscription);
 
 	/**
 	 * Notifies the tracer that a message has been dispatched.
@@ -56,7 +59,7 @@ public:
 	 * @param Recipient The message recipient.
 	 * @param Async Whether the message was dispatched asynchronously.
 	 */
-	void TraceDispatchedMessage(const IMessageContextRef& Context, const IReceiveMessagesRef& Recipient, bool Async);
+	void TraceDispatchedMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Recipient, bool Async);
 
 	/**
 	 * Notifies the tracer that a message has been handled.
@@ -64,7 +67,7 @@ public:
 	 * @param Context The context of the dispatched message.
 	 * @param Recipient The message recipient that handled the message.
 	 */
-	void TraceHandledMessage(const IMessageContextRef& Context, const IReceiveMessagesRef& Recipient);
+	void TraceHandledMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, const TSharedRef<IMessageReceiver, ESPMode::ThreadSafe>& Recipient);
 
 	/**
 	 * Notifies the tracer that a message has been intercepted.
@@ -72,7 +75,7 @@ public:
 	 * @param Context The context of the intercepted message.
 	 * @param Interceptor The interceptor.
 	 */
-	void TraceInterceptedMessage(const IMessageContextRef& Context, const IMessageInterceptorRef& Interceptor);
+	void TraceInterceptedMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, const TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe>& Interceptor);
 
 	/**
 	 * Notifies the tracer that a message interceptor has been removed from the message bus.
@@ -80,7 +83,7 @@ public:
 	 * @param Interceptor The removed interceptor.
 	 * @param MessageType The type of messages that is no longer being intercepted.
 	 */
-	void TraceRemovedInterceptor(const IMessageInterceptorRef& Interceptor, const FName& MessageType);
+	void TraceRemovedInterceptor(const TSharedRef<IMessageInterceptor, ESPMode::ThreadSafe>& Interceptor, const FName& MessageType);
 
 	/**
 	 * Notifies the tracer that a recipient has been removed from the message bus.
@@ -95,62 +98,34 @@ public:
 	 * @param Subscriber The removed subscriber.
 	 * @param MessageType The type of messages no longer being subscribed to.
 	 */
-	void TraceRemovedSubscription(const IMessageSubscriptionRef& Subscription, const FName& MessageType);
+	void TraceRemovedSubscription(const TSharedRef<IMessageSubscription, ESPMode::ThreadSafe>& Subscription, const FName& MessageType);
 
 	/**
 	 * Notifies the tracer that a message has been routed.
 	 *
 	 * @param Context The context of the routed message.
 	 */
-	void TraceRoutedMessage(const IMessageContextRef& Context);
+	void TraceRoutedMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
 	/**
 	 * Notifies the tracer that a message has been sent.
 	 *
 	 * @param Context The context of the sent message.
 	 */
-	void TraceSentMessage(const IMessageContextRef& Context);
+	void TraceSentMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
 public:
 
-	// IMessageTracer interface
+	//~ IMessageTracer interface
 
-	virtual void Break() override
-	{
-		Breaking = true;
-	}
-
-	virtual void Continue() override
-	{
-		if (!Running)
-		{
-			Running = true;
-		}
-		else if (Breaking)
-		{
-			Breaking = false;
-			ContinueEvent->Trigger();
-		}
-	}
-
-	virtual int32 GetEndpoints(TArray<FMessageTracerEndpointInfoPtr>& OutEndpoints) const override;
-	virtual int32 GetMessages(TArray<FMessageTracerMessageInfoPtr>& OutMessages) const override;
-	virtual int32 GetMessageTypes(TArray<FMessageTracerTypeInfoPtr>& OutTypes) const override;
-
-	virtual bool HasMessages() const override
-	{
-		return (MessageInfos.Num() > 0);
-	}
-
-	virtual bool IsBreaking() const override
-	{
-		return Breaking;
-	}
-
-	virtual bool IsRunning() const override
-	{
-		return Running;
-	}
+	virtual void Break() override;
+	virtual void Continue() override;
+	virtual int32 GetEndpoints(TArray<TSharedPtr<FMessageTracerEndpointInfo>>& OutEndpoints) const override;
+	virtual int32 GetMessages(TArray<TSharedPtr<FMessageTracerMessageInfo>>& OutMessages) const override;
+	virtual int32 GetMessageTypes(TArray<TSharedPtr<FMessageTracerTypeInfo>>& OutTypes) const override;
+	virtual bool HasMessages() const override;
+	virtual bool IsBreaking() const override;
+	virtual bool IsRunning() const override;
 
 	DECLARE_DERIVED_EVENT(FMessageTracer, IMessageTracer::FOnMessageAdded, FOnMessageAdded)
 	virtual FOnMessageAdded& OnMessageAdded() override
@@ -170,37 +145,9 @@ public:
 		return TypeAddedDelegate;
 	}
 
-	virtual void Reset() override
-	{
-		ResetPending = true;
-	}
-
-	virtual void Step() override
-	{
-		if (!Breaking)
-		{
-			return;
-		}
-
-		ContinueEvent->Trigger();
-	}
-
-	virtual void Stop() override
-	{
-		if (!Running)
-		{
-			return;
-		}
-
-		Running = false;
-
-		if (Breaking)
-		{
-			Breaking = false;
-			ContinueEvent->Trigger();
-		}
-	}
-
+	virtual void Reset() override;
+	virtual void Step() override;
+	virtual void Stop();
 	virtual bool Tick(float DeltaTime) override;
 
 protected:
@@ -213,33 +160,33 @@ protected:
 	 *
 	 * @param Context The context of the message to consider for breaking.
 	 */
-	bool ShouldBreak(const IMessageContextRef& Context) const;
+	bool ShouldBreak(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context) const;
 
 private:
 
 	/** Holds the collection of endpoints for known message addresses. */
-	TMap<FMessageAddress, FMessageTracerEndpointInfoPtr> AddressesToEndpointInfos;
+	TMap<FMessageAddress, TSharedPtr<FMessageTracerEndpointInfo>> AddressesToEndpointInfos;
 
 	/** Holds a flag indicating whether a breakpoint was hit. */
 	bool Breaking;
 
 	/** Holds the collection of breakpoints. */
-	TArray<IMessageTracerBreakpointPtr> Breakpoints;
+	TArray<TSharedPtr<IMessageTracerBreakpoint, ESPMode::ThreadSafe>> Breakpoints;
 
 	/** Holds an event signaling that messaging routing can continue. */
 	FEvent* ContinueEvent;
 
 	/** The collection of known interceptors. */
-	TMap<FGuid, FMessageTracerInterceptorInfoPtr> Interceptors;
+	TMap<FGuid, TSharedPtr<FMessageTracerInterceptorInfo>> Interceptors;
 
 	/** Holds the collection of endpoints for known recipient identifiers. */
-	TMap<FGuid, FMessageTracerEndpointInfoPtr> RecipientsToEndpointInfos;
+	TMap<FGuid, TSharedPtr<FMessageTracerEndpointInfo>> RecipientsToEndpointInfos;
 
 	/** Holds the collection of known messages. */
-	TMap<IMessageContextPtr, FMessageTracerMessageInfoPtr> MessageInfos;
+	TMap<TSharedPtr<IMessageContext, ESPMode::ThreadSafe>, TSharedPtr<FMessageTracerMessageInfo>> MessageInfos;
 
 	/** Holds the collection of known message types. */
-	TMap<FName, FMessageTracerTypeInfoPtr> MessageTypes;
+	TMap<FName, TSharedPtr<FMessageTracerTypeInfo>> MessageTypes;
 
 	/** Holds a flag indicating whether a reset is pending. */
 	bool ResetPending;
@@ -264,13 +211,3 @@ private:
 	/** Holds a delegate that is executed when a new type has been added to the collection of known message types. */
 	FOnTypeAdded TypeAddedDelegate;
 };
-
-
-/** Type definition for weak pointers to instances of FMessageTracer. */
-typedef TWeakPtr<FMessageTracer, ESPMode::ThreadSafe> FMessageTracerWeakPtr;
-
-/** Type definition for shared pointers to instances of FMessageTracer. */
-typedef TSharedPtr<FMessageTracer, ESPMode::ThreadSafe> FMessageTracerPtr;
-
-/** Type definition for shared references to instances of FMessageTracer. */
-typedef TSharedRef<FMessageTracer, ESPMode::ThreadSafe> FMessageTracerRef;

@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "IPlatformTextField.h"
+#include "Internationalization/Text.h"
 
 #import <UIKit/UIKit.h>
+
+class IVirtualKeyboardEntry;
 
 @class SlateTextField;
 

@@ -4,6 +4,12 @@
 #ifndef __BSPOPS_H__
 #define __BSPOPS_H__
 
+#include "CoreMinimal.h"
+#include "Engine/Brush.h"
+#include "Engine/Polys.h"
+
+class AVolume;
+class UModel;
 
 class FBSPOps
 {

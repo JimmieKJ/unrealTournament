@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Animation/AnimNodeBase.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimCurveTypes.h"
 #include "BonePose.h"
+#include "Animation/AnimNodeBase.h"
 #include "AnimNode_TransitionPoseEvaluator.generated.h"
 
 /** Indicates which state is being evaluated by this node (source or destination). */

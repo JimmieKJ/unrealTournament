@@ -51,11 +51,14 @@ public class AssetTools : ModuleRules
 				"MessageLog",
 				"Persona",
 				"FontEditor",
-				"SoundCueEditor",
-				"SoundClassEditor",
+                "AudioEditor",
 				"SourceControl",
 				"Landscape",
-			}
+                "SkeletonEditor",
+                "SkeletalMeshEditor",
+                "AnimationEditor",
+                "AnimationBlueprintEditor",
+            }
 		);
 
 		DynamicallyLoadedModuleNames.AddRange(
@@ -75,8 +78,11 @@ public class AssetTools : ModuleRules
 				"MessageLog",
 				"Persona",
 				"FontEditor",
-				"SoundCueEditor",
-				"SoundClassEditor"
+                "AudioEditor",
+                "SkeletonEditor",
+                "SkeletalMeshEditor",
+                "AnimationEditor",
+                "AnimationBlueprintEditor",
             }
 		);
 	}

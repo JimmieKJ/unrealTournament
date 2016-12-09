@@ -5,6 +5,7 @@
 #ifndef __XmlFile_h__
 #define __XmlFile_h__
 
+#include "CoreMinimal.h"
 #include "XmlNode.h"
 
 namespace EConstructMethod

@@ -2,9 +2,31 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "AssetData.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "CollectionManagerTypes.h"
+#include "IContentBrowserSingleton.h"
+#include "Editor/ContentBrowser/Private/HistoryManager.h"
 
-struct FCollectionNameType;
-
+class FAssetContextMenu;
+class FFrontendFilter_Text;
+class FPathContextMenu;
+class FTabManager;
+class FUICommandList;
+class SAssetSearchBox;
+class SAssetView;
+class SCollectionView;
+class SComboButton;
+class SFilterList;
+class SPathView;
+class SSplitter;
+class UFactory;
 
 /**
  * A widget to display and work with all game and engine content
@@ -231,6 +253,15 @@ private:
 
 	/** Handler for Rename */
 	void HandleRenameCommand();
+
+	/** Handler to check to see if a save asset command is allowed */
+	bool HandleSaveAssetCommandCanExecute() const;
+
+	/** Handler for Rename */
+	void HandleSaveAssetCommand();
+
+	/** Handler for SaveAll in folder */
+	void HandleSaveAllCurrentFolderCommand() const;
 
 	/** Handler to check to see if a delete command is allowed */
 	bool HandleDeleteCommandCanExecute() const;

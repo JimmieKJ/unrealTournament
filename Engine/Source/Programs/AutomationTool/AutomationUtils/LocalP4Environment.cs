@@ -147,7 +147,7 @@ namespace AutomationTool
 
 			// Retrieve the current changelist 
 			string P4Cmd = String.Format("changes -m 1 \"{0}/....cpp#have\" \"{0}/....h#have\" \"{0}/....inl#have\" \"{0}/....cs#have\" \"{0}/....usf#have\"", CommandUtils.CombinePaths(PathSeparator.Depot, ClientRootPath));
-			ProcessResult P4Result = Connection.P4(P4Cmd, AllowSpew: false);
+			IProcessResult P4Result = Connection.P4(P4Cmd, AllowSpew: false);
 
 			// Loop through all the lines of the output. Even though we requested one result, we'll get one for each search pattern.
 			int CL = 0;
@@ -183,7 +183,7 @@ namespace AutomationTool
 			// Figure out the build root
 			string KnownFilePathFromRoot = CommandEnvironment.KnownFileRelativeToRoot;
 			string KnownLocalPath = CommandUtils.MakePathSafeToUseWithCommandLine(CommandUtils.CombinePaths(PathSeparator.Slash, LocalRootPath, KnownFilePathFromRoot));
-			ProcessResult P4Result = Connection.P4(String.Format("files -m 1 {0}", KnownLocalPath), AllowSpew: false);
+			IProcessResult P4Result = Connection.P4(String.Format("files -m 1 {0}", KnownLocalPath), AllowSpew: false);
 
 			string KnownFileDepotMapping = P4Result.Output;
 
@@ -334,7 +334,7 @@ namespace AutomationTool
 			if(String.IsNullOrEmpty(P4PortEnv))
 			{
 				// If it's not set, spawn Perforce to get the current server port setting
-				ProcessResult Result = CommandUtils.Run(HostPlatform.Current.P4Exe, "set P4PORT", null, CommandUtils.ERunOptions.NoLoggingOfRunCommand);
+				IProcessResult Result = CommandUtils.Run(HostPlatform.Current.P4Exe, "set P4PORT", null, CommandUtils.ERunOptions.NoLoggingOfRunCommand);
 				if (Result.ExitCode == 0)
 				{
 					const string KeyName = "P4PORT=";

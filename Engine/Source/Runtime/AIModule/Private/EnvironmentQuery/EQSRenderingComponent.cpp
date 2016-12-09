@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "Engine/Canvas.h"
-#include "DebugRenderSceneProxy.h"
 #include "EnvironmentQuery/EQSRenderingComponent.h"
-#include "EnvironmentQuery/EQSQueryResultSourceInterface.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
+#include "Engine/Canvas.h"
+#include "EnvironmentQuery/EQSQueryResultSourceInterface.h"
 
 static const int32 EQSMaxItemsDrawn = 10000;
 
@@ -28,47 +26,10 @@ namespace FEQSRenderingHelper
 //----------------------------------------------------------------------//
 const FVector FEQSSceneProxy::ItemDrawRadius(30,30,30);
 
-FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FString& InViewFlagName) 
-	: FDebugRenderSceneProxy(InComponent)
-	, ActorOwner(NULL)
-	, QueryDataSource(NULL)
-{
-	DrawType = SolidAndWireMeshes;
-	TextWithoutShadowDistance = 1500;
-	ViewFlagIndex = uint32(FEngineShowFlags::FindIndexByName(*InViewFlagName));
-	ViewFlagName = InViewFlagName;
-	bWantsSelectionOutline = false;
-
-	if (InComponent == NULL)
-	{
-		return;
-	}
-
-	ActorOwner = InComponent ? InComponent->GetOwner() : NULL;
-
-	const UEQSRenderingComponent* MyRenderComp = Cast<const UEQSRenderingComponent>(InComponent);
-	bDrawOnlyWhenSelected = MyRenderComp && MyRenderComp->bDrawOnlyWhenSelected;
-
-	QueryDataSource = Cast<const IEQSQueryResultSourceInterface>(ActorOwner);
-	if (QueryDataSource == NULL)
-	{
-		QueryDataSource = Cast<const IEQSQueryResultSourceInterface>(InComponent);
-		if (QueryDataSource == NULL)
-		{
-			return;
-		}
-	}
-
-#if  USE_EQS_DEBUGGER 
-	TArray<EQSDebug::FDebugHelper> DebugItems;
-	FEQSSceneProxy::CollectEQSData(InComponent, QueryDataSource, Spheres, Texts, DebugItems);
-#endif
-}
-
-FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FString& InViewFlagName, const TArray<FSphere>& InSpheres, const TArray<FText3d>& InTexts)
-	: FDebugRenderSceneProxy(InComponent)
-	, ActorOwner(NULL)
-	, QueryDataSource(NULL)
+FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent& InComponent, const FString& InViewFlagName, const TArray<FSphere>& InSpheres, const TArray<FText3d>& InTexts)
+	: FDebugRenderSceneProxy(&InComponent)
+	, ActorOwner(nullptr)
+	, QueryDataSource(nullptr)
 {
 	DrawType = SolidAndWireMeshes;
 	TextWithoutShadowDistance = 1500;
@@ -78,25 +39,24 @@ FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FSt
 
 	Spheres = InSpheres;
 	Texts = InTexts;
-
-	if (InComponent == NULL)
-	{
-		return;
-	}
-
-	const UEQSRenderingComponent* MyRenderComp = Cast<const UEQSRenderingComponent>(InComponent);
+	
+	const UEQSRenderingComponent* MyRenderComp = Cast<const UEQSRenderingComponent>(&InComponent);
 	bDrawOnlyWhenSelected = MyRenderComp && MyRenderComp->bDrawOnlyWhenSelected;
 
-	ActorOwner = InComponent ? InComponent->GetOwner() : NULL;
+	ActorOwner = InComponent.GetOwner();
 	QueryDataSource = Cast<const IEQSQueryResultSourceInterface>(ActorOwner);
-	if (QueryDataSource == NULL)
+	if (QueryDataSource == nullptr)
 	{
-		QueryDataSource = Cast<const IEQSQueryResultSourceInterface>(InComponent);
-		if (QueryDataSource == NULL)
-		{
-			return;
-		}
+		QueryDataSource = Cast<const IEQSQueryResultSourceInterface>(&InComponent);
 	}
+
+#if  USE_EQS_DEBUGGER 
+	if (Spheres.Num() == 0 && Texts.Num() == 0 && QueryDataSource != nullptr)
+	{
+		TArray<EQSDebug::FDebugHelper> DebugItems;
+		FEQSSceneProxy::CollectEQSData(&InComponent, QueryDataSource, Spheres, Texts, DebugItems);
+	}
+#endif
 }
 
 #if  USE_EQS_DEBUGGER 
@@ -173,7 +133,7 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 		}
 	}
 	
-	const float ScoreNormalizer = bUseMidResults && (MaxScore != MinScore) ? 1.f / (MaxScore - MinScore) : 1.f;
+	const float ScoreNormalizer = bUseMidResults && (MaxScore != MinScore) ? (1.f / (MaxScore - MinScore)) : 1.f;
 	const float HighlightThreshold = (HighlightRangePct < 1.0f) ? (MaxScore * HighlightRangePct) : FLT_MAX;
 
 	if (bSingleItemResult == false)
@@ -182,17 +142,17 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 		{
 			if (Items[ItemIndex].IsValid())
 			{
-				const float Score = bNoTestsPerformed ? 1 : Items[ItemIndex].Score * ScoreNormalizer;
+				const float NormalizedScore = bNoTestsPerformed ? 1 : (Items[ItemIndex].Score - MinScore) * ScoreNormalizer;
 				const bool bLowRadius = (HighlightThreshold < FLT_MAX) && (bNoTestsPerformed || (Items[ItemIndex].Score < HighlightThreshold));
 				const float Radius = ItemDrawRadius.X * (bLowRadius ? 0.2f : 1.0f);
 				const FVector Loc = FEQSRenderingHelper::ExtractLocation(ResultItems->ItemType, RawData, Items, ItemIndex);
 				Spheres.Add(FSphere(Radius, Loc, bNoTestsPerformed == false
-					? FLinearColor(FColor::MakeRedToGreenColorFromScalar(Score)) 
+					? FLinearColor(FColor::MakeRedToGreenColorFromScalar(NormalizedScore))
 					: FLinearColor(0.2, 1.0, 1.0, 1)));
 
 				DebugItems.Add(EQSDebug::FDebugHelper(Loc, Radius));
 
-				const FString Label = bNoTestsPerformed ? TEXT("") : FString::Printf(TEXT("%.2f"), Score);
+				const FString Label = bNoTestsPerformed ? TEXT("") : FString::Printf(TEXT("%.2f"), Items[ItemIndex].Score);
 				Texts.Add(FText3d(Label, Loc, FLinearColor::White));
 			}
 		}
@@ -201,7 +161,7 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 	{
 		if (Items[0].IsValid())
 		{
-			const float Score = Items[0].Score * ScoreNormalizer;
+			const float Score = Items[0].Score;
 			const bool bLowRadius = false;
 			const float Radius = ItemDrawRadius.X * (bLowRadius ? 0.2f : 1.0f);
 			const FVector Loc = FEQSRenderingHelper::ExtractLocation(ResultItems->ItemType, RawData, Items, 0);
@@ -217,7 +177,7 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 		{
 			if (Items[ItemIndex].IsValid())
 			{
-				const float Score = bNoTestsPerformed ? 1 : Items[ItemIndex].Score * ScoreNormalizer;
+				const float Score = bNoTestsPerformed ? 1 : Items[ItemIndex].Score;
 				const bool bLowRadius = (HighlightThreshold < FLT_MAX) && (bNoTestsPerformed || (Items[ItemIndex].Score < HighlightThreshold));
 				const float Radius = ItemDrawRadius.X * (bLowRadius ? 0.2f : 1.0f);
 				const FVector Loc = FEQSRenderingHelper::ExtractLocation(ResultItems->ItemType, RawData, Items, ItemIndex);
@@ -246,7 +206,7 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 				continue;
 			}
 
-			const float Score = bNoTestsPerformed ? 1 : Items[ItemIndex].Score * ScoreNormalizer;
+			const float Score = bNoTestsPerformed ? 1 : Items[ItemIndex].Score;
 			const bool bLowRadius = (HighlightThreshold < FLT_MAX) && (bNoTestsPerformed || (Items[ItemIndex].Score < HighlightThreshold));
 			const float Radius = ItemDrawRadius.X * (bLowRadius ? 0.2f : 1.0f);
 			const FVector Loc = FEQSRenderingHelper::ExtractLocation(QueryInstance->ItemType, InstanceDebugData.RawData, DebugQueryItems, ItemIndex);
@@ -265,8 +225,8 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 		}
 	}
 }
-#endif //USE_EQS_DEBUGGER 
-void FEQSSceneProxy::DrawDebugLabels(UCanvas* Canvas, APlayerController* PC)
+ 
+void FEQSRenderingDebugDrawDelegateHelper::DrawDebugLabels(UCanvas* Canvas, APlayerController* PC)
 {
 	if ( !ActorOwner
 		 || (ActorOwner->IsSelected() == false && bDrawOnlyWhenSelected == true)
@@ -281,8 +241,9 @@ void FEQSSceneProxy::DrawDebugLabels(UCanvas* Canvas, APlayerController* PC)
 		return;
 	}
 
-	FDebugRenderSceneProxy::DrawDebugLabels(Canvas, PC);
+	FDebugDrawDelegateHelper::DrawDebugLabels(Canvas, PC);
 }
+#endif //USE_EQS_DEBUGGER
 
 bool FEQSSceneProxy::SafeIsActorSelected() const
 {
@@ -317,14 +278,34 @@ UEQSRenderingComponent::UEQSRenderingComponent(const FObjectInitializer& ObjectI
 
 FPrimitiveSceneProxy* UEQSRenderingComponent::CreateSceneProxy()
 {
-#if  USE_EQS_DEBUGGER || ENABLE_VISUAL_LOG
-	if (DebugData.SolidSpheres.Num() > 0 || DebugData.Texts.Num() > 0)
+	FEQSSceneProxy* NewSceneProxy = new FEQSSceneProxy(*this, DrawFlagName, DebugDataSolidSpheres, DebugDataTexts);
+
+#if  USE_EQS_DEBUGGER
+	if (NewSceneProxy->Texts.Num() > 0)
 	{
-		return new FEQSSceneProxy(this, DrawFlagName, DebugData.SolidSpheres, DebugData.Texts);
+		EQSRenderingDebugDrawDelegateHelper.InitDelegateHelper(NewSceneProxy);
+		EQSRenderingDebugDrawDelegateHelper.ReregisterDebugDrawDelgate();
 	}
 #endif
-	return new FEQSSceneProxy(this, DrawFlagName);
+
+	return NewSceneProxy;
 }
+
+void UEQSRenderingComponent::ClearStoredDebugData()
+{
+	DebugDataSolidSpheres.Reset();
+	DebugDataTexts.Reset();
+	MarkRenderStateDirty();
+}
+
+#if  USE_EQS_DEBUGGER || ENABLE_VISUAL_LOG
+void UEQSRenderingComponent::StoreDebugData(const EQSDebug::FQueryData& DebugData)
+{
+	DebugDataSolidSpheres = DebugData.SolidSpheres;
+	DebugDataTexts = DebugData.Texts;
+	MarkRenderStateDirty();
+}
+#endif  // USE_EQS_DEBUGGER || ENABLE_VISUAL_LOG
 
 FBoxSphereBounds UEQSRenderingComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
@@ -337,20 +318,14 @@ void UEQSRenderingComponent::CreateRenderState_Concurrent()
 	Super::CreateRenderState_Concurrent();
 
 #if USE_EQS_DEBUGGER
-	if (SceneProxy)
-	{
-		static_cast<FEQSSceneProxy*>(SceneProxy)->RegisterDebugDrawDelgate();
-	}
+	EQSRenderingDebugDrawDelegateHelper.RegisterDebugDrawDelgate();
 #endif
 }
 
 void UEQSRenderingComponent::DestroyRenderState_Concurrent()
 {
 #if USE_EQS_DEBUGGER
-	if (SceneProxy)
-	{
-		static_cast<FEQSSceneProxy*>(SceneProxy)->UnregisterDebugDrawDelgate();
-	}
+	EQSRenderingDebugDrawDelegateHelper.UnregisterDebugDrawDelgate();
 #endif
 
 	Super::DestroyRenderState_Concurrent();

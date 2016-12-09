@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
 
-
-// Objects
 class UObjectBase;
 class UObjectBaseUtility;
 class	UObject;
@@ -34,6 +33,9 @@ class				UTextProperty;
 class				UArrayProperty;
 class				UDelegateProperty;
 class				UMulticastDelegateProperty;
+class				UMapProperty;
+class				USetProperty;
+class				UEnumProperty;
 class			UStruct;
 class				UFunction;
 class				UClass;

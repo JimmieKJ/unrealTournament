@@ -1,6 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/Guid.h"
+
 // Custom serialization version for changes made in Dev-Rendering stream
 struct CORE_API FRenderingObjectVersion
 {
@@ -29,6 +32,16 @@ struct CORE_API FRenderingObjectVersion
 
 		// Particle Cutout (SubUVAnimation) data is now stored in the ParticleRequired Module
 		MovedParticleCutoutsToRequiredModule,
+
+		MapBuildDataSeparatePackage,
+
+		// StaticMesh and SkeletalMesh texcoord size data.
+		TextureStreamingMeshUVChannelData,
+		
+		// Added type handling to material normalize and length (sqrt) nodes
+		TypeHandlingForMaterialSqrtNodes,
+
+		FixedBSPLightmaps,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

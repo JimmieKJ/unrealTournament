@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "AI/Navigation/NavigationSystem.h"
-#include "AI/Navigation/NavAgentInterface.h"
-#include "EnvironmentQuery/Contexts/EnvQueryContext_Querier.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
 #include "EnvironmentQuery/Tests/EnvQueryTest_Pathfinding.h"
+#include "AI/Navigation/NavAgentInterface.h"
+#include "Engine/World.h"
+#include "AI/Navigation/NavigationData.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
+#include "EnvironmentQuery/Contexts/EnvQueryContext_Querier.h"
 
 #define LOCTEXT_NAMESPACE "EnvQueryGenerator"
 

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "HAL/Platform.h"
+
+#include "CoreTypes.h"
 
 #if PLATFORM_XBOXONE
 #include "XboxOne/XBoxOneAffinity.h"
@@ -11,6 +12,8 @@
 #include "IOS/IOSPlatformAffinity.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidAffinity.h"
+#elif PLATFORM_SWITCH
+#include "Switch/SwitchPlatformAffinity.h"
 #else
 #include "GenericPlatform/GenericPlatformAffinity.h"
 typedef FGenericPlatformAffinity FPlatformAffinity;

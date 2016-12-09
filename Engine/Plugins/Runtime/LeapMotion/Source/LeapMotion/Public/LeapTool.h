@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "LeapMotionPublicPCH.h"
+#include "CoreMinimal.h"
 #include "LeapPointable.h"
+#include "Leap_NoPI.h"
 #include "LeapTool.generated.h"
 
 /**

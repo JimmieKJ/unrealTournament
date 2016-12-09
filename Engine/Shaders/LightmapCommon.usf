@@ -120,7 +120,7 @@ float GetAOMaterialMask(float2 LightmapUV)
 // Used by deferred renderer only
 half4 GetPrecomputedShadowMasks(FVertexFactoryInterpolantsVSToPS Interpolants)
 {
-	// Note: WRITES_PRECSHADOWFACTOR_TO_GBUFFER and WRITES_PRECSHADOWFACTOR_ZERO have to match the logic here
+	// Note: WRITES_PRECSHADOWFACTOR_ZERO have to match the logic here
 	#if STATICLIGHTING_TEXTUREMASK && STATICLIGHTING_SIGNEDDISTANCEFIELD
 
 		// Fetch the 4 channels of distance field data

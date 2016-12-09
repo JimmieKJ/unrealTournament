@@ -2,7 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "SEditorViewport.h"
+#include "SAnimationEditorViewport.h"
 #include "Editor/UnrealEd/Public/SViewportToolBar.h"
+
+class FMenuBuilder;
 
 /**
  * A level viewport toolbar widget that is placed in a viewport
@@ -16,13 +25,6 @@ public:
 	void Construct(const FArguments& InArgs, TSharedPtr<class SAnimationEditorViewportTabBody> InViewport, TSharedPtr<class SEditorViewport> InRealViewport);
 
 private:
-	/**
-	 * Returns the label for the "View" tool bar menu, which changes depending on the viewport type
-	 *
-	 * @return	Label to use for this menu label
-	 */
-	FText GetViewMenuLabel() const;
-
 	/**
 	 * Generates the toolbar view menu content 
 	 *
@@ -51,6 +53,11 @@ private:
 	* Generates the Show -> Bone sub menu content
 	*/
 	void FillShowBoneDrawMenu(FMenuBuilder& MenuBuilder) const;
+
+	/**
+	* Generates the Show -> Overlay sub menu content
+	*/
+	void FillShowOverlayDrawMenu(FMenuBuilder& MenuBuilder) const;
 
 	/**
 	* Generates the Show -> Clothing sub menu content
@@ -90,8 +97,17 @@ private:
 	 */
 	TSharedRef<SWidget> GeneratePlaybackMenu() const;
 
-	TSharedRef<SWidget> GenerateTurnTableMenu() const;
-	FText GetTurnTableMenuLabel() const;
+	/** Generate the turntable menu entries */
+	void GenerateTurnTableMenu(FMenuBuilder& MenuBuilder) const;
+
+	/** Generate the scene setup menu */
+	void GenerateSceneSetupMenu(FMenuBuilder& MenuBuilder);
+
+	/** Customize the details of the scene setup object */
+	TSharedRef<class IDetailCustomization> CustomizePreviewSceneDescription();
+
+	/** Customize a preview mesh collection entry */
+	TSharedRef<class IPropertyTypeCustomization> CustomizePreviewMeshCollectionEntry();
 
 	/**
 	* Generate color of the text on the top

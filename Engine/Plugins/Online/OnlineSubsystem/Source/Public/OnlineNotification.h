@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "OnlineSubsystemTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
 
 class FJsonValue;
-class UStruct;
 
 /** Notification object, used to send messages between systems */
 struct ONLINESUBSYSTEM_API FOnlineNotification

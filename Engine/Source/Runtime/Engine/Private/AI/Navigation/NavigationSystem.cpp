@@ -1,20 +1,32 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "MessageLog.h"
-#include "NavDataGenerator.h"
-#include "NavigationOctree.h"
-#include "VisualLogger.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Misc/ScopeLock.h"
+#include "Stats/StatsMisc.h"
+#include "Modules/ModuleManager.h"
+#include "AI/Navigation/NavAgentInterface.h"
+#include "Engine/World.h"
+#include "GameFramework/Controller.h"
+#include "AI/Navigation/NavRelevantInterface.h"
+#include "UObject/UObjectIterator.h"
+#include "EngineUtils.h"
+#include "Logging/MessageLog.h"
+#include "AI/Navigation/NavAreas/NavArea.h"
+#include "AI/NavigationOctree.h"
+#include "VisualLogger/VisualLogger.h"
 #include "AI/Navigation/NavMeshBoundsVolume.h"
-#include "AI/Navigation/NavRelevantComponent.h"
 #include "AI/Navigation/NavigationInvokerComponent.h"
 #include "AI/Navigation/NavigationDataChunk.h"
+#include "Engine/Engine.h"
+#include "UObject/Package.h"
 
 #if WITH_RECAST
-#include "RecastNavMeshGenerator.h"
+#include "AI/Navigation/RecastNavMesh.h"
+#include "AI/Navigation/RecastNavMeshGenerator.h"
 #endif // WITH_RECAST
 #if WITH_EDITOR
-#include "UnrealEd.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
 #include "Editor/GeometryMode/Public/GeometryEdMode.h"
 #include "Editor/GeometryMode/Public/EditorGeometry.h"
 #endif
@@ -23,19 +35,13 @@
 #include "Misc/HotReloadInterface.h"
 #endif
 
-#if WITH_PHYSX
-#include "PhysicsPublic.h"
-#include "../../PhysicsEngine/PhysXSupport.h"
-#endif // WITH_PHYSX
-
 // @todo this is here only due to circular dependency to AIModule. To be removed
-#include "Navigation/CrowdManager.h"
+#include "AITypes.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "Navigation/CrowdManager.h"
 #include "AI/Navigation/NavAreas/NavArea_Null.h"
 #include "AI/Navigation/NavAreas/NavArea_Default.h"
 #include "AI/Navigation/NavLinkCustomInterface.h"
-#include "AI/Navigation/NavigationSystem.h"
-#include "AI/Navigation/NavRelevantComponent.h"
 #include "AI/Navigation/NavigationPath.h"
 #include "AI/Navigation/AbstractNavData.h"
 
@@ -276,6 +282,7 @@ UNavigationSystem::UNavigationSystem(const FObjectInitializer& ObjectInitializer
 	, NavOctree(NULL)
 	, NavBuildingLockFlags(0)
 	, InitialNavBuildingLockFlags(0)
+	, bNavOctreeLock(false)
 	, bInitialSetupHasBeenPerformed(false)
 	, bInitialLevelsAdded(false)
 	, bWorldInitDone(false)
@@ -470,7 +477,7 @@ void UNavigationSystem::PostInitProperties()
 		FCoreUObjectDelegates::PostLoadMap.AddUObject(this, &UNavigationSystem::OnPostLoadMap);
 		UNavigationSystem::NavigationDirtyEvent.AddUObject(this, &UNavigationSystem::OnNavigationDirtied);
 
-#if WITH_HOT_RELOAD && !UE_SERVER
+#if WITH_HOT_RELOAD
 		IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>("HotReload");
 		HotReloadDelegateHandle = HotReloadSupport.OnHotReload().AddUObject(this, &UNavigationSystem::OnHotReload);
 #endif
@@ -503,23 +510,26 @@ bool UNavigationSystem::ConditionalPopulateNavOctree()
 #endif // WITH_RECAST
 		}
 
-		UWorld* World = GetWorld();
-		check(World);
-		
-		// now process all actors on all levels
-		for (int32 LevelIndex = 0; LevelIndex < World->GetNumLevels(); ++LevelIndex) 
+		if (!IsNavigationOctreeLocked())
 		{
-			ULevel* Level = World->GetLevel(LevelIndex);
-			AddLevelCollisionToOctree(Level);
+			UWorld* World = GetWorld();
+			check(World);
 
-			for (int32 ActorIndex=0; ActorIndex<Level->Actors.Num(); ActorIndex++)
+			// now process all actors on all levels
+			for (int32 LevelIndex = 0; LevelIndex < World->GetNumLevels(); ++LevelIndex)
 			{
-				AActor* Actor = Level->Actors[ActorIndex];
+				ULevel* Level = World->GetLevel(LevelIndex);
+				AddLevelCollisionToOctree(Level);
 
-				const bool bLegalActor = Actor && !Actor->IsPendingKill();
-				if (bLegalActor)
+				for (int32 ActorIndex = 0; ActorIndex < Level->Actors.Num(); ActorIndex++)
 				{
-					UpdateActorAndComponentsInNavOctree(*Actor);
+					AActor* Actor = Level->Actors[ActorIndex];
+
+					const bool bLegalActor = Actor && !Actor->IsPendingKill();
+					if (bLegalActor)
+					{
+						UpdateActorAndComponentsInNavOctree(*Actor);
+					}
 				}
 			}
 		}
@@ -832,7 +842,12 @@ void UNavigationSystem::Tick(float DeltaSeconds)
 	}
 
 	// Tick navigation mesh async builders
-	if (!bAsyncBuildPaused && (bNavigationAutoUpdateEnabled || bIsGame))
+	if (!bAsyncBuildPaused && (bNavigationAutoUpdateEnabled || bIsGame 
+#if WITH_EDITOR
+		// continue ticking if build is in progress
+		|| (GIsEditor && IsNavigationBuildInProgress())
+#endif // WITH_EDITOR
+		))
 	{
 		SCOPE_CYCLE_COUNTER(STAT_Navigation_TickAsyncBuild);
 		for (ANavigationData* NavData : NavDataSet)
@@ -1282,6 +1297,12 @@ void UNavigationSystem::SimpleMoveToLocation(AController* Controller, const FVec
 			, FAIRequestID::AnyRequest, bAlreadyAtGoal ? EPathFollowingVelocityMode::Reset : EPathFollowingVelocityMode::Keep);
 	}
 
+	// script source, keep only one move request at time
+	if (PFollowComp->GetStatus() != EPathFollowingStatus::Idle)
+	{
+		PFollowComp->AbortMove(*NavSys, FPathFollowingResultFlags::ForcedScript | FPathFollowingResultFlags::NewRequest);
+	}
+
 	if (bAlreadyAtGoal)
 	{
 		PFollowComp->RequestMoveWithImmediateFinish(EPathFollowingResult::Success);
@@ -1448,7 +1469,7 @@ const ANavigationData* UNavigationSystem::GetNavDataForProps(const FNavAgentProp
 	if (NavDataInstance == nullptr)
 	{
 		TArray<FNavAgentProperties> AgentPropertiesList;
-		int32 NumNavDatas = AgentToNavDataMap.GetKeys(AgentPropertiesList);
+		AgentToNavDataMap.GenerateKeyArray(AgentPropertiesList);
 		
 		FNavAgentProperties BestFitNavAgent;
 		float BestExcessHeight = -FLT_MAX;
@@ -1681,9 +1702,12 @@ const TSet<FNavigationBounds>& UNavigationSystem::GetNavigationBounds() const
 
 void UNavigationSystem::ApplyWorldOffset(const FVector& InOffset, bool bWorldShift)
 {
-	for (int32 NavDataIndex = 0; NavDataIndex < NavDataSet.Num(); ++NavDataIndex)
+	for (ANavigationData* NavData : NavDataSet)
 	{
-		NavDataSet[NavDataIndex]->ApplyWorldOffset(InOffset, bWorldShift);
+		if (NavData)
+		{
+			NavData->ApplyWorldOffset(InOffset, bWorldShift);
+		}
 	}
 }
 
@@ -2281,6 +2305,12 @@ FSetElementId UNavigationSystem::RegisterNavOctreeElement(UObject* ElementOwner,
 		return SetId;
 	}
 
+	if (IsNavigationOctreeLocked())
+	{
+		UE_LOG(LogNavOctree, Log, TEXT("IGNORE(RegisterNavOctreeElement) %s"), *GetPathNameSafe(ElementOwner));
+		return SetId;
+	}
+
 	const bool bIsRelevant = ElementInterface->IsNavigationRelevant();
 	UE_LOG(LogNavOctree, Log, TEXT("REG %s %s"), *GetNameSafe(ElementOwner), bIsRelevant ? TEXT("[relevant]") : TEXT(""));
 
@@ -2413,6 +2443,12 @@ void UNavigationSystem::UnregisterNavOctreeElement(UObject* ElementOwner, INavRe
 
 	if (NavOctree.IsValid() == false || ElementOwner == NULL || ElementInterface == NULL)
 	{
+		return;
+	}
+
+	if (IsNavigationOctreeLocked())
+	{
+		UE_LOG(LogNavOctree, Log, TEXT("IGNORE(UnregisterNavOctreeElement) %s"), *GetPathNameSafe(ElementOwner));
 		return;
 	}
 
@@ -2636,6 +2672,12 @@ void UNavigationSystem::ClearNavOctreeAll(AActor* Actor)
 void UNavigationSystem::UpdateNavOctreeElement(UObject* ElementOwner, INavRelevantInterface* ElementInterface, int32 UpdateFlags)
 {
 	INC_DWORD_STAT(STAT_Navigation_UpdateNavOctree);
+
+	if (IsNavigationOctreeLocked())
+	{
+		UE_LOG(LogNavOctree, Log, TEXT("IGNORE(UpdateNavOctreeElement) %s"), *GetPathNameSafe(ElementOwner));
+		return;
+	}
 
 	// grab existing octree data
 	FBox CurrentBounds;
@@ -3322,6 +3364,7 @@ bool UNavigationSystem::IsNavigationBuildInProgress(bool bCheckDirtyToo)
 
 	if (NavDataSet.Num() == 0)
 	{
+		// @todo this is wrong! Should not need to create a navigation data instance in a "getter" like function
 		// update nav data. If none found this is the place to create one
 		GetMainNavData(FNavigationSystem::DontCreate);
 	}
@@ -3853,14 +3896,17 @@ bool UNavigationSystem::CanRebuildDirtyNavigation() const
 {
 	const bool bIsInGame = GetWorld()->IsGameWorld();
 
-	for (int32 NavDataIndex = 0; NavDataIndex < NavDataSet.Num(); ++NavDataIndex)
+	for (const ANavigationData* NavData : NavDataSet)
 	{
-		const bool bIsDirty = NavDataSet[NavDataIndex]->NeedsRebuild();
-		const bool bCanRebuild = !bIsInGame || NavDataSet[NavDataIndex]->SupportsRuntimeGeneration();
-
-		if (bIsDirty && !bCanRebuild)
+		if (NavData)
 		{
-			return false;
+			const bool bIsDirty = NavData->NeedsRebuild();
+			const bool bCanRebuild = !bIsInGame || NavData->SupportsRuntimeGeneration();
+
+			if (bIsDirty && !bCanRebuild)
+			{
+				return false;
+			}
 		}
 	}
 

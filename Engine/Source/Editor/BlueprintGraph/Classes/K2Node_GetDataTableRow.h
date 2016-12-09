@@ -2,10 +2,17 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Textures/SlateIcon.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
-#include "Engine/DataTable.h"
 #include "K2Node_GetDataTableRow.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class UDataTable;
+class UEdGraph;
 
 UCLASS()
 class BLUEPRINTGRAPH_API UK2Node_GetDataTableRow : public UK2Node

@@ -1,17 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // Module includes
-#include "DeviceProfileEditorPCH.h"
+#include "DeviceProfileTextureLODSettingsColumn.h"
+#include "UObject/UnrealType.h"
+#include "DeviceProfiles/DeviceProfile.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "IPropertyTableCellPresenter.h"
 
 // Property table includes
-#include "PropertyEditorModule.h"
-#include "PropertyPath.h"
+#include "IPropertyTable.h"
 #include "IPropertyTableCell.h"
-#include "PropertyHandle.h"
 
 // Misc includes
-#include "DeviceProfiles/DeviceProfile.h"
-#include "ScopedTransaction.h"
 
 
 #define LOCTEXT_NAMESPACE "DeviceProfileEditor"

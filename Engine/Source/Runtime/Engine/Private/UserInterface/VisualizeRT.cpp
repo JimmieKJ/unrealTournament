@@ -4,9 +4,26 @@
 	VisualizeRT.cpp: Implements the VisualizeRT Slate window
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Templates/RefCounting.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SWidget.h"
+#include "GameFramework/PlayerController.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
 #include "RendererInterface.h"
+#include "Brushes/SlateColorBrush.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
 
 #define ENABLE_IMAGES	0
 

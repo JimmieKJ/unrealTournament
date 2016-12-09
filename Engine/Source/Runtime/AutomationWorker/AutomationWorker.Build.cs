@@ -20,6 +20,8 @@ namespace UnrealBuildTool.Rules
 					"CoreUObject",
                     "Analytics",
     				"AnalyticsET",
+					"Json",
+					"JsonUtilities"
 				}
 			);
 

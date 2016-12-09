@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "KismetPins/SGraphPinString.h"
+
 class SGraphPinNum : public SGraphPinString
 {
 public:

@@ -1,17 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_EaseFunction.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EdGraphSchema_K2.h"
+#include "EdGraph/EdGraphNodeUtils.h"
+#include "K2Node_CallFunction.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
-#include "Editor/GraphEditor/Public/DiffResults.h"
-#include "K2Node_EaseFunction.h"
-#include "Kismet2NameValidators.h"
 #include "KismetCompiler.h"
 #include "ScopedTransaction.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "Kismet/KismetMathLibrary.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_EaseFunction"
@@ -214,12 +215,18 @@ bool UK2Node_EaseFunction::IsConnectionDisallowed(const UEdGraphPin* MyPin, cons
 		MyPin->PinName == FEaseFunctionNodeHelper::GetBPinName() || 
 		MyPin->PinName == FEaseFunctionNodeHelper::GetResultPinName())
 	{
-		const bool bConnectionOk = (OtherPin->PinType.PinCategory == K2Schema->PC_Float ||
-			(OtherPin->PinType.PinCategory == K2Schema->PC_Struct &&
-			OtherPin->PinType.PinSubCategoryObject.IsValid() &&
-			(OtherPin->PinType.PinSubCategoryObject.Get()->GetName() == TEXT("Vector") ||
-			OtherPin->PinType.PinSubCategoryObject.Get()->GetName() == TEXT("Rotator") ||
-			OtherPin->PinType.PinSubCategoryObject.Get()->GetName() == TEXT("Transform"))));
+		const bool bConnectionOk = (
+			OtherPin->PinType.PinCategory == K2Schema->PC_Float ||
+			(
+				OtherPin->PinType.PinCategory == K2Schema->PC_Struct &&
+				OtherPin->PinType.PinSubCategoryObject.IsValid() &&
+				(
+					OtherPin->PinType.PinSubCategoryObject.Get()->GetName() == TEXT("Vector") ||
+					OtherPin->PinType.PinSubCategoryObject.Get()->GetName() == TEXT("Rotator") ||
+					OtherPin->PinType.PinSubCategoryObject.Get()->GetName() == TEXT("Transform")
+				)
+			)
+		) && !OtherPin->PinType.IsContainer();
 		if (!bConnectionOk)
 		{
 			OutReason = LOCTEXT("PinConnectionDisallowed", "Pin type is not supported by function.").ToString();

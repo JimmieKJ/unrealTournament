@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DeviceProfileEditorPCH.h"
+#include "SDeviceProfileCreateProfilePanel.h"
+#include "Misc/CoreMisc.h"
+#include "Templates/Casts.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
-#include "DeviceProfiles/DeviceProfile.h"
-#include "ISourceControlModule.h"
-#include "TargetPlatform.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
 
 
 #define LOCTEXT_NAMESPACE "DeviceProfileCreateProfilePanel"

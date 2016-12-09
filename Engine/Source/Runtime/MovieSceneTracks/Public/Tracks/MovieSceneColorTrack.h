@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "MovieScene.h"
-#include "MovieSceneTrack.h"
-#include "MovieScenePropertyTrack.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Tracks/MovieScenePropertyTrack.h"
 #include "MovieSceneColorTrack.generated.h"
 
 /**
@@ -18,17 +18,7 @@ class UMovieSceneColorTrack : public UMovieScenePropertyTrack
 public:
 	/** UMovieSceneTrack interface */
 	virtual UMovieSceneSection* CreateNewSection() override;
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
-
-	/**
-	 * Evaluates the track at the playback position
-	 *
-	 * @param Position	The current playback position
-	 * @param LastPosition	The last plackback position
-	 * @param The color at the playback position
-	 * @return true if anything was evaluated. Note: if false is returned OutColor remains unchanged
-	 */
-	virtual bool Eval( float Position, float LastPostion, FLinearColor& OutColor ) const;
+	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& Section) const override;
 
 private:
 	UPROPERTY()

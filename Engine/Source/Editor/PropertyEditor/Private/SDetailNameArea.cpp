@@ -1,10 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PropertyEditorPrivatePCH.h"
 #include "SDetailNameArea.h"
-#include "SlateIconFinder.h"
-#include "Editor/EditorWidgets/Public/EditorWidgets.h"
+#include "Components/ActorComponent.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Engine/World.h"
+#include "AssetSelection.h"
+#include "Styling/SlateIconFinder.h"
+#include "EditorWidgetsModule.h"
 #include "EditorClassUtils.h"
 
 #define LOCTEXT_NAMESPACE "SDetailsView"
@@ -171,6 +180,7 @@ TSharedRef< SWidget > SDetailNameArea::BuildObjectNameArea( const TArray< TWeakO
 			[
 				SNew( STextBlock )
 				.Text( LOCTEXT("NoObjectsSelected", "Select an object to view details.") )
+				.ShadowOffset( FVector2D(1,1) )
 			];
 		}
 		else

@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessagingDebuggerPrivatePCH.h"
-#include "SMessagingInterceptorsTableRow.h"
+#include "Widgets/Interceptors/SMessagingInterceptors.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Interceptors/SMessagingInterceptorsTableRow.h"
 
 
 #define LOCTEXT_NAMESPACE "SMessagingInterceptors"
@@ -11,7 +13,7 @@
  *****************************************************************************/
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-void SMessagingInterceptors::Construct(const FArguments& InArgs, const FMessagingDebuggerModelRef& InModel, const TSharedRef<ISlateStyle>& InStyle, const IMessageTracerRef& InTracer)
+void SMessagingInterceptors::Construct(const FArguments& InArgs, const TSharedRef<FMessagingDebuggerModel>& InModel, const TSharedRef<ISlateStyle>& InStyle, const TSharedRef<IMessageTracer, ESPMode::ThreadSafe>& InTracer)
 {
 	Model = InModel;
 	Style = InStyle;
@@ -30,7 +32,7 @@ void SMessagingInterceptors::Construct(const FArguments& InArgs, const FMessagin
 					.Padding(0.0f)
 					[
 						// interceptor list
-						SAssignNew(InterceptorListView, SListView<FMessageTracerInterceptorInfoPtr>)
+						SAssignNew(InterceptorListView, SListView<TSharedPtr<FMessageTracerInterceptorInfo>>)
 							.ItemHeight(24.0f)
 							.ListItemsSource(&InterceptorList)
 							.SelectionMode(ESelectionMode::None)
@@ -74,7 +76,7 @@ void SMessagingInterceptors::ReloadInterceptorList()
 /* SMessagingInterceptors callbacks
  *****************************************************************************/
 
-TSharedRef<ITableRow> SMessagingInterceptors::HandleInterceptorListGenerateRow(FMessageTracerInterceptorInfoPtr InterceptorInfo, const TSharedRef<STableViewBase>& OwnerTable)
+TSharedRef<ITableRow> SMessagingInterceptors::HandleInterceptorListGenerateRow(TSharedPtr<FMessageTracerInterceptorInfo> InterceptorInfo, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(SMessagingInterceptorsTableRow, OwnerTable, Model.ToSharedRef())
 		.InterceptorInfo(InterceptorInfo)

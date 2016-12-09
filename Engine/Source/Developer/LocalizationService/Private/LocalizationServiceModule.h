@@ -6,9 +6,9 @@
  * Interface for talking to source control clients
  */
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "ILocalizationServiceModule.h"
-#include "ILocalizationServiceProvider.h"
 #include "LocalizationServiceSettings.h"
 #include "DefaultLocalizationServiceProvider.h"
 

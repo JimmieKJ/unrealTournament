@@ -104,7 +104,7 @@ void AUTPickupHealth::GiveTo_Implementation(APawn* Target)
 				PS->Team->ModifyStatsValue(StatsNameCount, 1);
 			}
 
-			AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			if (GS != nullptr)
 			{
 				GS->ModifyStatsValue(StatsNameCount, 1);

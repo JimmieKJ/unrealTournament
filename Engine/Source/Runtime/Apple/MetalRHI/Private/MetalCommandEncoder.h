@@ -3,6 +3,7 @@
 #pragma once
 
 #include <Metal/Metal.h>
+#include "MetalBufferPools.h"
 
 class FMetalCommandList;
 
@@ -221,6 +222,15 @@ public:
 	void SetShaderBuffer(EShaderFrequency const Frequency, id<MTLBuffer> const Buffer, NSUInteger const Offset, NSUInteger const Index);
 	
 	/*
+	 * Set data bytes to the specified shader frequency at the given bind point index.
+	 * @param Frequency The shader frequency to modify.
+	 * @param Data The data to bind or nullptr to clear.
+	 * @param Offset The offset in the buffer or 0 when Buffer is nil.
+	 * @param Index The index to modify.
+	 */
+	void SetShaderBytes(EShaderFrequency const Frequency, NSData* Data, NSUInteger const Offset, NSUInteger const Index);
+	
+	/*
 	 * Conditionally set a global buffer for the specified shader frequency at the given bind point index.
 	 * @param Frequency The shader frequency to modify.
 	 * @param Buffer The buffer to bind or nil to clear.
@@ -338,6 +348,8 @@ private:
 	{
 		/** The bound buffers or nil. */
 		id<MTLBuffer> Buffers[ML_MaxBuffers];
+		/** Optional bytes buffer used instead of an id<MTLBuffer> */
+		NSData* Bytes[ML_MaxBuffers];
 		/** The bound buffer offsets or 0. */
 		NSUInteger Offsets[ML_MaxBuffers];
 		/** A bitmask for which buffers were bound by the application where a bit value of 1 is bound and 0 is unbound. */
@@ -369,6 +381,8 @@ private:
 	FMetalSamplerBindings ShaderSamplers[SF_NumFrequencies];
 	
 	FMetalCommandList& CommandList;
+	
+	TSharedPtr<FRingBuffer, ESPMode::ThreadSafe> RingBuffer;
 	
 	MTLViewport Viewport;
 	MTLWinding FrontFacingWinding;

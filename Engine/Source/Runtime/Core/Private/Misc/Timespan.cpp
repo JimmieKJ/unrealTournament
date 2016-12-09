@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "PropertyPortFlags.h"
+#include "Misc/Timespan.h"
+#include "Templates/TypeHash.h"
+#include "Containers/UnrealString.h"
+#include "UObject/PropertyPortFlags.h"
 
 /* FTimespan interface
  *****************************************************************************/
@@ -141,6 +143,7 @@ bool FTimespan::Parse(const FString& TimespanString, FTimespan& OutTimespan)
 {
 	// @todo gmp: implement stricter FTimespan parsing; this implementation is too forgiving.
 	FString TokenString = TimespanString.Replace(TEXT("."), TEXT(":"));
+	TokenString.ReplaceInline(TEXT(","), TEXT(":"));
 
 	bool Negative = TokenString.StartsWith(TEXT("-"));
 	TokenString.ReplaceInline(TEXT("-"), TEXT(":"), ESearchCase::CaseSensitive);
@@ -177,10 +180,12 @@ FArchive& operator<<(FArchive& Ar, FTimespan& Timespan)
 	return Ar << Timespan.Ticks;
 }
 
+
 uint32 GetTypeHash(const FTimespan& Timespan)
 {
 	return GetTypeHash(Timespan.Ticks);
 }
+
 
 /* FTimespan implementation
  *****************************************************************************/

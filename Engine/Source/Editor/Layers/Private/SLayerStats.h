@@ -1,8 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/Margin.h"
+#include "Widgets/SCompoundWidget.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Input/SButton.h"
 #include "Layers/Layer.h"
+#include "LayerViewModel.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Styling/SlateIconFinder.h"
 
 #define LOCTEXT_NAMESPACE "LayerStats"
+
+class AActor;
 
 class SLayerStats : public SCompoundWidget
 {

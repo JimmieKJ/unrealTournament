@@ -2,6 +2,9 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Matinee/InterpGroupInst.h"
 #include "InterpGroupInstDirector.generated.h"
 

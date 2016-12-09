@@ -6,6 +6,9 @@
 #define SWARMINTERFACE_API
 #endif
 
+#include "CoreMinimal.h"
+#include "HAL/PlatformTime.h"
+#include "LMThreading.h"
 #include "Editor/SwarmInterface/Public/SwarmDefines.h"
 #include "Editor/SwarmInterface/Public/SwarmInterface.h"
 

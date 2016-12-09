@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
 #include "AnimNodes/AnimNode_BlendSpacePlayer.h"
 #include "Animation/BlendSpaceBase.h"
 #include "Animation/AnimInstanceProxy.h"
@@ -37,7 +36,7 @@ float FAnimNode_BlendSpacePlayer::GetCurrentAssetLength()
 	{
 		if (BlendSpace != nullptr)
 		{
-			FBlendSample& Sample = BlendSpace->SampleData[HighestWeightedSample->SampleDataIndex];
+			const FBlendSample& Sample = BlendSpace->GetBlendSample(HighestWeightedSample->SampleDataIndex);
 			return Sample.Animation->SequenceLength;
 		}
 	}

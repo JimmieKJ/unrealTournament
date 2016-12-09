@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "GameFramework/Controller.h"
 #include "EnvironmentQuery/Contexts/EnvQueryContext_Querier.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Controller.h"
+#include "AISystem.h"
+#include "VisualLogger/VisualLogger.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_Actor.h"
 
 UEnvQueryContext_Querier::UEnvQueryContext_Querier(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)

@@ -62,7 +62,7 @@ namespace BuildGraph.Tasks
 		/// <returns>True if the task succeeded</returns>
 		public override bool Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
-			ProcessResult Result = CommandUtils.Run(Parameters.Exe, Parameters.Arguments);
+			IProcessResult Result = CommandUtils.Run(Parameters.Exe, Parameters.Arguments);
 			return Result.ExitCode >= 0 && Result.ExitCode < Parameters.ErrorLevel;
 		}
 

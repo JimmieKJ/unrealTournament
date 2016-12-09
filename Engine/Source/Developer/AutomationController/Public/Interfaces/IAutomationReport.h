@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+
+class IAutomationReport;
+template< typename ItemType > class TFilterCollection;
 
 /**
 * The automation filter collection - used for updating the automation report list
@@ -25,6 +30,37 @@ namespace EAutomationState
 		Success,				// Automation test was run and succeeded
 		NotEnoughParticipants,	// Automation test was not run due to number of participants
 	};
+	inline const TCHAR* ToString(EAutomationState::Type InType)
+	{
+		switch (InType)
+		{
+			case (EAutomationState::NotRun) :
+			{
+				return TEXT("NotRun");
+			}
+			case (EAutomationState::Fail) :
+			{
+				return TEXT("Fail");
+			}
+			case (EAutomationState::Success) :
+			{
+				return TEXT("Pass");
+			}
+			case (EAutomationState::InProcess) :
+			{
+				return TEXT("InProgress");
+			}
+			case (EAutomationState::NotEnoughParticipants) :
+			{
+				return TEXT("NotEnoughParticipants");
+			}
+			default:
+			{
+				return TEXT("Invalid");
+			}
+		}
+		return TEXT("Invalid");
+	}
 };
 
 
@@ -139,7 +175,7 @@ public:
 	virtual void Empty() = 0;
 
 	/**
-	 * Returns the complete command line for an automation test including any relevant parameters
+	 * Returns the complete command for an automation test including any relevant parameters.  This is the class name + the parameter.
 	 */
 	virtual FString GetCommand() const = 0;
 
@@ -151,6 +187,11 @@ public:
 	 * @return the name of this level in the hierarchy for use in UI.
 	 */
 	virtual const FString& GetDisplayName() const = 0;
+
+	/**
+	 * Returns the full path for the test, e.g. System.Audio.PlaySoundTest.
+	 */
+	virtual const FString& GetFullTestPath() const = 0;
 
 	/**
 	 * Returns the name of this level in the test hierarchy for the purposes of UI.

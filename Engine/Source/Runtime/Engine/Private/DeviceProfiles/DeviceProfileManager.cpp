@@ -1,14 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HAL/IConsoleManager.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/CommandLine.h"
+#include "UObject/Package.h"
+#include "SceneManagement.h"
+#include "SystemSettings.h"
 #include "DeviceProfiles/DeviceProfile.h"
-#include "TargetPlatform.h"
 #include "IDeviceProfileSelectorModule.h"
-#include "IConsoleManager.h"
 #if WITH_EDITOR
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
 #include "PlatformInfo.h"
 #endif
+
+static TAutoConsoleVariable<FString> CVarDeviceProfileOverride(
+	TEXT("dp.Override"),
+	TEXT(""),
+	TEXT("DeviceProfile override - setting this will use the named DP as the active DP. In addition, it will restore any\n")
+	TEXT(" previous overrides before setting (does a dp.OverridePop before setting after the first time).\n")
+	TEXT(" The commandline -dp option will override this on startup, but not when setting this at runtime\n"),
+	ECVF_Default);
+
 
 FString UDeviceProfileManager::DeviceProfileFileName;
 
@@ -26,8 +41,25 @@ UDeviceProfileManager& UDeviceProfileManager::Get()
 			DeviceProfileManagerSingleton->LoadProfiles();
 		}
 
-		UDeviceProfile* ActiveProfile = &DeviceProfileManagerSingleton->FindProfile(GetActiveProfileName());
+		// always start with an active profile, even if we create it on the spot
+		UDeviceProfile* ActiveProfile = DeviceProfileManagerSingleton->FindProfile(GetActiveProfileName());
 		DeviceProfileManagerSingleton->SetActiveDeviceProfile(ActiveProfile);
+
+		// now we allow the cvar changes to be acknowledged
+		CVarDeviceProfileOverride.AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate::CreateLambda([](IConsoleVariable* Variable)
+		{
+			UDeviceProfileManager::Get().HandleDeviceProfileOverrideChange();
+		}));
+
+		IConsoleManager::Get().RegisterConsoleCommand(
+			TEXT("dp.Override.Restore"),
+			TEXT("Restores any cvars set by dp.Override to their previous value"),
+			FConsoleCommandDelegate::CreateLambda([]()
+			{
+				UDeviceProfileManager::Get().HandleDeviceProfileOverridePop();
+			}),
+			ECVF_Default
+		);
 
 		InitializeSharedSamplerStates();
 	}
@@ -35,14 +67,11 @@ UDeviceProfileManager& UDeviceProfileManager::Get()
 }
 
 
-void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile()
+void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile(bool bPushSettings)
 {
-	// Find the device profile selector module used in this instance
-	FString DeviceProfileSelectionModule;
-	GConfig->GetString( TEXT("DeviceProfileManager"), TEXT("DeviceProfileSelectionModule"), DeviceProfileSelectionModule, GEngineIni );
+	FString ActiveProfileName = DeviceProfileManagerSingleton ? DeviceProfileManagerSingleton->ActiveDeviceProfile->GetName() : GetActiveProfileName();
 
-	FString SelectedPlatformDeviceProfileName = GetActiveProfileName();
-	UE_LOG(LogInit, Log, TEXT("Applying CVar settings loaded from the selected device profile: [%s]"), *SelectedPlatformDeviceProfileName);
+	UE_LOG(LogInit, Log, TEXT("Applying CVar settings loaded from the selected device profile: [%s]"), *ActiveProfileName);
 
 	// Load the device profile config
 	FConfigCacheIni::LoadGlobalIniFile(DeviceProfileFileName, TEXT("DeviceProfiles"));
@@ -56,9 +85,15 @@ void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile()
 	// Next we need to create a hierarchy of CVars from the Selected Device Profile, to it's eldest parent
 	TMap<FString, FString> CVarsAlreadySetList;
 	
+	// even if we aren't pushing new values, we should clear any old pushed values, as they are no longer valid after we run this loop
+	if (DeviceProfileManagerSingleton)
+	{
+		DeviceProfileManagerSingleton->PushedSettings.Empty();
+	}
+
 	// For each device profile, starting with the selected and working our way up the BaseProfileName tree,
 	// Find all CVars and set them 
-	FString BaseDeviceProfileName = SelectedPlatformDeviceProfileName;
+	FString BaseDeviceProfileName = ActiveProfileName;
 	bool bReachedEndOfTree = BaseDeviceProfileName.IsEmpty();
 	while( bReachedEndOfTree == false ) 
 	{
@@ -97,7 +132,7 @@ void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile()
 				}
 
 			}
-
+		
 			// Iterate over this profiles cvars and set them if they haven't been already.
 			for( TArray< FString >::TConstIterator CVarIt(CurrentProfilesCVars); CVarIt; ++CVarIt )
 			{
@@ -106,16 +141,29 @@ void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile()
 				{
 					if( !CVarsAlreadySetList.Find( CVarKey ) )
 					{
-						OnSetCVarFromIniEntry(*DeviceProfileFileName, *CVarKey, *CVarValue, ECVF_SetByDeviceProfile);
 						IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(*CVarKey);
-						if( CVar )
+						if (CVar)
 						{
-							UE_LOG(LogInit, Log, TEXT("Setting Device Profile CVar: [[%s:%s]]"), *CVarKey, *CVarValue);
+							if (DeviceProfileManagerSingleton && bPushSettings)
+							{
+								// remember the previous value
+								FString OldValue = CVar->GetString();
+								DeviceProfileManagerSingleton->PushedSettings.Add(CVarKey, OldValue);
+
+								// indicate we are pushing, not setting
+								UE_LOG(LogInit, Log, TEXT("Pushing Device Profile CVar: [[%s:%s -> %s]]"), *CVarKey, *OldValue, *CVarValue);
+							}
+							else
+							{
+								UE_LOG(LogInit, Log, TEXT("Setting Device Profile CVar: [[%s:%s]]"), *CVarKey, *CVarValue);
+							}
 						}
 						else
 						{
 							UE_LOG(LogInit, Warning, TEXT("Creating unregistered Device Profile CVar: [[%s:%s]]"), *CVarKey, *CVarValue);
 						}
+
+						OnSetCVarFromIniEntry(*DeviceProfileFileName, *CVarKey, *CVarValue, ECVF_SetByDeviceProfile);
 						CVarsAlreadySetList.Add(CVarKey, CVarValue);
 					}
 				}
@@ -139,7 +187,7 @@ void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile()
 }
 
 
-UDeviceProfile& UDeviceProfileManager::CreateProfile( const FString& ProfileName, const FString& ProfileType, const FString& InSpecifyParentName )
+UDeviceProfile* UDeviceProfileManager::CreateProfile( const FString& ProfileName, const FString& ProfileType, const FString& InSpecifyParentName )
 {
 	UDeviceProfile* DeviceProfile = FindObject<UDeviceProfile>( GetTransientPackage(), *ProfileName );
 	if( DeviceProfile == NULL )
@@ -159,7 +207,7 @@ UDeviceProfile& UDeviceProfileManager::CreateProfile( const FString& ProfileName
 			ParentObject = FindObject<UDeviceProfile>(GetTransientPackage(), *ParentName);
 			if (ParentObject == nullptr)
 			{
-				ParentObject = &CreateProfile(ParentName, ProfileType);
+				ParentObject = CreateProfile(ParentName, ProfileType);
 			}
 		}
 
@@ -168,6 +216,8 @@ UDeviceProfile& UDeviceProfileManager::CreateProfile( const FString& ProfileName
 		DeviceProfile->DeviceType = DeviceProfile->DeviceType.Len() > 0 ? DeviceProfile->DeviceType : ProfileType;
 		DeviceProfile->BaseProfileName = DeviceProfile->BaseProfileName.Len() > 0 ? DeviceProfile->BaseProfileName : ParentName;
 		DeviceProfile->Parent = ParentObject;
+		// the DP manager can be marked as Disregard for GC, so what it points to needs to be in the Root set
+		DeviceProfile->AddToRoot();
 
 		// Add the new profile to the accessible device profile list
 		Profiles.Add( DeviceProfile );
@@ -176,7 +226,7 @@ UDeviceProfile& UDeviceProfileManager::CreateProfile( const FString& ProfileName
 		ManagerUpdatedDelegate.Broadcast(); 
 	}
 
-	return *DeviceProfile;
+	return DeviceProfile;
 }
 
 
@@ -186,7 +236,7 @@ void UDeviceProfileManager::DeleteProfile( UDeviceProfile* Profile )
 }
 
 
-UDeviceProfile& UDeviceProfileManager::FindProfile( const FString& ProfileName )
+UDeviceProfile* UDeviceProfileManager::FindProfile( const FString& ProfileName )
 {
 	UDeviceProfile* FoundProfile = nullptr;
 
@@ -200,9 +250,8 @@ UDeviceProfile& UDeviceProfileManager::FindProfile( const FString& ProfileName )
 		}
 	}
 
-	return FoundProfile != nullptr ? *FoundProfile : CreateProfile(ProfileName, FPlatformProperties::PlatformName());
+	return FoundProfile != nullptr ? FoundProfile : CreateProfile(ProfileName, FPlatformProperties::PlatformName());
 }
-
 
 const FString UDeviceProfileManager::GetDeviceProfileIniName() const
 {
@@ -244,11 +293,10 @@ void UDeviceProfileManager::LoadProfiles()
 			for (int32 PlatformIndex = 0; PlatformIndex < TargetPlatforms.Num(); ++PlatformIndex)
 			{
 				ITargetPlatform* Platform = TargetPlatforms[PlatformIndex];
-				if (const UTextureLODSettings* TextureLODSettingsObj = (UTextureLODSettings*)&FindProfile(*Platform->GetPlatformInfo().VanillaPlatformName.ToString()))
-				{
-					// Set TextureLODSettings
-					Platform->RegisterTextureLODSettings(TextureLODSettingsObj);
-				}
+
+				// Set TextureLODSettings
+				const UTextureLODSettings* TextureLODSettingsObj = FindProfile(*Platform->GetPlatformInfo().VanillaPlatformName.ToString());
+				Platform->RegisterTextureLODSettings(TextureLODSettingsObj);
 			}
 		}
 #endif
@@ -291,10 +339,57 @@ void UDeviceProfileManager::SaveProfiles(bool bSaveToDefaults)
 	}
 }
 
+void UDeviceProfileManager::HandleDeviceProfileOverrideChange()
+{
+	FString CVarValue = CVarDeviceProfileOverride.GetValueOnGameThread();
+	// only handle when the value is different
+	if (CVarValue.Len() > 0 && CVarValue != GetActiveProfile()->GetName())
+	{
+		// find the profile (note that if the name is bad, this will create one with that name)
+		UDeviceProfile* NewActiveProfile = FindProfile(CVarValue);
+
+		// pop any pushed settings
+		HandleDeviceProfileOverridePop();
+
+		// activate new one!
+		DeviceProfileManagerSingleton->SetActiveDeviceProfile(NewActiveProfile);
+		InitializeCVarsForActiveDeviceProfile(true);
+	}
+}
+
+void UDeviceProfileManager::HandleDeviceProfileOverridePop()
+{
+	// restore pushed settings
+	for (TMap<FString, FString>::TIterator It(PushedSettings); It; ++It)
+	{
+		IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(*It.Key());
+		if (CVar)
+		{
+			// restore it!
+			CVar->Set(*It.Value(), ECVF_SetByDeviceProfile);
+			UE_LOG(LogInit, Log, TEXT("Popping Device Profile CVar: [[%s:%s]]"), *It.Key(), *It.Value());
+		}
+	}
+}
 
 const FString UDeviceProfileManager::GetActiveProfileName()
 {
 	FString ActiveProfileName = FPlatformProperties::PlatformName();
+
+	// look for a commandline override (never even calls into the selector plugin)
+	FString OverrideProfileName;
+	if (FParse::Value(FCommandLine::Get(), TEXT("DeviceProfile="), OverrideProfileName) || FParse::Value(FCommandLine::Get(), TEXT("DP="), OverrideProfileName))
+	{
+		return OverrideProfileName;
+	}
+
+	// look for cvar override
+	OverrideProfileName = CVarDeviceProfileOverride.GetValueOnGameThread();
+	if (OverrideProfileName.Len() > 0)
+	{
+		return OverrideProfileName;
+	}
+
 
 	FString DeviceProfileSelectionModule;
 	if (GConfig->GetString(TEXT("DeviceProfileManager"), TEXT("DeviceProfileSelectionModule"), DeviceProfileSelectionModule, GEngineIni))

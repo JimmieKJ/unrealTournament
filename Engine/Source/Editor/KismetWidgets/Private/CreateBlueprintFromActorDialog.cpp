@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "KismetWidgetsPrivatePCH.h"
 #include "CreateBlueprintFromActorDialog.h"
-#include "SCreateAssetFromObject.h"
-#include "UnrealEd.h"
-#include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "GameFramework/Actor.h"
+#include "Misc/PackageName.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Docking/TabManager.h"
+#include "Editor/EditorEngine.h"
 #include "Engine/Selection.h"
+#include "Editor.h"
+#include "SCreateAssetFromObject.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "CreateBlueprintFromActorDialog"
 

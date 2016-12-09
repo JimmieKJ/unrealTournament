@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Types/SlateEnums.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class IPropertyHandle;
 
 class FTextureDetails : public IDetailCustomization
 {

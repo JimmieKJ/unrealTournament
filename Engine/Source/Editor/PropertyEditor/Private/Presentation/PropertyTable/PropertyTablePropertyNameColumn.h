@@ -1,14 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IPropertyTableUtilities.h"
+#include "CoreMinimal.h"
+#include "PropertyPath.h"
 #include "IPropertyTableColumn.h"
 #include "IPropertyTable.h"
-#include "IPropertyTableCell.h"
 #include "IPropertyTableRow.h"
-#include "PropertyTablePropertyNameCell.h"
-#include "DataSource.h"
-#include "PropertyPath.h"
+#include "Presentation/PropertyTable/PropertyTableColumn.h"
 
 #define LOCTEXT_NAMESPACE "PropertyNameColumnHeader"
 

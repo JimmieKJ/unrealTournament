@@ -2,6 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "HAL/Runnable.h"
+#include "Containers/Queue.h"
+#include "IMessageAttachment.h"
+#include "IMessageTransport.h"
+#include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "Common/UdpSocketReceiver.h"
+#include "Shared/UdpMessageSegment.h"
+#include "Transport/UdpMessageResequencer.h"
+#include "Transport/UdpSerializedMessage.h"
+
+class FUdpMessageBeacon;
+class FUdpMessageSegmenter;
+class FUdpSocketSender;
 
 /**
  * Implements a message processor for UDP messages.
@@ -22,7 +37,7 @@ class FUdpMessageProcessor
 		FGuid NodeId;
 
 		/** Holds the collection of reassembled messages. */
-		TMap<int32, FUdpReassembledMessagePtr> ReassembledMessages;
+		TMap<int32, TSharedPtr<FReassembledUdpMessage, ESPMode::ThreadSafe>> ReassembledMessages;
 
 		/** Holds the message resequencer. */
 		FUdpMessageResequencer Resequencer;
@@ -70,11 +85,11 @@ class FUdpMessageProcessor
 	};
 
 
-	// Structure for outbound messages.
+	/** Structure for outbound messages. */
 	struct FOutboundMessage
 	{
 		/** Holds the serialized message. */
-		FUdpSerializedMessagePtr SerializedMessage;
+		TSharedPtr<FUdpSerializedMessage, ESPMode::ThreadSafe> SerializedMessage;
 
 		/** Holds the recipient. */
 		FGuid RecipientId;
@@ -83,7 +98,7 @@ class FUdpMessageProcessor
 		FOutboundMessage() { }
 
 		/** Creates and initializes a new instance. */
-		FOutboundMessage(const FUdpSerializedMessageRef& InSerializedMessage, const FGuid& InRecipientId)
+		FOutboundMessage(const TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe>& InSerializedMessage, const FGuid& InRecipientId)
 			: SerializedMessage(InSerializedMessage)
 			, RecipientId(InRecipientId)
 		{ }
@@ -121,16 +136,19 @@ public:
 	 * @param Recipient The recipient's IPv4 endpoint.
 	 * @return true if the message was queued up, false otherwise.
 	 */
-	bool EnqueueOutboundMessage(const FUdpSerializedMessageRef& SerializedMessage, const FGuid& Recipient);
+	bool EnqueueOutboundMessage(const TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe>& SerializedMessage, const FGuid& Recipient);
 
 public:
+
+	// @todo gmp: remove the need for this typedef
+	typedef TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe> IMessageAttachmentPtr;
 
 	/**
 	 * Returns a delegate that is executed when message data has been received.
 	 *
 	 * @return The delegate.
 	 */
-	DECLARE_DELEGATE_ThreeParams(FOnMessageReassembled, const FUdpReassembledMessageRef& /*ReassembledMessage*/, const IMessageAttachmentPtr& /*Attachment*/, const FGuid& /*NodeId*/)
+	DECLARE_DELEGATE_ThreeParams(FOnMessageReassembled, const FReassembledUdpMessage& /*ReassembledMessage*/, const IMessageAttachmentPtr& /*Attachment*/, const FGuid& /*NodeId*/)
 	FOnMessageReassembled& OnMessageReassembled()
 	{
 		return MessageReassembledDelegate;
@@ -160,7 +178,7 @@ public:
 	
 public:
 
-	// FRunnable interface
+	//~ FRunnable interface
 
 	virtual bool Init() override;
 	virtual uint32 Run() override;

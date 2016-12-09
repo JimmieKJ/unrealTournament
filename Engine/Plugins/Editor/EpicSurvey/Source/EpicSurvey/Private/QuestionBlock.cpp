@@ -1,12 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EpicSurveyPrivatePCH.h"
 #include "QuestionBlock.h"
-#include "Survey.h"
-#include "EpicSurvey.h"
+#include "Serialization/JsonTypes.h"
+#include "Dom/JsonObject.h"
 #include "EngineAnalytics.h"
 #include "AnalyticsEventAttribute.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 
 #define LOCTEXT_NAMESPACE "EpicSurvey"
 

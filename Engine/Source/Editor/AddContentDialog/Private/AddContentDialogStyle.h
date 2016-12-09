@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Styling/SlateStyle.h"
 
 /** Manages the style which provides resources for the add content dialog. */
 class FAddContentDialogStyle

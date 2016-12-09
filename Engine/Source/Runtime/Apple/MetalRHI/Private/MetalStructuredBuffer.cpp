@@ -4,6 +4,7 @@
 #include "MetalRHIPrivate.h"
 #include "MetalProfiler.h"
 #include "MetalCommandBuffer.h"
+#include "Containers/ResourceArray.h"
 
 FMetalStructuredBuffer::FMetalStructuredBuffer(uint32 Stride, uint32 Size, FResourceArrayInterface* ResourceArray, uint32 Usage)
 	: FRHIStructuredBuffer(Stride, Size, Usage)
@@ -63,6 +64,7 @@ void* FMetalStructuredBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, ui
 		// Synchronise the buffer with the CPU
 		id<MTLBlitCommandEncoder> Blitter = GetMetalDeviceContext().GetBlitContext();
 		METAL_DEBUG_COMMAND_BUFFER_BLIT_LOG((&GetMetalDeviceContext()), @"SynchronizeResource(StructuredBuffer %p)", this);
+		METAL_DEBUG_COMMAND_BUFFER_TRACK_RES(GetMetalDeviceContext().GetCurrentCommandBuffer(), Buffer);
 		[Blitter synchronizeResource:Buffer];
 		
 		//kick the current command buffer.

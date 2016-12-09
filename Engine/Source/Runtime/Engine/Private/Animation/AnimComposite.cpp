@@ -4,11 +4,7 @@
 	AnimComposite.cpp: Composite classes that contains sequence for each section
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
 #include "Animation/AnimComposite.h"
-#include "AnimationUtils.h"
-#include "AnimationRuntime.h"
-#include "AnimNotifyQueue.h"
 
 UAnimComposite::UAnimComposite(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -17,9 +13,9 @@ UAnimComposite::UAnimComposite(const FObjectInitializer& ObjectInitializer)
 }
 
 #if WITH_EDITOR
-bool UAnimComposite::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets)
+bool UAnimComposite::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets, bool bRecursive /*= true*/) 
 {
-	return AnimationTrack.GetAllAnimationSequencesReferred(AnimationAssets);
+	return AnimationTrack.GetAllAnimationSequencesReferred(AnimationAssets, bRecursive);
 }
 
 void UAnimComposite::ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap)

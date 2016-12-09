@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Curves/CurveOwnerInterface.h"
 #include "CurveEditorSettings.h"
+
+class FSequencerNodeTree;
+class UMovieSceneSection;
 
 /** A curve owner interface for displaying animation curves in sequencer. */
 class FSequencerCurveOwner : public FCurveOwnerInterface

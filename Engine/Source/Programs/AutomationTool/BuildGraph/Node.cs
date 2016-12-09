@@ -147,39 +147,38 @@ namespace AutomationTool
 		/// <returns>Whether the task succeeded or not. Exiting with an exception will be caught and treated as a failure.</returns>
 		public bool Build(JobContext Job, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
-			// Allow tasks to merge together
-			MergeTasks();
-
-			// Build everything
+			// Run each of the tasks in order
 			HashSet<FileReference> BuildProducts = TagNameToFileSet[DefaultOutput.TagName];
-			foreach(CustomTask Task in Tasks)
+			for(int Idx = 0; Idx < Tasks.Count; Idx++)
 			{
-				if(!Task.Execute(Job, BuildProducts, TagNameToFileSet))
+				ITaskExecutor Executor = Tasks[Idx].GetExecutor();
+				if(Executor == null)
 				{
-					CommandUtils.Log("Failed to execute task.");
-					return false;
+					// Execute this task directly
+					if(!Tasks[Idx].Execute(Job, BuildProducts, TagNameToFileSet))
+					{
+						CommandUtils.Log("Failed to execute task.");
+						return false;
+					}
+				}
+				else
+				{
+					// The task has a custom executor, which may be able to execute several tasks simultaneously. Try to add the following tasks.
+					while(Idx + 1 < Tasks.Count && Executor.Add(Tasks[Idx + 1]))
+					{
+						Idx++;
+					}
+					if(!Executor.Execute(Job, BuildProducts, TagNameToFileSet))
+					{
+						CommandUtils.Log("Failed to execute task.");
+						return false;
+					}
 				}
 			}
 
 			// Remove anything that doesn't exist, since these files weren't explicitly tagged
 			BuildProducts.RemoveWhere(x => !x.Exists());
 			return true;
-		}
-
-		/// <summary>
-		/// Merge tasks which can be combined together
-		/// </summary>
-		void MergeTasks()
-		{
-			List<CustomTask> MergedTasks = new List<CustomTask>();
-			while(Tasks.Count > 0)
-			{
-				CustomTask NextTask = Tasks[0];
-				Tasks.RemoveAt(0);
-				NextTask.Merge(Tasks);
-				MergedTasks.Add(NextTask);
-			}
-			Tasks = MergedTasks;
 		}
 
 		/// <summary>

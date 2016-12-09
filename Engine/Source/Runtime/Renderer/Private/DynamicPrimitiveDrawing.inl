@@ -6,10 +6,32 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "CoreFwd.h"
+
+class FBatchedElements;
+class FDynamicPrimitiveResource;
+class FHitProxyConsumer;
+class FHitProxyId;
+class FParallelCommandListSet;
+class FPrimitiveDrawInterface;
+class FRenderTask;
+class FRHICommandList;
+class FTexture;
+class FViewElementPDI;
+class FViewInfo;
+class HHitProxy;
+struct FMath;
+struct FMeshBatch;
+struct FMeshBatchElement;
+struct TStatId;
+template<typename TTask> class TGraphTask;
+
 template<class DrawingPolicyFactoryType>
 void DrawViewElementsInner(
 	FRHICommandList& RHICmdList,
 	const FViewInfo& View,
+	const FDrawingPolicyRenderState& DrawRenderState,
 	const typename DrawingPolicyFactoryType::ContextType& DrawingContext,
 	uint8 DPGIndex,
 	bool bPreFog,
@@ -31,13 +53,16 @@ void DrawViewElementsInner(
 		int32 bBackFace = bIsTwoSided ? 1 : 0;
 		do
 		{
+			FDrawingPolicyRenderState DrawRenderStateLocal(&RHICmdList, DrawRenderState);
+			DrawRenderStateLocal.ModifyViewOverrideFlags() ^= (bBackFace != 0) ? EDrawingPolicyOverrideFlags::ReverseCullMode : EDrawingPolicyOverrideFlags::None;
+
 			DrawingPolicyFactoryType::DrawDynamicMesh(
 				RHICmdList, 
 				View,
 				DrawingContext,
 				Mesh,
-				!!bBackFace,
 				bPreFog,
+				DrawRenderStateLocal,
 				NULL,
 				Mesh.BatchHitProxyId
 				);
@@ -51,6 +76,7 @@ class FDrawViewElementsAnyThreadTask : public FRenderTask
 {
 	FRHICommandList& RHICmdList;
 	const FViewInfo& View;
+	FDrawingPolicyRenderState DrawRenderState;
 	const typename DrawingPolicyFactoryType::ContextType& DrawingContext;
 	uint8 DPGIndex;
 	bool bPreFog;
@@ -64,6 +90,7 @@ public:
 	FDrawViewElementsAnyThreadTask(
 		FRHICommandList& InRHICmdList,
 		const FViewInfo& InView,
+		const FDrawingPolicyRenderState& InDrawRenderState,
 		const typename DrawingPolicyFactoryType::ContextType& InDrawingContext,
 		uint8 InDPGIndex,
 		bool InbPreFog,
@@ -72,6 +99,7 @@ public:
 		)
 		: RHICmdList(InRHICmdList)
 		, View(InView)
+		, DrawRenderState(nullptr, InDrawRenderState)
 		, DrawingContext(InDrawingContext)
 		, DPGIndex(InDPGIndex)
 		, bPreFog(InbPreFog)
@@ -89,7 +117,7 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
-		DrawViewElementsInner<DrawingPolicyFactoryType>(RHICmdList, View, DrawingContext, DPGIndex, bPreFog, FirstIndex, LastIndex);
+		DrawViewElementsInner<DrawingPolicyFactoryType>(RHICmdList, View, DrawRenderState, DrawingContext, DPGIndex, bPreFog, FirstIndex, LastIndex);
 		RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
 	}
 };
@@ -126,7 +154,7 @@ void DrawViewElementsParallel(
 					FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
 
 					FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FDrawViewElementsAnyThreadTask<DrawingPolicyFactoryType> >::CreateTask(ParallelCommandListSet.GetPrereqs(), ENamedThreads::RenderThread)
-						.ConstructAndDispatchWhenReady(*CmdList, ParallelCommandListSet.View, DrawingContext, DPGIndex, bPreFog, Start, Last);
+						.ConstructAndDispatchWhenReady(*CmdList, ParallelCommandListSet.View, ParallelCommandListSet.DrawRenderState, DrawingContext, DPGIndex, bPreFog, Start, Last);
 
 					ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent, Last - Start + 1);
 				}
@@ -140,6 +168,7 @@ template<class DrawingPolicyFactoryType>
 bool DrawViewElements(
 	FRHICommandList& RHICmdList,
 	const FViewInfo& View,
+	const FDrawingPolicyRenderState& DrawRenderState,
 	const typename DrawingPolicyFactoryType::ContextType& DrawingContext,
 	uint8 DPGIndex,
 	bool bPreFog
@@ -149,7 +178,7 @@ bool DrawViewElements(
 	const TIndirectArray<FMeshBatch>& ViewMeshElementList = (DPGIndex == SDPG_Foreground ? View.TopViewMeshElements : View.ViewMeshElements);
 	if (ViewMeshElementList.Num() != 0)
 	{
-		DrawViewElementsInner<DrawingPolicyFactoryType>(RHICmdList, View, DrawingContext, DPGIndex, bPreFog, 0, ViewMeshElementList.Num() - 1);
+		DrawViewElementsInner<DrawingPolicyFactoryType>(RHICmdList, View, DrawRenderState, DrawingContext, DPGIndex, bPreFog, 0, ViewMeshElementList.Num() - 1);
 		return true;
 	}
 	return false;
@@ -179,7 +208,20 @@ inline void FViewElementPDI::SetHitProxy(HHitProxy* HitProxy)
 
 inline void FViewElementPDI::RegisterDynamicResource(FDynamicPrimitiveResource* DynamicResource)
 {
-	ViewInfo->DynamicResources.Add(DynamicResource);
+	if (IsInGameThread())
+	{
+		// Render thread might be reading the array while we are adding in the game thread
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(AddViewInfoDynamicResource,
+			FViewInfo*, InViewInfo, ViewInfo,
+			FDynamicPrimitiveResource*, InDynamicResource, DynamicResource,
+			{
+				InViewInfo->DynamicResources.Add(InDynamicResource);
+			});
+	}
+	else
+	{
+		ViewInfo->DynamicResources.Add(DynamicResource);
+	}
 }
 
 inline FBatchedElements& FViewElementPDI::GetElements(uint8 DepthPriorityGroup) const
@@ -254,10 +296,10 @@ inline void FViewElementPDI::DrawPoint(
 {
 	float ScaledPointSize = PointSize;
 
-	bool bIsPerspective = (ViewInfo->ViewMatrices.ProjMatrix.M[3][3] < 1.0f) ? true : false;
+	bool bIsPerspective = (ViewInfo->ViewMatrices.GetProjectionMatrix().M[3][3] < 1.0f) ? true : false;
 	if( !bIsPerspective )
 	{
-		const float ZoomFactor = FMath::Min<float>(View->ViewMatrices.ProjMatrix.M[0][0], View->ViewMatrices.ProjMatrix.M[1][1]);
+		const float ZoomFactor = FMath::Min<float>(View->ViewMatrices.GetProjectionMatrix().M[0][0], View->ViewMatrices.GetProjectionMatrix().M[1][1]);
 		ScaledPointSize = ScaledPointSize / ZoomFactor;
 	}
 

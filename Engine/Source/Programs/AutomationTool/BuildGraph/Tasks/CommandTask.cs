@@ -10,6 +10,14 @@ using System.IO;
 
 namespace BuildGraph.Tasks
 {
+	static class StringExtensions
+	{
+		public static bool CaseInsensitiveContains(this string Text, string Value)
+		{
+			return System.Globalization.CultureInfo.InvariantCulture.CompareInfo.IndexOf(Text, Value, System.Globalization.CompareOptions.IgnoreCase) >= 0;
+		}
+	}
+
 	/// <summary>
 	/// Parameters for a task which calls another UAT command
 	/// </summary>
@@ -72,20 +80,29 @@ namespace BuildGraph.Tasks
 			}
 
 			// Run the command
-			string CommandLine = Parameters.Name;
+			StringBuilder CommandLine = new StringBuilder();
+			if (Parameters.Arguments == null || (!Parameters.Arguments.CaseInsensitiveContains("-p4") && !Parameters.Arguments.CaseInsensitiveContains("-nop4")))
+			{
+				CommandLine.AppendFormat("{0} ", CommandUtils.P4Enabled ? "-p4" : "-nop4");
+			}
+			if (Parameters.Arguments == null || (!Parameters.Arguments.CaseInsensitiveContains("-submit") && !Parameters.Arguments.CaseInsensitiveContains("-nosubmit")))
+			{
+				CommandLine.AppendFormat("{0} ", CommandUtils.AllowSubmit ? "-submit" : "-nosubmit");
+			}
+			CommandLine.Append(Parameters.Name);
 			if (!String.IsNullOrEmpty(Parameters.Arguments))
 			{
-				CommandLine += String.Format(" {0}", Parameters.Arguments);
+				CommandLine.AppendFormat(" {0}", Parameters.Arguments);
 			}
-			if(TelemetryFile != null)
+			if (TelemetryFile != null)
 			{
-				CommandLine += String.Format(" -Telemetry={0}", CommandUtils.MakePathSafeToUseWithCommandLine(TelemetryFile.FullName));
+				CommandLine.AppendFormat(" -Telemetry={0}", CommandUtils.MakePathSafeToUseWithCommandLine(TelemetryFile.FullName));
 			}
 			try
 			{
-				CommandUtils.RunUAT(CommandUtils.CmdEnv, CommandLine);
+				CommandUtils.RunUAT(CommandUtils.CmdEnv, CommandLine.ToString());
 			}
-			catch(CommandUtils.CommandFailedException)
+			catch (CommandUtils.CommandFailedException)
 			{
 				return false;
 			}

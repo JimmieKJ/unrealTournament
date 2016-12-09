@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "RenderResource.h"
 
 /** The number of sprites to support per-instanced draw. */

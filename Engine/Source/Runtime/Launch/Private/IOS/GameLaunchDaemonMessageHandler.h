@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "Messaging.h"
-#include "LaunchDaemonMessages.h"
+#include "IMessageContext.h"
+#include "Helpers/MessageEndpoint.h"
+#include "IOSMessageProtocol.h"
 
 class FGameLaunchDaemonMessageHandler
 {

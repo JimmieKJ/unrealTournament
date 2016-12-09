@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
-#include "AssetTypeActions_NiagaraEffect.h"
+#include "AssetTypeActions/AssetTypeActions_NiagaraEffect.h"
 #include "NiagaraEffect.h"
+#include "NiagaraEffectEditor.h"
 
 
 void FAssetTypeActions_NiagaraEffect::OpenAssetEditor(const TArray<UObject*>& InObjects, TSharedPtr<IToolkitHost> EditWithinLevelEditor)

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/PlatformTime.h"
+
 struct FInGameCycleHistory
 {
 	FInGameCycleHistory(int32 InNumSamples)

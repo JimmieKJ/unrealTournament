@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "PaperImporterSettings.h"
 #include "PaperSpriteFactory.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Engine/Texture2D.h"
+#include "AssetData.h"
+#include "SpriteEditorOnlyTypes.h"
+#include "PaperImporterSettings.h"
 #include "PaperSprite.h"
 #include "AssetRegistryModule.h"
 #include "PackageTools.h"

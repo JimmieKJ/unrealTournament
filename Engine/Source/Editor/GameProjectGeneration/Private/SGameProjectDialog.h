@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Animation/CurveSequence.h"
+#include "Widgets/SCompoundWidget.h"
+
+class SButton;
+class SNewProjectWizard;
+class SProjectBrowser;
+struct FSlateBrush;
+
 /**
  * A dialog to create a new project or open an existing one
  */

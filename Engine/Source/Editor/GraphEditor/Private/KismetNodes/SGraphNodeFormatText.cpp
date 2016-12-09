@@ -1,13 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeK2Base.h"
-#include "SGraphNodeFormatText.h"
-#include "KismetPins/SGraphPinExec.h"
+#include "KismetNodes/SGraphNodeFormatText.h"
+#include "Widgets/SBoxPanel.h"
+#include "GraphEditorSettings.h"
+#include "K2Node_FormatText.h"
 #include "NodeFactory.h"
 
-#include "ScopedTransaction.h"
-#include "BlueprintEditorUtils.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SGraphNodeFormatText

@@ -6,7 +6,8 @@
 
 #pragma once
 
-#include "PostProcess/RenderingCompositionGraph.h"
+#include "CoreMinimal.h"
+#include "SceneRendering.h"
 
 /**
  * The center for all screen space processing activities (e.g. G-buffer manipulation, lighting).

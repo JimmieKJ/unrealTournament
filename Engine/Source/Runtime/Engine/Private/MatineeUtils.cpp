@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "MatineeUtils.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/LinkerLoad.h"
 #include "AnimationUtils.h"
 
 /////////////////////////////////////////////////////

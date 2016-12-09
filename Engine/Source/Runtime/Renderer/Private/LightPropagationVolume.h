@@ -11,10 +11,20 @@
 //-----------------------------------------------------------------------------
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/RefCounting.h"
+#include "ShaderParameters.h"
 #include "UniformBuffer.h"
+#include "RendererInterface.h"
 
 #define LPV_MULTIPLE_BOUNCES  1
 #define LPV_GV_SH_ORDER		  1
+
+class FLightSceneProxy;
+class FProjectedShadowInfo;
+class FSceneView;
+class FViewInfo;
+struct FRsmInfo;
 
 static const int32 NUM_GV_TEXTURES = LPV_GV_SH_ORDER + 1;
 

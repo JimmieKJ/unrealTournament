@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "VisualLogger.h"
+
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Input/Reply.h"
+#include "Widgets/Input/SCheckBox.h"
 
 /** A class for check boxes in the filter list. If you double click a filter check box, you will enable it and disable all others */
 class SFilterCheckBox : public SCheckBox

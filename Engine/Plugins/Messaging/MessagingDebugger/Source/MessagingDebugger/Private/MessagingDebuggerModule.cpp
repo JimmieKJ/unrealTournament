@@ -1,16 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessagingDebuggerPrivatePCH.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
-#include "SDockTab.h"
+#include "CoreMinimal.h"
+#include "Features/IModularFeature.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "IMessagingModule.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Textures/SlateIcon.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/Docking/TabManager.h"
+#include "Models/MessagingDebuggerCommands.h"
+#include "Styles/MessagingDebuggerStyle.h"
+#include "Widgets/SMessagingDebugger.h"
+#include "Features/IModularFeatures.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #if WITH_EDITOR
+	#include "WorkspaceMenuStructure.h"
 	#include "WorkspaceMenuStructureModule.h"
 #endif
 
 
 #define LOCTEXT_NAMESPACE "FMessagingDebuggerModule"
-
 
 static const FName MessagingDebuggerTabName("MessagingDebugger");
 
@@ -24,7 +35,7 @@ class FMessagingDebuggerModule
 {
 public:
 
-	// IModuleInterface interface
+	//~ IModuleInterface interface
 	
 	virtual void StartupModule() override
 	{
@@ -53,7 +64,7 @@ public:
 private:
 
 	/**
-	 * Creates a new messaging debugger tab.
+	 * Create a new messaging debugger tab.
 	 *
 	 * @param SpawnTabArgs The arguments for the tab to spawn.
 	 * @return The spawned tab.
@@ -64,7 +75,7 @@ private:
 			.TabRole(ETabRole::MajorTab);
 
 		TSharedPtr<SWidget> TabContent;
-		IMessageBusPtr MessageBus = IMessagingModule::Get().GetDefaultBus();
+		TSharedPtr<IMessageBus, ESPMode::ThreadSafe> MessageBus = IMessagingModule::Get().GetDefaultBus();
 
 		if (MessageBus.IsValid())
 		{
@@ -83,7 +94,7 @@ private:
 
 private:
 
-	/** Holds the plug-ins style set. */
+	/** The plug-ins style set. */
 	TSharedPtr<ISlateStyle> Style;
 };
 

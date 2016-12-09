@@ -2,7 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "ActorFactories/ActorFactoryStaticMesh.h"
 #include "ActorFactoryBasicShape.generated.h"
+
+class AActor;
+class FAssetData;
 
 UCLASS(MinimalAPI,config=Editor)
 class UActorFactoryBasicShape : public UActorFactoryStaticMesh

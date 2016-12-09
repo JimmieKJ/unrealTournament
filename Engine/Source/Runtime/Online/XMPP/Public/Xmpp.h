@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
 // Module includes
 #include "XmppConnection.h"
 #include "XmppMessages.h"

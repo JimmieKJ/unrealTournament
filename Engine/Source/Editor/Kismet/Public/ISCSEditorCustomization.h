@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "EditorViewportClient.h"
+
 /**
  * Customization class that allows per-component type handling of various SCS editor functionality.
  */

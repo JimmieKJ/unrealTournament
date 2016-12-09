@@ -2,7 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Types/SlateStructs.h"
+#include "Widgets/SCompoundWidget.h"
 #include "IExternalImagePickerModule.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "Widgets/Notifications/SErrorText.h"
 
 /**
  * Widget for displaying and editing an external image reference (e.g., splash screen, platform icons, etc...)

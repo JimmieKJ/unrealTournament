@@ -2,11 +2,14 @@
 
 #pragma once
 
-#include "Perception/AIPerceptionSystem.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GenericTeamAgentInterface.h"
 #include "Perception/AISense.h"
 #include "AISense_Hearing.generated.h"
 
 class UAISenseConfig_Hearing;
+class UAISenseEvent;
 
 USTRUCT()
 struct AIMODULE_API FAINoiseEvent

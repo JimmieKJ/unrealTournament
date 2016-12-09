@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LandscapePrivatePCH.h"
-#include "Landscape.h"
-#include "MaterialCompiler.h"
 #include "Materials/MaterialExpressionLandscapeLayerSample.h"
 #include "Engine/Engine.h"
 #include "EngineGlobals.h"
+#include "MaterialCompiler.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -29,7 +27,10 @@ UMaterialExpressionLandscapeLayerSample::UMaterialExpressionLandscapeLayerSample
 	static FConstructorStatics ConstructorStatics;
 
 	bIsParameterExpression = true;
+
+#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Landscape);
+#endif
 }
 
 
@@ -39,7 +40,7 @@ FGuid& UMaterialExpressionLandscapeLayerSample::GetParameterExpressionId()
 }
 
 #if WITH_EDITOR
-int32 UMaterialExpressionLandscapeLayerSample::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
+int32 UMaterialExpressionLandscapeLayerSample::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
 {
 	const int32 WeightCode = Compiler->StaticTerrainLayerWeight(ParameterName, Compiler->Constant(PreviewWeight));
 	if (WeightCode == INDEX_NONE)

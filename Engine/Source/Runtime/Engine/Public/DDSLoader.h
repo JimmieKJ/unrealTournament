@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/Texture.h"
+
+class UTexture2D;
+
 enum EDDSFlags
 {
 	DDSF_Caps			= 0x00000001,

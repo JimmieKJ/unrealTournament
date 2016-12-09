@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HitProxies.h"
+
 struct HMovieSceneKeyProxy : public HHitProxy
 {
 	DECLARE_HIT_PROXY( MOVIESCENETRACKS_API );

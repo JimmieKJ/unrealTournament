@@ -294,7 +294,7 @@ void AUTProj_Redeemer::ExplodeStage(float RangeMultiplier)
 			int32 LiveEnemyCount = 0;
 			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 			{
-				AController* C = *Iterator;
+				AController* C = Iterator->Get();
 				AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
 				if (TeamPS && C->GetPawn() && !GS->OnSameTeam(InstigatorController, C))
 				{
@@ -311,7 +311,7 @@ void AUTProj_Redeemer::ExplodeStage(float RangeMultiplier)
 			int32 LiveEnemyCount = 0;
 			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 			{
-				AController* C = *Iterator;
+				AController* C = Iterator->Get();
 				AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
 				if (TeamPS && C->GetPawn() && !GS->OnSameTeam(InstigatorController, C))
 				{
@@ -389,7 +389,7 @@ void AUTProj_Redeemer::Tick(float DeltaTime)
 	// this is done in Tick() so that it handles edge cases like viewer changing teams
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		IUTTeamInterface* TeamOwner = Cast<IUTTeamInterface>(Instigator);
 		bool bShowOutline = false;
 		if (GS != nullptr && TeamOwner != nullptr && !bExploded)

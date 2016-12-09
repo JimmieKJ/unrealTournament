@@ -4,7 +4,17 @@
 InstancedFoliage.h: Instanced foliage type definitions.
 =============================================================================*/
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
 #include "FoliageInstanceBase.h"
+
+class AInstancedFoliageActor;
+class UActorComponent;
+class UFoliageType;
+class UHierarchicalInstancedStaticMeshComponent;
+class UPrimitiveComponent;
+struct FFoliageInstanceHash;
 
 //
 // Forward declarations.
@@ -236,6 +246,7 @@ private:
 #endif
 };
 
+#if WITH_EDITORONLY_DATA
 //
 // FFoliageInstanceHash
 //
@@ -330,7 +341,7 @@ public:
 		return Ar;
 	}
 };
-
+#endif
 
 /** This is kind of a hack, but is needed right now for backwards compat of code. We use it to describe the placement mode (procedural vs manual)*/
 namespace EFoliagePlacementMode
@@ -380,6 +391,7 @@ struct FDesiredFoliageInstance
 	EFoliagePlacementMode::Type PlacementMode;
 };
 
+#if WITH_EDITOR
 // Struct to hold potential instances we've sampled
 struct FOLIAGE_API FPotentialInstance
 {
@@ -392,3 +404,4 @@ struct FOLIAGE_API FPotentialInstance
 	FPotentialInstance(FVector InHitLocation, FVector InHitNormal, UPrimitiveComponent* InHitComponent, float InHitWeight, const FDesiredFoliageInstance& InDesiredInstance = FDesiredFoliageInstance());
 	bool PlaceInstance(const UWorld* InWorld, const UFoliageType* Settings, FFoliageInstance& Inst, bool bSkipCollision = false);
 };
+#endif

@@ -4,7 +4,7 @@
 	TextureLightProfile.cpp: Implementation of UTextureLightProfile.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Engine/TextureLightProfile.h"
 
 
 /*-----------------------------------------------------------------------------

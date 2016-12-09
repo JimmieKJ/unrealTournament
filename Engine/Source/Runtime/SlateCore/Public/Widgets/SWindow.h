@@ -2,8 +2,40 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateColor.h"
+#include "Layout/SlateRect.h"
+#include "Layout/Visibility.h"
+#include "Rendering/SlateLayoutTransform.h"
+#include "Layout/Geometry.h"
+#include "Input/CursorReply.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericWindowDefinition.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "Input/Reply.h"
+#include "Rendering/RenderingCommon.h"
+#include "Types/SlateStructs.h"
+#include "Animation/CurveSequence.h"
+#include "Styling/SlateWidgetStyleAsset.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SlotBase.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+
+class FActiveTimerHandle;
 class FHittestGrid;
-class ISlateViewport;
+class FPaintArgs;
+class FSlateWindowElementList;
+class FWidgetPath;
+class IWindowTitleBar;
+class SPopupLayer;
+class SWindow;
 
 /** Notification that a window has been activated */
 DECLARE_DELEGATE( FOnWindowActivated );
@@ -296,6 +328,9 @@ public:
 	 * @return  Title bar size
 	 */
 	FOptionalSize GetTitleBarSize() const;
+
+	/** @return the desired size in desktop pixels */
+	FVector2D GetDesiredSizeDesktopPixels() const;
 
 	/**	@return The initially desired screen position of the slate window */
 	FVector2D GetInitialDesiredSizeInScreen() const;
@@ -697,6 +732,8 @@ public:
 
 	virtual bool SupportsKeyboardFocus() const override;
 
+	bool IsDrawingEnabled() const { return bIsDrawingEnabled; }
+
 private:
 	virtual FReply OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent ) override;
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
@@ -709,10 +746,8 @@ private:
 	virtual FVector2D ComputeDesiredSize(float) const override;
 
 public:
-// @HSL_CHANGE_BEGIN - ngreen@hardsuitlabs.com - 5/31/2016 - need access to this to fix windowed mode
 	// For a given client size, calculate the window size required to accomodate any potential non-OS borders and tilebars
 	FVector2D GetWindowSizeFromClientSize(FVector2D InClientSize);
-// @HSL_CHANGE_END - ngreen@hardsuitlabs.com - 5/31/2016 - need access to this to fix windowed mode
 
 	/** @return true if this window will be focused when it is first shown */
 	inline bool IsFocusedInitially() const
@@ -749,8 +784,14 @@ public:
 	 */
 	int32 SwitchWorlds( int32 WorldId ) const;
 
+	/** Is this window active? */
+	bool IsActive() const;
+
 	/** Are any of our child windows active? */
 	bool HasActiveChildren() const;
+
+	/** Are any of our parent windows active? */
+	bool HasActiveParent() const;
 
 	/**
 	 * Sets whether or not the viewport size should be driven by the window's size.  If true, the two will be the same.  If false, an independent viewport size can be specified with SetIndependentViewportSize
@@ -1057,6 +1098,9 @@ protected:
 	// The margin around the edges of the window that will be detected as places the user can grab to resize the window. 
 	FMargin UserResizeBorder;
 
+	// Whether or not drawing is enabled for this window
+	bool bIsDrawingEnabled;
+
 protected:
 	
 	void ConstructWindowInternals();
@@ -1162,15 +1206,7 @@ private:
  */
 struct FScopedSwitchWorldHack
 {
-	FScopedSwitchWorldHack( const FWidgetPath& WidgetPath )
-		: Window( WidgetPath.TopLevelWindow )
-		, WorldId( -1 )
-	{
-		if( Window.IsValid() )
-		{
-			WorldId = Window->SwitchWorlds( WorldId );
-		}
-	}
+	SLATECORE_API FScopedSwitchWorldHack( const FWidgetPath& WidgetPath );
 
 	FScopedSwitchWorldHack( TSharedPtr<SWindow> InWindow )
 		: Window( InWindow )

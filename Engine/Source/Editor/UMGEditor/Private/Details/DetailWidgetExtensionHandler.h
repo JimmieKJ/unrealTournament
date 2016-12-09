@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "WidgetBlueprintEditor.h"
 #include "Editor/PropertyEditor/Public/IDetailPropertyExtensionHandler.h"
+
+class IPropertyHandle;
 
 class FDetailWidgetExtensionHandler : public IDetailPropertyExtensionHandler
 {

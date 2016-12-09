@@ -1,10 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "EnvironmentQuery/EnvQueryContext.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
+#include "DataProviders/AIDataProvider.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
 #include "EnvQueryTest_Trace.generated.h"
 
-class UEnvQueryContext;
+class AActor;
+struct FCollisionQueryParams;
 
 UCLASS(MinimalAPI)
 class UEnvQueryTest_Trace : public UEnvQueryTest

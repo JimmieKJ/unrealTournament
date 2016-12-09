@@ -4,8 +4,7 @@
 	IntSerialization.cpp: UObject class for testing serialization int types
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Runtime/Engine/Classes/Engine/IntSerialization.h"
+#include "Engine/IntSerialization.h"
 
 UIntSerialization::UIntSerialization(const FObjectInitializer& ObjectInitializer)
 	: UObject(ObjectInitializer)

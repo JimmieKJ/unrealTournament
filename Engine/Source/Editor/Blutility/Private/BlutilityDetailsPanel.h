@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
 
 class FEditorUtilityInstanceDetails : public IDetailCustomization
 {

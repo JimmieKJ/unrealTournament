@@ -2,21 +2,36 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class ISequencer;
+class UMovieSceneSection;
+struct FStringCurve;
+
 /**
  * A widget for editing a curve representing string keys.
  */
 class SStringCurveKeyEditor : public SCompoundWidget
 {
 public:
-	/** Notification for string value change */
-	DECLARE_DELEGATE_OneParam( FOnValueChanged, FString );
-
 	SLATE_BEGIN_ARGS(SStringCurveKeyEditor) {}
+
+		/** The sequencer which is controlling this key editor. */
 		SLATE_ARGUMENT(ISequencer*, Sequencer)
+
+		/** The section that owns the data edited by this key editor. */
 		SLATE_ARGUMENT(UMovieSceneSection*, OwningSection)
+
+		/** The curve being edited by this curve editor. */
 		SLATE_ARGUMENT(FStringCurve*, Curve)
-		SLATE_EVENT(FOnValueChanged, OnValueChanged)
-		SLATE_ATTRIBUTE(TOptional<FString>, IntermediateValue)
+
+		/** Allows the value displayed and edited by this key editor to be supplied from an external source.  This
+		is useful for curves on property tracks who's property value can change without changing the animation. */
+		SLATE_ATTRIBUTE(TOptional<FString>, ExternalValue)
+
 	SLATE_END_ARGS();
 
 	void Construct(const FArguments& InArgs);
@@ -29,6 +44,5 @@ private:
 	ISequencer* Sequencer;
 	UMovieSceneSection* OwningSection;
 	FStringCurve* Curve;
-	FOnValueChanged OnValueChangedEvent;
-	TAttribute<TOptional<FString>> IntermediateValue;
+	TAttribute<TOptional<FString>> ExternalValue;
 };

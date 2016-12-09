@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "UHTMakefileHeaderDescriptor.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefileHeaderDescriptor.h"
-#include "UHTMakefile/UHTMakefile.h"
+#include "UHTMakefile.h"
 #include "ClassMaps.h"
 
 FUHTMakefileHeaderDescriptor::FUHTMakefileHeaderDescriptor(FUHTMakefile* InUHTMakefile /*= nullptr*/)

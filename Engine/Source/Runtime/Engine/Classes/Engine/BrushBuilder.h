@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "BrushBuilder.generated.h"
 
+class ABrush;
 
 // Internal state, not accessible to script.
 USTRUCT()

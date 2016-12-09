@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 	
-#include "LaunchPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/App.h"
+#include "Misc/OutputDeviceError.h"
+#include "LaunchEngineLoop.h"
 #include "ExceptionHandling.h"
 #include "PlatformMallocCrash.h"
+#include "WindowsHWrapper.h"
 
 #if UE_BUILD_DEBUG
 #include <crtdbg.h>
@@ -147,7 +151,7 @@ int32 WINAPI WinMain( _In_ HINSTANCE hInInstance, _In_opt_ HINSTANCE hPrevInstan
 
 	int32 ErrorLevel			= 0;
 	hInstance				= hInInstance;
-	const TCHAR* CmdLine = ::GetCommandLine();
+	const TCHAR* CmdLine = ::GetCommandLineW();
 
 #if !(UE_BUILD_SHIPPING && WITH_EDITOR)
 	// Named mutex we use to figure out whether we are the first instance of the game running. This is needed to e.g.

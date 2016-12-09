@@ -29,18 +29,22 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 // Binary
 //
 
-IDS_BINDING BINARY "..\\binding.html"
-IDS_DIALOGS BINARY "..\\dialogs.html"
-IDS_LOCALSTORAGE BINARY "..\\localstorage.html"
-IDS_LOGO BINARY "..\\logo.png"
-IDS_OSRTEST BINARY "..\\osr_test.html"
-IDS_OTHER_TESTS BINARY "..\\other_tests.html"
-IDS_PERFORMANCE BINARY "..\\performance.html"
-IDS_PERFORMANCE2 BINARY "..\\performance2.html"
-IDS_TRANSPARENCY BINARY "..\\transparency.html"
-IDS_URLREQUEST BINARY "..\\urlrequest.html"
-IDS_WINDOW BINARY "..\\window.html"
-IDS_XMLHTTPREQUEST BINARY "..\\xmlhttprequest.html"
+IDS_BINDING_HTML BINARY "..\\binding.html"
+IDS_DIALOGS_HTML BINARY "..\\dialogs.html"
+IDS_LOCALSTORAGE_HTML BINARY "..\\localstorage.html"
+IDS_LOGO_PNG BINARY "..\\logo.png"
+IDS_OSRTEST_HTML BINARY "..\\osr_test.html"
+IDS_OTHER_TESTS_HTML BINARY "..\\other_tests.html"
+IDS_PDF_HTML BINARY "..\\pdf.html"
+IDS_PDF_PDF BINARY "..\\pdf.pdf"
+IDS_PERFORMANCE_HTML BINARY "..\\performance.html"
+IDS_PERFORMANCE2_HTML BINARY "..\\performance2.html"
+IDS_PREFERENCES_HTML BINARY "..\\preferences.html"
+IDS_RESPONSE_FILTER_HTML BINARY "..\\response_filter.html"
+IDS_TRANSPARENCY_HTML BINARY "..\\transparency.html"
+IDS_URLREQUEST_HTML BINARY "..\\urlrequest.html"
+IDS_WINDOW_HTML BINARY "..\\window.html"
+IDS_XMLHTTPREQUEST_HTML BINARY "..\\xmlhttprequest.html"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -80,9 +84,12 @@ BEGIN
         MENUITEM "Zoom In",                     ID_TESTS_ZOOM_IN
         MENUITEM "Zoom Out",                    ID_TESTS_ZOOM_OUT
         MENUITEM "Zoom Reset",                  ID_TESTS_ZOOM_RESET
+        MENUITEM "Set FPS",                     ID_TESTS_OSR_FPS
+        MENUITEM "Set Scale Factor",            ID_TESTS_OSR_DSF
         MENUITEM "Begin Tracing",               ID_TESTS_TRACING_BEGIN
         MENUITEM "End Tracing",                 ID_TESTS_TRACING_END
         MENUITEM "Print",                       ID_TESTS_PRINT
+        MENUITEM "Print to PDF",                ID_TESTS_PRINT_TO_PDF
         MENUITEM "Other Tests",                 ID_TESTS_OTHER_TESTS
    END
 END

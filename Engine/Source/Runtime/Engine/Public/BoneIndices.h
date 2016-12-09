@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 typedef uint16 FBoneIndexType;
 
 

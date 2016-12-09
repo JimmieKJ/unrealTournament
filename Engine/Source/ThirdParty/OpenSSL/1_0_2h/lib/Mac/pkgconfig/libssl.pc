@@ -1,0 +1,12 @@
+prefix=/Users/nickshin/Perforce/ThirdParty/OpenSSL/OpenSSL_1_0_2h/INSTALL.OpenSSL_1_0_2h/Mac
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: OpenSSL-libssl
+Description: Secure Sockets Layer and cryptography libraries
+Version: 1.0.2h
+Requires.private: libcrypto
+Libs: -L${libdir} -lssl
+Libs.private: -L/Users/nickshin/Perforce/ThirdParty/zlib/v1.2.8/INSTALL.v1.2.8/Mac/lib -lz
+Cflags: -I${includedir} 

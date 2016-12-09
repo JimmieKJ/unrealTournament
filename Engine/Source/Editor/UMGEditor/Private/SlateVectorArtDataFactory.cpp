@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "SlateVectorArtData.h"
 #include "SlateVectorArtDataFactory.h"
+#include "Slate/SlateVectorArtData.h"
 
 USlateVectorArtDataFactory::USlateVectorArtDataFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -20,4 +19,3 @@ UObject* USlateVectorArtDataFactory::FactoryCreateNew(UClass* Class, UObject* In
 
 	return SlateVectorArtData;
 }
-

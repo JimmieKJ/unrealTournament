@@ -2,10 +2,9 @@
 
 #pragma once
 
-
-class IMessageAttachment;
-class IMessageData;
-
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "IMessageContext.h"
 
 /**
  * Interface for message transport technologies.
@@ -46,7 +45,7 @@ public:
 	 * @param Recipients The transport nodes to send the message to.
 	 * @return true if the message is being transported, false otherwise.
 	 */
-	virtual bool TransportMessage(const IMessageContextRef& Context, const TArray<FGuid>& Recipients) = 0;
+	virtual bool TransportMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, const TArray<FGuid>& Recipients) = 0;
 
 public:
 
@@ -68,9 +67,6 @@ protected:
 	~IMessageTransport() { }
 };
 
-
-/** Type definition for shared pointers to instances of ITransportMessages. */
-typedef TSharedPtr<IMessageTransport, ESPMode::ThreadSafe> IMessageTransportPtr;
 
 /** Type definition for shared references to instances of ITransportMessages. */
 typedef TSharedRef<IMessageTransport, ESPMode::ThreadSafe> IMessageTransportRef;

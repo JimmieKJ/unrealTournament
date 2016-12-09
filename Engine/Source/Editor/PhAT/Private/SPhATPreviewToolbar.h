@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "SViewportToolBar.h"
+
+class FPhAT;
+class SEditorViewport;
+struct FSlateBrush;
 
 /*-----------------------------------------------------------------------------
    SPhATPreviewViewportToolBar

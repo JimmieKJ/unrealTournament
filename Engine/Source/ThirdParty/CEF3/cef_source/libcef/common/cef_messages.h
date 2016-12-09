@@ -6,7 +6,9 @@
 // IPC messages for CEF.
 // Multiply-included message file, hence no include guard.
 
-#include "libcef/common/upload_data.h"
+#include <stdint.h>
+
+#include "libcef/common/net/upload_data.h"
 
 #include "base/memory/shared_memory.h"
 #include "base/values.h"
@@ -15,12 +17,45 @@
 #include "ui/gfx/ipc/gfx_param_traits.h"
 #include "ipc/ipc_message_macros.h"
 
+// Singly-included section for enums and custom IPC traits.
+#ifndef CEF_LIBCEF_COMMON_CEF_MESSAGES_H_
+#define CEF_LIBCEF_COMMON_CEF_MESSAGES_H_
+
+// Based on ChromeViewHostMsg_GetPluginInfo_Status.
+enum class CefViewHostMsg_GetPluginInfo_Status {
+  kAllowed,
+  kBlocked,
+  kBlockedByPolicy,
+  kDisabled,
+  kNotFound,
+  kNPAPINotSupported,
+  kOutdatedBlocked,
+  kOutdatedDisallowed,
+  kPlayImportantContent,
+  kUnauthorized,
+};
+
+namespace IPC {
+
+// Extracted from chrome/common/automation_messages.h.
+template <>
+struct ParamTraits<scoped_refptr<net::UploadData> > {
+  typedef scoped_refptr<net::UploadData> param_type;
+  static void Write(Message* m, const param_type& p);
+  static bool Read(const Message* m, base::PickleIterator* iter, param_type* r);
+  static void Log(const param_type& p, std::string* l);
+};
+
+}  // namespace IPC
+
+#endif  // CEF_LIBCEF_COMMON_CEF_MESSAGES_H_
+
+
 // TODO(cef): Re-using the message start for extensions may be problematic in
 // the future. It would be better if ipc_message_utils.h contained a value
 // reserved for consumers of the content API.
 // See: http://crbug.com/110911
 #define IPC_MESSAGE_START ExtensionMsgStart
-
 
 // Common types.
 
@@ -30,7 +65,7 @@ IPC_STRUCT_BEGIN(Cef_Request_Params)
   IPC_STRUCT_MEMBER(int, request_id)
 
   // Unique id of the target frame. -1 if unknown / invalid.
-  IPC_STRUCT_MEMBER(int64, frame_id)
+  IPC_STRUCT_MEMBER(int64_t, frame_id)
 
   // True if the request is user-initiated instead of internal.
   IPC_STRUCT_MEMBER(bool, user_initiated)
@@ -93,7 +128,7 @@ IPC_STRUCT_BEGIN(CefMsg_LoadRequest_Params)
 
   // Identifies the frame within the RenderView that sent the request.
   // -1 if unknown / invalid.
-  IPC_STRUCT_MEMBER(int64, frame_id)
+  IPC_STRUCT_MEMBER(int64_t, frame_id)
 
   // Usually the URL of the document in the top-level window, which may be
   // checked by the third-party cookie blocking policy. Leaving it empty may
@@ -130,6 +165,16 @@ IPC_MESSAGE_ROUTED1(CefMsg_Response,
 IPC_MESSAGE_ROUTED1(CefMsg_ResponseAck,
                     int /* request_id */)
 
+// Tells the render frame to load all blocked plugins with the given identifier.
+// Based on ChromeViewMsg_LoadBlockedPlugins.
+IPC_MESSAGE_ROUTED1(CefViewMsg_LoadBlockedPlugins,
+                    std::string /* identifier */)
+
+// Sent on process startup to indicate whether this process is running in
+// incognito mode. Based on ChromeViewMsg_SetIsIncognitoProcess.
+IPC_MESSAGE_CONTROL1(CefProcessMsg_SetIsIncognitoProcess,
+                     bool /* is_incognito_processs */)
+
 // Sent to child processes to add or remove a cross-origin whitelist entry.
 IPC_MESSAGE_CONTROL2(CefProcessMsg_ModifyCrossOriginWhitelistEntry,
                      bool /* add */,
@@ -159,6 +204,7 @@ IPC_STRUCT_BEGIN(CefProcessHostMsg_GetNewBrowserInfo_Params)
   IPC_STRUCT_MEMBER(int, browser_id)
   IPC_STRUCT_MEMBER(bool, is_popup)
   IPC_STRUCT_MEMBER(bool, is_windowless)
+  IPC_STRUCT_MEMBER(bool, is_guest_view)
 IPC_STRUCT_END()
 
 // Retrieve information about a newly created browser.
@@ -168,15 +214,52 @@ IPC_SYNC_MESSAGE_CONTROL2_1(
     int /* render_frame_routing_id */,
     CefProcessHostMsg_GetNewBrowserInfo_Params /* params*/)
 
+IPC_ENUM_TRAITS_MAX_VALUE(CefViewHostMsg_GetPluginInfo_Status,
+                          CefViewHostMsg_GetPluginInfo_Status::kUnauthorized)
+
+// Output parameters for CefViewHostMsg_GetPluginInfo message.
+IPC_STRUCT_BEGIN(CefViewHostMsg_GetPluginInfo_Output)
+  IPC_STRUCT_MEMBER(CefViewHostMsg_GetPluginInfo_Status, status)
+  IPC_STRUCT_MEMBER(content::WebPluginInfo, plugin)
+  IPC_STRUCT_MEMBER(std::string, actual_mime_type)
+  IPC_STRUCT_MEMBER(std::string, group_identifier)
+  IPC_STRUCT_MEMBER(base::string16, group_name)
+IPC_STRUCT_END()
+
+// Return information about a plugin for the given URL and MIME type.
+// In contrast to ViewHostMsg_GetPluginInfo in content/, this IPC call knows
+// about specific reasons why a plugin can't be used, for example because it's
+// disabled. Based on ChromeViewHostMsg_GetPluginInfo.
+IPC_SYNC_MESSAGE_CONTROL4_1(CefViewHostMsg_GetPluginInfo,
+                            int /* render_frame_id */,
+                            GURL /* url */,
+                            GURL /* top origin url */,
+                            std::string /* mime_type */,
+                            CefViewHostMsg_GetPluginInfo_Output /* output */)
+
+// Returns whether any internal plugin supporting |mime_type| is registered and
+// enabled. Does not determine whether the plugin can actually be instantiated
+// (e.g. whether it has all its dependencies).
+// When the returned *|is_available| is true, |additional_param_names| and
+// |additional_param_values| contain the name-value pairs, if any, specified
+// for the *first* non-disabled plugin found that is registered for |mime_type|.
+// Based on ChromeViewHostMsg_IsInternalPluginAvailableForMimeType.
+IPC_SYNC_MESSAGE_CONTROL1_3(
+    CefViewHostMsg_IsInternalPluginAvailableForMimeType,
+    std::string /* mime_type */,
+    bool /* is_available */,
+    std::vector<base::string16> /* additional_param_names */,
+    std::vector<base::string16> /* additional_param_values */)
+
 // Sent when a frame is identified for the first time.
 IPC_MESSAGE_ROUTED3(CefHostMsg_FrameIdentified,
-                    int64 /* frame_id */,
-                    int64 /* parent_frame_id */,
+                    int64_t /* frame_id */,
+                    int64_t /* parent_frame_id */,
                     base::string16 /* frame_name */)
 
 // Sent when a frame has finished loading. Based on ViewHostMsg_DidFinishLoad.
 IPC_MESSAGE_ROUTED4(CefHostMsg_DidFinishLoad,
-                    int64 /* frame_id */,
+                    int64_t /* frame_id */,
                     GURL /* validated_url */,
                     bool /* is_main_frame */,
                     int /* http_status_code */)
@@ -198,29 +281,3 @@ IPC_MESSAGE_ROUTED1(CefHostMsg_ResponseAck,
 // Sent by the renderer when the draggable regions are updated.
 IPC_MESSAGE_ROUTED1(CefHostMsg_UpdateDraggableRegions,
                     std::vector<Cef_DraggableRegion_Params> /* regions */)
-
-
-// Singly-included section for struct and custom IPC traits.
-#ifndef CEF_LIBCEF_COMMON_CEF_MESSAGES_H_
-#define CEF_LIBCEF_COMMON_CEF_MESSAGES_H_
-
-namespace IPC {
-
-// Extracted from chrome/common/automation_messages.h.
-template <>
-struct ParamTraits<scoped_refptr<net::UploadData> > {
-  typedef scoped_refptr<net::UploadData> param_type;
-  static void Write(Message* m, const param_type& p);
-  static bool Read(const Message* m, PickleIterator* iter, param_type* r);
-  static void Log(const param_type& p, std::string* l);
-};
-
-}  // namespace IPC
-
-#endif  // CEF_LIBCEF_COMMON_CEF_MESSAGES_H_
-
-#include "chrome/common/spellcheck_messages.h"
-
-#if defined(OS_WIN)
-#include "chrome/common/chrome_utility_printing_messages.h"
-#endif

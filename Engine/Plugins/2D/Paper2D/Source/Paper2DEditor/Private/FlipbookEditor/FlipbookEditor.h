@@ -2,12 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "UObject/GCObject.h"
+#include "Framework/Docking/TabManager.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "Toolkits/AssetEditorManager.h"
+#include "PaperFlipbook.h"
 #include "Editor/EditorWidgets/Public/ITransportControl.h"
-#include "PaperFlipbookComponent.h"
 
 class SFlipbookEditorViewport;
+class UPaperFlipbookComponent;
 
 //////////////////////////////////////////////////////////////////////////
 // FFlipbookEditor

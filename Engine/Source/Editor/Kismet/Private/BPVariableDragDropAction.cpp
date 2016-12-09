@@ -1,12 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-
-#include "BlueprintUtilities.h"
-#include "BlueprintEditorUtils.h"
-#include "GraphEditorDragDropAction.h"
 #include "BPVariableDragDropAction.h"
-#include "SBlueprintPalette.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorStyleSet.h"
+#include "EdGraphSchema_K2.h"
+#include "EdGraphSchema_K2_Actions.h"
+#include "K2Node_Variable.h"
+#include "K2Node_VariableGet.h"
+#include "K2Node_VariableSet.h"
+
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "VariableDragDropAction"
@@ -55,6 +61,8 @@ void FKismetVariableDragDropAction::HoverTargetChanged()
 	// Icon/text to draw on tooltip
 	FSlateColor IconColor = FLinearColor::White;
 	const FSlateBrush* StatusSymbol = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error"));
+	FSlateBrush const* SecondaryIcon = nullptr;
+	FSlateColor SecondaryColor = FLinearColor::Transparent;
 	FText Message = LOCTEXT("InvalidDropTarget", "Invalid drop target!");
 
 	UEdGraphPin* PinUnderCursor = GetHoveredPin();
@@ -306,11 +314,11 @@ void FKismetVariableDragDropAction::HoverTargetChanged()
 	// Draw variable icon
 	else
 	{
-		StatusSymbol = FBlueprintEditor::GetVarIconAndColor(VariableSource.Get(), VariableName, IconColor);
+		StatusSymbol = FBlueprintEditor::GetVarIconAndColor(VariableSource.Get(), VariableName, IconColor, SecondaryIcon, SecondaryColor);
 		Message = FText::FromString(VariableString);
 	}
 
-	SetSimpleFeedbackMessage(StatusSymbol, IconColor, Message);
+	SetSimpleFeedbackMessage(StatusSymbol, IconColor, Message, SecondaryIcon, SecondaryColor);
 }
 
 FReply FKismetVariableDragDropAction::DroppedOnPin(FVector2D ScreenPosition, FVector2D GraphPosition)

@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "EditorClassUtils.h"
+#include "HAL/FileManager.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "EditorStyleSet.h"
+#include "Engine/Blueprint.h"
+#include "Editor.h"
 
+#include "IDocumentationPage.h"
 #include "IDocumentation.h"
 #include "SourceCodeNavigation.h"
-#include "SHyperlink.h"
+#include "Widgets/Input/SHyperlink.h"
 
 FString FEditorClassUtils::GetDocumentationPage(const UClass* Class)
 {

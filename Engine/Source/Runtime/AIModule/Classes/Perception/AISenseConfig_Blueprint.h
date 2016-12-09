@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "AISenseConfig.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Perception/AISense.h"
+#include "Perception/AISenseConfig.h"
 #include "AISenseConfig_Blueprint.generated.h"
 
 class UAISense_Blueprint;

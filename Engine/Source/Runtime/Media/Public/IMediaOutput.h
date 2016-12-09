@@ -2,11 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 class IMediaAudioSink;
-class IMediaStringSink;
+class IMediaOverlaySink;
 class IMediaTextureSink;
-
 
 /**
  * Interface for access to a media player's output.
@@ -18,34 +18,26 @@ class IMediaOutput
 public:
 
 	/**
-	 * Set the sink to receive data from the active audio track.
+	 * Set the sink to receive data from audio tracks.
 	 *
 	 * @param Sink The sink to set, or nullptr to clear.
-	 * @see SetCaptionSink, SetImageSink, SetVideoSink
+	 * @see SetImageSink, SetOverlaySink, SetVideoSink
 	 */
 	virtual void SetAudioSink(IMediaAudioSink* Sink) = 0;
 
 	/**
-	 * Set the sink to receive data from the active caption track.
+	 * Set the sink to receive data from caption, subtitle, and text tracks.
 	 *
 	 * @param Sink The sink to set, or nullptr to clear.
 	 * @see SetAudioSink, SetImageSink, SetVideoSink
 	 */
-	virtual void SetCaptionSink(IMediaStringSink* Sink) = 0;
-
-	/**
-	 * Set the sink to receive data from the active image track.
-	 *
-	 * @param Sink The sink to set, or nullptr to clear.
-	 * @see SetAudioSink, SetCaptionSink, SetVideoSink
-	 */
-	virtual void SetImageSink(IMediaTextureSink* Sink) = 0;
+	virtual void SetOverlaySink(IMediaOverlaySink* Sink) = 0;
 
 	/**
 	 * Set the sink to receive data from the active video track.
 	 *
 	 * @param Sink The sink to set, or nullptr to clear.
-	 * @see SetAudioSink, SetCaptionSink, SetImageSink
+	 * @see SetAudioSink, SetImageSink, SetOverlaySink
 	 */
 	virtual void SetVideoSink(IMediaTextureSink* Sink) = 0;
 

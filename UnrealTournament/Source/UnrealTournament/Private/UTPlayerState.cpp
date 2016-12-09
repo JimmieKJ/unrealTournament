@@ -274,7 +274,8 @@ bool AUTPlayerState::ShouldAutoTaunt() const
 
 void AUTPlayerState::AnnounceKill()
 {
-	if (CharacterVoice && ShouldAutoTaunt() && GetWorld()->GetAuthGameMode())
+	AUTBaseGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+	if (CharacterVoice && ShouldAutoTaunt() && GameMode)
 	{
 		int32 NumTaunts = CharacterVoice.GetDefaultObject()->TauntMessages.Num();
 		if (NumTaunts > 0)
@@ -286,14 +287,14 @@ void AUTPlayerState::AnnounceKill()
 			{
 				GS->TauntSelectionIndex += 3;
 			}
-			GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), CharacterVoice, SelectedTaunt, this);
+			GameMode->BroadcastLocalized(GetOwner(), CharacterVoice, SelectedTaunt, this);
 		}
 	}
 }
 
 void AUTPlayerState::AnnounceSameTeam(AUTPlayerController* ShooterPC)
 {
-	if (CharacterVoice && ShouldAutoTaunt() && GetWorld()->GetAuthGameMode() && (GetWorld()->GetTimeSeconds() - ShooterPC->LastSameTeamTime > 5.f) 
+	if (CharacterVoice && ShouldAutoTaunt() && (GetWorld()->GetTimeSeconds() - ShooterPC->LastSameTeamTime > 5.f) 
 		&& (CharacterVoice.GetDefaultObject()->SameTeamMessages.Num() > 0))
 	{
 		ShooterPC->LastSameTeamTime = GetWorld()->GetTimeSeconds();
@@ -303,7 +304,7 @@ void AUTPlayerState::AnnounceSameTeam(AUTPlayerController* ShooterPC)
 
 void AUTPlayerState::AnnounceReactionTo(const AUTPlayerState* ReactionPS) const
 {
-	if (CharacterVoice && ShouldAutoTaunt() && GetWorld()->GetAuthGameMode())
+	if (CharacterVoice && ShouldAutoTaunt())
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ReactionPS->GetOwner());
 		if (!PC)
@@ -389,7 +390,7 @@ void AUTPlayerState::NotifyTeamChanged_Implementation()
 				LP->SetDefaultURLOption(TEXT("Team"), FString::FromInt(Team->TeamIndex));
 
 				// make sure proper outlines are shown for new team
-				AGameState* GS = GetWorld()->GetGameState();
+				AGameStateBase* GS = GetWorld()->GetGameState();
 				if (GS != NULL)
 				{
 					for (int32 i = 0; i < GS->PlayerArray.Num(); i++)
@@ -549,9 +550,11 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				ModifyStatsValue(SKStat[FMath::Min(Spree / 5 - 1, 4)], 1);
 				bShouldTauntKill = true;
 
-				if (GetWorld()->GetAuthGameMode() != NULL)
+				AUTBaseGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+
+				if (GameMode != NULL)
 				{
-					GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, FMath::Min(Spree / 5, 5), this, VictimPS);
+					GameMode->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, FMath::Min(Spree / 5, 5), this, VictimPS);
 				}
 
 				if (UTChar != NULL && UTChar->IsWearingAnyCosmetic())
@@ -645,13 +648,11 @@ void AUTPlayerState::IncrementDeaths(TSubclassOf<UDamageType> DamageType, AUTPla
 	}
 
 	// spree has ended
-	if (Spree >= 5 && GetWorld()->GetAuthGameMode() != NULL)
+	AUTBaseGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (Spree >= 5 && GameMode && GS)
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS != NULL)
-		{
-			GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, Spree / -5, this, KillerPlayerState);
-		}
+		GameMode->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, Spree / -5, this, KillerPlayerState);
 	}
 	Spree = 0;
 
@@ -3096,7 +3097,7 @@ void AUTPlayerState::OnRep_PlayerName()
 		{
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				APlayerController* PlayerController = *Iterator;
+				APlayerController* PlayerController = Iterator->Get();
 				if (PlayerController != NULL && PlayerController->IsLocalPlayerController())
 				{
 					PlayerController->ClientReceiveLocalizedMessage(EngineMessageClass, 2, this);
@@ -3113,7 +3114,7 @@ void AUTPlayerState::OnRep_PlayerName()
 		{
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				APlayerController* PlayerController = *Iterator;
+				APlayerController* PlayerController = Iterator->Get();
 				if (PlayerController != NULL && PlayerController->IsLocalPlayerController())
 				{
 					PlayerController->ClientReceiveLocalizedMessage(EngineMessageClass, WelcomeMessageNum, this);
@@ -3358,7 +3359,7 @@ void AUTPlayerState::RegisterVote_Implementation(AUTReplicatedMapInfo* VoteInfo)
 void AUTPlayerState::OnRep_bIsInactive()
 {
 	//Now that we replicate InactivePRI's the super function is unsafe without these checks
-	if (GetWorld() && GetWorld()->GameState)
+	if (GetWorld() && GetWorld()->GetGameState())
 	{
 		Super::OnRep_bIsInactive();
 	}
@@ -3366,13 +3367,13 @@ void AUTPlayerState::OnRep_bIsInactive()
 
 bool AUTPlayerState::AllowFreezingTaunts() const
 {
-	bool bResult = !GetWorld()->GetGameState()->IsMatchInProgress();
-	if (!bResult)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();		
+	if (GS == nullptr)
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		bResult = (GS != NULL && GS->IsMatchIntermission());
+		return false;
 	}
-	return bResult;
+
+	return GS->IsMatchInProgress() || GS->IsMatchIntermission();
 }
 
 bool AUTPlayerState::ServerFasterEmote_Validate()

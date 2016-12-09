@@ -1,7 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SimplygonSwarmPrivatePCH.h"
+#include "SimplygonSwarmCommon.h"
+#include "SimplygonSwarmHelpers.h"
+#include "SimplygonRESTClient.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Object.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Interfaces/IImageWrapperModule.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/MonitoredProcess.h"
+#include "UniquePtr.h"
+THIRD_PARTY_INCLUDES_START
 #include <algorithm>
+THIRD_PARTY_INCLUDES_END
+
 #define LOCTEXT_NAMESPACE "SimplygonSwarm"
 
 #include "MeshMergeData.h"
@@ -21,8 +35,12 @@ static const TCHAR* OPACITY_CHANNEL = TEXT("Opacity");
 static const TCHAR* EMISSIVE_CHANNEL = TEXT("Emissive");
 static const TCHAR* OPACITY_MASK_CHANNEL = TEXT("Opacity Mask");
 static const TCHAR* AO_CHANNEL = TEXT("AmbientOcclusion");
+static const TCHAR* MATERIAL_MASK_CHANNEL = TEXT("MaterialMask");
 static const TCHAR* OUTPUT_LOD = TEXT("outputlod_0");
 static const TCHAR* SSF_FILE_TYPE = TEXT("ssf");
+static const TCHAR* REMESHING_PROCESSING_SETNAME = TEXT("RemeshingProcessingSet");
+static const TCHAR* CLIPPING_GEOMETRY_SETNAME = TEXT("ClippingObjectSet");
+
 
 #define SIMPLYGON_COLOR_CHANNEL "VertexColors"
 
@@ -46,38 +64,12 @@ static const TCHAR* SG_UE_INTEGRATION_REV = TEXT("#SG_UE_INTEGRATION_REV");
 	#pragma clang diagnostic pop
 #endif
 
+#define MAX_UPLOAD_PART_SIZE_MB  1024
+#define MAX_UPLOAD_PART_SIZE_BYTES ( MAX_UPLOAD_PART_SIZE_MB * 1024 * 1024 ) 
 
-//static const TCHAR* SPL_TEMPLATE_REMESHING = TEXT("{\"Header\":{\"SPLVersion\":\"7.0\",\"ClientName\":\"UE4\",\"ClientVersion\":\"UE4.9\",\"SimplygonVersion\":\"7.0\"},\"ProcessGraph\":{\"Type\":\"ContainerNode\",\"Name\":\"Node\",\"Children\":[{\"Processor\":{\"RemeshingSettings\":{\"CuttingPlaneSelectionSetName\":0,\"EmptySpaceOverride\":0.0,\"MaxTriangleSize\":32,\"OnScreenSize\":%d,\"ProcessSelectionSetName\":\"\",\"SurfaceTransferMode\":1,\"TransferColors\":false,\"TransferNormals\":false,\"UseCuttingPlanes\":%s,\"UseEmptySpaceOverride\":false,\"Enabled\":true%s},\"MappingImageSettings\":{\"AutomaticTextureSizeMultiplier\":1.0,\"ChartAggregatorMode\":0,\"ChartAggregatorOriginalTexCoordLevel\":0,\"ChartAggregatorUseAreaWeighting\":true,\"ChartAggregatorKeepOriginalChartProportions\":true,\"ChartAggregatorKeepOriginalChartProportionsFromChannel\":\"\",\"ChartAggregatorKeepOriginalChartSizes\":false,\"ChartAggregatorSeparateOverlappingCharts\":true,\"ForcePower2Texture\":true,\"GenerateMappingImage\":true,\"GenerateTangents\":true,\"GenerateTexCoords\":true,\"GutterSpace\":4,\"Height\":%d,\"MaximumLayers\":3,\"MultisamplingLevel\":3,\"ParameterizerMaxStretch\":6.0,\"ParameterizerUseVertexWeights\":false,\"ParameterizerUseVisibilityWeights\":false,\"TexCoordGeneratorType\":0,\"TexCoordLevel\":255,\"UseAutomaticTextureSize\":false,\"UseFullRetexturing\":false,\"Width\":%d,\"Enabled\":true},%s\"Type\":\"RemeshingProcessor\"},\"MaterialCaster\":[%s],\"DefaultTBNType\":2,\"AllowGPUAcceleration\":false,\"Type\":\"ProcessNode\",\"Name\":\"Node\",\"Children\":[{\"Format\":\"ssf\",\"Type\":\"WriteNode\",\"Name\":\"outputlod_0\",\"Children\":[]}]}]}}");
-static const TCHAR* CLIPINGSPACEOVERRIDE = TEXT("\"ClippingGeometryEmptySpaceOverride\":{\"PointX\":%f,\"PointY\":%f,\"PointZ\":%f}");
-static const TCHAR* SPL_TEMPLATE_REMESHING = TEXT("{\"Header\":{\"SPLVersion\":\"7.0\",\"ClientName\":\"UE4\",\"ClientVersion\":\"UE4.9\",\"SimplygonVersion\":\"7.0\"},\"ProcessGraph\":{\"Type\":\"ContainerNode\",\"Name\":\"Node\",\"Children\":[{\"Processor\":{\"RemeshingSettings\":{\"CuttingPlaneSelectionSetName\":0,\"UseClippingGeometry\":%s,\"ClippingGeometrySelectionSetName\":\"ClippingObjectSet\",\"UseClippingGeometryEmptySpaceOverride\":%s,\"EmptySpaceOverride\":0.0,\"OnScreenSize\":%d,\"ProcessSelectionSetName\":\"RemeshingProcessingSet\",\"SurfaceTransferMode\":1,\"TransferColors\":false,\"TransferNormals\":false,\"UseCuttingPlanes\":%s,\"UseEmptySpaceOverride\":false,\"Enabled\":true%s},\"MappingImageSettings\":{\"AutomaticTextureSizeMultiplier\":1.0,\"ChartAggregatorMode\":0,\"ChartAggregatorOriginalTexCoordLevel\":0,\"ChartAggregatorUseAreaWeighting\":true,\"ChartAggregatorKeepOriginalChartProportions\":true,\"ChartAggregatorKeepOriginalChartProportionsFromChannel\":\"\",\"ChartAggregatorKeepOriginalChartSizes\":false,\"ChartAggregatorSeparateOverlappingCharts\":true,\"ForcePower2Texture\":true,\"GenerateMappingImage\":true,\"GenerateTangents\":true,\"GenerateTexCoords\":true,\"GutterSpace\":%d,\"Height\":%d,\"MaximumLayers\":3,\"MultisamplingLevel\":3,\"ParameterizerMaxStretch\":6.0,\"ParameterizerUseVertexWeights\":false,\"ParameterizerUseVisibilityWeights\":false,\"TexCoordGeneratorType\":0,\"TexCoordLevel\":255,\"UseAutomaticTextureSize\":false,\"UseFullRetexturing\":false,\"Width\":%d,\"Enabled\":true}%s,%s\"Type\":\"RemeshingProcessor\"},\"MaterialCaster\":[%s],\"DefaultTBNType\":2,\"AllowGPUAcceleration\":false,\"Type\":\"ProcessNode\",\"Name\":\"Node\",\"Children\":[{\"Format\":\"ssf\",\"Type\":\"WriteNode\",\"Name\":\"outputlod_0\",\"Children\":[]}]}]}}");
- 
-static const TCHAR* SPL_TEMPLATE_AGGREGATION = TEXT("{\"Header\":{\"SPLVersion\":\"7.0\",\"ClientName\":\"\",\"ClientVersion\":\"\",\"SimplygonVersion\":\"\"},\"ProcessGraph\":{\"Type\":\"ContainerNode\",\"Name\":\"Node\",\"Children\":[{\"Processor\":{\"AggregationSettings\":{\"BaseAtlasOnOriginalTexCoords\":true,\"ProcessSelectionSetName\":\"\",\"Enabled\":true},\"MappingImageSettings\":{\"AutomaticTextureSizeMultiplier\":1.0,\"ChartAggregatorMode\":%d,\"ChartAggregatorOriginalTexCoordLevel\":0,\"ChartAggregatorSeparateOverlappingCharts\":false,\"ForcePower2Texture\":false,\"GenerateMappingImage\":true,\"GenerateTangents\":false,\"GenerateTexCoords\":true,\"GutterSpace\":%d,\"Height\":%d,\"MaximumLayers\":1,\"MultisamplingLevel\":2,\"TexCoordGeneratorType\":1,\"TexCoordLevel\":255,\"UseAutomaticTextureSize\":false,\"UseFullRetexturing\":false,\"Width\":%d,\"Enabled\":true}%s,\"Type\":\"AggregationProcessor\"},\"MaterialCaster\":[%s],\"DefaultTBNType\":2,\"AllowGPUAcceleration\":false,\"Type\":\"ProcessNode\",\"Name\":\"Node\",\"Children\":[{\"Format\":\"ssf\",\"Type\":\"WriteNode\",\"Name\":\"outputlod_0\",\"Children\":[]}]}]}}");
-
-static const TCHAR* SPL_TEMPLATE_COLORCASTER = TEXT("{\"BakeOpacityInAlpha\":false,\"ColorType\":\"%s\",\"Dilation\":8,\"FillMode\":0,\"IsSRGB\":true,\"OutputChannelBitDepth\":8,\"OutputChannels\":4,\"Type\":\"ColorCaster\",\"Name\":\"%s\",\"Channel\":\"%s\",\"DitherType\":0}");
-
-static const TCHAR* SPL_TEMPLATE_OPACITYCASTER = TEXT("{\"BakeOpacityInAlpha\":false,\"ColorType\":\"%s\",\"Dilation\":8,\"FillMode\":0,\"IsSRGB\":true,\"OutputChannelBitDepth\":8,\"OutputChannels\":4,\"Type\":\"OpacityCaster\",\"Name\":\"%s\",\"Channel\":\"%s\",\"DitherType\":0}");
-
-static const TCHAR* SPL_NORMAL_RECALC = TEXT("\"HardEdgeAngleInRadians\":%f");
-
-static const TCHAR* SPL_MERGE_DIST = TEXT("\"MergeDistance\":%f");
-
-static const TCHAR* SPL_VISIBILITY = TEXT(",\"VisibilitySettings\":{\"UseCustomVisibilitySphere\": true,\"CustomVisibilitySphereFidelity\": 5,\"CustomVisibilitySphereYaw\": 0.0,\"CustomVisibilitySpherePitch\": 0.0,\"CustomVisibilitySphereCoverage\": 180.0,\"CameraSelectionSetName\": \"\",\"CullOccludedGeometry\": true,\"ForceVisibilityCalculation\": false,\"OccluderSelectionSetName\": \"\",\"UseBackfaceCulling\": false,\"UseVisibilityWeightsInReducer\": true,\"UseVisibilityWeightsInTexcoordGenerator\": true,\"VisibilityWeightsPower\": 1.0,\"Enabled\": true}");
-
-static const TCHAR* CUTTING_PLANE_SETTINGS = TEXT("\"CuttingPlaneSettings\": [%s],");
- 
-static const TCHAR* CUTTING_PLANE = TEXT("{\"PointX\": %f,\"PointY\": %f,\"PointZ\": %f,\"NormalX\": %f,\"NormalY\": %f,\"NormalZ\": %f,\"Enabled\": true}");
-
-static const TCHAR* SPL_TEMPLATE_NORMALCASTER = TEXT("{\"Dilation\":8,\"FillMode\":1,\"FlipBackfacingNormals\":false,\"FlipGreen\":false,\"GenerateTangentSpaceNormals\":true,\"NormalMapTextureLevel\":0,\"OutputChannelBitDepth\":8,\"OutputChannels\":3,\"Type\":\"NormalCaster\",\"Name\":\"%s\",\"Channel\":\"%s\",\"DitherType\":0}");
-
-//static const TCHAR* SHADING_NETWORK_TEMPLATE = TEXT("<SimplygonShadingNetwork version=\"1.0\">\n\t<ShadingTextureNode ref=\"node_0\" name=\"ShadingTextureNode\">\n\t\t<DefaultColor0>\n\t\t\t<DefaultValue>1 1 1 1</DefaultValue>\n\t\t</DefaultColor0>\n\t\t<TextureName>%s</TextureName>\n\t\t<TextureLevelName>%s</TextureLevelName>\n\t\t<UseSRGB>%d</UseSRGB>\n\t\t<TileU>1.000000</TileU>\n\t\t<TileV>1.000000</TileV>\n\t</ShadingTextureNode>\n</SimplygonShadingNetwork>");
-
-#if SPL_CURRENT_VERSION > 7
 static const TCHAR* SHADING_NETWORK_TEMPLATE = TEXT("<SimplygonShadingNetwork version=\"1.0\">\n\t<ShadingTextureNode ref=\"node_0\" name=\"ShadingTextureNode\">\n\t\t<DefaultColor0>\n\t\t\t<DefaultValue>1 1 1 1</DefaultValue>\n\t\t</DefaultColor0>\n\t\t<TextureName>%s</TextureName>\n\t\t<TextureLevelName>%s</TextureLevelName>\n\t\t<UseSRGB>%d</UseSRGB>\n\t\t<TileU>1.000000</TileU>\n\t\t<TileV>1.000000</TileV>\n\t</ShadingTextureNode>\n</SimplygonShadingNetwork>");
-#else
-static const TCHAR* SHADING_NETWORK_TEMPLATE = TEXT("<SimplygonShadingNetwork version=\"1.0\">\n\t<ShadingTextureNode ref=\"node_0\" name=\"ShadingTextureNode\">\n\t\t<DefaultColor0>\n\t\t\t<DefaultValue>1 1 1 1</DefaultValue>\n\t\t</DefaultColor0>\n\t\t<TextureName>%s</TextureName>\n\t\t<TexCoordSet>%s</TexCoordSet>\n\t\t<UseSRGB>%d</UseSRGB>\n\t\t<TileU>1.000000</TileU>\n\t\t<TileV>1.000000</TileV>\n\t</ShadingTextureNode>\n</SimplygonShadingNetwork>");
-#endif
 
-static const TCHAR* PATH_TO_7ZIP = TEXT("Binaries/ThirdParty/NotForLicensees/7-Zip/7z.exe");
+ssf::pssfMeshData CreateSSFMeshDataFromRawMesh(const FRawMesh& InRawMesh, TArray<FBox2D> InTextureBounds, TArray<FVector2D> InTexCoords);
 
 class FSimplygonSwarmModule : public IMeshReductionModule
 {
@@ -87,50 +79,14 @@ public:
 	virtual void ShutdownModule() override;
 
 	// IMeshReductionModule interface.
-	virtual class IMeshReduction* GetMeshReductionInterface() override;
+	virtual class IMeshReduction* GetStaticMeshReductionInterface() override;
+	virtual class IMeshReduction* GetSkeletalMeshReductionInterface() override;
 	virtual class IMeshMerging* GetMeshMergingInterface() override;
 private:
 };
 
-
 DEFINE_LOG_CATEGORY_STATIC(LogSimplygonSwarm, Log, All);
 IMPLEMENT_MODULE(FSimplygonSwarmModule, SimplygonSwarm);
-
-
-
-struct FSimplygonSSFHelper
-{
-public:
-	static ssf::ssfString SSFNewGuid()
-	{
-		return TCHARToSSFString(*FGuid::NewGuid().ToString());
-	}
-
-	static ssf::ssfString SFFEmptyGuid()
-	{
-		return TCHARToSSFString(*FGuid::FGuid().ToString());
-	}
-
-	static ssf::ssfString TCHARToSSFString(const TCHAR* str)
-	{
-		return ssf::ssfString(std::basic_string<TCHAR>(str));
-	}
-
-	 
-	static bool CompareSSFStr(ssf::ssfString lhs, ssf::ssfString rhs)
-	{
-		if (lhs.Value == rhs.Value)
-		return true;
-
-		return false;
-	}
-
-	static FString SimplygonDirectory()
-	{
-		return GetMutableDefault<UEditorPerProjectUserSettings>()->SwarmIntermediateFolder;
-	}
-	 
-};
 
 class FSimplygonSwarm
 	: public IMeshMerging
@@ -163,24 +119,33 @@ public:
 		}
 	};
 
+	/**
+	* Method used to generate ProxyLOD either using Remeshing or Aggregation
+	* @param InData			Mesh Merge Data
+	* @param InProxySettings	Settings to use for proxy generation
+	* @param InputMaterials	Flattened materials
+	* @param InJobGUID			Job GUID
+	*/
 	 virtual void ProxyLOD(const TArray<FMeshMergeData>& InData,
 		const struct FMeshProxySettings& InProxySettings,
 		const TArray<struct FFlattenMaterial>& InputMaterials,
 		const FGuid InJobGUID)
 	{
+		FScopedSlowTask SlowTask(3.f, (LOCTEXT("SimplygonSwarm_ProxyLOD", "Generating Proxy Mesh using Simplygon Swarm")));
+		SlowTask.MakeDialog();
+		
 		FRawMesh OutProxyMesh;
 		FFlattenMaterial OutMaterial;
 
 		//setup path variables
 		FString JobPath = FGuid::NewGuid().ToString();
-		FString JobDirectory = FString::Printf(TEXT("%s%s"), *FSimplygonSSFHelper::SimplygonDirectory(), *JobPath);
+		FString JobDirectory = FString::Printf(TEXT("%s%s"), *GetMutableDefault<UEditorPerProjectUserSettings>()->SwarmIntermediateFolder, *JobPath);
 		FString InputFolderPath = FString::Printf(TEXT("%s/Input"), *JobDirectory);
 
 		FString ZipFileName = FString::Printf(TEXT("%s/%s.zip"), *JobDirectory, *JobPath);
 		FString OutputZipFileName = FString::Printf(TEXT("%s/%s_output.zip"), *JobDirectory, *JobPath);
 		FString SPLFileOutputFullPath = FString::Printf(TEXT("%s/input.spl"), *InputFolderPath);
 		FString SPLSettingsText;
-
 
 		EBlendMode OutputMaterialBlendMode = BLEND_Opaque;
 		bool bHasMaked = false;
@@ -211,25 +176,21 @@ public:
 		//scan for clipping geometry 
 		bool bHasClippingGeometry = false;
 		if (InData.FindByPredicate([](const FMeshMergeData InMeshData) {return InMeshData.bIsClippingMesh == true; }))
+		{
 			bHasClippingGeometry = true;
+		}
 
-#if SPL_CURRENT_VERSION > 7
 		SPL::SPL* spl = new SPL::SPL();
 		spl->Header.ClientName = TCHAR_TO_ANSI(TEXT("UE4"));
-		spl->Header.ClientVersion = TCHAR_TO_ANSI(TEXT("4.11"));
+		spl->Header.ClientVersion = TCHAR_TO_ANSI(*FEngineVersion::Current().ToString());
 		spl->Header.SimplygonVersion = TCHAR_TO_ANSI(TEXT("8.0"));
 		SPL::ProcessNode* splProcessNode = new SPL::ProcessNode();
 		spl->ProcessGraph = splProcessNode;
-#endif
 
+		SlowTask.EnterProgressFrame(1.0f, LOCTEXT("SimplygonSwarm_CreateSPL", "Generating Simplygon Processing Settings"));
 		 
-#if SPL_CURRENT_VERSION > 7
 		CreateRemeshingProcess(InProxySettings, *splProcessNode, OutputMaterialBlendMode, bHasClippingGeometry);
-#else
-		CreateRemeshingSPL(InProxySettings, SPLSettingsText, OutputMaterialBlendMode, bHasClippingGeometry);
-#endif 
 
-		//output spl to file. Since REST Interface
 		ssf::pssfScene SsfScene;
 		
 		TArray<FRawMesh*> InputMeshes;
@@ -239,8 +200,17 @@ public:
 			InputMeshes.Push(Data.RawMesh);
 		}
 
+		bool bDiscardEmissive = true;
+		for (int32 MaterialIndex = 0; MaterialIndex < InputMaterials.Num(); MaterialIndex++)
+		{
+			const FFlattenMaterial& FlattenMaterial = InputMaterials[MaterialIndex];
+			bDiscardEmissive &= ((!FlattenMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Emissive) || (FlattenMaterial.IsPropertyConstant(EFlattenMaterialProperties::Emissive) && FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Emissive)[0] == FColor::Black)));
+		}
+
+		SlowTask.EnterProgressFrame(1.0f, LOCTEXT("SimplygonSwarm_GenerateData", "Generating Simplygon Processing Data"));
+
 		//converts UE entities to ssf, Textures will be exported to file
-		ConvertToSsfScene(InData, InputMaterials, InProxySettings, InputFolderPath, SsfScene);
+		ConvertMeshMergeDataToSsfScene(InData, InputMaterials, InProxySettings, InputFolderPath, SsfScene);
 		
 		SsfScene->CoordinateSystem->Value = 1;
 		SsfScene->WorldOrientation->Value = 3;
@@ -250,15 +220,12 @@ public:
 		//save out ssf file.
 		WriteSsfFile(SsfScene, SsfOuputPath);
 
-#if SPL_CURRENT_VERSION > 7
 		spl->Save(TCHAR_TO_ANSI(*SPLFileOutputFullPath));
-#else
-		SaveSPL(SPLSettingsText, SPLFileOutputFullPath);
-#endif
+
+		SlowTask.EnterProgressFrame(1.0f, LOCTEXT("SimplygonSwarm_UploadData", "Uploading Processing Data to Simplygon Swarm Server"));
 		//zip contents and spawn a task 
 		if (ZipContentsForUpload(InputFolderPath, ZipFileName))
 		{
-
 			//validate if patch exist
 			if (!FPaths::FileExists(*FPaths::ConvertRelativePathToFull(ZipFileName)))
 			{
@@ -267,32 +234,41 @@ public:
 				return;
 			}
 
-			//NOTE : Currently SgRESTInterface is not cleaned up and Task ref counted . The FSimplygonSwarmTask & FSimplygonRESTClient pari can be stored in a TArray or TMap to make aync calls
-			// The pair can be cleanup after the import process
-
 			FSwarmTaskkData TaskData;
 			TaskData.ZipFilePath = ZipFileName;
 			TaskData.SplFilePath = SPLFileOutputFullPath;
 			TaskData.OutputZipFilePath = OutputZipFileName;
 			TaskData.JobDirectory = JobDirectory;
-			TaskData.StateLock = &InStateLock;
+			TaskData.StateLock = new FCriticalSection();
 			TaskData.ProcessorJobID = InJobGUID;
 			TaskData.bDitheredTransition = (InputMaterials.Num() > 0) ? InputMaterials[0].bDitheredLODTransition : false;
+			TaskData.bEmissive = !bDiscardEmissive;
 						 
-			SwarmTask = MakeShareable(new FSimplygonSwarmTask(TaskData));
+			int32 MaxUploadSizeInBytes = GetMutableDefault<UEditorPerProjectUserSettings>()->SwarmMaxUploadChunkSizeInMB * 1024 * 1024;
+			FSimplygonRESTClient::Get()->SetMaxUploadSizeInBytes(MaxUploadSizeInBytes);
+			TSharedPtr<FSimplygonSwarmTask> SwarmTask = MakeShareable(new FSimplygonSwarmTask(TaskData));
 			SwarmTask->OnAssetDownloaded().BindRaw(this, &FSimplygonSwarm::ImportFile);
 			SwarmTask->OnAssetUploaded().BindRaw(this, &FSimplygonSwarm::Cleanup);
+			SwarmTask->OnSwarmTaskFailed().BindRaw(this, &FSimplygonSwarm::OnSimplygonSwarmTaskFailed);
 			FSimplygonRESTClient::Get()->AddSwarmTask(SwarmTask);			
 		}
 	}
 
+	/**
+	* The following method is called when a swarm task fails. This forwards the call to external module
+	* @param InSwarmTask			The completed swarm task
+	*/
+	void OnSimplygonSwarmTaskFailed(const FSimplygonSwarmTask& InSwarmTask)
+	{
+		FailedDelegate.ExecuteIfBound(InSwarmTask.TaskData.ProcessorJobID, TEXT("Simplygon Swarm Proxy Generation failed."));
+	}
 
-	/*
-	The Following method will cleanup temp files and folders created to upload the job to the simplygon job manager
+	/**
+	* Method to clean up temporary files after uploading the job to Simplygon Grid Server
+	* @param InSwarmTask			The completed swarm task
 	*/
 	void Cleanup(const FSimplygonSwarmTask& InSwarmTask)
 	{
-
 		bool bDebuggingEnabled = GetDefault<UEditorPerProjectUserSettings>()->bEnableSwarmDebugging;
 		
 		if(!bDebuggingEnabled)
@@ -319,29 +295,24 @@ public:
 	}
 
 
-	/*
-	This mehtod would be fired when the job has been download on the machine. A good plane to hook contents to the LODActor.
-	Note this would need to run on the Main Thread
+	/**
+	* Fired when the Server returns the completed job to the client. Called from RESTClient
+	* @param InSwarmTask			The completed swarm task
 	*/
 	void ImportFile(const FSimplygonSwarmTask& InSwarmTask)
 	{
+
 		FRawMesh OutProxyMesh;
 		FFlattenMaterial OutMaterial;
-
+		bool bDebuggingEnabled = GetDefault<UEditorPerProjectUserSettings>()->bEnableSwarmDebugging;
 		FString OutputFolderPath = FString::Printf(TEXT("%s/Output"), *InSwarmTask.TaskData.JobDirectory);
-#if SPL_CURRENT_VERSION > 7
 		FString ParentDirForOutputSsf = FString::Printf(TEXT("%s/outputlod_0"), *OutputFolderPath);
-#else
-		FString ParentDirForOutputSsf = FString::Printf(TEXT("%s/Node/Node/outputlod_0"), *OutputFolderPath);
-#endif
 
 		//for import the file back in uncomment
 		if (UnzipDownloadedContent(FPaths::ConvertRelativePathToFull(InSwarmTask.TaskData.OutputZipFilePath), FPaths::ConvertRelativePathToFull(OutputFolderPath)))
 		{
-			//FString InOuputSsfPath = FString::Printf(TEXT("%s/Node/Node/outputlod_0/output.ssf"), *OutputFolderPath);
 			FString InOuputSsfPath = FString::Printf(TEXT("%s/output.ssf"), *ParentDirForOutputSsf);
 			ssf::pssfScene OutSsfScene = new ssf::ssfScene();
-
 			FString SsfFullPath = FPaths::ConvertRelativePathToFull(InOuputSsfPath);
 
 			if (!FPaths::FileExists(SsfFullPath))
@@ -352,10 +323,14 @@ public:
 			}
 
 			ReadSsfFile(SsfFullPath, OutSsfScene);
-
-			ConvertFromSsfScene(OutSsfScene, OutProxyMesh, OutMaterial, ParentDirForOutputSsf);
-
+			ConvertFromSsfSceneToRawMesh(OutSsfScene, OutProxyMesh, OutMaterial, ParentDirForOutputSsf);
 			OutMaterial.bDitheredLODTransition = InSwarmTask.TaskData.bDitheredTransition;
+
+		    if (!InSwarmTask.TaskData.bEmissive)
+		 	{
+				OutMaterial.GetPropertySamples(EFlattenMaterialProperties::Emissive).Empty();
+				OutMaterial.SetPropertySize(EFlattenMaterialProperties::Emissive, FIntPoint(0,0));
+			}
 
 			if (!OutProxyMesh.IsValid())
 			{
@@ -364,21 +339,18 @@ public:
 			}
 
 			 
-			bool bDebuggingEnabled = GetDefault<UEditorPerProjectUserSettings>()->bEnableSwarmDebugging;
 			//do cleanup work
 			if (!bDebuggingEnabled)
 			{
 				FString FullOutputFolderPath = FPaths::ConvertRelativePathToFull(*OutputFolderPath);
 				if (!IFileManager::Get().DeleteDirectory(*FullOutputFolderPath, true, true))
-				{
-					UE_LOG(LogSimplygonSwarm, Log, TEXT("Failed to remove simplygon swarm task temp directory %s"), *FullOutputFolderPath);
-				}
+					UE_LOG(LogSimplygonSwarm, Error, TEXT("Failed to remove simplygon swarm task temp directory %s"), *FullOutputFolderPath);
 
 				FString FullOutputFileName = FPaths::ConvertRelativePathToFull(*InSwarmTask.TaskData.OutputZipFilePath);
 				//remove uploaded zip file
 				if (!IFileManager::Get().Delete(*FullOutputFileName, true, true, false))
 				{
-					UE_LOG(LogSimplygonSwarm, Log, TEXT("Failed to remove Simplygon Swarm Task temp file %s"), *FullOutputFileName);
+					UE_LOG(LogSimplygonSwarm, Error, TEXT("Failed to remove Simplygon Swarm Task temp file %s"), *FullOutputFileName);
 				}
 			}
 
@@ -387,6 +359,8 @@ public:
 			{
 				CompleteDelegate.Execute(OutProxyMesh, OutMaterial, InSwarmTask.TaskData.ProcessorJobID);
 			}
+			else
+				UE_LOG(LogSimplygonSwarm, Error, TEXT("No valid complete delegate is currently bounded. "));
 			 
 		}
 	}
@@ -394,9 +368,7 @@ public:
 private:
 	FString VersionString;
 	FSimplygonRESTClient* SgRESTInterface;
-	FCriticalSection InStateLock;
 	//FRunnableThread *Thread;
-	TSharedPtr<class FSimplygonSwarmTask> SwarmTask;
 	uint8 ToolMajorVersion;
 	uint8 ToolMinorVersion;
 	uint16 ToolBuildVersion;
@@ -409,14 +381,25 @@ private:
 		ToolBuildVersion = FEngineVersion::Current().GetPatch();		 
 	}
 
+	/**
+	* Read in ssf file from disk
+	* @param InSsfFilePath	Ssf file to read in
+	* @param SsfScene		SsfScene that the ssf file is read into
+	*/
 	void ReadSsfFile(FString InSsfFilePath, ssf::pssfScene& SsfScene)
 	{
 		ssf::ssfString ToolName = FSimplygonSSFHelper::TCHARToSSFString(TEXT("UE4"));
+
 		ssf::ssfBinaryInputStream InputStream;
 		InputStream.OpenFile(FSimplygonSSFHelper::TCHARToSSFString(*InSsfFilePath));
 		SsfScene->ReadFile(&InputStream, ToolName, ToolMajorVersion, ToolMinorVersion, ToolBuildVersion);
 	}
 
+	/**
+	* Write out ssf scene to disk
+	* @param SsfScene		SsfScene to write out
+	* @param InSsfFilePath	Path to ssf file
+	*/
 	void WriteSsfFile(ssf::pssfScene SsfScene, FString InSsfFilePath)
 	{
 		ssf::ssfString ToolName = FSimplygonSSFHelper::TCHARToSSFString(TEXT("UE4"));
@@ -426,12 +409,19 @@ private:
 		theOutputStream.CloseFile();
 	}
 
+	/**
+	* Setup spl mapping image object used for material baking
+	* @param InMaterialProxySettings	Proxy Settings to use for setting up remeshing process node
+	* @param InMappingImageSettings	Mapping image setting object
+	*/
 	void SetupSplMappingImage(const struct FMaterialProxySettings& InMaterialProxySettings, SPL::MappingImageSettings& InMappingImageSettings)
 	{
 		FIntPoint ImageSizes = ComputeMappingImageSize(InMaterialProxySettings);
+		bool bAutomaticTextureSize = InMaterialProxySettings.TextureSizingType == TextureSizingType_UseSimplygonAutomaticSizing;
 
 		InMappingImageSettings.GenerateMappingImage = true;
 		InMappingImageSettings.GutterSpace = InMaterialProxySettings.GutterSpace;
+		InMappingImageSettings.UseAutomaticTextureSize = bAutomaticTextureSize;
 		InMappingImageSettings.Height = ImageSizes.X;
 		InMappingImageSettings.Width = ImageSizes.Y;
 		InMappingImageSettings.UseFullRetexturing = true;
@@ -444,33 +434,28 @@ private:
 
 	}
 
-	void CreateAggregateProcess(const struct FMeshProxySettings& InProxySettings, SPL::ProcessNode& InProcessNodeSpl, EBlendMode InOutputMaterialBlendMode = BLEND_Opaque)
-	{
-		SPL::AggregationProcessor* processor = new SPL::AggregationProcessor();
-		processor->AggregationSettings = new SPL::AggregationSettings();
-		processor->AggregationSettings->Enabled = true;
-
-		processor->MappingImageSettings = new SPL::MappingImageSettings();
-		SetupSplMaterialCasters(InProxySettings.MaterialSettings, InProcessNodeSpl, InOutputMaterialBlendMode);
-
-		InProcessNodeSpl.Processor = processor;
-		InProcessNodeSpl.DefaultTBNType = SPL::SG_TANGENTSPACEMETHOD_ORTHONORMAL_LEFTHANDED;
-
-		SPL::WriteNode* splWriteNode = new SPL::WriteNode();
-		splWriteNode->Format = TCHAR_TO_ANSI(SSF_FILE_TYPE);
-		splWriteNode->Name = TCHAR_TO_ANSI(OUTPUT_LOD);
-
-
-		InProcessNodeSpl.Children.push_back(splWriteNode);
-		 
-	}
-
+	/**
+	* Create Spl Process node for Remeshing
+	* @param InProxySettings			Proxy Settings to use for setting up remeshing process node
+	* @param InProcessNodeSpl			SplProcessNode object
+	* @param InOutputMaterialBlendMode	Output Material Blend mode
+	* @param InHasClippingGeometry		Weather or the scene being processed has clipping geometry
+	*/
 	void CreateRemeshingProcess(const struct FMeshProxySettings& InProxySettings, SPL::ProcessNode& InProcessNodeSpl, EBlendMode InOutputMaterialBlendMode = BLEND_Opaque, bool InHasClippingGeometry = false)
 	{
 		SPL::RemeshingProcessor* processor = new SPL::RemeshingProcessor();
 		processor->RemeshingSettings = new SPL::RemeshingSettings();
 		 
 		processor->RemeshingSettings->OnScreenSize = InProxySettings.ScreenSize;
+		processor->RemeshingSettings->SurfaceTransferMode = SPL::SurfaceTransferMode::SG_SURFACETRANSFER_ACCURATE;
+		processor->RemeshingSettings->ProcessSelectionSetName = TCHAR_TO_ANSI(REMESHING_PROCESSING_SETNAME);
+
+		if (InHasClippingGeometry)
+		{
+			processor->RemeshingSettings->UseClippingGeometryEmptySpaceOverride = false;
+			processor->RemeshingSettings->UseClippingGeometry = InHasClippingGeometry;
+			processor->RemeshingSettings->ClippingGeometrySelectionSetName = TCHAR_TO_ANSI(CLIPPING_GEOMETRY_SETNAME);
+		}
 
 		if (InProxySettings.bRecalculateNormals)
 			processor->RemeshingSettings->HardEdgeAngleInRadians = FMath::DegreesToRadians(InProxySettings.HardAngleThreshold);
@@ -478,42 +463,17 @@ private:
 		processor->RemeshingSettings->MergeDistance = InProxySettings.MergeDistance;
 		processor->RemeshingSettings->Enabled = true;
 
-		processor->RemeshingSettings->UseEmptySpaceOverride = InHasClippingGeometry;
-
 		FIntPoint ImageSizes = ComputeMappingImageSize(InProxySettings.MaterialSettings);
 
 		//mapping image settings
 		processor->MappingImageSettings = new SPL::MappingImageSettings();
 		SetupSplMappingImage(InProxySettings.MaterialSettings, *processor->MappingImageSettings);
 		 
-		// Clipping planes removed for now
-		/*if (InProxySettings.bUseClippingPlanes)
-		{
-			
-			// Note : An arbitary plane can be define using a point (position) and a normal (direction)
-			// Since UE  currently only has axis aligned plane. We need to convert values for SPL
-			FVector OutPoint, OutNormal;
-
-			GetAxisAlignedVectorsForCuttingPlanes(InProxySettings, OutPoint, OutNormal);
-			processor->CuttingPlaneSettings = new SPL::CuttingPlaneSettings();
-			processor->CuttingPlaneSettings->NormalX = OutNormal.X;
-			processor->CuttingPlaneSettings->NormalY = OutNormal.Y;
-			processor->CuttingPlaneSettings->NormalZ = OutNormal.Z;
-
-			processor->CuttingPlaneSettings->PointX = OutPoint.X;
-			processor->CuttingPlaneSettings->PointY = OutPoint.Y;
-			processor->CuttingPlaneSettings->PointZ = OutPoint.Z;
-			processor->CuttingPlaneSettings->Enabled = true;
-		}*/
-
 		SetupSplMaterialCasters(InProxySettings.MaterialSettings, InProcessNodeSpl, InOutputMaterialBlendMode);
 		 
 		InProcessNodeSpl.Processor = processor;
 		InProcessNodeSpl.DefaultTBNType = SPL::SG_TANGENTSPACEMETHOD_ORTHONORMAL_LEFTHANDED;
 		 
-		//setup caster	 
-
-
 		SPL::WriteNode* splWriteNode = new SPL::WriteNode();
 		splWriteNode->Format = TCHAR_TO_ANSI(SSF_FILE_TYPE);
 		splWriteNode->Name = TCHAR_TO_ANSI(OUTPUT_LOD);
@@ -522,49 +482,10 @@ private:
 		InProcessNodeSpl.Children.push_back(splWriteNode);
 	}
 
-	void CreateRemeshingSPL(const struct FMeshProxySettings& InProxySettings,
-		FString& OutSplText, EBlendMode InOutputMaterialBlendMode = BLEND_Opaque, bool InHasClippingGeometry = false)
-	{
-
-		////Compute max mapping image size
-		FIntPoint ImageSizes = ComputeMappingImageSize(InProxySettings.MaterialSettings);
-
-		////setup casters
-		FString CasterSPLTempalte = CreateSPLTemplateChannels(InProxySettings.MaterialSettings, InOutputMaterialBlendMode);
-		FString MergeDist = FString::Printf(SPL_MERGE_DIST, InProxySettings.MergeDistance);
-		FString AdditionalSettings = FString::Printf(TEXT(",%s"), *MergeDist);
-		FString RecalNormals = FString::Printf(SPL_NORMAL_RECALC, FMath::DegreesToRadians(InProxySettings.HardAngleThreshold));
-
-		if (InProxySettings.bRecalculateNormals)
-			AdditionalSettings = FString::Printf(TEXT("%s,%s"), *AdditionalSettings, *RecalNormals);
-
-		//Note : The Simplygon API now supports multiple clipping planes. SPL has recently added support for this.
-		// 
-		FString CuttingPlaneSetting;
-
-		// Clipping planes removed for now
-		/*
-		if (InProxySettings.bUseClippingPlanes)
-		{
-			// Note : An arbitary plane can be define using a point (position) and a normal (direction)
-			// Since UE  currently only has axis aligned plane. We need to convert values for SPL
-
-			FVector OutPoint, OutNormal;
-
-			GetAxisAlignedVectorsForCuttingPlanes(InProxySettings, OutPoint, OutNormal);
-
-			FString CuttingPlane = FString::Printf(CUTTING_PLANE, OutPoint.X, OutPoint.Y, OutPoint.Z, OutNormal.X, OutNormal.Y, OutNormal.Z);
-			CuttingPlaneSetting = FString::Printf(CUTTING_PLANE_SETTINGS, *CuttingPlane);
-
-
-			//OutSplText = FString::Printf(SPL_TEMPLATE_REMESHING, InProxySettings.ScreenSize, InProxySettings.bUseClippingPlane ? TEXT("true") : TEXT("false"), *AdditionalSettings, ImageSizes.X, ImageSizes.Y, *CuttingPlaneSetting, *CasterSPLTempalte);
-		}*/
-		 
-		OutSplText = FString::Printf(SPL_TEMPLATE_REMESHING, InHasClippingGeometry == true ? TEXT("true") : TEXT("false"), TEXT("false"), InProxySettings.ScreenSize, /*InProxySettings.bUseClippingPlanes ? TEXT("true") :*/ TEXT("false"), *AdditionalSettings, (int32)InProxySettings.MaterialSettings.GutterSpace,ImageSizes.X, ImageSizes.Y, TEXT(""), *CuttingPlaneSetting, *CasterSPLTempalte);
-	}
-	 
-	/*
-	Write the SPL string to file
+	/**
+	* Create Spl Process node for Remeshing
+	* @param InSplText			Save SPL Text
+	* @param InOutputFilePath	SplProcessNode object
 	*/
 	void SaveSPL(FString InSplText, FString InOutputFilePath)
 	{
@@ -573,11 +494,19 @@ private:
 		SPLFile->Close();
 	}
 
-	void ConvertToSsfScene(const TArray<FMeshMergeData>& InputData,
+	/**
+	* Convert collection of FMeshMergeData to SsfScene
+	* @param InMeshMergeData	Meshes to merge
+	* @param InputMaterials	Flattened Materials
+	* @param InProxySettings	Proxy Settings
+	* @param InputFolderPath	Input Folder Path
+	* @param OutSsfScene		Out SsfScene
+	*/
+	void ConvertMeshMergeDataToSsfScene(const TArray<FMeshMergeData>& InMeshMergeData,
 		const TArray<FFlattenMaterial>& InputMaterials,
 		const struct FMeshProxySettings& InProxySettings, FString InputFolderPath, ssf::pssfScene& OutSsfScene)
 	{
-		//creeate the ssf scene
+		//create the ssf scene
 		OutSsfScene = new ssf::ssfScene();
 
 		OutSsfScene->CoordinateSystem.Set(1);
@@ -590,9 +519,9 @@ private:
 		ssf::ssfNamedIdList<ssf::ssfString> ProcessingObjectsSet;
 		ssf::ssfNamedIdList<ssf::ssfString> ClippingGeometrySet;
 		 
-		ProcessingObjectsSet.Name = FSimplygonSSFHelper::TCHARToSSFString(TEXT("RemeshingProcessingSet"));
+		ProcessingObjectsSet.Name = FSimplygonSSFHelper::TCHARToSSFString(REMESHING_PROCESSING_SETNAME);
 		ProcessingObjectsSet.ID = FSimplygonSSFHelper::SSFNewGuid();
-		ClippingGeometrySet.Name = FSimplygonSSFHelper::TCHARToSSFString(TEXT("ClippingObjectSet"));
+		ClippingGeometrySet.Name = FSimplygonSSFHelper::TCHARToSSFString(CLIPPING_GEOMETRY_SETNAME);
 		ClippingGeometrySet.ID = FSimplygonSSFHelper::SSFNewGuid();
 		 
 		 
@@ -609,7 +538,7 @@ private:
 		OutSsfScene->NodeTable->NodeList.push_back(SsfRootNode);
 
 		int32 Count = 0;
-		for (FMeshMergeData MergeData : InputData)
+		for (FMeshMergeData MergeData : InMeshMergeData)
 		{
 			//create a the node that will contain the mesh
 			ssf::pssfNode SsfNode = new ssf::ssfNode();
@@ -677,6 +606,8 @@ private:
 			{
 				ProcessingObjectsSet.Items.push_back(SsfNode->Id->ToCharString());
 			}
+
+
 		}
 
 		if(ClippingGeometrySet.Items.size() > 0)
@@ -687,12 +618,18 @@ private:
 		 
 	}
 
-	 
-	void ConvertFromSsfScene(ssf::pssfScene SceneGraph, FRawMesh& OutProxyMesh, FFlattenMaterial& OutMaterial, const FString OutputFolderPath)
+	/**
+	* Convert SsfScnee to RawMesh. Currently assumes that only a single mesh will be present in the SsfScene
+	* @param SsfScene			SsfScene
+	* @param OutProxyMesh		Converted SsfMeshData to RawMesh
+	* @param OutMaterial		Converted SsfMaterial to Flattened Material
+	* @param BaseTexturesPath	Base Path for textures
+	*/
+	void ConvertFromSsfSceneToRawMesh(ssf::pssfScene SsfScene, FRawMesh& OutProxyMesh, FFlattenMaterial& OutMaterial, const FString BaseTexturesPath)
 	{
 		bool bReverseWinding = true;
 		 
-		for (ssf::pssfMesh Mesh : SceneGraph->MeshTable->MeshList)
+		for (ssf::pssfMesh Mesh : SsfScene->MeshTable->MeshList)
 		{
 			//extract geometry data
 			for (ssf::pssfMeshData MeshData : Mesh->MeshDataList)
@@ -710,7 +647,6 @@ private:
 				}
 				 
 				 
-
 				OutProxyMesh.WedgeIndices.SetNumUninitialized(ToatalCorners);
 				for (int32 TriIndex = 0; TriIndex < TotalTriangles; ++TriIndex)
 				{
@@ -721,23 +657,23 @@ private:
 					}					 
 				}
 
+				//Note : Since we are doing mesh aggregation need to make sure to extract MaterialLOD TexCoord and Lightmap TexCoords
+
+				//Copy baked material UV's only discard the reset
 				int32 TexCoordIndex = 0;
-				for (ssf::ssfNamedList<ssf::ssfVector2> TexCoorChannel : MeshData->TextureCoordinatesList)
-				{
+				ssf::ssfNamedList<ssf::ssfVector2> BakedMaterialUVs = FSimplygonSSFHelper::GetBakedMaterialUVs(MeshData->TextureCoordinatesList);
 					OutProxyMesh.WedgeTexCoords[TexCoordIndex].SetNumUninitialized(ToatalCorners);
 					for (int32 TriIndex = 0; TriIndex < TotalTriangles; ++TriIndex)
 					{						 
 						for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 						{
 							int32 DestCornerIndex =  bReverseWinding ? 2 - CornerIndex : CornerIndex;
-							OutProxyMesh.WedgeTexCoords[TexCoordIndex][TriIndex * 3 + DestCornerIndex].X = TexCoorChannel.Items[TriIndex * 3 + CornerIndex].V[0];
-							OutProxyMesh.WedgeTexCoords[TexCoordIndex][TriIndex * 3 + DestCornerIndex].Y = TexCoorChannel.Items[TriIndex * 3 + CornerIndex].V[1];
+						OutProxyMesh.WedgeTexCoords[TexCoordIndex][TriIndex * 3 + DestCornerIndex].X = BakedMaterialUVs.Items[TriIndex * 3 + CornerIndex].V[0];
+						OutProxyMesh.WedgeTexCoords[TexCoordIndex][TriIndex * 3 + DestCornerIndex].Y = BakedMaterialUVs.Items[TriIndex * 3 + CornerIndex].V[1];
 
 						}
-
-					}
-					//TexCoordIndex++;
 				}
+
 
 				//SSF Can store multiple color channels. However UE only supports one color channel
 				int32 ColorChannelIndex = 0;
@@ -837,79 +773,112 @@ private:
 
 			//since its a proxy will only contain one material on it
 			ssf::ssfString ProxyMaterialGuid = Mesh->MaterialIds.Get().Items[0].Value;
-			 
-			ssf::pssfMaterial ProxyMaterial = FindMaterialById(SceneGraph, ProxyMaterialGuid);
-
+			ssf::pssfMaterial ProxyMaterial = FSimplygonSSFHelper::FindMaterialById(SsfScene, ProxyMaterialGuid);
 			if (ProxyMaterial != nullptr)
 			{
-				SetupMaterial(SceneGraph, ProxyMaterial, OutMaterial, OutputFolderPath);
+				SetupMaterial(SsfScene, ProxyMaterial, OutMaterial, BaseTexturesPath);
 			}
-
 		}
-		 
 	}
 
+	/**
+	* Extracts texture from a material channel's textures. Currently only returns one Samples
+	* @param SsfMaterialChannel	SsfMaterialChannel pointer
+	* @param BaseTexturesPath		Base folder path where textures are located
+	* @param ChannelName			Channel name
+	* @param OutSamples			Out Pixel samples from the texture
+	* @param OutTextureSize		Out TextureSizes
+	*/
 	void ExtractTextureDescriptors(ssf::pssfScene SceneGraph, 
-		ssf::pssfMaterialChannel Channel, 
-		FString OutputFolderPath,
+		ssf::pssfMaterialChannel SsfMaterialChannel,
+		FString BaseTexturesPath,
 		FString ChannelName,
 		TArray<FColor>& OutSamples,
 		FIntPoint& OutTextureSize)
 				{
-		for (ssf::pssfMaterialChannelTextureDescriptor TextureDescriptor : Channel->MaterialChannelTextureDescriptorList)
+		for (ssf::pssfMaterialChannelTextureDescriptor TextureDescriptor : SsfMaterialChannel->MaterialChannelTextureDescriptorList)
 		{
-
-			//SceneGraph->TextureTable->TextureList.
-			ssf::pssfTexture Texture = FindTextureById(SceneGraph, TextureDescriptor->TextureID.Get().Value);
+			ssf::pssfTexture Texture = FSimplygonSSFHelper::FindTextureById(SceneGraph, TextureDescriptor->TextureID.Get().Value);
 			 
 			if (Texture != nullptr)
 			{
-				FString TextureFilePath = FString::Printf(TEXT("%s/%s"), *OutputFolderPath, ANSI_TO_TCHAR(Texture->Path.Get().Value.c_str()));
+				FString TextureFilePath = FString::Printf(TEXT("%s/%s"), *BaseTexturesPath, ANSI_TO_TCHAR(Texture->Path.Get().Value.c_str()));
 				CopyTextureData(OutSamples, OutTextureSize, ChannelName, TextureFilePath);
 				}
-			 
 			}
 	}
 
-	void SetupMaterial(ssf::pssfScene SceneGraph, ssf::pssfMaterial Material, FFlattenMaterial &OutMaterial, FString OutputFolderPath)
+	/**
+	* Setup material will extract material information from SsfMaterial and create a flattened material from it.
+	* @param InSsfScene			Base folder path where textures are located
+	* @param InSsfMaterial			Channel name
+	* @param OutMaterial			Out Pixel samples from the texture
+	* @param InBaseTexturesPath	Out TextureSizes
+	*/
+	void SetupMaterial(ssf::pssfScene SceneGraph, ssf::pssfMaterial InSsfMaterial, FFlattenMaterial &OutMaterial, FString InBaseTexturesPath)
 	{
 
 		bool  bHasOpacityMask = false;
 		bool  bHasOpacity = false;
-		for (ssf::pssfMaterialChannel Channel : Material->MaterialChannelList)
+		for (ssf::pssfMaterialChannel Channel : InSsfMaterial->MaterialChannelList)
 		{
 			const FString ChannelName(ANSI_TO_TCHAR(Channel->ChannelName.Get().Value.c_str()));
 
 			if (ChannelName.Compare(BASECOLOR_CHANNEL) == 0)
 			{
-				ExtractTextureDescriptors(SceneGraph, Channel, OutputFolderPath, ChannelName, OutMaterial.DiffuseSamples, OutMaterial.DiffuseSize);
+				FIntPoint Size = OutMaterial.GetPropertySize(EFlattenMaterialProperties::Diffuse);
+				ExtractTextureDescriptors(SceneGraph, Channel, InBaseTexturesPath, ChannelName, OutMaterial.GetPropertySamples(EFlattenMaterialProperties::Diffuse), Size);
+				OutMaterial.SetPropertySize(EFlattenMaterialProperties::Diffuse, Size);
 			}
 			else if (ChannelName.Compare(NORMAL_CHANNEL) == 0)
 			{
-				ExtractTextureDescriptors(SceneGraph, Channel, OutputFolderPath, ChannelName, OutMaterial.NormalSamples, OutMaterial.NormalSize);
+				FIntPoint Size = OutMaterial.GetPropertySize(EFlattenMaterialProperties::Normal);
+				ExtractTextureDescriptors(SceneGraph, Channel, InBaseTexturesPath, ChannelName, OutMaterial.GetPropertySamples(EFlattenMaterialProperties::Normal), Size);
+				OutMaterial.SetPropertySize(EFlattenMaterialProperties::Normal, Size);
 			}
 			else if (ChannelName.Compare(SPECULAR_CHANNEL) == 0)
 			{
-				ExtractTextureDescriptors(SceneGraph, Channel, OutputFolderPath, ChannelName, OutMaterial.SpecularSamples, OutMaterial.SpecularSize);
+				FIntPoint Size = OutMaterial.GetPropertySize(EFlattenMaterialProperties::Specular);
+				ExtractTextureDescriptors(SceneGraph, Channel, InBaseTexturesPath, ChannelName, OutMaterial.GetPropertySamples(EFlattenMaterialProperties::Specular),	Size);
+				OutMaterial.SetPropertySize(EFlattenMaterialProperties::Specular, Size);
 			}
 			else if (ChannelName.Compare(ROUGHNESS_CHANNEL) == 0)
 			{
-				ExtractTextureDescriptors(SceneGraph, Channel, OutputFolderPath, ChannelName, OutMaterial.RoughnessSamples, OutMaterial.RoughnessSize);
+				FIntPoint Size = OutMaterial.GetPropertySize(EFlattenMaterialProperties::Roughness);
+				ExtractTextureDescriptors(SceneGraph, Channel, InBaseTexturesPath, ChannelName, OutMaterial.GetPropertySamples(EFlattenMaterialProperties::Roughness),Size);
+				OutMaterial.SetPropertySize(EFlattenMaterialProperties::Roughness, Size);
 			}
 			else if (ChannelName.Compare(METALLIC_CHANNEL) == 0)
 			{
-				ExtractTextureDescriptors(SceneGraph, Channel, OutputFolderPath, ChannelName, OutMaterial.MetallicSamples, OutMaterial.MetallicSize);
+				FIntPoint Size = OutMaterial.GetPropertySize(EFlattenMaterialProperties::Metallic);
+				ExtractTextureDescriptors(SceneGraph, Channel, InBaseTexturesPath, ChannelName, OutMaterial.GetPropertySamples(EFlattenMaterialProperties::Metallic), Size);
+				OutMaterial.SetPropertySize(EFlattenMaterialProperties::Metallic, Size);
 			}
 			else if (ChannelName.Compare(OPACITY_CHANNEL) == 0)
 			{
-				ExtractTextureDescriptors(SceneGraph, Channel, OutputFolderPath, ChannelName, OutMaterial.OpacitySamples, OutMaterial.OpacitySize);
+				FIntPoint Size = OutMaterial.GetPropertySize(EFlattenMaterialProperties::Opacity);
+				ExtractTextureDescriptors(SceneGraph, Channel, InBaseTexturesPath, ChannelName, OutMaterial.GetPropertySamples(EFlattenMaterialProperties::Opacity), Size);
 				bHasOpacity = true;
+				OutMaterial.SetPropertySize(EFlattenMaterialProperties::Opacity, Size);
 			}
-			else if (ChannelName.Compare(OPACITY_MASK_CHANNEL) == 0)
+			/*else if (ChannelName.Compare(OPACITY_MASK_CHANNEL) == 0)
 			{
-				ExtractTextureDescriptors(SceneGraph, Channel, OutputFolderPath, ChannelName, OutMaterial.OpacitySamples, OutMaterial.OpacitySize);
+				FIntPoint Size = OutMaterial.GetPropertySize(EFlattenMaterialProperties::Opacity);
+				ExtractTextureDescriptors(SceneGraph, Channel, InBaseTexturesPath, ChannelName, OutMaterial.GetPropertySamples(EFlattenMaterialProperties::Opacity), Size);
 				bHasOpacityMask = true;
-			}
+				OutMaterial.SetPropertySize(EFlattenMaterialProperties::Opacity, Size);
+			}*/
+			//NOTE: We have AO_CHANNEL support  in the advance integration. We will move it it a later CL after the basic minimum is ready for 4.14.
+			/*else if (ChannelName.Compare(AO_CHANNEL) == 0)
+			{
+				ExtractTextureDescriptors(InSsfScene, Channel, InBaseTexturesPath, ChannelName, OutMaterial.AOSamples, OutMaterial.AOSize);
+			}*/
+            else if (ChannelName.Compare(EMISSIVE_CHANNEL) == 0)
+			{
+				FIntPoint Size = OutMaterial.GetPropertySize(EFlattenMaterialProperties::Emissive);
+				ExtractTextureDescriptors(SceneGraph, Channel, InBaseTexturesPath, ChannelName, OutMaterial.GetPropertySamples(EFlattenMaterialProperties::Emissive), Size);
+				OutMaterial.SetPropertySize(EFlattenMaterialProperties::Emissive, Size);
+			}  
 		}
 
 		if ( (bHasOpacity && bHasOpacityMask) || bHasOpacity)
@@ -920,141 +889,62 @@ private:
 		{
 			OutMaterial.BlendMode = BLEND_Masked;
 		}
-	}
 
-	ssf::pssfTexture FindTextureById(ssf::pssfScene SceneGraph, ssf::ssfString TextureId)
-	{
-		auto Texture = std::find_if(SceneGraph->TextureTable->TextureList.begin(), SceneGraph->TextureTable->TextureList.end(),
-			[TextureId](const ssf::pssfTexture tex)
-		{
-			if (FSimplygonSSFHelper::CompareSSFStr(tex->Id.Get().Value, TextureId))
-			{
-				return true;
-				}
-			return false;
-		});
+		//NOTE: this feature is provided in the advance integration.
+		//		Simplygon can bake both worldspace and tangentspace normal maps. 
+		//		worldspace normal maps are better in certain cases. 
+		//		We will move the functionality in a separate CL.
 
-
-		if (Texture != std::end(SceneGraph->TextureTable->TextureList))
-		{
-			if (!Texture->IsNull())
-			{
-				return *Texture;
-			}
+		//OutMaterial.bTangentspaceNormalmap = InSsfMaterial->TangentSpaceNormals->Value;
 		}
 
-		return nullptr;
-	}
-
-	ssf::pssfMaterial FindMaterialById(ssf::pssfScene SceneGraph, ssf::ssfString MaterailId)
-	{
-		auto ProxyMaterial = std::find_if(SceneGraph->MaterialTable->MaterialList.begin(), SceneGraph->MaterialTable->MaterialList.end(),
-			[MaterailId](const ssf::pssfMaterial mat)
-		{
-			if (FSimplygonSSFHelper::CompareSSFStr(mat->Id.Get().Value, MaterailId))
-			{
-				return true;
-			}
-			return false;
-		});
-
-		if (ProxyMaterial != std::end(SceneGraph->MaterialTable->MaterialList))
-		{
-			if (!ProxyMaterial->IsNull())
-			{
-				return *ProxyMaterial;
-			}
-		}
-
-		return nullptr;
-	}
-
+	/**
+	* Wrapper method which calls UAT with ZipUtils to unzip files.
+	* @param ZipFileName			Path to zip file to be extracted.
+	* @param OutputFolderPath		Path to folder where the contents of the zip will be extracted.
+	*/
 	bool UnzipDownloadedContent(FString ZipFileName, FString OutputFolderPath)
 	{
 		if (!FPaths::FileExists(FPaths::ConvertRelativePathToFull(ZipFileName)))
+		{
 			return false;
+		}
 
-		FString CommandLine = FString::Printf(TEXT("x %s -o%s * -y"), *FPaths::ConvertRelativePathToFull(ZipFileName), *FPaths::ConvertRelativePathToFull(OutputFolderPath));
+
 
 		FString CmdExe = TEXT("cmd.exe");
-		FString ZipToolPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / PATH_TO_7ZIP);
 
 		bool bEnableDebugging = GetDefault<UEditorPerProjectUserSettings>()->bEnableSwarmDebugging;
 	
-		if (!FPaths::FileExists(ZipToolPath))
-		{
-			UE_LOG(LogSimplygonSwarm, Log, TEXT("External Zip Utility not found at location %s"), *ZipToolPath);
-			return false;
-		}
-
-		FString FullCommandLine = FString::Printf(TEXT("/c \"\"%s\" %s\""), *ZipToolPath, *CommandLine);
-		TSharedPtr<FMonitoredProcess> UatProcess = MakeShareable(new FMonitoredProcess(CmdExe, FullCommandLine, true));
-		UatProcess->OnOutput().BindLambda([&](FString Message) {
-
-			if(bEnableDebugging)
-			UE_LOG(LogSimplygonSwarm, Display, TEXT("Simplygon Swarm UnzipFiles Output %s"), *Message); 
-		});
-
-			 
-		UatProcess->Launch();
-
-		//ugly spin lock
-		while (UatProcess->IsRunning() && UatProcess->GetDuration().GetSeconds() < 300)
-		{
-			FPlatformProcess::Sleep(0.1f);
-		}
-		
+		FString CommandLine = FString::Printf(TEXT("ZipUtils -archive=\"%s\" -extract=\"%s\" -nocompile"), *ZipFileName, *OutputFolderPath);
+		UatTask(CommandLine);
 
 		return true;
 	}
 
+	/**
+	* Wrapper method which call UAT with the ZipUtils to zip files.
+	* @param InputDirectoryPath	Directory to zip
+	* @param OutputFileName		Output zipfile path
+	*/
 bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 {
-		 
-	FString CommandLine = FString::Printf(TEXT("a %s %s/* -mx0"), *FPaths::ConvertRelativePathToFull(OutputFileName), *FPaths::ConvertRelativePathToFull(InputDirectoryPath));
+		bool bEnableDebugging = GetDefault<UEditorPerProjectUserSettings>()->bEnableSwarmDebugging;
 
 	FString CmdExe = TEXT("cmd.exe");
-	FString ZipToolPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / PATH_TO_7ZIP);
-
-	const bool bEnableDebugging = GetDefault<UEditorPerProjectUserSettings>()->bEnableSwarmDebugging;		 
-	if (!FPaths::FileExists(ZipToolPath))
-	{
-		//FFormatNamedArguments Arguments;
-		//Arguments.Add(TEXT("File"), FText::FromString(ZipToolPath));
-		//FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("RequiredFileNotFoundMessage", "A required file could not be found:\n{File}"), Arguments));
-		UE_LOG(LogSimplygonSwarm, Error, TEXT("External Zip Tool not found at location %s"), *ZipToolPath)
-		return false;
-	}
-
-	FString FullCommandLine = FString::Printf(TEXT("/c \"\"%s\" %s\""), *ZipToolPath, *CommandLine);
-	TSharedPtr<FMonitoredProcess> UatProcess = MakeShareable(new FMonitoredProcess(CmdExe, FullCommandLine, true));
-			 
-	UatProcess->OnOutput().BindLambda([&](FString Message) 
-	{
-		if(bEnableDebugging)
-			UE_LOG(LogSimplygonSwarm, Display, TEXT("Simplygon Swarm ZipFile Process OuputMessage %s"), *Message); 
-	});
-
-	UatProcess->Launch();
-			 
-	//ugly spin lock
-	while (UatProcess->IsRunning())
-	{
-		FPlatformProcess::Sleep(0.1f);
-	}
+		FString CommandLine = FString::Printf(TEXT("ZipUtils -archive=\"%s\" -add=\"%s\" -compression=0 -nocompile"), *FPaths::ConvertRelativePathToFull(OutputFileName), *FPaths::ConvertRelativePathToFull(InputDirectoryPath));
 		
+		UE_CLOG(bEnableDebugging, LogSimplygonSwarm, Log, TEXT("Uat command line %s"), *CommandLine);
 		 
+		UatTask(CommandLine);
 
 	return true;
 }
 
-
-	/*
-	Takes in a UAT Command and executes it. Is based on MainFrameAction CreateUatTask ( super striped down version).
-	No need to redist 7-zip and would in the future work out for XPlatorm implementation.
-	TODO: Optionally add notification.
+	/**
+	* Takes in a UAT Command and executes it. Is based on MainFrameAction CreateUatTask. A very minimalistic version.
+	* @param CommandLine			Commandline argument to run against RunUAT.bat
 	*/
-
 	bool UatTask(FString CommandLine)
 	{
 #if PLATFORM_WINDOWS
@@ -1067,6 +957,7 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 		FString RunUATScriptName = TEXT("RunUAT.command");
 		FString CmdExe = TEXT("/bin/sh");
 #endif
+		bool bEnableDebugging = GetDefault<UEditorPerProjectUserSettings>()->bEnableSwarmDebugging;
 
 		FString UatPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles") / RunUATScriptName);
 
@@ -1091,7 +982,7 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 
 		bool sucess = UatProcess->Launch();
 
-		UatProcess->OnOutput().BindLambda([&](FString Message) {UE_LOG(LogSimplygonSwarm, Log, TEXT("Simplygon Swarm Uat Task Output %s"), *Message); });
+		UatProcess->OnOutput().BindLambda([&](FString Message) {UE_CLOG(bEnableDebugging, LogSimplygonSwarm, Log, TEXT("UatTask Output %s"), *Message); });
 
 		while (UatProcess->IsRunning())
 		{
@@ -1102,6 +993,11 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 
 	}
 
+	/**
+	* Get Unique Mateiral Inidices
+	* @param OriginalMaterialIds		Original Material Indicies
+	* @param ChannelUniqueMaterialIds	OutUniqueMaterialIds
+	*/
 	void GetUniqueMaterialIndices(const TArray<int32>& OriginalMaterialIds, TArray<int32>& UniqueMaterialIds)
 	{
 		for (int32 index : OriginalMaterialIds)
@@ -1119,7 +1015,11 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 		uint32 TexCoordCount;
 	};
 
-
+	/**
+	* Method to setup a color caster spl object and attach it to the given process node.
+	* @param InSplProcessNode		SplProcessNode to attach the caster to.
+	* @param Channel				Channel name to cast (i.e Basecolor, Specular, Roughness)
+	*/
 	void SetupColorCaster(SPL::ProcessNode& InSplProcessNode, FString Channel)
 	{
 		SPL::ColorCaster* colorCaster = new SPL::ColorCaster();
@@ -1137,12 +1037,19 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 		InSplProcessNode.MaterialCaster.push_back(colorCaster);
 	}
 
-	void SetupNormalCaster(SPL::ProcessNode& InSplProcessNode, FString Channel)
+	/**
+	* Method to setup a normal caster spl object and attach it to the given process node.
+	* Note : You can use this method to define custom normal channels as well.
+	* @param InSplProcessNode		SplProcessNode to attach the caster to.
+	* @param Channel				Channel name to cast (i.e Normal)
+	* @param bTangentspaceNormals	Channel name to cast (i.e Normal)
+	*/
+	void SetupNormalCaster(SPL::ProcessNode& InSplProcessNode, FString Channel, bool bTangentspaceNormals = true)
 	{
 		SPL::NormalCaster* normalCaster = new SPL::NormalCaster();
 		normalCaster->Name = TCHAR_TO_ANSI(*Channel);
 		normalCaster->Channel = TCHAR_TO_ANSI(*Channel);
-		normalCaster->GenerateTangentSpaceNormals = true;
+		normalCaster->GenerateTangentSpaceNormals = bTangentspaceNormals;
 		normalCaster->OutputChannels = 3;
 		normalCaster->Dilation = 10;
 		normalCaster->FlipGreen = false;
@@ -1153,6 +1060,13 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 		InSplProcessNode.MaterialCaster.push_back(normalCaster);
 	}
 
+	/**
+	* Method to setup a normal caster spl object and attach it to the given process node.
+	* Note : You can use this method to define custom normal channels as well.
+	* @param InSplProcessNode		SplProcessNode to attach the caster to.
+	* @param Channel				Channel name to cast (i.e Normal)
+	* @param bTangentspaceNormals	Channel name to cast (i.e Normal)
+	*/
 	void SetupOpacityCaster(SPL::ProcessNode& InSplProcessNode, FString Channel)
 	{
 		SPL::OpacityCaster* opacityCaster = new SPL::OpacityCaster();
@@ -1170,7 +1084,13 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 		InSplProcessNode.MaterialCaster.push_back(opacityCaster);
 	}
 
-
+	/**
+	* Setup Material caster for a spl process node
+	* @param InMaterialProxySettings	Material proxy settings
+	* @param InSplProcessNode			SplProcess node to attach casters to
+	* @param InOutputMaterialBlendMode	EBlendMode (Opaque, Translucent, Masked) are supported
+	* @returns The calculated view distance
+	*/
 	void SetupSplMaterialCasters(const FMaterialProxySettings& InMaterialProxySettings, SPL::ProcessNode& InSplProcessNode, EBlendMode InOutputMaterialBlendMode = BLEND_Opaque)
 	{
 		SetupColorCaster(InSplProcessNode, BASECOLOR_CHANNEL);
@@ -1190,48 +1110,24 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 
 		if (InMaterialProxySettings.bNormalMap)
 		{
-			SetupNormalCaster(InSplProcessNode, NORMAL_CHANNEL);
+			SetupNormalCaster(InSplProcessNode, NORMAL_CHANNEL, true/*InMaterialProxySettings.bUseTangentSpace*/);
 		}
 
 		if (InMaterialProxySettings.bOpacityMap)
 		{
 			SetupOpacityCaster(InSplProcessNode, InOutputMaterialBlendMode == BLEND_Translucent ? OPACITY_CHANNEL : OPACITY_MASK_CHANNEL);
 		}
-	}
 
-	FString CreateSPLTemplateChannels(const FMaterialProxySettings& Settings,EBlendMode InOutputMaterialBlendMode = BLEND_Opaque)
-	{
-	FString FinalTemplate;
+      //NOTE: Enable this block once AO feature is moved into vanilla integration.
+		  /*if (InMaterialProxySettings.bAmbientOcclusionMap)
+	  {
+			  SetupColorCaster(InSplProcessNode, NORMAL_CHANNEL);
+		  }*/
 
-	FinalTemplate += FString::Printf(TEXT("%s"), *FString::Printf(SPL_TEMPLATE_COLORCASTER, BASECOLOR_CHANNEL, BASECOLOR_CHANNEL, BASECOLOR_CHANNEL));
-		
-	if (Settings.bMetallicMap)
-	{
-		FinalTemplate += FString::Printf(TEXT(",%s"), *FString::Printf(SPL_TEMPLATE_COLORCASTER, METALLIC_CHANNEL, METALLIC_CHANNEL, METALLIC_CHANNEL));
-	}
-
-	if (Settings.bRoughnessMap)
-	{
-		FinalTemplate += FString::Printf(TEXT(",%s"), *FString::Printf(SPL_TEMPLATE_COLORCASTER, ROUGHNESS_CHANNEL, ROUGHNESS_CHANNEL, ROUGHNESS_CHANNEL));
-	}
-
-	if (Settings.bSpecularMap)
-	{
-		FinalTemplate += FString::Printf(TEXT(",%s"), *FString::Printf(SPL_TEMPLATE_COLORCASTER, SPECULAR_CHANNEL, SPECULAR_CHANNEL, SPECULAR_CHANNEL));
-	}
-
-	if (Settings.bNormalMap)
-	{
-		FinalTemplate += FString::Printf(TEXT(",%s"), *FString::Printf(SPL_TEMPLATE_NORMALCASTER, NORMAL_CHANNEL, NORMAL_CHANNEL));
-	}
-
-	if (Settings.bOpacityMap)
-	{
-		const TCHAR* ChannelTypeName = InOutputMaterialBlendMode == BLEND_Translucent ? OPACITY_CHANNEL : OPACITY_MASK_CHANNEL;
-		FinalTemplate += FString::Printf(TEXT(",%s"), *FString::Printf(SPL_TEMPLATE_OPACITYCASTER, ChannelTypeName, ChannelTypeName, ChannelTypeName));
-	}
-
-	return FinalTemplate;
+		if (InMaterialProxySettings.bEmissiveMap)
+		{
+			SetupColorCaster(InSplProcessNode, EMISSIVE_CHANNEL);
+        }
 	}
 
 	/**
@@ -1260,41 +1156,19 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 		return ViewDistance;
 	}
 
+	/**
+	* Compute mapping image size from the given material proxy settings
+	* @param Settings		Material Proxy Settings
+	*/
 	static FIntPoint ComputeMappingImageSize(const FMaterialProxySettings& Settings)
 	{
-		FIntPoint ImageSize = Settings.TextureSize;/* Settings.BaseColorMapSize;
-		ImageSize = ImageSize.ComponentMax(Settings.NormalMapSize);
-		ImageSize = ImageSize.ComponentMax(Settings.MetallicMapSize);
-		ImageSize = ImageSize.ComponentMax(Settings.RoughnessMapSize);
-		ImageSize = ImageSize.ComponentMax(Settings.SpecularMapSize);*/
+		FIntPoint ImageSize = Settings.TextureSize;
+
 		return ImageSize;
 	}
 
-	 
-	/*
-	*	(1,0,0)
-	*	(0,0,1)
-	*	(0,1,0)
-	*/
-	//const FMatrix& GetConversionMatrix()
-	//{
-	// 
-	// static FMatrix m;
-	// static bool bInitialized = false;
-	// if (!bInitialized)
-	// {
-	//	 m.SetIdentity();
-	//	 m.SetAxis(0, FVector(1, 0, 0));	//forward
-	//	 m.SetAxis(1, FVector(0, 0, 1));	//right
-	//	 m.SetAxis(2, FVector(0, 1, 0));	//up
-	//	 bInitialized = true;
-
-	// }
-	// 
-	// return m;		 
-	//}
-
-	/*
+	/**
+	* Method to swap axis
 	*	(1,0,0)
 	*	(0,0,1)
 	*	(0,1,0)
@@ -1307,23 +1181,22 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 		if (!bInitialized)
 		{
 			m.SetIdentity();
-			//m.SetAxis(0, FVector(1, 0, 0));	//forward
-			//m.SetAxis(1, FVector(0, 0, 1));	//right
-			//m.SetAxis(2, FVector(0, 1, 0));	//up
-			 
 			 
 			bInitialized = true;
 		}
-		//FMatrix InvM = m.Inverse();
 		return m;
 	}
 
-
-	ssf::pssfMeshData CreateSSFMeshDataFromRawMesh(const FRawMesh& RawMesh,TArray<FBox2D> TextureBounds,
-		TArray<FVector2D> InTexCoords)
+	/**
+	* Method to create a SsfMeshData from FRawMesh
+	* @param InRawMesh				Rawmesh to create SsfMeshData from
+	* @param InTextureBounds		Texture bounds
+	* @param InTexCoords			Corrected texture coordinates generated after material flattening.
+	*/
+	ssf::pssfMeshData CreateSSFMeshDataFromRawMesh(const FRawMesh& InRawMesh, TArray<FBox2D> InTextureBounds, TArray<FVector2D> InTexCoords)
 	{
-		int32 NumVertices = RawMesh.VertexPositions.Num();
-		int32 NumWedges = RawMesh.WedgeIndices.Num();
+		int32 NumVertices = InRawMesh.VertexPositions.Num();
+		int32 NumWedges = InRawMesh.WedgeIndices.Num();
 		int32 NumTris = NumWedges / 3;
 
 		if (NumWedges == 0)
@@ -1336,26 +1209,26 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 		ssf::pssfMeshData SgMeshData = new ssf::ssfMeshData();
 		 
 		//setup vertex coordinates
-		ssf::ssfList<ssf::ssfVector3> & SgCoords = SgMeshData->Coordinates.Create();
-		SgCoords.Items.resize(NumVertices);
+		ssf::ssfList<ssf::ssfVector3> & SsfCoorinates = SgMeshData->Coordinates.Create();
+		SsfCoorinates.Items.resize(NumVertices);
 		for (int32 VertexIndex = 0; VertexIndex < NumVertices; ++VertexIndex)
 		{
-			ssf::ssfVector3 SgCurrentVertex;
-			FVector4 Position = GetConversionMatrixYUP().TransformPosition(RawMesh.VertexPositions[VertexIndex]);
-			SgCurrentVertex.V[0] = double(Position.X);
-			SgCurrentVertex.V[1] = double(Position.Y);
-			SgCurrentVertex.V[2] = double(Position.Z);
-			SgCoords.Items[VertexIndex] = SgCurrentVertex;
+			ssf::ssfVector3 CurrentVertex;
+			FVector4 Position = GetConversionMatrixYUP().TransformPosition(InRawMesh.VertexPositions[VertexIndex]);
+			CurrentVertex.V[0] = double(Position.X);
+			CurrentVertex.V[1] = double(Position.Y);
+			CurrentVertex.V[2] = double(Position.Z);
+			SsfCoorinates.Items[VertexIndex] = CurrentVertex;
 		}
 
 		//setup triangle data
-		ssf::ssfList<ssf::ssfIndex3>& SgTriangleIds = SgMeshData->TriangleIndices.Create();
-		ssf::ssfList<ssf::ssfUInt32>& SgMaterialIds = SgMeshData->MaterialIndices.Create();
-		ssf::ssfList<ssf::ssfInt32>& SgSmoothingGroupIds = SgMeshData->SmoothingGroup.Create();
+		ssf::ssfList<ssf::ssfIndex3>& SsfTriangleIndices = SgMeshData->TriangleIndices.Create();
+		ssf::ssfList<ssf::ssfUInt32>& SsfMaterialIndices = SgMeshData->MaterialIndices.Create();
+		ssf::ssfList<ssf::ssfInt32>& SsfSmoothingGroups = SgMeshData->SmoothingGroup.Create();
 
-		SgTriangleIds.Items.resize(NumTris);
-		SgMaterialIds.Items.resize(NumTris);
-		SgSmoothingGroupIds.Items.resize(NumTris);
+		SsfTriangleIndices.Items.resize(NumTris);
+		SsfMaterialIndices.Items.resize(NumTris);
+		SsfSmoothingGroups.Items.resize(NumTris);
 
 
 		//Reverse winding switches
@@ -1366,14 +1239,14 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 			{
 				int32 DestCornerIndex = bReverseWinding ? 2 - CornerIndex : CornerIndex;
-				SgTriangleIds.Items[TriIndex].V[DestCornerIndex] = RawMesh.WedgeIndices[TriIndex * 3 + CornerIndex];
+				SsfTriangleIndices.Items[TriIndex].V[DestCornerIndex] = InRawMesh.WedgeIndices[TriIndex * 3 + CornerIndex];
 			}
 		}
 
 		for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
 		{
-			SgMaterialIds.Items[TriIndex] = RawMesh.FaceMaterialIndices[TriIndex];
-			SgSmoothingGroupIds.Items[TriIndex] = RawMesh.FaceSmoothingMasks[TriIndex];
+			SsfMaterialIndices.Items[TriIndex] = InRawMesh.FaceMaterialIndices[TriIndex];
+			SsfSmoothingGroups.Items[TriIndex] = InRawMesh.FaceSmoothingMasks[TriIndex];
 		}
 
 		SgMeshData->MaterialIndices.Create();
@@ -1381,26 +1254,27 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 		//setup texcoords
 		for (int32 TexCoordIndex = 0; TexCoordIndex < MAX_MESH_TEXTURE_COORDS; ++TexCoordIndex)
 		{
-			const TArray<FVector2D>& SrcTexCoords = (TexCoordIndex == 0 && InTexCoords.Num() == NumWedges) ? InTexCoords : RawMesh.WedgeTexCoords[TexCoordIndex];
+			const TArray<FVector2D>& SrcTexCoords = (TexCoordIndex == 0 && InTexCoords.Num() == NumWedges) ? InTexCoords : InRawMesh.WedgeTexCoords[TexCoordIndex];
 
 			if (SrcTexCoords.Num() == NumWedges)
 			{
-				ssf::ssfNamedList<ssf::ssfVector2> SgTexCoord;
+				ssf::ssfNamedList<ssf::ssfVector2> SsfTextureCoordinates;
 
 				//Since SSF uses Named Channels
-				SgTexCoord.Name = FSimplygonSSFHelper::TCHARToSSFString(*FString::Printf(TEXT("TexCoord%d"), TexCoordIndex));
-				SgTexCoord.Items.resize(NumWedges);
+				SsfTextureCoordinates.Name = FSimplygonSSFHelper::TCHARToSSFString(*FString::Printf(TEXT("TexCoord%d"), TexCoordIndex));
+				SsfTextureCoordinates.Items.resize(NumWedges);
 
 				int32 WedgeIndex = 0;
 				for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
 				{
-					int32 MaterialIndex = RawMesh.FaceMaterialIndices[TriIndex];
+					int32 MaterialIndex = InRawMesh.FaceMaterialIndices[TriIndex];
 					// Compute texture bounds for current material.
 					float MinU = 0, ScaleU = 1;
 					float MinV = 0, ScaleV = 1;
-					if (TextureBounds.IsValidIndex(MaterialIndex) && TexCoordIndex == 0 && InTexCoords.Num() == 0)
+
+					if (InTextureBounds.IsValidIndex(MaterialIndex) && TexCoordIndex == 0 && InTexCoords.Num() == 0)
 					{
-						const FBox2D& Bounds = TextureBounds[MaterialIndex];
+						const FBox2D& Bounds = InTextureBounds[MaterialIndex];
 						if (Bounds.GetArea() > 0)
 						{
 							MinU = Bounds.Min.X;
@@ -1417,44 +1291,42 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 						temp.V[0] = (TexCoord.X - MinU) * ScaleU;
 						temp.V[1] = (TexCoord.Y - MinV) * ScaleV;
 						int32 DestCornerIndex = bReverseWinding ? 2 - CornerIndex : CornerIndex;
-						SgTexCoord.Items[TriIndex * 3 + DestCornerIndex] = temp;
+						SsfTextureCoordinates.Items[TriIndex * 3 + DestCornerIndex] = temp;
 					}
 				}
 
-				SgMeshData->TextureCoordinatesList.push_back(SgTexCoord);
+				SgMeshData->TextureCoordinatesList.push_back(SsfTextureCoordinates);
 			}
 		}
 
 		//setup colors
-		if (RawMesh.WedgeColors.Num() == NumWedges)
+		if (InRawMesh.WedgeColors.Num() == NumWedges)
 		{
 			//setup the color named channel . Currently its se to index zero. If multiple colors channel are need then use an index instead of 0
-			ssf::ssfNamedList<ssf::ssfVector4> SgColors;
-			SgColors.Name = FSimplygonSSFHelper::TCHARToSSFString(*FString::Printf(TEXT("Colors%d"), 0));
-			SgColors.Items.resize(NumWedges);
+			ssf::ssfNamedList<ssf::ssfVector4> SsfColorMap;
+			SsfColorMap.Name = FSimplygonSSFHelper::TCHARToSSFString(*FString::Printf(TEXT("Colors%d"), 0));
+			SsfColorMap.Items.resize(NumWedges);
 			for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
 			{
 				for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 				{
 					int32 DestCornerIndex = bReverseWinding ? 2 - CornerIndex : CornerIndex;
-					FLinearColor LinearColor(RawMesh.WedgeColors[TriIndex*3+CornerIndex]);
-					SgColors.Items[TriIndex*3+DestCornerIndex].V[0] = LinearColor.R;
-					SgColors.Items[TriIndex*3+DestCornerIndex].V[1] = LinearColor.G;
-					SgColors.Items[TriIndex*3+DestCornerIndex].V[2] = LinearColor.B;
-					SgColors.Items[TriIndex*3+DestCornerIndex].V[3] = LinearColor.A;
+					FLinearColor LinearColor(InRawMesh.WedgeColors[TriIndex * 3 + CornerIndex]);
+					SsfColorMap.Items[TriIndex * 3 + DestCornerIndex].V[0] = LinearColor.R;
+					SsfColorMap.Items[TriIndex * 3 + DestCornerIndex].V[1] = LinearColor.G;
+					SsfColorMap.Items[TriIndex * 3 + DestCornerIndex].V[2] = LinearColor.B;
+					SsfColorMap.Items[TriIndex * 3 + DestCornerIndex].V[3] = LinearColor.A;
 				}
-				 
 			}
-			SgMeshData->ColorsList.push_back(SgColors);
+			SgMeshData->ColorsList.push_back(SsfColorMap);
 		}
 		 
-		 
-		if (RawMesh.WedgeTangentZ.Num() == NumWedges)
+		if (InRawMesh.WedgeTangentZ.Num() == NumWedges)
 		{
-			if (RawMesh.WedgeTangentX.Num() == NumWedges && RawMesh.WedgeTangentY.Num() == NumWedges)
+			if (InRawMesh.WedgeTangentX.Num() == NumWedges && InRawMesh.WedgeTangentY.Num() == NumWedges)
 			{
-				ssf::ssfList<ssf::ssfVector3> & SgTangents = SgMeshData->Tangents.Create();
-				SgTangents.Items.resize(NumWedges);
+				ssf::ssfList<ssf::ssfVector3> & SsfTangents = SgMeshData->Tangents.Create();
+				SsfTangents.Items.resize(NumWedges);
 
 				for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
 				{
@@ -1462,36 +1334,36 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 					{
 						int32 DestCornerIndex = bReverseWinding ? 2 - CornerIndex : CornerIndex;
 						ssf::ssfVector3 SsfTangent;
-						FVector4 Tangent = GetConversionMatrixYUP().TransformPosition(RawMesh.WedgeTangentX[TriIndex * 3 + CornerIndex]);
+						FVector4 Tangent = GetConversionMatrixYUP().TransformPosition(InRawMesh.WedgeTangentX[TriIndex * 3 + CornerIndex]);
 						SsfTangent.V[0] = double(Tangent.X);
 						SsfTangent.V[1] = double(Tangent.Y);
 						SsfTangent.V[2] = double(Tangent.Z);
-						SgTangents.Items[TriIndex * 3 + DestCornerIndex] = SsfTangent;
+						SsfTangents.Items[TriIndex * 3 + DestCornerIndex] = SsfTangent;
 					}
 
 				}
 				 
 
-				ssf::ssfList<ssf::ssfVector3> & SgBitangents = SgMeshData->Bitangents.Create();
-				SgBitangents.Items.resize(NumWedges);
+				ssf::ssfList<ssf::ssfVector3> & SsfBitangents = SgMeshData->Bitangents.Create();
+				SsfBitangents.Items.resize(NumWedges);
 				for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
 				{
 					for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 					{
 						int32 DestCornerIndex = bReverseWinding ? 2 - CornerIndex : CornerIndex;
 						ssf::ssfVector3 SsfBitangent;
-						FVector4 Bitangent = GetConversionMatrixYUP().TransformPosition(RawMesh.WedgeTangentY[TriIndex * 3 + CornerIndex]);
+						FVector4 Bitangent = GetConversionMatrixYUP().TransformPosition(InRawMesh.WedgeTangentY[TriIndex * 3 + CornerIndex]);
 						SsfBitangent.V[0] = double(Bitangent.X);
 						SsfBitangent.V[1] = double(Bitangent.Y);
 						SsfBitangent.V[2] = double(Bitangent.Z);
-						SgBitangents.Items[TriIndex * 3 + DestCornerIndex] = SsfBitangent;
+						SsfBitangents.Items[TriIndex * 3 + DestCornerIndex] = SsfBitangent;
 					}
 				}
 				 
 			}
 
-			ssf::ssfList<ssf::ssfVector3> & SgNormals = SgMeshData->Normals.Create();
-			SgNormals.Items.resize(NumWedges);
+			ssf::ssfList<ssf::ssfVector3> & SsfNormals = SgMeshData->Normals.Create();
+			SsfNormals.Items.resize(NumWedges);
 
 			for (int32 TriIndex = 0; TriIndex < NumTris; ++TriIndex)
 			{
@@ -1499,39 +1371,40 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 				{
 					int32 DestCornerIndex = bReverseWinding ? 2 - CornerIndex : CornerIndex;
 					ssf::ssfVector3 SsfNormal;
-					FVector4 Normal = GetConversionMatrixYUP().TransformPosition(RawMesh.WedgeTangentZ[TriIndex * 3 + CornerIndex]);
+					FVector4 Normal = GetConversionMatrixYUP().TransformPosition(InRawMesh.WedgeTangentZ[TriIndex * 3 + CornerIndex]);
 					SsfNormal.V[0] = double(Normal.X);
 					SsfNormal.V[1] = double(Normal.Y);
 					SsfNormal.V[2] = double(Normal.Z);
-					SgNormals.Items[TriIndex * 3 + DestCornerIndex] = SsfNormal;
+					SsfNormals.Items[TriIndex * 3 + DestCornerIndex] = SsfNormal;
 				}
 			}
-			 
-			 
-
 		}
 
 		return SgMeshData;
-
 	}
 
-
+	/**
+	* Method to copy texture's pixel data into a FColor array
+	* @param OutSamples			Out TArray where texture data is copied to.
+	* @param OutTextureSize		Out Texture sizes
+	* @param TexturePath			Path to Texture
+	* @param IsNormalMap			Is this normalmap that we are reading
+	*/
 	void CopyTextureData(
 		TArray<FColor>& OutSamples,
 		FIntPoint& OutTextureSize,
 		FString ChannelName,
-		FString InputPath, 
+		FString TexturePath,
 		bool IsNormalMap = false
 		)
 	{
 		IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
 		IImageWrapperPtr ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::PNG);
 		 
-		//if (ImageWrapper.IsValid() && ImageWrapper->GetRaw()
 		TArray<uint8> TextureData;
-		if (!FFileHelper::LoadFileToArray(TextureData, *FPaths::ConvertRelativePathToFull(InputPath)) && TextureData.Num() > 0)
+		if (!FFileHelper::LoadFileToArray(TextureData, *FPaths::ConvertRelativePathToFull(TexturePath)) && TextureData.Num() > 0)
 		{
-			UE_LOG(LogSimplygonSwarm, Warning, TEXT("Unable to find Texture file %s"), *InputPath);
+			UE_LOG(LogSimplygonSwarm, Warning, TEXT("Unable to find Texture file %s"), *TexturePath);
 		}
 		else
 		{
@@ -1559,20 +1432,29 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 			}				 
 			}
 
-			//just for the fun of it write it out
-			
 		}
 	}
 
-	ssf::pssfMaterialChannel SetMaterialChannelData(
+	/**
+	* Method to create a SsfMaterialChannel object
+	* @param InSamples				Color data to output to texture.
+	* @param InTextureSize			Texture size
+	* @param SsfTextureTable		SsfTexture Table
+	* @param TextureName			Texture name
+	* @param BaseTexturePath		Texture base folder to use
+	* @param IsSRGB				Texture is SRGB based or not.
+	*/
+	ssf::pssfMaterialChannel CreateSsfMaterialChannel(
 		const TArray<FColor>& InSamples,
 		FIntPoint InTextureSize,
-		ssf::pssfTextureTable SgTextureTable,
-		FString ChannelName, FString TextureName,FString OutputPath, bool IsSRGB = true)
+		ssf::pssfTextureTable SsfTextureTable,
+		FString ChannelName, FString TextureName, FString BaseTexturePath, bool IsSRGB = true)
 	{
 
-		ssf::pssfMaterialChannel SgMaterialChannel = new ssf::ssfMaterialChannel();
-		SgMaterialChannel->ChannelName.Set(FSimplygonSSFHelper::TCHARToSSFString(*ChannelName));
+		ssf::pssfMaterialChannel SsfMaterialChannel = new ssf::ssfMaterialChannel();
+		SsfMaterialChannel->ChannelName.Set(FSimplygonSSFHelper::TCHARToSSFString(*ChannelName));
+
+		bool bDebuggingEnabled = GetDefault<UEditorPerProjectUserSettings>()->bEnableSwarmDebugging;
 
 		if (InSamples.Num() >= 1)
 		{
@@ -1580,31 +1462,31 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 			IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
 			IImageWrapperPtr ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::PNG);
 			
-			FString TextureOutputRelative = FString::Printf(TEXT("%s/%s.png"), ANSI_TO_TCHAR(SgTextureTable->TexturesDirectory->Value.c_str()), *TextureName);
-			FString TextureOutputPath = FString::Printf(TEXT("%s%s"), *OutputPath, *TextureOutputRelative);
+			FString TextureOutputRelative = FString::Printf(TEXT("%s/%s.png"), ANSI_TO_TCHAR(SsfTextureTable->TexturesDirectory->Value.c_str()), *TextureName);
+			FString TextureOutputPath = FString::Printf(TEXT("%s%s"), *BaseTexturePath, *TextureOutputRelative);
 			 
 			if (ImageWrapper.IsValid() && ImageWrapper->SetRaw(&InSamples[0], InSamples.Num() * sizeof(FColor), InTextureSize.X, InTextureSize.Y, ERGBFormat::BGRA, 8))
 			{
 				if (FFileHelper::SaveArrayToFile(ImageWrapper->GetCompressed(), *TextureOutputPath))
 				{
-					ssf::pssfTexture SgTexture = new ssf::ssfTexture();
-					ssf::pssfMaterialChannelTextureDescriptor SgTextureDescriptor = new ssf::ssfMaterialChannelTextureDescriptor();
-					SgTexture->Id.Set(FSimplygonSSFHelper::SSFNewGuid());
-					SgTexture->Name.Set(FSimplygonSSFHelper::TCHARToSSFString(*TextureName));
-					SgTexture->Path.Set(FSimplygonSSFHelper::TCHARToSSFString(*TextureOutputRelative));
-					SgTextureDescriptor->TextureID.Set(SgTexture->Id.Get());
+					ssf::pssfTexture SsfTexture = new ssf::ssfTexture();
+					ssf::pssfMaterialChannelTextureDescriptor SsfTextureDescriptor = new ssf::ssfMaterialChannelTextureDescriptor();
+					SsfTexture->Id.Set(FSimplygonSSFHelper::SSFNewGuid());
+					SsfTexture->Name.Set(FSimplygonSSFHelper::TCHARToSSFString(*TextureName));
+					SsfTexture->Path.Set(FSimplygonSSFHelper::TCHARToSSFString(*TextureOutputRelative));
+					SsfTextureDescriptor->TextureID.Set(SsfTexture->Id.Get());
 
-					//TODO: Some how get the TexCoord Channel information down here. This is a hack that will only work for a very simple mesh
-					SgTextureDescriptor->TexCoordSet.Set(FSimplygonSSFHelper::TCHARToSSFString(TEXT("TexCoord0")));
+					FString TexCoordText = TEXT("TexCoord0");
+					SsfTextureDescriptor->TexCoordSet.Set(FSimplygonSSFHelper::TCHARToSSFString(*TexCoordText));
 
-					SgMaterialChannel->MaterialChannelTextureDescriptorList.push_back(SgTextureDescriptor);
-					FString ShadingNetwork = FString::Printf(SHADING_NETWORK_TEMPLATE, *TextureName, TEXT("TexCoord0"), IsSRGB);
-					SgMaterialChannel->ShadingNetwork.Set(FSimplygonSSFHelper::TCHARToSSFString(*ShadingNetwork));
-					SgTextureTable->TextureList.push_back(SgTexture);
+					SsfMaterialChannel->MaterialChannelTextureDescriptorList.push_back(SsfTextureDescriptor);
+					FString ShadingNetwork = FString::Printf(SHADING_NETWORK_TEMPLATE, *TextureName, *TexCoordText, 0);
+					SsfMaterialChannel->ShadingNetwork.Set(FSimplygonSSFHelper::TCHARToSSFString(*ShadingNetwork));
+					SsfTextureTable->TextureList.push_back(SsfTexture);
 				}
 				else
 				{
-					//UE_LOG(LogSimplygonSwarm, Log, TEXT("%s"), TEXT("Could not save textrue to file");
+					UE_LOG(LogSimplygonSwarm, Error, TEXT("Could not save to file %s"), *TextureOutputPath);
 				}
 				 
 			}
@@ -1612,24 +1494,33 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 		}
 		else
 		{
-		// InSGMaterial->SetColorRGB(SGMaterialChannelName, 1.0f, 1.0f, 1.0f);
-			SgMaterialChannel->Color.Create();
-			SgMaterialChannel->Color->V[0] = 1.0f;
-			SgMaterialChannel->Color->V[1] = 1.0f;
-			SgMaterialChannel->Color->V[2] = 1.0f;
-			SgMaterialChannel->Color->V[3] = 1.0f;
+			SsfMaterialChannel->Color.Create();
+			SsfMaterialChannel->Color->V[0] = 1.0f;
+			SsfMaterialChannel->Color->V[1] = 1.0f;
+			SsfMaterialChannel->Color->V[2] = 1.0f;
+			SsfMaterialChannel->Color->V[3] = 1.0f;
 		}
 
-		return SgMaterialChannel;
+		return SsfMaterialChannel;
 	}
 
+	/**
+	* Method to create a SsfMaterialChannel object
+	* @param InputMaterials			List of flatten materials.
+	* @param InMaterialLODSettings		Material Proxy Settings
+	* @param SsfMaterialTable			Material Table
+	* @param SsfTextureTable			Texture Table
+	* @param BaseTexturePath			Base Texture Path
+	* @param bReleaseInputMaterials	Wether or not release Flatten Material you are done.
+	* @param OutMaterialMapping		Id to Guid mapping.
+	*/
 	bool CreateSSFMaterialFromFlattenMaterial(
 		const TArray<FFlattenMaterial>& InputMaterials,
 		const FMaterialProxySettings& InMaterialLODSettings,
-		ssf::pssfMaterialTable SgMaterialTable,
-		ssf::pssfTextureTable SgTextureTable,
-		FString OutputFolderPath,
-		bool bReleaseInputMaterials, TMap<int,FString>& MaterialMapping)
+		ssf::pssfMaterialTable SsfMaterialTable,
+		ssf::pssfTextureTable SsfTextureTable,
+		FString BaseTexturePath,
+		bool bReleaseInputMaterials, TMap<int, FString>& OutMaterialMapping)
 	{
 		if (InputMaterials.Num() == 0)
 		{
@@ -1638,113 +1529,132 @@ bool ZipContentsForUpload(FString InputDirectoryPath, FString OutputFileName)
 			return false;
 		}
 		 
-		for (int32 MaterialIndex = 0; MaterialIndex < InputMaterials.Num(); MaterialIndex++)
-		{
-		FString MaterialGuidString = FGuid::NewGuid().ToString();
-		const FFlattenMaterial& FlattenMaterial = InputMaterials[MaterialIndex];
-		FString MaterialName = FString::Printf(TEXT("Material%d"), MaterialIndex);
+    	 bool bFillEmptyEmissive = false;
+		 bool bDiscardEmissive = true;
+		 for (int32 MaterialIndex = 0; MaterialIndex < InputMaterials.Num(); MaterialIndex++)
+		 {
+			 const FFlattenMaterial& FlattenMaterial = InputMaterials[MaterialIndex];
+			 if (FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Emissive).Num() > 1 || (FlattenMaterial.IsPropertyConstant(EFlattenMaterialProperties::Emissive) && FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Emissive)[0] != FColor::Black))
+			 {
+				 bFillEmptyEmissive = true;
+			 }
 
-		ssf::pssfMaterial SgMaterial = new ssf::ssfMaterial();
-		SgMaterial->Id.Set(FSimplygonSSFHelper::TCHARToSSFString(*MaterialGuidString));
-		SgMaterial->Name.Set(FSimplygonSSFHelper::TCHARToSSFString(*MaterialName));
+			 bDiscardEmissive &= ((FlattenMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Emissive)) || (FlattenMaterial.IsPropertyConstant(EFlattenMaterialProperties::Emissive) && FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Emissive)[0] == FColor::Black));
+		 } 
+		 
+		 for (int32 MaterialIndex = 0; MaterialIndex < InputMaterials.Num(); MaterialIndex++)
+		 {
+			 FString MaterialGuidString = FGuid::NewGuid().ToString();
+			 const FFlattenMaterial& FlattenMaterial = InputMaterials[MaterialIndex];
+			 FString MaterialName = FString::Printf(TEXT("Material%d"), MaterialIndex);
 
-		MaterialMapping.Add(MaterialIndex, MaterialGuidString);
+			 ssf::pssfMaterial SsfMaterial = new ssf::ssfMaterial();
+			 SsfMaterial->Id.Set(FSimplygonSSFHelper::TCHARToSSFString(*MaterialGuidString));
+			 SsfMaterial->Name.Set(FSimplygonSSFHelper::TCHARToSSFString(*MaterialName));
 
+			 OutMaterialMapping.Add(MaterialIndex, MaterialGuidString);
 
-		// Does current material have BaseColor?
-		if (FlattenMaterial.DiffuseSamples.Num())
-		{
-			FString ChannelName(BASECOLOR_CHANNEL);
-			ssf::pssfMaterialChannel BaseColorChannel = SetMaterialChannelData(FlattenMaterial.DiffuseSamples, FlattenMaterial.DiffuseSize, SgTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), OutputFolderPath);
-				 
-		// if (InMaterialLODSettings.ChannelsToCast[0].bBakeVertexColors)
-			//{
-				//This shit does not work with ssf unless a vertedc color  node with a channel is set which is multiplied with the base color
-				//SgMaterial->MaterialChannelList.push_back()
-				//SGMaterial->SetVertexColorChannel(SimplygonSDK::SG_MATERIAL_CHANNEL_BASECOLOR, 0);
-			//}
-			SgMaterial->MaterialChannelList.push_back(BaseColorChannel);
+			 // Does current material have BaseColor?
+			 if (FlattenMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Diffuse))
+			 {
+				 FString ChannelName(BASECOLOR_CHANNEL);
+				 ssf::pssfMaterialChannel BaseColorChannel = CreateSsfMaterialChannel(FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Diffuse), FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Diffuse), SsfTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), BaseTexturePath);
+
+				 SsfMaterial->MaterialChannelList.push_back(BaseColorChannel);
+
+				 //NOTE: use the commented setting once switching between tangentspace/worldspace is added into the vanilla version of the engine.
+				 SsfMaterial->TangentSpaceNormals->Create(true /*InMaterialLODSettings.bUseTangentSpace*/);
+			 }
+
+			 // Does current material have Metallic?
+			 if (FlattenMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Metallic))
+			 {
+				 FString ChannelName(METALLIC_CHANNEL);
+				 ssf::pssfMaterialChannel MetallicChannel = CreateSsfMaterialChannel(FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Metallic), FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Metallic), SsfTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), BaseTexturePath);
+				 SsfMaterial->MaterialChannelList.push_back(MetallicChannel);
+			 }
+
+			 // Does current material have Specular?
+			 if (FlattenMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Specular))
+			 {
+				 FString ChannelName(SPECULAR_CHANNEL);
+				 ssf::pssfMaterialChannel SpecularChannel = CreateSsfMaterialChannel(FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Specular), FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Specular), SsfTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), BaseTexturePath);
+				 SsfMaterial->MaterialChannelList.push_back(SpecularChannel);
+			 }
+
+			 // Does current material have Roughness?
+			 if (FlattenMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Roughness))
+			 {
+				 FString ChannelName(ROUGHNESS_CHANNEL);
+				 ssf::pssfMaterialChannel RoughnessChannel = CreateSsfMaterialChannel(FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Roughness), FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Roughness), SsfTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), BaseTexturePath);
+				 SsfMaterial->MaterialChannelList.push_back(RoughnessChannel);
+			 }
+
+			 //Does current material have a normalmap?
+			 if (FlattenMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Normal))
+			 {
+				 FString ChannelName(NORMAL_CHANNEL);
+				 SsfMaterial->TangentSpaceNormals.Create();
+				 SsfMaterial->TangentSpaceNormals.Set(true);
+				 ssf::pssfMaterialChannel NormalChannel = CreateSsfMaterialChannel(FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Normal), FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Normal), SsfTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), BaseTexturePath, false);
+				 SsfMaterial->MaterialChannelList.push_back(NormalChannel);
+			 }
+
+			 // Does current material have Opacity?
+			 if (FlattenMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Opacity))
+			 {
+				 FString ChannelName(OPACITY_CHANNEL);
+				 ssf::pssfMaterialChannel OpacityChannel = CreateSsfMaterialChannel(FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Opacity), FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Opacity), SsfTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), BaseTexturePath);
+				 SsfMaterial->MaterialChannelList.push_back(OpacityChannel);
+			 }
+
+			 // Emissive could have been outputted by the shader/swarm due to various reasons, however we don't always need the data that was created so we discard it
+			 if (FlattenMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Emissive) || (FlattenMaterial.IsPropertyConstant(EFlattenMaterialProperties::Emissive) && FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Emissive)[0] == FColor::Black))
+			 {
+				 FString ChannelName(EMISSIVE_CHANNEL);
+				 ssf::pssfMaterialChannel EmissiveChannel = CreateSsfMaterialChannel(FlattenMaterial.GetPropertySamples(EFlattenMaterialProperties::Emissive), FlattenMaterial.GetPropertySize(EFlattenMaterialProperties::Emissive), SsfTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), BaseTexturePath);
+				 SsfMaterial->MaterialChannelList.push_back(EmissiveChannel);
+			 }
+			 else if (bFillEmptyEmissive && !FlattenMaterial.DoesPropertyContainData(EFlattenMaterialProperties::Emissive))
+			 {
+				 TArray<FColor> Sample;
+				 Sample.Add(FColor::Black);
+				 FIntPoint Size(1, 1);
+				 FString ChannelName(EMISSIVE_CHANNEL);
+				 TArray<FColor> BlackEmissive;
+				 BlackEmissive.AddZeroed(1);
+				 ssf::pssfMaterialChannel EmissiveChannel = CreateSsfMaterialChannel(Sample, Size, SsfTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), BaseTexturePath);
+				 SsfMaterial->MaterialChannelList.push_back(EmissiveChannel);
+			 }
+
+			 //NOTE: Enable this once AO baking functionality is moved into the engine. 
+			 /*if (FlattenMaterial.AOSamples.Num())
+			 {
+			 FString ChannelName(AO_CHANNEL);
+			 ssf::pssfMaterialChannel AOChannel = CreateSsfMaterialChannel(FlattenMaterial.AOSamples, FlattenMaterial.AOSize, SsfTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), BaseTexturePath);
+			 SsfMaterial->MaterialChannelList.push_back(AOChannel);
+			 }*/
+
+			 SsfMaterialTable->MaterialList.push_back(SsfMaterial);
+
+			if (bReleaseInputMaterials)
+			{
+				// Release FlattenMaterial. Using const_cast here to avoid removal of "const" from input data here
+				// and above the call chain.
+				const_cast<FFlattenMaterial*>(&FlattenMaterial)->ReleaseData();
+			}
 		}
-
-		// Does current material have Metallic?
-		if (FlattenMaterial.MetallicSamples.Num())
-		{
-			FString ChannelName(METALLIC_CHANNEL);
-			ssf::pssfMaterialChannel MetallicChannel = SetMaterialChannelData(FlattenMaterial.MetallicSamples, FlattenMaterial.MetallicSize, SgTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), OutputFolderPath);
-			SgMaterial->MaterialChannelList.push_back(MetallicChannel);
-		}
-
-		// Does current material have Specular?
-		if (FlattenMaterial.SpecularSamples.Num())
-		{
-			FString ChannelName(SPECULAR_CHANNEL);
-			ssf::pssfMaterialChannel SpecularChannel = SetMaterialChannelData(FlattenMaterial.SpecularSamples, FlattenMaterial.SpecularSize, SgTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), OutputFolderPath);
-			SgMaterial->MaterialChannelList.push_back(SpecularChannel);
-		}
-
-		// Does current material have Roughness?
-		if (FlattenMaterial.RoughnessSamples.Num())
-		{
-			FString ChannelName(ROUGHNESS_CHANNEL);
-			ssf::pssfMaterialChannel RoughnessChannel = SetMaterialChannelData(FlattenMaterial.RoughnessSamples, FlattenMaterial.RoughnessSize, SgTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), OutputFolderPath);
-			SgMaterial->MaterialChannelList.push_back(RoughnessChannel);
-		}
-
-		//Does current material have a normalmap?
-		if (FlattenMaterial.NormalSamples.Num())
-		{
-			FString ChannelName(NORMAL_CHANNEL);
-			SgMaterial->TangentSpaceNormals.Create();
-			SgMaterial->TangentSpaceNormals.Set(true);
-			ssf::pssfMaterialChannel NormalChannel = SetMaterialChannelData(FlattenMaterial.NormalSamples, FlattenMaterial.NormalSize, SgTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), OutputFolderPath, false);
-			SgMaterial->MaterialChannelList.push_back(NormalChannel);
-		}
-
-		// Does current material have Opacity?
-		if (FlattenMaterial.OpacitySamples.Num())
-		{
-			FString ChannelName(OPACITY_CHANNEL);
-			ssf::pssfMaterialChannel OpacityChannel = SetMaterialChannelData(FlattenMaterial.OpacitySamples, FlattenMaterial.OpacitySize, SgTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), OutputFolderPath);
-			SgMaterial->MaterialChannelList.push_back(OpacityChannel);
-		}
-
-		if (FlattenMaterial.EmissiveSamples.Num())
-		{
-			FString ChannelName(EMISSIVE_CHANNEL);
-			ssf::pssfMaterialChannel EmissiveChannel = SetMaterialChannelData(FlattenMaterial.EmissiveSamples, FlattenMaterial.EmissiveSize, SgTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), OutputFolderPath);
-			SgMaterial->MaterialChannelList.push_back(EmissiveChannel);
-		}
-		else
-		{
-			FString ChannelName(EMISSIVE_CHANNEL);
-			TArray<FColor> BlackEmissive;
-			BlackEmissive.AddZeroed(1);
-			ssf::pssfMaterialChannel EmissiveChannel = SetMaterialChannelData(FlattenMaterial.EmissiveSamples, FlattenMaterial.EmissiveSize, SgTextureTable, ChannelName, FString::Printf(TEXT("%s%s"), *MaterialName, *ChannelName), OutputFolderPath);
-			SgMaterial->MaterialChannelList.push_back(EmissiveChannel);
-		}
-			
-		SgMaterialTable->MaterialList.push_back(SgMaterial);
-
-		if (bReleaseInputMaterials)
-		{
-			// Release FlattenMaterial. Using const_cast here to avoid removal of "const" from input data here
-			// and above the call chain.
-			const_cast<FFlattenMaterial*>(&FlattenMaterial)->ReleaseData();
-		}
-	}
 
 	return true;
 	}
-
-
 };
 
-TScopedPointer<FSimplygonSwarm> GSimplygonMeshReduction;
+TUniquePtr<FSimplygonSwarm> GSimplygonMeshReduction;
 
 
 void FSimplygonSwarmModule::StartupModule()
 {
-	GSimplygonMeshReduction = FSimplygonSwarm::Create();
+	GSimplygonMeshReduction.Reset(FSimplygonSwarm::Create());
 }
 
 void FSimplygonSwarmModule::ShutdownModule()
@@ -1752,14 +1662,19 @@ void FSimplygonSwarmModule::ShutdownModule()
 	FSimplygonRESTClient::Shutdown();
 }
 
-IMeshReduction* FSimplygonSwarmModule::GetMeshReductionInterface()
+IMeshReduction* FSimplygonSwarmModule::GetStaticMeshReductionInterface()
+{
+	return nullptr;
+}
+
+IMeshReduction* FSimplygonSwarmModule::GetSkeletalMeshReductionInterface()
 {
 	return nullptr;
 }
 
 IMeshMerging* FSimplygonSwarmModule::GetMeshMergingInterface()
 {
-	return GSimplygonMeshReduction;
+	return GSimplygonMeshReduction.Get();
 }
 
 

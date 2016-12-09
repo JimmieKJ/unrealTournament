@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "WindowsHWrapper.h"
+#include "Delegates/Delegate.h"
+#include "IDirectoryWatcher.h"
+
 class FDirectoryWatchRequestWindows
 {
 public:

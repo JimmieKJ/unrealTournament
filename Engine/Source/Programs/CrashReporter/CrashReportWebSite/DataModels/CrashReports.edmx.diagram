@@ -22,6 +22,8 @@
         <AssociationConnector Association="CrashReportModel.FK_Users_UserGroups" ManuallyRouted="false" />
         <AssociationConnector Association="CrashReportModel.Buggs_Crashes" ManuallyRouted="false" />
         <AssociationConnector Association="CrashReportModel.Buggs_UserGroups" ManuallyRouted="false" />
+        <AssociationConnector Association="CrashReportModel.FK_Crashes_Buggs" />
+        <AssociationConnector Association="CrashReportModel.FK_Crashes_ErrorMessages" />
       </Diagram>
     </edmx:Diagrams>
   </edmx:Designer>

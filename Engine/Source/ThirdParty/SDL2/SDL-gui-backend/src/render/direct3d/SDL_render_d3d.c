@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -843,7 +843,7 @@ D3D_CreateStagingTexture(IDirect3DDevice9 *device, D3D_TextureRep *texture)
     HRESULT result;
 
     if (texture->staging == NULL) {
-        result = IDirect3DDevice9_CreateTexture(device, texture->w, texture->h, 1, texture->usage,
+        result = IDirect3DDevice9_CreateTexture(device, texture->w, texture->h, 1, 0,
             PixelFormatToD3DFMT(texture->format),
             D3DPOOL_SYSTEMMEM, &texture->staging, NULL);
         if (FAILED(result)) {
@@ -1003,6 +1003,10 @@ D3D_RecreateTexture(SDL_Renderer * renderer, SDL_Texture * texture)
 {
     D3D_RenderData *data = (D3D_RenderData *)renderer->driverdata;
     D3D_TextureData *texturedata = (D3D_TextureData *)texture->driverdata;
+
+    if (!texturedata) {
+        return 0;
+    }
 
     if (D3D_RecreateTextureRep(data->device, &texturedata->texture, texture->format, texture->w, texture->h) < 0) {
         return -1;
@@ -1269,10 +1273,10 @@ D3D_UpdateClipRect(SDL_Renderer * renderer)
         HRESULT result;
 
         IDirect3DDevice9_SetRenderState(data->device, D3DRS_SCISSORTESTENABLE, TRUE);
-        r.left = rect->x;
-        r.top = rect->y;
-        r.right = rect->x + rect->w;
-        r.bottom = rect->y + rect->h;
+        r.left = renderer->viewport.x + rect->x;
+        r.top = renderer->viewport.y + rect->y;
+        r.right = renderer->viewport.x + rect->x + rect->w;
+        r.bottom = renderer->viewport.y + rect->y + rect->h;
 
         result = IDirect3DDevice9_SetScissorRect(data->device, &r);
         if (result != D3D_OK) {

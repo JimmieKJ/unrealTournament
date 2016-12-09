@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -27,6 +27,8 @@ CEF_EXPORT cef_request_t* cef_request_create() {
   return CefRequestCppToC::Wrap(_retval);
 }
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -106,6 +108,55 @@ void CEF_CALLBACK request_set_method(struct _cef_request_t* self,
   // Execute
   CefRequestCppToC::Get(self)->SetMethod(
       CefString(method));
+}
+
+void CEF_CALLBACK request_set_referrer(struct _cef_request_t* self,
+    const cef_string_t* referrer_url, cef_referrer_policy_t policy) {
+  // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
+
+  DCHECK(self);
+  if (!self)
+    return;
+  // Verify param: referrer_url; type: string_byref_const
+  DCHECK(referrer_url);
+  if (!referrer_url)
+    return;
+
+  // Execute
+  CefRequestCppToC::Get(self)->SetReferrer(
+      CefString(referrer_url),
+      policy);
+}
+
+cef_string_userfree_t CEF_CALLBACK request_get_referrer_url(
+    struct _cef_request_t* self) {
+  // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
+
+  DCHECK(self);
+  if (!self)
+    return NULL;
+
+  // Execute
+  CefString _retval = CefRequestCppToC::Get(self)->GetReferrerURL();
+
+  // Return type: string
+  return _retval.DetachToUserFree();
+}
+
+cef_referrer_policy_t CEF_CALLBACK request_get_referrer_policy(
+    struct _cef_request_t* self) {
+  // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
+
+  DCHECK(self);
+  if (!self)
+    return REFERRER_POLICY_DEFAULT;
+
+  // Execute
+  cef_referrer_policy_t _retval = CefRequestCppToC::Get(
+      self)->GetReferrerPolicy();
+
+  // Return type: simple
+  return _retval;
 }
 
 struct _cef_post_data_t* CEF_CALLBACK request_get_post_data(
@@ -323,30 +374,40 @@ uint64 CEF_CALLBACK request_get_identifier(struct _cef_request_t* self) {
   return _retval;
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefRequestCppToC::CefRequestCppToC(CefRequest* cls)
-    : CefCppToC<CefRequestCppToC, CefRequest, cef_request_t>(cls) {
-  struct_.struct_.is_read_only = request_is_read_only;
-  struct_.struct_.get_url = request_get_url;
-  struct_.struct_.set_url = request_set_url;
-  struct_.struct_.get_method = request_get_method;
-  struct_.struct_.set_method = request_set_method;
-  struct_.struct_.get_post_data = request_get_post_data;
-  struct_.struct_.set_post_data = request_set_post_data;
-  struct_.struct_.get_header_map = request_get_header_map;
-  struct_.struct_.set_header_map = request_set_header_map;
-  struct_.struct_.set = request_set;
-  struct_.struct_.get_flags = request_get_flags;
-  struct_.struct_.set_flags = request_set_flags;
-  struct_.struct_.get_first_party_for_cookies =
+CefRequestCppToC::CefRequestCppToC() {
+  GetStruct()->is_read_only = request_is_read_only;
+  GetStruct()->get_url = request_get_url;
+  GetStruct()->set_url = request_set_url;
+  GetStruct()->get_method = request_get_method;
+  GetStruct()->set_method = request_set_method;
+  GetStruct()->set_referrer = request_set_referrer;
+  GetStruct()->get_referrer_url = request_get_referrer_url;
+  GetStruct()->get_referrer_policy = request_get_referrer_policy;
+  GetStruct()->get_post_data = request_get_post_data;
+  GetStruct()->set_post_data = request_set_post_data;
+  GetStruct()->get_header_map = request_get_header_map;
+  GetStruct()->set_header_map = request_set_header_map;
+  GetStruct()->set = request_set;
+  GetStruct()->get_flags = request_get_flags;
+  GetStruct()->set_flags = request_set_flags;
+  GetStruct()->get_first_party_for_cookies =
       request_get_first_party_for_cookies;
-  struct_.struct_.set_first_party_for_cookies =
+  GetStruct()->set_first_party_for_cookies =
       request_set_first_party_for_cookies;
-  struct_.struct_.get_resource_type = request_get_resource_type;
-  struct_.struct_.get_transition_type = request_get_transition_type;
-  struct_.struct_.get_identifier = request_get_identifier;
+  GetStruct()->get_resource_type = request_get_resource_type;
+  GetStruct()->get_transition_type = request_get_transition_type;
+  GetStruct()->get_identifier = request_get_identifier;
+}
+
+template<> CefRefPtr<CefRequest> CefCppToC<CefRequestCppToC, CefRequest,
+    cef_request_t>::UnwrapDerived(CefWrapperType type, cef_request_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -354,3 +415,5 @@ template<> base::AtomicRefCount CefCppToC<CefRequestCppToC, CefRequest,
     cef_request_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefRequestCppToC, CefRequest,
+    cef_request_t>::kWrapperType = WT_REQUEST;

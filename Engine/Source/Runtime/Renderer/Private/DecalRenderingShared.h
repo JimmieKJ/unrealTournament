@@ -6,7 +6,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RendererInterface.h"
 #include "DecalRenderingCommon.h"
+
+class FDeferredDecalProxy;
+class FScene;
+class FViewInfo;
 
 /**
  * Compact decal data for rendering

@@ -1,35 +1,85 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneSkeletalAnimationSection.h"
+#include "Sections/MovieSceneSkeletalAnimationSection.h"
 #include "Animation/AnimSequence.h"
+#include "Evaluation/MovieSceneSkeletalAnimationTemplate.h"
 
-FName UMovieSceneSkeletalAnimationSection::DefaultSlotName( "DefaultSlot" );
+namespace
+{
+	FName DefaultSlotName( "DefaultSlot" );
+}
+
+FMovieSceneSkeletalAnimationParams::FMovieSceneSkeletalAnimationParams()
+{
+	Animation = nullptr;
+	StartOffset = 0.f;
+	EndOffset = 0.f;
+	PlayRate = 1.f;
+	bReverse = false;
+	SlotName = DefaultSlotName;
+}
 
 UMovieSceneSkeletalAnimationSection::UMovieSceneSkeletalAnimationSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
 {
 	AnimSequence_DEPRECATED = nullptr;
-	Animation = nullptr;
-	StartOffset = 0.f;
-	EndOffset = 0.f;
-	PlayRate = 1.f;
+	Animation_DEPRECATED = nullptr;
+	StartOffset_DEPRECATED = 0.f;
+	EndOffset_DEPRECATED = 0.f;
+	PlayRate_DEPRECATED = 1.f;
+	bReverse_DEPRECATED = false;
+	SlotName_DEPRECATED = DefaultSlotName;
+
 #if WITH_EDITOR
-	PreviousPlayRate = PlayRate;
+	PreviousPlayRate = Params.PlayRate;
 #endif
-	bReverse = false;
-	SlotName = DefaultSlotName;
 }
 
 void UMovieSceneSkeletalAnimationSection::PostLoad()
 {
 	if (AnimSequence_DEPRECATED)
 	{
-		Animation = AnimSequence_DEPRECATED;
+		Params.Animation = AnimSequence_DEPRECATED;
+	}
+
+	if (Animation_DEPRECATED != nullptr)
+	{
+		Params.Animation = Animation_DEPRECATED;
+	}
+
+	if (StartOffset_DEPRECATED != 0.f)
+	{
+		Params.StartOffset = StartOffset_DEPRECATED;
+	}
+
+	if (EndOffset_DEPRECATED != 0.f)
+	{
+		Params.EndOffset = EndOffset_DEPRECATED;
+	}
+
+	if (PlayRate_DEPRECATED != 1.f)
+	{
+		Params.PlayRate = PlayRate_DEPRECATED;
+	}
+
+	if (bReverse_DEPRECATED != false)
+	{
+		Params.bReverse = bReverse_DEPRECATED;
+	}
+
+	if (SlotName_DEPRECATED != DefaultSlotName)
+	{
+		Params.SlotName = SlotName_DEPRECATED;
 	}
 
 	Super::PostLoad();
 }
+
+FMovieSceneEvalTemplatePtr UMovieSceneSkeletalAnimationSection::GenerateTemplate() const
+{
+	return FMovieSceneSkeletalAnimationSectionTemplate(*this);
+}
+
 
 void UMovieSceneSkeletalAnimationSection::MoveSection( float DeltaTime, TSet<FKeyHandle>& KeyHandles )
 {
@@ -39,25 +89,25 @@ void UMovieSceneSkeletalAnimationSection::MoveSection( float DeltaTime, TSet<FKe
 
 void UMovieSceneSkeletalAnimationSection::DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles )
 {
-	PlayRate /= DilationFactor;
+	Params.PlayRate /= DilationFactor;
 
 	Super::DilateSection(DilationFactor, Origin, KeyHandles);
 }
 
 UMovieSceneSection* UMovieSceneSkeletalAnimationSection::SplitSection(float SplitTime)
 {
-	float AnimPlayRate = FMath::IsNearlyZero(GetPlayRate()) ? 1.0f : GetPlayRate();
+	float AnimPlayRate = FMath::IsNearlyZero(Params.PlayRate) ? 1.0f : Params.PlayRate;
 	float AnimPosition = (SplitTime - GetStartTime()) * AnimPlayRate;
-	float SeqLength = GetSequenceLength() - (GetStartOffset() + GetEndOffset());
+	float SeqLength = Params.GetSequenceLength() - (Params.StartOffset + Params.EndOffset);
 
 	float NewOffset = FMath::Fmod(AnimPosition, SeqLength);
-	NewOffset += GetStartOffset();
+	NewOffset += Params.StartOffset;
 
 	UMovieSceneSection* NewSection = Super::SplitSection(SplitTime);
 	if (NewSection != nullptr)
 	{
 		UMovieSceneSkeletalAnimationSection* NewSkeletalSection = Cast<UMovieSceneSkeletalAnimationSection>(NewSection);
-		NewSkeletalSection->SetStartOffset(NewOffset);
+		NewSkeletalSection->Params.StartOffset = NewOffset;
 	}
 	return NewSection;
 }
@@ -74,11 +124,11 @@ void UMovieSceneSkeletalAnimationSection::GetSnapTimes(TArray<float>& OutSnapTim
 	Super::GetSnapTimes(OutSnapTimes, bGetSectionBorders);
 
 	float CurrentTime = GetStartTime();
-	float AnimPlayRate = FMath::IsNearlyZero(GetPlayRate()) ? 1.0f : GetPlayRate();
-	float SeqLength = (GetSequenceLength() - (GetStartOffset() + GetEndOffset())) / AnimPlayRate;
+	float AnimPlayRate = FMath::IsNearlyZero(Params.PlayRate) ? 1.0f : Params.PlayRate;
+	float SeqLength = (Params.GetSequenceLength() - (Params.StartOffset + Params.EndOffset)) / AnimPlayRate;
 
 	// Snap to the repeat times
-	while (CurrentTime <= GetEndTime() && !FMath::IsNearlyZero(GetDuration()) && SeqLength > 0)
+	while (CurrentTime <= GetEndTime() && !FMath::IsNearlyZero(Params.GetDuration()) && SeqLength > 0)
 	{
 		if (CurrentTime >= GetStartTime())
 		{
@@ -93,7 +143,7 @@ void UMovieSceneSkeletalAnimationSection::GetSnapTimes(TArray<float>& OutSnapTim
 void UMovieSceneSkeletalAnimationSection::PreEditChange(UProperty* PropertyAboutToChange)
 {
 	// Store the current play rate so that we can compute the amount to compensate the section end time when the play rate changes
-	PreviousPlayRate = GetPlayRate();
+	PreviousPlayRate = Params.PlayRate;
 
 	Super::PreEditChange(PropertyAboutToChange);
 }
@@ -104,7 +154,7 @@ void UMovieSceneSkeletalAnimationSection::PostEditChangeProperty(FPropertyChange
 	if (PropertyChangedEvent.Property != nullptr &&
 		PropertyChangedEvent.Property->GetFName() == TEXT("PlayRate"))
 	{
-		float NewPlayRate = GetPlayRate();
+		float NewPlayRate = Params.PlayRate;
 
 		if (!FMath::IsNearlyZero(NewPlayRate))
 		{

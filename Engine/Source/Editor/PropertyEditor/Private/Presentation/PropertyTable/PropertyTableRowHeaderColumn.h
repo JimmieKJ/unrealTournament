@@ -1,14 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IPropertyTableUtilities.h"
+#include "CoreMinimal.h"
+#include "PropertyPath.h"
 #include "IPropertyTableColumn.h"
 #include "IPropertyTable.h"
 #include "IPropertyTableCell.h"
 #include "IPropertyTableRow.h"
-#include "PropertyTableCell.h"
-#include "DataSource.h"
-#include "PropertyPath.h"
+#include "Presentation/PropertyTable/PropertyTableColumn.h"
+#include "Presentation/PropertyTable/PropertyTableCell.h"
+#include "Presentation/PropertyTable/DataSource.h"
 
 class FPropertyTableRowHeaderColumn : public TSharedFromThis< FPropertyTableRowHeaderColumn >, public IPropertyTableColumn
 {

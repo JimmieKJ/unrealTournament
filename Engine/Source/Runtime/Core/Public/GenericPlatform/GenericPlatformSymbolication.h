@@ -2,9 +2,15 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
-#include "Serialization/ArchiveBase.h"
+#include "CoreTypes.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Set.h"
+#include "GenericPlatform/GenericPlatformStackWalk.h"
 
+template <typename T> struct TCallTraits;
+template< typename InElementType, typename KeyFuncs , typename Allocator > class TSet;
 
 /**
  * File & line info for a debug symbol region

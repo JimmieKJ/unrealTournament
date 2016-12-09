@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "SlateWrapperTypes.h"
-
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptMacros.h"
+#include "Layout/Margin.h"
+#include "Widgets/SOverlay.h"
 #include "Components/PanelSlot.h"
+
 
 #include "OverlaySlot.generated.h"
 

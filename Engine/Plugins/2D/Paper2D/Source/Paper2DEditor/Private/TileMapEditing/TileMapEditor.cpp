@@ -1,21 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "PaperTileMapComponent.h"
-#include "TileMapEditor.h"
-#include "SSingleObjectDetailsPanel.h"
-#include "SceneViewport.h"
-
-#include "GraphEditor.h"
-
-#include "TileMapEditorViewportClient.h"
-#include "TileMapEditorCommands.h"
+#include "TileMapEditing/TileMapEditor.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorViewportClient.h"
+#include "UObject/Package.h"
+#include "EditorStyleSet.h"
 #include "SEditorViewport.h"
-#include "WorkspaceMenuStructureModule.h"
-#include "Paper2DEditorModule.h"
-#include "STileMapEditorViewportToolbar.h"
-#include "SDockTab.h"
-#include "EdModeTileMap.h"
+#include "SSingleObjectDetailsPanel.h"
+#include "PaperTileMap.h"
+
+
+#include "TileMapEditing/TileMapEditorViewportClient.h"
+#include "TileMapEditing/TileMapEditorCommands.h"
+#include "SCommonEditorViewportToolbarBase.h"
+#include "TileMapEditing/STileMapEditorViewportToolbar.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "TileMapEditor"
 
@@ -206,6 +205,11 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 // FTileMapEditor
+
+FTileMapEditor::FTileMapEditor()
+	: TileMapBeingEdited(nullptr)
+{
+}
 
 TSharedRef<SDockTab> FTileMapEditor::SpawnTab_Viewport(const FSpawnTabArgs& Args)
 {

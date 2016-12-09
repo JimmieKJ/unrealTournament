@@ -2,12 +2,13 @@
 
 #pragma once
 
-#include "TextureDefines.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/TextureDefines.h"
 #include "TextureLODSettings.generated.h"
 
-
 class UTexture;
-
 
 /** LOD settings for a single texture group. */
 USTRUCT()

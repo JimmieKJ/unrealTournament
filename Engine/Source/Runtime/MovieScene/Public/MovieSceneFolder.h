@@ -3,7 +3,13 @@
 #pragma once
 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
 #include "MovieSceneFolder.generated.h"
+
+class UMovieSceneTrack;
 
 /** Reprents a folder used for organizing objects in tracks in a movie scene. */
 UCLASS()

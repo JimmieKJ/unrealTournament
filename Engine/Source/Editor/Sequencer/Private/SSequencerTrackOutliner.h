@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SBoxPanel.h"
+
 /**
  * The area where outliner nodes for each track is stored
  */

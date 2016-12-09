@@ -4,7 +4,13 @@
 	LinuxClientTargetPlatformModule.cpp: Implements the FLinuxClientTargetPlatformModule class.
 =============================================================================*/
 
-#include "LinuxClientTargetPlatformPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+
+#include "Interfaces/ITargetPlatformModule.h"
+
+#include "LinuxTargetDevice.h"
+#include "LinuxTargetPlatform.h"
 
 
 /**

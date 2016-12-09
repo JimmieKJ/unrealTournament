@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealFrontendPrivatePCH.h"
+#include "CoreMinimal.h"
 #include "UnrealFrontendMain.h"
 #include "ExceptionHandling.h"
 #include "LaunchEngineLoop.h"
+#include "WindowsHWrapper.h"
+#include "Misc/CommandLine.h"
+#include "Misc/OutputDeviceError.h"
 
 /**
  * The main application entry point for Windows platforms.
@@ -18,7 +21,7 @@ int32 WINAPI WinMain( HINSTANCE hInInstance, HINSTANCE hPrevInstance, char* lpCm
 {
 	hInstance = hInInstance;
 
-	const TCHAR* CmdLine = ::GetCommandLine();
+	const TCHAR* CmdLine = ::GetCommandLineW();
 	CmdLine = FCommandLine::RemoveExeName(CmdLine);
 
 #if !UE_BUILD_SHIPPING

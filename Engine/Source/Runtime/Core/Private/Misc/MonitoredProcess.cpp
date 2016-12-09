@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
 #include "Misc/MonitoredProcess.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/Paths.h"
 
 /* FMonitoredProcess structors
  *****************************************************************************/
@@ -90,14 +91,28 @@ bool FMonitoredProcess::Launch()
 
 void FMonitoredProcess::ProcessOutput( const FString& Output )
 {
-	TArray<FString> LogLines;
+	// Append this output to the output buffer
+	OutputBuffer += Output;
 
-	Output.ParseIntoArray(LogLines, TEXT("\n"), false);
-
-	for (int32 LogIndex = 0; LogIndex < LogLines.Num(); ++LogIndex)
+	// Output all the complete lines
+	int32 LineStartIdx = 0;
+	for(int32 Idx = 0; Idx < OutputBuffer.Len(); Idx++)
 	{
-		OutputDelegate.ExecuteIfBound(LogLines[LogIndex]);
+		if(OutputBuffer[Idx] == '\r' || OutputBuffer[Idx] == '\n')
+		{
+			OutputDelegate.ExecuteIfBound(OutputBuffer.Mid(LineStartIdx, Idx - LineStartIdx));
+			
+			if(OutputBuffer[Idx] == '\r' && Idx + 1 < OutputBuffer.Len() && OutputBuffer[Idx + 1] == '\n')
+			{
+				Idx++;
+			}
+
+			LineStartIdx = Idx + 1;
+		}
 	}
+
+	// Remove all the complete lines from the buffer
+	OutputBuffer = OutputBuffer.Mid(LineStartIdx);
 }
 
 

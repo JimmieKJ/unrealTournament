@@ -4,13 +4,14 @@
 	AutomationControllerModule.cpp: Implements the FAutomationControllerModule class.
 =============================================================================*/
 
-#include "AutomationControllerPrivatePCH.h"
+#include "AutomationControllerModule.h"
+#include "AutomationControllerManager.h"
 
 #if WITH_EDITOR
+#include "MessageLogInitializationOptions.h"
 #include "MessageLogModule.h"
 #endif
 
-#include "ModuleManager.h"
 
 #define LOCTEXT_NAMESPACE "AutomationTesting"
 

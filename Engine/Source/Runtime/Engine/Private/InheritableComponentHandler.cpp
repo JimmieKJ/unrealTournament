@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Engine/SCS_Node.h"
 #include "Engine/InheritableComponentHandler.h"
+#include "Components/ActorComponent.h"
+#include "Engine/Engine.h"
+#include "Engine/SCS_Node.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/LinkerLoad.h"
 
 #if WITH_EDITOR
 #include "Kismet2/BlueprintEditorUtils.h"
@@ -10,28 +13,69 @@
 
 // UInheritableComponentHandler
 
+const FString UInheritableComponentHandler::SCSDefaultSceneRootOverrideNamePrefix(TEXT("ICH-"));
+
 void UInheritableComponentHandler::PostLoad()
 {
 	Super::PostLoad();
 
-	for (int32 Index = Records.Num() - 1; Index >= 0; --Index)
+	if (!GIsDuplicatingClassForReinstancing)
 	{
-		FComponentOverrideRecord& Record = Records[Index];
-		if (Record.ComponentTemplate)
+		for (int32 Index = Records.Num() - 1; Index >= 0; --Index)
 		{
-			if (!CastChecked<UActorComponent>(Record.ComponentTemplate->GetArchetype())->IsEditableWhenInherited())
+			FComponentOverrideRecord& Record = Records[Index];
+			if (Record.ComponentTemplate)
 			{
-				Record.ComponentTemplate->MarkPendingKill(); // hack needed to be able to identify if NewObject returns this back to us in the future
-				Records.RemoveAtSwap(Index);
-			}
-			else if(Record.CookedComponentInstancingData.bIsValid)
-			{
-				// Generate "fast path" instancing data.
-				Record.CookedComponentInstancingData.LoadCachedPropertyDataForSerialization(Record.ComponentTemplate);
+				// Fix up component class on load, if it's not already set.
+				if (Record.ComponentClass == nullptr)
+				{
+					Record.ComponentClass = Record.ComponentTemplate->GetClass();
+				}
+
+				// Fix up component template name on load, if it doesn't match the original template name. Otherwise, archetype lookups will fail for this template.
+				// For example, this can occur after a component variable rename in a parent BP class, but before a child BP class with an override template is loaded.
+				if (UActorComponent* OriginalTemplate = Record.ComponentKey.GetOriginalTemplate())
+				{
+					FString ExpectedTemplateName = OriginalTemplate->GetName();
+					if (USCS_Node* SCSNode = Record.ComponentKey.FindSCSNode())
+					{
+						// We append a prefix onto SCS default scene root node overrides. This is done to ensure that the override template does not collide with our owner's own SCS default scene root node template.
+						if (SCSNode == SCSNode->GetSCS()->GetDefaultSceneRootNode())
+						{
+							ExpectedTemplateName = SCSDefaultSceneRootOverrideNamePrefix + ExpectedTemplateName;
+						}
+					}
+
+					if (ExpectedTemplateName != Record.ComponentTemplate->GetName())
+					{
+						Record.ComponentTemplate->Rename(*ExpectedTemplateName, nullptr, REN_DontCreateRedirectors | REN_ForceNoResetLoaders);
+					}
+				}
+
+				if (!CastChecked<UActorComponent>(Record.ComponentTemplate->GetArchetype())->IsEditableWhenInherited())
+				{
+					Record.ComponentTemplate->MarkPendingKill(); // hack needed to be able to identify if NewObject returns this back to us in the future
+					Records.RemoveAtSwap(Index);
+				}
+				else if (Record.CookedComponentInstancingData.bIsValid)
+				{
+					// Generate "fast path" instancing data.
+					Record.CookedComponentInstancingData.LoadCachedPropertyDataForSerialization(Record.ComponentTemplate);
+				}
 			}
 		}
 	}
 }
+
+void UInheritableComponentHandler::GetPreloadDependencies(TArray<UObject*>& OutDeps)
+{
+	Super::GetPreloadDependencies(OutDeps);
+	for (auto Record : Records)
+	{
+		OutDeps.Add(Record.ComponentTemplate);
+	}
+}
+
 
 #if WITH_EDITOR
 UActorComponent* UInheritableComponentHandler::CreateOverridenComponentTemplate(FComponentKey Key)
@@ -57,9 +101,21 @@ UActorComponent* UInheritableComponentHandler::CreateOverridenComponentTemplate(
 			*GetPathNameSafe(this), *Key.GetSCSVariableName().ToString(), *GetPathNameSafe(Key.GetComponentOwner()));
 		return NULL;
 	}
+	
+	FName NewComponentTemplateName = BestArchetype->GetFName();
+	if (USCS_Node* SCSNode = Key.FindSCSNode())
+	{
+		// If this template will override an inherited DefaultSceneRoot node from a parent class's SCS, adjust the template name so that we don't reallocate our owner class's SCS DefaultSceneRoot node template.
+		// Note: This is currently the only case where a child class can have both an SCS node template and an override template associated with the same variable name, that is not considered to be a collision.
+		if (SCSNode == SCSNode->GetSCS()->GetDefaultSceneRootNode())
+		{
+			NewComponentTemplateName = FName(*(SCSDefaultSceneRootOverrideNamePrefix + BestArchetype->GetName()));
+		}
+	}
+
 	ensure(Cast<UBlueprintGeneratedClass>(GetOuter()));
 	auto NewComponentTemplate = NewObject<UActorComponent>(
-		GetOuter(), BestArchetype->GetClass(), BestArchetype->GetFName(), RF_ArchetypeObject | RF_Public | RF_InheritableComponentTemplate, BestArchetype);
+		GetOuter(), BestArchetype->GetClass(), NewComponentTemplateName, RF_ArchetypeObject | RF_Public | RF_InheritableComponentTemplate, BestArchetype);
 
 	// HACK: NewObject can return a pre-existing object which will not have been initialized to the archetype.  When we remove the old handlers, we mark them pending
 	//       kill so we can identify that situation here (see UE-13987/UE-13990)
@@ -71,8 +127,20 @@ UActorComponent* UInheritableComponentHandler::CreateOverridenComponentTemplate(
 		UEngine::CopyPropertiesForUnrelatedObjects(BestArchetype, NewComponentTemplate, CopyParams);
 	}
 
+	// Clear transient flag if it was transient before and re copy off archetype
+	if (NewComponentTemplate->HasAnyFlags(RF_Transient) && UnnecessaryComponents.Contains(NewComponentTemplate))
+	{
+		NewComponentTemplate->ClearFlags(RF_Transient);
+		UnnecessaryComponents.Remove(NewComponentTemplate);
+
+		UEngine::FCopyPropertiesForUnrelatedObjectsParams CopyParams;
+		CopyParams.bDoDelta = false;
+		UEngine::CopyPropertiesForUnrelatedObjects(BestArchetype, NewComponentTemplate, CopyParams);
+	}
+
 	FComponentOverrideRecord NewRecord;
 	NewRecord.ComponentKey = Key;
+	NewRecord.ComponentClass = NewComponentTemplate->GetClass();
 	NewRecord.ComponentTemplate = NewComponentTemplate;
 	Records.Add(NewRecord);
 
@@ -133,13 +201,20 @@ void UInheritableComponentHandler::ValidateTemplates()
 				}
 				else
 				{
-					UE_LOG(LogBlueprint, Log, TEXT("ValidateTemplates '%s': overridden template is unnecessary - component '%s' from '%s'"),
+					// Set transient flag so this object does not get used as an archetype for subclasses
+					if (Record.ComponentTemplate)
+					{
+						Record.ComponentTemplate->SetFlags(RF_Transient);
+						UnnecessaryComponents.AddUnique(Record.ComponentTemplate);
+					}
+
+					UE_LOG(LogBlueprint, Log, TEXT("ValidateTemplates '%s': overridden template is unnecessary and will be removed - component '%s' from '%s'"),
 						*GetPathNameSafe(this), *VarName.ToString(), *GetPathNameSafe(ComponentKey.GetComponentOwner()));
 				}
 			}
 			else
 			{
-				UE_LOG(LogBlueprint, Warning, TEXT("ValidateTemplates '%s': overridden template is invalid - component '%s' from '%s'"),
+				UE_LOG(LogBlueprint, Warning, TEXT("ValidateTemplates '%s': overridden template is invalid and will be removed - component '%s' from '%s'"),
 					*GetPathNameSafe(this), *VarName.ToString(), *GetPathNameSafe(ComponentKey.GetComponentOwner()));
 			}
 		}
@@ -170,11 +245,15 @@ bool UInheritableComponentHandler::IsValid() const
 bool UInheritableComponentHandler::IsRecordValid(const FComponentOverrideRecord& Record) const
 {
 	UClass* OwnerClass = Cast<UClass>(GetOuter());
-	ensure(OwnerClass);
+	if (!ensure(OwnerClass))
+	{
+		return false;
+	}
 
 	if (!Record.ComponentTemplate)
 	{
-		return false;
+		// Note: We still consider the record to be valid, even if the template is missing, if we have valid class information. This typically will indicate that the template object was filtered at load time (to save space, e.g. dedicated server).
+		return Record.ComponentClass != nullptr;
 	}
 
 	if (Record.ComponentTemplate->GetOuter() != OwnerClass)
@@ -193,13 +272,9 @@ bool UInheritableComponentHandler::IsRecordValid(const FComponentOverrideRecord&
 		return false;
 	}
 
-	auto OriginalTemplate = Record.ComponentKey.GetOriginalTemplate();
-	if (!OriginalTemplate)
-	{
-		return false;
-	}
-
-	if (OriginalTemplate->GetClass() != Record.ComponentTemplate->GetClass())
+	// Note: If the original template is missing, we consider the record to be unnecessary, but not invalid.
+	UActorComponent* OriginalTemplate = Record.ComponentKey.GetOriginalTemplate();
+	if (OriginalTemplate != nullptr && OriginalTemplate->GetClass() != Record.ComponentTemplate->GetClass())
 	{
 		return false;
 	}
@@ -242,10 +317,36 @@ struct FComponentComparisonHelper
 
 bool UInheritableComponentHandler::IsRecordNecessary(const FComponentOverrideRecord& Record) const
 {
-	auto ChildComponentTemplate = Record.ComponentTemplate;
-	auto ParentComponentTemplate = FindBestArchetype(Record.ComponentKey);
-	check(ChildComponentTemplate && ParentComponentTemplate && (ParentComponentTemplate != ChildComponentTemplate));
-	return !FComponentComparisonHelper::AreIdentical(ChildComponentTemplate, ParentComponentTemplate);
+	// If the record's template was not loaded, check to see if the class information is valid.
+	if (Record.ComponentTemplate == nullptr)
+	{
+		if (Record.ComponentClass != nullptr)
+		{
+			UObject* ComponentCDO = Record.ComponentClass->GetDefaultObject();
+			if (ComponentCDO != nullptr)
+			{
+				// The record is considered necessary if the class information is valid but the template was not loaded due to client/server exclusion at load time (e.g. uncooked dedicated server).
+				return !UObject::CanCreateInCurrentContext(ComponentCDO);
+			}
+		}
+		
+		// Otherwise, we don't need to keep the record if the template is NULL.
+		return false;
+	}
+	else
+	{
+		// Consider the record to be unnecessary if the original template no longer exists.
+		UActorComponent* OriginalTemplate = Record.ComponentKey.GetOriginalTemplate();
+		if (OriginalTemplate == nullptr)
+		{
+			return false;
+		}
+	
+		auto ChildComponentTemplate = Record.ComponentTemplate;
+		auto ParentComponentTemplate = FindBestArchetype(Record.ComponentKey);
+		check(ChildComponentTemplate && ParentComponentTemplate && (ParentComponentTemplate != ChildComponentTemplate));
+		return !FComponentComparisonHelper::AreIdentical(ChildComponentTemplate, ParentComponentTemplate);
+	}
 }
 
 UActorComponent* UInheritableComponentHandler::FindBestArchetype(FComponentKey Key) const

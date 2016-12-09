@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "PropertyEditorPrivatePCH.h"
-#include "SPropertySceneOutliner.h"
-#include "PropertyEditor.h"
-#include "PropertyNode.h"
-#include "ObjectPropertyNode.h"
-#include "Editor/SceneOutliner/Public/SceneOutliner.h"
+#include "UserInterface/PropertyEditor/SPropertySceneOutliner.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Editor/SceneOutliner/Public/SceneOutlinerPublicTypes.h"
+#include "Editor/SceneOutliner/Public/SceneOutlinerModule.h"
 
 #define LOCTEXT_NAMESPACE "PropertySceneOutliner"
 

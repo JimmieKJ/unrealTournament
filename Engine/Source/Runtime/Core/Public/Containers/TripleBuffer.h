@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "HAL/PlatformAtomics.h"
+#include "HAL/PlatformMisc.h"
 
 /**
  * Template for triple buffers.

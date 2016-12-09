@@ -1,10 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIGraphPrivatePCH.h"
-#include "PackageTools.h"
-#include "MessageLog.h"
+#include "AIGraphTypes.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Misc/PackageName.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/Blueprint.h"
+#include "AssetData.h"
+#include "Editor.h"
+#include "Logging/MessageLog.h"
+#include "ARFilter.h"
 #include "AssetRegistryModule.h"
-#include "HotReloadInterface.h"
+#include "Misc/HotReloadInterface.h"
 
 #define LOCTEXT_NAMESPACE "SClassViewer"
 

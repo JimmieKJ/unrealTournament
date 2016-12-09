@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "PluginDescriptor.h"
+#include "Interfaces/IPluginManager.h"
 
 /**
  * Instance of a plugin in memory

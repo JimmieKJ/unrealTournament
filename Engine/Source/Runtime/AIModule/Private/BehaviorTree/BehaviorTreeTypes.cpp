@@ -1,10 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "BehaviorTree/Blackboard/BlackboardKeyAllTypes.h"
-#include "BehaviorTree/BTCompositeNode.h"
 #include "BehaviorTree/BehaviorTreeTypes.h"
+#include "GameFramework/Actor.h"
 #include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTree/BTService.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Enum.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_NativeEnum.h"
+#include "BehaviorTree/BlackboardData.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Vector.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Rotator.h"
+#include "VisualLogger/VisualLogger.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Bool.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Class.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Float.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Int.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Name.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_String.h"
+#include "BehaviorTree/BTTaskNode.h"
+#include "BehaviorTree/BTCompositeNode.h"
 
 //----------------------------------------------------------------------//
 // FBehaviorTreeInstance
@@ -133,7 +147,7 @@ bool FBehaviorTreeInstance::HasActiveNode(uint16 TestExecutionIndex) const
 {
 	if (ActiveNode && ActiveNode->GetExecutionIndex() == TestExecutionIndex)
 	{
-		return true;
+		return (ActiveNodeType == EBTActiveNode::ActiveTask);
 	}
 
 	for (int32 Idx = 0; Idx < ParallelTasks.Num(); Idx++)
@@ -313,61 +327,6 @@ void FBlackboardKeySelector::InitSelection(const UBlackboardData& BlackboardAsse
 	}
 }
 
-void FBlackboardKeySelector::AddObjectFilter(UObject* Owner, TSubclassOf<UObject> AllowedClass)
-{
-	AddObjectFilter(Owner, TEXT("BlackboardKeyType"), AllowedClass);
-}
-
-void FBlackboardKeySelector::AddClassFilter(UObject* Owner, TSubclassOf<UClass> AllowedClass)
-{
-	AddClassFilter(Owner, TEXT("BlackboardKeyType"), AllowedClass);
-}
-
-void FBlackboardKeySelector::AddEnumFilter(UObject* Owner, UEnum* AllowedEnum)
-{
-	AddEnumFilter(Owner, TEXT("BlackboardKeyType"), AllowedEnum);
-}
-
-void FBlackboardKeySelector::AddNativeEnumFilter(UObject* Owner, const FString& AllowedEnumName)
-{
-	AddNativeEnumFilter(Owner, TEXT("BlackboardKeyType"), AllowedEnumName);
-}
-
-void FBlackboardKeySelector::AddIntFilter(UObject* Owner)
-{
-	AddIntFilter(Owner, TEXT("BlackboardKeyType"));
-}
-
-void FBlackboardKeySelector::AddFloatFilter(UObject* Owner)
-{
-	AddFloatFilter(Owner, TEXT("BlackboardKeyType"));
-}
-
-void FBlackboardKeySelector::AddBoolFilter(UObject* Owner)
-{
-	AddBoolFilter(Owner, TEXT("BlackboardKeyType"));
-}
-
-void FBlackboardKeySelector::AddVectorFilter(UObject* Owner)
-{
-	AddVectorFilter(Owner, TEXT("BlackboardKeyType"));
-}
-
-void FBlackboardKeySelector::AddRotatorFilter(UObject* Owner)
-{
-	AddRotatorFilter(Owner, TEXT("BlackboardKeyType"));
-}
-
-void FBlackboardKeySelector::AddStringFilter(UObject* Owner)
-{
-	AddStringFilter(Owner, TEXT("BlackboardKeyType"));
-}
-
-void FBlackboardKeySelector::AddNameFilter(UObject* Owner)
-{
-	AddNameFilter(Owner, TEXT("BlackboardKeyType"));
-}
-
 void FBlackboardKeySelector::AddObjectFilter(UObject* Owner, FName PropertyName, TSubclassOf<UObject> AllowedClass)
 {
 	static int32 FilterCounter = 0;
@@ -505,18 +464,3 @@ FString UBehaviorTreeTypes::GetShortTypeName(const UObject* Ob)
 //----------------------------------------------------------------------//
 // DEPRECATED
 //----------------------------------------------------------------------//
-void FBlackboardKeySelector::CacheSelectedKey(UBlackboardData* BlackboardAsset)
-{
-	if (BlackboardAsset)
-	{
-		ResolveSelectedKey(*BlackboardAsset);
-	}
-}
-
-void FBlackboardKeySelector::InitSelectedKey(UBlackboardData* BlackboardAsset)
-{
-	if (BlackboardAsset)
-	{
-		InitSelection(*BlackboardAsset);
-	}
-}

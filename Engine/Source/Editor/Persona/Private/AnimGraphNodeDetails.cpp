@@ -1,30 +1,40 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PersonaPrivatePCH.h"
-#include "K2Node.h"
-#include "PropertyEditorModule.h"
 #include "AnimGraphNodeDetails.h"
-#include "AnimGraphDefinitions.h"
-#include "ObjectEditorUtils.h"
-#include "AssetData.h"
-#include "DetailLayoutBuilder.h"
-#include "IDetailsView.h"
-#include "PropertyHandle.h"
-#include "DetailCategoryBuilder.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/Text/STextBlock.h"
+#include "BoneContainer.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimationAsset.h"
+#include "Widgets/Layout/SSpacer.h"
 #include "DetailWidgetRow.h"
-#include "AssetSearchBoxUtilPersona.h"
 #include "IDetailPropertyRow.h"
-#include "IDetailCustomNodeBuilder.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "IDetailsView.h"
 #include "PropertyCustomizationHelpers.h"
-#include "AnimGraphNode_Base.h"
-#include "GraphEditor.h"
-#include "Persona.h"
-#include "BoneSelectionWidget.h"
-#include "SExpandableArea.h"
-#include "Animation/BlendProfile.h"
-#include "SBlendProfilePicker.h"
-#include "AnimGraphNode_AssetPlayerBase.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/EditorParentPlayerListObj.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
+#include "Widgets/SToolTip.h"
+#include "IDocumentation.h"
+#include "ObjectEditorUtils.h"
+#include "AnimGraphNode_Base.h"
+#include "Widgets/Views/STreeView.h"
+#include "BoneSelectionWidget.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "Animation/BlendProfile.h"
+#include "AnimGraphNode_AssetPlayerBase.h"
+#include "BlendProfilePicker.h"
+#include "ISkeletonEditorModule.h"
+#include "EdGraph/EdGraph.h"
+#include "BlueprintEditor.h"
+#include "Animation/EditorAnimCurveBoneLinks.h"
 
 #define LOCTEXT_NAMESPACE "KismetNodeWithOptionalPinsDetails"
 
@@ -226,11 +236,14 @@ TSharedRef<SWidget> FAnimGraphNodeDetails::CreatePropertyWidget(UProperty* Targe
 
 			UBlendProfile* CurrentProfile = Cast<UBlendProfile>(PropertyValue);
 
-			return SNew(SBlendProfilePicker)
-				.TargetSkeleton(this->TargetSkeleton)
-				.AllowNew(false)
-				.OnBlendProfileSelected(this, &FAnimGraphNodeDetails::OnBlendProfileChanged, PropertyPtr)
-				.InitialProfile(CurrentProfile);
+			FBlendProfilePickerArgs Args;
+			Args.bAllowNew = false;
+			Args.OnBlendProfileSelected = FOnBlendProfileSelected::CreateSP(this, &FAnimGraphNodeDetails::OnBlendProfileChanged, PropertyPtr);
+			Args.InitialProfile = CurrentProfile;
+
+			ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::Get().LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+			return SkeletonEditorModule.CreateBlendProfilePicker(this->TargetSkeleton, Args);
+
 		}
 	}
 
@@ -472,6 +485,8 @@ void FBoneReferenceCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> S
 	UAnimationAsset * AnimationAsset = NULL;
 	USkeleton* TargetSkeleton = NULL;
 
+	TSharedPtr<IEditableSkeleton> EditableSkeleton; 
+
 	for (auto OuterIter = Objects.CreateIterator() ; OuterIter ; ++OuterIter)
 	{
 		AnimGraphNode = Cast<UAnimGraphNode_Base>(*OuterIter);
@@ -506,9 +521,22 @@ void FBoneReferenceCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> S
 				break;
 			}
 		}
+
+		// editor animation curve bone links are responsible for linking joints to curve
+		// this is editor object that only exists for editor
+		if (UEditorAnimCurveBoneLinks* AnimCurveObj = Cast<UEditorAnimCurveBoneLinks>(*OuterIter))
+		{
+			EditableSkeleton = AnimCurveObj->EditableSkeleton.Pin();
+		}
 	}
 
 	if (TargetSkeleton)
+	{
+		ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+		EditableSkeleton = SkeletonEditorModule.CreateEditableSkeleton(TargetSkeleton);
+	}
+
+	if (EditableSkeleton.IsValid())
 	{
 		HeaderRow.NameContent()
 		[
@@ -516,12 +544,19 @@ void FBoneReferenceCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> S
 		];
 
 		HeaderRow.ValueContent()
+		.MinDesiredWidth(200.f)
 		[
-			SNew(SBoneSelectionWidget, TargetSkeleton)
-			.Tooltip(StructPropertyHandle->GetToolTipText())
+			SNew(SBoneSelectionWidget, EditableSkeleton.ToSharedRef())
+			.ToolTipText(StructPropertyHandle->GetToolTipText())
 			.OnBoneSelectionChanged(this, &FBoneReferenceCustomization::OnBoneSelectionChanged)
 			.OnGetSelectedBone(this, &FBoneReferenceCustomization::GetSelectedBone)
 		];
+	}
+	else
+	{
+		// if this FBoneReference is used by some other Outers, this will fail	
+		// should warn programmers instead of silent fail
+		ensureAlways(false);
 	}
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -545,9 +580,9 @@ FName FBoneReferenceCustomization::GetSelectedBone() const
 	return FName(*OutText);
 }
 
-TSharedRef<IDetailCustomization> FAnimGraphParentPlayerDetails::MakeInstance(TWeakPtr<FPersona> InPersona)
+TSharedRef<IDetailCustomization> FAnimGraphParentPlayerDetails::MakeInstance(TSharedRef<FBlueprintEditor> InBlueprintEditor)
 {
-	return MakeShareable(new FAnimGraphParentPlayerDetails(InPersona));
+	return MakeShareable(new FAnimGraphParentPlayerDetails(InBlueprintEditor));
 }
 
 void FAnimGraphParentPlayerDetails::CustomizeDetails(class IDetailLayoutBuilder& DetailBuilder)
@@ -628,7 +663,7 @@ void FAnimGraphParentPlayerDetails::CustomizeDetails(class IDetailLayoutBuilder&
 
 TSharedRef<ITableRow> FAnimGraphParentPlayerDetails::OnGenerateRow(TSharedPtr<FPlayerTreeViewEntry> EntryPtr, const TSharedRef< STableViewBase >& OwnerTable)
 {
-	return SNew(SParentPlayerTreeRow, OwnerTable).Item(EntryPtr).OverrideObject(EditorObject).Persona(PersonaPtr);
+	return SNew(SParentPlayerTreeRow, OwnerTable).Item(EntryPtr).OverrideObject(EditorObject).BlueprintEditor(BlueprintEditorPtr);
 }
 
 void FAnimGraphParentPlayerDetails::OnGetChildren(TSharedPtr<FPlayerTreeViewEntry> InParent, TArray< TSharedPtr<FPlayerTreeViewEntry> >& OutChildren)
@@ -640,7 +675,7 @@ void SParentPlayerTreeRow::Construct(const FArguments& InArgs, const TSharedRef<
 {
 	Item = InArgs._Item;
 	EditorObject = InArgs._OverrideObject;
-	Persona = InArgs._Persona;
+	BlueprintEditor = InArgs._BlueprintEditor;
 
 	if(Item->Override)
 	{
@@ -746,13 +781,13 @@ void SParentPlayerTreeRow::OnAssetSelected(const FAssetData& AssetData)
 
 FReply SParentPlayerTreeRow::OnFocusNodeButtonClicked()
 {
-	TSharedPtr<FPersona> SharedPersona = Persona.Pin();
-	if(SharedPersona.IsValid())
+	TSharedPtr<FBlueprintEditor> SharedBlueprintEditor = BlueprintEditor.Pin();
+	if(SharedBlueprintEditor.IsValid())
 	{
 		if(GraphNode)
 		{
 			UEdGraph* EdGraph = GraphNode->GetGraph();
-			TSharedPtr<SGraphEditor> GraphEditor = SharedPersona->OpenGraphAndBringToFront(EdGraph);
+			TSharedPtr<SGraphEditor> GraphEditor = SharedBlueprintEditor->OpenGraphAndBringToFront(EdGraph);
 			if (GraphEditor.IsValid())
 			{
 				GraphEditor->JumpToNode(GraphNode, false);

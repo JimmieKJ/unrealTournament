@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "WorkflowTabFactory.h"
-#include "WorkflowTabManager.h"
-#include "SDockTab.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "WorkflowOrientedApp/WorkflowUObjectDocuments.h"
+#include "Widgets/Docking/SDockTab.h"
 
 /////////////////////////////////////////////////////
 // FTabInfo

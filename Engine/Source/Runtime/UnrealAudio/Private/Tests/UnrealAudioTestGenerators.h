@@ -2,7 +2,11 @@
 
 #pragma once 
 
-#include "UnrealAudioModule.h"
+#include "CoreMinimal.h"
+#include "UnrealAudioTypes.h"
+#include "UnrealAudioDeviceModule.h"
+
+class FTimer;
 
 #if ENABLE_UNREAL_AUDIO
 

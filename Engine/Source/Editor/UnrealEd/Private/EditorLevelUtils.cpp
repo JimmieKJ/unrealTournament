@@ -4,25 +4,46 @@
 	EditorLevelUtils.cpp: Editor-specific level management routines
 =============================================================================*/
 
-#include "UnrealEd.h"
-#include "EditorSupportDelegates.h"
 #include "EditorLevelUtils.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/ScopedSlowTask.h"
+#include "UObject/GarbageCollection.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "Serialization/ArchiveTraceRoute.h"
+#include "Engine/EngineTypes.h"
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
+#include "Model.h"
+#include "Engine/Brush.h"
+#include "Editor/EditorEngine.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Factories/WorldFactory.h"
+#include "Editor/GroupActor.h"
+#include "EngineGlobals.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/LevelStreaming.h"
+#include "Engine/Selection.h"
+#include "Editor.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "FileHelpers.h"
+#include "UnrealEdGlobals.h"
+#include "EditorSupportDelegates.h"
 
 #include "BusyCursor.h"
 #include "LevelUtils.h"
 #include "Layers/ILayers.h"
 
-#include "LevelEditor.h"
 #include "ScopedTransaction.h"
 #include "ActorEditorUtils.h"
 #include "ContentStreaming.h"
 #include "PackageTools.h"
 
-#include "Runtime/AssetRegistry/Public/AssetRegistryModule.h"
+#include "AssetRegistryModule.h"
 #include "Engine/LevelStreamingVolume.h"
-#include "Engine/LevelStreaming.h"
-#include "GameFramework/WorldSettings.h"
-#include "Engine/Selection.h"
 #include "Components/ModelComponent.h"
 
 DEFINE_LOG_CATEGORY(LogLevelTools);
@@ -628,7 +649,6 @@ namespace EditorLevelUtils
 			return;
 		}
 
-
 		// Handle the case of the p-level
 		// The p-level can't be unloaded, so its actors/BSP should just be temporarily hidden/unhidden
 		// Also, intentionally do not force layers visible for the p-level
@@ -682,6 +702,7 @@ namespace EditorLevelUtils
 				}
 			}
 
+			Level->GetWorld()->OnLevelsChanged().Broadcast();
 			FEditorSupportDelegates::RedrawAllViewports.Broadcast();
 		}
 		else
@@ -825,6 +846,11 @@ namespace EditorLevelUtils
 		}
 
 		Level->bIsVisible = bShouldBeVisible;
+
+		if (Level->bIsLightingScenario)
+		{
+			Level->OwningWorld->PropagateLightingScenarioChange();
+		}
 	}
 
 	/**

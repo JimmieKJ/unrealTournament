@@ -6,6 +6,13 @@ TextureStreamingHelpers.h: Definitions of classes used for texture streaming.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/MemStack.h"
+
+class UTexture2D;
+
 /**
  * Streaming stats
  */
@@ -51,6 +58,9 @@ extern TAutoConsoleVariable<float> CVarStreamingBoost;
 extern TAutoConsoleVariable<int32> CVarStreamingUseFixedPoolSize;
 extern TAutoConsoleVariable<int32> CVarStreamingPoolSize;
 extern TAutoConsoleVariable<int32> CVarStreamingCheckBuildStatus;
+extern TAutoConsoleVariable<int32> CVarStreamingUseMaterialData;
+extern TAutoConsoleVariable<int32> CVarStreamingNumStaticComponentsProcessedPerFrame;
+extern TAutoConsoleVariable<int32> CVarStreamingDefragDynamicBounds;
 
 struct FTextureStreamingSettings
 {
@@ -62,7 +72,7 @@ struct FTextureStreamingSettings
 
 	FORCEINLINE float GlobalMipBias() const { return !bUsePerTextureBias ? MipBias : 0; }
 	FORCEINLINE int32 GlobalMipBiasAsInt() const { return !bUsePerTextureBias ? FMath::FloorToInt(MipBias) : 0; }
-	FORCEINLINE float GlobalMipBiasAsScale() const { return !bUsePerTextureBias ? FMath::Exp2(-MipBias) : 1.f; }
+	FORCEINLINE float GlobalMipBiasAsScale() const { return (!bUsePerTextureBias && bScaleTexturesByGlobalMyBias) ? FMath::Exp2(-MipBias) : 1.f; }
 
 	FORCEINLINE int32 MaxExpectedPerTextureMipBias() const { return bUsePerTextureBias ? FMath::FloorToInt(MipBias) : 0; }
 
@@ -76,7 +86,9 @@ struct FTextureStreamingSettings
 	bool bUseNewMetrics;
 	bool bFullyLoadUsedTextures;
 	bool bUseAllMips;
+	bool bScaleTexturesByGlobalMyBias;
 	bool bUsePerTextureBias;
+	bool bUseMaterialData;
 
 protected:
 
@@ -107,14 +119,6 @@ struct FStreamingTexture;
 struct FStreamingContext;
 struct FStreamingHandlerTextureBase;
 struct FTexturePriority;
-
-/**
- * Checks whether a UTexture2D is supposed to be streaming.
- * @param Texture	Texture to check
- * @return			true if the UTexture2D is supposed to be streaming
- */
-bool IsStreamingTexture( const UTexture2D* Texture2D );
-
 
 /**
  *	Helper struct that represents a texture and the parameters used for sorting and streaming out high-res mip-levels.

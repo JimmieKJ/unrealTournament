@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "PackageArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/PackageArchiveProxy.h"
+#include "UObject/Package.h"
+#include "Templates/Casts.h"
 
 FPackageArchiveProxy::FPackageArchiveProxy(FUHTMakefile& UHTMakefile, UPackage* Package)
 	: FObjectBaseArchiveProxy(UHTMakefile, Package)

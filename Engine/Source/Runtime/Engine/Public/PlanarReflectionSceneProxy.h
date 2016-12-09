@@ -6,6 +6,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "UnrealClient.h"
+
+class UPlanarReflectionComponent;
+
 class FPlanarReflectionRenderTarget : public FTexture, public FRenderTarget
 {
 public:

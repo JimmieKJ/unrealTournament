@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Widgets/Input/SButton.h"
+#include "Rendering/DrawElements.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
 
 
 /**
@@ -90,11 +93,7 @@ int32 SButton::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry
 			);
 	}
 
-	FWidgetStyle CompoundedWidgetStyle = FWidgetStyle(InWidgetStyle)
-		.BlendColorAndOpacityTint(ColorAndOpacity.Get())
-		.SetForegroundColor(ForegroundColor.Get());
-
-	return SCompoundWidget::OnPaint(Args, AllottedGeometry, MyClippingRect.IntersectionWith(AllottedGeometry.GetClippingRect()), OutDrawElements, LayerId, CompoundedWidgetStyle, bEnabled);
+	return SCompoundWidget::OnPaint(Args, AllottedGeometry, MyClippingRect.IntersectionWith(AllottedGeometry.GetClippingRect()), OutDrawElements, LayerId, InWidgetStyle, bEnabled);
 }
 
 FMargin SButton::GetCombinedPadding() const
@@ -177,7 +176,8 @@ FReply SButton::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent
 {
 	FReply Reply = FReply::Unhandled();
 
-	if (IsEnabled() && (InKeyEvent.GetKey() == EKeys::Enter || InKeyEvent.GetKey() == EKeys::SpaceBar || InKeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Bottom))
+
+	if (IsEnabled() && (/* InKeyEvent.GetKey() == EKeys::Enter || InKeyEvent.GetKey() == EKeys::SpaceBar || */ InKeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Bottom))
 	{
 		const bool bWasPressed = bIsPressed;
 
@@ -244,7 +244,7 @@ FReply SButton::OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const F
 FReply SButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	FReply Reply = FReply::Unhandled();
-	const bool bMustBePressed = ClickMethod == EButtonClickMethod::DownAndUp;
+	const bool bMustBePressed = ClickMethod == EButtonClickMethod::DownAndUp || IsPreciseTapOrClick(MouseEvent);
 	const bool bMeetsPressedRequirements = (!bMustBePressed || (bIsPressed && bMustBePressed));
 
 	if (bMeetsPressedRequirements && IsEnabled() && ( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton || MouseEvent.IsTouchEvent() ) )

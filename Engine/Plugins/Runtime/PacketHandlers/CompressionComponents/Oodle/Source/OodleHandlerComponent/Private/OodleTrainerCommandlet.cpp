@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OodleHandlerComponentPCH.h"
-
 #include "OodleTrainerCommandlet.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "Misc/App.h"
+#include "UObject/CoreNet.h"
+
 
 #define LOCTEXT_NAMESPACE "Oodle"
 

@@ -2,7 +2,18 @@
 
 #pragma once
 
-#include "KeyParams.h"
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "UObject/UnrealType.h"
+#include "UObject/ObjectKey.h"
+#include "Curves/KeyHandle.h"
+
+class AActor;
+class UCameraComponent;
+class UMovieSceneSection;
+class USceneComponent;
+struct FRichCurve;
+enum class EMovieSceneKeyInterpolation : uint8;
 
 class MOVIESCENE_API MovieSceneHelpers
 {
@@ -103,46 +114,41 @@ public:
 	 * Calls the setter function for a specific runtime object or if the setter function does not exist, the property is set directly
 	 *
 	 * @param InRuntimeObject The runtime object whose function to call
-	 * @param PropertyValue The new value to assign to the property (if bound to property)
-	 * @param FunctionParams Parameters to pass to the function (if bound to function)
+	 * @param PropertyValue The new value to assign to the property
 	 */
 	template <typename ValueType>
-	void 
-	CallFunction( UObject* InRuntimeObject, void* PropertyValue, void* FunctionParams )
+	void CallFunction( UObject& InRuntimeObject, typename TCallTraits<ValueType>::ParamType PropertyValue )
 	{
-		FPropertyAndFunction PropAndFunction = RuntimeObjectToFunctionMap.FindRef(InRuntimeObject);
-		if(PropAndFunction.Function)
+		FPropertyAndFunction PropAndFunction = FindOrAdd(InRuntimeObject);
+		if (PropAndFunction.Function)
 		{
-			InRuntimeObject->ProcessEvent(PropAndFunction.Function, FunctionParams);
+			// ProcessEvent should really be taking const void*
+			InRuntimeObject.ProcessEvent(PropAndFunction.Function, (void*)&PropertyValue);
 		}
-		else
+		else if (PropAndFunction.PropertyAddress.Address)
 		{
-			ValueType* NewValue = (ValueType*)(PropertyValue);
-			SetCurrentValue<ValueType>(InRuntimeObject, *NewValue);
+			ValueType* Val = PropAndFunction.PropertyAddress.Property->ContainerPtrToValuePtr<ValueType>(PropAndFunction.PropertyAddress.Address);
+			if(Val)
+			{
+				*Val = MoveTemp(PropertyValue);
+			}
 		}
 	}
 
-	/** For backwards compatibility. */
-	template <typename ValueType>
-	void 
-	CallFunction( UObject* InRuntimeObject, void* PropertyValue )
-	{
-		CallFunction<ValueType>(InRuntimeObject, PropertyValue, PropertyValue);
-	}
+	/**
+	 * Calls the setter function for a specific runtime object or if the setter function does not exist, the property is set directly
+	 *
+	 * @param InRuntimeObject The runtime object whose function to call
+	 * @param PropertyValue The new value to assign to the property
+	 */
+	void CallFunctionForEnum( UObject& InRuntimeObject, int64 PropertyValue );
 
 	/**
-	 * Rebuilds the property and function mappings for a set of runtime objects
+	 * Rebuilds the property and function mappings for a single runtime object, and adds them to the cache
 	 *
-	 * @param InRuntimeObjects	The objects to rebuild mappings for
+	 * @param InRuntimeObject	The object to cache mappings for
 	 */
-	void UpdateBindings( const TArray<TWeakObjectPtr<UObject>>& InRuntimeObjects );
-
-	/**
-	 * Rebuilds the property and function mappings for a single runtime object
-	 *
-	 * @param InRuntimeObject	The object to rebuild mappings for
-	 */
-	void UpdateBinding( const TWeakObjectPtr<UObject>& InRuntimeObject );
+	void CacheBinding( const UObject& InRuntimeObject );
 
 	/**
 	 * Gets the UProperty that is bound to the track instance
@@ -150,7 +156,7 @@ public:
 	 * @param Object	The Object that owns the property
 	 * @return			The property on the object if it exists
 	 */
-	UProperty* GetProperty(const UObject* Object) const;
+	UProperty* GetProperty(const UObject& Object) const;
 
 	/**
 	 * Gets the current value of a property on an object
@@ -159,9 +165,9 @@ public:
 	 * @return ValueType	The current value
 	 */
 	template <typename ValueType>
-	ValueType GetCurrentValue(const UObject* Object) const
+	ValueType GetCurrentValue(const UObject& Object)
 	{
-		FPropertyAndFunction PropAndFunction = RuntimeObjectToFunctionMap.FindRef(Object);
+		FPropertyAndFunction PropAndFunction = FindOrAdd(Object);
 
 		if(PropAndFunction.PropertyAddress.Address)
 		{
@@ -176,15 +182,23 @@ public:
 	}
 
 	/**
+	 * Gets the current value of a property on an object
+	 *
+	 * @param Object	The object to get the property from
+	 * @return ValueType	The current value
+	 */
+	int64 GetCurrentValueForEnum(const UObject& Object);
+
+	/**
 	 * Sets the current value of a property on an object
 	 *
 	 * @param Object	The object to set the property on
 	 * @param InValue   The value to set
 	 */
 	template <typename ValueType>
-	void SetCurrentValue(const UObject* Object, const ValueType& InValue)
+	void SetCurrentValue(UObject& Object, typename TCallTraits<ValueType>::ParamType InValue)
 	{
-		FPropertyAndFunction PropAndFunction = RuntimeObjectToFunctionMap.FindRef(Object);
+		FPropertyAndFunction PropAndFunction = FindOrAdd(Object);
 
 		if(PropAndFunction.PropertyAddress.Address)
 		{
@@ -207,6 +221,17 @@ public:
 	{
 		return PropertyName;
 	}
+
+	template<typename ValueType>
+	DEPRECATED(4.15, "Please use GetCurrentValue(const UObject&)")
+	ValueType GetCurrentValue(const UObject* Object) { check(Object) return GetCurrentValue<ValueType>(*Object); }
+	template <typename ValueType>
+	DEPRECATED(4.15, "Please use CallFunction(UObject&)")
+	void CallFunction( UObject* InRuntimeObject, ValueType* PropertyValue ) { CallFunction<ValueType>(*InRuntimeObject, *PropertyValue); }
+	DEPRECATED(4.15, "UpdateBindings is no longer necessary")
+	void UpdateBindings( const TArray<TWeakObjectPtr<UObject>>& InRuntimeObjects ){}
+	DEPRECATED(4.15, "UpdateBindings is no longer necessary")
+	void UpdateBinding( const TWeakObjectPtr<UObject>& InRuntimeObject ) {}
 
 private:
 
@@ -232,12 +257,27 @@ private:
 		{}
 	};
 
-	FPropertyAddress FindPropertyRecursive(const UObject* Object, void* BasePointer, UStruct* InStruct, TArray<FString>& InPropertyNames, uint32 Index) const;
-	FPropertyAddress FindProperty(const UObject* Object, const FString& InPropertyPath) const;
+	static FPropertyAddress FindPropertyRecursive(void* BasePointer, UStruct* InStruct, TArray<FString>& InPropertyNames, uint32 Index);
+	static FPropertyAddress FindProperty(const UObject& Object, const FString& InPropertyPath);
+
+	/** Find or add the FPropertyAndFunction for the specified object */
+	FPropertyAndFunction FindOrAdd(const UObject& InObject)
+	{
+		FObjectKey ObjectKey(&InObject);
+
+		const FPropertyAndFunction* PropAndFunction = RuntimeObjectToFunctionMap.Find(ObjectKey);
+		if (PropAndFunction)
+		{
+			return *PropAndFunction;
+		}
+
+		CacheBinding(InObject);
+		return RuntimeObjectToFunctionMap.FindRef(ObjectKey);
+	}
 
 private:
 	/** Mapping of objects to bound functions that will be called to update data on the track */
-	TMap< TWeakObjectPtr<UObject>, FPropertyAndFunction > RuntimeObjectToFunctionMap;
+	TMap< FObjectKey, FPropertyAndFunction > RuntimeObjectToFunctionMap;
 
 	/** Path to the property we are bound to */
 	FString PropertyPath;
@@ -249,3 +289,8 @@ private:
 	FName PropertyName;
 
 };
+
+/** Explicit specializations for bools */
+template<> MOVIESCENE_API void FTrackInstancePropertyBindings::CallFunction<bool>(UObject& InRuntimeObject, TCallTraits<bool>::ParamType PropertyValue);
+template<> MOVIESCENE_API bool FTrackInstancePropertyBindings::GetCurrentValue<bool>(const UObject& Object);
+template<> MOVIESCENE_API void FTrackInstancePropertyBindings::SetCurrentValue<bool>(UObject& Object, TCallTraits<bool>::ParamType InValue);

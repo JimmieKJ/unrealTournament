@@ -2,15 +2,13 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/Crc.h"
 #include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
 #include "Misc/Parse.h"
-#include "Serialization/ArchiveBase.h"
 
-
-struct FColor;
-struct FVector;
 class FFloat16Color;
-
 
 /**
  * Enum for the different kinds of gamma spaces we expect to need to convert from/to.

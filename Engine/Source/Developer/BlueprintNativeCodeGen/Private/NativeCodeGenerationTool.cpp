@@ -1,20 +1,36 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintNativeCodeGenPCH.h"
 #include "NativeCodeGenerationTool.h"
-#include "Editor.h"
-#include "Dialogs.h"
-#include "EditorStyle.h"
+#include "Input/Reply.h"
+#include "Misc/Paths.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/Text/STextBlock.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "Engine/UserDefinedEnum.h"
 #include "Engine/UserDefinedStruct.h"
+#include "Editor.h"
+#include "Widgets/Layout/SBorder.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Notifications/SErrorText.h"
+#include "EditorStyleSet.h"
 #include "SourceCodeNavigation.h"
-#include "DesktopPlatformModule.h" // for InvalidateMakefiles()
+#include "DesktopPlatformModule.h"
+#include "IBlueprintCompilerCppBackendModule.h"
 #include "BlueprintNativeCodeGenUtils.h"
 //#include "Editor/KismetCompiler/Public/BlueprintCompilerCppBackendInterface.h"
-#include "Developer/BlueprintCompilerCppBackend/Public/BlueprintCompilerCppBackendGatherDependencies.h"
-#include "IBlueprintCompilerCppBackendModule.h" // for ConstructBaseFilename()
+#include "BlueprintCompilerCppBackendGatherDependencies.h"
 #include "KismetCompilerModule.h"
+#include "Widgets/Input/SDirectoryPicker.h"
 
 #define LOCTEXT_NAMESPACE "NativeCodeGenerationTool"
 
@@ -130,7 +146,8 @@ struct FGeneratedCodeData
 		IBlueprintCompilerCppBackendModule& CodeGenBackend = (IBlueprintCompilerCppBackendModule&)IBlueprintCompilerCppBackendModule::Get();
 
 		TArray<FString> CreatedFiles;
-		for(auto Obj : DependentObjects)
+		//for(auto Obj : DependentObjects)
+		UObject* Obj = Blueprint->GeneratedClass;
 		{
 			SlowTask.EnterProgressFrame();
 
@@ -239,78 +256,6 @@ struct FGeneratedCodeData
 	}
 };
 
-class SSimpleDirectoryPicker : public SCompoundWidget
-{
-public:
-	SLATE_BEGIN_ARGS(SSimpleDirectoryPicker){}
-		SLATE_ARGUMENT(FString, Directory)
-		SLATE_ARGUMENT(FString, File)
-		SLATE_ARGUMENT(FText, Message)
-		SLATE_ATTRIBUTE(bool, IsEnabled)
-	SLATE_END_ARGS()
-
-	FString File;
-	FString Directory;
-	FText Message;
-
-	TSharedPtr<SEditableTextBox> EditableTextBox;
-
-	FString GetFilePath() const
-	{
-		return FPaths::Combine(*Directory, *File);
-	}
-
-	FText GetFilePathText() const
-	{
-		return FText::FromString(GetFilePath());
-	}
-
-	FReply BrowseHeaderDirectory()
-	{
-		PromptUserForDirectory(Directory, Message.ToString(), Directory);
-
-		//workaround for UI problem
-		EditableTextBox->SetText(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SSimpleDirectoryPicker::GetFilePathText)));
-
-		return FReply::Handled();
-	}
-
-	void Construct(const FArguments& InArgs)
-	{
-		Directory = InArgs._Directory;
-		File = InArgs._File;
-		Message = InArgs._Message;
-
-		TSharedPtr<SButton> OpenButton;
-		ChildSlot
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.0f)
-			.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-			[
-				SAssignNew(EditableTextBox, SEditableTextBox)
-				.Text(this, &SSimpleDirectoryPicker::GetFilePathText)
-				.IsReadOnly(true)
-			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-			[
-				SAssignNew(OpenButton, SButton)
-				.ToolTipText(Message)
-				.OnClicked(this, &SSimpleDirectoryPicker::BrowseHeaderDirectory)
-				[
-					SNew(SImage)
-					.Image(FEditorStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
-				]
-			]
-		];
-
-		OpenButton->SetEnabled(InArgs._IsEnabled);
-	}
-};
-
 class SNativeCodeGenerationDialog : public SCompoundWidget
 {
 public:
@@ -322,8 +267,8 @@ public:
 private:
 	
 	// Child widgets
-	TSharedPtr<SSimpleDirectoryPicker> HeaderDirectoryBrowser;
-	TSharedPtr<SSimpleDirectoryPicker> SourceDirectoryBrowser;
+	TSharedPtr<SDirectoryPicker> HeaderDirectoryBrowser;
+	TSharedPtr<SDirectoryPicker> SourceDirectoryBrowser;
 	TSharedPtr<SErrorText> ErrorWidget;
 	// 
 	TWeakPtr<SWindow> WeakParentWindow;
@@ -348,7 +293,7 @@ private:
 	{
 		if (IsEditable())
 		{
-			bSaved = GeneratedCodeData->Save(HeaderDirectoryBrowser->Directory, SourceDirectoryBrowser->Directory);
+			bSaved = GeneratedCodeData->Save(HeaderDirectoryBrowser->GetDirectory(), SourceDirectoryBrowser->GetDirectory());
 			ErrorWidget->SetError(GeneratedCodeData->ErrorString);
 		}
 		else
@@ -409,7 +354,7 @@ public:
 				.Padding(4.0f)
 				.AutoHeight()
 				[
-					SAssignNew(HeaderDirectoryBrowser, SSimpleDirectoryPicker)
+					SAssignNew(HeaderDirectoryBrowser, SDirectoryPicker)
 					.Directory(FGeneratedCodeData::DefaultHeaderDir())
 					.File(GeneratedCodeData->HeaderFileName())
 					.Message(LOCTEXT("HeaderDirectory", "Header Directory"))
@@ -426,7 +371,7 @@ public:
 				.Padding(4.0f)
 				.AutoHeight()
 				[
-					SAssignNew(SourceDirectoryBrowser, SSimpleDirectoryPicker)
+					SAssignNew(SourceDirectoryBrowser, SDirectoryPicker)
 					.Directory(FGeneratedCodeData::DefaultSourceDir())
 					.File(GeneratedCodeData->SourceFileName())
 					.Message(LOCTEXT("SourceDirectory", "Source Directory"))

@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/BTDecorator.h"
-#include "BehaviorTreeGraphNode_CompositeDecorator.h"
 #include "BehaviorTreeDecoratorGraphNode_Decorator.h"
+#include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTreeDecoratorGraph.h"
+#include "AIGraphNode.h"
+#include "BehaviorTreeGraphNode_CompositeDecorator.h"
+#include "BehaviorTree/BehaviorTree.h"
 
 UBehaviorTreeDecoratorGraphNode_Decorator::UBehaviorTreeDecoratorGraphNode_Decorator(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

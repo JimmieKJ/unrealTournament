@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SGraphNode.h"
+
+class FAssetThumbnail;
+class UEdGraphNode_Reference;
+
 /**
  * 
  */

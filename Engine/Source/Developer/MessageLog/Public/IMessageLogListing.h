@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "TokenizedMessage.h"
-#include "IMessageLog.h"
+#include "CoreMinimal.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/IMessageLog.h"
 
+class IMessageLogListing;
 
 /** Type definition for shared pointers to instances of IMessageLogListing. */
 typedef TSharedPtr<class IMessageLogListing> IMessageLogListingPtr;

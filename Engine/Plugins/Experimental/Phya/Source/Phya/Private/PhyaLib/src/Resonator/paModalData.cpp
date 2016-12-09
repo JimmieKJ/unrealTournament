@@ -1,7 +1,7 @@
 //
 // paModalData.cpp
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 
 #include "Resonator/paModalData.hpp"

@@ -1,16 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "GameplayDebugger/GameplayDebuggerCategory_AI.h"
+#include "GameFramework/Pawn.h"
+#include "ShowFlags.h"
+#include "PrimitiveViewRelevance.h"
+#include "Components/PrimitiveComponent.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
+#include "AI/Navigation/RecastNavMesh.h"
+#include "Engine/Canvas.h"
+#include "AIController.h"
+#include "BehaviorTree/BehaviorTreeComponent.h"
 
 #if WITH_GAMEPLAY_DEBUGGER
 
+#include "Engine/Texture2D.h"
+#include "DynamicMeshBuilder.h"
 #include "DebugRenderSceneProxy.h"
 #include "GameplayTasksComponent.h"
-#include "GameplayDebuggerCategory_AI.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Animation/AnimMontage.h"
-#include "Engine/Canvas.h"
 #include "DrawDebugHelpers.h"
 
 FGameplayDebuggerCategory_AI::FGameplayDebuggerCategory_AI()
@@ -272,32 +283,19 @@ void FGameplayDebuggerCategory_AI::OnDataPackReplicated(int32 DataPackId)
 
 void FGameplayDebuggerCategory_AI::DrawData(APlayerController* OwnerPC, FGameplayDebuggerCanvasContext& CanvasContext)
 {
-	const bool bReducedMode = IsSimulateInEditor();
-	bShowCategoryName = !bReducedMode;
-
 	UWorld* MyWorld = OwnerPC->GetWorld();
 	AActor* SelectedActor = FindLocalDebugActor();
 
+	const bool bReducedMode = IsSimulateInEditor();
+	bShowCategoryName = !bReducedMode || DataPack.bHasController;
+
 	DrawPawnIcons(MyWorld, SelectedActor, OwnerPC ? OwnerPC->GetPawn() : nullptr, CanvasContext);
-	if (bReducedMode)
+	if (SelectedActor)
 	{
-		if (DataPack.bHasController)
-		{
-			DrawPath(MyWorld);
-		}
-	}
-	else
-	{
-		if (SelectedActor)
-		{
-			DrawOverheadInfo(*SelectedActor, CanvasContext);
-		}
-
-		DrawPath(MyWorld);
+		DrawOverheadInfo(*SelectedActor, CanvasContext);
 	}
 
-	const bool bShowClassNames = !bReducedMode || DataPack.bHasController;
-	if (bShowClassNames)
+	if (DataPack.bHasController)
 	{
 		CanvasContext.Printf(TEXT("Controller Name: {yellow}%s"), *DataPack.ControllerName);
 		CanvasContext.Printf(TEXT("Pawn Name: {yellow}%s"), *DataPack.PawnName);
@@ -331,7 +329,7 @@ void FGameplayDebuggerCategory_AI::DrawData(APlayerController* OwnerPC, FGamepla
 	}
 }
 
-FDebugRenderSceneProxy* FGameplayDebuggerCategory_AI::CreateSceneProxy(const UPrimitiveComponent* InComponent)
+FDebugRenderSceneProxy* FGameplayDebuggerCategory_AI::CreateDebugSceneProxy(const UPrimitiveComponent* InComponent, FDebugDrawDelegateHelper*& OutDelegateHelper)
 {
 	class FPathDebugRenderSceneProxy : public FDebugRenderSceneProxy
 	{
@@ -347,11 +345,11 @@ FDebugRenderSceneProxy* FGameplayDebuggerCategory_AI::CreateSceneProxy(const UPr
 
 		FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 		{
+			const bool bCanShow = View->Family->EngineShowFlags.GetSingleFlag(ViewFlagIndex);
+
 			FPrimitiveViewRelevance Result;
-			Result.bDrawRelevance = View->Family->EngineShowFlags.GetSingleFlag(ViewFlagIndex);// IsShown(View);
+			Result.bDrawRelevance = Result.bSeparateTranslucencyRelevance = Result.bNormalTranslucencyRelevance = bCanShow;
 			Result.bDynamicRelevance = true;
-			// ideally the TranslucencyRelevance should be filled out by the material, here we do it conservative
-			Result.bSeparateTranslucencyRelevance = Result.bNormalTranslucencyRelevance = IsShown(View);
 			return Result;
 		}
 	};
@@ -395,9 +393,15 @@ FDebugRenderSceneProxy* FGameplayDebuggerCategory_AI::CreateSceneProxy(const UPr
 		FPathDebugRenderSceneProxy* DebugSceneProxy = new FPathDebugRenderSceneProxy(InComponent, ViewFlagName);
 		DebugSceneProxy->Lines = Lines;
 		DebugSceneProxy->Meshes = Meshes;
+
+		auto* OutDelegateHelper2 = new FDebugDrawDelegateHelper();
+		OutDelegateHelper2->InitDelegateHelper(DebugSceneProxy);
+		OutDelegateHelper = OutDelegateHelper2;
+
 		return DebugSceneProxy;
 	}
 
+	OutDelegateHelper = nullptr;
 	return nullptr;
 }
 
@@ -454,7 +458,7 @@ void FGameplayDebuggerCategory_AI::DrawPawnIcons(UWorld* World, AActor* DebugAct
 	FString FailsafeIcon = TEXT("/Engine/EngineResources/AICON-Green.AICON-Green");
 	for (FConstPawnIterator It = World->GetPawnIterator(); It; ++It)
 	{
-		const APawn* ItPawn = *It;
+		const APawn* ItPawn = It->Get();
 		if (IsValid(ItPawn) && SkipPawn != ItPawn)
 		{
 			const FVector IconLocation = ItPawn->GetActorLocation() + FVector(0, 0, ItPawn->GetSimpleCollisionHalfHeight());

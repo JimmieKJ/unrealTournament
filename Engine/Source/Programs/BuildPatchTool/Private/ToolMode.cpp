@@ -1,13 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PrivatePch.h"
-#include "BuildPatchTool.h"
 #include "ToolMode.h"
+#include "IBuildPatchServicesModule.h"
+#include "BuildPatchTool.h"
 #include "PatchGenerationMode.h"
 #include "CompactifyMode.h"
 #include "EnumerationMode.h"
 #include "MergeManifestMode.h"
-
+#include "DiffManifestMode.h"
+#include "Misc/CommandLine.h"
 
 namespace BuildPatchTool
 {
@@ -35,6 +36,7 @@ namespace BuildPatchTool
 			UE_LOG(LogBuildPatchTool, Log, TEXT("  -mode=Compactify         Mode that can clean up unneeded patch data from a given cloud directory with redundant data."));
 			UE_LOG(LogBuildPatchTool, Log, TEXT("  -mode=Enumeration        Mode that outputs the paths to referenced patch data given a single manifest."));
 			UE_LOG(LogBuildPatchTool, Log, TEXT("  -mode=MergeManifests     Mode that can combine two manifest files to create a new one, primarily used to create hotfixes."));
+			UE_LOG(LogBuildPatchTool, Log, TEXT("  -mode=DiffManifests      Mode that can diff two manifests and outputs what chunks would need to be downloaded and some stats."));
 
 			// Error if this wasn't just a help request
 			return bRequestedHelp ? EReturnCode::OK : EReturnCode::UnknownToolMode;
@@ -62,6 +64,10 @@ namespace BuildPatchTool
 			else if (ToolModeValue == TEXT("mergemanifests"))
 			{
 				return FMergeManifestToolModeFactory::Create(BpsInterface);
+			}
+			else if (ToolModeValue == TEXT("diffmanifests"))
+			{
+				return FDiffManifestToolModeFactory::Create(BpsInterface);
 			}
 		}
 		

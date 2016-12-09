@@ -2,12 +2,11 @@
 
 #pragma once
 
-#include "FontCacheFreeType.h"
+#include "CoreMinimal.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Fonts/FontCacheFreeType.h"
 
 class FCompositeFontCache;
-struct FShapedGlyphEntry;
-struct FCharacterRenderData;
-
 
 /**
  * Internal struct for passing around information about loading a glyph 
@@ -123,20 +122,21 @@ public:
 	 * 
 	 * @param InFontData		Raw font data to render the character with
 	 * @param InSize			The size of the font to draw
+	 * @param InOutlineSettings	Outline settings to apply when rendering the characer
 	 * @param Char				The character to render
 	 * @param OutRenderData		Will contain the created render data
 	 * @param InScale			The scale of the font
 	 * @param OutFallbackLevel	Outputs the fallback level of the font
 	 */
-	bool GetRenderData(const FFontData& InFontData, const int32 InSize, TCHAR Char, FCharacterRenderData& OutRenderData, const float InScale, EFontFallback* OutFallbackLevel = nullptr) const;
-	bool GetRenderData(const FShapedGlyphEntry& InShapedGlyph, FCharacterRenderData& OutRenderData) const;
+	bool GetRenderData(const FFontData& InFontData, const int32 InSize, const FFontOutlineSettings& InOutlineSettings, TCHAR Char, FCharacterRenderData& OutRenderData, const float InScale, EFontFallback* OutFallbackLevel = nullptr) const;
+	bool GetRenderData(const FShapedGlyphEntry& InShapedGlyph, const FFontOutlineSettings& InOutlineSettings, FCharacterRenderData& OutRenderData) const;
 
 private:
 #if WITH_FREETYPE
 	/**
 	 * Internal, shared implementation of GetRenderData
 	 */
-	bool GetRenderData(const FFreeTypeFaceGlyphData& InFaceGlyphData, const float InScale, FCharacterRenderData& OutRenderData) const;
+	bool GetRenderData(const FFreeTypeFaceGlyphData& InFaceGlyphData, const float InScale, const FFontOutlineSettings& InOutlineSettings, FCharacterRenderData& OutRenderData) const;
 
 	/** 
 	 * Gets or loads a FreeType font face 

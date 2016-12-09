@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "IDetailCustomNodeBuilder.h"
+#include "CoreMinimal.h"
+#include "Templates/Casts.h"
+#include "IDetailCustomization.h"
+#include "IPropertyTypeCustomization.h"
 #include "PropertyHandle.h"
+
+class FEdModeLandscape;
+class IDetailLayoutBuilder;
 
 /**
  * Slate widgets customizers for the Landscape Editor

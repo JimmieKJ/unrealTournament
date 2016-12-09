@@ -1,30 +1,35 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSPlatformEditorPrivatePCH.h"
-#include "SWidgetSwitcher.h"
-#include "IDetailPropertyRow.h"
 #include "IOSTargetSettingsCustomization.h"
+#include "Containers/Ticker.h"
+#include "Misc/App.h"
+#include "Misc/MonitoredProcess.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
+#include "EditorStyleSet.h"
+#include "IOSRuntimeSettings.h"
+#include "PropertyHandle.h"
 #include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
 #include "DetailCategoryBuilder.h"
-#include "PropertyEditing.h"
 #include "DesktopPlatformModule.h"
-#include "MainFrame.h"
-
-#include "ScopedTransaction.h"
+#include "Framework/Application/SlateApplication.h"
+#include "IDetailGroup.h"
 #include "SExternalImageReference.h"
-#include "SHyperlinkLaunchURL.h"
-#include "SPlatformSetupMessage.h"
 #include "PlatformIconInfo.h"
 #include "SourceControlHelpers.h"
-#include "ManifestUpdateHelper.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "TargetPlatform.h"
-#include "GameProjectGenerationModule.h"
-#include "SHyperlink.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Widgets/Input/SHyperlink.h"
+#include "Widgets/Views/SListView.h"
 #include "SProvisionListRow.h"
 #include "SCertificateListRow.h"
-#include "EngineBuildSettings.h"
+#include "Misc/EngineBuildSettings.h"
 
 #define LOCTEXT_NAMESPACE "IOSTargetSettings"
 DEFINE_LOG_CATEGORY_STATIC(LogIOSTargetSettings, Log, All);
@@ -130,7 +135,7 @@ void FIOSTargetSettingsCustomization::UpdateStatus()
 
 		// Now split up the log into multiple lines
 		TArray<FString> LogLines;
-		OutputMessage.ParseIntoArray(LogLines, LINE_TERMINATOR, true);
+		OutputMessage.ParseIntoArray(LogLines, TEXT("\n"), true);
 		
 		// format of the line being read here!!
 		bool bCerts = false;
@@ -969,6 +974,7 @@ void FIOSTargetSettingsCustomization::FindRequiredFiles()
 {
 	const UIOSRuntimeSettings& Settings = *GetDefault<UIOSRuntimeSettings>();
 	FString BundleIdentifier = Settings.BundleIdentifier.Replace(*gProjectNameText, FApp::GetGameName());
+	BundleIdentifier = BundleIdentifier.Replace(TEXT("_"), TEXT(""));
 #if PLATFORM_MAC
 	FString CmdExe = TEXT("/bin/sh");
 	FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
@@ -1009,17 +1015,8 @@ FReply FIOSTargetSettingsCustomization::OnInstallProvisionClicked()
 
 	if ( DesktopPlatform )
 	{
-		void* ParentWindowWindowHandle = NULL;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		bOpened = DesktopPlatform->OpenFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			LOCTEXT("ImportProvisionDialogTitle", "Import Provision").ToString(),
 			FPaths::GetProjectFilePath(),
 			TEXT(""),
@@ -1056,14 +1053,16 @@ FReply FIOSTargetSettingsCustomization::OnInstallProvisionClicked()
 		}
 
 		const UIOSRuntimeSettings& Settings = *GetDefault<UIOSRuntimeSettings>();
+		FString BundleIdentifier = Settings.BundleIdentifier.Replace(*gProjectNameText, FApp::GetGameName());
+		BundleIdentifier = BundleIdentifier.Replace(TEXT("_"), TEXT(""));
 #if PLATFORM_MAC
 		FString CmdExe = TEXT("/bin/sh");
 		FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
 		FString IPPPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNet/IOS/IPhonePackager.exe"));
-		FString CommandLine = FString::Printf(TEXT("\"%s\" \"%s\" Install Engine -project \"%s\" -provision \"%s\" -bundlename \"%s\""), *ScriptPath, *IPPPath, *ProjectPath, *ProvisionPath, *(Settings.BundleIdentifier));
+		FString CommandLine = FString::Printf(TEXT("\"%s\" \"%s\" Install Engine -project \"%s\" -provision \"%s\" -bundlename \"%s\""), *ScriptPath, *IPPPath, *ProjectPath, *ProvisionPath, *BundleIdentifier);
 #else
 		FString CmdExe = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNet/IOS/IPhonePackager.exe"));
-		FString CommandLine = FString::Printf(TEXT("Install Engine -project \"%s\" -provision \"%s\" -bundlename \"%s\""), *ProjectPath, *ProvisionPath, *(Settings.BundleIdentifier));
+		FString CommandLine = FString::Printf(TEXT("Install Engine -project \"%s\" -provision \"%s\" -bundlename \"%s\""), *ProjectPath, *ProvisionPath, *BundleIdentifier);
 #endif
 		IPPProcess = MakeShareable(new FMonitoredProcess(CmdExe, CommandLine, true));
 		OutputMessage = TEXT("");
@@ -1095,17 +1094,8 @@ FReply FIOSTargetSettingsCustomization::OnInstallCertificateClicked()
 
 	if ( DesktopPlatform )
 	{
-		void* ParentWindowWindowHandle = NULL;
-
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		bOpened = DesktopPlatform->OpenFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			LOCTEXT("ImportCertificateDialogTitle", "Import Certificate").ToString(),
 			FPaths::GetProjectFilePath(),
 			TEXT(""),
@@ -1119,15 +1109,17 @@ FReply FIOSTargetSettingsCustomization::OnInstallCertificateClicked()
 	if ( bOpened )
 	{
 		const UIOSRuntimeSettings& Settings = *GetDefault<UIOSRuntimeSettings>();
+		FString BundleIdentifier = Settings.BundleIdentifier.Replace(*gProjectNameText, FApp::GetGameName());
+		BundleIdentifier = BundleIdentifier.Replace(TEXT("_"), TEXT(""));
 		CertPath = FPaths::ConvertRelativePathToFull(OpenFilenames[0]);
 #if PLATFORM_MAC
 		FString CmdExe = TEXT("/bin/sh");
 		FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
 		FString IPPPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNet/IOS/IPhonePackager.exe"));
-		FString CommandLine = FString::Printf(TEXT("\"%s\" \"%s\" Install Engine -project \"%s\" -certificate \"%s\" -bundlename \"%s\""), *ScriptPath, *IPPPath, *ProjectPath, *CertPath, *(Settings.BundleIdentifier));
+		FString CommandLine = FString::Printf(TEXT("\"%s\" \"%s\" Install Engine -project \"%s\" -certificate \"%s\" -bundlename \"%s\""), *ScriptPath, *IPPPath, *ProjectPath, *CertPath, *BundleIdentifier);
 #else
 		FString CmdExe = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNet/IOS/IPhonePackager.exe"));
-		FString CommandLine = FString::Printf(TEXT("Install Engine -project \"%s\" -certificate \"%s\" -bundlename \"%s\""), *ProjectPath, *CertPath, *(Settings.BundleIdentifier));
+		FString CommandLine = FString::Printf(TEXT("Install Engine -project \"%s\" -certificate \"%s\" -bundlename \"%s\""), *ProjectPath, *CertPath, *BundleIdentifier);
 #endif
 		IPPProcess = MakeShareable(new FMonitoredProcess(CmdExe, CommandLine, true));
 		OutputMessage = TEXT("");
@@ -1154,9 +1146,25 @@ FReply FIOSTargetSettingsCustomization::OnGenerateSSHKey()
 {
 	// see if the key is already generated
 	const UIOSRuntimeSettings& Settings = *GetDefault<UIOSRuntimeSettings>();
+
+	FString RemoteServerAddress;
+	FString RemoteServerPort;
+	int32	colonIndex;
+
+	if(Settings.RemoteServerName.FindChar(':', colonIndex))
+	{
+		RemoteServerAddress = Settings.RemoteServerName.Left(colonIndex);
+		RemoteServerPort = Settings.RemoteServerName.RightChop(colonIndex + 1);
+	}
+	else
+	{
+		RemoteServerAddress = Settings.RemoteServerName;
+		RemoteServerPort = "22";
+	}
+
 	TCHAR Path[4096];
 	FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"), Path, ARRAY_COUNT(Path));
-	FString Destination = FString::Printf(TEXT("%s\\Unreal Engine\\UnrealBuildTool\\SSHKeys\\%s\\%s\\RemoteToolChainPrivate.key"), Path, *(Settings.RemoteServerName), *(Settings.RSyncUsername));
+	FString Destination = FString::Printf(TEXT("%s\\Unreal Engine\\UnrealBuildTool\\SSHKeys\\%s\\%s\\RemoteToolChainPrivate.key"), Path, *RemoteServerAddress, *(Settings.RSyncUsername));
 	if (FPaths::FileExists(Destination))
 	{
 		FString MessagePrompt = FString::Printf(TEXT("An SSH Key already exists.  Do you want to replace this key?"));
@@ -1189,11 +1197,12 @@ FReply FIOSTargetSettingsCustomization::OnGenerateSSHKey()
 
 	FString CygwinPath = TEXT("/cygdrive/") + FString(Path).Replace(TEXT(":"), TEXT("")).Replace(TEXT("\\"), TEXT("/"));
 	FString EnginePath = FPaths::EngineDir();
-	FString CommandLine = FString::Printf(TEXT("\"%s\\ssh.exe\" \"%s\\rsync.exe\" %s %s \"%s\" \"%s\" \"%s\""),
+	FString CommandLine = FString::Printf(TEXT("\"%s/ssh.exe\" %s \"%s\\rsync.exe\" %s %s \"%s\" \"%s\" \"%s\""),
 		*DeltaCopyPath,
+		*RemoteServerPort,
 		*DeltaCopyPath,
 		*(Settings.RSyncUsername),
-		*(Settings.RemoteServerName),
+		*RemoteServerAddress,
 		Path,
 		*CygwinPath,
 		*EnginePath);

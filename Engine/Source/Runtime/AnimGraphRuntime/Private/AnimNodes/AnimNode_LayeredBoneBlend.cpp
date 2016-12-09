@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
 #include "AnimNodes/AnimNode_LayeredBoneBlend.h"
 #include "AnimationRuntime.h"
-#include "Animation/AnimStats.h"
 #include "Animation/AnimInstanceProxy.h"
 
+#define DEFAULT_SOURCEINDEX 0xFF
 /////////////////////////////////////////////////////
 // FAnimNode_LayeredBoneBlend
 
@@ -36,11 +35,38 @@ void FAnimNode_LayeredBoneBlend::ReinitializeBoneBlendWeights(const FBoneContain
 {
 	FAnimationRuntime::CreateMaskWeights(DesiredBoneBlendWeights, LayerSetup, RequiredBones, Skeleton);
 
-	CurrentBoneBlendWeights.Empty(DesiredBoneBlendWeights.Num());
+	CurrentBoneBlendWeights.Reset(DesiredBoneBlendWeights.Num());
 	CurrentBoneBlendWeights.AddZeroed(DesiredBoneBlendWeights.Num());
 
 	//Reinitialize bone blend weights now that we have cleared them
 	FAnimationRuntime::UpdateDesiredBoneWeight(DesiredBoneBlendWeights, CurrentBoneBlendWeights, BlendWeights);
+
+	TArray<SmartName::UID_Type> const & CurveUIDs = RequiredBones.GetAnimCurveNameUids();
+	CurvePoseSourceIndices.Reset(CurveUIDs.Num());
+	// initialize with FF - which is default
+	CurvePoseSourceIndices.Init(DEFAULT_SOURCEINDEX, CurveUIDs.Num());
+
+	// now go through point to correct source indices. Curve only picks one source index
+	for (int32 CurveBlendIter = 0; CurveBlendIter < CurvePoseSourceIndices.Num(); ++CurveBlendIter)
+	{
+		SmartName::UID_Type CurveUID = CurveUIDs[CurveBlendIter];
+		
+		const FCurveMetaData* CurveMetaData = Skeleton->GetCurveMetaData(CurveUID);
+		if (CurveMetaData && CurveMetaData->LinkedBones.Num() > 0)
+		{
+			for (int32 LinkedBoneIndex = 0; LinkedBoneIndex < CurveMetaData->LinkedBones.Num(); ++LinkedBoneIndex)
+			{
+				FCompactPoseBoneIndex CompactPoseIndex = CurveMetaData->LinkedBones[LinkedBoneIndex].GetCompactPoseIndex(RequiredBones);
+				if (CompactPoseIndex != INDEX_NONE)
+				{
+					if (DesiredBoneBlendWeights[CompactPoseIndex.GetInt()].BlendWeight > 0.f)
+					{
+						CurvePoseSourceIndices[CurveBlendIter] = DesiredBoneBlendWeights[CompactPoseIndex.GetInt()].SourceIndex;
+					}
+				}
+			}
+		}
+	}
 }
 
 void FAnimNode_LayeredBoneBlend::CacheBones(const FAnimationCacheBonesContext& Context) 
@@ -138,6 +164,26 @@ void FAnimNode_LayeredBoneBlend::Evaluate(FPoseContext& Output)
 			{
 				TargetBlendPoses[ChildIndex].ResetToRefPose(BasePoseContext.Pose.GetBoneContainer());
 				TargetBlendCurves[ChildIndex].InitFrom(Output.Curve);
+			}
+		}
+
+		// filter to make sure it only includes curves that is linked to the correct bone filter
+		const TArray<SmartName::UID_Type>& UIDList = (*Output.Curve.UIDList);
+		for (int32 CurveIndex = 0; CurveIndex < CurvePoseSourceIndices.Num(); ++CurveIndex)
+		{
+			int32 SourceIndex = CurvePoseSourceIndices[CurveIndex];
+			if (SourceIndex != DEFAULT_SOURCEINDEX)
+			{
+				// if source index is set, clear base pose curve value
+				BasePoseContext.Curve.Set(UIDList[CurveIndex], 0.f);
+				for (int32 ChildIndex = 0; ChildIndex < NumPoses; ++ChildIndex)
+				{
+					if (SourceIndex != ChildIndex)
+					{
+						// if not source, clear it
+						TargetBlendCurves[ChildIndex].Set(UIDList[CurveIndex], 0.f);
+					}
+				}
 			}
 		}
 

@@ -1,14 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Windows/WindowsPlatformFile.h"
+#include "CoreTypes.h"
+#include "Misc/DateTime.h"
+#include "Misc/AssertionMacros.h"
+#include "Logging/LogMacros.h"
+#include "Math/UnrealMathUtility.h"
+#include "HAL/UnrealMemory.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Containers/UnrealString.h"
+#include "Templates/Function.h"
+#include "Misc/Paths.h"
+#include "CoreGlobals.h"
+#include "Windows/WindowsHWrapper.h"
 #include <sys/utime.h>
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	namespace FileConstants
 	{
 		uint32 WIN_INVALID_SET_FILE_POINTER = INVALID_SET_FILE_POINTER;
 	}
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 namespace
 {

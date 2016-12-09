@@ -1,21 +1,39 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
-#include "AutoReimportUtilities.h"
 #include "AutoReimport/AutoReimportManager.h"
-#include "ContentDirectoryMonitor.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/WildcardString.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Misc/PackageName.h"
+#include "UObject/GCObject.h"
+#include "Styling/SlateTypes.h"
+#include "EditorReimportHandler.h"
+#include "Misc/Attribute.h"
+#include "TickableEditorObject.h"
+#include "Settings/EditorLoadingSavingSettings.h"
+#include "Factories/Factory.h"
+#include "EditorFramework/AssetImportData.h"
+#include "AssetData.h"
+#include "Editor.h"
+#include "FileHelpers.h"
+
+#include "AutoReimport/AutoReimportUtilities.h"
+#include "Logging/MessageLog.h"
+#include "AutoReimport/ContentDirectoryMonitor.h"
 
 #include "PackageTools.h"
 #include "ObjectTools.h"
-#include "ARFilter.h"
-#include "ContentBrowserModule.h"
 #include "AssetRegistryModule.h"
-#include "ReimportFeedbackContext.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "AutoReimport/ReimportFeedbackContext.h"
 #include "MessageLogModule.h"
-#include "AssetSourceFilenameCache.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "AutoReimport/AssetSourceFilenameCache.h"
 
 #define LOCTEXT_NAMESPACE "AutoReimportManager"
 #define yield if (TimeLimit.Exceeded()) return
@@ -867,10 +885,7 @@ TStatId FAutoReimportManager::GetStatId() const
 
 void FAutoReimportManager::AddReferencedObjects(FReferenceCollector& Collector)
 {
-	for (auto* Package : PackagesToSave)
-	{
-		Collector.AddReferencedObject(Package);
-	}
+	Collector.AddReferencedObjects(PackagesToSave);
 }
 
 void FAutoReimportManager::HandleLoadingSavingSettingChanged(FName PropertyName)

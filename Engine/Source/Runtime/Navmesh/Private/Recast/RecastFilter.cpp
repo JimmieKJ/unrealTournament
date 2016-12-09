@@ -19,12 +19,9 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
 #define _USE_MATH_DEFINES
-#include <math.h>
-#include <stdio.h>
-#include "Recast.h"
-#include "RecastAssert.h"
+#include "Recast/Recast.h"
+#include "Recast/RecastAssert.h"
 
 /// @par
 ///

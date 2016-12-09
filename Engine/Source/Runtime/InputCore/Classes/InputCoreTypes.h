@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Misc/Attribute.h"
 #include "InputCoreTypes.generated.h"
 
 INPUTCORE_API DECLARE_LOG_CATEGORY_EXTERN(LogInput, Log, All);

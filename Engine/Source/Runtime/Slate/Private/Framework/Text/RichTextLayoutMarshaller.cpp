@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "RichTextLayoutMarshaller.h"
-#include "RichTextMarkupProcessing.h"
-#include "SlateTextLayout.h"
-#include "SlateTextUnderlineLineHighlighter.h"
+#include "Framework/Text/RichTextLayoutMarshaller.h"
+#include "Styling/ISlateStyle.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Text/SlateTextRun.h"
+#include "Framework/Text/IRichTextMarkupWriter.h"
+#include "Framework/Text/RichTextMarkupProcessing.h"
+#include "Framework/Text/SlateTextLayout.h"
+#include "Framework/Text/SlateTextUnderlineLineHighlighter.h"
 
 #if WITH_FANCY_TEXT
 

@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Components/PanelWidget.h"
 #include "ScrollBox.generated.h"
 
 /**
@@ -34,11 +40,11 @@ public:
 
 	/** Visibility */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Scroll")
-	TEnumAsByte<ESlateVisibility> ScrollBarVisibility;
+	ESlateVisibility ScrollBarVisibility;
 
 	/**  Enable to always consume mouse wheel event, even when scrolling is not possible */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scroll")
-	TEnumAsByte<EConsumeMouseWheel> ConsumeMouseWheel;
+	EConsumeMouseWheel ConsumeMouseWheel;
 
 	/**  */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Scroll")

@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrackInst.h"
 #include "InterpTrackInstParticleReplay.generated.h"
+
+class UInterpTrack;
 
 UCLASS()
 class UInterpTrackInstParticleReplay : public UInterpTrackInst

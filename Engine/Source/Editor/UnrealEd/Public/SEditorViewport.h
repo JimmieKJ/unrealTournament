@@ -2,16 +2,21 @@
 
 #pragma once
 
-#include "Editor.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Styling/SlateColor.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SOverlay.h"
+#include "UnrealWidget.h"
+#include "EditorViewportClient.h"
 
-
-class FEditorViewportClient;
+class FActiveTimerHandle;
 class FSceneViewport;
 class FUICommandList;
-class SOverlay;
 class SViewport;
-class UWorld;
-
+struct FSlateBrush;
 
 class UNREALED_API SEditorViewport
 	: public SCompoundWidget

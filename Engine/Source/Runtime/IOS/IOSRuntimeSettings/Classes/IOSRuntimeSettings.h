@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/PropertyPortFlags.h"
 #include "IOSRuntimeSettings.generated.h"
-
 
 UENUM()
 enum class EPowerUsageFrameRateLock : uint8
@@ -25,16 +29,20 @@ UENUM()
 	enum class EIOSVersion : uint8
 {
 	/** iOS 6.1 */
-	IOS_61 = 6 UMETA(DisplayName="6.1"),
+	IOS_61 = 6 UMETA(Hidden),
 
 	/** iOS 7 */
-	IOS_7 = 7 UMETA(DisplayName="7.0"),
+	IOS_7 = 7 UMETA(Hidden),
 
 	/** iOS 8 */
 	IOS_8 = 8 UMETA(DisplayName="8.0"),
 
 	/** iOS 9 */
 	IOS_9 = 9 UMETA(DisplayName = "9.0"),
+
+	/** iOS 10 */
+	IOS_10 = 10 UMETA(DisplayName = "10.0"),
+
 };
 
 
@@ -161,6 +169,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
 	uint32 bEnableCloudKitSupport : 1;
 
+    // Should push/remote notifications support (iOS Online Subsystem) be enabled?
+    UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
+    uint32 bEnableRemoteNotificationsSupport : 1;
+    
 	// Whether or not to add support for Metal API (requires IOS8 and A7 processors).
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Rendering, meta = (DisplayName = "Support Forward Rendering with Metal (A7 and up devices)"))
 	bool bSupportsMetal;
@@ -296,14 +308,14 @@ public:
 	// Specifies the version for the application.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = BundleInformation)
 	FString VersionInfo;
-    
-    /** Set the maximum frame rate to save on power consumption */
+
+	/** Set the maximum frame rate to save on power consumption */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = PowerUsage, meta = (ConfigHierarchyEditable))
-    TEnumAsByte<EPowerUsageFrameRateLock> FrameRateLock;
+	EPowerUsageFrameRateLock FrameRateLock;
 
 	// Minimum iOS version this game supports
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = OSInfo)
-	TEnumAsByte<EIOSVersion> MinimumiOSVersion;
+	EIOSVersion MinimumiOSVersion;
 
 	// Whether or not to add support for iPad devices
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceUsage)

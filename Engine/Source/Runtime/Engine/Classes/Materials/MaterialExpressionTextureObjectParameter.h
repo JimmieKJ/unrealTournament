@@ -6,10 +6,13 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Materials/MaterialExpressionTextureSampleParameter.h"
 #include "MaterialExpressionTextureObjectParameter.generated.h"
 
-UCLASS(collapsecategories, hidecategories=Object)
+UCLASS(collapsecategories, hidecategories=(Object, MaterialExpressionTextureSample))
 class UMaterialExpressionTextureObjectParameter : public UMaterialExpressionTextureSampleParameter
 {
 	GENERATED_UCLASS_BODY()
@@ -18,8 +21,8 @@ class UMaterialExpressionTextureObjectParameter : public UMaterialExpressionText
 	//~ Begin UMaterialExpression Interface
 #if WITH_EDITOR
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;	
-	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
-	virtual int32 CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
+	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
+	virtual int32 CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual uint32 GetOutputType(int32 InputIndex) override {return MCT_Texture;}
 #endif
 	virtual const TArray<FExpressionInput*> GetInputs() override;

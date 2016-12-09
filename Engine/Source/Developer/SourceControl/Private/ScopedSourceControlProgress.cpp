@@ -1,9 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SourceControlPrivatePCH.h"
 #include "ScopedSourceControlProgress.h"
+#include "Misc/App.h"
+#include "ISourceControlProvider.h"
 #if SOURCE_CONTROL_WITH_SLATE
-#include "SThrobber.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/Images/SThrobber.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/Docking/TabManager.h"
+#include "Framework/Application/SlateApplication.h"
+
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "SourceControlProgress"
 

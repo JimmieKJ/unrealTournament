@@ -6,6 +6,7 @@
 //
 #define IDD_YESNO2ALL                   101
 #define IDD_YESNO2ALLCANCEL             102
+// If IDICON_UE4Game is modified, please also modify IconResourceId in Engine\Source\Programs\UnrealBuildTool\Windows\WindowsDeploy.cs
 #define IDICON_UE4Game                  123
 #define IDC_YESTOALL                    1000
 #define IDC_NOTOALL                     1001

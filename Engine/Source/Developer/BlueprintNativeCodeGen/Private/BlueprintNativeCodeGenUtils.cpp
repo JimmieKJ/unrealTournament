@@ -1,25 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintNativeCodeGenPCH.h"
-#include "BlueprintNativeCodeGenManifest.h"
 #include "BlueprintNativeCodeGenUtils.h"
-#include "Kismet2/KismetReinstanceUtilities.h"	 // for FBlueprintCompileReinstancer
-#include "Kismet2/CompilerResultsLog.h" 
-#include "KismetCompilerModule.h"
 #include "Engine/Blueprint.h"
-#include "Engine/UserDefinedStruct.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/App.h"
 #include "Engine/UserDefinedEnum.h"
-#include "Kismet2/KismetEditorUtilities.h"		 // for CompileBlueprint()
-#include "OutputDevice.h"						 // for GWarn
-#include "GameProjectUtils.h"					 // for GenerateGameModuleBuildFile
-#include "Editor/GameProjectGeneration/Public/GameProjectUtils.h" // for GenerateGameModuleBuildFile()
-#include "App.h"								 // for GetGameName()
-#include "BlueprintSupport.h"					 // for FReplaceCookedBPGC
-#include "IBlueprintCompilerCppBackendModule.h"	 // for OnPCHFilenameQuery()
-#include "BlueprintNativeCodeGenModule.h"
-#include "ScopeExit.h"
-#include "Editor/Kismet/Public/FindInBlueprintManager.h" // for FDisableGatheringDataOnScope
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h" // for FBlueprintEditorUtils::FForceFastBlueprintDuplicationScope
+#include "Engine/UserDefinedStruct.h"
+#include "BlueprintNativeCodeGenManifest.h"
+#include "Kismet2/KismetReinstanceUtilities.h"
+#include "KismetCompilerModule.h"
+#include "ModuleDescriptor.h"
+#include "PluginDescriptor.h"
+#include "GameProjectUtils.h"
+#include "Misc/ScopeExit.h"
+#include "FindInBlueprintManager.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 DEFINE_LOG_CATEGORY(LogBlueprintCodeGen)
 
@@ -76,6 +73,9 @@ namespace BlueprintNativeCodeGenUtilsImpl
 	 * @return Either a class, enum, or struct class (depending on the asset's type).
 	 */
 	static UClass* ResolveReplacementType(const FConvertedAssetRecord& ConversionRecord);
+
+	static FString NativizedDependenciesFileName() { return TEXT("NativizedAssets_Dependencies"); }
+	static bool GenerateNativizedDependenciesSourceFiles(const FBlueprintNativeCodeGenPaths& TargetPaths);
 }
 
 //------------------------------------------------------------------------------
@@ -132,6 +132,7 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(const FBl
 	TArray<FString> PchIncludes;
 	PchIncludes.Add(EngineHeaderFile);
 	PchIncludes.Add(TEXT("GeneratedCodeHelpers.h"));
+	PchIncludes.Add(NativizedDependenciesFileName() + TEXT(".h"));
 
 	TArray<FString> FilesToIncludeInModuleHeader;
 	GConfig->GetArray(TEXT("BlueprintNativizationSettings"), TEXT("FilesToIncludeInModuleHeader"), FilesToIncludeInModuleHeader, GEditorIni);
@@ -149,6 +150,32 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(const FBl
 	if (!bSuccess)
 	{
 		UE_LOG(LogBlueprintCodeGen, Error, TEXT("Failed to generate module source files: %s"), *FailureReason.ToString());
+	}
+	return bSuccess;
+}
+
+//------------------------------------------------------------------------------
+static bool BlueprintNativeCodeGenUtilsImpl::GenerateNativizedDependenciesSourceFiles(const FBlueprintNativeCodeGenPaths& TargetPaths)
+{
+	FText FailureReason;
+	bool bSuccess = true;
+
+	IBlueprintCompilerCppBackendModule& CodeGenBackend = (IBlueprintCompilerCppBackendModule&)IBlueprintCompilerCppBackendModule::Get();
+	{
+		const FString HeaderFilePath = FPaths::Combine(*TargetPaths.RuntimeSourceDir(FBlueprintNativeCodeGenPaths::HFile), *NativizedDependenciesFileName()) + TEXT(".h");
+		const FString HeaderFileContent = CodeGenBackend.DependenciesGlobalMapHeaderCode();
+		bSuccess &= GameProjectUtils::WriteOutputFile(HeaderFilePath, HeaderFileContent, FailureReason);
+	}
+
+	{
+		const FString SourceFilePath = FPaths::Combine(*TargetPaths.RuntimeSourceDir(FBlueprintNativeCodeGenPaths::CppFile), *NativizedDependenciesFileName()) + TEXT(".cpp");
+		const FString SourceFileContent = CodeGenBackend.DependenciesGlobalMapBodyCode();
+		bSuccess &= GameProjectUtils::WriteOutputFile(SourceFilePath, SourceFileContent, FailureReason);
+	}
+
+	if (!bSuccess)
+	{
+		UE_LOG(LogBlueprintCodeGen, Error, TEXT("Failed to generate NativizedDependencies source files: %s"), *FailureReason.ToString());
 	}
 	return bSuccess;
 }
@@ -173,6 +200,10 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(const FBlue
 		}
 	}
 
+	TArray<FString> AdditionalPublicDependencyModuleNames;
+	GConfig->GetArray(TEXT("BlueprintNativizationSettings"), TEXT("AdditionalPublicDependencyModuleNames"), AdditionalPublicDependencyModuleNames, GEditorIni);
+	PublicDependencies.Append(AdditionalPublicDependencyModuleNames);
+
 	TArray<FString> PrivateDependencies;
 
 	const TArray<UPackage*>& ModulePackages = Manifest.GetModuleDependencies();
@@ -183,7 +214,10 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(const FBlue
 		const FString PkgModuleName = FPackageName::GetLongPackageAssetName(ModulePkg->GetName());
 		if (ModuleManager.ModuleExists(*PkgModuleName))
 		{
-			PrivateDependencies.Add(PkgModuleName);
+			if (!PublicDependencies.Contains(PkgModuleName))
+			{
+				PrivateDependencies.Add(PkgModuleName);
+			}
 		}
 		else
 		{
@@ -240,6 +274,7 @@ bool FBlueprintNativeCodeGenUtils::FinalizePlugin(const FBlueprintNativeCodeGenM
 	FBlueprintNativeCodeGenPaths TargetPaths = Manifest.GetTargetPaths();
 	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(Manifest);
 	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(TargetPaths);
+	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateNativizedDependenciesSourceFiles(TargetPaths);
 	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(TargetPaths.RuntimeModuleName(), TargetPaths);
 	return bSuccess;
 }

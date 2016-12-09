@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Misc/Crc.h"
 
 /**
  * Combines two hash values to get a third.

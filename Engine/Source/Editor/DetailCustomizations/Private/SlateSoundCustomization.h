@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IPropertyTypeCustomization.h"
+
+class FAssetData;
+
 /** Customize the appearance of an FSlateSound */
 class FSlateSoundStructCustomization : public IPropertyTypeCustomization
 {

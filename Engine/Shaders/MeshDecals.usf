@@ -51,7 +51,6 @@ struct FMeshDecalVSToPS
 		
 		// Finally, transform position to clip-space
 		O.Position = mul(WorldPosition, View.TranslatedWorldToClip);
-			
 		return O;
 	}
 	

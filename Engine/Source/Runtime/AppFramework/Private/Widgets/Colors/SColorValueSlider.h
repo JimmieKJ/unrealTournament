@@ -2,6 +2,22 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "InputCoreTypes.h"
+#include "Input/Reply.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/SLeafWidget.h"
+#include "Framework/SlateDelegates.h"
+
+class FPaintArgs;
+class FSlateRect;
+class FWidgetStyle;
+struct FGeometry;
+struct FPointerEvent;
+struct FSlateBrush;
 
 /**
  * The value slider is a simple control like the color wheel for selecting value.

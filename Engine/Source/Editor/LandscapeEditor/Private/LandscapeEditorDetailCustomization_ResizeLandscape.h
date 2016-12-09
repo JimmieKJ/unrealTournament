@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "LandscapeEditorDetailCustomization_Base.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "IDetailCustomization.h"
+#include "PropertyHandle.h"
+#include "Editor/LandscapeEditor/Private/LandscapeEditorDetailCustomization_Base.h"
+
+class IDetailLayoutBuilder;
 
 /**
  * Slate widgets customizer for the "Change Landscape Component Size" tool

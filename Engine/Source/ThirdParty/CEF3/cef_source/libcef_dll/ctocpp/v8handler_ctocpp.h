@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -27,10 +27,9 @@
 class CefV8HandlerCToCpp
     : public CefCToCpp<CefV8HandlerCToCpp, CefV8Handler, cef_v8handler_t> {
  public:
-  explicit CefV8HandlerCToCpp(cef_v8handler_t* str)
-      : CefCToCpp<CefV8HandlerCToCpp, CefV8Handler, cef_v8handler_t>(str) {}
+  CefV8HandlerCToCpp();
 
-  // CefV8Handler methods
+  // CefV8Handler methods.
   bool Execute(const CefString& name, CefRefPtr<CefV8Value> object,
       const CefV8ValueList& arguments, CefRefPtr<CefV8Value>& retval,
       CefString& exception) override;
@@ -38,4 +37,3 @@ class CefV8HandlerCToCpp
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_V8HANDLER_CTOCPP_H_
-

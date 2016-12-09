@@ -327,6 +327,11 @@ need to be translated for each locale.-->
       <message name="IDS_PRINT_INVALID_PRINTER_SETTINGS" desc="Message to display when selected printer is not reachable or its settings are invalid.">
         The selected printer is not available or not installed correctly.  Check your printer or try selecting another printer.
       </message>
+      <if expr="is_win">
+        <message name="IDS_UTILITY_PROCESS_EMF_CONVERTOR_NAME" desc="The name of the utility process used for converting PDFs to EMFs.">
+          EMF Convertor
+        </message>
+      </if>
 
       <!-- Proxy settings -->
       <message name="IDS_UTILITY_PROCESS_PROXY_RESOLVER_NAME" desc="The name of the utility process used for out-of-process V8 proxy resolution.">
@@ -343,6 +348,137 @@ need to be translated for each locale.-->
       </message>
       <message name="IDS_CONTENT_CONTEXT_NO_SPELLING_SUGGESTIONS" desc="The name of the No Spelling Suggestions display in the content area context menu">
         &amp;No spelling suggestions
+      </message>
+
+      <!-- Font cache -->
+      <if expr="is_win">
+        <message name="IDS_UTILITY_PROCESS_FONT_CACHE_BUILDER_NAME" desc="The name of the utility process used for building the DirectWrite font cache.">
+          DirectWrite Font Cache Builder
+        </message>
+      </if>
+      
+      <!-- Plugin placeholders. -->
+      <message name="IDS_PLUGIN_HIDE" desc="The tooltip for hiding a blocked plugin, displayed in the click to play UI.">
+        Hide this plugin
+      </message>
+      <message name="IDS_PLUGIN_NOT_SUPPORTED" desc="The placeholder text for an unsupported plugin.">
+        This plugin is not supported.
+      </message>
+      <if expr="is_macosx">
+        <message name="IDS_PLUGIN_BLOCKED" desc="The placeholder text for a blocked plugin.">
+          Control-click to play <ph name="PLUGIN_NAME">$1<ex>Flash</ex></ph>.
+        </message>
+      </if>
+      <if expr="not is_macosx">
+        <message name="IDS_PLUGIN_BLOCKED" desc="The placeholder text for a blocked plugin.">
+          Right-click to play <ph name="PLUGIN_NAME">$1<ex>Flash</ex></ph>.
+        </message>
+      </if>
+      <message name="IDS_PLUGIN_NOT_SUPPORTED_METRO" desc="The placeholder text for a plugin that can't run in Windows Metro mode.">
+        This plugin only works on the desktop.
+      </message>
+      <message name="IDS_PLUGIN_OUTDATED" desc="The placeholder text for an outdated plugin.">
+        <ph name="PLUGIN_NAME">$1<ex>Flash</ex></ph> is out of date.
+      </message>
+      <message name="IDS_PLUGIN_NOT_AUTHORIZED" desc="The placeholder text for a plugin that requires user permission to run.">
+        <ph name="PLUGIN_NAME">$1<ex>Java</ex></ph> needs your permission to run.
+      </message>
+      <message name="IDS_PLUGIN_BLOCKED_BY_POLICY" desc="The placeholder text for a plugin blocked by enterprise policy.">
+        <ph name="PLUGIN_NAME">$1<ex>Flash</ex></ph> is not allowed.
+      </message>
+      <if expr="not use_titlecase">
+        <message name="IDS_CONTENT_CONTEXT_PLUGIN_RUN" desc="The name of the Run command on the blocked plugin context menu">
+          Run this plugin
+        </message>
+        <message name="IDS_CONTENT_CONTEXT_PLUGIN_HIDE" desc="The name of the Hide command on the blocked plugin context menu">
+          Hide this plugin
+        </message>
+      </if>
+      <if expr="use_titlecase">
+        <message name="IDS_CONTENT_CONTEXT_PLUGIN_RUN" desc="In Title Case: The name of the Run command on the blocked plugin context menu">
+          Run This Plugin
+        </message>
+        <message name="IDS_CONTENT_CONTEXT_PLUGIN_HIDE" desc="In Title Case: The name of the Hide command on the blocked plugin context menu">
+          Hide This Plugin
+        </message>
+      </if>
+      
+      <!-- Preferences. -->
+      <!-- The default value for HTTP Accept-Language header. -->
+      <message name="IDS_ACCEPT_LANGUAGES" use_name_for_id="true">
+        en-US,en
+      </message>
+      <!-- The default value for |WebPreference::default_encoding|. -->
+      <message name="IDS_DEFAULT_ENCODING" use_name_for_id="true">
+        windows-1252
+      </message>
+      <!-- The default value for |WebPreference::uses_universal_detector|. -->
+      <message name="IDS_USES_UNIVERSAL_DETECTOR" use_name_for_id="true">
+        false
+      </message>
+      <!-- Locale-dependent static encodings string -->
+      <message name="IDS_STATIC_ENCODING_LIST" use_name_for_id="true">
+        windows-1252
+      </message>
+      <message name="IDS_ENCODING_DISPLAY_TEMPLATE" desc="The format of encodings in the encoding menu. Encoding categories are Unicode, Western, Turkish, Cyrillic, Chinese Simplified, Thai, Arabic, Hebrew and so forth. Encoding names are UTF-8, Windows-1252, ISO-8859-8, GB2312, etc.">
+        <ph name="ENCODING_CATEGORY">$1<ex>Japanese</ex></ph> (<ph name="ENCODING_NAME">$2<ex>Shift_JIS</ex></ph>)
+      </message>
+      <message name="IDS_ENCODING_UNICODE" desc="The text label of Unicode encodings">
+        Unicode
+      </message>
+      <message name="IDS_ENCODING_WESTERN" desc="The text label of West European character encoding">
+        Western
+      </message>
+      <message name="IDS_ENCODING_SIMP_CHINESE" desc="The text label of Simplified Chinese encodings">
+        Chinese Simplified
+      </message>
+      <message name="IDS_ENCODING_TRAD_CHINESE" desc="The text label of Traditional Chinese encodings">
+        Chinese Traditional
+      </message>
+      <message name="IDS_ENCODING_KOREAN" desc="The text label of Korean encoding">
+        Korean
+      </message>
+      <message name="IDS_ENCODING_JAPANESE" desc="The text label of Japanese encodings">
+        Japanese
+      </message>
+      <message name="IDS_ENCODING_THAI" desc="The text label of encoding thai language">
+        Thai
+      </message>
+      <message name="IDS_ENCODING_CENTRAL_EUROPEAN" desc="The text label of encoding Central European">
+        Central European
+      </message>
+      <message name="IDS_ENCODING_CYRILLIC" desc="The text label of Cyrillic encodings">
+        Cyrillic
+      </message>
+      <message name="IDS_ENCODING_GREEK" desc="The text label of Greek encodings">
+        Greek
+      </message>
+      <message name="IDS_ENCODING_BALTIC" desc="The text label of Baltic encodings">
+        Baltic
+      </message>
+      <message name="IDS_ENCODING_SOUTH_EUROPEAN" desc="The text label of South European encodings">
+        South European
+      </message>
+      <message name="IDS_ENCODING_NORDIC" desc="The text label of Nordic encoding">
+        Nordic
+      </message>
+      <message name="IDS_ENCODING_CELTIC" desc="The text label of Celtic encodings">
+        Celtic
+      </message>
+      <message name="IDS_ENCODING_ROMANIAN" desc="The text label of Romanian encoding">
+        Romanian
+      </message>
+      <message name="IDS_ENCODING_TURKISH" desc="The text label of Turkish encodings">
+        Turkish
+      </message>
+      <message name="IDS_ENCODING_ARABIC" desc="The text label of Arabic encodings">
+        Arabic
+      </message>
+      <message name="IDS_ENCODING_HEBREW" desc="The text label of Hebrew encodings">
+        Hebrew
+      </message>
+      <message name="IDS_ENCODING_VIETNAMESE" desc="The text label of Vietnamese encoding">
+        Vietnamese
       </message>
     </messages>
   </release>

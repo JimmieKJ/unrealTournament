@@ -2,12 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "Internationalization/Text.h"
+#include "Stats/Stats.h"
+#include "Async/AsyncWork.h"
+#include "CrashReportClientApp.h"
 #include "CrashUpload.h"
-#include "PlatformErrorReport.h"
-#include "CrashReportUtil.h"
 
 #if !CRASH_REPORT_UNATTENDED_ONLY
 
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+
+class SWindow;
+enum class ECheckBoxState : uint8;
 class FCrashReportClient;
 
 /**

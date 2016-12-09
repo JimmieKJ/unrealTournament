@@ -2,8 +2,16 @@
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BoneIndices.h"
+#include "BoneContainer.h"
+#include "BonePose.h"
+#include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "AnimNode_LookAt.generated.h"
+
+class FPrimitiveDrawInterface;
+class USkeletalMeshComponent;
 
 UENUM()
 namespace EAxisOption

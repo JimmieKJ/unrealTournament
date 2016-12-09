@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class FComponentVisualizer;
 
 class FComponentVisualizersModule : public IModuleInterface
 {

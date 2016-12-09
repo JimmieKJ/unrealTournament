@@ -1,22 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "NotifyHook.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 
-class IDetailsView;
 class FAdvancedPreviewScene;
+class IDetailsView;
 class UAssetViewerSettings;
 class UEditorPerProjectUserSettings;
 
 class UNREALED_API SAdvancedPreviewDetailsTab : public SCompoundWidget
 {
 public:
-	SLATE_BEGIN_ARGS(SAdvancedPreviewDetailsTab) : 
-		_PreviewScenePtr()
-	{
-	}
-		/** The Static Mesh Editor this tool is associated with. */
-		SLATE_ARGUMENT(FAdvancedPreviewScene*, PreviewScenePtr)
+	SLATE_BEGIN_ARGS(SAdvancedPreviewDetailsTab)
+	{}
 
 	SLATE_END_ARGS()
 
@@ -26,7 +26,7 @@ public:
 	~SAdvancedPreviewDetailsTab();
 
 	/** SWidget functions */
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, const TSharedRef<FAdvancedPreviewScene>& InPreviewScene);
 
 	void Refresh();
 
@@ -43,7 +43,7 @@ protected:
 	/** Property viewing widget */
 	TSharedPtr<IDetailsView> SettingsView;
 	TSharedPtr<STextComboBox> ProfileComboBox;
-	FAdvancedPreviewScene* PreviewScene;
+	TWeakPtr<FAdvancedPreviewScene> PreviewScenePtr;
 	UAssetViewerSettings* DefaultSettings;
 
 	TArray<TSharedPtr<FString>> ProfileNames;

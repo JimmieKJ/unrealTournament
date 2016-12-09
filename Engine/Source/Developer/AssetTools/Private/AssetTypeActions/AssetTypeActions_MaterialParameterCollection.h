@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Materials/MaterialParameterCollection.h"
+
+#include "CoreMinimal.h"
 #include "AssetTypeActions_Base.h"
+#include "Materials/MaterialParameterCollection.h"
 
 class FAssetTypeActions_MaterialParameterCollection : public FAssetTypeActions_Base
 {

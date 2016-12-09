@@ -1,15 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "MovieScene.h"
-#include "MovieSceneSection.h"
-#include "MovieSceneCameraAnimTrack.h"
-#include "MovieSceneCameraAnimSection.h"
-#include "ISequencerSection.h"
-#include "ISectionLayoutBuilder.h"
-#include "MovieSceneTrackEditor.h"
-#include "CameraAnimTrackEditor.h"
+#include "TrackEditors/CameraAnimTrackEditor.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "GameFramework/Actor.h"
+#include "AssetData.h"
+#include "ReferenceSkeleton.h"
+#include "Modules/ModuleManager.h"
+#include "Camera/CameraComponent.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "SequencerSectionPainter.h"
+#include "MovieSceneCommonHelpers.h"
+#include "Camera/CameraAnim.h"
+#include "Sections/MovieSceneCameraAnimSection.h"
+#include "Tracks/MovieSceneCameraAnimTrack.h"
 #include "AssetRegistryModule.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "SequencerUtilities.h"
 
@@ -37,7 +46,7 @@ public:
 	virtual FText GetSectionTitle() const override 
 	{ 
 		UMovieSceneCameraAnimSection const* const AnimSection = Cast<UMovieSceneCameraAnimSection>(&Section);
-		UCameraAnim const* const Anim = AnimSection ? AnimSection->GetCameraAnim() : nullptr;
+		UCameraAnim const* const Anim = AnimSection ? AnimSection->AnimData.CameraAnim : nullptr;
 		if (Anim)
 		{
 			return FText::FromString(Anim->GetName());
@@ -80,7 +89,7 @@ bool FCameraAnimTrackEditor::SupportsType(TSubclassOf<UMovieSceneTrack> Type) co
 }
 
 
-TSharedRef<ISequencerSection> FCameraAnimTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
+TSharedRef<ISequencerSection> FCameraAnimTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding )
 {
 	check( SupportsType( SectionObject.GetOuter()->GetClass() ) );
 	return MakeShareable(new FCameraAnimSection(SectionObject));
@@ -120,9 +129,12 @@ bool FCameraAnimTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& Targe
 	{
 		if (TargetObjectGuid.IsValid())
 		{
-			TArray<TWeakObjectPtr<UObject>> OutObjects;
+			TArray<TWeakObjectPtr<>> OutObjects;
+			for (TWeakObjectPtr<> Object : GetSequencer()->FindObjectsInCurrentSequence(TargetObjectGuid))
+			{
+				OutObjects.Add(Object);
+			}
 
-			GetSequencer()->GetRuntimeObjects(GetSequencer()->GetFocusedMovieSceneSequenceInstance(), TargetObjectGuid, OutObjects);
 			AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FCameraAnimTrackEditor::AddKeyInternal, OutObjects, CameraAnim));
 
 			return true;
@@ -216,9 +228,11 @@ void FCameraAnimTrackEditor::OnCameraAnimAssetSelected(const FAssetData& AssetDa
 	{
 		UCameraAnim* const CameraAnim = CastChecked<UCameraAnim>(AssetData.GetAsset());
 
-		TArray<TWeakObjectPtr<UObject>> OutObjects;
-
-		GetSequencer()->GetRuntimeObjects(GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectBinding, OutObjects);
+		TArray<TWeakObjectPtr<>> OutObjects;
+		for (TWeakObjectPtr<> Object : GetSequencer()->FindObjectsInCurrentSequence(ObjectBinding))
+		{
+			OutObjects.Add(Object);
+		}
 		AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FCameraAnimTrackEditor::AddKeyInternal, OutObjects, CameraAnim));
 	}
 }
@@ -258,13 +272,10 @@ bool FCameraAnimTrackEditor::AddKeyInternal(float KeyTime, const TArray<TWeakObj
 
 UCameraComponent* FCameraAnimTrackEditor::AcquireCameraComponentFromObjectGuid(const FGuid& Guid)
 {
-	TArray<TWeakObjectPtr<UObject>> OutObjects;
-	GetSequencer()->GetRuntimeObjects(GetSequencer()->GetFocusedMovieSceneSequenceInstance(), Guid, OutObjects);
-
 	USkeleton* Skeleton = nullptr;
-	for (int32 i = 0; i < OutObjects.Num(); ++i)
+	for (TWeakObjectPtr<> WeakObject : GetSequencer()->FindObjectsInCurrentSequence(Guid))
 	{
-		UObject* const Obj = OutObjects[i].Get();
+		UObject* const Obj = WeakObject.Get();
 	
 		if (AActor* const Actor = Cast<AActor>(Obj))
 		{

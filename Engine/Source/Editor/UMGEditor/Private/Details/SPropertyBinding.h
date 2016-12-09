@@ -1,9 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "WidgetBlueprintEditor.h"
 
-#include "SCompoundWidget.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "WidgetBlueprintEditor.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "PropertyHandle.h"
+
+class FMenuBuilder;
+class UEdGraph;
+class UWidgetBlueprint;
+struct FEditorPropertyPath;
 
 class SPropertyBinding : public SCompoundWidget
 {

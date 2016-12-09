@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "UnitTests/PacketLimitTest.h"
 
 #include "PacketLimitTest_Oodle.generated.h"

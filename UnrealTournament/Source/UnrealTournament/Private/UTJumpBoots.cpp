@@ -41,7 +41,7 @@ void AUTJumpBoots::AdjustOwner(bool bRemoveBonus)
 
 			GetUTOwner()->MaxSafeFallSpeed = GetUTOwner()->GetClass()->GetDefaultObject<AUTCharacter>()->MaxSafeFallSpeed;
 
-			AGameMode* Game = GetWorld()->GetAuthGameMode();
+			AGameModeBase* Game = GetWorld()->GetAuthGameMode();
 			if (Game != NULL)
 			{
 				Game->SetPlayerDefaults(GetUTOwner());

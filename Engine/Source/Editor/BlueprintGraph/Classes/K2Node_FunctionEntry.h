@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node_FunctionTerminator.h"
 #include "K2Node_FunctionEntry.generated.h"
+
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UK2Node_FunctionEntry : public UK2Node_FunctionTerminator
@@ -43,6 +48,7 @@ class UK2Node_FunctionEntry : public UK2Node_FunctionTerminator
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
 	virtual void GetRedirectPinNames(const UEdGraphPin& Pin, TArray<FString>& RedirectPinNames) const override;
 	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
+	virtual void PostReconstructNode() override;
 	//~ End UK2Node Interface
 
 	//~ Begin UK2Node_EditablePinBase Interface

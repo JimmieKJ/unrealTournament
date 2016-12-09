@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
-#include "LogWidgetCommands.h"
-#include "Framework/Commands/UICommandInfo.h"
+#include "UI/LogWidgetCommands.h"
+#include "NetcodeUnitTest.h"
 
 #define LOCTEXT_NAMESPACE "LogWidgetCommands"
 

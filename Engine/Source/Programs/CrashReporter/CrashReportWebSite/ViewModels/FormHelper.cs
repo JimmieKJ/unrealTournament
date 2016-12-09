@@ -71,6 +71,9 @@ namespace Tools.CrashReporter.CrashReportWebSite.ViewModels
 		/// <summary>The version name to filter by.</summary>
 		public string VersionName = "";
 
+        /// <summary>The Engine Version to filter by.</summary>
+        public string EngineVersion = "";
+
 		/// <summary>The platform name to filter by.</summary>
 		public string PlatformName = "";
 
@@ -180,22 +183,23 @@ namespace Tools.CrashReporter.CrashReportWebSite.ViewModels
 		public FormHelper( HttpRequestBase Request, FormCollection Form, string DefaultSortTerm )
 		{
 			// Set up Default values if there is no QueryString and set values to the Query string if it is there.
-			GetFormParameterUnvalidated( Request, Form, "SearchQuery", SearchQuery, out SearchQuery );
-			GetFormParameter( Request, Form, "UsernameQuery", UsernameQuery, out UsernameQuery );
-			GetFormParameter( Request, Form, "EpicIdOrMachineQuery", EpicIdOrMachineQuery, out EpicIdOrMachineQuery );
-			GetFormParameter( Request, Form, "JiraQuery", JiraQuery, out JiraQuery );
-            GetFormParameter( Request, Form, "JiraId", JiraId, out JiraId);
-			GetFormParameter( Request, Form, "MessageQuery", MessageQuery, out MessageQuery );
-			GetFormParameter( Request, Form, "BuggId", BuggId, out BuggId );
-			GetFormParameter( Request, Form, "BuiltFromCL", BuiltFromCL, out BuiltFromCL );
-			GetFormParameter( Request, Form, "SortTerm", DefaultSortTerm, out SortTerm );
-			GetFormParameter( Request, Form, "CrashType", CrashType, out CrashType );
-			GetFormParameter( Request, Form, "UserGroup", UserGroup, out UserGroup );
-			GetFormParameter( Request, Form, "BranchName", BranchName, out BranchName );
-			GetFormParameter( Request, Form, "VersionName", VersionName, out VersionName );
-			GetFormParameter( Request, Form, "PlatformName", PlatformName, out PlatformName );
-			GetFormParameter( Request, Form, "GameName", GameName, out GameName );
+			GetFormParameterUnvalidated(Request, Form, "SearchQuery", SearchQuery, out SearchQuery );
+            GetFormParameter(Request, Form, "UsernameQuery", UsernameQuery, out UsernameQuery);
+            GetFormParameter(Request, Form, "EpicIdOrMachineQuery", EpicIdOrMachineQuery, out EpicIdOrMachineQuery);
+            GetFormParameter(Request, Form, "JiraQuery", JiraQuery, out JiraQuery);
+            GetFormParameter(Request, Form, "JiraId", JiraId, out JiraId);
+            GetFormParameter(Request, Form, "MessageQuery", MessageQuery, out MessageQuery);
+            GetFormParameter(Request, Form, "BuggId", BuggId, out BuggId);
+            GetFormParameter(Request, Form, "BuiltFromCL", BuiltFromCL, out BuiltFromCL);
+            GetFormParameter(Request, Form, "SortTerm", DefaultSortTerm, out SortTerm);
+            GetFormParameter(Request, Form, "CrashType", CrashType, out CrashType);
+            GetFormParameter(Request, Form, "UserGroup", UserGroup, out UserGroup);
+            GetFormParameter(Request, Form, "BranchName", BranchName, out BranchName);
+            GetFormParameter(Request, Form, "VersionName", VersionName, out VersionName);
+            GetFormParameter(Request, Form, "PlatformName", PlatformName, out PlatformName);
+            GetFormParameter(Request, Form, "GameName", GameName, out GameName);
             GetFormParameter(Request, Form, "EngineMode", EngineMode, out EngineMode);
+            GetFormParameter(Request, Form, "EngineVersion", EngineVersion, out EngineVersion);
 
 
 			string PageString = Page.ToString();

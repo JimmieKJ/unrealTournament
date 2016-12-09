@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
-#include "Engine.h"
 #include "VisualLoggerDatabase.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/World.h"
+#include "EngineUtils.h"
+#include "LogVisualizerSettings.h"
+#include "LogVisualizerPrivate.h"
 #include "VisualLoggerRenderingActor.h"
 
 TSharedPtr< struct FVisualLoggerDatabase > FVisualLoggerDatabase::StaticInstance = nullptr;

@@ -1,7 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/Views/SHeaderRow.h"
+#include "Framework/Views/ITypedTableView.h"
 #include "IPropertyTableUtilities.h"
+
+class FPropertyPath;
+class IPropertyTableCell;
+class IPropertyTableColumn;
+class IPropertyTableRow;
 
 namespace EPropertyTableSelectionUnit
 {

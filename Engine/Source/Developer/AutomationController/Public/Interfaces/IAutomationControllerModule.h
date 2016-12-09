@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IAutomationControllerManager.h"
+
 /**
  * Interface for AutomationController modules.
  */

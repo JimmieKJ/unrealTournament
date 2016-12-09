@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrackInst.h"
 #include "Matinee/InterpTrackToggle.h"
 
 #include "InterpTrackInstToggle.generated.h"

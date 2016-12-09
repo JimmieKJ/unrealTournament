@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+
+class SWidget;
+
 /**
  * Common base-class for objects that handle input in the sequencer.
  */

@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "AssetRegistryModule.h"
 #include "Engine/ObjectLibrary.h"
+#include "Modules/ModuleManager.h"
+#include "Engine/BlueprintCore.h"
+#include "Engine/Blueprint.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "UnrealEngine.h"
+#include "EngineUtils.h"
+#include "ARFilter.h"
+#include "AssetRegistryModule.h"
+#include "Engine/StreamableManager.h"
 
 UObjectLibrary::UObjectLibrary(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -10,6 +17,7 @@ UObjectLibrary::UObjectLibrary(const FObjectInitializer& ObjectInitializer)
 	bIsFullyLoaded = false;
 	bUseWeakReferences = false;
 	bIncludeOnlyOnDiskAssets = true;
+	bRecursivePaths = true;
 
 #if WITH_EDITOR
 	if ( !HasAnyFlags(RF_ClassDefaultObject) )
@@ -45,6 +53,8 @@ void UObjectLibrary::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 					{
 						UBlueprintCore* Blueprint = Cast<UBlueprintCore>(Objects[i]);
 						BlueprintClass = Blueprint ? Blueprint->GeneratedClass : nullptr;
+						// replace BP with BPGC
+						Objects[i] = BlueprintClass;
 					}
 
 					if (!BlueprintClass)
@@ -70,6 +80,27 @@ void UObjectLibrary::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+
+void UObjectLibrary::PostLoad()
+{
+	Super::PostLoad();
+
+	if (bHasBlueprintClasses)
+	{
+		// replace BP with BPGC
+		for (int32 i = 0; i < Objects.Num(); i++)
+		{
+			UBlueprintCore* Blueprint = Cast<UBlueprintCore>(Objects[i]);
+			if (Blueprint)
+			{
+				UClass* BlueprintClass = Blueprint->GeneratedClass;
+				Objects[i] = (BlueprintClass && BlueprintClass->IsChildOf(ObjectBaseClass))
+					? BlueprintClass
+					: nullptr;
+			}
+		}
+	}
 }
 #endif // WITH_EDITOR
 
@@ -162,6 +193,7 @@ bool UObjectLibrary::AddObject(UObject *NewObject)
 		if (WeakObjects.Add(NewObject) != INDEX_NONE)
 		{
 			Modify();
+			OnObjectAddedEvent.Broadcast(NewObject);
 			return true;
 		}
 	}
@@ -175,6 +207,7 @@ bool UObjectLibrary::AddObject(UObject *NewObject)
 		if (Objects.Add(NewObject) != INDEX_NONE)
 		{
 			Modify();
+			OnObjectAddedEvent.Broadcast(NewObject);
 			return true;
 		}
 	}
@@ -189,6 +222,7 @@ bool UObjectLibrary::RemoveObject(UObject *ObjectToRemove)
 		if (Objects.Remove(ObjectToRemove) != 0)
 		{
 			Modify();
+			OnObjectRemovedEvent.Broadcast(ObjectToRemove);
 			return true;
 		}
 	}
@@ -197,6 +231,7 @@ bool UObjectLibrary::RemoveObject(UObject *ObjectToRemove)
 		if (WeakObjects.Remove(ObjectToRemove) != 0)
 		{
 			Modify();
+			OnObjectRemovedEvent.Broadcast(ObjectToRemove);
 			return true;
 		}
 	}
@@ -324,7 +359,7 @@ int32 UObjectLibrary::LoadAssetDataFromPaths(const TArray<FString>& Paths, bool 
 		ARFilter.PackagePaths.Add(FName(*Paths[PathIndex]));
 	}
 
-	ARFilter.bRecursivePaths = true;
+	ARFilter.bRecursivePaths = bRecursivePaths;
 	ARFilter.bIncludeOnlyOnDiskAssets = bIncludeOnlyOnDiskAssets;
 
 	AssetDataList.Empty();
@@ -384,7 +419,7 @@ int32 UObjectLibrary::LoadBlueprintAssetDataFromPaths(const TArray<FString>& Pat
 		ARFilter.PackagePaths.Add(FName(*Paths[PathIndex]));
 	}
 	
-	ARFilter.bRecursivePaths = true;
+	ARFilter.bRecursivePaths = bRecursivePaths;
 	ARFilter.bIncludeOnlyOnDiskAssets = bIncludeOnlyOnDiskAssets;
 
 	/* GetDerivedClassNames doesn't work yet
@@ -444,6 +479,7 @@ int32 UObjectLibrary::LoadBlueprintAssetDataFromPaths(const TArray<FString>& Pat
 int32 UObjectLibrary::LoadAssetsFromAssetData()
 {
 	int32 Count = 0;
+	bool bPreloadObjects = !WITH_EDITOR;
 
 	if (bIsFullyLoaded)
 	{
@@ -453,12 +489,40 @@ int32 UObjectLibrary::LoadAssetsFromAssetData()
 
 	bIsFullyLoaded = true;
 
+	// Preload the packages with an async call, faster in cooked builds
+	if (bPreloadObjects)
+	{
+		TArray<FStringAssetReference> AssetsToStream;
+
+		for (int32 AssetIdx = 0; AssetIdx < AssetDataList.Num(); AssetIdx++)
+		{
+			FAssetData& Data = AssetDataList[AssetIdx];
+			AssetsToStream.AddUnique(Data.PackageName.ToString());
+		}
+
+		if (AssetsToStream.Num())
+		{
+			FStreamableManager Streamable;
+			bool bLoadFinished = false;
+
+			Streamable.RequestAsyncLoad(AssetsToStream,
+				FStreamableDelegate::CreateLambda([&bLoadFinished]()
+			{
+				bLoadFinished = true;
+			}));
+
+			FlushAsyncLoading();
+			check(bLoadFinished);
+		}
+
+	}
+
 	for(int32 AssetIdx=0; AssetIdx<AssetDataList.Num(); AssetIdx++)
 	{
 		FAssetData& Data = AssetDataList[AssetIdx];
 
 		UObject *LoadedObject = NULL;
-			
+		
 		if (!bHasBlueprintClasses)
 		{
 			LoadedObject = Data.GetAsset();

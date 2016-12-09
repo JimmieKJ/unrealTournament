@@ -4,8 +4,16 @@
 	TextureRenderTarget2D.cpp: UTextureRenderTarget2D implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "Misc/MessageDialog.h"
+#include "TextureResource.h"
+#include "Engine/Texture2D.h"
+#include "UnrealEngine.h"
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
+
+int32 GTextureRenderTarget2DMaxSizeX = 999999999;
+int32 GTextureRenderTarget2DMaxSizeY = 999999999;
 
 /*-----------------------------------------------------------------------------
 	UTextureRenderTarget2D
@@ -54,8 +62,10 @@ EMaterialValueType UTextureRenderTarget2D::GetMaterialType()
 	return MCT_Texture2D;
 }
 
-SIZE_T UTextureRenderTarget2D::GetResourceSize(EResourceSizeMode::Type Mode)
+void UTextureRenderTarget2D::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
+	Super::GetResourceSizeEx(CumulativeResourceSize);
+
 	// Calculate size based on format.
 	EPixelFormat Format = GetFormat();
 	int32 BlockSizeX	= GPixelFormats[Format].BlockSizeX;
@@ -65,7 +75,7 @@ SIZE_T UTextureRenderTarget2D::GetResourceSize(EResourceSizeMode::Type Mode)
 	int32 NumBlocksY	= (SizeY + BlockSizeY - 1) / BlockSizeY;
 	int32 NumBytes	= NumBlocksX * NumBlocksY * BlockBytes;
 
-	return NumBytes;
+	CumulativeResourceSize.AddUnknownMemoryBytes(NumBytes);
 }
 
 void UTextureRenderTarget2D::InitCustomFormat( uint32 InSizeX, uint32 InSizeY, EPixelFormat InOverrideFormat, bool bInForceLinearGamma )
@@ -97,14 +107,17 @@ void UTextureRenderTarget2D::InitAutoFormat(uint32 InSizeX, uint32 InSizeY)
 
 void UTextureRenderTarget2D::UpdateResourceImmediate(bool bClearRenderTarget/*=true*/)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		UpdateResourceImmediate,
-		FRenderResource*,Resource,Resource,
-		bool, bClearRenderTarget, bClearRenderTarget,
-		{
-		static_cast<FTextureRenderTarget2DResource*>(Resource)->UpdateDeferredResource(RHICmdList, bClearRenderTarget);
-		}
-	);
+	if (Resource)
+	{
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+			UpdateResourceImmediate,
+			FTextureRenderTarget2DResource*, Resource, static_cast<FTextureRenderTarget2DResource*>(Resource),
+			bool, bClearRenderTarget, bClearRenderTarget,
+			{
+				Resource->UpdateDeferredResource(RHICmdList, bClearRenderTarget);
+			}
+		);
+	}
 }
 
 #if WITH_EDITOR
@@ -154,6 +167,9 @@ void UTextureRenderTarget2D::PostLoad()
 		SizeY = FMath::Min<int32>(SizeY, GSystemResolution.ResY);
 	}
 
+	SizeX = FMath::Min<int32>(SizeX, GTextureRenderTarget2DMaxSizeX);
+	SizeY = FMath::Min<int32>(SizeY, GTextureRenderTarget2DMaxSizeY);
+	
 	Super::PostLoad();
 }
 

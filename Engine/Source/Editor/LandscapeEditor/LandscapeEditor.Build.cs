@@ -23,6 +23,8 @@ public class LandscapeEditor : ModuleRules
 				"ImageWrapper",
                 "EditorWidgets",
                 "Foliage",
+				"ViewportInteraction",
+				"VREditor",
 			}
 			);
 

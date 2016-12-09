@@ -4,9 +4,12 @@
 	PreviewScene.cpp: Preview scene implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "SoundDefinitions.h"
 #include "PreviewScene.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/Package.h"
+#include "SceneInterface.h"
+#include "Components/MeshComponent.h"
+#include "AudioDevice.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/LineBatchComponent.h"
 
@@ -15,13 +18,13 @@ FPreviewScene::FPreviewScene(FPreviewScene::ConstructionValues CVS)
 	, bForceAllUsedMipsResident(CVS.bForceMipsResident)
 {
 	PreviewWorld = NewObject<UWorld>();
-	PreviewWorld->WorldType = EWorldType::Preview;
+	PreviewWorld->WorldType = CVS.bEditor ? EWorldType::EditorPreview : EWorldType::GamePreview;
 	if (CVS.bTransactional)
 	{
 		PreviewWorld->SetFlags(RF_Transactional);
 	}
 
-	FWorldContext& WorldContext = GEngine->CreateNewWorldContext(EWorldType::Preview);
+	FWorldContext& WorldContext = GEngine->CreateNewWorldContext(PreviewWorld->WorldType);
 	WorldContext.SetCurrentWorld(PreviewWorld);
 
 	PreviewWorld->InitializeNewWorld(UWorld::InitializationValues()

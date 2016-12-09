@@ -2,9 +2,15 @@
 
 #pragma once
 
-#include "OnlineAsyncTaskManagerSteam.h"
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineSubsystemSteamTypes.h"
 #include "OnlineSessionSettings.h"
+#include "OnlineSessionInterfaceSteam.h"
+#include "OnlineAsyncTaskManager.h"
+#include "OnlineAsyncTaskManagerSteam.h"
+#include "OnlineSubsystemSteam.h"
 #include "OnlineSubsystemSteamPackage.h"
 
 /** Well defined keys for use with Steam game servers */

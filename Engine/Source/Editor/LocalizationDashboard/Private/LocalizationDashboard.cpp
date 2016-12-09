@@ -1,15 +1,24 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationDashboardPrivatePCH.h"
 #include "LocalizationDashboard.h"
-#include "SDockTab.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/Docking/WorkspaceItem.h"
+#include "Framework/Docking/TabManager.h"
+#include "Framework/Docking/LayoutService.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
-#include "IMainFrameModule.h"
-#include "ModuleManager.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "SLocalizationTargetEditor.h"
-#include "LocalizationSettings.h"
 #include "LocalizationTargetTypes.h"
+#include "LocalizationSettings.h"
+#include "LocalizationDashboardSettings.h"
 #include "SSettingsEditorCheckoutNotice.h"
 
 #define LOCTEXT_NAMESPACE "LocalizationDashboard"
@@ -30,8 +39,7 @@ private:
 	bool CanMakeEdits() const;
 
 private:
-	static const FName EngineTargetSetDetailsTabName;
-	static const FName ProjectTargetSetDetailsTabName;
+	static const FName TargetsDetailsTabName;
 	static const FName DocumentsTabName;
 
 	TSharedPtr<FTabManager> TabManager;
@@ -39,8 +47,7 @@ private:
 	TSharedPtr<SSettingsEditorCheckoutNotice> SettingsEditorCheckoutNotice;
 };
 
-const FName SLocalizationDashboard::EngineTargetSetDetailsTabName("EngineTargets");
-const FName SLocalizationDashboard::ProjectTargetSetDetailsTabName("ProjectTargets");
+const FName SLocalizationDashboard::TargetsDetailsTabName("Targets");
 const FName SLocalizationDashboard::DocumentsTabName("Documents");
 
 void SLocalizationDashboard::Construct(const FArguments& InArgs, const TSharedPtr<SWindow>& OwningWindow, const TSharedRef<SDockTab>& OwningTab)
@@ -53,58 +60,83 @@ void SLocalizationDashboard::Construct(const FArguments& InArgs, const TSharedPt
 	};
 	TabManager->SetOnPersistLayout(FTabManager::FOnPersistLayout::CreateLambda(PersistLayout));
 
-	const auto& CreateDetailsTab = [this](const FSpawnTabArgs& SpawnTabArgs) -> TSharedRef<SDockTab>
+	const auto& CreateTargetsTab = [this](const FSpawnTabArgs& SpawnTabArgs) -> TSharedRef<SDockTab>
 	{
-		FText DockTabLabel;
-		ULocalizationTargetSet* TargetSet = nullptr;
-		if (SpawnTabArgs.GetTabId() == EngineTargetSetDetailsTabName)
-		{
-			DockTabLabel = LOCTEXT("EngineTargetsTabLabel", "Engine Targets");
-			TargetSet = ULocalizationSettings::GetEngineTargetSet();
-		}
-		else if (SpawnTabArgs.GetTabId() == ProjectTargetSetDetailsTabName)
-		{
-			DockTabLabel = LOCTEXT("ProjectTargetsTabLabel", "Project Targets");
-			TargetSet = ULocalizationSettings::GetGameTargetSet();
-		}
+		check(SpawnTabArgs.GetTabId() == TargetsDetailsTabName);
 
 		const TSharedRef<SDockTab> DockTab = SNew(SDockTab)
-			.Label(DockTabLabel);
+			.Label(LOCTEXT("TargetsTabLabel", "Targets"));
+
+		TSharedRef<SVerticalBox> VBox = SNew(SVerticalBox);
+		DockTab->SetContent(VBox);
 
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-		FDetailsViewArgs DetailsViewArgs(false, false, false, FDetailsViewArgs::ENameAreaSettings::HideNameArea, false, nullptr, false, NAME_None);
-		TSharedRef<IDetailsView> DetailsView = PropertyModule.CreateDetailView(DetailsViewArgs);
-		DetailsView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &SLocalizationDashboard::CanMakeEdits));
 
-		DetailsView->SetObject(TargetSet, true);
+		// Settings Details View
+		{
+			FDetailsViewArgs DetailsViewArgs(false, false, false, FDetailsViewArgs::ENameAreaSettings::HideNameArea, false, nullptr, false, NAME_None);
+			TSharedRef<IDetailsView> DetailsView = PropertyModule.CreateDetailView(DetailsViewArgs);
+			DetailsView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &SLocalizationDashboard::CanMakeEdits));
+			DetailsView->SetObject(GetMutableDefault<ULocalizationDashboardSettings>(), true);
 
-		DockTab->SetContent(DetailsView);
+			VBox->AddSlot()
+				.AutoHeight()
+				[
+					DetailsView
+				];
+		}
+
+		// Game Targets Details View
+		{
+			FDetailsViewArgs DetailsViewArgs(false, false, false, FDetailsViewArgs::ENameAreaSettings::HideNameArea, false, nullptr, false, NAME_None);
+			TSharedRef<IDetailsView> DetailsView = PropertyModule.CreateDetailView(DetailsViewArgs);
+			DetailsView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &SLocalizationDashboard::CanMakeEdits));
+			DetailsView->SetObject(ULocalizationSettings::GetGameTargetSet(), true);
+
+			VBox->AddSlot()
+				.AutoHeight()
+				[
+					DetailsView
+				];
+		}
+
+		// Engine Targets Details View
+		{
+			FDetailsViewArgs DetailsViewArgs(false, false, false, FDetailsViewArgs::ENameAreaSettings::HideNameArea, false, nullptr, false, NAME_None);
+			TSharedRef<IDetailsView> DetailsView = PropertyModule.CreateDetailView(DetailsViewArgs);
+			DetailsView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &SLocalizationDashboard::CanMakeEdits));
+			DetailsView->SetObject(ULocalizationSettings::GetEngineTargetSet(), true);
+
+			VBox->AddSlot()
+				.AutoHeight()
+				[
+					DetailsView
+				];
+		}
 
 		return DockTab;
 	};
-	const TSharedRef<FWorkspaceItem> TargetSetsWorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("TargetSetsWorkspaceMenuCategory", "Target Sets"));
-	FTabSpawnerEntry& EngineTargetSetTabSpawnerEntry = TabManager->RegisterTabSpawner(EngineTargetSetDetailsTabName, FOnSpawnTab::CreateLambda(CreateDetailsTab))
-		.SetDisplayName(LOCTEXT("EngineTargetsDetailTabSpawner", "Engine Targets"));
-	TargetSetsWorkspaceMenuCategory->AddItem(EngineTargetSetTabSpawnerEntry.AsShared());
-	FTabSpawnerEntry& ProjectTargetSetTabSpawnerEntry = TabManager->RegisterTabSpawner(ProjectTargetSetDetailsTabName, FOnSpawnTab::CreateLambda(CreateDetailsTab))
-		.SetDisplayName(LOCTEXT("ProjectTargetsDetailTabSpawner", "Project Targets"));
-	TargetSetsWorkspaceMenuCategory->AddItem(ProjectTargetSetTabSpawnerEntry.AsShared());
+	const TSharedRef<FWorkspaceItem> TargetSetsWorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("LocalizationDashboardWorkspaceMenuCategory", "Localization Dashboard"));
+	FTabSpawnerEntry& TargetsTabSpawnerEntry = TabManager->RegisterTabSpawner(TargetsDetailsTabName, FOnSpawnTab::CreateLambda(CreateTargetsTab))
+		.SetDisplayName(LOCTEXT("TargetsDetailTabSpawner", "Targets"));
+	TargetSetsWorkspaceMenuCategory->AddItem(TargetsTabSpawnerEntry.AsShared());
 
-	TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout("LocalizationDashboard_Experimental_V4")
+	TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout("LocalizationDashboard_Experimental_V5")
 		->AddArea
 		(
 		FTabManager::NewPrimaryArea()
-		->SetOrientation(Orient_Vertical)
+		->SetOrientation(Orient_Horizontal)
 		->Split
 		(
 		FTabManager::NewStack()
+		->SetSizeCoefficient(1.0f)
 		->SetHideTabWell(true)
-		->AddTab(EngineTargetSetDetailsTabName, ETabState::ClosedTab)
-		->AddTab(ProjectTargetSetDetailsTabName, ETabState::OpenedTab)
+		->AddTab(TargetsDetailsTabName, ETabState::OpenedTab)
 		)
 		->Split
 		(
 		FTabManager::NewStack()
+		->SetSizeCoefficient(2.0f)
 		->SetHideTabWell(false)
 		->AddTab(DocumentsTabName, ETabState::ClosedTab)
 		)
@@ -141,6 +173,16 @@ void SLocalizationDashboard::Construct(const FArguments& InArgs, const TSharedPt
 				TabManager->RestoreFrom(Layout, OwningWindow).ToSharedRef()
 			]
 		];
+
+
+	// Open the first game target if present
+	if (ULocalizationTargetSet* GameTargetSet = ULocalizationSettings::GetGameTargetSet())
+	{
+		if (GameTargetSet->TargetObjects.Num() > 0)
+		{
+			ShowTargetEditor(GameTargetSet->TargetObjects[0]);
+		}
+	}
 }
 
 TWeakPtr<SDockTab> SLocalizationDashboard::ShowTargetEditor(ULocalizationTarget* const LocalizationTarget)

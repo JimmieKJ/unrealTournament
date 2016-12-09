@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /*
 ===============================================================================
 	Unrolled Link List

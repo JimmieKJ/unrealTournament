@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
 
-#include "GearVRPrivatePCH.h"
-#include "GearVR.h"
 #include "../Public/GearVRFunctionLibrary.h"
+#include "GearVR.h"
 
 UGearVRFunctionLibrary::UGearVRFunctionLibrary(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -12,7 +11,7 @@ UGearVRFunctionLibrary::UGearVRFunctionLibrary(const FObjectInitializer& ObjectI
 }
 #if GEARVR_SUPPORTED_PLATFORMS
 
-FGearVR* GetHMD()
+static FGearVR* GetHMD()
 {
 	if (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->GetVersionString().Contains(TEXT("GearVR")))
 	{

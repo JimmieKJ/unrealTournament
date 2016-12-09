@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/NameTypes.h"
+#include "UObject/ObjectMacros.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateColor.h"
+#include "Styling/SlateBrush.h"
+#include "Styling/SlateWidgetStyle.h"
+#include "Styling/SlateTypes.h"
 #include "FriendsMarkupStyle.generated.h"
 
 /**

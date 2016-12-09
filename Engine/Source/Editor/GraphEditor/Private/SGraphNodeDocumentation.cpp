@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
 #include "SGraphNodeDocumentation.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "IDocumentationPage.h"
 #include "IDocumentation.h"
 #include "SLevelOfDetailBranchNode.h"
 #include "TutorialMetaData.h"
-#include "SInlineEditableTextBlock.h"
-#include "SSimpleGradient.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Widgets/Colors/SSimpleGradient.h"
 
 #define LOCTEXT_NAMESPACE "SGraphNodeDocumentation"
 

@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelSequenceEditorPCH.h"
+#include "Factories/LevelSequenceFactoryNew.h"
 #include "LevelSequence.h"
-#include "LevelSequenceFactoryNew.h"
 #include "MovieScene.h"
 #include "MovieSceneToolsProjectSettings.h"
 

@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "SGraphNode.h"
-#include "SGraphNodeK2Base.h"
-#include "SGraphNodeK2Default.h"
-#include "SGraphNodeSpawnActor.h"
+#include "KismetNodes/SGraphNodeSpawnActor.h"
+#include "Engine/Blueprint.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBox.h"
+#include "K2Node_SpawnActor.h"
 #include "KismetPins/SGraphPinObject.h"
-#include "NodeFactory.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
 

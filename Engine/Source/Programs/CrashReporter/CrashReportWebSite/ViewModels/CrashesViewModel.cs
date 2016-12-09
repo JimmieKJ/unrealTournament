@@ -65,6 +65,9 @@ namespace Tools.CrashReporter.CrashReportWebSite.ViewModels
 
 		/// <summary>The version to filter by.</summary>
 		public string VersionName { get; set; }
+        
+        /// <summary>The version to filter by.</summary>
+        public string EngineVersion { get; set; }
 
 		/// <summary>The platform to filter by.</summary>
 		public string PlatformName { get; set; }
@@ -92,6 +95,9 @@ namespace Tools.CrashReporter.CrashReportWebSite.ViewModels
 
         /// <summary>A collection of Engine Modes used in the drop down on the main search form</summary>
         public List<SelectListItem> EngineModes { get; set; }
+        
+        /// <summary>A collection of Engine Modes used in the drop down on the main search form</summary>
+        public List<SelectListItem> EngineVersions { get; set; }
 
 		/// <summary>The set of statuses a crash could have its status set to.</summary>
 		public IEnumerable<string> SetStatus { get { return new List<string>( new string[] { "Unset", "Reviewed", "New", "Coder", "EngineQA", "GameQA" } ); } }

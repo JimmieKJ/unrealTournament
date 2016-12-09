@@ -3,7 +3,8 @@
 
 #pragma once
 
-#include "StandaloneRenderer.h"
+#include "CoreMinimal.h"
+#include "StandaloneRendererPlatformHeaders.h"
 
 // not needed with ES2
 #if !PLATFORM_USES_ES2

@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "AndroidMediaTracks.h"
 #include "IMediaControls.h"
 #include "IMediaPlayer.h"
+#include "Containers/Ticker.h"
 
 
 class FJavaAndroidMediaPlayer;
@@ -56,6 +58,7 @@ public:
 	virtual void Close() override;
 	virtual IMediaControls& GetControls() override;
 	virtual FString GetInfo() const override;
+	virtual FName GetName() const override;
 	virtual IMediaOutput& GetOutput() override;
 	virtual FString GetStats() const override;
 	virtual IMediaTracks& GetTracks() override;
@@ -79,6 +82,9 @@ private:
 
 	/** Currently opened media. */
 	FString MediaUrl;
+
+	/** Media information string. */
+	FString Info;
 
 	/** Our understanding of the state of the Java media player. */
 	EMediaState State;

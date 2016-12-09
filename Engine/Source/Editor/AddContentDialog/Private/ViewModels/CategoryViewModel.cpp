@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AddContentDialogPCH.h"
+#include "ViewModels/CategoryViewModel.h"
+#include "IContentSource.h"
+#include "AddContentDialogStyle.h"
 
 #define LOCTEXT_NAMESPACE "ContentSourceViewModel"
 

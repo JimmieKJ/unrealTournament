@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnvironmentQueryEditorPrivatePCH.h"
 #include "STestFunctionWidget.h"
+#include "Rendering/DrawElements.h"
+#include "EnvironmentQuery/EnvQueryTest.h"
+#include "EditorStyleSet.h"
 
 void STestFunctionWidget::Construct(const FArguments& InArgs)
 {

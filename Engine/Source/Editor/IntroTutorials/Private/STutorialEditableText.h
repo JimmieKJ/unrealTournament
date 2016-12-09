@@ -2,6 +2,21 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "Widgets/Input/SComboBox.h"
+
+class SEditableTextBox;
+class SMultiLineEditableTextBox;
+struct FHyperlinkTypeDesc;
+struct FTextStyleAndName;
+
 class STutorialEditableText : public SCompoundWidget
 {
 public:

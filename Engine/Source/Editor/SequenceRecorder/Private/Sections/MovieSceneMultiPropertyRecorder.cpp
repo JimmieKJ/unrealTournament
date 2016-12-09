@@ -1,8 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderPrivatePCH.h"
-#include "MovieSceneMultiPropertyRecorder.h"
-#include "MovieScenePropertyRecorder.h"
+#include "Sections/MovieSceneMultiPropertyRecorder.h"
+#include "UObject/UnrealType.h"
+#include "MovieSceneCommonHelpers.h"
+#include "Sections/MovieScenePropertyRecorder.h"
 #include "SequenceRecorderSettings.h"
 
 TSharedPtr<IMovieSceneSectionRecorder> FMovieSceneMultiPropertyRecorderFactory::CreateSectionRecorder(const FActorRecordingSettings& InActorRecordingSettings) const
@@ -50,8 +51,7 @@ void FMovieSceneMultiPropertyRecorder::CreateSection(UObject* InObjectToRecord, 
 	for (const FName& PropertyName : PropertiesToRecord)
 	{
 		FTrackInstancePropertyBindings Binding(PropertyName, PropertyName.ToString());
-		Binding.UpdateBinding(InObjectToRecord);
-		UProperty* Property = Binding.GetProperty(InObjectToRecord);
+		UProperty* Property = Binding.GetProperty(*InObjectToRecord);
 		if (Property != nullptr)
 		{
 			if (Property->IsA<UBoolProperty>())
@@ -61,6 +61,10 @@ void FMovieSceneMultiPropertyRecorder::CreateSection(UObject* InObjectToRecord, 
 			else if (Property->IsA<UByteProperty>())
 			{
 				PropertyRecorders.Add(MakeShareable(new FMovieScenePropertyRecorder<uint8>(Binding)));
+			}
+			else if (Property->IsA<UEnumProperty>())
+			{
+				PropertyRecorders.Add(MakeShareable(new FMovieScenePropertyRecorderEnum(Binding)));
 			}
 			else if (Property->IsA<UFloatProperty>())
 			{
@@ -106,6 +110,10 @@ bool FMovieSceneMultiPropertyRecorder::CanPropertyBeRecorded(const UProperty& In
 		return true;
 	}
 	else if (InProperty.IsA<UByteProperty>())
+	{
+		return true;
+	}
+	else if (InProperty.IsA<UEnumProperty>())
 	{
 		return true;
 	}

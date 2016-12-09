@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "SequencerDetailKeyframeHandler.h"
 #include "PropertyHandle.h"
 
@@ -23,12 +22,7 @@ void FSequencerDetailKeyframeHandler::OnKeyPropertyClicked(const IPropertyHandle
 	TArray<UObject*> Objects;
 	KeyedPropertyHandle.GetOuterObjects( Objects );
 
-	FKeyPropertyParams KeyPropertyParams(Objects, KeyedPropertyHandle);
-	KeyPropertyParams.KeyParams.bCreateHandleIfMissing = true;
-	KeyPropertyParams.KeyParams.bCreateTrackIfMissing = true;
-	KeyPropertyParams.KeyParams.bCreateKeyIfUnchanged = true;
-	KeyPropertyParams.KeyParams.bCreateKeyIfEmpty = true;
-	KeyPropertyParams.KeyParams.bCreateKeyOnlyWhenAutoKeying = false;
+	FKeyPropertyParams KeyPropertyParams(Objects, KeyedPropertyHandle, ESequencerKeyMode::ManualKeyForced);
 
 	Sequencer.Pin()->KeyProperty(KeyPropertyParams);
 }

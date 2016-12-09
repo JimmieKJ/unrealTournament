@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -13,6 +13,8 @@
 #include "libcef_dll/cpptoc/web_plugin_info_visitor_cpptoc.h"
 #include "libcef_dll/ctocpp/web_plugin_info_ctocpp.h"
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -39,14 +41,20 @@ int CEF_CALLBACK web_plugin_info_visitor_visit(
   return _retval;
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefWebPluginInfoVisitorCppToC::CefWebPluginInfoVisitorCppToC(
-    CefWebPluginInfoVisitor* cls)
-    : CefCppToC<CefWebPluginInfoVisitorCppToC, CefWebPluginInfoVisitor,
-        cef_web_plugin_info_visitor_t>(cls) {
-  struct_.struct_.visit = web_plugin_info_visitor_visit;
+CefWebPluginInfoVisitorCppToC::CefWebPluginInfoVisitorCppToC() {
+  GetStruct()->visit = web_plugin_info_visitor_visit;
+}
+
+template<> CefRefPtr<CefWebPluginInfoVisitor> CefCppToC<CefWebPluginInfoVisitorCppToC,
+    CefWebPluginInfoVisitor, cef_web_plugin_info_visitor_t>::UnwrapDerived(
+    CefWrapperType type, cef_web_plugin_info_visitor_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -54,3 +62,6 @@ template<> base::AtomicRefCount CefCppToC<CefWebPluginInfoVisitorCppToC,
     CefWebPluginInfoVisitor, cef_web_plugin_info_visitor_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefWebPluginInfoVisitorCppToC,
+    CefWebPluginInfoVisitor, cef_web_plugin_info_visitor_t>::kWrapperType =
+    WT_WEB_PLUGIN_INFO_VISITOR;

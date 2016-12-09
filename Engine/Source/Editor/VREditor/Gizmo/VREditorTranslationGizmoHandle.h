@@ -1,9 +1,13 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "VIGizmoHandle.h"
 #include "VREditorTranslationGizmoHandle.generated.h"
+
+enum class EGizmoHandleTypes : uint8;
 
 /**
  * Gizmo handle for translating

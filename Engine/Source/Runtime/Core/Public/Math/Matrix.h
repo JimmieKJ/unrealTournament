@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "HAL/UnrealMemory.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
+#include "Math/Vector.h"
+#include "Math/Vector4.h"
+#include "Math/Plane.h"
+#include "Math/Rotator.h"
+#include "Math/Axis.h"
 
 /**
  * 4x4 matrix of floating point values.
@@ -354,6 +363,13 @@ public:
 		Dest[10] = Src[10]; // [2][2]
 		Dest[11] = Src[14]; // [3][2]
 	}	
+
+private:
+
+	/** 
+	 * Output an error message and trigger an ensure 
+	 */
+	static CORE_API void ErrorEnsure(const TCHAR* Message);
 };
 
 
@@ -404,22 +420,6 @@ struct FBasisVectorMatrix: FMatrix
 };
 
 
-FORCEINLINE FBasisVectorMatrix::FBasisVectorMatrix(const FVector& XAxis,const FVector& YAxis,const FVector& ZAxis,const FVector& Origin)
-{
-	for(uint32 RowIndex = 0;RowIndex < 3;RowIndex++)
-	{
-		M[RowIndex][0] = (&XAxis.X)[RowIndex];
-		M[RowIndex][1] = (&YAxis.X)[RowIndex];
-		M[RowIndex][2] = (&ZAxis.X)[RowIndex];
-		M[RowIndex][3] = 0.0f;
-	}
-	M[3][0] = Origin | XAxis;
-	M[3][1] = Origin | YAxis;
-	M[3][2] = Origin | ZAxis;
-	M[3][3] = 1.0f;
-}
-
-
 struct FLookAtMatrix : FMatrix
 {
 	/** 
@@ -428,26 +428,6 @@ struct FLookAtMatrix : FMatrix
 	 */
 	FLookAtMatrix(const FVector& EyePosition, const FVector& LookAtPosition, const FVector& UpVector);
 };
-
-
-FORCEINLINE FLookAtMatrix::FLookAtMatrix(const FVector& EyePosition, const FVector& LookAtPosition, const FVector& UpVector)
-{
-	const FVector ZAxis = (LookAtPosition - EyePosition).GetSafeNormal();
-	const FVector XAxis = (UpVector ^ ZAxis).GetSafeNormal();
-	const FVector YAxis = ZAxis ^ XAxis;
-
-	for (uint32 RowIndex = 0; RowIndex < 3; RowIndex++)
-	{
-		M[RowIndex][0] = (&XAxis.X)[RowIndex];
-		M[RowIndex][1] = (&YAxis.X)[RowIndex];
-		M[RowIndex][2] = (&ZAxis.X)[RowIndex];
-		M[RowIndex][3] = 0.0f;
-	}
-	M[3][0] = -EyePosition | XAxis;
-	M[3][1] = -EyePosition | YAxis;
-	M[3][2] = -EyePosition | ZAxis;
-	M[3][3] = 1.0f;
-}
 
 
 template <> struct TIsPODType<FMatrix> { enum { Value = true }; };
@@ -490,4 +470,4 @@ static inline void Inverse4x4( double* dst, const float* src )
 	}
 }
 
-#include "Matrix.inl"
+#include "Math/Matrix.inl"

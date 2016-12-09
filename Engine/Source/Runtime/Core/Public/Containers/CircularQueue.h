@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/CircularBuffer.h"
 
 /**
  * Implements a lock-free first-in first-out queue using a circular array.

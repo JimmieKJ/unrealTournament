@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "AITask.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Tasks/AITask.h"
 #include "AITask_LockLogic.generated.h"
 
 /** Locks AI logic until removed by external trigger */

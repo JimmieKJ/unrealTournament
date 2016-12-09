@@ -7,7 +7,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "UniformBuffer.h"
+#include "VertexFactory.h"
+#include "ParticleVertexFactory.h"
+
+class FMaterial;
 
 /**
  * Uniform buffer for particle beam/trail vertex factories.
@@ -31,10 +36,16 @@ public:
 	/** Default constructor. */
 	FParticleBeamTrailVertexFactory( EParticleVertexFactoryType InType, ERHIFeatureLevel::Type InFeatureLevel )
 		: FParticleVertexFactoryBase(InType, InFeatureLevel)
+		, IndexBuffer(nullptr)
+		, FirstIndex(0)
+		, OutTriangleCount(0)
 	{}
 
 	FParticleBeamTrailVertexFactory()
 		: FParticleVertexFactoryBase(PVFT_MAX, ERHIFeatureLevel::Num)
+		, IndexBuffer(nullptr)
+		, FirstIndex(0)
+		, OutTriangleCount(0)
 	{}
 
 	/**
@@ -82,8 +93,28 @@ public:
 	 */
 	static FVertexFactoryShaderParameters* ConstructShaderParameters(EShaderFrequency ShaderFrequency);
 
+	FIndexBuffer*& GetIndexBuffer()
+	{
+		return IndexBuffer;
+	}
+
+	uint32& GetFirstIndex()
+	{
+		return FirstIndex;
+	}
+
+	int32& GetOutTriangleCount()
+	{
+		return OutTriangleCount;
+	}
+
 private:
 
 	/** Uniform buffer with beam/trail parameters. */
 	FParticleBeamTrailUniformBufferRef BeamTrailUniformBuffer;
+
+	/** Used to hold the index buffer allocation information when we call GDME more than once per frame. */
+	FIndexBuffer* IndexBuffer;
+	uint32 FirstIndex;
+	int32 OutTriangleCount;
 };

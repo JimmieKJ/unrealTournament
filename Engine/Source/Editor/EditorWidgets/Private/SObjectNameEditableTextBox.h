@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Layout/Visibility.h"
+#include "Animation/SlateSprings.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "EditorWidgetsModule.h"
+
+class FPaintArgs;
+class FSlateWindowElementList;
+class SEditableTextBox;
+
 /** Widget wraps an editable text box for viewing the names of objects or editing the labels of actors */
 class SObjectNameEditableTextBox : public IObjectNameEditableTextBox
 {

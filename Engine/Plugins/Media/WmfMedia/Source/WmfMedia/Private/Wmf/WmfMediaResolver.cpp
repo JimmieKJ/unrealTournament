@@ -1,15 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WmfMediaPCH.h"
+#include "WmfMediaResolver.h"
+#include "WmfMediaByteStream.h"
+#include "WmfMediaResolveState.h"
+#include "WmfMediaUtils.h"
 
 #if WMFMEDIA_SUPPORTED_PLATFORM
 
-#include "WmfMediaByteStream.h"
-#include "WmfMediaResolver.h"
-#include "WmfMediaResolveState.h"
-#include "WmfMediaUtils.h"
 #include "AllowWindowsPlatformTypes.h"
-
 
 /* WmfMediaUrlResolver structors
  *****************************************************************************/

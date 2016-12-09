@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SyntaxTokenizer.h"
-#include "BreakIterator.h"
+#include "Framework/Text/SyntaxTokenizer.h"
+#include "Internationalization/IBreakIterator.h"
+#include "Internationalization/BreakIterator.h"
 
 TSharedRef< FSyntaxTokenizer > FSyntaxTokenizer::Create(TArray<FRule> InRules)
 {

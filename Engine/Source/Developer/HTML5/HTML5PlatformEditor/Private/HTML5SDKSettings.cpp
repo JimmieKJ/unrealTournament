@@ -1,15 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HTML5PlatformEditorPrivatePCH.h"
-
-//#include "EngineTypes.h"
 #include "HTML5SDKSettings.h"
 #include "IHTML5TargetPlatformModule.h"
-#include "PropertyHandle.h"
-#include "DesktopPlatformModule.h"
-#include "PlatformFilemanager.h"
-#include "GenericPlatformFile.h"
-#include "PlatformInfo.h"
+#include "Modules/ModuleManager.h"
+
+//#include "EngineTypes.h"
 
 #define LOCTEXT_NAMESPACE "FHTML5PlatformEditorModule"
 

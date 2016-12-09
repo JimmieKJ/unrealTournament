@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "EditorProjectSettings.h"
+#include "Settings/EditorProjectSettings.h"
+#include "UObject/UnrealType.h"
 
 
 EUnit ConvertDefaultInputUnits(EDefaultLocationUnit In)
@@ -23,16 +23,6 @@ EUnit ConvertDefaultInputUnits(EDefaultLocationUnit In)
 	}
 }
 
-TArray<EUnit> ToRawUnits(const TArray<TEnumAsByte<EUnit>>& In)
-{
-	TArray<EUnit> Units;
-	for (const auto AsByte : In)
-	{
-		Units.Add(AsByte);
-	}
-	return Units;	
-}
-
 UEditorProjectAppearanceSettings::UEditorProjectAppearanceSettings(const FObjectInitializer& Initializer)
 	: Super(Initializer)
 	, UnitDisplay_DEPRECATED(EUnitDisplay::Invalid)
@@ -49,18 +39,15 @@ void UEditorProjectAppearanceSettings::PostEditChangeProperty( struct FPropertyC
 	auto& Settings = FUnitConversion::Settings();
 	if (Name == GET_MEMBER_NAME_CHECKED(UEditorProjectAppearanceSettings, DistanceUnits))
 	{
-		TArray<EUnit> TempArray = ToRawUnits(DistanceUnits);
-		Settings.SetDisplayUnits(EUnitType::Distance, TempArray);
+		Settings.SetDisplayUnits(EUnitType::Distance, DistanceUnits);
 	}
 	else if (Name == GET_MEMBER_NAME_CHECKED(UEditorProjectAppearanceSettings, MassUnits))
 	{
-		TArray<EUnit> TempArray = ToRawUnits(MassUnits);
-		Settings.SetDisplayUnits(EUnitType::Mass, TempArray);
+		Settings.SetDisplayUnits(EUnitType::Mass, MassUnits);
 	}
 	else if (Name == GET_MEMBER_NAME_CHECKED(UEditorProjectAppearanceSettings, TimeUnits))
 	{
-		TArray<EUnit> TempArray = ToRawUnits(TimeUnits);
-		Settings.SetDisplayUnits(EUnitType::Time, TempArray);
+		Settings.SetDisplayUnits(EUnitType::Time, TimeUnits);
 	}
 	else if (Name == GET_MEMBER_NAME_CHECKED(UEditorProjectAppearanceSettings, AngleUnits))
 	{
@@ -120,15 +107,9 @@ void UEditorProjectAppearanceSettings::PostInitProperties()
 
 	auto& Settings = FUnitConversion::Settings();
 
-	TArray<EUnit> TempArray = ToRawUnits(DistanceUnits);
-	Settings.SetDisplayUnits(EUnitType::Distance, TempArray);
-
-	TempArray = ToRawUnits(MassUnits);
-	Settings.SetDisplayUnits(EUnitType::Mass, TempArray);
-
-	TempArray = ToRawUnits(TimeUnits);
-	Settings.SetDisplayUnits(EUnitType::Time, TempArray);
-
+	Settings.SetDisplayUnits(EUnitType::Distance, DistanceUnits);
+	Settings.SetDisplayUnits(EUnitType::Mass, MassUnits);
+	Settings.SetDisplayUnits(EUnitType::Time, TimeUnits);
 	Settings.SetDisplayUnits(EUnitType::Angle, AngleUnits);
 	Settings.SetDisplayUnits(EUnitType::Speed, SpeedUnits);
 	Settings.SetDisplayUnits(EUnitType::Temperature, TemperatureUnits);

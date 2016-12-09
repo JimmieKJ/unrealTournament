@@ -2,12 +2,32 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Templates/SubclassOf.h"
+#include "Components/ActorComponent.h"
+#include "Components/SceneComponent.h"
+#include "Styling/SlateColor.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/SlateBrush.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "Engine/SCS_Node.h"
 #include "BlueprintEditor.h"
+#include "Widgets/SToolTip.h"
 #include "SComponentClassCombo.h"
 
+class FMenuBuilder;
+class FSCSEditorTreeNode;
 class SSCSEditor;
-class USCS_Node;
-class USimpleConstructionScript;
+class UPrimitiveComponent;
+struct EventData;
 
 // SCS tree node pointer type
 typedef TSharedPtr<class FSCSEditorTreeNode> FSCSEditorTreeNodePtrType;

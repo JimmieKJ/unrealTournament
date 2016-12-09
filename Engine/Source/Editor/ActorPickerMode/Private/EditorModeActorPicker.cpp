@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ActorPickerModePrivatePCH.h"
+#include "EditorModeActorPicker.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/SToolTip.h"
 #include "EngineUtils.h"
+#include "LevelEditorViewport.h"
+#include "EditorModes.h"
 
 #define LOCTEXT_NAMESPACE "PropertyPicker"
 

@@ -61,7 +61,7 @@ public interface IDownloaderService {
     /**
      * Set the flags for this download (e.g.
      * {@link DownloaderService.FLAGS_DOWNLOAD_OVER_CELLULAR}).
-     * 
+     *
      * @param flags
      */
     void setDownloadFlags(int flags);
@@ -76,7 +76,7 @@ public interface IDownloaderService {
      * IDownloaderClient.onServiceConnected(Messenger m)} from the
      * DownloaderClient to register the client with the service. It will
      * automatically send the current status to the client.
-     * 
+     *
      * @param clientMessenger
      */
     void onClientUpdated(Messenger clientMessenger);

@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TranslationEditorPrivatePCH.h"
-#include "ModuleManager.h"
+#include "TranslationEditorModule.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "TranslationDataManager.h"
+#include "TranslationPickerWidget.h"
 #include "TranslationEditor.h"
 //#include "Toolkits/ToolkitManager.h"
-#include "WorkspaceMenuStructureModule.h"
 #include "MessageLogModule.h"
-#include "LocalizationConfigurationScript.h"
 
 class FTranslationEditor;
 

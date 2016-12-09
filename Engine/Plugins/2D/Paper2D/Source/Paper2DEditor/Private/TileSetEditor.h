@@ -2,13 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "Framework/Docking/TabManager.h"
+#include "Toolkits/IToolkitHost.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "Toolkits/AssetEditorManager.h"
-#include "SPaperEditorViewport.h"
 
-class STileSetSelectorViewport;
-class SSingleTileEditorViewport;
 class FSingleTileEditorViewportClient;
+class SSingleTileEditorViewport;
+class STileSetSelectorViewport;
+class UPaperTileSet;
+struct FPropertyChangedEvent;
 
 //////////////////////////////////////////////////////////////////////////
 // FTileSetEditor

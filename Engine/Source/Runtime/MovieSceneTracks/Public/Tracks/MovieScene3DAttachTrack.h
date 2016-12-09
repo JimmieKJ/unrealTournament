@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "MovieScene.h"
-#include "MovieScene3DConstraintTrack.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Tracks/MovieScene3DConstraintTrack.h"
 #include "MovieScene3DAttachTrack.generated.h"
-
 
 /**
  * Handles manipulation of path tracks in a movie scene.
@@ -27,7 +27,7 @@ public:
 
 	// UMovieSceneTrack interface
 
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
+	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 
 #if WITH_EDITORONLY_DATA
 	virtual FText GetDisplayName() const override;

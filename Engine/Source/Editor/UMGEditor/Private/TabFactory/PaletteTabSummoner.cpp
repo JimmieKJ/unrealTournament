@@ -1,11 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-
-#include "PaletteTabSummoner.h"
-#include "SPaletteView.h"
+#include "TabFactory/PaletteTabSummoner.h"
+#include "Palette/SPaletteView.h"
 #include "UMGStyle.h"
-#include "WidgetBlueprintEditor.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

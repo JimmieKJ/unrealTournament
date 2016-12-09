@@ -3,7 +3,10 @@
 
 #pragma once
 
-class FNameValidatorInterface;
+#include "CoreMinimal.h"
+
+class INameValidatorInterface;
+class UBlueprint;
 
 //////////////////////////////////////////////////////////////////////////
 // FNameValidtorFactory

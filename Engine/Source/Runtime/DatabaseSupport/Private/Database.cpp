@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 // Precompiled header include. Can't add anything above this line.
-#include "DatabaseSupportPrivatePCH.h"
+#include "Database.h"
+#include "Misc/CommandLine.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDataBase, Log, All);
 #if USE_REMOTE_INTEGRATION
@@ -306,7 +307,9 @@ FRemoteDataBaseRecordSet::~FRemoteDataBaseRecordSet()
 #endif
 
 #if USE_ADO_INTEGRATION
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
+#include "AllowWindowsPlatformAtomics.h"
 
 /*-----------------------------------------------------------------------------
 	ADO integration for database connectivity
@@ -665,6 +668,7 @@ public:
 	}
 };
 
+#include "HideWindowsPlatformAtomics.h"
 #include "HideWindowsPlatformTypes.h"
 #endif // USE_ADO_INTEGRATION
 

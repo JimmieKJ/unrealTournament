@@ -2,12 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "EditorViewportClient.h"
 #include "SEditorViewport.h"
-
-class FSingleTileEditorViewportClient;
-class FEdModeTileMap;
-
 #include "Editor/UnrealEd/Public/SCommonEditorViewportToolbarBase.h"
+
+class FEdModeTileMap;
+class FSingleTileEditorViewportClient;
 
 //////////////////////////////////////////////////////////////////////////
 // SSingleTileEditorViewport

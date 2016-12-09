@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "MacPlatformSplash.h"
 #include "Misc/App.h"
 #include "EngineVersion.h"
 #include "EngineBuildSettings.h"

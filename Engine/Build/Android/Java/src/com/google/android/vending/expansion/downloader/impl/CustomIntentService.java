@@ -36,7 +36,7 @@ public abstract class CustomIntentService extends Service {
     private boolean mRedelivery;
     private volatile ServiceHandler mServiceHandler;
     private volatile Looper mServiceLooper;
-    private static final String LOG_TAG = "CancellableIntentService";
+    private static final String LOG_TAG = "CustomIntentService";
     private static final int WHAT_MESSAGE = -10;
 
     public CustomIntentService(String paramString) {

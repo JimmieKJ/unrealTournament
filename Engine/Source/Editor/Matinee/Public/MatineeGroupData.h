@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Matinee/InterpGroup.h"
+
+class UInterpTrack;
 
 /*-----------------------------------------------------------------------------
 	FInterpGroup

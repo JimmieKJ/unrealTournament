@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "HardwareInfo.h"
-#include "AutomationTest.h"
-#include "Delegate.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+
+class AMatineeActor;
+class SWindow;
 
 #if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
 
@@ -22,70 +24,14 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnEditorAutomationMapLoad, const FString&,
 namespace AutomationCommon
 {
 	/** Get a string contains the render mode we are currently in */
-	static FString GetRenderDetailsString()
-	{
-		FString HardwareDetailsString;
-
-		// Create the folder name based on the hardware specs we have been provided
-		FString HardwareDetails = FHardwareInfo::GetHardwareDetailsString();
-
-		FString RHIString;
-		FString RHILookup = NAME_RHI.ToString() + TEXT( "=" );
-		if( FParse::Value( *HardwareDetails, *RHILookup, RHIString ) )
-		{
-			HardwareDetailsString = ( HardwareDetailsString + TEXT( "_" ) ) + RHIString;
-		}
-
-		FString TextureFormatString;
-		FString TextureFormatLookup = NAME_TextureFormat.ToString() + TEXT( "=" );
-		if( FParse::Value( *HardwareDetails, *TextureFormatLookup, TextureFormatString ) )
-		{
-			HardwareDetailsString = ( HardwareDetailsString + TEXT( "_" ) ) + TextureFormatString;
-		}
-
-		FString DeviceTypeString;
-		FString DeviceTypeLookup = NAME_DeviceType.ToString() + TEXT( "=" );
-		if( FParse::Value( *HardwareDetails, *DeviceTypeLookup, DeviceTypeString ) )
-		{
-			HardwareDetailsString = ( HardwareDetailsString + TEXT( "_" ) ) + DeviceTypeString;
-		}
-
-		FString FeatureLevelString;
-		GetFeatureLevelName(GMaxRHIFeatureLevel,FeatureLevelString);
-		{
-			HardwareDetailsString = ( HardwareDetailsString + TEXT( "_" ) ) + FeatureLevelString;
-		}
-
-		if(GEngine->StereoRenderingDevice.IsValid())
-		{
-			HardwareDetailsString = ( HardwareDetailsString + TEXT( "_" ) ) + TEXT("STEREO");
-		}
-
-		if( HardwareDetailsString.Len() > 0 )
-		{
-			//Get rid of the leading "_"
-			HardwareDetailsString = HardwareDetailsString.RightChop(1);
-		}
-
-		return HardwareDetailsString;
-	}
+	ENGINE_API FString GetRenderDetailsString();
 
 #if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
 
 	/** Gets a path used for automation testing (PNG sent to the AutomationTest folder) */
-	static void GetScreenshotPath(const FString& TestName, FString& OutScreenshotName, const bool bIncludeHardwareDetails)
-	{
-		FString PathName = FPaths::AutomationDir() + TestName / FPlatformProperties::PlatformName();
+	ENGINE_API void GetScreenshotPath(const FString& TestName, FString& OutScreenshotName);
 
-		if( bIncludeHardwareDetails )
-		{
-			PathName = PathName + TEXT("_") + GetRenderDetailsString();
-		}
-
-		FPaths::MakePathRelativeTo(PathName, *FPaths::RootDir());
-
-		OutScreenshotName = FString::Printf(TEXT("%s/%d.png"), *PathName, FEngineVersion::Current().GetChangelist());
-	}
+	ENGINE_API FAutomationScreenshotData BuildScreenshotData(const FString& MapOrContext, const FString& TestName, int32 Width, int32 Height);
 
 	ENGINE_API extern FOnEditorAutomationMapLoad OnEditorAutomationMapLoad;
 	static FOnEditorAutomationMapLoad& OnEditorAutomationMapLoadDelegate()

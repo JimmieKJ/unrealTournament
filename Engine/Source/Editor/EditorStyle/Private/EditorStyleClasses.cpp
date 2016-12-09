@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EditorStylePrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorStyleSettings.h"
+
+#if WITH_EDITOR
+	#include "UObject/UnrealType.h"
+#endif
 
 /* UEditorStyleSettings interface
  *****************************************************************************/
@@ -13,12 +19,14 @@ UEditorStyleSettings::UEditorStyleSettings( const FObjectInitializer& ObjectInit
 	PressedSelectionColor = FLinearColor(0.701f, 0.225f, 0.003f);
 
 	AssetEditorOpenLocation = EAssetEditorOpenLocation::Default;
+	
+	bUseGrid = true;
 
 	RegularColor = FLinearColor(0.035f, 0.035f, 0.035f);
 	RuleColor = FLinearColor(0.008f, 0.008f, 0.008f);
 	CenterColor = FLinearColor::Black;
 
-	bUseGrid = true;
+	GridSnapSize = 16.f;
 
 	bShowFriendlyNames = true;
 	LogTimestampMode = ELogTimes::None;

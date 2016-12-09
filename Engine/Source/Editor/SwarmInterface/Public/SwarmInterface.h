@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+
 #if PLATFORM_MAC || PLATFORM_LINUX
 #define USE_LOCAL_SWARM_INTERFACE 1
 #else

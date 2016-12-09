@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "IMessageContext.h"
+#include "IMessageAttachment.h"
 #include "UdpMessagingTestTypes.generated.h"
-
 
 USTRUCT()
 struct FUdpMockMessage
@@ -74,7 +77,7 @@ public:
 private:
 
 	TMap<FName, FString> Annotations;
-	IMessageAttachmentPtr Attachment;
+	TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe> Attachment;
 	FDateTime Expiration;
 	void* Message;
 	IMessageContextPtr OriginalContext;

@@ -2,10 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Curves/KeyHandle.h"
+#include "Curves/RichCurve.h"
 #include "MovieSceneSection.h"
-#include "IKeyframeSection.h"
+#include "Layout/Margin.h"
+#include "Sections/IKeyframeSection.h"
+#include "Evaluation/MovieSceneEvalTemplate.h"
 #include "MovieSceneMarginSection.generated.h"
-
 
 enum class EKeyMarginChannel
 {
@@ -45,18 +50,12 @@ public:
 	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override;
 	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override;
 
-	/**
-	 * Updates this section
-	 *
-	 * @param Position	The position in time within the movie scene
-	 */
-	FMargin Eval( float Position, const FMargin& DefaultValue ) const;
-
 	// IKeyframeSection interface.
 	virtual void AddKey( float Time, const FMarginKey& MarginKey, EMovieSceneKeyInterpolation KeyInterpolation ) override;
 	virtual bool NewKeyIsNewData(float Time, const FMarginKey& Key ) const override;
 	virtual bool HasKeys(const FMarginKey& Key) const override;
 	virtual void SetDefault(const FMarginKey& Key) override;
+	virtual void ClearDefaults() override;
 
 	/**
 	 * Gets the top curve

@@ -1,7 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#pragma once
-
 #include "OnlineSubsystemOculusPrivatePCH.h"
 
 #include "IPAddressOculus.h"
@@ -83,12 +81,23 @@ void UOculusNetConnection::LowLevelSend(void* Data, int32 CountBytes, int32 Coun
 	{
 		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits);
 
-		DataToSend = ProcessedData.Data;
-		CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
-		CountBits = ProcessedData.CountBits;
+		if (!ProcessedData.bError)
+		{
+			DataToSend = ProcessedData.Data;
+			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
+			CountBits = ProcessedData.CountBits;
+		}
+		else
+		{
+			CountBytes = 0;
+			CountBits = 0;
+		}
 	}
 
-	ovr_Net_SendPacket(PeerID, (size_t)CountBytes, DataToSend, (InternalAck) ? ovrSend_Reliable : ovrSend_Unreliable);
+	if (CountBytes > 0)
+	{
+		ovr_Net_SendPacket(PeerID, (size_t)CountBytes, DataToSend, (InternalAck) ? ovrSend_Reliable : ovrSend_Unreliable);
+	}
 }
 
 FString UOculusNetConnection::LowLevelGetRemoteAddress(bool bAppendPort)

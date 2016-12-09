@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintFieldNodeSpawner.h"
+#include "UObject/Package.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintFieldNodeSpawner"
 

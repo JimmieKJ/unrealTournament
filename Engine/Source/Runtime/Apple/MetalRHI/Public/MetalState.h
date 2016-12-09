@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RHI.h"
+
 class FMetalSamplerState : public FRHISamplerState
 {
 public:

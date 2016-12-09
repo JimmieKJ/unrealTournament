@@ -2,14 +2,51 @@
 
 #pragma once
 
-#include "TextureAtlas.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Textures/TextureAtlas.h"
+#include "UObject/GCObject.h"
+#include "Containers/Queue.h"
+#include "Rendering/ShaderResourceManager.h"
+#include "Rendering/RenderingCommon.h"
+#include "Rendering/DrawElements.h"
+#include "Materials/MaterialInterface.h"
+#include "Tickable.h"
 #include "SlateElementIndexBuffer.h"
 #include "SlateElementVertexBuffer.h"
 
-class FSlateDynamicTextureResource;
-class FSlateUTextureResource;
-class FSlateMaterialResource;
 class FSlateAtlasedTextureResource;
+class FSlateDynamicTextureResource;
+class FSlateMaterialResource;
+class FSlateUTextureResource;
+class ILayoutCache;
+class ISlateStyle;
+class UTexture;
+
+/** 
+ * Lookup key for materials.  Sometimes the same material is used with different masks so there must be
+ * unique resource per material/mask combination
+ */
+struct FMaterialKey
+{
+	TWeakObjectPtr<UMaterialInterface>	Material;
+	int32 MaskKey;
+
+	FMaterialKey(const UMaterialInterface* InMaterial, int32 InMaskKey)
+		: Material(InMaterial)
+		, MaskKey(InMaskKey)
+	{}
+
+	bool operator==(const FMaterialKey& Other) const
+	{
+		return Material == Other.Material && MaskKey == Other.MaskKey;
+	}
+
+	friend uint32 GetTypeHash(const FMaterialKey& Key)
+	{
+		return HashCombine(GetTypeHash(Key.Material), Key.MaskKey);
+	}
+};
 
 struct FDynamicResourceMap
 {
@@ -22,7 +59,7 @@ public:
 
 	TSharedPtr<FSlateAtlasedTextureResource> GetAtlasedTextureResource(UTexture* InObject) const;
 
-	TSharedPtr<FSlateMaterialResource> GetMaterialResource( const UMaterialInterface* Material ) const;
+	TSharedPtr<FSlateMaterialResource> GetMaterialResource( const FMaterialKey& InKey ) const;
 
 	void AddUTextureResource( UTexture* TextureObject, TSharedRef<FSlateUTextureResource> InResource );
 	void RemoveUTextureResource( UTexture* TextureObject );
@@ -30,8 +67,8 @@ public:
 	void AddDynamicTextureResource( FName ResourceName, TSharedRef<FSlateDynamicTextureResource> InResource);
 	void RemoveDynamicTextureResource( FName ResourceName );
 
-	void AddMaterialResource( const UMaterialInterface* Material, TSharedRef<FSlateMaterialResource> InResource );
-	void RemoveMaterialResource( const UMaterialInterface* Material );
+	void AddMaterialResource( const FMaterialKey& InKey, TSharedRef<FSlateMaterialResource> InResource );
+	void RemoveMaterialResource( const FMaterialKey& InKey );
 
 	void AddAtlasedTextureResource(UTexture* TextureObject, TSharedRef<FSlateAtlasedTextureResource> InResource);
 	void RemoveAtlasedTextureResource(UTexture* TextureObject);
@@ -55,22 +92,19 @@ public:
 private:
 	TMap<FName, TSharedPtr<FSlateDynamicTextureResource> > NativeTextureMap;
 	
-	typedef TMap<TWeakObjectPtr<UTexture>, TSharedPtr<FSlateUTextureResource> > FTextureResourceMap;
-
 	/** Map of all texture resources */
+	typedef TMap<TWeakObjectPtr<UTexture>, TSharedPtr<FSlateUTextureResource> > FTextureResourceMap;
 	FTextureResourceMap TextureMap;
 
-	uint64 TextureMemorySincePurge;
-
-	typedef TMap<TWeakObjectPtr<UMaterialInterface>, TSharedPtr<FSlateMaterialResource> > FMaterialResourceMap;
-
 	/** Map of all material resources */
+	typedef TMap<FMaterialKey, TSharedPtr<FSlateMaterialResource> > FMaterialResourceMap;
 	FMaterialResourceMap MaterialMap;
 
-	typedef TMap<TWeakObjectPtr<UObject>, TSharedPtr<FSlateAtlasedTextureResource> > FObjectResourceMap;
-
 	/** Map of all object resources */
+	typedef TMap<TWeakObjectPtr<UObject>, TSharedPtr<FSlateAtlasedTextureResource> > FObjectResourceMap;
 	FObjectResourceMap ObjectMap;
+
+	uint64 TextureMemorySincePurge;
 
 	int32 LastExpiredMaterialNumMarker;
 };
@@ -135,7 +169,7 @@ public:
 
 	/** FSlateShaderResourceManager interface */
 	virtual FSlateShaderResourceProxy* GetShaderResource( const FSlateBrush& InBrush ) override;
-	virtual FSlateShaderResource* GetFontShaderResource( uint32 FontAtlasIndex, FSlateShaderResource* FontTextureAtlas, const class UObject* FontMaterial ) override;
+	virtual FSlateShaderResource* GetFontShaderResource( int32 InTextureAtlasIndex, FSlateShaderResource* FontTextureAtlas, const class UObject* FontMaterial ) override;
 	virtual ISlateAtlasProvider* GetTextureAtlasProvider() override;
 
 	/**
@@ -255,7 +289,7 @@ private:
 	 *
 	 * @param InMaterial	The material object
 	 */
-	FSlateMaterialResource* GetMaterialResource( const UObject* InMaterial, FVector2D ImageSize, FSlateShaderResource* TextureMask );
+	FSlateMaterialResource* GetMaterialResource( const UObject* InMaterial, FVector2D ImageSize, FSlateShaderResource* TextureMask, int32 InMaskKey );
 
 	/**
 	 * Called when the application exists before the UObject system shuts down so we can free object resources

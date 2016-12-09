@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/IPv4/IPv4SubnetMask.h"
+#include "Interfaces/IPv4/IPv4Address.h"
 
 /**
  * Implements a IPv4 subnet descriptor.

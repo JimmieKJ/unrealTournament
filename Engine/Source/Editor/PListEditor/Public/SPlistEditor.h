@@ -2,16 +2,25 @@
 
 #pragma once
 
-#include "SlateBasics.h"
-#include "XmlParser.h"
-#include "../Private/PListNode.h"
-#include "../Private/PListNodeArray.h"
-#include "../Private/PListNodeBoolean.h"
-#include "../Private/PListNodeDictionary.h"
-#include "../Private/PListNodeFile.h"
-#include "../Private/PListNodeString.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "InputCoreTypes.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/Commands/InputChord.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/Commands/Commands.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STreeView.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "PListEditorCommands"
+
+class FXmlFile;
+class IPListNode;
+class SEditableText;
 
 // Type of notification to spawn
 enum ENTF_Types
@@ -93,7 +102,7 @@ public:
 		UI_COMMAND( NewCommand, "New", "Creates a new plist file", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control, EKeys::N) );
 		UI_COMMAND( OpenCommand, "Open", "Opens an existing plist file", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control, EKeys::O) );
 		UI_COMMAND( SaveCommand, "Save", "Saves the current plist file", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control, EKeys::S) );
-		UI_COMMAND( SaveAsCommand, "Save As", "Saves the current plist file to a specific location", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control | EModifierKey::Shift, EKeys::S) );
+		UI_COMMAND( SaveAsCommand, "Save As", "Saves the current plist file to a specific location", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control | EModifierKey::Alt, EKeys::S) );
 		UI_COMMAND( DeleteSelectedCommand, "Remove Selected", "Removed the selected entries from the plist", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control, EKeys::R) );
 		UI_COMMAND( MoveUpCommand, "Move Up", "Moves the selected entry up within its parent", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control, EKeys::U) );
 		UI_COMMAND( MoveDownCommand, "Move Down", "Moves the selected entry down within its parent", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control, EKeys::D) );

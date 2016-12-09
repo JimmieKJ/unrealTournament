@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CurveTableEditorPrivatePCH.h"
-#include "ModuleManager.h"
+#include "CurveTableEditorModule.h"
+#include "Modules/ModuleManager.h"
+#include "ICurveTableEditor.h"
 #include "CurveTableEditor.h"
-#include "Toolkits/ToolkitManager.h"
-#include "Engine/CurveTable.h"
-#include "EditorFramework/AssetImportData.h"
 
 IMPLEMENT_MODULE( FCurveTableEditorModule, CurveTableEditor );
 

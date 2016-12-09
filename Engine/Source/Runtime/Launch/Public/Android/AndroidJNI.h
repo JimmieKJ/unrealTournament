@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include <jni.h>
 #include <android/log.h>
 
@@ -19,6 +20,7 @@ public:
 	static jobject GameActivityThis;
 	static jmethodID AndroidThunkJava_ShowConsoleWindow;
 	static jmethodID AndroidThunkJava_ShowVirtualKeyboardInput;
+	static jmethodID AndroidThunkJava_HideVirtualKeyboardInput;
 	static jmethodID AndroidThunkJava_LaunchURL;
 	static jmethodID AndroidThunkJava_GetAssetManager;
 	static jmethodID AndroidThunkJava_Minimize;
@@ -30,12 +32,18 @@ public:
 	static jmethodID AndroidThunkJava_InitHMDs;
 	static jmethodID AndroidThunkJava_DismissSplashScreen;
 	static jmethodID AndroidThunkJava_GetInputDeviceInfo;
+	static jmethodID AndroidThunkJava_IsGamepadAttached;
 	static jmethodID AndroidThunkJava_HasMetaDataKey;
 	static jmethodID AndroidThunkJava_GetMetaDataBoolean;
 	static jmethodID AndroidThunkJava_GetMetaDataInt;
 	static jmethodID AndroidThunkJava_GetMetaDataString;
 	static jmethodID AndroidThunkJava_IsGearVRApplication;
 	static jmethodID AndroidThunkJava_ShowHiddenAlertDialog;
+	static jmethodID AndroidThunkJava_LocalNotificationScheduleAtTime;
+	static jmethodID AndroidThunkJava_LocalNotificationClearAll;
+	static jmethodID AndroidThunkJava_LocalNotificationGetLaunchNotification;
+	//static jmethodID AndroidThunkJava_LocalNotificationDestroyIfExists; - This is not needed yet but will be soon so just leaving commented out for now
+	static jmethodID AndroidThunkJava_HasActiveWiFiConnection;
 
 	// InputDeviceInfo member field ids
 	static jclass InputDeviceInfoClass;
@@ -52,6 +60,10 @@ public:
 	static jmethodID AndroidThunkJava_ShowAdBanner;
 	static jmethodID AndroidThunkJava_HideAdBanner;
 	static jmethodID AndroidThunkJava_CloseAdBanner;
+	static jmethodID AndroidThunkJava_LoadInterstitialAd;
+	static jmethodID AndroidThunkJava_IsInterstitialAdAvailable;
+	static jmethodID AndroidThunkJava_IsInterstitialAdRequested;
+	static jmethodID AndroidThunkJava_ShowInterstitialAd;
 	static jmethodID AndroidThunkJava_GoogleClientConnect;
 	static jmethodID AndroidThunkJava_GoogleClientDisconnect;
 
@@ -66,6 +78,12 @@ public:
 	// SurfaceView functionality for view scaling on some devices
 	static jmethodID AndroidThunkJava_UseSurfaceViewWorkaround;
 	static jmethodID AndroidThunkJava_SetDesiredViewSize;
+
+	// member fields for getting the launch notification
+	static jclass LaunchNotificationClass;
+	static jfieldID LaunchNotificationUsed;
+	static jfieldID LaunchNotificationEvent;
+	static jfieldID LaunchNotificationFireDate;
 
 	/**
 	 * Find all known classes and methods

@@ -1,22 +1,31 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ViewportInteractionModule.h"
 #include "ViewportWorldInteraction.h"
-#include "ViewportInteractor.h"
+#include "Materials/MaterialInterface.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Editor/UnrealEdEngine.h"
+#include "EngineGlobals.h"
+#include "Engine/StaticMesh.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/Selection.h"
+#include "DrawDebugHelpers.h"
+#include "EditorModeManager.h"
+#include "UnrealEdGlobals.h"
 #include "MouseCursorInteractor.h"
 #include "ViewportInteractableInterface.h"
 #include "ViewportDragOperation.h"
 #include "VIGizmoHandle.h"
-#include "VIBaseTransformGizmo.h"
 #include "Gizmo/VIPivotTransformGizmo.h"
+#include "ViewportWorldInteractionManager.h"
+#include "IViewportInteractionModule.h"
 
 #include "SnappingUtils.h"
 #include "ScopedTransaction.h"
-#include "SLevelViewport.h"
 
 // For actor placement
-#include "ObjectTools.h"
-#include "AssetSelection.h"
 #include "IHeadMountedDisplay.h"
 
 #define LOCTEXT_NAMESPACE "ViewportWorldInteraction"
@@ -209,29 +218,32 @@ static void SegmentDistToSegmentDouble( DVector A1, DVector B1, DVector A2, DVec
 	OutP2 = A2 + S2 * T2;
 }
 
-UViewportWorldInteraction::UViewportWorldInteraction( const FObjectInitializer& Initializer ) :
+UViewportWorldInteraction::UViewportWorldInteraction( const FObjectInitializer& Initializer ):
 	Super( Initializer ),
 	bDraggedSinceLastSelection( false ),
 	LastDragGizmoStartTransform( FTransform::Identity ),
 	TrackingTransaction( FTrackingTransaction() ),
 	AppTimeEntered( FTimespan::Zero() ),
+	EditorViewportClient( nullptr ),
 	LastFrameNumberInputWasPolled( 0 ),
 	MotionControllerID( 0 ),	// @todo ViewportInteraction: We only support a single controller, and we assume the first controller are the motion controls
 	LastWorldToMetersScale( 100.0f ),
+	bSkipInteractiveWorldMovementThisFrame( false ),
 	bIsInterpolatingTransformablesFromSnapshotTransform( false ),
 	TransformablesInterpolationStartTime( FTimespan::Zero() ),
 	TransformablesInterpolationDuration( 1.0f ),
 	TransformGizmoActor( nullptr ),
 	TransformGizmoClass( APivotTransformGizmo::StaticClass() ),
 	GizmoLocalBounds( FBox( 0 ) ),
-	StartDragAngleOnRotation( ),
-	StartDragHandleDirection( ),
+	StartDragAngleOnRotation(),
+	StartDragHandleDirection(),
 	CurrentGizmoType( EGizmoHandleTypes::All ),
 	bIsTransformGizmoVisible( true ),
 	SnapGridActor( nullptr ),
 	SnapGridMeshComponent( nullptr ),
 	SnapGridMID( nullptr ),
-	DraggedInteractable( nullptr )
+	DraggedInteractable( nullptr ),
+	bActive( false )
 {
 }
 
@@ -240,13 +252,9 @@ UViewportWorldInteraction::~UViewportWorldInteraction()
 	Shutdown();
 }
 
-void UViewportWorldInteraction::Init( const TSharedPtr<FEditorViewportClient>& InEditorViewportClient )
+void UViewportWorldInteraction::Init( UWorld* InWorld )
 {
-	InputProcessor = MakeShareable( new FViewportInteractionInputProcessor( *this ) );
-	FSlateApplication::Get().SetInputPreProcessor( true, InputProcessor );
-
-	// Find out about selection changes
-	USelection::SelectionChangedEvent.AddUObject( this, &UViewportWorldInteraction::OnActorSelectionChanged ); //@todo viewportinteraction
+	World = InWorld;
 
 	Colors.SetNumZeroed( (int32)EColors::TotalCount );
 	{
@@ -258,55 +266,82 @@ void UViewportWorldInteraction::Init( const TSharedPtr<FEditorViewportClient>& I
 		Colors[ (int32)EColors::Dragging ] = FLinearColor::White;
 	}
 
-	EditorViewportClient = InEditorViewportClient;
 	AppTimeEntered = FTimespan::FromSeconds( FApp::GetCurrentTime() );
-
-	//Spawn the transform gizmo at init so we do not hitch when selecting our first object
-	SpawnTransformGizmoIfNeeded();
 }
 
 void UViewportWorldInteraction::Shutdown()
 {
 	AppTimeEntered = FTimespan::Zero();
 
-	OnHoverUpdateEvent.Clear();
-	OnInputActionEvent.Clear();
-
-	if ( TransformGizmoActor != nullptr )
-	{
-		DestroyTransientActor( TransformGizmoActor );
-		TransformGizmoActor = nullptr;
-	}
-
-	if ( SnapGridActor != nullptr )
-	{
-		DestroyTransientActor( SnapGridActor );
-		SnapGridActor = nullptr;
-		SnapGridMeshComponent = nullptr;
-	}
-
-	if ( SnapGridMID != nullptr )
-	{
-		SnapGridMID->MarkPendingKill();
-		SnapGridMID = nullptr;
-	}
-
 	for ( UViewportInteractor* Interactor : Interactors )
 	{
 		Interactor->Shutdown();
+		Interactor->MarkPendingKill();
 	}
-	Interactors.Empty();
 
-	EditorViewportClient.Reset();
+	Interactors.Empty();
+	Transformables.Empty();
+	Colors.Empty();
+
+	OnHoverUpdateEvent.Clear();
+	OnInputActionEvent.Clear();
+	OnKeyInputEvent.Clear();
+	OnAxisInputEvent.Clear();
+	OnStopDraggingEvent.Clear();
+
+	World = nullptr;
+	TransformGizmoActor = nullptr;
+	SnapGridActor = nullptr;
+	SnapGridMeshComponent = nullptr;
+	SnapGridMID = nullptr;
+	EditorViewportClient = nullptr;
 	DraggedInteractable = nullptr;
 
+	bActive = false;
 	USelection::SelectionChangedEvent.RemoveAll( this );
 }
 
-void UViewportWorldInteraction::Tick( FEditorViewportClient* ViewportClient, const float DeltaTime )
+void UViewportWorldInteraction::Enter()
+{
+	IViewportWorldInteractionManager& WorldInteractionManager = IViewportInteractionModule::Get().GetWorldInteractionManager();
+	WorldInteractionManager.SetCurrentViewportWorldInteraction( this );
+
+	// Find out about selection changes
+	USelection::SelectionChangedEvent.AddUObject( this, &UViewportWorldInteraction::OnActorSelectionChanged ); 
+	
+    //Spawn the transform gizmo at init so we do not hitch when selecting our first object
+	SpawnTransformGizmoIfNeeded();
+	TransformGizmoActor->SetIsTemporarilyHiddenInEditor( true );
+
+	/** This will make sure this is not ticking after the editor has been closed. */
+	GEditor->OnEditorClose().AddUObject( this, &UViewportWorldInteraction::Shutdown );
+}
+
+void UViewportWorldInteraction::Exit()
+{
+	DestroyActors();
+	USelection::SelectionChangedEvent.RemoveAll( this );
+	EditorViewportClient = nullptr;
+	
+	IViewportWorldInteractionManager& WorldInteractionManager = IViewportInteractionModule::Get().GetWorldInteractionManager();
+	WorldInteractionManager.SetCurrentViewportWorldInteraction( nullptr );
+
+	GEditor->OnEditorClose().RemoveAll( this );
+}
+
+void UViewportWorldInteraction::OnEditorClosed()
+{
+	if( bActive )
+	{
+		Exit();
+		Shutdown();
+	}
+}
+
+void UViewportWorldInteraction::Tick( const float DeltaTime )
 {
 	// Only if this is our viewport. Remember, editor modes get a chance to tick and receive input for each active viewport.
-	if ( !EditorViewportClient.IsValid() || ViewportClient != EditorViewportClient.Get() )
+	if ( EditorViewportClient == nullptr || !bActive )
 	{
 		return;
 	}
@@ -318,9 +353,9 @@ void UViewportWorldInteraction::Tick( FEditorViewportClient* ViewportClient, con
 	PollInputIfNeeded();
 
 	// Update hover. Note that hover can also be updated when ticking our sub-systems below.
-	HoverTick( ViewportClient, DeltaTime );
+	HoverTick( DeltaTime );
 
-	InteractionTick( ViewportClient, DeltaTime );
+	InteractionTick( DeltaTime );
 
 	// Update all the interactors
 	for ( UViewportInteractor* Interactor : Interactors )
@@ -332,14 +367,40 @@ void UViewportWorldInteraction::Tick( FEditorViewportClient* ViewportClient, con
 void UViewportWorldInteraction::AddInteractor( UViewportInteractor* Interactor )
 {
 	Interactor->SetWorldInteraction( this );
-	Interactors.AddUnique( Interactor );
+	Interactors.AddUnique( Interactor ); 
 }
 
 void UViewportWorldInteraction::RemoveInteractor( UViewportInteractor* Interactor )
 {
-	Interactor->GetOtherInteractor()->RemoveOtherInteractor();
 	Interactor->RemoveOtherInteractor();
 	Interactors.Remove( Interactor );
+}
+
+void UViewportWorldInteraction::SetViewport(const TSharedPtr<class FEditorViewportClient>& InEditorViewportClient)
+{
+	EditorViewportClient = InEditorViewportClient.Get();
+}
+
+void UViewportWorldInteraction::Activate(const bool bInActivate)
+{
+	if( bActive != bInActivate )
+	{
+		if( bInActivate )
+		{
+			Enter();
+		}
+		else
+		{
+			Exit();
+		}
+
+		bActive = bInActivate;
+	}
+}
+
+bool UViewportWorldInteraction::IsActive() const
+{
+	return bActive;
 }
 
 void UViewportWorldInteraction::PairInteractors( UViewportInteractor* FirstInteractor, UViewportInteractor* SecondInteractor )
@@ -351,16 +412,22 @@ void UViewportWorldInteraction::PairInteractors( UViewportInteractor* FirstInter
 bool UViewportWorldInteraction::HandleInputKey( const FKey Key, const EInputEvent Event )
 {
 	bool bWasHandled = false;
-
-	for ( UViewportInteractor* Interactor : Interactors )
+	if( bActive )
 	{
-		// Stop iterating if the input was handled by an Interactor
-		if ( bWasHandled )
+		OnKeyInputEvent.Broadcast( *EditorViewportClient, Key, Event, bWasHandled );
+		if( !bWasHandled || !bActive )
 		{
-			break;
+			for( UViewportInteractor* Interactor : Interactors )
+			{
+				bWasHandled = Interactor->HandleInputKey( Key, Event );
+				
+				// Stop iterating if the input was handled by an Interactor
+				if(bWasHandled || !bActive)
+				{
+					break;
+				}
+			}
 		}
-
-		bWasHandled = Interactor->HandleInputKey( Key, Event );
 	}
 
 	return bWasHandled;
@@ -370,15 +437,23 @@ bool UViewportWorldInteraction::HandleInputAxis( const int32 ControllerId, const
 {
 	bool bWasHandled = false;
 
-	for ( UViewportInteractor* Interactor : Interactors )
+	if(bActive)
 	{
-		// Stop iterating if the input was handled by an interactor
-		if ( bWasHandled )
-		{
-			break;
-		}
+		OnAxisInputEvent.Broadcast( *EditorViewportClient, ControllerId, Key, Delta, DeltaTime, bWasHandled );
 
-		bWasHandled = Interactor->HandleInputAxis( Key, Delta, DeltaTime );
+		if( !bWasHandled || !bActive)
+		{
+			for( UViewportInteractor* Interactor : Interactors )
+			{
+				bWasHandled = Interactor->HandleInputAxis( Key, Delta, DeltaTime );
+
+				// Stop iterating if the input was handled by an interactor
+				if(bWasHandled || !bActive)
+				{
+					break;
+				}
+			}
+		}
 	}
 
 	return bWasHandled;
@@ -387,6 +462,8 @@ bool UViewportWorldInteraction::HandleInputAxis( const int32 ControllerId, const
 
 FTransform UViewportWorldInteraction::GetRoomTransform() const
 {
+	check( EditorViewportClient );
+
 	const FTransform RoomTransform(
 		EditorViewportClient->GetViewRotation().Quaternion(),
 		EditorViewportClient->GetViewLocation(),
@@ -435,16 +512,23 @@ float UViewportWorldInteraction::GetWorldScaleFactor() const
 
 UWorld* UViewportWorldInteraction::GetViewportWorld() const
 {
-	if ( EditorViewportClient.IsValid() )
+	UWorld* ResultWorld = nullptr;
+	
+	if( World )
 	{
-		return EditorViewportClient->GetWorld();
+		ResultWorld = World;
 	}
-	return nullptr;
+	else if ( EditorViewportClient != nullptr )
+	{
+		ResultWorld = EditorViewportClient->GetWorld();
+	}
+
+	return ResultWorld;
 }
 
 FEditorViewportClient* UViewportWorldInteraction::GetViewportClient() const
 {
-	return EditorViewportClient.Get();
+	return EditorViewportClient;
 }
 
 void UViewportWorldInteraction::Undo()
@@ -459,9 +543,7 @@ void UViewportWorldInteraction::Redo()
 
 void UViewportWorldInteraction::DeleteSelectedObjects()
 {
-	const FScopedTransaction Transaction( LOCTEXT( "DeleteSelection", "Delete selection" ) );
-	
-	GUnrealEd->edactDeleteSelected( GetViewportWorld() );
+	GUnrealEd->Exec(GetViewportWorld(), TEXT("DELETE"));
 }
 
 void UViewportWorldInteraction::Copy()
@@ -488,7 +570,7 @@ void UViewportWorldInteraction::Deselect()
 	GEditor->SelectNone( true, true );
 }
 
-void UViewportWorldInteraction::HoverTick( FEditorViewportClient* ViewportClient, const float DeltaTime )
+void UViewportWorldInteraction::HoverTick( const float DeltaTime )
 {
 	for ( UViewportInteractor* Interactor : Interactors )
 	{
@@ -502,7 +584,7 @@ void UViewportWorldInteraction::HoverTick( FEditorViewportClient* ViewportClient
 		Interactor->UpdateHoverResult( HitHoverResult );
 
 		FVector HoverImpactPoint = HitHoverResult.ImpactPoint;
-		OnHoverUpdateEvent.Broadcast( *ViewportClient, Interactor, /* In/Out */ HoverImpactPoint, /* In/Out */ bWasHandled);
+		OnHoverUpdateEvent.Broadcast( *EditorViewportClient, Interactor, /* In/Out */ HoverImpactPoint, /* In/Out */ bWasHandled);
 		
 		if ( bWasHandled )
 		{
@@ -579,7 +661,7 @@ void UViewportWorldInteraction::HoverTick( FEditorViewportClient* ViewportClient
 	}
 }
 
-void UViewportWorldInteraction::InteractionTick( FEditorViewportClient* ViewportClient, const float DeltaTime )
+void UViewportWorldInteraction::InteractionTick( const float DeltaTime )
 {
 	const FTimespan CurrentTime = FTimespan::FromSeconds( FPlatformTime::Seconds() );
 	const float WorldToMetersScale = GetViewportWorld()->GetWorldSettings()->WorldToMeters;
@@ -589,9 +671,9 @@ void UViewportWorldInteraction::InteractionTick( FEditorViewportClient* Viewport
 		const bool bUseEditorSelectionHoverFeedback = GEditor != NULL && GetDefault<ULevelEditorViewportSettings>()->bEnableViewportHoverFeedback;
 		if( bUseEditorSelectionHoverFeedback )
 		{
-			if( ViewportClient->IsLevelEditorClient() )
+			if( EditorViewportClient->IsLevelEditorClient() )
 			{
-				FLevelEditorViewportClient* LevelEditorViewportClient = static_cast<FLevelEditorViewportClient*>( ViewportClient );
+				FLevelEditorViewportClient* LevelEditorViewportClient = static_cast<FLevelEditorViewportClient*>( EditorViewportClient );
 				LevelEditorViewportClient->UpdateHoveredObjects( HoveredObjects );
 			}
 		}
@@ -719,6 +801,8 @@ void UViewportWorldInteraction::InteractionTick( FEditorViewportClient* Viewport
 								}
 							}
 
+							InteractorData.DragRayLength = ( LaserPointerStart - HitLocation ).Size();
+
 							DraggedTo = HitLocation;
 						}
 						else
@@ -839,7 +923,7 @@ void UViewportWorldInteraction::InteractionTick( FEditorViewportClient* Viewport
 				}
 			}
 
-			const FVector OldViewLocation = ViewportClient->GetViewLocation();
+			const FVector OldViewLocation = EditorViewportClient->GetViewLocation();
 			// Dragging transform gizmo handle
 			const bool bWithTwoHands = ( OtherInteractor != nullptr || OtherInteractorThatWasAssistingDrag != nullptr );
 			const bool bIsLaserPointerValid = true;
@@ -850,7 +934,7 @@ void UViewportWorldInteraction::InteractionTick( FEditorViewportClient* Viewport
 				InteractorData.DraggingMode, 
 				InteractorData.TransformGizmoInteractionType, 
 				bWithTwoHands,
-				*ViewportClient, 
+				*EditorViewportClient, 
 				InteractorData.OptionalHandlePlacement, 
 				DragDelta, 
 				OtherHandDragDelta,
@@ -889,7 +973,7 @@ void UViewportWorldInteraction::InteractionTick( FEditorViewportClient* Viewport
 			// If we were dragging the world, then play some haptic feedback
 			if( InteractorData.DraggingMode == EViewportInteractionDraggingMode::World )
 			{
-				const FVector NewViewLocation = ViewportClient->GetViewLocation();
+				const FVector NewViewLocation = EditorViewportClient->GetViewLocation();
 
 				// @todo vreditor: Consider doing this for inertial moves too (we need to remember the last hand that invoked the move.)
 
@@ -972,7 +1056,7 @@ void UViewportWorldInteraction::InteractionTick( FEditorViewportClient* Viewport
 					InteractorData.LastDraggingMode, 
 					InteractorData.TransformGizmoInteractionType, 
 					bWithTwoHands, 
-					*ViewportClient, 
+					*EditorViewportClient, 
 					InteractorData.OptionalHandlePlacement, 
 					DragDelta, 
 					OtherHandDragDelta,
@@ -1236,6 +1320,7 @@ TArray<UViewportInteractor*>& UViewportWorldInteraction::GetInteractors()
 	return Interactors;
 }
 
+BEGIN_FUNCTION_BUILD_OPTIMIZATION
 void UViewportWorldInteraction::UpdateDragging(
 	const float DeltaTime,
 	bool& bIsFirstDragUpdate,
@@ -1804,7 +1889,7 @@ void UViewportWorldInteraction::UpdateDragging(
 				bShouldApplyVelocitiesFromDrag = true;
 			}
 		}
-		else if ( DraggingMode == EViewportInteractionDraggingMode::World )
+		else if ( DraggingMode == EViewportInteractionDraggingMode::World && !bSkipInteractiveWorldMovementThisFrame )
 		{
 			FTransform RoomTransform = GetRoomTransform();
 
@@ -1936,7 +2021,9 @@ void UViewportWorldInteraction::UpdateDragging(
 	}
 
 	bIsFirstDragUpdate = false;
+	bSkipInteractiveWorldMovementThisFrame = false;
 }
+END_FUNCTION_BUILD_OPTIMIZATION
 
 FVector UViewportWorldInteraction::ComputeConstrainedDragDeltaFromStart( 
 	const bool bIsFirstDragUpdate, 
@@ -2191,6 +2278,8 @@ void UViewportWorldInteraction::StartDraggingActors( UViewportInteractor* Intera
 }
 void UViewportWorldInteraction::StopDragging( UViewportInteractor* Interactor )
 {
+	OnStopDraggingEvent.Broadcast( Interactor );
+
 	FViewportInteractorData& InteractorData = Interactor->GetInteractorData();
 	if ( InteractorData.DraggingMode != EViewportInteractionDraggingMode::Nothing )
 	{
@@ -2350,6 +2439,11 @@ bool UViewportWorldInteraction::FindPlacementPointUnderLaser( UViewportInteracto
 	return bHitSomething;
 }
 
+FTrackingTransaction& UViewportWorldInteraction::GetTrackingTransaction()
+{
+	return TrackingTransaction;
+}
+
 bool UViewportWorldInteraction::IsTransformingActor( AActor* Actor ) const
 {
 	bool bFoundActor = false;
@@ -2394,7 +2488,7 @@ void UViewportWorldInteraction::PollInputIfNeeded()
 
 void UViewportWorldInteraction::OnActorSelectionChanged( UObject* ChangedObject )
 {
-	if ( EditorViewportClient.IsValid() )
+	if ( EditorViewportClient != nullptr )
 	{
 		const bool bNewObjectsSelected = true;
 		const bool bAllHandlesVisible = true;
@@ -2415,9 +2509,12 @@ void UViewportWorldInteraction::OnActorSelectionChanged( UObject* ChangedObject 
 
 void UViewportWorldInteraction::RefreshTransformGizmo( const bool bNewObjectsSelected, bool bAllHandlesVisible, class UActorComponent* SingleVisibleHandle, const TArray< UActorComponent* >& HoveringOverHandles )
 {
-	if ( GEditor->GetSelectedActorCount() > 0 )
+	if ( GEditor->GetSelectedActorCount() > 0 && VI::ShowTransformGizmo->GetInt() != 0 && bIsTransformGizmoVisible )
 	{
 		SpawnTransformGizmoIfNeeded();
+
+		// Make sure the gizmo is visible
+		TransformGizmoActor->SetIsTemporarilyHiddenInEditor( false );
 
 		const ECoordSystem CurrentCoordSystem = GetTransformGizmoCoordinateSpace();
 		const bool bIsWorldSpaceGizmo = ( CurrentCoordSystem == COORD_World );
@@ -2591,11 +2688,10 @@ void UViewportWorldInteraction::RefreshTransformGizmo( const bool bNewObjectsSel
 	}
 	else
 	{
-		// Nothing selected, so kill our gizmo actor
-		if ( TransformGizmoActor != nullptr )
+		// Nothing selected or the gizmo was asked to be hidden
+		if( TransformGizmoActor != nullptr )
 		{
-			DestroyTransientActor( TransformGizmoActor );
-			TransformGizmoActor = nullptr;
+			TransformGizmoActor->SetIsTemporarilyHiddenInEditor( true );
 		}
 		GizmoLocalBounds = FBox( 0 );
 
@@ -2627,21 +2723,14 @@ void UViewportWorldInteraction::SpawnTransformGizmoIfNeeded()
 
 		check( TransformGizmoActor != nullptr );
 		TransformGizmoActor->SetOwnerWorldInteraction( this );
-
-		if ( VI::ShowTransformGizmo->GetInt() == 0 || !bIsTransformGizmoVisible )
-		{
-			TransformGizmoActor->SetIsTemporarilyHiddenInEditor( true );
-		}
 	}
 }
 
 void UViewportWorldInteraction::SetTransformGizmoVisible( const bool bShouldBeVisible )
 {
 	bIsTransformGizmoVisible = bShouldBeVisible;
-	if( TransformGizmoActor != nullptr )
-	{
-		TransformGizmoActor->SetIsTemporarilyHiddenInEditor( VI::ShowTransformGizmo->GetInt() == 0 || !bIsTransformGizmoVisible );
-	}
+
+	// NOTE: The actual visibility change will be applied the next tick when RefreshTransformGizmo() is called
 }
 
 bool UViewportWorldInteraction::IsTransformGizmoVisible() const
@@ -2740,7 +2829,6 @@ UViewportInteractor* UViewportWorldInteraction::GetOtherInteractorIntertiaContri
 
 AActor* UViewportWorldInteraction::SpawnTransientSceneActor( TSubclassOf<AActor> ActorClass, const FString& ActorName, const bool bWithSceneComponent ) const
 {
-	UWorld* World = GetViewportWorld();
 	const bool bWasWorldPackageDirty = World->GetOutermost()->IsDirty();
 
 	// @todo vreditor: Needs respawn if world changes (map load, etc.)  Will that always restart the editor mode anyway?
@@ -2765,17 +2853,38 @@ AActor* UViewportWorldInteraction::SpawnTransientSceneActor( TSubclassOf<AActor>
 	// Don't dirty the level file after spawning a transient actor
 	if ( !bWasWorldPackageDirty )
 	{
-		GetViewportWorld()->GetOutermost()->SetDirtyFlag( false );
+		World->GetOutermost()->SetDirtyFlag( false );
 	}
 
 	return NewActor;
 }
 
 
+void UViewportWorldInteraction::DestroyActors()
+{
+	if(TransformGizmoActor != nullptr)
+	{
+		DestroyTransientActor( TransformGizmoActor );
+		TransformGizmoActor = nullptr;
+	}
+
+	if(SnapGridActor != nullptr)
+	{
+		DestroyTransientActor( SnapGridActor );
+		SnapGridActor = nullptr;
+		SnapGridMeshComponent = nullptr;
+	}
+
+	if(SnapGridMID != nullptr)
+	{
+		SnapGridMID->MarkPendingKill();
+		SnapGridMID = nullptr;
+	}
+}
+
 void UViewportWorldInteraction::DestroyTransientActor( AActor* Actor ) const
 {
-	UWorld* World = GetViewportWorld();
-	if (Actor != nullptr && World != nullptr)
+	if ( Actor != nullptr )
 	{
 		const bool bWasWorldPackageDirty = World->GetOutermost()->IsDirty();
 

@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimationCustomTransitionSchema.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "AnimGraphNode_CustomTransitionResult.h"
 #include "AnimGraphNode_TransitionPoseEvaluator.h"
 #include "AnimStateTransitionNode.h"

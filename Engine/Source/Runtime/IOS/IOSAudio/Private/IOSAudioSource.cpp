@@ -9,34 +9,32 @@
  ------------------------------------------------------------------------------------*/
 
 #include "IOSAudioDevice.h"
-#include "Engine.h"
+#include "IAudioFormat.h"
+#include "ContentStreaming.h"
+#include "IAudioFormat.h"
+#include "AudioDecompress.h"
+#include "ADPCMAudioInfo.h"
 
-#define SOUND_SOURCE_FREE 0
-#define SOUND_SOURCE_LOCKED 1
+const uint32	Callback_Free = 0;
+const uint32	Callback_Locked = 1;
 
 namespace
 {
-	inline bool LockSourceChannel(int32* ChannelLock)
+	inline bool LockCallback(int32* InCallbackLock)
 	{
-		check(ChannelLock != NULL);
-		return FPlatformAtomics::InterlockedCompareExchange(ChannelLock, SOUND_SOURCE_LOCKED, SOUND_SOURCE_FREE) == SOUND_SOURCE_FREE;
+		check(InCallbackLock != NULL);
+		return FPlatformAtomics::InterlockedCompareExchange(InCallbackLock, Callback_Locked, Callback_Free) == Callback_Free;
 	}
 
-	inline void UnlockSourceChannel(int32* ChannelLock)
+	inline void UnlockCallback(int32* InCallbackLock)
 	{
-		check(ChannelLock != NULL);
-		int32 Result = FPlatformAtomics::InterlockedCompareExchange(ChannelLock, SOUND_SOURCE_FREE, SOUND_SOURCE_LOCKED);
+		check(InCallbackLock != NULL);
+		int32 Result = FPlatformAtomics::InterlockedCompareExchange(InCallbackLock, Callback_Free, Callback_Locked);
 
-		check(Result == SOUND_SOURCE_LOCKED);
+		check(Result == Callback_Locked);
 	}
 
 } // end namespace
-
-// Linker will figure this out for us on IOS as it is now in a core source file
-namespace ADPCM
-{
-	void DecodeBlock(const uint8* EncodedADPCMBlock, int32 BlockSize, int16* DecodedPCMData);
-}
 
 /*------------------------------------------------------------------------------------
 	FIOSAudioSoundSource
@@ -45,14 +43,14 @@ namespace ADPCM
 FIOSAudioSoundSource::FIOSAudioSoundSource(FIOSAudioDevice* InAudioDevice, uint32 InBusNumber) :
 	FSoundSource(InAudioDevice),
 	IOSAudioDevice(InAudioDevice),
-	Buffer(NULL),
-	StreamBufferSize(0),
+	IOSBuffer(NULL),
 	SampleRate(0),
 	BusNumber(InBusNumber)
 {
 	check(IOSAudioDevice);
-	FMemory::Memzero(StreamBufferStates, sizeof(StreamBufferStates));
-
+	
+	WaveInstance = NULL;
+	
 	// Start in a disabled state
 	DetachFromAUGraph();
 	SampleRate = static_cast<int32>(IOSAudioDevice->MixerFormat.mSampleRate);
@@ -60,16 +58,12 @@ FIOSAudioSoundSource::FIOSAudioSoundSource(FIOSAudioDevice* InAudioDevice, uint3
 	AURenderCallbackStruct Input;	
 	Input.inputProc = &IOSAudioRenderCallback;
 	Input.inputProcRefCon = this;
-
+	
+	CallbackLock = Callback_Free;
+	
 	OSStatus Status = noErr;
 	for (int32 Channel = 0; Channel < CHANNELS_PER_BUS; Channel++)
 	{
-		StreamBufferStates[Channel].StreamBuffer = NULL;
-		StreamBufferStates[Channel].SampleReadCursor = 0;
-		StreamBufferStates[Channel].StreamReadCursor = 0;
-		StreamBufferStates[Channel].bFinished = false;
-		StreamBufferStates[Channel].ChannelLock = SOUND_SOURCE_FREE;
-
 		Status = AudioUnitSetProperty(IOSAudioDevice->GetMixerUnit(),
 		                              kAudioUnitProperty_StreamFormat,
 		                              kAudioUnitScope_Input,
@@ -96,119 +90,67 @@ FIOSAudioSoundSource::FIOSAudioSoundSource(FIOSAudioDevice* InAudioDevice, uint3
 
 FIOSAudioSoundSource::~FIOSAudioSoundSource(void)
 {
-	for (int32 Channel = 0; Channel < CHANNELS_PER_BUS; Channel++)
+	// Ensure we are stopped and detached from the audio graph so that playback has been stopped to prevent any chance this object being deleted during the audio render callback function
+	Stop();
+	
+	WaveInstance = NULL;
+	if(IOSBuffer != NULL)
 	{
-		FMemory::Free(StreamBufferStates[Channel].StreamBuffer);
-		StreamBufferStates[Channel].StreamBuffer = NULL;
+		delete IOSBuffer;
+		IOSBuffer = NULL;
 	}
+	Buffer = NULL;
 }
 
 bool FIOSAudioSoundSource::Init(FWaveInstance* InWaveInstance)
 {
+	FSoundSource::InitCommon();
+
 	if (InWaveInstance->OutputTarget == EAudioOutputTarget::Controller)
 	{
 		return false;
 	}
+	
+	// Always enure we have a unique FIOSAudioSoundBuffer and that we delete the old one if it exists
+	if(IOSBuffer != NULL)
+	{
+		delete IOSBuffer;
+	}
+	
+	IOSBuffer = FIOSAudioSoundBuffer::Init(IOSAudioDevice, InWaveInstance->WaveData);
+	Buffer = IOSBuffer;
 
-	Buffer = FIOSAudioSoundBuffer::Init(IOSAudioDevice, InWaveInstance->WaveData);
-
-	if (Buffer == NULL || Buffer->NumChannels <= 0 || (Buffer->SoundFormat != SoundFormat_LPCM && Buffer->SoundFormat != SoundFormat_ADPCM))
+	if (IOSBuffer == NULL || IOSBuffer->NumChannels <= 0 || (IOSBuffer->SoundFormat != SoundFormat_LPCM && IOSBuffer->SoundFormat != SoundFormat_ADPCM))
 	{
 		return false;
 	}
 
 	SCOPE_CYCLE_COUNTER(STAT_AudioSourceInitTime);
-
-	uint32 BufferSize = StreamBufferSize;
-	bool bBufferSizeChanged = false;
-	bool bSampleRateChanged = false;
-
+	
 	WaveInstance = InWaveInstance;
-	switch (Buffer->SoundFormat)
-	{
-	case SoundFormat_LPCM:
-		for (int32 Channel = 0; Channel < Buffer->NumChannels; ++Channel)
-		{
-			// Input for multi-channel audio IS interlaced
-			StreamBufferStates[Channel].SampleReadCursor = Channel;
-			StreamBufferStates[Channel].StreamReadCursor = 0;
-			StreamBufferStates[Channel].bFinished = false;
-				
-			FMemory::Free(StreamBufferStates[Channel].StreamBuffer);
-			StreamBufferStates[Channel].StreamBuffer = NULL;
-		}
-			
-		for (int32 Channel = Buffer->NumChannels; Channel < CHANNELS_PER_BUS; ++Channel)
-		{
-			StreamBufferStates[Channel].bFinished = true;
-			
-			FMemory::Free(StreamBufferStates[Channel].StreamBuffer);
-			StreamBufferStates[Channel].StreamBuffer = NULL;
-		}
-		break;
-
-	case SoundFormat_ADPCM:
-		if (StreamBufferSize < Buffer->UncompressedBlockSize)
-		{
-			bBufferSizeChanged = true;
-			BufferSize = Buffer->UncompressedBlockSize;
-		}
-
-		// Resize/allocate buffers as needed
-		for (int32 Channel = 0; Channel < Buffer->NumChannels; ++Channel)
-		{
-			// Input is separated into discrete sections in the buffer; they are NOT interlaced
-			StreamBufferStates[Channel].SampleReadCursor = (Channel * Buffer->BufferSize) / Buffer->NumChannels;
-			StreamBufferStates[Channel].StreamReadCursor = 0;
-			StreamBufferStates[Channel].bFinished = false;
-
-			if (!StreamBufferStates[Channel].StreamBuffer || bBufferSizeChanged)
-			{
-				FMemory::Free(StreamBufferStates[Channel].StreamBuffer);
-				StreamBufferStates[Channel].StreamBuffer = static_cast<int16*>(FMemory::Malloc(BufferSize));
-			}
-		}
-
-		// Release unneeded streaming buffers, in case the number of channels has been reduced
-		for (int32 Channel = Buffer->NumChannels; Channel < CHANNELS_PER_BUS; ++Channel)
-		{
-			StreamBufferStates[Channel].bFinished = true;
-
-			FMemory::Free(StreamBufferStates[Channel].StreamBuffer);
-			StreamBufferStates[Channel].StreamBuffer = NULL;
-		}
-			
-		StreamBufferSize = BufferSize;
-		break;
-	}
-
+	
+	bAllChannelsFinished = false;
+	
 	AudioStreamBasicDescription StreamFormat;
-	AudioUnitParameterValue Pan = 0.0f;
 
-	if (SampleRate != Buffer->SampleRate)
-	{
-		bSampleRateChanged = true;
-		SampleRate = Buffer->SampleRate;
+	SampleRate = IOSBuffer->SampleRate;
 
-		StreamFormat = IOSAudioDevice->MixerFormat;
-		StreamFormat.mSampleRate = static_cast<Float64>(SampleRate);
-	}
+	StreamFormat = IOSAudioDevice->MixerFormat;
+	StreamFormat.mSampleRate = static_cast<Float64>(SampleRate);
 
 	OSStatus Status = noErr;
-	for (int32 Channel = 0; Channel < Buffer->NumChannels; ++Channel)
+	for (int32 Channel = 0; Channel < IOSBuffer->NumChannels; ++Channel)
 	{
-		if (bSampleRateChanged)
-		{
-			Status = AudioUnitSetProperty(IOSAudioDevice->GetMixerUnit(),
-			                              kAudioUnitProperty_StreamFormat,
-			                              kAudioUnitScope_Input,
-			                              GetAudioUnitElement(Channel),
-			                              &StreamFormat,
-			                              sizeof(AudioStreamBasicDescription));
-			UE_CLOG(Status != noErr, LogIOSAudio, Error, TEXT("Failed to set kAudioUnitProperty_StreamFormat for audio mixer unit: BusNumber=%d, Channel=%d"), BusNumber, Channel);
-		}
+		Status = AudioUnitSetProperty(IOSAudioDevice->GetMixerUnit(),
+									  kAudioUnitProperty_StreamFormat,
+									  kAudioUnitScope_Input,
+									  GetAudioUnitElement(Channel),
+									  &StreamFormat,
+									  sizeof(AudioStreamBasicDescription));
+		UE_CLOG(Status != noErr, LogIOSAudio, Error, TEXT("Failed to set kAudioUnitProperty_StreamFormat for audio mixer unit: BusNumber=%d, Channel=%d"), BusNumber, Channel);
 
-		if(Buffer->NumChannels == 2)
+		AudioUnitParameterValue Pan = 0.0f;
+		if(IOSBuffer->NumChannels == 2)
 		{
 			const AudioUnitParameterValue AzimuthRangeScale = 90.f;
 			Pan = (-1.0f + (Channel * 2.0f)) * AzimuthRangeScale;
@@ -243,6 +185,8 @@ void FIOSAudioSoundSource::Update(void)
 		return;
 	}
 
+	FSoundSource::UpdateCommon();
+
 	AudioUnitParameterValue Volume = 0.0f;
 
 	if (!AudioDevice->IsAudioDeviceMuted())
@@ -262,12 +206,12 @@ void FIOSAudioSoundSource::Update(void)
 
 	// Convert to dB
 	const AudioUnitParameterValue Gain = FMath::Clamp<float>(20.0f * log10(Volume), -100, 0.0f);
-	const AudioUnitParameterValue Pitch = FMath::Clamp<float>(WaveInstance->Pitch, MIN_PITCH, MAX_PITCH);
+	const AudioUnitParameterValue PitchParam = Pitch;
 
 	OSStatus Status = noErr;
 
 	// We only adjust panning on playback for mono sounds that want spatialization
-	if (Buffer->NumChannels == 1 && WaveInstance->bUseSpatialization)
+	if (IOSBuffer->NumChannels == 1 && WaveInstance->bUseSpatialization)
 	{
 		// Compute the directional offset
 		FVector Offset = WaveInstance->Location - IOSAudioDevice->PlayerLocation;
@@ -283,7 +227,7 @@ void FIOSAudioSoundSource::Update(void)
 		UE_CLOG(Status != noErr, LogIOSAudio, Error, TEXT("Failed to set k3DMixerParam_Azimuth for audio mixer unit: BusNumber=%d, Channel=%d"), BusNumber, 0);
 	}
 
-	for (int32 Channel = 0; Channel < Buffer->NumChannels; Channel++)
+	for (int32 Channel = 0; Channel < IOSBuffer->NumChannels; Channel++)
 	{
 		Status = AudioUnitSetParameter(IOSAudioDevice->GetMixerUnit(),
 		                               k3DMixerParam_Gain,
@@ -297,7 +241,7 @@ void FIOSAudioSoundSource::Update(void)
 		                               k3DMixerParam_PlaybackRate,
 		                               kAudioUnitScope_Input,
 		                               GetAudioUnitElement(Channel),
-		                               Pitch,
+									   PitchParam,
 		                               0);
 		UE_CLOG(Status != noErr, LogIOSAudio, Error, TEXT("Failed to set k3DMixerParam_PlaybackRate for audio mixer unit: BusNumber=%d, Channel=%d"), BusNumber, Channel);
 	}
@@ -319,31 +263,32 @@ void FIOSAudioSoundSource::Stop(void)
 {
 	if (WaveInstance)
 	{
-		Pause();
-		
-		// Lock each channel to block playback
-		for (uint32 Channel = 0; Channel < CHANNELS_PER_BUS; Channel++)
+		// Wait for the render callback to finish and then prevent it from being entered again in case this object is deleted after being stopped
+		while (!LockCallback(&CallbackLock))
 		{
-			while (!LockSourceChannel(&StreamBufferStates[Channel].ChannelLock))
-			{
-				UE_LOG(LogIOSAudio, Log, TEXT("Waiting for source to unlock: Channel=%d"), Channel);
-				
-				// Allow time for other threads to run
-				FPlatformProcess::Sleep(0.0f);
-			}
+			UE_LOG(LogIOSAudio, Log, TEXT("Waiting for source to unlock"));
+			
+			// Allow time for other threads to run
+			FPlatformProcess::Sleep(0.0f);
 		}
+		
+		// At this point we are no longer in the render callback and we will not re-enter it either
+		
+		// This will turn off audio callbacks
+		Pause();
 
 		Paused = false;
 		Playing = false;
-		Buffer = NULL;
 
 		FSoundSource::Stop();
 		
-		// Restore each channel to an unlocked state
-		for (uint32 Channel = 0; Channel < CHANNELS_PER_BUS; Channel++)
+		if(IOSBuffer != NULL)
 		{
-			UnlockSourceChannel(&StreamBufferStates[Channel].ChannelLock);
+			IOSBuffer->DecompressionState->SeekToTime(0.0f);
 		}
+		
+		// It's now safe to unlock the callback
+		UnlockCallback(&CallbackLock);
 	}
 }
 
@@ -373,34 +318,19 @@ bool FIOSAudioSoundSource::IsFinished(void)
 	{
 		if (WaveInstance->LoopingMode == LOOP_Never)
 		{
-			bool bFinished = true;
-			for (int32 Channel = 0; Channel < Buffer->NumChannels && bFinished; Channel++)
-			{
-				bFinished = StreamBufferStates[Channel].bFinished;
-			}
-
-			return bFinished;
+			return bAllChannelsFinished;
 		}
-		else if (WaveInstance->LoopingMode == LOOP_WithNotification)
+		
+		if (WaveInstance->LoopingMode == LOOP_WithNotification)
 		{
-			bool bLoopCallback = true;
-			for (int32 Channel = 0; Channel < Buffer->NumChannels && bLoopCallback; Channel++)
-			{
-				bLoopCallback = StreamBufferStates[Channel].bLooped;
-			}
-
 			// Notify the wave instance that the looping callback was hit
-			if (bLoopCallback)
+			if (bAllChannelsFinished)
 			{
 				WaveInstance->NotifyFinished();
-
-				// Reset the loop states for each active channel
-				for (int32 Channel = 0; Channel < Buffer->NumChannels && bLoopCallback; Channel++)
-				{
-					StreamBufferStates[Channel].bLooped = false;
-				}
 			}
 		}
+		
+		bAllChannelsFinished = false;
 
 		return false;
 	}
@@ -419,7 +349,7 @@ bool FIOSAudioSoundSource::AttachToAUGraph()
 	OSStatus Status = noErr;
 
 	// Set a callback for the specified node's specified input
-	for (int32 Channel = 0; Channel < Buffer->NumChannels; Channel++)
+	for (int32 Channel = 0; Channel < IOSBuffer->NumChannels; Channel++)
 	{
 		Status = AudioUnitSetParameter(IOSAudioDevice->GetMixerUnit(),
 		                               k3DMixerParam_Enable, 
@@ -455,7 +385,6 @@ bool FIOSAudioSoundSource::DetachFromAUGraph()
 		                               -120.0,
 		                               0);
 		UE_CLOG(Status != noErr, LogIOSAudio, Error, TEXT("Failed to set k3DMixerParam_Gain for audio mixer unit: BusNumber=%d, Channel=%d"), BusNumber, Channel);
-
 	}
 
 	return Status == noErr;
@@ -467,140 +396,50 @@ OSStatus FIOSAudioSoundSource::IOSAudioRenderCallback(void* RefCon, AudioUnitRen
 {
 	FIOSAudioSoundSource* Source = static_cast<FIOSAudioSoundSource*>(RefCon);
 	UInt32 Channel = BusNumber % CHANNELS_PER_BUS;
-	bool bFinished = false;
 	
 	AudioSampleType* OutData = reinterpret_cast<AudioSampleType*>(IOData->mBuffers[0].mData);
 	
-	// Make sure this channel should be rendering
-	if (!LockSourceChannel(&Source->StreamBufferStates[Channel].ChannelLock))
+	// Make sure we should be rendering
+	if (!LockCallback(&Source->CallbackLock))
 	{
-		FMemory::Memzero(OutData, NumFrames * sizeof(AudioSampleType));
-		return -1;
-	}
-	else if (!Source->Buffer || Channel > Source->Buffer->NumChannels || !Source->IsPlaying() || Source->IsPaused() || Source->StreamBufferStates[Channel].bFinished)
-	{
-		UnlockSourceChannel(&Source->StreamBufferStates[Channel].ChannelLock);
 		FMemory::Memzero(OutData, NumFrames * sizeof(AudioSampleType));
 		return -1;
 	}
 	
-	OSStatus Result = noErr;
-	UInt32 NumFramesWritten = 0;
-
-	switch (Source->Buffer->SoundFormat)
+	if (!Source->IOSBuffer || Channel > Source->IOSBuffer->NumChannels || !Source->IsPlaying() || Source->IsPaused() || (Source->WaveInstance->LoopingMode == LOOP_Never && Source->bAllChannelsFinished))
 	{
-	case SoundFormat_LPCM:
-		Result = Source->IOSAudioRenderCallbackLPCM(OutData, NumFrames, NumFramesWritten, Channel);
-		break;
-
-	case SoundFormat_ADPCM:
-		Result = Source->IOSAudioRenderCallbackADPCM(OutData, NumFrames, NumFramesWritten, Channel);
-		break;
-
-	default:
-		UnlockSourceChannel(&Source->StreamBufferStates[Channel].ChannelLock);
+		UnlockCallback(&Source->CallbackLock);
 		FMemory::Memzero(OutData, NumFrames * sizeof(AudioSampleType));
 		return -1;
 	}
-
-	// Pad the rest of the output with zeros
-	if (NumFrames > NumFramesWritten)
+	
+	if(Channel == 0)
 	{
-		Source->StreamBufferStates[Channel].bFinished = true;
-		FMemory::Memzero(OutData, (NumFrames - NumFramesWritten) * sizeof(AudioSampleType));
-	}
-
-	UnlockSourceChannel(&Source->StreamBufferStates[Channel].ChannelLock);
-	return Result;
-}
-
-OSStatus FIOSAudioSoundSource::IOSAudioRenderCallbackADPCM(AudioSampleType* OutData, UInt32 NumFrames, UInt32& NumFramesWritten, UInt32 Channel)
-{
-	FAudioBuffer& BufferState = StreamBufferStates[Channel];
-	while (NumFrames > 0)
-	{
-		if (BufferState.StreamReadCursor == 0)
-		{
-			const uint8* EncodedADPCMBlock = reinterpret_cast<uint8*>(Buffer->SampleData) + BufferState.SampleReadCursor;
-
-			check(BufferState.StreamBuffer != NULL);
-			ADPCM::DecodeBlock(EncodedADPCMBlock, Buffer->CompressedBlockSize, BufferState.StreamBuffer);
-		}
-
-		uint32 NumSamples = FMath::Min<uint32>(NumFrames, StreamBufferSize / sizeof(AudioSampleType)-BufferState.StreamReadCursor);
-		for (uint32 SampleScan = 0; SampleScan < NumSamples; SampleScan++)
-		{
-			*OutData++ = BufferState.StreamBuffer[BufferState.StreamReadCursor++];
-		}
-
-		NumFramesWritten += NumSamples;
-		NumFrames -= NumSamples;
+		Source->IOSBuffer->RenderCallbackBufferSize = NumFrames * sizeof(uint16) * Source->IOSBuffer->DecompressionState->NumChannels;
 		
-		check(BufferState.StreamReadCursor * sizeof(AudioSampleType) <= StreamBufferSize);
-		if (BufferState.StreamReadCursor * sizeof(AudioSampleType) == StreamBufferSize)
-		{
-			// Advance to the next compressed block
-			BufferState.StreamReadCursor = 0;
-			BufferState.SampleReadCursor += Buffer->CompressedBlockSize;
-
-			check(BufferState.SampleReadCursor <= Buffer->BufferSize);
-			const uint32 ChannelBufferSize = Buffer->BufferSize / Buffer->NumChannels;
-			const uint32 SampleReadEnd = (Channel + 1) * ChannelBufferSize;
-
-			if (BufferState.SampleReadCursor == SampleReadEnd)
-			{
-				BufferState.SampleReadCursor = Channel * ChannelBufferSize;
-				switch (WaveInstance->LoopingMode)
-				{
-				case LOOP_Never:
-					return noErr;
-
-				case LOOP_WithNotification:
-				case LOOP_Forever:
-					BufferState.bLooped = true;
-					break;
-				}
-			}
-		}
-	}
-
-	return noErr;
-}
-
-OSStatus FIOSAudioSoundSource::IOSAudioRenderCallbackLPCM(AudioSampleType* OutData, UInt32 NumFrames, UInt32& NumFramesWritten, UInt32 Channel)
-{
-	FAudioBuffer& BufferState = StreamBufferStates[Channel];
-	const uint32 ChannelStride = Buffer->NumChannels;
-	const uint32 NumSamplesPerChannel = Buffer->BufferSize / (Buffer->NumChannels * sizeof(AudioSampleType));
-
-	while (NumFrames > 0)
-	{
-		uint32 NumSamples = FMath::Min<uint32>(NumFrames, NumSamplesPerChannel - BufferState.SampleReadCursor);
-		for (uint32 SampleScan = 0; SampleScan < NumSamples; SampleScan++)
-		{
-			*OutData++ = Buffer->SampleData[BufferState.SampleReadCursor++ * ChannelStride];
-		}
-
-		NumFramesWritten += NumSamples;
-		NumFrames -= NumSamples;
+		// Since StreamCompressedData returns interlaced samples we need to decompress all frames(samples) for all channels here so we don't end up decompressing multiple times
+		// Ensure we have enough memory to do this. If needed we could realloc here but that is bad practice inside the audio callback since it has a hard deadline
+		check(Source->IOSBuffer->RenderCallbackBufferSize <= Source->IOSBuffer->BufferSize)
 		
-		if (NumFrames > 0)
-		{
-			BufferState.SampleReadCursor = 0;
-			
-			switch (WaveInstance->LoopingMode)
-			{
-				case LOOP_Never:
-					return noErr;
-					
-				case LOOP_WithNotification:
-				case LOOP_Forever:
-					BufferState.bLooped = true;
-					break;
-			}
-		}
+		// Grab the interlaced channel data
+		Source->bChannel0Finished =
+			Source->IOSBuffer->ReadCompressedData(
+				(uint8*)Source->IOSBuffer->SampleData,
+				Source->WaveInstance->LoopingMode == LOOP_WithNotification || Source->WaveInstance->LoopingMode == LOOP_Forever);
 	}
-
+	
+	for(int32 sampleItr = 0; sampleItr < NumFrames; ++sampleItr)
+	{
+		*OutData++ = *(Source->IOSBuffer->SampleData + sampleItr * Source->IOSBuffer->NumChannels + Channel);
+	}
+	
+	if(Source->bChannel0Finished && Channel == Source->IOSBuffer->NumChannels - 1)
+	{
+		Source->bAllChannelsFinished = true;
+	}
+	
+	UnlockCallback(&Source->CallbackLock);
+	
 	return noErr;
 }
 

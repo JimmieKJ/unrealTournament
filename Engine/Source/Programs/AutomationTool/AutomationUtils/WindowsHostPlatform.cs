@@ -12,67 +12,6 @@ namespace AutomationTool
 {
 	class WindowsHostPlatform : HostPlatform
 	{
-		/// <returns>The path to Windows SDK directory for the specified version.</returns>
-		private static string FindWindowsSDKInstallationFolder( string Version )
-		{
-			// Based on VCVarsQueryRegistry
-			string WinSDKPath = (string)Microsoft.Win32.Registry.GetValue( @"HKEY_CURRENT_USER\SOFTWARE\Microsoft\Microsoft SDKs\Windows\" + Version, "InstallationFolder", null );
-			if( WinSDKPath != null )
-			{
-				return WinSDKPath;
-			}
-			WinSDKPath = (string)Microsoft.Win32.Registry.GetValue( @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Microsoft SDKs\Windows\" + Version, "InstallationFolder", null );
-			if( WinSDKPath != null )
-			{
-				return WinSDKPath;
-			}
-			WinSDKPath = (string)Microsoft.Win32.Registry.GetValue( @"HKEY_CURRENT_USER\SOFTWARE\Wow6432Node\Microsoft\Microsoft SDKs\Windows\" + Version, "InstallationFolder", null );
-			if( WinSDKPath != null )
-			{
-				return WinSDKPath;
-			}
-
-			throw new BuildException( "Can't find Windows SDK {0}.", Version );
-		}
-
-		/// <summary>
-		/// Figures out the path to Visual Studio's /Common7/Tools directory.  Note that if Visual Studio is not
-		/// installed, the Windows SDK path will be used, which also happens to be the same directory. (It installs
-		/// the toolchain into the folder where Visual Studio would have installed it to.
-		/// </summary>
-		/// <returns>The path to Visual Studio's /Common7/Tools directory</returns>
-		private bool FindBaseVSToolPaths(out string WindowsSDKDir, out string BaseVSToolPath)
-		{
-			WindowsSDKDir = "";
-			BaseVSToolPath = WindowsPlatform.GetVSComnToolsPath();
-
-			if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015)
-			{
-				WindowsSDKDir = FindWindowsSDKInstallationFolder( "v8.1" );
-
-				if (string.IsNullOrEmpty(BaseVSToolPath))
-				{
-					Log.TraceError("Visual Studio 2015 must be installed in order to build this target.");
-					return false;
-				}
-			}
-			else if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2013)
-			{
-				WindowsSDKDir = FindWindowsSDKInstallationFolder( "v8.1" );
-
-				if (string.IsNullOrEmpty(BaseVSToolPath))
-				{
-					Log.TraceError("Visual Studio 2013 must be installed in order to build this target.");
-					return false;
-				}
-			}
-			else
-			{
-				throw new BuildException("Unexpected WindowsPlatform.Compiler version");
-			}
-			return true;
-		}
-
 		public override string GetMsBuildExe()
 		{
 			return VCEnvironment.GetMSBuildToolPath();
@@ -80,8 +19,16 @@ namespace AutomationTool
 
 		public override string GetMsDevExe()
 		{
+			WindowsCompiler Compiler = WindowsPlatform.GetDefaultCompiler(new string[0], null);
+
 			// Locate MsDevEnv executable
-			string PotentialMsDevExe = Path.Combine(WindowsPlatform.GetVSComnToolsPath(), "..", "IDE", "Devenv.com");
+			DirectoryReference VSInstallDir;
+			if(!WindowsPlatform.TryGetVSInstallDir(Compiler, out VSInstallDir))
+			{
+				throw new NotSupportedException("Couldn't find installation of Visual Studio");
+			}
+
+			string PotentialMsDevExe = Path.Combine(VSInstallDir.FullName, "Common7", "IDE", "Devenv.com");
 
 			var Info = new System.IO.FileInfo(PotentialMsDevExe);
 			if (Info.Exists)

@@ -1,10 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#if !UE_ENABLE_ICU
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
 #include "Internationalization/Text.h"
-#include "FastDecimalFormat.h"
+#include "Internationalization/Culture.h"
+#include "Internationalization/FastDecimalFormat.h"
 
+#if !UE_ENABLE_ICU
 class FCulture::FLegacyCultureImplementation
 {
 	friend FCulture;

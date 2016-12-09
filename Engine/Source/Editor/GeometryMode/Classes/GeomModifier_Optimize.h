@@ -6,6 +6,10 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GeomModifier_Triangulate.h"
 #include "GeomModifier_Optimize.generated.h"
 
 UCLASS()

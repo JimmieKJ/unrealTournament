@@ -6,7 +6,9 @@
 
 #pragma once
 
-#include "RenderingCompositionGraph.h"
+#include "CoreMinimal.h"
+#include "RendererInterface.h"
+#include "PostProcess/RenderingCompositionGraph.h"
 
 // Find max velocity per 16x16 tile
 // derives from TRenderingCompositePassBase<InputCount, OutputCount>

@@ -1,12 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeK2Base.h"
-#include "SGraphNodeK2Composite.h"
+#include "KismetNodes/SGraphNodeK2Composite.h"
+#include "EdGraph/EdGraph.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/SToolTip.h"
+#include "GraphEditorSettings.h"
+#include "SCommentBubble.h"
+#include "K2Node_Composite.h"
 #include "SGraphPreviewer.h"
+#include "IDocumentationPage.h"
 #include "IDocumentation.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 /////////////////////////////////////////////////////
 // SGraphNodeK2Composite

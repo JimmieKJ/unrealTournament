@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
-#include "MovieScene.h"
 #include "SequencerLabelManager.h"
+#include "MovieScene.h"
 
 
 void FSequencerLabelManager::SetMovieScene(UMovieScene* InMovieScene)

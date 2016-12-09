@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/VoiceCodec.h"
+#include "VoicePrivate.h"
 #include "VoicePackage.h"
-#include "VoiceCodec.h"
 
 #if PLATFORM_SUPPORTS_VOICE_CAPTURE
 

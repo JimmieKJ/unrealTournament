@@ -2,9 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#if WITH_GAMEPLAY_DEBUGGER
+#include "GameplayDebuggerCategory.h"
+#endif
+
+class AActor;
+class APlayerController;
+
 #if WITH_GAMEPLAY_DEBUGGER
 
-#include "GameplayDebuggerCategory.h"
 
 class FGameplayDebuggerCategory_Perception : public FGameplayDebuggerCategory
 {

@@ -7,8 +7,17 @@
  *  The typical use case is for structs used in the renderer and also in script code.
  */
 
-#include "TaskGraphInterfaces.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Misc/CoreMisc.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "EngineBaseTypes.generated.h"
+
+class UActorComponent;
+struct FTickContext;
 
 //
 //	EInputEvent
@@ -250,6 +259,13 @@ private:
 	  * relative to the element ahead of it in the cooling down list, remaining until the next time this function will tick 
 	  */
 	float RelativeTickCooldown;
+
+	/** 
+	* The last world game time at which we were ticked. Game time used is dependent on bTickEvenWhenPaused
+	* Valid only if we've been ticked at least once since having a tick interval; otherwise set to -1.f
+	*/
+	float LastTickGameTimeSeconds;
+
 public:
 
 	/** The frequency in seconds at which this tick function will be executed.  If less than or equal to 0 then it will tick every frame */
@@ -345,14 +361,17 @@ private:
 	 * Queues a tick function for execution from the game thread
 	 * @param TickContext - context to tick in
 	 */
-	void QueueTickFunction(class FTickTaskSequencer& TTS, const struct FTickContext& TickContext);
+	void QueueTickFunction(class FTickTaskSequencer& TTS, const FTickContext& TickContext);
 
 	/**
 	 * Queues a tick function for execution from the game thread
 	 * @param TickContext - context to tick in
 	 * @param StackForCycleDetection - Stack For Cycle Detection
 	 */
-	void QueueTickFunctionParallel(const struct FTickContext& TickContext, TArray<FTickFunction*, TInlineAllocator<8> >& StackForCycleDetection);
+	void QueueTickFunctionParallel(const FTickContext& TickContext, TArray<FTickFunction*, TInlineAllocator<8> >& StackForCycleDetection);
+
+	/** Returns the delta time to use when ticking this function given the TickContext */
+	float CalculateDeltaTime(const FTickContext& TickContext);
 
 	/** 
 	 * Logs the prerequisites
@@ -911,18 +930,20 @@ enum EViewModeIndex
 	VMI_LODColoration = 18,
 	/** Colored according to the quad coverage. */
 	VMI_QuadOverdraw = 19,
-	/** Visualize the accuracy of the CPU primitive distance when compared with the GPU value. */
+	/** Visualize the accuracy of the primitive distance computed for texture streaming. */
 	VMI_PrimitiveDistanceAccuracy = 20,
-	/** Visualize the accuracy of the CPU mesh texture coordinate size when compared to the GPU value. */
-	VMI_MeshTexCoordSizeAccuracy = 21,
+	/** Visualize the accuracy of the mesh UV densities computed for texture streaming. */
+	VMI_MeshUVDensityAccuracy = 21,
 	/** Colored according to shader complexity, including quad overdraw. */
 	VMI_ShaderComplexityWithQuadOverdraw = 22,
 	/** Colored according to the current HLOD index. */
 	VMI_HLODColoration = 23,
 	/** Group item for LOD and HLOD coloration*/
 	VMI_GroupLODColoration = 24,
-	/** Visualize the accuracy of CPU material texture coordinate scales when compared to the GPU values. */
-	VMI_MaterialTexCoordScalesAccuracy = 25,
+	/** Visualize the accuracy of the material texture scales used for texture streaming. */
+	VMI_MaterialTextureScaleAccuracy = 25,
+	/** Compare the required texture resolution to the actual resolution. */
+	VMI_RequiredTextureResolution = 26,
 
 	VMI_Max UMETA(Hidden),
 

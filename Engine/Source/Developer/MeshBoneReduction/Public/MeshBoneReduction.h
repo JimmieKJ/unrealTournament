@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "BoneIndices.h"
+
+class USkeletalMesh;
+struct FSkelMeshSection;
 
 /**
  * Mesh reduction interface.

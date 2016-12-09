@@ -3,9 +3,10 @@
 #pragma once
 
 
-#include "EngineVersion.h"
+#include "CoreMinimal.h"
 #include "ModuleDescriptor.h"
-#include "ProjectDescriptor.h"
+
+struct FProjectDescriptor;
 
 /**
  * Simple data structure that is filled when querying information about projects
@@ -202,6 +203,14 @@ public:
 	 * @return	True if the plugin has been marked as enabled, and the project descriptor has been updated.
 	 */
 	virtual bool SetPluginEnabled(const FString& PluginName, bool bEnabled, FText& OutFailReason, const FString& MarketplaceURL = TEXT("")) = 0;
+
+	/**
+	 * Updates a directory to be scanned for plugins (added or removed)
+	 *
+	 * @param Dir the directory to scan
+	 * @param bAddOrRemove whether to add or remove the directory
+	 */
+	virtual void UpdateAdditionalPluginDirectory(const FString& Dir, const bool bAddOrRemove) = 0;
 
 	/**
 	 * Checks whether the current loaded project has been modified but not saved to disk

@@ -1,11 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. 
 
-#include "CustomMeshComponentPluginPrivatePCH.h"
 #include "CustomMeshComponent.h"
-#include "DynamicMeshBuilder.h"
+#include "RenderingThread.h"
+#include "RenderResource.h"
+#include "PrimitiveViewRelevance.h"
+#include "PrimitiveSceneProxy.h"
+#include "VertexFactory.h"
 #include "MaterialShared.h"
-#include "EngineGlobals.h"
+#include "Engine/CollisionProfile.h"
+#include "Materials/Material.h"
 #include "LocalVertexFactory.h"
+#include "SceneManagement.h"
+#include "DynamicMeshBuilder.h"
+#include "EngineGlobals.h"
 #include "Engine/Engine.h"
 
 /** Vertex Buffer */

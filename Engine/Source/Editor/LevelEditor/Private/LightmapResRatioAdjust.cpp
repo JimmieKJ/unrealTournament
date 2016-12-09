@@ -4,11 +4,17 @@
 	LightmapResRatioAdjust.cpp: Lightmap Resolution Ratio Adjustment helper
 ================================================================================*/
 
-#include "LevelEditor.h"
-#include "EditorSupportDelegates.h"
 #include "LightmapResRatioAdjust.h"
+#include "UObject/Object.h"
+#include "UObject/UObjectIterator.h"
+#include "GameFramework/Actor.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/Brush.h"
+#include "Editor/UnrealEdEngine.h"
+#include "UnrealEdGlobals.h"
+#include "EditorSupportDelegates.h"
 #include "SurfaceIterators.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 #include "ActorEditorUtils.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/Polys.h"
@@ -71,8 +77,8 @@ bool FLightmapResRatioAdjustSettings::ApplyRatioAdjustment()
 				StaticMeshComponents.AddUnique(StaticMeshComp);
 				// Store the required levels relating to this object based on the level option settings
 				UWorld* MeshWorld = StaticMeshComp->GetWorld();
-				// Exclude preview worlds				
-				if( MeshWorld && (MeshWorld->WorldType != EWorldType::Preview && MeshWorld->WorldType != EWorldType::Inactive) )
+				// Exclude editor preview worlds				
+				if( MeshWorld && (MeshWorld->WorldType != EWorldType::EditorPreview && MeshWorld->WorldType != EWorldType::Inactive) )
 				{
 					AddRequiredLevels( Settings.LevelOptions, MeshWorld , MeshLevels );
 					Worlds.AddUnique( MeshWorld );
@@ -88,8 +94,8 @@ bool FLightmapResRatioAdjustSettings::ApplyRatioAdjustment()
 			if (Brush && !FActorEditorUtils::IsABuilderBrush(Brush))
 			{
 				UWorld* BrushWorld = Brush->GetWorld();
-				// Exclude preview worlds
-				if( BrushWorld->WorldType != EWorldType::Preview && BrushWorld->WorldType != EWorldType::Inactive )
+				// Exclude editor preview worlds
+				if( BrushWorld->WorldType != EWorldType::EditorPreview && BrushWorld->WorldType != EWorldType::Inactive )
 				{
 					AddRequiredLevels( Settings.LevelOptions, BrushWorld, BrushLevels );				
 					Worlds.AddUnique( BrushWorld );
@@ -110,8 +116,8 @@ bool FLightmapResRatioAdjustSettings::ApplyRatioAdjustment()
 					{
 						ABrush* AttachedBrush = CastChecked<ABrush>( AttachedBrushes[BrushIndex] );
 						UWorld* BrushWorld = AttachedBrush->GetWorld();
-						// Exclude preview worlds
-						if( BrushWorld->WorldType != EWorldType::Preview && BrushWorld->WorldType != EWorldType::Inactive )
+						// Exclude editor preview worlds
+						if( BrushWorld->WorldType != EWorldType::EditorPreview && BrushWorld->WorldType != EWorldType::Inactive )
 						{	
 							AddRequiredLevels( Settings.LevelOptions, BrushWorld, BrushLevels );
 							Worlds.AddUnique( BrushWorld );
@@ -152,7 +158,7 @@ bool FLightmapResRatioAdjustSettings::ApplyRatioAdjustment()
 				int32 CurrentResolution = SMComp->GetStaticLightMapResolution();
 				bool bConvertIt = true;
 				if (((SMComp->bOverrideLightMapRes == true) && (CurrentResolution == 0)) ||
-					((SMComp->bOverrideLightMapRes == false) && (SMComp->StaticMesh != NULL) && (SMComp->StaticMesh->LightMapResolution == 0)))
+					((SMComp->bOverrideLightMapRes == false) && (SMComp->GetStaticMesh() != nullptr) && (SMComp->GetStaticMesh()->LightMapResolution == 0)))
 				{
 					// Don't convert vertex mapped objects!
 					bConvertIt = false;
@@ -165,9 +171,9 @@ bool FLightmapResRatioAdjustSettings::ApplyRatioAdjustment()
 				{
 					bConvertIt = false;
 				}
-				else if( SMComp->GetWorld() && SMComp->GetWorld()->WorldType == EWorldType::Preview && SMComp->GetWorld()->WorldType != EWorldType::Inactive )
+				else if( SMComp->GetWorld() && SMComp->GetWorld()->WorldType == EWorldType::EditorPreview && SMComp->GetWorld()->WorldType != EWorldType::Inactive )
 				{
-					// Don't do objects with a preview or inactive world
+					// Don't do objects with an editor preview or inactive world
 					bConvertIt = false;
 				}
 				if (bConvertIt)

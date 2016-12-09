@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,11 +28,9 @@ class CefRequestHandlerCToCpp
     : public CefCToCpp<CefRequestHandlerCToCpp, CefRequestHandler,
         cef_request_handler_t> {
  public:
-  explicit CefRequestHandlerCToCpp(cef_request_handler_t* str)
-      : CefCToCpp<CefRequestHandlerCToCpp, CefRequestHandler,
-          cef_request_handler_t>(str) {}
+  CefRequestHandlerCToCpp();
 
-  // CefRequestHandler methods
+  // CefRequestHandler methods.
   bool OnBeforeBrowse(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
       CefRefPtr<CefRequest> request, bool is_redirect) override;
   bool OnOpenURLFromTab(CefRefPtr<CefBrowser> browser,
@@ -50,6 +48,14 @@ class CefRequestHandlerCToCpp
   bool OnResourceResponse(CefRefPtr<CefBrowser> browser,
       CefRefPtr<CefFrame> frame, CefRefPtr<CefRequest> request,
       CefRefPtr<CefResponse> response) override;
+  CefRefPtr<CefResponseFilter> GetResourceResponseFilter(
+      CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
+      CefRefPtr<CefRequest> request,
+      CefRefPtr<CefResponse> response) override;
+  void OnResourceLoadComplete(CefRefPtr<CefBrowser> browser,
+      CefRefPtr<CefFrame> frame, CefRefPtr<CefRequest> request,
+      CefRefPtr<CefResponse> response, URLRequestStatus status,
+      int64 received_content_length) override;
   bool GetAuthCredentials(CefRefPtr<CefBrowser> browser,
       CefRefPtr<CefFrame> frame, bool isProxy, const CefString& host, int port,
       const CefString& realm, const CefString& scheme,
@@ -63,8 +69,6 @@ class CefRequestHandlerCToCpp
       cef_errorcode_t cert_error, const CefString& request_url,
       CefRefPtr<CefSSLInfo> ssl_info,
       CefRefPtr<CefRequestCallback> callback) override;
-  bool OnBeforePluginLoad(CefRefPtr<CefBrowser> browser, const CefString& url,
-      const CefString& policy_url, CefRefPtr<CefWebPluginInfo> info) override;
   void OnPluginCrashed(CefRefPtr<CefBrowser> browser,
       const CefString& plugin_path) override;
   void OnRenderViewReady(CefRefPtr<CefBrowser> browser) override;
@@ -74,4 +78,3 @@ class CefRequestHandlerCToCpp
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_REQUEST_HANDLER_CTOCPP_H_
-

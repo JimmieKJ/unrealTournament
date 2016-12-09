@@ -1,5 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "PerfCountersModule.h"
+#include "HAL/PlatformProcess.h"
 #include "PerfCounters.h"
 
 class FPerfCountersModule : public IPerfCountersModule

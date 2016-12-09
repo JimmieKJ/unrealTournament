@@ -2,23 +2,23 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "GitSourceControlState.h"
-#include "GitSourceControlRevision.h"
 
 class FGitSourceControlCommand;
 
 /**
  * Helper struct for maintaining temporary files for passing to commands
  */
-class FScopedTempFile
+class FGitScopedTempFile
 {
 public:
 
 	/** Constructor - open & write string to temp file */
-	FScopedTempFile(const FText& InText);
+	FGitScopedTempFile(const FText& InText);
 
 	/** Destructor - delete temp file */
-	~FScopedTempFile();
+	~FGitScopedTempFile();
 
 	/** Get the filename of this temp file - empty if it failed to be created */
 	const FString& GetFilename() const;

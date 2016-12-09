@@ -2,8 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineBaseTypes.h"
 #include "K2Node_Event.h"
 #include "K2Node_InputTouchEvent.generated.h"
+
+class UDynamicBlueprintBinding;
 
 UCLASS(MinimalAPI)
 class UK2Node_InputTouchEvent : public UK2Node_Event

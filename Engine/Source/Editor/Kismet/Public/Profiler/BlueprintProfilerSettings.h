@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "BlueprintProfilerSettings.generated.h"
 
 /** Heat map display mode */
@@ -53,10 +56,6 @@ public:
 	UPROPERTY(config)
 	bool bDisplayInheritedEvents;
 
-	/** Blueprint Statistics are Averaged or Summed By Instance */
-	UPROPERTY(config)
-	bool bAverageBlueprintStats;
-
 	/** Current graph node heat map display mode */
 	UPROPERTY(config)
 	EBlueprintProfilerHeatMapDisplayMode GraphNodeHeatMapDisplayMode;
@@ -85,10 +84,23 @@ public:
 	UPROPERTY(config)
 	float CustomMaxPerformanceThreshold;
 
-	/** Default custom threshold values */
-	/** @TODO - maybe we don't have a need for these anymore? they're currently supporting the "reset to default" feature in the UI - not sure we have that in the "normal" editor settings UI */
-	static float CustomEventPerformanceThresholdDefaultValue;
-	static float CustomAveragePerformanceThresholdDefaultValue;
-	static float CustomInclusivePerformanceThresholdDefaultValue;
-	static float CustomMaxPerformanceThresholdDefaultValue;
+	/** Show debugging data for hottest path stats */
+	bool bShowHottestPathStats;
+
+	/** Show debugging data for node heat stats */
+	bool bShowHeatLevelStats;
+
+public:
+
+	/** Returns true if the performance thresholds are modified */
+	bool GetPerformanceThresholdsModified() const { return bThresholdsModified; }
+
+	/** Sets the performance thresholds state */
+	void SetPerformanceThresholdsModified(const bool bModified) { bThresholdsModified = bModified; }
+
+private:
+
+	/** Thresholds modified flag */
+	bool bThresholdsModified;
+
 };

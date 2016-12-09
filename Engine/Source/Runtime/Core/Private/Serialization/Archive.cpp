@@ -3,24 +3,27 @@
 /*=============================================================================
 	UnArchive.cpp: Core archive classes.
 =============================================================================*/
-#include "CorePrivatePCH.h"
 #include "Serialization/Archive.h"
+#include "Math/UnrealMathUtility.h"
+#include "HAL/UnrealMemory.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Parse.h"
+#include "UObject/ObjectVersion.h"
+#include "Serialization/ArchiveProxy.h"
+#include "Serialization/NameAsStringProxyArchive.h"
+#include "Misc/CommandLine.h"
+#include "Internationalization/Text.h"
+#include "Stats/StatsMisc.h"
+#include "Stats/Stats.h"
+#include "Async/AsyncWork.h"
 #include "Serialization/CustomVersion.h"
-#include "EngineVersion.h"
-#include "NetworkVersion.h"
-#include "TargetPlatform.h"
-#include "GenericPlatformCompression.h"
-
-/*-----------------------------------------------------------------------------
-	FArchiveProxy implementation.
------------------------------------------------------------------------------*/
-
-FArchiveProxy::FArchiveProxy(FArchive& InInnerArchive)
-: FArchive    (InInnerArchive)
-, InnerArchive(InInnerArchive)
-{
-}
-
+#include "Misc/EngineVersion.h"
+#include "Misc/NetworkVersion.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Serialization/CompressedChunkInfo.h"
 
 /*-----------------------------------------------------------------------------
 	FArchive implementation.
@@ -28,6 +31,9 @@ FArchiveProxy::FArchiveProxy(FArchive& InInnerArchive)
 
 FArchive::FArchive()
 {
+#if DEVIRTUALIZE_FLinkerLoad_Serialize
+	ActiveFPLB = &InlineFPLB;
+#endif
 	CustomVersionContainer = new FCustomVersionContainer;
 
 #if USE_STABLE_LOCALIZATION_KEYS
@@ -39,6 +45,9 @@ FArchive::FArchive()
 
 FArchive::FArchive(const FArchive& ArchiveToCopy)
 {
+#if DEVIRTUALIZE_FLinkerLoad_Serialize
+	ActiveFPLB = &InlineFPLB;
+#endif
 #if USE_STABLE_LOCALIZATION_KEYS
 	LocalizationNamespacePtr = nullptr;
 #endif // USE_STABLE_LOCALIZATION_KEYS
@@ -53,13 +62,16 @@ FArchive::FArchive(const FArchive& ArchiveToCopy)
 
 FArchive& FArchive::operator=(const FArchive& ArchiveToCopy)
 {
+#if DEVIRTUALIZE_FLinkerLoad_Serialize
+	ActiveFPLB = &InlineFPLB;
+	ActiveFPLB->Reset();
+#endif
 	CopyTrivialFArchiveStatusMembers(ArchiveToCopy);
 
 	// Don't know why this is set to false, but this is what the original copying code did
 	ArIsFilterEditorOnly  = false;
 
 	*CustomVersionContainer = *ArchiveToCopy.CustomVersionContainer;
-
 	return *this;
 }
 
@@ -75,6 +87,9 @@ FArchive::~FArchive()
 // Resets all of the base archive members
 void FArchive::Reset()
 {
+#if DEVIRTUALIZE_FLinkerLoad_Serialize
+	ActiveFPLB->Reset();
+#endif
 	ArUE4Ver							= GPackageFileUE4Version;
 	ArLicenseeUE4Ver					= GPackageFileLicenseeUE4Version;
 	ArEngineVer							= FEngineVersion::Current();
@@ -250,6 +265,13 @@ FArchive& FArchive::operator<<(struct FStringAssetReference& Value)
 	return *this;
 }
 
+FArchive& FArchive::operator<<(struct FWeakObjectPtr& Value)
+{
+	// The base FArchive does not implement this method. Use FArchiveUOBject instead.
+	UE_LOG(LogSerialization, Fatal, TEXT("FArchive does not support FWeakObjectPtr serialization. Use FArchiveUObject instead."));
+	return *this;
+}
+
 const FCustomVersionContainer& FArchive::GetCustomVersions() const
 {
 	if (bCustomVersionsAreReset)
@@ -346,18 +368,6 @@ FArchive& FNameAsStringProxyArchive::operator<<( class FName& N )
 		InnerArchive << SavedString;
 	}
 	return *this;
-}
-
-/** 
- * FCompressedChunkInfo serialize operator.
- */
-FArchive& operator<<( FArchive& Ar, FCompressedChunkInfo& Chunk )
-{
-	// The order of serialization needs to be identical to the memory layout as the async IO code is reading it in bulk.
-	// The size of the structure also needs to match what is being serialized.
-	Ar << Chunk.CompressedSize;
-	Ar << Chunk.UncompressedSize;
-	return Ar;
 }
 
 /** Accumulative time spent in IsSaving portion of SerializeCompressed. */
@@ -911,418 +921,5 @@ VARARG_BODY( void, FArchive::Logf, const TCHAR*, VARARG_NONE )
 	FMemory::SystemFree( Buffer );
 }
 
-/*----------------------------------------------------------------------------
-	Transparent compression/ decompression archives.
-----------------------------------------------------------------------------*/
-
-/*----------------------------------------------------------------------------
-	FArchiveSaveCompressedProxy
-----------------------------------------------------------------------------*/
-
-/** 
- * Constructor, initializing all member variables and allocating temp memory.
- *
- * @param	InCompressedData [ref]	Array of bytes that is going to hold compressed data
- * @param	InCompressionFlags		Compression flags to use for compressing data
- */
-FArchiveSaveCompressedProxy::FArchiveSaveCompressedProxy( TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags )
-:	CompressedData(InCompressedData)
-,	CompressionFlags(InCompressionFlags)
-{
-	ArIsSaving							= true;
-	ArIsPersistent						= true;
-	ArWantBinaryPropertySerialization	= true;
-	bShouldSerializeToArray				= false;
-	RawBytesSerialized					= 0;
-	CurrentIndex						= 0;
-
-	// Allocate temporary memory.
-	TmpDataStart	= (uint8*) FMemory::Malloc(LOADING_COMPRESSION_CHUNK_SIZE);
-	TmpDataEnd		= TmpDataStart + LOADING_COMPRESSION_CHUNK_SIZE;
-	TmpData			= TmpDataStart;
-}
-
-/** Destructor, flushing array if needed. Also frees temporary memory. */
-FArchiveSaveCompressedProxy::~FArchiveSaveCompressedProxy()
-{
-	// Flush is required to write out remaining tmp data to array.
-	Flush();
-	// Free temporary memory allocated.
-	FMemory::Free( TmpDataStart );
-	TmpDataStart	= NULL;
-	TmpDataEnd		= NULL;
-	TmpData			= NULL;
-}
-
-/**
- * Flushes tmp data to array.
- */
-void FArchiveSaveCompressedProxy::Flush()
-{
-	if( TmpData - TmpDataStart > 0 )
-	{
-		// This will call Serialize so we need to indicate that we want to serialize to array.
-		bShouldSerializeToArray = true;
-		SerializeCompressed( TmpDataStart, TmpData - TmpDataStart, CompressionFlags );
-		bShouldSerializeToArray = false;
-		// Buffer is drained, reset.
-		TmpData	= TmpDataStart;
-	}
-}
-
-/**
- * Serializes data to archive. This function is called recursively and determines where to serialize
- * to and how to do so based on internal state.
- *
- * @param	Data	Pointer to serialize to
- * @param	Count	Number of bytes to read
- */
-void FArchiveSaveCompressedProxy::Serialize( void* InData, int64 Count )
-{
-	uint8* SrcData = (uint8*) InData;
-	// If counter > 1 it means we're calling recursively and therefore need to write to compressed data.
-	if( bShouldSerializeToArray )
-	{
-		// Add space in array if needed and copy data there.
-		int32 BytesToAdd = CurrentIndex + Count - CompressedData.Num();
-		if( BytesToAdd > 0 )
-		{
-			CompressedData.AddUninitialized(BytesToAdd);
-		}
-		// Copy memory to array.
-		FMemory::Memcpy( &CompressedData[CurrentIndex], SrcData, Count );
-		CurrentIndex += Count;
-	}
-	// Regular call to serialize, queue for compression.
-	else
-	{
-		while( Count )
-		{
-			int32 BytesToCopy = FMath::Min<int32>( Count, (int32)(TmpDataEnd - TmpData) );
-			// Enough room in buffer to copy some data.
-			if( BytesToCopy )
-			{
-				FMemory::Memcpy( TmpData, SrcData, BytesToCopy );
-				Count -= BytesToCopy;
-				TmpData += BytesToCopy;
-				SrcData += BytesToCopy;
-				RawBytesSerialized += BytesToCopy;
-			}
-			// Tmp buffer fully exhausted, compress it.
-			else
-			{
-				// Flush existing data to array after compressing it. This will call Serialize again 
-				// so we need to handle recursion.
-				Flush();
-			}
-		}
-	}
-}
-
-/**
- * Seeking is only implemented internally for writing out compressed data and asserts otherwise.
- * 
- * @param	InPos	Position to seek to
- */
-void FArchiveSaveCompressedProxy::Seek( int64 InPos )
-{
-	// Support setting position in array.
-	if( bShouldSerializeToArray )
-	{
-		CurrentIndex = InPos;
-	}
-	else
-	{
-		UE_LOG(LogSerialization, Fatal,TEXT("Seeking not supported with FArchiveSaveCompressedProxy"));
-	}
-}
-
-/**
- * @return current position in uncompressed stream in bytes
- */
-int64 FArchiveSaveCompressedProxy::Tell()
-{
-	// If we're serializing to array, return position in array.
-	if( bShouldSerializeToArray )
-	{
-		return CurrentIndex;
-	}
-	// Return global position in raw uncompressed stream.
-	else
-	{
-		return RawBytesSerialized;
-	}
-}
 
 
-/*----------------------------------------------------------------------------
-	FArchiveLoadCompressedProxy
-----------------------------------------------------------------------------*/
-
-/** 
- * Constructor, initializing all member variables and allocating temp memory.
- *
- * @param	InCompressedData	Array of bytes that is holding compressed data
- * @param	InCompressionFlags	Compression flags that were used to compress data
- */
-FArchiveLoadCompressedProxy::FArchiveLoadCompressedProxy( const TArray<uint8>& InCompressedData, ECompressionFlags InCompressionFlags )
-:	CompressedData(InCompressedData)
-,	CompressionFlags(InCompressionFlags)
-{
-	ArIsLoading							= true;
-	ArIsPersistent						= true;
-	ArWantBinaryPropertySerialization	= true;
-	bShouldSerializeFromArray			= false;
-	RawBytesSerialized					= 0;
-	CurrentIndex						= 0;
-
-	// Allocate temporary memory.
-	TmpDataStart	= (uint8*) FMemory::Malloc(LOADING_COMPRESSION_CHUNK_SIZE);
-	TmpDataEnd		= TmpDataStart + LOADING_COMPRESSION_CHUNK_SIZE;
-	TmpData			= TmpDataEnd;
-}
-
-/** Destructor, freeing temporary memory. */
-FArchiveLoadCompressedProxy::~FArchiveLoadCompressedProxy()
-{
-	// Free temporary memory allocated.
-	FMemory::Free( TmpDataStart );
-	TmpDataStart	= NULL;
-	TmpDataEnd		= NULL;
-	TmpData			= NULL;
-}
-
-/**
- * Flushes tmp data to array.
- */
-void FArchiveLoadCompressedProxy::DecompressMoreData()
-{
-	// This will call Serialize so we need to indicate that we want to serialize from array.
-	bShouldSerializeFromArray = true;
-	SerializeCompressed( TmpDataStart, LOADING_COMPRESSION_CHUNK_SIZE /** it's ignored, but that's how much we serialize */, CompressionFlags );
-	bShouldSerializeFromArray = false;
-	// Buffer is filled again, reset.
-	TmpData = TmpDataStart;
-}
-
-/**
- * Serializes data from archive. This function is called recursively and determines where to serialize
- * from and how to do so based on internal state.
- *
- * @param	InData	Pointer to serialize to
- * @param	Count	Number of bytes to read
- */
-void FArchiveLoadCompressedProxy::Serialize( void* InData, int64 Count )
-{
-	uint8* DstData = (uint8*) InData;
-	// If counter > 1 it means we're calling recursively and therefore need to write to compressed data.
-	if( bShouldSerializeFromArray )
-	{
-		// Add space in array and copy data there.
-		check(CurrentIndex+Count<=CompressedData.Num());
-		FMemory::Memcpy( DstData, &CompressedData[CurrentIndex], Count );
-		CurrentIndex += Count;
-	}
-	// Regular call to serialize, read from temp buffer
-	else
-	{	
-		while( Count )
-		{
-			int32 BytesToCopy = FMath::Min<int32>( Count, (int32)(TmpDataEnd - TmpData) );
-			// Enough room in buffer to copy some data.
-			if( BytesToCopy )
-			{
-				// We pass in a NULL pointer when forward seeking. In that case we don't want
-				// to copy the data but only care about pointing to the proper spot.
-				if( DstData )
-				{
-					FMemory::Memcpy( DstData, TmpData, BytesToCopy );
-					DstData += BytesToCopy;
-				}
-				Count -= BytesToCopy;
-				TmpData += BytesToCopy;
-				RawBytesSerialized += BytesToCopy;
-			}
-			// Tmp buffer fully exhausted, decompress new one.
-			else
-			{
-				// Decompress more data. This will call Serialize again so we need to handle recursion.
-				DecompressMoreData();
-			}
-		}
-	}
-}
-
-/**
- * Seeks to the passed in position in the stream. This archive only supports forward seeking
- * and implements it by serializing data till it reaches the position.
- */
-void FArchiveLoadCompressedProxy::Seek( int64 InPos )
-{
-	int64 CurrentPos = Tell();
-	int64 Difference = InPos - CurrentPos;
-	// We only support forward seeking.
-	check(Difference>=0);
-	// Seek by serializing data, albeit with NULL destination so it's just decompressing data.
-	Serialize( NULL, Difference );
-}
-
-/**
- * @return current position in uncompressed stream in bytes.
- */
-int64 FArchiveLoadCompressedProxy::Tell()
-{
-	return RawBytesSerialized;
-}
-
-
-/*----------------------------------------------------------------------------
-	FLargeMemoryWriter
-----------------------------------------------------------------------------*/
-
-FLargeMemoryWriter::FLargeMemoryWriter(const int64 PreAllocateBytes, bool bIsPersistent, const FName InArchiveName)
-	: FMemoryArchive()
-	, Data(nullptr)
-	, NumBytes(0)
-	, MaxBytes(0)
-	, ArchiveName(InArchiveName)
-{
-	ArIsSaving = true;
-	ArIsPersistent = bIsPersistent;
-	GrowBuffer(PreAllocateBytes);
-}
-
-void FLargeMemoryWriter::Serialize(void* InData, int64 Num)
-{
-	UE_CLOG(!Data, LogSerialization, Fatal, TEXT("Tried to serialize data to an FLargeMemoryWriter that was already released. Archive name: %s."), *ArchiveName.ToString());
-	
-	const int64 NumBytesToAdd = Offset + Num - NumBytes;
-	if (NumBytesToAdd > 0)
-	{
-		const int64 NewByteCount = NumBytes + NumBytesToAdd;
-		if (NewByteCount > MaxBytes)
-		{
-			GrowBuffer(NewByteCount);
-		}
-
-		NumBytes = NewByteCount;
-	}
-
-	check((Offset + Num) <= NumBytes);
-
-	if (Num)
-	{
-		FMemory::Memcpy(&Data[Offset], InData, Num);
-		Offset += Num;
-	}
-}
-
-FString FLargeMemoryWriter::GetArchiveName() const
-{
-	return ArchiveName.ToString();
-}
-
-int64 FLargeMemoryWriter::TotalSize()
-{
-	return NumBytes;
-}
-
-uint8* FLargeMemoryWriter::GetData() const
-{
-	UE_CLOG(!Data, LogSerialization, Warning, TEXT("Tried to get written data from an FLargeMemoryWriter that was already released. Archive name: %s."), *ArchiveName.ToString());
-
-	return Data;
-}
-
-void FLargeMemoryWriter::ReleaseOwnership()
-{
-	Data = nullptr;
-	NumBytes = 0;
-	MaxBytes = 0;
-}
-
-FLargeMemoryWriter::~FLargeMemoryWriter()
-{
-	if (Data)
-	{
-		FMemory::Free(Data);
-	}
-}
-
-void FLargeMemoryWriter::GrowBuffer(const int64 DesiredBytes)
-{
-	int64 NewBytes = 4; // Initial alloc size
-
-	if (MaxBytes || DesiredBytes > NewBytes)
-	{
-		// Allocate slack proportional to the buffer size
-		NewBytes = FMemory::QuantizeSize(DesiredBytes + 3 * DesiredBytes / 8 + 16);
-	}
-
-	if (Data)
-	{
-		Data = (uint8*)FMemory::Realloc(Data, NewBytes);
-	}
-	else
-	{
-		Data = (uint8*)FMemory::Malloc(NewBytes);
-	}
-
-	MaxBytes = NewBytes;
-}
-
-
-/*----------------------------------------------------------------------------
-	FLargeMemoryReader
-----------------------------------------------------------------------------*/
-
-FLargeMemoryReader::FLargeMemoryReader(const uint8* InData, const int64 Num, ELargeMemoryReaderFlags InFlags, const FName InArchiveName)
-	: FMemoryArchive()
-	, bFreeOnClose((InFlags & ELargeMemoryReaderFlags::TakeOwnership) != ELargeMemoryReaderFlags::None)
-	, Data(InData)
-	, NumBytes(Num)
-	, ArchiveName(InArchiveName)
-{
-	UE_CLOG(!(InData && Num > 0), LogSerialization, Fatal, TEXT("Tried to initialize an FLargeMemoryReader with a null or empty buffer. Archive name: %s."), *ArchiveName.ToString());
-	ArIsLoading = true;
-	ArIsPersistent = (InFlags & ELargeMemoryReaderFlags::Persistent) != ELargeMemoryReaderFlags::None;
-}
-
-void FLargeMemoryReader::Serialize(void* OutData, int64 Num)
-{
-	if (Num && !ArIsError)
-	{
-		// Only serialize if we have the requested amount of data
-		if (Offset + Num <= NumBytes)
-		{
-			FMemory::Memcpy(OutData, &Data[Offset], Num);
-			Offset += Num;
-		}
-		else
-		{
-			ArIsError = true;
-		}
-	}
-}
-
-int64 FLargeMemoryReader::TotalSize()
-{
-	return NumBytes;
-}
-
-FString FLargeMemoryReader::GetArchiveName() const
-{
-	return ArchiveName.ToString();
-}
-
-FLargeMemoryReader::~FLargeMemoryReader()
-{
-	if (bFreeOnClose)
-	{
-		FMemory::Free((void*)Data);
-	}
-}
-
-/*----------------------------------------------------------------------------
-	The End
-----------------------------------------------------------------------------*/

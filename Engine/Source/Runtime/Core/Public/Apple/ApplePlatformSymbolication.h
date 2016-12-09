@@ -8,7 +8,7 @@
 
 #include "GenericPlatformSymbolication.h"
 #include "ApplePlatformStackWalk.h"
-#include "Serialization/ArchiveBase.h"
+#include "Serialization/Archive.h"
 
 /**
  * Opaque symbol cache for improved symbolisation performance.

@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BuildPatchServicesPrivatePCH.h"
+#include "BuildPatchFileAttributes.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/FileManager.h"
+#include "BuildPatchError.h"
 
 class FBuildPatchFileAttributesImpl : public FBuildPatchFileAttributes
 {
@@ -36,14 +39,14 @@ FBuildPatchFileAttributesImpl::FBuildPatchFileAttributesImpl(const FBuildPatchAp
 	, bUseStageDirectory(bInUseStageDirectory)
 	, BuildProgress(InBuildProgress)
 {
-	BuildProgress->SetStateProgress(EBuildPatchProgress::SettingAttributes, 0.0f);
+	BuildProgress->SetStateProgress(EBuildPatchState::SettingAttributes, 0.0f);
 }
 
 bool FBuildPatchFileAttributesImpl::ApplyAttributes(bool)
 {
 	// We need to set attributes for all files in the new build that require it
 	TArray<FString> BuildFileList = NewManifest->GetBuildFileList();
-	BuildProgress->SetStateProgress(EBuildPatchProgress::SettingAttributes, 0.0f);
+	BuildProgress->SetStateProgress(EBuildPatchState::SettingAttributes, 0.0f);
 	for (int32 BuildFileIdx = 0; BuildFileIdx < BuildFileList.Num() && !FBuildPatchInstallError::HasFatalError(); ++BuildFileIdx)
 	{
 		const FString& BuildFile = BuildFileList[BuildFileIdx];
@@ -52,9 +55,9 @@ bool FBuildPatchFileAttributesImpl::ApplyAttributes(bool)
 		{
 			SetupFileAttributes(SelectFullFilePath(BuildFile), *FileManifest);
 		}
-		BuildProgress->SetStateProgress(EBuildPatchProgress::SettingAttributes, BuildFileIdx / float(BuildFileList.Num()));
+		BuildProgress->SetStateProgress(EBuildPatchState::SettingAttributes, BuildFileIdx / float(BuildFileList.Num()));
 	}
-	BuildProgress->SetStateProgress(EBuildPatchProgress::SettingAttributes, 1.0f);
+	BuildProgress->SetStateProgress(EBuildPatchState::SettingAttributes, 1.0f);
 
 	// We don't fail on this step currently
 	return true;
@@ -133,11 +136,10 @@ bool FBuildPatchFileAttributesImpl::SetFileReadOnlyFlag(const FString& FilePath,
 
 #if PLATFORM_WINDOWS
 // Start of region that uses windows types
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 #include <wtypes.h>
-#include <ioapiset.h>
 #include <winbase.h>
-#include <fileapi.h>
 #include <winioctl.h>
 
 bool FBuildPatchFileAttributesImpl::GetCurrentFileAttributes(const FString& FilePath, bool& OutFileExists, bool& OutIsReadonly, bool& OutIsCompressed, bool& OutIsUnixExecutable)

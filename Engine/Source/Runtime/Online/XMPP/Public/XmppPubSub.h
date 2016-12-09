@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "XmppConnection.h"
+
 /**
  * Id of a PubSub node
  */

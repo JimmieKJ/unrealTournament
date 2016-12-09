@@ -9,6 +9,11 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/WeakObjectPtr.h"
 #include "PlatformInterfaceBase.generated.h"
 
 /** An enum for the types of data used in a PlatformInterfaceData struct. */

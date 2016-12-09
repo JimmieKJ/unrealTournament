@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FunctionalTestingPrivatePCH.h"
-
-#include "UObject/Object.h"
+#include "FuncTestManager.h"
+#include "Misc/CoreMisc.h"
 #include "Engine/World.h"
+#include "Engine/Engine.h"
+#include "EngineUtils.h"
+#include "FunctionalTest.h"
+#include "FunctionalTestingManager.h"
+#include "FunctionalTestingModule.h"
+#include "EngineGlobals.h"
+
 
 DEFINE_LOG_CATEGORY(LogFunctionalTest);
 

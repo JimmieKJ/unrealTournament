@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AIGraphNode.h"
 #include "EnvironmentQueryGraphNode.generated.h"
+
+class UEdGraphSchema;
 
 UCLASS()
 class UEnvironmentQueryGraphNode : public UAIGraphNode

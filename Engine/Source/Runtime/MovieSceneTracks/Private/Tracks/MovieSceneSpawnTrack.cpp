@@ -1,10 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneSpawnTrack.h"
-#include "MovieSceneSpawnTrackInstance.h"
-#include "MovieSceneBoolSection.h"
-
+#include "Tracks/MovieSceneSpawnTrack.h"
+#include "MovieSceneCommonHelpers.h"
+#include "Sections/MovieSceneBoolSection.h"
+#include "Sections/MovieSceneSpawnSection.h"
+#include "Evaluation/MovieSceneSpawnTemplate.h"
+#include "Evaluation/MovieSceneEvaluationTrack.h"
+#include "Compilation/IMovieSceneTemplateGenerator.h"
+#include "Serialization/ObjectReader.h"
+#include "Serialization/ObjectWriter.h"
+#include "MovieScene.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneSpawnTrack"
 
@@ -20,42 +25,36 @@ UMovieSceneSpawnTrack::UMovieSceneSpawnTrack(const FObjectInitializer& Obj)
 #endif
 }
 
-
-/* UMovieSceneSpawnTrack interface
- *****************************************************************************/
-
-bool UMovieSceneSpawnTrack::Eval(float Position, float LastPostion, bool& bOutSpawned) const
+void UMovieSceneSpawnTrack::PostLoad()
 {
-	const UMovieSceneBoolSection* Section = Cast<UMovieSceneBoolSection>(MovieSceneHelpers::FindNearestSectionAtTime(Sections, Position));
-	if (!Section)
+	TArray<uint8> Bytes;
+
+	for (int32 Index = 0; Index < Sections.Num(); ++Index)
 	{
-		return false;
+		UMovieSceneBoolSection* BoolSection = ExactCast<UMovieSceneBoolSection>(Sections[Index]);
+		if (BoolSection)
+		{
+			Bytes.Reset();
+
+			FObjectWriter(BoolSection, Bytes);
+			UMovieSceneSpawnSection* NewSection = NewObject<UMovieSceneSpawnSection>(this, NAME_None, RF_Transactional);
+			FObjectReader(NewSection, Bytes);
+
+			Sections[Index] = NewSection;
+		}
 	}
 
-	if (!Section->IsInfinite())
-	{
-		Position = FMath::Clamp(Position, Section->GetStartTime(), Section->GetEndTime());
-	}
-
-	bOutSpawned = Section->Eval(Position);
-	return true;
+	Super::PostLoad();
 }
-
 
 /* UMovieSceneTrack interface
  *****************************************************************************/
 
 UMovieSceneSection* UMovieSceneSpawnTrack::CreateNewSection()
 {
-	UMovieSceneBoolSection* Section = NewObject<UMovieSceneBoolSection>(this, NAME_None, RF_Transactional);
+	UMovieSceneSpawnSection* Section = NewObject<UMovieSceneSpawnSection>(this, NAME_None, RF_Transactional);
 	Section->GetCurve().SetDefaultValue(true);
 	return Section;
-}
-
-
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneSpawnTrack::CreateInstance()
-{
-	return MakeShareable(new FMovieSceneSpawnTrackInstance(*this));
 }
 
 
@@ -94,6 +93,35 @@ const TArray<UMovieSceneSection*>& UMovieSceneSpawnTrack::GetAllSections() const
 	return Sections;
 }
 
+FMovieSceneEvalTemplatePtr UMovieSceneSpawnTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
+{
+	const UMovieSceneSpawnSection* BoolSection = CastChecked<const UMovieSceneSpawnSection>(&InSection);
+	return FMovieSceneSpawnSectionTemplate(*BoolSection);
+}
+
+void UMovieSceneSpawnTrack::GenerateTemplate(const FMovieSceneTrackCompilerArgs& Args) const
+{
+	UMovieScene* ParentMovieScene = GetTypedOuter<UMovieScene>();
+	if (ParentMovieScene && ParentMovieScene->FindPossessable(Args.ObjectBindingId))
+	{
+		return;
+	}
+
+	Super::GenerateTemplate(Args);
+}
+
+void UMovieSceneSpawnTrack::PostCompile(FMovieSceneEvaluationTrack& OutTrack, const FMovieSceneTrackCompilerArgs& Args) const
+{
+	static FName SpawnGroupName("SpawnObjects");
+
+	Args.Generator.FlushGroupImmediately(SpawnGroupName);
+
+	// All objects must be spawned/destroyed before the sequence continues
+	OutTrack.SetEvaluationGroup(SpawnGroupName);
+	// Set priority to highest possible
+	OutTrack.SetEvaluationPriority(GetEvaluationPriority());
+}
+
 #if WITH_EDITORONLY_DATA
 
 ECookOptimizationFlags UMovieSceneSpawnTrack::GetCookOptimizationFlags() const
@@ -101,7 +129,7 @@ ECookOptimizationFlags UMovieSceneSpawnTrack::GetCookOptimizationFlags() const
 	// Since the spawn track denotes the lifetime of a spawnable, if the object is never spawned, we can remove the entire object
 	for (UMovieSceneSection* Section : Sections)
 	{
-		UMovieSceneBoolSection* BoolSection = CastChecked<UMovieSceneBoolSection>(Section);
+		UMovieSceneSpawnSection* BoolSection = CastChecked<UMovieSceneSpawnSection>(Section);
 		if (!BoolSection->IsActive())
 		{
 			continue;

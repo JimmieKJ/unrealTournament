@@ -1,18 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
+#include "NiagaraEditor.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EdGraph/EdGraphNode.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "EdGraph/EdGraph.h"
+#include "NiagaraEditorModule.h"
+#include "ScopedTransaction.h"
+#include "NiagaraGraph.h"
+#include "NiagaraScriptSource.h"
+#include "GraphEditor.h"
 #include "NiagaraScript.h"
 
-#include "Toolkits/IToolkitHost.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "SDockTab.h"
-#include "GenericCommands.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "EdGraphUtilities.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
-#include "ScopedTransaction.h"
-#include "BlueprintEditorUtils.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
  
 #define LOCTEXT_NAMESPACE "NiagaraEditor"
 

@@ -1,18 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Animation/AnimInstanceProxy.h"
+#include "Animation/AnimNodeBase.h"
 #include "Animation/PoseAsset.h"
-#include "AnimInstanceProxy.h"
-#include "Animation/AnimStats.h"
-#include "Animation/AnimMontage.h"
+#include "AnimationRuntime.h"
 #include "Animation/BlendSpaceBase.h"
 #include "AnimationUtils.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 #include "Animation/AnimNode_AssetPlayerBase.h"
 #include "Animation/AnimNode_StateMachine.h"
 #include "Animation/AnimNode_TransitionResult.h"
 #include "Animation/AnimNode_SaveCachedPose.h"
 #include "Animation/AnimNode_SubInput.h"
+#include "Engine/Engine.h"
+#include "DrawDebugHelpers.h"
 
 #define DO_ANIMSTAT_PROCESSING(StatName) DEFINE_STAT(STAT_ ## StatName)
 #include "AnimMTStats.h"
@@ -198,6 +199,10 @@ void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSec
 
 	NotifyQueue.Reset(InAnimInstance->GetSkelMeshComponent());
 
+#if ENABLE_ANIM_DRAW_DEBUG
+	QueuedDrawDebugItems.Reset();
+#endif
+
 	ClearSlotNodeWeights();
 
 	// Reset the player tick list (but keep it presized)
@@ -237,6 +242,18 @@ void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSec
 	}
 }
 
+void FAnimInstanceProxy::SavePoseSnapshot(USkeletalMeshComponent* InSkeletalMeshComponent, FName SnapshotName)
+{
+	FPoseSnapshot* PoseSnapshot = PoseSnapshots.FindByPredicate([SnapshotName](const FPoseSnapshot& PoseData) { return PoseData.SnapshotName == SnapshotName; });
+	if (PoseSnapshot == nullptr)
+	{
+		PoseSnapshot = &PoseSnapshots[PoseSnapshots.AddDefaulted()];
+		PoseSnapshot->SnapshotName = SnapshotName;
+	}
+
+	InSkeletalMeshComponent->SnapshotPose(*PoseSnapshot);
+}
+
 void FAnimInstanceProxy::PostUpdate(UAnimInstance* InAnimInstance) const
 {
 #if WITH_EDITORONLY_DATA
@@ -248,8 +265,23 @@ void FAnimInstanceProxy::PostUpdate(UAnimInstance* InAnimInstance) const
 		DebugData.AnimNodePoseWatch = MoveTemp(PoseWatchEntriesForThisFrame);
 	}
 #endif
+
 	InAnimInstance->NotifyQueue.Append(NotifyQueue);
 	InAnimInstance->NotifyQueue.ApplyMontageNotifies(*this);
+
+	// Send Queued DrawDebug Commands.
+#if ENABLE_ANIM_DRAW_DEBUG
+	for (const FQueuedDrawDebugItem& DebugItem : QueuedDrawDebugItems)
+	{
+		switch (DebugItem.ItemType)
+		{
+		case EDrawDebugItemType::OnScreenMessage: GEngine->AddOnScreenDebugMessage(INDEX_NONE, 0.f, DebugItem.Color, DebugItem.Message, false, DebugItem.TextScale); break;
+		case EDrawDebugItemType::DirectionalArrow: DrawDebugDirectionalArrow(InAnimInstance->GetSkelMeshComponent()->GetWorld(), DebugItem.StartLoc, DebugItem.EndLoc, DebugItem.Size, DebugItem.Color, DebugItem.bPersistentLines, DebugItem.LifeTime, 0, DebugItem.Thickness); break;
+		case EDrawDebugItemType::Sphere : DrawDebugSphere(InAnimInstance->GetSkelMeshComponent()->GetWorld(), DebugItem.Center, DebugItem.Radius, DebugItem.Segments, DebugItem.Color, DebugItem.bPersistentLines, DebugItem.LifeTime, 0, DebugItem.Thickness); break;
+		case EDrawDebugItemType::Line: DrawDebugLine(InAnimInstance->GetSkelMeshComponent()->GetWorld(), DebugItem.StartLoc, DebugItem.EndLoc, DebugItem.Color, DebugItem.bPersistentLines, DebugItem.LifeTime, 0, DebugItem.Thickness); break;
+		}
+	}
+#endif
 }
 
 void FAnimInstanceProxy::InitializeObjects(UAnimInstance* InAnimInstance)
@@ -364,7 +396,7 @@ void FAnimInstanceProxy::TickAssetPlayerInstances(float DeltaSeconds)
 			// Tick the group leader
 			FAnimAssetTickContext TickContext(DeltaSeconds, RootMotionMode, bOnlyOneAnimationInGroup, SyncGroup.ValidMarkers);
 			// initialize to invalidate first
-			check(SyncGroup.GroupLeaderIndex == INDEX_NONE);
+			ensureMsgf(SyncGroup.GroupLeaderIndex == INDEX_NONE, TEXT("SyncGroup with GroupIndex=%d had a non -1 group leader index of %d in asset %s"), GroupIndex, SyncGroup.GroupLeaderIndex, *GetNameSafe(SkeletalMeshComponent));
 			int32 GroupLeaderIndex = 0;
 			for (; GroupLeaderIndex < SyncGroup.ActivePlayers.Num(); ++GroupLeaderIndex)
 			{
@@ -582,7 +614,7 @@ void FAnimInstanceProxy::ReinitializeSlotNodes()
 	SlotNodeInitializationCounter.Increment();
 }
 
-void FAnimInstanceProxy::RegisterSlotNodeWithAnimInstance(FName SlotNodeName)
+void FAnimInstanceProxy::RegisterSlotNodeWithAnimInstance(const FName& SlotNodeName)
 {
 	// verify if same slot node name exists
 	// then warn users, this is invalid
@@ -609,7 +641,7 @@ void FAnimInstanceProxy::RegisterSlotNodeWithAnimInstance(FName SlotNodeName)
 	SlotWeightTracker[1].Add(FMontageActiveSlotTracker());
 }
 
-void FAnimInstanceProxy::UpdateSlotNodeWeight(FName SlotNodeName, float InMontageLocalWeight, float InNodeGlobalWeight)
+void FAnimInstanceProxy::UpdateSlotNodeWeight(const FName& SlotNodeName, float InMontageLocalWeight, float InNodeGlobalWeight)
 {
 	const int32* TrackerIndexPtr = SlotNameToTrackerIndex.Find(SlotNodeName);
 	if (TrackerIndexPtr)
@@ -635,7 +667,7 @@ void FAnimInstanceProxy::ClearSlotNodeWeights()
 	}
 }
 
-bool FAnimInstanceProxy::IsSlotNodeRelevantForNotifies(FName SlotNodeName) const
+bool FAnimInstanceProxy::IsSlotNodeRelevantForNotifies(const FName& SlotNodeName) const
 {
 	const int32* TrackerIndexPtr = SlotNameToTrackerIndex.Find(SlotNodeName);
 	if (TrackerIndexPtr)
@@ -647,7 +679,7 @@ bool FAnimInstanceProxy::IsSlotNodeRelevantForNotifies(FName SlotNodeName) const
 	return false;
 }
 
-float FAnimInstanceProxy::GetSlotNodeGlobalWeight(FName SlotNodeName) const
+float FAnimInstanceProxy::GetSlotNodeGlobalWeight(const FName& SlotNodeName) const
 {
 	const int32* TrackerIndexPtr = SlotNameToTrackerIndex.Find(SlotNodeName);
 	if (TrackerIndexPtr)
@@ -659,7 +691,7 @@ float FAnimInstanceProxy::GetSlotNodeGlobalWeight(FName SlotNodeName) const
 	return 0.f;
 }
 
-float FAnimInstanceProxy::GetSlotMontageGlobalWeight(FName SlotNodeName) const
+float FAnimInstanceProxy::GetSlotMontageGlobalWeight(const FName& SlotNodeName) const
 {
 	const int32* TrackerIndexPtr = SlotNameToTrackerIndex.Find(SlotNodeName);
 	if (TrackerIndexPtr)
@@ -669,6 +701,26 @@ float FAnimInstanceProxy::GetSlotMontageGlobalWeight(FName SlotNodeName) const
 	}
 
 	return 0.f;
+}
+
+float FAnimInstanceProxy::GetSlotMontageLocalWeight(const FName& SlotNodeName) const
+{
+	const int32* TrackerIndexPtr = SlotNameToTrackerIndex.Find(SlotNodeName);
+	if (TrackerIndexPtr)
+	{
+		const FMontageActiveSlotTracker& Tracker = SlotWeightTracker[GetSyncGroupReadIndex()][*TrackerIndexPtr];
+		return Tracker.MontageLocalWeight;
+	}
+
+	return 0.f;
+}
+
+float FAnimInstanceProxy::CalcSlotMontageLocalWeight(const FName& SlotNodeName) const
+{
+	float out_SlotNodeLocalWeight, out_SourceWeight, out_TotalNodeWeight;
+	GetSlotWeight(SlotNodeName, out_SlotNodeLocalWeight, out_SourceWeight, out_TotalNodeWeight);
+
+	return out_SlotNodeLocalWeight;
 }
 
 FAnimNode_Base* FAnimInstanceProxy::GetCheckedNodeFromIndexUntyped(int32 NodeIdx, UScriptStruct* RequiredStructType)
@@ -729,8 +781,19 @@ void FAnimInstanceProxy::RecalcRequiredBones(USkeletalMeshComponent* Component, 
 {
 	RequiredBones.InitializeTo(Component->RequiredBones, *Asset);
 
+	// If this instance can accept input poses, initialise the input pose container
+	if(SubInstanceInputNode)
+	{
+		SubInstanceInputNode->InputPose.SetBoneContainer(&RequiredBones);
+	}
+
 	// When RequiredBones mapping has changed, AnimNodes need to update their bones caches. 
 	bBoneCachesInvalidated = true;
+}
+
+void FAnimInstanceProxy::RecalcRequiredCurves()
+{
+	RequiredBones.CacheRequiredAnimCurveUids();
 }
 
 void FAnimInstanceProxy::UpdateAnimation()
@@ -798,7 +861,7 @@ void FAnimInstanceProxy::EvaluateAnimationNode(FPoseContext& Output)
 #define DEBUG_MONTAGEINSTANCE_WEIGHT 1
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
-void FAnimInstanceProxy::SlotEvaluatePose(FName SlotNodeName, const FCompactPose& SourcePose, const FBlendedCurve& SourceCurve, float InSourceWeight, FCompactPose& BlendedPose, FBlendedCurve& BlendedCurve, float InBlendWeight, float InTotalNodeWeight)
+void FAnimInstanceProxy::SlotEvaluatePose(const FName& SlotNodeName, const FCompactPose& SourcePose, const FBlendedCurve& SourceCurve, float InSourceWeight, FCompactPose& BlendedPose, FBlendedCurve& BlendedCurve, float InBlendWeight, float InTotalNodeWeight)
 {
 	//Accessing MontageInstances from this function is not safe (as this can be called during Parallel Anim Evaluation!
 	//Any montage data you need to add should be part of MontageEvaluationData
@@ -833,7 +896,7 @@ void FAnimInstanceProxy::SlotEvaluatePose(FName SlotNodeName, const FCompactPose
 			
 			// Bone array has to be allocated prior to calling GetPoseFromAnimTrack
 			NewPose.Pose.SetBoneContainer(&RequiredBones);
-			NewPose.Curve.InitFrom(SkeletalMeshComponent->GetCachedAnimCurveMappingNameUids());
+			NewPose.Curve.InitFrom(RequiredBones);
 
 			// Extract pose from Track
 			FAnimExtractContext ExtractionContext(EvalState.MontagePosition, EvalState.Montage->HasRootMotion() && RootMotionMode != ERootMotionMode::NoRootMotionExtraction);
@@ -841,7 +904,7 @@ void FAnimInstanceProxy::SlotEvaluatePose(FName SlotNodeName, const FCompactPose
 
 			// add montage curves 
 			FBlendedCurve MontageCurve;
-			MontageCurve.InitFrom(SkeletalMeshComponent->GetCachedAnimCurveMappingNameUids());
+			MontageCurve.InitFrom(RequiredBones);
 			EvalState.Montage->EvaluateCurveData(MontageCurve, EvalState.MontagePosition);
 			NewPose.Curve.Combine(MontageCurve);
 
@@ -944,7 +1007,7 @@ void FAnimInstanceProxy::SlotEvaluatePose(FName SlotNodeName, const FCompactPose
 //to debug montage weight
 #define DEBUGMONTAGEWEIGHT 0
 
-void FAnimInstanceProxy::GetSlotWeight(FName const& SlotNodeName, float& out_SlotNodeWeight, float& out_SourceWeight, float& out_TotalNodeWeight) const
+void FAnimInstanceProxy::GetSlotWeight(const FName& SlotNodeName, float& out_SlotNodeWeight, float& out_SourceWeight, float& out_TotalNodeWeight) const
 {
 	// node total weight 
 	float NewSlotNodeWeight = 0.f;
@@ -1039,6 +1102,69 @@ void FAnimInstanceProxy::GatherDebugData(FNodeDebugData& DebugData)
 		PoseNode->GatherDebugData(DebugData);
 	}
 }
+
+#if ENABLE_ANIM_DRAW_DEBUG
+
+void FAnimInstanceProxy::AnimDrawDebugOnScreenMessage(const FString& DebugMessage, const FColor& Color, const FVector2D& TextScale)
+{
+	FQueuedDrawDebugItem DrawDebugItem;
+
+	DrawDebugItem.ItemType = EDrawDebugItemType::OnScreenMessage;
+	DrawDebugItem.Message = DebugMessage;
+	DrawDebugItem.Color = Color;
+	DrawDebugItem.TextScale = TextScale;
+
+	QueuedDrawDebugItems.Add(DrawDebugItem);
+}
+
+void FAnimInstanceProxy::AnimDrawDebugDirectionalArrow(const FVector& LineStart, const FVector& LineEnd, float ArrowSize, const FColor& Color, bool bPersistentLines, float LifeTime, float Thickness)
+{
+	FQueuedDrawDebugItem DrawDebugItem;
+
+	DrawDebugItem.ItemType = EDrawDebugItemType::DirectionalArrow;
+	DrawDebugItem.StartLoc = LineStart;
+	DrawDebugItem.EndLoc = LineEnd;
+	DrawDebugItem.Size = ArrowSize;
+	DrawDebugItem.Color = Color;
+	DrawDebugItem.bPersistentLines = bPersistentLines;
+	DrawDebugItem.LifeTime = LifeTime;
+	DrawDebugItem.Thickness = Thickness;
+
+	QueuedDrawDebugItems.Add(DrawDebugItem);
+}
+
+void FAnimInstanceProxy::AnimDrawDebugSphere(const FVector& Center, float Radius, int32 Segments, const FColor& Color, bool bPersistentLines, float LifeTime, float Thickness)
+{
+	FQueuedDrawDebugItem DrawDebugItem;
+
+	DrawDebugItem.ItemType = EDrawDebugItemType::Sphere;
+	DrawDebugItem.Center = Center;
+	DrawDebugItem.Radius = Radius;
+	DrawDebugItem.Segments = Segments;
+	DrawDebugItem.Color = Color;
+	DrawDebugItem.bPersistentLines = bPersistentLines;
+	DrawDebugItem.LifeTime = LifeTime;
+	DrawDebugItem.Thickness = Thickness;
+
+	QueuedDrawDebugItems.Add(DrawDebugItem);
+}
+
+void FAnimInstanceProxy::AnimDrawDebugLine(const FVector& StartLoc, const FVector& EndLoc, const FColor& Color, bool bPersistentLines, float LifeTime, float Thickness)
+{
+	FQueuedDrawDebugItem DrawDebugItem;
+
+	DrawDebugItem.ItemType = EDrawDebugItemType::Line;
+	DrawDebugItem.StartLoc = StartLoc;
+	DrawDebugItem.EndLoc = EndLoc;
+	DrawDebugItem.Color = Color;
+	DrawDebugItem.bPersistentLines = bPersistentLines;
+	DrawDebugItem.LifeTime = LifeTime;
+	DrawDebugItem.Thickness = Thickness;
+
+	QueuedDrawDebugItems.Add(DrawDebugItem);
+}
+
+#endif // ENABLE_ANIM_DRAW_DEBUG
 
 float FAnimInstanceProxy::GetInstanceAssetPlayerLength(int32 AssetPlayerIndex)
 {
@@ -1407,7 +1533,7 @@ void FAnimInstanceProxy::BindNativeDelegates()
 					{
 						if(TransitionExit.CanTakeDelegateIndex != INDEX_NONE)
 						{
-							// In case the state machine hasn't been initilized, we need to re-get the desc
+							// In case the state machine hasn't been initialized, we need to re-get the desc
 							const FBakedAnimationStateMachine* MachineDesc = GetMachineDescription(AnimClassInterface, StateMachine);
 							const FAnimationTransitionBetweenStates& Transition = MachineDesc->Transitions[TransitionExit.TransitionIndex];
 							const FBakedAnimationState& BakedState = MachineDesc->States[Transition.NextState];
@@ -1689,5 +1815,10 @@ void FAnimInstanceProxy::RegisterWatchedPose(const FCSPose<FCompactPose>& Pose, 
 	}
 }
 #endif
+
+const FPoseSnapshot* FAnimInstanceProxy::GetPoseSnapshot(FName SnapshotName) const
+{
+	return PoseSnapshots.FindByPredicate([SnapshotName](const FPoseSnapshot& PoseData) { return PoseData.SnapshotName == SnapshotName; });
+}
 
 #undef LOCTEXT_NAMESPACE

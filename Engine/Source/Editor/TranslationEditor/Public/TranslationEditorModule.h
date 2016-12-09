@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "Toolkits/IToolkit.h"	// For EAssetEditorMode
-#include "Toolkits/AssetEditorToolkit.h" // For FExtensibilityManager
+#include "CoreMinimal.h"
+#include "Toolkits/AssetEditorToolkit.h"
+#include "Modules/ModuleInterface.h"
+
+class FTranslationEditor;
+class ULocalizationTarget;
+
 //#include "ITranslationEditor.h"
 
 class FTranslationEditor;

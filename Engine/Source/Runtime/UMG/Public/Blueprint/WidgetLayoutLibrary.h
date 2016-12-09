@@ -2,7 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "WidgetLayoutLibrary.generated.h"
+
+class APlayerController;
+class UCanvasPanelSlot;
+class UGridSlot;
+class UHorizontalBoxSlot;
+class UOverlaySlot;
+class UUniformGridSlot;
+class UVerticalBoxSlot;
+class UWidget;
 
 UCLASS()
 class UMG_API UWidgetLayoutLibrary : public UBlueprintFunctionLibrary

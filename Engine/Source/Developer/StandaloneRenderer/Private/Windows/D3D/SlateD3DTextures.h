@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
 #pragma once
+
+#include "Textures/SlateShaderResource.h"
+#include "Textures/SlateUpdatableTexture.h"
+#include "Textures/TextureAtlas.h"
+#include "Fonts/FontTypes.h"
+#include "Templates/RefCounting.h"
+#include "StandaloneRendererPlatformHeaders.h"
 
 /**
  * Encapsulates a D3D11 texture that can be accessed by a shader                   

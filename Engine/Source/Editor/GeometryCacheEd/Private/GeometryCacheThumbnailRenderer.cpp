@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GeometryCacheEdModulePublicPCH.h"
 #include "GeometryCacheThumbnailRenderer.h"
-#include "GeometryCacheThumbnailScene.h"
-#include "ThumbnailHelpers.h"
-#include "EngineModule.h"
+#include "Misc/App.h"
+#include "ShowFlags.h"
 #include "SceneView.h"
+#include "GeometryCacheThumbnailScene.h"
 #include "RendererInterface.h"
+#include "EngineModule.h"
 #include "GeometryCache.h"
 
 UGeometryCacheThumbnailRenderer::UGeometryCacheThumbnailRenderer(const FObjectInitializer& ObjectInitializer)

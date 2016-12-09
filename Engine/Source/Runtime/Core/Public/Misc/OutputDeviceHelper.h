@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+
 /** Helper functions used by FOutputDevice derived classes **/
 struct CORE_API FOutputDeviceHelper
 {

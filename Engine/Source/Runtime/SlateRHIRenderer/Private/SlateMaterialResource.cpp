@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateRHIRendererPrivatePCH.h"
 #include "SlateMaterialResource.h"
+#include "Materials/MaterialInstanceDynamic.h"
 
 
 FSlateMaterialResource::FSlateMaterialResource(const UMaterialInterface& InMaterial, const FVector2D& InImageSize, FSlateShaderResource* InTextureMask )
@@ -13,6 +13,11 @@ FSlateMaterialResource::FSlateMaterialResource(const UMaterialInterface& InMater
 {
 	SlateProxy->ActualSize = InImageSize.IntPoint();
 	SlateProxy->Resource = this;
+
+#if !UE_BUILD_SHIPPING
+	MaterialObjectWeakPtr = MaterialObject; 
+	UpdateMaterialName();
+#endif
 }
 
 FSlateMaterialResource::~FSlateMaterialResource()
@@ -26,6 +31,12 @@ FSlateMaterialResource::~FSlateMaterialResource()
 void FSlateMaterialResource::UpdateMaterial(const UMaterialInterface& InMaterialResource, const FVector2D& InImageSize, FSlateShaderResource* InTextureMask )
 {
 	MaterialObject = &InMaterialResource;
+
+#if !UE_BUILD_SHIPPING
+	MaterialObjectWeakPtr = MaterialObject;
+	UpdateMaterialName();
+#endif
+
 	if( !SlateProxy )
 	{
 		SlateProxy = new FSlateShaderResourceProxy;
@@ -43,6 +54,12 @@ void FSlateMaterialResource::UpdateMaterial(const UMaterialInterface& InMaterial
 void FSlateMaterialResource::ResetMaterial()
 {
 	MaterialObject = nullptr;
+
+#if !UE_BUILD_SHIPPING
+	MaterialObjectWeakPtr = nullptr;
+	UpdateMaterialName();
+#endif
+
 	TextureMaskResource = nullptr;
 	if (SlateProxy)
 	{
@@ -52,3 +69,22 @@ void FSlateMaterialResource::ResetMaterial()
 	Width = 0;
 	Height = 0;
 }
+
+#if !UE_BUILD_SHIPPING
+void FSlateMaterialResource::UpdateMaterialName()
+{
+	if(const UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(MaterialObject))
+	{
+		// MID's don't have nice names. Get the name of the parent instead for tracking
+		MaterialName = MID->Parent->GetFName();
+	}
+	else if(MaterialObject)
+	{
+		MaterialName = MaterialObject->GetFName();
+	}
+	else
+	{
+		MaterialName = NAME_None;
+	}
+}
+#endif

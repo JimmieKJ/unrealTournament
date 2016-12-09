@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PaperSpriteSheetImporterPrivatePCH.h"
 #include "PaperSpriteSheetReimportFactory.h"
+#include "PaperSpriteSheetImporterLog.h"
+#include "HAL/FileManager.h"
+#include "EditorFramework/AssetImportData.h"
 #include "PaperSpriteSheet.h"
 
 #define LOCTEXT_NAMESPACE "PaperJsonImporter"

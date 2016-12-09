@@ -57,30 +57,12 @@ namespace UnrealBuildTool
 			return bHaveVulkan;
 		}
 
-		private bool IsVulkanSupportEnabled()
-		{
-			ConfigCacheIni Ini = new ConfigCacheIni(UnrealTargetPlatform.Android, "Engine", DirectoryReference.FromFile(ProjectFile));
-			bool bSupportsVulkan = false;
-			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bSupportsVulkan", out bSupportsVulkan);
-
-			return bSupportsVulkan;
-		}
-
 		public override void AddExtraModules(TargetInfo Target, List<string> PlatformExtraModules)
 		{
 			bool bVulkanExists = IsVulkanSDKAvailable();
 			if (bVulkanExists)
 			{
-				bool bSupportsVulkan = IsVulkanSupportEnabled();
-				
-				if (bSupportsVulkan)
-				{
-					PlatformExtraModules.Add("VulkanRHI");
-				}
-				else
-				{
-					Log.TraceInformationOnce("Vulkan SDK is installed, but the project disabled Vulkan (bSupportsVulkan setting in Engine). Disabling Vulkan RHI for Android");
-				}
+				PlatformExtraModules.Add("VulkanRHI");
 			}
 		}
 
@@ -200,17 +182,6 @@ namespace UnrealBuildTool
 			UEBuildConfiguration.bCompileSimplygon = false;
 			UEBuildConfiguration.bCompileSimplygonSSF = false;
 			BuildConfiguration.bDeployAfterCompile = true;
-
-			bool bBuildWithVulkan = IsVulkanSDKAvailable() && IsVulkanSupportEnabled();
-			if (bBuildWithVulkan)
-			{
-				InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("PLATFORM_ANDROID_VULKAN=1");
-                Log.TraceInformationOnce("building with VULKAN define");
-			}
-			else
-			{
-				Log.TraceInformationOnce("building WITHOUT VULKAN define");
-			}
 		}
 
 		private bool UseTegraGraphicsDebugger(UEBuildTarget InBuildTarget)
@@ -294,7 +265,7 @@ namespace UnrealBuildTool
 		{
 			string[] BoolKeys = new string[] {
 				"bBuildForArmV7", "bBuildForArm64", "bBuildForX86", "bBuildForX8664", 
-				"bBuildForES2", "bBuildForESDeferred", "bSupportsVulkan", "bBuildForES3"
+				"bBuildForES2", "bBuildForESDeferred", "bBuildForES3"
             };
 
 			// look up Android specific settings
@@ -343,7 +314,7 @@ namespace UnrealBuildTool
 		/// <param name="Target">The target being build</param>
 		public override void ModifyModuleRulesForOtherPlatform(string ModuleName, ModuleRules Rules, TargetInfo Target)
 		{
-			if ((Target.Platform == UnrealTargetPlatform.Win32) || (Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Mac))
+			if ((Target.Platform == UnrealTargetPlatform.Win32) || (Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Mac) || (Target.Platform == UnrealTargetPlatform.Linux))
 			{
 				bool bBuildShaderFormats = UEBuildConfiguration.bForceBuildShaderFormats;
 				if (!UEBuildConfiguration.bBuildRequiresCookedData)
@@ -497,6 +468,11 @@ namespace UnrealBuildTool
 				if (Utils.IsRunningOnMono && !EnvVarNames.All(s => AndroidEnv.ContainsKey(s.Key)))
 				{
 					string BashProfilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), ".bash_profile");
+					if (!File.Exists(BashProfilePath))
+					{
+						// Try .bashrc if didn't fine .bash_profile
+						BashProfilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), ".bashrc");
+					}
 					if (File.Exists(BashProfilePath))
 					{
 						string[] BashProfileContents = File.ReadAllLines(BashProfilePath);

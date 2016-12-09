@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AddContentDialogPCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "IAddContentDialogModule.h"
+#include "ContentSourceProviderManager.h"
+#include "AddContentDialogStyle.h"
+#include "SAddContentDialog.h"
 
-#include "AssertionMacros.h"
-#include "FeaturePackContentSourceProvider.h"
-#include "ModuleManager.h"
-#include "SDockTab.h"
+#include "ContentSourceProviders/FeaturePack/FeaturePackContentSourceProvider.h"
 #include "WidgetCarouselModule.h"
 #include "WidgetCarouselStyle.h"
 

@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "FontProviderInterface.h"
-#include "LegacySlateFontInfoCache.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Templates/Casts.h"
+#include "SlateGlobals.h"
+#include "Fonts/FontProviderInterface.h"
+#include "Fonts/LegacySlateFontInfoCache.h"
 
 
 /* FSlateFontInfo structors
  *****************************************************************************/
+
+FFontOutlineSettings FFontOutlineSettings::NoOutline;
 
 FSlateFontInfo::FSlateFontInfo( )
 	: FontObject(nullptr)

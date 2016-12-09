@@ -6,8 +6,13 @@
 
 #pragma once
 
-class UModelComponent;
+#include "CoreMinimal.h"
+#include "UObject/UObjectGlobals.h"
+#include "HitProxies.h"
 
+class FSceneView;
+class UModel;
+class UModelComponent;
 
 /**
  * A hit proxy representing a UModel.

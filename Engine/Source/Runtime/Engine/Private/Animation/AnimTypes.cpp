@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "AnimationUtils.h"
-#include "AnimationRuntime.h"
 #include "Animation/AnimTypes.h"
+#include "Animation/AnimationAsset.h"
+#include "AnimationUtils.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
 

@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "GenericPlatform/GenericPlatformSurvey.h"
+#include "Containers/Array.h"
 
 // 100: avg good CPU, <100:slower, >100:faster
 float FSynthBenchmarkResults::ComputeCPUPerfIndex(TArray<float>* OutIndividualResults) const

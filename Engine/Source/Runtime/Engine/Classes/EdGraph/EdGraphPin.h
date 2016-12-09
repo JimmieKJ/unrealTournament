@@ -2,8 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "UObject/Class.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Templates/Casts.h"
 #include "EdGraph/EdGraphNode.h"
 #include "EdGraphPin.generated.h"
+
+class UEdGraphPin;
+enum class EPinResolveType : uint8;
 
 USTRUCT()
 struct FSimpleMemberReference
@@ -54,6 +64,62 @@ FORCEINLINE FArchive& operator<<(FArchive& Ar, FSimpleMemberReference& Data)
 	return Ar;
 }
 
+/**
+  * Struct used to define information for terminal types, e.g. types that can be contained
+  * by a container. Currently can represent strong/weak references to a type (only UObjects), 
+  * a structure, or a primitive. Support for "Container of Containers" is done by wrapping 
+  * a structure, rather than implicitly defining names for containers.
+  */
+USTRUCT()
+struct FEdGraphTerminalType
+{
+	GENERATED_USTRUCT_BODY()
+
+	FEdGraphTerminalType()
+		: TerminalCategory()
+		, TerminalSubCategory()
+		, TerminalSubCategoryObject(nullptr)
+		, bTerminalIsConst(false)
+		, bTerminalIsWeakPointer(false)
+	{
+	}
+
+	/** Category */
+	UPROPERTY()
+	FString TerminalCategory;
+
+	/** Sub-category */
+	UPROPERTY()
+	FString TerminalSubCategory;
+
+	/** Sub-category object */
+	UPROPERTY()
+	TWeakObjectPtr<UObject> TerminalSubCategoryObject;
+
+	/** Whether or not this pin is a immutable const value */
+	UPROPERTY()
+	bool bTerminalIsConst;
+
+	/** Whether or not this is a weak reference */
+	UPROPERTY()
+	bool bTerminalIsWeakPointer;
+
+	ENGINE_API friend FArchive& operator<<(FArchive& Ar, FEdGraphTerminalType& P);
+};
+
+inline bool operator!= (const FEdGraphTerminalType& A, const FEdGraphTerminalType& B)
+{
+	return A.TerminalCategory != B.TerminalCategory
+		|| A.TerminalSubCategory != B.TerminalSubCategory
+		|| A.TerminalSubCategoryObject != B.TerminalSubCategoryObject
+		|| A.bTerminalIsConst != B.bTerminalIsConst
+		|| A.bTerminalIsWeakPointer != B.bTerminalIsWeakPointer;
+}
+
+inline bool operator==(const FEdGraphTerminalType& A, const FEdGraphTerminalType& B)
+{
+	return !(A != B);
+}
 
 /** Struct used to define the type of information carried on this pin */
 USTRUCT()
@@ -77,6 +143,18 @@ struct FEdGraphPinType
 	UPROPERTY()
 	FSimpleMemberReference PinSubCategoryMemberReference;
 
+	/** Data used to determine value types when bIsMap is true */
+	UPROPERTY()
+	FEdGraphTerminalType PinValueType;
+
+	/** Whether or not this pin represents a map of keys to values */
+	UPROPERTY()
+	bool bIsMap;
+
+	/** Whether or not this pin represents a set of (unique) values */
+	UPROPERTY()
+	bool bIsSet;
+
 	/** Whether or not this pin represents an array of values */
 	UPROPERTY()
 	bool bIsArray;
@@ -93,10 +171,14 @@ struct FEdGraphPinType
 	UPROPERTY()
 	bool bIsWeakPointer;
 
+	FORCEINLINE bool IsContainer() const { return bIsMap || bIsSet || bIsArray; }
+
 public:
 	FEdGraphPinType() 
 	{
-		PinSubCategoryObject = NULL;
+		PinSubCategoryObject = nullptr;
+		bIsMap = false;
+		bIsSet = false;
 		bIsArray = false;
 		bIsReference = false;
 		bIsConst = false;
@@ -107,6 +189,8 @@ public:
 		PinCategory = InPinCategory;
 		PinSubCategory = InPinSubCategory;
 		PinSubCategoryObject = InPinSubCategoryObject;
+		bIsMap = false;
+		bIsSet = false;
 		bIsArray = bInIsArray;
 		bIsReference = bInIsReference;
 		bIsConst = false;
@@ -117,6 +201,9 @@ public:
 		return (PinCategory == Other.PinCategory)
 			&& (PinSubCategory == Other.PinSubCategory)
 			&& (PinSubCategoryObject == Other.PinSubCategoryObject)
+			&& (PinValueType == Other.PinValueType)
+			&& (bIsMap == Other.bIsMap)
+			&& (bIsSet == Other.bIsSet)
 			&& (bIsArray == Other.bIsArray)
 			&& (bIsReference == Other.bIsReference)
 			&& (bIsWeakPointer == Other.bIsWeakPointer)
@@ -128,6 +215,9 @@ public:
 		return (PinCategory != Other.PinCategory) 
 			|| (PinSubCategory != Other.PinSubCategory) 
 			|| (PinSubCategoryObject != Other.PinSubCategoryObject) 
+			|| (PinValueType != Other.PinValueType)
+			|| (bIsMap != Other.bIsMap)
+			|| (bIsSet != Other.bIsSet)
 			|| (bIsArray != Other.bIsArray) 
 			|| (bIsReference != Other.bIsReference)
 			|| (bIsWeakPointer != Other.bIsWeakPointer)
@@ -138,8 +228,11 @@ public:
 	{
 		PinCategory.Empty();
 		PinSubCategory.Empty();
-		PinSubCategoryObject = NULL;
+		PinSubCategoryObject = nullptr;
+		PinValueType = FEdGraphTerminalType();
 		PinSubCategoryMemberReference.Reset();
+		bIsMap = false;
+		bIsSet = false;
 		bIsArray = false;
 		bIsReference = false;
 		bIsWeakPointer = false;
@@ -412,8 +505,9 @@ public:
 	ENGINE_API bool ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, class UObject* Parent, FOutputDevice* ErrorText);
 
 	ENGINE_API const FString& GetName() const { return PinName; }
-	ENGINE_API UEdGraphNode* GetOuter() const { return GetOwningNode(); }
+	ENGINE_API UEdGraphNode* GetOuter() const { return GetOwningNodeUnchecked(); }
 	ENGINE_API bool IsPendingKill() const {	return bWasTrashed; }
+	ENGINE_API FEdGraphTerminalType GetPrimaryTerminalType() const;
 
 	/** Verification that all pins have been destroyed after shutting down */
 	ENGINE_API static void ShutdownVerification();
@@ -444,7 +538,6 @@ private:
 	static bool SerializePin(FArchive& Ar, UEdGraphPin*& PinRef, int32 ArrayIdx, UEdGraphPin* RequestingPin, EPinResolveType ResolveType, TArray<UEdGraphPin*>& OldPins);
 	static FString ExportText_PinReference(const UEdGraphPin* Pin);
 	static FString ExportText_PinArray(const TArray<UEdGraphPin*>& PinArray);
-	static bool ImportText_PinReference(const TCHAR*& Buffer, UEdGraphPin*& PinRef, int32 ArrayIdx, UEdGraphPin* RequestingPin, EPinResolveType ResolveType);
 	static bool ImportText_PinArray(const TCHAR*& Buffer, TArray<UEdGraphPin*>& ArrayRef, UEdGraphPin* RequestingPin, EPinResolveType ResolveType);
 };
 

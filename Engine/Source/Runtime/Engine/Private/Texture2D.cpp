@@ -4,20 +4,30 @@
 	Texture2D.cpp: Implementation of UTexture2D.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "DerivedDataCacheInterface.h"
-
-#if PLATFORM_DESKTOP
-#include "DDSLoader.h"
-#endif
-
-#if WITH_EDITOR
-#include "TextureCompressorModule.h"
-#endif
-
-#include "TargetPlatform.h"
+#include "Engine/Texture2D.h"
+#include "ProfilingDebugging/ScopedDebugInfo.h"
+#include "Serialization/MemoryWriter.h"
+#include "HAL/IOBase.h"
+#include "Misc/App.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Containers/ResourceArray.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "UObject/LinkerLoad.h"
+#include "RenderUtils.h"
 #include "ContentStreaming.h"
-#include "Streaming/StreamingManagerTexture.h"
+#include "EngineUtils.h"
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
+#include "DerivedDataCacheInterface.h"
+#include "Engine/TextureStreamingTypes.h"
+#include "Streaming/TextureStreamingHelpers.h"
+
+#if USE_NEW_ASYNC_IO
+#include "AsyncFileHandle.h"
+#endif
 
 UTexture2D::UTexture2D(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -900,22 +910,21 @@ FTextureResource* UTexture2D::CreateResource()
 }
 
 
-SIZE_T UTexture2D::GetResourceSize(EResourceSizeMode::Type Mode)
+void UTexture2D::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	if (Mode == EResourceSizeMode::Exclusive)
+	Super::GetResourceSizeEx(CumulativeResourceSize);
+
+	if (CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::Exclusive)
 	{
-		return CalcTextureMemorySize(ResidentMips);
+		CumulativeResourceSize.AddUnknownMemoryBytes(CalcTextureMemorySize(ResidentMips));
 	}
 	else
 	{
-		SIZE_T ResourceSize = 0;
 		if (PlatformData)
 		{
-			ResourceSize += CalcTextureSize(GetSizeX(), GetSizeY(), GetPixelFormat(), GetNumMips());
+			CumulativeResourceSize.AddUnknownMemoryBytes(CalcTextureSize(GetSizeX(), GetSizeY(), GetPixelFormat(), GetNumMips()));
 		}
-		return ResourceSize;
 	}
-	return 0;
 }
 
 
@@ -1108,7 +1117,11 @@ void UTexture2D::RefreshSamplerStates()
 FTexture2DResource::FTexture2DResource( UTexture2D* InOwner, int32 InitialMipCount )
 :	Owner( InOwner )
 ,	ResourceMem( InOwner->ResourceMem )
-,	AsyncCreateTextureTask(NULL)
+,	AsyncCreateTextureTask(nullptr)
+#if USE_NEW_ASYNC_IO
+,	IORequestHandle(nullptr)
+,	IORequestOffsetOffset(0)
+#endif
 ,	IORequestCount( 0 )
 ,	bUsingAsyncCreation(false)
 ,	bPrioritizedIORequest(false)
@@ -1160,6 +1173,10 @@ FTexture2DResource::FTexture2DResource( UTexture2D* InOwner, int32 InitialMipCou
  */
 FTexture2DResource::~FTexture2DResource()
 {
+#if USE_NEW_ASYNC_IO
+	check(!IORequests.Num()); // if these aren't gone by now, that seems problematic
+	verify(BlockTillAllRequestsFinished());
+#endif
 	// free resource memory that was preallocated
 	// The deletion needs to happen in the rendering thread.
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
@@ -1344,7 +1361,7 @@ void FTexture2DResource::ReleaseRHI()
 
 	// It should be safe to release the texture.
 	checkf(Owner->PendingMipChangeRequestStatus.GetValue() <= TexState_ReadyFor_Requests, TEXT("PendingMipChangeRequestStatus = %d"), Owner->PendingMipChangeRequestStatus.GetValue());
-	check(AsyncCreateTextureTask == NULL);
+	check(AsyncCreateTextureTask == nullptr);
 
 	if ( (Texture2DRHI->GetFlags() & TexCreate_Virtual) != TexCreate_Virtual )
 	{
@@ -1420,11 +1437,11 @@ uint32 FTexture2DResource::GetSizeY() const
 /** Returns the default mip bias for this texture. */
 int32 FTexture2DResource::GetDefaultMipMapBias() const
 {
-	const TIndirectArray<FTexture2DMipMap>& OwnerMips = Owner->GetPlatformMips();
 	if ( Owner->LODGroup == TEXTUREGROUP_UI )
 	{
 		if ( CVarForceHighestMipOnUITexturesEnabled.GetValueOnAnyThread() > 0 )
 		{
+			const TIndirectArray<FTexture2DMipMap>& OwnerMips = Owner->GetPlatformMips();
 			return -OwnerMips.Num();
 		}
 	}
@@ -1736,6 +1753,47 @@ void FTexture2DResource::UpdateMipCount()
 	}
 }
 
+#if !defined(USE_NEW_ASYNC_IO) || !defined(SPLIT_COOKED_FILES) || !defined(USE_EVENT_DRIVEN_ASYNC_LOAD)
+#error "USE_NEW_ASYNC_IO and SPLIT_COOKED_FILES and USE_EVENT_DRIVEN_ASYNC_LOAD must be defined."
+#endif
+
+#if USE_NEW_ASYNC_IO
+void FTexture2DResource::AsyncPrep(const FByteBulkData& BulkData)
+{
+	FString Filename = BulkData.GetFilename();
+	check(Filename.Len());
+	if (!IORequestHandle)
+	{
+#if SPLIT_COOKED_FILES && USE_EVENT_DRIVEN_ASYNC_LOAD
+		IORequestOffsetOffset = 0;
+		if (Filename.EndsWith(TEXT(".uasset")) || Filename.EndsWith(TEXT(".umap")))
+		{
+			IORequestOffsetOffset = -IFileManager::Get().FileSize(*Filename);
+			check(IORequestOffsetOffset < 0);
+			Filename = FPaths::GetBaseFilename(Filename, false) + TEXT(".uexp");
+			UE_LOG(LogTexture, Error, TEXT("Streaming from the .uexp file '%s' this MUST be in a ubulk instead for best performance."), *Filename);
+		}
+#endif
+		IORequestFilename = MoveTemp(Filename);
+		IORequestHandle = FPlatformFileManager::Get().GetPlatformFile().OpenAsyncRead(*IORequestFilename);
+		check(IORequestHandle); // this generally cannot fail because it is async
+
+		if (!AsyncFileCallBack)
+		{
+			AsyncFileCallBack = [this](bool bWasCancelled, IAsyncReadRequest* Req)
+			{
+				check(Owner && Owner->IsValidLowLevel());
+				Owner->PendingMipChangeRequestStatus.Decrement();
+			};
+		}
+	}
+	else
+	{
+		check(FPaths::GetBaseFilename(IORequestFilename, false) == FPaths::GetBaseFilename(Filename, false)); // all of the streaming mips must be stored in the same file (could relax that, but this code makes this assumption)
+	}
+}
+#endif
+
 /**
  * Called from the rendering thread to start async I/O to load in new mips.
  */
@@ -1748,6 +1806,10 @@ void FTexture2DResource::LoadMipData()
 
 	if ( (Texture2DRHI->GetFlags() & TexCreate_Virtual) == TexCreate_Virtual )
 	{
+
+#if USE_NEW_ASYNC_IO
+		verify(BlockTillAllRequestsFinished());
+#endif
 		IORequestCount = 0;
 		if ( !Owner->bHasCancelationPending )
 		{
@@ -1778,7 +1840,19 @@ void FTexture2DResource::LoadMipData()
 				Owner->PendingMipChangeRequestStatus.Increment();
 
 				EAsyncIOPriority AsyncIOPriority = bPrioritizedIORequest ? AIOP_BelowNormal : AIOP_Low;
+#if USE_NEW_ASYNC_IO
+				if (MipMap.BulkData.IsStoredCompressedOnDisk())
+				{
+					check(!"USE_NEW_ASYNC_IO does not support compression at the package level.");
+				}
+				else
+				{
+					AsyncPrep(MipMap.BulkData);
+					IORequests.Add(IORequestHandle->ReadRequest(MipMap.BulkData.GetBulkDataOffsetInFile() + IORequestOffsetOffset, MipMap.BulkData.GetBulkDataSize(), AsyncIOPriority, &AsyncFileCallBack, (uint8*)TheMipData));
+					IORequestCount++; // no clue what this actually means, but it is important
+				}
 
+#else
 				// Load and decompress async.
 				{
 					check(MipMap.BulkData.GetFilename().Len());
@@ -1809,6 +1883,7 @@ void FTexture2DResource::LoadMipData()
 					}
 					check(IORequestIndices[MipIndex]);
 				}
+#endif
 
 				// For consistency with other code paths, track the pointer to the locked buffer.
 				MipData[ActualMipIndex] = TheMipData;
@@ -1829,7 +1904,11 @@ void FTexture2DResource::LoadMipData()
 		return;
 	}
 
+#if USE_NEW_ASYNC_IO
+	verify(BlockTillAllRequestsFinished());
+#endif
 	IORequestCount = 0;
+
 	if ( (bUsingAsyncCreation || IsValidRef(IntermediateTextureRHI)) && !Owner->bHasCancelationPending )
 	{
 		STAT( IntermediateTextureSize = Owner->CalcTextureMemorySize( Owner->RequestedMips ) );
@@ -1900,6 +1979,18 @@ void FTexture2DResource::LoadMipData()
 					QUICK_SCOPE_CYCLE_COUNTER(STAT_FTexture2DResource_LoadMipData_Malloc);
 					MipData[ActualMipIndex] = FMemory::Malloc(MipSize);
 				}
+#if USE_NEW_ASYNC_IO
+				if (MipMap.BulkData.IsStoredCompressedOnDisk())
+				{
+					check(!"USE_NEW_ASYNC_IO does not support compression at the package level.");
+				}
+				else
+				{
+					AsyncPrep(MipMap.BulkData);
+					IORequests.Add(IORequestHandle->ReadRequest(MipMap.BulkData.GetBulkDataOffsetInFile() + IORequestOffsetOffset, MipMap.BulkData.GetBulkDataSize(), AsyncIOPriority, &AsyncFileCallBack, (uint8*)MipData[ActualMipIndex]));
+					IORequestCount++; // no clue what this actually means, but it is important
+				}
+#else
 				check(MipMap.BulkData.GetFilename().Len());
 				if( MipMap.BulkData.IsStoredCompressedOnDisk() )
 				{
@@ -1927,6 +2018,7 @@ void FTexture2DResource::LoadMipData()
 						);
 				}
 				check(IORequestIndices[MipIndex]);
+#endif
 			}
 		}
 
@@ -2045,7 +2137,7 @@ void FTexture2DResource::UploadMipData()
 
 		if (!bDerivedDataStreamRequestFailed && !Owner->bHasCancelationPending)
 		{
-			check(AsyncCreateTextureTask == NULL);
+			check(AsyncCreateTextureTask == nullptr);
 			FCreateTextureTask::FArguments TaskArgs = {0};
 			TaskArgs.SizeX = OwnerMips[PendingFirstMip].SizeX;
 			TaskArgs.SizeY = OwnerMips[PendingFirstMip].SizeY;
@@ -2057,7 +2149,7 @@ void FTexture2DResource::UploadMipData()
 			TaskArgs.NumNewMips = Owner->RequestedMips - Owner->ResidentMips;
 			TaskArgs.TextureRefPtr = &IntermediateTextureRHI;
 			TaskArgs.ThreadSafeCounter = &Owner->PendingMipChangeRequestStatus;
-			AsyncCreateTextureTask = new FAsyncCreateTextureTask(TaskArgs);
+			AsyncCreateTextureTask = MakeUnique<FAsyncCreateTextureTask>(TaskArgs);
 			AsyncCreateTextureTask->StartBackgroundTask();
 		}
 		else
@@ -2081,19 +2173,72 @@ void FTexture2DResource::UploadMipData()
 	}
 }
 
+#if USE_NEW_ASYNC_IO
+bool FTexture2DResource::BlockTillAllRequestsFinished(float TimeLimit)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(FTexture2DResource_BlockTillAllRequestsFinished);
+	if (TimeLimit == 0.0f)
+	{
+		double StartTime = FPlatformTime::Seconds();
+		for (IAsyncReadRequest* IORequest : IORequests)
+		{
+			if (IORequest)
+			{
+				IORequest->WaitCompletion();
+				delete IORequest;
+			}
+		}
+		float ThisTime = FPlatformTime::Seconds() - StartTime;
+		if (ThisTime > .01f)
+		{
+			UE_LOG(LogTexture, Log, TEXT("Hitch (%6.1fms) in waiting for async IO in FTexture2DResource::BlockTillAllRequestsFinished; this can happen, especially on desktop platforms. If it happens a lot, or on consoles, that would be indicative of a bug in the texture streamer."), ThisTime * 1000.0f);
+		}
+	}
+	else
+	{
+		double EndTime = FPlatformTime::Seconds() + TimeLimit;
+		for (IAsyncReadRequest*& IORequest : IORequests)
+		{
+			if (IORequest)
+			{
+				float ThisTimeLimit = EndTime - FPlatformTime::Seconds();
+				if (ThisTimeLimit < .001f || // one ms is the granularity of the platform event system
+					!IORequest->WaitCompletion(ThisTimeLimit))
+				{
+					IORequests.Remove(nullptr);
+					return false;
+				}
+				delete IORequest;
+				IORequest = nullptr;
+			}
+		}
+	}
+	IORequests.Empty();
+	return true;
+}
+#endif
+
 /**
 * Helper function for cleaning up bulk data files after streaming
-* @todo: make it smarter, close only when we know we won't be streaming anymore or at least for a while
-* @todo: What if each mip is in a different bulk data file? might need to loop over all
 */
-inline void HintDoneWithStreamedTextureFiles(const UTexture2D* InTexture)
+void FTexture2DResource::HintDoneWithStreamedTextureFiles()
 {
+#if USE_NEW_ASYNC_IO
+	verify(BlockTillAllRequestsFinished());
+	if (IORequestHandle)
+	{
+		delete IORequestHandle;
+		IORequestHandle = nullptr;
+	}
+	check(!IORequestHandle);
+#else
 	if (FPlatformProperties::RequiresCookedData())
 	{
-		const TIndirectArray<FTexture2DMipMap>& OwnerMips = InTexture->GetPlatformMips();
+		const TIndirectArray<FTexture2DMipMap>& OwnerMips = Owner->GetPlatformMips();
 		const FTexture2DMipMap& MipMap = OwnerMips[0];
 		FIOSystem::Get().HintDoneWithFile(MipMap.BulkData.GetFilename());
 	}
+#endif
 }
 
 /**
@@ -2134,7 +2279,7 @@ void FTexture2DResource::FinalizeMipCount()
 		// We're done.
 		Owner->PendingMipChangeRequestStatus.Decrement();
 
-		HintDoneWithStreamedTextureFiles(Owner);
+		HintDoneWithStreamedTextureFiles();
 
 		return;
 	}
@@ -2185,7 +2330,7 @@ void FTexture2DResource::FinalizeMipCount()
 		}
 		IntermediateTextureRHI.SafeRelease();
 
-		HintDoneWithStreamedTextureFiles(Owner);
+		HintDoneWithStreamedTextureFiles();
 	}
 	else
 	{
@@ -2215,8 +2360,22 @@ void FTexture2DResource::CancelUpdate()
 	// We only have anything worth cancellation if there are outstanding I/O requests.
 	if( IORequestCount )
 	{
+#if USE_NEW_ASYNC_IO
+		// Cancel requests. Some may already have been fulfilled or be in the process of being fulfilled.
+		for (IAsyncReadRequest* Item : IORequests)
+		{
+			Item->Cancel();
+		}
+		for (IAsyncReadRequest* Item : IORequests)
+		{
+			Item->WaitCompletion();
+			delete Item;
+		}
+		IORequests.Empty();
+#else
 		// Cancel requests. This only cancels pending requests and not ones currently being fulfilled.
 		FIOSystem::Get().CancelRequests( IORequestIndices, IORequestCount );
+#endif
 	}
 
 	if ( !bUsingAsyncCreation && IsValidRef(IntermediateTextureRHI) )

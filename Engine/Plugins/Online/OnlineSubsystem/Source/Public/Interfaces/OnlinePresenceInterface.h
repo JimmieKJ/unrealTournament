@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "OnlineDelegateMacros.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
+#include "OnlineDelegateMacros.h"
+#include "OnlineKeyValuePair.h"
 
 /** Type of presence keys */
 typedef FString FPresenceKey;

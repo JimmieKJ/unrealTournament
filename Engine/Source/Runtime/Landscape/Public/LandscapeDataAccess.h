@@ -6,6 +6,7 @@ LandscapeDataAccess.h: Classes for the editor to access to Landscape data
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Engine/Texture2D.h"
 
 #define LANDSCAPE_VALIDATE_DATA_ACCESS 1
@@ -14,6 +15,9 @@ LandscapeDataAccess.h: Classes for the editor to access to Landscape data
 
 #define LANDSCAPE_XYOFFSET_SCALE	(1.0f/256.f)
 #define LANDSCAPE_INV_XYOFFSET_SCALE	256.f
+
+class ULandscapeComponent;
+class ULandscapeLayerInfoObject;
 
 namespace LandscapeDataAccess
 {

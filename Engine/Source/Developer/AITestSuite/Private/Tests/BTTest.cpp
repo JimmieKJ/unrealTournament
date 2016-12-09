@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AITestSuitePrivatePCH.h"
-#include "MockAI_BT.h"
+#include "CoreMinimal.h"
+#include "BehaviorTree/BTCompositeNode.h"
+#include "BehaviorTree/Decorators/BTDecorator_ForceSuccess.h"
+#include "BTBuilder.h"
+#include "Tests/AITestsCommon.h"
 #include "BehaviorTree/TestBTDecorator_CantExecute.h"
 
 #define LOCTEXT_NAMESPACE "AITestSuite_BTTest"

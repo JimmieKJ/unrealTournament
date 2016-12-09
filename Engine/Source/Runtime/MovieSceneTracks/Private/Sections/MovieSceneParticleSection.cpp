@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneParticleSection.h"
+#include "Sections/MovieSceneParticleSection.h"
+#include "Evaluation/MovieSceneParticleTemplate.h"
 
 
 UMovieSceneParticleSection::UMovieSceneParticleSection( const FObjectInitializer& ObjectInitializer )
@@ -15,11 +15,6 @@ UMovieSceneParticleSection::UMovieSceneParticleSection( const FObjectInitializer
 void UMovieSceneParticleSection::AddKey( float Time, EParticleKey::Type KeyType )
 {
 	ParticleKeys.AddKey( Time, (int32)KeyType );
-}
-
-FIntegralCurve& UMovieSceneParticleSection::GetParticleCurve()
-{
-	return ParticleKeys;
 }
 
 void UMovieSceneParticleSection::MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles )
@@ -70,4 +65,9 @@ void UMovieSceneParticleSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
 	{
 		ParticleKeys.SetKeyTime( KeyHandle, Time );
 	}
+}
+
+FMovieSceneEvalTemplatePtr UMovieSceneParticleSection::GenerateTemplate() const
+{
+	return FMovieSceneParticleSectionTemplate(*this);
 }

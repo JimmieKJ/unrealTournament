@@ -1,9 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealAudioPrivate.h"
-#include "UnrealAudioModule.h"
-#include "UnrealAudioVoiceInternal.h"
 #include "UnrealAudioVoiceMixer.h"
+#include "UnrealAudioVoiceManager.h"
 
 #if ENABLE_UNREAL_AUDIO
 

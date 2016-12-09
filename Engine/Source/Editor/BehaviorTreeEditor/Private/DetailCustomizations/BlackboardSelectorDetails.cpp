@@ -1,9 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "BlackboardSelectorDetails.h"
-#include "BehaviorTree/BlackboardData.h"
+#include "DetailCustomizations/BlackboardSelectorDetails.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SComboButton.h"
+#include "BehaviorTree/BTNode.h"
+#include "BehaviorTreeDebugger.h"
+#include "DetailWidgetRow.h"
+#include "DetailLayoutBuilder.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType.h"
+#include "BehaviorTree/BlackboardData.h"
 #include "IPropertyUtilities.h"
 
 #define LOCTEXT_NAMESPACE "BlackboardSelectorDetails"

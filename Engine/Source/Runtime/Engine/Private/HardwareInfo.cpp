@@ -6,7 +6,6 @@
 =============================================================================*/
 
 
-#include "EnginePrivate.h"
 #include "HardwareInfo.h"
 
 
@@ -23,6 +22,10 @@ void FHardwareInfo::RegisterHardwareInfo( const FName SpecIdentifier, const FStr
 	HardwareDetailsMap.Add( SpecIdentifier, HardwareInfo );
 }
 
+FString FHardwareInfo::GetHardwareInfo(const FName SpecIdentifier)
+{
+	return HardwareDetailsMap.FindRef(SpecIdentifier);
+}
 
 const FString FHardwareInfo::GetHardwareDetailsString()
 {

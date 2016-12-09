@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetTypeActions_Base.h"
+
 class FAssetTypeActions_ProceduralFoliageSpawner : public FAssetTypeActions_Base
 {
 public:

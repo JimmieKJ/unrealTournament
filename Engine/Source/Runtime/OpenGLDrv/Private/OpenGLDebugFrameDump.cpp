@@ -4,15 +4,20 @@
 	OpenGLDebugFrameDump.cpp: Implementation of debug code that allows creating detailed summaries of OpenGL pipeline state for all draws in a single frame.
 =============================================================================*/
 
-#include "OpenGLDrvPrivate.h"
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/OutputDeviceFile.h"
+#include "Modules/ModuleManager.h"
+#include "OpenGLDrv.h"
 
 /** This define decreases file size, but substantially increases frame dump time. Also, if you turn it off, make sure your image viewer correctly displays BMP files with alpha. */
 #define USE_COMPRESSED_PNG_INSTEAD_OF_BMP_FOR_CONTENT_OUTPUT 1
 
 #if USE_COMPRESSED_PNG_INSTEAD_OF_BMP_FOR_CONTENT_OUTPUT
 // For PNG compression
-#include "ModuleManager.h"
-#include "ImageWrapper.h"
+#include "Interfaces/IImageWrapperModule.h"
 const GLenum TextureOutputFormat = GL_RGBA;
 #else
 const GLenum TextureOutputFormat = GL_BGRA;

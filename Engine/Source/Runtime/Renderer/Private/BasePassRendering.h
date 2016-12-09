@@ -6,11 +6,33 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "RHI.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "HitProxies.h"
+#include "RHIStaticStates.h"
+#include "SceneManagement.h"
+#include "Materials/Material.h"
+#include "DrawingPolicy.h"
+#include "PostProcess/SceneRenderTargets.h"
 #include "LightMapRendering.h"
 #include "VelocityRendering.h"
+#include "MeshMaterialShaderType.h"
+#include "MeshMaterialShader.h"
 #include "ShaderBaseClasses.h"
+#include "DebugViewModeRendering.h"
+#include "FogRendering.h"
 #include "EditorCompositeParams.h"
 #include "PlanarReflectionRendering.h"
+#include "UnrealEngine.h"
+
+class FScene;
+
+template<typename TBufferStruct> class TUniformBufferRef;
+
+class FViewInfo;
 
 /** Whether to allow the indirect lighting cache to be applied to dynamic objects. */
 extern int32 GIndirectLightingCache;
@@ -38,6 +60,12 @@ public:
 		ForwardLocalLightBuffer.Bind(ParameterMap, TEXT("ForwardLocalLightBuffer"));
 		NumCulledLightsGrid.Bind(ParameterMap, TEXT("NumCulledLightsGrid"));
 		CulledLightDataGrid.Bind(ParameterMap, TEXT("CulledLightDataGrid"));
+		
+		InstancedForwardGlobalLightData.Bind(ParameterMap, TEXT("InstancedForwardGlobalLightData"));
+		InstancedForwardLocalLightBuffer.Bind(ParameterMap, TEXT("InstancedForwardLocalLightBuffer"));
+		InstancedNumCulledLightsGrid.Bind(ParameterMap, TEXT("InstancedNumCulledLightsGrid"));
+		InstancedCulledLightDataGrid.Bind(ParameterMap, TEXT("InstancedCulledLightDataGrid"));
+
 		LightAttenuationTexture.Bind(ParameterMap, TEXT("LightAttenuationTexture"));
 		LightAttenuationTextureSampler.Bind(ParameterMap, TEXT("LightAttenuationTextureSampler"));
 		IndirectOcclusionTexture.Bind(ParameterMap, TEXT("IndirectOcclusionTexture"));
@@ -46,13 +74,23 @@ public:
 	}
 
 	template<typename RHICommandListType, typename ShaderRHIParamRef>
-	void Set(RHICommandListType& RHICmdList, const ShaderRHIParamRef& ShaderRHI, const FViewInfo& View)
+	void Set(RHICommandListType& RHICmdList, const ShaderRHIParamRef& ShaderRHI, const FViewInfo& View, const bool bIsInstancedStereo = false)
 	{
 		//@todo - put all of these in a shader resource table
 		SetUniformBufferParameter(RHICmdList, ShaderRHI, ForwardGlobalLightData, View.ForwardLightingResources->ForwardGlobalLightData);
 		SetSRVParameter(RHICmdList, ShaderRHI, ForwardLocalLightBuffer, View.ForwardLightingResources->ForwardLocalLightBuffer.SRV);
 		NumCulledLightsGrid.SetBuffer(RHICmdList, ShaderRHI, View.ForwardLightingResources->NumCulledLightsGrid);
 		CulledLightDataGrid.SetBuffer(RHICmdList, ShaderRHI, View.ForwardLightingResources->CulledLightDataGrid);
+
+		if (bIsInstancedStereo)
+		{
+			// Bind right eye uniforms to instanced parameters
+			const FSceneView& InstancedView = *View.Family->Views[1];
+			SetUniformBufferParameter(RHICmdList, ShaderRHI, InstancedForwardGlobalLightData, InstancedView.ForwardLightingResources->ForwardGlobalLightData);
+			SetSRVParameter(RHICmdList, ShaderRHI, InstancedForwardLocalLightBuffer, InstancedView.ForwardLightingResources->ForwardLocalLightBuffer.SRV);
+			InstancedNumCulledLightsGrid.SetBuffer(RHICmdList, ShaderRHI, InstancedView.ForwardLightingResources->NumCulledLightsGrid);
+			InstancedCulledLightDataGrid.SetBuffer(RHICmdList, ShaderRHI, InstancedView.ForwardLightingResources->CulledLightDataGrid);
+		}
 
 		if (LightAttenuationTexture.IsBound() || IndirectOcclusionTexture.IsBound())
 		{
@@ -92,7 +130,7 @@ public:
 	{
 		NumCulledLightsGrid.UnsetUAV(RHICmdList, ShaderRHI);
 		CulledLightDataGrid.UnsetUAV(RHICmdList, ShaderRHI);
-
+		
 		TArray<FUnorderedAccessViewRHIParamRef, TInlineAllocator<2>> OutUAVs;
 
 		if (NumCulledLightsGrid.IsBound())
@@ -127,6 +165,12 @@ public:
 		Ar << P.ForwardLocalLightBuffer;
 		Ar << P.NumCulledLightsGrid;
 		Ar << P.CulledLightDataGrid;
+
+		Ar << P.InstancedForwardGlobalLightData;
+		Ar << P.InstancedForwardLocalLightBuffer;
+		Ar << P.InstancedNumCulledLightsGrid;
+		Ar << P.InstancedCulledLightDataGrid;
+
 		Ar << P.LightAttenuationTexture;
 		Ar << P.LightAttenuationTextureSampler;
 		Ar << P.IndirectOcclusionTexture;
@@ -141,6 +185,12 @@ private:
 	FShaderResourceParameter ForwardLocalLightBuffer;
 	FRWShaderParameter NumCulledLightsGrid;
 	FRWShaderParameter CulledLightDataGrid;
+	
+	FShaderUniformBufferParameter InstancedForwardGlobalLightData;
+	FShaderResourceParameter InstancedForwardLocalLightBuffer;
+	FRWShaderParameter InstancedNumCulledLightsGrid;
+	FRWShaderParameter InstancedCulledLightDataGrid;
+
 	FShaderResourceParameter LightAttenuationTexture;
 	FShaderResourceParameter LightAttenuationTextureSampler;
 	FShaderResourceParameter IndirectOcclusionTexture;
@@ -249,6 +299,7 @@ protected:
 		VertexParametersType::Bind(Initializer.ParameterMap);
 		HeightFogParameters.Bind(Initializer.ParameterMap);
 		TranslucentLightingVolumeParameters.Bind(Initializer.ParameterMap);
+		ForwardLightingParameters.Bind(Initializer.ParameterMap);
 		const bool bOutputsVelocityToGBuffer = FVelocityRendering::OutputsToGBuffer();
 		if (bOutputsVelocityToGBuffer)
 		{
@@ -266,6 +317,7 @@ public:
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FMeshMaterialShader::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		FForwardLightingParameters::ModifyCompilationEnvironment(Platform, OutEnvironment);
 	}
 
 	virtual bool Serialize(FArchive& Ar)
@@ -274,6 +326,7 @@ public:
 		VertexParametersType::Serialize(Ar);
 		Ar << HeightFogParameters;
 		Ar << TranslucentLightingVolumeParameters;
+		Ar << ForwardLightingParameters;
 		Ar << PreviousLocalToWorldParameter;
 		Ar << SkipOutputVelocityParameter;
 		Ar << InstancedEyeIndexParameter;
@@ -286,8 +339,7 @@ public:
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FVertexFactory* VertexFactory,
 		const FMaterial& InMaterialResource,
-		const FSceneView& View,
-		bool bAllowGlobalFog,
+		const FViewInfo& View,
 		ESceneRenderTargetsMode::Type TextureMode, 
 		bool bIsInstancedStereo,
 		bool bUseDownsampledTranslucencyViewUniformBuffer
@@ -297,12 +349,10 @@ public:
 		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer = bUseDownsampledTranslucencyViewUniformBuffer ? View.DownsampledTranslucencyViewUniformBuffer : View.ViewUniformBuffer;
 		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, InMaterialResource, View, ViewUniformBuffer, TextureMode);
 
-		if (bAllowGlobalFog)
-		{
-			HeightFogParameters.Set(RHICmdList, GetVertexShader(), &View);
-		}
+		HeightFogParameters.Set(RHICmdList, GetVertexShader(), &View);
 
 		TranslucentLightingVolumeParameters.Set(RHICmdList, GetVertexShader());
+		ForwardLightingParameters.Set(RHICmdList, GetVertexShader(), View, bIsInstancedStereo);
 
 		if (IsInstancedStereoParameter.IsBound())
 		{
@@ -315,7 +365,7 @@ public:
 		}
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy, const FMeshBatch& Mesh, const FMeshBatchElement& BatchElement, const FMeshDrawingRenderState& DrawRenderState);
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy, const FMeshBatch& Mesh, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState);
 
 	void SetInstancedEyeIndex(FRHICommandList& RHICmdList, const uint32 EyeIndex);
 
@@ -324,6 +374,7 @@ private:
 	/** The parameters needed to calculate the fog contribution from height fog layers. */
 	FHeightFogShaderParameters HeightFogParameters;
 	FTranslucentLightingVolumeParameters TranslucentLightingVolumeParameters;
+	FForwardLightingParameters ForwardLightingParameters;
 	// When outputting from base pass, the previous transform
 	FShaderParameter PreviousLocalToWorldParameter;
 	FShaderParameter SkipOutputVelocityParameter;
@@ -551,12 +602,13 @@ public:
 		SingleCubemapArrayIndex.Bind(ParameterMap, TEXT("SingleCubemapArrayIndex"));	
 		SingleCaptureOffsetAndAverageBrightness.Bind(ParameterMap, TEXT("SingleCaptureOffsetAndAverageBrightness"));
 		SingleCapturePositionAndRadius.Bind(ParameterMap, TEXT("SingleCapturePositionAndRadius"));
+		SingleCaptureBrightness.Bind(ParameterMap, TEXT("SingleCaptureBrightness"));
 		SkyLightReflectionParameters.Bind(ParameterMap);
 	}
 
 	void Set(FRHICommandList& RHICmdList, FPixelShaderRHIParamRef PixelShaderRHI, const FViewInfo* View);
 
-	void SetMesh(FRHICommandList& RHICmdList, FPixelShaderRHIParamRef PixelShaderRH, const FPrimitiveSceneProxy* Proxy, ERHIFeatureLevel::Type FeatureLevel);
+	void SetMesh(FRHICommandList& RHICmdList, FPixelShaderRHIParamRef PixelShaderRH, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, ERHIFeatureLevel::Type FeatureLevel);
 
 	/** Serializer. */
 	friend FArchive& operator<<(FArchive& Ar,FBasePassReflectionParameters& P)
@@ -567,6 +619,7 @@ public:
 		Ar << P.SingleCubemapArrayIndex;
 		Ar << P.SingleCaptureOffsetAndAverageBrightness;
 		Ar << P.SingleCapturePositionAndRadius;
+		Ar << P.SingleCaptureBrightness;
 		Ar << P.SkyLightReflectionParameters;
 		return Ar;
 	}
@@ -580,6 +633,7 @@ private:
 	FShaderParameter SingleCubemapArrayIndex;
 	FShaderParameter SingleCaptureOffsetAndAverageBrightness;
 	FShaderParameter SingleCapturePositionAndRadius;
+	FShaderParameter SingleCaptureBrightness;
 
 	FSkyLightReflectionParameters SkyLightReflectionParameters;
 };
@@ -668,6 +722,7 @@ public:
 		EBlendMode BlendMode, 
 		bool bEnableEditorPrimitveDepthTest,
 		ESceneRenderTargetsMode::Type TextureMode,
+		bool bIsInstancedStereo,
 		bool bUseDownsampledTranslucencyViewUniformBuffer)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
@@ -685,10 +740,10 @@ public:
 		
 		EditorCompositeParams.SetParameters(RHICmdList, MaterialResource, View, bEnableEditorPrimitveDepthTest, GetPixelShader());
 
-		ForwardLightingParameters.Set(RHICmdList, ShaderRHI, *View);
+		ForwardLightingParameters.Set(RHICmdList, ShaderRHI, *View, bIsInstancedStereo);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, const FMeshDrawingRenderState& DrawRenderState, EBlendMode BlendMode);
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState, EBlendMode BlendMode);
 
 	virtual bool Serialize(FArchive& Ar) override
 	{
@@ -832,11 +887,31 @@ void GetBasePassShaders<FUniformLightMapPolicy>(
 	TBasePassPixelShaderPolicyParamType<FUniformLightMapPolicyShaderParametersType>*& PixelShader
 	);
 
+class FBasePassDrawingPolicy : public FMeshDrawingPolicy
+{
+public:
+	FBasePassDrawingPolicy(
+		const FVertexFactory* InVertexFactory,
+		const FMaterialRenderProxy* InMaterialRenderProxy, 
+		const FMaterial& InMaterialResource, 
+		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
+		EDebugViewShaderMode InDebugViewShaderMode,
+		bool bInEnableReceiveDecalOutput) : FMeshDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource, InOverrideSettings, InDebugViewShaderMode), bEnableReceiveDecalOutput(bInEnableReceiveDecalOutput)
+	{}
+
+	void ApplyDitheredLODTransitionState(FRHICommandList& RHICmdList, FDrawingPolicyRenderState& DrawRenderState, const FViewInfo& ViewInfo, const FStaticMesh& Mesh, const bool InAllowStencilDither);
+
+protected:
+
+	/** Whether or not outputing the receive decal boolean */
+	uint32 bEnableReceiveDecalOutput : 1;
+};
+
 /**
  * Draws the emissive color and the light-map of a mesh.
  */
 template<typename LightMapPolicyType>
-class TBasePassDrawingPolicy : public FMeshDrawingPolicy
+class TBasePassDrawingPolicy : public FBasePassDrawingPolicy
 {
 public:
 
@@ -869,20 +944,18 @@ public:
 		ESceneRenderTargetsMode::Type InSceneTextureMode,
 		bool bInEnableSkyLight,
 		bool bInEnableAtmosphericFog,
+		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
 		EDebugViewShaderMode InDebugViewShaderMode = DVSM_None,
-		bool bInAllowGlobalFog = false,
 		bool bInEnableEditorPrimitiveDepthTest = false,
 		bool bInEnableReceiveDecalOutput = false
 		):
-		FMeshDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource, InDebugViewShaderMode, false, false, false),
+		FBasePassDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource, InOverrideSettings, InDebugViewShaderMode, bInEnableReceiveDecalOutput),
 		LightMapPolicy(InLightMapPolicy),
 		BlendMode(InBlendMode), 
 		SceneTextureMode(InSceneTextureMode),
-		bAllowGlobalFog(bInAllowGlobalFog),
 		bEnableSkyLight(bInEnableSkyLight),
 		bEnableEditorPrimitiveDepthTest(bInEnableEditorPrimitiveDepthTest),
-		bEnableAtmosphericFog(bInEnableAtmosphericFog),
-		bEnableReceiveDecalOutput(bInEnableReceiveDecalOutput)
+		bEnableAtmosphericFog(bInEnableAtmosphericFog)
 	{
 		HullShader = NULL;
 		DomainShader = NULL;
@@ -926,13 +999,13 @@ public:
 			DRAWING_POLICY_MATCH(HullShader == Other.HullShader) &&
 			DRAWING_POLICY_MATCH(DomainShader == Other.DomainShader) &&
 			DRAWING_POLICY_MATCH(SceneTextureMode == Other.SceneTextureMode) &&
-			DRAWING_POLICY_MATCH(bAllowGlobalFog == Other.bAllowGlobalFog) &&
 			DRAWING_POLICY_MATCH(bEnableSkyLight == Other.bEnableSkyLight) && 
-			DRAWING_POLICY_MATCH(LightMapPolicy == Other.LightMapPolicy);
+			DRAWING_POLICY_MATCH(LightMapPolicy == Other.LightMapPolicy) &&
+			DRAWING_POLICY_MATCH(bEnableReceiveDecalOutput == Other.bEnableReceiveDecalOutput);
 		DRAWING_POLICY_MATCH_END
 	}
 
-	void SetSharedState(FRHICommandList& RHICmdList, const FViewInfo* View, const ContextDataType PolicyContext, bool bUseDownsampledTranslucencyViewUniformBuffer = false) const
+	void SetSharedState(FRHICommandList& RHICmdList, const FViewInfo* View, const ContextDataType PolicyContext, const FDrawingPolicyRenderState& DrawRenderState, bool bUseDownsampledTranslucencyViewUniformBuffer = false) const
 	{
 		// If the current debug view shader modes are allowed, different VS/DS/HS must be used (with only SV_POSITION as PS interpolant).
 		if (View->Family->UseDebugViewVSDSHS())
@@ -944,7 +1017,7 @@ public:
 			// Set the light-map policy.
 			LightMapPolicy.Set(RHICmdList, VertexShader, !UseDebugViewPS() ? PixelShader : nullptr, VertexShader, PixelShader, VertexFactory, MaterialRenderProxy, View);
 
-			VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, VertexFactory, *MaterialResource, *View, bAllowGlobalFog, SceneTextureMode, PolicyContext.bIsInstancedStereo, bUseDownsampledTranslucencyViewUniformBuffer);
+			VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, VertexFactory, *MaterialResource, *View, SceneTextureMode, PolicyContext.bIsInstancedStereo, bUseDownsampledTranslucencyViewUniformBuffer);
 
 			if(HullShader)
 			{
@@ -965,7 +1038,7 @@ public:
 				{	// If we are in the translucent pass then override the blend mode, otherwise maintain additive blending.
 					RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_Zero, BF_One>::GetRHI());
 				}
-				else if (View->Family->GetDebugViewShaderMode() != DVSM_MaterialTexCoordScalesAnalysis)
+				else if (View->Family->GetDebugViewShaderMode() != DVSM_OutputMaterialTextureScales)
 				{	// Otherwise, force translucent blend mode (shaders will use an hardcoded alpha).
 					RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha>::GetRHI());
 				}
@@ -974,7 +1047,7 @@ public:
 		}
 		else
 		{
-			PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, BlendMode, bEnableEditorPrimitiveDepthTest, SceneTextureMode, bUseDownsampledTranslucencyViewUniformBuffer);
+			PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, BlendMode, bEnableEditorPrimitiveDepthTest, SceneTextureMode, PolicyContext.bIsInstancedStereo, bUseDownsampledTranslucencyViewUniformBuffer);
 
 			switch(BlendMode)
 			{
@@ -1043,8 +1116,7 @@ public:
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
-		bool bBackFace,
-		const FMeshDrawingRenderState& DrawRenderState,
+		FDrawingPolicyRenderState& DrawRenderState,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const
@@ -1097,35 +1169,7 @@ public:
 			PixelShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState,BlendMode);
 		}
 
-		if (bEnableReceiveDecalOutput && !UseDebugViewPS())
-		{
-			// Set stencil value for this draw call
-			// This is effectively extending the GBuffer using the stencil bits
-			const uint8 StencilValue = GET_STENCIL_BIT_MASK(RECEIVE_DECAL, PrimitiveSceneProxy ? !!PrimitiveSceneProxy->ReceivesDecals() : 0x00)
-				| STENCIL_LIGHTING_CHANNELS_MASK(PrimitiveSceneProxy ? PrimitiveSceneProxy->GetLightingChannelStencilValue() : 0x00);
-			
-			const bool bStencilDithered = DrawRenderState.bAllowStencilDither && DrawRenderState.DitheredLODState != EDitheredLODState::None;
-			if (bStencilDithered)
-			{
-				RHICmdList.SetDepthStencilState(TStaticDepthStencilState<
-					false, CF_Equal,
-					true, CF_Always, SO_Keep, SO_Keep, SO_Replace,
-					false, CF_Always, SO_Keep, SO_Keep, SO_Keep,
-					0xFF, GET_STENCIL_BIT_MASK(RECEIVE_DECAL, 1) | STENCIL_LIGHTING_CHANNELS_MASK(0x7)
-				>::GetRHI(), StencilValue);
-			}
-			else
-			{
-				RHICmdList.SetDepthStencilState(TStaticDepthStencilState<
-					true, CF_GreaterEqual,
-					true, CF_Always, SO_Keep, SO_Keep, SO_Replace,
-					false, CF_Always, SO_Keep, SO_Keep, SO_Keep,
-					0xFF, GET_STENCIL_BIT_MASK(RECEIVE_DECAL, 1) | STENCIL_LIGHTING_CHANNELS_MASK(0x7)
-				>::GetRHI(), StencilValue);
-			}
-		}
-
-		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,DrawRenderState,FMeshDrawingPolicy::ElementDataType(),PolicyContext);
+		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,DrawRenderState,FMeshDrawingPolicy::ElementDataType(),PolicyContext);
 	}
 
 	friend int32 CompareDrawingPolicy(const TBasePassDrawingPolicy& A,const TBasePassDrawingPolicy& B)
@@ -1137,7 +1181,6 @@ public:
 		COMPAREDRAWINGPOLICYMEMBERS(VertexFactory);
 		COMPAREDRAWINGPOLICYMEMBERS(MaterialRenderProxy);
 		COMPAREDRAWINGPOLICYMEMBERS(SceneTextureMode);
-		COMPAREDRAWINGPOLICYMEMBERS(bAllowGlobalFog);
 		COMPAREDRAWINGPOLICYMEMBERS(bEnableSkyLight);
 		COMPAREDRAWINGPOLICYMEMBERS(bEnableReceiveDecalOutput);
 
@@ -1158,17 +1201,12 @@ protected:
 
 	ESceneRenderTargetsMode::Type SceneTextureMode;
 
-	uint32 bAllowGlobalFog : 1;
-
 	uint32 bEnableSkyLight : 1;
 
 	/** Whether or not this policy is compositing editor primitives and needs to depth test against the scene geometry in the base pass pixel shader */
 	uint32 bEnableEditorPrimitiveDepthTest : 1;
 	/** Whether or not this policy enables atmospheric fog */
 	uint32 bEnableAtmosphericFog : 1;
-
-	/** Whether or not outputing the receive decal boolean */
-	uint32 bEnableReceiveDecalOutput : 1;
 };
 
 /**
@@ -1198,8 +1236,8 @@ public:
 		const FViewInfo& View,
 		ContextType DrawingContext,
 		const FMeshBatch& Mesh,
-		bool bBackFace,
 		bool bPreFog,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId, 
 		const bool bIsInstancedStereo = false
@@ -1223,6 +1261,7 @@ public:
 	ESceneRenderTargetsMode::Type TextureMode;
 	ERHIFeatureLevel::Type FeatureLevel;
 	const bool bIsInstancedStereo;
+	const bool bUseMobileMultiViewMask;
 
 	/** Initialization constructor. */
 	FProcessBasePassMeshParameters(
@@ -1232,8 +1271,9 @@ public:
 		bool InbAllowFog,
 		bool bInEditorCompositeDepthTest,
 		ESceneRenderTargetsMode::Type InTextureMode,
-		ERHIFeatureLevel::Type InFeatureLevel, 
-		const bool InbIsInstancedStereo = false
+		ERHIFeatureLevel::Type InFeatureLevel,
+		const bool InbIsInstancedStereo = false,
+		const bool InbUseMobileMultiViewMask = false
 		):
 		Mesh(InMesh),
 		BatchElementMask(Mesh.Elements.Num()==1 ? 1 : (1<<Mesh.Elements.Num())-1), // 1 bit set for each mesh element
@@ -1245,7 +1285,8 @@ public:
 		bEditorCompositeDepthTest(bInEditorCompositeDepthTest),
 		TextureMode(InTextureMode),
 		FeatureLevel(InFeatureLevel), 
-		bIsInstancedStereo(InbIsInstancedStereo)
+		bIsInstancedStereo(InbIsInstancedStereo), 
+		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)
 	{
 	}
 
@@ -1259,7 +1300,8 @@ public:
 		bool bInEditorCompositeDepthTest,
 		ESceneRenderTargetsMode::Type InTextureMode,
 		ERHIFeatureLevel::Type InFeatureLevel, 
-		bool InbIsInstancedStereo = false
+		bool InbIsInstancedStereo = false, 
+		bool InbUseMobileMultiViewMask = false
 		) :
 		Mesh(InMesh),
 		BatchElementMask(InBatchElementMask),
@@ -1271,7 +1313,8 @@ public:
 		bEditorCompositeDepthTest(bInEditorCompositeDepthTest),
 		TextureMode(InTextureMode),
 		FeatureLevel(InFeatureLevel),
-		bIsInstancedStereo(InbIsInstancedStereo)
+		bIsInstancedStereo(InbIsInstancedStereo), 
+		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)
 	{
 	}
 };
@@ -1280,7 +1323,7 @@ template<typename ProcessActionType>
 void ProcessBasePassMeshForSimpleForwardShading(
 	FRHICommandList& RHICmdList,
 	const FProcessBasePassMeshParameters& Parameters,
-	const ProcessActionType& Action,
+	ProcessActionType&& Action,
 	const FLightMapInteraction& LightMapInteraction,
 	bool bIsLitMaterial,
 	bool bAllowStaticLighting
@@ -1342,7 +1385,7 @@ template<typename ProcessActionType>
 void ProcessBasePassMesh(
 	FRHICommandList& RHICmdList,
 	const FProcessBasePassMeshParameters& Parameters,
-	const ProcessActionType& Action
+	ProcessActionType&& Action
 	)
 {
 	// Check for a cached light-map.

@@ -5,7 +5,9 @@
  
 
 // Module includes
-#include "OnlineSharingInterface.h"
+#include "CoreMinimal.h"
+#include "Interfaces/OnlineSharingInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemFacebookPackage.h"
 
 /**

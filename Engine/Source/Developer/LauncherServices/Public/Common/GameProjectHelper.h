@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
+#include "HAL/FileManager.h"
+#include "Misc/PackageName.h"
 
 /**
  * Implements a helper class for finding project specific information.

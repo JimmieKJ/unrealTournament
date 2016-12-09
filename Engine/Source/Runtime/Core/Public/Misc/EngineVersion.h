@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "EngineVersionBase.h"
-
+#include "CoreTypes.h"
+#include "Misc/EngineVersionBase.h"
+#include "Containers/UnrealString.h"
 
 /** Utility functions. */
 class CORE_API FEngineVersion : public FEngineVersionBase
@@ -28,9 +29,6 @@ public:
 	/** Generates a version string */
 	FString ToString(EVersionComponent LastComponent = EVersionComponent::Branch) const;
 
-    /** Generates a version string appropriate for the build info system */
-	FString ToBuildInfoString() const;
-
 	/** Parses a version object from a string. Returns true on success. */
 	static bool Parse(const FString &Text, FEngineVersion &OutVersion);
 
@@ -41,7 +39,7 @@ public:
 	static const FEngineVersion& CompatibleWith();
 
 	/** Overrides the current changelist in the verison */
-	static bool OverrideCurrentVersionChangelist(int32 NewChangelist);
+	static bool OverrideCurrentVersionChangelist(int32 NewChangelist, int32 NewCompatibleChangelist);
 
 	/** Serialization function */
 	friend CORE_API void operator<<(class FArchive &Ar, FEngineVersion &Version);

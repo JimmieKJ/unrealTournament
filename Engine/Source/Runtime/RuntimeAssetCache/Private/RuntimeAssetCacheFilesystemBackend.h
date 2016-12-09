@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
 #include "RuntimeAssetCacheBackend.h"
+
+class FArchive;
+class FRuntimeAssetCacheBucket;
 
 /**
  * File system implementation of runtime asset cache backend.

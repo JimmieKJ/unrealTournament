@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "SlateColorCustomization.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "DetailWidgetRow.h"
+#include "DetailLayoutBuilder.h"
 
 TSharedRef<IPropertyTypeCustomization> FSlateColorCustomization::MakeInstance() 
 {

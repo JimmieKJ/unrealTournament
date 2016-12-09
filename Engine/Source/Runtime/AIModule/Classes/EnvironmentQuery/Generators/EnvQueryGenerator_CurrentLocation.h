@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "EnvironmentQuery/EnvQueryContext.h"
 #include "EnvironmentQuery/EnvQueryGenerator.h"
 #include "EnvQueryGenerator_CurrentLocation.generated.h"
-
-struct FEnvQueryInstance;
 
 UCLASS(meta = (DisplayName = "Current Location"))
 class AIMODULE_API UEnvQueryGenerator_CurrentLocation : public UEnvQueryGenerator

@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Serialization/Archive.h"
+#include "Containers/UnrealString.h"
+#include "Misc/DateTime.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Templates/ScopedPointer.h"
+#include "UniquePtr.h"
 
 /**
  * Base class for file managers.
@@ -71,7 +80,7 @@ public:
 	bool SetTimeStamp( const TCHAR* Filename, FDateTime Timestamp ) override;
 	virtual FString GetFilenameOnDisk(const TCHAR* Filename) override;
 
-	virtual uint32	Copy( const TCHAR* InDestFile, const TCHAR* InSrcFile, bool ReplaceExisting, bool EvenIfReadOnly, bool Attributes, FCopyProgress* Progress ) override;
+	virtual uint32	Copy( const TCHAR* Dest, const TCHAR* Src, bool Replace = 1, bool EvenIfReadOnly = 0, bool Attributes = 0, FCopyProgress* Progress = nullptr, EFileRead ReadFlags = FILEREAD_None, EFileWrite WriteFlags = FILEWRITE_None ) override;
 	virtual bool	MakeDirectory( const TCHAR* Path, bool Tree=0 ) override;
 	virtual bool	DeleteDirectory( const TCHAR* Path, bool RequireExists=0, bool Tree=0 ) override;
 
@@ -178,7 +187,7 @@ private:
 	/**
 	 * Helper called from Copy if Progress is available
 	 */
-	uint32	CopyWithProgress( const TCHAR* InDestFile, const TCHAR* InSrcFile, bool ReplaceExisting, bool EvenIfReadOnly, bool Attributes, FCopyProgress* Progress );
+	uint32	CopyWithProgress(const TCHAR* InDestFile, const TCHAR* InSrcFile, bool ReplaceExisting, bool EvenIfReadOnly, bool Attributes, FCopyProgress* Progress, EFileRead ReadFlags, EFileWrite WriteFlags);
 
 	void FindFilesRecursiveInternal( TArray<FString>& FileNames, const TCHAR* StartDirectory, const TCHAR* Filename, bool Files, bool Directories);
 };
@@ -234,7 +243,7 @@ protected:
 	int64 Pos;
 	int64 BufferBase;
 	int64 BufferCount;
-	TAutoPtr<IFileHandle> Handle;
+	TUniquePtr<IFileHandle> Handle;
 	uint8 Buffer[1024];
 };
 
@@ -296,7 +305,7 @@ protected:
 	FString Filename;
 	int64 Pos;
 	int64 BufferCount;
-	TAutoPtr<IFileHandle> Handle;
+	TUniquePtr<IFileHandle> Handle;
 	uint8 Buffer[4096];
 	bool bLoggingError;
 };

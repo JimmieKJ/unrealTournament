@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "CollisionQueryParams.h"
+#include "ICollisionAnalyzer.h"
+
+class SWidget;
 
 /** Stores information about one collision query */
 struct FCAQuery

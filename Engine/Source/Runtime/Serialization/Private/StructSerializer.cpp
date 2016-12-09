@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SerializationPrivatePCH.h"
-#include "IStructSerializerBackend.h"
 #include "StructSerializer.h"
+#include "UObject/UnrealType.h"
+#include "IStructSerializerBackend.h"
 
 
 /* Internal helpers

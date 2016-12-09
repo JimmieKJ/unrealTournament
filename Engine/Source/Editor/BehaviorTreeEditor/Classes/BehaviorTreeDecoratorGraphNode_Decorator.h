@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "BehaviorTreeEditorTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BehaviorTreeDecoratorGraphNode.h"
+#include "AIGraphTypes.h"
 #include "BehaviorTreeDecoratorGraphNode_Decorator.generated.h"
 
 UCLASS()

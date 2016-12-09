@@ -3,17 +3,25 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "Templates/RefCounting.h"
+#include "EngineDefines.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "Components/PrimitiveComponent.h"
+#include "Serialization/BulkData.h"
 #include "LandscapeHeightfieldCollisionComponent.generated.h"
 
-// Forward declarations
-class ULandscapeComponent;
-class ULandscapeLayerInfoObject;
-class ULandscapeInfo;
-class ALandscape;
 class ALandscapeProxy;
-class AInstancedFoliageActor;
+class FAsyncPreRegisterDDCRequest;
+class ULandscapeComponent;
+class ULandscapeInfo;
+class ULandscapeLayerInfoObject;
+class UPhysicalMaterial;
+struct FConvexVolume;
+struct FEngineShowFlags;
+struct FNavigableGeometryExport;
 
 #if WITH_PHYSX
 namespace physx

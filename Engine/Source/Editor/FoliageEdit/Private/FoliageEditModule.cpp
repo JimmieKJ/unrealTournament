@@ -1,25 +1,32 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "UnrealEd.h"
 #include "FoliageEditModule.h"
-#include "Runtime/AssetRegistry/Public/AssetRegistryModule.h"
+#include "Modules/ModuleManager.h"
+#include "Textures/SlateIcon.h"
+#include "EditorStyleSet.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
+#include "EditorModeRegistry.h"
+#include "EditorModes.h"
+#include "UnrealEdGlobals.h"
+#include "AssetRegistryModule.h"
 
 const FName FoliageEditAppIdentifier = FName(TEXT("FoliageEdApp"));
 
+#include "UObject/UObjectIterator.h"
+#include "FoliageType_InstancedStaticMesh.h"
+#include "InstancedFoliageActor.h"
 #include "FoliageEdMode.h"
-#include "PropertyEditing.h"
+#include "PropertyEditorModule.h"
 #include "FoliageTypeDetails.h"
 #include "ProceduralFoliageComponent.h"
 #include "ProceduralFoliageComponentVisualizer.h"
 #include "ProceduralFoliageComponentDetails.h"
 #include "ActorFactoryProceduralFoliage.h"
-#include "ComponentVisualizer.h"
 #include "ProceduralFoliageVolume.h"
 #include "ProceduralFoliageBlockingVolume.h"
-#include "ProceduralFoliageComponent.h"
 #include "FoliageTypeObjectCustomization.h"
-#include "FoliageType_InstancedStaticMesh.h"
 #include "FoliageType_ISMThumbnailRenderer.h"
 
 /**

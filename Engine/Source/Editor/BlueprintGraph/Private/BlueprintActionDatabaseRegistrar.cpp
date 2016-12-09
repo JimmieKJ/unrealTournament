@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "BlueprintNodeSpawner.h"
+#include "Engine/Blueprint.h"
+#include "UObject/UnrealType.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "EdGraphSchema_K2.h"
 #include "BlueprintNodeSpawnerUtils.h"
 
 /*******************************************************************************

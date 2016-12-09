@@ -202,7 +202,7 @@ public class BuildCookRun : BuildCommand
 		const ProjectBuildTargets ClientTargets = ProjectBuildTargets.ClientCooked | ProjectBuildTargets.ServerCooked;
         bool bGenerateNativeScripts = Params.RunAssetNativization;
 		int WorkingCL = -1;
-		if (P4Enabled && AllowSubmit)
+		if (P4Enabled && GlobalCommandLine.Submit && AllowSubmit)
 		{
 			WorkingCL = P4.CreateChange(P4Env.Client, String.Format("{0} build from changelist {1}", Params.ShortProjectName, P4Env.Changelist));
 		}
@@ -332,7 +332,7 @@ public class BuildCookRun : BuildCommand
 						{
 							ProjectFullPath = GameProj.FilePath;
 						}
-						if (!FileExists_NoExceptions(ProjectFullPath.FullName))
+						if (ProjectFullPath == null || !FileExists_NoExceptions(ProjectFullPath.FullName))
 						{
 							throw new AutomationException("Could not find a project file {0}.", ProjectName);
 						}

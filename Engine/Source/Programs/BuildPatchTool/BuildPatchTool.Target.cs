@@ -66,12 +66,4 @@ public class BuildPatchToolTarget : TargetRules
 		OutLinkEnvironmentConfiguration.bIsBuildingConsoleApplication = true;
 		OutLinkEnvironmentConfiguration.bHasExports = false;
 	}
-
-	public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
-	{
-		bInternalToolOnly = true;
-		SeparateNode = true;
-		CrossCompile = false;
-		return true;
-	}
 }

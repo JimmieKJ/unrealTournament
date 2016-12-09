@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-class FWorldTileCollectionModel;
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Tiles/WorldTileCollectionModel.h"
+#include "IDetailCustomization.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+
+class IDetailLayoutBuilder;
 
 /////////////////////////////////////////////////////
 // FWorldTileDetailsCustomization

@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "MeshMergingSettingsCustomization.h"
 #include "Engine/MeshMerging.h"
+#include "Misc/Attribute.h"
+#include "UObject/UnrealType.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
 #include "PropertyRestriction.h"
 
 #define LOCTEXT_NAMESPACE "FMeshMergingSettingCustomization"

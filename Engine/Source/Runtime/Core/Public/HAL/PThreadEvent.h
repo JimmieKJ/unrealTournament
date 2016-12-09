@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Misc/AssertionMacros.h"
+#include "HAL/Event.h"
 
 /**
  * This is the PThreads version of FEvent.

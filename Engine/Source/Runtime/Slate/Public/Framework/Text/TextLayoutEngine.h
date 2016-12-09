@@ -1,30 +1,34 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
 // Generic Text Layout
-#include "TextRange.h"
-#include "TextRunRenderer.h"
-#include "TextLineHighlight.h"
+#include "Framework/Text/TextRange.h"
+#include "Framework/Text/TextRunRenderer.h"
+#include "Framework/Text/TextLineHighlight.h"
 
-#include "TextHitPoint.h"
-#include "IRun.h"
-#include "IRunRenderer.h"
-#include "ILineHighlighter.h"
-#include "ILayoutBlock.h"
+#include "Framework/Text/TextHitPoint.h"
+#include "Framework/Text/ShapedTextCacheFwd.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/IRunRenderer.h"
+#include "Framework/Text/ILineHighlighter.h"
+#include "Framework/Text/ILayoutBlock.h"
 
-#include "TextLayout.h"
-#include "DefaultLayoutBlock.h"
-#include "WidgetLayoutBlock.h"
+#include "Framework/Text/TextLayout.h"
+#include "Framework/Text/DefaultLayoutBlock.h"
+#include "Framework/Text/WidgetLayoutBlock.h"
 
 
 // Slate Specific Text Layout
-#include "ISlateRun.h"
-#include "ISlateRunRenderer.h"
-#include "ISlateLineHighlighter.h"
+#include "Framework/Text/ISlateRun.h"
+#include "Framework/Text/ISlateRunRenderer.h"
+#include "Framework/Text/ISlateLineHighlighter.h"
 
-#include "SlateTextLayout.h"
+#include "Framework/Text/SlateTextLayout.h"
 
-#include "SlateTextRun.h"
-#include "SlateHyperlinkRun.h"
-#include "SlateImageRun.h"
-#include "SlateWidgetRun.h"
+#include "Framework/Text/SlateTextRun.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "Framework/Text/SlateImageRun.h"
+#include "Framework/Text/SlateWidgetRun.h"

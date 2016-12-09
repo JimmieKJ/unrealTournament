@@ -5,8 +5,14 @@
 =============================================================================*/
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Serialization/BulkData.h"
 #include "VectorField/VectorField.h"
 #include "VectorFieldStatic.generated.h"
+
+struct FPropertyChangedEvent;
 
 UCLASS(hidecategories=VectorFieldBounds, MinimalAPI)
 class UVectorFieldStatic : public UVectorField

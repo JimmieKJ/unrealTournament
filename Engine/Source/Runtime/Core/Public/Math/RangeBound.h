@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/TypeHash.h"
+#include "Containers/EnumAsByte.h"
+#include "Misc/DateTime.h"
+
 namespace ERangeBoundTypes
 {
 	/**

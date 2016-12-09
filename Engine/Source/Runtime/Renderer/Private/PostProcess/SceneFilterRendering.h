@@ -6,7 +6,13 @@
 
 #pragma once
 
-#include "SceneRenderTargets.h"
+#include "CoreMinimal.h"
+#include "RenderResource.h"
+#include "RendererInterface.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "ShaderParameterUtils.h"
 
 /**
  * Draws a quad with the given vertex positions and UVs in denormalized pixel/texel coordinates.

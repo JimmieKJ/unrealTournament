@@ -6,7 +6,15 @@
 
 #pragma once
 
-#include "Engine/ShadowMapTexture2D.h"
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "RenderResource.h"
+#include "UniformBuffer.h"
+#include "ShaderParameters.h"
+#include "DrawingPolicy.h"
+#include "ShadowRendering.h"
+
+class FPrimitiveSceneProxy;
 
 extern ENGINE_API bool GShowDebugSelectedLightmap;
 extern ENGINE_API class FLightMap2D* GDebugSelectedLightmap;

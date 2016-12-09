@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "EditorStyleSet.h"
+
 namespace EHyperlinkType
 {
 	enum Type

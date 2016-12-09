@@ -1,12 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OutputLogPrivatePCH.h"
 #include "SOutputLog.h"
-#include "SScrollBorder.h"
-#include "GameFramework/GameMode.h"
+#include "Framework/Text/TextRange.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/TextLayout.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/OutputDeviceHelper.h"
+#include "SlateOptMacros.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Text/SlateTextLayout.h"
+#include "Framework/Text/SlateTextRun.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
+#include "EditorStyleSettings.h"
+#include "EngineGlobals.h"
+#include "Editor.h"
 #include "Engine/LocalPlayer.h"
-#include "GameFramework/GameState.h"
-#include "SSearchBox.h"
+#include "GameFramework/GameStateBase.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "SOutputLog"
 
@@ -387,12 +404,13 @@ void SConsoleInputBox::OnTextCommitted( const FText& InText, ETextCommit::Type C
 				{
 					if( !bWasHandled )
 					{					
-						AGameMode* const GameMode = World->GetAuthGameMode();
+						AGameModeBase* const GameMode = World->GetAuthGameMode();
+						AGameStateBase* const GameState = World->GetGameState();
 						if( GameMode && GameMode->ProcessConsoleExec( *ExecString, *GLog, NULL ) )
 						{
 							bWasHandled = true;
 						}
-						else if (World->GameState && World->GameState->ProcessConsoleExec(*ExecString, *GLog, NULL))
+						else if (GameState && GameState->ProcessConsoleExec(*ExecString, *GLog, NULL))
 						{
 							bWasHandled = true;
 						}
@@ -635,8 +653,11 @@ void FOutputLogTextLayoutMarshaller::AppendMessageToTextLayout(const TSharedPtr<
 		return;
 	}
 
-	// Increment the cached count
-	CachedNumMessages++;
+	// Increment the cached count if we're not rebuilding the log
+	if ( !IsDirty() )
+	{
+		CachedNumMessages++;
+	}
 
 	const FTextBlockStyle& MessageTextStyle = FEditorStyle::Get().GetWidgetStyle<FTextBlockStyle>(InMessage->Style);
 
@@ -653,6 +674,8 @@ void FOutputLogTextLayoutMarshaller::AppendMessagesToTextLayout(const TArray<TSh
 	TArray<FTextLayout::FNewLineData> LinesToAdd;
 	LinesToAdd.Reserve(InMessages.Num());
 
+	int32 NumAddedMessages = 0;
+
 	for (const auto& CurrentMessage : InMessages)
 	{
 		if (!Filter->IsMessageAllowed(CurrentMessage))
@@ -660,8 +683,7 @@ void FOutputLogTextLayoutMarshaller::AppendMessagesToTextLayout(const TArray<TSh
 			continue;
 		}
 
-		// Increment the cached count
-		CachedNumMessages++;
+		++NumAddedMessages;
 
 		const FTextBlockStyle& MessageTextStyle = FEditorStyle::Get().GetWidgetStyle<FTextBlockStyle>(CurrentMessage->Style);
 
@@ -671,6 +693,12 @@ void FOutputLogTextLayoutMarshaller::AppendMessagesToTextLayout(const TArray<TSh
 		Runs.Add(FSlateTextRun::Create(FRunInfo(), LineText, MessageTextStyle));
 
 		LinesToAdd.Emplace(MoveTemp(LineText), MoveTemp(Runs));
+	}
+
+	// Increment the cached message count if the log is not being rebuilt
+	if ( !IsDirty() )
+	{
+		CachedNumMessages += NumAddedMessages;
 	}
 
 	TextLayout->AddLines(LinesToAdd);
@@ -733,6 +761,7 @@ void FOutputLogTextLayoutMarshaller::MarkMessagesCacheAsDirty()
 
 FOutputLogTextLayoutMarshaller::FOutputLogTextLayoutMarshaller(TArray< TSharedPtr<FLogMessage> > InMessages, FLogFilter* InFilter)
 	: Messages(MoveTemp(InMessages))
+	, CachedNumMessages(0)
 	, Filter(InFilter)
 	, TextLayout(nullptr)
 {
@@ -814,6 +843,7 @@ void SOutputLog::Construct( const FArguments& InArgs )
 						SAssignNew(FilterTextBox, SSearchBox)
 						.HintText(LOCTEXT("SearchLogHint", "Search Log"))
 						.OnTextChanged(this, &SOutputLog::OnFilterTextChanged)
+						.OnTextCommitted(this, &SOutputLog::OnFilterTextCommitted)
 						.DelayChangeNotificationsWhileTyping(true)
 					]
 				]
@@ -1011,6 +1041,12 @@ void SOutputLog::Refresh()
 
 void SOutputLog::OnFilterTextChanged(const FText& InFilterText)
 {
+	if (Filter.GetFilterText().ToString().Equals(InFilterText.ToString(), ESearchCase::CaseSensitive))
+	{
+		// nothing to do
+		return;
+	}
+
 	// Flag the messages count as dirty
 	MessagesTextMarshaller->MarkMessagesCacheAsDirty();
 
@@ -1022,6 +1058,11 @@ void SOutputLog::OnFilterTextChanged(const FText& InFilterText)
 
 	// Repopulate the list to show only what has not been filtered out.
 	Refresh();
+}
+
+void SOutputLog::OnFilterTextCommitted(const FText& InFilterText, ETextCommit::Type InCommitType)
+{
+	OnFilterTextChanged(InFilterText);
 }
 
 TSharedRef<SWidget> SOutputLog::MakeAddFilterMenu()

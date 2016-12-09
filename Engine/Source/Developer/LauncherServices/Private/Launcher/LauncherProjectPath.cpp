@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LauncherServicesPrivatePCH.h"
+#include "Launcher/LauncherProjectPath.h"
+#include "Misc/Paths.h"
 
 FString FLauncherProjectPath::GetProjectName(const FString& ProjectPath)
 {

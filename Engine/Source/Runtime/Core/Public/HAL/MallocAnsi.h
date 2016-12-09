@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/MemoryBase.h"
+#include "HAL/UnrealMemory.h"
+#include "Math/UnrealMathUtility.h"
+#include "Templates/AlignmentTemplates.h"
 
 #if _MSC_VER || PLATFORM_MAC
 	#define USE_ALIGNED_MALLOC 1
@@ -26,15 +32,7 @@ public:
 	/**
 	 * Constructor enabling low fragmentation heap on platforms supporting it.
 	 */
-	FMallocAnsi()
-	{
-#if PLATFORM_WINDOWS
-		// Enable low fragmentation heap - http://msdn2.microsoft.com/en-US/library/aa366750.aspx
-		intptr_t	CrtHeapHandle	= _get_heap_handle();
-		ULONG		EnableLFH		= 2;
-		HeapSetInformation( (PVOID)CrtHeapHandle, HeapCompatibilityInformation, &EnableLFH, sizeof(EnableLFH) );
-#endif
-	}
+	FMallocAnsi();
 
 	// FMalloc interface.
 	virtual void* Malloc( SIZE_T Size, uint32 Alignment ) override

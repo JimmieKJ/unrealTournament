@@ -1,10 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "PlainTextLayoutMarshaller.h"
-#include "SlateTextLayout.h"
-#include "SlatePasswordRun.h"
-#include "SlateTextUnderlineLineHighlighter.h"
+#include "Framework/Text/PlainTextLayoutMarshaller.h"
+#include "Framework/Text/TextRange.h"
+#include "Framework/Text/TextLineHighlight.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/TextLayout.h"
+#include "Framework/Text/SlateTextRun.h"
+#include "Framework/Text/SlateTextLayout.h"
+#include "Framework/Text/SlatePasswordRun.h"
+#include "Framework/Text/SlateTextUnderlineLineHighlighter.h"
 
 TSharedRef< FPlainTextLayoutMarshaller > FPlainTextLayoutMarshaller::Create()
 {

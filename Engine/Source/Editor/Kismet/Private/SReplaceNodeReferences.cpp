@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-
-#include "FindInBlueprints.h"
 #include "SReplaceNodeReferences.h"
-#include "BlueprintEditor.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
+#include "UObject/UObjectHash.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Engine/MemberReference.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_Variable.h"
+
+#include "FindInBlueprintManager.h"
+#include "FindInBlueprints.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "ImaginaryBlueprintData.h"
 #include "ObjectEditorUtils.h"
 #include "EditorCategoryUtils.h"

@@ -2,9 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/UObjectGlobals.h"
+#include "Modules/ModuleManager.h"
+#include "Styling/SlateColor.h"
+#include "Styling/SlateStyle.h"
+#include "Styling/SlateTypes.h"
+#include "EditorStyleSet.h"
+#include "EditorStyleSettings.h"
 #include "ISettingsModule.h"
-#include "ModuleManager.h"
 
+struct FPropertyChangedEvent;
 
 /**
  * Declares the Editor's visual style.
@@ -116,6 +124,13 @@ public:
 		const TSharedRef< FLinearColor > SelectionColor_Inactive_LinearRef;
 		const TSharedRef< FLinearColor > SelectionColor_Pressed_LinearRef;
 
+		const TSharedRef< FLinearColor > LogColor_Background_LinearRef;
+		const TSharedRef< FLinearColor > LogColor_SelectionBackground_LinearRef;
+		const TSharedRef< FLinearColor > LogColor_Normal_LinearRef;
+		const TSharedRef< FLinearColor > LogColor_Command_LinearRef;
+		const TSharedRef< FLinearColor > LogColor_Warning_LinearRef;
+		const TSharedRef< FLinearColor > LogColor_Error_LinearRef;
+
 		// These are the Slate colors which reference those above; these are the colors to put into the style
 		const FSlateColor DefaultForeground;
 		const FSlateColor InvertedForeground;
@@ -124,6 +139,13 @@ public:
 		const FSlateColor SelectionColor_Subdued;
 		const FSlateColor SelectionColor_Inactive;
 		const FSlateColor SelectionColor_Pressed;
+
+		const FSlateColor LogColor_Background;
+		const FSlateColor LogColor_SelectionBackground;
+		const FSlateColor LogColor_Normal;
+		const FSlateColor LogColor_Command;
+		const FSlateColor LogColor_Warning;
+		const FSlateColor LogColor_Error;
 
 		// These are common colors used thruout the editor in mutliple style elements
 		const FSlateColor InheritedFromBlueprintTextColor;

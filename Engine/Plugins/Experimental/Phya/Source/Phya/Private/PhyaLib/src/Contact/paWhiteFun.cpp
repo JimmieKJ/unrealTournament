@@ -3,7 +3,7 @@
 //
 // White noise, unaltered by rate. ie scale-free
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 
 #include "Utility/paRnd.hpp"

@@ -4,11 +4,10 @@
 	AnimEncoding_PerTrackCompression.cpp: Per-track decompressor
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "SoundDefinitions.h"
-#include "AnimationCompression.h"
 #include "AnimEncoding_PerTrackCompression.h"
-#include "AnimationUtils.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "AnimationCompression.h"
 
 // This define controls whether scalar or vector code is used to decompress keys.  Note that not all key decompression code
 // is vectorized yet, so some (seldom used) formats will actually get slower (due to extra LHS stalls) when enabled.

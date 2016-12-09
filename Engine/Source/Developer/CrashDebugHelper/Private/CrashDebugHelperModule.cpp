@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashDebugHelperPrivatePCH.h"
+#include "CrashDebugHelperModule.h"
+#include "Logging/LogMacros.h"
+#include "Modules/ModuleManager.h"
+#include "CrashDebugHelperPrivate.h"
 
 IMPLEMENT_MODULE(FCrashDebugHelperModule, CrashDebugHelper);
 DEFINE_LOG_CATEGORY(LogCrashDebugHelper);
@@ -9,7 +12,7 @@ DEFINE_LOG_CATEGORY(LogCrashDebugHelper);
 	#include "CrashDebugHelperWindows.h"
 
 #elif PLATFORM_LINUX
-	#include "CrashDebugHelperLinux.h"
+	#include "Linux/CrashDebugHelperLinux.h"
 
 #elif PLATFORM_MAC
 	#include "CrashDebugHelperMac.h"

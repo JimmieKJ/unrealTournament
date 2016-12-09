@@ -16,7 +16,12 @@ public class SDL2 : ModuleRules
 		if (Target.Platform == UnrealTargetPlatform.Linux)
 		{
             PublicIncludePaths.Add(SDL2Path + "include");
-            if (Target.IsMonolithic)
+            if (Target.Configuration == UnrealTargetConfiguration.Debug)
+            {
+                // Debug version should be built with -fPIC and usable in all targets
+                PublicAdditionalLibraries.Add(SDL2LibPath + "Linux/" + Target.Architecture + "/libSDL2_fPIC_Debug.a");
+            }
+            else if (Target.IsMonolithic)
             {
                 PublicAdditionalLibraries.Add(SDL2LibPath + "Linux/" + Target.Architecture + "/libSDL2.a");
             }

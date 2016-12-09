@@ -22,7 +22,7 @@ struct FMetalHashedVertexDescriptor
 	MTLVertexDescriptor* VertexDesc;
 	
 	FMetalHashedVertexDescriptor();
-	FMetalHashedVertexDescriptor(MTLVertexDescriptor* Desc);
+	FMetalHashedVertexDescriptor(MTLVertexDescriptor* Desc, uint32 Hash);
 	FMetalHashedVertexDescriptor(FMetalHashedVertexDescriptor const& Other);
 	~FMetalHashedVertexDescriptor();
 	
@@ -49,6 +49,9 @@ public:
 
 	/** This is the layout for the vertex elements */
 	FMetalHashedVertexDescriptor Layout;
+	
+	/** Hash without considering strides which may be overriden */
+	uint32 BaseHash;
 
 protected:
 	void GenerateLayout(const FVertexDeclarationElementList& Elements);
@@ -175,7 +178,7 @@ public:
 	void PrepareToDraw(FMetalContext* Context, FMetalHashedVertexDescriptor const& VertexDesc, const struct FMetalRenderPipelineDesc& RenderPipelineDesc, MTLRenderPipelineReflection** Reflection = nil);
 
 protected:
-	FCriticalSection PipelineMutex;
+	pthread_rwlock_t PipelineMutex;
 	TMap<FMetalRenderPipelineHash, TMap<FMetalHashedVertexDescriptor, id<MTLRenderPipelineState>>> PipelineStates;
 };
 
@@ -259,6 +262,9 @@ public:
 private:
 	// The movie playback IOSurface/CVTexture wrapper to avoid page-off
 	CFTypeRef CoreVideoImageRef;
+	
+	// Texture view surfaces don't own their resources, only reference
+	bool bTextureView;
 	
 	// next format for the pixel format mapping
 	static uint8 NextKey;
@@ -422,30 +428,84 @@ public:
 	}
 };
 
+template<typename T>
+class TMetalPtr
+{
+public:
+	TMetalPtr()
+	: Object(nil)
+	{
+		
+	}
+	
+	TMetalPtr(T Obj)
+	: Object(Obj)
+	{
+		
+	}
+	
+	TMetalPtr(TMetalPtr const& Other)
+	: Object(nil)
+	{
+		
+	}
+	
+	~TMetalPtr()
+	{
+		[Object release];
+	}
+	
+	TMetalPtr& operator=(TMetalPtr const& Other)
+	{
+		if (&Other != this)
+		{
+			[Other.Object retain];
+			[Object release];
+			Object = Other.Object;
+		}
+		return *this;
+	}
+	
+	operator T() const
+	{
+		return Object;
+	}
+private:
+	T Object;
+};
+
+typedef TMetalPtr<id<MTLCommandBuffer>> MTLCommandBufferRef;
+
+struct FMetalCommandBufferFence
+{
+	bool Wait(uint64 Millis);
+	
+	TWeakPtr<MTLCommandBufferRef, ESPMode::ThreadSafe> CommandBufferRef;
+};
+
 struct FMetalQueryBuffer : public FRHIResource
 {
     FMetalQueryBuffer(FMetalContext* InContext, id<MTLBuffer> InBuffer);
     
     virtual ~FMetalQueryBuffer();
     
-    bool Wait(uint64 Millis);
-    void const* GetResult(uint32 Offset);
+    uint64 GetResult(uint32 Offset);
 	
 	TWeakPtr<struct FMetalQueryBufferPool, ESPMode::ThreadSafe> Pool;
     id<MTLBuffer> Buffer;
 	uint32 WriteOffset;
-	bool bCompleted;
-	id<MTLCommandBuffer> CommandBuffer;
 };
 typedef TRefCountPtr<FMetalQueryBuffer> FMetalQueryBufferRef;
 
 struct FMetalQueryResult
 {
     bool Wait(uint64 Millis);
-    void const* GetResult();
-    
+    uint64 GetResult();
+	
     FMetalQueryBufferRef SourceBuffer;
+	FMetalCommandBufferFence CommandBufferFence;
     uint32 Offset;
+	bool bCompleted;
 };
 
 /** Metal occlusion query */
@@ -456,7 +516,7 @@ public:
 	/** Initialization constructor. */
 	FMetalRenderQuery(ERenderQueryType InQueryType);
 
-	~FMetalRenderQuery();
+	virtual ~FMetalRenderQuery();
 
 	/**
 	 * Kick off an occlusion test 
@@ -535,6 +595,9 @@ public:
 	
 	// balsa buffer memory
 	id<MTLBuffer> Buffer;
+	
+	/** Buffer for small buffers < 4Kb to avoid heap fragmentation. */
+	NSMutableData* Data;
 
 	// offset into the buffer (for lock usage)
 	uint32 LockOffset;
@@ -562,9 +625,13 @@ public:
 		return Buffer.length > 0;
 	}
 
+	void const* GetData();
 
 	/** The buffer containing the contents - either a fresh buffer or the ring buffer */
 	id<MTLBuffer> Buffer;
+	
+	/** CPU copy of data so that we can defer upload of smaller buffers */
+	NSData* Data;
 	
 	/** This offset is used when passing to setVertexBuffer, etc */
 	uint32 Offset;
@@ -696,6 +763,12 @@ public:
 	: FRHIComputeFence(InName)
 	, CommandBuffer(nil)
 	{}
+	
+	virtual ~FMetalComputeFence()
+	{
+		[CommandBuffer release];
+		CommandBuffer = nil;
+	}
 	
 	virtual void Reset() final override
 	{

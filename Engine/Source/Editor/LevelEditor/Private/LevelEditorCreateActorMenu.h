@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "AssetSelection.h"
+#include "CoreMinimal.h"
+
+class FMenuBuilder;
 
 /**
  * The mode to use when creating an actor

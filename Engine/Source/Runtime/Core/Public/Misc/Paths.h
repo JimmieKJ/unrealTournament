@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "HAL/CriticalSection.h"
 
 /**
  * Path helpers for retrieving game dir, engine dir, etc.
@@ -472,7 +475,7 @@ public:
 	 */
 	static void Split( const FString& InPath, FString& PathPart, FString& FilenamePart, FString& ExtensionPart );
 
-	/** Gets thhe relative path to get from BaseDir to RootDirectory  */
+	/** Gets the relative path to get from BaseDir to RootDirectory  */
 	static const FString& GetRelativePathToRoot();
 
 	FORCEINLINE static FString Combine(const TCHAR* PathA, const TCHAR* PathB) 
@@ -509,6 +512,16 @@ public:
 		
 		CombineInternal(Out, Pathes, 5);
 		return Out;
+	}
+
+	FORCEINLINE static FString Combine(const FString& PathA, const FString& PathB)
+	{ 
+		return Combine(*PathA, *PathB);
+	}
+
+	FORCEINLINE static FString Combine(const FString& PathA, const FString& PathB, const FString& PathC)
+	{
+		return Combine(*PathA, *PathB, *PathC);
 	}
 
 protected:

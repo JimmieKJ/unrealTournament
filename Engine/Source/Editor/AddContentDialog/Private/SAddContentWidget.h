@@ -2,9 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STileView.h"
+#include "ViewModels/CategoryViewModel.h"
+
 class FAddContentWidgetViewModel;
 class FContentSourceViewModel;
-class FCategoryViewModel;
+class IContentSource;
 
 /** A widget which allows the user to select multiple options from content which is available to be added to the project. */
 class SAddContentWidget : public SCompoundWidget

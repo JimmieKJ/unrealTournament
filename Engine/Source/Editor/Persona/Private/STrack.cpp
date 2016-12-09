@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
-
-#include "SAnimNotifyPanel.h"
 #include "STrack.h"
-#include "ScopedTransaction.h"
+#include "Rendering/DrawElements.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+
 #include "SCurveEditor.h"
-#include "Editor/KismetWidgets/Public/SScrubWidget.h"
+#include "SScrubWidget.h"
 
 const float STrackDefaultHeight = 20.0f;
 const float DraggableBarSnapTolerance = 20.0f;
@@ -189,6 +193,11 @@ FVector2D STrackNode::GetDragDropScreenSpacePosition(const FGeometry& ParentAllo
 // mouse interface for tooltip/selection
 FReply STrackNode::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
+	if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+	{
+		Select();
+		OnTrackNodeClicked.ExecuteIfBound();
+	}
 	return FReply::Unhandled();
 }
 
@@ -228,6 +237,9 @@ FReply STrackNode::BeginDrag( const FGeometry& MyGeometry, const FPointerEvent& 
 	bBeingDragged = true;
 	LastSize = MyGeometry.Size;
 
+	Select();
+	OnTrackNodeClicked.ExecuteIfBound();
+
 	//void FTrackNodeDragDropOp(TSharedRef<STrackNode> TrackNode, const FVector2D &CursorPosition, const FVector2D &ScreenPositionOfNode)
 	return FReply::Handled().BeginDragDrop(FTrackNodeDragDropOp::New(SharedThis(this), ScreenCursorPos, ScreenNodePosition));
 }
@@ -236,8 +248,6 @@ FReply STrackNode::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointe
 {
 	if ( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton )
 	{
-		Select();
-		OnTrackNodeClicked.ExecuteIfBound();
 		if(AllowDrag)
 		{
 			return FReply::Handled().DetectDrag( SharedThis(this), EKeys::LeftMouseButton );
@@ -670,7 +680,6 @@ FReply STrack::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEve
 		{
 			if(!bDraggingBar)
 			{
-				OnBarClicked.ExecuteIfBound(DraggableBarIndex);
 				return FReply::Handled().DetectDrag( SharedThis(this), EKeys::LeftMouseButton );
 			}
 		}
@@ -706,6 +715,9 @@ FReply STrack::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent
 		if(bDraggingBar)
 		{
 			OnBarDrop.Execute(DraggableBarIndex);
+		}
+		if (DraggableBarIndex != INDEX_NONE)
+		{
 			OnBarClicked.ExecuteIfBound(DraggableBarIndex);
 		}
 

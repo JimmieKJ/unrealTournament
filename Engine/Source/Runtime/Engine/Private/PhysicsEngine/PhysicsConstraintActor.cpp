@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "PhysXSupport.h"
 #include "PhysicsEngine/PhysicsConstraintActor.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/Texture2D.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
 #include "PhysicsEngine/ConstraintUtils.h"
 

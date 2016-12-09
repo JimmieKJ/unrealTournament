@@ -8,7 +8,30 @@
 /* FAndroidTargetPlatform structors
  *****************************************************************************/
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Logging/LogMacros.h"
+#include "Stats/Stats.h"
 #define LOCTEXT_NAMESPACE "FAndroidTargetPlatform"
+
+class Error;
+class FAndroidTargetDevice;
+class FConfigCacheIni;
+class FModuleManager;
+class FScopeLock;
+class FStaticMeshLODSettings;
+class FTargetDeviceId;
+class FTicker;
+class IAndroidDeviceDetectionModule;
+class UTexture;
+class UTextureLODSettings;
+struct FAndroidDeviceInfo;
+enum class ETargetPlatformFeatures;
+template<class TPlatformProperties> class FAndroidTargetPlatform;
+template<typename TPlatformProperties> class TTargetPlatformBase;
 
 static bool SupportsES2()
 {
@@ -234,7 +257,12 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 #endif
 
 	// Determine the pixel format of the compressed texture.
-	if (bNoCompression && InTexture->HasHDRSource())
+	if (InTexture->LODGroup == TEXTUREGROUP_Shadowmap)
+	{
+		// forward rendering only needs one channel for shadow maps
+		OutFormats.Add(AndroidTexFormat::NameG8);
+	}
+	else if (bNoCompression && InTexture->HasHDRSource())
 	{
 		OutFormats.Add(AndroidTexFormat::NameRGBA16F);
 	}

@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "KismetDebugUtilities.h"
+#include "K2Node_EditablePinBase.h"
+#include "UObject/UnrealType.h"
+#include "Misc/FeedbackContext.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/KismetDebugUtilities.h"
 
 UK2Node_EditablePinBase::UK2Node_EditablePinBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

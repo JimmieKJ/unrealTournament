@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
+#include "SequencerSettings.h"
+#include "KeyParams.h"
+#include "ISequencer.h"
 
 USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
@@ -9,6 +11,7 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bKeyAllEnabled = false;
 	bKeyInterpPropertiesOnly = false;
 	KeyInterpolation = EMovieSceneKeyInterpolation::Auto;
+	bAutoSetTrackDefaults = false;
 	SpawnPosition = SSP_Origin;
 	bCreateSpawnableCameras = true;
 	bShowFrameNumbers = true;
@@ -21,7 +24,7 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bSnapSectionTimesToSections = true;
 	bSnapPlayTimeToKeys = false;
 	bSnapPlayTimeToInterval = true;
-	bSnapPlayTimeToDraggedKey = false;
+	bSnapPlayTimeToDraggedKey = true;
 	CurveValueSnapInterval = 10.0f;
 	bSnapCurveValueToInterval = true;
 	bLabelBrowserVisible = false;
@@ -38,7 +41,20 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bInfiniteKeyAreas = false;
 	bShowChannelColors = false;
 	bShowViewportTransportControls = true;
+	bLockPlaybackToAudioClock = false;
 	bAllowPossessionOfPIEViewports = false;
+	bEvaluateSubSequencesInIsolation = false;
+}
+
+void USequencerSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	FName PropertyName = (PropertyChangedEvent.Property != nullptr) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(USequencerSettings, bLockPlaybackToAudioClock))
+	{
+		OnLockPlaybackToAudioClockChanged.Broadcast(bLockPlaybackToAudioClock);
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
 EAutoKeyMode USequencerSettings::GetAutoKeyMode() const
@@ -526,6 +542,65 @@ void USequencerSettings::SetAllowPossessionOfPIEViewports(bool bInAllowPossessio
 	{
 		bAllowPossessionOfPIEViewports = bInAllowPossessionOfPIEViewports;
 		SaveConfig();
+	}
+}
+
+bool USequencerSettings::ShouldLockPlaybackToAudioClock() const
+{
+	return bLockPlaybackToAudioClock;
+}
+
+void USequencerSettings::SetLockPlaybackToAudioClock(bool bInLockPlaybackToAudioClock)
+{
+	if (bLockPlaybackToAudioClock != bInLockPlaybackToAudioClock)
+	{
+		bLockPlaybackToAudioClock = bInLockPlaybackToAudioClock;
+		OnLockPlaybackToAudioClockChanged.Broadcast(bLockPlaybackToAudioClock);
+		SaveConfig();
+	}
+}
+
+bool USequencerSettings::GetAutoSetTrackDefaults() const
+{
+	return bAutoSetTrackDefaults;
+}
+
+void USequencerSettings::SetAutoSetTrackDefaults(bool bInAutoSetTrackDefaults)
+{
+	if (bInAutoSetTrackDefaults != bAutoSetTrackDefaults)
+	{
+		bAutoSetTrackDefaults = bInAutoSetTrackDefaults;
+		SaveConfig();
+	}
+}
+
+bool USequencerSettings::ShouldShowDebugVisualization() const
+{
+	return bShowDebugVisualization;
+}
+
+void USequencerSettings::SetShowDebugVisualization(bool bInShowDebugVisualization)
+{
+	if (bShowDebugVisualization != bInShowDebugVisualization)
+	{
+		bShowDebugVisualization = bInShowDebugVisualization;
+		SaveConfig();
+	}
+}
+
+bool USequencerSettings::ShouldEvaluateSubSequencesInIsolation() const
+{
+	return bEvaluateSubSequencesInIsolation;
+}
+
+void USequencerSettings::SetEvaluateSubSequencesInIsolation(bool bInEvaluateSubSequencesInIsolation)
+{
+	if (bEvaluateSubSequencesInIsolation != bInEvaluateSubSequencesInIsolation)
+	{
+		bEvaluateSubSequencesInIsolation = bInEvaluateSubSequencesInIsolation;
+		SaveConfig();
+
+		OnEvaluateSubSequencesInIsolationChangedEvent.Broadcast();
 	}
 }
 

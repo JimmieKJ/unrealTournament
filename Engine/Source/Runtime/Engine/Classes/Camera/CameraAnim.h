@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/Scene.h"
 #include "CameraAnim.generated.h"
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogCameraAnim, Log, All);
@@ -47,8 +51,8 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = CameraAnim)
 	uint8 bRelativeToInitialFOV : 1;
 
-	/** The FOV  */
-	UPROPERTY()
+	/** The base FOV that all FOV keys are relative to. */
+	UPROPERTY(EditDefaultsOnly, Category = CameraAnim)
 	float BaseFOV;
 
 	/** Default PP settings to put on the animated camera. For modifying PP without keyframes. */
@@ -62,7 +66,7 @@ public:
 	//~ Begin UObject Interface
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void PostLoad() override;
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	//~ End UObject Interface
 
 	/** 

@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "ISimpleHMDPlugin.h"
-#include "HeadMountedDisplay.h"
+
+#include "CoreMinimal.h"
 #include "IHeadMountedDisplay.h"
 #include "SceneViewExtension.h"
 
+class APlayerController;
+class FSceneView;
+class FSceneViewFamily;
+class UCanvas;
 
 /**
  * Simple Head Mounted Display

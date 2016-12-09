@@ -2,7 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Layout/ArrangedWidget.h"
+#include "Widgets/SWidget.h"
 #include "ConnectionDrawingPolicy.h"
+
+class FSlateWindowElementList;
+class UEdGraph;
 
 /////////////////////////////////////////////////////
 // FKismetConnectionDrawingPolicy

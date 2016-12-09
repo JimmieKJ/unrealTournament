@@ -6,7 +6,22 @@
 
 #pragma once
 
-#include "GenericOctree.h"
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "RenderingThread.h"
+#include "SceneTypes.h"
+#include "HitProxies.h"
+#include "GenericOctreePublic.h"
+#include "Engine/Scene.h"
+#include "RendererInterface.h"
+
+class FPrimitiveSceneInfo;
+class FPrimitiveSceneProxy;
+class FReflectionCaptureProxy;
+class FScene;
+class FViewInfo;
+class UPrimitiveComponent;
+template<typename ElementType,typename OctreeSemantics> class TOctree;
 
 /** Data used to track a primitive's allocation in the volume texture atlas that stores indirect lighting. */
 class FIndirectLightingCacheAllocation

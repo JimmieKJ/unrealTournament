@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SourceControlPrivatePCH.h"
 #include "DefaultSourceControlProvider.h"
-#include "ISourceControlState.h"
-#include "ISourceControlModule.h"
-#include "ISourceControlLabel.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
+
+#if SOURCE_CONTROL_WITH_SLATE
+	#include "Widgets/SNullWidget.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "DefaultSourceControlProvider"
 

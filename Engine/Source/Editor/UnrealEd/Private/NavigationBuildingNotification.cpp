@@ -1,13 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "MainFrame.h"
+#include "NavigationBuildingNotification.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Editor/EditorEngine.h"
+#include "Settings/LevelEditorMiscSettings.h"
+#include "EngineGlobals.h"
+#include "EditorViewportClient.h"
 #include "Kismet2/DebuggerCommands.h"
 #include "EditorBuildUtils.h"
-#include "NavigationBuildingNotification.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 void FNavigationBuildingNotificationImpl::BuildStarted()
 {

@@ -20,12 +20,29 @@
 #include "base/sequenced_task_runner.h"
 #include "content/public/renderer/content_renderer_client.h"
 
+namespace extensions {
+class CefExtensionsRendererClient;
+class Dispatcher;
+class DispatcherDelegate;
+class ExtensionsClient;
+class ExtensionsGuestViewContainerDispatcher;
+class ExtensionsRendererClient;
+class ResourceRequestPolicy;
+}
+
+namespace visitedlink {
+class VisitedLinkSlave;
+}
+
 namespace web_cache {
 class WebCacheRenderProcessObserver;
 }
 
+class CefGuestView;
 class CefRenderProcessObserver;
 struct Cef_CrossOriginWhiteListEntry_Params;
+struct CefViewHostMsg_GetPluginInfo_Output;
+class ChromePDFPrintClient;
 class SpellCheck;
 
 class CefContentRendererClient : public content::ContentRendererClient,
@@ -46,6 +63,12 @@ class CefContentRendererClient : public content::ContentRendererClient,
   // Called from CefBrowserImpl::OnDestruct().
   void OnBrowserDestroyed(CefBrowserImpl* browser);
 
+  // Returns true if a guest view associated with the specified RenderView.
+  bool HasGuestViewForView(content::RenderView* view);
+
+  // Called from CefGuestView::OnDestruct().
+  void OnGuestViewDestroyed(CefGuestView* guest_view);
+
   // Render thread task runner.
   base::SequencedTaskRunner* render_task_runner() const {
     return render_task_runner_.get();
@@ -61,17 +84,9 @@ class CefContentRendererClient : public content::ContentRendererClient,
   void DevToolsAgentAttached();
   void DevToolsAgentDetached();
 
-  // Returns the task runner for the current thread. If this is a WebWorker
-  // thread and the task runner does not already exist it will be created.
-  // Returns NULL if the current thread is not a valid render process thread.
+  // Returns the task runner for the current thread. Returns NULL if the current
+  // thread is not the main render process thread.
   scoped_refptr<base::SequencedTaskRunner> GetCurrentTaskRunner();
-
-  // Returns the task runner for the specified worker ID or NULL if the
-  // specified worker ID is not valid.
-  scoped_refptr<base::SequencedTaskRunner> GetWorkerTaskRunner(int worker_id);
-
-  // Remove the task runner associated with the specified worker ID.
-  void RemoveWorkerTaskRunner(int worker_id);
 
   // Perform cleanup work that needs to occur before shutdown when running in
   // single-process mode. Blocks until cleanup is complete.
@@ -87,16 +102,44 @@ class CefContentRendererClient : public content::ContentRendererClient,
       const blink::WebPluginParams& params,
       blink::WebPlugin** plugin) override;
   bool HandleNavigation(content::RenderFrame* render_frame,
-                        content::DocumentState* document_state,
+                        bool is_content_initiated,
                         int opener_id,
                         blink::WebFrame* frame,
                         const blink::WebURLRequest& request,
                         blink::WebNavigationType type,
                         blink::WebNavigationPolicy default_policy,
                         bool is_redirect) override;
+  bool ShouldFork(blink::WebLocalFrame* frame,
+                  const GURL& url,
+                  const std::string& http_method,
+                  bool is_initial_navigation,
+                  bool is_server_redirect,
+                  bool* send_referrer) override;
+  bool WillSendRequest(blink::WebFrame* frame,
+                       ui::PageTransition transition_type,
+                       const GURL& url,
+                       const GURL& first_party_for_cookies,
+                       GURL* new_url) override;
+  unsigned long long VisitedLinkHash(const char* canonical_url,
+                                     size_t length) override;
+  bool IsLinkVisited(unsigned long long link_hash) override;
+  content::BrowserPluginDelegate* CreateBrowserPluginDelegate(
+      content::RenderFrame* render_frame,
+      const std::string& mime_type,
+      const GURL& original_url) override;
+  void AddKeySystems(std::vector<media::KeySystemInfo>* key_systems) override;
 
   // MessageLoop::DestructionObserver implementation.
   void WillDestroyCurrentMessageLoop() override;
+
+  static bool IsExtensionOrSharedModuleWhitelisted(
+      const GURL& url, const std::set<std::string>& whitelist);
+
+  static blink::WebPlugin* CreatePlugin(
+      content::RenderFrame* render_frame,
+      blink::WebLocalFrame* frame,
+      const blink::WebPluginParams& params,
+      const CefViewHostMsg_GetPluginInfo_Output& output);
 
  private:
   void BrowserCreated(content::RenderView* render_view,
@@ -109,24 +152,28 @@ class CefContentRendererClient : public content::ContentRendererClient,
   scoped_ptr<CefRenderProcessObserver> observer_;
   scoped_ptr<web_cache::WebCacheRenderProcessObserver> web_cache_observer_;
   scoped_ptr<SpellCheck> spellcheck_;
+  scoped_ptr<visitedlink::VisitedLinkSlave> visited_link_slave_;
 
   // Map of RenderView pointers to CefBrowserImpl references.
   typedef std::map<content::RenderView*, CefRefPtr<CefBrowserImpl> > BrowserMap;
   BrowserMap browsers_;
 
+  // Map of RenderView poiners to CefGuestView implementations.
+  typedef std::map<content::RenderView*, CefGuestView* > GuestViewMap;
+  GuestViewMap guest_views_;
+
   // Cross-origin white list entries that need to be registered with WebKit.
   typedef std::vector<Cef_CrossOriginWhiteListEntry_Params> CrossOriginList;
   CrossOriginList cross_origin_whitelist_entries_;
 
+  scoped_ptr<ChromePDFPrintClient> pdf_print_client_;
+
+  scoped_ptr<extensions::ExtensionsClient> extensions_client_;
+  scoped_ptr<extensions::CefExtensionsRendererClient>
+      extensions_renderer_client_;
+
   int devtools_agent_count_;
   int uncaught_exception_stack_size_;
-
-  // Map of worker thread IDs to task runners. Access must be protected by
-  // |worker_task_runner_lock_|.
-  typedef std::map<int, scoped_refptr<base::SequencedTaskRunner> >
-      WorkerTaskRunnerMap;
-  WorkerTaskRunnerMap worker_task_runner_map_;
-  base::Lock worker_task_runner_lock_;
 
   // Used in single-process mode to test when cleanup is complete.
   // Access must be protected by |single_process_cleanup_lock_|.

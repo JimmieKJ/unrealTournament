@@ -10,18 +10,21 @@ const FString FOnlineError::GenericErrorCode = TEXT("GenericError");
 FOnlineError::FOnlineError()
 	: bSucceeded(false)
 	, HttpResult(0)
+	, NumericErrorCode(0)
 {
 }
 
 FOnlineError::FOnlineError(bool bSucceededIn)
 	: bSucceeded(bSucceededIn)
 	, HttpResult(0)
+	, NumericErrorCode(0)
 {
 }
 
 FOnlineError::FOnlineError(const FString& ErrorCodeIn)
 	: bSucceeded(false)
 	, HttpResult(0)
+	, NumericErrorCode(0)
 {
 	SetFromErrorCode(ErrorCodeIn);
 }
@@ -35,6 +38,7 @@ void FOnlineError::SetFromErrorCode(const FString& ErrorCodeIn)
 FOnlineError::FOnlineError(const FText& ErrorMessageIn)
 	: bSucceeded(false)
 	, HttpResult(0)
+	, NumericErrorCode(0)
 {
 	SetFromErrorMessage(ErrorMessageIn);
 }

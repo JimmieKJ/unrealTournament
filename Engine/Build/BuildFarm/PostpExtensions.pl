@@ -19,6 +19,10 @@
 	# SignTool errors which we can retry and recover from
 	"SignTool Error: ",
 	
+	# Temporary PS4 deprecation warnings
+	".*OnlineSubsystemPS4.*warning:.*\\[-Wdeprecated-declarations\\]",
+	".*PS4Application\\.cpp.*warning:.*\\[-Wdeprecated-declarations\\]"
+	
 	
 #	".*ERROR: The process.*not found",
 #	".*ERROR: This operation returned because the timeout period expired.*",
@@ -56,6 +60,9 @@ $::gDontCheck .= "tclTestFail,tclClusterTestTimeout";
 
 # We don't compile clean for Android, so ignore javac notices for now
 $::gDontCheck .= ",javacNote";
+
+# This matcher hits anything with "...." in it, which is often used for progress bars
+$::gDontCheck .= ",cppunitExtraOutput,cppunitFail";
 
 # These are patterns we want to process
 # NOTE: order is important because the file is processed line by line 
@@ -172,11 +179,6 @@ push @::gMatchers, (
 		id => "LNK",
 		pattern => q{LINK : fatal error},
 		action => q{incValue("errors"); diagnostic("Link", "error", 0, 0);}
-	},
-	{
-		id => "UHTfailed",
-		pattern => q{UnrealHeaderTool failed for target},
-		action => q{incValue("errors"); diagnostic("UnrealHeaderTool", "error", 0, 0);}
 	},
 	{
 		id => "MSBuildError",

@@ -1,12 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "EnvQueryTypes.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "EngineDefines.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
+#include "VisualLogger/VisualLogger.h"
 #include "DebugRenderSceneProxy.h"
-#include "VisualLoggerExtension.h"
 #include "EnvQueryDebugHelpers.generated.h"
 
-struct FEnvQueryInstance;
+class FTestData;
+class UEnvQueryDebugHelpers;
 
 #if  USE_EQS_DEBUGGER || ENABLE_VISUAL_LOG
 
@@ -153,7 +159,7 @@ class AIMODULE_API UEnvQueryDebugHelpers : public UObject
 	GENERATED_BODY()
 public:
 #if USE_EQS_DEBUGGER
-	static void QueryToDebugData(FEnvQueryInstance& Query, EQSDebug::FQueryData& EQSLocalData);
+	static void QueryToDebugData(FEnvQueryInstance& Query, EQSDebug::FQueryData& EQSLocalData, int32 MaxItemsToStore = 10);
 	static void QueryToBlobArray(FEnvQueryInstance& Query, TArray<uint8>& BlobArray, bool bUseCompression = false);
 	static void DebugDataToBlobArray(EQSDebug::FQueryData& QueryData, TArray<uint8>& BlobArray, bool bUseCompression = false);
 	static void BlobArrayToDebugData(const TArray<uint8>& BlobArray, EQSDebug::FQueryData& EQSLocalData, bool bUseCompression = false);

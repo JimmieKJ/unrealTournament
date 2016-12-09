@@ -4,6 +4,8 @@
 	OpenGL4.cpp: OpenGL 4.3 implementation.
 =============================================================================*/
 
+#include "CoreMinimal.h"
+#include "OpenGLDrv.h"
 #include "OpenGLDrvPrivate.h"
 
 #if OPENGL_GL4

@@ -1,20 +1,61 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "IMovieScenePlayer.h"
+#include "Sections/MovieSceneSubSection.h"
+#include "MovieScene.h"
+#include "MovieSceneTrack.h"
 #include "MovieSceneSequence.h"
-#include "MovieSceneSubSection.h"
 
 TWeakObjectPtr<UMovieSceneSubSection> UMovieSceneSubSection::TheRecordingSection;
+
+float DeprecatedMagicNumber = TNumericLimits<float>::Lowest();
 
 /* UMovieSceneSubSection structors
  *****************************************************************************/
 
 UMovieSceneSubSection::UMovieSceneSubSection()
-	: StartOffset(0.0f)
-	, TimeScale(1.0f)
-	, PrerollTime(0.0f)
+	: StartOffset_DEPRECATED(DeprecatedMagicNumber)
+	, TimeScale_DEPRECATED(DeprecatedMagicNumber)
+	, PrerollTime_DEPRECATED(DeprecatedMagicNumber)
 {
+}
+
+FString UMovieSceneSubSection::GetPathNameInMovieScene() const
+{
+	UMovieScene* OuterMovieScene = GetTypedOuter<UMovieScene>();
+	check(OuterMovieScene);
+	return GetPathName(OuterMovieScene);
+}
+
+FMovieSceneSequenceID UMovieSceneSubSection::GetSequenceID() const
+{
+	FString FullPath = GetPathNameInMovieScene();
+	if (SubSequence)
+	{
+		FullPath += TEXT(" / ");
+		FullPath += SubSequence->GetPathName();
+	}
+
+	return FMovieSceneSequenceID(FCrc::Strihash_DEPRECATED(*FullPath));
+}
+
+void UMovieSceneSubSection::PostLoad()
+{
+	if (StartOffset_DEPRECATED != DeprecatedMagicNumber)
+	{
+		Parameters.StartOffset = StartOffset_DEPRECATED;
+	}
+
+	if (TimeScale_DEPRECATED != DeprecatedMagicNumber)
+	{
+		Parameters.TimeScale = TimeScale_DEPRECATED;
+	}
+
+	if (PrerollTime_DEPRECATED != DeprecatedMagicNumber)
+	{
+		Parameters.PrerollTime = PrerollTime_DEPRECATED;
+	}
+
+	Super::PostLoad();
 }
 
 void UMovieSceneSubSection::SetSequence(UMovieSceneSequence* Sequence)
@@ -107,8 +148,8 @@ UMovieSceneSection* UMovieSceneSubSection::SplitSection( float SplitTime )
 	}
 
 	float InitialStartTime = GetStartTime();
-	float InitialStartOffset = StartOffset;
-	float NewStartOffset = ( SplitTime - InitialStartTime ) / TimeScale;
+	float InitialStartOffset = Parameters.StartOffset;
+	float NewStartOffset = ( SplitTime - InitialStartTime ) / Parameters.TimeScale;
 	NewStartOffset += InitialStartOffset;
 
 	// Ensure start offset is not less than 0
@@ -117,7 +158,7 @@ UMovieSceneSection* UMovieSceneSubSection::SplitSection( float SplitTime )
 	UMovieSceneSubSection* NewSection = Cast<UMovieSceneSubSection>( UMovieSceneSection::SplitSection( SplitTime ) );
 	if ( NewSection )
 	{
-		NewSection->StartOffset = NewStartOffset;
+		NewSection->Parameters.StartOffset = NewStartOffset;
 		return NewSection;
 	}
 
@@ -132,17 +173,17 @@ void UMovieSceneSubSection::TrimSection( float TrimTime, bool bTrimLeft )
 	}
 
 	float InitialStartTime = GetStartTime();
-	float InitialStartOffset = StartOffset;
+	float InitialStartOffset = Parameters.StartOffset;
 
 	UMovieSceneSection::TrimSection( TrimTime, bTrimLeft );
 
 	// If trimming off the left, set the offset of the shot
 	if ( bTrimLeft )
 	{
-		float NewStartOffset = ( TrimTime - InitialStartTime ) / TimeScale;
+		float NewStartOffset = ( TrimTime - InitialStartTime ) / Parameters.TimeScale;
 		NewStartOffset += InitialStartOffset;
 
 		// Ensure start offset is not less than 0
-		StartOffset = FMath::Max( NewStartOffset, 0.f );
+		Parameters.StartOffset = FMath::Max( NewStartOffset, 0.f );
 	}
 }

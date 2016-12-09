@@ -10,21 +10,15 @@ Big picture view, steps are described in detail later:
 How to use the cross-toolchain.
 =================================
 
-2.1 Set LINUX_ROOT environment variable to point to asbolute (Windows) path of the toolchain.
+2.1 Set LINUX_MULTIARCH_ROOT environment variable to point to asbolute (Windows) path of the toolchain.
 2.2 Restart Visual Studio and regenerate projects with UBT.
 
 
 Building gcc-based cross-toolchain
 ==================================
 
-Copy BuildCrossToolchain.sh together with linux-host.config and win64-host.config to
-a Linux machine running reasonably recent distro. Make sure that the following
-pre-requisites are installed (using Debian package names):
-
- mercurial autoconf gperf bison flex libtool ncurses-dev
-
-and of course make/gcc.
-Run the script, which will clone current crosstool-ng and will use it to perform
+Copy BuildCrossToolchain.sh together with all .config files to a Linux machine running Ubuntu 16.04. 
+Run the script, which will clone a fork of crosstool-ng and will use it to perform
 so called "canadian cross", i.e. will build Linux-hosted toolchain which targets
 mingw64 first, and then will build Windows-hosted toolchain that targets Linux.
 
@@ -33,19 +27,17 @@ to experiment (using "ct-ng menuconfig") if you need more recent ones. Not every
 combination is buildable though.
 
 If the script finishes without error, the new toolchain will be copied to subfolder
-called CrossToolchain of the current folder. Copy it to your Windows machine,
-e.g. to C:\CrossToolchain
+called CrossToolchainMultiarch of the current folder. Copy it to your Windows machine,
+e.g. to C:\CrossToolchainMultiarch
 
 Building clang
 ==============
 
-Note that you can grab a pre-built clang from here: http://llvm.org/releases/download.html, but
-we haven't actually tried that, building ourselves for various reasons.
-
+Note that you can grab a pre-built clang from here: http://llvm.org/releases/download.html
 Detailed instructions how to build clang are given here: http://clang.llvm.org/get_started.html
 
 To recap, you will need: cmake, python and a supported compiler (recent Visual Studio is Ok).
-Grab stable release of llvm and clang from here: http://llvm.org/releases/download.html#3.6.0
+Grab stable release of llvm and clang from here: http://llvm.org/releases/download.html
 and unpack it to your local folder (unpack llvm first, then unpack clang into llvm/tools subdirectory).
 
 Use cmake to generate project files and then build Release (or MinSizeRel) x64 configuration of "install" 
@@ -58,18 +50,18 @@ Having done that, copy from install directory the following
 
 - bin/clang.exe
 - bin/clang++.exe
-- lib/clang/3.6.0/include 
+- lib/clang/x.y.0/include 
 
-into the toolchain (so their relative path from toolchain root stays the same).
+into all the architecture-specific toolchains (so their relative path from toolchain root stays the same).
 
 
 Using toolchain to build UE4 Linux targets
 ==========================================
 
 Set environment variable (Control Panel->System->Advanced system settings->Advanced->Environment variables)
-LINUX_ROOT to absolute path to your toolchain, without trailing backslash, so it looks like this:
+LINUX_MULTIARCH_ROOT to absolute path to your toolchain, without trailing backslash, so it looks like this:
 
-LINUX_ROOT=C:\CrossToolchain
+LINUX_MULTIARCH_ROOT=C:\CrossToolchainMultiarch
 
 After you made sure that variable is set, you can restart Visual Studio and regenerate UE4 project files
 (using GenerateProjectFiles.bat). After this, you should have "Linux" available among Win32/Win64

@@ -2,12 +2,25 @@
 
 #pragma once
 
-#include "LockFreeList.h"
-#include "LockFreeFixedSizeAllocator.h"
-#include "ChunkedArray.h"
-#include "Function.h"
+#include "CoreTypes.h"
+#include "Templates/AlignOf.h"
+#include "Templates/UnrealTemplate.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Math/NumericLimits.h"
+#include "HAL/ThreadSingleton.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "HAL/PlatformTime.h"
+#include "UObject/NameTypes.h"
+#include "Containers/LockFreeList.h"
+#include "Containers/ChunkedArray.h"
+#include "Delegates/Delegate.h"
 
+class FScopeCycleCounter;
 class FThreadStats;
+struct TStatId;
+
+template < class T > class TThreadSingleton;
 
 /**
 * This is thread-private information about the thread idle stats, which we always collect, even in final builds
@@ -2062,6 +2075,7 @@ DECLARE_STATS_GROUP(TEXT("Pak File"),STATGROUP_PakFile, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Particle Mem"),STATGROUP_ParticleMem, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Particles"),STATGROUP_Particles, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Physics"),STATGROUP_Physics, STATCAT_Advanced);
+DECLARE_STATS_GROUP(TEXT("Platform"), STATGROUP_Platform, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Profiler"), STATGROUP_Profiler, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Quick"), STATGROUP_Quick, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("RHI"),STATGROUP_RHI, STATCAT_Advanced);

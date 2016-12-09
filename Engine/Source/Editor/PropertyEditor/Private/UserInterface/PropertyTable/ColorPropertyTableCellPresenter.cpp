@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "ColorPropertyTableCellPresenter.h"
-#include "PropertyEditor.h"
+#include "UserInterface/PropertyTable/ColorPropertyTableCellPresenter.h"
+#include "Layout/Margin.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EditorStyleSet.h"
 #include "IPropertyTableUtilities.h"
 
-#include "SPropertyEditorColor.h"
-#include "SResetToDefaultPropertyEditor.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorColor.h"
+#include "UserInterface/PropertyEditor/SResetToDefaultPropertyEditor.h"
 
 FColorPropertyTableCellPresenter::FColorPropertyTableCellPresenter( const TSharedRef< class FPropertyEditor >& InPropertyEditor, const TSharedRef< class IPropertyTableUtilities >& InPropertyUtilities )
 	: PropertyEditor( InPropertyEditor )
@@ -16,7 +20,7 @@ FColorPropertyTableCellPresenter::FColorPropertyTableCellPresenter( const TShare
 
 TSharedRef< class SWidget > FColorPropertyTableCellPresenter::ConstructDisplayWidget()
 {
-	return SNew( SHorizontalBox )
+	TSharedRef<SHorizontalBox> HorizontalBox = SNew(SHorizontalBox)
 		+SHorizontalBox::Slot()
 		.Padding( FMargin( 3.0, 0, 3.0, 0 ) )
 		.FillWidth( 1.0 )
@@ -30,8 +34,11 @@ TSharedRef< class SWidget > FColorPropertyTableCellPresenter::ConstructDisplayWi
 				SAssignNew( FocusWidget, SPropertyEditorColor, PropertyEditor, PropertyUtilities )
 				.ToolTipText( PropertyEditor->GetToolTipText() )
 			]
-		]
-		+SHorizontalBox::Slot()
+		];
+		
+	if (!PropertyEditor->GetPropertyHandle()->HasMetaData(TEXT("NoResetToDefault")))
+	{
+		HorizontalBox->AddSlot()
 		.AutoWidth()
 		.VAlign( VAlign_Center )
 		.HAlign( HAlign_Center )
@@ -39,6 +46,9 @@ TSharedRef< class SWidget > FColorPropertyTableCellPresenter::ConstructDisplayWi
 		[
 			SNew( SResetToDefaultPropertyEditor, PropertyEditor )
 		];
+	}
+
+	return HorizontalBox;
 }
 
 bool FColorPropertyTableCellPresenter::RequiresDropDown()

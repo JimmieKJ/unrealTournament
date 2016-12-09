@@ -1,8 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "AutomationEditorPromotionCommon.h"
+#include "Tests/AutomationEditorPromotionCommon.h"
+#include "Misc/AutomationTest.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UnrealType.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Input/Events.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Commands/InputBindingManager.h"
+#include "Materials/Material.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Factories/MaterialFactoryNew.h"
+#include "UnrealEdGlobals.h"
+#include "Tests/AutomationCommon.h"
 #include "AssetRegistryModule.h"
+#include "Engine/Texture.h"
 #include "LevelEditor.h"
 #include "ScopedTransaction.h"
 
@@ -233,7 +247,7 @@ void FEditorPromotionTestUtilities::EndPIE()
 void FEditorPromotionTestUtilities::TakeScreenshot(const FString& ScreenshotName, bool bUseTopWindow)
 {
 	//Update the screenshot name, then take a screenshot.
-	if (FAutomationTestFramework::GetInstance().IsScreenshotAllowed())
+	if (FAutomationTestFramework::Get().IsScreenshotAllowed())
 	{
 		TSharedPtr<SWindow> Window;
 
@@ -259,7 +273,7 @@ void FEditorPromotionTestUtilities::TakeScreenshot(const FString& ScreenshotName
 		{
 			FString ScreenshotFileName;
 			const FString TestName = FString::Printf(TEXT("EditorBuildPromotion/%s"), *ScreenshotName);
-			AutomationCommon::GetScreenshotPath(TestName, ScreenshotFileName, false);
+			AutomationCommon::GetScreenshotPath(TestName, ScreenshotFileName);
 
 			TSharedRef<SWidget> WindowRef = Window.ToSharedRef();
 
@@ -267,7 +281,11 @@ void FEditorPromotionTestUtilities::TakeScreenshot(const FString& ScreenshotName
 			FIntVector OutImageSize;
 			if (FSlateApplication::Get().TakeScreenshot(WindowRef, OutImageData, OutImageSize))
 			{
-				FAutomationTestFramework::GetInstance().OnScreenshotCaptured().ExecuteIfBound(OutImageSize.X, OutImageSize.Y, OutImageData, ScreenshotFileName);
+				FAutomationScreenshotData Data;
+				Data.Width = OutImageSize.X;
+				Data.Height = OutImageSize.Y;
+				Data.Path = ScreenshotFileName;
+				FAutomationTestFramework::Get().OnScreenshotCaptured().ExecuteIfBound(OutImageData, Data);
 			}
 		}
 		else

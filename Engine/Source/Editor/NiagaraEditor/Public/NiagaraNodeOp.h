@@ -1,8 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Widgets/SWidget.h"
+#include "NiagaraEditorCommon.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SOverlay.h"
 #include "NiagaraNode.h"
 #include "NiagaraNodeOp.generated.h"
+
+class SGraphNode;
+class SGraphPin;
+class SVerticalBox;
 
 UCLASS(MinimalAPI)
 class UNiagaraNodeOp : public UNiagaraNode

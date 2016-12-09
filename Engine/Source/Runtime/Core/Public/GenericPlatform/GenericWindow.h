@@ -2,12 +2,10 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
 #include "Templates/SharedPointer.h"
 
-
 struct FGenericWindowDefinition;
-
 
 /**
  * Modes that an FGenericWindow can be in
@@ -160,6 +158,12 @@ public:
 	/** @return	Gives the native window a chance to adjust our stored window size before we cache it off */
 	virtual void AdjustCachedSize( FVector2D& Size ) const;
 
+	/**
+	 * @return ratio of pixels to SlateUnits in this window.
+	 * E.g. DPIScale of 2.0 means there is a 2x2 pixel square for every 1x1 SlateUnit.
+	 */
+	virtual float GetDPIScaleFactor() const;
+	
 protected:
 
 	TSharedPtr< FGenericWindowDefinition > Definition;

@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 #include "BlueprintMergeData.h"
-#include "MergeUtils.h" // for EMergeAssetId
+#include "MergeUtils.h"
+#include "Widgets/Views/STreeView.h"
 
-class  FBlueprintEditor;
+class FBlueprintDifferenceTreeEntry;
+class UBlueprint;
 struct FAssetRevisionInfo;
+struct FDiffSingleResult;
 
 class MERGE_API SBlueprintMerge : public SCompoundWidget
 {

@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class UProceduralMeshComponent;
+
 class FProceduralMeshComponentDetails : public IDetailCustomization
 {
 public:

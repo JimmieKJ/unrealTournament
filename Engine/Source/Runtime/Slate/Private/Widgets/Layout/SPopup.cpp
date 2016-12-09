@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SPopup.h"
+#include "Widgets/Layout/SPopup.h"
+#include "Rendering/DrawElements.h"
+#include "Layout/ArrangedChildren.h"
 
 void SPopup::Construct(const FArguments& InArgs)
 {

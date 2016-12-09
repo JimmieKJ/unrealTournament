@@ -2,11 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "OnlineBeaconHostObject.h"
 #include "QosBeaconHost.generated.h"
 
 class AQosBeaconClient;
-class UNetConnection;
 
 /**
  * A beacon host listening for Qos requests from a potential client

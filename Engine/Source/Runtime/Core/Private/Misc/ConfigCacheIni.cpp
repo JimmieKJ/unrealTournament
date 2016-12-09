@@ -1,15 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/DateTime.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/CommandLine.h"
+#include "Math/Vector4.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/CoreDelegates.h"
 #include "Misc/App.h"
-#include "ConfigCacheIni.h"
-#include "RemoteConfigIni.h"
-#include "AES.h"
-#include "SecureHash.h"
-#include "DefaultValueHelper.h"
-#include "EngineBuildSettings.h"
-#include "Paths.h"
-#include "ConfigManifest.h"
+#include "Misc/RemoteConfigIni.h"
+#include "Misc/DefaultValueHelper.h"
+#include "Misc/ConfigManifest.h"
 
 #if WITH_EDITOR
 	#define INI_CACHE 1
@@ -137,6 +141,7 @@ FString FConfigValue::CollapseValue(const FString& InExpandedValue)
 	FConfigSection
 -----------------------------------------------------------------------------*/
 
+
 bool FConfigSection::HasQuotes( const FString& Test )
 {
 	return Test.Left(1) == TEXT("\"") && Test.Right(1) == TEXT("\"");
@@ -175,6 +180,105 @@ bool FConfigSection::operator!=( const FConfigSection& Other ) const
 	return ! (FConfigSection::operator==(Other));
 }
 
+// Pull out a property from a Struct property, StructKeyMatch should be in the form "MyProp=". This reduces
+// memory allocations for each attempted match
+static FString ExtractPropertyValue(const FString& FullStructValue, const FString& StructKeyMatch)
+{
+	int32 MatchLoc = FullStructValue.Find(StructKeyMatch);
+	// we only look for matching StructKeys if the incoming Value had a key
+	if (MatchLoc >= 0)
+	{
+		// skip to after the match string
+		MatchLoc += StructKeyMatch.Len();
+
+		const TCHAR* Start = &FullStructValue.GetCharArray()[MatchLoc];
+		bool bInQuotes = false;
+		// skip over an open quote
+		if (*Start == '\"')
+		{
+			Start++;
+			bInQuotes = true;
+		}
+		const TCHAR* Travel = Start;
+
+		// look for end of token, using " if it started with one
+		while (*Travel && ((bInQuotes && *Travel != '\"') || (!bInQuotes && (FChar::IsAlnum(*Travel) || *Travel == '_'))))
+		{
+			Travel++;
+		}
+
+		// pull out the token
+		return FullStructValue.Mid(MatchLoc, Travel - Start);
+	}
+
+	return TEXT("");
+}
+
+void FConfigSection::HandleAddCommand(FName Key, const FString& Value, bool bAppendValueIfNotArrayOfStructsKeyUsed)
+{
+	FString* StructKey = ArrayOfStructKeys.Find(Key);
+	bool bHandledWithKey = false;
+	if (StructKey)
+	{
+		// look at the incoming value for the StructKey
+		FString StructKeyMatch = *StructKey + "=";
+
+		// pull out the token that matches the StructKey (a property name) from the full struct property string
+		FString StructKeyValueToMatch = ExtractPropertyValue(Value, StructKeyMatch);
+
+		if (StructKeyValueToMatch.Len() > 0)
+		{
+			// if we have a key for this array, then we look for it in the Value for each array entry
+			for (FConfigSection::TIterator It(*this); It; ++It)
+			{
+				// only look at matching keys
+				if (It.Key() == Key)
+				{
+					// now look for the matching ArrayOfStruct Key as the incoming KeyValue
+					FString ExistingStructValueKey = ExtractPropertyValue(It.Value().GetValue(), StructKeyMatch);
+					if (ExistingStructValueKey == StructKeyValueToMatch)
+					{
+						// we matched ther key, so remove the existing line item (Value) and plop in the new one
+						RemoveSingle(Key, It.Value().GetValue());
+						Add(Key, Value);
+
+						// mark that the key was found and the add has been processed
+						bHandledWithKey = true;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	if (!bHandledWithKey)
+	{
+		if (bAppendValueIfNotArrayOfStructsKeyUsed)
+		{
+			Add(Key, Value);
+		}
+		else
+		{
+			AddUnique(Key, Value);
+		}
+	}
+}
+
+// Look through the file's per object config ArrayOfStruct keys and see if this section matches
+static void FixupArrayOfStructKeysForSection(FConfigSection* Section, const FString& SectionName, const TMap<FString, TMap<FName, FString> >& PerObjectConfigKeys)
+{
+	for (TMap<FString, TMap<FName, FString> >::TConstIterator It(PerObjectConfigKeys); It; ++It)
+	{
+		if (SectionName.EndsWith(It.Key()))
+		{
+			for (TMap<FName, FString>::TConstIterator It2(It.Value()); It2; ++It2)
+			{
+				Section->ArrayOfStructKeys.Add(It2.Key(), It2.Value());
+			}
+		}
+	}
+}
+
 /*-----------------------------------------------------------------------------
 	FConfigFile
 -----------------------------------------------------------------------------*/
@@ -183,17 +287,28 @@ FConfigFile::FConfigFile()
 , NoSave( false )
 , Name( NAME_None )
 , SourceConfigFile(nullptr)
-{}
-	
+{
+
+	if (FCoreDelegates::OnFConfigCreated.IsBound())
+	{
+		FCoreDelegates::OnFConfigCreated.Broadcast(this);
+	}
+}
+
 FConfigFile::~FConfigFile()
 {
-	if( SourceConfigFile != nullptr )
+
+	if (FCoreDelegates::OnFConfigDeleted.IsBound() && !(GExitPurge))
+	{
+		FCoreDelegates::OnFConfigDeleted.Broadcast(this);
+	}
+
+	if (SourceConfigFile != nullptr)
 	{
 		delete SourceConfigFile;
 		SourceConfigFile = nullptr;
 	}
 }
-
 bool FConfigFile::operator==( const FConfigFile& Other ) const
 {
 	if ( Pairs.Num() != Other.Pairs.Num() )
@@ -216,6 +331,16 @@ bool FConfigFile::operator!=( const FConfigFile& Other ) const
 	return ! (FConfigFile::operator==(Other));
 }
 
+FConfigSection* FConfigFile::FindOrAddSection(const FString& SectionName)
+{
+	FConfigSection* Section = Find(SectionName);
+	if (Section == nullptr)
+	{
+		Section = &Add(SectionName, FConfigSection());
+	}
+	return Section;
+}
+
 bool FConfigFile::Combine(const FString& Filename)
 {
 	FString Text;
@@ -235,6 +360,7 @@ void FConfigFile::CombineFromBuffer(const FString& Buffer)
 {
 	const TCHAR* Ptr = *Buffer;
 	FConfigSection* CurrentSection = nullptr;
+	FString CurrentSectionName;
 	bool Done = false;
 	while( !Done )
 	{
@@ -268,11 +394,11 @@ void FConfigFile::CombineFromBuffer(const FString& Buffer)
 			Start[FCString::Strlen(Start)-1] = 0;
 
 			// If we don't have an existing section by this name, add one
-			CurrentSection = Find( Start );
-			if( !CurrentSection )
-			{
-				CurrentSection = &Add( Start, FConfigSection() );
-			}
+			CurrentSection = FindOrAddSection( Start );
+			CurrentSectionName = Start;
+
+			// make sure the CurrentSection has any of the special ArrayOfStructKeys added
+			FixupArrayOfStructKeysForSection(CurrentSection, Start, PerObjectConfigArrayOfStructKeys);
 		}
 
 		// Otherwise, if we're currently inside a section, and we haven't reached the end of the stream
@@ -298,9 +424,15 @@ void FConfigFile::CombineFromBuffer(const FString& Buffer)
 					Start++;
 				}
 
+				// ~ is a packaging and should be skipped at runtime
+				if (Start[0] == '~')
+				{
+					Start++;
+				}
+
 				// determine how this line will be merged
 				TCHAR Cmd = Start[0];
-				if ( Cmd=='+' || Cmd=='-' || Cmd=='.' || Cmd=='!' )
+				if ( Cmd=='+' || Cmd=='-' || Cmd=='.' || Cmd == '!' || Cmd == '@' || Cmd == '*' )
 				{
 					Start++;
 				}
@@ -372,10 +504,10 @@ void FConfigFile::CombineFromBuffer(const FString& Buffer)
 					ProcessedValue = Value;
 				}
 
-				if( Cmd=='+' ) 
+				if (Cmd == '+')
 				{
 					// Add if not already present.
-					CurrentSection->AddUnique( Start, ProcessedValue );
+					CurrentSection->HandleAddCommand( Start, ProcessedValue, true );
 				}
 				else if( Cmd=='-' )	
 				{
@@ -385,11 +517,22 @@ void FConfigFile::CombineFromBuffer(const FString& Buffer)
 				}
 				else if ( Cmd=='.' )
 				{
-					CurrentSection->Add( Start, ProcessedValue );
+					CurrentSection->HandleAddCommand( Start, ProcessedValue, false );
 				}
 				else if( Cmd=='!' )
 				{
 					CurrentSection->Remove( Start );
+				}
+				else if (Cmd == '@')
+				{
+					// track a key to show uniqueness for arrays of structs
+					CurrentSection->ArrayOfStructKeys.Add(Start, ProcessedValue);
+				}
+				else if (Cmd == '*')
+				{
+					// track a key to show uniqueness for arrays of structs
+					TMap<FName, FString>& POCKeys = PerObjectConfigArrayOfStructKeys.FindOrAdd(CurrentSectionName);
+					POCKeys.Add(Start, ProcessedValue);
 				}
 				else
 				{
@@ -460,11 +603,7 @@ void FConfigFile::ProcessInputFileContents(const FString& Contents)
 			Start[FCString::Strlen(Start)-1] = 0;
 
 			// If we don't have an existing section by this name, add one
-			CurrentSection = Find( Start );
-			if( !CurrentSection )
-			{
-				CurrentSection = &Add( Start, FConfigSection() );
-			}
+			CurrentSection = FindOrAddSection( Start );
 		}
 
 		// Otherwise, if we're currently inside a section, and we haven't reached the end of the stream
@@ -727,9 +866,6 @@ static void OverrideFromCommandline(FConfigFile* File, const FString& Filename)
  **/
 static bool LoadIniFileHierarchy(const FConfigFileHierarchy& HierarchyToLoad, FConfigFile& ConfigFile, const bool bUseCache)
 {
-	// This shouldn't be getting called if seekfree is enabled on console.
-	check(!GUseSeekFreeLoading || !FPlatformProperties::RequiresCookedData());
-
 	// if the file does not exist then return
 	if (HierarchyToLoad.Num() == 0)
 	{
@@ -1013,6 +1149,12 @@ bool FConfigFile::Write( const FString& Filename, bool bDoRemoteWrite/* = true*/
 					{
 						Text += FString::Printf( TEXT("[%s]") LINE_TERMINATOR, *SectionName);
 						bWroteASectionProperty = true;
+
+						// and if the sectrion has any array of struct uniqueness keys, add them here
+						for (auto It = Section.ArrayOfStructKeys.CreateConstIterator(); It; ++It)
+						{
+							Text += FString::Printf(TEXT("@%s=%s") LINE_TERMINATOR, *It.Key().ToString(), *It.Value());
+						}
 					}
 
 					// Write out our property, if it is an array we need to write out the entire array.
@@ -1087,12 +1229,7 @@ void FConfigFile::AddMissingProperties( const FConfigFile& InSourceFile )
 
 		{
 			// If we don't already have this section, go ahead and add it now
-			FConfigSection* DestSection = Find( SourceSectionName );
-			if( DestSection == nullptr )
-			{
-				DestSection = &Add( SourceSectionName, FConfigSection() );
-				Dirty = true;
-			}
+			FConfigSection* DestSection = FindOrAddSection( SourceSectionName );
 
 			for( FConfigSection::TConstIterator SourcePropertyIt( SourceSection ); SourcePropertyIt; ++SourcePropertyIt )
 			{
@@ -1193,16 +1330,22 @@ bool FConfigFile::GetInt64( const TCHAR* Section, const TCHAR* Key, int64& Value
 	}
 	return false;
 }
+bool FConfigFile::GetBool(const TCHAR* Section, const TCHAR* Key, bool& Value ) const
+{
+	FString Text;
+	if ( GetString(Section, Key, Text ))
+	{
+		Value = FCString::ToBool(*Text);
+		return 1;
+	}
+	return 0;
+}
 
 
 
 void FConfigFile::SetString( const TCHAR* Section, const TCHAR* Key, const TCHAR* Value )
 {
-	FConfigSection* Sec  = Find( Section );
-	if( Sec == nullptr )
-	{
-		Sec = &Add( Section, FConfigSection() );
-	}
+	FConfigSection* Sec = FindOrAddSection( Section );
 
 	FConfigValue* ConfigValue = Sec->Find( Key );
 	if( ConfigValue == nullptr )
@@ -1219,11 +1362,7 @@ void FConfigFile::SetString( const TCHAR* Section, const TCHAR* Key, const TCHAR
 
 void FConfigFile::SetText( const TCHAR* Section, const TCHAR* Key, const FText& Value )
 {
-	FConfigSection* Sec  = Find( Section );
-	if( Sec == nullptr )
-	{
-		Sec = &Add( Section, FConfigSection() );
-	}
+	FConfigSection* Sec = FindOrAddSection( Section );
 
 	FString StrValue;
 	FTextStringHelper::WriteToString(StrValue, Value);
@@ -1468,18 +1607,18 @@ bool FConfigCacheIni::AreFileOperationsDisabled()
 }
 
 /**
- * Prases apart an ini section that contains a list of 1-to-N mappings of names in the following format
+ * Parses apart an ini section that contains a list of 1-to-N mappings of names in the following format
  *	 [PerMapPackages]
- *	 MapName=Map1
- *	 Package=PackageA
- *	 Package=PackageB
- *	 MapName=Map2
- *	 Package=PackageC
- *	 Package=PackageD
+ *	 .MapName1=Map1
+ *	 .Package1=PackageA
+ *	 .Package1=PackageB
+ *	 .MapName2=Map2
+ *	 .Package2=PackageC
+ *	 .Package2=PackageD
  * 
  * @param Section Name of section to look in
- * @param KeyOne Key to use for the 1 in the 1-to-N (MapName in the above example)
- * @param KeyN Key to use for the N in the 1-to-N (Package in the above example)
+ * @param KeyOne Key to use for the 1 in the 1-to-N (MapName in the above example - the number suffix gets ignored but helps to keep ordering)
+ * @param KeyN Key to use for the N in the 1-to-N (Package in the above example - the number suffix gets ignored but helps to keep ordering)
  * @param OutMap Map containing parsed results
  * @param Filename Filename to use to find the section
  *
@@ -1505,7 +1644,7 @@ void FConfigCacheIni::Parse1ToNSectionOfNames(const TCHAR* Section, const TCHAR*
 	for( FConfigSectionMap::TIterator It(*ConfigSection); It; ++It )
 	{
 		// is the current key the 1 key?
-		if (It.Key() == KeyOne)
+		if (It.Key().ToString().StartsWith(KeyOne))
 		{
 			const FName KeyName(*It.Value().GetValue());
 
@@ -1519,7 +1658,7 @@ void FConfigCacheIni::Parse1ToNSectionOfNames(const TCHAR* Section, const TCHAR*
 			}
 		}
 		// is the current key the N key?
-		else if (It.Key() == KeyN && WorkingList != nullptr)
+		else if (It.Key().ToString().StartsWith(KeyN) && WorkingList != nullptr)
 		{
 			// if so, add it to the N list for the current 1 key
 			WorkingList->Add(FName(*It.Value().GetValue()));
@@ -1533,18 +1672,18 @@ void FConfigCacheIni::Parse1ToNSectionOfNames(const TCHAR* Section, const TCHAR*
 }
 
 /**
- * Prases apart an ini section that contains a list of 1-to-N mappings of strings in the following format
+ * Parses apart an ini section that contains a list of 1-to-N mappings of strings in the following format
  *	 [PerMapPackages]
- *	 MapName=Map1
- *	 Package=PackageA
- *	 Package=PackageB
- *	 MapName=Map2
- *	 Package=PackageC
- *	 Package=PackageD
+ *	 .MapName1=Map1
+ *	 .Package1=PackageA
+ *	 .Package1=PackageB
+ *	 .MapName2=Map2
+ *	 .Package2=PackageC
+ *	 .Package2=PackageD
  * 
  * @param Section Name of section to look in
- * @param KeyOne Key to use for the 1 in the 1-to-N (MapName in the above example)
- * @param KeyN Key to use for the N in the 1-to-N (Package in the above example)
+ * @param KeyOne Key to use for the 1 in the 1-to-N (MapName in the above example - the number suffix gets ignored but helps to keep ordering)
+ * @param KeyN Key to use for the N in the 1-to-N (Package in the above example - the number suffix gets ignored but helps to keep ordering)
  * @param OutMap Map containing parsed results
  * @param Filename Filename to use to find the section
  *
@@ -1570,7 +1709,7 @@ void FConfigCacheIni::Parse1ToNSectionOfStrings(const TCHAR* Section, const TCHA
 	for( FConfigSectionMap::TIterator It(*ConfigSection); It; ++It )
 	{
 		// is the current key the 1 key?
-		if (It.Key() == KeyOne)
+		if (It.Key().ToString().StartsWith(KeyOne))
 		{
 			// look for existing set in the map
 			WorkingList = OutMap.Find(It.Value().GetValue());
@@ -1582,7 +1721,7 @@ void FConfigCacheIni::Parse1ToNSectionOfStrings(const TCHAR* Section, const TCHA
 			}
 		}
 		// is the current key the N key?
-		else if (It.Key() == KeyN && WorkingList != nullptr)
+		else if (It.Key().ToString().StartsWith(KeyN) && WorkingList != nullptr)
 		{
 			// if so, add it to the N list for the current 1 key
 			WorkingList->Add(It.Value().GetValue());
@@ -1783,11 +1922,8 @@ void FConfigCacheIni::SetString( const TCHAR* Section, const TCHAR* Key, const T
 		return;
 	}
 
-	FConfigSection* Sec = File->Find( Section );
-	if (!Sec)
-	{
-		Sec = &File->Add(Section, FConfigSection());
-	}
+	FConfigSection* Sec = File->FindOrAddSection( Section );
+
 	FConfigValue* ConfigValue = Sec->Find( Key );
 	if( !ConfigValue )
 	{
@@ -1810,11 +1946,7 @@ void FConfigCacheIni::SetText( const TCHAR* Section, const TCHAR* Key, const FTe
 		return;
 	}
 
-	FConfigSection* Sec = File->Find( Section );
-	if( !Sec )
-	{
-		Sec = &File->Add( Section, FConfigSection() );
-	}
+	FConfigSection* Sec = File->FindOrAddSection( Section );
 
 	FString StrValue;
 	FTextStringHelper::WriteToString(StrValue, Value);
@@ -2296,9 +2428,7 @@ void FConfigCacheIni::SetArray
 		return;
 	}
 	
-	FConfigSection* Sec  = File->Find( Section );
-	if( !Sec )
-		Sec = &File->Add( Section, FConfigSection() );
+	FConfigSection* Sec  = File->FindOrAddSection( Section );
 
 	if ( Sec->Remove(Key) > 0 )
 		File->Dirty = 1;
@@ -2605,9 +2735,6 @@ bool FConfigCacheIni::ForEachEntry(const FKeyValueSink& Visitor, const TCHAR* Se
  **/
 static void LoadAnIniFile(const FString& FilenameToLoad, FConfigFile& ConfigFile)
 {
-	// This shouldn't be getting called if seekfree is enabled on console.
-	check(!GUseSeekFreeLoading || !FPlatformProperties::RequiresCookedData());
-
 	if( !IsUsingLocalIniFile(*FilenameToLoad, nullptr) || (IFileManager::Get().FileSize( *FilenameToLoad ) >= 0) )
 	{
 		ProcessIniContents(*FilenameToLoad, *FilenameToLoad, &ConfigFile, false, false);
@@ -2791,6 +2918,11 @@ static void GetSourceIniHierarchyFilenames(const TCHAR* InBaseIniName, const TCH
 	OutHierarchy.Add(EConfigFileHierarchy::AbsoluteBase, FIniFilename(FString::Printf(TEXT("%sBase.ini"), EngineConfigDir), BaseIniRequired));
 	// Engine/Config/Base* ini
 	OutHierarchy.Add(EConfigFileHierarchy::EngineDirBase, FIniFilename(FString::Printf(TEXT("%sBase%s.ini"), EngineConfigDir, InBaseIniName), false));
+	// Engine/Config/Platform/BasePlatform* ini // this is to workaround the issue where Engine -> Project -> EnginePlat -> ProjectPlat would make the project's settings get overwritten by EnginePlat settings
+	if (PlatformName.Len() > 0)
+	{
+		OutHierarchy.Add(EConfigFileHierarchy::EngineDir_BasePlatform, FIniFilename(FString::Printf(TEXT("%s%s/Base%s%s.ini"), EngineConfigDir, *PlatformName, *PlatformName, InBaseIniName), false));
+	}
 	// Engine/Config/NotForLicensees/Base* ini
 	OutHierarchy.Add(EConfigFileHierarchy::EngineDirBase_NotForLicensees, FIniFilename(FString::Printf(TEXT("%sNotForLicensees/Base%s.ini"), EngineConfigDir, InBaseIniName), false));
 	// Engine/Config/NoRedist/Base* ini
@@ -2802,8 +2934,11 @@ static void GetSourceIniHierarchyFilenames(const TCHAR* InBaseIniName, const TCH
 	// into the hierarchy and remove the delete operation
 	// - Remember to fixup EngineConfiguration.cs
 	/////
-	IFileManager::Get().Delete(*FString::Printf(TEXT("%sNoRedist/Base%s.ini"), EngineConfigDir, InBaseIniName), false, true, true);
-	IFileManager::Get().DeleteDirectory(*FString::Printf(TEXT("%sNoRedist"), EngineConfigDir), false, false);
+	if (IFileManager::Get().DirectoryExists(*FString::Printf(TEXT("%sNoRedist"), EngineConfigDir)))
+	{
+		IFileManager::Get().Delete(*FString::Printf(TEXT("%sNoRedist/Base%s.ini"), EngineConfigDir, InBaseIniName), false, true, true);
+		IFileManager::Get().DeleteDirectory(*FString::Printf(TEXT("%sNoRedist"), EngineConfigDir), false, false);
+	}
 	// OutHierarchy.Add( FIniFilename(FString::Printf(TEXT("%sNoRedist/Base%s.ini"), EngineConfigDir, InBaseIniName), false) );
 
 	// [[[[ PROJECT SETTINGS ]]]]
@@ -3479,4 +3614,11 @@ void ApplyCVarSettingsGroupFromIni(const TCHAR* InSectionBaseName, int32 InGroup
 	// Lookup the config section for this section and group number
 	FString SectionName = FString::Printf(TEXT("%s@%d"), InSectionBaseName, InGroupNumber);
 	ApplyCVarSettingsFromIni(*SectionName,InIniFilename, SetBy);
+}
+
+void ApplyCVarSettingsGroupFromIni(const TCHAR* InSectionBaseName, const TCHAR* InSectionTag, const TCHAR* InIniFilename, uint32 SetBy)
+{
+	// Lookup the config section for this section and group number
+	FString SectionName = FString::Printf(TEXT("%s@%s"), InSectionBaseName, InSectionTag);
+	ApplyCVarSettingsFromIni(*SectionName, InIniFilename, SetBy);
 }

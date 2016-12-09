@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "ISlateSoundDevice.h"
+#include "CoreMinimal.h"
+#include "Sound/ISlateSoundDevice.h"
+
+struct FSlateSound;
 
 /** Silent implementation of ISlateSoundDevice; it plays nothing. */
 class SLATECORE_API FNullSlateSoundDevice : public ISlateSoundDevice

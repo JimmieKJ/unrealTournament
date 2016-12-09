@@ -4,8 +4,11 @@
 	Texture2DDynamic.cpp: Implementation of UTexture2DDynamic.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "Engine/Texture2DDynamic.h"
+#include "UObject/Package.h"
+#include "TextureResource.h"
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
 
 /*-----------------------------------------------------------------------------
 	FTexture2DDynamicResource

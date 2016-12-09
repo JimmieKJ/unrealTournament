@@ -2,9 +2,14 @@
 
 #pragma once
 
-#include "Runtime/SlateCore/Public/Layout/Margin.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "EdGraph/EdGraphPin.h"
+#include "Layout/Margin.h"
 #include "GraphEditorSettings.generated.h"
 
+struct FPropertyChangedEvent;
 
 /**
  * Implements settings for the graph editor.

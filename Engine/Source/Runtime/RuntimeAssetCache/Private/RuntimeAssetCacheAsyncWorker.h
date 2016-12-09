@@ -1,7 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AsyncWork.h"
+
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Stats/Stats.h"
+#include "Async/AsyncWork.h"
+#include "RuntimeAssetCacheInterface.h"
+#include "RuntimeAssetCachePrivate.h"
+
+class FRuntimeAssetCacheBucket;
+class IRuntimeAssetCacheBuilder;
+class UClass;
 
 /** Stats */
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("RAC Num Build"), STAT_RAC_NumBuilds, STATGROUP_RAC, );

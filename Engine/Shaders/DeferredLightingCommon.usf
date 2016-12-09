@@ -48,11 +48,7 @@ struct FSimpleDeferredLightData
 	bool bInverseSquared;
 };
 
-#ifdef THREADGROUP_SIZEX
 #define REFERENCE_QUALITY	0
-#else
-#define REFERENCE_QUALITY	0
-#endif
 
 #undef LIGHT_SOURCE_SHAPE
 #define LIGHT_SOURCE_SHAPE 1
@@ -149,7 +145,7 @@ float3 SphereLightingMIS( FGBufferData GBuffer, FDeferredLightData LightData, fl
 				}
 				float Weight = rcp( InvWeight );
 
-				float3 Shading = SurfaceShading( GBuffer, LobeRoughness, 1, L, V, N, 1, Random ) * NoL;
+				float3 Shading = SurfaceShading( GBuffer, LobeRoughness, 1, L, V, N, Random ) * NoL;
 				Shading += SubsurfaceShading( GBuffer, L, V, N, 1, Random );
 			
 				Lighting += SampleColor * Shading * Weight;
@@ -311,7 +307,7 @@ float ShadowRayCast(
 	float3 RayStartUVz = float3( RayStartScreen.xy * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz, RayStartScreen.z );
 	float3 RayStepUVz = float3( RayStepScreen.xy * View.ScreenPositionScaleBias.xy, RayStepScreen.z );
 
-	float4 RayDepthClip	= RayStartClip + mul( float4( 0, 0, PixelDepthLength, 0 ), View.ViewToClip );
+	float4 RayDepthClip	= RayStartClip + mul( float4( 0, 0, ContactShadowLength * PixelDepthLength, 0 ), View.ViewToClip );
 	float3 RayDepthScreen = RayDepthClip.xyz / RayDepthClip.w;
 
 	const float Step = 1.0 / NumSteps;
@@ -345,6 +341,10 @@ float ShadowRayCast(
 
 	return 1 - Shadow;
 }
+
+#ifndef SUPPORT_CONTACT_SHADOWS
+#error "Must set SUPPORT_CONTACT_SHADOWS"
+#endif
 
 /** Calculates lighting for a given position, normal, etc with a fully featured lighting model designed for quality. */
 float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferData GBuffer, float AmbientOcclusion, uint ShadingModelID, FDeferredLightData LightData, float4 LightAttenuation, uint2 Random)
@@ -470,7 +470,7 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 			// Commented out because it reduces character shading quality.
 			//SurfaceShadow *= saturate(dot(N, L) * 6 - 0.2);
 
-#ifndef THREADGROUP_SIZEX
+#if SUPPORT_CONTACT_SHADOWS
 			BRANCH
 			if( LightData.ShadowedBits > 1 && LightData.ContactShadowLength > 0 )
 			{
@@ -488,7 +488,7 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 			SurfaceShadow = AmbientOcclusion;
 		}
 
-#ifndef THREADGROUP_SIZEX
+#if SUPPORT_CONTACT_SHADOWS
 		BRANCH
 		if( LightData.ShadowedBits < 2 && GBuffer.ShadingModelID == SHADINGMODELID_HAIR )
 		{
@@ -504,45 +504,42 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 		LightAccumulator.EstimatedCost += 0.3f;		// add the cost of getting the shadow terms
 
 		const bool bNeedsSeparateSubsurfaceLightAccumulation = GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE;
+		const float3 LightColor = LightData.LightColorAndFalloffExponent.rgb;
 
+		#if NON_DIRECTIONAL_DIRECT_LIGHTING
+
+			float3 VolumeLighting = Diffuse_Lambert(GBuffer.DiffuseColor);
+			LightAccumulator_Add(LightAccumulator, VolumeLighting, (1.0/PI), LightColor * SurfaceAttenuation, bNeedsSeparateSubsurfaceLightAccumulation);
+
+		#else
 		{
-			const float3 LightColor = LightData.LightColorAndFalloffExponent.rgb;
-
 			const float ClearCoatRoughness	= GBuffer.CustomData.y;
 
 			float3 LobeRoughness = float3(ClearCoatRoughness, GBuffer.Roughness, 1);
 			
-#if REFERENCE_QUALITY
-			float LightMask = LightRadiusMask * SpotFalloff * SurfaceShadow;
-			LightAccumulator_Add( LightAccumulator, SphereLightingMIS( GBuffer, LightData, LobeRoughness, ToLight, V, N, Random ), 0, LightColor * LightMask, bNeedsSeparateSubsurfaceLightAccumulation);
-#else
-			float3 LobeEnergy = AreaLightSpecular(LightData, LobeRoughness, ToLight, L, V, N);
+			#if REFERENCE_QUALITY
+				float LightMask = LightRadiusMask * SpotFalloff * SurfaceShadow;
+				LightAccumulator_Add(LightAccumulator, SphereLightingMIS( GBuffer, LightData, LobeRoughness, ToLight, V, N, Random ), 0, LightColor * LightMask, bNeedsSeparateSubsurfaceLightAccumulation);
+			#else
+				float3 LobeEnergy = AreaLightSpecular(LightData, LobeRoughness, ToLight, L, V, N);
 
-			// accumulate diffuse and specular
-			{
-#if 1	// for testing if there is a perf impact
-				// correct screen space subsurface scattering
-				float3 SurfaceLightingDiff = SurfaceShading(GBuffer, LobeRoughness, LobeEnergy, L, V, N, float2(1, 0), Random);
-				float3 SurfaceLightingSpec = SurfaceShading(GBuffer, LobeRoughness, LobeEnergy, L, V, N, float2(0, 1), Random);
-				LightAccumulator_Add(LightAccumulator, SurfaceLightingDiff, SurfaceLightingSpec, LightColor * (NoL * SurfaceAttenuation), bNeedsSeparateSubsurfaceLightAccumulation);
-				//LightAccumulator_Add(LightAccumulator, SurfaceLightingDiff, SurfaceLightingSpec, LightColor * (SurfaceAttenuation), bNeedsSeparateSubsurfaceLightAccumulation );
-#else
-				// wrong screen space subsurface scattering but potentially faster
-				float3 SurfaceLighting = SurfaceShading(GBuffer, LobeRoughness, LobeEnergy, L, V, N, float2(1, 1), Random);
-				LightAccumulator_Add(LightAccumulator, SurfaceLighting, 0, LightColor * (NoL * SurfaceAttenuation), bNeedsSeparateSubsurfaceLightAccumulation);
-#endif
-			}
+				// accumulate surface
+				{
+					float3 SurfaceLighting = SurfaceShading(GBuffer, LobeRoughness, LobeEnergy, L, V, N, Random);
+					LightAccumulator_Add(LightAccumulator, SurfaceLighting, (1.0/PI), LightColor * (NoL * SurfaceAttenuation), bNeedsSeparateSubsurfaceLightAccumulation);
+				}
 
-			// accumulate subsurface
-			{
-				float3 SubsurfaceLighting = SubsurfaceShading(GBuffer, L, V, N, SubsurfaceShadow, Random);
+				// accumulate subsurface
+				{
+					float3 SubsurfaceLighting = SubsurfaceShading(GBuffer, L, V, N, SubsurfaceShadow, Random);
 
-				LightAccumulator_Add(LightAccumulator, SubsurfaceLighting, 0, LightColor * SubsurfaceAttenuation, bNeedsSeparateSubsurfaceLightAccumulation);
+					LightAccumulator_Add(LightAccumulator, SubsurfaceLighting, 0, LightColor * SubsurfaceAttenuation, false);
 
-				LightAccumulator.EstimatedCost += 0.4f;		// add the cost of the lighting computations (should sum up to 1 form one light)
-			}
-#endif
+					LightAccumulator.EstimatedCost += 0.4f;		// add the cost of the lighting computations (should sum up to 1 form one light)
+				}
+			#endif
 		}
+		#endif
 	}
 
 	return LightAccumulator_GetResult(LightAccumulator);
@@ -553,10 +550,10 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
  * All lights rendered through this method are unshadowed point lights with no shadowing or light function or IES.
  * A cheap specular is used instead of the more correct area specular, no fresnel.
  */
-float3 GetSimpleDynamicLighting(float3 WorldPosition, float3 CameraVector, FScreenSpaceData ScreenSpaceData, FSimpleDeferredLightData LightData)
+float3 GetSimpleDynamicLighting(float3 WorldPosition, float3 CameraVector, float3 WorldNormal, float AmbientOcclusion, float3 DiffuseColor, float3 SpecularColor, float Roughness, FSimpleDeferredLightData LightData)
 {
 	float3 V = -CameraVector;
-	float3 N = ScreenSpaceData.GBuffer.WorldNormal;
+	float3 N = WorldNormal;
 	float3 ToLight = LightData.LightPositionAndInvRadius.xyz - WorldPosition;
 	float DistanceAttenuation = 1;
 	
@@ -585,9 +582,14 @@ float3 GetSimpleDynamicLighting(float3 WorldPosition, float3 CameraVector, FScre
 		const float3 LightColor = LightData.LightColorAndFalloffExponent.rgb;
 
 		// Apply SSAO to the direct lighting since we're not going to have any other shadowing
-		float Attenuation = DistanceAttenuation * ScreenSpaceData.AmbientOcclusion;
+		float Attenuation = DistanceAttenuation * AmbientOcclusion;
 
-		OutLighting += LightColor * (NoL * Attenuation) * SimpleShading( ScreenSpaceData.GBuffer.DiffuseColor, ScreenSpaceData.GBuffer.SpecularColor, max(ScreenSpaceData.GBuffer.Roughness, .04f), L, V, N );
+		#if NON_DIRECTIONAL_DIRECT_LIGHTING
+			float3 VolumeLighting = Diffuse_Lambert(DiffuseColor);
+			OutLighting += LightColor * Attenuation * VolumeLighting;
+		#else
+			OutLighting += LightColor * (NoL * Attenuation) * SimpleShading(DiffuseColor, SpecularColor, max(Roughness, .04f), L, V, N);
+		#endif
 	}
 
 	return OutLighting;

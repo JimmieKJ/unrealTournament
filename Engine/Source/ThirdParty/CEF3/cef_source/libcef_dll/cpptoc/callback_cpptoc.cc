@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -12,6 +12,8 @@
 
 #include "libcef_dll/cpptoc/callback_cpptoc.h"
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -37,13 +39,20 @@ void CEF_CALLBACK callback_cancel(struct _cef_callback_t* self) {
   CefCallbackCppToC::Get(self)->Cancel();
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefCallbackCppToC::CefCallbackCppToC(CefCallback* cls)
-    : CefCppToC<CefCallbackCppToC, CefCallback, cef_callback_t>(cls) {
-  struct_.struct_.cont = callback_cont;
-  struct_.struct_.cancel = callback_cancel;
+CefCallbackCppToC::CefCallbackCppToC() {
+  GetStruct()->cont = callback_cont;
+  GetStruct()->cancel = callback_cancel;
+}
+
+template<> CefRefPtr<CefCallback> CefCppToC<CefCallbackCppToC, CefCallback,
+    cef_callback_t>::UnwrapDerived(CefWrapperType type, cef_callback_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -51,3 +60,5 @@ template<> base::AtomicRefCount CefCppToC<CefCallbackCppToC, CefCallback,
     cef_callback_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefCallbackCppToC, CefCallback,
+    cef_callback_t>::kWrapperType = WT_CALLBACK;

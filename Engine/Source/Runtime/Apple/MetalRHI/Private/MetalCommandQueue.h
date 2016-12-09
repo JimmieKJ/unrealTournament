@@ -7,6 +7,38 @@
 class FMetalCommandList;
 
 /**
+ * Enumeration of features which are present only on some OS/device combinations.
+ * These have to be checked at runtime as well as compile time to ensure backward compatibility.
+ */
+enum EMetalFeatures
+{
+	/** Support for separate front & back stencil ref. values */
+	EMetalFeaturesSeparateStencil = 1 << 0,
+	/** Support for specifying an update to the buffer offset only */
+	EMetalFeaturesSetBufferOffset = 1 << 1,
+	/** Support for specifying the depth clip mode */
+	EMetalFeaturesDepthClipMode = 1 << 2,
+	/** Support for specifying resource usage & memory options */
+	EMetalFeaturesResourceOptions = 1 << 3,
+	/** Supports texture->buffer blit options for depth/stencil blitting */
+	EMetalFeaturesDepthStencilBlitOptions = 1 << 4,
+    /** Supports creating a native stencil texture view from a depth/stencil texture */
+    EMetalFeaturesStencilView = 1 << 5,
+    /** Supports a depth-16 pixel format */
+    EMetalFeaturesDepth16 = 1 << 6,
+	/** Supports NSUInteger counting visibility queries */
+	EMetalFeaturesCountingQueries = 1 << 7,
+	/** Supports base vertex/instance for draw calls */
+	EMetalFeaturesBaseVertexInstance = 1 << 8,
+	/** Supports indirect buffers for draw calls */
+	EMetalFeaturesIndirectBuffer = 1 << 9,
+	/** Supports layered rendering */
+	EMetalFeaturesLayeredRendering = 1 << 10,
+	/** Support for specifying small buffers as byte arrays */
+	EMetalFeaturesSetBytes = 1 << 11
+};
+
+/**
  * FMetalCommandQueue:
  */
 class FMetalCommandQueue
@@ -58,13 +90,19 @@ public:
 	
 	/** @returns The command queue's native device. */
 	id<MTLDevice> GetDevice(void) const;
+	
+	/**
+	 * @param InFeature A specific Metal feature to check for.
+	 * @returns True if the requested feature is supported, else false.
+	 */
+	inline bool SupportsFeature(EMetalFeatures InFeature) { return ((Features & InFeature) != 0); }
 
 #pragma mark - Public Debug Support -
 
 	/** Inserts a boundary that marks the end of a frame for the debug capture tool. */
 	void InsertDebugCaptureBoundary(void);
 	
-#if !UE_BUILD_SHIPPING
+#if METAL_DEBUG_OPTIONS
 	/** Enable or disable runtime debugging features. */
 	void SetRuntimeDebuggingLevel(int32 const Level);
 	
@@ -86,7 +124,8 @@ private:
 	class IMetalStatistics* Statistics;
 #endif
 	TArray<NSArray<id<MTLCommandBuffer>>*> CommandBuffers;
-#if !UE_BUILD_SHIPPING
+#if METAL_DEBUG_OPTIONS
 	int32 RuntimeDebuggingLevel;
 #endif
+	uint32 Features;
 };

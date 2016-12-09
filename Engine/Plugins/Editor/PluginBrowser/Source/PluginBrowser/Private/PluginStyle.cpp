@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PluginBrowserPrivatePCH.h"
 #include "PluginStyle.h"
-#include "SlateStyle.h"
-#include "IPluginManager.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Styling/SlateTypes.h"
+#include "EditorStyleSet.h"
+#include "Interfaces/IPluginManager.h"
 
 #define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush( FPluginStyle::InContent( RelativePath, ".png" ), __VA_ARGS__ )
 #define BOX_BRUSH( RelativePath, ... ) FSlateBoxBrush( FPluginStyle::InContent( RelativePath, ".png" ), __VA_ARGS__ )
@@ -164,6 +165,15 @@ void FPluginStyle::Initialize()
 				VersionNumberText.Font.Size = 12;
 				StyleSet->Set( "PluginTile.VersionNumberText", VersionNumberText );
 			}
+
+			FTextBlockStyle NewLabelText = FTextBlockStyle( NormalText )
+				.SetColorAndOpacity( FLinearColor( 0.05f, 0.05f, 0.05f ) );
+			{
+				NewLabelText.Font.Size = 8;
+				StyleSet->Set( "PluginTile.NewLabelText", NewLabelText );
+			}
+			StyleSet->Set( "PluginTile.NewLabelFont", TTF_CORE_FONT("Fonts/Roboto-Bold", 10) );
+			StyleSet->Set( "PluginTile.NewLabelBackground", new FSlateColorBrush(FLinearColor(0.90f, 0.65f, 0.05f)));//::Yellow) );
 
 			FTextBlockStyle CreatedByText = FTextBlockStyle( NormalText )
 				.SetColorAndOpacity( FLinearColor( 0.45f, 0.45f, 0.45f ) );

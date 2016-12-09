@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Templates/SubclassOf.h"
+#include "Components/ActorComponent.h"
+
+class FComponentClassComboEntry;
+
 DECLARE_MULTICAST_DELEGATE(FOnComponentTypeListChanged);
 
 typedef TSharedPtr<class FComponentClassComboEntry> FComponentClassComboEntryPtr;

@@ -1,12 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "SBorder.h"
-#include "SScrollBar.h"
 
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "Misc/Attribute.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Styling/SlateWidgetStyleAsset.h"
 
-class SSplitter;
-class IGridRow; 
+class SScrollBar;
 
 namespace EColumnSortPriority
 {
@@ -122,6 +129,8 @@ public:
 			SLATE_ATTRIBUTE( EColumnSortMode::Type, SortMode )
 			SLATE_ATTRIBUTE( EColumnSortPriority::Type, SortPriority )
 			SLATE_EVENT( FOnSortModeChanged, OnSort )
+
+			SLATE_ATTRIBUTE(bool, ShouldGenerateWidget)
 		SLATE_END_ARGS()
 
 		FColumn( const FArguments& InArgs )
@@ -143,6 +152,7 @@ public:
 			, SortMode( InArgs._SortMode )
 			, SortPriority( InArgs._SortPriority )
 			, OnSortModeChanged( InArgs._OnSort )
+			, ShouldGenerateWidget(InArgs._ShouldGenerateWidget)
 		{
 			if ( InArgs._FixedWidth.IsSet() )
 			{
@@ -215,6 +225,8 @@ public:
 		TAttribute< EColumnSortMode::Type > SortMode;
 		TAttribute< EColumnSortPriority::Type > SortPriority;
 		FOnSortModeChanged OnSortModeChanged;
+
+		TAttribute<bool> ShouldGenerateWidget;
 	};
 
 	/** Create a column with the specified ColumnId */
@@ -254,6 +266,9 @@ public:
 
 	/** Removes a column from the header */
 	void RemoveColumn( const FName& InColumnId );
+
+	/** Force refreshing of the column widgets*/
+	void RefreshColumns();
 
 	/** Removes all columns from the header */
 	void ClearColumns();

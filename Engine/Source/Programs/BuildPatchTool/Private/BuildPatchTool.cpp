@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PrivatePch.h"
-#include "RequiredProgramMainCPPInclude.h"
-
 #include "BuildPatchTool.h"
+#include "UObject/Object.h"
+#include "RequiredProgramMainCPPInclude.h"
 #include "ToolMode.h"
+#include "Misc/OutputDeviceError.h"
 
 using namespace BuildPatchTool;
 
@@ -18,9 +18,9 @@ public:
 	{
 #if PLATFORM_WINDOWS
 #if PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
-		printf( "\n%ls", *FOutputDeviceHelper::FormatLogLine( Verbosity, Category, V, GPrintLogTimes ) );
+		printf("\n%ls", *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
 #else
-		wprintf( TEXT( "\n%s" ), *FOutputDeviceHelper::FormatLogLine( Verbosity, Category, V, GPrintLogTimes ) );
+		wprintf(TEXT("\n%s"), *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
 #endif
 		fflush( stdout );
 #endif
@@ -106,9 +106,9 @@ EReturnCode BuildPatchToolMain(const TCHAR* CommandLine)
 	return ReturnCode;
 }
 
-INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
+const TCHAR* ProcessApplicationCommandline(int32 ArgC, TCHAR* ArgV[])
 {
-	FString CommandLine = TEXT("-usehyperthreading");
+	static FString CommandLine = TEXT("-usehyperthreading");
 	for (int32 Option = 1; Option < ArgC; Option++)
 	{
 		CommandLine += TEXT(" ");
@@ -129,6 +129,29 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 		}
 		CommandLine += Argument;
 	}
+	return *CommandLine;
+}
 
-	return static_cast<int32>(BuildPatchToolMain(*CommandLine));
+INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
+{
+	EReturnCode ReturnCode;
+	// Using try&catch is the windows-specific method of interfacing with CrashReportClient
+#if PLATFORM_WINDOWS && !PLATFORM_SEH_EXCEPTIONS_DISABLED
+	__try
+#endif
+	{
+		// SetCrashHandler(nullptr) sets up default behavior for Linux and Mac interfacing with CrashReportClient
+		FPlatformMisc::SetCrashHandler(nullptr);
+		GIsGuarded = 1;
+		ReturnCode = BuildPatchToolMain(ProcessApplicationCommandline(ArgC, ArgV));
+		GIsGuarded = 0;
+	}
+#if PLATFORM_WINDOWS && !PLATFORM_SEH_EXCEPTIONS_DISABLED
+	__except (ReportCrash(GetExceptionInformation()))
+	{
+		ReturnCode = EReturnCode::Crash;
+		GError->HandleError();
+	}
+#endif
+	return static_cast<int32>(ReturnCode);
 }

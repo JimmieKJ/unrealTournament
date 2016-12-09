@@ -3,8 +3,14 @@
 #pragma once
 
 // Module includes
+
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Widgets/SWidget.h"
 #include "IConfigEditorModule.h"
-#include "SConfigEditor.h"
+
+class FSpawnTabArgs;
+class SConfigEditor;
 
 /*-----------------------------------------------------------------------------
    FConfigEditorModule

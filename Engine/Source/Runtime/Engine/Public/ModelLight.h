@@ -6,8 +6,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "StaticLighting.h"
 #include "Model.h"
+
+class FShadowMapData2D;
+class ULevel;
+class ULightComponent;
+class UModelComponent;
+struct FQuantizedLightmapData;
 
 /** Represents a BSP surface to the static lighting system. */
 class FBSPSurfaceStaticLighting : public FStaticLightingTextureMapping, public FStaticLightingMesh
@@ -47,7 +54,7 @@ public:
 	}
 
 #if WITH_EDITOR
-	virtual void Apply(FQuantizedLightmapData* QuantizedData, const TMap<ULightComponent*,FShadowMapData2D*>& ShadowMapData) override;
+	virtual void Apply(FQuantizedLightmapData* QuantizedData, const TMap<ULightComponent*,FShadowMapData2D*>& ShadowMapData, ULevel* LightingScenario) override;
 	virtual bool DebugThisMapping() const override;
 
 	/** 

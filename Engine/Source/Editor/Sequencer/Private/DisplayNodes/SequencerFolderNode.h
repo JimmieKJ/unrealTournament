@@ -2,7 +2,15 @@
 
 #pragma once
 
-#include "SequencerDisplayNode.h"
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
+#include "Widgets/SWindow.h"
+
+class FMenuBuilder;
+class FSequencerDisplayNodeDragDropOp;
+class UMovieSceneFolder;
+enum class EItemDropZone;
 
 /** A sequencer display node representing folders in the outliner. */
 class FSequencerFolderNode : public FSequencerDisplayNode

@@ -1,15 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "AutoReimport/ContentDirectoryMonitor.h"
+#include "HAL/FileManager.h"
+#include "Modules/ModuleManager.h"
+#include "EditorReimportHandler.h"
+#include "Settings/EditorLoadingSavingSettings.h"
+#include "Factories/Factory.h"
+#include "EditorFramework/AssetImportData.h"
+#include "Editor.h"
 
-#include "ContentDirectoryMonitor.h"
+#include "AutoReimport/AutoReimportUtilities.h"
 
 #include "AssetRegistryModule.h"
 #include "PackageTools.h"
 #include "ObjectTools.h"
+#include "IAssetTools.h"
 #include "AssetToolsModule.h"
-#include "ReimportFeedbackContext.h"
-#include "AssetSourceFilenameCache.h"
+#include "AutoReimport/ReimportFeedbackContext.h"
+#include "AutoReimport/AssetSourceFilenameCache.h"
 
 #define LOCTEXT_NAMESPACE "ContentDirectoryMonitor"
 

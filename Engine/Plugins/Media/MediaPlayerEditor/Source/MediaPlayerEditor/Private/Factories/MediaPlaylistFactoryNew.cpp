@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "MediaPlaylistFactoryNew.h"
+#include "Factories/MediaPlaylistFactoryNew.h"
+#include "AssetTypeCategories.h"
+#include "MediaPlaylist.h"
 
 
 /* UMediaPlaylist structors

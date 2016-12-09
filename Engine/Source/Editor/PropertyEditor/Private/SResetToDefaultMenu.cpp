@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyEditing.h"
+#include "SResetToDefaultMenu.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "PropertyHandle.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SComboButton.h"
 #include "ScopedTransaction.h"
 
 void SResetToDefaultMenu::AddProperty( TSharedRef<IPropertyHandle> InProperty )

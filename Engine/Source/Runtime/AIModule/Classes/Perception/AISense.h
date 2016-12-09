@@ -2,11 +2,16 @@
 
 #pragma once
 
-#include "AIPerceptionTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "Perception/AIPerceptionTypes.h"
 #include "AISense.generated.h"
 
-class AActor;
+class APawn;
 class UAIPerceptionSystem;
+class UAISenseEvent;
 
 DECLARE_DELEGATE_OneParam(FOnPerceptionListenerUpdateDelegate, const FPerceptionListener&);
 

@@ -3,8 +3,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Distributions/DistributionFloat.h"
+#include "Distributions/DistributionVector.h"
 #include "Particles/Light/ParticleModuleLightBase.h"
 #include "ParticleModuleLight.generated.h"
+
+class UParticleEmitter;
+class UParticleModuleTypeDataBase;
+class UPointLightComponent;
+struct FParticleEmitterInstance;
 
 UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "Light"))
 class UParticleModuleLight : public UParticleModuleLightBase
@@ -48,6 +57,14 @@ class UParticleModuleLight : public UParticleModuleLightBase
 	/** Provides the light's exponent when inverse squared falloff is disabled. */
 	UPROPERTY(EditAnywhere, Category=Light)
 	struct FRawDistributionFloat LightExponent;
+
+	/**
+	* Channels that this light should affect.
+	* Only affect high quality lights
+	* These channels only apply to opaque materials, direct lighting, and dynamic lighting and shadowing.
+	*/
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Light)
+	FLightingChannels LightingChannels;
 
 	UPROPERTY(EditAnywhere, Category = Light)
 	bool bHighQualityLights;

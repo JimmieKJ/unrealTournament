@@ -1,7 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "FileMediaSourceCustomization.h"
+#include "Customizations/FileMediaSourceCustomization.h"
+#include "Misc/Paths.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Input/SFilePathPicker.h"
+#include "Widgets/Images/SImage.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "DetailCategoryBuilder.h"
+#include "DetailLayoutBuilder.h"
+#include "IMediaModule.h"
 
 
 #define LOCTEXT_NAMESPACE "FFileMediaSourceCustomization"
@@ -119,7 +132,7 @@ FString FFileMediaSourceCustomization::HandleFilePathPickerFileTypeFilter() cons
 
 void FFileMediaSourceCustomization::HandleFilePathPickerPathPicked(const FString& PickedPath)
 {
-	if (PickedPath.IsEmpty() || PickedPath.StartsWith(TEXT("./")) || PickedPath.Contains(TEXT("://")))
+	if (PickedPath.IsEmpty() || PickedPath.StartsWith(TEXT("./")))
 	{
 		FilePathProperty->SetValue(PickedPath);
 	}

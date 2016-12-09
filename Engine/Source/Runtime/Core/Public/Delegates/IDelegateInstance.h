@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "UObject/NameTypes.h"
+#include "Delegates/DelegateSettings.h"
 
 /**
  * Types of delegate instances

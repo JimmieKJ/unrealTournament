@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "EditorModes.h"
+#include "CoreMinimal.h"
 #include "EdMode.h"
+
+class UActorFactory;
 
 class IPlacementMode : public FEdMode
 {

@@ -2,13 +2,18 @@
 
 #pragma once
 
-#include "Containers/Array.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Templates/AlignOf.h"
+#include "Templates/UnrealTemplate.h"
+#include "Templates/Sorting.h"
+#include "Misc/StructBuilder.h"
+#include "Templates/Function.h"
 #include "Containers/Set.h"
-#include "Containers/UnrealString.h"
-#include "Algo/Reverse.h"
+#include "Containers/Algo/Reverse.h"
 
 #define ExchangeB(A,B) {bool T=A; A=B; B=T;}
-
 
 /** An initializer type for pairs that's passed to the pair set when adding a new pair. */
 template <typename KeyInitType, typename ValueInitType>
@@ -1385,6 +1390,68 @@ public:
 	void Rehash(const FScriptMapLayout& Layout, TFunctionRef<uint32 (const void*)> GetKeyHash)
 	{
 		Pairs.Rehash(Layout.SetLayout, GetKeyHash);
+	}
+	
+	/** Finds the associated key, value from hash of Key, rather than linearly searching */
+	uint8* FindPair(const void* Key, const FScriptMapLayout& MapLayout, TFunctionRef<uint32 (const void*)> GetKeyHash, TFunctionRef<bool (const void*, const void*)> KeyEqualityFn)
+	{
+		if (Pairs.Num())
+		{
+			// !unsafe! 'Pairs' is mostly treated as a set of TPair<Key, Value>, so anything in 
+			// FScriptSet could assume that Key is actually a TPair<Key, Value>, we can hide this 
+			// complexity from our caller, at least (so their GetKeyHash/EqualityFn is unaware):
+			return Pairs.Find(
+				Key, 
+				MapLayout.SetLayout, 
+				GetKeyHash, // We 'know' that the implementation of Find doesn't call GetKeyHash on anything except Key
+				[KeyEqualityFn, MapLayout](const void* InKey, const void* InPair )
+				{
+					return KeyEqualityFn(InKey, (uint8*)InPair + MapLayout.KeyOffset);
+				}
+			);
+		}
+
+		return nullptr;
+	}
+
+	/** Finds the associated value from hash of Key, rather than linearly searching */
+	uint8* FindValue(const void* Key, const FScriptMapLayout& MapLayout, TFunctionRef<uint32 (const void*)> GetKeyHash, TFunctionRef<bool (const void*, const void*)> KeyEqualityFn)
+	{
+		if(uint8* Result = FindPair(Key, MapLayout, GetKeyHash, KeyEqualityFn))
+		{
+			return Result + MapLayout.ValueOffset;
+		}
+
+		return nullptr;
+	}
+
+	/** Adds the (key, value) pair to the map, returning true if the element was added, or false if the element was already present and has been overwritten */
+	bool Add(	const void* Key, 
+				const void* Value, 
+				const FScriptMapLayout& Layout, 
+				TFunctionRef<uint32(const void*)> GetKeyHash, 
+				TFunctionRef<bool(const void*, const void*)> KeyEqualityFn, 
+				TFunctionRef<void(void*)> KeyConstructAndAssignFn, 
+				TFunctionRef<void(void*)> ValueConstructAndAssignFn, 
+				TFunctionRef<void(void*)> ValueAssignFn)
+	{
+		if (uint8* CurrentValue = Pairs.Add(
+				Key, 
+				Layout.SetLayout, 
+				GetKeyHash, 
+				KeyEqualityFn, 
+				[KeyConstructAndAssignFn, ValueConstructAndAssignFn, Layout](void* NewPair)
+				{
+					KeyConstructAndAssignFn((uint8*)NewPair + Layout.KeyOffset);
+					ValueConstructAndAssignFn((uint8*)NewPair + Layout.ValueOffset);
+				} )
+			)
+		{
+			ValueAssignFn(CurrentValue + Layout.ValueOffset);
+			return false;
+		}
+
+		return true;
 	}
 
 private:

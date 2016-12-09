@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RuntimeAssetCachePrivatePCH.h"
 #include "RuntimeAssetCacheModule.h"
+#include "Logging/LogMacros.h"
+#include "Modules/ModuleManager.h"
 #include "RuntimeAssetCache.h"
-#include "ModuleManager.h"
-#include "EngineMinimal.h"
 #include "Engine/World.h"
 
 DEFINE_LOG_CATEGORY(RuntimeAssetCache)

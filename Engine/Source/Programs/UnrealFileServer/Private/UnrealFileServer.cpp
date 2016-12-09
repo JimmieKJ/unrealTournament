@@ -4,7 +4,9 @@
 
 #include "DirectoryWatcherModule.h"
 #include "RequiredProgramMainCPPInclude.h"
-#include "NetworkFileSystem.h"
+#include "Interfaces/INetworkFileServer.h"
+#include "Interfaces/INetworkFileSystemModule.h"
+#include "IDirectoryWatcher.h"
 #include "SocketSubsystem.h"
 
 

@@ -2,7 +2,8 @@
 
 #pragma once
 
-class IContentSourceProvider;
+#include "CoreMinimal.h"
+#include "IContentSourceProvider.h"
 
 /** Provides methods for registering and getting registered content source providers. */
 class FContentSourceProviderManager

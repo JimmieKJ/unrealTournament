@@ -2,9 +2,24 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "InputCoreTypes.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Styling/SlateColor.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/SListView.h"
+#include "SlateOptMacros.h"
+#include "EditorStyleSet.h"
+#include "Models/SessionBrowserTreeItems.h"
+#include "Widgets/Images/SImage.h"
 
 #define LOCTEXT_NAMESPACE "SSessionBrowserTreeRow"
-
 
 /**
  * Implements a row widget for the session browser tree.

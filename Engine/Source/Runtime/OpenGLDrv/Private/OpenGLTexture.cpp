@@ -4,8 +4,14 @@
 	OpenGLVertexBuffer.cpp: OpenGL texture RHI implementation.
 =============================================================================*/
 
-#include "OpenGLDrvPrivate.h"
+#include "CoreMinimal.h"
+#include "Containers/ResourceArray.h"
+#include "Stats/Stats.h"
+#include "RHI.h"
+#include "RenderUtils.h"
 #include "ShaderCache.h"
+#include "OpenGLDrv.h"
+#include "OpenGLDrvPrivate.h"
 
 /*-----------------------------------------------------------------------------
 	Texture allocator support.

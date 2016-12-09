@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+
+class FArchive;
+class FString;
+
 //
 // This MUST be kept in sync with EGeneratedBodyVersion in UBT defined in ExternalExecution.cs
 // and with ToGeneratedBodyVersion function below

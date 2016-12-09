@@ -6,20 +6,19 @@
 
 #pragma once
 
-#include "RenderResource.h"
-#include "HitProxies.h"
+#include "CoreMinimal.h"
 #include "InputCoreTypes.h"
 #include "Engine/EngineBaseTypes.h"
-#include "PopupMethodReply.h"
-	
+#include "Input/PopupMethodReply.h"
+#include "Widgets/SWidget.h"
+#include "UObject/GCObject.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "HitProxies.h"
+
 class FCanvas;
+class FViewport;
 class FViewportClient;
-
-class SWidget;
-class FCursorReply;
-class FWindowActivateEvent;
-
-enum class EFocusCause : uint8;
 
 /**
  * A render target.
@@ -549,7 +548,7 @@ protected:
 	 * Updates the viewport RHI with the current viewport state.
 	 * @param bDestroyed - True if the viewport has been destroyed.
 	 */
-	ENGINE_API virtual void UpdateViewportRHI(bool bDestroyed,uint32 NewSizeX,uint32 NewSizeY,EWindowMode::Type NewWindowMode);
+	ENGINE_API virtual void UpdateViewportRHI(bool bDestroyed, uint32 NewSizeX, uint32 NewSizeY, EWindowMode::Type NewWindowMode, EPixelFormat PreferredPixelFormat);
 
 	/**
 	 * Take a high-resolution screenshot and save to disk.
@@ -665,7 +664,7 @@ extern ENGINE_API bool IsShiftDown(FViewport* Viewport);
 extern ENGINE_API bool IsAltDown(FViewport* Viewport);
 
 extern ENGINE_API bool GetViewportScreenShot(FViewport* Viewport, TArray<FColor>& Bitmap, const FIntRect& ViewRect = FIntRect());
-extern ENGINE_API bool GetHighResScreenShotInput(const TCHAR* Cmd, FOutputDevice& Ar, uint32& OutXRes, uint32& OutYRes, float& OutResMult, FIntRect& OutCaptureRegion, bool& OutShouldEnableMask);
+extern ENGINE_API bool GetHighResScreenShotInput(const TCHAR* Cmd, FOutputDevice& Ar, uint32& OutXRes, uint32& OutYRes, float& OutResMult, FIntRect& OutCaptureRegion, bool& OutShouldEnableMask, bool& OutDumpBufferVisualizationTargets, bool& OutCaptureHDR);
 
 /**
  * An abstract interface to a viewport's client.
@@ -823,6 +822,17 @@ public:
 
 	virtual void Activated(FViewport* Viewport, const FWindowActivateEvent& InActivateEvent) {}
 	virtual void Deactivated(FViewport* Viewport, const FWindowActivateEvent& InActivateEvent) {}
+
+	/**
+	 * Called when the top level window associated with the viewport has been requested to close.
+	 * At this point, the viewport has not been closed and the operation may be canceled.
+	 * This may not called from PIE, Editor Windows, on consoles, or before the game ends
+ 	 * from other methods.
+	 * This is only when the platform specific window is closed.
+	 *
+	 * @return True if the viewport may be closed, false otherwise.
+	 */
+	virtual bool WindowCloseRequested() { return true; }
 
 	virtual void CloseRequested(FViewport* Viewport) {}
 

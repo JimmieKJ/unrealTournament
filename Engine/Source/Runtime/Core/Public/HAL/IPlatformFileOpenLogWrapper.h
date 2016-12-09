@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Misc/Parse.h"
+#include "Containers/StringConv.h"
+#include "Misc/DateTime.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/Paths.h"
+
+class IAsyncReadFileHandle;
 
 #if !UE_BUILD_SHIPPING
 
@@ -192,9 +203,9 @@ public:
 	{
 		return LowerLevel->DeleteDirectoryRecursively( Directory );
 	}
-	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From) override
+	virtual bool		CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags = EPlatformFileRead::None, EPlatformFileWrite WriteFlags = EPlatformFileWrite::None) override
 	{
-		return LowerLevel->CopyFile( To, From );
+		return LowerLevel->CopyFile( To, From, ReadFlags, WriteFlags);
 	}
 	virtual bool		CreateDirectoryTree(const TCHAR* Directory) override
 	{

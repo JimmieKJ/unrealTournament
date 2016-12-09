@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Rendering/RenderingCommon.h"
+#include "Interfaces/ISlateRHIRendererModule.h"
+#include "SlateElementVertexBuffer.h"
+
 /**
  * Represents a per instance data buffer for a custom Slate mesh element
  */

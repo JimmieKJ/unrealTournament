@@ -3,6 +3,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Framework/Commands/Commands.h"
+#include "EditorStyleSet.h"
+
 /**
  * Public identifiers for the viewport layouts available in LevelViewportLayoutX.h files
  * These are names rather than enums as they're also used to persist states in config

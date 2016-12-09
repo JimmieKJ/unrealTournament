@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "VectorField/VectorFieldVolume.h"
-#include "Components/VectorFieldComponent.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Components/BillboardComponent.h"
+#include "Engine/Texture2D.h"
+#include "Components/VectorFieldComponent.h"
 
 AVectorFieldVolume::AVectorFieldVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

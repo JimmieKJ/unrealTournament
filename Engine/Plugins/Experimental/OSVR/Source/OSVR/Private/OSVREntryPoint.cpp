@@ -14,13 +14,13 @@
 // limitations under the License.
 //
 
-#include "OSVRPrivatePCH.h"
+#include "OSVREntryPoint.h"
+#include "OSVRPrivate.h"
 
 #if OSVR_DEPRECATED_BLUEPRINT_API_ENABLED
 #include "OSVRInterfaceCollection.h"
 #endif
 
-#include "OSVREntryPoint.h"
 #include <osvr/ClientKit/ServerAutoStartC.h>
 
 #include "Runtime/Core/Public/Misc/DateTime.h"
@@ -29,16 +29,23 @@ DEFINE_LOG_CATEGORY(OSVREntryPointLog);
 
 OSVREntryPoint::OSVREntryPoint()
 {
+    // avoid BuildCookRun hangs
+    if (IsRunningCommandlet() || IsRunningDedicatedServer())
+    {
+        UE_LOG(OSVREntryPointLog, Display, TEXT("OSVREntryPoint::OSVREntryPoint(): running as commandlet or dedicated server - skipping client context startup."));
+        return;
+    }
+
     osvrClientAttemptServerAutoStart();
 
     osvrClientContext = osvrClientInit("com.osvr.unreal.plugin");
 
     {
         bool bClientContextOK = false;
-        bool bFailure = false;
-        auto begin = FDateTime::Now().GetSecond();
-        auto end = begin + 3;
-        while (FDateTime::Now().GetSecond() < end && !bClientContextOK && !bFailure)
+		bool bFailure = false;
+		auto begin = FDateTime::Now().GetTicks();
+		auto end = begin + 10 * ETimespan::TicksPerSecond;
+		while (FDateTime::Now().GetTicks() < end && !bClientContextOK && !bFailure)
         {
             bClientContextOK = osvrClientCheckStatus(osvrClientContext) == OSVR_RETURN_SUCCESS;
             if (!bClientContextOK)
@@ -46,7 +53,7 @@ OSVREntryPoint::OSVREntryPoint()
                 bFailure = osvrClientUpdate(osvrClientContext) == OSVR_RETURN_FAILURE;
                 if (bFailure)
                 {
-                    UE_LOG(OSVREntryPointLog, Warning, TEXT("osvrClientUpdate failed during startup. Treating this as \"HMD not connected\""));
+                    UE_LOG(OSVREntryPointLog, Display, TEXT("osvrClientUpdate failed during startup. Treating this as if the HMD is not connected."));
                     break;
                 }
                 FPlatformProcess::Sleep(0.2f);
@@ -54,7 +61,7 @@ OSVREntryPoint::OSVREntryPoint()
         }
         if (!bClientContextOK)
         {
-            UE_LOG(OSVREntryPointLog, Warning, TEXT("OSVR client context did not initialize correctly. Most likely the server isn't running. Treating this as if the HMD is not connected."));
+            UE_LOG(OSVREntryPointLog, Display, TEXT("OSVR client context could not connect. Most likely the server isn't running. Treating this as if the HMD is not connected."));
         }
     }
 
@@ -71,7 +78,11 @@ OSVREntryPoint::~OSVREntryPoint()
     InterfaceCollection = nullptr;
 #endif
 
-    osvrClientShutdown(osvrClientContext);
+    if (osvrClientContext)
+    {
+       osvrClientShutdown(osvrClientContext);
+    }
+
     osvrClientReleaseAutoStartedServer();
 }
 

@@ -2,11 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Interface.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "NavAgentInterface.generated.h"
 
 class AActor;
-struct FNavAgentProperties;
 
 UINTERFACE(MinimalAPI, meta=(CannotImplementInterfaceInBlueprint))
 class UNavAgentInterface : public UInterface

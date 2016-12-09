@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FNotifyHook;
+class IDetailCategoryBuilder;
+class IDetailLayoutBuilder;
+class UActorComponent;
+class UMaterialInterface;
+class USceneComponent;
+
 /**
  * Encapsulates functionality for the ActorDetails material category
  */

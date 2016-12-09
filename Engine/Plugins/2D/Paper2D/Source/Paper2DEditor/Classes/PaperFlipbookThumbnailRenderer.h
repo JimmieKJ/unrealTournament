@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "PaperSpriteThumbnailRenderer.h"
 #include "PaperFlipbookThumbnailRenderer.generated.h"
+
+class FCanvas;
+class FRenderTarget;
 
 UCLASS()
 class UPaperFlipbookThumbnailRenderer : public UPaperSpriteThumbnailRenderer

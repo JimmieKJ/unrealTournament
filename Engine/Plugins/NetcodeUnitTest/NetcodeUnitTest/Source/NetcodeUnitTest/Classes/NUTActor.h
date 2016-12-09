@@ -2,14 +2,17 @@
 
 #pragma once
 
-#include "DataChannel.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/CoreMisc.h"
+#include "GameFramework/Actor.h"
+#include "NetcodeUnitTest.h"
+#include "UObject/TextProperty.h"
+#include "Net/DataChannel.h"
 
 #include "NUTActor.generated.h"
 
-
-// Forward declarations
 class ANUTActor;
-
 
 /**
  * Enum for defining custom NetcodeUnitTest control channel commands (sent through NMT_NUTControl)

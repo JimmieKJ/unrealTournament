@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 namespace EAssetDiscoveryIndicatorScaleMode
 {
 	enum Type

@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetworkFileSystemPrivatePCH.h"
-#include "TargetDeviceId.h"
-#include "ITargetDevice.h"
-#include "ITargetPlatformManagerModule.h"
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Misc/CommandLine.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/INetworkFileSystemModule.h"
+#include "NetworkFileSystemLog.h"
+#include "NetworkFileServer.h"
+#include "NetworkFileServerHttp.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
 
 
 DEFINE_LOG_CATEGORY(LogFileServer);

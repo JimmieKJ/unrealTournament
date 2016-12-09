@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
 #include "EnvQueryTest_Overlap.generated.h"
 
-class UEnvQueryContext;
+class AActor;
+struct FCollisionQueryParams;
+struct FCollisionShape;
 
 UCLASS(MinimalAPI)
 class UEnvQueryTest_Overlap : public UEnvQueryTest

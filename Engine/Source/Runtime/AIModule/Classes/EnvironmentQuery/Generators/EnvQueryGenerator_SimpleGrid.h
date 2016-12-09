@@ -1,10 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "DataProviders/AIDataProvider.h"
+#include "EnvironmentQuery/EnvQueryContext.h"
 #include "EnvironmentQuery/Generators/EnvQueryGenerator_ProjectedPoints.h"
 #include "EnvQueryGenerator_SimpleGrid.generated.h"
-
-class UEnvQueryContext;
 
 /**
  *  Simple grid, generates points in 2D square around context

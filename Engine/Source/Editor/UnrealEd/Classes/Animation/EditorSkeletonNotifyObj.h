@@ -5,8 +5,12 @@
  */
 #pragma once
 
-#include "SharedPointer.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "EditorSkeletonNotifyObj.generated.h"
+
+class UAnimSequenceBase;
 
 DECLARE_DELEGATE_TwoParams( FOnAnimObjectChange, class UObject*, bool)
 

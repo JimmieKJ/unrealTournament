@@ -6,8 +6,17 @@
 =============================================================================*/
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "EdMode.h"
 #include "EditorModeTools.h"
 
+class FCanvas;
+class FEditorViewportClient;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FViewport;
 class UInterpGroup;
 
 //////////////////////////////////////////////////////////////////////////

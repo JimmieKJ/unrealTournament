@@ -2,10 +2,35 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/WeakObjectPtr.h"
 #include "BoneIndices.h"
-#include "CustomBoneIndexArray.h"
+#include "ReferenceSkeleton.h"
+#include "Animation/AnimTypes.h"
+#include "BoneContainer.generated.h"
 
+class USkeletalMesh;
 class USkeleton;
+
+/**
+* This is a native transient structure. Used to store virtual bone mappings for compact poses
+**/
+struct FVirtualBoneCompactPoseData
+{
+	/** Index of this virtual bone */
+	FCompactPoseBoneIndex VBIndex;
+	/** Index of source bone */
+	FCompactPoseBoneIndex SourceIndex;
+	/** Index of target bone */
+	FCompactPoseBoneIndex TargetIndex;
+
+	FVirtualBoneCompactPoseData(FCompactPoseBoneIndex InVBIndex, FCompactPoseBoneIndex InSourceIndex, FCompactPoseBoneIndex InTargetIndex)
+		: VBIndex(InVBIndex)
+		, SourceIndex(InSourceIndex)
+		, TargetIndex(InTargetIndex)
+	{}
+};
 
 /**
 * This is a native transient structure.
@@ -43,11 +68,17 @@ private:
 	// Look up from compact pose format to skeleton
 	TArray<FCompactPoseBoneIndex> SkeletonToCompactPose;
 
+	/** Animation Curve UID array that matters to this container. Recalculated everytime LOD changes. */
+	TArray<SmartName::UID_Type> AnimCurveNameUids;
+
 	// Compact pose format of Parent Bones (to save us converting to mesh space and back)
 	TArray<FCompactPoseBoneIndex> CompactPoseParentBones;
 
 	// Compact pose format of Ref Pose Bones (to save us converting to mesh space and back)
 	TArray<FTransform>    CompactPoseRefPoseBones;
+
+	// Array of cached virtual bone data so that animations running from raw data can generate them.
+	TArray<FVirtualBoneCompactPoseData> VirtualBoneCompactPoseData;
 
 	/** For debugging. */
 	/** Disable Retargeting. Extract animation, but do not retarget it. */
@@ -135,6 +166,11 @@ public:
 	}
 
 	/**
+	* returns virutal bone cached data
+	*/
+	const TArray<FVirtualBoneCompactPoseData>& GetVirtualBoneCompactPoseData() const { return VirtualBoneCompactPoseData; }
+
+	/**
 	* returns Bone Switch Array. BitMask for RequiredBoneIndex array.
 	*/
 	const TBitArray<>& GetBoneSwitchArray() const
@@ -189,6 +225,15 @@ public:
 
 	/** Returns true if bone is child of for current asset. */
 	bool BoneIsChildOf(const int32& BoneIndex, const int32& ParentBoneIndex) const;
+
+	/** Returns true if bone is child of for current asset. */
+	bool BoneIsChildOf(const FCompactPoseBoneIndex& BoneIndex, const FCompactPoseBoneIndex& ParentBoneIndex) const;
+
+	/** Get AnimCurveNameUids for curve evaluation */
+	TArray<SmartName::UID_Type> const& GetAnimCurveNameUids() const
+	{
+		return AnimCurveNameUids; 
+	} 
 
 	/**
 	* Serializes the bones
@@ -255,6 +300,9 @@ public:
 		return FCompactPoseBoneIndex(GetBoneIndicesArray().IndexOfByKey(BoneIndex.GetInt()));
 	}
 
+	/** Cache required Anim Curve Uids */
+	void CacheRequiredAnimCurveUids();
+
 private:
 	/** Initialize FBoneContainer. */
 	void Initialize();
@@ -264,4 +312,92 @@ private:
 
 	/** Cache remapping data if current Asset is a Skeleton, with all compatible Skeletons. */
 	void RemapFromSkeleton(USkeleton const & SourceSkeleton);
+};
+USTRUCT()
+struct FBoneReference
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Name of bone to control. This is the main bone chain to modify from. **/
+	UPROPERTY(EditAnywhere, Category = BoneReference)
+	FName BoneName;
+
+	/** Cached bone index for run time - right now bone index of skeleton **/
+	int32 BoneIndex;
+
+	/** Change this to Bitfield if we have more than one bool 
+	 * This specifies whether or not this indices is mesh or skeleton
+	 */
+	bool bUseSkeletonIndex;
+
+	FBoneReference()
+		: BoneIndex(INDEX_NONE)
+		, bUseSkeletonIndex(false)
+	{
+	}
+
+	bool operator==(const FBoneReference& Other) const
+	{
+		// faster to compare, and BoneName won't matter
+		return BoneIndex == Other.BoneIndex;
+	}
+	/** Initialize Bone Reference, return TRUE if success, otherwise, return false **/
+	ENGINE_API bool Initialize(const FBoneContainer& RequiredBones);
+
+	// only used by blendspace 'PerBoneBlend'. This is skeleton indices since the input is skeleton
+	// @note, if you use this function, it won't work with GetCompactPoseIndex, GetMeshPoseIndex;
+	// it triggers ensure in those functions
+	ENGINE_API bool Initialize(const USkeleton* Skeleton);
+
+	/** return true if valid. Otherwise return false **/
+	ENGINE_API bool IsValid(const FBoneContainer& RequiredBones) const;
+
+	FMeshPoseBoneIndex GetMeshPoseIndex(const FBoneContainer& RequiredBones) const
+	{ 
+		// accessing array with invalid index would cause crash, so we have to check here
+		if (BoneIndex != INDEX_NONE)
+		{
+			if (bUseSkeletonIndex)
+			{
+				return FMeshPoseBoneIndex(RequiredBones.GetSkeletonToPoseBoneIndexArray()[BoneIndex]);
+			}
+			else
+			{
+				return FMeshPoseBoneIndex(BoneIndex);
+			}
+		}
+
+		return FMeshPoseBoneIndex(INDEX_NONE);
+	}
+
+	FCompactPoseBoneIndex GetCompactPoseIndex(const FBoneContainer& RequiredBones) const 
+	{ 
+		// accessing array with invalid index would cause crash, so we have to check here
+		if (BoneIndex != INDEX_NONE)
+		{
+			if (bUseSkeletonIndex)
+			{
+				return RequiredBones.GetCompactPoseIndexFromSkeletonIndex(BoneIndex);
+			}
+			else
+			{
+				return RequiredBones.MakeCompactPoseIndex(GetMeshPoseIndex(RequiredBones));
+			}
+		}
+		
+		return FCompactPoseBoneIndex(INDEX_NONE);
+	}
+
+	// need this because of BoneReference being used in CurveMetaData and that is in SmartName
+	friend FArchive& operator<<(FArchive& Ar, FBoneReference& B)
+	{
+		Ar << B.BoneName;
+		return Ar;
+	}
+
+	bool Serialize(FArchive& Ar)
+	{
+		Ar << *this;
+		return true;
+	}
 };

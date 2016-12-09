@@ -2,15 +2,30 @@
 
 #pragma once
 
-#include "AggregateGeom.h"
-#include "BodySetupEnums.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "EngineDefines.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "Serialization/BulkData.h"
+#include "PhysicsEngine/BodySetupEnums.h"
+#include "PhysicsEngine/AggregateGeom.h"
 #include "BodySetup.generated.h"
+
+class ITargetPlatform;
+class UPhysicalMaterial;
+class UPrimitiveComponent;
+struct FShapeData;
+enum class EPhysXMeshCookFlags : uint8;
 
 namespace physx
 {
 	class PxTriangleMesh;
 	class PxRigidActor;
 }
+
+enum class EPhysXMeshCookFlags : uint8;
 
 /** UV information for BodySetup, only created if UPhysicsSettings::bSupportUVFromHitResults */
 struct FBodySetupUVInfo
@@ -32,7 +47,10 @@ struct FBodySetupUVInfo
 	}
 
 	/** Get resource size of UV info */
-	SIZE_T GetResourceSize();
+	DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
+	SIZE_T GetResourceSize() const;
+	void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const;
+	SIZE_T GetResourceSizeBytes() const;
 };
 
 /**
@@ -50,7 +68,7 @@ class UBodySetup : public UObject
 	GENERATED_UCLASS_BODY()
 
 	/** Simplified collision representation of this  */
-	UPROPERTY(EditAnywhere, Category = BodySetup, meta=(DisplayName = "Primitives"))
+	UPROPERTY(EditAnywhere, Category = BodySetup, meta=(DisplayName = "Primitives", NoResetToDefault))
 	struct FKAggregateGeom AggGeom;
 
 	/** Used in the PhysicsAsset case. Associates this Body with Bone in a skeletal mesh. */
@@ -147,7 +165,11 @@ private:
 	FFormatContainer CookedFormatDataRuntimeOnlyOptimization;
 #endif
 
-	int32 GetRuntimeOnlyCookOptimizationFlags() const;
+#if WITH_PHYSX && (WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR)
+	/** Get cook flags for 'runtime only' cooked physics data */
+	EPhysXMeshCookFlags GetRuntimeOnlyCookOptimizationFlags() const;
+#endif 
+
 public:
 
 	/** Cooked physics data override. This is needed in cases where some other body setup has the cooked data and you don't want to own it or copy it. See per poly skeletal mesh */
@@ -180,7 +202,7 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditUndo() override;
 #endif // WITH_EDITOR
-	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	//~ End UObject Interface.
 
 	//

@@ -1,10 +1,15 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "SlateWrapperTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ScriptMacros.h"
+#include "Binding/PropertyBinding.h"
 
 #include "VisibilityBinding.generated.h"
+
+enum class ESlateVisibility : uint8;
 
 UCLASS()
 class UMG_API UVisibilityBinding : public UPropertyBinding

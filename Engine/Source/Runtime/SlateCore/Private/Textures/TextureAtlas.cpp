@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
-#include "SlateRenderer.h"
+#include "Textures/TextureAtlas.h"
+#include "Stats/Stats.h"
+#include "Textures/SlateShaderResource.h"
+#include "Textures/SlateTextureData.h"
 
 DEFINE_STAT(STAT_SlateTextureGPUMemory);
 DEFINE_STAT(STAT_SlateTextureDataMemory);

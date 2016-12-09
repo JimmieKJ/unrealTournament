@@ -2,12 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Engine/Light.h"
 #include "DirectionalLight.generated.h"
 
-
 class UArrowComponent;
-
 
 /**
  * Implements a directional light actor.

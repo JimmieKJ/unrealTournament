@@ -4,8 +4,9 @@
 #pragma once
 
 
-#include "LevelEditor.h"
-
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Editor/LevelEditor/Private/SLevelEditor.h"
 
 /**
  * Level editor menu

@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "Components/Widget.h"
-#include "WidgetTemplateClass.h"
+#include "Templates/WidgetTemplateClass.h"
+
+#if WITH_EDITOR
+	#include "Editor.h"
+#endif // WITH_EDITOR
+#include "Widgets/SToolTip.h"
 #include "IDocumentation.h"
+
 #include "Blueprint/WidgetTree.h"
 
 #define LOCTEXT_NAMESPACE "UMGEditor"

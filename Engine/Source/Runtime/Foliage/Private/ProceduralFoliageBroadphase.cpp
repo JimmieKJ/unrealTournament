@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FoliagePrivate.h"
 #include "ProceduralFoliageBroadphase.h"
-#include "ProceduralFoliageInstance.h"
 
 FProceduralFoliageBroadphase::FProceduralFoliageBroadphase(float TileSize, float MinimumQuadTreeSize)
 	: QuadTree(FBox2D(FVector2D(-TileSize * 2.f, -TileSize * 2.f), FVector2D(TileSize * 2.f, TileSize * 2.f)), MinimumQuadTreeSize)

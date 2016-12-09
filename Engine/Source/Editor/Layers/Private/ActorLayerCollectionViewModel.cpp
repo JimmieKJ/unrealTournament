@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "LayersPrivatePCH.h"
-
+#include "ActorLayerCollectionViewModel.h"
+#include "Editor/EditorEngine.h"
+#include "Layers/Layer.h"
 #include "ScopedTransaction.h"
+#include "ActorLayerViewModel.h"
+
 
 #define LOCTEXT_NAMESPACE "LayersView"
 

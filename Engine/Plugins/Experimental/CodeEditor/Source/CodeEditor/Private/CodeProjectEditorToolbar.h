@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "CodeProjectEditor.h"
+
+class FToolBarBuilder;
+
 class FCodeProjectEditorToolbar : public TSharedFromThis<FCodeProjectEditorToolbar>
 {
 public:

@@ -6,7 +6,10 @@
 
 #pragma once
 
-#include "MessageLog.h"
+#include "CoreMinimal.h"
+
+class Error;
+class FTokenizedMessage;
 
 /**
  * Thread safe proxy for the FMessageLog while performing async loading.

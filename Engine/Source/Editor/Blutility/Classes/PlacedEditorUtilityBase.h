@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
 #include "PlacedEditorUtilityBase.generated.h"
 
 UCLASS(Abstract, hideCategories=(Object, Actor)/*, Blueprintable*/)

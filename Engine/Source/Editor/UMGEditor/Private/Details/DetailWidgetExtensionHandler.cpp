@@ -1,9 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "DetailWidgetExtensionHandler.h"
-#include "PropertyHandle.h"
-#include "SPropertyBinding.h"
+#include "Details/DetailWidgetExtensionHandler.h"
+#include "Details/SPropertyBinding.h"
 
 FDetailWidgetExtensionHandler::FDetailWidgetExtensionHandler(TSharedPtr<FWidgetBlueprintEditor> InBlueprintEditor)
 	: BlueprintEditor( InBlueprintEditor )

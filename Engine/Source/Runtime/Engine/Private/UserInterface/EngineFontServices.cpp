@@ -1,12 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "EngineFontServices.h"
-#include "SlateBasics.h"
-#if !UE_SERVER
-	#include "ISlateRHIRendererModule.h"
-	#include "ISlateNullRendererModule.h"
-#endif
+#include "Misc/CoreMisc.h"
+#include "Fonts/FontCache.h"
+#include "Framework/Application/SlateApplication.h"
 
 FEngineFontServices* FEngineFontServices::Instance = nullptr;
 

@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "Styling/SlateWidgetStyleContainerBase.h"
+#include "Factories/Factory.h"
 #include "SlateWidgetStyleAssetFactory.generated.h"
 
 /** Factory for creating SlateStyles */

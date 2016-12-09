@@ -4,10 +4,7 @@
 	AimOffsetBlendSpace.cpp: AimOffsetBlendSpace functionality
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "Animation/BlendSpaceBase.h"
 #include "Animation/AimOffsetBlendSpace.h"
-#include "Animation/AnimSequence.h"
 
 UAimOffsetBlendSpace::UAimOffsetBlendSpace(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -15,18 +12,12 @@ UAimOffsetBlendSpace::UAimOffsetBlendSpace(const FObjectInitializer& ObjectIniti
 	bRotationBlendInMeshSpace = true;
 }
 
-bool UAimOffsetBlendSpace::IsValidAdditive()  const
+bool UAimOffsetBlendSpace::IsValidAdditiveType(EAdditiveAnimationType AdditiveType) const
 {
-	return IsValidAdditiveInternal(AAT_RotationOffsetMeshSpace);
+	return (AdditiveType == AAT_RotationOffsetMeshSpace);
 }
 
-bool UAimOffsetBlendSpace::ValidateSampleInput(FBlendSample& BlendSample, int32 OriginalIndex) const
+bool UAimOffsetBlendSpace::IsValidAdditive() const
 {
-	// we only accept rotation offset additive. Otherwise it's invalid
-	if (BlendSample.Animation && !BlendSample.Animation->IsValidAdditive())
-	{
-		return false;
-	}
-
-	return Super::ValidateSampleInput(BlendSample, OriginalIndex);
+	return ContainsMatchingSamples(AAT_RotationOffsetMeshSpace);
 }

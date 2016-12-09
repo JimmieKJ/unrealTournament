@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_ActorBoundEvent.h"
+#include "Engine/Level.h"
+#include "Engine/LevelScriptActor.h"
+#include "Engine/LevelScriptBlueprint.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #include "KismetCompiler.h"
 #include "EventEntryHandler.h"

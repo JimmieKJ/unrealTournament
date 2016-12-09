@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Perception/AIPerceptionSystem.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Perception/AISense.h"
 #include "AISense_Touch.generated.h"
 

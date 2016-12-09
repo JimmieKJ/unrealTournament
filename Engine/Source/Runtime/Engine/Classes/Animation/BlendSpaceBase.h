@@ -7,7 +7,10 @@
 
 #pragma once
 
-#include "AnimSequence.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BoneContainer.h"
+#include "Animation/AnimationAsset.h"
 #include "AnimationRuntime.h"
 #include "BlendSpaceBase.generated.h"
 
@@ -15,9 +18,9 @@
 UENUM()
 enum EBlendSpaceAxis
 {
-	BSA_None, 
-	BSA_X,
-	BSA_Y, 
+	BSA_None UMETA(DisplayName = "None"),
+	BSA_X UMETA(DisplayName = "Horizontal (X) Axis"),
+	BSA_Y UMETA(DisplayName = "Vertical (Y) Axis"),
 	BSA_Max
 };
 
@@ -30,7 +33,7 @@ struct FInterpolationParameter
 	UPROPERTY(EditAnywhere, Category=Parameter)
 	float InterpolationTime;
 
-	/** Interpolation Type for input, when it gets input, it will use this filter to decide how to get to target. */
+	/** Type of interpolation used for filtering the input value to decide how to get to target. */
 	UPROPERTY(EditAnywhere, Category=Parameter)
 	TEnumAsByte<EFilterInterpolationType> InterpolationType;
 };
@@ -40,19 +43,19 @@ struct FBlendParameter
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditAnywhere, Category=BlendParameter)
+	UPROPERTY(EditAnywhere, DisplayName = "Name", Category=BlendParameter)
 	FString DisplayName;
 
 	/** Min value for this parameter. */
-	UPROPERTY(EditAnywhere, Category=BlendParameter)
+	UPROPERTY(EditAnywhere, DisplayName = "Minimum Axis Value", Category=BlendParameter)
 	float Min;
 
 	/** Max value for this parameter. */
-	UPROPERTY(EditAnywhere, Category=BlendParameter)
+	UPROPERTY(EditAnywhere, DisplayName = "Maximum Axis Value", Category=BlendParameter)
 	float Max;
 
 	/** how many grid for this parameter. */
-	UPROPERTY(EditAnywhere, Category=BlendParameter)
+	UPROPERTY(EditAnywhere, DisplayName = "Number of Grid Divisions", Category=BlendParameter, meta=(UIMin="1", ClampMin="1"))
 	int32 GridNum;
 
 	FBlendParameter()
@@ -119,14 +122,14 @@ struct FEditorElement
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditAnywhere, Category=EditorElement)
-	int32 Indices[3];    /*MAX_VERTICES @fixmeconst*/
-
-	UPROPERTY(EditAnywhere, Category=EditorElement)
-	float Weights[3];    /*MAX_VERTICES @fixmeconst*/
-
-	// for now we only support triangle
+	// for now we only support triangles
 	static const int32 MAX_VERTICES = 3;
+
+	UPROPERTY(EditAnywhere, Category=EditorElement)
+	int32 Indices[MAX_VERTICES];
+
+	UPROPERTY(EditAnywhere, Category=EditorElement)
+	float Weights[MAX_VERTICES];
 
 	FEditorElement()
 	{
@@ -153,7 +156,6 @@ struct FGridBlendSample
 
 	UPROPERTY()
 	float BlendWeight;
-
 
 	FGridBlendSample()
 		: BlendWeight(0)
@@ -202,62 +204,12 @@ class UBlendSpaceBase : public UAnimationAsset, public IInterpolationIndexProvid
 {
 	GENERATED_UCLASS_BODY()
 
-protected:
-	/** Blend Parameters for each axis. **/
-	UPROPERTY()
-	struct FBlendParameter BlendParameters[3];
-
-	/** Input interpolation parameter for all 3 axis, for each axis input, decide how you'd like to interpolate input to*/
-	UPROPERTY(EditAnywhere, Category=InputInterpolation)
-	FInterpolationParameter	InterpolationParam[3];
-
-	/** 
-	 * Target weight interpolation. When target samples are set, how fast you'd like to get to target. Improve target blending. 
-	 * i.e. for locomotion, if you interpolate input, when you move from left to right rapidly, you'll interpolate through forward, but if you use target weight interpolation, 
-	 * you'll skip forward, but interpolate between left to right 
-	 */
-	UPROPERTY(EditAnywhere, Category=SampleInterpolation)
-	float TargetWeightInterpolationSpeedPerSec;
-
-	/** The current mode used by the blendspace to decide which animation notifies to fire. Valid options are:
-		- AllAnimations - All notify events will fire
-		- HighestWeightedAnimation - Notify events will only fire from the highest weighted animation
-		- None - No notify events will fire from any animations
-	*/
-	UPROPERTY(EditAnywhere, Category=AnimationNotifies)
-	TEnumAsByte<ENotifyTriggerMode::Type> NotifyTriggerMode;
-	
-public:
-
-	/** 
-	 * When you use blend per bone, allows rotation to blend in mesh space. This only works if this does not contain additive animation samples
-	 * This is more performance intensive
-	 */
-	UPROPERTY()
-	bool bRotationBlendInMeshSpace;
-
-	/** Number of dimensions for this blend space (1 or 2) **/
-	UPROPERTY()
-	int32 NumOfDimension;
-
-#if WITH_EDITORONLY_DATA
-	/** Preview Base pose for additive BlendSpace **/
-	UPROPERTY(EditAnywhere, Category=AdditiveSettings)
-	UAnimSequence* PreviewBasePose;
-#endif // WITH_EDITORONLY_DATA
-
-	/** This animation length changes based on current input (resulting in different blend time)**/
-	UPROPERTY(transient)
-	float AnimLength;
-
-	/** 
-	 * Define target weight interpolation per bone. This will blend in different speed per each bone setting 
-	 */
-	UPROPERTY(EditAnywhere, Category=SampleInterpolation)
-	TArray<FPerBoneInterpolation> PerBoneBlend;
+	/** Required for accessing protected variable names */
+	friend class FBlendSpaceDetails;
 
 	//~ Begin UObject Interface
 	virtual void PostLoad() override;
+	virtual void Serialize(FArchive& Ar) override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
@@ -269,34 +221,25 @@ public:
 	// this doesn't mean max time. In Sequence, this is SequenceLength,
 	// but for BlendSpace CurrentTime is normalized [0,1], so this is 1
 	virtual float GetMaxCurrentTime() override { return 1.f; }	
+	virtual TArray<FName>* GetUniqueMarkerNames() override { return (SampleIndexWithMarkers != INDEX_NONE && SampleData.Num() > 0) ? SampleData[SampleIndexWithMarkers].Animation->GetUniqueMarkerNames() : nullptr; }
+	virtual bool IsValidAdditive() const override;
 #if WITH_EDITOR
-	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) override;
+	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets, bool bRecursive = true) override;
 	virtual void ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap) override;
 	virtual int32 GetMarkerUpdateCounter() const;
 #endif
-	virtual TArray<FName>* GetUniqueMarkerNames() override { return (SampleIndexWithMarkers != INDEX_NONE && SampleData.Num() > 0) ? SampleData[SampleIndexWithMarkers].Animation->GetUniqueMarkerNames() : nullptr; }
 	//~ End UAnimationAsset Interface
+	
+	// Begin IInterpolationIndexProvider Overrides
+	/**
+	* Get PerBoneInterpolationIndex for the input BoneIndex
+	* If nothing found, return INDEX_NONE
+	*/
+	virtual int32 GetPerBoneInterpolationIndex(int32 BoneIndex, const FBoneContainer& RequiredBones) const override;	
+	// End UBlendSpaceBase Overrides
 
-	void TickFollowerSamples(TArray<FBlendSampleData> &SampleDataList, const int32 HighestWeightIndex, FAnimAssetTickContext &Context, bool bResetMarkerDataOnFollowers) const
-	{
-		for (int32 SampleIndex = 0; SampleIndex < SampleDataList.Num(); ++SampleIndex)
-		{
-			FBlendSampleData& SampleDataItem = SampleDataList[SampleIndex];
-			const FBlendSample& Sample = SampleData[SampleDataItem.SampleDataIndex];
-			if (HighestWeightIndex != SampleIndex)
-			{
-				if (bResetMarkerDataOnFollowers)
-				{
-					SampleDataItem.MarkerTickRecord.Reset();
-				}
-
-				if (Sample.Animation->AuthoredSyncMarkers.Num() > 0) // Update followers who can do marker sync, others will be handled later in TickAssetPlayer
-				{
-					Sample.Animation->TickByMarkerAsFollower(SampleDataItem.MarkerTickRecord, Context.MarkerTickContext, SampleDataItem.Time, SampleDataItem.PreviousTime, Context.GetLeaderDelta(), true);
-				}
-			}
-		}
-	}
+	/** Returns whether or not the given additive animation type is compatible with the blendspace type */
+	ENGINE_API virtual bool IsValidAdditiveType(EAdditiveAnimationType AdditiveType) const;
 
 	/**
 	 * BlendSpace Get Animation Pose function
@@ -304,150 +247,188 @@ public:
 	ENGINE_API void GetAnimationPose(TArray<FBlendSampleData>& BlendSampleDataCache, /*out*/ FCompactPose& OutPose, /*out*/ FBlendedCurve& OutCurve);
 
 	/** Accessor for blend parameter **/
-	ENGINE_API const FBlendParameter& GetBlendParameter(int32 Index)
-	{
-		return BlendParameters[Index];
-	}
-
-	/** New Parameter set up for BlendParameters**/
-	ENGINE_API bool UpdateParameter(int32 Index, const FBlendParameter& Parameter);
-
-	/** Add samples */
-	ENGINE_API bool	AddSample(const FBlendSample& BlendSample);
-
-	/** edit samples */
-	ENGINE_API bool	EditSample(const FBlendSample& BlendSample, FVector& NewValue);
-
-	/** replace sample animation */
-	ENGINE_API bool	EditSampleAnimation(const FBlendSample& BlendSample, class UAnimSequence* AnimSequence);
-
-	/** delete samples */
-	ENGINE_API bool	DeleteSample(const FBlendSample& BlendSample);
-
-	/** whenever sample is modified, grid data isn't valid anymore, clear grid */
-	ENGINE_API void ClearAllSamples();
-
-	/** Get the number of sample points for this blend space */
-	ENGINE_API int32 GetBlendSamplePointNum()  const { return SampleData.Num(); }
+	ENGINE_API const FBlendParameter& GetBlendParameter(const int32 Index) const;
 
 	/** Get this blend spaces sample data */
-	const TArray<struct FBlendSample>& GetBlendSamples() const { return SampleData; } 
+	const TArray<struct FBlendSample>& GetBlendSamples() const { return SampleData; }
+
+	/** Returns the Blend Sample at the given index, will assert on invalid indices */
+	ENGINE_API const struct FBlendSample& GetBlendSample(const int32 SampleIndex) const;
 
 	/**
-	 * return GridSamples from this BlendSpace
-	 *
-	 * @param	OutGridElements
-	 *
-	 * @return	Number of OutGridElements
-	 */
-	ENGINE_API int32 GetGridSamples(TArray<FEditorElement> & OutGridElements) const;
-
-	/** 
-	 * return SamplePoints from this BlendSpace
-	 * 
-	 * @param	OutPointList	
-	 *
-	 * @return	Number of OutPointList
-	 */
-	ENGINE_API int32 GetBlendSamplePoints(TArray<FBlendSample> & OutPointList) const;
-
-	/** Fill up local GridElements from the grid elements that are created using the sorted points
-	 *	This will map back to original index for result
-	 * 
-	 *  @param	SortedPointList		This is the pointlist that are used to create the given GridElements
-	 *								This list contains subsets of the points it originally requested for visualization and sorted
-	 *
-	 */
-	ENGINE_API void FillupGridElements(const TArray<FVector> & SortedPointList, const TArray<FEditorElement> & GridElements);
-
-	/**
-	 * Get Grid Samples from BlendInput
-	 * It will return all samples that has weight > KINDA_SMALL_NUMBER
-	 *
-	 * @param	BlendInput	BlendInput X, Y, Z corresponds to BlendParameters[0], [1], [2]
-	 * 
-	 * @return	true if it has valid OutSampleDataList, false otherwise
-	 */
+	* Get Grid Samples from BlendInput
+	* It will return all samples that has weight > KINDA_SMALL_NUMBER
+	*
+	* @param	BlendInput	BlendInput X, Y, Z corresponds to BlendParameters[0], [1], [2]
+	*
+	* @return	true if it has valid OutSampleDataList, false otherwise
+	*/
 	ENGINE_API bool GetSamplesFromBlendInput(const FVector &BlendInput, TArray<FBlendSampleData> & OutSampleDataList) const;
-	
-	/** Check if given sample value isn't too close to existing sample point **/
-	ENGINE_API bool IsTooCloseToExistingSamplePoint(const FVector& SampleValue, int32 OriginalIndex) const;
 
 	/** Initialize BlendSpace for runtime. It needs certain data to be reinitialized per instsance **/
 	ENGINE_API void InitializeFilter(FBlendFilter* Filter) const;
-
-	/** 
-	 * Get PerBoneInterpolationIndex for the input BoneIndex
-	 * If nothing found, return INDEX_NONE
-	 */
-	virtual int32 GetPerBoneInterpolationIndex(int32 BoneIndex, const FBoneContainer& RequiredBones) const override;
-
-	/** return true if all sample data is additive **/
-	virtual bool IsValidAdditive() const {check(false); return false;}
-
-	/** 1) Remove data if redundant 2) Remove data if animation isn't found **/
+	
+	/** Validates the contained data */
 	ENGINE_API void ValidateSampleData();
 
+#if WITH_EDITOR	
+	/** Add samples */
+	ENGINE_API bool	AddSample(UAnimSequence* AnimationSequence, const FVector& SampleValue);
+
+	/** edit samples */
+	ENGINE_API bool	EditSampleValue(const int32 BlendSampleIndex, const FVector& NewValue);
+
+	/** delete samples */
+	ENGINE_API bool	DeleteSample(const int32 BlendSampleIndex);
+	
+	/** Get the number of sample points for this blend space */
+	ENGINE_API int32 GetNumberOfBlendSamples()  const { return SampleData.Num(); }
+
+	/** Check whether or not the sample index is valid in combination with the stored sample data */
+	ENGINE_API bool IsValidBlendSampleIndex(const int32 SampleIndex) const;
+
+	/**
+	* return GridSamples from this BlendSpace
+	*
+	* @param	OutGridElements
+	*
+	* @return	Number of OutGridElements
+	*/
+	ENGINE_API const TArray<FEditorElement>& GetGridSamples() const;
+
+	/** Fill up local GridElements from the grid elements that are created using the sorted points
+	*	This will map back to original index for result
+	*
+	*  @param	SortedPointList		This is the pointlist that are used to create the given GridElements
+	*								This list contains subsets of the points it originally requested for visualization and sorted
+	*
+	*/
+	ENGINE_API void FillupGridElements(const TArray<int32> & PointListToSampleIndices, const TArray<FEditorElement> & GridElements);
+		
+	ENGINE_API void EmptyGridElements();
+	
+	/** Validate that the given animation sequence and contained blendspace data */
+	ENGINE_API bool ValidateAnimationSequence(const UAnimSequence* AnimationSequence) const;
+
+	/** Check if the blend spaces contains samples whos additive type match that of the animation sequence */
+	ENGINE_API bool DoesAnimationMatchExistingSamples(const UAnimSequence* AnimationSequence) const;
+	
+	/** Check if the the blendspace contains additive samples only */	
+	ENGINE_API bool ShouldAnimationBeAdditive() const;
+
+	/** Check if the animation sequence's skeleton is compatible with this blendspace */
+	ENGINE_API bool IsAnimationCompatibleWithSkeleton(const UAnimSequence* AnimationSequence) const;
+
+	/** Check if the animation sequence additive type is compatible with this blend space */
+	ENGINE_API bool IsAnimationCompatible(const UAnimSequence* AnimationSequence) const;
+
+	/** Validates supplied blend sample against current contents of blendspace */
+	ENGINE_API bool ValidateSampleValue(const FVector& SampleValue, int32 OriginalIndex = INDEX_NONE) const;
+
+	ENGINE_API bool IsSampleWithinBounds(const FVector &SampleValue) const;
+
+	/** Check if given sample value isn't too close to existing sample point **/
+	ENGINE_API bool IsTooCloseToExistingSamplePoint(const FVector& SampleValue, int32 OriginalIndex) const;
+#endif
+
 protected:
-	/** Initialize Per Bone Blend **/
-	void InitializePerBoneBlend();
-
-	/** Interpolate BlendInput based on Filter data **/
-	FVector FilterInput(FBlendFilter* Filter, const FVector& BlendInput, float DeltaTime) const;
-
+	/**
+	* Get Grid Samples from BlendInput, From Input, it will populate OutGridSamples with the closest grid points.
+	*
+	* @param	BlendInput			BlendInput X, Y, Z corresponds to BlendParameters[0], [1], [2]
+	* @param	OutBlendSamples		Populated with the samples nearest the BlendInput
+	*
+	*/
+	virtual void GetRawSamplesFromBlendInput(const FVector &BlendInput, TArray<FGridBlendSample, TInlineAllocator<4> > & OutBlendSamples) const {}
 	/** Let derived blend space decided how to handle scaling */
 	virtual EBlendSpaceAxis GetAxisToScale() const PURE_VIRTUAL(UBlendSpaceBase::GetAxisToScale, return BSA_None;);
 
-	/** Validates supplied blend sample against current contents of blendspace */
-	virtual bool ValidateSampleInput(FBlendSample & BlendSample, int32 OriginalIndex=INDEX_NONE) const;
+	/** Initialize Per Bone Blend **/
+	void InitializePerBoneBlend();
 
-	/** Returns where blend space sample animations are valid for the supplied AdditiveType */
-	bool IsValidAdditiveInternal(EAdditiveAnimationType AdditiveType) const;
-
-	/** Utility function to normalize sample data weights **/
-	void NormalizeSampleDataWeight(TArray<FBlendSampleData> & SampleDataList) const;
+	void TickFollowerSamples(TArray<FBlendSampleData> &SampleDataList, const int32 HighestWeightIndex, FAnimAssetTickContext &Context, bool bResetMarkerDataOnFollowers) const;
 
 	/** Utility function to calculate animation length from sample data list **/
 	float GetAnimationLengthFromSampleData(const TArray<FBlendSampleData> & SampleDataList) const;
 
-	/** Returns the grid element at Index or NULL if Index is not valid */
-	const FEditorElement* GetGridSampleInternal(int32 Index) const { return GridSamples.IsValidIndex(Index) ? &GridSamples[Index] : NULL; }
-
-	virtual bool IsSameSamplePoint(const FVector& SamplePointA, const FVector& SamplePointB) const PURE_VIRTUAL(UBlendSpaceBase::IsSameSamplePoint, return false;);
-
-	/** If around border, snap to the border to avoid empty hole of data that is not valid **/
-	virtual void SnapToBorder(FBlendSample& Sample) const PURE_VIRTUAL(UBlendSpaceBase::SnapToBorder, return;);
-
 	/** Clamp blend input to valid point **/
 	FVector ClampBlendInput(const FVector& BlendInput) const;
-
+	
 	/** Translates BlendInput to grid space */
 	FVector GetNormalizedBlendInput(const FVector& BlendInput) const;
 
+	/** Returns the grid element at Index or NULL if Index is not valid */
+	const FEditorElement* GetGridSampleInternal(int32 Index) const;
+	
 	/** Utility function to interpolate weight of samples from OldSampleDataList to NewSampleDataList and copy back the interpolated result to FinalSampleDataList **/
 	bool InterpolateWeightOfSampleData(float DeltaTime, const TArray<FBlendSampleData> & OldSampleDataList, const TArray<FBlendSampleData> & NewSampleDataList, TArray<FBlendSampleData> & FinalSampleDataList) const;
 
-	/** 
-	 * Get Grid Samples from BlendInput, From Input, it will populate OutGridSamples with the closest grid points. 
-	 * 
-	 * @param	BlendInput			BlendInput X, Y, Z corresponds to BlendParameters[0], [1], [2]
-	 * @param	OutBlendSamples		Populated with the samples nearest the BlendInput 
-	 *
-	 */
-	virtual void GetRawSamplesFromBlendInput(const FVector &BlendInput, TArray<FGridBlendSample, TInlineAllocator<4> > & OutBlendSamples) const {}
+	/** Interpolate BlendInput based on Filter data **/
+	FVector FilterInput(FBlendFilter* Filter, const FVector& BlendInput, float DeltaTime) const;
+
+	/** Returns whether or not all animation set on the blend space samples match the given additive type */
+	bool ContainsMatchingSamples(EAdditiveAnimationType AdditiveType) const;
+
+	/** If around border, snap to the border to avoid empty hole of data that is not valid **/
+	virtual void SnapSamplesToClosestGridPoint() PURE_VIRTUAL(UBlendSpaceBase::SnapSamplesToClosestGridPoint, return;);
+	
+	/** Checks if the given samples points overlap */
+	virtual bool IsSameSamplePoint(const FVector& SamplePointA, const FVector& SamplePointB) const PURE_VIRTUAL(UBlendSpaceBase::IsSameSamplePoint, return false;);	
+
+#if WITH_EDITOR
+	bool ContainsNonAdditiveSamples() const;
+	void UpdatePreviewBasePose();
+#endif // WITH_EDITOR
+	
+public:
+	/**
+	* When you use blend per bone, allows rotation to blend in mesh space. This only works if this does not contain additive animation samples
+	* This is more performance intensive
+	*/
+	UPROPERTY()
+	bool bRotationBlendInMeshSpace;
+
+#if WITH_EDITORONLY_DATA
+	/** Preview Base pose for additive BlendSpace **/
+	UPROPERTY(EditAnywhere, Category = AdditiveSettings)
+	UAnimSequence* PreviewBasePose;
+#endif // WITH_EDITORONLY_DATA
+
+	/** This animation length changes based on current input (resulting in different blend time)**/
+	UPROPERTY(transient)
+	float AnimLength;
+
+protected:
+	/**
+	* Define target weight interpolation per bone. This will blend in different speed per each bone setting
+	*/
+	UPROPERTY(EditAnywhere, Category = SampleInterpolation)
+	TArray<FPerBoneInterpolation> PerBoneBlend;
+
+	/** Input interpolation parameter for all 3 axis, for each axis input, decide how you'd like to interpolate input to*/
+	UPROPERTY(EditAnywhere, Category = InputInterpolation)
+	FInterpolationParameter	InterpolationParam[3];
+
+	/**
+	* Target weight interpolation. When target samples are set, how fast you'd like to get to target. Improve target blending.
+	* i.e. for locomotion, if you interpolate input, when you move from left to right rapidly, you'll interpolate through forward, but if you use target weight interpolation,
+	* you'll skip forward, but interpolate between left to right
+	*/
+	UPROPERTY(EditAnywhere, Category = SampleInterpolation)
+	float TargetWeightInterpolationSpeedPerSec;
+
+	/** The current mode used by the blendspace to decide which animation notifies to fire. Valid options are:
+	- AllAnimations - All notify events will fire
+	- HighestWeightedAnimation - Notify events will only fire from the highest weighted animation
+	- None - No notify events will fire from any animations
+	*/
+	UPROPERTY(EditAnywhere, Category = AnimationNotifies)
+	TEnumAsByte<ENotifyTriggerMode::Type> NotifyTriggerMode;
 
 	/** Track index to get marker data from. Samples are tested for the suitability of marker based sync
 	    during load and if we can use marker based sync we cache an index to a representative sample here */
 	int32 SampleIndexWithMarkers;
 
-#if WITH_EDITOR
-private:
-	// Track whether we have updated markers so cached data can be updated
-	int32 MarkerDataUpdateCounter;
-#endif
-
-public:
-	
 	/** Sample animation data **/
 	UPROPERTY()
 	TArray<struct FBlendSample> SampleData;
@@ -455,4 +436,17 @@ public:
 	/** Grid samples, indexing scheme imposed by subclass **/
 	UPROPERTY()
 	TArray<struct FEditorElement> GridSamples;
+	
+	/** Blend Parameters for each axis. **/
+	UPROPERTY(EditAnywhere, Category = BlendParametersTest)
+	struct FBlendParameter BlendParameters[3];
+
+	/** Flag which keeps track of whether or not the filter data was changed, which will make FilterInput reinitialize the filter when called next (this is very dirty, and don't know how this works with multiple players) */
+	static bool bNeedReinitializeFilter;
+
+#if WITH_EDITOR
+private:
+	// Track whether we have updated markers so cached data can be updated
+	int32 MarkerDataUpdateCounter;
+#endif	
 };

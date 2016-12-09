@@ -4,18 +4,35 @@
 	PackFactory.cpp: Factory for importing asset and feature packs
 =============================================================================*/
 
-#include "UnrealEd.h"
-#include "Runtime/PakFile/Public/IPlatformFilePak.h"
-#include "ISourceControlModule.h"
-#include "SourceControlHelpers.h"
-#include "SourceCodeNavigation.h"
-#include "HotReloadInterface.h"
-#include "AES.h"
-#include "ModuleManager.h"
-#include "GameProjectGenerationModule.h"
 #include "Factories/PackFactory.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/UnrealType.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/LinkerLoad.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Engine/Engine.h"
+#include "SourceControlHelpers.h"
+#include "ISourceControlModule.h"
+#include "Settings/EditorLoadingSavingSettings.h"
+#include "GameFramework/PlayerInput.h"
 #include "GameFramework/InputSettings.h"
+#include "IPlatformFilePak.h"
+#include "SourceCodeNavigation.h"
+#include "Misc/HotReloadInterface.h"
+#include "Misc/AES.h"
+#include "GameProjectGenerationModule.h"
 #include "Dialogs/SOutputLogDialog.h"
+#include "UniquePtr.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPackFactory, Log, All);
 
@@ -506,9 +523,9 @@ UObject* UPackFactory::FactoryCreateBinary
 					DestFilename = ContentDestinationRoot / DestFilename;
 					UE_LOG(LogPackFactory, Log, TEXT("%s (%ld) -> %s"), *It.Filename(), Entry.Size, *DestFilename);
 
-					TAutoPtr<FArchive> FileHandle(IFileManager::Get().CreateFileWriter(*DestFilename));
+					TUniquePtr<FArchive> FileHandle(IFileManager::Get().CreateFileWriter(*DestFilename));
 
-					if (FileHandle.IsValid())
+					if (FileHandle)
 					{
 						PackFactoryHelper::ExtractFile(Entry, PakReader, CopyBuffer, PersistentCompressionBuffer, *FileHandle);
 						WrittenFiles.Add(*DestFilename);

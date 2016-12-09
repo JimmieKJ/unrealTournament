@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
 #include "Styling/WidgetStyle.h"
 #include "SlateColor.generated.h"
-
 
 /**
  * Enumerates types of color values that can be held by Slate color.

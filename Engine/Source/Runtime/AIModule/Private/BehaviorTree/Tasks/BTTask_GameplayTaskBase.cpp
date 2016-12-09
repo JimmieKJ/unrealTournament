@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "AIController.h"
 #include "BehaviorTree/Tasks/BTTask_GameplayTaskBase.h"
+#include "GameFramework/Actor.h"
+#include "VisualLogger/VisualLogger.h"
 
 UBTTask_GameplayTaskBase::UBTTask_GameplayTaskBase(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

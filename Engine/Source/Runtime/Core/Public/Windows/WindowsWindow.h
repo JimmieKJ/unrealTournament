@@ -2,14 +2,19 @@
 
 #pragma once
 
-#include "GenericWindow.h"
-#include "SharedPointer.h"
+#include "CoreTypes.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "Templates/SharedPointer.h"
+#include "WindowsHWrapper.h"
 
 #include "AllowWindowsPlatformTypes.h"
-#include "Ole2.h"
-#include "OleIdl.h"
+#include <Ole2.h>
+#include <oleidl.h>
 #include "HideWindowsPlatformTypes.h"
 
+class FWindowsApplication;
+struct FVector2D;
+enum class EWindowTransparency;
 
 /**
  * A platform specific implementation of FNativeWindow.
@@ -66,6 +71,16 @@ public:
 
 	/** @return	Gives the native window a chance to adjust our stored window size before we cache it off. */
 	virtual void AdjustCachedSize(FVector2D& Size) const override;
+
+	virtual float GetDPIScaleFactor() const override
+	{
+		return DPIScaleFactor;
+	}
+
+	void SetDPIScaleFactor(float Value)
+	{
+		DPIScaleFactor = Value;
+	}
 
 	/** Called when our parent window is minimized (which will in turn cause us to become minimized). */
 	void OnParentWindowMinimized();
@@ -138,7 +153,7 @@ private:
 
 	/** Creates an HRGN for the window's current region.  Remember to delete this when you're done with it using
 	   ::DeleteObject, unless you're passing it to SetWindowRgn(), which will absorb the reference itself. */
-	HRGN MakeWindowRegionObject() const;
+	HRGN MakeWindowRegionObject(bool bIncludeBorderWhenMaximized) const;
 
 private:
 
@@ -175,4 +190,9 @@ private:
 	float AspectRatio;
 
 	bool bIsVisible : 1;
+	/**
+	 * Ratio of pixels to SlateUnits in this window.
+	 * E.g. DPIScale of 2.0 means there is a 2x2 pixel square for every 1x1 SlateUnit.
+	 */
+	float DPIScaleFactor;
 };

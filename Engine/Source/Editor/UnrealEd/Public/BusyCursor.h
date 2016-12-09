@@ -4,6 +4,8 @@
 #ifndef __BUSYCURSOR_H__
 #define __BUSYCURSOR_H__
 
+#include "CoreMinimal.h"
+
 /**
  * While in scope, sets the cursor to the busy (hourglass) cursor for all windows.
  */

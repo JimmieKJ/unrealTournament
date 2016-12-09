@@ -22,9 +22,10 @@ FMetalCommandQueue::FMetalCommandQueue(id<MTLDevice> Device, uint32 const MaxNum
 #if METAL_STATISTICS
 , Statistics(nullptr)
 #endif
-#if !UE_BUILD_SHIPPING
+#if METAL_DEBUG_OPTIONS
 , RuntimeDebuggingLevel(EMetalDebugLevelOff)
 #endif
+, Features(0)
 {
 	if(MaxNumCommandBuffers == 0)
 	{
@@ -49,6 +50,48 @@ FMetalCommandQueue::FMetalCommandQueue(id<MTLDevice> Device, uint32 const MaxNum
 		}
 	}
 #endif
+
+#if PLATFORM_IOS
+	NSOperatingSystemVersion Vers = [[NSProcessInfo processInfo] operatingSystemVersion];
+	if(Vers.majorVersion >= 9)
+	{
+		Features = EMetalFeaturesSeparateStencil | EMetalFeaturesSetBufferOffset | EMetalFeaturesResourceOptions | EMetalFeaturesDepthStencilBlitOptions;
+
+#if PLATFORM_TVOS
+		if(!FParse::Param(FCommandLine::Get(),TEXT("nometalv2")) && [Device supportsFeatureSet:MTLFeatureSet_tvOS_GPUFamily1_v2])
+		{
+			Features |= EMetalFeaturesStencilView;
+		}
+#else
+		if ([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v1])
+		{
+			Features |= EMetalFeaturesCountingQueries | EMetalFeaturesBaseVertexInstance | EMetalFeaturesIndirectBuffer;
+		}
+		
+		if(!FParse::Param(FCommandLine::Get(),TEXT("nometalv2")) && ([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v3] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily1_v3]))
+		{
+			Features |= EMetalFeaturesStencilView;
+		}
+#endif
+	}
+	else if(Vers.majorVersion == 8 && Vers.minorVersion >= 3)
+	{
+		Features = EMetalFeaturesSeparateStencil | EMetalFeaturesSetBufferOffset;
+	}
+#else // Assume that Mac & other platforms all support these from the start. They can diverge later.
+	Features = EMetalFeaturesSeparateStencil | EMetalFeaturesSetBufferOffset | EMetalFeaturesDepthClipMode | EMetalFeaturesResourceOptions | EMetalFeaturesDepthStencilBlitOptions | EMetalFeaturesCountingQueries | EMetalFeaturesBaseVertexInstance | EMetalFeaturesIndirectBuffer | EMetalFeaturesLayeredRendering;
+    if (!FParse::Param(FCommandLine::Get(),TEXT("nometalv2")) && [Device supportsFeatureSet:MTLFeatureSet_OSX_GPUFamily1_v2])
+    {
+        Features |= EMetalFeaturesStencilView | EMetalFeaturesDepth16;
+        
+        // Assume that set*Bytes only works on macOS Sierra and above as no-one has tested it anywhere else.
+        Features |= EMetalFeaturesSetBytes;
+    }
+    else if ([Device.name rangeOfString:@"Nvidia" options:NSCaseInsensitiveSearch].location != NSNotFound)
+    {
+    	Features |= EMetalFeaturesSetBytes;
+    }
+#endif
 }
 
 FMetalCommandQueue::~FMetalCommandQueue(void)
@@ -68,12 +111,13 @@ id<MTLCommandBuffer> FMetalCommandQueue::CreateRetainedCommandBuffer(void)
 	@autoreleasepool
 	{
 		id<MTLCommandBuffer> CmdBuffer = [[CommandQueue commandBuffer] retain];
-#if !UE_BUILD_SHIPPING
+#if METAL_DEBUG_OPTIONS
 		if (RuntimeDebuggingLevel >= EMetalDebugLevelLogDebugGroups)
 		{
 			CmdBuffer = [[FMetalDebugCommandBuffer alloc] initWithCommandBuffer:CmdBuffer];
 		}
 #endif
+		INC_DWORD_STAT(STAT_MetalCommandBufferCreatedPerFrame);
 		TRACK_OBJECT(STAT_MetalCommandBufferCount, CmdBuffer);
 		return CmdBuffer;
 	}
@@ -86,13 +130,14 @@ id<MTLCommandBuffer> FMetalCommandQueue::CreateUnretainedCommandBuffer(void)
 	@autoreleasepool
 	{
 		CmdBuffer = bUnretainedRefs ? [[CommandQueue commandBufferWithUnretainedReferences] retain] : [[CommandQueue commandBuffer] retain];
-#if !UE_BUILD_SHIPPING
+#if METAL_DEBUG_OPTIONS
 		if (RuntimeDebuggingLevel >= EMetalDebugLevelLogDebugGroups)
 		{
 			CmdBuffer = [[FMetalDebugCommandBuffer alloc] initWithCommandBuffer:CmdBuffer];
 		}
 #endif
 	}
+	INC_DWORD_STAT(STAT_MetalCommandBufferCreatedPerFrame);
 	TRACK_OBJECT(STAT_MetalCommandBufferCount, CmdBuffer);
 	return CmdBuffer;
 }
@@ -102,10 +147,12 @@ void FMetalCommandQueue::CommitCommandBuffer(id<MTLCommandBuffer> const CommandB
 	check(CommandBuffer);
 	UNTRACK_OBJECT(STAT_MetalCommandBufferCount, CommandBuffer);
 	
+	INC_DWORD_STAT(STAT_MetalCommandBufferCommittedPerFrame);
+	
 	[CommandBuffer commit];
 	
 	// Wait for completion when debugging command-buffers.
-#if !UE_BUILD_SHIPPING
+#if METAL_DEBUG_OPTIONS
 	if (RuntimeDebuggingLevel >= EMetalDebugLevelWaitForComplete)
 	{
 		[CommandBuffer waitUntilCompleted];
@@ -158,7 +205,7 @@ void FMetalCommandQueue::InsertDebugCaptureBoundary(void)
 	[CommandQueue insertDebugCaptureBoundary];
 }
 
-#if !UE_BUILD_SHIPPING
+#if METAL_DEBUG_OPTIONS
 void FMetalCommandQueue::SetRuntimeDebuggingLevel(int32 const Level)
 {
 	RuntimeDebuggingLevel = Level;

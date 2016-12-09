@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FunctionalTestingPrivatePCH.h"
-#include "ObjectEditorUtils.h"
-#include "Blueprint/AIBlueprintHelperLibrary.h"
-#include "BehaviorTree/BehaviorTree.h"
+#include "FunctionalAITest.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
+#include "FuncTestManager.h"
+#include "FunctionalTestingManager.h"
+#include "AI/Navigation/NavigationSystem.h"
 #include "AIController.h"
+#include "Blueprint/AIBlueprintHelperLibrary.h"
 
 AFunctionalAITest::AFunctionalAITest( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
@@ -76,6 +79,11 @@ bool AFunctionalAITest::RunTest(const TArray<FString>& Params)
 	StartSpawning();
 
 	return Super::RunTest(Params);
+}
+
+bool AFunctionalAITest::IsReady_Implementation()
+{
+	return Super::IsReady_Implementation() && IsNavMeshReady();
 }
 
 void AFunctionalAITest::StartSpawning()

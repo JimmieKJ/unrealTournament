@@ -4,13 +4,15 @@
 	PostProcessDOF.cpp: Post process Depth of Field implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessBokehDOF.h"
-#include "PostProcessDOF.h"
-#include "PostProcessing.h"
+#include "PostProcess/PostProcessDOF.h"
+#include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "PostProcess/PostProcessBokehDOF.h"
+#include "SceneRenderTargetParameters.h"
+#include "PostProcess/PostProcessing.h"
+#include "ClearQuad.h"
 
 
 /** Encapsulates the DOF setup pixel shader. */
@@ -181,7 +183,7 @@ void FRCPassPostProcessDOFSetup::Process(FRenderingCompositePassContext& Context
 		FLinearColor(0, 0, 0, 0)
 	};
 	// is optimized away if possible (RT size=view size, )
-	Context.RHICmdList.ClearMRT(true, NumRenderTargets, ClearColors, false, 1.0f, false, 0, DestRect);
+	DrawClearQuadMRT(Context.RHICmdList, Context.GetFeatureLevel(), true, NumRenderTargets, ClearColors, false, 0, false, 0, DestSize, DestRect);
 
 	Context.SetViewportAndCallRHI(DestRect.Min.X, DestRect.Min.Y, 0.0f, DestRect.Max.X + 1, DestRect.Max.Y + 1, 1.0f );
 
@@ -432,7 +434,7 @@ void FRCPassPostProcessDOFRecombine::Process(FRenderingCompositePassContext& Con
 	{
 		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
 		// is optimized away if possible (RT size=view size, )
-		Context.RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, View.ViewRect);
+		DrawClearQuad(Context.RHICmdList, Context.GetFeatureLevel(), true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, View.ViewRect);
 	}
 
 	Context.SetViewportAndCallRHI(View.ViewRect);

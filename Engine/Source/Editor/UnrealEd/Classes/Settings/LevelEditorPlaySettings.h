@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "SlateCore.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Layout/Visibility.h"
 #include "LevelEditorPlaySettings.generated.h"
 
+class SWindow;
 
 /**
  * Enumerates label anchor modes.
@@ -415,10 +419,7 @@ public:
 	UPROPERTY(config)
 	TArray<FPlayScreenResolution> TelevisionScreenResolutions;
 
-protected:
-
-	// UObject overrides
-
+	// UObject interface
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
-
+	// End of UObject interface
 };

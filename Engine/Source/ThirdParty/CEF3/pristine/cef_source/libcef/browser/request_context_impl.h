@@ -60,6 +60,24 @@ class CefRequestContextImpl : public CefRequestContext {
       const CefString& domain_name,
       CefRefPtr<CefSchemeHandlerFactory> factory) override;
   bool ClearSchemeHandlerFactories() override;
+  void PurgePluginListCache(bool reload_pages) override;
+  bool HasPreference(const CefString& name) override;
+  CefRefPtr<CefValue> GetPreference(const CefString& name) override;
+  CefRefPtr<CefDictionaryValue> GetAllPreferences(
+      bool include_defaults) override;
+  bool CanSetPreference(const CefString& name) override;
+  bool SetPreference(const CefString& name,
+                     CefRefPtr<CefValue> value,
+                     CefString& error) override;
+  void ClearCertificateExceptions(
+      CefRefPtr<CefCompletionCallback> callback) override;
+  void CloseAllConnections(CefRefPtr<CefCompletionCallback> callback) override;
+  void ResolveHost(
+      const CefString& origin,
+      CefRefPtr<CefResolveCallback> callback) override;
+  cef_errorcode_t ResolveHostCached(
+      const CefString& origin,
+      std::vector<CefString>& resolved_ips) override;
 
   const CefRequestContextSettings& settings() const { return settings_; }
 
@@ -73,6 +91,9 @@ class CefRequestContextImpl : public CefRequestContext {
   CefRequestContextImpl(CefRefPtr<CefRequestContextImpl> other,
                         CefRefPtr<CefRequestContextHandler> handler);
 
+  // Make sure the browser context exists. Only called on the UI thread.
+  void EnsureBrowserContext();
+
   void GetBrowserContextOnUIThread(
       scoped_refptr<base::SingleThreadTaskRunner> task_runner,
       const BrowserContextCallback& callback);
@@ -85,9 +106,22 @@ class CefRequestContextImpl : public CefRequestContext {
       const CefString& scheme_name,
       const CefString& domain_name,
       CefRefPtr<CefSchemeHandlerFactory> factory,
-    scoped_refptr<CefURLRequestContextGetterImpl> request_context);
+      scoped_refptr<CefURLRequestContextGetterImpl> request_context);
   void ClearSchemeHandlerFactoriesInternal(
-    scoped_refptr<CefURLRequestContextGetterImpl> request_context);
+      scoped_refptr<CefURLRequestContextGetterImpl> request_context);
+  void PurgePluginListCacheInternal(
+      bool reload_pages,
+      scoped_refptr<CefBrowserContext> browser_context);
+  void ClearCertificateExceptionsInternal(
+      CefRefPtr<CefCompletionCallback> callback,
+      scoped_refptr<CefBrowserContext> browser_context);
+  void CloseAllConnectionsInternal(
+      CefRefPtr<CefCompletionCallback> callback,
+      scoped_refptr<CefURLRequestContextGetterImpl> request_context);
+  void ResolveHostInternal(
+      const CefString& origin,
+      CefRefPtr<CefResolveCallback> callback,
+      scoped_refptr<CefURLRequestContextGetterImpl> request_context);
 
   scoped_refptr<CefBrowserContext> browser_context_;
   CefRequestContextSettings settings_;

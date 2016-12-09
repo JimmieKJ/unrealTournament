@@ -1,14 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Engine/EngineBaseTypes.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/CoreNet.h"
 #include "Engine/EngineTypes.h"
-#include "Engine/MemberReference.h"
+#include "Engine/EngineBaseTypes.h"
+#include "UObject/ScriptMacros.h"
+#include "EdGraph/EdGraphPin.h"
 #include "Interfaces/Interface_AssetUserData.h"
 #include "ActorComponent.generated.h"
 
-struct FReplicationFlags;
-class UWorld;
+class AActor;
+class UActorComponent;
+class UAssetUserData;
+class ULevel;
 
 UENUM()
 enum class EComponentCreationMethod : uint8
@@ -57,8 +67,8 @@ CONSTEXPR inline EUpdateTransformFlags operator ~(EUpdateTransformFlags Value)
 FORCEINLINE EUpdateTransformFlags SkipPhysicsToEnum(bool bSkipPhysics){ return bSkipPhysics ? EUpdateTransformFlags::SkipPhysicsUpdate : EUpdateTransformFlags::None; }
 
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FActorComponentActivatedSignature, bool, bReset);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FActorComponentDeactivateSignature);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FActorComponentActivatedSignature, UActorComponent*, Component, bool, bReset);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FActorComponentDeactivateSignature, UActorComponent*, Component);
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FActorComponentCreatePhysicsSignature, UActorComponent*);
 DECLARE_MULTICAST_DELEGATE_OneParam(FActorComponentDestroyPhysicsSignature, UActorComponent*);
@@ -71,7 +81,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FActorComponentDestroyPhysicsSignature, UAct
  * @see USceneComponent
  * @see UPrimitiveComponent
  */
-UCLASS(DefaultToInstanced, BlueprintType, abstract, hideCategories=(ComponentReplication), meta=(ShortTooltip="An ActorComponent is a reusable component that can be added to any actor."))
+UCLASS(DefaultToInstanced, BlueprintType, abstract, meta=(ShortTooltip="An ActorComponent is a reusable component that can be added to any actor."))
 class ENGINE_API UActorComponent : public UObject, public IInterface_AssetUserData
 {
 	GENERATED_BODY()
@@ -189,8 +199,12 @@ public:
 	uint32 bWantsInitializeComponent:1;
 
 	/** If true, we call the virtual BeginPlay */
-	UPROPERTY()
+	DEPRECATED(4.14, "bWantsBeginPlay was inconsistently enforced and is now unused")
 	uint32 bWantsBeginPlay:1;
+
+	/** If true, the component will be excluded from non-editor builds */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Cooking)
+	uint32 bIsEditorOnly:1;
 
 private:
 	/** Indicates that OnCreatedComponent has been called, but OnDestroyedComponent has not yet */
@@ -218,6 +232,10 @@ private:
 	friend struct FMarkComponentEndOfFrameUpdateState;
 
 	friend class FActorComponentInstanceData;
+	friend class FActorComponentDetails;
+
+	/** True if this component was owned by a net startup actor during level load. */
+	bool bIsNetStartupComponent;
 
 public:
 	UPROPERTY()
@@ -267,6 +285,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components")
 	bool ComponentHasTag(FName Tag) const;
 
+	/**
+	* Called during saving to determine the load flags to save with the object.
+	*
+	* @return	true if this object should always be loaded for editor game
+	*/
+	virtual bool NeedsLoadForEditorGame() const override
+	{
+		return !IsEditorOnly() && Super::NeedsLoadForEditorGame();
+	}
+
 	//~ Begin Trigger/Activation Interface
 
 	UPROPERTY(BlueprintAssignable, Category = "Components|Activation")
@@ -279,34 +307,41 @@ public:
 	 * Activates the SceneComponent
 	 * @param bReset - The value to assign to HiddenGame.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Components|Activation")
+	UFUNCTION(BlueprintCallable, Category="Components|Activation", meta=(UnsafeDuringActorConstruction="true"))
 	virtual void Activate(bool bReset=false);
 	
 	/**
 	 * Deactivates the SceneComponent.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Components|Activation")
+	UFUNCTION(BlueprintCallable, Category="Components|Activation", meta=(UnsafeDuringActorConstruction="true"))
 	virtual void Deactivate();
 
 	/**
 	 * Sets whether the component is active or not
 	 * @param bNewActive - The new active state of the component
 	 */
-	UFUNCTION(BlueprintCallable, Category="Components|Activation")
+	UFUNCTION(BlueprintCallable, Category="Components|Activation", meta=(UnsafeDuringActorConstruction="true"))
 	virtual void SetActive(bool bNewActive, bool bReset=false);
 
 	/**
 	 * Toggles the active state of the component
 	 */
-	UFUNCTION(BlueprintCallable, Category="Components|Activation")
+	UFUNCTION(BlueprintCallable, Category="Components|Activation", meta=(UnsafeDuringActorConstruction="true"))
 	virtual void ToggleActive();
 
 	/**
 	 * Returns whether the component is active or not
 	 * @return - The active state of the component.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Components|Activation")
+	UFUNCTION(BlueprintCallable, Category="Components|Activation", meta=(UnsafeDuringActorConstruction="true"))
 	virtual bool IsActive() const;
+
+	/**
+	 * Sets whether the component should be auto activate or not. Only safe during construction scripts.
+	 * @param bNewAutoActivate - The new auto activate state of the component
+	 */
+	UFUNCTION(BlueprintCallable, Category="Components|Activation")
+	virtual void SetAutoActivate(bool bNewAutoActivate);
 
 	/** Sets whether this component can tick when paused. */
 	UFUNCTION(BlueprintCallable, Category="Utilities")
@@ -348,7 +383,12 @@ public:
 	virtual bool GetComponentClassCanReplicate() const;
 
 	/** Returns whether this component is an editor-only object or not */
-	virtual bool IsEditorOnly() const { return false; }
+	virtual bool IsEditorOnly() const override { return bIsEditorOnly; }
+
+	virtual void MarkAsEditorOnlySubobject() override
+	{
+		bIsEditorOnly = true;
+	}
 
 	/** Returns net role of the owning actor */
 	/** Returns true if we are replicating and not authorative */
@@ -369,6 +409,12 @@ public:
 	* because it can check the static build flags without considering PIE.
 	*/
 	bool IsNetMode(ENetMode Mode) const;
+
+	/** Returns true if this component was owned by a net startup actor during level load. */
+	bool IsNetStartupComponent() const { return bIsNetStartupComponent; }
+
+	/** This should only be called by the engine in ULevel::InitializeNetworkActors to initialize bIsNetStartupComponent. */
+	void SetIsNetStartupComponent(const bool bInIsNetStartupComponent) { bIsNetStartupComponent = bInIsNetStartupComponent; }
 
 private:
 

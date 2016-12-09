@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/ScriptMacros.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType.h"
+#include "EnvironmentQuery/EnvQueryContext.h"
 #include "EnvironmentQuery/EnvQueryGenerator.h"
 #include "EnvQueryGenerator_BlueprintBase.generated.h"
 
-struct FEnvQueryInstance;
 class AActor;
-class UEnvQueryContext;
-class UEnvQueryItemType;
 
 UCLASS(Abstract, Blueprintable)
 class AIMODULE_API UEnvQueryGenerator_BlueprintBase : public UEnvQueryGenerator

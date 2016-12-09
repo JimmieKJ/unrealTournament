@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "GenericPlatform/GenericWindow.h"
+
 /**
  * Editable texts should implement this class and maintain an object of this type after registering it.
  * Methods of this class are called by the system to query contextual information about the state of the editable text.

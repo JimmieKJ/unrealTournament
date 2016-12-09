@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-#include "PaperSpriteComponent.h"
-#include "PaperGroupedSpriteActor.h"
-#include "SpriteComponentDetailsCustomization.h"
+#include "SpriteEditor/SpriteComponentDetailsCustomization.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
 #include "GroupedSprites/PaperGroupedSpriteUtilities.h"
 
 #define LOCTEXT_NAMESPACE "SpriteEditor"

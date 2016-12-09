@@ -4,8 +4,10 @@
 	MacClientTargetPlatformModule.cpp: Implements the FMacClientTargetPlatformModule class.
 =============================================================================*/
 
-#include "MacClientTargetPlatformPrivatePCH.h"
-
+#include "CoreMinimal.h"
+#include "GenericMacTargetPlatform.h"
+#include "Interfaces/ITargetPlatformModule.h"
+#include "Modules/ModuleManager.h"
 
 /**
  * Holds the target platform singleton.

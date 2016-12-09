@@ -7,53 +7,73 @@
 #include "MetalRHIPrivate.h"
 #include "MetalProfiler.h"
 #include "MetalCommandBuffer.h"
-
+#include "Containers/ResourceArray.h"
 
 FMetalVertexBuffer::FMetalVertexBuffer(uint32 InSize, uint32 InUsage)
 	: FRHIVertexBuffer(InSize, InUsage)
+	, Buffer(nil)
+	, Data(nil)
 	, LockOffset(0)
 	, LockSize(0)
 	, ZeroStrideElementSize((InUsage & BUF_ZeroStride) ? InSize : 0)
 {
 	checkf(InSize <= 256 * 1024 * 1024, TEXT("Metal doesn't support buffers > 256 MB"));
 	
-	// Zero-stride buffers must be separate in order to wrap appropriately
-	if(!(InUsage & BUF_ZeroStride))
+	INC_DWORD_STAT_BY(STAT_MetalVertexMemAlloc, InSize);
+
+	// Anything less than the buffer page size - currently 4Kb - is better off going through the set*Bytes API if available.
+	if (!(InUsage & BUF_UnorderedAccess) && InSize < MetalBufferPageSize)
 	{
-		FMetalPooledBufferArgs Args(GetMetalDeviceContext().GetDevice(), InSize, BUFFER_STORAGE_MODE);
-		if (InUsage & BUF_UnorderedAccess)
-		{
-			FMetalBufferPoolPolicyData Policy;
-			uint32 BufferSize = Policy.GetPoolBucketSize(Policy.GetPoolBucketIndex(Args));
-			if (InUsage + 512 > BufferSize)
-			{
-				Args.Size = InUsage + 512;
-			}
-		}
-		
-		FMetalPooledBuffer Buf = GetMetalDeviceContext().CreatePooledBuffer(Args);
-		Buffer = [Buf.Buffer retain];
+		Data = [[NSMutableData alloc] initWithLength:InSize];
 	}
 	else
 	{
-		check(!(InUsage & BUF_UnorderedAccess));
-		Buffer = [GetMetalDeviceContext().GetDevice() newBufferWithLength:InSize options:BUFFER_CACHE_MODE|BUFFER_MANAGED_MEM];
-		TRACK_OBJECT(STAT_MetalBufferCount, Buffer);
+		// Zero-stride buffers must be separate in order to wrap appropriately
+		if(!(InUsage & BUF_ZeroStride))
+		{
+			FMetalPooledBufferArgs Args(GetMetalDeviceContext().GetDevice(), InSize, BUFFER_STORAGE_MODE);
+			if (InUsage & BUF_UnorderedAccess)
+			{
+				FMetalBufferPoolPolicyData Policy;
+				uint32 BufferSize = Policy.GetPoolBucketSize(Policy.GetPoolBucketIndex(Args));
+				if (InUsage + 512 > BufferSize)
+				{
+					Args.Size = InUsage + 512;
+				}
+			}
+			
+			FMetalPooledBuffer Buf = GetMetalDeviceContext().CreatePooledBuffer(Args);
+			Buffer = [Buf.Buffer retain];
+		}
+		else
+		{
+			check(!(InUsage & BUF_UnorderedAccess));
+			Buffer = [GetMetalDeviceContext().GetDevice() newBufferWithLength:InSize options:BUFFER_CACHE_MODE|BUFFER_MANAGED_MEM];
+			TRACK_OBJECT(STAT_MetalBufferCount, Buffer);
+		}
+		INC_MEMORY_STAT_BY(STAT_MetalWastedPooledBufferMem, Buffer.length - GetSize());
 	}
-	INC_MEMORY_STAT_BY(STAT_MetalWastedPooledBufferMem, Buffer.length - GetSize());
 }
 
 FMetalVertexBuffer::~FMetalVertexBuffer()
 {
-	DEC_MEMORY_STAT_BY(STAT_MetalWastedPooledBufferMem, Buffer.length - GetSize());
-	if(!(GetUsage() & BUF_ZeroStride))
+	INC_DWORD_STAT_BY(STAT_MetalVertexMemFreed, GetSize());
+	if (Buffer)
 	{
-		SafeReleasePooledBuffer(Buffer);
-		[Buffer release];
+		DEC_MEMORY_STAT_BY(STAT_MetalWastedPooledBufferMem, Buffer.length - GetSize());
+		if(!(GetUsage() & BUF_ZeroStride))
+		{
+			SafeReleasePooledBuffer(Buffer);
+			[Buffer release];
+		}
+		else
+		{
+			SafeReleaseMetalResource(Buffer);
+		}
 	}
-	else
+	if (Data)
 	{
-		SafeReleaseMetalResource(Buffer);
+		SafeReleaseMetalResource(Data);
 	}
 }
 
@@ -62,9 +82,17 @@ void* FMetalVertexBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, uint32
 {
 	check(LockSize == 0 && LockOffset == 0);
 	
+	if (Data)
+	{
+		return ((uint8*)Data.mutableBytes) + Offset;
+	}
+	
 	// In order to properly synchronise the buffer access, when a dynamic buffer is locked for writing, discard the old buffer & create a new one. This prevents writing to a buffer while it is being read by the GPU & thus causing corruption. This matches the logic of other RHIs.
 	if ((GetUsage() & BUFFER_DYNAMIC_REALLOC) && LockMode == RLM_WriteOnly)
 	{
+		INC_MEMORY_STAT_BY(STAT_MetalVertexMemAlloc, GetSize());
+		INC_MEMORY_STAT_BY(STAT_MetalVertexMemFreed, GetSize());
+		
 		id<MTLBuffer> OldBuffer = Buffer;
 		if(!(GetUsage() & BUF_ZeroStride))
 		{
@@ -95,6 +123,7 @@ void* FMetalVertexBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, uint32
 		// Synchronise the buffer with the CPU
 		id<MTLBlitCommandEncoder> Blitter = GetMetalDeviceContext().GetBlitContext();
 		METAL_DEBUG_COMMAND_BUFFER_BLIT_LOG((&GetMetalDeviceContext()), @"SynchronizeResource(VertexBuffer %p)", this);
+		METAL_DEBUG_COMMAND_BUFFER_TRACK_RES(GetMetalDeviceContext().GetCurrentCommandBuffer(), Buffer);
 		[Blitter synchronizeResource:Buffer];
 		
 		//kick the current command buffer.
@@ -107,12 +136,15 @@ void* FMetalVertexBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, uint32
 
 void FMetalVertexBuffer::Unlock()
 {
-#if PLATFORM_MAC
-	if(LockSize && Buffer.storageMode == MTLStorageModeManaged)
+	if (!Data)
 	{
-		[Buffer didModifyRange:NSMakeRange(LockOffset, LockSize)];
-	}
+#if PLATFORM_MAC
+		if(LockSize && Buffer.storageMode == MTLStorageModeManaged)
+		{
+			[Buffer didModifyRange:NSMakeRange(LockOffset, LockSize)];
+		}
 #endif
+	}
 	LockSize = 0;
 	LockOffset = 0;
 }

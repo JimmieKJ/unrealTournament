@@ -2,7 +2,7 @@
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Configuration Condition=" '$(Configuration)' == '' ">Development</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{6F6F8E5B-53CA-4C9F-A696-96AA9B8FB128}</ProjectGuid>
     <OutputType>Library</OutputType>
@@ -50,9 +50,7 @@
       <Link>Properties\MetaData.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Tasks\AgeStoreTask.cs" />
     <Compile Include="Tasks\SrcSrvTask.cs" />
-    <Compile Include="Tasks\SymStoreTask.cs" />
     <Compile Include="WinPlatform.Automation.cs" />
   </ItemGroup>
   <ItemGroup>

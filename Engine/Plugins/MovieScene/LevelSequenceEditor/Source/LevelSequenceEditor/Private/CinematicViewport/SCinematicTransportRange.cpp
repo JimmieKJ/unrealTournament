@@ -1,8 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelSequenceEditorPCH.h"
-#include "LevelSequenceEditorStyle.h"
-#include "SCinematicTransportRange.h"
+#include "CinematicViewport/SCinematicTransportRange.h"
+#include "Rendering/DrawElements.h"
+#include "ISequencerKeyCollection.h"
+#include "MovieSceneSequence.h"
+#include "EditorStyleSet.h"
+#include "Styles/LevelSequenceEditorStyle.h"
 #include "MovieScene.h"
 #include "ISequencer.h"
 
@@ -78,7 +81,7 @@ void SCinematicTransportRange::SetTime(const FGeometry& MyGeometry, const FPoint
 		
 		const TRange<float> WorkingRange = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetEditorData().WorkingRange;
 		
-		Sequencer->SetGlobalTime(WorkingRange.GetLowerBoundValue() + WorkingRange.Size<float>()*Lerp, ESnapTimeMode::STM_All);
+		Sequencer->SetLocalTime(WorkingRange.GetLowerBoundValue() + WorkingRange.Size<float>()*Lerp, ESnapTimeMode::STM_All);
 	}
 }
 
@@ -145,7 +148,7 @@ int32 SCinematicTransportRange::OnPaint(const FPaintArgs& Args, const FGeometry&
 		FLinearColor(MidGray)
 	);
 
-	const float CurrentTime = Sequencer->GetGlobalTime();
+	const float CurrentTime = Sequencer->GetLocalTime();
 	const float ProgressLerp = (CurrentTime - WorkingRange.GetLowerBoundValue()) / FullRange;
 
 	// Draw the playback progress

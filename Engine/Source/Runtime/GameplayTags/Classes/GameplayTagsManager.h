@@ -2,39 +2,95 @@
 
 #pragma once
 
-#include "Engine/DataTable.h" // Needed for FTableRowBase
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
 #include "GameplayTagContainer.h"
+#include "Engine/DataTable.h"
 #include "GameplayTagsManager.generated.h"
 
-/** Simple struct for a table row in the gameplay tag table */
+class UGameplayTagsList;
+
+/** Simple struct for a table row in the gameplay tag table and element in the ini list */
 USTRUCT()
 struct FGameplayTagTableRow : public FTableRowBase
 {
 	GENERATED_USTRUCT_BODY()
 
 	/** Tag specified in the table */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=GameplayTag)
-	FString Tag;
-
-	/** Text that describes this category - not all tags have categories */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=GameplayTag)
-	FText CategoryText;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=GameplayTag)
+	FName Tag;
 
 	/** Developer comment clarifying the usage of a particular tag, not user facing */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=GameplayTag)
 	FString DevComment;
 
 	/** Constructors */
-	FGameplayTagTableRow() { CategoryText = NSLOCTEXT("TAGCATEGORY", "TAGCATEGORYTESTING", "Category and Category"); }
-	FGameplayTagTableRow(FGameplayTagTableRow const& Other);
+	FGameplayTagTableRow() {}
+	FGameplayTagTableRow(FName InTag, const FString& InDevComment = TEXT("")) : Tag(InTag), DevComment(InDevComment) {}
+	GAMEPLAYTAGS_API FGameplayTagTableRow(FGameplayTagTableRow const& Other);
 
 	/** Assignment/Equality operators */
-	FGameplayTagTableRow& operator=(FGameplayTagTableRow const& Other);
-	bool operator==(FGameplayTagTableRow const& Other) const;
-	bool operator!=(FGameplayTagTableRow const& Other) const;
+	GAMEPLAYTAGS_API FGameplayTagTableRow& operator=(FGameplayTagTableRow const& Other);
+	GAMEPLAYTAGS_API bool operator==(FGameplayTagTableRow const& Other) const;
+	GAMEPLAYTAGS_API bool operator!=(FGameplayTagTableRow const& Other) const;
+	GAMEPLAYTAGS_API bool operator<(FGameplayTagTableRow const& Other) const;
 };
 
-/** Simple tree node for gameplay tags */
+UENUM()
+enum class EGameplayTagSourceType : uint8
+{
+	Native,				// Was added from C++ code
+	DefaultTagList,		// The default tag list in DefaultGameplayTags.ini
+	TagList,			// Another tag list from an ini in tags/*.ini
+	DataTable,			// From a DataTable
+	Invalid,			// Not a real source
+};
+
+/** Struct defining where gameplay tags are loaded/saved from. Mostly for the editor */
+USTRUCT()
+struct FGameplayTagSource
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Name of this source */
+	UPROPERTY()
+	FName SourceName;
+
+	/** Type of this source */
+	UPROPERTY()
+	EGameplayTagSourceType SourceType;
+
+	/** If this is bound to an ini object for saving, this is the one */
+	UPROPERTY()
+	class UGameplayTagsList* SourceTagList;
+
+	FGameplayTagSource() 
+		: SourceName(NAME_None), SourceType(EGameplayTagSourceType::Invalid), SourceTagList(nullptr) 
+	{
+	}
+
+	FGameplayTagSource(FName InSourceName, EGameplayTagSourceType InSourceType, UGameplayTagsList* InSourceTagList = nullptr) 
+		: SourceName(InSourceName), SourceType(InSourceType), SourceTagList(InSourceTagList)
+	{
+	}
+
+	static FName GetNativeName()
+	{
+		static FName NativeName = FName(TEXT("Native"));
+		return NativeName;
+	}
+
+	static FName GetDefaultName()
+	{
+		static FName DefaultName = FName(TEXT("DefaultGameplayTags.ini"));
+		return DefaultName;
+	}
+};
+
+/** Simple tree node for gameplay tags, this stores metadata about specific tags */
 USTRUCT()
 struct FGameplayTagNode
 {
@@ -42,163 +98,166 @@ struct FGameplayTagNode
 	FGameplayTagNode(){};
 
 	/** Simple constructor */
-	FGameplayTagNode(FName InTag, TWeakPtr<FGameplayTagNode> InParentNode, FText InCategoryDescription = FText());
+	FGameplayTagNode(FName InTag, TSharedPtr<FGameplayTagNode> InParentNode);
+
+	/** Returns a correctly constructed container with only this tag, useful for doing container queries */
+	FORCEINLINE const FGameplayTagContainer& GetSingleTagContainer() const { return CompleteTagWithParents; }
 
 	/**
 	 * Get the complete tag for the node, including all parent tags, delimited by periods
 	 * 
 	 * @return Complete tag for the node
 	 */
-	GAMEPLAYTAGS_API FName GetCompleteTag() const { return CompleteTag; }
+	FORCEINLINE const FGameplayTag& GetCompleteTag() const { return CompleteTagWithParents.Num() > 0 ? CompleteTagWithParents.GameplayTags[0] : FGameplayTag::EmptyTag; }
+	FORCEINLINE FName GetCompleteTagName() const { return GetCompleteTag().GetTagName(); }
+	FORCEINLINE FString GetCompleteTagString() const { return GetCompleteTag().ToString(); }
 
 	/**
 	 * Get the simple tag for the node (doesn't include any parent tags)
 	 * 
 	 * @return Simple tag for the node
 	 */
-	GAMEPLAYTAGS_API FName GetSimpleTag() const { return Tag; }
-
-	/**
-	 * Get the category description for the node
-	 * 
-	 * @return Translatable text that describes this tag category
-	 */
-	GAMEPLAYTAGS_API FText GetCategoryDescription() const { return CategoryDescription; }
+	FORCEINLINE FName GetSimpleTagName() const { return Tag; }
 
 	/**
 	 * Get the children nodes of this node
 	 * 
 	 * @return Reference to the array of the children nodes of this node
 	 */
-	GAMEPLAYTAGS_API TArray< TSharedPtr<FGameplayTagNode> >& GetChildTagNodes() { return ChildTags; }
+	FORCEINLINE TArray< TSharedPtr<FGameplayTagNode> >& GetChildTagNodes() { return ChildTags; }
 
 	/**
 	 * Get the children nodes of this node
 	 * 
 	 * @return Reference to the array of the children nodes of this node
 	 */
-	GAMEPLAYTAGS_API const TArray< TSharedPtr<FGameplayTagNode> >& GetChildTagNodes() const { return ChildTags; }
+	FORCEINLINE const TArray< TSharedPtr<FGameplayTagNode> >& GetChildTagNodes() const { return ChildTags; }
 
 	/**
 	 * Get the parent tag node of this node
 	 * 
 	 * @return The parent tag node of this node
 	 */
-	GAMEPLAYTAGS_API TWeakPtr<FGameplayTagNode> GetParentTagNode() const { return ParentNode; }
+	FORCEINLINE TSharedPtr<FGameplayTagNode> GetParentTagNode() const { return ParentNode; }
 
 	/**
 	* Get the net index of this node
 	*
 	* @return The net index of this node
 	*/
-	GAMEPLAYTAGS_API FGameplayTagNetIndex GetNetIndex() const { return NetIndex; }
+	FORCEINLINE FGameplayTagNetIndex GetNetIndex() const { return NetIndex; }
 
 	/** Reset the node of all of its values */
 	GAMEPLAYTAGS_API void ResetNode();
 
 private:
-	/** Tag for the node */
+	/** Raw name for this tag at current rank in the tree */
 	FName Tag;
 
-	/** Complete tag for the node, including parent tags */
-	FName CompleteTag;
-
-	/** Category description of the for the node */
-	FText CategoryDescription;
+	/** This complete tag is at GameplayTags[0], with parents in ParentTags[] */
+	FGameplayTagContainer CompleteTagWithParents;
 
 	/** Child gameplay tag nodes */
 	TArray< TSharedPtr<FGameplayTagNode> > ChildTags;
 
 	/** Owner gameplay tag node, if any */
-	TWeakPtr<FGameplayTagNode> ParentNode;
-
-	FGameplayTagContainer Parents;
+	TSharedPtr<FGameplayTagNode> ParentNode;
 	
 	/** Net Index of this node */
 	FGameplayTagNetIndex NetIndex;
 
+#if WITH_EDITORONLY_DATA
+	/** Package or config file this tag came from. This is the first one added. If None, this is an implicitly added tag */
+	FName SourceName;
+
+	/** Comment for this tag */
+	FString DevComment;
+#endif 
+
 	friend class UGameplayTagsManager;
 };
 
-/** Holds global data loaded at startup, is in a singleton UObject so it works properly with hot reload */
+/** Holds data about the tag dictionary, is in a singleton UObject */
 UCLASS(config=Engine)
 class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	// Destructor
+	/** Destructor */
 	~UGameplayTagsManager();
 
-	/**
-	 * Helper function to insert a tag into a tag node array
-	 * 
-	 * @param Tag					Tag to insert
-	 * @param ParentNode			Parent node, if any, for the tag
-	 * @param NodeArray				Node array to insert the new node into, if necessary (if the tag already exists, no insertion will occur)
-	 * @param CategoryDescription	The description of this category
-	 * 
-	 * @return Index of the node of the tag
-	 */
-	int32 InsertTagIntoNodeArray(FName Tag, TWeakPtr<FGameplayTagNode> ParentNode, TArray< TSharedPtr<FGameplayTagNode> >& NodeArray, FText CategoryDescription = FText());
-
-	/**
-	 * Get the best tag category description
-	 *
-	 * @param Tag				Tag that we will find all nodes for
-	 * @param OutDescription	The Description that will be returned
-	 *
-	 * @return The index that we got the description from
-	 */
-	int32 GetBestTagCategoryDescription(FString Tag, FText& OutDescription) const;
-
-	/** 
-	 * Gets all nodes that make up a tag, if any (e.g. weapons.ranged.pistol will return the nodes weapons, weapons.ranged, and weapons.ranged.pistol)
-	 * 
-	 * @param Tag			The . delimited tag we wish to get nodes for
-	 * @param OutTagArray	The array of tag nodes that were found
-	 */
-	void GetAllNodesForTag( const FString& Tag, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray ) const;
-
-	// this is here because the tag tree doesn't start with a node and recursion can't be done until the first node is found
-	void GetAllNodesForTag_Recurse(TArray<FString>& Tags, int32 CurrentTagDepth, TSharedPtr<FGameplayTagNode> CurrentTagNode, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray ) const;
-
-#if WITH_EDITOR
-	/** Gets a Filtered copy of the GameplayRootTags Array based on the comma delimited filter string passed in*/
-	void GetFilteredGameplayRootTags( const FString& InFilterString, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray );
-
-	/** 
-	 * Called via delegate when an object is re-imported in the editor
-	 * 
-	 * @param ImportFactory	Factory responsible for the re-import
-	 * @param InObject		Object that was re-imported
-	 */
-	void OnObjectReimported(class UFactory* ImportFactory, UObject* InObject);
-
-	TSharedPtr<FGameplayTagNode> FindTagNode(FName TagName) const;
-
-	static void AddNewGameplayTagToINI(FString NewTag);
-
-#endif //WITH_EDITOR
-
-	struct FDeveloperTags 
+	/** Returns the global UGameplayTagsManager manager */
+	FORCEINLINE static UGameplayTagsManager& Get()
 	{
-		struct FDeveloperTagsItem
+		if (SingletonManager == nullptr)
 		{
-			FString IniName;
-			TArray<FString> Tags;
-		};
+			InitializeManager();
+		}
 
-		TArray<FDeveloperTagsItem> Items;
-	};
+		return *SingletonManager;
+	}
 
-	FDeveloperTags DeveloperTags;
-
-	/** 
-	 * Loads the tag tables
+	/**
+	 * Gets the FGameplayTag that corresponds to the TagName
+	 *
+	 * @param TagName The Name of the tag to search for
+	 * @param ErrorIfNotfound: ensure() that tag exists.
 	 * 
-	 * @param TagTableNames	The names of the tables to load
+	 * @return Will return the corresponding FGameplayTag or an empty one if not found.
 	 */
-	void LoadGameplayTagTables(TArray<FString>& TagTableNames);
+	FGameplayTag RequestGameplayTag(FName TagName, bool ErrorIfNotFound=true) const;
+
+	/**
+	 * Registers the given name as a gameplay tag, and tracks that it is being directly referenced from code
+	 * This can only be called during engine initialization, the table needs to be locked down before replication
+	 *
+	 * @param TagName The Name of the tag to add
+	 * 
+	 * @return Will return the corresponding FGameplayTag
+	 */
+	FGameplayTag AddNativeGameplayTag(FName TagName);
+
+	/** Call to flush the list of native tags, once called it is unsafe to add more */
+	void DoneAddingNativeTags();
+
+	/**
+	 * Gets a Tag Container containing the supplied tag and all of it's parents as explicit tags
+	 *
+	 * @param GameplayTag The Tag to use at the child most tag for this container
+	 * 
+	 * @return A Tag Container with the supplied tag and all its parents added explicitly
+	 */
+	FGameplayTagContainer RequestGameplayTagParents(const FGameplayTag& GameplayTag) const;
+
+	/**
+	 * Gets a Tag Container containing the all tags in the hierarchy that are children of this tag. Does not return the original tag
+	 *
+	 * @param GameplayTag					The Tag to use at the parent tag
+	 * 
+	 * @return A Tag Container with the supplied tag and all its parents added explicitly
+	 */
+	FGameplayTagContainer RequestGameplayTagChildren(const FGameplayTag& GameplayTag) const;
+
+	/** Returns direct parent GameplayTag of this GameplayTag, calling on x.y will return x */
+	FGameplayTag RequestGameplayTagDirectParent(const FGameplayTag& GameplayTag) const;
+
+	/**
+	 * Helper function to get the stored TagContainer containing only this tag, which has searchable ParentTags
+	 * @param GameplayTag		Tag to get single container of
+	 * @return					Pointer to container with this tag
+	 */
+	FORCEINLINE_DEBUGGABLE const FGameplayTagContainer* GetSingleTagContainer(const FGameplayTag& GameplayTag) const
+	{
+		const TSharedPtr<FGameplayTagNode>* TagNode = GameplayTagNodeMap.Find(GameplayTag);
+		if (TagNode)
+		{
+			return &((*TagNode)->GetSingleTagContainer());
+		}
+		return nullptr;
+	}
+
+	/** Loads the tag tables referenced in the GameplayTagSettings object */
+	void LoadGameplayTagTables();
 
 	/** Helper function to construct the gameplay tag tree */
 	void ConstructGameplayTagTree();
@@ -206,134 +265,51 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Helper function to destroy the gameplay tag tree */
 	void DestroyGameplayTagTree();
 
-	/**
-	 * Gets the FGameplayTag that corresponds to the TagName
-	 *
-	 * @param TagName The Name of the tag to search for
-	 * 
-	 * @param ErrorIfNotfound: ensure() that tag exists.
-	 * 
-	 * @return Will return the corresponding FGameplayTag or an empty one if not found.
-	 */
-	UFUNCTION(BlueprintCallable, Category="GameplayTags")
-	FGameplayTag RequestGameplayTag(FName TagName, bool ErrorIfNotFound=true) const;
-
-	/**
-	 * Adds a tag to the container and removes any direct parents, wont add if child already exists
-	 *
-	 * @param TagContainer	The tag container we want to add tag too
-	 * @param Tag			The tag to try and add to container
-	 * 
-	 * @return True if tag was added
-	 */
-	bool AddLeafTagToContainer(FGameplayTagContainer& TagContainer, const FGameplayTag& Tag);
-
-	/**
-	 * Gets a Tag Container for the supplied tag and all its parents
-	 *
-	 * @param GameplayTag The Tag to use at the child most tag for this container
-	 * 
-	 * @return A Tag Container with the supplied tag and all its parents
-	 */
-	FGameplayTagContainer RequestGameplayTagParents(const FGameplayTag& GameplayTag) const;
-
-	FGameplayTagContainer RequestGameplayTagChildren(const FGameplayTag& GameplayTag) const;
-
-	FGameplayTag RequestGameplayTagDirectParent(const FGameplayTag& GameplayTag) const;
-
+	/** Splits a tag such as x.y.z into an array of names {x,y,z} */
 	void SplitGameplayTagFName(const FGameplayTag& Tag, TArray<FName>& OutNames);
 
+	void RequestAllGameplayTags(FGameplayTagContainer& TagContainer, bool OnlyIncludeDictionaryTags) const;
+
 	/**
-	 * Checks if the tag is allowed to be created
+	 * Checks if the passed in name is in the tag dictionary and can be created
 	 *
 	 * @return True if valid
 	 */
 	bool ValidateTagCreation(FName TagName) const;
 
 	/**
-	 * Checks FGameplayTagNode and all FGameplayTagNode children to see if a FGameplayTagNode with the name exists
+	 * Checks node tree to see if a FGameplayTagNode with the name exists
 	 *
-	 * @param Node		The Node in the the to start searching from
 	 * @param TagName	The name of the tag node to search for
-	 * 
+	 *
 	 * @return A shared pointer to the FGameplayTagNode found, or NULL if not found.
 	 */
-	TSharedPtr<FGameplayTagNode> FindTagNode(TSharedPtr<FGameplayTagNode> Node, FName TagName) const;
+	TSharedPtr<FGameplayTagNode> FindTagNode(FName TagName) const;
+
+	/** Returns the tag source for a given tag source name, or null if not found */
+	const FGameplayTagSource* FindTagSource(FName TagSourceName) const;
+
+	/** Fills in an array with all tag sources of a specific type */
+	void FindTagSourcesWithType(EGameplayTagSourceType TagSourceType, TArray<const FGameplayTagSource*>& OutArray) const;
 
 	/**
-	 * Check to see if two FGameplayTags match
+	 * Check to see how closely two FGameplayTags match. Higher values indicate more matching terms in the tags.
 	 *
 	 * @param GameplayTagOne	The first tag to compare
-	 * @param MatchTypeOne		How we compare Tag one, Explicitly or a match with any parents as well
 	 * @param GameplayTagTwo	The second tag to compare
-	 * @param MatchTypeTwo		How we compare Tag two, Explicitly or a match with any parents as well
-	 * 
-	 * @return true if there is a match
+	 *
+	 * @return the length of the longest matching pair
 	 */
-	FORCEINLINE_DEBUGGABLE bool GameplayTagsMatch(const FGameplayTag& GameplayTagOne, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& GameplayTagTwo, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const
-	{
-		SCOPE_CYCLE_COUNTER(STAT_UGameplayTagsManager_GameplayTagsMatch);
-		bool bResult;
-		if (MatchTypeOne == EGameplayTagMatchType::Explicit && MatchTypeTwo == EGameplayTagMatchType::Explicit)
-		{
-			bResult = GameplayTagOne == GameplayTagTwo;
-		}
-		else
-		{
-			bResult = ComplexGameplayTagsMatch(GameplayTagOne, MatchTypeOne, GameplayTagTwo, MatchTypeTwo);
-		}
-#if CHECK_TAG_OPTIMIZATIONS
-		check(bResult == GameplayTagsMatchOriginal(GameplayTagOne, MatchTypeOne, GameplayTagTwo, MatchTypeTwo));
-#endif
-		return bResult;
-	}
-
-	/**
-	 * Same as above except MatchTypeOne == EGameplayTagMatchType::Explicit && MatchTypeTwo == EGameplayTagMatchType::Explicit is not tested or handled
-	 */
-	bool ComplexGameplayTagsMatch(const FGameplayTag& GameplayTagOne, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& GameplayTagTwo, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const;
-#if CHECK_TAG_OPTIMIZATIONS
-	bool GameplayTagsMatchOriginal(const FGameplayTag& GameplayTagOne, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& GameplayTagTwo, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const;
-#endif
-
-	/**
-	* Check to see how closely two FGameplayTags match. Higher values indicate more matching terms in the tags.
-	*
-	* @param GameplayTagOne	The first tag to compare
-	* @param GameplayTagTwo	The second tag to compare
-	*
-	* @return the length of the longest matching pair
-	*/
 	int32 GameplayTagsMatchDepth(const FGameplayTag& GameplayTagOne, const FGameplayTag& GameplayTagTwo) const;
 
-	/**
-	 * Helper function for GameplayTagsMatch to get a container with all parents.
-	 * @param GameplayTag		tag to get parents of
-	 * @return					pointer to container of parents, if any
-	 */
-	FORCEINLINE const FGameplayTagContainer* GetAllParentsContainer(const FGameplayTag& GameplayTag)
-	{
-		const TSharedPtr<FGameplayTagNode>* TagNode = GameplayTagNodeMap.Find(GameplayTag);
-		if (TagNode)
-		{
-			return &((*TagNode)->Parents);
-		}
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		UE_LOG(LogGameplayTags, Warning, TEXT("::GetAllParentsContainer Failed to find tag %s in GameplayTagNodeMap. Is this tag not in the dictionary?"), *GameplayTag.ToString());
-#endif
-		return nullptr;
-	}
-
-
-	/** Event for when assets are added to the registry */
-	DECLARE_EVENT(UGameplayTagsManager, FGameplayTagTreeChanged);
-	virtual FGameplayTagTreeChanged& OnGameplayTagTreeChanged() { return GameplayTagTreeChangedEvent; }
-
 	/** Returns true if we should import tags from UGameplayTagsSettings objects (configured by INI files) */
-	static bool ShouldImportTagsFromINI();
+	bool ShouldImportTagsFromINI();
 
-	/** TEMP - Returns true if we should warn on invalid (missing) tags */
-	static bool ShouldWarnOnInvalidTags();
+	/** Should we print loading errors when trying to load invalid tags */
+	bool ShouldWarnOnInvalidTags()
+	{
+		return bShouldWarnOnInvalidTags;
+	}
 
 	/** Should use fast replication */
 	bool ShouldUseFastReplication()
@@ -342,7 +318,7 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	}
 
 	/** Handles redirectors for an entire container, will also error on invalid tags */
-	void RedirectTagsForContainer(FGameplayTagContainer& Container, TSet<FName>& DeprecatedTagNamesNotFoundInTagMap, UProperty* SerializingProperty);
+	void RedirectTagsForContainer(FGameplayTagContainer& Container, UProperty* SerializingProperty);
 
 	/** Handles redirectors for a single tag, will also error on invalid tag. This is only called for when individual tags are serialized on their own */
 	void RedirectSingleGameplayTag(FGameplayTag& Tag, UProperty* SerializingProperty);
@@ -352,52 +328,105 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	FGameplayTagNetIndex GetNetIndexFromTag(const FGameplayTag &InTag);
 
 	/** Cached number of bits we need to replicate tags. That is, Log2(Number of Tags). Will always be <= 16. */
-	static int32 NetIndexTrueBitNum;
+	int32 NetIndexTrueBitNum;
 	
 	/** The length in bits of the first segment when net serializing tags. We will serialize NetIndexFirstBitSegment + 1 bit to indicatore "more" (more = second segment that is NetIndexTrueBitNum - NetIndexFirstBitSegment) */
-	static int32 NetIndexFirstBitSegment;
+	int32 NetIndexFirstBitSegment;
 
 	/** Numbers of bits to use for replicating container size. This can be set via config. */
-	static int32 NumBitsForContainerSize;
+	int32 NumBitsForContainerSize;
 
 	/** This is the actual value for an invalid tag "None". This is computed at runtime as (Total number of tags) + 1 */
 	FGameplayTagNetIndex InvalidTagNetIndex;
 
-	/** Cached runtime value for whether we are using fast replication or not. Initialized from config setting. */
-	bool bUseFastReplication;
-	
 	const TArray<TSharedPtr<FGameplayTagNode>>& GetNetworkGameplayTagNodeIndex() const { return NetworkGameplayTagNodeIndex; }
+
+#if WITH_EDITOR
+	/** Gets a Filtered copy of the GameplayRootTags Array based on the comma delimited filter string passed in */
+	void GetFilteredGameplayRootTags( const FString& InFilterString, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray );
+
+	/** Gets a list of all gameplay tag nodes added by the specific source */
+	void GetAllTagsFromSource(FName TagSource, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray);
+
+	/** Returns true if this tag is directly in the dictionary already */
+	bool IsDictionaryTag(FName TagName) const;
+
+	/** Returns comment and source for tag. If not found return false */
+	bool GetTagEditorData(FName TagName, FString& OutComment, FName &OutTagSource) const;
+
+	/** Refresh the gameplaytag tree due to an editor change */
+	void EditorRefreshGameplayTagTree();
+
+	/** Gets a Tag Container containing the all tags in the hierarchy that are children of this tag, and were explicitly added to the dictionary */
+	FGameplayTagContainer RequestGameplayTagChildrenInDictionary(const FGameplayTag& GameplayTag) const;
+
+#endif //WITH_EDITOR
+
+	DEPRECATED(4.15, "Call MatchesTag on FGameplayTag instead")
+	FORCEINLINE_DEBUGGABLE bool GameplayTagsMatch(const FGameplayTag& GameplayTagOne, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeOne, const FGameplayTag& GameplayTagTwo, TEnumAsByte<EGameplayTagMatchType::Type> MatchTypeTwo) const
+	{
+		SCOPE_CYCLE_COUNTER(STAT_UGameplayTagsManager_GameplayTagsMatch);
+		bool bResult = false;
+		if (MatchTypeOne == EGameplayTagMatchType::Explicit && MatchTypeTwo == EGameplayTagMatchType::Explicit)
+		{
+			bResult = GameplayTagOne == GameplayTagTwo;
+		}
+		else
+		{
+			// Convert both to their containers and do that match
+			const FGameplayTagContainer* ContainerOne = GetSingleTagContainer(GameplayTagOne);
+			const FGameplayTagContainer* ContainerTwo = GetSingleTagContainer(GameplayTagTwo);
+			if (ContainerOne && ContainerTwo)
+			{
+				bResult = ContainerOne->DoesTagContainerMatch(*ContainerTwo, MatchTypeOne, MatchTypeTwo, EGameplayContainerMatchType::Any);
+			}
+		}
+		return bResult;
+	}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** Mechanism for tracking what tags are frequently replicated */
 
-	static void PrintReplicationFrequencyReport();
-	static void NotifyTagReplicated(FGameplayTag Tag, bool WasInContainer);
+	void PrintReplicationFrequencyReport();
+	void NotifyTagReplicated(FGameplayTag Tag, bool WasInContainer);
 
-	static TMap<FGameplayTag, int32>	ReplicationCountMap;
-	static TMap<FGameplayTag, int32>	ReplicationCountMap_SingleTags;
-	static TMap<FGameplayTag, int32>	ReplicationCountMap_Containers;
+	TMap<FGameplayTag, int32>	ReplicationCountMap;
+	TMap<FGameplayTag, int32>	ReplicationCountMap_SingleTags;
+	TMap<FGameplayTag, int32>	ReplicationCountMap_Containers;
 #endif
 
 private:
 
+	/** Initializes the manager */
+	static void InitializeManager();
+
+	/** The Tag Manager singleton */
+	static UGameplayTagsManager* SingletonManager;
+
 	friend class FGameplayTagTest;
 	friend class FGameplayEffectsTest;
+	friend class FGameplayTagsModule;
+	friend class FGameplayTagsEditorModule;
+
+	/**
+	 * Helper function to insert a tag into a tag node array
+	 *
+	 * @param Tag					Tag to insert
+	 * @param ParentNode			Parent node, if any, for the tag
+	 * @param NodeArray				Node array to insert the new node into, if necessary (if the tag already exists, no insertion will occur)
+	 * @param SourceName			File tag was added from
+	 * @param DevComment			Comment from developer about this tag
+	 *
+	 * @return Index of the node of the tag
+	 */
+	int32 InsertTagIntoNodeArray(FName Tag, TSharedPtr<FGameplayTagNode> ParentNode, TArray< TSharedPtr<FGameplayTagNode> >& NodeArray, FName SourceName, const FString& DevComment);
 
 	/** Helper function to populate the tag tree from each table */
 	void PopulateTreeFromDataTable(class UDataTable* Table);
 
-	void AddTagTableRow(const FGameplayTagTableRow& TagRow);
+	void AddTagTableRow(const FGameplayTagTableRow& TagRow, FName SourceName);
 
-	/**
-	 * Helper function for RequestGameplayTagParents to add all parents to the container
-	 *
-	 * @param TagContainer The container we need to add the parents too
-	 * @param GameplayTag The parent we need to check and add to the container
-	 */
-	void AddParentTags(FGameplayTagContainer& TagContainer, const FGameplayTag& GameplayTag) const;
-
-	void AddChildrenTags(FGameplayTagContainer& TagContainer, const FGameplayTag& GameplayTag, bool RecurseAll=true) const;
+	void AddChildrenTags(FGameplayTagContainer& TagContainer, const TSharedPtr<FGameplayTagNode> GameplayTagNode, bool RecurseAll=true, bool OnlyIncludeDictionaryTags=false) const;
 
 	/**
 	 * Helper function for GameplayTagsMatch to get all parents when doing a parent match,
@@ -408,49 +437,36 @@ private:
 	 */
 	void GetAllParentNodeNames(TSet<FName>& NamesList, const TSharedPtr<FGameplayTagNode> GameplayTag) const;
 
+	/** Returns the tag source for a given tag source name, or null if not found */
+	FGameplayTagSource* FindOrAddTagSource(FName TagSourceName, EGameplayTagSourceType SourceType);
+
 	/** Constructs the net indices for each tag */
 	void ConstructNetIndex();
 
 	/** Roots of gameplay tag nodes */
 	TSharedPtr<FGameplayTagNode> GameplayRootTag;
 
-	class GamePlayTagMapWithInverse
-	{
-	public:
-		void Add(FGameplayTag Tag, TSharedPtr<FGameplayTagNode> GameplayTagNode)
-		{
-			ForwardMap.Add(Tag, GameplayTagNode);
-			InverseMap.Add(GameplayTagNode, Tag);
-		}
-
-		const TSharedPtr<FGameplayTagNode>* Find(const FGameplayTag& Tag) const
-		{
-			return ForwardMap.Find(Tag);
-		}
-
-		const FGameplayTag* FindKey(const TSharedPtr<FGameplayTagNode>& TagNode) const
-		{
-			return InverseMap.Find(TagNode);
-		}
-
-		void GenerateValueArray(TArray<TSharedPtr<FGameplayTagNode>>& ValueArray) const
-		{
-			ForwardMap.GenerateValueArray(ValueArray);
-		}
-
-	private:
-		TMap<FGameplayTag, TSharedPtr<FGameplayTagNode>> ForwardMap;
-		TMap<TSharedPtr<FGameplayTagNode>, FGameplayTag> InverseMap;
-	};
-
-	/** Map of Tags to Nodes - Internal use only */
-	GamePlayTagMapWithInverse GameplayTagNodeMap;
-
-	/** Map of Names to tags - Internal use only */
-	TMap<FName, FGameplayTag> GameplayTagMap;
+	/** Map of Tags to Nodes - Internal use only. FGameplayTag is inside node structure, do not use FindKey! */
+	TMap<FGameplayTag, TSharedPtr<FGameplayTagNode>> GameplayTagNodeMap;
 
 	/** Our aggregated, sorted list of commonly replicated tags. These tags are given lower indices to ensure they replicate in the first bit segment. */
 	TArray<FGameplayTag> CommonlyReplicatedTags;
+
+	/** List of gameplay tag sources */
+	UPROPERTY()
+	TArray<FGameplayTagSource> TagSources;
+
+	/** List of native tags to add when reconstructing tree */
+	TSet<FName> NativeTagsToAdd;
+
+	/** Cached runtime value for whether we are using fast replication or not. Initialized from config setting. */
+	bool bUseFastReplication;
+
+	/** Cached runtime value for whether we should warn when loading invalid tags */
+	bool bShouldWarnOnInvalidTags;
+
+	/** True if native tags have all been added and flushed */
+	bool bDoneAddingNativeTags;
 
 #if WITH_EDITOR
 	// This critical section is to handle and editor-only issue where tag requests come from another thread when async loading from a background thread in FGameplayTagContainer::Serialize.
@@ -465,14 +481,6 @@ private:
 	UPROPERTY()
 	TArray<UDataTable*> GameplayTagTables;
 
-	/** The delegate to execute when the tag tree changes */
-	FGameplayTagTreeChanged GameplayTagTreeChangedEvent;
-
 	/** The map of ini-configured tag redirectors */
 	TMap<FName, FGameplayTag> TagRedirects;
-
-#if WITH_EDITOR
-	/** Flag to say if we have registered the ObjectReimport, this is needed as use of Tags manager can happen before Editor is ready*/
-	bool RegisteredObjectReimport;
-#endif
 };

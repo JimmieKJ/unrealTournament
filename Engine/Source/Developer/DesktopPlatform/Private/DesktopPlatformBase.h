@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/PlatformProcess.h"
 #include "IDesktopPlatform.h"
-#include "Json.h"
-#include "UProjectInfo.h"
+#include "Misc/UProjectInfo.h"
+
+class FEngineVersion;
+class FJsonObject;
 
 class FDesktopPlatformBase : public IDesktopPlatform
 {

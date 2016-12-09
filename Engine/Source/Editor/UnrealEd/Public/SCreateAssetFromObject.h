@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+
+class SEditableTextBox;
+class SWindow;
+
 //////////////////////////////////////////////////////////////////////////
 // SCreateAssetFromActor
 

@@ -1,42 +1,71 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ContentBrowserPCH.h"
-#include "AssetViewTypes.h"
 #include "AssetContextMenu.h"
+#include "Templates/SubclassOf.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Commands/UIAction.h"
+#include "Textures/SlateIcon.h"
+#include "Engine/Blueprint.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/ScopedSlowTask.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "EditorReimportHandler.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
+#include "UnrealClient.h"
+#include "Materials/MaterialFunction.h"
+#include "Materials/Material.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlModule.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Materials/MaterialInstanceConstant.h"
+#include "FileHelpers.h"
+#include "AssetRegistryModule.h"
+#include "IAssetTools.h"
+#include "AssetToolsModule.h"
+#include "ContentBrowserUtils.h"
+#include "SAssetView.h"
 #include "ContentBrowserModule.h"
 
-#include "Editor/UnrealEd/Public/ObjectTools.h"
-#include "Editor/UnrealEd/Public/PackageTools.h"
-#include "Editor/UnrealEd/Public/FileHelpers.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
+#include "ObjectTools.h"
+#include "PackageTools.h"
+#include "Editor.h"
 #include "Toolkits/AssetEditorManager.h"
-#include "Toolkits/ToolkitManager.h"
+#include "PropertyEditorModule.h"
 #include "Toolkits/GlobalEditorCommonCommands.h"
 #include "ConsolidateWindow.h"
 #include "ReferenceViewer.h"
 #include "ISizeMapModule.h"
 
 #include "ReferencedAssetsUtils.h"
-#include "PackageLocalizationUtil.h"
+#include "Internationalization/PackageLocalizationUtil.h"
 
-#include "ISourceControlModule.h"
-#include "ISourceControlRevision.h"
 #include "SourceControlWindows.h"
-#include "KismetEditorUtilities.h"
-#include "AssetToolsModule.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "CollectionAssetManagement.h"
 #include "ComponentAssetBroker.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 #include "SourceCodeNavigation.h"
 #include "IDocumentation.h"
 #include "EditorClassUtils.h"
 
-#include "SColorPicker.h"
-#include "GenericCommands.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Internationalization/Culture.h"
+#include "Widgets/Colors/SColorPicker.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "Engine/LevelStreaming.h"
+#include "ContentBrowserCommands.h"
 
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
@@ -259,14 +288,10 @@ bool FAssetContextMenu::AddCommonMenuOptions(FMenuBuilder& MenuBuilder)
 				);
 
 			// Save
-			MenuBuilder.AddMenuEntry(
+			MenuBuilder.AddMenuEntry(FContentBrowserCommands::Get().SaveSelectedAsset, NAME_None,
 				LOCTEXT("SaveAsset", "Save"),
 				LOCTEXT("SaveAssetTooltip", "Saves the asset to file."),
-				FSlateIcon(FEditorStyle::GetStyleSetName(), "Level.SaveIcon16x"),
-				FUIAction(
-					FExecuteAction::CreateSP( this, &FAssetContextMenu::ExecuteSaveAsset ),
-					FCanExecuteAction::CreateSP( this, &FAssetContextMenu::CanExecuteSaveAsset )
-					)
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "Level.SaveIcon16x")
 				);
 
 			// Delete
@@ -1349,17 +1374,13 @@ bool FAssetContextMenu::CanExecuteImportedAssetActions(const TArray<FString> Res
 void FAssetContextMenu::ExecuteReimport()
 {
 	// Reimport all selected assets
-	//Copy the array to prevent iteration assert if a reimport factory change the selection
-	TArray<FAssetData> CopyOfSelectedAssets = SelectedAssets;
-
-	for (auto& SelectedAsset : CopyOfSelectedAssets)
-	{
-		const auto Asset = SelectedAsset.GetAsset();
-		if (Asset)
+	TArray<UObject *> CopyOfSelectedAssets;
+	for (const FAssetData &SelectedAsset : SelectedAssets)
 		{
-			FReimportManager::Instance()->Reimport(Asset, /*bAskForNewFileIfMissing=*/true);
-		}
+		UObject *Asset = SelectedAsset.GetAsset();
+		CopyOfSelectedAssets.Add(Asset);
 	}
+	FReimportManager::Instance()->ValidateAllSourceFileAndReimport(CopyOfSelectedAssets);
 }
 
 void FAssetContextMenu::ExecuteFindSourceInExplorer(const TArray<FString> ResolvedFilePaths)

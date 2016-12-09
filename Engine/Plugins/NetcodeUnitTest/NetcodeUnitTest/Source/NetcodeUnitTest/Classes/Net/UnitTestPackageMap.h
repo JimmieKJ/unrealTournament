@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/PackageMapClient.h"
+#include "NetcodeUnitTest.h"
 #include "UnitTestPackageMap.generated.h"
+
+class UNetConnection;
 
 /**
  * Package map override, for blocking the creation of actor channels for specific actors (by detecting the actor class being created)

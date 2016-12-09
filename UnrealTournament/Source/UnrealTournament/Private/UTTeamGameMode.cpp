@@ -836,7 +836,7 @@ void AUTTeamGameMode::PlayEndOfMatchMessage()
 	{
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* Controller = *Iterator;
+			APlayerController* Controller = Iterator->Get();
 			if (Controller && Controller->IsA(AUTPlayerController::StaticClass()))
 			{
 				AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
@@ -887,9 +887,9 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 		UpdateSkillRating();
 
 		const double CloudStatsStartTime = FPlatformTime::Seconds();
-		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			if (PS != NULL)
 			{
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
@@ -904,7 +904,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 					PS->SetStatsValue(NAME_Losses, 1);
 				}
 
-				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), &Teams, &UTGameState->PlayerArray, &InactivePlayerArray);
 				
 				PS->WriteStatsToCloud();
 			}
@@ -932,7 +932,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 					PS->SetStatsValue(NAME_Losses, 1);
 				}
 
-				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), &Teams, &UTGameState->PlayerArray, &InactivePlayerArray);
 				
 				PS->WriteStatsToCloud();
 			}

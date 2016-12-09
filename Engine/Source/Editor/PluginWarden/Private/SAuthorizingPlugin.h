@@ -1,10 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IPortalServiceLocator.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SWindow.h"
+#include "Async/AsyncResult.h"
 #include "Account/IPortalUser.h"
-#include "Account/IPortalUserLogin.h"
-#include "Application/IPortalApplicationWindow.h"
+
+class IPortalApplicationWindow;
+class IPortalUserLogin;
 
 extern TSet<FString> AuthorizedPlugins;
 

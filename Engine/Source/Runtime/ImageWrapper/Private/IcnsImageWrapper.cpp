@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ImageWrapperPrivatePCH.h"
-#include "BmpImageSupport.h"
+#include "IcnsImageWrapper.h"
 
 /**
  * ICNS image wrapper class.

@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "CoreUObject.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "Engine/BlendableInterface.h"
 #include "LightPropagationVolumeBlendable.generated.h"
 

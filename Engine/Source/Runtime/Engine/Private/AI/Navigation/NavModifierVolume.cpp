@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "AI/NavigationModifier.h"
 #include "AI/Navigation/NavModifierVolume.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationModifier.h"
 #include "AI/Navigation/NavAreas/NavArea_Null.h"
 #include "AI/NavigationOctree.h"
 

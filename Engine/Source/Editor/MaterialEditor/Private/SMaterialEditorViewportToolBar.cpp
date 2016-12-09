@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MaterialEditorModule.h"
 #include "SMaterialEditorViewportToolBar.h"
-#include "SMaterialEditorViewport.h"
-#include "EditorViewportCommands.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EditorStyleSet.h"
 #include "MaterialEditorActions.h"
-#include "Editor/UnrealEd/Public/SViewportToolBar.h"
 
 #define LOCTEXT_NAMESPACE "MaterialEditorViewportToolBar"
 
@@ -80,6 +78,20 @@ TSharedRef<SWidget> SMaterialEditorViewportToolBar::GenerateShowMenu() const
 	}
 
 	return ShowMenuBuilder.MakeWidget();
+}
+
+bool SMaterialEditorViewportToolBar::IsViewModeSupported(EViewModeIndex ViewModeIndex) const 
+{
+	switch (ViewModeIndex)
+	{
+	case VMI_PrimitiveDistanceAccuracy:
+	case VMI_MeshUVDensityAccuracy:
+	case VMI_RequiredTextureResolution:
+		return false;
+	default:
+		return true;
+	}
+	return true; 
 }
 
 #undef LOCTEXT_NAMESPACE

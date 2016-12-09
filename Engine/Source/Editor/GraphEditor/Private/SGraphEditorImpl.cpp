@@ -1,11 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "GraphEditorCommon.h"
 #include "SGraphEditorImpl.h"
+#include "GraphEditAction.h"
+#include "EdGraph/EdGraph.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
 #include "GraphEditorModule.h"
-#include "SNotificationList.h"
 #include "SGraphPanel.h"
+#include "GraphEditorActions.h"
+#include "ScopedTransaction.h"
+#include "SGraphEditorActionMenu.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "GraphEditorModule"
 

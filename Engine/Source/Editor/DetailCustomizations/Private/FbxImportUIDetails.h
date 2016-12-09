@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Types/SlateEnums.h"
+#include "IDetailCustomization.h"
+#include "Factories/FbxImportUI.h"
+
+class IDetailLayoutBuilder;
+class IDetailPropertyRow;
+class IPropertyHandle;
+
 class FFbxImportUIDetails : public IDetailCustomization
 {
 public:
@@ -20,12 +30,26 @@ public:
 	*/
 	bool IsImportTypeMetaDataValid(EFBXImportType& ImportType, FString& MetaData);
 	
+	/** Called if the bImportMaterials changes */
+	void ImportMaterialsChanged();
+
 	/** Called if the mesh mode (static / skeletal / SubDSurface) changes */
 	void MeshImportModeChanged();
 
 	/** Called if the import mesh option for skeletal meshes is changed */
 	void ImportMeshToggleChanged();
 
+	/** Called when the base material is changed */
+	void BaseMaterialChanged();
+
+	/** Called user chooses base material properties */
+	void OnBaseColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
+	void OnDiffuseTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
+	void OnNormalTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
+	void OnEmmisiveTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
+	void OnEmissiveColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
+	void OnSpecularTextureColor(TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo);
+	
 	TWeakObjectPtr<UFbxImportUI> ImportUI;		// The UI data object being customised
 	IDetailLayoutBuilder* CachedDetailBuilder;	// The detail builder for this cusomtomisation
 
@@ -52,4 +76,7 @@ private:
 
 	/** Cached VertexColorImportOption property handle */
 	TSharedPtr<IPropertyHandle> VertexColorImportOptionHandle;
+
+	TArray< TSharedPtr< FString > > BaseColorNames;
+	TArray< TSharedPtr< FString > > BaseTextureNames;
 };

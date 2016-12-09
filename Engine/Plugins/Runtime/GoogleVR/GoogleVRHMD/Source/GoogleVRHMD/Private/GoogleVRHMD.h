@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "IGoogleVRHMDPlugin.h"
 #include "HeadMountedDisplay.h"
 #include "IHeadMountedDisplay.h"
 #include "SceneViewExtension.h"
@@ -25,6 +26,8 @@
 #include "PostProcess/PostProcessHMD.h"
 #include "GoogleVRHMDViewerPreviews.h"
 #include "Classes/GoogleVRHMDFunctionLibrary.h"
+#include "GoogleVRSplash.h"
+#include "Containers/Queue.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogHMD, Log, All);
 
@@ -99,16 +102,6 @@ public:
 		uint32 InNumSamples,
 		EPixelFormat InFormat,
 		uint32 InFlags);
-
-	int GetResourceId();
-
-protected:
-
-	void InitializeWithActualResource(int ResourceId);
-
-private:
-
-	int ResourceId;
 };
 
 class FGoogleVRHMDCustomPresent : public FRHICustomPresent
@@ -118,31 +111,45 @@ public:
 	FGoogleVRHMDCustomPresent(FGoogleVRHMD* HMD);
 	virtual ~FGoogleVRHMDCustomPresent();
 
+    void Shutdown();
+
+	gvr_frame* CurrentFrame;
+	TRefCountPtr<FGoogleVRHMDTexture2DSet> TextureSet;
 private:
 
 	FGoogleVRHMD* HMD;
-	TRefCountPtr<FGoogleVRHMDTexture2DSet> TextureSet;
+
+	bool bNeedResizeGVRRenderTarget;
+	gvr_sizei RenderTargetSize;
+
+	gvr_swap_chain* SwapChain;
+	TQueue<gvr_mat4f> RenderingHeadPoseQueue;
+	gvr_mat4f CurrentFrameRenderHeadPose;
+	const gvr_buffer_viewport_list* CurrentFrameViewportList;
+	bool bSkipPresent;
 
 public:
 
 	/**
-	 * Allocates a render target texture. 
+	 * Allocates a render target texture.
 	 *
 	 * @param Index			(in) index of the buffer, changing from 0 to GetNumberOfBufferedFrames()
 	 * @return				true, if texture was allocated; false, if the default texture allocation should be used.
 	 */
-	bool AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 Flags, uint32 TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples = 1);
+	bool AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 Flags, uint32 TargetableTextureFlags);
 
 	// Frame operations
-	void BeginRendering(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily);
-	void FinishRendering();
+	void UpdateRenderingViewportList(const gvr_buffer_viewport_list* BufferViewportList);
+	void UpdateRenderingPose(gvr_mat4f InHeadPose);
 	void UpdateViewport(const FViewport& Viewport, FRHIViewport* ViewportRHI);
 
-	// OpenGL operations
-	int GetFrameBufferId();
+	void BeginRendering();
+	void BeginRendering(const gvr_mat4f& RenderingHeadPose);
+	void FinishRendering();
 
 public:
 
+	void CreateGVRSwapChain();
 	///////////////////////////////////////
 	// Begin FRHICustomPresent Interface //
 	///////////////////////////////////////
@@ -161,7 +168,6 @@ public:
 	//// Called when rendering thread is released
 	//virtual void OnReleaseThreadOwnership() {}
 };
-
 #endif // GOOGLEVRHMD_SUPPORTED_PLATFORMS
 
 /**
@@ -170,7 +176,7 @@ public:
 class FGoogleVRHMD : public IHeadMountedDisplay, public ISceneViewExtension, public TSharedFromThis<FGoogleVRHMD, ESPMode::ThreadSafe>
 {
 	friend class FGoogleVRHMDCustomPresent;
-
+	friend class FGoogleVRSplash;
 public:
 
 	FGoogleVRHMD();
@@ -179,24 +185,88 @@ public:
 	/** @return	True if the HMD was initialized OK */
 	bool IsInitialized() const;
 
-public:
-	virtual FName GetDeviceName() const override
-	{
-		static FName DefaultName(TEXT("GoogleVR"));
-		return DefaultName;
-	}
-
 	/** Get current pose */
-	void GetCurrentPose(FQuat& CurrentOrientation);
+	void GetCurrentPose(FQuat& CurrentOrientation, FVector& CurrentPosition);
 
-	/** Update cached values */
-	void ConditionalUpdateCache() const;
+	/** Update viewportlist */
+	void UpdateGVRViewportList() const;
+
+	/** Update head pose, Should be called at the beginning of a frame**/
+	void UpdateHeadPose();
 
 	/** Helper method to get renderer module */
 	IRendererModule* GetRendererModule();
 
 	/** Refreshes the viewer if it might have changed */
 	void RefreshViewerProfile();
+
+	/** Get the Mobile Content rendering size set by Unreal. This value is affected by r.MobileContentScaleFactor.
+	 *  On Android, this is also the size of the Surface View. When it is not set to native screen resolution,
+	 *  the hardware scaler will be used.
+	 */
+	FIntPoint GetUnrealMobileContentSize();
+
+	/** Get the RenderTarget size GoogleVRHMD is using for rendering the scene. */
+	FIntPoint GetGVRHMDRenderTargetSize();
+
+	/** Get the maximal effective render target size for the current windows size(surface size).
+	 *  This value is got from gvr sdk. Which may change based on the viewer.
+	 */
+	FIntPoint GetGVRMaxRenderTargetSize();
+
+	/** Set RenderTarget size to the default size and return the value. */
+	FIntPoint SetRenderTargetSizeToDefault();
+
+	/** Set the RenderTarget size with a scale factor
+	 *  The scale factor will be multiplied with the MaxRenderTargetSize.
+	 *  The range should be [0.1, 1.0]
+	 */
+	bool SetGVRHMDRenderTargetSize(float ScaleFactor, FIntPoint& OutRenderTargetSize);
+
+	/** Set the RenderTargetSize with the desired value.
+	 *  Note that the size will be rounded up to the next multiple of 4.
+	 *  This is because Unreal need the rendertarget size is dividable by 4 for post process.
+	 */
+	bool SetGVRHMDRenderTargetSize(int DesiredWidth, int DesiredHeight, FIntPoint& OutRenderTargetSize);
+
+	/** Enable/disable distortion correction */
+	void SetDistortionCorrectionEnabled(bool bEnable);
+
+	/** Change whether distortion correction is performed by GVR Api, or PostProcessHMD. Only supported on-device. */
+	void SetDistortionCorrectionMethod(bool bUseGVRApiDistortionCorrection);
+
+	/** Change the default viewer profile */
+	bool SetDefaultViewerProfile(const FString& ViewerProfileURL);
+
+	/** Generates a new distortion mesh of the given size */
+	void SetDistortionMeshSize(EDistortionMeshSizeEnum MeshSize);
+
+	/** Change the scaling factor used for applying the neck model offset */
+	void SetNeckModelScale(float ScaleFactor);
+
+	/** Check if distortion correction is enabled */
+	bool GetDistortionCorrectionEnabled() const;
+
+	/** Check which method distortion correction is using */
+	bool IsUsingGVRApiDistortionCorrection() const;
+
+	/** Get the scaling factor used for applying the neck model offset */
+	float GetNeckModelScale() const;
+
+	/** Check if application was launched in Vr." */
+	bool IsVrLaunch() const;
+
+	/**
+	 * Returns the string representation of the data URI on which this activity's intent is operating.
+	 * See Intent.getDataString() in the Android documentation.
+	 */
+	FString GetIntentData() const;
+
+	/** Get the currently set viewer model */
+	FString GetViewerModel();
+
+	/** Get the currently set viewer vendor */
+	FString GetViewerVendor();
 
 private:
 
@@ -215,39 +285,20 @@ private:
 	/** Generates Distortion Correction Points*/
 	void SetNumOfDistortionPoints(int32 XPoints, int32 YPoints);
 
-public:
+	/** Get how many Unreal units correspond to one meter in the real world */
+	float GetWorldToMetersScale() const;
 
-	// Non-interface functions for runtime modifications using the editor
+#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	/** Get the Viewport Rect from GVR */
+	FIntRect CalculateGVRViewportRect(int RenderTargetSizeX, int RenderTargetSizeY, EStereoscopicPass StereoPassType);
+#endif
 
-	/** Enable/disable distortion correction */
-	void SetDistortionCorrectionEnabled(bool bEnable);
-
-	/** Change whether distortion correction is performed by GVR Api, or PostProcessHMD. Only supported on-device. */
-	void SetDistortionCorrectionMethod(bool bUseGVRApiDistortionCorrection);
-
-	/** Enable/disable chromatic aberration correction */
-	void SetChromaticAberrationCorrectionEnabled(bool bEnable);
-
-	/** Change the default viewer profile */
-	bool SetDefaultViewerProfile(const FString& ViewerProfileURL);
-
-	/** Generates a new distortion mesh of the given size */
-	void SetDistortionMeshSize(EDistortionMeshSizeEnum MeshSize);
-
-	/** Check if distortion correction is enabled */
-	bool GetDistortionCorrectionEnabled() const;
-
-	/** Check which method distortion correction is using */
-	bool IsUsingGVRApiDistortionCorrection() const;
-
-	/** Get the currently set viewer model */
-	FString GetViewerModel();
-
-	/** Get the currently set viewer vendor */
-	FString GetViewerVendor();
+	/** Function get called when start loading a map*/
+	void OnPreLoadMap(const FString&);
 
 public:
 
+	// public fucntiosn for In editor distortion previews
 	enum EViewerPreview
 	{
 		EVP_None				= 0,
@@ -274,8 +325,11 @@ public:
 	/** Get preview viewer vertices */
 	static const FDistortionVertex* GetPreviewViewerVertices(enum EStereoscopicPass StereoPass);
 
+public:
+	// Public Components
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	static uint32 GetOffscreenBufferMSAASetting();
+	FGoogleVRHMDCustomPresent* CustomPresent;
+	TSharedPtr<FGoogleVRSplash> GVRSplash;
 #endif
 
 private:
@@ -285,20 +339,22 @@ private:
 	bool		bDistortionCorrectionEnabled;
 	bool		bUseGVRApiDistortionCorrection;
 	bool		bUseOffscreenFramebuffers;
+	bool		bIsInDaydreamMode;
+	bool		bForceStopPresentScene;
+	float		NeckModelScale;
 	FQuat		CurHmdOrientation;
-	FQuat		LastHmdOrientation;
+	FVector		CurHmdPosition;
 	FRotator	DeltaControlRotation;    // same as DeltaControlOrientation but as rotator
 	FQuat		DeltaControlOrientation; // same as DeltaControlRotation but as quat
 	FQuat		BaseOrientation;
 
 	// Drawing Data
+	FIntPoint GVRRenderTargetSize;
 	IRendererModule* RendererModule;
 	uint16* DistortionMeshIndices;
 	FDistortionVertex* DistortionMeshVerticesLeftEye;
 	FDistortionVertex* DistortionMeshVerticesRightEye;
-#if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-	FGoogleVRHMDCustomPresent* CustomPresent;
-#endif
+
 #if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
 	GVROverlayView* OverlayView;
 	FOverlayViewDelegate* OverlayViewDelegate;
@@ -308,9 +364,13 @@ private:
 	mutable uint32		LastUpdatedCacheFrame;
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	mutable gvr_clock_time_point CachedFuturePoseTime;
-	mutable gvr_head_pose CachedPose;
-	mutable gvr_render_params_list* CachedDistortedRenderTextureParams;
-	mutable gvr_render_params_list* CachedNonDistortedRenderTextureParams;
+	mutable gvr_mat4f CachedHeadPose;
+	mutable FQuat CachedFinalHeadRotation;
+	mutable FVector CachedFinalHeadPosition;
+	mutable gvr_buffer_viewport_list* DistortedBufferViewportList;
+	mutable gvr_buffer_viewport_list* NonDistortedBufferViewportList;
+	mutable gvr_buffer_viewport_list* ActiveViewportList;
+	mutable gvr_buffer_viewport* ScratchViewport;
 #endif
 
 	// Simulation data for previewing
@@ -329,41 +389,37 @@ public:
 	// Begin ISceneViewExtension Pure-Virtual Interface //
 	//////////////////////////////////////////////////////
 
-    /**
-     * Called on game thread when creating the view family.
-     */
-    virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override;
-
+	/**
+	 * Called on game thread when creating the view family.
+	 */
+	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override;
 	/**
 	 * Called on game thread when creating the view.
 	 */
 	virtual void SetupView(FSceneViewFamily& InViewFamily, FSceneView& InView) override;
-
-    /**
-     * Called on game thread when view family is about to be rendered.
-     */
-    virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) override;
-
-    /**
-     * Called on render thread at the start of rendering.
-     */
-    virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) override;
-
 	/**
-     * Called on render thread at the start of rendering, for each view, after PreRenderViewFamily_RenderThread call.
-     */
-    virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override;
+	 * Called on game thread when view family is about to be rendered.
+	 */
+	virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) override;
+	/**
+	 * Called on render thread at the start of rendering.
+	 */
+	virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) override;
+	/**
+	 * Called on render thread at the start of rendering, for each view, after PreRenderViewFamily_RenderThread call.
+	 */
+	virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override;
 
 	///////////////////////////////////////////////////
 	// Begin IStereoRendering Pure-Virtual Interface //
 	///////////////////////////////////////////////////
-	
-	/** 
+
+	/**
 	 * Whether or not stereo rendering is on this frame.
 	 */
 	virtual bool IsStereoEnabled() const override;
 
-	/** 
+	/**
 	 * Switches stereo rendering on / off. Returns current state of stereo.
 	 * @return Returns current state of stereo (true / false).
 	 */
@@ -393,9 +449,9 @@ public:
 	// Begin IStereoRendering Virtual Interface //
 	//////////////////////////////////////////////
 
-	///** 
+	///**
 	// * Whether or not stereo rendering is on on next frame. Useful to determine if some preparation work
-	// * should be done before stereo got enabled in next frame. 
+	// * should be done before stereo got enabled in next frame.
 	// */
 	//virtual bool IsStereoEnabledOnNextFrame() const { return IsStereoEnabled(); }
 
@@ -410,6 +466,11 @@ public:
 	 */
 	virtual void GetEyeRenderParams_RenderThread(const struct FRenderingCompositePassContext& Context, FVector2D& EyeToSrcUVScaleValue, FVector2D& EyeToSrcUVOffsetValue) const override;
 
+	///**
+	// * Returns timewarp matrices, used from PostProcessHMD, RenderThread.
+	// */
+	//virtual void GetTimewarpMatrices_RenderThread(const struct FRenderingCompositePassContext& Context, FMatrix& EyeRotationStart, FMatrix& EyeRotationEnd) const {}
+
 	// Optional methods to support rendering into a texture.
 	/**
 	 * Updates viewport for direct rendering of distortion. Should be called on a game thread.
@@ -423,16 +484,21 @@ public:
 	virtual void CalculateRenderTargetSize(const class FViewport& Viewport, uint32& InOutSizeX, uint32& InOutSizeY) override;
 
 	/**
-	 * Returns true, if render target texture must be re-calculated. 
+	 * Returns true, if render target texture must be re-calculated.
 	 */
 	virtual bool NeedReAllocateViewportRenderTarget(const class FViewport& Viewport) override;
 
 	// Whether separate render target should be used or not.
 	virtual bool ShouldUseSeparateRenderTarget() const override;
 
-	// Renders texture into a backbuffer. Could be empty if no rendertarget texture is used, or if direct-rendering 
-	// through RHI bridge is implemented. 
+	// Renders texture into a backbuffer. Could be empty if no rendertarget texture is used, or if direct-rendering
+	// through RHI bridge is implemented.
 	virtual void RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture) const override;
+
+	///**
+	// * Called after Present is called.
+	// */
+	//virtual void FinishRenderingFrame_RenderThread(class FRHICommandListImmediate& RHICmdList) {}
 
 	///**
 	// * Returns orthographic projection , used from Canvas::DrawItem.
@@ -450,14 +516,14 @@ public:
 	// */
 	//virtual void SetScreenPercentage(float InScreenPercentage) {}
 	//
-	///** 
+	///**
 	// * Returns screen percentage to be used for stereo rendering.
 	// *
 	// * @return (float)	The screen percentage to be used in stereo mode. 0.0f, if default value is used.
 	// */
 	//virtual float GetScreenPercentage() const { return 0.0f; }
 
-	/** 
+	/**
 	 * Sets near and far clipping planes (NCP and FCP) for stereo rendering. Similar to 'stereo ncp= fcp' console command, but NCP and FCP set by this
 	 * call won't be saved in .ini file.
 	 *
@@ -467,7 +533,7 @@ public:
 	virtual void SetClippingPlanes(float NCP, float FCP) override;
 
 	/**
-	 * Returns currently active custom present. 
+	 * Returns currently active custom present.
 	 */
 	virtual FRHICustomPresent* GetCustomPresent() override;
 
@@ -477,7 +543,7 @@ public:
 	virtual uint32 GetNumberOfBufferedFrames() const override;
 
 	/**
-	 * Allocates a render target texture. 
+	 * Allocates a render target texture.
 	 *
 	 * @param Index			(in) index of the buffer, changing from 0 to GetNumberOfBufferedFrames()
 	 * @return				true, if texture was allocated; false, if the default texture allocation should be used.
@@ -504,15 +570,15 @@ public:
 	virtual void EnableHMD(bool bEnable = true) override;
 
 	/**
-	 * Returns the family of HMD device implemented 
+	 * Returns the family of HMD device implemented
 	 */
 	virtual EHMDDeviceType::Type GetHMDDeviceType() const override;
 
     /**
-     * Get the name or id of the display to output for this HMD. 
+     * Get the name or id of the display to output for this HMD.
      */
 	virtual bool	GetHMDMonitorInfo(MonitorInfo&) override;
-	
+
     /**
 	 * Calculates the FOV, based on the screen dimensions of the device. Original FOV is passed as params.
 	 */
@@ -531,7 +597,7 @@ public:
 	/**
 	 * If the HMD supports positional tracking via a camera, this returns the frustum properties (all in game-world space) of the tracking camera.
 	 */
-	virtual void	GetPositionalTrackingCameraProperties(FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const override;	
+	virtual void	GetPositionalTrackingCameraProperties(FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const override;
 
 	/**
 	 * Accessors to modify the interpupillary distance (meters)
@@ -579,9 +645,9 @@ public:
 	/** Returns true if positional tracking enabled and working. */
 	virtual bool IsPositionalTrackingEnabled() const override;
 
-	/** 
+	/**
 	 * Tries to enable positional tracking.
-	 * Returns the actual status of positional tracking. 
+	 * Returns the actual status of positional tracking.
 	 */
 	virtual bool EnablePositionalTracking(bool enable) override;
 
@@ -603,14 +669,14 @@ public:
 	 */
 	virtual void EnableLowPersistenceMode(bool Enable = true) override;
 
-	/** 
+	/**
 	 * Resets orientation by setting roll and pitch to 0, assuming that current yaw is forward direction and assuming
-	 * current position as a 'zero-point' (for positional tracking). 
+	 * current position as a 'zero-point' (for positional tracking).
 	 *
 	 * @param Yaw				(in) the desired yaw to be set after orientation reset.
 	 */
 	virtual void ResetOrientationAndPosition(float Yaw = 0.f) override;
-	
+
 	/////////////////////////////////////////////////
 	// Begin IHeadMountedDisplay Virtual Interface //
 	/////////////////////////////////////////////////
@@ -631,33 +697,33 @@ public:
 	//virtual void GetDistortionWarpValues(FVector4& K) const  { }
 
 	///**
-	// * Gets the chromatic aberration correction shader values for the device. 
+	// * Gets the chromatic aberration correction shader values for the device.
 	// * Returns 'false' if chromatic aberration correction is off.
 	// */
 	//virtual bool GetChromaAbCorrectionValues(FVector4& K) const  { return false; }
 
 	///**
-	// * Saves / loads pre-fullscreen rectangle. Could be used to store saved original window position 
+	// * Saves / loads pre-fullscreen rectangle. Could be used to store saved original window position
 	// * before switching to fullscreen mode.
 	// */
 	//virtual void PushPreFullScreenRect(const FSlateRect& InPreFullScreenRect);
 	//virtual void PopPreFullScreenRect(FSlateRect& OutPreFullScreenRect);
 
-	/** 
-	 * Resets orientation by setting roll and pitch to 0, assuming that current yaw is forward direction. Position is not changed. 
+	/**
+	 * Resets orientation by setting roll and pitch to 0, assuming that current yaw is forward direction. Position is not changed.
 	 *
 	 * @param Yaw				(in) the desired yaw to be set after orientation reset.
 	 */
 	virtual void ResetOrientation(float Yaw = 0.f) override;
 
-	/** 
-	 * Resets position, assuming current position as a 'zero-point'. 
+	/**
+	 * Resets position, assuming current position as a 'zero-point'.
 	 */
 	virtual void ResetPosition() override;
 
-	/** 
-	 * Sets base orientation by setting yaw, pitch, roll, assuming that this is forward direction. 
-	 * Position is not changed. 
+	/**
+	 * Sets base orientation by setting yaw, pitch, roll, assuming that this is forward direction.
+	 * Position is not changed.
 	 *
 	 * @param BaseRot			(in) the desired orientation to be treated as a base orientation.
 	 */
@@ -668,9 +734,9 @@ public:
 	 */
 	virtual FRotator GetBaseRotation() const override;
 
-	/** 
-	 * Sets base orientation, assuming that this is forward direction. 
-	 * Position is not changed. 
+	/**
+	 * Sets base orientation, assuming that this is forward direction.
+	 * Position is not changed.
 	 *
 	 * @param BaseOrient		(in) the desired orientation to be treated as a base orientation.
 	 */
@@ -706,7 +772,7 @@ public:
 	virtual void DrawDistortionMesh_RenderThread(struct FRenderingCompositePassContext& Context, const FIntPoint& TextureSize) override;
 
 	///**
-	// * This method is able to change screen settings right before any drawing occurs. 
+	// * This method is able to change screen settings right before any drawing occurs.
 	// * It is called at the beginning of UGameViewportClient::Draw() method.
 	// * We might remove this one as UpdatePostProcessSettings should be able to capture all needed cases
 	// */
@@ -728,7 +794,7 @@ public:
 	// * If returns 'false' then key will be handled by PlayerController;
 	// * otherwise, key won't be handled by the PlayerController.
 	// */
-	//virtual bool HandleInputKey(class UPlayerInput*, const struct FKey& Key, enum EInputEvent EventType, float AmountDepressed, bool bGamepad) { return false; }
+	virtual bool HandleInputKey(class UPlayerInput*, const struct FKey& Key, enum EInputEvent EventType, float AmountDepressed, bool bGamepad) override;
 
 	/**
 	 * Passing touch events to HMD.
@@ -757,10 +823,10 @@ public:
 	 */
 	virtual bool OnEndGameFrame( FWorldContext& WorldContext ) override;
 
-	///** 
+	///**
 	// * Additional optional distorion rendering parameters
 	// * @todo:  Once we can move shaders into plugins, remove these!
-	// */	
+	// */
 	//virtual FTexture* GetDistortionTextureLeft() const {return NULL;}
 	//virtual FTexture* GetDistortionTextureRight() const {return NULL;}
 	//virtual FVector2D GetTextureOffsetLeft() const {return FVector2D::ZeroVector;}

@@ -39,7 +39,7 @@ bool FOnlineFriendsOculus::ReadFriendsList(int32 LocalUserNum, const FString& Li
 	return false;
 }
 
-void FOnlineFriendsOculus::OnQueryFriendsComplete(ovrMessageHandle Message, bool bIsError, int32 LocalUserNum, const FString& ListName, TMap<ovrID, TSharedRef<FOnlineFriend>>& OutList, bool bAppendToExistingMap, const FOnReadFriendsListComplete& Delegate)
+void FOnlineFriendsOculus::OnQueryFriendsComplete(ovrMessageHandle Message, bool bIsError, int32 LocalUserNum, const FString& ListName, TMap<uint64, TSharedRef<FOnlineFriend>>& OutList, bool bAppendToExistingMap, const FOnReadFriendsListComplete& Delegate)
 {
 	FString ErrorStr;
 	if (bIsError)
@@ -77,9 +77,9 @@ void FOnlineFriendsOculus::OnQueryFriendsComplete(ovrMessageHandle Message, bool
 	{
 		OculusSubsystem.AddRequestDelegate(
 			ovr_User_GetNextUserArrayPage(UserArray),
-			FOculusMessageOnCompleteDelegate::CreateLambda([this, LocalUserNum, ListName, &OutList, Delegate](ovrMessageHandle Message, bool bIsError)
+			FOculusMessageOnCompleteDelegate::CreateLambda([this, LocalUserNum, ListName, &OutList, Delegate](ovrMessageHandle InMessage, bool bInIsError)
 		{
-			OnQueryFriendsComplete(Message, bIsError, LocalUserNum, ListName, OutList, /* bAppendToExistingMap */ true, Delegate);
+			OnQueryFriendsComplete(InMessage, bInIsError, LocalUserNum, ListName, OutList, /* bAppendToExistingMap */ true, Delegate);
 		}));
 	}
 	else

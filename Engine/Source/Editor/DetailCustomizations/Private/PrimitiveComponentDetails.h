@@ -2,7 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "IDetailCustomization.h"
+#include "PropertyHandle.h"
 #include "BodyInstanceCustomization.h"
+
+class FComponentMaterialCategory;
+class IDetailLayoutBuilder;
 
 class FPrimitiveComponentDetails : public IDetailCustomization
 {

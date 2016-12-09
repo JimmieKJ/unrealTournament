@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/UnrealType.h"
 #include "AIDataProvider.generated.h"
 
-class APawn;
 class UAIDataProvider;
 
 /**
@@ -60,6 +64,8 @@ public:
 		DataBinding(nullptr)
 	{
 	}
+
+	virtual ~FAIDataProviderValue() {};
 };
 
 USTRUCT()

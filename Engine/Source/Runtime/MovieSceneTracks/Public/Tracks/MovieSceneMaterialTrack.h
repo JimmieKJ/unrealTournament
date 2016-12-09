@@ -2,14 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Sections/MovieSceneParameterSection.h"
 #include "MovieSceneNameableTrack.h"
-#include "MovieSceneParameterSection.h"
 #include "MovieSceneMaterialTrack.generated.h"
-
-
-class IMovieSceneTrackInstance;
-class UMovieSceneSection;
-
 
 /**
  * Handles manipulation of material parameters in a movie scene.
@@ -51,14 +48,6 @@ public:
 	*/
 	void AddColorParameterKey(FName ParameterName, float Position, FLinearColor Value);
 
-	/**
-	 * Gets the animated values for this track.
-	 * @param Position The playback position to use for evaluation.
-	 * @param OutScalarValues An array of FScalarParameterNameAndValue objects representing each animated scalar parameter and it's animated value.
-	 * @param OutVectorValues An array of FVectorParameterNameAndValue objects representing each animated vector parameter and it's animated value.
-	 */
-	void Eval(float Position, TArray<FScalarParameterNameAndValue>& OutScalarValues, TArray<FColorParameterNameAndValue>& OutVectorValues) const;
-
 private:
 
 	/** The sections owned by this track .*/
@@ -80,7 +69,7 @@ public:
 
 	// UMovieSceneTrack interface
 
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
+	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 	virtual FName GetTrackName() const { return FName( *FString::FromInt(MaterialIndex) ); }
 
 #if WITH_EDITORONLY_DATA

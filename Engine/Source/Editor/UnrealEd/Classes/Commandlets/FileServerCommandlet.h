@@ -5,9 +5,12 @@
 =============================================================================*/
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "Commandlets/Commandlet.h"
 #include "FileServerCommandlet.generated.h"
-
 
 /**
  * Implements a file server commandlet.

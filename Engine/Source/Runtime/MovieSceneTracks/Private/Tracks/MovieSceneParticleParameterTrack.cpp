@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneParameterSection.h"
-#include "MovieSceneParticleParameterTrack.h"
-#include "IMovieScenePlayer.h"
-#include "MovieSceneParticleParameterTrackInstance.h"
+#include "Tracks/MovieSceneParticleParameterTrack.h"
+#include "MovieSceneCommonHelpers.h"
+#include "Evaluation/MovieSceneParticleParameterTemplate.h"
 
 #define LOCTEXT_NAMESPACE "ParticleParameterTrack"
 
@@ -16,9 +14,9 @@ UMovieSceneParticleParameterTrack::UMovieSceneParticleParameterTrack( const FObj
 #endif
 }
 
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneParticleParameterTrack::CreateInstance()
+FMovieSceneEvalTemplatePtr UMovieSceneParticleParameterTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
 {
-	return MakeShareable( new FMovieSceneParticleParameterTrackInstance( *this ) );
+	return FMovieSceneParticleParameterSectionTemplate(*CastChecked<UMovieSceneParameterSection>(&InSection), *this);
 }
 
 UMovieSceneSection* UMovieSceneParticleParameterTrack::CreateNewSection()
@@ -115,17 +113,4 @@ void UMovieSceneParticleParameterTrack::AddColorParameterKey( FName ParameterNam
 	}
 	NearestSection->AddColorParameterKey( ParameterName, Time, Value );
 }
-
-void UMovieSceneParticleParameterTrack::Eval( float Position, TArray<FScalarParameterNameAndValue>& OutScalarValues, TArray<FVectorParameterNameAndValue>& OutVectorValues, TArray<FColorParameterNameAndValue>& OutColorValues ) const
-{
-	for ( UMovieSceneSection* Section : Sections )
-	{
-		UMovieSceneParameterSection* ParameterSection = Cast<UMovieSceneParameterSection>( Section );
-		if ( ParameterSection != nullptr )
-		{
-			ParameterSection->Eval( Position, OutScalarValues, OutVectorValues, OutColorValues );
-		}
-	}
-}
-
 #undef LOCTEXT_NAMESPACE

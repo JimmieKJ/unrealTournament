@@ -6,6 +6,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class IScreenShotData;
+class SBox;
+class SVerticalBox;
+
 class SScreenHistoryView : public SCompoundWidget
 {
 public:

@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "WindowsTextInputMethodSystem.h"
-#include "TextStoreACP.h"
+#include "Windows/WindowsTextInputMethodSystem.h"
+#include "CoreGlobals.h"
+#include "Containers/UnrealString.h"
+#include "Math/Vector2D.h"
+#include "Logging/LogCategory.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "Windows/WindowsHWrapper.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogWindowsTextInputMethodSystem, Log, All);
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 
 namespace
@@ -1022,4 +1026,4 @@ int32 FWindowsTextInputMethodSystem::ProcessMessage(HWND hwnd, uint32 msg, WPARA
 	}
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

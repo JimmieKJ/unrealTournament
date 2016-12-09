@@ -7,7 +7,7 @@
 // This is an approximation to resampling a very high initial bandwidth,
 // And can generate more realistic surface excitations than linear resampling.
 
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #include "Signal/paBlock.hpp"
 #include "Contact/paFunContactGen.hpp"

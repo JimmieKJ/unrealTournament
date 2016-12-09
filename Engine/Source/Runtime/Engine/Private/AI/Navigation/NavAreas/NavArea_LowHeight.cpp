@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "AI/Navigation/NavAreas/NavArea_LowHeight.h"
 
 UNavArea_LowHeight::UNavArea_LowHeight(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)

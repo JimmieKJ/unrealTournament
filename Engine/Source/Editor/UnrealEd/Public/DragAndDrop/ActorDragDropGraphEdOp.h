@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "ActorDragDropOp.h"
+#include "CoreMinimal.h"
+#include "Input/DragAndDrop.h"
+#include "EditorStyleSet.h"
+#include "DragAndDrop/ActorDragDropOp.h"
 
 #define LOCTEXT_NAMESPACE "ActorDragDrop"
 

@@ -2,6 +2,10 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "InterpCurveEdSetup.generated.h"
 
 // Information about a particule curve being viewed.
@@ -110,10 +114,6 @@ class UInterpCurveEdSetup : public UObject
 
 	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	virtual bool NeedsLoadForClient() const override
-	{
-		return false;
-	}
 	//~ End UObject Interface
 	
 	//~ Begin InterpCurveEdSetup Interface

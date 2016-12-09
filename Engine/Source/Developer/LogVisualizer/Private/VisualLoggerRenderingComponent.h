@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "DebugRenderSceneProxy.h"
+#include "Components/PrimitiveComponent.h"
 #include "VisualLoggerRenderingComponent.generated.h"
 
 /**
@@ -17,5 +22,10 @@ public:
 	virtual FBoxSphereBounds CalcBounds(const FTransform &LocalToWorld) const override;
 	virtual void CreateRenderState_Concurrent() override;
 	virtual void DestroyRenderState_Concurrent() override;
+
+private:
+#if WITH_EDITOR
+	FDebugDrawDelegateHelper DebugDrawDelegateHelper;
+#endif
 };
 

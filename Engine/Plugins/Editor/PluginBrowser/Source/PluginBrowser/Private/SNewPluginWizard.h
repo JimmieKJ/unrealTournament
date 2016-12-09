@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Input/Reply.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class ITableRow;
+class SFilePathBlock;
+class STableViewBase;
+enum class ECheckBoxState : uint8;
+
 DECLARE_LOG_CATEGORY_EXTERN(LogPluginWizard, Log, All);
 
 class SFilePathBlock;
@@ -23,11 +35,15 @@ struct FPluginTemplateDescription
 	/** Brush resource for the image that is dynamically loaded */
 	TSharedPtr< FSlateDynamicImageBrush > PluginIconDynamicImageBrush;
 
+	/** Can the plugin contain content? */
+	bool CanContainContent;
+
 	/** Constructor */
-	FPluginTemplateDescription(FText InName, FText InDescription, FString InOnDiskPath)
+	FPluginTemplateDescription(FText InName, FText InDescription, FString InOnDiskPath, bool InCanContainContent = false)
 		: Name(InName)
 		, Description(InDescription)
 		, OnDiskPath(InOnDiskPath)
+		, CanContainContent(InCanContainContent)
 	{
 	}
 };
@@ -132,7 +148,7 @@ private:
 	 * @param UPluginFilePath Path where the descriptor file should be written
 	 * @return Whether the files was written successfully
 	 */
-	bool WritePluginDescriptor(const FString& PluginModuleName, const FString& UPluginFilePath);
+	bool WritePluginDescriptor(const FString& PluginModuleName, const FString& UPluginFilePath, bool CanContainContent, bool HasModules);
 
 	/**
 	 * Displays an editor pop up error notification

@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "UObject/LazyObjectPtr.h"
 #include "IMovieSceneSectionRecorder.h"
 #include "IMovieSceneSectionRecorderFactory.h"
 #include "MovieSceneVisibilitySectionRecorderSettings.h"
+
+class UMovieSceneBoolSection;
 
 class FMovieSceneVisibilitySectionRecorderFactory : public IMovieSceneSectionRecorderFactory
 {
@@ -38,7 +43,7 @@ private:
 	TLazyObjectPtr<class UObject> ObjectToRecord;
 
 	/** Section to record to */
-	TWeakObjectPtr<class UMovieSceneVisibilitySection> MovieSceneSection;
+	TWeakObjectPtr<class UMovieSceneBoolSection> MovieSceneSection;
 
 	/** Flag used to track visibility state and add keys when this changes */
 	bool bWasVisible;

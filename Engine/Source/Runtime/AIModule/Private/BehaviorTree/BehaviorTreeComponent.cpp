@@ -1,14 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "BehaviorTree/BehaviorTree.h"
+#include "BehaviorTree/BehaviorTreeComponent.h"
+#include "BehaviorTree/BTTaskNode.h"
+#include "BehaviorTree/BTDecorator.h"
 #include "BehaviorTree/BTService.h"
-#include "BehaviorTreeDelegates.h"
+#include "VisualLogger/VisualLoggerTypes.h"
+#include "VisualLogger/VisualLogger.h"
 #include "BehaviorTree/BTCompositeNode.h"
+#include "BehaviorTreeDelegates.h"
+#include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BehaviorTreeManager.h"
 #include "BehaviorTree/BlackboardComponent.h"
-#include "BehaviorTree/BehaviorTreeComponent.h"
 #include "BehaviorTree/Tasks/BTTask_RunBehaviorDynamic.h"
+#include "Misc/ConfigCacheIni.h"
 
 #if USE_BEHAVIORTREE_DEBUGGER
 int32 UBehaviorTreeComponent::ActiveDebuggerCounter = 0;
@@ -72,7 +76,7 @@ void UBehaviorTreeComponent::PauseLogic(const FString& Reason)
 
 	if (BlackboardComp)
 	{
-		BlackboardComp->PauseUpdates();
+		BlackboardComp->PauseObserverNotifications();
 	}
 }
 
@@ -87,7 +91,8 @@ EAILogicResuming::Type UBehaviorTreeComponent::ResumeLogic(const FString& Reason
 		{
 			if (BlackboardComp)
 			{
-				BlackboardComp->ResumeUpdates();
+				// Resume the blackboard's observer notifications and send any queued notifications
+				BlackboardComp->ResumeObserverNotifications(true);
 			}
 
 			const bool bOutOfNodesPending = PendingExecution.IsSet() && PendingExecution.bOutOfNodes;
@@ -97,6 +102,14 @@ EAILogicResuming::Type UBehaviorTreeComponent::ResumeLogic(const FString& Reason
 			}
 
 			return EAILogicResuming::Continue;
+		}
+		else if (SuperResumeResult == EAILogicResuming::RestartedInstead)
+		{
+			if (BlackboardComp)
+			{
+				// Resume the blackboard's observer notifications but do not send any queued notifications
+				BlackboardComp->ResumeObserverNotifications(false);
+			}
 		}
 	}
 
@@ -860,15 +873,13 @@ void UBehaviorTreeComponent::RequestExecution(UBTCompositeNode* RequestedOn, int
 	// store it
 	StoreDebuggerRestart(DebuggerNode, InstanceIdx, true);
 
-	if (bSwitchToHigherPriority)
+	// search end can be set only when switching to high priority
+	// or previous request was limited and current limit is wider
+	if ((!bAlreadyHasRequest && bSwitchToHigherPriority) ||
+		(ExecutionRequest.SearchEnd.IsSet() && ExecutionRequest.SearchEnd.TakesPriorityOver(SearchEnd)))
 	{
-		// search end can be set only when there wasn't any previous request or
-		// previous request was limited and current limit is wider
-		if (!bAlreadyHasRequest ||
-			(ExecutionRequest.SearchEnd.IsSet() && ExecutionRequest.SearchEnd.TakesPriorityOver(SearchEnd)))
-		{
-			ExecutionRequest.SearchEnd = SearchEnd;
-		}
+		UE_CVLOG(bAlreadyHasRequest, GetOwner(), LogBehaviorTree, Log, (SearchEnd.ExecutionIndex < MAX_uint16) ? TEXT("> expanding end of search range!") : TEXT("> removing limit from end of search range!"));
+		ExecutionRequest.SearchEnd = SearchEnd;
 	}
 
 	ExecutionRequest.SearchStart = ExecutionIdx;
@@ -1247,15 +1258,11 @@ void UBehaviorTreeComponent::ProcessExecutionRequest()
 			// check it's the same as active node (or any of active parallel tasks)
 			if (bIsSearchValid && NextTask->ShouldIgnoreRestartSelf())
 			{
-				for (int32 TestInstanceIdx = 0; TestInstanceIdx <= ActiveInstanceIdx; TestInstanceIdx++)
+				const bool bIsTaskRunning = InstanceStack[ActiveInstanceIdx].HasActiveNode(NextTaskIdx.ExecutionIndex);
+				if (bIsTaskRunning)
 				{
-					const bool bIsTaskRunning = InstanceStack[TestInstanceIdx].HasActiveNode(NextTaskIdx.ExecutionIndex);
-					if (bIsTaskRunning)
-					{
-						BT_SEARCHLOG(SearchData, Verbose, TEXT("Task doesn't allow restart and it's already running! Discaring search."));
-						bIsSearchValid = false;
-						break;
-					}
+					BT_SEARCHLOG(SearchData, Verbose, TEXT("Task doesn't allow restart and it's already running! Discaring search."));
+					bIsSearchValid = false;
 				}
 			}
 		}

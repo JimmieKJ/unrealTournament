@@ -2,7 +2,25 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "MediaPlayerEditorSettings.generated.h"
+
+
+/** Options for scaling the viewport's video texture. */
+UENUM()
+enum class EMediaPlayerEditorScale : uint8
+{
+	/** Stretch non-uniformly to fill the viewport. */
+	Fill,
+
+	/** Scale uniformly, preserving aspect ratio. */
+	Fit,
+
+	/** Do not stretch or scale. */
+	Original
+};
 
 
 UCLASS(config=EditorPerProjectUserSettings)
@@ -17,11 +35,11 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Viewer)
 	FName DesiredPlayerName;
 
-	/** Whether the media texture should be scaled to maintain the video's aspect ratio. */
+	/** Whether to display overlay texts. */
 	UPROPERTY(config, EditAnywhere, Category=Viewer)
-	bool ScaleVideoToFit;
+	bool ShowTextOverlays;
 
-	/** Whether to display caption/subtitle text. */
+	/** How the video viewport should be scaled. */
 	UPROPERTY(config, EditAnywhere, Category=Viewer)
-	bool ShowCaptions;
+	EMediaPlayerEditorScale ViewportScale;
 };

@@ -1,20 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "AI/Navigation/PImplRecastNavMesh.h"
+#include "AI/Navigation/NavigationSystem.h"
 
 #if WITH_RECAST
 
 // recast includes
-#include "PImplRecastNavMesh.h"
-#include "RecastHelpers.h"
+#include "AI/Navigation/RecastHelpers.h"
 
 // recast includes
-#include "DetourNavMeshQuery.h"
-#include "DetourNavMesh.h"
-#include "DetourNode.h"
-#include "DetourCommon.h"
-#include "RecastAlloc.h"
-#include "RecastNavMeshGenerator.h"
+#include "Detour/DetourNode.h"
+#include "Recast/RecastAlloc.h"
+#include "AI/Navigation/NavAreas/NavArea.h"
+#include "AI/Navigation/RecastNavMeshGenerator.h"
 
 #include "AI/Navigation/NavLinkCustomInterface.h"
 #include "VisualLogger/VisualLogger.h"
@@ -116,7 +114,7 @@ ENavigationQueryResult::Type DTStatusToNavQueryResult(dtStatus Status)
 {
 	// @todo look at possible dtStatus values (in DetourStatus.h), there's more data that can be retrieved from it
 
-	// Partial paths are treated by Recast as Success while we threat as fail
+	// Partial paths are treated by Recast as Success while we treat as fail
 	return dtStatusSucceed(Status) ? (dtStatusDetail(Status, DT_PARTIAL_RESULT) ? ENavigationQueryResult::Fail : ENavigationQueryResult::Success)
 		: (dtStatusDetail(Status, DT_INVALID_PARAM) ? ENavigationQueryResult::Error : ENavigationQueryResult::Fail);
 }
@@ -718,6 +716,9 @@ void FPImplRecastNavMesh::SetRecastMesh(dtNavMesh* NavMesh)
 	{
 		NavMeshOwner->UpdateNavObject();
 	}
+
+	// reapply area sort order in new detour navmesh
+	OnAreaCostChanged();
 }
 
 void FPImplRecastNavMesh::Raycast(const FVector& StartLoc, const FVector& EndLoc, const FNavigationQueryFilter& InQueryFilter, const UObject* Owner, 
@@ -2732,6 +2733,15 @@ void FPImplRecastNavMesh::AddTileCacheLayer(int32 TileX, int32 TileY, int32 Laye
 	}
 }
 
+void FPImplRecastNavMesh::MarkEmptyTileCacheLayers(int32 TileX, int32 TileY)
+{
+	if (!CompressedTileCacheLayers.Contains(FIntPoint(TileX, TileY)))
+	{
+		TArray<FNavMeshTileData> EmptyLayersList;
+		CompressedTileCacheLayers.Add(FIntPoint(TileX, TileY), EmptyLayersList);
+	}
+}
+
 FNavMeshTileData FPImplRecastNavMesh::GetTileCacheLayer(int32 TileX, int32 TileY, int32 LayerIdx) const
 {
 	const TArray<FNavMeshTileData>* LayersList = CompressedTileCacheLayers.Find(FIntPoint(TileX, TileY));
@@ -2746,6 +2756,11 @@ FNavMeshTileData FPImplRecastNavMesh::GetTileCacheLayer(int32 TileX, int32 TileY
 TArray<FNavMeshTileData> FPImplRecastNavMesh::GetTileCacheLayers(int32 TileX, int32 TileY) const
 {
 	return CompressedTileCacheLayers.FindRef(FIntPoint(TileX, TileY));
+}
+
+bool FPImplRecastNavMesh::HasTileCacheLayers(int32 TileX, int32 TileY) const
+{
+	return CompressedTileCacheLayers.Contains(FIntPoint(TileX, TileY));
 }
 
 #undef INITIALIZE_NAVQUERY

@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemFacebookPrivatePCH.h"
-#include "OnlineIdentityFacebook.h"
 #include "OnlineFriendsFacebook.h"
+#include "OnlineSubsystemFacebookPrivate.h"
+#include "OnlineIdentityFacebook.h"
+#include "HttpModule.h"
+#include "Interfaces/IHttpResponse.h"
+#include "Misc/ConfigCacheIni.h"
 
 // FOnlineFriendFacebook
 

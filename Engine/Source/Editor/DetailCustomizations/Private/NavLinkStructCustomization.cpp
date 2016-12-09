@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "NavLinkStructCustomization.h"
+#include "Widgets/Text/STextBlock.h"
+#include "IDetailChildrenBuilder.h"
+#include "DetailWidgetRow.h"
 #include "AI/Navigation/NavLinkDefinition.h"
 
 TSharedRef<IPropertyTypeCustomization> FNavLinkStructCustomization::MakeInstance( )

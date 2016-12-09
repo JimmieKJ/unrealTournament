@@ -4,11 +4,11 @@
 	PhysicsSerializer.cpp
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "PhysicsPublic.h"
 #include "PhysicsSerializer.h"
-#include "PhysDerivedData.h"
-#include "PhysXSupport.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Guid.h"
+#include "PhysicsEngine/PhysXSupport.h"
+#include "PhysicsEngine/PhysDerivedData.h"
 
 UPhysicsSerializer::UPhysicsSerializer(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -185,7 +185,7 @@ void UPhysicsSerializer::BeginDestroy()
 }
 
 #if WITH_PHYSX
-PxRigidActor* UPhysicsSerializer::GetRigidActor(physx::PxSerialObjectId ObjectId) const
+PxRigidActor* UPhysicsSerializer::GetRigidActor(uint64 ObjectId) const
 {
 	PxRigidActor* const* PActor = ActorsMap.Find(ObjectId);
 

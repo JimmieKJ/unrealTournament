@@ -4,10 +4,12 @@
 	UObjectBaseUtility.cpp: Unreal UObject functions that only depend on UObjectBase
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
-#include "Interface.h"
-#include "ModuleManager.h"
-#include "FastReferenceCollector.h"
+#include "UObject/UObjectBaseUtility.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "Templates/Casts.h"
+#include "UObject/Interface.h"
+#include "Modules/ModuleManager.h"
 
 /***********************/
 /******** Names ********/
@@ -141,7 +143,7 @@ bool UObjectBaseUtility::MarkPackageDirty() const
 			// we explicitly disable the ability to dirty a package or map during load.  Commandlets can still
 			// set the dirty state on load.
 			if( IsRunningCommandlet() || 
-				(GIsEditor && !GIsEditorLoadingPackage && !GIsPlayInEditorWorld && !IsInAsyncLoadingThread()
+				(GIsEditor && !GIsEditorLoadingPackage && !GIsCookerLoadingPackage && !GIsPlayInEditorWorld && !IsInAsyncLoadingThread()
 #if WITH_HOT_RELOAD
 				&& !GIsHotReload
 #endif // WITH_HOT_RELOAD
@@ -264,14 +266,15 @@ bool UObjectBaseUtility::RootPackageHasAnyFlags( uint32 CheckFlagMask ) const
 /**
  * @return	true if this object is of the specified type.
  */
-#if UCLASS_FAST_ISA_IMPL != 2
-bool UObjectBaseUtility::IsA( const UClass* SomeBase ) const
-{
-	UE_CLOG(!SomeBase, LogObj, Fatal, TEXT("IsA(NULL) cannot yield meaningful results"));
+#if UCLASS_FAST_ISA_COMPARE_WITH_OUTERWALK || UCLASS_FAST_ISA_IMPL == UCLASS_ISA_OUTERWALK
+	bool UObjectBaseUtility::IsA( const UClass* SomeBase ) const
+	{
+		UE_CLOG(!SomeBase, LogObj, Fatal, TEXT("IsA(NULL) cannot yield meaningful results"));
 
-	#if UCLASS_FAST_ISA_IMPL & 1
+		UClass* ThisClass = GetClass();
+
 		bool bOldResult = false;
-		for ( UClass* TempClass=GetClass(); TempClass; TempClass=TempClass->GetSuperClass() )
+		for ( UClass* TempClass=ThisClass; TempClass; TempClass=TempClass->GetSuperClass() )
 		{
 			if ( TempClass == SomeBase )
 			{
@@ -279,22 +282,19 @@ bool UObjectBaseUtility::IsA( const UClass* SomeBase ) const
 				break;
 			}
 		}
+
+	#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
+		bool bNewResult = ThisClass->IsAUsingFastTree(*SomeBase);
+	#elif UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
+		bool bNewResult = ThisClass->IsAUsingClassArray(*SomeBase);
 	#endif
 
-	#if UCLASS_FAST_ISA_IMPL & 2
-		bool bNewResult = GetClass()->IsAUsingFastTree(*SomeBase);
-	#endif
-
-	#if (UCLASS_FAST_ISA_IMPL & 1) && (UCLASS_FAST_ISA_IMPL & 2)
+	#if UCLASS_FAST_ISA_COMPARE_WITH_OUTERWALK
 		ensureMsgf(bOldResult == bNewResult, TEXT("New cast code failed"));
 	#endif
 
-	#if UCLASS_FAST_ISA_IMPL & 1
 		return bOldResult;
-	#else
-		return bNewResult;
-	#endif
-}
+	}
 #endif
 
 
@@ -417,3 +417,113 @@ bool UObjectBaseUtility::IsDefaultSubobject() const
 	const bool bIsInstanced = GetOuter() && (GetOuter()->HasAnyFlags(RF_ClassDefaultObject) || ((UObject*)this)->GetArchetype() != GetClass()->GetDefaultObject());
 	return bIsInstanced;
 }
+
+#if STATS && USE_MALLOC_PROFILER
+void FScopeCycleCounterUObject::TrackObjectForMallocProfiling(const UObjectBaseUtility *InObject)
+{
+	// Get the package name from the outermost item (if available - can't use GetOutermost here)
+	FName PackageName;
+	if (InObject->GetOuter())
+	{
+		UObjectBaseUtility* Top = InObject->GetOuter();
+		for (;;)
+		{
+			UObjectBaseUtility* CurrentOuter = Top->GetOuter();
+			if (!CurrentOuter)
+			{
+				PackageName = Top->GetFName();
+				break;
+			}
+			Top = CurrentOuter;
+		}
+	}
+
+	// Get the class name (if available)
+	FName ClassName;
+	if (InObject->GetClass())
+	{
+		ClassName = InObject->GetClass()->GetFName();
+	}
+
+	TrackObjectForMallocProfiling(PackageName, ClassName, InObject->GetFName());
+}
+void FScopeCycleCounterUObject::TrackObjectForMallocProfiling(const FName InPackageName, const FName InClassName, const FName InObjectName)
+{
+	static const TCHAR PackageTagCategory[] = TEXT("Package:");
+	static const TCHAR ObjectTagCategory[] = TEXT("Object:");
+	static const TCHAR ClassTagCategory[] = TEXT("Class:");
+
+	// We use an array rather than an FString to try and minimize heap allocations
+	TArray<TCHAR, TInlineAllocator<256>> ScratchSpaceBuffer;
+
+	auto AppendNameToBuffer = [&](const FName InName)
+	{
+		const FNameEntry* NameEntry = InName.GetDisplayNameEntry();
+		if (NameEntry->IsWide())
+		{
+			const WIDECHAR* NameCharPtr = NameEntry->GetWideName();
+			while (*NameCharPtr != 0)
+			{
+				ScratchSpaceBuffer.Add((TCHAR)*NameCharPtr++);
+			}
+		}
+		else
+		{
+			const ANSICHAR* NameCharPtr = NameEntry->GetAnsiName();
+			while (*NameCharPtr != 0)
+			{
+				ScratchSpaceBuffer.Add((TCHAR)*NameCharPtr++);
+			}
+		}
+	};
+
+	if (!InPackageName.IsNone())
+	{
+		// "Package:/Path/To/Package"
+		ScratchSpaceBuffer.Reset();
+		ScratchSpaceBuffer.Append(PackageTagCategory, ARRAY_COUNT(PackageTagCategory) - 1);
+		AppendNameToBuffer(InPackageName);
+		ScratchSpaceBuffer.Add(0);
+		PackageTag = FName(ScratchSpaceBuffer.GetData());
+		GMallocProfiler->AddTag(PackageTag);
+
+		// "Object:/Path/To/Package/ObjectName"
+		ScratchSpaceBuffer.Reset();
+		ScratchSpaceBuffer.Append(ObjectTagCategory, ARRAY_COUNT(ObjectTagCategory) - 1);
+		AppendNameToBuffer(InPackageName);
+		ScratchSpaceBuffer.Add(TEXT('/'));
+		AppendNameToBuffer(InObjectName);
+		ScratchSpaceBuffer.Add(0);
+		ObjectTag = FName(ScratchSpaceBuffer.GetData());
+		GMallocProfiler->AddTag(ObjectTag);
+	}
+
+	if (!InClassName.IsNone())
+	{
+		// "Class:ClassName"
+		ScratchSpaceBuffer.Reset();
+		ScratchSpaceBuffer.Append(ClassTagCategory, ARRAY_COUNT(ClassTagCategory) - 1);
+		AppendNameToBuffer(InClassName);
+		ScratchSpaceBuffer.Add(0);
+		ClassTag = FName(ScratchSpaceBuffer.GetData());
+		GMallocProfiler->AddTag(ClassTag);
+	}
+}
+void FScopeCycleCounterUObject::UntrackObjectForMallocProfiling()
+{
+	if (!PackageTag.IsNone())
+	{
+		GMallocProfiler->RemoveTag(PackageTag);
+	}
+
+	if (!ClassTag.IsNone())
+	{
+		GMallocProfiler->RemoveTag(ClassTag);
+	}
+
+	if (!ObjectTag.IsNone())
+	{
+		GMallocProfiler->RemoveTag(ObjectTag);
+	}
+}
+#endif

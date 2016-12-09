@@ -249,8 +249,11 @@ namespace AutomationTool
 
 		void XGEFinishBuildWithUBT(XGEItem Item)
 		{
-			// allow the platform to perform any actions after building a target (seems almost like this should be done in UBT)
-			Platform.GetPlatform(Item.Platform).PostBuildTarget(this, Item.UProjectPath, Item.TargetName, Item.Config);
+			if(!Item.CommandLine.Contains("-nolink"))
+			{
+				// allow the platform to perform any actions after building a target (seems almost like this should be done in UBT)
+				Platform.GetPlatform(Item.Platform).PostBuildTarget(this, Item.UProjectPath, Item.TargetName, Item.Config);
+			}
 
 			foreach (string ManifestItem in Item.Manifest.BuildProducts)
 			{
@@ -361,8 +364,12 @@ namespace AutomationTool
 			{
 				RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: TargetPlatform.ToString(), Config: Config, AdditionalArgs: AddArgs, EnvVars: EnvVars);
 			}
-            // allow the platform to perform any actions after building a target (seems almost like this should be done in UBT)
-            Platform.GetPlatform(TargetPlatform).PostBuildTarget(this, UprojectPath, TargetName, Config);
+
+			if(!AddArgs.Contains("-nolink"))
+			{
+				// allow the platform to perform any actions after building a target (seems almost like this should be done in UBT)
+				Platform.GetPlatform(TargetPlatform).PostBuildTarget(this, UprojectPath, TargetName, Config);
+			}
 
 			if (UseManifest)
 			{
@@ -500,7 +507,10 @@ namespace AutomationTool
 					}
 
 					Version.Changelist = ChangelistNumber;
-					Version.CompatibleChangelist = CompatibleChangelistNumber;
+					if(CompatibleChangelistNumber > 0)
+					{
+						Version.CompatibleChangelist = CompatibleChangelistNumber;
+					}
 					Version.IsLicenseeVersion = bIsLicenseeVersion? 1 : 0;
 					Version.BranchName = Branch;
 
@@ -772,7 +782,7 @@ namespace AutomationTool
 				{
 					try
 					{
-						string FullPath = Path.Combine(PathDir, "xgConsole.exe");
+						string FullPath = Path.Combine(PathDir, "xgConsole" + Platform.GetExeExtension(UnrealBuildTool.BuildHostPlatform.Current.Platform));
 						if (FileExists(FullPath))
 						{
 							XGEConsoleExePath = FullPath;
@@ -850,7 +860,7 @@ namespace AutomationTool
 					PushDir(CombinePaths(CmdEnv.LocalRoot, @"\Engine\Source"));
 					try
 					{
-						int ExitCode = ParallelExecutor.Execute(TaskFilePath);
+						int ExitCode = ParallelExecutor.Execute(TaskFilePath, OwnerCommand.ParseParam("StopOnErrors"));
 						if(ExitCode != 0)
 						{
 							return false;
@@ -955,9 +965,17 @@ namespace AutomationTool
 					var TargetFile = TaskFilePath + "." + Path.GetFileName(XGEFile);
 					CopyFile(XGEFile, TargetFile);
 					CopyFile_NoExceptions(XGEFile, TaskFilePath);
+
+					XmlReaderSettings XmlSettings = new XmlReaderSettings();
+					XmlSettings.DtdProcessing = DtdProcessing.Ignore;
+					XmlSettings.XmlResolver = null;
+
 					XmlDocument UBTTask = new XmlDocument();
-					UBTTask.XmlResolver = null;
-					UBTTask.Load(XGEFile);
+                    using (XmlReader Reader = XmlReader.Create(XGEFile, XmlSettings))
+					{
+						UBTTask.Load(Reader);
+					}
+
 					DeleteFile(XGEFile);
 
 					var All = new List<string>();
@@ -1377,7 +1395,7 @@ namespace AutomationTool
 			}
 
 			// only run ParallelExecutor if not running XGE (and we've requested ParallelExecutor and it exists)
-			bool bCanUseParallelExecutor = !bCanUseXGE && InUseParallelExecutor;
+			bool bCanUseParallelExecutor = !bCanUseXGE && InUseParallelExecutor && (HostPlatform.Current.HostEditorPlatform == UnrealTargetPlatform.Win64);
 			LogLog("************************* UE4Build:");
 			LogLog("************************* ForceMonolithic: {0}", bForceMonolithic);
 			LogLog("************************* ForceNonUnity:{0} ", bForceNonUnity);
@@ -1644,6 +1662,7 @@ namespace AutomationTool
 						"UnrealBuildTool.exe.config",
 						"AutomationUtils.Automation.dll",
 						"DotNETUtilities.dll",
+						"MobileDeviceInterface.dll"
 					});
 
 			foreach (var UATFile in UATFiles)

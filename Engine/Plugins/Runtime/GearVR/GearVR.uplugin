@@ -22,9 +22,7 @@
 			"LoadingPhase" : "PostConfigInit",
 			"WhitelistPlatforms" :
 			[
-        "Android",
-        "Win64",
-				"Win32"
+				"Android"
 			]
 		}
 	]

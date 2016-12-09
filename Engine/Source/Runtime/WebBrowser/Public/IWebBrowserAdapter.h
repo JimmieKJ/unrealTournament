@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-class IWebBrowserWindow;
+#include "CoreMinimal.h"
+#include "IWebBrowserWindow.h"
 
 class IWebBrowserAdapter
 {

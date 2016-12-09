@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
 #include "Internationalization/InternationalizationMetadata.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogInternationalizationMetadata, Log, All);
@@ -126,7 +125,7 @@ bool FLocMetadataObject::operator==( const FLocMetadataObject& Other ) const
 			{
 				continue;
 			}
-			else if( Value->Type == (*OtherValue)->Type && *(Value) == *(*OtherValue) )
+			else if( Value->GetType() == (*OtherValue)->GetType() && *(Value) == *(*OtherValue) )
 			{
 				continue;
 			}
@@ -156,7 +155,7 @@ bool FLocMetadataObject::IsExactMatch( const FLocMetadataObject& Other ) const
 
 		if( OtherValue && (*OtherValue).IsValid() )
 		{
-			if( Value->Type == (*OtherValue)->Type && *(Value) == *(*OtherValue) )
+			if( Value->GetType() == (*OtherValue)->GetType() && *(Value) == *(*OtherValue) )
 			{
 				continue;
 			}
@@ -274,71 +273,67 @@ FString FLocMetadataObject::ToString() const
 
 namespace
 {
-	void SerializeLocMetadataValue(FArchive& Archive, FLocMetadataValue*& Value)
+	void SerializeLocMetadataValue(FArchive& Archive, TSharedPtr<FLocMetadataValue>& Value)
 	{
-		const bool bIsSaving  = Archive.IsSaving();
-		const bool bIsLoading = Archive.IsLoading();
-
-		if (bIsSaving)
+		if (Archive.IsLoading())
 		{
-			check(Value != nullptr);
+			check(!Value.IsValid());
 		}
-
-		if(bIsLoading)
+		else
 		{
-			check(Value == nullptr);
+			check(Value.IsValid());
 		}
 
 		ELocMetadataType MetaDataType = ELocMetadataType::None;
-		if (bIsSaving)
+		if (!Archive.IsLoading())
 		{
-			MetaDataType = Value->Type;
+			MetaDataType = Value->GetType();
 		}
 
 		int32 MetaDataTypeAsInt = static_cast<int32>(MetaDataType);
 		Archive << MetaDataTypeAsInt;
 		MetaDataType = static_cast<ELocMetadataType>(MetaDataTypeAsInt);
 
-		switch(MetaDataType)
+		switch (MetaDataType)
 		{
 		case ELocMetadataType::Array:
-			if (bIsSaving)
+			if (Archive.IsLoading())
 			{
-				FLocMetadataValueArray::Serialize(static_cast<const FLocMetadataValueArray&>(*Value), Archive);
+				Value = MakeShareable(new FLocMetadataValueArray(Archive));
 			}
-			else if (bIsLoading)
+			else
 			{
-				Value = new FLocMetadataValueArray(Archive);
+				FLocMetadataValueArray::Serialize(static_cast<FLocMetadataValueArray&>(*Value), Archive);
 			}
 			break;
 		case ELocMetadataType::Boolean:
-			if (bIsSaving)
+			if (Archive.IsLoading())
 			{
-				FLocMetadataValueBoolean::Serialize(static_cast<const FLocMetadataValueBoolean&>(*Value), Archive);
+				Value = MakeShareable(new FLocMetadataValueBoolean(Archive));
 			}
-			else if (bIsLoading)
+			else
 			{
-				Value = new FLocMetadataValueBoolean(Archive);
+				FLocMetadataValueBoolean::Serialize(static_cast<FLocMetadataValueBoolean&>(*Value), Archive);
 			}
 			break;
 		case ELocMetadataType::Object:
-			if (bIsSaving)
+			if (Archive.IsLoading())
 			{
-				FLocMetadataValueObject::Serialize(static_cast<const FLocMetadataValueObject&>(*Value), Archive);
+				Value = MakeShareable(new FLocMetadataValueObject(Archive));
 			}
-			else if (bIsLoading)
+			else
 			{
-				Value = new FLocMetadataValueObject(Archive);
+				FLocMetadataValueObject::Serialize(static_cast<FLocMetadataValueObject&>(*Value), Archive);
 			}
 			break;
 		case ELocMetadataType::String:
-			if (bIsSaving)
+			if (Archive.IsLoading())
 			{
-				FLocMetadataValueString::Serialize(static_cast<const FLocMetadataValueString&>(*Value), Archive);
+				Value = MakeShareable(new FLocMetadataValueString(Archive));
 			}
-			else if (bIsLoading)
+			else
 			{
-				Value = new FLocMetadataValueString(Archive);
+				FLocMetadataValueString::Serialize(static_cast<FLocMetadataValueString&>(*Value), Archive);
 			}
 			break;
 		default:
@@ -362,31 +357,21 @@ FArchive& operator<<(FArchive& Archive, FLocMetadataObject& Object)
 	for (int32 i = 0; i < ValueCount; ++i)
 	{
 		FString Key;
-		if (Archive.IsSaving())
+		if (!Archive.IsLoading())
 		{
 			Key = MapKeys[i];
 		}
-		
 		Archive << Key;
 		
-		if(Archive.IsLoading())
-		{
-			Object.Values.Add(Key);
-		}
-
-		TSharedPtr<FLocMetadataValue> Value;
-		if (Archive.IsSaving())
-		{
-			Value = Object.Values[Key];
-		}
-
-		FLocMetadataValue* ValueRawPointer = Value.Get();
-		SerializeLocMetadataValue(Archive, ValueRawPointer);
-		Value = MakeShareable(ValueRawPointer);
-
 		if (Archive.IsLoading())
 		{
-			Object.Values[Key] = Value;
+			TSharedPtr<FLocMetadataValue> Value;
+			SerializeLocMetadataValue(Archive, Value);
+			Object.Values.Add(Key, Value);
+		}
+		else
+		{
+			SerializeLocMetadataValue(Archive, Object.Values[Key]);
 		}
 	}
 
@@ -417,9 +402,9 @@ FLocMetadataValueString::FLocMetadataValueString( FArchive& Archive )
 	Archive << Value;
 }
 
-void FLocMetadataValueString::Serialize( const FLocMetadataValueString& Value, FArchive& Archive )
+void FLocMetadataValueString::Serialize( FLocMetadataValueString& Value, FArchive& Archive )
 {
-	check(Archive.IsSaving());
+	check(!Archive.IsLoading());
 
 	FString StringValue = Value.Value;
 	Archive << StringValue;
@@ -449,9 +434,9 @@ FLocMetadataValueBoolean::FLocMetadataValueBoolean( FArchive& Archive )
 	Archive << Value;
 }
 
-void FLocMetadataValueBoolean::Serialize( const FLocMetadataValueBoolean& Value, FArchive& Archive )
+void FLocMetadataValueBoolean::Serialize( FLocMetadataValueBoolean& Value, FArchive& Archive )
 {
-	check(Archive.IsSaving());
+	check(!Archive.IsLoading());
 
 	bool BoolValue = Value.Value;
 	Archive << BoolValue;
@@ -560,23 +545,20 @@ FLocMetadataValueArray::FLocMetadataValueArray( FArchive& Archive )
 
 	for (TSharedPtr<FLocMetadataValue>& Element : Value)
 	{
-		FLocMetadataValue* ElementRawPointer = Element.Get();
-		SerializeLocMetadataValue(Archive, ElementRawPointer);
-		Element = MakeShareable(ElementRawPointer);
+		SerializeLocMetadataValue(Archive, Element);
 	}
 }
 
-void FLocMetadataValueArray::Serialize( const FLocMetadataValueArray& Value, FArchive& Archive )
+void FLocMetadataValueArray::Serialize( FLocMetadataValueArray& Value, FArchive& Archive )
 {
-	check(Archive.IsSaving());
+	check(!Archive.IsLoading());
 
 	int32 ElementCount = Value.Value.Num();
 	Archive << ElementCount;
 
-	for (const TSharedPtr<FLocMetadataValue>& Element : Value.Value)
+	for (TSharedPtr<FLocMetadataValue>& Element : Value.Value)
 	{
-		FLocMetadataValue* ElementRawPointer = Element.Get();
-		SerializeLocMetadataValue(Archive, ElementRawPointer);
+		SerializeLocMetadataValue(Archive, Element);
 	}
 }
 
@@ -627,9 +609,9 @@ FLocMetadataValueObject::FLocMetadataValueObject( FArchive& Archive )
 	Archive << *Value;
 }
 
-void FLocMetadataValueObject::Serialize( const FLocMetadataValueObject& Value, FArchive& Archive )
+void FLocMetadataValueObject::Serialize( FLocMetadataValueObject& Value, FArchive& Archive )
 {
-	check(Archive.IsSaving());
+	check(!Archive.IsLoading());
 
 	Archive << *(Value.Value);
 }

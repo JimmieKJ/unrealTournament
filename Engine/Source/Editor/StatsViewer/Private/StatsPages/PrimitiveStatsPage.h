@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IStatsViewer.h"
+#include "StatsPage.h"
 #include "PrimitiveStats.h"
 
 /** Stats page representing primitive component stats */

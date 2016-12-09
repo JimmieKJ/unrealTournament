@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerPrivatePCH.h"
+#include "ProfilerSession.h"
+#include "ProfilerFPSAnalyzer.h"
+#include "ProfilerDataProvider.h"
+
 
 /*-----------------------------------------------------------------------------
 	FProfilerStat, FProfilerGroup
@@ -20,7 +23,7 @@ FProfilerStat::FProfilerStat( const uint32 InStatID /*= 0 */ )
 	FProfilerSession
 -----------------------------------------------------------------------------*/
 
-FProfilerSession::FProfilerSession( EProfilerSessionTypes::Type InSessionType, const ISessionInstanceInfoPtr InSessionInstanceInfo, FGuid InSessionInstanceID, FString InDataFilepath )
+FProfilerSession::FProfilerSession( EProfilerSessionTypes InSessionType, const TSharedPtr<ISessionInstanceInfo>& InSessionInstanceInfo, FGuid InSessionInstanceID, FString InDataFilepath )
 : bRequestStatMetadataUpdate( false )
 , bLastPacket( false )
 , StatMetaDataSize( 0 )
@@ -42,7 +45,7 @@ FProfilerSession::FProfilerSession( EProfilerSessionTypes::Type InSessionType, c
 , FPSAnalyzer( MakeShareable( new FFPSAnalyzer( 5, 0, 90 ) ) )
 {}
 
-FProfilerSession::FProfilerSession( const ISessionInstanceInfoPtr InSessionInstanceInfo )
+FProfilerSession::FProfilerSession( const TSharedPtr<ISessionInstanceInfo>& InSessionInstanceInfo )
 : bRequestStatMetadataUpdate( false )
 , bLastPacket( false )
 , StatMetaDataSize( 0 )
@@ -99,22 +102,22 @@ FProfilerSession::~FProfilerSession()
 	FTicker::GetCoreTicker().RemoveTicker( OnTickHandle );	
 }
 
-const FEventGraphDataRef FProfilerSession::GetEventGraphDataTotal() const
+const TSharedRef<FEventGraphData, ESPMode::ThreadSafe> FProfilerSession::GetEventGraphDataTotal() const
 {
 	return EventGraphDataTotal.ToSharedRef();
 }
 
-const FEventGraphDataRef FProfilerSession::GetEventGraphDataMaximum() const
+const TSharedRef<FEventGraphData, ESPMode::ThreadSafe> FProfilerSession::GetEventGraphDataMaximum() const
 {
 	return EventGraphDataMaximum.ToSharedRef();
 }
 
-const FEventGraphDataRef FProfilerSession::GetEventGraphDataAverage() const
+const TSharedRef<FEventGraphData, ESPMode::ThreadSafe> FProfilerSession::GetEventGraphDataAverage() const
 {
 	return EventGraphDataAverage.ToSharedRef();
 }
 
-FGraphDataSourceRefConst FProfilerSession::CreateGraphDataSource( const uint32 InStatID )
+TSharedRef<const FGraphDataSource> FProfilerSession::CreateGraphDataSource( const uint32 InStatID )
 {
 	FGraphDataSource* GraphDataSource = new FGraphDataSource( AsShared(), InStatID );
 	return MakeShareable( GraphDataSource );
@@ -273,12 +276,11 @@ FEventGraphContainer FProfilerSession::CreateEventGraphData( const uint32 FrameS
 	check( EventGraphData );
 	EventGraphData->Finalize( FrameStartIndex, FrameEndIndex + 1 );
 
-	FEventGraphDataRef Total = MakeShareable( EventGraphData );
-
-	FEventGraphDataRef Average = Total->DuplicateAsRef();
+	TSharedRef<FEventGraphData, ESPMode::ThreadSafe> Total = MakeShareable( EventGraphData );
+	TSharedRef<FEventGraphData, ESPMode::ThreadSafe> Average = Total->DuplicateAsRef();
 	Average->SetAsAverage();
 
-	FEventGraphDataRef Maximum = Total->DuplicateAsRef();
+	TSharedRef<FEventGraphData, ESPMode::ThreadSafe> Maximum = Total->DuplicateAsRef();
 	Maximum->SetAsMaximim();
 	
 	FEventGraphContainer EventGraphContainer( FrameStartIndex, FrameEndIndex + 1, Average, Maximum, Total );
@@ -364,13 +366,6 @@ enum
 
 bool FProfilerSession::HandleTicker( float DeltaTime )
 {
-	// Update metadata if needed
-	if( bRequestStatMetadataUpdate )
-	{
-		StatMetaData->Update( ClientStatMetadata );
-		bRequestStatMetadataUpdate = false;
-	}
-
 	static double ProcessingTime = 1.0;
 	ProcessingTime -= DeltaTime;
 
@@ -394,7 +389,14 @@ bool FProfilerSession::HandleTicker( float DeltaTime )
 			break;
 		}
 
-		static FTotalTimeAndCount Current( 0.0f, 0 );
+		// Update metadata if needed
+		if (bRequestStatMetadataUpdate)
+		{
+			StatMetaData->Update(ClientStatMetadata);
+			bRequestStatMetadataUpdate = false;
+		}
+
+		static FTotalTimeAndCount Current(0.0f, 0);
 		PROFILER_SCOPE_LOG_TIME( TEXT( "1 FProfilerSession::HandleTicker" ), &Current );
 
 		NumFramesProcessedLastTime++;
@@ -509,14 +511,14 @@ bool FProfilerSession::HandleTicker( float DeltaTime )
 		// Update aggregated stats
 		UpdateAggregatedStats( DataProviderFrameIndex );
 
-		// Update aggregated events.
+		// Update aggregated events - NOTE: This may update the metadata and set bRequestStatMetadataUpdate = true
 		UpdateAggregatedEventGraphData( DataProviderFrameIndex );
 
 		// Update mini-view.
 		OnAddThreadTime.ExecuteIfBound( DataProviderFrameIndex, ThreadMS, StatMetaData );
 		
 		FrameToProfilerDataMapping.Remove( TargetFrame );
-	}	
+	}
 
 	if( SessionType == EProfilerSessionTypes::StatsFile )
 	{
@@ -547,7 +549,7 @@ void FProfilerSession::PopulateHierarchy_Recurrent
 	TMap<uint32, FInclusiveTime>& StatIDToInclusiveTime
 )
 {
-	const FProfilerStatMetaDataRef MetaData = GetMetaData();
+	const TSharedRef<FProfilerStatMetaData> MetaData = GetMetaData();
 
 #if	UE_BUILD_DEBUG
 	const FName& ParentStatName = MetaData->GetStatByID( ParentGraph.StatId ).Name();
@@ -956,7 +958,7 @@ void FProfilerAggregatedStat::Advance()
 	_NumCallsOneFrame = 0;
 }
 
-void FProfilerAggregatedStat::Aggregate(const FProfilerSample& Sample, const FProfilerStatMetaDataRef& Metadata)
+void FProfilerAggregatedStat::Aggregate(const FProfilerSample& Sample, const TSharedRef<FProfilerStatMetaData>& Metadata)
 {
 	double TypedValue = 0.0;
 

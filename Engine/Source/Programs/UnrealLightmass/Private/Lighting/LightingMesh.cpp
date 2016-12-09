@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
+#include "LightingMesh.h"
 #include "Importer.h"
 #include "MonteCarlo.h"
 #include "LightingSystem.h"

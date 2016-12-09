@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "ArchiveDescribeReference.h"
+#include "Serialization/ArchiveDescribeReference.h"
+#include "UObject/UnrealType.h"
 
 
 FArchiveDescribeReference::FArchiveDescribeReference( UObject* Src, UObject* InTarget, FOutputDevice& InOutput ) : Source(Src)

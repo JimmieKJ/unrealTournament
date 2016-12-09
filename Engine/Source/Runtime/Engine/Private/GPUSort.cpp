@@ -4,14 +4,16 @@
 	GPUSort.cpp: Implementation for sorting buffers on the GPU.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "GPUSort.h"
-#include "RenderCore.h"
+#include "RenderResource.h"
+#include "Math/RandomStream.h"
+#include "RenderingThread.h"
 #include "UniformBuffer.h"
 #include "ShaderParameters.h"
+#include "Shader.h"
+#include "SceneUtils.h"
 #include "ShaderParameterUtils.h"
 #include "GlobalShader.h"
-#include "SceneUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGPUSort, Log, All);
 

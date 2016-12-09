@@ -1,9 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
-#include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/BehaviorTreeManager.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectIterator.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "AISystem.h"
+#include "BehaviorTree/BehaviorTreeTypes.h"
+#include "BehaviorTree/BTNode.h"
+#include "BehaviorTree/BTTaskNode.h"
+#include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTree/BTService.h"
+#include "BehaviorTree/BTCompositeNode.h"
+#include "BehaviorTree/BehaviorTree.h"
+#include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
 #if WITH_EDITOR
 #include "Kismet2/KismetEditorUtilities.h"
 #endif // WITH_EDITOR

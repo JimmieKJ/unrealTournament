@@ -150,12 +150,20 @@ void UOnlineEngineInterfaceImpl::StartSession(UWorld* World, FName SessionName, 
 	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
 	if (SessionInt.IsValid())
 	{
-		FName OnlineIdentifier = GetOnlineIdentifier(World);
+		FNamedOnlineSession* Session = SessionInt->GetNamedSession(SessionName);
+		if (Session && (Session->SessionState == EOnlineSessionState::Pending || Session->SessionState == EOnlineSessionState::Ended))
+		{
+			FName OnlineIdentifier = GetOnlineIdentifier(World);
 
-		FDelegateHandle StartSessionCompleteHandle = SessionInt->AddOnStartSessionCompleteDelegate_Handle(FOnStartSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnStartSessionComplete, OnlineIdentifier, InCompletionDelegate));
-		OnStartSessionCompleteDelegateHandles.Add(OnlineIdentifier, StartSessionCompleteHandle);
-		
-		SessionInt->StartSession(SessionName);
+			FDelegateHandle StartSessionCompleteHandle = SessionInt->AddOnStartSessionCompleteDelegate_Handle(FOnStartSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnStartSessionComplete, OnlineIdentifier, InCompletionDelegate));
+			OnStartSessionCompleteDelegateHandles.Add(OnlineIdentifier, StartSessionCompleteHandle);
+
+			SessionInt->StartSession(SessionName);
+		}
+		else
+		{
+			InCompletionDelegate.ExecuteIfBound(SessionName, false);
+		}
 	}
 	else
 	{

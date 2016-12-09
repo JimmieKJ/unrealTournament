@@ -4,10 +4,10 @@
 	PoseableMeshComponent.cpp: UPoseableMeshComponent methods.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "Components/PoseableMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimStats.h"
 #include "Animation/AnimInstance.h"
-#include "Components/PoseableMeshComponent.h"
 
 UPoseableMeshComponent::UPoseableMeshComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -65,6 +65,7 @@ void UPoseableMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction* 
 	FillComponentSpaceTransforms();
 	FinalizeBoneTransform();
 
+	UpdateChildTransforms();
 	MarkRenderDynamicDataDirty();
 }
 
@@ -154,7 +155,7 @@ void UPoseableMeshComponent::SetBoneTransformByName(FName BoneName, const FTrans
 			}
 
 			// Need to send new state to render thread
-			MarkRenderDynamicDataDirty();
+			RefreshBoneTransforms();
 		}
 	}
 }

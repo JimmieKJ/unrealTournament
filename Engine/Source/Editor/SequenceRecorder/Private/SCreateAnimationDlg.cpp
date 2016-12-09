@@ -1,11 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "SequenceRecorderPrivatePCH.h"
-//#include "Persona.h"
 #include "SCreateAnimationDlg.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Editor.h"
+#include "EditorStyleSet.h"
+//#include "Persona.h"
+#include "Developer/AssetTools/Public/IAssetTools.h"
 #include "Developer/AssetTools/Public/AssetToolsModule.h"
+#include "Editor/ContentBrowser/Public/IContentBrowserSingleton.h"
+#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "SCreateAnimationDlg"
 

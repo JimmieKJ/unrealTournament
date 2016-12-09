@@ -1,20 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WorldBrowserPrivatePCH.h"
-
-#include "FileHelpers.h"
-#include "MessageLog.h"
-#include "WorldTileDetails.h"
-#include "WorldTileCollectionModel.h"
-#include "WorldTileModel.h"
+#include "Tiles/WorldTileModel.h"
+#include "Engine/World.h"
+#include "HAL/FileManager.h"
+#include "UObject/Package.h"
 #include "Engine/LevelBounds.h"
+#include "Engine/LevelStreamingKismet.h"
+#include "Editor.h"
+#include "ScopedTransaction.h"
+#include "EditorLevelUtils.h"
+#include "LevelCollectionModel.h"
+
+#include "Tiles/WorldTileDetails.h"
+#include "Tiles/WorldTileCollectionModel.h"
 #include "Engine/WorldComposition.h"
 #include "GameFramework/WorldSettings.h"
-#include "Engine/LevelStreaming.h"
-#include "Engine/LevelStreamingKismet.h"
-#include "Landscape.h"
+#include "LandscapeInfo.h"
 #include "LandscapeStreamingProxy.h"
-#include "AssetData.h"
 
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
@@ -341,7 +343,7 @@ bool FWorldTileModel::IsTiledLandscapeBased() const
 
 bool FWorldTileModel::IsLandscapeProxy() const
 {
-	return (Landscape.IsValid() && !Landscape.Get()->IsA(ALandscape::StaticClass()));
+	return (Landscape.IsValid() && Landscape.Get()->IsA(ALandscapeStreamingProxy::StaticClass()));
 }
 
 bool FWorldTileModel::IsInLayersList(const TArray<FWorldTileLayer>& InLayerList) const

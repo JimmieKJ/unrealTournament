@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "EnvironmentQuery/Generators/EnvQueryGenerator_CurrentLocation.h"
+#include "AI/Navigation/NavigationTypes.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_Point.h"
 #include "EnvironmentQuery/Contexts/EnvQueryContext_Querier.h"
-#include "EnvironmentQuery/Generators/EnvQueryGenerator_CurrentLocation.h"
 
 #define LOCTEXT_NAMESPACE "EnvQueryGenerator"
 

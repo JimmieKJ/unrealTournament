@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "NetworkMessage.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/Runnable.h"
+#include "MultichannelTcpGlobals.h"
+
+class Error;
+class FSocket;
 
 /**
  * Declares a delegate to be invoked when data has been received.

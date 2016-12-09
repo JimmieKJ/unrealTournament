@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SocketsPrivatePCH.h"
 #include "SocketSubsystem.h"
-#include "ModuleManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ScopeLock.h"
+#include "SocketSubsystemModule.h"
+#include "Modules/ModuleManager.h"
+#include "IPAddress.h"
 #include "Sockets.h"
+#include "UniquePtr.h"
 
 DEFINE_LOG_CATEGORY(LogSockets);
 
@@ -194,8 +198,8 @@ ISocketSubsystem* FSocketSubsystemModule::GetSocketSubsystem(const FName InSubsy
 ISocketSubsystem* ISocketSubsystem::Get(const FName& SubsystemName)
 {
 	// wrap the platform file with a logger
-	//	static TScopedPointer<FLoggedPlatformFile> AutoDestroyLog;
-	//	AutoDestroyLog = new FLoggedPlatformFile(*CurrentPlatformFile);
+	//	static TUniquePtr<FLoggedPlatformFile> AutoDestroyLog;
+	//	AutoDestroyLog = MakeUnique<FLoggedPlatformFile>(*CurrentPlatformFile);
 
 	struct FStatic
 	{

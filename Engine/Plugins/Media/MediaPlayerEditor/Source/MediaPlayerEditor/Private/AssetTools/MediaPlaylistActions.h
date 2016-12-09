@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/ISlateStyle.h"
+#include "Toolkits/IToolkitHost.h"
 #include "AssetTypeActions_Base.h"
-
 
 /**
  * Implements an action for UMediaPlaylist assets.

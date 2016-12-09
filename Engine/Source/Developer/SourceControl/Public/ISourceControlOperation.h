@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ISourceControlState.h"
+#include "CoreMinimal.h"
 
 class ISourceControlOperation : public TSharedFromThis<ISourceControlOperation, ESPMode::ThreadSafe>
 {

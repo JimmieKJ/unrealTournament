@@ -1,16 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "EditorLiveStreamingModule.h"
 #include "EditorLiveStreaming.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Engine/Texture2D.h"
 #include "EditorLiveStreamingSettings.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
-#include "Runtime/Engine/Public/Features/ILiveStreamingService.h"
-#include "Runtime/SlateCore/Public/Rendering/SlateRenderer.h"
-#include "Editor/MainFrame/Public/Interfaces/IMainFrameModule.h"
+#include "Features/IModularFeatures.h"
+#include "Features/ILiveStreamingService.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "Runtime/GameLiveStreaming/Public/IGameLiveStreaming.h"
 #include "ISettingsModule.h"
-#include "SNotificationList.h"
-#include "ModuleManager.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 
 IMPLEMENT_MODULE( FEditorLiveStreaming, EditorLiveStreaming );

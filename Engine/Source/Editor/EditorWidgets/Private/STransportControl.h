@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "TickableEditorObject.h"
+#include "ITransportControl.h"
+
+class FActiveTimerHandle;
+class SButton;
+struct FSlateBrush;
 
 class STransportControl : public ITransportControl, public FTickableEditorObject
 {
@@ -31,6 +42,7 @@ public:
 private:
 	const FSlateBrush* GetForwardStatusIcon() const;
 	FText GetForwardStatusTooltip() const;
+	const FSlateBrush* GetRecordStatusIcon() const;
 	FText GetRecordStatusTooltip() const;
 	const FSlateBrush* GetBackwardStatusIcon() const;
 	const FSlateBrush* GetLoopStatusIcon() const;
@@ -41,7 +53,7 @@ private:
 	FReply OnToggleLooping();
 
 	/** Make default transport control widgets */
-	TSharedPtr<SWidget> MakeTransportControlWidget(ETransportControlWidgetType WidgetType, const FOnMakeTransportWidget& MakeCustomWidgetDelegate = FOnMakeTransportWidget());
+	TSharedPtr<SWidget> MakeTransportControlWidget(ETransportControlWidgetType WidgetType, bool bAreButtonsFocusable, const FOnMakeTransportWidget& MakeCustomWidgetDelegate = FOnMakeTransportWidget());
 
 private:
 	/** The handle to the active timer */
@@ -54,4 +66,5 @@ private:
 
 	TSharedPtr<SButton> ForwardPlayButton;
 	TSharedPtr<SButton> BackwardPlayButton;
+	TSharedPtr<SButton> RecordButton;
 };

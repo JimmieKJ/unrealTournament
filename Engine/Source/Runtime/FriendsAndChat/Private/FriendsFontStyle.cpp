@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FriendsAndChatPrivatePCH.h"
+#include "FriendsFontStyle.h"
 
 const FName FFriendsFontStyle::TypeName( TEXT("FFriendsFontStyle") );
 

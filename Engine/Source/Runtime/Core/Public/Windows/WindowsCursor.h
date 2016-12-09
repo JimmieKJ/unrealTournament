@@ -2,12 +2,9 @@
 
 #pragma once
 
-#include "ICursor.h"
-
-#include "AllowWindowsPlatformTypes.h"
-	#include "Ole2.h"
-	#include "OleIdl.h"
-#include "HideWindowsPlatformTypes.h"
+#include "CoreTypes.h"
+#include "HAL/PlatformMemory.h"
+#include "GenericPlatform/ICursor.h"
 
 class FWindowsCursor : public ICursor
 {
@@ -34,19 +31,12 @@ public:
 
 	virtual void Lock( const RECT* const Bounds ) override;
 
-public:
-
-	/**
-	 * Defines a custom cursor shape for the EMouseCursor::Custom type.
-	 * 
-	 * @param CursorHandle	A native cursor handle to show when EMouseCursor::Custom is selected.
-	 */
-	virtual void SetCustomShape( HCURSOR CursorHandle );
+	virtual void SetCustomShape(void* CursorHandle) override;
 
 private:
 
 	EMouseCursor::Type CurrentType;
 
 	/** Cursors */
-	HCURSOR CursorHandles[ EMouseCursor::TotalCursorCount ];
+	Windows::HCURSOR CursorHandles[ EMouseCursor::TotalCursorCount ];
 };

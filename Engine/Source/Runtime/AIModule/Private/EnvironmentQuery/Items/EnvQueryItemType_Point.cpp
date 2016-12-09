@@ -1,18 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_Point.h"
 
 template<>
-void FEnvQueryInstance::AddItemData<UEnvQueryItemType_Point, FNavLocation>(FNavLocation ItemValue)
+void FEnvQueryInstance::AddItemData<UEnvQueryItemType_Point, FVector>(FVector ItemValue)
 {
-	DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
-
-	const int32 DataOffset = RawData.AddUninitialized(ValueSize);
-	UEnvQueryItemType_Point::SetNavValue(RawData.GetData() + DataOffset, ItemValue);
-	Items.Add(FEnvQueryItem(DataOffset));
-
-	INC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
+	const FNavLocation Item = FNavLocation(ItemValue);
+	AddItemData<UEnvQueryItemType_Point>(Item);
 }
 
 UEnvQueryItemType_Point::UEnvQueryItemType_Point(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -20,22 +14,12 @@ UEnvQueryItemType_Point::UEnvQueryItemType_Point(const FObjectInitializer& Objec
 	ValueSize = sizeof(FNavLocation);
 }
 
-FVector UEnvQueryItemType_Point::GetValue(const uint8* RawData)
-{
-	return GetValueFromMemory<FNavLocation>(RawData).Location;
-}
-
-void UEnvQueryItemType_Point::SetValue(uint8* RawData, const FVector& Value)
-{
-	return SetValueInMemory<FNavLocation>(RawData, FNavLocation(Value));
-}
-
-FNavLocation UEnvQueryItemType_Point::GetNavValue(const uint8* RawData)
+FNavLocation UEnvQueryItemType_Point::GetValue(const uint8* RawData)
 {
 	return GetValueFromMemory<FNavLocation>(RawData);
 }
 
-void UEnvQueryItemType_Point::SetNavValue(uint8* RawData, const FNavLocation& Value)
+void UEnvQueryItemType_Point::SetValue(uint8* RawData, const FNavLocation& Value)
 {
 	return SetValueInMemory<FNavLocation>(RawData, Value);
 }
@@ -47,12 +31,12 @@ FVector UEnvQueryItemType_Point::GetItemLocation(const uint8* RawData) const
 
 FNavLocation UEnvQueryItemType_Point::GetItemNavLocation(const uint8* RawData) const
 {
-	return UEnvQueryItemType_Point::GetNavValue(RawData);
+	return UEnvQueryItemType_Point::GetValue(RawData);
 }
 
 void UEnvQueryItemType_Point::SetItemNavLocation(uint8* RawData, const FNavLocation& Value) const
 {
-	UEnvQueryItemType_Point::SetNavValue(RawData, Value);
+	UEnvQueryItemType_Point::SetValue(RawData, Value);
 }
 
 void UEnvQueryItemType_Point::SetContextHelper(FEnvQueryContextData& ContextData, const FVector& SinglePoint)
@@ -61,7 +45,7 @@ void UEnvQueryItemType_Point::SetContextHelper(FEnvQueryContextData& ContextData
 	ContextData.NumValues = 1;
 	ContextData.RawData.SetNumUninitialized(sizeof(FNavLocation));
 
-	UEnvQueryItemType_Point::SetValue((uint8*)ContextData.RawData.GetData(), SinglePoint);
+	UEnvQueryItemType_Point::SetValue((uint8*)ContextData.RawData.GetData(), FNavLocation(SinglePoint));
 }
 
 void UEnvQueryItemType_Point::SetContextHelper(FEnvQueryContextData& ContextData, const TArray<FVector>& MultiplePoints)
@@ -73,7 +57,7 @@ void UEnvQueryItemType_Point::SetContextHelper(FEnvQueryContextData& ContextData
 	uint8* RawData = (uint8*)ContextData.RawData.GetData();
 	for (int32 PointIndex = 0; PointIndex < MultiplePoints.Num(); PointIndex++)
 	{
-		UEnvQueryItemType_Point::SetValue(RawData, MultiplePoints[PointIndex]);
+		UEnvQueryItemType_Point::SetValue(RawData, FNavLocation(MultiplePoints[PointIndex]));
 		RawData += sizeof(FNavLocation);
 	}
 }

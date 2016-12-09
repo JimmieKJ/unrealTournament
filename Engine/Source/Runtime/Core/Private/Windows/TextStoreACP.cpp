@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "TextStoreACP.h"
+#include "Windows/TextStoreACP.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
+#include "Math/Vector2D.h"
+#include "Logging/LogCategory.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "GenericPlatform/ITextInputMethodSystem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTextStoreACP, Log, All);
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <OleCtl.h>
 #include <tsattrs.h>
 
@@ -827,4 +832,4 @@ STDAPI FTextStoreACP::OnEndComposition(__RPC__in_opt ITfCompositionView *pCompos
 	return S_OK;
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

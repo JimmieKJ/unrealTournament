@@ -2,15 +2,25 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "PropertyCustomizationHelpers.h"
+#include "AssetData.h"
+
+class UFactory;
+
 class SPropertyMenuAssetPicker : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS( SPropertyMenuAssetPicker )
 		: _InitialObject(NULL)
 		, _AllowClear(true)
+		, _SearchInBlueprint(false)
 	{}
 		SLATE_ARGUMENT( FAssetData, InitialObject )
 		SLATE_ARGUMENT( bool, AllowClear )
+		SLATE_ARGUMENT(bool, SearchInBlueprint)			
 		SLATE_ARGUMENT( TArray<const UClass*>, AllowedClasses )
 		SLATE_ARGUMENT( TArray<UFactory*>, NewAssetFactories )
 		SLATE_EVENT( FOnShouldFilterAsset, OnShouldFilterAsset )

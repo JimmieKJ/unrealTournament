@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HttpPrivatePCH.h"
 #include "HttpWinInet.h"
+#include "Misc/ScopeLock.h"
+#include "Misc/App.h"
+#include "HAL/PlatformTime.h"
 #include "EngineVersion.h"
 #include "NetworkVersion.h"
+#include "HttpManager.h"
+#include "Http.h"
 
 bool FWinInetConnection::bStaticConnectionInitialized = false;
 

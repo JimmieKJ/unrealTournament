@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
 #include "MacWindow.h"
 #include "MacApplication.h"
 #include "MacCursor.h"
@@ -36,24 +35,16 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 	// Finally, let's initialize the new native window object.  Calling this function will often cause OS
 	// window messages to be sent! (such as activation messages)
 
-	const int32 X = FMath::TruncToInt( Definition->XDesiredPositionOnScreen );
-
-	TSharedRef<FMacScreen> TargetScreen = Application->FindScreenByPoint( X, Definition->YDesiredPositionOnScreen );
-
-	int32 Y = FMath::TruncToInt( Definition->YDesiredPositionOnScreen );
-
-	// Make sure it's not under the menu bar on whatever display being targeted
-	const int32 MaxVisibleY = FMacApplication::ConvertCocoaYPositionToSlate(TargetScreen->VisibleFrame.origin.y + TargetScreen->VisibleFrame.size.height);
-	Y = (Y - MaxVisibleY) >= 0 ? Y : MaxVisibleY;
+	TSharedRef<FMacScreen> TargetScreen = FMacApplication::FindScreenBySlatePosition(Definition->XDesiredPositionOnScreen, Definition->YDesiredPositionOnScreen);
 
 	const int32 SizeX = FMath::Max(FMath::TruncToInt( Definition->WidthDesiredOnScreen ), 1);
 	const int32 SizeY = FMath::Max(FMath::TruncToInt( Definition->HeightDesiredOnScreen ), 1);
 
-	PositionX = X;
-	PositionY = Y;
+	PositionX = Definition->XDesiredPositionOnScreen;
+	PositionY = Definition->YDesiredPositionOnScreen >= TargetScreen->VisibleFramePixels.origin.y ? Definition->YDesiredPositionOnScreen : TargetScreen->VisibleFramePixels.origin.y;
 
-	const int32 InvertedY = FMacApplication::ConvertSlateYPositionToCocoa(Y) - SizeY + 1;
-	const NSRect ViewRect = NSMakeRect(X, InvertedY, SizeX, SizeY);
+	const FVector2D CocoaPosition = FMacApplication::ConvertSlatePositionToCocoa(PositionX, PositionY);
+	const NSRect ViewRect = NSMakeRect(CocoaPosition.X, CocoaPosition.Y - (SizeY / TargetScreen->Screen.backingScaleFactor) + 1, SizeX / TargetScreen->Screen.backingScaleFactor, SizeY / TargetScreen->Screen.backingScaleFactor);
 
 	uint32 WindowStyle = 0;
 	if( Definition->IsRegularWindow )
@@ -145,7 +136,7 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 			[WindowHandle setMinSize:NSMakeSize(Definition->SizeLimits.GetMinWidth().Get(10.0f), Definition->SizeLimits.GetMinHeight().Get(10.0f))];
 			[WindowHandle setMaxSize:NSMakeSize(Definition->SizeLimits.GetMaxWidth().Get(10000.0f), Definition->SizeLimits.GetMaxHeight().Get(10000.0f))];
 
-			ReshapeWindow( X, Y, SizeX, SizeY );
+			ReshapeWindow(PositionX, PositionY, SizeX, SizeY);
 
 			if (Definition->ShouldPreserveAspectRatio)
 			{
@@ -225,42 +216,46 @@ void FMacWindow::ReshapeWindow( int32 X, int32 Y, int32 Width, int32 Height )
 	{
 		SCOPED_AUTORELEASE_POOL;
 		
-		if(GetWindowMode() == EWindowMode::Windowed || GetWindowMode() == EWindowMode::WindowedFullscreen)
+		const float DPIScaleFactor = FPlatformMisc::GetDPIScaleFactorAtPoint(X, Y);
+		Width /= DPIScaleFactor;
+		Height /= DPIScaleFactor;
+
+		if (GetWindowMode() == EWindowMode::Windowed || GetWindowMode() == EWindowMode::WindowedFullscreen)
 		{
-			const int32 InvertedY = FMacApplication::ConvertSlateYPositionToCocoa(Y) - Height + 1;
-			NSRect Rect = NSMakeRect(X, InvertedY, FMath::Max(Width, 1), FMath::Max(Height, 1));
+			const FVector2D CocoaPosition = FMacApplication::ConvertSlatePositionToCocoa(X, Y);
+			NSRect Rect = NSMakeRect(CocoaPosition.X, CocoaPosition.Y - Height + 1, FMath::Max(Width, 1), FMath::Max(Height, 1));
 			if (Definition->HasOSWindowBorder)
 			{
-				Rect = [WindowHandle frameRectForContentRect: Rect];
+				Rect = [WindowHandle frameRectForContentRect:Rect];
 			}
 			
-			if ( !NSEqualRects([WindowHandle frame], Rect) )
+			if (!NSEqualRects([WindowHandle frame], Rect))
 			{
 				MainThreadCall(^{
 					SCOPED_AUTORELEASE_POOL;
 					BOOL DisplayIfNeeded = (GetWindowMode() == EWindowMode::Windowed);
 					
-					[WindowHandle setFrame: Rect display:DisplayIfNeeded];
+					[WindowHandle setFrame:Rect display:DisplayIfNeeded];
 					
 					// Force resize back to screen size in fullscreen - not ideally pretty but means we don't
 					// have to subvert the OS X or UE fullscreen handling events elsewhere.
-					if(GetWindowMode() != EWindowMode::Windowed)
+					if (GetWindowMode() == EWindowMode::WindowedFullscreen)
 					{
-						[WindowHandle setFrame: [WindowHandle screen].frame display:YES];
+						[WindowHandle setFrame:WindowHandle.screen.frame display:YES];
 					}
 					else if (Definition->ShouldPreserveAspectRatio)
 					{
 						[WindowHandle setContentAspectRatio:NSMakeSize((float)Width / (float)Height, 1.0f)];
 					}
 
-					WindowHandle->bZoomed = [WindowHandle isZoomed];
+					WindowHandle->bZoomed = WindowHandle.isZoomed;
 				}, UE4ResizeEventMode, true);
 			}
 		}
 		else
 		{
 			NSRect NewRect = NSMakeRect(WindowHandle.PreFullScreenRect.origin.x, WindowHandle.PreFullScreenRect.origin.y, (CGFloat)Width, (CGFloat)Height);
-			if ( !NSEqualRects(WindowHandle.PreFullScreenRect, NewRect) )
+			if (!NSEqualRects(WindowHandle.PreFullScreenRect, NewRect))
 			{
 				WindowHandle.PreFullScreenRect = NewRect;
 				MainThreadCall(^{
@@ -285,10 +280,11 @@ bool FMacWindow::GetFullScreenInfo( int32& X, int32& Y, int32& Width, int32& Hei
 	SCOPED_AUTORELEASE_POOL;
 	bool const bIsFullscreen = (GetWindowMode() == EWindowMode::Fullscreen);
 	const NSRect Frame = (!bIsFullscreen) ? [WindowHandle screen].frame : PreFullscreenWindowRect;
-	X = Frame.origin.x;
-	Y = Frame.origin.y;
-	Width = Frame.size.width;
-	Height = Frame.size.height;
+	const FVector2D SlatePosition = FMacApplication::ConvertCocoaPositionToSlate(Frame.origin.x, Frame.origin.y - Frame.size.height + 1.0f);
+	X = SlatePosition.X;
+	Y = SlatePosition.Y;
+	Width = Frame.size.width * WindowHandle.screen.backingScaleFactor;
+	Height = Frame.size.height * WindowHandle.screen.backingScaleFactor;
 	return true;
 }
 
@@ -296,8 +292,8 @@ void FMacWindow::MoveWindowTo( int32 X, int32 Y )
 {
 	MainThreadCall(^{
 		SCOPED_AUTORELEASE_POOL;
-		const int32 InvertedY = FMacApplication::ConvertSlateYPositionToCocoa(Y) - [WindowHandle openGLFrame].size.height + 1;
-		[WindowHandle setFrameOrigin: NSMakePoint(X, InvertedY)];
+		const FVector2D Point = FMacApplication::ConvertSlatePositionToCocoa(X, Y);
+		[WindowHandle setFrameOrigin:NSMakePoint(Point.X, Point.Y - [WindowHandle openGLFrame].size.height + 1)];
 	}, UE4ResizeEventMode, true);
 }
 
@@ -372,7 +368,7 @@ void FMacWindow::Show()
 		MainThreadCall(^{
 			SCOPED_AUTORELEASE_POOL;
 			[WindowHandle orderFrontAndMakeMain:bMakeMainAndKey andKey:bMakeMainAndKey];
-		}, UE4ShowEventMode, true);
+		}, UE4ShowEventMode, false);
 		
 		bIsVisible = true;
 	}
@@ -473,15 +469,17 @@ bool FMacWindow::GetRestoredDimensions(int32& X, int32& Y, int32& Width, int32& 
 	if (WindowHandle)
 	{
 		SCOPED_AUTORELEASE_POOL;
-		
-		NSRect Frame = [WindowHandle frame];
-		
-		X = Frame.origin.x;
-		Y = FMacApplication::ConvertSlateYPositionToCocoa(Frame.origin.y) - Frame.size.height + 1;
-		
-		Width = Frame.size.width;
-		Height = Frame.size.height;
-		
+
+		NSRect Frame = WindowHandle.frame;
+
+		const FVector2D SlatePosition = FMacApplication::ConvertCocoaPositionToSlate(Frame.origin.x, Frame.origin.y);
+
+		Width = Frame.size.width * WindowHandle.screen.backingScaleFactor;
+		Height = Frame.size.height * WindowHandle.screen.backingScaleFactor;
+
+		X = SlatePosition.X;
+		Y = SlatePosition.Y - Height + 1;
+
 		return true;
 	}
 	else
@@ -509,8 +507,9 @@ void FMacWindow::SetOpacity( const float InOpacity )
 bool FMacWindow::IsPointInWindow( int32 X, int32 Y ) const
 {
 	SCOPED_AUTORELEASE_POOL;
+
 	bool PointInWindow = false;
-	if(![WindowHandle isMiniaturized])
+	if (![WindowHandle isMiniaturized])
 	{
 		NSRect WindowFrame = [WindowHandle frame];
 		WindowFrame.size = [WindowHandle openGLFrame].size;
@@ -518,18 +517,18 @@ bool FMacWindow::IsPointInWindow( int32 X, int32 Y ) const
 		VisibleFrame.origin = NSMakePoint(0, 0);
 
 		// Only the editor needs to handle the space-per-display logic introduced in Mavericks.
-	#if WITH_EDITOR
+#if WITH_EDITOR
 		// Only fetch the spans-displays once - it requires a log-out to change.
 		// Note that we have no way to tell if the current setting is actually in effect,
 		// so this won't work if the user schedules a change but doesn't logout to confirm it.
 		static bool bScreensHaveSeparateSpaces = false;
 		static bool bSettingFetched = false;
-		if(!bSettingFetched)
+		if (!bSettingFetched)
 		{
 			bSettingFetched = true;
 			bScreensHaveSeparateSpaces = [NSScreen screensHaveSeparateSpaces];
 		}
-		if(bScreensHaveSeparateSpaces)
+		if (bScreensHaveSeparateSpaces)
 		{
 			NSRect ScreenFrame = [[WindowHandle screen] frame];
 			NSRect Intersection = NSIntersectionRect(ScreenFrame, WindowFrame);
@@ -537,12 +536,12 @@ bool FMacWindow::IsPointInWindow( int32 X, int32 Y ) const
 			VisibleFrame.origin.x = Intersection.origin.x - WindowFrame.origin.x;
 			VisibleFrame.origin.y = Intersection.origin.y - WindowFrame.origin.y;
 		}
-	#endif
-		
-		if(WindowHandle->bIsOnActiveSpace)
+#endif
+
+		if (WindowHandle->bIsOnActiveSpace)
 		{
-			FMacCursor* MacCursor = (FMacCursor*)MacApplication->Cursor.Get();
-			NSPoint CursorPoint = NSMakePoint(X, WindowFrame.size.height - (Y + 1));
+			const float DPIScaleFactor = GetDPIScaleFactor();
+			NSPoint CursorPoint = NSMakePoint(X / DPIScaleFactor, WindowFrame.size.height - (Y / DPIScaleFactor + 1));
 			PointInWindow = (NSPointInRect(CursorPoint, VisibleFrame) == YES);
 		}
 	}
@@ -585,6 +584,11 @@ bool FMacWindow::IsRegularWindow() const
 void FMacWindow::AdjustCachedSize( FVector2D& Size ) const
 {
 	// No adjustmnet needed
+}
+
+float FMacWindow::GetDPIScaleFactor() const
+{
+	return WindowHandle.backingScaleFactor;
 }
 
 void FMacWindow::OnDisplayReconfiguration(CGDirectDisplayID Display, CGDisplayChangeSummaryFlags Flags)

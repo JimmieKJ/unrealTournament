@@ -2,16 +2,32 @@
 
 #pragma once
 
-#include "EditorObjectsTracker.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "UObject/GCObject.h"
+#include "Toolkits/AssetEditorToolkit.h"
+#include "WorkflowOrientedApp/WorkflowTabFactory.h"
+#include "PersonaDelegates.h"
 #include "IDocumentation.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorObjectsTracker.h"
 
 #define LOCTEXT_NAMESPACE "SkeletonAnimnotifies"
+
+class IEditableSkeleton;
+class SToolTip;
+struct FNotificationInfo;
+
 /////////////////////////////////////////////////////
-// FSkeletonTreeSummoner
+// FSkeletonAnimNotifiesSummoner
 struct FSkeletonAnimNotifiesSummoner : public FWorkflowTabFactory
 {
 public:
-	FSkeletonAnimNotifiesSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
+	FSkeletonAnimNotifiesSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnChangeAnimNotifies, FSimpleMulticastDelegate& InOnPostUndo, FOnObjectsSelected InOnObjectsSelected);
 
 	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
 
@@ -20,6 +36,12 @@ public:
 	{
 		return  IDocumentation::Get()->CreateToolTip(LOCTEXT("AnimationNotifierTooltip", "This tab lets you modify custom animation notifies"), NULL, TEXT("Shared/Editors/Persona"), TEXT("AnimationNotifies_Window"));
 	}
+
+private:
+	TWeakPtr<class IEditableSkeleton> EditableSkeleton;
+	FSimpleMulticastDelegate& OnChangeAnimNotifies;
+	FSimpleMulticastDelegate& OnPostUndo;
+	FOnObjectsSelected OnObjectsSelected;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -56,16 +78,13 @@ class SSkeletonAnimNotifies : public SCompoundWidget, public FGCObject
 {
 public:
 	SLATE_BEGIN_ARGS( SSkeletonAnimNotifies )
-		: _Persona()
 	{}
 
-	SLATE_ARGUMENT( TWeakPtr<FPersona>, Persona )
+	SLATE_EVENT(FOnObjectsSelected, OnObjectsSelected)
 		
-		SLATE_END_ARGS()
+	SLATE_END_ARGS()
 public:
-	void Construct(const FArguments& InArgs);
-
-	~SSkeletonAnimNotifies();
+	void Construct(const FArguments& InArgs, const TSharedRef<IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnChangeAnimNotifies, FSimpleMulticastDelegate& InOnPostUndo);
 
 	/**
 	* Accessor so our rows can grab the filter text for highlighting
@@ -132,17 +151,11 @@ private:
 	/** handler for user selecting a Notify in NotifiesListView - populates the details panel */
 	void ShowNotifyInDetailsView( FName NotifyName );
 
-	/** Populates OutAssets with the AnimSequences that match Personas current skeleton */
-	void GetCompatibleAnimSequences( TArray<class FAssetData>& OutAssets );
-
 	/** Utility function to display notifications to the user */
 	void NotifyUser( FNotificationInfo& NotificationInfo );
 
-	/** The owning Persona instance */
-	TWeakPtr<class FPersona> PersonaPtr;
-
 	/** The skeleton we are currently editing */
-	USkeleton* TargetSkeleton;
+	TSharedPtr<class IEditableSkeleton> EditableSkeleton;
 
 	/** SSearchBox to filter the notify list */
 	TSharedPtr<SSearchBox>	NameFilterBox;
@@ -158,6 +171,9 @@ private:
 
 	/** Tracks objects created for displaying in the details panel*/
 	FEditorObjectTracker EditorObjectTracker;
+
+	/** Delegate called to select an object in the details panel */
+	FOnObjectsSelected OnObjectsSelected;
 };
 
 #undef LOCTEXT_NAMESPACE

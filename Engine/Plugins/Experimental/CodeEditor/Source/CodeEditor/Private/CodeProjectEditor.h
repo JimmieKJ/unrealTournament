@@ -2,7 +2,17 @@
 
 #pragma once
 
-#include "WorkflowCentricApplication.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "UObject/GCObject.h"
+#include "Toolkits/IToolkitHost.h"
+#include "WorkflowOrientedApp/WorkflowCentricApplication.h"
+
+class FCodeProjectEditorToolbar;
+class FDocumentTracker;
+class FTabInfo;
+class UCodeProject;
+class UCodeProjectItem;
 
 class FCodeProjectEditor : public FWorkflowCentricApplication, public FGCObject
 {

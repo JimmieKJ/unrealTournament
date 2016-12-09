@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MatineeModule.h"
+#include "CoreMinimal.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Widgets/SViewport.h"
+#include "MatineeViewportClient.h"
 #include "Matinee.h"
 
-#include "Runtime/Engine/Public/InterpolationHitProxy.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "SDockTab.h"
+#include "Slate/SceneViewport.h"
+#include "Widgets/Docking/SDockTab.h"
 
 
 /*-----------------------------------------------------------------------------

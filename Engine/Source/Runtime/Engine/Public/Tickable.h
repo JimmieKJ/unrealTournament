@@ -7,7 +7,8 @@
 
 #pragma once
 
-class UWorld;
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
 
 /**
  * Base class for tickable objects

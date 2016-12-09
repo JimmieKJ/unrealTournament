@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+
 /** Debug info that is stored on the stack and handled by stack unwinding. */
 class CORE_API FScopedDebugInfo
 {

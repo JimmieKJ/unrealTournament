@@ -4,8 +4,9 @@
 	StaticBoundShaderState.cpp: Static bound shader state implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "StaticBoundShaderState.h"
+#include "RenderingThread.h"
+#include "Shader.h"
 
 TLinkedList<FGlobalBoundShaderStateResource*>*& FGlobalBoundShaderStateResource::GetGlobalBoundShaderStateList()
 {

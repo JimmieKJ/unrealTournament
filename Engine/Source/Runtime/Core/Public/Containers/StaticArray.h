@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "Containers/ContainerAllocationPolicies.h"
-
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Templates/AlignOf.h"
+#include "Templates/TypeCompatibleBytes.h"
+#include "Templates/MemoryOps.h"
 
 /** An array with a static number of elements. */
 template<typename TElement,uint32 NumElements,uint32 Alignment = ALIGNOF(TElement)>

@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Components/InputComponent.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineBaseTypes.h"
 #include "Engine/InputDelegateBinding.h"
+#include "Framework/Commands/InputChord.h"
 #include "InputKeyDelegateBinding.generated.h"
+
+class UInputComponent;
 
 USTRUCT()
 struct ENGINE_API FBlueprintInputKeyDelegateBinding : public FBlueprintInputDelegateBinding

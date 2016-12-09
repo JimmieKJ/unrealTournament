@@ -2,7 +2,7 @@
 //
 // Currently not needed, but could be used in the future.
 
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #include "System/paConfig.h"
 

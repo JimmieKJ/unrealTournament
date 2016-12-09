@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+
+class IPropertyHandle;
+class IUnloadedBlueprintData;
+class UBlueprint;
+
 class FClassViewerNode
 {
 public:

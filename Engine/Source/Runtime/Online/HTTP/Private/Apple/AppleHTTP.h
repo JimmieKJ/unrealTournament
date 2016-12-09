@@ -2,6 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
+#include "HttpManager.h"
+#include "PlatformHttp.h"
+
+class FHttpManager;
+class FString;
+class IHttpRequest;
 
 /**
  * Apple implementation of an Http request

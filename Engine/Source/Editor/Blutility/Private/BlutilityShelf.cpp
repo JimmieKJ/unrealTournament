@@ -1,12 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlutilityPrivatePCH.h"
-#include "AssetToolsModule.h"
 #include "BlutilityShelf.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "EditorUtilityBlueprint.h"
+#include "IAssetTools.h"
+#include "AssetToolsModule.h"
 
-#include "AssetData.h"
 #include "Toolkits/AssetEditorManager.h"
+#include "CollectionManagerTypes.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
+#include "ICollectionManager.h"
 #include "CollectionManagerModule.h"
 
 #define LOCTEXT_NAMESPACE "BlutilityShelf"

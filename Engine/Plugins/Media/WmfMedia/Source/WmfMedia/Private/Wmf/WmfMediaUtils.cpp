@@ -1,34 +1,43 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WmfMediaPCH.h"
+#include "WmfMediaUtils.h"
+#include "HAL/PlatformProcess.h"
 
 #if WMFMEDIA_SUPPORTED_PLATFORM
 
-#include "WmfMediaUtils.h"
 #include "AllowWindowsPlatformTypes.h"
 
 
 namespace WmfMedia
 {
+	const GUID OtherVideoFormat_QuickTime = { 0x61766331, 0x767a, 0x494d, { 0xb4, 0x78, 0xf2, 0x9d, 0x25, 0xdc, 0x90, 0x37 } }; // 1cva
+
+
 	FString FourccToString(unsigned long Fourcc)
 	{
 		return FString::Printf(TEXT("%c%c%c%c"),
-			Fourcc & 0xff,
-			(Fourcc >> 8) & 0xff,
+			(Fourcc >> 24) & 0xff,
 			(Fourcc >> 16) & 0xff,
-			(Fourcc >> 24) & 0xff
+			(Fourcc >> 8) & 0xff,
+			Fourcc & 0xff		
 		);
 	}
 
 
 	FString GuidToString(const GUID& Guid)
 	{
-		return FString::Printf(TEXT("%08x-%04x-%04x-%08x%08x"),
+		return FString::Printf(TEXT("%08x-%04x-%04x-%02x%02x%02x%02x%02x%02x%02x%02x"),
 			Guid.Data1,
 			Guid.Data2,
 			Guid.Data3,
-			*((unsigned long*)&Guid.Data4[0]),
-			*((unsigned long*)&Guid.Data4[4])
+			Guid.Data4[0],
+			Guid.Data4[1],
+			Guid.Data4[2],
+			Guid.Data4[3],
+			Guid.Data4[4],
+			Guid.Data4[5],
+			Guid.Data4[6],
+			Guid.Data4[7]
 		);
 	}
 
@@ -588,6 +597,9 @@ namespace WmfMedia
 
 		if (SubType == MFVideoFormat_H264_ES) return TEXT("H264 ES");
 		if (SubType == MFVideoFormat_MPEG2) return TEXT("MPEG-2");
+
+		// common non-Windows formats
+		if (SubType == OtherVideoFormat_QuickTime) return TEXT("QuickTime");
 
 		return FString::Printf(TEXT("%s (%s)"), *GuidToString(SubType), *FourccToString(SubType.Data1));
 	}

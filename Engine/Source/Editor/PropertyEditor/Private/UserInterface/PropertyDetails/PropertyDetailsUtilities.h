@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "AssetThumbnail.h"
 #include "IPropertyUtilities.h"
+
+class IDetailsViewPrivate;
+struct FPropertyChangedEvent;
 
 class FPropertyDetailsUtilities : public IPropertyUtilities
 {

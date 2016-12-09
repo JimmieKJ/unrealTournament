@@ -2,16 +2,23 @@
 
 #pragma once
 
-#include "SlateSound.h"
-#include "SlateBrush.h"
-#include "SlateWidgetStyle.h"
-#include "SlateFontInfo.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Styling/SlateColor.h"
+#include "Fonts/CompositeFont.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Layout/Margin.h"
+#include "Sound/SlateSound.h"
+#include "Styling/SlateBrush.h"
+#include "Styling/SlateWidgetStyle.h"
 
 #include "SlateTypes.generated.h"
 
 /** Used to determine how we should handle mouse wheel input events when someone scrolls. */
 UENUM()
-enum class EConsumeMouseWheel
+enum class EConsumeMouseWheel : uint8
 {
 	/** Only consume the mouse wheel event when we actually scroll some amount. */
 	WhenScrollingPossible,
@@ -802,7 +809,7 @@ struct SLATECORE_API FSearchBoxStyle : public FSlateWidgetStyle
 	FSearchBoxStyle& SetTextBoxStyle( const FEditableTextBoxStyle& InTextBoxStyle );
 
 	/** Font to use for the text box part of the search box when a search term is entered*/
-	UPROPERTY(EditAnywhere, Category=Appearance)
+	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateFontInfo ActiveFontInfo;
 	FSearchBoxStyle& SetActiveFont( const FSlateFontInfo& InFontInfo ){ ActiveFontInfo = InFontInfo; return *this; }
 

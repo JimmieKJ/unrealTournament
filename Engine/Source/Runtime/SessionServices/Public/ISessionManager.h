@@ -2,11 +2,10 @@
 
 #pragma once
 
-
-class ISessionInfo;
-class ISessionInstanceInfo;
-struct FSessionLogMessage;
-
+#include "CoreMinimal.h"
+#include "ISessionInstanceInfo.h"
+#include "ISessionInfo.h"
+#include "SessionLogMessage.h"
 
 /**
  * Interface for the session manager.
@@ -127,10 +126,3 @@ public:
 	/** Virtual destructor. */
 	virtual ~ISessionManager() { }
 };
-
-
-/** Type definition for shared pointers to instances of ISessionManager. */
-typedef TSharedPtr<ISessionManager> ISessionManagerPtr;
-
-/** Type definition for shared references to instances of ISessionManager. */
-typedef TSharedRef<ISessionManager> ISessionManagerRef;

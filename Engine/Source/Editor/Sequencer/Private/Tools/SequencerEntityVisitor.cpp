@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
-#include "Sequencer.h"
-#include "SequencerDisplayNode.h"
-#include "SequencerEntityVisitor.h"
-#include "MovieSceneSection.h"
-#include "ISequencerSection.h"
+#include "Tools/SequencerEntityVisitor.h"
+#include "IKeyArea.h"
+#include "DisplayNodes/SequencerTrackNode.h"
+#include "GroupedKeyArea.h"
 
 FSequencerEntityRange::FSequencerEntityRange(const TRange<float>& InRange)
 	: StartTime(InRange.GetLowerBoundValue()), EndTime(InRange.GetUpperBoundValue())

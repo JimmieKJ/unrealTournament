@@ -1,6 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Templates/SharedPointer.h"
+
+class FLocMetadataObject;
+
 /**
  * Represents all the types a LocMetadata Value can be.
  */
@@ -39,13 +48,13 @@ public:
 
 	virtual TSharedRef<FLocMetadataValue> Clone() const = 0;
 
-	bool operator==( const FLocMetadataValue& Other ) { return ( (Type == Other.Type) && EqualTo( Other ) ); }
-	bool operator<( const FLocMetadataValue& Other ) { return (Type == Other.Type) ? LessThan( Other ) : (Type < Other.Type); }
+	virtual ELocMetadataType GetType() const = 0;
 
-	ELocMetadataType Type;
+	bool operator==( const FLocMetadataValue& Other ) { return ( (GetType() == Other.GetType()) && EqualTo( Other ) ); }
+	bool operator<( const FLocMetadataValue& Other ) { return (GetType() == Other.GetType()) ? LessThan( Other ) : (GetType() < Other.GetType()); }
 
 protected:
-	FLocMetadataValue() : Type(ELocMetadataType::None) {}
+	FLocMetadataValue() {}
 
 	virtual bool EqualTo( const FLocMetadataValue& Other ) const = 0;
 	virtual bool LessThan( const FLocMetadataValue& Other ) const = 0;
@@ -80,7 +89,7 @@ public:
 		const TSharedPtr<FLocMetadataValue>* Field = Values.Find(FieldName);
 		if ( ensureMsgf(Field && Field->IsValid(), TEXT("Field %s was not found."), *FieldName) )
 		{
-			if ( ensureMsgf( (*Field)->Type == LocMetadataType, TEXT("Field %s is of the wrong type."), *FieldName) )
+			if ( ensureMsgf( (*Field)->GetType() == LocMetadataType, TEXT("Field %s is of the wrong type."), *FieldName) )
 			{
 				return (*Field);
 			}
@@ -106,7 +115,7 @@ public:
 	bool HasTypedField(const FString& FieldName)
 	{
 		const TSharedPtr<FLocMetadataValue>* Field = Values.Find(FieldName);
-		if(Field && Field->IsValid() && ((*Field)->Type == LocMetadataType))
+		if(Field && Field->IsValid() && ((*Field)->GetType() == LocMetadataType))
 		{
 			return true;
 		}
@@ -168,9 +177,9 @@ CORE_API FArchive& operator<<(FArchive& Archive, FLocMetadataObject& Object);
 class CORE_API FLocMetadataValueString : public FLocMetadataValue
 {
 public:
-	FLocMetadataValueString(const FString& InString) : Value(InString) {Type = ELocMetadataType::String;}
+	FLocMetadataValueString(const FString& InString) : Value(InString) {}
 	FLocMetadataValueString(FArchive& Archive);
-	static void Serialize(const FLocMetadataValueString& Value, FArchive& Archive);
+	static void Serialize(FLocMetadataValueString& Value, FArchive& Archive);
 
 	virtual FString AsString() override {return Value;}
 
@@ -178,6 +187,8 @@ public:
 	void SetString( const FString& InString ) { Value = InString; }
 
 	virtual FString ToString() const override {return Value;}
+
+	virtual ELocMetadataType GetType() const override {return ELocMetadataType::String;}
 
 protected:
 
@@ -194,15 +205,17 @@ protected:
 class CORE_API FLocMetadataValueBoolean : public FLocMetadataValue
 {
 public:
-	FLocMetadataValueBoolean(bool InBool) : Value(InBool) {Type = ELocMetadataType::Boolean;}
+	FLocMetadataValueBoolean(bool InBool) : Value(InBool) {}
 	FLocMetadataValueBoolean(FArchive& Archive);
-	static void Serialize(const FLocMetadataValueBoolean& Value, FArchive& Archive);
+	static void Serialize(FLocMetadataValueBoolean& Value, FArchive& Archive);
 
 	virtual bool AsBool() override {return Value;}
 
 	virtual TSharedRef<FLocMetadataValue> Clone() const override;
 	
 	virtual FString ToString() const override {return Value ? TEXT("true") : TEXT("false");}
+
+	virtual ELocMetadataType GetType() const override {return ELocMetadataType::Boolean;}
 
 protected:
 	bool Value;
@@ -217,15 +230,17 @@ protected:
 class CORE_API FLocMetadataValueArray : public FLocMetadataValue
 {
 public:
-	FLocMetadataValueArray(const TArray< TSharedPtr<FLocMetadataValue> >& InArray) : Value(InArray) {Type = ELocMetadataType::Array;}
+	FLocMetadataValueArray(const TArray< TSharedPtr<FLocMetadataValue> >& InArray) : Value(InArray) {}
 	FLocMetadataValueArray(FArchive& Archive);
-	static void Serialize(const FLocMetadataValueArray& Value, FArchive& Archive);
+	static void Serialize(FLocMetadataValueArray& Value, FArchive& Archive);
 
 	virtual TArray< TSharedPtr<FLocMetadataValue> > AsArray() override {return Value;}
 
 	virtual TSharedRef<FLocMetadataValue> Clone() const override;
 	
 	virtual FString ToString() const override;
+
+	virtual ELocMetadataType GetType() const override {return ELocMetadataType::Array;}
 
 protected:
 	TArray< TSharedPtr<FLocMetadataValue> > Value;
@@ -240,15 +255,17 @@ protected:
 class CORE_API FLocMetadataValueObject : public FLocMetadataValue
 {
 public:
-	FLocMetadataValueObject(TSharedPtr<FLocMetadataObject> InObject) : Value(InObject) {Type = ELocMetadataType::Object;}
+	FLocMetadataValueObject(TSharedPtr<FLocMetadataObject> InObject) : Value(InObject) {}
 	FLocMetadataValueObject(FArchive& Archive);
-	static void Serialize(const FLocMetadataValueObject& Value, FArchive& Archive);
+	static void Serialize(FLocMetadataValueObject& Value, FArchive& Archive);
 
 	virtual TSharedPtr<FLocMetadataObject> AsObject() override {return Value;}
 
 	virtual TSharedRef<FLocMetadataValue> Clone() const override;
 	
 	virtual FString ToString() const override;
+
+	virtual ELocMetadataType GetType() const override {return ELocMetadataType::Object;}
 
 protected:
 	TSharedPtr<FLocMetadataObject> Value;

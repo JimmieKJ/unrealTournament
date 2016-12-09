@@ -3,9 +3,11 @@
 /*=============================================================================
 RHIUtilities.cpp:
 =============================================================================*/
-#include "RHIPrivatePCH.h"
-#include "RHIUtilities.h"
-#include "Core.h"
+
+#include "CoreMinimal.h"
+#include "HAL/PlatformStackWalk.h"
+#include "HAL/IConsoleManager.h"
+#include "RHI.h"
 
 
 TAutoConsoleVariable<FString> FDumpTransitionsHelper::CVarDumpTransitionsForResource(

@@ -4,7 +4,10 @@
 	MacNoEditorTargetPlatformModule.cpp: Implements the FMacNoEditorTargetPlatformModule class.
 =============================================================================*/
 
-#include "MacNoEditorTargetPlatformPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "GenericMacTargetPlatform.h"
+#include "Interfaces/ITargetPlatformModule.h"
+#include "Modules/ModuleManager.h"
 
 
 /**

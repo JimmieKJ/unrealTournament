@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "SSearchBox.h"
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Events.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Input/SSearchBox.h"
 
 /** This is a container widget to help refocus to a listview widget from a searchbox or other text box widgets that are used in conjunction.
 	Will refocus when the up or down arrows are pressed, and will commit a selection when enter is pressed regardless of where focus is. */

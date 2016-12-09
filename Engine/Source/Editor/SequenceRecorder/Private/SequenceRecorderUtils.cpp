@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequenceRecorderPrivatePCH.h"
 #include "SequenceRecorderUtils.h"
+#include "GameFramework/Actor.h"
 
 namespace SequenceRecorderUtils
 {

@@ -2,12 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "EnvironmentQuery/EnvQueryContext.h"
 #include "EnvQueryContext_BlueprintBase.generated.h"
 
-class UWorld;
-struct FEnvQueryInstance;
+class AActor;
 struct FEnvQueryContextData;
+struct FEnvQueryInstance;
 
 UCLASS(MinimalAPI, Abstract, Blueprintable)
 class UEnvQueryContext_BlueprintBase : public UEnvQueryContext

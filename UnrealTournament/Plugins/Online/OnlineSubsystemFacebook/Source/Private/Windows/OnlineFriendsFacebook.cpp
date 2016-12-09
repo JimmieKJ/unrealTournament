@@ -52,9 +52,11 @@ FOnlineFriendsFacebook::FOnlineFriendsFacebook(FOnlineSubsystemFacebook* InSubsy
 		UE_LOG(LogOnline, Warning, TEXT("Missing LoginUrl= in [OnlineSubsystemFacebook.OnlineIdentityFacebook] of DefaultEngine.ini"));
 	}
 	GConfig->GetArray(TEXT("OnlineSubsystemFacebook.OnlineFriendsFacebook"), TEXT("FriendsFields"), FriendsFields, GEngineIni);	
+
+	// @HSL_BEGIN - Josh.May - 10/04/2016 - Removed deprecated 'username' parameter
 	// always required fields
 	FriendsFields.AddUnique(TEXT("name"));
-	FriendsFields.AddUnique(TEXT("username"));
+	// @HSL_END - Josh.May - 10/04/2016
 }
 
 FOnlineFriendsFacebook::~FOnlineFriendsFacebook()

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FEngineSessionManager;
 struct FAnalyticsEventAttribute;
 
 namespace EAnalyticsErrorCodes
@@ -60,6 +63,7 @@ namespace EAnalyticsErrorCodes
 		MissingExecutable = 103,
 		DeviceNotSetupForDevelopment = 150,
 		DeviceOSNewerThanSDK = 151,
+		TestFailure = 152,
 	};
 };
 

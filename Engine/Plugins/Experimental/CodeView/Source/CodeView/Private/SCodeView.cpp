@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeViewPrivatePCH.h"
 #include "SCodeView.h"
-#include "SSearchBox.h"
-#include "SThrobber.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "SourceCodeNavigation.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Images/SThrobber.h"
 
 #define LOCTEXT_NAMESPACE "SCodeView"
 

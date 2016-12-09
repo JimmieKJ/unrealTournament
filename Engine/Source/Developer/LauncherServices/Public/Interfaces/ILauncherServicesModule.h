@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Interfaces/ILauncherProfileManager.h"
+#include "Interfaces/ILauncher.h"
 
 /**
  * Declares a delegate to be invoked when a launcher profile manager has been initialized.

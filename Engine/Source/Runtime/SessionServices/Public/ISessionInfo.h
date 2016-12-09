@@ -2,10 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ISessionInstanceInfo.h"
 
-class ISessionInstanceInfo;
 struct FSessionLogMessage;
-
 
 /**
  * Interface for game instances.
@@ -19,7 +19,7 @@ public:
 	 *
 	 * @param OutInstances Will hold the collection of instances.
 	 */
-	virtual void GetInstances( TArray<TSharedPtr<ISessionInstanceInfo>>& OutInstances ) const = 0;
+	virtual void GetInstances(TArray<TSharedPtr<ISessionInstanceInfo>>& OutInstances) const = 0;
 
 	/**
 	 * Gets the time at which the last update was received from this instance.
@@ -93,10 +93,3 @@ public:
 	/** Virtual destructor. */
 	virtual ~ISessionInfo() { }
 };
-
-
-/** Type definition for shared pointers to instances of ISessionInfo. */
-typedef TSharedPtr<ISessionInfo> ISessionInfoPtr;
-
-/** Type definition for shared references to instances of ISessionInfo. */
-typedef TSharedRef<ISessionInfo> ISessionInfoRef;

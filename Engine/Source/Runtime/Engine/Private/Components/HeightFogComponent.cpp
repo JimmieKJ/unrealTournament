@@ -4,10 +4,17 @@
 	HeightFogComponent.cpp: Height fog implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreNet.h"
+#include "UObject/ConstructorHelpers.h"
+#include "EngineDefines.h"
+#include "Engine/World.h"
+#include "SceneInterface.h"
+#include "Engine/Texture2D.h"
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Engine/ExponentialHeightFog.h"
 #include "Net/UnrealNetwork.h"
+#include "Components/BillboardComponent.h"
 
 UExponentialHeightFogComponent::UExponentialHeightFogComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -18,10 +25,17 @@ UExponentialHeightFogComponent::UExponentialHeightFogComponent(const FObjectInit
 	DirectionalInscatteringStartDistance = 10000.0f;
 	DirectionalInscatteringColor = FLinearColor(0.25f, 0.25f, 0.125f);
 
+	InscatteringTextureTint = FLinearColor::White;
+	FullyDirectionalInscatteringColorDistance = 100000.0f;
+	NonDirectionalInscatteringColorDistance = 1000.0f;
+
 	FogDensity = 0.02f;
 	FogHeightFalloff = 0.2f;
 	FogMaxOpacity = 1.0f;
 	StartDistance = 0.0f;
+
+	// Effectively disabled by default
+	FogCutoffDistance = WORLD_MAX * 10;
 }
 
 void UExponentialHeightFogComponent::AddFogIfNeeded()
@@ -53,13 +67,42 @@ void UExponentialHeightFogComponent::DestroyRenderState_Concurrent()
 }
 
 #if WITH_EDITOR
+
+bool UExponentialHeightFogComponent::CanEditChange(const UProperty* InProperty) const
+{
+	if (InProperty)
+	{
+		FString PropertyName = InProperty->GetName();
+
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UExponentialHeightFogComponent, DirectionalInscatteringExponent) ||
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UExponentialHeightFogComponent, DirectionalInscatteringStartDistance) ||
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UExponentialHeightFogComponent, DirectionalInscatteringColor) ||
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UExponentialHeightFogComponent, FogInscatteringColor))
+		{
+			return !InscatteringColorCubemap;
+		}
+
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UExponentialHeightFogComponent, FullyDirectionalInscatteringColorDistance) ||
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UExponentialHeightFogComponent, NonDirectionalInscatteringColorDistance) ||
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UExponentialHeightFogComponent, InscatteringTextureTint))
+		{
+			return InscatteringColorCubemap != NULL;
+		}
+	}
+
+	return Super::CanEditChange(InProperty);
+}
+
 void UExponentialHeightFogComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	FogDensity = FMath::Clamp(FogDensity, 0.0f, 10.0f);
 	FogHeightFalloff = FMath::Clamp(FogHeightFalloff, 0.0f, 2.0f);
 	FogMaxOpacity = FMath::Clamp(FogMaxOpacity, 0.0f, 1.0f);
 	StartDistance = FMath::Clamp(StartDistance, 0.0f, (float)WORLD_MAX);
-
+	FogCutoffDistance = FMath::Clamp(FogCutoffDistance, 0.0f, (float)(10 * WORLD_MAX));
+	FullyDirectionalInscatteringColorDistance = FMath::Clamp(FullyDirectionalInscatteringColorDistance, 0.0f, (float)WORLD_MAX);
+	NonDirectionalInscatteringColorDistance = FMath::Clamp(NonDirectionalInscatteringColorDistance, 0.0f, FullyDirectionalInscatteringColorDistance);
+	
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif // WITH_EDITOR
@@ -85,6 +128,42 @@ void UExponentialHeightFogComponent::SetFogInscatteringColor(FLinearColor Value)
 	if(FogInscatteringColor != Value)
 	{
 		FogInscatteringColor = Value;
+		MarkRenderStateDirty();
+	}
+}
+
+void UExponentialHeightFogComponent::SetInscatteringColorCubemap(UTextureCube* Value)
+{
+	if(InscatteringColorCubemap != Value)
+	{
+		InscatteringColorCubemap = Value;
+		MarkRenderStateDirty();
+	}
+}
+
+void UExponentialHeightFogComponent::SetFullyDirectionalInscatteringColorDistance(float Value)
+{
+	if(FullyDirectionalInscatteringColorDistance != Value)
+	{
+		FullyDirectionalInscatteringColorDistance = Value;
+		MarkRenderStateDirty();
+	}
+}
+
+void UExponentialHeightFogComponent::SetNonDirectionalInscatteringColorDistance(float Value)
+{
+	if(NonDirectionalInscatteringColorDistance != Value)
+	{
+		NonDirectionalInscatteringColorDistance = Value;
+		MarkRenderStateDirty();
+	}
+}
+
+void UExponentialHeightFogComponent::SetInscatteringTextureTint(FLinearColor Value)
+{
+	if(InscatteringTextureTint != Value)
+	{
+		InscatteringTextureTint = Value;
 		MarkRenderStateDirty();
 	}
 }
@@ -139,6 +218,15 @@ void UExponentialHeightFogComponent::SetStartDistance(float Value)
 	if(StartDistance != Value)
 	{
 		StartDistance = Value;
+		MarkRenderStateDirty();
+	}
+}
+
+void UExponentialHeightFogComponent::SetFogCutoffDistance(float Value)
+{
+	if(FogCutoffDistance != Value)
+	{
+		FogCutoffDistance = Value;
 		MarkRenderStateDirty();
 	}
 }

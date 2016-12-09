@@ -4,7 +4,7 @@
 IOSPlatformProcess.cpp: iOS implementations of Process functions
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "IOSPlatformProcess.h"
 #include "ApplePlatformRunnableThread.h"
 #include "IOSAppDelegate.h"
 #include <mach-o/dyld.h>
@@ -41,7 +41,7 @@ void FIOSPlatformProcess::LaunchURL( const TCHAR* URL, const TCHAR* Parms, FStri
 {
 	UE_LOG(LogIOS, Log,  TEXT("LaunchURL %s %s"), URL, Parms?Parms:TEXT("") );
 	NSString* CFUrl = (NSString*)FPlatformString::TCHARToCFString( URL );
-    CFUrl = [CFUrl stringByAddingPercentEncodingWithAllowedCharacters: [[NSCharacterSet characterSetWithCharactersInString:@"#?+"] invertedSet]];
+    CFUrl = [CFUrl stringByAddingPercentEncodingWithAllowedCharacters: [NSCharacterSet URLQueryAllowedCharacterSet]];
 	[[UIApplication sharedApplication] openURL: [NSURL URLWithString:( NSString *)CFUrl]];
 
 	if (Error != nullptr)
@@ -53,7 +53,7 @@ void FIOSPlatformProcess::LaunchURL( const TCHAR* URL, const TCHAR* Parms, FStri
 bool FIOSPlatformProcess::CanLaunchURL(const TCHAR* URL)
 {
 	NSString* CFUrl = (NSString*)FPlatformString::TCHARToCFString(URL);
-    CFUrl = [CFUrl stringByAddingPercentEncodingWithAllowedCharacters: [[NSCharacterSet characterSetWithCharactersInString: @"#?+"] invertedSet]];
+    CFUrl = [CFUrl stringByAddingPercentEncodingWithAllowedCharacters: [NSCharacterSet URLQueryAllowedCharacterSet]];
 	bool Result = [[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString : (NSString *)CFUrl]];
 
 	return Result;

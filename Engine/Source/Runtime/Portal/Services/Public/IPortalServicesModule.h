@@ -2,12 +2,11 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
 class FTypeContainer;
 class IPortalServiceLocator;
-
 
 class IPortalServicesModule
 	: public IModuleInterface

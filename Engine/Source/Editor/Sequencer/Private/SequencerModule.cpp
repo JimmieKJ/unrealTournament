@@ -1,12 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
-#include "ModuleManager.h"
-#include "Sequencer.h"
-#include "Toolkits/ToolkitManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Textures/SlateIcon.h"
+#include "EditorModeRegistry.h"
+#include "Toolkits/AssetEditorToolkit.h"
+#include "ISequencer.h"
+#include "ISequencerModule.h"
 #include "SequencerCommands.h"
+#include "ISequencerObjectChangeListener.h"
+#include "Sequencer.h"
 #include "SequencerEdMode.h"
 #include "SequencerObjectChangeListener.h"
+#include "IDetailKeyframeHandler.h"
 #include "SequencerDetailKeyframeHandler.h"
 
 

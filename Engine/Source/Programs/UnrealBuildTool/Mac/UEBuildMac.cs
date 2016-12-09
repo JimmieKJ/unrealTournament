@@ -51,6 +51,9 @@ namespace UnrealBuildTool
 					// Rules.DynamicallyLoadedModuleNames.Add("ShaderFormatD3D");
 					Rules.DynamicallyLoadedModuleNames.Add("ShaderFormatOpenGL");
 					Rules.DynamicallyLoadedModuleNames.Add("MetalShaderFormat");
+
+					Rules.DynamicallyLoadedModuleNames.Remove("VulkanRHI");
+					Rules.DynamicallyLoadedModuleNames.Add("VulkanShaderFormat");
 				}
 			}
 		}
@@ -71,7 +74,6 @@ namespace UnrealBuildTool
 			BuildConfiguration.bCheckExternalHeadersForModification = BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac;
 			BuildConfiguration.bCheckSystemHeadersForModification = BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac;
 			BuildConfiguration.ProcessorCountMultiplier = MacToolChain.GetAdjustedProcessorCountMultiplier();
-			BuildConfiguration.bUseSharedPCHs = false;
 
 			BuildConfiguration.bUsePDBFiles = bCreateDebugInfo && Configuration != CPPTargetConfiguration.Debug && Platform == CPPTargetPlatform.Mac && BuildConfiguration.bGeneratedSYMFile;
 

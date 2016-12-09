@@ -2,22 +2,27 @@
 
 #pragma once
 
-#include "InertialScrollManager.h"
-#include "Overscroll.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "SlotBase.h"
+#include "Layout/Geometry.h"
+#include "Styling/SlateColor.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Input/NavigationReply.h"
+#include "Widgets/SWidget.h"
+#include "Layout/Children.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Framework/Layout/InertialScrollManager.h"
+#include "Framework/Layout/Overscroll.h"
 
-/** Where to scroll the descendant to */
-enum EDescendantScrollDestination
-{
-	/** Scroll the widget into view */
-	IntoView,
-
-	/** Always scroll the widget so it appears at the top/Left of the scrollable area */
-	TopOrLeft,
-
-	/** Attempt to scroll the widget to the middle of the scrollable area */
-	Middle,
-};
-
+class FPaintArgs;
+class FSlateWindowElementList;
+class SScrollPanel;
 
 /** SScrollBox can scroll through an arbitrary number of widgets. */
 class SLATE_API SScrollBox : public SCompoundWidget
@@ -122,6 +127,16 @@ public:
 
 	void ScrollToEnd();
 
+	/** Where to scroll the descendant to */
+	enum EDescendantScrollDestination
+	{
+		/** Scroll the widget into view */
+		IntoView,
+
+		/** Always scroll the widget so it appears at the top/Left of the scrollable area */
+		TopOrLeft,
+	};
+
 	/** 
 	 * Attempt to scroll a widget into view, will safely handle non-descendant widgets 
 	 *
@@ -147,6 +162,7 @@ public:
 
 	// SWidget interface
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+	virtual bool ComputeVolatility() const override;
 	virtual FReply OnPreviewMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;

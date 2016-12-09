@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPCH.h"
-#include "MediaSourceActions.h"
+#include "AssetTools/MediaSourceActions.h"
+#include "AssetData.h"
+#include "MediaSource.h"
 
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
@@ -9,6 +10,12 @@
 
 /* FAssetTypeActions_Base interface
  *****************************************************************************/
+
+bool FMediaSourceActions::CanFilter()
+{
+	return false;
+}
+
 
 FText FMediaSourceActions::GetAssetDescription(const class FAssetData& AssetData) const
 {

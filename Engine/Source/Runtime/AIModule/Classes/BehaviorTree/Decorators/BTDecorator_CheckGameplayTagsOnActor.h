@@ -2,9 +2,13 @@
 
 #pragma once
 
-#include "BehaviorTree/BTDecorator.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameplayTagContainer.h"
+#include "BehaviorTree/BTDecorator.h"
 #include "BTDecorator_CheckGameplayTagsOnActor.generated.h"
+
+class UBehaviorTree;
 
 /**
  * GameplayTag decorator node.

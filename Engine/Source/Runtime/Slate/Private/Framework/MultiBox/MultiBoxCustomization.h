@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "MultiBox.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/Commands/UICommandInfo.h"
+#include "Framework/MultiBox/MultiBox.h"
 
 class SCustomToolbarPreviewWidget : public SMultiBlockBaseWidget
 {

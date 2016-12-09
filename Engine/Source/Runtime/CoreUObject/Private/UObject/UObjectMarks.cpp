@@ -4,9 +4,11 @@
 	UObjectMarks.cpp: Unreal save marks annotation
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
+#include "UObject/UObjectMarks.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectIterator.h"
 
-#include "UObjectAnnotation.h"
+#include "UObject/UObjectAnnotation.h"
 
 
 struct FObjectMark

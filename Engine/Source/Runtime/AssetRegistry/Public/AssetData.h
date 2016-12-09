@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "Misc/StringAssetReference.h"
+#include "UObject/Package.h"
+#include "UObject/ObjectRedirector.h"
+#include "Misc/PackageName.h"
+#include "UObject/LinkerLoad.h"
 #include "SharedMapView.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAssetData, Log, All);
@@ -103,6 +112,11 @@ public:
 	bool operator==(const FAssetData& Other) const
 	{
 		return ObjectPath == Other.ObjectPath;
+	}
+
+	bool operator!=(const FAssetData& Other) const
+	{
+		return ObjectPath != Other.ObjectPath;
 	}
 
 	bool operator>(const FAssetData& Other) const
@@ -458,3 +472,105 @@ inline FName FAssetData::GetTagValueRef<FName>(const FName InTagName) const
 	GetTagValueNameImpl(InTagName, TmpValue);
 	return TmpValue;
 }
+
+/** A structure defining a thing that can be reference bt something else in the asset registry */
+struct FAssetIdentifier
+{
+	/** The name of the package that is depended on, this is always set */
+	FName PackageName;
+	/** Specific object within a package. If empty, assumed to be the default asset */
+	FName ObjectName;
+	/** Name of specific value being referenced, if ObjectName specifies a type such as a UStruct */
+	FName ValueName;
+
+	/** Can be implicitly constructed from just the package name */
+	FAssetIdentifier(FName InPackageName, FName InObjectName = NAME_None, FName InValueName = NAME_None)
+		: PackageName(InPackageName), ObjectName(InObjectName), ValueName(InValueName)
+	{}
+
+	FAssetIdentifier(UObject* SourceObject, FName InValueName)
+	{
+		if (SourceObject)
+		{
+			UPackage* Package = SourceObject->GetOutermost();
+			PackageName = Package->GetFName();
+			ObjectName = SourceObject->GetFName();
+			ValueName = InValueName;
+		}
+	}
+
+	FAssetIdentifier()
+		: PackageName(NAME_None), ObjectName(NAME_None), ValueName(NAME_None)
+	{}
+
+	/** Returns true if this represents a specific value */
+	bool IsValue() const
+	{
+		return ValueName != NAME_None;
+	}
+
+	/** Returns true if this represents a specific value */
+	bool IsObject() const
+	{
+		return ObjectName != NAME_None && !IsValue();
+	}
+
+	/** Returns string version of this identifier in Package.Object::Name format */
+	FString ToString() const
+	{
+		FString Result = PackageName.ToString();
+		if (ObjectName != NAME_None)
+		{
+			Result += TEXT(".");
+			Result += ObjectName.ToString();
+		}
+		if (ValueName != NAME_None)
+		{
+			Result += TEXT("::");
+			Result += ValueName.ToString();
+		}
+		return Result;
+	}
+
+	/** Converts from Package.Object::Name format */
+	static FAssetIdentifier FromString(const FString& String)
+	{
+		// To right of :: is value
+		FString PackageString;
+		FString ObjectString;
+		FString ValueString;
+
+		// Try to split value out
+		if (!String.Split(TEXT("::"), &PackageString, &ValueString))
+		{
+			PackageString = String;
+		}
+
+		// Try to split on first . , if it fails PackageString will stay the same
+		FString(PackageString).Split(TEXT("."), &PackageString, &ObjectString);
+
+		return FAssetIdentifier(*PackageString, *ObjectString, *ValueString);
+	}
+
+	friend inline bool operator==(const FAssetIdentifier& A, const FAssetIdentifier& B)
+	{
+		return A.PackageName == B.PackageName && A.ObjectName == B.ObjectName && A.ValueName == B.ValueName;
+	}
+
+	friend inline uint32 GetTypeHash(const FAssetIdentifier& Key)
+	{
+		uint32 Hash = 0;
+
+		// Most of the time only packagename is set
+		if (Key.ObjectName.IsNone() && Key.ValueName.IsNone())
+		{
+			return GetTypeHash(Key.PackageName);
+		}
+
+		Hash = HashCombine(Hash, GetTypeHash(Key.PackageName));
+		Hash = HashCombine(Hash, GetTypeHash(Key.ObjectName));
+		Hash = HashCombine(Hash, GetTypeHash(Key.ValueName));
+		return Hash;
+	}
+};
+

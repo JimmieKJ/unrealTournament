@@ -6,22 +6,23 @@
 
 #pragma once
 
-#if WITH_EDITOR
-
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "InputCoreTypes.h"
 #include "PreviewScene.h"
-
+#if WITH_EDITOR
 #include "TickableEditorObject.h"
-#include "EditorSupportDelegates.h"
+#endif
 
-struct FPreviewSceneProfile;
-
-class USphereReflectionCaptureComponent;
-class USkyLightComponent;
-class UStaticMeshComponent;
+class FViewport;
+class UAssetViewerSettings;
 class UMaterialInstanceConstant;
 class UPostProcessComponent;
-class UAssetViewerSettings;
-class UEditorPerProjectUserSettings;
+class USkyLightComponent;
+class UStaticMeshComponent;
+struct FPreviewSceneProfile;
+
+#if WITH_EDITOR
 
 class ENGINE_API FAdvancedPreviewScene : public FPreviewScene, public FTickableEditorObject
 {
@@ -40,8 +41,9 @@ public:
 	const bool HandleInputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool Gamepad);
 
 	void SetSkyRotation(const float SkyRotation);
-	void SetFloorVisibility(const bool bVisible);
-	void SetEnvironmentVisibility(const bool bVisible);
+	/* Sets the visiblity state for the floor/environment by storing it in the scene profile and refreshing the scene, in case bDirect is true it sets the visibility directly and leaves the profile untouched. */
+	void SetFloorVisibility(const bool bVisible, const bool bDirect = false);
+	void SetEnvironmentVisibility(const bool bVisible, const bool bDirect = false);
 	void SetFloorOffset(const float InFloorOffset);
 	void SetProfileIndex(const int32 InProfileIndex);
 

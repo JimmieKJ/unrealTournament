@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class IPlugin;
+struct FSlateBrush;
+
 /**
  * Represents a category in the plugin category tree
  */

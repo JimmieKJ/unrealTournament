@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "PropertyEditorConstants.h"
+#include "CoreMinimal.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "EditorStyleSet.h"
+#include "UserInterface/PropertyEditor/PropertyEditorConstants.h"
+#include "Widgets/Input/SComboBox.h"
+
+class SToolTip;
 
 class SPropertyComboBox : public SComboBox< TSharedPtr<FString> >
 {

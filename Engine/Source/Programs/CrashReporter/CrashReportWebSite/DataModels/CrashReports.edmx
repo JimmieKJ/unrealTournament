@@ -4,7 +4,7 @@
   <edmx:Runtime>
     <!-- SSDL content -->
     <edmx:StorageModels>
-      <Schema Namespace="CrashReportModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2008" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+    <Schema Namespace="CrashReportModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2008" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
         <EntityType Name="Buggs">
           <Key>
             <PropertyRef Name="Id" />
@@ -99,13 +99,16 @@
           <Property Name="UserActivityHint" Type="varchar" MaxLength="512" />
           <Property Name="InsertTS" Type="datetime" />
           <Property Name="PatternId" Type="int" />
+          <Property Name="ErrorMessageId" Type="int" />
+          <Property Name="BuggId" Type="int" />
+          <Property Name="ProcessFailed" Type="bit" />
         </EntityType>
         <EntityType Name="ErrorMessages">
           <Key>
             <PropertyRef Name="Id" />
           </Key>
           <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
-          <Property Name="ErrorMessage" Type="nvarchar" MaxLength="800" />
+          <Property Name="ErrorMessage" Type="nvarchar" MaxLength="1600" />
         </EntityType>
         <EntityType Name="FunctionCalls">
           <Key>
@@ -225,6 +228,18 @@
             </Dependent>
           </ReferentialConstraint>
         </Association>
+        <Association Name="FK_Crashes_Buggs">
+          <End Role="Buggs" Type="Self.Buggs" Multiplicity="0..1" />
+          <End Role="Crashes" Type="Self.Crashes" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Buggs">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Crashes">
+              <PropertyRef Name="BuggId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
         <Association Name="FK_Crashes_CallStackPattern">
           <End Role="CallStackPatterns" Type="Self.CallStackPatterns" Multiplicity="0..1" />
           <End Role="Crashes" Type="Self.Crashes" Multiplicity="*" />
@@ -234,6 +249,18 @@
             </Principal>
             <Dependent Role="Crashes">
               <PropertyRef Name="PatternId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Crashes_ErrorMessages">
+          <End Role="ErrorMessages" Type="Self.ErrorMessages" Multiplicity="0..1" />
+          <End Role="Crashes" Type="Self.Crashes" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ErrorMessages">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Crashes">
+              <PropertyRef Name="ErrorMessageId" />
             </Dependent>
           </ReferentialConstraint>
         </Association>
@@ -304,8 +331,16 @@
             <End Role="Users" EntitySet="Users" />
             <End Role="Buggs_Users" EntitySet="Buggs_Users" />
           </AssociationSet>
+          <AssociationSet Name="FK_Crashes_Buggs" Association="Self.FK_Crashes_Buggs">
+            <End Role="Buggs" EntitySet="Buggs" />
+            <End Role="Crashes" EntitySet="Crashes" />
+          </AssociationSet>
           <AssociationSet Name="FK_Crashes_CallStackPattern" Association="Self.FK_Crashes_CallStackPattern">
             <End Role="CallStackPatterns" EntitySet="CallStackPatterns" />
+            <End Role="Crashes" EntitySet="Crashes" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Crashes_ErrorMessages" Association="Self.FK_Crashes_ErrorMessages">
+            <End Role="ErrorMessages" EntitySet="ErrorMessages" />
             <End Role="Crashes" EntitySet="Crashes" />
           </AssociationSet>
           <AssociationSet Name="FK_Crashes_Users" Association="Self.FK_Crashes_Users">
@@ -317,8 +352,7 @@
             <End Role="Users" EntitySet="Users" />
           </AssociationSet>
         </EntityContainer>
-      </Schema>
-    </edmx:StorageModels>
+      </Schema></edmx:StorageModels>
     <!-- CSDL content -->
     <edmx:ConceptualModels>
       <Schema Namespace="CrashReportModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
@@ -343,6 +377,7 @@
           <NavigationProperty Name="CallStackPattern" Relationship="Self.FK_Buggs_CallStackPatterns" FromRole="Buggs" ToRole="CallStackPatterns" />
           <NavigationProperty Name="Crashes" Relationship="Self.Buggs_Crashes" FromRole="Buggs" ToRole="Crashes" />
           <NavigationProperty Name="UserGroups" Relationship="Self.Buggs_UserGroups" FromRole="Buggs" ToRole="UserGroups" />
+          <NavigationProperty Name="Crashes1" Relationship="CrashReportModel.FK_Crashes_Buggs" FromRole="Bugg" ToRole="Crash" />
         </EntityType>
         <EntityType Name="Buggs_Users">
           <Key>
@@ -377,10 +412,10 @@
           <Property Name="ChangeListVersion" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
           <Property Name="PlatformName" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
           <Property Name="EngineMode" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
-          <Property Name="Description" Type="String" MaxLength="1024" FixedLength="false" Unicode="false" />
+          <Property Name="Description" Type="String" MaxLength="4096" FixedLength="false" Unicode="false" />
           <Property Name="RawCallStack" Type="String" MaxLength="Max" FixedLength="false" Unicode="false" />
           <Property Name="Pattern" Type="String" MaxLength="800" FixedLength="false" Unicode="false" />
-          <Property Name="CommandLine" Type="String" MaxLength="512" FixedLength="false" Unicode="false" />
+          <Property Name="CommandLine" Type="String" MaxLength="4096" FixedLength="false" Unicode="false" />
           <Property Name="ComputerName" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
           <Property Name="Selected" Type="Boolean" />
           <Property Name="FixedChangeList" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
@@ -411,14 +446,20 @@
           <NavigationProperty Name="CallStackPattern" Relationship="Self.FK_Crashes_CallStackPattern" FromRole="Crashes" ToRole="CallStackPatterns" />
           <NavigationProperty Name="User" Relationship="Self.FK_Crashes_Users" FromRole="Crashes" ToRole="Users" />
           <NavigationProperty Name="Buggs" Relationship="Self.Buggs_Crashes" FromRole="Crashes" ToRole="Buggs" />
+          <Property Name="ErrorMessageId" Type="Int32" />
+          <Property Name="BuggId" Type="Int32" />
+          <Property Name="ProcessFailed" Type="Boolean" />
+          <NavigationProperty Name="Bugg" Relationship="CrashReportModel.FK_Crashes_Buggs" FromRole="Crash" ToRole="Bugg" />
+          <NavigationProperty Name="ErrorMessage" Relationship="CrashReportModel.FK_Crashes_ErrorMessages" FromRole="Crash" ToRole="ErrorMessage" />
         </EntityType>
         <EntityType Name="ErrorMessage">
           <Key>
             <PropertyRef Name="Id" />
           </Key>
           <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
-          <Property Name="Message" Type="String" MaxLength="800" FixedLength="false" Unicode="true" />
+          <Property Name="Message" Type="String" MaxLength="1600" FixedLength="false" Unicode="true" />
           <NavigationProperty Name="Buggs" Relationship="Self.Buggs_ErrorMessages_FK" FromRole="ErrorMessages" ToRole="Buggs" />
+          <NavigationProperty Name="Crashes" Relationship="CrashReportModel.FK_Crashes_ErrorMessages" FromRole="ErrorMessage" ToRole="Crash" />
         </EntityType>
         <EntityType Name="FunctionCall">
           <Key>
@@ -585,7 +626,39 @@
             <End Role="Buggs" EntitySet="Buggs" />
             <End Role="UserGroups" EntitySet="UserGroups" />
           </AssociationSet>
+          <AssociationSet Name="FK_Crashes_Buggs" Association="CrashReportModel.FK_Crashes_Buggs">
+            <End Role="Bugg" EntitySet="Buggs" />
+            <End Role="Crash" EntitySet="Crashes" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Crashes_ErrorMessages" Association="CrashReportModel.FK_Crashes_ErrorMessages">
+            <End Role="ErrorMessage" EntitySet="ErrorMessages" />
+            <End Role="Crash" EntitySet="Crashes" />
+          </AssociationSet>
         </EntityContainer>
+        <Association Name="FK_Crashes_Buggs">
+          <End Type="CrashReportModel.Bugg" Role="Bugg" Multiplicity="0..1" />
+          <End Type="CrashReportModel.Crash" Role="Crash" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Bugg">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Crash">
+              <PropertyRef Name="BuggId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Crashes_ErrorMessages">
+          <End Type="CrashReportModel.ErrorMessage" Role="ErrorMessage" Multiplicity="0..1" />
+          <End Type="CrashReportModel.Crash" Role="Crash" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ErrorMessage">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Crash">
+              <PropertyRef Name="ErrorMessageId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
       </Schema>
     </edmx:ConceptualModels>
     <!-- C-S mapping content -->
@@ -631,6 +704,9 @@
           <EntitySetMapping Name="Crashes">
             <EntityTypeMapping TypeName="CrashReportModel.Crash">
               <MappingFragment StoreEntitySet="Crashes">
+                <ScalarProperty Name="ProcessFailed" ColumnName="ProcessFailed" />
+                <ScalarProperty Name="BuggId" ColumnName="BuggId" />
+                <ScalarProperty Name="ErrorMessageId" ColumnName="ErrorMessageId" />
                 <ScalarProperty Name="Id" ColumnName="Id" />
                 <ScalarProperty Name="Title" ColumnName="Title" />
                 <ScalarProperty Name="Summary" ColumnName="Summary" />

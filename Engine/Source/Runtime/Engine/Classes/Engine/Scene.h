@@ -5,7 +5,12 @@
 //=============================================================================
 
 #pragma once
-#include "BlendableInterface.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptInterface.h"
+#include "Engine/BlendableInterface.h"
 #include "Scene.generated.h"
 
 /** Used by FPostProcessSettings Depth of Fields */
@@ -141,6 +146,11 @@ struct FPostProcessSettings
 	uint32 bOverride_ColorGainHighlights : 1;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
 	uint32 bOverride_ColorOffsetHighlights : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_ColorCorrectionShadowsMax : 1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_ColorCorrectionHighlightsMin : 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault, InlineEditConditionToggle))
 	uint32 bOverride_FilmWhitePoint:1;
@@ -515,6 +525,8 @@ struct FPostProcessSettings
 	FVector4 ColorGainShadows;
 	UPROPERTY(interp, BlueprintReadWrite, Category = "ColorGrading|Shadows", meta = (UIMin = "-1.0", UIMax = "1.0", editcondition = "bOverride_ColorOffsetShadows", DisplayName = "OffsetShadows"))
 	FVector4 ColorOffsetShadows;
+	UPROPERTY(interp, BlueprintReadWrite, Category = "ColorGrading|Shadows", meta = (UIMin = "-1.0", UIMax = "1.0", editcondition = "bOverride_ColorCorrectionShadowsMax", DisplayName = "ShadowsMax"))
+	float ColorCorrectionShadowsMax;
 
 	UPROPERTY(interp, BlueprintReadWrite, Category = "ColorGrading|Midtones", meta = (UIMin = "0.0", UIMax = "2.0", editcondition = "bOverride_ColorSaturationMidtones", DisplayName = "SaturationMidtones"))
 	FVector4 ColorSaturationMidtones;
@@ -537,6 +549,8 @@ struct FPostProcessSettings
 	FVector4 ColorGainHighlights;
 	UPROPERTY(interp, BlueprintReadWrite, Category = "ColorGrading|Highlights", meta = (UIMin = "-1.0", UIMax = "1.0", editcondition = "bOverride_ColorOffsetHighlights", DisplayName = "OffsetHighlights"))
 	FVector4 ColorOffsetHighlights;
+	UPROPERTY(interp, BlueprintReadWrite, Category = "ColorGrading|Highlights", meta = (UIMin = "-1.0", UIMax = "1.0", editcondition = "bOverride_ColorCorrectionHighlightsMin", DisplayName = "HighlightsMin"))
+	float ColorCorrectionHighlightsMin;
 
 	UPROPERTY(interp, BlueprintReadWrite, Category=Film, meta=(editcondition = "bOverride_FilmWhitePoint", DisplayName = "Tint", HideAlphaChannel))
 	FLinearColor FilmWhitePoint;
@@ -1131,6 +1145,9 @@ struct FPostProcessSettings
 		ColorGainHighlights = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
 		ColorOffsetHighlights = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
 
+		ColorCorrectionShadowsMax = 0.09f;
+		ColorCorrectionHighlightsMin = 0.5f;
+
 		// default values:
 		FilmWhitePoint = FLinearColor(1.0f,1.0f,1.0f);
 		FilmSaturation = 1.0f;
@@ -1151,27 +1168,27 @@ struct FPostProcessSettings
 		FilmShoulder = 0.26f;
 		FilmBlackClip = 0.0f;
 		FilmWhiteClip = 0.04f;
-		
+
 		SceneColorTint = FLinearColor(1, 1, 1);
 		SceneFringeIntensity = 0.0f;
 		// next value might get overwritten by r.DefaultFeature.Bloom
-		BloomIntensity = 0.675f;
-		BloomThreshold = -1.0f;
-		Bloom1Tint = FLinearColor(0.3034f, 0.37f, 0.366823f);
+		BloomIntensity = 1.0f;
+		BloomThreshold = 1.0f;
+		Bloom1Tint = FLinearColor(0.5f, 0.5f, 0.5f);
 		// default is 4 to maintain old settings after fixing something that caused a factor of 4
 		BloomSizeScale = 4.0;
-		Bloom1Size = 0.3f;
-		Bloom2Tint = FLinearColor(0.116966f, 0.15f, 0.148567f);
-		Bloom2Size = 1.0f;
-		Bloom3Tint = FLinearColor(0.104394f, 0.13f, 0.119775f);
-		Bloom3Size = 2.0f;
-		Bloom4Tint = FLinearColor(0.051f, 0.073243f, 0.075f);
-		Bloom4Size = 10.0f;
-		Bloom5Tint = FLinearColor(0.075f, 0.062625f, 0.062625f);
-		Bloom5Size = 30.0f;
-		Bloom6Tint = FLinearColor(0.075f, 0.064338f, 0.07335f);
+		Bloom1Size = 1.0f;
+		Bloom2Tint = FLinearColor(0.5f, 0.5f, 0.5f);
+		Bloom2Size = 4.0f;
+		Bloom3Tint = FLinearColor(0.5f, 0.5f, 0.5f);
+		Bloom3Size = 16.0f;
+		Bloom4Tint = FLinearColor(0.5f, 0.5f, 0.5f);
+		Bloom4Size = 32.0f;
+		Bloom5Tint = FLinearColor(0.5f, 0.5f, 0.5f);
+		Bloom5Size = 64.0f;
+		Bloom6Tint = FLinearColor(0.5f, 0.5f, 0.5f);
 		Bloom6Size = 64.0f;
-		BloomDirtMaskIntensity = 10.0f;
+		BloomDirtMaskIntensity = 1.0f;
 		BloomDirtMaskTint = FLinearColor(0.5f, 0.5f, 0.5f);
 		AmbientCubemapIntensity = 1.0f;
 		AmbientCubemapTint = FLinearColor(1, 1, 1);
@@ -1254,7 +1271,7 @@ struct FPostProcessSettings
 		LensFlareTints[6] = FLinearColor(1.0f, 0.8f, 0.4f, 0.22f);
 		LensFlareTints[7] = FLinearColor(0.9f, 0.7f, 0.7f, 0.15f);
 		// next value might get overwritten by r.DefaultFeature.MotionBlur
-		MotionBlurAmount = 0.0f;
+		MotionBlurAmount = 0.5f;
 		MotionBlurMax = 5.0f;
 		MotionBlurPerObjectSize = 0.5f;
 		ScreenPercentage = 100.0f;

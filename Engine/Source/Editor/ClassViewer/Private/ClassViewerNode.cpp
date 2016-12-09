@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ClassViewerPrivatePCH.h"
-
 #include "ClassViewerNode.h"
+#include "Engine/Blueprint.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Brush.h"
+
 #include "ClassViewerFilter.h"
-#include "PropertyEditorModule.h"
 #include "PropertyHandle.h"
 
 FClassViewerNode::FClassViewerNode( const FString& InClassName, const FString& InClassDisplayName )

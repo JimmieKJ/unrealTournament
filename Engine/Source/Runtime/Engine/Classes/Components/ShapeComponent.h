@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "Components/PrimitiveComponent.h"
 #include "ShapeComponent.generated.h"
+
+class FPrimitiveSceneProxy;
+struct FNavigableGeometryExport;
+struct FNavigationRelevantData;
 
 namespace physx
 {

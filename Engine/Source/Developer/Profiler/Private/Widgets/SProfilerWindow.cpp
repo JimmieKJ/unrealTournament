@@ -1,20 +1,35 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerPrivatePCH.h"
-#include "SProfilerSettings.h"
-#include "DesktopPlatformModule.h"
+#include "Widgets/SProfilerWindow.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/SEventGraph.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "Widgets/SProfilerToolbar.h"
+#include "Widgets/SFiltersAndPresets.h"
+#include "Widgets/SMultiDumpBrowser.h"
+#include "Widgets/SDataGraph.h"
+#include "Widgets/SProfilerMiniView.h"
+#include "Widgets/SProfilerGraphPanel.h"
+#include "Widgets/SProfilerSettings.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #if WITH_EDITOR
+	#include "Runtime/Analytics/Analytics/Public/AnalyticsEventAttribute.h"
 	#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-	#include "Runtime/Engine/Public/EngineAnalytics.h"
+	#include "EngineAnalytics.h"
 #endif // WITH_EDITOR
-#include "SNotificationList.h"
 
 
 #define LOCTEXT_NAMESPACE "SProfilerWindow"
 
 
-static FText GetTextForNotification( const EProfilerNotificationTypes::Type NotificatonType, const ELoadingProgressStates::Type ProgressState, const FString& Filename, const float ProgressPercent = 0.0f )
+static FText GetTextForNotification( const EProfilerNotificationTypes NotificatonType, const ELoadingProgressStates ProgressState, const FString& Filename, const float ProgressPercent = 0.0f )
 {
 	FText Result;
 
@@ -398,7 +413,8 @@ bool SProfilerWindow::IsProfilerEnabled() const
 	return bIsActive;
 }
 
-void SProfilerWindow::ManageLoadingProgressNotificationState( const FString& Filename, const EProfilerNotificationTypes::Type NotificatonType, const ELoadingProgressStates::Type ProgressState, const float DataLoadingProgress )
+
+void SProfilerWindow::ManageLoadingProgressNotificationState( const FString& Filename, const EProfilerNotificationTypes NotificatonType, const ELoadingProgressStates ProgressState, const float DataLoadingProgress )
 {
 	const FString BaseFilename = FPaths::GetBaseFilename( Filename );
 
@@ -629,7 +645,7 @@ void SProfilerWindow::CloseProfilerSettings()
 	MainContentPanel->SetEnabled( true );
 }
 
-void SProfilerWindow::ProfilerManager_OnViewModeChanged( EProfilerViewMode::Type NewViewMode )
+void SProfilerWindow::ProfilerManager_OnViewModeChanged( EProfilerViewMode NewViewMode )
 {
 	if( NewViewMode == EProfilerViewMode::LineIndexBased )
 	{

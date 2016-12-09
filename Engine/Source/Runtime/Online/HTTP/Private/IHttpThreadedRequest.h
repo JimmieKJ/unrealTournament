@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "IHttpRequest.h"
+#include "CoreMinimal.h"
+#include "Interfaces/IHttpRequest.h"
 
 class IHttpThreadedRequest : public IHttpRequest
 {

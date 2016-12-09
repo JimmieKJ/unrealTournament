@@ -1,14 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
 #include "SocketSubsystemSteam.h"
+#include "Misc/ConfigCacheIni.h"
 #include "SocketsSteam.h"
 #include "IPAddressSteam.h"
 #include "OnlineSessionInterfaceSteam.h"
 #include "SocketSubsystemModule.h"
-#include "ModuleManager.h"
-#include "Classes/SteamNetConnection.h"
-#include "Engine.h"
+#include "SteamNetConnection.h"
 
 FSocketSubsystemSteam* FSocketSubsystemSteam::SocketSingleton = NULL;
 

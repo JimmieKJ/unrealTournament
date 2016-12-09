@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphSchema.h"
 #include "ReferenceViewerSchema.generated.h"
+
+class FMenuBuilder;
+class FSlateRect;
+class UEdGraph;
 
 UCLASS()
 class UReferenceViewerSchema : public UEdGraphSchema

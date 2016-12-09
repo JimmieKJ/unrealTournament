@@ -1,12 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneCapturePCH.h"
 #include "FrameGrabber.h"
-#include "SceneViewport.h"
-#include "ScreenRendering.h"
-#include "RenderCore.h"
-#include "RHIStaticStates.h"
+#include "Misc/ScopeLock.h"
+#include "Modules/ModuleManager.h"
+#include "RenderingThread.h"
 #include "RendererInterface.h"
+#include "StaticBoundShaderState.h"
+#include "Layout/ArrangedChildren.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/SViewport.h"
+#include "RHIStaticStates.h"
+#include "Shader.h"
+#include "GlobalShader.h"
+#include "ScreenRendering.h"
 
 FViewportSurfaceReader::FViewportSurfaceReader(EPixelFormat InPixelFormat, FIntPoint InBufferSize)
 {

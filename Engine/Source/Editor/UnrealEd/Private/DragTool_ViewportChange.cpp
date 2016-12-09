@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "DragTool_ViewportChange.h"
-#include "SnappingUtils.h"
 #include "CanvasItem.h"
+#include "LevelEditorViewport.h"
+#include "ILevelEditor.h"
 #include "CanvasTypes.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

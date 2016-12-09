@@ -1,9 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "PerfCounters.h"
+#include "GenericPlatform/GenericPlatformTime.h"
+#include "HAL/PlatformOutputDevices.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Serialization/JsonWriter.h"
+#include "ZeroLoad.h"
 #include "SocketSubsystem.h"
+#include "IPAddress.h"
 #include "Sockets.h"
-#include "Http.h"
+#include "PlatformHttp.h"
 
 #define JSON_ARRAY_NAME					TEXT("PerfCounters")
 #define JSON_PERFCOUNTER_NAME			TEXT("Name")

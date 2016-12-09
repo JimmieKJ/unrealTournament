@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-
+#include "MacTextInputMethodSystem.h"
 #include "MacApplication.h"
 #include "MacWindow.h"
-#include "MacTextInputMethodSystem.h"
 #include "CocoaTextView.h"
 #include "CocoaThread.h"
 #include "MacApplication.h"

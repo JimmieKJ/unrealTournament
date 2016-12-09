@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "IDetailsView.h"
+#include "Framework/SlateDelegates.h"
+#include "Widgets/SBoxPanel.h"
+
+class AActor;
+class UBlueprint;
+
 /** 
  * Displays the name area which is not recreated when the detail view is refreshed
  */

@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "SGraphPinObject.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "KismetPins/SGraphPinObject.h"
 
 /////////////////////////////////////////////////////
 // SGraphPinClass

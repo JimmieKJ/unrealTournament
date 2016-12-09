@@ -2,10 +2,14 @@
 
 #pragma once
 
-class UWidgetTree;
+#include "CoreMinimal.h"
+#include "WidgetReference.h"
+#include "WidgetBlueprintEditor.h"
+
+class FMenuBuilder;
 class UWidgetBlueprint;
 class UWidgetSlotPair;
-struct FWidgetReference;
+class UWidgetTree;
 
 //////////////////////////////////////////////////////////////////////////
 // FWidgetBlueprintEditorUtils
@@ -26,6 +30,9 @@ public:
 	static void DeleteWidgets(UWidgetBlueprint* BP, TSet<FWidgetReference> Widgets);
 
 	static void CutWidgets(UWidgetBlueprint* BP, TSet<FWidgetReference> Widgets);
+
+	static bool IsBindWidgetProperty(UProperty* InProperty);
+	static bool IsBindWidgetProperty(UProperty* InProperty, bool& bIsOptional);
 
 	static bool IsUsableWidgetClass(UClass* WidgetClass);
 

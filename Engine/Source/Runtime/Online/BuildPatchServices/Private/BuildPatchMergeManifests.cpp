@@ -1,6 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BuildPatchServicesPrivatePCH.h"
+#include "BuildPatchMergeManifests.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Misc/Guid.h"
+#include "BuildPatchManifest.h"
+#include "Async/Future.h"
+#include "Async/Async.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMergeManifests, Log, All);
 DEFINE_LOG_CATEGORY(LogMergeManifests);
@@ -20,22 +27,21 @@ namespace MergeHelpers
 		return FBuildPatchAppManifestPtr();
 	}
 
-	bool CopyFileDataFromManifestToObject(const TSet<FString>& Filenames, const FBuildPatchAppManifestPtr& Manifest, UBuildPatchManifest* Object, const TCHAR* ManifestName)
+	bool CopyFileDataFromManifestToArray(const TSet<FString>& Filenames, const FBuildPatchAppManifestPtr& Source, TArray<FFileManifestData>& DestArray)
 	{
 		bool bSuccess = true;
 		for (const FString& Filename : Filenames)
 		{
-			check(Manifest.IsValid());
-			check(Object != nullptr);
-			const FFileManifestData* FileManifest = Manifest->GetFileManifest(Filename);
+			check(Source.IsValid());
+			const FFileManifestData* FileManifest = Source->GetFileManifest(Filename);
 			if (FileManifest == nullptr)
 			{
-				UE_LOG(LogMergeManifests, Error, TEXT("Could not find file in %s: %s"), ManifestName, *Filename);
+				UE_LOG(LogMergeManifests, Error, TEXT("Could not find file in %s %s: %s"), *Source->GetAppName(), *Source->GetVersionString(), *Filename);
 				bSuccess = false;
 			}
 			else
 			{
-				Object->FileManifestList.Add(*FileManifest);
+				DestArray.Add(*FileManifest);
 			}
 		}
 		return bSuccess;
@@ -55,12 +61,12 @@ bool FBuildMergeManifests::MergeManifests(const FString& ManifestFilePathA, cons
 	{
 		return MergeHelpers::LoadManifestFile(ManifestFilePathB, &UObjectAllocationLock);
 	};
-	typedef TPair<TSet<FString>,TSet<FString>> TStringSetPair;
+	typedef TPair<TSet<FString>,TSet<FString>> FStringSetPair;
 	FThreadSafeBool bSelectionDetailSuccess = false;
-	TFunction<TStringSetPair()> TaskSelectionInfo = [&SelectionDetailFilePath, &bSelectionDetailSuccess]()
+	TFunction<FStringSetPair()> TaskSelectionInfo = [&SelectionDetailFilePath, &bSelectionDetailSuccess]()
 	{
 		bSelectionDetailSuccess = true;
-		TStringSetPair StringSetPair;
+		FStringSetPair StringSetPair;
 		if(SelectionDetailFilePath.IsEmpty() == false)
 		{
 			FString SelectionDetailFileData;
@@ -101,11 +107,11 @@ bool FBuildMergeManifests::MergeManifests(const FString& ManifestFilePathA, cons
 
 	TFuture<FBuildPatchAppManifestPtr> FutureManifestA = Async(EAsyncExecution::ThreadPool, MoveTemp(TaskManifestA));
 	TFuture<FBuildPatchAppManifestPtr> FutureManifestB = Async(EAsyncExecution::ThreadPool, MoveTemp(TaskManifestB));
-	TFuture<TStringSetPair> FutureSelectionDetail = Async(EAsyncExecution::ThreadPool, MoveTemp(TaskSelectionInfo));
+	TFuture<FStringSetPair> FutureSelectionDetail = Async(EAsyncExecution::ThreadPool, MoveTemp(TaskSelectionInfo));
 
 	FBuildPatchAppManifestPtr ManifestA = FutureManifestA.Get();
 	FBuildPatchAppManifestPtr ManifestB = FutureManifestB.Get();
-	TStringSetPair SelectionDetail = FutureSelectionDetail.Get();
+	FStringSetPair SelectionDetail = FutureSelectionDetail.Get();
 
 	// Flush any logs collected by tasks
 	GLog->FlushThreadedLogs();
@@ -139,38 +145,33 @@ bool FBuildMergeManifests::MergeManifests(const FString& ManifestFilePathA, cons
 	// Create the new manifest
 	FBuildPatchAppManifest MergedManifest;
 
-	// Helpful pointers
-	UBuildPatchManifest* DataA = ManifestA->Data;
-	UBuildPatchManifest* DataB = ManifestB->Data;
-	UBuildPatchManifest* DataC = MergedManifest.Data;
-
 	// Copy basic info from B
-	DataC->ManifestFileVersion = DataB->ManifestFileVersion;
-	DataC->bIsFileData = DataB->bIsFileData;
-	DataC->AppID = DataB->AppID;
-	DataC->AppName = DataB->AppName;
-	DataC->LaunchExe = DataB->LaunchExe;
-	DataC->LaunchCommand = DataB->LaunchCommand;
-	DataC->PrereqName = DataB->PrereqName;
-	DataC->PrereqPath = DataB->PrereqPath;
-	DataC->PrereqArgs = DataB->PrereqArgs;
-	DataC->CustomFields = DataB->CustomFields;
+	MergedManifest.ManifestFileVersion = ManifestB->ManifestFileVersion;
+	MergedManifest.bIsFileData = ManifestB->bIsFileData;
+	MergedManifest.AppID = ManifestB->AppID;
+	MergedManifest.AppName = ManifestB->AppName;
+	MergedManifest.LaunchExe = ManifestB->LaunchExe;
+	MergedManifest.LaunchCommand = ManifestB->LaunchCommand;
+	MergedManifest.PrereqName = ManifestB->PrereqName;
+	MergedManifest.PrereqPath = ManifestB->PrereqPath;
+	MergedManifest.PrereqArgs = ManifestB->PrereqArgs;
+	MergedManifest.CustomFields = ManifestB->CustomFields;
 
 	// Set the new version string
-	DataC->BuildVersion = NewVersionString;
+	MergedManifest.BuildVersion = NewVersionString;
 
 	// Copy the file manifests required from A
-	bSuccess = MergeHelpers::CopyFileDataFromManifestToObject(SelectionDetail.Key, ManifestA, DataC, TEXT("ManifestA")) && bSuccess;
+	bSuccess = MergeHelpers::CopyFileDataFromManifestToArray(SelectionDetail.Key, ManifestA, MergedManifest.FileManifestList) && bSuccess;
 
 	// Copy the file manifests required from B
-	bSuccess = MergeHelpers::CopyFileDataFromManifestToObject(SelectionDetail.Value, ManifestB, DataC, TEXT("ManifestB")) && bSuccess;
+	bSuccess = MergeHelpers::CopyFileDataFromManifestToArray(SelectionDetail.Value, ManifestB, MergedManifest.FileManifestList) && bSuccess;
 
 	// Sort the file manifests before entering chunk info
-	DataC->FileManifestList.Sort();
+	MergedManifest.FileManifestList.Sort();
 
 	// Fill out the chunk list in order of reference
 	TSet<FGuid> ReferencedChunks;
-	for (const FFileManifestData& FileManifest: DataC->FileManifestList)
+	for (const FFileManifestData& FileManifest: MergedManifest.FileManifestList)
 	{
 		for (const FChunkPartData& FileChunkPart : FileManifest.FileChunkParts)
 		{
@@ -191,7 +192,7 @@ bool FBuildMergeManifests::MergeManifests(const FString& ManifestFilePathA, cons
 				}
 				else
 				{
-					DataC->ChunkList.Add(**ChunkInfo);
+					MergedManifest.ChunkList.Add(**ChunkInfo);
 				}
 			}
 		}

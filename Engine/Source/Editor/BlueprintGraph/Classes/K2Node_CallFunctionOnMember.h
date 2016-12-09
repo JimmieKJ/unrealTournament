@@ -2,9 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/MemberReference.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_CallFunctionOnMember.generated.h"
 
+class UEdGraph;
 
 UCLASS(MinimalAPI)
 class UK2Node_CallFunctionOnMember : public UK2Node_CallFunction

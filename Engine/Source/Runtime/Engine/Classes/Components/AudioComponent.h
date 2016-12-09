@@ -2,17 +2,36 @@
 
 
 #pragma once
-#include "Audio.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "Components/SceneComponent.h"
 #include "Sound/SoundAttenuation.h"
 
 #include "AudioComponent.generated.h"
 
+class FAudioDevice;
+class USoundBase;
+class USoundClass;
+
 /** called when we finish playing audio, either because it played to completion or because a Stop() call turned it off early */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE( FOnAudioFinished );
+
 /** shadow delegate declaration for above */
 DECLARE_MULTICAST_DELEGATE_OneParam( FOnAudioFinishedNative, class UAudioComponent* );
+
 /** Called when subtitles are sent to the SubtitleManager.  Set this delegate if you want to hijack the subtitles for other purposes */
 DECLARE_DYNAMIC_DELEGATE_TwoParams( FOnQueueSubtitles, const TArray<struct FSubtitleCue>&, Subtitles, float, CueDuration );
+
+/** Called as a sound plays on the audio component to allow BP to perform actions based on playback percentage.
+* Computed as samples played divided by total samples, taking into account pitch.
+* Not currently implemented on all platforms.
+*/
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAudioPlaybackPercent, const class USoundWave*, PlayingSoundWave, const float, PlaybackPercent);
+
+/** shadow delegate declaration for above */
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnAudioPlaybackPercentNative, const class UAudioComponent*, const class USoundWave*, const float);
 
 /**
  *	Struct used for storing one per-instance named parameter for this AudioComponent.
@@ -86,33 +105,72 @@ class ENGINE_API UAudioComponent : public USceneComponent
 
 	/** Auto destroy this component on completion */
 	UPROPERTY()
-	uint32 bAutoDestroy:1;
+	uint8 bAutoDestroy:1;
 
 	/** Stop sound when owner is destroyed */
 	UPROPERTY()
-	uint32 bStopWhenOwnerDestroyed:1;
+	uint8 bStopWhenOwnerDestroyed:1;
 
 	/** Whether the wave instances should remain active if they're dropped by the prioritization code. Useful for e.g. vehicle sounds that shouldn't cut out. */
 	UPROPERTY()
-	uint32 bShouldRemainActiveIfDropped:1;
+	uint8 bShouldRemainActiveIfDropped:1;
 
 	/** Is this audio component allowed to be spatialized? */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Attenuation)
-	uint32 bAllowSpatialization:1;
+	uint8 bAllowSpatialization:1;
 
 	/** Should the Attenuation Settings asset be used (false) or should the properties set directly on the component be used for attenuation properties */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Attenuation)
-	uint32 bOverrideAttenuation:1;
+	uint8 bOverrideAttenuation:1;
+
+	/** Whether or not to override the sound's subtitle priority. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
+	uint32 bOverrideSubtitlePriority:1;
 
 	/** Whether or not this sound plays when the game is paused in the UI */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
-	uint32 bIsUISound : 1;
+	uint8 bIsUISound : 1;
 
 	/** Whether or not to apply a low-pass filter to the sound that plays in this audio component. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Filter)
-	uint32 bEnableLowPassFilter : 1;
+	uint8 bEnableLowPassFilter : 1;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
-	uint32 bOverridePriority:1;
+	uint8 bOverridePriority:1;
+
+	/** If true, subtitles in the sound data will be ignored. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
+	uint8 bSuppressSubtitles:1;
+
+	/** Whether this audio component is previewing a sound */
+	uint8 bPreviewComponent:1;
+
+	/** If true, this sound will not be stopped when flushing the audio device. */
+	uint8 bIgnoreForFlushing:1;
+
+	/** Whether audio effects are applied */
+	uint8 bEQFilterApplied:1;
+
+	/** Whether to artificially prioritize the component to play */
+	uint8 bAlwaysPlay:1;
+
+	/** Whether or not this audio component is a music clip */
+	uint8 bIsMusic:1;
+
+	/** Whether or not the audio component should be excluded from reverb EQ processing */
+	uint8 bReverb:1;
+
+	/** Whether or not this sound class forces sounds to the center channel */
+	uint8 bCenterChannelOnly:1;
+
+	/** Whether or not this sound is a preview sound */
+	uint8 bIsPreviewSound:1;
+
+	/** Whether or not this audio component has been paused */
+	uint8 bIsPaused:1;
+
+	/** The specific audio device to play this component on */
+	uint32 AudioDeviceHandle;
 
 	/** The lower bound to use when randomly determining a pitch multiplier */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Modulation)
@@ -137,6 +195,10 @@ class ENGINE_API UAudioComponent : public USceneComponent
 	/** A priority value that is used for sounds that play on this component that scales against final output volume. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound, meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bOverridePriority"))
 	float Priority;
+
+	/** Used by the subtitle manager to prioritize subtitles wave instances spawned by this component. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound, meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bOverrideSubtitlePriority"))
+	float SubtitlePriority;
 
 	UPROPERTY()
 	float VolumeWeightedPriorityScale_DEPRECATED;
@@ -174,6 +236,13 @@ class ENGINE_API UAudioComponent : public USceneComponent
 	/** shadow delegate for non UObject subscribers */
 	FOnAudioFinishedNative OnAudioFinishedNative;
 
+	/** called when we finish playing audio, either because it played to completion or because a Stop() call turned it off early */
+	UPROPERTY(BlueprintAssignable)
+	FOnAudioPlaybackPercent OnAudioPlaybackPercent;
+
+	/** shadow delegate for non UObject subscribers */
+	FOnAudioPlaybackPercentNative OnAudioPlaybackPercentNative;
+
 	/** Called when subtitles are sent to the SubtitleManager.  Set this delegate if you want to hijack the subtitles for other purposes */
 	UPROPERTY()
 	FOnQueueSubtitles OnQueueSubtitles;
@@ -192,7 +261,7 @@ class ENGINE_API UAudioComponent : public USceneComponent
 	 * @param FadeVolumeLevel the percentage of the AudioComponents's calculated volume to fade to
 	 */
 	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio")
-	void FadeIn(float FadeInDuration, float FadeVolumeLevel = 1.f, float StartTime = 0.f);
+	virtual void FadeIn(float FadeInDuration, float FadeVolumeLevel = 1.f, float StartTime = 0.f);
 
 	/**
 	 * This is used in place of "stop" when it is desired to fade the volume of the sound before stopping.
@@ -205,19 +274,23 @@ class ENGINE_API UAudioComponent : public USceneComponent
 	 * @param FadeVolumeLevel the percentage of the AudioComponents's calculated volume in which to fade to
 	 */
 	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio")
-	void FadeOut(float FadeOutDuration, float FadeVolumeLevel);
+	virtual	void FadeOut(float FadeOutDuration, float FadeVolumeLevel);
 
 	/** Start a sound playing on an audio component */
 	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio")
-	void Play(float StartTime = 0.f);
+	virtual void Play(float StartTime = 0.f);
 
 	/** Stop an audio component playing its sound cue, issue any delegates if needed */
 	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio")
-	void Stop();
+	virtual void Stop();
+
+	/** Pause an audio component playing its sound cue, issue any delegates if needed */
+	UFUNCTION(BlueprintCallable, Category = "Audio|Components|Audio")
+	void SetPaused(bool bPause);
 
 	/** @return true if this component is currently playing a SoundCue. */
 	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio")
-	bool IsPlaying() const;
+	virtual bool IsPlaying() const;
 
 	/** This will allow one to adjust the volume of an AudioComponent on the fly */
 	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio")
@@ -266,38 +339,6 @@ public:
 	/** Sets the sound instance parameter. */
 	void SetSoundParameter(const FAudioComponentParam& Param);
 
-public:
-
-	/** If true, subtitles in the sound data will be ignored. */
-	uint32 bSuppressSubtitles:1;
-
-	/** Whether this audio component is previewing a sound */
-	uint32 bPreviewComponent:1;
-
-	/** If true, this sound will not be stopped when flushing the audio device. */
-	uint32 bIgnoreForFlushing:1;
-
-	/** Whether audio effects are applied */
-	uint32 bEQFilterApplied:1;
-
-	/** Whether to artificially prioritize the component to play */
-	uint32 bAlwaysPlay:1;
-
-	/** Whether or not this audio component is a music clip */
-	uint32 bIsMusic:1;
-
-	/** Whether or not the audio component should be excluded from reverb EQ processing */
-	uint32 bReverb:1;
-
-	/** Whether or not this sound class forces sounds to the center channel */
-	uint32 bCenterChannelOnly:1;
-
-	/** Whether or not this sound is a preview sound */
-	uint32 bIsPreviewSound:1;
-
-	/** Used by the subtitle manager to prioritize subtitles wave instances spawned by this component. */
-	float SubtitlePriority;
-
 	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -339,15 +380,16 @@ public:
 
 	void UpdateInteriorSettings(bool bFullUpdate);
 
+protected:
+	/** Utility function called by Play and FadeIn to start a sound playing. */
+	void PlayInternal(const float StartTime = 0.f, const float FadeInDuration = 0.f, const float FadeVolumeLevel = 1.f);
+
 private:
 	
 #if WITH_EDITORONLY_DATA
 	/** Utility function that updates which texture is displayed on the sprite dependent on the properties of the Audio Component. */
 	void UpdateSpriteTexture();
 #endif
-
-	/** Utility function called by Play and FadeIn to start a sound playing. */
-	void PlayInternal(const float StartTime = 0.f, const float FadeInDuration = 0.f, const float FadeVolumeLevel = 1.f);
 
 	/** A count of how many times we've started playing */
 	int32 ActiveCount;

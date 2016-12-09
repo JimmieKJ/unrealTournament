@@ -1,14 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CascadeModule.h"
-#include "Cascade.h"
-#include "Editor/UnrealEd/Public/SViewportToolBar.h"
-#include "Editor/UnrealEd/Public/SEditorViewportToolBarMenu.h"
-#include "PreviewScene.h"
+#include "SCascadePreviewToolbar.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "SEditorViewportToolBarMenu.h"
 #include "CascadeActions.h"
+#include "Cascade.h"
 #include "SCascadePreviewViewport.h"
 #include "CascadePreviewViewportClient.h"
-#include "SCascadePreviewToolbar.h"
 
 
 void SCascadePreviewViewportToolBar::Construct(const FArguments& InArgs)

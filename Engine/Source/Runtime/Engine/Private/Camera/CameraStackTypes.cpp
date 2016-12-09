@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Camera/CameraStackTypes.h"
-#include "UnrealClient.h"
+#include "Camera/CameraTypes.h"
 #include "SceneView.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -20,7 +19,8 @@ bool FMinimalViewInfo::Equals(const FMinimalViewInfo& OtherInfo) const
 		(AspectRatio == OtherInfo.AspectRatio) &&
 		(bConstrainAspectRatio == OtherInfo.bConstrainAspectRatio) &&
 		(bUseFieldOfViewForLOD == OtherInfo.bUseFieldOfViewForLOD) &&
-		(ProjectionMode == OtherInfo.ProjectionMode);
+		(ProjectionMode == OtherInfo.ProjectionMode) &&
+		(OffCenterProjectionOffset == OtherInfo.OffCenterProjectionOffset);
 }
 
 void FMinimalViewInfo::BlendViewInfo(FMinimalViewInfo& OtherInfo, float OtherWeight)
@@ -34,6 +34,7 @@ void FMinimalViewInfo::BlendViewInfo(FMinimalViewInfo& OtherInfo, float OtherWei
 	OrthoWidth = FMath::Lerp(OrthoWidth, OtherInfo.OrthoWidth, OtherWeight);
 	OrthoNearClipPlane = FMath::Lerp(OrthoNearClipPlane, OtherInfo.OrthoNearClipPlane, OtherWeight);
 	OrthoFarClipPlane = FMath::Lerp(OrthoFarClipPlane, OtherInfo.OrthoFarClipPlane, OtherWeight);
+	OffCenterProjectionOffset = FMath::Lerp(OffCenterProjectionOffset, OtherInfo.OffCenterProjectionOffset, OtherWeight);
 
 	AspectRatio = FMath::Lerp(AspectRatio, OtherInfo.AspectRatio, OtherWeight);
 	bConstrainAspectRatio |= OtherInfo.bConstrainAspectRatio;
@@ -50,6 +51,7 @@ void FMinimalViewInfo::ApplyBlendWeight(const float& Weight)
 	OrthoNearClipPlane *= Weight;
 	OrthoFarClipPlane *= Weight;
 	AspectRatio *= Weight;
+	OffCenterProjectionOffset *= Weight;
 }
 
 void FMinimalViewInfo::AddWeightedViewInfo(const FMinimalViewInfo& OtherView, const float& Weight)
@@ -64,6 +66,7 @@ void FMinimalViewInfo::AddWeightedViewInfo(const FMinimalViewInfo& OtherView, co
 	OrthoNearClipPlane += OtherViewWeighted.OrthoNearClipPlane;
 	OrthoFarClipPlane += OtherViewWeighted.OrthoFarClipPlane;
 	AspectRatio += OtherViewWeighted.AspectRatio;
+	OffCenterProjectionOffset += OtherViewWeighted.OffCenterProjectionOffset;
 
 	bConstrainAspectRatio |= OtherViewWeighted.bConstrainAspectRatio;
 	bUseFieldOfViewForLOD |= OtherViewWeighted.bUseFieldOfViewForLOD;
@@ -163,5 +166,15 @@ void FMinimalViewInfo::CalculateProjectionMatrixGivenView(const FMinimalViewInfo
 				GNearClippingPlane
 				);
 		}
+	}
+
+	if (!ViewInfo.OffCenterProjectionOffset.IsZero())
+	{
+		const float Left = -1.0f + ViewInfo.OffCenterProjectionOffset.X;
+		const float Right = Left + 2.0f;
+		const float Bottom = -1.0f + ViewInfo.OffCenterProjectionOffset.Y;
+		const float Top = Bottom + 2.0f;
+		InOutProjectionData.ProjectionMatrix.M[2][0] = (Left + Right) / (Left - Right);
+		InOutProjectionData.ProjectionMatrix.M[2][1] = (Bottom + Top) / (Bottom - Top);
 	}
 }

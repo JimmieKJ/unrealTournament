@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SceneOutlinerPrivatePCH.h"
+#include "SceneOutlinerActorInfoColumn.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
+#include "ISceneOutliner.h"
 
-#include "ActorTreeItem.h"
 
 #include "EditorClassUtils.h"
 #include "SortHelper.h"

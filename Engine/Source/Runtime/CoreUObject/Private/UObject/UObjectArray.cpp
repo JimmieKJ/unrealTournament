@@ -4,7 +4,11 @@
 	UnObjArray.cpp: Unreal array of all objects
 =============================================================================*/
 
-#include "CoreUObjectPrivate.h"
+#include "UObject/UObjectArray.h"
+#include "Misc/ScopeLock.h"
+#include "UObject/UObjectAllocator.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectIterator.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUObjectArray, Log, All);
 
@@ -17,7 +21,7 @@ FUObjectArray::FUObjectArray()
 , OpenForDisregardForGC(!HACK_HEADER_GENERATOR)
 , MasterSerialNumber(START_SERIAL_NUMBER)
 {
-	FCoreDelegates::GetObjectArrayForDebugVisualizersDelegate().BindStatic(GetObjectArrayForDebugVisualizers);
+	GCoreObjectArrayForDebugVisualizers = &GUObjectArray.ObjObjects;
 }
 
 void FUObjectArray::AllocateObjectPool(int32 InMaxUObjects, int32 InMaxObjectsNotConsideredByGC)
@@ -52,7 +56,13 @@ void FUObjectArray::OpenDisregardForGC()
 
 void FUObjectArray::CloseDisregardForGC()
 {
+#if THREADSAFE_UOBJECTS
+	FScopeLock ObjObjectsLock(&ObjObjectsCritical);
+#else
+	// Disregard from GC pool is only available from the game thread, at least for now
 	check(IsInGameThread());
+#endif
+
 	check(OpenForDisregardForGC);
 
 	UClass::AssembleReferenceTokenStreams();
@@ -115,8 +125,13 @@ void FUObjectArray::AllocateUObjectIndex(UObjectBase* Object, bool bMergingThrea
 	// Special non- garbage collectable range.
 	if (OpenForDisregardForGC && DisregardForGCEnabled())
 	{
+#if THREADSAFE_UOBJECTS
+		FScopeLock ObjObjectsLock(&ObjObjectsCritical);
+#else
 		// Disregard from GC pool is only available from the game thread, at least for now
 		check(IsInGameThread());
+#endif
+
 		Index = ++ObjLastNonGCIndex;
 		// Check if we're not out of bounds, unless there hasn't been any gc objects yet
 		UE_CLOG(ObjLastNonGCIndex >= MaxObjectsNotConsideredByGC && ObjFirstGCIndex >= 0, LogUObjectArray, Fatal, TEXT("Unable to add more objects to disregard for GC pool (Max: %d)"), MaxObjectsNotConsideredByGC);
@@ -314,9 +329,4 @@ int32 FUObjectArray::AllocateSerialNumber(int32 Index)
  */
 void FUObjectArray::ShutdownUObjectArray()
 {
-}
-
-FFixedUObjectArray* FUObjectArray::GetObjectArrayForDebugVisualizers()
-{
-	return &GUObjectArray.ObjObjects;
 }

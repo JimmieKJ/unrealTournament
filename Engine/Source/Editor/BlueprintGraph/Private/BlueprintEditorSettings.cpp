@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintEditorSettings.h"
-#include "Editor/UnrealEd/Classes/Settings/EditorExperimentalSettings.h"
-#include "Editor/UnrealEd/Classes/Editor/EditorPerProjectUserSettings.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Settings/EditorExperimentalSettings.h"
 
 UBlueprintEditorSettings::UBlueprintEditorSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -23,6 +23,7 @@ UBlueprintEditorSettings::UBlueprintEditorSettings(const FObjectInitializer& Obj
 	, bShowEmptySections(true)
 	, bSpawnDefaultBlueprintNodes(true)
 	, bHideConstructionScriptComponentsInDetailsView(true)
+	, bEnableAdvancedContainers(false)
 	// Compiler Settings
 	, SaveOnCompile(SoC_Never)
 	, bJumpToNodeErrors(false)

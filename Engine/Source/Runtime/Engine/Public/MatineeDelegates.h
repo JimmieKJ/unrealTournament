@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** 
  * FMatineeDelegates
  * Delegates used by matinee.

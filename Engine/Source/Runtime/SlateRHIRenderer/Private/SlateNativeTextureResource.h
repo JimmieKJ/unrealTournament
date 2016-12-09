@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FSlateShaderResourceProxy;
+class FSlateTexture2DRHIRef;
 
 /** Represents a dynamic texture resource for rendering in Slate*/
 class FSlateDynamicTextureResource

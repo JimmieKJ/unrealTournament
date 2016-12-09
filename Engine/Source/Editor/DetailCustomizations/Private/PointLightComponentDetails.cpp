@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "PointLightComponentDetails.h"
 #include "Components/LightComponentBase.h"
+#include "DetailLayoutBuilder.h"
 
 #define LOCTEXT_NAMESPACE "PointLightComponentDetails"
 

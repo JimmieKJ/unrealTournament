@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HeadMountedDisplayPrivate.h"
+#include "HeadMountedDisplayTypes.h"
+#include "RendererInterface.h"
 
 FHMDViewMesh::FHMDViewMesh() :
 	pVertices(nullptr),

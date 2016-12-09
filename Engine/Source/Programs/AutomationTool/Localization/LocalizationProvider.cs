@@ -69,6 +69,7 @@ public abstract class LocalizationProvider
 		public string RootWorkingDirectory;
 		public string RemoteFilenamePrefix;
 		public CommandUtils CommandUtils;
+		public int PendingChangeList;
 	};
 
 	public LocalizationProvider(LocalizationProviderArgs InArgs)
@@ -76,6 +77,7 @@ public abstract class LocalizationProvider
 		RootWorkingDirectory = InArgs.RootWorkingDirectory;
 		RemoteFilenamePrefix = InArgs.RemoteFilenamePrefix;
 		CommandUtils = InArgs.CommandUtils;
+		PendingChangeList = InArgs.PendingChangeList;
 
 		LocalizationBranchName = CommandUtils.ParseParamValue("LocalizationBranch");
 		bUploadAllCultures = CommandUtils.ParseParam("UploadAllCultures");
@@ -141,9 +143,9 @@ public abstract class LocalizationProvider
 			{
 				return Activator.CreateInstance(LocalizationNodeType, new object[] { InLocalizationProviderArgs }) as LocalizationProvider;
 			}
-			catch
+			catch (Exception e)
 			{
-				BuildCommand.LogWarning("Unable to create an instance of the type '{0}'", LocalizationNodeType.FullName);
+				BuildCommand.LogWarning("Unable to create an instance of the type '{0}'. {1}", LocalizationNodeType.FullName, e.ToString());
 			}
 		}
 		else
@@ -159,6 +161,7 @@ public abstract class LocalizationProvider
 	protected string RemoteFilenamePrefix;
 	protected bool bUploadAllCultures;
 	protected CommandUtils CommandUtils;
+	protected int PendingChangeList;
 
 	private static Dictionary<string, Type> CachedLocalizationProviderTypes;
 };

@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AITestSuitePrivatePCH.h"
 #include "Actions/TestPawnAction_CallFunction.h"
+#include "Engine/World.h"
 
 UTestPawnAction_CallFunction::UTestPawnAction_CallFunction(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

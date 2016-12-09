@@ -1,39 +1,48 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Matinee/MatineeActor.h"
 #include "AssetSelection.h"
+#include "Engine/Level.h"
+#include "UObject/UnrealType.h"
+#include "GameFramework/Actor.h"
+#include "ActorFactories/ActorFactory.h"
+#include "Modules/ModuleManager.h"
+#include "GameFramework/Pawn.h"
+#include "Components/MeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Engine/Brush.h"
+#include "Editor/GroupActor.h"
+#include "Animation/SkeletalMeshActor.h"
+#include "Particles/Emitter.h"
+#include "Engine/Light.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/DecalComponent.h"
+#include "Kismet2/ComponentEditorUtils.h"
+#include "Engine/Selection.h"
+#include "Editor.h"
+#include "Matinee/MatineeActor.h"
 #include "ScopedTransaction.h"
 
 #include "LevelUtils.h"
-#include "EditorLevelUtils.h"
-#include "MainFrame.h"
-#include "ComponentEditorUtils.h"
 
 #include "ComponentAssetBroker.h"
 
 #include "DragAndDrop/AssetDragDropOp.h"
 
 #include "AssetRegistryModule.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "SnappingUtils.h"
 #include "ActorEditorUtils.h"
 #include "LevelEditorViewport.h"
+#include "LandscapeProxy.h"
 #include "Landscape.h"
 
-#include "Particles/Emitter.h"
 #include "Editor/ActorPositioning.h"
-#include "Animation/SkeletalMeshActor.h"
 
 #include "ObjectEditorUtils.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "Engine/Light.h"
-#include "Engine/StaticMeshActor.h"
-#include "Engine/StaticMesh.h"
-#include "GameFramework/Pawn.h"
-#include "Engine/Selection.h"
-#include "Components/DecalComponent.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 
 namespace AssetSelectionUtils
@@ -241,7 +250,7 @@ namespace AssetSelectionUtils
 						AStaticMeshActor* StaticMeshActor = CastChecked<AStaticMeshActor>( CurrentActor );
 						if ( StaticMeshActor->GetStaticMeshComponent() )
 						{
-							UStaticMesh* StaticMesh = StaticMeshActor->GetStaticMeshComponent()->StaticMesh;
+							UStaticMesh* StaticMesh = StaticMeshActor->GetStaticMeshComponent()->GetStaticMesh();
 
 							ActorInfo.bAllSelectedStaticMeshesHaveCollisionModels &= ( (StaticMesh && StaticMesh->BodySetup) ? true : false );
 						}

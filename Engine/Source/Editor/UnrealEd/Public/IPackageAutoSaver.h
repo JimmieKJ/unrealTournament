@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** An interface to handle the creation, destruction, and restoration of auto-saved packages */
 class UNREALED_API IPackageAutoSaver
 {

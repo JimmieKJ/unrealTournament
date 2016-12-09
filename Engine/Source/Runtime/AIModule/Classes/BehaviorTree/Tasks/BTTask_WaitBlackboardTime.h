@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "BehaviorTree/Tasks/BTTask_Wait.h"
 #include "BTTask_WaitBlackboardTime.generated.h"
+
+class UBehaviorTree;
 
 /**
  * Wait task node.

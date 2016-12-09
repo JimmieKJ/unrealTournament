@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
-#include "Layers.h"
-#include "ActorEditorUtils.h"
+#include "Layers/Layers.h"
+#include "Engine/Brush.h"
+#include "Components/PrimitiveComponent.h"
 #include "Layers/Layer.h"
+#include "LevelEditorViewport.h"
+#include "Misc/IFilter.h"
 #include "Engine/Selection.h"
 #include "EngineUtils.h"
+#include "Editor.h"
+
+#include "ActorEditorUtils.h"
 
 FLayers::FLayers( const TWeakObjectPtr< UEditorEngine >& InEditor )
 {

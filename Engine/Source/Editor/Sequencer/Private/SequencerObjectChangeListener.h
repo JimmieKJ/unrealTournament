@@ -3,8 +3,15 @@
 #pragma once
 
 //#include "ISequencerObjectChangeListener.h"
-#include "ObjectKey.h"
 
+#include "CoreMinimal.h"
+#include "KeyPropertyParams.h"
+#include "UObject/ObjectKey.h"
+#include "ISequencer.h"
+#include "ISequencerObjectChangeListener.h"
+
+class AActor;
+class IPropertyChangeListener;
 class IPropertyHandle;
 
 /**

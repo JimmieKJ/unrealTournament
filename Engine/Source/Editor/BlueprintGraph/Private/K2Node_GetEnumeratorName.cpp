@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_GetEnumeratorName.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_CallFunction.h"
 #include "KismetCompiler.h"
 #include "Kismet/KismetNodeHelperLibrary.h"
-#include "Kismet/KismetSystemLibrary.h"
-#include "K2Node_GetEnumeratorName.h"
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
 #include "BlueprintActionDatabaseRegistrar.h"

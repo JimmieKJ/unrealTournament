@@ -1,12 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerTypes.h"
+#include "InputCoreTypes.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
 #include "GameplayDebuggerConfig.h"
 #include "DrawDebugHelpers.h"
+#include "CanvasItem.h"
 #include "Engine/Canvas.h"
-#include "Engine/Font.h"
-#include "SceneView.h"
 
 DEFINE_LOG_CATEGORY(LogGameplayDebug);
 

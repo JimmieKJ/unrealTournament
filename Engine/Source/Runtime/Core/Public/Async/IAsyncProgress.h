@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/Optional.h"
+#include "Internationalization/Text.h"
 
 /**
  * Interface for checking the progress of asynchronous tasks.

@@ -1,0 +1,22 @@
+diff --git content_main_runner.cc content_main_runner.cc
+index 037c79b..2a0d9e0 100644
+--- content_main_runner.cc
++++ content_main_runner.cc
+@@ -158,6 +158,8 @@ base::LazyInstance<ContentUtilityClient>
+ 
+ // Setup signal-handling state: resanitize most signals, ignore SIGPIPE.
+ void SetupSignalHandlers() {
++// Don't override signal handlers already set up by the hosting application
++#if 0
+   // Sanitise our signal handling state. Signals that were ignored by our
+   // parent will also be ignored by us. We also inherit our parent's sigmask.
+   sigset_t empty_signal_set;
+@@ -173,7 +175,7 @@ void SetupSignalHandlers() {
+   for (unsigned i = 0; i < arraysize(signals_to_reset); i++) {
+     CHECK_EQ(0, sigaction(signals_to_reset[i], &sigact, NULL));
+   }
+-
++#endif
+   // Always ignore SIGPIPE.  We check the return value of write().
+   CHECK_NE(SIG_ERR, signal(SIGPIPE, SIG_IGN));
+ }

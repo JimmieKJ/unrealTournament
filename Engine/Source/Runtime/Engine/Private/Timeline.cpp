@@ -4,11 +4,18 @@
 	Timeline.cpp
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/Class.h"
+#include "UObject/CoreNet.h"
+#include "UObject/UnrealType.h"
 #include "Curves/CurveLinearColor.h"
 #include "Curves/CurveVector.h"
+#include "UObject/Package.h"
+#include "GameFramework/WorldSettings.h"
 #include "Net/UnrealNetwork.h"
 #include "Components/TimelineComponent.h"
+#include "Engine/World.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTimeline, Log, All);
 
@@ -72,11 +79,12 @@ void FTimeline::AddEvent(float Time, FOnTimelineEvent Event)
 	Events.Add(NewEntry);
 }
 
-void FTimeline::AddInterpVector(UCurveVector* VectorCurve, FOnTimelineVector InterpFunc, FName PropertyName)
+void FTimeline::AddInterpVector(UCurveVector* VectorCurve, FOnTimelineVector InterpFunc, FName PropertyName, FName TrackName)
 {
 	FTimelineVectorTrack NewEntry;
 	NewEntry.VectorCurve = VectorCurve;
 	NewEntry.InterpFunc = InterpFunc;
+	NewEntry.TrackName = TrackName;
 	NewEntry.VectorPropertyName = PropertyName;
 
 	InterpVectors.Add(NewEntry);
@@ -91,11 +99,12 @@ void FTimeline::AddInterpVector(UCurveVector* VectorCurve, FOnTimelineVectorStat
 	InterpVectors.Add(NewEntry);
 }
 
-void FTimeline::AddInterpFloat(UCurveFloat* FloatCurve, FOnTimelineFloat InterpFunc, FName PropertyName)
+void FTimeline::AddInterpFloat(UCurveFloat* FloatCurve, FOnTimelineFloat InterpFunc, FName PropertyName, FName TrackName)
 {
 	FTimelineFloatTrack NewEntry;
 	NewEntry.FloatCurve = FloatCurve;
 	NewEntry.InterpFunc = InterpFunc;
+	NewEntry.TrackName = TrackName;
 	NewEntry.FloatPropertyName = PropertyName;
 
 	InterpFloats.Add(NewEntry);
@@ -110,11 +119,12 @@ void FTimeline::AddInterpFloat(UCurveFloat* FloatCurve, FOnTimelineFloatStatic I
 	InterpFloats.Add(NewEntry);
 }
 
-void FTimeline::AddInterpLinearColor(UCurveLinearColor* LinearColorCurve, FOnTimelineLinearColor InterpFunc, FName PropertyName)
+void FTimeline::AddInterpLinearColor(UCurveLinearColor* LinearColorCurve, FOnTimelineLinearColor InterpFunc, FName PropertyName, FName TrackName)
 {
 	FTimelineLinearColorTrack NewEntry;
 	NewEntry.LinearColorCurve = LinearColorCurve;
 	NewEntry.InterpFunc = InterpFunc;
+	NewEntry.TrackName = TrackName;
 	NewEntry.LinearColorPropertyName = PropertyName;
 
 	InterpLinearColors.Add(NewEntry);
@@ -127,6 +137,73 @@ void FTimeline::AddInterpLinearColor(UCurveLinearColor* LinearColorCurve, FOnTim
 	NewEntry.InterpFuncStatic = InterpFunc;
 
 	InterpLinearColors.Add(NewEntry);
+}
+
+void FTimeline::SetFloatCurve(UCurveFloat* NewFloatCurve, FName FloatTrackName)
+{
+	bool bFoundTrack = false;
+	if (FloatTrackName != NAME_None)
+	{
+		for (FTimelineFloatTrack& FloatTrack : InterpFloats)
+		{
+			if (FloatTrack.TrackName == FloatTrackName)
+			{
+				FloatTrack.FloatCurve = NewFloatCurve;
+				bFoundTrack = true;
+				break;
+			}
+		}
+	}
+
+	if(!bFoundTrack)
+	{
+		UE_LOG(LogTimeline, Log, TEXT("SetFloatCurve: No float track with name %s!"), *FloatTrackName.ToString());
+	}
+}
+
+void FTimeline::SetVectorCurve(UCurveVector* NewVectorCurve, FName VectorTrackName)
+{
+	bool bFoundTrack = false;
+	if (VectorTrackName != NAME_None)
+	{
+		for (FTimelineVectorTrack& VectorTrack : InterpVectors)
+		{
+			if (VectorTrack.TrackName == VectorTrackName)
+			{
+				VectorTrack.VectorCurve = NewVectorCurve;
+				bFoundTrack = true;
+				break;
+			}
+		}
+	}
+
+	if (!bFoundTrack)
+	{
+		UE_LOG(LogTimeline, Log, TEXT("SetVectorCurve: No vector track with name %s!"), *VectorTrackName.ToString());
+	}
+}
+
+void FTimeline::SetLinearColorCurve(UCurveLinearColor* NewLinearColorCurve, FName LinearColorTrackName)
+{
+	bool bFoundTrack = false;
+	if (LinearColorTrackName != NAME_None)
+	{
+		for (FTimelineLinearColorTrack& ColorTrack : InterpLinearColors)
+		{
+			if (ColorTrack.TrackName == LinearColorTrackName)
+			{
+				ColorTrack.LinearColorCurve = NewLinearColorCurve;
+				bFoundTrack = true;
+				break;
+			}
+
+		}
+	}
+
+	if (!bFoundTrack)
+	{
+		UE_LOG(LogTimeline, Log, TEXT("SetLinearColorCurve: No color track with name %s!"), *LinearColorTrackName.ToString());
+	}
 }
 
 void FTimeline::SetPlaybackPosition(float NewPosition, bool bFireEvents, bool bFireUpdate)
@@ -242,10 +319,15 @@ void FTimeline::SetPlaybackPosition(float NewPosition, bool bFireEvents, bool bF
 	{
 		if (PropSetObject)
 		{
-			if (DirectionProperty == NULL)
+			if (DirectionProperty == nullptr)
 			{
 				DirectionProperty = FindField<UByteProperty>(PropSetObject->GetClass(), DirectionPropertyName);
-				if (DirectionProperty == NULL)
+				if (DirectionProperty == nullptr)
+				{
+					DirectionProperty = FindField<UEnumProperty>(PropSetObject->GetClass(), DirectionPropertyName);
+				}
+
+				if (DirectionProperty == nullptr)
 				{
 					UE_LOG(LogTimeline, Log, TEXT("SetPlaybackPosition: No direction property '%s' in '%s'"), *DirectionPropertyName.ToString(), *PropSetObject->GetName());
 				}
@@ -254,7 +336,17 @@ void FTimeline::SetPlaybackPosition(float NewPosition, bool bFireEvents, bool bF
 			{
 				const ETimelineDirection::Type CurrentDirection = bReversePlayback ? ETimelineDirection::Backward : ETimelineDirection::Forward;
 				TEnumAsByte<ETimelineDirection::Type> ValueAsByte(CurrentDirection);
-				DirectionProperty->SetPropertyValue_InContainer(PropSetObject, ValueAsByte);
+				if (UByteProperty* ByteDirection = Cast<UByteProperty>(DirectionProperty))
+				{
+					ByteDirection->SetPropertyValue_InContainer(PropSetObject, ValueAsByte);
+				}
+				else
+				{
+					UEnumProperty* EnumProp = CastChecked<UEnumProperty>(DirectionProperty);
+					void* PropAddr = EnumProp->ContainerPtrToValuePtr<void>(PropSetObject);
+					UNumericProperty* UnderlyingProp = EnumProp->GetUnderlyingProperty();
+					UnderlyingProp->SetIntPropertyValue(PropAddr, (int64)ValueAsByte);
+				}
 			}
 		}
 	}
@@ -363,7 +455,7 @@ void FTimeline::TickTimeline(float DeltaTime)
 	if(bPlaying)
 	{
 		const float TimelineLength = GetTimelineLength();
-		const float EffectiveDeltaTime = DeltaTime * (bReversePlayback ? (-PlayRate) : (PlayRate));
+		float EffectiveDeltaTime = DeltaTime * (bReversePlayback ? (-PlayRate) : (PlayRate));
 
 		float NewPosition = Position + EffectiveDeltaTime;
 
@@ -573,6 +665,24 @@ void UTimelineComponent::TickComponent(float DeltaTime, enum ELevelTick TickType
 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	if (bIgnoreTimeDilation)
+	{
+		AActor* const OwnerActor = GetOwner();
+		if (OwnerActor)
+		{
+			DeltaTime /= OwnerActor->GetActorTimeDilation();
+		}
+		else
+		{
+			// no Actor for some reason, use the world time dilation as fallback
+			UWorld* const W = GetWorld();
+			if (W)
+			{
+				DeltaTime /= W->GetWorldSettings()->GetEffectiveTimeDilation();
+			}
+		}
+	}
+
 	TheTimeline.TickTimeline(DeltaTime);
 
 	if (!IsNetSimulating())
@@ -637,19 +747,19 @@ void UTimelineComponent::AddEvent(float Time, FOnTimelineEvent Event)
 	TheTimeline.AddEvent(Time, Event);
 }
 
-void UTimelineComponent::AddInterpVector(UCurveVector* VectorCurve, FOnTimelineVector InterpFunc, FName PropertyName)
+void UTimelineComponent::AddInterpVector(UCurveVector* VectorCurve, FOnTimelineVector InterpFunc, FName PropertyName, FName TrackName)
 {
-	TheTimeline.AddInterpVector(VectorCurve, InterpFunc, PropertyName);
+	TheTimeline.AddInterpVector(VectorCurve, InterpFunc, PropertyName, TrackName);
 }
 
-void UTimelineComponent::AddInterpFloat(UCurveFloat* FloatCurve, FOnTimelineFloat InterpFunc, FName PropertyName)
+void UTimelineComponent::AddInterpFloat(UCurveFloat* FloatCurve, FOnTimelineFloat InterpFunc, FName PropertyName, FName TrackName)
 {
-	TheTimeline.AddInterpFloat(FloatCurve, InterpFunc, PropertyName);
+	TheTimeline.AddInterpFloat(FloatCurve, InterpFunc, PropertyName, TrackName);
 }
 
-void UTimelineComponent::AddInterpLinearColor(UCurveLinearColor* LinearColorCurve, FOnTimelineLinearColor InterpFunc, FName PropertyName)
+void UTimelineComponent::AddInterpLinearColor(UCurveLinearColor* LinearColorCurve, FOnTimelineLinearColor InterpFunc, FName PropertyName, FName TrackName)
 {
-	TheTimeline.AddInterpLinearColor(LinearColorCurve, InterpFunc, PropertyName);
+	TheTimeline.AddInterpLinearColor(LinearColorCurve, InterpFunc, PropertyName, TrackName);
 }
 
 void UTimelineComponent::SetPlaybackPosition(float NewPosition, bool bFireEvents, bool bFireUpdate)
@@ -707,6 +817,31 @@ void UTimelineComponent::SetTimelineLengthMode(ETimelineLengthMode NewLengthMode
 	TheTimeline.SetTimelineLengthMode(NewLengthMode);
 }
 
+void UTimelineComponent::SetIgnoreTimeDilation(bool bNewIgnoreTimeDilation)
+{
+	bIgnoreTimeDilation = bNewIgnoreTimeDilation;
+}
+
+bool UTimelineComponent::GetIgnoreTimeDilation() const
+{
+	return bIgnoreTimeDilation;
+}
+
+void UTimelineComponent::SetFloatCurve(UCurveFloat* NewFloatCurve, FName FloatTrackName)
+{
+	TheTimeline.SetFloatCurve(NewFloatCurve, FloatTrackName);
+}
+
+void UTimelineComponent::SetVectorCurve(UCurveVector* NewVectorCurve, FName VectorTrackName)
+{
+	TheTimeline.SetVectorCurve(NewVectorCurve, VectorTrackName);
+}
+
+void UTimelineComponent::SetLinearColorCurve(UCurveLinearColor* NewLinearColorCurve, FName LinearColorTrackName)
+{
+	TheTimeline.SetLinearColorCurve(NewLinearColorCurve, LinearColorTrackName);
+}
+
 void UTimelineComponent::SetPropertySetObject(UObject* NewPropertySetObject)
 {
 	TheTimeline.SetPropertySetObject(NewPropertySetObject);
@@ -718,6 +853,11 @@ void UTimelineComponent::SetTimelinePostUpdateFunc(FOnTimelineEvent NewTimelineP
 }
 
 void UTimelineComponent::SetTimelineFinishedFunc(FOnTimelineEvent NewTimelineFinishedFunc)
+{
+	TheTimeline.SetTimelineFinishedFunc(NewTimelineFinishedFunc);
+}
+
+void UTimelineComponent::SetTimelineFinishedFunc(FOnTimelineEventStatic NewTimelineFinishedFunc)
 {
 	TheTimeline.SetTimelineFinishedFunc(NewTimelineFinishedFunc);
 }

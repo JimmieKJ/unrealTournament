@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MatineeModule.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "Matinee.h"
 #include "Matinee/MatineeActorCameraAnim.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/PropertyEditor/Public/IDetailsView.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
 #include "Camera/CameraAnim.h"
 
 void FMatinee::BuildPropertyWindow()

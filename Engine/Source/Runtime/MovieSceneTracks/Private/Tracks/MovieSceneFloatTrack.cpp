@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneFloatSection.h"
-#include "MovieSceneFloatTrack.h"
-#include "IMovieScenePlayer.h"
-#include "MovieSceneFloatTrackInstance.h"
+#include "Tracks/MovieSceneFloatTrack.h"
+#include "MovieSceneCommonHelpers.h"
+#include "Sections/MovieSceneFloatSection.h"
+#include "Evaluation/MovieScenePropertyTemplates.h"
 
 
 UMovieSceneFloatTrack::UMovieSceneFloatTrack( const FObjectInitializer& ObjectInitializer )
@@ -17,14 +16,12 @@ UMovieSceneSection* UMovieSceneFloatTrack::CreateNewSection()
 	return NewObject<UMovieSceneSection>(this, UMovieSceneFloatSection::StaticClass(), NAME_None, RF_Transactional);
 }
 
-
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneFloatTrack::CreateInstance()
+FMovieSceneEvalTemplatePtr UMovieSceneFloatTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
 {
-	return MakeShareable( new FMovieSceneFloatTrackInstance( *this ) ); 
+	return FMovieSceneFloatPropertySectionTemplate(*CastChecked<const UMovieSceneFloatSection>(&InSection), *this);
 }
 
-
-bool UMovieSceneFloatTrack::Eval( float Position, float LastPosition, float& OutFloat ) const
+bool UMovieSceneFloatTrack::Eval( float Position, float LastPosition, float& InOutFloat ) const
 {
 	const UMovieSceneSection* Section = MovieSceneHelpers::FindNearestSectionAtTime( Sections, Position );
 
@@ -35,9 +32,8 @@ bool UMovieSceneFloatTrack::Eval( float Position, float LastPosition, float& Out
 			Position = FMath::Clamp(Position, Section->GetStartTime(), Section->GetEndTime());
 		}
 
-		OutFloat = CastChecked<UMovieSceneFloatSection>( Section )->Eval( Position );
+		InOutFloat = CastChecked<UMovieSceneFloatSection>( Section )->Eval( Position, InOutFloat );
 	}
 
 	return Section != nullptr;
 }
-

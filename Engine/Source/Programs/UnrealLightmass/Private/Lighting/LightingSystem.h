@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "CPUSolver.h"
 #include "ImportExport.h"
 #include "Cache.h"
+#include "Containers/ChunkedArray.h"
+#include "Containers/List.h"
+#include "HAL/Runnable.h"
+#include "LightmapData.h"
 
 namespace Lightmass
 {
@@ -2033,7 +2038,7 @@ private:
 	FBoxSphereBounds GetImportanceBounds(bool bClampToScene = true) const;
 
 	/** Returns true if the specified position is inside any of the importance volumes. */
-	bool IsPointInImportanceVolume(const FVector4& Position) const;
+	bool IsPointInImportanceVolume(const FVector4& Position, float Tolerance = 0.0f) const;
 
 	/** Changes the scene's settings if necessary so that only valid combinations are used */
 	void ValidateSettings(FScene& InScene);

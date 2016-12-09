@@ -2,8 +2,16 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/CoreMisc.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "Misc/OutputDeviceHelper.h"
+#include "Misc/FeedbackContext.h"
 #include "Misc/OutputDeviceConsole.h"
 
+class FContextSupplier;
+class FName;
+class FText;
 
 /**
  * Feedback context implementation for windows.
@@ -57,7 +65,7 @@ public:
 			}
 		}
 
-		if( GLogConsole && IsRunningCommandlet() )
+		if( GLogConsole && IsRunningCommandlet() && !GLog->IsRedirectingTo(GLogConsole) )
 		{
 			GLogConsole->Serialize( V, Verbosity, Category );
 		}

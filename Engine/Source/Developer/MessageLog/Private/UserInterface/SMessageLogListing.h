@@ -2,7 +2,18 @@
 
 #pragma once
 
-#include "MessageLogListingViewModel.h"
+#include "CoreMinimal.h"
+#include "Logging/TokenizedMessage.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "MessageFilter.h"
+#include "Presentation/MessageLogListingViewModel.h"
+#include "Framework/Commands/UICommandList.h"
 
 /**
  * A message log listing, such as the Compiler Log, or the Map Check Log.

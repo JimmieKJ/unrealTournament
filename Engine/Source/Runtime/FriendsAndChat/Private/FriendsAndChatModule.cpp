@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FriendsAndChatPrivatePCH.h"
-
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IFriendsAndChatModule.h"
 #include "FriendsAndChatStyle.h"
+
 
 /**
  * Implements the FriendsAndChat module.

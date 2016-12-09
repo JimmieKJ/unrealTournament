@@ -29,7 +29,7 @@ void AUTMutator_WeaponReplacement::BeginPlay()
 {
 	Super::BeginPlay();
 
-	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (GameMode != NULL)
 	{
 		for (int32 i=0; i<GameMode->DefaultInventory.Num(); i++)

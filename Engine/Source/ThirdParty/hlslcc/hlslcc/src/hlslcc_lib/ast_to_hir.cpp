@@ -3843,7 +3843,7 @@ ir_rvalue * ast_function::hir(exec_list *instructions, struct _mesa_glsl_parse_s
 				actual_parameters.push_tail(new(ctx)ir_dereference_variable(var));
 
 				param = (ir_variable*)param->get_next();
-				if (p > min_params)
+				if (p >= min_params)
 				{
 					default_value = (ir_constant*)default_value->get_next();
 				}

@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "LevelEditor.h"
 #include "SLevelViewportControlsPopup.h"
+#include "Misc/Paths.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
 #include "SWebBrowser.h"
 
 void SLevelViewportControlsPopup::Construct(const FArguments& InArgs)

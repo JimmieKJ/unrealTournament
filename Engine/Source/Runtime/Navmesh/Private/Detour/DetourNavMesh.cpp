@@ -19,19 +19,9 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include <math.h>
-#include <float.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include "DetourNavMesh.h"
-#include "DetourNode.h"
-#include "DetourCommon.h"
-#include "DetourAlloc.h"
-#include "DetourAssert.h"
-#include "DetourNavMeshQuery.h"
-#include <new>
+#include "Detour/DetourNavMesh.h"
+#include "Detour/DetourCommon.h"
+#include "Detour/DetourAssert.h"
 
 enum ESlabOverlapFlag
 {
@@ -1075,15 +1065,30 @@ void dtNavMesh::connectExtOffMeshLinks(dtMeshTile* tile, dtMeshTile* target, int
 		// Find polygon to connect to.
 		const float* p = &targetCon->pos[3];
 		float nearestPt[3];
-		dtPolyRef ref = targetCon->getSnapToCheapestArea() ?
-			findCheapestNearPolyInTile(tile, p, ext, nearestPt) :
-			findNearestPolyInTile(tile, p, ext, nearestPt, true);
+		dtPolyRef ref = 0;
+
+		// [UE4] try finding cheapest, but it that's outside requested radius, fallback to nearest one
+		// findNearestPoly may return too optimistic results, further check to make sure. 
+		if (targetCon->getSnapToCheapestArea())
+		{
+			ref = findCheapestNearPolyInTile(tile, p, ext, nearestPt);
+			if (!ref || (ref == targetLandPoly) || (dtSqr(nearestPt[0] - p[0]) + dtSqr(nearestPt[2] - p[2]) > dtSqr(targetCon->rad)))
+			{
+				ref = 0;
+			}
+		}
+
+		if (!ref)
+		{
+			ref = findNearestPolyInTile(tile, p, ext, nearestPt, true);
+			if (!ref || (ref == targetLandPoly) || (dtSqr(nearestPt[0] - p[0]) + dtSqr(nearestPt[2] - p[2]) > dtSqr(targetCon->rad)))
+			{
+				ref = 0;
+			}
+		}
 
 		// Avoid linking back into the same ground poly
 		if (!ref || (targetLandPoly == ref))
-			continue;
-		// findNearestPoly may return too optimistic results, further check to make sure. 
-		if (dtSqr(nearestPt[0]-p[0])+dtSqr(nearestPt[2]-p[2]) > dtSqr(targetCon->rad))
 			continue;
 		// Make sure the location is on current mesh.
 		float* v = &target->verts[targetPoly->verts[1]*3];
@@ -1193,13 +1198,30 @@ void dtNavMesh::baseOffMeshLinks(dtMeshTile* tile)
 		// Find polygon to connect to.
 		const float* p = &con->pos[0]; // First vertex
 		float nearestPt[3];
-		dtPolyRef ref = con->getSnapToCheapestArea() ? 
-			findCheapestNearPolyInTile(tile, p, ext, nearestPt) :
-			findNearestPolyInTile(tile, p, ext, nearestPt, true);
-		if (!ref) continue;
+		dtPolyRef ref = 0;
+
+		// [UE4] try finding cheapest, but it that's outside requested radius, fallback to nearest one
 		// findNearestPoly may return too optimistic results, further check to make sure. 
-		if (dtSqr(nearestPt[0]-p[0])+dtSqr(nearestPt[2]-p[2]) > dtSqr(con->rad))
-			continue;
+		if (con->getSnapToCheapestArea())
+		{
+			ref = findCheapestNearPolyInTile(tile, p, ext, nearestPt);
+			if (!ref || (dtSqr(nearestPt[0] - p[0]) + dtSqr(nearestPt[2] - p[2]) > dtSqr(con->rad)))
+			{
+				ref = 0;
+			}
+		}
+
+		if (!ref)
+		{
+			ref = findNearestPolyInTile(tile, p, ext, nearestPt, true);
+			if (!ref || (dtSqr(nearestPt[0] - p[0]) + dtSqr(nearestPt[2] - p[2]) > dtSqr(con->rad)))
+			{
+				ref = 0;
+			}
+		}
+
+		if (!ref) continue;
+
 		// Make sure the location is on current mesh.
 		float* v = &tile->verts[poly->verts[0]*3];
 		dtVcopy(v, nearestPt);

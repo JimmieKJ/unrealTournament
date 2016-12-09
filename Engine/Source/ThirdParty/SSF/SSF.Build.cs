@@ -7,6 +7,8 @@ public class SSF : ModuleRules
     {
         Type = ModuleType.External;
 
+		bOutputPubliclyDistributable = true;
+
         string SSFDirectory = UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees/SSF/";
         string SSFLibPath = SSFDirectory;
         PublicIncludePaths.Add(SSFDirectory + "Public");

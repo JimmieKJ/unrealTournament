@@ -53,7 +53,7 @@ public:
 	DEFINE_ONLINE_PLAYER_DELEGATE_THREE_PARAM(MAX_LOCAL_PLAYERS, OnQueryUserInfoComplete, bool, const TArray< TSharedRef<const FUniqueNetId> >&, const FString&);
 
 	/**
-	 * Obtains the cached list of online user info 
+	 * Obtains the cached list of online user info
 	 *
 	 * @param LocalUserNum the local user that queried for online user data
 	 * @param OutUsers [out] array that receives the copied data
@@ -98,7 +98,7 @@ public:
 	 *
 	 * @param bWasSuccessful true if server was contacted and a valid result received
 	 * @param UserId user id initiating the request
-	 * @param AuthType auth type that the external ids represent
+	 * @param QueryOptions Options specifying how to treat the External IDs and other query-related settings
 	 * @param ExternalIds array of external ids to attempt to map to user ids
 	 * @param Error string representing the error condition
 	 */
@@ -108,7 +108,7 @@ public:
 	 * Contacts server to obtain user ids from external ids
 	 *
 	 * @param UserId id of the user that is requesting the name string lookup
-	 * @param AuthType auth type that the external ids represent
+	 * @param QueryOptions Options specifying how to treat the External IDs and other query-related settings
 	 * @param ExternalIds array of external ids to attempt to map to user ids
 	 *
 	 * @return true if the operation was started successfully
@@ -118,7 +118,7 @@ public:
 	/**
 	 * Get the cached user ids for the specified external ids
 	 *
-	 * @param AuthType auth type that the external ids represent
+	 * @param QueryOptions Options specifying how to treat the External IDs and other query-related settings
 	 * @param ExternalIds array of external ids to map to user ids
 	 * @param OutIds array of user ids that map to the specified external ids (can contain null entries)
 	 */
@@ -127,7 +127,7 @@ public:
 	/**
 	 * Get the cached user id for the specified external id
 	 *
-	 * @param AuthType auth type that the external ids represent
+	 * @param QueryOptions Options specifying how to treat the External IDs and other query-related settings
 	 * @param ExternalId external id to obtain user id for
 
 	 * @return user info or null ptr if not found

@@ -1,12 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
+#include "K2Node_PureAssignmentStatement.h"
+#include "EdGraphSchema_K2.h"
+#include "EdGraphUtilities.h"
 #include "KismetCompiler.h"
 #include "VariableSetHandler.h"
-#include "BlueprintNodeSpawner.h"
-#include "EditorCategoryUtils.h"
-#include "K2Node_PureAssignmentStatement.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_PureAssignmentStatement"
 

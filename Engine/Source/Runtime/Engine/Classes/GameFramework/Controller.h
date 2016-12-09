@@ -1,11 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/CoreNet.h"
+#include "GameFramework/Actor.h"
 #include "AI/Navigation/NavAgentInterface.h"
 #include "Controller.generated.h"
 
-class UPathFollowingComponent;
+class ACharacter;
 class APawn;
+class FDebugDisplayInfo;
+class UDamageType;
+class UPathFollowingComponent;
 
 UDELEGATE(BlueprintAuthorityOnly)
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams( FInstigatedAnyDamageSignature, float, Damage, const class UDamageType*, DamageType, class AActor*, DamagedActor, class AActor*, DamageCauser );

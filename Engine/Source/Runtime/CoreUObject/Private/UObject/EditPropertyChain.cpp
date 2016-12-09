@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "CoreMinimal.h"
+#include "Templates/Casts.h"
+#include "Containers/List.h"
+#include "UObject/UnrealType.h"
 
 /* ==========================================================================================================
 	FEditPropertyChain

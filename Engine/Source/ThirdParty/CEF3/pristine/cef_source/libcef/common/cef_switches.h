@@ -34,6 +34,7 @@ extern const char kImageShrinkStandaloneToFit[];
 extern const char kDisableTextAreaResize[];
 extern const char kDisableTabToLinks[];
 extern const char kPersistSessionCookies[];
+extern const char kPersistUserPreferences[];
 extern const char kEnableMediaStream[];
 extern const char kEnableSpeechInput[];
 extern const char kEnableProfanityFilter[];
@@ -43,6 +44,16 @@ extern const char kEnableSpellingService[];
 extern const char kOverrideSpellCheckLang[];
 extern const char kEnableSystemFlash[];
 extern const char kDisableScrollBounce[];
+extern const char kDisablePdfExtension[];
+extern const char kEnableNPAPI[];
+extern const char kEnableWidevineCdm[];
+extern const char kWidevineCdmPath[];
+extern const char kWidevineCdmVersion[];
+extern const char kPluginPolicy[];
+extern const char kPluginPolicy_Allow[];
+extern const char kPluginPolicy_Detect[];
+extern const char kPluginPolicy_Block[];
+extern const char kEnablePreferenceTesting[];
 
 }  // namespace switches
 

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -33,9 +33,21 @@
 #include "SDL_uikitvideo.h"
 #include "SDL_uikitmodes.h"
 #include "SDL_uikitwindow.h"
+#include "SDL_uikitopengles.h"
 
 #if SDL_IPHONE_KEYBOARD
 #include "keyinfotable.h"
+#endif
+
+#if TARGET_OS_TV
+static void
+SDL_AppleTVControllerUIHintChanged(void *userdata, const char *name, const char *oldValue, const char *hint)
+{
+    @autoreleasepool {
+        SDL_uikitviewcontroller *viewcontroller = (__bridge SDL_uikitviewcontroller *) userdata;
+        viewcontroller.controllerUserInteractionEnabled = hint && (*hint != '0');
+    }
+}
 #endif
 
 @implementation SDL_uikitviewcontroller {
@@ -59,6 +71,12 @@
 #if SDL_IPHONE_KEYBOARD
         [self initKeyboard];
 #endif
+
+#if TARGET_OS_TV
+        SDL_AddHintCallback(SDL_HINT_APPLE_TV_CONTROLLER_UI_EVENTS,
+                            SDL_AppleTVControllerUIHintChanged,
+                            (__bridge void *) self);
+#endif
     }
     return self;
 }
@@ -67,6 +85,12 @@
 {
 #if SDL_IPHONE_KEYBOARD
     [self deinitKeyboard];
+#endif
+
+#if TARGET_OS_TV
+    SDL_DelHintCallback(SDL_HINT_APPLE_TV_CONTROLLER_UI_EVENTS,
+                        SDL_AppleTVControllerUIHintChanged,
+                        (__bridge void *) self);
 #endif
 }
 
@@ -102,6 +126,9 @@
 {
     /* Don't run the game loop while a messagebox is up */
     if (!UIKit_ShowingMessageBox()) {
+        /* See the comment in the function definition. */
+        UIKit_GL_RestoreCurrentContext();
+
         animationCallback(animationCallbackParam);
     }
 }
@@ -120,6 +147,7 @@
     SDL_SendWindowEvent(window, SDL_WINDOWEVENT_RESIZED, w, h);
 }
 
+#if !TARGET_OS_TV
 - (NSUInteger)supportedInterfaceOrientations
 {
     return UIKit_GetSupportedOrientations(window);
@@ -134,12 +162,7 @@
 {
     return (window->flags & (SDL_WINDOW_FULLSCREEN|SDL_WINDOW_BORDERLESS)) != 0;
 }
-
-- (UIStatusBarStyle)preferredStatusBarStyle
-{
-    /* We assume most SDL apps don't have a bright white background. */
-    return UIStatusBarStyleLightContent;
-}
+#endif
 
 /*
  ---- Keyboard related functionality below this line ----
@@ -170,9 +193,11 @@
     textField.hidden = YES;
     keyboardVisible = NO;
 
+#if !TARGET_OS_TV
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
     [center addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
     [center addObserver:self selector:@selector(keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
+#endif
 }
 
 - (void)setView:(UIView *)view
@@ -188,9 +213,11 @@
 
 - (void)deinitKeyboard
 {
+#if !TARGET_OS_TV
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
     [center removeObserver:self name:UIKeyboardWillShowNotification object:nil];
     [center removeObserver:self name:UIKeyboardWillHideNotification object:nil];
+#endif
 }
 
 /* reveal onscreen virtual keyboard */
@@ -211,29 +238,15 @@
 
 - (void)keyboardWillShow:(NSNotification *)notification
 {
+#if !TARGET_OS_TV
     CGRect kbrect = [[notification userInfo][UIKeyboardFrameBeginUserInfoKey] CGRectValue];
-    UIView *view = self.view;
-    int height = 0;
 
-    /* The keyboard rect is in the coordinate space of the screen, but we want
-     * its height in the view's coordinate space. */
-#ifdef __IPHONE_8_0
-    if ([view respondsToSelector:@selector(convertRect:fromCoordinateSpace:)]) {
-        UIScreen *screen = view.window.screen;
-        kbrect = [view convertRect:kbrect fromCoordinateSpace:screen.coordinateSpace];
-        height = kbrect.size.height;
-    } else
+    /* The keyboard rect is in the coordinate space of the screen/window, but we
+     * want its height in the coordinate space of the view. */
+    kbrect = [self.view convertRect:kbrect fromView:nil];
+
+    [self setKeyboardHeight:(int)kbrect.size.height];
 #endif
-    {
-        /* In iOS 7 and below, the screen's coordinate space is never rotated. */
-        if (UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
-            height = kbrect.size.width;
-        } else {
-            height = kbrect.size.height;
-        }
-    }
-
-    [self setKeyboardHeight:height];
 }
 
 - (void)keyboardWillHide:(NSNotification *)notification
@@ -243,28 +256,29 @@
 
 - (void)updateKeyboard
 {
-    SDL_Rect textrect = self.textInputRect;
     CGAffineTransform t = self.view.transform;
     CGPoint offset = CGPointMake(0.0, 0.0);
+    CGRect frame = UIKit_ComputeViewFrame(window, self.view.window.screen);
 
     if (self.keyboardHeight) {
-        int rectbottom = textrect.y + textrect.h;
-        int kbottom = self.view.bounds.size.height - self.keyboardHeight;
-        if (kbottom < rectbottom) {
-            offset.y = kbottom - rectbottom;
+        int rectbottom = self.textInputRect.y + self.textInputRect.h;
+        int keybottom = self.view.bounds.size.height - self.keyboardHeight;
+        if (keybottom < rectbottom) {
+            offset.y = keybottom - rectbottom;
         }
     }
 
-    /* Put the offset into the this view transform's coordinate space. */
+    /* Apply this view's transform (except any translation) to the offset, in
+     * order to orient it correctly relative to the frame's coordinate space. */
     t.tx = 0.0;
     t.ty = 0.0;
     offset = CGPointApplyAffineTransform(offset, t);
 
-    t.tx = offset.x;
-    t.ty = offset.y;
+    /* Apply the updated offset to the view's frame. */
+    frame.origin.x += offset.x;
+    frame.origin.y += offset.y;
 
-    /* Move the view by applying the updated transform. */
-    self.view.transform = t;
+    self.view.frame = frame;
 }
 
 - (void)setKeyboardHeight:(int)height

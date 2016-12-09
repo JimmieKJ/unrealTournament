@@ -1,13 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FontEditorModule.h"
-#include "MouseDeltaTracker.h"
 #include "SFontEditorViewport.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "CanvasTypes.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Widgets/SBoxPanel.h"
+#include "HitProxies.h"
+#include "UnrealClient.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Texture2D.h"
+#include "Editor.h"
+#include "Fonts/FontCache.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Widgets/SViewport.h"
+#include "EditorStyleSet.h"
 #include "Engine/Font.h"
-#include "Engine/Selection.h"
 #include "CanvasItem.h"
+#include "Editor/UnrealEdEngine.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
+#include "UnrealEdGlobals.h"
+#include "IFontEditor.h"
+#include "Slate/SceneViewport.h"
+#include "CanvasTypes.h"
+#include "Engine/Selection.h"
 
 #define LOCTEXT_NAMESPACE "FontEditor"
 
@@ -230,7 +244,7 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 						{
 							if (GlyphToRender.bIsVisible)
 							{
-								const FShapedGlyphFontAtlasData GlyphAtlasData = FontCache->GetShapedGlyphFontAtlasData(GlyphToRender);
+								const FShapedGlyphFontAtlasData GlyphAtlasData = FontCache->GetShapedGlyphFontAtlasData(GlyphToRender, FFontOutlineSettings::NoOutline);
 
 								const float X = CurPos.X + LineX + GlyphAtlasData.HorizontalOffset + GlyphToRender.XOffset;
 								const float Y = CurPos.Y - GlyphAtlasData.VerticalOffset + GlyphToRender.YOffset + ShapedPreviewText->GetTextBaseline() + ShapedPreviewText->GetMaxTextHeight();
@@ -260,7 +274,7 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 
 								if (GlyphToRender.bIsVisible)
 								{
-									const FShapedGlyphFontAtlasData GlyphAtlasData = FontCache->GetShapedGlyphFontAtlasData(GlyphToRender);
+									const FShapedGlyphFontAtlasData GlyphAtlasData = FontCache->GetShapedGlyphFontAtlasData(GlyphToRender,FFontOutlineSettings::NoOutline);
 
 									const float X = CurPos.X + LineX + GlyphAtlasData.HorizontalOffset + GlyphToRender.XOffset;
 									const float Y = CurPos.Y - GlyphAtlasData.VerticalOffset + GlyphToRender.YOffset + ShapedPreviewText->GetTextBaseline() + ShapedPreviewText->GetMaxTextHeight();

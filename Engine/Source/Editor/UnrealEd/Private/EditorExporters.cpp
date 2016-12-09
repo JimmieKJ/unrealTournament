@@ -4,38 +4,71 @@
 	EditorExporters.cpp: Editor exporters.
 =============================================================================*/
 
-#include "UnrealEd.h"
-#include "StaticMeshResources.h"
-#include "SoundDefinitions.h"
-#include "Kismet2/DebuggerCommands.h"
-#include "SurfaceIterators.h"
+#include "CoreMinimal.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/OutputDeviceFile.h"
+#include "UObject/Object.h"
+#include "UObject/UObjectIterator.h"
+#include "Misc/TextBuffer.h"
+#include "UObject/Package.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/MaterialMerging.h"
+#include "GameFramework/Actor.h"
+#include "SceneTypes.h"
+#include "RawIndexBuffer.h"
+#include "RenderingThread.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Model.h"
+#include "Exporters/Exporter.h"
+#include "Exporters/AnimSequenceExporterFBX.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimSequence.h"
+#include "Editor/EditorEngine.h"
+#include "Exporters/ExportTextContainer.h"
+#include "Editor/GroupActor.h"
+#include "Exporters/LevelExporterFBX.h"
+#include "Exporters/LevelExporterLOD.h"
+#include "Exporters/LevelExporterOBJ.h"
+#include "Exporters/LevelExporterSTL.h"
+#include "Exporters/LevelExporterT3D.h"
+#include "Exporters/ModelExporterT3D.h"
+#include "Exporters/ObjectExporterT3D.h"
+#include "Exporters/PolysExporterOBJ.h"
+#include "Exporters/PolysExporterT3D.h"
+#include "Exporters/SequenceExporterT3D.h"
+#include "Exporters/SkeletalMeshExporterFBX.h"
+#include "Exporters/SoundExporterOGG.h"
+#include "Exporters/SoundExporterWAV.h"
+#include "Exporters/SoundSurroundExporterWAV.h"
+#include "Exporters/StaticMeshExporterFBX.h"
+#include "Exporters/StaticMeshExporterOBJ.h"
+#include "Exporters/TextBufferExporterTXT.h"
+#include "Engine/StaticMesh.h"
+#include "Sound/SoundWave.h"
+#include "Engine/StaticMeshActor.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/Polys.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/PropertyPortFlags.h"
+#include "GameFramework/PhysicsVolume.h"
+#include "EngineUtils.h"
+#include "Editor.h"
+#include "MatineeExporter.h"
 #include "FbxExporter.h"
-#include "AudioDerivedData.h"
 #include "RawMesh.h"
-#include "MaterialExportUtils.h"
 #include "MaterialUtilities.h"
 #include "InstancedFoliageActor.h"
+#include "LandscapeProxy.h"
 #include "Landscape.h"
-#include "LandscapeComponent.h"
 #include "LandscapeInfo.h"
+#include "LandscapeComponent.h"
 #include "LandscapeDataAccess.h"
-#include "FoliageType.h"
 #include "UnrealExporter.h"
-#include "EngineModule.h"
 #include "InstancedFoliage.h"
-#include "RendererInterface.h"
-#include "Sound/SoundWave.h"
-#include "Engine/Polys.h"
-#include "GameFramework/PhysicsVolume.h"
-#include "Engine/StaticMeshActor.h"
-#include "Engine/TextureRenderTarget2D.h"
 #include "Engine/Selection.h"
-#include "AI/Navigation/NavigationSystem.h"
-#include "Engine/TextureCube.h"
-#include "EngineUtils.h"
-#include "DeviceProfiles/DeviceProfileManager.h"
-#include "Engine/TextureLODSettings.h"
-#include "Animation/AnimSequence.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorExporters, Log, All);
 
@@ -629,9 +662,9 @@ bool ULevelExporterSTL::ExportText( const FExportObjectInnerContext* Context, UO
 		// Static meshes
 
 		AStaticMeshActor* Actor = Cast<AStaticMeshActor>(Level->Actors[iActor]);
-		if( Actor && ( !bSelectedOnly || Actor->IsSelected() ) && Actor->GetStaticMeshComponent()->StaticMesh && Actor->GetStaticMeshComponent()->StaticMesh->HasValidRenderData() )
+		if( Actor && ( !bSelectedOnly || Actor->IsSelected() ) && Actor->GetStaticMeshComponent()->GetStaticMesh() && Actor->GetStaticMeshComponent()->GetStaticMesh()->HasValidRenderData() )
 		{
-			FStaticMeshLODResources& LODModel = Actor->GetStaticMeshComponent()->StaticMesh->RenderData->LODResources[0];
+			FStaticMeshLODResources& LODModel = Actor->GetStaticMeshComponent()->GetStaticMesh()->RenderData->LODResources[0];
 			FIndexArrayView Indices = LODModel.IndexBuffer.GetArrayView();
 			int32 NumSections = LODModel.Sections.Num();
 			for (int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
@@ -876,11 +909,11 @@ static void AddActorToOBJs(AActor* Actor, TArray<FOBJGeom*>& Objects, TSet<UMate
 	{
 		// If its a static mesh component, with a static mesh
 		StaticMeshComponent = StaticMeshComponents[j];
-		if( StaticMeshComponent->IsRegistered() && StaticMeshComponent->StaticMesh
-			&& StaticMeshComponent->StaticMesh->HasValidRenderData() )
+		if( StaticMeshComponent->IsRegistered() && StaticMeshComponent->GetStaticMesh()
+			&& StaticMeshComponent->GetStaticMesh()->HasValidRenderData() )
 		{
 			LocalToWorld = StaticMeshComponent->ComponentToWorld.ToMatrixWithScale();
-			StaticMesh = StaticMeshComponent->StaticMesh;
+			StaticMesh = StaticMeshComponent->GetStaticMesh();
 			if (StaticMesh)
 			{
 				// make room for the faces
@@ -921,10 +954,7 @@ static void AddActorToOBJs(AActor* Actor, TArray<FOBJGeom*>& Objects, TSet<UMate
 					UMaterialInterface* Material = 0;
 
 					// Get the material for this triangle by first looking at the material overrides array and if that is NULL by looking at the material array in the original static mesh
-					if (StaticMeshComponent)
-					{
-						Material = StaticMeshComponent->GetMaterial(Section.MaterialIndex);
-					}
+					Material = StaticMeshComponent->GetMaterial(Section.MaterialIndex);
 
 					// cache the set of needed materials if desired
 					if (Materials && Material)

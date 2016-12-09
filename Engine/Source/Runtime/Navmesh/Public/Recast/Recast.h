@@ -22,6 +22,8 @@
 #ifndef RECAST_H
 #define RECAST_H
 
+#include "CoreMinimal.h"
+
 /// The value of PI used by Recast.
 static const float RC_PI = 3.14159265f;
 
@@ -355,8 +357,8 @@ struct rcCompactSpan
 {
 	unsigned short y;			///< The lower extent of the span. (Measured from the heightfield's base.)
 	unsigned short reg;			///< The id of the region the span belongs to. (Or zero if not in a region.)
-	unsigned int con : 24;		///< Packed neighbor connection data.
-	unsigned int h : 8;			///< The height of the span.  (Measured from #y.)
+	unsigned int con;			///< Packed neighbor connection data.
+	unsigned char h;			///< The height of the span.  (Measured from #y.)
 };
 
 /// A compact, static heightfield representing unobstructed space.
@@ -625,7 +627,7 @@ static const unsigned char RC_WALKABLE_AREA = 63;
 
 /// The value returned by #rcGetCon if the specified direction is not connected
 /// to another span. (Has no neighbor.)
-static const int RC_NOT_CONNECTED = 0x3f;
+static const int RC_NOT_CONNECTED = 0xff;
 
 /// @name General helper functions
 /// @{
@@ -1180,9 +1182,9 @@ NAVMESH_API bool rcBuildRegionsChunky(rcContext* ctx, rcCompactHeightfield& chf,
 ///  @param[in]		i		The index of the neighbor span.
 inline void rcSetCon(rcCompactSpan& s, int dir, int i)
 {
-	const unsigned int shift = (unsigned int)dir*6;
+	const unsigned int shift = (unsigned int)dir * 8;
 	unsigned int con = s.con;
-	s.con = (con & ~(0x3f << shift)) | (((unsigned int)i & 0x3f) << shift);
+	s.con = (con & ~(0xff << shift)) | (((unsigned int)i & 0xff) << shift);
 }
 
 /// Gets neighbor connection data for the specified direction.
@@ -1192,8 +1194,8 @@ inline void rcSetCon(rcCompactSpan& s, int dir, int i)
 ///  	or #RC_NOT_CONNECTED if there is no connection.
 inline int rcGetCon(const rcCompactSpan& s, int dir)
 {
-	const unsigned int shift = (unsigned int)dir*6;
-	return (s.con >> shift) & 0x3f;
+	const unsigned int shift = (unsigned int)dir * 8;
+	return (s.con >> shift) & 0xff;
 }
 
 /// Gets the standard width (x-axis) offset for the specified direction.

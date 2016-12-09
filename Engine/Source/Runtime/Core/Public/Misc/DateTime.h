@@ -2,15 +2,9 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
 #include "Misc/Timespan.h"
-
-
-class FArchive;
-class FOutputDevice;
-class FString;
-class UObject;
-
 
 /**
  * Enumerates the days of the week in 7-day calendars.
@@ -694,7 +688,7 @@ public:
 	 * @param DateTime The date and time to get the hash for.
 	 * @return Hash value.
 	 */
-	friend uint32 GetTypeHash(const FDateTime& DateTime);
+	friend CORE_API uint32 GetTypeHash(const FDateTime& DateTime);
 
 protected:
 

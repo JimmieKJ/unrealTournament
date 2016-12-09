@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PixelInspectorPrivatePCH.h"
-#include "PixelInspectorResult.h"
+#include "PixelInspectorView.h"
 
 
 UPixelInspectorView::UPixelInspectorView(const FObjectInitializer& ObjectInitializer)

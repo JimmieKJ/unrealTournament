@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Text/TextRange.h"
+
+enum class ETextHitPoint : uint8;
+
 namespace RunUtils
 {
 

@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ScriptMacros.h"
+#include "GameFramework/OnlineReplStructs.h"
+#include "PartyGameState.h"
 #include "PartyMemberState.generated.h"
-
-class UPartyGameState;
 
 /**
  * Simple struct for replication and copying of party member data on updates
@@ -16,6 +20,9 @@ struct FPartyMemberRepState
 
 	/** Reset the variables of this party member state */
 	virtual void Reset()
+	{}
+
+	virtual ~FPartyMemberRepState()
 	{}
 };
 

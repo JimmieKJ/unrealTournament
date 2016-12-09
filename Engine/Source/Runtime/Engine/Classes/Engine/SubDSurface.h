@@ -1,8 +1,12 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "../Curves/CurveFloat.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "SubDSurface.generated.h"
+
+class UMaterialInterface;
 
 struct FSubDMeshSection
 {

@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,9 +28,8 @@ class CefRequestHandlerCppToC
     : public CefCppToC<CefRequestHandlerCppToC, CefRequestHandler,
         cef_request_handler_t> {
  public:
-  explicit CefRequestHandlerCppToC(CefRequestHandler* cls);
+  CefRequestHandlerCppToC();
 };
 
 #endif  // USING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CPPTOC_REQUEST_HANDLER_CPPTOC_H_
-

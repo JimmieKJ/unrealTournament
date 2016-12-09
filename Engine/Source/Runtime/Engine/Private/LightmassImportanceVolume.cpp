@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Lightmass/LightmassImportanceVolume.h"
+#include "Engine/CollisionProfile.h"
 #include "Components/BrushComponent.h"
 
-#include "../Classes/Lightmass/LightmassImportanceVolume.h"
 
 ALightmassImportanceVolume::ALightmassImportanceVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

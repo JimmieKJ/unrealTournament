@@ -1,12 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphPinComboBox.h"
-#include "SGraphPinEnum.h"
-#include "SGraphPinKey.h"
+#include "KismetPins/SGraphPinKey.h"
 #include "SKeySelector.h"
-#include "Editor/UnrealEd/Public/ScopedTransaction.h"
+#include "ScopedTransaction.h"
 
 void SGraphPinKey::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {

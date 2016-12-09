@@ -1,71 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneEventSection.h"
-#include "MovieSceneEventTrack.h"
-#include "MovieSceneEventTrackInstance.h"
+#include "Tracks/MovieSceneEventTrack.h"
+#include "MovieSceneCommonHelpers.h"
+#include "Sections/MovieSceneEventSection.h"
+#include "Evaluation/MovieSceneEventTemplate.h"
+#include "Evaluation/MovieSceneEvaluationTrack.h"
 
 
 #define LOCTEXT_NAMESPACE "MovieSceneEventTrack"
-
-/* UMovieSceneEventTrack interface
- *****************************************************************************/
-
-bool UMovieSceneEventTrack::AddKeyToSection(float Time, FName EventName, FKeyParams KeyParams)
-{
-	UMovieSceneSection* TargetSection = MovieSceneHelpers::FindNearestSectionAtTime(Sections, Time);
-
-	if (TargetSection == nullptr)
-	{
-		TargetSection = CreateNewSection();
-		TargetSection->SetStartTime(Time);
-		TargetSection->SetEndTime(Time);
-
-		Sections.Add(TargetSection);
-	}
-
-	UMovieSceneEventSection* EventSection = Cast<UMovieSceneEventSection>(TargetSection);
-
-	if (EventSection == nullptr)
-	{
-		return false;
-	}
-
-	EventSection->AddKey(Time, EventName, KeyParams);
-
-	return true;
-}
-
-
-void UMovieSceneEventTrack::TriggerEvents(float Position, float LastPosition, IMovieScenePlayer& Player)
-{
-	if ((Sections.Num() == 0) || (Position == LastPosition))
-	{
-		return;
-	}
-
-	// Don't allow events to fire when playback is in a stopped state. This can occur when stopping 
-	// playback and returning the current position to the start of playback. It's not desireable to have 
-	// all the events from the last playback position to the start of playback be fired.
-	if (Player.GetPlaybackStatus() == EMovieScenePlayerStatus::Stopped)
-	{
-		return;
-	}
-
-	bool Backwards = Position < LastPosition;
-
-	if ((!Backwards && !bFireEventsWhenForwards) ||
-		(Backwards && !bFireEventsWhenBackwards))
-	{
-		return;
-	}
-
-	TArray<UMovieSceneSection*> TraversedSections = MovieSceneHelpers::GetTraversedSections(Sections, Position, LastPosition);
-	for (auto EventSection : TraversedSections)
-	{
-		CastChecked<UMovieSceneEventSection>(EventSection)->TriggerEvents(Position, LastPosition, Player);
-	}
-}
 
 
 /* UMovieSceneTrack interface
@@ -74,12 +16,6 @@ void UMovieSceneEventTrack::TriggerEvents(float Position, float LastPosition, IM
 void UMovieSceneEventTrack::AddSection(UMovieSceneSection& Section)
 {
 	Sections.Add(&Section);
-}
-
-
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneEventTrack::CreateInstance()
-{
-	return MakeShareable(new FMovieSceneEventTrackInstance(*this));
 }
 
 
@@ -129,6 +65,20 @@ void UMovieSceneEventTrack::RemoveAllAnimationData()
 void UMovieSceneEventTrack::RemoveSection(UMovieSceneSection& Section)
 {
 	Sections.Remove(&Section);
+}
+
+FMovieSceneEvalTemplatePtr UMovieSceneEventTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
+{
+	return FMovieSceneEventSectionTemplate(*CastChecked<UMovieSceneEventSection>(&InSection), *this);
+}
+
+void UMovieSceneEventTrack::PostCompile(FMovieSceneEvaluationTrack& Track, const FMovieSceneTrackCompilerArgs& Args) const
+{
+	static FName Events("Events");
+	Track.SetEvaluationGroup(Events);
+	// Evaluate events really early on in the frame, after the spawn track (which always evaluates first)
+	Track.SetEvaluationPriority(GetEvaluationPriority());
+	Track.SetEvaluationMethod(EEvaluationMethod::Swept);
 }
 
 #if WITH_EDITORONLY_DATA

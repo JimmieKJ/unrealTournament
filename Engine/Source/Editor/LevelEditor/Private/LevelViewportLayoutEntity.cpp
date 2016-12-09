@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LevelEditor.h"
 #include "LevelViewportLayoutEntity.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Editor/UnrealEdEngine.h"
+#include "LevelEditorViewport.h"
+#include "UnrealEdGlobals.h"
 #include "SLevelViewport.h"
 
 FLevelViewportLayoutEntity::FLevelViewportLayoutEntity(const FViewportConstructionArgs& ConstructionArgs)

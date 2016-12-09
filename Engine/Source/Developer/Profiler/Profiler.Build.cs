@@ -49,13 +49,5 @@ public class Profiler : ModuleRules
 				"SessionServices",
 			}
 		);
-
-		PublicIncludePaths.AddRange
-		(
-			new string[] {
-				"Developer/Profiler/Public",
-				"Developer/Profiler/Public/Interfaces",
-			}
-		);
 	}
 }

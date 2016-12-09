@@ -1,7 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reservekd.
 
-#include "DetailCustomizationsPrivatePCH.h"
-#include "Runtime/Engine/Classes/Animation/PoseAsset.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Animation/AnimationAsset.h"
+#include "AssetData.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "IDetailsView.h"
+#include "PropertyCustomizationHelpers.h"
+#include "Animation/PoseAsset.h"
+#include "IDetailCustomization.h"
 #include "AnimationAssetDetails.h"
 
 #define LOCTEXT_NAMESPACE	"AnimationAssetDetails"

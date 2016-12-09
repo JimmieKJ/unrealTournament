@@ -10,8 +10,8 @@ LIBOGG=../../../Ogg/libogg-1.2.2
 CC=emcc
 NOWARN=-Wno-unused-variable -Wno-unused-function -Wno-shift-op-parentheses -Wno-comment
 # use the WIN32 defines -- even when building on non-windows hosts
-CFLAGS= $(OPTIMIZATION) -I../include -I$(LIBOGG)/include -Wall $(NOWARN) -DNDEBUG -D_WIN32 -D__MINGW32__
-LDFLAGS= $(OPTIMIZATION)
+CFLAGS= $(CFLAGS_EXTRA) $(OPTIMIZATION) -I../include -I$(LIBOGG)/include -Wall $(NOWARN) -DNDEBUG -D_WIN32 -D__MINGW32__
+LDFLAGS= $(CFLAGS_EXTRA) $(OPTIMIZATION)
 
 MKDIR=mkdir -p
 RM=rm -f

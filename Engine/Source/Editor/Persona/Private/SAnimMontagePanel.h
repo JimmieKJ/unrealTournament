@@ -3,12 +3,21 @@
 
 #pragma once
 
-#include "Persona.h"
-#include "GraphEditor.h"
-#include "SNodePanel.h"
-#include "STrack.h"
-#include "SCurveEditor.h"
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Misc/Attribute.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "SAnimTrackPanel.h"
+#include "SMontageEditor.h"
+#include "Animation/EditorAnimBaseObj.h"
+#include "STrack.h"
+
+class FMenuBuilder;
+class SBorder;
+class SImage;
+class STextBlock;
 
 DECLARE_DELEGATE( FOnMontageLengthChange )
 DECLARE_DELEGATE( FOnMontagePropertyChanged )
@@ -29,7 +38,6 @@ class SAnimMontagePanel : public SAnimTrackPanel
 public:
 	SLATE_BEGIN_ARGS( SAnimMontagePanel )
 		: _Montage()
-		, _Persona()
 		, _MontageEditor()
 		, _CurrentPosition()
 		, _ViewInputMin()
@@ -39,10 +47,11 @@ public:
 		, _OnSetInputViewRange()
 		, _OnGetScrubValue()
 		, _OnMontageChange()
+		, _OnInvokeTab()
+		, _bChildAnimMontage(false)
 	{}
 
 	SLATE_ARGUMENT( class UAnimMontage*, Montage)
-	SLATE_ARGUMENT( TWeakPtr<FPersona>, Persona)
 	SLATE_ARGUMENT( TWeakPtr<class SMontageEditor>, MontageEditor)
 	SLATE_ARGUMENT( float, WidgetWidth )
 	SLATE_ATTRIBUTE( float, CurrentPosition )
@@ -54,11 +63,11 @@ public:
 	SLATE_EVENT( FOnSetInputViewRange, OnSetInputViewRange )
 	SLATE_EVENT( FOnGetScrubValue, OnGetScrubValue )
 	SLATE_EVENT( FOnAnimObjectChange, OnMontageChange )
+	SLATE_EVENT( FOnInvokeTab, OnInvokeTab )
+	SLATE_ARGUMENT(bool, bChildAnimMontage)
 	SLATE_END_ARGS()
 
-	~SAnimMontagePanel();
-
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnAnimNotifiesChanged, FSimpleMulticastDelegate& OnSectionsChanged);
 	void SetMontage(class UAnimMontage * InMontage);
 
 	// SWidget interface
@@ -103,7 +112,6 @@ public:
 	void RefreshTimingNodes();
 
 private:
-	TWeakPtr<FPersona> Persona;
 	TWeakPtr<SMontageEditor>	MontageEditor;
 	TSharedPtr<SBorder> PanelArea;
 	class UAnimMontage* Montage;
@@ -125,6 +133,13 @@ private:
 
 	TSharedPtr<STrack> SectionNameTrack;
 	TAttribute<EVisibility> SectionTimingNodeVisibility;
+
+  	/* 
+	 * Child Anim Montage: Child Anim Montage only can replace name of animations, and no other meaningful edits 
+	 * as it will derive every data from Parent. There might be some other data that will allow to be replaced, but for now, it is
+	 * not. 
+	 */
+	bool bChildAnimMontage;
 
 	/************************************************************************/
 	/* Status Bar                                                           */
@@ -149,4 +164,7 @@ private:
 	/** Gets the length of the montage we are currently editing
 	 */
 	virtual float GetSequenceLength() const override;
+
+	/** Delegate used to invoke a tab in the containing editor */
+	FOnInvokeTab OnInvokeTab;
 };

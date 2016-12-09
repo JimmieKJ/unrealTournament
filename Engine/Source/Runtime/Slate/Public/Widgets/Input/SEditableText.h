@@ -2,13 +2,33 @@
 
 #pragma once
 
-#include "ISlateEditableTextWidget.h"
-#include "UniquePtr.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Styling/SlateColor.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Input/CursorReply.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Styling/SlateWidgetStyleAsset.h"
+#include "Framework/SlateDelegates.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Widgets/Text/ISlateEditableTextWidget.h"
 
-class IBreakIterator;
-class ITextLayoutMarshaller;
-class FSlateEditableTextLayout;
+class FActiveTimerHandle;
+class FArrangedChildren;
+class FChildren;
+class FPaintArgs;
 class FPlainTextLayoutMarshaller;
+class FSlateEditableTextLayout;
+class FSlateWindowElementList;
+class IBreakIterator;
+struct FTextLocation;
+enum class ETextFlowDirection : uint8;
+enum class ETextShapingMethod : uint8;
 
 /**
  * Editable text widget
@@ -269,6 +289,7 @@ protected:
 	virtual FCursorReply OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const override;
 	virtual const FSlateBrush* GetFocusBrush() const;
 	virtual bool IsInteractable() const override;
+	virtual bool ComputeVolatility() const override;
 	//~ End SWidget Interface
 
 protected:

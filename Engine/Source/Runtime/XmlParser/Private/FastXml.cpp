@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "XmlParserPrivatePCH.h"
 #include "FastXml.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/FeedbackContext.h"
 
 #define LOCTEXT_NAMESPACE "FastXml"
 

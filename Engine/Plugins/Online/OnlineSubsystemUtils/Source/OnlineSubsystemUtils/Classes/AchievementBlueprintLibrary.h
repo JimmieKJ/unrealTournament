@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
+#include "UObject/TextProperty.h"
 #include "AchievementBlueprintLibrary.generated.h"
+
+class APlayerController;
 
 // Library of synchronous achievement calls
 UCLASS()

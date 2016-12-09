@@ -4,35 +4,31 @@
 	MeshRendering.cpp: Mesh rendering implementation.
 =============================================================================*/
 
-#include "MaterialUtilitiesPrivatePCH.h"
-#include "Engine.h"
 #include "MeshRendering.h"
-#include "EngineModule.h"
-#include "LocalVertexFactory.h"
+#include "EngineDefines.h"
+#include "ShowFlags.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "HitProxies.h"
+#include "RenderingThread.h"
+#include "VertexFactory.h"
+#include "TextureResource.h"
+#include "PackedNormal.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Misc/App.h"
+#include "MaterialUtilities.h"
+#include "Misc/FileHelper.h"
+#include "RawMesh.h"
+#include "SceneView.h"
+#include "SkeletalMeshTypes.h"
 #include "MeshBatch.h"
-#include "RendererInterface.h"
-#include "SceneUtils.h"
+#include "CanvasItem.h"
 #include "CanvasTypes.h"
+#include "LocalVertexFactory.h"
 
-#include "Runtime/Engine/Classes/Materials/MaterialInterface.h"
-#include "Runtime/Engine/Classes/Materials/MaterialExpressionConstant.h"
-#include "Runtime/Engine/Classes/Engine/TextureRenderTarget2D.h"
-#include "Runtime/Engine/Classes/Engine/Texture2D.h"
-#include "Runtime/Engine/Classes/Engine/TextureCube.h"
-#include "Runtime/Engine/Public/TileRendering.h"
-#include "Runtime/Engine/Public/EngineModule.h"
-#include "Runtime/Engine/Public/ImageUtils.h"
-#include "Runtime/Engine/Public/CanvasTypes.h"
-#include "Runtime/Engine/Public/MaterialCompiler.h"
-#include "Runtime/Engine/Classes/Engine/TextureLODSettings.h"
-#include "Runtime/Engine/Classes/DeviceProfiles/DeviceProfileManager.h"
-#include "Runtime/Engine/Classes/Materials/MaterialParameterCollection.h" 
 #include "RendererInterface.h"
+#include "EngineModule.h"
 
-#include "Engine.h"
-#include "UnrealEd.h"
-#include "ThumbnailHelpers.h" // for FClassThumbnailScene
-#include "ShaderCompiler.h"   // for GShaderCompilingManager
 
 FColor BoxBlurSample(TArray<FColor>& InBMP, int32 X, int32 Y, int32 InImageWidth, int32 InImageHeight, bool bIsNormalMap)
 {
@@ -827,30 +823,6 @@ bool FMeshRenderer::RenderMaterial(struct FMaterialMergeData& InMaterialData, FM
 			.SetWorldTimes(CurrentWorldTime, DeltaWorldTime, CurrentRealTime)
 			.SetGammaCorrection(CanvasRenderTarget->GetDisplayGamma()));
 		
-		static bool GRendererInitialized = false;
-
-		if (!GRendererInitialized)
-		{
-			// Force global shaders to be compiled and saved
-			if (GShaderCompilingManager)
-			{
-				// Process any asynchronous shader compile results that are ready, limit execution time
-				GShaderCompilingManager->ProcessAsyncResults(false, true);
-			}
-
-			// Initialize the renderer in a case if material LOD computed in UStaticMesh::PostLoad()
-			// when loading a scene on UnrealEd startup. Use GetRendererModule().BeginRenderingViewFamily()
-			// for that. Prepare a dummy scene because it is required by that function.
-			FClassThumbnailScene DummyScene;
-			DummyScene.SetClass(AStaticMeshActor::StaticClass());
-			ViewFamily.Scene = DummyScene.GetScene();
-			int32 X = 0, Y = 0, Width = 256, Height = 256;
-			DummyScene.GetView(&ViewFamily, X, Y, Width, Height);
-			GetRendererModule().BeginRenderingViewFamily(&Canvas, &ViewFamily);
-			GRendererInitialized = true;
-			ViewFamily.Scene = NULL;
-		}
-
 #if !SHOW_WIREFRAME_MESH
 		Canvas.Clear(InRenderTarget->ClearColor);
 #else
@@ -932,7 +904,7 @@ bool FMeshRenderer::RenderMaterial(struct FMaterialMergeData& InMaterialData, FM
 
 //#define SAVE_INTERMEDIATE_TEXTURES 1
 #ifdef SAVE_INTERMEDIATE_TEXTURES
-	FilenameString = FString::Printf(
+	FString FilenameString = FString::Printf(
 		TEXT( "D:/TextureTest/%s-mat%d-prop%d.bmp"),
 		*InMaterialProxy->GetFriendlyName(), InMaterialData.MaterialIndex, (int32)InMaterialProperty);
 	FFileHelper::CreateBitmap(*FilenameString, InRenderTarget->GetSurfaceWidth(), InRenderTarget->GetSurfaceHeight(), OutBMP.GetData());
@@ -957,8 +929,8 @@ bool FMeshRenderer::RenderMaterialTexCoordScales(struct FMaterialMergeData& InMa
 
 	// Set show flag view mode to output tex coord scale
 	FEngineShowFlags ShowFlags(ESFIM_Game);
-	ApplyViewMode(VMI_MaterialTexCoordScalesAccuracy, false, ShowFlags);
-	ShowFlags.MaterialTexCoordScalesAnalysis = true; // This will bind the DVSM_MaterialTexCoordScalesAnalysis
+	ApplyViewMode(VMI_MaterialTextureScaleAccuracy, false, ShowFlags);
+	ShowFlags.OutputMaterialTextureScales = true; // This will bind the DVSM_OutputMaterialTextureScales
 
 	FSceneViewFamily ViewFamily(FSceneViewFamily::ConstructionValues(CanvasRenderTarget, nullptr, ShowFlags)
 		.SetWorldTimes(CurrentWorldTime, DeltaWorldTime, CurrentRealTime)

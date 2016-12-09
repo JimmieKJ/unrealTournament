@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealHeaderTool.h"
 #include "UnrealSourceFile.h"
-#include "ParserHelper.h"
+#include "UnrealHeaderTool.h"
+#include "Misc/PackageName.h"
 #include "HeaderParser.h"
-#include "GeneratedCodeVersion.h"
-#include "Scope.h"
 
 void FUnrealSourceFile::AddDefinedClass(UClass* Class, FSimplifiedParsingClassInfo ParsingInfo)
 {

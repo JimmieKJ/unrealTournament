@@ -1,8 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CollisionAnalyzerPCH.h"
+#include "SCollisionAnalyzer.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "CollisionAnalyzerStyle.h"
+#include "SCAQueryTableRow.h"
+#include "SCAQueryDetails.h"
 #include "DesktopPlatformModule.h"
-#include "MainFrame.h"
 
 #define LOCTEXT_NAMESPACE "SCollisionAnalyzer"
 
@@ -761,22 +770,13 @@ FReply SCollisionAnalyzer::OnLoadButtonClicked()
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if (DesktopPlatform)
 	{
-		// Get the window handles
-		void* ParentWindowWindowHandle = NULL;
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if (MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid())
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		// Default path to find stats
 		const FString DefaultPath = FPaths::ProfilingDir() + TEXT("CollisionAnalyzer");
 
 		// File open dialog
 		TArray<FString> Filenames;
 		bool bOpened = DesktopPlatform->OpenFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(AsShared()),
 			LOCTEXT("CollisionFileOpen", "Choose collision file to load").ToString(),
 			DefaultPath,
 			TEXT(""),
@@ -799,22 +799,13 @@ FReply SCollisionAnalyzer::OnSaveButtonClicked()
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	if (DesktopPlatform)
 	{
-		// Get the window handles
-		void* ParentWindowWindowHandle = NULL;
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
-		if (MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid())
-		{
-			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
-		}
-
 		// Default path to find stats
 		const FString DefaultPath = FPaths::ProfilingDir() + TEXT("CollisionAnalyzer");
 
 		// File save dialog
 		TArray<FString> Filenames;
 		bool bSaved = DesktopPlatform->SaveFileDialog(
-			ParentWindowWindowHandle,
+			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(AsShared()),
 			LOCTEXT("CollisionFileLocation", "Choose file location").ToString(),
 			DefaultPath,
 			TEXT(""),

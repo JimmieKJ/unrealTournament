@@ -1,6 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/Guid.h"
+
 // Custom serialization version for changes made in Dev-Sequencer stream
 struct CORE_API FSequencerObjectVersion
 {
@@ -9,6 +12,8 @@ struct CORE_API FSequencerObjectVersion
 		// Before any version changes were made
 		BeforeCustomVersionWasAdded = 0,
 
+		// Per-platform overrides player overrides for media sources changed name and type.
+		RenameMediaSourcePlatformPlayers,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

@@ -6,7 +6,11 @@
 ==============================================================================================*/
 
 #pragma once
+
+#include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformStackWalk.h"
+
+struct FGenericCrashContext;
 
 struct CORE_API FLinuxPlatformStackWalk : public FGenericPlatformStackWalk
 {

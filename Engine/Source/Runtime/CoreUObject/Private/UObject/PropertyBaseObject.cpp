@@ -1,10 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "PropertyHelper.h"
-#include "LinkerPlaceholderClass.h"
-#include "LinkerPlaceholderExportObject.h"
-#include "BlueprintSupport.h" // for IsInBlueprintPackage()
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/Casts.h"
+#include "UObject/UnrealType.h"
+#include "Blueprint/BlueprintSupport.h"
+#include "UObject/PropertyHelper.h"
+#include "UObject/LinkerPlaceholderClass.h"
+#include "UObject/LinkerPlaceholderExportObject.h"
 
 /*-----------------------------------------------------------------------------
 	UObjectPropertyBase.
@@ -336,7 +339,7 @@ UObject* UObjectPropertyBase::FindImportedObject( const UProperty* Property, UOb
 			UObject* ScopedSearchRoot = SearchStart;
 			while (Result == NULL && ScopedSearchRoot != NULL)
 			{
-				Result = StaticFindObject(ObjectClass, ScopedSearchRoot, Text);
+				Result = StaticFindObjectSafe(ObjectClass, ScopedSearchRoot, Text);
 				// don't think it's possible to get a non-subobject here, but it doesn't hurt to check
 				if (Result != NULL && !Result->IsTemplate(RF_ClassDefaultObject))
 				{
@@ -359,7 +362,7 @@ UObject* UObjectPropertyBase::FindImportedObject( const UProperty* Property, UOb
 	UObject* ScopedSearchRoot = OwnerObject;
 	while (Result == NULL && ScopedSearchRoot != NULL)
 	{
-		Result = StaticFindObject(ObjectClass, ScopedSearchRoot, Text);
+		Result = StaticFindObjectSafe(ObjectClass, ScopedSearchRoot, Text);
 		// disallow class default subobjects here while importing defaults
 		// this prevents the use of a subobject name that doesn't exist in the scope of the default object being imported
 		// from grabbing some other subobject with the same name and class in some other arbitrary default object
@@ -374,12 +377,12 @@ UObject* UObjectPropertyBase::FindImportedObject( const UProperty* Property, UOb
 	if (Result == NULL)
 	{
 		// attempt to find a fully qualified object
-		Result = StaticFindObject(ObjectClass, NULL, Text);
+		Result = StaticFindObjectSafe(ObjectClass, NULL, Text);
 
 		if (Result == NULL)
 		{
 			// match any object of the correct class whose path contains the specified path
-			Result = StaticFindObject(ObjectClass, ANY_PACKAGE, Text);
+			Result = StaticFindObjectSafe(ObjectClass, ANY_PACKAGE, Text);
 			// disallow class default subobjects here while importing defaults
 			if (Result != NULL && (PortFlags & PPF_ParsingDefaultProperties) && Result->IsTemplate(RF_ClassDefaultObject))
 			{
@@ -410,10 +413,15 @@ UObject* UObjectPropertyBase::FindImportedObject( const UProperty* Property, UOb
 			}
 		}
 		// If we still can't find it, try to load it. (Only try to load fully qualified names)
-		if(!Result && Dot)
+		if(!Result && Dot && !GIsSavingPackage)
 		{
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 			FLinkerLoad* Linker = (OwnerObject != nullptr) ? OwnerObject->GetClass()->GetLinker() : nullptr;
+			if (Linker == nullptr)
+			{
+				// Fall back on the Properties owner. That is probably the thing that has triggered this load:
+				Linker = Property->GetLinker();
+			}
 			const bool bDeferAssetImports = (Linker != nullptr) && (Linker->LoadFlags & LOAD_DeferDependencyLoads);
 
 			if (bDeferAssetImports)
@@ -454,6 +462,22 @@ UObject* UObjectPropertyBase::FindImportedObject( const UProperty* Property, UOb
 FName UObjectPropertyBase::GetID() const
 {
 	return NAME_ObjectProperty;
+}
+
+UObject* UObjectPropertyBase::GetObjectPropertyValue(const void* PropertyValueAddress) const
+{
+	check(0);
+	return NULL;
+}
+
+void UObjectPropertyBase::SetObjectPropertyValue(void* PropertyValueAddress, UObject* Value) const
+{
+	check(0);
+}
+
+bool UObjectPropertyBase::AllowCrossLevel() const
+{
+	return false;
 }
 
 void UObjectPropertyBase::CheckValidObject(void* Value) const
@@ -505,6 +529,33 @@ void UObjectPropertyBase::CheckValidObject(void* Value) const
 bool UObjectPropertyBase::SameType(const UProperty* Other) const
 {
 	return Super::SameType(Other) && (PropertyClass == ((UObjectPropertyBase*)Other)->PropertyClass);
+}
+
+void UObjectPropertyBase::CopySingleValueToScriptVM( void* Dest, void const* Src ) const
+{
+	*(UObject**)Dest = GetObjectPropertyValue(Src);
+}
+
+void UObjectPropertyBase::CopyCompleteValueToScriptVM( void* Dest, void const* Src ) const
+{
+	for (int32 Index = 0; Index < ArrayDim; Index++)
+	{
+		((UObject**)Dest)[Index] = GetObjectPropertyValue(((uint8*)Src) + Index * ElementSize);
+	}
+}
+
+void UObjectPropertyBase::CopySingleValueFromScriptVM( void* Dest, void const* Src ) const
+{
+	SetObjectPropertyValue(Dest, *(UObject**)Src);
+}
+
+void UObjectPropertyBase::CopyCompleteValueFromScriptVM( void* Dest, void const* Src ) const
+{
+	checkSlow(ElementSize == sizeof(UObject*)); // the idea that script pointers are the same size as weak pointers is maybe required, maybe not
+	for (int32 Index = 0; Index < ArrayDim; Index++)
+	{
+		SetObjectPropertyValue(((uint8*)Dest) + Index * ElementSize, ((UObject**)Src)[Index]);
+	}
 }
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UObjectPropertyBase, UProperty,

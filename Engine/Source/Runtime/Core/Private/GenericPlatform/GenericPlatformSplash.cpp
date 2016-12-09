@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "GenericPlatformSplash.h"
+#include "GenericPlatform/GenericPlatformSplash.h"
+#include "Containers/UnrealString.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
 
 // Supported file extension for splash image
 const TCHAR* SupportedSplashImageExt[] = 

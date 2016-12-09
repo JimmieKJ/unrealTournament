@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -58,6 +58,7 @@
 #include "libcef_dll/cpptoc/print_settings_cpptoc.h"
 #include "libcef_dll/cpptoc/process_message_cpptoc.h"
 #include "libcef_dll/cpptoc/request_callback_cpptoc.h"
+#include "libcef_dll/cpptoc/run_context_menu_callback_cpptoc.h"
 #include "libcef_dll/cpptoc/sslcert_principal_cpptoc.h"
 #include "libcef_dll/cpptoc/sslinfo_cpptoc.h"
 #include "libcef_dll/cpptoc/scheme_registrar_cpptoc.h"
@@ -95,13 +96,16 @@
 #include "libcef_dll/ctocpp/life_span_handler_ctocpp.h"
 #include "libcef_dll/ctocpp/load_handler_ctocpp.h"
 #include "libcef_dll/ctocpp/navigation_entry_visitor_ctocpp.h"
+#include "libcef_dll/ctocpp/pdf_print_callback_ctocpp.h"
 #include "libcef_dll/ctocpp/print_handler_ctocpp.h"
 #include "libcef_dll/ctocpp/read_handler_ctocpp.h"
 #include "libcef_dll/ctocpp/render_handler_ctocpp.h"
 #include "libcef_dll/ctocpp/render_process_handler_ctocpp.h"
 #include "libcef_dll/ctocpp/request_handler_ctocpp.h"
+#include "libcef_dll/ctocpp/resolve_callback_ctocpp.h"
 #include "libcef_dll/ctocpp/resource_bundle_handler_ctocpp.h"
 #include "libcef_dll/ctocpp/resource_handler_ctocpp.h"
+#include "libcef_dll/ctocpp/response_filter_ctocpp.h"
 #include "libcef_dll/ctocpp/run_file_dialog_callback_ctocpp.h"
 #include "libcef_dll/ctocpp/scheme_handler_factory_ctocpp.h"
 #include "libcef_dll/ctocpp/set_cookie_callback_ctocpp.h"
@@ -232,6 +236,7 @@ CEF_EXPORT void cef_shutdown() {
   DCHECK(base::AtomicRefCountIsZero(&CefNavigationEntryCppToC::DebugObjCt));
   DCHECK(base::AtomicRefCountIsZero(
       &CefNavigationEntryVisitorCToCpp::DebugObjCt));
+  DCHECK(base::AtomicRefCountIsZero(&CefPdfPrintCallbackCToCpp::DebugObjCt));
   DCHECK(base::AtomicRefCountIsZero(&CefPrintDialogCallbackCppToC::DebugObjCt));
   DCHECK(base::AtomicRefCountIsZero(&CefPrintHandlerCToCpp::DebugObjCt));
   DCHECK(base::AtomicRefCountIsZero(&CefPrintJobCallbackCppToC::DebugObjCt));
@@ -243,9 +248,13 @@ CEF_EXPORT void cef_shutdown() {
       &CefRenderProcessHandlerCToCpp::DebugObjCt));
   DCHECK(base::AtomicRefCountIsZero(&CefRequestCallbackCppToC::DebugObjCt));
   DCHECK(base::AtomicRefCountIsZero(&CefRequestHandlerCToCpp::DebugObjCt));
+  DCHECK(base::AtomicRefCountIsZero(&CefResolveCallbackCToCpp::DebugObjCt));
   DCHECK(base::AtomicRefCountIsZero(
       &CefResourceBundleHandlerCToCpp::DebugObjCt));
   DCHECK(base::AtomicRefCountIsZero(&CefResourceHandlerCToCpp::DebugObjCt));
+  DCHECK(base::AtomicRefCountIsZero(&CefResponseFilterCToCpp::DebugObjCt));
+  DCHECK(base::AtomicRefCountIsZero(
+      &CefRunContextMenuCallbackCppToC::DebugObjCt));
   DCHECK(base::AtomicRefCountIsZero(
       &CefRunFileDialogCallbackCToCpp::DebugObjCt));
   DCHECK(base::AtomicRefCountIsZero(&CefSSLCertPrincipalCppToC::DebugObjCt));
@@ -453,6 +462,25 @@ CEF_EXPORT int cef_create_url(const struct _cef_urlparts_t* parts,
 
   // Return type: bool
   return _retval;
+}
+
+CEF_EXPORT cef_string_userfree_t cef_format_url_for_security_display(
+    const cef_string_t* origin_url, const cef_string_t* languages) {
+  // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
+
+  // Verify param: origin_url; type: string_byref_const
+  DCHECK(origin_url);
+  if (!origin_url)
+    return NULL;
+  // Unverified params: languages
+
+  // Execute
+  CefString _retval = CefFormatUrlForSecurityDisplay(
+      CefString(origin_url),
+      CefString(languages));
+
+  // Return type: string
+  return _retval.DetachToUserFree();
 }
 
 CEF_EXPORT cef_string_userfree_t cef_get_mime_type(

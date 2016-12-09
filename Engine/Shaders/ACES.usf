@@ -1,5 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
+// #todo-rco: Fix in the cross-compiler
+#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1 || COMPILER_METAL || VULKAN_PROFILE || COMPILER_HLSLCC
+#define log10(x)  log(x) / log(10.0)
+#endif
+
 /*
 =============================================================================
 	ACES: Academy Color Encoding System
@@ -238,7 +243,7 @@ float cubic_basis_shaper
 		int j = knot_coord;
 		float t = knot_coord - j;
       
-		float monomials[4] = { t*t*t, t*t, t, 1. };
+		float monomials[4] = { t*t*t, t*t, t, 1.0 };
 
 		// (if/else structure required for compatibility with CTL < v1.5.)
 		if ( j == 3) {
@@ -302,7 +307,6 @@ struct SegmentedSplineParams_c9
 	float slopeHigh;      // log-log slope of high linear extension
 };
 
-
 float segmented_spline_c5_fwd( float x )
 {
 	// RRT_PARAMS
@@ -340,23 +344,8 @@ float segmented_spline_c5_fwd( float x )
 		float t = knot_coord - j;
 
 		float3 cf = { C.coefsLow[ j], C.coefsLow[ j + 1], C.coefsLow[ j + 2]};
-		/*if( j <= 0 ) {
-			cf[0] = C.coefsLow[0];  cf[1] = C.coefsLow[1];  cf[2] = C.coefsLow[2];
-		} else if( j == 1 ) {
-			cf[0] = C.coefsLow[1];  cf[1] = C.coefsLow[2];  cf[2] = C.coefsLow[3];
-		} else if( j == 2 ) {
-			cf[0] = C.coefsLow[2];  cf[1] = C.coefsLow[3];  cf[2] = C.coefsLow[4];
-		} else if( j == 3 ) {
-			cf[0] = C.coefsLow[3];  cf[1] = C.coefsLow[4];  cf[2] = C.coefsLow[5];
-		} else if( j == 4 ) {
-			cf[0] = C.coefsLow[4];  cf[1] = C.coefsLow[5];  cf[2] = C.coefsLow[6];
-		} else if( j == 5 ) {
-			cf[0] = C.coefsLow[5];  cf[1] = C.coefsLow[6];  cf[2] = C.coefsLow[7];
-		} else if( j == 6 ) {
-			cf[0] = C.coefsLow[6];  cf[1] = C.coefsLow[7];  cf[2] = C.coefsLow[8];
-		}*/
     
-		float3 monomials = { t * t, t, 1 };
+		float3 monomials = { t * t, t, 1.0 };
 		logy = dot( monomials, mul( cf, M));
 	}
 	else if (( logx >= log10(C.midPoint.x) ) && ( logx < log10(C.maxPoint.x) ))
@@ -366,23 +355,8 @@ float segmented_spline_c5_fwd( float x )
 		float t = knot_coord - j;
 
 		float3 cf = { C.coefsHigh[ j], C.coefsHigh[ j + 1], C.coefsHigh[ j + 2]};
-		/*if ( j <= 0) {
-			cf[ 0] = C.coefsHigh[0];  cf[ 1] = C.coefsHigh[1];  cf[ 2] = C.coefsHigh[2];
-		} else if ( j == 1) {
-			cf[ 0] = C.coefsHigh[1];  cf[ 1] = C.coefsHigh[2];  cf[ 2] = C.coefsHigh[3];
-		} else if ( j == 2) {
-			cf[ 0] = C.coefsHigh[2];  cf[ 1] = C.coefsHigh[3];  cf[ 2] = C.coefsHigh[4];
-		} else if ( j == 3) {
-			cf[ 0] = C.coefsHigh[3];  cf[ 1] = C.coefsHigh[4];  cf[ 2] = C.coefsHigh[5];
-		} else if ( j == 4) {
-			cf[ 0] = C.coefsHigh[4];  cf[ 1] = C.coefsHigh[5];  cf[ 2] = C.coefsHigh[6];
-		} else if ( j == 5) {
-			cf[ 0] = C.coefsHigh[5];  cf[ 1] = C.coefsHigh[6];  cf[ 2] = C.coefsHigh[7];
-		} else if ( j == 6) {
-			cf[ 0] = C.coefsHigh[6];  cf[ 1] = C.coefsHigh[7];  cf[ 2] = C.coefsHigh[8];
-		} */
 
-		float3 monomials = { t * t, t, 1 };
+		float3 monomials = { t * t, t, 1.0 };
 		logy = dot( monomials, mul( cf, M));
 	}
 	else
@@ -495,22 +469,8 @@ float segmented_spline_c5_rev( float y )
 	return pow(10, logx);
 }
 
-float segmented_spline_c9_fwd_odt_48_nits( float x )
+float segmented_spline_c9_fwd( float x, const SegmentedSplineParams_c9 C )
 {
-	// ODT_48nits
-	const SegmentedSplineParams_c9 C =
-	{
-		// coefsLow[10]
-		{ -1.6989700043, -1.6989700043, -1.4779000000, -1.2291000000, -0.8648000000, -0.4480000000, 0.0051800000, 0.4511080334, 0.9113744414, 0.9113744414},
-		// coefsHigh[10]
-		{ 0.5154386965, 0.8470437783, 1.1358000000, 1.3802000000, 1.5197000000, 1.5985000000, 1.6467000000, 1.6746091357, 1.6878733390, 1.6878733390 },
-		{segmented_spline_c5_fwd( 0.18*exp2(-6.5) ),  0.02},    // minPoint
-		{segmented_spline_c5_fwd( 0.18 ),              4.8},    // midPoint  
-		{segmented_spline_c5_fwd( 0.18*exp2(6.5) ),   48.0},    // maxPoint
-		0.0,  // slopeLow
-		0.04  // slopeHigh
-	};
-
 	const int N_KNOTS_LOW = 8;
 	const int N_KNOTS_HIGH = 8;
 
@@ -533,7 +493,7 @@ float segmented_spline_c9_fwd_odt_48_nits( float x )
 
 		float3 cf = { C.coefsLow[j], C.coefsLow[j + 1], C.coefsLow[j + 2] };
 
-		float3 monomials = { t * t, t, 1 };
+		float3 monomials = { t * t, t, 1.0 };
 		logy = dot(monomials, mul(cf, M));
 	}
 	else if ((logx >= log10(C.midPoint.x)) && (logx < log10(C.maxPoint.x)))
@@ -544,7 +504,7 @@ float segmented_spline_c9_fwd_odt_48_nits( float x )
 
 		float3 cf = { C.coefsHigh[j], C.coefsHigh[j + 1], C.coefsHigh[j + 2] };
 
-		float3 monomials = { t * t, t, 1 };
+		float3 monomials = { t * t, t, 1.0 };
 		logy = dot(monomials, mul(cf, M));
 	}
 	else//if ( logIn >= log10(C.maxPoint.x) )
@@ -555,22 +515,8 @@ float segmented_spline_c9_fwd_odt_48_nits( float x )
 	return pow( 10, logy );
 }
 
-float segmented_spline_c9_rev_odt_48_nits( float y )
+float segmented_spline_c9_rev( float y, const SegmentedSplineParams_c9 C )
 {
-	// ODT_48nits
-	const SegmentedSplineParams_c9 C =
-	{
-		// coefsLow[10]
-		{ -1.6989700043, -1.6989700043, -1.4779000000, -1.2291000000, -0.8648000000, -0.4480000000, 0.0051800000, 0.4511080334, 0.9113744414, 0.9113744414},
-		// coefsHigh[10]
-		{ 0.5154386965, 0.8470437783, 1.1358000000, 1.3802000000, 1.5197000000, 1.5985000000, 1.6467000000, 1.6746091357, 1.6878733390, 1.6878733390 },
-		{segmented_spline_c5_fwd( 0.18*pow(2.,-6.5) ),  0.02},    // minPoint
-		{segmented_spline_c5_fwd( 0.18 ),                4.8},    // midPoint  
-		{segmented_spline_c5_fwd( 0.18*pow(2.,6.5) ),   48.0},    // maxPoint
-		0.0,  // slopeLow
-		0.04  // slopeHigh
-	};
-
 	const int N_KNOTS_LOW = 8;
 	const int N_KNOTS_HIGH = 8;
 
@@ -664,66 +610,6 @@ float segmented_spline_c9_rev_odt_48_nits( float y )
 	}
   
 	return pow(10, logx);
-}
-
-float segmented_spline_c9_fwd_odt_2000nits( float x )
-{
-	// ODT_2000nits
-	const SegmentedSplineParams_c9 C =
-	{
-	  // coefsLow[10]
-	  { -2.3010299957, -2.3010299957, -1.9312000000, -1.5205000000, -1.0578000000, -0.4668000000, 0.1193800000, 0.7088134201, 1.2911865799, 1.2911865799 },
-	  // coefsHigh[10]
-	  { 0.8019952042, 1.1980047958, 1.5943000000, 1.9973000000, 2.3783000000, 2.7684000000, 3.0515000000, 3.2746293562, 3.3274306351, 3.3274306351 },
-	  {segmented_spline_c5_fwd( 0.18*pow(2.,-12.) ),  0.005},    // minPoint
-	  {segmented_spline_c5_fwd( 0.18 ),                10.0},    // midPoint  
-	  {segmented_spline_c5_fwd( 0.18*pow(2.,11.) ),  2000.0},    // maxPoint
-	  0.0,  // slopeLow
-	  0.12  // slopeHigh
-	};
-
-	const int N_KNOTS_LOW = 8;
-	const int N_KNOTS_HIGH = 8;
-
-	// Check for negatives or zero before taking the log. If negative or zero,
-	// set to OCESMIN.
-	float xCheck = x <= 0 ? 1e-4 : x;
-
-	float logx = log10(xCheck);
-	float logy;
-
-	if (logx <= log10(C.minPoint.x))
-	{
-		logy = logx * C.slopeLow + (log10(C.minPoint.y) - C.slopeLow * log10(C.minPoint.x));
-	}
-	else if ((logx > log10(C.minPoint.x)) && (logx < log10(C.midPoint.x)))
-	{
-		float knot_coord = (N_KNOTS_LOW - 1) * (logx - log10(C.minPoint.x)) / (log10(C.midPoint.x) - log10(C.minPoint.x));
-		int j = knot_coord;
-		float t = knot_coord - j;
-
-		float3 cf = { C.coefsLow[j], C.coefsLow[j + 1], C.coefsLow[j + 2] };
-
-		float3 monomials = { t * t, t, 1 };
-		logy = dot(monomials, mul(cf, M));
-	}
-	else if ((logx >= log10(C.midPoint.x)) && (logx < log10(C.maxPoint.x)))
-	{
-		float knot_coord = (N_KNOTS_HIGH - 1) * (logx - log10(C.midPoint.x)) / (log10(C.maxPoint.x) - log10(C.midPoint.x));
-		int j = knot_coord;
-		float t = knot_coord - j;
-
-		float3 cf = { C.coefsHigh[j], C.coefsHigh[j + 1], C.coefsHigh[j + 2] };
-
-		float3 monomials = { t * t, t, 1 };
-		logy = dot(monomials, mul(cf, M));
-	}
-	else//if ( logIn >= log10(C.maxPoint.x) )
-	{
-		logy = logx * C.slopeHigh + (log10(C.maxPoint.y) - C.slopeHigh * log10(C.maxPoint.x));
-	}
-
-	return pow( 10, logy );
 }
 
 // Transformations from RGB to other color representations
@@ -844,7 +730,6 @@ float3 Inverse_RRT( float3 oces )
     rgbPost[0] = segmented_spline_c5_rev( rgbPre[0]);
     rgbPost[1] = segmented_spline_c5_rev( rgbPre[1]);
     rgbPost[2] = segmented_spline_c5_rev( rgbPre[2]);
-
 
 	// --- Global desaturation --- //
 	// rgbPost = mul( rgbPost, invert_f33(RRT_SAT_MAT));
@@ -1046,11 +931,24 @@ float3 ODT_sRGB_D65( float3 oces )
 	// OCES to RGB rendering space
 	float3 rgbPre = mul( AP0_2_AP1_MAT, oces );
 
+	const SegmentedSplineParams_c9 ODT_48nits =
+	{
+		// coefsLow[10]
+		{ -1.6989700043, -1.6989700043, -1.4779000000, -1.2291000000, -0.8648000000, -0.4480000000, 0.0051800000, 0.4511080334, 0.9113744414, 0.9113744414},
+		// coefsHigh[10]
+		{ 0.5154386965, 0.8470437783, 1.1358000000, 1.3802000000, 1.5197000000, 1.5985000000, 1.6467000000, 1.6746091357, 1.6878733390, 1.6878733390 },
+		{segmented_spline_c5_fwd( 0.18*exp2(-6.5) ),  0.02},    // minPoint
+		{segmented_spline_c5_fwd( 0.18 ),              4.8},    // midPoint  
+		{segmented_spline_c5_fwd( 0.18*exp2(6.5) ),   48.0},    // maxPoint
+		0.0,  // slopeLow
+		0.04  // slopeHigh
+	};
+
 	// Apply the tonescale independently in rendering-space RGB
 	float3 rgbPost;
-	rgbPost[0] = segmented_spline_c9_fwd_odt_48_nits( rgbPre[0] );
-	rgbPost[1] = segmented_spline_c9_fwd_odt_48_nits( rgbPre[1] );
-	rgbPost[2] = segmented_spline_c9_fwd_odt_48_nits( rgbPre[2] );
+	rgbPost[0] = segmented_spline_c9_fwd( rgbPre[0], ODT_48nits );
+	rgbPost[1] = segmented_spline_c9_fwd( rgbPre[1], ODT_48nits );
+	rgbPost[2] = segmented_spline_c9_fwd( rgbPre[2], ODT_48nits );
 
 	// Target white and black points for cinema system tonescale
 	const float CINEMA_WHITE = 48.0;
@@ -1157,16 +1055,92 @@ float3 Inverse_ODT_sRGB_D65(float3 linearCV)
     rgbPre[1] = linCV_2_Y( linearCV[1], CINEMA_WHITE, CINEMA_BLACK);
     rgbPre[2] = linCV_2_Y( linearCV[2], CINEMA_WHITE, CINEMA_BLACK);
 
+	const SegmentedSplineParams_c9 ODT_48nits =
+	{
+		// coefsLow[10]
+		{ -1.6989700043, -1.6989700043, -1.4779000000, -1.2291000000, -0.8648000000, -0.4480000000, 0.0051800000, 0.4511080334, 0.9113744414, 0.9113744414},
+		// coefsHigh[10]
+		{ 0.5154386965, 0.8470437783, 1.1358000000, 1.3802000000, 1.5197000000, 1.5985000000, 1.6467000000, 1.6746091357, 1.6878733390, 1.6878733390 },
+		{segmented_spline_c5_fwd( 0.18*pow(2.,-6.5) ),  0.02},    // minPoint
+		{segmented_spline_c5_fwd( 0.18 ),                4.8},    // midPoint  
+		{segmented_spline_c5_fwd( 0.18*pow(2.,6.5) ),   48.0},    // maxPoint
+		0.0,  // slopeLow
+		0.04  // slopeHigh
+	};
+
 	// Apply the tonescale independently in rendering-space RGB
     float3 rgbPost;
-    rgbPost[0] = segmented_spline_c9_rev_odt_48_nits( rgbPre[0]);
-    rgbPost[1] = segmented_spline_c9_rev_odt_48_nits( rgbPre[1]);
-    rgbPost[2] = segmented_spline_c9_rev_odt_48_nits( rgbPre[2]);
+    rgbPost[0] = segmented_spline_c9_rev( rgbPre[0], ODT_48nits );
+    rgbPost[1] = segmented_spline_c9_rev( rgbPre[1], ODT_48nits );
+    rgbPost[2] = segmented_spline_c9_rev( rgbPre[2], ODT_48nits );
 
 	// Rendering space RGB to OCES
     float3 oces = mul(AP1_2_AP0_MAT, rgbPost);
 
 	return oces;
+}
+
+
+// 
+// Output Device Transform - Rec.2020 (1000 cd/m^2)
+//
+
+//
+// Summary :
+//  This transform is intended for mapping OCES onto a Rec.2020 HDR display calibrated 
+//  to a D65 white point at 1000 cd/m^2. The assumed observer adapted white is 
+//  D65, and the viewing environment is that of a dim surround. 
+//
+// Device Primaries : 
+//  Primaries are those specified in Rec. ITU-R BT.2020
+//  CIE 1931 chromaticities:  x         y         Y
+//              Red:          0.708     0.292
+//              Green:        0.17      0.797
+//              Blue:         0.131     0.046
+//              White:        0.3127    0.329     1000 cd/m^2
+//
+// Display EOTF :
+//  The reference electro-optical transfer function specified in SMPTE ST 
+//  2084-2014. This transform makes no attempt to address the Annex functions 
+//  which address integer quantization.
+//
+// Assumed observer adapted white point:
+//         CIE 1931 chromaticities:    x            y
+//                                     0.3127       0.329
+//
+// Viewing Environment:
+//  This ODT is designed for a viewing environment more typically associated 
+//  with video mastering.
+//
+
+float3 ODT_1000nits( float3 oces )
+{
+	// OCES to RGB rendering space
+	float3 rgbPre = mul( AP0_2_AP1_MAT, oces );
+
+	const SegmentedSplineParams_c9 ODT_1000nits =
+	{
+		// coefsLow[10]
+		{ -4.9706219331, -3.0293780669, -2.1262, -1.5105, -1.0578, -0.4668, 0.11938, 0.7088134201, 1.2911865799, 1.2911865799 },
+		// coefsHigh[10]
+		{ 0.8089132070, 1.1910867930, 1.5683, 1.9483, 2.3083, 2.6384, 2.8595, 2.9872608805, 3.0127391195, 3.0127391195 },
+		{segmented_spline_c5_fwd( 0.18*pow(2.,-12.) ), 0.0001},    // minPoint
+		{segmented_spline_c5_fwd( 0.18 ),                10.0},    // midPoint  
+		{segmented_spline_c5_fwd( 0.18*pow(2.,10.) ),  1000.0},    // maxPoint
+		3.0,  // slopeLow
+		0.06  // slopeHigh
+	};
+
+	// Apply the tonescale independently in rendering-space RGB
+	float3 rgbPost;
+	rgbPost[0] = segmented_spline_c9_fwd( rgbPre[0], ODT_1000nits );
+	rgbPost[1] = segmented_spline_c9_fwd( rgbPre[1], ODT_1000nits );
+	rgbPost[2] = segmented_spline_c9_fwd( rgbPre[2], ODT_1000nits );
+
+	// Subtract small offset to allow for a code value of 0
+	rgbPost -= 0.00003507384284432574;
+
+	return rgbPost;
 }
 
 
@@ -1203,33 +1177,29 @@ float3 Inverse_ODT_sRGB_D65(float3 linearCV)
 //  with video mastering.
 //
 
-float3 ODT_Academy_P3D60_PQ_2000nits( float3 oces )
+float3 ODT_2000nits( float3 oces )
 {
 	// OCES to RGB rendering space
 	float3 rgbPre = mul( AP0_2_AP1_MAT, oces );
 
+	const SegmentedSplineParams_c9 ODT_2000nits =
+	{
+	  // coefsLow[10]
+	  { -2.3010299957, -2.3010299957, -1.9312000000, -1.5205000000, -1.0578000000, -0.4668000000, 0.1193800000, 0.7088134201, 1.2911865799, 1.2911865799 },
+	  // coefsHigh[10]
+	  { 0.8019952042, 1.1980047958, 1.5943000000, 1.9973000000, 2.3783000000, 2.7684000000, 3.0515000000, 3.2746293562, 3.3274306351, 3.3274306351 },
+	  {segmented_spline_c5_fwd( 0.18*pow(2.,-12.) ),  0.005},    // minPoint
+	  {segmented_spline_c5_fwd( 0.18 ),                10.0},    // midPoint  
+	  {segmented_spline_c5_fwd( 0.18*pow(2.,11.) ),  2000.0},    // maxPoint
+	  0.0,  // slopeLow
+	  0.12  // slopeHigh
+	};
+
 	// Apply the tonescale independently in rendering-space RGB
 	float3 rgbPost;
-	rgbPost[0] = segmented_spline_c9_fwd_odt_2000nits( rgbPre[0] );
-	rgbPost[1] = segmented_spline_c9_fwd_odt_2000nits( rgbPre[1] );
-	rgbPost[2] = segmented_spline_c9_fwd_odt_2000nits( rgbPre[2] );
+	rgbPost[0] = segmented_spline_c9_fwd( rgbPre[0], ODT_2000nits );
+	rgbPost[1] = segmented_spline_c9_fwd( rgbPre[1], ODT_2000nits );
+	rgbPost[2] = segmented_spline_c9_fwd( rgbPre[2], ODT_2000nits );
 
-	// Convert to display primary encoding
-	// Rendering space RGB to XYZ
-	float3 XYZ = mul( AP1_2_XYZ_MAT, rgbPost );
-
-	// CIE XYZ to AP1 primaries
-	float3 linearCV = mul( XYZ_2_AP1_MAT, XYZ );
-
-	// Transform to display primaries applied later
-	// ST-2084 (PQ) transfer function applied later
-
-	// CIE XYZ to display primaries
-	// float3 linearCV = mul( XYZ_2_sRGB_MAT, XYZ );
-
-	// Handle out-of-gamut values
-	// Clip values < 0 (i.e. projecting outside the display primaries)
-	//linearCV = max(0., linearCV);
-
-	return linearCV;
+	return rgbPost;
 }

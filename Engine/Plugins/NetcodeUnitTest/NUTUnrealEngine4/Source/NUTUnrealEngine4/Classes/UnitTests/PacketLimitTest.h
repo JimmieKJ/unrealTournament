@@ -3,10 +3,13 @@
 #pragma once
 
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "ClientUnitTest.h"
 
 #include "PacketLimitTest.generated.h"
 
+struct FUniqueNetIdRepl;
 
 /**
  * The current stage of testing for the unit test

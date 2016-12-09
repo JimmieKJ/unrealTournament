@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Framework/SlateDelegates.h"
+#include "AssetData.h"
+#include "CollectionManagerTypes.h"
+
+class FViewport;
+
 namespace ContentBrowserUtils
 {
 	enum class ECBFolderCategory : uint8
@@ -147,6 +155,9 @@ namespace ContentBrowserUtils
 	/** Returns true if the passed-in path is a plugin folder */
 	bool IsPluginFolder( const FString& InPath );
 
+	/** Returns true if the passed-in path is a C++ classes folder */
+	bool IsClassesFolder( const FString& InPath );
+
 	/** Returns true if the passed-in path is a localization folder */
 	bool IsLocalizationFolder( const FString& InPath );
 
@@ -229,9 +240,17 @@ namespace ContentBrowserUtils
 	/** Returns true if the specified folder name in the specified path is available for folder creation */
 	bool IsValidFolderPathForCreate(const FString& FolderPath, const FString& NewFolderName, FText& OutErrorMessage);
 
+	/** Returns the length of the computed cooked package name and path wether it's run on a build machine or locally */
+	int32 GetPackageLengthForCooking(const FString& PackageName, bool IsInternalBuild);
+
 	/** Checks to see whether the path is within the size restrictions for cooking */
 	bool IsValidPackageForCooking(const FString& PackageName, FText& OutErrorMessage);
 
 	/** Syncs the specified packages from source control, other than any level assets which are currently being edited */
 	void SyncPackagesFromSourceControl(TArray<FString> PackageNames);
+
+	// We assume the game name is 20 characters (the maximum allowed) to make sure that content can be ported between projects
+	// 260 characters is the limit on Windows, which is the shortest max path of any platforms that support cooking
+	static const int32 MaxGameNameLen = 20;
+	static const int32 MaxCookPathLen = 260;
 }

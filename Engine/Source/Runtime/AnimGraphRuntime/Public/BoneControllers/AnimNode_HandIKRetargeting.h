@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BoneContainer.h"
+#include "BonePose.h"
+#include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "AnimNode_HandIKRetargeting.generated.h"
+
+class USkeletalMeshComponent;
 
 /**
  * Node to handle re-targeting of Hand IK bone chain.
@@ -29,7 +35,7 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_HandIKRetargeting : public FAnimNode_Skele
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HandIKRetargeting")
 	FBoneReference RightHandIK;
 
-	/** Bone for Left Hand FK */
+	/** Bone for Left Hand IK */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HandIKRetargeting")
 	FBoneReference LeftHandIK;
 

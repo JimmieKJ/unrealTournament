@@ -4,11 +4,20 @@
 	AnimMontageFactory.cpp: Factory for AnimMontages
 =============================================================================*/
 
-#include "UnrealEd.h"
-
-#include "AssetData.h"
-#include "ContentBrowserModule.h"
+#include "Factories/AnimMontageFactory.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EditorStyleSet.h"
+#include "Animation/Skeleton.h"
 #include "Animation/AnimSequence.h"
+#include "Animation/AnimCompositeBase.h"
+#include "Animation/AnimMontage.h"
+#include "Editor.h"
+
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "AnimMontageFactory"
 

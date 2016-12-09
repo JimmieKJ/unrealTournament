@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IcmpPrivatePCH.h"
 #include "IcmpModule.h"
 
 IMPLEMENT_MODULE(FIcmpModule, Icmp);

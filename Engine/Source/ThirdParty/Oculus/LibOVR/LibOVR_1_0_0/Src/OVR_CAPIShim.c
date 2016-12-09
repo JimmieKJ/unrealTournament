@@ -65,9 +65,9 @@ limitations under the License.
     #pragma warning(disable: 4996) // 'getenv': This function or variable may be unsafe.
 #endif
 
-static const uint8_t OculusSDKUniqueIdentifier[] = 
+static const uint8_t OculusSDKUniqueIdentifier[] =
 {
-    0x9E, 0xB2, 0x0B, 0x1A, 0xB7, 0x97, 0x09, 0x20, 0xE0, 0xFB, 0x83, 0xED, 0xF8, 0x33, 0x5A, 0xEB, 
+    0x9E, 0xB2, 0x0B, 0x1A, 0xB7, 0x97, 0x09, 0x20, 0xE0, 0xFB, 0x83, 0xED, 0xF8, 0x33, 0x5A, 0xEB,
     0x80, 0x4D, 0x8E, 0x92, 0x20, 0x69, 0x13, 0x56, 0xB4, 0xBB, 0xC4, 0x85, 0xA7, 0x9E, 0xA4, 0xFE,
     OVR_MAJOR_VERSION, OVR_MINOR_VERSION, OVR_PATCH_VERSION
 };
@@ -582,7 +582,7 @@ static HANDLE OVR_Win32_SignCheck(FilePathCharType* fullPath)
             for (chainIndex = 0; chainIndex < CertificateChainCount; ++chainIndex)
             {
                 CertificateEntry* chain = AllowedCertificateChains[chainIndex];
-                if (0 == ValidateCertificateContents(chain, cps))
+                if (VCCRSuccess == ValidateCertificateContents(chain, cps))
                 {
                     verified = 1;
                     break;
@@ -609,25 +609,30 @@ static HANDLE OVR_Win32_SignCheck(FilePathCharType* fullPath)
 
 #endif // #if defined(_WIN32)
 
-static ModuleHandleType OVR_OpenLibrary(const FilePathCharType* libraryPath)
+static ModuleHandleType OVR_OpenLibrary(const FilePathCharType* libraryPath, ovrResult* result)
 {
     #if defined(_WIN32)
         DWORD fullPathNameLen = 0;
         FilePathCharType fullPath[MAX_PATH] = { 0 };
         HANDLE hFilePinned = INVALID_HANDLE_VALUE;
         ModuleHandleType hModule = 0;
+
+        *result = ovrSuccess;
         fullPathNameLen = GetFullPathNameW(libraryPath, MAX_PATH, fullPath, 0);
         if (fullPathNameLen <= 0 || fullPathNameLen >= MAX_PATH)
         {
-            return 0;
+            *result = ovrError_LibPath;
+            return NULL;
         }
         fullPath[MAX_PATH - 1] = 0;
 
         hFilePinned = OVR_Win32_SignCheck(fullPath);
-        if (hFilePinned == INVALID_HANDLE_VALUE)
-        {
-            return 0;
-        }
+
+            if (hFilePinned == INVALID_HANDLE_VALUE)
+            {
+                *result = ovrError_LibSignCheck;
+                return NULL;
+            }
 
         hModule = LoadLibraryW(fullPath);
 
@@ -638,9 +643,12 @@ static ModuleHandleType OVR_OpenLibrary(const FilePathCharType* libraryPath)
 
         return hModule;
     #else
+        *result = ovrSuccess;
+
         // Don't bother trying to dlopen() a file that is not even there.
         if (access(libraryPath, X_OK | R_OK ) != 0)
         {
+            *result = ovrError_LibPath;
             return NULL;
         }
 
@@ -670,9 +678,9 @@ static void OVR_CloseLibrary(ModuleHandleType hLibrary)
     {
         #if defined(_WIN32)
             // We may need to consider what to do in the case that the library is in an exception state.
-            // In a Windows C++ DLL, all global objects (including static members of classes) will be constructed just 
-            // before the calling of the DllMain with DLL_PROCESS_ATTACH and they will be destroyed just after 
-            // the call of the DllMain with DLL_PROCESS_DETACH. We may need to intercept DLL_PROCESS_DETACH and 
+            // In a Windows C++ DLL, all global objects (including static members of classes) will be constructed just
+            // before the calling of the DllMain with DLL_PROCESS_ATTACH and they will be destroyed just after
+            // the call of the DllMain with DLL_PROCESS_DETACH. We may need to intercept DLL_PROCESS_DETACH and
             // have special handling for the case that the DLL is broken.
             FreeLibrary(hLibrary);
         #else
@@ -686,7 +694,7 @@ static void OVR_CloseLibrary(ModuleHandleType hLibrary)
 // The caller is required to eventually call OVR_CloseLibrary on a valid return handle.
 //
 static ModuleHandleType OVR_FindLibraryPath(int requestedProductVersion, int requestedMajorVersion,
-                               FilePathCharType* libraryPath, size_t libraryPathCapacity)
+                               FilePathCharType* libraryPath, size_t libraryPathCapacity, ovrResult* result)
 {
     ModuleHandleType moduleHandle;
     int printfResult;
@@ -710,6 +718,7 @@ static ModuleHandleType OVR_FindLibraryPath(int requestedProductVersion, int req
 
     (void)requestedProductVersion;
 
+    *result = ovrError_LibLoad;
     moduleHandle = ModuleHandleTypeNull;
     if(libraryPathCapacity)
         libraryPath[0] = '\0';
@@ -817,7 +826,7 @@ static ModuleHandleType OVR_FindLibraryPath(int requestedProductVersion, int req
             #elif defined(_MSC_VER) && (_MSC_VER == 1800)
                 const char* pCompilerVersion = "VS2013";
             #elif defined(_MSC_VER) && (_MSC_VER == 1900)
-                const char* pCompilerVersion = "VS2014";
+                const char* pCompilerVersion = "VS2015";
             #endif
 
             #if defined(_WIN32)
@@ -829,7 +838,7 @@ static ModuleHandleType OVR_FindLibraryPath(int requestedProductVersion, int req
                 int count = snprintf(developerDir, OVR_MAX_PATH, "%s/LibOVR/Lib/Mac/%s/",
                                         sdkRoot, pConfigDirName);
             #else
-                int count = snprintf(developerDir, OVR_MAX_PATH, "%s/LibOVR/Lib/Linux/%s/%s/", 
+                int count = snprintf(developerDir, OVR_MAX_PATH, "%s/LibOVR/Lib/Linux/%s/%s/",
                                         sdkRoot, pArchDirName, pConfigDirName);
             #endif
 
@@ -984,7 +993,7 @@ static ModuleHandleType OVR_FindLibraryPath(int requestedProductVersion, int req
 
             if((printfResult >= 0) && (printfResult < (int)libraryPathCapacity))
             {
-                moduleHandle = OVR_OpenLibrary(libraryPath);
+                moduleHandle = OVR_OpenLibrary(libraryPath, result);
                 if(moduleHandle != ModuleHandleTypeNull)
                     return moduleHandle;
             }
@@ -1050,16 +1059,17 @@ static ovrResult OVR_LoadSharedLibrary(int requestedProductVersion, int requeste
 {
     FilePathCharType filePath[OVR_MAX_PATH];
     const char *SymbolName = NULL;
+    ovrResult result = ovrSuccess;
 
     if (hLibOVR)
-        return ovrSuccess;
+        return result;
 
-    hLibOVR = OVR_FindLibraryPath(requestedProductVersion, requestedMajorVersion, filePath, sizeof(filePath) / sizeof(filePath[0]));
+    hLibOVR = OVR_FindLibraryPath(requestedProductVersion, requestedMajorVersion, filePath, sizeof(filePath) / sizeof(filePath[0]), &result);
 
     if (!hLibOVR)
-        return ovrError_LibLoad;
+        return result;
 
-    // Zero the API table just to be paranoid 
+    // Zero the API table just to be paranoid
     memset(&API, 0, sizeof(API));
 
     // Load the current API entrypoint using the catenated FunctionName and OptionalVersion
@@ -1067,18 +1077,21 @@ static ovrResult OVR_LoadSharedLibrary(int requestedProductVersion, int requeste
         SymbolName = #FunctionName #OptionalVersion; \
         API.FunctionName.Symbol = OVR_DLSYM(hLibOVR, SymbolName); \
         if (!API.FunctionName.Symbol) \
-            goto FailedToLoadSymbol;
+        {\
+            result = ovrError_LibSymbols; \
+            goto FailedToLoadSymbol; \
+        }
 
     OVR_LIST_APIS(OVR_GETFUNCTION, OVR_IGNORE_IMPORT)
 
     #undef OVR_GETFUNCTION
 
-    return ovrSuccess;
+    return result;
 
 FailedToLoadSymbol:
     // Check SymbolName for the name of the API which failed to load
     OVR_UnloadSharedLibrary();
-    return ovrError_LibLoad;
+    return result;
 }
 
 // These defaults are also in CAPI.cpp
@@ -1177,7 +1190,7 @@ OVR_PUBLIC_FUNCTION(void) ovr_Shutdown()
 OVR_PUBLIC_FUNCTION(const char*) ovr_GetVersionString()
 {
     // We don't directly return the value of the DLL API.ovr_GetVersionString.Ptr call,
-    // because that call returns a pointer to memory within the DLL. If the DLL goes 
+    // because that call returns a pointer to memory within the DLL. If the DLL goes
     // away then that pointer becomes invalid while the process may still be holding
     // onto it. So we save a local copy of it which is always valid.
     static char dllVersionStringLocal[32];
@@ -1198,7 +1211,7 @@ OVR_PUBLIC_FUNCTION(void) ovr_GetLastErrorInfo(ovrErrorInfo* errorInfo)
     if (!API.ovr_GetLastErrorInfo.Ptr)
     {
         memset(errorInfo, 0, sizeof(ovrErrorInfo));
-        errorInfo->Result = ovrError_LibLoad;
+        errorInfo->Result = ovrError_NotInitialized;
     }
     else
         API.ovr_GetLastErrorInfo.Ptr(errorInfo);
@@ -1223,7 +1236,7 @@ OVR_PUBLIC_FUNCTION(unsigned int) ovr_GetTrackerCount(ovrSession session)
     {
         return 0;
     }
-    
+
     return API.ovr_GetTrackerCount.Ptr(session);
 }
 
@@ -1235,7 +1248,7 @@ OVR_PUBLIC_FUNCTION(ovrTrackerDesc) ovr_GetTrackerDesc(ovrSession session, unsig
         memset(&trackerDesc, 0, sizeof(trackerDesc));
         return trackerDesc;
     }
-    
+
     return API.ovr_GetTrackerDesc.Ptr(session, trackerDescIndex);
 }
 
@@ -1382,6 +1395,70 @@ OVR_PUBLIC_FUNCTION(ovrResult) ovr_GetControllerVibrationState(ovrSession sessio
         return ovrError_NotInitialized;
 
     return API.ovr_GetControllerVibrationState.Ptr(session, controllerType, outState);
+}
+
+OVR_PUBLIC_FUNCTION(ovrResult) ovr_TestBoundary(ovrSession session, ovrTrackedDeviceType deviceBitmask, ovrBoundaryType singleBoundaryType, ovrBoundaryTestResult* outTestResult)
+{
+    if (!API.ovr_TestBoundary.Ptr)
+        return ovrError_NotInitialized;
+
+    return API.ovr_TestBoundary.Ptr(session, deviceBitmask, singleBoundaryType, outTestResult);
+}
+
+OVR_PUBLIC_FUNCTION(ovrResult) ovr_TestBoundaryPoint(ovrSession session, const ovrVector3f* point, ovrBoundaryType singleBoundaryType, ovrBoundaryTestResult* outTestResult)
+{
+    if (!API.ovr_TestBoundaryPoint.Ptr)
+        return ovrError_NotInitialized;
+
+    return API.ovr_TestBoundaryPoint.Ptr(session, point, singleBoundaryType, outTestResult);
+}
+
+OVR_PUBLIC_FUNCTION(ovrResult) ovr_SetBoundaryLookAndFeel(ovrSession session, const ovrBoundaryLookAndFeel* lookAndFeel)
+{
+    if (!API.ovr_SetBoundaryLookAndFeel.Ptr)
+        return ovrError_NotInitialized;
+
+    return API.ovr_SetBoundaryLookAndFeel.Ptr(session, lookAndFeel);
+}
+
+OVR_PUBLIC_FUNCTION(ovrResult) ovr_ResetBoundaryLookAndFeel(ovrSession session)
+{
+    if (!API.ovr_ResetBoundaryLookAndFeel.Ptr)
+        return ovrError_NotInitialized;
+
+    return API.ovr_ResetBoundaryLookAndFeel.Ptr(session);
+}
+
+OVR_PUBLIC_FUNCTION(ovrResult) ovr_GetBoundaryGeometry(ovrSession session, ovrBoundaryType singleBoundaryType, ovrVector3f* outFloorPoints, int* outFloorPointsCount)
+{
+    if (!API.ovr_GetBoundaryGeometry.Ptr)
+        return ovrError_NotInitialized;
+
+    return API.ovr_GetBoundaryGeometry.Ptr(session, singleBoundaryType, outFloorPoints, outFloorPointsCount);
+}
+
+OVR_PUBLIC_FUNCTION(ovrResult) ovr_GetBoundaryDimensions(ovrSession session, ovrBoundaryType singleBoundaryType, ovrVector3f* outDimensions)
+{
+    if (!API.ovr_GetBoundaryDimensions.Ptr)
+        return ovrError_NotInitialized;
+
+    return API.ovr_GetBoundaryDimensions.Ptr(session, singleBoundaryType, outDimensions);
+}
+
+OVR_PUBLIC_FUNCTION(ovrResult) ovr_GetBoundaryVisible(ovrSession session, ovrBool* outIsVisible)
+{
+    if (!API.ovr_GetBoundaryVisible.Ptr)
+        return ovrError_NotInitialized;
+
+    return API.ovr_GetBoundaryVisible.Ptr(session, outIsVisible);
+}
+
+OVR_PUBLIC_FUNCTION(ovrResult) ovr_RequestBoundaryVisible(ovrSession session, ovrBool visible)
+{
+    if (!API.ovr_RequestBoundaryVisible.Ptr)
+        return ovrError_NotInitialized;
+
+    return API.ovr_RequestBoundaryVisible.Ptr(session, visible);
 }
 
 OVR_PUBLIC_FUNCTION(ovrSizei) ovr_GetFovTextureSize(ovrSession session, ovrEyeType eye, ovrFovPort fov,

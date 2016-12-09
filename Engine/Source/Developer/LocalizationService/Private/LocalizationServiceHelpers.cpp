@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LocalizationServicePrivatePCH.h"
 #include "LocalizationServiceHelpers.h"
 #include "ILocalizationServiceProvider.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
 #include "ILocalizationServiceModule.h"
-#include "MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "LocalizationServiceHelpers"
 

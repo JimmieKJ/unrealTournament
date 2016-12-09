@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "Core.h"
-#include "ModuleManager.h"
-#include "CrashDebugHelper.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+class ICrashDebugHelper;
 
 class FCrashDebugHelperModule : public IModuleInterface
 {

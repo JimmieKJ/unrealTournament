@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintCompilerCppBackendModulePrivatePCH.h"
-#include "BlueprintCompilerCppBackendUtils.h"
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
+#include "BlueprintCompilerCppBackendUtils.h"
 #include "Animation/AnimClassData.h"
 
 void FBackendHelperAnim::AddHeaders(FEmitterLocalContext& Context)

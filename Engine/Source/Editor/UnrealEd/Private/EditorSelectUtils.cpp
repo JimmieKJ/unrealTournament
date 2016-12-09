@@ -1,15 +1,30 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
-#include "ScopedTransaction.h"
-#include "LevelUtils.h"
-#include "Editor/StatsViewer/Public/StatsViewerModule.h"
-#include "SnappingUtils.h"
-#include "MessageLog.h"
-#include "ComponentEditorUtils.h"
+#include "CoreMinimal.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "Components/ActorComponent.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/Actor.h"
+#include "Components/PrimitiveComponent.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Editor/GroupActor.h"
 #include "Components/ChildActorComponent.h"
 #include "Components/DecalComponent.h"
+#include "Kismet2/ComponentEditorUtils.h"
+#include "Engine/Selection.h"
+#include "EdMode.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "Dialogs/Dialogs.h"
+#include "UnrealEdGlobals.h"
+#include "ScopedTransaction.h"
+#include "Engine/LevelStreaming.h"
+#include "LevelUtils.h"
+#include "StatsViewerModule.h"
+#include "SnappingUtils.h"
+#include "Logging/MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "EditorSelectUtils"
 
@@ -298,7 +313,7 @@ void UUnrealEdEngine::UpdatePivotLocationForSelection( bool bOnChange )
 
 			if (ComponentOwner != nullptr)
 			{
-				auto SelectedActors = GetSelectedActors();
+				USelection* SelectedActors = GetSelectedActors();
 				const bool bIsOwnerSelected = SelectedActors->IsSelected(ComponentOwner);
 				check(bIsOwnerSelected);
 
@@ -598,11 +613,16 @@ void UUnrealEdEngine::SelectActor(AActor* Actor, bool bInSelected, bool bNotify,
 				GetSelectedComponents()->BeginBatchSelectOperation();
 				for (UActorComponent* Component : Actor->GetComponents())
 				{
-					GetSelectedComponents()->Deselect( Component );
+					if (Component)
+					{
+						GetSelectedComponents()->Deselect(Component);
 
-					// Remove the selection override delegates from the deselected components
-					auto SceneComponent = Cast<USceneComponent>(Component);
-					FComponentEditorUtils::BindComponentSelectionOverride(SceneComponent, false);
+						// Remove the selection override delegates from the deselected components
+						if (USceneComponent* SceneComponent = Cast<USceneComponent>(Component))
+						{
+							FComponentEditorUtils::BindComponentSelectionOverride(SceneComponent, false);
+						}
+					}
 				}
 				GetSelectedComponents()->EndBatchSelectOperation(false);
 			}
@@ -611,11 +631,14 @@ void UUnrealEdEngine::SelectActor(AActor* Actor, bool bInSelected, bool bNotify,
 				// Bind the override delegates for the components in the selected actor
 				for (UActorComponent* Component : Actor->GetComponents())
 				{
-					auto SceneComponent = Cast<USceneComponent>(Component);
-					FComponentEditorUtils::BindComponentSelectionOverride(SceneComponent, true);
+					if (USceneComponent* SceneComponent = Cast<USceneComponent>(Component))
+					{
+						FComponentEditorUtils::BindComponentSelectionOverride(SceneComponent, true);
+					}
 				}
 			}
-			
+
+
 			if( bNotify )
 			{
 				NoteSelectionChange();
@@ -659,7 +682,7 @@ void UUnrealEdEngine::SelectComponent(UActorComponent* Component, bool bInSelect
 		GetSelectedComponents()->Select(Component, bInSelected);
 
 		// Make sure the override delegate is bound properly
-		auto SceneComponent = Cast<USceneComponent>(Component);
+		USceneComponent* SceneComponent = Cast<USceneComponent>(Component);
 		if (SceneComponent)
 		{
 			FComponentEditorUtils::BindComponentSelectionOverride(SceneComponent, true);

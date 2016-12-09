@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node_BaseAsyncTask.h"
 #include "K2Node_LatentOnlineCall.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
 
 // This node is a latent online subsystem call (handles scanning all UOnlineBlueprintCallProxyBase classes for static factory calls)
 UCLASS()

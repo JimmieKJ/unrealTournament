@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CinematicCameraPrivate.h"
 #include "CameraRig_Rail.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/CollisionProfile.h"
 #include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
 
@@ -27,6 +30,7 @@ ACameraRig_Rail::ACameraRig_Rail(const FObjectInitializer& ObjectInitializer)
 	RailCameraMount = CreateDefaultSubobject<USceneComponent>(TEXT("RailCameraMount"));
 	RailCameraMount->SetupAttachment(RailSplineComponent);
 
+#if WITH_EDITORONLY_DATA
 	if (!IsRunningDedicatedServer())
 	{
 		static ConstructorHelpers::FObjectFinder<UStaticMesh> RailMesh(TEXT("/Engine/EditorMeshes/Camera/SM_RailRig_Track.SM_RailRig_Track"));
@@ -37,8 +41,7 @@ ACameraRig_Rail::ACameraRig_Rail(const FObjectInitializer& ObjectInitializer)
 		if (PreviewMesh_Mount)
 		{
 			PreviewMesh_Mount->SetStaticMesh(MountMesh.Object);
-			PreviewMesh_Mount->AlwaysLoadOnClient = false;
-			PreviewMesh_Mount->AlwaysLoadOnServer = false;
+			PreviewMesh_Mount->bIsEditorOnly = true;
 			PreviewMesh_Mount->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			PreviewMesh_Mount->bHiddenInGame = true;
 			PreviewMesh_Mount->CastShadow = false;
@@ -47,6 +50,7 @@ ACameraRig_Rail::ACameraRig_Rail(const FObjectInitializer& ObjectInitializer)
 			PreviewMesh_Mount->SetupAttachment(RailCameraMount);
 		}
 	}
+#endif
 }
 
 USplineMeshComponent* ACameraRig_Rail::CreateSplinePreviewSegment()
@@ -56,8 +60,7 @@ USplineMeshComponent* ACameraRig_Rail::CreateSplinePreviewSegment()
 	{
 		Segment->SetStaticMesh(PreviewRailStaticMesh);
 		Segment->SetMobility(EComponentMobility::Movable);
-		Segment->AlwaysLoadOnClient = false;
-		Segment->AlwaysLoadOnServer = false;
+		Segment->bIsEditorOnly = true;
 		Segment->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 		Segment->bHiddenInGame = true;
 		Segment->CastShadow = false;
@@ -118,6 +121,17 @@ void ACameraRig_Rail::UpdatePreviewMeshes()
 					SplineMeshComp->SetStartAndEnd(StartLoc, StartTangent, EndLoc, EndTangent, true);
 				}
 			}
+
+			// Unregister any owned components that aren't in PreviewRailMeshSegments
+			TArray<USplineMeshComponent*> OwnedSplineMeshComponents;
+			GetComponents(OwnedSplineMeshComponents);
+			for (auto OwnedComponent : OwnedSplineMeshComponents)
+			{
+				if (!PreviewRailMeshSegments.Contains(OwnedComponent))
+				{
+					OwnedComponent->UnregisterComponent();
+				}
+			}
 		}
 
 		// make visualization of the mount follow the contour of the rail
@@ -157,6 +171,12 @@ USceneComponent* ACameraRig_Rail::GetDefaultAttachComponent() const
 void ACameraRig_Rail::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
+	UpdateRailComponents();
+}
+
+void ACameraRig_Rail::PostEditUndo()
+{
+	Super::PostEditUndo();
 	UpdateRailComponents();
 }
 #endif

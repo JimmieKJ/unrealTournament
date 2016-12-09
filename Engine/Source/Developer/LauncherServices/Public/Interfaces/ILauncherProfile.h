@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Interfaces/ILauncherDeviceGroup.h"
+#include "Interfaces/ILauncherProfileLaunchRole.h"
+
+class Error;
+class FJsonObject;
+class ILauncherProfile;
+class ILauncherSimpleProfile;
 
 namespace ELauncherProfileCookModes
 {
@@ -701,6 +710,9 @@ public:
 	 */
 	virtual bool IsCookingIncrementally( ) const = 0;
 
+
+	virtual bool IsIterateSharedCookedBuild() const =0;
+
 	/**
 	 * Checks if compression is enabled
 	 *
@@ -1066,6 +1078,8 @@ public:
 	 * @see IsCookingIncrementally
 	 */
 	virtual void SetIncrementalCooking( bool Incremental ) = 0;
+
+	virtual void SetIterateSharedCookedBuild( bool IterateSharedCookedBuild ) = 0;
 
 	/**
 	 * Sets Compression.

@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StandaloneRendererPrivate.h"
-#include "Windows/D3D/SlateD3DRenderer.h"
 #include "Windows/D3D/SlateD3DTextures.h"
+#include "Windows/D3D/SlateD3DRenderer.h"
 
 void FSlateD3DTexture::Init( DXGI_FORMAT InFormat, D3D11_SUBRESOURCE_DATA* InitalData, bool bUpdatable, bool bUseStagingTexture)
 {

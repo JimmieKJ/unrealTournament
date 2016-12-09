@@ -1,7 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationWindowPrivatePCH.h"
-#include "SHyperlink.h"
+#include "SAutomationTestItem.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IAutomationReport.h"
+#include "Interfaces/IAutomationControllerModule.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Images/SSpinningImage.h"
+#include "Widgets/Notifications/SProgressBar.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "SAutomationWindow.h"
+
+#if WITH_EDITOR
+	#include "AssetData.h"
+	#include "EngineGlobals.h"
+	#include "Editor.h"
+	#include "AssetRegistryModule.h"
+#endif
+
+#include "Widgets/Input/SHyperlink.h"
 
 #define LOCTEXT_NAMESPACE "AutomationTestItem"
 

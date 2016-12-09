@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "TextFormatter.h"
-#include "TextFormatArgumentModifier.h"
-#include "TextData.h"
-#include "TextHistory.h"
-#include "ExpressionParser.h"
+#include "Internationalization/TextFormatter.h"
+#include "Misc/ScopeLock.h"
+#include "Internationalization/TextFormatArgumentModifier.h"
+#include "Internationalization/TextHistory.h"
+#include "Internationalization/TextData.h"
+#include "Misc/ExpressionParser.h"
 
 #define LOCTEXT_NAMESPACE "TextFormatter"
 

@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Interfaces/Interface_CollisionDataProvider.h"
 #include "Components/MeshComponent.h"
 #include "PhysicsEngine/ConvexElem.h"
 #include "ProceduralMeshComponent.generated.h"
+
+class FPrimitiveSceneProxy;
 
 /**
 *	Struct used to specify a tangent vector for a vertex
@@ -244,6 +250,10 @@ class PROCEDURALMESHCOMPONENT_API UProceduralMeshComponent : public UMeshCompone
 	//~ Begin UMeshComponent Interface.
 	virtual int32 GetNumMaterials() const override;
 	//~ End UMeshComponent Interface.
+
+	//~ Begin UObject Interface
+	virtual void PostLoad() override;
+	//~ End UObject Interface.
 
 
 private:

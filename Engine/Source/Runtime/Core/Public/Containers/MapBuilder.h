@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/ContainerAllocationPolicies.h"
+#include "Containers/Map.h"
 
 /**
  * Template for fluent map builders.

@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "KismetNodes/SGraphNodeK2Composite.h"
+
+class UEdGraph;
+
 class SGraphNodeStateMachineInstance : public SGraphNodeK2Composite
 {
 public:

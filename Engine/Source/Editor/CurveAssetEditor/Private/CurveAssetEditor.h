@@ -2,7 +2,13 @@
 
 #pragma once
 
-#include "Toolkits/AssetEditorManager.h"
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Toolkits/IToolkitHost.h"
+#include "ICurveAssetEditor.h"
+
+class SCurveEditor;
+class UCurveBase;
 
 class FCurveAssetEditor :  public ICurveAssetEditor
 {

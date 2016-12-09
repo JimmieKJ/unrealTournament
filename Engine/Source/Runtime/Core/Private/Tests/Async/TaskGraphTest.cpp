@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "AutomationTest.h"
-#include "TaskGraphInterfaces.h"
+#include "CoreTypes.h"
+#include "Misc/Timespan.h"
+#include "Misc/DateTime.h"
+#include "HAL/PlatformProcess.h"
+#include "Stats/Stats.h"
+#include "Misc/AutomationTest.h"
+#include "Async/TaskGraphInterfaces.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

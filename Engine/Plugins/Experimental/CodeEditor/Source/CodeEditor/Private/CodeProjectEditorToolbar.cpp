@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeEditorPrivatePCH.h"
 #include "CodeProjectEditorToolbar.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "EditorStyleSet.h"
+#include "CodeProjectEditorCommands.h"
 #include "LevelEditorActions.h"
 #include "SourceCodeNavigation.h"
-#include "EditorStyleSet.h"
 
 
 void FCodeProjectEditorToolbar::AddEditorToolbar(TSharedPtr<FExtender> Extender)

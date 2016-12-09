@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OutputDeviceConsole.h"
+#pragma once
+
+#include "CoreTypes.h"
+#include "Misc/OutputDeviceError.h"
+#include "Misc/OutputDeviceConsole.h"
 
 class FOutputDeviceLinuxError : public FOutputDeviceError
 {

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
 #include "ConnectionDrawingPolicy.h"
+#include "Rendering/DrawElements.h"
+#include "Framework/Application/SlateApplication.h"
 
 DEFINE_LOG_CATEGORY(LogConnectionDrawingPolicy);
 

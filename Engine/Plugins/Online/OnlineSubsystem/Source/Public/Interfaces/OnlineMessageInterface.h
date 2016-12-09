@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "OnlineDelegateMacros.h"
+
+#include "CoreMinimal.h"
+#include "OnlineKeyValuePair.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
+#include "OnlineDelegateMacros.h"
+
+class FJsonObject;
 
 /** 
  * unique identifier for messages 

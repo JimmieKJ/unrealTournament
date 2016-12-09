@@ -1,14 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FoliagePrivate.h"
 #include "ProceduralFoliageComponent.h"
-#include "ProceduralFoliageTile.h"
-#include "InstancedFoliage.h"
+#include "Async/Future.h"
+#include "Async/Async.h"
+#include "GameFramework/Volume.h"
+#include "Components/BrushComponent.h"
 #include "InstancedFoliageActor.h"
+#include "ProceduralFoliageTile.h"
 #include "ProceduralFoliageSpawner.h"
 #include "Engine/LevelBounds.h"
+#include "Misc/FeedbackContext.h"
 
-#include "Async/Async.h"
 
 #define LOCTEXT_NAMESPACE "ProceduralFoliage"
 
@@ -21,7 +23,8 @@ UProceduralFoliageComponent::UProceduralFoliageComponent(const FObjectInitialize
 	bAllowLandscape = true;
 	bAllowBSP = true;
 	bAllowStaticMesh = true;
-	bAllowTranslucent = true;
+	bAllowTranslucent = false;
+	bAllowFoliage = false;
 	bShowDebugTiles = false;
 #endif
 }

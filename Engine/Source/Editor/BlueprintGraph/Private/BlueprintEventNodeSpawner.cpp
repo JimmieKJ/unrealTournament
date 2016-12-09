@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintEventNodeSpawner.h"
-#include "EdGraphSchema_K2.h" // for GetFriendlySignatureName()
-#include "BlueprintNodeTemplateCache.h" // for IsTemplateOuter()
+#include "EdGraphSchema_K2.h"
+#include "K2Node_CallFunction.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "BlueprintNodeTemplateCache.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintEventNodeSpawner"
 
@@ -168,7 +169,7 @@ UEdGraphNode* UBlueprintEventNodeSpawner::Invoke(UEdGraph* ParentGraph, FBinding
 	// if there is no existing node, then we can happily spawn one into the graph
 	if (EventNode == nullptr)
 	{
-		auto PostSpawnLambda = [](UEdGraphNode* NewNode, bool bIsTemplateNode, UFunction const* InEventFunc, FName InEventName, FCustomizeNodeDelegate UserDelegate)
+		auto PostSpawnLambda = [](UEdGraphNode* NewNode, bool bInIsTemplateNode, UFunction const* InEventFunc, FName InEventName, FCustomizeNodeDelegate UserDelegate)
 		{
 			UK2Node_Event* K2EventNode = CastChecked<UK2Node_Event>(NewNode);
 			if (InEventFunc != nullptr)
@@ -176,12 +177,12 @@ UEdGraphNode* UBlueprintEventNodeSpawner::Invoke(UEdGraph* ParentGraph, FBinding
 				K2EventNode->EventReference.SetFromField<UFunction>(InEventFunc, false);
 				K2EventNode->bOverrideFunction   = true;
 			}
-			else if (!bIsTemplateNode)
+			else if (!bInIsTemplateNode)
 			{
 				K2EventNode->CustomFunctionName = InEventName;
 			}
 
-			UserDelegate.ExecuteIfBound(NewNode, bIsTemplateNode);
+			UserDelegate.ExecuteIfBound(NewNode, bInIsTemplateNode);
 		};
 
 		FCustomizeNodeDelegate PostSpawnDelegate = FCustomizeNodeDelegate::CreateStatic(PostSpawnLambda, EventFunc, EventName, CustomizeNodeDelegate);

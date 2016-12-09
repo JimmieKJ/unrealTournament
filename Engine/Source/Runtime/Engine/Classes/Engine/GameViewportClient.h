@@ -2,26 +2,34 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
+#include "Engine/EngineBaseTypes.h"
+#include "UObject/ScriptMacros.h"
+#include "Input/PopupMethodReply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SOverlay.h"
 #include "ShowFlags.h"
-#include "ScriptViewportClient.h"
-#include "ViewportSplitScreen.h"
-#include "DebugDisplayProperty.h"
-#include "TitleSafeZone.h"
-#include "GameViewportDelegates.h"
+#include "Engine/ScriptViewportClient.h"
+#include "Engine/ViewportSplitScreen.h"
+#include "Engine/TitleSafeZone.h"
+#include "Engine/GameViewportDelegates.h"
+#include "Engine/DebugDisplayProperty.h"
 
 #include "GameViewportClient.generated.h"
 
-
-class UGameInstance;
-class UNetDriver;
-class ULocalPlayer;
+class FCanvas;
+class FSceneView;
 class FSceneViewport;
+class IGameLayerManager;
 class SViewport;
 class SWindow;
-class SOverlay;
-class IGameLayerManager;
 class UCanvas;
-
+class UGameInstance;
+class ULocalPlayer;
+class UNetDriver;
+struct FStringClassReference;
 
 /**
  * Stereoscopic rendering passes.  FULL implies stereoscopic rendering isn't enabled for this pass
@@ -158,6 +166,7 @@ public:
 	virtual bool IsFocused(FViewport* Viewport) override;
 	virtual void Activated(FViewport* InViewport, const FWindowActivateEvent& InActivateEvent) override;
 	virtual void Deactivated(FViewport* InViewport, const FWindowActivateEvent& InActivateEvent) override;
+	virtual bool WindowCloseRequested() override;
 	virtual void CloseRequested(FViewport* Viewport) override;
 	virtual bool RequiresHitProxyStorage() override { return 0; }
 	virtual bool IsOrtho() const override;
@@ -488,6 +497,12 @@ public:
 		return CloseRequestedDelegate;
 	}
 
+	/** Accessor for the delegate called when the window owning the viewport is asked to close. */
+	FOnWindowCloseRequested& OnWindowCloseRequested()
+	{
+		return WindowCloseRequestedDelegate;
+	}
+
 	/** Accessor for the delegate called when the game viewport is created. */
 	static FSimpleMulticastDelegate& OnViewportCreated()
 	{
@@ -704,6 +719,15 @@ public:
 
 	virtual FPopupMethodReply OnQueryPopupMethod() const override;
 
+	/**
+	 * Sets whether or not the software cursor widgets are used.
+	 * If no software cursor widgets are set this setting has no meaningful effect.
+	 */
+	void SetUseSoftwareCursorWidgets(bool bInUseSoftwareCursorWidgets)
+	{
+		bUseSoftwareCursorWidgets = bInUseSoftwareCursorWidgets;
+	}
+
 #if WITH_EDITOR
 	/** Accessor for delegate called when a game viewport received input key */
 	FOnGameViewportInputKey& OnGameViewportInputKey()
@@ -711,6 +735,12 @@ public:
 		return GameViewportInputKeyDelegate;
 	}
 #endif
+
+	/** Accessor for delegate called when the engine toggles fullscreen */
+	FOnToggleFullscreen& OnToggleFullscreen()
+	{
+		return ToggleFullscreenDelegate;
+	}
 
 private:
 	/**
@@ -774,8 +804,11 @@ private:
 	/** Weak pointer to the highres screenshot dialog if it's open */
 	TWeakPtr<SWindow> HighResScreenshotDialog;
 
-	/** Map of Cursor Widgets*/
+	/** Map of Software Cursor Widgets*/
 	TMap<EMouseCursor::Type, TSharedRef<SWidget>> CursorWidgets;
+
+	/** Controls if the Map of Software Cursor Widgets is used */
+	bool bUseSoftwareCursorWidgets;
 
 	/* Function that handles bug screen-shot requests w/ or w/o extra HUD info (project-specific) */
 	bool RequestBugScreenShot(const TCHAR* Cmd, bool bDisplayHUDInfo);
@@ -798,6 +831,9 @@ private:
 	/** Delegate called when a request to close the viewport is received */
 	FOnCloseRequested CloseRequestedDelegate;
 
+	/** Delegate called when the window owning the viewport is requested to close */
+	FOnWindowCloseRequested WindowCloseRequestedDelegate;
+
 	/** Delegate called when the game viewport is created. */
 	static FSimpleMulticastDelegate CreatedDelegate;
 
@@ -818,6 +854,9 @@ private:
 
 	/** Delegate called when ticking the game viewport */
 	FOnGameViewportTick TickDelegate;
+
+	/** Delegate called when the engine toggles fullscreen */
+	FOnToggleFullscreen ToggleFullscreenDelegate;
 
 	/** Data needed to display perframe stat tracking when STAT UNIT is enabled */
 	FStatUnitData* StatUnitData;

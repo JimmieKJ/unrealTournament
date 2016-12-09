@@ -5,7 +5,7 @@
 //  Use to prevents clipping at output points.
 //
 
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 
 //#include <math.h>

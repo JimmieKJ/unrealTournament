@@ -1,35 +1,32 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/UnrealString.h"
+#include "Logging/LogMacros.h"
+#include "Templates/SharedPointer.h"
+#include "Internationalization/Text.h"
+#include "Internationalization/Internationalization.h"
 
 #if UE_ENABLE_ICU
-#include "Text.h"
-#include "TextData.h"
+#include "Internationalization/TextHistory.h"
+#include "Internationalization/TextData.h"
 
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(push)
-	#pragma warning(disable:28251)
-	#pragma warning(disable:28252)
-	#pragma warning(disable:28253)
-#endif
-    #include <unicode/utypes.h>
+THIRD_PARTY_INCLUDES_START
+	#include <unicode/utypes.h>
 	#include <unicode/unistr.h>
-	PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 	#include <unicode/coll.h>
 	#include <unicode/sortkey.h>
 	#include <unicode/numfmt.h>
 	#include <unicode/msgfmt.h>
-	PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 	#include <unicode/uniset.h>
 	#include <unicode/ubidi.h>
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(pop)
-#endif
+THIRD_PARTY_INCLUDES_END
 
-#include "ICUUtilities.h"
-#include "ICUCulture.h"
-#include "ICUInternationalization.h"
-#include "ICUTextCharacterIterator.h"
+#include "Internationalization/ICUUtilities.h"
+#include "Internationalization/ICUCulture.h"
+#include "Internationalization/ICUInternationalization.h"
+#include "Internationalization/ICUTextCharacterIterator.h"
 
 bool FText::IsWhitespace( const TCHAR Char )
 {
@@ -278,8 +275,14 @@ ETextDirection ComputeTextDirection(UBiDi* InICUBiDi, const icu::UnicodeString& 
 		for (int32 RunIndex = 0; RunIndex < RunCount; ++RunIndex)
 		{
 			FTextDirectionInfo& CurTextDirectionInfo = OutTextDirectionInfo[RunIndex];
-			CurTextDirectionInfo.TextDirection = Internal::ICUToUE(ubidi_getVisualRun(InICUBiDi, RunIndex, &CurTextDirectionInfo.StartIndex, &CurTextDirectionInfo.Length));
-			CurTextDirectionInfo.StartIndex += InStringOffset;
+
+			int32 InternalStartIndex = 0;
+			int32 InternalLength = 0;
+			CurTextDirectionInfo.TextDirection = Internal::ICUToUE(ubidi_getVisualRun(InICUBiDi, RunIndex, &InternalStartIndex, &InternalLength));
+			
+			// Adjust the index and length for what FString expects (ICU always uses UTF-16 indices internally, and FString might not be UTF-16)
+			CurTextDirectionInfo.StartIndex = InStringOffset + ICUUtilities::GetNativeStringLength(InICUString, 0, InternalStartIndex);
+			CurTextDirectionInfo.Length = ICUUtilities::GetNativeStringLength(InICUString, InternalStartIndex, InternalLength);
 		}
 
 		return ReturnDirection;

@@ -1,17 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-
-#include "Runtime/MovieScene/Public/MovieScene.h"
-#include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
-
-#include "Blueprint/WidgetTree.h"
-#include "Blueprint/WidgetBlueprintGeneratedClass.h"
-#include "PropertyTag.h"
 #include "WidgetBlueprint.h"
-#include "WidgetBlueprintCompiler.h"
-#include "PropertyBinding.h"
-#include "Engine/UserDefinedStruct.h"
+#include "Components/Widget.h"
+#include "Blueprint/UserWidget.h"
+#include "MovieScene.h"
+
+#if WITH_EDITOR
+	#include "Engine/UserDefinedStruct.h"
+#endif // WITH_EDITOR
+#include "EdGraph/EdGraph.h"
+#include "Blueprint/WidgetTree.h"
+#include "Animation/WidgetAnimation.h"
+
+#include "Kismet2/StructureEditorUtils.h"
+
+#include "Kismet2/CompilerResultsLog.h"
+#include "Binding/PropertyBinding.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -650,9 +654,35 @@ void UWidgetBlueprint::GetReparentingRules(TSet< const UClass* >& AllowedChildre
 	AllowedChildrenOfClasses.Add( UUserWidget::StaticClass() );
 }
 
-bool UWidgetBlueprint::NeedsLoadForClient() const
+bool UWidgetBlueprint::IsWidgetFreeFromCircularReferences(UUserWidget* UserWidget) const
 {
-	return false;
+	if (UserWidget != nullptr)
+	{
+		if (UserWidget->GetClass() == GeneratedClass)
+		{
+			// If this user widget is the same as the blueprint's generated class, we should reject it because it
+			// will cause a circular reference within the blueprint.
+			return false;
+		}
+		else if (UserWidget->WidgetTree)
+		{
+			TArray<UWidget*> ChildWidgets;
+			UserWidget->WidgetTree->GetAllWidgets(ChildWidgets);
+
+			for (UWidget* Widget : ChildWidgets)
+			{
+				if (Cast<UUserWidget>(Widget) != nullptr)
+				{
+					if ( !IsWidgetFreeFromCircularReferences(Cast<UUserWidget>(Widget)) )
+					{
+						return false;
+					}
+				}
+			}
+		}
+	}
+
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE 

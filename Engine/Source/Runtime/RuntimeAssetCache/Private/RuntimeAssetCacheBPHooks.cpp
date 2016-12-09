@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "RuntimeAssetCachePrivatePCH.h"
-#include "RuntimeAssetCacheModule.h"
 #include "RuntimeAssetCacheBPHooks.h"
+#include "RuntimeAssetCachePluginInterface.h"
+#include "RuntimeAssetCacheModule.h"
 
 FVoidPtrParam URuntimeAssetCacheBPHooks::GetSynchronous(TScriptInterface<IRuntimeAssetCacheBuilder> CacheBuilder)
 {

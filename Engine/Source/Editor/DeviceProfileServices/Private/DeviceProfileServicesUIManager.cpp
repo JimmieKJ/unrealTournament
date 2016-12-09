@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DeviceProfileServicesPCH.h"
-#include "DeviceProfiles/DeviceProfileManager.h"
+#include "DeviceProfileServicesUIManager.h"
+#include "Templates/Casts.h"
+#include "Misc/CoreMisc.h"
 #include "DeviceProfiles/DeviceProfile.h"
+#include "Misc/ConfigCacheIni.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "PlatformInfo.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogDeviceProfileServices, Log, All);

@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SubversionSourceControlPrivatePCH.h"
 #include "SubversionSourceControlLabel.h"
+#include "Modules/ModuleManager.h"
+#include "SubversionSourceControlState.h"
 #include "SubversionSourceControlModule.h"
-#include "SubversionSourceControlProvider.h"
-#include "SubversionSourceControlRevision.h"
-#include "XmlParser.h"
+#include "XmlFile.h"
 #include "SubversionSourceControlUtils.h"
 
 const FString& FSubversionSourceControlLabel::GetName() const

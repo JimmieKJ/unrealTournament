@@ -4,8 +4,17 @@
 	PlayerInput.cpp: Unreal input system.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "GameFramework/PlayerInput.h"
+#include "Misc/CommandLine.h"
+#include "Components/InputComponent.h"
+#include "Misc/App.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "GameFramework/PlayerController.h"
+#include "CanvasItem.h"
+#include "Engine/Canvas.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/LocalPlayer.h"
 #include "GameFramework/InputSettings.h"
 
 bool bExecutingBindCommand = false;
@@ -244,6 +253,8 @@ bool UPlayerInput::InputKey(FKey Key, EInputEvent Event, float AmountDepressed, 
 
 bool UPlayerInput::InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad )
 {
+	ensure((Key != EKeys::MouseX && Key != EKeys::MouseY) || NumSamples > 0);
+
 	// first event associated with this key, add it to the map
 	FKeyState& KeyState = KeyStateMap.FindOrAdd(Key);
 
@@ -897,9 +908,9 @@ float UPlayerInput::DetermineAxisValue(const FInputAxisBinding& AxisBinding, con
 	return AxisValue;
 }
 
-void UPlayerInput::ProcessNonAxesKeys(FKey InKey, FKeyState* KeyState, float DeltaTime)
+void UPlayerInput::ProcessNonAxesKeys(FKey InKey, FKeyState* KeyState)
 {
-	KeyState->Value.X = MassageAxisInput(InKey, KeyState->RawValue.X, DeltaTime);
+	KeyState->Value.X = MassageAxisInput(InKey, KeyState->RawValue.X);
 
 	int32 const PressDelta = KeyState->EventCounts[IE_Pressed].Num() - KeyState->EventCounts[IE_Released].Num();
 	if (PressDelta < 0)
@@ -959,13 +970,13 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 		 	if ( SmoothedMouse[0] != 0 )
 		 	{
 		 		// not first non-zero
-		 		MouseSamplingTotal += DeltaTime;
+		 		MouseSamplingTotal += FApp::GetDeltaTime();
 		 		MouseSamples += KeyState->SampleCountAccumulator;
 		 	}
 		}
 		
 		// will just copy for non-axes
-		ProcessNonAxesKeys(Key, KeyState, DeltaTime);
+		ProcessNonAxesKeys(Key, KeyState);
 
 		// reset the accumulators
 		KeyState->RawValueAccumulator = FVector(0, 0, 0);
@@ -1299,7 +1310,7 @@ void UPlayerInput::ClearSmoothing()
 }
 
 
-float UPlayerInput::SmoothMouse(float aMouse, float DeltaTime, uint8& SampleCount, int32 Index)
+float UPlayerInput::SmoothMouse(float aMouse, uint8& SampleCount, int32 Index)
 {
 	check(Index >= 0);
 	check(Index < ARRAY_COUNT(ZeroTime));
@@ -1315,6 +1326,8 @@ float UPlayerInput::SmoothMouse(float aMouse, float DeltaTime, uint8& SampleCoun
 			ClearSmoothing();
 		}
 	}
+
+	const float DeltaTime = FApp::GetDeltaTime();
 
 	if (DeltaTime < 0.25f)
 	{
@@ -1572,7 +1585,7 @@ bool UPlayerInput::IsPressed( FKey InKey ) const
 }
 
 
-float UPlayerInput::MassageAxisInput(FKey Key, float RawValue, float DeltaTime)
+float UPlayerInput::MassageAxisInput(FKey Key, float RawValue)
 {
 	float NewVal = RawValue;
 	
@@ -1638,7 +1651,7 @@ float UPlayerInput::MassageAxisInput(FKey Key, float RawValue, float DeltaTime)
 			FKeyState* const KeyState = KeyStateMap.Find(Key);
 			if (KeyState)
 			{
-				NewVal = SmoothMouse( NewVal, DeltaTime, KeyState->SampleCountAccumulator, (Key == EKeys::MouseX ? 0 : 1) );
+				NewVal = SmoothMouse( NewVal, KeyState->SampleCountAccumulator, (Key == EKeys::MouseX ? 0 : 1) );
 			}
 		}
 

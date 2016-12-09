@@ -5,6 +5,12 @@
 =============================================================================*/
 #pragma once
 
+#include "CoreMinimal.h"
+#include "GenericPlatform/ICursor.h"
+
+class FCanvas;
+class FViewport;
+
 /** Struct of data that is passed to the input interface. */
 struct FInterpEdInputData
 {

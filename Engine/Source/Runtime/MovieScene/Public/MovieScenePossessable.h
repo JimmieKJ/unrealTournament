@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "MovieScenePossessable.generated.h"
-
 
 /**
  * MovieScenePossessable is a "typed slot" used to allow the MovieScene to control an already-existing object

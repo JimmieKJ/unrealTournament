@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "ThumbnailRendering/FontThumbnailRenderer.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Fonts/FontCache.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Engine/Font.h"
 #include "CanvasItem.h"
+#include "Engine/Texture2D.h"
 #include "CanvasTypes.h"
 
 UFontThumbnailRenderer::UFontThumbnailRenderer(const FObjectInitializer& ObjectInitializer)

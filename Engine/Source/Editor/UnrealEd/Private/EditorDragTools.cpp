@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "EditorDragTools.h"
+#include "InputCoreTypes.h"
+#include "EditorViewportClient.h"
+#include "Editor.h"
 #include "SnappingUtils.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

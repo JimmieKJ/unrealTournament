@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
 
 #define PIXEL_INSPECTOR_SHADINGMODELID_UNLIT 0
 #define PIXEL_INSPECTOR_SHADINGMODELID_DEFAULT_LIT 1

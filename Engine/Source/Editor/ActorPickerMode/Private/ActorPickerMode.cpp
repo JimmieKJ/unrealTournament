@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ActorPickerModePrivatePCH.h"
+#include "ActorPickerMode.h"
+#include "Modules/ModuleManager.h"
+#include "EditorModeRegistry.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "EditorModeActorPicker.h"
 
 IMPLEMENT_MODULE( FActorPickerModeModule, ActorPickerMode );
 

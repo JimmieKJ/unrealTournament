@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/Casts.h"
 #include "ActorRecordingSettings.generated.h"
 
 USTRUCT()

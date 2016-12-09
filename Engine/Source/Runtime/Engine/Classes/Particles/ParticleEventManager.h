@@ -3,15 +3,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/Actor.h"
+#include "Particles/ParticleSystemComponent.h"
 
 #include "ParticleEventManager.generated.h"
-
-struct FParticleEventSpawnData;
-struct FParticleEventDeathData;
-struct FParticleEventCollideData;
-struct FParticleEventBurstData;
-class UParticleSystemComponent;
 
 UCLASS(config=Game, NotBlueprintable, notplaceable)
 class AParticleEventManager : public AActor

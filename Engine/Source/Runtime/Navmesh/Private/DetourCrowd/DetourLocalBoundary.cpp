@@ -19,14 +19,9 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include <float.h>
-#include <string.h>
-#include "DetourLocalBoundary.h"
-#include "DetourNavMeshQuery.h"
-#include "DetourCommon.h"
-#include "DetourCrowd.h"
-#include "DetourAssert.h"
+#include "DetourCrowd/DetourLocalBoundary.h"
+#include "DetourCrowd/DetourCrowd.h"
+#include "Detour/DetourAssert.h"
 
 
 dtLocalBoundary::dtLocalBoundary() :

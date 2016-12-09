@@ -2,12 +2,18 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Templates/AreTypesEqual.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Templates/RemoveReference.h"
+#include "Templates/Decay.h"
+#include "Templates/Invoke.h"
+#include "Containers/ContainerAllocationPolicies.h"
+#include "Math/UnrealMathUtility.h"
 #include <new>
 
-#include "AreTypesEqual.h"
-#include "ContainerAllocationPolicies.h"
-#include "UnrealMathUtility.h"
-#include "UnrealMemory.h"
 
 // Disable visualization hack for shipping or test builds.
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -15,6 +21,9 @@
 #else
 	#define ENABLE_TFUNCTIONREF_VISUALIZATION 0
 #endif
+
+template <typename FuncType> class TFunction;
+template <typename FuncType> class TFunctionRef;
 
 /**
  * TFunction<FuncType>
@@ -215,37 +224,30 @@ namespace UE4Function_Private
 		};
 	#endif
 
-	template <typename T>
-	inline T&& FakeCall(T* Ptr)
-	{
-		return MoveTemp(*Ptr);
-	}
-
-	inline void FakeCall(void* Ptr)
-	{
-	}
-
+	/**
+	 * Function which invokes the passed callable when invoked.
+	 */
 	template <typename Functor, typename Ret, typename... ParamTypes>
 	struct TFunctionRefCaller<Functor, Ret (ParamTypes...)>
 	{
 		static Ret Call(void* Obj, ParamTypes&... Params)
 		{
-			return (*(Functor*)Obj)(Forward<ParamTypes>(Params)...);
+			return Invoke(*(Functor*)Obj, Forward<ParamTypes>(Params)...);
 		}
 	};
 
-	/**
-	 * Specialization for void return types.
-	 */
 	template <typename Functor, typename... ParamTypes>
 	struct TFunctionRefCaller<Functor, void (ParamTypes...)>
 	{
 		static void Call(void* Obj, ParamTypes&... Params)
 		{
-			(*(Functor*)Obj)(Forward<ParamTypes>(Params)...);
+			Invoke(*(Functor*)Obj, Forward<ParamTypes>(Params)...);
 		}
 	};
 
+	/**
+	 * Function which asserts when invoked.
+	 */
 	template <typename Ret, typename... ParamTypes>
 	struct TFunctionRefAsserter<Ret (ParamTypes...)>
 	{
@@ -254,7 +256,16 @@ namespace UE4Function_Private
 			checkf(false, TEXT("Attempting to call an unbound TFunction!"));
 
 			// This doesn't need to be valid, because it'll never be reached, but it does at least need to compile.
-			return FakeCall((Ret*)Obj);
+			return Forward<Ret&&>(*(typename TRemoveReference<Ret>::Type*)Obj);
+		}
+	};
+
+	template <typename... ParamTypes>
+	struct TFunctionRefAsserter<void (ParamTypes...)>
+	{
+		static void Call(void*, ParamTypes&...)
+		{
+			checkf(false, TEXT("Attempting to call an unbound TFunction!"));
 		}
 	};
 

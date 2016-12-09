@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "Runtime/Engine/Classes/Engine/UserDefinedStruct.h"
-#include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
 #include "K2Node_StructOperation.h"
+#include "Engine/UserDefinedStruct.h"
+#include "EdGraphSchema_K2.h"
+#include "UserDefinedStructure/UserDefinedStructEditorData.h"
+#include "Kismet2/StructureEditorUtils.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UK2Node_StructOperation

@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/Texture.h"
+#include "Toolkits/IToolkitHost.h"
+#include "AssetTypeActions_Base.h"
+
+class FMenuBuilder;
+
 class FAssetTypeActions_Texture : public FAssetTypeActions_Base
 {
 public:

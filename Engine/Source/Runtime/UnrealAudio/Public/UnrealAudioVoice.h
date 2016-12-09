@@ -2,7 +2,9 @@
 
 #pragma once 
 
-#include "UnrealAudioTypes.h"
+#include "CoreMinimal.h"
+#include "UnrealAudioSoundFile.h"
+#include "UnrealAudioEmitter.h"
 
 namespace UAudio
 {

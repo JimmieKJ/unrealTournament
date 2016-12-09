@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "RawMesh.h"
-#include "SecureHash.h"
+#include "Serialization/MemoryWriter.h"
+#include "UObject/Object.h"
+#include "Misc/SecureHash.h"
+#include "Modules/ModuleManager.h"
+
+IMPLEMENT_MODULE(FDefaultModuleImpl, RawMesh);
 
 /*------------------------------------------------------------------------------
 	FRawMesh

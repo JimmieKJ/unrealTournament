@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class Error;
+
 namespace BehaviorTreeColors
 {
 	namespace NodeBody

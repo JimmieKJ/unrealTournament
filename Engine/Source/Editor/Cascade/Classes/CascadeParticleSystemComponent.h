@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "CascadeParticleSystemComponent.generated.h"
 

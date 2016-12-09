@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "EnginePackageLocalizationCache.h"
+#include "Internationalization/EnginePackageLocalizationCache.h"
+#include "Misc/ScopeLock.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "AssetData.h"
 #include "AssetRegistryModule.h"
 
 FEnginePackageLocalizationCache::FEnginePackageLocalizationCache()

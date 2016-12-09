@@ -1,9 +1,23 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintProfilerPCH.h"
-#include "Editor/UnrealEd/Public/Kismet2/KismetDebugUtilities.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "Editor/GraphEditor/Public/SGraphPin.h"
+#include "BlueprintProfilerConnectionDrawingPolicy.h"
+#include "Misc/App.h"
+#include "Modules/ModuleManager.h"
+#include "Rendering/DrawElements.h"
+#include "Framework/Application/SlateApplication.h"
+
+#if WITH_EDITOR
+#include "Engine/Blueprint.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Profiler/TracePath.h"
+#include "Profiler/BlueprintProfilerSettings.h"
+#include "EdGraphSchema_K2.h"
+#endif // WITH_EDITOR
+
+#include "BlueprintProfilerModule.h"
+#include "ScriptInstrumentationPlayback.h"
+
+
 
 /////////////////////////////////////////////////////
 // FBlueprintProfilerPinConnectionFactory
@@ -13,18 +27,23 @@ FConnectionDrawingPolicy* FBlueprintProfilerPinConnectionFactory::CreateConnecti
 	FConnectionDrawingPolicy* NewPolicy = nullptr;
 	if (InGraphObj)
 	{
-		UBlueprint* Blueprint = InGraphObj->GetTypedOuter<UBlueprint>();
-		UBlueprintGeneratedClass* BPGC = Blueprint ? Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass) : nullptr;
-		if (BPGC && BPGC->HasInstrumentation())
+		EBlueprintProfilerHeatMapDisplayMode WireHeatMode = GetDefault<UBlueprintProfilerSettings>()->WireHeatMapDisplayMode;
+		if (WireHeatMode != EBlueprintProfilerHeatMapDisplayMode::None)
 		{
-			EBlueprintProfilerHeatMapDisplayMode WireHeatMode = GetDefault<UBlueprintProfilerSettings>()->WireHeatMapDisplayMode;
-			if (WireHeatMode != EBlueprintProfilerHeatMapDisplayMode::None)
+			UBlueprint* Blueprint = InGraphObj->GetTypedOuter<UBlueprint>();
+			UBlueprintGeneratedClass* BPGC = Blueprint ? Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass) : nullptr;
+			if (BPGC)
 			{
 				IBlueprintProfilerInterface& ProfilerModule = FModuleManager::LoadModuleChecked<IBlueprintProfilerInterface>("BlueprintProfiler");
-				TSharedPtr<FBlueprintExecutionContext> BlueprintContext = ProfilerModule.GetBlueprintContext(BPGC->GetPathName());
+				TSharedPtr<FBlueprintExecutionContext> BlueprintContext = ProfilerModule.FindBlueprintContext(BPGC->GetPathName());
 				if (BlueprintContext.IsValid())
 				{
-					NewPolicy = new FBlueprintProfilerConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, WireHeatMode, InGraphObj);
+					NewPolicy = new FBlueprintProfilerConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, WireHeatMode, InGraphObj, BlueprintContext);
+					// When we have an active connection drawing policy, associate utility contexts with the active blueprint execution context.
+					if (Blueprint->BlueprintType == BPTYPE_Normal)
+					{
+						ProfilerModule.AssociateUtilityContexts(BlueprintContext);
+					}
 				}
 			}
 		}
@@ -35,11 +54,15 @@ FConnectionDrawingPolicy* FBlueprintProfilerPinConnectionFactory::CreateConnecti
 /////////////////////////////////////////////////////
 // FBlueprintProfilerConnectionDrawingPolicy
 
-FBlueprintProfilerConnectionDrawingPolicy::FBlueprintProfilerConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, EBlueprintProfilerHeatMapDisplayMode InHeatmapType, UEdGraph* InGraphObj)
+FBlueprintProfilerConnectionDrawingPolicy::FBlueprintProfilerConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, EBlueprintProfilerHeatMapDisplayMode InHeatmapType, UEdGraph* InGraphObj, TSharedPtr<FBlueprintExecutionContext> InBlueprintContext)
 	: FKismetConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj)
 	, WireHeatMode(InHeatmapType)
 	, GraphReference(InGraphObj)
+	, BlueprintContext(InBlueprintContext)
 {
+	AttackWireThickness = 8.f;
+	SustainWireThickness = 6.f;
+	ReleaseWireThickness = 4.f;
 }
 
 void FBlueprintProfilerConnectionDrawingPolicy::BuildExecutionRoadmap()
@@ -52,27 +75,14 @@ void FBlueprintProfilerConnectionDrawingPolicy::BuildExecutionRoadmap()
 		return;
 	}
 
-	UBlueprint* TargetBP = FBlueprintEditorUtils::FindBlueprintForGraphChecked(GraphObj);
-	UObject* ActiveObject = TargetBP->GetObjectBeingDebugged();
-	check(ActiveObject); // Due to CanBuildRoadmap
-
 	// Grab relevant profiler interfaces
-	UBlueprintGeneratedClass* TargetClass = Cast<UBlueprintGeneratedClass>(TargetBP->GeneratedClass);
-	IBlueprintProfilerInterface& ProfilerModule = FModuleManager::LoadModuleChecked<IBlueprintProfilerInterface>("BlueprintProfiler");
-	TSharedPtr<FBlueprintExecutionContext> BlueprintContext = ProfilerModule.GetBlueprintContext(TargetClass->GetPathName());
-	const FName InstanceName = BlueprintContext->MapBlueprintInstance(ActiveObject->GetPathName());
+	const FName InstanceName = BlueprintContext->GetActiveInstanceName();
 	TSharedPtr<FBlueprintFunctionContext> FunctionContext = BlueprintContext->GetFunctionContextFromGraph(GraphObj);
 
 	if (!FunctionContext.IsValid())
 	{
-		// No point proceeding without a valid function context.
+		// No point in proceeding without a valid function context.
 		return;
-	}
-
-	// Redirect the target Blueprint when debugging with a macro graph visible
-	if (TargetBP->BlueprintType == BPTYPE_MacroLibrary)
-	{
-		TargetBP = Cast<UBlueprint>(ActiveObject->GetClass()->ClassGeneratedBy);
 	}
 
 	TArray<double> SequentialNodeTimes;
@@ -80,26 +90,27 @@ void FBlueprintProfilerConnectionDrawingPolicy::BuildExecutionRoadmap()
 	TArray<FTracePath> SequentialTracePathsInGraph;
 	TArray<TWeakPtr<FScriptExecutionNode>> SequentialProfilerNodesInGraph;
 	const FName ScopedFunctionName = FunctionContext->GetFunctionName();
+	const FName GraphName = FunctionContext->GetGraphName();
 
 	const TSimpleRingBuffer<FBlueprintExecutionTrace>& TraceHistory = BlueprintContext->GetTraceHistory();
 	for (int32 i = 0; i < TraceHistory.Num(); ++i)
 	{
 		const FBlueprintExecutionTrace& Sample = TraceHistory(i);
-		if (InstanceName == Sample.InstanceName && ScopedFunctionName == Sample.FunctionName)
+		const bool bInstanceMatch = InstanceName == SPDN_Blueprint ? true : (InstanceName == Sample.InstanceName);
+		if (bInstanceMatch && GraphName == Sample.GraphName)
 		{
 			if (Sample.ProfilerNode.IsValid())
 			{
-				const UEdGraphPin* Pin = FunctionContext->GetPinFromCodeLocation(Sample.Offset);
+				const bool bSamplePinValid = Sample.PinReference.Get() != nullptr;
+				// Patch in any missing pins using the script offset.
+				UEdGraphPin* Pin = bSamplePinValid ? Sample.PinReference.Get() : const_cast<UEdGraphPin*>(FunctionContext->GetPinFromCodeLocation(Sample.Offset));
 
 				if (Pin && Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec)
 				{
-					if (const UEdGraphNode* Node = Pin->GetOwningNode())
-					{
-						SequentialProfilerNodesInGraph.Add(Sample.ProfilerNode);
-						SequentialNodeTimes.Add(Sample.ObservationTime);
-						SequentialExecPinsInGraph.Add(const_cast<UEdGraphPin*>(Pin));
-						SequentialTracePathsInGraph.Add(Sample.TracePath);
-					}
+					SequentialProfilerNodesInGraph.Add(Sample.ProfilerNode);
+					SequentialNodeTimes.Add(Sample.ObservationTime);
+					SequentialExecPinsInGraph.Add(Pin);
+					SequentialTracePathsInGraph.Add(Sample.TracePath);
 				}
 			}
 		}
@@ -170,13 +181,13 @@ void FBlueprintProfilerConnectionDrawingPolicy::BuildExecutionRoadmap()
 						switch(WireHeatMode)
 						{
 							case EBlueprintProfilerHeatMapDisplayMode::Average:
+							case EBlueprintProfilerHeatMapDisplayMode::PinToPin:
 							{
 								ProfilerData.PredPerfData = CurPerfData->GetAverageHeatLevel();
 								ProfilerData.ThisPerfData = NextPerfData->GetAverageHeatLevel();
 								break;
 							}
 							case EBlueprintProfilerHeatMapDisplayMode::Inclusive:
-							case EBlueprintProfilerHeatMapDisplayMode::PinToPin:
 							{
 								ProfilerData.PredPerfData = CurPerfData->GetInclusiveHeatLevel();
 								ProfilerData.ThisPerfData = NextPerfData->GetInclusiveHeatLevel();
@@ -274,6 +285,11 @@ void FBlueprintProfilerConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, F
 			}
 		}
 	}
+}
+
+bool FBlueprintProfilerConnectionDrawingPolicy::CanBuildRoadmap() const
+{
+	return BlueprintContext.IsValid() && BlueprintContext->IsContextValid();
 }
 
 void FBlueprintProfilerConnectionDrawingPolicy::DrawInterpColorSpline(const FGeometry& StartGeom, const FGeometry& EndGeom, const FScriptPerfConnectionParams& Params)
@@ -377,7 +393,7 @@ void FBlueprintProfilerConnectionDrawingPolicy::DrawPerfConnection(int32 LayerId
 	}
 
 	// Draw the spline itself
-	const float WireThickness = Params.WireThickness * 0.6f * ZoomFactor;
+	const float WireThickness = Params.WireThickness * ZoomFactor;
 	TArray<FSlateGradientStop> Gradients;
 	Gradients.Add(FSlateGradientStop(FVector2D::ZeroVector, Params.WireColor));
 	Gradients.Add(FSlateGradientStop(FVector2D::ZeroVector, Params.WireColor2));
@@ -408,7 +424,7 @@ void FBlueprintProfilerConnectionDrawingPolicy::DrawPerfConnection(int32 LayerId
 			const float BubbleOffset = FMath::Fmod(Time * BubbleSpeed, BubbleSpacing);
 			const int32 NumBubbles = FMath::CeilToInt(SplineLength/BubbleSpacing);
 			const float SizeMin = WireThickness * 0.05f;
-			const float SizeScale = WireThickness * 0.16f;
+			const float SizeScale = WireThickness * 0.10f;
 			const float SizeA = SizeMin + (Params.PerformanceData1 * SizeScale);
 			const float SizeB = SizeMin + (Params.PerformanceData2 * SizeScale);
 
@@ -466,5 +482,19 @@ void FBlueprintProfilerConnectionDrawingPolicy::DrawPerfConnection(int32 LayerId
 				ElementColor
 				);
 		}
+	}
+}
+void FBlueprintProfilerConnectionDrawingPolicy::ApplyHoverDeemphasis(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ float& Thickness, /*inout*/ FLinearColor& WireColor)
+{
+	const float FadeInBias = 0.75f; // Time in seconds before the fading starts to occur
+	const float FadeInPeriod = 0.6f; // Time in seconds after the bias before the fade is fully complete
+	const float TimeFraction = FMath::SmoothStep(0.0f, FadeInPeriod, (float)(FSlateApplication::Get().GetCurrentTime() - LastHoverTimeEvent - FadeInBias));
+
+	const bool bContainsBoth = HoveredPins.Contains(InputPin) && HoveredPins.Contains(OutputPin);
+	const bool bContainsOutput = HoveredPins.Contains(OutputPin);
+	const bool bEmphasize = bContainsBoth || (bContainsOutput && (InputPin == nullptr));
+	if (!bEmphasize)
+	{
+		Thickness = FMath::Lerp(Thickness, Thickness * 0.3f, TimeFraction);
 	}
 }

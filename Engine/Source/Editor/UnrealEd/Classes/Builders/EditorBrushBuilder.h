@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
 #include "Engine/BrushBuilder.h"
 #include "EditorBrushBuilder.generated.h"
+
+class ABrush;
 
 UCLASS(abstract, MinimalAPI)
 class UEditorBrushBuilder : public UBrushBuilder

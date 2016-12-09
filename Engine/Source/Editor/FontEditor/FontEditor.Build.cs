@@ -9,8 +9,10 @@ public class FontEditor : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
                 "AppFramework",
+				"AssetRegistry",
 				"Core",
 				"CoreUObject",
+				"ContentBrowser",
 				"DesktopPlatform",
 				"DesktopWidgets",
 				"Engine",
@@ -19,6 +21,7 @@ public class FontEditor : ModuleRules
 				"SlateCore",
                 "EditorStyle",
 				"UnrealEd",
+				"PropertyEditor",
 			}
 		);
 
@@ -35,7 +38,6 @@ public class FontEditor : ModuleRules
 				"MainFrame",
 				"WorkspaceMenuStructure",
 				"MainFrame",
-				"PropertyEditor"
 			}
 		);
 	}

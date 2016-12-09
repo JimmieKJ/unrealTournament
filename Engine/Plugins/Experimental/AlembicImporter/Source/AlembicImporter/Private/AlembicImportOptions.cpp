@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AlembicImporterPrivatePCH.h"
 #include "AlembicImportOptions.h"
 
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
 #include "AbcImportSettings.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
 
 #include "STrackSelectionTableRow.h"
 
@@ -75,16 +78,24 @@ void SAlembicImportOptions::Construct(const FArguments& InArgs)
 							SNew(SHeaderRow)
 
 							+ SHeaderRow::Column("ShouldImport")
-							.DefaultLabel(FText::FromString(TEXT("Should Import")))
-							.FillWidth(0.2f)
+							.DefaultLabel(FText::FromString(TEXT("Include")))
+							.FillWidth(0.1f)
 
 							+ SHeaderRow::Column("TrackName")
 							.DefaultLabel(LOCTEXT("TrackNameHeader", "Track Name"))
-							.FillWidth(0.4f)
+							.FillWidth(0.45f)
+							
+							+ SHeaderRow::Column("TrackFrameStart")
+							.DefaultLabel(LOCTEXT("TrackFrameStartHeader", "Start Frame"))
+							.FillWidth(0.15f)
 
-							+ SHeaderRow::Column("TrackInformation")
-							.DefaultLabel(LOCTEXT("TrackInformationHeader", "Track Information"))
-							.FillWidth(0.4f)
+							+ SHeaderRow::Column("TrackFrameEnd")
+							.DefaultLabel(LOCTEXT("TrackFrameEndHeader", "End Frame"))
+							.FillWidth(0.15f)
+
+							+ SHeaderRow::Column("TrackFrameNum")
+							.DefaultLabel(LOCTEXT("TrackFrameNumHeader", "Num Frames"))
+							.FillWidth(0.15f)
 						)
 					]
 				]

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UnrealType.h"
+
 /** 
  * Meant to represent a specific object property that is setup to reference a 
  * instanced sub-object. Tracks the property hierarchy used to reach the 
@@ -93,7 +97,7 @@ public:
 		}
 
 		const UObjectProperty* TargetPropety = Cast<UObjectProperty>(CurrentProp);
-		if ( ensure(TargetPropety && TargetPropety->HasAnyPropertyFlags(CPF_InstancedReference)) )
+		if (TargetPropety && TargetPropety->HasAnyPropertyFlags(CPF_InstancedReference))
 		{ 
 			return TargetPropety->GetObjectPropertyValue(ValuePtr);
 		}

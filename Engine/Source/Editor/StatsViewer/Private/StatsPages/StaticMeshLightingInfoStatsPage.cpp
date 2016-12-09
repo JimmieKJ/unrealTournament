@@ -1,15 +1,28 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StatsViewerPrivatePCH.h"
-#include "StaticMeshLightingInfoStatsPage.h"
-#include "StaticMeshLightingInfo.h"
-#include "SStatsViewer.h"
-#include "Editor/PropertyEditor/Public/IPropertyTableRow.h"
+#include "StatsPages/StaticMeshLightingInfoStatsPage.h"
+#include "GameFramework/Actor.h"
+#include "Engine/GameViewportClient.h"
+#include "Components/StaticMeshComponent.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Widgets/SBoxPanel.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Components/LightComponent.h"
+#include "Editor.h"
+#include "IPropertyTableRow.h"
 #include "BusyCursor.h"
 #include "ScopedTransaction.h"
-#include "STextEntryPopup.h"
+#include "Widgets/Input/STextEntryPopup.h"
 #include "Engine/LevelStreaming.h"
-#include "IMenu.h"
 
 #define LOCTEXT_NAMESPACE "Editor.StatsViewer.StaticMeshLightingInfo"
 
@@ -111,7 +124,7 @@ struct StaticMeshLightingInfoStatsGenerator
 
 			Entry->StaticMeshActor = InActor;
 			Entry->StaticMeshComponent = InComponent;
-			Entry->StaticMesh = InComponent != NULL ? InComponent->StaticMesh : NULL;
+			Entry->StaticMesh = InComponent != nullptr ? InComponent->GetStaticMesh() : nullptr;
 			
 			Entry->TextureLightMapMemoryUsage = (float)TextureLightMapMemoryUsage / 1024.0f;
 			Entry->TextureShadowMapMemoryUsage = (float)TextureShadowMapMemoryUsage / 1024.0f;

@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
+#include "DisplayNodes/SequencerSectionKeyAreaNode.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBox.h"
+#include "SSequencer.h"
 #include "IKeyArea.h"
-#include "Sequencer.h"
 #include "SKeyNavigationButtons.h"
 
 /* FSectionKeyAreaNode interface

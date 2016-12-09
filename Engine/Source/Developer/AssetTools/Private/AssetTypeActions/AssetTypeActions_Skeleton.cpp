@@ -1,21 +1,46 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "Toolkits/IToolkitHost.h"
-#include "Toolkits/AssetEditorManager.h"
-#include "Editor/UnrealEd/Public/PackageTools.h"
+#include "AssetTypeActions/AssetTypeActions_Skeleton.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimationAsset.h"
+#include "Animation/AnimSequenceBase.h"
+#include "Animation/AnimSequence.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Misc/MessageDialog.h"
+#include "HAL/FileManager.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlModule.h"
+#include "Animation/AnimBlueprint.h"
+#include "Engine/SkeletalMeshSocket.h"
+#include "FileHelpers.h"
+#include "Animation/Rig.h"
+#include "SDiscoveringAssetsDialog.h"
+#include "AssetTools.h"
 #include "AssetRegistryModule.h"
-#include "Editor/Persona/Public/PersonaModule.h"
-#include "AssetToolsModule.h"
-#include "ContentBrowserModule.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "PersonaModule.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "SSkeletonWidget.h"
 #include "AnimationEditorUtils.h"
-#include "EditorAnimUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "Animation/Rig.h"
+#include "ISkeletonEditorModule.h"
+#include "Preferences/PersonaOptions.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -334,8 +359,7 @@ FCreateRigDlg::EResult FCreateRigDlg::ShowModal()
 
 	// Make a list of all skeleton bone list
 	const FReferenceSkeleton& RefSkeleton = Skeleton->GetReferenceSkeleton();
-	const TArray<FBoneNode>& BoneTree = Skeleton->GetBoneTree();
-	for ( int32 BoneTreeId=0; BoneTreeId<RefSkeleton.GetNum(); ++BoneTreeId )
+	for ( int32 BoneTreeId=0; BoneTreeId<RefSkeleton.GetRawBoneNum(); ++BoneTreeId )
 	{
 		const FName& BoneName = RefSkeleton.GetBoneName(BoneTreeId);
 
@@ -359,7 +383,7 @@ FCreateRigDlg::EResult FCreateRigDlg::ShowModal()
 
 	if(UserResponse == EResult::Confirm)
 	{
-		for ( int32 RefBoneId= 0 ; RefBoneId< RefSkeleton.GetNum() ; ++RefBoneId )
+		for ( int32 RefBoneId= 0 ; RefBoneId< RefSkeleton.GetRawBoneNum() ; ++RefBoneId )
 		{
 			if ( DialogWidget->IsBoneIncluded(RefBoneId) )
 			{
@@ -472,8 +496,16 @@ void FAssetTypeActions_Skeleton::OpenAssetEditor( const TArray<UObject*>& InObje
 		auto Skeleton = Cast<USkeleton>(*ObjIt);
 		if (Skeleton != NULL)
 		{
-			FPersonaModule& PersonaModule = FModuleManager::LoadModuleChecked<FPersonaModule>( "Persona" );
-			PersonaModule.CreatePersona( Mode, EditWithinLevelEditor, Skeleton, NULL, NULL, NULL );
+			const bool bBringToFrontIfOpen = true;
+			if (IAssetEditorInstance* EditorInstance = FAssetEditorManager::Get().FindEditorForAsset(Skeleton, bBringToFrontIfOpen))
+			{
+				EditorInstance->FocusWindow(Skeleton);
+			}
+			else
+			{
+				ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+				SkeletonEditorModule.CreateSkeletonEditor(Mode, EditWithinLevelEditor, Skeleton);
+			}
 		}
 	}
 }
@@ -521,7 +553,7 @@ void FAssetTypeActions_Skeleton::CreateRig(const TWeakObjectPtr<USkeleton> Skele
 
 void FAssetTypeActions_Skeleton::RetargetAnimationHandler(USkeleton* OldSkeleton, USkeleton* NewSkeleton, bool bRemapReferencedAssets, bool bAllowRemapToExisting, bool bConvertSpaces, const EditorAnimUtils::FNameDuplicationRule* NameRule)
 {
-	if((OldSkeleton && OldSkeleton->GetPreviewMesh(true) == NULL))
+	if(OldSkeleton == nullptr || OldSkeleton->GetPreviewMesh(true) == nullptr)
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("OldSkeletonName"), FText::FromString(GetNameSafe(OldSkeleton)));

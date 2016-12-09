@@ -153,6 +153,12 @@ namespace BuildGraph.Tasks
 					TargetFile = FileReference.Combine(TargetProjectDir, SourceFile.MakeRelativeTo(SourceProjectDir));
 				}
 
+				// Fixup the case of the output file. Would expect Platform.DeployLowerCaseFilenames() to return true here, but seems not to be the case.
+				if(Parameters.Platform == UnrealTargetPlatform.PS4)
+				{
+					TargetFile = FileReference.Combine(TargetDir, TargetFile.MakeRelativeTo(TargetDir).ToLowerInvariant());
+				}
+
 				// Only copy the output file if it doesn't already exist. We can stage multiple targets to the same output directory.
 				if(Parameters.Overwrite || !TargetFile.Exists())
 				{

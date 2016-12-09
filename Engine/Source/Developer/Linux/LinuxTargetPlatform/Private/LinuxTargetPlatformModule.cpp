@@ -1,9 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LinuxTargetPlatformPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Package.h"
+#include "UObject/WeakObjectPtr.h"
+
+#include "Interfaces/ITargetPlatformModule.h"
+
+#include "LinuxTargetSettings.h"
+#include "LinuxTargetDevice.h"
+#include "LinuxTargetPlatform.h"
+
 #include "ISettingsModule.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
 
 
 #define LOCTEXT_NAMESPACE "FLinuxTargetPlatformModule"

@@ -22,6 +22,8 @@
 #ifndef DETOURCOMMON_H
 #define DETOURCOMMON_H
 
+#include "CoreMinimal.h"
+
 /**
 @defgroup detour Detour
 

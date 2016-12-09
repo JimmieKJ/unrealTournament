@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "AssetData.h"
+#include "ContentBrowserDelegates.h"
+#include "SourcesData.h"
+
+class FMenuBuilder;
+class FUICommandList;
+class SAssetView;
+class SWindow;
+
 class FAssetContextMenu : public TSharedFromThis<FAssetContextMenu>
 {
 public:
@@ -47,6 +59,12 @@ public:
 
 	/** Handler for Delete */
 	void ExecuteDelete();
+
+	/** Handler to check to see if "Save Asset" can be executed */
+	bool CanExecuteSaveAsset() const;
+
+	/** Handler for when "Save Asset" is selected */
+	void ExecuteSaveAsset();
 
 private:
 	struct FSourceAssetsState
@@ -168,9 +186,6 @@ private:
 
 	/** Handler for when "Edit Asset" is selected */
 	void ExecuteEditAsset();
-
-	/** Handler for when "Save Asset" is selected */
-	void ExecuteSaveAsset();
 
 	/** Handler for when "Diff Selected" is selected */
 	void ExecuteDiffSelected() const;
@@ -310,9 +325,6 @@ private:
 
 	/** Handler to check to see if "Consolidate" can be executed */
 	bool CanExecuteConsolidate() const;
-
-	/** Handler to check to see if "Save Asset" can be executed */
-	bool CanExecuteSaveAsset() const;
 
 	/** Handler to check to see if "Diff Selected" can be executed */
 	bool CanExecuteDiffSelected() const;

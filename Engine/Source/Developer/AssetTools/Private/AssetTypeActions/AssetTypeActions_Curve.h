@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
+#include "AssetTypeActions_Base.h"
+#include "Curves/CurveBase.h"
+
 class FAssetTypeActions_Curve : public FAssetTypeActions_Base
 {
 public:

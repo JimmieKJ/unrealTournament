@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "SlateStyle.h"
+#include "CoreMinimal.h"
+#include "Styling/SlateStyle.h"
 
 class FCodeEditorStyle
 {

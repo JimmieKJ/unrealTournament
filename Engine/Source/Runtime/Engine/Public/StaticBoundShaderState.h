@@ -6,8 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/List.h"
 #include "RenderResource.h"
-#include "Shader.h"
+
+class FShader;
 
 /**
  * FGlobalBoundShaderState

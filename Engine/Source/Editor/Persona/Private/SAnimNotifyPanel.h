@@ -3,15 +3,28 @@
 
 #pragma once
 
-#include "Persona.h"
-#include "GraphEditor.h"
-#include "SNodePanel.h"
-#include "SCurveEditor.h"
+#include "CoreMinimal.h"
+#include "UObject/UObjectGlobals.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "EditorStyleSet.h"
+#include "Framework/MarqueeRect.h"
 #include "SAnimTrackPanel.h"
 #include "SAnimEditorBase.h"
+#include "AssetData.h"
+#include "Framework/Commands/Commands.h"
 #include "SAnimTimingPanel.h"
 
-DECLARE_DELEGATE_OneParam( FOnSelectionChanged, const FGraphPanelSelectionSet& )
+class FSlateWindowElementList;
+class SAnimNotifyNode;
+class SAnimNotifyTrack;
+class SBorder;
+class SScrollBar;
+struct Rect;
+
+DECLARE_DELEGATE_OneParam( FOnSelectionChanged, const TArray<UObject*>& )
 DECLARE_DELEGATE( FOnTrackSelectionChanged )
 DECLARE_DELEGATE( FOnUpdatePanel )
 DECLARE_DELEGATE_RetVal( float, FOnGetScrubValue )
@@ -143,8 +156,7 @@ class SAnimNotifyPanel: public SAnimTrackPanel
 {
 public:
 	SLATE_BEGIN_ARGS( SAnimNotifyPanel )
-		: _Persona()
-		, _Sequence()
+		: _Sequence()
 		, _CurrentPosition()
 		, _ViewInputMin()
 		, _ViewInputMax()
@@ -156,7 +168,6 @@ public:
 		, _OnRequestRefreshOffsets()
 	{}
 
-	SLATE_ARGUMENT( TSharedPtr<FPersona>,	Persona )
 	SLATE_ARGUMENT( class UAnimSequenceBase*, Sequence)
 	SLATE_ARGUMENT( float, WidgetWidth )
 	SLATE_ATTRIBUTE( float, CurrentPosition )
@@ -170,10 +181,12 @@ public:
 	SLATE_EVENT( FOnGetScrubValue, OnGetScrubValue )
 	SLATE_EVENT( FRefreshOffsetsRequest, OnRequestRefreshOffsets )
 	SLATE_EVENT( FOnGetTimingNodeVisibility, OnGetTimingNodeVisibility )
+	SLATE_EVENT( FSimpleDelegate, OnAnimNotifiesChanged )
+	SLATE_EVENT( FOnInvokeTab, OnInvokeTab )
 
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnPostUndo);
 	virtual ~SAnimNotifyPanel();
 
 	void SetSequence(class UAnimSequenceBase *	InSequence);
@@ -182,7 +195,6 @@ public:
 	FReply DeleteTrack(int32 TrackIndexToDelete);
 	bool CanDeleteTrack(int32 TrackIndexToDelete);
 	void Update();
-	TWeakPtr<FPersona> GetPersona() const { return PersonaPtr; }
 
 	/** Returns the position of the notify node currently being dragged. Returns -1 if no node is being dragged */
 	float CalculateDraggedNodePos() const;
@@ -294,9 +306,6 @@ private:
 
 	virtual void InputViewRangeChanged(float ViewMin, float ViewMax) override;
 
-	/** Persona reference **/
-	TWeakPtr<FPersona> PersonaPtr;
-
 	/** Attribute for accessing any section/branching point positions we have to draw */
 	TAttribute<TArray<FTrackMarkerBar>>	MarkerBars;
 
@@ -311,4 +320,10 @@ private:
 
 	/** Handle to the registered OnPropertyChangedHandle delegate */
 	FDelegateHandle OnPropertyChangedHandleDelegateHandle;
+
+	/** Delegate fired when anim notifies are changed */
+	FSimpleDelegate OnAnimNotifiesChanged;
+
+	/** Delegate used to invoke a tab */
+	FOnInvokeTab OnInvokeTab;
 };

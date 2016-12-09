@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CascadeModule.h"
-#include "Cascade.h"
-#include "CascadeEmitterCanvasClient.h"
 #include "SCascadeEmitterCanvas.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "SDockTab.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Widgets/SViewport.h"
+#include "CascadeEmitterCanvasClient.h"
+#include "Slate/SceneViewport.h"
+#include "Widgets/Docking/SDockTab.h"
 
 
 SCascadeEmitterCanvas::~SCascadeEmitterCanvas()

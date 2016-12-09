@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GeometryCacheModulePrivatePCH.h"
+#include "GeometryCache.h"
+#include "EditorFramework/AssetImportData.h"
+#include "Materials/MaterialInterface.h"
 #include "GeometryCacheTrackTransformAnimation.h"
 #include "GeometryCacheTrackFlipbookAnimation.h"
-#include "EditorFramework/AssetImportData.h"
+#include "UObject/FrameworkObjectVersion.h"
+#include "Interfaces/ITargetPlatform.h"
 
-UGeometryCache::UGeometryCache(const FObjectInitializer& ObjectInitializer /*= FObjectInitializer::Get()*/) : UObject(ObjectInitializer)
+UGeometryCache::UGeometryCache(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	NumTransformAnimationTracks = 0;
 	NumVertexAnimationTracks = 0;
@@ -24,13 +27,21 @@ void UGeometryCache::PostInitProperties()
 
 void UGeometryCache::Serialize(FArchive& Ar)
 {
-	// Custom serialization
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
 #if WITH_EDITORONLY_DATA
-	Ar << AssetImportData;
+	if (( !Ar.IsCooking() || (Ar.CookingTarget() && Ar.CookingTarget()->HasEditorOnlyData())))
+	{
+		Ar << AssetImportData;
+	}
 #endif
 	Ar << Tracks;
 	Ar << NumVertexAnimationTracks;
-	Ar << NumTransformAnimationTracks;
+	Ar << NumTransformAnimationTracks;	
+
+	if (Ar.CustomVer(FFrameworkObjectVersion::GUID) >= FFrameworkObjectVersion::GeometryCacheMissingMaterials)
+	{
+		Ar << Materials;
+	}
 }
 
 FString UGeometryCache::GetDesc()
@@ -39,24 +50,23 @@ FString UGeometryCache::GetDesc()
 	return FString("%d Tracks", NumTracks);
 }
 
-SIZE_T UGeometryCache::GetResourceSize(EResourceSizeMode::Type Mode)
+void UGeometryCache::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
-	SIZE_T ResourceSize = 0;
+	Super::GetResourceSizeEx(CumulativeResourceSize);
+
 #if WITH_EDITORONLY_DATA
-	ResourceSize += sizeof( AssetImportData );
+	CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(AssetImportData));
 #endif
 	// Calculate Resource Size according to what is serialized
 	const int32 NumTracks = Tracks.Num();
 	for (int32 TrackIndex = 0; TrackIndex < NumTracks; ++TrackIndex)
 	{
-		ResourceSize += Tracks[TrackIndex]->GetResourceSize(Mode);
+		Tracks[TrackIndex]->GetResourceSizeEx(CumulativeResourceSize);
 	}
 
-	ResourceSize += sizeof(Tracks);
-	ResourceSize += sizeof(NumVertexAnimationTracks);
-	ResourceSize += sizeof(NumTransformAnimationTracks);
-
-	return ResourceSize;
+	CumulativeResourceSize.AddDedicatedSystemMemoryBytes(sizeof(Tracks));
+	CumulativeResourceSize.AddUnknownMemoryBytes(sizeof(NumVertexAnimationTracks));
+	CumulativeResourceSize.AddUnknownMemoryBytes(sizeof(NumTransformAnimationTracks));
 }
 
 void UGeometryCache::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
@@ -110,12 +120,6 @@ void UGeometryCache::PreEditChange(UProperty* PropertyAboutToChange)
 	ReleaseResourcesFence.Wait();
 }
 #endif
-
-void UGeometryCache::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
-{
-	UGeometryCache* This = CastChecked<UGeometryCache>(InThis);	
-	Super::AddReferencedObjects(This, Collector);
-}
 
 void UGeometryCache::AddTrack(UGeometryCacheTrack* Track)
 {

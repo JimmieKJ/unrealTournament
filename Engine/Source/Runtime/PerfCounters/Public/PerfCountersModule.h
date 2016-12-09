@@ -2,14 +2,19 @@
 
 #pragma once
 
-#include "ModuleManager.h"
-#include "Json.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+
+struct FHistogram;
+template <class CharType> struct TPrettyJsonPrintPolicy;
 
 template <class CharType>
 struct TPrettyJsonPrintPolicy;
 template <class CharType, class PrintPolicy>
 class TJsonWriter;
 typedef TSharedRef< TJsonWriter<TCHAR,TPrettyJsonPrintPolicy<TCHAR> > > FPrettyJsonWriter;
+struct FHistogram;
 
 /**
  * Delegate called for a given counter to generate custom json at the time the query is made

@@ -12,7 +12,6 @@
 #include "AudioDecompress.h"
 #include "AudioEffect.h"
 #include "CoreAudioEffects.h"
-#include "Engine.h"
 #include "IAudioFormat.h"
 
 /*------------------------------------------------------------------------------------

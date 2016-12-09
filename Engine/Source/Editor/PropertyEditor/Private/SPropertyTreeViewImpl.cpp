@@ -1,25 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PropertyEditorPrivatePCH.h"
 #include "SPropertyTreeViewImpl.h"
-
 #include "PropertyNode.h"
-#include "ItemPropertyNode.h"
-#include "CategoryPropertyNode.h"
 #include "ObjectPropertyNode.h"
-#include "PropertyEditorConstants.h"
-#include "PropertyTreeConstants.h"
-#include "IPropertyUtilities.h"
-#include "PropertyEditor.h"
-#include "PropertyPath.h"
+#include "EngineGlobals.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Engine.h"
+#include "EditorStyleSet.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
 
-#include "SPropertyEditorTableRow.h"
-#include "SPropertyTreeCategoryRow.h"
+#include "CategoryPropertyNode.h"
+#include "UserInterface/PropertyTree/PropertyTreeConstants.h"
+
+#include "UserInterface/PropertyEditor/SPropertyEditorTableRow.h"
+#include "UserInterface/PropertyTree/SPropertyTreeCategoryRow.h"
 #include "ScopedTransaction.h"
 #include "PropertyEditorHelpers.h"
-#include "SColorPicker.h"
-#include "SSearchBox.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Widgets/Colors/SColorPicker.h"
+#include "Widgets/Input/SSearchBox.h"
 
 
 class FPropertyUtilitiesTreeView : public IPropertyUtilities

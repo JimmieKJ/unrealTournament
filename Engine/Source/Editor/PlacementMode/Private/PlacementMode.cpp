@@ -1,18 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PlacementModePrivatePCH.h"
+#include "PlacementMode.h"
+#include "EditorViewportClient.h"
+#include "Modules/ModuleManager.h"
+#include "EditorModes.h"
+#include "LevelEditor.h"
 
 #include "IPlacementModeModule.h"
-#include "PlacementMode.h"
+#include "Engine/Selection.h"
 #include "PlacementModeToolkit.h"
 
 #include "ScopedTransaction.h"
-#include "AssetData.h"
 
-#include "Editor/UnrealEd/Public/Toolkits/ToolkitManager.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Editor/LevelEditor/Public/ILevelViewport.h"
-#include "Engine/Selection.h"
+#include "Toolkits/ToolkitManager.h"
+#include "ILevelViewport.h"
 
 FPlacementMode::FPlacementMode()
 	: AssetsToPlace()

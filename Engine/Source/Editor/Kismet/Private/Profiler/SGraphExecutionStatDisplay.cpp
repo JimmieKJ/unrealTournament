@@ -1,13 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "BPProfilerStatisticWidgets.h"
-#include "SBlueprintProfilerToolbar.h"
-#include "SGraphExecutionStatDisplay.h"
-#include "BlueprintEditor.h"
-#include "Public/Profiler/EventExecution.h"
-#include "SDockTab.h"
-#include "Developer/BlueprintProfiler/Public/ScriptInstrumentationPlayback.h"
+#include "Profiler/SGraphExecutionStatDisplay.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "EdGraph/EdGraph.h"
+#include "Profiler/BlueprintProfilerSettings.h"
+#include "EditorStyleSet.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "BlueprintProfilerModule.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "ScriptInstrumentationPlayback.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintProfilerGraphExecView"
 
@@ -36,7 +37,12 @@ void SGraphExecutionStatDisplay::Construct(const FArguments& InArgs)
 	{
 		Profiler->GetGraphLayoutChangedDelegate().AddSP(this, &SGraphExecutionStatDisplay::OnGraphLayoutChanged);
 	}
+	// Create the tree view
+	ConstructTreeView();
+}
 
+void SGraphExecutionStatDisplay::ConstructTreeView()
+{
 	ChildSlot
 	[
 		SNew(SOverlay)
@@ -59,46 +65,7 @@ void SGraphExecutionStatDisplay::Construct(const FArguments& InArgs)
 					.OnExpansionChanged(this, &SGraphExecutionStatDisplay::OnStatisticExpansionChanged)
 					.HeaderRow
 					(
-						SNew(SHeaderRow)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Name))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Name))
-						.FillWidth(0.5f)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::AverageTime))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::AverageTime))
-						.FixedWidth(90)
-						.HAlignHeader(HAlign_Right)
-						.HAlignCell(HAlign_Right)
-						.VAlignCell(VAlign_Center)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::InclusiveTime))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::InclusiveTime))
-						.FixedWidth(120)
-						.HAlignHeader(HAlign_Right)
-						.HAlignCell(HAlign_Right)
-						.VAlignCell(VAlign_Center)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::MaxTime))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::MaxTime))
-						.FixedWidth(90)
-						.HAlignHeader(HAlign_Right)
-						.HAlignCell(HAlign_Right)
-						.VAlignCell(VAlign_Center)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::MinTime))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::MinTime))
-						.FixedWidth(90)
-						.HAlignHeader(HAlign_Right)
-						.HAlignCell(HAlign_Right)
-						.VAlignCell(VAlign_Center)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::TotalTime))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::TotalTime))
-						.FixedWidth(100)
-						.HAlignHeader(HAlign_Right)
-						.HAlignCell(HAlign_Right)
-						.VAlignCell(VAlign_Center)
-						+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Samples))
-						.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Samples))
-						.FixedWidth(100)
-						.HAlignHeader(HAlign_Center)
-						.HAlignCell(HAlign_Center)
-						.VAlignCell(VAlign_Center)
+						GenerateHeaderRow()
 					)
 				]
 			]
@@ -128,6 +95,107 @@ void SGraphExecutionStatDisplay::Construct(const FArguments& InArgs)
 			]
 		]
 	];
+}
+
+TSharedPtr<SHeaderRow> SGraphExecutionStatDisplay::GenerateHeaderRow() const
+{
+	// Create the header.
+	TSharedPtr<SHeaderRow> HeaderRow;
+	SAssignNew(HeaderRow, SHeaderRow)
+		+SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Name))
+		.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Name))
+		.FillWidth(0.5f);
+	// Add conditional columns
+	const UBlueprintProfilerSettings* ProfilerSettings = GetDefault<UBlueprintProfilerSettings>();
+	if (ProfilerSettings->bShowHottestPathStats)
+	{
+		HeaderRow->AddColumn(SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::HottestPath))
+			.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::HottestPath))
+			.FixedWidth(90)
+			.HAlignHeader(HAlign_Right)
+			.HAlignCell(HAlign_Right)
+			.VAlignCell(VAlign_Center));
+	}	
+	if (ProfilerSettings->bShowHeatLevelStats)
+	{
+		HeaderRow->AddColumn(SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::HeatLevel))
+			.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::HeatLevel))
+			.FixedWidth(90)
+			.HAlignHeader(HAlign_Right)
+			.HAlignCell(HAlign_Right)
+			.VAlignCell(VAlign_Center));
+	}
+	// Add Standard columns
+	HeaderRow->AddColumn(SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::AverageTime))
+		.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::AverageTime))
+		.FixedWidth(90)
+		.HAlignHeader(HAlign_Right)
+		.HAlignCell(HAlign_Right)
+		.VAlignCell(VAlign_Center)
+		.OnSort(this, &SGraphExecutionStatDisplay::SetAverageHeatDisplay));
+	HeaderRow->AddColumn(SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::InclusiveTime))
+		.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::InclusiveTime))
+		.FixedWidth(120)
+		.HAlignHeader(HAlign_Right)
+		.HAlignCell(HAlign_Right)
+		.VAlignCell(VAlign_Center)
+		.OnSort(this, &SGraphExecutionStatDisplay::SetInclusiveHeatDisplay));
+	HeaderRow->AddColumn(SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::MaxTime))
+		.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::MaxTime))
+		.FixedWidth(90)
+		.HAlignHeader(HAlign_Right)
+		.HAlignCell(HAlign_Right)
+		.VAlignCell(VAlign_Center)
+		.OnSort(this, &SGraphExecutionStatDisplay::SetMaxHeatDisplay));
+	HeaderRow->AddColumn(SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::MinTime))
+		.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::MinTime))
+		.FixedWidth(90)
+		.HAlignHeader(HAlign_Right)
+		.HAlignCell(HAlign_Right)
+		.VAlignCell(VAlign_Center));
+	HeaderRow->AddColumn(SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::TotalTime))
+		.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::TotalTime))
+		.FixedWidth(100)
+		.HAlignHeader(HAlign_Right)
+		.HAlignCell(HAlign_Right)
+		.VAlignCell(VAlign_Center)
+		.OnSort(this, &SGraphExecutionStatDisplay::SetTotalTimeHeatDisplay));
+	HeaderRow->AddColumn(SHeaderRow::Column(SProfilerStatRow::GetStatName(EBlueprintProfilerStat::Samples))
+		.DefaultLabel(SProfilerStatRow::GetStatText(EBlueprintProfilerStat::Samples))
+		.FixedWidth(100)
+		.HAlignHeader(HAlign_Center)
+		.HAlignCell(HAlign_Center)
+		.VAlignCell(VAlign_Center));
+	// Return the header row.
+	return HeaderRow;
+}
+
+void SGraphExecutionStatDisplay::SetAverageHeatDisplay(EColumnSortPriority::Type /*NotUsed*/,const FName& /*NotUsed*/, EColumnSortMode::Type /*NotUsed*/) const
+{
+	UBlueprintProfilerSettings* ProfilerSettings = GetMutableDefault<UBlueprintProfilerSettings>();
+	const bool bDisable = ProfilerSettings->GraphNodeHeatMapDisplayMode == EBlueprintProfilerHeatMapDisplayMode::Average;
+	ProfilerSettings->GraphNodeHeatMapDisplayMode = bDisable ? EBlueprintProfilerHeatMapDisplayMode::None : EBlueprintProfilerHeatMapDisplayMode::Average;
+}
+
+void SGraphExecutionStatDisplay::SetInclusiveHeatDisplay(EColumnSortPriority::Type /*NotUsed*/,const FName& /*NotUsed*/, EColumnSortMode::Type /*NotUsed*/) const
+{
+	UBlueprintProfilerSettings* ProfilerSettings = GetMutableDefault<UBlueprintProfilerSettings>();
+	const bool bDisable = ProfilerSettings->GraphNodeHeatMapDisplayMode == EBlueprintProfilerHeatMapDisplayMode::Inclusive;
+	ProfilerSettings->GraphNodeHeatMapDisplayMode = bDisable ? EBlueprintProfilerHeatMapDisplayMode::None : EBlueprintProfilerHeatMapDisplayMode::Inclusive;
+}
+
+void SGraphExecutionStatDisplay::SetMaxHeatDisplay(EColumnSortPriority::Type /*NotUsed*/,const FName& /*NotUsed*/, EColumnSortMode::Type /*NotUsed*/) const
+{
+	UBlueprintProfilerSettings* ProfilerSettings = GetMutableDefault<UBlueprintProfilerSettings>();
+	const bool bDisable = ProfilerSettings->GraphNodeHeatMapDisplayMode == EBlueprintProfilerHeatMapDisplayMode::MaxTiming;
+	ProfilerSettings->GraphNodeHeatMapDisplayMode = bDisable ? EBlueprintProfilerHeatMapDisplayMode::None : EBlueprintProfilerHeatMapDisplayMode::MaxTiming;
+}
+
+void SGraphExecutionStatDisplay::SetTotalTimeHeatDisplay(EColumnSortPriority::Type /*NotUsed*/,const FName& /*NotUsed*/, EColumnSortMode::Type /*NotUsed*/) const
+{
+	UBlueprintProfilerSettings* ProfilerSettings = GetMutableDefault<UBlueprintProfilerSettings>();
+	const bool bDisable = ProfilerSettings->GraphNodeHeatMapDisplayMode == EBlueprintProfilerHeatMapDisplayMode::Total;
+	ProfilerSettings->GraphNodeHeatMapDisplayMode = bDisable ? EBlueprintProfilerHeatMapDisplayMode::None : EBlueprintProfilerHeatMapDisplayMode::Total;
 }
 
 void SGraphExecutionStatDisplay::OnGraphLayoutChanged(TWeakObjectPtr<UBlueprint> Blueprint)
@@ -190,7 +258,7 @@ void SGraphExecutionStatDisplay::Tick(const FGeometry& AllottedGeometry, const d
 					UBlueprint* NewBlueprint = Cast<UBlueprint>((*Blueprints)[0]);
 					UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(NewBlueprint->GeneratedClass);
 					TWeakObjectPtr<const UObject> NewInstance = NewBlueprint->GetObjectBeingDebugged();
-					TSharedPtr<FBlueprintExecutionContext> BlueprintExecContext = Profiler->GetBlueprintContext(BPGC->GetPathName());
+					TSharedPtr<FBlueprintExecutionContext> BlueprintExecContext = Profiler->FindBlueprintContext(BPGC->GetPathName());
 
 					if (BlueprintExecContext.IsValid())
 					{
@@ -213,6 +281,7 @@ void SGraphExecutionStatDisplay::Tick(const FGeometry& AllottedGeometry, const d
 						}
 						if (DisplayOptions->IsStateModified())
 						{
+							ConstructTreeView();
 							TSharedPtr<FScriptExecutionBlueprint> BlueprintExecNode = BlueprintExecContext->GetBlueprintExecNode();
 							RootTreeItems.Reset(0);
 
@@ -227,7 +296,7 @@ void SGraphExecutionStatDisplay::Tick(const FGeometry& AllottedGeometry, const d
 								{
 									if (DisplayOptions->HasFlags(FBlueprintProfilerStatOptions::ScopeToDebugInstance))
 									{
-										if (CurrentInstancePath != NAME_None)
+										if (CurrentInstancePath != SPDN_Blueprint)
 										{
 											TSharedPtr<FScriptExecutionNode> InstanceStat = BlueprintExecNode->GetInstanceByName(CurrentInstancePath);
 											if (InstanceStat.IsValid())

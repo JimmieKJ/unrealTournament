@@ -1,15 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DEditorPrivatePCH.h"
-
 #include "SpriteAssetTypeActions.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Misc/PackageName.h"
+#include "Misc/FeedbackContext.h"
+#include "EditorStyleSet.h"
+
 #include "SpriteEditor/SpriteEditor.h"
-#include "AssetToolsModule.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "PaperFlipbookHelpers.h"
+#include "PaperFlipbook.h"
 #include "PaperFlipbookFactory.h"
 #include "PaperSprite.h"
-#include "PaperFlipbook.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

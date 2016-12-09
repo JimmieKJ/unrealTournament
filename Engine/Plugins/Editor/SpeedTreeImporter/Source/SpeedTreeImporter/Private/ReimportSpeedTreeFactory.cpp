@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SpeedTreeImporterPrivatePCH.h"
 #include "ReimportSpeedTreeFactory.h"
+#include "Misc/Paths.h"
+#include "EditorFramework/AssetImportData.h"
 #include "Engine/StaticMesh.h"
 
 

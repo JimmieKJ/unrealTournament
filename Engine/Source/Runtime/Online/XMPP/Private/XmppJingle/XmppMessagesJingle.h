@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "XmppJingle.h"
+#include "CoreMinimal.h"
+#include "Containers/Ticker.h"
+#include "XmppJingle/XmppJingle.h"
+#include "Containers/Queue.h"
 #include "XmppMessages.h"
 
 #if WITH_XMPP_JINGLE

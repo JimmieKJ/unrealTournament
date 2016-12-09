@@ -40,7 +40,7 @@
 #
 # The below requirements must be met to build this CEF binary distribution.
 #
-# - CMake version 2.8.12.2 or newer.
+# - CMake version 2.8.12.1 or newer.
 #
 # - Linux requirements:
 #   Currently supported distributions include Debian Wheezy, Ubuntu Precise, and
@@ -121,7 +121,7 @@
 # Shared configuration.
 #
 
-cmake_minimum_required(VERSION 2.8.12.2)
+cmake_minimum_required(VERSION 2.8.12.1)
 
 # Only generate Debug and Release configuration types.
 set(CMAKE_CONFIGURATION_TYPES Debug Release)
@@ -278,7 +278,6 @@ if(OS_LINUX)
   # List of CEF binary files.
   set(CEF_BINARY_FILES
     chrome-sandbox
-    libffmpegsumo.so
     libcef.so
     natives_blob.bin
     snapshot_blob.bin
@@ -289,6 +288,7 @@ if(OS_LINUX)
     cef.pak
     cef_100_percent.pak
     cef_200_percent.pak
+    cef_extensions.pak
     devtools_resources.pak
     icudtl.dat
     locales
@@ -333,7 +333,7 @@ if(OS_MACOSX)
   # -O3                             = Optimize for maximum speed plus a few extras
   set(CEF_COMPILER_FLAGS_RELEASE  "-O3")
   # -Wl,-search_paths_first         = Search for static or shared library versions in the same pass
-  # -Wl,-ObjC                       = Support creation of creation of ObjC static libraries 
+  # -Wl,-ObjC                       = Support creation of creation of ObjC static libraries
   # -Wl,-pie                        = Generate position-independent code suitable for executables only
   set(CEF_LINKER_FLAGS            "-Wl,-search_paths_first -Wl,-ObjC -Wl,-pie")
   # -Wl,-dead_strip                 = Strip dead code
@@ -379,22 +379,25 @@ endif()
 #
 
 if(OS_WINDOWS)
+  # Consumers who run into LNK4099 warnings can pass /Z7 instead (see issue #385).
+  set(CEF_DEBUG_INFO_FLAG "/Zi" CACHE STRING "Optional flag specifying specific /Z flag to use")
+
   # Platform-specific compiler/linker flags.
   set(CEF_LIBTYPE                 STATIC)
   # /MP                   = Multiprocess compilation
   # /Gy                   = Enable function-level linking
   # /GR-                  = Disable run-time type information
-  # /Zi                   = Enable program database
   # /W4                   = Warning level 4
   # /WX                   = Treat warnings as errors
   # /wd"4100"             = Ignore "unreferenced formal parameter" warning
   # /wd"4127"             = Ignore "conditional expression is constant" warning
   # /wd"4244"             = Ignore "conversion possible loss of data" warning
+  # /wd"4481"             = Ignore "nonstandard extension used: override" warning
   # /wd"4512"             = Ignore "assignment operator could not be generated" warning
   # /wd"4701"             = Ignore "potentially uninitialized local variable" warning
   # /wd"4702"             = Ignore "unreachable code" warning
   # /wd"4996"             = Ignore "function or variable may be unsafe" warning
-  set(CEF_COMPILER_FLAGS          "/MP /Gy /GR- /Zi /W4 /WX /wd\"4100\" /wd\"4127\" /wd\"4244\" /wd\"4512\" /wd\"4701\" /wd\"4702\" /wd\"4996\"")
+  set(CEF_COMPILER_FLAGS          "/MP /Gy /GR- /W4 /WX /wd\"4100\" /wd\"4127\" /wd\"4244\" /wd\"4481\" /wd\"4512\" /wd\"4701\" /wd\"4702\" /wd\"4996\" ${CEF_DEBUG_INFO_FLAG}")
   # /MTd                  = Multithreaded debug runtime
   # /Od                   = Disable optimizations
   # /RTC1                 = Enable basic run-time checks
@@ -421,7 +424,7 @@ if(OS_WINDOWS)
                   -D_WIN32_WINNT=0x602 -DNOMINMAX -DWIN32_LEAN_AND_MEAN -D_HAS_EXCEPTIONS=0)
 
   # Standard libraries.
-  set(CEF_STANDARD_LIBS "comctl32.lib" "rpcrt4.lib" "shlwapi.lib")
+  set(CEF_STANDARD_LIBS "comctl32.lib" "rpcrt4.lib" "shlwapi.lib" "ws2_32.lib")
 
   # CEF directory paths.
   set(CEF_RESOURCE_DIR        "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
@@ -437,7 +440,6 @@ if(OS_WINDOWS)
   set(CEF_BINARY_FILES
     d3dcompiler_43.dll
     d3dcompiler_47.dll
-    ffmpegsumo.dll
     libcef.dll
     libEGL.dll
     libGLESv2.dll
@@ -457,6 +459,7 @@ if(OS_WINDOWS)
     cef.pak
     cef_100_percent.pak
     cef_200_percent.pak
+    cef_extensions.pak
     devtools_resources.pak
     icudtl.dat
     locales

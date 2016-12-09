@@ -1,13 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Text/WidgetLayoutBlock.h"
 
 #if WITH_FANCY_TEXT
 
-#include "SlateHyperlinkRun.h"
-#include "SRichTextHyperlink.h"
-#include "ShapedTextCache.h"
-#include "RunUtils.h"
+#include "Widgets/Input/SRichTextHyperlink.h"
+#include "Framework/Text/ShapedTextCache.h"
+#include "Framework/Text/RunUtils.h"
 
 TSharedRef< FSlateHyperlinkRun > FSlateHyperlinkRun::Create( const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FHyperlinkStyle& InStyle, FOnClick NavigateDelegate, FOnGenerateTooltip InTooltipDelegate, FOnGetTooltipText InTooltipTextDelegate )
 {

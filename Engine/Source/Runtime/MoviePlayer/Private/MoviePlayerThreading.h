@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "SpinLock.h"
 
+class FRunnable;
 
 /**
  * This class will handle all the nasty bits about running Slate on a separate thread

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
 #include "SGraphNode_Decorator.h"
+#include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTreeDecoratorGraphNode_Decorator.h"
 
 void SGraphNode_Decorator::Construct(const FArguments& InArgs, UBehaviorTreeDecoratorGraphNode_Decorator* InNode)
 {

@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/Volume.h"
 #include "BlockingVolume.generated.h"
-
 
 /** An invisible volume used to block other actors. */
 UCLASS(MinimalAPI)

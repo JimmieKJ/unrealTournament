@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MessagingDebuggerPrivatePCH.h"
-#include "SExpandableArea.h"
+#include "Widgets/Types/SMessagingTypes.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Types/SMessagingTypesFilterBar.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Types/SMessagingTypesTableRow.h"
+#include "Widgets/Layout/SExpandableArea.h"
 
 
 #define LOCTEXT_NAMESPACE "SMessagingTypes"
@@ -28,7 +32,7 @@ SMessagingTypes::~SMessagingTypes()
 /* SMessagingTypes interface
  *****************************************************************************/
 
-void SMessagingTypes::Construct( const FArguments& InArgs, const FMessagingDebuggerModelRef& InModel, const TSharedRef<ISlateStyle>& InStyle, const IMessageTracerRef& InTracer )
+void SMessagingTypes::Construct(const FArguments& InArgs, const TSharedRef<FMessagingDebuggerModel>& InModel, const TSharedRef<ISlateStyle>& InStyle, const TSharedRef<IMessageTracer, ESPMode::ThreadSafe>& InTracer)
 {
 	Filter = MakeShareable(new FMessagingDebuggerTypeFilter());
 	Model = InModel;
@@ -62,7 +66,7 @@ void SMessagingTypes::Construct( const FArguments& InArgs, const FMessagingDebug
 					.Padding(0.0f)
 					[
 						// type list
-						SAssignNew(TypeListView, SListView<FMessageTracerTypeInfoPtr>)
+						SAssignNew(TypeListView, SListView<TSharedPtr<FMessageTracerTypeInfo>>)
 							.ItemHeight(24.0f)
 							.ListItemsSource(&TypeList)
 							.SelectionMode(ESelectionMode::Multi)
@@ -127,7 +131,7 @@ void SMessagingTypes::Construct( const FArguments& InArgs, const FMessagingDebug
 /* SMessagingTypes implementation
  *****************************************************************************/
 
-void SMessagingTypes::AddType( const FMessageTracerTypeInfoRef& TypeInfo )
+void SMessagingTypes::AddType(const TSharedRef<FMessageTracerTypeInfo>& TypeInfo)
 {
 	if (Filter->FilterType(TypeInfo))
 	{
@@ -141,11 +145,11 @@ void SMessagingTypes::ReloadTypes()
 {
 	TypeList.Reset();
 	
-	TArray<FMessageTracerTypeInfoPtr> Types;
+	TArray<TSharedPtr<FMessageTracerTypeInfo>> Types;
 
 	if (Tracer->GetMessageTypes(Types) > 0)
 	{
-		for (TArray<FMessageTracerTypeInfoPtr>::TConstIterator It(Types); It; ++It)
+		for (TArray<TSharedPtr<FMessageTracerTypeInfo>>::TConstIterator It(Types); It; ++It)
 		{
 			AddType(It->ToSharedRef());
 		}
@@ -166,7 +170,7 @@ void SMessagingTypes::HandleFilterChanged()
 
 void SMessagingTypes::HandleModelSelectedMessageChanged()
 {
-	FMessageTracerMessageInfoPtr SelectedMessage = Model->GetSelectedMessage();
+	TSharedPtr<FMessageTracerMessageInfo> SelectedMessage = Model->GetSelectedMessage();
 
 	if (SelectedMessage.IsValid())
 	{
@@ -181,13 +185,13 @@ void SMessagingTypes::HandleTracerMessagesReset()
 }
 
 
-void SMessagingTypes::HandleTracerTypeAdded( FMessageTracerTypeInfoRef TypeInfo )
+void SMessagingTypes::HandleTracerTypeAdded(TSharedRef<FMessageTracerTypeInfo> TypeInfo)
 {
 	AddType(TypeInfo);
 }
 
 
-TSharedRef<ITableRow> SMessagingTypes::HandleTypeListGenerateRow( FMessageTracerTypeInfoPtr TypeInfo, const TSharedRef<STableViewBase>& OwnerTable )
+TSharedRef<ITableRow> SMessagingTypes::HandleTypeListGenerateRow(TSharedPtr<FMessageTracerTypeInfo> TypeInfo, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(SMessagingTypesTableRow, OwnerTable, Model.ToSharedRef())
 		.HighlightText(this, &SMessagingTypes::HandleTypeListGetHighlightText)
@@ -203,7 +207,7 @@ FText SMessagingTypes::HandleTypeListGetHighlightText() const
 }
 
 
-void SMessagingTypes::HandleTypeListSelectionChanged( FMessageTracerTypeInfoPtr InItem, ESelectInfo::Type SelectInfo )
+void SMessagingTypes::HandleTypeListSelectionChanged(TSharedPtr<FMessageTracerTypeInfo> InItem, ESelectInfo::Type SelectInfo)
 {
 
 }

@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashTrackerPrivatePCH.h"
-#include "EngineBuildSettings.h"
-
+#include "CoreMinimal.h"
+#include "Misc/CoreDelegates.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/ICrashTrackerModule.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "Logging/EventLogger.h"
+#include "Framework/Application/SlateApplication.h"
+#include "CrashVideoCapture.h"
+#include "RHI.h"
 
 #if (PLATFORM_WINDOWS || PLATFORM_MAC) && !UE_BUILD_MINIMAL
 	#define CRASH_TRACKER_SUPPORTED 1
@@ -116,12 +124,12 @@ void FCrashTrackerModule::StartupModule()
 	{
 		bool bCrashTrackerShouldBeEnabled = false;
 #if UE_BUILD_DEVELOPMENT
-		bCrashTrackerShouldBeEnabled =
-			false && // Disable crash tracker by default for now unless someone enables it.
-			!GIsDemoMode &&
-			!FParse::Param( FCommandLine::Get(), TEXT("disablecrashtracker") ) &&
-			!FApp::IsBenchmarking() &&
-			!FPlatformMisc::IsDebuggerPresent();
+		// Disable crash tracker by default for now unless someone enables it.
+		// bCrashTrackerShouldBeEnabled =
+		// 	!GIsDemoMode &&
+		// 	!FParse::Param( FCommandLine::Get(), TEXT("disablecrashtracker") ) &&
+		// 	!FApp::IsBenchmarking() &&
+		// 	!FPlatformMisc::IsDebuggerPresent();
 #endif
 		bool bForceEnableCrashTracker = FParse::Param( FCommandLine::Get(), TEXT("forceenablecrashtracker") );
 

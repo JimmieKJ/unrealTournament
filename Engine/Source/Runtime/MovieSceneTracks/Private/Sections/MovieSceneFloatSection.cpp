@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneFloatSection.h"
+#include "Sections/MovieSceneFloatSection.h"
 
 
 UMovieSceneFloatSection::UMovieSceneFloatSection( const FObjectInitializer& ObjectInitializer )
@@ -9,9 +8,9 @@ UMovieSceneFloatSection::UMovieSceneFloatSection( const FObjectInitializer& Obje
 { }
 
 
-float UMovieSceneFloatSection::Eval( float Position ) const
+float UMovieSceneFloatSection::Eval( float Position, float DefaultValue ) const
 {
-	return FloatCurve.Eval( Position );
+	return FloatCurve.Eval( Position, DefaultValue );
 }
 
 
@@ -88,4 +87,10 @@ bool UMovieSceneFloatSection::HasKeys( const float& Value ) const
 void UMovieSceneFloatSection::SetDefault( const float& Value )
 {
 	SetCurveDefault( FloatCurve, Value );
+}
+
+
+void UMovieSceneFloatSection::ClearDefaults()
+{
+	FloatCurve.ClearDefaultValue();
 }

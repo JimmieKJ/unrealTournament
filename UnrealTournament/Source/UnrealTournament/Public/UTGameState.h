@@ -588,7 +588,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	TSubclassOf<AGameMode> GetGameModeClass() const
 	{
-		return GameModeClass;
+		return TSubclassOf<AGameMode>(*GameModeClass);
 	}
 
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
@@ -644,8 +644,7 @@ protected:
 	void OnHitchDetected(float DurationInSeconds);
 
 	bool bRunFPSChart;
-	/** Running hitch chart */
-	FHitchChartEntry HitchChart[STAT_FPSChart_LastHitchBucketStat - STAT_FPSChart_FirstHitchStat];
+
 	/** Handle to the delegate bound for hitch detection */
 	FDelegateHandle OnHitchDetectedHandle;
 
@@ -662,17 +661,7 @@ protected:
 	/** Threshold after which we consider that the server is unplayable and report that. */
 	UPROPERTY(Config)
 	int32 MaxUnplayableHitchesToTolerate;
-
-	/** Helper structure for hitch entries. */
-	struct FHitchChartEntry
-	{
-		/** Number of hitches */
-		int32 HitchCount;
-
-		/** Time spent in this bucket */
-		double TimeSpentHitching;
-	};
-
+	
 protected:
 	float UserInfoQueryRetryTime;
 	FTimerHandle UserInfoQueryRetryHandle;

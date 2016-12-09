@@ -2,10 +2,15 @@
 
 #pragma once
 
-#include "IntPoint.h"
-#include "Map.h"
-#include "ThreadingBase.h"
-#include "Containers/ArrayView.h"
+#include "CoreTypes.h"
+#include "Misc/Exec.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Math/IntPoint.h"
+#include "UObject/NameTypes.h"
+#include "CoreGlobals.h"
+#include "HAL/ThreadSingleton.h"
 
 /**
  * Exec handler that registers itself and is being routed via StaticExec.
@@ -57,209 +62,6 @@ struct CORE_API FMaintenance
 {
 	/** deletes log files older than a number of days specified in the Engine ini file */
 	static void DeleteOldLogs();
-};
-
-/*-----------------------------------------------------------------------------
-	Command line.
------------------------------------------------------------------------------*/
-
-struct CORE_API FCommandLine
-{
-	/** maximum size of the command line */
-	static const uint32 MaxCommandLineSize = 16384;
-
-	/** 
-	 * Returns an edited version of the executable's command line with the game name and certain other parameters removed. 
-	 */
-	static const TCHAR* Get();
-	
-	/**
-	 * Returns an edited version of the executable's command line. 
-	 */
-	static const TCHAR* GetForLogging();
-
-	/**
-	 * Returns the command line originally passed to the executable.
-	 */
-	static const TCHAR* GetOriginal();
-
-	/**
-	 * Returns an edited version of the command line originally passed to the executable.
-	 */
-	static const TCHAR* GetOriginalForLogging();
-
-	/** 
-	 * Checks if the command line has been initialized. 
-	 */
-	static bool IsInitialized();
-
-	/**
-	 * Sets CmdLine to the string given
-	 */
-	static bool Set(const TCHAR* NewCommandLine);
-
-	/**
-	 * Appends the passed string to the command line as it is (no space is added).
-	 * @param AppendString String that should be appended to the commandline.
-	 */
-	static void Append(const TCHAR* AppendString);
-
-	/**
-	 * Adds a new parameter to subprocess command line. If Param
-	 * does not start with a space, one is added.
-	 *
-	 * @param Param Command line param string.
-	 */
-	static void AddToSubprocessCommandline( const TCHAR* Param );
-
-	/** 
-	 * Returns the subprocess command line string 
-	 */
-	static const FString& GetSubprocessCommandline();
-
-	/** 
-	* Removes the executable name from the passed CmdLine, denoted by parentheses.
-	* Returns the CmdLine string without the executable name.
-	*/
-	static const TCHAR* RemoveExeName(const TCHAR* CmdLine);
-
-	/**
-	 * Parses a string into tokens, separating switches (beginning with - or /) from
-	 * other parameters
-	 *
-	 * @param	CmdLine		the string to parse
-	 * @param	Tokens		[out] filled with all parameters found in the string
-	 * @param	Switches	[out] filled with all switches found in the string
-	 */
-	static void Parse(const TCHAR* CmdLine, TArray<FString>& Tokens, TArray<FString>& Switches);
-private:
-#if WANTS_COMMANDLINE_WHITELIST
-	/** Filters both the original and current command line list for approved only args */
-	static void WhitelistCommandLines();
-	/** Filters any command line args that aren't on the approved list */
-	static TArray<FString> FilterCommandLine(TCHAR* CommandLine);
-	/** Filters any command line args that are on the to-strip list */
-	static TArray<FString> FilterCommandLineForLogging(TCHAR* CommandLine);
-	/** Rebuilds the command line using the filtered args */
-	static void BuildWhitelistCommandLine(TCHAR* CommandLine, uint32 Length, const TArray<FString>& FilteredArgs);
-	static TArray<FString> ApprovedArgs;
-	static TArray<FString> FilterArgsForLogging;
-#else
-#define WhitelistCommandLines()
-#endif
-
-	/** Flag to check if the commandline has been initialized or not. */
-	static bool bIsInitialized;
-	/** character buffer containing the command line */
-	static TCHAR CmdLine[MaxCommandLineSize];
-	/** character buffer containing the original command line */
-	static TCHAR OriginalCmdLine[MaxCommandLineSize];
-	/** character buffer containing the command line filtered for logging purposes */
-	static TCHAR LoggingCmdLine[MaxCommandLineSize];
-	/** character buffer containing the original command line filtered for logging purposes */
-	static TCHAR LoggingOriginalCmdLine[MaxCommandLineSize];
-	/** subprocess command line */
-	static FString SubprocessCommandLine;
-};
-
-/*-----------------------------------------------------------------------------
-	FFileHelper
------------------------------------------------------------------------------*/
-struct CORE_API FFileHelper
-{
-	struct EHashOptions
-	{
-		enum Type
-		{
-			/** Enable the async task for verifying the hash for the file being loaded */
-			EnableVerify		=1<<0,
-			/** A missing hash entry should trigger an error */
-			ErrorMissingHash	=1<<1
-		};
-	};
-
-	struct EEncodingOptions
-	{
-		enum Type
-		{
-			AutoDetect,
-			ForceAnsi,
-			ForceUnicode,
-			ForceUTF8,
-			ForceUTF8WithoutBOM
-		};
-	};
-
-	/**
-	 * Load a text file to an FString.
-	 * Supports all combination of ANSI/Unicode files and platforms.
-	*/
-	static void BufferToString( FString& Result, const uint8* Buffer, int32 Size );
-
-	/**
-	 * Load a binary file to a dynamic array.
-	*/
-	static bool LoadFileToArray( TArray<uint8>& Result, const TCHAR* Filename, uint32 Flags = 0 );
-
-	/**
-	 * Load a text file to an FString.
-	 * Supports all combination of ANSI/Unicode files and platforms.
-	 * @param Result string representation of the loaded file
-	 * @param Filename name of the file to load
-	 * @param VerifyFlags flags controlling the hash verification behavior ( see EHashOptions )
-	 */
-	static bool LoadFileToString( FString& Result, const TCHAR* Filename, uint32 VerifyFlags=0 );
-
-	/**
-	 * Save a binary array to a file.
-	 */
-	static bool SaveArrayToFile(TArrayView<const uint8> Array, const TCHAR* Filename, IFileManager* FileManager=&IFileManager::Get(), uint32 WriteFlags = 0);
-
-	/**
-	 * Write the FString to a file.
-	 * Supports all combination of ANSI/Unicode files and platforms.
-	 */
-	static bool SaveStringToFile( const FString& String, const TCHAR* Filename, EEncodingOptions::Type EncodingOptions=EEncodingOptions::AutoDetect, IFileManager* FileManager=&IFileManager::Get(), uint32 WriteFlags = 0 );
-
-	/**
-	 * Saves a 24/32Bit BMP file to disk
-	 * 
-	 * @param Pattern filename with path, must not be 0, if with "bmp" extension (e.g. "out.bmp") the filename stays like this, if without (e.g. "out") automatic index numbers are addended (e.g. "out00002.bmp")
-	 * @param DataWidth - Width of the bitmap supplied in Data >0
-	 * @param DataHeight - Height of the bitmap supplied in Data >0
-	 * @param Data must not be 0
-	 * @param SubRectangle optional, specifies a sub-rectangle of the source image to save out. If NULL, the whole bitmap is saved
-	 * @param FileManager must not be 0
-	 * @param OutFilename optional, if specified filename will be output
-	 * @param bInWriteAlpha opional, specifies whether to write out the alpha channel. Will force BMP V4 format.
-	 *
-	 * @return true if success
-	 */
-	static bool CreateBitmap( const TCHAR* Pattern, int32 DataWidth, int32 DataHeight, const struct FColor* Data, struct FIntRect* SubRectangle = NULL, IFileManager* FileManager = &IFileManager::Get(), FString* OutFilename = NULL, bool bInWriteAlpha = false );
-
-	/**
-	 * Generates the next unique bitmap filename with a specified extension
-	 *
-	 * @param Pattern		Filename with path, but without extension.
-	 * @oaran Extension		File extension to be appended
-	 * @param OutFilename	Reference to an FString where the newly generated filename will be placed
-	 * @param FileManager	Reference to a IFileManager (or the global instance by default)
-	 *
-	 * @return true if success
-	 */
-	static bool GenerateNextBitmapFilename(const FString& Pattern, const FString& Extension, FString& OutFilename, IFileManager* FileManager = &IFileManager::Get());
-	
-	/**
-	 *	Load the given ANSI text file to an array of strings - one FString per line of the file.
-	 *	Intended for use in simple text parsing actions
-	 *
-	 *	@param	InFilename			The text file to read, full path
-	 *	@param	InFileManager		The filemanager to use - NULL will use &IFileManager::Get()
-	 *	@param	OutStrings			The array of FStrings to fill in
-	 *
-	 *	@return	bool				true if successful, false if not
-	 */
-	static bool LoadANSITextFileToStrings(const TCHAR* InFilename, IFileManager* InFileManager, TArray<FString>& OutStrings);
 };
 
 /*-----------------------------------------------------------------------------

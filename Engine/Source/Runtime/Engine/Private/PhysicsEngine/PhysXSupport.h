@@ -6,9 +6,17 @@
 
 #pragma once
 
-#include "PhysXPublic.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Misc/ScopeLock.h"
+#include "EngineDefines.h"
+#include "Containers/Queue.h"
+#include "Physics/PhysicsFiltering.h"
 
-#include "../Collision/PhysicsFiltering.h"
+class UBodySetup;
+class UPhysicalMaterial;
+struct FByteBulkData;
+struct FCollisionShape;
 
 #if WITH_PHYSX
 
@@ -30,8 +38,8 @@
 #define PHYSX_MEMORY_STAT_ONLY (0)
 
 #if WITH_APEX
-/** Get a pointer to the NxApexScene from an SceneIndex (will be NULL if scene already shut down) */
-NxApexScene* GetApexSceneFromIndex(int32 InSceneIndex);
+/** Get a pointer to the ApexScene from an SceneIndex (will be NULL if scene already shut down) */
+nvidia::apex::Scene* GetApexSceneFromIndex(int32 InSceneIndex);
 #endif
 
 //////// GEOM CONVERSION
@@ -61,7 +69,7 @@ const uint32 AggregateBodyShapesThreshold	   = 999999999;
 
 
 /** Perform any deferred cleanup of resources (GPhysXPendingKillConvex etc) */
-void DeferredPhysResourceCleanup();
+ENGINE_API void DeferredPhysResourceCleanup();
 
 /** Calculates correct impulse at the body's center of mass and adds the impulse to the body. */
 ENGINE_API void AddRadialImpulseToPxRigidBody_AssumesLocked(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bVelChange);
@@ -105,15 +113,15 @@ inline bool IsRigidBodyNonKinematic(PxRigidBody* PRigidBody)
 
 /** Pointer to PhysX Foundation singleton */
 extern PxFoundation*			GPhysXFoundation;
-/** Pointer to PhysX profile zone manager */
-extern PxProfileZoneManager*	GPhysXProfileZoneManager;
+/** Pointer to PhysX debugger */
+extern PxPvd*					GPhysXVisualDebugger;
 
 #if WITH_APEX
 /** 
- *	Map from SceneIndex to actual NxApexScene. This indirection allows us to set it to null when we kill the scene, 
+ *	Map from SceneIndex to actual ApexScene. This indirection allows us to set it to null when we kill the scene, 
  *	and therefore abort trying to destroy PhysX objects after the scene has been destroyed (eg. on game exit). 
  */
-extern TMap<int16, NxApexScene*>	GPhysXSceneMap;
+extern TMap<int16, nvidia::apex::Scene*>	GPhysXSceneMap;
 #else // #if WITH_APEX
 /** 
  *	Map from SceneIndex to actual PxScene. This indirection allows us to set it to null when we kill the scene, 
@@ -426,11 +434,6 @@ private:
 #endif
 };
 
-class FPhysXBroadcastingAllocator : public PxBroadcastingAllocator
-{
-
-};
-
 /** PhysX output stream wrapper */
 class FPhysXErrorCallback : public PxErrorCallback
 {
@@ -456,6 +459,7 @@ public:
 	virtual void onSleep(PxActor** actors, PxU32 count) override;
 	virtual void onTrigger(PxTriggerPair* pairs, PxU32 count) override {}
 	virtual void onContact(const PxContactPairHeader& PairHeader, const PxContactPair* Pairs, PxU32 NumPairs) override;
+	virtual void onAdvance(const PxRigidBody*const* bodyBuffer, const PxTransform* poseBuffer, const PxU32 count) override {}
 
 private:	
 	FPhysScene* OwningScene;
@@ -468,58 +472,58 @@ private:
 	"Null" render resource manager callback for APEX
 	This just gives a trivial implementation of the interface, since we are not using the APEX rendering API
 */
-class FApexNullRenderResourceManager : public NxUserRenderResourceManager
+class FApexNullRenderResourceManager : public nvidia::apex::UserRenderResourceManager
 {
 public:
 	// NxUserRenderResourceManager interface.
 
-	virtual NxUserRenderVertexBuffer*	createVertexBuffer(const NxUserRenderVertexBufferDesc&) override
+	virtual nvidia::apex::UserRenderVertexBuffer*	createVertexBuffer(const nvidia::apex::UserRenderVertexBufferDesc&) override
 	{
 		return NULL;
 	}
-	virtual NxUserRenderIndexBuffer*	createIndexBuffer(const NxUserRenderIndexBufferDesc&) override
+	virtual nvidia::apex::UserRenderIndexBuffer*	createIndexBuffer(const nvidia::apex::UserRenderIndexBufferDesc&) override
 	{
 		return NULL;
 	}
-	virtual NxUserRenderBoneBuffer*		createBoneBuffer(const NxUserRenderBoneBufferDesc&) override
+	virtual nvidia::apex::UserRenderBoneBuffer*		createBoneBuffer(const nvidia::apex::UserRenderBoneBufferDesc&) override
 	{
 		return NULL;
 	}
-	virtual NxUserRenderInstanceBuffer*	createInstanceBuffer(const NxUserRenderInstanceBufferDesc&) override
+	virtual nvidia::apex::UserRenderInstanceBuffer*	createInstanceBuffer(const nvidia::apex::UserRenderInstanceBufferDesc&) override
 	{
 		return NULL;
 	}
-	virtual NxUserRenderSpriteBuffer*   createSpriteBuffer(const NxUserRenderSpriteBufferDesc&) override
-	{
-		return NULL;
-	}
-	
-	virtual NxUserRenderSurfaceBuffer*  createSurfaceBuffer(const NxUserRenderSurfaceBufferDesc& desc)   override
+	virtual nvidia::apex::UserRenderSpriteBuffer*   createSpriteBuffer(const nvidia::apex::UserRenderSpriteBufferDesc&) override
 	{
 		return NULL;
 	}
 	
-	virtual NxUserRenderResource*		createResource(const NxUserRenderResourceDesc&) override
+	virtual nvidia::apex::UserRenderSurfaceBuffer*  createSurfaceBuffer(const nvidia::apex::UserRenderSurfaceBufferDesc& desc)   override
 	{
 		return NULL;
 	}
-	virtual void						releaseVertexBuffer(NxUserRenderVertexBuffer&) override {}
-	virtual void						releaseIndexBuffer(NxUserRenderIndexBuffer&) override {}
-	virtual void						releaseBoneBuffer(NxUserRenderBoneBuffer&) override {}
-	virtual void						releaseInstanceBuffer(NxUserRenderInstanceBuffer&) override {}
-	virtual void						releaseSpriteBuffer(NxUserRenderSpriteBuffer&) override {}
-	virtual void                        releaseSurfaceBuffer(NxUserRenderSurfaceBuffer& buffer) override{}
-	virtual void						releaseResource(NxUserRenderResource&) override {}
+	
+	virtual nvidia::apex::UserRenderResource*		createResource(const nvidia::apex::UserRenderResourceDesc&) override
+	{
+		return NULL;
+	}
+	virtual void						releaseVertexBuffer(nvidia::apex::UserRenderVertexBuffer&) override {}
+	virtual void						releaseIndexBuffer(nvidia::apex::UserRenderIndexBuffer&) override {}
+	virtual void						releaseBoneBuffer(nvidia::apex::UserRenderBoneBuffer&) override {}
+	virtual void						releaseInstanceBuffer(nvidia::apex::UserRenderInstanceBuffer&) override {}
+	virtual void						releaseSpriteBuffer(nvidia::apex::UserRenderSpriteBuffer&) override {}
+	virtual void                        releaseSurfaceBuffer(nvidia::apex::UserRenderSurfaceBuffer& buffer) override{}
+	virtual void						releaseResource(nvidia::apex::UserRenderResource&) override {}
 
 	virtual physx::PxU32				getMaxBonesForMaterial(void*) override
 	{
 		return 0;
 	}
-	virtual bool						getSpriteLayoutData(physx::PxU32 , physx::PxU32 , NxUserRenderSpriteBufferDesc* ) override
+	virtual bool						getSpriteLayoutData(physx::PxU32 , physx::PxU32 , nvidia::apex::UserRenderSpriteBufferDesc* ) override
 	{
 		return false;
 	}
-	virtual bool						getInstanceLayoutData(physx::PxU32 , physx::PxU32 , NxUserRenderInstanceBufferDesc* ) override
+	virtual bool						getInstanceLayoutData(physx::PxU32 , physx::PxU32 , nvidia::apex::UserRenderInstanceBufferDesc* ) override
 	{
 		return false;
 	}
@@ -531,7 +535,7 @@ extern FApexNullRenderResourceManager GApexNullRenderResourceManager;
 	APEX resource callback
 	The resource callback is how APEX asks the application to find assets when it needs them
 */
-class FApexResourceCallback : public NxResourceCallback
+class FApexResourceCallback : public nvidia::apex::ResourceCallback
 {
 public:
 	// NxResourceCallback interface.
@@ -559,12 +563,12 @@ extern FApexResourceCallback GApexResourceCallback;
 	APEX PhysX3 interface
 	This interface allows us to modify the PhysX simulation filter shader data with contact pair flags 
 */
-class FApexPhysX3Interface : public NxApexPhysX3Interface
+class FApexPhysX3Interface : public nvidia::apex::PhysX3Interface
 {
 public:
 	// NxApexPhysX3Interface interface.
 
-	virtual void				setContactReportFlags(physx::PxShape* PShape, physx::PxPairFlags PFlags, NxDestructibleActor* actor, PxU16 actorChunkIndex) override;
+	virtual void				setContactReportFlags(physx::PxShape* PShape, physx::PxPairFlags PFlags, nvidia::apex::DestructibleActor* actor, PxU16 actorChunkIndex) override;
 
 	virtual physx::PxPairFlags	getContactReportFlags(const physx::PxShape* PShape) const override;
 };
@@ -575,16 +579,16 @@ extern FApexPhysX3Interface GApexPhysX3Interface;
 	This interface delivers summaries (which can be detailed to the single chunk level, depending on the settings)
 	of chunk fracture and destroy events.
 */
-class FApexChunkReport : public NxUserChunkReport
+class FApexChunkReport : public nvidia::apex::UserChunkReport
 {
 public:
 	// NxUserChunkReport interface.
 
-	virtual void	onDamageNotify(const NxApexDamageEventReportData& damageEvent) override;
-	virtual void	onStateChangeNotify(const NxApexChunkStateEventData& visibilityEvent) override;
-	virtual bool	releaseOnNoChunksVisible(const NxDestructibleActor* destructible) override;
-	virtual void	onDestructibleWake(physx::NxDestructibleActor** destructibles, physx::PxU32 count) override;
-	virtual void	onDestructibleSleep(physx::NxDestructibleActor** destructibles, physx::PxU32 count) override;
+	virtual void	onDamageNotify(const nvidia::apex::DamageEventReportData& damageEvent) override;
+	virtual void	onStateChangeNotify(const nvidia::apex::ChunkStateEventData& visibilityEvent) override;
+	virtual bool	releaseOnNoChunksVisible(const nvidia::apex::DestructibleActor* destructible) override;
+	virtual void	onDestructibleWake(nvidia::apex::DestructibleActor** destructibles, physx::PxU32 count) override;
+	virtual void	onDestructibleSleep(nvidia::apex::DestructibleActor** destructibles, physx::PxU32 count) override;
 };
 extern FApexChunkReport GApexChunkReport;
 #endif // #if WITH_APEX

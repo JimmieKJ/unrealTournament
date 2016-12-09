@@ -1,13 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AI/Navigation/NavigationAvoidanceTypes.h"
-#include "Navigation/CrowdAgentInterface.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EngineDefines.h"
+#include "AITypes.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "Navigation/CrowdAgentInterface.h"
+#include "AI/Navigation/NavigationAvoidanceTypes.h"
 #include "CrowdFollowingComponent.generated.h"
 
 class INavLinkCustomInterface;
-class UCharacterMovementComponent; 
+class UCharacterMovementComponent;
 class UCrowdManager;
 
 namespace ECrowdAvoidanceQuality

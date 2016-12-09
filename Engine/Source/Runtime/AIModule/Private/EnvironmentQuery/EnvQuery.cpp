@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "DataProviders/AIDataProvider_QueryParams.h"
 #include "EnvironmentQuery/EnvQuery.h"
+#include "UObject/UnrealType.h"
+#include "DataProviders/AIDataProvider.h"
+#include "DataProviders/AIDataProvider_QueryParams.h"
 #include "EnvironmentQuery/EnvQueryGenerator.h"
-#include "EnvironmentQuery/EnvQueryOption.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
+#include "EnvironmentQuery/EnvQueryOption.h"
 
 namespace FEQSParamsExporter
 {

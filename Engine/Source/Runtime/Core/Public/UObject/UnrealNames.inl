@@ -39,6 +39,9 @@ REGISTER_NAME(31,Engine)
 REGISTER_NAME(32,Editor)
 REGISTER_NAME(33,CoreUObject)
 
+// More class properties
+REGISTER_NAME(34,EnumProperty)
+
 // Special types.
 REGISTER_NAME(50,Cylinder)
 REGISTER_NAME(51,BoxSphereBounds)
@@ -133,6 +136,10 @@ REGISTER_NAME(283,PendingNetDriver)
 REGISTER_NAME(284,BeaconNetDriver)
 REGISTER_NAME(285,FlushNetDormancy)
 REGISTER_NAME(286,DemoNetDriver)
+REGISTER_NAME(287,GameSession)
+REGISTER_NAME(288,PartySession)
+REGISTER_NAME(289,GamePort)
+REGISTER_NAME(290,BeaconPort)
 
 // Texture settings.
 REGISTER_NAME(300,Linear)

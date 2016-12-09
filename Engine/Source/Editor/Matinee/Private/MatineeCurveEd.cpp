@@ -1,14 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MatineeModule.h"
+#include "CoreMinimal.h"
+#include "Matinee/InterpTrack.h"
 
-#include "Matinee/MatineeActor.h"
-#include "Matinee/InterpGroupInst.h"
 #include "Matinee/InterpTrackMoveAxis.h"
 #include "Matinee/InterpTrackColorProp.h"
 
-#include "Matinee.h"
+#include "MatineeTransBuffer.h"
 #include "Engine/InterpCurveEdSetup.h"
+#include "Matinee.h"
 
 /** Ensure the curve editor is synchronised with the track editor. */
 void FMatinee::SyncCurveEdView()

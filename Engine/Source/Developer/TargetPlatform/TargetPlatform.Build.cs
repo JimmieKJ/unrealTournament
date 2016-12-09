@@ -98,6 +98,7 @@ public class TargetPlatform : ModuleRules
 					DynamicallyLoadedModuleNames.Add("Android_DXTTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
 					DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
+					DynamicallyLoadedModuleNames.Add("Android_ASTCTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
@@ -112,13 +113,25 @@ public class TargetPlatform : ModuleRules
 					DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
                 }
 
-                DynamicallyLoadedModuleNames.Add("TextureFormatUncompressed");
+				DynamicallyLoadedModuleNames.Add("TextureFormatUncompressed");
 
-                if (UEBuildConfiguration.bCompileAgainstEngine)
-                {
-                    DynamicallyLoadedModuleNames.Add("AudioFormatOgg");
-                    DynamicallyLoadedModuleNames.Add("AudioFormatOpus");
-                }
+				if (UEBuildConfiguration.bCompileAgainstEngine)
+				{
+					DynamicallyLoadedModuleNames.Add("AudioFormatOgg");
+					DynamicallyLoadedModuleNames.Add("AudioFormatOpus");
+				}
+
+				if (Target.Type == TargetRules.TargetType.Editor || Target.Type == TargetRules.TargetType.Program)
+				{
+					DynamicallyLoadedModuleNames.Add("AndroidTargetPlatform");
+					DynamicallyLoadedModuleNames.Add("Android_MultiTargetPlatform");
+					DynamicallyLoadedModuleNames.Add("Android_PVRTCTargetPlatform");
+					DynamicallyLoadedModuleNames.Add("Android_ATCTargetPlatform");
+					DynamicallyLoadedModuleNames.Add("Android_DXTTargetPlatform");
+					DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
+					DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
+					DynamicallyLoadedModuleNames.Add("Android_ASTCTargetPlatform");
+				}
             }
 		}
         

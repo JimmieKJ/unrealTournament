@@ -6,9 +6,12 @@
 
 #pragma once
 
-#include "ShaderCore.h"
-#include "RenderResource.h"
-#include "UniformBuffer.h"
+#include "CoreMinimal.h"
+#include "RHI.h"
+
+class FShaderParameterMap;
+class FUniformBufferStruct;
+struct FShaderCompilerEnvironment;
 
 enum EShaderParameterFlags
 {

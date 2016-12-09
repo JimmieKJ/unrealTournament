@@ -4,18 +4,28 @@
 	PreCullTriangles.cpp : implementation of offline visibility culling of static triangles
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "UniformBuffer.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Misc/MemStack.h"
+#include "HAL/IConsoleManager.h"
+#include "RHIDefinitions.h"
+#include "RHI.h"
+#include "RenderingThread.h"
+#include "RenderResource.h"
+#include "ShowFlags.h"
+#include "UnrealClient.h"
 #include "ShaderParameters.h"
-#include "PostProcessing.h"
-#include "SceneFilterRendering.h"
+#include "SceneView.h"
+#include "RawIndexBuffer.h"
+#include "Shader.h"
+#include "SceneUtils.h"
+#include "GlobalShader.h"
+#include "HeightfieldLighting.h"
+#include "SceneRendering.h"
+#include "DeferredShadingRenderer.h"
+#include "ScenePrivate.h"
 #include "DistanceFieldLightingShared.h"
 #include "DistanceFieldSurfaceCacheLighting.h"
-#include "DistanceFieldGlobalIllumination.h"
-#include "RHICommandList.h"
-#include "SceneUtils.h"
-#include "DistanceFieldAtlas.h"
 #include "StaticMeshResources.h"
 
 TGlobalResource<FDistanceFieldObjectBufferResource> GPreCullTrianglesCulledObjectBuffers;
@@ -378,7 +388,7 @@ void FDeferredShadingSceneRenderer::PreCullStaticMeshes(FRHICommandListImmediate
 				FStaticMeshSceneProxy* StaticMeshProxy = (FStaticMeshSceneProxy*)StaticMeshComponent->SceneProxy;
 				FBoxSphereBounds Bounds = StaticMeshProxy->GetBounds();
 
-				for (int32 LODIndex = 0; LODIndex < StaticMeshComponent->StaticMesh->RenderData->LODResources.Num(); LODIndex++)
+				for (int32 LODIndex = 0; LODIndex < StaticMeshComponent->GetStaticMesh()->RenderData->LODResources.Num(); LODIndex++)
 				{
 					{
 						uint32 ClearValues[4] = { 0 };
@@ -409,7 +419,7 @@ void FDeferredShadingSceneRenderer::PreCullStaticMeshes(FRHICommandListImmediate
 						uint32 MaskClearValues[4] = { 255 };
 						RHICmdList.ClearUAV(GPreCulledTriangleBuffers.Buffers.TriangleVisibleMask.UAV, MaskClearValues);
 
-						const FStaticMeshLODResources& StaticMeshLODResources = StaticMeshComponent->StaticMesh->RenderData->LODResources[LODIndex];
+						const FStaticMeshLODResources& StaticMeshLODResources = StaticMeshComponent->GetStaticMesh()->RenderData->LODResources[LODIndex];
 
 						for (int32 SectionIndex = 0; SectionIndex < StaticMeshLODResources.Sections.Num(); SectionIndex++)
 						{

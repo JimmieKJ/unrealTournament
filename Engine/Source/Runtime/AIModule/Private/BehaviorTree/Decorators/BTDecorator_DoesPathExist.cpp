@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#if WITH_RECAST
-#include "AI/Navigation/RecastNavMesh.h"
-#endif // WITH_RECAST
-#include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/Decorators/BTDecorator_DoesPathExist.h"
+#include "UObject/Package.h"
+#include "GameFramework/Actor.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "AI/Navigation/RecastNavMesh.h"
+#include "BehaviorTree/BlackboardComponent.h"
+#include "AIController.h"
 
 UBTDecorator_DoesPathExist::UBTDecorator_DoesPathExist(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

@@ -4,12 +4,16 @@
 	PostProcessVisualizeShadingModels.cpp: Post processing VisualizeShadingModels implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "VisualizeShadingModels.h"
-#include "PostProcessing.h"
+#include "PostProcess/VisualizeShadingModels.h"
+#include "StaticBoundShaderState.h"
+#include "CanvasTypes.h"
+#include "UnrealEngine.h"
+#include "RenderTargetTemp.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "SceneRenderTargetParameters.h"
+#include "PostProcess/PostProcessing.h"
 
 /** Encapsulates the post processing eye adaptation pixel shader. */
 class FPostProcessVisualizeShadingModelsPS : public FGlobalShader
@@ -85,7 +89,7 @@ IMPLEMENT_SHADER_TYPE(,FPostProcessVisualizeShadingModelsPS,TEXT("VisualizeShadi
 FRCPassPostProcessVisualizeShadingModels::FRCPassPostProcessVisualizeShadingModels(FRHICommandList& RHICmdList)
 {
 	// AdjustGBufferRefCount(-1) call is done when the pass gets executed
-	FSceneRenderTargets::Get_Todo_PassContext().AdjustGBufferRefCount(RHICmdList, 1);
+	FSceneRenderTargets::Get(RHICmdList).AdjustGBufferRefCount(RHICmdList, 1);
 }
 
 void FRCPassPostProcessVisualizeShadingModels::Process(FRenderingCompositePassContext& Context)

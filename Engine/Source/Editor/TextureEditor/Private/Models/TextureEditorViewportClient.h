@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "UObject/GCObject.h"
+#include "UnrealClient.h"
+
+class FCanvas;
+class ITextureEditorToolkit;
+class STextureEditorViewport;
+class UTexture2D;
 
 class FTextureEditorViewportClient
 	: public FViewportClient

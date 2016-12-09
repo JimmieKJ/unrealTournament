@@ -12,7 +12,6 @@
 #include "VorbisAudioInfo.h"
 #include "AudioEffect.h"
 #include "CoreAudioEffects.h"
-#include "Engine.h"
 
 DEFINE_LOG_CATEGORY(LogCoreAudio);
 
@@ -57,7 +56,8 @@ bool FCoreAudioDevice::InitializeHardware()
 	}
 	
 	bNeedsUpdate = false;
-
+	bAuGraphErrorLogged = false;
+	
 	// Load ogg and vorbis dlls if they haven't been loaded yet
 	LoadVorbisLibraries();
 
@@ -329,16 +329,27 @@ void FCoreAudioDevice::UpdateAUGraph()
 {
 	if (AudioUnitGraph && bNeedsUpdate)
 	{
-		SAFE_CA_CALL(AUGraphUpdate( AudioUnitGraph, NULL ));
-		bNeedsUpdate = false;
-		SourcesAttached.Empty();
-		SourcesDetached.Empty();
-
-		for (AudioConverterRef CoreAudioConverter : ConvertersToDispose)
+		// Only delete converter and empty attached/detached sources arrays if we succeeded in updating the graph
+		OSStatus Status = AUGraphUpdate( AudioUnitGraph, NULL );
+		if (Status == noErr)
 		{
-			AudioConverterDispose( CoreAudioConverter );
+			bAuGraphErrorLogged = false;
+			bNeedsUpdate = false;
+			SourcesAttached.Empty();
+			SourcesDetached.Empty();
+
+			for (AudioConverterRef CoreAudioConverter : ConvertersToDispose)
+			{
+				AudioConverterDispose( CoreAudioConverter );
+			}
+			ConvertersToDispose.Empty();
 		}
-		ConvertersToDispose.Empty();
+		// only log a warning if we've not already logged one since the last time the graph failed to update
+		else if (!bAuGraphErrorLogged)
+		{
+			bAuGraphErrorLogged = true;
+			UE_LOG(LogCoreAudio, Warning, TEXT( "Failed to update AUGraph due to status code '%d'. Retrying next frame." ), Status );
+		}
 	}
 }
 

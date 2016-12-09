@@ -2,4 +2,4 @@
 // paCriticalSection.cpp
 //
 
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"

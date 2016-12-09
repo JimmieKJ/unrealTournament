@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "GraphEditorCommon.h"
-#include "SGraphNodeSequencePlayer.h"
-#include "SGraphPreviewer.h"
-#include "Editor/UnrealEd/Public/Kismet2/KismetDebugUtilities.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
+#include "AnimationNodes/SGraphNodeSequencePlayer.h"
+#include "Widgets/Input/SSlider.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
+#include "Kismet2/KismetDebugUtilities.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Animation/AnimNode_SequencePlayer.h"
 #include "AnimGraphNode_SequencePlayer.h"
 
 /////////////////////////////////////////////////////

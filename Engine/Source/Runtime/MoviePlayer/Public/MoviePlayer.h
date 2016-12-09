@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "Engine.h"
-#include "ModuleInterface.h"
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Rendering/RenderingCommon.h"
+#include "Rendering/SlateRenderer.h"
+#include "Widgets/SWidget.h"
 #include "Slate/SlateTextures.h"
 
 UENUM()
@@ -80,6 +82,8 @@ public:
 
 	/** Called to allow the movie streamer to cleanup any resources once there are no movies left to play. */
 	virtual void Cleanup() = 0;
+
+	virtual FTexture2DRHIRef GetTexture() { return nullptr; }
 
 	virtual ~IMovieStreamer() {}
 

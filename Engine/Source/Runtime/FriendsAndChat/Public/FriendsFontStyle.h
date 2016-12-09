@@ -2,7 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/NameTypes.h"
+#include "Math/Color.h"
+#include "UObject/ObjectMacros.h"
+#include "Styling/SlateWidgetStyle.h"
+#include "Fonts/SlateFontInfo.h"
 #include "FriendsFontStyle.generated.h"
+
+struct FSlateBrush;
 
 /**
  * Interface for the services manager.

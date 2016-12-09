@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Factories/FbxAssetImportData.h"
 
 UFbxAssetImportData::UFbxAssetImportData(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -8,7 +8,6 @@ UFbxAssetImportData::UFbxAssetImportData(const FObjectInitializer& ObjectInitial
 	, ImportRotation(0)
 	, ImportUniformScale(1.0f)
 	, bImportAsScene(false)
-	, bImportMaterials(false)
 	, FbxSceneImportDataReference(nullptr)
 {
 	

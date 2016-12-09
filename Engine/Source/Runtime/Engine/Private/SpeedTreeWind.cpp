@@ -20,7 +20,6 @@
 ///////////////////////////////////////////////////////////////////////  
 // Preprocessor / Includes
 
-#include "EnginePrivate.h"
 #include "SpeedTreeWind.h"
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FSpeedTreeUniformParameters,TEXT("SpeedTreeData"));

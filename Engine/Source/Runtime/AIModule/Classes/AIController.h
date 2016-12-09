@@ -2,32 +2,36 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "Templates/SubclassOf.h"
+#include "EngineDefines.h"
+#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
 #include "AITypes.h"
+#include "GameplayTaskOwnerInterface.h"
 #include "GameplayTask.h"
 #include "GameFramework/Pawn.h"
-#include "AI/Navigation/NavigationTypes.h"
-#include "AI/Navigation/NavigationSystem.h"
-#include "Navigation/PathFollowingComponent.h"
 #include "GameFramework/Controller.h"
-#include "Actions/PawnActionsComponent.h"
+#include "Navigation/PathFollowingComponent.h"
 #include "Perception/AIPerceptionListenerInterface.h"
-#include "BehaviorTree/BehaviorTreeTypes.h"
-#include "GameplayTaskOwnerInterface.h"
 #include "GenericTeamAgentInterface.h"
 #include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
 #include "AIController.generated.h"
 
-class APawn;
-class UPathFollowingComponent;
-class UBrainComponent;
-class UBlackboardComponent;
+class FDebugDisplayInfo;
 class UAIPerceptionComponent;
+class UBehaviorTree;
+class UBlackboardComponent;
+class UBlackboardData;
+class UBrainComponent;
+class UCanvas;
+class UGameplayTaskResource;
+class UGameplayTasksComponent;
 class UPawnAction;
 class UPawnActionsComponent;
-class UNavigationQueryFilter;
-class UBehaviorTree;
-class UBlackboardData;
-class UCanvas;
+struct FVisualLogEntry;
+
 #if ENABLE_VISUAL_LOG
 struct FVisualLogEntry;
 #endif // ENABLE_VISUAL_LOG
@@ -142,7 +146,7 @@ protected:
 	UPROPERTY()
 	UGameplayTasksComponent* CachedGameplayTasksComponent;
 	
-	UPROPERTY(BlueprintReadWrite, Category = AI)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
 	TSubclassOf<UNavigationQueryFilter> DefaultNavigationFilterClass;
 
 public:
@@ -271,7 +275,7 @@ public:
 	bool UseBlackboard(UBlackboardData* BlackboardAsset, UBlackboardComponent*& BlackboardComponent);
 
 	/** does this AIController allow given UBlackboardComponent sync data with it */
-	virtual bool ShouldSyncBlackboardWith(const UBlackboardComponent& OtherBlackboardComponent) const { return true; }
+	virtual bool ShouldSyncBlackboardWith(const UBlackboardComponent& OtherBlackboardComponent) const;
 
 	UFUNCTION(BlueprintCallable, Category = "AI|Tasks")
 	void ClaimTaskResource(TSubclassOf<UGameplayTaskResource> ResourceClass);

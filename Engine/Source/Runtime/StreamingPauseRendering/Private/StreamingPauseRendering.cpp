@@ -1,14 +1,59 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Engine.h"
 #include "StreamingPauseRendering.h"
-#include "SceneViewport.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "RenderingThread.h"
+#include "Modules/ModuleManager.h"
+#include "EngineGlobals.h"
+#include "CanvasTypes.h"
+#include "Rendering/RenderingCommon.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SViewport.h"
+#include "Slate/SceneViewport.h"
+#include "Slate/SlateTextures.h"
 #include "MoviePlayer.h"
-#include "SThrobber.h"
+#include "Widgets/Images/SThrobber.h"
 
 
 IMPLEMENT_MODULE(FStreamingPauseRenderingModule, StreamingPauseRendering);
 
+class FBackgroundView : public ISlateViewport
+{
+public:
+	FBackgroundView(FTexture2DRHIRef RenderTargetTexture, FIntPoint InSize)
+		: RenderTarget( new FSlateRenderTargetRHI(RenderTargetTexture, InSize.X, InSize.Y))
+		, Size(InSize)
+	{
+		BeginInitResource(RenderTarget);
+	}
+
+	~FBackgroundView()
+	{
+		ReleaseResourceAndFlush(RenderTarget);
+		delete RenderTarget;
+	}
+
+	/* ISlateViewport interface. */
+	virtual FIntPoint GetSize() const override
+	{
+		return Size;
+	}
+
+	virtual FSlateShaderResource* GetViewportRenderTargetTexture() const override
+	{
+		return RenderTarget;
+	}
+
+	virtual bool RequiresVsync() const override
+	{
+		return false;
+	}
+
+private:
+	FSlateRenderTargetRHI* RenderTarget;
+	FIntPoint Size;
+};
 
 static TAutoConsoleVariable<int32> CVarRenderLastFrameInStreamingPause(
 	TEXT("r.RenderLastFrameInStreamingPause"),
@@ -18,9 +63,9 @@ static TAutoConsoleVariable<int32> CVarRenderLastFrameInStreamingPause(
 
 
 FStreamingPauseRenderingModule::FStreamingPauseRenderingModule()
-	: Viewport(nullptr)
+	: SceneViewport(nullptr)
 	, ViewportWidget(nullptr)
-	, ViewportClient(nullptr)
+	, BackgroundView(nullptr)
 { }
 
 
@@ -55,7 +100,7 @@ void FStreamingPauseRenderingModule::BeginStreamingPause( FViewport* GameViewpor
 		.EnableGammaCorrection(false);
 
 	ViewportWidget->SetContent
-		(
+	(
 		SNew(SVerticalBox)
 		+SVerticalBox::Slot()
 		.VAlign(VAlign_Bottom)
@@ -73,32 +118,31 @@ void FStreamingPauseRenderingModule::BeginStreamingPause( FViewport* GameViewpor
  
  	if( SizeXY.X > 0 && SizeXY.Y > 0 && bRenderLastFrame )
 	{
-		ViewportClient = GameViewport->GetClient();
+		FViewportClient* ViewportClient = GameViewport->GetClient();
 
-		Viewport = MakeShareable(new FSceneViewport(ViewportClient, ViewportWidget));
+		SceneViewport = MakeShareable(new FSceneViewport(ViewportClient, ViewportWidget));
 
-		ViewportWidget->SetViewportInterface(Viewport.ToSharedRef());
-	
-		Viewport->UpdateViewportRHI(false,SizeXY.X,SizeXY.Y, EWindowMode::Fullscreen);
+		SceneViewport->UpdateViewportRHI(false,SizeXY.X,SizeXY.Y, EWindowMode::Fullscreen, PF_Unknown);
 
-		Viewport->EnqueueBeginRenderFrame();
+		SceneViewport->EnqueueBeginRenderFrame();
 
-		FCanvas Canvas(Viewport.Get(), nullptr, ViewportClient->GetWorld(), ViewportClient->GetWorld()->FeatureLevel);
+		FCanvas Canvas(SceneViewport.Get(), nullptr, ViewportClient->GetWorld(), ViewportClient->GetWorld()->FeatureLevel);
 		{
-			ViewportClient->Draw(Viewport.Get(), &Canvas);
+			ViewportClient->Draw(SceneViewport.Get(), &Canvas);
 		}
 		Canvas.Flush_GameThread();
 
-		//Don't need debug canvas I presume?
-		//Viewport->GetDebugCanvas()->Flush(true);
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 			EndDrawingCommand,
-			FViewport*,Viewport,Viewport.Get(),
-			//FIntPoint,InRestoreSize,RestoreSize,
+			FViewport*,Viewport, SceneViewport.Get(),
 		{
 			Viewport->EndRenderFrame(RHICmdList, false, false);
 		});
+
+		BackgroundView = MakeShareable(new FBackgroundView(SceneViewport->GetRenderTargetTexture(), SizeXY));
+		ViewportWidget->SetViewportInterface(BackgroundView.ToSharedRef());
+
 	}
 
 	//Create the loading screen and begin rendering the widget.
@@ -116,8 +160,8 @@ void FStreamingPauseRenderingModule::EndStreamingPause()
 	GetMoviePlayer()->WaitForMovieToFinish();
 
 	ViewportWidget = nullptr;
-	Viewport = nullptr;
-	ViewportClient = nullptr;
+	SceneViewport = nullptr;
+	BackgroundView = nullptr;
 	
 	FlushRenderingCommands();
 }

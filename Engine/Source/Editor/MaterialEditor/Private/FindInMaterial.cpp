@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "MaterialEditorModule.h"
-#include "Materials/MaterialExpressionComment.h"
+
 #include "FindInMaterial.h"
-#include "MaterialEditor.h"
-#include "SSearchBox.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "MaterialGraph/MaterialGraphNode_Comment.h"
+#include "MaterialGraph/MaterialGraphNode.h"
+#include "Materials/MaterialExpressionComment.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "FindInMaterial"
 

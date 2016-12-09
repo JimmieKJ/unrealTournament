@@ -2,10 +2,12 @@
 
 #pragma once
 
-#include "SMenuAnchor.h"
-#include "BlueprintActionMenuUtils.h" // for EContextTargetFlags
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Layout/SBorder.h"
+#include "BlueprintActionMenuUtils.h"
 
-struct FBlueprintActionContext;
+enum class ECheckBoxState : uint8;
 
 /*******************************************************************************
  * FContextMenuTargetProfile

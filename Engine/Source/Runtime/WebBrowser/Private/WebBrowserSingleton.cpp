@@ -1,37 +1,41 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WebBrowserPrivatePCH.h"
-#include "SlateCore.h"
 #include "WebBrowserSingleton.h"
-#include "WebBrowserApp.h"
-#include "WebBrowserHandler.h"
-#include "WebBrowserWindow.h"
-#include "IPlatformTextField.h"
-#include "IVirtualKeyboardEntry.h"
-#include "SlateApplication.h"
-#include "Runtime/Launch/Resources/Version.h"
+#include "Misc/Paths.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/CommandLine.h"
+#include "Internationalization/Culture.h"
+#include "Misc/App.h"
 #include "WebBrowserModule.h"
+#include "Misc/EngineVersion.h"
+#include "Framework/Application/SlateApplication.h"
 #include "IWebBrowserCookieManager.h"
+#include "WebBrowserLog.h"
+
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
 
 #if WITH_CEF3
+#include "CEF/CEFBrowserApp.h"
+#include "CEF/CEFBrowserHandler.h"
+#include "CEF/CEFWebBrowserWindow.h"
 #	if PLATFORM_WINDOWS
 #		include "AllowWindowsPlatformTypes.h"
 #	endif
 #	pragma push_macro("OVERRIDE")
 #		undef OVERRIDE // cef headers provide their own OVERRIDE macro
+THIRD_PARTY_INCLUDES_START
 #		include "include/cef_app.h"
+THIRD_PARTY_INCLUDES_END
 #	pragma pop_macro("OVERRIDE")
 #	if PLATFORM_WINDOWS
 #		include "HideWindowsPlatformTypes.h"
 #	endif
 #endif
 
-#if PLATFORM_MAC || PLATFORM_LINUX
-#	include <pthread.h>
-#endif
-
 #if PLATFORM_ANDROID
-#	include <Android/AndroidPlatformWebBrowser.h>
+#	include "Android/AndroidWebBrowserWindow.h"
 #elif PLATFORM_IOS
 #	include <IOS/IOSPlatformWebBrowser.h>
 #elif PLATFORM_PS4
@@ -54,6 +58,10 @@
 #	elif PLATFORM_LINUX // @todo Linux
 #		define CEF3_RESOURCES_DIR CEF3_BIN_DIR TEXT("/Linux/Resources")
 #		define CEF3_SUBPROCES_EXE TEXT("Binaries/Linux/UnrealCEFSubProcess")
+#	endif
+	// Caching is enabled by default.
+#	ifndef CEF3_DEFAULT_CACHE
+#		define CEF3_DEFAULT_CACHE 1
 #	endif
 #endif
 
@@ -94,7 +102,7 @@ namespace {
 		}
 		__except( EXCEPTION_EXECUTE_HANDLER )
 		CA_SUPPRESS(6322)
-		{	
+		{
 		}
 #endif
 	}
@@ -114,12 +122,15 @@ namespace {
 				BundleID = [[NSProcessInfo processInfo] processName];
 			}
 			check(BundleID);
-			
+
 			NSString* AppCacheDir = [CacheBaseDir stringByAppendingPathComponent: BundleID];
 			FPlatformString::CFStringToTCHAR((CFStringRef)AppCacheDir, Result);
 		}
 		return Result;
 	}
+#else
+	// Other platforms use the application data directory
+#	define ApplicationCacheDir() *FPaths::GameSavedDir()
 #endif
 }
 
@@ -133,7 +144,7 @@ public:
 	{ }
 
 	virtual TSharedPtr<IWebBrowserWindow> Create(
-		TSharedPtr<FWebBrowserWindow>& BrowserWindowParent,
+		TSharedPtr<FCEFWebBrowserWindow>& BrowserWindowParent,
 		TSharedPtr<FWebBrowserWindowInfo>& BrowserWindowInfo) override
 	{
 		return IWebBrowserModule::Get().GetSingleton()->CreateBrowserWindow(
@@ -171,7 +182,7 @@ public:
 	{ }
 
 	virtual TSharedPtr<IWebBrowserWindow> Create(
-		TSharedPtr<FWebBrowserWindow>& BrowserWindowParent,
+		TSharedPtr<FCEFWebBrowserWindow>& BrowserWindowParent,
 		TSharedPtr<FWebBrowserWindowInfo>& BrowserWindowInfo) override
 	{
 		return nullptr;
@@ -197,6 +208,7 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	: WebBrowserWindowFactory(MakeShareable(new FNoWebBrowserWindowFactory()))
 #endif
 	, bDevToolsShortcutEnabled(UE_BUILD_DEBUG)
+	, bJSBindingsToLoweringEnabled(true)
 {
 #if WITH_CEF3
 	// The FWebBrowserSingleton must be initialized on the game thread
@@ -210,9 +222,9 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 #endif
 
 	bool bVerboseLogging = FParse::Param(FCommandLine::Get(), TEXT("cefverbose")) || FParse::Param(FCommandLine::Get(), TEXT("debuglog"));
-	// WebBrowserApp implements application-level callbacks.
-	WebBrowserApp = new FWebBrowserApp;
-	WebBrowserApp->OnRenderProcessThreadCreated().BindRaw(this, &FWebBrowserSingleton::HandleRenderProcessCreated);
+	// CEFBrowserApp implements application-level callbacks.
+	CEFBrowserApp = new FCEFBrowserApp;
+	CEFBrowserApp->OnRenderProcessThreadCreated().BindRaw(this, &FWebBrowserSingleton::HandleRenderProcessCreated);
 
 	// Specify CEF global settings here.
 	CefSettings Settings;
@@ -224,6 +236,12 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	CefString(&Settings.log_file) = *CefLogFile;
 	Settings.log_severity = bVerboseLogging ? LOGSEVERITY_VERBOSE : LOGSEVERITY_WARNING;
 
+	uint16 DebugPort;
+	if(FParse::Value(FCommandLine::Get(), TEXT("cefdebug="), DebugPort))
+	{
+		Settings.remote_debugging_port = DebugPort;
+	}
+
 	// Specify locale from our settings
 	FString LocaleCode = GetCurrentLocaleCode();
 	CefString(&Settings.locale) = *LocaleCode;
@@ -232,15 +250,12 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	FString ProductVersion = FString::Printf( TEXT("%s UnrealEngine/%s"), FApp::GetGameName(), *FEngineVersion::Current().ToString());
 	CefString(&Settings.product_version) = *ProductVersion;
 
+#if CEF3_DEFAULT_CACHE
 	// Enable on disk cache
-#if PLATFORM_MAC
-	// OSX wants cache files in a special location
 	FString CachePath(FPaths::Combine(ApplicationCacheDir(), TEXT("webcache")));
-#else
-	FString CachePath(FPaths::Combine(*FPaths::GameSavedDir(), TEXT("webcache")));
-#endif
 	CachePath = FPaths::ConvertRelativePathToFull(CachePath);
 	CefString(&Settings.cache_path) = *CachePath;
+#endif
 
 	// Specify path to resources
 	FString ResourcesPath(FPaths::Combine(*FPaths::EngineDir(), CEF3_RESOURCES_DIR));
@@ -273,7 +288,7 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	CefString(&Settings.browser_subprocess_path) = *SubProcessPath;
 
 	// Initialize CEF.
-	bool bSuccess = CefInitialize(MainArgs, Settings, WebBrowserApp.get(), nullptr);
+	bool bSuccess = CefInitialize(MainArgs, Settings, CEFBrowserApp.get(), nullptr);
 	check(bSuccess);
 
 	// Set the thread name back to GameThread.
@@ -288,7 +303,7 @@ void FWebBrowserSingleton::HandleRenderProcessCreated(CefRefPtr<CefListValue> Ex
 {
 	for (int32 Index = WindowInterfaces.Num() - 1; Index >= 0; --Index)
 	{
-		TSharedPtr<FWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
+		TSharedPtr<FCEFWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
 		if (BrowserWindow.IsValid())
 		{
 			CefRefPtr<CefDictionaryValue> Bindings = BrowserWindow->GetProcessInfo();
@@ -315,10 +330,10 @@ FWebBrowserSingleton::~FWebBrowserSingleton()
 		}
 	}
 
-	// Just in case, although we deallocate WebBrowserApp right after this.
-	WebBrowserApp->OnRenderProcessThreadCreated().Unbind();
+	// Just in case, although we deallocate CEFBrowserApp right after this.
+	CEFBrowserApp->OnRenderProcessThreadCreated().Unbind();
 	// CefRefPtr takes care of delete
-	WebBrowserApp = nullptr;
+	CEFBrowserApp = nullptr;
 	// Shut down CEF.
 	CefShutdown();
 
@@ -331,7 +346,7 @@ TSharedRef<IWebBrowserWindowFactory> FWebBrowserSingleton::GetWebBrowserWindowFa
 }
 
 TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
-	TSharedPtr<FWebBrowserWindow>& BrowserWindowParent,
+	TSharedPtr<FCEFWebBrowserWindow>& BrowserWindowParent,
 	TSharedPtr<FWebBrowserWindowInfo>& BrowserWindowInfo
 	)
 {
@@ -343,7 +358,7 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 	bool bThumbMouseButtonNavigation = BrowserWindowParent->IsThumbMouseButtonNavigationEnabled();
 	bool bUseTransparency = BrowserWindowParent->UseTransparency();
 	FString InitialURL = BrowserWindowInfo->Browser->GetMainFrame()->GetURL().ToWString().c_str();
-	TSharedPtr<FWebBrowserWindow> NewBrowserWindow(new FWebBrowserWindow(BrowserWindowInfo->Browser, BrowserWindowInfo->Handler, InitialURL, ContentsToLoad, bShowErrorMessage, bThumbMouseButtonNavigation, bUseTransparency));
+	TSharedPtr<FCEFWebBrowserWindow> NewBrowserWindow(new FCEFWebBrowserWindow(BrowserWindowInfo->Browser, BrowserWindowInfo->Handler, InitialURL, ContentsToLoad, bShowErrorMessage, bThumbMouseButtonNavigation, bUseTransparency, bJSBindingsToLoweringEnabled));
 	BrowserWindowInfo->Handler->SetBrowserWindow(NewBrowserWindow);
 
 	WindowInterfaces.Add(NewBrowserWindow);
@@ -405,13 +420,19 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 #endif
 		{
 			// Use off screen rendering so we can integrate with our windows
-			WindowInfo.SetAsWindowless(nullptr, WindowSettings.bUseTransparency);
+			WindowInfo.SetAsWindowless(
+#if PLATFORM_LINUX // may be applicable to other platforms, but I cannot test those at the moment
+						kNullWindowHandle,
+#else
+						nullptr,
+#endif // PLATFORM_LINUX
+						WindowSettings.bUseTransparency);
 			BrowserSettings.windowless_frame_rate = WindowSettings.BrowserFrameRate;
 		}
 
 
 		// WebBrowserHandler implements browser-level callbacks.
-		CefRefPtr<FWebBrowserHandler> NewHandler(new FWebBrowserHandler(WindowSettings.bUseTransparency));
+		CefRefPtr<FCEFBrowserHandler> NewHandler(new FCEFBrowserHandler(WindowSettings.bUseTransparency));
 
 		CefRefPtr<CefRequestContext> RequestContext = nullptr;
 		if (WindowSettings.Context.IsSet())
@@ -442,21 +463,34 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 		if (Browser.get())
 		{
 			// Create new window
-			TSharedPtr<FWebBrowserWindow> NewBrowserWindow = MakeShareable(new FWebBrowserWindow(
-				Browser, 
-				NewHandler, 
-				WindowSettings.InitialURL, 
-				WindowSettings.ContentsToLoad, 
-				WindowSettings.bShowErrorMessage, 
-				WindowSettings.bThumbMouseButtonNavigation, 
-				WindowSettings.bUseTransparency));
+			TSharedPtr<FCEFWebBrowserWindow> NewBrowserWindow = MakeShareable(new FCEFWebBrowserWindow(
+				Browser,
+				NewHandler,
+				WindowSettings.InitialURL,
+				WindowSettings.ContentsToLoad,
+				WindowSettings.bShowErrorMessage,
+				WindowSettings.bThumbMouseButtonNavigation,
+				WindowSettings.bUseTransparency,
+				bJSBindingsToLoweringEnabled));
 			NewHandler->SetBrowserWindow(NewBrowserWindow);
 
 			WindowInterfaces.Add(NewBrowserWindow);
 			return NewBrowserWindow;
 		}
 	}
-#elif PLATFORM_ANDROID || PLATFORM_IOS || PLATFORM_PS4
+#elif PLATFORM_ANDROID
+	// Create new window
+	TSharedPtr<FAndroidWebBrowserWindow> NewBrowserWindow = MakeShareable(new FAndroidWebBrowserWindow(
+		WindowSettings.InitialURL,
+		WindowSettings.ContentsToLoad,
+		WindowSettings.bShowErrorMessage,
+		WindowSettings.bThumbMouseButtonNavigation,
+		WindowSettings.bUseTransparency,
+		bJSBindingsToLoweringEnabled));
+
+	//WindowInterfaces.Add(NewBrowserWindow);
+	return NewBrowserWindow;
+#elif PLATFORM_IOS || PLATFORM_PS4
 	// Create new window
 	TSharedPtr<FWebBrowserWindow> NewBrowserWindow = MakeShareable(new FWebBrowserWindow(
 		WindowSettings.InitialURL, 
@@ -484,7 +518,7 @@ bool FWebBrowserSingleton::Tick(float DeltaTime)
 		}
 		else if (bIsSlateAwake) // only check for Tick activity if Slate is currently ticking
 		{
-			TSharedPtr<FWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
+			TSharedPtr<FCEFWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
 			if(BrowserWindow.IsValid())
 			{
 				// Test if we've ticked recently. If not assume the browser window has become hidden.
@@ -499,7 +533,7 @@ bool FWebBrowserSingleton::Tick(float DeltaTime)
 	{
 		if (WindowInterfaces[Index].IsValid())
 		{
-			TSharedPtr<FWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
+			TSharedPtr<FCEFWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
 			if (BrowserWindow.IsValid())
 			{
 				BrowserWindow->UpdateVideoBuffering();
@@ -559,7 +593,7 @@ bool FWebBrowserSingleton::RegisterContext(const FBrowserContextSettings& Settin
 
 	if (ExistingContext != nullptr)
 	{
-		// You can't register the same context twice and 
+		// You can't register the same context twice and
 		// you can't update the settings for a context that already exists
 		return false;
 	}
@@ -593,3 +627,4 @@ bool FWebBrowserSingleton::UnregisterContext(const FString& ContextId)
 #undef CEF3_FRAMEWORK_DIR
 #undef CEF3_RESOURCES_DIR
 #undef CEF3_SUBPROCES_EXE
+#undef ApplicationCacheDir

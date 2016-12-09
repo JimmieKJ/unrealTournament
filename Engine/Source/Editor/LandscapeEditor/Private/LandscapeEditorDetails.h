@@ -2,16 +2,23 @@
 
 #pragma once
 
-#include "PropertyEditorModule.h"
-#include "LandscapeEditorDetailCustomization_Base.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Textures/SlateIcon.h"
+#include "Widgets/SWidget.h"
+#include "UnrealClient.h"
+#include "IDetailCustomization.h"
+#include "Editor/LandscapeEditor/Private/LandscapeEditorDetailCustomization_Base.h"
 
-// Forward declarations
-class FLandscapeEditorDetailCustomization_NewLandscape;
-class FLandscapeEditorDetailCustomization_ResizeLandscape;
+class FLandscapeEditorDetailCustomization_AlphaBrush;
 class FLandscapeEditorDetailCustomization_CopyPaste;
 class FLandscapeEditorDetailCustomization_MiscTools;
-class FLandscapeEditorDetailCustomization_AlphaBrush;
+class FLandscapeEditorDetailCustomization_NewLandscape;
+class FLandscapeEditorDetailCustomization_ResizeLandscape;
 class FLandscapeEditorDetailCustomization_TargetLayers;
+class FUICommandList;
+class IDetailLayoutBuilder;
+class ULandscapeInfo;
 
 class FLandscapeEditorDetails : public FLandscapeEditorDetailCustomization_Base
 {

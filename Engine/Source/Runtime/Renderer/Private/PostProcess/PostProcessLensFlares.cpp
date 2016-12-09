@@ -4,12 +4,13 @@
 	PostProcessLensFlares.cpp: Post processing lens fares implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessLensFlares.h"
-#include "PostProcessing.h"
+#include "PostProcess/PostProcessLensFlares.h"
+#include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "PostProcess/PostProcessing.h"
+#include "ClearQuad.h"
 
 /** Encapsulates a simple copy pixel shader. */
 class FPostProcessLensFlareBasePS : public FGlobalShader
@@ -146,7 +147,7 @@ void FRCPassPostProcessLensFlares::Process(FRenderingCompositePassContext& Conte
 	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
 		
 	// is optimized away if possible (RT size=view size, )
-	Context.RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, ViewRect1);
+	DrawClearQuad(Context.RHICmdList, Context.GetFeatureLevel(), true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, ViewRect1);
 
 	Context.SetViewportAndCallRHI(ViewRect1);
 

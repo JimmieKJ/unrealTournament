@@ -2,18 +2,23 @@
 
 #pragma once
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
 
 /* Dependencies
  *****************************************************************************/
 
-#include "Core.h"
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "SlateBasics.h"
-#include "SlateStyle.h"
+#include "Styling/SlateStyle.h"
 
 /* Interfaces
  *****************************************************************************/
-#include "IFriendsAndChatModule.h"
+#include "Interfaces/IFriendsAndChatModule.h"
 #include "FriendsFontStyle.h"
 #include "FriendsComboStyle.h"
 #include "FriendsListStyle.h"

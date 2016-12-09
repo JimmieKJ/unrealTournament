@@ -1,11 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "BlueprintUtilities.h"
-#include "LatentActions.h"
 #include "Animation/AnimBlueprint.h"
+#include "UObject/FrameworkObjectVersion.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
-#include "FrameworkObjectVersion.h"
 
 #if WITH_EDITORONLY_DATA
 #include "AnimationEditorUtils.h"
@@ -17,6 +14,7 @@
 UAnimBlueprint::UAnimBlueprint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	bUseMultiThreadedAnimationUpdate = true;
 }
 
 UAnimBlueprintGeneratedClass* UAnimBlueprint::GetAnimBlueprintGeneratedClass() const

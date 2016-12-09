@@ -2,7 +2,10 @@
 
 
 #pragma once
-#include "MaterialInstance.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Materials/MaterialInstance.h"
 #include "MaterialInstanceDynamic.generated.h"
 
 UCLASS(hidecategories=Object, collapsecategories, BlueprintType)
@@ -120,5 +123,16 @@ class ENGINE_API UMaterialInstanceDynamic : public UMaterialInstance
 	virtual bool IsTwoSided() const override;
 	virtual bool IsDitheredLODTransition() const override;
 	virtual bool IsMasked() const override;
+
+	/**
+	 * In order to remap to the correct texture streaming data, we must keep track of each texture renamed.
+	 * The following map converts from a texture from the dynamic material to the texture from the static material.
+	 * The following map converts from a texture from the dynamic material to the texture from the static material.
+	 */
+	TMap<FName, TArray<FName> > RenamedTextures;
+	
+	// This overrides does the remapping before looking at the parent data.
+	virtual float GetTextureDensity(FName TextureName, const struct FMeshUVChannelInfo& UVChannelData) const override;
+
 };
 

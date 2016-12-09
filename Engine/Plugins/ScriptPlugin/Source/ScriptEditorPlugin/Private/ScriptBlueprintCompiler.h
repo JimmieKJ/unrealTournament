@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
+
+#include "CoreMinimal.h"
 #include "KismetCompiler.h"
+#include "ScriptBlueprint.h"
+#include "Templates/Casts.h"
+#include "UniquePtr.h"
 
 /**
 * Script Blueprint Compiler
@@ -49,7 +55,7 @@ protected:
 	/** New script class */
 	UScriptBlueprintGeneratedClass* NewScriptBlueprintClass;
 	/** Script context */
-	TAutoPtr<FScriptContextBase> ScriptContext;
+	TUniquePtr<FScriptContextBase> ScriptContext;
 	/** Script-defined properties and functions */
 	TArray<FScriptField> ScriptDefinedFields;
 	/** Script context property generated for the compiled class */

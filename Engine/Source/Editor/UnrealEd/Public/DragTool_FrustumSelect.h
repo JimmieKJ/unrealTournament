@@ -3,7 +3,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "LevelEditorViewport.h"
 #include "EditorDragTools.h"
+
+class FCanvas;
+class UModel;
 
 /**
  * Draws a box in the current viewport and when the mouse button is released,

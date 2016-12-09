@@ -165,7 +165,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						{
 							for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 							{
-								AController* C = *Iterator;
+								AController* C = Iterator->Get();
 								if (C && !GS->OnSameTeam(P, C) && Cast<AUTPlayerState>(C->PlayerState))
 								{
 									PS = ((AUTPlayerState*)(C->PlayerState));
@@ -212,7 +212,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 							{
 								for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 								{
-									AController* C = *Iterator;
+									AController* C = Iterator->Get();
 									if (C && !GS->OnSameTeam(P, C) && Cast<AUTPlayerState>(C->PlayerState))
 									{
 										Warner = ((AUTPlayerState*)(C->PlayerState));

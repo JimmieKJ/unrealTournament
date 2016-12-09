@@ -1,10 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-#include "Slate/SlateBrushAsset.h"
+#include "Components/Viewport.h"
+#include "Misc/App.h"
+#include "CanvasTypes.h"
+#include "Components/LineBatchComponent.h"
+#include "Engine/LocalPlayer.h"
+#include "EngineUtils.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/SViewport.h"
 #include "PreviewScene.h"
 #include "EngineModule.h"
-#include "SceneViewport.h"
+#include "Slate/SceneViewport.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -308,6 +316,10 @@ class SAutoRefreshViewport : public SViewport
 	{
 	}
 	SLATE_END_ARGS()
+
+	SAutoRefreshViewport()
+		: PreviewScene(FPreviewScene::ConstructionValues().SetEditor(false))
+	{}
 
 	void Construct(const FArguments& InArgs)
 	{

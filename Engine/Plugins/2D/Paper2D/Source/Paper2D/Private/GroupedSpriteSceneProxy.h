@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "PaperRenderSceneProxy.h"
 
+class FMeshElementCollector;
+class UBodySetup;
 class UPaperGroupedSpriteComponent;
+struct FPerInstanceRenderData;
 
 //////////////////////////////////////////////////////////////////////////
 // FGroupedSpriteSceneProxy

@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "ISourceControlState.h"
+#include "CoreMinimal.h"
+#include "ISourceControlRevision.h"
 #include "SubversionSourceControlRevision.h"
+#include "ISourceControlState.h"
 
 namespace EWorkingCopyState
 {

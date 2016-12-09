@@ -1,12 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
+#include "NiagaraEffectEditor.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Images/SImage.h"
+#include "SNiagaraEffectEditorWidget.h"
+#include "Widgets/Input/SButton.h"
+#include "NiagaraEditorModule.h"
 #include "NiagaraEffect.h"
+#include "SNiagaraEffectEditorViewport.h"
+#include "ISequencerModule.h"
+#include "GraphEditor.h"
 #include "NiagaraSequence.h"
 
-#include "Toolkits/IToolkitHost.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEffectEditor"
 
@@ -66,6 +75,10 @@ void FNiagaraEffectEditor::UnregisterTabSpawners(const TSharedRef<class FTabMana
 }
 
 
+FNiagaraEffectEditor::FNiagaraEffectEditor()
+	: NiagaraSequence(nullptr)
+{
+}
 
 
 FNiagaraEffectEditor::~FNiagaraEffectEditor()

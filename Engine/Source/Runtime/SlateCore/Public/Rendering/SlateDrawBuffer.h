@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FSlateWindowElementList;
+class SWindow;
 
 /**
  * Implements a draw buffer for Slate.

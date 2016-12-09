@@ -1,30 +1,34 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
-#include "SHierarchyViewItem.h"
-
-#include "UMGEditorActions.h"
-#include "WidgetTemplateDragDropOp.h"
-
-#include "PreviewScene.h"
-#include "SceneViewport.h"
-
-#include "BlueprintEditor.h"
-#include "SKismetInspector.h"
-#include "BlueprintEditorUtils.h"
-
-#include "Kismet2NameValidators.h"
-
-#include "WidgetBlueprintEditor.h"
-#include "SInlineEditableTextBlock.h"
-#include "Components/Widget.h"
-
-#include "WidgetBlueprintEditorUtils.h"
-#include "Components/PanelSlot.h"
-#include "ScopedTransaction.h"
+#include "Hierarchy/SHierarchyViewItem.h"
+#include "Components/NamedSlotInterface.h"
+#include "Blueprint/UserWidget.h"
+#include "Widgets/Text/STextBlock.h"
 #include "WidgetBlueprint.h"
-#include "Blueprint/WidgetTree.h"
+#include "WidgetBlueprintEditor.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SListView.h"
+
+#if WITH_EDITOR
+	#include "EditorStyleSet.h"
+#endif // WITH_EDITOR
 #include "Components/PanelWidget.h"
+
+#include "Kismet2/BlueprintEditorUtils.h"
+
+#include "DragAndDrop/DecoratedDragDropOp.h"
+#include "WidgetTemplate.h"
+#include "DragDrop/WidgetTemplateDragDropOp.h"
+
+
+
+
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+
+#include "Blueprint/WidgetTree.h"
+#include "WidgetBlueprintEditorUtils.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

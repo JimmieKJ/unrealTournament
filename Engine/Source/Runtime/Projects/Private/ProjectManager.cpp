@@ -1,6 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectsPrivatePCH.h"
+#include "ProjectManager.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/Paths.h"
+#include "Stats/Stats.h"
+#include "PluginDescriptor.h"
+#include "Interfaces/IPluginManager.h"
+#include "ProjectDescriptor.h"
+#include "Modules/ModuleManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC( LogProjectManager, Log, All );
 
@@ -342,6 +349,26 @@ void FProjectManager::GetDefaultEnabledPlugins(TArray<FString>& OutPluginNames, 
 			}
 		}
 	}
+}
+
+void FProjectManager::UpdateAdditionalPluginDirectory(const FString& InDir, const bool bAddOrRemove)
+{
+	if (!CurrentProject.IsValid())
+	{
+		return;
+	}
+
+	if (bAddOrRemove)
+	{
+		CurrentProject->AddPluginDirectory(InDir);
+	}
+	else
+	{
+		CurrentProject->RemovePluginDirectory(InDir);
+	}
+
+	FText FailReason;
+	SaveCurrentProjectToDisk(FailReason);
 }
 
 bool FProjectManager::IsCurrentProjectDirty() const

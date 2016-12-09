@@ -9,8 +9,16 @@
 #include "libcef/browser/context.h"
 #include "libcef/browser/cookie_manager_impl.h"
 #include "libcef/browser/thread_util.h"
+#include "libcef/common/values_impl.h"
+
 #include "base/atomic_sequence_num.h"
 #include "base/logging.h"
+#include "base/prefs/pref_service.h"
+#include "base/strings/stringprintf.h"
+#include "content/public/browser/plugin_service.h"
+#include "content/public/browser/ssl_host_state_delegate.h"
+#include "net/http/http_cache.h"
+#include "net/http/http_transaction_factory.h"
 
 using content::BrowserThread;
 
@@ -18,11 +26,53 @@ namespace {
 
 base::StaticAtomicSequenceNumber g_next_id;
 
-CefRefPtr<CefBrowserContextImpl> GetImpl(CefRefPtr<CefBrowserContext> context) {
-  if (context->IsProxy())
-    return static_cast<CefBrowserContextProxy*>(context.get())->parent();
-  return static_cast<CefBrowserContextImpl*>(context.get());
+const char* GetTypeString(base::Value::Type type) {
+  switch (type) {
+    case base::Value::TYPE_NULL:
+      return "NULL";
+    case base::Value::TYPE_BOOLEAN:
+      return "BOOLEAN";
+    case base::Value::TYPE_INTEGER:
+      return "INTEGER";
+    case base::Value::TYPE_DOUBLE:
+      return "DOUBLE";
+    case base::Value::TYPE_STRING:
+      return "STRING";
+    case base::Value::TYPE_BINARY:
+      return "BINARY";
+    case base::Value::TYPE_DICTIONARY:
+      return "DICTIONARY";
+    case base::Value::TYPE_LIST:
+      return "LIST";
+  }
+
+  NOTREACHED();
+  return "UNKNOWN";
 }
+
+// Helper for HostResolver::Resolve.
+struct ResolveHostHelper {
+  explicit ResolveHostHelper(CefRefPtr<CefResolveCallback> callback)
+      : callback_(callback) {
+  }
+
+  void OnResolveCompleted(int result) {
+    std::vector<CefString> resolved_ips;
+
+    net::AddressList::const_iterator iter = address_list_.begin();
+    for (; iter != address_list_.end(); ++iter)
+      resolved_ips.push_back(iter->ToStringWithoutPort());
+
+    CEF_POST_TASK(CEF_UIT,
+        base::Bind(&CefResolveCallback::OnResolveCompleted, callback_.get(),
+                   static_cast<cef_errorcode_t>(result), resolved_ips));
+
+    delete this;
+  }
+
+  CefRefPtr<CefResolveCallback> callback_;
+  net::AddressList address_list_;
+};
 
 }  // namespace
 
@@ -106,7 +156,8 @@ scoped_refptr<CefBrowserContext> CefRequestContextImpl::GetBrowserContext() {
 
     if (other_.get()) {
       // Share storage with |other_|.
-      parent = GetImpl(other_->GetBrowserContext());
+      parent = CefBrowserContextImpl::GetForContext(
+          other_->GetBrowserContext().get());
     }
 
     if (!parent.get()) {
@@ -136,6 +187,7 @@ scoped_refptr<CefBrowserContext> CefRequestContextImpl::GetBrowserContext() {
       // Use a proxy that will execute handler callbacks where appropriate and
       // otherwise forward all requests to the parent implementation.
       browser_context_ = new CefBrowserContextProxy(handler_, parent);
+      browser_context_->Initialize();
     } else {
       // Use the parent implementation directly.
       browser_context_ = parent;
@@ -152,7 +204,9 @@ scoped_refptr<CefBrowserContext> CefRequestContextImpl::GetBrowserContext() {
   }
 
   if (!request_context_impl_) {
-    request_context_impl_ = GetImpl(browser_context_)->request_context().get();
+    request_context_impl_ =
+        CefBrowserContextImpl::GetForContext(browser_context_.get())->
+            request_context().get();
     DCHECK(request_context_impl_);
   }
 
@@ -285,6 +339,195 @@ bool CefRequestContextImpl::ClearSchemeHandlerFactories() {
   return true;
 }
 
+void CefRequestContextImpl::PurgePluginListCache(bool reload_pages) {
+  GetBrowserContext(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::UI),
+      base::Bind(&CefRequestContextImpl::PurgePluginListCacheInternal,
+                 this, reload_pages));
+}
+
+bool CefRequestContextImpl::HasPreference(const CefString& name) {
+  // Verify that this method is being called on the UI thread.
+  if (!CEF_CURRENTLY_ON_UIT()) {
+    NOTREACHED() << "called on invalid thread";
+    return false;
+  }
+
+  // Make sure the browser context exists.
+  EnsureBrowserContext();
+
+  PrefService* pref_service = browser_context_->GetPrefs();
+  return (pref_service->FindPreference(name) != NULL);
+}
+
+CefRefPtr<CefValue> CefRequestContextImpl::GetPreference(
+    const CefString& name) {
+  // Verify that this method is being called on the UI thread.
+  if (!CEF_CURRENTLY_ON_UIT()) {
+    NOTREACHED() << "called on invalid thread";
+    return NULL;
+  }
+
+  // Make sure the browser context exists.
+  EnsureBrowserContext();
+
+  PrefService* pref_service = browser_context_->GetPrefs();
+  const PrefService::Preference* pref = pref_service->FindPreference(name);
+  if (!pref)
+    return NULL;
+  return new CefValueImpl(pref->GetValue()->DeepCopy());
+}
+
+CefRefPtr<CefDictionaryValue> CefRequestContextImpl::GetAllPreferences(
+    bool include_defaults) {
+  // Verify that this method is being called on the UI thread.
+  if (!CEF_CURRENTLY_ON_UIT()) {
+    NOTREACHED() << "called on invalid thread";
+    return NULL;
+  }
+
+  // Make sure the browser context exists.
+  EnsureBrowserContext();
+
+  PrefService* pref_service = browser_context_->GetPrefs();
+
+  scoped_ptr<base::DictionaryValue> values;
+  if (include_defaults)
+    values = pref_service->GetPreferenceValues();
+  else
+    values = pref_service->GetPreferenceValuesOmitDefaults();
+
+  // CefDictionaryValueImpl takes ownership of |values|.
+  return new CefDictionaryValueImpl(values.release(), true, false);
+}
+
+bool CefRequestContextImpl::CanSetPreference(const CefString& name) {
+  // Verify that this method is being called on the UI thread.
+  if (!CEF_CURRENTLY_ON_UIT()) {
+    NOTREACHED() << "called on invalid thread";
+    return false;
+  }
+
+  // Make sure the browser context exists.
+  EnsureBrowserContext();
+
+  PrefService* pref_service = browser_context_->GetPrefs();
+  const PrefService::Preference* pref = pref_service->FindPreference(name);
+  return (pref && pref->IsUserModifiable());
+}
+
+bool CefRequestContextImpl::SetPreference(const CefString& name,
+                                          CefRefPtr<CefValue> value,
+                                          CefString& error) {
+  // Verify that this method is being called on the UI thread.
+  if (!CEF_CURRENTLY_ON_UIT()) {
+    NOTREACHED() << "called on invalid thread";
+    return false;
+  }
+
+  // Make sure the browser context exists.
+  EnsureBrowserContext();
+
+  PrefService* pref_service = browser_context_->GetPrefs();
+
+  // The below validation logic should match PrefService::SetUserPrefValue.
+
+  const PrefService::Preference* pref = pref_service->FindPreference(name);
+  if (!pref) {
+    error = "Trying to modify an unregistered preference";
+    return false;
+  }
+
+  if (!pref->IsUserModifiable()) {
+    error = "Trying to modify a preference that is not user modifiable";
+    return false;
+  }
+
+  if (!value.get()) {
+    // Reset the preference to its default value.
+    pref_service->ClearPref(name);
+    return true;
+  }
+
+  if (!value->IsValid()) {
+    error = "A valid value is required";
+    return false;
+  }
+
+  CefValueImpl* impl = static_cast<CefValueImpl*>(value.get());
+
+  CefValueImpl::ScopedLockedValue scoped_locked_value(impl);
+  base::Value* impl_value = impl->GetValueUnsafe();
+
+  if (pref->GetType() != impl_value->GetType()) {
+    error = base::StringPrintf(
+        "Trying to set a preference of type %s to value of type %s",
+        GetTypeString(pref->GetType()), GetTypeString(impl_value->GetType()));
+    return false;
+  }
+
+  // PrefService will make a DeepCopy of |impl_value|.
+  pref_service->Set(name, *impl_value);
+  return true;
+}
+
+void CefRequestContextImpl::ClearCertificateExceptions(
+    CefRefPtr<CefCompletionCallback> callback) {
+  GetBrowserContext(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::UI),
+      base::Bind(&CefRequestContextImpl::ClearCertificateExceptionsInternal,
+                 this, callback));
+}
+
+void CefRequestContextImpl::CloseAllConnections(
+    CefRefPtr<CefCompletionCallback> callback) {
+  GetRequestContextImpl(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO),
+      base::Bind(&CefRequestContextImpl::CloseAllConnectionsInternal, this,
+                 callback));
+}
+
+void CefRequestContextImpl::ResolveHost(
+    const CefString& origin,
+    CefRefPtr<CefResolveCallback> callback) {
+  GetRequestContextImpl(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO),
+      base::Bind(&CefRequestContextImpl::ResolveHostInternal, this, origin,
+                 callback));
+}
+
+cef_errorcode_t CefRequestContextImpl::ResolveHostCached(
+    const CefString& origin,
+    std::vector<CefString>& resolved_ips) {
+  resolved_ips.clear();
+
+  if (!CEF_CURRENTLY_ON_IOT()) {
+    NOTREACHED() << "called on invalid thread";
+    return ERR_FAILED;
+  }
+
+  if (!request_context_impl_)
+    return ERR_FAILED;
+
+  int retval = ERR_FAILED;
+
+  net::HostResolver* host_resolver = request_context_impl_->GetHostResolver();
+  if (host_resolver) {
+    net::HostResolver::RequestInfo request_info(
+        net::HostPortPair::FromURL(GURL(origin.ToString())));
+    net::AddressList address_list;
+    retval = host_resolver->ResolveFromCache(request_info, &address_list,
+                                             net::BoundNetLog());
+    if (retval == net::OK) {
+      net::AddressList::const_iterator iter = address_list.begin();
+      for (; iter != address_list.end(); ++iter)
+        resolved_ips.push_back(iter->ToString());
+    }
+  }
+
+  return static_cast<cef_errorcode_t>(retval);
+}
+
 CefRequestContextImpl::CefRequestContextImpl(
     scoped_refptr<CefBrowserContext> browser_context)
     : browser_context_(browser_context),
@@ -312,6 +555,12 @@ CefRequestContextImpl::CefRequestContextImpl(
       request_context_impl_(NULL) {
 }
 
+void CefRequestContextImpl::EnsureBrowserContext() {
+  GetBrowserContext();
+  DCHECK(browser_context_.get());
+  DCHECK(request_context_impl_);
+}
+
 void CefRequestContextImpl::GetBrowserContextOnUIThread(
     scoped_refptr<base::SingleThreadTaskRunner> task_runner,
     const BrowserContextCallback& callback) {
@@ -323,9 +572,7 @@ void CefRequestContextImpl::GetBrowserContextOnUIThread(
   }
 
   // Make sure the browser context exists.
-  GetBrowserContext();
-  DCHECK(browser_context_.get());
-  DCHECK(request_context_impl_);
+  EnsureBrowserContext();
 
   if (task_runner->BelongsToCurrentThread()) {
     // Execute the callback immediately.
@@ -376,4 +623,80 @@ void CefRequestContextImpl::ClearSchemeHandlerFactoriesInternal(
     scoped_refptr<CefURLRequestContextGetterImpl> request_context) {
   CEF_REQUIRE_IOT();
   request_context->request_manager()->ClearFactories();
+}
+
+void CefRequestContextImpl::PurgePluginListCacheInternal(
+    bool reload_pages,
+    scoped_refptr<CefBrowserContext> browser_context) {
+  CEF_REQUIRE_UIT();
+  content::PluginService::GetInstance()->PurgePluginListCache(
+      browser_context.get(), false);
+}
+
+void CefRequestContextImpl::ClearCertificateExceptionsInternal(
+    CefRefPtr<CefCompletionCallback> callback,
+    scoped_refptr<CefBrowserContext> browser_context) {
+  CEF_REQUIRE_UIT();
+
+  content::SSLHostStateDelegate* ssl_delegate =
+      browser_context->GetSSLHostStateDelegate();
+  if (ssl_delegate)
+    ssl_delegate->Clear();
+
+  if (callback) {
+    CEF_POST_TASK(CEF_UIT,
+        base::Bind(&CefCompletionCallback::OnComplete, callback.get()));
+  }
+}
+
+void CefRequestContextImpl::CloseAllConnectionsInternal(
+    CefRefPtr<CefCompletionCallback> callback,
+    scoped_refptr<CefURLRequestContextGetterImpl> request_context) {
+  CEF_REQUIRE_IOT();
+
+  net::URLRequestContext* url_context = request_context->GetURLRequestContext();
+  if (url_context) {
+    net::HttpTransactionFactory* http_factory =
+        url_context->http_transaction_factory();
+    if (http_factory) {
+      net::HttpCache* cache = http_factory->GetCache();
+      if (cache)
+        cache->CloseAllConnections();
+    }
+  }
+
+  if (callback) {
+    CEF_POST_TASK(CEF_UIT,
+        base::Bind(&CefCompletionCallback::OnComplete, callback.get()));
+  }
+}
+
+void CefRequestContextImpl::ResolveHostInternal(
+    const CefString& origin,
+    CefRefPtr<CefResolveCallback> callback,
+    scoped_refptr<CefURLRequestContextGetterImpl> request_context) {
+  CEF_REQUIRE_IOT();
+
+  int retval = ERR_FAILED;
+
+  // |helper| will be deleted in ResolveHostHelper::OnResolveCompleted().
+  ResolveHostHelper* helper = new ResolveHostHelper(callback);
+
+  net::HostResolver* host_resolver = request_context->GetHostResolver();
+  if (host_resolver) {
+    net::HostResolver::RequestInfo request_info(
+        net::HostPortPair::FromURL(GURL(origin.ToString())));
+    retval = host_resolver->Resolve(
+        request_info, net::DEFAULT_PRIORITY,
+        &helper->address_list_,
+        base::Bind(&ResolveHostHelper::OnResolveCompleted,
+                   base::Unretained(helper)),
+        NULL, net::BoundNetLog());
+    if (retval == net::ERR_IO_PENDING) {
+      // The result will be delivered asynchronously via the callback.
+      return;
+    }
+  }
+
+  helper->OnResolveCompleted(retval);
 }

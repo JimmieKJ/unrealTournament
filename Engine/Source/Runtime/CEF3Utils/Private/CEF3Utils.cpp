@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CEF3UtilsPrivatePCH.h"
+#include "CEF3Utils.h"
+#include "Containers/UnrealString.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "HAL/PlatformProcess.h"
+#include "CEF3UtilsLog.h"
 
 DEFINE_LOG_CATEGORY(LogCEF3Utils);
 

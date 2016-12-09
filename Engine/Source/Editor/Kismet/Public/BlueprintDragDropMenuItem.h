@@ -2,16 +2,16 @@
 
 #pragma once
 
-#include "EdGraph/EdGraphSchema.h" // for FEdGraphSchemaAction
-#include "BlueprintEditor.h"       // for FNodeCreationAnalytic
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Styling/SlateBrush.h"
+#include "EdGraph/EdGraphSchema.h"
+#include "BlueprintEditor.h"
+#include "BlueprintActionFilter.h"
 #include "BlueprintDragDropMenuItem.generated.h"
 
-// Forward declarations
-class  UBlueprintNodeSpawner;
-class  FDragDropOperation;
-struct FSlateBrush;
-struct FSlateColor;
-struct FBlueprintActionContext;
+class UBlueprintNodeSpawner;
+class UEdGraph;
 
 /**
  * At certain times we want a single menu entry that represents a set of 

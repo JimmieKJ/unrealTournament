@@ -2,10 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AnimGraphNode_SkeletalControlBase.h"
 #include "BoneControllers/AnimNode_ObserveBone.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTitleTextTable
 #include "AnimGraphNode_ObserveBone.generated.h"
+
+class FCompilerResultsLog;
+class IDetailLayoutBuilder;
+class SGraphNode;
 
 // This allows you to observe the state of a bone at a particular point in the graph, showing it in any space and optionally relative to the reference pose
 UCLASS()
@@ -29,14 +34,11 @@ protected:
 	virtual void ValidateAnimNodeDuringCompilation(USkeleton* ForSkeleton, FCompilerResultsLog& MessageLog) override;
 	virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex) const override;
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
+	virtual FEditorModeID GetEditorMode() const override;
 	// End of UAnimGraphNode_Base interface
 
 	// UAnimGraphNode_SkeletalControlBase interface
 	virtual FText GetControllerDescription() const override;
-	virtual int32 GetWidgetCoordinateSystem(const USkeletalMeshComponent* SkelComp) override;
-	virtual FVector GetWidgetLocation(const USkeletalMeshComponent* SkelComp, struct FAnimNode_SkeletalControlBase* AnimNode) override;
-	virtual int32 GetWidgetMode(const USkeletalMeshComponent* SkelComp) override;
-	virtual FName FindSelectedBone() override;
 	virtual const FAnimNode_SkeletalControlBase* GetNode() const override { return &Node; }
 	// End of UAnimGraphNode_SkeletalControlBase interface
 };

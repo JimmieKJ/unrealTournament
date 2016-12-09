@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "ISettingsContainer.h"
+#include "ISettingsEditorModel.h"
+#include "ISettingsCategory.h"
+#include "ISettingsSection.h"
 
 /**
  * Implements a view model for the settings editor widget.

@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "Engine/DeveloperSettings.h"
 #include "LevelEditorMiscSettings.generated.h"
 
+class ULevelStreaming;
 
 /**
  * Configure miscellaneous settings for the Level Editor.

@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "SlateLayoutTransform.h"
-#include "SlateRect.h"
+#include "CoreMinimal.h"
+#include "Layout/SlateRect.h"
+#include "Rendering/SlateLayoutTransform.h"
 
 class FLayoutGeometry
 {

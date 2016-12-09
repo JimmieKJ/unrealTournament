@@ -2,36 +2,15 @@
 
 #pragma once
 
-#include "ImageWrapper.h"
-
-
-/* Dependencies
- *****************************************************************************/
-
-#include "Core.h"
-#include "ModuleManager.h"
-
-
-/* Private includes
- *****************************************************************************/
-
-DECLARE_LOG_CATEGORY_EXTERN(LogImageWrapper, Log, All);
-
-
-#include "ImageWrapperBase.h"
-
-#if WITH_UNREALJPEG
-	#include "JpegImageWrapper.h"
-#endif
-
-#if WITH_UNREALPNG
-	#include "PngImageWrapper.h"
-#endif
-
-#if WITH_UNREALEXR
-#include "ExrImageWrapper.h"
-#endif
-
-#include "BmpImageWrapper.h"
-#include "IcoImageWrapper.h"
-#include "IcnsImageWrapper.h"
+// From ImageWrapper:
+#include "Runtime/ImageWrapper/Private/ImageWrapperBase.h"
+#include "Interfaces/IImageWrapper.h"
+#include "Runtime/ImageWrapper/Private/ImageWrapperPrivate.h"
+#include "Runtime/ImageWrapper/Private/PngImageWrapper.h"
+#include "Runtime/ImageWrapper/Private/BmpImageWrapper.h"
+#include "Runtime/ImageWrapper/Private/IcoImageWrapper.h"
+#include "BmpImageSupport.h"
+#include "Runtime/ImageWrapper/Private/JpegImageWrapper.h"
+#include "Runtime/ImageWrapper/Private/IcnsImageWrapper.h"
+#include "Interfaces/IImageWrapperModule.h"
+#include "Runtime/ImageWrapper/Private/ExrImageWrapper.h"

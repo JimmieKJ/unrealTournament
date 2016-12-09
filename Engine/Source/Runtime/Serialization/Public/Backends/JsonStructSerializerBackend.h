@@ -2,14 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "IStructSerializerBackend.h"
-#include "Json.h"
-
-
-// forward declarations
-class UProperty;
-class UStruct;
-
+#include "Serialization/JsonWriter.h"
 
 /**
  * Implements a writer for UStruct serialization using Json.
@@ -43,6 +38,14 @@ public:
 	virtual void EndStructure(const FStructSerializerState& State) override;
 	virtual void WriteComment(const FString& Comment) override;
 	virtual void WriteProperty(const FStructSerializerState& State, int32 ArrayIndex = 0) override;
+
+protected:
+
+	// Allow access to the internal JsonWriter to subclasses
+	TSharedRef<TJsonWriter<UCS2CHAR>>& GetWriter()
+	{
+		return JsonWriter;
+	}
 
 private:
 

@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "JsonPrivatePCH.h"
+#include "Dom/JsonValue.h"
+#include "Dom/JsonObject.h"
 
 
 const TArray< TSharedPtr<FJsonValue> > FJsonValue::EMPTY_ARRAY;

@@ -1,17 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayTasksEditorPrivatePCH.h"
+#include "K2Node_LatentGameplayTaskCall.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_AssignmentStatement.h"
+#include "K2Node_CallArrayFunction.h"
+#include "K2Node_IfThenElse.h"
+#include "K2Node_TemporaryVariable.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetArrayLibrary.h"
-#include "GameplayTask.h"
 #include "KismetCompiler.h"
-#include "BlueprintEditorUtils.h"
-#include "K2Node_LatentGameplayTaskCall.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "K2Node_EnumLiteral.h"
+#include "BlueprintNodeSpawner.h"
 #include "BlueprintFunctionNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "K2Node_IfThenElse.h"
-#include "Kismet/KismetSystemLibrary.h"
+
 
 #define LOCTEXT_NAMESPACE "K2Node"
 
@@ -123,6 +128,7 @@ void UK2Node_LatentGameplayTaskCall::ReallocatePinsDuringReconstruction(TArray<U
 	{
 		CreatePinsForClass(UseSpawnClass);
 	}
+	RestoreSplitPins(OldPins);
 }
 
 UEdGraphPin* UK2Node_LatentGameplayTaskCall::GetClassPin(const TArray<UEdGraphPin*>* InPinsToSearch /*= NULL*/) const
@@ -206,10 +212,11 @@ void UK2Node_LatentGameplayTaskCall::CreatePinsForClass(UClass* InClass)
 
 
 			UEdGraphPin* Pin = CreatePin(EGPD_Input, TEXT(""), TEXT(""), NULL, false, false, Property->GetName());
-			const bool bPinGood = (Pin != NULL) && K2Schema->ConvertPropertyToPinType(Property, /*out*/ Pin->PinType);
+			check(Pin);
+			const bool bPinGood = K2Schema->ConvertPropertyToPinType(Property, /*out*/ Pin->PinType);
 			SpawnParamPins.Add(Pin->PinName);
 
-			if (ClassDefaultObject && Pin && K2Schema->PinDefaultValueIsEditable(*Pin))
+			if (ClassDefaultObject && K2Schema->PinDefaultValueIsEditable(*Pin))
 			{
 				FString DefaultValueAsString;
 				const bool bDefaultValueSet = FBlueprintEditorUtils::PropertyValueToString(Property, reinterpret_cast<const uint8*>(ClassDefaultObject), DefaultValueAsString);
@@ -218,10 +225,7 @@ void UK2Node_LatentGameplayTaskCall::CreatePinsForClass(UClass* InClass)
 			}
 
 			// Copy tooltip from the property.
-			if (Pin != nullptr)
-			{
-				K2Schema->ConstructBasicPinTooltip(*Pin, Property->GetToolTipText(), Pin->PinToolTip);
-			}
+			K2Schema->ConstructBasicPinTooltip(*Pin, Property->GetToolTipText(), Pin->PinToolTip);
 		}
 	}
 }
@@ -411,7 +415,12 @@ bool UK2Node_LatentGameplayTaskCall::ConnectSpawnProperties(UClass* ClassToSpawn
 	for (const FString& OldPinReference : SpawnParamPins)
 	{
 		UEdGraphPin* SpawnVarPin = FindPin(OldPinReference);
-		const bool bHasDefaultValue = SpawnVarPin && (!SpawnVarPin->DefaultValue.IsEmpty() || !SpawnVarPin->DefaultTextValue.IsEmpty() || SpawnVarPin->DefaultObject);
+		if (!SpawnVarPin)
+		{
+			continue;
+		}
+
+		const bool bHasDefaultValue = !SpawnVarPin->DefaultValue.IsEmpty() || !SpawnVarPin->DefaultTextValue.IsEmpty() || SpawnVarPin->DefaultObject;
 		if (SpawnVarPin->LinkedTo.Num() > 0 || bHasDefaultValue)
 		{
 			if (SpawnVarPin->LinkedTo.Num() == 0)

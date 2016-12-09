@@ -2,8 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "IMovieSceneCaptureProtocol.h"
+#include "FrameGrabber.h"
+#include "Protocols/FrameGrabberProtocol.h"
 #include "AVIWriter.h"
-#include "FrameGrabberProtocol.h"
 #include "VideoCaptureProtocol.generated.h"
 
 UCLASS(config=EditorPerProjectUserSettings, DisplayName="Video Encoding")

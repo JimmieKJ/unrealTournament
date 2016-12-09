@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Interfaces/IAutomationControllerManager.h"
+
+class SButton;
+class SComboButton;
+class SVerticalBox;
+enum class ECheckBoxState : uint8;
 
 class SAutomationExportMenu : public SCompoundWidget
 {

@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/Array.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
+#include "Misc/Parse.h"
+#include "Misc/ConfigCacheIni.h"
+
 // TSize integer values separated by '.' e.g. "120.210.11.22"
 // made to compare different GPU driver versions
 // handles whitespace

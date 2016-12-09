@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "ScopedCallback.h"
+#include "CoreMinimal.h"
 
 /**
  * Container struct that holds info about a redirector that was followed. 

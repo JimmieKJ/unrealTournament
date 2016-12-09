@@ -4,10 +4,13 @@
 	Implementation of Skeletal Mesh export related functionality from FbxExporter
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "CoreMinimal.h"
+#include "GPUSkinPublicDefs.h"
+#include "SkeletalMeshTypes.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Animation/AnimSequence.h"
 
 #include "FbxExporter.h"
-#include "Animation/AnimSequence.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFbxSkeletalMeshExport, Log, All);
 
@@ -22,16 +25,16 @@ FbxNode* FFbxExporter::CreateSkeleton(const USkeletalMesh* SkelMesh, TArray<FbxN
 {
 	const FReferenceSkeleton& RefSkeleton= SkelMesh->RefSkeleton;
 
-	if(RefSkeleton.GetNum() == 0)
+	if(RefSkeleton.GetRawBoneNum() == 0)
 	{
 		return NULL;
 	}
 
 	// Create a list of the nodes we create for each bone, so that children can 
 	// later look up their parent
-	BoneNodes.Reserve(RefSkeleton.GetNum());
+	BoneNodes.Reserve(RefSkeleton.GetRawBoneNum());
 
-	for(int32 BoneIndex = 0; BoneIndex < RefSkeleton.GetNum(); ++BoneIndex)
+	for(int32 BoneIndex = 0; BoneIndex < RefSkeleton.GetRawBoneNum(); ++BoneIndex)
 	{
 		const FMeshBoneInfo& CurrentBone = RefSkeleton.GetRefBoneInfo()[BoneIndex];
 		const FTransform& BoneTransform = RefSkeleton.GetRefBonePose()[BoneIndex];
@@ -372,6 +375,11 @@ void AddNodeRecursively(FbxArray<FbxNode*>& pNodeArray, FbxNode* pNode)
  */
 void FFbxExporter::CreateBindPose(FbxNode* MeshRootNode)
 {
+	if (!MeshRootNode)
+	{
+		return;
+	}
+
 	// In the bind pose, we must store all the link's global matrix at the time of the bind.
 	// Plus, we must store all the parent(s) global matrix of a link, even if they are not
 	// themselves deforming any model.
@@ -381,7 +389,7 @@ void FFbxExporter::CreateBindPose(FbxNode* MeshRootNode)
 	FbxArray<FbxNode*> lClusteredFbxNodes;
 	int                       i, j;
 
-	if (MeshRootNode && MeshRootNode->GetNodeAttribute())
+	if (MeshRootNode->GetNodeAttribute())
 	{
 		int lSkinCount=0;
 		int lClusterCount=0;

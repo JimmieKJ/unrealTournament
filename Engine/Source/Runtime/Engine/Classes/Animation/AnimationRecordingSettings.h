@@ -2,22 +2,24 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AnimationRecordingSettings.generated.h"
 
 /** Settings describing how to record an animation */
 USTRUCT()
-struct FAnimationRecordingSettings
+struct ENGINE_API FAnimationRecordingSettings
 {
 	GENERATED_BODY()
 
 	/** 30Hz default sample rate */
-	static const int32 DefaultSampleRate = DEFAULT_SAMPLERATE;
+	static const float DefaultSampleRate;
 
 	/** 1 minute default length */
-	static const int32 DefaultMaximumLength = 1.0f * 60.0f;
+	static const float DefaultMaximumLength;
 
 	/** Length used to specify unbounded */
-	static const int32 UnboundedMaximumLength = 0.0f;
+	static const float UnboundedMaximumLength;
 
 	FAnimationRecordingSettings()
 		: bRecordInWorldSpace(true)

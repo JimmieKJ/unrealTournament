@@ -1,15 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PortalProxiesPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "IMessageRpcClient.h"
+#include "Misc/TypeContainer.h"
 #include "IPortalServiceProvider.h"
 
-#include "IPortalApplicationWindow.h"
-#include "IPortalUser.h"
-#include "IPortalUserLogin.h"
+#include "Application/IPortalApplicationWindow.h"
+#include "Account/IPortalUser.h"
+#include "Account/IPortalUserLogin.h"
 
-#include "PortalApplicationWindowProxy.h"
-#include "PortalUserProxy.h"
-#include "PortalUserLoginProxy.h"
+#include "Application/PortalApplicationWindowProxy.h"
+#include "Account/PortalUserProxy.h"
+#include "Account/PortalUserLoginProxy.h"
 
 
 /**

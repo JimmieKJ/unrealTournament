@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "PropertyHelper.h"
-#include "LinkerPlaceholderFunction.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
+#include "UObject/PropertyHelper.h"
+#include "UObject/LinkerPlaceholderFunction.h"
 
 /*-----------------------------------------------------------------------------
 	UMulticastDelegateProperty.
@@ -231,7 +234,7 @@ const TCHAR* UMulticastDelegateProperty::ImportText_Internal( const TCHAR* Buffe
 		}
 
 		// Add this delegate to our multicast delegate's invocation list
-		MulticastDelegate.Add( ImportedDelegate );
+		MulticastDelegate.AddUnique( ImportedDelegate );
 
 		SkipWhitespace(Buffer);
 	}

@@ -2,13 +2,16 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
-#include "Misc/Build.h"
+#include "CoreTypes.h"
+#include "CoreFwd.h"
 
 #define CHECK_NON_CONCURRENT_ASSUMPTIONS (0)
 
-#define USE_NEW_LOCK_FREE_LISTS (PLATFORM_PS4 || PLATFORM_XBOXONE)
+#define USE_NEW_LOCK_FREE_LISTS (PLATFORM_PS4 || PLATFORM_XBOXONE || PLATFORM_SWITCH)
 
+class FNoncopyable;
+class FNoopCounter;
+struct FMemory;
 
 /** 
  * Base class for a lock free list of pointers 
@@ -619,7 +622,7 @@ class TPointerSet_TLSCacheBase : public FNoncopyable
 {
 	enum
 	{
-		NUM_PER_BUNDLE=256,
+		NUM_PER_BUNDLE=32,
 	};
 public:
 
@@ -769,12 +772,14 @@ private:
  * never returns free space, even at shutdown
  * alignment isn't handled, assumes FMemory::Malloc will work
  */
+
+#define USE_NIEVE_TLockFreeFixedSizeAllocator_TLSCacheBase (0) // this is useful for find who really leaked
 template<int32 SIZE, typename TBundleRecycler, typename TTrackingCounter = FNoopCounter>
 class TLockFreeFixedSizeAllocator_TLSCacheBase : public FNoncopyable
 {
 	enum
 	{
-		NUM_PER_BUNDLE=256,
+		NUM_PER_BUNDLE=32,
 	};
 public:
 
@@ -800,6 +805,9 @@ public:
 	 */
 	FORCEINLINE void* Allocate()
 	{
+#if USE_NIEVE_TLockFreeFixedSizeAllocator_TLSCacheBase
+		return FMemory::Malloc(SIZE);
+#else
 		FThreadLocalCache& TLS = GetTLS();
 
 		if (!TLS.PartialBundle)
@@ -835,6 +843,7 @@ public:
 		TLS.NumPartial--;
 		check(TLS.NumPartial >= 0 && ((!!TLS.NumPartial) == (!!TLS.PartialBundle)));
 		return Result;
+#endif
 	}
 
 	/**
@@ -845,6 +854,9 @@ public:
 	 */
 	FORCEINLINE void Free(void *Item)
 	{
+#if USE_NIEVE_TLockFreeFixedSizeAllocator_TLSCacheBase
+		return FMemory::Free(Item);
+#else
 		NumUsed.Decrement();
 		NumFree.Increment();
 		FThreadLocalCache& TLS = GetTLS();
@@ -862,6 +874,7 @@ public:
 		*(void**)Item = (void*)TLS.PartialBundle;
 		TLS.PartialBundle = (void**)Item;
 		TLS.NumPartial++;
+#endif
 	}
 
 	/**
@@ -1136,14 +1149,156 @@ struct FLockFreeLink
 };
 
 template<int TPaddingForCacheContention>
+class FSpinLocked_LIFO
+{
+public:
+	void** Pop()
+	{
+		int32 SpinCount = 0;
+		while (true)
+		{
+			if (!Lock && FPlatformAtomics::InterlockedCompareExchange((volatile int32*)&Lock, 1, 0) == 0)
+			{
+				TestCriticalStall();
+				void** Result = nullptr;
+				if (Queue.Num())
+				{
+					Result = Queue.Pop(false);
+				}
+				FPlatformMisc::MemoryBarrier();
+				Lock = 0;
+				return Result;
+			}
+			LockFreeCriticalSpin(SpinCount);
+		}
+	}
+	void Push(void** Item)
+	{
+		int32 SpinCount = 0;
+		while (true)
+		{
+			if (!Lock && FPlatformAtomics::InterlockedCompareExchange((volatile int32*)&Lock, 1, 0) == 0)
+			{
+				TestCriticalStall();
+				Queue.Add(Item);
+				FPlatformMisc::MemoryBarrier();
+				Lock = 0;
+				return;
+			}
+			LockFreeCriticalSpin(SpinCount);
+		}
+	}
+private:
+	TArray<void **> Queue;
+	uint8 PadToAvoidContention1[TPaddingForCacheContention];
+	int32 Lock;
+	uint8 PadToAvoidContention2[TPaddingForCacheContention];
+};
+
+template<>
+class FSpinLocked_LIFO<0>
+{
+public:
+	void** Pop()
+	{
+		int32 SpinCount = 0;
+		while (true)
+		{
+			if (!Lock && FPlatformAtomics::InterlockedCompareExchange((volatile int32*)&Lock, 1, 0) == 0)
+			{
+				TestCriticalStall();
+				void** Result = nullptr;
+				if (Queue.Num())
+				{
+					Result = Queue.Pop(false);
+				}
+				FPlatformMisc::MemoryBarrier();
+				Lock = 0;
+				return Result;
+			}
+			LockFreeCriticalSpin(SpinCount);
+		}
+	}
+	void Push(void** Item)
+	{
+		int32 SpinCount = 0;
+		while (true)
+		{
+			if (!Lock && FPlatformAtomics::InterlockedCompareExchange((volatile int32*)&Lock, 1, 0) == 0)
+			{
+				TestCriticalStall();
+				Queue.Add(Item);
+				FPlatformMisc::MemoryBarrier();
+				Lock = 0;
+				return;
+			}
+			LockFreeCriticalSpin(SpinCount);
+		}
+	}
+private:
+	TArray<void **> Queue;
+	int32 Lock;
+};
+
+class FLockFreePointerQueueBaseLinkAllocator : public FNoncopyable
+{
+public:
+	static CORE_API FLockFreePointerQueueBaseLinkAllocator& Get();
+
+	FORCEINLINE void Free(FLockFreeLink* Link)
+	{
+		Link->~FLockFreeLink();
+		InnerAllocator.Free(Link);
+	}
+
+	FORCEINLINE FLockFreeLink* Alloc()
+	{
+		return new (InnerAllocator.Allocate()) FLockFreeLink();
+	}
+
+	/**
+	* Gets the number of allocated memory blocks that are currently in use.
+	*
+	* @return Number of used memory blocks.
+	*/
+	const int32 GetNumUsed() const
+	{
+		return InnerAllocator.GetNumUsed().GetValue();
+	}
+
+	/**
+	* Gets the number of allocated memory blocks that are currently unused.
+	*
+	* @return Number of allocated, but unused memory blocks.
+	*/
+	const int32 GetNumFree() const
+	{
+		return InnerAllocator.GetNumFree().GetValue();
+	}
+
+private:
+	TLockFreeFixedSizeAllocator_TLSCacheBase<sizeof(FLockFreeLink), FSpinLocked_LIFO<PLATFORM_CACHE_LINE_SIZE>,
+#if 1 || UE_BUILD_SHIPPING || UE_BUILD_TEST
+		FNoopCounter
+#else
+		FThreadSafeCounter
+#endif
+	> InnerAllocator;
+};
+
+template<int TPaddingForCacheContention>
 class FLockFreePointerQueueBaseSingleConsumer : public FNoncopyable
 {
 public:
-	FLockFreePointerQueueBaseSingleConsumer(FLockFreeLink* Stub)
-		: Head(Stub)
-		, Tail(Stub)
+	FLockFreePointerQueueBaseSingleConsumer()
+		: Head(FLockFreePointerQueueBaseLinkAllocator::Get().Alloc())
+		, Tail(Head)
 	{
-
+	}
+	~FLockFreePointerQueueBaseSingleConsumer()
+	{
+		check(IsEmpty());
+		FLockFreePointerQueueBaseLinkAllocator::Get().Free(Head);
 	}
 
 	void Push(FLockFreeLink* Link)
@@ -1202,11 +1357,16 @@ template<>
 class FLockFreePointerQueueBaseSingleConsumer<0> : public FNoncopyable
 {
 public:
-	FLockFreePointerQueueBaseSingleConsumer(FLockFreeLink* Stub)
-		: Head(Stub)
-		, Tail(Stub)
+	FLockFreePointerQueueBaseSingleConsumer()
+		: Head(FLockFreePointerQueueBaseLinkAllocator::Get().Alloc())
+		, Tail(Head)
 	{
+	}
 
+	~FLockFreePointerQueueBaseSingleConsumer()
+	{
+		check(IsEmpty());
+		FLockFreePointerQueueBaseLinkAllocator::Get().Free(Head);
 	}
 
 	void Push(FLockFreeLink* Link)
@@ -1262,11 +1422,17 @@ template<int TPaddingForCacheContention>
 class FCloseableLockFreePointerQueueBaseSingleConsumer : public FNoncopyable
 {
 public:
-	FCloseableLockFreePointerQueueBaseSingleConsumer(FLockFreeLink* Stub)
-		: Head(Stub)
-		, Tail(Stub)
+	FCloseableLockFreePointerQueueBaseSingleConsumer()
+		: Head(FLockFreePointerQueueBaseLinkAllocator::Get().Alloc())
+		, Tail(Head)
 	{
 
+	}
+
+	~FCloseableLockFreePointerQueueBaseSingleConsumer()
+	{
+		check(IsEmpty());
+		FLockFreePointerQueueBaseLinkAllocator::Get().Free(Head);
 	}
 
 	/**	
@@ -1442,11 +1608,15 @@ template<>
 class FCloseableLockFreePointerQueueBaseSingleConsumer<0> : public FNoncopyable
 {
 public:
-	FCloseableLockFreePointerQueueBaseSingleConsumer(FLockFreeLink* Stub)
-		: Head(Stub)
-		, Tail(Stub)
+	FCloseableLockFreePointerQueueBaseSingleConsumer()
+		: Head(FLockFreePointerQueueBaseLinkAllocator::Get().Alloc())
+		, Tail(Head)
 	{
-
+	}
+	~FCloseableLockFreePointerQueueBaseSingleConsumer()
+	{
+		check(IsEmpty());
+		FLockFreePointerQueueBaseLinkAllocator::Get().Free(Head);
 	}
 
 	/**
@@ -2129,143 +2299,6 @@ private:
 	TCounter NumPushed;
 };
 
-template<int TPaddingForCacheContention>
-class FSpinLocked_LIFO
-{
-public:
-	void** Pop()
-	{
-		int32 SpinCount = 0;
-		while (true)
-		{
-			if (!Lock && FPlatformAtomics::InterlockedCompareExchange((volatile int32*)&Lock, 1, 0) == 0)
-			{
-				TestCriticalStall();
-				void** Result = nullptr;
-				if (Queue.Num())
-				{
-					Result = Queue.Pop(false);
-				}
-				FPlatformMisc::MemoryBarrier();
-				Lock = 0;
-				return Result;
-			}
-			LockFreeCriticalSpin(SpinCount);
-		}
-	}
-	void Push(void** Item)
-	{
-		int32 SpinCount = 0;
-		while (true)
-		{
-			if (!Lock && FPlatformAtomics::InterlockedCompareExchange((volatile int32*)&Lock, 1, 0) == 0)
-			{
-				TestCriticalStall();
-				Queue.Add(Item);
-				FPlatformMisc::MemoryBarrier();
-				Lock = 0;
-				return;
-			}
-			LockFreeCriticalSpin(SpinCount);
-		}
-	}	
-private:
-	TArray<void **> Queue;
-	uint8 PadToAvoidContention1[TPaddingForCacheContention];
-	int32 Lock;
-	uint8 PadToAvoidContention2[TPaddingForCacheContention];
-};
-
-template<>
-class FSpinLocked_LIFO<0>
-{
-public:
-	void** Pop()
-	{
-		int32 SpinCount = 0;
-		while (true)
-		{
-			if (!Lock && FPlatformAtomics::InterlockedCompareExchange((volatile int32*)&Lock, 1, 0) == 0)
-			{
-				TestCriticalStall();
-				void** Result = nullptr;
-				if (Queue.Num())
-				{
-					Result = Queue.Pop(false);
-				}
-				FPlatformMisc::MemoryBarrier();
-				Lock = 0;
-				return Result;
-			}
-			LockFreeCriticalSpin(SpinCount);
-		}
-	}
-	void Push(void** Item)
-	{
-		int32 SpinCount = 0;
-		while (true)
-		{
-			if (!Lock && FPlatformAtomics::InterlockedCompareExchange((volatile int32*)&Lock, 1, 0) == 0)
-			{
-				TestCriticalStall();
-				Queue.Add(Item);
-				FPlatformMisc::MemoryBarrier();
-				Lock = 0;
-				return;
-			}
-			LockFreeCriticalSpin(SpinCount);
-		}
-	}
-private:
-	TArray<void **> Queue;
-	int32 Lock;
-};
-
-class FLockFreePointerQueueBaseLinkAllocator : public FNoncopyable
-{
-public:
-	static CORE_API FLockFreePointerQueueBaseLinkAllocator& Get();
-
-	FORCEINLINE void Free(FLockFreeLink* Link)
-	{
-		Link->~FLockFreeLink();
-		InnerAllocator.Free(Link);
-	}
-
-	FORCEINLINE FLockFreeLink* Alloc()
-	{
-		return new (InnerAllocator.Allocate()) FLockFreeLink();
-	}
-
-	/**
-	 * Gets the number of allocated memory blocks that are currently in use.
-	 *
-	 * @return Number of used memory blocks.
-	 */
-	const int32 GetNumUsed() const
-	{
-		return InnerAllocator.GetNumUsed().GetValue();
-	}
-
-	/**
-	 * Gets the number of allocated memory blocks that are currently unused.
-	 *
-	 * @return Number of allocated, but unused memory blocks.
-	 */
-	const int32 GetNumFree() const
-	{
-		return InnerAllocator.GetNumFree().GetValue();
-	}
-
-private:
-	TLockFreeFixedSizeAllocator_TLSCacheBase<sizeof(FLockFreeLink), FSpinLocked_LIFO<PLATFORM_CACHE_LINE_SIZE>,
-#if 1 || UE_BUILD_SHIPPING || UE_BUILD_TEST
-		FNoopCounter
-#else
-		FThreadSafeCounter
-#endif
-	> InnerAllocator;
-};
 
 
 template<class T, int TPaddingForCacheContention>
@@ -2560,7 +2593,6 @@ public:
 
 	FLockFreePointerListFIFOBase()
 		: LinkAllocator(FLockFreePointerQueueBaseLinkAllocator::Get())
-		, IncomingQueue(LinkAllocator.Alloc())
 		, DequeueLock(0)
 	{
 	}
@@ -2696,7 +2728,6 @@ public:
 
 	FLockFreePointerListFIFOBase()
 		: LinkAllocator(FLockFreePointerQueueBaseLinkAllocator::Get())
-		, IncomingQueue(LinkAllocator.Alloc())
 		, DequeueLock(0)
 	{
 	}
@@ -2832,10 +2863,9 @@ public:
 
 	FCloseableLockFreePointerListFIFOBaseSingleConsumer()
 		: LinkAllocator(FLockFreePointerQueueBaseLinkAllocator::Get())
-		, IncomingQueue(LinkAllocator.Alloc())
 	{
 	}
-	/**	
+	/**
 	 *	Push an item onto the head of the list, unless the list is closed
 	 *
 	 *	@param NewItem, the new item to push on the list, cannot be NULL
@@ -2949,7 +2979,6 @@ public:
 
 	FCloseableLockFreePointerListFIFOBaseSingleConsumer()
 		: LinkAllocator(FLockFreePointerQueueBaseLinkAllocator::Get())
-		, IncomingQueue(LinkAllocator.Alloc())
 	{
 	}
 	/**

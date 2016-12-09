@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DeviceProfileEditorPCH.h"
+#include "SDeviceProfileEditorSingleProfileView.h"
 #include "DeviceProfiles/DeviceProfile.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Layout/SBorder.h"
+#include "EditorStyleSet.h"
 #include "PropertyEditorModule.h"
+#include "IDetailsView.h"
 
 
 #define LOCTEXT_NAMESPACE "DeviceProfileEditorSingleProfileView"

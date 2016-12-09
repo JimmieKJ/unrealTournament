@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AlembicImporterPrivatePCH.h"
-
-#include "UnrealEd.h"
-#include "MainFrame.h"
-
 #include "AlembicImportFactory.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/SkeletalMesh.h"
+#include "Editor.h"
+#include "EditorFramework/AssetImportData.h"
+#include "HAL/FileManager.h"
+#include "Framework/Application/SlateApplication.h"
+
+#include "IMainFrameModule.h"
+
 #include "AlembicImportOptions.h"
 
 #include "AlembicLibraryModule.h"
@@ -54,22 +58,26 @@ UClass* UAlembicImportFactory::ResolveSupportedClass()
 	return UStaticMesh::StaticClass();
 }
 
-UObject* UAlembicImportFactory::FactoryCreateBinary(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled)
+UObject* UAlembicImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
-	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
+	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, TEXT("ABC"));
 
 	TSharedPtr<SAlembicImportOptions> Options;
 
 	FAbcImporter Importer;
-	EAbcImportError ErrorCode = Importer.OpenAbcFileForImport(UFactory::CurrentFilename);
+	EAbcImportError ErrorCode = Importer.OpenAbcFileForImport(Filename);
+	ImportSettings->bReimport = false;
 	
 	if (ErrorCode != AbcImportError_NoError)
 	{
 		// Failed to read the file info, fail the import
 		FEditorDelegates::OnAssetPostImport.Broadcast(this, nullptr);
+		return nullptr;
 	}
 
-	ImportSettings->SamplingSettings.FrameEnd = Importer.GetNumFrames();	
+	// Reset (possible) changed frame start value 
+	ImportSettings->SamplingSettings.FrameStart = 0;
+	ImportSettings->SamplingSettings.FrameEnd = Importer.GetEndFrameIndex();
 	ShowImportOptionsWindow(Options, UFactory::CurrentFilename, Importer);
 
 	// Set whether or not the user canceled
@@ -81,7 +89,7 @@ UObject* UAlembicImportFactory::FactoryCreateBinary(UClass* InClass, UObject* In
 	TArray<UObject*> ResultAssets;
 	if (!bOutOperationCanceled)
 	{
-		FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, Type);
+		FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, TEXT("ABC"));
 		
 		if (Options->ShouldImport())
 		{
@@ -283,6 +291,7 @@ void UAlembicImportFactory::SetReimportPaths(UObject* Obj, const TArray<FString>
 
 EReimportResult::Type UAlembicImportFactory::Reimport(UObject* Obj)
 {
+	ImportSettings->bReimport = true;
 	if (Obj->GetClass() == UStaticMesh::StaticClass())
 	{
 		UStaticMesh* Mesh = Cast<UStaticMesh>(Obj);
@@ -390,6 +399,8 @@ EReimportResult::Type UAlembicImportFactory::ReimportGeometryCache(UGeometryCach
 
 	TSharedPtr<SAlembicImportOptions> Options;
 	ImportSettings->ImportType = EAlembicImportType::GeometryCache;
+	ImportSettings->SamplingSettings.FrameStart = 0;
+	ImportSettings->SamplingSettings.FrameEnd = Importer.GetEndFrameIndex();
 	ShowImportOptionsWindow(Options, CurrentFilename, Importer);
 	
 	if (!Options->ShouldImport())
@@ -451,6 +462,8 @@ EReimportResult::Type UAlembicImportFactory::ReimportSkeletalMesh(USkeletalMesh*
 
 	TSharedPtr<SAlembicImportOptions> Options;
 	ImportSettings->ImportType = EAlembicImportType::Skeletal;
+	ImportSettings->SamplingSettings.FrameStart = 0;
+	ImportSettings->SamplingSettings.FrameEnd = Importer.GetEndFrameIndex();
 	ShowImportOptionsWindow(Options, CurrentFilename, Importer);
 
 	if (!Options->ShouldImport())
@@ -512,6 +525,8 @@ EReimportResult::Type UAlembicImportFactory::ReimportStaticMesh(UStaticMesh* Mes
 
 	TSharedPtr<SAlembicImportOptions> Options;
 	ImportSettings->ImportType = EAlembicImportType::StaticMesh;
+	ImportSettings->SamplingSettings.FrameStart = 0;
+	ImportSettings->SamplingSettings.FrameEnd = Importer.GetEndFrameIndex();
 	ShowImportOptionsWindow(Options, CurrentFilename, Importer);
 
 	if (!Options->ShouldImport())

@@ -3,7 +3,7 @@
 //
 // Template for adding user surface height function, eg from graphics position.
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #include "System/paConfig.h"
 

@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "EngineVersion.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/Guid.h"
+#include "Serialization/CustomVersion.h"
 #include "Runtime/Launch/Resources/Version.h"
-#include "EngineBuildSettings.h"
-#include "ModuleVersion.h"
 #include "UObject/ReleaseObjectVersion.h"
 
 /** Version numbers for networking - DEPRECATED!!!! Use FNetworkVersion::GetNetworkCompatibleChangelist instead!!! */
@@ -127,11 +126,6 @@ void FEngineVersion::Empty()
 
 bool FEngineVersion::IsCompatibleWith(const FEngineVersionBase &Other) const
 {
-	if (FEngineBuildSettings::IsPerforceBuild())
-	{
-		return true;
-	}
-
 	// If this or the other is not a promoted build, always assume compatibility. 
 	if(!HasChangelist() || !Other.HasChangelist())
 	{
@@ -212,7 +206,7 @@ const FEngineVersion& FEngineVersion::CompatibleWith()
 	return CompatibleWithVersion;
 }
 
-bool FEngineVersion::OverrideCurrentVersionChangelist(int32 NewChangelist)
+bool FEngineVersion::OverrideCurrentVersionChangelist(int32 NewChangelist, int32 NewCompatibleChangelist)
 {
 	if(CurrentVersion.GetChangelist() != 0 || CompatibleWithVersion.GetChangelist() != 0)
 	{
@@ -220,7 +214,7 @@ bool FEngineVersion::OverrideCurrentVersionChangelist(int32 NewChangelist)
 	}
 
 	CurrentVersion.Set(CurrentVersion.Major, CurrentVersion.Minor, CurrentVersion.Patch, NewChangelist | (ENGINE_IS_LICENSEE_VERSION << 31), CurrentVersion.Branch);
-	CompatibleWithVersion.Set(CompatibleWithVersion.Major, CompatibleWithVersion.Minor, CompatibleWithVersion.Patch, NewChangelist | (ENGINE_IS_LICENSEE_VERSION << 31), CompatibleWithVersion.Branch);
+	CompatibleWithVersion.Set(CompatibleWithVersion.Major, CompatibleWithVersion.Minor, CompatibleWithVersion.Patch, NewCompatibleChangelist | (ENGINE_IS_LICENSEE_VERSION << 31), CompatibleWithVersion.Branch);
 	return true;
 }
 

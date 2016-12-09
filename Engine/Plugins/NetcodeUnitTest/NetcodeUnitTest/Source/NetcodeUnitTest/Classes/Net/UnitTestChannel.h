@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/Channel.h"
 #include "UnitTestChannel.generated.h"
+
+class FInBunch;
+class UNetConnection;
 
 /**
  * A net channel for overriding the implementation of traditional net channels,

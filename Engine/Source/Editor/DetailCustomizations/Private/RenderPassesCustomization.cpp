@@ -1,8 +1,16 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "RenderPassesCustomization.h"
-#include "IPropertyUtilities.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SComboBox.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
 #include "BufferVisualizationData.h"
 #include "Protocols/CompositionGraphCaptureProtocol.h"
 #include "PropertyCustomizationHelpers.h"

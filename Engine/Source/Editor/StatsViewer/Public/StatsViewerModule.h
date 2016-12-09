@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "Engine.h"
-#include "SlateBasics.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 #include "IStatsViewer.h"
 #include "IStatsPage.h"
 

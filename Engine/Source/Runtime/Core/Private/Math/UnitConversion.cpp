@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "UnitConversion.h"
-#include "BasicMathExpressionEvaluator.h"
+#include "Math/UnitConversion.h"
+#include "Internationalization/Internationalization.h"
+#include "Misc/ExpressionParserTypes.h"
+#include "Misc/ExpressionParser.h"
+#include "Math/BasicMathExpressionEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "UnitConversion"
 

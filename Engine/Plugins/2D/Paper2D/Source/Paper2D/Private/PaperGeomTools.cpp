@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
 #include "PaperGeomTools.h"
+#include "Paper2DPrivate.h"
 
 bool PaperGeomTools::IsPolygonWindingCCW(const TArray<FVector2D>& Points)
 {

@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Engine/LatentActionManager.h"
+#include "UObject/Class.h"
 #include "LatentActions.h"
 
 /////////////////////////////////////////////////////
@@ -42,6 +43,17 @@ void FLatentActionManager::RemoveActionsForObject(TWeakObjectPtr<UObject> InObje
 			ActionToRemoveListPtr->Add(*It);
 		}
 	}
+}
+
+int32 FLatentActionManager::GetNumActionsForObject(TWeakObjectPtr<UObject> InObject)
+{
+	auto ObjectActionList = GetActionListForObject(InObject);
+	if (ObjectActionList)
+	{
+		return ObjectActionList->Num();
+	}
+
+	return 0;
 }
 
 

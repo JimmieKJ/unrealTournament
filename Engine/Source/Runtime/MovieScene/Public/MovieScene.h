@@ -2,17 +2,20 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
+#include "Templates/Casts.h"
+#include "MovieSceneSpawnable.h"
 #include "MovieSceneBinding.h"
 #include "MovieScenePossessable.h"
-#include "MovieSceneSpawnable.h"
+#include "MovieSceneSignedObject.h"
 #include "MovieScene.generated.h"
 
-
-class UBlueprint;
+class UMovieSceneFolder;
 class UMovieSceneSection;
 class UMovieSceneTrack;
-class UMovieSceneFolder;
-
 
 MOVIESCENE_API DECLARE_LOG_CATEGORY_EXTERN(LogMovieScene, Log, All);
 
@@ -80,7 +83,7 @@ struct FMovieSceneTrackLabels
  */
 UCLASS()
 class MOVIESCENE_API UMovieScene
-	: public UObject
+	: public UMovieSceneSignedObject
 {
 	GENERATED_UCLASS_BODY()
 
@@ -165,7 +168,15 @@ public:
 	/*
 	* Replace an existing possessable with another 
 	*/
-	bool ReplacePossessable(const FGuid& OldGuid, const FGuid& NewGuid, const FString& Name);
+	bool ReplacePossessable(const FGuid& OldGuid, const FMovieScenePossessable& InNewPosessable);
+
+	DEPRECATED(4.15, "Please use ReplacePossessable(const FGuid&, const FMovieScenePossessable&) so that the possessable class gets updated correctly.")
+	bool ReplacePossessable(const FGuid& OldGuid, const FGuid& NewGuid, const FString& Name)
+	{
+		FMovieScenePossessable NewPossessable(Name, nullptr);
+		NewPossessable.SetGuid(NewGuid);
+		return ReplacePossessable(OldGuid, NewPossessable);
+	}
 
 	/**
 	 * Tries to locate a possessable in this MovieScene for the specified possessable GUID.
@@ -463,6 +474,22 @@ public:
 	void SetPlaybackRange(float Start, float End, bool bAlwaysMarkDirty = true);
 
 	/**
+	 * Set the start and end working range (outer) for this movie scene
+	 *
+	 * @param Start The offset from 0-time to view this movie scene.
+	 * @param End The offset from 0-time to view this movie scene
+	 */
+	void SetWorkingRange(float Start, float End);
+
+	/**
+	 * Set the start and end view range (inner) for this movie scene
+	 *
+	 * @param Start The offset from 0-time to view this movie scene
+	 * @param End The offset from 0-time to view this movie scene
+	 */
+	void SetViewRange(float Start, float End);
+
+	/**
 	 * Gets whether or not playback should be forced to match the fixed frame interval.  When true all time values will be rounded to a fixed
 	 * frame value which will force editor and runtime playback to match exactly, but will result in duplicate frames if the runtime and editor
 	 * frame rates aren't exactly the same.
@@ -479,12 +506,17 @@ public:
 	/**
 	* Gets the fixed frame interval to be used when "force fixed frame interval playback" is set.
 	*/
-	float GetFixedFrameInterval() const;
+	float GetFixedFrameInterval() const { return FixedFrameInterval; }
 
 	/**
 	* Gets the fixed frame interval to be used when "force fixed frame interval playback" is set.
 	*/
 	void SetFixedFrameInterval( float InFixedFrameInterval );
+
+	/**
+	 * Gets the fixed frame interval to be used when "force fixed frame interval playback" is set. Only returns a valid result when GetForceFixedFrameIntervalPlayback() is true, and the interval is > 0.
+	 */
+	TOptional<float> GetOptionalFixedFrameInterval() const { return (!GetForceFixedFrameIntervalPlayback() || GetFixedFrameInterval() <= 0) ? TOptional<float>() : GetFixedFrameInterval(); }
 
 	/**
 	 * Calculates a fixed frame time based on a current time, a fixed frame interval, and an internal epsilon to account

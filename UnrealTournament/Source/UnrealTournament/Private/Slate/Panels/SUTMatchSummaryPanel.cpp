@@ -128,7 +128,6 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 
 	// allocate a preview scene for rendering
 	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Game, true); // NOTE: Custom depth does not work with EWorldType::Preview
-	PlayerPreviewWorld->bHack_Force_UsesGameHiddenFlags_True = true;
 	PlayerPreviewWorld->bShouldSimulatePhysics = true;
 #if WITH_EDITOR
 	PlayerPreviewWorld->bEnableTraceCollision = false;
@@ -578,7 +577,7 @@ void SUTMatchSummaryPanel::BuildInfoPanel()
 	HighlightBoxes.Empty();
 	if (UTPS != nullptr && !UTPS->IsPendingKill() && UTPS->IsValidLowLevel())
 	{
-		AUTGameMode* DefaultGameMode = GameState.IsValid() && GameState->GameModeClass ? Cast<AUTGameMode>(GameState->GameModeClass->GetDefaultObject()) : NULL;
+		AUTGameMode* DefaultGameMode = GameState.IsValid() ? const_cast<AUTGameMode*>(GameState->GetDefaultGameMode<AUTGameMode>()) : nullptr;
 		if (DefaultGameMode != nullptr)
 		{
 			//Build the highlights
@@ -1020,7 +1019,7 @@ void SUTMatchSummaryPanel::SetupIntroCam()
 	int32 NumViewTeams = FMath::Max(GameState->Teams.Num(), 1);
 
 	//7 seconds for the team camera pan works well with the current song
-	AUTGameMode* DefaultGame = GameState->GameModeClass->GetDefaultObject<AUTGameMode>();
+	const AUTGameMode* DefaultGame = GameState->GetDefaultGameMode<AUTGameMode>();
 	float TimePerTeam = (DefaultGame ? DefaultGame->IntroDisplayTime : 2.5f)/NumViewTeams;
 
 	//Add camera pan for each team
@@ -1077,7 +1076,7 @@ void SUTMatchSummaryPanel::SetupMatchCam()
 
 	CameraShots.Empty();
 
-	AUTGameMode* DefaultGame = GameState->GameModeClass->GetDefaultObject<AUTGameMode>();
+	const AUTGameMode* DefaultGame = GameState->GetDefaultGameMode<AUTGameMode>();
 	if (TeamPreviewMeshs.IsValidIndex(TeamToView) && GameState.IsValid())
 	{
 		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[TeamToView];

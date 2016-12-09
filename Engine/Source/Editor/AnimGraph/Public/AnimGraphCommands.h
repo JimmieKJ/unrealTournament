@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Framework/Commands/Commands.h"
+#include "EditorStyleSet.h"
+
 /** Anim Graph Commands */
 class ANIMGRAPH_API FAnimGraphCommands : public TCommands<FAnimGraphCommands>
 {

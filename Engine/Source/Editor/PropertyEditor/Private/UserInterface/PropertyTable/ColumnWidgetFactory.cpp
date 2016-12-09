@@ -1,19 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
+#include "UserInterface/PropertyTable/ColumnWidgetFactory.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "UObject/UnrealType.h"
+#include "IPropertyTableColumn.h"
+#include "IPropertyTable.h"
+#include "UserInterface/PropertyTable/SColumnHeader.h"
 
-#include "ColumnWidgetFactory.h"
-#include "IPropertyTableUtilities.h"
 
-#include "SColumnHeader.h"
-#include "SRowHeaderColumnHeader.h"
-#include "STextColumnHeader.h"
-#include "SBoolColumnHeader.h"
-#include "SColorColumnHeader.h"
-#include "SObjectColumnHeader.h"
-#include "SObjectNameColumnHeader.h"
-#include "SPropertyNameColumnHeader.h"
-#include "PropertyPath.h"
+#include "UserInterface/PropertyTable/SRowHeaderColumnHeader.h"
+#include "UserInterface/PropertyTable/STextColumnHeader.h"
+#include "UserInterface/PropertyTable/SBoolColumnHeader.h"
+#include "UserInterface/PropertyTable/SColorColumnHeader.h"
+#include "UserInterface/PropertyTable/SObjectColumnHeader.h"
+#include "UserInterface/PropertyTable/SObjectNameColumnHeader.h"
+#include "UserInterface/PropertyTable/SPropertyNameColumnHeader.h"
 
 bool ColumnWidgetFactory::Supports( const TSharedRef < IPropertyTableColumn >& Column )
 {

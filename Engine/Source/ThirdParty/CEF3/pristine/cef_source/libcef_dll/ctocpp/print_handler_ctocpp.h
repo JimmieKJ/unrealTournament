@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -28,11 +28,10 @@ class CefPrintHandlerCToCpp
     : public CefCToCpp<CefPrintHandlerCToCpp, CefPrintHandler,
         cef_print_handler_t> {
  public:
-  explicit CefPrintHandlerCToCpp(cef_print_handler_t* str)
-      : CefCToCpp<CefPrintHandlerCToCpp, CefPrintHandler, cef_print_handler_t>(
-          str) {}
+  CefPrintHandlerCToCpp();
 
-  // CefPrintHandler methods
+  // CefPrintHandler methods.
+  void OnPrintStart(CefRefPtr<CefBrowser> browser) override;
   void OnPrintSettings(CefRefPtr<CefPrintSettings> settings,
       bool get_defaults) override;
   bool OnPrintDialog(bool has_selection,
@@ -41,8 +40,8 @@ class CefPrintHandlerCToCpp
       const CefString& pdf_file_path,
       CefRefPtr<CefPrintJobCallback> callback) override;
   void OnPrintReset() override;
+  CefSize GetPdfPaperSize(int device_units_per_inch) override;
 };
 
 #endif  // BUILDING_CEF_SHARED
 #endif  // CEF_LIBCEF_DLL_CTOCPP_PRINT_HANDLER_CTOCPP_H_
-

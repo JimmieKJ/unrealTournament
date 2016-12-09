@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
-#include "OnlineSubsystemSteamTypes.h"
 #include "OnlineUserCloudInterfaceSteam.h"
+#include "Misc/ScopeLock.h"
 #include "OnlineSubsystemSteam.h"
 
 FString FOnlineAsyncTaskSteamEnumerateUserFiles::ToString() const

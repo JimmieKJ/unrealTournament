@@ -2,14 +2,15 @@
 
 #pragma once
 
-#include "Engine/EngineTypes.h"
-#include "Perception/AIPerceptionSystem.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GenericTeamAgentInterface.h"
 #include "Perception/AISense.h"
 #include "AISense_Sight.generated.h"
 
 class IAISightTargetInterface;
-class UAISenseConfig_Sight;
 class UAISense_Sight;
+class UAISenseConfig_Sight;
 
 namespace ESightPerceptionEventName
 {

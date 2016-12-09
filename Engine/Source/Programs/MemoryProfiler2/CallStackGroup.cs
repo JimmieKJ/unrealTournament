@@ -178,10 +178,13 @@ namespace MemoryProfiler2
         protected List<Regex> Regexes;
 
         [XmlIgnore]
-        public List<FCallStack> CallStacks = new List<FCallStack>();
+        protected List<FCallStack> CallStacks = new List<FCallStack>();
+
+		[XmlIgnore]
+		protected HashSet<FCallStack> CallStacksSet = new HashSet<FCallStack>();
 
 		/// <summary> Used for sorting. A single number that callstack patterns can be sorted on. </summary>
-        [Browsable(false)]
+		[Browsable(false)]
         public int Ordinal
         {
             // Note that this value can go negative if PatternOrderGroup
@@ -221,7 +224,32 @@ namespace MemoryProfiler2
             PatternOrderGroup = PatternOrderGroup.General;
         }
 
-        public bool Matches(CallStackPattern Other)
+		public void AddCallStack(FCallStack NewCallStack)
+		{
+			CallStacks.Add(NewCallStack);
+			CallStacksSet.Add(NewCallStack);
+		}
+
+		public void AddCallStacks(IEnumerable<FCallStack> NewCallStacks)
+		{
+			foreach (FCallStack NewCallStack in NewCallStacks)
+			{
+				CallStacks.Add(NewCallStack);
+				CallStacksSet.Add(NewCallStack);
+			}
+		}
+
+		public bool ContainsCallStack(FCallStack OtherCallStack)
+		{
+			return CallStacksSet.Contains(OtherCallStack);
+		}
+
+		public IEnumerable<FCallStack> GetCallStacks()
+		{
+			return CallStacks;
+		}
+
+		public bool Matches(CallStackPattern Other)
         {
             if (Other.StackFramePatterns.Length != StackFramePatterns.Length || Other.bUseRegexes != bUseRegexes)
             {

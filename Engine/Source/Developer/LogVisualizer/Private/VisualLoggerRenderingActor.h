@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "GameFramework/Actor.h"
+#include "VisualLogger/VisualLoggerTypes.h"
 #include "DebugRenderSceneProxy.h"
 #include "VisualLoggerRenderingActor.generated.h"
+
+class UPrimitiveComponent;
+struct FVisualLoggerDBRow;
 
 /**
 *	Transient actor used to draw visual logger data on level

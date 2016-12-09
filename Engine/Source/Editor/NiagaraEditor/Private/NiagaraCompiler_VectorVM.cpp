@@ -1,18 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEditorPrivatePCH.h"
-#include "NiagaraScript.h"
-#include "NiagaraComponent.h"
-#include "CompilerResultsLog.h"
+#include "NiagaraCompiler_VectorVM.h"
+#include "NiagaraGraph.h"
+#include "NiagaraScriptSource.h"
 #include "EdGraphUtilities.h"
 #include "VectorVM.h"
-#include "ComponentReregisterContext.h"
-#include "NiagaraCompiler_VectorVM.h"
 
 #include "NiagaraNodeOutput.h"
-#include "NiagaraNodeInput.h"
-#include "NiagaraNodeFunctionCall.h"
-#include "NiagaraNodeReadDataSet.h"
 #include "NiagaraNodeWriteDataSet.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraCompiler_VectorVM"

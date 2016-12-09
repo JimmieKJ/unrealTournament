@@ -1,18 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
 #include "BoneSelectionWidget.h"
-#include "SSearchBox.h"
-#include "Editor/PropertyEditor/Public/DetailLayoutBuilder.h"
+#include "EditorStyleSet.h"
+#include "DetailLayoutBuilder.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "IEditableSkeleton.h"
 
 #define LOCTEXT_NAMESPACE "SBoneSelectionWidget"
 
 /////////////////////////////////////////////////////
-void SBoneTreeMenu::Construct(const FArguments& InArgs, TWeakObjectPtr<const USkeleton> Skeleton)
+void SBoneTreeMenu::Construct(const FArguments& InArgs, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton)
 {
-	TargetSkeleton = Skeleton;
+	EditableSkeletonPtr = InEditableSkeleton;
 	OnSelectionChangedDelegate = InArgs._OnBoneSelectionChanged;
+	bShowVirtualBones = InArgs._bShowVirtualBones;
 
 	FText TitleToUse = !InArgs._Title.IsEmpty() ? InArgs._Title  : LOCTEXT("BonePickerTitle", "Pick Bone...");
 
@@ -23,7 +27,7 @@ void SBoneTreeMenu::Construct(const FArguments& InArgs, TWeakObjectPtr<const USk
 		.OnSelectionChanged(this, &SBoneTreeMenu::OnSelectionChanged)
 		.SelectionMode(ESelectionMode::Single);
 
-	RebuildBoneList();
+	RebuildBoneList(InArgs._SelectedBone);
 
 	ChildSlot
 	[
@@ -89,7 +93,7 @@ void SBoneTreeMenu::OnFilterTextChanged(const FText& InFilterText)
 {
 	FilterText = InFilterText;
 
-	RebuildBoneList();
+	RebuildBoneList(NAME_None);
 }
 
 void SBoneTreeMenu::OnSelectionChanged(TSharedPtr<SBoneTreeMenu::FBoneNameInfo> BoneInfo, ESelectInfo::Type SelectInfo)
@@ -101,19 +105,18 @@ void SBoneTreeMenu::OnSelectionChanged(TSharedPtr<SBoneTreeMenu::FBoneNameInfo> 
 	}
 }
 
-void SBoneTreeMenu::RebuildBoneList()
+void SBoneTreeMenu::RebuildBoneList(const FName& SelectedBone)
 {
 	SkeletonTreeInfo.Empty();
 	SkeletonTreeInfoFlat.Empty();
-	if (!TargetSkeleton.IsValid())
-	{
-		return;
-	}
 
-	const FReferenceSkeleton& RefSkeleton = TargetSkeleton->GetReferenceSkeleton();
-	for(int32 BoneIdx = 0; BoneIdx < RefSkeleton.GetNum(); ++BoneIdx)
+	const FReferenceSkeleton& RefSkeleton = EditableSkeletonPtr.Pin()->GetSkeleton().GetReferenceSkeleton();
+	const int32 MaxBone = bShowVirtualBones ? RefSkeleton.GetNum() : RefSkeleton.GetRawBoneNum();
+
+	for(int32 BoneIdx = 0; BoneIdx < MaxBone; ++BoneIdx)
 	{
-		TSharedRef<FBoneNameInfo> BoneInfo = MakeShareable(new FBoneNameInfo(RefSkeleton.GetBoneName(BoneIdx)));
+		const FName BoneName = RefSkeleton.GetBoneName(BoneIdx);
+		TSharedRef<FBoneNameInfo> BoneInfo = MakeShareable(new FBoneNameInfo(BoneName));
 
 		// Filter if Necessary
 		if(!FilterText.IsEmpty() && !BoneInfo->BoneName.ToString().Contains(FilterText.ToString()))
@@ -156,6 +159,11 @@ void SBoneTreeMenu::RebuildBoneList()
 
 		SkeletonTreeInfoFlat.Add(BoneInfo);
 		TreeView->SetItemExpansion(BoneInfo, true);
+		if (BoneName == SelectedBone)
+		{
+			TreeView->SetItemSelection(BoneInfo, true);
+			TreeView->RequestScrollIntoView(BoneInfo);
+		}
 	}
 
 	TreeView->RequestTreeRefresh();
@@ -163,16 +171,14 @@ void SBoneTreeMenu::RebuildBoneList()
 
 /////////////////////////////////////////////////////
 
-void SBoneSelectionWidget::Construct(const FArguments& InArgs, TWeakObjectPtr<const USkeleton> Skeleton)
+void SBoneSelectionWidget::Construct(const FArguments& InArgs, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton)
 {
-	TargetSkeleton = Skeleton;
-
-	check(TargetSkeleton.IsValid());
+	EditableSkeletonPtr = InEditableSkeleton;
 
 	OnBoneSelectionChanged = InArgs._OnBoneSelectionChanged;
 	OnGetSelectedBone = InArgs._OnGetSelectedBone;
 
-	FText FinalTooltip = FText::Format(LOCTEXT("BoneClickToolTip", "{0}\nClick to choose a different bone"), InArgs._Tooltip);
+	SuppliedToolTip = InArgs._ToolTipText.Get();
 
 	this->ChildSlot
 	[
@@ -184,15 +190,22 @@ void SBoneSelectionWidget::Construct(const FArguments& InArgs, TWeakObjectPtr<co
 			SNew(STextBlock)
 			.Text(this, &SBoneSelectionWidget::GetCurrentBoneName)
 			.Font(IDetailLayoutBuilder::GetDetailFont())
-			.ToolTipText(FinalTooltip)
+			.ToolTipText(this, &SBoneSelectionWidget::GetFinalToolTip)
 		]
 	];
 }
 
 TSharedRef<SWidget> SBoneSelectionWidget::CreateSkeletonWidgetMenu()
 {
-	TSharedRef<SBoneTreeMenu> MenuWidget = SNew(SBoneTreeMenu, TargetSkeleton)
-									.OnBoneSelectionChanged(this, &SBoneSelectionWidget::OnSelectionChanged);
+	FName CurrentBoneName;
+	if (OnGetSelectedBone.IsBound())
+	{
+		CurrentBoneName = OnGetSelectedBone.Execute();
+	}
+
+	TSharedRef<SBoneTreeMenu> MenuWidget = SNew(SBoneTreeMenu, EditableSkeletonPtr.Pin().ToSharedRef())
+									.OnBoneSelectionChanged(this, &SBoneSelectionWidget::OnSelectionChanged)
+									.SelectedBone(CurrentBoneName);
 
 	BonePickerButton->SetMenuContentWidgetToFocus(MenuWidget->FilterTextWidget);
 
@@ -221,6 +234,11 @@ FText SBoneSelectionWidget::GetCurrentBoneName() const
 
 	// @todo implement default solution?
 	return FText::GetEmpty();
+}
+
+FText SBoneSelectionWidget::GetFinalToolTip() const
+{
+	return FText::Format(LOCTEXT("BoneClickToolTip", "Bone:{0}\n\n{1}\nClick to choose a different bone"), GetCurrentBoneName(), SuppliedToolTip);
 }
 #undef LOCTEXT_NAMESPACE
 

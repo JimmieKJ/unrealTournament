@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once 
-#include "Commandlets/Commandlet.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Commandlets/GatherTextCommandletBase.h"
 #include "GatherTextFromMetadataCommandlet.generated.h"
 
 /**

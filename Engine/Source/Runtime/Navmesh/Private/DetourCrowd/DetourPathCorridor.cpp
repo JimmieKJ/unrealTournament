@@ -19,13 +19,9 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
-#include <string.h>
-#include "DetourPathCorridor.h"
-#include "DetourNavMeshQuery.h"
-#include "DetourCommon.h"
-#include "DetourAssert.h"
-#include "DetourAlloc.h"
+#include "DetourCrowd/DetourPathCorridor.h"
+#include "Detour/DetourNavMeshQuery.h"
+#include "Detour/DetourAssert.h"
 
 
 int dtMergeCorridorStartMoved(dtPolyRef* path, const int npath, const int maxPath,

@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "NiagaraScriptConstantData.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "NiagaraCommon.h"
+#include "Runtime/Niagara/NiagaraScriptConstantData.h"
 
 #include "NiagaraScript.generated.h"
 

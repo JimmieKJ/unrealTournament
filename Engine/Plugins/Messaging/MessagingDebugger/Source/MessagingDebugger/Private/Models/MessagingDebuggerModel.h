@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IMessageTracer.h"
 
 /**
  * Implements a view model for the messaging debugger.
@@ -13,33 +15,21 @@ public:
 	/**
 	 * Clears all visibility filters (to show all messages).
 	 */
-	void ClearVisibilities()
-	{
-		InvisibleEndpoints.Empty();
-		InvisibleTypes.Empty();
-
-		MessageVisibilityChangedEvent.Broadcast();
-	}
+	void ClearVisibilities();
 
 	/**
 	 * Gets the endpoint that is currently selected in the endpoint list.
 	 *
 	 * @return The selected endpoint.
 	 */
-	FMessageTracerEndpointInfoPtr GetSelectedEndpoint() const
-	{
-		return SelectedEndpoint;
-	}
+	TSharedPtr<FMessageTracerEndpointInfo> GetSelectedEndpoint() const;
 
 	/**
 	 * Gets the message that is currently selected in the message history.
 	 *
 	 * @return The selected message.
 	 */
-	FMessageTracerMessageInfoPtr GetSelectedMessage() const
-	{
-		return SelectedMessage;
-	}
+	TSharedPtr<FMessageTracerMessageInfo> GetSelectedMessage() const;
 
 	/** 
 	 * Checks whether messages of the given message endpoint should be visible.
@@ -47,10 +37,7 @@ public:
 	 * @param Endpoint The information of the endpoint to check.
 	 * @return true if the endpoint's messages should be visible, false otherwise.
 	 */
-	bool IsEndpointVisible( const FMessageTracerEndpointInfoRef& EndpointInfo ) const
-	{
-		return !InvisibleEndpoints.Contains(EndpointInfo);
-	}
+	bool IsEndpointVisible(const TSharedRef<FMessageTracerEndpointInfo>& EndpointInfo) const;
 
 	/**
 	 * Checks whether the given message should be visible.
@@ -58,29 +45,7 @@ public:
 	 * @param MessageInfo The information of the message to check.
 	 * @return true if the message should be visible, false otherwise.
 	 */
-	bool IsMessageVisible( const FMessageTracerMessageInfoRef& MessageInfo ) const
-	{
-		if (!IsEndpointVisible(MessageInfo->SenderInfo.ToSharedRef()) ||
-			!IsTypeVisible(MessageInfo->TypeInfo.ToSharedRef()))
-		{
-			return false;
-		}
-
-		if (MessageInfo->DispatchStates.Num() > 0)
-		{
-			for (TMap<FMessageTracerEndpointInfoPtr, FMessageTracerDispatchStatePtr>::TConstIterator It(MessageInfo->DispatchStates); It; ++It)
-			{
-				const FMessageTracerDispatchStatePtr& DispatchState = It.Value();
-
-				if (IsEndpointVisible(DispatchState->EndpointInfo.ToSharedRef()))
-				{
-					return true;
-				}
-			}
-		}
-
-		return true;
-	}
+	bool IsMessageVisible(const TSharedRef<FMessageTracerMessageInfo>& MessageInfo) const;
 
 	/**
 	 * Checks whether messages of the given type should be visible.
@@ -88,38 +53,21 @@ public:
 	 * @param TypeInfo The information of the message type to check.
 	 * @return true if messages of the given type should be visible, false otherwise.
 	 */
-	bool IsTypeVisible( const FMessageTracerTypeInfoRef& TypeInfo ) const
-	{
-		return !InvisibleTypes.Contains(TypeInfo);
-	}
+	bool IsTypeVisible(const TSharedRef<FMessageTracerTypeInfo>& TypeInfo) const;
 
 	/**
 	 * Selects the specified endpoint (or none if nullptr).
 	 *
 	 * @param EndpointInfo The information of the endpoint to select.
 	 */
-	void SelectEndpoint( const FMessageTracerEndpointInfoPtr& EndpointInfo )
-	{
-		if (SelectedEndpoint != EndpointInfo)
-		{
-			SelectedEndpoint = EndpointInfo;
-			SelectedEndpointChangedEvent.Broadcast();
-		}
-	}
+	void SelectEndpoint(const TSharedPtr<FMessageTracerEndpointInfo>& EndpointInfo);
 
 	/**
 	 * Selects the specified message (or none if nullptr).
 	 *
 	 * @param MessageInfo The information of the message to select.
 	 */
-	void SelectMessage( const FMessageTracerMessageInfoPtr& MessageInfo )
-	{
-		if (SelectedMessage != MessageInfo)
-		{
-			SelectedMessage = MessageInfo;
-			SelectedMessageChangedEvent.Broadcast();
-		}
-	}
+	void SelectMessage(const TSharedPtr<FMessageTracerMessageInfo>& MessageInfo);
 
 	/**
 	 * Sets whether messages for the given endpoint should be visible.
@@ -127,19 +75,7 @@ public:
 	 * @param Endpoint The information for the endpoint.
 	 * @param Visible Whether the endpoint's messages should be visible or not.
 	 */
-	void SetEndpointVisibility( const FMessageTracerEndpointInfoRef& EndpointInfo, bool Visible )
-	{
-		if (Visible)
-		{
-			InvisibleEndpoints.Remove(EndpointInfo);
-		}
-		else
-		{
-			InvisibleEndpoints.AddUnique(EndpointInfo);
-		}
-
-		MessageVisibilityChangedEvent.Broadcast();
-	}
+	void SetEndpointVisibility(const TSharedRef<FMessageTracerEndpointInfo>& EndpointInfo, bool Visible);
 
 	/**
 	 * Sets whether messages for the given message type should be visible.
@@ -147,19 +83,7 @@ public:
 	 * @param Endpoint The information for the message type.
 	 * @param Visible Whether messages of the given type should be visible or not.
 	 */
-	void SetTypeVisibility( const FMessageTracerTypeInfoRef& TypeInfo, bool Visible )
-	{
-		if (Visible)
-		{
-			InvisibleTypes.Remove(TypeInfo);
-		}
-		else
-		{
-			InvisibleTypes.AddUnique(TypeInfo);
-		}
-
-		MessageVisibilityChangedEvent.Broadcast();
-	}
+	void SetTypeVisibility(const TSharedRef<FMessageTracerTypeInfo>& TypeInfo, bool Visible);
 
 public:
 
@@ -199,16 +123,16 @@ public:
 private:
 
 	/** Holds the collection of invisible message endpoints. */
-	TArray<FMessageTracerEndpointInfoPtr> InvisibleEndpoints;
+	TArray<TSharedPtr<FMessageTracerEndpointInfo>> InvisibleEndpoints;
 
 	/** Holds the collection of invisible message types. */
-	TArray<FMessageTracerTypeInfoPtr> InvisibleTypes;
+	TArray<TSharedPtr<FMessageTracerTypeInfo>> InvisibleTypes;
 
 	/** Holds a pointer to the sole endpoint that is currently selected in the endpoint list. */
-	FMessageTracerEndpointInfoPtr SelectedEndpoint;
+	TSharedPtr<FMessageTracerEndpointInfo> SelectedEndpoint;
 
 	/** Holds a pointer to the message that is currently selected in the message history. */
-	FMessageTracerMessageInfoPtr SelectedMessage;
+	TSharedPtr<FMessageTracerMessageInfo> SelectedMessage;
 
 private:
 
@@ -221,10 +145,3 @@ private:
 	/** Holds an event delegate that is invoked when the selected message has changed. */
 	FOnSelectedMessageChanged SelectedMessageChangedEvent;
 };
-
-
-/** Type definition for shared pointers to instances of FMessagingDebuggerModel. */
-typedef TSharedPtr<FMessagingDebuggerModel> FMessagingDebuggerModelPtr;
-
-/** Type definition for shared references to instances of FMessagingDebuggerTypeFilter. */
-typedef TSharedRef<FMessagingDebuggerModel> FMessagingDebuggerModelRef;

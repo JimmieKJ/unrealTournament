@@ -337,7 +337,6 @@
       <LastGenOutput>CrashReports.cs</LastGenOutput>
     </Content>
     <Content Include="Global.asax" />
-    <Content Include="Properties\PublishProfiles\CRTest.pubxml.user" />
     <Content Include="Scripts\jquery-1.5.1-vsdoc.js" />
     <Content Include="Scripts\jquery-1.5.1.js" />
     <Content Include="Scripts\jquery-1.5.1.min.js" />
@@ -355,18 +354,16 @@
     <Content Include="Scripts\modernizr-1.7.js" />
     <Content Include="Scripts\modernizr-1.7.min.js" />
     <Content Include="Scripts\searchCollapse.js" />
-    <Content Include="Views\Buggs\Index.aspx" />
-    <Content Include="Views\Buggs\Show.aspx" />
-    <Content Include="Views\Buggs\ViewBuggs.ascx" />
-    <Content Include="Views\CSV\CSV.aspx" />
-    <Content Include="Views\CSV\Index.aspx" />
-    <Content Include="Views\CSV\ViewCSV.ascx" />
-    <Content Include="Views\Dashboard\Index.aspx" />
-    <Content Include="Views\Crashes\Index.aspx" />
-    <Content Include="Views\Crashes\Show.aspx" />
-    <Content Include="Views\Crashes\ViewCrash.ascx" />
-    <Content Include="Views\Home\Index.aspx" />
-    <Content Include="Views\Reports\Index.aspx" />
+    <Content Include="Scripts\UserFilterScript.js" />
+    <None Include="Views\Buggs\Index.cshtml" />
+    <None Include="Views\Buggs\Show.cshtml" />
+    <None Include="Views\Buggs\ViewBuggs.cshtml" />
+    <None Include="Views\CSV\CSV.cshtml" />
+    <None Include="Views\CSV\Index.cshtml" />
+    <None Include="Views\CSV\ViewCSV.cshtml" />
+    <None Include="Views\Dashboard\Index.cshtml" />
+    <None Include="Views\Crashes\Show.cshtml" />
+    <None Include="Views\Reports\Index.cshtml" />
     <EntityDeploy Include="DataModels\CrashReports.edmx">
       <Generator>EntityModelCodeGenerator</Generator>
       <LastGenOutput>CrashReports.Designer.cs</LastGenOutput>
@@ -374,10 +371,13 @@
     <Content Include="DataModels\CrashReports.edmx.diagram">
       <DependentUpon>CrashReports.edmx</DependentUpon>
     </Content>
+    <Content Include="Views\Home\Index.cshtml" />
+    <Content Include="Views\Crashes\Index.cshtml" />
+    <Content Include="Views\Crashes\ViewCrash.cshtml" />
     <None Include="Views\Reports\SignUpResponse.cshtml" />
-    <Content Include="Views\Reports\Unsubscribe.aspx" />
-    <Content Include="Views\Reports\ViewReports.ascx" />
-    <Content Include="Views\Users\Index.aspx" />
+    <None Include="Views\Reports\Unsubscribe.cshtml" />
+    <None Include="Views\Reports\ViewReports.cshtml" />
+    <None Include="Views\Users\Index.cshtml" />
     <Content Include="Web.config">
       <SubType>Designer</SubType>
     </Content>
@@ -395,8 +395,7 @@
     <Content Include="Scripts\MicrosoftMvcAjax.debug.js" />
     <Content Include="Scripts\MicrosoftMvcValidation.js" />
     <Content Include="Scripts\MicrosoftMvcValidation.debug.js" />
-    <Content Include="Views\Shared\Error.aspx" />
-    <Content Include="Views\Shared\Site.Master" />
+    <None Include="Views\Shared\Error.cshtml" />
     <Content Include="Views\Web.config">
       <SubType>Designer</SubType>
     </Content>
@@ -407,13 +406,12 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="packages.config" />
-    <None Include="Properties\PublishProfiles\CrashReportDev.pubxml" />
-    <None Include="Properties\PublishProfiles\CRTest.pubxml" />
     <None Include="Properties\PublishProfiles\DefaultUE4.pubxml" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
+    <Content Include="Views\Shared\_CRWLayout.cshtml" />
     <None Include="Web.Development.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>

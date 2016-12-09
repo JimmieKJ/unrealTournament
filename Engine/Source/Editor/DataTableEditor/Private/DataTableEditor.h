@@ -2,13 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Types/SlateStructs.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Toolkits/IToolkitHost.h"
 #include "IDataTableEditor.h"
-#include "Toolkits/AssetEditorToolkit.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
 #include "EditorUndoClient.h"
 #include "Kismet2/StructureEditorUtils.h"
 #include "DataTableEditorUtils.h"
 
-class UDataTable;
 class FJsonObject;
 
 DECLARE_DELEGATE_OneParam(FOnRowHighlighted, FName /*Row name*/);

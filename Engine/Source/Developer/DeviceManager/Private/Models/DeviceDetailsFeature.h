@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+struct FDeviceDetailsFeature;
 
 /** Type definition for shared pointers to instances of FDeviceDetailsFeature. */
 typedef TSharedPtr<struct FDeviceDetailsFeature> FDeviceDetailsFeaturePtr;

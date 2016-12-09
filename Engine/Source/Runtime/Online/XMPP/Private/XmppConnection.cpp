@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "XmppPrivatePCH.h"
 #include "XmppConnection.h"
 
 bool FXmppUserJid::ParseResource(const FString& InResource, FString& OutAppId, FString& OutPlatform)

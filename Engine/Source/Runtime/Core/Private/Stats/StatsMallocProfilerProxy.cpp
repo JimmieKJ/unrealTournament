@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Stats/StatsMallocProfilerProxy.h"
+#include "UObject/NameTypes.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
+#include "Stats/Stats.h"
 
 #if STATS
 
-#include "StatsData.h"
-#include "StatsMallocProfilerProxy.h"
 
 /** Fake stat group and memory stats. */
 DECLARE_STATS_GROUP( TEXT( "Memory Profiler" ), STATGROUP_MemoryProfiler, STATCAT_Advanced );

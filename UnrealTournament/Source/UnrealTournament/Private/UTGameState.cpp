@@ -952,9 +952,7 @@ void AUTGameState::StartFPSCharts()
 		{
 			FPSChartLabel = TEXT("UTServerFPSChart");
 		}
-
-		FMemory::Memzero(HitchChart);
-
+		
 		GEngine->StartFPSChart(FPSChartLabel, /*bRecordPerFrameTimes=*/ false);
 		OnHitchDetectedHandle = GEngine->OnHitchDetectedDelegate.AddUObject(this, &AUTGameState::OnHitchDetected);
 	}
@@ -985,9 +983,10 @@ void AUTGameState::StopFPSCharts()
 		}
 
 		const bool bIsClient = GetNetMode() == NM_Client;
-		GEngine->StopFPSChart();
-		GEngine->DumpFPSChartAnalytics(MapName, ParamArray, bIsClient);
-
+		GEngine->StopFPSChart(MapName);
+		// plk - this was hard deprecated
+		//GEngine->DumpFPSChartAnalytics(MapName, ParamArray, bIsClient);
+		
 		if (bIsClient)
 		{
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
@@ -1230,9 +1229,9 @@ void AUTGameState::OnRep_MatchState()
 		TArray<APawn*> PawnsToDestroy;
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
-			if (*It && !Cast<ASpectatorPawn>((*It).Get()))
+			if (It->IsValid() && !Cast<ASpectatorPawn>((*It).Get()))
 			{
-				PawnsToDestroy.Add(*It);
+				PawnsToDestroy.Add(It->Get());
 			}
 		}
 
@@ -1640,7 +1639,7 @@ AUTReplicatedMapInfo* AUTGameState::CreateMapInfo(const FAssetData& MapAsset)
 		if (Role == ROLE_Authority)
 		{
 			// Look up it's redirect information if it has any.
-			AUTBaseGameMode* BaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
+			AUTBaseGameMode* BaseGameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 			if (BaseGameMode)
 			{
 				BaseGameMode->CheckMapStatus(MapInfo->MapPackageName, MapInfo->bIsEpicMap, MapInfo->bIsMeshedMap, MapInfo->bHasRights);

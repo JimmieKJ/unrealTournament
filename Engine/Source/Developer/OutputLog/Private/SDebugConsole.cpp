@@ -1,8 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OutputLogPrivatePCH.h"
-#include "OutputLogModule.h"
 #include "SDebugConsole.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "EditorStyleSet.h"
 #include "SOutputLog.h"
 
 namespace DebugConsoleDefs

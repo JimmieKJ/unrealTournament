@@ -3,6 +3,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Engine/EngineBaseTypes.h"
+
+class FTickTaskLevel;
+class ULevel;
+
 DECLARE_STATS_GROUP(TEXT("TickGroups"), STATGROUP_TickGroups, STATCAT_Advanced);
 
 /** 
@@ -28,7 +35,7 @@ public:
 	 * @param DeltaSeconds - time in seconds since last tick
 	 * @param TickType - type of tick (viewports only, time only, etc)
 	 */
-	virtual void StartFrame(UWorld* InWorld, float DeltaSeconds, ELevelTick TickType) = 0;
+	virtual void StartFrame(UWorld* InWorld, float DeltaSeconds, ELevelTick TickType, const TArray<ULevel*>& LevelsToTick) = 0;
 
 	/**
 	 * Run all of the ticks for a pause frame synchronously on the game thread.
@@ -37,7 +44,7 @@ public:
 	 * @param DeltaSeconds - time in seconds since last tick
 	 * @param TickType - type of tick (viewports only, time only, etc)
 	 */
-	virtual void RunPauseFrame(UWorld* InWorld, float DeltaSeconds, ELevelTick TickType) = 0;
+	virtual void RunPauseFrame(UWorld* InWorld, float DeltaSeconds, ELevelTick TickType, const TArray<ULevel*>& LevelsToTick) = 0;
 
 	/**
 		* Run a tick group, ticking all actors and components

@@ -7,6 +7,11 @@
 #ifndef __DLGMOVEASSETS_H__
 #define __DLGMOVEASSETS_H__
 
+#include "CoreMinimal.h"
+
+class SDlgMoveAsset;
+class SWindow;
+
 /** 
  * FDlgMoveAsset
  * 

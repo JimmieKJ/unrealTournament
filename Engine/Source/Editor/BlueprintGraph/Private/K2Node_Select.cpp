@@ -1,8 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
-#include "../../../Runtime/Engine/Classes/Kismet/KismetMathLibrary.h"
-#include "../../../Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h"
+#include "K2Node_Select.h"
+#include "Misc/CoreMisc.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "EdGraph/EdGraph.h"
+#include "EdGraphSchema_K2.h"
+#include "K2Node_CallFunction.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "EdGraphUtilities.h"
+#include "BPTerminal.h"
+#include "BlueprintCompiledStatement.h"
+#include "KismetCompilerMisc.h"
 #include "KismetCompiler.h"
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
@@ -695,11 +704,14 @@ UEdGraphPin* UK2Node_Select::GetReturnValuePin() const
 
 UEdGraphPin* UK2Node_Select::GetIndexPin() const
 {
-	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-
-	UEdGraphPin* Pin = FindPin("Index");
+	UEdGraphPin* Pin = GetIndexPinUnchecked();
 	check(Pin != NULL);
 	return Pin;
+}
+
+UEdGraphPin* UK2Node_Select::GetIndexPinUnchecked() const
+{
+	return FindPin("Index");
 }
 
 void UK2Node_Select::GetOptionPins(TArray<UEdGraphPin*>& OptionPins) const
@@ -1004,16 +1016,17 @@ void UK2Node_Select::PostPasteNode()
 {
 	Super::PostPasteNode();
 
-	UEdGraphPin* IndexPin = GetIndexPin();
+	if (UEdGraphPin* IndexPin = GetIndexPinUnchecked())
+	{
+		// This information will be cleared and we want to restore it
+		FString OldDefaultValue = IndexPin->DefaultValue;
 
-	// This information will be cleared and we want to restore it
-	FString OldDefaultValue = IndexPin->DefaultValue;
+		// Corrects data in the index pin that is not valid after pasting
+		PinTypeChanged(IndexPin);
 
-	// Corrects data in the index pin that is not valid after pasting
-	PinTypeChanged(GetIndexPin());
-
-	// Restore the default value of the index pin
-	IndexPin->DefaultValue = OldDefaultValue;
+		// Restore the default value of the index pin
+		IndexPin->DefaultValue = OldDefaultValue;
+	}
 }
 
 FSlateIcon UK2Node_Select::GetIconAndTint(FLinearColor& OutColor) const

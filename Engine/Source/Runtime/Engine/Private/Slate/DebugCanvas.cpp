@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "SlateBasics.h"
-#include "DebugCanvas.h"
+#include "Slate/DebugCanvas.h"
+#include "RenderingThread.h"
+#include "UnrealClient.h"
+#include "CanvasTypes.h"
+#include "Framework/Application/SlateApplication.h"
 
 /** Checks that all FCanvasProxy allocations were deleted */
 class FProxyCounter

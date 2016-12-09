@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "DockingPrivate.h"
+#include "Framework/Docking/SDockingNode.h"
+#include "Framework/Docking/SDockingArea.h"
 
 
 TSharedPtr<SDockingArea> SDockingNode::GetDockArea()

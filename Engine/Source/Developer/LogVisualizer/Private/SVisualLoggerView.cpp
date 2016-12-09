@@ -1,9 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LogVisualizer.h"
 #include "SVisualLoggerView.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "LogVisualizerSettings.h"
+#include "LogVisualizerStyle.h"
+#include "SVisualLoggerSectionOverlay.h"
+#include "SVisualLoggerTimeline.h"
+#include "SVisualLoggerTimelinesContainer.h"
 #include "ITimeSlider.h"
-#include "SSearchBox.h"
+#include "SVisualLoggerTimeSlider.h"
+#include "VisualLoggerTimeSliderController.h"
+#include "Widgets/Input/SSearchBox.h"
 
 
 #define LOCTEXT_NAMESPACE "SVisualLoggerFilters"
@@ -432,7 +443,7 @@ TSharedRef<SWidget> SVisualLoggerView::MakeClassesFilterMenu()
 	return
 		SNew(SVerticalBox)
 		+ SVerticalBox::Slot()
-		.MaxHeight(DisplaySize.Y * 0.5)
+		.MaxHeight(DisplaySize.Y * 0.9)
 		[
 			MenuBuilder.MakeWidget()
 		];

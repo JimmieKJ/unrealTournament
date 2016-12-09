@@ -73,6 +73,9 @@ const char kDisableTabToLinks[]           = "disable-tab-to-links";
 // Persist session cookies.
 const char kPersistSessionCookies[]       = "persist-session-cookies";
 
+// Persist user preferences.
+const char kPersistUserPreferences[]      = "persist-user-preferences";
+
 // Enable media (WebRTC audio/video) streaming.
 const char kEnableMediaStream[]           = "enable-media-stream";
 
@@ -99,5 +102,34 @@ const char kEnableSystemFlash[]           = "enable-system-flash";
 
 // Disable scroll bounce (rubber-banding) on OS X Lion and newer.
 const char kDisableScrollBounce[]         = "disable-scroll-bounce";
+
+// Disable the PDF extension.
+const char kDisablePdfExtension[]         = "disable-pdf-extension";
+
+// Enable NPAPI plugins. Note that this functionality will be removed in an
+// upcoming version of Chromium.
+const char kEnableNPAPI[]                 = "enable-npapi";
+
+// Enable Widevine CDM.
+const char kEnableWidevineCdm[]           = "enable-widevine-cdm";
+
+// Path to Widevine CDM binaries.
+const char kWidevineCdmPath[]             = "widevine-cdm-path";
+
+// Widevine CDM version.
+const char kWidevineCdmVersion[]          = "widevine-cdm-version";
+
+// Default plugin policy action.
+const char kPluginPolicy[]                = "plugin-policy";
+// Allow the content. This is the default value.
+const char kPluginPolicy_Allow[]          = "allow";
+// Allow important content and block unimportant content based on heuristics.
+// The user can manually load blocked content.
+const char kPluginPolicy_Detect[]         = "detect";
+// Block the content. The user can manually load blocked content.
+const char kPluginPolicy_Block[]          = "block";
+
+// Expose preferences used only by unit tests.
+const char kEnablePreferenceTesting[]     = "enable-preference-testing";
 
 }  // namespace switches

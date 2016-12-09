@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#include "LevelEditor.h"
 #include "LevelViewportActions.h"
-#include "EditorShowFlags.h"
-#include "StatsData.h"
-#include "BufferVisualizationData.h"
+#include "ShowFlags.h"
+#include "Components/PrimitiveComponent.h"
+#include "Engine/Engine.h"
+#include "Editor/UnrealEdEngine.h"
 #include "GameFramework/WorldSettings.h"
+#include "EditorShowFlags.h"
+#include "Stats/StatsData.h"
+#include "BufferVisualizationData.h"
 
 #define LOCTEXT_NAMESPACE "LevelViewportActions"
 

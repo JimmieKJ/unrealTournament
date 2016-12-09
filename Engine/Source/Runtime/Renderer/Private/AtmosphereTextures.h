@@ -6,8 +6,11 @@
 
 #pragma once
 
-#include "ShaderParameters.h"
-#include "RenderTargetPool.h"
+#include "CoreMinimal.h"
+#include "RenderResource.h"
+#include "RendererInterface.h"
+
+struct FAtmospherePrecomputeParameters;
 
 /**
  * Encapsulates the system textures used for scene rendering.

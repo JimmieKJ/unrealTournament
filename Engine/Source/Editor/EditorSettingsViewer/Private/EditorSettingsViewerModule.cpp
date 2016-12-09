@@ -1,6 +1,30 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EditorSettingsViewerPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/InputBindingManager.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "Settings/ContentBrowserSettings.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Settings/LevelEditorPlaySettings.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Settings/EditorLoadingSavingSettings.h"
+#include "Preferences/PersonaOptions.h"
+#include "UnrealEdMisc.h"
+#include "Dialogs/Dialogs.h"
+#include "GraphEditorSettings.h"
+#include "Interfaces/IInputBindingEditorModule.h"
+#include "InternationalizationSettingsModel.h"
+#include "Logging/MessageLog.h"
 #include "ISettingsCategory.h"
 #include "ISettingsContainer.h"
 #include "ISettingsEditorModel.h"
@@ -8,8 +32,7 @@
 #include "ISettingsModule.h"
 #include "ISettingsSection.h"
 #include "ISettingsViewer.h"
-#include "ModuleManager.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #include "Tests/AutomationTestSettings.h"
 #include "BlueprintEditorSettings.h"
@@ -106,22 +129,6 @@ protected:
 			LOCTEXT("InternationalizationSettingsModelDescription", "Configure the editor's behavior to use a language and fit a region's culture."),
 			GetMutableDefault<UInternationalizationSettingsModel>()
 		);
-
-		// input bindings
-		TWeakPtr<SWidget> InputBindingEditorPanel = FModuleManager::LoadModuleChecked<IInputBindingEditorModule>("InputBindingEditor").CreateInputBindingEditorPanel();
-		ISettingsSectionPtr InputBindingSettingsSection = SettingsModule.RegisterSettings("Editor", "General", "InputBindings",
-			LOCTEXT("InputBindingsSettingsName", "Keyboard Shortcuts"),
-			LOCTEXT("InputBindingsSettingsDescription", "Configure keyboard shortcuts to quickly invoke operations."),
-			InputBindingEditorPanel.Pin().ToSharedRef()
-		);
-
-		if (InputBindingSettingsSection.IsValid())
-		{
-			InputBindingSettingsSection->OnExport().BindRaw(this, &FEditorSettingsViewerModule::HandleInputBindingsExport);
-			InputBindingSettingsSection->OnImport().BindRaw(this, &FEditorSettingsViewerModule::HandleInputBindingsImport);
-			InputBindingSettingsSection->OnResetDefaults().BindRaw(this, &FEditorSettingsViewerModule::HandleInputBindingsResetToDefault);
-			InputBindingSettingsSection->OnSave().BindRaw(this, &FEditorSettingsViewerModule::HandleInputBindingsSave);
-		}
 
 		// loading & saving features
 		SettingsModule.RegisterSettings("Editor", "General", "LoadingSaving",
@@ -288,97 +295,6 @@ private:
 			[
 				SettingsEditor
 			];
-	}
-
-private:
-
-	// Show a warning that the editor will require a restart and return its result
-	EAppReturnType::Type ShowRestartWarning(const FText& Title) const
-	{
-		return OpenMsgDlgInt(EAppMsgType::OkCancel, LOCTEXT("ActionRestartMsg", "Imported settings won't be applied until the editor is restarted. Do you wish to restart now (you will be prompted to save any changes)?" ), Title);
-	}
-
-	// Backup a file
-	bool BackupFile(const FString& SrcFilename, const FString& DstFilename)
-	{
-		if (IFileManager::Get().Copy(*DstFilename, *SrcFilename) == COPY_OK)
-		{
-			return true;
-		}
-
-		// log error	
-		FMessageLog EditorErrors("EditorErrors");
-		if(!FPaths::FileExists(SrcFilename))
-		{
-			FFormatNamedArguments Arguments;
-			Arguments.Add(TEXT("FileName"), FText::FromString(SrcFilename));
-			EditorErrors.Warning(FText::Format(LOCTEXT("UnsuccessfulBackup_NoExist_Notification", "Unsuccessful backup! {FileName} does not exist!"), Arguments));
-		}
-		else if(IFileManager::Get().IsReadOnly(*DstFilename))
-		{
-			FFormatNamedArguments Arguments;
-			Arguments.Add(TEXT("FileName"), FText::FromString(DstFilename));
-			EditorErrors.Warning(FText::Format(LOCTEXT("UnsuccessfulBackup_ReadOnly_Notification", "Unsuccessful backup! {FileName} is read-only!"), Arguments));
-		}
-		else
-		{
-			FFormatNamedArguments Arguments;
-			Arguments.Add(TEXT("SourceFileName"), FText::FromString(SrcFilename));
-			Arguments.Add(TEXT("BackupFileName"), FText::FromString(DstFilename));
-			// We don't specifically know why it failed, this is a fallback.
-			EditorErrors.Warning(FText::Format(LOCTEXT("UnsuccessfulBackup_Fallback_Notification", "Unsuccessful backup of {SourceFileName} to {BackupFileName}"), Arguments));
-		}
-		EditorErrors.Notify(LOCTEXT("BackupUnsuccessful_Title", "Backup Unsuccessful!"));	
-
-		return false;
-	}
-
-	// Handles exporting input bindings to a file
-	bool HandleInputBindingsExport( const FString& Filename )
-	{
-		FInputBindingManager::Get().SaveInputBindings();
-		GConfig->Flush(false, GEditorKeyBindingsIni);
-		return BackupFile(GEditorKeyBindingsIni, Filename);
-	}
-
-	// Handles importing input bindings from a file
-	bool HandleInputBindingsImport( const FString& Filename )
-	{
-		if( EAppReturnType::Ok == ShowRestartWarning(LOCTEXT("ImportKeyBindings_Title", "Import Key Bindings")))
-		{
-			FUnrealEdMisc::Get().SetConfigRestoreFilename(Filename, GEditorKeyBindingsIni);
-			FUnrealEdMisc::Get().RestartEditor(false);
-
-			return true;
-		}
-
-		return false;
-	}
-
-	// Handles resetting input bindings back to the defaults
-	bool HandleInputBindingsResetToDefault()
-	{
-		if( EAppReturnType::Ok == ShowRestartWarning(LOCTEXT("ResetKeyBindings_Title", "Reset Key Bindings")))
-		{
-			FInputBindingManager::Get().RemoveUserDefinedChords();
-			GConfig->Flush(false, GEditorKeyBindingsIni);
-			FUnrealEdMisc::Get().RestartEditor(false);
-
-			return true;
-		}
-
-		return false;
-	}
-
-	// Handles saving default input bindings.
-	// This only gets called by SSettingsEditor::HandleImportButtonClicked when importing new settings,
-	// and its implementation here is just to flush custom input bindings so that editor shutdown doesn't
-	// overwrite the imported settings just copied across.
-	bool HandleInputBindingsSave()
-	{
-		FInputBindingManager::Get().RemoveUserDefinedChords();
-		GConfig->Flush(false, GEditorKeyBindingsIni);
-		return true;
 	}
 
 private:

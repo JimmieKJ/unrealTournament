@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "DDSLoader.h"
+#include "Engine/Texture2D.h"
+#include "RenderUtils.h"
 
 FDDSLoadHelper::FDDSLoadHelper(const uint8* Buffer, uint32 Length) 
 	: DDSHeader(0)

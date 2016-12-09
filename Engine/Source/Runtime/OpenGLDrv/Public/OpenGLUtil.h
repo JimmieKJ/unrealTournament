@@ -4,9 +4,9 @@
 	OpenGLUtil.h: OpenGL RHI utility definitions.
 =============================================================================*/
 
-/** Set to 1 to enable the ability to dump OpenGL frame debug functionality */
 #pragma once
 
+/** Set to 1 to enable the ability to dump OpenGL frame debug functionality */
 #define ENABLE_OPENGL_FRAMEDUMP 0
 
 /** Set to 1 to enable the VERIFY_GL macros which call glGetError */

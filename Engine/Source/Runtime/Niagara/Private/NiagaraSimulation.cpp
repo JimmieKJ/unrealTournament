@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraPrivate.h"
-#include "NiagaraConstants.h"
 #include "NiagaraSimulation.h"
-#include "NiagaraEffectRenderer.h"
+#include "Materials/Material.h"
 #include "VectorVM.h"
+#include "NiagaraStats.h"
+#include "NiagaraConstants.h"
+#include "NiagaraEffectRenderer.h"
 #include "NiagaraEffect.h"
 
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Custom Events"), STAT_NiagaraNumCustomEvents, STATGROUP_Niagara);

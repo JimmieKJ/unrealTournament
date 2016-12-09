@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Slate/SlateBrushAsset.h"
 #include "Factories/SlateBrushAssetFactory.h"
+#include "Styling/SlateBrush.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "Engine/Texture2D.h"
+#include "Slate/SlateBrushAsset.h"
 
 #define LOCTEXT_NAMESPACE "SlateBrushAssetFactory"
 

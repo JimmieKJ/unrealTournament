@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
 
-#include "AutomationTest.h"
 
 #include "UnitTestManager.h"
 #include "UnitTest.h"

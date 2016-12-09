@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-
 #include "Factories/SlateWidgetStyleAssetFactory.h"
+#include "Modules/ModuleManager.h"
+#include "Styling/SlateWidgetStyleAsset.h"
+
 
 #include "ClassViewerModule.h"
-#include "SClassPickerDialog.h"
+#include "Kismet2/SClassPickerDialog.h"
 #include "ClassViewerFilter.h"
 
 class FClassFilter : public IClassViewerFilter

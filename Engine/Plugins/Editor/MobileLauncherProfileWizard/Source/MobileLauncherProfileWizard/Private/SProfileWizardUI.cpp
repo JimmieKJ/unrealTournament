@@ -1,15 +1,35 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "MobileLauncherProfileWizardPrivatePCH.h"
-#include "SWizard.h"
-#include "SHyperlink.h"
 #include "SProfileWizardUI.h"
-#include "EditorStyle.h"
+#include "Misc/Paths.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/SBoxPanel.h"
+#include "Layout/WidgetPath.h"
+#include "SlateOptMacros.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Workflow/SWizard.h"
+#include "Widgets/Input/SHyperlink.h"
+#include "EditorStyleSet.h"
 #include "InstalledPlatformInfo.h"
 #include "PlatformInfo.h"
 #include "DesktopPlatformModule.h"
-#include "GameProjectHelper.h"
+#include "Common/GameProjectHelper.h"
 
 #define LOCTEXT_NAMESPACE "MobileLauncherProfileWizard"
 
@@ -700,16 +720,12 @@ void SProfileWizardUI::CacheProjectMapList()
 {
 	ProjectMapList.Reset();
 
-	FString BaseProjectPath = ProjectPath;
-	if (FPaths::MakePathRelativeTo(BaseProjectPath, *FPaths::RootDir()))
-	{
-		BaseProjectPath = FPaths::GetPath(BaseProjectPath);
-		TArray<FString> AvailableMaps = FGameProjectHelper::GetAvailableMaps(BaseProjectPath, false, true);
+	FString BaseProjectPath = FPaths::GetPath(ProjectPath);
+	TArray<FString> AvailableMaps = FGameProjectHelper::GetAvailableMaps(BaseProjectPath, false, true);
 
-		for (const FString& MapName : AvailableMaps)
-		{
-			ProjectMapList.Add(MakeShareable(new FString(MapName)));
-		}
+	for (const FString& MapName : AvailableMaps)
+	{
+		ProjectMapList.Add(MakeShareable(new FString(MapName)));
 	}
 }
 
@@ -771,7 +787,7 @@ FText SProfileWizardUI::GetDestinationPageDescriptionText() const
 	Args.Add(TEXT("PlatformStore"), ProfilePlatform == EProfilePlatform::Android ? ProfileWizardUI::PlatformStoreAndroid : ProfileWizardUI::PlatformStoreIOS);
 	Args.Add(TEXT("PlatformDLC"), ProfilePlatform == EProfilePlatform::Android ? PlatformDLCAndroid : PlatformDLCIOS);
 	
-	return FText::Format(LOCTEXT("DestinationPageDescription", "This wizard will create two Project Launcher profiles designed to help you package your {PlatformName} game so that the majority of the game's contents, and future content updates, can distributed to your users via HTTP from a Cloud provider or Content Distribution Network when the user launches your app. The first profile is used to generate a small {PlatformName} executable for distribution to the {PlatformStore}. This executable will contain Unreal Engine and your game code, but only the minimum assets required to display the download user interface to the user, while they download your game's latest content to their device. {PlatformDLC}.\n\nThe executable needs code added to use the BuildPatchServices module to download the only the necessary chunks to the user's device and reconstruct the contents file before launching your game. Documentation for this is available at ......"), 
+	return FText::Format(LOCTEXT("DestinationPageDescription", "This wizard will create two Project Launcher profiles designed to help you package your {PlatformName} game so that the majority of the game's contents, and future content updates, can distributed to your users via HTTP from a Cloud provider or Content Distribution Network when the user launches your app. The first profile is used to generate a small {PlatformName} executable for distribution to the {PlatformStore}. This executable will contain Unreal Engine and your game code, but only the minimum assets required to display the download user interface to the user, while they download your game's latest content to their device. {PlatformDLC}.\n\nThe executable needs code added to use the BuildPatchServices module to download the only the necessary chunks to the user's device and reconstruct the contents file before launching your game."), 
 		Args);
 }
 

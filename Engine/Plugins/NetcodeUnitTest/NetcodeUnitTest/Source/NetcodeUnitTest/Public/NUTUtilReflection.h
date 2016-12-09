@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
+
+class FStructOnScope;
+
 /**
  * FVMReflection - Reflection Helper
  *

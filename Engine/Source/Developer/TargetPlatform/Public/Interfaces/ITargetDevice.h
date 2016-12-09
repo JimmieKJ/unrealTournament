@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/TargetDeviceId.h"
+
+class ITargetDevice;
+class ITargetDeviceOutput;
 
 /**
  * Enumerates features that may be supported by target devices.
@@ -165,13 +170,13 @@ struct FTargetDeviceThreadInfo
 struct FTargetDeviceProcessInfo
 {
 	/** Holds the process identifier. */
-	int32 Id;
+	int64 Id;
 
 	/** Holds the process name. */
 	FString Name;
 
 	/** Holds the identifier of the parent process. */
-	uint32 ParentId;
+	uint64 ParentId;
 
 	/** Holds the collection of threads that belong to this process. */
 	TArray<FTargetDeviceThreadInfo> Threads;
@@ -361,7 +366,7 @@ public:
 	 * @param ProcessId The identifier of the process to terminate.
 	 * @return true if the process was terminated, false otherwise.
 	 */
-	virtual bool TerminateProcess( const int32 ProcessId ) = 0;
+	virtual bool TerminateProcess( const int64 ProcessId ) = 0;
 
 	/**
 	 * Set credentials for the user account to use on the device

@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "CompressedGrowableBuffer.h"
-#include "GenericPlatformCompression.h"
-#include "TargetPlatform.h"
+#include "Misc/Compression.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
+#include "Stats/Stats.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/CompressedGrowableBuffer.h"
+#include "GenericPlatform/GenericPlatformCompression.h"
 // #include "TargetPlatformBase.h"
-#include "zlib.h"
+#include "ThirdParty/zlib/zlib-1.2.5/Inc/zlib.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogCompression, Log, All);
 DEFINE_LOG_CATEGORY(LogCompression);

@@ -6,6 +6,9 @@
  * Factory for tile sets
  */
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "PaperTileSetFactory.generated.h"
 
 UCLASS()

@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #if WITH_EDITOR
+
 #include "IPropertyTypeCustomization.h"
+
+class IPropertyHandle;
 
 class FGameplayDebuggerInputConfigCustomization : public IPropertyTypeCustomization
 {

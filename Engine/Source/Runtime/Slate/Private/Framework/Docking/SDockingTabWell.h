@@ -2,7 +2,18 @@
 
 #pragma once
 
-#include "SDockTab.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Layout/Children.h"
+#include "Widgets/SPanel.h"
+#include "Framework/Docking/SDockingNode.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Docking/SDockingTabStack.h"
+
+class FArrangedChildren;
+class FPaintArgs;
+class FSlateWindowElementList;
 
 struct FDockingConstants
 {

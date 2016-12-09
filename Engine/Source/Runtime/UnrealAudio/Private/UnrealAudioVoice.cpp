@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-// 
+
+#include "UnrealAudioVoice.h"
+#include "UnrealAudioUtilities.h"
 #include "UnrealAudioPrivate.h"
-#include "UnrealAudioModule.h"
-#include "UnrealAudioVoiceInternal.h"
 
 #define UNREAL_AUDIO_VOICE_COMMAND_QUEUE_SIZE (50)
 

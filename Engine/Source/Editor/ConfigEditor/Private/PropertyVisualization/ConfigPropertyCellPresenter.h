@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "Editor/PropertyEditor/Public/PropertyHandle.h"
+#include "CoreMinimal.h"
 #include "Editor/PropertyEditor/Public/IPropertyTableCellPresenter.h"
 
+class IPropertyHandle;
+class SWidget;
 
 class FConfigPropertyCellPresenter : public TSharedFromThis< FConfigPropertyCellPresenter >, public IPropertyTableCellPresenter
 {

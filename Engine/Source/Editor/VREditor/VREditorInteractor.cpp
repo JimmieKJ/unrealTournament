@@ -1,13 +1,14 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "VREditorModule.h"
 #include "VREditorInteractor.h"
-#include "VREditorWorldInteraction.h"
+#include "EngineUtils.h"
+#include "ViewportWorldInteraction.h"
 
 #include "VREditorMode.h"
 #include "VREditorFloatingText.h"
 
-#include "Interactables/VREditorButton.h"
+#include "VREditorButton.h"
+#include "VREditorFloatingUI.h"
 #include "VREditorDockableWindow.h"
 
 #define LOCTEXT_NAMESPACE "VREditor"
@@ -35,7 +36,7 @@ UVREditorInteractor::~UVREditorInteractor()
 	Shutdown();
 }
 
-void UVREditorInteractor::Init( FVREditorMode* InVRMode )
+void UVREditorInteractor::Init( UVREditorMode* InVRMode )
 {
 	VRMode = InVRMode;
 	KeyToActionMap.Reset();
@@ -90,8 +91,8 @@ FHitResult UVREditorInteractor::GetHitResultFromLaserPointer( TArray<AActor*>* O
 	}
 
 	ObjectsInFrontOfGizmo->Add( AVREditorButton::StaticClass() );
-	ObjectsInFrontOfGizmo->Add( AVREditorFloatingUI::StaticClass() );
 	ObjectsInFrontOfGizmo->Add( AVREditorDockableWindow::StaticClass() );
+	ObjectsInFrontOfGizmo->Add( AVREditorFloatingUI::StaticClass() );
 
 	return UViewportInteractor::GetHitResultFromLaserPointer( OptionalListOfIgnoredActors, bIgnoreGizmos, ObjectsInFrontOfGizmo, bEvenIfBlocked, LaserLengthOverride );
 }
@@ -99,7 +100,7 @@ FHitResult UVREditorInteractor::GetHitResultFromLaserPointer( TArray<AActor*>* O
 void UVREditorInteractor::ResetHoverState( const float DeltaTime )
 {
 	bIsHoveringOverUI = false;
-}
+}	
 
 void UVREditorInteractor::OnStartDragging( UActorComponent* ClickedComponent, const FVector& HitLocation, const bool bIsPlacingActors )
 {

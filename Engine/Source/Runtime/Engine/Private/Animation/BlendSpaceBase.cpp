@@ -4,75 +4,13 @@
 	BlendSpaceBase.cpp: Base class for blend space objects
 =============================================================================*/ 
 
-#include "EnginePrivate.h"
-#include "AnimationRuntime.h"
-#include "Animation/AnimInstance.h"
 #include "Animation/BlendSpaceBase.h"
+#include "Animation/AnimNotifyQueue.h"
 #include "AnimationUtils.h"
+#include "Animation/BlendSpaceUtilities.h"
+#include "UObject/FrameworkObjectVersion.h"
 
 DECLARE_CYCLE_STAT(TEXT("BlendSpace GetAnimPose"), STAT_BlendSpace_GetAnimPose, STATGROUP_Anim);
-
-struct FSyncPattern
-{
-	// The markers that make up this patter
-	TArray<FName> MarkerNames;
-
-	// Returns the index of the supplied name in the array of marker names
-	// Search starts at StartIndex
-	int32 IndexOf(FName Name, int32 StartIndex = 0) const
-	{
-		for (int Ind = StartIndex; Ind < MarkerNames.Num(); ++Ind)
-		{
-			if (MarkerNames[Ind] == Name)
-			{
-				return Ind;
-			}
-		}
-		return INDEX_NONE;
-	}
-
-	// Tests the supplied pattern against ours, starting at the supplied start index
-	bool DoOneMatch(const TArray<FName>& TestMarkerNames, int32 StartIndex)
-	{
-		int32 MyMarkerIndex = StartIndex;
-		int32 TestMarkerIndex = 0;
-
-		do
-		{
-			if (MarkerNames[MyMarkerIndex] != TestMarkerNames[TestMarkerIndex])
-			{
-				return false;
-			}
-			MyMarkerIndex = (MyMarkerIndex + 1) % MarkerNames.Num();
-			TestMarkerIndex = (TestMarkerIndex + 1) % TestMarkerNames.Num();
-		} while (MyMarkerIndex != StartIndex || TestMarkerIndex != 0); // Did we get back to the start without failing
-		return true;
-	}
-
-	// Testes the supplied pattern against ourselves. Is not a straight forward array match
-	// (for example a,b,c,a would match b,c,a,a)
-	bool DoesPatternMatch(const TArray<FName>& TestMarkerNames)
-	{
-		check(TestMarkerNames.Num() > 0 && MarkerNames.Num() > 0);
-
-		FName StartMarker = TestMarkerNames[0];
-
-		int32 StartIndex = IndexOf(StartMarker);
-		while (StartIndex != INDEX_NONE)
-		{
-			if (DoOneMatch(TestMarkerNames, StartIndex))
-			{
-				return true;
-			}
-			StartIndex = IndexOf(StartMarker, StartIndex + 1);
-		}
-		return false;
-	}
-};
-
-// global variable that's used in editor when you change the property only
-// I can't make this member since I  need to change this in const function
-bool bNeedReinitializeFilter = false;
 
 /** Scratch buffers for multithreaded usage */
 struct FBlendSpaceScratchData : public TThreadSingleton<FBlendSpaceScratchData>
@@ -81,6 +19,8 @@ struct FBlendSpaceScratchData : public TThreadSingleton<FBlendSpaceScratchData>
 	TArray<FBlendSampleData> NewSampleDataList;
 	TArray<FGridBlendSample, TInlineAllocator<4> > RawGridSamples;
 };
+
+bool UBlendSpaceBase::bNeedReinitializeFilter = false;
 
 UBlendSpaceBase::UBlendSpaceBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -91,92 +31,55 @@ UBlendSpaceBase::UBlendSpaceBase(const FObjectInitializer& ObjectInitializer)
 void UBlendSpaceBase::PostLoad()
 {
 	Super::PostLoad();
-
+	
+#if WITH_EDITOR	
+	// Only do this during editor time (could alter the blendspace data during runtime otherwise) 
 	ValidateSampleData();
+#endif // WITH_EDITOR
 
 	InitializePerBoneBlend();
 }
 
-void UBlendSpaceBase::InitializePerBoneBlend()
+void UBlendSpaceBase::Serialize(FArchive& Ar)
 {
-	const USkeleton* MySkeleton = GetSkeleton();
-	// also initialize perbone interpolation data
-	for (int32 Id=0; Id<PerBoneBlend.Num(); ++Id) 
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+	Super::Serialize(Ar);
+
+#if WITH_EDITOR
+	if (Ar.IsLoading() && (Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::BlendSpacePostLoadSnapToGrid))
 	{
-		PerBoneBlend[Id].Initialize(MySkeleton);
+		// This will ensure that all grid points are in valid position and the bIsValid flag is set, other samples will be drawn with an error colour indicating that their are invalid
+		SnapSamplesToClosestGridPoint();
 	}
-
-	struct FCompareFPerBoneInterpolation
-	{
-		FORCEINLINE bool operator()( const FPerBoneInterpolation& A, const FPerBoneInterpolation& B ) const
-		{
-			return A.BoneReference.BoneIndex > B.BoneReference.BoneIndex;
-		}
-	};
-
-	// Sort this by bigger to smaller, then we don't have to worry about checking the best parent
-	PerBoneBlend.Sort( FCompareFPerBoneInterpolation() );
+#endif // WITH_EDITOR
 }
 
-void UBlendSpaceBase::InitializeFilter(FBlendFilter * Filter) const
+#if WITH_EDITOR
+void UBlendSpaceBase::PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent)
 {
-	if (Filter)
-	{
-		Filter->FilterPerAxis[0].Initialize(InterpolationParam[0].InterpolationTime, InterpolationParam[0].InterpolationType);
-		Filter->FilterPerAxis[1].Initialize(InterpolationParam[1].InterpolationTime, InterpolationParam[1].InterpolationType);
-		Filter->FilterPerAxis[2].Initialize(InterpolationParam[2].InterpolationTime, InterpolationParam[2].InterpolationType);
-	}
-}
+	const FName MemberPropertyName = PropertyChangedEvent.MemberProperty ? PropertyChangedEvent.MemberProperty->GetFName() : NAME_None;
+	const FName PropertyName = PropertyChangedEvent.Property ? PropertyChangedEvent.Property->GetFName() : NAME_None;
 
-FVector UBlendSpaceBase::FilterInput(FBlendFilter * Filter, const FVector& BlendInput, float DeltaTime) const
-{
-	if (bNeedReinitializeFilter)
+	if (MemberPropertyName == GET_MEMBER_NAME_CHECKED(UBlendSpaceBase, InterpolationParam) && (PropertyName == GET_MEMBER_NAME_CHECKED(FInterpolationParameter, InterpolationTime) || PropertyName == GET_MEMBER_NAME_CHECKED(FInterpolationParameter, InterpolationType)))
 	{
-		InitializeFilter(Filter);
-		bNeedReinitializeFilter = false;
+		bNeedReinitializeFilter = true;
+	}
+	
+	if ((MemberPropertyName == GET_MEMBER_NAME_CHECKED(UBlendSpaceBase, PerBoneBlend) && PropertyName == GET_MEMBER_NAME_CHECKED(FBoneReference, BoneName)) || PropertyName == GET_MEMBER_NAME_CHECKED(UBlendSpaceBase, PerBoneBlend))
+	{
+		InitializePerBoneBlend();
 	}
 
-	FVector FilteredBlendInput;
-	FilteredBlendInput.X = Filter->FilterPerAxis[0].GetFilteredData(BlendInput.X, DeltaTime);
-	FilteredBlendInput.Y = Filter->FilterPerAxis[1].GetFilteredData(BlendInput.Y, DeltaTime);
-	FilteredBlendInput.Z = Filter->FilterPerAxis[2].GetFilteredData(BlendInput.Z, DeltaTime);
-	return FilteredBlendInput;
-}
-
-int32 GetHighestWeightSample(TArray<FBlendSampleData> &SampleDataList)
-{
-	int32 HighestWeightIndex = 0;
-	float HighestWeight = SampleDataList[HighestWeightIndex].GetWeight();
-	for (int32 I = 1; I < SampleDataList.Num(); I++)
+	if (MemberPropertyName == GET_MEMBER_NAME_CHECKED(UBlendSpaceBase, BlendParameters) && ( PropertyName == GET_MEMBER_NAME_CHECKED(FBlendParameter, Min) || PropertyName == GET_MEMBER_NAME_CHECKED(FBlendParameter, Max) || PropertyName == GET_MEMBER_NAME_CHECKED(FBlendParameter, GridNum)))
 	{
-		if (SampleDataList[I].GetWeight() > HighestWeight)
-		{
-			HighestWeightIndex = I;
-			HighestWeight = SampleDataList[I].GetWeight();
-		}
+		// Tried and snap samples to points on the grid, those who do not fit or cannot be snapped are marked as invalid
+		SnapSamplesToClosestGridPoint();
 	}
-	return HighestWeightIndex;
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
+#endif // WITH_EDITOR
 
-int32 GetHighestWeightMarkerSyncSample(const TArray<FBlendSampleData> &SampleDataList, const TArray<struct FBlendSample>& BlendSamples)
-{
-	int32 HighestWeightIndex = -1;
-	float HighestWeight = FLT_MIN;
-
-	for (int32 I = 0; I < SampleDataList.Num(); I++)
-	{
-		const FBlendSampleData& SampleData = SampleDataList[I];
-		if (SampleData.GetWeight() > HighestWeight &&
-			BlendSamples[SampleData.SampleDataIndex].Animation->AuthoredSyncMarkers.Num() > 0)
-		{
-			HighestWeightIndex = I;
-			HighestWeight = SampleData.GetWeight();
-		}
-	}
-	return HighestWeightIndex;
-}
-
-/////////////////////////////////////////////////////
 void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotifyQueue& NotifyQueue, FAnimAssetTickContext& Context) const
 {
 	const float DeltaTime = Context.GetDeltaTime();
@@ -320,7 +223,7 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 			}
 
 			float& NormalizedCurrentTime = *(Instance.TimeAccumulator);
-			const float NormalizedPreviousTime = NormalizedCurrentTime;
+			float NormalizedPreviousTime = NormalizedCurrentTime;
 
 			// @note for sync group vs non sync group
 			// in blendspace, it will still sync even if only one node in sync group
@@ -341,7 +244,9 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 				// advance current time - blend spaces hold normalized time as when dealing with changing anim length it would be possible to go backwards
 				UE_LOG(LogAnimation, Verbose, TEXT("BlendSpace(%s) - BlendInput(%s) : AnimLength(%0.5f) "), *GetName(), *BlendInput.ToString(), NewAnimLength);
 				
-				const int32 HighestMarkerSyncWeightIndex = bCanDoMarkerSync ? GetHighestWeightMarkerSyncSample(SampleDataList, SampleData) : -1;
+				Context.SetPreviousAnimationPositionRatio(NormalizedCurrentTime);
+
+				const int32 HighestMarkerSyncWeightIndex = bCanDoMarkerSync ? FBlendSpaceUtilities::GetHighestWeightMarkerSyncSample(SampleDataList, SampleData) : -1;
 
 				if (HighestMarkerSyncWeightIndex == -1)
 				{
@@ -395,7 +300,7 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 
 				if (bCanDoMarkerSync)
 				{
-					const int32 HighestWeightIndex = GetHighestWeightSample(SampleDataList);
+					const int32 HighestWeightIndex = FBlendSpaceUtilities::GetHighestWeightSample(SampleDataList);
 					FBlendSampleData& SampleDataItem = SampleDataList[HighestWeightIndex];
 					const FBlendSample& Sample = SampleData[SampleDataItem.SampleDataIndex];
 
@@ -413,7 +318,8 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 				}
 				else
 				{
-					NormalizedCurrentTime =  Context.GetAnimationPositionRatio();
+					NormalizedPreviousTime = Context.GetPreviousAnimationPositionRatio();
+					NormalizedCurrentTime = Context.GetAnimationPositionRatio();
 					UE_LOG(LogAnimMarkerSync, Log, TEXT("Leader (%s) (normal advance)  - PreviousTime (%0.2f), CurrentTime (%0.2f), MoveDelta (%0.2f) "), *GetName(), NormalizedPreviousTime, NormalizedCurrentTime, MoveDelta);
 				}
 			}
@@ -428,7 +334,7 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 				
 				// Get the index of the highest weight, assuming that the first is the highest until we find otherwise
 				const bool bTriggerNotifyHighestWeightedAnim = NotifyTriggerMode == ENotifyTriggerMode::HighestWeightedAnimation && SampleDataList.Num() > 0;
-				const int32 HighestWeightIndex = (bGenerateNotifies && bTriggerNotifyHighestWeightedAnim) ? GetHighestWeightSample(SampleDataList) : -1;
+				const int32 HighestWeightIndex = (bGenerateNotifies && bTriggerNotifyHighestWeightedAnim) ? FBlendSpaceUtilities::GetHighestWeightSample(SampleDataList) : -1;
 
 				for (int32 I = 0; I < SampleDataList.Num(); ++I)
 				{
@@ -494,6 +400,195 @@ void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNot
 	}
 }
 
+bool UBlendSpaceBase::IsValidAdditive() const
+{
+	return false;
+}
+
+#if WITH_EDITOR
+bool UBlendSpaceBase::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets, bool bRecursive /*= true*/)
+{
+	Super::GetAllAnimationSequencesReferred(AnimationAssets, bRecursive);
+
+	for (auto Iter = SampleData.CreateConstIterator(); Iter; ++Iter)
+	{
+		// saves all samples in the AnimSequences
+		UAnimSequence* Sequence = (*Iter).Animation;
+		if (Sequence)
+		{
+			Sequence->HandleAnimReferenceCollection(AnimationAssets, bRecursive);
+		}
+	}
+
+	if (PreviewBasePose)
+	{
+		PreviewBasePose->HandleAnimReferenceCollection(AnimationAssets, bRecursive);
+	}
+ 
+	return (AnimationAssets.Num() > 0);
+}
+
+void UBlendSpaceBase::ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap)
+{
+	Super::ReplaceReferredAnimations(ReplacementMap);
+
+	TArray<FBlendSample> NewSamples;
+	for (auto Iter = SampleData.CreateIterator(); Iter; ++Iter)
+	{
+		FBlendSample& Sample = (*Iter);
+		UAnimSequence* Anim = Sample.Animation;
+
+		if ( Anim )
+		{
+			UAnimSequence* const* ReplacementAsset = (UAnimSequence*const*)ReplacementMap.Find(Anim);
+			if(ReplacementAsset)
+			{
+				Sample.Animation = *ReplacementAsset;
+				Sample.Animation->ReplaceReferredAnimations(ReplacementMap);
+				NewSamples.Add(Sample);
+			}
+		}
+	}
+
+	if (PreviewBasePose)
+	{
+		UAnimSequence* const* ReplacementAsset = (UAnimSequence*const*)ReplacementMap.Find(PreviewBasePose);
+		if(ReplacementAsset)
+		{
+			PreviewBasePose = *ReplacementAsset;
+			PreviewBasePose->ReplaceReferredAnimations(ReplacementMap);
+		}
+	}
+	
+	SampleData = NewSamples;
+}
+
+int32 UBlendSpaceBase::GetMarkerUpdateCounter() const
+{ 
+	return MarkerDataUpdateCounter; 
+}
+#endif // WITH_EDITOR
+
+// @todo fixme: slow approach. If the perbone gets popular, we should change this to array of weight 
+// we should think about changing this to 
+int32 UBlendSpaceBase::GetPerBoneInterpolationIndex(int32 BoneIndex, const FBoneContainer& RequiredBones) const
+{
+	for (int32 Iter=0; Iter<PerBoneBlend.Num(); ++Iter)
+	{
+		// we would like to make sure if 
+		if (PerBoneBlend[Iter].BoneReference.IsValid(RequiredBones) && RequiredBones.BoneIsChildOf(BoneIndex, PerBoneBlend[Iter].BoneReference.BoneIndex))
+		{
+			return Iter;
+		}
+	}
+
+	return INDEX_NONE;
+}
+
+bool UBlendSpaceBase::IsValidAdditiveType(EAdditiveAnimationType AdditiveType) const
+{
+	return false;
+}
+
+void UBlendSpaceBase::GetAnimationPose(TArray<FBlendSampleData>& BlendSampleDataCache, /*out*/ FCompactPose& OutPose, /*out*/ FBlendedCurve& OutCurve)
+{
+	SCOPE_CYCLE_COUNTER(STAT_BlendSpace_GetAnimPose);
+	FScopeCycleCounterUObject BlendSpaceScope(this);
+
+	if(BlendSampleDataCache.Num() == 0)
+	{
+		OutPose.ResetToRefPose();
+		return;
+	}
+
+	const int32 NumPoses = BlendSampleDataCache.Num();
+
+	TArray<FCompactPose, TInlineAllocator<8>> ChildrenPoses;
+	ChildrenPoses.AddZeroed(NumPoses);
+
+	TArray<FBlendedCurve, TInlineAllocator<8>> ChildrenCurves;
+	ChildrenCurves.AddZeroed(NumPoses);
+
+	TArray<float, TInlineAllocator<8>> ChildrenWeights;
+	ChildrenWeights.AddZeroed(NumPoses);
+
+	for(int32 ChildrenIdx=0; ChildrenIdx<ChildrenPoses.Num(); ++ChildrenIdx)
+	{
+		ChildrenPoses[ChildrenIdx].SetBoneContainer(&OutPose.GetBoneContainer());
+		ChildrenCurves[ChildrenIdx].InitFrom(OutCurve);
+	}
+
+	// get all child atoms we interested in
+	for(int32 I = 0; I < BlendSampleDataCache.Num(); ++I)
+	{
+		FCompactPose& Pose = ChildrenPoses[I];
+
+		if(SampleData.IsValidIndex(BlendSampleDataCache[I].SampleDataIndex))
+		{
+			const FBlendSample& Sample = SampleData[BlendSampleDataCache[I].SampleDataIndex];
+			ChildrenWeights[I] = BlendSampleDataCache[I].GetWeight();
+
+			if(Sample.Animation)
+			{
+				const float Time = FMath::Clamp<float>(BlendSampleDataCache[I].Time, 0.f, Sample.Animation->SequenceLength);
+
+				// first one always fills up the source one
+				Sample.Animation->GetAnimationPose(Pose, ChildrenCurves[I], FAnimExtractContext(Time, true));
+			}
+			else
+			{
+				Pose.ResetToRefPose();
+			}
+		}
+		else
+		{
+			Pose.ResetToRefPose();
+		}
+	}
+
+	TArrayView<FCompactPose> ChildrenPosesView(ChildrenPoses);
+
+	if (PerBoneBlend.Num() > 0)
+	{
+		if (IsValidAdditive())
+		{
+			if (bRotationBlendInMeshSpace)
+			{
+				FAnimationRuntime::BlendPosesTogetherPerBoneInMeshSpace(ChildrenPosesView, ChildrenCurves, this, BlendSampleDataCache, OutPose, OutCurve);
+			}
+			else
+			{
+				FAnimationRuntime::BlendPosesTogetherPerBone(ChildrenPosesView, ChildrenCurves, this, BlendSampleDataCache, OutPose, OutCurve);
+			}
+		}
+		else
+		{
+			FAnimationRuntime::BlendPosesTogetherPerBone(ChildrenPosesView, ChildrenCurves, this, BlendSampleDataCache, OutPose, OutCurve);
+		}
+	}
+	else
+	{
+		FAnimationRuntime::BlendPosesTogether(ChildrenPosesView, ChildrenCurves, ChildrenWeights, OutPose, OutCurve);
+	}
+
+	// Once all the accumulation and blending has been done, normalize rotations.
+	OutPose.NormalizeRotations();
+}
+
+const FBlendParameter& UBlendSpaceBase::GetBlendParameter(const int32 Index) const
+{
+	checkf(Index >= 0 && Index < 3, TEXT("Invalid Blend Parameter Index"));
+	return BlendParameters[Index];
+}
+
+const struct FBlendSample& UBlendSpaceBase::GetBlendSample(const int32 SampleIndex) const
+{
+#if WITH_EDITOR
+	checkf(IsValidBlendSampleIndex(SampleIndex), TEXT("Invalid blend sample index"));
+#endif // WITH_EDITOR
+	return SampleData[SampleIndex];
+}
+
 bool UBlendSpaceBase::GetSamplesFromBlendInput(const FVector &BlendInput, TArray<FBlendSampleData> & OutSampleDataList) const
 {
 	TArray<FGridBlendSample, TInlineAllocator<4> >& RawGridSamples = FBlendSpaceScratchData::Get().RawGridSamples;
@@ -513,7 +608,7 @@ bool UBlendSpaceBase::GetSamplesFromBlendInput(const FVector &BlendInput, TArray
 		for(int32 Ind = 0; Ind < GridElement.MAX_VERTICES; ++Ind)
 		{
 			const int32 SampleDataIndex = GridElement.Indices[Ind];		
-			if(SampleDataIndex != INDEX_NONE)
+			if(SampleDataIndex != INDEX_NONE && SampleData.IsValidIndex(SampleDataIndex))
 			{
 				int32 Index = OutSampleDataList.AddUnique(SampleDataIndex);
 				OutSampleDataList[Index].AddWeight(GridElement.Weights[Ind]*GridWeight);
@@ -539,12 +634,7 @@ bool UBlendSpaceBase::GetSamplesFromBlendInput(const FVector &BlendInput, TArray
 		}
 	}
 
-	/** Used to sort by  Weight. */
-	struct FCompareFBlendSampleData
-	{
-		FORCEINLINE bool operator()(const FBlendSampleData& A, const FBlendSampleData& B) const { return B.TotalWeight < A.TotalWeight; }
-	};
-	OutSampleDataList.Sort(FCompareFBlendSampleData());
+	OutSampleDataList.Sort([](const FBlendSampleData& A, const FBlendSampleData& B) { return B.TotalWeight < A.TotalWeight; });
 
 	// remove noisy ones
 	int32 TotalSample = OutSampleDataList.Num();
@@ -570,20 +660,359 @@ bool UBlendSpaceBase::GetSamplesFromBlendInput(const FVector &BlendInput, TArray
 	return (OutSampleDataList.Num()!=0);
 }
 
-// @todo fixme: slow approach. If the perbone gets popular, we should change this to array of weight 
-// we should think about changing this to 
-int32 UBlendSpaceBase::GetPerBoneInterpolationIndex(int32 BoneIndex, const FBoneContainer& RequiredBones) const
+void UBlendSpaceBase::InitializeFilter(FBlendFilter * Filter) const
 {
-	for (int32 Iter=0; Iter<PerBoneBlend.Num(); ++Iter)
+	if (Filter)
 	{
-		// we would like to make sure if 
-		if (PerBoneBlend[Iter].BoneReference.IsValid(RequiredBones) && RequiredBones.BoneIsChildOf(BoneIndex, PerBoneBlend[Iter].BoneReference.BoneIndex))
+		Filter->FilterPerAxis[0].Initialize(InterpolationParam[0].InterpolationTime, InterpolationParam[0].InterpolationType);
+		Filter->FilterPerAxis[1].Initialize(InterpolationParam[1].InterpolationTime, InterpolationParam[1].InterpolationType);
+		Filter->FilterPerAxis[2].Initialize(InterpolationParam[2].InterpolationTime, InterpolationParam[2].InterpolationType);
+	}
+}
+
+void UBlendSpaceBase::ValidateSampleData()
+{
+	// (done here since it won't be triggered in the BlendSpaceBase::PostEditChangeProperty, due to empty property during Undo)
+	SnapSamplesToClosestGridPoint();
+
+	bool bSampleDataChanged = false;
+	AnimLength = 0.f;
+
+	bool bAllMarkerPatternsMatch = true;
+	FSyncPattern BlendSpacePattern;
+
+	int32 SampleWithMarkers = INDEX_NONE;
+
+	for (int32 SampleIndex = 0; SampleIndex < SampleData.Num(); ++SampleIndex)
+	{
+		FBlendSample& Sample = SampleData[SampleIndex];
+
+		if (Sample.Animation == nullptr)
 		{
-			return Iter;
+			SampleData.RemoveAt(SampleIndex);
+			--SampleIndex;
+
+			bSampleDataChanged = true;
+			continue;
+		}
+
+		// see if same data exists, by same, same values
+		for (int32 ComparisonSampleIndex = SampleIndex + 1; ComparisonSampleIndex < SampleData.Num(); ++ComparisonSampleIndex)
+		{
+			if (IsSameSamplePoint(Sample.SampleValue, SampleData[ComparisonSampleIndex].SampleValue))
+			{
+				SampleData.RemoveAt(ComparisonSampleIndex);
+				--ComparisonSampleIndex;
+
+				bSampleDataChanged = true;
+			}
+		}
+
+		if (Sample.Animation->SequenceLength > AnimLength)
+		{
+			// @todo : should apply scale? If so, we'll need to apply also when blend
+			AnimLength = Sample.Animation->SequenceLength;
+		}
+
+		if (Sample.Animation->AuthoredSyncMarkers.Num() > 0)
+		{
+			static const TFunction<void(TArray<FName>&, TArray<FAnimSyncMarker>&)> PopulateMarkerNameArray = [](TArray<FName>& Pattern, TArray<struct FAnimSyncMarker>& AuthoredSyncMarkers)
+			{
+				Pattern.Reserve(AuthoredSyncMarkers.Num());
+				for (FAnimSyncMarker& Marker : AuthoredSyncMarkers)
+				{
+					Pattern.Add(Marker.MarkerName);
+				}
+			};
+
+			if (SampleWithMarkers == INDEX_NONE)
+			{
+				SampleWithMarkers = SampleIndex;
+			}
+
+			if (BlendSpacePattern.MarkerNames.Num() == 0)
+			{
+				PopulateMarkerNameArray(BlendSpacePattern.MarkerNames, Sample.Animation->AuthoredSyncMarkers);
+			}
+			else
+			{
+				TArray<FName> ThisPattern;
+				PopulateMarkerNameArray(ThisPattern, Sample.Animation->AuthoredSyncMarkers);
+				if (!BlendSpacePattern.DoesPatternMatch(ThisPattern))
+				{
+					bAllMarkerPatternsMatch = false;
+				}
+			}
 		}
 	}
 
-	return INDEX_NONE;
+	// set rotation blend in mesh space
+	bRotationBlendInMeshSpace = ContainsMatchingSamples(AAT_RotationOffsetMeshSpace);
+
+	SampleIndexWithMarkers = bAllMarkerPatternsMatch ? SampleWithMarkers : INDEX_NONE;
+
+	if (bSampleDataChanged)
+	{
+		GridSamples.Empty();
+		MarkPackageDirty();
+	}
+}
+
+#if WITH_EDITOR
+bool UBlendSpaceBase::AddSample(UAnimSequence* AnimationSequence, const FVector& SampleValue)
+{
+	const bool bValidSampleData = ValidateSampleValue(SampleValue) && ValidateAnimationSequence(AnimationSequence);
+
+	if (bValidSampleData)
+	{
+		SampleData.Add(FBlendSample(AnimationSequence, SampleValue, bValidSampleData));		
+		UpdatePreviewBasePose();
+	}
+
+	return bValidSampleData;
+}
+
+bool UBlendSpaceBase::EditSampleValue(const int32 BlendSampleIndex, const FVector& NewValue)
+{
+	const bool bValidValue = SampleData.IsValidIndex(BlendSampleIndex) && ValidateSampleValue(NewValue, BlendSampleIndex);
+	
+	if (bValidValue)
+	{
+		// Set new value if it passes the tests
+		SampleData[BlendSampleIndex].SampleValue = NewValue;
+		SampleData[BlendSampleIndex].bIsValid = bValidValue;
+
+	}
+
+	return bValidValue;
+}
+
+bool UBlendSpaceBase::DeleteSample(const int32 BlendSampleIndex)
+{
+	const bool bValidRemoval = SampleData.IsValidIndex(BlendSampleIndex);
+
+	if (bValidRemoval)
+	{
+		SampleData.RemoveAtSwap(BlendSampleIndex);
+	}
+
+	return bValidRemoval;
+}
+
+bool UBlendSpaceBase::IsValidBlendSampleIndex(const int32 SampleIndex) const
+{
+	return SampleData.IsValidIndex(SampleIndex);
+}
+
+const TArray<FEditorElement>& UBlendSpaceBase::GetGridSamples() const
+{
+	return GridSamples;
+}
+
+void UBlendSpaceBase::FillupGridElements(const TArray<int32>& PointListToSampleIndices, const TArray<FEditorElement>& GridElements)
+{	
+	GridSamples.Empty(GridElements.Num());
+	GridSamples.AddUninitialized(GridElements.Num());
+	for (int32 ElementIndex = 0; ElementIndex < GridElements.Num(); ++ElementIndex)
+	{
+		const FEditorElement& ViewGrid = GridElements[ElementIndex];
+		FEditorElement NewGrid;
+		float TotalWeight = 0.f;
+		for (int32 VertexIndex = 0; VertexIndex < FEditorElement::MAX_VERTICES; ++VertexIndex)
+		{
+			if (ViewGrid.Indices[VertexIndex] != INDEX_NONE)
+			{
+				NewGrid.Indices[VertexIndex] = PointListToSampleIndices[ViewGrid.Indices[VertexIndex]];
+			}
+			else
+			{
+				NewGrid.Indices[VertexIndex] = INDEX_NONE;
+			}
+
+			if (NewGrid.Indices[VertexIndex] == INDEX_NONE)
+			{
+				NewGrid.Weights[VertexIndex] = 0.f;
+			}
+			else
+			{
+				NewGrid.Weights[VertexIndex] = ViewGrid.Weights[VertexIndex];
+				TotalWeight += ViewGrid.Weights[VertexIndex];
+			}
+		}
+
+		// Need to normalize the weights
+		if (TotalWeight > 0.f)
+		{
+			for (int32 J = 0; J < FEditorElement::MAX_VERTICES; ++J)
+			{
+				NewGrid.Weights[J] /= TotalWeight;
+			}
+		}
+
+		GridSamples[ElementIndex] = NewGrid;
+	}
+}
+
+void UBlendSpaceBase::EmptyGridElements()
+{
+	GridSamples.Empty();
+}
+
+bool UBlendSpaceBase::ValidateAnimationSequence(const UAnimSequence* AnimationSequence) const
+{
+	const bool bValidAnimationSequence = IsAnimationCompatible(AnimationSequence)
+		&& IsAnimationCompatibleWithSkeleton(AnimationSequence)		
+		&& ( GetNumberOfBlendSamples() == 0 || DoesAnimationMatchExistingSamples(AnimationSequence));
+
+	return bValidAnimationSequence;
+}
+
+ bool UBlendSpaceBase::DoesAnimationMatchExistingSamples(const UAnimSequence* AnimationSequence) const
+ {	 
+	 const bool bMatchesExistingAnimations = ContainsMatchingSamples(AnimationSequence->AdditiveAnimType);
+	 return bMatchesExistingAnimations;
+ }
+
+bool UBlendSpaceBase::ShouldAnimationBeAdditive() const
+{
+	const bool bShouldBeAdditive = !ContainsNonAdditiveSamples();
+	return bShouldBeAdditive;
+}
+
+bool UBlendSpaceBase::IsAnimationCompatibleWithSkeleton(const UAnimSequence* AnimationSequence) const
+{
+	// Check if the animation sequences skeleton is compatible iwth the blendspace one
+	const USkeleton* MySkeleton = GetSkeleton();	
+	const bool bIsAnimationCompatible = AnimationSequence && MySkeleton && AnimationSequence->GetSkeleton() && AnimationSequence->GetSkeleton()->IsCompatible(MySkeleton);
+	return bIsAnimationCompatible;
+}
+
+bool UBlendSpaceBase::IsAnimationCompatible(const UAnimSequence* AnimationSequence) const
+{
+	// If the supplied animation is of a different additive animation type or this blendspace support non-additive animations
+	const bool bIsCompatible = IsValidAdditiveType(AnimationSequence->AdditiveAnimType);
+	return bIsCompatible;
+}
+
+bool UBlendSpaceBase::ValidateSampleValue(const FVector& SampleValue, int32 OriginalIndex) const
+{
+	bool bValid = true;		
+	bValid &= IsSampleWithinBounds(SampleValue);
+	bValid &= !IsTooCloseToExistingSamplePoint(SampleValue, OriginalIndex);
+	return bValid;
+}
+
+bool UBlendSpaceBase::IsSampleWithinBounds(const FVector &SampleValue) const
+{
+	return !((SampleValue.X < BlendParameters[0].Min) || 
+			 (SampleValue.X > BlendParameters[0].Max) ||
+			 (SampleValue.Y < BlendParameters[1].Min) ||
+			 (SampleValue.Y > BlendParameters[1].Max));
+}
+
+bool UBlendSpaceBase::IsTooCloseToExistingSamplePoint(const FVector& SampleValue, int32 OriginalIndex) const
+{
+	bool bMatchesSamplePoint = false;
+	for (int32 SampleIndex = 0; SampleIndex<SampleData.Num(); ++SampleIndex)
+	{
+		if (SampleIndex != OriginalIndex)
+		{
+			if ( IsSameSamplePoint(SampleValue, SampleData[SampleIndex].SampleValue) )
+			{
+				bMatchesSamplePoint = true;
+				break;
+			}
+		}
+	}
+
+	return bMatchesSamplePoint;
+}
+
+#endif // WITH_EDITOR
+
+void UBlendSpaceBase::InitializePerBoneBlend()
+{
+	const USkeleton* MySkeleton = GetSkeleton();
+	for (FPerBoneInterpolation& BoneInterpolationData : PerBoneBlend)
+	{
+		BoneInterpolationData.Initialize(MySkeleton);
+	}
+	// Sort this by bigger to smaller, then we don't have to worry about checking the best parent
+	PerBoneBlend.Sort([](const FPerBoneInterpolation& A, const FPerBoneInterpolation& B) { return A.BoneReference.BoneIndex > B.BoneReference.BoneIndex; });
+}
+
+void UBlendSpaceBase::TickFollowerSamples(TArray<FBlendSampleData> &SampleDataList, const int32 HighestWeightIndex, FAnimAssetTickContext &Context, bool bResetMarkerDataOnFollowers) const
+{
+	for (int32 SampleIndex = 0; SampleIndex < SampleDataList.Num(); ++SampleIndex)
+	{
+		FBlendSampleData& SampleDataItem = SampleDataList[SampleIndex];
+		const FBlendSample& Sample = SampleData[SampleDataItem.SampleDataIndex];
+		if (HighestWeightIndex != SampleIndex)
+		{
+			if (bResetMarkerDataOnFollowers)
+			{
+				SampleDataItem.MarkerTickRecord.Reset();
+			}
+
+			if (Sample.Animation->AuthoredSyncMarkers.Num() > 0) // Update followers who can do marker sync, others will be handled later in TickAssetPlayer
+			{
+				Sample.Animation->TickByMarkerAsFollower(SampleDataItem.MarkerTickRecord, Context.MarkerTickContext, SampleDataItem.Time, SampleDataItem.PreviousTime, Context.GetLeaderDelta(), true);
+			}
+		}
+	}
+}
+
+float UBlendSpaceBase::GetAnimationLengthFromSampleData(const TArray<FBlendSampleData> & SampleDataList) const
+{
+	float BlendAnimLength=0.f;
+	for (int32 I=0; I<SampleDataList.Num(); ++I)
+	{
+		const int32 SampleDataIndex = SampleDataList[I].SampleDataIndex;
+		if ( SampleData.IsValidIndex(SampleDataIndex) )
+		{
+			const FBlendSample& Sample = SampleData[SampleDataIndex];
+			if (Sample.Animation)
+			{
+				// apply rate scale to get actual playback time
+				BlendAnimLength += (Sample.Animation->SequenceLength / (Sample.Animation->RateScale != 0.0f ? FMath::Abs(Sample.Animation->RateScale) : 1.0f))*SampleDataList[I].GetWeight();
+				UE_LOG(LogAnimation, Verbose, TEXT("[%d] - Sample Animation(%s) : Weight(%0.5f) "), I+1, *Sample.Animation->GetName(), SampleDataList[I].GetWeight());
+			}
+		}
+	}
+
+	return BlendAnimLength;
+}
+
+FVector UBlendSpaceBase::ClampBlendInput(const FVector& BlendInput)  const
+{
+	FVector ClampedBlendInput;
+
+	ClampedBlendInput.X = FMath::Clamp<float>(BlendInput.X, BlendParameters[0].Min, BlendParameters[0].Max);
+	ClampedBlendInput.Y = FMath::Clamp<float>(BlendInput.Y, BlendParameters[1].Min, BlendParameters[1].Max);
+	ClampedBlendInput.Z = FMath::Clamp<float>(BlendInput.Z, BlendParameters[2].Min, BlendParameters[2].Max);
+	return ClampedBlendInput;
+}
+
+FVector UBlendSpaceBase::GetNormalizedBlendInput(const FVector& BlendInput) const
+{
+	const FVector MinBlendInput = FVector(BlendParameters[0].Min, BlendParameters[1].Min, BlendParameters[2].Min);
+	const FVector MaxBlendInput = FVector(BlendParameters[0].Max, BlendParameters[1].Max, BlendParameters[2].Max);
+	const FVector GridSize = FVector(BlendParameters[0].GetGridSize(), BlendParameters[1].GetGridSize(), BlendParameters[2].GetGridSize());
+
+	FVector NormalizedBlendInput;
+	NormalizedBlendInput.X = FMath::Clamp<float>(BlendInput.X, MinBlendInput.X, MaxBlendInput.X);
+	NormalizedBlendInput.Y = FMath::Clamp<float>(BlendInput.Y, MinBlendInput.Y, MaxBlendInput.Y);
+	NormalizedBlendInput.Z = FMath::Clamp<float>(BlendInput.Z, MinBlendInput.Z, MaxBlendInput.Z);
+
+	NormalizedBlendInput -= MinBlendInput; 
+	NormalizedBlendInput /= GridSize;
+
+	return NormalizedBlendInput;
+}
+
+const FEditorElement* UBlendSpaceBase::GetGridSampleInternal(int32 Index) const
+{
+	return GridSamples.IsValidIndex(Index) ? &GridSamples[Index] : NULL;
 }
 
 bool UBlendSpaceBase::InterpolateWeightOfSampleData(float DeltaTime, const TArray<FBlendSampleData> & OldSampleDataList, const TArray<FBlendSampleData> & NewSampleDataList, TArray<FBlendSampleData> & FinalSampleDataList) const
@@ -709,672 +1138,65 @@ bool UBlendSpaceBase::InterpolateWeightOfSampleData(float DeltaTime, const TArra
 	return (TotalFinalWeight > ZERO_ANIMWEIGHT_THRESH);
 }
 
-bool UBlendSpaceBase::UpdateParameter(int32 Index, const FBlendParameter& Parameter)
+FVector UBlendSpaceBase::FilterInput(FBlendFilter * Filter, const FVector& BlendInput, float DeltaTime) const
 {
-	check ( Index >= 0 && Index <=2 );
-
-	// too small
-	if (Parameter.GetRange() < SMALL_NUMBER)
+	if (bNeedReinitializeFilter)
 	{
-		return false;
+		InitializeFilter(Filter);
+		bNeedReinitializeFilter = false;
 	}
 
-	// mini grid number is 3
-	if (Parameter.GridNum < 3)
-	{
-		return false;
-	}
-
-	// not valid, return
-	if (Parameter.DisplayName.IsEmpty())
-	{
-		return false;
-	}
-
-	BlendParameters[Index] = Parameter;
-
-	// now update all SamplePoint be within the range
-	for (int32 I=0; I<SampleData.Num(); ++I)
-	{
-		SampleData[I].SampleValue = ClampBlendInput(SampleData[I].SampleValue);
-	}
-
-	ValidateSampleData();
-	MarkPackageDirty();
-	return true;
+	FVector FilteredBlendInput;
+	FilteredBlendInput.X = Filter->FilterPerAxis[0].GetFilteredData(BlendInput.X, DeltaTime);
+	FilteredBlendInput.Y = Filter->FilterPerAxis[1].GetFilteredData(BlendInput.Y, DeltaTime);
+	FilteredBlendInput.Z = Filter->FilterPerAxis[2].GetFilteredData(BlendInput.Z, DeltaTime);
+	return FilteredBlendInput;
 }
 
-bool UBlendSpaceBase::AddSample(const FBlendSample& BlendSample)
+bool UBlendSpaceBase::ContainsMatchingSamples(EAdditiveAnimationType AdditiveType) const
 {
-	FBlendSample NewBlendSample = BlendSample;
-
-	if ( ValidateSampleInput(NewBlendSample) == false )
+	bool bMatching = SampleData.Num() > 0;
+	for (const FBlendSample& Sample : SampleData)
 	{
-		return false;
-	}
+		const UAnimSequence* Animation = Sample.Animation;
+		bMatching &= (Animation && ((AdditiveType == AAT_None) ? true : Animation->IsValidAdditive()) && Animation->AdditiveAnimType == AdditiveType);
 
-	SampleData.Add(NewBlendSample);
-	GridSamples.Empty();
-
-	MarkPackageDirty();
-	return true;
-}
-
-bool UBlendSpaceBase::EditSample(const FBlendSample& BlendSample, FVector& NewValue)
-{
-	int32 NewIndex = SampleData.Find(BlendSample);
-	if (NewIndex!=INDEX_NONE)
-	{
-		// edit is more work when we check if there is duplicate, so 
-		// just delete old one, and add new one, 
-		// when add it will verify if it isn't duplicate
-		FBlendSample NewSample = BlendSample;
-		NewSample.SampleValue = NewValue;
-
-		if ( ValidateSampleInput(NewSample, NewIndex) == false )
+		if (bMatching == false)
 		{
-			return false;
-		}
-
-		SampleData[NewIndex] = NewSample;
-
-#if WITH_EDITORONLY_DATA
-		// fill upt PreviewBasePose if it does not set yet
-		if ( IsValidAdditive() )
-		{
-			if ( PreviewBasePose == NULL && NewSample.Animation )
-			{
-				PreviewBasePose = NewSample.Animation->RefPoseSeq;
-			}
-		}
-		// if not additive, clear pose
-		else if ( PreviewBasePose )
-		{
-			PreviewBasePose = NULL;
-		}
-#endif // WITH_EDITORONLY_DATA
-
-		// copy back the sample value, so it can display in the correct position
-		NewValue = NewSample.SampleValue;
-		MarkPackageDirty();
-		return true;
-	}
-
-	return false;
-}
-
-bool UBlendSpaceBase::EditSampleAnimation(const FBlendSample& BlendSample, class UAnimSequence* AnimSequence)
-{
-	int32 NewIndex = SampleData.Find(BlendSample);
-	if (NewIndex!=INDEX_NONE)
-	{
-		FBlendSample NewSample = BlendSample;
-		NewSample.Animation = AnimSequence;
-
-		if ( ValidateSampleInput(NewSample, NewIndex) == false )
-		{
-			return false;
-		}
-
-		SampleData[NewIndex] = NewSample;
-
-		GridSamples.Empty();
-		MarkPackageDirty();
-		ValidateSampleData();
-		return true;
-	}
-
-	return false;
-}
-
-bool UBlendSpaceBase::DeleteSample(const FBlendSample& BlendSample)
-{
-	int32 NewIndex = SampleData.Find(BlendSample);
-	if (NewIndex!=INDEX_NONE)
-	{
-		SampleData.RemoveAt(NewIndex);
-		GridSamples.Empty();
-		MarkPackageDirty();
-		ValidateSampleData();
-		return true;
-	}
-
-	return false;
-}
-
-void UBlendSpaceBase::ClearAllSamples()
-{
-	SampleData.Empty();
-	GridSamples.Empty();
-	MarkPackageDirty();
-	AnimLength = 0.f;
-}
-
-bool UBlendSpaceBase::ValidateSampleInput(FBlendSample & BlendSample, int32 OriginalIndex) const
-{
-	// make sure we get same kinds of samples(additive or nonadditive)
-	if (SampleData.Num() > 0 && BlendSample.Animation)
-	{
-		bool bIsAdditive = IsValidAdditive();
-		if (bIsAdditive != (BlendSample.Animation->IsValidAdditive()))
-		{
-			UE_LOG(LogAnimation, Log, TEXT("Adding sample failed. Please add same kinds of sequence (additive/non-additive)."));
-			return false;
-		}
-
-		// make sure it's same additive if it is additive
-		if (bIsAdditive && !IsValidAdditiveInternal(BlendSample.Animation->AdditiveAnimType))
-		{
-			UE_LOG(LogAnimation, Log, TEXT("Adding sample failed. Please add same kinds of additive sequence (loca/mesh)."));
-			return false;
+			break;
 		}
 	}
 
-	const USkeleton* MySkeleton = GetSkeleton();
-	if (BlendSample.Animation &&
-		(! MySkeleton ||
-		! BlendSample.Animation->GetSkeleton()->IsCompatible(MySkeleton)))
-	{
-		UE_LOG(LogAnimation, Log, TEXT("Adding sample failed. Please add same kinds of sequence (additive/non-additive)."));
-		return false;
-	}
-
-	SnapToBorder(BlendSample);
-	// make sure blendsample is within the parameter range
-	BlendSample.SampleValue = ClampBlendInput(BlendSample.SampleValue);
-
-	if (IsTooCloseToExistingSamplePoint(BlendSample.SampleValue, OriginalIndex))
-	{
-		UE_LOG(LogAnimation, Log, TEXT("Adding sample failed. Too close to existing sample point."));
-		return false;
-	}
-
-	return true;
-}
-
-void PopulateMarkerNameArray(TArray<FName>& Pattern, TArray<FAnimSyncMarker>& AuthoredSyncMarkers)
-{
-	Pattern.Reserve(AuthoredSyncMarkers.Num());
-	for (FAnimSyncMarker& Marker : AuthoredSyncMarkers)
-	{
-		Pattern.Add(Marker.MarkerName);
-	}
-}
-
-void UBlendSpaceBase::ValidateSampleData()
-{
-	bool bSampleDataChanged=false;
-	AnimLength = 0.f;
-
-	bool bAllMarkerPatternsMatch = true;
-	FSyncPattern BlendSpacePattern;
-
-	int32 SampleWithMarkers = INDEX_NONE;
-
-	for (int32 I=0; I<SampleData.Num(); ++I)
-	{
-		FBlendSample& Sample = SampleData[I];
-
-		if (Sample.Animation == nullptr)
-		{
-			SampleData.RemoveAt(I);
-			--I;
-
-			bSampleDataChanged = true;
-			continue;
-		}
-
-		// set rotation blend in mesh space
-		bRotationBlendInMeshSpace = IsValidAdditiveInternal(AAT_RotationOffsetMeshSpace);
-
-		// we need data to be snapped on the border
-		// otherwise, you have this grid area that doesn't have valid 
-		// sample points. Usually users will put it there
-		// if the value is around border, snap to border
-		SnapToBorder(Sample);
-
-		// see if same data exists, by same, same values
-		for (int32 J=I+1; J<SampleData.Num(); ++J)
-		{
-			if (IsSameSamplePoint(Sample.SampleValue, SampleData[J].SampleValue))
-			{
-				SampleData.RemoveAt(J);
-				--J;
-
-				bSampleDataChanged = true;
-			}
-		}
-
-		if (Sample.Animation->SequenceLength > AnimLength)
-		{
-			// @todo : should apply scale? If so, we'll need to apply also when blend
-			AnimLength = Sample.Animation->SequenceLength;
-		}
-
-		if (Sample.Animation->AuthoredSyncMarkers.Num() > 0)
-		{
-			if (SampleWithMarkers == INDEX_NONE)
-			{
-				SampleWithMarkers = I;
-			}
-
-			if (BlendSpacePattern.MarkerNames.Num() == 0)
-			{
-				PopulateMarkerNameArray(BlendSpacePattern.MarkerNames, Sample.Animation->AuthoredSyncMarkers);
-			}
-			else
-			{
-				TArray<FName> ThisPattern;
-				PopulateMarkerNameArray(ThisPattern, Sample.Animation->AuthoredSyncMarkers);
-				if (!BlendSpacePattern.DoesPatternMatch(ThisPattern))
-				{
-					bAllMarkerPatternsMatch = false;
-				}
-			}
-		}
-	}
-
-	SampleIndexWithMarkers = bAllMarkerPatternsMatch ? SampleWithMarkers : INDEX_NONE;
-
-	if (bSampleDataChanged)
-	{
-		GridSamples.Empty();
-		MarkPackageDirty();
-	}
-}
-
-bool UBlendSpaceBase::IsTooCloseToExistingSamplePoint(const FVector& SampleValue, int32 OriginalIndex) const
-{
-	for (int32 I=0; I<SampleData.Num(); ++I)
-	{
-		if (I!=OriginalIndex)
-		{
-			if ( IsSameSamplePoint(SampleValue, SampleData[I].SampleValue) )
-			{
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-FVector UBlendSpaceBase::ClampBlendInput(const FVector& BlendInput)  const
-{
-	FVector ClampedBlendInput;
-
-	ClampedBlendInput.X = FMath::Clamp<float>(BlendInput.X, BlendParameters[0].Min, BlendParameters[0].Max);
-	ClampedBlendInput.Y = FMath::Clamp<float>(BlendInput.Y, BlendParameters[1].Min, BlendParameters[1].Max);
-	ClampedBlendInput.Z = FMath::Clamp<float>(BlendInput.Z, BlendParameters[2].Min, BlendParameters[2].Max);
-	return ClampedBlendInput;
-}
-
-FVector UBlendSpaceBase::GetNormalizedBlendInput(const FVector& BlendInput) const
-{
-	FVector MinBlendInput = FVector(BlendParameters[0].Min, BlendParameters[1].Min, BlendParameters[2].Min);
-	FVector MaxBlendInput = FVector(BlendParameters[0].Max, BlendParameters[1].Max, BlendParameters[2].Max);
-
-	FVector NormalizedBlendInput;
-
-	NormalizedBlendInput.X = FMath::Clamp<float>(BlendInput.X, MinBlendInput.X, MaxBlendInput.X);
-	NormalizedBlendInput.Y = FMath::Clamp<float>(BlendInput.Y, MinBlendInput.Y, MaxBlendInput.Y);
-	NormalizedBlendInput.Z = FMath::Clamp<float>(BlendInput.Z, MinBlendInput.Z, MaxBlendInput.Z);
-
-	NormalizedBlendInput -= MinBlendInput; 
-
-	FVector GridSize = FVector(BlendParameters[0].GetGridSize(), BlendParameters[1].GetGridSize(), BlendParameters[2].GetGridSize());
-
-	NormalizedBlendInput/=GridSize;
-
-	return NormalizedBlendInput;
-}
-
-bool UBlendSpaceBase::IsValidAdditiveInternal(EAdditiveAnimationType AdditiveType) const
-{
-	TOptional<bool> bIsAdditive;
-
-	for (int32 I=0; I<SampleData.Num(); ++I)
-	{
-		const UAnimSequence* Animation = SampleData[I].Animation;
-
-		// test animation to see if it matched additive type
-		bool bAdditiveAnim = ( Animation && Animation->IsValidAdditive() && Animation->AdditiveAnimType == AdditiveType );
-
-		// if already has value, but it does not match
-		if ( bIsAdditive.IsSet() )
-		{
-			// it's inconsistent, we ignore this
-			if (bIsAdditive.GetValue() != bAdditiveAnim)
-			{
-				return false;
-			}
-		}
-		else
-		{
-			bIsAdditive = TOptional<bool>(bAdditiveAnim);
-		}
-	}
-
-	return (bIsAdditive.IsSet() && bIsAdditive.GetValue());
-}
-
-void UBlendSpaceBase::NormalizeSampleDataWeight(TArray<FBlendSampleData> & SampleDataList) const
-{
-	float TotalSum=0.f;
-
-	TArray<float> PerBoneTotalSums;
-	PerBoneTotalSums.AddZeroed(PerBoneBlend.Num());
-
-	for (int32 I=0; I<SampleDataList.Num(); ++I)
-	{
-		const int32 SampleDataIndex = SampleDataList[I].SampleDataIndex;
-		// need to verify if valid sample index
-		if ( SampleData.IsValidIndex(SampleDataIndex) )
-		{
-			TotalSum += SampleDataList[I].GetWeight();
-
-			if ( SampleDataList[I].PerBoneBlendData.Num() > 0 )
-			{
-				// now interpolate the per bone weights
-				for (int32 Iter = 0; Iter<SampleDataList[I].PerBoneBlendData.Num(); ++Iter)
-				{
-					PerBoneTotalSums[Iter] += SampleDataList[I].PerBoneBlendData[Iter];
-				}
-			}
-		}
-	}
-
-	if ( ensure (TotalSum > ZERO_ANIMWEIGHT_THRESH) )
-	{
-		for (int32 I=0; I<SampleDataList.Num(); ++I)
-		{
-			const int32 SampleDataIndex = SampleDataList[I].SampleDataIndex;
-			if ( SampleData.IsValidIndex(SampleDataIndex) )
-			{
-				if (FMath::Abs<float>(TotalSum - 1.f) > ZERO_ANIMWEIGHT_THRESH)
-				{
-					SampleDataList[I].TotalWeight /= TotalSum;
-				}
-
-				// now interpolate the per bone weights
-				for (int32 Iter = 0; Iter<SampleDataList[I].PerBoneBlendData.Num(); ++Iter)
-				{
-					if (FMath::Abs<float>(PerBoneTotalSums[Iter] - 1.f) > ZERO_ANIMWEIGHT_THRESH)
-					{
-						SampleDataList[I].PerBoneBlendData[Iter] /= PerBoneTotalSums[Iter];
-					}
-				}
-			}
-		}
-	}
-}
-
-float UBlendSpaceBase::GetAnimationLengthFromSampleData(const TArray<FBlendSampleData> & SampleDataList) const
-{
-	float BlendAnimLength=0.f;
-	for (int32 I=0; I<SampleDataList.Num(); ++I)
-	{
-		const int32 SampleDataIndex = SampleDataList[I].SampleDataIndex;
-		if ( SampleData.IsValidIndex(SampleDataIndex) )
-		{
-			const FBlendSample& Sample = SampleData[SampleDataIndex];
-			if (Sample.Animation)
-			{
-				// apply rate scale to get actual playback time
-				BlendAnimLength += (Sample.Animation->SequenceLength / (Sample.Animation->RateScale != 0.0f ? FMath::Abs(Sample.Animation->RateScale) : 1.0f))*SampleDataList[I].GetWeight();
-				UE_LOG(LogAnimation, Verbose, TEXT("[%d] - Sample Animation(%s) : Weight(%0.5f) "), I+1, *Sample.Animation->GetName(), SampleDataList[I].GetWeight());
-			}
-		}
-	}
-
-	return BlendAnimLength;
-}
-
-int32 UBlendSpaceBase::GetBlendSamplePoints(TArray<FBlendSample> & OutPointList) const
-{
-	OutPointList.Empty(SampleData.Num());
-	OutPointList.AddUninitialized(SampleData.Num());
-
-	for (int32 I=0; I<SampleData.Num(); ++I)
-	{
-		OutPointList[I] = SampleData[I];
-	}
-
-	return OutPointList.Num();
-}
-
-int32 UBlendSpaceBase::GetGridSamples(TArray<FEditorElement> & OutGridElements) const
-{
-	OutGridElements.Empty(GridSamples.Num());
-	OutGridElements.AddUninitialized(GridSamples.Num());
-
-	for (int32 I=0; I<GridSamples.Num(); ++I)
-	{
-		OutGridElements[I] = GridSamples[I];
-	}
-
-	return OutGridElements.Num();
-}
-
-void UBlendSpaceBase::FillupGridElements(const TArray<FVector> & PointList, const TArray<FEditorElement> & GridElements)
-{
-	// need to convert all GridElements indexing to PointList to the data I care
-	// The data I care here is my SampleData
-
-	// create new Map from PointList index to SampleData
-	TArray<int32> PointListToSampleIndices;
-	PointListToSampleIndices.Init(INDEX_NONE, PointList.Num());
-
-	for (int32 I=0; I<PointList.Num(); ++I)
-	{
-		for (int32 J=0; J<SampleData.Num(); ++J)
-		{
-			if (SampleData[J].SampleValue == PointList[I])
-			{
-				PointListToSampleIndices[I] = J;
-				break;
-			}
-		}
-	}
-
-	GridSamples.Empty(GridElements.Num());
-	GridSamples.AddUninitialized(GridElements.Num());
-	for (int32 I=0; I<GridElements.Num(); ++I)
-	{
-		const FEditorElement& ViewGrid = GridElements[I];
-		FEditorElement NewGrid;
-		float TotalWeight = 0.f;
-		for (int32 J=0; J<FEditorElement::MAX_VERTICES; ++J)
-		{
-			if(ViewGrid.Indices[J] != INDEX_NONE)
-			{
-				NewGrid.Indices[J] = PointListToSampleIndices[ViewGrid.Indices[J]];
-			}
-			else
-			{
-				NewGrid.Indices[J] = INDEX_NONE;
-			}
-
-			if (NewGrid.Indices[J]==INDEX_NONE)
-			{
-				NewGrid.Weights[J] = 0.f;
-			}
-			else
-			{
-				NewGrid.Weights[J] = ViewGrid.Weights[J];
-				TotalWeight += ViewGrid.Weights[J];
-			}
-		}
-
-		// Need to renormalize
-		if (TotalWeight>0.f)
-		{
-			for (int32 J=0; J<FEditorElement::MAX_VERTICES; ++J)
-			{
-				NewGrid.Weights[J]/=TotalWeight;
-			}
-		}
-
-		GridSamples[I] = NewGrid;
-	}
-}
-
-void UBlendSpaceBase::GetAnimationPose(TArray<FBlendSampleData>& BlendSampleDataCache, /*out*/ FCompactPose& OutPose, /*out*/ FBlendedCurve& OutCurve)
-{
-	SCOPE_CYCLE_COUNTER(STAT_BlendSpace_GetAnimPose);
-	FScopeCycleCounterUObject BlendSpaceScope(this);
-
-	if(BlendSampleDataCache.Num() == 0)
-	{
-		OutPose.ResetToRefPose();
-		return;
-	}
-
-	const int32 NumPoses = BlendSampleDataCache.Num();
-
-	TArray<FCompactPose, TInlineAllocator<8>> ChildrenPoses;
-	ChildrenPoses.AddZeroed(NumPoses);
-
-	TArray<FBlendedCurve, TInlineAllocator<8>> ChildrenCurves;
-	ChildrenCurves.AddZeroed(NumPoses);
-
-	TArray<float, TInlineAllocator<8>> ChildrenWeights;
-	ChildrenWeights.AddZeroed(NumPoses);
-
-	for(int32 ChildrenIdx=0; ChildrenIdx<ChildrenPoses.Num(); ++ChildrenIdx)
-	{
-		ChildrenPoses[ChildrenIdx].SetBoneContainer(&OutPose.GetBoneContainer());
-		ChildrenCurves[ChildrenIdx].InitFrom(OutCurve);
-	}
-
-	// get all child atoms we interested in
-	for(int32 I = 0; I < BlendSampleDataCache.Num(); ++I)
-	{
-		FCompactPose& Pose = ChildrenPoses[I];
-
-		if(SampleData.IsValidIndex(BlendSampleDataCache[I].SampleDataIndex))
-		{
-			const FBlendSample& Sample = SampleData[BlendSampleDataCache[I].SampleDataIndex];
-			ChildrenWeights[I] = BlendSampleDataCache[I].GetWeight();
-
-			if(Sample.Animation)
-			{
-				const float Time = FMath::Clamp<float>(BlendSampleDataCache[I].Time, 0.f, Sample.Animation->SequenceLength);
-
-				// first one always fills up the source one
-				Sample.Animation->GetAnimationPose(Pose, ChildrenCurves[I], FAnimExtractContext(Time, true));
-			}
-			else
-			{
-				Pose.ResetToRefPose();
-			}
-		}
-		else
-		{
-			Pose.ResetToRefPose();
-		}
-	}
-
-	TArrayView<FCompactPose> ChildrenPosesView(ChildrenPoses);
-
-	if (PerBoneBlend.Num() > 0)
-	{
-		if (IsValidAdditive())
-		{
-			if (bRotationBlendInMeshSpace)
-			{
-				FAnimationRuntime::BlendPosesTogetherPerBoneInMeshSpace(ChildrenPosesView, ChildrenCurves, this, BlendSampleDataCache, OutPose, OutCurve);
-			}
-			else
-			{
-				FAnimationRuntime::BlendPosesTogetherPerBone(ChildrenPosesView, ChildrenCurves, this, BlendSampleDataCache, OutPose, OutCurve);
-			}
-		}
-		else
-		{
-			FAnimationRuntime::BlendPosesTogetherPerBone(ChildrenPosesView, ChildrenCurves, this, BlendSampleDataCache, OutPose, OutCurve);
-		}
-	}
-	else
-	{
-		FAnimationRuntime::BlendPosesTogether(ChildrenPosesView, ChildrenCurves, ChildrenWeights, OutPose, OutCurve);
-	}
-
-	// Once all the accumulation and blending has been done, normalize rotations.
-	OutPose.NormalizeRotations();
+	return bMatching;
 }
 
 #if WITH_EDITOR
-bool UBlendSpaceBase::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets)
+bool UBlendSpaceBase::ContainsNonAdditiveSamples() const
 {
-	for (auto Iter = SampleData.CreateConstIterator(); Iter; ++Iter)
-	{
-		// saves all samples in the AnimSequences
-		UAnimSequence* Sequence = (*Iter).Animation;
-		if (Sequence)
-		{
-			Sequence->HandleAnimReferenceCollection(AnimationAssets);
-		}
-	}
-
-	if (PreviewBasePose)
-	{
-		PreviewBasePose->HandleAnimReferenceCollection(AnimationAssets);
-	}
- 
-	return (AnimationAssets.Num() > 0);
+	return ContainsMatchingSamples(AAT_None);
 }
 
-void UBlendSpaceBase::ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap)
+void UBlendSpaceBase::UpdatePreviewBasePose()
 {
-	TArray<FBlendSample> NewSamples;
-	for (auto Iter = SampleData.CreateIterator(); Iter; ++Iter)
+#if WITH_EDITORONLY_DATA	
+	// Check if blendspace is additive and see if 
+	if (IsValidAdditive() && PreviewBasePose == nullptr)
 	{
-		FBlendSample& Sample = (*Iter);
-		UAnimSequence* Anim = Sample.Animation;
-
-		if ( Anim )
+		for (const FBlendSample& BlendSample : SampleData)
 		{
-			UAnimSequence* const* ReplacementAsset = (UAnimSequence*const*)ReplacementMap.Find(Anim);
-			if(ReplacementAsset)
+			if (BlendSample.Animation->RefPoseSeq)
 			{
-				Sample.Animation = *ReplacementAsset;
-				Sample.Animation->ReplaceReferredAnimations(ReplacementMap);
-				NewSamples.Add(Sample);
-			}
+				PreviewBasePose = BlendSample.Animation->RefPoseSeq;
+				break;
+			}	
 		}
 	}
-
-	if (PreviewBasePose)
+	// If not reset the preview base pose when set
+	else if (PreviewBasePose)
 	{
-		UAnimSequence* const* ReplacementAsset = (UAnimSequence*const*)ReplacementMap.Find(PreviewBasePose);
-		if(ReplacementAsset)
-		{
-			PreviewBasePose = *ReplacementAsset;
-			PreviewBasePose->ReplaceReferredAnimations(ReplacementMap);
-		}
+		PreviewBasePose = nullptr;
 	}
-	
-	SampleData = NewSamples;
+#endif // WITH_EDITORONLY_DATA
 }
 
-void UBlendSpaceBase::PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent)
-{
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-
-	const FName PropertyName = PropertyChangedEvent.Property ? PropertyChangedEvent.Property->GetFName() : NAME_None;
-	if ( PropertyName == FName(TEXT("InterpolationTime")) || PropertyName == FName(TEXT("InterpolationType")) )
-	{
-		bNeedReinitializeFilter = true;
-	}
-
-	if (PropertyName == FName(TEXT("BoneName")))
-	{
-		InitializePerBoneBlend();
-	}
-}
-
-int32 UBlendSpaceBase::GetMarkerUpdateCounter() const
-{ 
-	return MarkerDataUpdateCounter; 
-}
 #endif // WITH_EDITOR

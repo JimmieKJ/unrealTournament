@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "RepRecordArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/RepRecordArchiveProxy.h"
+#include "UHTMakefile.h"
 
 FRepRecordArchiveProxy::FRepRecordArchiveProxy(const FUHTMakefile& UHTMakefile, const FRepRecord& RepRecord)
 {

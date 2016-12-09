@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+
+DECLARE_LOG_CATEGORY_EXTERN(LogAIGraph, Display, All);
 
 class FAIGraphModule : public IModuleInterface
 {

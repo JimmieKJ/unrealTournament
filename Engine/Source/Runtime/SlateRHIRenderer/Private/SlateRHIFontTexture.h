@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Fonts/FontTypes.h"
+#include "Textures/SlateShaderResource.h"
+#include "TextureResource.h"
 
 /**
  * Override for font textures that saves data between Init and ReleaseDynamicRHI to 

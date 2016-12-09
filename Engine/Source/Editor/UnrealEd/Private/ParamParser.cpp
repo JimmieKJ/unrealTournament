@@ -9,7 +9,11 @@
 	to Visual Basic.
 =============================================================================*/
 
-#include "UnrealEd.h"
+#include "CoreTypes.h"
+#include "Logging/LogMacros.h"
+#include "Misc/Parse.h"
+#include "Math/Vector.h"
+#include "Math/Rotator.h"
 
 /*-----------------------------------------------------------------------------
 	Getters.
@@ -113,7 +117,7 @@ bool GetSUBSTRING
 	int32				MaxLen
 )
 {
-	const TCHAR* Found = FCString::Strfind(Stream,Match);
+	const TCHAR* Found = FCString::Strifind(Stream,Match);
 	const TCHAR* Start;
 
 	if( Found == NULL ) return false; // didn't match.

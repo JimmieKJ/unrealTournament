@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Lighting.h"
+
 #if USE_EMBREE
 
 namespace Lightmass

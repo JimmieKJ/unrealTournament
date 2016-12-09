@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/ArrangedWidget.h"
+#include "Widgets/SWidget.h"
 #include "ConnectionDrawingPolicy.h"
+
+class FSlateWindowElementList;
+class UEdGraph;
 
 /////////////////////////////////////////////////////
 // FStateMachineConnectionDrawingPolicy

@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPrivatePCH.h"
 #include "OnlineError.h"
 #include "OnlineSubsystemTypes.h"
 
@@ -10,18 +9,21 @@ const FString FOnlineError::GenericErrorCode = TEXT("GenericError");
 FOnlineError::FOnlineError()
 	: bSucceeded(false)
 	, HttpResult(0)
+	, NumericErrorCode(0)
 {
 }
 
 FOnlineError::FOnlineError(bool bSucceededIn)
 	: bSucceeded(bSucceededIn)
 	, HttpResult(0)
+	, NumericErrorCode(0)
 {
 }
 
 FOnlineError::FOnlineError(const FString& ErrorCodeIn)
 	: bSucceeded(false)
 	, HttpResult(0)
+	, NumericErrorCode(0)
 {
 	SetFromErrorCode(ErrorCodeIn);
 }
@@ -35,6 +37,7 @@ void FOnlineError::SetFromErrorCode(const FString& ErrorCodeIn)
 FOnlineError::FOnlineError(const FText& ErrorMessageIn)
 	: bSucceeded(false)
 	, HttpResult(0)
+	, NumericErrorCode(INDEX_NONE)
 {
 	SetFromErrorMessage(ErrorMessageIn);
 }

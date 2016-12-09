@@ -4,12 +4,16 @@
 PostProcessVisualizeComplexity.cpp: Contains definitions for complexity viewmode.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessVisualizeComplexity.h"
+#include "PostProcess/PostProcessVisualizeComplexity.h"
+#include "EngineGlobals.h"
+#include "StaticBoundShaderState.h"
+#include "CanvasTypes.h"
+#include "UnrealEngine.h"
+#include "RenderTargetTemp.h"
 #include "SceneUtils.h"
-#include "PostProcessing.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "PostProcess/PostProcessing.h"
 
 /**
  * Gets the maximum shader complexity count from the ini settings.
@@ -49,14 +53,18 @@ void FVisualizeComplexityApplyPS::SetParameters(
 
 	PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
 
-	//Make sure there are at least NumShaderComplexityColors colors specified in the ini.
-	//If there are more than NumShaderComplexityColors they will be ignored.
-	check(Colors.Num() >= 1 && Colors.Num() <= MaxNumShaderComplexityColors);
-
-	//pass the complexity -> color mapping into the pixel shader
-	for(int32 ColorIndex = 0; ColorIndex < Colors.Num(); ColorIndex ++)
+	int32 NumColors = FMath::Min<int32>(Colors.Num(), MaxNumShaderComplexityColors);
+	if (NumColors > 0)
+	{	//pass the complexity -> color mapping into the pixel shader
+		for (int32 ColorIndex = 0; ColorIndex < NumColors; ColorIndex++)
+		{
+			SetShaderValue(Context.RHICmdList, ShaderRHI, ShaderComplexityColors, Colors[ColorIndex], ColorIndex);
+		}
+	}
+	else // Otherwise fallback to a safe value.
 	{
-		SetShaderValue(Context.RHICmdList, ShaderRHI, ShaderComplexityColors, Colors[ColorIndex], ColorIndex);
+		NumColors = 1;
+		SetShaderValue(Context.RHICmdList, ShaderRHI, ShaderComplexityColors, FLinearColor::Gray, 0);
 	}
 
 	SetTextureParameter(Context.RHICmdList, ShaderRHI, MiniFontTexture, GEngine->MiniFontTexture ? GEngine->MiniFontTexture->Resource->TextureRHI : GSystemTextures.WhiteDummy->GetRenderTargetItem().TargetableTexture);

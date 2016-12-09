@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateCorePrivatePCH.h"
+#include "Input/DragAndDrop.h"
+#include "Layout/Visibility.h"
+#include "Application/SlateApplicationBase.h"
+#include "Widgets/SWindow.h"
 
 
 /* FDragDropOperation structors

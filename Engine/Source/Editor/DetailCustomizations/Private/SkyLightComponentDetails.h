@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Engine/SkyLight.h"
+
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Input/Reply.h"
 #include "IDetailCustomization.h"
+
+class ASkyLight;
+class IDetailLayoutBuilder;
 
 class FSkyLightComponentDetails : public IDetailCustomization
 {

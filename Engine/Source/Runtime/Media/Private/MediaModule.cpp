@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "IMediaModule.h"
 #include "IMediaPlayerFactory.h"
 

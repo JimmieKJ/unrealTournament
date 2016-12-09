@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashReportClientApp.h"
+#include "WindowsHWrapper.h"
 
 /**
  * WinMain, called when the application is started

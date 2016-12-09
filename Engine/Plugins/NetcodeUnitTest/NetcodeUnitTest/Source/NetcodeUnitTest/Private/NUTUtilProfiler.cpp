@@ -1,12 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
+#include "NUTUtilProfiler.h"
+#include "Stats/Stats.h"
 
 #if STATS
 
-#include "StatsData.h"
+#include "Stats/StatsData.h"
 
-#include "NUTUtilProfiler.h"
 
 
 /**

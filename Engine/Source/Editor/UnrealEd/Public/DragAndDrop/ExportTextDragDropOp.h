@@ -1,7 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "GameFramework/Actor.h"
+#include "Input/DragAndDrop.h"
+#include "Editor.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/PropertyPortFlags.h"
+#include "Exporters/Exporter.h"
 #include "UnrealExporter.h"
+
+class FSelectedActorExportObjectInnerContext;
 
 class FSelectedActorExportObjectInnerContext : public FExportObjectInnerContext
 {

@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "FunctionalTestingPrivatePCH.h"
-#include "AutomationCommon.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+#include "Modules/ModuleManager.h"
+#include "Engine/Engine.h"
+#include "AssetData.h"
+#include "FunctionalTestingModule.h"
+#include "EngineGlobals.h"
+#include "Tests/AutomationCommon.h"
+#include "ARFilter.h"
 #include "AssetRegistryModule.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -131,7 +138,11 @@ void FClientFunctionalTestingMaps::GetTests(TArray<FString>& OutBeautifiedNames,
 	if ( !AssetRegistry.IsLoadingAssets() )
 	{
 		TArray<FAssetData> MapList;
-		if ( AssetRegistry.GetAssetsByClass(UWorld::StaticClass()->GetFName(), /*out*/ MapList) )
+		FARFilter Filter;
+		Filter.ClassNames.Add(UWorld::StaticClass()->GetFName());
+		Filter.bRecursiveClasses = true;
+		Filter.bIncludeOnlyOnDiskAssets = true;
+		if ( AssetRegistry.GetAssets(Filter, /*out*/ MapList) )
 		{
 			for ( const FAssetData& MapAsset : MapList )
 			{
@@ -153,7 +164,7 @@ void FClientFunctionalTestingMaps::GetTests(TArray<FString>& OutBeautifiedNames,
 
 							if ( MapTest.Split(TEXT("|"), &BeautifulTestName, &RealTestName) )
 							{
-								OutBeautifiedNames.Add(MapAsset.AssetName.ToString() + TEXT(".") + *BeautifulTestName);
+								OutBeautifiedNames.Add(MapAsset.PackageName.ToString() + TEXT(".") + *BeautifulTestName);
 								OutTestCommands.Add(MapAsset.PackageName.ToString() + TEXT(";") + *RealTestName);
 							}
 						}

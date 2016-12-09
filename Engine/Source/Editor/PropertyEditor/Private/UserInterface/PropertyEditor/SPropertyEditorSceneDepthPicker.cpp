@@ -1,9 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-#include "PropertyEditorPrivatePCH.h"
-#include "SPropertyEditorSceneDepthPicker.h"
-#include "PropertyEditor.h"
-#include "PropertyNode.h"
-#include "ObjectPropertyNode.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorSceneDepthPicker.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "ActorPickerMode.h"
 
 #define LOCTEXT_NAMESPACE "SceneDepthPicker"
 

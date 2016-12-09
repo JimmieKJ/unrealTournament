@@ -2,8 +2,27 @@
 
 #pragma once
 
-#include "SSearchBox.h"
-#include "TextFilterExpressionEvaluator.h"
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+#include "Components/SceneComponent.h"
+#include "Layout/SlateRect.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/SListView.h"
+#include "EditorStyleSet.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Misc/TextFilterExpressionEvaluator.h"
+
+class UStaticMesh;
 
 class SSocketChooserPopup : public SCompoundWidget
 {

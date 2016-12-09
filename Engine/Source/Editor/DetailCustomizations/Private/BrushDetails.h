@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "IDetailCustomization.h"
+
+class ABrush;
+class IDetailLayoutBuilder;
+class SHorizontalBox;
+
 class FBrushDetails : public IDetailCustomization
 {
 public:

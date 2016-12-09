@@ -1,14 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "InputCoreTypes.h"
+#include "BehaviorTree/Decorators/BTDecorator_BlackboardBase.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType.h"
-#include "BehaviorTree/BTDecorator.h"
-#include "BTDecorator_BlackboardBase.h"
 #include "BTDecorator_Blackboard.generated.h"
 
-class UBlackboardComponent;
-class UBehaviorTreeComponent;
 class FBlackboardDecoratorDetails;
+class UBehaviorTree;
+class UBlackboardComponent;
 
 /**
  *  Decorator for accessing blackboard values

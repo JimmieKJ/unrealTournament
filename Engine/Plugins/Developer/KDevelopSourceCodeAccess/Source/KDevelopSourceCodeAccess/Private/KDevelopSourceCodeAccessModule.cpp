@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "KDevelopSourceCodeAccessPrivatePCH.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "KDevelopSourceCodeAccessModule.h"
+#include "Modules/ModuleManager.h"
+#include "Features/IModularFeatures.h"
 
 IMPLEMENT_MODULE( FKDevelopSourceCodeAccessModule, KDevelopSourceCodeAccess );
 

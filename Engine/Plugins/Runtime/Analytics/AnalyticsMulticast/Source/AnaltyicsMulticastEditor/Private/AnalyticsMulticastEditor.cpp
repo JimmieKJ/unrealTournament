@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnalyticsMulticastEditorPrivatePCH.h"
-
 #include "AnalyticsMulticastEditor.h"
+
+#include "Modules/ModuleManager.h"
 #include "AnalyticsMulticastSettings.h"
 #include "Analytics.h"
 

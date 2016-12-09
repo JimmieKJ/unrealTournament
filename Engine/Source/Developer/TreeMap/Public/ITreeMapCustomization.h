@@ -3,8 +3,11 @@
 #pragma once
 
 
+#include "CoreMinimal.h"
 #include "ITreeMap.h"
 
+class FTreeMapAttribute;
+class FTreeMapAttributeValue;
 
 typedef TSharedPtr< class FTreeMapAttributeValue > FTreeMapAttributeValuePtr;
 typedef TSharedRef< class FTreeMapAttributeValue > FTreeMapAttributeValueRef;

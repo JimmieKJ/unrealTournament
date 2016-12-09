@@ -6,11 +6,21 @@ DebugViewModeRendering.h: Contains definitions for rendering debug viewmodes.
 
 #pragma once
 
-#include "DebugViewModeHelpers.h"
+#include "CoreMinimal.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "GlobalShader.h"
 #include "ShaderParameterUtils.h"
+#include "MeshMaterialShaderType.h"
+#include "MeshMaterialShader.h"
+#include "ShaderBaseClasses.h"
+
+class FPrimitiveSceneProxy;
+struct FMeshBatchElement;
+struct FMeshDrawingRenderState;
 
 static const int32 NumStreamingAccuracyColors = 5;
-static const float UndefinedStreamingAccuracyIntensity = .02f;
+static const float UndefinedStreamingAccuracyIntensity = .015f;
 
 /**
  * Vertex shader for quad overdraw. Required because overdraw shaders need to have SV_Position as first PS interpolant.
@@ -50,21 +60,22 @@ public:
 		}
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
 
 	static void SetCommonDefinitions(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		if (Material->IsDefaultMaterial())
+		// SM4 has less input interpolants. Also instanced meshes use more interpolants.
+		if (Material->IsDefaultMaterial() || (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !Material->IsUsedWithInstancedStaticMeshes()))
 		{	// Force the default material to pass enough texcoords to the pixel shaders (even though not using them).
 			// This is required to allow material shaders to have access to the sampled coords.
 			OutEnvironment.SetDefine(TEXT("MIN_MATERIAL_TEXCOORDS"), (uint32)4);
 		}
 		else // Otherwise still pass at minimum amount to have debug shader using a texcoord to work (material might not use any).
 		{
-			OutEnvironment.SetDefine(TEXT("MIN_MATERIAL_TEXCOORDS"), (uint32)1);
+			OutEnvironment.SetDefine(TEXT("MIN_MATERIAL_TEXCOORDS"), (uint32)2);
 		}
 
 	}
@@ -159,7 +170,7 @@ public:
 		const FPrimitiveSceneProxy* Proxy,
 		int32 VisualizeLODIndex,
 		const FMeshBatchElement& BatchElement, 
-		const FMeshDrawingRenderState& DrawRenderState
+		const FDrawingPolicyRenderState& DrawRenderState
 		) = 0;
 
 	// Used for custom rendering like decals.
@@ -192,7 +203,7 @@ struct FDebugViewMode
 		const FSceneView& View,
 		const FPrimitiveSceneProxy* Proxy,
 		const FMeshBatchElement& BatchElement, 
-		const FMeshDrawingRenderState& DrawRenderState,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const FMaterial* Material, 
 		bool bHasHullAndDomainShader
 		);

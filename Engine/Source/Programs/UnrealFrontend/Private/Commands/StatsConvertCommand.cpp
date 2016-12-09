@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealFrontendPrivatePCH.h"
 #include "StatsConvertCommand.h"
+#include "Misc/CommandLine.h"
+#include "HAL/FileManager.h"
+#include "Templates/ScopedPointer.h"
+#include "UniquePtr.h"
 
 /** Helper class used to extract stats data into CSV file. */
 class FCSVStatsProfiler : public FStatsReadFile
@@ -129,14 +132,14 @@ void FStatsConvertCommand::InternalRun()
 	FParse::Value(FCommandLine::Get(), TEXT("-STATLIST="), StatListString);
 
 	// Open a CSV file for write.
-	TAutoPtr<FArchive> FileWriter( IFileManager::Get().CreateFileWriter( *OutFile ) );
+	TUniquePtr<FArchive> FileWriter( IFileManager::Get().CreateFileWriter( *OutFile ) );
 	if (!FileWriter)
 	{
 		UE_LOG( LogStats, Error, TEXT( "Could not open output file: %s" ), *OutFile );
 		return;
 	}
 
-	TAutoPtr<FCSVStatsProfiler> Instance( FStatsReader<FCSVStatsProfiler>::Create( *TargetFile ) );
+	TUniquePtr<FCSVStatsProfiler> Instance( FStatsReader<FCSVStatsProfiler>::Create( *TargetFile ) );
 	if (Instance)
 	{
 		TArray<FName> StatList;
@@ -148,7 +151,7 @@ void FStatsConvertCommand::InternalRun()
 			StatArrayString.Add( TEXT( "STAT_FrameTime" ) );
 		}
 
-		Instance->Initialize( FileWriter, StatArrayString );
+		Instance->Initialize( FileWriter.Get(), StatArrayString );
 		Instance->ReadAndProcessAsynchronously();
 
 		while (Instance->IsBusy())

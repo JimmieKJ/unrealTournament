@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // .
 
-#include "ShaderCompilerCommonPrivatePCH.h"
 #include "ShaderCompilerCommon.h"
-#include "ModuleManager.h"
-#include "CrossCompilerCommon.h"
-#include "TypeHash.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
 #include "HlslccDefinitions.h"
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, ShaderCompilerCommon);
@@ -413,58 +411,6 @@ namespace CrossCompiler
 		Error->StrippedErrorMessage = p;
 	}
 
-	static inline bool ParseIdentifier(const ANSICHAR*& Str, FString& OutStr)
-	{
-		OutStr = TEXT("");
-		FString Result;
-		while ((*Str >= 'A' && *Str <= 'Z')
-			|| (*Str >= 'a' && *Str <= 'z')
-			|| (*Str >= '0' && *Str <= '9')
-			|| *Str == '_')
-		{
-			OutStr += (TCHAR)*Str;
-			++Str;
-		}
-
-		return OutStr.Len() > 0;
-	}
-
-	static FORCEINLINE bool Match(const ANSICHAR*& Str, ANSICHAR Char)
-	{
-		if (*Str == Char)
-		{
-			++Str;
-			return true;
-		}
-
-		return false;
-	}
-
-	template <typename T>
-	static bool ParseIntegerNumber(const ANSICHAR*& Str, T& OutNum)
-	{
-		auto* OriginalStr = Str;
-		OutNum = 0;
-		while (*Str >= '0' && *Str <= '9')
-		{
-			OutNum = OutNum * 10 + *Str++ - '0';
-		}
-
-		return Str != OriginalStr;
-	}
-
-	static bool ParseSignedNumber(const ANSICHAR*& Str, int32& OutNum)
-	{
-		int32 Sign = Match(Str, '-') ? -1 : 1;
-		uint32 Num = 0;
-		if (ParseIntegerNumber(Str, Num))
-		{
-			OutNum = Sign * (int32)Num;
-			return true;
-		}
-
-		return false;
-	}
 
 	/** Map shader frequency -> string for messages. */
 	static const TCHAR* FrequencyStringTable[] =
@@ -1062,7 +1008,7 @@ namespace CrossCompiler
 			}
 		}
 
-		return true;
+		return ParseCustomHeaderEntries(ShaderSource);
 	}
 
 	bool FHlslccHeader::ReadCopies(const ANSICHAR*& ShaderSource, bool bGlobals, TArray<FPackedUBCopy>& OutCopies)

@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EpicSurveyPrivatePCH.h"
 #include "SurveyTitleCdnStorage.h"
-#include "OnlineSubsystemTypes.h"
-#include "Base64.h"
-#include "SecureHash.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/SecureHash.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Interfaces/IHttpResponse.h"
 #include "HttpModule.h"
 
 IOnlineTitleFilePtr FSurveyTitleCdnStorage::Create( const FString& IndexUrl )

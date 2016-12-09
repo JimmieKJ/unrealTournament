@@ -151,7 +151,7 @@ int32 AUTMutator::GetIntOption( const FString& Options, const FString& ParseStri
 
 void AUTMutator::AddDefaultInventory(TSubclassOf<AUTInventory> InventoryClass)
 {
-	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (GameMode != NULL)
 	{
 		GameMode->DefaultInventory.AddUnique(InventoryClass);

@@ -9,6 +9,9 @@
  *	- Full enumerator name has form: '<enumeration path>::<short, user defined enumerator name>'
  */
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
 #include "UserDefinedEnum.generated.h"
 
 /** 
@@ -52,14 +55,14 @@ public:
 	 *	@param EnumeratorIndex	old index
 	 *	@return	new index
 	 */
-	virtual int32 ResolveEnumerator(FArchive& Ar, int32 EnumeratorValue) const override;
+	virtual int64 ResolveEnumerator(FArchive& Ar, int64 EnumeratorValue) const override;
 
 	/**
 	 * @return	The enum string at the specified index.
 	 */
 	virtual FText GetEnumText(int32 InIndex) const override;
 
-	virtual bool SetEnums(TArray<TPair<FName, uint8>>& InNames, ECppForm InCppForm, bool bAddMaxKeyIfMissing = true) override;
+	virtual bool SetEnums(TArray<TPair<FName, int64>>& InNames, ECppForm InCppForm, bool bAddMaxKeyIfMissing = true) override;
 
 #if WITH_EDITOR
 	//~ Begin UObject Interface

@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "OnlineSubsystemFacebookPrivatePCH.h"
+#include "OnlineFriendsFacebook.h"
+#include "OnlineSubsystemFacebookPrivate.h"
 #include "OnlineIdentityFacebook.h"
 #include "OnlineSharingFacebook.h"
-#include "OnlineFriendsFacebook.h"
+#include "Interfaces/OnlineFriendsInterface.h"
+#include "Misc/ConfigCacheIni.h"
 
 #import <FBSDKCoreKit/FBSDKCoreKit.h>
 

@@ -1,6 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TextureCompressorPrivatePCH.h"
+#include "TextureCompressorModule.h"
+#include "Math/RandomStream.h"
+#include "Containers/IndirectArray.h"
+#include "Stats/Stats.h"
+#include "Async/AsyncWork.h"
+#include "Modules/ModuleManager.h"
+#include "Engine/Texture.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/ITextureFormat.h"
+#include "ImageCore.h"
+
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogTextureCompressor, Log, All);
 

@@ -105,7 +105,8 @@ namespace UnrealBuildTool
 				case ModuleHostType.RuntimeNoCommandlet:
 				case ModuleHostType.RuntimeAndProgram:
 				case ModuleHostType.ServerOnly:
-					return UHTModuleType.EngineRuntime;
+                case ModuleHostType.ClientOnly:
+                    return UHTModuleType.EngineRuntime;
 				case ModuleHostType.Developer:
 					return UHTModuleType.EngineDeveloper;
 				case ModuleHostType.Editor:
@@ -123,7 +124,8 @@ namespace UnrealBuildTool
 				case ModuleHostType.RuntimeNoCommandlet:
 				case ModuleHostType.RuntimeAndProgram:
 				case ModuleHostType.ServerOnly:
-					return UHTModuleType.GameRuntime;
+                case ModuleHostType.ClientOnly:
+                    return UHTModuleType.GameRuntime;
 				case ModuleHostType.Developer:
 					return UHTModuleType.GameDeveloper;
 				case ModuleHostType.Editor:
@@ -313,7 +315,7 @@ namespace UnrealBuildTool
 				// UObjects or not, we can skip doing a test here.
 				FileItem UObjectHeaderFileItem = FileItem.GetExistingItemByPath(Header);
 
-				if (CPPEnvironment.DoesFileContainUObjects(UObjectHeaderFileItem.AbsolutePath))
+				if (CPPHeaders.DoesFileContainUObjects(UObjectHeaderFileItem.AbsolutePath))
 				{
 					if (new FileReference(UObjectHeaderFileItem.AbsolutePath).IsUnderDirectory(ClassesFolder))
 					{
@@ -350,39 +352,23 @@ namespace UnrealBuildTool
 
 		public static UHTModuleType GetEngineModuleTypeFromDescriptor(ModuleDescriptor Module)
 		{
-			switch (Module.Type)
-			{
-				case ModuleHostType.Developer:
-					return UHTModuleType.EngineDeveloper;
-				case ModuleHostType.Editor:
-				case ModuleHostType.EditorNoCommandlet:
-					return UHTModuleType.EngineEditor;
-				case ModuleHostType.Runtime:
-				case ModuleHostType.RuntimeNoCommandlet:
-				case ModuleHostType.RuntimeAndProgram:
-					return UHTModuleType.EngineRuntime;
-				default:
-					throw new BuildException("Unhandled engine module type {0}", Module.Type.ToString());
-			}
-		}
+            UHTModuleType? Type = UHTModuleTypeExtensions.EngineModuleTypeFromHostType(Module.Type);
+            if (Type == null)
+            {
+                throw new BuildException("Unhandled engine module type {0}", Module.Type.ToString());
+            }
+            return Type.GetValueOrDefault();
+        }
 
 		public static UHTModuleType GetGameModuleTypeFromDescriptor(ModuleDescriptor Module)
 		{
-			switch (Module.Type)
-			{
-				case ModuleHostType.Developer:
-					return UHTModuleType.GameDeveloper;
-				case ModuleHostType.Editor:
-				case ModuleHostType.EditorNoCommandlet:
-					return UHTModuleType.GameEditor;
-				case ModuleHostType.Runtime:
-				case ModuleHostType.RuntimeNoCommandlet:
-				case ModuleHostType.RuntimeAndProgram:
-					return UHTModuleType.GameRuntime;
-				default:
-					throw new BuildException("Unhandled game module type {0}", Module.Type.ToString());
-			}
-		}
+            UHTModuleType? Type = UHTModuleTypeExtensions.GameModuleTypeFromHostType(Module.Type);
+            if (Type == null)
+            {
+                throw new BuildException("Unhandled game module type {0}", Module.Type.ToString());
+            }
+            return Type.GetValueOrDefault();
+        }
 
 		public static UHTModuleType? GetEngineModuleTypeBasedOnLocation(FileReference ModuleFileName)
 		{
@@ -415,88 +401,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Holds a cache of dependency tests between nodes.
-		/// </summary>
-		/// <typeparam name="NodeType">The type of node to be tested for dependencies.</typeparam>
-		class NodeDependencyCache<NodeType>
-		{
-			public NodeDependencyCache(Func<NodeType, IEnumerable<NodeType>> InNodeDependencies)
-			{
-				NodeDependencies = InNodeDependencies;
-				PreviousResults  = new Dictionary<NodeType, Dictionary<NodeType, bool>>();
-			}
-
-			/// <summary>
-			/// Tests if NodeA is dependent on NodeB.
-			/// </summary>
-			/// <param name="NodeA">The dependent to test.</param>
-			/// <param name="NodeB">The dependency to test.</param>
-			/// <returns>true if NodeA is dependent on NodeB, false otherwise.</returns>
-			public bool DependsOn(NodeType NodeA, NodeType NodeB)
-			{
-				// Return any previous result, if there is one.
-				bool Result;
-				Dictionary<NodeType, bool> InnerDictionary;
-				if (PreviousResults.TryGetValue(NodeA, out InnerDictionary))
-				{
-					if (InnerDictionary.TryGetValue(NodeB, out Result))
-					{
-						return Result;
-					}
-				}
-				else
-				{
-					InnerDictionary = new Dictionary<NodeType, bool>();
-					PreviousResults.Add(NodeA, InnerDictionary);
-				}
-
-				Result = DependsOnRecursive(NodeA, NodeB, new HashSet<NodeType>(), InnerDictionary);
-				InnerDictionary.Add(NodeB, Result);
-				return Result;
-			}
-
-			private bool DependsOnRecursive(NodeType NodeA, NodeType NodeB, HashSet<NodeType> Visited, Dictionary<NodeType, bool> InnerDictionary)
-			{
-				if (Visited.Contains(NodeA))
-				{
-					// Nodes are not dependent on themselves
-					return false;
-				}
-
-				Visited.Add(NodeA);
-
-				IEnumerable<NodeType> Deps = NodeDependencies(NodeA);
-
-				if (Deps.Contains(NodeB))
-				{
-					// NodeB is an immediate dependent of NodeA
-					return true;
-				}
-
-				foreach (NodeType i in Deps)
-				{
-					bool Result;
-					if (InnerDictionary.TryGetValue(NodeB, out Result) && Result)
-					{
-						// We've calculated this result before
-						return true;
-					}
-
-					if (DependsOnRecursive(i, NodeB, Visited, InnerDictionary))
-					{
-						return true;
-					}
-				}
-
-				// Didn't find any dependency
-				return false;
-			}
-
-			private Func<NodeType, IEnumerable<NodeType>>            NodeDependencies;
-			private Dictionary<NodeType, Dictionary<NodeType, bool>> PreviousResults;
-		}
-
-		/// <summary>
 		/// Returns a copy of Nodes sorted by dependency.  Independent or circularly-dependent nodes should
 		/// remain in their same relative order within the original Nodes sequence.
 		/// </summary>
@@ -504,21 +408,21 @@ namespace UnrealBuildTool
 		/// <param name="Nodes">The sequence of nodes to sort.</param>
 		/// <param name="NodeDependencies">A function which returns a node's immediate dependencies.</param>
 		/// <returns>A copy of Nodes sorted by NodeDependencies, with circular references remaining in the same relative order.</returns>
-		public static List<NodeType> StableTopologicalSort<NodeType>(IEnumerable<NodeType> Nodes, Func<NodeType, IEnumerable<NodeType>> NodeDependencies)
+		public static void StableTopologicalSort(List<UEBuildModuleCPP> NodeList)
 		{
-			List<NodeType> NodeList  = Nodes.ToList();
 			int            NodeCount = NodeList.Count;
 
-			NodeDependencyCache<NodeType> Cache = new NodeDependencyCache<NodeType>(NodeDependencies);
+			Dictionary<UEBuildModule, HashSet<UEBuildModule>> Cache = new Dictionary<UEBuildModule, HashSet<UEBuildModule>>();
+
 			for (int Index1 = 0; Index1 != NodeCount; ++Index1)
 			{
-				NodeType Node1 = NodeList[Index1];
+				UEBuildModuleCPP Node1 = NodeList[Index1];
 
 				for (int Index2 = 0; Index2 != Index1; ++Index2)
 				{
-					NodeType Node2 = NodeList[Index2];
+					UEBuildModuleCPP Node2 = NodeList[Index2];
 
-					if (Cache.DependsOn(Node2, Node1) && !Cache.DependsOn(Node1, Node2))
+					if (IsDependency(Node2, Node1, Cache) && !IsDependency(Node1, Node2, Cache))
 					{
 						// Rotate element at Index1 into position at Index2
 						for (int Index3 = Index1; Index3 != Index2; )
@@ -534,8 +438,25 @@ namespace UnrealBuildTool
 					}
 				}
 			}
+		}
 
-			return NodeList;
+		/// <summary>
+		/// Tests whether one module has a dependency on another
+		/// </summary>
+		/// <param name="FromModule">The module to test</param>
+		/// <param name="ToModule">The module to look for a dependency</param>
+		/// <param name="Cache">Cache mapping module to all its dependencies</param>
+		/// <returns>True if ToModule is a dependency of FromModule, false otherwise</returns>
+		static bool IsDependency(UEBuildModuleCPP FromModule, UEBuildModuleCPP ToModule, Dictionary<UEBuildModule, HashSet<UEBuildModule>> Cache)
+		{
+			HashSet<UEBuildModule> Dependencies;
+			if(!Cache.TryGetValue(FromModule, out Dependencies))
+			{
+				Dependencies = new HashSet<UEBuildModule>();
+				FromModule.GetAllDependencyModules(new List<UEBuildModule>(), Dependencies, true, true, false);
+				Cache.Add(FromModule, Dependencies);
+			}
+			return Dependencies.Contains(ToModule);
 		}
 
 		public static void SetupUObjectModules(IEnumerable<UEBuildModuleCPP> ModulesToGenerateHeadersFor, UEBuildTarget Target, CPPEnvironment GlobalCompileEnvironment, List<UHTModuleInfo> UObjectModules, Dictionary<string, FlatModuleCsDataType> FlatModuleCsData, EGeneratedCodeVersion GeneratedCodeVersion)
@@ -544,7 +465,7 @@ namespace UnrealBuildTool
 
 			// Sort modules by type, then by dependency
 			List<UEBuildModuleCPP> ModulesSortedByType = ModulesToGenerateHeadersFor.OrderBy(c => c.Type).ToList();
-			ModulesSortedByType = StableTopologicalSort(ModulesSortedByType, x => x.GetDirectDependencyModules().OfType<UEBuildModuleCPP>()).ToList();
+			StableTopologicalSort(ModulesSortedByType);
 
 			foreach (UEBuildModuleCPP Module in ModulesSortedByType)
 			{
@@ -570,7 +491,7 @@ namespace UnrealBuildTool
 					{
 						// We need to figure out which PCH header this module is including, so that UHT can inject an include statement for it into any .cpp files it is synthesizing
 						CPPEnvironment ModuleCompileEnvironment = Module.CreateModuleCompileEnvironment(Target, GlobalCompileEnvironment);
-						Module.CachePCHUsageForModuleSourceFiles(Target, ModuleCompileEnvironment);
+						Module.CachePCHUsageForModuleSourceFiles(Target.Headers, ModuleCompileEnvironment);
 						if (Module.ProcessedDependencies.UniquePCHHeaderFile != null)
 						{
 							UHTModuleInfo.Info.PCH = Module.ProcessedDependencies.UniquePCHHeaderFile.AbsolutePath;
@@ -599,7 +520,7 @@ namespace UnrealBuildTool
 			if (BuildConfiguration.bPrintPerformanceInfo)
 			{
 				double UObjectDiscoveryTime = (DateTime.UtcNow - UObjectDiscoveryStartTime).TotalSeconds;
-				Trace.TraceInformation("UObject discovery time: " + UObjectDiscoveryTime + "s");
+				Console.WriteLine("UObject discovery time: " + UObjectDiscoveryTime + "s");
 			}
 		}
 
@@ -738,27 +659,25 @@ namespace UnrealBuildTool
 		/// <returns>Last write time of CoreUObject.generated.cpp or DateTime.MaxValue if it doesn't exist.</returns>
 		private static DateTime GetCoreGeneratedTimestamp(string ModuleName, string ModuleGeneratedCodeDirectory)
 		{
-			DateTime Timestamp;
+			// In Installed Builds, we don't check the timestamps on engine headers.  Default to a very old date.
 			if (UnrealBuildTool.IsEngineInstalled())
 			{
-				// In Installed Builds, we don't check the timestamps on engine headers.  Default to a very old date.
-				Timestamp = DateTime.MinValue;
+				return DateTime.MinValue;
 			}
-			else
+
+			// Otherwise look for CoreUObject.generated.cpp or CoreUObject.generated.1.cpp
+			string[] Suffixes = { ".generated.cpp", ".generated.1.cpp" };
+			foreach(string Suffix in Suffixes)
 			{
-				string CoreGeneratedFilename = Path.Combine(ModuleGeneratedCodeDirectory, ModuleName + ".generated.cpp");
-				if (File.Exists(CoreGeneratedFilename))
+				FileInfo CoreGeneratedFileInfo = new FileInfo(Path.Combine(ModuleGeneratedCodeDirectory, ModuleName + Suffix));
+				if (CoreGeneratedFileInfo.Exists)
 				{
-					Timestamp = new FileInfo(CoreGeneratedFilename).LastWriteTime;
-				}
-				else
-				{
-					// Doesn't exist, so use a 'newer that everything' date to force rebuild headers.
-					Timestamp = DateTime.MaxValue;
+					return CoreGeneratedFileInfo.LastWriteTime;
 				}
 			}
 
-			return Timestamp;
+			// Doesn't exist, so use a 'newer that everything' date to force rebuild headers.
+			return DateTime.MaxValue;
 		}
 
 		/// <summary>
@@ -1012,7 +931,7 @@ namespace UnrealBuildTool
 								// We need to figure out which PCH header this module is including, so that UHT can inject an include statement for it into any .cpp files it is synthesizing
 								UEBuildModuleCPP DependencyModuleCPP = (UEBuildModuleCPP)Target.GetModuleByName(UHTModuleInfo.ModuleName);
 								CPPEnvironment ModuleCompileEnvironment = DependencyModuleCPP.CreateModuleCompileEnvironment(Target, GlobalCompileEnvironment);
-								DependencyModuleCPP.CachePCHUsageForModuleSourceFiles(Target, ModuleCompileEnvironment);
+								DependencyModuleCPP.CachePCHUsageForModuleSourceFiles(Target.Headers, ModuleCompileEnvironment);
 								if (DependencyModuleCPP.ProcessedDependencies != null && DependencyModuleCPP.ProcessedDependencies.UniquePCHHeaderFile != null)
 								{
 									UHTModuleInfo.PCH = DependencyModuleCPP.ProcessedDependencies.UniquePCHHeaderFile.AbsolutePath;
@@ -1055,6 +974,10 @@ namespace UnrealBuildTool
 						}
 
 						// Propagate command-line options
+						if ( UnrealBuildTool.CommandLineContains( "-2017" ) )
+						{
+							UBTArguments.Append(" -2017");
+						}
 						if ( UnrealBuildTool.CommandLineContains( "-2015" ) )
 						{
 							UBTArguments.Append( " -2015" );
@@ -1143,11 +1066,7 @@ namespace UnrealBuildTool
 							BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64) && 
 							(int)(UHTResult) < 0)
 						{
-							Log.TraceInformation("Error: Failed to generate code for {0} - Prerequests may not be installed", ActualTargetName);
-						}
-						else
-						{
-							Log.TraceInformation("Error: Failed to generate code for {0} - error code: {2} ({1})", ActualTargetName, (int)UHTResult, UHTResult.ToString());
+							Log.TraceInformation(String.Format("UnrealHeaderTool failed with exit code 0x{0:X} - check that UE4 prerequisites are installed.", (int)UHTResult));
 						}
 						return false;
 					}

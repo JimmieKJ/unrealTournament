@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ScriptPluginPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "ScriptPluginLog.h"
 #include "ScriptObjectReferencer.h"
+#include "IScriptPlugin.h"
+#include "UObject/UnrealType.h"
 
 UProperty* FindScriptPropertyHelper(UClass* Class, FName PropertyName)
 {

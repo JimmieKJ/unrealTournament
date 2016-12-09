@@ -1,11 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OodleHandlerComponentPCH.h"
+#include "OodleHandlerComponent.h"
+#include "Misc/CoreMisc.h"
+#include "Modules/ModuleManager.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/App.h"
+#include "Misc/EngineVersion.h"
 
 #include "OodleTrainerCommandlet.h"
 
 #if !UE_BUILD_SHIPPING
-#include "Engine.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 #endif
 
 

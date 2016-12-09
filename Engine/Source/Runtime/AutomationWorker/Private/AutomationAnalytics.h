@@ -2,11 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "AutomationAnalyticParams.h"
-#include "AutomationWorkerMessages.h"
 
+class IAnalyticsProvider;
 class IAnalyticsProviderET;
 struct FAnalyticsEventAttribute;
+struct FAutomationPerformanceSnapshot;
+struct FAutomationWorkerRunTestsReply;
 
 class FAutomationAnalytics : FNoncopyable
 {

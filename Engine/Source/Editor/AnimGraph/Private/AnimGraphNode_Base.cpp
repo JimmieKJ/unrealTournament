@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_Base.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Animation/AnimInstance.h"
 #include "AnimationGraphSchema.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-#include "Animation/AnimInstance.h"
 #include "AnimBlueprintNodeOptionalPinManager.h"
+#include "IAnimNodeEditMode.h"
+#include "AnimNodeEditModes.h"
+#include "AnimationGraph.h"
+#include "EditorModeManager.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_Base
@@ -17,7 +21,7 @@ UAnimGraphNode_Base::UAnimGraphNode_Base(const FObjectInitializer& ObjectInitial
 {
 }
 
-void UAnimGraphNode_Base::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+void UAnimGraphNode_Base::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	FName PropertyName = (PropertyChangedEvent.Property != NULL) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
 
@@ -27,6 +31,8 @@ void UAnimGraphNode_Base::PostEditChangeProperty(struct FPropertyChangedEvent& P
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	PropertyChangeEvent.Broadcast(PropertyChangedEvent);
 }
 
 void UAnimGraphNode_Base::CreateOutputPins()
@@ -65,6 +71,8 @@ void UAnimGraphNode_Base::AllocateDefaultPins()
 void UAnimGraphNode_Base::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins)
 {
 	InternalPinCreation(&OldPins);
+
+	RestoreSplitPins(OldPins);
 }
 
 FLinearColor UAnimGraphNode_Base::GetNodeTitleColor() const
@@ -144,7 +152,7 @@ FText UAnimGraphNode_Base::GetMenuCategory() const
 	return FText::FromString(GetNodeCategory());
 }
 
-void UAnimGraphNode_Base::GetPinAssociatedProperty(const UScriptStruct* NodeType, UEdGraphPin* InputPin, UProperty*& OutProperty, int32& OutIndex)
+void UAnimGraphNode_Base::GetPinAssociatedProperty(const UScriptStruct* NodeType, const UEdGraphPin* InputPin, UProperty*& OutProperty, int32& OutIndex) const
 {
 	OutProperty = nullptr;
 	OutIndex = INDEX_NONE;
@@ -265,6 +273,71 @@ void UAnimGraphNode_Base::HandleAnimReferenceCollection(UAnimationAsset* AnimAss
 {
 	if(AnimAsset)
 	{
-		AnimAsset->HandleAnimReferenceCollection(AnimationAssets);
+		AnimAsset->HandleAnimReferenceCollection(AnimationAssets, true);
 	}
+}
+
+void UAnimGraphNode_Base::OnNodeSelected(bool bInIsSelected, FEditorModeTools& InModeTools, FAnimNode_Base* InRuntimeNode)
+{
+	const FEditorModeID ModeID = GetEditorMode();
+	if (ModeID != NAME_None)
+	{
+		if (bInIsSelected)
+		{
+			InModeTools.ActivateMode(ModeID);
+			if (FEdMode* EdMode = InModeTools.GetActiveMode(ModeID))
+			{
+				static_cast<IAnimNodeEditMode*>(EdMode)->EnterMode(this, InRuntimeNode);
+			}
+		}
+		else
+		{
+			if (FEdMode* EdMode = InModeTools.GetActiveMode(ModeID))
+			{
+				static_cast<IAnimNodeEditMode*>(EdMode)->ExitMode();
+			}
+			InModeTools.DeactivateMode(ModeID);
+		}
+	}
+}
+
+FEditorModeID UAnimGraphNode_Base::GetEditorMode() const
+{
+	return AnimNodeEditModes::AnimNode;
+}
+
+FAnimNode_Base* UAnimGraphNode_Base::FindDebugAnimNode(USkeletalMeshComponent * PreviewSkelMeshComp) const
+{
+	FAnimNode_Base* DebugNode = nullptr;
+
+	if (PreviewSkelMeshComp != nullptr && PreviewSkelMeshComp->GetAnimInstance() != nullptr)
+	{
+		// find an anim node index from debug data
+		UAnimBlueprintGeneratedClass* AnimBlueprintClass = Cast<UAnimBlueprintGeneratedClass>(PreviewSkelMeshComp->GetAnimInstance()->GetClass());
+		if (AnimBlueprintClass)
+		{
+			FAnimBlueprintDebugData& DebugData = AnimBlueprintClass->GetAnimBlueprintDebugData();
+			int32* IndexPtr = DebugData.NodePropertyToIndexMap.Find(this);
+
+			if (IndexPtr)
+			{
+				int32 AnimNodeIndex = *IndexPtr;
+				// reverse node index temporarily because of a bug in NodeGuidToIndexMap
+				AnimNodeIndex = AnimBlueprintClass->AnimNodeProperties.Num() - AnimNodeIndex - 1;
+
+				DebugNode = AnimBlueprintClass->AnimNodeProperties[AnimNodeIndex]->ContainerPtrToValuePtr<FAnimNode_Base>(PreviewSkelMeshComp->GetAnimInstance());
+			}
+		}
+	}
+
+	return DebugNode;
+}
+
+void UAnimGraphNode_Base::PinDefaultValueChanged(UEdGraphPin* Pin)
+{
+	Super::PinDefaultValueChanged(Pin);
+
+	CopyPinDefaultsToNodeData(Pin);
+
+	CastChecked<UAnimationGraph>(GetGraph())->OnPinDefaultValueChanged.Broadcast(Pin);
 }

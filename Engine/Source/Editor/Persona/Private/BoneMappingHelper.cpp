@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
 #include "BoneMappingHelper.h"
 #include "AnimationRuntime.h"
 
@@ -51,12 +50,12 @@ float FBoneDescription::CalculateScore(const FBoneDescription& Other) const
 	// check direction of facing [-1, 1]
 	float Cosine = FVector::DotProduct(DirFromParent, Other.DirFromParent);
 	float Score_DirFromParent = FMath::Max((Cosine-0.5f)*2.f, 0.f); // scale to only care for range of [0.5-1]
-	ensure(Score_DirFromParent >= 0.f && Score_DirFromParent <= 1.f);
+	Score_DirFromParent = FMath::Clamp(Score_DirFromParent, 0.f, 1.f);
 
 	// check direction of facing [-1, 1]
 	Cosine = FVector::DotProduct(DirFromRoot, Other.DirFromRoot);
 	float Score_DirFromRoot = FMath::Max((Cosine - 0.5f)*2.f, 0.f); // scale to only care for range of [0.5-1]
-	ensure(Score_DirFromRoot >= 0.f && Score_DirFromRoot <= 1.f);
+	Score_DirFromRoot = FMath::Clamp(Score_DirFromRoot, 0.f, 1.f);
 
 	// check number of children
 	float Score_NumChildren = 0.f;
@@ -71,7 +70,7 @@ float FBoneDescription::CalculateScore(const FBoneDescription& Other) const
 		Score_NumChildren = 1.f;
 	}
 
-	ensure(Score_NumChildren >= 0.f && Score_NumChildren <= 1.f);
+	Score_NumChildren = FMath::Clamp(Score_NumChildren, 0.f, 1.f);
 
 	// score of ratio from parent  - if you're here, you should have parent, so it shouldn't be 0.f, most likely
 	float Score_RatioFromParent = 0.f;
@@ -84,16 +83,16 @@ float FBoneDescription::CalculateScore(const FBoneDescription& Other) const
 		Score_RatioFromParent = (RatioFromParent > 0.f) ? Other.RatioFromParent / RatioFromParent : 0.f;
 	}
 
-	ensure(Score_RatioFromParent >= 0.f && Score_RatioFromParent <= 1.f);
+	Score_RatioFromParent = FMath::Clamp(Score_RatioFromParent, 0.f, 1.f);
 
 	// check normalized position - since this is normalized, it should stay within 1
 	FVector DiffNormalizedPosition = (Other.NormalizedPosition - NormalizedPosition).GetAbs();
 	const float MaxNormalizedPosition = 3.f; /* since 1^2+1^2+1^2 = 3*/
 	float Score_NormalizedPosition = (MaxNormalizedPosition - DiffNormalizedPosition.SizeSquared())/ MaxNormalizedPosition;
-	ensure(Score_NormalizedPosition >= 0.f && Score_NormalizedPosition <= 1.f);
+	Score_NormalizedPosition = FMath::Clamp(Score_NormalizedPosition, 0.f, 1.f);
 
 	float Score_NameMatching = CalculateNameScore(BoneInfo.Name, Other.BoneInfo.Name);
-	ensure(Score_NameMatching >= 0.f && Score_NameMatching <= 1.f);
+	Score_NameMatching = FMath::Clamp(Score_NameMatching, 0.f, 1.f);
 
 	// now come up with full score
 	static float Weight_DirFromParent = 2.f;

@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "SceneOutlinerFwd.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SNullWidget.h"
 
 namespace SceneOutliner
 {

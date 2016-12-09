@@ -2,9 +2,16 @@
 
 #pragma once
 
-#include "PropertyEditing.h"
-#include "PropertyCustomizationHelpers.h"
-#include "../STestFunctionWidget.h"
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "UObject/WeakObjectPtr.h"
+#include "Layout/Visibility.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class STestFunctionWidget;
+class SWidget;
 
 class FEnvQueryTestDetails : public IDetailCustomization
 {

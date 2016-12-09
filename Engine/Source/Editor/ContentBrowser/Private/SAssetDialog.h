@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "AssetData.h"
+#include "IContentBrowserSingleton.h"
+
+class SEditableTextBox;
+class STextBlock;
+
 class SAssetDialog : public SCompoundWidget
 {
 public:

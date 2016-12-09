@@ -7,9 +7,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimTypes.h"
+#include "Animation/EditorAnimBaseObj.h"
 #include "EditorNotifyObject.generated.h"
-
-class UEditorNotifyEntry;
 
 UCLASS(MinimalAPI)
 class UEditorNotifyObject : public UEditorAnimBaseObj

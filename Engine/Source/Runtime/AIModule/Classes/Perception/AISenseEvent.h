@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "AIPerceptionTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "EngineDefines.h"
+#include "Perception/AIPerceptionTypes.h"
 #include "AISenseEvent.generated.h"
 
 UCLASS(ClassGroup = AI, abstract, EditInlineNew, config = Game)

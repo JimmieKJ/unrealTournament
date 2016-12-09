@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/UnrealString.h"
+#include "UObject/ObjectMacros.h"
 #include "IOSMessageProtocol.generated.h"
 
 

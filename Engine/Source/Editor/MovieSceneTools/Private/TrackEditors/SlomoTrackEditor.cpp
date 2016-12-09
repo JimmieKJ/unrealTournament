@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "MovieSceneSlomoTrack.h"
-#include "MovieSceneTrack.h"
-#include "SlomoTrackEditor.h"
+#include "TrackEditors/SlomoTrackEditor.h"
+#include "EditorStyleSet.h"
+#include "Tracks/MovieSceneSlomoTrack.h"
 
 
 #define LOCTEXT_NAMESPACE "FSlomoTrackEditor"
@@ -82,12 +81,12 @@ void FSlomoTrackEditor::HandleAddSlomoTrackMenuEntryExecute()
 	const FScopedTransaction Transaction(NSLOCTEXT("Sequencer", "AddSlomoTrack_Transaction", "Add Play Rate Track"));
 
 	MovieScene->Modify();
-		
+
 	SlomoTrack = FindOrCreateMasterTrack<UMovieSceneSlomoTrack>().Track;
-	ensure(SlomoTrack);
+	check(SlomoTrack);
 
 	UMovieSceneSection* NewSection = SlomoTrack->CreateNewSection();
-	ensure(NewSection);
+	check(NewSection);
 
 	SlomoTrack->AddSection(*NewSection);
 

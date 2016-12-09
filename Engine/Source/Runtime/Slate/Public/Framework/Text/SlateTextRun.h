@@ -1,6 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/Text/TextRange.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/TextLayout.h"
+#include "Framework/Text/ILayoutBlock.h"
+#include "Framework/Text/ISlateRun.h"
+
+class FArrangedChildren;
+class FPaintArgs;
+class FSlateWindowElementList;
+enum class ETextHitPoint : uint8;
+
 class SLATE_API FSlateTextRun : public ISlateRun, public TSharedFromThis< FSlateTextRun >
 {
 public:

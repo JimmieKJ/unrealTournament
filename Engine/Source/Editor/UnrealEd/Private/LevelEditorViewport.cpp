@@ -1,56 +1,73 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
+#include "LevelEditorViewport.h"
+#include "Materials/MaterialInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorStyleSet.h"
+#include "Components/MeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Materials/Material.h"
+#include "Animation/AnimSequenceBase.h"
+#include "CanvasItem.h"
+#include "Engine/BrushBuilder.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Engine/Brush.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "AssetData.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Animation/AnimBlueprint.h"
+#include "Exporters/ExportTextContainer.h"
+#include "Factories/MaterialFactoryNew.h"
+#include "Editor/GroupActor.h"
+#include "Components/DecalComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "Components/ModelComponent.h"
+#include "Kismet2/ComponentEditorUtils.h"
+#include "Engine/Selection.h"
+#include "UObject/UObjectIterator.h"
+#include "EngineUtils.h"
+#include "Editor.h"
+#include "EditorModeRegistry.h"
+#include "EditorModes.h"
+#include "EditorModeInterpolation.h"
+#include "PhysicsManipulationMode.h"
+#include "UnrealEdGlobals.h"
 #include "Materials/MaterialExpressionTextureSample.h"
-#include "Animation/SkeletalMeshActor.h"
 #include "EditorSupportDelegates.h"
-#include "SoundDefinitions.h"
-#include "CameraController.h"
+#include "AudioDevice.h"
 #include "MouseDeltaTracker.h"
 #include "ScopedTransaction.h"
 #include "HModel.h"
-#include "BSPOps.h"
-#include "LevelUtils.h"
 #include "Layers/ILayers.h"
 #include "StaticLightingSystem/StaticLightingPrivate.h"
-#include "EditorLevelUtils.h"
-#include "Engine.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Editor/LevelEditor/Public/LevelViewportActions.h"
-#include "Editor/LevelEditor/Public/SLevelViewport.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
+#include "SEditorViewport.h"
+#include "LevelEditor.h"
+#include "LevelViewportActions.h"
+#include "SLevelViewport.h"
 #include "AssetSelection.h"
-#include "BlueprintUtilities.h"
 #include "Kismet2/KismetEditorUtilities.h"
-#include "Collision.h"
-#include "StaticMeshResources.h"
 #include "AssetRegistryModule.h"
 #include "IPlacementModeModule.h"
+#include "Engine/Polys.h"
 #include "Editor/GeometryMode/Public/EditorGeometry.h"
 #include "ActorEditorUtils.h"
 #include "ObjectTools.h"
 #include "PackageTools.h"
-#include "Editor/Matinee/Public/IMatinee.h"
-#include "Editor/Matinee/Public/MatineeConstants.h"
-#include "MainFrame.h"
 #include "SnappingUtils.h"
 #include "LevelViewportClickHandlers.h"
 #include "DragTool_BoxSelect.h"
 #include "DragTool_FrustumSelect.h"
 #include "DragTool_Measure.h"
 #include "DragTool_ViewportChange.h"
-#include "LevelEditorActions.h"
-#include "BrushBuilderDragDropOp.h"
-#include "AssetRegistryModule.h"
-#include "InstancedFoliage.h"
+#include "DragAndDrop/BrushBuilderDragDropOp.h"
 #include "DynamicMeshBuilder.h"
 #include "Editor/ActorPositioning.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
-#include "ComponentEditorUtils.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "Settings/EditorProjectSettings.h"
-#include "IHeadMountedDisplay.h"
 
 DEFINE_LOG_CATEGORY(LogEditorViewport);
 
@@ -80,7 +97,7 @@ FViewportCursorLocation::FViewportCursorLocation( const FSceneView* View, FEdito
 	FVector4 ScreenPos = View->PixelToScreen(X, Y, 0);
 
 	const FMatrix InvViewMatrix = View->ViewMatrices.GetInvViewMatrix();
-	const FMatrix InvProjMatrix = View->ViewMatrices.GetInvProjMatrix();
+	const FMatrix InvProjMatrix = View->ViewMatrices.GetInvProjectionMatrix();
 
 	const float ScreenX = ScreenPos.X;
 	const float ScreenY = ScreenPos.Y;
@@ -89,7 +106,7 @@ FViewportCursorLocation::FViewportCursorLocation( const FSceneView* View, FEdito
 
 	if ( ViewportClient->IsPerspective() )
 	{
-		Origin = View->ViewMatrices.ViewOrigin;
+		Origin = View->ViewMatrices.GetViewOrigin();
 		Direction = InvViewMatrix.TransformVector(FVector(InvProjMatrix.TransformFVector4(FVector4(ScreenX * GNearClippingPlane,ScreenY * GNearClippingPlane,0.0f,GNearClippingPlane)))).GetSafeNormal();
 	}
 	else
@@ -169,10 +186,11 @@ TArray<AActor*> FLevelEditorViewportClient::TryPlacingActorFromObject( ULevel* I
 	if ( ObjectClass == NULL )
 	{
 		ObjectClass = ObjToUse->GetClass();
+		check(ObjectClass);
 	}
 
 	AActor* PlacedActor = NULL;
-	if ( ObjectClass != NULL && ObjectClass->IsChildOf( AActor::StaticClass() ) )
+	if ( ObjectClass->IsChildOf( AActor::StaticClass() ) )
 	{
 		//Attempting to drop a UClass object
 		UActorFactory* ActorFactory = FactoryToUse;
@@ -2057,7 +2075,7 @@ void FLevelEditorViewportClient::Tick(float DeltaTime)
 			EngineShowFlags)
 			.SetRealtimeUpdate( IsRealtime() ) );
 		FSceneView* View = CalcSceneView(&ViewFamily);
-		GPerspViewMatrix = View->ViewMatrices.ViewMatrix;
+		GPerspViewMatrix = View->ViewMatrices.GetViewMatrix();
 	}
 
 	UpdateViewForLockedActor();
@@ -2160,7 +2178,7 @@ void FLevelEditorViewportClient::ProjectActorsIntoWorld(const TArray<AActor*>& A
 
 	// Calculate the frustum so we can trim rays to it
 	const FConvexVolume Frustum;
-	GetViewFrustumBounds(const_cast<FConvexVolume&>(Frustum), SceneView->ViewProjectionMatrix, true);
+	GetViewFrustumBounds(const_cast<FConvexVolume&>(Frustum), SceneView->ViewMatrices.GetViewProjectionMatrix(), true);
 
 	const FMatrix InputCoordSystem = GetWidgetCoordSystem();
 	const EAxisList::Type CurrentAxis = GetCurrentWidgetAxis();
@@ -2725,6 +2743,49 @@ void FLevelEditorViewportClient::TrackingStopped()
 				else if (!( GEditor->EditorWorld == Actor->GetOuter()->GetOuter() ))
 				{
 					continue;
+				}
+			}
+
+			if (GEditor->GetSelectedComponentCount() > 0)
+			{
+				USelection* ComponentSelection = GEditor->GetSelectedComponents();
+
+				// Only move the parent-most component(s) that are selected 
+				// Otherwise, if both a parent and child are selected and the delta is applied to both, the child will actually move 2x delta
+				TInlineComponentArray<USceneComponent*> ComponentsToMove;
+				for (FSelectedEditableComponentIterator EditableComponentIt(GEditor->GetSelectedEditableComponentIterator()); EditableComponentIt; ++EditableComponentIt)
+				{
+					USceneComponent* SceneComponent = CastChecked<USceneComponent>(*EditableComponentIt);
+					if (SceneComponent)
+					{
+						USceneComponent* SelectedComponent = Cast<USceneComponent>(*EditableComponentIt);
+
+						// Check to see if any parent is selected
+						bool bParentAlsoSelected = false;
+						USceneComponent* Parent = SelectedComponent->GetAttachParent();
+						while (Parent != nullptr)
+						{
+							if (ComponentSelection->IsSelected(Parent))
+							{
+								bParentAlsoSelected = true;
+								break;
+							}
+
+							Parent = Parent->GetAttachParent();
+						}
+
+						// If no parent of this component is also in the selection set, move it!
+						if (!bParentAlsoSelected)
+						{
+							ComponentsToMove.Add(SelectedComponent);
+						}
+					}
+				}
+
+				// Now actually apply the delta to the appropriate component(s)
+				for (USceneComponent* SceneComp : ComponentsToMove)
+				{
+					SceneComp->PostEditComponentMove(true);
 				}
 			}
 
@@ -4032,7 +4093,7 @@ void FLevelEditorViewportClient::DrawBrushDetails(const FSceneView* View, FPrimi
 							const FVector& PolyVertex = poly->Vertices[VertexIndex];
 							const FVector WorldLocation = BrushTransform.TransformPosition(PolyVertex);
 
-							const float Scale = View->WorldToScreen(WorldLocation).W * (4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
+							const float Scale = View->WorldToScreen(WorldLocation).W * (4.0f / View->ViewRect.Width() / View->ViewMatrices.GetProjectionMatrix().M[0][0]);
 
 							const FColor Color(Brush->GetWireColor());
 							PDI->SetHitProxy(new HBSPBrushVert(Brush, &poly->Vertices[VertexIndex]));
@@ -4058,7 +4119,7 @@ void FLevelEditorViewportClient::UpdateAudioListener(const FSceneView& View)
 		{
 			const FVector& ViewLocation = GetViewLocation();
 
-			FMatrix CameraToWorld = View.ViewMatrices.ViewMatrix.InverseFast();
+			FMatrix CameraToWorld = View.ViewMatrices.GetInvViewMatrix();
 			FVector ProjUp = CameraToWorld.TransformVector(FVector(0, 1000, 0));
 			FVector ProjRight = CameraToWorld.TransformVector(FVector(1000, 0, 0));
 
@@ -4240,6 +4301,8 @@ void FLevelEditorViewportClient::UpdateLinkedOrthoViewports( bool bInvalidate )
 		for( int32 ViewportIndex = 0; ViewportIndex < GEditor->LevelViewportClients.Num(); ++ViewportIndex )
 		{
 			FLevelEditorViewportClient* Client = GEditor->LevelViewportClients[ViewportIndex];
+			check(Client);
+
 			// Only update other orthographic viewports viewing the same scene
 			if( (Client != this) && Client->IsOrtho() && (Client->GetScene() == this->GetScene()) )
 			{

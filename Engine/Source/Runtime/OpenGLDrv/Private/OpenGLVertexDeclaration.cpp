@@ -4,8 +4,9 @@
 	OpenGLVertexDeclaration.cpp: OpenGL vertex declaration RHI implementation.
 =============================================================================*/
 
-#include "OpenGLDrvPrivate.h"
+#include "CoreMinimal.h"
 #include "ShaderCache.h"
+#include "OpenGLDrv.h"
 
 static FORCEINLINE void SetupGLElement(FOpenGLVertexElement& GLElement, GLenum Type, GLuint Size, bool bNormalized, bool bShouldConvertToFloat)
 {

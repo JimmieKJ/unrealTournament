@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "EdGraphSchema_K2.h"
 #include "WidgetGraphSchema.generated.h"
 

@@ -4,11 +4,11 @@
 	VoiceChannel.cpp: Unreal voice traffic implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Net/UnrealNetwork.h"
-#include "Net/OnlineEngineInterface.h"
-#include "Net/NetworkProfiler.h"
 #include "Engine/VoiceChannel.h"
+#include "Net/DataBunch.h"
+#include "GameFramework/PlayerController.h"
+#include "Engine/NetConnection.h"
+#include "Net/OnlineEngineInterface.h"
 
 /** Cleans up any voice data remaining in the queue */
 bool UVoiceChannel::CleanUp( const bool bForDestroy )
@@ -44,6 +44,12 @@ void UVoiceChannel::ReceivedBunch(FInBunch& Bunch)
 				Connection->Driver->VoicePacketsRecv++;
 				Connection->Driver->VoiceBytesRecv += VoicePacket->GetBufferSize();
 #endif
+			}
+			else
+			{
+				// Unable to serialize the data because the serializer doesn't exist or there was a problem with this packet
+				Bunch.SetError();
+				break;
 			}
 		}
 	}

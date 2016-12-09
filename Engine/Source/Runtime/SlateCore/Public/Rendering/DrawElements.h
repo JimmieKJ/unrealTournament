@@ -2,11 +2,26 @@
 
 #pragma once
 
-#include "UniqueObj.h"
-#include "RenderingCommon.h"
+#include "CoreMinimal.h"
+#include "Fonts/ShapedTextFwd.h"
+#include "Stats/Stats.h"
+#include "Misc/MemStack.h"
+#include "Styling/WidgetStyle.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Layout/SlateRect.h"
+#include "Types/PaintArgs.h"
+#include "Layout/Geometry.h"
+#include "Containers/StaticArray.h"
+#include "Rendering/ShaderResourceManager.h"
+#include "Rendering/RenderingCommon.h"
 
+class FSlateDrawLayerHandle;
+class FSlateRenderBatch;
+class FSlateRenderDataHandle;
+class FSlateWindowElementList;
+class ILayoutCache;
+class SWidget;
 class SWindow;
-class FSlateViewportInterface;
 
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Vertex/Index Buffer Pool Memory (CPU)"), STAT_SlateBufferPoolMemory, STATGROUP_SlateMemory, SLATECORE_API );
 
@@ -45,6 +60,7 @@ public:
 	// Brush data
 	const FSlateBrush* BrushResource;
 	const FSlateShaderResourceProxy* ResourceProxy;
+	FSlateShaderResource* RenderTargetResource;
 
 	// Box Data
 	FVector2D RotationPoint;
@@ -68,10 +84,12 @@ public:
 	TArray<FVector2D> Points;
 
 	// Viewport data
-	FSlateShaderResource* ViewportRenderTargetTexture;
-	bool bAllowViewportScaling;
-	bool bViewportTextureAlphaOnly;
-	bool bRequiresVSync;
+	bool bAllowViewportScaling:1;
+	bool bViewportTextureAlphaOnly:1;
+	bool bRequiresVSync:1;
+	
+	// Whether or not to anti-alias lines
+	bool bAntialias:1;
 
 	// Misc data
 	ESlateBatchDrawFlag::Type BatchFlags;
@@ -95,9 +113,13 @@ public:
 	// Layer handle
 	FSlateDrawLayerHandle* LayerHandle;
 
+	// Post Process Data
+	FVector4 PostProcessData;
+	int32 DownsampleAmount;
+
 	// Line data
 	ESlateLineJoinType::Type SegmentJoinType;
-	bool bAntialias;
+
 
 	SLATECORE_API static FSlateShaderResourceManager* ResourceManager;
 
@@ -105,9 +127,9 @@ public:
 		: Tint(FLinearColor::White)
 		, BrushResource(nullptr)
 		, ResourceProxy(nullptr)
+		, RenderTargetResource(nullptr)
 		, RotationPoint(FVector2D::ZeroVector)
 		, ImmutableText(nullptr)
-		, ViewportRenderTargetTexture(nullptr)
 		, bViewportTextureAlphaOnly(false)
 		, bRequiresVSync(false)
 		, BatchFlags(ESlateBatchDrawFlag::None)
@@ -115,10 +137,6 @@ public:
 		, InstanceData(nullptr)
 		, InstanceOffset(0)
 		, NumInstances(0)
-		//, CachedRenderDataOffset(FVector2D::ZeroVector)
-		//, LayerHandle(nullptr)
-		//, SegmentJoinType(ESlateLineJoinType::Sharp)
-		//, bAntialias(true)
 	{ }
 
 	void SetBoxPayloadProperties( const FSlateBrush* InBrush, const FLinearColor& InTint, FSlateShaderResourceProxy* InResourceProxy = nullptr, ISlateUpdatableInstanceBuffer* InInstanceData = nullptr )
@@ -195,7 +213,7 @@ public:
 	void SetViewportPayloadProperties( const TSharedPtr<const ISlateViewport>& InViewport, const FLinearColor& InTint )
 	{
 		Tint = InTint;
-		ViewportRenderTargetTexture = InViewport->GetViewportRenderTargetTexture();
+		RenderTargetResource = InViewport->GetViewportRenderTargetTexture();
 		bAllowViewportScaling = InViewport->AllowScaling();
 		bViewportTextureAlphaOnly = InViewport->IsViewportTextureAlphaOnly();
 		bRequiresVSync = InViewport->RequiresVsync();
@@ -252,6 +270,7 @@ public:
 		ET_CustomVerts,
 		ET_CachedBuffer,
 		ET_Layer,
+		ET_PostProcessPass,
 		ET_Count,
 	};
 
@@ -439,6 +458,7 @@ public:
 
 	SLATECORE_API static void MakeLayer(FSlateWindowElementList& ElementList, uint32 InLayer, TSharedPtr<FSlateDrawLayerHandle, ESPMode::ThreadSafe>& DrawLayerHandle);
 
+	SLATECORE_API static void MakePostProcessPass(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FSlateRect& InClippingRect, const FVector4& Params, int32 DownsampleAmount);
 
 	FORCEINLINE EElementType GetElementType() const { return ElementType; }
 	FORCEINLINE uint32 GetLayer() const { return Layer; }
@@ -480,23 +500,26 @@ struct FShaderParams
 {
 	/** Pixel shader parameters */
 	FVector4 PixelParams;
+	FVector4 PixelParams2;
 
 	FShaderParams()
 		: PixelParams( 0,0,0,0 )
+		, PixelParams2( 0,0,0,0 ) 
 	{}
 
-	FShaderParams( const FVector4& InPixelParams )
+	FShaderParams( const FVector4& InPixelParams, const FVector4& InPixelParams2 = FVector4(0) )
 		: PixelParams( InPixelParams )
+		, PixelParams2( InPixelParams2 )
 	{}
 
 	bool operator==( const FShaderParams& Other ) const
 	{
-		return PixelParams == Other.PixelParams;
+		return PixelParams == Other.PixelParams && PixelParams2 == Other.PixelParams2;
 	}
 
-	static FShaderParams MakePixelShaderParams( const FVector4& PixelShaderParams )
+	static FShaderParams MakePixelShaderParams( const FVector4& PixelShaderParams, const FVector4& InPixelShaderParams2 = FVector4(0) )
 	{
-		return FShaderParams( PixelShaderParams );
+		return FShaderParams( PixelShaderParams, InPixelShaderParams2);
 	}
 };
 
@@ -1067,13 +1090,8 @@ public:
 	// Element batch maps sorted by layer.
 	FElementBatchMap LayerToElementBatches;
 
-#if SLATE_POOL_DRAW_ELEMENTS
-	/** The elements drawn on this layer */
-	TArray<FSlateDrawElement*> DrawElements;
-#else
 	/** The elements drawn on this layer */
 	TArray<FSlateDrawElement> DrawElements;
-#endif
 };
 
 /**
@@ -1118,16 +1136,7 @@ public:
 	{
 		return TopLevelWindow.Pin();
 	}
-	
-#if SLATE_POOL_DRAW_ELEMENTS
-	
-	/** @return Get the draw elements that we want to render into this window */
-	FORCEINLINE const TArray<FSlateDrawElement*>& GetDrawElements() const
-	{
-		return RootDrawLayer.DrawElements;
-	}
 
-#else
 
 	/** @return Get the draw elements that we want to render into this window */
 	FORCEINLINE const TArray<FSlateDrawElement>& GetDrawElements() const
@@ -1145,44 +1154,25 @@ public:
 		TArray<FSlateDrawElement>& ActiveDrawElements = DrawStack.Last()->DrawElements;
 		ActiveDrawElements.Add(InDrawElement);
 	}
-#endif
 
 	/**
 	 * Creates an uninitialized draw element
 	 */
 	FORCEINLINE FSlateDrawElement& AddUninitialized()
 	{
-#if SLATE_POOL_DRAW_ELEMENTS
-		FSlateDrawElement* DrawElement = ( DrawElementFreePool.Num() > 0 ) ? DrawElementFreePool.Pop() : new FSlateDrawElement();
-		DrawStack.Last()->DrawElements.Push(DrawElement);
-
-		return *DrawElement;
-#else
 		TArray<FSlateDrawElement>& ActiveDrawElements = DrawStack.Last()->DrawElements;
 		const int32 InsertIdx = ActiveDrawElements.AddDefaulted();
 		return ActiveDrawElements[InsertIdx];
-#endif
 	}
 
-#if SLATE_POOL_DRAW_ELEMENTS
 	/**
 	 * Append draw elements to the list of draw elements
 	 */
-	FORCEINLINE void AppendDrawElements(const TArray<FSlateDrawElement*>& InDrawElements)
-	{
-		TArray<FSlateDrawElement*>& ActiveDrawElements = DrawStack.Last()->DrawElements;
-		ActiveDrawElements.Append(InDrawElements);
-	}
-#else
-	/**
-	* Append draw elements to the list of draw elements
-	*/
 	FORCEINLINE void AppendDrawElements(const TArray<FSlateDrawElement>& InDrawElements)
 	{
 		TArray<FSlateDrawElement>& ActiveDrawElements = DrawStack.Last()->DrawElements;
 		ActiveDrawElements.Append(InDrawElements);
 	}
-#endif
 
 	/**
 	 * Some widgets may want to paint their children after after another, loosely-related widget finished painting.
@@ -1326,11 +1316,6 @@ private:
 
 	/** */
 	TArray< FSlateDrawLayer* > DrawStack;
-
-#if SLATE_POOL_DRAW_ELEMENTS
-	/** List of draw elements for the window */
-	TArray<FSlateDrawElement*> DrawElementFreePool;
-#endif
 
 	TArray< TSharedPtr<FSlateRenderDataHandle, ESPMode::ThreadSafe> > CachedRenderHandlesInUse;
 

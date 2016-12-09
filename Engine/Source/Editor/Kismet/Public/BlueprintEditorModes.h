@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "BlueprintEditorModule.h"
-#include "BlueprintUtilities.h"
+#include "CoreMinimal.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
+#include "BlueprintEditor.h"
 #include "WorkflowOrientedApp/ApplicationMode.h"
 
 struct KISMET_API FBlueprintEditorApplicationModes

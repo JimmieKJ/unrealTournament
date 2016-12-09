@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -12,6 +12,8 @@
 
 #include "libcef_dll/cpptoc/get_geolocation_callback_cpptoc.h"
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -38,15 +40,20 @@ void CEF_CALLBACK get_geolocation_callback_on_location_update(
       positionObj);
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefGetGeolocationCallbackCppToC::CefGetGeolocationCallbackCppToC(
-    CefGetGeolocationCallback* cls)
-    : CefCppToC<CefGetGeolocationCallbackCppToC, CefGetGeolocationCallback,
-        cef_get_geolocation_callback_t>(cls) {
-  struct_.struct_.on_location_update =
-      get_geolocation_callback_on_location_update;
+CefGetGeolocationCallbackCppToC::CefGetGeolocationCallbackCppToC() {
+  GetStruct()->on_location_update = get_geolocation_callback_on_location_update;
+}
+
+template<> CefRefPtr<CefGetGeolocationCallback> CefCppToC<CefGetGeolocationCallbackCppToC,
+    CefGetGeolocationCallback, cef_get_geolocation_callback_t>::UnwrapDerived(
+    CefWrapperType type, cef_get_geolocation_callback_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -55,3 +62,6 @@ template<> base::AtomicRefCount CefCppToC<CefGetGeolocationCallbackCppToC,
     0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefGetGeolocationCallbackCppToC,
+    CefGetGeolocationCallback, cef_get_geolocation_callback_t>::kWrapperType =
+    WT_GET_GEOLOCATION_CALLBACK;

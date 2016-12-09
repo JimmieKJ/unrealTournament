@@ -2,9 +2,10 @@
 
 #pragma once
 
-
 class FDefaultAllocator;
 class FDefaultSetAllocator;
+
+class FString;
 
 template<typename KeyType, typename ValueType> class TPair;
 template<typename T, typename Allocator = FDefaultAllocator> class TArray;

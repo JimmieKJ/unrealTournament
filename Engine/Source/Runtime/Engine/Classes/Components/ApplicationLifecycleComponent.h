@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Components/ActorComponent.h"
 #include "ApplicationLifecycleComponent.generated.h"
 
 /** Component to handle receiving notifications from the OS about application state (activated, suspended, termination, etc). */

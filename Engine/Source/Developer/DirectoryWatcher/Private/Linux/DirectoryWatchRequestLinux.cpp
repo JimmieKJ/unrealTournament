@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DirectoryWatcherPrivatePCH.h"
+#include "Linux/DirectoryWatchRequestLinux.h"
+#include "HAL/FileManager.h"
+#include "DirectoryWatcherPrivate.h"
 
 FDirectoryWatchRequestLinux::FDirectoryWatchRequestLinux()
 :	bRunning(false)

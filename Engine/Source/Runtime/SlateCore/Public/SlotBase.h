@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 class SWidget;
 
 class SLATECORE_API FSlotBase

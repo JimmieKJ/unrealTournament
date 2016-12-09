@@ -1,15 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GitSourceControlPrivatePCH.h"
 #include "GitSourceControlProvider.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/Paths.h"
+#include "Misc/QueuedThreadPool.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "GitSourceControlCommand.h"
 #include "ISourceControlModule.h"
 #include "GitSourceControlModule.h"
-#include "GitSourceControlSettings.h"
-#include "GitSourceControlOperations.h"
 #include "GitSourceControlUtils.h"
 #include "SGitSourceControlSettings.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 #include "ScopedSourceControlProgress.h"
 
 #define LOCTEXT_NAMESPACE "GitSourceControl"

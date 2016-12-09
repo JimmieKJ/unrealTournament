@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "NewAssetOrClassContextMenu.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Editor/ContentBrowser/Private/NewAssetOrClassContextMenu.h"
+
+class FExtender;
+class FMenuBuilder;
+class SWidget;
+class SWindow;
 
 class FPathContextMenu : public TSharedFromThis<FPathContextMenu>
 {

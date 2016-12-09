@@ -1,7 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ViewportInteractionModule.h"
 #include "MouseCursorInteractor.h"
+#include "SceneView.h"
+#include "EditorViewportClient.h"
 #include "ViewportWorldInteraction.h"
 
 

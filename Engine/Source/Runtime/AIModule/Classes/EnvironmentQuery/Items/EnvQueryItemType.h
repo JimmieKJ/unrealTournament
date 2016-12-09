@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Object.h"
 #include "EnvQueryItemType.generated.h"
 
 class UBlackboardComponent;
@@ -9,7 +14,15 @@ struct FBlackboardKeySelector;
 UCLASS(Abstract)
 class AIMODULE_API UEnvQueryItemType : public UObject
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
+
+public:
+	/** every EQS item type needs to speficy data type it's using. 
+	 *	Default is void which should trigger a compilation error if it's 
+	  *	not set in a defived class*/
+	typedef void FValueType;
+
+	UEnvQueryItemType(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	/** get ValueSize */
 	FORCEINLINE uint16 GetValueSize() const { return ValueSize; }

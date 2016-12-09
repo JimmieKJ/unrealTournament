@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Http.h"
 #include "OnlineFriendsInterface.h"
 #include "OnlineSubsystemFacebookPackage.h"
 #include "OnlinePresenceInterface.h"

@@ -14,6 +14,10 @@
 #include <IOKit/IOKitLib.h>
 #include <mach-o/dyld.h>
 
+#include "Misc/ScopeLock.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/CoreMisc.h"
+
 /*------------------------------------------------------------------------------
  OpenGL static variables.
  ------------------------------------------------------------------------------*/
@@ -302,6 +306,18 @@ struct FPlatformOpenGLDevice
 		
 		FPlatformOpenGLContext::UnregisterGraphicsSwitchingCallback();
 		
+		if (!GIsBuildMachine && IsRunningGame()) // Packaged games should always show the warning that Mac OpenGL is deprecated. The editor will show this elsewhere.
+		{
+			const static FString ConfigSection = TEXT("SuppressableDialogs");
+		
+			bool bShouldSuppressDialog = false;
+	
+			if (GConfig)
+			{
+				GConfig->SetBool( *ConfigSection, TEXT("MacOpenGLDeprecated"), true, GGameUserSettingsIni );
+			}
+		}
+		
 		delete ContextUsageGuard;
 	}
 };
@@ -309,6 +325,11 @@ struct FPlatformOpenGLDevice
 FPlatformOpenGLDevice* PlatformCreateOpenGLDevice()
 {
 	return new FPlatformOpenGLDevice;
+}
+
+bool PlatformCanEnableGPUCapture()
+{
+	return false;
 }
 
 void PlatformDestroyOpenGLDevice(FPlatformOpenGLDevice* Device)
@@ -1202,10 +1223,34 @@ void FMacOpenGL::ProcessExtensions(const FString& ExtensionsString)
 	Args.Add(TEXT("AdapterName"), FText::FromString(GLRenderer));
 	Args.Add(TEXT("OpenGLVersion"), FText::FromString(GLVersion));
 	
-	FText LocalizedMsg;
+	if (!GIsBuildMachine && IsRunningGame()) // Packaged games should always show the warning that Mac OpenGL is deprecated. The editor will show this elsewhere.
+	{
+		const static FString ConfigSection = TEXT("SuppressableDialogs");
+	
+		bool bShouldSuppressDialog = false;
+
+		if (GConfig)
+		{
+			GConfig->GetBool( *ConfigSection, TEXT("MacOpenGLDeprecated"), bShouldSuppressDialog, GGameUserSettingsIni );
+		}
+	
+		FText LocalizedMsg = FText::Format(NSLOCTEXT("MessageDialog", "MessageMacOpenGLDeprecated","Support for running Unreal Engine 4 using OpenGL on macOS is deprecated and will be removed in a future release. Unreal Engine 4 may not render correctly and may run at substantially reduced performance."),Args);
+		
+		if (!bShouldSuppressDialog)
+		{
+			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok,
+									 *LocalizedMsg.ToString(),
+									 *NSLOCTEXT("MessageDialog", "TitleMacOpenGLDeprecated", "WARNING: OpenGL on macOS Deprecated").ToString());
+		}
+		else
+		{
+			UE_LOG(LogRHI, Warning, TEXT("%s: %s"), *NSLOCTEXT("MessageDialog", "TitleMacOpenGLDeprecated", "WARNING: OpenGL on macOS Deprecated").ToString(), *LocalizedMsg.ToString());
+		}
+	}
+
 	if (FOpenGL::GetMajorVersion() < 4)
 	{
-		LocalizedMsg = FText::Format(NSLOCTEXT("MessageDialog", "UnsupportedMacOpenGLGraphicsCard","The current graphics card {AdapterName} is not supported because it only supports OpenGL {OpenGLVersion} but Unreal Engine 4 requires OpenGL 4.1 or later. Unreal Engine 4 may not render correctly and may run at substantially reduced performance on the current graphics card."),Args);
+		FText LocalizedMsg = FText::Format(NSLOCTEXT("MessageDialog", "UnsupportedMacOpenGLGraphicsCard","The current graphics card {AdapterName} is not supported because it only supports OpenGL {OpenGLVersion} but Unreal Engine 4 requires OpenGL 4.1 or later. Unreal Engine 4 may not render correctly and may run at substantially reduced performance on the current graphics card."),Args);
 		
 		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok,
 									 *LocalizedMsg.ToString(),

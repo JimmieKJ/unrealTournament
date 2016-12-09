@@ -1,13 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "Factories.h"
-#include "Engine.h"
-#include "TextureLayout.h"
+#include "CoreMinimal.h"
 #include "FbxImporter.h"
 
 using namespace UnFbx;
 
+
+FbxAMatrix FFbxDataConverter::JointPostConversionMatrix;
 
 FVector FFbxDataConverter::ConvertPos(FbxVector4 Vector)
 {
@@ -142,6 +141,13 @@ FMatrix FFbxDataConverter::ConvertMatrix(FbxAMatrix Matrix)
 	return UEMatrix;
 }
 
+FColor FFbxDataConverter::ConvertColor(FbxDouble3 Color)
+{
+	//Fbx is in linear color space
+	FColor SRGBColor = FLinearColor(Color[0], Color[1], Color[2]).ToFColor(true);
+	return SRGBColor;
+}
+
 FbxVector4 FFbxDataConverter::ConvertToFbxPos(FVector Vector)
 {
 	FbxVector4 Out;
@@ -172,13 +178,14 @@ FbxVector4 FFbxDataConverter::ConvertToFbxScale(FVector Vector)
 	return Out;
 }
 
-FbxVector4 FFbxDataConverter::ConvertToFbxColor(FColor Color)
+FbxDouble3 FFbxDataConverter::ConvertToFbxColor(FColor Color)
 {
-	FbxVector4 Out;
-	Out[0] = Color.R / 255.0f;
-	Out[1] = Color.G / 255.0f;
-	Out[2] = Color.B / 255.0f;
-	Out[3] = Color.A / 255.0f;
+	//Fbx is in linear color space
+	FLinearColor FbxLinearColor(Color);
+	FbxDouble3 Out;
+	Out[0] = FbxLinearColor.R;
+	Out[1] = FbxLinearColor.G;
+	Out[2] = FbxLinearColor.B;
 
 	return Out;
 }

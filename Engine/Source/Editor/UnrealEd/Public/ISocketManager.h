@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SCompoundWidget.h"
+
+class IStaticMeshEditor;
+class UStaticMeshSocket;
+
 class ISocketManager : public SCompoundWidget
 {
 public:

@@ -1,6 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
+#include "Widgets/Profile/SProjectLauncherProfileListView.h"
+#include "Misc/MessageDialog.h"
+#include "SlateOptMacros.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SScrollBorder.h"
+#include "Models/ProjectLauncherCommands.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Profile/SProjectLauncherProfileListRow.h"
 
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherProfileListView"

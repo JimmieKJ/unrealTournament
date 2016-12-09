@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneCapturePCH.h"
-#include "VideoCaptureProtocol.h"
-#include "MovieSceneCapture.h"
+#include "Protocols/VideoCaptureProtocol.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Templates/Casts.h"
 
 bool FVideoCaptureProtocol::Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host)
 {

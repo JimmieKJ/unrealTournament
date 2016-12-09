@@ -2,9 +2,14 @@
 
 #pragma once
 
-#include "Toolkits/AssetEditorToolkit.h"
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
 #include "EditorUndoClient.h"
+#include "Styling/ISlateStyle.h"
+#include "Framework/Docking/TabManager.h"
+#include "Toolkits/AssetEditorToolkit.h"
 
+class UMediaPlaylist;
 
 /**
  * Implements an Editor toolkit for media play lists.

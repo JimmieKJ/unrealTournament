@@ -1,15 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "IntroTutorialsPrivatePCH.h"
 #include "STutorialOverlay.h"
-#include "STutorialContent.h"
-#include "EditorTutorial.h"
+#include "Layout/ArrangedChildren.h"
+#include "Rendering/DrawElements.h"
+#include "Modules/ModuleManager.h"
+#include "Templates/Casts.h"
+#include "Misc/PackageName.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/SCanvas.h"
+#include "Framework/Docking/TabManager.h"
+#include "Engine/Blueprint.h"
+#include "Editor.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "IntroTutorials.h"
+#include "STutorialContent.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "LevelEditor.h"
-#include "BlueprintEditorUtils.h"
-#include "Guid.h"
-#include "BlueprintEditor.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 static FName IntroTutorialsModuleName("IntroTutorials");
 

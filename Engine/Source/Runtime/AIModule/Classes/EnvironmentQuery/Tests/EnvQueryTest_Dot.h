@@ -1,11 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "EnvironmentQuery/EnvQueryContext.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
 #include "EnvQueryTest_Dot.generated.h"
-
-class UEnvQueryContext;
-struct FEnvQueryInstance;
 
 UENUM(BlueprintType)
 enum class EEnvTestDot : uint8

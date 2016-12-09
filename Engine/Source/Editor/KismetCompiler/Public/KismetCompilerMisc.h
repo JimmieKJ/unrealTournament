@@ -2,10 +2,19 @@
 
 #pragma once
 
-#include "EdGraphCompilerUtilities.h"
-#include "UnrealEd.h"
-#include "Editor.h"
-#include "KismetCompiledFunctionContext.h"
+#include "CoreMinimal.h"
+#include "BPTerminal.h"
+#include "BlueprintCompiledStatement.h"
+
+class FCompilerResultsLog;
+class FKismetCompilerContext;
+class UAnimGraphNode_Base;
+class UBlueprint;
+class UEdGraph;
+class UEdGraphSchema_K2;
+class UK2Node;
+class UK2Node_CallFunction;
+struct FKismetFunctionContext;
 
 //////////////////////////////////////////////////////////////////////////
 // FKismetCompilerUtilities
@@ -60,6 +69,9 @@ public:
 	/** return function, that overrides BlueprintImplementableEvent with given name in given class (super-classes are not considered) */
 	static const UFunction* FindOverriddenImplementableEvent(const FName& EventName, const UClass* Class);
 
+	/** Helper function for creating property for primitive types. Used only to create inner peroperties for UArrayProperty, USetProperty, and UMapProperty: */
+	static UProperty* CreatePrimitiveProperty( UObject* PropertyScope, const FName& ValidatedPropertyName, const FString& PinCategory, const FString& PinSubCategory, UObject* PinSubCategoryObject, UClass* SelfClass, bool bIsWeakPointer, const class UEdGraphSchema_K2* Schema, FCompilerResultsLog& MessageLog);
+
 	/** Creates a property named PropertyName of type PropertyType in the Scope or returns NULL if the type is unknown, but does *not* link that property in */
 	static UProperty* CreatePropertyOnScope(UStruct* Scope, const FName& PropertyName, const FEdGraphPinType& Type, UClass* SelfClass, uint64 PropertyFlags, const class UEdGraphSchema_K2* Schema, FCompilerResultsLog& MessageLog);
 
@@ -100,6 +112,18 @@ public:
 
 	/** Generate an error for non-const output parameters */
 	static void DetectValuesReturnedByRef(const UFunction* Func, const UK2Node * Node, FCompilerResultsLog& MessageLog);
+
+	static bool IsStatementReducible(EKismetCompiledStatementType StatementType);
+
+	/**
+	 * Intended to avoid errors that come from checking for external member 
+	 * (function, variable, etc.) dependencies. This can happen when a Blueprint
+	 * was saved without having new members compiled in (saving w/out compiling),
+	 * and a Blueprint that uses those members is compiled-on-load before the 
+	 * uncompiled one. Any valid errors should surface later, when the dependant 
+	 * Blueprint's bytecode is recompiled.
+	 */
+	static bool IsMissingMemberPotentiallyLoading(const UBlueprint* SelfBlueprint, const UStruct* MemberOwner);
 };
 
 //////////////////////////////////////////////////////////////////////////

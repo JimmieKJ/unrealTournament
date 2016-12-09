@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-class FJsonObject;
-class FLocMetadataObject;
-
+#include "CoreMinimal.h"
+#include "Dom/JsonObject.h"
+#include "Internationalization/InternationalizationMetadata.h"
 
 class INTERNATIONALIZATION_API FJsonInternationalizationMetaDataSerializer
 {

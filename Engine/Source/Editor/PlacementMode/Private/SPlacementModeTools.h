@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ClassIconFinder.h"
-#include "AssetData.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "ActorPlacementInfo.h"
 #include "IPlacementModeModule.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+#include "Misc/TextFilter.h"
 
 /**
  * A tile representation of the class or the asset.  These are embedded into the views inside
@@ -20,7 +27,7 @@ public:
 
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, const TSharedPtr<FPlaceableItem>& InItem);
+	void Construct(const FArguments& InArgs, const TSharedPtr<const FPlaceableItem>& InItem);
 
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
@@ -28,7 +35,7 @@ public:
 
 	bool IsPressed() const;
 
-	TSharedPtr<FPlaceableItem> Item;
+	TSharedPtr<const FPlaceableItem> Item;
 
 private:
 	const FSlateBrush* GetBorder() const;
@@ -109,6 +116,7 @@ private:
 
 	/** Called when the search text changes */
 	void OnSearchChanged(const FText& InFilterText);
+	void OnSearchCommitted(const FText& InFilterText, ETextCommit::Type InCommitType);
 
 	/** Get the text that should be highlighted on any items */
 	FText GetHighlightText() const;

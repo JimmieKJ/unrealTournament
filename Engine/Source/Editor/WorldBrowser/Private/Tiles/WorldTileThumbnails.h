@@ -2,12 +2,15 @@
 
 #pragma once
 
-class FSlateTextureRenderTarget2DResource;
-class FSlateTexture2DRHIRef;
+#include "CoreMinimal.h"
+#include "Textures/SlateTextureData.h"
+
 class FObjectThumbnail;
-struct FSlateDynamicImageBrush;
-class FSlateShaderResourceProxy;
+class FSlateTextureRenderTarget2DResource;
 class FWorldTileModel;
+class UTexture2DDynamic;
+struct FSlateBrush;
+struct FSlateDynamicImageBrush;
 
 //----------------------------------------------------------------
 //

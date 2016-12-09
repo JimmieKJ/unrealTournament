@@ -1,8 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "ExpressionParser.h"
-#include "TextFilterUtils.h"
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Delegates/Delegate.h"
+#include "Misc/Optional.h"
+#include "Internationalization/Text.h"
+#include "Misc/ExpressionParserTypes.h"
+#include "Misc/ExpressionParser.h"
+#include "Misc/TextFilterUtils.h"
+
+class FTextToken;
 
 /** Defines the complexity of the current filter terms. Complex in this case means that the expression will perform key->value comparisons */
 enum class ETextFilterExpressionType : uint8

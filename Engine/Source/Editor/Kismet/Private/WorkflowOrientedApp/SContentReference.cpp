@@ -1,9 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "SContentReference.h"
-#include "AssetRegistryModule.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
+#include "WorkflowOrientedApp/SContentReference.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SComboButton.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
+#include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "SContentReference"
 

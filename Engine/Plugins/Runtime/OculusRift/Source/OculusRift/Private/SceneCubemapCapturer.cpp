@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OculusRiftPrivatePCH.h"
-
 #include "SceneCubemapCapturer.h"
+#include "GameFramework/PlayerController.h"
+#include "Kismet/GameplayStatics.h"
+#include "Engine/World.h"
+#include "TextureResource.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Engine/StaticMeshActor.h"
+#include "Interfaces/IImageWrapperModule.h"
+#include "Components/SceneCaptureComponent2D.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
 
 USceneCubemapCapturer::USceneCubemapCapturer() 
 	: Stage(None)

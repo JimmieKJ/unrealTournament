@@ -2,18 +2,48 @@
 
 #pragma once
 
-#include "World.h"
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Misc/StringAssetReference.h"
+#include "Misc/StringClassReference.h"
+#include "Engine/World.h"
+#include "Misc/BufferedOutputDevice.h"
 #include "Engine.generated.h"
 
-class FScreenSaverInhibitor;
-class UDeviceProfileManager;
-class FViewport;
-class FCommonViewportClient;
+class AMatineeActor;
+class APlayerController;
+class Error;
 class FCanvas;
+class FCommonViewportClient;
+class FFineGrainedPerformanceTracker;
+class FPerformanceTrackingChart;
+class FScreenSaverInhibitor;
 class FTypeContainer;
+class FViewport;
+class IEngineLoop;
+class IHeadMountedDisplay;
 class IMessageRpcClient;
+class IPerformanceDataConsumer;
 class IPortalRpcLocator;
 class IPortalServiceLocator;
+class ISceneViewExtension;
+class IStereoRendering;
+class SViewport;
+class UEditorEngine;
+class UGameUserSettings;
+class UGameViewportClient;
+class ULocalPlayer;
+class UNetDriver;
+
+#if ALLOW_DEBUG_FILES
+class FFineGrainedPerformanceTracker;
+#endif
 
 /**
  * Enumerates types of fully loaded packages.
@@ -699,14 +729,6 @@ public:
 	UPROPERTY()
 	UObject *GameSingleton;
 
-	/** The tire type used when no tire type is explicitly applied. */
-	UPROPERTY()
-	class UTireType* DefaultTireType;
-
-	/** Path to the default tire type */
-	UPROPERTY(globalconfig, EditAnywhere, Category=DefaultClasses, meta=(AllowedClasses="TireType", DisplayName="Default Tire Type"), AdvancedDisplay)
-	FStringAssetReference DefaultTireTypeName;
-
 	/** Path that levels for play on console will be saved to (relative to FPaths::GameSavedDir()) */
 	UPROPERTY(config)
 	FString PlayOnConsoleSaveDir;
@@ -1124,9 +1146,13 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Blueprints)
 	uint32 bCanBlueprintsTickByDefault:1;
 
-	/** Controls whether anim blueprint nodes that access member variables of their class directly should use the optimized path that avoids a thunk to the Blueprint VM */
+	/** Controls whether anim blueprint nodes that access member variables of their class directly should use the optimized path that avoids a thunk to the Blueprint VM. This will force all anim blueprints to be recompiled. */
 	UPROPERTY(EditAnywhere, config, Category="Anim Blueprints")
 	uint32 bOptimizeAnimBlueprintMemberVariableAccess:1;
+
+	/** Controls whether by default we allow anim blueprint graph updates to be performed on non-game threads. This enables some extra checks in the anim blueprint compiler that will warn when unsafe operations are being attempted. This will force all anim blueprints to be recompiled. */
+	UPROPERTY(EditAnywhere, config, Category="Anim Blueprints")
+	uint32 bAllowMultiThreadedAnimationUpdate:1;
 
 	/** @todo document */
 	UPROPERTY(config)
@@ -1342,13 +1368,6 @@ public:
 	UPROPERTY(globalconfig)
 	uint32 bSuppressMapWarnings:1;
 
-	/** if set, cook game classes into standalone packages (as defined in [Cooker.MPGameContentCookStandalone]) and load the appropriate
-	 * one at game time depending on the gametype specified on the URL
-	 * (the game class should then not be referenced in the maps themselves)
-	 */
-	UPROPERTY(globalconfig)
-	uint32 bCookSeparateSharedMPGameContent:1;
-
 	/** determines whether AI logging should be processed or not */
 	UPROPERTY(globalconfig)
 	uint32 bDisableAILogging:1;
@@ -1356,19 +1375,13 @@ public:
 	UPROPERTY(globalconfig)
 	uint32 bEnableVisualLogRecordingOnStart;
 
-	/** If > 0.f, remove this time (in seconds) from server sleep. */
-	UPROPERTY(globalconfig)
-		float ServerSchedulerSlack;
-
-	/** Min remaining time for server to give up thread. */
-	UPROPERTY(globalconfig)
-		float ServerSchedulerMinSleep;
-	
-private:
+protected:
 
 	/** Whether the engine should be playing sounds.  If false at initialization time the AudioDevice will not be created */
 	uint32 bUseSound:1;
 
+private:
+	
 	/** Semaphore to control screen saver inhibitor thread access. */
 	UPROPERTY(transient)
 	int32 ScreenSaverInhibitorSemaphore;
@@ -1389,6 +1402,10 @@ public:
 	/** Used to alter the intensity level of the selection highlight on selected objects */
 	UPROPERTY(transient)
 	float SelectionHighlightIntensity;
+
+	/** Used to alter the intensity level of the selection highlight on selected mesh sections in mesh editors */
+	UPROPERTY(transient)
+	float SelectionMeshSectionHighlightIntensity;
 
 	/** Used to alter the intensity level of the selection highlight on selected BSP surfaces */
 	UPROPERTY(transient)
@@ -1693,7 +1710,12 @@ public:
 	bool HandleViewnamesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleFreezeStreamingCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );		// Smedis
 	bool HandleFreezeAllCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );			// Smedis
+
+#if !USE_NEW_ASYNC_IO
 	bool HandleFlushIOManagerCommand( const TCHAR* Cmd, FOutputDevice& Ar );						// Smedis
+	bool HandleListPreCacheMapPackagesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+#endif
+
 	bool HandleToggleRenderingThreadCommand( const TCHAR* Cmd, FOutputDevice& Ar );	
 	bool HandleToggleAsyncComputeCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleRecompileShadersCommand( const TCHAR* Cmd, FOutputDevice& Ar );
@@ -1718,7 +1740,6 @@ public:
 	bool HandleMemReportDeferredCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 	bool HandleParticleMeshUsageCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleDumpParticleCountsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleListPreCacheMapPackagesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleListLoadedPackagesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleMemCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleDebugCommand( const TCHAR* Cmd, FOutputDevice& Ar );
@@ -1998,79 +2019,37 @@ public:
 #endif	// UE_BUILD_SHIPPING
 
 	/**
-	 * Ticks the FPS chart.
-	 *
-	 * @param DeltaSeconds	Time in seconds passed since last tick.
-	 */
-	virtual void TickFPSChart( float DeltaSeconds );
-
-	/**
-	 * Starts the FPS chart data capture.
+	 * Starts the FPS chart data capture (if another run is already active then this command is ignored except to change the active label).
 	 *
 	 * @param	Label		Label for this run
 	 * @param	bRecordPerFrameTimes	Should we record per-frame times (potentially unbounded memory growth; used when triggered via the console but not when triggered by game code)
 	 */
-	virtual void StartFPSChart( const FString& Label, bool bRecordPerFrameTimes );
+	virtual void StartFPSChart(const FString& Label, bool bRecordPerFrameTimes);
 
 	/**
-	 * Stops the FPS chart data capture.
+	 * Stops the FPS chart data capture (if no run is active then this command is ignored).
 	 */
-	virtual void StopFPSChart();
+	virtual void StopFPSChart(const FString& MapName);
+
 
 	/**
-	* Pauses FPS chart data capture if in progress. Useful for omitting known-problem areas from charts.
+	 * Calculates information about the previous frame and passes it to all active performance data consumers.
 	 *
-	 * @param	bPause	Pause State
+	 * @param DeltaSeconds	Time in seconds passed since last tick.
 	 */
-	virtual void PauseFPSChart(bool bPause);
+	void TickPerformanceMonitoring(float DeltaSeconds);
 
-	/**
-	 * Dumps the FPS chart information to the passed in archive.
-	 *
-	 * @param	InMapName	Name of the map (Or Global)
-	 * @param	bForceDump	Whether to dump even if FPS chart info is not enabled.
-	 */
-	virtual void DumpFPSChart( const FString& InMapName, bool bForceDump = false );
+	/** Register a performance data consumer with the engine; it will be passed performance information each frame */
+	void AddPerformanceDataConsumer(TSharedPtr<IPerformanceDataConsumer> Consumer);
 
-	/**
-	* Dumps the FPS chart information to the passed in archive for analytics.
-	*
-	* @param	InMapName	Name of the map (Or Global)
-	*/
-	virtual void DumpFPSChartAnalytics(const FString& InMapName, TArray<struct FAnalyticsEventAttribute>& InParamArray, bool bIncludeClientHWInfo);
+	/** Remove a previously registered performance data consumer */
+	void RemovePerformanceDataConsumer(TSharedPtr<IPerformanceDataConsumer> Consumer);
 
-	/** Delegate called when FPS charting detects a hitch (it is not triggered if a capture isn't in progress). */
+public:
+	/** Delegate called when FPS charting detects a hitch (it is not triggered if there are no active performance data consumers). */
 	FEngineHitchDetectedDelegate OnHitchDetectedDelegate;
 
-	/** After running Start/StopFPSChart, this returns the number of frames that were bound by the game thread, render thread, or GPU. */
-	virtual void GetFPSChartBoundByFrameCounts(uint32& OutGameThread, uint32& OutRenderThread, uint32& OutGPU) const;
-
 private:
-
-	/**
-	 * Dumps the FPS chart information to HTML.
-	 */
-	virtual void DumpFPSChartToHTML( float TotalTime, float DeltaTime, int32 NumFrames, const FString& InMapName  );
-
-	/**
-	 * Dumps the FPS chart information to the log.
-	 */
-	virtual void DumpFPSChartToLog( float TotalTime, float DeltaTime, int32 NumFrames, const FString& InMapName );
-
-	/**
-	 * Dumps the FPS chart information to the special stats log file.
-	 */
-	virtual void DumpFPSChartToStatsLog( float TotalTime, float DeltaTime, int32 NumFrames, const FString& InMapName );
-
-	/**
-	* Dumps the FPS chart information to an analytic event param array.
-	*/
-	virtual void DumpFPSChartToAnalyticsParams(float TotalTime, float DeltaTime, int32 NumFrames, const FString& InMapName, TArray<struct FAnalyticsEventAttribute>& InParamArray);
-
-	/**
-	 * Dumps the frame times information to the special stats log file.
-	 */
-	virtual void DumpFrameTimesToStatsLog( float TotalTime, float DeltaTime, int32 NumFrames, const FString& InMapName );
 
 	/**
 	 * Callback for external UI being opened.
@@ -2221,6 +2200,16 @@ protected:
 	/** Holds registered service instances. */
 	TSharedPtr<IPortalServiceLocator> ServiceLocator;
 
+	/** Active FPS chart (initialized by startfpschart, finalized by stopfpschart) */
+	TSharedPtr<FPerformanceTrackingChart> ActivePerformanceChart;
+
+#if ALLOW_DEBUG_FILES
+	/** Active fine-grained per-frame chart (initialized by startfpschart, finalized by stopfpschart) */
+	TSharedPtr<FFineGrainedPerformanceTracker> ActiveFrameTimesChart;
+#endif
+
+	/** List of all active performance consumers */
+	TArray<TSharedPtr<IPerformanceDataConsumer>> ActivePerformanceDataConsumers;
 
 public:
 
@@ -2297,6 +2286,12 @@ public:
 	// This should only ever be called for a EditorEngine
 	virtual UWorld* CreatePIEWorldByDuplication(FWorldContext &Context, UWorld* InWorld, FString &PlayWorldMapName) { check(false); return nullptr; }
 
+	/** 
+	 *	If this function returns true, the DynamicSourceLevels collection will be duplicated for the given map.
+	 *	This is necessary to do outside of the editor when we don't have the original editor world, and it's 
+	 *	not safe to copy the dynamic levels once they've been fully initialized, so we pre-duplicate them when the original levels are first created.
+	 */
+	virtual bool Experimental_ShouldPreDuplicateMap(const FName MapName) const { return false; }
 
 protected:
 
@@ -2494,7 +2489,7 @@ public:
 	void DestroyNamedNetDriver(UWorld *InWorld, FName NetDriverName);
 	void DestroyNamedNetDriver(UPendingNetGame *PendingNetGame, FName NetDriverName);
 
-	virtual bool NetworkRemapPath( UWorld *InWorld, FString &Str, bool reading=true) { return false; }
+	virtual bool NetworkRemapPath( UNetDriver* Driver, FString &Str, bool reading=true) { return false; }
 	virtual bool NetworkRemapPath( UPendingNetGame *PendingNetGame, FString &Str, bool reading=true) { return false; }
 
 	virtual bool HandleOpenCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld * InWorld );
@@ -2506,6 +2501,7 @@ public:
 #if WITH_SERVER_CODE
 	virtual bool HandleServerTravelCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 
+	DEPRECATED(4.14, "Say Command moved to GameMode as an exec function")
 	virtual bool HandleSayCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 #endif
 
@@ -2636,7 +2632,25 @@ public:
 	virtual void VerifyLoadMapWorldCleanup();
 
 	FWorldContext& CreateNewWorldContext(EWorldType::Type WorldType);
+
 	virtual void DestroyWorldContext(UWorld * InWorld);
+
+#if WITH_EDITOR
+	/** Triggered when a world context is destroyed. */
+	DECLARE_EVENT_OneParam(UEngine, FWorldContextDestroyedEvent, FWorldContext&);
+
+	/** Return the world context destroyed event. */
+	FWorldContextDestroyedEvent&	OnWorldContextDestroyed() { return WorldContextDestroyedEvent; }
+#endif // #if WITH_EDITOR
+
+private:
+
+#if WITH_EDITOR
+	/** Delegate broadcast when a world context is destroyed */
+	FWorldContextDestroyedEvent WorldContextDestroyedEvent;
+#endif // #if WITH_EDITOR
+
+public:
 
 	bool ShouldAbsorbAuthorityOnlyEvent();
 	bool ShouldAbsorbCosmeticOnlyEvent();
@@ -2655,6 +2669,17 @@ public:
 	
 	/** @return true if the engine is autosaving a package */
 	virtual bool IsAutosaving() const { return false; }
+
+	virtual bool ShouldDoAsyncEndOfFrameTasks() const { return false; }
+
+	bool IsVanillaProduct() const { return bIsVanillaProduct; }
+
+protected:
+	void SetIsVanillaProduct(bool bInIsVanillaProduct);
+
+private:
+	bool bIsVanillaProduct;
+
 protected:
 
 	TIndirectArray<FWorldContext>	WorldList;
@@ -2685,6 +2710,12 @@ protected:
 	 * @param Error the error string result from the LoadMap call that attempted to load the default map.
 	 */
 	virtual void HandleBrowseToDefaultMapFailure(FWorldContext& Context, const FString& TextURL, const FString& Error);
+
+	/**
+	 * Helper function that returns true if InWorld is the outer of a level in a collection of type DynamicDuplicatedLevels.
+	 * For internal engine use.
+	 */
+	bool IsWorldDuplicate(const UWorld* const InWorld);
 
 protected:
 
@@ -2945,6 +2976,7 @@ private:
 	bool ToggleStatSoundWaves(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
 	bool ToggleStatSoundCues(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
 	bool ToggleStatSounds(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
+	bool ToggleStatSoundMixes(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
 #endif
 
 	/**
@@ -2983,3 +3015,6 @@ private:
 
 	FDelegateHandle HandleScreenshotCapturedDelegateHandle;
 };
+
+/** Global engine pointer. Can be 0 so don't use without checking. */
+extern ENGINE_API class UEngine*			GEngine;

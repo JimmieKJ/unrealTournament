@@ -2,8 +2,13 @@
 
 #pragma once
 
-#include "PropertyEditing.h"
-#include "PropertyCustomizationHelpers.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "UnrealClient.h"
+#include "IPropertyTypeCustomization.h"
+
+class IPropertyHandle;
 
 class FEnvTraceDataCustomization : public IPropertyTypeCustomization
 {

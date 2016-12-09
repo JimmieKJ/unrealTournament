@@ -5,10 +5,9 @@
 =============================================================================*/
 
 
-#include "EnginePrivate.h"
-#include "PhysicsEngine/PhysXSupport.h"
 #include "PhysicsEngine/DestructibleActor.h"
 #include "Components/DestructibleComponent.h"
+#include "Engine/SkeletalMesh.h"
 
 ADestructibleActor::ADestructibleActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

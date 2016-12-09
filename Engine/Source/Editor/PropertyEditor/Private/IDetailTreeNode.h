@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "PropertyPath.h"
+#include "IPropertyUtilities.h"
+
+class FDetailCategoryImpl;
+class IDetailsViewPrivate;
+class ITableRow;
+class STableViewBase;
+struct FDetailColumnSizeData;
+struct FDetailFilter;
+
 enum class ENodeVisibility : uint8
 {
 	// Hidden but can be visible if parent is visible due to filtering

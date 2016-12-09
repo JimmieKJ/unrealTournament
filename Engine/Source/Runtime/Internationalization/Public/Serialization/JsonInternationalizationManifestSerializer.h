@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "InternationalizationManifest.h"
+#include "CoreMinimal.h"
+#include "Internationalization/InternationalizationManifest.h"
+#include "Dom/JsonObject.h"
 
 struct FStructuredEntry
 {

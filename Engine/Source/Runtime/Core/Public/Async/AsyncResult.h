@@ -2,10 +2,11 @@
 
 #pragma once
 
-#include "IAsyncProgress.h"
-#include "IAsyncTask.h"
-#include "Future.h"
+#include "CoreTypes.h"
+#include "Async/Future.h"
 
+class IAsyncProgress;
+class IAsyncTask;
 
 /**
  * Template for asynchronous return values.

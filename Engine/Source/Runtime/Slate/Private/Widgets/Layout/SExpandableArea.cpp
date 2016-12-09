@@ -1,7 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SExpandableArea.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
 
 
 #define LOCTEXT_NAMESPACE "SExpandableArea"
@@ -12,6 +16,7 @@ void SExpandableArea::Construct( const FArguments& InArgs )
 	check(InArgs._Style);
 
 	bAreaCollapsed = InArgs._InitiallyCollapsed;
+	MinWidth = InArgs._MinWidth;
 	MaxHeight = InArgs._MaxHeight;
 	OnAreaExpansionChanged = InArgs._OnAreaExpansionChanged;
 	CollapsedImage = &InArgs._Style->CollapsedImage;
@@ -35,24 +40,41 @@ void SExpandableArea::Construct( const FArguments& InArgs )
 			.ShadowOffset(FVector2D(1.0f, 1.0f));
 	}
 
+	// If the user wants the body of the expanded section to be different from the title area,
+	// then we have to do two separate borders incase the body has any transparency.
+	// Furthermore, we still need to fallback to just using one border if they do want them the
+	// same, otherwise we could introduce curved edges between the upper and lower sections.
+	const bool bBodyDiffers = InArgs._BodyBorderImage != nullptr || InArgs._BodyBorderBackgroundColor.IsSet();
+	const FSlateBrush* FullBorderImage = bBodyDiffers ? FStyleDefaults::GetNoBrush() : InArgs._BorderImage;
+	const TAttribute<FSlateColor> FullBorderBackgroundColor = bBodyDiffers ? FLinearColor::Transparent : InArgs._BorderBackgroundColor;
+	const FSlateBrush* TitleBorderImage = !bBodyDiffers ? FStyleDefaults::GetNoBrush() : InArgs._BorderImage;
+	const TAttribute<FSlateColor> TitleBorderBackgroundColor = !bBodyDiffers ? FLinearColor::Transparent : InArgs._BorderBackgroundColor;
+
 	ChildSlot
 	[
 		SNew( SBorder )
-		.BorderImage( InArgs._BorderImage )
-		.BorderBackgroundColor( InArgs._BorderBackgroundColor )
+		.BorderImage( FullBorderImage )
+		.BorderBackgroundColor( FullBorderBackgroundColor )
 		.Padding(0.0f)
 		[
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
 			.AutoHeight()
 			[
-				SNew( SButton )
-				.ButtonStyle(FCoreStyle::Get(), "NoBorder")
-				.ContentPadding(InArgs._HeaderPadding)
-				.ForegroundColor(FSlateColor::UseForeground())
-				.OnClicked( this, &SExpandableArea::OnHeaderClicked )
+				SNew( SBorder )
+				.BorderImage(TitleBorderImage)
+				.BorderBackgroundColor(TitleBorderBackgroundColor)
+				.Padding(0.0f)
 				[
-					ConstructHeaderWidget( InArgs, HeaderContent )
+					SNew( SButton )
+					.Cursor(InArgs._HeaderCursor.IsSet() ? InArgs._HeaderCursor : Cursor)
+					.ButtonStyle(FCoreStyle::Get(), "NoBorder")
+					.ContentPadding(InArgs._HeaderPadding)
+					.ForegroundColor(FSlateColor::UseForeground())
+					.OnClicked( this, &SExpandableArea::OnHeaderClicked )
+					[
+						ConstructHeaderWidget( InArgs, HeaderContent )
+					]
 				]
 			]
 			+ SVerticalBox::Slot()
@@ -60,7 +82,8 @@ void SExpandableArea::Construct( const FArguments& InArgs )
 			[
 				SNew(SBorder)
 				.Visibility(this, &SExpandableArea::OnGetContentVisibility)
-				.BorderImage(FStyleDefaults::GetNoBrush())
+				.BorderImage(InArgs._BodyBorderImage)
+				.BorderBackgroundColor(InArgs._BodyBorderBackgroundColor)
 				.Padding(InArgs._Padding)
 				.DesiredSizeScale(this, &SExpandableArea::GetSectionScale)
 				[
@@ -98,7 +121,7 @@ TSharedRef<SWidget> SExpandableArea::ConstructHeaderWidget( const FArguments& In
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
-		.Padding(0, 0, 3, 0)
+		.Padding(InArgs._AreaTitlePadding)
 		.VAlign(VAlign_Center)
 		[
 			SNew(SImage)
@@ -178,11 +201,18 @@ FVector2D SExpandableArea::ComputeDesiredSize( float ) const
 	{
 		FVector2D SlotWidgetDesiredSize = ChildSlot.GetWidget()->GetDesiredSize() + ChildSlot.SlotPadding.Get().GetDesiredSize();
 		
+		// Only clamp if the user specified a min width
+		if( MinWidth > 0.0f )
+		{
+			SlotWidgetDesiredSize.X = FMath::Max( MinWidth, SlotWidgetDesiredSize.X );
+		}
+
 		// Only clamp if the user specified a max height
 		if( MaxHeight > 0.0f )
 		{
 			SlotWidgetDesiredSize.Y = FMath::Min( MaxHeight, SlotWidgetDesiredSize.Y );
 		}
+
 		return SlotWidgetDesiredSize;
 	}
 

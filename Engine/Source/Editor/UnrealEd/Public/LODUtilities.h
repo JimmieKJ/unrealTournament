@@ -2,7 +2,9 @@
 
 #pragma once
 
-class USkeletalMesh;
+#include "CoreMinimal.h"
+#include "Engine/SkeletalMesh.h"
+#include "Framework/Commands/UIAction.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FSkeletalMeshUpdateContext

@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "AutoPointer.h"
+#include "CoreTypes.h"
+#include "Templates/IsPointer.h"
+#include "Templates/PointerIsConvertibleFromTo.h"
+#include "Templates/AreTypesEqual.h"
+#include "Containers/Map.h"
+#include "UObject/AutoPointer.h"
 
+struct FWeakObjectPtr;
 
 /***
  * 
@@ -319,32 +325,45 @@ struct TWeakObjectPtrMapKeyFuncs : public TDefaultMapKeyFuncs<KeyType, ValueType
 	}
 };
 
-
 /**
-  * Automatic version of the weak object pointer
-**/
+ * Automatic version of the weak object pointer
+ */
 template<class T> 
-class TAutoWeakObjectPtr : public TAutoPointer<T, TWeakObjectPtr<T> >
+class TAutoWeakObjectPtr : public TWeakObjectPtr<T>
 {
 public:
 	/** NULL constructor **/
+	DEPRECATED(4.15, "TAutoWeakObjectPtr has been deprecated - use TWeakObjectPtr instead")
 	FORCEINLINE TAutoWeakObjectPtr()
 	{
 	}
 	/** Construct from a raw pointer **/
-	FORCEINLINE TAutoWeakObjectPtr(const T* Target) 
-		: TAutoPointer<T, TWeakObjectPtr<T> >(Target)
+	DEPRECATED(4.15, "TAutoWeakObjectPtr has been deprecated - use TWeakObjectPtr instead")
+	FORCEINLINE TAutoWeakObjectPtr(const T* Target)
+		: TWeakObjectPtr<T>(Target)
 	{
 	}
 	/**  Construct from the base type **/
+	DEPRECATED(4.15, "TAutoWeakObjectPtr has been deprecated - use TWeakObjectPtr instead")
 	FORCEINLINE TAutoWeakObjectPtr(const TWeakObjectPtr<T>& Other) 
-		: TAutoPointer<T, TWeakObjectPtr<T> >(Other)
+		: TWeakObjectPtr<T>(Other)
 	{
 	}
-	/**  Construct from another auto pointer **/
-	FORCEINLINE TAutoWeakObjectPtr(const TAutoWeakObjectPtr& Other) 
-		: TAutoPointer<T, TWeakObjectPtr<T> >(Other)
+	DEPRECATED(4.15, "Implicit conversion from TAutoWeakObjectPtr to the pointer type has been deprecated - use Get() instead")
+	FORCEINLINE operator T* () const
 	{
+		return this->Get();
+	}
+	DEPRECATED(4.15, "Implicit conversion from TAutoWeakObjectPtr to the pointer type has been deprecated - use Get() instead")
+	FORCEINLINE operator const T* () const
+	{
+		return (const T*)this->Get();
+	}
+
+	DEPRECATED(4.15, "Implicit conversion from TAutoWeakObjectPtr to the pointer type has been deprecated - use Get() instead")
+	FORCEINLINE explicit operator bool() const
+	{
+		return this->Get() != nullptr;
 	}
 };
 

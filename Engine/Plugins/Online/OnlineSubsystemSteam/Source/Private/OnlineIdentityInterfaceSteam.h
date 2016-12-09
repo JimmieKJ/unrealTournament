@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "OnlineSubsystemSteamTypes.h"
-#include "OnlineIdentityInterface.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemSteamPackage.h"
 
 class FOnlineIdentitySteam :

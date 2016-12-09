@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "MetadataArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/MetadataArchiveProxy.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/MetaData.h"
+#include "UHTMakefile.h"
 
 FMetadataArchiveProxy::FMetadataArchiveProxy(FUHTMakefile& UHTMakefile, UMetaData* Metadata)
 	: FObjectBaseArchiveProxy(UHTMakefile, Metadata)

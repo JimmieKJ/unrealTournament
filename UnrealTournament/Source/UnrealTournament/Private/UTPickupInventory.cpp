@@ -171,7 +171,7 @@ static void CreatePickupMeshAttachments(AActor* Pickup, UClass* PickupInventoryT
 			NewComp->RegisterComponent();
 			NewComp->AttachToComponent(CurrentAttachment, FAttachmentTransformRules::KeepRelativeTransform, BPNodes[i]->AttachToName);
 			// recurse
-			CreatePickupMeshAttachments(Pickup, PickupInventoryType, NewComp, BPNodes[i]->VariableName, NativeCompList, BPNodes);
+			CreatePickupMeshAttachments(Pickup, PickupInventoryType, NewComp, BPNodes[i]->GetVariableName(), NativeCompList, BPNodes);
 
 			// The behavior of PIE has changed in 4.13. When the object was duplicated for PIE in previous versions, it would not have the particle system components.
 			// Just make the editor ones invisible, it breaks real time preview, but would rather have PIE work.
@@ -211,7 +211,7 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 			UStaticMeshComponent* StaticTemplate = Cast<UStaticMeshComponent>(NewMesh);
 			if (PickupMesh == NULL || PickupMesh->GetClass() != NewMesh->GetClass() || PickupMesh->GetMaterials() != NewMesh->GetMaterials() ||
 				(SkelTemplate != NULL && ((USkeletalMeshComponent*)PickupMesh)->SkeletalMesh != SkelTemplate->SkeletalMesh) ||
-				(StaticTemplate != NULL && ((UStaticMeshComponent*)PickupMesh)->StaticMesh != StaticTemplate->StaticMesh))
+				(StaticTemplate != NULL && ((UStaticMeshComponent*)PickupMesh)->GetStaticMesh() != StaticTemplate->GetStaticMesh()))
 			{
 				if (PickupMesh != NULL)
 				{
@@ -543,7 +543,7 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 					PS->Team->ModifyStatsValue(Inventory->StatsNameCount, 1);
 				}
 
-				AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 				if (GS != nullptr)
 				{
 					GS->ModifyStatsValue(Inventory->StatsNameCount, 1);

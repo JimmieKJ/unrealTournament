@@ -2,8 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "ActorFactories/ActorFactoryBoxVolume.h"
 #include "ActorFactoryProceduralFoliage.generated.h"
+
+class AActor;
+class FAssetData;
 
 UCLASS(MinimalAPI, config=Editor)
 class UActorFactoryProceduralFoliage : public UActorFactoryBoxVolume

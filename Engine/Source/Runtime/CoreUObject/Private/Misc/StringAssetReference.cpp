@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "Misc/StringAssetReference.h"
+#include "UObject/PropertyPortFlags.h"
+#include "UObject/UnrealType.h"
+#include "UObject/ObjectRedirector.h"
+#include "Misc/PackageName.h"
 
-#include "StringAssetReference.h"
-#include "PropertyTag.h"
 
 FStringAssetReference::FStringAssetReference(const UObject* InObject)
 {
@@ -14,16 +16,6 @@ FStringAssetReference::FStringAssetReference(const UObject* InObject)
 }
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
-FStringAssetReference::~FStringAssetReference()
-{
-
-}
-
-const FString& FStringAssetReference::ToString() const
-{
-	return AssetLongPathname;
-}
-
 void FStringAssetReference::SetPath(FString Path)
 {
 	if (Path.IsEmpty())
@@ -74,14 +66,18 @@ bool FStringAssetReference::Serialize(FArchive& Ar)
 
 	return true;
 }
+
 bool FStringAssetReference::operator==(FStringAssetReference const& Other) const
 {
 	return ToString() == Other.ToString();
 }
-void FStringAssetReference::operator=(FStringAssetReference const& Other)
+
+FStringAssetReference& FStringAssetReference::operator=(FStringAssetReference const& Other)
 {
 	SetPath(Other.ToString());
+	return *this;
 }
+
 bool FStringAssetReference::ExportTextItem(FString& ValueStr, FStringAssetReference const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const
 {
 	if (0 != (PortFlags & EPropertyPortFlags::PPF_ExportCpp))
@@ -142,7 +138,7 @@ bool FStringAssetReference::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags
 	return true;
 }
 
-#include "StringReferenceTemplates.h"
+#include "Misc/StringReferenceTemplates.h"
 
 bool FStringAssetReference::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar)
 {

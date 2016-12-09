@@ -30,5 +30,7 @@ public class VulkanShaderFormat : ModuleRules
 		{
 			PrecompileForTargets = PrecompileTargetsType.None;
 		}
+
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
 	}
 }

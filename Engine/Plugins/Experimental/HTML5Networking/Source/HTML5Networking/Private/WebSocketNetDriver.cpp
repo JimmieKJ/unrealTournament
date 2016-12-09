@@ -4,17 +4,20 @@
 Unreal Websocket network driver.
 =============================================================================*/
 
-#include "HTML5NetworkingPCH.h"
+#include "WebSocketNetDriver.h"
+#include "HTML5NetworkingPrivate.h"
 #include "Engine/Channel.h"
+#include "Engine/PendingNetGame.h"
 
 #include "IPAddress.h"
 #include "Sockets.h"
 
 #include "WebSocketConnection.h"
-#include "WebSocketNetDriver.h"
 #include "WebSocketServer.h"
 #include "WebSocket.h"
 
+#include "Engine/ChildConnection.h"
+#include "Misc/CommandLine.h"
 
 /*-----------------------------------------------------------------------------
 Declarations.
@@ -34,16 +37,9 @@ bool UWebSocketNetDriver::IsAvailable() const
 	return true;
 }
 
-
-
 ISocketSubsystem* UWebSocketNetDriver::GetSocketSubsystem()
 {
 	return ISocketSubsystem::Get();
-}
-
-FSocket * UWebSocketNetDriver::CreateSocket()
-{
-	return NULL; 
 }
 
 bool UWebSocketNetDriver::InitBase(bool bInitAsClient, FNetworkNotify* InNotify, const FURL& URL, bool bReuseAddressAndPort, FString& Error)
@@ -98,20 +94,22 @@ bool UWebSocketNetDriver::InitListen(FNetworkNotify* InNotify, FURL& LocalURL, b
 		return false;
 	}
 
+	InitConnectionlessHandler();
+
 	WebSocketServer = new class FWebSocketServer();
 
 	FWebsocketClientConnectedCallBack CallBack;
 	CallBack.BindUObject(this, &UWebSocketNetDriver::OnWebSocketClientConnected);
 
 	if(!WebSocketServer->Init(WebSocketPort, CallBack))
-		return false; 
+		return false;
 
 	WebSocketServer->Tick();
 	LocalURL.Port = WebSocketPort;
 	UE_LOG(LogHTML5Networking, Log, TEXT("%s WebSocketNetDriver listening on port %i"), *GetDescription(), LocalURL.Port);
 
-	// server has no server connection. 
-	ServerConnection = NULL; 
+	// server has no server connection.
+	ServerConnection = NULL;
 	return true;
 }
 
@@ -121,6 +119,58 @@ void UWebSocketNetDriver::TickDispatch(float DeltaTime)
 
 	if (WebSocketServer)
 		WebSocketServer->Tick();
+}
+
+void UWebSocketNetDriver::LowLevelSend(FString Address, void* Data, int32 CountBits)
+{
+	bool bValidAddress = !Address.IsEmpty();
+	TSharedRef<FInternetAddr> RemoteAddr = GetSocketSubsystem()->CreateInternetAddr();
+
+	if (bValidAddress)
+	{
+		RemoteAddr->SetIp(*Address, bValidAddress);
+	}
+
+	if (bValidAddress)
+	{
+		const uint8* DataToSend = reinterpret_cast<uint8*>(Data);
+
+		if (ConnectionlessHandler.IsValid())
+		{
+			const ProcessedPacket ProcessedData =
+					ConnectionlessHandler->OutgoingConnectionless(Address, (uint8*)DataToSend, CountBits);
+
+			if (!ProcessedData.bError)
+			{
+				DataToSend = ProcessedData.Data;
+				CountBits = ProcessedData.CountBits;
+			}
+			else
+			{
+				CountBits = 0;
+			}
+		}
+
+
+		// connectionless websockets do not exist (yet)
+		// scan though existing connections
+		if (CountBits > 0)
+		{
+			for (int32 i = 0; i<ClientConnections.Num(); ++i)
+			{
+				UWebSocketConnection* Connection = (UWebSocketConnection*)ClientConnections[i];
+				if (Connection && ( Connection->LowLevelGetRemoteAddress(true) == Address ) )
+				{
+					Connection->GetWebSocket()->Send((uint8*)DataToSend, FMath::DivideAndRoundUp(CountBits, 8));
+					break;
+				}
+			}
+		}
+	}
+	else
+	{
+		UE_LOG(LogNet, Warning, TEXT("UWebSocketNetDriver::LowLevelSend: Invalid send address '%s'"), *Address);
+	}
 }
 
 void UWebSocketNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack, class UObject* SubObject)
@@ -141,9 +191,9 @@ void UWebSocketNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* 
 				{
 					// Do relevancy check if unreliable.
 					// Reliables will always go out. This is odd behavior. On one hand we wish to garuntee "reliables always get there". On the other
-					// hand, replicating a reliable to something on the other side of the map that is non relevant seems weird. 
+					// hand, replicating a reliable to something on the other side of the map that is non relevant seems weird.
 					//
-					// Multicast reliables should probably never be used in gameplay code for actors that have relevancy checks. If they are, the 
+					// Multicast reliables should probably never be used in gameplay code for actors that have relevancy checks. If they are, the
 					// rpc will go through and the channel will be closed soon after due to relevancy failing.
 
 					bool IsRelevant = true;
@@ -188,13 +238,13 @@ void UWebSocketNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* 
 
 FString UWebSocketNetDriver::LowLevelGetNetworkNumber()
 {
-	return WebSocketServer->Info(); 
+	return WebSocketServer->Info();
 }
 
 void UWebSocketNetDriver::LowLevelDestroy()
 {
 	Super::LowLevelDestroy();
-	delete WebSocketServer; 
+	delete WebSocketServer;
 	WebSocketServer = nullptr;
 }
 
@@ -208,7 +258,7 @@ bool UWebSocketNetDriver::HandleSocketsCommand(const TCHAR* Cmd, FOutputDevice& 
 	else
 	{
 		check(GetServerConnection());
-		Ar.Logf(TEXT("WebSocket client's EndPoint %s"), *(GetServerConnection()->WebSocket->RemoteEndPoint()));
+		Ar.Logf(TEXT("WebSocket client's EndPoint %s"), *(GetServerConnection()->WebSocket->RemoteEndPoint(true)));
 	}
 	return UNetDriver::Exec(InWorld, TEXT("SOCKETS"), Ar);
 }
@@ -235,12 +285,12 @@ void UWebSocketNetDriver::OnWebSocketClientConnected(FWebSocket* ClientWebSocket
 	{
 
 		UWebSocketConnection* Connection = NewObject<UWebSocketConnection>(NetConnectionClass);
-		check(Connection); 
+		check(Connection);
 
 		TSharedRef<FInternetAddr> InternetAddr = GetSocketSubsystem()->CreateInternetAddr();
 		bool Ok;
 
-		InternetAddr->SetIp(*(ClientWebSocket->RemoteEndPoint()),Ok);
+		InternetAddr->SetIp(*(ClientWebSocket->RemoteEndPoint(false)),Ok);
 		InternetAddr->SetPort(0);
 		Connection->SetWebSocket(ClientWebSocket);
 		Connection->InitRemoteConnection(this, NULL, FURL(), *InternetAddr, USOCK_Open);
@@ -249,30 +299,48 @@ void UWebSocketNetDriver::OnWebSocketClientConnected(FWebSocket* ClientWebSocket
 
 		AddClientConnection(Connection);
 
- 		FWebsocketPacketRecievedCallBack CallBack;
- 		CallBack.BindUObject(Connection, &UWebSocketConnection::ReceivedRawPacket);
- 		ClientWebSocket->SetRecieveCallBack(CallBack);
+		FWebsocketPacketRecievedCallBack CallBack;
+		CallBack.BindUObject(Connection, &UWebSocketConnection::ReceivedRawPacket);
+		if (ConnectionlessHandler.IsValid() && StatelessConnectComponent.IsValid())
+		{
+			Connection->bChallengeHandshake = true;
+		}
+#if !UE_BUILD_SHIPPING
+		else if (FParse::Param(FCommandLine::Get(), TEXT("NoPacketHandler")))
+		{
+			UE_LOG(LogNet, Log, TEXT("Accepting connection without handshake, due to '-NoPacketHandler'."))
+		}
+#endif
+		else
+		{
+			UE_LOG(LogNet, Log,
+					TEXT("Invalid ConnectionlessHandler (%i) or StatelessConnectComponent (%i); can't accept connections."),
+					(int32)(ConnectionlessHandler.IsValid()), (int32)(StatelessConnectComponent.IsValid()));
+		}
+		ClientWebSocket->SetRecieveCallBack(CallBack);
 
-		UE_LOG(LogHTML5Networking, Log, TEXT(" Websocket server running on %s Accepted Connection from %s "), *WebSocketServer->Info(),*ClientWebSocket->RemoteEndPoint());
+		UE_LOG(LogHTML5Networking, Log, TEXT(" Websocket server running on %s Accepted Connection from %s "), *WebSocketServer->Info(),*ClientWebSocket->RemoteEndPoint(true));
 	}
 }
 
 bool UWebSocketNetDriver::IsNetResourceValid(void)
 {
-	if (	(WebSocketServer && !ServerConnection)//  Server 
+	if (	(WebSocketServer && !ServerConnection)//  Server
 		||	(!WebSocketServer && ServerConnection) // client
 		)
 	{
-		return true; 
+		return true;
 	}
 		
-	return false; 
+	return false;
 }
 
 // Just logging, not yet attached to html5 clients.
 void UWebSocketNetDriver::OnWebSocketServerConnected()
 {
 	check(GetServerConnection());
-	UE_LOG(LogHTML5Networking, Log, TEXT(" %s Websocket Client connected to server %s "), *GetDescription(), *GetServerConnection()->WebSocket->RemoteEndPoint());
+	UE_LOG(LogHTML5Networking, Log, TEXT(" %s Websocket Client %s connected to server %s "), *GetDescription(),
+		*GetServerConnection()->WebSocket->LocalEndPoint(true),
+		*GetServerConnection()->WebSocket->RemoteEndPoint(true));
 }
 

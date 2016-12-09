@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ComponentVisualizersPrivatePCH.h"
-
 #include "StereoLayerComponentVisualizer.h"
+#include "SceneManagement.h"
+
 #include "Components/StereoLayerComponent.h"
 
 
@@ -11,9 +11,34 @@ void FStereoLayerComponentVisualizer::DrawVisualization( const UActorComponent* 
 	const UStereoLayerComponent* StereoLayerComp = Cast<const UStereoLayerComponent>(Component);
 	if(StereoLayerComp != NULL)
 	{
-		const FVector2D QuadSize = StereoLayerComp->GetQuadSize() / 2.0f;
-		const FBox QuadBox(FVector(0.0f, -QuadSize.X, -QuadSize.Y), FVector(0.0f, QuadSize.X, QuadSize.Y));
+        FLinearColor YellowColor = FColor(231, 239, 0, 255);
+        if(StereoLayerComp->StereoLayerShape == EStereoLayerShape::SLSH_QuadLayer)
+        {
+            const FVector2D QuadSize = StereoLayerComp->GetQuadSize() / 2.0f;
+            const FBox QuadBox(FVector(0.0f, -QuadSize.X, -QuadSize.Y), FVector(0.0f, QuadSize.X, QuadSize.Y));
 
-		DrawWireBox(PDI, StereoLayerComp->ComponentToWorld.ToMatrixWithScale(), QuadBox, FColor(231, 239, 0, 255), 0);
-	}
+            DrawWireBox(PDI, StereoLayerComp->ComponentToWorld.ToMatrixWithScale(), QuadBox, YellowColor, 0);
+        }
+        else if(StereoLayerComp->StereoLayerShape == EStereoLayerShape::SLSH_CylinderLayer)
+        {
+            float ArcAngle = StereoLayerComp->CylinderOverlayArc * 180 / (StereoLayerComp->CylinderRadius * PI);
+            
+            FVector X = StereoLayerComp->ComponentToWorld.GetUnitAxis(EAxis::Type::X);
+            FVector Y = StereoLayerComp->ComponentToWorld.GetUnitAxis(EAxis::Type::Y);
+            FVector Base = StereoLayerComp->ComponentToWorld.GetLocation();
+            FVector HalfHeight = FVector(0, 0, StereoLayerComp->CylinderHeight/2);
+            
+            FVector LeftVertex = Base + StereoLayerComp->CylinderRadius * ( FMath::Cos(ArcAngle/2 * (PI/180.0f)) * X + FMath::Sin(ArcAngle/2 * (PI/180.0f)) * Y );
+            FVector RightVertex = Base + StereoLayerComp->CylinderRadius * ( FMath::Cos(-ArcAngle/2 * (PI/180.0f)) * X + FMath::Sin(-ArcAngle/2 * (PI/180.0f)) * Y );
+
+            DrawArc(PDI, Base + HalfHeight, X, Y, -ArcAngle/2, ArcAngle/2, StereoLayerComp->CylinderRadius, 10, YellowColor, 0);
+            
+            DrawArc(PDI, Base - HalfHeight, X, Y, -ArcAngle/2, ArcAngle/2, StereoLayerComp->CylinderRadius, 10, YellowColor, 0);
+
+            PDI->DrawLine( LeftVertex - HalfHeight, LeftVertex + HalfHeight, YellowColor, 0 );
+            
+            PDI->DrawLine( RightVertex - HalfHeight, RightVertex + HalfHeight, YellowColor, 0 );
+
+        }
+    }
 }

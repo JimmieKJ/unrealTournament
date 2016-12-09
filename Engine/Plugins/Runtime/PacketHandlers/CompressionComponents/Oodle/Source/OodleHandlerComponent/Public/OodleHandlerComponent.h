@@ -3,10 +3,11 @@
 #pragma once
 
 // @todo #JohnB: Separate module-based header code, from other class implementations, so that you can setup the PCH.h file correctly
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
 #include "PacketHandler.h"
-#include "ModuleManager.h"
-#include "Core.h"
-#include "CoreUObject.h"
+#include "UObject/CoreNet.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(OodleHandlerComponentLog, Log, All);
 
@@ -32,7 +33,7 @@ DECLARE_LOG_CATEGORY_EXTERN(OodleHandlerComponentLog, Log, All);
 #include "OodleArchives.h"
 
 #if UE4_OODLE_VER >= 200
-#include "oodle2.h"
+#include <oodle2.h>
 #else
 #include "oodle.h"
 #endif

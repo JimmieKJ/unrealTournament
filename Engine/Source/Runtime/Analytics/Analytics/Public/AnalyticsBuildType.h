@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** Defines the different build types from an analytics perspective. Used to determine how to configure the provider. */
 enum class EAnalyticsBuildType : uint8
 {

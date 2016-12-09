@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+#include "MultipleInheritanceBaseClassArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/MultipleInheritanceBaseClassArchiveProxy.h"
+#include "ParserHelper.h"
+#include "UHTMakefile.h"
 
 FMultipleInheritanceBaseClassArchiveProxy::FMultipleInheritanceBaseClassArchiveProxy(const FUHTMakefile& UHTMakefile, const FMultipleInheritanceBaseClass* MultipleInheritanceBaseClass)
 {

@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/Crc.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Internationalization/Text.h"
+
 /** Caches FText instances generated via the LOCTEXT macro to avoid repeated constructions */
 class FTextCache
 {
@@ -30,18 +36,18 @@ private:
 		 * Make a key that references the given strings.
 		 * This key can only be used while the given values exist, but will be faster than copying the strings.
 		 */
-		static FCacheKey MakeReference(const TCHAR* InTextLiteral, const TCHAR* InNamespace, const TCHAR* InKey)
+		static FCacheKey MakeReference(const TCHAR* InNamespace, const TCHAR* InKey)
 		{
-			return FCacheKey(InTextLiteral, InNamespace, InKey);
+			return FCacheKey(InNamespace, InKey);
 		}
 
 		/**
 		 * Make a key that copies the given strings.
 		 * This key can be stored in the map and safely used again later.
 		 */
-		static FCacheKey MakePersistent(FString InTextLiteral, FString InNamespace, FString InKey)
+		static FCacheKey MakePersistent(FString InNamespace, FString InKey)
 		{
-			return FCacheKey(MoveTemp(InTextLiteral), MoveTemp(InNamespace), MoveTemp(InKey));
+			return FCacheKey(MoveTemp(InNamespace), MoveTemp(InKey));
 		}
 
 		/**
@@ -51,15 +57,10 @@ private:
 		{
 			if (KeyType == EKeyType::Reference)
 			{
-				PersistentData = FPersistentKeyData(FString(ReferenceData.TextLiteral), FString(ReferenceData.Namespace), FString(ReferenceData.Key));
+				PersistentData = FPersistentKeyData(FString(ReferenceData.Namespace), FString(ReferenceData.Key));
 				ReferenceData = FReferenceKeyData();
 				KeyType = EKeyType::Persistent;
 			}
-		}
-
-		FORCEINLINE const TCHAR* GetTextLiteral() const
-		{
-			return (KeyType == EKeyType::Reference) ? ReferenceData.TextLiteral : *PersistentData.TextLiteral;
 		}
 
 		FORCEINLINE const TCHAR* GetNamespace() const
@@ -75,8 +76,7 @@ private:
 		FORCEINLINE bool operator==(const FCacheKey& Other) const
 		{
 			return FCString::Strcmp(GetNamespace(), Other.GetNamespace()) == 0
-				&& FCString::Strcmp(GetKey(), Other.GetKey()) == 0
-				&& FCString::Strcmp(GetTextLiteral(), Other.GetTextLiteral()) == 0;
+				&& FCString::Strcmp(GetKey(), Other.GetKey()) == 0;
 		}
 
 		FORCEINLINE bool operator!=(const FCacheKey& Other) const
@@ -99,20 +99,17 @@ private:
 		struct FReferenceKeyData
 		{
 			FReferenceKeyData()
-				: TextLiteral(nullptr)
-				, Namespace(nullptr)
+				: Namespace(nullptr)
 				, Key(nullptr)
 			{
 			}
 
-			FReferenceKeyData(const TCHAR* InTextLiteral, const TCHAR* InNamespace, const TCHAR* InKey)
-				: TextLiteral(InTextLiteral)
-				, Namespace(InNamespace)
+			FReferenceKeyData(const TCHAR* InNamespace, const TCHAR* InKey)
+				: Namespace(InNamespace)
 				, Key(InKey)
 			{
 			}
 
-			const TCHAR* TextLiteral;
 			const TCHAR* Namespace;
 			const TCHAR* Key;
 		};
@@ -120,26 +117,23 @@ private:
 		struct FPersistentKeyData
 		{
 			FPersistentKeyData()
-				: TextLiteral()
-				, Namespace()
+				: Namespace()
 				, Key()
 			{
 			}
 
-			FPersistentKeyData(FString&& InTextLiteral, FString&& InNamespace, FString&& InKey)
-				: TextLiteral(MoveTemp(InTextLiteral))
-				, Namespace(MoveTemp(InNamespace))
+			FPersistentKeyData(FString&& InNamespace, FString&& InKey)
+				: Namespace(MoveTemp(InNamespace))
 				, Key(MoveTemp(InKey))
 			{
 			}
 
-			FString TextLiteral;
 			FString Namespace;
 			FString Key;
 		};
 
-		FCacheKey(const TCHAR* InTextLiteral, const TCHAR* InNamespace, const TCHAR* InKey)
-			: ReferenceData(InTextLiteral, InNamespace, InKey)
+		FCacheKey(const TCHAR* InNamespace, const TCHAR* InKey)
+			: ReferenceData(InNamespace, InKey)
 			, PersistentData()
 			, KeyType(EKeyType::Reference)
 			, KeyHash(0)
@@ -147,9 +141,9 @@ private:
 			HashKey();
 		}
 
-		FCacheKey(FString&& InTextLiteral, FString&& InNamespace, FString&& InKey)
+		FCacheKey(FString&& InNamespace, FString&& InKey)
 			: ReferenceData()
-			, PersistentData(MoveTemp(InTextLiteral), MoveTemp(InNamespace), MoveTemp(InKey))
+			, PersistentData(MoveTemp(InNamespace), MoveTemp(InKey))
 			, KeyType(EKeyType::Persistent)
 			, KeyHash(0)
 		{

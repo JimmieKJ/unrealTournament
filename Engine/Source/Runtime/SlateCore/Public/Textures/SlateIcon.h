@@ -2,9 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 struct FSlateBrush;
-
 
 /**
  * Struct used to represent an icon in Slate

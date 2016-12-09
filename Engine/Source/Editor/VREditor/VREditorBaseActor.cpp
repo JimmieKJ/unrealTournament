@@ -1,6 +1,5 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "VREditorModule.h"
 #include "VREditorBaseActor.h"
 #include "VREditorMode.h"
 #include "VREditorInteractor.h"
@@ -27,9 +26,9 @@ AVREditorBaseActor::AVREditorBaseActor()
 
 }
 
-void AVREditorBaseActor::SetVRMode( FVREditorMode* InOwner )
+void AVREditorBaseActor::SetVRMode( UVREditorMode* InVRMode )
 {
-	Owner = InOwner;
+	VRMode = InVRMode;
 }
 
 void AVREditorBaseActor::TickManually( float DeltaTime )
@@ -87,7 +86,7 @@ void AVREditorBaseActor::StopMoveTo()
 
 FTransform AVREditorBaseActor::MakeUITransformLockedToHand( UViewportInteractor* Interactor, const bool bOnArm, const FVector& InRelativeOffset, const FRotator& InLocalRotation )
 {
-	const float WorldScaleFactor = Owner->GetWorldScaleFactor();
+	const float WorldScaleFactor = VRMode->GetWorldScaleFactor();
 
 	FTransform UIToHandTransform( InLocalRotation, InRelativeOffset * WorldScaleFactor );
 	if ( !bOnArm )
@@ -111,22 +110,22 @@ void AVREditorBaseActor::UpdateTransformIfDocked()
 		if ( DockedTo == EDockedTo::LeftHand )
 		{
 			const bool bOnArm = false;
-			NewTransform = MakeUITransformLockedToHand( Owner->GetHandInteractor( EControllerHand::Left ), bOnArm );
+			NewTransform = MakeUITransformLockedToHand( VRMode->GetHandInteractor( EControllerHand::Left ), bOnArm );
 		}
 		else if ( DockedTo == EDockedTo::RightHand )
 		{
 			const bool bOnArm = false;
-			NewTransform = MakeUITransformLockedToHand( Owner->GetHandInteractor( EControllerHand::Right ), bOnArm );
+			NewTransform = MakeUITransformLockedToHand( VRMode->GetHandInteractor( EControllerHand::Right ), bOnArm );
 		}
 		else if ( DockedTo == EDockedTo::LeftArm )
 		{
 			const bool bOnArm = true;
-			NewTransform = MakeUITransformLockedToHand( Owner->GetHandInteractor( EControllerHand::Left ), bOnArm );
+			NewTransform = MakeUITransformLockedToHand( VRMode->GetHandInteractor( EControllerHand::Left ), bOnArm );
 		}
 		else if ( DockedTo == EDockedTo::RightArm )
 		{
 			const bool bOnArm = true;
-			NewTransform = MakeUITransformLockedToHand( Owner->GetHandInteractor( EControllerHand::Right ), bOnArm );
+			NewTransform = MakeUITransformLockedToHand( VRMode->GetHandInteractor( EControllerHand::Right ), bOnArm );
 		}
 		else if ( DockedTo == EDockedTo::Room )
 		{
@@ -152,11 +151,11 @@ FTransform AVREditorBaseActor::MakeUITransformLockedToHand( UViewportInteractor*
 
 FTransform AVREditorBaseActor::MakeUITransformLockedToRoom()
 {
-	const float WorldScaleFactor = Owner->GetWorldScaleFactor();
+	const float WorldScaleFactor = VRMode->GetWorldScaleFactor();
 
 	const FTransform UIToRoomTransform( LocalRotation, RelativeOffset * WorldScaleFactor );
 
-	const FTransform RoomToWorldTransform = Owner->GetRoomTransform();
+	const FTransform RoomToWorldTransform = VRMode->GetRoomTransform();
 
 	FTransform UIToWorldTransform = UIToRoomTransform * RoomToWorldTransform;
 	UIToWorldTransform.SetScale3D( FVector( Scale * WorldScaleFactor ) );
@@ -166,7 +165,7 @@ FTransform AVREditorBaseActor::MakeUITransformLockedToRoom()
 
 void AVREditorBaseActor::TickMoveTo( const float DeltaTime )
 {
-	const float WorldScaleFactor = Owner->GetWorldScaleFactor();
+	const float WorldScaleFactor = VRMode->GetWorldScaleFactor();
 
 	MoveToAlpha += DeltaTime;
 	const float LerpTime = MoveToTime;

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyDetailsUtilities.h"
+#include "UserInterface/PropertyDetails/PropertyDetailsUtilities.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
+#include "IDetailsViewPrivate.h"
 
 FPropertyDetailsUtilities::FPropertyDetailsUtilities(IDetailsViewPrivate& InDetailsView)
 	: DetailsView( InDetailsView )

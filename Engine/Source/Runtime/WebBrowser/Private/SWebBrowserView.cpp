@@ -1,26 +1,30 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WebBrowserPrivatePCH.h"
 #include "SWebBrowserView.h"
-#include "SThrobber.h"
+#include "Misc/CommandLine.h"
+#include "Containers/Ticker.h"
 #include "WebBrowserModule.h"
-#include "IWebBrowserSingleton.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "IWebBrowserDialog.h"
 #include "IWebBrowserWindow.h"
 #include "WebBrowserViewport.h"
 #include "IWebBrowserAdapter.h"
 
 #if PLATFORM_ANDROID
-#include "Android/AndroidPlatformWebBrowser.h"
+#	include "Android/AndroidWebBrowserWindow.h"
 #elif PLATFORM_IOS
-#include "IOS/IOSPlatformWebBrowser.h"
+#	include "IOS/IOSPlatformWebBrowser.h"
 #elif PLATFORM_PS4
-#include "PS4/PS4PlatformWebBrowser.h"
+#	include "PS4/PS4PlatformWebBrowser.h"
+#elif WITH_CEF3
+#	include "CEF/CEFWebBrowserWindow.h"
+#else
+#	define DUMMY_WEB_BROWSER 1
 #endif
 
 #define LOCTEXT_NAMESPACE "WebBrowser"
-
-
-
 
 SWebBrowserView::SWebBrowserView()
 {
@@ -65,9 +69,9 @@ SWebBrowserView::~SWebBrowserView()
 		SlateParentWindowSetupTickHandle.Reset();
 	}
 
-	if (SlateParentWindow.IsValid())
+	if (SlateParentWindowPtr.IsValid())
 	{
-		SlateParentWindow->GetOnWindowDeactivatedEvent().RemoveAll(this);
+		SlateParentWindowPtr.Pin()->GetOnWindowDeactivatedEvent().RemoveAll(this);
 	}
 }
 
@@ -104,27 +108,16 @@ void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebB
 			Settings.BackgroundColor = InArgs._BackgroundColor;
 			Settings.Context = InArgs._ContextSettings;
 
-			BrowserWindow = IWebBrowserModule::Get().GetSingleton()->CreateBrowserWindow(Settings);		
+			BrowserWindow = IWebBrowserModule::Get().GetSingleton()->CreateBrowserWindow(Settings);
 		}
 	}
 
-	SlateParentWindow = InArgs._ParentWindow;
-
-#if WITH_CEF3
-	ChildSlot
-	[
-		SAssignNew(BrowserWidget, SWebBrowserWidget)
-			.ViewportSize(InArgs._ViewportSize)
-			.EnableGammaCorrection(false)
-			.EnableBlending(InArgs._SupportsTransparency)
-			.IgnoreTextureAlpha(!InArgs._SupportsTransparency)
-	];
-#endif
+	SlateParentWindowPtr = InArgs._ParentWindow;
 
 	if (BrowserWindow.IsValid())
 	{
-#if PLATFORM_ANDROID || PLATFORM_IOS || PLATFORM_PS4
-		// The inner widget creation is handled by the WebBrowserWindow implementation on mobile.
+#ifndef DUMMY_WEB_BROWSER
+		// The inner widget creation is handled by the WebBrowserWindow implementation.
 		const auto& BrowserWidgetRef = static_cast<FWebBrowserWindow*>(BrowserWindow.Get())->CreateWidget();
 		ChildSlot
 		[
@@ -135,7 +128,7 @@ void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebB
 
 		if(OnCreateWindow.IsBound())
 		{
-			BrowserWindow->OnCreateWindow().BindSP(this, &SWebBrowserView::HandleCreateWindow);		
+			BrowserWindow->OnCreateWindow().BindSP(this, &SWebBrowserView::HandleCreateWindow);
 		}
 
 		if(OnCloseWindow.IsBound())
@@ -186,15 +179,17 @@ void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebB
 #endif
 		SetupParentWindowHandlers();
 		// If we could not obtain the parent window during widget construction, we'll defer and keep trying.
-		if (!SlateParentWindow.IsValid())
+		if (!SlateParentWindowPtr.IsValid())
 		{
 			SlateParentWindowSetupTickHandle = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([this](float) -> bool
 			{
 				this->SetupParentWindowHandlers();
-				bool ContinueTick = !SlateParentWindow.IsValid();
+				bool ContinueTick = !SlateParentWindowPtr.IsValid();
 				return ContinueTick;
 			}));
 		}
+
+		BrowserWindow->SetParentWindow(InArgs._ParentWindow);
 	}
 	else
 	{
@@ -207,6 +202,17 @@ void SWebBrowserView::HandleWindowDeactivated()
 	if (BrowserViewport.IsValid())
 	{
 		BrowserViewport->OnFocusLost(FFocusEvent());
+	}
+}
+
+void SWebBrowserView::HandleWindowActivated()
+{
+	if (BrowserViewport.IsValid())
+	{
+		if (HasAnyUserFocusOrFocusedDescendants())
+		{
+			BrowserViewport->OnFocusReceived(FFocusEvent());
+		}	
 	}
 }
 
@@ -332,14 +338,15 @@ bool SWebBrowserView::IsInitialized() const
 
 void SWebBrowserView::SetupParentWindowHandlers()
 {
-	if (!SlateParentWindow.IsValid())
+	if (!SlateParentWindowPtr.IsValid())
 	{
-		SlateParentWindow = FSlateApplication::Get().FindWidgetWindow(SharedThis(this));
+		SlateParentWindowPtr = FSlateApplication::Get().FindWidgetWindow(SharedThis(this));
 	}
 
-	if (SlateParentWindow.IsValid() && BrowserWindow.IsValid())
+	if (SlateParentWindowPtr.IsValid() && BrowserWindow.IsValid())
 	{
-		SlateParentWindow->GetOnWindowDeactivatedEvent().AddSP(this, &SWebBrowserView::HandleWindowDeactivated);
+		SlateParentWindowPtr.Pin()->GetOnWindowDeactivatedEvent().AddSP(this, &SWebBrowserView::HandleWindowDeactivated);
+		SlateParentWindowPtr.Pin()->GetOnWindowActivatedEvent().AddSP(this, &SWebBrowserView::HandleWindowActivated);
 	}
 }
 
@@ -457,6 +464,15 @@ void SWebBrowserView::ExecuteJavascript(const FString& ScriptText)
 	}
 }
 
+void SWebBrowserView::GetSource(TFunction<void (const FString&)> Callback) const
+{
+	if (BrowserWindow.IsValid())
+	{
+		BrowserWindow->GetSource(Callback);
+	}
+}
+
+
 bool SWebBrowserView::HandleCreateWindow(const TWeakPtr<IWebBrowserWindow>& NewBrowserWindow, const TWeakPtr<IWebBrowserPopupFeatures>& PopupFeatures)
 {
 	if(OnCreateWindow.IsBound())
@@ -555,4 +571,3 @@ void SWebBrowserView::HandleDismissPopup()
 
 
 #undef LOCTEXT_NAMESPACE
-

@@ -2,8 +2,15 @@
 
 #pragma once
 
-#include "MaterialTrackEditor.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "Templates/SubclassOf.h"
+#include "ISequencer.h"
+#include "MovieSceneTrack.h"
+#include "ISequencerTrackEditor.h"
+#include "TrackEditors/MaterialTrackEditor.h"
 
+class UMaterialInterface;
 class UMovieSceneMaterialTrack;
 
 /**

@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
 #include "SEditorViewportToolBarButton.h"
-#include "SViewportToolBar.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
 
 
 void SEditorViewportToolBarButton::Construct( const FArguments& Declaration )

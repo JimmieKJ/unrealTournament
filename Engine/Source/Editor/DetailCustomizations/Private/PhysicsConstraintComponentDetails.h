@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+enum class ECheckBoxState : uint8;
+
 /** 
  * Detail customizer for PhysicsConstraintComponent and PhysicsConstraintTemplate
  */

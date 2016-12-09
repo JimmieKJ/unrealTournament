@@ -3,6 +3,7 @@
 #pragma once
 
 #include "GenericWindow.h"
+#include "GenericApplication.h"
 #include <android/native_window.h> 
 #include <android/native_window_jni.h> 
 

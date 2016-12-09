@@ -6,8 +6,11 @@
 
 #pragma once
 
-#include "Shader.h"
+#include "CoreMinimal.h"
+#include "RHI.h"
+#include "RenderResource.h"
 #include "ShaderParameters.h"
+#include "Shader.h"
 #include "GlobalShader.h"
 #include "ShaderParameterUtils.h"
 

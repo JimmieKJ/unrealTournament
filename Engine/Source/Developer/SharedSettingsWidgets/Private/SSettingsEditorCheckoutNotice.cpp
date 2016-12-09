@@ -1,83 +1,170 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SharedSettingsWidgetsPrivatePCH.h"
-#include "EditorStyle.h"
 #include "SSettingsEditorCheckoutNotice.h"
+#include "Misc/Paths.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
-#include "SWidgetSwitcher.h"
-#include "SThrobber.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
+#include "Widgets/Images/SThrobber.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "SSettingsEditorCheckoutNotice"
 
 namespace SettingsHelpers
 {
-	bool CheckOutFile(const FString& InFileToCheckOut)
+	bool IsCheckedOut(const FString& InFileToCheckOut, bool bForceSourceControlUpdate)
+	{
+		if (ISourceControlModule::Get().IsEnabled())
+		{
+			ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+			FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(InFileToCheckOut, bForceSourceControlUpdate ? EStateCacheUsage::ForceUpdate : EStateCacheUsage::Use);
+
+			if (SourceControlState->IsCheckedOut() || SourceControlState->IsAdded())
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	bool IsSourceControlled(const FString& InFileToCheckOut, bool bForceSourceControlUpdate)
+	{
+		if (ISourceControlModule::Get().IsEnabled())
+		{
+			ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+			FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(InFileToCheckOut, bForceSourceControlUpdate ? EStateCacheUsage::ForceUpdate : EStateCacheUsage::Use);
+
+			if (SourceControlState->IsSourceControlled())
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	bool CheckOutOrAddFile(const FString& InFileToCheckOut, bool bForceSourceControlUpdate, bool ShowErrorInNotification, FText* OutErrorMessage)
 	{
 		FText ErrorMessage;
-		bool bSuccessfullyCheckedOutFile = false;
+		bool bSuccessfullyCheckedOutOrAddedFile = false;
 		if(ISourceControlModule::Get().IsEnabled())
 		{
 			ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
-			FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(InFileToCheckOut, EStateCacheUsage::Use);
+			FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(InFileToCheckOut, bForceSourceControlUpdate ? EStateCacheUsage::ForceUpdate : EStateCacheUsage::Use);
 
 			TArray<FString> FilesToBeCheckedOut;
 			FilesToBeCheckedOut.Add(InFileToCheckOut);
 
 			if(SourceControlState.IsValid())
 			{
-				if(SourceControlState->IsDeleted())
+				if (SourceControlState->IsSourceControlled())
 				{
-					ErrorMessage = LOCTEXT("ConfigFileMarkedForDeleteError", "Error: The configuration file is marked for deletion.");
-				}
-				// Note: Here we attempt to check out files that are read only even if the internal state says they cannot be checked out.  This is to work around cases were the file is reverted or checked in and the internal state has not been updated yet
-				else if(SourceControlState->CanCheckout() || SourceControlState->IsCheckedOutOther() || FPlatformFileManager::Get().GetPlatformFile().IsReadOnly(*InFileToCheckOut))
-				{
-					ECommandResult::Type CommandResult = SourceControlProvider.Execute(ISourceControlOperation::Create<FCheckOut>(), FilesToBeCheckedOut);
-					if(CommandResult == ECommandResult::Failed)
+					if (SourceControlState->IsDeleted())
 					{
-						ErrorMessage = LOCTEXT("FailedToCheckOutConfigFileError", "Error: Failed to check out the configuration file.");
+						ErrorMessage = LOCTEXT("ConfigFileMarkedForDeleteError", "Error: The configuration file is marked for deletion.");
 					}
-					else if(CommandResult == ECommandResult::Cancelled)
+					// Note: Here we attempt to check out files that are read only even if the internal state says they cannot be checked out.  This is to work around cases were the file is reverted or checked in and the internal state has not been updated yet
+					else if (SourceControlState->CanCheckout() || SourceControlState->IsCheckedOutOther() || FPlatformFileManager::Get().GetPlatformFile().IsReadOnly(*InFileToCheckOut))
 					{
-						ErrorMessage = LOCTEXT("CancelledCheckOutConfigFile", "Checkout was cancelled.  File will be marked writable.");
+						ECommandResult::Type CommandResult = SourceControlProvider.Execute(ISourceControlOperation::Create<FCheckOut>(), FilesToBeCheckedOut);
+						if (CommandResult == ECommandResult::Failed)
+						{
+							ErrorMessage = LOCTEXT("FailedToCheckOutConfigFileError", "Error: Failed to check out the configuration file.");
+						}
+						else if (CommandResult == ECommandResult::Cancelled)
+						{
+							ErrorMessage = LOCTEXT("CancelledCheckOutConfigFile", "Checkout was cancelled.  File will be marked writable.");
+						}
+						else
+						{
+							bSuccessfullyCheckedOutOrAddedFile = true;
+						}
+					}
+				}
+				else if (!SourceControlState->IsUnknown()) // most likely not source controled, so we'll try add it.
+				{	
+					if (!FPlatformFileManager::Get().GetPlatformFile().FileExists(*InFileToCheckOut))
+					{
+						// Hasn't been created yet
+						return true;
+					}
+
+					ECommandResult::Type CommandResult = SourceControlProvider.Execute(ISourceControlOperation::Create<FMarkForAdd>(), FilesToBeCheckedOut);
+
+					if (CommandResult == ECommandResult::Failed)
+					{
+						ErrorMessage = LOCTEXT("FailedToAddConfigFileError", "Error: Failed to add the configuration file.");
+					}
+					else if (CommandResult == ECommandResult::Cancelled)
+					{
+						ErrorMessage = LOCTEXT("CancelledAddConfigFile", "Add was cancelled.  File will be marked writable.");
 					}
 					else
 					{
-						bSuccessfullyCheckedOutFile = true;
+						bSuccessfullyCheckedOutOrAddedFile = true;
 					}
-				}
+				}				
+			}
+		}
+
+		if (!ErrorMessage.IsEmpty())
+		{
+			if (OutErrorMessage != nullptr)
+			{
+				*OutErrorMessage = ErrorMessage;
 			}
 
-			if(!ErrorMessage.IsEmpty())
+			if (ShowErrorInNotification)
 			{
 				// Show a notification that the file could not be checked out
 				FNotificationInfo CheckOutError(ErrorMessage);
 				CheckOutError.ExpireDuration = 3.0f;
 				FSlateNotificationManager::Get().AddNotification(CheckOutError);
 			}
-
 		}
 
-
-		return bSuccessfullyCheckedOutFile;
+		return bSuccessfullyCheckedOutOrAddedFile;
 	}
 
-	bool MakeWritable(const FString& InFileToMakeWritable)
+	bool MakeWritable(const FString& InFileToMakeWritable, bool ShowErrorInNotification, FText* OutErrorMessage)
 	{
+		if (!FPlatformFileManager::Get().GetPlatformFile().FileExists(*InFileToMakeWritable))
+		{
+			return true;
+		}
+
 		bool bSuccess = FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*InFileToMakeWritable, false);
 		if(!bSuccess)
 		{
-			FText NotificationErrorText = FText::Format(LOCTEXT("FailedToMakeWritable", "Could not make {0} writable."), FText::FromString(InFileToMakeWritable));
+			FText ErrorMessage = FText::Format(LOCTEXT("FailedToMakeWritable", "Could not make {0} writable."), FText::FromString(InFileToMakeWritable));;
 
-			FNotificationInfo MakeWritiableNotification(NotificationErrorText);
-			MakeWritiableNotification.ExpireDuration = 3.0f;
+			if (OutErrorMessage != nullptr)
+			{
+				*OutErrorMessage = ErrorMessage;
+			}
 
-			FSlateNotificationManager::Get().AddNotification(MakeWritiableNotification);
+			if (ShowErrorInNotification)
+			{
+				FNotificationInfo MakeWritiableNotification(ErrorMessage);
+				MakeWritiableNotification.ExpireDuration = 3.0f;
+
+				FSlateNotificationManager::Get().AddNotification(MakeWritiableNotification);
+			}
 		}
-		return bSuccess;
 
+		return bSuccess;
 	}
 }
 /* SSettingsEditorCheckoutNotice interface
@@ -193,14 +280,17 @@ FReply SSettingsEditorCheckoutNotice::HandleCheckOutButtonClicked()
 {
 	FString TargetFilePath = ConfigFilePath.Get();
 
-	FText ErrorMessage;
-	if(!SettingsHelpers::CheckOutFile(TargetFilePath))
+	bool bSuccess = SettingsHelpers::CheckOutOrAddFile(TargetFilePath);
+	if (!bSuccess)
 	{
-		FNotificationInfo Info(ErrorMessage);
-		Info.ExpireDuration = 3.0f;
-		FSlateNotificationManager::Get().AddNotification(Info);
+		bSuccess = SettingsHelpers::MakeWritable(TargetFilePath);
 	}
 		
+	if (bSuccess)
+	{
+		DefaultConfigCheckOutNeeded = false;
+	}
+
 	return FReply::Handled();
 }
 

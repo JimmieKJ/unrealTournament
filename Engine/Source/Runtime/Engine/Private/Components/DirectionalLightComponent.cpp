@@ -4,9 +4,14 @@
 	DirectionalLightComponent.cpp: DirectionalLightComponent implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "Engine/DirectionalLight.h"
 #include "Components/DirectionalLightComponent.h"
+#include "UObject/ConstructorHelpers.h"
+#include "RenderingThread.h"
+#include "ConvexVolume.h"
+#include "SceneInterface.h"
+#include "Engine/Texture2D.h"
+#include "SceneManagement.h"
+#include "Engine/DirectionalLight.h"
 
 static float GMaxCSMRadiusToAllowPerObjectShadows = 8000;
 static FAutoConsoleVariableRef CVarMaxCSMRadiusToAllowPerObjectShadows(
@@ -536,8 +541,8 @@ private:
 
 	virtual FSphere GetShadowSplitBoundsDepthRange(const FSceneView& View, FVector ViewOrigin, float SplitNear, float SplitFar, FShadowCascadeSettings* OutCascadeSettings) const override
 	{
-		const FMatrix ViewMatrix = View.ShadowViewMatrices.ViewMatrix;
-		const FMatrix ProjectionMatrix = View.ShadowViewMatrices.ProjMatrix;
+		const FMatrix& ViewMatrix = View.ShadowViewMatrices.GetViewMatrix();
+		const FMatrix& ProjectionMatrix = View.ShadowViewMatrices.GetProjectionMatrix();
 
 		const FVector CameraDirection = ViewMatrix.GetColumn(2);
 		const FVector LightDirection = -GetDirection();
@@ -660,7 +665,7 @@ private:
 			OutCascadeSettings->FadePlaneLength = SplitFar - FadePlane;
 		}
 
-		const FSphere CascadeSphere = FDirectionalLightSceneProxy::GetShadowSplitBoundsDepthRange(View, View.ViewMatrices.ViewOrigin, SplitNear, SplitFar, OutCascadeSettings);
+		const FSphere CascadeSphere = FDirectionalLightSceneProxy::GetShadowSplitBoundsDepthRange(View, View.ViewMatrices.GetViewOrigin(), SplitNear, SplitFar, OutCascadeSettings);
 
 		return CascadeSphere;
 	}

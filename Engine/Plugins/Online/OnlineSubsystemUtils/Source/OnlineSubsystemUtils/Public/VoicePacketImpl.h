@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "VoiceDataCommon.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
+#include "Net/VoiceDataCommon.h"
 #include "OnlineSubsystemUtilsPackage.h"
-
-class FUniqueNetId;
 
 #define DEBUG_VOICE_PACKET_ENCODING 0
 

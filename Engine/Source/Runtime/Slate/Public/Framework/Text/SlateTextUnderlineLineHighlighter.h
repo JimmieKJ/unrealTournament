@@ -1,6 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Styling/SlateColor.h"
+#include "Styling/SlateBrush.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Framework/Text/TextLayout.h"
+#include "Framework/Text/ISlateLineHighlighter.h"
+
+class FPaintArgs;
+class FSlateRect;
+class FSlateWindowElementList;
+struct FGeometry;
+struct FTextBlockStyle;
+
 /** Run highlighter used to draw underlines */
 class SLATE_API FSlateTextUnderlineLineHighlighter : public ISlateLineHighlighter
 {

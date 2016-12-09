@@ -2,6 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Templates/SubclassOf.h"
+#include "Components/ActorComponent.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STableRow.h"
+
+class FComponentClassComboEntry;
+class SToolTip;
+
 typedef TSharedPtr<class FComponentClassComboEntry> FComponentClassComboEntryPtr;
 
 //////////////////////////////////////////////////////////////////////////

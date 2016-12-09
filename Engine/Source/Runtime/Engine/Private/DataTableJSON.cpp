@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "DataTableJSON.h"
-#include "Json.h"
+#include "UObject/UnrealType.h"
+#include "UObject/EnumProperty.h"
+#include "DataTableUtils.h"
 #include "Engine/DataTable.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 #include "Engine/UserDefinedStruct.h"
 
 #if WITH_EDITOR
@@ -131,7 +134,12 @@ bool FDataTableExporterJSON::WriteStructEntry(const void* InRowData, const UProp
 {
 	const FString Identifier = DataTableUtils::GetPropertyExportName(InProperty, DTExportFlags);
 
-	if (const UNumericProperty *NumProp = Cast<const UNumericProperty>(InProperty))
+	if (const UEnumProperty* EnumProp = Cast<const UEnumProperty>(InProperty))
+	{
+		const FString PropertyValue = DataTableUtils::GetPropertyValueAsString(EnumProp, (uint8*)InRowData, DTExportFlags);
+		JsonWriter->WriteValue(Identifier, PropertyValue);
+	}
+	else if (const UNumericProperty *NumProp = Cast<const UNumericProperty>(InProperty))
 	{
 		if (NumProp->IsEnum())
 		{
@@ -192,7 +200,12 @@ bool FDataTableExporterJSON::WriteStructEntry(const void* InRowData, const UProp
 
 bool FDataTableExporterJSON::WriteArrayEntry(const UProperty* InProperty, const void* InPropertyData)
 {
-	if (const UNumericProperty *NumProp = Cast<const UNumericProperty>(InProperty))
+	if (const UEnumProperty* EnumProp = Cast<const UEnumProperty>(InProperty))
+	{
+		const FString PropertyValue = DataTableUtils::GetPropertyValueAsString(InProperty, (uint8*)InPropertyData, DTExportFlags);
+		JsonWriter->WriteValue(PropertyValue);
+	}
+	else if (const UNumericProperty *NumProp = Cast<const UNumericProperty>(InProperty))
 	{
 		if (NumProp->IsEnum())
 		{
@@ -322,7 +335,7 @@ bool FDataTableImporterJSON::ReadRow(const TSharedRef<FJsonObject>& InParsedTabl
 	}
 
 	// Allocate data to store information, using UScriptStruct to know its size
-	uint8* RowData = (uint8*)FMemory::Malloc(DataTable->RowStruct->PropertiesSize);
+	uint8* RowData = (uint8*)FMemory::Malloc(DataTable->RowStruct->GetStructureSize());
 	DataTable->RowStruct->InitializeStruct(RowData);
 	// And be sure to call DestroyScriptStruct later
 
@@ -403,7 +416,31 @@ bool FDataTableImporterJSON::ReadStructEntry(const TSharedRef<FJsonValue>& InPar
 {
 	const TCHAR* const ParsedPropertyType = JSONTypeToString(InParsedPropertyValue->Type);
 
-	if (UNumericProperty *NumProp = Cast<UNumericProperty>(InProperty))
+	if (UEnumProperty* EnumProp = Cast<UEnumProperty>(InProperty))
+	{
+		FString EnumValue;
+		if (InParsedPropertyValue->TryGetString(EnumValue))
+		{
+			FString Error = DataTableUtils::AssignStringToProperty(EnumValue, InProperty, (uint8*)InRowData);
+			if (!Error.IsEmpty())
+			{
+				ImportProblems.Add(FString::Printf(TEXT("Property '%s' on row '%s' has invalid enum value: %s."), *InColumnName, *InRowName.ToString(), *EnumValue));
+				return false;
+			}
+		}
+		else
+		{
+			int64 PropertyValue = 0;
+			if (!InParsedPropertyValue->TryGetNumber(PropertyValue))
+			{
+				ImportProblems.Add(FString::Printf(TEXT("Property '%s' on row '%s' is the incorrect type. Expected Integer, got %s."), *InColumnName, *InRowName.ToString(), ParsedPropertyType));
+				return false;
+			}
+
+			EnumProp->GetUnderlyingProperty()->SetIntPropertyValue(InPropertyData, PropertyValue);
+		}
+	}
+	else if (UNumericProperty *NumProp = Cast<UNumericProperty>(InProperty))
 	{
 		FString EnumValue;
 		if (NumProp->IsEnum() && InParsedPropertyValue->TryGetString(EnumValue))
@@ -518,7 +555,31 @@ bool FDataTableImporterJSON::ReadArrayEntry(const TSharedRef<FJsonValue>& InPars
 {
 	const TCHAR* const ParsedPropertyType = JSONTypeToString(InParsedPropertyValue->Type);
 
-	if (UNumericProperty *NumProp = Cast<UNumericProperty>(InProperty))
+	if (UEnumProperty* EnumProp = Cast<UEnumProperty>(InProperty))
+	{
+		FString EnumValue;
+		if (InParsedPropertyValue->TryGetString(EnumValue))
+		{
+			FString Error = DataTableUtils::AssignStringToProperty(EnumValue, InProperty, (uint8*)InPropertyData);
+			if (!Error.IsEmpty())
+			{
+				ImportProblems.Add(FString::Printf(TEXT("Entry %d on property '%s' on row '%s' has invalid enum value: %s."), InArrayEntryIndex, *InColumnName, *InRowName.ToString(), *EnumValue));
+				return false;
+			}
+		}
+		else
+		{
+			int64 PropertyValue = 0;
+			if (!InParsedPropertyValue->TryGetNumber(PropertyValue))
+			{
+				ImportProblems.Add(FString::Printf(TEXT("Entry %d on property '%s' on row '%s' is the incorrect type. Expected Integer, got %s."), InArrayEntryIndex, *InColumnName, *InRowName.ToString(), ParsedPropertyType));
+				return false;
+			}
+
+			EnumProp->GetUnderlyingProperty()->SetIntPropertyValue(InPropertyData, PropertyValue);
+		}
+	}
+	else if (UNumericProperty *NumProp = Cast<UNumericProperty>(InProperty))
 	{
 		FString EnumValue;
 		if (NumProp->IsEnum() && InParsedPropertyValue->TryGetString(EnumValue))

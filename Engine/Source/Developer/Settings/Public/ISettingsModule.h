@@ -2,16 +2,13 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
-
-// forward declarations
 class ISettingsContainer;
 class ISettingsSection;
 class ISettingsViewer;
 class SWidget;
-class UObject;
-
 
 /**
  * Interface for settings UI modules.

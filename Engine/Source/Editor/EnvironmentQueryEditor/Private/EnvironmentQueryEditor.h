@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Toolkits/IToolkitHost.h"
 #include "IEnvironmentQueryEditor.h"
-#include "Toolkits/AssetEditorToolkit.h"
 #include "AIGraphEditor.h"
+
+class IDetailsView;
+class UEdGraph;
+class UEnvQuery;
 
 class FEnvironmentQueryEditor : public IEnvironmentQueryEditor, public FAIGraphEditor
 {

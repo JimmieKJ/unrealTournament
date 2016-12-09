@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObject.h"
+#include "SwarmInterface.h"
 
 #if PLATFORM_WINDOWS
+
+#include "WindowsHWrapper.h"
 
 // To avoid compile problems with C++/CLI in VS11
 #pragma warning(disable:4538)
@@ -33,7 +35,6 @@ EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 
 #endif // PLATFORM_WINDOWS
 
-#include "SwarmInterface.h"
 
 namespace NSwarm
 {

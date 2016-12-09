@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "Core.h"
-#include "SlateCore.h"
+#include "CoreMinimal.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Widgets/SWidget.h"
 #include "SlateFwd.h"
 
 class FMapPakDownloader

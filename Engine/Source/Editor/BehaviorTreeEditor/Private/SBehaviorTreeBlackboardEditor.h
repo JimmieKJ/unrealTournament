@@ -2,9 +2,16 @@
 
 #pragma once
 
-#include "SGraphPalette.h"
-#include "EdGraph/EdGraphSchema.h"
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
 #include "SBehaviorTreeBlackboardView.h"
+
+class FExtender;
+class FMenuBuilder;
+class FToolBarBuilder;
+class FUICommandList;
+class UBlackboardData;
 
 /** Delegate used to determine whether the Blackboard mode is active */
 DECLARE_DELEGATE_RetVal(bool, FOnIsBlackboardModeActive);

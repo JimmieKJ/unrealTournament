@@ -6,7 +6,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/DeveloperSettings.h"
 #include "CookerSettings.generated.h"
+
+struct FPropertyChangedEvent;
 
 /**
  * Various cooker settings.
@@ -15,6 +20,9 @@ UCLASS(config=Engine, defaultconfig, meta=(DisplayName="Cooker"))
 class UNREALED_API UCookerSettings : public UDeveloperSettings
 {
 	GENERATED_UCLASS_BODY()
+
+	virtual void PostInitProperties() override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
 public:
 
@@ -35,6 +43,14 @@ public:
 	/** Whether or not to cook Blueprint Component data for faster instancing at runtime. This assumes that the Component templates do not get modified at runtime. */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, AdvancedDisplay, meta = (DisplayName = "Cook Blueprint Component data for faster instancing at runtime"))
 	bool bCookBlueprintComponentTemplateData;
+
+	/** List of class names to exclude when cooking for dedicated server */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, AdvancedDisplay, meta = (DisplayName = "Classes excluded when cooking for dedicated server"))
+	TArray<FString> ClassesExcludedOnDedicatedServer;
+
+	/** List of class names to exclude when cooking for dedicated client */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, AdvancedDisplay, meta = (DisplayName = "Classes excluded when cooking for dedicated client"))
+	TArray<FString> ClassesExcludedOnDedicatedClient;
 
 	/** Quality of 0 means fastest, 4 means best quality */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Textures, meta = (DisplayName = "PVRTC Compression Quality (0-4, 0 is fastest)"))

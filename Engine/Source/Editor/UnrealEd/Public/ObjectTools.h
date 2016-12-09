@@ -7,9 +7,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Serialization/ArchiveUObject.h"
+#include "AssetData.h"
+#include "UObject/GCObject.h"
 #include "CollectionManagerTypes.h"
 
+class FTextureRenderTargetResource;
+class SWindow;
 class UExporter;
+class UFactory;
+class USoundWave;
 
 namespace ObjectTools
 {
@@ -143,10 +152,11 @@ namespace ObjectTools
 	 *
 	 * @param	Object									The objects to delete.
 	 * @param	PGN										The new package, group, and name of the object.
-	 * @param	InOutPackagesUserRefusedToFullyLoad		A set of packages the user opted out of fully loading. This is used internally to prevent asking multiple times.
+	 * @param	InOutPackagesUserRefusedToFullyLoad		A set of packages the user opted out of fully loading. This is used internally to prevent asking multiple times.\
+	 * @param	bPromptToOverwrite						If true the user will be prompted to overwrite if duplicating to an existing object.  If false, the duplication will always happen
 	 * @retun	The duplicated object or NULL if a failure occurred.
 	 */
-	UNREALED_API UObject* DuplicateSingleObject(UObject* Object, const FPackageGroupName& PGN, TSet<UPackage*>& InOutPackagesUserRefusedToFullyLoad);
+	UNREALED_API UObject* DuplicateSingleObject(UObject* Object, const FPackageGroupName& PGN, TSet<UPackage*>& InOutPackagesUserRefusedToFullyLoad, bool bPromptToOverwrite = true);
 	
 	/** Helper struct to detail the results of a consolidation operation */
 	struct UNREALED_API FConsolidationResults : public FGCObject
@@ -154,18 +164,9 @@ namespace ObjectTools
 		/** FGCObject interface; Serialize any object references */
 		virtual void AddReferencedObjects( FReferenceCollector& Collector ) override
 		{
-			for( int32 Index = 0; Index < DirtiedPackages.Num(); Index++ )
-			{
-				Collector.AddReferencedObject( DirtiedPackages[ Index ] );
-			}
-			for( int32 Index = 0; Index < InvalidConsolidationObjs.Num(); Index++ )
-			{
-				Collector.AddReferencedObject( InvalidConsolidationObjs[ Index ] );
-			}
-			for( int32 Index = 0; Index < FailedConsolidationObjs.Num(); Index++ )
-			{
-				Collector.AddReferencedObject( FailedConsolidationObjs[ Index ] );
-			}
+			Collector.AddReferencedObjects( DirtiedPackages );
+			Collector.AddReferencedObjects( InvalidConsolidationObjs );
+			Collector.AddReferencedObjects( FailedConsolidationObjs );
 		}
 
 		/** Packages dirtied by a consolidation operation */

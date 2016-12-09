@@ -4,14 +4,44 @@
 	TranslucentLighting.cpp: Translucent lighting implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "HAL/IConsoleManager.h"
+#include "EngineDefines.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "HitProxies.h"
+#include "FinalPostProcessSettings.h"
+#include "ShaderParameters.h"
+#include "RendererInterface.h"
+#include "PrimitiveViewRelevance.h"
+#include "Shader.h"
+#include "StaticBoundShaderState.h"
+#include "SceneUtils.h"
+#include "RHIStaticStates.h"
+#include "SceneManagement.h"
+#include "Engine/MapBuildDataRegistry.h"
+#include "Components/LightComponent.h"
+#include "Materials/Material.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "LightSceneInfo.h"
+#include "GlobalShader.h"
+#include "MaterialShaderType.h"
+#include "MaterialShader.h"
+#include "MeshMaterialShaderType.h"
+#include "DrawingPolicy.h"
+#include "MeshMaterialShader.h"
+#include "ShadowRendering.h"
+#include "SceneRendering.h"
+#include "DeferredShadingRenderer.h"
+#include "TranslucentRendering.h"
+#include "ClearQuad.h"
 #include "ScenePrivate.h"
 #include "OneColorShader.h"
 #include "LightRendering.h"
-#include "SceneFilterRendering.h"
 #include "ScreenRendering.h"
 #include "AmbientCubemapParameters.h"
-#include "SceneUtils.h"
+#include "VolumeRendering.h"
 
 class FMaterial;
 
@@ -90,36 +120,38 @@ void FViewInfo::CalcTranslucencyLightingVolumeBounds(FBox* InOutCascadeBoundsArr
 		if (IsPerspectiveProjection())
 		{
 			// Derive FOV and aspect ratio from the perspective projection matrix
-			FOV = FMath::Atan(1.0f / ShadowViewMatrices.ProjMatrix.M[0][0]);
+			FOV = FMath::Atan(1.0f / ShadowViewMatrices.GetProjectionMatrix().M[0][0]);
 			// Clamp to prevent shimmering when zooming in
 			FOV = FMath::Max(FOV, GTranslucentVolumeMinFOV * (float)PI / 180.0f);
 			const float RoundFactorRadians = GTranslucentVolumeFOVSnapFactor * (float)PI / 180.0f;
 			// Round up to a fixed factor
 			// This causes the volume lighting to make discreet jumps as the FOV animates, instead of slowly crawling over a long period
 			FOV = FOV + RoundFactorRadians - FMath::Fmod(FOV, RoundFactorRadians);
-			AspectRatio = ShadowViewMatrices.ProjMatrix.M[1][1] / ShadowViewMatrices.ProjMatrix.M[0][0];
+			AspectRatio = ShadowViewMatrices.GetProjectionMatrix().M[1][1] / ShadowViewMatrices.GetProjectionMatrix().M[0][0];
 		}
 
 		const float StartHorizontalLength = FrustumStartDistance * FMath::Tan(FOV);
-		const FVector StartCameraRightOffset = ShadowViewMatrices.ViewMatrix.GetColumn(0) * StartHorizontalLength;
+		const FVector StartCameraRightOffset = ShadowViewMatrices.GetViewMatrix().GetColumn(0) * StartHorizontalLength;
 		const float StartVerticalLength = StartHorizontalLength / AspectRatio;
-		const FVector StartCameraUpOffset = ShadowViewMatrices.ViewMatrix.GetColumn(1) * StartVerticalLength;
+		const FVector StartCameraUpOffset = ShadowViewMatrices.GetViewMatrix().GetColumn(1) * StartVerticalLength;
 
 		const float EndHorizontalLength = FrustumEndDistance * FMath::Tan(FOV);
-		const FVector EndCameraRightOffset = ShadowViewMatrices.ViewMatrix.GetColumn(0) * EndHorizontalLength;
+		const FVector EndCameraRightOffset = ShadowViewMatrices.GetViewMatrix().GetColumn(0) * EndHorizontalLength;
 		const float EndVerticalLength = EndHorizontalLength / AspectRatio;
-		const FVector EndCameraUpOffset = ShadowViewMatrices.ViewMatrix.GetColumn(1) * EndVerticalLength;
+		const FVector EndCameraUpOffset = ShadowViewMatrices.GetViewMatrix().GetColumn(1) * EndVerticalLength;
 
 		FVector SplitVertices[8];
-		SplitVertices[0] = ShadowViewMatrices.ViewOrigin + GetViewDirection() * FrustumStartDistance + StartCameraRightOffset + StartCameraUpOffset;
-		SplitVertices[1] = ShadowViewMatrices.ViewOrigin + GetViewDirection() * FrustumStartDistance + StartCameraRightOffset - StartCameraUpOffset;
-		SplitVertices[2] = ShadowViewMatrices.ViewOrigin + GetViewDirection() * FrustumStartDistance - StartCameraRightOffset + StartCameraUpOffset;
-		SplitVertices[3] = ShadowViewMatrices.ViewOrigin + GetViewDirection() * FrustumStartDistance - StartCameraRightOffset - StartCameraUpOffset;
+		const FVector ShadowViewOrigin = ShadowViewMatrices.GetViewOrigin();
 
-		SplitVertices[4] = ShadowViewMatrices.ViewOrigin + GetViewDirection() * FrustumEndDistance + EndCameraRightOffset + EndCameraUpOffset;
-		SplitVertices[5] = ShadowViewMatrices.ViewOrigin + GetViewDirection() * FrustumEndDistance + EndCameraRightOffset - EndCameraUpOffset;
-		SplitVertices[6] = ShadowViewMatrices.ViewOrigin + GetViewDirection() * FrustumEndDistance - EndCameraRightOffset + EndCameraUpOffset;
-		SplitVertices[7] = ShadowViewMatrices.ViewOrigin + GetViewDirection() * FrustumEndDistance - EndCameraRightOffset - EndCameraUpOffset;
+		SplitVertices[0] = ShadowViewOrigin + GetViewDirection() * FrustumStartDistance + StartCameraRightOffset + StartCameraUpOffset;
+		SplitVertices[1] = ShadowViewOrigin + GetViewDirection() * FrustumStartDistance + StartCameraRightOffset - StartCameraUpOffset;
+		SplitVertices[2] = ShadowViewOrigin + GetViewDirection() * FrustumStartDistance - StartCameraRightOffset + StartCameraUpOffset;
+		SplitVertices[3] = ShadowViewOrigin + GetViewDirection() * FrustumStartDistance - StartCameraRightOffset - StartCameraUpOffset;
+
+		SplitVertices[4] = ShadowViewOrigin + GetViewDirection() * FrustumEndDistance + EndCameraRightOffset + EndCameraUpOffset;
+		SplitVertices[5] = ShadowViewOrigin + GetViewDirection() * FrustumEndDistance + EndCameraRightOffset - EndCameraUpOffset;
+		SplitVertices[6] = ShadowViewOrigin + GetViewDirection() * FrustumEndDistance - EndCameraRightOffset + EndCameraUpOffset;
+		SplitVertices[7] = ShadowViewOrigin + GetViewDirection() * FrustumEndDistance - EndCameraRightOffset - EndCameraUpOffset;
 
 		FVector Center(0,0,0);
 		// Weight the far vertices more so that the bounding sphere will be further from the camera
@@ -186,7 +218,7 @@ public:
 		ShadowParameters.SetVertexShader(RHICmdList, this, View, ShadowInfo, MaterialRenderProxy);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
@@ -270,7 +302,7 @@ public:
 		TranslucencyProjectionParameters.Set(RHICmdList, this, ShadowInfo);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FMeshDrawingRenderState& DrawRenderState)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
 	{
 		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
 	}
@@ -333,9 +365,10 @@ public:
 		const FVertexFactory* InVertexFactory,
 		const FMaterialRenderProxy* InMaterialRenderProxy,
 		const FMaterial& InMaterialResource,
+		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
 		bool bInDirectionalLight
 		):
-		FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource)
+		FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource,InOverrideSettings)
 	{
 		const bool bUsePerspectiveCorrectShadowDepths = !bInDirectionalLight;
 
@@ -351,10 +384,10 @@ public:
 		}
 	}
 
-	void SetSharedState(FRHICommandList& RHICmdList, const FSceneView* View, const ContextDataType PolicyContext) const
+	void SetSharedState(FRHICommandList& RHICmdList, const FSceneView* View, const ContextDataType PolicyContext, FDrawingPolicyRenderState& DrawRenderState) const
 	{
 		// Set the shared mesh resources.
-		FMeshDrawingPolicy::SetSharedState(RHICmdList, View, PolicyContext);
+		FMeshDrawingPolicy::SetSharedState(RHICmdList, View, PolicyContext, DrawRenderState);
 
 		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, PolicyContext.ShadowInfo);
 		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *View, PolicyContext.ShadowInfo);
@@ -382,8 +415,7 @@ public:
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
-		bool bBackFace,
-		const FMeshDrawingRenderState& DrawRenderState,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const
@@ -392,7 +424,7 @@ public:
 		VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
 		PixelShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
 
-		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,DrawRenderState,ElementData,PolicyContext);
+		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,DrawRenderState,ElementData,PolicyContext);
 	}
 
 private:
@@ -421,8 +453,8 @@ public:
 		const FSceneView& View,
 		ContextType DrawingContext,
 		const FMeshBatch& Mesh,
-		bool bBackFace,
 		bool bPreFog,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId
 		)
@@ -438,17 +470,19 @@ public:
 			// Only render translucent meshes into the Fourier opacity maps
 			if (IsTranslucentBlendMode(BlendMode))
 			{
-				FTranslucencyShadowDepthDrawingPolicy DrawingPolicy(Mesh.VertexFactory, MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(FeatureLevel), DrawingContext.bDirectionalLight);
+				FTranslucencyShadowDepthDrawingPolicy DrawingPolicy(Mesh.VertexFactory, MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(FeatureLevel), ComputeMeshOverrideSettings(Mesh), DrawingContext.bDirectionalLight);
 				RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
-				DrawingPolicy.SetSharedState(RHICmdList, &View, FTranslucencyShadowDepthDrawingPolicy::ContextDataType(DrawingContext.ShadowInfo));
-				const FMeshDrawingRenderState DrawRenderState(Mesh.DitheredLODTransitionAlpha);
+
+				FDrawingPolicyRenderState DrawRenderStateLocal(&RHICmdList, DrawRenderState);
+				DrawRenderStateLocal.SetDitheredLODTransitionAlpha(Mesh.DitheredLODTransitionAlpha);
+				DrawingPolicy.SetSharedState(RHICmdList, &View, FTranslucencyShadowDepthDrawingPolicy::ContextDataType(DrawingContext.ShadowInfo), DrawRenderStateLocal);
 
 				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 				{
 					TDrawEvent<FRHICommandList> MeshEvent;
 					BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent);
 
-					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,DrawRenderState,
+					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,DrawRenderStateLocal,
 						FTranslucencyShadowDepthDrawingPolicy::ElementDataType(),
 						FTranslucencyShadowDepthDrawingPolicy::ContextDataType(DrawingContext.ShadowInfo)
 						);
@@ -467,6 +501,7 @@ public:
 		ContextType DrawingContext,
 		const FStaticMesh& StaticMesh,
 		bool bPreFog,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId
 		)
@@ -478,8 +513,8 @@ public:
 			View,
 			DrawingContext,
 			StaticMesh,
-			false,
 			bPreFog,
+			DrawRenderState,
 			PrimitiveSceneProxy,
 			HitProxyId
 			);
@@ -494,6 +529,7 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 	checkSlow(!bWholeSceneShadow);
 	SCOPE_CYCLE_COUNTER(STAT_RenderPerObjectShadowDepthsTime);
 
+	FDrawingPolicyRenderState DrawRenderState(&RHICmdList, *ShadowDepthView);
 	{
 #if WANTS_DRAW_MESH_EVENTS
 		FString EventName;
@@ -523,8 +559,8 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 			1.0f
 			);
 
-		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-		RHICmdList.SetBlendState(TStaticBlendState<
+		DrawRenderState.SetDepthStencilState(RHICmdList, TStaticDepthStencilState<false, CF_Always>::GetRHI());
+		DrawRenderState.SetBlendState(RHICmdList, TStaticBlendState<
 			CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One,
 			CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_One, BF_One>::GetRHI());
 
@@ -534,7 +570,7 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 		{
 			const FMeshBatchAndRelevance& MeshBatchAndRelevance = DynamicSubjectTranslucentMeshElements[MeshBatchIndex];
 			const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
-			FTranslucencyShadowDepthDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, *ShadowDepthView, DrawingContext, MeshBatch, false, true, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
+			FTranslucencyShadowDepthDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, *ShadowDepthView, DrawingContext, MeshBatch, true, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
 		}
 
 		for (int32 PrimitiveIndex = 0; PrimitiveIndex < SubjectTranslucentPrimitives.Num(); PrimitiveIndex++)
@@ -559,6 +595,7 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 						DrawingContext,
 						PrimitiveSceneInfo->StaticMeshes[MeshIndex],
 						true,
+						DrawRenderState,
 						PrimitiveSceneInfo->Proxy,
 						FHitProxyId());
 				}
@@ -566,9 +603,6 @@ void FProjectedShadowInfo::RenderTranslucencyDepths(FRHICommandList& RHICmdList,
 		}
 	}
 }
-
-IMPLEMENT_SHADER_TYPE(,FWriteToSliceGS,TEXT("TranslucentLightingShaders"),TEXT("WriteToSliceMainGS"),SF_Geometry);
-IMPLEMENT_SHADER_TYPE(,FWriteToSliceVS,TEXT("TranslucentLightingShaders"),TEXT("WriteToSliceMainVS"),SF_Vertex);
 
 /** Pixel shader used to filter a single volume lighting cascade. */
 class FFilterTranslucentVolumePS : public FGlobalShader
@@ -897,7 +931,7 @@ public:
 		const FStaticShadowDepthMap* StaticShadowDepthMap = LightSceneInfo->Proxy->GetStaticShadowDepthMap();
 		const uint32 bStaticallyShadowedValue = LightSceneInfo->IsPrecomputedLightingValid() && StaticShadowDepthMap && StaticShadowDepthMap->TextureRHI ? 1 : 0;
 		FTextureRHIParamRef StaticShadowDepthMapTexture = bStaticallyShadowedValue ? StaticShadowDepthMap->TextureRHI : GWhiteTexture->TextureRHI;
-		const FMatrix WorldToStaticShadow = bStaticallyShadowedValue ? StaticShadowDepthMap->Data.WorldToLight : FMatrix::Identity;
+		const FMatrix WorldToStaticShadow = bStaticallyShadowedValue ? StaticShadowDepthMap->Data->WorldToLight : FMatrix::Identity;
 
 		SetShaderValue(RHICmdList, ShaderRHI, bStaticallyShadowed, bStaticallyShadowedValue);
 
@@ -974,51 +1008,9 @@ IMPLEMENT_INJECTION_PIXELSHADER_TYPE(LightType_Point,false,false,true);
 IMPLEMENT_INJECTION_PIXELSHADER_TYPE(LightType_Point,true,false,false); 
 IMPLEMENT_INJECTION_PIXELSHADER_TYPE(LightType_Point,false,false,false); 
 
-/** Vertex buffer used for rendering into a volume texture. */
-class FVolumeRasterizeVertexBuffer : public FVertexBuffer
-{
-public:
-
-	virtual void InitRHI() override
-	{
-		// Used as a non-indexed triangle strip, so 4 vertices per quad
-		const uint32 Size = 4 * sizeof(FScreenVertex);
-		FRHIResourceCreateInfo CreateInfo;
-		void* Buffer = nullptr;
-		VertexBufferRHI = RHICreateAndLockVertexBuffer(Size, BUF_Static, CreateInfo, Buffer);		
-		FScreenVertex* DestVertex = (FScreenVertex*)Buffer;
-
-		// Setup a full - render target quad
-		// A viewport and UVScaleBias will be used to implement rendering to a sub region
-		DestVertex[0].Position = FVector2D(1, -GProjectionSignY);
-		DestVertex[0].UV = FVector2D(1, 1);
-		DestVertex[1].Position = FVector2D(1, GProjectionSignY);
-		DestVertex[1].UV = FVector2D(1, 0);
-		DestVertex[2].Position = FVector2D(-1, -GProjectionSignY);
-		DestVertex[2].UV = FVector2D(0, 1);
-		DestVertex[3].Position = FVector2D(-1, GProjectionSignY);
-		DestVertex[3].UV = FVector2D(0, 0);
-
-		RHIUnlockVertexBuffer(VertexBufferRHI);      
-	}
-};
-
-TGlobalResource<FVolumeRasterizeVertexBuffer> GVolumeRasterizeVertexBuffer;
-
-/** Draws a quad per volume texture slice to the subregion of the volume texture specified. */
-void RasterizeToVolumeTexture(FRHICommandList& RHICmdList, FVolumeBounds VolumeBounds)
-{
-	// Setup the viewport to only render to the given bounds
-	RHICmdList.SetViewport(VolumeBounds.MinX, VolumeBounds.MinY, 0, VolumeBounds.MaxX, VolumeBounds.MaxY, 0);
-	RHICmdList.SetStreamSource(0, GVolumeRasterizeVertexBuffer.VertexBufferRHI, sizeof(FScreenVertex), 0);
-	const int32 NumInstances = VolumeBounds.MaxZ - VolumeBounds.MinZ;
-	// Render a quad per slice affected by the given bounds
-	RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, NumInstances);
-}
-        
 /** Helper function that clears the given volume texture render targets. */
 template<int32 NumRenderTargets>
-void ClearVolumeTextures(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, const FTextureRHIParamRef* RenderTargets, const FLinearColor* ClearColors)
+void ClearVolumeTextures(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, FTextureRHIParamRef* RenderTargets, const FLinearColor* ClearColors)
 {
 	SetRenderTargets(RHICmdList, NumRenderTargets, RenderTargets, FTextureRHIRef(), 0, NULL, true);
 #if PLATFORM_XBOXONE
@@ -1029,7 +1021,7 @@ void ClearVolumeTextures(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type Fea
 	if (false)
 #endif
 	{
-		RHICmdList.ClearMRT(true, NumRenderTargets, ClearColors, false, 0, false, 0, FIntRect());
+		RHICmdList.ClearColorTextures(NumRenderTargets, RenderTargets, ClearColors, FIntRect());
 	}
 	else
 	{
@@ -1178,12 +1170,13 @@ void FDeferredShadingSceneRenderer::ClearTranslucentVolumeLightingAsyncCompute(F
 	static const FName BeginComputeFenceName(TEXT("TranslucencyLightingVolumeClearBeginComputeFence"));
 	FComputeFenceRHIRef ClearBeginFence = RHICmdList.CreateComputeFence(BeginComputeFenceName);
 
+	//write fence on the Gfx pipe so the async clear compute shader won't clear until the Gfx pipe is caught up.
+	RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, VolumeUAVs, 4, ClearBeginFence);
+
 	//Grab the async compute commandlist.
 	FRHIAsyncComputeCommandListImmediate& RHICmdListComputeImmediate = FRHICommandListExecutor::GetImmediateAsyncComputeCommandList();
 	{
 		SCOPED_COMPUTE_EVENTF(RHICmdListComputeImmediate, ClearTranslucencyLightingVolume, TEXT("ClearTranslucencyLightingVolumeCompute %d"), GTranslucencyLightingVolumeDim);
-
-		RHICmdListComputeImmediate.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, VolumeUAVs, 4, ClearBeginFence);
 
 		//we must wait on the fence written from the Gfx pipe to let us know all our dependencies are ready.
 		RHICmdListComputeImmediate.WaitComputeFence(ClearBeginFence);

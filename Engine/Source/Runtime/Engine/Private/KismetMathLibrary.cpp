@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "DrawDebugHelpers.h"
 
 #include "Blueprint/BlueprintSupport.h"
-#include "Kismet/KismetMathLibrary.h"
-#include "CoreStats.h"
 #include "Math/DualQuat.h"
 
 #define LOCTEXT_NAMESPACE "UKismetMathLibrary"
@@ -597,6 +598,13 @@ int32 UKismetMathLibrary::FTrunc(float A)
 	return FMath::TruncToInt(A);
 }	
 
+FIntVector UKismetMathLibrary::FTruncVector(const FVector& InVector)
+{
+	return FIntVector(FMath::TruncToInt(InVector.X),
+		              FMath::TruncToInt(InVector.Y),
+		              FMath::TruncToInt(InVector.Z));
+}
+
 int32 UKismetMathLibrary::FCeil(float A)
 {
 	return FMath::CeilToInt(A);
@@ -948,6 +956,56 @@ FVector2D UKismetMathLibrary::Vector2DInterpTo_Constant(FVector2D Current, FVect
 	return FMath::Vector2DInterpConstantTo( Current, Target, DeltaTime, InterpSpeed );
 }
 
+float ComputeDamping(float Mass, float Stiffness,float CriticalDampingFactor)
+{
+	return 2 * FMath::Sqrt(Mass * Stiffness) * CriticalDampingFactor;
+}
+
+template <typename T>
+T GenericSpringInterp(T Current, T Target, T& PrevError, T& Velocity, float Stiffness, float CriticalDamping, float DeltaTime, float Mass)
+{
+	if (DeltaTime > SMALL_NUMBER)
+	{
+		if(!FMath::IsNearlyZero(Mass))
+		{
+			const float Damping = ComputeDamping(Mass, Stiffness, CriticalDamping);
+			const T Error = Target - Current;
+			const T ErrorDeriv = (Error - PrevError);	//ignore divide by delta time since we multiply later anyway
+			Velocity += (Error * Stiffness * DeltaTime + ErrorDeriv * Damping) / Mass;
+			PrevError = Error;
+
+			const T NewValue = Current + Velocity * DeltaTime;
+			return NewValue;
+		}
+		else
+		{
+			return Target;
+		}
+	}
+
+	return Current;
+}
+
+float UKismetMathLibrary::FloatSpringInterp(float Current, float Target, FFloatSpringState& SpringState, float Stiffness, float CriticalDamping, float DeltaTime, float Mass)
+{
+	return GenericSpringInterp(Current, Target, SpringState.PrevError, SpringState.Velocity, Stiffness, CriticalDamping, DeltaTime, Mass);
+}
+
+FVector UKismetMathLibrary::VectorSpringInterp(FVector Current, FVector Target, FVectorSpringState& SpringState, float Stiffness, float CriticalDamping, float DeltaTime, float Mass)
+{
+	return GenericSpringInterp(Current, Target, SpringState.PrevError, SpringState.Velocity, Stiffness, CriticalDamping, DeltaTime, Mass);
+}
+
+void UKismetMathLibrary::ResetFloatSpringState(FFloatSpringState& SpringState)
+{
+	SpringState.Reset();
+}
+
+void UKismetMathLibrary::ResetVectorSpringState(FVectorSpringState& SpringState)
+{
+	SpringState.Reset();
+}
+
 FVector UKismetMathLibrary::RandomUnitVector()
 {
 	return FMath::VRand();
@@ -1082,7 +1140,7 @@ FVector UKismetMathLibrary::GetVectorArrayAverage(const TArray<FVector>& Vectors
 }
 
 /** Find the unit direction vector from one position to another. */
-FVector UKismetMathLibrary::GetDirectionVector(FVector From, FVector To)
+FVector UKismetMathLibrary::GetDirectionUnitVector(FVector From, FVector To)
 {
 	return (To - From).GetSafeNormal();
 }
@@ -1164,6 +1222,10 @@ FRotator UKismetMathLibrary::RotatorFromAxisAndAngle(FVector Axis, float Angle)
 	return FQuat(SafeAxis, FMath::DegreesToRadians(Angle)).Rotator();
 }
 
+void UKismetMathLibrary::RotatorToAxisAndAngle(const FRotator& Rotation, FVector& Axis, float& Angle)
+{
+	Rotation.Quaternion().ToAxisAndAngle(Axis, Angle);
+}
 
 float UKismetMathLibrary::ClampAxis(float Angle)
 {
@@ -1847,6 +1909,11 @@ uint8 UKismetMathLibrary::Conv_IntToByte(int32 InInt)
 	return (uint8)InInt;
 }
 
+FIntVector UKismetMathLibrary::Conv_IntToIntVector(int32 InInt)
+{
+	return FIntVector(InInt, InInt, InInt);
+}
+
 bool UKismetMathLibrary::Conv_IntToBool(int32 InInt)
 {
 	return InInt == 0 ? false : true;
@@ -1890,6 +1957,11 @@ FLinearColor UKismetMathLibrary::Conv_VectorToLinearColor(FVector InVec)
 FVector2D UKismetMathLibrary::Conv_VectorToVector2D(FVector InVec)
 {
 	return FVector2D(InVec);
+}
+
+FVector UKismetMathLibrary::Conv_IntVectorToVector(const FIntVector& InIntVector)
+{
+	return FVector(InIntVector);
 }
 
 FVector UKismetMathLibrary::Conv_Vector2DToVector(FVector2D InVec2D, float Z)
@@ -2316,6 +2388,7 @@ void UKismetMathLibrary::MinimumAreaRectangle(class UObject* WorldContextObject,
 	OutSideLengthX = RectSideA.Size();
 	OutSideLengthY = RectSideB.Size();
 
+#if ENABLE_DRAW_DEBUG
 	if( bDebugDraw )
 	{
 		UWorld* World = (WorldContextObject) ? GEngine->GetWorldFromContextObject(WorldContextObject) : nullptr;
@@ -2331,6 +2404,7 @@ void UKismetMathLibrary::MinimumAreaRectangle(class UObject* WorldContextObject,
 			FFrame::KismetExecutionMessage(TEXT("WorldContext required for MinimumAreaRectangle to draw a debug visualization."), ELogVerbosity::Warning);
 		}
 	}
+#endif
 }
 
 bool UKismetMathLibrary::PointsAreCoplanar(const TArray<FVector>& Points, float Tolerance)

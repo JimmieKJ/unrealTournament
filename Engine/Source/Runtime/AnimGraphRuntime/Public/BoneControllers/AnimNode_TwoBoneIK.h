@@ -2,8 +2,14 @@
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BoneContainer.h"
+#include "BonePose.h"
+#include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "AnimNode_TwoBoneIK.generated.h"
+
+class USkeletalMeshComponent;
 
 /**
  * Simple 2 Bone IK Controller.
@@ -26,10 +32,6 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_TwoBoneIK : public FAnimNode_SkeletalContr
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = JointTarget, meta=(PinShownByDefault))
 	FVector JointTargetLocation;
 
-	/** Limits to use if stretching is allowed. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=IK)
-	FVector2D StretchLimits;
-
 	/** If EffectorLocationSpace is a bone, this is the bone to use. **/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=EndEffector)
 	FName EffectorSpaceBoneName;
@@ -45,7 +47,19 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_TwoBoneIK : public FAnimNode_SkeletalContr
 	/** Should stretching be allowed, to be prevent over extension */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=IK)
 	uint32 bAllowStretching:1;
-	
+
+	/** Limits to use if stretching is allowed - old property DEPRECATED */
+	UPROPERTY()
+	FVector2D StretchLimits_DEPRECATED;
+
+	/** Limits to use if stretching is allowed. This value determines when to start stretch. For example, 0.9 means once it reaches 90% of the whole length of the limb, it will start apply. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=IK, meta = (editcondition = "bAllowStretching", ClampMin = "0.0", UIMin = "0.0"))
+	float StartStretchRatio;
+
+	/** Limits to use if stretching is allowed. This value determins what is the max stretch scale. For example, 1.5 means it will stretch until 150 % of the whole length of the limb.*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = IK, meta = (editcondition = "bAllowStretching", ClampMin = "0.0", UIMin = "0.0"))
+	float MaxStretchScale;
+
 	/** Reference frame of Effector Location. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = IK)
 	TEnumAsByte<enum EBoneControlSpace> EffectorLocationSpace;

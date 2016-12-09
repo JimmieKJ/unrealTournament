@@ -1,12 +1,17 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
 #include "Components/SubDSurfaceComponent.h"
-#include "DynamicMeshBuilder.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Components/StaticMeshComponent.h"
+#include "Materials/Material.h"
+#include "Components/BillboardComponent.h"
+#include "Engine/CollisionProfile.h"
+#include "Engine/Texture2D.h"
+#include "Engine/StaticMesh.h"
+#include "ContentStreaming.h"
+#include "UnrealEngine.h"
 #include "Engine/SubDSurface.h"
-#include "Engine/Font.h"
 #include "Engine/SubDSurfaceActor.h"
-#include "LocalVertexFactory.h"
 
 #define VS2013OR2015 (_MSC_VER == 1800 || _MSC_VER == 1900)
 
@@ -27,6 +32,8 @@
 #define and &&
 #define not !
 
+THIRD_PARTY_INCLUDES_START
+
 //	#include "osd/cpuComputeContext.h"
 //	#include "osd/cpuComputeController.h"
 	#include "osd/cpuVertexBuffer.h"
@@ -41,22 +48,11 @@
 
 	#include <far/stencilTableFactory.h>
 
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(push)
-	#pragma warning(disable : 6011)  // Dereferencing NULL pointer 'X'
-	#pragma warning(disable : 6308)  // 'realloc' might return null pointer: assigning null pointer to 'X', which is passed as an argument to 'realloc', will cause the original memory block to be leaked.
-	#pragma warning(disable : 6385)  // Reading invalid data from 'X':  the readable size is 'Y' bytes, but 'Z' bytes may be read.
-	#pragma warning(disable : 6386)  // Buffer overrun while writing to 'X':  the writable size is 'Y' bytes, but 'Z' bytes might be written.
-	#pragma warning(disable : 28182) // Dereferencing NULL pointer. 'X' contains the same NULL value as 'Y' did.
-#endif
-
 // for non manifold
 	#include <hbr/mesh.h>
 	#include <hbr/catmark.h>
 
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(pop)
-#endif
+THIRD_PARTY_INCLUDES_END
 
 #undef and
 #undef not
@@ -459,7 +455,7 @@ static float const g_creaseweights[4] = { 3.0f, 3.0f, 3.0f, 3.0f };
 // degenerated cases are not handled yet
 void ComputeTangents(FVector OutTangentXYZ[3], FVector InDeltaPos[2], FVector2D InDeltaUV[2])
 {
-	// originally from: Lengyel, Eric. “Computing Tangent Space Basis Vectors for an Arbitrary Mesh”. Terathon Software 3D Graphics Library, 2001. http://www.terathon.com/code/tangent.html
+	// originally from: Lengyel, Eric. ï¿½Computing Tangent Space Basis Vectors for an Arbitrary Meshï¿½. Terathon Software 3D Graphics Library, 2001. http://www.terathon.com/code/tangent.html
 
 	float x1 = InDeltaPos[0].X;
     float x2 = InDeltaPos[1].X;
@@ -922,7 +918,7 @@ void USubDSurfaceComponent::RecreateMeshData()
 //	uint32 NumMaterials = (NumFaceSets) ? NumFaceSets : 1;
 //	for (uint32 MaterialIndex = 0; MaterialIndex < NumMaterials; ++MaterialIndex )
 	{
-		GeneratedMesh->Materials.Add(DefaultMaterial);
+		GeneratedMesh->StaticMaterials.Add(FStaticMaterial(DefaultMaterial));
 	}	
 
 	// Add the first LOD ( QQQ change this )	
@@ -950,6 +946,9 @@ void USubDSurfaceComponent::RecreateMeshData()
 	// Store the raw mesh within the RawMeshBulkData
 	SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
 	
+	//Set the Imported version before calling the build
+	GeneratedMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
+
 	// Build the static mesh (using the build setting etc.) this generates correct tangents using the extracting smoothing group along with the imported Normals data
 	GeneratedMesh->Build(false);
 	GeneratedMesh->MarkPackageDirty();

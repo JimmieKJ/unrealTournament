@@ -2,8 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "FoliageInstancedStaticMeshComponent.generated.h"
+
+class AController;
 
 /**
 */

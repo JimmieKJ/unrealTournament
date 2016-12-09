@@ -7,6 +7,8 @@ Set custom flags on the archive to help track issues while serializing
 
 #pragma once
 
+#include "CoreTypes.h"
+
 // Debug serialization flags
 enum EDebugSerializationFlags
 {

@@ -1,17 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerLocalController.h"
+#include "InputCoreTypes.h"
+#include "Framework/Commands/InputChord.h"
+#include "Components/InputComponent.h"
+#include "TimerManager.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/Controller.h"
+#include "GameplayDebuggerTypes.h"
+#include "GameplayDebuggerCategoryReplicator.h"
 #include "GameplayDebuggerPlayerManager.h"
+#include "GameplayDebuggerAddonBase.h"
+#include "GameplayDebuggerCategory.h"
 #include "GameplayDebuggerAddonManager.h"
 #include "GameplayDebuggerExtension.h"
 #include "GameplayDebuggerConfig.h"
 #include "Debug/DebugDrawService.h"
-#include "DrawDebugHelpers.h"
 #include "Engine/Selection.h"
+#include "CanvasItem.h"
 #include "Engine/Canvas.h"
+#include "Engine/DebugCameraController.h"
+#include "UnrealEngine.h"
+#include "Engine/LocalPlayer.h"
 #include "GameFramework/PlayerInput.h"
-#include "GameFramework/Pawn.h"
+
+#if WITH_EDITOR
+#include "Editor/GameplayDebuggerEdMode.h"
+#include "EditorModeManager.h"
+#endif // WITH_EDITOR
 
 UGameplayDebuggerLocalController::UGameplayDebuggerLocalController(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -83,6 +99,10 @@ void UGameplayDebuggerLocalController::Cleanup()
 	if (bSimulateMode)
 	{
 		USelection::SelectionChangedEvent.RemoveAll(this);
+
+#if WITH_EDITOR
+		FGameplayDebuggerEdMode::SafeCloseMode();
+#endif // WITH_EDITOR
 	}
 
 	bNeedsCleanup = false;
@@ -105,14 +125,7 @@ void UGameplayDebuggerLocalController::OnDebugDraw(class UCanvas* Canvas, class 
 		CanvasContext.CursorX = CanvasContext.DefaultX = PaddingLeft;
 		CanvasContext.CursorY = CanvasContext.DefaultY = PaddingTop;
 
-		if (bSimulateMode)
-		{
-			DrawSimulateHeader(CanvasContext);
-		}
-		else
-		{
-			DrawHeader(CanvasContext);
-		}
+		DrawHeader(CanvasContext);
 
 		if (DataPackMap.Num() != NumCategories)
 		{
@@ -142,9 +155,10 @@ void UGameplayDebuggerLocalController::DrawHeader(FGameplayDebuggerCanvasContext
 {
 	const int32 NumRows = (NumCategorySlots + 9) / 10;
 	const float LineHeight = CanvasContext.GetLineHeight();
-	const int32 NumExtensions = CachedReplicator->GetNumExtensions();
+	const int32 NumExtensions = bSimulateMode ? 0 : CachedReplicator->GetNumExtensions();
 	const int32 NumExtensionRows = (NumExtensions > 0) ? 1 : 0;
 	const float CanvasSizeX = CanvasContext.Canvas->SizeX - PaddingLeft - PaddingRight;
+	const float UsePaddingTop = PaddingTop + (bSimulateMode ? 30.0f : 0);
 	
 	const float BackgroundPadding = 5.0f;
 	const float BackgroundPaddingBothSides = BackgroundPadding * 2.0f;
@@ -159,35 +173,48 @@ void UGameplayDebuggerLocalController::DrawHeader(FGameplayDebuggerCanvasContext
 		ActiveRowTileItem.BlendMode = SE_BLEND_Translucent;
 		TileItemLower.BlendMode = SE_BLEND_Translucent;
 
-		CanvasContext.DrawItem(TileItemUpper, PaddingLeft - BackgroundPadding, PaddingTop - BackgroundPadding);
-		CanvasContext.DrawItem(ActiveRowTileItem, PaddingLeft - BackgroundPadding, PaddingTop - BackgroundPadding + TileItemUpper.Size.Y);
-		CanvasContext.DrawItem(TileItemLower, PaddingLeft - BackgroundPadding, PaddingTop - BackgroundPadding + TileItemUpper.Size.Y + ActiveRowTileItem.Size.Y);
+		CanvasContext.DrawItem(TileItemUpper, PaddingLeft - BackgroundPadding, UsePaddingTop - BackgroundPadding);
+		CanvasContext.DrawItem(ActiveRowTileItem, PaddingLeft - BackgroundPadding, UsePaddingTop - BackgroundPadding + TileItemUpper.Size.Y);
+		CanvasContext.DrawItem(TileItemLower, PaddingLeft - BackgroundPadding, UsePaddingTop - BackgroundPadding + TileItemUpper.Size.Y + ActiveRowTileItem.Size.Y);
 	}
 	else
 	{
 		FCanvasTileItem TileItem(FVector2D(0, 0), GWhiteTexture, FVector2D(CanvasSizeX, LineHeight * (NumRows + NumExtensionRows + 1)) + BackgroundPaddingBothSides, FLinearColor(0, 0, 0, 0.2f));
 		TileItem.BlendMode = SE_BLEND_Translucent;
-		CanvasContext.DrawItem(TileItem, PaddingLeft - BackgroundPadding, PaddingTop - BackgroundPadding);
+		CanvasContext.DrawItem(TileItem, PaddingLeft - BackgroundPadding, UsePaddingTop - BackgroundPadding);
 	}
 
-	CanvasContext.Printf(TEXT("Tap {yellow}%s{white} to close, use %s to toggle catories."), *ActivationKeyDesc, *CategoryKeysDesc);
+	CanvasContext.CursorY = UsePaddingTop;
+	if (bSimulateMode)
+	{
+		CanvasContext.Printf(TEXT("Clear {yellow}DebugAI{white} show flag to close, use %s to toggle catories."), *CategoryKeysDesc);
+
+		// reactivate editor mode when this is being drawn = show flag is set
+#if WITH_EDITOR
+		GLevelEditorModeTools().ActivateMode(FGameplayDebuggerEdMode::EM_GameplayDebugger);
+#endif // WITH_EDITOR
+	}
+	else
+	{
+		CanvasContext.Printf(TEXT("Tap {yellow}%s{white} to close, use %s to toggle catories."), *ActivationKeyDesc, *CategoryKeysDesc);
+	}
 
 	const FString DebugActorDesc = FString::Printf(TEXT("Debug actor: {cyan}%s"), *CachedReplicator->GetDebugActorName().ToString());
 	float DebugActorSizeX = 0.0f, DebugActorSizeY = 0.0f;
 	CanvasContext.MeasureString(DebugActorDesc, DebugActorSizeX, DebugActorSizeY);
-	CanvasContext.PrintAt(CanvasContext.Canvas->SizeX - PaddingRight - DebugActorSizeX, PaddingTop, DebugActorDesc);
+	CanvasContext.PrintAt(CanvasContext.Canvas->SizeX - PaddingRight - DebugActorSizeX, UsePaddingTop, DebugActorDesc);
 
 	const FString TimestampDesc = FString::Printf(TEXT("Time: %.2fs"), CachedReplicator->GetWorld()->GetTimeSeconds());
 	float TimestampSizeX = 0.0f, TimestampSizeY = 0.0f;
 	CanvasContext.MeasureString(TimestampDesc, TimestampSizeX, TimestampSizeY);
-	CanvasContext.PrintAt((CanvasSizeX - TimestampSizeX) * 0.5f, PaddingTop, TimestampDesc);
+	CanvasContext.PrintAt((CanvasSizeX - TimestampSizeX) * 0.5f, UsePaddingTop, TimestampDesc);
 
 	if (NumRows > 1)
 	{
 		const FString ChangeRowDesc = FString::Printf(TEXT("Prev row: {yellow}%s\n{white}Next row: {yellow}%s"), *RowUpKeyDesc, *RowDownKeyDesc);
 		float RowDescSizeX = 0.0f, RowDescSizeY = 0.0f;
 		CanvasContext.MeasureString(ChangeRowDesc, RowDescSizeX, RowDescSizeY);
-		CanvasContext.PrintAt(CanvasContext.Canvas->SizeX - PaddingRight - RowDescSizeX, PaddingTop + LineHeight * (NumExtensionRows + 1), ChangeRowDesc);
+		CanvasContext.PrintAt(CanvasContext.Canvas->SizeX - PaddingRight - RowDescSizeX, UsePaddingTop + LineHeight * (NumExtensionRows + 1), ChangeRowDesc);
 	}
 
 	if (NumExtensionRows)
@@ -251,31 +278,6 @@ void UGameplayDebuggerLocalController::DrawHeader(FGameplayDebuggerCanvasContext
 	CanvasContext.DefaultY = CanvasContext.CursorY + LineHeight;
 }
 
-void UGameplayDebuggerLocalController::DrawSimulateHeader(FGameplayDebuggerCanvasContext& CanvasContext)
-{
-	const float LineHeight = CanvasContext.GetLineHeight();
-	const float NewCategoryPosY = (CanvasContext.DefaultY * 2.0f) + (LineHeight * 3.0f);
-	const float BackgroundPadding = 5.0f;
-
-	const FString TimestampDesc = FString::Printf(TEXT("GameplayDebugger time: %.2fs"), CachedReplicator->GetWorld()->GetTimeSeconds());
-	float TimestampSizeX = 0.0f, TimestampSizeY = 0.0f;
-	CanvasContext.MeasureString(TimestampDesc, TimestampSizeX, TimestampSizeY);
-
-	const FString DebugActorDesc = FString::Printf(TEXT("Selected actor: {cyan}%s"), *CachedReplicator->GetDebugActorName().ToString());
-	float DebugActorSizeX = 0.0f, DebugActorSizeY = 0.0f;
-	CanvasContext.MeasureString(DebugActorDesc, DebugActorSizeX, DebugActorSizeY);
-
-	const float BackgroundSizeX = FMath::Max(DebugActorSizeX, TimestampSizeX) + (BackgroundPadding * 2.f);
-	FCanvasTileItem TileItem(FVector2D(0, 0), GWhiteTexture, FVector2D(BackgroundSizeX, (2.0f * LineHeight) + (2.0f * BackgroundPadding)), FLinearColor(0, 0, 0, 0.2f));
-	TileItem.BlendMode = SE_BLEND_Translucent;
-	CanvasContext.DrawItem(TileItem, (CanvasContext.Canvas->SizeX - BackgroundSizeX) * 0.5f, PaddingTop - BackgroundPadding);
-
-	CanvasContext.PrintAt((CanvasContext.Canvas->SizeX - TimestampSizeX) * 0.5f, PaddingTop, TimestampDesc);
-	CanvasContext.PrintAt((CanvasContext.Canvas->SizeX - DebugActorSizeX) * 0.5f, PaddingTop + LineHeight, DebugActorDesc);
-
-	CanvasContext.DefaultY = CanvasContext.CursorY = NewCategoryPosY;
-}
-
 void UGameplayDebuggerLocalController::DrawCategoryHeader(int32 CategoryId, TSharedRef<FGameplayDebuggerCategory> Category, FGameplayDebuggerCanvasContext& CanvasContext)
 {
 	FString DataPackDesc;
@@ -330,14 +332,17 @@ void UGameplayDebuggerLocalController::DrawCategoryHeader(int32 CategoryId, TSha
 
 void UGameplayDebuggerLocalController::BindInput(UInputComponent& InputComponent)
 {
-	TSet<FName> UsedBindings;
+	TSet<FName> NewBindings;
 
 	const UGameplayDebuggerConfig* SettingsCDO = UGameplayDebuggerConfig::StaticClass()->GetDefaultObject<UGameplayDebuggerConfig>();
-	InputComponent.BindKey(SettingsCDO->ActivationKey, IE_Pressed, this, &UGameplayDebuggerLocalController::OnActivationPressed);
-	InputComponent.BindKey(SettingsCDO->ActivationKey, IE_Released, this, &UGameplayDebuggerLocalController::OnActivationReleased);
-	UsedBindings.Add(SettingsCDO->ActivationKey.GetFName());
+	if (!bSimulateMode)
+	{
+		InputComponent.BindKey(SettingsCDO->ActivationKey, IE_Pressed, this, &UGameplayDebuggerLocalController::OnActivationPressed);
+		InputComponent.BindKey(SettingsCDO->ActivationKey, IE_Released, this, &UGameplayDebuggerLocalController::OnActivationReleased);
+		NewBindings.Add(SettingsCDO->ActivationKey.GetFName());
+	}
 
-	if (bIsLocallyEnabled)
+	if (bIsLocallyEnabled || bSimulateMode)
 	{
 		InputComponent.BindKey(SettingsCDO->CategorySlot0, IE_Pressed, this, &UGameplayDebuggerLocalController::OnCategory0Pressed);
 		InputComponent.BindKey(SettingsCDO->CategorySlot1, IE_Pressed, this, &UGameplayDebuggerLocalController::OnCategory1Pressed);
@@ -353,18 +358,18 @@ void UGameplayDebuggerLocalController::BindInput(UInputComponent& InputComponent
 		InputComponent.BindKey(SettingsCDO->CategoryRowPrevKey, IE_Pressed, this, &UGameplayDebuggerLocalController::OnCategoryRowUpPressed);
 		InputComponent.BindKey(SettingsCDO->CategoryRowNextKey, IE_Pressed, this, &UGameplayDebuggerLocalController::OnCategoryRowDownPressed);
 
-		UsedBindings.Add(SettingsCDO->CategorySlot0.GetFName());
-		UsedBindings.Add(SettingsCDO->CategorySlot1.GetFName());
-		UsedBindings.Add(SettingsCDO->CategorySlot2.GetFName());
-		UsedBindings.Add(SettingsCDO->CategorySlot3.GetFName());
-		UsedBindings.Add(SettingsCDO->CategorySlot4.GetFName());
-		UsedBindings.Add(SettingsCDO->CategorySlot5.GetFName());
-		UsedBindings.Add(SettingsCDO->CategorySlot6.GetFName());
-		UsedBindings.Add(SettingsCDO->CategorySlot7.GetFName());
-		UsedBindings.Add(SettingsCDO->CategorySlot8.GetFName());
-		UsedBindings.Add(SettingsCDO->CategorySlot9.GetFName());
-		UsedBindings.Add(SettingsCDO->CategoryRowPrevKey.GetFName());
-		UsedBindings.Add(SettingsCDO->CategoryRowNextKey.GetFName());
+		NewBindings.Add(SettingsCDO->CategorySlot0.GetFName());
+		NewBindings.Add(SettingsCDO->CategorySlot1.GetFName());
+		NewBindings.Add(SettingsCDO->CategorySlot2.GetFName());
+		NewBindings.Add(SettingsCDO->CategorySlot3.GetFName());
+		NewBindings.Add(SettingsCDO->CategorySlot4.GetFName());
+		NewBindings.Add(SettingsCDO->CategorySlot5.GetFName());
+		NewBindings.Add(SettingsCDO->CategorySlot6.GetFName());
+		NewBindings.Add(SettingsCDO->CategorySlot7.GetFName());
+		NewBindings.Add(SettingsCDO->CategorySlot8.GetFName());
+		NewBindings.Add(SettingsCDO->CategorySlot9.GetFName());
+		NewBindings.Add(SettingsCDO->CategoryRowPrevKey.GetFName());
+		NewBindings.Add(SettingsCDO->CategoryRowNextKey.GetFName());
 
 		for (int32 Idx = 0; Idx < NumCategories; Idx++)
 		{
@@ -377,16 +382,16 @@ void UGameplayDebuggerLocalController::BindInput(UInputComponent& InputComponent
 				if (HandlerData.Modifier.bPressed || HandlerData.Modifier.bReleased)
 				{
 					FInputChord InputChord(FKey(HandlerData.KeyName), HandlerData.Modifier.bShift, HandlerData.Modifier.bCtrl, HandlerData.Modifier.bAlt, HandlerData.Modifier.bCmd);
-					FInputKeyBinding NewBinding(InputChord, HandlerData.Modifier.bPressed ? IE_Pressed : IE_Released);
-					NewBinding.KeyDelegate.GetDelegateForManualSet().BindUObject(this, &UGameplayDebuggerLocalController::OnCategoryBindingEvent, Idx, HandlerIdx);
+					FInputKeyBinding InputBinding(InputChord, HandlerData.Modifier.bPressed ? IE_Pressed : IE_Released);
+					InputBinding.KeyDelegate.GetDelegateForManualSet().BindUObject(this, &UGameplayDebuggerLocalController::OnCategoryBindingEvent, Idx, HandlerIdx);
 
-					InputComponent.KeyBindings.Add(NewBinding);
-					UsedBindings.Add(HandlerData.KeyName);
+					InputComponent.KeyBindings.Add(InputBinding);
+					NewBindings.Add(HandlerData.KeyName);
 				}
 			}
 		}
 
-		const int32 NumExtentions = CachedReplicator->GetNumExtensions();
+		const int32 NumExtentions = bSimulateMode ? 0 : CachedReplicator->GetNumExtensions();
 		for (int32 Idx = 0; Idx < NumExtentions; Idx++)
 		{
 			TSharedRef<FGameplayDebuggerExtension> Extension = CachedReplicator->GetExtension(Idx);
@@ -398,11 +403,11 @@ void UGameplayDebuggerLocalController::BindInput(UInputComponent& InputComponent
 				if (HandlerData.Modifier.bPressed || HandlerData.Modifier.bReleased)
 				{
 					FInputChord InputChord(FKey(HandlerData.KeyName), HandlerData.Modifier.bShift, HandlerData.Modifier.bCtrl, HandlerData.Modifier.bAlt, HandlerData.Modifier.bCmd);
-					FInputKeyBinding NewBinding(InputChord, HandlerData.Modifier.bPressed ? IE_Pressed : IE_Released);
-					NewBinding.KeyDelegate.GetDelegateForManualSet().BindUObject(this, &UGameplayDebuggerLocalController::OnExtensionBindingEvent, Idx, HandlerIdx);
+					FInputKeyBinding InputBinding(InputChord, HandlerData.Modifier.bPressed ? IE_Pressed : IE_Released);
+					InputBinding.KeyDelegate.GetDelegateForManualSet().BindUObject(this, &UGameplayDebuggerLocalController::OnExtensionBindingEvent, Idx, HandlerIdx);
 
-					InputComponent.KeyBindings.Add(NewBinding);
-					UsedBindings.Add(HandlerData.KeyName);
+					InputComponent.KeyBindings.Add(InputBinding);
+					NewBindings.Add(HandlerData.KeyName);
 				}
 			}
 		}
@@ -410,8 +415,8 @@ void UGameplayDebuggerLocalController::BindInput(UInputComponent& InputComponent
 
 	if (CachedReplicator && CachedReplicator->GetReplicationOwner() && CachedReplicator->GetReplicationOwner()->PlayerInput)
 	{
-		TSet<FName> RemovedMasks = MaskedDebugBindings.Difference(UsedBindings);
-		TSet<FName> AddedMasks = UsedBindings.Difference(MaskedDebugBindings);
+		TSet<FName> RemovedMasks = UsedBindings.Difference(NewBindings);
+		TSet<FName> AddedMasks = NewBindings.Difference(UsedBindings);
 
 		UPlayerInput* Input = CachedReplicator->GetReplicationOwner()->PlayerInput;
 		for (int32 Idx = 0; Idx < Input->DebugExecBindings.Num(); Idx++)
@@ -426,8 +431,13 @@ void UGameplayDebuggerLocalController::BindInput(UInputComponent& InputComponent
 			}
 		}
 
-		MaskedDebugBindings = UsedBindings;
+		UsedBindings = NewBindings;
 	}
+}
+
+bool UGameplayDebuggerLocalController::IsKeyBound(const FName KeyName) const
+{
+	return UsedBindings.Contains(KeyName);
 }
 
 void UGameplayDebuggerLocalController::OnActivationPressed()
@@ -578,7 +588,24 @@ void UGameplayDebuggerLocalController::OnSelectActorTick()
 	{
 		FVector CameraLocation;
 		FRotator CameraRotation;
-		OwnerPC->GetPlayerViewPoint(CameraLocation, CameraRotation);
+		if (OwnerPC->Player)
+		{
+			// normal game
+			OwnerPC->GetPlayerViewPoint(CameraLocation, CameraRotation);
+		}
+		else
+		{
+			// spectator mode
+			for (FLocalPlayerIterator It(GEngine, OwnerPC->GetWorld()); It; ++It)
+			{
+				ADebugCameraController* SpectatorPC = Cast<ADebugCameraController>(It->PlayerController);
+				if (SpectatorPC)
+				{
+					SpectatorPC->GetPlayerViewPoint(CameraLocation, CameraRotation);
+					break;
+				}
+			}
+		}
 
 		// TODO: move to module's settings
 		const float MaxScanDistance = 25000.0f;
@@ -590,7 +617,7 @@ void UGameplayDebuggerLocalController::OnSelectActorTick()
 		const FVector ViewDir = CameraRotation.Vector();
 		for (FConstPawnIterator It = OwnerPC->GetWorld()->GetPawnIterator(); It; ++It)
 		{
-			APawn* TestPawn = *It;
+			APawn* TestPawn = It->Get();
 			if (TestPawn && !TestPawn->bHidden && TestPawn->GetActorEnableCollision() && TestPawn != OwnerPC->GetPawn())
 			{
 				FVector DirToPawn = (TestPawn->GetActorLocation() - CameraLocation);
@@ -667,6 +694,7 @@ void UGameplayDebuggerLocalController::OnSelectionChanged(UObject* Object)
 		}
 
 		CachedReplicator->SetDebugActor(SelectedPawn);
+		CachedReplicator->CollectCategoryData(/*bForce=*/true);
 	}
 }
 
@@ -693,7 +721,7 @@ void UGameplayDebuggerLocalController::OnCategoriesChanged()
 	}
 
 	NumCategorySlots = SlotCategoryIds.Num();
-	NumCategories = AddonManager.GetNumCategories();
+	NumCategories = AddonManager.GetNumVisibleCategories();
 
 	DataPackMap.Reset();
 }

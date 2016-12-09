@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "PaperSprite.h"
 #include "PaperSpriteAtlas.generated.h"
 
 USTRUCT()

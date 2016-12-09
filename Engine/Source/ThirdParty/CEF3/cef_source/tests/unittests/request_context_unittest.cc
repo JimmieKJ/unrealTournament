@@ -346,6 +346,8 @@ class CookieTestHandler : public TestHandler {
 
   TrackCallback got_get_cookie_manager_;
   TrackCallback got_cookie_;
+
+  IMPLEMENT_REFCOUNTING(CookieTestHandler);
 };
 
 }  // namespace
@@ -587,6 +589,8 @@ class PopupTestHandler : public TestHandler {
   TrackCallback got_load_end2_;
   TrackCallback got_cookie1_;
   TrackCallback got_cookie2_;
+
+  IMPLEMENT_REFCOUNTING(PopupTestHandler);
 };
 
 }  // namespace
@@ -643,6 +647,196 @@ TEST(RequestContextTest, NoReferrerLinkDifferentOrigin) {
   CefRefPtr<PopupTestHandler> handler =
       new PopupTestHandler(false,
           PopupTestHandler::MODE_NOREFERRER_LINK);
+  handler->ExecuteTest();
+  ReleaseAndWaitForDestructor(handler);
+}
+
+
+namespace {
+
+const char kResolveOrigin[] = "http://www.google.com";
+
+class MethodTestHandler : public TestHandler {
+ public:
+  enum Method {
+    METHOD_CLEAR_CERTIFICATE_EXCEPTIONS,
+    METHOD_CLOSE_ALL_CONNECTIONS,
+    METHOD_RESOLVE_HOST,
+  };
+
+  class CompletionCallback : public CefCompletionCallback,
+                             public CefResolveCallback {
+   public:
+    CompletionCallback(MethodTestHandler* test_handler,
+                       CefRefPtr<CefBrowser> browser)
+      : test_handler_(test_handler),
+        browser_(browser) {
+    }
+
+    ~CompletionCallback() override {
+      EXPECT_UI_THREAD();
+
+      // OnComplete should be executed.
+      EXPECT_FALSE(test_handler_);
+    }
+
+    void OnComplete() override {
+      EXPECT_UI_THREAD();
+
+      // OnComplete should be executed only one time.
+      EXPECT_TRUE(test_handler_);
+      test_handler_->OnCompleteCallback(browser_);
+      test_handler_ = nullptr;
+      browser_ = nullptr;
+    }
+
+    void OnResolveCompleted(
+        cef_errorcode_t result,
+        const std::vector<CefString>& resolved_ips) override {
+      EXPECT_EQ(ERR_NONE, result);
+      EXPECT_TRUE(!resolved_ips.empty());
+      OnComplete();
+    }
+
+   private:
+    MethodTestHandler* test_handler_;
+    CefRefPtr<CefBrowser> browser_;
+
+    IMPLEMENT_REFCOUNTING(CompletionCallback);
+  };
+
+  MethodTestHandler(bool global_context,
+                    Method method)
+      : global_context_(global_context),
+        method_(method) {
+  }
+
+  void RunTest() override {
+    const char kUrl[] = "http://tests/method.html";
+
+    AddResource(kUrl, "<html><body>Method</body></html>", "text/html");
+
+    CefRefPtr<CefRequestContext> request_context;
+    if (!global_context_) {
+      CefRequestContextSettings settings;
+      request_context = CefRequestContext::CreateContext(settings, nullptr);
+    }
+
+    CreateBrowser(kUrl, request_context);
+
+    // Time out the test after a reasonable period of time.
+    SetTestTimeout();
+  }
+
+  void OnLoadEnd(CefRefPtr<CefBrowser> browser,
+                 CefRefPtr<CefFrame> frame,
+                 int httpStatusCode) override {
+    CefRefPtr<CefRequestContext> context =
+        browser->GetHost()->GetRequestContext();
+    CefRefPtr<CompletionCallback> callback =
+        new CompletionCallback(this, browser);
+    if (method_ == METHOD_CLEAR_CERTIFICATE_EXCEPTIONS)
+      context->ClearCertificateExceptions(callback);
+    else if (method_ == METHOD_CLOSE_ALL_CONNECTIONS)
+      context->CloseAllConnections(callback);
+    else if (method_ == METHOD_RESOLVE_HOST)
+      context->ResolveHost(kResolveOrigin, callback);
+  }
+
+  void OnCompleteCallback(CefRefPtr<CefBrowser> browser) {
+    EXPECT_UI_THREAD();
+    EXPECT_FALSE(got_completion_callback_);
+    got_completion_callback_.yes();
+
+    if (method_ == METHOD_RESOLVE_HOST) {
+      // Now try a cached request.
+      CefPostTask(TID_IO,
+          base::Bind(&MethodTestHandler::ResolveHostCached, this, browser));
+    } else {
+      DestroyTest();
+    }
+  }
+
+  void ResolveHostCached(CefRefPtr<CefBrowser> browser) {
+    EXPECT_IO_THREAD();
+
+    CefRefPtr<CefRequestContext> context =
+        browser->GetHost()->GetRequestContext();
+    std::vector<CefString> resolved_ips;
+    cef_errorcode_t result =
+        context->ResolveHostCached(kResolveOrigin, resolved_ips);
+    EXPECT_EQ(ERR_NONE, result);
+    EXPECT_TRUE(!resolved_ips.empty());
+
+    CefPostTask(TID_UI, base::Bind(&MethodTestHandler::DestroyTest, this));
+  }
+
+ private:
+  void DestroyTest() override {
+    EXPECT_TRUE(got_completion_callback_);
+    TestHandler::DestroyTest();
+  }
+
+  const bool global_context_;
+  const Method method_;
+
+  TrackCallback got_completion_callback_;
+
+  IMPLEMENT_REFCOUNTING(MethodTestHandler);
+};
+
+}  // namespace
+
+// Test CefRequestContext::ClearCertificateExceptions with the global context.
+TEST(RequestContextTest, ClearCertificateExceptionsGlobal) {
+  CefRefPtr<MethodTestHandler> handler =
+      new MethodTestHandler(true,
+          MethodTestHandler::METHOD_CLEAR_CERTIFICATE_EXCEPTIONS);
+  handler->ExecuteTest();
+  ReleaseAndWaitForDestructor(handler);
+}
+
+// Test CefRequestContext::ClearCertificateExceptions with a custom context.
+TEST(RequestContextTest, ClearCertificateExceptionsCustom) {
+  CefRefPtr<MethodTestHandler> handler =
+      new MethodTestHandler(false,
+          MethodTestHandler::METHOD_CLEAR_CERTIFICATE_EXCEPTIONS);
+  handler->ExecuteTest();
+  ReleaseAndWaitForDestructor(handler);
+}
+
+// Test CefRequestContext::CloseAllConnections with the global context.
+TEST(RequestContextTest, CloseAllConnectionsGlobal) {
+  CefRefPtr<MethodTestHandler> handler =
+      new MethodTestHandler(true,
+          MethodTestHandler::METHOD_CLOSE_ALL_CONNECTIONS);
+  handler->ExecuteTest();
+  ReleaseAndWaitForDestructor(handler);
+}
+
+// Test CefRequestContext::CloseAllConnections with a custom context.
+TEST(RequestContextTest, CloseAllConnectionsCustom) {
+  CefRefPtr<MethodTestHandler> handler =
+      new MethodTestHandler(false,
+          MethodTestHandler::METHOD_CLOSE_ALL_CONNECTIONS);
+  handler->ExecuteTest();
+  ReleaseAndWaitForDestructor(handler);
+}
+
+// Test CefRequestContext::ResolveHost with the global context.
+TEST(RequestContextTest, ResolveHostGlobal) {
+  CefRefPtr<MethodTestHandler> handler =
+      new MethodTestHandler(true,
+          MethodTestHandler::METHOD_RESOLVE_HOST);
+  handler->ExecuteTest();
+  ReleaseAndWaitForDestructor(handler);
+}
+
+// Test CefRequestContext::ResolveHost with a custom context.
+TEST(RequestContextTest, ResolveHostCustom) {
+  CefRefPtr<MethodTestHandler> handler =
+      new MethodTestHandler(false,
+          MethodTestHandler::METHOD_RESOLVE_HOST);
   handler->ExecuteTest();
   ReleaseAndWaitForDestructor(handler);
 }

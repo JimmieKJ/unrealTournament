@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "DataProviders/AIDataProvider_QueryParams.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
-#include "EnvironmentQuery/EnvQuery.h"
-#include "EnvironmentQuery/EnvQueryContext.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType_ActorBase.h"
+#include "UObject/Package.h"
+#include "AI/Navigation/NavAgentInterface.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "AI/Navigation/RecastNavMesh.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_ActorBase.h"
+#include "BehaviorTree/BTNode.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
+#include "VisualLogger/VisualLogger.h"
+#include "DataProviders/AIDataProvider_QueryParams.h"
+#include "EnvironmentQuery/EnvQuery.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Float.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Int.h"
@@ -15,6 +19,8 @@
 #include "EnvironmentQuery/EnvQueryManager.h"
 
 #define LOCTEXT_NAMESPACE "EnvQueryGenerator"
+
+PRAGMA_DISABLE_OPTIMIZATION
 
 float UEnvQueryTypes::SkippedItemValue = -FLT_MAX;
 
@@ -219,6 +225,10 @@ FText FEnvTraceData::ToText(FEnvTraceData::EDescriptionMode DescMode) const
 			}
 		}
 	}
+	else if (TraceMode == EEnvQueryTrace::NavigationOverLedges)
+	{
+		Desc = LOCTEXT("NavigationOverLedges", "Navmesh trace going over navmesh ledges");
+	}
 
 	return Desc;
 }
@@ -249,42 +259,6 @@ void FEnvTraceData::OnPostLoad()
 
 	TraceChannel = UEngineTypes::ConvertToTraceType(SerializedChannel);
 	VersionNum = 1;
-}
-
-void FEnvBoolParam_DEPRECATED::Convert(UObject* Owner, FAIDataProviderBoolValue& ValueProvider)
-{
-	ValueProvider.DefaultValue = Value;
-	if (IsNamedParam())
-	{
-		UAIDataProvider_QueryParams* ParamsProvider = NewObject<UAIDataProvider_QueryParams>(Owner);
-		ParamsProvider->ParamName = ParamName;
-		ValueProvider.DataBinding = ParamsProvider;
-		ValueProvider.DataField = GET_MEMBER_NAME_CHECKED(UAIDataProvider_QueryParams, BoolValue);
-	}
-}
-
-void FEnvIntParam_DEPRECATED::Convert(UObject* Owner, FAIDataProviderIntValue& ValueProvider)
-{
-	ValueProvider.DefaultValue = Value;
-	if (IsNamedParam())
-	{
-		UAIDataProvider_QueryParams* ParamsProvider = NewObject<UAIDataProvider_QueryParams>(Owner);
-		ParamsProvider->ParamName = ParamName;
-		ValueProvider.DataBinding = ParamsProvider;
-		ValueProvider.DataField = GET_MEMBER_NAME_CHECKED(UAIDataProvider_QueryParams, IntValue);
-	}
-}
-
-void FEnvFloatParam_DEPRECATED::Convert(UObject* Owner, FAIDataProviderFloatValue& ValueProvider)
-{
-	ValueProvider.DefaultValue = Value;
-	if (IsNamedParam())
-	{
-		UAIDataProvider_QueryParams* ParamsProvider = NewObject<UAIDataProvider_QueryParams>(Owner);
-		ParamsProvider->ParamName = ParamName;
-		ValueProvider.DataBinding = ParamsProvider;
-		ValueProvider.DataField = GET_MEMBER_NAME_CHECKED(UAIDataProvider_QueryParams, FloatValue);
-	}
 }
 
 
@@ -539,3 +513,5 @@ namespace FEQSHelpers
 #endif // WITH_RECAST
 
 #undef LOCTEXT_NAMESPACE
+
+PRAGMA_ENABLE_OPTIMIZATION

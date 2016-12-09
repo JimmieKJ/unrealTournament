@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
 #include "MaterialGraphConnectionDrawingPolicy.h"
+#include "MaterialGraph/MaterialGraph.h"
+#include "MaterialGraph/MaterialGraphSchema.h"
 
 /////////////////////////////////////////////////////
 // FMaterialGraphConnectionDrawingPolicy

@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DataTableEditorPrivatePCH.h"
-#include "ModuleManager.h"
+#include "DataTableEditorModule.h"
+#include "Modules/ModuleManager.h"
+#include "IDataTableEditor.h"
 #include "DataTableEditor.h"
-#include "Toolkits/ToolkitManager.h"
-#include "Engine/DataTable.h"
 
 IMPLEMENT_MODULE( FDataTableEditorModule, DataTableEditor );
 

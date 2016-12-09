@@ -4,10 +4,9 @@
 	MeshMaterialShader.cpp: Mesh material shader implementation.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "MeshMaterialShader.h"
 #include "ShaderCompiler.h"
-#include "MeshMaterialShaderType.h"
-#include "CookStats.h"
+#include "ProfilingDebugging/CookStats.h"
 
 #if ENABLE_COOK_STATS
 namespace MaterialMeshCookStats

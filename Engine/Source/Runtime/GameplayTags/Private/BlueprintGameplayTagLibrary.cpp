@@ -1,40 +1,52 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GameplayTagsModulePrivatePCH.h"
+#include "BlueprintGameplayTagLibrary.h"
+#include "GameplayTagsModule.h"
+#include "Engine/Engine.h"
+#include "EngineUtils.h"
 
 UBlueprintGameplayTagLibrary::UBlueprintGameplayTagLibrary(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 }
 
-bool UBlueprintGameplayTagLibrary::DoGameplayTagsMatch(const FGameplayTag& TagOne, const FGameplayTag& TagTwo, TEnumAsByte<EGameplayTagMatchType::Type> TagOneMatchType, TEnumAsByte<EGameplayTagMatchType::Type> TagTwoMatchType)
+bool UBlueprintGameplayTagLibrary::MatchesTag(FGameplayTag TagOne, FGameplayTag TagTwo, bool bExactMatch)
 {
-	return TagOne.Matches(TagOneMatchType, TagTwo, TagTwoMatchType);
+	if (bExactMatch)
+	{
+		return TagOne.MatchesTagExact(TagTwo);
+	}
+
+	return TagOne.MatchesTag(TagTwo);
 }
 
-int32 UBlueprintGameplayTagLibrary::GetNumGameplayTagsInContainer(const FGameplayTagContainer& TagContainer)
+bool UBlueprintGameplayTagLibrary::MatchesAnyTags(FGameplayTag TagOne, const FGameplayTagContainer& OtherContainer, bool bExactMatch)
 {
-	return TagContainer.Num();
+	if (bExactMatch)
+	{
+		return TagOne.MatchesAnyExact(OtherContainer);
+	}
+	return TagOne.MatchesAny(OtherContainer);
 }
 
-bool UBlueprintGameplayTagLibrary::DoesContainerHaveTag(const FGameplayTagContainer& TagContainer, TEnumAsByte<EGameplayTagMatchType::Type> ContainerTagsMatchType, const FGameplayTag& Tag, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType)
+bool UBlueprintGameplayTagLibrary::EqualEqual_GameplayTag(FGameplayTag A, FGameplayTag B)
 {
-	return (TagContainer.HasTag(Tag, ContainerTagsMatchType, TagMatchType));
+	return A == B;
 }
 
-bool UBlueprintGameplayTagLibrary::DoesContainerMatchAnyTagsInContainer(const FGameplayTagContainer& TagContainer, const FGameplayTagContainer& OtherContainer, bool bCountEmptyAsMatch)
+bool UBlueprintGameplayTagLibrary::NotEqual_GameplayTag(FGameplayTag A, FGameplayTag B)
 {
-	return TagContainer.MatchesAny(OtherContainer, bCountEmptyAsMatch);
+	return A != B;
 }
 
-bool UBlueprintGameplayTagLibrary::DoesContainerMatchAllTagsInContainer(const FGameplayTagContainer& TagContainer, const FGameplayTagContainer& OtherContainer, bool bCountEmptyAsMatch)
+bool UBlueprintGameplayTagLibrary::IsGameplayTagValid(FGameplayTag GameplayTag)
 {
-	return TagContainer.MatchesAll(OtherContainer, bCountEmptyAsMatch);
+	return GameplayTag.IsValid();
 }
 
-bool UBlueprintGameplayTagLibrary::DoesContainerMatchTagQuery(const FGameplayTagContainer& TagContainer, const FGameplayTagQuery& TagQuery)
+FName UBlueprintGameplayTagLibrary::GetTagName(const FGameplayTag& GameplayTag)
 {
-	return TagQuery.Matches(TagContainer);
+	return GameplayTag.GetTagName();
 }
 
 FGameplayTag UBlueprintGameplayTagLibrary::MakeLiteralGameplayTag(FGameplayTag Value)
@@ -42,26 +54,136 @@ FGameplayTag UBlueprintGameplayTagLibrary::MakeLiteralGameplayTag(FGameplayTag V
 	return Value;
 }
 
+int32 UBlueprintGameplayTagLibrary::GetNumGameplayTagsInContainer(const FGameplayTagContainer& TagContainer)
+{
+	return TagContainer.Num();
+}
+
+bool UBlueprintGameplayTagLibrary::HasTag(const FGameplayTagContainer& TagContainer, FGameplayTag Tag, bool bExactMatch)
+{
+	if (bExactMatch)
+	{
+		return TagContainer.HasTagExact(Tag);
+	}
+	return TagContainer.HasTag(Tag);
+}
+
+bool UBlueprintGameplayTagLibrary::HasAnyTags(const FGameplayTagContainer& TagContainer, const FGameplayTagContainer& OtherContainer, bool bExactMatch)
+{
+	if (bExactMatch)
+	{
+		return TagContainer.HasAnyExact(OtherContainer);
+	}
+	return TagContainer.HasAny(OtherContainer);
+}
+
+bool UBlueprintGameplayTagLibrary::HasAllTags(const FGameplayTagContainer& TagContainer, const FGameplayTagContainer& OtherContainer, bool bExactMatch)
+{
+	if (bExactMatch)
+	{
+		return TagContainer.HasAllExact(OtherContainer);
+	}
+	return TagContainer.HasAll(OtherContainer);
+}
+
+bool UBlueprintGameplayTagLibrary::DoesContainerMatchTagQuery(const FGameplayTagContainer& TagContainer, const FGameplayTagQuery& TagQuery)
+{
+	return TagQuery.Matches(TagContainer);
+}
+
+void UBlueprintGameplayTagLibrary::GetAllActorsOfClassMatchingTagQuery(UObject* WorldContextObject,
+																	   TSubclassOf<AActor> ActorClass,
+																	   const FGameplayTagQuery& GameplayTagQuery,
+																	   TArray<AActor*>& OutActors)
+{
+	OutActors.Empty();
+
+	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
+
+	// We do nothing if not class provided, rather than giving ALL actors!
+	if (ActorClass && World)
+	{
+		bool bHasLoggedMissingInterface = false;
+		for (TActorIterator<AActor> It(World, ActorClass); It; ++It)
+		{
+			AActor* Actor = *It;
+			check(Actor != nullptr);
+			if (!Actor->IsPendingKill())
+			{
+				IGameplayTagAssetInterface* GameplayTagAssetInterface = Cast<IGameplayTagAssetInterface>(Actor);
+				if (GameplayTagAssetInterface != nullptr)
+				{
+					FGameplayTagContainer OwnedGameplayTags;
+					GameplayTagAssetInterface->GetOwnedGameplayTags(OwnedGameplayTags);
+
+					if (OwnedGameplayTags.MatchesQuery(GameplayTagQuery))
+					{
+						OutActors.Add(Actor);
+					}
+				}
+				else
+				{
+					if (!bHasLoggedMissingInterface)
+					{
+						UE_LOG(LogGameplayTags, Warning,
+							TEXT("At least one actor (%s) of class %s does not implement IGameplTagAssetInterface.  Unable to find owned tags, so cannot determine if actor matches gameplay tag query.  Presuming it does not."),
+							*Actor->GetName(), *ActorClass->GetName());
+						bHasLoggedMissingInterface = true;
+					}
+				}
+			}
+		}
+	}
+}
+
+bool UBlueprintGameplayTagLibrary::EqualEqual_GameplayTagContainer(const FGameplayTagContainer& A, const FGameplayTagContainer& B)
+{
+	return A == B;
+}
+
+bool UBlueprintGameplayTagLibrary::NotEqual_GameplayTagContainer(const FGameplayTagContainer& A, const FGameplayTagContainer& B)
+{
+	return A != B;
+}
+
+FGameplayTagContainer UBlueprintGameplayTagLibrary::MakeLiteralGameplayTagContainer(FGameplayTagContainer Value)
+{
+	return Value;
+}
+
+FGameplayTagContainer UBlueprintGameplayTagLibrary::MakeGameplayTagContainerFromArray(const TArray<FGameplayTag>& GameplayTags)
+{
+	return FGameplayTagContainer::CreateFromArray(GameplayTags);
+}
+
+FGameplayTagContainer UBlueprintGameplayTagLibrary::MakeGameplayTagContainerFromTag(FGameplayTag SingleTag)
+{
+	return FGameplayTagContainer(SingleTag);
+}
+
+void UBlueprintGameplayTagLibrary::BreakGameplayTagContainer(const FGameplayTagContainer& GameplayTagContainer, TArray<FGameplayTag>& GameplayTags)
+{
+	GameplayTagContainer.GetGameplayTagArray(GameplayTags);
+}
+
 FGameplayTagQuery UBlueprintGameplayTagLibrary::MakeGameplayTagQuery(FGameplayTagQuery TagQuery)
 {
 	return TagQuery;
 }
 
-bool UBlueprintGameplayTagLibrary::HasAllMatchingGameplayTags(TScriptInterface<IGameplayTagAssetInterface> TagContainerInterface, const FGameplayTagContainer& OtherContainer, bool bCountEmptyAsMatch)
+bool UBlueprintGameplayTagLibrary::HasAllMatchingGameplayTags(TScriptInterface<IGameplayTagAssetInterface> TagContainerInterface, const FGameplayTagContainer& OtherContainer)
 {
 	if (TagContainerInterface.GetInterface() == NULL)
 	{
-		if (bCountEmptyAsMatch)
-		{
-			return (OtherContainer.Num() == 0);
-		}
-		return false;
+		return (OtherContainer.Num() == 0);
 	}
 
-	return TagContainerInterface->HasAllMatchingGameplayTags(OtherContainer, bCountEmptyAsMatch);
+	FGameplayTagContainer OwnedTags;
+	TagContainerInterface->GetOwnedGameplayTags(OwnedTags);
+	return (OwnedTags.HasAll(OtherContainer));
 }
 
-bool UBlueprintGameplayTagLibrary::DoesTagAssetInterfaceHaveTag(TScriptInterface<IGameplayTagAssetInterface> TagContainerInterface, TEnumAsByte<EGameplayTagMatchType::Type> ContainerTagsMatchType, const FGameplayTag& Tag, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType)
+bool UBlueprintGameplayTagLibrary::DoesTagAssetInterfaceHaveTag(TScriptInterface<IGameplayTagAssetInterface> TagContainerInterface, FGameplayTag Tag)
 {
 	if (TagContainerInterface.GetInterface() == NULL)
 	{
@@ -70,14 +192,17 @@ bool UBlueprintGameplayTagLibrary::DoesTagAssetInterfaceHaveTag(TScriptInterface
 
 	FGameplayTagContainer OwnedTags;
 	TagContainerInterface->GetOwnedGameplayTags(OwnedTags);
-	return (OwnedTags.HasTag(Tag, ContainerTagsMatchType, TagMatchType));
+	return (OwnedTags.HasTag(Tag));
 }
 
-bool UBlueprintGameplayTagLibrary::AppendGameplayTagContainers(const FGameplayTagContainer& InTagContainer, UPARAM(ref) FGameplayTagContainer& InOutTagContainer)
+void UBlueprintGameplayTagLibrary::AppendGameplayTagContainers(FGameplayTagContainer& InOutTagContainer, const FGameplayTagContainer& InTagContainer)
 {
 	InOutTagContainer.AppendTags(InTagContainer);
+}
 
-	return true;
+void UBlueprintGameplayTagLibrary::AddGameplayTag(FGameplayTagContainer& InOutTagContainer, FGameplayTag Tag)
+{
+	InOutTagContainer.AddTag(Tag);
 }
 
 bool UBlueprintGameplayTagLibrary::NotEqual_TagTag(FGameplayTag A, FString B)
@@ -126,7 +251,7 @@ bool UBlueprintGameplayTagLibrary::NotEqual_TagContainerTagContainer(FGameplayTa
 			}
 			TagString = Remainder;
 
-			const FGameplayTag Tag = IGameplayTagsModule::Get().GetGameplayTagsManager().RequestGameplayTag(FName(*ReadTag));
+			const FGameplayTag Tag = FGameplayTag::RequestGameplayTag(FName(*ReadTag));
 			TagContainer.AddTag(Tag);
 		}
 		if (Remainder.IsEmpty())
@@ -145,7 +270,7 @@ bool UBlueprintGameplayTagLibrary::NotEqual_TagContainerTagContainer(FGameplayTa
 					Remainder = Remainder.RightChop(1);
 				}
 			}
-			const FGameplayTag Tag = IGameplayTagsModule::Get().GetGameplayTagsManager().RequestGameplayTag(FName(*Remainder));
+			const FGameplayTag Tag = FGameplayTag::RequestGameplayTag(FName(*Remainder));
 			TagContainer.AddTag(Tag);
 		}
 	}
@@ -157,12 +282,7 @@ FString UBlueprintGameplayTagLibrary::GetDebugStringFromGameplayTagContainer(con
 	return TagContainer.ToStringSimple();
 }
 
-FString UBlueprintGameplayTagLibrary::GetDebugStringFromGameplayTag(const FGameplayTag& GameplayTag)
+FString UBlueprintGameplayTagLibrary::GetDebugStringFromGameplayTag(FGameplayTag GameplayTag)
 {
 	return GameplayTag.ToString();
-}
-
-bool UBlueprintGameplayTagLibrary::IsGameplayTagValid(const FGameplayTag& TagContainer)
-{
-	return TagContainer.IsValid();
 }

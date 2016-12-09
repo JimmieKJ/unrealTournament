@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Tasks/BTTask_RunEQSQuery.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType.h"
-#include "EnvironmentQuery/EnvQueryManager.h"
+#include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/Controller.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType.h"
+#include "VisualLogger/VisualLogger.h"
 #include "EnvironmentQuery/EnvQuery.h"
+#include "EnvironmentQuery/EnvQueryManager.h"
 
-#include "BehaviorTree/BlackboardComponent.h"
 
 UBTTask_RunEQSQuery::UBTTask_RunEQSQuery(const FObjectInitializer& ObjectInitializer) 
 	: Super(ObjectInitializer)

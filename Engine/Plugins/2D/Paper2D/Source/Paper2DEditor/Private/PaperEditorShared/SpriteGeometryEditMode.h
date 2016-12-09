@@ -2,8 +2,19 @@
 
 #pragma once
 
-#include "SpriteGeometryEditing.h"
-#include "../SpriteEditor/SpriteEditorSelections.h"
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "EdMode.h"
+#include "PaperEditorShared/SpriteGeometryEditing.h"
+
+class FCanvas;
+class FEditorViewportClient;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FUICommandList;
+class FViewport;
+struct FSpriteGeometryCollection;
+struct FViewportClick;
 
 //////////////////////////////////////////////////////////////////////////
 // FSpriteGeometryEditMode

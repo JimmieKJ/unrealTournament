@@ -2,14 +2,10 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
-
-// forward declarations
 class FWorkspaceItem;
-class SWidget;
-class ISlateAtlasProvider;
-
 
 /**
  * Interface for messaging modules.

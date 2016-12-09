@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
 #include "GeneralProjectSettings.generated.h"
 
 
@@ -74,4 +78,16 @@ class ENGINESETTINGS_API UGeneralProjectSettings
 	/** Should the game attempt to start in VR, regardless of whether -vr was set on the commandline */
 	UPROPERTY(config, EditAnywhere, Category = Settings)
 	bool bStartInVR;
+	
+	UPROPERTY(config, EditAnywhere, Category = Settings)
+	bool bAllowWindowResize;
+
+	UPROPERTY(config, EditAnywhere, Category = Settings)
+	bool bAllowClose;
+
+	UPROPERTY(config, EditAnywhere, Category = Settings)
+	bool bAllowMaximize;
+
+	UPROPERTY(config, EditAnywhere, Category = Settings)
+	bool bAllowMinimize;
 };

@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SequencerPrivatePCH.h"
 #include "SequencerObjectChangeListener.h"
-#include "PropertyEditing.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
+#include "Editor.h"
+#include "Modules/ModuleManager.h"
+#include "PropertyEditorModule.h"
 #include "IPropertyChangeListener.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSequencerTools, Log, All);
@@ -26,7 +29,7 @@ FSequencerObjectChangeListener::~FSequencerObjectChangeListener()
 
 void FSequencerObjectChangeListener::OnPropertyChanged(const TArray<UObject*>& ChangedObjects, const IPropertyHandle& PropertyHandle) const
 {
-	BroadcastPropertyChanged(FKeyPropertyParams(ChangedObjects, PropertyHandle));
+	BroadcastPropertyChanged(FKeyPropertyParams(ChangedObjects, PropertyHandle, ESequencerKeyMode::AutoKey));
 
 	for (UObject* Object : ChangedObjects)
 	{
@@ -50,9 +53,20 @@ void FSequencerObjectChangeListener::BroadcastPropertyChanged( FKeyPropertyParam
 	TArray<UObject*> KeyableObjects;
 	for (auto ObjectToKey : KeyPropertyParams.ObjectsToKey)
 	{
-		if (CanKeyProperty(FCanKeyPropertyParams(ObjectToKey->GetClass(), KeyPropertyParams.PropertyPath)))
+		if (KeyPropertyParams.PropertyPath.Num() > 0)
 		{
-			KeyableObjects.Add(ObjectToKey);
+			for (TFieldIterator<UProperty> PropertyIterator(ObjectToKey->GetClass()); PropertyIterator; ++PropertyIterator)
+			{
+				UProperty* Property = *PropertyIterator;
+				if (Property == KeyPropertyParams.PropertyPath[0])
+				{
+					if (CanKeyProperty(FCanKeyPropertyParams(ObjectToKey->GetClass(), KeyPropertyParams.PropertyPath)))
+					{
+						KeyableObjects.Add(ObjectToKey);
+						break;
+					}
+				}
+			}
 		}
 	}
 
@@ -68,29 +82,29 @@ void FSequencerObjectChangeListener::BroadcastPropertyChanged( FKeyPropertyParam
 		ParentStructProperty = Cast<const UStructProperty>(KeyPropertyParams.PropertyPath[KeyPropertyParams.PropertyPath.Num() - 2]);
 	}
 
-	FPropertyChangedParams Params;
-	Params.KeyParams = KeyPropertyParams.KeyParams;
-	Params.ObjectsThatChanged = KeyableObjects;
-	Params.StructPropertyNameToKey = NAME_None;
+	TArray<UProperty*> PropertyPath;
+	FName StructPropertyNameToKey = NAME_None;
 
 	bool bFoundAndBroadcastedDelegate = false;
 	if (ParentStructProperty)
 	{
-		Params.PropertyPath.Append(KeyPropertyParams.PropertyPath.GetData(), KeyPropertyParams.PropertyPath.Num() - 1);
+		PropertyPath.Append(KeyPropertyParams.PropertyPath.GetData(), KeyPropertyParams.PropertyPath.Num() - 1);
 
 		// If the property parent is a struct, see if this property parent can be keyed. (e.g R,G,B,A for a color)
 		FOnAnimatablePropertyChanged Delegate = ClassToPropertyChangedMap.FindRef(ParentStructProperty->Struct->GetFName());
 		if (Delegate.IsBound())
 		{
-			Params.StructPropertyNameToKey = KeyPropertyParams.PropertyPath.Last()->GetFName();
+			StructPropertyNameToKey = KeyPropertyParams.PropertyPath.Last()->GetFName();
 			bFoundAndBroadcastedDelegate = true;
+			FPropertyChangedParams Params(KeyableObjects, PropertyPath, StructPropertyNameToKey, KeyPropertyParams.KeyMode);
 			Delegate.Broadcast(Params);
 		}
 	}
 
 	if (!bFoundAndBroadcastedDelegate)
 	{
-		Params.PropertyPath = KeyPropertyParams.PropertyPath;
+		PropertyPath = KeyPropertyParams.PropertyPath;
+		FPropertyChangedParams Params(KeyableObjects, PropertyPath, StructPropertyNameToKey, KeyPropertyParams.KeyMode);
 		if (StructProperty)
 		{
 			ClassToPropertyChangedMap.FindRef(StructProperty->Struct->GetFName()).Broadcast(Params);

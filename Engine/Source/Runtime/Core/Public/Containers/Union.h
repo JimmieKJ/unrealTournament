@@ -2,11 +2,13 @@
 
 #pragma once
 
-#include "Core.h"
-#include "UnrealTypeTraits.h"
-#include "Containers/ContainerAllocationPolicies.h"
-#include "UnrealTemplate.h"
-#include "ArchiveBase.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Templates/AreTypesEqual.h"
+#include "Templates/UnrealTypeTraits.h"
+#include "Templates/TypeCompatibleBytes.h"
+#include "Templates/UnrealTemplate.h"
+#include "Logging/LogMacros.h"
 
 
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogUnion, Log, All);

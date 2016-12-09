@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_Direction.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
 
 UEnvQueryItemType_Direction::UEnvQueryItemType_Direction(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

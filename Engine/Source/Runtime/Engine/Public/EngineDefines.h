@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /*-----------------------------------------------------------------------------
 	Configuration defines
 -----------------------------------------------------------------------------*/
@@ -22,13 +24,6 @@
 	#define WITH_APEX (1 && WITH_PHYSX)
 #endif
 
-/** 
- *   Whether or not compiling with Vehicle extensions to PhysX
- */
-#ifndef WITH_VEHICLE
-	#define WITH_VEHICLE (1 && WITH_PHYSX)
-#endif
-
 #ifndef WITH_PHYSICS_COOKING
 	#define WITH_PHYSICS_COOKING (WITH_EDITOR || WITH_APEX)		//APEX currently relies on cooking even at runtime
 #endif
@@ -41,7 +36,6 @@
 #ifndef WITH_APEX_LEGACY
 	#define WITH_APEX_LEGACY	1
 #endif // WITH_APEX_LEGACY
-
 #endif // WITH_APEX
 
 #if WITH_APEX_CLOTHING

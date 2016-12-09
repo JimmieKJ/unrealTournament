@@ -2,14 +2,18 @@
 
 #pragma once
 
-#include "BlueprintNodeBinder.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "EdGraph/EdGraphNode.h"
 #include "BlueprintNodeSignature.h"
+#include "Textures/SlateIcon.h"
+#include "BlueprintNodeBinder.h"
+#include "BlueprintActionFilter.h"
 #include "BlueprintNodeSpawner.generated.h"
 
-// Forward declarations
-class  UEdGraph;
-class  UEdGraphNode;
-struct FBlueprintActionContext;
+class UEdGraph;
 
 /*******************************************************************************
  * FBlueprintActionUiSpec

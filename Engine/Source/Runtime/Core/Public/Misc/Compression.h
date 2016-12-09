@@ -2,9 +2,7 @@
 
 #pragma once
 
-#include "HAL/Platform.h"
-
-class ITargetPlatform;
+#include "CoreTypes.h"
 
 /**
  * Flags controlling [de]compression

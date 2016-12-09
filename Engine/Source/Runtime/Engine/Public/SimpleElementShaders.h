@@ -6,8 +6,10 @@
 
 #pragma once
 
-#include "GlobalShader.h"
+#include "CoreMinimal.h"
 #include "ShaderParameters.h"
+#include "Shader.h"
+#include "GlobalShader.h"
 
 /**
  * A vertex shader for rendering a texture on a simple element.

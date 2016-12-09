@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Framework/Docking/SDockingNode.h"
 
 /**
  * Targets used by docking code. When re-arranging layout, hovering over targets

@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Serialization/JsonTypes.h"
 
 class FJsonObject;
-
 
 /**
  * A Json Value is a structure that can be any of the Json Types.

@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StandaloneRendererPrivate.h"
-
 #include "OpenGL/SlateOpenGLTextureManager.h"
-#include "OpenGL/SlateOpenGLRenderer.h"
+#include "Misc/FileHelper.h"
+#include "Modules/ModuleManager.h"
+#include "Styling/ISlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "StandaloneRendererPlatformHeaders.h"
+#include "OpenGL/SlateOpenGLTextures.h"
 
-#include "ModuleManager.h"
-#include "ImageWrapper.h"
+
+#include "Interfaces/IImageWrapperModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSlateOpenGL, Log, All);
 

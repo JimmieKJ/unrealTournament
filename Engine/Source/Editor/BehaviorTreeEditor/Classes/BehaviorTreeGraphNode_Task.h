@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "BehaviorTreeGraphNode_Task.generated.h"
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BehaviorTreeGraphNode.h"
+#include "BehaviorTreeGraphNode_Task.generated.h"
 
 UCLASS()
 class UBehaviorTreeGraphNode_Task : public UBehaviorTreeGraphNode

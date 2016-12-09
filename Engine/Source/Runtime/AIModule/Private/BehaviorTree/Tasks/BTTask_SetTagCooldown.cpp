@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Tasks/BTTask_SetTagCooldown.h"
 
 UBTTask_SetTagCooldown::UBTTask_SetTagCooldown(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)

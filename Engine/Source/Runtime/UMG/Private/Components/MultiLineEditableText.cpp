@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/MultiLineEditableText.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/Font.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Text/SMultiLineEditableText.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

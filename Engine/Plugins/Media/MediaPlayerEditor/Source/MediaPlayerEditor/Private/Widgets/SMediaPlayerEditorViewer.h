@@ -2,12 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "Styling/ISlateStyle.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
 
-enum class EMediaTrackType;
-class ISlateStyle;
+class FMenuBuilder;
+class SEditableTextBox;
 class SSlider;
 class UMediaPlayer;
-
+enum class EMediaEvent;
+enum class EMediaPlayerTrack : uint8;
 
 /**
  * Implements the contents of the viewer tab in the UMediaPlayer asset editor.
@@ -39,6 +45,15 @@ public:
 	 */
 	void Construct(const FArguments& InArgs, UMediaPlayer& InMediaPlayer, const TSharedRef<ISlateStyle>& InStyle);
 
+public:
+
+	//~ SWidget interface
+
+	virtual void OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
+	virtual void OnDragLeave(const FDragDropEvent& DragDropEvent) override;
+	virtual FReply OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
+	virtual FReply OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
+
 protected:
 
 	/** Open the media URL in the url text box. */
@@ -54,9 +69,6 @@ private:
 
 	/** Callback for media player events. */
 	void HandleMediaPlayerMediaEvent(EMediaEvent Event);
-
-	/** Callback for getting the text of the movie captions. */
-	FText HandleOverlayCaptionText() const;
 
 	/** Callback for getting the text of the player name overlay. */
 	FText HandleOverlayPlayerNameText() const;
@@ -94,6 +106,9 @@ private:
 	/** Callback for changing the value of the 'Position' slider. */
 	void HandlePositionSliderValueChanged( float NewValue );
 
+	/** Callback for creating the Scale sub-menu. */
+	void HandleScaleMenuNewMenu(FMenuBuilder& MenuBuilder);
+
 	/** Callback for handling button up events on the movie texture border. */
 	FReply HandleTextureMouseButtonUp(const FGeometry& Geometry, const FPointerEvent& MouseEvent);
 
@@ -110,6 +125,12 @@ private:
 	FReply HandleUrlBoxKeyDown(const FGeometry&, const FKeyEvent& KeyEvent);
 
 private:
+
+	/** Whether something is currently being dragged over the widget. */
+	bool DragOver;
+
+	/** Whether the dragged object is a media file that can be played. */
+	bool DragValid;
 
 	/** Pointer to the media player that is being viewed. */
 	UMediaPlayer* MediaPlayer;

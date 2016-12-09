@@ -1,23 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
+#include "Customizations/UMGDetailCustomizations.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
 
-#include "UMGDetailCustomizations.h"
-#include "BlueprintModes/WidgetBlueprintApplicationModes.h"
-#include "PropertyEditing.h"
-#include "ObjectEditorUtils.h"
-#include "WidgetGraphSchema.h"
-#include "ScopedTransaction.h"
-#include "BlueprintEditorUtils.h"
-#include "WidgetGraphSchema.h"
-#include "Components/Widget.h"
-#include "WidgetBlueprint.h"
+#if WITH_EDITOR
+	#include "EditorStyleSet.h"
+#endif // WITH_EDITOR
+#include "EdGraphSchema_K2.h"
+#include "EdGraphSchema_K2_Actions.h"
 #include "K2Node_ComponentBoundEvent.h"
 #include "Kismet2/KismetEditorUtilities.h"
-#include "EdGraphSchema_K2_Actions.h"
-#include "WidgetBlueprintEditor.h"
+
+#include "BlueprintModes/WidgetBlueprintApplicationModes.h"
+#include "DetailWidgetRow.h"
+#include "PropertyHandle.h"
+#include "IDetailPropertyRow.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "ObjectEditorUtils.h"
+#include "ScopedTransaction.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "Components/PanelSlot.h"
-#include "SPropertyBinding.h"
+#include "Details/SPropertyBinding.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

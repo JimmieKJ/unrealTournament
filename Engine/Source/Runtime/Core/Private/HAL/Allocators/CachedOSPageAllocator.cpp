@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "HAL/Allocators/CachedOSPageAllocator.h"
+#include "HAL/UnrealMemory.h"
+#include "Logging/LogMacros.h"
+#include "CoreGlobals.h"
 
-#include "Allocators/CachedOSPageAllocator.h"
 
 void* FCachedOSPageAllocator::AllocateImpl(SIZE_T Size, FFreePageBlock* First, FFreePageBlock* Last, uint32& FreedPageBlocksNum, uint32& CachedTotal)
 {

@@ -1,16 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "DataProviders/AIDataProvider.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType.h"
+#include "EnvironmentQuery/EnvQueryContext.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
+#include "DataProviders/AIDataProvider.h"
 #include "EnvironmentQuery/EnvQueryNode.h"
 #include "EnvQueryTest.generated.h"
 
-class UEnvQueryItemType;
-class UEnvQueryContext;
+class AActor;
+
 #if WITH_EDITOR
 struct FPropertyChangedEvent;
 #endif // WITH_EDITOR
+
+UENUM()
+enum class EEQSNormalizationType : uint8
+{
+	Absolute,	// using 0 as the base of normalization range
+	RelativeToScores	// using lowest item store as the base of normalization range
+};
 
 namespace EnvQueryTestVersion
 {
@@ -99,6 +112,10 @@ class AIMODULE_API UEnvQueryTest : public UEnvQueryNode
 	    Should it use the highest value found (tested), the upper threshold for filtering, or a separate specified normalization maximum? */
 	UPROPERTY(EditDefaultsOnly, Category=Score)
 	TEnumAsByte<EEnvQueryTestClamping::Type> ClampMaxType;
+
+	/** Specifies how to determine value span used to normalize scores */
+	UPROPERTY(EditDefaultsOnly, Category = Score)
+	EEQSNormalizationType NormalizationType;
 
 	/** Minimum value to use to normalize the raw test value before applying scoring formula. */
 	UPROPERTY(EditDefaultsOnly, Category=Score)

@@ -2,14 +2,13 @@
 
 #pragma once
 
-#include "DelegateSettings.h"
-#include "SharedPointer.h"
-#include "WeakObjectPtrTemplates.h"
-#include "IDelegateInstance.h"
-#include "DelegateBase.h"
-#include "MulticastDelegateBase.h"
-#include "UObject/ScriptDelegates.h"
-
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "UObject/NameTypes.h"
+#include "Templates/SharedPointer.h"
+#include "UObject/WeakObjectPtrTemplates.h"
+#include "Delegates/MulticastDelegateBase.h"
+#include "Delegates/IntegerSequence.h"
 
 /**
  *  C++ DELEGATES
@@ -272,11 +271,10 @@ class DynamicMulticastDelegateName : public TBaseDynamicMulticastDelegate<TWeakP
 
 
 
-#define ENABLE_STATIC_FUNCTION_FNAMES (defined(__clang__) && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 5)))
+#define ENABLE_STATIC_FUNCTION_FNAMES (PLATFORM_COMPILER_CLANG && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 5)))
 
 #if ENABLE_STATIC_FUNCTION_FNAMES
 
-	#include "Delegates/IntegerSequence.h"
 
 	namespace NStrAfterLastDoubleColon_Private
 	{
@@ -418,10 +416,10 @@ namespace UE4Delegates_Private
 #define FUNC_INCLUDING_INLINE_IMPL
 
 #ifndef UE_BUILD_DOCS
-	#include "DelegateInstanceInterface.h"
-	#include "DelegateInstancesImpl.h"
-	#include "DelegateSignatureImpl.inl"
-	#include "DelegateCombinations.h"
+	#include "Delegates/DelegateInstanceInterface.h"
+	#include "Delegates/DelegateInstancesImpl.h"
+	#include "Delegates/DelegateSignatureImpl.inl"
+	#include "Delegates/DelegateCombinations.h"
 #endif
 
 // No longer allowed to include DelegateSignatureImpl.inl

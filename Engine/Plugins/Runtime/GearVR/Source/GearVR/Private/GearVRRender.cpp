@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GearVRPrivatePCH.h"
+#include "CoreMinimal.h"
 #include "GearVR.h"
+#include "IHeadMountedDisplay.h"
+#include "IGearVRPlugin.h"
 #include "RHIStaticStates.h"
 
 #if GEARVR_SUPPORTED_PLATFORMS
@@ -9,8 +11,11 @@
 #include "OpenGLDrvPrivate.h"
 #include "OpenGLResources.h"
 #include "ScreenRendering.h"
+
+#if PLATFORM_ANDROID
 #include "Android/AndroidJNI.h"
 #include "Android/AndroidEGL.h"
+#endif
 
 #define OCULUS_STRESS_TESTS_ENABLED	0
 
@@ -73,7 +78,8 @@ FOpenGLTexture2DSet* FOpenGLTexture2DSet::CreateTexture2DSet(
 	uint32 InNumMips,
 	EPixelFormat InFormat,
 	uint32 InFlags,
-	bool bBuffered
+	bool bBuffered,
+    bool bInCubemap
 	)
 {
 	GLenum Target = (InNumSamples > 1) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
@@ -82,10 +88,17 @@ FOpenGLTexture2DSet* FOpenGLTexture2DSet::CreateTexture2DSet(
 	uint8* TextureRange = nullptr;
 
 	FOpenGLTexture2DSet* NewTextureSet = new FOpenGLTexture2DSet(
-		InGLRHI, 0, Target, Attachment, SizeX, SizeY, 0, InNumMips, InNumSamples, 1, InFormat, false, bAllocatedStorage, InFlags, TextureRange);
+		InGLRHI, 0, Target, Attachment, SizeX, SizeY, 0, InNumMips, InNumSamples, 1, InFormat, bInCubemap, bAllocatedStorage, InFlags, TextureRange);
 
 	const int32 NumLevels = (InNumMips == 0) ? VRAPI_TEXTURE_SWAPCHAIN_FULL_MIP_CHAIN : int(InNumMips);
-	NewTextureSet->ColorTextureSet = vrapi_CreateTextureSwapChain(VRAPI_TEXTURE_TYPE_2D, VRAPI_TEXTURE_FORMAT_8888, SizeX, SizeY, NumLevels, bBuffered);
+    if (bInCubemap)
+    {
+        NewTextureSet->ColorTextureSet = vrapi_CreateTextureSwapChain(VRAPI_TEXTURE_TYPE_CUBE, VRAPI_TEXTURE_FORMAT_8888, SizeX, SizeY, 0, bBuffered); // NumLevels = 0 to prevent allocation of swapchain while using vrapi_SetTextureSwapChainHandle() method
+    }
+    else
+    {
+        NewTextureSet->ColorTextureSet = vrapi_CreateTextureSwapChain(VRAPI_TEXTURE_TYPE_2D, VRAPI_TEXTURE_FORMAT_8888, SizeX, SizeY, NumLevels, bBuffered);
+    }
 	if (!NewTextureSet->ColorTextureSet)
 	{
 		// hmmm... can't allocate a texture set for some reasons.
@@ -107,6 +120,10 @@ FRenderLayer::FRenderLayer(FHMDLayerDesc& InDesc) :
 	ovrJava JavaVM;
 
 	Layer = vrapi_DefaultFrameParms(&JavaVM, VRAPI_FRAME_INIT_DEFAULT, 0, nullptr).Layers[VRAPI_FRAME_LAYER_TYPE_OVERLAY];
+	LayerBias.Scale.x = 1.0f;
+	LayerBias.Scale.y = 1.0f;
+	LayerBias.Bias.x = 0.0f;
+	LayerBias.Bias.y = 0.0f;
 }
 
 FRenderLayer::~FRenderLayer()
@@ -199,7 +216,7 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 
 	const FSettings* FrameSettings = CurrentFrame->GetSettings();
 
-	for (uint32 l = 0; l < LayersToRender.Num() ; ++l)
+	for (uint32 l = 0; l < (uint32) LayersToRender.Num() ; ++l)
 	{
 		FRenderLayer* RenderLayer = static_cast<FRenderLayer*>(LayersToRender[l].Get());
 		if (!RenderLayer || !RenderLayer->IsFullySetup())
@@ -208,6 +225,8 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 		}
 		const FHMDLayerDesc& LayerDesc = RenderLayer->GetLayerDesc();
 		FTextureRHIRef Texture = LayerDesc.GetTexture();
+		FTextureRHIRef LeftTexture = LayerDesc.GetLeftTexture();
+
 		switch (LayerDesc.GetType())
 		{
 		case FHMDLayerDesc::Eye:
@@ -215,43 +234,74 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 			RenderLayer->Layer.Textures[0].HeadPose = CurrentFrame->CurSensorState.HeadPose;
 			RenderLayer->Layer.Textures[1].HeadPose = CurrentFrame->CurSensorState.HeadPose;
 
-			const uint32 RTSizeX = CurrentFrame->ViewportSize.X;
-			const uint32 RTSizeY = CurrentFrame->ViewportSize.Y;
+			check(VRAPI_FRAME_LAYER_EYE_LEFT == 0);
+			check(VRAPI_FRAME_LAYER_EYE_RIGHT == 1);
 
 			RenderLayer->Layer.Textures[VRAPI_FRAME_LAYER_EYE_LEFT].TexCoordsFromTanAngles = CurrentFrame->TanAngleMatrix;
 			RenderLayer->Layer.Textures[VRAPI_FRAME_LAYER_EYE_RIGHT].TexCoordsFromTanAngles = CurrentFrame->TanAngleMatrix;
 
-			check(VRAPI_FRAME_LAYER_EYE_LEFT == 0);
-			check(VRAPI_FRAME_LAYER_EYE_RIGHT == 1);
+#if PLATFORM_ANDROID
 			// split screen stereo
+			const float ScaleX = (float) CurrentFrame->ViewportSize.Y / (float) CurrentFrame->ViewportSize.X;
+
 			for ( int i = 0 ; i < 2 ; i++ )
 			{
 				for ( int j = 0 ; j < 3 ; j++ )
 				{
-					RenderLayer->Layer.Textures[i].TexCoordsFromTanAngles.M[0][j] *= ((float)RTSizeY / (float)RTSizeX);
+					RenderLayer->Layer.Textures[i].TexCoordsFromTanAngles.M[0][j] *= ScaleX;
 				}
 			}
-			RenderLayer->Layer.Textures[VRAPI_FRAME_LAYER_EYE_RIGHT].TexCoordsFromTanAngles.M[0][2] -= 1.0 - ((float)RTSizeY / (float)RTSizeX);
+			RenderLayer->Layer.Textures[VRAPI_FRAME_LAYER_EYE_RIGHT].TexCoordsFromTanAngles.M[0][2] -= 1.0 - ScaleX;
+#else
+			for ( int i = 0 ; i < 2 ; i++ )
+			{
+				// Scale X Axis by half
+				RenderLayer->Layer.Textures[i].TexCoordsFromTanAngles.M[0][0] *= 0.5f;
+				RenderLayer->Layer.Textures[i].TexCoordsFromTanAngles.M[0][1] *= 0.5f;
+				RenderLayer->Layer.Textures[i].TexCoordsFromTanAngles.M[0][2] *= 0.5f;
+
+				// Flip Y axis
+				RenderLayer->Layer.Textures[i].TexCoordsFromTanAngles.M[1][0] *= -1.0f;
+				RenderLayer->Layer.Textures[i].TexCoordsFromTanAngles.M[1][1] *= -1.0f;
+			}
+
+			RenderLayer->Layer.Textures[VRAPI_FRAME_LAYER_EYE_RIGHT].TexCoordsFromTanAngles.M[0][2] -= 0.5f;
+#endif
 
 			static const ovrRectf LeftEyeRect  = { 0.0f, 0.0f, 0.5f, 1.0f };
 			static const ovrRectf RightEyeRect = { 0.5f, 0.0f, 0.5f, 1.0f };
 			RenderLayer->Layer.Textures[VRAPI_FRAME_LAYER_EYE_LEFT].TextureRect = LeftEyeRect;
-			RenderLayer->Layer.Textures[VRAPI_FRAME_LAYER_EYE_RIGHT].TextureRect= RightEyeRect;
-
+			RenderLayer->Layer.Textures[VRAPI_FRAME_LAYER_EYE_RIGHT].TextureRect = RightEyeRect;
 			RenderLayer->Layer.Textures[0].ColorTextureSwapChain = RenderLayer->Layer.Textures[1].ColorTextureSwapChain = RenderLayer->GetSwapTextureSet();
 			RenderLayer->Layer.Textures[0].TextureSwapChainIndex = RenderLayer->Layer.Textures[1].TextureSwapChainIndex = RenderLayer->GetSwapTextureIndex();
+			RenderLayer->Layer.SrcBlend = VRAPI_FRAME_LAYER_BLEND_ONE;
+			RenderLayer->Layer.DstBlend = VRAPI_FRAME_LAYER_BLEND_ONE_MINUS_SRC_ALPHA;
 			RenderLayer->CommitTextureSet(RHICmdList);
 			RenderLayer->ResetChangedFlags();
 			break;
 		}
+		
 		case FHMDLayerDesc::Quad:
+		case FHMDLayerDesc::Cylinder:
+		case FHMDLayerDesc::Cubemap:
+            bool IsCubemap = (LayerDesc.GetType() == FHMDLayerDesc::Cubemap);
+                
 			if (Texture)
 			{
 				bool JustAllocated = false;
 				bool ReloadTex = LayerDesc.IsTextureChanged() || (LayerDesc.GetFlags() & IStereoLayers::LAYER_FLAG_TEX_CONTINUOUS_UPDATE);
 
-				uint32 SizeX = Texture->GetTexture2D()->GetSizeX() + 2;
-				uint32 SizeY = Texture->GetTexture2D()->GetSizeY() + 2;
+				uint32 SizeX, SizeY = 0;
+
+				if (IsCubemap)
+				{
+					SizeX = SizeY = Texture->GetTextureCube()->GetSize();
+				}
+				else
+				{
+					SizeX = Texture->GetTexture2D()->GetSizeX() + 2;
+					SizeY = Texture->GetTexture2D()->GetSizeY() + 2;
+				}
 
 				const ovrTextureFormat VrApiFormat = VRAPI_TEXTURE_FORMAT_8888;
 
@@ -268,7 +318,12 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 
 				if (!RenderLayer->TextureSet.IsValid())
 				{
-					RenderLayer->TextureSet = pPresentBridge->CreateTextureSet(SizeX, SizeY, VrApiFormat, 1, false);
+					RenderLayer->TextureSet = pPresentBridge->CreateTextureSet(SizeX, SizeY, VrApiFormat, 1, false, IsCubemap);
+					if (LeftTexture)
+					{
+						RenderLayer->LeftTextureSet = pPresentBridge->CreateTextureSet(SizeX, SizeY, VrApiFormat, 1, false, IsCubemap);
+					}
+				
 					if (!RenderLayer->TextureSet.IsValid())
 					{
 						UE_LOG(LogHMD, Log, TEXT("ERROR : Couldn't instanciate textureset"));
@@ -279,7 +334,22 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 
 				if (ReloadTex && RenderLayer->TextureSet.IsValid())
 				{
-					pPresentBridge->CopyTexture_RenderThread(RHICmdList, RenderLayer->TextureSet->GetRHITexture2D(), Texture, SizeX, SizeY, FIntRect(), FIntRect(), true);
+					GLuint handle = *(GLuint*)(Texture->GetNativeResource());
+					if (IsCubemap)
+					{
+#if PLATFORM_ANDROID
+						vrapi_SetTextureSwapChainHandle(RenderLayer->GetSwapTextureSet(), RenderLayer->GetSwapTextureIndex(), handle);
+						if (LeftTexture)
+						{
+							GLuint lefthandle = *(GLuint*)(LeftTexture->GetNativeResource());
+							vrapi_SetTextureSwapChainHandle(RenderLayer->GetLeftSwapTextureSet(), RenderLayer->GetLeftSwapTextureIndex(), lefthandle);
+						}
+#endif
+					}
+					else
+					{
+						pPresentBridge->CopyTexture_RenderThread(RHICmdList, RenderLayer->TextureSet->GetRHITexture2D(), Texture, SizeX, SizeY, FIntRect(), FIntRect(), true);
+					}
 				}
 
 				//transform calculation
@@ -287,10 +357,7 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 				pose.Rotation = ToOVRQuat<OVR::Quatf>(LayerDesc.GetTransform().GetRotation());
 				pose.Translation = ToOVRVector_U2M<OVR::Vector3f>(LayerDesc.GetTransform().GetTranslation(), WorldToMetersScale);
 
-				OVR::Vector3f scale(LayerDesc.GetQuadSize().X * LayerDesc.GetTransform().GetScale3D().Y / WorldToMetersScale, LayerDesc.GetQuadSize().Y * LayerDesc.GetTransform().GetScale3D().Z / WorldToMetersScale, 1.0f);
-				// apply the scale from transform. We use Y for width and Z for height to match the UE coord space
-				OVR::Matrix4f scaling = OVR::Matrix4f::Scaling(0.5f * (OVR::Vector3f&)scale);
-
+			
 				OVR::Posef PlayerTorso(ToOVRQuat<OVR::Quatf>(FrameSettings->BaseOrientation.Inverse() * CurrentFrame->PlayerOrientation),
 					ToOVRVector_U2M<OVR::Vector3f>(CurrentFrame->PlayerLocation, WorldToMetersScale));
 
@@ -302,32 +369,86 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 
 				for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++)
 				{
-					RenderLayer->Layer.Textures[eye].ColorTextureSwapChain = RenderLayer->GetSwapTextureSet();
-					RenderLayer->Layer.Textures[eye].TextureSwapChainIndex = RenderLayer->GetSwapTextureIndex();
+					if (LeftTexture && eye == 0)
+					{
+						RenderLayer->Layer.Textures[eye].ColorTextureSwapChain = RenderLayer->GetLeftSwapTextureSet();
+						RenderLayer->Layer.Textures[eye].TextureSwapChainIndex = RenderLayer->GetLeftSwapTextureIndex();
+					}
+					else
+					{
+						RenderLayer->Layer.Textures[eye].ColorTextureSwapChain = RenderLayer->GetSwapTextureSet();
+						RenderLayer->Layer.Textures[eye].TextureSwapChainIndex = RenderLayer->GetSwapTextureIndex();
+					}
+					
+					
 					RenderLayer->Layer.Textures[eye].HeadPose = CurrentFrame->HeadPose;
 
 					ovrPosef eyeToIC = CurrentFrame->EyeRenderPose[eye];
 					OVR::Posef centerToEye = (PlayerTorso * Posef(eyeToIC)).Inverted();
 
 					//world locked!
+					OVR::Matrix4f mv;
 					if (LayerDesc.IsWorldLocked() || LayerDesc.IsTorsoLocked())
 					{
-						OVR::Matrix4f m2e(centerToEye * pose);
-						m2e *= scaling;
-
-						const ovrMatrix4f mv = (ovrMatrix4f&)m2e;
-						RenderLayer->Layer.Textures[eye].TexCoordsFromTanAngles = ovrMatrix4f_TanAngleMatrixFromUnitSquare(&mv);
+						mv = OVR::Matrix4f(centerToEye * pose);
 					}
 					else
 					{
 						ovrPosef centerEyeToIC = CurrentFrame->HeadPose.Pose;
 						OVR::Posef centerTocenterEye = PlayerTorso * Posef(centerEyeToIC);
 
-						OVR::Matrix4f m2e(centerToEye * centerTocenterEye* pose);
-						m2e *= scaling;
+						mv = OVR::Matrix4f(centerToEye * centerTocenterEye* pose);
+					}
 
-						const ovrMatrix4f mv = (ovrMatrix4f&)m2e;
-						RenderLayer->Layer.Textures[eye].TexCoordsFromTanAngles = ovrMatrix4f_TanAngleMatrixFromUnitSquare(&mv);
+
+					if (LayerDesc.GetType() == FHMDLayerDesc::Cylinder)
+					{
+						
+						float cylinderRadius = LayerDesc.GetCylinderSize().X / WorldToMetersScale;
+						float cylinderArc = LayerDesc.GetCylinderSize().Y / WorldToMetersScale;
+						float cylinderHeight = LayerDesc.GetCylinderHeight() / WorldToMetersScale;
+						float arcAngle = cylinderArc / cylinderRadius;
+						arcAngle = fmin((float)MATH_DOUBLE_PI, arcAngle);
+						float CircScale = (float)MATH_DOUBLE_PI / arcAngle;
+						float CircBias = -CircScale * (0.5f * (1.0f - 1.0f / CircScale));
+
+						OVR::Matrix4f cylinderscaling = OVR::Matrix4f::Scaling(OVR::Vector3f(cylinderRadius*2, cylinderHeight*2, cylinderRadius*2));
+						OVR::Vector3f scale(LayerDesc.GetTransform().GetScale3D().Y, LayerDesc.GetTransform().GetScale3D().Z, 1.0f);
+						OVR::Matrix4f scaling = OVR::Matrix4f::Scaling(0.5f * (OVR::Vector3f&)scale);
+
+						mv *= cylinderscaling;
+						mv *= scaling;
+
+						RenderLayer->Layer.Textures[eye].TexCoordsFromTanAngles = ovrMatrix4f_Inverse((ovrMatrix4f*)&mv);
+
+						RenderLayer->Layer.Textures[eye].TexCoordsFromTanAngles.M[3][3] = 1.f;
+						RenderLayer->Layer.ColorScale = 1.0f;
+
+						RenderLayer->LayerBias.Scale.x = CircScale;
+						RenderLayer->LayerBias.Scale.y = 1.0;
+
+						RenderLayer->LayerBias.Bias.x = CircBias;
+						RenderLayer->LayerBias.Bias.y = -RenderLayer->LayerBias.Scale.y * (0.5f * (1.0f - (1.0f / RenderLayer->LayerBias.Scale.y)));
+					}
+					else if (LayerDesc.GetType() == FHMDLayerDesc::Cubemap)
+					{
+						OVR::Vector3f scale(LayerDesc.GetTransform().GetScale3D().Y, LayerDesc.GetTransform().GetScale3D().Z, 1.0f);
+						OVR::Matrix4f scaling = OVR::Matrix4f::Scaling(1.0f * (OVR::Vector3f&)scale);
+						mv *= scaling;
+						RenderLayer->Layer.Textures[eye].TexCoordsFromTanAngles = ovrMatrix4f_TanAngleMatrixForCubeMap((ovrMatrix4f*)&mv);
+					}
+					else
+					{
+						OVR::Vector3f scale(LayerDesc.GetQuadSize().X * LayerDesc.GetTransform().GetScale3D().Y / WorldToMetersScale, LayerDesc.GetQuadSize().Y * LayerDesc.GetTransform().GetScale3D().Z / WorldToMetersScale, 1.0f);
+						// apply the scale from transform. We use Y for width and Z for height to match the UE coord space
+						OVR::Matrix4f scaling = OVR::Matrix4f::Scaling(0.5f * (OVR::Vector3f&)scale);
+						mv *= scaling;
+
+						RenderLayer->Layer.Textures[eye].TexCoordsFromTanAngles = ovrMatrix4f_TanAngleMatrixFromUnitSquare((ovrMatrix4f*)&mv);
+						RenderLayer->LayerBias.Scale.x = 1.0f;
+						RenderLayer->LayerBias.Scale.y = 1.0f;
+						RenderLayer->LayerBias.Bias.x = 0.0f;
+						RenderLayer->LayerBias.Bias.y = 0.0f;
 					}
 
 				}
@@ -336,6 +457,11 @@ void FLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RHICm
 
 				RenderLayer->Layer.Flags = 0;
 				RenderLayer->Layer.Flags |= (LayerDesc.IsHeadLocked()) ? VRAPI_FRAME_LAYER_FLAG_FIXED_TO_VIEW : 0;
+
+				if (LayerDesc.GetType() == FHMDLayerDesc::Cylinder)
+				{
+					RenderLayer->Layer.Flags |= VRAPI_FRAME_LAYER_FLAG_REMAP_2D_HEMICYL_EXT;
+				}
 
 				// A HACK: for some reasons if the same texture is used for two layers at the same frame
 				// then the second one could be not copied when the textureSet is just allocated. Therefore,
@@ -358,18 +484,28 @@ TSharedPtr<FHMDRenderLayer> FLayerManager::CreateRenderLayer_RenderThread(FHMDLa
 
 void FLayerManager::SubmitFrame_RenderThread(ovrMobile* mobilePtr, ovrFrameParms* currentParams)
 {
+	ovrFrameParmsExtBase *swapParmsPtr = (ovrFrameParmsExtBase*)&(*currentParams);
+
+	ovrFrameParmsRemap2DExt * frameParmsRemap = nullptr;
+	ovrFrameParmsRemap2DExt m_remapStructure = vrapi_DefaultFrameParmsRemap2DExt();
+	frameParmsRemap = &m_remapStructure;
+	frameParmsRemap->Next = swapParmsPtr;
+	swapParmsPtr = (ovrFrameParmsExtBase *)frameParmsRemap;
+
 	for (currentParams->LayerCount = 0;currentParams->LayerCount < VRAPI_FRAME_LAYER_TYPE_MAX && currentParams->LayerCount < LayersToRender.Num(); ++currentParams->LayerCount) 
 	{
 		FRenderLayer* RenderLayer = static_cast<FRenderLayer*>(LayersToRender[currentParams->LayerCount].Get());
 		currentParams->Layers[currentParams->LayerCount] = RenderLayer->Layer;
+		frameParmsRemap->ScaleBias[VRAPI_FRAME_LAYER_TYPE_OVERLAY + currentParams->LayerCount -1][0] = RenderLayer->LayerBias;
+		frameParmsRemap->ScaleBias[VRAPI_FRAME_LAYER_TYPE_OVERLAY + currentParams->LayerCount -1][1] = RenderLayer->LayerBias;
 	}
 
 	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FR IDX = %d! tid = %d"), int(currentParams->FrameIndex), int(gettid()));
 	if (currentParams->LayerCount > 0)
 	{
-		vrapi_SubmitFrame(mobilePtr, currentParams);
+		vrapi_SubmitFrame(mobilePtr, (ovrFrameParms*)swapParmsPtr);
 
-		for (uint32 i = 0; i < LayersToRender.Num(); ++i)
+		for (uint32 i = 0; i < (uint32) LayersToRender.Num(); ++i)
 		{
 			auto RenderLayer = static_cast<FRenderLayer*>(LayersToRender[i].Get());
 			if (RenderLayer->GetLayerDesc().GetType() == FHMDLayerDesc::Eye && RenderLayer->TextureSet.IsValid())
@@ -383,6 +519,46 @@ void FLayerManager::SubmitFrame_RenderThread(ovrMobile* mobilePtr, ovrFrameParms
 		UE_LOG(LogHMD, Warning, TEXT("Skipping frame: no layers with valid texture sets"));
 	}
 }
+
+void FLayerManager::GetPokeAHoleMatrices(const FViewInfo *LeftView, const FViewInfo *RightView,const FHMDLayerDesc& LayerDesc, const FHMDGameFrame* CurrentFrame, FMatrix &LeftMatrix, FMatrix &RightMatrix, bool &InvertCoordinates)
+{
+	FMatrix fmat(LayerDesc.GetTransform().ToMatrixNoScale());
+
+	FMatrix multiplierMatrix;
+	multiplierMatrix.SetIdentity();
+	multiplierMatrix.M[0][0] = -1;
+	multiplierMatrix.M[2][2] = -1;
+
+	FMatrix leftViewMatrix = LeftView->ViewMatrices.GetViewMatrix() * multiplierMatrix;
+	FMatrix rightViewMatrix = RightView->ViewMatrices.GetViewMatrix() * multiplierMatrix;
+	rightViewMatrix.ScaleTranslation(FVector(-1, -1, -1));
+	leftViewMatrix.ScaleTranslation(FVector(-1, -1, -1));
+
+	fmat.ScaleTranslation(FVector(-1, -1, -1));
+
+	InvertCoordinates = true;
+	
+	if (LayerDesc.IsTorsoLocked())
+	{
+		FQuat rotation = CurrentFrame->PlayerOrientation;
+		rotation.X *= -1;
+		rotation.Z *= -1;
+		FTransform torsoTransform(rotation, CurrentFrame->PlayerLocation);
+
+		FMatrix torsoRotate = FTransform((rotation)).ToMatrixNoScale();
+		FMatrix torsoTranslate = FTransform((CurrentFrame->PlayerLocation)).ToMatrixNoScale();
+
+		FMatrix torsoMatrix = torsoTransform.ToMatrixNoScale();
+		LeftMatrix = fmat * torsoRotate.Inverse()* torsoTranslate.Inverse()  * leftViewMatrix * LeftView->ViewMatrices.ComputeProjectionNoAAMatrix();
+		RightMatrix = fmat * torsoRotate.Inverse() * torsoTranslate.Inverse() * rightViewMatrix * RightView->ViewMatrices.ComputeProjectionNoAAMatrix();
+	}
+	else if (LayerDesc.IsWorldLocked())
+	{
+		LeftMatrix = fmat * leftViewMatrix * LeftView->ViewMatrices.ComputeProjectionNoAAMatrix();
+		RightMatrix = fmat * rightViewMatrix * RightView->ViewMatrices.ComputeProjectionNoAAMatrix();
+	}
+}
+
 
 void FGearVR::RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture) const
 {
@@ -401,13 +577,13 @@ void FGearVR::RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdL
 #endif
 }
 
-bool FGearVR::AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 Flags, uint32 TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples)
+bool FGearVR::AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 InFlags, uint32 TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples)
 {
 	check(Index == 0);
 #if !OVR_DEBUG_DRAW
 	UE_LOG(LogHMD, Log, TEXT("Allocating Render Target textures"));
 	// ignore NumMips for RT, use 1 
-	pGearVRBridge->AllocateRenderTargetTexture(SizeX, SizeY, Format, 1, Flags, TargetableTextureFlags, OutTargetableTexture, OutShaderResourceTexture, NumSamples);
+	pGearVRBridge->AllocateRenderTargetTexture(SizeX, SizeY, Format, 1, InFlags, TargetableTextureFlags, OutTargetableTexture, OutShaderResourceTexture, NumSamples);
 	return true;
 #else
 	return false;
@@ -431,7 +607,7 @@ bool FCustomPresent::AllocateRenderTargetTexture(uint32 SizeX, uint32 SizeY, uin
 		TextureSet->ReleaseResources();
 	}
 
-	FTexture2DSetProxyPtr ColorTextureSet = CreateTextureSet(SizeX, SizeY, EPixelFormat(Format), NumMips, true);
+	FTexture2DSetProxyPtr ColorTextureSet = CreateTextureSet(SizeX, SizeY, EPixelFormat(Format), NumMips, true, false);
 	if (ColorTextureSet.IsValid())
 	{
 		OutTargetableTexture = ColorTextureSet->GetRHITexture2D();
@@ -452,7 +628,7 @@ bool FCustomPresent::AllocateRenderTargetTexture(uint32 SizeX, uint32 SizeY, uin
 	return false;
 }
 
-FTexture2DSetProxyPtr FCustomPresent::CreateTextureSet(uint32 InSizeX, uint32 InSizeY, uint8 InFormat, uint32 InNumMips, bool bBuffered)
+FTexture2DSetProxyPtr FCustomPresent::CreateTextureSet(uint32 InSizeX, uint32 InSizeY, uint8 InFormat, uint32 InNumMips, bool bBuffered, bool bInCubemap)
 {
 	check(InSizeX != 0 && InSizeY != 0);
 	auto GLRHI = static_cast<FOpenGLDynamicRHI*>(GDynamicRHI);
@@ -464,7 +640,8 @@ FTexture2DSetProxyPtr FCustomPresent::CreateTextureSet(uint32 InSizeX, uint32 In
 		NumMips,
 		EPixelFormat(InFormat),
 		TexCreate_RenderTargetable | TexCreate_ShaderResource,
-		bBuffered);
+		bBuffered,
+        bInCubemap);
 
 	if (texref.IsValid())
 	{
@@ -546,12 +723,12 @@ void FGearVR::EnterVRMode()
 
 	if (IsInRenderingThread())
 	{
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("+++++++ EnterVRMode ++++++, On RT! tid = %d"), gettid());
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("+++++++ EnterVRMode ++++++, On RT! tid = %d"), FPlatformTLS::GetCurrentThreadId());
 		pGearVRBridge->EnterVRMode_RenderThread();
 	}
 	else
 	{
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("+++++++ EnterVRMode ++++++, tid = %d"), gettid());
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("+++++++ EnterVRMode ++++++, tid = %d"), FPlatformTLS::GetCurrentThreadId());
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(EnterVRMode,
 		FCustomPresent*, pGearVRBridge, pGearVRBridge,
 		{
@@ -560,19 +737,19 @@ void FGearVR::EnterVRMode()
 		FlushRenderingCommands();
 	}
 
-	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("------- EnterVRMode -------, tid = %d"), gettid());
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("------- EnterVRMode -------, tid = %d"), FPlatformTLS::GetCurrentThreadId());
 }
 
 void FGearVR::LeaveVRMode()
 {
 	if (IsInRenderingThread())
 	{
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("+++++++ LeaveVRMode ++++++, On RT! tid = %d"), gettid());
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("+++++++ LeaveVRMode ++++++, On RT! tid = %d"), FPlatformTLS::GetCurrentThreadId());
 		pGearVRBridge->LeaveVRMode_RenderThread();
 	}
 	else
 	{
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("+++++++ LeaveVRMode ++++++, tid = %d"), gettid());
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("+++++++ LeaveVRMode ++++++, tid = %d"), FPlatformTLS::GetCurrentThreadId());
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(LeaveVRMode,
 		FCustomPresent*, pGearVRBridge, pGearVRBridge,
 		{
@@ -581,7 +758,7 @@ void FGearVR::LeaveVRMode()
 		FlushRenderingCommands();
 	}
 
-	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("------- LeaveVRMode -------, tid = %d"), gettid());
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("------- LeaveVRMode -------, tid = %d"), FPlatformTLS::GetCurrentThreadId());
 }
 
 void FViewExtension::PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& ViewFamily)
@@ -622,7 +799,7 @@ void FViewExtension::PreRenderViewFamily_RenderThread(FRHICommandListImmediate& 
 
 	if (ShowFlags.Rendering)
 	{
-		checkf(pPresentBridge->GetRenderThreadId() == gettid(), TEXT("pPresentBridge->GetRenderThreadId() = %d, gettid() = %d"), pPresentBridge->GetRenderThreadId(), gettid());
+		checkf(pPresentBridge->GetRenderThreadId() == FPlatformTLS::GetCurrentThreadId(), TEXT("pPresentBridge->GetRenderThreadId() = %d, FPlatformTLS::GetCurrentThreadId() = %d"), pPresentBridge->GetRenderThreadId(), FPlatformTLS::GetCurrentThreadId());
 		// get latest orientation/position and cache it
 		if (!pGearVRPlugin->GetEyePoses(*CurrentFrame, CurrentFrame->CurEyeRenderPose, CurrentFrame->CurSensorState))
 		{
@@ -801,10 +978,10 @@ void FCustomPresent::BeginRendering(FHMDViewExtension& InRenderContext, const FT
 
 	check(IsValidRef(RT));
 
-	FGameFrame* CurrentFrame = GetRenderFrame();
-	check(CurrentFrame);
+	FGameFrame* currentFrame = GetRenderFrame();
+	check(currentFrame);
 
-	CurrentFrame->ViewportSize = FIntPoint(RT->GetSizeX(), RT->GetSizeY());
+	currentFrame->ViewportSize = FIntPoint(RT->GetSizeX(), RT->GetSizeY());
 }
 
 void FCustomPresent::FinishRendering()
@@ -819,24 +996,24 @@ void FCustomPresent::FinishRendering()
 			// Finish the frame and let OVR do buffer swap (Present) and flush/sync.
 			if (OvrMobile)
 			{
-				check(RenderThreadId == gettid());
+				check(RenderThreadId == FPlatformTLS::GetCurrentThreadId());
 
-				FGameFrame* CurrentFrame = GetRenderFrame();
+				FGameFrame* currentFrame = GetRenderFrame();
 
 				if (IsInLoadingIconMode())
 				{
-					LoadingIconParms.FrameIndex = CurrentFrame->FrameNumber;
+					LoadingIconParms.FrameIndex = currentFrame->FrameNumber;
 					DoRenderLoadingIcon_RenderThread(2, 0, RenderContext->GetRenderFrame()->GameThreadId);
 				}
 				else
 				{
 					ovrFrameParms frameParms = DefaultFrameParms;
-					frameParms.FrameIndex = CurrentFrame->FrameNumber;
+					frameParms.FrameIndex = currentFrame->FrameNumber;
 					frameParms.PerformanceParms = DefaultPerfParms;
 					frameParms.PerformanceParms.CpuLevel = RenderContext->GetFrameSetting()->CpuLevel;
 					frameParms.PerformanceParms.GpuLevel = RenderContext->GetFrameSetting()->GpuLevel;
 					frameParms.PerformanceParms.MainThreadTid = RenderContext->GetRenderFrame()->GameThreadId;
-					frameParms.PerformanceParms.RenderThreadTid = gettid();
+					frameParms.PerformanceParms.RenderThreadTid = FPlatformTLS::GetCurrentThreadId();
 					frameParms.Java = JavaRT;
 					SystemActivities_Update_RenderThread();
 
@@ -899,11 +1076,11 @@ void FCustomPresent::OnBackBufferResize()
 	}
 }
 
-void FCustomPresent::UpdateViewport(const FViewport& Viewport, FRHIViewport* ViewportRHI)
+void FCustomPresent::UpdateViewport(const FViewport& Viewport, FRHIViewport* InViewportRHI)
 {
 	check(IsInGameThread());
 
-	this->ViewportRHI = ViewportRHI;
+	ViewportRHI = InViewportRHI;
 
 	if (ViewportRHI)
 	{
@@ -943,13 +1120,17 @@ void FCustomPresent::EnterVRMode_RenderThread()
 	if (!OvrMobile)
 	{
 		ovrJava JavaVM;
+#if PLATFORM_ANDROID
 		JavaVM.Vm = GJavaVM;
 		JavaVM.ActivityObject = ActivityObject;
 		GJavaVM->AttachCurrentThread(&JavaVM.Env, nullptr);
+#else
+		FMemory::Memzero(JavaVM);
+#endif
 
 		// Make sure JavaRT is valid. Can be re-set by OnAcquireThreadOwnership
 		JavaRT = JavaVM;
-		RenderThreadId = gettid();
+		RenderThreadId = FPlatformTLS::GetCurrentThreadId();
 
 		LoadingIconParms = vrapi_DefaultFrameParms(&JavaVM, VRAPI_FRAME_INIT_LOADING_ICON, vrapi_GetTimeInSeconds(), nullptr);
 		LoadingIconParms.MinimumVsyncs = MinimumVsyncs;
@@ -962,13 +1143,32 @@ void FCustomPresent::EnterVRMode_RenderThread()
 		// Reset may cause weird issues
 		// If power saving is on then perf may suffer
 		parms.Flags &= ~(VRAPI_MODE_FLAG_ALLOW_POWER_SAVE | VRAPI_MODE_FLAG_RESET_WINDOW_FULLSCREEN);
-
 		parms.Flags |= VRAPI_MODE_FLAG_NATIVE_WINDOW;
+
+#if PLATFORM_ANDROID
 		parms.Display = (size_t)AndroidEGL::GetInstance()->GetDisplay();
 		parms.WindowSurface = (size_t)AndroidEGL::GetInstance()->GetNativeWindow();
 		parms.ShareContext = (size_t)AndroidEGL::GetInstance()->GetRenderingContext()->eglContext;
+#endif
+
 		UE_LOG(LogHMD, Log, TEXT("EnterVRMode: Display 0x%llX, Window 0x%llX, ShareCtx %llX"),
 			(unsigned long long)parms.Display, (unsigned long long)parms.WindowSurface, (unsigned long long)parms.ShareContext);
+
+#if PLATFORM_ANDROID
+		const FString GPUFamily = FAndroidMisc::GetGPUFamily();
+		const FString GLVersion = FAndroidMisc::GetGLVersion();
+		// TODO: Further narrow support based on gpu family and gl version
+		GSupportsMobileMultiView = vrapi_GetSystemPropertyInt(&JavaRT, VRAPI_SYS_PROP_MULTIVIEW_AVAILABLE) != 0;
+		if (GSupportsMobileMultiView)
+		{
+			UE_LOG(LogHMD, Log, TEXT("Mobile multi-view support enabled for device: %s"), *GPUFamily);
+		}
+		else
+		{
+			UE_LOG(LogHMD, Log, TEXT("Mobile multi-view support disabled for device: %s"), *GPUFamily);
+		}
+#endif
+
 		OvrMobile = vrapi_EnterVrMode(&parms);
 	}
 }
@@ -980,12 +1180,20 @@ void FCustomPresent::LeaveVRMode_RenderThread()
 	FScopeLock lock(&OvrMobileLock);
 	if (OvrMobile)
 	{
+#if PLATFORM_ANDROID
 		check(PlatformOpenGLContextValid());
+#endif
+
 		vrapi_LeaveVrMode(OvrMobile);
 		OvrMobile = NULL;
+
+#if PLATFORM_ANDROID
 		check(PlatformOpenGLContextValid());
+#endif
+
 		RenderThreadId = 0;
 
+#if PLATFORM_ANDROID
 		if (JavaRT.Env)
 		{
 			check(JavaRT.Vm);
@@ -993,26 +1201,29 @@ void FCustomPresent::LeaveVRMode_RenderThread()
 			JavaRT.Vm = nullptr;
 			JavaRT.Env = nullptr;
 		}
+#endif
 	}
 }
 
 void FCustomPresent::OnAcquireThreadOwnership()
 {
-	UE_LOG(LogHMD, Log, TEXT("!!! Rendering thread is acquired! tid = %d"), gettid());
+	UE_LOG(LogHMD, Log, TEXT("!!! Rendering thread is acquired! tid = %d"), FPlatformTLS::GetCurrentThreadId());
 
+#if PLATFORM_ANDROID
 	JavaRT.Vm = GJavaVM;
 	JavaRT.ActivityObject = ActivityObject;
 	GJavaVM->AttachCurrentThread(&JavaRT.Env, nullptr);
-	RenderThreadId = gettid();
+#endif
+	RenderThreadId = FPlatformTLS::GetCurrentThreadId();
 }
 
 void FCustomPresent::OnReleaseThreadOwnership()
 {
-	UE_LOG(LogHMD, Log, TEXT("!!! Rendering thread is released! tid = %d"), gettid());
+	UE_LOG(LogHMD, Log, TEXT("!!! Rendering thread is released! tid = %d"), FPlatformTLS::GetCurrentThreadId());
 
-	check(RenderThreadId == 0 || RenderThreadId == gettid());
-	LeaveVRMode_RenderThread();
+	check(RenderThreadId == 0 || RenderThreadId == FPlatformTLS::GetCurrentThreadId());
 
+#if PLATFORM_ANDROID
 	if (JavaRT.Env)
 	{
 		check(JavaRT.Vm);
@@ -1020,6 +1231,7 @@ void FCustomPresent::OnReleaseThreadOwnership()
 		JavaRT.Vm = nullptr;
 		JavaRT.Env = nullptr;
 	}
+#endif
 }
 
 void FCustomPresent::SetLoadingIconMode(bool bLoadingIconActive)
@@ -1053,7 +1265,7 @@ void FCustomPresent::SetLoadingIconTexture_RenderThread(FTextureRHIRef InTexture
 		const uint32 SizeX = InTexture->GetTexture2D()->GetSizeX();
 		const uint32 SizeY = InTexture->GetTexture2D()->GetSizeY();
 
-		LoadingIconTextureSet = FCustomPresent::CreateTextureSet(SizeX, SizeY, EPixelFormat::PF_B8G8R8A8, 0, false);
+		LoadingIconTextureSet = FCustomPresent::CreateTextureSet(SizeX, SizeY, EPixelFormat::PF_B8G8R8A8, 0, false, false);
 		CopyTexture_RenderThread(FRHICommandListExecutor::GetImmediateCommandList(), LoadingIconTextureSet->GetRHITexture2D(), InTexture->GetTexture2D() , SizeX, SizeY, FIntRect(), FIntRect(), false);
 	}
 }
@@ -1086,7 +1298,7 @@ void FCustomPresent::CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdLi
 
 	SetRenderTarget(RHICmdList, DstTexture, FTextureRHIRef());
 	//RHICmdList.Clear(true, FLinearColor(1.0f, 0.0f, 0.0f, 1.0f), false, 0.0f, false, 0, FIntRect()); // @DBG
-	RHICmdList.Clear(true, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), false, 0.0f, false, 0, FIntRect());
+	RHICmdList.ClearColorTexture(DstTexture, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), FIntRect());
 	RHICmdList.SetViewport(DstRect.Min.X, DstRect.Min.Y, 0, DstRect.Max.X, DstRect.Max.Y, 1.0f);
 
 	if (bAlphaPremultiply)
@@ -1132,7 +1344,7 @@ void FCustomPresent::RenderLoadingIcon_RenderThread(uint32 FrameIndex)
 	DoRenderLoadingIcon_RenderThread(2, 0, 0);
 }
 
-void FCustomPresent::DoRenderLoadingIcon_RenderThread(int CpuLevel, int GpuLevel, pid_t GameTid)
+void FCustomPresent::DoRenderLoadingIcon_RenderThread(int CpuLevel, int GpuLevel, uint32 GameTid)
 {
 	check(IsInRenderingThread());
 
@@ -1151,7 +1363,7 @@ void FCustomPresent::DoRenderLoadingIcon_RenderThread(int CpuLevel, int GpuLevel
 		{
 			LoadingIconParms.PerformanceParms.MainThreadTid = GameTid;
 		}
-		LoadingIconParms.PerformanceParms.RenderThreadTid = gettid();
+		LoadingIconParms.PerformanceParms.RenderThreadTid = FPlatformTLS::GetCurrentThreadId();
 
 		if (LoadingIconTextureSet.IsValid())
 		{
@@ -1167,17 +1379,17 @@ void FCustomPresent::DoRenderLoadingIcon_RenderThread(int CpuLevel, int GpuLevel
 	}
 }
 
-void FCustomPresent::PushBlackFinal(const FGameFrame* frame)
+void FCustomPresent::PushBlack(const FGameFrame* frame, bool isFinal)
 {
 	check(IsInRenderingThread());
 
 	FScopeLock lock(&OvrMobileLock);
 	if (OvrMobile)
 	{
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("+++++++ PushBlackFinal() ++++++, On RT! tid = %d"), gettid());
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("+++++++ PushBlack() ++++++, On RT! tid = %d, final = %b"), FPlatformTLS::GetCurrentThreadId(), isFinal);
 		
 		check(JavaRT.Vm != nullptr);
-		ovrFrameParms frameParms = vrapi_DefaultFrameParms(&JavaRT, VRAPI_FRAME_INIT_BLACK_FINAL, vrapi_GetTimeInSeconds(), nullptr);
+		ovrFrameParms frameParms = vrapi_DefaultFrameParms(&JavaRT, isFinal ? VRAPI_FRAME_INIT_BLACK_FINAL : VRAPI_FRAME_INIT_BLACK, vrapi_GetTimeInSeconds(), nullptr);
 		frameParms.PerformanceParms = DefaultPerfParms;
 		frameParms.Java = JavaRT;
 		if (frame)
@@ -1188,25 +1400,25 @@ void FCustomPresent::PushBlackFinal(const FGameFrame* frame)
 			frameParms.PerformanceParms.CpuLevel = Settings->CpuLevel;
 			frameParms.PerformanceParms.GpuLevel = Settings->GpuLevel;
 		}
-		frameParms.PerformanceParms.RenderThreadTid = gettid();
+		frameParms.PerformanceParms.RenderThreadTid = FPlatformTLS::GetCurrentThreadId();
 
 		vrapi_SubmitFrame(OvrMobile, &frameParms);
 		FPlatformMisc::LowLevelOutputDebugString(TEXT("------- PushBlackFinal() ------"));
 	}
 }
 
-void FCustomPresent::PushFrame(FLayerManager* pInLayerMgr, const FGameFrame* CurrentFrame)
+void FCustomPresent::PushFrame(FLayerManager* pInLayerMgr, const FGameFrame* InCurrentFrame)
 {
 	check(IsInRenderingThread());
 
 	FScopeLock lock(&OvrMobileLock);
 	if (OvrMobile)
 	{
-		const FSettings* Settings = CurrentFrame->GetSettings();
+		const FSettings* Settings = InCurrentFrame->GetSettings();
 		if (IsInLoadingIconMode())
 		{
-			LoadingIconParms.FrameIndex = CurrentFrame->FrameNumber;
-			DoRenderLoadingIcon_RenderThread(2, 0, CurrentFrame->GameThreadId);
+			LoadingIconParms.FrameIndex = InCurrentFrame->FrameNumber;
+			DoRenderLoadingIcon_RenderThread(2, 0, InCurrentFrame->GameThreadId);
 		}
 		else
 		{
@@ -1214,12 +1426,12 @@ void FCustomPresent::PushFrame(FLayerManager* pInLayerMgr, const FGameFrame* Cur
 			ovrFrameParms frameParms = vrapi_DefaultFrameParms(&JavaRT, VRAPI_FRAME_INIT_DEFAULT, vrapi_GetTimeInSeconds(), nullptr);
 			frameParms.MinimumVsyncs = MinimumVsyncs;
 			frameParms.ExtraLatencyMode = (bExtraLatencyMode) ? VRAPI_EXTRA_LATENCY_MODE_ON : VRAPI_EXTRA_LATENCY_MODE_OFF;
-			frameParms.FrameIndex = CurrentFrame->FrameNumber;
+			frameParms.FrameIndex = InCurrentFrame->FrameNumber;
 			frameParms.PerformanceParms = DefaultPerfParms;
 			frameParms.PerformanceParms.CpuLevel = Settings->CpuLevel;
 			frameParms.PerformanceParms.GpuLevel = Settings->GpuLevel;
-			frameParms.PerformanceParms.MainThreadTid = CurrentFrame->GameThreadId;
-			frameParms.PerformanceParms.RenderThreadTid = gettid();
+			frameParms.PerformanceParms.MainThreadTid = InCurrentFrame->GameThreadId;
+			frameParms.PerformanceParms.RenderThreadTid = FPlatformTLS::GetCurrentThreadId();
 			SystemActivities_Update_RenderThread();
 
 			pInLayerMgr->SubmitFrame_RenderThread(OvrMobile, &frameParms);
@@ -1236,25 +1448,30 @@ void FCustomPresent::SystemActivities_Update_RenderThread()
 		return;
 	}
 
-	SystemActivitiesAppEventList_t	AppEvents;
-
+#if PLATFORM_ANDROID
 	// process any SA events
+	SystemActivitiesAppEventList_t	AppEvents;
 	SystemActivities_Update(OvrMobile, &JavaRT, &AppEvents);
+#endif
 
 	bool isHMTMounted = (vrapi_GetSystemStatusInt(&JavaRT, VRAPI_SYS_STATUS_MOUNTED) != VRAPI_FALSE);
 	if (isHMTMounted && isHMTMounted != bHMTWasMounted)
 	{
 		UE_LOG(LogHMD, Log, TEXT("Just mounted"));
+#if PLATFORM_ANDROID
 		// We just mounted so push a reorient event to be handled in SystemActivities_Update.
 		// This event will be handled just as if System Activities sent it to the application
 		char reorientMessage[1024];
 		SystemActivities_CreateSystemActivitiesCommand("", SYSTEM_ACTIVITY_EVENT_REORIENT, "", "",
 			reorientMessage, sizeof(reorientMessage));
 		SystemActivities_AppendAppEvent(&AppEvents, reorientMessage);
+#endif
 	}
 	bHMTWasMounted = isHMTMounted;
 
+#if PLATFORM_ANDROID
 	SystemActivities_PostUpdate(OvrMobile, &JavaRT, &AppEvents);
+#endif
 }
 
 int32 FCustomPresent::LockSubmitFrame() 

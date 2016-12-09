@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "Core.h"
-#include "ModuleInterface.h"
+#include "CoreMinimal.h"
+
+class FPackageDependencyTrackingInfo;
 
 /**
  *	Package dependency information class.
@@ -19,6 +20,7 @@ public:
 	static FString ShaderSourcePkgName;
 
 	FPackageDependencyInfo() {};
+	~FPackageDependencyInfo();
 
 	/** 
 	 *	Initialize the class
@@ -37,6 +39,29 @@ public:
 	 */
 	bool DeterminePackageDependentTimeStamp(const TCHAR* InPackageName, FDateTime& OutNewestTime);
 
+
+
+
+	/**
+	 *	Determine the given packages dependent hash
+	 *
+	 *	@param	InPackageName		The package to process
+	 *	@param	OutDependentHash	The hash of this package and dependent packages 
+	 *
+	 *	@return	bool				true if successful, false if not
+	 */
+	bool DeterminePackageDependentHash(const TCHAR* InPackageName, FMD5Hash& OutDependentHash);
+
+	/**
+ 	 *	Determine the given packages file full hash
+	 *
+	 *	@param	InPackageName		The package to process
+	 *	@param	OutNewestTime		The dependent time stamp for the package.
+	 *
+	 *	@return	bool				true if successful, false if not
+	 */
+	bool DetermineFullPackageHash(const TCHAR* InPackageName, FMD5Hash& OutFullPackageHash);
+
 	/**
 	 *	Determine dependent timestamps for the given list of files
 	 *
@@ -48,6 +73,23 @@ public:
 	 *	Determine all found content files dependent timestamps
 	 */
 	void DetermineAllDependentTimeStamps();
+
+	void AsyncDetermineAllDependentPackageInfo(const TArray<FString>& PackageNames, int32 NumAsyncDependencyTasks);
+
+	/**
+	 * Get all dependent package hashes
+	 */
+	bool RecursiveGetDependentPackageHashes(const TCHAR* InPackageName, TMap<FString, FMD5Hash>& Dependencies);
+
+
+	/**
+	 * Get the sorted list of generated package dependencies
+	 *
+	 * @param PackageName name of the package to get dependencies for 
+	 * @param Dependencies list of dependencies
+	 * @return true if succeeded and package exists false if package doesn't exist
+	 */
+	bool GetPackageDependencies( const TCHAR* PackageName, TArray<FString>& Dependencies );
 
 protected:
 	/** Determine the newest shader source time stamp */
@@ -70,29 +112,37 @@ protected:
 	 */
 	void DetermineScriptSourceTimeStamp(bool bInGame, FDateTime& OutNewestTime);
 
+
+	void DetermineScriptSourceTimeStampForModule(const FString& ModuleName, const FString& ModuleSourcePath);
+
+	/**
+	 * Initalize the package dependency info which then can be used to get timestamps 
+	 */
+	bool InitializeDependencyInfo(const TCHAR* InPackageName, FPackageDependencyTrackingInfo*& OutPkgInfo);
+
+	bool DeterminePackageDependencies( FPackageDependencyTrackingInfo* PkgInfo, TSet<FPackageDependencyTrackingInfo*>& AllTouchedPackages );
+
+
+	/**
+	 * Determine newest script source file in the path given (engine, game, uplugin)
+	 *
+	 * @param Path		root path of the plugin / engine
+	 */
+	void DetermineScriptSourceTimeStamp(FString Path);
+
 	/** Prep the content package list - ie gather the list of all content files and their actual timestamps */
 	void PrepContentPackageTimeStamps();
 
 	/**
-	 *	Recursively process the given package to determine the dependent timestamp - ie its newest dependency
-	 *
-	 *	@param	InPackageName				The name of the source package
-	 *	@param	OutNewestTime				OUTPUT - The dependent timestamp for the package
-	 *	@param	bOutHadCircularReferences	OUTPUT - true if any circular dependencies were encountered
+	 * Recursivly resolve the dependent hashes by hashing full file hashes of dependencies
+	 * detect circular references
+	 * 
+	 * @param PkgInfo package we want to generate the dependent hash for
+	 * @param OutHash generated dependent hash
 	 */
-	void RecursiveDeterminePackageDependentTimeStamp(const TCHAR* InPackageName, FDateTime& OutNewestTime, bool& bOutHadCircularReferences);
-
-	/**
-	 *	Resolve the circular dependencies in the given info
-	 *
-	 *	@param	InPkgInfo		The package dependency tracking info containing the circular references
-	 */
-	void ResolveCircularDependencies(FPackageDependencyTrackingInfo* InPkgInfo);
-	void ResolveCircularDependenciesInnerFast();
+	void RecursiveResolveDependentHash(FPackageDependencyTrackingInfo* PkgInfo, FMD5 &OutHash, FDateTime& EarliestTime);
 
 
-	/** Prepares the internal structures to be ready for working with a new package. */
-	void PrepareForNewPackage();
 
 	/** The newest time stamp of the shader source files. Used when a package contains a material */
 	FDateTime ShaderSourceTimeStamp;
@@ -115,16 +165,4 @@ protected:
 	/** The package information, including dependencies for content files */
 	TMap<FString,class FPackageDependencyTrackingInfo*> PackageInformation;
 
-	/** All packages for the currently processing package. */
-	TSet<FPackageDependencyTrackingInfo*> AllPackages;
-
-	/** All resolved circular dependencies for the currently processing package, mostly for debugging purpose only. */
-	TSet<FPackageDependencyTrackingInfo*> ResolvedCircularDependencies;
-
-	/** How many passes we needed to resolve the circular dependencies. */
-	int64 NumResolvePasses;
-	/** How many iterations we needed to resolve the circular dependencies. */
-	int64 NumResolveIterations;
-	/** How many circular dependencies we found during the resolve. */
-	int64 NumCirculars;
 };

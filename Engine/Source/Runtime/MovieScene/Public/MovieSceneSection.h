@@ -2,18 +2,66 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "MovieSceneFwd.h"
 #include "KeyParams.h"
+#include "Curves/KeyHandle.h"
+#include "Curves/RichCurve.h"
+#include "MovieSceneSignedObject.h"
 #include "MovieSceneSection.generated.h"
 
+class FStructOnScope;
+class UAISenseEvent;
+struct FMovieSceneEvalTemplatePtr;
+
+/** Enumeration specifying how to handle state when this section is no longer evaluated */
+UENUM()
+enum class EMovieSceneCompletionMode : uint8
+{
+	KeepState,
+
+	RestoreState,
+};
+
+
+USTRUCT()
+struct FMovieSceneSectionEvalOptions
+{
+	GENERATED_BODY()
+	
+	FMovieSceneSectionEvalOptions()
+		: bCanEditCompletionMode(false)
+		, CompletionMode(EMovieSceneCompletionMode::KeepState)
+	{}
+
+	void EnableAndSetCompletionMode(EMovieSceneCompletionMode NewCompletionMode)
+	{
+		bCanEditCompletionMode = true;
+		CompletionMode = NewCompletionMode;
+	}
+
+	UPROPERTY()
+	bool bCanEditCompletionMode;
+
+	/** When set to "RestoreState", this section will restore any animation back to its previous state  */
+	UPROPERTY(EditAnywhere, DisplayName="When Finished", Category="Section")
+	EMovieSceneCompletionMode CompletionMode;
+};
 
 /**
  * Base class for movie scene sections
  */
 UCLASS(abstract, MinimalAPI)
 class UMovieSceneSection
-	: public UObject
+	: public UMovieSceneSignedObject
 {
 	GENERATED_UCLASS_BODY()
+
+public:
+
+	UPROPERTY(EditAnywhere, Category="Section", meta=(ShowOnlyInnerProperties))
+	FMovieSceneSectionEvalOptions EvalOptions;
 
 public:
 
@@ -181,6 +229,12 @@ public:
 	}
 
 	/**
+	 * Generate an evaluation template for this section
+	 * @return a valid evaluation template ptr, or nullptr
+	 */
+	MOVIESCENE_API virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const;
+
+	/**
 	 * Gets all snap times for this section
 	 *
 	 * @param OutSnapTimes The array of times we will to output
@@ -272,7 +326,7 @@ public:
 
 	/** Sets the time for the key referenced by the supplied key handle. */
 	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) PURE_VIRTUAL( UAISenseEvent::SetKeyTime, );
-
+	
 private:
 
 	/** The start time of the section */

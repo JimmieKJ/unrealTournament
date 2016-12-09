@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "CookStats.h"
+
+#include "CoreMinimal.h"
+#include "ProfilingDebugging/CookStats.h"
 
 /**
  * Usage stats for the derived data cache nodes. At the end of the app or commandlet, the DDC

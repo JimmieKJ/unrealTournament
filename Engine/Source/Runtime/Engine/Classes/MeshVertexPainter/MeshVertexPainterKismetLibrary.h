@@ -2,8 +2,13 @@
 
 #pragma once
 
-#include "MeshVertexPainter.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "MeshVertexPainterKismetLibrary.generated.h"
+
+class UStaticMeshComponent;
+enum class EVertexPaintAxis : uint8;
 
 UCLASS(MinimalAPI)
 class UMeshVertexPainterKismetLibrary : public UBlueprintFunctionLibrary

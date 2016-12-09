@@ -2,27 +2,16 @@
 
 #pragma once
 
-#include "Stats.h"
+#include "CoreTypes.h"
+#include "Stats/Stats.h"
 
 
-CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogSHA, Warning, All);
-CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogStats, Log, All);
-CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogStreaming, Display, All);
-CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogInit, Log, All);
-CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogExit, Log, All);
-CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogExec, Warning, All);
-CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogScript, Warning, All);
-CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogLocalization, Error, All);
-CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogLongPackageNames, Log, All);
-CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogProcess, Log, All);
-CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogLoad, Log, All);
 
 
 /** Memory stats */
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Audio Memory Used"),STAT_AudioMemory,STATGROUP_Memory, CORE_API);
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Animation Memory"),STAT_AnimationMemory,STATGROUP_Memory, CORE_API);
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Precomputed Visibility Memory"),STAT_PrecomputedVisibilityMemory,STATGROUP_Memory, CORE_API);
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Precomputed Shadow Depth Map Memory"),STAT_PrecomputedShadowDepthMapMemory,STATGROUP_Memory, CORE_API);
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Precomputed Light Volume Memory"),STAT_PrecomputedLightVolumeMemory,STATGROUP_Memory, CORE_API);
 DECLARE_MEMORY_STAT_EXTERN(TEXT("SkeletalMesh Vertex Memory"),STAT_SkeletalMeshVertexMemory,STATGROUP_Memory, CORE_API);
 DECLARE_MEMORY_STAT_EXTERN(TEXT("SkeletalMesh Index Memory"),STAT_SkeletalMeshIndexMemory,STATGROUP_Memory, CORE_API);

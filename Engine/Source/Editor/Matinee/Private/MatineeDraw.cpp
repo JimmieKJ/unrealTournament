@@ -1,12 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MatineeModule.h"
-#include "Matinee.h"
+#include "CoreMinimal.h"
+#include "CanvasItem.h"
+#include "Engine/Brush.h"
+#include "Animation/SkeletalMeshActor.h"
+#include "Camera/CameraActor.h"
+#include "Particles/Emitter.h"
+#include "Engine/Light.h"
+#include "Engine/StaticMeshActor.h"
+#include "Interpolation.h"
+#include "CanvasTypes.h"
+#include "Matinee/InterpTrack.h"
+#include "MatineeHitProxy.h"
+#include "MatineeOptions.h"
+#include "MatineeViewportData.h"
 #include "MatineeViewportClient.h"
+#include "EngineGlobals.h"
+#include "Editor.h"
+#include "Engine/InterpCurveEdSetup.h"
+#include "Matinee.h"
 
-#include "Runtime/Engine/Public/Interpolation.h"
-#include "Runtime/Engine/Public/InterpolationHitProxy.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
+#include "InterpolationHitProxy.h"
+#include "Slate/SceneViewport.h"
 
 #include "Matinee/MatineeActor.h"
 #include "Matinee/InterpGroupDirector.h"
@@ -16,15 +31,7 @@
 #include "Matinee/InterpTrackLinearColorBase.h"
 #include "Matinee/InterpTrackEvent.h"
 #include "Matinee/InterpTrackMove.h"
-#include "Matinee/MatineeAnimInterface.h"
 #include "Materials/MaterialInstanceActor.h"
-#include "Animation/SkeletalMeshActor.h"
-#include "Particles/Emitter.h"
-#include "CanvasTypes.h"
-#include "Engine/InterpCurveEdSetup.h"
-#include "Engine/StaticMeshActor.h"
-#include "Camera/CameraActor.h"
-#include "Engine/Light.h"
 
 static const int32 GroupHeadHeight = 24;
 static const int32 TrackHeight = 24;
@@ -266,6 +273,7 @@ void FMatinee::GetGroupLabelPosition( UInterpGroup* InGroup, int32& LabelTopPosi
 				}
 
 				const UInterpGroup* CurGroup = IData->InterpGroups[ CurGroupIndex ];
+				check(CurGroup);
 
 				// If this is the group we are looking for, stop searching
 				if( CurGroup == InGroup)

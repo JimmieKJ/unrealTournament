@@ -2,7 +2,8 @@
 
 #pragma once
 
-DECLARE_LOG_CATEGORY_EXTERN(LogTestPAL, Verbose, All);
+#include "CoreMinimal.h"
+#include "HAL/PlatformProcess.h"
 
 class FParent
 {

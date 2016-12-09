@@ -1,33 +1,40 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectSettingsViewerPrivatePCH.h"
-#include "Engine/Console.h"
-#include "ProjectTargetPlatformEditor.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "ConsoleSettings.h"
+#include "GameMapsSettings.h"
+#include "GeneralProjectSettings.h"
+#include "EngineGlobals.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Engine/GameViewportClient.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "Engine/Engine.h"
+#include "GameFramework/InputSettings.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Docking/TabManager.h"
+#include "MoviePlayerSettings.h"
+#include "EditorStyleSet.h"
+#include "Settings/ProjectPackagingSettings.h"
+#include "Interfaces/IProjectTargetPlatformEditorModule.h"
 #include "ISettingsCategory.h"
 #include "ISettingsContainer.h"
 #include "ISettingsEditorModel.h"
 #include "ISettingsEditorModule.h"
 #include "ISettingsModule.h"
 #include "ISettingsViewer.h"
-#include "ModuleManager.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
-#include "CookerSettings.h"
-#include "Runtime/Engine/Classes/Engine/DeveloperSettings.h"
-#include "Runtime/Engine/Classes/Engine/RendererSettings.h"
-#include "Runtime/Engine/Classes/Engine/UserInterfaceSettings.h"
-#include "Runtime/Engine/Classes/Sound/AudioSettings.h"
-#include "Runtime/AIModule/Classes/Navigation/CrowdManager.h"
-#include "Runtime/Engine/Classes/Animation/AnimationSettings.h"
+#include "AI/Navigation/RecastNavMesh.h"
+#include "Navigation/CrowdManager.h"
 
-#include "Editor/UnrealEd/Public/Settings/EditorProjectSettings.h"
 
 #include "AISystem.h"
-#include "GameFramework/InputSettings.h"
-#include "AI/Navigation/RecastNavMesh.h"
-#include "Engine/NetworkSettings.h"
-#include "PhysicsEngine/PhysicsSettings.h"
 #include "Engine/EndUserSettings.h"
+#include "Runtime/Slate/Public/SlateSettings.h"
 
 #define LOCTEXT_NAMESPACE "FProjectSettingsViewerModule"
 
@@ -169,6 +176,12 @@ protected:
 			LOCTEXT("EndUserSettingsDescription", "Settings you may wish to expose to end-users of your game."),
 			GetMutableDefault<UEndUserSettings>()
 			);
+
+		SettingsModule.RegisterSettings("Project", "Engine", "Slate",
+			LOCTEXT("SlateSettingsName", "Slate Settings"),
+			LOCTEXT("SlateSettingsDescription", "Settings for Slate."),
+			GetMutableDefault<USlateSettings>()
+		);
 	}
 
 	/**

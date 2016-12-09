@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
-#include "DebugRenderSceneProxy.h"
-#include "EnvironmentQuery/EQSRenderingComponent.h"
 #include "EnvironmentQuery/EnvQueryDebugHelpers.h"
-#include "EnvironmentQuery/EQSQueryResultSourceInterface.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
+#include "EnvironmentQuery/EnvQueryGenerator.h"
+#include "EnvironmentQuery/EnvQueryTest.h"
+#include "VisualLoggerExtension.h"
+#include "EnvironmentQuery/EQSRenderingComponent.h"
 
 #if USE_EQS_DEBUGGER
 void UEnvQueryDebugHelpers::QueryToBlobArray(FEnvQueryInstance& Query, TArray<uint8>& BlobArray, bool bUseCompression)
@@ -43,7 +45,7 @@ void UEnvQueryDebugHelpers::DebugDataToBlobArray(EQSDebug::FQueryData& EQSLocalD
 	}
 }
 
-void UEnvQueryDebugHelpers::QueryToDebugData(FEnvQueryInstance& Query, EQSDebug::FQueryData& EQSLocalData)
+void UEnvQueryDebugHelpers::QueryToDebugData(FEnvQueryInstance& Query, EQSDebug::FQueryData& EQSLocalData, int32 MaxItemsToStore)
 {
 	// step 1: data for rendering component
 	EQSLocalData.Reset();
@@ -51,11 +53,10 @@ void UEnvQueryDebugHelpers::QueryToDebugData(FEnvQueryInstance& Query, EQSDebug:
 	FEQSSceneProxy::CollectEQSData(&Query, &Query, 1.0f, true, EQSLocalData.SolidSpheres, EQSLocalData.Texts, EQSLocalData.RenderDebugHelpers);
 
 	// step 2: detailed scoring data for HUD
-	const int32 MaxDetailedItems = 10;
 	const int32 FirstItemIndex = 0;
 
 	const int32 NumTests = Query.ItemDetails.IsValidIndex(0) ? Query.ItemDetails[0].TestResults.Num() : 0;
-	const int32 NumItems = FMath::Min(MaxDetailedItems, Query.NumValidItems);
+	const int32 NumItems = FMath::Min(MaxItemsToStore, Query.NumValidItems);
 
 	EQSLocalData.Name = Query.QueryName;
 	EQSLocalData.Id = Query.QueryID;
@@ -199,6 +200,13 @@ void UEnvQueryDebugHelpers::LogQueryInternal(FEnvQueryInstance& Query, const FLo
 
 		// draw test weights for best X items
 		const int32 NumItems = EQSLocalData.Items.Num();
+
+		// print sorted tests' descriptions, to be able to tie TestIdx with an actual test
+		const FEnvQueryOptionInstance& Option = Query.Options[Query.OptionIndex];
+		for (int32 TestIdx = 0; TestIdx < NumTests; TestIdx++)
+		{
+			Line.Line += FString::Printf(TEXT("%d: %s\n"), TestIdx, *Option.Tests[TestIdx]->GetDescriptionTitle().ToString());
+		}
 
 		// table header		
 		{

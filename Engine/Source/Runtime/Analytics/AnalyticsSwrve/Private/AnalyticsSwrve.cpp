@@ -1,16 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Runtime/Analytics/AnalyticsSwrve/Private/AnalyticsSwrvePrivatePCH.h"
+#include "AnalyticsSwrve.h"
 
-#include "Core.h"
-#include "Json.h"
-#include "SecureHash.h"
-#include "Runtime/Analytics/AnalyticsSwrve/Public/AnalyticsSwrve.h"
+#include "HAL/PlatformTime.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
+#include "Logging/LogScopedCategoryAndVerbosityOverride.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Serialization/JsonSerializer.h"
 #include "AnalyticsBuildType.h"
-#include "Runtime/Online/HTTP/Public/Http.h"
-#include "EngineVersion.h"
-#include "AnalyticsEventAttribute.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IHttpResponse.h"
+#include "HttpModule.h"
+#include "Misc/EngineVersion.h"
+#include "Interfaces/IAnalyticsProvider.h"
 
 #if PLATFORM_DESKTOP
 

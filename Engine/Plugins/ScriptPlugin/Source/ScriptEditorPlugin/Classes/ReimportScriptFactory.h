@@ -5,7 +5,10 @@
 //=============================================================================
 
 #pragma once
+
+#include "CoreMinimal.h"
 #include "ScriptFactory.h"
+#include "EditorReimportHandler.h"
 #include "ReimportScriptFactory.generated.h"
 
 /**

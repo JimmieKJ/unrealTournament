@@ -4,8 +4,8 @@
 	ColorList.cpp: List of common colors implementation.
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
-#include "ColorList.h"
+#include "Math/ColorList.h"
+#include "Logging/LogMacros.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogColorList, Log, All);
 

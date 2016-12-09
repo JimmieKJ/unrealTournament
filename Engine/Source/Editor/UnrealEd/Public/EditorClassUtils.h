@@ -2,8 +2,11 @@
 
 #pragma once
 
-class UClass;
-class SToolTip;
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SToolTip.h"
+
+template< typename ObjectType > class TAttribute;
 
 namespace FEditorClassUtils
 {

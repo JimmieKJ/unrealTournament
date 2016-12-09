@@ -2,9 +2,19 @@
 
 #pragma once
 
-#include "EditableTextWidgetStyle.h"
-#include "TextWidgetTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Styling/SlateColor.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SWidget.h"
+#include "Components/Widget.h"
+#include "Components/TextWidgetTypes.h"
 #include "EditableText.generated.h"
+
+class SEditableText;
+class USlateBrushAsset;
+class USlateWidgetStyleAsset;
 
 /**
  * Editable text box widget

@@ -6,9 +6,37 @@
 
 #pragma once
 
-#include "ShaderParameterUtils.h"
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "Templates/RefCounting.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "UniformBuffer.h"
+#include "ShaderParameters.h"
+#include "Shader.h"
+#include "HitProxies.h"
+#include "ConvexVolume.h"
+#include "RHIStaticStates.h"
+#include "RendererInterface.h"
+#include "SceneManagement.h"
+#include "ScenePrivateBase.h"
 #include "SceneCore.h"
+#include "LightSceneInfo.h"
+#include "DrawingPolicy.h"
+#include "Containers/DynamicRHIResourceArray.h"
+#include "GlobalShader.h"
+#include "SystemTextures.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "SceneRenderTargetParameters.h"
+#include "ShaderParameterUtils.h"
 
+class FPrimitiveSceneInfo;
+class FPrimitiveSceneProxy;
+class FProjectedShadowInfo;
+class FScene;
+class FSceneRenderer;
+class FShadowStaticMeshElement;
+class FViewInfo;
 
 /** Uniform buffer for rendering deferred lights. */
 BEGIN_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct,)
@@ -89,7 +117,7 @@ void SetDeferredLightParameters(
 	static auto* ContactShadowsCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ContactShadows"));
 	DeferredLightUniformsValue.ContactShadowLength = 0;
 
-	if (ContactShadowsCVar && ContactShadowsCVar->GetValueOnRenderThread() != 0)
+	if (ContactShadowsCVar && ContactShadowsCVar->GetValueOnRenderThread() != 0 && View.Family->EngineShowFlags.ContactShadows)
 	{
 		DeferredLightUniformsValue.ContactShadowLength = LightSceneInfo->Proxy->GetContactShadowLength();
 	}
@@ -109,7 +137,7 @@ void SetDeferredLightParameters(
 	const ELightComponentType LightType = (ELightComponentType)LightSceneInfo->Proxy->GetLightType();
 
 
-	if (LightType == LightType_Point || LightType == LightType_Spot)
+	if ((LightType == LightType_Point || LightType == LightType_Spot) && View.IsPerspectiveProjection())
 	{
 		DeferredLightUniformsValue.LightColor *= GetLightFadeFactor(View, LightSceneInfo->Proxy);
 	}
@@ -423,10 +451,10 @@ public:
 		bool bInDirectionalLight,
 		bool bInOnePassPointLightShadow,
 		bool bInPreShadow,
+		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
 		ERHIFeatureLevel::Type InFeatureLevel,
 		const FVertexFactory* InVertexFactory = 0,
 		const FMaterialRenderProxy* InMaterialRenderProxy = 0,
-		bool bInCastShadowAsTwoSided = false,
 		bool bReverseCulling = false
 		);
 
@@ -467,7 +495,7 @@ public:
 			DRAWING_POLICY_MATCH(FeatureLevel == Other.FeatureLevel);
 		DRAWING_POLICY_MATCH_END
 	}
-	void SetSharedState(FRHICommandList& RHICmdList, const FSceneView* View, const ContextDataType PolicyContext) const;
+	void SetSharedState(FRHICommandList& RHICmdList, const FSceneView* View, const ContextDataType PolicyContext, FDrawingPolicyRenderState& DrawRenderState) const;
 
 	/** 
 	 * Create bound shader state using the vertex decl from the mesh draw policy
@@ -482,8 +510,7 @@ public:
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
-		bool bBackFace,
-		const FMeshDrawingRenderState& DrawRenderState,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const;
@@ -544,8 +571,8 @@ public:
 		const FSceneView& View,
 		ContextType Context,
 		const FMeshBatch& Mesh,
-		bool bBackFace,
 		bool bPreFog,
+		const FDrawingPolicyRenderState& DrawRenderState,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId
 		);
@@ -660,7 +687,7 @@ public:
 	typedef TArray<const FPrimitiveSceneInfo*,SceneRenderingAllocator> PrimitiveArrayType;
 
 	/** The view to be used when rendering this shadow's depths. */
-	const FViewInfo* ShadowDepthView;
+	FViewInfo* ShadowDepthView;
 
 	/** The depth or color targets this shadow was rendered to. */
 	FShadowMapRenderTargets RenderTargets;
@@ -822,9 +849,9 @@ public:
 	void RenderDepth(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, FSetShadowRenderTargetFunction SetShadowRenderTargets, EShadowDepthRenderMode RenderMode);
 
 	/** Set state for depth rendering */
-	void SetStateForDepth(FRHICommandList& RHICmdList, EShadowDepthRenderMode RenderMode );
+	void SetStateForDepth(FRHICommandList& RHICmdList, EShadowDepthRenderMode RenderMode, FDrawingPolicyRenderState& DrawRenderState);
 
-	void ClearDepth(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, bool bPerformClear);
+	void ClearDepth(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, int32 NumColorTextures, FTextureRHIParamRef* ColorTextures, FTextureRHIParamRef DepthTexture, bool bPerformClear);
 
 	/** Renders shadow maps for translucent primitives. */
 	void RenderTranslucencyDepths(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer);
@@ -1004,11 +1031,11 @@ private:
 	* Renders the dynamic shadow subject depth, to a particular hacked view
 	*/
 	friend class FRenderDepthDynamicThreadTask;
-	void RenderDepthDynamic(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, const FViewInfo* FoundView);
+	void RenderDepthDynamic(FRHICommandList& RHICmdList, class FSceneRenderer* SceneRenderer, const FViewInfo* FoundView, const FDrawingPolicyRenderState& DrawRenderState);
 
 	void GetShadowTypeNameForDrawEvent(FString& TypeName) const;
 
-	template <bool bReflectiveShadowmap> friend void DrawShadowMeshElements(FRHICommandList& RHICmdList, const FViewInfo& View, const FProjectedShadowInfo& ShadowInfo);
+	template <bool bReflectiveShadowmap> friend void DrawShadowMeshElements(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, const FProjectedShadowInfo& ShadowInfo);
 
 	/** Updates object buffers needed by ray traced distance field shadows. */
 	int32 UpdateShadowCastingObjectBuffers() const;
@@ -1020,6 +1047,15 @@ private:
 		PrimitiveArrayType& PrimitiveArray, 
 		TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& OutDynamicMeshElements, 
 		TArray<const FSceneView*>& ReusedViewsArray);
+
+	void SetupFrustumForProjection(const FViewInfo* View, TArray<FVector4, TInlineAllocator<8>>& OutFrustumVertices, bool& bOutCameraInsideShadowFrustum) const;
+
+	void SetupProjectionStencilMask(
+		FRHICommandListImmediate& RHICmdList,
+		const FViewInfo* View,
+		const TArray<FVector4, TInlineAllocator<8>>& FrustumVertices,
+		bool bMobileModulatedProjections,
+		bool bCameraInsideShadowFrustum) const;
 
 	friend class FShadowDepthVS;
 	template <bool bRenderingReflectiveShadowMaps> friend class TShadowDepthBasePS;
@@ -1047,7 +1083,7 @@ public:
 			RHICmdList, 
 			ShaderRHI,
 			ProjectionMatrix,
-			FTranslationMatrix(ShadowInfo->PreShadowTranslation - View.ViewMatrices.PreViewTranslation) * ShadowInfo->SubjectAndReceiverMatrix
+			FTranslationMatrix(ShadowInfo->PreShadowTranslation - View.ViewMatrices.GetPreViewTranslation()) * ShadowInfo->SubjectAndReceiverMatrix
 			);
 
 		SetShaderValue(RHICmdList, ShaderRHI, ShadowParams, FVector2D(ShadowInfo->GetShaderDepthBias(), ShadowInfo->InvMaxSubjectDepth));
@@ -1108,7 +1144,7 @@ public:
 		FVector4 GeometryPosAndScale;
 		if(LightSceneInfo->Proxy->GetLightType() == LightType_Point)
 		{
-			StencilingGeometry::GStencilSphereVertexBuffer.CalcTransform(GeometryPosAndScale, LightSceneInfo->Proxy->GetBoundingSphere(), View.ViewMatrices.PreViewTranslation);
+			StencilingGeometry::GStencilSphereVertexBuffer.CalcTransform(GeometryPosAndScale, LightSceneInfo->Proxy->GetBoundingSphere(), View.ViewMatrices.GetPreViewTranslation());
 			SetShaderValue(RHICmdList, Shader->GetVertexShader(), StencilGeometryPosAndScale, GeometryPosAndScale);
 			SetShaderValue(RHICmdList, Shader->GetVertexShader(), StencilConeParameters, FVector4(0.0f, 0.0f, 0.0f, 0.0f));
 		}
@@ -1124,7 +1160,7 @@ public:
 					StencilingGeometry::FStencilConeIndexBuffer::NumSlices,
 					LightSceneInfo->Proxy->GetOuterConeAngle(),
 					LightSceneInfo->Proxy->GetRadius()));
-			SetShaderValue(RHICmdList, Shader->GetVertexShader(), StencilPreViewTranslation, View.ViewMatrices.PreViewTranslation);
+			SetShaderValue(RHICmdList, Shader->GetVertexShader(), StencilPreViewTranslation, View.ViewMatrices.GetPreViewTranslation());
 		}
 	}
 
@@ -1843,6 +1879,7 @@ struct FCompareFProjectedShadowInfoByResolution
 // Then sort CSMs by descending split index, and other shadows by resolution.
 // Used to render shadow cascades in far to near order, whilst preserving the
 // descending resolution sort behavior for other shadow types.
+// Note: the ordering must match the requirements of blend modes set in SetBlendStateForProjection (blend modes that overwrite must come first)
 struct FCompareFProjectedShadowInfoBySplitIndex
 {
 	FORCEINLINE bool operator()( const FProjectedShadowInfo& A, const FProjectedShadowInfo& B ) const
@@ -1851,6 +1888,20 @@ struct FCompareFProjectedShadowInfoBySplitIndex
 		{
 			if (B.IsWholeSceneDirectionalShadow())
 			{
+				if (A.bRayTracedDistanceField != B.bRayTracedDistanceField)
+				{
+					// RTDF shadows need to be rendered after all CSM, because they overlap in depth range with Far Cascades, which will use an overwrite blend mode for the fade plane.
+					if (!A.bRayTracedDistanceField && B.bRayTracedDistanceField)
+					{
+						return true;
+					}
+
+					if (A.bRayTracedDistanceField && !B.bRayTracedDistanceField)
+					{
+						return false;
+					}
+				}
+
 				// Both A and B are CSMs
 				// Compare Split Indexes, to order them far to near.
 				return (B.CascadeSettings.ShadowSplitIndex < A.CascadeSettings.ShadowSplitIndex);
@@ -1864,7 +1915,7 @@ struct FCompareFProjectedShadowInfoBySplitIndex
 		{
 			if (B.IsWholeSceneDirectionalShadow())
 			{
-				// B should be rendered after A.
+				// B should be rendered before A.
 				return false;
 			}
 			

@@ -1,17 +1,49 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CurveTableEditorPrivatePCH.h"
-
 #include "CurveTableEditor.h"
-#include "Toolkits/IToolkitHost.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
-#include "SDockTab.h"
-#include "Engine/CurveTable.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Modules/ModuleManager.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Framework/Layout/Overscroll.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "EditorStyleSet.h"
+#include "EditorReimportHandler.h"
+#include "CurveTableEditorModule.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "SCurveEditor.h"
+#include "CurveTableEditorCommands.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
  
 #define LOCTEXT_NAMESPACE "CurveTableEditor"
 
 const FName FCurveTableEditor::CurveTableTabId("CurveTableEditor_CurveTable");
 const FName FCurveTableEditor::RowNameColumnId("RowName");
+
+class SCurveTableEditor : public SCurveEditor
+{
+	SLATE_BEGIN_ARGS(SCurveTableEditor) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs)
+	{
+		SCurveEditor::Construct(SCurveEditor::FArguments()
+			.DesiredSize(FVector2D(128.0f, 64.0f)));
+	}
+
+	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
+	{
+		if (MouseEvent.IsShiftDown())
+		{
+			SCurveEditor::OnMouseWheel(MyGeometry, MouseEvent);
+			return FReply::Handled();
+		}
+		
+		return FReply::Unhandled();
+	}
+};
 
 class SCurveTableListViewRow : public SMultiColumnTableRow<FCurveTableEditorRowListViewDataPtr>
 {
@@ -35,6 +67,38 @@ public:
 			);
 	}
 
+	virtual void ConstructChildren(ETableViewMode::Type InOwnerTableMode, const TAttribute<FMargin>& InPadding, const TSharedRef<SWidget>& InContent) override
+	{
+		TSharedPtr<FCurveTableEditor> CurveTableEditorPtr = CurveTableEditor.Pin();
+		if (CurveTableEditorPtr.IsValid())
+		{
+			ChildSlot
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.FillHeight(1.0f)
+				[
+					SNew(SBox)
+					.Visibility(this, &SCurveTableListViewRow::GetTableViewVisibility)
+					[
+						InContent
+					]
+				]
+				+SVerticalBox::Slot()
+				.FillHeight(1.0f)
+				[
+					SNew(SHorizontalBox)
+					.Visibility(this, &SCurveTableListViewRow::GetCurveViewVisibility)
+					+SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					[
+						CurveTableEditorPtr->MakeCurveWidget(Item, IndexInList)
+					]
+				]
+			];
+		}
+	}
+
 	/** Overridden from SMultiColumnTableRow.  Generates a widget for this column of the list view. */
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
 	{
@@ -42,6 +106,16 @@ public:
 		return (CurveTableEditorPtr.IsValid())
 			? CurveTableEditorPtr->MakeCellWidget(Item, IndexInList, ColumnName)
 			: SNullWidget::NullWidget;
+	}
+
+	EVisibility GetTableViewVisibility() const
+	{
+		return CurveTableEditor.Pin()->GetViewMode() == ECurveTableViewMode::Grid ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+	EVisibility GetCurveViewVisibility() const
+	{
+		return CurveTableEditor.Pin()->GetViewMode() == ECurveTableViewMode::CurveTable ? EVisibility::Visible : EVisibility::Collapsed;
 	}
 
 private:
@@ -76,7 +150,7 @@ FCurveTableEditor::~FCurveTableEditor()
 
 void FCurveTableEditor::InitCurveTableEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UCurveTable* Table )
 {
-	const TSharedRef< FTabManager::FLayout > StandaloneDefaultLayout = FTabManager::NewLayout("Standalone_CurveTableEditor_Layout")
+	const TSharedRef< FTabManager::FLayout > StandaloneDefaultLayout = FTabManager::NewLayout("Standalone_CurveTableEditor_Layout_v1.1")
 	->AddArea
 	(
 		FTabManager::NewPrimaryArea()
@@ -84,6 +158,7 @@ void FCurveTableEditor::InitCurveTableEditor( const EToolkitMode::Type Mode, con
 		(
 			FTabManager::NewStack()
 			->AddTab( CurveTableTabId, ETabState::OpenedTab )
+			->SetHideTabWell(true)
 		)
 	);
 
@@ -91,8 +166,9 @@ void FCurveTableEditor::InitCurveTableEditor( const EToolkitMode::Type Mode, con
 	const bool bCreateDefaultToolbar = false;
 	FAssetEditorToolkit::InitAssetEditor( Mode, InitToolkitHost, FCurveTableEditorModule::CurveTableEditorAppIdentifier, StandaloneDefaultLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, Table );
 	
-	FCurveTableEditorModule& CurveTableEditorModule = FModuleManager::LoadModuleChecked<FCurveTableEditorModule>( "CurveTableEditor" );
-	AddMenuExtender(CurveTableEditorModule.GetMenuExtensibilityManager()->GetAllExtenders(GetToolkitCommands(), GetEditingObjects()));
+	BindCommands();
+	ExtendMenu();
+	RegenerateMenusAndToolbars();
 
 	FReimportManager::Instance()->OnPostReimport().AddSP(this, &FCurveTableEditor::OnPostReimport);
 
@@ -105,6 +181,45 @@ void FCurveTableEditor::InitCurveTableEditor( const EToolkitMode::Type Mode, con
 	}*/
 
 	// NOTE: Could fill in asset editor commands here!
+}
+
+void FCurveTableEditor::BindCommands()
+{
+	FCurveTableEditorCommands::Register();
+
+	ToolkitCommands->MapAction(FCurveTableEditorCommands::Get().CurveViewToggle,
+		FExecuteAction::CreateSP(this, &FCurveTableEditor::ToggleViewMode),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FCurveTableEditor::IsCurveViewChecked));
+}
+
+void FCurveTableEditor::ExtendMenu()
+{
+	MenuExtender = MakeShareable(new FExtender);
+
+	struct Local
+	{
+		static void ExtendMenu(FMenuBuilder& MenuBuilder)
+		{
+			MenuBuilder.BeginSection("CurveTableEditor", LOCTEXT("CurveTableEditor", "Curve Table"));
+			{
+				MenuBuilder.AddMenuEntry(FCurveTableEditorCommands::Get().CurveViewToggle);
+			}
+			MenuBuilder.EndSection();
+		}
+	};
+
+	MenuExtender->AddMenuExtension(
+		"WindowLayout",
+		EExtensionHook::After,
+		GetToolkitCommands(),
+		FMenuExtensionDelegate::CreateStatic(&Local::ExtendMenu)
+	);
+
+	AddMenuExtender(MenuExtender);
+
+	FCurveTableEditorModule& CurveTableEditorModule = FModuleManager::LoadModuleChecked<FCurveTableEditorModule>("CurveTableEditor");
+	AddMenuExtender(CurveTableEditorModule.GetMenuExtensibilityManager()->GetAllExtenders(GetToolkitCommands(), GetEditingObjects()));
 }
 
 FName FCurveTableEditor::GetToolkitFName() const
@@ -147,13 +262,16 @@ TSharedRef<SDockTab> FCurveTableEditor::SpawnTab_CurveTable( const FSpawnTabArgs
 		.Orientation(Orient_Vertical)
 		.Thickness(FVector2D(8.0f, 8.0f));
 
-	TSharedRef<SHeaderRow> RowNamesHeaderRow = SNew(SHeaderRow);
+	TSharedRef<SHeaderRow> RowNamesHeaderRow = SNew(SHeaderRow)
+		.Visibility(this, &FCurveTableEditor::GetGridViewControlsVisibility);
+
 	RowNamesHeaderRow->AddColumn(
 		SHeaderRow::Column(RowNameColumnId)
 		.DefaultLabel(FText::GetEmpty())
 		);
 
-	ColumnNamesHeaderRow = SNew(SHeaderRow);
+	ColumnNamesHeaderRow = SNew(SHeaderRow)
+		.Visibility(this, &FCurveTableEditor::GetGridViewControlsVisibility);
 
 	RowNamesListView = SNew(SListView<FCurveTableEditorRowListViewDataPtr>)
 		.ListItemsSource(&AvailableRows)
@@ -204,7 +322,16 @@ TSharedRef<SDockTab> FCurveTableEditor::SpawnTab_CurveTable( const FSpawnTabArgs
 						SNew(SScrollBox)
 						.Orientation(Orient_Horizontal)
 						.ExternalScrollbar(HorizontalScrollBar)
+						.Visibility(this, &FCurveTableEditor::GetGridViewControlsVisibility)
 						+SScrollBox::Slot()
+						[
+							CellsListView.ToSharedRef()
+						]
+					]
+					+SHorizontalBox::Slot()
+					[
+						SNew(SBox)
+						.Visibility(this, &FCurveTableEditor::GetCurveViewControlsVisibility)
 						[
 							CellsListView.ToSharedRef()
 						]
@@ -224,6 +351,7 @@ TSharedRef<SDockTab> FCurveTableEditor::SpawnTab_CurveTable( const FSpawnTabArgs
 					[
 						SNew(SBox)
 						.WidthOverride(this, &FCurveTableEditor::GetRowNameColumnWidth)
+						.Visibility(this, &FCurveTableEditor::GetGridViewControlsVisibility)
 						[
 							SNullWidget::NullWidget
 						]
@@ -278,25 +406,26 @@ void FCurveTableEditor::CacheDataTableForEditing()
 	Table->RowMap.GenerateKeyArray(Names);
 	Table->RowMap.GenerateValueArray(Curves);
 
-	// Determine the curve with the longest set of data, for the column names
-	int32 LongestCurveIndex = 0;
-	for (int32 CurvesIdx = 1; CurvesIdx < Curves.Num(); ++CurvesIdx)
-	{
-		if (Curves[CurvesIdx]->GetNumKeys() > Curves[LongestCurveIndex]->GetNumKeys())
-		{
-			LongestCurveIndex = CurvesIdx;
-		}
-	}
-
 	TSharedRef<FSlateFontMeasure> FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
 	const FTextBlockStyle& CellTextStyle = FEditorStyle::GetWidgetStyle<FTextBlockStyle>("DataTableEditor.CellText");
 	static const float CellPadding = 10.0f;
 
-	// Column titles, taken from the longest curve
-	AvailableColumns.Reset(Curves[LongestCurveIndex]->GetNumKeys());
-	for (auto It(Curves[LongestCurveIndex]->GetKeyIterator()); It; ++It)
+	// Find unique column titles
+	TArray<float> UniqueColumns;
+	for (int32 CurvesIdx = 0; CurvesIdx < Curves.Num(); ++CurvesIdx)
 	{
-		const FText ColumnText = FText::AsNumber(It->Time);
+		for (auto CurveIt(Curves[CurvesIdx]->GetKeyIterator()); CurveIt; ++CurveIt)
+		{
+			UniqueColumns.AddUnique(CurveIt->Time);
+		}
+	}
+
+	UniqueColumns.Sort();
+
+	AvailableColumns.Empty();
+	for (const float& ColumnTime : UniqueColumns)
+	{
+		const FText ColumnText = FText::AsNumber(ColumnTime);
 
 		FCurveTableEditorColumnHeaderDataPtr CachedColumnData = MakeShareable(new FCurveTableEditorColumnHeaderData());
 		CachedColumnData->ColumnId = *ColumnText.ToString();
@@ -315,23 +444,29 @@ void FCurveTableEditor::CacheDataTableForEditing()
 		FCurveTableEditorRowListViewDataPtr CachedRowData = MakeShareable(new FCurveTableEditorRowListViewData());
 		CachedRowData->RowId = CurveName;
 		CachedRowData->DisplayName = FText::FromName(CurveName);
+		CachedRowData->RowHandle = FCurveTableEditorHandle(Table, CurveName);
+
+		check(CachedRowData->RowHandle.IsValid());
 
 		const float RowNameWidth = FontMeasure->Measure(CachedRowData->DisplayName, CellTextStyle.Font).X + CellPadding;
 		RowNameColumnWidth = FMath::Max(RowNameColumnWidth, RowNameWidth);
 
-		CachedRowData->CellData.Reserve(Curves[CurvesIdx]->GetNumKeys());
+		CachedRowData->CellData.AddDefaulted(AvailableColumns.Num());
+		{
+			for (auto It(Curves[CurvesIdx]->GetKeyIterator()); It; ++It)
 		{
 			int32 ColumnIndex = 0;
-			for (auto It(Curves[CurvesIdx]->GetKeyIterator()); It; ++It)
+				if (UniqueColumns.Find(It->Time, ColumnIndex))
 			{
-				FCurveTableEditorColumnHeaderDataPtr CachedColumnData = AvailableColumns[ColumnIndex++];
+					FCurveTableEditorColumnHeaderDataPtr CachedColumnData = AvailableColumns[ColumnIndex];
 
 				const FText CellText = FText::AsNumber(It->Value);
-				CachedRowData->CellData.Add(CellText);
+					CachedRowData->CellData[ColumnIndex] = CellText;
 
 				const float CellWidth = FontMeasure->Measure(CellText, CellTextStyle.Font).X + CellPadding;
 				CachedColumnData->DesiredColumnWidth = FMath::Max(CachedColumnData->DesiredColumnWidth, CellWidth);
 			}
+		}
 		}
 
 		AvailableRows.Add(CachedRowData);
@@ -341,12 +476,16 @@ void FCurveTableEditor::CacheDataTableForEditing()
 
 TSharedRef<ITableRow> FCurveTableEditor::MakeRowNameWidget(FCurveTableEditorRowListViewDataPtr InRowDataPtr, const TSharedRef<STableViewBase>& OwnerTable)
 {
+	TWeakPtr<FCurveTableEditor> WeakEditorPtr = SharedThis(this);
+
 	return
 		SNew(STableRow<FCurveTableEditorRowListViewDataPtr>, OwnerTable)
 		.Style(FEditorStyle::Get(), "DataTableEditor.NameListViewRow")
 		[
 			SNew(SBox)
 			.Padding(FMargin(4, 2, 4, 2))
+			.HeightOverride_Lambda([WeakEditorPtr]() { TSharedPtr<FCurveTableEditor> This = WeakEditorPtr.Pin(); return (This.IsValid() && This->GetViewMode() == ECurveTableViewMode::CurveTable) ? FOptionalSize(68.0f) : FOptionalSize(); })
+			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
 				.Text(InRowDataPtr->DisplayName)
@@ -391,6 +530,20 @@ TSharedRef<SWidget> FCurveTableEditor::MakeCellWidget(FCurveTableEditorRowListVi
 	return SNullWidget::NullWidget;
 }
 
+TSharedRef<SWidget> FCurveTableEditor::MakeCurveWidget(FCurveTableEditorRowListViewDataPtr InRowDataPtr, const int32 InRowIndex)
+{
+	TSharedRef<SCurveTableEditor> CurveEditor = SNew(SCurveTableEditor);
+	CurveEditor->SetCurveOwner(&InRowDataPtr->RowHandle, false);
+
+	return SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.Padding(FMargin(4, 2, 4, 2))
+		.FillWidth(1.0f)
+		[
+			CurveEditor
+		];
+}
+
 
 void FCurveTableEditor::OnRowNamesListViewScrolled(double InScrollOffset)
 {
@@ -418,6 +571,26 @@ void FCurveTableEditor::OnPostReimport(UObject* InObject, bool)
 	{
 		RefreshCachedCurveTable();
 	}
+}
+
+EVisibility FCurveTableEditor::GetGridViewControlsVisibility() const
+{
+	return ViewMode == ECurveTableViewMode::CurveTable ? EVisibility::Collapsed : EVisibility::Visible;
+}
+
+EVisibility FCurveTableEditor::GetCurveViewControlsVisibility() const
+{
+	return ViewMode == ECurveTableViewMode::Grid ? EVisibility::Collapsed : EVisibility::Visible;
+}
+
+void FCurveTableEditor::ToggleViewMode()
+{
+	ViewMode = (ViewMode == ECurveTableViewMode::CurveTable) ? ECurveTableViewMode::Grid : ECurveTableViewMode::CurveTable;
+}
+
+bool FCurveTableEditor::IsCurveViewChecked() const
+{
+	return (ViewMode == ECurveTableViewMode::CurveTable);
 }
 
 #undef LOCTEXT_NAMESPACE

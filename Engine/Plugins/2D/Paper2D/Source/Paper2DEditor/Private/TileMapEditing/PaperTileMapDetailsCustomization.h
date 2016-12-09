@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "PropertyEditorModule.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "PaperTileMap.h"
+#include "IDetailCustomization.h"
+#include "PaperTileMapComponent.h"
+
+class IDetailLayoutBuilder;
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperTileMapDetailsCustomization

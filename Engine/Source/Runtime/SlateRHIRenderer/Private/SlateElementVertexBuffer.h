@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Rendering/RenderingCommon.h"
+#include "SlateGlobals.h"
+#include "RHI.h"
+#include "RenderResource.h"
+
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Vertex Buffer Memory (GPU)"), STAT_SlateVertexBufferMemory, STATGROUP_SlateMemory, );
 
 /**

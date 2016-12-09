@@ -3,10 +3,28 @@
 
 #pragma once
 
-#include "AssetData.h"
-#include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
 #include "PreviewScene.h"
+#include "EditorViewportClient.h"
+#include "AssetData.h"
+#include "Widgets/SToolTip.h"
+#include "PersonaDelegates.h"
+#include "Editor/ContentBrowser/Public/ContentBrowserDelegates.h"
 #include "EditorAnimUtils.h"
+#include "IAnimationSequenceBrowser.h"
+
+class FSceneViewport;
+class FUICommandList;
+class IPersonaToolkit;
+class SMenuAnchor;
+class SViewport;
+class UAnimationAsset;
+class UDebugSkelMeshComponent;
+class USoundWave;
 
 //////////////////////////////////////////////////////////////////////////
 // FAnimationAssetViewportClient
@@ -24,23 +42,29 @@ public:
 //////////////////////////////////////////////////////////////////////////
 // SAnimationSequenceBrowser
 
-class SAnimationSequenceBrowser : public SCompoundWidget
+class SAnimationSequenceBrowser : public IAnimationSequenceBrowser
 {
 public:
 	SLATE_BEGIN_ARGS(SAnimationSequenceBrowser)
-		: _Persona()
-		{}
+		: _ShowHistory(false)
+	{}
 
-		SLATE_ARGUMENT(TSharedPtr<class FPersona>, Persona)
+	SLATE_ARGUMENT(bool, ShowHistory)
+
+	SLATE_ARGUMENT(FOnOpenNewAsset, OnOpenNewAsset)
+
 	SLATE_END_ARGS()
 public:
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, const TSharedRef<class IPersonaToolkit>& InPersonaToolkit);
 
 	void OnRequestOpenAsset(const FAssetData& AssetData, bool bFromHistory);
 
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 
 	virtual ~SAnimationSequenceBrowser();
+
+	/** IAnimationSequenceBrowser interface */
+	virtual void SelectAsset(UAnimationAsset * AnimAsset) override;
 
 	/** Delegate that handles creation of context menu */
 	TSharedPtr<SWidget> OnGetAssetContextMenu(const TArray<FAssetData>& SelectedAssets);
@@ -78,8 +102,8 @@ public:
 	 */
 	void OnCreateCopy(TArray<FAssetData> Selected);
 
-	/** Refresh list */
-	void SelectAsset(UAnimationAsset * AnimAsset);
+	/** public reference to add to history */
+	virtual void AddToHistory(UAnimationAsset * AnimAsset) override;
 
 protected:
 	bool CanShowColumnForAssetRegistryTag(FName AssetType, FName TagName) const;
@@ -112,7 +136,7 @@ protected:
 	 *
 	 * @param InMenuAnchor		This is the anchor the menu will use for positioning
 	 */
-	FReply OnMouseDownHisory( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, TWeakPtr< SMenuAnchor > InMenuAnchor );
+	FReply OnMouseDownHistory( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, TWeakPtr< SMenuAnchor > InMenuAnchor );
 
 	/** 
 	 * Callback to create the history menu.
@@ -154,7 +178,20 @@ protected:
 	bool IsToolTipPreviewVisible();
 
 	/** Returns visible when not in a Blueprint mode (anim mode, etc...) */
-	EVisibility GetNonBlueprintModeVisibility() const;
+	EVisibility GetHistoryVisibility() const;
+
+	/** Perform additional filtering */
+	bool HandleFilterAsset(const FAssetData& InAssetData) const;
+
+	/** Handle playing audio from the right-click menu */
+	void HandlePlayAudio(FAssetData InAssetData);
+
+	/** Handle stopping audio from the right-click menu */
+	void HandleStopAudio();
+
+	/** Play the specified sound on the preview audio component */
+	void PlayPreviewAudio(USoundWave* InSoundWave);
+
 protected:
 	/**
 	 * The actual viewport widget
@@ -186,8 +223,8 @@ protected:
 	 */
 	TSharedPtr<FUICommandList> Commands;
 
-	// Pointer back to persona tool that owns us
-	TWeakPtr<class FPersona> PersonaPtr;
+	/** The persona toolkit we are using */
+	TWeakPtr<class IPersonaToolkit> PersonaToolkitPtr;
 
 	// Set of tags to prevent creating details view columns for (infrequently used)
 	TSet<FName> AssetRegistryTagsToIgnore;
@@ -203,6 +240,12 @@ protected:
 
 	// Track if we have tried to cache the first asset we were playing
 	bool bTriedToCacheOrginalAsset;
+
+	/** Whether to show the history widgets */
+	bool bShowHistory;
+
+	/** Delegate called to open a new asset for editing */
+	FOnOpenNewAsset OnOpenNewAsset;
 
 	// delegate to sync the asset picker to selected assets
 	FSyncToAssetsDelegate SyncToAssetsDelegate;
@@ -222,4 +265,8 @@ private:
 
 	/** Whether the active timer should stop */
 	uint8 bToolTipVisualizedThisFrame : 1;
+
+public:
+	/** The section of EditorPerProjectUserSettings in which to save settings */
+	static const FString SettingsIniSection;
 };

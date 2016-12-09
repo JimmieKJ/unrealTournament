@@ -2,8 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 #include "AnalyticsProviderConfigurationDelegate.h"
-#include "ModuleManager.h"
 
 class IAnalyticsProvider;
 

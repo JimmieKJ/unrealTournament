@@ -1,20 +1,26 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DestructibleMeshEditorPrivatePCH.h"
-
-#include "PhysicsPublic.h"
-#include "Runtime/Engine/Private/PhysicsEngine/PhysXSupport.h"
-#include "MouseDeltaTracker.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "PreviewScene.h"
+#include "SDestructibleMeshEditorViewport.h"
+#include "Misc/Paths.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Components/SkinnedMeshComponent.h"
+#include "Settings/DestructableMeshEditorSettings.h"
+#include "Factories/FbxStaticMeshImportData.h"
+#include "Components/DestructibleComponent.h"
+#include "EditorDirectories.h"
+#include "UObject/Package.h"
+#include "DestructibleMeshEditor.h"
+#include "DestructibleChunkParamsProxy.h"
+#include "Slate/SceneViewport.h"
 #include "ApexDestructibleAssetImport.h"
 #include "DesktopPlatformModule.h"
 #include "FbxImporter.h"
+#include "UObject/UObjectHash.h"
 #include "ComponentReregisterContext.h"
 #include "Engine/DestructibleMesh.h"
-#include "SDockableTab.h"
-#include "Components/DestructibleComponent.h"
+#include "Widgets/Docking/SDockableTab.h"
 #include "Engine/StaticMesh.h"
+#include "PhysXPublic.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDestructibleMeshEditor, Log, All);
 
@@ -268,8 +274,8 @@ void FDestructibleMeshEditorViewportClient::ProcessClick( class FSceneView& View
 	if (Key == EKeys::LeftMouseButton && Event == EInputEvent::IE_Released)
 	{
 		UDestructibleComponent* Comp = PreviewDestructibleComp.Get();
-		NxDestructibleAsset* Asset = Comp->DestructibleMesh->ApexDestructibleAsset;
-		const NxRenderMeshAsset* RenderMesh = Asset->getRenderMeshAsset();
+		apex::DestructibleAsset* Asset = Comp->DestructibleMesh->ApexDestructibleAsset;
+		const apex::RenderMeshAsset* RenderMesh = Asset->getRenderMeshAsset();
 
 		FVector2D ScreenPos(HitX, HitY);
 		FVector ClickOrigin, ViewDir;
@@ -364,8 +370,8 @@ void FDestructibleMeshEditorViewportClient::Draw( const FSceneView* View,FPrimit
 		{
 			if (Comp->DestructibleMesh->ApexDestructibleAsset != NULL)
 			{
-				NxDestructibleAsset* Asset = Comp->DestructibleMesh->ApexDestructibleAsset;
-				const NxRenderMeshAsset* RenderMesh = Asset->getRenderMeshAsset();
+				apex::DestructibleAsset* Asset = Comp->DestructibleMesh->ApexDestructibleAsset;
+				const apex::RenderMeshAsset* RenderMesh = Asset->getRenderMeshAsset();
 
 				for (uint32 i=0; i < Asset->getChunkCount(); ++i)
 				{
@@ -470,8 +476,6 @@ void FDestructibleMeshEditorViewportClient::ImportFBXChunks()
 			// Invalid filename 
 		}
 	}
-#if WITH_APEX
-#endif // WITH_APEX
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -529,10 +533,10 @@ void SDestructibleMeshEditorViewport::RefreshViewport()
 #if WITH_EDITORONLY_DATA
 	if (DestructibleMesh != NULL && DestructibleMesh->FractureSettings != NULL && DestructibleMesh->ApexDestructibleAsset != NULL && PreviewComponent->IsRegistered())
 	{
-		const NxRenderMeshAsset* ApexRenderMeshAsset = DestructibleMesh->ApexDestructibleAsset->getRenderMeshAsset();
+		const apex::RenderMeshAsset* ApexRenderMeshAsset = DestructibleMesh->ApexDestructibleAsset->getRenderMeshAsset();
 		if (ApexRenderMeshAsset != NULL)
 		{
-			NxExplicitHierarchicalMesh& EHM =  DestructibleMesh->FractureSettings->ApexDestructibleAssetAuthoring->getExplicitHierarchicalMesh();
+			apex::ExplicitHierarchicalMesh& EHM =  DestructibleMesh->FractureSettings->ApexDestructibleAssetAuthoring->getExplicitHierarchicalMesh();
 			if (DestructibleMesh->ApexDestructibleAsset->getPartIndex(0) < ApexRenderMeshAsset->getPartCount())
 			{
 				const PxBounds3& Level0Bounds = ApexRenderMeshAsset->getBounds(DestructibleMesh->ApexDestructibleAsset->getPartIndex(0));

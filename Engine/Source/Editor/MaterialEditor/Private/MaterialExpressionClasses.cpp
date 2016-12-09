@@ -1,11 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MaterialEditorModule.h"
+#include "MaterialExpressionClasses.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Class.h"
+#include "UObject/UnrealType.h"
+#include "Materials/MaterialExpression.h"
+#include "UObject/Package.h"
+#include "MaterialEditor.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Preferences/MaterialEditorOptions.h"
 
 #include "Materials/MaterialExpressionComment.h"
 #include "Materials/MaterialExpressionParameter.h"
 
-#include "MaterialExpressionClasses.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //

@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Fonts/SlateFontInfo.h"
+#include "PropertyEditorModule.h"
+
+class FNotifyHook;
 
 /**
  * Init params for a single property

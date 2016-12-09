@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 //
-#include "OculusRiftPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "IOculusRiftPlugin.h"
 #include "OculusRiftHMD.h"
 
 #if OCULUS_RIFT_SUPPORTED_PLATFORMS
@@ -26,7 +27,7 @@
 #define FD3DGPUProfiler FD3D12GPUProfiler
 #define FRangeAllocator FRangeAllocator_D3D12
 
-#include "D3D12RHIPrivate.h"
+#include "../Private/D3D12RHIPrivate.h"
 #include "D3D12Util.h"
 
 #undef GetD3D11CubeFace
@@ -54,7 +55,6 @@
 #include "ScenePrivate.h"
 #include "PostProcess/PostProcessHMD.h"
 #include "ScreenRendering.h"
-#include "SlateBasics.h"
 
 //-------------------------------------------------------------------------------------------------
 // FD3D12Texture2DSetProxy 

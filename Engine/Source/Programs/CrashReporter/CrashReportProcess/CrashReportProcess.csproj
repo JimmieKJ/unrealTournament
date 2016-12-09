@@ -126,6 +126,8 @@
     <Compile Include="Settings.cs" />
     <Compile Include="StatusReporting.cs" />
     <Compile Include="StatusReportingConstants.cs" />
+    <Compile Include="StatusReportLoop.cs" />
+    <Compile Include="Symbolicator.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config">

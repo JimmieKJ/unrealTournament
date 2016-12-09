@@ -2,7 +2,19 @@
 
 #pragma once
 
-#include "ValueOrError.h"
+#include "CoreTypes.h"
+#include "Templates/PointerIsConvertibleFromTo.h"
+#include "Templates/UnrealTemplate.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Templates/Function.h"
+#include "Containers/Set.h"
+#include "Containers/Map.h"
+#include "Misc/Optional.h"
+#include "Internationalization/Text.h"
+#include "Internationalization/Internationalization.h"
+#include "Misc/Guid.h"
+#include "Templates/ValueOrError.h"
 
 class FExpressionNode;
 struct FExpressionError;
@@ -496,4 +508,4 @@ private:
 	TMap<FGuid, int32>	BinaryOperators;
 };
 
-#include "ExpressionParserTypes.inl"
+#include "Misc/ExpressionParserTypes.inl"

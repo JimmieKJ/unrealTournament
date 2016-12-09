@@ -2,15 +2,15 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "GameplayTagContainer.h"
 #include "EngineGlobals.h"
 #include "GameplayTagsManager.h"
 
-
-class UGameplayTagsManager;
-
 /**
- * The public interface to this module
+ * The public interface to this module, generally you should access the manager directly instead
  */
 class IGameplayTagsModule : public IModuleInterface
 {
@@ -40,29 +40,22 @@ public:
 		return FModuleManager::Get().IsModuleLoaded(GameplayTagModuleName);
 	}
 
-	/**
-	 * Helper function to request a gameplay tag by name
-	 * 
-	 * @param InTagName	Tag name to request
-	 * 
-	 * @return Gameplay tag associated with the specified name. Will be marked invalid if tag not found
-	 */
+	/** Delegate for when assets are added to the tree */
+	static GAMEPLAYTAGS_API FSimpleMulticastDelegate OnGameplayTagTreeChanged;
+
+	/** Delegate that gets called after the settings have changed in the editor */
+	static GAMEPLAYTAGS_API FSimpleMulticastDelegate OnTagSettingsChanged;
+
+	DEPRECATED(4.15, "Call FGameplayTag::RequestGameplayTag or RequestGameplayTag on the manager instead")
 	FORCEINLINE_DEBUGGABLE static FGameplayTag RequestGameplayTag(FName InTagName, bool ErrorIfNotFound=true)
 	{
-		IGameplayTagsModule& GameplayTagsModule = IGameplayTagsModule::Get();
-		return GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTag(InTagName, ErrorIfNotFound);
+		return UGameplayTagsManager::Get().RequestGameplayTag(InTagName, ErrorIfNotFound);
 	}
 
-
-	// Gets the UGameplayTagsManager manager
+	DEPRECATED(4.15, "Call UGameplayTagsManager::Get instead")
 	FORCEINLINE_DEBUGGABLE static UGameplayTagsManager& GetGameplayTagsManager()
 	{
-		if (GGameplayTagsManager == nullptr)
-		{
-			IGameplayTagsModule::Get();
-		}
-		
-		return *GGameplayTagsManager;
+		return UGameplayTagsManager::Get();
 	}
 
 };

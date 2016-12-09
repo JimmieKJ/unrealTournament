@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Toolkits/ToolkitManager.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Framework/Docking/TabManager.h"
 #include "Toolkits/IToolkit.h"
 #include "Toolkits/IToolkitHost.h"
-#include "Toolkits/ToolkitManager.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 static TSharedRef<SDockTab> SpawnStandaloneToolkitHost( const FSpawnTabArgs& Args )
 {

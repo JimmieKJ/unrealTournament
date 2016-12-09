@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "AIGraphTypes.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "EdGraph/EdGraphPin.h"
 #include "BehaviorTreeEditorTypes.generated.h"
 
 struct FAbortDrawHelper

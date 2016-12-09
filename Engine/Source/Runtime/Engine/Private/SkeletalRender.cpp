@@ -4,10 +4,9 @@
 	SkeletalRender.cpp: Skeletal mesh skinning/rendering code.
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "SkeletalRender.h"
 #include "SkeletalRenderPublic.h"
-#include "PhysicsEngine/PhysicsAsset.h"
+#include "SceneManagement.h"
 
 /*-----------------------------------------------------------------------------
 Globals
@@ -69,11 +68,7 @@ void FSkeletalMeshObject::UpdateMinDesiredLODLevel(const FSceneView* View, const
 	static const auto* SkeletalMeshLODRadiusScale = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.SkeletalMeshLODRadiusScale"));
 	float LODScale = FMath::Clamp(SkeletalMeshLODRadiusScale->GetValueOnRenderThread(), 0.25f, 1.0f);
 
-	const FVector4 ScreenPosition( View->WorldToScreen(Bounds.Origin) );
-	const float ScreenRadius = FMath::Max(View->ViewRect.Width() / 2.0f * View->ViewMatrices.ProjMatrix.M[0][0],
-		View->ViewRect.Height() / 2.0f * View->ViewMatrices.ProjMatrix.M[1][1]) * Bounds.SphereRadius / FMath::Max(ScreenPosition.W,1.0f);
-
-	const float LODFactor = LODScale * ScreenRadius / 320.0f;
+	const float ScreenRadiusSquared = ComputeBoundsScreenRadiusSquared(Bounds.Origin, Bounds.SphereRadius, *View) * LODScale * LODScale;
 
 	check( SkeletalMeshLODInfo.Num() == SkeletalMeshResource->LODModels.Num() );
 
@@ -89,17 +84,17 @@ void FSkeletalMeshObject::UpdateMinDesiredLODLevel(const FSceneView* View, const
 		// Iterate from worst to best LOD
 		for(int32 LODLevel = SkeletalMeshResource->LODModels.Num()-1; LODLevel > 0; LODLevel--) 
 		{
-			// Get DistanceFactor for this LOD
-			float LODDistanceFactor = SkeletalMeshLODInfo[LODLevel].ScreenSize;
+			// Get ScreenSize for this LOD
+			float ScreenSize = SkeletalMeshLODInfo[LODLevel].ScreenSize;
 
 			// If we are considering shifting to a better (lower) LOD, bias with hysteresis.
 			if(LODLevel  <= CurrentLODLevel)
 			{
-				LODDistanceFactor += SkeletalMeshLODInfo[LODLevel].LODHysteresis;
+				ScreenSize += SkeletalMeshLODInfo[LODLevel].LODHysteresis;
 			}
 
 			// If have passed this boundary, use this LOD
-			if(LODDistanceFactor > LODFactor)
+			if(FMath::Square(ScreenSize * 0.5f) > ScreenRadiusSquared)
 			{
 				NewLODLevel = LODLevel;
 				break;
@@ -115,12 +110,12 @@ void FSkeletalMeshObject::UpdateMinDesiredLODLevel(const FSceneView* View, const
 		MinDesiredLODLevel = WorkingMinDesiredLODLevel;
 		LastFrameNumber = FrameNumber;
 
-		WorkingMaxDistanceFactor = LODFactor;
+		WorkingMaxDistanceFactor = ScreenRadiusSquared;
 		WorkingMinDesiredLODLevel = NewLODLevel;
 	}
 	else
 	{
-		WorkingMaxDistanceFactor = FMath::Max(WorkingMaxDistanceFactor, LODFactor);
+		WorkingMaxDistanceFactor = FMath::Max(WorkingMaxDistanceFactor, ScreenRadiusSquared);
 		WorkingMinDesiredLODLevel = FMath::Min(WorkingMinDesiredLODLevel, NewLODLevel);
 	}
 }
@@ -231,7 +226,7 @@ void UpdateRefToLocalMatrices( TArray<FMatrix>& ReferenceToLocal, const USkinned
 					const int32 MasterBoneIndex = MasterBoneMap[ThisBoneIndex];
 					if (MasterComp->GetComponentSpaceTransforms().IsValidIndex(MasterBoneIndex))
 					{
-						const int32 ParentIndex = MasterCompMesh->RefSkeleton.GetParentIndex(MasterBoneIndex);
+						const int32 ParentIndex = ThisMesh->RefSkeleton.GetParentIndex(ThisBoneIndex);
 						bool bNeedToHideBone = MasterComp->BoneVisibilityStates[MasterBoneIndex] != BVS_Visible;
 						if (bNeedToHideBone && ParentIndex != INDEX_NONE)
 						{

@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StandaloneRendererPrivate.h"
-
 #include "OpenGL/SlateOpenGLRenderer.h"
+#include "Fonts/FontTypes.h"
+#include "Fonts/FontCache.h"
+#include "Widgets/SWindow.h"
+#include "OpenGL/SlateOpenGLTextures.h"
+
 #include "OpenGL/SlateOpenGLTextureManager.h"
 #include "OpenGL/SlateOpenGLRenderingPolicy.h"
-#include "FontCache.h"
-#include "ElementBatcher.h"
+#include "Rendering/ElementBatcher.h"
 
 class FSlateOpenGLFontAtlasFactory : public ISlateFontAtlasFactory
 {

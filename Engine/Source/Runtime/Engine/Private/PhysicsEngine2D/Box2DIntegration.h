@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/EngineBaseTypes.h"
+#include "UObject/GCObject.h"
+#include "Engine/World.h"
+
+class FPrimitiveDrawInterface;
+class FSceneView;
+
 #if WITH_BOX2D
 
 #include <Box2D/Box2D.h>

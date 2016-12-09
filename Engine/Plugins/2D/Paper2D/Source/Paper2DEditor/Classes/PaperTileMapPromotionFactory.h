@@ -6,6 +6,9 @@
  * Factory used to promote an instance-specific object from instance to asset by renaming it into an asset package
  */
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/Factory.h"
 #include "PaperTileMapPromotionFactory.generated.h"
 
 UCLASS()

@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "Serialization/TraceReferences.h"
+#include "UObject/UnrealType.h"
 
 // This traces referenced/referencer of an object using FArchiveObjectGraph 
 FTraceReferences::FTraceReferences( bool bIncludeTransients, EObjectFlags KeepFlags )

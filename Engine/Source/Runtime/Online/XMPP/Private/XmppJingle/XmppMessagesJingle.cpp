@@ -1,13 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "XmppPrivatePCH.h"
-#include "XmppJingle.h"
-#include "XmppConnectionJingle.h"
-#include "XmppMessagesJingle.h"
-#include "Json.h"
+#include "XmppJingle/XmppMessagesJingle.h"
+#include "XmppJingle/XmppConnectionJingle.h"
+#include "XmppLog.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
 
 #if WITH_XMPP_JINGLE
 
+#include "webrtc/base/helpers.h"
 /**
  * Holds a message for send/receive via Xmpp task
  */
@@ -155,6 +157,10 @@ protected:
 
 		Result->AddAttr(buzz::QN_TO, ToJid.Str());
 		Result->AddAttr(buzz::QN_ID, rtc::CreateRandomString(16));
+
+		// Add CorrelationID for tracking purposes
+		FXmppJingle::AddCorrIdToStanza(*Result);
+
 		buzz::XmlElement* Body = new buzz::XmlElement(buzz::QN_BODY);
 		Body->SetBodyText(Message.Body);
 		Result->AddElement(Body);

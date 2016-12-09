@@ -3,8 +3,10 @@
 
 #pragma once
 
-#include "GlobalShader.h"
+#include "CoreMinimal.h"
 #include "ShaderParameters.h"
+#include "Shader.h"
+#include "GlobalShader.h"
 
 class FClearReplacementVS : public FGlobalShader
 {

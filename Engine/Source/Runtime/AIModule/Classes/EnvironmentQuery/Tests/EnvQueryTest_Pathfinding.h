@@ -1,10 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
+#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "AI/Navigation/NavigationTypes.h"
+#include "EnvironmentQuery/EnvQueryContext.h"
+#include "DataProviders/AIDataProvider.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
 #include "EnvQueryTest_Pathfinding.generated.h"
 
-class UEnvQueryContext;
+class ANavigationData;
+class UNavigationSystem;
 
 UENUM()
 namespace EEnvTestPathfinding

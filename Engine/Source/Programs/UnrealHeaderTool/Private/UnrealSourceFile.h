@@ -2,12 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Paths.h"
 #include "Scope.h"
 #include "HeaderProvider.h"
-#include "UnrealTypeDefinitionInfo.h"
-#include "GeneratedCodeVersion.h"
 #include "SimplifiedParsingClassInfo.h"
+#include "GeneratedCodeVersion.h"
 
+class UPackage;
+class UClass;
+class UStruct;
+class FArchive;
 class FClassMetaData;
 
 /**

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ICursor.h"
+#include "Math/Vector2D.h"
 
 class FHTML5Cursor : public ICursor
 {
@@ -29,6 +30,7 @@ public:
 
 	virtual void Lock( const RECT* const Bounds ) override;
 
+	virtual void SetCustomShape(void* CursorHandle) override;
 
 private:
 	EMouseCursor::Type CurrentType;

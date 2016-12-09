@@ -7,8 +7,13 @@
  */
 
 #pragma once
-#include "AnimInstance.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Animation/AnimInstance.h"
 #include "AnimSingleNodeInstance.generated.h"
+
+struct FAnimInstanceProxy;
 
 DECLARE_DYNAMIC_DELEGATE(FPostEvaluateAnimEvent);
 
@@ -25,41 +30,9 @@ class ENGINE_API UAnimSingleNodeInstance : public UAnimInstance
 	/** Current Asset being played **/
 	UPROPERTY(Transient)
 	class UAnimationAsset* CurrentAsset;
-
-	/** Random cached values to play each asset **/
-	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::BlendSpaceInput")
-	FVector BlendSpaceInput;
-
-	/** Random cached values to play each asset **/
-	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::BlendSampleData")
-	TArray<FBlendSampleData> BlendSampleData;
-
-	/** Random cached values to play each asset **/
-	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::BlendFilter")
-	FBlendFilter BlendFilter;
-
-	/** Shared parameters for previewing blendspace or animsequence **/
-	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::CurrentTime")
-	float CurrentTime;
-
-	/** Cache for data needed during marker sync */
-	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::GetMarkerTickRecord")
-	FMarkerTickRecord MarkerTickRecord;
-
-	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::PlayRate")
-	float PlayRate;
 	 
 	UPROPERTY(Transient)
 	FPostEvaluateAnimEvent PostEvaluateAnimEvent;
-
-	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::bLooping")
-	uint32 bLooping:1;
-
-	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::bPlaying")
-	uint32 bPlaying:1;
-
-	DEPRECATED(4.11, "Please use FAnimSingleNodeInstanceProxy::bReverse")
-	uint32 bReverse:1;
 
 	//~ Begin UAnimInstance Interface
 	virtual void NativeInitializeAnimation() override;

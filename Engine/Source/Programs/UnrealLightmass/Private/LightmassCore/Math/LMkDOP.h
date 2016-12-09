@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 // #include "Collision.h"
+#include "LMMath.h"
+#include "LMMathSSE.h"
 
 namespace Lightmass
 {
@@ -53,11 +56,11 @@ struct FHitResult
 struct FVector3SOA
 {
 	/** X = (v0.x, v1.x, v2.x, v3.x) */
-	VectorRegister	X;
+	LmVectorRegister	X;
 	/** Y = (v0.y, v1.y, v2.y, v3.y) */
-	VectorRegister	Y;
+	LmVectorRegister	Y;
 	/** Z = (v0.z, v1.z, v2.z, v3.z) */
-	VectorRegister	Z;
+	LmVectorRegister	Z;
 };
 
 /**
@@ -66,13 +69,13 @@ struct FVector3SOA
 struct FVector4SOA
 {
 	/** X = (v0.x, v1.x, v2.x, v3.x) */
-	VectorRegister	X;
+	LmVectorRegister	X;
 	/** Y = (v0.y, v1.y, v2.y, v3.y) */
-	VectorRegister	Y;
+	LmVectorRegister	Y;
 	/** Z = (v0.z, v1.z, v2.z, v3.z) */
-	VectorRegister	Z;
+	LmVectorRegister	Z;
 	/** W = (v0.w, v1.w, v2.w, v3.w) */
-	VectorRegister	W;
+	LmVectorRegister	W;
 };
 
 /**
@@ -85,12 +88,12 @@ struct FTriangleSOA
 	/** Triangle normal (including -W for a plane) for each of the 4 triangles. */
 	FVector4SOA	Normals;
 	/** All bits are 1 for two sided triangles, and 0 otherwise. */
-	VectorRegister	TwoSidedMask;
+	LmVectorRegister	TwoSidedMask;
 	/** All bits are 1 for static and opaque triangles, and 0 otherwise. */
-	VectorRegister	StaticAndOpaqueMask;
-	VectorRegister	MeshIndices;
-	VectorRegister	LODIndices;
-	VectorRegister	HLODRange;
+	LmVectorRegister	StaticAndOpaqueMask;
+	LmVectorRegister	MeshIndices;
+	LmVectorRegister	LODIndices;
+	LmVectorRegister	HLODRange;
 	/** A 32-bit payload value for each of the 4 triangles. */
 	uint32		Payload[4];
 };
@@ -203,26 +206,26 @@ FORCEINLINE bool appLineCheckTriangle(const FVector4& Start, const FVector4& End
 }
 
 /** ( -0.0001f, -0.0001f, -0.0001f, -0.0001f ) */
-static const VectorRegister GSmallNegativeNumber = { -0.0001f, -0.0001f, -0.0001f, -0.0001f };
-//extern const VectorRegister GSmallNegativeNumber;
+static const LmVectorRegister GSmallNegativeNumber = { -0.0001f, -0.0001f, -0.0001f, -0.0001f };
+//extern const LmVectorRegister GSmallNegativeNumber;
 
 /** ( 0.0001f, 0.0001f, 0.0001f, 0.0001f ) */
-static const VectorRegister GSmallNumber = { 0.0001f, 0.0001f, 0.0001f, 0.0001f };
-//extern const VectorRegister GSmallNumber;
+static const LmVectorRegister GSmallNumber = { 0.0001f, 0.0001f, 0.0001f, 0.0001f };
+//extern const LmVectorRegister GSmallNumber;
 
-static const VectorRegister GZeroVectorRegister = { 0, 0, 0, 0 };
-static const VectorRegister GFullMaskVectorRegister = MakeVectorRegister((uint32)-1, (uint32)-1, (uint32)-1, (uint32)-1);
+static const LmVectorRegister GZeroVectorRegister = { 0, 0, 0, 0 };
+static const LmVectorRegister GFullMaskVectorRegister = LmMakeVectorRegister((uint32)-1, (uint32)-1, (uint32)-1, (uint32)-1);
 
-static const VectorRegister IndexNoneVectorRegister = MakeVectorRegister((uint32)INDEX_NONE, (uint32)INDEX_NONE, (uint32)INDEX_NONE, (uint32)INDEX_NONE);
-static const VectorRegister VectorNegativeOne = MakeVectorRegister( -1.0f, -1.0f, -1.0f, -1.0f );
+static const LmVectorRegister IndexNoneVectorRegister = LmMakeVectorRegister((uint32)INDEX_NONE, (uint32)INDEX_NONE, (uint32)INDEX_NONE, (uint32)INDEX_NONE);
+static const LmVectorRegister VectorNegativeOne = LmMakeVectorRegister( -1.0f, -1.0f, -1.0f, -1.0f );
 
 // LOD masks
-static const VectorRegister HLODTreeIndexMask = MakeVectorRegister((uint32)0xFFFF0000, (uint32)0xFFFF0000, (uint32)0xFFFF0000, (uint32)0xFFFF0000);
-static const VectorRegister HLODRangeStartIndexMask = MakeVectorRegister((uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF);
-static const VectorRegister HLODRangeEndIndexMask = MakeVectorRegister((uint32)0xFFFF0000, (uint32)0xFFFF0000, (uint32)0xFFFF0000, (uint32)0xFFFF0000);
-static const VectorRegister HLODTreeIndexNoneRegister = MakeVectorRegister(0xFFFF0000 & (uint32)INDEX_NONE, 0xFFFF0000 & (uint32)INDEX_NONE, 0xFFFF0000 & (uint32)INDEX_NONE, 0xFFFF0000 & (uint32)INDEX_NONE);
+static const LmVectorRegister HLODTreeIndexMask = LmMakeVectorRegister((uint32)0xFFFF0000, (uint32)0xFFFF0000, (uint32)0xFFFF0000, (uint32)0xFFFF0000);
+static const LmVectorRegister HLODRangeStartIndexMask = LmMakeVectorRegister((uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF);
+static const LmVectorRegister HLODRangeEndIndexMask = LmMakeVectorRegister((uint32)0xFFFF0000, (uint32)0xFFFF0000, (uint32)0xFFFF0000, (uint32)0xFFFF0000);
+static const LmVectorRegister HLODTreeIndexNoneRegister = LmMakeVectorRegister(0xFFFF0000 & (uint32)INDEX_NONE, 0xFFFF0000 & (uint32)INDEX_NONE, 0xFFFF0000 & (uint32)INDEX_NONE, 0xFFFF0000 & (uint32)INDEX_NONE);
 
-static const VectorRegister LODIndexMask = MakeVectorRegister((uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF);
+static const LmVectorRegister LODIndexMask = LmMakeVectorRegister((uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF);
 
 /**
  * Line vs triangle intersection test. Tests 1 line against 4 triangles at once.
@@ -234,23 +237,23 @@ static const VectorRegister LODIndexMask = MakeVectorRegister((uint32)0xFFFF, (u
  * @param IntersectionTime	[in/out] Best intersection time so far (0..1), as in: IntersectionPoint = Start + IntersectionTime * Dir.
  * @return			Index (0-3) to specify which of the 4 triangles the line intersected, or -1 if none was found.
  */
-FORCEINLINE int32 appLineCheckTriangleSOA(const FVector3SOA& Start, const FVector3SOA& End, const FVector3SOA& Dir, VectorRegister MeshIndex, VectorRegister LODIndices, VectorRegister HLODRange, const FTriangleSOA& Triangle4, bool bStaticAndOpaqueOnly, bool bTwoSidedCollision, bool bFlipSidedness, float& InOutIntersectionTime)
+FORCEINLINE int32 appLineCheckTriangleSOA(const FVector3SOA& Start, const FVector3SOA& End, const FVector3SOA& Dir, LmVectorRegister MeshIndex, LmVectorRegister LODIndices, LmVectorRegister HLODRange, const FTriangleSOA& Triangle4, bool bStaticAndOpaqueOnly, bool bTwoSidedCollision, bool bFlipSidedness, float& InOutIntersectionTime)
 {
-	VectorRegister TriangleMask;
+	LmVectorRegister TriangleMask;
 
-	VectorRegister StartDist;
-	StartDist = VectorMultiplyAdd( Triangle4.Normals.X, Start.X, Triangle4.Normals.W );
-	StartDist = VectorMultiplyAdd( Triangle4.Normals.Y, Start.Y, StartDist );
-	StartDist = VectorMultiplyAdd( Triangle4.Normals.Z, Start.Z, StartDist );
+	LmVectorRegister StartDist;
+	StartDist = LmVectorMultiplyAdd( Triangle4.Normals.X, Start.X, Triangle4.Normals.W );
+	StartDist = LmVectorMultiplyAdd( Triangle4.Normals.Y, Start.Y, StartDist );
+	StartDist = LmVectorMultiplyAdd( Triangle4.Normals.Z, Start.Z, StartDist );
 
-	VectorRegister EndDist;
-	EndDist = VectorMultiplyAdd( Triangle4.Normals.X, End.X, Triangle4.Normals.W );
-	EndDist = VectorMultiplyAdd( Triangle4.Normals.Y, End.Y, EndDist );
-	EndDist = VectorMultiplyAdd( Triangle4.Normals.Z, End.Z, EndDist );
+	LmVectorRegister EndDist;
+	EndDist = LmVectorMultiplyAdd( Triangle4.Normals.X, End.X, Triangle4.Normals.W );
+	EndDist = LmVectorMultiplyAdd( Triangle4.Normals.Y, End.Y, EndDist );
+	EndDist = LmVectorMultiplyAdd( Triangle4.Normals.Z, End.Z, EndDist );
 
 	// Are both end-points of the line on the same side of the triangle (or parallel to the triangle plane)?
-	TriangleMask = VectorMask_LE( VectorMultiply( StartDist, EndDist ), GSmallNegativeNumber );
-	if ( VectorMaskBits(TriangleMask) == 0 )
+	TriangleMask = LmVectorMask_LE( LmVectorMultiply( StartDist, EndDist ), GSmallNegativeNumber );
+	if ( LmVectorMaskBits(TriangleMask) == 0 )
 	{
 		return -1;
 	}
@@ -258,136 +261,136 @@ FORCEINLINE int32 appLineCheckTriangleSOA(const FVector3SOA& Start, const FVecto
 	if (bStaticAndOpaqueOnly)
 	{
 		// Only allow collision with opaque triangles if bStaticAndOpaqueOnly is true
-		TriangleMask = VectorBitwiseAND(TriangleMask, Triangle4.StaticAndOpaqueMask);
+		TriangleMask = LmVectorBitwiseAND(TriangleMask, Triangle4.StaticAndOpaqueMask);
 	}
 
 	// Backface culling
 	if (!bTwoSidedCollision)
 	{
-		VectorRegister XMultiply = VectorMultiply(Dir.X, Triangle4.Normals.X);
-		VectorRegister YMultiply = VectorMultiply(Dir.Y, Triangle4.Normals.Y);
-		VectorRegister ZMultiply = VectorMultiply(Dir.Z, Triangle4.Normals.Z);
+		LmVectorRegister XMultiply = LmVectorMultiply(Dir.X, Triangle4.Normals.X);
+		LmVectorRegister YMultiply = LmVectorMultiply(Dir.Y, Triangle4.Normals.Y);
+		LmVectorRegister ZMultiply = LmVectorMultiply(Dir.Z, Triangle4.Normals.Z);
 		// Dot product between the triangle normals and the ray direction
-		VectorRegister OriginalDots = VectorAdd(XMultiply, VectorAdd(YMultiply, ZMultiply));
+		LmVectorRegister OriginalDots = LmVectorAdd(XMultiply, LmVectorAdd(YMultiply, ZMultiply));
 		// Flip the dot product if bFlipSidedness is true
-		VectorRegister ModifiedDots = VectorMultiply(OriginalDots, (bFlipSidedness ? VectorNegativeOne : VectorOne()));
+		LmVectorRegister ModifiedDots = LmVectorMultiply(OriginalDots, (bFlipSidedness ? VectorNegativeOne : LmVectorOne()));
 		// Reject backface hits of non-two sided triangles
-		TriangleMask = VectorBitwiseAND(TriangleMask, VectorBitwiseOR(VectorMask_GE(ModifiedDots, VectorZero()), Triangle4.TwoSidedMask));
+		TriangleMask = LmVectorBitwiseAND(TriangleMask, LmVectorBitwiseOR(LmVectorMask_GE(ModifiedDots, LmVectorZero()), Triangle4.TwoSidedMask));
 
-		if ( VectorMaskBits(TriangleMask) == 0 )
+		if ( LmVectorMaskBits(TriangleMask) == 0 )
 		{
 			return -1;
 		}
 	}
 
 	// Figure out when it will hit the triangle
-	VectorRegister Time = VectorDivide( StartDist, VectorSubtract(StartDist, EndDist) );
+	LmVectorRegister Time = LmVectorDivide( StartDist, LmVectorSubtract(StartDist, EndDist) );
 
 	// If this triangle is not closer than the previous hit, reject it
-	VectorRegister IntersectionTime = VectorLoadFloat1( &InOutIntersectionTime );
-	TriangleMask = VectorBitwiseAND( TriangleMask, VectorMask_GE( Time, VectorZero() ) );
-	TriangleMask = VectorBitwiseAND( TriangleMask, VectorMask_LT( Time, IntersectionTime ) );
-	if ( VectorMaskBits(TriangleMask) == 0 )
+	LmVectorRegister IntersectionTime = LmVectorLoadFloat1( &InOutIntersectionTime );
+	TriangleMask = LmVectorBitwiseAND( TriangleMask, LmVectorMask_GE( Time, LmVectorZero() ) );
+	TriangleMask = LmVectorBitwiseAND( TriangleMask, LmVectorMask_LT( Time, IntersectionTime ) );
+	if ( LmVectorMaskBits(TriangleMask) == 0 )
 	{
 		return -1;
 	}
 
 	// Calculate the line's point of intersection with the node's plane
-	const VectorRegister IntersectionX = VectorMultiplyAdd( Dir.X, Time, Start.X );
-	const VectorRegister IntersectionY = VectorMultiplyAdd( Dir.Y, Time, Start.Y );
-	const VectorRegister IntersectionZ = VectorMultiplyAdd( Dir.Z, Time, Start.Z );
+	const LmVectorRegister IntersectionX = LmVectorMultiplyAdd( Dir.X, Time, Start.X );
+	const LmVectorRegister IntersectionY = LmVectorMultiplyAdd( Dir.Y, Time, Start.Y );
+	const LmVectorRegister IntersectionZ = LmVectorMultiplyAdd( Dir.Z, Time, Start.Z );
 
 	// Check if the point of intersection is inside the triangle's edges.
 	for( int32 SideIndex = 0; SideIndex < 3; SideIndex++ )
 	{
-		const VectorRegister EdgeX = VectorSubtract( Triangle4.Positions[(SideIndex + 1) % 3].X, Triangle4.Positions[SideIndex].X );
-		const VectorRegister EdgeY = VectorSubtract( Triangle4.Positions[(SideIndex + 1) % 3].Y, Triangle4.Positions[SideIndex].Y );
-		const VectorRegister EdgeZ = VectorSubtract( Triangle4.Positions[(SideIndex + 1) % 3].Z, Triangle4.Positions[SideIndex].Z );
-		const VectorRegister SideDirectionX = VectorSubtract( VectorMultiply( Triangle4.Normals.Y, EdgeZ ), VectorMultiply(Triangle4.Normals.Z, EdgeY) );
-		const VectorRegister SideDirectionY = VectorSubtract( VectorMultiply( Triangle4.Normals.Z, EdgeX ), VectorMultiply(Triangle4.Normals.X, EdgeZ) );
-		const VectorRegister SideDirectionZ = VectorSubtract( VectorMultiply( Triangle4.Normals.X, EdgeY ), VectorMultiply(Triangle4.Normals.Y, EdgeX) );
-		VectorRegister SideW;
-		SideW = VectorMultiply( SideDirectionX, Triangle4.Positions[SideIndex].X );
-		SideW = VectorMultiplyAdd( SideDirectionY, Triangle4.Positions[SideIndex].Y, SideW );
-		SideW = VectorMultiplyAdd( SideDirectionZ, Triangle4.Positions[SideIndex].Z, SideW );
-		VectorRegister DotW;
-		DotW = VectorMultiply( SideDirectionX, IntersectionX );
-		DotW = VectorMultiplyAdd( SideDirectionY, IntersectionY, DotW );
-		DotW = VectorMultiplyAdd( SideDirectionZ, IntersectionZ, DotW );
-		TriangleMask = VectorBitwiseAND( TriangleMask, VectorMask_LT( VectorSubtract(DotW, SideW), GSmallNumber ) );
-		if ( VectorMaskBits(TriangleMask) == 0 )
+		const LmVectorRegister EdgeX = LmVectorSubtract( Triangle4.Positions[(SideIndex + 1) % 3].X, Triangle4.Positions[SideIndex].X );
+		const LmVectorRegister EdgeY = LmVectorSubtract( Triangle4.Positions[(SideIndex + 1) % 3].Y, Triangle4.Positions[SideIndex].Y );
+		const LmVectorRegister EdgeZ = LmVectorSubtract( Triangle4.Positions[(SideIndex + 1) % 3].Z, Triangle4.Positions[SideIndex].Z );
+		const LmVectorRegister SideDirectionX = LmVectorSubtract( LmVectorMultiply( Triangle4.Normals.Y, EdgeZ ), LmVectorMultiply(Triangle4.Normals.Z, EdgeY) );
+		const LmVectorRegister SideDirectionY = LmVectorSubtract( LmVectorMultiply( Triangle4.Normals.Z, EdgeX ), LmVectorMultiply(Triangle4.Normals.X, EdgeZ) );
+		const LmVectorRegister SideDirectionZ = LmVectorSubtract( LmVectorMultiply( Triangle4.Normals.X, EdgeY ), LmVectorMultiply(Triangle4.Normals.Y, EdgeX) );
+		LmVectorRegister SideW;
+		SideW = LmVectorMultiply( SideDirectionX, Triangle4.Positions[SideIndex].X );
+		SideW = LmVectorMultiplyAdd( SideDirectionY, Triangle4.Positions[SideIndex].Y, SideW );
+		SideW = LmVectorMultiplyAdd( SideDirectionZ, Triangle4.Positions[SideIndex].Z, SideW );
+		LmVectorRegister DotW;
+		DotW = LmVectorMultiply( SideDirectionX, IntersectionX );
+		DotW = LmVectorMultiplyAdd( SideDirectionY, IntersectionY, DotW );
+		DotW = LmVectorMultiplyAdd( SideDirectionZ, IntersectionZ, DotW );
+		TriangleMask = LmVectorBitwiseAND( TriangleMask, LmVectorMask_LT( LmVectorSubtract(DotW, SideW), GSmallNumber ) );
+		if ( LmVectorMaskBits(TriangleMask) == 0 )
 		{
 			return -1;
 		}
 	}
 
 	// Unpack HLOD Data
-	VectorRegister HLODTreeIndexRay = VectorShiftRight(VectorBitwiseAND(HLODTreeIndexMask, LODIndices), 16);
-	VectorRegister HLODTreeIndexTri = VectorShiftRight(VectorBitwiseAND(HLODTreeIndexMask, Triangle4.LODIndices), 16);
-	VectorRegister HLODRangeStartRay = VectorBitwiseAND(HLODRangeStartIndexMask, HLODRange);
-	VectorRegister HLODRangeStartTri = VectorBitwiseAND(HLODRangeStartIndexMask, Triangle4.HLODRange);
-	VectorRegister HLODRangeEndRay = VectorShiftRight(VectorBitwiseAND(HLODRangeEndIndexMask, HLODRange), 16);
-	VectorRegister HLODRangeEndTri = VectorShiftRight(VectorBitwiseAND(HLODRangeEndIndexMask, Triangle4.HLODRange), 16);
+	LmVectorRegister HLODTreeIndexRay = LmVectorShiftRight(LmVectorBitwiseAND(HLODTreeIndexMask, LODIndices), 16);
+	LmVectorRegister HLODTreeIndexTri = LmVectorShiftRight(LmVectorBitwiseAND(HLODTreeIndexMask, Triangle4.LODIndices), 16);
+	LmVectorRegister HLODRangeStartRay = LmVectorBitwiseAND(HLODRangeStartIndexMask, HLODRange);
+	LmVectorRegister HLODRangeStartTri = LmVectorBitwiseAND(HLODRangeStartIndexMask, Triangle4.HLODRange);
+	LmVectorRegister HLODRangeEndRay = LmVectorShiftRight(LmVectorBitwiseAND(HLODRangeEndIndexMask, HLODRange), 16);
+	LmVectorRegister HLODRangeEndTri = LmVectorShiftRight(LmVectorBitwiseAND(HLODRangeEndIndexMask, Triangle4.HLODRange), 16);
 
-	VectorRegister IsDifferentHLOD = VectorMask_NE(HLODTreeIndexRay, HLODTreeIndexTri);
-	VectorRegister IsTriNotAHLOD = VectorBitwiseOR(VectorMask_EQ(HLODTreeIndexTri, HLODTreeIndexNoneRegister), VectorMask_EQ(HLODTreeIndexTri, GZeroVectorRegister));
+	LmVectorRegister IsDifferentHLOD = LmVectorMask_NE(HLODTreeIndexRay, HLODTreeIndexTri);
+	LmVectorRegister IsTriNotAHLOD = LmVectorBitwiseOR(LmVectorMask_EQ(HLODTreeIndexTri, HLODTreeIndexNoneRegister), LmVectorMask_EQ(HLODTreeIndexTri, GZeroVectorRegister));
 
 	// Ignore children of this HLOD node
-	VectorRegister IsRayOutsideRange = VectorBitwiseOR(VectorMask_LT(HLODRangeStartRay, HLODRangeStartTri), VectorMask_GT(HLODRangeStartRay, HLODRangeEndTri));
-	VectorRegister IsTriOutsideRange = VectorBitwiseOR(VectorMask_LT(HLODRangeStartTri, HLODRangeStartRay), VectorMask_GT(HLODRangeStartTri, HLODRangeEndRay));
-	VectorRegister IsRayLeafNode = VectorMask_EQ(HLODRangeStartRay, HLODRangeEndRay);
-	VectorRegister IsTriLeafNode = VectorMask_EQ(HLODRangeStartTri, HLODRangeEndTri);
+	LmVectorRegister IsRayOutsideRange = LmVectorBitwiseOR(LmVectorMask_LT(HLODRangeStartRay, HLODRangeStartTri), LmVectorMask_GT(HLODRangeStartRay, HLODRangeEndTri));
+	LmVectorRegister IsTriOutsideRange = LmVectorBitwiseOR(LmVectorMask_LT(HLODRangeStartTri, HLODRangeStartRay), LmVectorMask_GT(HLODRangeStartTri, HLODRangeEndRay));
+	LmVectorRegister IsRayLeafNode = LmVectorMask_EQ(HLODRangeStartRay, HLODRangeEndRay);
+	LmVectorRegister IsTriLeafNode = LmVectorMask_EQ(HLODRangeStartTri, HLODRangeEndTri);
 
-	VectorRegister HLODMask = VectorBitwiseAND(IsRayOutsideRange, IsTriOutsideRange);
-	HLODMask = VectorBitwiseOR(HLODMask, VectorBitwiseAND(IsRayLeafNode, IsTriLeafNode));
+	LmVectorRegister HLODMask = LmVectorBitwiseAND(IsRayOutsideRange, IsTriOutsideRange);
+	HLODMask = LmVectorBitwiseOR(HLODMask, LmVectorBitwiseAND(IsRayLeafNode, IsTriLeafNode));
 
 	// Allow if exact same mesh
-	VectorRegister SameHLODMesh = VectorMask_EQ(HLODRange, Triangle4.HLODRange);
-	HLODMask = VectorBitwiseOR(HLODMask, SameHLODMesh);
+	LmVectorRegister SameHLODMesh = LmVectorMask_EQ(HLODRange, Triangle4.HLODRange);
+	HLODMask = LmVectorBitwiseOR(HLODMask, SameHLODMesh);
 
 	// Ignore interactions between unrelated HLODs and non-HLODs
-	HLODMask = VectorBitwiseOR(HLODMask, IsDifferentHLOD);
-	HLODMask = VectorBitwiseOR(HLODMask, IsTriNotAHLOD);
+	HLODMask = LmVectorBitwiseOR(HLODMask, IsDifferentHLOD);
+	HLODMask = LmVectorBitwiseOR(HLODMask, IsTriNotAHLOD);
 
-	VectorRegister IsHLODNonLeafAndOtherMesh = VectorBitwiseAND(VectorMask_NE(HLODRangeStartTri, HLODRangeEndTri), IsDifferentHLOD);
-	HLODMask = VectorBitwiseAND(HLODMask, VectorBitwiseXOR(IsHLODNonLeafAndOtherMesh, GFullMaskVectorRegister));
+	LmVectorRegister IsHLODNonLeafAndOtherMesh = LmVectorBitwiseAND(LmVectorMask_NE(HLODRangeStartTri, HLODRangeEndTri), IsDifferentHLOD);
+	HLODMask = LmVectorBitwiseAND(HLODMask, LmVectorBitwiseXOR(IsHLODNonLeafAndOtherMesh, GFullMaskVectorRegister));
 	
-	TriangleMask = VectorBitwiseAND(TriangleMask, HLODMask);
-	if (VectorMaskBits(TriangleMask) == 0)
+	TriangleMask = LmVectorBitwiseAND(TriangleMask, HLODMask);
+	if (LmVectorMaskBits(TriangleMask) == 0)
 	{
 		return -1;
 	}
 
 	// Only allow intersections with the base LOD of other meshes and the LOD that is initiating the trace of the current mesh
-	VectorRegister LODIndexRay = VectorBitwiseAND(LODIndices, LODIndexMask);
-	VectorRegister LODIndexTri = VectorBitwiseAND(Triangle4.LODIndices, LODIndexMask);
+	LmVectorRegister LODIndexRay = LmVectorBitwiseAND(LODIndices, LODIndexMask);
+	LmVectorRegister LODIndexTri = LmVectorBitwiseAND(Triangle4.LODIndices, LODIndexMask);
 
 	// LOD0OfOtherMeshMask = MeshIndex != TriangleMesh && IndexTriangleLODIndex == 0
-	const VectorRegister LOD0OfOtherMeshMask = VectorBitwiseAND(VectorMask_NE(MeshIndex, Triangle4.MeshIndices), VectorMask_EQ(LODIndexTri, GZeroVectorRegister));
+	const LmVectorRegister LOD0OfOtherMeshMask = LmVectorBitwiseAND(LmVectorMask_NE(MeshIndex, Triangle4.MeshIndices), LmVectorMask_EQ(LODIndexTri, GZeroVectorRegister));
 	// MatchingLODfCurrentMeshMask = MeshIndex == TriangleMeshIndex && LODIndex == TriangleLODIndex
-	const VectorRegister MatchingLODfCurrentMeshMask = VectorBitwiseAND(VectorMask_EQ(MeshIndex, Triangle4.MeshIndices), VectorMask_EQ(LODIndexRay, LODIndexTri));
+	const LmVectorRegister MatchingLODfCurrentMeshMask = LmVectorBitwiseAND(LmVectorMask_EQ(MeshIndex, Triangle4.MeshIndices), LmVectorMask_EQ(LODIndexRay, LODIndexTri));
 	// TriangleMask = TriangleMask && (LOD0OfOtherMeshMask || MatchingLODOfCurrentMeshMask)
-	TriangleMask = VectorBitwiseAND(TriangleMask, VectorBitwiseOR(LOD0OfOtherMeshMask, MatchingLODfCurrentMeshMask));
-	if ( VectorMaskBits(TriangleMask) == 0 )
+	TriangleMask = LmVectorBitwiseAND(TriangleMask, LmVectorBitwiseOR(LOD0OfOtherMeshMask, MatchingLODfCurrentMeshMask));
+	if ( LmVectorMaskBits(TriangleMask) == 0 )
 	{
 		return -1;
 	}
 
 	// Set all non-hitting times to 1.0
-	Time = Lightmass::VectorSelect( VectorOne(), Time, TriangleMask );
+	Time = Lightmass::LmVectorSelect( LmVectorOne(), Time, TriangleMask );
 
 	// Get the best intersection time out of the 4 possibilities.
-	VectorRegister BestTimes = VectorMin( Time, VectorSwizzle(Time, 2, 3, 0, 0) );
-	BestTimes = VectorMin( BestTimes, VectorSwizzle(BestTimes, 1, 0, 0, 0) );
-	IntersectionTime = VectorReplicate( BestTimes, 0 );
+	LmVectorRegister BestTimes = LmVectorMin( Time, LmVectorSwizzle(Time, 2, 3, 0, 0) );
+	BestTimes = LmVectorMin( BestTimes, LmVectorSwizzle(BestTimes, 1, 0, 0, 0) );
+	IntersectionTime = LmVectorReplicate( BestTimes, 0 );
 
 	// Get the triangle index that corresponds to the best time.
 	// NOTE: This will pick the first triangle, in case there are multiple hits at the same spot.
-	int32 SubIndex = VectorMaskBits( VectorMask_EQ( Time, IntersectionTime ) );
+	int32 SubIndex = LmVectorMaskBits( LmVectorMask_EQ( Time, IntersectionTime ) );
 	SubIndex = appCountTrailingZeros( SubIndex );
 
 	// Return results.
-	VectorStoreFloat1( IntersectionTime, &InOutIntersectionTime );
+	LmVectorStoreFloat1( IntersectionTime, &InOutIntersectionTime );
 	return SubIndex;
 }
 
@@ -648,48 +651,48 @@ struct TkDOPNode
 		}
 #else
 		// 0: load everything into registers
-		const VectorRegister OriginX		= VectorSetFloat1( Check.LocalStart.X );
-		const VectorRegister OriginY		= VectorSetFloat1( Check.LocalStart.Y );
-		const VectorRegister OriginZ		= VectorSetFloat1( Check.LocalStart.Z );
-		const VectorRegister InvDirX		= VectorSetFloat1( Check.LocalOneOverDir.X );
-		const VectorRegister InvDirY		= VectorSetFloat1( Check.LocalOneOverDir.Y );
-		const VectorRegister InvDirZ		= VectorSetFloat1( Check.LocalOneOverDir.Z );
-		const VectorRegister CurrentHitTime	= VectorSetFloat1( Check.Result->Time );
+		const LmVectorRegister OriginX		= LmVectorSetFloat1( Check.LocalStart.X );
+		const LmVectorRegister OriginY		= LmVectorSetFloat1( Check.LocalStart.Y );
+		const LmVectorRegister OriginZ		= LmVectorSetFloat1( Check.LocalStart.Z );
+		const LmVectorRegister InvDirX		= LmVectorSetFloat1( Check.LocalOneOverDir.X );
+		const LmVectorRegister InvDirY		= LmVectorSetFloat1( Check.LocalOneOverDir.Y );
+		const LmVectorRegister InvDirZ		= LmVectorSetFloat1( Check.LocalOneOverDir.Z );
+		const LmVectorRegister CurrentHitTime	= LmVectorSetFloat1( Check.Result->Time );
 		// Boxes are FVector2D so we need to unshuffle the data.
-		const VectorRegister BoxMinX		= VectorLoadAligned( &BoundingVolumes.Min[0] );
-		const VectorRegister BoxMinY		= VectorLoadAligned( &BoundingVolumes.Min[1] );
-		const VectorRegister BoxMinZ		= VectorLoadAligned( &BoundingVolumes.Min[2] );
-		const VectorRegister BoxMaxX		= VectorLoadAligned( &BoundingVolumes.Max[0] );
-		const VectorRegister BoxMaxY		= VectorLoadAligned( &BoundingVolumes.Max[1] );
-		const VectorRegister BoxMaxZ		= VectorLoadAligned( &BoundingVolumes.Max[2] );
+		const LmVectorRegister BoxMinX		= LmVectorLoadAligned( &BoundingVolumes.Min[0] );
+		const LmVectorRegister BoxMinY		= LmVectorLoadAligned( &BoundingVolumes.Min[1] );
+		const LmVectorRegister BoxMinZ		= LmVectorLoadAligned( &BoundingVolumes.Min[2] );
+		const LmVectorRegister BoxMaxX		= LmVectorLoadAligned( &BoundingVolumes.Max[0] );
+		const LmVectorRegister BoxMaxY		= LmVectorLoadAligned( &BoundingVolumes.Max[1] );
+		const LmVectorRegister BoxMaxZ		= LmVectorLoadAligned( &BoundingVolumes.Max[2] );
 
 		// 1: Calculate slabs.
-		const VectorRegister BoxMinSlabX	= VectorMultiply( VectorSubtract( BoxMinX, OriginX ), InvDirX );
-		const VectorRegister BoxMinSlabY	= VectorMultiply( VectorSubtract( BoxMinY, OriginY ), InvDirY );
-		const VectorRegister BoxMinSlabZ	= VectorMultiply( VectorSubtract( BoxMinZ, OriginZ ), InvDirZ );		
-		const VectorRegister BoxMaxSlabX	= VectorMultiply( VectorSubtract( BoxMaxX, OriginX ), InvDirX );
-		const VectorRegister BoxMaxSlabY	= VectorMultiply( VectorSubtract( BoxMaxY, OriginY ), InvDirY );
-		const VectorRegister BoxMaxSlabZ	= VectorMultiply( VectorSubtract( BoxMaxZ, OriginZ ), InvDirZ );
+		const LmVectorRegister BoxMinSlabX	= LmVectorMultiply( LmVectorSubtract( BoxMinX, OriginX ), InvDirX );
+		const LmVectorRegister BoxMinSlabY	= LmVectorMultiply( LmVectorSubtract( BoxMinY, OriginY ), InvDirY );
+		const LmVectorRegister BoxMinSlabZ	= LmVectorMultiply( LmVectorSubtract( BoxMinZ, OriginZ ), InvDirZ );		
+		const LmVectorRegister BoxMaxSlabX	= LmVectorMultiply( LmVectorSubtract( BoxMaxX, OriginX ), InvDirX );
+		const LmVectorRegister BoxMaxSlabY	= LmVectorMultiply( LmVectorSubtract( BoxMaxY, OriginY ), InvDirY );
+		const LmVectorRegister BoxMaxSlabZ	= LmVectorMultiply( LmVectorSubtract( BoxMaxZ, OriginZ ), InvDirZ );
 
 		// 2: Figure out per component min/ max
-		const VectorRegister SlabMinX		= VectorMin( BoxMinSlabX, BoxMaxSlabX );
-		const VectorRegister SlabMinY		= VectorMin( BoxMinSlabY, BoxMaxSlabY );
-		const VectorRegister SlabMinZ		= VectorMin( BoxMinSlabZ, BoxMaxSlabZ );
-		const VectorRegister SlabMaxX		= VectorMax( BoxMinSlabX, BoxMaxSlabX );
-		const VectorRegister SlabMaxY		= VectorMax( BoxMinSlabY, BoxMaxSlabY );
-		const VectorRegister SlabMaxZ		= VectorMax( BoxMinSlabZ, BoxMaxSlabZ );
+		const LmVectorRegister SlabMinX		= LmVectorMin( BoxMinSlabX, BoxMaxSlabX );
+		const LmVectorRegister SlabMinY		= LmVectorMin( BoxMinSlabY, BoxMaxSlabY );
+		const LmVectorRegister SlabMinZ		= LmVectorMin( BoxMinSlabZ, BoxMaxSlabZ );
+		const LmVectorRegister SlabMaxX		= LmVectorMax( BoxMinSlabX, BoxMaxSlabX );
+		const LmVectorRegister SlabMaxY		= LmVectorMax( BoxMinSlabY, BoxMaxSlabY );
+		const LmVectorRegister SlabMaxZ		= LmVectorMax( BoxMinSlabZ, BoxMaxSlabZ );
 		
 		// 3: Figure out global min/ max
-		const VectorRegister SlabMinXY		= VectorMax( SlabMinX , SlabMinY );
-		const VectorRegister MinTime		= VectorMax( SlabMinXY, SlabMinZ );
-		const VectorRegister SlabMaxXY		= VectorMin( SlabMaxX , SlabMaxY );
-		const VectorRegister MaxTime		= VectorMin( SlabMaxXY, SlabMaxZ );
+		const LmVectorRegister SlabMinXY		= LmVectorMax( SlabMinX , SlabMinY );
+		const LmVectorRegister MinTime		= LmVectorMax( SlabMinXY, SlabMinZ );
+		const LmVectorRegister SlabMaxXY		= LmVectorMin( SlabMaxX , SlabMaxY );
+		const LmVectorRegister MaxTime		= LmVectorMin( SlabMaxXY, SlabMaxZ );
 
 		// 4: Calculate hit time and determine whether there was a hit.		
-		VectorStoreAligned( MinTime, &HitTime );
-		const VectorRegister OutNodeHit		= VectorBitwiseAND( VectorCompareGE( MaxTime, VectorZero() ), VectorCompareGE( MaxTime, MinTime ) );
-		const VectorRegister CloserNodeHit	= VectorBitwiseAND( OutNodeHit, VectorCompareGT( CurrentHitTime, MinTime ) );
-		VectorStoreAligned( CloserNodeHit, (float*) NodeHit );
+		LmVectorStoreAligned( MinTime, &HitTime );
+		const LmVectorRegister OutNodeHit		= LmVectorBitwiseAND( LmVectorCompareGE( MaxTime, LmVectorZero() ), LmVectorCompareGE( MaxTime, MinTime ) );
+		const LmVectorRegister CloserNodeHit	= LmVectorBitwiseAND( OutNodeHit, LmVectorCompareGT( CurrentHitTime, MinTime ) );
+		LmVectorStoreAligned( CloserNodeHit, (float*) NodeHit );
 #endif
 	}
 
@@ -871,9 +874,9 @@ struct TkDOPNode
 			if ( SubIndex >= 0 )
 			{
 				bHit = true;
-				Check.LocalHitNormal.X = VectorGetComponent(TriangleSOA.Normals.X, SubIndex);
-				Check.LocalHitNormal.Y = VectorGetComponent(TriangleSOA.Normals.Y, SubIndex);
-				Check.LocalHitNormal.Z = VectorGetComponent(TriangleSOA.Normals.Z, SubIndex);
+				Check.LocalHitNormal.X = LmVectorGetComponent(TriangleSOA.Normals.X, SubIndex);
+				Check.LocalHitNormal.Y = LmVectorGetComponent(TriangleSOA.Normals.Y, SubIndex);
+				Check.LocalHitNormal.Z = LmVectorGetComponent(TriangleSOA.Normals.Z, SubIndex);
 				Check.Result->Item = TriangleSOA.Payload[SubIndex];
 				Check.HitNodeIndex = History.GetOldestNode();
 
@@ -1092,38 +1095,38 @@ struct TkDOPTree
 					SOA.Payload[SubIndex] = 0xffffffff;
 				}
 
-				SOA.Positions[0].X = VectorSet( Tris[0]->V0.X, Tris[1]->V0.X, Tris[2]->V0.X, Tris[3]->V0.X );
-				SOA.Positions[0].Y = VectorSet( Tris[0]->V0.Y, Tris[1]->V0.Y, Tris[2]->V0.Y, Tris[3]->V0.Y );
-				SOA.Positions[0].Z = VectorSet( Tris[0]->V0.Z, Tris[1]->V0.Z, Tris[2]->V0.Z, Tris[3]->V0.Z );
-				SOA.Positions[1].X = VectorSet( Tris[0]->V1.X, Tris[1]->V1.X, Tris[2]->V1.X, Tris[3]->V1.X );
-				SOA.Positions[1].Y = VectorSet( Tris[0]->V1.Y, Tris[1]->V1.Y, Tris[2]->V1.Y, Tris[3]->V1.Y );
-				SOA.Positions[1].Z = VectorSet( Tris[0]->V1.Z, Tris[1]->V1.Z, Tris[2]->V1.Z, Tris[3]->V1.Z );
-				SOA.Positions[2].X = VectorSet( Tris[0]->V2.X, Tris[1]->V2.X, Tris[2]->V2.X, Tris[3]->V2.X );
-				SOA.Positions[2].Y = VectorSet( Tris[0]->V2.Y, Tris[1]->V2.Y, Tris[2]->V2.Y, Tris[3]->V2.Y );
-				SOA.Positions[2].Z = VectorSet( Tris[0]->V2.Z, Tris[1]->V2.Z, Tris[2]->V2.Z, Tris[3]->V2.Z );
+				SOA.Positions[0].X = LmVectorSet( Tris[0]->V0.X, Tris[1]->V0.X, Tris[2]->V0.X, Tris[3]->V0.X );
+				SOA.Positions[0].Y = LmVectorSet( Tris[0]->V0.Y, Tris[1]->V0.Y, Tris[2]->V0.Y, Tris[3]->V0.Y );
+				SOA.Positions[0].Z = LmVectorSet( Tris[0]->V0.Z, Tris[1]->V0.Z, Tris[2]->V0.Z, Tris[3]->V0.Z );
+				SOA.Positions[1].X = LmVectorSet( Tris[0]->V1.X, Tris[1]->V1.X, Tris[2]->V1.X, Tris[3]->V1.X );
+				SOA.Positions[1].Y = LmVectorSet( Tris[0]->V1.Y, Tris[1]->V1.Y, Tris[2]->V1.Y, Tris[3]->V1.Y );
+				SOA.Positions[1].Z = LmVectorSet( Tris[0]->V1.Z, Tris[1]->V1.Z, Tris[2]->V1.Z, Tris[3]->V1.Z );
+				SOA.Positions[2].X = LmVectorSet( Tris[0]->V2.X, Tris[1]->V2.X, Tris[2]->V2.X, Tris[3]->V2.X );
+				SOA.Positions[2].Y = LmVectorSet( Tris[0]->V2.Y, Tris[1]->V2.Y, Tris[2]->V2.Y, Tris[3]->V2.Y );
+				SOA.Positions[2].Z = LmVectorSet( Tris[0]->V2.Z, Tris[1]->V2.Z, Tris[2]->V2.Z, Tris[3]->V2.Z );
 
 				const FVector4& Tris0LocalNormal = Tris[0]->GetLocalNormal();
 				const FVector4& Tris1LocalNormal = Tris[1]->GetLocalNormal();
 				const FVector4& Tris2LocalNormal = Tris[2]->GetLocalNormal();
 				const FVector4& Tris3LocalNormal = Tris[3]->GetLocalNormal();
 
-				SOA.Normals.X = VectorSet( Tris0LocalNormal.X, Tris1LocalNormal.X, Tris2LocalNormal.X, Tris3LocalNormal.X );
-				SOA.Normals.Y = VectorSet( Tris0LocalNormal.Y, Tris1LocalNormal.Y, Tris2LocalNormal.Y, Tris3LocalNormal.Y );
-				SOA.Normals.Z = VectorSet( Tris0LocalNormal.Z, Tris1LocalNormal.Z, Tris2LocalNormal.Z, Tris3LocalNormal.Z );
-				SOA.Normals.W = VectorSet( -Tris0LocalNormal.W, -Tris1LocalNormal.W, -Tris2LocalNormal.W, -Tris3LocalNormal.W );
-				SOA.TwoSidedMask = MakeVectorRegister(
+				SOA.Normals.X = LmVectorSet( Tris0LocalNormal.X, Tris1LocalNormal.X, Tris2LocalNormal.X, Tris3LocalNormal.X );
+				SOA.Normals.Y = LmVectorSet( Tris0LocalNormal.Y, Tris1LocalNormal.Y, Tris2LocalNormal.Y, Tris3LocalNormal.Y );
+				SOA.Normals.Z = LmVectorSet( Tris0LocalNormal.Z, Tris1LocalNormal.Z, Tris2LocalNormal.Z, Tris3LocalNormal.Z );
+				SOA.Normals.W = LmVectorSet( -Tris0LocalNormal.W, -Tris1LocalNormal.W, -Tris2LocalNormal.W, -Tris3LocalNormal.W );
+				SOA.TwoSidedMask = LmMakeVectorRegister(
 					(uint32)(Tris[0]->bTwoSided ? 0xFFFFFFFF : 0), 
 					(uint32)(Tris[1]->bTwoSided ? 0xFFFFFFFF : 0),
 					(uint32)(Tris[2]->bTwoSided ? 0xFFFFFFFF : 0),
 					(uint32)(Tris[3]->bTwoSided ? 0xFFFFFFFF : 0));
-				SOA.StaticAndOpaqueMask = MakeVectorRegister(
+				SOA.StaticAndOpaqueMask = LmMakeVectorRegister(
 					(uint32)(Tris[0]->bStaticAndOpaque ? 0xFFFFFFFF : 0), 
 					(uint32)(Tris[1]->bStaticAndOpaque ? 0xFFFFFFFF : 0),
 					(uint32)(Tris[2]->bStaticAndOpaque ? 0xFFFFFFFF : 0),
 					(uint32)(Tris[3]->bStaticAndOpaque ? 0xFFFFFFFF : 0));
-				SOA.MeshIndices = VectorSet(*(float*)&Tris[0]->MeshIndex, *(float*)&Tris[1]->MeshIndex, *(float*)&Tris[2]->MeshIndex, *(float*)&Tris[3]->MeshIndex);
-				SOA.LODIndices = VectorSet(*(float*)&Tris[0]->LODIndices, *(float*)&Tris[1]->LODIndices, *(float*)&Tris[2]->LODIndices, *(float*)&Tris[3]->LODIndices);
-				SOA.HLODRange = VectorSet(*(float*)&Tris[0]->HLODRange, *(float*)&Tris[1]->HLODRange, *(float*)&Tris[2]->HLODRange, *(float*)&Tris[3]->HLODRange);
+				SOA.MeshIndices = LmVectorSet(*(float*)&Tris[0]->MeshIndex, *(float*)&Tris[1]->MeshIndex, *(float*)&Tris[2]->MeshIndex, *(float*)&Tris[3]->MeshIndex);
+				SOA.LODIndices = LmVectorSet(*(float*)&Tris[0]->LODIndices, *(float*)&Tris[1]->LODIndices, *(float*)&Tris[2]->LODIndices, *(float*)&Tris[3]->LODIndices);
+				SOA.HLODRange = LmVectorSet(*(float*)&Tris[0]->HLODRange, *(float*)&Tris[1]->HLODRange, *(float*)&Tris[2]->HLODRange, *(float*)&Tris[3]->HLODRange);
 			}
 
 			// No need to subdivide further so make this a leaf node
@@ -1274,11 +1277,11 @@ template <typename COLL_DATA_PROVIDER, typename KDOP_IDX_TYPE> struct TkDOPLineC
 	/** Direction of the line (not normalized, just EndSOA-StartSOA), where each component is replicated into their own vector registers. */
 	FVector3SOA	DirSOA;
 	/** Mesh index of the instigating mesh in every channel. */
-	VectorRegister MeshIndexRegister;
+	LmVectorRegister MeshIndexRegister;
 	/** LOD indices of the instigating mesh in every channel. */
-	VectorRegister LODIndicesRegister;
+	LmVectorRegister LODIndicesRegister;
 	/** HLOD tree ranges of the instigating mesh in every channel. */
-	VectorRegister HLODRangeRegister;
+	LmVectorRegister HLODRangeRegister;
 
 	/**
 	 * Sets up the FkDOPLineCollisionCheck structure for performing line checks
@@ -1325,18 +1328,18 @@ template <typename COLL_DATA_PROVIDER, typename KDOP_IDX_TYPE> struct TkDOPLineC
 		LocalOneOverDir.Z = LocalDir.Z ? 1.f / LocalDir.Z : MAX_FLT;
 
 		// Construct the SOA data
-		StartSOA.X = VectorLoadFloat1( &LocalStart.X );
-		StartSOA.Y = VectorLoadFloat1( &LocalStart.Y );
-		StartSOA.Z = VectorLoadFloat1( &LocalStart.Z );
-		EndSOA.X = VectorLoadFloat1( &LocalEnd.X );
-		EndSOA.Y = VectorLoadFloat1( &LocalEnd.Y );
-		EndSOA.Z = VectorLoadFloat1( &LocalEnd.Z );
-		DirSOA.X = VectorLoadFloat1( &LocalDir.X );
-		DirSOA.Y = VectorLoadFloat1( &LocalDir.Y );
-		DirSOA.Z = VectorLoadFloat1( &LocalDir.Z );
-		MeshIndexRegister = VectorLoadFloat1(&MeshIndex);
-		LODIndicesRegister = MakeVectorRegister((uint32)LODIndices, (uint32)LODIndices, (uint32)LODIndices, (uint32)LODIndices);
-		HLODRangeRegister = MakeVectorRegister((uint32)HLODRange, (uint32)HLODRange, (uint32)HLODRange, (uint32)HLODRange);
+		StartSOA.X = LmVectorLoadFloat1( &LocalStart.X );
+		StartSOA.Y = LmVectorLoadFloat1( &LocalStart.Y );
+		StartSOA.Z = LmVectorLoadFloat1( &LocalStart.Z );
+		EndSOA.X = LmVectorLoadFloat1( &LocalEnd.X );
+		EndSOA.Y = LmVectorLoadFloat1( &LocalEnd.Y );
+		EndSOA.Z = LmVectorLoadFloat1( &LocalEnd.Z );
+		DirSOA.X = LmVectorLoadFloat1( &LocalDir.X );
+		DirSOA.Y = LmVectorLoadFloat1( &LocalDir.Y );
+		DirSOA.Z = LmVectorLoadFloat1( &LocalDir.Z );
+		MeshIndexRegister = LmVectorLoadFloat1(&MeshIndex);
+		LODIndicesRegister = LmMakeVectorRegister((uint32)LODIndices, (uint32)LODIndices, (uint32)LODIndices, (uint32)LODIndices);
+		HLODRangeRegister = LmMakeVectorRegister((uint32)HLODRange, (uint32)HLODRange, (uint32)HLODRange, (uint32)HLODRange);
 	}
 
 	/**

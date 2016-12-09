@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Stats/Stats.h"
+#include "Misc/Paths.h"
+#include "Misc/ScopeLock.h"
+#include "Templates/ScopedPointer.h"
+#include "UniquePtr.h"
+
+class FChunkCacheWorker;
+class IAsyncReadFileHandle;
+
 PAKFILE_API DECLARE_LOG_CATEGORY_EXTERN(LogPakFile, Log, All);
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Total pak file read time"), STAT_PakFile_Read, STATGROUP_PakFile, PAKFILE_API);
 
@@ -9,6 +20,16 @@ DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num open pak file handles"), STAT_Pa
 
 /** Delegate for allowing a game to restrict the accessing of non-pak files */
 DECLARE_DELEGATE_RetVal_OneParam(bool, FFilenameSecurityDelegate, const TCHAR* /*InFilename*/);
+
+#define PAKHASH_USE_CRC	1
+
+#if PAKHASH_USE_CRC
+typedef uint32 TPakChunkHash;
+#else
+typedef FSHAHash TPakChunkHash;
+#endif
+
+PAKFILE_API TPakChunkHash ComputePakChunkHash(const void* InData, int64 InDataSizeInBytes);
 
 /**
  * Struct which holds pak file info (version, index offset, hash value).
@@ -20,7 +41,7 @@ struct FPakInfo
 		/** Magic number to use in header */
 		PakFile_Magic = 0x5A6F12E1,
 		/** Size of cached data. */
-		MaxChunkDataSize = 256*1024,
+		MaxChunkDataSize = 64*1024,
 	};
 
 	/** Version numbers. */
@@ -260,9 +281,9 @@ class PAKFILE_API FPakFile : FNoncopyable
 	FString PakFilename;
 	FName PakFilenameName;
 	/** Archive to serialize the pak file from. */
-	TAutoPtr<class FChunkCacheWorker> Decryptor;
+	TUniquePtr<class FChunkCacheWorker> Decryptor;
 	/** Map of readers assigned to threads. */
-	TMap<uint32, TAutoPtr<FArchive>> ReaderMap;
+	TMap<uint32, TUniquePtr<FArchive>> ReaderMap;
 	/** Critical section for accessing ReaderMap. */
 	FCriticalSection CriticalSection;
 	/** Pak file info (trailer). */
@@ -288,13 +309,15 @@ class PAKFILE_API FPakFile : FNoncopyable
 
 public:
 
+#if IS_PROGRAM
 	/**
-	 * Opens a pak file given its filename.
-	 *
-	 * @param Filename Pak filename.
-	 * @param bIsSigned true if the pak is signed
-	 */
-	FPakFile(const TCHAR* Filename, bool bIsSigned);	
+	* Opens a pak file given its filename.
+	*
+	* @param Filename Pak filename.
+	* @param bIsSigned true if the pak is signed
+	*/
+	FPakFile(const TCHAR* Filename, bool bIsSigned);
+#endif
 
 	/**
 	 * Creates a pak file using the supplied file handle.
@@ -310,7 +333,9 @@ public:
 	 *
 	 * @param Archive	Pointer to the archive which contains the pak file data.
 	 */
+#if WITH_EDITOR
 	FPakFile(FArchive* Archive);
+#endif
 
 	~FPakFile();
 
@@ -835,6 +860,8 @@ class PAKFILE_API FPakPlatformFile : public IPlatformFile
 	bool bSigned;
 	/** Synchronization object for accessing the list of currently mounted pak files. */
 	FCriticalSection PakListCritical;
+	/** Cache of extensions that we automatically reject if not found in pak file */
+	TSet<FName> ExcludedNonPakExtensions;
 
 	/**
 	 * Gets mounted pak files
@@ -920,7 +947,8 @@ class PAKFILE_API FPakPlatformFile : public IPlatformFile
 	/**
 	 * When security is enabled, determine if this filename can be looked for in the lower level file system
 	 * 
-	 * @param InFilename Filename to check
+	 * @param InFilename			Filename to check
+	 * @param bAllowDirectories		Consider directories as valid filepaths?
 	 */
 	bool IsNonPakFilenameAllowed(const FString& InFilename);
 
@@ -1131,7 +1159,13 @@ public:
 		FDateTime Result = FDateTime::MinValue();
 		if (IsNonPakFilenameAllowed(Filename))
 		{
+#if USE_NEW_ASYNC_IO
+			double StartTime(UE_LOG_ACTIVE(LogPakFile, Verbose) ? FPlatformTime::Seconds() : 0.0);
+#endif
 			Result = LowerLevel->GetTimeStamp(Filename);
+#if USE_NEW_ASYNC_IO
+			UE_LOG(LogPakFile, Verbose, TEXT("GetTimeStamp on disk (!!) for %s took %6.2fms."), Filename, float(FPlatformTime::Seconds() - StartTime) * 1000.0f);
+#endif
 		}
 		return Result;
 	}
@@ -1299,8 +1333,7 @@ public:
 
 		// Fall back to lower level.
 		FFileStatData FileStatData;
-
-		if (FileStatData.bIsDirectory || IsNonPakFilenameAllowed(FilenameOrDirectory))
+		if (IsNonPakFilenameAllowed(FilenameOrDirectory))
 		{
 			FileStatData = LowerLevel->GetStatData(FilenameOrDirectory);
 		}
@@ -1553,7 +1586,7 @@ public:
 		return LowerLevel->CreateDirectoryTree(Directory);
 	}
 
-	virtual bool CopyFile(const TCHAR* To, const TCHAR* From) override;
+	virtual bool CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags = EPlatformFileRead::None, EPlatformFileWrite WriteFlags = EPlatformFileWrite::None) override;
 
 #if USE_NEW_ASYNC_IO
 	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename) override;

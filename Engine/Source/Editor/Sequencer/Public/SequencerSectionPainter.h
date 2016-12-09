@@ -2,10 +2,14 @@
 
 #pragma once
 
-struct FTimeToPixel;
-class UMovieSceneTrack;
-class UMovieSceneSection;
+#include "CoreMinimal.h"
+#include "Layout/SlateRect.h"
+#include "Layout/Geometry.h"
 
+class FSlateWindowElementList;
+class UMovieSceneSection;
+class UMovieSceneTrack;
+struct FTimeToPixel;
 
 /** Class that wraps up common section painting functionality */
 class SEQUENCER_API FSequencerSectionPainter

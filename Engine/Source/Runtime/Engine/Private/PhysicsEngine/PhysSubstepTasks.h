@@ -2,11 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EngineDefines.h"
+#include "HAL/ThreadSafeBool.h"
+#if WITH_PHYSX
+#include "PhysicsEngine/PhysXSupport.h"
+#endif
+
 void FinishSceneStat(uint32 Scene);
 
 //This is only here for now while we transition into substepping
 #if WITH_PHYSX
-#include "pxtask/PxTask.h"
 class PhysXCompletionTask : public PxLightCpuTask
 {
 	FGraphEventRef EventToFire;
@@ -139,7 +145,7 @@ struct FPhysTarget
 
 #if WITH_PHYSX
 #if WITH_APEX
-typedef NxApexScene PxApexScene;	//helper typedef so we don't have to use as many ifdefs
+typedef apex::Scene PxApexScene;	//helper typedef so we don't have to use as many ifdefs
 #else
 typedef PxScene PxApexScene;
 #endif
@@ -150,7 +156,7 @@ class FPhysSubstepTask
 {
 public:
 #if WITH_PHYSX
-	FPhysSubstepTask(PxApexScene * GivenScene);
+	FPhysSubstepTask(PxApexScene * GivenScene, FPhysScene* InPhysScene, uint32 InSceneType);
 #endif
 
 	void SetKinematicTarget_AssumesLocked(FBodyInstance* Body, const FTransform& TM);
@@ -168,7 +174,6 @@ public:
 	void SwapBuffers();
 	float UpdateTime(float UseDelta);
 
-	void SetVehicleManager(class FPhysXVehicleManager *	InVehicleManager);
 	void SubstepSimulationStart();
 	void SubstepSimulationEnd(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent);
 #if WITH_PHYSX
@@ -198,8 +203,8 @@ private:
 	uint32 CurrentSubStep;
 	FGraphEventRef CompletionEvent;
 
-	/** Vehicle scene */
-	class FPhysXVehicleManager*			VehicleManager;
+	FPhysScene* PhysScene;
+	uint32 SceneType;
 
 #if WITH_PHYSX
 	PxApexScene * PAScene;

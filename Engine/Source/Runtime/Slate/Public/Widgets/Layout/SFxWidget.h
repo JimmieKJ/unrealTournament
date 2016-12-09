@@ -2,6 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+
+class FArrangedChildren;
+class FPaintArgs;
+class FSlateWindowElementList;
+
 /**
  * Enables visual effects (zooming, sliding, fading, etc.) to be applied to arbitrary widget content.
  * 

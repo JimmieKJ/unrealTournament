@@ -1,8 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LeapMotionPrivatePCH.h"
+#include "LeapController.h"
 #include "LeapEventInterface.h"
-#include "SlateBasics.h"
+#include "LeapFrame.h"
+#include "LeapFinger.h"
+#include "LeapCircleGesture.h"
+#include "LeapImage.h"
+#include "LeapGesture.h"
+#include "LeapKeyTapGesture.h"
+#include "LeapScreenTapGesture.h"
+#include "LeapSwipeGesture.h"
+#include "LeapInterfaceUtility.h"
+#include "Engine/Engine.h"
+#include "EngineGlobals.h"
+#include "GameFramework/Actor.h"
+#include "Input/Events.h"
+#include "Framework/Application/SlateApplication.h"
+#include "InputCoreTypes.h"
 #include <vector>
 
 #include <sstream> //for std::stringstream 

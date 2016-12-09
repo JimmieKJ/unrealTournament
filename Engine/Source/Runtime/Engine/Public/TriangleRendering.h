@@ -6,6 +6,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HitProxies.h"
+
+class FMaterialRenderProxy;
+class FRHICommandListImmediate;
+struct FCanvasUVTri;
+
 class FTriangleRenderer
 {
 public:

@@ -6,7 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "AnimEncoding.h"
+
+class FMemoryArchive;
 
 /**
  * Decompression codec for the per-track compressor.

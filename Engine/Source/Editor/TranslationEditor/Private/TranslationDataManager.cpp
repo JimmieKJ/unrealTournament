@@ -1,22 +1,33 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TranslationEditorPrivatePCH.h"
-#include "TranslationEditor.h"
-#include "WorkspaceMenuStructureModule.h"
-#include "TranslationUnit.h"
+#include "TranslationDataManager.h"
+#include "Internationalization/InternationalizationManifest.h"
+#include "Internationalization/InternationalizationArchive.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/FeedbackContext.h"
+#include "Misc/App.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonSerializer.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlState.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
-#include "MessageLog.h"
-#include "TextLocalizationManager.h"
+#include "TranslationUnit.h"
+#include "Logging/MessageLog.h"
 #include "TextLocalizationResourceGenerator.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
-#include "PortableObjectFormatDOM.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Internationalization/Culture.h"
+#include "Localization/PortableObjectFormatDOM.h"
 #include "ILocalizationServiceModule.h"
 #include "LocalizationModule.h"
 #include "LocalizationTargetTypes.h"
 #include "LocalizationConfigurationScript.h"
-#include "JsonInternationalizationArchiveSerializer.h"
-#include "JsonInternationalizationManifestSerializer.h"
+#include "Serialization/JsonInternationalizationArchiveSerializer.h"
+#include "Serialization/JsonInternationalizationManifestSerializer.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogTranslationEditor, Log, All);
@@ -888,15 +899,15 @@ bool FTranslationDataManager::SaveSelectedTranslations(TArray<UTranslationUnit*>
 
 		ULocalizationTarget* LocalizationTarget = FLocalizationModule::Get().GetLocalizationTargetByName(ManifestAndArchiveName, IsEngineManifest);
 
-		FString NativeCultureName;
-		if (LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex))
+		if (LocalizationTarget && FPaths::FileExists(ManifestFullPath) && FPaths::FileExists(ArchiveFullPath))
 		{
-			NativeCultureName = LocalizationTarget->Settings.SupportedCulturesStatistics[LocalizationTarget->Settings.NativeCultureIndex].CultureName;
-		}
-		FString NativeArchiveFullPath = ManifestPath / NativeCultureName / ManifestAndArchiveName + ".archive";
+			FString NativeCultureName;
+			if (LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex))
+			{
+				NativeCultureName = LocalizationTarget->Settings.SupportedCulturesStatistics[LocalizationTarget->Settings.NativeCultureIndex].CultureName;
+			}
+			FString NativeArchiveFullPath = ManifestPath / NativeCultureName / ManifestAndArchiveName + ".archive";
 
-		if (FPaths::FileExists(ManifestFullPath) && FPaths::FileExists(ArchiveFullPath))
-		{
 			TSharedRef<FTranslationDataManager> DataManager = MakeShareable(new FTranslationDataManager(ManifestFullPath, NativeArchiveFullPath, ArchiveFullPath));
 
 			if (DataManager->GetLoadedSuccessfully())

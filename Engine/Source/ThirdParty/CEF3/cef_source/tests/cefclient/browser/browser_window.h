@@ -34,6 +34,9 @@ class BrowserWindow : public ClientHandler::Delegate {
     // Set the window title.
     virtual void OnSetTitle(const std::string& title) = 0;
 
+    // Set fullscreen mode.
+    virtual void OnSetFullscreen(bool fullscreen) = 0;
+
     // Set the loading state.
     virtual void OnSetLoadingState(bool isLoading,
                                    bool canGoBack,
@@ -79,6 +82,14 @@ class BrowserWindow : public ClientHandler::Delegate {
   // Set focus to the window.
   virtual void SetFocus(bool focus) = 0;
 
+  // Set the device scale factor. Only used in combination with off-screen
+  // rendering.
+  virtual void SetDeviceScaleFactor(float device_scale_factor);
+
+  // Returns the device scale factor. Only used in combination with off-screen
+  // rendering.
+  virtual float GetDeviceScaleFactor() const;
+
   // Returns the window handle.
   virtual ClientWindowHandle GetWindowHandle() const = 0;
 
@@ -102,6 +113,7 @@ class BrowserWindow : public ClientHandler::Delegate {
   void OnBrowserClosed(CefRefPtr<CefBrowser> browser) OVERRIDE;
   void OnSetAddress(const std::string& url) OVERRIDE;
   void OnSetTitle(const std::string& title) OVERRIDE;
+  void OnSetFullscreen(bool fullscreen) OVERRIDE;
   void OnSetLoadingState(bool isLoading,
                          bool canGoBack,
                          bool canGoForward) OVERRIDE;

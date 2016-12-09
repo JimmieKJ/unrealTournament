@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "SettingsEditorPrivatePCH.h"
-#include "SSettingsSectionHeader.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "Widgets/SSettingsSectionHeader.h"
+#include "ISettingsCategory.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/MessageDialog.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EditorStyleSet.h"
+#include "ISourceControlModule.h"
 #include "SSettingsEditorCheckoutNotice.h"
 #include "DesktopPlatformModule.h"
 #include "IDetailsView.h"
@@ -245,11 +252,19 @@ FString SSettingsSectionHeader::GetDefaultConfigFilePath() const
 *
 * @return true if the file needs to be checked out, false otherwise.
 */
-bool SSettingsSectionHeader::IsDefaultConfigCheckOutNeeded() const
+bool SSettingsSectionHeader::IsDefaultConfigCheckOutNeeded(bool bForceSourceControlUpdate) const
 {
 	if(SettingsObject.IsValid() && SettingsObject->GetClass()->HasAnyClassFlags(CLASS_Config | CLASS_DefaultConfig))
 	{
-		return !FileWatcherWidget->IsUnlocked();
+		// We can only fetch the file watcher if it's visible otherwise fallback to source control
+		if (FileWatcherWidget->GetVisibility().IsVisible())
+		{
+			return !FileWatcherWidget->IsUnlocked();
+		}
+		else
+		{
+			return !SettingsHelpers::IsCheckedOut(GetDefaultConfigFilePath(), bForceSourceControlUpdate);
+		}
 	}
 	else
 	{
@@ -280,7 +295,7 @@ bool SSettingsSectionHeader::HandleResetToDefaultsButtonEnabled() const
 
 EVisibility SSettingsSectionHeader::HandleSetAsDefaultButtonVisibility() const
 {
-	return (SettingsSection.IsValid() && SettingsSection->HasDefaultSettingsObject()) ? EVisibility::Collapsed : EVisibility::Visible;
+	return (SettingsSection.IsValid() && SettingsSection->HasDefaultSettingsObject() && SettingsSection->CanSaveDefaults()) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 FReply SSettingsSectionHeader::HandleSetAsDefaultButtonClicked()
@@ -292,29 +307,76 @@ FReply SSettingsSectionHeader::HandleSetAsDefaultButtonClicked()
 			return FReply::Handled();
 		}
 
-		if(IsDefaultConfigCheckOutNeeded())
+		bool FileNeedToBeAddedToSourceControl = false;
+		FText SaveAsDefaultNeedsAddMessage = LOCTEXT("SaveAsDefaultNeedsAddMessage", "The default configuration file for these settings is currently not under source control. Would you like to add it to source control?");
+		FString DefaultConfigFilePath = GetDefaultConfigFilePath();
+		
+		if (FPlatformFileManager::Get().GetPlatformFile().FileExists(*DefaultConfigFilePath))
 		{
-			if(ISourceControlModule::Get().IsEnabled())
+			if (IsDefaultConfigCheckOutNeeded(true))
 			{
-				if(FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("SaveAsDefaultNeedsCheckoutMessage", "The default configuration file for these settings is currently not checked out. Would you like to check it out from source control? \n\nIf checked into source control this would affect other developers.")) != EAppReturnType::Yes)
+				if (ISourceControlModule::Get().IsEnabled())
 				{
-					return FReply::Handled();
-				}
+					FText DisplayMessage;
 
-				CheckOutDefaultConfigFile();
+					if (SettingsHelpers::IsSourceControlled(DefaultConfigFilePath))
+					{
+						DisplayMessage = LOCTEXT("SaveAsDefaultNeedsCheckoutMessage", "The default configuration file for these settings is currently not checked out. Would you like to check it out from source control?");
+					}
+					else
+					{
+						DisplayMessage = SaveAsDefaultNeedsAddMessage;
+					}
+
+					if (FMessageDialog::Open(EAppMsgType::YesNo, DisplayMessage) == EAppReturnType::Yes)
+					{
+						if (!CheckOutOrAddDefaultConfigFile())
+						{
+							if (FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("SaveAsDefaultsSourceControlOperationFailed", "The source control operation failed. Would you like to make it writable?")) == EAppReturnType::Yes)
+							{
+								MakeDefaultConfigFileWritable();
+							}
+							else
+							{
+								return FReply::Handled();
+							}							
+						}
+					}
+				}
+				else
+				{
+					if (FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("SaveAsDefaultsIsReadOnlyMessage", "The default configuration file for these settings is not currently writable. Would you like to make it writable?")) == EAppReturnType::Yes)
+					{
+						MakeDefaultConfigFileWritable();
+					}
+					else
+					{
+						return FReply::Handled();
+					}
+				}
 			}
-			else
+		}
+		else
+		{
+			if (ISourceControlModule::Get().IsEnabled())
 			{
-				if(FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("SaveAsDefaultsIsReadOnlyMessage", "The default configuration file for these settings is currently not writeable. Would you like to make it writable?")) != EAppReturnType::Yes)
-				{
-					return FReply::Handled();
-				}
-
-				MakeDefaultConfigFileWritable();
+				FileNeedToBeAddedToSourceControl = true;
 			}
 		}
 
 		SettingsSection->SaveDefaults();
+
+		if (FileNeedToBeAddedToSourceControl)
+		{
+			if (FMessageDialog::Open(EAppMsgType::YesNo, SaveAsDefaultNeedsAddMessage) == EAppReturnType::Yes)
+			{
+				if (!CheckOutOrAddDefaultConfigFile(true))
+				{
+					FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("SaveAsDefaultsSourceControlFailedAddManually", "The source control operation failed. You will need to add it manually"));
+					return FReply::Handled();
+				}
+			}
+		}
 
 		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("SaveAsDefaultsSucceededMessage", "The default configuration file for these settings was updated successfully. \n\nIf checked into source control this would affect other developers."));
 	}
@@ -338,56 +400,24 @@ bool SSettingsSectionHeader::HandleSetAsDefaultButtonEnabled() const
 *
 * @return true if the check-out succeeded, false otherwise.
 */
-bool SSettingsSectionHeader::CheckOutDefaultConfigFile()
+bool SSettingsSectionHeader::CheckOutOrAddDefaultConfigFile(bool bForceSourceControlUpdate)
 {
 	if(!SettingsObject.IsValid())
 	{
 		return false;
 	}
 
-	FText ErrorMessage;
-
 	// check out configuration file
+	FText ErrorMessage;
 	FString AbsoluteConfigFilePath = GetDefaultConfigFilePath();
-	TArray<FString> FilesToBeCheckedOut;
-	FilesToBeCheckedOut.Add(AbsoluteConfigFilePath);
 
-	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
-	FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(AbsoluteConfigFilePath, EStateCacheUsage::ForceUpdate);
-
-	if(SourceControlState.IsValid())
-	{
-		if(SourceControlState->IsDeleted())
+	if (!SettingsHelpers::CheckOutOrAddFile(AbsoluteConfigFilePath, bForceSourceControlUpdate, false, &ErrorMessage))
+	{ 
+		// show errors, if any
+		if (!ErrorMessage.IsEmpty())
 		{
-			ErrorMessage = LOCTEXT("ConfigFileMarkedForDeleteError", "Error: The configuration file is marked for deletion.");
+			FMessageDialog::Open(EAppMsgType::Ok, ErrorMessage);
 		}
-		else if(!SourceControlState->IsCurrent())
-		{
-			if(false)
-			{
-				if(SourceControlProvider.Execute(ISourceControlOperation::Create<FSync>(), FilesToBeCheckedOut) == ECommandResult::Succeeded)
-				{
-					SettingsObject->ReloadConfig();
-				}
-				else
-				{
-					ErrorMessage = LOCTEXT("FailedToSyncConfigFileError", "Error: Failed to sync the configuration file to head revision.");
-				}
-			}
-		}
-		else if(SourceControlState->CanCheckout() || SourceControlState->IsCheckedOutOther())
-		{
-			if(SourceControlProvider.Execute(ISourceControlOperation::Create<FCheckOut>(), FilesToBeCheckedOut) == ECommandResult::Failed)
-			{
-				ErrorMessage = LOCTEXT("FailedToCheckOutConfigFileError", "Error: Failed to check out the configuration file.");
-			}
-		}
-	}
-
-	// show errors, if any
-	if(!ErrorMessage.IsEmpty())
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, ErrorMessage);
 
 		return false;
 	}
@@ -409,7 +439,7 @@ bool SSettingsSectionHeader::MakeDefaultConfigFileWritable()
 
 	FString AbsoluteConfigFilePath = GetDefaultConfigFilePath();
 
-	return FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*AbsoluteConfigFilePath, false);
+	return SettingsHelpers::MakeWritable(AbsoluteConfigFilePath, true);
 }
 
 void SSettingsSectionHeader::ShowNotification(const FText& Text, SNotificationItem::ECompletionState CompletionState) const
@@ -424,14 +454,19 @@ void SSettingsSectionHeader::ShowNotification(const FText& Text, SNotificationIt
 /** Returns the config file name currently being edited. */
 FString SSettingsSectionHeader::HandleCheckoutNoticeConfigFilePath() const
 {
-	if(SettingsObject.IsValid() && SettingsObject->GetClass()->HasAnyClassFlags(CLASS_Config | CLASS_DefaultConfig))
+	if(SettingsObject.IsValid())
 	{
-		return GetDefaultConfigFilePath();
+		if (SettingsObject->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig))
+		{
+			return GetDefaultConfigFilePath();
+		}
+		else if (SettingsObject->GetClass()->HasAnyClassFlags(CLASS_Config))
+		{
+			return SettingsObject->GetClass()->GetConfigName();
+		}
 	}
-	else
-	{
-		return FString();
-	}
+
+	return FString();
 }
 
 /** Reloads the configuration object. */
@@ -446,6 +481,7 @@ void SSettingsSectionHeader::HandleCheckoutNoticeFileProbablyModifiedExternally(
 /** Callback for determining the visibility of the 'Locked' notice. */
 EVisibility SSettingsSectionHeader::HandleCheckoutNoticeVisibility() const
 {
+	// Only Defaultfig are under source control, so the checkout notice should not be visible for the other cases
 	if(SettingsObject.IsValid() && SettingsObject->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig) && !DetailsView.Pin()->HasActiveSearch())
 	{
 		return EVisibility::Visible;

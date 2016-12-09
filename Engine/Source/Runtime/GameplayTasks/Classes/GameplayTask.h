@@ -1,13 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "UObject/ScriptInterface.h"
+#include "UObject/ScriptMacros.h"
 #include "GameplayTaskOwnerInterface.h"
-#include "GameplayTaskTypes.h"
 #include "GameplayTask.generated.h"
 
-class UGameplayTask;
+class AActor;
 class UGameplayTaskResource;
-class UGameplayTasksComponent; 
+class UGameplayTasksComponent;
 
 GAMEPLAYTASKS_API DECLARE_LOG_CATEGORY_EXTERN(LogGameplayTasks, Log, All);
 
@@ -195,6 +200,14 @@ public:
 
 	template <class T>
 	inline static T* NewTask(IGameplayTaskOwnerInterface& TaskOwner, FName InstanceName = FName());
+
+	/** Added for consistency with NewTask, but to indicate that a task requires manual call to InitTask 
+	 *	This path is used to manually configure some aspects of the task, like Priority */
+	template <class T>
+	FORCEINLINE static T* NewTaskUninitialized()
+	{
+		return NewObject<T>();
+	}
 
 	/** Called when task owner has "ended" (before the task ends) kills the task. Calls OnDestroy. */
 	void TaskOwnerEnded();

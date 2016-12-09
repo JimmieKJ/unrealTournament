@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AITestSuitePrivatePCH.h"
+#include "Tests/AITestsCommon.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "BTBuilder.h"
+#include "MockAI_BT.h"
 
 namespace FAITestHelpers
 {

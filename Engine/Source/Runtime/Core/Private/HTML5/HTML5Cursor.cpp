@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
 #include "HTML5Cursor.h"
 
 FHTML5Cursor::FHTML5Cursor()
@@ -60,4 +59,9 @@ void FHTML5Cursor::Lock( const RECT* const Bounds )
 	{
 		LockStatus = true; 
 	}
+}
+
+void FHTML5Cursor::SetCustomShape(void* CursorHandle)
+{
+	
 }

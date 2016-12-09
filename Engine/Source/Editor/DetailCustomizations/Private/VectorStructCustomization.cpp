@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "VectorStructCustomization.h"
+#include "UObject/UnrealType.h"
 
 
 TSharedRef<IPropertyTypeCustomization> FVectorStructCustomization::MakeInstance() 

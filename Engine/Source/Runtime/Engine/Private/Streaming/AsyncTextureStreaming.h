@@ -6,7 +6,14 @@ AsyncTextureStreaming.h: Definitions of classes used for texture streaming async
 
 #pragma once
 
-#include "StreamingManagerTexture.h"
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "ContentStreaming.h"
+#include "Async/AsyncWork.h"
+#include "Streaming/StreamingTexture.h"
+#include "Streaming/TextureInstanceManager.h"
+
+struct FStreamingManagerTexture;
 
 /** Thread-safe helper struct for streaming information. */
 class FAsyncTextureStreamingData
@@ -14,7 +21,7 @@ class FAsyncTextureStreamingData
 public:
 
 	/** Set the data but do as little as possible, called from the game thread. */
-	void Init(TArray<FStreamingViewInfo> InViewInfos, float InWorldTime, TArray<FLevelTextureManager>& LevelTextureManagers, FDynamicComponentTextureManager& DynamicComponentManager);
+	void Init(TArray<FStreamingViewInfo> InViewInfos, float InWorldTime, TIndirectArray<FLevelTextureManager>& LevelTextureManagers, FDynamicComponentTextureManager& DynamicComponentManager);
 
 	/** Update everything internally so to allow calls to CalcWantedMips */
 	void UpdateBoundSizes_Async(const FTextureStreamingSettings& Settings);
@@ -27,6 +34,7 @@ public:
 	FORCEINLINE const TArray<FTextureInstanceAsyncView>& GetStaticInstancesViews() const { return StaticInstancesViews; }
 	FORCEINLINE const TArray<FStreamingViewInfo>& GetViewInfos() const { return ViewInfos; }
 
+	FORCEINLINE bool HasAnyView() const { return ViewInfos.Num() > 0; }
 
 private:
 
@@ -78,11 +86,14 @@ public:
 	/** Returns the resulting priorities, matching the FStreamingManagerTexture::StreamingTextures array. */
 	const TArray<int32>& GetLoadRequests() const { return LoadRequests; }
 	const TArray<int32>& GetCancelationRequests() const { return CancelationRequests; }
-
+	const TArray<int32>& GetPendingUpdateDirties() const { return PendingUpdateDirties; }
+	
 	FAsyncTextureStreamingData StreamingData;
 	
 	/** Performs the async work. */
 	void DoWork();
+
+	bool HasAnyView() const { return StreamingData.HasAnyView(); }
 
 private:
 
@@ -122,6 +133,8 @@ private:
 
 	void UpdateLoadAndCancelationRequests_Async(int64 MemoryUsed, int64 TempMemoryUsed);
 
+	void UpdatePendingStreamingStatus_Async();
+
 	void UpdateStats_Async();
 
 	FORCEINLINE TStatId GetStatId() const
@@ -135,6 +148,9 @@ private:
 	/** Indices for load/unload requests, sorted by load order. */
 	TArray<int32>	LoadRequests;
 	TArray<int32>	CancelationRequests;
+
+	/** Indices of texture with dirty values for bHasUpdatePending */
+	TArray<int32>	PendingUpdateDirties;
 
 	/** Whether the async work should abort its processing. */
 	volatile bool				bAbort;

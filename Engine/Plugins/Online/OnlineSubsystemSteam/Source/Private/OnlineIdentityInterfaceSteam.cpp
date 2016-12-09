@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemSteamPrivatePCH.h"
 #include "OnlineIdentityInterfaceSteam.h"
+#include "OnlineSubsystem.h"
+#include "OnlineSubsystemSteamTypes.h"
 
 FOnlineIdentitySteam::FOnlineIdentitySteam() :
 	SteamUserPtr(NULL),

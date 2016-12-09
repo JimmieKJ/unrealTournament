@@ -5,8 +5,9 @@
 	(creating/joining/leaving/destroying sessions)
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "GameFramework/OnlineSession.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 
 UOnlineSession::UOnlineSession(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

@@ -4,6 +4,6 @@
 #ifndef __UnrealPak_h__
 #define __UnrealPak_h__
 
-#include "Core.h"
+#include "CoreMinimal.h"
 
 #endif		// __UnrealPak_h__

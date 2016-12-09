@@ -1,9 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintProfilerPCH.h"
-#include "EditorStyleSet.h"
+#include "BlueprintProfiler.h"
+#include "Engine/Blueprint.h"
+#include "GameFramework/Actor.h"
+#include "Modules/ModuleManager.h"
+
+#if WITH_EDITOR
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Editor.h"
+#include "Profiler/BlueprintProfilerSettings.h"
+#include "BlueprintProfilerConnectionDrawingPolicy.h"
+#endif // WITH_EDITOR
+
+#include "ScriptInstrumentationPlayback.h"
+
+#include "BlueprintProfilerStats.h"
+
 #include "ActorEditorUtils.h"
-#include "Editor/UnrealEd/Classes/Settings/EditorExperimentalSettings.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintProfiler"
 
@@ -64,13 +77,16 @@ void FBlueprintProfiler::InstrumentEvent(const FScriptInstrumentationSignal& Eve
 	#endif
 	{
 		// Handle context switching events
-		CaptureContext.UpdateContext(Event, InstrumentationEventQueue);
-		// Add instrumented event
-		InstrumentationEventQueue.Add(FScriptInstrumentedEvent(Event.GetType(), Event.GetFunctionClassScope()->GetFName(), Event.GetFunctionName(), Event.GetScriptCodeOffset()));
+		if (CaptureContext.UpdateContext(Event, InstrumentationEventQueue))
+		{
+			// Add instrumented event
+			InstrumentationEventQueue.Add(FScriptInstrumentedEvent(Event.GetType(), Event.GetFunctionClassScope()->GetFName(), Event.GetFunctionName(), Event.GetScriptCodeOffset()));
+		}
+
 		// Reset context on event end
 		if (Event.GetType() == EScriptInstrumentation::Stop)
 		{
-			CaptureContext.ResetContext();
+			CaptureContext.PopScope();
 		}
 	}
 }
@@ -81,11 +97,11 @@ void FBlueprintProfiler::AddInstrumentedBlueprint(UBlueprint* InstrumentedBluepr
 {
 	if (InstrumentedBlueprint && InstrumentedBlueprint->GeneratedClass && InstrumentedBlueprint->GeneratedClass->HasInstrumentation())
 	{
-		GetBlueprintContext(InstrumentedBlueprint->GeneratedClass->GetPathName());
+		GetOrCreateBlueprintContext(InstrumentedBlueprint->GeneratedClass->GetPathName());
 	}
 }
 
-TSharedPtr<FBlueprintExecutionContext> FBlueprintProfiler::GetBlueprintContext(const FString& BlueprintClassPath)
+TSharedPtr<FBlueprintExecutionContext> FBlueprintProfiler::GetOrCreateBlueprintContext(const FString& BlueprintClassPath)
 {
 	SCOPE_CYCLE_COUNTER(STAT_BlueprintLookupCost);
 	TSharedPtr<FBlueprintExecutionContext>& Result = PathToBlueprintContext.FindOrAdd(BlueprintClassPath);
@@ -107,6 +123,21 @@ TSharedPtr<FBlueprintExecutionContext> FBlueprintProfiler::GetBlueprintContext(c
 			Result.Reset();
 			PathToBlueprintContext.Remove(BlueprintClassPath);
 		}
+	}
+	return Result;
+}
+
+TSharedPtr<FBlueprintExecutionContext> FBlueprintProfiler::FindBlueprintContext(const FString& BlueprintClassPath)
+{
+	SCOPE_CYCLE_COUNTER(STAT_BlueprintLookupCost);
+	TSharedPtr<FBlueprintExecutionContext> Result;
+	if (TSharedPtr<FBlueprintExecutionContext>* SearchResult = PathToBlueprintContext.Find(BlueprintClassPath))
+	{
+		Result = *SearchResult;
+	}
+	else if (TSharedPtr<FBlueprintExecutionContext>* UtilitySearchResult = PathToBlueprintUtilityContext.Find(BlueprintClassPath))
+	{
+		Result = *UtilitySearchResult;
 	}
 	return Result;
 }
@@ -165,7 +196,8 @@ void FBlueprintProfiler::Tick(float DeltaSeconds)
 
 bool FBlueprintProfiler::IsTickable() const
 {
-	return InstrumentationEventQueue.Num() > 0;
+	const UBlueprintProfilerSettings* Settings = GetDefault<UBlueprintProfilerSettings>();
+	return Settings->GetPerformanceThresholdsModified() || InstrumentationEventQueue.Num() > 0;
 }
 
 void FBlueprintProfiler::ProcessEventProfilingData()
@@ -204,7 +236,7 @@ void FBlueprintProfiler::ProcessEventProfilingData()
 					if (InstanceEvent.IsNewInstance() && Event.IsEvent())
 					{
 						FEventRange NewEventRange;
-						NewEventRange.BlueprintContext = GetBlueprintContext(CurrEvent.GetBlueprintClassPath());
+						NewEventRange.BlueprintContext = FindBlueprintContext(CurrEvent.GetBlueprintClassPath());
 						if (NewEventRange.BlueprintContext.IsValid())
 						{
 							NewEventRange.InstanceName = NewEventRange.BlueprintContext->MapBlueprintInstance(InstanceEvent.GetInstancePath());
@@ -225,12 +257,12 @@ void FBlueprintProfiler::ProcessEventProfilingData()
 				if (ScriptEventRanges.Num() > 0)
 				{
 					// Check against the last class scope first before adding another range.
-					FEventRange& LastEventRange = ScriptEventRanges.Last();
-					const FName NewClassScope = InstrumentationEventQueue[EventIdx].GetFunctionClassScopeName();
+					const FEventRange& LastEventRange = ScriptEventRanges.Last();
+					const FName NewClassScope = CurrEvent.GetFunctionClassScopeName();
 					if (LastEventRange.ClassScope != NewClassScope)
 					{
 						// Override the class scope signal to be an event.
-						InstrumentationEventQueue[EventIdx].OverrideType(EScriptInstrumentation::Event);
+						CurrEvent.OverrideType(EScriptInstrumentation::Event);
 						// Create new sub event event range to be processed as a sub event.
 						FEventRange NewClassScopeRange;
 						NewClassScopeRange.BlueprintContext = LastEventRange.BlueprintContext;
@@ -255,12 +287,11 @@ void FBlueprintProfiler::ProcessEventProfilingData()
 							StopTime = FMath::Max<double>(StopTime, EventTime);
 						}
 						// Set event timings
-						InstrumentationEventQueue[EventIdx].OverrideTime(StartTime);
+						CurrEvent.OverrideTime(StartTime);
 						// Insert Stop marker
 						FScriptInstrumentedEvent StopMarker(EScriptInstrumentation::Stop, NewClassScope, InstrumentationEventQueue[EventIdx].GetFunctionName(), INDEX_NONE);
 						StopMarker.OverrideTime(StopTime);
 						InstrumentationEventQueue.Insert(StopMarker, SubClassIdx);
-						// Note: we could skip the class scope signals and jump straight to processing here - it might cause problems though.
 					}
 					else
 					{
@@ -323,8 +354,8 @@ void FBlueprintProfiler::ProcessEventProfilingData()
 						{
 							EventToProcess = (MakeShareable(new FScriptEventPlayback(EventRangeToProcess.BlueprintContext, EventRangeToProcess.InstanceName)));
 						}
-						check(EventToProcess.IsValid());
-						if (EventToProcess->Process(InstrumentationEventQueue, EventRangeToProcess.StartIdx, EventRangeToProcess.StopIdx))
+						// Checking the event to process so we can continue problem discovery while we look into the latent id issue.
+						if (EventToProcess.IsValid() && EventToProcess->Process(InstrumentationEventQueue, EventRangeToProcess.StartIdx, EventRangeToProcess.StopIdx))
 						{
 							const int32 NumEventsToRemove = (EventRangeToProcess.StopIdx - EventRangeToProcess.StartIdx) + 1;
 							InstrumentationEventQueue.RemoveAt(EventRangeToProcess.StartIdx, NumEventsToRemove, false);
@@ -336,11 +367,25 @@ void FBlueprintProfiler::ProcessEventProfilingData()
 								SuspendedEventMap.Add(EventToProcess->GetLatentLinkId()) = EventToProcess;
 							}
 						}
+						// Note: We should probably assert here if the above Process call returned false. We should always
+						// Process successfully after a Stop event. If false is returned then something is wrong.
 					}
 					ScriptEventRanges.Pop();
 				}
 				break;
 			}
+		}
+	}
+	// We need to ensure this doesn't happen. but for now kill anything remaining in the queue.
+	InstrumentationEventQueue.SetNum(0);
+	// Update all active contexts if the display settings changed.
+	UBlueprintProfilerSettings* Settings = GetMutableDefault<UBlueprintProfilerSettings>();
+	if (Settings->GetPerformanceThresholdsModified())
+	{
+		Settings->SetPerformanceThresholdsModified(false);
+		for (auto Context : PathToBlueprintContext)
+		{
+			DirtyContexts.Add(Context.Value);
 		}
 	}
 	// Update dirty contexts
@@ -355,8 +400,10 @@ void FBlueprintProfiler::RemoveAllBlueprintReferences(UBlueprint* Blueprint)
 	if (Blueprint)
 	{
 		const FString BlueprintClassPath = Blueprint->GeneratedClass->GetPathName();
-		if (PathToBlueprintContext.Contains(BlueprintClassPath))
+		if (TSharedPtr<FBlueprintExecutionContext>* ContextToRemove = PathToBlueprintContext.Find(BlueprintClassPath))
 		{
+			// Remove any registered contexts
+			RemoveUtilityContexts(*ContextToRemove);
 			// Tear down the blueprint context.
 			PathToBlueprintContext.Remove(BlueprintClassPath);
 			// Remove compilation hook, this will get added again if the blueprint is profiled
@@ -364,6 +411,22 @@ void FBlueprintProfiler::RemoveAllBlueprintReferences(UBlueprint* Blueprint)
 			// Broadcast changes to stats structure
 			GraphLayoutChangedDelegate.Broadcast(Blueprint);
 		}
+	}
+}
+
+void FBlueprintProfiler::AssociateUtilityContexts(TSharedPtr<FBlueprintExecutionContext> TargetContext)
+{
+	for (const FString UtilityContextPath : TargetContext->GetUtilityContexts())
+	{
+		PathToBlueprintUtilityContext.Add(UtilityContextPath) = TargetContext;
+	}
+}
+
+void FBlueprintProfiler::RemoveUtilityContexts(TSharedPtr<FBlueprintExecutionContext> TargetContext)
+{
+	for (const FString UtilityContextPath : TargetContext->GetUtilityContexts())
+	{
+		PathToBlueprintUtilityContext.Remove(UtilityContextPath);
 	}
 }
 
@@ -375,6 +438,7 @@ void FBlueprintProfiler::ResetProfilingData()
 	CaptureContext.ResetContext();
 #if WITH_EDITOR
 	PathToBlueprintContext.Reset();
+	PathToBlueprintUtilityContext.Reset();
 #endif // WITH_EDITOR
 }
 

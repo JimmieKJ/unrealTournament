@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "GenericPlatformProperties.h"
+#include "CoreTypes.h"
+#include "GenericPlatform/GenericPlatformProperties.h"
 
 
 /**

@@ -4,6 +4,9 @@
 	ForwardLightingCommon.usf
 =============================================================================*/
 
+#define NON_DIRECTIONAL_DIRECT_LIGHTING (TRANSLUCENCY_LIGHTING_VOLUMETRIC_NONDIRECTIONAL || TRANSLUCENCY_LIGHTING_VOLUMETRIC_PERVERTEX_NONDIRECTIONAL)
+#define SUPPORT_CONTACT_SHADOWS 0
+
 #include "DeferredLightingCommon.usf"
 #include "LightGridCommon.usf"
 
@@ -18,7 +21,7 @@ SamplerState IndirectOcclusionTextureSampler;
 float GetIndirectOcclusion(float4 ScreenPosition, FGBufferData GBufferData)
 {
 	float2 NDC = ScreenPosition.xy / ScreenPosition.w;
-	float2 ScreenUV = NDC * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+	float2 ScreenUV = NDC * ResolvedView.ScreenPositionScaleBias.xy + ResolvedView.ScreenPositionScaleBias.wz;
 	
 	float IndirectOcclusion;
 #if SUPPORTS_INDEPENDENT_SAMPLERS
@@ -28,21 +31,81 @@ float GetIndirectOcclusion(float4 ScreenPosition, FGBufferData GBufferData)
 #endif
 
 	// Reduce self shadowing intensity on characters (reuse distance field bit, really should be HasCapsuleShadowRepresentation)
-	IndirectOcclusion = lerp(1, IndirectOcclusion, HasDistanceFieldRepresentation(GBufferData) ? View.IndirectCapsuleSelfShadowingIntensity : 1);
+	IndirectOcclusion = lerp(1, IndirectOcclusion, HasDynamicIndirectShadowCasterRepresentation(GBufferData) ? View.IndirectCapsuleSelfShadowingIntensity : 1);
 
 	return IndirectOcclusion;
 }
 
-float3 GetForwardDirectLighting(uint GridIndex, float4 ScreenPosition, float3 WorldPosition, float3 CameraVector, FGBufferData GBufferData)
+struct CulledLightsGridData
+{
+	uint NumLocalLights;
+	uint DataStartIndex;
+};
+
+CulledLightsGridData GetCulledLightsGrid(uint GridIndex, uint EyeIndex)
+{
+	CulledLightsGridData Result;
+
+	BRANCH
+	if (EyeIndex == 0)
+	{
+		Result.NumLocalLights = NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0];
+		Result.DataStartIndex = NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1];
+	}
+	else
+	{
+		Result.NumLocalLights = InstancedNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0];
+		Result.DataStartIndex = InstancedNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1];
+	}
+
+	return Result;
+}
+
+struct LocalLightData
+{
+	float4 LightPositionAndInvRadius;
+	float4 LightColorAndFalloffExponent;
+	float4 SpotAnglesAndSourceRadius;
+	float4 LightDirectionAndShadowMask;
+};
+
+LocalLightData GetLocalLightData(uint GridIndex, uint EyeIndex)
+{
+	LocalLightData Result;
+
+	if (EyeIndex == 0)
+	{
+		uint LocalLightIndex = CulledLightDataGrid[GridIndex];
+		uint LocalLightBaseIndex = LocalLightIndex * LOCAL_LIGHT_DATA_STRIDE;
+		Result.LightPositionAndInvRadius = ForwardLocalLightBuffer[LocalLightBaseIndex + 0];
+		Result.LightColorAndFalloffExponent = ForwardLocalLightBuffer[LocalLightBaseIndex + 1];
+		Result.LightDirectionAndShadowMask = ForwardLocalLightBuffer[LocalLightBaseIndex + 2];
+		Result.SpotAnglesAndSourceRadius = ForwardLocalLightBuffer[LocalLightBaseIndex + 3];
+	}
+	else
+	{
+		uint LocalLightIndex = InstancedCulledLightDataGrid[GridIndex];
+		uint LocalLightBaseIndex = LocalLightIndex * LOCAL_LIGHT_DATA_STRIDE;
+		Result.LightPositionAndInvRadius = InstancedForwardLocalLightBuffer[LocalLightBaseIndex + 0];
+		Result.LightColorAndFalloffExponent = InstancedForwardLocalLightBuffer[LocalLightBaseIndex + 1];
+		Result.LightDirectionAndShadowMask = InstancedForwardLocalLightBuffer[LocalLightBaseIndex + 2];
+		Result.SpotAnglesAndSourceRadius = InstancedForwardLocalLightBuffer[LocalLightBaseIndex + 3];
+	}
+
+	return Result;
+}
+
+float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 CameraVector, FGBufferData GBufferData, float4 DynamicShadowFactors, uint EyeIndex)
 {
 	float3 DirectLighting = 0;
-	float4 DynamicShadowFactors = 1;
 
-	#if MATERIALBLENDING_SOLID || MATERIALBLENDING_MASKED
-		float2 NDC = ScreenPosition.xy / ScreenPosition.w;
-		float2 ScreenUV = NDC * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
-		DynamicShadowFactors = GetPerPixelLightAttenuation(ScreenUV);
-	#endif
+	// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
+	float MinRoughness = .04f;
+
+#if TRANSLUCENCY_ANY_VOLUMETRIC
+	// No specular on volumetric translucency lighting modes
+	MinRoughness = 1.0f;
+#endif
 
 	BRANCH
 	if (ForwardGlobalLightData.HasDirectionalLight)
@@ -52,10 +115,9 @@ float3 GetForwardDirectLighting(uint GridIndex, float4 ScreenPosition, float3 Wo
 		LightData.LightDirection = ForwardGlobalLightData.DirectionalLightDirection;
 		LightData.DistanceFadeMAD = ForwardGlobalLightData.DirectionalLightDistanceFadeMAD;
 		LightData.bRadialLight = false;
-		// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
-		LightData.MinRoughness = .04f;
+		LightData.MinRoughness = MinRoughness;
 
-		LightData.ShadowedBits = ForwardGlobalLightData.DirectionalLightShadowMapChannelMask != 0 ? 1 : 0;
+		LightData.ShadowedBits = (ForwardGlobalLightData.DirectionalLightShadowMapChannelMask & 0xFF) != 0 ? 1 : 0;
 		// Static shadowing uses ShadowMapChannel, dynamic shadows are packed into light attenuation using PreviewShadowMapChannel
 		LightData.ShadowMapChannelMask = UnpackShadowMapChannelMask(ForwardGlobalLightData.DirectionalLightShadowMapChannelMask);
 		float4 PreviewShadowMapChannelMask = UnpackShadowMapChannelMask(ForwardGlobalLightData.DirectionalLightShadowMapChannelMask >> 4);
@@ -68,53 +130,96 @@ float3 GetForwardDirectLighting(uint GridIndex, float4 ScreenPosition, float3 Wo
 		float WholeSceneShadowing = LightData.DistanceFadeMAD.y < 0.0f ? DynamicShadowing : 1.0f;
 		
 		float4 LightAttenuation = float4(WholeSceneShadowing.xx, PerObjectShadowing.xx);
-		DirectLighting += GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, uint2(0,0)).xyz;
+		float3 NewLighting = GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, uint2(0,0)).xyz;
+
+		FLATTEN
+		if ((ForwardGlobalLightData.DirectionalLightShadowMapChannelMask >> 8) & Primitive.LightingChannelMask)
+		{
+			DirectLighting += NewLighting;
+		}
 	}
 	
-	uint NumLocalLights = ForwardGlobalLightData.NumLocalLights;
-
-#define USE_CULLED_LOCAL_LIGHTS 1
-#if USE_CULLED_LOCAL_LIGHTS
-
-	NumLocalLights = NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0];
-	uint DataStartIndex = NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1];
-#endif
+	const CulledLightsGridData CulledLightsGrid = GetCulledLightsGrid(GridIndex, EyeIndex);
 
 	LOOP
-	for (uint LocalLightListIndex = 0; LocalLightListIndex < NumLocalLights; LocalLightListIndex++)
+	for (uint LocalLightListIndex = 0; LocalLightListIndex < CulledLightsGrid.NumLocalLights; LocalLightListIndex++)
 	{
-		#if USE_CULLED_LOCAL_LIGHTS
-			uint LocalLightIndex = CulledLightDataGrid[DataStartIndex + LocalLightListIndex];
-		#else
-			uint LocalLightIndex = LocalLightListIndex;
-		#endif
-
-		uint LocalLightBaseIndex = LocalLightIndex * LOCAL_LIGHT_DATA_STRIDE;
+		const LocalLightData LocalLight = GetLocalLightData(CulledLightsGrid.DataStartIndex + LocalLightListIndex, EyeIndex);
 		 
 		FDeferredLightData LightData = (FDeferredLightData)0;
-		LightData.LightPositionAndInvRadius = ForwardLocalLightBuffer[LocalLightBaseIndex + 0];
-		LightData.LightColorAndFalloffExponent = ForwardLocalLightBuffer[LocalLightBaseIndex + 1];
-		float4 VectorValue2 = ForwardLocalLightBuffer[LocalLightBaseIndex + 2];
-		LightData.LightDirection = VectorValue2.xyz;
-		LightData.SpotAnglesAndSourceRadius = ForwardLocalLightBuffer[LocalLightBaseIndex + 3];
+		LightData.LightPositionAndInvRadius = LocalLight.LightPositionAndInvRadius;
+		LightData.LightColorAndFalloffExponent = LocalLight.LightColorAndFalloffExponent;
+		LightData.LightDirection = LocalLight.LightDirectionAndShadowMask.xyz;
+		LightData.SpotAnglesAndSourceRadius = LocalLight.SpotAnglesAndSourceRadius;
 		LightData.bInverseSquared = LightData.LightColorAndFalloffExponent.w == 0;
 		LightData.bRadialLight = true;
 		LightData.bSpotLight = LightData.SpotAnglesAndSourceRadius.x > -2.0f;
-		// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
-		LightData.MinRoughness = .04f;
+		LightData.MinRoughness = MinRoughness;
 
-		uint PackedShadowMapChannelMask = asuint(VectorValue2.w);
-		LightData.ShadowedBits = PackedShadowMapChannelMask != 0 ? 1 : 0;
+		uint PackedShadowMapChannelMask = asuint(LocalLight.LightDirectionAndShadowMask.w);
+		LightData.ShadowedBits = (PackedShadowMapChannelMask & 0xFF) != 0 ? 1 : 0;
 		// Static shadowing uses ShadowMapChannel, dynamic shadows are packed into light attenuation using PreviewShadowMapChannel
 		LightData.ShadowMapChannelMask = UnpackShadowMapChannelMask(PackedShadowMapChannelMask);
 		float4 PreviewShadowMapChannelMask = UnpackShadowMapChannelMask(PackedShadowMapChannelMask >> 4);
 		float DynamicShadowing = dot(PreviewShadowMapChannelMask, DynamicShadowFactors);
 		float4 LightAttenuation = float4(1, 1, DynamicShadowing.x, DynamicShadowing.x);
-		DirectLighting += GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, uint2(0,0)).xyz;
+		float3 NewLighting = GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, uint2(0,0)).xyz;
+
+		FLATTEN
+		if ((PackedShadowMapChannelMask >> 8) & Primitive.LightingChannelMask)
+		{
+			DirectLighting += NewLighting;
+		}
 	}
 
 	// For debugging
-	//DirectLighting = NumLocalLights / (float)ForwardGlobalLightData.MaxCulledLightsPerCell;
+	//DirectLighting = CulledLightsGrid.NumLocalLights / (float)ForwardGlobalLightData.MaxCulledLightsPerCell;
+	return DirectLighting;
+}
+
+float3 GetForwardDirectLightingForVertexLighting(uint GridIndex, float3 WorldPosition, float3 WorldNormal, uint EyeIndex)
+{
+	float3 DirectLighting = 0;
+	// Using white for diffuse color, real diffuse color will be incorporated per-pixel
+	float3 DiffuseColor = 1.0f;
+
+	BRANCH
+	if (ForwardGlobalLightData.HasDirectionalLight)
+	{
+		float3 N = WorldNormal;
+		float3 L = ForwardGlobalLightData.DirectionalLightDirection;
+		float NoL = saturate(dot(N, L));
+
+		float3 LightColor = ForwardGlobalLightData.DirectionalLightColor;
+	
+		#if NON_DIRECTIONAL_DIRECT_LIGHTING
+			NoL = 1.0f;
+		#endif
+
+		// No specular for vertex lighting
+		float3 DiffuseLighting = Diffuse_Lambert(DiffuseColor);
+		DirectLighting += LightColor * NoL * (DiffuseLighting);
+	}
+	
+	const CulledLightsGridData CulledLightsGrid = GetCulledLightsGrid(GridIndex, EyeIndex);
+
+	LOOP
+	for (uint LocalLightListIndex = 0; LocalLightListIndex < CulledLightsGrid.NumLocalLights; LocalLightListIndex++)
+	{
+		const LocalLightData LocalLight = GetLocalLightData(CulledLightsGrid.DataStartIndex + LocalLightListIndex, EyeIndex);
+		 
+		FSimpleDeferredLightData LightData = (FSimpleDeferredLightData)0;
+		LightData.LightPositionAndInvRadius = LocalLight.LightPositionAndInvRadius;
+		LightData.LightColorAndFalloffExponent = LocalLight.LightColorAndFalloffExponent;
+		LightData.bInverseSquared = LightData.LightColorAndFalloffExponent.w == 0;
+						
+		// No specular for vertex lighting
+		float3 CameraVector = 0;
+		float3 SpecularColor = 0;
+		float Roughness = 1.0f;
+		DirectLighting += GetSimpleDynamicLighting(WorldPosition, CameraVector, WorldNormal, 1, DiffuseColor, SpecularColor, Roughness, LightData);
+	}
+
 	return DirectLighting;
 }
 
@@ -129,14 +234,17 @@ uint MortonCode( uint x )
 
 // Translucency Surface per-pixel uses blended reflection captures by default in the deferred renderer
 // Have to opt-in to blended reflection captures in the forward renderer
-#define REFLECTION_COMPOSITE_USE_BLENDED_REFLECTION_CAPTURES ((!FORWARD_SHADING && TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL || FORWARD_SHADING && MATERIAL_HQ_FORWARD_REFLECTIONS) && FEATURE_LEVEL >= FEATURE_LEVEL_SM5)
+#define USE_BLENDED_REFLECTION_CAPTURES_DEFERRED (!FORWARD_SHADING && (TRANSLUCENCY_LIGHTING_SURFACE_FORWARDSHADING || TRANSLUCENCY_LIGHTING_SURFACE_LIGHTINGVOLUME))
+#define USE_BLENDED_REFLECTION_CAPTURES_FORWARD (FORWARD_SHADING && MATERIAL_HQ_FORWARD_REFLECTIONS)
+#define REFLECTION_COMPOSITE_USE_BLENDED_REFLECTION_CAPTURES ((USE_BLENDED_REFLECTION_CAPTURES_DEFERRED || USE_BLENDED_REFLECTION_CAPTURES_FORWARD) && FEATURE_LEVEL >= FEATURE_LEVEL_SM5)
 #define CompositeTileReflectionCaptureIndices CulledLightDataGrid
+#define InstancedCompositeTileReflectionCaptureIndices InstancedCulledLightDataGrid
 #define REFLECTION_COMPOSITE_SUPPORT_SKYLIGHT_BLEND 0
 #define REFLECTION_COMPOSITE_HAS_BOX_CAPTURES 1
 #define REFLECTION_COMPOSITE_HAS_SPHERE_CAPTURES 1
 #include "ReflectionEnvironmentComposite.usf"
 
-half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameters, half Roughness, half3 SpecularColor, half IndirectIrradiance, uint GridIndex)
+half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameters, half Roughness, half3 SpecularColor, half IndirectIrradiance, uint GridIndex, uint EyeIndex)
 {
 	float3 N = MaterialParameters.WorldNormal;
 	float3 V = MaterialParameters.CameraVector;
@@ -148,17 +256,27 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 	uint DataStartIndex = 0;
 
 #if REFLECTION_COMPOSITE_USE_BLENDED_REFLECTION_CAPTURES
-	uint NumCulledEntryIndex = (ForwardGlobalLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE;
-	NumLocalReflectionCaptures = NumCulledLightsGrid[NumCulledEntryIndex + 0];
-	DataStartIndex = NumCulledLightsGrid[NumCulledEntryIndex + 1];
+	BRANCH
+	if (EyeIndex == 0)
+	{
+		uint NumCulledEntryIndex = (ForwardGlobalLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE;
+		NumLocalReflectionCaptures = NumCulledLightsGrid[NumCulledEntryIndex + 0];
+		DataStartIndex = NumCulledLightsGrid[NumCulledEntryIndex + 1];
+	}
+	else
+	{
+		uint NumCulledEntryIndex = (InstancedForwardGlobalLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE;
+		NumLocalReflectionCaptures = InstancedNumCulledLightsGrid[NumCulledEntryIndex + 0];
+		DataStartIndex = InstancedNumCulledLightsGrid[NumCulledEntryIndex + 1];
+	}
 #endif
 
-	float3 SpecularIBL = CompositeReflectionCapturesAndSkylight(1.0f, MaterialParameters.AbsoluteWorldPosition, RayDirection, Roughness, IndirectIrradiance, 1.0f, 0.0f, NumLocalReflectionCaptures, DataStartIndex);
+	float3 SpecularIBL = CompositeReflectionCapturesAndSkylight(1.0f, MaterialParameters.AbsoluteWorldPosition, RayDirection, Roughness, IndirectIrradiance, 1.0f, 0.0f, NumLocalReflectionCaptures, DataStartIndex, EyeIndex);
 
 	// Factors derived from EnvBRDFApprox( SpecularColor, 1, 1 ) == SpecularColor * 0.4524 - 0.0024
 	float3 SpecularBounce = 0.45f * SpecularColor * IndirectIrradiance;
 	// Replace reflection captures with indirect diffuse when we're rendering to a reflection capture, to avoid a feedback loop
-	SpecularIBL.rgb = lerp(SpecularIBL.rgb, SpecularBounce, View.RenderingReflectionCaptureMask);
+	SpecularIBL.rgb = lerp(SpecularIBL.rgb, SpecularBounce, ResolvedView.RenderingReflectionCaptureMask);
 
 #if MATERIAL_SSR && !FORWARD_SHADING
 	if( View.CameraCut == 0 )
@@ -214,4 +332,9 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 #endif
 
 	return SpecularLighting * SpecularColor;
+}
+
+half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameters, half Roughness, half3 SpecularColor, half IndirectIrradiance, uint GridIndex)
+{
+	return GetImageBasedReflectionLighting(MaterialParameters, Roughness, SpecularColor, IndirectIrradiance, GridIndex, 0);
 }

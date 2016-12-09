@@ -4,10 +4,10 @@
 	GPUVertexFactory.cpp: GPU skin vertex factory implementation
 =============================================================================*/
 
-#include "EnginePrivate.h"
 #include "GPUSkinVertexFactory.h"
+#include "SceneView.h"
+#include "MeshBatch.h"
 #include "GPUSkinCache.h"
-#include "ShaderParameters.h"
 #include "ShaderParameterUtils.h"
 
 // Changing this is currently unsupported after content has been chunked with the previous setting
@@ -640,8 +640,8 @@ void FGPUSkinPassthroughVertexFactory::ModifyCompilationEnvironment( EShaderPlat
 
 bool FGPUSkinPassthroughVertexFactory::ShouldCache(EShaderPlatform Platform, const class FMaterial* Material, const FShaderType* ShaderType)
 {
-	// Passhrough is only valid on platforms with Compute Shader support
-	return GEnableGPUSkinCacheShaders && IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && Super::ShouldCache(Platform, Material, ShaderType);
+	// Passthrough is only valid on platforms with Compute Shader support AND for (skeletal meshes or default materials)
+	return GEnableGPUSkinCacheShaders && IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && Super::ShouldCache(Platform, Material, ShaderType) && (Material->IsUsedWithSkeletalMesh() || Material->IsSpecialEngineMaterial());
 }
 
 void FGPUSkinPassthroughVertexFactory::InternalUpdateVertexDeclaration(FGPUBaseSkinVertexFactory* SourceVertexFactory, FRWBuffer* RWBuffer)

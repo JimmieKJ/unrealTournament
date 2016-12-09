@@ -1,5 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. 
-#include "ScriptPluginPrivatePCH.h"
+
+#include "ScriptContextComponent.h"
+#include "Engine/World.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -11,17 +13,17 @@ UScriptContextComponent::UScriptContextComponent(const FObjectInitializer& Objec
 	bAutoActivate = true;
 	bWantsInitializeComponent = true;
 
-	Context = NULL;
+	Context = nullptr;
 }
 
 void UScriptContextComponent::OnRegister()
 {
 	Super::OnRegister();
 
-	auto ContextOwner = GetOuter();
+	UObject* ContextOwner = GetOuter();
 	if (ContextOwner && !HasAnyFlags(RF_ClassDefaultObject) && !ContextOwner->HasAnyFlags(RF_ClassDefaultObject))
 	{
-		auto ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(ContextOwner->GetClass());
+		UScriptBlueprintGeneratedClass* ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(ContextOwner->GetClass());
 		if (ScriptClass && GetWorld() && GetWorld()->WorldType != EWorldType::Editor)
 		{
 			Context = FScriptContextBase::CreateContext(ScriptClass->SourceCode, ScriptClass, ContextOwner);
@@ -40,8 +42,8 @@ void UScriptContextComponent::InitializeComponent()
 
 	if (Context)
 	{
-		auto ContextOwner = GetOuter();
-		auto ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(ContextOwner->GetClass());
+		UObject* ContextOwner = GetOuter();
+		UScriptBlueprintGeneratedClass* ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(ContextOwner->GetClass());
 		check(ScriptClass);
 		Context->PushScriptPropertyValues(ScriptClass, ContextOwner);
 		Context->BeginPlay();
@@ -54,8 +56,8 @@ void UScriptContextComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);	
 	if (Context)
 	{
-		auto ContextOwner = GetOuter();
-		auto ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(ContextOwner->GetClass());
+		UObject* ContextOwner = GetOuter();
+		UScriptBlueprintGeneratedClass* ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(ContextOwner->GetClass());
 		check(ScriptClass);
 		Context->PushScriptPropertyValues(ScriptClass, ContextOwner);
 		Context->Tick(DeltaTime);
@@ -69,7 +71,7 @@ void UScriptContextComponent::BeginDestroy()
 	{
 		Context->Destroy();
 		delete Context;
-		Context = NULL;
+		Context = nullptr;
 	}
 
 	Super::BeginDestroy();
@@ -79,8 +81,8 @@ void UScriptContextComponent::CallScriptFunction(FString FunctionName)
 {	
 	if (Context)
 	{
-		auto ContextOwner = GetOuter();
-		auto ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(ContextOwner->GetClass());
+		UObject* ContextOwner = GetOuter();
+		UScriptBlueprintGeneratedClass* ScriptClass = UScriptBlueprintGeneratedClass::GetScriptGeneratedClass(ContextOwner->GetClass());
 		check(ScriptClass);
 		Context->PushScriptPropertyValues(ScriptClass, ContextOwner);
 		Context->CallFunction(FunctionName);

@@ -1,14 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "GraphEditorCommon.h"
-#include "Engine/Breakpoint.h"
-#include "SGraphNodeK2Base.h"
-#include "SGraphNodeK2Copy.h"
-#include "Editor/UnrealEd/Public/Kismet2/KismetDebugUtilities.h"
-#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "KismetNodeInfoContext.h"
-#include "IDocumentation.h"
-#include "TutorialMetaData.h"
+#include "KismetNodes/SGraphNodeK2Copy.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
+#include "GraphEditorSettings.h"
+#include "SGraphPin.h"
+#include "K2Node.h"
 
 // Pin stuff
 #include "SLevelOfDetailBranchNode.h"

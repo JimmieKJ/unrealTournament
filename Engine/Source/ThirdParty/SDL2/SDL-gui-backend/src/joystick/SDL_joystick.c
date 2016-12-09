@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -178,6 +178,7 @@ SDL_JoystickOpen(int device_index)
     if (joystick->buttons) {
         SDL_memset(joystick->buttons, 0, joystick->nbuttons * sizeof(Uint8));
     }
+    joystick->epowerlevel = SDL_JOYSTICK_POWER_UNKNOWN;
 
     /* Add joystick to list */
     ++joystick->ref_count;
@@ -373,6 +374,23 @@ SDL_JoystickInstanceID(SDL_Joystick * joystick)
 }
 
 /*
+ * Find the SDL_Joystick that owns this instance id
+ */
+SDL_Joystick *
+SDL_JoystickFromInstanceID(SDL_JoystickID joyid)
+{
+    SDL_Joystick *joystick = SDL_joysticks;
+    while (joystick) {
+        if (joystick->instance_id == joyid) {
+            return joystick;
+        }
+        joystick = joystick->next;
+    }
+
+    return NULL;
+}
+
+/*
  * Get the friendly name of this joystick
  */
 const char *
@@ -478,6 +496,71 @@ SDL_PrivateJoystickShouldIgnoreEvent()
 }
 
 /* These are global for SDL_sysjoystick.c and SDL_events.c */
+
+void SDL_PrivateJoystickAdded(int device_index)
+{
+#if !SDL_EVENTS_DISABLED
+    SDL_Event event;
+
+    event.type = SDL_JOYDEVICEADDED;
+
+    if (SDL_GetEventState(event.type) == SDL_ENABLE) {
+        event.jdevice.which = device_index;
+        if ( (SDL_EventOK == NULL) ||
+             (*SDL_EventOK) (SDL_EventOKParam, &event) ) {
+            SDL_PushEvent(&event);
+        }
+    }
+#endif /* !SDL_EVENTS_DISABLED */
+}
+
+/*
+ * If there is an existing add event in the queue, it needs to be modified
+ * to have the right value for which, because the number of controllers in
+ * the system is now one less.
+ */
+static void UpdateEventsForDeviceRemoval()
+{
+    int i, num_events;
+    SDL_Event *events;
+
+    num_events = SDL_PeepEvents(NULL, 0, SDL_PEEKEVENT, SDL_JOYDEVICEADDED, SDL_JOYDEVICEADDED);
+    if (num_events <= 0) {
+        return;
+    }
+
+    events = SDL_stack_alloc(SDL_Event, num_events);
+    if (!events) {
+        return;
+    }
+
+    num_events = SDL_PeepEvents(events, num_events, SDL_GETEVENT, SDL_JOYDEVICEADDED, SDL_JOYDEVICEADDED);
+    for (i = 0; i < num_events; ++i) {
+        --events[i].jdevice.which;
+    }
+    SDL_PeepEvents(events, num_events, SDL_ADDEVENT, 0, 0);
+
+    SDL_stack_free(events);
+}
+
+void SDL_PrivateJoystickRemoved(SDL_JoystickID device_instance)
+{
+#if !SDL_EVENTS_DISABLED
+    SDL_Event event;
+
+    event.type = SDL_JOYDEVICEREMOVED;
+
+    if (SDL_GetEventState(event.type) == SDL_ENABLE) {
+        event.jdevice.which = device_instance;
+        if ( (SDL_EventOK == NULL) ||
+             (*SDL_EventOK) (SDL_EventOKParam, &event) ) {
+            SDL_PushEvent(&event);
+        }
+    }
+
+    UpdateEventsForDeviceRemoval();
+#endif /* !SDL_EVENTS_DISABLED */
+}
 
 int
 SDL_PrivateJoystickAxis(SDL_Joystick * joystick, Uint8 axis, Sint16 value)
@@ -619,10 +702,10 @@ SDL_PrivateJoystickButton(SDL_Joystick * joystick, Uint8 button, Uint8 state)
     /* Make sure we're not getting garbage or duplicate events */
     if (button >= joystick->nbuttons) {
         return 0;
-	}
-	if (state == joystick->buttons[button]) {
-		return 0;
-	}
+    }
+    if (state == joystick->buttons[button]) {
+        return 0;
+    }
 
     /* We ignore events if we don't have keyboard focus, except for button
      * release. */
@@ -669,14 +752,17 @@ SDL_JoystickUpdate(void)
             int i;
 
             /* Tell the app that everything is centered/unpressed...  */
-            for (i = 0; i < joystick->naxes; i++)
+            for (i = 0; i < joystick->naxes; i++) {
                 SDL_PrivateJoystickAxis(joystick, i, 0);
+            }
 
-            for (i = 0; i < joystick->nbuttons; i++)
+            for (i = 0; i < joystick->nbuttons; i++) {
                 SDL_PrivateJoystickButton(joystick, i, 0);
+            }
 
-            for (i = 0; i < joystick->nhats; i++)
+            for (i = 0; i < joystick->nhats; i++) {
                 SDL_PrivateJoystickHat(joystick, i, SDL_HAT_CENTERED);
+            }
 
             joystick->force_recentering = SDL_FALSE;
         }
@@ -819,6 +905,23 @@ SDL_JoystickGUID SDL_JoystickGetGUIDFromString(const char *pchGUID)
     }
 
     return guid;
+}
+
+
+/* update the power level for this joystick */
+void SDL_PrivateJoystickBatteryLevel(SDL_Joystick * joystick, SDL_JoystickPowerLevel ePowerLevel)
+{
+    joystick->epowerlevel = ePowerLevel;
+}
+
+
+/* return its power level */
+SDL_JoystickPowerLevel SDL_JoystickCurrentPowerLevel(SDL_Joystick * joystick)
+{
+    if (!SDL_PrivateJoystickValid(joystick)) {
+        return (SDL_JOYSTICK_POWER_UNKNOWN);
+    }
+    return joystick->epowerlevel;
 }
 
 

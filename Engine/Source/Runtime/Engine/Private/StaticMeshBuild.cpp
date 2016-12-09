@@ -4,15 +4,19 @@
 	StaticMeshBuild.cpp: Static mesh building.
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "CoreMinimal.h"
+#include "Serialization/BulkData.h"
+#include "Components/StaticMeshComponent.h"
+#include "GenericOctreePublic.h"
+#include "GenericOctree.h"
+#include "Engine/StaticMesh.h"
+#include "UObject/UObjectIterator.h"
 #include "StaticMeshResources.h"
 #include "PhysicsEngine/BodySetup.h"
 
 #if WITH_EDITOR
-#include "RawMesh.h"
-#include "MeshUtilities.h"
-#include "TargetPlatform.h"
-#include "GenericOctree.h"
+#include "Misc/FeedbackContext.h"
+#include "Misc/App.h"
 #endif // #if WITH_EDITOR
 
 #define LOCTEXT_NAMESPACE "StaticMeshEditor"
@@ -92,8 +96,13 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 	// Free existing render data and recache.
 	CacheDerivedData();
 
-	// Reinitialize the static mesh's resources.
-	InitResources();
+	// Note: meshes can be built during automated importing.  We should not create resources in that case
+	// as they will never be released when this object is deleted
+	if(FApp::CanEverRender())
+	{
+		// Reinitialize the static mesh's resources.
+		InitResources();
+	}
 
 	// Ensure we have a bodysetup.
 	CreateBodySetup();
@@ -141,7 +150,7 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 		const uint32 NumLODs = RenderData->LODResources.Num();
 		for (TObjectIterator<UStaticMeshComponent> It; It; ++It)
 		{
-			if ( It->StaticMesh == this )
+			if ( It->GetStaticMesh() == this )
 			{
 				It->FixupOverrideColorsIfNecessary(true);
 				It->InvalidateLightingCache();
@@ -534,18 +543,18 @@ void UStaticMesh::FixupZeroTriangleSections()
 		// Remap the materials array if needed.
 		if (bRemapMaterials)
 		{
-			TArray<UMaterialInterface*> OldMaterials;
-			Exchange(Materials,OldMaterials);
-			Materials.Empty(MaterialMap.Num());
+			TArray<FStaticMaterial> OldMaterials;
+			Exchange(StaticMaterials,OldMaterials);
+			StaticMaterials.Empty(MaterialMap.Num());
 			for (int32 MaterialIndex = 0; MaterialIndex < MaterialMap.Num(); ++MaterialIndex)
 			{
-				UMaterialInterface* Material = NULL;
+				FStaticMaterial StaticMaterial;
 				int32 OldMaterialIndex = MaterialMap[MaterialIndex];
 				if (OldMaterials.IsValidIndex(OldMaterialIndex))
 				{
-					Material = OldMaterials[OldMaterialIndex];
+					StaticMaterial = OldMaterials[OldMaterialIndex];
 				}
-				Materials.Add(Material);
+				StaticMaterials.Add(StaticMaterial);
 			}
 		}
 	}
@@ -577,19 +586,19 @@ void UStaticMesh::FixupZeroTriangleSections()
 
 		// NULL references to materials in indices that are not used by any LOD.
 		// This is to fix up an import bug which caused more materials to be added to this array than needed.
-		for ( int32 MaterialIdx = 0; MaterialIdx < Materials.Num(); ++MaterialIdx )
+		for ( int32 MaterialIdx = 0; MaterialIdx < StaticMaterials.Num(); ++MaterialIdx )
 		{
 			if ( !DiscoveredMaterialIndices.Contains(MaterialIdx) )
 			{
 				// Materials that are not used by any LOD resource should not be in this array.
-				Materials[MaterialIdx] = NULL;
+				StaticMaterials[MaterialIdx].MaterialInterface = nullptr;
 			}
 		}
 
 		// Remove entries at the end of the materials array.
-		if (Materials.Num() > (FoundMaxMaterialIndex + 1))
+		if (StaticMaterials.Num() > (FoundMaxMaterialIndex + 1))
 		{
-			Materials.RemoveAt(FoundMaxMaterialIndex+1, Materials.Num() - FoundMaxMaterialIndex - 1);
+			StaticMaterials.RemoveAt(FoundMaxMaterialIndex+1, StaticMaterials.Num() - FoundMaxMaterialIndex - 1);
 		}
 	}
 }

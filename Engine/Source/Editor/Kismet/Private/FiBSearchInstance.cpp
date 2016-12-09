@@ -1,5 +1,4 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "BlueprintEditorPrivatePCH.h"
 #include "FiBSearchInstance.h"
 
 /** All operators when evaluating FiB searched expressions must return this token, it helps to manage

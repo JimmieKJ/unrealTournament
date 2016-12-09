@@ -2,6 +2,10 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "K2Node.h"
 #include "K2Node_SetVariableOnPersistentFrame.generated.h"
 
 /*

@@ -1,11 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "EnvironmentQuery/EnvQueryGenerator.h"
 #include "EnvQueryGenerator_Composite.generated.h"
-
-class UEnvQueryGenerator;
-struct FEnvQueryInstance;
 
 /**
  * Composite generator allows using multiple generators in single query option

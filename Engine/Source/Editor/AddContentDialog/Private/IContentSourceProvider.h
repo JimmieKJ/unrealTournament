@@ -2,7 +2,8 @@
 
 #pragma once
 
-class IContentSource;
+#include "CoreMinimal.h"
+#include "IContentSource.h"
 
 /** Defines methods for an object which provides IContentSource objects for use with the SAddContentDialog. */
 class IContentSourceProvider

@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "BehaviorTreeEditorModule.h"
+#include "BehaviorTreeDecoratorGraph.h"
+#include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTree/BTCompositeNode.h"
+#include "BehaviorTreeDecoratorGraphNode.h"
+#include "BehaviorTreeDecoratorGraphNode_Decorator.h"
+#include "BehaviorTreeDecoratorGraphNode_Logic.h"
+#include "EdGraphSchema_BehaviorTreeDecorator.h"
 
 //////////////////////////////////////////////////////////////////////////
 // BehaviorTreeGraph

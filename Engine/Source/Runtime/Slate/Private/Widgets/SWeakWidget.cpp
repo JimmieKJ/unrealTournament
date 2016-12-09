@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
+#include "Widgets/SWeakWidget.h"
+#include "Types/PaintArgs.h"
+#include "Layout/ArrangedChildren.h"
 
 
 SWeakWidget::SWeakWidget()

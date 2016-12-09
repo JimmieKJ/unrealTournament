@@ -2,15 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
+#include "IMessageContext.h"
+#include "IMessageRpcCall.h"
 #include "IMessageRpcClient.h"
 
-
 class FMessageEndpoint;
-struct FMessageRpcCancel;
 struct FMessageRpcProgress;
-class IMessageContext;
-class IMessageRpcCall;
-
 
 /**
  * Implements an RPC client.
@@ -28,11 +27,11 @@ public:
 
 public:
 
-	// IMessageRpcClient interface
+	//~ IMessageRpcClient interface
 
-	virtual bool IsConnected() const override;
 	virtual void Connect(const FMessageAddress& InServerAddress) override;
 	virtual void Disconnect() override;
+	virtual bool IsConnected() const override;
 
 protected:
 
@@ -53,19 +52,20 @@ protected:
 
 protected:
 
-	// IMessageRpcClient interface
+	//~ IMessageRpcClient interface
 
 	virtual void AddCall(const TSharedRef<IMessageRpcCall>& Call) override;
 	virtual void CancelCall(const FGuid& CallId) override;
 
 private:
 
-	/** Handles FMessageRpcProgress messages. */
+	/** Callback for FMessageRpcProgress messages. */
 	void HandleProgressMessage(const FMessageRpcProgress& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	void HandleMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
+	/** Callback for handling all message types. */
+	void HandleRpcMessages(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
-	/** Handles the ticker. */
+	/** Callback for the ticker. */
 	bool HandleTicker(float DeltaTime);
 
 private:

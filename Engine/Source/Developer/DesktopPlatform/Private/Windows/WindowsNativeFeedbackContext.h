@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/FeedbackContext.h"
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 #include <CommCtrl.h>
 

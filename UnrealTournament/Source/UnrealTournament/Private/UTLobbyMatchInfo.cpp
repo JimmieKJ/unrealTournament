@@ -627,7 +627,7 @@ void AUTLobbyMatchInfo::OnRep_InitialMap()
 void AUTLobbyMatchInfo::SetRedirects()
 {
 	// Copy any required redirects in to match info.  The UI will pickup on the replication and pull them.
-	AUTBaseGameMode* BaseGame = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
+	AUTBaseGameMode* BaseGame = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 	if (BaseGame != NULL)
 	{
 		Redirects.Empty();

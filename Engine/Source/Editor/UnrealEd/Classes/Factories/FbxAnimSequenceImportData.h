@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Factories/FbxAssetImportData.h"
 #include "FbxAnimSequenceImportData.generated.h"
+
+class UAnimSequence;
+struct FPropertyChangedEvent;
 
 /**
 * I know these descriptions don't make sense, but the functions I use act a bit different depending on situation.
@@ -30,7 +37,11 @@ UCLASS()
 class UNREALED_API UFbxAnimSequenceImportData : public UFbxAssetImportData
 {
 	GENERATED_UCLASS_BODY()
-
+	
+	/** If checked, meshes nested in bone hierarchies will be imported instead of being converted to bones. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = ImportSettings, meta = (ImportType = "Animation"))
+	bool bImportMeshesInBoneHierarchy;
+	
 	/** Which animation range to import. The one defined at Exported, at Animated time or define a range manually */
 	UPROPERTY(EditAnywhere, Category = ImportSettings, config, meta = (DisplayName = "Animation Length"))
 	TEnumAsByte<enum EFBXAnimationLengthImportType> AnimationLength;

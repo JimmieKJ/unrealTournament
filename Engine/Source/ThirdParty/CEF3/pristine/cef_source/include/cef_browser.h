@@ -181,7 +181,7 @@ class CefBrowser : public virtual CefBase {
   /*--cef()--*/
   virtual void GetFrameNames(std::vector<CefString>& names) =0;
 
-  //
+  ///
   // Send a message to the specified |target_process|. Returns true if the
   // message was sent successfully.
   ///
@@ -231,6 +231,23 @@ class CefNavigationEntryVisitor : public virtual CefBase {
                      bool current,
                      int index,
                      int total) =0;
+};
+
+
+///
+// Callback interface for CefBrowserHost::PrintToPDF. The methods of this class
+// will be called on the browser process UI thread.
+///
+/*--cef(source=client)--*/
+class CefPdfPrintCallback : public virtual CefBase {
+ public:
+  ///
+  // Method that will be executed when the PDF printing has completed. |path|
+  // is the output path. |ok| will be true if the printing completed
+  // successfully or false otherwise.
+  ///
+  /*--cef()--*/
+  virtual void OnPdfPrintFinished(const CefString& path, bool ok) =0;
 };
 
 
@@ -390,6 +407,17 @@ class CefBrowserHost : public virtual CefBase {
   virtual void Print() =0;
 
   ///
+  // Print the current browser contents to the PDF file specified by |path| and
+  // execute |callback| on completion. The caller is responsible for deleting
+  // |path| when done. For PDF printing to work on Linux you must implement the
+  // CefPrintHandler::GetPdfPaperSize method.
+  ///
+  /*--cef(optional_param=callback)--*/
+  virtual void PrintToPDF(const CefString& path,
+                          const CefPdfPrintSettings& settings,
+                          CefRefPtr<CefPdfPrintCallback> callback) =0;
+
+  ///
   // Search for |searchText|. |identifier| can be used to have multiple searches
   // running simultaniously. |forward| indicates whether to search forward or
   // backward within the page. |matchCase| indicates whether the search should
@@ -428,7 +456,6 @@ class CefBrowserHost : public virtual CefBase {
   // Retrieve a snapshot of current navigation entries as values sent to the
   // specified visitor. If |current_only| is true only the current navigation
   // entry will be sent, otherwise all navigation entries will be sent.
-  ///
   ///
   /*--cef()--*/
   virtual void GetNavigationEntries(
@@ -554,6 +581,26 @@ class CefBrowserHost : public virtual CefBase {
   ///
   /*--cef()--*/
   virtual void NotifyMoveOrResizeStarted() =0;
+
+  ///
+  // Returns the maximum rate in frames per second (fps) that CefRenderHandler::
+  // OnPaint will be called for a windowless browser. The actual fps may be
+  // lower if the browser cannot generate frames at the requested rate. The
+  // minimum value is 1 and the maximum value is 60 (default 30). This method
+  // can only be called on the UI thread.
+  ///
+  /*--cef()--*/
+  virtual int GetWindowlessFrameRate() =0;
+
+  ///
+  // Set the maximum rate in frames per second (fps) that CefRenderHandler::
+  // OnPaint will be called for a windowless browser. The actual fps may be
+  // lower if the browser cannot generate frames at the requested rate. The
+  // minimum value is 1 and the maximum value is 60 (default 30). Can also be
+  // set at browser creation via CefBrowserSettings.windowless_frame_rate.
+  ///
+  /*--cef()--*/
+  virtual void SetWindowlessFrameRate(int frame_rate) =0;
 
   ///
   // Get the NSTextInputContext implementation for enabling IME on Mac when

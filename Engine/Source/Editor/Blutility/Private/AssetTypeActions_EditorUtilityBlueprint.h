@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "EditorUtilityBlueprint.h"
+#include "Toolkits/IToolkitHost.h"
 #include "AssetTypeActions_Base.h"
+
+class FMenuBuilder;
 
 class FAssetTypeActions_EditorUtilityBlueprint : public FAssetTypeActions_Base
 {

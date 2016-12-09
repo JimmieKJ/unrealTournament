@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "LightingMesh.h"
+#include "Mappings.h"
+
 namespace Lightmass
 {
 

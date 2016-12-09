@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 template<typename ArrayType, typename BoneIndexType>
 class TCustomBoneIndexArray : public TArray < ArrayType >
 {

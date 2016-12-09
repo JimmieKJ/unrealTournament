@@ -1,12 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MergePrivatePCH.h"
-#include "DiffUtils.h"
-#include "DiffResults.h"
-#include "GraphDiffControl.h"
-#include "SDockTab.h"
 #include "SMergeGraphView.h"
-#include "SKismetInspector.h"
+#include "Engine/Blueprint.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "EdGraph/EdGraph.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "GraphDiffControl.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "SMergeGraphView"
 

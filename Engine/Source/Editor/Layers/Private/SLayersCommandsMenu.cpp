@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LayersPrivatePCH.h"
 #include "SLayersCommandsMenu.h"
-#include "GenericCommands.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "LayersModule.h"
+#include "LayerCollectionViewCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 
 
 #define LOCTEXT_NAMESPACE "LayersCommands"

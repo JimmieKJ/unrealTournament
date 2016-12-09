@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ComponentVisualizersPrivatePCH.h"
-
 #include "ConstraintComponentVisualizer.h"
+
+#include "SceneManagement.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
 
 static const FColor	JointFrame1Color(255,0,0);

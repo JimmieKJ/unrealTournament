@@ -6,6 +6,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "PixelFormat.h"
+#include "SceneTypes.h"
+
+class FCanvas;
+class FLightmassMaterialProxy;
+class UMaterialInterface;
+class UTextureRenderTarget2D;
+struct FLightmassMaterialExportSettings;
+
 /** Forward declarations of Lightmass types */
 namespace Lightmass
 {

@@ -22,11 +22,6 @@ namespace UnrealBuildTool
 			{
 				throw new BuildException("HTML5 SDK is not installed; cannot use toolchain.");
 			}
-
-			// set some environment variable we'll need
-//			Environment.SetEnvironmentVariable("EMCC_DEBUG", "1");
-			Environment.SetEnvironmentVariable("EMCC_CORES", "8");
-			Environment.SetEnvironmentVariable("EMCC_OPTIMIZE_NORMALLY", "1");
 		}
 
 		public override void PreBuildSync()
@@ -34,10 +29,13 @@ namespace UnrealBuildTool
 			Log.TraceInformation("Setting Emscripten SDK ");
 			HTML5SDKInfo.SetupEmscriptenTemp();
 			HTML5SDKInfo.SetUpEmscriptenConfigFile();
-			// set some environment variable we'll need.
-			// Forces emcc to use our generated .emscripten config, not the one in the users home directory.
-			Environment.SetEnvironmentVariable("EM_CONFIG", HTML5SDKInfo.DOT_EMSCRIPTEN);
-			Environment.SetEnvironmentVariable("EM_CACHE", HTML5SDKInfo.EMSCRIPTEN_CACHE);
+
+			if (Environment.GetEnvironmentVariable("EMSDK") == null) // If env. var EMSDK is present, Emscripten is already configured by the developer
+			{
+				// If not using preset emsdk, configure our generated .emscripten config, instead of autogenerating one in the user's home directory.
+				Environment.SetEnvironmentVariable("EM_CONFIG", HTML5SDKInfo.DOT_EMSCRIPTEN);
+				Environment.SetEnvironmentVariable("EM_CACHE", HTML5SDKInfo.EMSCRIPTEN_CACHE);
+			}
 		}
 
 		static string GetSharedArguments_Global(CPPTargetConfiguration TargetConfiguration, string Architecture, bool bEnableShadowVariableWarning)
@@ -60,6 +58,9 @@ namespace UnrealBuildTool
 			// this hides the "warning : comparison of unsigned expression < 0 is always false" type warnings due to constant comparisons, which are possible with template arguments
 			Result += " -Wno-tautological-compare";
 			Result += " -Wno-inconsistent-missing-override"; // as of 1.35.0, overriding a member function but not marked as 'override' triggers warnings
+			Result += " -Wno-expansion-to-defined"; // 1.36.11
+			Result += " -Wno-undefined-var-template"; // 1.36.11
+			Result += " -Wno-nonportable-include-path"; // 1.36.11
 
 			// okay, in UE4, we'd fix the code for these, but in UE3, not worth it
 			Result += " -Wno-logical-op-parentheses"; // appErrorf triggers this
@@ -89,8 +90,15 @@ namespace UnrealBuildTool
 			// enable hardware accelerated and advanced instructions/functions
 //			Result += " -s USE_WEBGL2=1 -s FULL_ES3=1";
 			Result += " -s FULL_ES2=1";
-			Result += " -s SIMD=1";
-//			Result += " -s USE_PTHREADS=2"; // 2:polyfill -- SharedInt\d+Array available by ES7
+//			Result += " -msse";
+//			Result += " -msse2";
+//			Result += " -s SIMD=1";
+//			Result += " -s USE_PTHREADS=1"; // 2:polyfill -- SharedInt\d+Array available by ES7
+
+			// THESE ARE TEST/DEBUGGING
+//			Environment.SetEnvironmentVariable("EMCC_DEBUG", "1");
+//			Environment.SetEnvironmentVariable("EMCC_CORES", "8");
+//			Environment.SetEnvironmentVariable("EMCC_OPTIMIZE_NORMALLY", "1");
 
 			// export console command handler. Export main func too because default exports ( e.g Main ) are overridden if we use custom exported functions.
 			Result += " -s EXPORTED_FUNCTIONS=\"['_main', '_on_fatal']\"";
@@ -109,25 +117,28 @@ namespace UnrealBuildTool
 
 		static string GetCLArguments_Global(CPPEnvironment CompileEnvironment)
 		{
-			string Result = GetSharedArguments_Global(CompileEnvironment.Config.Target.Configuration, CompileEnvironment.Config.Target.Architecture, CompileEnvironment.Config.bEnableShadowVariableWarning);
+			string Result = GetSharedArguments_Global(CompileEnvironment.Config.Configuration, CompileEnvironment.Config.Architecture, CompileEnvironment.Config.bEnableShadowVariableWarning);
 
-			if (CompileEnvironment.Config.Target.Architecture != "-win32")  // ! simulator
+			if (CompileEnvironment.Config.Architecture != "-win32")  // ! simulator
 			{
 				// do we want debug info?
-				/*			if (CompileEnvironment.Config.bCreateDebugInfo)
-							{
-								 Result += " -g";
-							}*/
+//				if (CompileEnvironment.Config.bCreateDebugInfo)
+//				{
+//					Result += " -g";
+//
+//					// dump headers: http://stackoverflow.com/questions/42308/tool-to-track-include-dependencies
+//					Result += " -H";
+//				}
 
 //				Result += " -Wno-warn-absolute-paths "; // as of emscripten 1.35.0 complains that this is unknown
 				Result += " -Wno-reorder"; // we disable constructor order warnings.
 
-				if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug || CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Development)
+				if (CompileEnvironment.Config.Configuration == CPPTargetConfiguration.Debug || CompileEnvironment.Config.Configuration == CPPTargetConfiguration.Development)
 				{
 					Result += " -s GL_ASSERTIONS=1";
 				}
 
-				if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug)
+				if (!CompileEnvironment.Config.bOptimizeCode)
 				{
 					Result += " -O0";
 				}
@@ -143,11 +154,11 @@ namespace UnrealBuildTool
 					{
 						Result += " -s OUTLINING_LIMIT=110000";
 
-						if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Development)
+						if (CompileEnvironment.Config.Configuration == CPPTargetConfiguration.Development)
 						{
 							Result += " -O2";
-						}
-						if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Shipping)
+                        }
+						if (CompileEnvironment.Config.Configuration == CPPTargetConfiguration.Shipping)
 						{
 							Result += " -O3";
 						}
@@ -162,7 +173,7 @@ namespace UnrealBuildTool
 		{
 			string Result = "";
 
-			if (CompileEnvironment.Config.Target.Architecture != "-win32") // ! simulator
+			if (CompileEnvironment.Config.Architecture != "-win32") // ! simulator
 			{
 				Result = " -std=c++11";
 			}
@@ -178,9 +189,9 @@ namespace UnrealBuildTool
 
 		static string GetLinkArguments(LinkEnvironment LinkEnvironment)
 		{
-			string Result = GetSharedArguments_Global(LinkEnvironment.Config.Target.Configuration, LinkEnvironment.Config.Target.Architecture, false);
+			string Result = GetSharedArguments_Global(LinkEnvironment.Config.Configuration, LinkEnvironment.Config.Architecture, false);
 
-			if (LinkEnvironment.Config.Target.Architecture != "-win32") // ! simulator
+			if (LinkEnvironment.Config.Architecture != "-win32") // ! simulator
 			{
 				// suppress link time warnings
 				Result += " -Wno-ignored-attributes"; // function alias that always gets resolved
@@ -190,7 +201,7 @@ namespace UnrealBuildTool
 				// enable verbose mode
 				Result += " -v";
 
-				if (LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug || LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Development)
+				if (LinkEnvironment.Config.Configuration == CPPTargetConfiguration.Debug || LinkEnvironment.Config.Configuration == CPPTargetConfiguration.Development)
 				{
 					// check for alignment/etc checking
 //					Result += " -s SAFE_HEAP=1";
@@ -201,7 +212,7 @@ namespace UnrealBuildTool
 					Result += " -s ASSERTIONS=1";
 				}
 
-				if (LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug)
+				if (LinkEnvironment.Config.Configuration == CPPTargetConfiguration.Debug)
 				{
 					Result += " -O0";
 				}
@@ -217,11 +228,11 @@ namespace UnrealBuildTool
 					{
 						Result += " -s OUTLINING_LIMIT=110000";
 
-						if (LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Development)
+						if (LinkEnvironment.Config.Configuration == CPPTargetConfiguration.Development)
 						{
 							Result += " -O2";
 						}
-						if (LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Shipping)
+						if (LinkEnvironment.Config.Configuration == CPPTargetConfiguration.Shipping)
 						{
 							Result += " -O3";
 						}
@@ -229,6 +240,7 @@ namespace UnrealBuildTool
 				}
 
 				Result += " -s CASE_INSENSITIVE_FS=1";
+//				Result += " -s EVAL_CTORS=1";
 			}
 
 			return Result;
@@ -238,7 +250,7 @@ namespace UnrealBuildTool
 		{
 			string Result = "";
 
-			if (LinkEnvironment.Config.Target.Architecture == "-win32") // simulator
+			if (LinkEnvironment.Config.Architecture == "-win32") // simulator
 			{
 				// Prevents the linker from displaying its logo for each invocation.
 				Result += " /NOLOGO";
@@ -255,7 +267,7 @@ namespace UnrealBuildTool
 				//
 				//	Shipping & LTCG
 				//
-				if (LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Shipping)
+				if (LinkEnvironment.Config.Configuration == CPPTargetConfiguration.Shipping)
 				{
 					// Use link-time code generation.
 					Result += " /ltcg";
@@ -315,11 +327,11 @@ namespace UnrealBuildTool
 			Log.TraceInformation(Output);				// To preserve readable output log
 		}
 
-		public override CPPOutput CompileCPPFiles(UEBuildTarget Target, CPPEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName)
+		public override CPPOutput CompileCPPFiles(CPPEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName, ActionGraph ActionGraph)
 		{
-			if (CompileEnvironment.Config.Target.Architecture == "-win32") // simulator
+			if (CompileEnvironment.Config.Architecture == "-win32") // simulator
 			{
-				return base.CompileCPPFiles(Target, CompileEnvironment, SourceFiles, ModuleName);
+				return base.CompileCPPFiles(CompileEnvironment, SourceFiles, ModuleName, ActionGraph);
 			}
 
 			string Arguments = GetCLArguments_Global(CompileEnvironment);
@@ -348,15 +360,15 @@ namespace UnrealBuildTool
 				Arguments += string.Format(" -D__EMSCRIPTEN_TRACING__");
 			}
 
-			var BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(CompileEnvironment.Config.Target.Platform);
+			var BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(CompileEnvironment.Config.Platform);
 
 			foreach (FileItem SourceFile in SourceFiles)
 			{
-				Action CompileAction = new Action(ActionType.Compile);
+				Action CompileAction = ActionGraph.Add(ActionType.Compile);
 				bool bIsPlainCFile = Path.GetExtension(SourceFile.AbsolutePath).ToUpperInvariant() == ".C";
 
 				// Add the C++ source file and its included files to the prerequisite item list.
-				AddPrerequisiteSourceFile(Target, BuildPlatform, CompileEnvironment, SourceFile, CompileAction.PrerequisiteItems);
+				AddPrerequisiteSourceFile(BuildPlatform, CompileEnvironment, SourceFile, CompileAction.PrerequisiteItems);
 
 				// Add the source file path to the command-line.
 				string FileArguments = string.Format(" \"{0}\"", SourceFile.AbsolutePath);
@@ -374,7 +386,7 @@ namespace UnrealBuildTool
 				// Add C or C++ specific compiler arguments.
 				if (bIsPlainCFile)
 				{
-					FileArguments += GetCLArguments_C(CompileEnvironment.Config.Target.Architecture);
+					FileArguments += GetCLArguments_C(CompileEnvironment.Config.Architecture);
 				}
 				else
 				{
@@ -408,13 +420,13 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public override CPPOutput CompileRCFiles(UEBuildTarget Target, CPPEnvironment Environment, List<FileItem> RCFiles)
+		public override CPPOutput CompileRCFiles(CPPEnvironment Environment, List<FileItem> RCFiles, ActionGraph ActionGraph)
 		{
 			CPPOutput Result = new CPPOutput();
 
-			if (Environment.Config.Target.Architecture == "-win32") // simulator
+			if (Environment.Config.Architecture == "-win32") // simulator
 			{
-				return base.CompileRCFiles(Target, Environment, RCFiles);
+				return base.CompileRCFiles(Environment, RCFiles, ActionGraph);
 			}
 
 			return Result;
@@ -474,17 +486,17 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly)
+		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
 		{
-			if (LinkEnvironment.Config.Target.Architecture == "-win32") // simulator
+			if (LinkEnvironment.Config.Architecture == "-win32") // simulator
 			{
-				return base.LinkFiles(LinkEnvironment, bBuildImportLibraryOnly);
+				return base.LinkFiles(LinkEnvironment, bBuildImportLibraryOnly, ActionGraph);
 			}
 
 			FileItem OutputFile;
 
 			// Make the final javascript file
-			Action LinkAction = new Action(ActionType.Link);
+			Action LinkAction = ActionGraph.Add(ActionType.Link);
 
 			// ResponseFile lines.
 			List<string> ReponseLines = new List<string>();
@@ -553,7 +565,7 @@ namespace UnrealBuildTool
 			return OutputFile;
 		}
 
-		public override void CompileCSharpProject(CSharpEnvironment CompileEnvironment, FileReference ProjectFileName, FileReference DestinationFile)
+		public override void CompileCSharpProject(CSharpEnvironment CompileEnvironment, FileReference ProjectFileName, FileReference DestinationFile, ActionGraph ActionGraph)
 		{
 			throw new BuildException("HTML5 cannot compile C# files");
 		}

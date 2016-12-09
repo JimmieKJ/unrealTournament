@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "AllowWindowsPlatformTypes.h"
+#include "../WmfMediaPrivate.h"
 
+#if WMFMEDIA_SUPPORTED_PLATFORM
+
+#include "AllowWindowsPlatformTypes.h"
 
 namespace WmfMedia
 {
@@ -58,3 +61,5 @@ namespace WmfMedia
 
 
 #include "HideWindowsPlatformTypes.h"
+
+#endif

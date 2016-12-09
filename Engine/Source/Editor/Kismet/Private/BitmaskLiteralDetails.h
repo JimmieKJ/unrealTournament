@@ -2,9 +2,12 @@
 
 #pragma once
 
-#include "BlueprintEditorModule.h"
-#include "K2Node_BitmaskLiteral.h"
-#include "Editor/PropertyEditor/Public/PropertyEditing.h"
+#include "CoreMinimal.h"
+#include "Types/SlateEnums.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
+class UK2Node_BitmaskLiteral;
 
 /** Details customization for the "Make Bitmask Literal" node */
 class FBitmaskLiteralDetails : public IDetailCustomization

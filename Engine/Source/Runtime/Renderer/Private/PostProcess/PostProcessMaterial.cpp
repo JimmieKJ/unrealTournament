@@ -4,14 +4,14 @@
 	PostProcessMaterial.cpp: Post processing Material implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessMaterial.h"
-#include "PostProcessing.h"
-#include "PostProcessEyeAdaptation.h"
-#include "../../../Engine/Public/TileRendering.h"
+#include "PostProcess/PostProcessMaterial.h"
+#include "Materials/Material.h"
+#include "MaterialShaderType.h"
+#include "MaterialShader.h"
 #include "SceneUtils.h"
+#include "PostProcess/SceneRenderTargets.h"
+#include "PostProcess/SceneFilterRendering.h"
+#include "SceneRendering.h"
 
 enum class EPostProcessMaterialTarget
 {
@@ -119,6 +119,10 @@ public:
 		if (MaterialTarget == EPostProcessMaterialTarget::Mobile)
 		{
 			OutEnvironment.SetDefine(TEXT("POST_PROCESS_MATERIAL_BEFORE_TONEMAP"), (Material->GetBlendableLocation() != BL_AfterTonemapping) ? 1 : 0);
+		}
+		else
+		{
+			OutEnvironment.SetDefine(TEXT("POST_PROCESS_MATERIAL_OUTPUT_ALPHA"), (Material->GetBlendableOutputAlpha() ) ? 1 : 0);
 		}
 	}
 
@@ -233,7 +237,7 @@ void FRCPassPostProcessMaterial::Process(FRenderingCompositePassContext& Context
 
 	if( ViewFamily.RenderTarget->GetRenderTargetTexture() != DestRenderTarget.TargetableTexture )
 	{
-		Context.RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, View.ViewRect);
+		Context.RHICmdList.ClearColorTexture(DestRenderTarget.TargetableTexture, FLinearColor::Black, View.ViewRect);
 	}
 
 	Context.SetViewportAndCallRHI(View.ViewRect);

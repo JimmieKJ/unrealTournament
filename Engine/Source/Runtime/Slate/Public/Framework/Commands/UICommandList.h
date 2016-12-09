@@ -2,6 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Layout/Visibility.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandInfo.h"
+
+struct FKeyEvent;
+struct FPointerEvent;
 
 class SLATE_API FUICommandList
 	: public TSharedFromThis<FUICommandList>

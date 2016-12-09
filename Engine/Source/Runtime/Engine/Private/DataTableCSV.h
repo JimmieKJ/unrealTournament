@@ -2,9 +2,10 @@
 
 #pragma once
 
-#include "DataTableUtils.h"
+#include "CoreMinimal.h"
 
 class UDataTable;
+enum class EDataTableExportFlags : uint8;
 
 #if WITH_EDITOR
 

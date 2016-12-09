@@ -1,15 +1,33 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WorldBrowserPrivatePCH.h"
+#include "LevelCollectionModel.h"
+#include "Misc/PackageName.h"
+#include "AssetData.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FeedbackContext.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlModule.h"
+#include "Settings/EditorLoadingSavingSettings.h"
+#include "Engine/Selection.h"
+#include "EditorModeManager.h"
+#include "EditorModes.h"
+#include "FileHelpers.h"
+#include "EditorModeInterpolation.h"
+#include "ScopedTransaction.h"
+#include "EditorLevelUtils.h"
+#include "LevelCollectionCommands.h"
 #include "SourceControlWindows.h"
+#include "IAssetTools.h"
+#include "IAssetTypeActions.h"
 #include "AssetToolsModule.h"
 #include "EditorSupportDelegates.h"
 #include "Matinee/MatineeActor.h"
 
-#include "LevelCollectionModel.h"
 #include "ShaderCompiler.h"
-#include "Engine/LevelStreaming.h"
-#include "Engine/Selection.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
@@ -919,6 +937,24 @@ bool FLevelCollectionModel::IsSelectedLevelEditable() const
 	}
 	
 	return false;
+}
+
+bool FLevelCollectionModel::IsNewLightingScenarioState(bool bExistingState) const
+{
+	if (SelectedLevelsList.Num() == 1)
+	{
+		return SelectedLevelsList[0]->IsLightingScenario() != bExistingState;
+	}
+	
+	return false;
+}
+
+void FLevelCollectionModel::SetIsLightingScenario(bool bNewLightingScenario)
+{
+	if (SelectedLevelsList.Num() == 1)
+	{
+		SelectedLevelsList[0]->SetIsLightingScenario(bNewLightingScenario);
+	}
 }
 
 bool FLevelCollectionModel::AreAnySelectedLevelsDirty() const

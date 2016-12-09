@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "ObjectBase.h"
-
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 
 /**
  * Implements an object that buffers text.

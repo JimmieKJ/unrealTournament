@@ -2,9 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node_CallFunction.h"
+#include "BlueprintActionFilter.h"
 #include "K2Node_AnimGetter.generated.h"
 
+class FBlueprintActionDatabaseRegistrar;
+class UAnimBlueprint;
 class UAnimGraphNode_Base;
 class UAnimStateNodeBase;
 

@@ -1,9 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "STableViewBase.h"
-#include "TableViewTypeTraits.h"
 
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Styling/SlateTypes.h"
+#include "Framework/SlateDelegates.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/Views/ITypedTableView.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Framework/Views/TableViewTypeTraits.h"
+#include "Widgets/Views/STableRow.h"
+#include "Types/SlateConstants.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Framework/Layout/Overscroll.h"
 
 /**
  * A ListView widget observes an array of data items and creates visual representations of these items.
@@ -60,7 +74,7 @@ public:
 		, _ExternalScrollbar()
 		, _AllowOverscroll(EAllowOverscroll::Yes)
 		, _ConsumeMouseWheel( EConsumeMouseWheel::WhenScrollingPossible )
-		, _WheelScrollMultiplier( WheelScrollAmount )
+		, _WheelScrollMultiplier(GetGlobalScrollAmount())
 		, _HandleGamepadEvents( true )
 		{ }
 

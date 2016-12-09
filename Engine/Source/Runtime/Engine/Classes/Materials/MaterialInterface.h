@@ -2,17 +2,28 @@
 
 
 #pragma once
-#include "Engine/BlendableInterface.h"
-#include "Runtime/RHI/Public/RHIDefinitions.h"
-#include "Runtime/RenderCore/Public/RenderCommandFence.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
+#include "Engine/EngineTypes.h"
+#include "Misc/StringAssetReference.h"
+#include "UObject/ScriptMacros.h"
+#include "RenderCommandFence.h"
 #include "SceneTypes.h"
+#include "RHI.h"
+#include "Engine/BlendableInterface.h"
 #include "MaterialInterface.generated.h"
 
-class UMaterial;
-class FMaterialResource;
 class FMaterialCompiler;
-struct FPrimitiveViewRelevance;
+class FMaterialRenderProxy;
+class FMaterialResource;
+class UMaterial;
+class UPhysicalMaterial;
+class USubsurfaceProfile;
 class UTexture;
+struct FPrimitiveViewRelevance;
 
 enum EMaterialUsage
 {
@@ -46,6 +57,7 @@ struct ENGINE_API FMaterialRelevance
 	uint32 bUsesWorldPositionOffset : 1;
 	uint32 bDecal : 1;
 	uint32 bTranslucentSurfaceLighting : 1;
+	uint32 bUsesSceneDepth : 1;
 
 	/** Default constructor */
 	FMaterialRelevance()
@@ -132,6 +144,52 @@ struct FLightmassMaterialInterfaceSettings
 	{}
 };
 
+/** 
+ * This struct holds data about how a texture is sampled within a material.
+ */
+USTRUCT()
+struct FMaterialTextureInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	FMaterialTextureInfo() : SamplingScale(0), UVChannelIndex(INDEX_NONE)
+	{
+#if WITH_EDITORONLY_DATA
+		TextureIndex = INDEX_NONE;
+#endif
+	}
+
+	FMaterialTextureInfo(ENoInit) {}
+
+	/** The scale used when sampling the texture */
+	UPROPERTY()
+	float SamplingScale;
+
+	/** The coordinate index used when sampling the texture */
+	UPROPERTY()
+	int32 UVChannelIndex;
+
+	/** The texture name. Used for debugging and also to for quick matching of the entries. */
+	UPROPERTY()
+	FName TextureName;
+
+#if WITH_EDITORONLY_DATA
+	/** The reference to the texture, used to keep the TextureName valid even if it gets renamed. */
+	UPROPERTY()
+	FStringAssetReference TextureReference;
+
+	/** 
+	  * The texture index in the material resource the data was built from.
+	  * This must be transient as it depends on which shader map was used for the build.  
+	  */
+	UPROPERTY(transient)
+	int32 TextureIndex;
+#endif
+
+	/** Return whether the data is valid to be used */
+	ENGINE_API bool IsValid(bool bCheckTextureIndex = false) const; 
+};
+
 UCLASS(abstract, BlueprintType,MinimalAPI)
 class UMaterialInterface : public UObject, public IBlendableInterface
 {
@@ -151,11 +209,21 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Lightmass)
 	struct FLightmassMaterialInterfaceSettings LightmassSettings;
 
+#if WITH_EDITORONLY_DATA
+	/** Because of redirector, the texture names need to be resorted at each load in case they changed. */
+	UPROPERTY(transient)
+	bool bTextureStreamingDataSorted;
+#endif
+
+	/** Data used by the texture streaming to know how each texture is sampled by the material. Sorted by names for quick access. */
+	UPROPERTY()
+	TArray<FMaterialTextureInfo> TextureStreamingData;
+
 public:
 
 #if WITH_EDITORONLY_DATA
 	/** The mesh used by the material editor to preview the material.*/
-	UPROPERTY(EditAnywhere, Category=MaterialInterface, meta=(AllowedClasses="StaticMesh,SkeletalMesh", ExactClass="true"))
+	UPROPERTY(EditAnywhere, Category=Previewing, meta=(AllowedClasses="StaticMesh,SkeletalMesh", ExactClass="true"))
 	FStringAssetReference PreviewMesh;
 
 	/** Information for thumbnail rendering */
@@ -514,6 +582,7 @@ public:
 	ENGINE_API virtual EMaterialShadingModel GetShadingModel() const;
 	ENGINE_API virtual bool IsTwoSided() const;
 	ENGINE_API virtual bool IsDitheredLODTransition() const;
+	ENGINE_API virtual bool IsTranslucencyWritingCustomDepth() const;
 	ENGINE_API virtual bool IsMasked() const;
 	ENGINE_API virtual bool IsDeferredDecal() const;
 
@@ -563,10 +632,10 @@ public:
 
 #if WITH_EDITOR
 	/** Compiles a material property. */
-	ENGINE_API int32 CompileProperty(FMaterialCompiler* Compiler, EMaterialProperty Property);
+	ENGINE_API int32 CompileProperty(FMaterialCompiler* Compiler, EMaterialProperty Property, uint32 ForceCastFlags = 0);
 
 	/** Allows material properties to be compiled with the option of being overridden by the material attributes input. */
-	ENGINE_API virtual int32 CompilePropertyEx( class FMaterialCompiler* Compiler, EMaterialProperty Property );
+	ENGINE_API virtual int32 CompilePropertyEx( class FMaterialCompiler* Compiler, const FGuid& AttributeID );
 #endif // WITH_EDITOR
 
 	/** Get bitfield indicating which feature levels should be compiled by default */
@@ -593,12 +662,43 @@ public:
 		return SamplerTypeEnum; 
 	}
 
+	/** Return whether this material refer to any streaming textures. */
+	ENGINE_API bool UseAnyStreamingTexture() const;
+	/** Returns whether there is any streaming data in the component. */
+	FORCEINLINE bool HasTextureStreamingData() const { return TextureStreamingData.Num() != 0; }
+	/** Accessor to the data. */
+	FORCEINLINE const TArray<FMaterialTextureInfo>& GetTextureStreamingData() const { return TextureStreamingData; }
+	/** Set new texture streaming data. */
+	ENGINE_API void SetTextureStreamingData(const TArray<FMaterialTextureInfo>& InTextureStreamingData);
+
+	/**
+	* Returns the density of a texture in (LocalSpace Unit / Texture). Used for texture streaming metrics.
+	*
+	* @param TextureName			The name of the texture to get the data for.
+	* @param UVChannelData			The mesh UV density in (LocalSpace Unit / UV Unit).
+	* @return						The density, or zero if no data is available for this texture.
+	*/
+	ENGINE_API virtual float GetTextureDensity(FName TextureName, const struct FMeshUVChannelInfo& UVChannelData) const;
+
+	ENGINE_API virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
+
 protected:
+
+	/**
+	* Sort the texture streaming data by names to accelerate search. Only sorts if required.
+	*
+	* @param bForceSort			If true, force the operation even though the data might be already sorted.
+	* @param bFinalSort			If true, the means there won't be any other sort after. This allows to remove null entries (platform dependent).
+	*/
+	ENGINE_API void SortTextureStreamingData(bool bForceSort, bool bFinalSort);
 
 	/** Returns a bitfield indicating which feature levels should be compiled for rendering. GMaxRHIFeatureLevel is always present */
 	ENGINE_API uint32 GetFeatureLevelsToCompileForRendering() const;
 
 	void UpdateMaterialRenderProxy(FMaterialRenderProxy& Proxy);
+
+	/** Find entries within TextureStreamingData that match the given name. */
+	bool FindTextureStreamingDataIndexRange(FName TextureName, int32& LowerIndex, int32& HigherIndex) const;
 
 private:
 	/**

@@ -1,9 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "Dialogs/DlgPickAssetPath.h"
-#include "PackageTools.h"
-#include "ObjectTools.h"
+#include "Misc/MessageDialog.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/PackageName.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "EditorStyleSet.h"
+#include "Editor.h"
+#include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "DlgPickAssetPath"
@@ -112,11 +120,16 @@ void SDlgPickAssetPath::OnPathChange(const FString& NewPath)
 FReply SDlgPickAssetPath::OnButtonClick(EAppReturnType::Type ButtonID)
 {
 	UserResponse = ButtonID;
-
+	
 	if (ButtonID == EAppReturnType::Cancel || ValidatePackage())
 	{
 		// Only close the window if canceling or if the asset name is valid
 		RequestDestroyWindow();
+	}
+	else
+	{
+		// reset the user response in case the window is closed using 'x'.
+		UserResponse = EAppReturnType::Cancel;
 	}
 
 	return FReply::Handled();

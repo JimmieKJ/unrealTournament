@@ -1,11 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneSkeletalAnimationSection.h"
-#include "MovieSceneSkeletalAnimationTrack.h"
-#include "IMovieScenePlayer.h"
-#include "MovieSceneSkeletalAnimationTrackInstance.h"
-#include "Animation/AnimSequenceBase.h"
+#include "Tracks/MovieSceneSkeletalAnimationTrack.h"
+#include "Sections/MovieSceneSkeletalAnimationSection.h"
+#include "Compilation/MovieSceneCompilerRules.h"
 
 
 #define LOCTEXT_NAMESPACE "MovieSceneSkeletalAnimationTrack"
@@ -20,6 +17,8 @@ UMovieSceneSkeletalAnimationTrack::UMovieSceneSkeletalAnimationTrack(const FObje
 #if WITH_EDITORONLY_DATA
 	TrackTint = FColor(124, 15, 124, 65);
 #endif
+
+	EvalOptions.bEvaluateNearestSection = EvalOptions.bCanEvaluateNearestSection = true;
 }
 
 
@@ -31,7 +30,7 @@ void UMovieSceneSkeletalAnimationTrack::AddNewAnimation(float KeyTime, UAnimSequ
 	UMovieSceneSkeletalAnimationSection* NewSection = Cast<UMovieSceneSkeletalAnimationSection>(CreateNewSection());
 	{
 		NewSection->InitialPlacement(AnimationSections, KeyTime, KeyTime + AnimSequence->SequenceLength, SupportsMultipleRows());
-		NewSection->SetAnimSequence(AnimSequence);
+		NewSection->Params.Animation = AnimSequence;
 	}
 
 	AddSection(*NewSection);
@@ -55,11 +54,6 @@ TArray<UMovieSceneSection*> UMovieSceneSkeletalAnimationTrack::GetAnimSectionsAt
 
 /* UMovieSceneTrack interface
  *****************************************************************************/
-
-TSharedPtr<IMovieSceneTrackInstance> UMovieSceneSkeletalAnimationTrack::CreateInstance()
-{
-	return MakeShareable(new FMovieSceneSkeletalAnimationTrackInstance(*this)); 
-}
 
 
 const TArray<UMovieSceneSection*>& UMovieSceneSkeletalAnimationTrack::GetAllSections() const
@@ -115,7 +109,6 @@ TRange<float> UMovieSceneSkeletalAnimationTrack::GetSectionBoundaries() const
 
 	return TRange<float>::Hull(Bounds);
 }
-
 
 #if WITH_EDITORONLY_DATA
 

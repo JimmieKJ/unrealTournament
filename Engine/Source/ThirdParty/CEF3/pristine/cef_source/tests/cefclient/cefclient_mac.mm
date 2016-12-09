@@ -135,9 +135,14 @@ void AddMenuItem(NSMenu *menu, NSString* label, int idval) {
   AddMenuItem(testMenu, @"Zoom In",       ID_TESTS_ZOOM_IN);
   AddMenuItem(testMenu, @"Zoom Out",      ID_TESTS_ZOOM_OUT);
   AddMenuItem(testMenu, @"Zoom Reset",    ID_TESTS_ZOOM_RESET);
+  if (with_osr_) {
+    AddMenuItem(testMenu, @"Set FPS",          ID_TESTS_OSR_FPS);
+    AddMenuItem(testMenu, @"Set Scale Factor", ID_TESTS_OSR_DSF);
+  }
   AddMenuItem(testMenu, @"Begin Tracing", ID_TESTS_TRACING_BEGIN);
   AddMenuItem(testMenu, @"End Tracing",   ID_TESTS_TRACING_END);
   AddMenuItem(testMenu, @"Print",         ID_TESTS_PRINT);
+  AddMenuItem(testMenu, @"Print to PDF",  ID_TESTS_PRINT_TO_PDF);
   AddMenuItem(testMenu, @"Other Tests",   ID_TESTS_OTHER_TESTS);
   [testItem setSubmenu:testMenu];
   [menubar addItem:testItem];

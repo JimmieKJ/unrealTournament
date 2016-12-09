@@ -36,7 +36,7 @@ static MTLVertexFormat TranslateElementTypeToMTLType(EVertexElementType Type)
 
 }
 
-static uint32 TranslateElementTypeToSize(EVertexElementType Type)
+uint32 TranslateElementTypeToSize(EVertexElementType Type)
 {
 	switch (Type)
 	{
@@ -63,61 +63,39 @@ static uint32 TranslateElementTypeToSize(EVertexElementType Type)
 	};
 }
 
-static uint64 GetHash(MTLVertexDescriptor* VertexDesc)
-{
-	uint64 Hash = 0;
-	MTLVertexBufferLayoutDescriptorArray* Layouts = VertexDesc.layouts;
-	MTLVertexAttributeDescriptorArray* Attributes = VertexDesc.attributes;
-	check(Layouts && Attributes);
-	for (uint32 i = 0; i < MaxMetalStreams; i++)
-	{
-		MTLVertexBufferLayoutDescriptor* LayoutDesc = [Layouts objectAtIndexedSubscript:(NSUInteger)i];
-		if (LayoutDesc)
-		{
-			Hash = (Hash ^ GetTypeHash(uint64(LayoutDesc.stride | (LayoutDesc.stepFunction << 8) | (LayoutDesc.stepRate << 16)))) * MaxMetalStreams;
-		}
-		
-		MTLVertexAttributeDescriptor* AttrDesc = [Attributes objectAtIndexedSubscript:(NSUInteger)i];
-		if (AttrDesc)
-		{
-			Hash = (Hash ^ GetTypeHash(uint64(AttrDesc.offset | (AttrDesc.format << 8) | (AttrDesc.bufferIndex << 16)))) * MaxMetalStreams;
-		}
-	}
-	
-	return Hash;
-}
-
 FMetalHashedVertexDescriptor::FMetalHashedVertexDescriptor()
 : VertexDescHash(0)
 , VertexDesc(nil)
 {
 }
 
-FMetalHashedVertexDescriptor::FMetalHashedVertexDescriptor(MTLVertexDescriptor* Desc)
-: VertexDescHash(GetHash(Desc))
-, VertexDesc([Desc retain])
+FMetalHashedVertexDescriptor::FMetalHashedVertexDescriptor(MTLVertexDescriptor* Desc, uint32 Hash)
+: VertexDescHash(Hash)
+, VertexDesc(Desc)
 {
-	TRACK_OBJECT(STAT_MetalVertexDescriptorCount, VertexDesc);
 }
 
 FMetalHashedVertexDescriptor::FMetalHashedVertexDescriptor(FMetalHashedVertexDescriptor const& Other)
+: VertexDescHash(0)
+, VertexDesc(nil)
 {
 	operator=(Other);
 }
 
 FMetalHashedVertexDescriptor::~FMetalHashedVertexDescriptor()
 {
-	SafeReleaseMetalResource(VertexDesc);
+	[VertexDesc release];
 }
 
 FMetalHashedVertexDescriptor& FMetalHashedVertexDescriptor::operator=(FMetalHashedVertexDescriptor const& Other)
 {
 	if (this != &Other)
 	{
+		[Other.VertexDesc retain];
+		[VertexDesc release];
+		
 		VertexDescHash = Other.VertexDescHash;
 		VertexDesc = Other.VertexDesc;
-		[VertexDesc retain];
-		TRACK_OBJECT(STAT_MetalVertexDescriptorCount, VertexDesc);
 	}
 	return *this;
 }
@@ -139,7 +117,7 @@ bool FMetalHashedVertexDescriptor::operator==(FMetalHashedVertexDescriptor const
 				MTLVertexAttributeDescriptorArray* OtherAttributes = Other.VertexDesc.attributes;
 				check(Layouts && Attributes && OtherLayouts && OtherAttributes);
 				
-				for (uint32 i = 0; bEqual && i < MaxMetalStreams; i++)
+				for (uint32 i = 0; bEqual && i < MaxVertexElementCount; i++)
 				{
 					MTLVertexBufferLayoutDescriptor* LayoutDesc = [Layouts objectAtIndexedSubscript:(NSUInteger)i];
 					MTLVertexBufferLayoutDescriptor* OtherLayoutDesc = [OtherLayouts objectAtIndexedSubscript:(NSUInteger)i];
@@ -177,6 +155,7 @@ bool FMetalHashedVertexDescriptor::operator==(FMetalHashedVertexDescriptor const
 
 FMetalVertexDeclaration::FMetalVertexDeclaration(const FVertexDeclarationElementList& InElements)
 	: Elements(InElements)
+	, BaseHash(0)
 {
 	GenerateLayout(InElements);
 }
@@ -214,6 +193,9 @@ void FMetalVertexDeclaration::GenerateLayout(const FVertexDeclarationElementList
 	MTLVertexDescriptor* NewLayout = [[MTLVertexDescriptor alloc] init];
 	TRACK_OBJECT(STAT_MetalVertexDescriptorCount, NewLayout);
 
+	BaseHash = FCrc::MemCrc_DEPRECATED(InElements.GetData(),InElements.Num()*sizeof(FVertexElement));
+	uint32 StrideHash = 0;
+
 	TMap<uint32, uint32> BufferStrides;
 	for (uint32 ElementIndex = 0; ElementIndex < InElements.Num(); ElementIndex++)
 	{
@@ -221,6 +203,8 @@ void FMetalVertexDeclaration::GenerateLayout(const FVertexDeclarationElementList
 		
 		checkf(Element.Stride == 0 || Element.Offset + TranslateElementTypeToSize(Element.Type) <= Element.Stride, 
 			TEXT("Stream component is bigger than stride: Offset: %d, Size: %d [Type %d], Stride: %d"), Element.Offset, TranslateElementTypeToSize(Element.Type), (uint32)Element.Type, Element.Stride);
+
+		StrideHash ^= (Element.Stride << ElementIndex);
 
 		// Vertex & Constant buffers are set up in the same space, so add VB's from the top
 		uint32 ShaderBufferIndex = UNREAL_TO_METAL_BUFFER_INDEX(Element.StreamIndex);
@@ -233,7 +217,7 @@ void FMetalVertexDeclaration::GenerateLayout(const FVertexDeclarationElementList
 			MTLVertexStepFunction Function = (Element.Stride == 0 ? MTLVertexStepFunctionConstant : (Element.bUseInstanceIndex ? MTLVertexStepFunctionPerInstance : MTLVertexStepFunctionPerVertex));
 			uint32 StepRate = (Element.Stride == 0 ? 0 : 1);
 			// even with MTLVertexStepFunctionConstant, it needs a non-zero stride (not sure why)
-			uint32 Stride = (Element.Stride == 0 ? 4 : Element.Stride);
+			uint32 Stride = (Element.Stride == 0 ? TranslateElementTypeToSize(Element.Type) : Element.Stride);
 
 			// look for any unset strides coming from UE4 (this can be removed when all are fixed)
 			if (Element.Stride == 0xFFFF)
@@ -262,7 +246,5 @@ void FMetalVertexDeclaration::GenerateLayout(const FVertexDeclarationElementList
 		NewLayout.attributes[Element.AttributeIndex].bufferIndex = ShaderBufferIndex;
 	}
 	
-	Layout = FMetalHashedVertexDescriptor(NewLayout);
-	UNTRACK_OBJECT(STAT_MetalVertexDescriptorCount, NewLayout);
-	[NewLayout release];
+	Layout = FMetalHashedVertexDescriptor(NewLayout, (BaseHash ^ StrideHash));
 }

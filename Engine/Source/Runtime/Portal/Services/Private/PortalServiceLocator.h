@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-class IPortalServiceLocator;
+#include "CoreMinimal.h"
+
 class FTypeContainer;
+class IPortalServiceLocator;
 
 class FPortalServiceLocatorFactory
 {

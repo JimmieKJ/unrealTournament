@@ -1,8 +1,30 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "CorePrivatePCH.h"
-#include "TaskGraphInterfaces.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Math/NumericLimits.h"
+#include "Math/UnrealMathUtility.h"
+#include "HAL/UnrealMemory.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Logging/LogMacros.h"
+#include "Misc/ScopedEvent.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/SingleThreadRunnable.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/NoopCounter.h"
+#include "Misc/ScopeLock.h"
+#include "Containers/LockFreeList.h"
+#include "Templates/Function.h"
+#include "Stats/Stats.h"
+#include "Misc/CoreStats.h"
+#include "Math/RandomStream.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/App.h"
+#include "Containers/LockFreeFixedSizeAllocator.h"
+#include "Async/TaskGraphInterfaces.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTaskGraph, Log, All);
 
@@ -2500,9 +2522,12 @@ static FLockFreePointerListFIFOIntrusive<FGraphEventAndSmallTaskStorage> TheGrap
 
 #endif
 
+#define USE_NIEVE_GRAPH_EVENT_ALLOCTOR (0) // this is useful for tracking leaked handles
+
 FGraphEventRef FGraphEvent::CreateGraphEvent()
 {
 	GraphEventsInUse.Increment();
+#if !USE_NIEVE_GRAPH_EVENT_ALLOCTOR
 	FGraphEvent* Used =  TheGraphEventAllocator.Pop();
 	if (Used)
 	{
@@ -2516,13 +2541,16 @@ FGraphEventRef FGraphEvent::CreateGraphEvent()
 //		Used->LockFreePointerQueueNext = nullptr; // temp
 		return FGraphEventRef(Used);
 	}
+#endif
 	return FGraphEventRef(new FGraphEvent(false));
 }
 
 FGraphEvent* FGraphEvent::CreateGraphEventWithInlineStorage()
 {
 	GraphEventsWithInlineStorageInUse.Increment();
-	FGraphEventAndSmallTaskStorage* Used =  TheGraphEventWithInlineStorageAllocator.Pop();
+	FGraphEventAndSmallTaskStorage* Used;
+#if !USE_NIEVE_GRAPH_EVENT_ALLOCTOR
+	Used = TheGraphEventWithInlineStorageAllocator.Pop();
 	if (Used)
 	{
 		FPlatformMisc::MemoryBarrier();
@@ -2533,6 +2561,7 @@ FGraphEvent* FGraphEvent::CreateGraphEventWithInlineStorage()
 		checkThreadGraph(Used->bInline);
 	}
 	else
+#endif
 	{
 		Used = new FGraphEventAndSmallTaskStorage();
 	}
@@ -2547,12 +2576,20 @@ void FGraphEvent::Recycle(FGraphEvent* ToRecycle)
 	if (ToRecycle->bInline)
 	{
 		GraphEventsWithInlineStorageInUse.Decrement();
+#if USE_NIEVE_GRAPH_EVENT_ALLOCTOR
+		delete ToRecycle;
+#else
 		TheGraphEventWithInlineStorageAllocator.Push((FGraphEventAndSmallTaskStorage*)ToRecycle);
+#endif
 	}
 	else
 	{
 		GraphEventsInUse.Decrement();
+#if USE_NIEVE_GRAPH_EVENT_ALLOCTOR
+		delete ToRecycle;
+#else
 		TheGraphEventAllocator.Push(ToRecycle);
+#endif
 	}
 }
 
@@ -2649,10 +2686,12 @@ DECLARE_CYCLE_STAT(TEXT("FBroadcastTask"), STAT_FBroadcastTask, STATGROUP_TaskGr
 class FBroadcastTask
 {
 public:
-	FBroadcastTask(TFunction<void(ENamedThreads::Type CurrentThread)>& InFunction, ENamedThreads::Type InDesiredThread, FThreadSafeCounter* InStallForTaskThread)
+	FBroadcastTask(TFunction<void(ENamedThreads::Type CurrentThread)>& InFunction, ENamedThreads::Type InDesiredThread, FThreadSafeCounter* InStallForTaskThread, FEvent* InTaskEvent, FEvent* InCallerEvent)
 		: Function(InFunction)
 		, DesiredThread(InDesiredThread)
 		, StallForTaskThread(InStallForTaskThread)
+		, TaskEvent(InTaskEvent)
+		, CallerEvent(InCallerEvent)
 	{
 	}
 	ENamedThreads::Type GetDesiredThread()
@@ -2673,11 +2712,11 @@ public:
 		{
 			if (StallForTaskThread->Decrement())
 			{
-				// we wait for the others to finish here so that we do all task threads
-				while (StallForTaskThread->GetValue())
+				TaskEvent->Wait();
+			}
+			else
 				{
-					FPlatformProcess::SleepNoStats(.0002f);
-				}
+				CallerEvent->Trigger();
 			}
 		}
 	}
@@ -2685,10 +2724,11 @@ private:
 	TFunction<void(ENamedThreads::Type CurrentThread)> Function;
 	const ENamedThreads::Type DesiredThread;
 	FThreadSafeCounter* StallForTaskThread;
+	FEvent* TaskEvent;
+	FEvent* CallerEvent;
 };
 
-
-void FTaskGraphInterface::BroadcastSlow_OnlyUseForSpecialPurposes(bool bDoBackgroundThreads, TFunction<void(ENamedThreads::Type CurrentThread)>& Callback)
+void FTaskGraphInterface::BroadcastSlow_OnlyUseForSpecialPurposes(bool bDoTaskThreads, bool bDoBackgroundThreads, TFunction<void(ENamedThreads::Type CurrentThread)>& Callback)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FTaskGraphInterface_BroadcastSlow_OnlyUseForSpecialPurposes);
 	check(FPlatformTLS::GetCurrentThreadId() == GGameThreadId);
@@ -2699,72 +2739,90 @@ void FTaskGraphInterface::BroadcastSlow_OnlyUseForSpecialPurposes(bool bDoBackgr
 		return;
 	}
 
-	FThreadSafeCounter StallForTaskThread;
 
-	int32 Workers = FTaskGraphInterface::Get().GetNumWorkerThreads();
-	StallForTaskThread.Reset();
-	StallForTaskThread.Add(Workers * (1 + (bDoBackgroundThreads && ENamedThreads::bHasBackgroundThreads) + !!(ENamedThreads::bHasHighPriorityThreads)));
+	TArray<FEvent*> TaskEvents;
 
+	FEvent* MyEvent = nullptr;
 	FGraphEventArray TaskThreadTasks;
+	if (bDoTaskThreads)
 	{
+		MyEvent = FPlatformProcess::GetSynchEventFromPool(false);
+		FThreadSafeCounter StallForTaskThread;
 
-		for (int32 Index = 0; Index < Workers; Index++)
-		{
-			TaskThreadTasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyNormalThreadHiPriTask, &StallForTaskThread));
-		}
+		int32 Workers = FTaskGraphInterface::Get().GetNumWorkerThreads();
+		StallForTaskThread.Reset();
+		StallForTaskThread.Add(Workers * (1 + (bDoBackgroundThreads && ENamedThreads::bHasBackgroundThreads) + !!(ENamedThreads::bHasHighPriorityThreads)));
 
-	}
-	if (ENamedThreads::bHasHighPriorityThreads)
-	{
-		for (int32 Index = 0; Index < Workers; Index++)
+		TaskEvents.Reserve(StallForTaskThread.GetValue());
 		{
-			TaskThreadTasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyHiPriThreadHiPriTask, &StallForTaskThread));
+
+			for (int32 Index = 0; Index < Workers; Index++)
+			{
+				FEvent* TaskEvent = FPlatformProcess::GetSynchEventFromPool(false);
+				TaskEvents.Add(TaskEvent);
+				TaskThreadTasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyNormalThreadHiPriTask, &StallForTaskThread, TaskEvent, MyEvent));
+			}
+
 		}
-	}
-	if (bDoBackgroundThreads && ENamedThreads::bHasBackgroundThreads)
-	{
-		for (int32 Index = 0; Index < Workers; Index++)
+		if (ENamedThreads::bHasHighPriorityThreads)
 		{
-			TaskThreadTasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyBackgroundHiPriTask, &StallForTaskThread));
+			for (int32 Index = 0; Index < Workers; Index++)
+			{
+				FEvent* TaskEvent = FPlatformProcess::GetSynchEventFromPool(false);
+				TaskEvents.Add(TaskEvent);
+				TaskThreadTasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyHiPriThreadHiPriTask, &StallForTaskThread, TaskEvent, MyEvent));
+			}
 		}
+		if (bDoBackgroundThreads && ENamedThreads::bHasBackgroundThreads)
+		{
+			for (int32 Index = 0; Index < Workers; Index++)
+			{
+				FEvent* TaskEvent = FPlatformProcess::GetSynchEventFromPool(false);
+				TaskEvents.Add(TaskEvent);
+				TaskThreadTasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyBackgroundHiPriTask, &StallForTaskThread, TaskEvent, MyEvent));
+			}
+		}
+		check(TaskGraphImplementationSingleton);
+		check(USE_NEW_LOCK_FREE_LISTS);
 	}
+
+
 	FGraphEventArray Tasks;
-	STAT(Tasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::SetTaskPriority(ENamedThreads::StatsThread, ENamedThreads::HighTaskPriority), nullptr)););
+	STAT(Tasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::SetTaskPriority(ENamedThreads::StatsThread, ENamedThreads::HighTaskPriority), nullptr, nullptr, nullptr)););
 	if (GRHIThread)
 	{
-		Tasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::SetTaskPriority(ENamedThreads::RHIThread, ENamedThreads::HighTaskPriority), nullptr));
+		Tasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::SetTaskPriority(ENamedThreads::RHIThread, ENamedThreads::HighTaskPriority), nullptr, nullptr, nullptr));
 	}
 	if (ENamedThreads::RenderThread != ENamedThreads::GameThread)
 	{
-		Tasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::SetTaskPriority(ENamedThreads::RenderThread, ENamedThreads::HighTaskPriority), nullptr));
+		Tasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::SetTaskPriority(ENamedThreads::RenderThread, ENamedThreads::HighTaskPriority), nullptr, nullptr, nullptr));
 	}
-	Tasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::GameThread_Local, nullptr));
-	FTaskGraphInterface::Get().WaitUntilTasksComplete(Tasks, ENamedThreads::GameThread_Local);
-	bool bStartedThreads = false;
-	double StartTime = FPlatformTime::Seconds();
-	while (StallForTaskThread.GetValue())
+	Tasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::GameThread_Local, nullptr, nullptr, nullptr));
+	if (bDoTaskThreads)
 	{
-		FPlatformProcess::SleepNoStats(.0001f);
-		// this is probably not needed, but task are not generally tested to never miss a start
-		if (!bStartedThreads && FPlatformTime::Seconds() - StartTime > 0.5)
+		if (!MyEvent->Wait(3000))
 		{
-			bStartedThreads = true;
-			TaskGraphImplementationSingleton->StartAllTaskThreads(bDoBackgroundThreads);
-		}
-		else if (FPlatformTime::Seconds() - StartTime > 3.0)
-		{
-			StartTime = FPlatformTime::Seconds();
 			UE_LOG(LogTaskGraph, Error, TEXT("FTaskGraphInterface::BroadcastSlow_OnlyUseForSpecialPurposes Broadcast failed after three seconds"));
 		}
+		for (FEvent* TaskEvent : TaskEvents)
+		{
+			TaskEvent->Trigger();
+		}
+		FTaskGraphInterface::Get().WaitUntilTasksComplete(TaskThreadTasks, ENamedThreads::GameThread_Local);
+		for (FEvent* TaskEvent : TaskEvents)
+		{
+			FPlatformProcess::ReturnSynchEventToPool(TaskEvent);
+		}
+		FTaskGraphInterface::Get().WaitUntilTasksComplete(Tasks, ENamedThreads::GameThread_Local);
+		FPlatformProcess::ReturnSynchEventToPool(MyEvent);
 	}
-	FTaskGraphInterface::Get().WaitUntilTasksComplete(TaskThreadTasks, ENamedThreads::GameThread_Local);
 }
 
 
 
 // Benchmark
 
-#include "ParallelFor.h"
+#include "Async/ParallelFor.h"
 
 static FORCEINLINE void DoWork(void* Hash, FThreadSafeCounter& Counter, FThreadSafeCounter& Cycles, int32 Work)
 {

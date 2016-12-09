@@ -2,7 +2,18 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "PropertyNode.h"
+#include "IDetailsView.h"
+#include "AssetSelection.h"
+#include "Widgets/Layout/SScrollBar.h"
 #include "SDetailsViewBase.h"
+
+class AActor;
+class IDetailRootObjectCustomization;
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 class SDetailsView : public SDetailsViewBase

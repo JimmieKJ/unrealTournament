@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /** 
  * A non-UObject based structure used to pass data about a sound

@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UdpMessagingPrivatePCH.h"
-#include "AutomationTest.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+#include "Transport/UdpSerializedMessage.h"
+#include "Transport/UdpMessageSegmenter.h"
 
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUdpMessageSegmenterTest, "System.Core.Messaging.Transports.Udp.UdpMessageSegmenter", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::EngineFilter)
@@ -15,7 +17,7 @@ void RunSegmentationTest(FAutomationTestBase& Test, uint32 MessageSize, uint16 S
 	Test.AddLogItem(FString::Printf(TEXT("Segmenting message of size %i with %i segments of size %i..."), MessageSize, NumSegments, SegmentSize));
 
 	// create a large message to segment
-	FUdpSerializedMessageRef Message = MakeShareable(new FUdpSerializedMessage());
+	TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe> Message = MakeShareable(new FUdpSerializedMessage());
 
 	for (uint8 SegmentIndex = 0; SegmentIndex < NumSegments; ++SegmentIndex)
 	{
@@ -123,7 +125,9 @@ bool FUdpMessageSegmenterTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+
 void EmptyLinkFunctionForStaticInitializationUdpMessageSegmenterTest()
 {
-	// This function exists to prevent the object file containing this test from being excluded by the linker, because it has no publically referenced symbols.
+	// This function exists to prevent the object file containing this test from
+	// being excluded by the linker, because it has no publicly referenced symbols.
 }

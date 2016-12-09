@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Serialization/Archive.h"
+#include "Math/UnrealMathUtility.h"
 
 /** Various ways to interpolate TAlphaBlend. */
 enum EAlphaBlendType
@@ -54,6 +58,7 @@ FTAlphaBlend
 	/** Type of blending used (Linear, Cubic, etc.) */
 	uint8	BlendType;
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	// Constructor
 	FTAlphaBlend();
 
@@ -77,7 +82,6 @@ FTAlphaBlend
 	 *
 	 * @return Reference to the Archive after serialization.
 	 */
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	friend FArchive& operator<<(FArchive& Ar, FTAlphaBlend& AlphaBlend)
 	{
 		return Ar << AlphaBlend.AlphaIn << AlphaBlend.AlphaOut << AlphaBlend.AlphaTarget << AlphaBlend.BlendTime << AlphaBlend.BlendTimeToGo << AlphaBlend.BlendType;

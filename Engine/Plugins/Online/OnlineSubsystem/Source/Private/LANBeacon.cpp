@@ -1,10 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPrivatePCH.h"
 #include "LANBeacon.h"
-#include "Sockets.h"
-#include "IPAddress.h"
+#include "Misc/FeedbackContext.h"
+#include "UObject/CoreNet.h"
+#include "OnlineSubsystem.h"
 #include "SocketSubsystem.h"
+#include "Sockets.h"
 #include "NboSerializer.h"
 
 /** Sets the broadcast address for this object */

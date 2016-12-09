@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** A handle to a movie scene capture implementation */
 struct FMovieSceneCaptureHandle
 {

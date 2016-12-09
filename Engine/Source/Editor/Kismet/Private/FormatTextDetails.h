@@ -2,9 +2,18 @@
 
 #pragma once
 
-#include "BlueprintEditorModule.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "IDetailCustomization.h"
+#include "IDetailCustomNodeBuilder.h"
 
-#include "Editor/PropertyEditor/Public/PropertyEditing.h"
+class FDetailWidgetRow;
+class FFormatTextArgumentLayout;
+class FFormatTextLayout;
+class IDetailChildrenBuilder;
+class IDetailLayoutBuilder;
+class SEditableTextBox;
+class UK2Node_FormatText;
 
 /** Details customization for the "Format Text" node */
 class FFormatTextDetails : public IDetailCustomization

@@ -1,11 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "Misc/StringClassReference.h"
+#include "Templates/Casts.h"
 
-#include "StringClassReference.h"
-#include "PropertyTag.h"
 
-#include "StringReferenceTemplates.h"
+#include "Misc/StringReferenceTemplates.h"
 
 bool FStringClassReference::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar)
 {

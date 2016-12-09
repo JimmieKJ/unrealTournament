@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "SlateBasics.h"
+#include "Slate/SlateGameResources.h"
+#include "Curves/CurveBase.h"
+#include "Curves/CurveFloat.h"
+#include "AssetData.h"
+#include "Modules/ModuleManager.h"
+#include "Styling/SlateWidgetStyleAsset.h"
+#include "EngineUtils.h"
 #include "Slate/SlateBrushAsset.h"
 #include "AssetRegistryModule.h"
-#include "SlateGameResources.h"
-#include "MessageLog.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
 #include "Curves/CurveVector.h"
 #include "Curves/CurveLinearColor.h"
 
@@ -306,12 +311,6 @@ void FSlateGameResources::AddReferencedObjects( FReferenceCollector& Collector )
 
 	if ( !GIsEditor )
 	{
-		TArray< UObject* > Objects;
-		UIResources.GenerateValueArray( Objects );
-
-		for (int Index = 0; Index < Objects.Num(); Index++)
-		{
-			Collector.AddReferencedObject( Objects[Index] );
-		}
+		Collector.AddReferencedObjects( UIResources );
 	}
 }

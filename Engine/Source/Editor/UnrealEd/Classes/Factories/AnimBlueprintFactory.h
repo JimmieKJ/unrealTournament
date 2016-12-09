@@ -5,7 +5,12 @@
  */
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "Engine/Blueprint.h"
+#include "Factories/Factory.h"
 #include "AnimBlueprintFactory.generated.h"
 
 UCLASS(HideCategories=Object,MinimalAPI)

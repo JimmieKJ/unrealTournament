@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/ScaleBoxSlot.h"
+#include "Widgets/SNullWidget.h"
+#include "Components/Widget.h"
+#include "Widgets/Layout/SScaleBox.h"
 
 /////////////////////////////////////////////////////
 // UScaleBoxSlot

@@ -37,7 +37,7 @@ void MainCS(
 			Orientation = IntermediateAccumBufferUAV[Index + 6];
 
 			// clear input UAV to 0 again to avoid another Dispatch() call
-			UNROLL for(int i = 0; i < 7; ++i)
+			UNROLL for(int i = 0; i < INTERMEDIATE_ACCUM_BUFFER_NUM_INTS; ++i)
 			{
 				IntermediateAccumBufferUAV[Index + i] = 0;
 			}

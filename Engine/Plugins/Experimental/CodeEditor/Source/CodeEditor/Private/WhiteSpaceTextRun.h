@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "SlateTextRun.h"
+#include "CoreMinimal.h"
+#include "Framework/Text/SlateTextRun.h"
 
 class FWhiteSpaceTextRun : public FSlateTextRun
 {

@@ -6,6 +6,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "BuildPatchVerification.h"
+
+struct FChunkHeader;
+
 /**
  * Some utility functions
  */

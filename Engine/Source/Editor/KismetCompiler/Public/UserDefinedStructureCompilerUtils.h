@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "KismetCompiler.h"
+#include "CoreMinimal.h"
+
+class FCompilerResultsLog;
 
 class FUserDefinedStructureCompilerUtils
 {

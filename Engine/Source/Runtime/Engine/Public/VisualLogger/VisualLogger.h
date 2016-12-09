@@ -1,7 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "VisualLoggerTypes.h"
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/Object.h"
+#include "Engine/EngineTypes.h"
 #include "EngineDefines.h"
+#include "VisualLogger/VisualLoggerTypes.h"
 #include "EngineStats.h"
 
 #if ENABLE_VISUAL_LOG
@@ -118,6 +123,8 @@
 #define TEXT_TRUE TEXT("TRUE")
 #define TEXT_FALSE TEXT("FALSE")
 #define TEXT_CONDITION(Condition) ((Condition) ? TEXT_TRUE : TEXT_FALSE)
+
+class FVisualLogger;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogVisual, Display, All);
 

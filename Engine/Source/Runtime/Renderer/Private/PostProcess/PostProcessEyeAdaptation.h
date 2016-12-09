@@ -6,8 +6,11 @@
 
 #pragma once
 
-#include "RHIDefinitions.h"
-#include "RenderingCompositionGraph.h"
+#include "CoreMinimal.h"
+#include "HAL/IConsoleManager.h"
+#include "RendererInterface.h"
+#include "SceneRendering.h"
+#include "PostProcess/RenderingCompositionGraph.h"
 
 // Computes the eye-adaptation from HDRHistogram.
 // ePId_Input0: HDRHistogram or nothing

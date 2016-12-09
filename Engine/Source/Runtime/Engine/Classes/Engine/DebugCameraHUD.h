@@ -2,9 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "GameFramework/HUD.h"
 #include "DebugCameraHUD.generated.h"
-
 
 /**
  * HUD that displays info for the DebugCameraController view.

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Features/IModularFeature.h"
+
 class ILogVisualizer : public IModuleInterface, public IModularFeature
 {
 public:

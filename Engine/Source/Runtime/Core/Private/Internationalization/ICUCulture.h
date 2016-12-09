@@ -1,14 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#if UE_ENABLE_ICU
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Set.h"
+#include "Containers/Map.h"
+#include "Templates/SharedPointer.h"
 #include "Internationalization/Text.h"
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(push)
-	#pragma warning(disable:28251)
-	#pragma warning(disable:28252)
-	#pragma warning(disable:28253)
-#endif
+#include "Internationalization/Culture.h"
+
+struct FDecimalNumberFormattingRules;
+
+#if UE_ENABLE_ICU
+THIRD_PARTY_INCLUDES_START
 	#include <unicode/locid.h>
 	#include <unicode/brkiter.h>
 	#include <unicode/coll.h>
@@ -16,9 +21,7 @@
 	#include <unicode/decimfmt.h>
 	#include <unicode/datefmt.h>
 	#include <unicode/plurrule.h>
-#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(pop)
-#endif
+THIRD_PARTY_INCLUDES_END
 
 struct FDecimalNumberFormattingRules;
 

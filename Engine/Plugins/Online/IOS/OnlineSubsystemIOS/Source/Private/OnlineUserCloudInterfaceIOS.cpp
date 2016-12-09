@@ -2,6 +2,7 @@
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 #include "OnlineUserCloudInterfaceIOS.h"
+#include "HAL/PlatformProcess.h"
 
 @implementation IOSCloudStorage
 

@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "TextRange.h"
-#include "IRun.h"
 
-class ISlateRun;
+#include "CoreMinimal.h"
+#include "SlateGlobals.h"
+#include "Framework/Text/TextRange.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/ISlateRun.h"
+
+class ISlateStyle;
 
 #if WITH_FANCY_TEXT
 

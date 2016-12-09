@@ -2,22 +2,47 @@
 
 #pragma once
 
-#include "IFilter.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "Misc/Attribute.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/SlateDelegates.h"
+#include "Materials/MaterialInterface.h"
+#include "PropertyHandle.h"
 #include "IDetailCustomNodeBuilder.h"
-
-#include "FilterCollection.h"
+#include "DetailWidgetRow.h"
 #include "SResetToDefaultMenu.h"
 #include "ActorPickerMode.h"
 #include "SceneDepthPickerMode.h"
-#include "PropertyHandle.h"
-#include "DetailWidgetRow.h"
 
-namespace SceneOutliner { struct FOutlinerFilters; }
+class AActor;
+class FAssetData;
+class FAssetThumbnailPool;
+class FMaterialItemView;
+class FMaterialListBuilder;
+class FPropertyEditor;
+class IDetailChildrenBuilder;
+class IDetailLayoutBuilder;
+class IMaterialListBuilder;
+class SPropertyEditorAsset;
+class SPropertyEditorClass;
+class UFactory;
 
-DECLARE_DELEGATE_OneParam(FOnAssetSelected, const class FAssetData& /*AssetData*/);
-DECLARE_DELEGATE_RetVal_OneParam(bool, FOnShouldSetAsset, const class FAssetData& /*AssetData*/);
-DECLARE_DELEGATE_RetVal_OneParam(bool, FOnShouldFilterAsset, const class FAssetData& /*AssetData*/);
+namespace SceneOutliner
+{
+	struct FOutlinerFilters;
+}
+
+
+DECLARE_DELEGATE_OneParam(FOnAssetSelected, const FAssetData& /*AssetData*/);
+DECLARE_DELEGATE_RetVal_OneParam(bool, FOnShouldSetAsset, const FAssetData& /*AssetData*/);
+DECLARE_DELEGATE_RetVal_OneParam(bool, FOnShouldFilterAsset, const FAssetData& /*AssetData*/);
 DECLARE_DELEGATE_OneParam( FOnGetActorFilters, TSharedPtr<SceneOutliner::FOutlinerFilters>& );
+
 
 namespace PropertyCustomizationHelpers
 {
@@ -31,15 +56,16 @@ namespace PropertyCustomizationHelpers
 	PROPERTYEDITOR_API TSharedRef<SWidget> MakeUseSelectedButton( FSimpleDelegate OnUseSelectedClicked, TAttribute<FText> OptionalToolTipText = FText(), TAttribute<bool> IsEnabled = true );
 	PROPERTYEDITOR_API TSharedRef<SWidget> MakeBrowseButton( FSimpleDelegate OnClearClicked, TAttribute<FText> OptionalToolTipText = FText(), TAttribute<bool> IsEnabled = true );
 	PROPERTYEDITOR_API TSharedRef<SWidget> MakeAssetPickerAnchorButton( FOnGetAllowedClasses OnGetAllowedClasses, FOnAssetSelected OnAssetSelectedFromPicker );
-	PROPERTYEDITOR_API TSharedRef<SWidget> MakeAssetPickerWithMenu( const FAssetData& InitialObject, const bool AllowClear, const TArray<const UClass*>& AllowedClasses, const TArray<UFactory*>& NewAssetFactories, FOnShouldFilterAsset OnShouldFilterAsset, FOnAssetSelected OnSet, FSimpleDelegate OnClose );
+	PROPERTYEDITOR_API TSharedRef<SWidget> MakeAssetPickerWithMenu( const FAssetData& InitialObject, const bool AllowClear, const bool SearchInBlueprint, const TArray<const UClass*>& AllowedClasses, const TArray<UFactory*>& NewAssetFactories, FOnShouldFilterAsset OnShouldFilterAsset, FOnAssetSelected OnSet, FSimpleDelegate OnClose );
 	PROPERTYEDITOR_API TSharedRef<SWidget> MakeActorPickerAnchorButton( FOnGetActorFilters OnGetActorFilters, FOnActorSelected OnActorSelectedFromPicker );
 	PROPERTYEDITOR_API TSharedRef<SWidget> MakeActorPickerWithMenu( AActor* const InitialActor, const bool AllowClear, FOnShouldFilterActor ActorFilter, FOnActorSelected OnSet, FSimpleDelegate OnClose, FSimpleDelegate OnUseSelected );
 	PROPERTYEDITOR_API TSharedRef<SWidget> MakeInteractiveActorPicker(FOnGetAllowedClasses OnGetAllowedClasses, FOnShouldFilterActor OnShouldFilterActor, FOnActorSelected OnActorSelectedFromPicker);
 	PROPERTYEDITOR_API TSharedRef<SWidget> MakeSceneDepthPicker(FOnSceneDepthLocationSelected OnSceneDepthLocationSelected);
 	PROPERTYEDITOR_API TSharedRef<SWidget> MakeEditConfigHierarchyButton(FSimpleDelegate OnEditConfigClicked, TAttribute<FText> OptionalToolTipText = FText(), TAttribute<bool> IsEnabled = true);
+	PROPERTYEDITOR_API TSharedRef<SWidget> MakeDocumentationButton(const TSharedRef<FPropertyEditor>& InPropertyEditor);
 
 	/** @return the UBoolProperty edit condition property if one exists. */
-	PROPERTYEDITOR_API class UBoolProperty* GetEditConditionProperty(const class UProperty* InProperty, bool& bNegate);
+	PROPERTYEDITOR_API UBoolProperty* GetEditConditionProperty(const UProperty* InProperty, bool& bNegate);
 
 	/** Returns a list of factories which can be used to create new assets, based on the supplied class */
 	PROPERTYEDITOR_API TArray<UFactory*> GetNewAssetFactoriesForClasses(const TArray<const UClass*>& Classes);
@@ -48,11 +74,13 @@ namespace PropertyCustomizationHelpers
 	PROPERTYEDITOR_API TSharedRef<SWidget> MakeTextLocalizationButton(const TSharedRef<IPropertyHandle>& InPropertyHandle);
 }
 
+
 /** Delegate used to get a generic object */
 DECLARE_DELEGATE_RetVal( const UObject*, FOnGetObject );
 
 /** Delegate used to set a generic object */
 DECLARE_DELEGATE_OneParam( FOnSetObject, const FAssetData& );
+
 
 /**
  * Simulates an object property field 
@@ -63,9 +91,12 @@ class SObjectPropertyEntryBox : public SCompoundWidget
 public:
 	SLATE_BEGIN_ARGS( SObjectPropertyEntryBox )
 		: _AllowedClass( UObject::StaticClass() )
+		, _AllowActorPicker(true)
+		, _SearchInBlueprint(false)
 		, _AllowClear( true )
 		, _DisplayUseSelected( true )
 		, _DisplayBrowse( true )
+		, _EnableContentPicker(true)
 	{}
 		/** The path to the object */
 		SLATE_ATTRIBUTE( FString, ObjectPath )
@@ -75,6 +106,10 @@ public:
 		SLATE_ARGUMENT( TSharedPtr<FAssetThumbnailPool>, ThumbnailPool )
 		/** Class that is allowed in the asset picker */
 		SLATE_ARGUMENT( UClass*, AllowedClass )
+		/** Set to false indicate that even if we have an actor we want to open the asset picker not the actor picker */
+		SLATE_ARGUMENT(bool, AllowActorPicker)
+		/** Indicates whether we should filter using the blueprint parent class or ignore blueprint */
+		SLATE_ARGUMENT(bool, SearchInBlueprint)
 		/** Optional list of factories which may be used to create new assets */
 		SLATE_ARGUMENT( TOptional<TArray<UFactory*>>, NewAssetFactories )
 		/** Called to check if an asset should be set */
@@ -89,6 +124,8 @@ public:
 		SLATE_ARGUMENT(bool, DisplayUseSelected)
 		/** Whether to show the 'Browse' button */
 		SLATE_ARGUMENT(bool, DisplayBrowse)
+		/** Whether to enable the content Picker */
+		SLATE_ARGUMENT(bool, EnableContentPicker)
 	SLATE_END_ARGS()
 
 	PROPERTYEDITOR_API void Construct( const FArguments& InArgs );
@@ -111,11 +148,13 @@ private:
 	/** Handle to a property we modify (if any)*/
 	TSharedPtr<IPropertyHandle> PropertyHandle;
 	/** The widget used to edit the object 'property' */
-	TSharedPtr<class SPropertyEditorAsset> PropertyEditorAsset;
+	TSharedPtr<SPropertyEditorAsset> PropertyEditorAsset;
 };
+
 
 /** Delegate used to set a class */
 DECLARE_DELEGATE_OneParam( FOnSetClass, const UClass* );
+
 
 /**
  * Simulates a class property field 
@@ -151,14 +190,16 @@ public:
 
 private:
 	/** The widget used to edit the class 'property' */
-	TSharedPtr<class SPropertyEditorClass> PropertyEditorClass;
+	TSharedPtr<SPropertyEditorClass> PropertyEditorClass;
 };
+
 
 /**
  * Represents a widget that can display a UProperty 
  * With the ability to customize the look of the property                 
  */
-class SProperty : public SCompoundWidget
+class SProperty
+	: public SCompoundWidget
 {
 public:
 	DECLARE_DELEGATE( FOnPropertyValueChanged );
@@ -207,9 +248,11 @@ protected:
 	TSharedPtr<IPropertyHandle> PropertyHandle;
 };
 
+
 DECLARE_DELEGATE_ThreeParams( FOnGenerateArrayElementWidget, TSharedRef<IPropertyHandle>, int32, IDetailChildrenBuilder& );
 
-class FDetailArrayBuilder : public IDetailCustomNodeBuilder
+class FDetailArrayBuilder
+	: public IDetailCustomNodeBuilder
 {
 public:
 
@@ -316,13 +359,16 @@ public:
 	}
 
 protected:
+
 	virtual void SetOnRebuildChildren( FSimpleDelegate InOnRebuildChildren  ) override { OnRebuildChildren = InOnRebuildChildren; } 
 
 	void OnNumChildrenChanged()
 	{
 		OnRebuildChildren.ExecuteIfBound();
 	}
+
 private:
+
 	FText DisplayName;
 	FOnGenerateArrayElementWidget OnGenerateArrayElementWidgetDelegate;
 	TSharedPtr<IPropertyHandleArray> ArrayProperty;
@@ -333,10 +379,11 @@ private:
 	bool bDisplayElementNum;
 };
 
+
 /**
  * Delegate called when we need to get new materials for the list
  */
-DECLARE_DELEGATE_OneParam( FOnGetMaterials, class IMaterialListBuilder& );
+DECLARE_DELEGATE_OneParam(FOnGetMaterials, IMaterialListBuilder&);
 
 /**
  * Delegate called when a user changes the material
@@ -346,6 +393,8 @@ DECLARE_DELEGATE_FourParams( FOnMaterialChanged, UMaterialInterface*, UMaterialI
 DECLARE_DELEGATE_RetVal_TwoParams( TSharedRef<SWidget>, FOnGenerateWidgetsForMaterial, UMaterialInterface*, int32 );
 
 DECLARE_DELEGATE_TwoParams( FOnResetMaterialToDefaultClicked, UMaterialInterface*, int32 );
+
+DECLARE_DELEGATE_RetVal(bool, FOnMaterialListDirty);
 
 struct FMaterialListDelegates
 {
@@ -367,7 +416,10 @@ struct FMaterialListDelegates
 	FOnGenerateWidgetsForMaterial OnGenerateCustomMaterialWidgets;
 	/** Delegate called when a material list item should be reset to default */
 	FOnResetMaterialToDefaultClicked OnResetMaterialToDefaultClicked;
+	/** Delegate called when we tick the material list to know if the list is dirty*/
+	FOnMaterialListDirty OnMaterialListDirty;
 };
+
 
 /**
  * Builds up a list of unique materials while creating some information about the materials
@@ -375,16 +427,20 @@ struct FMaterialListDelegates
 class IMaterialListBuilder
 {
 public:
+
+	/** Virtual destructor. */
 	virtual ~IMaterialListBuilder(){};
+
 	/** 
 	 * Adds a new material to the list
 	 * 
-	 * @param SlotIndex		The slot (usually mesh element index) where the material is located on the component
-	 * @param Material		The material being used
-	 * @param bCanBeReplced	Whether or not the material can be replaced by a user
+	 * @param SlotIndex The slot (usually mesh element index) where the material is located on the component.
+	 * @param Material The material being used.
+	 * @param bCanBeReplced Whether or not the material can be replaced by a user.
 	 */
 	virtual void AddMaterial( uint32 SlotIndex, UMaterialInterface* Material, bool bCanBeReplaced ) = 0;
 };
+
 
 /**
  * A Material item in a material list slot
@@ -393,8 +449,10 @@ struct FMaterialListItem
 {
 	/** Material being used */
 	TWeakObjectPtr<UMaterialInterface> Material;
+
 	/** Slot on a component where this material is at (mesh element) */
 	int32 SlotIndex;
+
 	/** Whether or not this material can be replaced by a new material */
 	bool bCanBeReplaced;
 
@@ -420,23 +478,32 @@ struct FMaterialListItem
 	}
 };
 
-class FMaterialList : public IDetailCustomNodeBuilder, public TSharedFromThis<FMaterialList>
+
+class FMaterialList
+	: public IDetailCustomNodeBuilder
+	, public TSharedFromThis<FMaterialList>
 {
 public:
-	PROPERTYEDITOR_API FMaterialList( IDetailLayoutBuilder& InDetailLayoutBuilder, FMaterialListDelegates& MaterialListDelegates, bool bInAllowCollapse = false);
+	PROPERTYEDITOR_API FMaterialList( IDetailLayoutBuilder& InDetailLayoutBuilder, FMaterialListDelegates& MaterialListDelegates, bool bInAllowCollapse = false, bool bInShowUsedTextures = true);
 
 	/**
-	 * @return true if materials are being displayed                                                              
+	 * @return true if materials are being displayed.                                                          
 	 */
 	bool IsDisplayingMaterials() const { return true; }
+
 private:
+
 	/**
-	 * Called when a user expands all materials in a slot
+	 * Called when a user expands all materials in a slot.
+	 *
+	 * @param SlotIndex The index of the slot being expanded.
 	 */
 	void OnDisplayMaterialsForElement( int32 SlotIndex );
 
 	/**
-	 * Called when a user hides all materials in a slot
+	 * Called when a user hides all materials in a slot.
+	 *
+	 * @param SlotIndex The index of the slot being hidden.
 	 */
 	void OnHideMaterialsForElement( int32 SlotIndex );
 
@@ -457,23 +524,233 @@ private:
 	 * @param Item			The material item to add
 	 * @param bDisplayLink	If a link to the material should be displayed instead of the actual item (for multiple materials)
 	 */
-	void AddMaterialItem( class FDetailWidgetRow& Row, int32 CurrentSlot, const struct FMaterialListItem& Item, bool bDisplayLink );
+	void AddMaterialItem(FDetailWidgetRow& Row, int32 CurrentSlot, const FMaterialListItem& Item, bool bDisplayLink);
 
 private:
+
 	/** Delegates for the material list */
 	FMaterialListDelegates MaterialListDelegates;
+
+	/** Called to rebuild the children of the detail tree */
+	FSimpleDelegate OnRebuildChildren;
+
+	/** Parent detail layout this list is in */
+	IDetailLayoutBuilder& DetailLayoutBuilder;
+
+	/** Set of all unique displayed materials */
+	TArray< FMaterialListItem > DisplayedMaterials;
+
+	/** Set of all materials currently in view (may be less than DisplayedMaterials) */
+	TArray< TSharedRef<FMaterialItemView> > ViewedMaterials;
+
+	/** Set of all expanded slots */
+	TSet<uint32> ExpandedSlots;
+
+	/** Material list builder used to generate materials */
+	TSharedRef<FMaterialListBuilder> MaterialListBuilder;
+
+	/** Allow Collapse of material header row. Right now if you allow collapse, it will initially collapse. */
+	bool bAllowCollpase;
+	/** Whether or not to use the used textures menu for each material entry */
+	bool bShowUsedTextures;
+};
+
+
+/**
+ * Helper class to create a material slot name widget for material lists
+ */
+class SMaterialSlotWidget : public SCompoundWidget
+{
+	SLATE_BEGIN_ARGS(SMaterialSlotWidget)
+	{}
+		SLATE_ATTRIBUTE(FText, MaterialName)
+		SLATE_EVENT(FOnTextChanged, OnMaterialNameChanged)
+		SLATE_EVENT(FOnTextCommitted, OnMaterialNameCommitted)
+		SLATE_ATTRIBUTE(bool, CanDeleteMaterialSlot)
+		SLATE_EVENT(FSimpleDelegate, OnDeleteMaterialSlot)
+	SLATE_END_ARGS()
+
+	PROPERTYEDITOR_API void Construct(const FArguments& InArgs, int32 SlotIndex, bool bIsMaterialUsed);
+};
+
+//////////////////////////////////////////////////////////////////////////
+//
+// SECTION LIST
+
+/**
+* Delegate called when we need to get new sections for the list
+*/
+DECLARE_DELEGATE_OneParam(FOnGetSections, class ISectionListBuilder&);
+
+/**
+* Delegate called when a user changes the Section
+*/
+DECLARE_DELEGATE_FourParams(FOnSectionChanged, int32, int32, int32, FName);
+
+DECLARE_DELEGATE_RetVal_TwoParams(TSharedRef<SWidget>, FOnGenerateWidgetsForSection, int32, int32);
+
+DECLARE_DELEGATE_TwoParams(FOnResetSectionToDefaultClicked, int32, int32);
+
+struct FSectionListDelegates
+{
+	FSectionListDelegates()
+		: OnGetSections()
+		, OnSectionChanged()
+		, OnGenerateCustomNameWidgets()
+		, OnGenerateCustomSectionWidgets()
+		, OnResetSectionToDefaultClicked()
+	{}
+
+	/** Delegate called to populate the list with Sections */
+	FOnGetSections OnGetSections;
+	/** Delegate called when a user changes the Section */
+	FOnSectionChanged OnSectionChanged;
+	/** Delegate called to generate custom widgets under the name of in the left column of a details panel*/
+	FOnGenerateWidgetsForSection OnGenerateCustomNameWidgets;
+	/** Delegate called to generate custom widgets under each Section */
+	FOnGenerateWidgetsForSection OnGenerateCustomSectionWidgets;
+	/** Delegate called when a Section list item should be reset to default */
+	FOnResetSectionToDefaultClicked OnResetSectionToDefaultClicked;
+};
+
+/**
+* Builds up a list of unique Sections while creating some information about the Sections
+*/
+class ISectionListBuilder
+{
+public:
+	virtual ~ISectionListBuilder() {};
+	/**
+	* Adds a new Section to the list
+	*
+	* @param SlotIndex		The slot (usually mesh element index) where the Section is located on the component
+	* @param Section		The Section being used
+	* @param bCanBeReplced	Whether or not the Section can be replaced by a user
+	*/
+	virtual void AddSection(int32 LodIndex, int32 SectionIndex, FName InMaterialSlotName, int32 InMaterialSlotIndex, FName InOriginalMaterialSlotName, const TMap<int32, FName> &InAvailableMaterialSlotName, const UMaterialInterface* Material, bool IsSectionUsingCloth) = 0;
+};
+
+
+/**
+* A Section item in a Section list slot
+*/
+struct FSectionListItem
+{
+	/** LodIndex of the Section*/
+	int32 LodIndex;
+	/** Section index */
+	int32 SectionIndex;
+
+	/* Is this section is using cloth */
+	bool IsSectionUsingCloth;
+
+	/** Material being readonly view in the list */
+	TWeakObjectPtr<UMaterialInterface> Material;
+
+	/* Material Slot Name */
+	FName MaterialSlotName;
+	int32 MaterialSlotIndex;
+	FName OriginalMaterialSlotName;
+
+	/* Available material slot name*/
+	TMap<int32, FName> AvailableMaterialSlotName;
+
+
+	FSectionListItem(int32 InLodIndex, int32 InSectionIndex, FName InMaterialSlotName, int32 InMaterialSlotIndex, FName InOriginalMaterialSlotName, const TMap<int32, FName> &InAvailableMaterialSlotName, const UMaterialInterface* InMaterial, bool InIsSectionUsingCloth)
+		: LodIndex(InLodIndex)
+		, SectionIndex(InSectionIndex)
+		, IsSectionUsingCloth(InIsSectionUsingCloth)
+		, Material(InMaterial)
+		, MaterialSlotName(InMaterialSlotName)
+		, MaterialSlotIndex(InMaterialSlotIndex)
+		, OriginalMaterialSlotName(InOriginalMaterialSlotName)
+		, AvailableMaterialSlotName(InAvailableMaterialSlotName)
+	{}
+
+	bool operator==(const FSectionListItem& Other) const
+	{
+		bool IsSectionItemEqual = LodIndex == Other.LodIndex && SectionIndex == Other.SectionIndex && MaterialSlotIndex == Other.MaterialSlotIndex && MaterialSlotName == Other.MaterialSlotName && Material == Other.Material && AvailableMaterialSlotName.Num() == Other.AvailableMaterialSlotName.Num() && IsSectionUsingCloth == Other.IsSectionUsingCloth;
+		if (IsSectionItemEqual)
+		{
+			for (auto Kvp : AvailableMaterialSlotName)
+			{
+				if (!Other.AvailableMaterialSlotName.Contains(Kvp.Key))
+				{
+					IsSectionItemEqual = false;
+					break;
+				}
+				FName OtherName = *(Other.AvailableMaterialSlotName.Find(Kvp.Key));
+				if (Kvp.Value != OtherName)
+				{
+					IsSectionItemEqual = false;
+					break;
+				}
+			}
+		}
+		return IsSectionItemEqual;
+	}
+
+	bool operator!=(const FSectionListItem& Other) const
+	{
+		return !(*this == Other);
+	}
+};
+
+
+class FSectionList : public IDetailCustomNodeBuilder, public TSharedFromThis<FSectionList>
+{
+public:
+	PROPERTYEDITOR_API FSectionList(IDetailLayoutBuilder& InDetailLayoutBuilder, FSectionListDelegates& SectionListDelegates, bool bInAllowCollapse = false);
+
+	/**
+	* @return true if Sections are being displayed
+	*/
+	bool IsDisplayingSections() const { return true; }
+private:
+	/**
+	* Called when a user expands all materials in a slot
+	*/
+	void OnDisplaySectionsForLod(int32 LodIndex);
+
+	/**
+	* Called when a user hides all materials in a slot
+	*/
+	void OnHideSectionsForLod(int32 LodIndex);
+
+	/** IDetailCustomNodeBuilder interface */
+	virtual void SetOnRebuildChildren(FSimpleDelegate InOnRebuildChildren) override { OnRebuildChildren = InOnRebuildChildren; }
+	virtual bool RequiresTick() const override { return true; }
+	virtual void Tick(float DeltaTime) override;
+	virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
+	virtual void GenerateChildContent(IDetailChildrenBuilder& ChildrenBuilder) override;
+	virtual FName GetName() const override { return NAME_None; }
+	virtual bool InitiallyCollapsed() const override { return bAllowCollpase; }
+
+	/**
+	* Adds a new Section item to the list
+	*
+	* @param Row			The row to add the item to
+	* @param LodIndex		The Lod of the section
+	* @param Item			The Section item to add
+	* @param bDisplayLink	If a link to the Section should be displayed instead of the actual item (for multiple Sections)
+	*/
+	void AddSectionItem(class FDetailWidgetRow& Row, int32 LodIndex, const struct FSectionListItem& Item, bool bDisplayLink);
+
+private:
+	/** Delegates for the Section list */
+	FSectionListDelegates SectionListDelegates;
 	/** Called to rebuild the children of the detail tree */
 	FSimpleDelegate OnRebuildChildren;
 	/** Parent detail layout this list is in */
 	IDetailLayoutBuilder& DetailLayoutBuilder;
-	/** Set of all unique displayed materials */
-	TArray< FMaterialListItem > DisplayedMaterials;
-	/** Set of all materials currently in view (may be less than DisplayedMaterials) */
-	TArray< TSharedRef<class FMaterialItemView> > ViewedMaterials;
+	/** Set of all unique displayed Sections */
+	TArray< FSectionListItem > DisplayedSections;
+	/** Set of all Sections currently in view (may be less than DisplayedSections) */
+	TArray< TSharedRef<class FSectionItemView> > ViewedSections;
 	/** Set of all expanded slots */
 	TSet<uint32> ExpandedSlots;
-	/** Material list builder used to generate materials */
-	TSharedRef<class FMaterialListBuilder> MaterialListBuilder;
-	/** Allow Collapse of material header row. Right now if you allow collapse, it will initially collapse. */
+	/** Section list builder used to generate Sections */
+	TSharedRef<class FSectionListBuilder> SectionListBuilder;
+	/** Allow Collapse of Section header row. Right now if you allow collapse, it will initially collapse. */
 	bool bAllowCollpase;
 };

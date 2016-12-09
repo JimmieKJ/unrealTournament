@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "XCodeSourceCodeAccessPrivatePCH.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "XCodeSourceCodeAccessModule.h"
+#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "Modules/ModuleManager.h"
 
 IMPLEMENT_MODULE( FXCodeSourceCodeAccessModule, XCodeSourceCodeAccess );
 

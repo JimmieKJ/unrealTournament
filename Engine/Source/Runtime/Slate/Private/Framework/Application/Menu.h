@@ -2,7 +2,12 @@
 
 #pragma once
 
-#include "IMenu.h"
+#include "CoreMinimal.h"
+#include "Input/PopupMethodReply.h"
+#include "Framework/Application/IMenu.h"
+
+class SWidget;
+class SWindow;
 
 /**
  * Represents the base class of popup menus.
@@ -13,6 +18,7 @@ public:
 	virtual FOnMenuDismissed& GetOnMenuDismissed() override { return OnMenuDismissed; }
 	virtual TSharedPtr<SWidget> GetContent() const override { return Content; }
 	bool IsCollapsedByParent() const { return bIsCollapsedByParent; }
+	virtual bool UsingApplicationMenuStack() const override { return true; }
 
 protected:
 	FMenuBase(TSharedRef<SWidget> InContent, const bool bCollapsedByParent);
@@ -69,6 +75,7 @@ public:
 	virtual TSharedPtr<SWindow> GetParentWindow() const;
 	virtual TSharedPtr<SWindow> GetOwnedWindow() const { return TSharedPtr<SWindow>(); }
 	virtual void Dismiss() override;
+	virtual bool UsingApplicationMenuStack() const override;
 
 private:
 	TWeakPtr<IMenuHost> MenuHost;

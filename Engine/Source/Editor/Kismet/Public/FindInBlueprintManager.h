@@ -2,6 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Engine/Blueprint.h"
+#include "Types/WidgetActiveTimerDelegate.h"
+#include "Dom/JsonObject.h"
+#include "HAL/Runnable.h"
+
+class FAssetData;
+class FFindInBlueprintsResult;
+class FImaginaryBlueprint;
+class FImaginaryFiBData;
+class SFindInBlueprints;
+
 /**
  *Const values for Find-in-Blueprints to tag searchable data
  */

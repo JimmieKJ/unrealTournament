@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ILauncherProfile.h"
+
 /**
  * Delegate type for SProjectLauncher Profile running.
  *

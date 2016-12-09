@@ -1,5 +1,4 @@
 @echo off
-
 rem just a helper batch file for collecting up files and zipping them.
 rem usage: windows-buildbot-zipper.bat <zipfilename>
 rem must be run from root of SDL source tree.
@@ -29,6 +28,4 @@ cd ..
 erase /q /f /s zipper
 
 :done
-
-
 

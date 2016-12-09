@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnvironmentQueryEditorPrivatePCH.h"
+#include "EnvironmentQueryGraphNode_Test.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
+#include "EnvironmentQueryGraphNode_Option.h"
 
 UEnvironmentQueryGraphNode_Test::UEnvironmentQueryGraphNode_Test(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

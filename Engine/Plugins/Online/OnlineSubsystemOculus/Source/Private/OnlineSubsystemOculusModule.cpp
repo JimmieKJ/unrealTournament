@@ -1,6 +1,7 @@
 // Copyright 1998-2013 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemOculusPrivatePCH.h"
+#include "OnlineSubsystemOculusModule.h"
+#include "OnlineSubsystemOculusPrivate.h"
 
 // FOnlineSubsystemOculusModule
 
@@ -32,7 +33,7 @@ public:
 			if (!OnlineSub->Init())
 			{
 				UE_LOG_ONLINE(Warning, TEXT("Oculus API failed to initialize!"));
-				OnlineSub->Shutdown();
+				// Shutdown already called in Init() when this failed
 				OnlineSub = nullptr;
 			}
 		}

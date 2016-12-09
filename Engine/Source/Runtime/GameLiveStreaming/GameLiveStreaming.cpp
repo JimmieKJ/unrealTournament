@@ -1,13 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "GameLiveStreamingModule.h"
 #include "GameLiveStreaming.h"
-#include "Runtime/Core/Public/Features/IModularFeatures.h"
-#include "Runtime/Engine/Public/Features/ILiveStreamingService.h"
-#include "SlateBasics.h"
-#include "ScreenRendering.h"
-#include "RenderCore.h"
-#include "RHIStaticStates.h"
+#include "UObject/Package.h"
+#include "EngineGlobals.h"
+#include "RenderingThread.h"
 #include "RendererInterface.h"
+#include "Shader.h"
+#include "Engine/Texture2D.h"
+#include "StaticBoundShaderState.h"
+#include "RHIStaticStates.h"
+#include "Engine/Engine.h"
+#include "Engine/Canvas.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Features/IModularFeatures.h"
+#include "Features/ILiveStreamingService.h"
+#include "ScreenRendering.h"
 
 IMPLEMENT_MODULE( FGameLiveStreaming, GameLiveStreaming );
 

@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "IPlatformTextField.h"
+
+class IVirtualKeyboardEntry;
 
 class FAndroidPlatformTextField : public IPlatformTextField
 {

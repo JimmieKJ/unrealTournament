@@ -6,9 +6,22 @@
 	Texture.h: Unreal texture related classes.
 =============================================================================*/
 
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Containers/IndirectArray.h"
+#include "Stats/Stats.h"
+#include "Containers/List.h"
+#include "Templates/ScopedPointer.h"
+#include "Async/AsyncWork.h"
+#include "Async/AsyncFileHandle.h"
+#include "RHI.h"
+#include "RenderResource.h"
+#include "Serialization/BulkData.h"
 #include "Engine/TextureDefines.h"
 #include "UnrealClient.h"
+#include "UniquePtr.h"
 
+class FTexture2DResourceMem;
 class UTexture2D;
 
 /** Maximum number of slices in texture source art. */
@@ -311,13 +324,25 @@ private:
 	int32 CurrentFirstMip;
 
 	/** Pending async create texture task, if any.															*/
-	TScopedPointer<FAsyncCreateTextureTask> AsyncCreateTextureTask;
+	TUniquePtr<FAsyncCreateTextureTask> AsyncCreateTextureTask;
 	
 	/** Local copy/ cache of mip data between creation and first call to InitRHI.							*/
 	void*				MipData[MAX_TEXTURE_MIP_COUNT];
+
+#if USE_NEW_ASYNC_IO
+	/**  Async handle */
+	class IAsyncReadFileHandle* IORequestHandle;
+	FString IORequestFilename;
+	int64 IORequestOffsetOffset;
+	FAsyncFileCallBack AsyncFileCallBack;
+
+	/** Potentially outstanding texture I/O requests.														*/
+	TArray<class IAsyncReadRequest*> IORequests;
+#else
 	/** Potentially outstanding texture I/O requests.														*/
 	uint64				IORequestIndices[MAX_TEXTURE_MIP_COUNT];
-	/** Number of file I/O requests for current request														*/
+#endif
+	/** Number of file I/O requests for current request. The use of this is crazy confusing.				*/
 	int32					IORequestCount;
 
 	FThreadSafeCounter AsyncReallocateCounter;
@@ -387,6 +412,21 @@ private:
 	// releases and recreates sampler state objects.
 	// used when updating mip map bias offset
 	void RefreshSamplerStates();
+
+	/**
+	* Helper function for cleaning up bulk data files after streaming
+	*/
+	void HintDoneWithStreamedTextureFiles();
+
+#if USE_NEW_ASYNC_IO
+	/**
+	* Block until all requests are done.
+	* A time limit of zero means infinite
+	*/
+	bool BlockTillAllRequestsFinished(float TimeLimit = 0.0f);
+	void AsyncPrep(const FByteBulkData& BulkData);
+#endif
+
 };
 
 /** A dynamic 2D texture resource. */
@@ -832,5 +872,4 @@ private:
 	ECubeFace CurrentTargetFace;
 };
 
-
-#define TEXTURERESOURCE_H_INCLUDED 1 // needed by TargetPlatform, so TTargetPlatformBase template knows if it can use UTexture in GetDefaultTextureFormatName, or rather just declare it
+ENGINE_API FName GetDefaultTextureFormatName( const class ITargetPlatform* TargetPlatform, const class UTexture* Texture, const class FConfigFile& EngineSettings, bool bSupportDX11TextureFormats );

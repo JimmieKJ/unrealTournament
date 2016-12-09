@@ -15,7 +15,7 @@
 
 #define SECONDARY_OCCLUSION			1
 
-#define NO_LPV (COMPILER_GLSL || COMPILER_METAL)
+#define NO_LPV (COMPILER_GLSL || COMPILER_METAL || COMPILER_HLSLCC)
 
 // With this enabled, very large or one-sided objects (e.g. terrain) inject an additional layer of GV cells 
 // to increase AO contribution. The AO calculation works best with closed geometry and small-medium scale objects

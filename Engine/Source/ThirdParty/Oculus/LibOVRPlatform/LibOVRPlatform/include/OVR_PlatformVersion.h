@@ -10,7 +10,7 @@
 // Master version numbers
 #define PLATFORM_PRODUCT_VERSION 1 // Product version doesn't participate in semantic versioning.
 #define PLATFORM_MAJOR_VERSION   1 // If you change these values then you need to also make sure to change LibOVRPlatform.props in parallel.
-#define PLATFORM_MINOR_VERSION   5
+#define PLATFORM_MINOR_VERSION   8
 #define PLATFORM_PATCH_VERSION   0
 #define PLATFORM_BUILD_NUMBER    0
 #define PLATFORM_DRIVER_VERSION  0

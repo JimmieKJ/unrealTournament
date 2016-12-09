@@ -1,14 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "PhysicsEngine/ConstraintInstance.h"
+#include "UObject/FrameworkObjectVersion.h"
+#include "HAL/IConsoleManager.h"
+#include "Components/PrimitiveComponent.h"
 #include "PhysicsPublic.h"
-#include "PhysXSupport.h"
-#include "PhysicsEngine/PhysicsAsset.h"
-#include "PhysicsEngine/PhysicsConstraintComponent.h"
-#include "UObject/DevObjectVersion.h"
+#include "PhysXPublic.h"
+#include "PhysicsEngine/PhysXSupport.h"
 
-#include "MessageLog.h"
-#include "UObjectToken.h"
+#include "Logging/TokenizedMessage.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 
 #define LOCTEXT_NAMESPACE "ConstraintInstance"
 
@@ -249,15 +251,15 @@ float ComputeAverageMass_AssumesLocked(const PxRigidActor* PActor1, const PxRigi
 		float TotalMass = 0;
 		int NumDynamic = 0;
 
-		if (PActor1 && PActor1->isRigidBody())
+		if (PActor1 && PActor1->is<PxRigidBody>())
 		{
-			TotalMass += PActor1->isRigidBody()->getMass();
+			TotalMass += PActor1->is<PxRigidBody>()->getMass();
 			++NumDynamic;
 		}
 
-		if (PActor2 && PActor2->isRigidBody())
+		if (PActor2 && PActor2->is<PxRigidBody>())
 		{
-			TotalMass += PActor2->isRigidBody()->getMass();
+			TotalMass += PActor2->is<PxRigidBody>()->getMass();
 			++NumDynamic;
 		}
 
@@ -288,10 +290,16 @@ PxScene* GetPScene_LockFree(const FBodyInstance* Body1, const FBodyInstance* Bod
 	else if(SceneIndex1 >= 0 && SceneIndex2 >= 0 && SceneIndex1 != SceneIndex2)
 	{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		UPrimitiveComponent* PrimComp1 = Body1 ? Body1->OwnerComponent.Get() : nullptr;
+		UPrimitiveComponent* PrimComp2 = Body2 ? Body2->OwnerComponent.Get() : nullptr;
+
 		FMessageLog("PIE").Warning()
 			->AddToken(FTextToken::Create(LOCTEXT("JointBetweenScenesStart", "Constraint")))
 			->AddToken(FUObjectToken::Create(DebugOwner))
-			->AddToken(FTextToken::Create(LOCTEXT("JointBetweenScenesEnd", "attempting to create a joint between two actors in different scenes.  No joint created.")));
+			->AddToken(FTextToken::Create(LOCTEXT("JointBetweenScenesMid", "attempting to create a joint between two actors in different scenes (")))
+			->AddToken(FUObjectToken::Create(PrimComp1))
+			->AddToken(FUObjectToken::Create(PrimComp2))
+			->AddToken(FTextToken::Create(LOCTEXT("JointBetweenScenesEnd", ").  No joint created.")));
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	}
 	else
@@ -330,7 +338,7 @@ bool GetPActors_AssumesLocked(const FBodyInstance* Body1, const FBodyInstance* B
 
 	// Do not create joint unless you have two actors
 	// Do not create joint unless one of the actors is dynamic
-	if ((!PActor1 || !PActor1->isRigidBody()) && (!PActor2 || !PActor2->isRigidBody()))
+	if ((!PActor1 || !PActor1->is<PxRigidBody>()) && (!PActor2 || !PActor2->is<PxRigidBody>()))
 	{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		FMessageLog("PIE").Warning()
@@ -362,13 +370,13 @@ bool GetPActors_AssumesLocked(const FBodyInstance* Body1, const FBodyInstance* B
 	// Need to worry about the case where one is static and one is dynamic, and make sure the static scene is used which matches the dynamic scene
 	if (PActor1 != NULL && PActor2 != NULL)
 	{
-		if (PActor1->isRigidStatic() && PActor2->isRigidBody())
+		if (PActor1->is<PxRigidStatic>() && PActor2->is<PxRigidBody>())
 		{
 			const uint32 SceneType = Body2->RigidActorSync != NULL ? PST_Sync : PST_Async;
 			PActor1 = Body1->GetPxRigidActor_AssumesLocked(SceneType);
 		}
 		else
-		if (PActor2->isRigidStatic() && PActor1->isRigidBody())
+		if (PActor2->is<PxRigidStatic>() && PActor1->is<PxRigidBody>())
 		{
 			const uint32 SceneType = Body1->RigidActorSync != NULL ? PST_Sync : PST_Async;
 			PActor2 = Body2->GetPxRigidActor_AssumesLocked(SceneType);
@@ -468,25 +476,25 @@ void FConstraintInstance::UpdateAverageMass_AssumesLocked(const PxRigidActor* PA
 void EnsureSleepingActorsStaySleeping_AssumesLocked(PxRigidActor* PActor1, PxRigidActor* PActor2)
 {
 	// record if actors are asleep before creating joint, so we can sleep them afterwards if so (creating joint wakes them)
-	const bool bActor1Asleep = (PActor1 == nullptr || !PActor1->isRigidDynamic() || PActor1->isRigidDynamic()->isSleeping());
-	const bool bActor2Asleep = (PActor2 == nullptr || !PActor2->isRigidDynamic() || PActor2->isRigidDynamic()->isSleeping());
+	const bool bActor1Asleep = (PActor1 == nullptr || !PActor1->is<PxRigidDynamic>() || PActor1->is<PxRigidDynamic>()->isSleeping());
+	const bool bActor2Asleep = (PActor2 == nullptr || !PActor2->is<PxRigidDynamic>() || PActor2->is<PxRigidDynamic>()->isSleeping());
 
 	// creation of joints wakes up rigid bodies, so we put them to sleep again if both were initially asleep
 	if (bActor1Asleep && bActor2Asleep)
 	{
-		if (PActor1 && !IsRigidBodyKinematic_AssumesLocked(PActor1->isRigidDynamic()))
+		if (PActor1 && !IsRigidBodyKinematic_AssumesLocked(PActor1->is<PxRigidDynamic>()))
 		{
-			if(PActor1->isRigidDynamic())
+			if(PActor1->is<PxRigidDynamic>())
 			{
-				PActor1->isRigidDynamic()->putToSleep();
+				PActor1->is<PxRigidDynamic>()->putToSleep();
 			}
 		}
 
-		if (PActor2 && !IsRigidBodyKinematic_AssumesLocked(PActor2->isRigidDynamic()))
+		if (PActor2 && !IsRigidBodyKinematic_AssumesLocked(PActor2->is<PxRigidDynamic>()))
 		{
-			if(PActor2->isRigidDynamic())
+			if(PActor2->is<PxRigidDynamic>())
 			{
-				PActor2->isRigidDynamic()->putToSleep();
+				PActor2->is<PxRigidDynamic>()->putToSleep();
 			}
 			
 		}
@@ -1200,11 +1208,6 @@ void FConstraintInstance::PostSerialize(const FArchive& Ar)
 
 	}
 #endif
-}
-
-void FConstraintInstance::OnConstraintBroken()
-{
-	OnConstraintBrokenDelegate.ExecuteIfBound(ConstraintIndex);
 }
 
 //Hacks to easily get zeroed memory for special case when we don't use GC

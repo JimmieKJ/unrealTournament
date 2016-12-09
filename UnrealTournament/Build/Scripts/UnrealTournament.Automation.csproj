@@ -59,11 +59,6 @@
       <Project>{2c96a7f2-b1a3-4258-8e0a-e588ff41a53e}</Project>
       <Name>AutomationUtils.Automation</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\..\Engine\Source\Programs\AutomationTool\GUBP\GUBP.Automation.csproj">
-      <Project>{9a1a118b-37fc-4f33-bbf4-b431b6e3b3ac}</Project>
-      <Name>GUBP.Automation</Name>
-      <Private>False</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\..\Engine\Source\Programs\AutomationTool\Scripts\AutomationScripts.Automation.csproj">
       <Project>{8aa00d65-0954-4a27-ac0d-fb8b1106120f}</Project>
       <Name>AutomationScripts.Automation</Name>

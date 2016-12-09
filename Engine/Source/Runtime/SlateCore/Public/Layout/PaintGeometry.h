@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "SlateRenderTransform.h"
-#include "SlateLayoutTransform.h"
+#include "CoreMinimal.h"
+#include "Rendering/SlateLayoutTransform.h"
+#include "Rendering/SlateRenderTransform.h"
 
 /**
  * A Paint geometry contains the window-space (draw-space) info to draw an element on the screen.

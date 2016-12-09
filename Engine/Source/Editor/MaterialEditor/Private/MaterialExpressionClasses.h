@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "MaterialEditor.h"
+#include "CoreMinimal.h"
+
+class UMaterialExpression;
 
 class MaterialExpressionClasses
 {

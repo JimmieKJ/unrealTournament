@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
 #include "PaperSpriteActor.h"
+#include "Engine/CollisionProfile.h"
+#include "PaperSpriteComponent.h"
+#include "PaperSprite.h"
 
 //////////////////////////////////////////////////////////////////////////
 // APaperSpriteActor

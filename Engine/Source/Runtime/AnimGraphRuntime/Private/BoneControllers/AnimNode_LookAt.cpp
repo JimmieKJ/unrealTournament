@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphRuntimePrivatePCH.h"
 #include "BoneControllers/AnimNode_LookAt.h"
-#include "AnimationRuntime.h"
+#include "SceneManagement.h"
+#include "Engine/SkeletalMeshSocket.h"
 #include "Animation/AnimInstanceProxy.h"
 
 FVector FAnimNode_LookAt::GetAlignVector(const FTransform& Transform, EAxisOption::Type AxisOption)

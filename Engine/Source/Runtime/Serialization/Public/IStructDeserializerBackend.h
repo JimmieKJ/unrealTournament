@@ -2,10 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
-// forward declarations
-class UProperty;
-
+class Error;
 
 /**
  * Enumerates serialization tokens.

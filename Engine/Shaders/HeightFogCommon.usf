@@ -4,17 +4,30 @@
 	HeightFogCommon.usf: 
 =============================================================================*/
 
+#ifndef SUPPORT_FOG_INSCATTERING_TEXTURE
+#define SUPPORT_FOG_INSCATTERING_TEXTURE (FEATURE_LEVEL >= FEATURE_LEVEL_SM4)
+#endif
+
+#ifndef SUPPORT_FOG_DIRECTIONAL_LIGHT_INSCATTERING
+#define SUPPORT_FOG_DIRECTIONAL_LIGHT_INSCATTERING 1
+#endif
+
 static const float FLT_EPSILON = 0.001f;
 static const float FLT_EPSILON2 = 0.01f;
 
 /** FogDensity * exp2(-FogHeightFalloff * (CameraWorldPosition.z - FogHeight)) in x, FogHeightFalloff in y, CosTerminatorAngle in z, StartDistance in w. */
 float4 ExponentialFogParameters;
 float4 ExponentialFogColorParameter;
-/** FogDensity in x, FogHeight in y. */
-float2 ExponentialFogParameters3;
+/** FogDensity in x, FogHeight in y, whether to use cubemap fog color in z, FogCutoffDistance in w. */
+float4 ExponentialFogParameters3;
 half4 InscatteringLightDirection;
 half4 DirectionalInscatteringColor;
 float DirectionalInscatteringStartDistance;
+
+TextureCube FogInscatteringColorCubemap;
+SamplerState FogInscatteringColorSampler;
+/** mip distance scale in x, bias in y, num mips in z */
+float3 FogInscatteringTextureParameters;
 
 // @param WorldPositionRelativeToCamera = WorldPosition - InCameraPosition
 half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera)
@@ -67,9 +80,22 @@ half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera)
 	float ExponentialHeightLineIntegralShared = RayOriginTerms * (1.0f - exp2(-Falloff) ) / Falloff;
 	float ExponentialHeightLineIntegral = ExponentialHeightLineIntegralShared * max(RayLength - ExponentialFogParameters.w, 0.0f);
 
+	half3 Inscattering = ExponentialFogColor;
 	half3 DirectionalInscattering = 0;
 
-	if (InscatteringLightDirection.w > 0)
+#if SUPPORT_FOG_INSCATTERING_TEXTURE
+	BRANCH
+	if (ExponentialFogParameters3.z > 0)
+	{
+		float FadeAlpha = saturate(CameraToReceiverLength * FogInscatteringTextureParameters.x + FogInscatteringTextureParameters.y);
+		float3 DirectionalColor = TextureCubeSampleLevel(FogInscatteringColorCubemap, FogInscatteringColorSampler, CameraToReceiver, 0).xyz;
+		float3 NonDirectionalColor = TextureCubeSampleLevel(FogInscatteringColorCubemap, FogInscatteringColorSampler, CameraToReceiver, FogInscatteringTextureParameters.z).xyz;
+		Inscattering *= lerp(NonDirectionalColor, DirectionalColor, FadeAlpha);
+	}
+#endif
+
+#if SUPPORT_FOG_DIRECTIONAL_LIGHT_INSCATTERING
+	if (InscatteringLightDirection.w > 0 && ExponentialFogParameters3.z == 0)
 	{
 		// Setup a cosine lobe around the light direction to approximate inscattering from the directional light off of the ambient haze;
 		half3 DirectionalLightInscattering = DirectionalInscatteringColor.xyz * pow(saturate(dot(CameraToReceiverNormalized, InscatteringLightDirection.xyz)), DirectionalInscatteringColor.w);
@@ -81,11 +107,18 @@ half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera)
 		// Final inscattering from the light
 		DirectionalInscattering = DirectionalLightInscattering * (1 - DirectionalInscatteringFogFactor);
 	}
+#endif
 
 	// Calculate the amount of light that made it through the fog using the transmission equation
 	half ExpFogFactor = max(saturate(exp2(-ExponentialHeightLineIntegral)), MinFogOpacity);
 
-	return half4((ExponentialFogColor) * (1 - ExpFogFactor) + DirectionalInscattering, ExpFogFactor);
+	FLATTEN
+	if (CameraToReceiverLength > ExponentialFogParameters3.w)
+	{
+		ExpFogFactor = 1;
+	}
+
+	return half4((Inscattering) * (1 - ExpFogFactor) + DirectionalInscattering, ExpFogFactor);
 }
 
 half4 CalculateVertexHeightFog(float3 WorldPositionRelativeToCamera)

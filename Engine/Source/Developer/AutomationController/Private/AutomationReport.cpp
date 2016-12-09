@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationControllerPrivatePCH.h"
-#include "Misc/AutomationTest.h"
+#include "AutomationReport.h"
+#include "Misc/FilterCollection.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 
 FAutomationReport::FAutomationReport(FAutomationTestInfo& InTestInfo, bool InIsParent)
 	: bEnabled( false )
@@ -56,6 +59,11 @@ FString FAutomationReport::GetCommand() const
 const FString& FAutomationReport::GetDisplayName() const
 {
 	return TestInfo.GetDisplayName();
+}
+
+const FString& FAutomationReport::GetFullTestPath() const
+{
+	return TestInfo.GetFullTestPath();
 }
 
 FString FAutomationReport::GetDisplayNameWithDecoration() const
@@ -769,7 +777,7 @@ TSharedPtr<IAutomationReport> FAutomationReport::EnsureReportExists(FAutomationT
 		else
 		{
 			// Create a parent node
-			FAutomationTestInfo ParentTestInfo(NameToMatch, "", InTestInfo.GetTestFlags(), InTestInfo.GetNumParticipantsRequired());
+			FAutomationTestInfo ParentTestInfo(NameToMatch, TEXT(""), TEXT(""), InTestInfo.GetTestFlags(), InTestInfo.GetNumParticipantsRequired());
 			MatchTest = MakeShareable(new FAutomationReport(ParentTestInfo, true));
 		}
 		//make new test

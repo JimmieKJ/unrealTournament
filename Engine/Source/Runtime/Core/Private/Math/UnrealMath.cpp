@@ -4,8 +4,10 @@
 	UnMath.cpp: Unreal math routines
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
-#include "PropertyPortFlags.h"
+#include "Math/UnrealMath.h"
+#include "Stats/Stats.h"
+#include "Math/RandomStream.h"
+#include "UObject/PropertyPortFlags.h"
 
 DEFINE_LOG_CATEGORY(LogUnrealMath);
 
@@ -188,6 +190,11 @@ FRotator FVector::ToOrientationRotator() const
 	return R;
 }
 
+FRotator FVector::Rotation() const
+{
+	return ToOrientationRotator();
+}
+
 FRotator FVector4::ToOrientationRotator() const
 {
 	FRotator R;
@@ -212,6 +219,10 @@ FRotator FVector4::ToOrientationRotator() const
 	return R;
 }
 
+FRotator FVector4::Rotation() const
+{
+	return ToOrientationRotator();
+}
 
 FQuat FVector::ToOrientationQuat() const
 {
@@ -276,7 +287,7 @@ void FVector::FindBestAxisVectors( FVector& Axis1, FVector& Axis2 ) const
 FVector FMath::ClosestPointOnLine(const FVector& LineStart, const FVector& LineEnd, const FVector& Point)
 {
 	// Solve to find alpha along line that is closest point
-	// Weisstein, Eric W. "Point-Line Distance--3-Dimensional." From MathWorld--A Wolfram Web Resource. http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html 
+	// Weisstein, Eric W. "Point-Line Distance--3-Dimensional." From MathWorld--A Switchram Web Resource. http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html 
 	const float A = (LineStart - Point) | (LineEnd - LineStart);
 	const float B = (LineEnd - LineStart).SizeSquared();
 	// This should be robust to B == 0 (resulting in NaN) because clamp should return 1.
@@ -575,6 +586,28 @@ FRotator FQuat::Rotator() const
 FQuat FQuat::MakeFromEuler(const FVector& Euler)
 {
 	return FRotator::MakeFromEuler(Euler).Quaternion();
+}
+
+void FQuat::ToSwingTwist(const FVector& InTwistAxis, FQuat& OutSwing, FQuat& OutTwist) const
+{
+	// Vector part projected onto twist axis
+	FVector Projection = FVector::DotProduct(InTwistAxis, FVector(X, Y, Z)) * InTwistAxis;
+
+	// Twist quaternion
+	OutTwist = FQuat(Projection.X, Projection.Y, Projection.Z, W);
+
+	// Singularity close to 180deg
+	if(OutTwist.SizeSquared() == 0.0f)
+	{
+		OutTwist = FQuat::Identity;
+	}
+	else
+	{
+		OutTwist.Normalize();
+	}
+
+	// Set swing
+	OutSwing = *this * OutTwist.Inverse();
 }
 
 FMatrix FRotationAboutPointMatrix::Make(const FQuat& Rot, const FVector& Origin)
@@ -1451,218 +1484,164 @@ float FMath::PointDistToSegmentSquared(const FVector &Point, const FVector &Star
 	return (Point - ClosestPoint).SizeSquared();
 }
 
-void FMath::SegmentDistToSegmentSafe(FVector A1, FVector B1, FVector A2, FVector B2, FVector& OutP1, FVector& OutP2)
+struct SegmentDistToSegment_Solver
 {
-	// Segments
-	const	FVector	S1		= B1 - A1;
-	const	FVector	S2		= B2 - A2;
-	const	FVector	S3		= A1 - A2;
-
-
-	const	FVector	S1_norm		= S1.GetSafeNormal();
-	const	FVector	S2_norm		= S2.GetSafeNormal();
-
-	const	float	Dot11	= S1 | S1;	// always >= 0
-	const	float	Dot22	= S2 | S2;	// always >= 0
-	const	float	Dot12	= S1 | S2;
-	const	float	Dot13	= S1 | S3;
-	const	float	Dot23	= S2 | S3;
-
-	const	float	Dot11_norm	= S1_norm | S1_norm;	// always >= 0
-	const	float	Dot22_norm	= S2_norm | S2_norm;	// always >= 0
-	const	float	Dot12_norm	= S1_norm | S2_norm;
-
-	// Numerator
-	float	N1, N2;
-
-	// Denominator
-	const	float	D		= Dot11*Dot22 - Dot12*Dot12;	// always >= 0
-	const	float	D_norm	= Dot11_norm*Dot22_norm - Dot12_norm*Dot12_norm;	// always >= 0
-
-	float	D1		= D;		// T1 = N1 / D1, default D1 = D >= 0
-	float	D2		= D;		// T2 = N2 / D2, default D2 = D >= 0
-
-	// compute the line parameters of the two closest points
-	if( D < KINDA_SMALL_NUMBER || D_norm < KINDA_SMALL_NUMBER ) 
-	{ 
-		// the lines are almost parallel
-		N1 = 0.f;	// force using point A on segment S1
-		D1 = 1.f;	// to prevent possible division by 0 later
-		N2 = Dot23;
-		D2 = Dot22;
+	SegmentDistToSegment_Solver(const FVector& InA1, const FVector& InB1, const FVector& InA2, const FVector& InB2):
+		bLinesAreNearlyParallel(false),
+		A1(InA1),
+		A2(InA2),
+		S1(InB1 - InA1),
+		S2(InB2 - InA2),
+		S3(InA1 - InA2)
+	{
 	}
-	else 
-	{                
-		// get the closest points on the infinite lines
-		N1 = (Dot12*Dot23 - Dot22*Dot13);
-		N2 = (Dot11*Dot23 - Dot12*Dot13);
 
-		if( N1 < 0.f ) 
+	bool bLinesAreNearlyParallel;
+
+	const FVector& A1;
+	const FVector& A2;
+
+	const FVector S1;
+	const FVector S2;
+	const FVector S3;
+
+	void Solve(FVector& OutP1, FVector& OutP2)
+	{
+		const float Dot11 = S1 | S1;
+		const float Dot12 = S1 | S2;
+		const float Dot13 = S1 | S3;
+		const float Dot22 = S2 | S2;
+		const float Dot23 = S2 | S3;
+
+		const float D = Dot11*Dot22 - Dot12*Dot12;
+
+		float D1 = D;
+		float D2 = D;
+
+		float N1;
+		float N2;
+
+		if (bLinesAreNearlyParallel || D < KINDA_SMALL_NUMBER)
 		{
-			// t1 < 0.f => the s==0 edge is visible
-			N1 = 0.f;
+			// the lines are almost parallel
+			N1 = 0.f;	// force using point A on segment S1
+			D1 = 1.f;	// to prevent possible division by 0 later
 			N2 = Dot23;
 			D2 = Dot22;
 		}
-		else if( N1 > D1 ) 
+		else
 		{
-			// t1 > 1 => the t1==1 edge is visible
-			N1 = D1;
-			N2 = Dot23 + Dot12;
-			D2 = Dot22;
+			// get the closest points on the infinite lines
+			N1 = (Dot12*Dot23 - Dot22*Dot13);
+			N2 = (Dot11*Dot23 - Dot12*Dot13);
+
+			if (N1 < 0.f)
+			{
+				// t1 < 0.f => the s==0 edge is visible
+				N1 = 0.f;
+				N2 = Dot23;
+				D2 = Dot22;
+			}
+			else if (N1 > D1)
+			{
+				// t1 > 1 => the t1==1 edge is visible
+				N1 = D1;
+				N2 = Dot23 + Dot12;
+				D2 = Dot22;
+			}
 		}
+
+		if (N2 < 0.f)
+		{
+			// t2 < 0 => the t2==0 edge is visible
+			N2 = 0.f;
+
+			// recompute t1 for this edge
+			if (-Dot13 < 0.f)
+			{
+				N1 = 0.f;
+			}
+			else if (-Dot13 > Dot11)
+			{
+				N1 = D1;
+			}
+			else
+			{
+				N1 = -Dot13;
+				D1 = Dot11;
+			}
+		}
+		else if (N2 > D2)
+		{
+			// t2 > 1 => the t2=1 edge is visible
+			N2 = D2;
+
+			// recompute t1 for this edge
+			if ((-Dot13 + Dot12) < 0.f)
+			{
+				N1 = 0.f;
+			}
+			else if ((-Dot13 + Dot12) > Dot11)
+			{
+				N1 = D1;
+			}
+			else
+			{
+				N1 = (-Dot13 + Dot12);
+				D1 = Dot11;
+			}
+		}
+
+		// finally do the division to get the points' location
+		const float T1 = (FMath::Abs(N1) < KINDA_SMALL_NUMBER ? 0.f : N1 / D1);
+		const float T2 = (FMath::Abs(N2) < KINDA_SMALL_NUMBER ? 0.f : N2 / D2);
+
+		// return the closest points
+		OutP1 = A1 + T1 * S1;
+		OutP2 = A2 + T2 * S2;
 	}
+};
 
-	if( N2 < 0.f ) 
-	{           
-		// t2 < 0 => the t2==0 edge is visible
-		N2 = 0.f;
+void FMath::SegmentDistToSegmentSafe(FVector A1, FVector B1, FVector A2, FVector B2, FVector& OutP1, FVector& OutP2)
+{
+	SegmentDistToSegment_Solver Solver(A1, B1, A2, B2);
 
-		// recompute t1 for this edge
-		if( -Dot13 < 0.f )
-		{
-			N1 = 0.f;
-		}
-		else if( -Dot13 > Dot11 )
-		{
-			N1 = D1;
-		}
-		else 
-		{
-			N1 = -Dot13;
-			D1 = Dot11;
-		}
+	const FVector S1_norm = Solver.S1.GetSafeNormal();
+	const FVector S2_norm = Solver.S2.GetSafeNormal();
+
+	const bool bS1IsPoint = S1_norm.IsZero();
+	const bool bS2IsPoint = S2_norm.IsZero();
+
+	if (bS1IsPoint && bS2IsPoint)
+	{
+		OutP1 = A1;
+		OutP2 = A2;
 	}
-	else if( N2 > D2 ) 
-	{      
-		// t2 > 1 => the t2=1 edge is visible
-		N2 = D2;
-
-		// recompute t1 for this edge
-		if( (-Dot13 + Dot12) < 0.f )
-		{
-			N1 = 0.f;
-		}
-		else if( (-Dot13 + Dot12) > Dot11 )
-		{
-			N1 = D1;
-		}
-		else 
-		{
-			N1 = (-Dot13 + Dot12);
-			D1 = Dot11;
-		}
+	else if (bS2IsPoint)
+	{
+		OutP1 = ClosestPointOnSegment(A2, A1, B1);
+		OutP2 = A2;
 	}
+	else if (bS1IsPoint)
+	{
+		OutP1 = A1;
+		OutP2 = ClosestPointOnSegment(A1, A2, B2);
+	}
+	else
+	{
+		const	float	Dot11_norm = S1_norm | S1_norm;	// always >= 0
+		const	float	Dot22_norm = S2_norm | S2_norm;	// always >= 0
+		const	float	Dot12_norm = S1_norm | S2_norm;
+		const	float	D_norm	= Dot11_norm*Dot22_norm - Dot12_norm*Dot12_norm;	// always >= 0
 
-	// finally do the division to get the points' location
-	const float T1 = (FMath::Abs(N1) < KINDA_SMALL_NUMBER ? 0.f : N1 / D1);
-	const float T2 = (FMath::Abs(N2) < KINDA_SMALL_NUMBER ? 0.f : N2 / D2);
-
-	// return the closest points
-	OutP1 = A1 + T1 * S1;
-	OutP2 = A2 + T2 * S2;
+		Solver.bLinesAreNearlyParallel = D_norm < KINDA_SMALL_NUMBER;
+		Solver.Solve(OutP1, OutP2);
+	}
 }
 
 void FMath::SegmentDistToSegment(FVector A1, FVector B1, FVector A2, FVector B2, FVector& OutP1, FVector& OutP2)
 {
-	// Segments
-	const	FVector	S1		= B1 - A1;
-	const	FVector	S2		= B2 - A2;
-	const	FVector	S3		= A1 - A2;
-
-	const	float	Dot11	= S1 | S1;	// always >= 0
-	const	float	Dot22	= S2 | S2;	// always >= 0
-	const	float	Dot12	= S1 | S2;
-	const	float	Dot13	= S1 | S3;
-	const	float	Dot23	= S2 | S3;
-
-	// Numerator
-			float	N1, N2;
-
-	// Denominator
-	const	float	D		= Dot11*Dot22 - Dot12*Dot12;	// always >= 0
-			float	D1		= D;		// T1 = N1 / D1, default D1 = D >= 0
-			float	D2		= D;		// T2 = N2 / D2, default D2 = D >= 0
-
-	// compute the line parameters of the two closest points
-	if( D < KINDA_SMALL_NUMBER ) 
-	{ 
-		// the lines are almost parallel
-		N1 = 0.f;	// force using point A on segment S1
-		D1 = 1.f;	// to prevent possible division by 0 later
-		N2 = Dot23;
-		D2 = Dot22;
-	}
-	else 
-	{                
-		// get the closest points on the infinite lines
-		N1 = (Dot12*Dot23 - Dot22*Dot13);
-		N2 = (Dot11*Dot23 - Dot12*Dot13);
-
-		if( N1 < 0.f ) 
-		{
-			// t1 < 0.f => the s==0 edge is visible
-			N1 = 0.f;
-			N2 = Dot23;
-			D2 = Dot22;
-		}
-		else if( N1 > D1 ) 
-		{
-			// t1 > 1 => the t1==1 edge is visible
-			N1 = D1;
-			N2 = Dot23 + Dot12;
-			D2 = Dot22;
-		}
-	}
-
-	if( N2 < 0.f ) 
-	{           
-		// t2 < 0 => the t2==0 edge is visible
-		N2 = 0.f;
-
-		// recompute t1 for this edge
-		if( -Dot13 < 0.f )
-		{
-			N1 = 0.f;
-		}
-		else if( -Dot13 > Dot11 )
-		{
-			N1 = D1;
-		}
-		else 
-		{
-			N1 = -Dot13;
-			D1 = Dot11;
-		}
-	}
-	else if( N2 > D2 ) 
-	{      
-		// t2 > 1 => the t2=1 edge is visible
-		N2 = D2;
-
-		// recompute t1 for this edge
-		if( (-Dot13 + Dot12) < 0.f )
-		{
-			N1 = 0.f;
-		}
-		else if( (-Dot13 + Dot12) > Dot11 )
-		{
-			N1 = D1;
-		}
-		else 
-		{
-			N1 = (-Dot13 + Dot12);
-			D1 = Dot11;
-		}
-	}
-
-	// finally do the division to get the points' location
-	const float T1 = (FMath::Abs(N1) < KINDA_SMALL_NUMBER ? 0.f : N1 / D1);
-	const float T2 = (FMath::Abs(N2) < KINDA_SMALL_NUMBER ? 0.f : N2 / D2);
-
-	// return the closest points
-	OutP1 = A1 + T1 * S1;
-	OutP2 = A2 + T2 * S2;
+	SegmentDistToSegment_Solver(A1, B1, A2, B2).Solve(OutP1, OutP2);
 }
 
 float FMath::GetTForSegmentPlaneIntersect(const FVector& StartPoint, const FVector& EndPoint, const FPlane& Plane)

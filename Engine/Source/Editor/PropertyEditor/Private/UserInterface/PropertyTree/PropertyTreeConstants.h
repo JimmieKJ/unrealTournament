@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+
 namespace PropertyTreeConstants
 {
 	const uint32 ItemHeight = 22;

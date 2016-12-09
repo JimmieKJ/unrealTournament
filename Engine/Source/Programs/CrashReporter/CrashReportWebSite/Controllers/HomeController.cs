@@ -1,6 +1,5 @@
 ﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 using System.Web.Mvc;
-using Tools.CrashReporter.CrashReportWebSite.DataModels;
 using Tools.CrashReporter.CrashReportWebSite.DataModels.Repositories;
 using Tools.CrashReporter.CrashReportWebSite.ViewModels;
 
@@ -9,12 +8,11 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 	/// <summary>Controls the start page.</summary>
 	public class HomeController : Controller
 	{
-	    private IUnitOfWork _unitOfWork;
+	    private readonly IUnitOfWork _unitOfWork;
 
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="unitOfWork"></param>
 	    public HomeController(IUnitOfWork unitOfWork)
 	    {
 	        _unitOfWork = unitOfWork;
@@ -27,22 +25,23 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 		{
             using (var logTimer = new FAutoScopedLogTimer( this.GetType().ToString(), bCreateNewLog: true ))
 			{
-				var result = new CrashesViewModel();
-                result.BranchNames = _unitOfWork.CrashRepository.GetBranchesAsListItems();
-                result.VersionNames = _unitOfWork.CrashRepository.GetVersionsAsListItems();
-                result.PlatformNames = _unitOfWork.CrashRepository.GetPlatformsAsListItems();
-                result.EngineModes = _unitOfWork.CrashRepository.GetEngineModesAsListItems();
-				result.GenerationTime = logTimer.GetElapsedSeconds().ToString( "F2" );
-				return View( "Index", result );
+				var result = new CrashesViewModel
+				{
+				    BranchNames = _unitOfWork.CrashRepository.GetBranchesAsListItems(),
+				    VersionNames = _unitOfWork.CrashRepository.GetVersionsAsListItems(),
+				    PlatformNames = _unitOfWork.CrashRepository.GetPlatformsAsListItems(),
+				    EngineModes = _unitOfWork.CrashRepository.GetEngineModesAsListItems(),
+				    EngineVersions = _unitOfWork.CrashRepository.GetEngineVersionsAsListItems(),
+				    GenerationTime = logTimer.GetElapsedSeconds().ToString("F2")
+				};
+			    return View( "Index", result );
 			}
 		}
 
-	    protected override void Dispose(bool disposing)
-	    {
-	        if (disposing)
-	        {
-	            _unitOfWork.Dispose();
-	        }
-	    }
+        protected override void Dispose(bool disposing)
+        {
+            _unitOfWork.Dispose();
+            base.Dispose(disposing);
+        }
 	}
 }

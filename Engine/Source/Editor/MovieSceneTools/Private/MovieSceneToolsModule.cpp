@@ -1,48 +1,42 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "ModuleManager.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Curves/RichCurve.h"
 #include "ISequencerModule.h"
-#include "Kismet2/BlueprintEditorUtils.h"
-#include "MovieSceneSection.h"
-#include "ISequencerSection.h"
-#include "ScopedTransaction.h"
-#include "MovieScene.h"
-#include "MovieSceneTrackEditor.h"
 #include "MovieSceneToolsProjectSettingsCustomization.h"
 
-#include "BoolPropertyTrackEditor.h"
-#include "BytePropertyTrackEditor.h"
-#include "ColorPropertyTrackEditor.h"
-#include "FloatPropertyTrackEditor.h"
-#include "VectorPropertyTrackEditor.h"
-#include "VisibilityPropertyTrackEditor.h"
-#include "ActorReferencePropertyTrackEditor.h"
-#include "StringPropertyTrackEditor.h"
+#include "TrackEditors/PropertyTrackEditors/BoolPropertyTrackEditor.h"
+#include "TrackEditors/PropertyTrackEditors/BytePropertyTrackEditor.h"
+#include "TrackEditors/PropertyTrackEditors/ColorPropertyTrackEditor.h"
+#include "TrackEditors/PropertyTrackEditors/FloatPropertyTrackEditor.h"
+#include "TrackEditors/PropertyTrackEditors/IntegerPropertyTrackEditor.h"
+#include "TrackEditors/PropertyTrackEditors/VectorPropertyTrackEditor.h"
+#include "TrackEditors/PropertyTrackEditors/VisibilityPropertyTrackEditor.h"
+#include "TrackEditors/PropertyTrackEditors/ActorReferencePropertyTrackEditor.h"
+#include "TrackEditors/PropertyTrackEditors/StringPropertyTrackEditor.h"
 
-#include "TransformTrackEditor.h"
-#include "CameraCutTrackEditor.h"
-#include "CinematicShotTrackEditor.h"
-#include "SlomoTrackEditor.h"
-#include "SubTrackEditor.h"
-#include "AudioTrackEditor.h"
-#include "SkeletalAnimationTrackEditor.h"
-#include "ParticleTrackEditor.h"
-#include "ParticleParameterTrackEditor.h"
-#include "AttachTrackEditor.h"
-#include "EventTrackEditor.h"
-#include "PathTrackEditor.h"
-#include "MaterialTrackEditor.h"
-#include "FadeTrackEditor.h"
-#include "SpawnTrackEditor.h"
-#include "LevelVisibilityTrackEditor.h"
-#include "CameraAnimTrackEditor.h"
-#include "CameraShakeTrackEditor.h"
+#include "TrackEditors/TransformTrackEditor.h"
+#include "TrackEditors/CameraCutTrackEditor.h"
+#include "TrackEditors/CinematicShotTrackEditor.h"
+#include "TrackEditors/SlomoTrackEditor.h"
+#include "TrackEditors/SubTrackEditor.h"
+#include "TrackEditors/AudioTrackEditor.h"
+#include "TrackEditors/SkeletalAnimationTrackEditor.h"
+#include "TrackEditors/ParticleTrackEditor.h"
+#include "TrackEditors/ParticleParameterTrackEditor.h"
+#include "TrackEditors/AttachTrackEditor.h"
+#include "TrackEditors/EventTrackEditor.h"
+#include "TrackEditors/PathTrackEditor.h"
+#include "TrackEditors/MaterialTrackEditor.h"
+#include "TrackEditors/FadeTrackEditor.h"
+#include "TrackEditors/SpawnTrackEditor.h"
+#include "TrackEditors/LevelVisibilityTrackEditor.h"
+#include "TrackEditors/CameraAnimTrackEditor.h"
+#include "TrackEditors/CameraShakeTrackEditor.h"
 
-#include "MovieSceneClipboard.h"
 #include "SequencerClipboardReconciler.h"
 #include "ClipboardTypes.h"
-#include "Curves/CurveBase.h"
 #include "ISettingsModule.h"
 #include "PropertyEditorModule.h"
 #include "IMovieSceneTools.h"
@@ -80,6 +74,7 @@ public:
 		BytePropertyTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FBytePropertyTrackEditor::CreateTrackEditor ) );
 		ColorPropertyTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FColorPropertyTrackEditor::CreateTrackEditor ) );
 		FloatPropertyTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FFloatPropertyTrackEditor::CreateTrackEditor ) );
+		IntegerPropertyTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FIntegerPropertyTrackEditor::CreateTrackEditor ) );
 		VectorPropertyTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FVectorPropertyTrackEditor::CreateTrackEditor ) );
 		VisibilityPropertyTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle( FOnCreateTrackEditor::CreateStatic( &FVisibilityPropertyTrackEditor::CreateTrackEditor ) );
 		ActorReferencePropertyTrackCreateEditorHandle = SequencerModule.RegisterTrackEditor_Handle(FOnCreateTrackEditor::CreateStatic( &FActorReferencePropertyTrackEditor::CreateTrackEditor ) );
@@ -131,6 +126,7 @@ public:
 		SequencerModule.UnRegisterTrackEditor_Handle( BytePropertyTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( ColorPropertyTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( FloatPropertyTrackCreateEditorHandle );
+		SequencerModule.UnRegisterTrackEditor_Handle( IntegerPropertyTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( VectorPropertyTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( VisibilityPropertyTrackCreateEditorHandle );
 		SequencerModule.UnRegisterTrackEditor_Handle( ActorReferencePropertyTrackCreateEditorHandle );
@@ -203,6 +199,7 @@ private:
 	FDelegateHandle BytePropertyTrackCreateEditorHandle;
 	FDelegateHandle ColorPropertyTrackCreateEditorHandle;
 	FDelegateHandle FloatPropertyTrackCreateEditorHandle;
+	FDelegateHandle IntegerPropertyTrackCreateEditorHandle;
 	FDelegateHandle VectorPropertyTrackCreateEditorHandle;
 	FDelegateHandle VisibilityPropertyTrackCreateEditorHandle;
 	FDelegateHandle ActorReferencePropertyTrackCreateEditorHandle;

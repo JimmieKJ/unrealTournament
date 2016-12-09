@@ -316,7 +316,7 @@ void GammaDistanceFieldMain(
 	float SmoothstepWidth = SmoothWidth * TextureToScreenCompensation;
 	float4 BaseColor = float4(Color.rgb, smoothstep(0.5-SmoothstepWidth, 0.5+SmoothstepWidth, BaseDist));
 	
-// @todo-mobile: bool doesn't work on ES2
+// @todo-mobile: bool doesn't work on ES2 (but it should in ES31? Why is 31 in this check)
 #if !(ES2_PROFILE || ES3_1_PROFILE)
 	if( EnableShadow )
 	{

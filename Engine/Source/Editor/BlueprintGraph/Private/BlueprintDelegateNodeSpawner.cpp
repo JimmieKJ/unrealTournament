@@ -1,13 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintDelegateNodeSpawner.h"
 #include "K2Node_Variable.h"
-#include "EditorStyleSettings.h"	// for bShowFriendlyNames
-#include "ObjectEditorUtils.h"		// for GetCategory()
-#include "BlueprintEditorUtils.h"	// for FindBlueprintForNodeChecked()
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "EditorStyleSettings.h"
+#include "Editor/EditorEngine.h"
+#include "ObjectEditorUtils.h"
 #include "EditorCategoryUtils.h"
-#include "K2Node_BaseMCDelegate.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintDelegateNodeSpawner"
 

@@ -1,17 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	DerivedDataCacheCommandlet.cpp: Commandlet for DDC maintenence
+DerivedDataCacheCommandlet.cpp: Commandlet for DDC maintenence
 =============================================================================*/
-#include "UnrealEd.h"
+#include "Commandlets/DerivedDataCacheCommandlet.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
+#include "Misc/PackageName.h"
 #include "PackageHelperFunctions.h"
 #include "DerivedDataCacheInterface.h"
-#include "ISourceControlModule.h"
 #include "GlobalShader.h"
-#include "TargetPlatform.h"
-#include "IConsoleManager.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
 #include "ShaderCompiler.h"
 #include "DistanceFieldAtlas.h"
+#include "Misc/RedirectCollector.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDerivedDataCacheCommandlet, Log, All);
 
@@ -39,7 +43,7 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 	bool bFillCache = Switches.Contains("FILL");   // do the equivalent of a "loadpackage -all" to fill the DDC
 	bool bStartupOnly = Switches.Contains("STARTUPONLY");   // regardless of any other flags, do not iterate packages
 
-	// Subsets for parallel processing
+															// Subsets for parallel processing
 	uint32 SubsetMod = 0;
 	uint32 SubsetTarget = MAX_uint32;
 	FParse::Value(*Params, TEXT("SubsetMod="), SubsetMod);
@@ -101,7 +105,7 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 		{
 			Tokens.Add(FString("*") + FPackageName::GetMapPackageExtension());
 		}
-		
+
 		uint8 PackageFilter = NORMALIZE_DefaultFlags;
 		if ( Switches.Contains(TEXT("MAPSONLY")) )
 		{
@@ -195,6 +199,8 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 				}
 				else
 				{
+					GRedirectCollector.ResolveStringAssetReference();
+
 					// cache all the resources for this platform
 					for (TObjectIterator<UObject> It; It; ++It)
 					{
@@ -248,6 +254,9 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 				}
 				FindProcessedPackagesTime += FPlatformTime::Seconds() - FindProcessedPackagesStartTime;
 			}
+
+			// Process any asynchronous shader compile results that are ready, limit execution time
+			GShaderCompilingManager->ProcessAsyncResults(true, false);
 
 			if (NumProcessedSinceLastGC >= GCInterval || FileIndex < 0 || bLastPackageWasMap)
 			{

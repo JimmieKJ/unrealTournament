@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "DataTableEditorUtils.h"
-#include "DataTableUtils.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "Styling/SlateTypes.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "EditorStyleSet.h"
+#include "Engine/UserDefinedStruct.h"
 #include "ScopedTransaction.h"
 #include "K2Node_GetDataTableRow.h"
-#include "Engine/UserDefinedStruct.h"
 
 #define LOCTEXT_NAMESPACE "DataTableEditorUtils"
 
@@ -52,7 +56,7 @@ uint8* FDataTableEditorUtils::AddRow(UDataTable* DataTable, FName RowName)
 	BroadcastPreChange(DataTable, EDataTableChangeInfo::RowList);
 	DataTable->Modify();
 	// Allocate data to store information, using UScriptStruct to know its size
-	uint8* RowData = (uint8*)FMemory::Malloc(DataTable->RowStruct->PropertiesSize);
+	uint8* RowData = (uint8*)FMemory::Malloc(DataTable->RowStruct->GetStructureSize());
 	DataTable->RowStruct->InitializeStruct(RowData);
 	// And be sure to call DestroyScriptStruct later
 

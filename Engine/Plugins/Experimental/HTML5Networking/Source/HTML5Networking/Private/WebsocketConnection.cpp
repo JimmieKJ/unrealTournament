@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HTML5NetworkingPCH.h"
+#include "HTML5NetworkingPrivate.h"
 
 #include "IPAddress.h"
 #include "Sockets.h"
@@ -10,6 +10,9 @@
 #include "WebSocketConnection.h"
 #include "WebSocketNetDriver.h"
 #include "WebSocket.h"
+#include "Runtime/PacketHandlers/PacketHandler/Public/PacketHandler.h"
+#include "PacketHandlers/StatelessConnectHandlerComponent.h"
+
 /*-----------------------------------------------------------------------------
 Declarations.
 -----------------------------------------------------------------------------*/
@@ -65,15 +68,40 @@ void UWebSocketConnection::InitRemoteConnection(UNetDriver* InDriver, class FSoc
 
 void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 {
-	// @todo: PacketHandler's
+	const uint8* DataToSend = reinterpret_cast<uint8*>(Data);
 
-	int32 BytesSent = 0;
-	WebSocket->Send((uint8*)Data, CountBytes);
+	// Process any packet modifiers
+	if (Handler.IsValid() && !Handler->GetRawSend())
+	{
+		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits);
+
+		if (!ProcessedData.bError)
+		{
+			DataToSend = ProcessedData.Data;
+			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
+			CountBits = ProcessedData.CountBits;
+		}
+		else
+		{
+			CountBytes = 0;
+			CountBits = 0;
+		}
+	}
+
+	if ( CountBytes > MaxPacket )
+	{
+		UE_LOG( LogNet, Warning, TEXT( "UWebSocketConnection::LowLevelSend: CountBytes > MaxPacketSize! Count: %i, MaxPacket: %i %s" ), CountBytes, MaxPacket, *Describe() );
+	}
+
+	if (CountBytes > 0)
+	{
+		WebSocket->Send((uint8*)DataToSend, CountBytes);
+	}
 }
 
 FString UWebSocketConnection::LowLevelGetRemoteAddress(bool bAppendPort)
 {
-	return WebSocket->RemoteEndPoint();
+	return WebSocket->RemoteEndPoint(bAppendPort);
 }
 
 FString UWebSocketConnection::LowLevelDescribe()
@@ -81,15 +109,14 @@ FString UWebSocketConnection::LowLevelDescribe()
 	return FString::Printf
 		(
 		TEXT(" remote=%s local=%s state: %s"),
-		*WebSocket->RemoteEndPoint(),
-		*WebSocket->LocalEndPoint(),
+		*WebSocket->RemoteEndPoint(true),
+		*WebSocket->LocalEndPoint(true),
 		State == USOCK_Pending ? TEXT("Pending")
 		: State == USOCK_Open ? TEXT("Open")
 		: State == USOCK_Closed ? TEXT("Closed")
 		: TEXT("Invalid")
 		);
 }
-
 
 void UWebSocketConnection::SetWebSocket(FWebSocket* InWebSocket)
 {
@@ -100,7 +127,6 @@ FWebSocket* UWebSocketConnection::GetWebSocket()
 {
 	return WebSocket;
 }
-
 
 void UWebSocketConnection::Tick()
 {
@@ -116,3 +142,64 @@ void UWebSocketConnection::FinishDestroy()
 
 }
 
+void UWebSocketConnection::ReceivedRawPacket(void* Data,int32 Count)
+{
+	if (Count == 0 ||   // nothing to process
+		Driver == NULL) // connection closing
+	{
+		return;
+	}
+
+	uint8* DataRef = reinterpret_cast<uint8*>(Data);
+	if ( bChallengeHandshake )
+	{
+		// Process all incoming packets.
+		if (Driver->ConnectionlessHandler.IsValid() && Driver->StatelessConnectComponent.IsValid())
+		{
+			const ProcessedPacket UnProcessedPacket =
+									Driver->ConnectionlessHandler->IncomingConnectionless(LowLevelGetRemoteAddress(true), DataRef, Count);
+	
+			TSharedPtr<StatelessConnectHandlerComponent> StatelessConnect = Driver->StatelessConnectComponent.Pin();
+			if (!UnProcessedPacket.bError && StatelessConnect->HasPassedChallenge(LowLevelGetRemoteAddress(true)))
+			{
+				bChallengeHandshake = false; // i.e. bPassedChallenge
+				UE_LOG(LogNet, Warning, TEXT("UWebSocketConnection::bChallengeHandshake: %s"), *LowLevelDescribe());
+				Count = FMath::DivideAndRoundUp(UnProcessedPacket.CountBits, 8);
+				if (Count > 0)
+				{
+					DataRef = UnProcessedPacket.Data;
+				}
+				else
+				{
+					return; // NO FURTHER DATA TO PROCESS
+				}
+			}
+			else
+			{
+				// WARNING: if here, it might be during (bInitialConnect) - which needs to be processed (ReceivedRawPacket)
+				//return;
+			}
+		}
+	}
+
+	UNetConnection::ReceivedRawPacket(DataRef,Count);
+}
+
+int32 UWebSocketConnection::GetAddrAsInt()
+{
+	// Get the host byte order ip addr
+	struct sockaddr_in* sock = WebSocket->GetRemoteAddr();
+	return (int32)ntohl(sock->sin_addr.s_addr);
+}
+
+int32 UWebSocketConnection::GetAddrPort()
+{
+	// Get the host byte order ip port
+	struct sockaddr_in* sock = WebSocket->GetRemoteAddr();
+	return (int32)ntohs(sock->sin_port);
+}
+
+FString UWebSocketConnection::RemoteAddressToString()
+{
+	return WebSocket->RemoteEndPoint(true);
+}

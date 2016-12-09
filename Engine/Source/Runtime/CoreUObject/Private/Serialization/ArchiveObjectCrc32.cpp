@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
+#include "Serialization/ArchiveObjectCrc32.h"
+#include "UObject/Object.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogArchiveObjectCrc32, Log, All);
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -17,6 +17,8 @@
 #include "libcef_dll/ctocpp/command_line_ctocpp.h"
 #include "libcef_dll/ctocpp/scheme_registrar_ctocpp.h"
 
+
+namespace {
 
 // MEMBER FUNCTIONS - Body may be edited by hand.
 
@@ -105,17 +107,24 @@ struct _cef_render_process_handler_t* CEF_CALLBACK app_get_render_process_handle
   return CefRenderProcessHandlerCppToC::Wrap(_retval);
 }
 
+}  // namespace
+
 
 // CONSTRUCTOR - Do not edit by hand.
 
-CefAppCppToC::CefAppCppToC(CefApp* cls)
-    : CefCppToC<CefAppCppToC, CefApp, cef_app_t>(cls) {
-  struct_.struct_.on_before_command_line_processing =
+CefAppCppToC::CefAppCppToC() {
+  GetStruct()->on_before_command_line_processing =
       app_on_before_command_line_processing;
-  struct_.struct_.on_register_custom_schemes = app_on_register_custom_schemes;
-  struct_.struct_.get_resource_bundle_handler = app_get_resource_bundle_handler;
-  struct_.struct_.get_browser_process_handler = app_get_browser_process_handler;
-  struct_.struct_.get_render_process_handler = app_get_render_process_handler;
+  GetStruct()->on_register_custom_schemes = app_on_register_custom_schemes;
+  GetStruct()->get_resource_bundle_handler = app_get_resource_bundle_handler;
+  GetStruct()->get_browser_process_handler = app_get_browser_process_handler;
+  GetStruct()->get_render_process_handler = app_get_render_process_handler;
+}
+
+template<> CefRefPtr<CefApp> CefCppToC<CefAppCppToC, CefApp,
+    cef_app_t>::UnwrapDerived(CefWrapperType type, cef_app_t* s) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
 }
 
 #ifndef NDEBUG
@@ -123,3 +132,5 @@ template<> base::AtomicRefCount CefCppToC<CefAppCppToC, CefApp,
     cef_app_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCppToC<CefAppCppToC, CefApp,
+    cef_app_t>::kWrapperType = WT_APP;

@@ -2,7 +2,15 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/Package.h"
 #include "SequencerSettings.generated.h"
+
+struct FPropertyChangedEvent;
+enum class EAutoKeyMode : uint8;
+enum class EMovieSceneKeyInterpolation : uint8;
 
 UENUM()
 enum ESequencerSpawnPosition
@@ -66,6 +74,10 @@ public:
 	GENERATED_UCLASS_BODY()
 
 	DECLARE_MULTICAST_DELEGATE( FOnTimeSnapIntervalChanged );
+	DECLARE_MULTICAST_DELEGATE( FOnEvaluateSubSequencesInIsolationChanged );
+	DECLARE_MULTICAST_DELEGATE_OneParam( FOnLockPlaybackToAudioClockChanged, bool );
+
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
 	/** Gets the current auto-key mode. */
 	EAutoKeyMode GetAutoKeyMode() const;
@@ -237,17 +249,42 @@ public:
 	/** Toggle whether to allow possession of PIE viewports */
 	void SetAllowPossessionOfPIEViewports(bool bInAllowPossessionOfPIEViewports);
 
+	/** Gets whether or not track defaults will be automatically set when modifying tracks. */
+	bool GetAutoSetTrackDefaults() const;
+	/** Sets whether or not track defaults will be automatically set when modifying tracks. */
+	void SetAutoSetTrackDefaults(bool bInAutoSetTrackDefaults);
+
+	/** @return Whether to show debug vis */
+	bool ShouldShowDebugVisualization() const;
+	/** Toggle whether to show debug vis */
+	void SetShowDebugVisualization(bool bInShowDebugVisualization);
+
+	/** @return Whether to evaluate sub sequences in isolation */
+	bool ShouldEvaluateSubSequencesInIsolation() const;
+	/** Set whether to evaluate sub sequences in isolation */
+	void SetEvaluateSubSequencesInIsolation(bool bInEvaluateSubSequencesInIsolation);
+	/** Gets the multicast delegate which is run whenever the time snap interval is changed. */
+	FOnEvaluateSubSequencesInIsolationChanged& GetOnEvaluateSubSequencesInIsolationChanged() { return OnEvaluateSubSequencesInIsolationChangedEvent; }
+
 	/** Snaps a time value in seconds to the currently selected interval. */
 	float SnapTimeToInterval(float InTimeValue) const;
 
 	/** Gets the multicast delegate which is run whenever the time snap interval is changed. */
 	FOnTimeSnapIntervalChanged& GetOnTimeSnapIntervalChanged();
 
+	/** @return true we're locking playback to the audio clock */
+	bool ShouldLockPlaybackToAudioClock() const;
+	/** Toggle whether to lock playback to the audio clock */
+	void SetLockPlaybackToAudioClock(bool bInLockPlaybackToAudioClock);
+
+	/** Gets the multicast delegate which is invoked whenevcer the bLockPlaybackToAudioClock setting is changed. */
+	FOnLockPlaybackToAudioClockChanged& GetOnLockPlaybackToAudioClockChanged() { return OnLockPlaybackToAudioClockChanged; }
+
 protected:
 
 	/** Enable or disable autokeying. */
 	UPROPERTY( config, EditAnywhere, Category=Keyframing )
-	TEnumAsByte<EAutoKeyMode> AutoKeyMode;
+	EAutoKeyMode AutoKeyMode;
 
 	/** Enable or disable keying all channels when any are keyed. */
 	UPROPERTY( config, EditAnywhere, Category=Keyframing )
@@ -259,7 +296,11 @@ protected:
 
 	/** The interpolation type for newly created keyframes */
 	UPROPERTY( config, EditAnywhere, Category=Keyframing )
-	TEnumAsByte<EMovieSceneKeyInterpolation> KeyInterpolation;
+	EMovieSceneKeyInterpolation KeyInterpolation;
+
+	/** Whether or not track defaults will be automatically set when modifying tracks. */
+	UPROPERTY( config, EditAnywhere, Category=Keyframing, meta = (ToolTip = "When setting keys on properties and transforms automatically update the track default values used when there are no keys."))
+	bool bAutoSetTrackDefaults;
 
 	/** The default location of a spawnable when it is first dragged into the viewport from the content browser. */
 	UPROPERTY( config, EditAnywhere, Category=General )
@@ -376,9 +417,24 @@ protected:
 	UPROPERTY( config )
 	bool bShowViewportTransportControls;
 
+	/** When enabled, sequencer playback will be locked to the engine's audio clock */
+	UPROPERTY(config, EditAnywhere, Category=Playback)
+	bool bLockPlaybackToAudioClock;
+
 	/** When enabled, sequencer is able to possess viewports that represent PIE worlds */
 	UPROPERTY(config, EditAnywhere, Category=General)
 	bool bAllowPossessionOfPIEViewports;
 
+	/** When enabled, entering a sub sequence will evaluate that sub sequence in isolation, rather than from the master sequence */
+	UPROPERTY(config, EditAnywhere, Category=Playback)
+	bool bEvaluateSubSequencesInIsolation;
+
+	FOnLockPlaybackToAudioClockChanged OnLockPlaybackToAudioClockChanged;
+
+	/** Enable or disable showing of debug visualization. */
+	UPROPERTY( config, EditAnywhere, Category=General )
+	bool bShowDebugVisualization;
+
 	FOnTimeSnapIntervalChanged OnTimeSnapIntervalChanged;
+	FOnEvaluateSubSequencesInIsolationChanged OnEvaluateSubSequencesInIsolationChangedEvent;
 };

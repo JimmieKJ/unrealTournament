@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "AnalyticsBlueprintLibrary.generated.h"
+
+class Error;
 
 /** Blueprint accessible version of the analytics event struct */
 USTRUCT(BlueprintType)

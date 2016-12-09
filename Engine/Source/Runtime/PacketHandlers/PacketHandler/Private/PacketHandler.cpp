@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PacketHandlerPCH.h"
-
 #include "PacketHandler.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Package.h"
+
 #include "HandlerComponentFactory.h"
 #include "ReliabilityHandlerComponent.h"
 
@@ -324,12 +327,12 @@ const ProcessedPacket PacketHandler::Incoming_Internal(uint8* Packet, int32 Coun
 		}
 		else
 		{
-			return ProcessedPacket();
+			return ProcessedPacket(nullptr, 0, true);
 		}
 	}
 	else
 	{
-		return ProcessedPacket();
+		return ProcessedPacket(nullptr, 0, true);
 	}
 }
 
@@ -417,7 +420,7 @@ const ProcessedPacket PacketHandler::Outgoing_Internal(uint8* Packet, int32 Coun
 		}
 		else
 		{
-			return ProcessedPacket(Packet, CountBits);
+			return ProcessedPacket(nullptr, 0, true);
 		}
 	}
 	else

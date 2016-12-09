@@ -1,13 +1,38 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-// ..
+// .
 
 #include "VulkanShaderFormat.h"
-#include "Core.h"
+#include "VulkanConfiguration.h"
 #include "ShaderPreprocessor.h"
 #include "ShaderCompilerCommon.h"
 #include "hlslcc.h"
+#if PLATFORM_MAC
+// Horrible hack as we need the enum available but the Vulkan headers do not compile on Mac
+enum VkDescriptorType {
+	VK_DESCRIPTOR_TYPE_SAMPLER = 0,
+	VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER = 1,
+	VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE = 2,
+	VK_DESCRIPTOR_TYPE_STORAGE_IMAGE = 3,
+	VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER = 4,
+	VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER = 5,
+	VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER = 6,
+	VK_DESCRIPTOR_TYPE_STORAGE_BUFFER = 7,
+	VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC = 8,
+	VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC = 9,
+	VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT = 10,
+	VK_DESCRIPTOR_TYPE_BEGIN_RANGE = VK_DESCRIPTOR_TYPE_SAMPLER,
+	VK_DESCRIPTOR_TYPE_END_RANGE = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+	VK_DESCRIPTOR_TYPE_RANGE_SIZE = (VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT - VK_DESCRIPTOR_TYPE_SAMPLER + 1),
+	VK_DESCRIPTOR_TYPE_MAX_ENUM = 0x7FFFFFFF
+};
+#else
+#include "vulkan.h"
+#endif
 #include "VulkanBackend.h"
 #include "VulkanShaderResources.h"
+#include "Serialization/MemoryWriter.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogVulkanShaderCompiler, Log, All); 
@@ -60,6 +85,16 @@ inline bool CStringIsBlankLine(const ANSICHAR * Text)
 		++Text;
 	}
 	return true;
+}
+
+static inline bool IsAlpha(ANSICHAR c)
+{
+	return (c >='a' && c <= 'z') || (c >='A' && c <='Z');
+}
+
+static inline bool IsDigit(ANSICHAR c)
+{
+	return c >= '0' && c <= '9';
 }
 
 static FString ParseIdentifier(const ANSICHAR* &Str)
@@ -236,67 +271,6 @@ static uint32 GetTypeComponents(const FString& Type)
 	return Components;
 }
 
-
-static void GenerateBindingTable(const FVulkanShaderSerializedBindings& SerializedBindings, FVulkanShaderBindingTable& OutBindingTable)
-{
-	int32 NumCombinedSamplers = 0;
-	int32 NumSamplerBuffers = 0;
-	int32 NumUniformBuffers = 0;
-
-	auto& Layouts = SerializedBindings.Bindings;
-
-	//#todo-rco: FIX! SamplerBuffers share numbering with Samplers
-	NumCombinedSamplers = Layouts[FVulkanShaderSerializedBindings::TYPE_COMBINED_IMAGE_SAMPLER].Num() + Layouts[FVulkanShaderSerializedBindings::TYPE_SAMPLER_BUFFER].Num();
-	NumSamplerBuffers = Layouts[FVulkanShaderSerializedBindings::TYPE_COMBINED_IMAGE_SAMPLER].Num() + Layouts[FVulkanShaderSerializedBindings::TYPE_SAMPLER_BUFFER].Num();
-	NumUniformBuffers = Layouts[FVulkanShaderSerializedBindings::TYPE_PACKED_UNIFORM_BUFFER].Num() + Layouts[FVulkanShaderSerializedBindings::TYPE_UNIFORM_BUFFER].Num();
-
-	for (int32 Index = 0; Index < CrossCompiler::PACKED_TYPEINDEX_MAX; ++Index)
-	{
-		OutBindingTable.PackedGlobalUBsIndices[Index] = -1;
-	}
-
-	OutBindingTable.CombinedSamplerBindingIndices.AddUninitialized(NumCombinedSamplers);
-	//#todo-rco: FIX! SamplerBuffers share numbering with Samplers
-	OutBindingTable.SamplerBufferBindingIndices.AddUninitialized(NumSamplerBuffers);
-	OutBindingTable.UniformBufferBindingIndices.AddUninitialized(NumUniformBuffers);
-
-	for (int32 Index = 0; Index < Layouts[FVulkanShaderSerializedBindings::TYPE_COMBINED_IMAGE_SAMPLER].Num(); ++Index)
-	{
-		auto& Mapping = Layouts[FVulkanShaderSerializedBindings::TYPE_COMBINED_IMAGE_SAMPLER][Index];
-		OutBindingTable.CombinedSamplerBindingIndices[Mapping.EngineBindingIndex] = Mapping.VulkanBindingIndex;
-		//#todo-rco: FIX! SamplerBuffers share numbering with Samplers
-		OutBindingTable.SamplerBufferBindingIndices[Mapping.EngineBindingIndex] = Mapping.VulkanBindingIndex;
-	}
-
-	for (int32 Index = 0; Index < Layouts[FVulkanShaderSerializedBindings::TYPE_SAMPLER_BUFFER].Num(); ++Index)
-	{
-		auto& Mapping = Layouts[FVulkanShaderSerializedBindings::TYPE_SAMPLER_BUFFER][Index];
-		OutBindingTable.CombinedSamplerBindingIndices[Mapping.EngineBindingIndex] = Mapping.VulkanBindingIndex;
-		//#todo-rco: FIX! SamplerBuffers share numbering with Samplers
-		OutBindingTable.SamplerBufferBindingIndices[Mapping.EngineBindingIndex] = Mapping.VulkanBindingIndex;
-	}
-
-	for (int32 Index = 0; Index < Layouts[FVulkanShaderSerializedBindings::TYPE_UNIFORM_BUFFER].Num(); ++Index)
-	{
-		auto& Mapping = Layouts[FVulkanShaderSerializedBindings::TYPE_UNIFORM_BUFFER][Index];
-		OutBindingTable.UniformBufferBindingIndices[Mapping.EngineBindingIndex] = Mapping.VulkanBindingIndex;
-	}
-
-	for (int32 Index = 0; Index < Layouts[FVulkanShaderSerializedBindings::TYPE_PACKED_UNIFORM_BUFFER].Num(); ++Index)
-	{
-		auto& Mapping = Layouts[FVulkanShaderSerializedBindings::TYPE_PACKED_UNIFORM_BUFFER][Index];
-		OutBindingTable.UniformBufferBindingIndices[Mapping.EngineBindingIndex] = Mapping.VulkanBindingIndex;
-		uint8 PackedIndex = SerializedBindings.PackedUBTypeIndex[Index];
-		check(PackedIndex != (uint8)-1);
-		OutBindingTable.PackedGlobalUBsIndices[PackedIndex] = Mapping.EngineBindingIndex;
-	}
-
-	// Do not share numbers here
-	OutBindingTable.NumDescriptorsWithoutPackedUniformBuffers = Layouts[FVulkanShaderSerializedBindings::TYPE_COMBINED_IMAGE_SAMPLER].Num() + Layouts[FVulkanShaderSerializedBindings::TYPE_SAMPLER_BUFFER].Num() + Layouts[FVulkanShaderSerializedBindings::TYPE_UNIFORM_BUFFER].Num();
-	OutBindingTable.NumDescriptors = OutBindingTable.NumDescriptorsWithoutPackedUniformBuffers + Layouts[FVulkanShaderSerializedBindings::TYPE_PACKED_UNIFORM_BUFFER].Num();
-}
-
-
 static void BuildShaderOutput(
 	FShaderCompilerOutput& ShaderOutput,
 	const FShaderCompilerInput& ShaderInput,
@@ -388,6 +362,7 @@ static void BuildShaderOutput(
 	static const FString CBPrefix = "HLSLCC_CB";
 	for (auto& UniformBlock : CCHeader.UniformBlocks)
 	{
+		check(0);
 		uint16 UBIndex = UniformBlock.Index;
 		UsedUniformBufferSlots[UBIndex] = true;
 		if (UniformBlock.Name.StartsWith(CBPrefix))
@@ -403,96 +378,83 @@ static void BuildShaderOutput(
 		}
 	}
 
-	// Parse binding table; categorize by type
-	FMemory::Memset(Header.SerializedBindings.PackedUBTypeIndex, (uint8)-1);
-	for (const auto& CurrBinding : BindingTable.GetBindings())
+	const TArray<FVulkanBindingTable::FBinding>& HlslccBindings = BindingTable.GetBindings();
+	Header.NEWDescriptorInfo.NumBufferInfos = 0;
+	Header.NEWDescriptorInfo.NumImageInfos = 0;
+	for (int32 Index = 0; Index < HlslccBindings.Num(); ++Index)
 	{
-		FVulkanShaderSerializedBindings::FBindMap NewBinding;
-		NewBinding.VulkanBindingIndex = CurrBinding.Index;
-		auto NewBindingName = ParseIdentifierANSI(CurrBinding.Name);
-		NewBinding.EngineBindingIndex = ParseNumber(NewBindingName.GetData());
+		const FVulkanBindingTable::FBinding& Binding = HlslccBindings[Index];
+		check(Binding.Index == Index);
 
-		auto Type = FVulkanShaderSerializedBindings::TYPE_MAX;
-		switch (CurrBinding.Type)
+		Header.NEWDescriptorInfo.DescriptorTypes.Add(BindingToDescriptorType(Binding.Type));
+
+		switch (Binding.Type)
 		{
-		//case FVulkanBindingTable::TYPE_SAMPLER:
-		//	Type = FVulkanShaderSerializedBindings::TYPE_SAMPLER;
-		//	break;
-		case FVulkanBindingTable::TYPE_COMBINED_IMAGE_SAMPLER:
-			Type = FVulkanShaderSerializedBindings::TYPE_COMBINED_IMAGE_SAMPLER;
+		case EVulkanBindingType::Sampler:
+		case EVulkanBindingType::CombinedImageSampler:
+		case EVulkanBindingType::Image:
+		case EVulkanBindingType::StorageImage:
+			++Header.NEWDescriptorInfo.NumImageInfos;
 			break;
-		case FVulkanBindingTable::TYPE_SAMPLER_BUFFER:
-			Type = FVulkanShaderSerializedBindings::TYPE_SAMPLER_BUFFER;
+		case EVulkanBindingType::UniformBuffer:
+			++Header.NEWDescriptorInfo.NumBufferInfos;
 			break;
-		case FVulkanBindingTable::TYPE_UNIFORM_BUFFER:
-			Type = FVulkanShaderSerializedBindings::TYPE_UNIFORM_BUFFER;
+		case EVulkanBindingType::PackedUniformBuffer:
+			{
+				FVulkanCodeHeader::FPackedUBToVulkanBindingIndex* New = new(Header.NEWPackedUBToVulkanBindingIndices) FVulkanCodeHeader::FPackedUBToVulkanBindingIndex;
+				New->TypeName = (CrossCompiler::EPackedTypeName)Binding.SubType;
+				New->VulkanBindingIndex = Index;
+				++Header.NEWDescriptorInfo.NumBufferInfos;
+			}
 			break;
-		case FVulkanBindingTable::TYPE_PACKED_UNIFORM_BUFFER:
-			Type = FVulkanShaderSerializedBindings::TYPE_PACKED_UNIFORM_BUFFER;
-			check(Header.SerializedBindings.Bindings[Type].Num() < CrossCompiler::PACKED_TYPEINDEX_MAX);
-			Header.SerializedBindings.PackedUBTypeIndex[Header.SerializedBindings.Bindings[Type].Num()] = CrossCompiler::PackedTypeNameToTypeIndex(CurrBinding.SubType);
+		case EVulkanBindingType::UniformTexelBuffer:
+		case EVulkanBindingType::StorageTexelBuffer:
 			break;
 		default:
-			checkf(0, TEXT("Binding Type %d not found"), (int32)CurrBinding.Type);
+			checkf(0, TEXT("Binding Type %d not found"), (int32)Binding.Type);
 			break;
 		}
-
-		Header.SerializedBindings.Bindings[Type].Add(NewBinding);
-	}
-
-	// Fix up packed global layouts so they are in packed name type index order
-	{
-		// Simple bubble sort of 5 elements
-		bool bChanged = false;
-		do
-		{
-			bChanged = false;
-
-			auto& Bindings = Header.SerializedBindings.Bindings[FVulkanShaderSerializedBindings::TYPE_PACKED_UNIFORM_BUFFER];
-			auto& PackedTypes = Header.SerializedBindings.PackedUBTypeIndex;
-			for (int32 Index = 0; Index < Bindings.Num() - 1; ++Index)
-			{
-				if (PackedTypes[Index] > PackedTypes[Index + 1])
-				{
-					Swap(PackedTypes[Index], PackedTypes[Index + 1]);
-					Swap(Bindings[Index], Bindings[Index + 1]);
-					bChanged = true;
-				}
-			}
-		}
-		while (bChanged);
 	}
 
 	const uint16 BytesPerComponent = 4;
 
 	// Packed global uniforms
-	TMap<ANSICHAR, uint16> PackedGlobalArraySize;
+	TMap<CrossCompiler::EPackedTypeName, uint32> PackedGlobalArraySize;
 	for (auto& PackedGlobal : CCHeader.PackedGlobals)
 	{
+		int32 Found = -1;
+		for (int32 Index = 0; Index < Header.NEWPackedUBToVulkanBindingIndices.Num(); ++Index)
+		{
+			if (Header.NEWPackedUBToVulkanBindingIndices[Index].TypeName == (CrossCompiler::EPackedTypeName)PackedGlobal.PackedType)
+			{
+				Found = Index;
+				break;
+				}
+			}
+		check(Found != -1);
+
 		ParameterMap.AddParameterAllocation(
 			*PackedGlobal.Name,
-			PackedGlobal.PackedType,
+			Found,
 			PackedGlobal.Offset * BytesPerComponent,
 			PackedGlobal.Count * BytesPerComponent
 			);
 
-		uint16& Size = PackedGlobalArraySize.FindOrAdd(PackedGlobal.PackedType);
-		Size = FMath::Max<uint16>(BytesPerComponent * (PackedGlobal.Offset + PackedGlobal.Count), Size);
+		uint32& Size = PackedGlobalArraySize.FindOrAdd((CrossCompiler::EPackedTypeName)PackedGlobal.PackedType);
+		Size = FMath::Max<uint32>(BytesPerComponent * (PackedGlobal.Offset + PackedGlobal.Count), Size);
 	}
 
 	// Packed Uniform Buffers
-	TMap<int, TMap<ANSICHAR, uint16> > PackedUniformBuffersSize;
+	TMap<int, TMap<CrossCompiler::EPackedTypeName, uint16> > PackedUniformBuffersSize;
+	Header.NEWNumNonGlobalUBs = 0;
 	for (auto& PackedUB : CCHeader.PackedUBs)
 	{
-		check(PackedUB.Attribute.Index == Header.SerializedBindings.NumUniformBuffers);
-		UsedUniformBufferSlots[PackedUB.Attribute.Index] = true;
-		ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.SerializedBindings.NumUniformBuffers++, 0, 0);
-
-		// Nothing else...
-		//for (auto& Member : PackedUB.Members)
-		//{
-		//}
+		//check(PackedUB.Attribute.Index == Header.SerializedBindings.NumUniformBuffers);
+		UsedUniformBufferSlots[Header.NEWNumNonGlobalUBs] = true;
+		ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.NEWNumNonGlobalUBs++, PackedUB.Attribute.Index, 0);
 	}
+
+	//#todo-rco: When using regular UBs, also set UsedUniformBufferSlots[] = 1
 
 	// Packed Uniform Buffers copy lists & setup sizes for each UB/Precision entry
 	enum EFlattenUBState
@@ -504,13 +466,27 @@ static void BuildShaderOutput(
 
 	EFlattenUBState UBState = Unknown;
 
+	// Remap the destination UB index into the packed global array index
+	auto RemapDestIndexIntoPackedUB = [&Header](int8 DestUBTypeName)
+	{
+		for (int32 Index = 0; Index < Header.NEWPackedUBToVulkanBindingIndices.Num(); ++Index)
+		{
+			if (Header.NEWPackedUBToVulkanBindingIndices[Index].TypeName == (CrossCompiler::EPackedTypeName)DestUBTypeName)
+			{
+				return Index;
+			}
+		}
+		check(0);
+		return -1;
+	};
+
 	for (auto& PackedUBCopy : CCHeader.PackedUBCopies)
 	{
 		CrossCompiler::FUniformBufferCopyInfo CopyInfo;
 		CopyInfo.SourceUBIndex = PackedUBCopy.SourceUB;
 		CopyInfo.SourceOffsetInFloats = PackedUBCopy.SourceOffset;
-		CopyInfo.DestUBIndex = PackedUBCopy.DestUB;
 		CopyInfo.DestUBTypeName = PackedUBCopy.DestPackedType;
+		CopyInfo.DestUBIndex = RemapDestIndexIntoPackedUB(CopyInfo.DestUBTypeName);
 		CopyInfo.DestUBTypeIndex = CrossCompiler::PackedTypeNameToTypeIndex(CopyInfo.DestUBTypeName);
 		CopyInfo.DestOffsetInFloats = PackedUBCopy.DestOffset;
 		CopyInfo.SizeInFloats = PackedUBCopy.Count;
@@ -518,7 +494,7 @@ static void BuildShaderOutput(
 		Header.UniformBuffersCopyInfo.Add(CopyInfo);
 
 		auto& UniformBufferSize = PackedUniformBuffersSize.FindOrAdd(CopyInfo.DestUBIndex);
-		uint16& Size = UniformBufferSize.FindOrAdd(CopyInfo.DestUBTypeName);
+		uint16& Size = UniformBufferSize.FindOrAdd((CrossCompiler::EPackedTypeName)CopyInfo.DestUBTypeName);
 		Size = FMath::Max<uint16>(BytesPerComponent * (CopyInfo.DestOffsetInFloats + CopyInfo.SizeInFloats), Size);
 
 		check(UBState == Unknown || UBState == GroupedUBs);
@@ -530,67 +506,123 @@ static void BuildShaderOutput(
 		CrossCompiler::FUniformBufferCopyInfo CopyInfo;
 		CopyInfo.SourceUBIndex = PackedUBCopy.SourceUB;
 		CopyInfo.SourceOffsetInFloats = PackedUBCopy.SourceOffset;
-		CopyInfo.DestUBIndex = PackedUBCopy.DestUB;
 		CopyInfo.DestUBTypeName = PackedUBCopy.DestPackedType;
+		CopyInfo.DestUBIndex = RemapDestIndexIntoPackedUB(CopyInfo.DestUBTypeName);
 		CopyInfo.DestUBTypeIndex = CrossCompiler::PackedTypeNameToTypeIndex(CopyInfo.DestUBTypeName);
 		CopyInfo.DestOffsetInFloats = PackedUBCopy.DestOffset;
 		CopyInfo.SizeInFloats = PackedUBCopy.Count;
 
 		Header.UniformBuffersCopyInfo.Add(CopyInfo);
 
-		uint16& Size = PackedGlobalArraySize.FindOrAdd(CopyInfo.DestUBTypeName);
-		Size = FMath::Max<uint16>(BytesPerComponent * (CopyInfo.DestOffsetInFloats + CopyInfo.SizeInFloats), Size);
+		uint32& Size = PackedGlobalArraySize.FindOrAdd((CrossCompiler::EPackedTypeName)CopyInfo.DestUBTypeName);
+		Size = FMath::Max<uint32>(BytesPerComponent * (CopyInfo.DestOffsetInFloats + CopyInfo.SizeInFloats), Size);
 
 		check(UBState == Unknown || UBState == FlattenedUBs);
 		UBState = FlattenedUBs;
 	}
 
-	Header.SerializedBindings.bFlattenUB = (UBState == FlattenedUBs);
-
-	// Setup Packed Array info
-	Header.SerializedBindings.PackedGlobalArrays.Reserve(PackedGlobalArraySize.Num());
-	for (auto Iterator = PackedGlobalArraySize.CreateIterator(); Iterator; ++Iterator)
+	// Generate a shortcut table for the PackedUBGlobalCopies
+	TMap<uint32, uint32> PackedUBGlobalCopiesRanges;
 	{
-		ANSICHAR TypeName = Iterator.Key();
-		uint16 Size = Iterator.Value();
-		Size = (Size + 0xf) & (~0xf);
-		CrossCompiler::FPackedArrayInfo Info;
-		Info.Size = Size;
-		Info.TypeName = TypeName;
-		Info.TypeIndex = CrossCompiler::PackedTypeNameToTypeIndex(TypeName);
-		Header.SerializedBindings.PackedGlobalArrays.Add(Info);
-	}
-
-	// Setup Packed Uniform Buffers info
-	Header.SerializedBindings.PackedUniformBuffers.Reserve(PackedUniformBuffersSize.Num());
-	for (auto Iterator = PackedUniformBuffersSize.CreateIterator(); Iterator; ++Iterator)
-	{
-		int BufferIndex = Iterator.Key();
-		auto& ArraySizes = Iterator.Value();
-		TArray<CrossCompiler::FPackedArrayInfo> InfoArray;
-		InfoArray.Reserve(ArraySizes.Num());
-		for (auto IterSizes = ArraySizes.CreateIterator(); IterSizes; ++IterSizes)
+		int32 MaxDestUBIndex = -1;
 		{
-			ANSICHAR TypeName = IterSizes.Key();
-			uint16 Size = IterSizes.Value();
-			Size = (Size + 0xf) & (~0xf);
-			CrossCompiler::FPackedArrayInfo Info;
-			Info.Size = Size;
-			Info.TypeName = TypeName;
-			Info.TypeIndex = CrossCompiler::PackedTypeNameToTypeIndex(TypeName);
-			InfoArray.Add(Info);
+			// Verify table is sorted
+			int32 PrevSourceUB = -1;
+			int32 Index = 0;
+			for (auto& Copy : Header.UniformBuffersCopyInfo)
+			{
+				if (PrevSourceUB < Copy.SourceUBIndex)
+				{
+					PrevSourceUB = Copy.SourceUBIndex;
+					MaxDestUBIndex = FMath::Max(MaxDestUBIndex, (int32)Copy.SourceUBIndex);
+					PackedUBGlobalCopiesRanges.Add(Copy.SourceUBIndex) = (Index << 16) | 1;
+				}
+				else if (PrevSourceUB == Copy.SourceUBIndex)
+				{
+					++PackedUBGlobalCopiesRanges.FindChecked(Copy.SourceUBIndex);
+				}
+				else
+				{
+					// Internal error
+					check(0);
+				}
+				++Index;
+			}
 		}
 
-		Header.SerializedBindings.PackedUniformBuffers.Add(InfoArray);
+		Header.NEWEmulatedUBCopyRanges.AddZeroed(MaxDestUBIndex + 1);
+		for (int32 Index = 0; Index <= MaxDestUBIndex; ++Index)
+	{
+			uint32* Found = PackedUBGlobalCopiesRanges.Find(Index);
+			if (Found)
+			{
+				Header.NEWEmulatedUBCopyRanges[Index] = *Found;
+			}
+		}
 	}
 
+	// Update Packed global array sizes
+	Header.NEWPackedGlobalUBSizes.AddZeroed(Header.NEWPackedUBToVulkanBindingIndices.Num());
+	for (auto& Pair : PackedGlobalArraySize)
+	{
+		CrossCompiler::EPackedTypeName TypeName = Pair.Key;
+		int32 PackedArrayIndex = -1;
+		for (int32 Index = 0; Index < Header.NEWPackedUBToVulkanBindingIndices.Num(); ++Index)
+		{
+			if (Header.NEWPackedUBToVulkanBindingIndices[Index].TypeName == TypeName)
+			{
+				PackedArrayIndex = Index;
+				break;
+			}
+		}
+		check(PackedArrayIndex != -1);
+		// In bytes
+		Header.NEWPackedGlobalUBSizes[PackedArrayIndex] = Align((uint32)Pair.Value, (uint32)16);
+		}
+
+	auto FindHlslccBindingByIndex = [&HlslccBindings](int32 TestIndex, EVulkanBindingType::EType Type)
+	{
+		int32 VulkanBindingIndex = -1;
+		int32 Index = 0;
+		for (Index = 0; Index < HlslccBindings.Num(); ++Index)
+		{
+			const FVulkanBindingTable::FBinding& Binding = HlslccBindings[Index];
+			if (Binding.Type == Type)
+			{
+				check(IsAlpha(Binding.Name[0]) && IsAlpha(Binding.Name[1]));
+				check(IsDigit(Binding.Name[2]));
+				const char* IndexStr = &Binding.Name[2];
+				int32 IndexFromName = FCStringAnsi::Atoi(IndexStr);
+				if (IndexFromName == TestIndex)
+				{
+					return Index;
+				}
+			}
+	}
+
+		return -1;
+	};
+
 	// Then samplers.
+	int32 HlslccSamplerIndex = 0;
 	for (auto& Sampler : CCHeader.Samplers)
 	{
+		// Find this Image or CombinedImage
+		int32 VulkanBindingIndex = FindHlslccBindingByIndex(HlslccSamplerIndex, EVulkanBindingType::CombinedImageSampler);
+		if (VulkanBindingIndex == -1)
+		{
+			VulkanBindingIndex = FindHlslccBindingByIndex(HlslccSamplerIndex, EVulkanBindingType::UniformTexelBuffer);
+			if (VulkanBindingIndex == -1)
+			{
+				VulkanBindingIndex = FindHlslccBindingByIndex(HlslccSamplerIndex, EVulkanBindingType::Image);
+			}
+		}
+		check(VulkanBindingIndex != -1);
+
 		ParameterMap.AddParameterAllocation(
 			*Sampler.Name,
-			0,
 			Sampler.Offset,
+			VulkanBindingIndex,
 			Sampler.Count
 			);
 
@@ -599,31 +631,44 @@ static void BuildShaderOutput(
 			Sampler.Offset + Sampler.Count
 			);
 
+		++HlslccSamplerIndex;
+		//#todo-rco: Separate/Shared SamplerStates and Textures
+		//check(Sampler.SamplerStates.Num() <= 1)
 		for (auto& SamplerState : Sampler.SamplerStates)
 		{
 			ParameterMap.AddParameterAllocation(
 				*SamplerState,
-				0,
 				Sampler.Offset,
+				VulkanBindingIndex,
 				Sampler.Count
 				);
 		}
 	}
 
 	// Then UAVs (images in GLSL)
+	int32 HlslccUAVIndex = 0;
 	for (auto& UAV : CCHeader.UAVs)
 	{
+		// Find this Image or CombinedImage
+		int32 VulkanBindingIndex = FindHlslccBindingByIndex(HlslccUAVIndex, EVulkanBindingType::StorageTexelBuffer);
+		if (VulkanBindingIndex == -1)
+		{
+			VulkanBindingIndex = FindHlslccBindingByIndex(HlslccUAVIndex, EVulkanBindingType::StorageImage);
+		}
+		check(VulkanBindingIndex != -1);
+
 		ParameterMap.AddParameterAllocation(
 			*UAV.Name,
-			0,
 			UAV.Offset,
+			VulkanBindingIndex,
 			UAV.Count
 			);
 
 		Header.SerializedBindings.NumUAVs = FMath::Max<uint8>(
-			Header.SerializedBindings.NumSamplers,
+			Header.SerializedBindings.NumUAVs,
 			UAV.Offset + UAV.Count
 			);
+		++HlslccUAVIndex;
 	}
 
 	// Lats make sure that there is some type of name visible
@@ -652,11 +697,6 @@ static void BuildShaderOutput(
 	// Write out the header and shader source code.
 	FMemoryWriter Ar(ShaderOutput.ShaderCode.GetWriteAccess(), true);
 	Ar << Header;
-
-	FVulkanShaderBindingTable ShaderBindingTable;
-	GenerateBindingTable(Header.SerializedBindings, ShaderBindingTable);
-
-	Ar << ShaderBindingTable;
 
 	TArray<ANSICHAR> DebugNameArray;
 	AppendCString(DebugNameArray, TCHAR_TO_ANSI(*DebugName));
@@ -912,330 +952,330 @@ FCompilerInfo::FCompilerInfo(const FShaderCompilerInput& InInput, const FString&
 
 /**
  * Compile a shader using the external shader compiler
- *
-static void CompileUsingExternal(const struct FShaderCompilerInput& Input, struct FShaderCompilerOutput& Output, const class FString& WorkingDirectory, EVulkanShaderVersion Version)
-{
-	FString PreprocessedShader;
-	FShaderCompilerDefinitions AdditionalDefines;
-	EHlslCompileTarget HlslCompilerTarget = HCT_FeatureLevelES3_1Ext;
-	EHlslCompileTarget HlslCompilerTargetES = HCT_FeatureLevelES3_1Ext;
-	AdditionalDefines.SetDefine(TEXT("COMPILER_HLSLCC"), 1);
-	if (Version == EVulkanShaderVersion::ES3_1 || Version == EVulkanShaderVersion::ES3_1_ANDROID || Version == EVulkanShaderVersion::ES3_1_UB)
-	{
-		HlslCompilerTarget = HCT_FeatureLevelES3_1Ext;
-		HlslCompilerTargetES = HCT_FeatureLevelES3_1Ext;
-		AdditionalDefines.SetDefine(TEXT("USE_LOWER_PRECISION"), 1);
-		AdditionalDefines.SetDefine(TEXT("ES2_PROFILE"), 1);
-	}
-	else if (Version == EVulkanShaderVersion::SM4)
-	{
-		HlslCompilerTarget = HCT_FeatureLevelSM4;
-		HlslCompilerTargetES = HCT_FeatureLevelSM4;
-	}
-	else if (Version == EVulkanShaderVersion::SM5)
-	{
-		HlslCompilerTarget = HCT_FeatureLevelSM5;
-		HlslCompilerTargetES = HCT_FeatureLevelSM5;
-	}
-	AdditionalDefines.SetDefine(TEXT("row_major"), TEXT(""));
-	AdditionalDefines.SetDefine(TEXT("VULKAN_PROFILE"), 1);
-
-	FString DebugName = Input.DumpDebugInfoPath.Right(Input.DumpDebugInfoPath.Len() - Input.DumpDebugInfoRootPath.Len());
-
-	const bool bDumpDebugInfo = (Input.DumpDebugInfoPath != TEXT("") && IFileManager::Get().DirectoryExists(*Input.DumpDebugInfoPath));
-
-	AdditionalDefines.SetDefine(TEXT("COMPILER_SUPPORTS_ATTRIBUTES"), (uint32)1);
-
-	const bool bUseFullPrecisionInPS = Input.Environment.CompilerFlags.Contains(CFLAG_UseFullPrecisionInPS);
-	if (bUseFullPrecisionInPS)
-	{
-		AdditionalDefines.SetDefine(TEXT("FORCE_FLOATS"), (uint32)1);
-	}
-
-	auto DoPreprocess = [&]() -> bool
-	{
-		if (Input.bSkipPreprocessedCache)
-		{
-			return FFileHelper::LoadFileToString(PreprocessedShader, *Input.SourceFilename);
-		}
-		else
-		{
-			return PreprocessShader(PreprocessedShader, Output, Input, AdditionalDefines);
-		}
-	};
-
-	if (DoPreprocess())
-	{
-		char* GlslShaderSource = NULL;
-		char* ESShaderSource = NULL;
-		char* ErrorLog = NULL;
-
-		const bool bIsSM5 = (Version == EVulkanShaderVersion::SM5);
-
-		const EHlslShaderFrequency FrequencyTable[] =
-		{
-			HSF_VertexShader,
-			bIsSM5 ? HSF_HullShader : HSF_InvalidFrequency,
-			bIsSM5 ? HSF_DomainShader : HSF_InvalidFrequency,
-			HSF_PixelShader,
-			bIsSM5 ? HSF_GeometryShader : HSF_InvalidFrequency,
-			bIsSM5 ? HSF_ComputeShader : HSF_InvalidFrequency
-		};
-
-		const EHlslShaderFrequency Frequency = FrequencyTable[Input.Target.Frequency];
-		if (Frequency == HSF_InvalidFrequency)
-		{
-			Output.bSucceeded = false;
-			FShaderCompilerError* NewError = new(Output.Errors) FShaderCompilerError();
-			NewError->StrippedErrorMessage = FString::Printf(
-				TEXT("%s shaders not supported for use in Vulkan."),
-				CrossCompiler::GetFrequencyName((EShaderFrequency)Input.Target.Frequency));
-			return;
-		}
-
-		// This requires removing the HLSLCC_NoPreprocess flag later on!
-		if (!RemoveUniformBuffersFromSource(PreprocessedShader))
-		{
-			return;
-		}
-
-		// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
-		if (bDumpDebugInfo && !Input.bSkipPreprocessedCache)
-		{
-			FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*(Input.DumpDebugInfoPath / Input.SourceFilename + TEXT(".usf")));
-			if (FileWriter)
-			{
-				auto AnsiSourceFile = StringCast<ANSICHAR>(*PreprocessedShader);
-				FileWriter->Serialize((ANSICHAR*)AnsiSourceFile.Get(), AnsiSourceFile.Length());
-				FileWriter->Close();
-				delete FileWriter;
-			}
-		}
-
-		uint32 CCFlags = 0;
-		CCFlags |= HLSLCC_NoPreprocess;
-		//if (!bIsSM5)
-		{
-			CCFlags |= HLSLCC_PackUniformsIntoUniformBuffers;
-			CCFlags |= HLSLCC_FlattenUniformBuffers;
-			CCFlags |= HLSLCC_SeparateShaderObjects;
-		}
-		//CCFlags |= HLSLCC_DX11ClipSpace;
-
-		if (bUseFullPrecisionInPS)
-		{
-			CCFlags |= HLSLCC_UseFullPrecisionInPS;
-		}
-
-		// Required as we added the RemoveUniformBuffersFromSource() function (the cross-compiler won't be able to interpret comments w/o a preprocessor)
-		CCFlags &= ~HLSLCC_NoPreprocess;
-
-		// ES SL doesn't support origin layout
-		uint32 CCFlagsES = CCFlags | HLSLCC_DX11ClipSpace;
-
-		FVulkanBindingTable BindingTableES(Frequency);
-
-		FVulkanCodeBackend VulkanBackendES(CCFlagsES, BindingTableES, HlslCompilerTargetES);
-		FVulkanLanguageSpec VulkanLanguageSpec(false, true);
-
-		int32 Result = 0;
-		if (!bIsSM5)
-		{
-			FHlslCrossCompilerContext CrossCompilerContextES(CCFlagsES, Frequency, HlslCompilerTargetES);
-			if (CrossCompilerContextES.Init(TCHAR_TO_ANSI(*Input.SourceFilename), &VulkanLanguageSpec))
-			{
-				Result = CrossCompilerContextES.Run(
-					TCHAR_TO_ANSI(*PreprocessedShader),
-					TCHAR_TO_ANSI(*Input.EntryPointName),
-					&VulkanBackendES,
-					&ESShaderSource,
-					&ErrorLog
-					) ? 1 : 0;
-			}
-
-			if (Result != 0)
-			{
-				if (bDumpDebugInfo)
-				{
-					int32 ESSourceLen = ESShaderSource ? FCStringAnsi::Strlen(ESShaderSource) : 0;
-					const FString ESFile = (Input.DumpDebugInfoPath / TEXT("Output_ES") + GetExtension(Frequency));
-
-					StringToFile(ESFile, ESShaderSource);
-				}
-			}
-		}
-
-		FVulkanBindingTable BindingTable(Frequency);
-		FVulkanCodeBackend VulkanBackend(CCFlags, BindingTable, HlslCompilerTarget);
-
-		FHlslCrossCompilerContext CrossCompilerContext(CCFlags, Frequency, HlslCompilerTarget);
-		if (CrossCompilerContext.Init(TCHAR_TO_ANSI(*Input.SourceFilename), &VulkanLanguageSpec))
-		{
-			Result = CrossCompilerContext.Run(
-				TCHAR_TO_ANSI(*PreprocessedShader),
-				TCHAR_TO_ANSI(*Input.EntryPointName),
-				&VulkanBackend,
-				&GlslShaderSource,
-				&ErrorLog
-				) ? 1 : 0;
-		}
-
-		if (Result != 0)
-		{
-			int32 GlslSourceLen = GlslShaderSource ? FCStringAnsi::Strlen(GlslShaderSource) : 0;
-
-			// If no GLSL file is generated, we cannot generate SPIR-V, there for we have to generate an error
-			if (GlslSourceLen > 0)
-			{
-				FString GLSLFile;
-				if (bDumpDebugInfo)
-				{
-					GLSLFile = (Input.DumpDebugInfoPath / TEXT("Output") + GetExtension(Frequency));
-
-					// Store unchanged GLSL source
-					StringToFile(GLSLFile, GlslShaderSource);
-				}
-
-				// Convert GLSL to SPIRV
-				{
-					// In order to convert GLSL to SPIRV, we need to bypass the signature and set the version on the first line.
-					// This is probably glsl to spriv converter bug, since it only occurs some versions of glsl.
-
-					// Patch GLSL source
-					char* PatchedGlslSource = PatchGLSLVersionPosition(GlslShaderSource);
-					check(PatchedGlslSource);
-					PatchForToWhileLoop(&PatchedGlslSource);
-
-					FString SPVFile;
-					if (bDumpDebugInfo)
-					{
-						// Change output file name to patched filename and store
-						GLSLFile = (Input.DumpDebugInfoPath / TEXT("patched") + GetExtension(Frequency));
-						if (GLSLFile.Len() >= MAX_PATH)
-						{
-							FShaderCompilerError* Error = new(Output.Errors) FShaderCompilerError();
-							Error->ErrorLineString = FString::Printf(TEXT("Filepath exeeding %d characters: "), MAX_PATH, *GLSLFile);
-							Output.bSucceeded = false;
-
-							if (PatchedGlslSource)
-							{
-								free(PatchedGlslSource);
-							}
-							if (ESShaderSource)
-							{
-								free(ESShaderSource);
-							}
-							if (GlslShaderSource)
-							{
-								free(GlslShaderSource);
-							}
-							if (ErrorLog)
-							{
-								free(ErrorLog);
-							}
-							return;
-						}
-
-						StringToFile(GLSLFile, PatchedGlslSource);
-						free(PatchedGlslSource);
-
-						SPVFile = Input.DumpDebugInfoPath / GetExtension(Frequency, false) + TEXT(".spv");
-					}
-					else
-					{
-						FString WorkDirectory = *(FPaths::Combine(*(FPaths::ConvertRelativePathToFull(*FPaths::GameSavedDir())), TEXT("VulkanShaderWork")));
-
-						GLSLFile = FPaths::CreateTempFilename(*WorkDirectory, TEXT("VSW"), *(TEXT(".") + GetExtension(Frequency, false)));
-						StringToFile(GLSLFile, PatchedGlslSource);
-						free(PatchedGlslSource);
-
-						SPVFile = *(FPaths::GetBaseFilename(GLSLFile, false) + TEXT(".spv"));
-					}
-
-					int32 ReturnCode = 0;
-					FString Out, Err;
-					const FString ConverterToolPath = *(FPaths::RootDir() / TEXT("Engine/Binaries/ThirdParty/glslang/glslangValidator.exe"));
-					const FString InputArguments = TEXT(" -V -H -r -o \"") + SPVFile + TEXT("\" \"") + GLSLFile + TEXT("\"");
-					bool bResult = FPlatformProcess::ExecProcess(*ConverterToolPath, *InputArguments, &ReturnCode, &Out, &Err);
-
-					if (bResult && FPaths::FileExists(SPVFile))
-					{
-						if (bDumpDebugInfo)
-						{
-							FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*(SPVFile + TEXT("asm")));	// So it becomes *.spvasm
-							if (FileWriter)
-							{
-								FileWriter->Serialize(TCHAR_TO_ANSI(*Out), Out.Len() + 1);
-								FileWriter->Close();
-								delete FileWriter;
-							}
-						}
-
-						Output.Target = Input.Target;
-						BuildShaderOutput(Output, Input, 
-							GlslShaderSource, GlslSourceLen, 
-							BindingTable, 
-							ESShaderSource, ESShaderSource ? FCStringAnsi::Strlen(ESShaderSource) : 0 , 
-							SPVFile, DebugName);
-
-						if (!bDumpDebugInfo)
-						{
-							IFileManager::Get().Delete(*SPVFile, false, true);
-						}
-					}
-					else
-					{
-						FShaderCompilerError* Error = new(Output.Errors) FShaderCompilerError();
-						Error->ErrorLineString = Out;
-						Output.bSucceeded = false;
-					}
-
-					if (!bDumpDebugInfo)
-					{
-						IFileManager::Get().Delete(*GLSLFile, false, true);
-					}
-				}
-			}
-			else
-			{
-				FShaderCompilerError* Error = new(Output.Errors) FShaderCompilerError();
-				if (bDumpDebugInfo)
-				{
-					Error->ErrorLineString = FString::Printf(TEXT("No GLSL code generated for SPIR-V conversion. Shader: '%s'"), *Input.DumpDebugInfoPath);
-				}
-				else
-				{
-					Error->ErrorLineString = FString::Printf(TEXT("No GLSL code generated for SPIR-V conversion. Shader: '%s'"), *DebugName);
-				}
-				Output.bSucceeded = false;
-			}
-		}
-		else
-		{
-			FString Tmp = ANSI_TO_TCHAR(ErrorLog);
-			TArray<FString> ErrorLines;
-			Tmp.ParseIntoArray(ErrorLines, TEXT("\n"), true);
-			for (int32 LineIndex = 0; LineIndex < ErrorLines.Num(); ++LineIndex)
-			{
-				const FString& Line = ErrorLines[LineIndex];
-				CrossCompiler::ParseHlslccError(Output.Errors, Line);
-			}
-		}
-
-		if (ESShaderSource)
-		{
-			free(ESShaderSource);
-		}
-		if (GlslShaderSource)
-		{
-			free(GlslShaderSource);
-		}
-		if (ErrorLog)
-		{
-			free(ErrorLog);
-		}
-	}
-}
+ */
+//static void CompileUsingExternal(const struct FShaderCompilerInput& Input, struct FShaderCompilerOutput& Output, const class FString& WorkingDirectory, EVulkanShaderVersion Version)
+//{
+//	FString PreprocessedShader;
+//	FShaderCompilerDefinitions AdditionalDefines;
+//	EHlslCompileTarget HlslCompilerTarget = HCT_FeatureLevelES3_1Ext;
+//	EHlslCompileTarget HlslCompilerTargetES = HCT_FeatureLevelES3_1Ext;
+//	AdditionalDefines.SetDefine(TEXT("COMPILER_HLSLCC"), 1);
+//	if (Version == EVulkanShaderVersion::ES3_1 || Version == EVulkanShaderVersion::ES3_1_ANDROID)
+//	{
+//		HlslCompilerTarget = HCT_FeatureLevelES3_1Ext;
+//		HlslCompilerTargetES = HCT_FeatureLevelES3_1Ext;
+//		AdditionalDefines.SetDefine(TEXT("USE_LOWER_PRECISION"), 1);
+//		AdditionalDefines.SetDefine(TEXT("ES2_PROFILE"), 1);
+//	}
+//	else if (Version == EVulkanShaderVersion::SM4 || Version == EVulkanShaderVersion::SM4_UB)
+//	{
+//		HlslCompilerTarget = HCT_FeatureLevelSM4;
+//		HlslCompilerTargetES = HCT_FeatureLevelSM4;
+//	}
+//	else if (Version == EVulkanShaderVersion::SM5)
+//	{
+//		HlslCompilerTarget = HCT_FeatureLevelSM5;
+//		HlslCompilerTargetES = HCT_FeatureLevelSM5;
+//	}
+//	AdditionalDefines.SetDefine(TEXT("row_major"), TEXT(""));
+//	AdditionalDefines.SetDefine(TEXT("VULKAN_PROFILE"), 1);
+//
+//	FString DebugName = Input.DumpDebugInfoPath.Right(Input.DumpDebugInfoPath.Len() - Input.DumpDebugInfoRootPath.Len());
+//
+//	const bool bDumpDebugInfo = (Input.DumpDebugInfoPath != TEXT("") && IFileManager::Get().DirectoryExists(*Input.DumpDebugInfoPath));
+//
+//	AdditionalDefines.SetDefine(TEXT("COMPILER_SUPPORTS_ATTRIBUTES"), (uint32)1);
+//
+//	const bool bUseFullPrecisionInPS = Input.Environment.CompilerFlags.Contains(CFLAG_UseFullPrecisionInPS);
+//	if (bUseFullPrecisionInPS)
+//	{
+//		AdditionalDefines.SetDefine(TEXT("FORCE_FLOATS"), (uint32)1);
+//	}
+//
+//	auto DoPreprocess = [&]() -> bool
+//	{
+//		if (Input.bSkipPreprocessedCache)
+//		{
+//			return FFileHelper::LoadFileToString(PreprocessedShader, *Input.SourceFilename);
+//		}
+//		else
+//		{
+//			return PreprocessShader(PreprocessedShader, Output, Input, AdditionalDefines);
+//		}
+//	};
+//
+//	if (DoPreprocess())
+//	{
+//		char* GlslShaderSource = NULL;
+//		char* ESShaderSource = NULL;
+//		char* ErrorLog = NULL;
+//
+//		const bool bIsSM5 = (Version == EVulkanShaderVersion::SM5);
+//
+//		const EHlslShaderFrequency FrequencyTable[] =
+//		{
+//			HSF_VertexShader,
+//			bIsSM5 ? HSF_HullShader : HSF_InvalidFrequency,
+//			bIsSM5 ? HSF_DomainShader : HSF_InvalidFrequency,
+//			HSF_PixelShader,
+//			bIsSM5 ? HSF_GeometryShader : HSF_InvalidFrequency,
+//			bIsSM5 ? HSF_ComputeShader : HSF_InvalidFrequency
+//		};
+//
+//		const EHlslShaderFrequency Frequency = FrequencyTable[Input.Target.Frequency];
+//		if (Frequency == HSF_InvalidFrequency)
+//		{
+//			Output.bSucceeded = false;
+//			FShaderCompilerError* NewError = new(Output.Errors) FShaderCompilerError();
+//			NewError->StrippedErrorMessage = FString::Printf(
+//				TEXT("%s shaders not supported for use in Vulkan."),
+//				CrossCompiler::GetFrequencyName((EShaderFrequency)Input.Target.Frequency));
+//			return;
+//		}
+//
+//		// This requires removing the HLSLCC_NoPreprocess flag later on!
+//		if (!RemoveUniformBuffersFromSource(PreprocessedShader))
+//		{
+//			return;
+//		}
+//
+//		// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
+//		if (bDumpDebugInfo && !Input.bSkipPreprocessedCache)
+//		{
+//			FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*(Input.DumpDebugInfoPath / Input.SourceFilename + TEXT(".usf")));
+//			if (FileWriter)
+//			{
+//				auto AnsiSourceFile = StringCast<ANSICHAR>(*PreprocessedShader);
+//				FileWriter->Serialize((ANSICHAR*)AnsiSourceFile.Get(), AnsiSourceFile.Length());
+//				FileWriter->Close();
+//				delete FileWriter;
+//			}
+//		}
+//
+//		uint32 CCFlags = 0;
+//		CCFlags |= HLSLCC_NoPreprocess;
+//		//if (!bIsSM5)
+//		{
+//			CCFlags |= HLSLCC_PackUniformsIntoUniformBuffers;
+//			CCFlags |= HLSLCC_FlattenUniformBuffers;
+//			CCFlags |= HLSLCC_SeparateShaderObjects;
+//		}
+//		//CCFlags |= HLSLCC_DX11ClipSpace;
+//
+//		if (bUseFullPrecisionInPS)
+//		{
+//			CCFlags |= HLSLCC_UseFullPrecisionInPS;
+//		}
+//
+//		// Required as we added the RemoveUniformBuffersFromSource() function (the cross-compiler won't be able to interpret comments w/o a preprocessor)
+//		CCFlags &= ~HLSLCC_NoPreprocess;
+//
+//		// ES SL doesn't support origin layout
+//		uint32 CCFlagsES = CCFlags | HLSLCC_DX11ClipSpace;
+//
+//		FVulkanBindingTable BindingTableES(Frequency);
+//
+//		FVulkanCodeBackend VulkanBackendES(CCFlagsES, BindingTableES, HlslCompilerTargetES);
+//		FVulkanLanguageSpec VulkanLanguageSpec(false/*Version == EVulkanShaderVersion::SM4 || Version == EVulkanShaderVersion::SM4_UB || Version == EVulkanShaderVersion::SM5*/);
+//
+//		int32 Result = 0;
+//		if (!bIsSM5)
+//		{
+//			FHlslCrossCompilerContext CrossCompilerContextES(CCFlagsES, Frequency, HlslCompilerTargetES);
+//			if (CrossCompilerContextES.Init(TCHAR_TO_ANSI(*Input.SourceFilename), &VulkanLanguageSpec))
+//			{
+//				Result = CrossCompilerContextES.Run(
+//					TCHAR_TO_ANSI(*PreprocessedShader),
+//					TCHAR_TO_ANSI(*Input.EntryPointName),
+//					&VulkanBackendES,
+//					&ESShaderSource,
+//					&ErrorLog
+//					) ? 1 : 0;
+//			}
+//
+//			if (Result != 0)
+//			{
+//				if (bDumpDebugInfo)
+//				{
+//					int32 ESSourceLen = ESShaderSource ? FCStringAnsi::Strlen(ESShaderSource) : 0;
+//					const FString ESFile = (Input.DumpDebugInfoPath / TEXT("Output_ES") + GetExtension(Frequency));
+//
+//					StringToFile(ESFile, ESShaderSource);
+//				}
+//			}
+//		}
+//
+//		FVulkanBindingTable BindingTable(Frequency);
+//		FVulkanCodeBackend VulkanBackend(CCFlags, BindingTable, HlslCompilerTarget);
+//
+//		FHlslCrossCompilerContext CrossCompilerContext(CCFlags, Frequency, HlslCompilerTarget);
+//		if (CrossCompilerContext.Init(TCHAR_TO_ANSI(*Input.SourceFilename), &VulkanLanguageSpec))
+//		{
+//			Result = CrossCompilerContext.Run(
+//				TCHAR_TO_ANSI(*PreprocessedShader),
+//				TCHAR_TO_ANSI(*Input.EntryPointName),
+//				&VulkanBackend,
+//				&GlslShaderSource,
+//				&ErrorLog
+//				) ? 1 : 0;
+//		}
+//
+//		if (Result != 0)
+//		{
+//			int32 GlslSourceLen = GlslShaderSource ? FCStringAnsi::Strlen(GlslShaderSource) : 0;
+//
+//			// If no GLSL file is generated, we cannot generate SPIR-V, there for we have to generate an error
+//			if (GlslSourceLen > 0)
+//			{
+//				FString GLSLFile;
+//				if (bDumpDebugInfo)
+//				{
+//					GLSLFile = (Input.DumpDebugInfoPath / TEXT("Output") + GetExtension(Frequency));
+//
+//					// Store unchanged GLSL source
+//					StringToFile(GLSLFile, GlslShaderSource);
+//				}
+//
+//				// Convert GLSL to SPIRV
+//				{
+//					// In order to convert GLSL to SPIRV, we need to bypass the signature and set the version on the first line.
+//					// This is probably glsl to spriv converter bug, since it only occurs some versions of glsl.
+//
+//					// Patch GLSL source
+//					char* PatchedGlslSource = PatchGLSLVersionPosition(GlslShaderSource);
+//					check(PatchedGlslSource);
+//					PatchForToWhileLoop(&PatchedGlslSource);
+//
+//					FString SPVFile;
+//					if (bDumpDebugInfo)
+//					{
+//						// Change output file name to patched filename and store
+//						GLSLFile = (Input.DumpDebugInfoPath / TEXT("patched") + GetExtension(Frequency));
+//						if (GLSLFile.Len() >= MAX_UNREAL_FILENAME_LENGTH)
+//						{
+//							FShaderCompilerError* Error = new(Output.Errors) FShaderCompilerError();
+//							Error->ErrorLineString = FString::Printf(TEXT("Filepath exeeding %d characters: "), MAX_UNREAL_FILENAME_LENGTH, *GLSLFile);
+//							Output.bSucceeded = false;
+//
+//							if (PatchedGlslSource)
+//							{
+//								free(PatchedGlslSource);
+//							}
+//							if (ESShaderSource)
+//							{
+//								free(ESShaderSource);
+//							}
+//							if (GlslShaderSource)
+//							{
+//								free(GlslShaderSource);
+//							}
+//							if (ErrorLog)
+//							{
+//								free(ErrorLog);
+//							}
+//							return;
+//						}
+//
+//						StringToFile(GLSLFile, PatchedGlslSource);
+//						free(PatchedGlslSource);
+//
+//						SPVFile = Input.DumpDebugInfoPath / GetExtension(Frequency, false) + TEXT(".spv");
+//					}
+//					else
+//					{
+//						FString WorkDirectory = *(FPaths::Combine(*(FPaths::ConvertRelativePathToFull(*FPaths::GameSavedDir())), TEXT("VulkanShaderWork")));
+//
+//						GLSLFile = FPaths::CreateTempFilename(*WorkDirectory, TEXT("VSW"), *(TEXT(".") + GetExtension(Frequency, false)));
+//						StringToFile(GLSLFile, PatchedGlslSource);
+//						free(PatchedGlslSource);
+//
+//						SPVFile = *(FPaths::GetBaseFilename(GLSLFile, false) + TEXT(".spv"));
+//					}
+//
+//					int32 ReturnCode = 0;
+//					FString Out, Err;
+//					const FString ConverterToolPath = *(FPaths::RootDir() / TEXT("Engine/Binaries/ThirdParty/glslang/glslangValidator.exe"));
+//					const FString InputArguments = TEXT(" -V -H -r -o \"") + SPVFile + TEXT("\" \"") + GLSLFile + TEXT("\"");
+//					bool bResult = FPlatformProcess::ExecProcess(*ConverterToolPath, *InputArguments, &ReturnCode, &Out, &Err);
+//
+//					if (bResult && FPaths::FileExists(SPVFile))
+//					{
+//						if (bDumpDebugInfo)
+//						{
+//							FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*(SPVFile + TEXT("asm")));	// So it becomes *.spvasm
+//							if (FileWriter)
+//							{
+//								FileWriter->Serialize(TCHAR_TO_ANSI(*Out), Out.Len() + 1);
+//								FileWriter->Close();
+//								delete FileWriter;
+//							}
+//						}
+//
+//						Output.Target = Input.Target;
+//						BuildShaderOutput(Output, Input, 
+//							GlslShaderSource, GlslSourceLen, 
+//							BindingTable, 
+//							ESShaderSource, ESShaderSource ? FCStringAnsi::Strlen(ESShaderSource) : 0 , 
+//							SPVFile, DebugName);
+//
+//						if (!bDumpDebugInfo)
+//						{
+//							IFileManager::Get().Delete(*SPVFile, false, true);
+//						}
+//					}
+//					else
+//					{
+//						FShaderCompilerError* Error = new(Output.Errors) FShaderCompilerError();
+//						Error->ErrorLineString = Out;
+//						Output.bSucceeded = false;
+//					}
+//
+//					if (!bDumpDebugInfo)
+//					{
+//						IFileManager::Get().Delete(*GLSLFile, false, true);
+//					}
+//				}
+//			}
+//			else
+//			{
+//				FShaderCompilerError* Error = new(Output.Errors) FShaderCompilerError();
+//				if (bDumpDebugInfo)
+//				{
+//					Error->ErrorLineString = FString::Printf(TEXT("No GLSL code generated for SPIR-V conversion. Shader: '%s'"), *Input.DumpDebugInfoPath);
+//				}
+//				else
+//				{
+//					Error->ErrorLineString = FString::Printf(TEXT("No GLSL code generated for SPIR-V conversion. Shader: '%s'"), *DebugName);
+//				}
+//				Output.bSucceeded = false;
+//			}
+//		}
+//		else
+//		{
+//			FString Tmp = ANSI_TO_TCHAR(ErrorLog);
+//			TArray<FString> ErrorLines;
+//			Tmp.ParseIntoArray(ErrorLines, TEXT("\n"), true);
+//			for (int32 LineIndex = 0; LineIndex < ErrorLines.Num(); ++LineIndex)
+//			{
+//				const FString& Line = ErrorLines[LineIndex];
+//				CrossCompiler::ParseHlslccError(Output.Errors, Line);
+//			}
+//		}
+//
+//		if (ESShaderSource)
+//		{
+//			free(ESShaderSource);
+//		}
+//		if (GlslShaderSource)
+//		{
+//			free(GlslShaderSource);
+//		}
+//		if (ErrorLog)
+//		{
+//			free(ErrorLog);
+//		}
+//	}
+//}
 
 /**
  * Compile a shader using the internal shader compiling library
@@ -1275,7 +1315,7 @@ static bool CallHlslcc(const FString& PreprocessedShader, FVulkanBindingTable& B
 		FVulkanCodeBackend VulkanBackend(CompilerInfo.CCFlags, BindingTable, HlslCompilerTarget);
 		FHlslCrossCompilerContext CrossCompilerContext(CompilerInfo.CCFlags, CompilerInfo.Frequency, HlslCompilerTarget);
 		const bool bShareSamplers = false;
-		FVulkanLanguageSpec VulkanLanguageSpec(bShareSamplers);
+		FVulkanLanguageSpec VulkanLanguageSpec(false/*HlslCompilerTarget == HCT_FeatureLevelSM4 || HlslCompilerTarget == HCT_FeatureLevelSM5*/);
 		int32 Result = 0;
 		if (CrossCompilerContext.Init(TCHAR_TO_ANSI(*CompilerInfo.Input.SourceFilename), &VulkanLanguageSpec))
 		{
@@ -1354,7 +1394,7 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 	//}
 
 	const bool bIsSM5 = (Version == EVulkanShaderVersion::SM5);
-	const bool bIsSM4 = (Version == EVulkanShaderVersion::SM4);
+	const bool bIsSM4 = (Version == EVulkanShaderVersion::SM4 || Version == EVulkanShaderVersion::SM4_UB);
 
 	const EHlslShaderFrequency FrequencyTable[] =
 	{
@@ -1382,7 +1422,7 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 	EHlslCompileTarget HlslCompilerTarget = HCT_FeatureLevelES3_1Ext;
 	EHlslCompileTarget HlslCompilerTargetES = HCT_FeatureLevelES3_1Ext;
 	AdditionalDefines.SetDefine(TEXT("COMPILER_HLSLCC"), 1);
-	if (Version == EVulkanShaderVersion::ES3_1 || Version == EVulkanShaderVersion::ES3_1_ANDROID || Version == EVulkanShaderVersion::ES3_1_UB)
+	if (Version == EVulkanShaderVersion::ES3_1 || Version == EVulkanShaderVersion::ES3_1_ANDROID)
 	{
 		HlslCompilerTarget = HCT_FeatureLevelES3_1Ext;
 		HlslCompilerTargetES = HCT_FeatureLevelES3_1Ext;
@@ -1390,13 +1430,13 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 		AdditionalDefines.SetDefine(TEXT("ES2_PROFILE"), 1);
 		AdditionalDefines.SetDefine(TEXT("VULKAN_PROFILE"), 1);
 	}
-	else if (Version == EVulkanShaderVersion::SM4)
+	else if (bIsSM4)
 	{
 		HlslCompilerTarget = HCT_FeatureLevelSM4;
 		HlslCompilerTargetES = HCT_FeatureLevelSM4;
 		AdditionalDefines.SetDefine(TEXT("VULKAN_PROFILE_SM4"), 1);
 	}
-	else if (Version == EVulkanShaderVersion::SM5)
+	else if (bIsSM5)
 	{
 		HlslCompilerTarget = HCT_FeatureLevelSM5;
 		HlslCompilerTargetES = HCT_FeatureLevelSM5;
@@ -1457,7 +1497,11 @@ void CompileShader_Windows_Vulkan(const FShaderCompilerInput& Input, FShaderComp
 	CompilerInfo.CCFlags |= HLSLCC_PackUniforms;
 	CompilerInfo.CCFlags |= HLSLCC_PackUniformsIntoUniformBuffers;
 	//#todo-rco: All version using packed currently
-	//if (Version == EVulkanShaderVersion::ES3_1 || Version == EVulkanShaderVersion::ES3_1_ANDROID)
+	if (Version == EVulkanShaderVersion::SM4_UB)
+	{
+		CompilerInfo.CCFlags |= HLSLCC_FlattenUniformBufferStructures;
+	}
+	else
 	{
 		CompilerInfo.CCFlags |= HLSLCC_FlattenUniformBuffers;
 	}

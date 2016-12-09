@@ -5,104 +5,10 @@
 	progress information.
 =============================================================================*/
 
-#include "BuildPatchServicesPrivatePCH.h"
-
-#define LOCTEXT_NAMESPACE "BuildPatchInstallProgress"
-
-/* EBuildPatchProgress implementation
-*****************************************************************************/
-const FString& EBuildPatchProgress::ToString(const EBuildPatchProgress::Type& ProgressValue)
-{
-	// Static const fixed FString values so that they are not constantly constructed
-	static const FString Queued(TEXT("Queued"));
-	static const FString Initializing(TEXT("Initialising"));
-	static const FString Resuming(TEXT("Resuming"));
-	static const FString Downloading(TEXT("Downloading"));
-	static const FString Recycling(TEXT("Recycling"));
-	static const FString Installing(TEXT("Installing"));
-	static const FString MovingToInstall(TEXT("MovingToInstall"));
-	static const FString SettingAttributes(TEXT("SettingAttributes"));
-	static const FString BuildVerification(TEXT("BuildVerification"));
-	static const FString CleanUp(TEXT("CleanUp"));
-	static const FString PrerequisitesInstall(TEXT("PrerequisitesInstall"));
-	static const FString Completed(TEXT("Completed"));
-	static const FString Paused(TEXT("Paused"));
-	static const FString Default(TEXT("InvalidOrMax"));
-
-	switch (ProgressValue)
-	{
-		case EBuildPatchProgress::Queued:
-			return Queued;
-		case EBuildPatchProgress::Initializing:
-			return Initializing;
-		case EBuildPatchProgress::Resuming:
-			return Resuming;
-		case EBuildPatchProgress::Downloading:
-			return Downloading;
-		case EBuildPatchProgress::Installing:
-			return Installing;
-		case EBuildPatchProgress::MovingToInstall:
-			return MovingToInstall;
-		case EBuildPatchProgress::SettingAttributes:
-			return SettingAttributes;
-		case EBuildPatchProgress::BuildVerification:
-			return BuildVerification;
-		case EBuildPatchProgress::CleanUp:
-			return CleanUp;
-		case EBuildPatchProgress::PrerequisitesInstall:
-			return PrerequisitesInstall;
-		case EBuildPatchProgress::Completed:
-			return Completed;
-		case EBuildPatchProgress::Paused:
-			return Paused;
-		default:
-			return Default;
-	}
-}
-
-const FText& EBuildPatchProgress::ToText(const EBuildPatchProgress::Type& ProgressType)
-{
-	// Static const fixed FText values so that they are not constantly constructed
-	static const FText Queued = LOCTEXT("EBuildPatchProgress_Queued", "Queued");
-	static const FText Initializing = LOCTEXT("EBuildPatchProgress_Initialising", "Initializing");
-	static const FText Resuming = LOCTEXT("EBuildPatchProgress_Resuming", "Resuming");
-	static const FText Downloading = LOCTEXT("EBuildPatchProgress_Downloading", "Downloading");
-	static const FText Installing = LOCTEXT("EBuildPatchProgress_Installing", "Installing");
-	static const FText BuildVerification = LOCTEXT("EBuildPatchProgress_BuildVerification", "Verifying");
-	static const FText CleanUp = LOCTEXT("EBuildPatchProgress_CleanUp", "Cleaning up");
-	static const FText PrerequisitesInstall = LOCTEXT("EBuildPatchProgress_PrerequisitesInstall", "Prerequisites");
-	static const FText Completed = LOCTEXT("EBuildPatchProgress_Complete", "Complete");
-	static const FText Paused = LOCTEXT("EBuildPatchProgress_Paused", "Paused");
-	static const FText Empty = FText::GetEmpty();
-
-	switch (ProgressType)
-	{
-		case EBuildPatchProgress::Queued:
-			return Queued;
-		case EBuildPatchProgress::Initializing:
-			return Initializing;
-		case EBuildPatchProgress::Resuming:
-			return Resuming;
-		case EBuildPatchProgress::Downloading:
-			return Downloading;
-		case EBuildPatchProgress::Installing:
-		case EBuildPatchProgress::MovingToInstall:
-		case EBuildPatchProgress::SettingAttributes:
-			return Installing;
-		case EBuildPatchProgress::BuildVerification:
-			return BuildVerification;
-		case EBuildPatchProgress::CleanUp:
-			return CleanUp;
-		case EBuildPatchProgress::PrerequisitesInstall:
-			return PrerequisitesInstall;
-		case EBuildPatchProgress::Completed:
-			return Completed;
-		case EBuildPatchProgress::Paused:
-			return Paused;
-		default:
-			return Empty;
-	}
-}
+#include "BuildPatchProgress.h"
+#include "Misc/ScopeLock.h"
+#include "BuildPatchError.h"
+#include "BuildPatchChunk.h"
 
 /* FBuildPatchProgress implementation
 *****************************************************************************/
@@ -113,12 +19,14 @@ FBuildPatchProgress::FBuildPatchProgress()
 
 void FBuildPatchProgress::Reset()
 {
+	FScopeLock ScopeLock(&ThreadLock);
 	TotalWeight = 0.0f;
-	CurrentState = EBuildPatchProgress::Queued;
+	CurrentState = EBuildPatchState::Queued;
 	CurrentProgress = 0.0f;
+	bIsDownloading = false;
 
 	// Initialize array data
-	for( uint32 idx = 0; idx < EBuildPatchProgress::NUM_PROGRESS_STATES; ++idx )
+	for( uint32 idx = 0; idx < static_cast<uint32>(EBuildPatchState::NUM_PROGRESS_STATES); ++idx )
 	{
 		StateProgressValues[ idx ] = 0.0f;
 		StateProgressWeights[ idx ] = 1.0f;
@@ -129,38 +37,44 @@ void FBuildPatchProgress::Reset()
 	UpdateProgressInfo();
 }
 
-void FBuildPatchProgress::SetStateProgress( const EBuildPatchProgress::Type& State, const float& Value )
+void FBuildPatchProgress::SetStateProgress( const EBuildPatchState& State, const float& Value )
 {
 	check( !FMath::IsNaN( Value ) );
 	FScopeLock ScopeLock( &ThreadLock );
-	if( StateProgressValues[ State ] != Value )
+	if( StateProgressValues[static_cast<uint32>(State)] != Value )
 	{
-		StateProgressValues[ State ] = Value;
+		StateProgressValues[static_cast<uint32>(State)] = Value;
 		UpdateProgressInfo();
 	}
 }
 
-void FBuildPatchProgress::SetStateWeight( const EBuildPatchProgress::Type& State, const float& Value )
+void FBuildPatchProgress::SetStateWeight( const EBuildPatchState& State, const float& Value )
 {
 	check( !FMath::IsNaN( Value ) );
 	FScopeLock ScopeLock( &ThreadLock );
-	if( bCountsTowardsProgress[ State ] )
+	if( bCountsTowardsProgress[static_cast<uint32>(State)] )
 	{
-		TotalWeight += Value - StateProgressWeights[ State ];
-		StateProgressWeights[ State ] = Value;
+		TotalWeight += Value - StateProgressWeights[static_cast<uint32>(State)];
+		StateProgressWeights[static_cast<uint32>(State)] = Value;
 	}
 }
 
-const FText& FBuildPatchProgress::GetStateText()
+EBuildPatchState FBuildPatchProgress::GetState() const
 {
 	FScopeLock ScopeLock(&ThreadLock);
-	return EBuildPatchProgress::ToText(CurrentState);
+	return CurrentState;
 }
 
-float FBuildPatchProgress::GetProgress()
+const FText& FBuildPatchProgress::GetStateText() const
+{
+	FScopeLock ScopeLock(&ThreadLock);
+	return StateToText(CurrentState);
+}
+
+float FBuildPatchProgress::GetProgress() const
 {
 	FScopeLock ScopeLock( &ThreadLock );
-	if( bHasProgressValue[ CurrentState ] )
+	if( bHasProgressValue[static_cast<uint32>(CurrentState)] )
 	{
 		return CurrentProgress;
 	}
@@ -168,22 +82,22 @@ float FBuildPatchProgress::GetProgress()
 	return -1.0f;
 }
 
-float FBuildPatchProgress::GetProgressNoMarquee()
+float FBuildPatchProgress::GetProgressNoMarquee() const
 {
 	FScopeLock ScopeLock( &ThreadLock );
 	return CurrentProgress;
 }
 
-float FBuildPatchProgress::GetStateProgress( const EBuildPatchProgress::Type& State )
+float FBuildPatchProgress::GetStateProgress(const EBuildPatchState& State) const
 {
 	FScopeLock ScopeLock( &ThreadLock );
-	return StateProgressValues[ State ];
+	return StateProgressValues[static_cast<uint32>(State)];
 }
 
-float FBuildPatchProgress::GetStateWeight(const EBuildPatchProgress::Type& State)
+float FBuildPatchProgress::GetStateWeight(const EBuildPatchState& State) const
 {
 	FScopeLock ScopeLock( &ThreadLock );
-	return StateProgressWeights[ State ];
+	return StateProgressWeights[static_cast<uint32>(State)];
 }
 
 bool FBuildPatchProgress::TogglePauseState()
@@ -191,27 +105,27 @@ bool FBuildPatchProgress::TogglePauseState()
 	FScopeLock ScopeLock( &ThreadLock );
 
 	// If in pause state revert to no state and recalculate progress
-	if( CurrentState == EBuildPatchProgress::Paused )
+	if( CurrentState == EBuildPatchState::Paused )
 	{
-		CurrentState = EBuildPatchProgress::NUM_PROGRESS_STATES;
+		CurrentState = EBuildPatchState::NUM_PROGRESS_STATES;
 		UpdateProgressInfo();
 		return false;
 	}
 	else
 	{
 		// Else we just set paused
-		CurrentState = EBuildPatchProgress::Paused;
+		CurrentState = EBuildPatchState::Paused;
 		return true;
 	}
 }
 
-bool FBuildPatchProgress::GetPauseState()
+bool FBuildPatchProgress::GetPauseState() const
 {
 	FScopeLock ScopeLock( &ThreadLock );
-	return CurrentState == EBuildPatchProgress::Paused;
+	return CurrentState == EBuildPatchState::Paused;
 }
 
-double FBuildPatchProgress::WaitWhilePaused()
+double FBuildPatchProgress::WaitWhilePaused() const
 {
 	// Pause if necessary
 	const double PrePauseTime = FPlatformTime::Seconds();
@@ -225,27 +139,37 @@ double FBuildPatchProgress::WaitWhilePaused()
 	return PostPauseTime - PrePauseTime;
 }
 
+void FBuildPatchProgress::SetIsDownloading(bool bInIsDownloading)
+{
+	FScopeLock ScopeLock(&ThreadLock);
+	if (bIsDownloading != bInIsDownloading)
+	{
+		bIsDownloading = bInIsDownloading;
+		UpdateProgressInfo();
+	}
+}
+
 void FBuildPatchProgress::UpdateProgressInfo()
 {
 	FScopeLock ScopeLock( &ThreadLock );
 
 	// If we are paused or there's an error, we don't change the state or progress value
-	if( FBuildPatchInstallError::HasFatalError() || CurrentState == EBuildPatchProgress::Paused )
+	if( FBuildPatchInstallError::HasFatalError() || CurrentState == EBuildPatchState::Paused )
 	{
 		return;
 	}
 
 	// Reset values
-	CurrentState = EBuildPatchProgress::NUM_PROGRESS_STATES;
+	CurrentState = EBuildPatchState::NUM_PROGRESS_STATES;
 	CurrentProgress = 0.0f;
 
 	// Loop through each progress value to find total progress and current state
-	for( uint32 idx = 0; idx < EBuildPatchProgress::NUM_PROGRESS_STATES; ++idx )
+	for( uint32 idx = 0; idx < static_cast<uint32>(EBuildPatchState::NUM_PROGRESS_STATES); ++idx )
 	{
 		// Is this the current state
-		if( ( CurrentState == EBuildPatchProgress::NUM_PROGRESS_STATES ) && StateProgressValues[ idx ] < 1.0f )
+		if( ( CurrentState == EBuildPatchState::NUM_PROGRESS_STATES ) && StateProgressValues[ idx ] < 1.0f )
 		{
-			CurrentState = static_cast< EBuildPatchProgress::Type >( idx );
+			CurrentState = static_cast< EBuildPatchState >( idx );
 		}
 
 		// Do we count the progress
@@ -259,12 +183,20 @@ void FBuildPatchProgress::UpdateProgressInfo()
 
 	// Ensure Sanity
 	CurrentProgress = FMath::Clamp( CurrentProgress, 0.0f, 1.0f );
+
+	// Switch between Downloading and Installing depending on bIsDownloading
+	// This avoids reporting a Downloading state while the download system is idle during long periods of
+	// mainly hard disk activity, before all downloadable chunks have been required.
+	if (CurrentState == EBuildPatchState::Downloading && !bIsDownloading)
+	{
+		CurrentState = EBuildPatchState::Installing;
+	}
 }
 
 void FBuildPatchProgress::UpdateCachedValues()
 {
 	TotalWeight = 0.0f;
-	for( uint32 idx = 0; idx < EBuildPatchProgress::NUM_PROGRESS_STATES; ++idx )
+	for( uint32 idx = 0; idx < static_cast<uint32>(EBuildPatchState::NUM_PROGRESS_STATES); ++idx )
 	{
 		if( bCountsTowardsProgress[ idx ] )
 		{
@@ -277,7 +209,7 @@ void FBuildPatchProgress::UpdateCachedValues()
 
 /* FBuildPatchProgress static constants
 *****************************************************************************/
-const bool FBuildPatchProgress::bHasProgressValue[EBuildPatchProgress::NUM_PROGRESS_STATES] =
+const bool FBuildPatchProgress::bHasProgressValue[static_cast<int32>(EBuildPatchState::NUM_PROGRESS_STATES)] =
 {
 	false, // Queued
 	false, // Initializing
@@ -293,7 +225,7 @@ const bool FBuildPatchProgress::bHasProgressValue[EBuildPatchProgress::NUM_PROGR
 	true   // Paused
 };
 
-const bool FBuildPatchProgress::bCountsTowardsProgress[EBuildPatchProgress::NUM_PROGRESS_STATES] =
+const bool FBuildPatchProgress::bCountsTowardsProgress[static_cast<int32>(EBuildPatchState::NUM_PROGRESS_STATES)] =
 {
 	false, // Queued
 	false, // Initializing
@@ -308,5 +240,3 @@ const bool FBuildPatchProgress::bCountsTowardsProgress[EBuildPatchProgress::NUM_
 	false, // Completed
 	false  // Paused
 };
-
-#undef LOCTEXT_NAMESPACE

@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
-#include "SteamVRPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "SteamVRPrivate.h"
 #include "SteamVRHMD.h"
+#include "Misc/ScopeLock.h"
 
 #if STEAMVR_SUPPORTED_PLATFORMS
 
@@ -43,10 +45,9 @@ static void TransformToSteamSpace(const FTransform& In, vr::HmdMatrix34_t& Out, 
 	OutPos /= WorldToMeterScale;
 
 	const FVector InScale = In.GetScale3D();
-	FVector OutScale(InScale.Y, InScale.Z, -InScale.X);
-	OutScale /= WorldToMeterScale;
+	FVector OutScale(InScale.Y, InScale.Z, InScale.X);
 
-	Out = FSteamVRHMD::ToHmdMatrix34(FTransform(OutRot, OutPos, OutScale).ToMatrixNoScale());
+	Out = FSteamVRHMD::ToHmdMatrix34(FTransform(OutRot, OutPos, OutScale).ToMatrixWithScale());
 }
 
 
@@ -149,6 +150,45 @@ void FSteamVRHMD::MarkTextureForUpdate(uint32 LayerId)
 }
 
 //=============================================================================
+void FSteamVRHMD::UpdateSplashScreen()
+{
+	FTexture2DRHIRef Texture = (bSplashShowMovie && SplashMovie.IsValid()) ? SplashMovie : SplashTexture;
+	if (bSplashIsShown && Texture.IsValid())
+	{
+		FLayerDesc LayerDesc;
+		LayerDesc.Flags = ELayerFlags::LAYER_FLAG_TEX_NO_ALPHA_CHANNEL;
+		LayerDesc.PositionType = ELayerType::TrackerLocked;
+		LayerDesc.Texture = Texture;
+		LayerDesc.UVRect = FBox2D(SplashOffset, SplashOffset + SplashScale);
+		
+		FTransform Translation(FVector(500.0f, 0.0f, 100.0f));
+		FRotator Rotation(LastHmdOrientation);
+		Rotation.Pitch = 0.0f;
+		Rotation.Roll = 0.0f;
+		LayerDesc.Transform = Translation * FTransform(Rotation.Quaternion());
+
+		LayerDesc.QuadSize = FVector2D(800.0f, 450.0f);
+
+		if (SplashLayerHandle)
+		{
+			SetLayerDesc(SplashLayerHandle, LayerDesc);
+		}
+		else
+		{
+			SplashLayerHandle = CreateLayer(LayerDesc);
+		}
+	}
+	else
+	{
+		if (SplashLayerHandle)
+		{
+			DestroyLayer(SplashLayerHandle);
+			SplashLayerHandle = 0;
+		}
+	}
+}
+
+//=============================================================================
 void FSteamVRHMD::UpdateLayer(FLayer& Layer) const
 {
 	FScopeLock LayerLock(&LayerCritSect);
@@ -185,7 +225,7 @@ void FSteamVRHMD::UpdateLayer(FLayer& Layer) const
 	OVR_VERIFY(VROverlay->SetOverlaySortOrder(Layer.OverlayHandle, Layer.LayerDesc.Priority));
 
 	// Transform
-	switch (Layer.LayerDesc.Type)
+	switch (Layer.LayerDesc.PositionType)
 	{
 	case ELayerType::WorldLocked:
 #if 0
@@ -199,7 +239,7 @@ void FSteamVRHMD::UpdateLayer(FLayer& Layer) const
 
 		vr::HmdMatrix34_t HmdTransform;
 		TransformToSteamSpace(Transform, HmdTransform, WorldToMeterScale);
-		OVR_VERIFY(VROverlay->SetOverlayTransformTrackedDeviceRelative(Layer.OverlayHandle, vr::ETrackingUniverseOrigin::TrackingUniverseSeated, &HmdTransform));
+		OVR_VERIFY(VROverlay->SetOverlayTransformTrackedDeviceRelative(Layer.OverlayHandle, VRCompositor->GetTrackingSpace(), &HmdTransform));
 		break;
 	}
 #endif
@@ -207,7 +247,7 @@ void FSteamVRHMD::UpdateLayer(FLayer& Layer) const
 	{
 		vr::HmdMatrix34_t HmdTransform;
 		TransformToSteamSpace(Layer.LayerDesc.Transform, HmdTransform, WorldToMeterScale);
-		OVR_VERIFY(VROverlay->SetOverlayTransformAbsolute(Layer.OverlayHandle, vr::ETrackingUniverseOrigin::TrackingUniverseSeated, &HmdTransform));
+		OVR_VERIFY(VROverlay->SetOverlayTransformAbsolute(Layer.OverlayHandle, VRCompositor->GetTrackingSpace(), &HmdTransform));
 		break;
 	}
 	case ELayerType::FaceLocked:

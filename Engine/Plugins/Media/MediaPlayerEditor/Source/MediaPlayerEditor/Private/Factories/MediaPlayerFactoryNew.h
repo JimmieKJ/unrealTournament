@@ -2,16 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Factories/Factory.h"
 #include "MediaPlayerFactoryNew.generated.h"
-
 
 /**
  * Options for UMediaPlayerFactoryNew.
  */
 struct FMediaPlayerFactoryNewOptions
 {
-	bool CreateImageTexture;
 	bool CreateSoundWave;
 	bool CreateVideoTexture;
 	bool OkClicked;

@@ -1,13 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "ActorPositioning.h"
+#include "Editor/ActorPositioning.h"
+#include "EngineDefines.h"
+#include "CollisionQueryParams.h"
+#include "PrimitiveViewRelevance.h"
+#include "RenderingThread.h"
+#include "PrimitiveSceneProxy.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/ShapeComponent.h"
+#include "GameFramework/Volume.h"
+#include "Components/ModelComponent.h"
+#include "Editor.h"
+#include "ActorFactories/ActorFactory.h"
+#include "EditorViewportClient.h"
+#include "LevelEditorViewport.h"
 #include "SnappingUtils.h"
 #include "LandscapeHeightfieldCollisionComponent.h"
 #include "LandscapeComponent.h"
-#include "GameFramework/Volume.h"
-#include "Components/ShapeComponent.h"
-#include "Components/ModelComponent.h"
 
 FActorPositionTraceResult FActorPositioning::TraceWorldForPositionWithDefault(const FViewportCursorLocation& Cursor, const FSceneView& View, const TArray<AActor*>* IgnoreActors)
 {

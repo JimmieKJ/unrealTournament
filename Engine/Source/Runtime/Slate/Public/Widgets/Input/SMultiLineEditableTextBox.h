@@ -2,6 +2,28 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "SlateGlobals.h"
+#include "Layout/Margin.h"
+#include "Styling/SlateColor.h"
+#include "Fonts/SlateFontInfo.h"
+#include "Input/Reply.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/CoreStyle.h"
+#include "Framework/Text/IRun.h"
+#include "Framework/Text/TextLayout.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SScrollBar.h"
+#include "Widgets/Text/SMultiLineEditableText.h"
+
+class IErrorReportingWidget;
+class ITextLayoutMarshaller;
+class SBox;
+class SHorizontalBox;
+enum class ETextShapingMethod : uint8;
+
 #if WITH_FANCY_TEXT
 
 /**

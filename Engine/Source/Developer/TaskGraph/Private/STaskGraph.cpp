@@ -1,14 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TaskGraphPrivatePCH.h"
-#include "SlateBasics.h"
-#include "TaskGraphInterfaces.h"
-#include "VisualizerEvents.h"
 #include "STaskGraph.h"
-#include "SGraphBar.h"
+#include "Stats/Stats.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Application/SlateWindowHelper.h"
+#include "Framework/Docking/TabManager.h"
 #include "Tickable.h"
 #include "SProfileVisualizer.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "TaskGraphStyle.h"
 
 /**

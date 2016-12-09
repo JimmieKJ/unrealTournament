@@ -3,12 +3,11 @@
 /*=============================================================================
 	CaptureSource.h: CaptureSource implementation
 =============================================================================*/
-#include "EnginePrivate.h"
 
-#include "CapturePin.h"
 #include "CaptureSource.h"
-#include "AVIWriter.h"
-
+#include "CapturePin.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/Event.h"
 
 #if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
 

@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AppleMoviePlayerPrivatePCH.h"
-
+#include "AppleMoviePlayer.h"
+#include "ModuleInterface.h"
 #include "MoviePlayer.h"
+#include "AppleMovieStreamer.h"
 
 TSharedPtr<FAVPlayerMovieStreamer> AppleMovieStreamer;
 

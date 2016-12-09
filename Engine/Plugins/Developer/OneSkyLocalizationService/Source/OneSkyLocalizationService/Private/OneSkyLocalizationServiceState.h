@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "Developer/LocalizationService/Public/ILocalizationServiceState.h"
-#include "OneSkyLocalizationServiceRevision.h"
+#include "CoreMinimal.h"
+#include "ILocalizationServiceState.h"
+#include "ILocalizationServiceRevision.h"
+
+class FOneSkyLocalizationServiceRevision;
 
 namespace EOneSkyState
 {

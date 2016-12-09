@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 class FRHITexture;
-class FRHITexture2D;
+
+#if WITH_ENGINE
+	class FRHITexture;
+#endif
 
 
 /**
@@ -17,6 +21,9 @@ enum class EMediaTextureSinkFormat
 
 	/** Four 8-bit unsigned integer components (Blue, Green, Red, Alpha) per pixel. */
 	CharBGRA,
+
+	/**  Windows bitmap (like CharBGRA, but flipped vertically). */
+	CharBMP,
 
 	/** NV12 encoded monochrome texture with 8 bits per channel. */
 	CharNV12,
@@ -135,13 +142,14 @@ public:
 	/**
 	 * Initialize the sink.
 	 *
-	 * @param Dimensions Width and height of the texture (in pixels).
+	 * @param OutputDim Width and height of the video output (in pixels).
+	 * @param BufferDim Width and height of the sink buffer(s) (in pixels).
 	 * @param Format The pixel format of the sink's render target texture.
 	 * @param Mode The mode to operate the sink in (buffered vs. unbuffered).
 	 * @return true on success, false if initialization is already in progress or failed.
 	 * @see GetTextureSinkDimensions, GetTextureSinkMode, ShutdownSink, SupportsTextureSinkFormat
 	 */
-	virtual bool InitializeTextureSink(FIntPoint Dimensions, EMediaTextureSinkFormat Format, EMediaTextureSinkMode Mode) = 0;
+	virtual bool InitializeTextureSink(FIntPoint OutputDim, FIntPoint BufferDim, EMediaTextureSinkFormat Format, EMediaTextureSinkMode Mode) = 0;
 
 	/**
 	 * Shut down the sink.
@@ -177,7 +185,7 @@ public:
 	 */
 	virtual FRHITexture* GetTextureSinkTexture() = 0;
 
-#endif
+#endif //WITH_ENGINE
 
 public:
 
@@ -277,7 +285,38 @@ public:
 	 */
 	virtual void UpdateTextureSinkResource(FRHITexture* RenderTarget, FRHITexture* ShaderResource) = 0;
 
-#endif
+#endif //WITH_ENGINE
+
+public:
+
+	DEPRECATED(4.15, "This overload of InitializeTextureSink has been deprecated. Please use the other one!")
+	bool InitializeTextureSink(FIntPoint Dimensions, EMediaTextureSinkFormat Format, EMediaTextureSinkMode Mode)
+	{
+		FIntPoint BufferDim;
+
+		switch (Format)
+		{
+		case EMediaTextureSinkFormat::CharNV12:
+		case EMediaTextureSinkFormat::CharNV21:
+			BufferDim = FIntPoint(Align(Dimensions.X, 16), Align(Dimensions.Y, 2) * 3 / 2);
+			break;
+
+		case EMediaTextureSinkFormat::CharUYVY:
+		case EMediaTextureSinkFormat::CharYUY2:
+		case EMediaTextureSinkFormat::CharYVYU:
+			BufferDim = FIntPoint(Align(Dimensions.X, 16) / 2, Dimensions.Y);
+			break;
+
+		case EMediaTextureSinkFormat::CharAYUV:
+		case EMediaTextureSinkFormat::CharBGRA:
+		case EMediaTextureSinkFormat::FloatRGB:
+		case EMediaTextureSinkFormat::FloatRGBA:
+			BufferDim = Dimensions;
+			break;
+		}
+
+		return InitializeTextureSink(Dimensions, BufferDim, Format, Mode);
+	}
 
 public:
 

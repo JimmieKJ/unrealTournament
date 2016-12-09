@@ -1,15 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "AI/Navigation/NavLinkCustomInterface.h"
-#include "AI/Navigation/NavLinkDefinition.h"
-#include "AI/Navigation/NavRelevantComponent.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "Engine/EngineTypes.h"
+#include "AI/Navigation/NavAreas/NavArea.h"
+#include "AI/Navigation/NavLinkDefinition.h"
+#include "AI/Navigation/NavLinkCustomInterface.h"
+#include "AI/Navigation/NavRelevantComponent.h"
 #include "NavLinkCustomComponent.generated.h"
 
-class UNavArea;
 class UPathFollowingComponent;
-class UNavigationComponent;
 struct FNavigationRelevantData;
 
 /**

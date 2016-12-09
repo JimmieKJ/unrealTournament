@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "BlueprintGraphPrivatePCH.h"
-
-#include "CompilerResultsLog.h"
-#include "SlateIconFinder.h"
-#include "MessageLog.h"
+#include "K2Node_Variable.h"
+#include "UObject/UObjectHash.h"
+#include "Components/PrimitiveComponent.h"
+#include "GameFramework/MovementComponent.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "EdGraphSchema_K2.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "KismetCompilerMisc.h"
+#include "Kismet2/CompilerResultsLog.h"
+#include "Styling/SlateIconFinder.h"
+#include "Logging/MessageLog.h"
 
 #define LOCTEXT_NAMESPACE "K2Node"
 
@@ -121,6 +127,19 @@ void UK2Node_Variable::CreatePinForSelf()
 			UClass* MemberParentClass = VariableReference.GetMemberParentClass(GetBlueprintClassFromNode());
 			UClass* TargetClass = MemberParentClass;
 			
+			UProperty* VariableProperty = GetPropertyForVariable();
+
+			if (VariableProperty)
+			{
+				UClass* PropertyClass = CastChecked<UClass>(VariableProperty->GetOuter());
+
+				// Fix up target class if it's not correct, this fixes cases where variables have moved within the hierarchy
+				if (PropertyClass != TargetClass)
+				{
+					TargetClass = PropertyClass;
+				}
+			}
+
 			// Self Target pins should always make the class be the owning class of the property,
 			// so if the node is from a Macro Blueprint, it will hook up as self in any placed Blueprint
 			if(bSelfTarget)
@@ -134,9 +153,9 @@ void UK2Node_Variable::CreatePinForSelf()
 					TargetClass = GetBlueprint()->SkeletonGeneratedClass->GetAuthoritativeClass();
 				}
 			}
-			else if(MemberParentClass && MemberParentClass->ClassGeneratedBy)
+			else if(TargetClass && TargetClass->ClassGeneratedBy)
 			{
-				TargetClass = MemberParentClass->GetAuthoritativeClass();
+				TargetClass = TargetClass->GetAuthoritativeClass();
 			}
 
 			UEdGraphPin* TargetPin = CreatePin(EGPD_Input, K2Schema->PC_Object, TEXT(""), TargetClass, false, false, K2Schema->PN_Self);
@@ -420,10 +439,14 @@ void UK2Node_Variable::ValidateNodeDuringCompilation(class FCompilerResultsLog& 
 					OwnerName = VarOwnerClass->GetName();
 				}
 			}
-			FString const VarName = VariableReference.GetMemberName().ToString();
 
-			FText const WarningFormat = LOCTEXT("VariableNotFound", "Could not find a variable named \"%s\" in '%s'.\nMake sure '%s' has been compiled for @@");
-			MessageLog.Warning(*FString::Printf(*WarningFormat.ToString(), *VarName, *OwnerName, *OwnerName), this);
+			if (!FKismetCompilerUtilities::IsMissingMemberPotentiallyLoading(Blueprint, VariableReference.GetMemberParentClass()))
+			{
+				FString const VarName = VariableReference.GetMemberName().ToString();
+
+				FText const WarningFormat = LOCTEXT("VariableNotFound", "Could not find a variable named \"%s\" in '%s'.\nMake sure '%s' has been compiled for @@");
+				MessageLog.Warning(*FString::Printf(*WarningFormat.ToString(), *VarName, *OwnerName, *OwnerName), this);
+			}
 		}
 		else
 		{

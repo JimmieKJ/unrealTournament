@@ -6,8 +6,9 @@
 
 #pragma once
 
-#include "ShaderParameters.h"
-#include "PostProcess/RenderTargetPool.h"
+#include "CoreMinimal.h"
+#include "RenderResource.h"
+#include "RendererInterface.h"
 
 /**
  * Encapsulates the system textures used for scene rendering.
@@ -52,6 +53,10 @@ public:
 	TRefCountPtr<IPooledRenderTarget> MaxFP16Depth;
 	/** Depth texture that holds a single depth value */
 	TRefCountPtr<IPooledRenderTarget> DepthDummy;
+	// float4(0,1,0,1)
+	TRefCountPtr<IPooledRenderTarget> GreenDummy;
+	// float4(0.5,0.5,0.5,1)
+	TRefCountPtr<IPooledRenderTarget> MidGrayDummy;
 
 	/** Maximum feature level that the textures have been initialized up to */
 	ERHIFeatureLevel::Type FeatureLevelInitializedTo;

@@ -1,13 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
-#include "SpriteEditorOnlyTypes.h"
-#include "ComponentReregisterContext.h"
-#include "PhysicsEngine/BoxElem.h"
-#include "PhysicsEngine/BodySetup.h"
-#include "PaperTileMap.h"
 #include "PaperTileLayer.h"
-#include "PaperTileMapComponent.h"
+#include "Paper2DModule.h"
+#include "SpriteEditorOnlyTypes.h"
+#include "PaperTileMap.h"
+#include "PaperTileSet.h"
 
 // Handles the rotation and flipping of collision geometry from a tile
 // 0,5,6,3 are clockwise rotations of a regular tile

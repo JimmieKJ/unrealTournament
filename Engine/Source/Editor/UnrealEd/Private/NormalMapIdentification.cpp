@@ -1,10 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
 #include "NormalMapIdentification.h"
+#include "Engine/Texture2D.h"
 #include "Factories/TextureFactory.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define NORMALMAP_IDENTIFICATION_TIMING	(0)
 

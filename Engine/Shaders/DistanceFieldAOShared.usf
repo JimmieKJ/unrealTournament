@@ -93,7 +93,9 @@ SamplerState DistanceFieldNormalSampler;
 float4 EncodeDownsampledGBuffer(FGBufferData GBufferData, float SceneDepth)
 {
 	float DepthSign = HasDistanceFieldRepresentation(GBufferData) > 0 ? 1 : -1;
-	float ZSign = HasHeightfieldRepresentation(GBufferData)> 0 ? 1 : -1;
+	//float ZSign = HasHeightfieldRepresentation(GBufferData)> 0 ? 1 : -1;
+	//@todo - restore HasHeightfieldRepresentation support from GBuffer
+	float ZSign = -1;
 	float ZChannel = GBufferData.WorldNormal.z > 0 ? .5f : 1;
 	float4 OutValue = float4(GBufferData.WorldNormal.xy, ZChannel * ZSign, DepthSign * SceneDepth);
 	return OutValue;

@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Core.h"
-#include "ModuleManager.h"
+#include "CoreTypes.h"
+#include "Modules/Boilerplate/ModuleBoilerplate.h"
+#include "Modules/ModuleManager.h"
 
 // Implement the modules
 IMPLEMENT_MODULE(FDefaultModuleImpl, UE4Game);

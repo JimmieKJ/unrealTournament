@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlateRHIRendererPrivatePCH.h"
+#include "SlateRHITextureAtlas.h"
+#include "Textures/SlateTextureData.h"
+#include "Rendering/SlateRenderer.h"
+#include "RenderingThread.h"
+#include "RenderUtils.h"
+#include "Slate/SlateTextures.h"
 
 
 /* FSlateTextureAtlasRHI structors

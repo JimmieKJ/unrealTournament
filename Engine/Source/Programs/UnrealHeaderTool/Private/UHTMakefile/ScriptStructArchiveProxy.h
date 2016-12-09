@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "UHTMakefile/StructArchiveProxy.h"
+
+#include "CoreMinimal.h"
+#include "UObject/Class.h"
+#include "StructArchiveProxy.h"
+
+class FUHTMakefile;
+class UScriptStruct;
+class FArchive;
 
 /* See UHTMakefile.h for overview how makefiles work. */
 struct FScriptStructArchiveProxy : public FStructArchiveProxy
@@ -23,6 +30,5 @@ struct FScriptStructArchiveProxy : public FStructArchiveProxy
 
 	uint32 StructFlagsUInt32;
 	int32 StructMacroDeclaredLineNumber;
-	bool bCppStructOpsFromBaseClass;
 	bool bPrepareCppStructOpsCompleted;
 };

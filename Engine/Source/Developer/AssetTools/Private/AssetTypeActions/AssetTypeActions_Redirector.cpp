@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetToolsPrivatePCH.h"
-#include "AssetRegistryModule.h"
-#include "ObjectTools.h"
-#include "MessageLog.h"
+#include "AssetTypeActions/AssetTypeActions_Redirector.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "AssetTools.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

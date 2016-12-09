@@ -1,12 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HierarchicalLODOutlinerPrivatePCH.h"
 #include "StaticMeshActorItem.h"
-#include "HLODOutliner.h"
-#include "LevelEditor.h"
-#include "SlateBasics.h"
-#include "TreeItemID.h"
 #include "GameFramework/Actor.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "HLODOutliner.h"
 
 #define LOCTEXT_NAMESPACE "StaticMeshActorItem"
 

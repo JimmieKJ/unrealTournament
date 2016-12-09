@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType.h"
+#include "BehaviorTree/BlackboardComponent.h"
 
 UBlackboardKeyType::UBlackboardKeyType(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -253,51 +253,9 @@ FString UBlackboardKeyType::DescribeArithmeticParam(int32 IntValue, float FloatV
 	return FString();
 }
 
-// DEPRECATED FUNCTIONS
-void UBlackboardKeyType::Initialize(uint8* MemoryBlock) const
-{
-}
-
-bool UBlackboardKeyType::GetLocation(const uint8* MemoryBlock, FVector& Location) const
-{
-	return false;
-}
-
-bool UBlackboardKeyType::GetRotation(const uint8* MemoryBlock, FRotator& Rotation) const
-{
-	return false;
-}
-
-bool UBlackboardKeyType::Clear(uint8* MemoryBlock) const
-{
-	return false;
-}
-
-EBlackboardCompare::Type UBlackboardKeyType::Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const
-{
-	return EBlackboardCompare::NotEqual;
-}
-
-bool UBlackboardKeyType::TestBasicOperation(const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const
-{
-	return false;
-}
-
-bool UBlackboardKeyType::TestArithmeticOperation(const uint8* MemoryBlock, EArithmeticKeyOperation::Type Op, int32 OtherIntValue, float OtherFloatValue) const
-{
-	return false;
-}
-
-bool UBlackboardKeyType::TestTextOperation(const uint8* MemoryBlock, ETextKeyOperation::Type Op, const FString& OtherString) const
-{
-	return false;
-}
-
-FString UBlackboardKeyType::DescribeValue(const uint8* MemoryBlock) const
-{
-	return FString();
-}
-
+//----------------------------------------------------------------------//
+// DEPRECATED
+//----------------------------------------------------------------------//
 UBlackboardKeyType* UBlackboardKeyType::UpdateDeprecatedKey()
 {
 	return nullptr;

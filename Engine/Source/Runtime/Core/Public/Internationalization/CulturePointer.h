@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SharedPointer.h"
+#include "CoreTypes.h"
+#include "Templates/SharedPointer.h"
 
 class FCulture;
 

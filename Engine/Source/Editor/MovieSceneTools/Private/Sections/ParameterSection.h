@@ -2,11 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "PropertySection.h"
-
-
-class UMovieSceneSection;
-
 
 /**
  * A movie scene section for material parameters.
@@ -19,13 +16,6 @@ public:
 	FParameterSection(UMovieSceneSection& InSectionObject, const FText& SectionName)
 		: FPropertySection(InSectionObject, SectionName)
 	{ }
-
-public:
-
-	//~ FPropertySection interface
-
-	virtual void SetIntermediateValue(FPropertyChangedParams PropertyChangedParams) override { }
-	virtual void ClearIntermediateValue() override { }
 
 public:
 

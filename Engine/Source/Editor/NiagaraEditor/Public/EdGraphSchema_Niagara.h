@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "EdGraph/EdGraphSchema.h"
-#include "INiagaraCompiler.h"
 #include "EdGraphSchema_Niagara.generated.h"
+
+class UEdGraph;
+struct FNiagaraVariableInfo;
+enum class ENiagaraDataType : uint8;
 
 /** Action to add a node to the graph */
 USTRUCT()

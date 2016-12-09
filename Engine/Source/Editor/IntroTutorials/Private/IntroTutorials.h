@@ -1,7 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Curves/CurveFloat.h"
+
+#include "CoreMinimal.h"
+#include "SlateFwd.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "IIntroTutorials.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+
+class FMenuBuilder;
+class FSpawnTabArgs;
+class IClassTypeActions;
+class STutorialRoot;
+class UCurveFloat;
+class UEditorTutorial;
 
 /** Query delegate to see if we are in picking mode */
 DECLARE_DELEGATE_RetVal_OneParam(bool, FOnIsPicking, FName& /* OutWidgetNameToHighlight */);

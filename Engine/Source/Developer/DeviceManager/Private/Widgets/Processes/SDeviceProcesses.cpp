@@ -1,6 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DeviceManagerPrivatePCH.h"
+#include "Widgets/Processes/SDeviceProcesses.h"
+#include "Misc/MessageDialog.h"
+#include "Widgets/SOverlay.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Processes/SDeviceProcessesProcessListRow.h"
 
 
 #define LOCTEXT_NAMESPACE "SDeviceProcesses"

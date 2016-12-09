@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
-#include "HeadMountedDisplayPrivate.h"
 #include "MotionControllerComponent.h"
-#include "PrimitiveSceneInfo.h"
+#include "GameFramework/Pawn.h"
+#include "PrimitiveSceneProxy.h"
+#include "Misc/ScopeLock.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 #include "Features/IModularFeatures.h"
+#include "IMotionController.h"
+#include "PrimitiveSceneInfo.h"
 
 namespace {
 	/** This is to prevent destruction of motion controller components while they are
@@ -27,11 +32,13 @@ UMotionControllerComponent::UMotionControllerComponent(const FObjectInitializer&
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = true;
 	PrimaryComponentTick.TickGroup = TG_PrePhysics;
+	PrimaryComponentTick.bTickEvenWhenPaused = true;
 
 	PlayerIndex = 0;
 	Hand = EControllerHand::Left;
 	bDisableLowLatencyUpdate = false;
 	bHasAuthority = false;
+	bAutoActivate = true;
 }
 
 //=============================================================================
@@ -59,19 +66,22 @@ void UMotionControllerComponent::TickComponent(float DeltaTime, enum ELevelTick 
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	FVector Position;
-	FRotator Orientation;
-	bTracked = PollControllerState(Position, Orientation);
-	if (bTracked)
+	if (bIsActive)
 	{
-		SetRelativeLocationAndRotation(Position, Orientation);
-	}
+		FVector Position;
+		FRotator Orientation;
+		bTracked = PollControllerState(Position, Orientation);
+		if (bTracked)
+		{
+			SetRelativeLocationAndRotation(Position, Orientation);
+		}
 
-	if (!ViewExtension.IsValid() && GEngine)
-	{
-		TSharedPtr< FViewExtension, ESPMode::ThreadSafe > NewViewExtension( new FViewExtension(this) );
-		ViewExtension = NewViewExtension;
-		GEngine->ViewExtensions.Add(ViewExtension);
+		if (!ViewExtension.IsValid() && GEngine)
+		{
+			TSharedPtr< FViewExtension, ESPMode::ThreadSafe > NewViewExtension(new FViewExtension(this));
+			ViewExtension = NewViewExtension;
+			GEngine->ViewExtensions.Add(ViewExtension);
+		}
 	}
 }
 

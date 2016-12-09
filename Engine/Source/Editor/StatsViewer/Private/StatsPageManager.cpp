@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StatsViewerPrivatePCH.h"
 #include "StatsPageManager.h"
-#include "IStatsPage.h"
 
 
 FStatsPageManager& FStatsPageManager::Get()

@@ -522,9 +522,6 @@ class V8RendererTest : public ClientAppRenderer::Delegate,
 
     CefRefPtr<CefV8Value> value = CefV8Value::CreateObject(NULL);
 
-    // Exit the V8 context.
-    EXPECT_TRUE(context->Exit());
-
     EXPECT_TRUE(value.get());
     EXPECT_TRUE(value->IsObject());
     EXPECT_FALSE(value->GetUserData().get());
@@ -539,6 +536,9 @@ class V8RendererTest : public ClientAppRenderer::Delegate,
     EXPECT_FALSE(value->IsUInt());
     EXPECT_FALSE(value->IsNull());
     EXPECT_FALSE(value->IsString());
+
+    // Exit the V8 context.
+    EXPECT_TRUE(context->Exit());
 
     DestroyTest();
   }
@@ -2027,9 +2027,11 @@ class V8TestHandler : public TestHandler {
   void OnBeforeClose(CefRefPtr<CefBrowser> browser) override {
     if (test_mode_ == V8TEST_ON_UNCAUGHT_EXCEPTION_DEV_TOOLS &&
         browser->IsPopup()) {
-      // Generate the uncaught exception in the main browser.
+      // Generate the uncaught exception in the main browser. Use a 200ms delay
+      // because there's a bit of a lag between destroying the DevToolsAgent and
+      // re-registering for uncaught exceptions.
       GetBrowser()->GetMainFrame()->ExecuteJavaScript(
-          "window.setTimeout(test, 0);",
+          "window.setTimeout(test, 200);",
           GetBrowser()->GetMainFrame()->GetURL(), 0);
     }
 
@@ -2092,6 +2094,8 @@ class V8TestHandler : public TestHandler {
   const char* test_url_;
   TrackCallback got_message_;
   TrackCallback got_success_;
+
+  IMPLEMENT_REFCOUNTING(V8TestHandler);
 };
 
 }  // namespace

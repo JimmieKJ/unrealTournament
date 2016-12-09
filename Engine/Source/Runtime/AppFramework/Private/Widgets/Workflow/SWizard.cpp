@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AppFrameworkPrivatePCH.h"
-#include "SWizard.h"
-#include "SWidgetSwitcher.h"
+#include "Widgets/Workflow/SWizard.h"
+#include "Widgets/SBoxPanel.h"
+#include "Application/SlateWindowHelper.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
 
 
 #define LOCTEXT_NAMESPACE "SWizard"

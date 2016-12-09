@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "RenderCore.h"
-#include "RenderResource.h"
+#include "CoreMinimal.h"
+#include "RHI.h"
 #include "PackedNormal.h"
 
 /**
@@ -318,6 +318,11 @@ RENDERCORE_API bool IsForwardShadingEnabled(ERHIFeatureLevel::Type FeatureLevel)
 inline bool IsAnyForwardShadingEnabled(EShaderPlatform Platform)
 {
 	return IsForwardShadingEnabled(GetMaxSupportedFeatureLevel(Platform)) || IsSimpleForwardShadingEnabled(Platform);
+}
+
+inline bool IsUsingGBuffers(EShaderPlatform Platform)
+{
+	return !IsAnyForwardShadingEnabled(Platform);
 }
 
 /** Unit cube vertex buffer (VertexDeclarationFVector4) */

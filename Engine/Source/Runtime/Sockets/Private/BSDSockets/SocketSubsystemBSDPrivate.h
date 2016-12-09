@@ -2,18 +2,24 @@
 
 #pragma once
 
-#include "SocketTypes.h"
+#include "CoreMinimal.h"
+#include "SocketSubsystem.h"
 
 #if PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS
-	#include "AllowWindowsPlatformTypes.h"
+	#include "WindowsHWrapper.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 
 	#include <winsock2.h>
 	#include <ws2tcpip.h>
 
 	typedef int32 SOCKLEN;
 
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #else
+#if PLATFORM_SWITCH
+	#include "Switch/SwitchSocketApiWrapper.h"
+#else
+	#include <unistd.h>
 	#include <sys/socket.h>
 #if PLATFORM_HAS_BSD_SOCKET_FEATURE_IOCTL
 	#include <sys/ioctl.h>
@@ -23,9 +29,10 @@
 #if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETHOSTNAME
 	#include <netdb.h>
 #endif
-	#include <unistd.h>
 
 	#define ioctlsocket ioctl
+#endif
+
 	#define SOCKET_ERROR -1
 	#define INVALID_SOCKET -1
 
@@ -61,7 +68,6 @@ inline int TranslateFlags(ESocketReceiveFlags::Type Flags)
 	return TranslatedFlags;
 }
 
-#include <errno.h>
 
 /**
  * Standard BSD specific socket subsystem implementation (common to both IPv4 and IPv6)
@@ -76,7 +82,7 @@ protected:
 	 */
 	inline ESocketErrors TranslateGAIErrorCode(int32 Code) const
 	{
-#if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETHOSTNAME
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
 		switch (Code)
 		{
 			// getaddrinfo() has its own error codes
@@ -101,7 +107,7 @@ protected:
 				UE_LOG(LogSockets, Warning, TEXT("Unhandled getaddrinfo() socket error! Code: %d"), Code);
 				return SE_EINVAL;
 		}
-#endif // PLATFORM_HAS_BSD_SOCKET_FEATURE_GETHOSTNAME
+#endif // PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
 
 		return SE_NO_ERROR;
 	};

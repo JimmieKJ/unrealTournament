@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "NiagaraEditorCommon.h"
 
+class Error;
+class UEdGraphPin;
 class UNiagaraNode;
 
 //Interface for Niagara compilers.

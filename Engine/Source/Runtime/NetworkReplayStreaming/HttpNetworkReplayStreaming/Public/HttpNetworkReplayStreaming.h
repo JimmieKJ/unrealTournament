@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Misc/NetworkVersion.h"
 #include "NetworkReplayStreaming.h"
-#include "Http.h"
-#include "Runtime/Engine/Public/Tickable.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Tickable.h"
+
+class FHttpNetworkReplayStreamer;
 
 /**
  * Archive used to buffer stream over http
@@ -228,7 +233,8 @@ public:
 	virtual ENetworkReplayError::Type GetLastError() const override;
 	virtual FString		GetReplayID() const override { return SessionName; }
 	virtual void		SetTimeBufferHintSeconds(const float InTimeBufferHintSeconds) override {}
-	
+	virtual void		RefreshHeader() override;
+
 	/** FHttpNetworkReplayStreamer */
 	void UploadHeader();
 	void FlushStream();

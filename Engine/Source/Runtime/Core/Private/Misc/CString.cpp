@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
+#include "Misc/CString.h"
+#include "Containers/StringConv.h"
+#include "Internationalization/Text.h"
 
 // 4 lines of 64 chars each, plus a null terminator
 template <>

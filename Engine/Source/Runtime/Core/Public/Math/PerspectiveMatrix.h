@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/UnrealMathUtility.h"
+#include "Math/Plane.h"
+#include "Math/Matrix.h"
 
 class FPerspectiveMatrix
 	: public FMatrix

@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DirectoryWatcherPrivatePCH.h"
+#include "Mac/DirectoryWatcherMac.h"
+#include "Mac/DirectoryWatchRequestMac.h"
+#include "DirectoryWatcherPrivate.h"
 
 FDirectoryWatcherMac::FDirectoryWatcherMac()
 {

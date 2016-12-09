@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "IntegerSequence.h"
-#include "Templates/AndOr.h"
+#include "CoreTypes.h"
+#include "Templates/AreTypesEqual.h"
+#include "Templates/UnrealTemplate.h"
+#include "Templates/Decay.h"
+#include "Delegates/IntegerSequence.h"
 
 template <int32 N, typename... Types>
 struct TNthTypeFromParameterPack;

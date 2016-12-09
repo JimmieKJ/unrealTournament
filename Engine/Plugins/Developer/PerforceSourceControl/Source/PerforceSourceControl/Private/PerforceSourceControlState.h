@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ISourceControlState.h"
-#include "PerforceSourceControlRevision.h"
+#include "ISourceControlRevision.h"
+
+class FPerforceSourceControlRevision;
 
 namespace EPerforceState
 {

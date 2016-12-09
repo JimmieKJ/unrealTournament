@@ -5,6 +5,10 @@
 //
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "NamedInterfaces.generated.h"
 
 /** Holds a named object interface for dynamically bound interfaces */

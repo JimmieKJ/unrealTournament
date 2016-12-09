@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "InternationalizationPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/Guid.h"
+#include "Misc/AutomationTest.h"
+#include "Internationalization/InternationalizationManifest.h"
+#include "Internationalization/InternationalizationArchive.h"
 #include "LocTextHelper.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLocTextHelperTest, "System.Core.Misc.LocText Helper", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)

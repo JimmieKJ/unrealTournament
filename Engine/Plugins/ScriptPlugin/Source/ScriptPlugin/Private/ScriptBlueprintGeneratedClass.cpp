@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "ScriptPluginPrivatePCH.h"
+
 #include "ScriptBlueprintGeneratedClass.h"
+#include "ScriptPluginLog.h"
 #if WITH_LUA
 #include "LuaIntegration.h"
 #endif

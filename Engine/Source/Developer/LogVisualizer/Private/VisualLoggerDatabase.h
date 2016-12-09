@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "ObjectBase.h"
-#include "SDockTab.h"
-#include "VisualLogger/VisualLogger.h"
 
+#include "CoreMinimal.h"
+#include "VisualLogger/VisualLoggerTypes.h"
+
+class AActor;
 struct FVisualLoggerDBRow;
 
 struct FVisualLoggerDBEvents

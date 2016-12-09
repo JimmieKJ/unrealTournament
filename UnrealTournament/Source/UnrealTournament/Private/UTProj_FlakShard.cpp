@@ -79,7 +79,7 @@ void AUTProj_FlakShard::BeginPlay()
 			{
 				FVector NewShardOffset = 1.5f*OverlapRadius * FVector(FMath::FRand() - 0.5f, FMath::FRand() - 0.5f, FMath::FRand() - 0.5f).GetSafeNormal();
 				UStaticMeshComponent* NewMesh = NewObject<UStaticMeshComponent>(this);
-				NewMesh->SetStaticMesh(ShardMesh->StaticMesh);
+				NewMesh->SetStaticMesh(ShardMesh->GetStaticMesh());
 				NewMesh->SetMaterial(0, ShardMesh->GetMaterial(0));
 				NewMesh->RegisterComponentWithWorld(GetWorld());
 				NewMesh->AttachToComponent(CollisionComp, FAttachmentTransformRules::KeepRelativeTransform);

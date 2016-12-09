@@ -10,6 +10,8 @@
 
 class FVulkanDevice;
 class FVulkanCommandBufferManager;
+class FVulkanPendingGfxState;
+class FVulkanPendingComputeState;
 
 class FVulkanCommandListContext : public IRHICommandContext
 {
@@ -73,8 +75,18 @@ public:
 	virtual void RHIEndDrawPrimitiveUP() final override;
 	virtual void RHIBeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData) final override;
 	virtual void RHIEndDrawIndexedPrimitiveUP() final override;
-	virtual void RHIClear(bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) final override;
-	virtual void RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect) final override;
+	virtual void RHIClearColorTexture(FTextureRHIParamRef Texture, const FLinearColor& Color, FIntRect ExcludeRect) final override
+	{
+		RHIClear(true, Color, false, 0, false, 0, ExcludeRect);
+	}
+	virtual void RHIClearDepthStencilTexture(FTextureRHIParamRef Texture, EClearDepthStencil ClearDepthStencil, float Depth, uint32 Stencil, FIntRect ExcludeRect) final override
+	{
+		RHIClear(false, FLinearColor::Black, ClearDepthStencil != EClearDepthStencil::Stencil, Depth, ClearDepthStencil != EClearDepthStencil::Depth, Stencil, ExcludeRect);
+	}
+	virtual void RHIClearColorTextures(int32 NumTextures, FTextureRHIParamRef* Textures, const FLinearColor* ColorArray, FIntRect ExcludeRect) final override
+	{
+		RHIClearMRT(true, NumTextures, ColorArray, false, 0, false, 0, ExcludeRect);
+	}
 	virtual void RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth) final override;
 	virtual void RHIPushEvent(const TCHAR* Name, FColor Color) final override;
 	virtual void RHIPopEvent() final override;
@@ -119,19 +131,53 @@ public:
 		return TempFrameAllocationBuffer;
 	}
 
-	inline FVulkanPendingState& GetPendingState()
+	inline FVulkanPendingGfxState* GetPendingGfxState()
 	{
-		check(PendingState);
-		return *PendingState;
+		return PendingGfxState;
+	}
+
+	inline FVulkanPendingComputeState* GetPendingComputeState()
+	{
+		return PendingComputeState;
 	}
 
 	// OutSets must have been previously pre-allocated
-	FVulkanDescriptorPool* AllocateDescriptorSets(const VkDescriptorSetAllocateInfo& DescriptorSetAllocateInfo, VkDescriptorSet* OutSets);
+	FVulkanDescriptorPool* AllocateDescriptorSets(const VkDescriptorSetAllocateInfo& DescriptorSetAllocateInfo, const FVulkanDescriptorSetsLayout& Layout, VkDescriptorSet* OutSets);
+
+	void NotifyDeletedRenderTarget(const FVulkanTextureBase* Texture);
+
+	inline FVulkanRenderPass* GetCurrentRenderPass()
+	{
+		return TransitionState.CurrentRenderPass;
+	}
+
+	inline FVulkanRenderPass* GetPreviousRenderPass()
+	{
+		return TransitionState.PreviousRenderPass;
+	}
+
+	inline uint64 GetFrameCounter() const
+	{
+		return FrameCounter;
+	}
+
+	inline FVulkanUniformBufferUploader* GetUniformBufferUploader()
+	{
+		return UniformBufferUploader;
+	}
+
+	void WriteBeginTimestamp(FVulkanCmdBuffer* CmdBuffer);
+	void WriteEndTimestamp(FVulkanCmdBuffer* CmdBuffer);
+
+	void ReadAndCalculateGPUFrameTime();
 
 protected:
 	FVulkanDynamicRHI* RHI;
 	FVulkanDevice* Device;
 	const bool bIsImmediate;
+	bool bSubmitAtNextSafePoint;
+	bool bAutomaticFlushAfterComputeShader;
+	FVulkanUniformBufferUploader* UniformBufferUploader;
 
 	void SetShaderUniformBuffer(EShaderFrequency Stage, const FVulkanUniformBuffer* UniformBuffer, int32 BindingIndex);
 
@@ -155,10 +201,132 @@ protected:
 
 	TArray<FVulkanDescriptorPool*> DescriptorPools;
 
-	//#todo-rco: Temp!
-	FVulkanPendingState* PendingState;
+	struct FTransitionState
+	{
+		FTransitionState()
+			: CurrentRenderPass(nullptr)
+			, PreviousRenderPass(nullptr)
+			, CurrentFramebuffer(nullptr)
+		{
+		}
 
-	void SubmitCurrentCommands();
+		void Destroy(FVulkanDevice& InDevice);
+
+		FVulkanFramebuffer* GetOrCreateFramebuffer(FVulkanDevice& InDevice, const FRHISetRenderTargetsInfo& RenderTargetsInfo, const FVulkanRenderTargetLayout& RTLayout, FVulkanRenderPass* RenderPass);
+		FVulkanRenderPass* GetOrCreateRenderPass(FVulkanDevice& InDevice, const FVulkanRenderTargetLayout& RTLayout, uint32 RTLayoutHash)
+		{
+			FVulkanRenderPass** FoundRenderPass = RenderPasses.Find(RTLayoutHash);
+			if (FoundRenderPass)
+			{
+				return *FoundRenderPass;
+			}
+
+			FVulkanRenderPass* RenderPass = new FVulkanRenderPass(InDevice, RTLayout);
+			RenderPasses.Add(RTLayoutHash, RenderPass);
+			return RenderPass;
+		}
+
+		void BeginRenderPass(FVulkanCommandListContext& Context, FVulkanPipelineGraphicsKey& GfxKey, FVulkanDevice& InDevice, FVulkanCmdBuffer* CmdBuffer, const FRHISetRenderTargetsInfo& RenderTargetsInfo, const FVulkanRenderTargetLayout& RTLayout, FVulkanRenderPass* RenderPass, FVulkanFramebuffer* Framebuffer);
+		void EndRenderPass(FVulkanCmdBuffer* CmdBuffer);
+
+		FVulkanRenderPass* CurrentRenderPass;
+		FVulkanRenderPass* PreviousRenderPass;
+		FVulkanFramebuffer* CurrentFramebuffer;
+
+		TMap<VkImage, VkImageLayout> CurrentLayout;
+		TMap<uint32, FVulkanRenderPass*> RenderPasses;
+
+		struct FFramebufferList
+		{
+			TArray<FVulkanFramebuffer*> Framebuffer;
+		};
+		TMap<uint32, FFramebufferList*> Framebuffers;
+
+		void NotifyDeletedRenderTarget(FVulkanDevice& InDevice, const FVulkanTextureBase* Texture);
+		
+		VkImageLayout FindOrAddLayout(VkImage Image, VkImageLayout LayoutIfNotFound)
+		{
+			VkImageLayout* Found = CurrentLayout.Find(Image);
+			if (Found)
+			{
+				return *Found;
+			}
+
+			CurrentLayout.Add(Image, LayoutIfNotFound);
+			return LayoutIfNotFound;
+		}
+	};
+	FTransitionState TransitionState;
+
+	struct FOcclusionQueryData
+	{
+		FVulkanCmdBuffer* CmdBuffer;
+		uint64 FenceCounter;
+
+		FOcclusionQueryData()
+			: CmdBuffer(nullptr)
+			, FenceCounter(0)
+		{
+		}
+
+		void AddToResetList(FVulkanQueryPool* Pool, int32 QueryIndex)
+		{
+			TArray<uint64>& ListPerPool = ResetList.FindOrAdd(Pool);
+			int32 Word = QueryIndex / 64;
+			uint64 Bit = QueryIndex % 64;
+			uint64 BitMask = (uint64)1 << Bit;
+			if (Word >= ListPerPool.Num())
+			{
+				ListPerPool.AddZeroed(Word - ListPerPool.Num() + 1);
+			}
+			ListPerPool[Word] = ListPerPool[Word] | BitMask;
+		}
+
+		void ResetQueries(FVulkanCmdBuffer* CmdBuffer);
+
+		void ClearResetList()
+		{
+			for (auto& Pair : ResetList)
+			{
+				FMemory::Memzero(&Pair.Value[0], Pair.Value.Num() * sizeof(uint64));
+			}
+		}
+
+		TMap<FVulkanQueryPool*, TArray<uint64>> ResetList;
+	};
+	FOcclusionQueryData CurrentOcclusionQueryData;
+
+	//#todo-rco: Temp!
+	FVulkanPendingGfxState* PendingGfxState;
+	FVulkanPendingComputeState* PendingComputeState;
+
+	void PrepareForCPURead();
+	void RequestSubmitCurrentCommands();
 
 	void InternalClearMRT(FVulkanCmdBuffer* CmdBuffer, bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect);
+
+private:
+	void RHIClear(bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect);
+	void RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect);
+
+	inline bool SafePointSubmit()
+	{
+		if (bSubmitAtNextSafePoint)
+		{
+			InternalSubmitActiveCmdBuffer();
+			bSubmitAtNextSafePoint = false;
+			return true;
+		}
+
+		return false;
+	}
+
+	void InternalSubmitActiveCmdBuffer();
+	void FlushAfterComputeShader();
+
+	friend class FVulkanDevice;
+	friend class FVulkanDynamicRHI;
+
+	// Number of times EndFrame() has been called on this context
+	uint64 FrameCounter;
 };

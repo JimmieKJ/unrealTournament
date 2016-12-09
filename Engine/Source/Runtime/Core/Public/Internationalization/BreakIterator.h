@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IBreakIterator.h"
+#include "CoreTypes.h"
+#include "Templates/SharedPointer.h"
+#include "Internationalization/IBreakIterator.h"
 
 struct CORE_API FBreakIterator
 {

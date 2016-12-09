@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "Blueprint.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/Level.h"
+#include "Engine/Blueprint.h"
 
 #include "LevelScriptBlueprint.generated.h"
 

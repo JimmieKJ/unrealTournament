@@ -1,28 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-#include "PreviewScene.h"
-#include "SSCSEditorViewport.h"
 #include "SCSEditorViewportClient.h"
-#include "SSCSEditor.h"
-#include "Runtime/Engine/Public/Slate/SceneViewport.h"
-#include "BlueprintEditor.h"
-#include "BlueprintEditorUtils.h"
-#include "SKismetInspector.h"
-#include "MouseDeltaTracker.h"
-#include "ScopedTransaction.h"
-#include "SoundDefinitions.h"
-#include "Editor/UnrealEd/Public/Kismet2/ComponentEditorUtils.h"
-#include "ISCSEditorCustomization.h"
-#include "ComponentVisualizer.h"
-#include "Engine/SimpleConstructionScript.h"
-#include "CanvasTypes.h"
-#include "EngineUtils.h"
-#include "GameFramework/Actor.h"
-#include "Engine/SCS_Node.h"
-#include "Engine/TextureCube.h"
-#include "Components/InstancedStaticMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Materials/Material.h"
+#include "CanvasItem.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "Editor/UnrealEdEngine.h"
+#include "ThumbnailRendering/SceneThumbnailInfo.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
 #include "Engine/StaticMesh.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "Kismet2/ComponentEditorUtils.h"
+#include "EngineUtils.h"
+#include "UnrealEdGlobals.h"
+#include "SEditorViewport.h"
+#include "EngineGlobals.h"
+#include "Editor.h"
+#include "SSCSEditor.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "SKismetInspector.h"
+#include "ScopedTransaction.h"
+#include "ISCSEditorCustomization.h"
+#include "CanvasTypes.h"
+#include "Engine/TextureCube.h"
 #include "SSCSEditorViewport.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
 
@@ -599,8 +600,9 @@ FWidget::EWidgetMode FSCSEditorViewportClient::GetWidgetMode() const
 				{
 					FSCSEditorTreeNodePtrType CurrentNodePtr = SelectedNodes[CurrentNodeIndex];
 					if ((CurrentNodePtr.IsValid() &&
-						 !RootNodes.Contains(CurrentNodePtr) &&
-						 !CurrentNodePtr->IsRootComponent() &&
+						 ((!RootNodes.Contains(CurrentNodePtr) && !CurrentNodePtr->IsRootComponent()) ||
+							(Cast<UInstancedStaticMeshComponent>(CurrentNodePtr->GetComponentTemplate()) && // show widget if we are editing individual instances even if it is the root component
+							 CastChecked<UInstancedStaticMeshComponent>(CurrentNodePtr->FindComponentInstanceInActor(GetPreviewActor()))->SelectedInstances.Contains(true))) &&
 						 CurrentNodePtr->CanEditDefaults() &&
 						 CurrentNodePtr->FindComponentInstanceInActor(PreviewActor)))
 					{
@@ -920,23 +922,12 @@ void FSCSEditorViewportClient::BeginTransaction(const FText& Description)
 						}
 					}
 
-					// Modify both the component template and the instance in the preview actor (provided there is one)
+					// Modify template, any instances will be reconstructed as part of PostUndo:
 					UActorComponent* ComponentTemplate = Node->GetEditableComponentTemplate(PreviewBlueprint);
 					if (ComponentTemplate != nullptr)
 					{
 						ComponentTemplate->SetFlags(RF_Transactional);
 						ComponentTemplate->Modify();
-					}
-
-					AActor* PreviewActor = GetPreviewActor();
-					if (PreviewActor)
-					{
-						UActorComponent* ComponentPreviewInstance = Node->FindComponentInstanceInActor(PreviewActor);
-						if (ComponentPreviewInstance != nullptr)
-						{
-							ComponentPreviewInstance->SetFlags(RF_Transactional);
-							ComponentPreviewInstance->Modify();
-						}
 					}
 				}
 			}

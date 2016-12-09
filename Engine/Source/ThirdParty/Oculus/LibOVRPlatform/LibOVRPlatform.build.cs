@@ -23,6 +23,13 @@ public class LibOVRPlatform : ModuleRules
 			PublicAdditionalLibraries.Add(OculusThirdPartyDirectory + "/lib/LibOVRPlatform64_1.lib");
 			isLibrarySupported = true;
 		}
+		else if (Target.Platform == UnrealTargetPlatform.Android)
+		{
+			PublicAdditionalLibraries.Add(OculusThirdPartyDirectory + "/lib/libovrplatformloader.so");
+			string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, BuildConfiguration.RelativeEnginePath);
+			AdditionalPropertiesForReceipt.Add(new ReceiptProperty("AndroidPlugin", Path.Combine(PluginPath, "LibOVRPlatform_APL.xml")));
+			isLibrarySupported = true;
+		}
 		else
 		{
 			System.Console.WriteLine("Oculus Platform SDK not supported for this platform");

@@ -1,8 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Matinee/InterpTrack.h"
 #include "InterpTrackParticleReplay.generated.h"
+
+class FCanvas;
+class UInterpGroup;
+class UInterpTrackInst;
 
 /**
  *	This track implements support for creating and playing back captured particle system data

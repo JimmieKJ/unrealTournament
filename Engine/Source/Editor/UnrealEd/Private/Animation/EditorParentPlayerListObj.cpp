@@ -1,11 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
+#include "Animation/EditorParentPlayerListObj.h"
 #include "AnimGraphNode_Base.h"
-#include "AnimGraphNode_SequencePlayer.h"
-#include "AnimGraphNode_BlendSpaceBase.h"
-#include "AnimGraphNode_BlendSpacePlayer.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "ScopedTransaction.h"
 
 UEditorParentPlayerListObj::UEditorParentPlayerListObj(const FObjectInitializer& ObjectInitializer)

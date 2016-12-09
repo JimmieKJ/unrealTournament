@@ -1,9 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
-
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "IUMGModule.h"
-#include "ModuleManager.h"
+#include "UMGStyle.h"
+#include "UMGPrivate.h"
+
 
 
 DEFINE_LOG_CATEGORY(LogUMG);

@@ -3,6 +3,15 @@
 
 #pragma once 
 
+#include "CoreMinimal.h"
+#include "Engine/EngineBaseTypes.h"
+#include "Widgets/SWidget.h"
+#include "Framework/Commands/Commands.h"
+#include "EditorStyleSet.h"
+#include "Engine/TextureStreamingTypes.h"
+
+class FUICommandList;
+
 /**
  * Class containing commands for editor viewport actions common to all viewports
  */
@@ -77,11 +86,18 @@ public:
 	/** Changes the viewport to primitive distance accuracy mode */
 	TSharedPtr< FUICommandInfo > TexStreamAccPrimitiveDistanceMode;
 
-	/** Changes the viewport to mesh texture coord size accuracy mode */
-	TSharedPtr< FUICommandInfo > TexStreamAccMeshTexCoordSizeMode;
+	/** Changes the viewport to mesh UV density accuracy view mode */
+	TSharedPtr< FUICommandInfo > TexStreamAccMeshUVDensityMode;
+	TSharedPtr< FUICommandInfo > TexStreamAccMeshUVDensityAll; // TexStreamAccMeshUVDensityMode, but used in the view mode options menu.
+	TSharedPtr< FUICommandInfo > TexStreamAccMeshUVDensitySingle[TEXSTREAM_MAX_NUM_UVCHANNELS];
 
-	/** Changes the viewport to material texture coordinate scales accuracy mode */
-	TSharedPtr< FUICommandInfo > TexStreamAccMaterialTexCoordScalesMode;
+	/** Changes the viewport to material texture scale accuracy mode */
+	TSharedPtr< FUICommandInfo > TexStreamAccMaterialTextureScaleMode;
+	TSharedPtr< FUICommandInfo > TexStreamAccMaterialTextureScaleAll; // Similar as TexStreamAccMaterialTextureScaleMode, but used in the view mode options menu.
+	TSharedPtr< FUICommandInfo > TexStreamAccMaterialTextureScaleSingle[TEXSTREAM_MAX_NUM_TEXTURES_PER_MATERIAL];
+
+	TSharedPtr< FUICommandInfo > RequiredTextureResolutionMode;
+	TSharedPtr< FUICommandInfo > RequiredTextureResolutionSingle[TEXSTREAM_MAX_NUM_TEXTURES_PER_MATERIAL];
 
 	/** Changes the viewport to stationary light overlap mode */
 	TSharedPtr< FUICommandInfo > StationaryLightOverlapMode;
@@ -204,4 +220,23 @@ public:
 	virtual void RegisterCommands() override;
 };
 
+/**
+ * Get the viewmode otions menu label.
+ * 
+ * @param	ViewModeIndex	The current viewmode, as the options change  per viewmode.
 
+ * @return	The label.
+ */
+UNREALED_API FText GetViewModeOptionsMenuLabel(EViewModeIndex ViewModeIndex);
+
+/**
+ * Build the viewmode otions menu.
+ * 
+ * @param	CommandList		The command list to be used with the menu builder.
+ * @param	ViewModeIndex	The current viewmode, as the options change  per viewmode.
+ * @param	FeatureLevel	The feature level to build the option menu for.
+ * @param	ParamNameMaps	A map allowing to convert from each menu index to an asset name.
+
+ * @return	The widget containing the viewmode options.
+ */
+UNREALED_API TSharedRef<SWidget> BuildViewModeOptionsMenu(TSharedPtr<FUICommandList> CommandList, EViewModeIndex ViewModeIndex, ERHIFeatureLevel::Type FeatureLevel, TMap<int32, FName>& ParamNameMap);

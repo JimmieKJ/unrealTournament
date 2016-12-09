@@ -2,11 +2,13 @@
 
 #pragma once
 
-#include "Perception/AIPerceptionSystem.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Perception/AISense.h"
 #include "AISense_Damage.generated.h"
 
 class IAIPerceptionListenerInterface;
+class UAISenseEvent;
 
 USTRUCT()
 struct AIMODULE_API FAIDamageEvent

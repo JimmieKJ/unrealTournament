@@ -1,13 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StreamingFilePrivatePCH.h"
-#include "ServerTOC.h"
 #include "StreamingNetworkPlatformFile.h"
-#include "Sockets.h"
-#include "FileManagerGeneric.h"
-#include "MultichannelTCP.h"
-#include "IPlatformFileModule.h"
-
+#include "Templates/ScopedPointer.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ScopeLock.h"
+#include "Modules/ModuleManager.h"
+#include "HAL/IPlatformFileModule.h"
+#include "UniquePtr.h"
 
 DEFINE_LOG_CATEGORY(LogStreamingPlatformFile);
 
@@ -657,7 +656,7 @@ bool FStreamingNetworkPlatformFile::DeleteDirectoryRecursively(const TCHAR* Dire
 }
 
 
-bool FStreamingNetworkPlatformFile::CopyFile(const TCHAR* To, const TCHAR* From)
+bool FStreamingNetworkPlatformFile::CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags, EPlatformFileWrite WriteFlags)
 {
 	FScopeLock ScopeLock(&SynchronizationObject);
 
@@ -941,8 +940,8 @@ public:
 
 	virtual IPlatformFile* GetPlatformFile() override
 	{
-		static TScopedPointer<IPlatformFile> AutoDestroySingleton(new FStreamingNetworkPlatformFile());
-		return AutoDestroySingleton.GetOwnedPointer();
+		static TUniquePtr<IPlatformFile> AutoDestroySingleton = MakeUnique<FStreamingNetworkPlatformFile>();
+		return AutoDestroySingleton.Get();
 	}
 };
 

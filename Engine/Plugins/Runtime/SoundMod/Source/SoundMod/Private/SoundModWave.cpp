@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SoundModPrivatePCH.h"
+#include "SoundModWave.h"
 
 USoundModWave::USoundModWave(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

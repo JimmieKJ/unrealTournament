@@ -2,14 +2,16 @@
 
 
 // Includes.
-#include "UnrealEd.h"
-#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Engine/Selection.h"
 
-#include "LandscapeProxy.h"
-#include "LandscapeComponent.h"
-#include "LandscapeInfo.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "GameFramework/Actor.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Engine/Selection.h"
+#include "EditorModeManager.h"
+#include "EdMode.h"
+#include "LevelEditor.h"
+
 
 uint32			EngineThreadId;
 const TCHAR*	GItem;

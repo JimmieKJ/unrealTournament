@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimBlueprintNodeOptionalPinManager.h"
+#include "UObject/UnrealType.h"
+#include "Animation/AnimationAsset.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Animation/AnimNodeBase.h"
 #include "AnimGraphNode_AssetPlayerBase.h"
 #include "AnimationGraphSchema.h"
 

@@ -1,11 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TwitchLiveStreamingModule.h"
 #include "TwitchLiveStreaming.h"
+#include "TwitchLiveStreamingModule.h"
 #include "TwitchProjectSettings.h"
 #include "ModuleManager.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "Runtime/Core/Public/Stats/Stats2.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/Paths.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Engine/Texture2D.h"
 #if WITH_EDITOR
 #include "ISettingsModule.h"
 #endif

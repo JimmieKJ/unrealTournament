@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "BehaviorTree/BehaviorTreeTypes.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "BTFunctionLibrary.generated.h"
 
+class AActor;
+class UBehaviorTreeComponent;
 class UBlackboardComponent;
-struct FBlackboardKeySelector;
+class UBTNode;
 
 namespace FBTNodeBPImplementationHelper
 {

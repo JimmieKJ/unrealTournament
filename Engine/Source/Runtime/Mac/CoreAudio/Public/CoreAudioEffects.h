@@ -7,6 +7,9 @@
 #ifndef _INC_COREAUDIOEFFECTS
 #define _INC_COREAUDIOEFFECTS
 
+#include "CoreAudioDevice.h"
+#include "AudioEffect.h"
+
 #define CORE_AUDIO_LOWPASS_ENABLED 1
 #define CORE_AUDIO_REVERB_ENABLED 0
 #define CORE_AUDIO_EQ_ENABLED 1

@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "DataAsset.generated.h"
-
 
 /**
  * Base class for a simple asset containing data.

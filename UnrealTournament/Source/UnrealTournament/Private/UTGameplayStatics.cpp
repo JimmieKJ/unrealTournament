@@ -576,7 +576,7 @@ bool UUTGameplayStatics::UTSuggestProjectileVelocity(UObject* WorldContextObject
 			// d = vt + .5 a t^2
 			const FVector TraceEnd = StartLoc + ProjVelocity * TimeInFlight + FVector(0.f, 0.f, 0.5f * -GravityZ * FMath::Square(TimeInFlight) - CollisionRadius);
 
-			if (TraceOption == ESuggestProjVelocityTraceOption::OnlyTraceWhileAsceding && TraceEnd.Z < TraceStart.Z)
+			if (TraceOption == ESuggestProjVelocityTraceOption::OnlyTraceWhileAscending && TraceEnd.Z < TraceStart.Z)
 			{
 				// falling, we are done tracing
 				break;
@@ -664,7 +664,9 @@ class UAudioComponent* UUTGameplayStatics::PlaySoundTeamAdjusted(USoundCue* Soun
 		return nullptr;
 	}
 
-	UAudioComponent* AudioComponent = FAudioDevice::CreateComponent(SoundToPlay, SoundTarget->GetWorld(), SoundTarget, false, false);
+	FAudioDevice::FCreateComponentParams Params(SoundTarget);
+
+	UAudioComponent* AudioComponent = FAudioDevice::CreateComponent(SoundToPlay, Params);
 	if (AudioComponent)
 	{
 		const bool bIsInGameWorld = AudioComponent->GetWorld()->IsGameWorld();

@@ -10,11 +10,29 @@ using System.Net;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using UnrealBuildTool;
+using EpicGames.MCP.Automation;
 
 namespace EpicGames.MCP.Automation
 {
 	using EpicGames.MCP.Config;
 	using System.Threading.Tasks;
+
+	public static class Extensions
+	{
+		public static Type[] SafeGetLoadedTypes(this Assembly Dll)
+		{
+			Type[] AllTypes;
+			try
+			{
+				AllTypes = Dll.GetTypes();
+			}
+			catch (ReflectionTypeLoadException e)
+			{
+				AllTypes = e.Types.Where(x => x != null).ToArray();
+			}
+			return AllTypes;
+		}
+	}
 
     /// <summary>
     /// Utility class to provide commit/rollback functionality via an RAII-like functionality.
@@ -366,6 +384,40 @@ namespace EpicGames.MCP.Automation
 			Source
 		}
 
+		/// <summary>
+		/// An interface which provides the required Perforce access implementations
+		/// </summary>
+		public interface IPerforce
+		{
+			/// <summary>
+			/// Property to say whether Perforce access is enabled in the environment.
+			/// </summary>
+			bool bIsEnabled { get; }
+
+			/// <summary>
+			/// Check a file exists in Perforce.
+			/// </summary>
+			/// <param name="Filename">Filename to check.</param>
+			/// <returns>True if the file exists in P4.</returns>
+			bool FileExists(string Filename);
+
+			/// <summary>
+			/// Gets the contents of a particular file in the depot and writes it to a local file without syncing it.
+			/// </summary>
+			/// <param name="DepotPath">Depot path to the file (with revision/range if necessary).</param>
+			/// <param name="Filename">Output file to write to.</param>
+			/// <returns>True if successful.</returns>
+			bool PrintToFile(string DepotPath, string Filename);
+
+			/// <summary>
+			/// Retrieve the latest CL number for the given file.
+			/// </summary>
+			/// <param name="Filename">The filename for the file to check.</param>
+			/// <param name="ChangeList">Receives the CL number.</param>
+			/// <returns>True if the file exists and ChangeList was set.</returns>
+			bool GetLatestChange(string Filename, out int ChangeList);
+		}
+
 		public class PatchGenerationOptions
 		{
 			/// <summary>
@@ -518,6 +570,73 @@ namespace EpicGames.MCP.Automation
 			public HashSet<string> FilesToKeepFromB;
 		}
 
+		public class ManifestDiffOptions
+		{
+			/// <summary>
+			/// The file path to the base manifest.
+			/// </summary>
+			public string ManifestA;
+			/// <summary>
+			/// The file path to the update manifest.
+			/// </summary>
+			public string ManifestB;
+		}
+
+		public class ManifestDiffOutput
+		{
+			public class ManifestSummary
+			{
+				/// <summary>
+				/// The AppName field from the manifest file.
+				/// </summary>
+				public string AppName;
+				/// <summary>
+				/// The AppId field from the manifest file.
+				/// </summary>
+				public uint AppId;
+				/// <summary>
+				/// The VersionString field from the manifest file.
+				/// </summary>
+				public string VersionString;
+				/// <summary>
+				/// The total size of chunks in the build.
+				/// </summary>
+				public ulong DownloadSize;
+				/// <summary>
+				/// The total size of disk space required for the build.
+				/// </summary>
+				public ulong BuildSize;
+			}
+			public class ManifestDiff
+			{
+				/// <summary>
+				/// The list of cloud directory relative paths for all new chunks required for a patch.
+				/// </summary>
+				public List<string> NewChunkPaths;
+				/// <summary>
+				/// The total size chunks in the NewChunkPaths list.
+				/// </summary>
+				public ulong TotalChunkSize;
+				/// <summary>
+				/// The required download size for the patch between ManifestA and ManifestB. This can be different to TotalChunkSize
+				/// in the case of a small overhead in file boundary changes and such, which wouldn't actually need downloading.
+				/// </summary>
+				public ulong DeltaDownloadSize;
+			}
+			/// <summary>
+			/// The manifest detail for the source build of the differential.
+			/// </summary>
+			public ManifestSummary ManifestA;
+			/// <summary>
+			/// The manifest detail for the target build of the differential.
+			/// </summary>
+			public ManifestSummary ManifestB;
+			/// <summary>
+			/// The differential details for the patch from ManifestA's build to ManifestB's build.
+			/// </summary>
+			public ManifestDiff Differential;
+		}
+
 		static BuildPatchToolBase Handler = null;
 
 		public static BuildPatchToolBase Get()
@@ -527,7 +646,7 @@ namespace EpicGames.MCP.Automation
 				Assembly[] LoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
 				foreach (var Dll in LoadedAssemblies)
 				{
-					Type[] AllTypes = Dll.GetTypes();
+					Type[] AllTypes = Dll.SafeGetLoadedTypes();
 					foreach (var PotentialConfigType in AllTypes)
 					{
 						if (PotentialConfigType != typeof(BuildPatchToolBase) && typeof(BuildPatchToolBase).IsAssignableFrom(PotentialConfigType))
@@ -550,7 +669,8 @@ namespace EpicGames.MCP.Automation
 		/// </summary>
 		/// <param name="Opts">Parameters which will be passed to the patch tool generation process.</param>
 		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
-		public abstract void Execute(PatchGenerationOptions Opts, ToolVersion Version = ToolVersion.Live);
+		/// <param name="bAllowManifestClobbering">If set to true, will allow an existing manifest file to be overwritten with this execution. Default is false.</param>
+		public abstract void Execute(PatchGenerationOptions Opts, ToolVersion Version = ToolVersion.Live, bool bAllowManifestClobbering = false);
 
 		/// <summary>
 		/// Runs the Build Patch Tool executable to compactify a cloud directory using the supplied parameters.
@@ -572,6 +692,14 @@ namespace EpicGames.MCP.Automation
 		/// <param name="Opts">Parameters which will be passed to the patch tool manifest merge process.</param>
 		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
 		public abstract void Execute(ManifestMergeOptions Opts, ToolVersion Version = ToolVersion.Live);
+
+		/// <summary>
+		/// Runs the Build Patch Tool executable to diff two manifest files logging out details.
+		/// </summary>
+		/// <param name="Opts">Parameters which will be passed to the patch tool manifest diff process.</param>
+		/// <param name="Output">Will receive the data back for the diff.</param>
+		/// <param name="Version">Which version of BuildPatchTool is desired.</param>
+		public abstract void Execute(ManifestDiffOptions Opts, out ManifestDiffOutput Output, ToolVersion Version = ToolVersion.Live);
 	}
 
 
@@ -589,7 +717,7 @@ namespace EpicGames.MCP.Automation
                 Assembly[] LoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
                 foreach (var Dll in LoadedAssemblies)
                 {
-                    Type[] AllTypes = Dll.GetTypes();
+                    Type[] AllTypes = Dll.SafeGetLoadedTypes();
                     foreach (var PotentialConfigType in AllTypes)
                     {
                         if (PotentialConfigType != typeof(BuildInfoPublisherBase) && typeof(BuildInfoPublisherBase).IsAssignableFrom(PotentialConfigType))
@@ -699,7 +827,7 @@ namespace EpicGames.MCP.Automation
                 Assembly[] LoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
                 foreach (var Dll in LoadedAssemblies)
                 {
-                    Type[] AllTypes = Dll.GetTypes();
+                    Type[] AllTypes = Dll.SafeGetLoadedTypes();
                     foreach (var PotentialConfigType in AllTypes)
                     {
                         if (PotentialConfigType != typeof(McpAccountServiceBase) && typeof(McpAccountServiceBase).IsAssignableFrom(PotentialConfigType))
@@ -716,9 +844,38 @@ namespace EpicGames.MCP.Automation
             }
             return Handler;
         }
-        public abstract string GetClientToken(BuildPatchToolStagingInfo StagingInfo);
-		public abstract string GetClientToken(McpConfigData McpConfig);
-        public abstract string SendWebRequest(WebRequest Upload, string Method, string ContentType, byte[] Data);
+
+		/// <summary>
+		/// Gets an OAuth client token for an environment using the default client id and client secret
+		/// </summary>
+		/// <param name="McpConfig">A descriptor for the environment we want a token for</param>
+		/// <returns>An OAuth client token for the specified environment.</returns>
+		public string GetClientToken(McpConfigData McpConfig)
+		{
+			return GetClientToken(McpConfig, McpConfig.ClientId, McpConfig.ClientSecret);
+		}
+
+		/// <summary>
+		/// Gets an OAuth client token using the default client id and client secret and the environment for the specified staging info
+		/// </summary>
+		/// <param name="StagingInfo">The staging info for the build we're working with. This will be used to determine the correct back-end service.</param>
+		/// <returns></returns>
+		public string GetClientToken(BuildPatchToolStagingInfo StagingInfo)
+		{
+			McpConfigData McpConfig = McpConfigMapper.FromStagingInfo(StagingInfo);
+			return GetClientToken(McpConfig);
+		}
+
+		/// <summary>
+		/// Gets an OAuth client token for an environment using the specified client id and client secret
+		/// </summary>
+		/// <param name="McpConfig">A descriptor for the environment we want a token for</param>
+		/// <param name="ClientId">The client id used to obtain the token</param>
+		/// <param name="ClientSecret">The client secret used to obtain the token</param>
+		/// <returns>An OAuth client token for the specified environment.</returns>
+		public abstract string GetClientToken(McpConfigData McpConfig, string ClientId, string ClientSecret);
+
+		public abstract string SendWebRequest(WebRequest Upload, string Method, string ContentType, byte[] Data);
     }
 
 	/// <summary>
@@ -770,7 +927,7 @@ namespace EpicGames.MCP.Automation
 						Assembly[] LoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
 						foreach (var Dll in LoadedAssemblies)
 						{
-							Type[] AllTypes = Dll.GetTypes();
+							Type[] AllTypes = Dll.SafeGetLoadedTypes();
 							foreach (var PotentialConfigType in AllTypes)
 							{
 								if (PotentialConfigType != typeof(CloudStorageBase) && typeof(CloudStorageBase).IsAssignableFrom(PotentialConfigType))
@@ -1084,6 +1241,63 @@ namespace EpicGames.MCP.Automation
 			public bool bReturnURLs { get; set; }
 		}
 	}
+
+	public abstract class CatalogServiceBase
+	{
+		static CatalogServiceBase Handler = null;
+
+		public static CatalogServiceBase Get()
+		{
+			if (Handler == null)
+			{
+				Assembly[] LoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+				foreach (var Dll in LoadedAssemblies)
+				{
+					Type[] AllTypes = Dll.GetTypes();
+					foreach (var PotentialConfigType in AllTypes)
+					{
+						if (PotentialConfigType != typeof(CatalogServiceBase) && typeof(CatalogServiceBase).IsAssignableFrom(PotentialConfigType))
+						{
+							Handler = Activator.CreateInstance(PotentialConfigType) as CatalogServiceBase;
+							break;
+						}
+					}
+				}
+				if (Handler == null)
+				{
+					throw new AutomationException("Attempt to use McpCatalogServiceBase.Get() and it doesn't appear that there are any modules that implement this class.");
+				}
+			}
+			return Handler;
+		}
+
+		public abstract string GetAppName(string ItemId, string[] EngineVersions, string McpConfigName);
+		public abstract string[] GetNamespaces(string McpConfigName);
+		public abstract McpCatalogItem GetItemById(string Namespace, string ItemId, string McpConfigName);
+		public abstract IEnumerable<McpCatalogItem> GetAllItems(string Namespace, string McpConfigName);
+
+		public class McpCatalogItem
+		{
+			public string Id { get; set; }
+			public string Title { get; set; }
+			public string Description { get; set; }
+			public string LongDescription { get; set; }
+			public string TechnicalDetails { get; set; }
+			public string Namespace { get; set; }
+			public string Status { get; set; }
+			public DateTime CreationDate { get; set; }
+			public DateTime LastModifiedDate { get; set; }
+			public ReleaseInfo[] ReleaseInfo { get; set; }
+		}
+
+		public class ReleaseInfo
+		{
+			public string AppId { get; set; }
+			public string[] CompatibleApps { get; set; }
+			public string[] Platform { get; set; }
+			public DateTime DateAdded { get; set; }
+		}
+	}
 }
 
 namespace EpicGames.MCP.Config
@@ -1106,7 +1320,7 @@ namespace EpicGames.MCP.Config
                 Assembly[] LoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
                 foreach (var Dll in LoadedAssemblies)
                 {
-                    Type[] AllTypes = Dll.GetTypes();
+                    Type[] AllTypes = Dll.SafeGetLoadedTypes();
                     foreach (var PotentialConfigType in AllTypes)
                     {
                         if (PotentialConfigType != typeof(McpConfigData) && typeof(McpConfigData).IsAssignableFrom(PotentialConfigType))
@@ -1140,7 +1354,7 @@ namespace EpicGames.MCP.Config
     // Class for storing mcp configuration data
     public class McpConfigData
     {
-		public McpConfigData(string InName, string InAccountBaseUrl, string InFortniteBaseUrl, string InLauncherBaseUrl, string InBuildInfoV2BaseUrl, string InLauncherV2BaseUrl, string InClientId, string InClientSecret)
+		public McpConfigData(string InName, string InAccountBaseUrl, string InFortniteBaseUrl, string InLauncherBaseUrl, string InBuildInfoV2BaseUrl, string InLauncherV2BaseUrl, string InCatalogBaseUrl, string InClientId, string InClientSecret)
         {
             Name = InName;
             AccountBaseUrl = InAccountBaseUrl;
@@ -1148,6 +1362,7 @@ namespace EpicGames.MCP.Config
             LauncherBaseUrl = InLauncherBaseUrl;
 			BuildInfoV2BaseUrl = InBuildInfoV2BaseUrl;
 			LauncherV2BaseUrl = InLauncherV2BaseUrl;
+			CatalogBaseUrl = InCatalogBaseUrl;
             ClientId = InClientId;
             ClientSecret = InClientSecret;
         }
@@ -1158,6 +1373,7 @@ namespace EpicGames.MCP.Config
         public string LauncherBaseUrl;
 		public string BuildInfoV2BaseUrl;
 		public string LauncherV2BaseUrl;
+		public string CatalogBaseUrl;
         public string ClientId;
         public string ClientSecret;
 
@@ -1169,6 +1385,7 @@ namespace EpicGames.MCP.Config
             CommandUtils.LogVerbose("LauncherBaseUrl : {0}", LauncherBaseUrl);
 			CommandUtils.LogVerbose("BuildInfoV2BaseUrl : {0}", BuildInfoV2BaseUrl);
 			CommandUtils.LogVerbose("LauncherV2BaseUrl : {0}", LauncherV2BaseUrl);
+			CommandUtils.LogVerbose("CatalogBaseUrl : {0}", CatalogBaseUrl);
             CommandUtils.LogVerbose("ClientId : {0}", ClientId);
             // we don't really want this in logs CommandUtils.Log("ClientSecret : {0}", ClientSecret);
         }

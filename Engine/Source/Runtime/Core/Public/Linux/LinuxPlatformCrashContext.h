@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformCrashContext.h"
 
 // commandline parameter to suppress DWARF parsing (greatly speeds up callstack generation)

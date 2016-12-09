@@ -1,7 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerPrivatePCH.h"
+#include "ProfilerDataSource.h"
+#include "Containers/MapBuilder.h"
+#include "ProfilerStream.h"
+#include "ProfilerDataProvider.h"
+#include "ProfilerSession.h"
+
 #define LOCTEXT_NAMESPACE "ProfilerDataSource"
+
 
 /*-----------------------------------------------------------------------------
 	FGraphDataSource
@@ -13,17 +19,18 @@ const int32 FTimeAccuracy::_FPS030 = 30;
 const int32 FTimeAccuracy::_FPS060 = 60;
 const int32 FTimeAccuracy::_FPS120 = 120;
 
+
 /*-----------------------------------------------------------------------------
 	FGraphDataSource
 -----------------------------------------------------------------------------*/
 
-FGraphDataSource::FGraphDataSource( const FProfilerSessionRef& InProfilerSession, const uint32 InStatID ) 
+FGraphDataSource::FGraphDataSource( const TSharedRef<FProfilerSession>& InProfilerSession, const uint32 InStatID ) 
 	: FGraphDataSourceDescription( InStatID )
 	, ThisCachedDataByIndex()
 	, ThisCachedDataByTime( FTimeAccuracy::FPS060 )
 	, ProfilerSession( InProfilerSession ) 
 {
-	const FProfilerStatMetaDataRef MetaData = ProfilerSession->GetMetaData();
+	const TSharedRef<FProfilerStatMetaData> MetaData = ProfilerSession->GetMetaData();
 	const FProfilerStat& Stat = MetaData->GetStatByID(InStatID);
 	const FProfilerGroup& Group = Stat.OwningGroup();
 
@@ -64,7 +71,7 @@ const TGraphDataType FGraphDataSource::GetUncachedValueFromIndex( const uint32 F
 	}
 	else
 	{
-		const IDataProviderRef DataProvider = ProfilerSession->GetDataProvider();
+		const TSharedRef<IDataProvider> DataProvider = ProfilerSession->GetDataProvider();
 
 		const FIntPoint& IndicesForFrame = DataProvider->GetSamplesIndicesForFrame( FrameIndex );
 		const uint32 SampleStartIndex = IndicesForFrame.X;
@@ -90,7 +97,7 @@ const TGraphDataType FGraphDataSource::GetUncachedValueFromIndex( const uint32 F
 
 const TGraphDataType FGraphDataSource::GetUncachedValueFromTimeRange( const float StartTimeMS, const float EndTimeMS ) const
 {
-	const IDataProviderRef DataProvider = ProfilerSession->GetDataProvider();
+	const TSharedRef<IDataProvider> DataProvider = ProfilerSession->GetDataProvider();
 	const FIntPoint IndicesForFrame = DataProvider->GetClosestSamplesIndicesForTime( StartTimeMS, EndTimeMS );
 
 	const uint32 StartFrameIndex = IndicesForFrame.X;
@@ -118,7 +125,7 @@ const float FGraphDataSource::GetTotalTimeMS() const
 	return ProfilerSession->GetDataProvider()->GetTotalTimeMS();
 }
 
-const IDataProviderRef FGraphDataSource::GetDataProvider() const
+const TSharedRef<IDataProvider> FGraphDataSource::GetDataProvider() const
 {
 	return ProfilerSession->GetDataProvider();
 }
@@ -133,10 +140,10 @@ const FGuid FGraphDataSource::GetSessionInstanceID() const
 	return ProfilerSession->GetInstanceID();
 }
 
+
 /*-----------------------------------------------------------------------------
 	FCombinedGraphDataSource
 -----------------------------------------------------------------------------*/
-
 
 FCombinedGraphDataSource::FCombinedGraphDataSource( const uint32 InStatID, const FTimeAccuracy::Type InTimeAccuracy ) 
 	: FGraphDataSourceDescription( InStatID )
@@ -154,7 +161,7 @@ const FVector FCombinedGraphDataSource::GetUncachedValueFromTimeRange( const flo
 
 	for( auto It = GetSourcesIterator(); It; ++It )
 	{
-		const FGraphDataSourceRefConst& GraphDataSource = It.Value();
+		const TSharedRef<const FGraphDataSource>& GraphDataSource = It.Value();
 		const float DataSourceValue = GraphDataSource->GetValueFromTimeRange( StartTimeMS, EndTimeMS );
 
 		AggregatedValue.X = FMath::Min( AggregatedValue.X, DataSourceValue );
@@ -170,7 +177,7 @@ void FCombinedGraphDataSource::GetStartIndicesFromTimeRange( const float StartTi
 {
 	for( auto It = GetSourcesIterator(); It; ++It )
 	{
-		const FGraphDataSourceRefConst& GraphDataSource = It.Value();
+		const TSharedRef<const FGraphDataSource>& GraphDataSource = It.Value();
 		const FIntPoint IndicesForFrame = GraphDataSource->GetDataProvider()->GetClosestSamplesIndicesForTime( StartTimeMS, EndTimeMS );
 
 		const uint32 StartFrameIndex = IndicesForFrame.X;
@@ -197,6 +204,7 @@ void FCombinedGraphDataSource::GetStartIndicesFromTimeRange( const float StartTi
 	}
 }
 
+
 /*-----------------------------------------------------------------------------
 	FEventGraphData
 -----------------------------------------------------------------------------*/
@@ -206,6 +214,7 @@ void FCombinedGraphDataSource::GetStartIndicesFromTimeRange( const float StartTi
 FName FEventGraphConsts::RootEvent = TEXT("RootEvent");
 FName FEventGraphConsts::Self = TEXT("Self");
 FName FEventGraphConsts::FakeRoot = TEXT("FakeRoot");
+
 
 /*-----------------------------------------------------------------------------
 	FEventGraphSample
@@ -415,8 +424,8 @@ FEventGraphData::FEventGraphData( const FProfilerSession * const InProfilerSessi
 	Description = FString::Printf( TEXT("%s: %i"), *InProfilerSession->GetShortName(), InFrameIndex );
 
 	// @TODO: Duplicate is not needed, remove it later.
-	const IDataProviderRef& SessionDataProvider = InProfilerSession->GetDataProvider(); 
-	const IDataProviderRef DataProvider = SessionDataProvider->Duplicate<FArrayDataProvider>( FrameStartIndex );
+	const TSharedRef<IDataProvider>& SessionDataProvider = InProfilerSession->GetDataProvider(); 
+	const TSharedRef<IDataProvider> DataProvider = SessionDataProvider->Duplicate<FArrayDataProvider>( FrameStartIndex );
 
 	const double FrameDurationMS = DataProvider->GetFrameTimeMS( 0 ); 
 	const FProfilerSample& RootProfilerSample = DataProvider->GetCollection()[0];
@@ -426,7 +435,7 @@ FEventGraphData::FEventGraphData( const FProfilerSession * const InProfilerSessi
 	PopulateHierarchy_Recurrent( InProfilerSession, RootEvent, RootProfilerSample, DataProvider );
 
 	// Root sample contains FrameDurationMS
-	const FProfilerStatMetaDataRef& MetaData = InProfilerSession->GetMetaData();
+	const TSharedRef<FProfilerStatMetaData>& MetaData = InProfilerSession->GetMetaData();
 	RootEvent->_InclusiveTimeMS = MetaData->ConvertCyclesToMS( RootProfilerSample.GetDurationCycles() );
 	RootEvent->_MaxInclusiveTimeMS = RootEvent->_MinInclusiveTimeMS = RootEvent->_AvgInclusiveTimeMS = RootEvent->_InclusiveTimeMS;
 	RootEvent->_InclusiveTimePct = 100.0f;
@@ -445,10 +454,10 @@ void FEventGraphData::PopulateHierarchy_Recurrent
 	const FProfilerSession * const ProfilerSession,
 	const FEventGraphSamplePtr ParentEvent, 
 	const FProfilerSample& ParentSample, 
-	const IDataProviderRef DataProvider
+	const TSharedRef<IDataProvider> DataProvider
 )
 {
-	const FProfilerStatMetaDataRef& MetaData = ProfilerSession->GetMetaData();
+	const TSharedRef<FProfilerStatMetaData>& MetaData = ProfilerSession->GetMetaData();
 
 	for( int32 ChildIndex = 0; ChildIndex < ParentSample.ChildrenIndices().Num(); ChildIndex++ )
 	{

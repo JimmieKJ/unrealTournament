@@ -2,10 +2,13 @@
 
 #pragma once
 
-#include "Serialization/CustomVersion.h"
-#include "FileCacheUtilities.h"
-#include "SecureHash.h"
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/Guid.h"
+#include "Misc/SecureHash.h"
+#include "HAL/ThreadSafeBool.h"
 #include "IDirectoryWatcher.h"
+#include "FileCacheUtilities.h"
 
 namespace DirectoryWatcher
 {

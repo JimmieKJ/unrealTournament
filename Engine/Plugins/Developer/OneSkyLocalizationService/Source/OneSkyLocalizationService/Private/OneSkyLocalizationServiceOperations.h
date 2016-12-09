@@ -2,11 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "ILocalizationServiceOperation.h"
 #include "IOneSkyLocalizationServiceWorker.h"
-#include "OneSkyLocalizationServiceState.h"
 #include "OneSkyLocalizationServiceResponseTypes.h"
 
 #define LOCTEXT_NAMESPACE "LocalizationService"
+
+class FOneSkyLocalizationServiceCommand;
+class IHttpRequest;
+class IHttpResponse;
+
 typedef TSharedPtr<class IHttpRequest> FHttpRequestPtr;
 typedef TSharedPtr<class IHttpResponse, ESPMode::ThreadSafe> FHttpResponsePtr;
 

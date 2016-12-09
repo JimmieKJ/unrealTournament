@@ -1,7 +1,7 @@
 //
 // paRnd.cpp
 //
-#include "PhyaPluginPrivatePCH.h"
+#include "CoreMinimal.h"
 
 #if 0
 #include "Utility/paRnd.hpp"

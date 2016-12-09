@@ -2,11 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #if WITH_DEV_AUTOMATION_TESTS
-
-uint8 RawVoiceTestData[] = { 0x0, 0x0 };
-
-#else
 
 /** 16khz wav mono voice data "this is a test" 2 sec duration */
 uint8 RawVoiceTestData[] = {

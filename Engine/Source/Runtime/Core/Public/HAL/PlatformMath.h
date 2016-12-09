@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "HAL/Platform.h"
+#include "CoreTypes.h"
+#include "GenericPlatform/GenericPlatformMath.h"
 
 #if PLATFORM_WINDOWS
 #include "Windows/WindowsPlatformMath.h"
@@ -19,4 +20,6 @@
 #include "HTML5/HTML5PlatformMath.h"
 #elif PLATFORM_LINUX
 #include "Linux/LinuxPlatformMath.h"
+#elif PLATFORM_SWITCH
+#include "Switch/SwitchPlatformMath.h"
 #endif

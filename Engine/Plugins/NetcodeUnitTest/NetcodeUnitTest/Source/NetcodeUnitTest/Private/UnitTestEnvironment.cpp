@@ -1,11 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
+#include "UnitTestEnvironment.h"
+#include "Misc/CommandLine.h"
+#include "Misc/App.h"
+#include "UnitTest.h"
 
 #include "NUTUtil.h"
-#include "UnitTestEnvironment.h"
 
-#include "ClientUnitTest.h"
 
 TMap<FString, FUnitTestEnvironment*> UnitTestEnvironments;
 

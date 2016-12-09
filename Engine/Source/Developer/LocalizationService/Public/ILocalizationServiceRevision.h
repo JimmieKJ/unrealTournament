@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 /** 
  * Abstraction of a localization revision from a localization service provider.
  */

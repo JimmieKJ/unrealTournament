@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OculusFunctionLibraryPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "IHeadMountedDisplay.h"
 #include "IOculusLibraryPlugin.h"
 #include "OculusFunctionLibrary.h"
 

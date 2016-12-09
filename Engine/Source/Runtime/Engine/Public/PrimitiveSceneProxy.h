@@ -5,20 +5,25 @@
 =============================================================================*/
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "Misc/MemStack.h"
+#include "PrimitiveViewRelevance.h"
+#include "SceneTypes.h"
+#include "Engine/Scene.h"
+#include "UniformBuffer.h"
 #include "SceneView.h"
 #include "PrimitiveUniformShaderParameters.h"
-#include "PrimitiveViewRelevance.h"
 
-// Forward declarations.
-class FSimpleLightEntry;
-class HHitProxy;
-class FStaticPrimitiveDrawInterface;
-class FPrimitiveSceneInfo;
-class FLightSceneProxy;
 class FLightSceneInfo;
+class FLightSceneProxy;
 class FPrimitiveDrawInterface;
-
-struct FStreamingSectionBuildInfo;
+class FPrimitiveSceneInfo;
+class FStaticPrimitiveDrawInterface;
+class UPrimitiveComponent;
+class UTexture2D;
+struct FMeshBatch;
 
 /** Data for a simple dynamic light. */
 class FSimpleLightEntry
@@ -249,6 +254,8 @@ public:
 		BoundsSurfaceArea = 0;
 	}
 
+	virtual bool HeightfieldHasPendingStreaming() const { return false; }
+
 	virtual void GetHeightfieldRepresentation(UTexture2D*& OutHeightmapTexture, UTexture2D*& OutDiffuseColorTexture, FHeightfieldComponentDescription& OutDescription)
 	{
 		OutHeightmapTexture = NULL;
@@ -411,7 +418,8 @@ public:
 	inline EIndirectLightingCacheQuality GetIndirectLightingCacheQuality() const { return IndirectLightingCacheQuality; }
 	inline bool CastsVolumetricTranslucentShadow() const { return bCastVolumetricTranslucentShadow; }
 	inline bool CastsCapsuleDirectShadow() const { return bCastCapsuleDirectShadow; }
-	inline bool CastsCapsuleIndirectShadow() const { return bCastCapsuleIndirectShadow; }
+	inline bool CastsDynamicIndirectShadow() const { return bCastsDynamicIndirectShadow; }
+	inline float GetDynamicIndirectShadowMinVisibility() const { return DynamicIndirectShadowMinVisibility; }
 	inline bool CastsHiddenShadow() const { return bCastHiddenShadow; }
 	inline bool CastsShadowAsTwoSided() const { return bCastShadowAsTwoSided; }
 	inline bool CastsSelfShadowOnly() const { return bSelfShadowOnly; }
@@ -487,6 +495,11 @@ public:
 		return false;
 	}
 
+	virtual bool HasDynamicIndirectShadowCasterRepresentation() const
+	{
+		return false;
+	}
+
 	/** 
 	 * Drawing helper. Draws nice bouncy line.
 	 */
@@ -525,15 +538,36 @@ public:
 	typedef TArray<class FLightCacheInterface*, TInlineAllocator<8> > FLCIArray;
 	ENGINE_API virtual void GetLCIs(FLCIArray& LCIs) {}
 
+#if WITH_EDITORONLY_DATA
 	/**
-	 * Get the temp data used in the texture streaming build. Used to debug accuracy.
-	 * @param OutComponentExtraScale The component streaming resolution extra scale.
-	 * @param OutMeshExtraScale	The mesh streaming resolution extra scale.
-	 * @param LODIndex			LOD index of the query. INDEX_NONE for a value for all LODs.
-	 * @param ElementIndex		Element index of the query. INDEX_NONE for a value for all elements.
-	 * @return					The section data built in the texture streaming build.
+	 * Get primitive distance to view origin for a given LOD-section.
+	 * @param LODIndex					LOD index (INDEX_NONE for all) 
+	 * @param ElementIndex				Element index (INDEX_NONE for all)
+	 * @param PrimitiveDistance (OUT)	LOD-section distance to view
+	 * @return							Whether distance was computed or not
 	 */
-	virtual const FStreamingSectionBuildInfo* GetStreamingSectionData(float& OutComponentExtraScale, float& OutMeshExtraScale, int32 LODIndex, int32 ElementIndex) const { return nullptr; }
+	ENGINE_API virtual bool GetPrimitiveDistance(int32 LODIndex, int32 SectionIndex, const FVector& ViewOrigin, float& PrimitiveDistance) const;
+
+	/**
+	 * Get mesh UV density for a LOD-section.
+	 * @param LODIndex					LOD index (INDEX_NONE for all) 
+	 * @param ElementIndex				Element index (INDEX_NONE for all)
+	 * @param WorldUVDensities (OUT)	UV density in world units for each UV channel
+	 * @return							Whether the densities were computed or not.
+	 */
+	ENGINE_API virtual bool GetMeshUVDensities(int32 LODIndex, int32 SectionIndex, FVector4& WorldUVDensities) const;
+
+	/**
+	 * Get mesh UV density for a LOD-section.
+	 * @param LODIndex					LOD index (INDEX_NONE for all) 
+	 * @param ElementIndex				Element index (INDEX_NONE for all)
+	 * @param MaterialRenderProxy		Material bound to that LOD-section
+	 * @param OneOverScales (OUT)		One over the texture scales (array size = TEXSTREAM_MAX_NUM_TEXTURES_PER_MATERIAL / 4)
+	 * @param UVChannelIndices (OUT)	The related index for each (array size = TEXSTREAM_MAX_NUM_TEXTURES_PER_MATERIAL / 4)
+	 * @return							Whether scales were computed or not.
+	 */
+	ENGINE_API virtual bool GetMaterialTextureScales(int32 LODIndex, int32 SectionIndex, const class FMaterialRenderProxy* MaterialRenderProxy, FVector4* OneOverScales, struct FIntVector4* UVChannelIndices) const;
+#endif
 
 	/**
 	* Get the lightmap resolution for this primitive. Used in VMI_LightmapDensity.
@@ -644,8 +678,8 @@ protected:
 	/** Whether the primitive should use capsules for direct shadowing, if present.  Forces inset shadows. */
 	uint32 bCastCapsuleDirectShadow : 1;
 
-	/** Whether the primitive should use capsules for indirect shadowing. */
-	uint32 bCastCapsuleIndirectShadow : 1;
+	/** Whether the primitive should use an inset indirect shadow from capsules or mesh distance fields. */
+	uint32 bCastsDynamicIndirectShadow : 1;
 
 	/** True if the primitive casts shadows even when hidden. */
 	uint32 bCastHiddenShadow : 1;
@@ -746,6 +780,9 @@ protected:
 
 	/** Quality of interpolated indirect lighting for Movable components. */
 	EIndirectLightingCacheQuality IndirectLightingCacheQuality;
+
+	/** Min visibility for capsule shadows. */
+	float DynamicIndirectShadowMinVisibility;
 
 private:
 	/** The primitive's local to world transform. */

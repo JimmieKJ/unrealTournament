@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidMediaPCH.h"
 #include "AndroidMediaTracks.h"
 #include "AndroidJavaMediaPlayer.h"
-
+#include "Misc/ScopeLock.h"
+#include "../AndroidMediaLog.h"
+#include "RenderingThread.h"
+#include "RenderResource.h"
+#include "IMediaAudioSink.h"
+#include "IMediaOverlaySink.h"
+#include "IMediaTextureSink.h"
 
 #define LOCTEXT_NAMESPACE "FAndroidMediaTracks"
 
@@ -13,7 +18,7 @@
 
 FAndroidMediaTracks::FAndroidMediaTracks()
 	: AudioSink(nullptr)
-	, CaptionSink(nullptr)
+	, OverlaySink(nullptr)
 	, VideoSink(nullptr)
 	, SelectedAudioTrack(INDEX_NONE)
 	, SelectedCaptionTrack(INDEX_NONE)
@@ -33,7 +38,7 @@ FAndroidMediaTracks::~FAndroidMediaTracks()
 /* FAndroidMediaTracks interface
  *****************************************************************************/
 
-void FAndroidMediaTracks::Initialize(TSharedRef<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> InJavaMediaPlayer)
+void FAndroidMediaTracks::Initialize(TSharedRef<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> InJavaMediaPlayer, FString& OutInfo)
 {
 	Reset();
 
@@ -46,6 +51,39 @@ void FAndroidMediaTracks::Initialize(TSharedRef<FJavaAndroidMediaPlayer, ESPMode
 	InJavaMediaPlayer->GetAudioTracks(AudioTracks);
 	InJavaMediaPlayer->GetCaptionTracks(CaptionTracks);
 	InJavaMediaPlayer->GetVideoTracks(VideoTracks);
+
+	for (FJavaAndroidMediaPlayer::FVideoTrack Track : VideoTracks)
+	{
+		OutInfo += FString::Printf(TEXT("Stream %i\n"), Track.Index);
+		OutInfo += TEXT("    Type: Video\n");
+//		OutInfo += FString::Printf(TEXT("    Duration: %s\n"), *FTimespan::FromMilliseconds(Track->StreamInfo.duration).ToString());
+		OutInfo += FString::Printf(TEXT("    MimeType: %s\n"), *Track.MimeType);
+		OutInfo += FString::Printf(TEXT("    Language: %s\n"), *Track.Language);
+		OutInfo += FString::Printf(TEXT("    FrameRate: %0.1f\n"), Track.FrameRate);
+		OutInfo += FString::Printf(TEXT("    Dimensions: %i x %i\n"), Track.Dimensions.X, Track.Dimensions.Y);
+		OutInfo += TEXT("\n");
+	}
+
+	for (FJavaAndroidMediaPlayer::FAudioTrack Track : AudioTracks)
+	{
+		OutInfo += FString::Printf(TEXT("Stream %i\n"), Track.Index);
+		OutInfo += TEXT("    Type: Audio\n");
+//		OutInfo += FString::Printf(TEXT("    Duration: %s\n"), *FTimespan::FromMilliseconds(Track->StreamInfo.duration).ToString());
+		OutInfo += FString::Printf(TEXT("    MimeType: %s\n"), *Track.MimeType);
+		OutInfo += FString::Printf(TEXT("    Language: %s\n"), *Track.Language);
+		OutInfo += FString::Printf(TEXT("    Channels: %i\n"), Track.Channels);
+		OutInfo += FString::Printf(TEXT("    Sample Rate: %i Hz\n"), Track.SampleRate);
+		OutInfo += TEXT("\n");
+	}
+
+	for (FJavaAndroidMediaPlayer::FCaptionTrack Track : CaptionTracks)
+	{
+		OutInfo += FString::Printf(TEXT("Stream %i\n"), Track.Index);
+		OutInfo += TEXT("    Type: Caption\n");
+		OutInfo += FString::Printf(TEXT("    MimeType: %s\n"), *Track.MimeType);
+		OutInfo += FString::Printf(TEXT("    Language: %s\n"), *Track.Language);
+		OutInfo += TEXT("\n");
+	}
 }
 
 
@@ -68,7 +106,7 @@ void FAndroidMediaTracks::Reset()
 void FAndroidMediaTracks::Tick()
 {
 	UpdateAudioSink();
-	UpdateCaptionSink();
+	UpdateOverlaySink();
 
 	if (VideoSink != nullptr)
 	{
@@ -112,15 +150,9 @@ void FAndroidMediaTracks::SetAudioSink(IMediaAudioSink* Sink)
 }
 
 
-void FAndroidMediaTracks::SetCaptionSink(IMediaStringSink* Sink)
+void FAndroidMediaTracks::SetOverlaySink(IMediaOverlaySink* Sink)
 {
 	// not implemented yet
-}
-
-
-void FAndroidMediaTracks::SetImageSink(IMediaTextureSink* Sink)
-{
-	// not supported
 }
 
 
@@ -384,15 +416,15 @@ void FAndroidMediaTracks::InitializeAudioSink()
 }
 
 
-void FAndroidMediaTracks::InitializeCaptionSink()
+void FAndroidMediaTracks::InitializeOverlaySink()
 {
-	if ((CaptionSink == nullptr) || (SelectedCaptionTrack == INDEX_NONE))
+	if ((OverlaySink == nullptr) || (SelectedCaptionTrack == INDEX_NONE))
 	{
 		return;
 	}
 
 	const auto& CaptionTrack = CaptionTracks[SelectedCaptionTrack];
-	CaptionSink->InitializeStringSink();
+	OverlaySink->InitializeOverlaySink();
 }
 
 
@@ -404,7 +436,7 @@ void FAndroidMediaTracks::InitializeVideoSink()
 	}
 
 	const auto& VideoTrack = VideoTracks[SelectedVideoTrack];
-	VideoSink->InitializeTextureSink(VideoTrack.Dimensions, EMediaTextureSinkFormat::CharBGRA, EMediaTextureSinkMode::Unbuffered);
+	VideoSink->InitializeTextureSink(VideoTrack.Dimensions, VideoTrack.Dimensions, EMediaTextureSinkFormat::CharBGRA, EMediaTextureSinkMode::Unbuffered);
 }
 
 
@@ -414,7 +446,7 @@ void FAndroidMediaTracks::UpdateAudioSink()
 }
 
 
-void FAndroidMediaTracks::UpdateCaptionSink()
+void FAndroidMediaTracks::UpdateOverlaySink()
 {
 	// not implemented yet
 }
@@ -446,7 +478,7 @@ void FAndroidMediaTracks::UpdateVideoSink()
 			// The video track dimensions need updating
 			VideoTracks[SelectedVideoTrack].Dimensions = Dimensions;
 		}
-		VideoSink->InitializeTextureSink(Dimensions, EMediaTextureSinkFormat::CharBGRA, EMediaTextureSinkMode::Unbuffered);
+		VideoSink->InitializeTextureSink(Dimensions, Dimensions, EMediaTextureSinkFormat::CharBGRA, EMediaTextureSinkMode::Unbuffered);
 	}
 
 	// update sink

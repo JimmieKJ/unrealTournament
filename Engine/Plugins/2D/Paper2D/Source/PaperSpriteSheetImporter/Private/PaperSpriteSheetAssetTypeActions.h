@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "AssetTypeActions_Base.h"
 
+class FMenuBuilder;
 class UPaperSpriteSheet;
 
 class FPaperSpriteSheetAssetTypeActions : public FAssetTypeActions_Base

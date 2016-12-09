@@ -1,11 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SceneOutlinerPrivatePCH.h"
-
 #include "WorldTreeItem.h"
+#include "Modules/ModuleManager.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UIAction.h"
+#include "EditorStyleSet.h"
+#include "ScopedTransaction.h"
+#include "SceneOutlinerDragDrop.h"
+#include "SSceneOutliner.h"
+
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "LevelEditor.h"
 #include "EditorActorFolders.h"
-#include "SceneOutliner.h"
 
 #define LOCTEXT_NAMESPACE "SceneOutliner_WorldTreeItem"
 

@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OculusRiftPrivatePCH.h"
+#include "OculusRiftCommon.h"
 
 #if OCULUS_RIFT_SUPPORTED_PLATFORMS
 

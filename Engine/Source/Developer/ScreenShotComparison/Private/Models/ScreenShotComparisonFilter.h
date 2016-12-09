@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/IScreenShotData.h"
+#include "Misc/IFilter.h"
 
 /*=============================================================================
 	ScreenShotComparisonFilter.h: Declares the FScreenShotComparisonFilter class.

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -26,6 +26,7 @@
 #include "SDL_cocoavideo.h"
 #include "../../events/SDL_events_c.h"
 #include "SDL_assert.h"
+#include "SDL_hints.h"
 
 /* This define was added in the 10.9 SDK. */
 #ifndef kIOPMAssertPreventUserIdleDisplaySleep
@@ -113,28 +114,23 @@
      */
     for (NSWindow *window in [NSApp orderedWindows]) {
         if (window != win && [window canBecomeKeyWindow]) {
-            if ([window respondsToSelector:@selector(isOnActiveSpace)]) {
-                if (![window isOnActiveSpace]) {
-                    continue;
-                }
+            if (![window isOnActiveSpace]) {
+                continue;
             }
             [window makeKeyAndOrderFront:self];
             return;
         }
     }
 
-    /* If a window wasn't found above, iterate through all visible windows
-     * (including the 'About' window, if it's shown) and make the first one key.
-     * Note that +[NSWindow windowNumbersWithOptions:] was added in 10.6.
+    /* If a window wasn't found above, iterate through all visible windows in
+     * the active Space in z-order (including the 'About' window, if it's shown)
+     * and make the first one key.
      */
-    if ([NSWindow respondsToSelector:@selector(windowNumbersWithOptions:)]) {
-        /* Get all visible windows in the active Space, in z-order. */
-        for (NSNumber *num in [NSWindow windowNumbersWithOptions:0]) {
-            NSWindow *window = [NSApp windowWithWindowNumber:[num integerValue]];
-            if (window && window != win && [window canBecomeKeyWindow]) {
-                [window makeKeyAndOrderFront:self];
-                return;
-            }
+    for (NSNumber *num in [NSWindow windowNumbersWithOptions:0]) {
+        NSWindow *window = [NSApp windowWithWindowNumber:[num integerValue]];
+        if (window && window != win && [window canBecomeKeyWindow]) {
+            [window makeKeyAndOrderFront:self];
+            return;
         }
     }
 }
@@ -290,7 +286,7 @@ CreateApplicationMenus(void)
 
 
     /* Add the fullscreen view toggle menu option, if supported */
-    if ([NSApp respondsToSelector:@selector(setPresentationOptions:)]) {
+    if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6) {
         /* Create the view menu */
         viewMenu = [[NSMenu alloc] initWithTitle:@"View"];
 
@@ -318,19 +314,12 @@ Cocoa_RegisterApp(void)
         [SDLApplication sharedApplication];
         SDL_assert(NSApp != nil);
 
-#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_6
-        if ([NSApp respondsToSelector:@selector(setActivationPolicy:)]) {
-#endif
+        const char *hint = SDL_GetHint(SDL_HINT_MAC_BACKGROUND_APP);
+        if (!hint || *hint == '0') {
             [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_6
-        } else {
-            ProcessSerialNumber psn = {0, kCurrentProcess};
-            TransformProcessType(&psn, kProcessTransformToForegroundApplication);
-        }
-#endif
-
-        [NSApp activateIgnoringOtherApps:YES];
-
+            [NSApp activateIgnoringOtherApps:YES];
+		}
+		
         if ([NSApp mainMenu] == nil) {
             CreateApplicationMenus();
         }

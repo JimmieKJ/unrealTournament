@@ -2,8 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Components/ShapeComponent.h"
 #include "SphereComponent.generated.h"
+
+class FPrimitiveSceneProxy;
 
 /** 
  * A sphere generally used for simple collision. Bounds are rendered as lines in the editor.

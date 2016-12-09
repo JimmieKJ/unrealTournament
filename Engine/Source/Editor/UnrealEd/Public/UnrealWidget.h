@@ -2,13 +2,26 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "HitProxies.h"
 
-class FPrimitiveDrawInterface;
+class FCanvas;
 class FEditorModeTools;
 class FEditorViewportClient;
+class FPrimitiveDrawInterface;
 class FSceneView;
+class UMaterialInstanceDynamic;
 class UMaterialInterface;
 
+/** Coordinate system identifiers. */
+enum ECoordSystem
+{
+	COORD_None	= -1,
+	COORD_World,
+	COORD_Local,
+	COORD_Max,
+};
 
 class FWidget
 	: public FGCObject

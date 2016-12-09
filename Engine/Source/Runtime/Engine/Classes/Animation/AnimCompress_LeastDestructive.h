@@ -6,6 +6,9 @@
  * Reverts any animation compression, restoring the animation to the raw data.
  *
  */
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Animation/AnimCompress.h"
 #include "AnimCompress_LeastDestructive.generated.h"
 

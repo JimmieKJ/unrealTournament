@@ -2,7 +2,14 @@
 
 #pragma once
 
-#include "ContainerAllocationPolicies.h"
+#include "CoreTypes.h"
+#include "Containers/ContainerAllocationPolicies.h"
+#include "Math/UnrealMathUtility.h"
+#include "UObject/NameTypes.h"
+#include "Delegates/DelegateSettings.h"
+#include "Delegates/IDelegateInstance.h"
+
+struct FWeakObjectPtr;
 
 #if !defined(_WIN32) || defined(_WIN64)
 	// Let delegates store up to 32 bytes which are 16-byte aligned before we heap allocate

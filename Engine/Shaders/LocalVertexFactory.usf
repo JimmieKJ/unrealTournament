@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved..
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LocalVertexFactory.usf: Local vertex factory shader code.
@@ -182,19 +182,53 @@ struct FVertexFactoryIntermediates
 float4x4 GetInstanceTransform(FVertexFactoryInput Input)
 {
 	#if !USE_INSTANCING_EMULATED
-	return float4x4(float4(Input.InstanceTransform1.xyz, Input.InstanceOrigin.x), float4(Input.InstanceTransform2.xyz, Input.InstanceOrigin.y), float4(Input.InstanceTransform3.xyz, Input.InstanceOrigin.z), float4(0, 0, 0, 1));
+	return float4x4(
+		float4(Input.InstanceTransform1.xyz, 0.0f), 
+		float4(Input.InstanceTransform2.xyz, 0.0f), 
+		float4(Input.InstanceTransform3.xyz, 0.0f), 
+		float4(Input.InstanceOrigin.xyz, 1.0f));
 	#else
-	return float4x4(float4(CPUInstanceTransform[0].xyz, CPUInstanceOrigin.x), float4(CPUInstanceTransform[1].xyz, CPUInstanceOrigin.y), float4(CPUInstanceTransform[2].xyz, CPUInstanceOrigin.z), float4(0,0,0,1));
+	return float4x4(
+		float4(CPUInstanceTransform[0].xyz, 0.0f), 
+		float4(CPUInstanceTransform[1].xyz, 0.0f), 
+		float4(CPUInstanceTransform[2].xyz, 0.0f), 
+		float4(CPUInstanceOrigin.xyz, 1.0f));
 	#endif	// !USE_INSTANCING_EMULATED
 }
 
 float4x4 GetInstanceTransform(FPositionOnlyVertexFactoryInput Input)
 {
 	#if !USE_INSTANCING_EMULATED
-	return float4x4(float4(Input.InstanceTransform1.xyz, Input.InstanceOrigin.x), float4(Input.InstanceTransform2.xyz, Input.InstanceOrigin.y), float4(Input.InstanceTransform3.xyz, Input.InstanceOrigin.z), float4(0, 0, 0, 1));
+	return float4x4(
+		float4(Input.InstanceTransform1.xyz, 0.0f), 
+		float4(Input.InstanceTransform2.xyz, 0.0f), 
+		float4(Input.InstanceTransform3.xyz, 0.0f), 
+		float4(Input.InstanceOrigin.xyz, 1.0f));
 	#else
-	return float4x4(float4(CPUInstanceTransform[0].xyz, CPUInstanceOrigin.x), float4(CPUInstanceTransform[1].xyz, CPUInstanceOrigin.y), float4(CPUInstanceTransform[2].xyz, CPUInstanceOrigin.z), float4(0,0,0,1));
-#endif	// !USE_INSTANCING_EMULATED
+	return float4x4(
+		float4(CPUInstanceTransform[0].xyz, 0.0f), 
+		float4(CPUInstanceTransform[1].xyz, 0.0f), 
+		float4(CPUInstanceTransform[2].xyz, 0.0f), 
+		float4(CPUInstanceOrigin.xyz, 1.0f));
+	#endif	// !USE_INSTANCING_EMULATED
+}
+
+half3x3 GetInstanceToLocal3x3(FVertexFactoryInput Input)
+{
+	#if !USE_INSTANCING_EMULATED
+	return half3x3(Input.InstanceTransform1.xyz, Input.InstanceTransform2.xyz, Input.InstanceTransform3.xyz);
+	#else
+	return half3x3(half3(CPUInstanceTransform[0].xyz), half3(CPUInstanceTransform[1].xyz), half3(CPUInstanceTransform[2].xyz));
+	#endif	// !USE_INSTANCING_EMULATED
+}
+
+half3x3 GetInstanceToLocal3x3(FPositionOnlyVertexFactoryInput Input)
+{
+	#if !USE_INSTANCING_EMULATED
+	return half3x3(Input.InstanceTransform1.xyz, Input.InstanceTransform2.xyz, Input.InstanceTransform3.xyz);
+	#else
+	return half3x3(half3(CPUInstanceTransform[0].xyz), half3(CPUInstanceTransform[1].xyz), half3(CPUInstanceTransform[2].xyz));
+	#endif	// !USE_INSTANCING_EMULATED
 }
 
 float2 GetInstanceShadowMapBias(FVertexFactoryInput Input)
@@ -317,10 +351,13 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.TangentToWorld = Intermediates.TangentToWorld;
 
 #if USE_INSTANCING
-	Result.InstanceLocalToWorld = mul(transpose(GetInstanceTransform(Input)), Primitive.LocalToWorld);
+	Result.InstanceLocalToWorld = mul(GetInstanceTransform(Input), Primitive.LocalToWorld);
 	Result.InstanceLocalPosition = Input.Position.xyz;
 	Result.PerInstanceParams = Intermediates.PerInstanceParams;
 #endif	// USE_INSTANCING
+
+	Result.PreSkinnedPosition = Input.Position.xyz;
+	Result.PreSkinnedNormal = Input.TangentZ.xyz * 2.f - 1.f;
 
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
 	#if NUM_MATERIAL_TEXCOORDS_VERTEX > 1
@@ -454,7 +491,7 @@ float4 CalcWorldPosition(float4 Position)
 #endif	// USE_INSTANCING
 {
 #if USE_INSTANCING
-	return TransformLocalToTranslatedWorld(mul(Position, transpose(InstanceTransform)).xyz);
+	return TransformLocalToTranslatedWorld(mul(Position, InstanceTransform).xyz);
 #elif USE_SPLINEDEFORM
 /*
 	// Make transform for this point along spline
@@ -502,9 +539,12 @@ half3x3 CalcTangentToLocal(FVertexFactoryInput Input)
 half3x3 CalcTangentToWorld(FVertexFactoryInput Input, half3x3 TangentToLocal)
 {
 #if USE_INSTANCING
-	half3x3 TangentToPrimitive = mul(TangentToLocal, transpose((float3x3)GetInstanceTransform(Input)));
-	half3x3 TangentToWorldWithScaling = mul(TangentToPrimitive, (float3x3)Primitive.LocalToWorld);
-	half3x3 TangentToWorld = float3x3(normalize(TangentToWorldWithScaling[0]), normalize(TangentToWorldWithScaling[1]), normalize(TangentToWorldWithScaling[2]));
+	half3x3 InstanceToWorld = mul(GetInstanceToLocal3x3(Input), GetLocalToWorld3x3());
+	// remove scaling
+	InstanceToWorld[0] = normalize(InstanceToWorld[0]);
+	InstanceToWorld[1] = normalize(InstanceToWorld[1]);
+	InstanceToWorld[2] = normalize(InstanceToWorld[2]);
+	half3x3 TangentToWorld = mul(TangentToLocal, InstanceToWorld);
 #else
 	half3x3 TangentToWorld = CalcTangentToWorldNoScale(TangentToLocal);
 #endif	// USE_INSTANCING
@@ -659,7 +699,7 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 	PreviousLocalToWorldTranslated[3][2] += ResolvedView.PrevPreViewTranslation.z;
 
 #if USE_INSTANCING
-	float4x4 InstanceTransform = transpose(GetInstanceTransform(Input));
+	float4x4 InstanceTransform = GetInstanceTransform(Input);
 	return mul(mul(Input.Position, InstanceTransform), PreviousLocalToWorldTranslated);
 #elif GPUSKIN_PASS_THROUGH
 	uint Offset = Input.VertexId * GPUSKIN_RWBUFFER_NUM_FLOATS + GPUSkinCachePreviousFloatOffset;

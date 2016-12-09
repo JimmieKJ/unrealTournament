@@ -2,8 +2,13 @@
 
 #pragma once
 
-#include "ContentStreaming.h"
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "RenderingThread.h"
+#include "UObject/UObjectIterator.h"
+#include "Components/PrimitiveComponent.h"
 #include "AI/Navigation/NavigationSystem.h"
+#include "ContentStreaming.h"
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogActorComponent, Log, All);
 

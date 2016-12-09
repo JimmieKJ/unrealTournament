@@ -6,4 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Math/SHMath.h"
+#include "RHI.h"
+
 extern void ComputeDiffuseIrradiance(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, FTextureRHIRef LightingSource, int32 LightingSourceMipIndex, FSHVectorRGB3* OutIrradianceEnvironmentMap);

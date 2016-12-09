@@ -2,26 +2,29 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Stats/Stats.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "Engine/EngineTypes.h"
+#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType.h"
 #include "EnvironmentQuery/EnvQueryContext.h"
-#include "DataProviders/AIDataProvider.h"
 #include "BehaviorTree/BehaviorTreeTypes.h"
 #include "EnvQueryTypes.generated.h"
 
 class AActor;
-class ARecastNavMesh;
-class UNavigationQueryFilter;
-class UEnvQueryTest;
-class UEnvQueryGenerator;
-class UEnvQueryItemType_VectorBase;
-class UEnvQueryItemType_ActorBase;
-class UEnvQueryContext;
-class UEnvQuery;
-class UBlackboardData;
+class ANavigationData;
+class Error;
 class UBlackboardComponent;
+class UBlackboardData;
+class UEnvQuery;
+class UEnvQueryGenerator;
+class UEnvQueryItemType_ActorBase;
+class UEnvQueryItemType_VectorBase;
+class UEnvQueryTest;
 struct FEnvQueryInstance;
-struct FEnvQueryOptionInstance;
-struct FEnvQueryItemDetails;
 
 AIMODULE_API DECLARE_LOG_CATEGORY_EXTERN(LogEQS, Warning, All);
 
@@ -153,7 +156,7 @@ namespace EEnvItemStatus
 	};
 }
 
-UENUM()
+UENUM(BlueprintType)
 namespace EEnvQueryStatus
 {
 	enum Type
@@ -206,6 +209,7 @@ namespace EEnvQueryTrace
 		None,
 		Navigation,
 		Geometry,
+		NavigationOverLedges
 	};
 }
 
@@ -264,7 +268,7 @@ struct AIMODULE_API FEnvNamedValue
 	FName ParamName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Param)
-	TEnumAsByte<EAIParamType> ParamType;
+	EAIParamType ParamType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Param)
 	float Value;
@@ -275,15 +279,15 @@ struct AIMODULE_API FEnvDirection
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** line A: start context */
+	/** line: start context */
 	UPROPERTY(EditDefaultsOnly, Category=Direction)
 	TSubclassOf<UEnvQueryContext> LineFrom;
 
-	/** line A: finish context */
+	/** line: finish context */
 	UPROPERTY(EditDefaultsOnly, Category=Direction)
 	TSubclassOf<UEnvQueryContext> LineTo;
 
-	/** line A: direction context */
+	/** rotation: direction context */
 	UPROPERTY(EditDefaultsOnly, Category=Direction)
 	TSubclassOf<UEnvQueryContext> Rotation;
 
@@ -641,78 +645,6 @@ struct FEQSQueryDebugData
 	}
 };
 
-// BEGIN DEPRECATED SUPPORT
-
-USTRUCT()
-struct AIMODULE_API FEnvFloatParam_DEPRECATED
-{
-	GENERATED_USTRUCT_BODY();
-
-	/** default value */
-	UPROPERTY(EditDefaultsOnly, Category = Param)
-	float Value;
-
-	/** name of parameter */
-	UPROPERTY(EditDefaultsOnly, Category = Param)
-	FName ParamName;
-
-	bool IsNamedParam() const { return ParamName != NAME_None; }
-	void Convert(UObject* Owner, FAIDataProviderFloatValue& ValueProvider);
-};
-
-USTRUCT()
-struct AIMODULE_API FEnvIntParam_DEPRECATED
-{
-	GENERATED_USTRUCT_BODY();
-
-	/** default value */
-	UPROPERTY(EditDefaultsOnly, Category = Param)
-	int32 Value;
-
-	/** name of parameter */
-	UPROPERTY(EditDefaultsOnly, Category = Param)
-	FName ParamName;
-
-	bool IsNamedParam() const { return ParamName != NAME_None; }
-	void Convert(UObject* Owner, FAIDataProviderIntValue& ValueProvider);
-};
-
-USTRUCT()
-struct AIMODULE_API FEnvBoolParam_DEPRECATED
-{
-	GENERATED_USTRUCT_BODY();
-
-	/** default value */
-	UPROPERTY(EditDefaultsOnly, Category = Param)
-	bool Value;
-
-	/** name of parameter */
-	UPROPERTY(EditDefaultsOnly, Category = Param)
-	FName ParamName;
-
-	bool IsNamedParam() const { return ParamName != NAME_None; }
-	void Convert(UObject* Owner, FAIDataProviderBoolValue& ValueProvider);
-};
-
-USTRUCT()
-struct DEPRECATED(4.8, "FEnvFloatParam is deprecated in 4.8 and was replaced with FAIDataProviderFloatValue. Please use that type instead.") AIMODULE_API FEnvFloatParam : public FEnvFloatParam_DEPRECATED
-{
-	GENERATED_USTRUCT_BODY();
-};
-
-USTRUCT()
-struct DEPRECATED(4.8, "FEnvIntParam is deprecated in 4.8 and was replaced with FAIDataProviderIntValue. Please use that type instead.") AIMODULE_API FEnvIntParam : public FEnvIntParam_DEPRECATED
-{
-	GENERATED_USTRUCT_BODY();
-};
-
-USTRUCT()
-struct DEPRECATED(4.8, "FEnvBoolParam is deprecated in 4.8 and was replaced with FAIDataProviderBoolValue. Please use that type instead.") AIMODULE_API FEnvBoolParam : public FEnvBoolParam_DEPRECATED
-{
-	GENERATED_USTRUCT_BODY();
-};
-
-// END DEPRECATED SUPPORT
 
 UCLASS(Abstract)
 class AIMODULE_API UEnvQueryTypes : public UObject
@@ -851,12 +783,12 @@ public:
 	/** raw data operations */
 	void ReserveItemData(int32 NumAdditionalItems);
 
-	template<typename TypeItem, typename TypeValue>
-	void AddItemData(TypeValue ItemValue)
+	template<typename TypeItem>
+	void AddItemData(typename TypeItem::FValueType ItemValue)
 	{
 		DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
 
-		check(GetDefault<TypeItem>()->GetValueSize() == sizeof(TypeValue));
+		check(GetDefault<TypeItem>()->GetValueSize() == sizeof(typename TypeItem::FValueType));
 		check(GetDefault<TypeItem>()->GetValueSize() == ValueSize);
 		const int32 DataOffset = RawData.AddUninitialized(ValueSize);
 		TypeItem::SetValue(RawData.GetData() + DataOffset, ItemValue);
@@ -866,19 +798,19 @@ public:
 	}
 
 	/** AddItemData specialization for arrays if values */
-	template<typename TypeItem, typename TypeValue>
-	void AddItemData(TArray<TypeValue>& ItemCollection)
+	template<typename TypeItem>
+	void AddItemData(TArray<typename TypeItem::FValueType>& ItemCollection)
 	{
 		if (ItemCollection.Num() > 0)
 		{
 			DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
 
-			check(GetDefault<TypeItem>()->GetValueSize() == sizeof(TypeValue));
+			check(GetDefault<TypeItem>()->GetValueSize() == sizeof(typename TypeItem::FValueType));
 			check(GetDefault<TypeItem>()->GetValueSize() == ValueSize);
 			int32 DataOffset = RawData.AddUninitialized(ValueSize * ItemCollection.Num());
 			Items.Reserve(Items.Num() + ItemCollection.Num());
 
-			for (TypeValue& Item : ItemCollection)
+			for (typename TypeItem::FValueType& Item : ItemCollection)
 			{
 				TypeItem::SetValue(RawData.GetData() + DataOffset, Item);
 				Items.Add(FEnvQueryItem(DataOffset));
@@ -886,6 +818,21 @@ public:
 			}
 
 			INC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize() + Items.GetAllocatedSize());
+		}
+	}
+
+	template<typename TypeItem, typename TypeValue>
+	void AddItemData(TypeValue ItemValue)
+	{
+		AddItemData<TypeItem>((typename TypeItem::FValueType)(ItemValue));
+	}
+
+	template<typename TypeItem, typename TypeValue>
+	void AddItemData(TArray<TypeValue>& ItemCollection)
+	{
+		for (auto& Item : ItemCollection)
+		{
+			AddItemData<TypeItem>((typename TypeItem::FValueType)(Item));
 		}
 	}
 
@@ -1061,9 +1008,12 @@ public:
 					break;
 			}
 
-			if (bPassedTest)
+			if (bPassedTest || !bIsFiltering)
 			{
-				SetScoreInternal(1.0f);
+				// even if the item's result is different than expected
+				// but we're not filtering those items out, we still want
+				// to treat this as successful test, just with different score
+				SetScoreInternal(bPassedTest ? 1.0f : 0.f);
 				NumPassedForItem++;
 			}
 
@@ -1078,23 +1028,11 @@ public:
 		/** Force state and score of item
 		 *  Any following SetScore calls for current item will be ignored
 		 */
-		void ForceItemState(EEnvItemStatus::Type InStatus, float Score = UEnvQueryTypes::SkippedItemValue)
+		void ForceItemState(const EEnvItemStatus::Type InStatus, const float Score = UEnvQueryTypes::SkippedItemValue)
 		{
 			bForced = true;
 			bPassed = (InStatus == EEnvItemStatus::Passed);
 			ItemScore = Score;
-		}
-
-		DEPRECATED(4.9, "This function is now deprecated, please use ForceItemState instead")
-		void DiscardItem()
-		{
-			ForceItemState(EEnvItemStatus::Failed);
-		}
-
-		DEPRECATED(4.9, "This function is now deprecated, please use ForceItemState instead")
-		void SkipItem()
-		{
-			ForceItemState(EEnvItemStatus::Passed);
 		}
 
 		/** Disables time slicing for this iterator, use with caution! */
@@ -1106,12 +1044,6 @@ public:
 		int32 GetIndex() const
 		{
 			return CurrentItem;
-		}
-
-		DEPRECATED(4.8, "This function is now deprecatewd, please use GetIndex() for current index or GetItemData() for raw data pointer")
-		int32 operator*() const
-		{
-			return GetIndex();
 		}
 
 		FORCEINLINE explicit operator bool() const
@@ -1189,7 +1121,11 @@ public:
 		{
 			if (!bForced)
 			{
-				if (!bIsFiltering)
+				if (NumTestsForItem == 0)
+				{
+					bPassed = false;
+				}
+				else if (!bIsFiltering)
 				{
 					bPassed = true;
 				}
@@ -1220,11 +1156,6 @@ public:
 namespace FEQSHelpers
 {
 	AIMODULE_API const ANavigationData* FindNavigationDataForQuery(FEnvQueryInstance& QueryInstance);
-
-#if WITH_RECAST
-	DEPRECATED(4.8, "FindNavMeshForQuery is deprecated. Please use FindNavigationDataForQuery")
-	AIMODULE_API const ARecastNavMesh* FindNavMeshForQuery(FEnvQueryInstance& QueryInstance);
-#endif // WITH_RECAST
 }
 
 USTRUCT(BlueprintType)
@@ -1236,7 +1167,7 @@ struct AIMODULE_API FAIDynamicParam
 	FName ParamName;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = EQS)
-	TEnumAsByte<EAIParamType> ParamType;
+	EAIParamType ParamType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = EQS)
 	float Value;
@@ -1255,7 +1186,7 @@ struct AIMODULE_API FAIDynamicParam
 };
 
 USTRUCT()
-struct FEQSParametrizedQueryExecutionRequest
+struct AIMODULE_API FEQSParametrizedQueryExecutionRequest
 {
 	GENERATED_USTRUCT_BODY()
 

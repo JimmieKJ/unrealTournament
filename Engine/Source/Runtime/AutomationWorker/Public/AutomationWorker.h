@@ -3,15 +3,22 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Dependencies
  *****************************************************************************/
 
 #include "Core.h"
-#include "ModuleManager.h"
-#include "Messaging.h"
+#include "Modules/ModuleManager.h"
+#include "Deprecated/Messaging.h"
 
 
 /* Interfaces
  *****************************************************************************/
 
-#include "IAutomationWorkerModule.h"
+#include "Interfaces/IAutomationWorkerModule.h"

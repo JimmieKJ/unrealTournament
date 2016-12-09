@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "Runtime/Core/Public/Features/IModularFeature.h"
+#include "CoreMinimal.h"
+#include "IMovieSceneSectionRecorder.h"
+#include "Features/IModularFeature.h"
 
 /** 
  * Factory class interface that allows the recorder to determine what recorders to apply to 

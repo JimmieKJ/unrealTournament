@@ -1,11 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Runtime/Analytics/AnalyticsET/Private/AnalyticsETPrivatePCH.h"
-
+#include "AnalyticsET.h"
 #include "IAnalyticsProviderET.h"
-#include "Runtime/Analytics/AnalyticsET/Public/AnalyticsET.h"
-#include "ModuleManager.h"
-#include "Http.h"
+
+#include "HttpModule.h"
 
 IMPLEMENT_MODULE( FAnalyticsET, AnalyticsET );
 DEFINE_LOG_CATEGORY(LogAnalytics);

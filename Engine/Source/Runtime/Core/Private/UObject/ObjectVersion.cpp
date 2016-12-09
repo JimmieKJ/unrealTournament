@@ -4,7 +4,7 @@
 	UnObjVer.cpp: Unreal version definitions.
 =============================================================================*/
 
-#include "CorePrivatePCH.h"
+#include "UObject/ObjectVersion.h"
 
 // @see ObjectVersion.h for the list of changes/defines
 const int32 GPackageFileUE4Version = VER_LATEST_ENGINE_UE4;

@@ -1,6 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
+#include "Engine/CollisionProfile.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/Package.h"
+#include "CollisionQueryParams.h"
+#include "PhysicsEngine/BodyInstance.h"
+#include "Components/PrimitiveComponent.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCollisionProfile, Warning, All)
 
@@ -691,9 +698,16 @@ void UCollisionProfile::SaveCustomResponses(FCollisionResponseTemplate& Template
 	Template.CustomResponses.Empty();
 	for(int32 Index=0; Index<32; ++Index)
 	{
+		//Save responses different from default
 		if(Template.ResponseToChannels.EnumArray[Index] != DefaultContainer.EnumArray[Index])
 		{
-			Template.CustomResponses.Add( FResponseChannel(ChannelDisplayNames[Index], (ECollisionResponse)(Template.ResponseToChannels.EnumArray[Index])));
+			const FName ChannelDisplayName = ChannelDisplayNames[Index];
+			//The channel should either be a public engine channel or an existing game channel
+			if((Index < ECollisionChannel::ECC_EngineTraceChannel1)
+				|| (DefaultChannelResponses.FindByPredicate([ChannelDisplayName](const FCustomChannelSetup& ChannelSetup) { return ChannelSetup.Name == ChannelDisplayName; }) != nullptr))
+			{
+				Template.CustomResponses.Add(FResponseChannel(ChannelDisplayName, (ECollisionResponse)(Template.ResponseToChannels.EnumArray[Index])));
+			}
 		}
 	}
 }

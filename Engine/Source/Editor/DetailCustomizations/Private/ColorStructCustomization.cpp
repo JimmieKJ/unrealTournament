@@ -1,9 +1,16 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "ColorStructCustomization.h"
+#include "UObject/UnrealType.h"
+#include "Widgets/Text/STextBlock.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Editor.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "DetailWidgetRow.h"
+#include "DetailLayoutBuilder.h"
 #include "IPropertyUtilities.h"
-#include "SColorPicker.h"
+#include "Widgets/Colors/SColorPicker.h"
 
 
 #define LOCTEXT_NAMESPACE "FColorStructCustomization"

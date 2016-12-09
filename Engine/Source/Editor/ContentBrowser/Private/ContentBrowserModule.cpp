@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "ContentBrowserPCH.h"
-#include "ModuleManager.h"
 #include "ContentBrowserModule.h"
+#include "ContentBrowserLog.h"
+#include "ContentBrowserSingleton.h"
 
 IMPLEMENT_MODULE( FContentBrowserModule, ContentBrowser );
 DEFINE_LOG_CATEGORY(LogContentBrowser);

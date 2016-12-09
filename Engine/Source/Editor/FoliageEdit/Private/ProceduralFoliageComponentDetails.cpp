@@ -1,15 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UnrealEd.h"
-#include "PropertyEditing.h"
 #include "ProceduralFoliageComponentDetails.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "InstancedFoliage.h"
 #include "ProceduralFoliageSpawner.h"
 #include "ProceduralFoliageComponent.h"
-#include "InstancedFoliage.h"
 #include "FoliageEdMode.h"
 #include "ScopedTransaction.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "ProceduralFoliageComponentDetails"
 
@@ -67,16 +72,10 @@ void FProceduralFoliageComponentDetails::CustomizeDetails(IDetailLayoutBuilder& 
 
 FReply FProceduralFoliageComponentDetails::OnResimulateClicked()
 {
-	TSet<UProceduralFoliageSpawner*> UniqueFoliageSpawners;
 	for (TWeakObjectPtr<UProceduralFoliageComponent>& Component : SelectedComponents)
 	{
 		if (Component.IsValid() && Component->FoliageSpawner)
 		{
-			if (!UniqueFoliageSpawners.Contains(Component->FoliageSpawner))
-			{
-				UniqueFoliageSpawners.Add(Component->FoliageSpawner);
-			}
-
 			FScopedTransaction Transaction(LOCTEXT("Resimulate_Transaction", "Procedural Foliage Simulation"));
 			TArray <FDesiredFoliageInstance> DesiredFoliageInstances;
 			if (Component->GenerateProceduralContent(DesiredFoliageInstances))
@@ -85,6 +84,7 @@ FReply FProceduralFoliageComponentDetails::OnResimulateClicked()
 				OverrideGeometryFilter.bAllowLandscape = Component->bAllowLandscape;
 				OverrideGeometryFilter.bAllowStaticMesh = Component->bAllowStaticMesh;
 				OverrideGeometryFilter.bAllowBSP = Component->bAllowBSP;
+				OverrideGeometryFilter.bAllowFoliage = Component->bAllowFoliage;
 				OverrideGeometryFilter.bAllowTranslucent = Component->bAllowTranslucent;
 
 				FEdModeFoliage::AddInstances(Component->GetWorld(), DesiredFoliageInstances, OverrideGeometryFilter);

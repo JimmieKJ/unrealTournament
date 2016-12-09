@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #define USE_UNREAL_ALLOCATOR	0
 #define USE_PAGE_POOLING		0
 

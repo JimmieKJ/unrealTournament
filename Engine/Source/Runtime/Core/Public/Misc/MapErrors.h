@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "TokenizedMessage.h"
+#include "CoreTypes.h"
+#include "UObject/NameTypes.h"
+#include "Templates/SharedPointer.h"
+#include "Logging/TokenizedMessage.h"
 
 /**
  * This file contains known map errors that can be referenced by name.

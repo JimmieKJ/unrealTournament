@@ -775,6 +775,10 @@ public class MediaPlayer14
 			}
 			// Set the FBO to draw into the texture one-to-one.
 			GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+			GLES20.glGetTexParameteriv(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, glInt, 0);
+			int previousMinFilter = glInt[0];
+			GLES20.glGetTexParameteriv(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, glInt, 0);
+			int previousMagFilter = glInt[0];
 			GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, FBOTextureID);
 			GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,
 				GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
@@ -874,6 +878,9 @@ public class MediaPlayer14
 			if (previousStencilTest) GLES20.glEnable(GLES20.GL_STENCIL_TEST);
 			if (previousDepthTest) GLES20.glEnable(GLES20.GL_DEPTH_TEST);
 			if (previousDither) GLES20.glEnable(GLES20.GL_DITHER);
+
+			GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, previousMinFilter);
+			GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, previousMagFilter);
 		}
 
         private void glVerify(String op)

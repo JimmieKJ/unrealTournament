@@ -1,10 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AIModulePrivate.h"
+#include "CoreMinimal.h"
+#include "Templates/Greater.h"
+#include "Stats/Stats.h"
+#include "UObject/UObjectBaseUtility.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_ActorBase.h"
+#include "EnvironmentQuery/EnvQueryTest.h"
+#include "EnvironmentQuery/EnvQueryGenerator.h"
 #include "EnvironmentQuery/EnvQueryManager.h"
 #include "EnvironmentQuery/Contexts/EnvQueryContext_Item.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType_ActorBase.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
+#include "AISystem.h"
 
 //----------------------------------------------------------------------//
 // FEQSQueryDebugData
@@ -382,7 +390,7 @@ void FEnvQueryInstance::Log(const FString Msg) const
 }
 #endif // !NO_LOGGING
 
-void FEnvQueryInstance::ReserveItemData(int32 NumAdditionalItems)
+void FEnvQueryInstance::ReserveItemData(const int32 NumAdditionalItems)
 {
 	DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize());
 
@@ -390,7 +398,6 @@ void FEnvQueryInstance::ReserveItemData(int32 NumAdditionalItems)
 
 	INC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, RawData.GetAllocatedSize());
 }
-
 
 FEnvQueryInstance::ItemIterator::ItemIterator(const UEnvQueryTest* QueryTest, FEnvQueryInstance& QueryInstance, int32 StartingItemIndex)
 	: Instance(&QueryInstance)
@@ -422,6 +429,7 @@ void FEnvQueryInstance::ItemIterator::HandleFailedTestResult()
 void FEnvQueryInstance::ItemIterator::StoreTestResult()
 {
 	CheckItemPassed();
+	ensureAlways(FMath::IsNaN(ItemScore) == false);
 
 	if (Instance->IsInSingleItemFinalSearch())
 	{
@@ -450,6 +458,7 @@ void FEnvQueryInstance::ItemIterator::StoreTestResult()
 		}
 		else if (CachedScoreOp == EEnvTestScoreOperator::AverageScore && !bForced)
 		{
+			ensureAlways(NumPassedForItem != 0);
 			ItemScore /= NumPassedForItem;
 		}
 
@@ -552,7 +561,7 @@ void FEnvQueryInstance::PickRandomItemOfScoreAtLeast(float MinScore)
 	}
 
 	// pick only one, discard others
-	PickSingleItem(FMath::RandHelper(NumBestItems));
+	PickSingleItem(UAISystem::GetRandomStream().RandHelper(NumBestItems));
 }
 
 void FEnvQueryInstance::PickSingleItem(int32 ItemIndex)

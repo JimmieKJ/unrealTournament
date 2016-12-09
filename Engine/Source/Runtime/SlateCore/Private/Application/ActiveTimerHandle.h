@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "SlateCore.h"
+#include "CoreMinimal.h"
+#include "Types/WidgetActiveTimerDelegate.h"
+
+enum class EActiveTimerReturnType : uint8;
 
 /** Stores info about an active timer delegate for a widget. */
 class FActiveTimerHandle

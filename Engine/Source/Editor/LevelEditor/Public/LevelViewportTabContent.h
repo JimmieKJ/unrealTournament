@@ -6,10 +6,10 @@
 
 #pragma once
 
-#include "LevelEditor.h"
-#include "LevelEditorActions.h"
+#include "CoreMinimal.h"
+#include "LevelViewportLayout.h"
 
-class IViewportLayoutEntity;
+class ILevelEditor;
 
 /**
  * Represents the content in a viewport tab in the level editor.

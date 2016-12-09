@@ -1,7 +1,7 @@
 Build scripts for native Linux build
 ====================================
 
-This document describes how to build Unreal Engine 4.8 natively on a Linux host. 
+This document describes how to build Unreal Engine natively on a Linux host. 
 The steps are described here are applicable to the current build, but you may
 want to visit https://wiki.unrealengine.com/Building_On_Linux for the
 latest updates on the process.
@@ -18,13 +18,11 @@ Prerequisites
 
 The packages that are required to build the engine vary from distribution to distribution,
 and an up-to-date list should be maintained (and installed) by Setup.sh -
-feel free to suggest modifications. Automated install currently works for Debian-based
-distributions only (Debian itself, (K)Ubuntu and Linux Mint).
+feel free to suggest modifications. Automated install generally works for Ubuntu only.
 
 Most important dependencies:
 - mono 3.x (2.x may work, but is not recommended), including xbuild and C# compiler (*mcs), and libraries for NET 4.0 framework.
-- clang 3.5.0 (clang 3.6 and 3.3 are also supported, but NOT clang 3.4).
-- For non-Ubuntu OSes: Qt(4,5) or GTK development packages to build LinuxNativeDialogs.
+- clang 3.9.0 (clang 3.5 through 3.8 should also be able to compile the engine).
 
 You will also need at least 20 GB of free disk space and a relatively powerful
 machine.
@@ -49,7 +47,7 @@ How to set up the sources for building, step by step:
 
 1. Clone EpicGames/UnrealEngine repository
 
-    ``git clone https://github.com/EpicGames/UnrealEngine -b 4.8``
+    ``git clone https://github.com/EpicGames/UnrealEngine -b release``
     
 2. Run Setup.sh once.
 
@@ -142,8 +140,7 @@ The time it takes to build the editor in development configuration can be large,
 debug configuration takes about 2/3 of this time. The build process can also take 
 significant amount of RAM (roughly 1GB per core).
 
-It is also possible to cross-compile the editor (currently from Windows only), 
-although you will still need to build LinuxNativeDialogs on the Linux machine. 
+It is also possible to cross-compile the editor (currently from Windows only).
 You may use this route if your Windows machine happens to be more powerful,
 but explanation of it is beyond the scope of this document.
 

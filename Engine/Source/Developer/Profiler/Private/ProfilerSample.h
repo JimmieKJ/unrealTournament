@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Containers/ChunkedArray.h"
+#include "Stats/Stats.h"
+
 /*-----------------------------------------------------------------------------
 	Type definitions
 -----------------------------------------------------------------------------*/

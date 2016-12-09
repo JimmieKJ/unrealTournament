@@ -1,13 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_ObserveBone.h"
-#include "CompilerResultsLog.h"
+#include "Kismet2/CompilerResultsLog.h"
+#include "SNodePanel.h"
 #include "SGraphNode.h"
-#include "KismetNodeInfoContext.h"
-#include "KismetDebugUtilities.h"
-#include "DetailLayoutBuilder.h"
+#include "KismetNodes/KismetNodeInfoContext.h"
+#include "Kismet2/KismetDebugUtilities.h"
 #include "PropertyHandle.h"
+#include "DetailLayoutBuilder.h"
+#include "AnimNodeEditModes.h"
 
 #define LOCTEXT_NAMESPACE "ObserveBone"
 
@@ -136,48 +137,6 @@ FText UAnimGraphNode_ObserveBone::GetNodeTitle(ENodeTitleType::Type TitleType) c
 	}
 }
 
-int32 UAnimGraphNode_ObserveBone::GetWidgetCoordinateSystem(const USkeletalMeshComponent* SkelComp)
-{
-	switch (Node.DisplaySpace)
-	{
-	default:
-	case BCS_ParentBoneSpace:
-		//@TODO: No good way of handling this one
-		return COORD_World;
-	case BCS_BoneSpace:
-		return COORD_Local;
-	case BCS_ComponentSpace:
-	case BCS_WorldSpace:
-		return COORD_World;
-	}
-}
-
-FVector UAnimGraphNode_ObserveBone::GetWidgetLocation(const USkeletalMeshComponent* SkelComp, FAnimNode_SkeletalControlBase* AnimNode)
-{
-	USkeleton* Skeleton = SkelComp->SkeletalMesh->Skeleton;
-	FVector WidgetLoc = FVector::ZeroVector;
-
-	int32 MeshBoneIndex = SkelComp->GetBoneIndex(Node.BoneToObserve.BoneName);
-
-	if (MeshBoneIndex != INDEX_NONE)
-	{
-		const FTransform BoneTM = SkelComp->GetBoneTransform(MeshBoneIndex);
-		WidgetLoc = BoneTM.GetLocation();
-	}
-	
-	return WidgetLoc;
-}
-
-int32 UAnimGraphNode_ObserveBone::GetWidgetMode(const USkeletalMeshComponent* SkelComp)
-{
-	return (int32)FWidget::WM_Translate;
-}
-
-FName UAnimGraphNode_ObserveBone::FindSelectedBone()
-{
-	return Node.BoneToObserve.BoneName;
-}
-
 FLinearColor UAnimGraphNode_ObserveBone::GetNodeTitleColor() const
 {
 	return FLinearColor(0.7f, 0.7f, 0.7f);
@@ -196,6 +155,11 @@ void UAnimGraphNode_ObserveBone::CustomizeDetails(IDetailLayoutBuilder& DetailBu
 	TSharedRef<IPropertyHandle> NodeHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UAnimGraphNode_ObserveBone, Node), GetClass());
 	DetailBuilder.HideProperty(NodeHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAnimNode_SkeletalControlBase, Alpha)));
 	DetailBuilder.HideProperty(NodeHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAnimNode_SkeletalControlBase, AlphaScaleBias)));
+}
+
+FEditorModeID UAnimGraphNode_ObserveBone::GetEditorMode() const
+{
+	return AnimNodeEditModes::ObserveBone;
 }
 
 #undef LOCTEXT_NAMESPACE

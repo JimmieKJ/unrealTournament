@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "LightmassPCH.h"
+#include "3DVisualizer.h"
 
 #if PLATFORM_WINDOWS
 
+#include "WindowsHWrapper.h"
 #include "AllowWindowsPlatformTypes.h"
 	#include <d3dx9.h>
 #include "HideWindowsPlatformTypes.h"

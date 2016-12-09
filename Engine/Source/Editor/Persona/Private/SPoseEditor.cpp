@@ -1,16 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "PersonaPrivatePCH.h"
 #include "SPoseEditor.h"
-#include "ObjectTools.h"
-#include "AssetRegistryModule.h"
+#include "Misc/MessageDialog.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Animation/DebugSkelMeshComponent.h"
 #include "ScopedTransaction.h"
-#include "SSearchBox.h"
+#include "Widgets/Input/SSearchBox.h"
 #include "Animation/AnimSingleNodeInstance.h"
 
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
+#include "Framework/Commands/GenericCommands.h"
+#include "PoseEditorCommands.h"
 
 #define LOCTEXT_NAMESPACE "AnimPoseEditor"
 
@@ -24,28 +27,22 @@ const float MaxPoseWeight = 1.f;
 //////////////////////////////////////////////////////////////////////////
 // SPoseEditor
 
-void SPoseEditor::Construct(const FArguments& InArgs)
+void SPoseEditor::Construct(const FArguments& InArgs, const TSharedRef<class IPersonaToolkit>& InPersonaToolkit, const TSharedRef<IEditableSkeleton>& InEditableSkeleton, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene)
 {
 	PoseAssetObj = InArgs._PoseAsset;
 	check(PoseAssetObj);
 
-	SAnimEditorBase::Construct( SAnimEditorBase::FArguments()
-		.Persona(InArgs._Persona)
-		.DisplayAnimInfoBar(false)
-		);
+	SAnimEditorBase::Construct(SAnimEditorBase::FArguments()
+		.DisplayAnimInfoBar(false),
+		InPreviewScene);
 
  	EditorPanels->AddSlot()
  	.AutoHeight()
  	.Padding(0, 10)
 	[
- 		SNew( SPoseViewer)
- 		.Persona(InArgs._Persona)
+ 		SNew( SPoseViewer, InPersonaToolkit, InEditableSkeleton, InPreviewScene)
 		.PoseAsset(PoseAssetObj)
  	];
-}
-
-SPoseEditor::~SPoseEditor()
-{
 }
 
 
@@ -104,11 +101,12 @@ bool SPoseListRow::OnVerifyNameChanged(const FText& InText, FText& OutErrorMessa
 }
 
 
-void SPoseListRow::Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView)
+void SPoseListRow::Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView, const TSharedRef<IPersonaPreviewScene>& InPreviewScene)
 {
 	Item = InArgs._Item;
 	PoseViewerPtr = InArgs._PoseViewer;
 	FilterText = InArgs._FilterText;
+	PreviewScenePtr = InPreviewScene;
 
 	check(Item.IsValid());
 
@@ -174,10 +172,7 @@ void SPoseListRow::OnPoseWeightChanged(float NewWeight)
 		TSharedPtr<SPoseViewer> PoseViewer = PoseViewerPtr.Pin();
 		PoseViewer->AddCurveOverride(Item->Name, Item->Weight);
 
-		if (PoseViewer->PersonaPtr.IsValid())
-		{
-			PoseViewer->PersonaPtr.Pin()->RefreshViewport();
-		}
+		PreviewScenePtr.Pin()->InvalidateViews();
 	}
 }
 
@@ -296,24 +291,23 @@ TSharedRef< SWidget > SCurveListRow::GenerateWidgetForColumn(const FName& Column
 //////////////////////////////////////////////////////////////////////////
 // SPoseViewer
 
-void SPoseViewer::Construct(const FArguments& InArgs)
+void SPoseViewer::Construct(const FArguments& InArgs, const TSharedRef<IPersonaToolkit>& InPersonaToolkit, const TSharedRef<IEditableSkeleton>& InEditableSkeleton, const TSharedRef<IPersonaPreviewScene>& InPreviewScene)
 {
-	PersonaPtr = InArgs._Persona;
+	PreviewScenePtr = InPreviewScene;
+	PersonaToolkitPtr = InPersonaToolkit;
+	EditableSkeletonPtr = InEditableSkeleton;
 	PoseAssetPtr = InArgs._PoseAsset;
 
 	CachedPreviewInstance = nullptr;
 
-	if (PersonaPtr.IsValid())
-	{
-		PersonaPtr.Pin()->RegisterOnPreviewMeshChanged(FPersona::FOnPreviewMeshChanged::CreateSP(this, &SPoseViewer::OnPreviewMeshChanged));
-		PersonaPtr.Pin()->RegisterOnPostUndo(FPersona::FOnPostUndo::CreateSP(this, &SPoseViewer::RefreshList));
-		PersonaPtr.Pin()->RegisterOnAnimChanged(FPersona::FOnAnimChanged::CreateSP(this, &SPoseViewer::OnAssestChanged));
-	}
+	InPreviewScene->RegisterOnPreviewMeshChanged(FOnPreviewMeshChanged::CreateSP(this, &SPoseViewer::OnPreviewMeshChanged));
+	InPreviewScene->RegisterOnAnimChanged(FOnAnimChanged::CreateSP(this, &SPoseViewer::OnAssetChanged));
 
-	if (PoseAssetPtr.IsValid())
-	{
-		PoseAssetPtr->RegisterOnAssetModifiedNotifier(UPoseAsset::FAssetModifiedNotifier::CreateSP(this, &SPoseViewer::RefreshList));
-	}
+	OnDelegatePoseListChangedDelegateHandle = PoseAssetPtr->RegisterOnPoseListChanged(UPoseAsset::FOnPoseListChanged::CreateSP(this, &SPoseViewer::RefreshList));
+
+	// Register and bind all our menu commands
+	FPoseEditorCommands::Register();
+	BindCommands();
 
 	RefreshCachePreviewInstance();
 
@@ -398,7 +392,7 @@ void SPoseViewer::Construct(const FArguments& InArgs)
 	CreateCurveList();
 }
 
-void SPoseViewer::OnAssestChanged(UAnimationAsset* NewAsset) 
+void SPoseViewer::OnAssetChanged(UAnimationAsset* NewAsset) 
 {
 	// this is odd that we're adding delegate
 	// this is because we're caching anim instance here
@@ -413,7 +407,7 @@ void SPoseViewer::RefreshCachePreviewInstance()
 	{
 		CachedPreviewInstance.Get()->RemoveDelegate_AddCustomAnimationCurve(OnAddAnimationCurveDelegate);
 	}
-	CachedPreviewInstance = Cast<UAnimSingleNodeInstance>(PersonaPtr.Pin()->GetPreviewMeshComponent()->GetAnimInstance());
+	CachedPreviewInstance = Cast<UAnimSingleNodeInstance>(PreviewScenePtr.Pin()->GetPreviewMeshComponent()->GetAnimInstance());
 
 	if (CachedPreviewInstance.IsValid())
 	{
@@ -449,7 +443,7 @@ TSharedRef<ITableRow> SPoseViewer::GeneratePoseRow(TSharedPtr<FDisplayedPoseInfo
 	check(InInfo.IsValid());
 
 	return
-		SNew(SPoseListRow, OwnerTable)
+		SNew(SPoseListRow, OwnerTable, PreviewScenePtr.Pin().ToSharedRef())
 		.Item(InInfo)
 		.PoseViewer(SharedThis(this))
 		.FilterText(GetFilterText());
@@ -585,39 +579,62 @@ void SPoseViewer::OnPastePoseNamesFromClipBoard(bool bSelectedOnly)
 
 }
 
+FReply SPoseViewer::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (UICommandList.IsValid() && UICommandList->ProcessCommandBindings(InKeyEvent))
+	{
+		return FReply::Handled();
+	}
+	return FReply::Unhandled();
+}
+
+void SPoseViewer::BindCommands()
+{
+	// This should not be called twice on the same instance
+	check(!UICommandList.IsValid());
+	UICommandList = MakeShareable(new FUICommandList);
+	FUICommandList& CommandList = *UICommandList;
+
+	// Grab the list of menu commands to bind...
+	const FPoseEditorCommands& PoseEditorCommands = FPoseEditorCommands::Get();
+
+	// ...and bind them all
+
+	CommandList.MapAction(
+		FGenericCommands::Get().Rename,
+		FExecuteAction::CreateSP(this, &SPoseViewer::OnRenamePose),
+		FCanExecuteAction::CreateSP(this, &SPoseViewer::IsSinglePoseSelected));
+
+	CommandList.MapAction(
+		FGenericCommands::Get().Delete,
+		FExecuteAction::CreateSP(this, &SPoseViewer::OnDeletePoses),
+		FCanExecuteAction::CreateSP(this, &SPoseViewer::IsPoseSelected));
+
+	CommandList.MapAction(
+		FGenericCommands::Get().Paste,
+		FExecuteAction::CreateSP(this, &SPoseViewer::OnPastePoseNamesFromClipBoard, true),
+		FCanExecuteAction::CreateSP(this, &SPoseViewer::IsPoseSelected));
+
+	CommandList.MapAction(
+		PoseEditorCommands.PasteAllNames,
+		FExecuteAction::CreateSP(this, &SPoseViewer::OnPastePoseNamesFromClipBoard, false),
+		FCanExecuteAction());
+}
+
+
 TSharedPtr<SWidget> SPoseViewer::OnGetContextMenuContent() const
 {
 	const bool bShouldCloseWindowAfterMenuSelection = true;
-	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, NULL);
+	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, UICommandList);
 
-	FUIAction Action = FUIAction(FExecuteAction::CreateSP(this, &SPoseViewer::OnPastePoseNamesFromClipBoard, false));
-	FText MenuLabel = LOCTEXT("PasteAllPoseNamesButtonLabel", "Paste All Pose Names");
-	FText MenuToolTip = LOCTEXT("PasteAllPoseNamesButtonTooltip", "Paste All Pose Names From Clipboard");
-	MenuBuilder.AddMenuEntry(MenuLabel, MenuToolTip, FSlateIcon(), Action);
+	const FPoseEditorCommands& PoseEditorCommands = FPoseEditorCommands::Get();
 
-	MenuBuilder.BeginSection("PoseAction", LOCTEXT("Poseaction", "Selected Item Actions"));
-	{
-		// Delete
-	 	Action = FUIAction( FExecuteAction::CreateSP( this, &SPoseViewer::OnDeletePoses ), 
-	 									FCanExecuteAction::CreateSP( this, &SPoseViewer::IsPoseSelected ) );
-	 	MenuLabel = LOCTEXT("DeletePoseButtonLabel", "Delete");
-	 	MenuToolTip = LOCTEXT("DeletePoseButtonTooltip", "Deletes the selected animation pose.");
-	 	MenuBuilder.AddMenuEntry(MenuLabel, MenuToolTip, FSlateIcon(), Action);
+	MenuBuilder.AddMenuEntry(PoseEditorCommands.PasteAllNames);
 
-		// Rename
-		Action = FUIAction(FExecuteAction::CreateSP(this, &SPoseViewer::OnRenamePose),
-			FCanExecuteAction::CreateSP(this, &SPoseViewer::IsSinglePoseSelected));
-		MenuLabel = LOCTEXT("RenamePoseButtonLabel", "Rename");
-		MenuToolTip = LOCTEXT("RenamePoseButtonTooltip", "Renames the selected animation pose.");
-		MenuBuilder.AddMenuEntry(MenuLabel, MenuToolTip, FSlateIcon(), Action);
-
-		// Paste
-		Action = FUIAction(FExecuteAction::CreateSP(this, &SPoseViewer::OnPastePoseNamesFromClipBoard, true),
-			FCanExecuteAction::CreateSP(this, &SPoseViewer::IsPoseSelected));
-		MenuLabel = LOCTEXT("PastePoseNamesButtonLabel", "Paste Selected");
-		MenuToolTip = LOCTEXT("PastePoseNamesButtonTooltip", "Paste the selected pose names from ClipBoard.");
-		MenuBuilder.AddMenuEntry(MenuLabel, MenuToolTip, FSlateIcon(), Action);
-	}
+	MenuBuilder.BeginSection("PoseAction", LOCTEXT("SelectedItems", "Selected Item Actions"));
+	MenuBuilder.AddMenuEntry(FGenericCommands::Get().Delete, NAME_None, LOCTEXT("DeletePoseButtonLabel", "Delete"), LOCTEXT("DeletePoseButtonTooltip", "Delete the selected pose(s)"));
+	MenuBuilder.AddMenuEntry(FGenericCommands::Get().Rename, NAME_None, LOCTEXT("RenamePoseButtonLabel", "Rename"), LOCTEXT("RenamePoseButtonTooltip", "Renames the selected pose"));
+	MenuBuilder.AddMenuEntry(FGenericCommands::Get().Paste, NAME_None, LOCTEXT("PastePoseNamesButtonLabel", "Paste Selected"), LOCTEXT("PastePoseNamesButtonTooltip", "Paste the selected pose names from clipBoard"));
 	MenuBuilder.EndSection();
 
 	return MenuBuilder.MakeWidget();
@@ -663,10 +680,7 @@ void SPoseViewer::OnListDoubleClick(TSharedPtr<FDisplayedPoseInfo> InItem)
 		}
 
 		// Force update viewport
-		if (PersonaPtr.IsValid())
-		{
-			PersonaPtr.Pin()->RefreshViewport();
-		}
+		PreviewScenePtr.Pin()->InvalidateViews();
 	}
 }
 
@@ -754,7 +768,7 @@ void SPoseViewer::RemoveCurveOverride(FName& Name)
 
 SPoseViewer::~SPoseViewer()
 {
-	if (PersonaPtr.IsValid())
+	if (PreviewScenePtr.IsValid())
 	{
 		// @Todo: change this in curve editor
 		// and it won't work with this one delegate idea, so just think of a better way to do
@@ -764,14 +778,13 @@ SPoseViewer::~SPoseViewer()
 			CachedPreviewInstance.Get()->RemoveDelegate_AddCustomAnimationCurve(OnAddAnimationCurveDelegate);
 		}
 
-		PersonaPtr.Pin()->UnregisterOnPreviewMeshChanged(this);
-		PersonaPtr.Pin()->UnregisterOnPostUndo(this);
-		PersonaPtr.Pin()->UnregisterOnAnimChanged(this);
+		PreviewScenePtr.Pin()->UnregisterOnPreviewMeshChanged(this);
+		PreviewScenePtr.Pin()->UnregisterOnAnimChanged(this);
 	}
 
 	if (PoseAssetPtr.IsValid())
 	{
-		PoseAssetPtr->UnregisterOnAssetModifiedNotifier(this);
+		PoseAssetPtr->UnregisterOnPoseListChanged(OnDelegatePoseListChangedDelegateHandle);
 	}
 }
 
@@ -786,67 +799,57 @@ void SPoseViewer::ApplyCustomCurveOverride(UAnimInstance* AnimInstance) const
 	for (auto Iter = OverrideCurves.CreateConstIterator(); Iter; ++Iter)
 	{
 		// @todo we might want to save original curve flags? or just change curve to apply flags only
-		AnimInstance->AddCurveValue(Iter.Key(), Iter.Value(), ACF_DriveAttribute);
+		AnimInstance->AddCurveValue(Iter.Key(), Iter.Value());
 	}
 }
 
 bool SPoseViewer::ModifyName(FName OldName, FName NewName, bool bSilence)
 {
-	if (PersonaPtr.IsValid())
+	FScopedTransaction Transaction(LOCTEXT("RenamePoses", "Rename Pose"));
+	PoseAssetPtr.Get()->Modify();
+
+	// get smart name
+	const USkeleton& Skeleton = EditableSkeletonPtr.Pin()->GetSkeleton();
+	const SmartName::UID_Type ExistingUID = Skeleton.GetUIDByName(USkeleton::AnimCurveMappingName, NewName);
+	// verify if this name exists in smart naming
+	if (ExistingUID != SmartName::MaxUID)
 	{
-		USkeleton* Skeleton = PersonaPtr.Pin()->GetSkeleton();
-		if (Skeleton)
+		// warn users
+		// if so, verify if this name is still okay
+		if (!bSilence)
 		{
-			FScopedTransaction Transaction(LOCTEXT("RenamePoses", "Rename Pose"));
+			const EAppReturnType::Type Response = FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("UseSameNameConfirm", "The name already exists. Would you like to reuse the name? This can cause conflict of curve data."));
 
-			PoseAssetPtr.Get()->Modify();
-			Skeleton->Modify();
-
-			// get smart nam
-			const FSmartNameMapping::UID ExistingUID = Skeleton->GetUIDByName(USkeleton::AnimCurveMappingName, NewName);
-			// verify if this name exists in smart naming
-			if (ExistingUID != FSmartNameMapping::MaxUID)
+			if (Response == EAppReturnType::No)
 			{
-				// warn users
-				// if so, verify if this name is still okay
-				if (!bSilence)
-				{
-					const EAppReturnType::Type Response = FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("UseSameNameConfirm", "The name already exists. Would you like to reuse the name? This can cause conflict of curve data."));
-
-					if (Response == EAppReturnType::No)
-					{
-						return false;
-					}
-				}
-
-				// I think this might have to be delegate of the top window
-				if (PoseAssetPtr.Get()->ModifyPoseName(OldName, NewName, &ExistingUID) == false)
-				{
-					return false;
-				}
+				return false;
 			}
-			else
-			{
-				// I think this might have to be delegate of the top window
-				if (PoseAssetPtr.Get()->ModifyPoseName(OldName, NewName, nullptr) == false)
-				{
-					return false;
-				}
-			}
+		}
 
-			// now refresh pose data
-			float* Value = OverrideCurves.Find(OldName);
-			if (Value)
-			{
-				AddCurveOverride(NewName, *Value);
-				RemoveCurveOverride(OldName);
-			}
-
-			return true;
+		// I think this might have to be delegate of the top window
+		if (PoseAssetPtr.Get()->ModifyPoseName(OldName, NewName, &ExistingUID) == false)
+		{
+			return false;
+		}
+	}
+	else
+	{
+		// I think this might have to be delegate of the top window
+		if (PoseAssetPtr.Get()->ModifyPoseName(OldName, NewName, nullptr) == false)
+		{
+			return false;
 		}
 	}
 
-	return false;
+	// now refresh pose data
+	float* Value = OverrideCurves.Find(OldName);
+	if (Value)
+	{
+		AddCurveOverride(NewName, *Value);
+		RemoveCurveOverride(OldName);
+	}
+
+	return true;
 }
 
 bool SPoseViewer::IsBasePose(FName PoseName) const

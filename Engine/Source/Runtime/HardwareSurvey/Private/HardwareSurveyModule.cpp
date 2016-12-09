@@ -1,9 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HardwareSurveyPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "GenericPlatform/GenericPlatformSurvey.h"
+#include "HAL/PlatformSurvey.h"
+#include "Containers/Ticker.h"
+#include "Modules/ModuleManager.h"
 #include "IHardwareSurveyModule.h"
 #include "AnalyticsEventAttribute.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 
 /**
  * Implements the HardwareSurvey module.

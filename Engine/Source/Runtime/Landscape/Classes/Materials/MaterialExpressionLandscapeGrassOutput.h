@@ -2,10 +2,16 @@
 
 
 #pragma once
-#include "LandscapeGrassType.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "MaterialExpressionIO.h"
 
 #include "Materials/MaterialExpressionCustomOutput.h"
 #include "MaterialExpressionLandscapeGrassOutput.generated.h"
+
+class ULandscapeGrassType;
+struct FPropertyChangedEvent;
 
 USTRUCT()
 struct FGrassInput
@@ -37,7 +43,7 @@ class LANDSCAPE_API UMaterialExpressionLandscapeGrassOutput : public UMaterialEx
 	GENERATED_UCLASS_BODY()
 
 #if WITH_EDITOR
-	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
+	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 #endif
 	virtual const TArray<FExpressionInput*> GetInputs() override;

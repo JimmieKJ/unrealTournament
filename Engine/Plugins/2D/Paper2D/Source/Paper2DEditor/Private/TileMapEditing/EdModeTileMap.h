@@ -2,10 +2,18 @@
 
 #pragma once
 
-class UPaperTileSet;
+#include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "EditorViewportClient.h"
+#include "EdMode.h"
+
+class FCanvas;
 class UPaperTileLayer;
 class UPaperTileMap;
 class UPaperTileMapComponent;
+class UPaperTileSet;
 
 namespace ETileMapEditorTool
 {

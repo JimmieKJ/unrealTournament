@@ -6,9 +6,11 @@
 
 #pragma once
 
-#include "RenderingCompositionGraph.h"
-#include "PostProcessInput.h"
-#include "PostProcessOutput.h"
+#include "CoreMinimal.h"
+#include "Shader.h"
+#include "GlobalShader.h"
+#include "PostProcess/RenderingCompositionGraph.h"
+#include "SceneRendering.h"
 
 /** The context used to setup a post-process pass. */
 class FPostprocessContext

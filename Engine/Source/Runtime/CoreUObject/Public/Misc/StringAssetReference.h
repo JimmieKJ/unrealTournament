@@ -2,11 +2,15 @@
 
 #pragma once
 
-class UObject;
-struct FPropertyTag;
+#include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "UObject/Class.h"
 
 /**
- * A struct that contains a string reference to an asset, can be used to make soft references to assets
+ * A struct that contains a string reference to an asset on disk.
+ * This can be used to make soft references to assets that are loaded on demand.
+ * This is stored internally as a string of the form /package/path.assetname[.objectname]
+ * If the MetaClass metadata is applied to a UProperty with this the UI will restrict to that type of asset.
  */
 struct COREUOBJECT_API FStringAssetReference
 {
@@ -18,80 +22,93 @@ struct COREUOBJECT_API FStringAssetReference
 	{
 	}
 
+	/** Construct from another asset reference */
 	FStringAssetReference(const FStringAssetReference& Other)
 	{
 		SetPath(Other.ToString());
 	}
 
-	/**
-	 * Construct from a path string
-	 */
+	/** Construct from a path string */
 	FStringAssetReference(FString PathString)
 	{
 		SetPath(MoveTemp(PathString));
 	}
 
-	/**
-	 * Construct from an existing object, will do some string processing
-	 */
+	/** Construct from an existing object in memory */
 	FStringAssetReference(const UObject* InObject);
 
-	~FStringAssetReference();
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	
+	/** Destructor, in deprecation block to avoid warnings */
+	~FStringAssetReference() {}
 
-	/**
-	 * Converts in to a string
-	 */
-	const FString& ToString() const;
-
-	const FString GetLongPackageName() const
+	/** Returns string representation of reference, in form /package/path.assetname[.objectname] */
+	FORCEINLINE const FString& ToString() const
 	{
-		FString PackageName;
-		ToString().Split(TEXT("."), &PackageName, nullptr, ESearchCase::CaseSensitive, ESearchDir::FromEnd);
-		return PackageName;
+		return AssetLongPathname;		
 	}
 
-	/**
-	 * Sets asset path of this reference.
-	 *
-	 * @param Path The path to the asset.
-	 */
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
+	/** Returns /package/path, leaving off the asset name */
+	FString GetLongPackageName() const
+	{
+		FString PackageName;
+		ToString().Split(TEXT("."), &PackageName, nullptr, ESearchCase::CaseSensitive, ESearchDir::FromStart);
+		return PackageName;
+	}
+	
+	/** Returns assetname string, leaving off the /package/path part */
+	const FString GetAssetName() const
+	{
+		FString AssetName;
+		ToString().Split(TEXT("."), nullptr, &AssetName, ESearchCase::CaseSensitive, ESearchDir::FromStart);
+		return AssetName;
+	}	
+
+	/** Sets asset path of this reference based on a string path */
 	void SetPath(FString Path);
 
 	/**
-	 * Attempts to load the asset.
-	 * @return Loaded UObject, or null if the asset fails to load, or if the reference is not valid.
+	 * Attempts to load the asset, this will call LoadObject which can be very slow
+	 *
+	 * @return Loaded UObject, or nullptr if the reference is null or the asset fails to load
 	 */
 	UObject* TryLoad() const;
 
 	/**
-	 * Attempts to find a currently loaded object that matches this object ID
-	 * @return Found UObject, or NULL if not currently loaded
+	 * Attempts to find a currently loaded object that matches this path
+	 *
+	 * @return Found UObject, or nullptr if not currently in memory
 	 */
 	UObject* ResolveObject() const;
 
-	/**
-	 * Resets reference to point to NULL
-	 */
+	/** Resets reference to point to null */
 	void Reset()
 	{		
 		SetPath(TEXT(""));
 	}
 	
-	/**
-	 * Check if this could possibly refer to a real object, or was initialized to NULL
-	 */
+	/** Check if this could possibly refer to a real object, or was initialized to null */
 	bool IsValid() const
 	{
 		return ToString().Len() > 0;
 	}
 
+	/** Checks to see if this is initialized to null */
+	bool IsNull() const
+	{
+		return ToString().Len() == 0;
+	}
+
+	/** Struct overrides */
 	bool Serialize(FArchive& Ar);
 	bool operator==(FStringAssetReference const& Other) const;
 	bool operator!=(FStringAssetReference const& Other) const
 	{
 		return !(*this == Other);
 	}
-	void operator=(FStringAssetReference const& Other);
+	FStringAssetReference& operator=(FStringAssetReference const& Other);
 	bool ExportTextItem(FString& ValueStr, FStringAssetReference const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const;
 	bool ImportTextItem( const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText );
 	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar);
@@ -101,8 +118,7 @@ struct COREUOBJECT_API FStringAssetReference
 		return GetTypeHash(This.ToString());
 	}
 
-	/** Code needed by AssetPtr to track rather object references should be rechecked */
-
+	/** Code needed by FAssetPtr internals */
 	static int32 GetCurrentTag()
 	{
 		return CurrentTag.GetValue();
@@ -111,22 +127,22 @@ struct COREUOBJECT_API FStringAssetReference
 	{
 		return CurrentTag.Increment();
 	}
-
-	static FStringAssetReference GetOrCreateIDForObject(const UObject *Object);
-
+	static FStringAssetReference GetOrCreateIDForObject(const UObject* Object);
+	
+	/** Enables special PIE path handling, to remove pie prefix as needed */
 	static void SetPackageNamesBeingDuplicatedForPIE(const TArray<FString>& InPackageNamesBeingDuplicatedForPIE);
+	
+	/** Disables special PIE path handling */
 	static void ClearPackageNamesBeingDuplicatedForPIE();
 
-protected:
-
 private:
-	/**
-	 * Fixes up this StringAssetReference to add or remove the PIE prefix depending on what is currently active
-	 */
+	/** Fixes up this StringAssetReference to add or remove the PIE prefix depending on what is currently active */
 	void FixupForPIE();
 
-	/** Global counter that determines when we need to re-search for GUIDs because more objects have been loaded **/
+	/** Global counter that determines when we need to re-search based on path because more objects have been loaded **/
 	static FThreadSafeCounter CurrentTag;
+
+	/** Package names currently being duplicated, needed by FixupForPIE */
 	static TArray<FString> PackageNamesBeingDuplicatedForPIE;
 };
 

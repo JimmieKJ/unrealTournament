@@ -1,8 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DetailCustomizationsPrivatePCH.h"
 #include "AudioSettingsDetails.h"
-#include "Runtime/Engine/Classes/Sound/AudioSettings.h"
+#include "Misc/Guid.h"
+#include "Layout/Margin.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "Sound/DialogueWave.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "Sound/AudioSettings.h"
 
 #define LOCTEXT_NAMESPACE "AudioSettingsDetails"
 

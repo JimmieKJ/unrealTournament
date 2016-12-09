@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
-#include "IESLoader.h"
+#include "Factories/IESLoader.h"
+#include "Math/RandomStream.h"
 
 enum EIESVersion
 {

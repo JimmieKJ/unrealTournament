@@ -2,6 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Framework/Text/TextLayout.h"
+#include "Framework/Text/ISlateLineHighlighter.h"
+
+class FPaintArgs;
+class FSlateRect;
+class FSlateWindowElementList;
+class FWidgetStyle;
+struct FGeometry;
+struct FSlateBrush;
+struct FTextBlockStyle;
+
 namespace SlateEditableTextTypes
 {
 

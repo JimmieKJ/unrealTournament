@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Paper2DPrivatePCH.h"
-#include "PaperTileMapRenderSceneProxy.h"
-#include "PhysicsEngine/BodySetup.h"
-#include "PaperCustomVersion.h"
-#include "Engine/Canvas.h"
 #include "PaperTileMapComponent.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Materials/Material.h"
+#include "Paper2DPrivate.h"
+#include "PaperRenderSceneProxy.h"
+#include "PaperTileMapRenderSceneProxy.h"
+#include "PaperCustomVersion.h"
+#include "PhysicsEngine/BodySetup.h"
 #include "PaperTileMap.h"
+#include "PaperTileSet.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 

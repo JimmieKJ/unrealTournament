@@ -1,7 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "InputBindingEditorPrivatePCH.h"
-#include "SlateEditableTextLayout.h"
+#include "Widgets/SChordEditor.h"
+#include "Framework/Commands/InputBindingManager.h"
+#include "Widgets/Text/SlateEditableTextLayout.h"
 
 #define LOCTEXT_NAMESPACE "SChordEditor"
 
@@ -9,13 +10,11 @@
 /* SChordEditor interface
  *****************************************************************************/
 
-void SChordEditor::Construct( const FArguments& InArgs, TSharedPtr<FChordTreeItem> InputCommand )
+void SChordEditor::Construct( const FArguments& InArgs, TSharedPtr<FUICommandInfo> InputCommand )
 {
 	bIsEditing = false;
 
-	check( InputCommand->IsCommand() );
-
-	CommandInfo = InputCommand->CommandInfo;
+	CommandInfo = InputCommand;
 	OnEditBoxLostFocus = InArgs._OnEditBoxLostFocus;
 	OnChordChanged = InArgs._OnChordChanged;
 	OnEditingStopped = InArgs._OnEditingStopped;

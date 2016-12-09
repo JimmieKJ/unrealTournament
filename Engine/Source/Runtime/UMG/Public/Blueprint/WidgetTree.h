@@ -2,8 +2,15 @@
 
 #pragma once
 
-#include "UserWidget.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "Widgets/SWidget.h"
+#include "Components/Widget.h"
 #include "Components/PanelWidget.h"
+#include "Components/NamedSlotInterface.h"
+#include "Blueprint/UserWidget.h"
 
 #include "WidgetTree.generated.h"
 
@@ -107,17 +114,21 @@ public:
 	template< class T >
 	FORCEINLINE T* ConstructWidget(TSubclassOf<UWidget> WidgetType = T::StaticClass(), FName WidgetName = NAME_None)
 	{
+		EObjectFlags NewObjectFlags = RF_Transactional;
+		if (HasAnyFlags(RF_Transient))
+		{
+			NewObjectFlags |= RF_Transient;
+		}
+
 		if ( WidgetType->IsChildOf(UUserWidget::StaticClass()) )
 		{
-			UUserWidget* Widget = NewObject<UUserWidget>(this, WidgetType, WidgetName);
+			UUserWidget* Widget = NewObject<UUserWidget>(this, WidgetType, WidgetName, NewObjectFlags);
 			Widget->Initialize();
-			Widget->SetFlags(RF_Transactional);
 			return (T*)Widget;
 		}
 		else
 		{
-			UWidget* Widget = (UWidget*)NewObject<UWidget>(this, WidgetType, WidgetName);
-			Widget->SetFlags(RF_Transactional);
+			UWidget* Widget = (UWidget*)NewObject<UWidget>(this, WidgetType, WidgetName, NewObjectFlags);
 			return (T*)Widget;
 		}
 	}

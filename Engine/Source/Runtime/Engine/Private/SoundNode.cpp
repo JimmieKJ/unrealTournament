@@ -1,14 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "EnginePrivate.h"
 #include "Sound/SoundNode.h"
+#include "EngineUtils.h"
 #include "Sound/SoundCue.h"
 
 #if WITH_EDITOR
-#include "UnrealEd.h"
+//#include "AudioEditor.h"
 #endif
-#include "AssetData.h"
 
 /*-----------------------------------------------------------------------------
 	USoundNode implementation.
@@ -53,9 +52,9 @@ void USoundNode::AddReferencedObjects(UObject* InThis, FReferenceCollector& Coll
 #endif //WITH_EDITOR
 
 #if WITH_EDITORONLY_DATA
-USoundCueGraphNode* USoundNode::GetGraphNode() const
+UEdGraphNode* USoundNode::GetGraphNode() const
 {
-	return CastChecked<USoundCueGraphNode>(GraphNode);
+	return GraphNode;
 }
 #endif
 
@@ -112,7 +111,7 @@ void USoundNode::InsertChildNode( int32 Index )
 	{
 		ChildNodes.InsertZeroed( Index );
 #if WITH_EDITOR
-		GetGraphNode()->CreateInputPin();
+		USoundCue::GetSoundCueAudioEditor()->CreateInputPin(GetGraphNode());
 #endif //WITH_EDITORONLY_DATA
 	}
 }
@@ -175,6 +174,13 @@ void USoundNode::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	MarkPackageDirty();
+}
+
+void USoundNode::PostLoad()
+{
+	Super::PostLoad();
+	// Make sure sound nodes are transactional (so they work with undo system)
+	SetFlags(RF_Transactional);
 }
 #endif // WITH_EDITOR
 

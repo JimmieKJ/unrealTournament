@@ -2,8 +2,14 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
 #include "ActorFactory.generated.h"
 
+class AActor;
 class FAssetData;
 class UBlueprint;
 class ULevel;

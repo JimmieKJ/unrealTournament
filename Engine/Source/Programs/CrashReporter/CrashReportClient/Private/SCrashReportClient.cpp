@@ -1,14 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CrashReportClientApp.h"
+#include "SCrashReportClient.h"
 
 #if !CRASH_REPORT_UNATTENDED_ONLY
 
-#include "SCrashReportClient.h"
 #include "CrashReportClientStyle.h"
 #include "SlateStyle.h"
 #include "SThrobber.h"
 #include "CrashDescription.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "CrashReportClient"
 
@@ -33,6 +43,7 @@ static void OnViewCrashDirectory( const FSlateHyperlinkRun::FMetadata& Metadata,
 void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashReportClient> Client)
 {
 	CrashReportClient = Client;
+	bHasUserCommentErrors = false;
 
 	auto CrashedAppName = FPrimaryCrashProperties::Get()->IsValid() ? FPrimaryCrashProperties::Get()->GameName : TEXT("");
 	FText CrashDetailedMessage = LOCTEXT("CrashDetailed", "We are very sorry that this crash occurred. Our goal is to prevent crashes like this from occurring in the future. Please help us track down and fix this crash by providing detailed information about what you were doing so that we may reproduce the crash and fix it quickly. You can also log a Bug Report with us at <a id=\"browser\" href=\"https://answers.unrealengine.com\" style=\"Hyperlink\">AnswerHub</> and work directly with support staff to report this issue.\n\nThanks for your help in improving the Unreal Engine.");
@@ -110,6 +121,7 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 						SAssignNew( CrashDetailsInformation, SMultiLineEditableTextBox )
 						.Style( &FCrashReportClientStyle::Get().GetWidgetStyle<FEditableTextBoxStyle>( "NormalEditableTextBox" ) )
 						.OnTextCommitted( CrashReportClient.ToSharedRef(), &FCrashReportClient::UserCommentChanged )
+						.OnTextChanged( this, &SCrashReportClient::OnUserCommentTextChanged)
 						.Font( FSlateFontInfo( FPaths::EngineContentDir() / TEXT( "Slate/Fonts/Roboto-Regular.ttf" ), 9 ) )
 						.AutoWrapText( true )
 						.BackgroundColor( FSlateColor( FLinearColor::Black ) )
@@ -276,7 +288,7 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 					.ContentPadding( FMargin(8,2) )
 					.Text(LOCTEXT("Send", "Send and Close"))
 					.OnClicked(Client, &FCrashReportClient::Submit)
-					.IsEnabled( !CrashedAppName.IsEmpty() )
+					.IsEnabled(this, &SCrashReportClient::IsSendEnabled)
 				]
 
 				+SHorizontalBox::Slot()
@@ -289,7 +301,7 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 					.ContentPadding( FMargin(8,2) )
 					.Text(LOCTEXT("SendAndRestartEditor", "Send and Restart"))
 					.OnClicked(Client, &FCrashReportClient::SubmitAndRestart)
-					.IsEnabled( !CrashedAppName.IsEmpty() )
+					.IsEnabled(this, &SCrashReportClient::IsSendEnabled)
 				]			
 			]
 		]
@@ -310,9 +322,32 @@ FReply SCrashReportClient::OnUnhandledKeyDown(const FKeyEvent& InKeyEvent)
 	return FReply::Unhandled();
 }
 
+void SCrashReportClient::OnUserCommentTextChanged(const FText& NewText)
+{
+	FText ErrorMessage = FText::GetEmpty();
+	bHasUserCommentErrors = false;
+
+	int SizeLimit = FCrashReportClientConfig::Get().GetUserCommentSizeLimit();
+	int Size = NewText.ToString().Len();
+	if (Size > SizeLimit)
+	{
+		bHasUserCommentErrors = true;
+		ErrorMessage = FText::Format(LOCTEXT("UserCommentTooLongError", "Description may only be a maximum of {0} characters (currently {1})"), SizeLimit, Size);
+	}
+
+	CrashDetailsInformation->SetError(ErrorMessage);
+}
+
 EVisibility SCrashReportClient::IsHintTextVisible() const
 {
 	return CrashDetailsInformation->GetText().IsEmpty() ? EVisibility::HitTestInvisible : EVisibility::Hidden;
+}
+
+bool SCrashReportClient::IsSendEnabled() const
+{
+	bool bValidAppName = FPrimaryCrashProperties::Get()->IsValid() && !FPrimaryCrashProperties::Get()->GameName.IsEmpty();
+
+	return bValidAppName && !bHasUserCommentErrors;
 }
 
 #undef LOCTEXT_NAMESPACE

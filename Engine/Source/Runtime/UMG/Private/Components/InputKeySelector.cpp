@@ -1,6 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGPrivatePCH.h"
+#include "Components/InputKeySelector.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Input/SInputKeySelector.h"
 
 UInputKeySelector::UInputKeySelector( const FObjectInitializer& ObjectInitializer )
 {
@@ -67,7 +69,7 @@ void UInputKeySelector::SynchronizeProperties()
 TSharedRef<SWidget> UInputKeySelector::RebuildWidget()
 {
 	MyInputKeySelector = SNew(SInputKeySelector)
-		.SelectedKey( SelectedKey)
+		.SelectedKey(SelectedKey)
 		.Font(Font)
 		.Margin(Margin)
 		.ColorAndOpacity(ColorAndOpacity)
@@ -79,7 +81,7 @@ TSharedRef<SWidget> UInputKeySelector::RebuildWidget()
 	return MyInputKeySelector.ToSharedRef();
 }
 
-void UInputKeySelector::HandleKeySelected( FInputChord InSelectedKey )
+void UInputKeySelector::HandleKeySelected(const FInputChord& InSelectedKey)
 {
 	SelectedKey = InSelectedKey;
 	OnKeySelected.Broadcast(SelectedKey);

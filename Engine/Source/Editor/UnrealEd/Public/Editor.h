@@ -6,24 +6,20 @@
 	Dependencies.
 -----------------------------------------------------------------------------*/
 
-#include "Engine.h"
-
-#include "Commandlets/EditorCommandlets.h"
-#include "EditorUndoClient.h"
-#include "TickableEditorObject.h"
-#include "Editor/UnrealEdTypes.h"
+#include "CoreMinimal.h"
+#include "Templates/ScopedCallback.h"
+#include "Engine/Level.h"
+#include "AssetData.h"
 #include "Editor/EditorEngine.h"
+#include "Engine/StaticMesh.h"
+
+
 
 #define CAMERA_ZOOM_DAMPEN			200.f
 
-class FGeomBase;
-class FGeomVertex;
-class FGeomEdge;
-class FGeomPoly;
-class FGeomObject;
-class FScopedTransaction;
+class AStaticMeshActor;
+class FEdMode;
 class UFactory;
-
 
 /** The shorthand identifier used for editor modes */
 typedef FName FEditorModeID;
@@ -232,14 +228,6 @@ enum ETAxis
 	TAXIS_AUTO              = 4,
 };
 
-/** Coordinate system identifiers. */
-enum ECoordSystem
-{
-	COORD_None	= -1,
-	COORD_World,
-	COORD_Local,
-	COORD_Max,
-};
 
 
 
@@ -424,7 +412,7 @@ extern bool GBuildStaticMeshCollision;
 //
 // Creating a static mesh from an array of triangles.
 //
-UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<UMaterialInterface*>& Materials,UObject* Outer,FName Name);
+UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<FStaticMaterial>& Materials,UObject* Outer,FName Name);
 
 struct FMergeStaticMeshParams
 {
@@ -471,9 +459,9 @@ void MergeStaticMesh(UStaticMesh* DestMesh, UStaticMesh* SourceMesh, const FMerg
 //
 // Converting models to static meshes.
 //
-void GetBrushMesh(ABrush* Brush,UModel* Model,struct FRawMesh& OutMesh,TArray<UMaterialInterface*>& OutMaterials);
+UNREALED_API void GetBrushMesh(ABrush* Brush,UModel* Model,struct FRawMesh& OutMesh,TArray<FStaticMaterial>& OutMaterials);
 UStaticMesh* CreateStaticMeshFromBrush(UObject* Outer,FName Name,ABrush* Brush,UModel* Model);
-
+ 
 /**
  * Converts a static mesh to a brush.
  *
@@ -481,9 +469,6 @@ UStaticMesh* CreateStaticMeshFromBrush(UObject* Outer,FName Name,ABrush* Brush,U
  * @param	StaticMeshActor			The source static mesh.  Must be non-NULL.
  */
 UNREALED_API void CreateModelFromStaticMesh(UModel* Model,AStaticMeshActor* StaticMeshActor);
-
-#include "EditorModeTools.h"
-#include "UnrealWidget.h"
 
 
 /**
@@ -628,6 +613,9 @@ namespace EditorUtilities
 		/** User-specified custom property filter predicate */
 		TFunction<bool(UProperty&, UObject&)> PropertyFilter;
 	};
+
+	/** Helper function for CopyActorProperties(). Copies a single property form a source object to a target object. */
+	UNREALED_API void CopySingleProperty(const UObject* const InSourceObject, UObject* const InTargetObject, UProperty* const InProperty);
 
 	/**
 	 * Copies properties from one actor to another.  Designed for propagating changes made to PIE actors back to their EditorWorld

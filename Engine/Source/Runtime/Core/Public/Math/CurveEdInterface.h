@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/Color.h"
+#include "Math/InterpCurvePoint.h"
 
 /** Interface that allows the CurveEditor to edit this type of object. */
 class CORE_API FCurveEdInterface

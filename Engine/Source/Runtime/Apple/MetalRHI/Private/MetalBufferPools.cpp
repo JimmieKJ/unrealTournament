@@ -5,6 +5,10 @@
 #include "MetalBufferPools.h"
 #include "MetalProfiler.h"
 
+#if METAL_DEBUG_OPTIONS
+extern int32 GMetalBufferZeroFill;
+#endif
+
 FMetalPooledBuffer::FMetalPooledBuffer()
 : Buffer(nil)
 {
@@ -94,6 +98,10 @@ uint32 FMetalBufferPoolPolicyData::GetPoolBucketSize(uint32 Bucket)
 	{
 		Index -= NumPoolBucketSizes;
 	}
+	if(Index >= NumPoolBucketSizes)
+	{
+		Index -= NumPoolBucketSizes;
+	}
 	checkf(Index < NumPoolBucketSizes, TEXT("%d %d"), Index, NumPoolBucketSizes);
 	return BucketSizes[Index];
 }
@@ -162,11 +170,6 @@ void FMetalQueryBufferPool::Allocate(FMetalQueryResult& NewQuery)
     FMetalQueryBuffer* QB = IsValidRef(CurrentBuffer) ? CurrentBuffer.GetReference() : GetCurrentQueryBuffer();
     if(Align(QB->WriteOffset, EQueryBufferAlignment) + EQueryResultMaxSize <= EQueryBufferMaxSize)
     {
-		if(!QB->CommandBuffer)
-		{
-			QB->CommandBuffer = Context->GetCurrentCommandBuffer();
-			[QB->CommandBuffer retain];
-		}
 		NewQuery.SourceBuffer = QB;
         NewQuery.Offset = Align(QB->WriteOffset, EQueryBufferAlignment);
         FMemory::Memzero((((uint8*)[QB->Buffer contents]) + NewQuery.Offset), EQueryResultMaxSize);
@@ -215,6 +218,7 @@ FRingBuffer::FRingBuffer(id<MTLDevice> Device, uint32 Size, uint32 InDefaultAlig
 	Buffer = [Device newBufferWithLength:Size options:BUFFER_CACHE_MODE];
 	Offset = 0;
 	LastRead = Size;
+	LastWritten = 0;
 	TRACK_OBJECT(STAT_MetalBufferCount, Buffer);
 }
 
@@ -236,6 +240,14 @@ uint32 FRingBuffer::Allocate(uint32 Size, uint32 Alignment)
 			// get current location
 			uint32 ReturnOffset = Offset;
 			Offset += Size;
+			
+#if METAL_DEBUG_OPTIONS
+			if (GMetalBufferZeroFill)
+			{
+				FMemory::Memset(((uint8*)[Buffer contents]) + ReturnOffset, 0x0, Size);
+			}
+#endif
+
 			return ReturnOffset;
 		}
 		else // wrap
@@ -251,6 +263,14 @@ uint32 FRingBuffer::Allocate(uint32 Size, uint32 Alignment)
 		// get current location
 		uint32 ReturnOffset = Offset;
 		Offset += Size;
+
+#if METAL_DEBUG_OPTIONS
+		if (GMetalBufferZeroFill)
+		{
+			FMemory::Memset(((uint8*)[Buffer contents]) + ReturnOffset, 0x0, Size);
+		}
+#endif
+		
 		return ReturnOffset;
 	}
 	else
@@ -266,6 +286,14 @@ uint32 FRingBuffer::Allocate(uint32 Size, uint32 Alignment)
 		// get current location
 		uint32 ReturnOffset = Offset;
 		Offset += Size;
+
+#if METAL_DEBUG_OPTIONS
+		if (GMetalBufferZeroFill)
+		{
+			FMemory::Memset(((uint8*)[Buffer contents]) + ReturnOffset, 0x0, Size);
+		}
+#endif
+
 		return ReturnOffset;
 	}
 }

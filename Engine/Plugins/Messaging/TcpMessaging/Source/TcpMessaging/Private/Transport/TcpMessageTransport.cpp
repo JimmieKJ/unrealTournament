@@ -1,7 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TcpMessagingPrivatePCH.h"
-#include "TcpSerializeMessageTask.h"
+#include "Transport/TcpMessageTransport.h"
+#include "HAL/RunnableThread.h"
+#include "Common/TcpSocketBuilder.h"
+#include "Common/TcpListener.h"
+#include "TcpMessagingPrivate.h"
+#include "Transport/TcpDeserializedMessage.h"
+#include "Transport/TcpSerializedMessage.h"
+#include "Transport/TcpMessageTransportConnection.h"
+#include "Transport/TcpSerializeMessageTask.h"
 
 
 /* FTcpMessageTransport structors
@@ -123,8 +130,11 @@ bool FTcpMessageTransport::TransportMessage(const IMessageContextRef& Context, c
 
 	if (Recipients.Num() == 0)
 	{
-		// broadcast the message to all connections
-		RecipientConnections = Connections;
+		// broadcast the message to all valid connections
+		RecipientConnections = Connections.FilterByPredicate([&](const TSharedPtr<FTcpMessageTransportConnection>& Connection) -> bool
+		{
+			return Connection->GetConnectionState() == FTcpMessageTransportConnection::STATE_Connected;
+		});
 	}
 	else
 	{
@@ -132,17 +142,19 @@ bool FTcpMessageTransport::TransportMessage(const IMessageContextRef& Context, c
 		for (auto& Recipient : Recipients)
 		{
 			TSharedPtr<FTcpMessageTransportConnection>* RecipientConnection = NodeConnectionMap.Find(Recipient);
-			if (RecipientConnection)
+			if (RecipientConnection && (*RecipientConnection)->GetConnectionState() == FTcpMessageTransportConnection::STATE_Connected)
 			{
 				RecipientConnections.AddUnique(*RecipientConnection);
 			}
 		}
 	}
 
-	if(RecipientConnections.Num() == 0)
+	if (RecipientConnections.Num() == 0)
 	{
 		return false;
 	}
+
+	UE_LOG(LogTcpMessaging, Verbose, TEXT("Transporting message '%s' to %d connections"), *Context->GetMessageType().ToString(), RecipientConnections.Num());
 
 	FTcpSerializedMessageRef SerializedMessage = MakeShareable(new FTcpSerializedMessage());
 
@@ -220,6 +232,7 @@ uint32 FTcpMessageTransport::Run()
 				FGuid SenderNodeId;
 				while (Connection->Receive(Message, SenderNodeId))
 				{
+					UE_LOG(LogTcpMessaging, Verbose, TEXT("Received message '%s'"), *Message->GetMessageType().ToString());
 					MessageReceivedDelegate.ExecuteIfBound(Message.ToSharedRef(), SenderNodeId);
 				}
 			}

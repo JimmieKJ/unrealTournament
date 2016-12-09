@@ -4,12 +4,9 @@
 TextureStreamingHelpers.cpp: Definitions of classes used for texture streaming.
 =============================================================================*/
 
-#include "EnginePrivate.h"
-#include "TextureStreamingHelpers.h"
+#include "Streaming/TextureStreamingHelpers.h"
 #include "Engine/Texture2D.h"
-#include "GenericPlatformMemoryPoolStats.h"
-#include "Engine/LightMapTexture2D.h"
-#include "Engine/ShadowMapTexture2D.h"
+#include "GenericPlatform/GenericPlatformMemoryPoolStats.h"
 
 /** Streaming stats */
 
@@ -166,6 +163,30 @@ TAutoConsoleVariable<int32> CVarStreamingCheckBuildStatus(
 	ECVF_Scalability);
 
 
+TAutoConsoleVariable<int32> CVarScaleTexturesByGlobalMyBias(
+	TEXT("r.Streaming.ScaleTexturesByGlobalMyBias"),
+	0,
+	TEXT("If non-zero, streaming textures wanted resolution will be scaled down by the global mip bias"),
+	ECVF_Default);
+
+TAutoConsoleVariable<int32> CVarStreamingUseMaterialData(
+	TEXT("r.Streaming.UseMaterialData"),
+	1,
+	TEXT("If non-zero, material texture scales and coord will be used"),
+	ECVF_Default);
+
+TAutoConsoleVariable<int32> CVarStreamingNumStaticComponentsProcessedPerFrame(
+	TEXT("r.Streaming.NumStaticComponentsProcessedPerFrame"),
+	50,
+	TEXT("If non-zero, the engine will incrementaly inserting levels by processing this amount of components per frame before they become visible"),
+	ECVF_Default);
+
+TAutoConsoleVariable<int32> CVarStreamingDefragDynamicBounds(
+	TEXT("r.Streaming.DefragDynamicBounds"),
+	1,
+	TEXT("If non-zero, unused dynamic bounds will be removed from the update loop"),
+	ECVF_Default);
+
 void FTextureStreamingSettings::Update()
 {
 	MaxEffectiveScreenSize = CVarStreamingScreenSizeEffectiveMax.GetValueOnAnyThread();
@@ -176,10 +197,12 @@ void FTextureStreamingSettings::Update()
 	MipBias = FMath::Max<float>(0.f, CVarStreamingMipBias.GetValueOnAnyThread());
 	PoolSize = CVarStreamingPoolSize.GetValueOnAnyThread();
 	bUsePerTextureBias = !GIsEditor && CVarStreamingUsePerTextureBias.GetValueOnAnyThread() != 0;
+	bUseMaterialData = CVarStreamingUseMaterialData.GetValueOnAnyThread() != 0;
 	bUseNewMetrics = CVarStreamingUseNewMetrics.GetValueOnAnyThread() != 0;
 	bLimitPoolSizeToVRAM = !GIsEditor && CVarStreamingLimitPoolSizeToVRAM.GetValueOnAnyThread() != 0;
 	bFullyLoadUsedTextures = CVarStreamingFullyLoadUsedTextures.GetValueOnAnyThread() != 0;
 	bUseAllMips = CVarStreamingUseAllMips.GetValueOnAnyThread() != 0;
+	bScaleTexturesByGlobalMyBias = CVarScaleTexturesByGlobalMyBias.GetValueOnAnyThread() != 0;
 
 	if (bUseAllMips)
 	{

@@ -1,9 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintCompilerCppBackendModulePrivatePCH.h"
 #include "BlueprintCompilerCppBackendGatherDependencies.h"
+#include "Misc/CoreMisc.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/GarbageCollection.h"
+#include "UObject/Class.h"
+#include "UObject/StructOnScope.h"
+#include "UObject/UnrealType.h"
+#include "UObject/EnumProperty.h"
+#include "Engine/Blueprint.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/UserDefinedEnum.h"
+#include "Engine/UserDefinedStruct.h"
+#include "EdGraphSchema_K2.h"
 #include "IBlueprintCompilerCppBackendModule.h"
-#include "BlueprintEditorUtils.h"
+#include "K2Node.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "K2Node_EnumLiteral.h"
 
 struct FGatherConvertedClassDependenciesHelperBase : public FReferenceCollector
@@ -81,8 +95,21 @@ struct FFindAssetsToInclude : public FGatherConvertedClassDependenciesHelperBase
 			return;
 		}
 
-		const bool bUseZConstructorInGeneratedCode = false;
+		if (Object->HasAnyFlags(RF_ClassDefaultObject))
+		{
+			// Static functions from libraries are called on CDO. (The functions is stored as a name not an object).
+			UClass* OwnerClass = Object->GetClass();
+			if (OwnerClass && (OwnerClass != CurrentlyConvertedStruct))
+			{
+				UBlueprintGeneratedClass* OwnerAsBPGC = Cast<UBlueprintGeneratedClass>(OwnerClass);
+				if (OwnerAsBPGC && !Dependencies.ConvertedClasses.Contains(OwnerAsBPGC) && Dependencies.WillClassBeConverted(OwnerAsBPGC))
+				{
+					Dependencies.ConvertedClasses.Add(OwnerAsBPGC);
+				}
+			}
+		}
 
+		const bool bUseZConstructorInGeneratedCode = false;
 		//TODO: What About Delegates?
 		auto ObjAsBPGC = Cast<UBlueprintGeneratedClass>(Object);
 		const bool bWillBeConvetedAsBPGC = ObjAsBPGC && Dependencies.WillClassBeConverted(ObjAsBPGC);
@@ -162,12 +189,29 @@ struct FFindHeadersToInclude : public FGatherConvertedClassDependenciesHelperBas
 			{
 				if (Graph)
 				{
-					TArray<UK2Node_EnumLiteral*> LiteralEnumNodes;
-					Graph->GetNodesOfClass<UK2Node_EnumLiteral>(LiteralEnumNodes);
-					for (UK2Node_EnumLiteral* LiteralEnumNode : LiteralEnumNodes)
+					TArray<UK2Node*> AllNodes;
+					Graph->GetNodesOfClass<UK2Node>(AllNodes);
+					for (UK2Node* K2Node : AllNodes)
 					{
-						UEnum* Enum = LiteralEnumNode ? LiteralEnumNode->Enum : nullptr;
-						IncludeTheHeaderInBody(Enum);
+						if (UK2Node_EnumLiteral* LiteralEnumNode = Cast<UK2Node_EnumLiteral>(K2Node))
+						{
+							UEnum* Enum = LiteralEnumNode ? LiteralEnumNode->Enum : nullptr;
+							IncludeTheHeaderInBody(Enum);
+						}
+						// HACK FOR LITERAL ENUMS:
+						else if(K2Node)
+						{
+							for (UEdGraphPin* Pin : K2Node->Pins)
+							{
+								if (Pin && (Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Byte))
+								{
+									if (UEnum* Enum = Cast<UEnum>(Pin->PinType.PinSubCategoryObject.Get()))
+									{
+										IncludeTheHeaderInBody(Enum);
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -392,6 +436,14 @@ void FGatherConvertedClassDependencies::DependenciesForHeader()
 		const bool bIsMemberVariable = OwnerProperty && (OwnerProperty->GetOuter() == OriginalStruct);
 		if (bIsParam || bIsMemberVariable)
 		{
+			if (auto AssetClassProperty = Cast<const UAssetClassProperty>(Property))
+			{
+				DeclareInHeader.Add(GetFirstNativeOrConvertedClass(AssetClassProperty->MetaClass));
+			}
+			if (auto ClassProperty = Cast<const UClassProperty>(Property))
+			{
+				DeclareInHeader.Add(GetFirstNativeOrConvertedClass(ClassProperty->MetaClass));
+			}
 			if (auto ObjectProperty = Cast<const UObjectPropertyBase>(Property))
 			{
 				DeclareInHeader.Add(GetFirstNativeOrConvertedClass(ObjectProperty->PropertyClass));
@@ -414,6 +466,11 @@ void FGatherConvertedClassDependencies::DependenciesForHeader()
 			{ 
 				// HeaderReferenceFinder.FindReferences(Obj); cannot find this enum..
 				IncludeInHeader.Add(ByteProperty->Enum);
+			}
+			else if (const UEnumProperty* EnumProperty = Cast<const UEnumProperty>(Property))
+			{ 
+				// HeaderReferenceFinder.FindReferences(Obj); cannot find this enum..
+				IncludeInHeader.Add(EnumProperty->GetEnum());
 			}
 			else
 			{
@@ -483,3 +540,86 @@ void FGatherConvertedClassDependencies::DependenciesForHeader()
 	}
 }
 
+TSet<const UObject*> FGatherConvertedClassDependencies::AllDependencies() const
+{
+	TSet<const UObject*> All;
+
+	UBlueprintGeneratedClass* SuperClass = Cast<UBlueprintGeneratedClass>(OriginalStruct->GetSuperStruct());
+	if (SuperClass && WillClassBeConverted(SuperClass))
+	{
+		All.Add(SuperClass);
+	}
+
+	if (auto SourceClass = Cast<UClass>(OriginalStruct))
+	{
+		for (auto& ImplementedInterface : SourceClass->Interfaces)
+		{
+			UBlueprintGeneratedClass* InterfaceClass = Cast<UBlueprintGeneratedClass>(ImplementedInterface.Class);
+			if (InterfaceClass && WillClassBeConverted(InterfaceClass))
+			{
+				All.Add(InterfaceClass);
+			}
+		}
+	}
+
+	for (auto It : Assets)
+	{
+		All.Add(It);
+	}
+	for (auto It : ConvertedClasses)
+	{
+		All.Add(It);
+	}
+	for (auto It : ConvertedStructs)
+	{
+		All.Add(It);
+	}
+	for (auto It : ConvertedEnum)
+	{
+		All.Add(It);
+	}
+	return All;
+}
+
+class FArchiveReferencesInStructIntance : public FArchive
+{
+public:
+
+	using FArchive::operator<<; // For visibility of the overloads we don't override
+
+	TSet<UObject*> References;
+
+	//~ Begin FArchive Interface
+	virtual FArchive& operator<< (class FLazyObjectPtr& Value) override { return *this; }
+	virtual FArchive& operator<< (class FAssetPtr& Value) override { return *this; }
+	virtual FArchive& operator<< (struct FStringAssetReference& Value) override { return *this; }
+
+	virtual FArchive& operator<<(UObject*& Object) override
+	{
+		if (Object)
+		{
+			References.Add(Object);
+		}
+		return *this;
+	}
+	//~ End FArchive Interface
+
+	FArchiveReferencesInStructIntance()
+	{
+		ArIsObjectReferenceCollector = true;
+		ArIsFilterEditorOnly = true;
+	}
+};
+
+
+void FGatherConvertedClassDependencies::GatherAssetReferencedByUDSDefaultValue(TSet<UObject*>& Dependencies, UUserDefinedStruct* Struct)
+{
+	if (Struct)
+	{
+		FStructOnScope StructOnScope(Struct);
+		Struct->InitializeDefaultValue(StructOnScope.GetStructMemory());
+		FArchiveReferencesInStructIntance ArchiveReferencesInStructIntance;
+		Struct->SerializeItem(ArchiveReferencesInStructIntance, StructOnScope.GetStructMemory(), nullptr);
+		Dependencies.Append(ArchiveReferencesInStructIntance.References);
+	}
+}

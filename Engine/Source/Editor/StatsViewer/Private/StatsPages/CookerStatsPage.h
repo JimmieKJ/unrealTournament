@@ -3,6 +3,11 @@
 #pragma once
 
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "Widgets/SWidget.h"
+#include "IStatsViewer.h"
+#include "StatsPage.h"
 #include "CookerStats.h"
 
 /**

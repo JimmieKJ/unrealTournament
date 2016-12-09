@@ -3,15 +3,17 @@
 /*=============================================================================
 	LinkerManager.h: Unreal object linker manager
 =============================================================================*/
-#include "CoreUObjectPrivate.h"
-#include "LinkerManager.h"
-#include "AsyncLoading.h"
+#include "UObject/LinkerManager.h"
+#include "Internationalization/GatherableTextData.h"
+#include "UObject/Package.h"
+#include "UObject/ObjectResource.h"
+#include "UObject/LinkerLoad.h"
 #include "UObject/UObjectThreadContext.h"
 
 FLinkerManager& FLinkerManager::Get()
 {
-	static TAutoPtr<FLinkerManager> Singleton(new FLinkerManager());
-	return *Singleton.GetOwnedPointer();
+	static TUniquePtr<FLinkerManager> Singleton = MakeUnique<FLinkerManager>();
+	return *Singleton;
 }
 
 bool FLinkerManager::Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
@@ -19,9 +21,21 @@ bool FLinkerManager::Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputDevice
 	if (FParse::Command(&Cmd, TEXT("LinkerLoadList")))
 	{
 		UE_LOG(LogLinker, Display, TEXT("ObjectLoaders: %d"), ObjectLoaders.Num());
+#if !UE_BUILD_SHIPPING
+		for (auto Linker : ObjectLoaders)
+		{
+			UE_LOG(LogLinker, Display, TEXT("%s"), *Linker->Filename);
+		}
+#endif
 		UE_LOG(LogLinker, Display, TEXT("LoadersWithNewImports: %d"), LoadersWithNewImports.Num());
+#if !UE_BUILD_SHIPPING
+		for (auto Linker : LoadersWithNewImports)
+		{
+			UE_LOG(LogLinker, Display, TEXT("%s"), *Linker->Filename);
+		}
+#endif
 
-#if UE_BUILD_DEBUG
+#if !UE_BUILD_SHIPPING
 		UE_LOG(LogLinker, Display, TEXT("LiveLinkers: %d"), LiveLinkers.Num());
 		for (auto Linker : LiveLinkers)
 		{
@@ -203,10 +217,7 @@ void FLinkerManager::DeleteLinkers()
 	ThreadContext.IsDeletingLinkers = true;
 	for (FLinkerLoad* Linker : CleanupArray)
 	{
-		if (Linker->AsyncRoot == nullptr || Linker->AsyncRoot->HasFinishedLoading() || Linker->AsyncRoot->HasLoadFailed())
-		{
-			delete Linker;
-		}
+		delete Linker;
 	}
 	ThreadContext.IsDeletingLinkers = false;
 }

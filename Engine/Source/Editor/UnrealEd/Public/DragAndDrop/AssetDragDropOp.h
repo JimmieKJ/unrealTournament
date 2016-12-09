@@ -2,10 +2,15 @@
 
 #pragma once
 
-#include "Runtime/AssetRegistry/Public/AssetData.h"
-#include "AssetThumbnail.h"
-#include "ClassIconFinder.h"
-#include "DecoratedDragDropOp.h"
+#include "CoreMinimal.h"
+#include "AssetData.h"
+#include "Input/DragAndDrop.h"
+#include "Layout/Visibility.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
+
+class FAssetThumbnail;
+class FAssetThumbnailPool;
+class UActorFactory;
 
 class FAssetDragDropOp : public FDecoratedDragDropOp
 {

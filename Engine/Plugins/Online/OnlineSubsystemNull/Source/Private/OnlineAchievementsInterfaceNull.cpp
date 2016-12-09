@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemNullPrivatePCH.h"
 #include "OnlineAchievementsInterfaceNull.h"
+#include "OnlineSubsystem.h"
 
 FOnlineAchievementsNull::FOnlineAchievementsNull(class FOnlineSubsystemNull* InSubsystem)
 	:	NullSubsystem(InSubsystem)

@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemGooglePlayPrivatePCH.h"
+#include "OnlineExternalUIInterfaceGooglePlay.h"
 #include "AndroidRuntimeSettings.h"
-#include "CoreUObject.h"
+#include "UObject/Class.h"
+#include "OnlineSubsystemGooglePlay.h"
 
 #include "gpg/achievement_manager.h"
 #include "gpg/leaderboard_manager.h"

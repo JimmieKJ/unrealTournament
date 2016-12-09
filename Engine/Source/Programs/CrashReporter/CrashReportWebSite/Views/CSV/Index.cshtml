@@ -1,0 +1,64 @@
+﻿<!-- // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. -->
+
+@using Tools.CrashReporter.CrashReportWebSite.Models
+@model CSV_ViewModel
+
+@{
+    ViewBag.Title = "Index";
+    Layout = "../Shared/_CRWLayout.cshtml";
+}
+
+@section ScriptContent{
+   
+    <script type="text/javascript">
+
+        $(function ()
+        {
+            $("#dateFromVisible")
+                .datepicker({ maxDate: '+0D' })
+                .datepicker('setDate', new Date(parseInt($('#dateFrom').val())));
+
+            $("#dateToVisible")
+                .datepicker({ maxDate: '+0D' })
+                .datepicker('setDate', new Date(parseInt($('#dateTo').val())));
+
+        });
+
+        $.datepicker.setDefaults({
+            onSelect: function ()
+            {
+                $("#dateFrom").val($("#dateFromVisible").datepicker('getDate').getTime());
+                $("#dateTo").val($("#dateToVisible").datepicker('getDate').getTime());
+            }
+        });
+
+    </script>
+}
+
+@section AboveMainContent{
+--<div style="clear:both;"><small style="color: lightgray;">Generated in @Model.GenerationTime second(s)</small><br /></div>--
+}
+
+<div id='SearchForm' style="clear:both;">
+@using( Html.BeginForm( "GenerateCSV", "CSV", FormMethod.Get, new { id = "CSVForm" } ) )
+{ 
+	<script>$.datepicker.setDefaults($.datepicker.regional['']);</script>
+
+	<p class="SearchTextTitle">Filter by Date</p>
+
+	<p>
+		<span class="SearchTextTitle">From:</span>
+		<input id="dateFromVisible" type="text" class="date" autocomplete="OFF" style="width:80px" />
+		<input id="dateFrom" name="dateFrom" type="hidden" value="@Model.DateFrom " autocomplete="OFF" />
+		<span class="SearchTextTitle">To:</span>
+		<input id="dateToVisible" type="text" class="date" autocomplete="OFF" style="width:80px" />
+		<input id="dateTo" name="dateTo" type="hidden" value="@Model.DateTo "autocomplete="OFF"  />
+	</p>
+
+	 <p>
+		 <input type="submit" value="Generate" class='SearchButton' />
+	 </p>
+	
+	} 
+
+</div>

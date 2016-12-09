@@ -1,12 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AppFrameworkPrivatePCH.h"
-#include "SPerfSuite.h"
+#include "Widgets/Testing/SPerfSuite.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Application/SlateWindowHelper.h"
+#include "Framework/Docking/TabManager.h"
 
 #if !UE_BUILD_SHIPPING
 
-#include "SDockTab.h"
-#include "STableViewTesting.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Testing/STableViewTesting.h"
 #include "ISlateReflectorModule.h"
 
 void SummonPerfTestSuite()

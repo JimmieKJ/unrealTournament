@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintEditorPrivatePCH.h"
-
-#include "BlueprintUtilities.h"
-#include "BlueprintEditorUtils.h"
-#include "GraphEditorDragDropAction.h"
 #include "BPFunctionDragDropAction.h"
+#include "EdGraph/EdGraph.h"
+#include "EditorStyleSet.h"
+#include "EdGraphSchema_K2.h"
+#include "EdGraphSchema_K2_Actions.h"
+#include "K2Node_CustomEvent.h"
+#include "K2Node_MacroInstance.h"
+
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "BlueprintNodeBinder.h"
 #include "BlueprintFunctionNodeSpawner.h"
 
 #define LOCTEXT_NAMESPACE "FunctionDragDropAction"

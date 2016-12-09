@@ -4,7 +4,16 @@
 	Android_MultiTargetPlatformModule.cpp: Implements the Android_Multi target platform variant
 =============================================================================*/
 
-#include "Android_MultiTargetPlatformPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Android/AndroidProperties.h"
+#include "Interfaces/ITargetPlatformModule.h"
+#include "IAndroid_MultiTargetPlatformModule.h"
+#include "Common/TargetPlatformBase.h"
+#include "Interfaces/IAndroidDeviceDetection.h"
+#include "Interfaces/IAndroidDeviceDetectionModule.h"
+#include "AndroidTargetDevice.h"
+#include "AndroidTargetPlatform.h"
 
 #define LOCTEXT_NAMESPACE "FAndroid_MultiTargetPlatformModule" 
 

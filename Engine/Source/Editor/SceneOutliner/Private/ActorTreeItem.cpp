@@ -1,19 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SceneOutlinerPrivatePCH.h"
-#include "SSceneOutliner.h"
-
-#include "SceneOutlinerFilters.h"
-
 #include "ActorTreeItem.h"
-#include "FolderTreeItem.h"
-#include "WorldTreeItem.h"
-
-#include "ActorEditorUtils.h"
-#include "LevelUtils.h"
-#include "MessageLog.h"
-#include "SSocketChooser.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Application/MenuStack.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Editor.h"
 #include "ScopedTransaction.h"
+#include "SceneOutlinerPublicTypes.h"
+#include "DragAndDrop/ActorDragDropGraphEdOp.h"
+#include "SceneOutlinerDragDrop.h"
+#include "SceneOutlinerStandaloneTypes.h"
+
+
+
+#include "Logging/MessageLog.h"
+#include "SSocketChooser.h"
 
 #define LOCTEXT_NAMESPACE "SceneOutliner_ActorTreeItem"
 

@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
+
+class SWidget;
+struct FCollisionObjectQueryParams;
+struct FCollisionResponseParams;
+
 /** Enum to describe type of the query */
 namespace ECAQueryType
 {

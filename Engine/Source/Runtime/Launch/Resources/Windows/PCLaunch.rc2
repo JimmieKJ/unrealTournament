@@ -3,7 +3,7 @@
 // This file contains resources which are edited by hand, and cannot be loaded/saved by the Visual Studio resource editor.
 
 #include "resource.h"
-#include "CoreMiscDefines.h"
+#include "../../../Core/Public/Misc/CoreMiscDefines.h"
 #include "../Version.h"
 
 /////////////////////////////////////////////////////////////////////////////
@@ -28,12 +28,12 @@ BEGIN
 	BEGIN
 		BLOCK "040904b0"
 		BEGIN
-			VALUE "CompanyName", EPIC_COMPANY_NAME
-			VALUE "LegalCopyright", EPIC_COPYRIGHT_STRING
-			VALUE "ProductName", EPIC_PRODUCT_NAME
+			VALUE "CompanyName", BUILD_PROJECT_COMPANY_NAME
+			VALUE "LegalCopyright", BUILD_PROJECT_COPYRIGHT_STRING
+			VALUE "ProductName", BUILD_PROJECT_PRODUCT_NAME
 			VALUE "ProductVersion", BUILD_VERSION
-			VALUE "FileDescription", EPIC_PRODUCT_NAME
-			VALUE "InternalName", EPIC_PRODUCT_IDENTIFIER
+			VALUE "FileDescription", BUILD_PROJECT_PRODUCT_NAME
+			VALUE "InternalName", BUILD_PROJECT_PRODUCT_IDENTIFIER
 			VALUE "OriginalFilename", PREPROCESSOR_TO_STRING(ORIGINAL_FILE_NAME)
 		END
 	END

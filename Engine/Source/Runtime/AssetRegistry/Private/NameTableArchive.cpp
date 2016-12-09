@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetRegistryPCH.h"
+#include "NameTableArchive.h"
+#include "HAL/FileManager.h"
+#include "AssetRegistryPrivate.h"
 
 FNameTableArchiveReader::FNameTableArchiveReader()
 	: FArchive()

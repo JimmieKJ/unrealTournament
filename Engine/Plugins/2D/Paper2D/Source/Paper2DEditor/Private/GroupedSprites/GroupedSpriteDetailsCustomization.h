@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "PropertyEditing.h"
+#include "CoreMinimal.h"
+#include "Input/Reply.h"
+#include "IDetailCustomization.h"
+
+class IDetailLayoutBuilder;
 
 //////////////////////////////////////////////////////////////////////////
 // FGroupedSpriteComponentDetailsCustomization

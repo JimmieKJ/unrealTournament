@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/ILauncherProfileLaunchRole.h"
+#include "Dom/JsonObject.h"
 
 class FLauncherProfileLaunchRole
 	: public ILauncherProfileLaunchRole

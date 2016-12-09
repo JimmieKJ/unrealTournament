@@ -2,11 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
-// forward declarations
 class ISettingsCategory;
 class ISettingsSection;
-
 
 /**
  * Interface for setting containers.

@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+
 /**
  * Dictionary of all the non-foreign projects for an engine installation, found by parsing .uprojectdirs files for source directories.
  */

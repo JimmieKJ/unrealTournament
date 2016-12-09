@@ -3,7 +3,10 @@
 
 #pragma once
 
-#include "UnrolledLinkList.h"
+#include "CoreMinimal.h"
+#include "Developer/MeshSimplifier/Private/UnrolledLinkList.h"
+
+template< typename T > class TSimpTri;
 
 enum ESimpElementFlags
 {
@@ -12,7 +15,6 @@ enum ESimpElementFlags
 	SIMP_MARK1		= 1 << 1,
 	SIMP_MARK2		= 1 << 2,
 	SIMP_LOCKED		= 1 << 3,
-	SIMP_UPDATE		= 1 << 4,
 };
 
 template< typename T >
@@ -24,10 +26,11 @@ class TSimpVert
 public:
 					TSimpVert();
 
-	FVector&		GetPos()				{ return vert.GetPos(); }
-	const FVector&	GetPos() const			{ return vert.GetPos(); }
-	float*			GetAttributes()			{ return vert.GetAttributes(); }
-	const float*	GetAttributes() const	{ return vert.GetAttributes(); }
+	uint32			GetMaterialIndex() const	{ return vert.GetMaterialIndex(); }
+	FVector&		GetPos()					{ return vert.GetPos(); }
+	const FVector&	GetPos() const				{ return vert.GetPos(); }
+	float*			GetAttributes()				{ return vert.GetAttributes(); }
+	const float*	GetAttributes() const		{ return vert.GetAttributes(); }
 
 	// this vert
 	void			EnableFlags( uint32 f );
@@ -40,7 +43,8 @@ public:
 	void			EnableAdjTriFlags( uint32 f );
 	void			DisableAdjTriFlags( uint32 f );
 
-	void			FindAdjacentVerts( TSimpVert<T>** adjVerts, int& numVerts );
+	template< typename Allocator >
+	void			FindAdjacentVerts( TArray< TSimpVert<T>*, Allocator >& adjVerts );
 
 	// all verts in group
 	void			EnableFlagsGroup( uint32 f );
@@ -53,8 +57,8 @@ public:
 	void			EnableAdjTriFlagsGroup( uint32 f );
 	void			DisableAdjTriFlagsGroup( uint32 f );
 
-	uint32			NumAdjTrisGroup();
-	void			FindAdjacentVertsGroup( TSimpVert<T>** adjVerts, int& numVerts );
+	template< typename Allocator >
+	void			FindAdjacentVertsGroup( TArray< TSimpVert<T>*, Allocator >& adjVerts );
 
 	typedef TUnrolledLinkList< TSimpTri<T>*, 8 >	TriList;
 	typedef typename TriList::TIterator				TriIterator;
@@ -194,24 +198,19 @@ FORCEINLINE void TSimpVert<T>::DisableAdjTriFlags( uint32 f )
 }
 
 template< typename T >
-void TSimpVert<T>::FindAdjacentVerts( TSimpVert<T>** adjVerts, int& numVerts )
+template< typename Allocator >
+void TSimpVert<T>::FindAdjacentVerts( TArray< TSimpVert<T>*, Allocator >& adjVerts )
 {
-	numVerts = 0;
-
-	EnableAdjVertFlags( SIMP_MARK1 );
-	DisableFlags( SIMP_MARK1 );
-
 	// fill array
 	for( TriIterator i = adjTris.Begin(); i != adjTris.End(); ++i )
 	{
 		for( int j = 0; j < 3; j++ )
 		{
 			TSimpVert* v = (*i)->verts[j];
-			if( v->TestFlags( SIMP_MARK1 ) )
+			if( v != this )
 			{
-				adjVerts[numVerts++] = v;
+				adjVerts.AddUnique(v);
 			}
-			v->DisableFlags( SIMP_MARK1 );
 		}
 	}
 }
@@ -277,43 +276,21 @@ FORCEINLINE void TSimpVert<T>::DisableAdjTriFlagsGroup( uint32 f )
 }
 
 template< typename T >
-FORCEINLINE uint32 TSimpVert<T>::NumAdjTrisGroup()
+template< typename Allocator >
+void TSimpVert<T>::FindAdjacentVertsGroup( TArray< TSimpVert<T>*, Allocator >& adjVerts )
 {
-	int numAdjVerts = 0;
-
-	TSimpVert<T>* v = this;
-	do {
-		numAdjVerts += v->adjTris.Num();
-		v = v->next;
-		check(v);
-	} while( v != this );
-
-	return numAdjVerts;
-}
-
-template< typename T >
-void TSimpVert<T>::FindAdjacentVertsGroup( TSimpVert<T>** adjVerts, int& numVerts )
-{
-	// TODO replace with TArray.AddUnique
-
-	numVerts = 0;
-
-	EnableAdjVertFlagsGroup( SIMP_MARK1 );
-	DisableFlagsGroup( SIMP_MARK1 );
-
 	// fill array
 	TSimpVert<T>* v = this;
 	do {
-		for( TriIterator i = v->adjTris.Begin(); i != v->adjTris.End(); ++i )
+		for( TriIterator i = adjTris.Begin(); i != adjTris.End(); ++i )
 		{
 			for( int j = 0; j < 3; j++ )
 			{
-				TSimpVert* simpVert = (*i)->verts[j];
-				if (simpVert->TestFlags(SIMP_MARK1))
+				TSimpVert* TriVert = (*i)->verts[j];
+				if( TriVert != v )
 				{
-					adjVerts[numVerts++] = simpVert;
+					adjVerts.AddUnique( TriVert );
 				}
-				simpVert->DisableFlags(SIMP_MARK1);
 			}
 		}
 		v = v->next;

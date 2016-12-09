@@ -44,7 +44,7 @@ public class OnlineSubsystemOculus : ModuleRules
 				PublicDelayLoadDLLs.Add("LibOVRPlatform64_1.dll");
 			}
 		}
-		else
+		else if (Target.Platform != UnrealTargetPlatform.Android)
 		{
 			PrecompileForTargets = PrecompileTargetsType.None;
 		}

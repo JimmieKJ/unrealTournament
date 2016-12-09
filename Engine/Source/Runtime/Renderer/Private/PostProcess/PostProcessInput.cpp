@@ -4,10 +4,7 @@
 	PostProcessAA.cpp: Post processing input implementation.
 =============================================================================*/
 
-#include "RendererPrivate.h"
-#include "ScenePrivate.h"
-#include "SceneFilterRendering.h"
-#include "PostProcessInput.h"
+#include "PostProcess/PostProcessInput.h"
 
 FRCPassPostProcessInput::FRCPassPostProcessInput(TRefCountPtr<IPooledRenderTarget>& InData)
 	: Data(InData)

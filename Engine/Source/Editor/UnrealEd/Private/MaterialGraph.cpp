@@ -3,15 +3,15 @@
 /////////////////////////////////////////////////////
 // UMaterialGraph
 
-#include "UnrealEd.h"
+#include "MaterialGraph/MaterialGraph.h"
+#include "MaterialGraph/MaterialGraphNode_Comment.h"
+#include "MaterialGraph/MaterialGraphNode.h"
+#include "MaterialGraph/MaterialGraphNode_Root.h"
 
 #include "Materials/MaterialExpressionComment.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 #include "Materials/MaterialExpressionCustomOutput.h"
 
-#include "GraphEditor.h"
-#include "MaterialShared.h"
-#include "MaterialEditorUtilities.h"
 
 #define LOCTEXT_NAMESPACE "MaterialGraph"
 
@@ -31,33 +31,33 @@ void UMaterialGraph::RebuildGraph()
 	if (!MaterialFunction)
 	{
 		// Initialize the material input list.
-		MaterialInputs.Add( FMaterialInputInfo( GetBaseColorPinName(), MP_BaseColor ) );	
-		MaterialInputs.Add( FMaterialInputInfo( GetMetallicPinName(), MP_Metallic ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Specular", "Specular"), MP_Specular ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Roughness", "Roughness"), MP_Roughness ) );
-		MaterialInputs.Add( FMaterialInputInfo( GetEmissivePinName(), MP_EmissiveColor ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Opacity", "Opacity"), MP_Opacity ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("OpacityMask", "Opacity Mask"), MP_OpacityMask ) );
-		MaterialInputs.Add( FMaterialInputInfo( GetNormalPinName(), MP_Normal ) );
-		MaterialInputs.Add( FMaterialInputInfo( GetWorldPositionOffsetPinName(), MP_WorldPositionOffset ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("WorldDisplacement", "World Displacement"), MP_WorldDisplacement ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("TessellationMultiplier", "Tessellation Multiplier"), MP_TessellationMultiplier ) );
-		MaterialInputs.Add( FMaterialInputInfo( GetSubsurfacePinName(), MP_SubsurfaceColor ) );
-		MaterialInputs.Add( FMaterialInputInfo( GetCustomDataPinName(0), MP_CustomData0 ) );
-		MaterialInputs.Add( FMaterialInputInfo( GetCustomDataPinName(1), MP_CustomData1 ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("AmbientOcclusion", "Ambient Occlusion"), MP_AmbientOcclusion ) );
-		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Refraction", "Refraction"), MP_Refraction) );
+		MaterialInputs.Add( FMaterialInputInfo( GetBaseColorPinName(), MP_BaseColor, LOCTEXT( "BaseColorToolTip", "Defines the overall color of the Material. Each channel is automatically clamped between 0 and 1" ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetMetallicPinName(), MP_Metallic, LOCTEXT( "MetallicToolTip", "Controls how \"metal-like\" your surface looks like") ) );
+		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Specular", "Specular"), MP_Specular, LOCTEXT("SpecularToolTip", "Used to scale the current amount of specularity on non-metallic surfaces and is a value between 0 and 1, default at 0.5") ) );
+		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT( "Roughness", "Roughness" ), MP_Roughness, LOCTEXT( "RoughnessToolTip", "Controls how rough the Material is. Roughness of 0 (smooth) is a mirror reflection and 1 (rough) is completely matte or diffuse" ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetEmissivePinName(), MP_EmissiveColor, LOCTEXT( "EmissiveToolTip", "Controls which parts of your Material will appear to glow" ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Opacity", "Opacity"), MP_Opacity, LOCTEXT( "OpacityToolTip", "Controls the transluecency of the Material" ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("OpacityMask", "Opacity Mask"), MP_OpacityMask, LOCTEXT( "OpacityMaskToolTip", "When in Masked mode, a Material is either completely visible or completely invisible" ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetNormalPinName(), MP_Normal, LOCTEXT( "NormalToolTip", "Takes the input of a normal map" ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetWorldPositionOffsetPinName(), MP_WorldPositionOffset, LOCTEXT( "WorldPositionOffsetToolTip", "Allows for the vertices of a mesh to be manipulated in world space by the Material" ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT( "WorldDisplacement", "World Displacement" ), MP_WorldDisplacement, LOCTEXT( "WorldDisplacementToolTip", "Allows for the tessellation vertices to be manipulated in world space by the Material" ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("TessellationMultiplier", "Tessellation Multiplier"), MP_TessellationMultiplier, LOCTEXT( "TessllationMultiplierToolTip", "Controls the amount tessellation along the surface" ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetSubsurfacePinName(), MP_SubsurfaceColor, LOCTEXT( "SubsurfaceToolTip", "Allows you to add a color to your Material to simulate shifts in color when light passes through the surface" ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetCustomDataPinName(0), MP_CustomData0, GetCustomDataPinName( 0 ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( GetCustomDataPinName(1), MP_CustomData1, GetCustomDataPinName( 1 ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("AmbientOcclusion", "Ambient Occlusion"), MP_AmbientOcclusion, LOCTEXT( "AmbientOcclusionToolTip", "Simulate the self-shadowing that happens within crevices of a surface" ) ) );
+		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("Refraction", "Refraction"), MP_Refraction, LOCTEXT( "RefractionToolTip", "Takes in a texture or value that simulates the index of refraction of the surface" ) ) );
 
 		for (int32 UVIndex = 0; UVIndex < ARRAY_COUNT(Material->CustomizedUVs); UVIndex++)
 		{
 			//@todo - localize
-			MaterialInputs.Add( FMaterialInputInfo( FText::FromString(FString::Printf(TEXT("Customized UV%u"), UVIndex)), (EMaterialProperty)(MP_CustomizedUVs0 + UVIndex)) );
+			MaterialInputs.Add( FMaterialInputInfo( FText::FromString(FString::Printf(TEXT("Customized UV%u"), UVIndex)), (EMaterialProperty)(MP_CustomizedUVs0 + UVIndex), FText::FromString(FString::Printf( TEXT( "CustomizedUV%uToolTip" ), UVIndex ) ) ) );
 		}
 
-		MaterialInputs.Add(FMaterialInputInfo(LOCTEXT("PixelDepthOffset", "Pixel Depth Offset"), MP_PixelDepthOffset));
+		MaterialInputs.Add(FMaterialInputInfo(LOCTEXT("PixelDepthOffset", "Pixel Depth Offset"), MP_PixelDepthOffset, LOCTEXT( "PixelDepthOffsetToolTip", "Pixel Depth Offset" ) ));
 
 		//^^^ New material properties go above here. ^^^^
-		MaterialInputs.Add(FMaterialInputInfo(LOCTEXT("MaterialAttributes", "Material Attributes"), MP_MaterialAttributes));
+		MaterialInputs.Add(FMaterialInputInfo(LOCTEXT("MaterialAttributes", "Material Attributes"), MP_MaterialAttributes, LOCTEXT( "MaterialAttributesToolTip", "Material Attributes" ) ));
 
 		// Add Root Node
 		FGraphNodeCreator<UMaterialGraphNode_Root> NodeCreator(*this);

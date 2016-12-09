@@ -2,7 +2,13 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Matinee/InterpTrackInst.h"
 #include "InterpTrackInstSlomo.generated.h"
+
+class UInterpTrack;
 
 UCLASS()
 class UInterpTrackInstSlomo : public UInterpTrackInst

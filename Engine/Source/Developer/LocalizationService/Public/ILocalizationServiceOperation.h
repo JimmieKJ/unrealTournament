@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 class ILocalizationServiceOperation : public TSharedFromThis<ILocalizationServiceOperation, ESPMode::ThreadSafe>
 {
 public:

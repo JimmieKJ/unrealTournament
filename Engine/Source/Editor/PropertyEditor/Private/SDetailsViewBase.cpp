@@ -1,25 +1,27 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
 #include "SDetailsViewBase.h"
-#include "AssetSelection.h"
-#include "PropertyNode.h"
-#include "ItemPropertyNode.h"
-#include "CategoryPropertyNode.h"
+#include "GameFramework/Actor.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
 #include "ObjectPropertyNode.h"
+#include "Modules/ModuleManager.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "IDetailCustomization.h"
+#include "SDetailsView.h"
+#include "DetailLayoutBuilderImpl.h"
+#include "DetailCategoryBuilderImpl.h"
+#include "CategoryPropertyNode.h"
 #include "ScopedTransaction.h"
-#include "AssetThumbnail.h"
 #include "SDetailNameArea.h"
-#include "IPropertyUtilities.h"
-#include "PropertyEditorHelpers.h"
-#include "PropertyEditor.h"
-#include "PropertyDetailsUtilities.h"
-#include "SPropertyEditorEditInline.h"
+#include "UserInterface/PropertyEditor/SPropertyEditorEditInline.h"
 #include "ObjectEditorUtils.h"
-#include "SColorPicker.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Widgets/Colors/SColorPicker.h"
 #include "DetailPropertyRow.h"
-#include "SSearchBox.h"
-
+#include "Widgets/Input/SSearchBox.h"
+#include "EditorStyleSettings.h"
 
 SDetailsViewBase::~SDetailsViewBase()
 {
@@ -299,6 +301,7 @@ static bool IsVisibleStandaloneProperty(const FPropertyNode& PropertyNode, const
 {
 	const UProperty* Property = PropertyNode.GetProperty();
 	const UArrayProperty* ParentArrayProperty = Cast<const UArrayProperty>(ParentNode.GetProperty());
+
 	bool bIsVisibleStandalone = false;
 	if(Property)
 	{
@@ -459,16 +462,16 @@ void SDetailsViewBase::UpdateSinglePropertyMapRecursive(FPropertyNode& InNode, F
 				bool bPushOutStructProps = bIsStruct && !bIsCustomizedStruct && !ParentStructProp && Property->HasMetaData(ShowOnlyInners);
 
 				// Is the property edit inline new 
-				const bool bIsEditInlineNew = SPropertyEditorEditInline::Supports(&ChildNode, ChildNode.GetArrayIndex());
+				const bool bIsEditInlineNew = ChildNode.HasNodeFlags(EPropertyNodeFlags::ShowInnerObjectProperties) || SPropertyEditorEditInline::Supports(&ChildNode, ChildNode.GetArrayIndex());
 
-				// Is this a property of an array
-				bool bIsChildOfArray = PropertyEditorHelpers::IsChildOfArray(ChildNode);
+				// Is this a property of a container property
+				bool bIsChildOfContainer = PropertyEditorHelpers::IsChildOfArray(ChildNode) || PropertyEditorHelpers::IsChildOfSet(ChildNode) || PropertyEditorHelpers::IsChildOfMap(ChildNode);
 
 				// Edit inline new properties should be visible by default
 				bVisibleByDefault |= bIsEditInlineNew;
 
 				// Children of arrays are not visible directly,
-				bVisibleByDefault &= !bIsChildOfArray;
+				bVisibleByDefault &= !bIsChildOfContainer;
 
 				FPropertyAndParent PropertyAndParent(*Property, ParentProperty);
 				const bool bIsUserVisible = IsPropertyVisible(PropertyAndParent);
@@ -492,7 +495,7 @@ void SDetailsViewBase::UpdateSinglePropertyMapRecursive(FPropertyNode& InNode, F
 				}
 
 				// Do not add children of customized in struct properties or arrays
-				if(!bIsChildOfCustomizedStruct && !bIsChildOfArray && !LocalUpdateFavoriteSystemOnly)
+				if(!bIsChildOfCustomizedStruct && !bIsChildOfContainer && !LocalUpdateFavoriteSystemOnly)
 				{
 					// Get the class property map
 					FClassInstanceToPropertyMap& ClassInstanceMap = LayoutData.ClassToPropertyMap.FindOrAdd(Property->GetOwnerStruct()->GetFName());
@@ -595,7 +598,7 @@ void SDetailsViewBase::UpdateSinglePropertyMapRecursive(FPropertyNode& InNode, F
 				bool bRecurseIntoChildren =
 					!bIsChildOfCustomizedStruct // Don't recurse into built in struct children, we already know what they are and how to display them
 					&&  !bIsCustomizedStruct // Don't recurse into customized structs
-					&&	!bIsChildOfArray // Do not recurse into arrays, the children are drawn by the array property parent
+					&&	!bIsChildOfContainer // Do not recurse into containers, the children are drawn by the container property parent
 					&&	!bIsEditInlineNew // Edit inline new children are not supported for customization yet
 					&&	bIsUserVisible // Properties must be allowed to be visible by a user if they are not then their children are not visible either
 					&& (!bIsStruct || bPushOutStructProps); //  Only recurse into struct properties if they are going to be displayed as standalone properties in categories instead of inside an expandable area inside a category
@@ -758,6 +761,8 @@ void SDetailsViewBase::OnShowOnlyModifiedClicked()
 void SDetailsViewBase::OnShowAllAdvancedClicked()
 {
 	CurrentFilter.bShowAllAdvanced = !CurrentFilter.bShowAllAdvanced;
+	GetMutableDefault<UEditorStyleSettings>()->bShowAllAdvancedDetails = CurrentFilter.bShowAllAdvanced;
+	GConfig->SetBool(TEXT("/Script/EditorStyle.EditorStyleSettings"), TEXT("bShowAllAdvancedDetails"), GetMutableDefault<UEditorStyleSettings>()->bShowAllAdvancedDetails, GEditorPerProjectIni);
 
 	UpdateFilteredDetails();
 }
@@ -977,21 +982,17 @@ void SDetailsViewBase::QueryCustomDetailLayout(FDetailLayoutData& LayoutData)
 		}
 	}
 
-	// Query extra base classes
+	// Query extra base classes and structs
 	for (auto ParentIt = ParentClassesToQuery.CreateConstIterator(); ParentIt; ++ParentIt)
 	{
-		UClass* ParentClass = Cast<UClass>(*ParentIt);
-		if (ParentClass)
-		{
-			QueryLayoutForClass(LayoutData, ParentClass);
-		}
+		QueryLayoutForClass(LayoutData, *ParentIt);
 	}
 }
 
 EVisibility SDetailsViewBase::GetFilterBoxVisibility() const
 {
 	// Visible if we allow search and we have anything to search otherwise collapsed so it doesn't take up room
-	return (DetailsViewArgs.bAllowSearch && IsConnected()) ? EVisibility::Visible : EVisibility::Collapsed;
+	return (DetailsViewArgs.bAllowSearch && IsConnected() && RootTreeNodes.Num() > 0) || HasActiveSearch() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 bool SDetailsViewBase::SupportsKeyboardFocus() const
@@ -1325,6 +1326,8 @@ void SDetailsViewBase::UpdateFilteredDetails()
 	
 	NumVisbleTopLevelObjectNodes = 0;
 	FRootPropertyNodeList& RootPropertyNodes = GetRootNodes();
+
+	CurrentFilter.bShowAllAdvanced = GetDefault<UEditorStyleSettings>()->bShowAllAdvancedDetails;
 
 	for(int32 RootNodeIndex = 0; RootNodeIndex < RootPropertyNodes.Num(); ++RootNodeIndex)
 	{

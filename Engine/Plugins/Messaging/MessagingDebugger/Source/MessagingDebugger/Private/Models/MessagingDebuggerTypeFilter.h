@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "IMessageTracer.h"
 
 /**
  * Implements a filter for the message endpoints list.
@@ -9,14 +11,14 @@
 class FMessagingDebuggerTypeFilter
 {
 public:
-
+	
 	/**
 	 * Filters the specified message type based on the current filter settings.
 	 *
 	 * @param TypeInfo The message type to filter.
 	 * @return true if the endpoint passed the filter, false otherwise.
 	 */
-	bool FilterType( const FMessageTracerTypeInfoPtr& TypeInfo ) const
+	bool FilterType(const TSharedPtr<FMessageTracerTypeInfo>& TypeInfo) const
 	{
 		if (!TypeInfo.IsValid())
 		{
@@ -47,7 +49,7 @@ public:
 	 *
 	 * @param InFilterString The filter string to set.
 	 */
-	void SetFilterString( const FString& InFilterString )
+	void SetFilterString(const FString& InFilterString)
 	{
 		FilterString = InFilterString;
 		ChangedEvent.Broadcast();
@@ -76,10 +78,3 @@ private:
 	/** Holds an event delegate that is invoked when the filter settings changed. */
 	FOnMessagingEndpointFilterChanged ChangedEvent;
 };
-
-
-/** Type definition for shared pointers to instances of FMessagingDebuggerTypeFilter. */
-typedef TSharedPtr<class FMessagingDebuggerTypeFilter> FMessagingDebuggerTypeFilterPtr;
-
-/** Type definition for shared references to instances of FMessagingDebuggerTypeFilter. */
-typedef TSharedRef<class FMessagingDebuggerTypeFilter> FMessagingDebuggerTypeFilterRef;

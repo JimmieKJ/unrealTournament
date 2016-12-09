@@ -1,7 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SlatePrivatePCH.h"
-#include "SVirtualJoystick.h"
+#include "Widgets/Input/SVirtualJoystick.h"
+#include "Rendering/DrawElements.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Framework/Application/SlateApplication.h"
 
 
 const float OPACITY_LERP_RATE = 3.f;

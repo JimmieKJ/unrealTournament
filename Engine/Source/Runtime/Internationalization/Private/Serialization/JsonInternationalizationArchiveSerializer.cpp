@@ -1,10 +1,10 @@
-﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "InternationalizationPrivatePCH.h"
-#include "Internationalization/InternationalizationArchive.h"
-#include "Internationalization/InternationalizationMetadata.h"
-#include "JsonInternationalizationArchiveSerializer.h"
-#include "JsonInternationalizationMetadataSerializer.h"
+#include "Serialization/JsonInternationalizationArchiveSerializer.h"
+#include "Misc/FileHelper.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonInternationalizationMetadataSerializer.h"
 #include "LocTextHelper.h"
 
 
@@ -158,6 +158,12 @@ bool FJsonInternationalizationArchiveSerializer::DeserializeInternal(TSharedRef<
 	if (InJsonObj->HasField(TAG_FORMATVERSION))
 	{
 		const int32 FormatVersion = static_cast<int32>(InJsonObj->GetNumberField(TAG_FORMATVERSION));
+		if (FormatVersion > (int32)FInternationalizationArchive::EFormatVersion::Latest)
+		{
+			// Archive is too new to be loaded!
+			return false;
+		}
+
 		InArchive->SetFormatVersion(static_cast<FInternationalizationArchive::EFormatVersion>(FormatVersion));
 	}
 	else

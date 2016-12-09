@@ -1,27 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "MovieScene.h"
-#include "MovieSceneSection.h"
-#include "ISequencerSection.h"
-#include "MovieSceneTrack.h"
-#include "MovieSceneCameraCutTrack.h"
-#include "MovieSceneCameraCutSection.h"
-#include "ScopedTransaction.h"
-#include "ISequencerObjectChangeListener.h"
-#include "IKeyArea.h"
-#include "MovieSceneTrackEditor.h"
-#include "CameraCutTrackEditor.h"
-#include "CommonMovieSceneTools.h"
-#include "AssetToolsModule.h"
-#include "CameraCutSection.h"
+#include "TrackEditors/CameraCutTrackEditor.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Tracks/MovieSceneCameraCutTrack.h"
+#include "Modules/ModuleManager.h"
+#include "Application/ThrottleManager.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "MovieSceneCommonHelpers.h"
+#include "EditorStyleSet.h"
+#include "GameFramework/WorldSettings.h"
+#include "LevelEditorViewport.h"
+#include "Sections/CameraCutSection.h"
 #include "SequencerUtilities.h"
-
+#include "Editor.h"
 #include "ActorEditorUtils.h"
-#include "Editor/SceneOutliner/Public/SceneOutliner.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
 #include "SceneOutlinerPublicTypes.h"
-#include "TrackEditorThumbnailPool.h"
+#include "SceneOutlinerModule.h"
+#include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
 
 #define LOCTEXT_NAMESPACE "FCameraCutTrackEditor"
 
@@ -100,7 +97,7 @@ TSharedPtr<SWidget> FCameraCutTrackEditor::BuildOutlinerEditWidget(const FGuid& 
 }
 
 
-TSharedRef<ISequencerSection> FCameraCutTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track)
+TSharedRef<ISequencerSection> FCameraCutTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
 {
 	check(SupportsType(SectionObject.GetOuter()->GetClass()));
 
@@ -128,11 +125,11 @@ void FCameraCutTrackEditor::Tick(float DeltaTime)
 	{
 		SequencerPin->EnterSilentMode();
 
-		float SavedTime = SequencerPin->GetGlobalTime();
+		float SavedTime = SequencerPin->GetLocalTime();
 
 		if (DeltaTime > 0.f && ThumbnailPool->DrawThumbnails())
 		{
-			SequencerPin->SetGlobalTimeDirectly(SavedTime);
+			SequencerPin->SetLocalTimeDirectly(SavedTime);
 		}
 
 		SequencerPin->ExitSilentMode();
@@ -174,35 +171,6 @@ UMovieSceneCameraCutTrack* FCameraCutTrackEditor::FindOrCreateCameraCutTrack()
 	}
 
 	return CastChecked<UMovieSceneCameraCutTrack>(CameraCutTrack);
-}
-
-
-UFactory* FCameraCutTrackEditor::GetAssetFactoryForNewCameraCut( UClass* SequenceClass )
-{
-	static TWeakObjectPtr<UFactory> CameraCutFactory;
-
-	if( !CameraCutFactory.IsValid() || CameraCutFactory->SupportedClass != SequenceClass )
-	{
-		TArray<UFactory*> Factories;
-		for (TObjectIterator<UClass> It; It; ++It)
-		{
-			UClass* Class = *It;
-			if (Class->IsChildOf(UFactory::StaticClass()) && !Class->HasAnyClassFlags(CLASS_Abstract))
-			{
-				UFactory* Factory = Class->GetDefaultObject<UFactory>();
-				if (Factory->CanCreateNew())
-				{
-					UClass* SupportedClass = Factory->GetSupportedClass();
-					if ( SupportedClass == SequenceClass )
-					{
-						CameraCutFactory = Factory;
-					}
-				}
-			}
-		}
-	}
-
-	return CameraCutFactory.Get();
 }
 
 
@@ -330,7 +298,7 @@ void FCameraCutTrackEditor::OnLockCameraClicked(ECheckBoxState CheckBoxState)
 		GetSequencer()->SetPerspectiveViewportCameraCutEnabled(false);
 	}
 
-	GetSequencer()->SetGlobalTime(GetSequencer()->GetGlobalTime());
+	GetSequencer()->ForceEvaluate();
 }
 
 FText FCameraCutTrackEditor::GetLockCameraToolTip() const

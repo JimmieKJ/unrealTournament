@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/Blueprint.h"
 #include "EditorUtilityBlueprint.generated.h"
 
 UCLASS()

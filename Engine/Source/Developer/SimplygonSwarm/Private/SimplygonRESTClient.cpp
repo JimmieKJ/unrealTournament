@@ -1,44 +1,104 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SimplygonSwarmPrivatePCH.h"
 #include "SimplygonRESTClient.h"
+#include "HAL/RunnableThread.h"
+#include "Editor/EditorPerProjectUserSettings.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 
 #define HOSTNAME "http://127.0.0.1"
 #define PORT ":55002"
 
-/*
-UploadPartInit
-/2.3/asset/uploadpart?apikey={1}&asset_name={2}&asset_id={3}
-
-UploadPartAbort
-/2.3/asset/uploadpart/{1}/abort?apikey={2}
-
-UploadPart_Get
-/2.3/asset/uploadpart/{1}?apikey={2}
-
-
-UploadPart
-/2.3/asset/uploadpart/{1}/upload?apikey={2}&part_number={3}
-
-
-UploadPartComplete
-/2.3/asset/uploadpart/{1}/Complete?apikey={2}&part_count={3}&upload_size={4}
-*/
-
+const TCHAR* SIMPLYGON_SWARM_REQUEST_DEBUG_TEMPALTE = TEXT("Error Processing Request %s");
 
 FSimplygonSwarmTask::FSimplygonSwarmTask(const FSwarmTaskkData& InTaskData)
 	:
-    TaskData(InTaskData),
-	State(SRS_UNKNOWN),
-	IsCompleted(false)
+	TaskData(InTaskData),
+	State(SRS_UNKNOWN)
 {
+	bMultiPartUploadInitialized = false;
+	TaskData.TaskUploadComplete = false;
+	DebugHttpRequestCounter.Set(0);
+	IsCompleted.AtomicSet(false);
+	APIKey = TEXT("LOCAL");
+	TaskData.JobName = TEXT("UE4_SWARM");
 }
 
 FSimplygonSwarmTask::~FSimplygonSwarmTask()
 {
-	//un register the delegates
+	UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, Warning, TEXT("Destroying Task With Job Id %s"), *JobId);
+
+	TArray<TSharedPtr<IHttpRequest>> OutPendingRequests;
+	if (PendingRequests.GetKeys(OutPendingRequests) > 0)
+	{
+		for (int32 ItemIndex = 0; ItemIndex < OutPendingRequests.Num(); ++ItemIndex)
+		{
+			UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, Warning, TEXT("Pending Request for task with status %d"), (int32)OutPendingRequests[ItemIndex]->GetStatus());
+			OutPendingRequests[ItemIndex]->CancelRequest();
+		}
+	}
+	//check(DebugHttpRequestCounter.GetValue() == 0);
+	UploadParts.Empty();
+
+	//unbind the delegates
 	OnAssetDownloaded().Unbind();
 	OnAssetUploaded().Unbind();
+	OnSwarmTaskFailed().Unbind();
+
+}
+
+void FSimplygonSwarmTask::CreateUploadParts(const int32 MaxUploadPartSize)
+{
+	//create upload parts
+	UploadParts.Empty();
+	TArray<uint8> fileBlob;
+	if (FFileHelper::LoadFileToArray(fileBlob, *TaskData.ZipFilePath))
+	{
+		UploadSize = fileBlob.Num();
+		if (fileBlob.Num() > MaxUploadPartSize)
+		{
+			int32 NumberOfPartsRequried = fileBlob.Num() / MaxUploadPartSize;
+			int32 RemainingBytes = fileBlob.Num() % MaxUploadPartSize;
+
+			for (int32 PartIndex = 0; PartIndex < NumberOfPartsRequried; ++PartIndex)
+			{
+				FSwarmUploadPart* UploadPartData = new (UploadParts) FSwarmUploadPart();
+				int32 Offset = PartIndex * MaxUploadPartSize * sizeof(uint8);
+				UploadPartData->Data.AddUninitialized(MaxUploadPartSize);
+				FMemory::Memcpy(UploadPartData->Data.GetData(), fileBlob.GetData() + Offset, MaxUploadPartSize * sizeof(uint8));
+				UploadPartData->PartNumber = PartIndex + 1;
+				UploadPartData->PartUploaded = false;
+			}
+
+			if (RemainingBytes > 0)
+			{
+				//NOTE: need to set Offset before doing a new on UploadParts
+				int32 Offset = UploadParts.Num() * MaxUploadPartSize;
+				FSwarmUploadPart* UploadPartData = new (UploadParts) FSwarmUploadPart();
+				UploadPartData->Data.AddUninitialized(RemainingBytes);
+				FMemory::Memcpy(UploadPartData->Data.GetData(), fileBlob.GetData() + Offset, RemainingBytes * sizeof(uint8));
+				UploadPartData->PartNumber = NumberOfPartsRequried + 1;
+				UploadPartData->PartUploaded = false;
+			}
+		}
+		else
+		{
+			FSwarmUploadPart* UploadPartData = new (UploadParts) FSwarmUploadPart();
+			UploadPartData->Data.AddUninitialized(fileBlob.Num());
+			FMemory::Memcpy(UploadPartData->Data.GetData(), fileBlob.GetData(), fileBlob.Num() * sizeof(uint8));
+			UploadPartData->PartNumber = 1;
+			UploadPartData->PartUploaded = false;
+		}
+
+		TotalParts = UploadParts.Num();
+		RemainingPartsToUpload.Add(TotalParts);
+	}
+}
+
+bool FSimplygonSwarmTask::NeedsMultiPartUpload()
+{
+	return UploadParts.Num() > 1;
 }
 
 SimplygonRESTState FSimplygonSwarmTask::GetState() const
@@ -63,7 +123,7 @@ void FSimplygonSwarmTask::SetState(SimplygonRESTState InState)
 	{
 		FScopeLock Lock(TaskData.StateLock);
 
-		//do not update the sate if either of these set is already set
+		//do not update the state if either of these set is already set
 		if (InState != State
 			&& (State != SRS_ASSETDOWNLOADED && State != SRS_FAILED))
 		{
@@ -72,19 +132,19 @@ void FSimplygonSwarmTask::SetState(SimplygonRESTState InState)
 		else if ((InState != State) && (State != SRS_FAILED) && (InState == SRS_ASSETDOWNLOADED))
 		{
 			State = SRS_ASSETDOWNLOADED;
-			this->IsCompleted = true;
+			this->IsCompleted.AtomicSet(true);
 		}
 		else if (InState != State && InState == SRS_FAILED)
 		{
 			State = SRS_ASSETDOWNLOADED;
 		}
-		
+
 	}
 	else
 	{
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Object in invalid state can not acquire state lock"));
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, Error, TEXT("Object in invalid state can not acquire state lock"));
 	}
-	
+
 }
 
 bool FSimplygonSwarmTask::IsFinished() const
@@ -96,7 +156,7 @@ bool FSimplygonSwarmTask::IsFinished() const
 bool FSimplygonSwarmTask::ParseJsonMessage(FString InJsonMessage, FSwarmJsonResponse& OutResponseData)
 {
 	bool sucess = false;
-	
+
 	TSharedPtr<FJsonObject> JsonParsed;
 	TSharedRef<TJsonReader<TCHAR>> JsonReader = TJsonReaderFactory<TCHAR>::Create(InJsonMessage);
 	if (FJsonSerializer::Deserialize(JsonReader, JsonParsed))
@@ -126,18 +186,27 @@ bool FSimplygonSwarmTask::ParseJsonMessage(FString InJsonMessage, FSwarmJsonResp
 		{
 			JsonParsed->TryGetNumberField("ProgressPercentage", OutResponseData.Progress);
 		}
-		
+
 		if (JsonParsed->HasField("ProgressPercentage"))
 		{
 			JsonParsed->TryGetNumberField("ProgressPercentage", OutResponseData.Progress);
 		}
 
+		if (JsonParsed->HasField("UploadId"))
+		{
+			JsonParsed->TryGetStringField("UploadId", OutResponseData.UploadId);
+		}
+
 		sucess = true;
 	}
-	
+
 
 	return sucess;
 }
+
+
+// ~ HTTP Request method to communicate with Simplygon REST Interface
+
 
 void FSimplygonSwarmTask::AccountInfo()
 {
@@ -147,31 +216,48 @@ void FSimplygonSwarmTask::AccountInfo()
 	request->SetURL(FString::Printf(TEXT("%s/2.3/account?apikey=%s"), *HostName, *APIKey));
 	request->SetVerb(TEXT("GET"));
 
+	UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("%s"), *request->GetURL());
+
 	request->OnProcessRequestComplete().BindRaw(this, &FSimplygonSwarmTask::AccountInfo_Response);
 
 	if (!request->ProcessRequest())
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Account info request failed to process."));
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Failed to process Request %s"), *request->GetURL());
+	}
+	else
+	{
+		DebugHttpRequestCounter.Increment();
+		PendingRequests.Add(request, request->GetURL());
 	}
 }
 
 void FSimplygonSwarmTask::AccountInfo_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
+	DebugHttpRequestCounter.Decrement();
+	FString OutUrl = PendingRequests.FindRef(Request);
+
+	if (!OutUrl.IsEmpty())
+	{
+		PendingRequests.Remove(Request);
+	}
+
 	if (!Response.IsValid())
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Account info response is invalid."));
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response Invalid %s"), *Request->GetURL());
+		return;
 	}
-	else if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
+
+	if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 	{
 		FString msg = Response->GetContentAsString();
-		UE_LOG(LogSimplygonRESTClient, Display, TEXT("Account info response: %s"), *msg);
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response Message %s"), *msg);
 	}
 	else
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Account info response: %i"), Response->GetResponseCode());
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response failed %s Code %d"), *Request->GetURL(), Response->GetResponseCode());
 	}
 }
 
@@ -187,25 +273,40 @@ void FSimplygonSwarmTask::CreateJob()
 
 	request->OnProcessRequestComplete().BindRaw(this, &FSimplygonSwarmTask::CreateJob_Response);
 
+	UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("%s"), *request->GetURL());
+
 	if (!request->ProcessRequest())
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Create job request failed."));
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Failed to process Request %s"), *request->GetURL());
 	}
 	else
 	{
+		DebugHttpRequestCounter.Increment();
+		PendingRequests.Add(request, request->GetURL());
 		SetState(SRS_JOBCREATED_PENDING);
 	}
 }
 
 void FSimplygonSwarmTask::CreateJob_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
+	DebugHttpRequestCounter.Decrement();
+
+	FString OutUrl = PendingRequests.FindRef(Request);
+
+	if (!OutUrl.IsEmpty())
+	{
+		PendingRequests.Remove(Request);
+	}
+
 	if (!Response.IsValid())
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Create job response failed."));
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response Invalid %s"), *Request->GetURL());
+		return;
 	}
-	else if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
+
+	if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 	{
 		FString msg = Response->GetContentAsString();
 
@@ -219,18 +320,21 @@ void FSimplygonSwarmTask::CreateJob_Response(FHttpRequestPtr Request, FHttpRespo
 				SetState(SRS_JOBCREATED);
 			}
 			else
-				UE_LOG(LogSimplygonRESTClient, Warning, TEXT("Empty JobId for task"));
-			
+				UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, Warning, TEXT("Empty JobId for task"));
+
 		}
 		else
 		{
 			SetState(SRS_FAILED);
+			UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Failed to parse message %s for Request %s"), *msg, *Request->GetURL());
 		}
+
+
 	}
 	else
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Create job response: %i"), Response->GetResponseCode());
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response failed %s Code %d"), *Request->GetURL(), Response->GetResponseCode());
 	}
 }
 
@@ -248,30 +352,44 @@ void FSimplygonSwarmTask::UploadJobSettings()
 	request->SetURL(url);
 	request->SetVerb(TEXT("POST"));
 	request->SetContent(data);
-	
+
+	UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("%s"), *request->GetURL());
+
 	request->OnProcessRequestComplete().BindRaw(this, &FSimplygonSwarmTask::UploadJobSettings_Response);
 
 	if (!request->ProcessRequest())
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Upload settings request failed."));
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Failed to process Request %s"), *request->GetURL());
 	}
 	else
 	{
+		DebugHttpRequestCounter.Increment();
+		PendingRequests.Add(request, request->GetURL());
 		SetState(SRS_JOBSETTINGSUPLOADED_PENDING);
 	}
 }
 
 void FSimplygonSwarmTask::UploadJobSettings_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
+	DebugHttpRequestCounter.Decrement();
+
+	FString OutUrl = PendingRequests.FindRef(Request);
+
+	if (!OutUrl.IsEmpty())
+	{
+		PendingRequests.Remove(Request);
+	}
+
 	if (!Response.IsValid())
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Upload settings response failed."));
+		return;
 	}
-	else if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
+
+	if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 	{
-		
+
 		if (!OnAssetUploaded().IsBound())
 		{
 			UE_LOG(LogSimplygonRESTClient, Error, TEXT("OnAssetUploaded delegate not bound to any object"));
@@ -285,7 +403,7 @@ void FSimplygonSwarmTask::UploadJobSettings_Response(FHttpRequestPtr Request, FH
 	else
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Upload job settings response: %i"), Response->GetResponseCode());
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response failed %s Code %d"), *Request->GetURL(), Response->GetResponseCode());
 	}
 }
 
@@ -300,30 +418,48 @@ void FSimplygonSwarmTask::ProcessJob()
 	request->SetURL(url);
 	request->SetVerb(TEXT("PUT"));
 
+	UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("%s"), *request->GetURL());
+
 	request->OnProcessRequestComplete().BindRaw(this, &FSimplygonSwarmTask::ProcessJob_Response);
 
 	if (!request->ProcessRequest())
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Process job request failed."));
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Failed to process Request %s Response code %d"), *request->GetURL());
+	}
+	else
+	{
+		DebugHttpRequestCounter.Increment();
+		PendingRequests.Add(request, request->GetURL());
 	}
 }
 
 void FSimplygonSwarmTask::ProcessJob_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
+	DebugHttpRequestCounter.Decrement();
+
+	FString OutUrl = PendingRequests.FindRef(Request);
+
+	if (!OutUrl.IsEmpty())
+	{
+		PendingRequests.Remove(Request);
+	}
+
 	if (!Response.IsValid())
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Process job response failed."));
+		return;
 	}
-	else if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
+
+	if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 	{
 		SetState(SRS_JOBPROCESSING);
+
 	}
 	else
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Process job response: %i"), Response->GetResponseCode());
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response failed %s Code %d"), *Request->GetURL(), Response->GetResponseCode());
 	}
 }
 
@@ -335,22 +471,36 @@ void FSimplygonSwarmTask::GetJob()
 	AddAuthenticationHeader(request);
 	request->SetURL(url);
 	request->SetVerb(TEXT("GET"));
-
+	UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("%s"), *request->GetURL());
 	request->OnProcessRequestComplete().BindRaw(this, &FSimplygonSwarmTask::GetJob_Response);
 
 	if (!request->ProcessRequest())
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Get job request failed."));
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Failed to process Request %s"), *request->GetURL());
+	}
+	else
+	{
+		DebugHttpRequestCounter.Increment();
+		PendingRequests.Add(request, request->GetURL());
 	}
 }
 
 void FSimplygonSwarmTask::GetJob_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
+	DebugHttpRequestCounter.Decrement();
+
+	FString OutUrl = PendingRequests.FindRef(Request);
+
+	if (!OutUrl.IsEmpty())
+	{
+		PendingRequests.Remove(Request);
+	}
+
 	if (!Response.IsValid())
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Get job response failed."));
+		return;
 	}
 	else if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 	{
@@ -368,7 +518,8 @@ void FSimplygonSwarmTask::GetJob_Response(FHttpRequestPtr Request, FHttpResponse
 					{
 						OutputAssetId = Data.OutputAssetId;
 						SetState(SRS_JOBPROCESSED);
-						UE_LOG(LogSimplygonRESTClient, Log, TEXT("Job with Id %s processed"), *Data.JobId);						
+						//UE_LOG(LogSimplygonRESTClient, Log, TEXT("Job with Id %s processed"), *Data.JobId);
+
 					}
 					else
 					{
@@ -378,68 +529,87 @@ void FSimplygonSwarmTask::GetJob_Response(FHttpRequestPtr Request, FHttpResponse
 				if (Data.Status == "Failed")
 				{
 					SetState(SRS_FAILED);
-					UE_LOG(LogSimplygonRESTClient, Error, TEXT("Job with id %s Failed %s"), *Data.JobId, *Data.ErrorMessage);
+					UE_LOG(LogSimplygonRESTClient, Error, TEXT("Job with id %s Failed %s"), *Data.JobId);
 				}
 			}
 		}
 		else
 		{
-			SetState(SRS_FAILED);
+			//SetState(SRS_FAILED);
 		}
 	}
 	else
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Warning, TEXT("Get Job Response: %i"), Response->GetResponseCode());
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response failed %s Code %d"), *Request->GetURL(), Response->GetResponseCode());
 	}
 }
 
 void FSimplygonSwarmTask::UploadAsset()
 {
-	TSharedRef<IHttpRequest> request = FHttpModule::Get().CreateRequest();
-
-	FString url = FString::Printf(TEXT("%s/2.3/asset/upload?apikey=%s&asset_name=%s"), *HostName, *APIKey, *TaskData.JobName);
-
-	TArray<uint8> data;
-	
-
-	if (FFileHelper::LoadFileToArray(data, *TaskData.ZipFilePath))
+	//if multipart upload is need then use multi part request else use older request to upload data
+	if (NeedsMultiPartUpload())
 	{
-		if (data.Num() > 2147483648)
+		int32 PartsToUpload = RemainingPartsToUpload.GetValue();
+		int32 PartIndex = TotalParts - PartsToUpload;
+		if (!bMultiPartUploadInitialized && PartsToUpload > 0)
 		{
-			UE_LOG(LogSimplygonRESTClient, Error, TEXT("File larger than 2GB are not supported."));
-			SetState(SRS_FAILED);
+			MultiPartUploadBegin();
+		}
+		else if (PartsToUpload > 0)
+		{
+			MultiPartUploadPart(UploadParts[PartIndex].PartNumber);
+		}
+		else if (PartsToUpload == 0)
+		{
+			if (!TaskData.TaskUploadComplete)
+				MultiPartUploadEnd();
+			else
+			{
+				//FPlatformProcess::Sleep(0.1f);
+				MultiPartUploadGet();
+			}
+
+		}
+	}
+	else
+	{
+		//bail if part has already been uploaded
+		if (UploadParts[0].PartUploaded)
+		{
+			UE_LOG(LogSimplygonRESTClient, Display, TEXT("Skip Already Uploaded Asset."));
 			return;
 		}
+
+		TSharedRef<IHttpRequest> request = FHttpModule::Get().CreateRequest();
+
+		FString url = FString::Printf(TEXT("%s/2.3/asset/upload?apikey=%s&asset_name=%s"), *HostName, *APIKey, *TaskData.JobName);
 
 		AddAuthenticationHeader(request);
 		request->SetHeader(TEXT("Content-Type"), TEXT("application/octet-stream"));
 		request->SetURL(url);
 		request->SetVerb(TEXT("POST"));
-		request->SetContent(data);
+		request->SetContent(UploadParts[0].Data);
 
 		request->OnProcessRequestComplete().BindRaw(this, &FSimplygonSwarmTask::UploadAsset_Response);
-		//request->OnRequestProgress().BindLambda()
 
-		uint32 bufferSize = data.Num();
+
+		uint32 bufferSize = UploadParts[0].Data.Num();
+
 		FHttpModule::Get().SetMaxReadBufferSize(bufferSize);
-		
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("%s"), *request->GetURL());
 
 		if (!request->ProcessRequest())
 		{
 			SetState(SRS_FAILED);
-			UE_LOG(LogSimplygonRESTClient, Error, TEXT("Upload asset request failed."));
+			UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Failed to process Request %s"), *request->GetURL());
 		}
 		else
-		{ 
+		{
+			DebugHttpRequestCounter.Increment();
+			PendingRequests.Add(request, request->GetURL());
 			SetState(SRS_ASSETUPLOADED_PENDING);
 		}
-
-	}
-	else
-	{
-		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Failed to load file from path %s."), *TaskData.ZipFilePath);
 	}
 
 
@@ -447,13 +617,22 @@ void FSimplygonSwarmTask::UploadAsset()
 
 void FSimplygonSwarmTask::UploadAsset_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
+	DebugHttpRequestCounter.Decrement();
+
+	FString OutUrl = PendingRequests.FindRef(Request);
+
+	if (!OutUrl.IsEmpty())
+	{
+		PendingRequests.Remove(Request);
+	}
+
 	if (!bWasSuccessful)
 	{
 		SetState(SRS_FAILED);
 		if (Response.IsValid())
 		{
 			UE_LOG(LogSimplygonRESTClient, Warning, TEXT("Upload asset Response: %i"), Response->GetResponseCode());
-		}		
+		}
 		else
 			UE_LOG(LogSimplygonRESTClient, Error, TEXT("Upload asset response failed."));
 	}
@@ -462,25 +641,31 @@ void FSimplygonSwarmTask::UploadAsset_Response(FHttpRequestPtr Request, FHttpRes
 		if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 		{
 			FString msg = Response->GetContentAsString();
-			
+
 			FSwarmJsonResponse Data;
 			if (ParseJsonMessage(msg, Data))
 			{
 				if (!Data.AssetId.IsEmpty())
 				{
 					InputAssetId = Data.AssetId;
+					UploadParts[0].PartUploaded = true;
 					SetState(SRS_ASSETUPLOADED);
 				}
 				else
 					UE_LOG(LogSimplygonRESTClient, Display, TEXT("Could not parse Input asset Id for job: %s"), *Data.JobId);
-				
 			}
 			else
 			{
 				SetState(SRS_FAILED);
-			}			
-		}		
-	}	
+			}
+		}
+		else
+		{
+			UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response failed %s Code %d"), *Request->GetURL(), Response->GetResponseCode());
+		}
+
+	}
+
 }
 
 void FSimplygonSwarmTask::DownloadAsset()
@@ -498,17 +683,21 @@ void FSimplygonSwarmTask::DownloadAsset()
 	request->SetVerb(TEXT("GET"));
 	FHttpModule::Get().
 
-	FHttpModule::Get().SetHttpTimeout(300);
+		FHttpModule::Get().SetHttpTimeout(300);
+	UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("%s"), *request->GetURL());
 
 	request->OnProcessRequestComplete().BindRaw(this, &FSimplygonSwarmTask::DownloadAsset_Response);
 
 	if (!request->ProcessRequest())
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Error, TEXT("Download asset request failed."));
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Failed to process Request %s"), *request->GetURL());
 	}
 	else
 	{
+		DebugHttpRequestCounter.Increment();
+		PendingRequests.Add(request, request->GetURL());
+
 		UE_LOG(LogSimplygonRESTClient, Log, TEXT("Downloading Job with Id %s"), *JobId);
 		SetState(SRS_ASSETDOWNLOADED_PENDING);
 	}
@@ -516,12 +705,22 @@ void FSimplygonSwarmTask::DownloadAsset()
 
 void FSimplygonSwarmTask::DownloadAsset_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
+
+	DebugHttpRequestCounter.Decrement();
+
+	FString OutUrl = PendingRequests.FindRef(Request);
+
+	if (!OutUrl.IsEmpty())
+	{
+		PendingRequests.Remove(Request);
+	}
+
 	if (!Response.IsValid())
 	{
-	//	SetState(SRS_FAILED);
-	//	UE_LOG(LogSimplygonRESTClient, Error, TEXT("Download asset response failed."));
+		return;
 	}
-	else if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
+
+	if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 	{
 		if (this == nullptr || JobId.IsEmpty())
 		{
@@ -531,7 +730,7 @@ void FSimplygonSwarmTask::DownloadAsset_Response(FHttpRequestPtr Request, FHttpR
 		TArray<uint8> data = Response->GetContent();
 		/*FString msg = Response->GetContentAsString();
 		FSwarmJsonResponse Data;*/
-		
+
 		if (data.Num() > 0)
 		{
 			if (!TaskData.OutputZipFilePath.IsEmpty() && !FFileHelper::SaveArrayToFile(data, *TaskData.OutputZipFilePath))
@@ -551,18 +750,319 @@ void FSimplygonSwarmTask::DownloadAsset_Response(FHttpRequestPtr Request, FHttpR
 				}
 				else
 					UE_LOG(LogSimplygonRESTClient, Display, TEXT("OnAssetDownloaded delegatge not bound to any objects"));
-
-
 			}
 		}
-
 	}
 	else
 	{
 		SetState(SRS_FAILED);
-		UE_LOG(LogSimplygonRESTClient, Warning, TEXT("Download asset Response: %i"), Response->GetResponseCode());
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response failed %s Code %d"), *Request->GetURL(), Response->GetResponseCode());
 	}
 }
+
+void FSimplygonSwarmTask::MultiPartUploadBegin()
+{
+	TSharedRef<IHttpRequest> request = FHttpModule::Get().CreateRequest();
+
+	FString url = FString::Printf(TEXT("%s/2.3/asset/uploadpart?apikey=%s&asset_name=%s"), *HostName, *APIKey, *TaskData.JobName);
+
+
+	FArrayWriter Writer;
+	AddAuthenticationHeader(request);
+	request->SetURL(url);
+	request->SetVerb(TEXT("POST"));
+	request->OnProcessRequestComplete().BindRaw(this, &FSimplygonSwarmTask::MultiPartUploadBegin_Response);
+	UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("%s"), *request->GetURL());
+	if (!request->ProcessRequest())
+	{
+		SetState(SRS_FAILED);
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Failed to process Request %s"), *request->GetURL());
+	}
+	else
+	{
+		DebugHttpRequestCounter.Increment();
+		PendingRequests.Add(request, request->GetURL());
+
+		SetState(SRS_ASSETUPLOADED_PENDING);
+	}
+}
+
+void FSimplygonSwarmTask::MultiPartUploadBegin_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+{
+	DebugHttpRequestCounter.Decrement();
+
+	FString OutUrl = PendingRequests.FindRef(Request);
+
+	if (!OutUrl.IsEmpty())
+	{
+		PendingRequests.Remove(Request);
+	}
+
+	if (!bWasSuccessful)
+	{
+		SetState(SRS_FAILED);
+		if (Response.IsValid())
+		{
+			UE_LOG(LogSimplygonRESTClient, Warning, TEXT("Upload asset Response: %i"), Response->GetResponseCode());
+		}
+		else
+			UE_LOG(LogSimplygonRESTClient, Error, TEXT("Upload asset response failed."));
+	}
+	else
+	{
+		if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
+		{
+			FString msg = Response->GetContentAsString();
+			FSwarmJsonResponse Data;
+
+			if (ParseJsonMessage(msg, Data))
+			{
+				if (!Data.UploadId.IsEmpty())
+				{
+					UploadId = Data.UploadId;
+					bMultiPartUploadInitialized = true;
+				}
+			}
+			else
+			{
+
+				SetState(SRS_FAILED);
+
+			}
+		}
+		else
+			UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response failed %s Code %d"), *Request->GetURL(), Response->GetResponseCode());
+
+	}
+}
+
+void FSimplygonSwarmTask::MultiPartUploadPart(const uint32 InPartNumber)
+{
+
+	//should bailout if part has already been uploaded
+	int32 PartIndex = InPartNumber - 1;
+	if (UploadParts[PartIndex].PartUploaded)
+		return;
+
+	TSharedRef<IHttpRequest> request = FHttpModule::Get().CreateRequest();
+
+	FString url = FString::Printf(TEXT("%s/2.3/asset/uploadpart/%s/upload?apikey=%s&part_number=%d"), *HostName, *UploadId, *APIKey, UploadParts[PartIndex].PartNumber);
+
+	FArrayWriter Writer;
+	AddAuthenticationHeader(request);
+	request->SetHeader(TEXT("Content-Type"), TEXT("application/octet-stream"));
+	request->SetURL(url);
+	request->SetVerb(TEXT("PUT"));
+	request->SetContent(UploadParts[PartIndex].Data);
+	FHttpModule::Get().SetMaxReadBufferSize(UploadParts[PartIndex].Data.Num());
+
+	request->OnProcessRequestComplete().BindRaw(this, &FSimplygonSwarmTask::MultiPartUploadPart_Response);
+
+	UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("%s"), *request->GetURL());
+
+	if (!request->ProcessRequest())
+	{
+		SetState(SRS_FAILED);
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Failed to process Request %s"), *request->GetURL());
+	}
+	else
+	{
+		DebugHttpRequestCounter.Increment();
+		PendingRequests.Add(request, request->GetURL());
+	}
+
+}
+
+void FSimplygonSwarmTask::MultiPartUploadPart_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+{
+
+	DebugHttpRequestCounter.Decrement();
+	FString OutUrl = PendingRequests.FindRef(Request);
+
+	if (!OutUrl.IsEmpty())
+	{
+		PendingRequests.Remove(Request);
+	}
+
+	if (!bWasSuccessful)
+	{
+		SetState(SRS_FAILED);
+		if (Response.IsValid())
+		{
+			UE_LOG(LogSimplygonRESTClient, Warning, TEXT("Upload asset Response: %i"), Response->GetResponseCode());
+		}
+		else
+			UE_LOG(LogSimplygonRESTClient, Error, TEXT("Upload asset response failed."));
+	}
+	else
+	{
+		if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
+		{
+			FString msg = Response->GetContentAsString();
+
+			//get part_number from query string
+			FString PartNumStr = Request->GetURLParameter("part_number");
+			if (!PartNumStr.IsEmpty())
+			{
+				int32 PartNum = FCString::Atoi(*PartNumStr);
+				PartNum -= 1;
+				if (!UploadParts[PartNum].PartUploaded)
+				{
+					RemainingPartsToUpload.Decrement();
+					UploadParts[PartNum].PartUploaded = true;
+				}
+			}
+		}
+		else
+		{
+			UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response failed %s Code %d"), *Request->GetURL(), Response->GetResponseCode());
+		}
+
+	}
+}
+
+void FSimplygonSwarmTask::MultiPartUploadEnd()
+{
+	TSharedRef<IHttpRequest> request = FHttpModule::Get().CreateRequest();
+
+	FString url = FString::Printf(TEXT("%s/2.3/asset/uploadpart/%s/Complete?apikey=%s&part_count=%d&upload_size=%d"), *HostName, *UploadId, *APIKey, TotalParts, UploadSize);
+
+	FArrayWriter Writer;
+	AddAuthenticationHeader(request);
+	request->SetURL(url);
+	request->SetVerb(TEXT("POST"));
+	request->OnProcessRequestComplete().BindRaw(this, &FSimplygonSwarmTask::MultiPartUploadEnd_Response);
+
+	UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("%s"), *request->GetURL());
+
+	if (!request->ProcessRequest())
+	{
+		SetState(SRS_FAILED);
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Failed to process Request %s"), *request->GetURL());
+	}
+	else
+	{
+		DebugHttpRequestCounter.Increment();
+		PendingRequests.Add(request, request->GetURL());
+	}
+}
+
+void FSimplygonSwarmTask::MultiPartUploadEnd_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+{
+	DebugHttpRequestCounter.Decrement();
+
+	FString OutUrl = PendingRequests.FindRef(Request);
+
+	if (!OutUrl.IsEmpty())
+	{
+		PendingRequests.Remove(Request);
+	}
+
+	if (!bWasSuccessful)
+	{
+		SetState(SRS_FAILED);
+		if (Response.IsValid())
+		{
+			UE_LOG(LogSimplygonRESTClient, Warning, TEXT("Upload asset Response: %i"), Response->GetResponseCode());
+		}
+		else
+			UE_LOG(LogSimplygonRESTClient, Error, TEXT("Upload asset response failed."));
+	}
+	else
+	{
+		if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
+		{
+			FString msg = Response->GetContentAsString();
+
+			FSwarmJsonResponse Data;
+			if (ParseJsonMessage(msg, Data))
+			{
+				if (!Data.UploadId.IsEmpty())
+				{
+					this->TaskData.TaskUploadComplete = true;
+				}
+
+			}
+			else
+			{
+				SetState(SRS_FAILED);
+			}
+		}
+		else
+			UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response failed %s Code %d"), *Request->GetURL(), Response->GetResponseCode());
+
+	}
+}
+
+void FSimplygonSwarmTask::MultiPartUploadGet()
+{
+	TSharedRef<IHttpRequest> request = FHttpModule::Get().CreateRequest();
+
+	FString url = FString::Printf(TEXT("%s/2.3/asset/uploadpart/%s?apikey=%s"), *HostName, *UploadId, *APIKey);
+
+	FArrayWriter Writer;
+	AddAuthenticationHeader(request);
+	request->SetURL(url);
+	request->SetVerb(TEXT("GET"));
+	request->OnProcessRequestComplete().BindRaw(this, &FSimplygonSwarmTask::MultiPartUploadGet_Response);
+
+	UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("%s"), *request->GetURL());
+
+	if (!request->ProcessRequest())
+	{
+		SetState(SRS_FAILED);
+		UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Failed to process Request %s"), *request->GetURL());
+	}
+	else
+	{
+		DebugHttpRequestCounter.Increment();
+		PendingRequests.Add(request, request->GetURL());
+	}
+}
+
+void FSimplygonSwarmTask::MultiPartUploadGet_Response(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+{
+	DebugHttpRequestCounter.Decrement();
+	FString OutUrl = PendingRequests.FindRef(Request);
+
+	if (!OutUrl.IsEmpty())
+	{
+		PendingRequests.Remove(Request);
+	}
+
+	if (!bWasSuccessful)
+	{
+		SetState(SRS_FAILED);
+		if (Response.IsValid())
+		{
+			UE_LOG(LogSimplygonRESTClient, Warning, TEXT("%s: %i"), __FUNCTION__, Response->GetResponseCode());
+		}
+		else
+			UE_LOG(LogSimplygonRESTClient, Error, TEXT("Upload asset response failed."));
+	}
+	else
+	{
+		if (EHttpResponseCodes::IsOk(Response->GetResponseCode()))
+		{
+			FString msg = Response->GetContentAsString();
+
+			FSwarmJsonResponse Data;
+
+			if (ParseJsonMessage(msg, Data))
+			{
+				if (!Data.AssetId.IsEmpty())
+				{
+					InputAssetId = Data.AssetId;
+					SetState(SRS_ASSETUPLOADED);
+					UploadParts.Empty();
+				}
+			}
+		}
+		else
+			UE_CLOG(bEnableDebugLogging, LogSimplygonRESTClient, VeryVerbose, TEXT("Response failed %s Code %d"), *Request->GetURL(), Response->GetResponseCode());
+	}
+}
+
 
 void FSimplygonSwarmTask::AddAuthenticationHeader(TSharedRef<IHttpRequest> request)
 {
@@ -574,8 +1074,8 @@ FSimplygonRESTClient* FSimplygonRESTClient::Runnable = nullptr;
 
 FSimplygonRESTClient::FSimplygonRESTClient()
 	:
-    Thread(nullptr),
-    HostName(TEXT(HOSTNAME)),
+	Thread(nullptr),
+	HostName(TEXT(HOSTNAME)),
 	APIKey(TEXT("LOCAL")),
 	bEnableDebugging(false)
 {
@@ -598,11 +1098,11 @@ FSimplygonRESTClient::FSimplygonRESTClient()
 	}
 
 	HostName += TEXT(PORT);
-	JobLimit = 16;
-	
+	JobLimit = GetDefault<UEditorPerProjectUserSettings>()->SwarmNumOfConcurrentJobs;
+
 
 	DelayBetweenRuns = GetDefault<UEditorPerProjectUserSettings>()->SimplygonSwarmDelay / 1000;
-	DelayBetweenRuns = DelayBetweenRuns <= 0 ? 0.5 : DelayBetweenRuns;
+	DelayBetweenRuns = DelayBetweenRuns <= 5 ? 5 : DelayBetweenRuns;
 
 	Thread = FRunnableThread::Create(this, TEXT("SimplygonRESTClient"));
 }
@@ -638,17 +1138,16 @@ uint32 FSimplygonRESTClient::Run()
 	Wait(5);
 	//float SleepDelay = DelayBetweenRuns;
 	do
-	{				
+	{
+
 		MoveItemsToBoundedArray();
+
 		UpdateTaskStates();
-		/*if (PendingJobs.IsEmpty() && JobsBuffer.Num() < JobLimit)
-			SleepDelay = 5 + DelayBetweenRuns;
-		else 
-			SleepDelay = 5 + DelayBetweenRuns;*/		
+
 		Wait(DelayBetweenRuns);
 
-	} 
-	while (ShouldStop() == false);	
+	} while (ShouldStop() == false);
+
 
 	return 0;
 }
@@ -667,6 +1166,7 @@ void FSimplygonRESTClient::UpdateTaskStates()
 		switch (SwarmTask->GetState())
 		{
 		case SRS_UNKNOWN:
+		case SRS_ASSETUPLOADED_PENDING:
 			SwarmTask->UploadAsset();
 			break;
 		case SRS_FAILED:
@@ -695,6 +1195,11 @@ void FSimplygonRESTClient::UpdateTaskStates()
 
 	for (int32 Index = 0; Index < TasksMarkedForRemoval.Num(); Index++)
 	{
+
+		if (TasksMarkedForRemoval[Index]->GetState() == SRS_FAILED)
+		{
+			TasksMarkedForRemoval[Index]->OnSwarmTaskFailed().ExecuteIfBound(*TasksMarkedForRemoval[Index]);
+		}
 		JobsBuffer.Remove(TasksMarkedForRemoval[Index]);
 	}
 
@@ -705,6 +1210,8 @@ void FSimplygonRESTClient::MoveItemsToBoundedArray()
 {
 	if (!PendingJobs.IsEmpty())
 	{
+
+
 		int32 ItemsToInsert = 0;
 		if (JobsBuffer.Num() >= JobLimit)
 		{
@@ -714,17 +1221,20 @@ void FSimplygonRESTClient::MoveItemsToBoundedArray()
 		{
 			JobsBuffer.Shrink();
 			ItemsToInsert = JobLimit - JobsBuffer.Num();
-			
+
 			FScopeLock Lock(&CriticalSectionData);
-			do 
-			{			
+			do
+			{
 				TSharedPtr<FSimplygonSwarmTask> OutItem;
 				if (PendingJobs.Dequeue(OutItem))
+				{
+					OutItem->CreateUploadParts(MaxUploadSizeInBytes);
 					JobsBuffer.Add(OutItem);
+				}
 
 			} while (!PendingJobs.IsEmpty() && JobsBuffer.Num() < JobLimit);
 		}
-	
+
 	}
 }
 
@@ -752,6 +1262,8 @@ void FSimplygonRESTClient::Stop()
 	StopTaskCounter.Increment();
 }
 
+
+
 void FSimplygonRESTClient::EnusureCompletion()
 {
 	Stop();
@@ -763,6 +1275,12 @@ void FSimplygonRESTClient::AddSwarmTask(TSharedPtr<FSimplygonSwarmTask>& InTask)
 	//FScopeLock Lock(&CriticalSectionData);
 	InTask->SetHost(HostName);
 	PendingJobs.Enqueue(InTask);
+
+}
+
+void FSimplygonRESTClient::SetMaxUploadSizeInBytes(int32 InMaxUploadSizeInBytes)
+{
+	MaxUploadSizeInBytes = InMaxUploadSizeInBytes;
 }
 
 void FSimplygonRESTClient::Exit()

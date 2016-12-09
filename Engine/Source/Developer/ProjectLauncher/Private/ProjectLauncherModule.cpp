@@ -1,10 +1,19 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
-
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/ITargetDeviceServicesModule.h"
+#include "Interfaces/ILauncherServicesModule.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "Interfaces/IProjectLauncherModule.h"
+#include "Models/ProjectLauncherModel.h"
+#include "Widgets/SProjectLauncher.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
-#include "SDockTab.h"
-
 
 static const FName ProjectLauncherTabName("ProjectLauncher");
 
@@ -14,19 +23,6 @@ static const FName ProjectLauncherTabName("ProjectLauncher");
 class FProjectLauncherModule
 	: public IProjectLauncherModule
 {
-public:
-
-	// IProjectLauncherModule interface
-
-	virtual TSharedRef<class SWidget> CreateSProjectLauncherProgressPanel( const ILauncherWorkerRef& LauncherWorker ) override
-	{
-		TSharedRef<SProjectLauncherProgress> Panel = SNew(SProjectLauncherProgress);
-
-		Panel->SetLauncherWorker(LauncherWorker);
-
-		return Panel;
-	}
-
 public:
 
 	// IModuleInterface interface
@@ -85,4 +81,4 @@ private:
 };
 
 
-IMPLEMENT_MODULE(FProjectLauncherModule, SProjectLauncher);
+IMPLEMENT_MODULE(FProjectLauncherModule, ProjectLauncher);

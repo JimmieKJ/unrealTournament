@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "SGraphNodeComment.h"
+
+class UMaterialGraphNode_Comment;
+
 class SGraphNodeMaterialComment : public SGraphNodeComment
 {
 public:

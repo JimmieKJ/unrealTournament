@@ -5,8 +5,9 @@
 #ifndef CEF_LIBCEF_COMMON_CRASH_REPORTER_CLIENT_H_
 #define CEF_LIBCEF_COMMON_CRASH_REPORTER_CLIENT_H_
 
-#include "base/compiler_specific.h"
-#include "components/crash/app/crash_reporter_client.h"
+#include "base/macros.h"
+#include "build/build_config.h"
+#include "components/crash/content/app/crash_reporter_client.h"
 
 class CefCrashReporterClient : public crash_reporter::CrashReporterClient {
  public:

@@ -2,12 +2,18 @@
 
 #pragma once
 
-#include "IMessageBridge.h"
+#include "CoreMinimal.h"
+#include "Misc/Guid.h"
 #include "IMessageContext.h"
 #include "IMessageTransport.h"
-#include "IReceiveMessages.h"
-#include "ISendMessages.h"
+#include "IMessageSubscription.h"
+#include "IMessageBus.h"
+#include "Bridge/MessageAddressBook.h"
+#include "IMessageBridge.h"
+#include "IMessageReceiver.h"
+#include "IMessageSender.h"
 
+class Error;
 
 /**
  * Implements a message bridge.
@@ -26,8 +32,8 @@
 class FMessageBridge
 	: public TSharedFromThis<FMessageBridge, ESPMode::ThreadSafe>
 	, public IMessageBridge
-	, public IReceiveMessages
-	, public ISendMessages
+	, public IMessageReceiver
+	, public IMessageSender
 {
 public:
 
@@ -38,14 +44,17 @@ public:
 	 * @param InBus The message bus that this node is connected to.
 	 * @param InTransport The transport mechanism to use.
 	 */
-	FMessageBridge(const FMessageAddress InAddress, const IMessageBusRef& InBus, const IMessageTransportRef& InTransport);
+	FMessageBridge(
+		const FMessageAddress InAddress,
+		const TSharedRef<IMessageBus, ESPMode::ThreadSafe>& InBus,
+		const TSharedRef<IMessageTransport, ESPMode::ThreadSafe>& InTransport);
 
 	/** Virtual destructor. */
 	virtual ~FMessageBridge();
 
 public:
 
-	// IMessageBridge interface
+	//~ IMessageBridge interface
 
 	virtual void Disable() override;
 	virtual void Enable() override;
@@ -57,7 +66,7 @@ public:
 
 public:
 
-	// IReceiveMessages interface
+	//~ IReceiveMessages interface
 
 	virtual FName GetDebugName() const override
 	{
@@ -83,14 +92,14 @@ public:
 
 public:
 
-	// ISendMessages interface
+	//~ ISendMessages interface
 
 	virtual FMessageAddress GetSenderAddress() override
 	{
 		return Address;
 	}
 
-	virtual void NotifyMessageError(const IMessageContextRef& Context, const FString& Error) override;
+	virtual void NotifyMessageError(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, const FString& Error) override;
 
 protected:
 
@@ -103,7 +112,7 @@ private:
 	void HandleMessageBusShutdown();
 
 	/** Callback for messages received from the transport layer. */
-	void HandleTransportMessageReceived(const IMessageContextRef& Envelope, const FGuid& NodeId);
+	void HandleTransportMessageReceived(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Envelope, const FGuid& NodeId);
 
 	/** Callback for lost remote nodes. */
 	void HandleTransportNodeLost(const FGuid& NodeId);
@@ -117,7 +126,7 @@ private:
 	FMessageAddressBook AddressBook;
 
 	/** Holds a reference to the bus that this bridge is attached to. */
-	IMessageBusPtr Bus;
+	TSharedPtr<IMessageBus, ESPMode::ThreadSafe> Bus;
 
 	/** Hold a flag indicating whether this endpoint is active. */
 	bool Enabled;
@@ -126,8 +135,8 @@ private:
 	const FGuid Id;
 
 	/** Holds the message subscription for outbound messages. */
-	IMessageSubscriptionPtr MessageSubscription;
+	TSharedPtr<IMessageSubscription, ESPMode::ThreadSafe> MessageSubscription;
 
 	/** Holds the message transport object. */
-	IMessageTransportPtr Transport;
+	TSharedPtr<IMessageTransport, ESPMode::ThreadSafe> Transport;
 };

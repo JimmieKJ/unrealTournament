@@ -1,10 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WebBrowserWidgetPrivatePCH.h"
-
-#include "SWebBrowser.h"
-
 #include "WebBrowser.h"
+#include "SWebBrowser.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Text/STextBlock.h"
 
 #define LOCTEXT_NAMESPACE "WebBrowser"
 

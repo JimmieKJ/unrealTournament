@@ -1,6 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProjectLauncherPrivatePCH.h"
+#include "Widgets/Deploy/SProjectLauncherDeployTargets.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "EditorStyleSet.h"
+#include "Widgets/Deploy/SProjectLauncherDeployTargetListRow.h"
 
 
 #define LOCTEXT_NAMESPACE "SProjectLauncherDeployTargets"
@@ -132,7 +138,8 @@ void SProjectLauncherDeployTargets::Construct(const FArguments& InArgs, const FP
 		{
 			FName VanillaName = Platforms[PlatformIndex]->GetPlatformInfo().VanillaPlatformName;
 			if (!VanillaNames.Contains(VanillaName))
-			{				
+			{
+				VanillaNames.Add(VanillaName);
 				VanillaPlatformList.AddUnique(MakeShareable(new FName(VanillaName)));
 			}
 		}

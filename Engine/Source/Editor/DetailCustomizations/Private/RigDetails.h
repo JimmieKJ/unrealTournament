@@ -2,7 +2,17 @@
 
 #pragma once
 
-#include "PreviewScene.h"
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "Input/Reply.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Input/SComboBox.h"
+#include "IDetailCustomization.h"
+
+class IDetailChildrenBuilder;
+class IDetailLayoutBuilder;
+class IPropertyHandle;
+class SEditableTextBox;
 
 class FRigDetails : public IDetailCustomization
 {

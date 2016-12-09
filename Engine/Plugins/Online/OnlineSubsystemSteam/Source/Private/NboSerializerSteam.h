@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "NboSerializer.h"
+#include "CoreMinimal.h"
 #include "OnlineSubsystemSteamTypes.h"
+#include "NboSerializer.h"
 
 /**
  * Serializes data in network byte order form into a buffer

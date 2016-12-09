@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Math/UnrealMathUtility.h"
+#include "Containers/UnrealString.h"
+#include "Math/IntPoint.h"
+#include "Math/Vector2D.h"
+
+struct Rect;
 
 /**
  * Structure for integer rectangles in 2-d space.

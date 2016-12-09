@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Engine/EngineBaseTypes.h"
+
 /*=============================================================================
 	 KeyState - contains details about a key's state and recent events
 =============================================================================*/

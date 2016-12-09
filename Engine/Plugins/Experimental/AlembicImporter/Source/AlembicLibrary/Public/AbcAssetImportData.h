@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "AlembicLibraryPublicPCH.h"
+#include "CoreMinimal.h"
 
 #include "EditorFramework/AssetImportData.h"
 #include "AbcAssetImportData.generated.h"

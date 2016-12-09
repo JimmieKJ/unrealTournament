@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "Components/BrushComponent.h"
 #include "Engine/LevelStreamingVolume.h"
+#include "Engine/CollisionProfile.h"
+#include "Engine/World.h"
+#include "Components/BrushComponent.h"
+#include "Engine/LevelStreaming.h"
 
 ALevelStreamingVolume::ALevelStreamingVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

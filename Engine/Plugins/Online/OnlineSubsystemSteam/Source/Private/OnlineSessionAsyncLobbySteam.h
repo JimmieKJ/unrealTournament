@@ -2,9 +2,14 @@
 
 #pragma once
 
-#include "OnlineAsyncTaskManagerSteam.h"
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineSubsystemSteamTypes.h"
 #include "OnlineSessionSettings.h"
+#include "Interfaces/OnlineSessionInterface.h"
+#include "OnlineAsyncTaskManager.h"
+#include "OnlineAsyncTaskManagerSteam.h"
+#include "OnlineSubsystemSteam.h"
 #include "OnlineSubsystemSteamPackage.h"
 
 /** 

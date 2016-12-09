@@ -1,10 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-class FPropertyEditor;
-class FPropertyNode;
-class IPropertyUtilities;
-class IPropertyHandle;
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "Widgets/SWidget.h"
+#include "IPropertyUtilities.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Framework/SlateDelegates.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "PropertyNode.h"
+#include "Presentation/PropertyEditor/PropertyEditor.h"
+
+class FNotifyHook;
+class FObjectPropertyNode;
 
 /** Property button enums. */
 namespace EPropertyButton
@@ -26,6 +34,7 @@ namespace EPropertyButton
 		Use,
 		NewBlueprint,
 		EditConfigHierarchy,
+		Documentation,
 	};
 }
 
@@ -112,6 +121,16 @@ namespace PropertyEditorHelpers
 	 * @return true if the property is in an array, false otherwise
 	 */
 	bool IsChildOfArray( const FPropertyNode& InPropertyNode );
+
+	/**
+	 * @return true if the property is a child (within) a set, false otherwise
+	 */
+	bool IsChildOfSet( const FPropertyNode& InPropertyNode );
+
+	/**
+	 * @return true if the property is a child (within) a map, false otherwise
+	 */
+	bool IsChildOfMap( const FPropertyNode& InPropertyNode );
 	
 	/**
 	 * Returns whether or not a property a static array
@@ -130,6 +149,16 @@ namespace PropertyEditorHelpers
 	 * Gets the array parent of a property if it is in a dynamic or static array
 	 */
 	const UProperty* GetArrayParent( const FPropertyNode& InPropertyNode );
+
+	/**
+	 * Gets the set parent of a property if it is in a set
+	 */
+	const UProperty* GetSetParent( const FPropertyNode& InPropertyNode );
+
+	/**
+	 * Gets the map parent of a property if it is in a map
+	 */
+	const UProperty* GetMapParent(const FPropertyNode& InPropertyNode);
 
 	/**
 	 * Returns if a class is acceptable for edit inline
@@ -197,4 +226,14 @@ namespace PropertyEditorHelpers
 	 * @param OutObjectNodes	List of all object nodes found
 	 */
 	void CollectObjectNodes( TSharedPtr<FPropertyNode> StartNode, TArray<FObjectPropertyNode*>& OutObjectNodes );
+
+	/**
+	 * Returns any enums that are explicitly allowed by the "AllowedEnumValues" metadata on UProperty using the specified enum.
+	 *
+	 * @param Property	The property which may contain the "AllowedEnumValues" metadata
+	 * @param InEnum	The enum to search
+	 * @return The array of allowed enums.  NOTE: If an empty array is returned all enum values are allowed.  It is an error for a property to hide all enum values so that state is undefined here.
+	 */
+	TArray<FName> GetValidEnumsFromPropertyOverride(const UProperty* Property, const UEnum* InEnum);
+
 }

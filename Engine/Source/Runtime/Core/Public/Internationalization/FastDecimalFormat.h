@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "Internationalization/Text.h"
+
 /** Rules used to format a decimal number */
 struct FDecimalNumberFormattingRules
 {

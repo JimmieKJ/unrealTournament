@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "EdGraphNode_Comment.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "MaterialGraph/MaterialGraph.h"
+#include "EdGraphNode_Comment.h"
 
 #include "MaterialGraphNode_Comment.generated.h"
 

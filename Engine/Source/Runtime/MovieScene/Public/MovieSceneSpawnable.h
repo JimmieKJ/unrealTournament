@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
 #include "MovieSceneSpawnable.generated.h"
 
 class UMovieSceneSequence;
@@ -31,7 +34,6 @@ struct FMovieSceneSpawnable
 		: ObjectTemplate(nullptr)
 		, Ownership(ESpawnOwnership::InnerSequence)
 #if WITH_EDITORONLY_DATA
-		, bIgnoreOwnershipInEditor(false)
 		, GeneratedClass_DEPRECATED(nullptr)
 #endif
 	{
@@ -44,7 +46,6 @@ struct FMovieSceneSpawnable
 		, ObjectTemplate(&InObjectTemplate)
 		, Ownership(ESpawnOwnership::InnerSequence)
 #if WITH_EDITORONLY_DATA
-		, bIgnoreOwnershipInEditor(false)
 		, GeneratedClass_DEPRECATED(nullptr)
 #endif
 	{
@@ -162,24 +163,6 @@ public:
 		Ownership = InOwnership;
 	}
 
-#if WITH_EDITORONLY_DATA
-	/**
-	 * Check whether this spawnable should remain spawned when outside the play-range, regardless of ownership
-	 */
-	bool ShouldIgnoreOwnershipInEditor() const
-	{
-		return bIgnoreOwnershipInEditor;
-	}
-
-	/**
-	 * Set whether this spawnable should remain spawned when outside the play-range, regardless of ownership
-	 */
-	void SetIgnoreOwnershipInEditor(bool bInIgnoreOwnershipInEditor)
-	{
-		bIgnoreOwnershipInEditor = bInIgnoreOwnershipInEditor;
-	}
-#endif
-
 private:
 
 	/** Unique identifier of the spawnable object. */
@@ -206,10 +189,6 @@ private:
 	ESpawnOwnership Ownership;
 
 #if WITH_EDITORONLY_DATA
-	/** When true, this spawnable will not respect its ownership sematics outside of the playback range, when spawned from inside a currently editing sequence */
-	UPROPERTY()
-	bool bIgnoreOwnershipInEditor;
-
 public:
 	/** Deprecated generated class */
 	UPROPERTY()

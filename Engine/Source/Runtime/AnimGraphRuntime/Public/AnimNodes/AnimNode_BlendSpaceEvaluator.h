@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "AnimNode_BlendSpacePlayer.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "AnimNodes/AnimNode_BlendSpacePlayer.h"
 #include "AnimNode_BlendSpaceEvaluator.generated.h"
 
 // Evaluates a point in a blendspace, using a specific time input rather than advancing time internally.

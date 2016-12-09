@@ -2,8 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "DynamicBlueprintBinding.generated.h"
-
 
 UCLASS(abstract)
 class ENGINE_API UDynamicBlueprintBinding

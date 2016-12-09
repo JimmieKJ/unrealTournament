@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CodeEditorPrivatePCH.h"
 #include "SCodeEditableText.h"
+#include "CodeEditorStyle.h"
 
 
 void SCodeEditableText::Construct( const FArguments& InArgs )

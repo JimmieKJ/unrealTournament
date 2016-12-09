@@ -1,8 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "K2Node.h"
 #include "K2Node_Knot.generated.h"
+
+class FBlueprintActionDatabaseRegistrar;
+class INameValidatorInterface;
+class UEdGraph;
+class UEdGraphPin;
 
 UCLASS(MinimalAPI)
 class UK2Node_Knot : public UK2Node
@@ -18,7 +26,7 @@ public:
 	virtual FText GetPinNameOverride(const UEdGraphPin& Pin) const override;
 	virtual void OnRenameNode(const FString& NewName) override;
 	virtual TSharedPtr<class INameValidatorInterface> MakeNameValidator() const override;
-	virtual bool AllowSplitPins() const override;
+	virtual bool CanSplitPin(const UEdGraphPin* Pin) const override;
 	virtual bool IsCompilerRelevant() const override { return false; }
 	virtual UEdGraphPin* GetPassThroughPin(const UEdGraphPin* FromPin) const override;
 	// End of UEdGraphNode interface
@@ -30,7 +38,7 @@ public:
 	virtual void PostReconstructNode() override;
 	virtual int32 GetNodeRefreshPriority() const override { return EBaseNodeRefreshPriority::Low_UsesDependentWildcard; }
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
-	virtual bool IsNodePure() const { return true; }
+	virtual bool IsNodePure() const override { return true; }
 	// End of UK2Node interface
 
 	UEdGraphPin* GetInputPin() const

@@ -1,7 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DeviceManagerPrivatePCH.h"
-#include "SDockTab.h"
+#include "Widgets/SDeviceManager.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/MessageDialog.h"
+#include "Widgets/SBoxPanel.h"
+#include "Textures/SlateIcon.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Docking/WorkspaceItem.h"
+#include "Framework/Docking/TabManager.h"
+#include "EditorStyleSet.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Models/DeviceDetailsCommands.h"
+#include "Widgets/Apps/SDeviceApps.h"
+#include "Widgets/Browser/SDeviceBrowser.h"
+#include "Widgets/Details/SDeviceDetails.h"
+#include "Widgets/Processes/SDeviceProcesses.h"
+#include "Widgets/Toolbar/SDeviceToolbar.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
 
 

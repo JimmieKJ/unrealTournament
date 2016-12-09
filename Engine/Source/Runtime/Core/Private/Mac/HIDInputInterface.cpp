@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
 #include "HIDInputInterface.h"
-
+#include "HAL/PlatformTime.h"
+#include "Misc/CallbackDevice.h"
+#include "Templates/SharedPointer.h"
 
 static int32 GetDevicePropertyAsInt32(IOHIDDeviceRef DeviceRef, CFStringRef Property)
 {
@@ -32,6 +33,7 @@ HIDInputInterface::HIDInputInterface(const TSharedRef<FGenericApplicationMessage
 		ControllerState.ControllerId = ControllerIndex;
 	}
 
+	bIsGamepadAttached = false;
 	InitialButtonRepeatDelay = 0.2f;
 	ButtonRepeatDelay = 0.1f;
 
@@ -386,6 +388,8 @@ void HIDInputInterface::OnNewHIDController(IOReturn Result, IOHIDDeviceRef Devic
 			CFRelease(ElementsArray);
 
 			FCoreDelegates::OnControllerConnectionChange.Broadcast(true, -1, ControllerIndex);
+
+			bIsGamepadAttached = true;
 		}
 		else
 		{
@@ -565,12 +569,23 @@ void HIDInputInterface::HIDDeviceMatchingCallback(void* Context, IOReturn Result
 void HIDInputInterface::HIDDeviceRemovalCallback(void* Context, IOReturn Result, void* Sender, IOHIDDeviceRef DeviceRef)
 {
 	HIDInputInterface* HIDInput = (HIDInputInterface*)Context;
+
 	for (int32 Index = 0; Index < MAX_NUM_HIDINPUT_CONTROLLERS; ++Index)
 	{
 		if(HIDInput->ControllerStates[Index].Device.DeviceRef == DeviceRef)
 		{
 			FCoreDelegates::OnControllerConnectionChange.Broadcast(false, -1, Index);
 			HIDInput->ControllerStates[Index].Device.DeviceRef = NULL;
+			break;
+		}
+	}
+
+	HIDInput->bIsGamepadAttached = false;
+	for (int32 Index = 0; Index < MAX_NUM_HIDINPUT_CONTROLLERS; ++Index)
+	{
+		if (HIDInput->ControllerStates[Index].Device.DeviceRef)
+		{
+			HIDInput->bIsGamepadAttached = true;
 			break;
 		}
 	}

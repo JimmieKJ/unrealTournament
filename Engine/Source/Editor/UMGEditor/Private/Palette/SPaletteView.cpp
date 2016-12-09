@@ -1,36 +1,35 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "UMGEditorPrivatePCH.h"
+#include "Palette/SPaletteView.h"
+#include "Misc/ConfigCacheIni.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
+#include "WidgetBlueprint.h"
+#include "Editor.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SScrollBorder.h"
 
-#include "SPaletteView.h"
-#include "UMGEditorActions.h"
+#if WITH_EDITOR
+	#include "EditorStyleSet.h"
+#endif // WITH_EDITOR
 
-#include "PreviewScene.h"
-#include "SceneViewport.h"
 
-#include "DecoratedDragDropOp.h"
-#include "WidgetTemplateDragDropOp.h"
 
-#include "WidgetTemplate.h"
-#include "WidgetTemplateClass.h"
-#include "WidgetTemplateBlueprintClass.h"
+#include "DragDrop/WidgetTemplateDragDropOp.h"
+
+#include "Templates/WidgetTemplateClass.h"
+#include "Templates/WidgetTemplateBlueprintClass.h"
 
 #include "Developer/HotReload/Public/IHotReload.h"
 
 #include "AssetRegistryModule.h"
-#include "SSearchBox.h"
-
-#include "WidgetBlueprintEditor.h"
-#include "WidgetBlueprintCompiler.h"
-#include "WidgetBlueprintEditorUtils.h"
-
-#include "Settings/WidgetDesignerSettings.h"
-
-#include "Blueprint/UserWidget.h"
-#include "WidgetBlueprint.h"
-#include "ObjectEditorUtils.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #include "Settings/ContentBrowserSettings.h"
+#include "WidgetBlueprintEditorUtils.h"
+
+
+
 #include "UMGEditorProjectSettings.h"
 
 #define LOCTEXT_NAMESPACE "UMG"

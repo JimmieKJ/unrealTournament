@@ -1,7 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AllDesktopTargetPlatformPrivatePCH.h"
-
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/ITargetPlatformModule.h"
+#include "AllDesktopTargetPlatform.h"
+ 
 /**
  * Holds the target platform singleton.
  */

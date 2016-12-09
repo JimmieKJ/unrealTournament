@@ -1,9 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "IPropertyTypeCustomization.h"
-#include "WidgetBlueprint.h"
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
+#include "WidgetBlueprint.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+
+class IDetailChildrenBuilder;
 class IDetailPropertyRow;
 
 class FCanvasSlotCustomization : public IPropertyTypeCustomization

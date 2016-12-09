@@ -2,8 +2,8 @@
 
 
 // Module includes
-#include "OnlineSubsystemFacebookPrivatePCH.h"
 #include "OnlineUserFacebook.h"
+#include "OnlineSubsystemFacebookPrivate.h"
 
 #import <FBSDKCoreKit/FBSDKCoreKit.h>
 

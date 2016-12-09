@@ -2,14 +2,16 @@
 
 #pragma once 
 
-#include "ModuleInterface.h"
-#include "UnrealAudioModule.h"
-#include "UnrealAudioDeviceFormat.h"
+#include "CoreMinimal.h"
 #include "UnrealAudioTypes.h"
+#include "Modules/ModuleInterface.h"
+#include "Runtime/UnrealAudio/Private/UnrealAudioDeviceFormat.h"
+
+class Error;
 
 #if ENABLE_UNREAL_AUDIO
 
-DECLARE_LOG_CATEGORY_EXTERN(LogUnrealAudioDevice, Log, All);
+UNREALAUDIO_API DECLARE_LOG_CATEGORY_EXTERN(LogUnrealAudioDevice, Log, All);
 
 #define UA_DEVICE_PLATFORM_ERROR(INFO)	(UAudio::OnDeviceError(EDeviceError::PLATFORM, INFO, FString(__FILE__), __LINE__))
 #define AU_DEVICE_PARAM_ERROR(INFO)		(UAudio::OnDeviceError(EDeviceError::INVALID_PARAMETER, INFO, FString(__FILE__), __LINE__))

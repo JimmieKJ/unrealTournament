@@ -232,6 +232,19 @@ namespace AutomationTool
 				// Find all the lock files
 				HashSet<FileReference> RequiredTokens = new HashSet<FileReference>(TargetNodes.SelectMany(x => x.RequiredTokens));
 
+				// List out all the required tokens
+				if(SingleNodeName == null)
+				{
+					CommandUtils.Log("Required tokens:");
+					foreach(Node Node in TargetNodes)
+					{
+						foreach(FileReference RequiredToken in Node.RequiredTokens)
+						{
+							CommandUtils.Log("  '{0}' requires {1}", Node, RequiredToken);
+						}
+					}
+				}
+
 				// Try to create all the lock files
 				List<FileReference> CreatedTokens = new List<FileReference>();
 				if(!bListOnly)
@@ -255,11 +268,33 @@ namespace AutomationTool
 				{
 					if(bSkipTargetsWithoutTokens)
 					{
-						foreach(KeyValuePair<FileReference, string> Pair in MissingTokens)
+						// Find all the nodes we're going to skip
+						HashSet<Node> SkipNodes = new HashSet<Node>();
+						foreach(IGrouping<string, FileReference> MissingTokensForBuild in MissingTokens.GroupBy(x => x.Value, x => x.Key))
 						{
-							List<Node> SkipNodes = TargetNodes.Where(x => x.RequiredTokens.Contains(Pair.Key)).ToList();
-							Log("Skipping {0} due to previous build: {1}", String.Join(", ", SkipNodes), Pair.Value);
+							Log("Skipping the following nodes due to {0}:", MissingTokensForBuild.Key);
+							foreach(FileReference MissingToken in MissingTokensForBuild)
+							{
+								foreach(Node SkipNode in TargetNodes.Where(x => x.RequiredTokens.Contains(MissingToken) && SkipNodes.Add(x)))
+								{
+									Log("    {0}", SkipNode);
+								}
+							}
+						}
+
+						// Write a list of everything left over
+						if(SkipNodes.Count > 0)
+						{
 							TargetNodes.ExceptWith(SkipNodes);
+							Log("Remaining target nodes:");
+							foreach(Node TargetNode in TargetNodes)
+							{
+								Log("    {0}", TargetNode);
+							}
+							if(TargetNodes.Count == 0)
+							{
+								Log("    None.");
+							}
 						}
 					}
 					else
@@ -399,7 +434,17 @@ namespace AutomationTool
 			}
 			foreach (Assembly LoadedAssembly in LoadedAssemblies)
 			{
-				Type[] Types = LoadedAssembly.GetTypes();
+				Type[] Types;
+				try
+				{
+					Types = LoadedAssembly.GetTypes();
+				}
+				catch (ReflectionTypeLoadException ex)
+				{
+					LogWarning("Exception {0} while trying to get types from assembly {1}", ex, LoadedAssembly);
+					continue;
+				}
+
 				foreach(Type Type in Types)
 				{
 					foreach(TaskElementAttribute ElementAttribute in Type.GetCustomAttributes<TaskElementAttribute>())
@@ -598,7 +643,7 @@ namespace AutomationTool
 					TempStorageBlock CurrentStorageBlock;
 					if(FileToStorageBlock.TryGetValue(File, out CurrentStorageBlock))
 					{
-						LogError("File '{0}' was produced by {1} and {2}", InputStorageBlock, CurrentStorageBlock);
+						LogError("File '{0}' was produced by {1} and {2}", File, InputStorageBlock, CurrentStorageBlock);
 					}
 					FileToStorageBlock[File] = InputStorageBlock;
 				}
@@ -734,7 +779,7 @@ namespace AutomationTool
 
 			// Read documentation for each of them
 			Dictionary<string, XmlElement> MemberNameToElement = new Dictionary<string, XmlElement>();
-			foreach(Assembly TaskAssembly in NameToTask.Values.Select(x => x.ParametersClass.Assembly).Distinct())
+			foreach(Assembly TaskAssembly in TaskAssemblies)
 			{
 				string XmlFileName = Path.ChangeExtension(TaskAssembly.Location, ".xml");
 				if(File.Exists(XmlFileName))

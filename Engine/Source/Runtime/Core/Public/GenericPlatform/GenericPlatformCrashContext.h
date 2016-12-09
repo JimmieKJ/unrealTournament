@@ -2,7 +2,9 @@
 
 #pragma once
 
-class FString;
+#include "CoreTypes.h"
+#include "HAL/PlatformMemory.h"
+#include "Containers/UnrealString.h"
 
 /** 
  * Symbol information associated with a program counter. 
@@ -96,6 +98,10 @@ public:
 	static const FString CrashTypeAssert;
 	static const FString CrashTypeEnsure;
 
+	static const FString EngineModeExUnknown;
+	static const FString EngineModeExDirty;
+	static const FString EngineModeExVanilla;
+
 	/** Initializes crash context related platform specific data that can be impossible to obtain after a crash. */
 	static void Initialize();
 
@@ -157,6 +163,9 @@ public:
 
 	/** Helper to get the standard string for the crash type based on crash event bool values. */
 	static const TCHAR* GetCrashTypeString(bool InIsEnsure, bool InIsAssert);
+
+	/** Gets the "vanilla" status string. */
+	static const TCHAR* EngineModeExString();
 
 	/** Helper to get the crash report client config filepath saved by this instance and copied to each crash report folder. */
 	static const TCHAR* GetCrashConfigFilePath();

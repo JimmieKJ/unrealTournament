@@ -1,16 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PropertyEditorPrivatePCH.h"
-#include "PropertyTablePropertyNameCell.h"
-#include "PropertyTablePropertyNameColumn.h"
-#include "IPropertyTable.h"
-#include "IPropertyTableRow.h"
+#include "Presentation/PropertyTable/PropertyTablePropertyNameCell.h"
 #include "IPropertyTableColumn.h"
-#include "PropertyPath.h"
-#include "PropertyEditor.h"
-#include "ObjectPropertyNode.h"
-#include "ItemPropertyNode.h"
-#include "PropertyHandle.h"
+#include "Presentation/PropertyTable/PropertyTablePropertyNameColumn.h"
 
 
 FPropertyTablePropertyNameCell::FPropertyTablePropertyNameCell( const TSharedRef< class FPropertyTablePropertyNameColumn >& InColumn, const TSharedRef< class IPropertyTableRow >& InRow )

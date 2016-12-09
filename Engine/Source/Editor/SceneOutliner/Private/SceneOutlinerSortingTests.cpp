@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "SceneOutlinerPrivatePCH.h"
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
 #include "SortHelper.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSortBasicTest, "System.Editor.Scene Outliner.SortBasic", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

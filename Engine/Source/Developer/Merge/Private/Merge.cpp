@@ -1,16 +1,24 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MergePrivatePCH.h"
-
-#include "BlueprintEditor.h"
+#include "Merge.h"
+#include "Engine/Blueprint.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Docking/TabManager.h"
+#include "ISourceControlState.h"
+#include "ISourceControlRevision.h"
+#include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
-#include "SBlueprintMerge.h"
-#include "Toolkits/ToolkitManager.h"
-#include "Toolkits/IToolkit.h"
-#include "SDockTab.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+
+#include "IAssetTypeActions.h"
+#include "BlueprintMergeData.h"
 #include "MergeUtils.h"
+#include "UObject/Package.h"
+#include "BlueprintEditor.h"
+#include "SBlueprintMerge.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "Merge"
 

@@ -2,14 +2,12 @@ WinRT
 =====
 
 This port allows SDL applications to run on Microsoft's platforms that require
-use of "Windows Runtime", aka. "WinRT", APIs.  WinRT apps are currently
-full-screen only, and run in what Microsoft sometimes refers to as their
-"Modern" (formerly, "Metro"), environment.  For Windows 8.x, Microsoft may also
-refer to them as "Windows Store" apps, due to them being distributed,
-primarily, via a Microsoft-run online store (of the same name).
+use of "Windows Runtime", aka. "WinRT", APIs.  Microsoft may, in some cases,
+refer to them as either "Windows Store", or for Windows 10, "UWP" apps.
 
 Some of the operating systems that include WinRT, are:
 
+* Windows 10, via its Universal Windows Platform (UWP) APIs
 * Windows 8.x
 * Windows RT 8.x (aka. Windows 8.x for ARM processors)
 * Windows Phone 8.x
@@ -18,12 +16,12 @@ Some of the operating systems that include WinRT, are:
 Requirements
 ------------
 
-* Microsoft Visual C++ (aka Visual Studio), either 2013 or 2012 versions
+* Microsoft Visual C++ (aka Visual Studio), either 2015, 2013, or 2012
   - Free, "Community" or "Express" editions may be used, so long as they
     include  support for either "Windows Store" or "Windows Phone" apps.
     "Express" versions marked as supporting "Windows Desktop" development
     typically do not include support for creating WinRT apps, to note.
-    (The "Community" edition of Visual C++ 2013 does, however, support both
+    (The "Community" editions of Visual C++ do, however, support both
     desktop/Win32 and WinRT development).
   - Visual C++ 2012 can only build apps that target versions 8.0 of Windows,
     or  Windows Phone.  8.0-targetted apps will run on devices running 8.1
@@ -50,25 +48,21 @@ Status
 Here is a rough list of what works, and what doens't:
 
 * What works:
-  * compilation via Visual C++ 2012 and 2013
+  * compilation via Visual C++ 2012 through 2015
   * compile-time platform detection for SDL programs.  The C/C++ #define,
     `__WINRT__`, will be set to 1 (by SDL) when compiling for WinRT.
   * GPU-accelerated 2D rendering, via SDL_Renderer.
+  * OpenGL ES 2, via the ANGLE library (included separately from SDL)
   * software rendering, via either SDL_Surface (optionally in conjunction with
     SDL_GetWindowSurface() and SDL_UpdateWindowSurface()) or via the
     SDL_Renderer APIs
-  * threads.  Significant chunks of Win32's threading APIs are not available in
-    WinRT.  A new, SDL threading backend was built using C++11's threading APIs
-    (std::thread, std::mutex, std::condition_variable, etc.), which C or C++
-    programs alike can access via SDL's threading APIs.  Support for thread
-    priorities is not, however, currently available, due to restrictions in
-    WinRT's own API set.
+  * threads
   * timers (via SDL_GetTicks(), SDL_AddTimer(), SDL_GetPerformanceCounter(),
     SDL_GetPerformanceFrequency(), etc.)
   * file I/O via SDL_RWops
   * mouse input  (unsupported on Windows Phone)
   * audio, via a modified version of SDL's XAudio2 backend
-  * .DLL file loading.  Libraries must be packaged inside applications.  Loading
+  * .DLL file loading.  Libraries *MUST* be packaged inside applications.  Loading
     anything outside of the app is not supported.
   * system path retrieval via SDL's filesystem APIs
   * game controllers.  Support is provided via the SDL_Joystick and
@@ -76,10 +70,7 @@ Here is a rough list of what works, and what doens't:
   * multi-touch input
   * app events.  SDL_APP_WILLENTER* and SDL_APP_DIDENTER* events get sent out as
     appropriate.
-  * window events.  SDL_WINDOWEVENT_MINIMIZED and SDL_WINDOWEVENT_RESTORED are
-    sent out on app suspend and resume, respectively.  SDL_WINDOWEVENT_SHOWN and
-    SDL_WINDOWEVENT_HIDDEN are also sent, but not necessarily on app suspend or
-    resume, as WinRT treats these two concepts differently..
+  * window events
   * using Direct3D 11.x APIs outside of SDL.  Non-XAML / Direct3D-only apps can
     choose to render content directly via Direct3D, using SDL to manage the
     internal WinRT window, as well as input and audio.  (Use
@@ -88,25 +79,16 @@ Here is a rough list of what works, and what doens't:
 
 * What partially works:
   * keyboard input.  Most of WinRT's documented virtual keys are supported, as
-    well as many keys with documented hardware scancodes.
-  * OpenGL.  Experimental support for OpenGL ES 2 is available via the ANGLE
-    project, using either:
-    * MS Open Technologies' "ms-master" repository, at https://github.com/MSOpenTech/angle
-      (for use with Windows 8.1+ or Windows Phone 8.1+)
-    * MS Open Technologies' "angle-win8.0" repository, at https://github.com/MSOpenTech/angle-win8.0
-      (for Windows 8.0 only!)
-    * Google's main ANGLE repository, at https://chromium.googlesource.com/angle/angle
+    well as many keys with documented hardware scancodes.  Converting
+    SDL_Scancodes to or from SDL_Keycodes may not work, due to missing APIs
+    (MapVirualKey()) in Microsoft's Windows Store / UWP APIs.
   * SDLmain.  WinRT uses a different signature for each app's main() function.
     SDL-based apps that use this port must compile in SDL_winrt_main_NonXAML.cpp
     (in `SDL\src\main\winrt\`) directly in order for their C-style main()
     functions to be called.
-  * XAML interoperability.  This feature is currently experimental (there are
-    **many** known bugs in this, at present!), preliminary, and only for
-    Windows 8.x/RT at the moment.  Windows Phone + XAML support is still
-    pending.
 
 * What doesn't work:
-  * compilation with anything other than Visual C++ 2012 or 2013
+  * compilation with anything other than Visual C++
   * programmatically-created custom cursors.  These don't appear to be supported
     by WinRT.  Different OS-provided cursors can, however, be created via
     SDL_CreateSystemCursor() (unsupported on Windows Phone)
@@ -177,7 +159,9 @@ following, at a high-level:
    the linker, and will copy SDL's .dll files to your app's final output.
 4. adjust your app's build settings, at minimum, telling it where to find SDL's
    header files.
-5. add a file that contains a WinRT-appropriate main function.
+5. add files that contains a WinRT-appropriate main function, along with some
+   data to make sure mouse-cursor-hiding (via SDL_ShowCursor(SDL_DISABLE) calls)
+   work properly.
 6. add SDL-specific app code.
 7. build and run your app.
 
@@ -236,10 +220,10 @@ To set this up for SDL/WinRT, you'll need to run through the following steps:
 4. find SDL/WinRT's Visual C++ project file and open it.  Different project
    files exist for different WinRT platforms.  All of them are in SDL's
    source distribution, in the following directories:
-    * `VisualC-WinRT/WinPhone80_VS2012/` - for Windows Phone 8.0 apps
+    * `VisualC-WinRT/UWP_VS2015/`        - for Windows 10 / UWP apps
     * `VisualC-WinRT/WinPhone81_VS2013/` - for Windows Phone 8.1 apps
-    * `VisualC-WinRT/WinRT80_VS2012/` - for Windows 8.0 apps
-    * `VisualC-WinRT/WinRT81_VS2013/` - for Windows 8.1 apps
+    * `VisualC-WinRT/WinRT80_VS2012/`    - for Windows 8.0 apps
+    * `VisualC-WinRT/WinRT81_VS2013/`    - for Windows 8.1 apps
 5. once the project has been added, right-click on your app's project and
    select, "References..."
 6. click on the button titled, "Add New Reference..."
@@ -285,38 +269,37 @@ To change these settings:
 10. close the dialog, saving settings, by clicking the "OK" button
 
 
-### 5. Add a WinRT-appropriate main function to the app. ###
+### 5. Add a WinRT-appropriate main function, and a blank-cursor image, to the app. ###
 
-C/C++-based WinRT apps do contain a `main` function that the OS will invoke when 
-the app starts launching. The parameters of WinRT main functions are different 
-than those found on other platforms, Win32 included.  SDL/WinRT provides a 
-platform-appropriate main function that will perform these actions, setup key 
-portions of the app, then invoke a classic, C/C++-style main function (that take 
-in "argc" and "argv" parameters).  The code for this file is contained inside 
-SDL's source distribution, under `src/main/winrt/SDL_winrt_main_NonXAML.cpp`.  
-You'll need to add this file, or a copy of it, to your app's project, and make 
-sure it gets compiled using a Microsoft-specific set of C++ extensions called 
-C++/CX.
+A few files should be included directly in your app's MSVC project, specifically:
+1. a WinRT-appropriate main function (which is different than main() functions on
+   other platforms)
+2. a Win32-style cursor resource, used by SDL_ShowCursor() to hide the mouse cursor
+   (if and when the app needs to do so).  *If this cursor resource is not
+   included, mouse-position reporting may fail if and when the cursor is
+   hidden, due to possible bugs/design-oddities in Windows itself.*
 
-**NOTE: C++/CX compilation is currently required in at least one file of your 
-app's project.  This is to make sure that Visual C++'s linker builds a 'Windows 
-Metadata' file (.winmd) for your app.  Not doing so can lead to build errors.**
-
-To include `SDL_winrt_main_NonXAML.cpp`:
+To include these files:
 
 1. right-click on your project (again, in Visual C++'s Solution Explorer), 
    navigate to "Add", then choose "Existing Item...".
-2. open `SDL_winrt_main_NonXAML.cpp`, which is found inside SDL's source 
-   distribution, under `src/main/winrt/`.  Make sure that the open-file dialog 
-   closes, either by double-clicking on the file, or single-clicking on it and 
-   then clicking Add.
-3. right-click on the file (as listed in your project), then click on 
-   "Properties...".
+2. navigate to the directory containing SDL's source code, then into its
+   subdirectory, 'src/main/winrt/'.  Select, then add, the following files:
+   - `SDL_winrt_main_NonXAML.cpp`
+   - `SDL2-WinRTResources.rc`
+   - `SDL2-WinRTResource_BlankCursor.cur`
+3. right-click on the file `SDL_winrt_main_NonXAML.cpp` (as listed in your
+   project), then click on "Properties...".
 4. in the drop-down box next to "Configuration", choose, "All Configurations"
 5. in the drop-down box next to "Platform", choose, "All Platforms"
 6. in the left-hand list, click on "C/C++"
 7. change the setting for "Consume Windows Runtime Extension" to "Yes (/ZW)".
 8. click the OK button.  This will close the dialog.
+
+
+**NOTE: C++/CX compilation is currently required in at least one file of your 
+app's project.  This is to make sure that Visual C++'s linker builds a 'Windows 
+Metadata' file (.winmd) for your app.  Not doing so can lead to build errors.**
 
 
 ### 6. Add app code and assets ###
@@ -400,11 +383,11 @@ A list of unsupported C APIs can be found at
 <http://msdn.microsoft.com/en-us/library/windows/apps/jj606124.aspx>
 
 General information on using the C runtime in WinRT can be found at 
-<http://msdn.microsoft.com/en-us/LIBRARY/hh972425(v=vs.110).aspx>
+<https://msdn.microsoft.com/en-us/library/hh972425.aspx>
 
-A list of supported Win32 APIs for Windows 8/RT apps can be found at 
+A list of supported Win32 APIs for WinRT apps can be found at 
 <http://msdn.microsoft.com/en-us/library/windows/apps/br205757.aspx>.  To note, 
-the list of supported Win32 APIs for Windows Phone 8 development is different.  
+the list of supported Win32 APIs for Windows Phone 8.0 is different.  
 That list can be found at 
 <http://msdn.microsoft.com/en-us/library/windowsphone/develop/jj662956(v=vs.105).aspx>
 
@@ -422,7 +405,12 @@ Simulator.  Once you do that, any time you build and run the app, the app will
 launch in window, rather than full-screen.
 
 
-#### 7.A. Running apps on ARM-based devices ####
+#### 7.A. Running apps on older, ARM-based, "Windows RT" devices ####
+
+**These instructions do not include Windows Phone, despite Windows Phone
+typically running on ARM processors.**  They are specifically for devices
+that use the "Windows RT" operating system, which was a modified version of
+Windows 8.x that ran primarily on ARM-based tablet computers.
 
 To build and run the app on ARM-based, "Windows RT" devices, you'll need to:
 
@@ -433,9 +421,9 @@ To build and run the app on ARM-based, "Windows RT" devices, you'll need to:
   Windows RT device (on the network).
 
 Microsoft's Remote Debugger can be found at 
-<http://msdn.microsoft.com/en-us/library/vstudio/bt727f1t.aspx>.  Please note 
+<https://msdn.microsoft.com/en-us/library/hh441469.aspx>.  Please note 
 that separate versions of this debugger exist for different versions of Visual 
-C++, one for debugging with MSVC 2012, another for debugging with MSVC 2013.
+C++, one each for MSVC 2015, 2013, and 2012.
 
 To setup Visual C++ to launch your app on an ARM device:
 
@@ -478,3 +466,13 @@ section.
 
     /nodefaultlib:vccorlibd /nodefaultlib:msvcrtd vccorlibd.lib msvcrtd.lib
 
+
+#### Mouse-motion events fail to get sent, or SDL_GetMouseState() fails to return updated values
+
+This may be caused by a bug in Windows itself, whereby hiding the mouse
+cursor can cause mouse-position reporting to fail.
+
+SDL provides a workaround for this, but it requires that an app links to a
+set of Win32-style cursor image-resource files.  A copy of suitable resource
+files can be found in `src/main/winrt/`.  Adding them to an app's Visual C++
+project file should be sufficient to get the app to use them.

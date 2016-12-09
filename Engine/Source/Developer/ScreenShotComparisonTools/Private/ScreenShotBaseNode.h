@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Interfaces/IScreenShotData.h"
+
+struct FScreenShotDataItem;
 
 /**
  * Base class for screenshot nodes.

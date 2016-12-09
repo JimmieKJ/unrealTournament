@@ -8,7 +8,9 @@ public class Core : ModuleRules
 {
 	public Core(TargetInfo Target)
 	{
-		SharedPCHHeaderFile = "Runtime/Core/Public/Core.h";
+		PrivatePCHHeaderFile = "Private/CorePrivatePCH.h";
+
+		SharedPCHHeaderFile = "Public/CoreSharedPCH.h";
 
 		PublicIncludePaths.AddRange(
 			new string[] {
@@ -97,7 +99,7 @@ public class Core : ModuleRules
 			AddEngineThirdPartyPrivateStaticDependencies(Target, 
 				"zlib"
 				);
-			PublicFrameworks.AddRange(new string[] { "UIKit", "Foundation", "AudioToolbox", "AVFoundation", "GameKit", "StoreKit", "CoreVideo", "CoreMedia", "CoreGraphics", "GameController"});
+			PublicFrameworks.AddRange(new string[] { "UIKit", "Foundation", "AudioToolbox", "AVFoundation", "GameKit", "StoreKit", "CoreVideo", "CoreMedia", "CoreGraphics", "GameController", "SystemConfiguration" });
 			if (Target.Platform == UnrealTargetPlatform.IOS)
 			{
 				PublicFrameworks.AddRange(new string[] { "CoreMotion" });
@@ -149,6 +151,10 @@ public class Core : ModuleRules
             AddEngineThirdPartyPrivateStaticDependencies(Target, "SDL2");
             PrivateDependencyModuleNames.Add("HTML5JS");
             PrivateDependencyModuleNames.Add("MapPakDownloader");
+        }
+        else if (Target.Platform == UnrealTargetPlatform.PS4)
+        {
+            PublicAdditionalLibraries.Add("SceRtc_stub_weak"); //ORBIS SDK rtc.h, used in PS4Time.cpp
         }
 
         if ( UEBuildConfiguration.bCompileICU == true ) 
@@ -202,5 +208,5 @@ public class Core : ModuleRules
         {
             Definitions.Add("WITH_DIRECTXMATH=0");
         }
-	}
+    }
 }

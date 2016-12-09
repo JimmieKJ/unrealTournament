@@ -1,9 +1,20 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "ProfilerPrivatePCH.h"
-#include "SSearchBox.h"
+#include "Widgets/SFiltersAndPresets.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/SToolTip.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "EditorStyleSet.h"
+#include "ProfilerSession.h"
+#include "ProfilerManager.h"
+#include "Widgets/StatDragDropOp.h"
+#include "Widgets/Input/SSearchBox.h"
 
 #define LOCTEXT_NAMESPACE "SFiltersAndPresets"
+
 
 struct SFiltersAndPresetsHelper
 {
@@ -38,7 +49,8 @@ struct SFiltersAndPresetsHelper
 class SFiltersAndPresetsTooltip
 {
 	const uint32 StatID;
-	FProfilerSessionPtr ProfilerSession;
+	TSharedPtr<FProfilerSession> ProfilerSession;
+
 public:
 	SFiltersAndPresetsTooltip( const uint32 InStatID )
 		: StatID( InStatID )
@@ -758,11 +770,11 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void SFiltersAndPresets::ProfilerManager_OnRequestFilterAndPresetsUpdate()
 {
-	FProfilerSessionPtr ProfilerSessionLocal = FProfilerManager::Get()->GetProfilerSession();
+	TSharedPtr<FProfilerSession> ProfilerSessionLocal = FProfilerManager::Get()->GetProfilerSession();
 	UpdateGroupAndStatTree( ProfilerSessionLocal );
 }
 
-void SFiltersAndPresets::UpdateGroupAndStatTree( const FProfilerSessionPtr InProfilerSession )
+void SFiltersAndPresets::UpdateGroupAndStatTree( const TSharedPtr<FProfilerSession> InProfilerSession )
 {
 	const bool bRebuild = InProfilerSession != ProfilerSession;
 	if( bRebuild )
@@ -772,20 +784,23 @@ void SFiltersAndPresets::UpdateGroupAndStatTree( const FProfilerSessionPtr InPro
 
 	ProfilerSession = InProfilerSession;
 
-	const FProfilerStatMetaDataRef StatMetaData = ProfilerSession->GetMetaData();
-
-	// Create all stat nodes.
-	for( auto It = StatMetaData->GetStatIterator(); It; ++It )
+	if( ProfilerSession.IsValid() )
 	{
-		const FProfilerStat& ProfilerStat = *It.Value();
-		const FName StatName = ProfilerStat.Name();
+		const TSharedRef<FProfilerStatMetaData> StatMetaData = ProfilerSession->GetMetaData();
 
-		FGroupOrStatNodePtr* StatPtr = StatNodesMap.Find( StatName );
-		if( !StatPtr )
+		// Create all stat nodes.
+		for( auto It = StatMetaData->GetStatIterator(); It; ++It )
 		{
-			StatPtr = &StatNodesMap.Add( StatName, MakeShareable( new FGroupOrStatNode( ProfilerStat.OwningGroup().Name(), StatName, ProfilerStat.ID(), ProfilerStat.Type() ) ) );
+			const FProfilerStat& ProfilerStat = *It.Value();
+			const FName StatName = ProfilerStat.Name();
+
+			FGroupOrStatNodePtr* StatPtr = StatNodesMap.Find( StatName );
+			if( !StatPtr )
+			{
+				StatPtr = &StatNodesMap.Add( StatName, MakeShareable( new FGroupOrStatNode( ProfilerStat.OwningGroup().Name(), StatName, ProfilerStat.ID(), ProfilerStat.Type() ) ) );
+			}
+			// Update stat value ?
 		}
-		// Update stat value ?
 	}
 
 	// Create groups, sort stats within the group and apply filtering.
@@ -1116,9 +1131,9 @@ FText SFiltersAndPresets::GroupAndStatTableRow_GetHighlightText() const
 	return GroupAndStatSearchBox->GetText();
 }
 
-bool SFiltersAndPresets::GroupAndStatTableRow_ShouldBeEnabled( const uint32 StatID ) const
+bool SFiltersAndPresets::GroupAndStatTableRow_ShouldBeEnabled( const uint32 InStatID ) const
 {
-	return ProfilerSession->GetAggregatedStat( StatID ) != nullptr;
+	return ProfilerSession->GetAggregatedStat( InStatID ) != nullptr;
 }
 
 /*-----------------------------------------------------------------------------

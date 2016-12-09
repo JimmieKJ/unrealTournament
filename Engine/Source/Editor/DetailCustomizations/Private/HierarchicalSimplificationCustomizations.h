@@ -2,6 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Layout/Visibility.h"
+#include "IPropertyTypeCustomization.h"
+#include "PropertyHandle.h"
+
+class FDetailWidgetRow;
+
 class FHierarchicalSimplificationCustomizations : public IPropertyTypeCustomization
 {
 public:

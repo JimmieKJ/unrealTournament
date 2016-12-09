@@ -17,6 +17,14 @@ CreateLinkIfNoneExists()
     popd > /dev/null
 }
 
+# args: package
+# returns 0 if installed, 1 if it needs to be installed
+PackageIsInstalled()
+{
+    PackageName=$1
+
+    dpkg-query -W -f='${Status}\n' $PackageName | head -n 1 | awk '{print $3;}' | grep -q '^installed$'
+}
 
 # main
 set -e
@@ -34,6 +42,7 @@ if [ -e /etc/os-release ]; then
   # Ubuntu/Debian/Mint
   if [[ "$ID" == "ubuntu" ]] || [[ "$ID_LIKE" == "ubuntu" ]] || [[ "$ID" == "debian" ]] || [[ "$ID_LIKE" == "debian" ]] || [[ "$ID" == "tanglu" ]] || [[ "$ID_LIKE" == "tanglu" ]]; then
     # Install the necessary dependencies (require clang-3.8 on 16.04, although 3.3 and 3.5 through 3.7 should work too for this release)
+     # mono-devel is needed for making the installed build (particularly installing resgen2 tool)
     if [[ "$VERSION_ID" < 16.04 ]]; then
      DEPS="mono-xbuild \
        mono-dmcs \
@@ -46,6 +55,7 @@ if [ -e /etc/os-release ]; then
        libmono-windowsbase4.0-cil
        libmono-system-io-compression4.0-cil
        libmono-system-io-compression-filesystem4.0-cil
+       mono-devel
        clang-3.5
        "
     elif [[ "$VERSION_ID" == 16.04 ]]; then
@@ -60,7 +70,25 @@ if [ -e /etc/os-release ]; then
        libmono-windowsbase4.0-cil
        libmono-system-io-compression4.0-cil
        libmono-system-io-compression-filesystem4.0-cil
+       libmono-system-runtime4.0-cil
+       mono-devel
        clang-3.8
+       "
+    else # assume the latest, this is going to be a moving target
+     DEPS="mono-xbuild \
+       mono-dmcs \
+       libmono-microsoft-build-tasks-v4.0-4.0-cil \
+       libmono-system-data-datasetextensions4.0-cil
+       libmono-system-web-extensions4.0-cil
+       libmono-system-management4.0-cil
+       libmono-system-xml-linq4.0-cil
+       libmono-corlib4.5-cil
+       libmono-windowsbase4.0-cil
+       libmono-system-io-compression4.0-cil
+       libmono-system-io-compression-filesystem4.0-cil
+       libmono-system-runtime4.0-cil
+       mono-devel
+       clang-3.9
        "
     fi
 
@@ -72,7 +100,7 @@ if [ -e /etc/os-release ]; then
     fi
 
     for DEP in $DEPS; do
-      if ! dpkg -s $DEP > /dev/null 2>&1; then
+      if ! PackageIsInstalled $DEP; then
         echo "Attempting installation of missing package: $DEP"
         set -x
         sudo apt-get install -y $DEP
@@ -176,9 +204,6 @@ done
 
 CreateLinkIfNoneExists ../../engine/shaders/Fxaa3_11.usf  ../Engine/Shaders/Fxaa3_11.usf
 CreateLinkIfNoneExists ../../Engine/shaders/Fxaa3_11.usf  ../Engine/Shaders/Fxaa3_11.usf
-
-echo Removing a stable libLND.so binary that was relocated in 4.8
-rm -f ../Engine/Binaries/Linux/libLND.so
 
 # We have to build libhlslcc locally due to apparent mismatch between system STL and cross-toolchain one
 echo

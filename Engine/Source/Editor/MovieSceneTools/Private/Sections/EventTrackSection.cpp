@@ -1,9 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneToolsPrivatePCH.h"
-#include "EventTrackSection.h"
-#include "MovieSceneEventSection.h"
-#include "NameCurveKeyArea.h"
+#include "Sections/EventTrackSection.h"
+#include "ISectionLayoutBuilder.h"
+#include "SequencerSectionPainter.h"
+#include "Sections/MovieSceneEventSection.h"
+#include "GenericKeyArea.h"
 
 
 #define LOCTEXT_NAMESPACE "FEventTrackSection"
@@ -44,9 +45,10 @@ FText FEventTrackSection::GetSectionTitle() const
 }
 
 
-void FEventTrackSection::GenerateSectionLayout(class ISectionLayoutBuilder& LayoutBuilder) const
+void FEventTrackSection::GenerateSectionLayout(ISectionLayoutBuilder& LayoutBuilder) const
 {
-	LayoutBuilder.SetSectionAsKeyArea(MakeShareable(new FNameCurveKeyArea(Section->GetEventCurve(), Section)));
+	auto KeyArea = MakeShared<TGenericKeyArea<FEventPayload, float>>(Section->GetCurveInterface(), Section);
+	LayoutBuilder.SetSectionAsKeyArea(KeyArea);
 }
 
 

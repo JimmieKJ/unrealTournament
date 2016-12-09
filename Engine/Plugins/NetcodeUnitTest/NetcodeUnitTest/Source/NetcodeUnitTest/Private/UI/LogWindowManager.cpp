@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "NetcodeUnitTestPCH.h"
+#include "UI/LogWindowManager.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SWindow.h"
+#include "Framework/Application/SlateApplication.h"
 
-#include "LogWindowManager.h"
 
 #include "UnitTestManager.h"
 

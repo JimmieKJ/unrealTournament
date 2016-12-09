@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
+
 #ifndef MAX_VOICE_DATA_SIZE
 	#define MAX_VOICE_DATA_SIZE 8*1024
 #endif
@@ -17,8 +20,6 @@
 #ifndef MAX_REMOTE_TALKERS
 	#define MAX_REMOTE_TALKERS 16
 #endif
-
-class FUniqueNetId;
 
 /** Defines the data involved in a voice packet */
 class FVoicePacket

@@ -25,7 +25,7 @@ public class OpenAL : ModuleRules
 			PublicLibraryPaths.Add(OpenALPath + "lib/Linux/" + Target.Architecture);
 			PublicAdditionalLibraries.Add("openal");
 
-			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/Linux/libopenal.so.1"));
+			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/OpenAL/Linux/" + Target.Architecture + "/libopenal.so.1"));
 		}
     }
 }

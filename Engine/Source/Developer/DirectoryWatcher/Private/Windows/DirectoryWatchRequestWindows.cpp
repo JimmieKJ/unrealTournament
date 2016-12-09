@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "DirectoryWatcherPrivatePCH.h"
+#include "DirectoryWatchRequestWindows.h"
+#include "DirectoryWatcherPrivate.h"
 
 FDirectoryWatchRequestWindows::FDirectoryWatchRequestWindows(uint32 Flags)
 {
@@ -179,7 +180,15 @@ void FDirectoryWatchRequestWindows::ProcessChange(uint32 Error, uint32 NumBytes)
 		return; 
 	}
 
-	bool bValidNotification = (Error != ERROR_IO_INCOMPLETE && NumBytes > 0 );
+	const bool bValidNotification = (Error != ERROR_IO_INCOMPLETE && NumBytes > 0 );
+	const bool bAccessError = (Error == ERROR_ACCESS_DENIED);
+
+	auto CloseHandleAndMarkForDelete = [this]()
+	{
+		::CloseHandle(DirectoryHandle);
+		DirectoryHandle = INVALID_HANDLE_VALUE;
+		bPendingDelete = true;
+	};
 
 	// Copy the change to the backbuffer so we can start a new read as soon as possible
 	if ( bValidNotification )
@@ -190,7 +199,16 @@ void FDirectoryWatchRequestWindows::ProcessChange(uint32 Error, uint32 NumBytes)
 
 	if ( !bValidNotification )
 	{
-		UE_LOG(LogDirectoryWatcher, Log, TEXT("A directory notification failed for '%s' because it was empty or there was a buffer overflow. Attemping another request..."), *Directory);
+		if (bAccessError)
+		{
+			CloseHandleAndMarkForDelete();
+			UE_LOG(LogDirectoryWatcher, Log, TEXT("A directory notification failed for '%s' because it could not be accessed. Aborting watch request..."), *Directory);
+			return;
+		}
+		else
+		{
+			UE_LOG(LogDirectoryWatcher, Log, TEXT("A directory notification failed for '%s' because it was empty or there was a buffer overflow. Attemping another request..."), *Directory);
+		}
 	}
 
 	// Start up another read
@@ -207,10 +225,7 @@ void FDirectoryWatchRequestWindows::ProcessChange(uint32 Error, uint32 NumBytes)
 	if ( !bSuccess  )
 	{
 		// Failed to re-create the read request.
-		// Mark the request for delete so it can be cleaned up next tick.
-		::CloseHandle(DirectoryHandle);
-		DirectoryHandle = INVALID_HANDLE_VALUE;
-		bPendingDelete = true;
+		CloseHandleAndMarkForDelete();
 		UE_LOG(LogDirectoryWatcher, Log, TEXT("A directory notification failed for '%s', and we were unable to create a new request."), *Directory);
 		return;
 	}

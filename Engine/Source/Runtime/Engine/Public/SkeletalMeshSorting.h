@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+struct FSoftSkinVertex;
+
 /**
 * Group triangles into connected strips 
 *

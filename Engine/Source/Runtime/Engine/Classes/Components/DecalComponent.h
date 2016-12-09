@@ -2,10 +2,15 @@
 
 
 #pragma once
-#include "TimerManager.h"
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Engine/EngineTypes.h"
+#include "Components/SceneComponent.h"
 #include "DecalComponent.generated.h"
 
 class FDeferredDecalProxy;
+class UMaterialInterface;
 
 /** 
  * A material that is rendered onto the surface of a mesh. A kind of 'bumper sticker' for a model.

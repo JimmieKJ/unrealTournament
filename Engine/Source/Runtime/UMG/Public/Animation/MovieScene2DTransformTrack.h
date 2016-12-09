@@ -2,11 +2,12 @@
 
 #pragma once
 
-#include "MovieScenePropertyTrack.h"
-#include "Slate/WidgetTransform.h"
-#include "KeyParams.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Tracks/MovieScenePropertyTrack.h"
 #include "MovieScene2DTransformTrack.generated.h"
 
+struct FWidgetTransform;
 
 /**
  * Handles manipulation of 2D transforms in a movie scene
@@ -23,17 +24,10 @@ public:
 	// UMovieSceneTrack interface
 
 	virtual UMovieSceneSection* CreateNewSection() override;
-	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
+	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 	
 public:
 
-	/**
-	 * Evaluates the track at the playback position
-	 *
-	 * @param Position	The current playback position
-	 * @param LastPosition	The last playback position
-	 * @param InOutTransform 	The transform at the playback position
-	 * @return true if anything was evaluated. Note: if false is returned InOutTransform remains unchanged
-	 */
+	DEPRECATED(4.15, "Please evaluate using FMovieScene2DTransformTemplate.")
 	bool Eval( float Position, float LastPostion, FWidgetTransform& InOutTransform ) const;
 };

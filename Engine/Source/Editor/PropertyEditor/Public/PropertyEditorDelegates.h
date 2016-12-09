@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
+class FPropertyPath;
+struct FPropertyChangedEvent;
 
 struct FPropertyAndParent
 {

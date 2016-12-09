@@ -1,14 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "EnginePrivate.h"
-#include "VisualLogger/VisualLogger.h"
+#include "AI/Navigation/NavLinkCustomComponent.h"
+#include "TimerManager.h"
+#include "GameFramework/Pawn.h"
+#include "CollisionQueryParams.h"
+#include "WorldCollision.h"
+#include "Engine/World.h"
+#include "GameFramework/Controller.h"
+#include "AI/Navigation/NavigationSystem.h"
 #include "AI/Navigation/NavAreas/NavArea_Null.h"
 #include "AI/Navigation/NavAreas/NavArea_Default.h"
 // @todo to be addressed when removing AIModule circular dependency
 #include "Navigation/PathFollowingComponent.h"
-#include "AI/Navigation/NavLinkCustomComponent.h"
-#include "AI/Navigation/NavAreas/NavArea_Default.h"
-#include "AI/Navigation/NavAreas/NavArea_Null.h"
+#include "AI/NavigationModifier.h"
 #include "AI/NavigationOctree.h"
 
 UNavLinkCustomComponent::UNavLinkCustomComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)

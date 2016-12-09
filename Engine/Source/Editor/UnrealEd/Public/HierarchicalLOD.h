@@ -2,7 +2,13 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/MemStack.h"
+#include "GameFramework/WorldSettings.h"
 #include "LODCluster.h"
+
+class AHierarchicalLODVolume;
+class ALODActor;
 
 /*=============================================================================
 	HierarchicalLOD.h: Hierarchical LOD definition.

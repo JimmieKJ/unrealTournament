@@ -24,13 +24,12 @@ public class GeometryCache : ModuleRules
 			}
 		);
 
-        PublicIncludePathModuleNames.Add("GeometryCacheEd");
+        PublicIncludePathModuleNames.Add("TargetPlatform");
 
         if (UEBuildConfiguration.bBuildEditor)
         {
+            PublicIncludePathModuleNames.Add("GeometryCacheEd");
             DynamicallyLoadedModuleNames.Add("GeometryCacheEd");
-        }
-
-		PrecompileForTargets = PrecompileTargetsType.None;
+        }        
 	}
 }

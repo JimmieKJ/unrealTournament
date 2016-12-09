@@ -1,8 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "WorldBrowserPrivatePCH.h"
+#include "Tiles/WorldTileDetails.h"
+#include "UObject/UnrealType.h"
 
-#include "WorldTileModel.h"
-#include "WorldTileDetails.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 

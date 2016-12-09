@@ -1,10 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BlueprintGraphPrivatePCH.h"
 #include "MakeStructHandler.h"
+#include "UObject/UnrealType.h"
+#include "EdGraphSchema_K2.h"
 #include "K2Node_MakeStruct.h"
+#include "EdGraphUtilities.h"
 #include "KismetCompiler.h"
-#include "Editor/PropertyEditor/Public/PropertyCustomizationHelpers.h"
+#include "PropertyCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "FKCHandler_MakeStruct"
 

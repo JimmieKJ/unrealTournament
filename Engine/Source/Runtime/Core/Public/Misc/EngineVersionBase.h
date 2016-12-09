@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreTypes.h"
+
 /** Enum for the components of a version string. */
 enum class EVersionComponent
 {

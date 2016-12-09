@@ -1,10 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 
-#include "UnrealEd.h"
-#include "MouseDeltaTracker.h"
+#include "EditorComponents.h"
+#include "EngineDefines.h"
+#include "HAL/IConsoleManager.h"
+#include "GameFramework/Actor.h"
+#include "Materials/Material.h"
+#include "Settings/LevelEditorViewportSettings.h"
+#include "EngineGlobals.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Engine/Selection.h"
+#include "SceneManagement.h"
+#include "EditorModeManager.h"
 #include "GameFramework/WorldSettings.h"
 
 static TAutoConsoleVariable<int32> CVarEditorNewLevelGrid(
@@ -130,7 +137,7 @@ void FGridWidget::DrawNewGrid(const FSceneView* View, FPrimitiveDrawInterface* P
 	}
 
 	bool bMSAA = IsEditorCompositingMSAAEnabled(View->GetFeatureLevel());
-	bool bIsPerspective = ( View->ViewMatrices.ProjMatrix.M[3][3] < 1.0f );
+	bool bIsPerspective = ( View->ViewMatrices.GetProjectionMatrix().M[3][3] < 1.0f );
 
 	// in unreal units
 	float SnapGridSize = GEditor->GetGridSize();
@@ -200,8 +207,8 @@ void FGridWidget::DrawNewGrid(const FSceneView* View, FPrimitiveDrawInterface* P
 	{
 		// screenspace size looks better in 2d
 
-		float ScaleX = View->ViewMatrices.ProjMatrix.M[0][0] * View->ViewRect.Width();
-		float ScaleY = View->ViewMatrices.ProjMatrix.M[1][1] * View->ViewRect.Height();
+		float ScaleX = View->ViewMatrices.GetProjectionMatrix().M[0][0] * View->ViewRect.Width();
+		float ScaleY = View->ViewMatrices.GetProjectionMatrix().M[1][1] * View->ViewRect.Height();
 
 		float Scale = FMath::Min(ScaleX, ScaleY);
 
@@ -225,7 +232,7 @@ void FGridWidget::DrawNewGrid(const FSceneView* View, FPrimitiveDrawInterface* P
 
 	FMatrix ObjectToWorld = FMatrix::Identity;
 
-	FVector CameraPos = View->ViewMatrices.ViewOrigin;
+	FVector CameraPos = View->ViewMatrices.GetViewOrigin();
 
 	FVector2D UVCameraPos = FVector2D(CameraPos.X, CameraPos.Y);
 
@@ -241,11 +248,11 @@ void FGridWidget::DrawNewGrid(const FSceneView* View, FPrimitiveDrawInterface* P
 	{
 		float FarZ = 100000.0f;
 
-		if(View->ViewMatrices.ViewMatrix.M[1][1] == -1.f )		// Top
+		if(View->ViewMatrices.GetViewMatrix().M[1][1] == -1.f )		// Top
 		{
 			ObjectToWorld.SetOrigin(FVector(CameraPos.X, CameraPos.Y, -FarZ));
 		}
-		if(View->ViewMatrices.ViewMatrix.M[1][2] == -1.f )		// Front
+		if(View->ViewMatrices.GetViewMatrix().M[1][2] == -1.f )		// Front
 		{
 			UVCameraPos = FVector2D(CameraPos.Z, CameraPos.X);
 			ObjectToWorld.SetAxis(0, FVector(0,0,1));
@@ -255,7 +262,7 @@ void FGridWidget::DrawNewGrid(const FSceneView* View, FPrimitiveDrawInterface* P
 			UAxisColor = AxisColors[0];
 			VAxisColor = AxisColors[2];
 		}
-		else if(View->ViewMatrices.ViewMatrix.M[1][0] == 1.f )		// Side
+		else if(View->ViewMatrices.GetViewMatrix().M[1][0] == 1.f )		// Side
 		{
 			UVCameraPos = FVector2D(CameraPos.Y, CameraPos.Z);
 			ObjectToWorld.SetAxis(0, FVector(0,1,0));
@@ -283,8 +290,8 @@ void FGridWidget::DrawNewGrid(const FSceneView* View, FPrimitiveDrawInterface* P
 	}
 	else
 	{
-		float ScaleX = View->ViewMatrices.ProjMatrix.M[0][0];
-		float ScaleY = View->ViewMatrices.ProjMatrix.M[1][1];
+		float ScaleX = View->ViewMatrices.GetProjectionMatrix().M[0][0];
+		float ScaleY = View->ViewMatrices.GetProjectionMatrix().M[1][1];
 
 		float Scale = FMath::Min(ScaleX, ScaleY);
 
@@ -387,7 +394,7 @@ void FEditorCommonDrawHelper::DrawOldGrid(const FSceneView* View,FPrimitiveDrawI
 {
 	ESceneDepthPriorityGroup eDPG = (ESceneDepthPriorityGroup)DepthPriorityGroup;
 
-	bool bIsPerspective = ( View->ViewMatrices.ProjMatrix.M[3][3] < 1.0f );
+	bool bIsPerspective = ( View->ViewMatrices.GetProjectionMatrix().M[3][3] < 1.0f );
 
 	// Don't attempt to draw the grid lines from the maximum half world extent as it may be clipped due to floating point truncation errors
 	const float HalfWorldExtent = HALF_WORLD_MAX - 1000.0f;
@@ -438,16 +445,16 @@ void FEditorCommonDrawHelper::DrawOldGrid(const FSceneView* View,FPrimitiveDrawI
 	// Draw ortho grid.
 	else
 	{
-		const bool bIsOrthoXY = ( FMath::Abs(View->ViewMatrices.ViewMatrix.M[2][2]) > 0.0f );
-		const bool bIsOrthoXZ = ( FMath::Abs(View->ViewMatrices.ViewMatrix.M[1][2]) > 0.0f );
-		const bool bIsOrthoYZ = ( FMath::Abs(View->ViewMatrices.ViewMatrix.M[0][2]) > 0.0f );
+		const bool bIsOrthoXY = ( FMath::Abs(View->ViewMatrices.GetViewMatrix().M[2][2]) > 0.0f );
+		const bool bIsOrthoXZ = ( FMath::Abs(View->ViewMatrices.GetViewMatrix().M[1][2]) > 0.0f );
+		const bool bIsOrthoYZ = ( FMath::Abs(View->ViewMatrices.GetViewMatrix().M[0][2]) > 0.0f );
 
 		FLinearColor AxisColors[3];
 		GetAxisColors(AxisColors, false);
 
 		if (bIsOrthoXY)
 		{
-			const bool bNegative = View->ViewMatrices.ViewMatrix.M[2][2] > 0.0f;
+			const bool bNegative = View->ViewMatrices.GetViewMatrix().M[2][2] > 0.0f;
 
 			FVector StartY(0.0f, +HalfWorldExtent, bNegative ? HalfWorldExtent : -HalfWorldExtent);
 			FVector EndY(0.0f, -HalfWorldExtent, bNegative ? HalfWorldExtent : -HalfWorldExtent);
@@ -461,7 +468,7 @@ void FEditorCommonDrawHelper::DrawOldGrid(const FSceneView* View,FPrimitiveDrawI
 		}
 		else if( bIsOrthoXZ )
 		{
-			const bool bNegative = View->ViewMatrices.ViewMatrix.M[1][2] > 0.0f;
+			const bool bNegative = View->ViewMatrices.GetViewMatrix().M[1][2] > 0.0f;
 
 			FVector StartZ(0.0f, bNegative ? HalfWorldExtent : -HalfWorldExtent, +HalfWorldExtent);
 			FVector EndZ(0.0f, bNegative ? HalfWorldExtent : -HalfWorldExtent, -HalfWorldExtent);
@@ -475,7 +482,7 @@ void FEditorCommonDrawHelper::DrawOldGrid(const FSceneView* View,FPrimitiveDrawI
 		}
 		else if( bIsOrthoYZ )
 		{
-			const bool bNegative = View->ViewMatrices.ViewMatrix.M[0][2] < 0.0f;
+			const bool bNegative = View->ViewMatrices.GetViewMatrix().M[0][2] < 0.0f;
 
 			FVector StartZ(bNegative ? -HalfWorldExtent : HalfWorldExtent, 0.0f, +HalfWorldExtent);
 			FVector EndZ(bNegative ? -HalfWorldExtent : HalfWorldExtent, 0.0f, -HalfWorldExtent);
@@ -517,7 +524,7 @@ void FEditorCommonDrawHelper::DrawGridSection(float ViewportGridY,FVector* A,FVe
 	int32 Exponent = GEditor->IsGridSizePowerOfTwo() ? 8 : 10;
 
 	const float SizeX = View->ViewRect.Width();
-	const float Zoom = (1.0f / View->ViewMatrices.ProjMatrix.M[0][0]) * 2.0f / SizeX;
+	const float Zoom = (1.0f / View->ViewMatrices.GetProjectionMatrix().M[0][0]) * 2.0f / SizeX;
 	const float Dist = SizeX * Zoom / ViewportGridY;
 
 	// when the grid fades
@@ -559,7 +566,7 @@ void FEditorCommonDrawHelper::DrawGridSection(float ViewportGridY,FVector* A,FVe
 	FLinearColor MajorColor = FMath::Lerp(Background, FLinearColor::White, 0.05f);
 	FLinearColor MinorColor = FMath::Lerp(Background, FLinearColor::White, 0.02f);
 
-	const FMatrix InvViewProjMatrix = View->ViewMatrices.ProjMatrix.InverseFast() * View->ViewMatrices.ViewMatrix.InverseFast();
+	const FMatrix InvViewProjMatrix = View->ViewMatrices.GetInvViewProjectionMatrix();
 	int32 FirstLine = FMath::TruncToInt(InvViewProjMatrix.TransformPosition(FVector(-1, -1, 0.5f)).Component(Axis) / ViewportGridY);
 	int32 LastLine = FMath::TruncToInt(InvViewProjMatrix.TransformPosition(FVector(+1, +1, 0.5f)).Component(Axis) / ViewportGridY);
 	if (FirstLine > LastLine)
@@ -613,12 +620,12 @@ void FEditorCommonDrawHelper::DrawOriginAxisLine(FVector* A,FVector* B,float* AX
 
 void FEditorCommonDrawHelper::DrawPivot(const FSceneView* View,FPrimitiveDrawInterface* PDI)
 {
-	const FMatrix CameraToWorld = View->ViewMatrices.ViewMatrix.InverseFast();
+	const FMatrix CameraToWorld = View->ViewMatrices.GetInvViewMatrix();
 
 	const FVector PivLoc = GLevelEditorModeTools().SnappedLocation;
 
-	const float ZoomFactor = FMath::Min<float>(View->ViewMatrices.ProjMatrix.M[0][0], View->ViewMatrices.ProjMatrix.M[1][1]);
-	const float WidgetRadius = View->ViewMatrices.GetViewProjMatrix().TransformPosition(PivLoc).W * (PivotSize / ZoomFactor);
+	const float ZoomFactor = FMath::Min<float>(View->ViewMatrices.GetProjectionMatrix().M[0][0], View->ViewMatrices.GetProjectionMatrix().M[1][1]);
+	const float WidgetRadius = View->ViewMatrices.GetViewProjectionMatrix().TransformPosition(PivLoc).W * (PivotSize / ZoomFactor);
 
 	const FVector CamX = CameraToWorld.TransformVector( FVector(1,0,0) );
 	const FVector CamY = CameraToWorld.TransformVector( FVector(0,1,0) );

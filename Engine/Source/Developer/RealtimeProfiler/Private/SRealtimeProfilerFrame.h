@@ -2,12 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
-class SBarVisualizer;
-class SEventsTree;
-class SRealtimeProfilerVisualizer;
-struct FVisualizerEvent;
-struct FRealtimeProfilerFPSChartFrame;
 //
 //class SRealtimeProfilerFrame : public SCompoundWidget
 //{

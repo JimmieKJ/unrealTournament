@@ -3,19 +3,26 @@
 #pragma once
 
 
+/* Boilerplate
+ *****************************************************************************/
+
+#include "Misc/MonolithicHeaderBoilerplate.h"
+MONOLITHIC_HEADER_BOILERPLATE()
+
+
 /* Dependencies
  *****************************************************************************/
 
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
 #include "TargetPlatform.h"
 
 
 /* Interfaces
  *****************************************************************************/
 
-#include "ITargetDeviceProxy.h"
-#include "ITargetDeviceProxyManager.h"
-#include "ITargetDeviceService.h"
-#include "ITargetDeviceServiceManager.h"
+#include "Interfaces/ITargetDeviceProxy.h"
+#include "Interfaces/ITargetDeviceProxyManager.h"
+#include "Interfaces/ITargetDeviceService.h"
+#include "Interfaces/ITargetDeviceServiceManager.h"
 
-#include "ITargetDeviceServicesModule.h"
+#include "Interfaces/ITargetDeviceServicesModule.h"

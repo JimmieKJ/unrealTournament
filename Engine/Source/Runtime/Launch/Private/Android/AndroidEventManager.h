@@ -3,7 +3,11 @@
 #ifndef ANDROID_EVENT_MANAGER_H
 #define ANDROID_EVENT_MANAGER_H
 
+#include "CoreMinimal.h"
+#include "Containers/Queue.h"
+
 struct ANativeWindow;
+
 DECLARE_LOG_CATEGORY_EXTERN(LogAndroidEvents, Log, All);
 
 enum EAppEventState
@@ -44,6 +48,7 @@ public:
 	void EnqueueAppEvent(EAppEventState InState, void* InData = NULL);
 	void SetEventHandlerEvent(FEvent* InEventHandlerEvent);
 	void HandleWindowCreated(void* InWindow);
+	void HandleWindowClosed();
 	bool IsGamePaused();
 	bool WaitForEventInQueue(EAppEventState InState, double TimeoutSeconds);
 
@@ -63,6 +68,7 @@ private:
 
 	void ExecWindowCreated();
 	void ExecWindowResized();
+	void ExecDestroyWindow();
 	
 	static FAppEventManager* sInstance;
 

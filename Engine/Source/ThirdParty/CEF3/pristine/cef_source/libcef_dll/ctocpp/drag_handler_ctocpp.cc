@@ -1,4 +1,4 @@
-// Copyright (c) 2015 The Chromium Embedded Framework Authors. All rights
+// Copyright (c) 2016 The Chromium Embedded Framework Authors. All rights
 // reserved. Use of this source code is governed by a BSD-style license that
 // can be found in the LICENSE file.
 //
@@ -19,7 +19,8 @@
 
 bool CefDragHandlerCToCpp::OnDragEnter(CefRefPtr<CefBrowser> browser,
     CefRefPtr<CefDragData> dragData, DragOperationsMask mask) {
-  if (CEF_MEMBER_MISSING(struct_, on_drag_enter))
+  cef_drag_handler_t* _struct = GetStruct();
+  if (CEF_MEMBER_MISSING(_struct, on_drag_enter))
     return false;
 
   // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
@@ -34,7 +35,7 @@ bool CefDragHandlerCToCpp::OnDragEnter(CefRefPtr<CefBrowser> browser,
     return false;
 
   // Execute
-  int _retval = struct_->on_drag_enter(struct_,
+  int _retval = _struct->on_drag_enter(_struct,
       CefBrowserCppToC::Wrap(browser),
       CefDragDataCppToC::Wrap(dragData),
       mask);
@@ -46,7 +47,8 @@ bool CefDragHandlerCToCpp::OnDragEnter(CefRefPtr<CefBrowser> browser,
 void CefDragHandlerCToCpp::OnDraggableRegionsChanged(
     CefRefPtr<CefBrowser> browser,
     const std::vector<CefDraggableRegion>& regions) {
-  if (CEF_MEMBER_MISSING(struct_, on_draggable_regions_changed))
+  cef_drag_handler_t* _struct = GetStruct();
+  if (CEF_MEMBER_MISSING(_struct, on_draggable_regions_changed))
     return;
 
   // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
@@ -70,7 +72,7 @@ void CefDragHandlerCToCpp::OnDraggableRegionsChanged(
   }
 
   // Execute
-  struct_->on_draggable_regions_changed(struct_,
+  _struct->on_draggable_regions_changed(_struct,
       CefBrowserCppToC::Wrap(browser),
       regionsCount,
       regionsList);
@@ -81,8 +83,22 @@ void CefDragHandlerCToCpp::OnDraggableRegionsChanged(
 }
 
 
+// CONSTRUCTOR - Do not edit by hand.
+
+CefDragHandlerCToCpp::CefDragHandlerCToCpp() {
+}
+
+template<> cef_drag_handler_t* CefCToCpp<CefDragHandlerCToCpp, CefDragHandler,
+    cef_drag_handler_t>::UnwrapDerived(CefWrapperType type,
+    CefDragHandler* c) {
+  NOTREACHED() << "Unexpected class type: " << type;
+  return NULL;
+}
+
 #ifndef NDEBUG
 template<> base::AtomicRefCount CefCToCpp<CefDragHandlerCToCpp, CefDragHandler,
     cef_drag_handler_t>::DebugObjCt = 0;
 #endif
 
+template<> CefWrapperType CefCToCpp<CefDragHandlerCToCpp, CefDragHandler,
+    cef_drag_handler_t>::kWrapperType = WT_DRAG_HANDLER;

@@ -4,11 +4,13 @@
 
 /** FName declaration of IOS subsystem */
 
-#include "Core.h"
-#include "CoreUObject.h"
+#include "CoreMinimal.h"
 #include "SocketSubsystem.h"
 #include "ModuleManager.h"
 #include "IOSAppDelegate.h"
+#include "IOS/IOSAsyncTask.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/ScopeLock.h"
 
 class FOnlineSubsystemIOS;
 

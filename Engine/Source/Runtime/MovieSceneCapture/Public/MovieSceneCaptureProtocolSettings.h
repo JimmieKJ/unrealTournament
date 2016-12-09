@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "MovieSceneCaptureSettings.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "MovieSceneCaptureProtocolSettings.generated.h"
+
+struct FMovieSceneCaptureSettings;
 
 UCLASS()
 class MOVIESCENECAPTURE_API UMovieSceneCaptureProtocolSettings : public UObject

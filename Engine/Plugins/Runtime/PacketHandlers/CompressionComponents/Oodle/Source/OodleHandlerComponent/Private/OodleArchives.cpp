@@ -1,9 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OodleHandlerComponentPCH.h"
+#include "OodleArchives.h"
+#include "OodleHandlerComponent.h"
 
 #if HAS_OODLE_SDK
-#include "OodleArchives.h"
 
 // Maximum size of compress/decompress buffers (just under 2GB, due to max int32 value)
 #define MAX_COMPRESS_BUFFER (1024 * 1024 * 2047)

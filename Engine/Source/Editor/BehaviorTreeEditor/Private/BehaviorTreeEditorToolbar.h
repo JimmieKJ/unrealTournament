@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
+class FBehaviorTreeEditor;
+class FExtender;
+class FToolBarBuilder;
+
 class FBehaviorTreeEditorToolbar : public TSharedFromThis<FBehaviorTreeEditorToolbar>
 {
 public:

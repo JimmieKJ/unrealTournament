@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreUObjectPrivate.h"
-#include "PackageLocalizationManager.h"
-#include "PackageLocalizationCache.h"
+#include "Internationalization/PackageLocalizationManager.h"
+#include "Misc/Paths.h"
+#include "Internationalization/Culture.h"
+#include "Misc/PackageName.h"
+#include "Internationalization/IPackageLocalizationCache.h"
+#include "Internationalization/PackageLocalizationCache.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPackageLocalizationManager, Log, All);
 
@@ -48,31 +51,7 @@ void FPackageLocalizationManager::PerformLazyInitialization()
 		{
 			UE_LOG(LogPackageLocalizationManager, Warning, TEXT("InitializeFromLazyCallback was bound to a callback that didn't initialize the active cache."));
 		}
-
-		if (!PackageResolutionDelegate.IsBound())
-		{
-			PackageResolutionDelegate.BindRaw(this, &FPackageLocalizationManager::LinkerResolutionCallback);
-			FCoreDelegates::PackageNameResolvers.Add(PackageResolutionDelegate);
-		}
 	}
-}
-
-bool FPackageLocalizationManager::LinkerResolutionCallback(const FString& InRequestedPackage, FString& OutResolvedPackage)
-{
-	// The editor must not redirect packages for localization. We also shouldn't redirect script or in-memory packages.
-	if (GIsEditor || FPackageName::IsScriptPackage(InRequestedPackage))
-	{
-		return false;
-	}
-
-	const FName LocalizedPackageName = FPackageLocalizationManager::Get().FindLocalizedPackageName(*InRequestedPackage);
-
-	if (!LocalizedPackageName.IsNone())
-	{
-		OutResolvedPackage = LocalizedPackageName.ToString();
-	}
-
-	return !LocalizedPackageName.IsNone();
 }
 
 void FPackageLocalizationManager::InitializeFromLazyCallback(FLazyInitFunc InLazyInitFunc)

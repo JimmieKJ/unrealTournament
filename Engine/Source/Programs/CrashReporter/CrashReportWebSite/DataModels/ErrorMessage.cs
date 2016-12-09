@@ -17,11 +17,13 @@ namespace Tools.CrashReporter.CrashReportWebSite.DataModels
         public ErrorMessage()
         {
             this.Buggs = new HashSet<Bugg>();
+            this.Crashes = new HashSet<Crash>();
         }
     
         public int Id { get; set; }
         public string Message { get; set; }
     
         public virtual ICollection<Bugg> Buggs { get; set; }
+        public virtual ICollection<Crash> Crashes { get; set; }
     }
 }

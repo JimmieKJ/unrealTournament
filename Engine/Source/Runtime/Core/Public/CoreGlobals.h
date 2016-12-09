@@ -1,24 +1,64 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "Containers/ContainersFwd.h"
-#include "HAL/Platform.h"
-#include "Misc/CoreMiscDefines.h"
-#include "Misc/OutputDevice.h"
 
+#include "CoreTypes.h"
+#include "Containers/UnrealString.h"
+#include "UObject/NameTypes.h"
+#include "Logging/LogMacros.h"
+#include "HAL/PlatformTLS.h"
+
+class Error;
 class FConfigCacheIni;
-class FExec;
-class FName;
+class FFixedUObjectArray;
 class FOutputDeviceConsole;
+class FOutputDeviceRedirector;
 class FReloadObjectArc;
-class FString;
-class FText;
 class ITransaction;
 
-struct FScriptTraceStackNode;
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogHAL, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogMac, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogLinux, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogIOS, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogAndroid, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogPS4, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogXboxOne, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogWindows, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogSwitch, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogSerialization, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogUnrealMath, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogUnrealMatrix, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogContentComparisonCommandlet, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogNetPackageMap, Warning, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogNetSerialization, Warning, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogMemory, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogProfilingDebugging, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogCore, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogOutputDevice, Log, All);
 
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogSHA, Warning, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogStats, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogStreaming, Display, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogInit, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogExit, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogExec, Warning, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogScript, Warning, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogLocalization, Error, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogLongPackageNames, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogProcess, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogLoad, Log, All);
+
+// Temporary log category, generally you should not check things in that use this
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogTemp, Log, All);
+
+CORE_API FOutputDeviceRedirector* GetGlobalLogSingleton();
+
+#define GLog GetGlobalLogSingleton()
 extern CORE_API FConfigCacheIni* GConfig;
 extern CORE_API ITransaction* GUndo;
 extern CORE_API FOutputDeviceConsole* GLogConsole;
+CORE_API extern class FOutputDeviceError*			GError;
+CORE_API extern class FFeedbackContext*				GWarn;
+
 
 extern CORE_API TCHAR GErrorHist[16384];
 
@@ -63,6 +103,9 @@ extern CORE_API bool PRIVATE_GIsRunningCommandlet;
 
 /** If true, initialize RHI and set up scene for rendering even when running a commandlet. */
 extern CORE_API bool PRIVATE_GAllowCommandletRendering;
+
+/** If true, initialize audio and even when running a commandlet. */
+extern CORE_API bool PRIVATE_GAllowCommandletAudio;
 #endif
 
 #if WITH_EDITORONLY_DATA
@@ -120,6 +163,15 @@ FORCEINLINE bool IsAllowCommandletRendering()
 {
 #if WITH_ENGINE
 	return PRIVATE_GAllowCommandletRendering;
+#else
+	return false;
+#endif
+}
+
+FORCEINLINE bool IsAllowCommandletAudio()
+{
+#if WITH_ENGINE
+	return PRIVATE_GAllowCommandletAudio;
 #else
 	return false;
 #endif
@@ -213,6 +265,9 @@ extern CORE_API bool(*IsAsyncLoadingMultithreaded)();
 /** Whether the editor is currently loading a package or not */
 extern CORE_API bool GIsEditorLoadingPackage;
 
+/** Whether the cooker is currently loading a package or not */
+extern CORE_API bool GIsCookerLoadingPackage;
+
 /** Whether GWorld points to the play in editor world */
 extern CORE_API bool GIsPlayInEditorWorld;
 
@@ -266,9 +321,6 @@ extern CORE_API float GHitchThresholdMS;
 
 /** Size to break up data into when saving compressed data */
 extern CORE_API int32 GSavingCompressionChunkSize;
-
-/** Whether we are using the seek-free/ cooked loading code path. */
-extern CORE_API bool GUseSeekFreeLoading;
 
 /** Thread ID of the main/game thread */
 extern CORE_API uint32 GGameThreadId;
@@ -338,3 +390,52 @@ extern CORE_API bool GEnableVREditorHacks;
 CORE_API void EnsureRetrievingVTablePtrDuringCtor(const TCHAR* CtorSignature);
 #endif // WITH_HOT_RELOAD_CTORS
 
+/** @return True if called from the game thread. */
+FORCEINLINE bool IsInGameThread()
+{
+	if(GIsGameThreadIdInitialized)
+	{
+		const uint32 CurrentThreadId = FPlatformTLS::GetCurrentThreadId();
+		return CurrentThreadId == GGameThreadId || CurrentThreadId == GSlateLoadingThreadId;
+	}
+
+	return true;
+}
+
+/** @return True if called from the audio thread, and not merely a thread calling audio functions. */
+extern CORE_API bool IsInAudioThread();
+
+/** Thread used for audio */
+extern CORE_API FRunnableThread* GAudioThread;
+
+/** @return True if called from the slate thread, and not merely a thread calling slate functions. */
+extern CORE_API bool IsInSlateThread();
+
+/** @return True if called from the rendering thread, or if called from ANY thread during single threaded rendering */
+extern CORE_API bool IsInRenderingThread();
+
+/** @return True if called from the rendering thread, or if called from ANY thread that isn't the game thread, except that during single threaded rendering the game thread is ok too.*/
+extern CORE_API bool IsInParallelRenderingThread();
+
+/** @return True if called from the rendering thread. */
+// Unlike IsInRenderingThread, this will always return false if we are running single threaded. It only returns true if this is actually a separate rendering thread. Mostly useful for checks
+extern CORE_API bool IsInActualRenderingThread();
+
+/** @return True if called from the async loading thread if it's enabled, otherwise if called from game thread while is async loading code. */
+extern CORE_API bool (*IsInAsyncLoadingThread)();
+
+/** Thread used for rendering */
+extern CORE_API FRunnableThread* GRenderingThread;
+
+/** Whether the rendering thread is suspended (not even processing the tickables) */
+extern CORE_API int32 GIsRenderingThreadSuspended;
+
+/** @return True if called from the RHI thread, or if called from ANY thread during single threaded rendering */
+extern CORE_API bool IsInRHIThread();
+
+/** Thread used for RHI */
+extern CORE_API FRunnableThread* GRHIThread;
+
+/** Array to help visualize weak pointers in the debugger */
+class FFixedUObjectArray;
+extern CORE_API FFixedUObjectArray* GCoreObjectArrayForDebugVisualizers;

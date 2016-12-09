@@ -1,6 +1,6 @@
 
-#include "SequencerPrivatePCH.h"
 #include "SectionLayout.h"
+#include "GroupedKeyArea.h"
 
 FSectionLayoutElement FSectionLayoutElement::FromGroup(const TSharedRef<FSequencerDisplayNode>& InNode, const TSharedRef<FGroupedKeyArea>& InKeyAreaGroup, float InOffset)
 {

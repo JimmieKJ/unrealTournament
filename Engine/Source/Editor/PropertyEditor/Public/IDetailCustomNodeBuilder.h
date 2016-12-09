@@ -2,8 +2,10 @@
 
 #pragma once
 
-class IDetailChildrenBuilder;
+#include "CoreMinimal.h"
+
 class FDetailWidgetRow;
+class IDetailChildrenBuilder;
 
 /**
  * A custom node that can be given to a details panel category to customize widgets

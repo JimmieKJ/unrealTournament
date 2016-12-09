@@ -1,15 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "StatsViewerPrivatePCH.h"
-#include "StaticMeshResources.h"
-#include "PrimitiveStatsPage.h"
-#include "PrimitiveStats.h"
-#include "LandscapeProxy.h"
-#include "LandscapeComponent.h"
-#include "LightMap.h"
-#include "ShadowMap.h"
+#include "StatsPages/PrimitiveStatsPage.h"
+#include "Engine/Level.h"
+#include "GameFramework/Actor.h"
+#include "Serialization/ArchiveCountMem.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/MapBuildDataRegistry.h"
+#include "Model.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/ModelComponent.h"
 #include "Engine/Selection.h"
+#include "Editor.h"
+#include "UObject/UObjectIterator.h"
+#include "StaticMeshResources.h"
+#include "LandscapeProxy.h"
+#include "LightMap.h"
+#include "LandscapeComponent.h"
+#include "Engine/LevelStreaming.h"
 
 #define LOCTEXT_NAMESPACE "Editor.StatsViewer.PrimitiveStats"
 
@@ -80,7 +88,7 @@ struct PrimitiveStatsGenerator
 		// The static mesh is a static mesh component's resource.
 		if( StaticMeshComponent )
 		{
-			UStaticMesh* Mesh = StaticMeshComponent->StaticMesh;
+			UStaticMesh* Mesh = StaticMeshComponent->GetStaticMesh();
 			Resource = Mesh;
 
 			// Calculate vertex color memory on the actual mesh.
@@ -109,9 +117,10 @@ struct PrimitiveStatsGenerator
 				if( StaticMeshComponent->LODData.Num() > 0 )
 				{
 					FStaticMeshComponentLODInfo& ComponentLODInfo = StaticMeshComponent->LODData[0];
-					if( ComponentLODInfo.LightMap )
+					const FMeshMapBuildData* MeshMapBuildData = StaticMeshComponent->GetMeshMapBuildData(ComponentLODInfo);
+					if( MeshMapBuildData && MeshMapBuildData->LightMap )
 					{
-						LightsLMCount = ComponentLODInfo.LightMap->LightGuids.Num();
+						LightsLMCount = MeshMapBuildData->LightMap->LightGuids.Num();
 					}
 				}
 			}
@@ -131,9 +140,10 @@ struct PrimitiveStatsGenerator
 					const TIndirectArray<FModelElement> Elements = ModelComponent->GetElements();
 					if( Elements.Num() > 0 )
 					{
-						if( Elements[0].LightMap )
+						const FMeshMapBuildData* MeshMapBuildData = Elements[0].GetMeshMapBuildData();
+						if( MeshMapBuildData && MeshMapBuildData->LightMap )
 						{
-							LightsLMCount = Elements[0].LightMap->LightGuids.Num();
+							LightsLMCount = MeshMapBuildData->LightMap->LightGuids.Num();
 						}
 					}
 				}
@@ -159,9 +169,11 @@ struct PrimitiveStatsGenerator
 		else if (LandscapeComponent)
 		{
 			Resource = LandscapeComponent->GetLandscapeProxy();
-			if (LandscapeComponent->LightMap)
+			const FMeshMapBuildData* MeshMapBuildData = LandscapeComponent->GetMeshMapBuildData();
+
+			if (MeshMapBuildData && MeshMapBuildData->LightMap)
 			{
-				LightsLMCount = LandscapeComponent->LightMap->LightGuids.Num();
+				LightsLMCount = MeshMapBuildData->LightMap->LightGuids.Num();
 			}
 		}
 
@@ -261,7 +273,7 @@ struct PrimitiveStatsGenerator
 				NewStatsEntry->Count			= 1;
 				NewStatsEntry->Triangles		= 0;
 				NewStatsEntry->InstTriangles	= 0;
-				NewStatsEntry->ResourceSize		= (float)(FArchiveCountMem(Resource).GetNum() + Resource->GetResourceSize(EResourceSizeMode::Exclusive)) / 1024.0f;
+				NewStatsEntry->ResourceSize		= (float)(FArchiveCountMem(Resource).GetNum() + Resource->GetResourceSizeBytes(EResourceSizeMode::Exclusive)) / 1024.0f;
 				NewStatsEntry->Sections			= 0;
 				NewStatsEntry->InstSections = 0;
 				NewStatsEntry->RadiusMin		= InPrimitiveComponent->Bounds.SphereRadius;
@@ -280,7 +292,7 @@ struct PrimitiveStatsGenerator
 				// ... in the case of a static mesh component.
 				if( StaticMeshComponent )
 				{
-					UStaticMesh* StaticMesh = StaticMeshComponent->StaticMesh;
+					UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh();
 					if( StaticMesh && StaticMesh->RenderData )
 					{
 						for( int32 SectionIndex=0; SectionIndex<StaticMesh->RenderData->LODResources[0].Sections.Num(); SectionIndex++ )
@@ -338,14 +350,16 @@ struct PrimitiveStatsGenerator
 						UniqueTextures.Add(CurrentComponent->HeightmapTexture, &bNotUnique);
 						if (!bNotUnique)
 						{
-							NewStatsEntry->ResourceSize += CurrentComponent->HeightmapTexture->GetResourceSize(EResourceSizeMode::Exclusive);
+							const SIZE_T HeightmapResourceSize = CurrentComponent->HeightmapTexture->GetResourceSizeBytes(EResourceSizeMode::Exclusive);
+							NewStatsEntry->ResourceSize += HeightmapResourceSize;
 						}
 						if (CurrentComponent->XYOffsetmapTexture)
 						{
 							UniqueTextures.Add(CurrentComponent->XYOffsetmapTexture, &bNotUnique);
 							if (!bNotUnique)
 							{
-								NewStatsEntry->ResourceSize += CurrentComponent->XYOffsetmapTexture->GetResourceSize(EResourceSizeMode::Exclusive);
+								const SIZE_T OffsetmapResourceSize = CurrentComponent->XYOffsetmapTexture->GetResourceSizeBytes(EResourceSizeMode::Exclusive);
+								NewStatsEntry->ResourceSize += OffsetmapResourceSize;
 							}
 						}
 
@@ -354,7 +368,8 @@ struct PrimitiveStatsGenerator
 							UniqueTextures.Add((*ItWeightmaps), &bNotUnique);
 							if (!bNotUnique)
 							{
-								NewStatsEntry->ResourceSize += (*ItWeightmaps)->GetResourceSize(EResourceSizeMode::Exclusive);
+								const SIZE_T WeightmapResourceSize = (*ItWeightmaps)->GetResourceSizeBytes(EResourceSizeMode::Exclusive);
+								NewStatsEntry->ResourceSize += WeightmapResourceSize;
 							}
 						}
 					}
@@ -394,13 +409,92 @@ void FPrimitiveStatsPage::Generate( TArray< TWeakObjectPtr<UObject> >& OutObject
 	PrimitiveStatsGenerator Generator;
 	Generator.Generate();
 
-	for( TObjectIterator<UPrimitiveComponent> It; It; ++It )
+	switch ((EPrimitiveObjectSets)ObjectSetIndex)
 	{
-		UPrimitiveStats* StatsEntry = Generator.Add( *It, (EPrimitiveObjectSets)ObjectSetIndex );
-		if(StatsEntry != NULL)
+		case PrimitiveObjectSets_CurrentLevel:
 		{
-			OutObjects.Add( StatsEntry );
+			for (TObjectIterator<UPrimitiveComponent> It; It; ++It)
+			{
+				AActor* Owner = Cast<AActor>((*It)->GetOwner());
+
+				if (Owner != nullptr && !Owner->HasAnyFlags(RF_ClassDefaultObject) && Owner->IsInLevel(GWorld->GetCurrentLevel()))
+				{
+					UPrimitiveStats* StatsEntry = Generator.Add(*It, (EPrimitiveObjectSets)ObjectSetIndex);
+
+					if (StatsEntry != nullptr)
+					{
+						OutObjects.Add(StatsEntry);
+					}
+				}
+			}
 		}
+		break;
+
+		case PrimitiveObjectSets_AllObjects:
+		{
+			if (GWorld != NULL)
+			{
+				TArray<ULevel*> Levels;
+
+				// Add main level.
+				Levels.AddUnique(GWorld->PersistentLevel);
+
+				// Add secondary levels.
+				for (int32 LevelIndex = 0; LevelIndex < GWorld->StreamingLevels.Num(); ++LevelIndex)
+				{
+					ULevelStreaming* StreamingLevel = GWorld->StreamingLevels[LevelIndex];
+					if (StreamingLevel != nullptr)
+					{
+						ULevel* Level = StreamingLevel->GetLoadedLevel();
+						if (Level != nullptr)
+						{
+							Levels.AddUnique(Level);
+						}
+					}
+				}
+
+				for (TObjectIterator<UPrimitiveComponent> It; It; ++It)
+				{
+					AActor* Owner = Cast<AActor>((*It)->GetOwner());
+
+					if (Owner != nullptr && !Owner->HasAnyFlags(RF_ClassDefaultObject))
+					{
+						ULevel* CheckLevel = Owner->GetLevel();
+
+						if (CheckLevel != nullptr && (Levels.Contains(CheckLevel)))
+						{
+							UPrimitiveStats* StatsEntry = Generator.Add(*It, (EPrimitiveObjectSets)ObjectSetIndex);
+
+							if (StatsEntry != nullptr)
+							{
+								OutObjects.Add(StatsEntry);
+							}
+						}
+					}
+				}
+			}
+		}
+		break;
+
+		case PrimitiveObjectSets_SelectedObjects:
+		{
+			TArray<UObject*> SelectedActors;
+			GEditor->GetSelectedActors()->GetSelectedObjects(AActor::StaticClass(), SelectedActors);
+
+			for (TObjectIterator<UPrimitiveComponent> It; It; ++It)
+			{
+				AActor* Owner = Cast<AActor>((*It)->GetOwner());
+				if (Owner != nullptr && !Owner->HasAnyFlags(RF_ClassDefaultObject) && SelectedActors.Contains(Owner))
+				{
+					UPrimitiveStats* StatsEntry = Generator.Add(*It, (EPrimitiveObjectSets)ObjectSetIndex);
+					if (StatsEntry != nullptr)
+					{
+						OutObjects.Add(StatsEntry);
+					}
+				}
+			}
+		}
+		break;
 	}
 }
 

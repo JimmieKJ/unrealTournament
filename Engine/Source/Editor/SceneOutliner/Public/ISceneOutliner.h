@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Misc/Attribute.h"
 #include "SceneOutlinerFwd.h"
+#include "Widgets/SCompoundWidget.h"
+
+template<typename ItemType> class STreeView;
 
 /**
  * The public interface for the Scene Outliner widget

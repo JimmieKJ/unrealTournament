@@ -1,8 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "BehaviorTreeEditorPrivatePCH.h"
-#include "BlackboardDataDetails.h"
-#include "Runtime/AIModule/Classes/BehaviorTree/BlackboardData.h"
+#include "DetailCustomizations/BlackboardDataDetails.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "DetailCategoryBuilder.h"
+#include "BehaviorTree/BlackboardData.h"
 
 #define LOCTEXT_NAMESPACE "BlackboardDataDetails"
 

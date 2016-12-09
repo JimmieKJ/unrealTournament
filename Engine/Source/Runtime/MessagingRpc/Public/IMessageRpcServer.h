@@ -1,12 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "AsyncResult.h"
-#include "IAsyncProgress.h"
-#include "IAsyncTask.h"
+#include "CoreMinimal.h"
 #include "IMessageContext.h"
+#include "Async/IAsyncTask.h"
+#include "Async/AsyncResult.h"
 #include "IMessageRpcHandler.h"
 #include "IMessageRpcReturn.h"
+
+struct FRpcMessage;
+
+template<typename ResultType> class TFuture;
 
 /** Delegate type for RPC messages that have no registered handler. */
 DECLARE_DELEGATE_OneParam(FOnMessageRpcNoHandler, const FName& /*MessageType*/)

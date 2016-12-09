@@ -1,8 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "HeadMountedDisplay.h"
+
+#include "CoreMinimal.h"
 #include "IHeadMountedDisplay.h"
+#include "IGearVRPlugin.h"
+#include "HeadMountedDisplay.h"
 #include "HeadMountedDisplayCommon.h"
 
 #if GEARVR_SUPPORTED_PLATFORMS
@@ -18,12 +21,15 @@
 PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "OVR_Math.h"
 #include "VrApi.h"
+#include "VrApi_Ext.h"
 #include "VrApi_Helpers.h"
 #include "VrApi_LocalPrefs.h"
 #include "SystemActivities.h"
 PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 
+#if PLATFORM_ANDROID
 #include <GLES2/gl2.h>
+#endif
 #include "OpenGLDrvPrivate.h"
 #include "OpenGLResources.h"
 
@@ -104,7 +110,7 @@ FORCEINLINE FMatrix ToFMatrix(const OVR::Matrix4f& vtm)
 		FPlane(vtm.M[0][3], vtm.M[1][3], vtm.M[2][3], vtm.M[3][3]));
 }
 
-FORCEINLINE OVR::Matrix4f ToMatrix4f(const FMatrix mat)
+FORCEINLINE OVR::Matrix4f ToMatrix4f(const FMatrix& mat)
 {
 	return OVR::Matrix4f(mat.M[0][0],mat.M[1][0],mat.M[2][0],mat.M[3][0],
 						mat.M[0][1],mat.M[1][1],mat.M[2][1],mat.M[3][1],
@@ -142,9 +148,7 @@ public:
 	ovrRigidBodyPosef		HeadPose;			// position of head actually used
 	ovrMatrix4f				TanAngleMatrix;
 	
-	pid_t					GameThreadId;
-
-	ovrFrameParms			FrameParms;
+	uint32					GameThreadId;
 
 	FGameFrame();
 	virtual ~FGameFrame() {}
@@ -267,7 +271,8 @@ public:
 		uint32 InNumMips,
 		EPixelFormat InFormat,
 		uint32 InFlags,
-		bool bBuffered);
+		bool bBuffered,
+		bool bInCubemap);
 
 	ovrTextureSwapChain	*	GetColorTextureSet() const { return ColorTextureSet; }
 	uint32					GetCurrentIndex() const { return CurrentIndex; }
@@ -346,6 +351,15 @@ public:
 		return nullptr; 
 	}
 
+	ovrTextureSwapChain* GetLeftSwapTextureSet() const
+	{
+		if (LeftTextureSet.IsValid())
+		{
+			return static_cast<FTexture2DSetProxy*>(LeftTextureSet.Get())->GetTextureSet()->GetColorTextureSet();
+		}
+		return nullptr;
+	}
+
 	uint32 GetSwapTextureIndex() const
 	{
 		if (TextureSet.IsValid())
@@ -355,10 +369,21 @@ public:
 		return 1;
 	}
 
+	uint32 GetLeftSwapTextureIndex() const
+	{
+		if (LeftTextureSet.IsValid())
+		{
+			return static_cast<FTexture2DSetProxy*>(LeftTextureSet.Get())->GetTextureSet()->GetCurrentIndex();
+		}
+		return 1;
+	}
+
 	virtual TSharedPtr<FHMDRenderLayer> Clone() const override;
 
 protected:
 	ovrFrameLayer Layer;
+	FTextureSetProxyPtr	LeftTextureSet;
+	ovrScaleBias2DExt LayerBias;
 };
 
 class FLayerManager : public FHMDLayerManager 
@@ -382,6 +407,8 @@ public:
 	bool HasEyeLayer() const { FScopeLock ScopeLock(&LayersLock); return EyeLayers.Num() != 0; }
 
 	const FHMDLayerDesc* GetEyeLayerDesc() const { return GetLayerDesc(EyeLayerId); }
+
+	virtual void GetPokeAHoleMatrices(const FViewInfo *LeftView,const FViewInfo *RightView,const FHMDLayerDesc& LayerDesc, const FHMDGameFrame* CurrentFrame, FMatrix &LeftMatrix, FMatrix &RightMatrix, bool &InvertCoordinates) override;
 
 protected:
 	virtual TSharedPtr<FHMDRenderLayer> CreateRenderLayer_RenderThread(FHMDLayerDesc& InDesc) override;
@@ -435,7 +462,7 @@ public:
 	// If returns false then a default RT texture will be used.
 	bool AllocateRenderTargetTexture(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 Flags, uint32 TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples);
 
-	FTexture2DSetProxyPtr CreateTextureSet(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, bool bBuffered);
+	FTexture2DSetProxyPtr CreateTextureSet(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, bool bBuffered, bool bInCubemap);
 
 	void CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef DstTexture, FTextureRHIParamRef SrcTexture, int SrcSizeX, int SrcSizeY, FIntRect DstRect = FIntRect(), FIntRect SrcRect = FIntRect(), bool bAlphaPremultiply = false) const;
 		
@@ -445,7 +472,7 @@ public:
 
 	FLayerManager* GetLayerMgr() { return static_cast<FLayerManager*>(LayerMgr.Get()); }
 
-	pid_t GetRenderThreadId() const { return RenderThreadId; }
+	uint32 GetRenderThreadId() const { return RenderThreadId; }
 
 	// Allocates a texture set and copies the texture into it.
 	// To turn it off, call with 'nullptr' param.
@@ -465,9 +492,9 @@ public:
 	void PushFrame(FLayerManager* pInLayerMgr, const FGameFrame* CurrentFrame);
 protected:
 	void SetRenderContext(FHMDViewExtension* InRenderContext);
-	void DoRenderLoadingIcon_RenderThread(int CpuLevel, int GpuLevel, pid_t GameTid);
+	void DoRenderLoadingIcon_RenderThread(int CpuLevel, int GpuLevel, uint32 GameTid);
 	void SystemActivities_Update_RenderThread();
-	void PushBlackFinal(const FGameFrame* frame);
+	void PushBlack(const FGameFrame* frame, bool isFinal = false);
 
 protected: // data
 	TSharedPtr<FViewExtension, ESPMode::ThreadSafe> RenderContext;
@@ -488,7 +515,7 @@ protected: // data
 	TSharedPtr<FLayerManager>				LayerMgr;
 
 	ovrMobile*								OvrMobile;		// to be accessed only on RenderThread (or, when RT is suspended)
-	pid_t									RenderThreadId; // the rendering thread id where EnterVrMode was called.
+	uint32									RenderThreadId; // the rendering thread id where EnterVrMode was called.
 	FCriticalSection						OvrMobileLock;	// used to access OvrMobile_RT/HmdInfo_RT on a game thread
 	ovrJava									JavaRT;			// Rendering thread Java obj
 	jobject									ActivityObject;
@@ -608,6 +635,12 @@ public:
 	bool IsInLoadingIconMode() const;
 
 	FCustomPresent* GetCustomPresent_Internal() const { return pGearVRBridge; }
+
+	virtual IRendererModule* GetRendererModule() override {
+		check(pGearVRBridge);
+		return pGearVRBridge->RendererModule;
+	} 
+
 private:
 	FGearVR* getThis() { return this; }
 
@@ -672,6 +705,7 @@ protected:
 	void HandleBackButtonAction();
 	void StartSystemActivity_RenderThread(const char * commandString);
 	void PushBlackFinal();
+	void PushBlack();
 
 	virtual FAsyncLoadingSplash* GetAsyncLoadingSplash() const override { return Splash.Get(); }
 

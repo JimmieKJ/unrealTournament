@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "MovieScene3DConstraintSection.h"
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Sections/MovieScene3DConstraintSection.h"
 #include "MovieScene3DAttachSection.generated.h"
-
 
 class AActor;
 class USceneComponent;
-
 
 /**
  * A 3D Attach section

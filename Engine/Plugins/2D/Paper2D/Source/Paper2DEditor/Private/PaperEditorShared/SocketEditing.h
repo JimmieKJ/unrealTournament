@@ -2,7 +2,16 @@
 
 #pragma once
 
-#include "AssetEditorSelectedItem.h"
+#include "CoreMinimal.h"
+#include "UObject/WeakObjectPtr.h"
+#include "UnrealWidget.h"
+#include "PaperEditorShared/AssetEditorSelectedItem.h"
+
+class FCanvas;
+class FPrimitiveDrawInterface;
+class FSceneView;
+class FViewport;
+class UPrimitiveComponent;
 
 //////////////////////////////////////////////////////////////////////////
 // FSpriteSelectedSocket

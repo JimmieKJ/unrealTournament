@@ -1,13 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "PartyBeaconHost.h"
+#include "Misc/CommandLine.h"
+#include "UObject/Package.h"
+#include "Engine/NetConnection.h"
+#include "OnlineSubsystemTypes.h"
+#include "OnlineSubsystemUtils.h"
 #include "PartyBeaconClient.h"
 
 APartyBeaconHost::APartyBeaconHost(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer),
 	State(NULL),
-	bLogoutOnSessionTimeout(false)
+	bLogoutOnSessionTimeout(true)
 {
 	ClientBeaconActorClass = APartyBeaconClient::StaticClass();
 	BeaconTypeName = ClientBeaconActorClass->GetName();
@@ -22,7 +26,7 @@ void APartyBeaconHost::PostInitProperties()
 	Super::PostInitProperties();
 #if !UE_BUILD_SHIPPING
 	// This value is set on the CDO as well on purpose
-	bLogoutOnSessionTimeout = bLogoutOnSessionTimeout || FParse::Param(FCommandLine::Get(), TEXT("NoTimeouts")) ? true : false;
+	bLogoutOnSessionTimeout = FParse::Param(FCommandLine::Get(), TEXT("NoTimeouts")) ? false : true;
 #endif
 }
 

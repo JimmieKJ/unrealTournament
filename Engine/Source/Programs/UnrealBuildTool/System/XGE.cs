@@ -298,6 +298,10 @@ namespace UnrealBuildTool
 				{
 					ToolElement.SetAttribute("AutoReserveMemory", "*.gch");
 				}
+				else
+				{
+					ToolElement.SetAttribute("AutoReserveMemory", "*.pch");
+				}
 				ToolElement.SetAttribute(
 					"OutputFileMasks",
 					string.Join(

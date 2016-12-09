@@ -2,7 +2,17 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "RHI.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "KismetRenderingLibrary.generated.h"
+
+class UCanvas;
+class UMaterialInterface;
+class UTexture2D;
+class UTextureRenderTarget2D;
+template<typename TRHICmdList> struct TDrawEvent;
 
 USTRUCT(BlueprintType)
 struct FDrawToRenderTargetContext

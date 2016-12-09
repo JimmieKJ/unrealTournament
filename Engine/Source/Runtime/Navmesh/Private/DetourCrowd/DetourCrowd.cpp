@@ -19,20 +19,10 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#include "NavmeshModulePrivatePCH.h"
+#include "DetourCrowd/DetourCrowd.h"
+#include "DetourCrowd/DetourProximityGrid.h"
 #define _USE_MATH_DEFINES
-#include <math.h>
-#include <string.h>
-#include <float.h>
-#include <stdlib.h>
-#include <new>
-#include "DetourCrowd.h"
-#include "DetourNavMesh.h"
-#include "DetourNavMeshQuery.h"
-#include "DetourObstacleAvoidance.h"
-#include "DetourCommon.h"
-#include "DetourAssert.h"
-#include "DetourAlloc.h"
+#include "Detour/DetourAssert.h"
 
 
 dtCrowd* dtAllocCrowd()
@@ -459,6 +449,7 @@ bool dtCrowd::init(const int maxAgents, const float maxAgentRadius, dtNavMesh* n
 		return false;
 	
 	m_sharedBoundary.Initialize();
+	m_separationDirFilter = -1.0f;
 
 	return true;
 }
@@ -1477,6 +1468,7 @@ void dtCrowd::updateStepSteering(const float dt, dtCrowdAgentDebugInfo*)
 			const float separationDist = ag->params.collisionQueryRange;
 			const float invSeparationDist = 1.0f / separationDist;
 			const float separationWeight = ag->params.separationWeight;
+			const float upDir[3] = { 0, 1.0f, 0 };
 
 			float w = 0;
 			float disp[3] = { 0, 0, 0 };
@@ -1488,7 +1480,7 @@ void dtCrowd::updateStepSteering(const float dt, dtCrowdAgentDebugInfo*)
 				float diff[3];
 				dtVsub(diff, ag->npos, nei->npos);
 				diff[1] = 0;
-
+				
 				const float distSqr = dtVlenSqr(diff);
 				if (distSqr < 0.00001f)
 					continue;
@@ -1496,6 +1488,19 @@ void dtCrowd::updateStepSteering(const float dt, dtCrowdAgentDebugInfo*)
 					continue;
 				const float dist = sqrtf(distSqr);
 				const float weight = separationWeight * (1.0f - dtSqr(dist*invSeparationDist));
+
+				float sepDot = dtVdot(diff, dvel);
+				if (sepDot < m_separationDirFilter)
+				{
+					// [UE4]: clamp to right/left vector, depending on which side nei is
+					float testDir[3] = { 0, 0, 0 };
+					dtVcross(testDir, dvel, diff);
+					const bool bRightSide = (testDir[1] > 0);
+
+					dtVcross(diff, upDir, dvel);
+					dtVnormalize(diff);
+					dtVscale(diff, diff, bRightSide ? dist : -dist);
+				}
 
 				dtVmad(disp, disp, diff, weight / dist);
 				w += 1.0f;
@@ -1860,4 +1865,9 @@ dtQueryFilter* dtCrowd::getEditableFilter(const int idx)
 {
 	return (idx >= 0) && (idx < m_maxAgents) && (m_agents[idx].params.filter < DT_CROWD_MAX_FILTERS) ?
 		&m_filters[m_agents[idx].params.filter] : NULL;
+}
+
+void dtCrowd::setSeparationFilter(float InFilter)
+{
+	m_separationDirFilter = InFilter;
 }

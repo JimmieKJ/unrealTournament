@@ -1,6 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "SVisualLoggerView.h"
+#include "SVisualLoggerTimeline.h"
+#include "Framework/Text/ITextDecorator.h"
+#include "Widgets/Text/SRichTextBlock.h"
+
 class SVisualLoggerReport : public SCompoundWidget
 {
 public:

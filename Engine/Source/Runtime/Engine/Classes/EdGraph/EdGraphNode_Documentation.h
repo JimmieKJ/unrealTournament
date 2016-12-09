@@ -1,7 +1,16 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "EdGraph/EdGraphNode.h"
+#include "Textures/SlateIcon.h"
 #include "EdGraphNode_Documentation.generated.h"
+
+class INameValidatorInterface;
+class UEdGraphPin;
+struct Rect;
 
 UCLASS(MinimalAPI)
 class UEdGraphNode_Documentation : public UEdGraphNode

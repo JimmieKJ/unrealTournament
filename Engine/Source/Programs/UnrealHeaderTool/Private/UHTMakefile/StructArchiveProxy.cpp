@@ -1,8 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "StructArchiveProxy.h"
 #include "UnrealHeaderTool.h"
-#include "UHTMakefile/UHTMakefile.h"
-#include "UHTMakefile/StructArchiveProxy.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Class.h"
+#include "UHTMakefile.h"
 
 FStructArchiveProxy::FStructArchiveProxy(FUHTMakefile& UHTMakefile, const UStruct* Struct)
 	: FFieldArchiveProxy(UHTMakefile, Struct)

@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "BuildPatchProgress.h"
+#include "BuildPatchManifest.h"
+
 class FBuildPatchFileAttributes
 {
 public:

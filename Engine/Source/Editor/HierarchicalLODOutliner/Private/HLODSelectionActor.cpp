@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "HierarchicalLODOutlinerPrivatePCH.h"
 #include "HLODSelectionActor.h"
+#include "Components/DrawSphereComponent.h"
 
 AHLODSelectionActor::AHLODSelectionActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

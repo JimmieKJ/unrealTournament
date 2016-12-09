@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "ExpressionParser.h"
+#include "CoreTypes.h"
+#include "Misc/Optional.h"
+#include "Templates/ValueOrError.h"
+#include "Misc/ExpressionParserTypes.h"
 
 #define DEFINE_EXPRESSION_OPERATOR_NODE(TYPE, ...) \
 namespace ExpressionParser {\

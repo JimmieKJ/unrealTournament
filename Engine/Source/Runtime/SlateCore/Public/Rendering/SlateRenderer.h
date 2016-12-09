@@ -2,15 +2,19 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Textures/SlateShaderResource.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "Rendering/DrawElements.h"
 
-class SWindow;
 class FRHITexture2D;
-class ISlateStyle;
 class FSlateDrawBuffer;
 class FSlateUpdatableTexture;
+class ILayoutCache;
 class ISlateAtlasProvider;
-
-struct FSlateBrush;
+class ISlateStyle;
+class SWindow;
+struct Rect;
 
 typedef FRHITexture2D* FTexture2DRHIParamRef;
 
@@ -199,6 +203,20 @@ public:
 	/** Callback that fires after Slate has rendered each window, each frame */
 	DECLARE_MULTICAST_DELEGATE_TwoParams( FOnSlateWindowRendered, SWindow&, void* );
 	FOnSlateWindowRendered& OnSlateWindowRendered() { return SlateWindowRendered; }
+
+	/**
+	 * Called on the game thread right before a window backbuffer is about to be resized
+	 * @param Pointer to the API specific backbuffer type
+	 */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPreResizeWindowBackbuffer, void*);
+	FOnPreResizeWindowBackbuffer& OnPreResizeWindowBackBuffer() { return PreResizeBackBufferDelegate; }
+
+	/**
+	 * Called on the game thread right after a window backbuffer has been resized
+	 * @param Pointer to the API specific backbuffer type
+	 */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPostResizeWindowBackbuffer, void*);
+	FOnPostResizeWindowBackbuffer& OnPostResizeWindowBackBuffer() { return PostResizeBackBufferDelegate; }
 
 	/** 
 	 * Sets which color vision filter to use
@@ -427,6 +445,9 @@ protected:
 
 	/** Callback that fires after Slate has rendered each window, each frame */
 	FOnSlateWindowRendered SlateWindowRendered;
+
+	FOnPreResizeWindowBackbuffer PreResizeBackBufferDelegate;
+	FOnPostResizeWindowBackbuffer PostResizeBackBufferDelegate;
 
 	/**
 	 * Necessary to grab before flushing the resource pool, as it may be being 

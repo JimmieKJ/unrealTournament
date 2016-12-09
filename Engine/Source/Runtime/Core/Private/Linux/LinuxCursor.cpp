@@ -1,9 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "CorePrivatePCH.h"
-#include "LinuxApplication.h"
-#include "LinuxCursor.h"
-#include "LinuxWindow.h"
+#include "Linux/LinuxCursor.h"
+#include "Misc/App.h"
+#include "Linux/LinuxApplication.h"
 
 FLinuxCursor::FLinuxCursor()
 	: 	bHidden(false)
@@ -332,4 +331,9 @@ bool FLinuxCursor::UpdateCursorClipping( FVector2D& CursorPosition )
 bool FLinuxCursor::IsHidden()
 {
 	return bHidden;
+}
+
+void FLinuxCursor::SetCustomShape(void* CursorHandle)
+{
+	
 }

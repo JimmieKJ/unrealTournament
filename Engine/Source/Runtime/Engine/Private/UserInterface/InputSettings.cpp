@@ -4,12 +4,17 @@
 	InputSettings.cpp: Project configurable input settings
 =============================================================================*/
 
-#include "EnginePrivate.h"
+#include "GameFramework/InputSettings.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UObjectIterator.h"
 
 #if WITH_EDITOR
-#include "UnrealEd.h"
+#include "Editor.h"
 #endif
-#include "GameFramework/InputSettings.h"
+
+#if PLATFORM_WINDOWS
+#include "WindowsHWrapper.h"
+#endif
 
 UInputSettings::UInputSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

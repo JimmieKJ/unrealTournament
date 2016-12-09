@@ -1,6 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "Engine.h"
 #include "AsyncLoadingSplash.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogLoadingSplash, Log, All);
@@ -80,13 +79,14 @@ void FAsyncLoadingSplash::LoadTexture(FSplashDesc& InSplashDesc)
 {
 	check(IsInGameThread());
 	UnloadTexture(InSplashDesc);
-
+	
 	UE_LOG(LogLoadingSplash, Log, TEXT("Loading texture for splash %s..."), *InSplashDesc.TexturePath);
 	InSplashDesc.LoadingTexture = LoadObject<UTexture2D>(NULL, *InSplashDesc.TexturePath, NULL, LOAD_None, NULL);
 	if (InSplashDesc.LoadingTexture != nullptr)
 	{
 		UE_LOG(LogLoadingSplash, Log, TEXT("...Success. "));
 	}
+	InSplashDesc.LoadedTexture = nullptr;
 }
 
 void FAsyncLoadingSplash::UnloadTexture(FSplashDesc& InSplashDesc)
@@ -96,6 +96,7 @@ void FAsyncLoadingSplash::UnloadTexture(FSplashDesc& InSplashDesc)
 	{
 		InSplashDesc.LoadingTexture = nullptr;
 	}
+	InSplashDesc.LoadedTexture = nullptr;
 }
 
 void FAsyncLoadingSplash::OnLoadingBegins()

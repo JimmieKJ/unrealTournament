@@ -1,10 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "AnimGraphNode_Base.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "Animation/AnimNode_StateMachine.h"
-#include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "AnimGraphNode_StateMachineBase.generated.h"
+
+class INameValidatorInterface;
 
 UCLASS(Abstract)
 class ANIMGRAPH_API UAnimGraphNode_StateMachineBase : public UAnimGraphNode_Base

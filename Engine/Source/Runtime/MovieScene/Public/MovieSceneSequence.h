@@ -2,22 +2,29 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Misc/Guid.h"
+#include "MovieSceneSignedObject.h"
+#include "MovieSceneTrack.h"
+#include "Evaluation/MovieSceneEvaluationTemplate.h"
 #include "MovieSceneSequence.generated.h"
 
-
-class FMovieSceneSequenceInstance;
+class ITargetPlatform;
 class UMovieScene;
-class UObject;
-
 
 /**
  * Abstract base class for movie scene animations (C++ version).
  */
 UCLASS(MinimalAPI)
 class UMovieSceneSequence
-	: public UObject
+	: public UMovieSceneSignedObject
 {
+public:
+
 	GENERATED_BODY()
+
+	MOVIESCENE_API UMovieSceneSequence(const FObjectInitializer& Init);
 
 public:
 
@@ -35,26 +42,53 @@ public:
 	 * Check whether the given object can be possessed by this animation.
 	 *
 	 * @param Object The object to check.
+	 * @param InPlaybackContext The current playback context
 	 * @return true if the object can be possessed, false otherwise.
 	 */
-	virtual bool CanPossessObject(UObject& Object) const PURE_VIRTUAL(UMovieSceneSequence::CanPossessObject, return false;);
+	virtual bool CanPossessObject(UObject& Object, UObject* InPlaybackContext) const PURE_VIRTUAL(UMovieSceneSequence::CanPossessObject, return false;);
+
+	DEPRECATED(4.15, "Please implement LocateBoundObjects instead")
+	virtual UObject* FindPossessableObject(const FGuid& ObjectId, UObject* Context) const
+	{
+		TArray<UObject*, TInlineAllocator<1>> OutObjects;
+		LocateBoundObjects(ObjectId, Context, OutObjects);
+		return OutObjects.Num() ? OutObjects[0] : nullptr;
+	}
 
 	/**
-	 * Finds the possessed for the specified identifier.
+	 * Locate all the objects that correspond to the specified object ID, using the specified context
 	 *
-	 * @param ObjectId The unique identifier of the object.
-	 * @param Context Optional context to use to find the required object (for instance, a parent spawnable object)
-	 * @return The object, or nullptr if not found.
+	 * @param ObjectId				The unique identifier of the object.
+	 * @param Context				Optional context to use to find the required object (for instance, a parent spawnable object)
+	 * @param OutObjects			Destination array to add found objects to
 	 */
-	virtual UObject* FindPossessableObject(const FGuid& ObjectId, UObject* Context) const PURE_VIRTUAL(UMovieSceneSequence::FindPossessedObject, return nullptr;);
+	virtual void LocateBoundObjects(const FGuid& ObjectId, UObject* Context, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const PURE_VIRTUAL(UMovieSceneSequence::LocateBoundObjects, );
 
 	/**
-	 * Finds an ID for the specified the object
+	 * Locate all the objects that correspond to the specified object ID, using the specified context
 	 *
-	 * @param Object The object to find an id for
-	 * @return The object's ID, or an invalid guid if not found
+	 * @param ObjectId				The unique identifier of the object.
+	 * @param Context				Optional context to use to find the required object (for instance, a parent spawnable object)
+	 * @return An array of all bound objects
 	 */
-	virtual FGuid FindPossessableObjectId(UObject& Object) const PURE_VIRTUAL(UMovieSceneSequence::FindPossessableObjectId, return FGuid(););
+	TArray<UObject*, TInlineAllocator<1>> LocateBoundObjects(const FGuid& ObjectId, UObject* Context) const
+	{
+		TArray<UObject*, TInlineAllocator<1>> OutObjects;
+		LocateBoundObjects(ObjectId, Context, OutObjects);
+		return OutObjects;
+	}
+
+	DEPRECATED(4.15, "Please use IMovieScenePlayer::FindObjectId or FindPossessableObjectId(UObject&, UObject*) instead.")
+	virtual FGuid FindPossessableObjectId(UObject& Object) const PURE_VIRTUAL(UMovieSceneSequence::FindPossessableObjectId, return FGuid(); );
+
+	/**
+	 * Attempt to find the guid relating to the specified object
+	 *
+	 * @param ObjectId				The unique identifier of the object.
+	 * @param Context				Optional context to use to find the required object (for instance, a parent spawnable object or its world)
+	 * @return The object's guid, or zero guid if the object is not a valid possessable in the current context
+	 */
+	MOVIESCENE_API FGuid FindPossessableObjectId(UObject& Object, UObject* Context) const;
 
 	/**
 	 * Get the movie scene that controls this animation.
@@ -97,6 +131,44 @@ public:
 	 * @return A new object template of the specified name
 	 */
 	virtual UObject* MakeSpawnableTemplateFromInstance(UObject& InSourceObject, FName ObjectName) { return nullptr; }
+
+public:
+
+	MOVIESCENE_API virtual void Serialize(FArchive& Ar) override;
+
+#if WITH_EDITORONLY_DATA
+	MOVIESCENE_API virtual void PostDuplicate(bool bDuplicateForPIE) override;
+#endif
+
+	MOVIESCENE_API virtual void PreSave(const ITargetPlatform* TargetPlatform) override;
+
+	MOVIESCENE_API virtual void GenerateEvaluationTemplate(FMovieSceneEvaluationTemplate& Template, const FMovieSceneTrackCompilationParams& Params, FMovieSceneSequenceTemplateStore& Store);
+
+	UPROPERTY()
+	FCachedMovieSceneEvaluationTemplate EvaluationTemplate;
+
+	UPROPERTY()
+	FMovieSceneTrackCompilationParams TemplateParameters;
+
+public:
+
+	/**
+	 * true if the result of GetParentObject is significant in object resolution for LocateBoundObjects.
+	 */
+	bool AreParentContextsSignificant() const
+	{
+		return bParentContextsAreSignificant;
+	}
+
+protected:
+
+	/**
+	 * true if the result of GetParentObject is significant in object resolution for LocateBoundObjects.
+	 * When true, if GetParentObject returns nullptr, the PlaybackContext will be used for LocateBoundObjects, other wise the object's parent will be used
+	 * When false, the PlaybackContext will always be used for LocateBoundObjects
+	 */
+	UPROPERTY()
+	bool bParentContextsAreSignificant;
 
 public:
 

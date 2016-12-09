@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Widgets/SWidget.h"
+#include "Framework/SlateDelegates.h"
+
+template< typename ObjectType > class TAttribute;
+
 struct SEQUENCER_API FSequencerUtilities
 {
 	static TSharedRef<SWidget> MakeAddButton(FText HoverText, FOnGetContent MenuContent, const TAttribute<bool>& HoverState);

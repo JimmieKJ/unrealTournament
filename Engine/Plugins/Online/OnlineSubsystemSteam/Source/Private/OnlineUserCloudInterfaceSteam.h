@@ -2,7 +2,9 @@
 
 #pragma once
  
-#include "OnlineUserCloudInterface.h"
+#include "CoreMinimal.h"
+#include "OnlineSubsystemTypes.h"
+#include "Interfaces/OnlineUserCloudInterface.h"
 #include "OnlineSubsystemSteamTypes.h"
 #include "OnlineAsyncTaskManagerSteam.h"
 #include "OnlineSubsystemSteamPackage.h"

@@ -6,14 +6,33 @@
 
 #pragma once
 
-#include "Engine/StaticMesh.h"
+#include "CoreMinimal.h"
+#include "Containers/IndirectArray.h"
+#include "Misc/Guid.h"
+#include "Engine/EngineTypes.h"
+#include "UObject/UObjectIterator.h"
+#include "Templates/ScopedPointer.h"
+#include "Materials/MaterialInterface.h"
+#include "RenderResource.h"
+#include "PackedNormal.h"
+#include "Containers/DynamicRHIResourceArray.h"
 #include "RawIndexBuffer.h"
-#include "TextureLayout3d.h"
+#include "Components.h"
 #include "LocalVertexFactory.h"
+#include "PrimitiveViewRelevance.h"
 #include "PrimitiveSceneProxy.h"
+#include "Engine/MeshMerging.h"
+#include "Engine/StaticMesh.h"
+#include "UObject/UObjectHash.h"
+#include "MeshBatch.h"
 #include "SceneManagement.h"
+#include "Components/StaticMeshComponent.h"
 #include "PhysicsEngine/BodySetupEnums.h"
 #include "Materials/MaterialInterface.h"
+#include "UniquePtr.h"
+
+class FDistanceFieldVolumeData;
+class UBodySetup;
 
 /**
  * The LOD settings to use for a group of static meshes.
@@ -305,6 +324,13 @@ struct FStaticMeshSection
 	/** If true, this section will cast a shadow. */
 	bool bCastShadow;
 
+#if WITH_EDITORONLY_DATA
+	/** The UV channel density in LocalSpaceUnit / UV Unit. */
+	float UVDensities[MAX_STATIC_TEXCOORDS];
+	/** The weigths to apply to the UV density, based on the area. */
+	float Weights[MAX_STATIC_TEXCOORDS];
+#endif
+
 	/** Constructor. */
 	FStaticMeshSection()
 		: MaterialIndex(0)
@@ -314,7 +340,12 @@ struct FStaticMeshSection
 		, MaxVertexIndex(0)
 		, bEnableCollision(false)
 		, bCastShadow(true)
-	{}
+	{
+#if WITH_EDITORONLY_DATA
+		FMemory::Memzero(UVDensities);
+		FMemory::Memzero(Weights);
+#endif
+	}
 
 	/** Serializer. */
 	friend FArchive& operator<<(FArchive& Ar,FStaticMeshSection& Section);
@@ -811,20 +842,11 @@ public:
 	/** Screen size to switch LODs */
 	float ScreenSize[MAX_STATIC_MESH_LODS];
 
-	/** Streaming texture factors. */
-	float StreamingTextureFactors[MAX_STATIC_TEXCOORDS];
-
-	/** Maximum value in StreamingTextureFactors. */
-	float MaxStreamingTextureFactor;
-
 	/** Bounds of the renderable mesh. */
 	FBoxSphereBounds Bounds;
 
 	/** True if LODs share static lighting data. */
 	bool bLODsShareStaticLighting;
-
-	/** True if the mesh or LODs were reduced using Simplygon. */
-	bool bReducedBySimplygon;
 
 #if WITH_EDITORONLY_DATA
 	/** The derived data key associated with this render data. */
@@ -836,8 +858,13 @@ public:
 	/** Map of material index -> original material index at import time. */
 	TArray<int32> MaterialIndexToImportIndex;
 
+	/** UV data used for streaming accuracy debug view modes. In sync for rendering thread */
+	TArray<FMeshUVChannelInfo> UVChannelDataPerMaterial;
+
+	void SyncUVChannelData(const TArray<FStaticMaterial>& ObjectData);
+
 	/** The next cached derived data in the list. */
-	TScopedPointer<class FStaticMeshRenderData> NextCachedRenderData;
+	TUniquePtr<class FStaticMeshRenderData> NextCachedRenderData;
 
 	/**
 	 * Cache derived renderable data for the static mesh with the provided
@@ -856,10 +883,16 @@ public:
 	ENGINE_API void ReleaseResources();
 
 	/** Compute the size of this resource. */
+	DEPRECATED(4.14, "GetResourceSize is deprecated. Please use GetResourceSizeEx or GetResourceSizeBytes instead.")
 	SIZE_T GetResourceSize() const;
+	void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const;
+	SIZE_T GetResourceSizeBytes() const;
 
 	/** Allocate LOD resources. */
 	ENGINE_API void AllocateLODResources(int32 NumLODs);
+
+	/** Update LOD-SECTION uv densities. */
+	void ComputeUVDensities();
 
 private:
 #if WITH_EDITORONLY_DATA
@@ -888,7 +921,7 @@ public:
 	{
 		for ( TObjectIterator<UStaticMeshComponent> It;It;++It )
 		{
-			if ( It->StaticMesh == InStaticMesh )
+			if ( It->GetStaticMesh() == InStaticMesh )
 			{
 				checkf( !It->IsUnreachable(), TEXT("%s"), *It->GetFullName() );
 
@@ -995,6 +1028,7 @@ public:
 	virtual void GetDistancefieldAtlasData(FBox& LocalVolumeBounds, FIntVector& OutBlockMin, FIntVector& OutBlockSize, bool& bOutBuiltAsIfTwoSided, bool& bMeshWasPlane, TArray<FMatrix>& ObjectLocalToWorldTransforms) const override;
 	virtual void GetDistanceFieldInstanceInfo(int32& NumInstances, float& BoundsSurfaceArea) const override;
 	virtual bool HasDistanceFieldRepresentation() const override;
+	virtual bool HasDynamicIndirectShadowCasterRepresentation() const override;
 	virtual uint32 GetMemoryFootprint( void ) const override { return( sizeof( *this ) + GetAllocatedSize() ); }
 	uint32 GetAllocatedSize( void ) const { return( FPrimitiveSceneProxy::GetAllocatedSize() + LODs.GetAllocatedSize() ); }
 
@@ -1005,7 +1039,9 @@ public:
 	virtual void GetLCIs(FLCIArray& LCIs) override;
 
 #if WITH_EDITORONLY_DATA
-	virtual const FStreamingSectionBuildInfo* GetStreamingSectionData(float& OutComponentExtraScale, float& OutMeshExtraScale, int32 LODIndex, int32 ElementIndex) const override;
+	virtual bool GetPrimitiveDistance(int32 LODIndex, int32 SectionIndex, const FVector& ViewOrigin, float& PrimitiveDistance) const override;
+	virtual bool GetMeshUVDensities(int32 LODIndex, int32 SectionIndex, FVector4& WorldUVDensities) const override;
+	virtual bool GetMaterialTextureScales(int32 LODIndex, int32 SectionIndex, const FMaterialRenderProxy* MaterialRenderProxy, FVector4* OneOverScales, FIntVector4* UVChannelIndices) const override;
 #endif
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -1042,6 +1078,11 @@ protected:
 #if WITH_EDITOR
 			/** The editor needs to be able to individual sub-mesh hit detection, so we store a hit proxy on each mesh. */
 			HHitProxy* HitProxy;
+#endif
+
+#if WITH_EDITORONLY_DATA
+			// The material index from the component. Used by the texture streaming accuracy viewmodes.
+			int32 MaterialIndex;
 #endif
 
 			int32 FirstPreCulledIndex;
@@ -1104,12 +1145,12 @@ protected:
 	FCollisionResponseContainer CollisionResponse;
 
 #if WITH_EDITORONLY_DATA
-	/** Data shared with the component */
-	TSharedPtr<TArray<FStreamingSectionBuildInfo>, ESPMode::NotThreadSafe> StreamingSectionData;
 	/** The component streaming distance multiplier */
 	float StreamingDistanceMultiplier;
-	/** The mesh streaming texel factor (fallback) */
-	float StreamingTexelFactor;
+	/** The cacheed GetTextureStreamingTransformScale */
+	float StreamingTransformScale;
+	/** Material bounds used for texture streaming. */
+	TArray<uint32> MaterialStreamingRelativeBoxes;
 
 	/** Index of the section to preview. If set to INDEX_NONE, all section will be rendered */
 	int32 SectionIndexPreview;
@@ -1164,17 +1205,17 @@ struct FInstanceStream
 		Me->InstanceOrigin.W = RandomInstanceID;
 
 		Me->InstanceTransform1[0] = Transform.M[0][0];
-		Me->InstanceTransform1[1] = Transform.M[1][0];
-		Me->InstanceTransform1[2] = Transform.M[2][0];
+		Me->InstanceTransform1[1] = Transform.M[0][1];
+		Me->InstanceTransform1[2] = Transform.M[0][2];
 		Me->InstanceTransform1[3] = FloatType();
 
-		Me->InstanceTransform2[0] = Transform.M[0][1];
+		Me->InstanceTransform2[0] = Transform.M[1][0];
 		Me->InstanceTransform2[1] = Transform.M[1][1];
-		Me->InstanceTransform2[2] = Transform.M[2][1];
+		Me->InstanceTransform2[2] = Transform.M[1][2];
 		Me->InstanceTransform2[3] = FloatType();
 
-		Me->InstanceTransform3[0] = Transform.M[0][2];
-		Me->InstanceTransform3[1] = Transform.M[1][2];
+		Me->InstanceTransform3[0] = Transform.M[2][0];
+		Me->InstanceTransform3[1] = Transform.M[2][1];
 		Me->InstanceTransform3[2] = Transform.M[2][2];
 		Me->InstanceTransform3[3] = FloatType();
 
@@ -1191,15 +1232,15 @@ struct FInstanceStream
 		Transform.M[3][2] = InstanceOrigin.Z;
 
 		Transform.M[0][0] = InstanceTransform1[0];
-		Transform.M[1][0] = InstanceTransform1[1];
-		Transform.M[2][0] = InstanceTransform1[2];
+		Transform.M[0][1] = InstanceTransform1[1];
+		Transform.M[0][2] = InstanceTransform1[2];
 
-		Transform.M[0][1] = InstanceTransform2[0];
+		Transform.M[1][0] = InstanceTransform2[0];
 		Transform.M[1][1] = InstanceTransform2[1];
-		Transform.M[2][1] = InstanceTransform2[2];
+		Transform.M[1][2] = InstanceTransform2[2];
 
-		Transform.M[0][2] = InstanceTransform3[0];
-		Transform.M[1][2] = InstanceTransform3[1];
+		Transform.M[2][0] = InstanceTransform3[0];
+		Transform.M[2][1] = InstanceTransform3[1];
 		Transform.M[2][2] = InstanceTransform3[2];
 
 		Transform.M[0][3] = 0.f;
@@ -1250,17 +1291,17 @@ struct FInstanceStream
 		Me->InstanceOrigin.W = RandomInstanceID;
 
 		Me->InstanceTransform1[0] = Transform.M[0][0];
-		Me->InstanceTransform1[1] = Transform.M[1][0];
-		Me->InstanceTransform1[2] = Transform.M[2][0];
+		Me->InstanceTransform1[1] = Transform.M[0][1];
+		Me->InstanceTransform1[2] = Transform.M[0][2];
 		Me->InstanceTransform1[3] = ((float)HitProxyColor.R) + (bSelected ? 256.f : 0.0f);
 
-		Me->InstanceTransform2[0] = Transform.M[0][1];
+		Me->InstanceTransform2[0] = Transform.M[1][0];
 		Me->InstanceTransform2[1] = Transform.M[1][1];
-		Me->InstanceTransform2[2] = Transform.M[2][1];
+		Me->InstanceTransform2[2] = Transform.M[1][2];
 		Me->InstanceTransform2[3] = (float)HitProxyColor.G;
 
-		Me->InstanceTransform3[0] = Transform.M[0][2];
-		Me->InstanceTransform3[1] = Transform.M[1][2];
+		Me->InstanceTransform3[0] = Transform.M[2][0];
+		Me->InstanceTransform3[1] = Transform.M[2][1];
 		Me->InstanceTransform3[2] = Transform.M[2][2];
 		Me->InstanceTransform3[3] = (float)HitProxyColor.B;
 
@@ -1283,17 +1324,17 @@ struct FInstanceStream
 		Me->InstanceOrigin.W = RandomInstanceID;
 
 		Me->InstanceTransform1[0] = Transform.M[0][0];
-		Me->InstanceTransform1[1] = Transform.M[1][0];
-		Me->InstanceTransform1[2] = Transform.M[2][0];
+		Me->InstanceTransform1[1] = Transform.M[0][1];
+		Me->InstanceTransform1[2] = Transform.M[0][2];
 		Me->InstanceTransform1[3] = FloatType();
 
-		Me->InstanceTransform2[0] = Transform.M[0][1];
+		Me->InstanceTransform2[0] = Transform.M[1][0];
 		Me->InstanceTransform2[1] = Transform.M[1][1];
-		Me->InstanceTransform2[2] = Transform.M[2][1];
+		Me->InstanceTransform2[2] = Transform.M[1][2];
 		Me->InstanceTransform2[3] = FloatType();
 
-		Me->InstanceTransform3[0] = Transform.M[0][2];
-		Me->InstanceTransform3[1] = Transform.M[1][2];
+		Me->InstanceTransform3[0] = Transform.M[2][0];
+		Me->InstanceTransform3[1] = Transform.M[2][1];
 		Me->InstanceTransform3[2] = Transform.M[2][2];
 		Me->InstanceTransform3[3] = FloatType();
 

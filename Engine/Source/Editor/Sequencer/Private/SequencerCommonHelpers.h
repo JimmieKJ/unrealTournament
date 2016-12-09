@@ -2,10 +2,15 @@
 
 #pragma once
 
-#include "SNumericDropDown.h"
+#include "CoreMinimal.h"
+#include "DisplayNodes/SequencerDisplayNode.h"
+#include "Widgets/Input/SNumericDropDown.h"
 
 #define LOCTEXT_NAMESPACE "SequencerHelpers"
 
+class FSequencer;
+class IKeyArea;
+class UMovieSceneSection;
 
 class SequencerHelpers
 {

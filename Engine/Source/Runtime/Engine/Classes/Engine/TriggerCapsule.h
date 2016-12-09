@@ -2,6 +2,9 @@
 
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
 #include "Engine/TriggerBase.h"
 #include "TriggerCapsule.generated.h"
 

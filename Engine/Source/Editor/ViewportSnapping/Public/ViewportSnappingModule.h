@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "ModuleManager.h"
-#include "ISnappingPolicy.h"
+#include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+
+class ISnappingPolicy;
 
 /**
  * Snapping policy manager module
